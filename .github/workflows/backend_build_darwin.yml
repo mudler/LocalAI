@@ -94,6 +94,7 @@ jobs:
             /opt/homebrew/Cellar/llvm
             /opt/homebrew/Cellar/ccache
             /opt/homebrew/Cellar/blake3
+            /opt/homebrew/Cellar/fmt
             /opt/homebrew/Cellar/hiredis
             /opt/homebrew/Cellar/xxhash
             /opt/homebrew/Cellar/zstd
@@ -104,18 +105,23 @@ jobs:
           # ccache is always installed (used by the llama-cpp variant build) so
           # the brew cache content stays stable across every backend in the
           # matrix — they all share one cache key.
-          # blake3, hiredis, xxhash, zstd are ccache's runtime dylib deps.
+          # blake3, fmt, hiredis, xxhash, zstd are ccache's runtime dylib deps.
           # Without explicitly installing them, a brew cache-hit run restores
           # ccache's Cellar dir but skips installing those transitive deps,
-          # and ccache fails at runtime with `dyld: Library not loaded:
-          # libblake3.0.dylib`.
-          brew install protobuf grpc make protoc-gen-go protoc-gen-go-grpc libomp llvm ccache blake3 hiredis xxhash zstd
+          # and ccache fails at runtime with `dyld: Library not loaded`.
+          brew install protobuf grpc make protoc-gen-go protoc-gen-go-grpc libomp llvm ccache blake3 fmt hiredis xxhash zstd
+          # Force-reinstall ccache so brew re-validates its full runtime-dep
+          # closure on every run. This is the durable fix: when the upstream
+          # ccache formula gains a new transitive dep (as it has multiple times
+          # already), we don't have to chase missing dylibs one at a time.
+          # The downloads cache makes the reinstall fast (~5s on a hit).
+          brew reinstall ccache
           # The brew cache restores the Cellar dirs but NOT the bin symlinks
           # at /opt/homebrew/bin/*. brew install above sees the Cellar present
           # and decides "already installed" without re-linking, so on a cache-
           # hit run the formulas aren't on PATH. Force-link them; --overwrite
           # tolerates pre-existing symlinks from earlier installs.
-          brew link --overwrite protobuf grpc make protoc-gen-go protoc-gen-go-grpc libomp llvm ccache blake3 hiredis xxhash zstd 2>/dev/null || true
+          brew link --overwrite protobuf grpc make protoc-gen-go protoc-gen-go-grpc libomp llvm ccache blake3 fmt hiredis xxhash zstd 2>/dev/null || true
 
       - name: Save Homebrew cache
         if: github.event_name != 'pull_request' && steps.brew-cache.outputs.cache-hit != 'true'
@@ -131,6 +137,7 @@ jobs:
             /opt/homebrew/Cellar/llvm
             /opt/homebrew/Cellar/ccache
             /opt/homebrew/Cellar/blake3
+            /opt/homebrew/Cellar/fmt
             /opt/homebrew/Cellar/hiredis
             /opt/homebrew/Cellar/xxhash
             /opt/homebrew/Cellar/zstd

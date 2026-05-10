@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"os"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -52,6 +53,7 @@ func ensureLibLoaded() {
 		purego.RegisterLibFunc(&CppGetTokenID, gosd, "get_token_id")
 		purego.RegisterLibFunc(&CppGetSegmentSpeakerTurnNext, gosd, "get_segment_speaker_turn_next")
 		purego.RegisterLibFunc(&CppSetAbort, gosd, "set_abort")
+		purego.RegisterLibFunc(&CppSetNewSegmentCallback, gosd, "set_new_segment_callback")
 	})
 	if libLoadErr != nil {
 		Skip("whisper library not loadable: " + libLoadErr.Error())
@@ -107,6 +109,66 @@ var _ = Describe("Whisper", func() {
 			})
 			Expect(err).ToNot(HaveOccurred(), "post-cancel transcription failed")
 			Expect(res.Text).ToNot(BeEmpty(), "post-cancel transcription returned empty text")
+		})
+	})
+
+	Context("AudioTranscriptionStream", func() {
+		It("emits multiple deltas progressively for a multi-segment clip", func() {
+			modelPath, audioPath := fixturesOrSkip()
+			ensureLibLoaded()
+
+			// The streaming method dispatches through the package-level
+			// goNewSegmentCb. main.go normally builds it; in this test
+			// process main() is never called, so build it here lazily.
+			// purego.NewCallback returns a stable pointer; calling it once
+			// per process is correct.
+			if goNewSegmentCb == 0 {
+				goNewSegmentCb = purego.NewCallback(onNewSegment)
+			}
+
+			w := &Whisper{}
+			Expect(w.Load(&pb.ModelOptions{ModelFile: modelPath})).To(Succeed())
+
+			results := make(chan *pb.TranscriptStreamResponse, 64)
+			done := make(chan error, 1)
+			go func() {
+				done <- w.AudioTranscriptionStream(context.Background(), &pb.TranscriptRequest{
+					Dst:      audioPath,
+					Threads:  4,
+					Language: "en",
+					Stream:   true,
+				}, results)
+			}()
+
+			var deltas []string
+			var assembled strings.Builder
+			var finalText string
+			var finalSegmentCount int
+			for chunk := range results {
+				if d := chunk.GetDelta(); d != "" {
+					deltas = append(deltas, d)
+					assembled.WriteString(d)
+				}
+				if final := chunk.GetFinalResult(); final != nil {
+					finalText = final.GetText()
+					finalSegmentCount = len(final.GetSegments())
+				}
+			}
+			Expect(<-done).ToNot(HaveOccurred())
+
+			// The whisper-specific bar: real streaming via new_segment_callback
+			// fires once per decoded segment, so a multi-segment clip MUST
+			// produce >=2 delta events. A faked-streaming impl (run
+			// whisper_full to completion, then walk the segment list) would
+			// also pass len(deltas) >= 1, which is why the generic e2e spec
+			// is not strict enough.
+			Expect(len(deltas)).To(BeNumerically(">=", 2),
+				"expected multiple deltas from a multi-segment clip, got %d (assembled=%q)",
+				len(deltas), assembled.String())
+			Expect(finalSegmentCount).To(BeNumerically(">=", 2),
+				"expected final to carry multiple segments")
+			Expect(assembled.String()).To(Equal(finalText),
+				"concat(deltas) must equal final.Text")
 		})
 	})
 })
