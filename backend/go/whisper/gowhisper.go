@@ -293,7 +293,7 @@ func (w *Whisper) AudioTranscriptionStream(ctx context.Context, opts *pb.Transcr
 	if err != nil {
 		return err
 	}
-	defer os.RemoveAll(dir)
+	defer func() { _ = os.RemoveAll(dir) }()
 
 	convertedPath := filepath.Join(dir, "converted.wav")
 	if err := utils.AudioToWav(opts.Dst, convertedPath); err != nil {
@@ -304,7 +304,7 @@ func (w *Whisper) AudioTranscriptionStream(ctx context.Context, opts *pb.Transcr
 	if err != nil {
 		return err
 	}
-	defer fh.Close()
+	defer func() { _ = fh.Close() }()
 
 	d := wav.NewDecoder(fh)
 	buf, err := d.FullPCMBuffer()
