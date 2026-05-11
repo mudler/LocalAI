@@ -8,7 +8,7 @@
 #include <string>
 #include <vector>
 
-namespace ds4_backend {
+namespace ds4cpp {
 
 namespace {
 
@@ -320,4 +320,4 @@ std::string RandomToolId() {
     return out;
 }
 
-} // namespace ds4_backend
+} // namespace ds4cpp

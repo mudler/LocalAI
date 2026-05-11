@@ -1,7 +1,7 @@
 #pragma once
 #include <string>
 
-namespace ds4_backend {
+namespace ds4cpp {
 
 // Render an assistant message's tool_calls JSON array into the DSML block
 // that ds4 expects in its prompt. `tool_calls_json` is the value of
@@ -24,4 +24,4 @@ std::string RenderToolResult(const std::string &tool_call_id, const std::string 
 // when tools_json is empty / unparseable.
 std::string RenderToolsManifest(const std::string &tools_json);
 
-} // namespace ds4_backend
+} // namespace ds4cpp

@@ -6,7 +6,7 @@
 #include <sys/stat.h>
 #include <vector>
 
-namespace ds4_backend {
+namespace ds4cpp {
 
 namespace {
 
@@ -177,4 +177,4 @@ void KvCache::Save(ds4_session *session, const std::string &rendered_text, int c
     if (rc != 0) std::remove(path.c_str());
 }
 
-} // namespace ds4_backend
+} // namespace ds4cpp

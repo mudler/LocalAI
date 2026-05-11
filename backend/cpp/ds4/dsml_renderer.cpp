@@ -13,7 +13,7 @@ using json = nlohmann::json;
 
 #include <sstream>
 
-namespace ds4_backend {
+namespace ds4cpp {
 
 namespace {
 
@@ -137,4 +137,4 @@ std::string RenderToolsManifest(const std::string &tools_json) {
     return os.str();
 }
 
-} // namespace ds4_backend
+} // namespace ds4cpp

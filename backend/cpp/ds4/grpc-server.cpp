@@ -66,7 +66,7 @@ static void append_token_text(ds4_engine *engine, int token, std::string &out) {
 struct CollectCtx {
     ds4_engine *engine;
     std::string raw_buf;  // exact raw bytes for Reply.message
-    ds4_backend::DsmlParser parser;
+    ds4cpp::DsmlParser parser;
     backend::Reply *reply;
     int tokens;
 
@@ -83,26 +83,26 @@ struct CollectCtx {
     std::string reasoning_buf;
 };
 
-static void apply_events(CollectCtx *c, const std::vector<ds4_backend::ParserEvent> &events) {
+static void apply_events(CollectCtx *c, const std::vector<ds4cpp::ParserEvent> &events) {
     for (const auto &e : events) {
         switch (e.type) {
-        case ds4_backend::ParserEvent::CONTENT:
+        case ds4cpp::ParserEvent::CONTENT:
             c->content_buf += e.text;
             break;
-        case ds4_backend::ParserEvent::REASONING:
+        case ds4cpp::ParserEvent::REASONING:
             c->reasoning_buf += e.text;
             break;
-        case ds4_backend::ParserEvent::TOOL_START:
+        case ds4cpp::ParserEvent::TOOL_START:
             if ((int)c->pending.size() <= e.index)
                 c->pending.resize(e.index + 1);
             c->pending[e.index].id = e.tool_id;
             c->pending[e.index].name = e.tool_name;
             break;
-        case ds4_backend::ParserEvent::TOOL_ARGS:
+        case ds4cpp::ParserEvent::TOOL_ARGS:
             if ((int)c->pending.size() > e.index)
                 c->pending[e.index].args += e.text;
             break;
-        case ds4_backend::ParserEvent::TOOL_END:
+        case ds4cpp::ParserEvent::TOOL_END:
             // No-op for non-streaming: the final delta is emitted at the end.
             break;
         }
@@ -117,7 +117,7 @@ static void collect_emit(void *ud, int token) {
     if (!text || len == 0) return;
     std::string chunk(text, len);
     c->raw_buf += chunk;
-    std::vector<ds4_backend::ParserEvent> events;
+    std::vector<ds4cpp::ParserEvent> events;
     c->parser.Feed(chunk, events);
     apply_events(c, events);
     c->tokens++;
@@ -127,7 +127,7 @@ static void collect_done(void *) {}
 struct StreamCtx {
     ds4_engine *engine;
     ServerWriter<backend::Reply> *writer;
-    ds4_backend::DsmlParser parser;
+    ds4cpp::DsmlParser parser;
     int tokens;
     bool aborted;
     // Track which tool indices we've seen TOOL_START for, so subsequent
@@ -143,7 +143,7 @@ static void stream_emit(void *ud, int token) {
     const char *text = ds4_token_text(s->engine, token, &len);
     if (!text || len == 0) return;
     std::string chunk(text, len);
-    std::vector<ds4_backend::ParserEvent> events;
+    std::vector<ds4cpp::ParserEvent> events;
     s->parser.Feed(chunk, events);
     if (events.empty()) { s->tokens++; return; }
 
@@ -152,15 +152,15 @@ static void stream_emit(void *ud, int token) {
     bool any_field = false;
     for (const auto &e : events) {
         switch (e.type) {
-        case ds4_backend::ParserEvent::CONTENT:
+        case ds4cpp::ParserEvent::CONTENT:
             delta->set_content(delta->content() + e.text);
             any_field = true;
             break;
-        case ds4_backend::ParserEvent::REASONING:
+        case ds4cpp::ParserEvent::REASONING:
             delta->set_reasoning_content(delta->reasoning_content() + e.text);
             any_field = true;
             break;
-        case ds4_backend::ParserEvent::TOOL_START: {
+        case ds4cpp::ParserEvent::TOOL_START: {
             if ((int)s->tool_started.size() <= e.index)
                 s->tool_started.resize(e.index + 1, false);
             s->tool_started[e.index] = true;
@@ -171,14 +171,14 @@ static void stream_emit(void *ud, int token) {
             any_field = true;
             break;
         }
-        case ds4_backend::ParserEvent::TOOL_ARGS: {
+        case ds4cpp::ParserEvent::TOOL_ARGS: {
             auto *tc = delta->add_tool_calls();
             tc->set_index(e.index);
             tc->set_arguments(e.text);
             any_field = true;
             break;
         }
-        case ds4_backend::ParserEvent::TOOL_END:
+        case ds4cpp::ParserEvent::TOOL_END:
             // No marker delta needed - the Go side closes the tool call on
             // the final aggregator pass.
             break;
@@ -230,7 +230,7 @@ static std::string render_prompt_text(const backend::PredictOptions *request) {
     return out;
 }
 
-ds4_backend::KvCache g_kv_cache;
+ds4cpp::KvCache g_kv_cache;
 
 // Try to recover prefill state for `rendered`. Returns the matched prefix length.
 static size_t maybe_load_cache(const std::string &rendered) {
@@ -271,7 +271,7 @@ static void build_prompt(ds4_engine *engine, const backend::PredictOptions *requ
     // and is a verbatim port of ds4_server.c's append_tools_prompt_text.
     std::string tools_manifest;
     if (!request->tools().empty()) {
-        tools_manifest = ds4_backend::RenderToolsManifest(request->tools());
+        tools_manifest = ds4cpp::RenderToolsManifest(request->tools());
     }
     if (!system_text.empty() || !tools_manifest.empty()) {
         std::string combined = system_text;
@@ -285,10 +285,10 @@ static void build_prompt(ds4_engine *engine, const backend::PredictOptions *requ
         if (m.role() == sys_role) continue;
         if (m.role() == "assistant" && !m.toolcalls().empty()) {
             std::string combined = m.content();
-            combined += ds4_backend::RenderAssistantToolCalls(m.toolcalls());
+            combined += ds4cpp::RenderAssistantToolCalls(m.toolcalls());
             ds4_chat_append_message(engine, out, "assistant", combined.c_str());
         } else if (m.role() == "tool") {
-            std::string body = ds4_backend::RenderToolResult(m.toolcallid(), m.content());
+            std::string body = ds4cpp::RenderToolResult(m.toolcallid(), m.content());
             ds4_chat_append_message(engine, out, "user", body.c_str());
         } else {
             ds4_chat_append_message(engine, out, m.role().c_str(), m.content().c_str());
@@ -419,7 +419,7 @@ public:
         maybe_save_cache(cache_key);
 
         // Flush any buffered parser state.
-        std::vector<ds4_backend::ParserEvent> events;
+        std::vector<ds4cpp::ParserEvent> events;
         collect.parser.Flush(events);
         apply_events(&collect, events);
 
@@ -467,15 +467,15 @@ public:
         maybe_save_cache(cache_key);
 
         // Flush parser state.
-        std::vector<ds4_backend::ParserEvent> events;
+        std::vector<ds4cpp::ParserEvent> events;
         s.parser.Flush(events);
         if (!events.empty() && !s.aborted) {
             backend::Reply reply;
             auto *delta = reply.add_chat_deltas();
             for (const auto &e : events) {
-                if (e.type == ds4_backend::ParserEvent::CONTENT) {
+                if (e.type == ds4cpp::ParserEvent::CONTENT) {
                     delta->set_content(delta->content() + e.text);
-                } else if (e.type == ds4_backend::ParserEvent::REASONING) {
+                } else if (e.type == ds4cpp::ParserEvent::REASONING) {
                     delta->set_reasoning_content(delta->reasoning_content() + e.text);
                 }
             }

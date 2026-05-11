@@ -3,7 +3,7 @@
 #include <string>
 #include <vector>
 
-namespace ds4_backend {
+namespace ds4cpp {
 
 struct ParserEvent {
     enum Type { CONTENT, REASONING, TOOL_START, TOOL_ARGS, TOOL_END };
@@ -60,4 +60,4 @@ private:
 // when assigning IDs to streamed tool calls.
 std::string RandomToolId();
 
-} // namespace ds4_backend
+} // namespace ds4cpp

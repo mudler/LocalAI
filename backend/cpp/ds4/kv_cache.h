@@ -4,7 +4,7 @@ extern "C" {
 #include "ds4.h"
 }
 
-namespace ds4_backend {
+namespace ds4cpp {
 
 // Disk-backed KV cache for ds4 sessions. Keyed by SHA1(rendered prompt prefix).
 // Format (our own, NOT bit-compatible with ds4-server's KVC files - interop
@@ -41,4 +41,4 @@ private:
 // Compute SHA1 of arbitrary bytes; returns 40-char hex.
 std::string Sha1Hex(const void *data, size_t len);
 
-} // namespace ds4_backend
+} // namespace ds4cpp
