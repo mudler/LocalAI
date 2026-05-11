@@ -444,8 +444,10 @@ static void params_parse(server_context& /*ctx_server*/, const backend::ModelOpt
     if (!request->draftmodel().empty()) {
         params.speculative.draft.mparams.path = request->draftmodel();
         // Default to draft type if a draft model is set but no explicit type
-        if (params.speculative.type == COMMON_SPECULATIVE_TYPE_NONE) {
-            params.speculative.type = COMMON_SPECULATIVE_TYPE_DRAFT;
+        const bool no_spec_type = params.speculative.types.empty() ||
+            (params.speculative.types.size() == 1 && params.speculative.types[0] == COMMON_SPECULATIVE_TYPE_NONE);
+        if (no_spec_type) {
+            params.speculative.types = { COMMON_SPECULATIVE_TYPE_DRAFT };
         }
     }
 
@@ -673,9 +675,22 @@ static void params_parse(server_context& /*ctx_server*/, const backend::ModelOpt
             }
         // Speculative decoding options
         } else if (!strcmp(optname, "spec_type") || !strcmp(optname, "speculative_type")) {
-            auto type = common_speculative_type_from_name(optval_str);
-            if (type != COMMON_SPECULATIVE_TYPE_COUNT) {
-                params.speculative.type = type;
+            // Upstream switched to a vector of types (comma-separated for multi-type
+            // chaining via common_speculative_types_from_names). We keep accepting a
+            // single value here, but also tolerate comma-separated lists.
+            std::vector<std::string> names;
+            std::string item;
+            for (char c : optval_str) {
+                if (c == ',') {
+                    if (!item.empty()) { names.push_back(item); item.clear(); }
+                } else {
+                    item.push_back(c);
+                }
+            }
+            if (!item.empty()) names.push_back(item);
+            auto parsed = common_speculative_types_from_names(names);
+            if (!parsed.empty()) {
+                params.speculative.types = parsed;
             }
         } else if (!strcmp(optname, "spec_n_max") || !strcmp(optname, "draft_max")) {
             if (optval != NULL) {
@@ -710,9 +725,9 @@ static void params_parse(server_context& /*ctx_server*/, const backend::ModelOpt
                 try { params.speculative.draft.n_gpu_layers = std::stoi(optval_str); } catch (...) {}
             }
         } else if (!strcmp(optname, "draft_ctx_size")) {
-            if (optval != NULL) {
-                try { params.speculative.draft.n_ctx = std::stoi(optval_str); } catch (...) {}
-            }
+            // The draft context size is no longer a separate field upstream: the draft
+            // shares the target context size. Accept the option for backward
+            // compatibility but silently ignore it.
         }
     }
 
@@ -2704,7 +2719,7 @@ public:
 
             tasks.reserve(documents.size());
             for (size_t i = 0; i < documents.size(); i++) {
-                auto tmp = format_prompt_rerank(ctx_server.impl->model, ctx_server.impl->vocab, ctx_server.impl->mctx, request->query(), documents[i]);
+                auto tmp = format_prompt_rerank(ctx_server.impl->model_tgt, ctx_server.impl->vocab, ctx_server.impl->mctx, request->query(), documents[i]);
                 server_task task = server_task(SERVER_TASK_TYPE_RERANK);
                 task.id = rd.queue_tasks.get_new_id();
                 task.index = i;
@@ -2882,7 +2897,7 @@ public:
                 // Get template source and reconstruct a common_chat_template for analysis
                 std::string tmpl_src = common_chat_templates_source(ctx_server.impl->chat_params.tmpls.get());
                 if (!tmpl_src.empty()) {
-                    const auto * vocab = llama_model_get_vocab(ctx_server.impl->model);
+                    const auto * vocab = llama_model_get_vocab(ctx_server.impl->model_tgt);
                     std::string token_bos, token_eos;
                     if (vocab) {
                         auto bos_id = llama_vocab_bos(vocab);
