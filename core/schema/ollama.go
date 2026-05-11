@@ -184,11 +184,13 @@ func (r *OllamaShowRequest) ModelName(s *string) string {
 
 // OllamaShowResponse represents a response from the Ollama Show API
 type OllamaShowResponse struct {
-	Modelfile  string             `json:"modelfile"`
-	Parameters string             `json:"parameters"`
-	Template   string             `json:"template"`
-	License    string             `json:"license,omitempty"`
-	Details    OllamaModelDetails `json:"details"`
+	Modelfile    string             `json:"modelfile"`
+	Parameters   string             `json:"parameters"`
+	Template     string             `json:"template"`
+	License      string             `json:"license,omitempty"`
+	Details      OllamaModelDetails `json:"details"`
+	ModelInfo    map[string]any     `json:"model_info,omitempty"`
+	Capabilities []string           `json:"capabilities,omitempty"`
 }
 
 // OllamaModelDetails contains model metadata
@@ -203,12 +205,13 @@ type OllamaModelDetails struct {
 
 // OllamaModelEntry represents a model in the list response
 type OllamaModelEntry struct {
-	Name       string             `json:"name"`
-	Model      string             `json:"model"`
-	ModifiedAt time.Time          `json:"modified_at"`
-	Size       int64              `json:"size"`
-	Digest     string             `json:"digest"`
-	Details    OllamaModelDetails `json:"details"`
+	Name         string             `json:"name"`
+	Model        string             `json:"model"`
+	ModifiedAt   time.Time          `json:"modified_at"`
+	Size         int64              `json:"size"`
+	Digest       string             `json:"digest"`
+	Details      OllamaModelDetails `json:"details"`
+	Capabilities []string           `json:"capabilities,omitempty"`
 }
 
 // OllamaListResponse represents a response from the Ollama Tags API
@@ -218,13 +221,14 @@ type OllamaListResponse struct {
 
 // OllamaPsEntry represents a running model in the ps response
 type OllamaPsEntry struct {
-	Name       string             `json:"name"`
-	Model      string             `json:"model"`
-	Size       int64              `json:"size"`
-	Digest     string             `json:"digest"`
-	Details    OllamaModelDetails `json:"details"`
-	ExpiresAt  time.Time          `json:"expires_at"`
-	SizeVRAM   int64              `json:"size_vram"`
+	Name         string             `json:"name"`
+	Model        string             `json:"model"`
+	Size         int64              `json:"size"`
+	Digest       string             `json:"digest"`
+	Details      OllamaModelDetails `json:"details"`
+	ExpiresAt    time.Time          `json:"expires_at"`
+	SizeVRAM     int64              `json:"size_vram"`
+	Capabilities []string           `json:"capabilities,omitempty"`
 }
 
 // OllamaPsResponse represents a response from the Ollama Ps API
