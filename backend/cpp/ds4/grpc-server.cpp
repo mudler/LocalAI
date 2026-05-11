@@ -36,7 +36,10 @@ using grpc::Server;
 using grpc::ServerBuilder;
 using grpc::ServerContext;
 using grpc::ServerWriter;
-using grpc::Status;
+// NOTE: do NOT alias `grpc::Status` as `Status` - the Status RPC method below
+// would shadow the type, breaking the other RPC method declarations that use
+// it as a return type. Use GStatus instead.
+using GStatus = ::grpc::Status;
 using grpc::StatusCode;
 
 namespace {
@@ -283,12 +286,12 @@ static void build_prompt(ds4_engine *engine, const backend::PredictOptions *requ
     }
     for (const auto &m : request->messages()) {
         if (m.role() == sys_role) continue;
-        if (m.role() == "assistant" && !m.toolcalls().empty()) {
+        if (m.role() == "assistant" && !m.tool_calls().empty()) {
             std::string combined = m.content();
-            combined += ds4cpp::RenderAssistantToolCalls(m.toolcalls());
+            combined += ds4cpp::RenderAssistantToolCalls(m.tool_calls());
             ds4_chat_append_message(engine, out, "assistant", combined.c_str());
         } else if (m.role() == "tool") {
-            std::string body = ds4cpp::RenderToolResult(m.toolcallid(), m.content());
+            std::string body = ds4cpp::RenderToolResult(m.tool_call_id(), m.content());
             ds4_chat_append_message(engine, out, "user", body.c_str());
         } else {
             ds4_chat_append_message(engine, out, m.role().c_str(), m.content().c_str());
@@ -299,22 +302,22 @@ static void build_prompt(ds4_engine *engine, const backend::PredictOptions *requ
 
 class DS4Backend final : public backend::Backend::Service {
 public:
-    Status Health(ServerContext *, const backend::HealthMessage *,
+    GStatus Health(ServerContext *, const backend::HealthMessage *,
                   backend::Reply *reply) override {
         reply->set_message(std::string("OK"));
-        return Status::OK;
+        return GStatus::OK;
     }
 
-    Status Free(ServerContext *, const backend::HealthMessage *,
+    GStatus Free(ServerContext *, const backend::HealthMessage *,
                 backend::Result *result) override {
         std::lock_guard<std::mutex> lock(g_engine_mu);
         if (g_session) { ds4_session_free(g_session); g_session = nullptr; }
         if (g_engine)  { ds4_engine_close(g_engine);  g_engine  = nullptr; }
         result->set_success(true);
-        return Status::OK;
+        return GStatus::OK;
     }
 
-    Status LoadModel(ServerContext *, const backend::ModelOptions *request,
+    GStatus LoadModel(ServerContext *, const backend::ModelOptions *request,
                      backend::Result *result) override {
         std::lock_guard<std::mutex> lock(g_engine_mu);
 
@@ -329,7 +332,7 @@ public:
         if (model_path.empty()) {
             result->set_success(false);
             result->set_message("ds4: ModelOptions.Model or .ModelFile must be set");
-            return Status::OK;
+            return GStatus::OK;
         }
 
         std::string mtp_path;
@@ -367,7 +370,7 @@ public:
         if (rc != 0 || !g_engine) {
             result->set_success(false);
             result->set_message("ds4_engine_open failed (rc=" + std::to_string(rc) + ")");
-            return Status::OK;
+            return GStatus::OK;
         }
 
         g_ctx_size = request->contextsize() > 0 ? request->contextsize() : 32768;
@@ -377,31 +380,31 @@ public:
             g_engine = nullptr;
             result->set_success(false);
             result->set_message("ds4_session_create failed (rc=" + std::to_string(rc) + ")");
-            return Status::OK;
+            return GStatus::OK;
         }
 
         result->set_success(true);
         result->set_message("loaded " + model_path);
-        return Status::OK;
+        return GStatus::OK;
     }
 
-    Status TokenizeString(ServerContext *, const backend::PredictOptions *request,
+    GStatus TokenizeString(ServerContext *, const backend::PredictOptions *request,
                           backend::TokenizationResponse *response) override {
         std::lock_guard<std::mutex> lock(g_engine_mu);
-        if (!g_engine) return Status(StatusCode::FAILED_PRECONDITION, "ds4: model not loaded");
+        if (!g_engine) return GStatus(StatusCode::FAILED_PRECONDITION, "ds4: model not loaded");
         ds4_tokens out = {};
         ds4_tokenize_text(g_engine, request->prompt().c_str(), &out);
         for (int i = 0; i < out.len; ++i) response->add_tokens(out.v[i]);
         response->set_length(out.len);
         ds4_tokens_free(&out);
-        return Status::OK;
+        return GStatus::OK;
     }
 
-    Status Predict(ServerContext *, const backend::PredictOptions *request,
+    GStatus Predict(ServerContext *, const backend::PredictOptions *request,
                    backend::Reply *reply) override {
         std::lock_guard<std::mutex> lock(g_engine_mu);
         if (!g_engine || !g_session) {
-            return Status(StatusCode::FAILED_PRECONDITION, "ds4: model not loaded");
+            return GStatus(StatusCode::FAILED_PRECONDITION, "ds4: model not loaded");
         }
         ds4_tokens prompt = {};
         build_prompt(g_engine, request, &prompt);
@@ -424,7 +427,7 @@ public:
         apply_events(&collect, events);
 
         if (rc != 0) {
-            return Status(StatusCode::INTERNAL,
+            return GStatus(StatusCode::INTERNAL,
                           "ds4_engine_generate_argmax rc=" + std::to_string(rc));
         }
 
@@ -443,14 +446,14 @@ public:
         reply->set_message(collect.raw_buf);
         reply->set_tokens(collect.tokens);
         reply->set_prompt_tokens(prompt_len);
-        return Status::OK;
+        return GStatus::OK;
     }
 
-    Status PredictStream(ServerContext *, const backend::PredictOptions *request,
+    GStatus PredictStream(ServerContext *, const backend::PredictOptions *request,
                          ServerWriter<backend::Reply> *writer) override {
         std::lock_guard<std::mutex> lock(g_engine_mu);
         if (!g_engine || !g_session) {
-            return Status(StatusCode::FAILED_PRECONDITION, "ds4: model not loaded");
+            return GStatus(StatusCode::FAILED_PRECONDITION, "ds4: model not loaded");
         }
         ds4_tokens prompt = {};
         build_prompt(g_engine, request, &prompt);
@@ -483,18 +486,18 @@ public:
         }
 
         if (rc != 0 && !s.aborted) {
-            return Status(StatusCode::INTERNAL,
+            return GStatus(StatusCode::INTERNAL,
                           "ds4_engine_generate_argmax rc=" + std::to_string(rc));
         }
-        return Status::OK;
+        return GStatus::OK;
     }
 
-    Status Status(ServerContext *, const backend::HealthMessage *,
+    GStatus Status(ServerContext *, const backend::HealthMessage *,
                   backend::StatusResponse *response) override {
         std::lock_guard<std::mutex> lock(g_engine_mu);
         response->set_state(g_engine ? backend::StatusResponse::READY
                                      : backend::StatusResponse::UNINITIALIZED);
-        return Status::OK;
+        return GStatus::OK;
     }
 };
 
