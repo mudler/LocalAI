@@ -321,6 +321,7 @@ func newTestHealthMonitor(store NodeHealthStore, factory BackendClientFactory, a
 		staleThreshold: staleThreshold,
 		autoOffline:    autoOffline,
 		clientFactory:  factory,
+		misses:         make(map[modelKey]int),
 	}
 }
 

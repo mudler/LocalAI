@@ -12,6 +12,24 @@ import (
 	"gorm.io/gorm"
 )
 
+// perModelMissThreshold is the number of consecutive failed gRPC probes
+// against a model's backend before the model is removed from the registry.
+// A single failure can be transient (network blip, brief GC pause on the
+// worker, a long-running request hogging the gRPC server thread); requiring
+// N consecutive misses avoids deleting healthy rows over noise. At the
+// default 15s tick this means a model has to be unreachable for ~45s before
+// it gets reaped.
+const perModelMissThreshold = 3
+
+// modelKey identifies a specific (node, model, replica) tuple. We track miss
+// counts per tuple because the same model name can be loaded on multiple
+// replicas on the same node.
+type modelKey struct {
+	NodeID       string
+	ModelName    string
+	ReplicaIndex int
+}
+
 // HealthMonitor periodically checks the health of registered backend nodes.
 type HealthMonitor struct {
 	registry            NodeHealthStore
@@ -21,6 +39,8 @@ type HealthMonitor struct {
 	autoOffline         bool                 // mark stale nodes as offline (preserves approval status)
 	clientFactory       BackendClientFactory // creates gRPC backend clients
 	perModelHealthCheck bool                 // check each model's backend process individually
+	missesMu            sync.Mutex
+	misses              map[modelKey]int // consecutive failed-probe counts; reset on success or model removal
 	cancel              context.CancelFunc
 	cancelMu            sync.Mutex
 }
@@ -46,6 +66,7 @@ func NewHealthMonitor(registry NodeHealthStore, db *gorm.DB, checkInterval, stal
 		autoOffline:         true,
 		clientFactory:       factory,
 		perModelHealthCheck: perModelHealthCheck,
+		misses:              make(map[modelKey]int),
 	}
 }
 
@@ -152,9 +173,11 @@ func (hm *HealthMonitor) doCheckAll(ctx context.Context) {
 			}
 		}
 
-		// Per-model backend health check (opt-in): probe each model's gRPC address
-		// and remove stale model records. This does NOT affect the node's status —
-		// a crashed backend process is a model-level issue, not a node-level one.
+		// Per-model backend health check: probe each model's gRPC address and
+		// remove stale model records. This does NOT affect the node's status —
+		// a crashed backend process is a model-level issue, not a node-level
+		// one. A model is only removed after perModelMissThreshold consecutive
+		// failed probes so a single network/GC blip doesn't force a reload.
 		if hm.perModelHealthCheck {
 			models, _ := hm.registry.GetNodeModels(ctx, node.ID)
 			for _, m := range models {
@@ -163,15 +186,43 @@ func (hm *HealthMonitor) doCheckAll(ctx context.Context) {
 				}
 				mClient := hm.clientFactory.NewClient(m.Address, false)
 				mCheckCtx, mCancel := context.WithTimeout(ctx, 5*time.Second)
-				if ok, _ := mClient.HealthCheck(mCheckCtx); !ok {
-					xlog.Warn("Model backend unhealthy, removing from registry",
-						"node", node.ID, "model", m.ModelName, "replica", m.ReplicaIndex, "address", m.Address)
-					hm.registry.RemoveNodeModel(ctx, node.ID, m.ModelName, m.ReplicaIndex)
-				}
+				ok, _ := mClient.HealthCheck(mCheckCtx)
 				mCancel()
 				if closer, ok := mClient.(io.Closer); ok {
 					closer.Close()
 				}
+
+				key := modelKey{NodeID: node.ID, ModelName: m.ModelName, ReplicaIndex: m.ReplicaIndex}
+				hm.missesMu.Lock()
+				if ok {
+					// Probe succeeded — wipe any previous miss streak.
+					delete(hm.misses, key)
+					hm.missesMu.Unlock()
+					continue
+				}
+				hm.misses[key]++
+				misses := hm.misses[key]
+				hm.missesMu.Unlock()
+
+				if misses < perModelMissThreshold {
+					xlog.Debug("Model backend probe failed, awaiting threshold before removal",
+						"node", node.ID, "model", m.ModelName, "replica", m.ReplicaIndex,
+						"address", m.Address, "misses", misses, "threshold", perModelMissThreshold)
+					continue
+				}
+				xlog.Warn("Model backend unhealthy after consecutive misses, removing from registry",
+					"node", node.ID, "model", m.ModelName, "replica", m.ReplicaIndex,
+					"address", m.Address, "misses", misses)
+				if err := hm.registry.RemoveNodeModel(ctx, node.ID, m.ModelName, m.ReplicaIndex); err != nil {
+					xlog.Warn("Failed to remove unhealthy model from registry",
+						"node", node.ID, "model", m.ModelName, "replica", m.ReplicaIndex, "error", err)
+					// Leave the miss counter in place so the next tick retries
+					// the removal rather than starting the streak over.
+					continue
+				}
+				hm.missesMu.Lock()
+				delete(hm.misses, key)
+				hm.missesMu.Unlock()
 			}
 		}
 	}

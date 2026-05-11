@@ -255,7 +255,7 @@ var _ = Describe("HealthMonitor (mock-based)", func() {
 			Expect(calls).NotTo(ContainElement(ContainSubstring("MarkUnhealthy")))
 		})
 
-		It("removes stale model via per-model health check without affecting node status", func() {
+		It("removes stale model via per-model health check after consecutive failures", func() {
 			store := newFakeNodeHealthStore()
 			factory := newFakeBackendClientFactory()
 			hm := newTestHealthMonitor(store, factory, true, staleThreshold)
@@ -268,12 +268,52 @@ var _ = Describe("HealthMonitor (mock-based)", func() {
 			// Model backend is dead
 			factory.setClient("10.0.0.10:50053", &fakeBackendClient{healthy: false, err: fmt.Errorf("connection refused")})
 
+			// First (perModelMissThreshold-1) probes must NOT remove the row —
+			// a single failure could be a transient blip.
+			for i := 0; i < perModelMissThreshold-1; i++ {
+				hm.doCheckAll(context.Background())
+				Expect(store.getCalls()).NotTo(ContainElement(ContainSubstring("RemoveNodeModel")),
+					"removed too early at miss %d", i+1)
+			}
+
+			// Threshold-th consecutive miss triggers removal.
 			hm.doCheckAll(context.Background())
 
 			// Node should remain healthy — only the specific replica record is removed.
 			Expect(store.getNode("node-model").Status).To(Equal(StatusHealthy))
 			Expect(store.getCalls()).To(ContainElement("RemoveNodeModel:node-model:piper-model:0"))
 			Expect(store.getCalls()).NotTo(ContainElement(ContainSubstring("MarkUnhealthy")))
+		})
+
+		It("preserves model row when an intermittent failure is followed by a success", func() {
+			store := newFakeNodeHealthStore()
+			factory := newFakeBackendClientFactory()
+			hm := newTestHealthMonitor(store, factory, true, staleThreshold)
+			hm.perModelHealthCheck = true
+
+			node := makeTestNode("node-flap", "flap-worker", "10.0.0.11:50051", StatusHealthy, freshTime())
+			store.addNode(node)
+			store.addNodeModel("node-flap", NodeModel{NodeID: "node-flap", ModelName: "piper-model", Address: "10.0.0.11:50053"})
+
+			deadClient := &fakeBackendClient{healthy: false, err: fmt.Errorf("connection refused")}
+			liveClient := &fakeBackendClient{healthy: true}
+
+			// Two failing probes then a recovery — should NOT remove the row,
+			// and should reset the miss counter so two more failures don't tip
+			// it over.
+			factory.setClient("10.0.0.11:50053", deadClient)
+			hm.doCheckAll(context.Background())
+			hm.doCheckAll(context.Background())
+			factory.setClient("10.0.0.11:50053", liveClient)
+			hm.doCheckAll(context.Background())
+
+			Expect(store.getCalls()).NotTo(ContainElement(ContainSubstring("RemoveNodeModel")))
+
+			// Counter is reset; two more failures must not be enough to remove.
+			factory.setClient("10.0.0.11:50053", deadClient)
+			hm.doCheckAll(context.Background())
+			hm.doCheckAll(context.Background())
+			Expect(store.getCalls()).NotTo(ContainElement(ContainSubstring("RemoveNodeModel")))
 		})
 	})
 })
