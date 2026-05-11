@@ -127,20 +127,68 @@ static void collect_done(void *) {}
 struct StreamCtx {
     ds4_engine *engine;
     ServerWriter<backend::Reply> *writer;
+    ds4_backend::DsmlParser parser;
     int tokens;
     bool aborted;
+    // Track which tool indices we've seen TOOL_START for, so subsequent
+    // ARGS deltas can elide the redundant id/name fields.
+    std::vector<bool> tool_started;
 };
+
 static void stream_emit(void *ud, int token) {
     auto *s = static_cast<StreamCtx *>(ud);
     if (s->aborted) return;
     if (token == ds4_token_eos(s->engine)) return;
-    std::string text;
-    append_token_text(s->engine, token, text);
-    if (text.empty()) return;
-    backend::Reply chunk;
-    chunk.set_message(text);
-    chunk.set_tokens(1);
-    if (!s->writer->Write(chunk)) s->aborted = true;
+    size_t len = 0;
+    const char *text = ds4_token_text(s->engine, token, &len);
+    if (!text || len == 0) return;
+    std::string chunk(text, len);
+    std::vector<ds4_backend::ParserEvent> events;
+    s->parser.Feed(chunk, events);
+    if (events.empty()) { s->tokens++; return; }
+
+    backend::Reply reply;
+    auto *delta = reply.add_chat_deltas();
+    bool any_field = false;
+    for (const auto &e : events) {
+        switch (e.type) {
+        case ds4_backend::ParserEvent::CONTENT:
+            delta->set_content(delta->content() + e.text);
+            any_field = true;
+            break;
+        case ds4_backend::ParserEvent::REASONING:
+            delta->set_reasoning_content(delta->reasoning_content() + e.text);
+            any_field = true;
+            break;
+        case ds4_backend::ParserEvent::TOOL_START: {
+            if ((int)s->tool_started.size() <= e.index)
+                s->tool_started.resize(e.index + 1, false);
+            s->tool_started[e.index] = true;
+            auto *tc = delta->add_tool_calls();
+            tc->set_index(e.index);
+            tc->set_id(e.tool_id);
+            tc->set_name(e.tool_name);
+            any_field = true;
+            break;
+        }
+        case ds4_backend::ParserEvent::TOOL_ARGS: {
+            auto *tc = delta->add_tool_calls();
+            tc->set_index(e.index);
+            tc->set_arguments(e.text);
+            any_field = true;
+            break;
+        }
+        case ds4_backend::ParserEvent::TOOL_END:
+            // No marker delta needed - the Go side closes the tool call on
+            // the final aggregator pass.
+            break;
+        }
+    }
+    reply.set_message(chunk);
+    reply.set_tokens(1);
+    if (any_field) {
+        if (!s->writer->Write(reply)) s->aborted = true;
+    }
     s->tokens++;
 }
 static void stream_done(void *) {}
@@ -297,11 +345,29 @@ public:
         ds4_tokens prompt = {};
         ds4_tokenize_text(g_engine, request->prompt().c_str(), &prompt);
         int n_predict = request->tokens() > 0 ? request->tokens() : 256;
-        StreamCtx s = {g_engine, writer, 0, false};
+
+        StreamCtx s = {g_engine, writer, {}, 0, false, {}};
         int rc = ds4_engine_generate_argmax(g_engine, &prompt, n_predict, g_ctx_size,
                                             stream_emit, stream_done, &s,
                                             nullptr, nullptr);
         ds4_tokens_free(&prompt);
+
+        // Flush parser state.
+        std::vector<ds4_backend::ParserEvent> events;
+        s.parser.Flush(events);
+        if (!events.empty() && !s.aborted) {
+            backend::Reply reply;
+            auto *delta = reply.add_chat_deltas();
+            for (const auto &e : events) {
+                if (e.type == ds4_backend::ParserEvent::CONTENT) {
+                    delta->set_content(delta->content() + e.text);
+                } else if (e.type == ds4_backend::ParserEvent::REASONING) {
+                    delta->set_reasoning_content(delta->reasoning_content() + e.text);
+                }
+            }
+            s.writer->Write(reply);
+        }
+
         if (rc != 0 && !s.aborted) {
             return Status(StatusCode::INTERNAL,
                           "ds4_engine_generate_argmax rc=" + std::to_string(rc));
