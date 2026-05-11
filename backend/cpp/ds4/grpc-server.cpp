@@ -30,6 +30,7 @@ extern "C" {
 #include <mutex>
 #include <string>
 #include <thread>
+#include <vector>
 
 using grpc::Server;
 using grpc::ServerBuilder;
@@ -64,13 +65,61 @@ static void append_token_text(ds4_engine *engine, int token, std::string &out) {
 
 struct CollectCtx {
     ds4_engine *engine;
-    std::string buf;
+    std::string raw_buf;  // exact raw bytes for Reply.message
+    ds4_backend::DsmlParser parser;
+    backend::Reply *reply;
     int tokens;
+
+    // Per-tool aggregation: accumulate ChatDelta tool_calls so we emit one
+    // delta with all calls, mirroring how vllm's non-streaming path returns.
+    struct Pending {
+        std::string id;
+        std::string name;
+        std::string args;
+    };
+    std::vector<Pending> pending;
+
+    std::string content_buf;
+    std::string reasoning_buf;
 };
+
+static void apply_events(CollectCtx *c, const std::vector<ds4_backend::ParserEvent> &events) {
+    for (const auto &e : events) {
+        switch (e.type) {
+        case ds4_backend::ParserEvent::CONTENT:
+            c->content_buf += e.text;
+            break;
+        case ds4_backend::ParserEvent::REASONING:
+            c->reasoning_buf += e.text;
+            break;
+        case ds4_backend::ParserEvent::TOOL_START:
+            if ((int)c->pending.size() <= e.index)
+                c->pending.resize(e.index + 1);
+            c->pending[e.index].id = e.tool_id;
+            c->pending[e.index].name = e.tool_name;
+            break;
+        case ds4_backend::ParserEvent::TOOL_ARGS:
+            if ((int)c->pending.size() > e.index)
+                c->pending[e.index].args += e.text;
+            break;
+        case ds4_backend::ParserEvent::TOOL_END:
+            // No-op for non-streaming: the final delta is emitted at the end.
+            break;
+        }
+    }
+}
+
 static void collect_emit(void *ud, int token) {
     auto *c = static_cast<CollectCtx *>(ud);
     if (token == ds4_token_eos(c->engine)) return;
-    append_token_text(c->engine, token, c->buf);
+    size_t len = 0;
+    const char *text = ds4_token_text(c->engine, token, &len);
+    if (!text || len == 0) return;
+    std::string chunk(text, len);
+    c->raw_buf += chunk;
+    std::vector<ds4_backend::ParserEvent> events;
+    c->parser.Feed(chunk, events);
+    apply_events(c, events);
     c->tokens++;
 }
 static void collect_done(void *) {}
@@ -203,17 +252,37 @@ public:
         ds4_tokens prompt = {};
         ds4_tokenize_text(g_engine, request->prompt().c_str(), &prompt);
         int n_predict = request->tokens() > 0 ? request->tokens() : 256;
-        CollectCtx collect = {g_engine, "", 0};
+
+        CollectCtx collect = {g_engine, "", {}, reply, 0, {}, "", ""};
         int rc = ds4_engine_generate_argmax(g_engine, &prompt, n_predict, g_ctx_size,
                                             collect_emit, collect_done, &collect,
                                             nullptr, nullptr);
         int prompt_len = prompt.len;
         ds4_tokens_free(&prompt);
+
+        // Flush any buffered parser state.
+        std::vector<ds4_backend::ParserEvent> events;
+        collect.parser.Flush(events);
+        apply_events(&collect, events);
+
         if (rc != 0) {
             return Status(StatusCode::INTERNAL,
                           "ds4_engine_generate_argmax rc=" + std::to_string(rc));
         }
-        reply->set_message(collect.buf);
+
+        // Emit one ChatDelta with content/reasoning/tool_calls.
+        auto *delta = reply->add_chat_deltas();
+        delta->set_content(collect.content_buf);
+        delta->set_reasoning_content(collect.reasoning_buf);
+        for (size_t i = 0; i < collect.pending.size(); ++i) {
+            auto *tc = delta->add_tool_calls();
+            tc->set_index(static_cast<int32_t>(i));
+            tc->set_id(collect.pending[i].id);
+            tc->set_name(collect.pending[i].name);
+            tc->set_arguments(collect.pending[i].args);
+        }
+
+        reply->set_message(collect.raw_buf);
         reply->set_tokens(collect.tokens);
         reply->set_prompt_tokens(prompt_len);
         return Status::OK;
