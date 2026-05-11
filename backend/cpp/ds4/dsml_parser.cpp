@@ -1,6 +1,8 @@
 #include "dsml_parser.h"
 
 #include <algorithm>
+#include <cstdio>
+#include <cstring>
 #include <chrono>
 #include <random>
 #include <string>
@@ -12,12 +14,12 @@ namespace {
 
 constexpr const char *kThinkOpen      = "<think>";
 constexpr const char *kThinkClose     = "</think>";
-constexpr const char *kToolsOpen      = "<\xef\xbd\x9cDSML\xef\xbd\x9ctool_calls>";   // <｜DSML｜tool_calls>
-constexpr const char *kToolsClose     = "</\xef\xbd\x9cDSML\xef\xbd\x9ctool_calls>"; // </｜DSML｜tool_calls>
-constexpr const char *kInvokeOpenPfx  = "<\xef\xbd\x9cDSML\xef\xbd\x9cinvoke name=\""; // <｜DSML｜invoke name="
-constexpr const char *kInvokeClose    = "</\xef\xbd\x9cDSML\xef\xbd\x9cinvoke>";       // </｜DSML｜invoke>
-constexpr const char *kParamOpenPfx   = "<\xef\xbd\x9cDSML\xef\xbd\x9cparameter name=\""; // <｜DSML｜parameter name="
-constexpr const char *kParamClose     = "</\xef\xbd\x9cDSML\xef\xbd\x9cparameter>";       // </｜DSML｜parameter>
+constexpr const char *kToolsOpen      = "<\xef\xbd\x9c" "DSML\xef\xbd\x9c" "tool_calls>";   // <｜DSML｜tool_calls>
+constexpr const char *kToolsClose     = "</\xef\xbd\x9c" "DSML\xef\xbd\x9c" "tool_calls>"; // </｜DSML｜tool_calls>
+constexpr const char *kInvokeOpenPfx  = "<\xef\xbd\x9c" "DSML\xef\xbd\x9c" "invoke name=\""; // <｜DSML｜invoke name="
+constexpr const char *kInvokeClose    = "</\xef\xbd\x9c" "DSML\xef\xbd\x9c" "invoke>";       // </｜DSML｜invoke>
+constexpr const char *kParamOpenPfx   = "<\xef\xbd\x9c" "DSML\xef\xbd\x9c" "parameter name=\""; // <｜DSML｜parameter name="
+constexpr const char *kParamClose     = "</\xef\xbd\x9c" "DSML\xef\xbd\x9c" "parameter>";       // </｜DSML｜parameter>
 
 // All structural markers the parser might encounter - used to detect "buf
 // might be a partial marker, don't drain yet" conditions.
