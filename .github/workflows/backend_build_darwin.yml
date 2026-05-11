@@ -211,8 +211,13 @@ jobs:
           make protogen-go
           make backends/llama-cpp-darwin
 
+      - name: Build ds4 backend (Darwin Metal)
+        if: inputs.backend == 'ds4'
+        run: |
+          make backends/ds4-darwin
+
       - name: Build ${{ inputs.backend }}-darwin
-        if: inputs.backend != 'llama-cpp'
+        if: inputs.backend != 'llama-cpp' && inputs.backend != 'ds4'
         run: |
           make protogen-go
           BACKEND=${{ inputs.backend }} BUILD_TYPE=${{ inputs.build-type }} USE_PIP=${{ inputs.use-pip }} make build-darwin-${{ inputs.lang }}-backend
