@@ -759,7 +759,15 @@ static void params_parse(server_context& /*ctx_server*/, const backend::ModelOpt
 // fields. The turboquant fork branched before that, so its build defines
 // LOCALAI_LEGACY_LLAMA_CPP_SPEC via patch-grpc-server.sh and these option
 // keys become unrecognized (silently dropped, like any unknown opt) for it.
-#ifndef LOCALAI_LEGACY_LLAMA_CPP_SPEC
+//
+// The `#ifdef LOCALAI_LEGACY_LLAMA_CPP_SPEC` / `#else` split below sits at the
+// closing-brace position of the `draft_ctx_size` branch on purpose: in the
+// legacy build the chain ends here (the brace closes draft_ctx_size), and in
+// the modern build the chain continues with `} else if (...)` instead, so the
+// brace count stays balanced under both branches of the preprocessor.
+#ifdef LOCALAI_LEGACY_LLAMA_CPP_SPEC
+        }
+#else
         // --- ngram_mod family (upstream --spec-ngram-mod-*) ---
         } else if (!strcmp(optname, "spec_ngram_mod_n_min")) {
             if (optval != NULL) {
@@ -889,7 +897,7 @@ static void params_parse(server_context& /*ctx_server*/, const backend::ModelOpt
             }
             if (!cur.empty()) flush(cur);
         }
-#endif // LOCALAI_LEGACY_LLAMA_CPP_SPEC
+#endif // LOCALAI_LEGACY_LLAMA_CPP_SPEC — closes the `else`/`#ifdef` opened at draft_ctx_size
     }
 
     // Set params.n_parallel from environment variable if not set via options (fallback)
