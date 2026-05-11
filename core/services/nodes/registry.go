@@ -546,7 +546,13 @@ func (r *NodeRegistry) GetByName(ctx context.Context, name string) (*BackendNode
 	return &node, nil
 }
 
-// MarkUnhealthy sets a node status to unhealthy.
+// MarkUnhealthy sets a node status to unhealthy. Deliberately status-only:
+// callers fire this on transient triggers (a single nats.ErrNoResponders from
+// managers_distributed / reconciler) where the next heartbeat is expected to
+// flip the node back to healthy, and cascade-deleting node_models here would
+// force a full model reload on every brief NATS hiccup. Stale rows are reaped
+// by the per-model health probe (on by default; see HealthMonitor) and by
+// MarkOffline when the heartbeat really has gone away.
 func (r *NodeRegistry) MarkUnhealthy(ctx context.Context, nodeID string) error {
 	return r.setStatus(ctx, nodeID, StatusUnhealthy)
 }
@@ -556,9 +562,23 @@ func (r *NodeRegistry) MarkHealthy(ctx context.Context, nodeID string) error {
 	return r.setStatus(ctx, nodeID, StatusHealthy)
 }
 
-// MarkDraining sets a node status to draining (no new requests).
+// MarkDraining sets a node status to draining (no new requests) and clears its
+// model records. Routing already filters out non-healthy nodes, so removing
+// the rows on drain doesn't change new-request behavior — but it does stop the
+// Models UI from showing the node's models as "running" while the box has been
+// taken out of rotation, and it prevents stale rows from being selected if
+// (re)scheduling logic gets relaxed elsewhere. In-flight requests already hold
+// their gRPC client through Route() and will finish normally; the only
+// observable effect is that the per-call IncrementInFlight bookkeeping logs a
+// non-fatal warning, which is acceptable for a drain.
 func (r *NodeRegistry) MarkDraining(ctx context.Context, nodeID string) error {
-	return r.setStatus(ctx, nodeID, StatusDraining)
+	if err := r.setStatus(ctx, nodeID, StatusDraining); err != nil {
+		return err
+	}
+	if err := r.db.WithContext(ctx).Where("node_id = ?", nodeID).Delete(&NodeModel{}).Error; err != nil {
+		xlog.Warn("Failed to clear model records on draining", "node", nodeID, "error", err)
+	}
+	return nil
 }
 
 // FindStaleNodes returns nodes that haven't sent a heartbeat within the given threshold.
@@ -673,9 +693,18 @@ func (r *NodeRegistry) FindAndLockNodeWithModel(ctx context.Context, modelName s
 		// to moderate concurrency where requests don't overlap) collapses to
 		// "biggest GPU wins every time" and one node ends up taking nearly all
 		// the load while replicas on other nodes sit idle.
+		// Filter on backend_nodes.status = healthy in the inner JOIN itself,
+		// not only in the later node-fetch step. The previous version picked
+		// a (node_id, replica) pair purely on node_models state, then bailed
+		// out when the second query couldn't find a healthy node row — but
+		// any concurrent reader of node_models could still pick the same
+		// stale row in the same window, and other helpers that mirror this
+		// JOIN need the same invariant. Belt-and-braces: status filter here
+		// AND the status-checked node fetch below.
 		q := tx.Clauses(clause.Locking{Strength: "UPDATE"}).
 			Joins("JOIN backend_nodes ON backend_nodes.id = node_models.node_id").
-			Where("node_models.model_name = ? AND node_models.state = ?", modelName, "loaded")
+			Where("node_models.model_name = ? AND node_models.state = ? AND backend_nodes.status = ?",
+				modelName, "loaded", StatusHealthy)
 		if len(candidateNodeIDs) > 0 {
 			q = q.Where("node_models.node_id IN ?", candidateNodeIDs)
 		}

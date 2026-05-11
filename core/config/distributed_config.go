@@ -31,7 +31,15 @@ type DistributedConfig struct {
 	DrainTimeout        time.Duration // Time to wait for in-flight requests during drain (default 30s)
 	HealthCheckInterval time.Duration // Health monitor check interval (default 15s)
 	StaleNodeThreshold  time.Duration // Time before a node is considered stale (default 60s)
-	PerModelHealthCheck bool          // Enable per-model backend health checking (default false)
+	// DisablePerModelHealthCheck turns off the health monitor's per-model
+	// gRPC probe. When enabled (the default), the monitor pings each model's
+	// gRPC address and removes stale node_models rows whose backend has
+	// crashed even though the worker's node-level heartbeat is still arriving.
+	// Without per-model probing, /embeddings and /completions can be dispatched
+	// to a backend that silently returns garbage (see also the cascading
+	// model-row cleanup on MarkUnhealthy / MarkDraining).
+	DisablePerModelHealthCheck bool
+
 	MCPCIJobTimeout     time.Duration // MCP CI job execution timeout (default 10m)
 
 	MaxUploadSize int64 // Maximum upload body size in bytes (default 50 GB)

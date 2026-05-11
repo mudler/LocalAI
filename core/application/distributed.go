@@ -169,7 +169,7 @@ func initDistributed(cfg *config.ApplicationConfig, authDB *gorm.DB, configLoade
 		cfg.Distributed.HealthCheckIntervalOrDefault(),
 		cfg.Distributed.StaleNodeThresholdOrDefault(),
 		routerAuthToken,
-		cfg.Distributed.PerModelHealthCheck,
+		!cfg.Distributed.DisablePerModelHealthCheck,
 	)
 
 	// Initialize job store
