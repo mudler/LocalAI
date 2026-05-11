@@ -193,6 +193,69 @@ static void stream_emit(void *ud, int token) {
 }
 static void stream_done(void *) {}
 
+static ds4_think_mode parse_think_mode(const backend::PredictOptions *request) {
+    // Per the vllm backend convention, "enable_thinking" gates thinking on/off,
+    // and "reasoning_effort" picks the strength when on.
+    const auto &md = request->metadata();
+    auto et = md.find("enable_thinking");
+    bool enabled = true; // default ON per ds4-server
+    if (et != md.end()) enabled = (et->second == "true" || et->second == "1");
+    if (!enabled) return DS4_THINK_NONE;
+    auto re = md.find("reasoning_effort");
+    if (re != md.end() && (re->second == "max" || re->second == "xhigh"))
+        return DS4_THINK_MAX;
+    return DS4_THINK_HIGH;
+}
+
+static void build_prompt(ds4_engine *engine, const backend::PredictOptions *request,
+                         ds4_tokens *out) {
+    if (!request->usetokenizertemplate() || request->messages_size() == 0) {
+        ds4_tokenize_text(engine, request->prompt().c_str(), out);
+        return;
+    }
+    // Chat-template path: render via ds4's helpers.
+    ds4_chat_begin(engine, out);
+
+    ds4_think_mode think = parse_think_mode(request);
+
+    // ds4_encode_chat_prompt is convenient when there is exactly one
+    // system+user pair, but for arbitrary turn lists we use the granular
+    // append helpers. Pull the first system message (if any), then append
+    // every other message in order.
+    const std::string sys_role = "system";
+    std::string system_text;
+    for (const auto &m : request->messages()) {
+        if (m.role() == sys_role) { system_text = m.content(); break; }
+    }
+    // Inject the tools manifest into the system prompt when tools are present.
+    // ds4 was trained to emit DSML tool calls ONLY when this preamble is in
+    // the system message - without it, the model has no idea tools exist and
+    // the e2e tool-call test will fail. The renderer lives in dsml_renderer
+    // and is a verbatim port of ds4_server.c's append_tools_prompt_text.
+    std::string tools_manifest;
+    if (!request->tools().empty()) {
+        tools_manifest = ds4_backend::RenderToolsManifest(request->tools());
+    }
+    if (!system_text.empty() || !tools_manifest.empty()) {
+        std::string combined = system_text;
+        if (!tools_manifest.empty()) {
+            if (!combined.empty()) combined += "\n\n";
+            combined += tools_manifest;
+        }
+        ds4_chat_append_message(engine, out, "system", combined.c_str());
+    }
+    for (const auto &m : request->messages()) {
+        if (m.role() == sys_role) continue;
+        // Tool-call rendering (assistant turns that carry tool_calls JSON, and
+        // role=tool messages) goes through dsml_renderer in Task 16. For now,
+        // pass content verbatim - tool-call-bearing assistant turns will be
+        // misrendered until Task 16 lands, which is acceptable during plan
+        // execution because the e2e suite's tools cap doesn't run until then.
+        ds4_chat_append_message(engine, out, m.role().c_str(), m.content().c_str());
+    }
+    ds4_chat_append_assistant_prefix(engine, out, think);
+}
+
 class DS4Backend final : public backend::Backend::Service {
 public:
     Status Health(ServerContext *, const backend::HealthMessage *,
@@ -298,7 +361,7 @@ public:
             return Status(StatusCode::FAILED_PRECONDITION, "ds4: model not loaded");
         }
         ds4_tokens prompt = {};
-        ds4_tokenize_text(g_engine, request->prompt().c_str(), &prompt);
+        build_prompt(g_engine, request, &prompt);
         int n_predict = request->tokens() > 0 ? request->tokens() : 256;
 
         CollectCtx collect = {g_engine, "", {}, reply, 0, {}, "", ""};
@@ -343,7 +406,7 @@ public:
             return Status(StatusCode::FAILED_PRECONDITION, "ds4: model not loaded");
         }
         ds4_tokens prompt = {};
-        ds4_tokenize_text(g_engine, request->prompt().c_str(), &prompt);
+        build_prompt(g_engine, request, &prompt);
         int n_predict = request->tokens() > 0 ? request->tokens() : 256;
 
         StreamCtx s = {g_engine, writer, {}, 0, false, {}};
