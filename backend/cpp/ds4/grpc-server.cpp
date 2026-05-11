@@ -141,6 +141,18 @@ public:
         result->set_message("loaded " + model_path);
         return Status::OK;
     }
+
+    Status TokenizeString(ServerContext *, const backend::PredictOptions *request,
+                          backend::TokenizationResponse *response) override {
+        std::lock_guard<std::mutex> lock(g_engine_mu);
+        if (!g_engine) return Status(StatusCode::FAILED_PRECONDITION, "ds4: model not loaded");
+        ds4_tokens out = {};
+        ds4_tokenize_text(g_engine, request->prompt().c_str(), &out);
+        for (int i = 0; i < out.len; ++i) response->add_tokens(out.v[i]);
+        response->set_length(out.len);
+        ds4_tokens_free(&out);
+        return Status::OK;
+    }
 };
 
 void RunServer(const std::string &addr) {
