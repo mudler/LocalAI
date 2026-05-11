@@ -72,6 +72,26 @@
     nvidia-cuda-12: "cuda12-turboquant"
     nvidia-l4t-cuda-12: "nvidia-l4t-arm64-turboquant"
     nvidia-l4t-cuda-13: "cuda13-nvidia-l4t-arm64-turboquant"
+- &ds4
+  name: "ds4"
+  alias: "ds4"
+  license: mit
+  description: |
+    antirez/ds4 - DeepSeek V4 Flash inference engine. Single-model,
+    optimized for Metal (Darwin) and CUDA (Linux). Requires the GGUFs
+    published at huggingface.co/antirez/deepseek-v4-gguf.
+  urls:
+    - https://github.com/antirez/ds4
+  tags:
+    - text-to-text
+    - LLM
+    - CPU
+    - CUDA
+  capabilities:
+    default: "cpu-ds4"
+    nvidia: "cuda13-ds4"
+    nvidia-cuda-13: "cuda13-ds4"
+    nvidia-l4t-cuda-13: "cuda13-nvidia-l4t-arm64-ds4"
 - &whispercpp
   name: "whisper"
   alias: "whisper"
@@ -1127,6 +1147,13 @@
     nvidia-cuda-12: "cuda12-turboquant-development"
     nvidia-l4t-cuda-12: "nvidia-l4t-arm64-turboquant-development"
     nvidia-l4t-cuda-13: "cuda13-nvidia-l4t-arm64-turboquant-development"
+- !!merge <<: *ds4
+  name: "ds4-development"
+  capabilities:
+    default: "cpu-ds4-development"
+    nvidia: "cuda13-ds4-development"
+    nvidia-cuda-13: "cuda13-ds4-development"
+    nvidia-l4t-cuda-13: "cuda13-nvidia-l4t-arm64-ds4-development"
 - !!merge <<: *stablediffusionggml
   name: "stablediffusion-ggml-development"
   capabilities:
@@ -1673,6 +1700,37 @@
   uri: "quay.io/go-skynet/local-ai-backends:master-nvidia-l4t-cuda-13-arm64-turboquant"
   mirrors:
     - localai/localai-backends:master-nvidia-l4t-cuda-13-arm64-turboquant
+## ds4
+- !!merge <<: *ds4
+  name: "cpu-ds4"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-cpu-ds4"
+  mirrors:
+    - localai/localai-backends:latest-cpu-ds4
+- !!merge <<: *ds4
+  name: "cpu-ds4-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-cpu-ds4"
+  mirrors:
+    - localai/localai-backends:master-cpu-ds4
+- !!merge <<: *ds4
+  name: "cuda13-ds4"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-nvidia-cuda-13-ds4"
+  mirrors:
+    - localai/localai-backends:latest-gpu-nvidia-cuda-13-ds4
+- !!merge <<: *ds4
+  name: "cuda13-ds4-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-nvidia-cuda-13-ds4"
+  mirrors:
+    - localai/localai-backends:master-gpu-nvidia-cuda-13-ds4
+- !!merge <<: *ds4
+  name: "cuda13-nvidia-l4t-arm64-ds4"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-nvidia-l4t-cuda-13-arm64-ds4"
+  mirrors:
+    - localai/localai-backends:latest-nvidia-l4t-cuda-13-arm64-ds4
+- !!merge <<: *ds4
+  name: "cuda13-nvidia-l4t-arm64-ds4-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-nvidia-l4t-cuda-13-arm64-ds4"
+  mirrors:
+    - localai/localai-backends:master-nvidia-l4t-cuda-13-arm64-ds4
 ## whisper
 - !!merge <<: *whispercpp
   name: "whisper-development"
