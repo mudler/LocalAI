@@ -955,7 +955,7 @@ include:
     tag-latest: 'auto'
     tag-suffix: '-gpu-nvidia-cuda-13-ds4'
     runs-on: 'ubuntu-latest'
-    base-image: "nvidia/cuda:13.0.0-devel-ubuntu24.04"
+    base-image: "ubuntu:24.04"
     skip-drivers: 'false'
     backend: "ds4"
     dockerfile: "./backend/Dockerfile.ds4"
@@ -968,7 +968,7 @@ include:
     skip-drivers: 'false'
     tag-latest: 'auto'
     tag-suffix: '-nvidia-l4t-cuda-13-arm64-ds4'
-    base-image: "nvidia/cuda:13.0.0-devel-ubuntu24.04"
+    base-image: "ubuntu:24.04"
     runs-on: 'ubuntu-24.04-arm'
     ubuntu-version: '2404'
     backend: "ds4"
