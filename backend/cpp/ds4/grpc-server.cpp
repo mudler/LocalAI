@@ -415,22 +415,44 @@ public:
         size_t cache_hit = maybe_load_cache(cache_key);
         (void)cache_hit; // future: skip prompt prefix if hit covers full prompt
 
-        // Manual generation loop using g_session so the live KV state advances
-        // with each token. ds4_engine_generate_argmax() is a self-contained
-        // helper that doesn't update g_session, which would leave
-        // ds4_session_payload_bytes() at 0 and prevent disk KV cache writes.
+        // Manual generation loop on g_session. When MTP speculative weights
+        // were loaded (LoadModel option 'mtp_path:'), we use the
+        // ds4_session_eval_speculative_argmax path which may accept N>1
+        // tokens per outer iteration. Otherwise per-token argmax + eval.
+        // Either way g_session advances so the disk KV cache picks up a
+        // real checkpoint after the call (see maybe_save_cache below).
         char err[256] = {0};
         int rc = ds4_session_sync(g_session, &prompt, err, sizeof(err));
         int prompt_len = prompt.len;
         ds4_tokens_free(&prompt);
         if (rc == 0) {
-            int eos = ds4_token_eos(g_engine);
-            for (int i = 0; i < n_predict; ++i) {
-                int token = ds4_session_argmax(g_session);
-                if (token == eos) break;
-                collect_emit(&collect, token);
-                rc = ds4_session_eval(g_session, token, err, sizeof(err));
-                if (rc != 0) break;
+            const int eos = ds4_token_eos(g_engine);
+            const int draft_max = ds4_engine_mtp_draft_tokens(g_engine);
+            int produced = 0;
+            while (produced < n_predict) {
+                int first = ds4_session_argmax(g_session);
+                if (first == eos) break;
+                if (draft_max > 0) {
+                    constexpr int kAcceptedMax = 8;
+                    int accepted[kAcceptedMax];
+                    int cap = std::min(kAcceptedMax, draft_max + 1);
+                    int n = ds4_session_eval_speculative_argmax(
+                        g_session, first, draft_max, eos,
+                        accepted, cap, err, sizeof(err));
+                    if (n < 0) { rc = -1; break; }
+                    bool stop = false;
+                    for (int j = 0; j < n; ++j) {
+                        if (accepted[j] == eos) { stop = true; break; }
+                        collect_emit(&collect, accepted[j]);
+                        if (++produced >= n_predict) { stop = true; break; }
+                    }
+                    if (stop) break;
+                } else {
+                    collect_emit(&collect, first);
+                    if (++produced >= n_predict) break;
+                    rc = ds4_session_eval(g_session, first, err, sizeof(err));
+                    if (rc != 0) break;
+                }
             }
             collect_done(&collect);
         }
@@ -480,17 +502,39 @@ public:
         (void)cache_hit;
 
         // Manual loop on g_session - see Predict() above for the rationale.
+        // MTP speculative path used when ds4_engine_mtp_draft_tokens > 0.
         char err[256] = {0};
         int rc = ds4_session_sync(g_session, &prompt, err, sizeof(err));
         ds4_tokens_free(&prompt);
         if (rc == 0) {
-            int eos = ds4_token_eos(g_engine);
-            for (int i = 0; i < n_predict && !s.aborted; ++i) {
-                int token = ds4_session_argmax(g_session);
-                if (token == eos) break;
-                stream_emit(&s, token);
-                rc = ds4_session_eval(g_session, token, err, sizeof(err));
-                if (rc != 0) break;
+            const int eos = ds4_token_eos(g_engine);
+            const int draft_max = ds4_engine_mtp_draft_tokens(g_engine);
+            int produced = 0;
+            while (produced < n_predict && !s.aborted) {
+                int first = ds4_session_argmax(g_session);
+                if (first == eos) break;
+                if (draft_max > 0) {
+                    constexpr int kAcceptedMax = 8;
+                    int accepted[kAcceptedMax];
+                    int cap = std::min(kAcceptedMax, draft_max + 1);
+                    int n = ds4_session_eval_speculative_argmax(
+                        g_session, first, draft_max, eos,
+                        accepted, cap, err, sizeof(err));
+                    if (n < 0) { rc = -1; break; }
+                    bool stop = false;
+                    for (int j = 0; j < n; ++j) {
+                        if (accepted[j] == eos) { stop = true; break; }
+                        stream_emit(&s, accepted[j]);
+                        if (s.aborted) { stop = true; break; }
+                        if (++produced >= n_predict) { stop = true; break; }
+                    }
+                    if (stop) break;
+                } else {
+                    stream_emit(&s, first);
+                    if (s.aborted || ++produced >= n_predict) break;
+                    rc = ds4_session_eval(g_session, first, err, sizeof(err));
+                    if (rc != 0) break;
+                }
             }
             stream_done(&s);
         }
