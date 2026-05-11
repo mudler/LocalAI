@@ -27,6 +27,20 @@ public:
     // Flush any remaining buffered text as CONTENT (called at generation end).
     void Flush(std::vector<ParserEvent> &out);
 
+    // True when the parser is inside a DSML structural position - that is,
+    // tags/markers between tool-call boundaries where the model is expected
+    // to emit protocol bytes verbatim. Mirrors ds4_server.c's "force
+    // temperature=0 unless dsml_decode_state_uses_payload_sampling" rule:
+    //
+    //   TEXT / THINK                  -> false (user sampling applies)
+    //   PARAM_VALUE                   -> false (payload uses user sampling)
+    //   TOOL_CALLS / INVOKE           -> true  (structural; force greedy)
+    //
+    // Callers should use this BEFORE the next sample() call to pick the
+    // effective temperature; the parser's state reflects what's already
+    // been consumed, so it predicts the next token's classification.
+    bool IsInDsmlStructural() const;
+
 private:
     enum class State { TEXT, THINK, TOOL_CALLS, INVOKE, PARAM_VALUE };
     State state_ = State::TEXT;

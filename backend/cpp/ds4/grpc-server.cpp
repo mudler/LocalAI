@@ -196,6 +196,36 @@ static void stream_emit(void *ud, int token) {
 }
 static void stream_done(void *) {}
 
+// Per-thread RNG seed for ds4_session_sample. Initialized lazily from
+// system_clock; ds4 owns the random walk after that.
+static uint64_t *get_rng() {
+    static thread_local uint64_t seed = 0;
+    if (seed == 0) {
+        seed = static_cast<uint64_t>(
+            std::chrono::system_clock::now().time_since_epoch().count());
+        if (seed == 0) seed = 1;
+    }
+    return &seed;
+}
+
+struct SampleParams {
+    float temperature;
+    int top_k;
+    float top_p;
+    float min_p;
+};
+
+// Compute the effective sampling parameters for the next token, mirroring
+// ds4_server.c:7102-7115:
+//   - thinking mode enabled -> override (T=1, top_k=0, top_p=1, min_p=0)
+//   - inside DSML structural position (tool-call markers) -> force T=0
+//   - otherwise -> the request's user-supplied sampling settings
+// The parser argument carries state from tokens emitted so far; its
+// IsInDsmlStructural() predicts the next token's classification.
+static SampleParams compute_sample_params(const backend::PredictOptions *request,
+                                          const ds4cpp::DsmlParser &parser,
+                                          bool think_enabled);
+
 static ds4_think_mode parse_think_mode(const backend::PredictOptions *request) {
     // Per the vllm backend convention, "enable_thinking" gates thinking on/off,
     // and "reasoning_effort" picks the strength when on.
@@ -208,6 +238,32 @@ static ds4_think_mode parse_think_mode(const backend::PredictOptions *request) {
     if (re != md.end() && (re->second == "max" || re->second == "xhigh"))
         return DS4_THINK_MAX;
     return DS4_THINK_HIGH;
+}
+
+static SampleParams compute_sample_params(const backend::PredictOptions *request,
+                                          const ds4cpp::DsmlParser &parser,
+                                          bool think_enabled) {
+    SampleParams p = {
+        request->temperature(),
+        request->topk(),
+        request->topp(),
+        request->minp(),
+    };
+    if (think_enabled) {
+        // Match ds4-server: thinking mode wants creativity in the reasoning
+        // pass and the trailing content, so the entire generation overrides
+        // sampling unless DSML structural bytes take over below.
+        p.temperature = 1.0f;
+        p.top_k = 0;
+        p.top_p = 1.0f;
+        p.min_p = 0.0f;
+    }
+    if (parser.IsInDsmlStructural()) {
+        // Tool-call structural bytes (tags, markers, headers) must parse
+        // cleanly. Force greedy regardless of user/thinking settings.
+        p.temperature = 0.0f;
+    }
+    return p;
 }
 
 // Build the rendered text for cache keying. We feed the same text the model
@@ -428,11 +484,21 @@ public:
         if (rc == 0) {
             const int eos = ds4_token_eos(g_engine);
             const int draft_max = ds4_engine_mtp_draft_tokens(g_engine);
+            const bool think_enabled = ds4_think_mode_enabled(parse_think_mode(request));
             int produced = 0;
             while (produced < n_predict) {
-                int first = ds4_session_argmax(g_session);
+                SampleParams sp = compute_sample_params(request, collect.parser, think_enabled);
+                int first;
+                if (sp.temperature <= 0.0f) {
+                    first = ds4_session_argmax(g_session);
+                } else {
+                    first = ds4_session_sample(g_session,
+                                               sp.temperature, sp.top_k,
+                                               sp.top_p, sp.min_p, get_rng());
+                }
                 if (first == eos) break;
-                if (draft_max > 0) {
+                // MTP only when sampling is greedy (ds4-server gate).
+                if (draft_max > 0 && sp.temperature <= 0.0f) {
                     constexpr int kAcceptedMax = 8;
                     int accepted[kAcceptedMax];
                     int cap = std::min(kAcceptedMax, draft_max + 1);
@@ -509,11 +575,20 @@ public:
         if (rc == 0) {
             const int eos = ds4_token_eos(g_engine);
             const int draft_max = ds4_engine_mtp_draft_tokens(g_engine);
+            const bool think_enabled = ds4_think_mode_enabled(parse_think_mode(request));
             int produced = 0;
             while (produced < n_predict && !s.aborted) {
-                int first = ds4_session_argmax(g_session);
+                SampleParams sp = compute_sample_params(request, s.parser, think_enabled);
+                int first;
+                if (sp.temperature <= 0.0f) {
+                    first = ds4_session_argmax(g_session);
+                } else {
+                    first = ds4_session_sample(g_session,
+                                               sp.temperature, sp.top_k,
+                                               sp.top_p, sp.min_p, get_rng());
+                }
                 if (first == eos) break;
-                if (draft_max > 0) {
+                if (draft_max > 0 && sp.temperature <= 0.0f) {
                     constexpr int kAcceptedMax = 8;
                     int accepted[kAcceptedMax];
                     int cap = std::min(kAcceptedMax, draft_max + 1);

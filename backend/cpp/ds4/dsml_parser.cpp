@@ -94,6 +94,19 @@ std::string json_escape(const std::string &in) {
 
 DsmlParser::DsmlParser() = default;
 
+bool DsmlParser::IsInDsmlStructural() const {
+    switch (state_) {
+        case State::TOOL_CALLS:
+        case State::INVOKE:
+            return true;
+        case State::PARAM_VALUE:  // payload bytes; user sampling applies
+        case State::TEXT:
+        case State::THINK:
+            return false;
+    }
+    return false;
+}
+
 void DsmlParser::EmitArgsChunk(const std::string &chunk, std::vector<ParserEvent> &out) {
     if (chunk.empty()) return;
     ParserEvent e;
