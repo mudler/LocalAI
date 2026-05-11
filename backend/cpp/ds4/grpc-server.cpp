@@ -49,6 +49,13 @@ std::string g_kv_cache_dir; // empty disables disk cache
 
 std::atomic<Server *> g_server{nullptr};
 
+// Parse a "key:value" option string. Returns empty when no colon.
+static std::pair<std::string, std::string> split_option(const std::string &opt) {
+    auto colon = opt.find(':');
+    if (colon == std::string::npos) return {opt, ""};
+    return {opt.substr(0, colon), opt.substr(colon + 1)};
+}
+
 class DS4Backend final : public backend::Backend::Service {
 public:
     Status Health(ServerContext *, const backend::HealthMessage *,
@@ -66,8 +73,74 @@ public:
         return Status::OK;
     }
 
-    // LoadModel / TokenizeString / Predict / PredictStream / Status are
-    // added in subsequent tasks. Defaults return UNIMPLEMENTED.
+    Status LoadModel(ServerContext *, const backend::ModelOptions *request,
+                     backend::Result *result) override {
+        std::lock_guard<std::mutex> lock(g_engine_mu);
+
+        if (g_engine) {
+            if (g_session) { ds4_session_free(g_session); g_session = nullptr; }
+            ds4_engine_close(g_engine);
+            g_engine = nullptr;
+        }
+
+        std::string model_path = request->modelfile();
+        if (model_path.empty()) model_path = request->model();
+        if (model_path.empty()) {
+            result->set_success(false);
+            result->set_message("ds4: ModelOptions.Model or .ModelFile must be set");
+            return Status::OK;
+        }
+
+        std::string mtp_path;
+        int mtp_draft = 0;
+        float mtp_margin = 3.0f;
+        for (const auto &opt : request->options()) {
+            auto [k, v] = split_option(opt);
+            if (k == "mtp_path") mtp_path = v;
+            else if (k == "mtp_draft") mtp_draft = std::stoi(v);
+            else if (k == "mtp_margin") mtp_margin = std::stof(v);
+            else if (k == "kv_cache_dir") g_kv_cache_dir = v;
+        }
+
+        ds4_engine_options opt = {};
+        opt.model_path = model_path.c_str();
+        opt.mtp_path = mtp_path.empty() ? nullptr : mtp_path.c_str();
+        opt.n_threads = request->threads() > 0 ? request->threads() : 0;
+        opt.mtp_draft_tokens = mtp_draft;
+        opt.mtp_margin = mtp_margin;
+        opt.directional_steering_file = nullptr;
+        opt.warm_weights = false;
+        opt.quality = false;
+
+#if defined(DS4_NO_GPU)
+        opt.backend = DS4_BACKEND_CPU;
+#elif defined(__APPLE__)
+        opt.backend = DS4_BACKEND_METAL;
+#else
+        opt.backend = DS4_BACKEND_CUDA;
+#endif
+
+        int rc = ds4_engine_open(&g_engine, &opt);
+        if (rc != 0 || !g_engine) {
+            result->set_success(false);
+            result->set_message("ds4_engine_open failed (rc=" + std::to_string(rc) + ")");
+            return Status::OK;
+        }
+
+        g_ctx_size = request->contextsize() > 0 ? request->contextsize() : 32768;
+        rc = ds4_session_create(&g_session, g_engine, g_ctx_size);
+        if (rc != 0 || !g_session) {
+            ds4_engine_close(g_engine);
+            g_engine = nullptr;
+            result->set_success(false);
+            result->set_message("ds4_session_create failed (rc=" + std::to_string(rc) + ")");
+            return Status::OK;
+        }
+
+        result->set_success(true);
+        result->set_message("loaded " + model_path);
+        return Status::OK;
+    }
 };
 
 void RunServer(const std::string &addr) {
