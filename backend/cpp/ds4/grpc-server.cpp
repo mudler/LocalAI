@@ -75,6 +75,27 @@ static void collect_emit(void *ud, int token) {
 }
 static void collect_done(void *) {}
 
+struct StreamCtx {
+    ds4_engine *engine;
+    ServerWriter<backend::Reply> *writer;
+    int tokens;
+    bool aborted;
+};
+static void stream_emit(void *ud, int token) {
+    auto *s = static_cast<StreamCtx *>(ud);
+    if (s->aborted) return;
+    if (token == ds4_token_eos(s->engine)) return;
+    std::string text;
+    append_token_text(s->engine, token, text);
+    if (text.empty()) return;
+    backend::Reply chunk;
+    chunk.set_message(text);
+    chunk.set_tokens(1);
+    if (!s->writer->Write(chunk)) s->aborted = true;
+    s->tokens++;
+}
+static void stream_done(void *) {}
+
 class DS4Backend final : public backend::Backend::Service {
 public:
     Status Health(ServerContext *, const backend::HealthMessage *,
@@ -195,6 +216,27 @@ public:
         reply->set_message(collect.buf);
         reply->set_tokens(collect.tokens);
         reply->set_prompt_tokens(prompt_len);
+        return Status::OK;
+    }
+
+    Status PredictStream(ServerContext *, const backend::PredictOptions *request,
+                         ServerWriter<backend::Reply> *writer) override {
+        std::lock_guard<std::mutex> lock(g_engine_mu);
+        if (!g_engine || !g_session) {
+            return Status(StatusCode::FAILED_PRECONDITION, "ds4: model not loaded");
+        }
+        ds4_tokens prompt = {};
+        ds4_tokenize_text(g_engine, request->prompt().c_str(), &prompt);
+        int n_predict = request->tokens() > 0 ? request->tokens() : 256;
+        StreamCtx s = {g_engine, writer, 0, false};
+        int rc = ds4_engine_generate_argmax(g_engine, &prompt, n_predict, g_ctx_size,
+                                            stream_emit, stream_done, &s,
+                                            nullptr, nullptr);
+        ds4_tokens_free(&prompt);
+        if (rc != 0 && !s.aborted) {
+            return Status(StatusCode::INTERNAL,
+                          "ds4_engine_generate_argmax rc=" + std::to_string(rc));
+        }
         return Status::OK;
     }
 };
