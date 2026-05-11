@@ -56,6 +56,25 @@ static std::pair<std::string, std::string> split_option(const std::string &opt) 
     return {opt.substr(0, colon), opt.substr(colon + 1)};
 }
 
+static void append_token_text(ds4_engine *engine, int token, std::string &out) {
+    size_t len = 0;
+    const char *text = ds4_token_text(engine, token, &len);
+    if (text && len > 0) out.append(text, len);
+}
+
+struct CollectCtx {
+    ds4_engine *engine;
+    std::string buf;
+    int tokens;
+};
+static void collect_emit(void *ud, int token) {
+    auto *c = static_cast<CollectCtx *>(ud);
+    if (token == ds4_token_eos(c->engine)) return;
+    append_token_text(c->engine, token, c->buf);
+    c->tokens++;
+}
+static void collect_done(void *) {}
+
 class DS4Backend final : public backend::Backend::Service {
 public:
     Status Health(ServerContext *, const backend::HealthMessage *,
@@ -151,6 +170,31 @@ public:
         for (int i = 0; i < out.len; ++i) response->add_tokens(out.v[i]);
         response->set_length(out.len);
         ds4_tokens_free(&out);
+        return Status::OK;
+    }
+
+    Status Predict(ServerContext *, const backend::PredictOptions *request,
+                   backend::Reply *reply) override {
+        std::lock_guard<std::mutex> lock(g_engine_mu);
+        if (!g_engine || !g_session) {
+            return Status(StatusCode::FAILED_PRECONDITION, "ds4: model not loaded");
+        }
+        ds4_tokens prompt = {};
+        ds4_tokenize_text(g_engine, request->prompt().c_str(), &prompt);
+        int n_predict = request->tokens() > 0 ? request->tokens() : 256;
+        CollectCtx collect = {g_engine, "", 0};
+        int rc = ds4_engine_generate_argmax(g_engine, &prompt, n_predict, g_ctx_size,
+                                            collect_emit, collect_done, &collect,
+                                            nullptr, nullptr);
+        int prompt_len = prompt.len;
+        ds4_tokens_free(&prompt);
+        if (rc != 0) {
+            return Status(StatusCode::INTERNAL,
+                          "ds4_engine_generate_argmax rc=" + std::to_string(rc));
+        }
+        reply->set_message(collect.buf);
+        reply->set_tokens(collect.tokens);
+        reply->set_prompt_tokens(prompt_len);
         return Status::OK;
     }
 };
