@@ -202,6 +202,10 @@ var _ = Describe("Backend container", Ordered, func() {
 			"either BACKEND_IMAGE or BACKEND_BINARY env var must be set")
 		Expect(image != "" && binary != "").To(BeFalse(),
 			"BACKEND_IMAGE and BACKEND_BINARY are mutually exclusive")
+		if binary != "" {
+			Expect(filepath.Base(binary)).To(Equal("run.sh"),
+				"BACKEND_BINARY must point at a run.sh produced by 'make -C backend/cpp/<name> package'")
+		}
 
 		modelURL := os.Getenv("BACKEND_TEST_MODEL_URL")
 		modelFile = os.Getenv("BACKEND_TEST_MODEL_FILE")
@@ -210,7 +214,11 @@ var _ = Describe("Backend container", Ordered, func() {
 			"one of BACKEND_TEST_MODEL_URL, BACKEND_TEST_MODEL_FILE, or BACKEND_TEST_MODEL_NAME must be set")
 
 		caps = parseCaps()
-		GinkgoWriter.Printf("Testing image=%q with capabilities=%v\n", image, keys(caps))
+		src := image
+		if src == "" {
+			src = binary
+		}
+		GinkgoWriter.Printf("Testing src=%q with capabilities=%v\n", src, keys(caps))
 
 		prompt = os.Getenv("BACKEND_TEST_PROMPT")
 		if prompt == "" {
