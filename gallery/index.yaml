@@ -30632,3 +30632,23 @@
       - torch_dtype:bf16
     parameters:
       model: Lightricks/LTX-2.3
+- name: deepseek-v4-flash-q2
+  description: |
+    DeepSeek V4 Flash (IQ2XXS GGUF, ~81 GB) - only loadable via the ds4 backend.
+    Requires >=128 GB RAM. Metal (Darwin) or CUDA (Linux).
+    See https://github.com/antirez/ds4 for details.
+  urls:
+    - https://huggingface.co/antirez/deepseek-v4-gguf
+  tags:
+    - deepseek
+    - ds4
+    - gguf
+    - llm
+    - chat
+  overrides:
+    backend: ds4
+    parameters:
+      model: ds4flash.gguf
+  files:
+    - filename: ds4flash.gguf
+      uri: huggingface://antirez/deepseek-v4-gguf/DeepSeek-V4-Flash-IQ2XXS-w2Q2K-AProjQ8-SExpQ8-OutQ8-chat-v2.gguf
