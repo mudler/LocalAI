@@ -6,8 +6,12 @@ LocalAI wraps the engine's C API (`ds4/ds4.h`) with a fresh C++ gRPC server at
 
 ## Pin
 
-`backend/cpp/ds4/prepare.sh` clones `antirez/ds4` at `DS4_VERSION`. Bump that
-commit to follow upstream.
+`backend/cpp/ds4/Makefile` pins `DS4_VERSION?=<sha>` at the top. The `ds4`
+target in the Makefile clones `antirez/ds4` at that commit (mirroring the
+llama-cpp / ik-llama-cpp / turboquant pattern). The bump-deps bot
+(`.github/workflows/bump_deps.yaml`) finds this pin via grep and opens a
+daily PR to update it. To bump manually: edit the `DS4_VERSION?=` line,
+then `make purge && make` (or rely on CI's clean build).
 
 ## Wire shape
 
