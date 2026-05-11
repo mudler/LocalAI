@@ -239,6 +239,14 @@ public:
         }
         return Status::OK;
     }
+
+    Status Status(ServerContext *, const backend::HealthMessage *,
+                  backend::StatusResponse *response) override {
+        std::lock_guard<std::mutex> lock(g_engine_mu);
+        response->set_state(g_engine ? backend::StatusResponse::READY
+                                     : backend::StatusResponse::UNINITIALIZED);
+        return Status::OK;
+    }
 };
 
 void RunServer(const std::string &addr) {
