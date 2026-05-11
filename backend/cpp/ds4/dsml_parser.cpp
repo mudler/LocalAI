@@ -34,13 +34,22 @@ const std::vector<std::string> &all_markers() {
 }
 
 // Returns true if `buf` could be a *prefix* of any marker (i.e., we should
-// wait for more text before draining as plain content).
+// wait for more text before draining as plain content). The marker-prefix
+// loop handles fixed markers exactly. For markers with variable-length
+// internal data (kInvokeOpenPfx, kParamOpenPfx have an open quote, then the
+// tool/param name, then a closing quote and `>`), we also wait while buf
+// starts with `<` and has not yet seen a `>`: the leading `<` could be the
+// start of one of those open markers, or a literal that we can confirm only
+// once we know what follows. Anything after the first `>` arrives is either
+// consumed by TryConsumeMarker or emitted as a literal `<` by the caller.
 bool looks_like_prefix(const std::string &buf) {
     for (const auto &m : all_markers()) {
         if (m.size() > buf.size() && m.compare(0, buf.size(), buf) == 0) return true;
     }
-    // Quick reject if buf doesn't start with '<'.
-    return !buf.empty() && buf[0] == '<';
+    if (!buf.empty() && buf[0] == '<' && buf.find('>') == std::string::npos) {
+        return true;
+    }
+    return false;
 }
 
 bool consume_literal(std::string &buf, const std::string &lit) {
@@ -268,36 +277,50 @@ void DsmlParser::Feed(const std::string &chunk, std::vector<ParserEvent> &out) {
 
 void DsmlParser::Flush(std::vector<ParserEvent> &out) {
     // At flush time we no longer wait for marker completion - drain everything
-    // as plain content / reasoning (the trailing bytes won't grow).
+    // (the trailing bytes won't grow). Mirror DrainPlain's state-aware
+    // classification: PARAM_VALUE bytes become TOOL_ARGS, THINK bytes become
+    // REASONING, TEXT bytes become CONTENT, and INVOKE/TOOL_CALLS bytes are
+    // structural whitespace (discarded).
+    auto emit_plain = [&](const std::string &chunk) {
+        if (chunk.empty()) return;
+        if (state_ == State::PARAM_VALUE) {
+            std::string esc = param_is_string_ ? json_escape(chunk) : chunk;
+            EmitArgsChunk(esc, out);
+            return;
+        }
+        if (state_ == State::THINK) {
+            ParserEvent e;
+            e.type = ParserEvent::REASONING;
+            e.text = chunk;
+            out.push_back(std::move(e));
+            return;
+        }
+        if (state_ == State::TEXT) {
+            ParserEvent e;
+            e.type = ParserEvent::CONTENT;
+            e.text = chunk;
+            out.push_back(std::move(e));
+            return;
+        }
+        // INVOKE / TOOL_CALLS: structural whitespace, discard.
+    };
     while (!buf_.empty()) {
         size_t lt = next_tag(buf_, 0);
         if (lt == std::string::npos) {
-            ParserEvent e;
-            if (state_ == State::THINK)      e.type = ParserEvent::REASONING;
-            else                              e.type = ParserEvent::CONTENT;
-            e.text = buf_;
-            out.push_back(std::move(e));
+            emit_plain(buf_);
             buf_.clear();
             return;
         }
         if (lt > 0) {
             std::string chunk = buf_.substr(0, lt);
             buf_.erase(0, lt);
-            ParserEvent e;
-            if (state_ == State::THINK)      e.type = ParserEvent::REASONING;
-            else                              e.type = ParserEvent::CONTENT;
-            e.text = chunk;
-            out.push_back(std::move(e));
+            emit_plain(chunk);
         }
         if (!TryConsumeMarker(out)) {
-            // Definitely a literal '<' now.
+            // Definitely a literal '<' now (no chance of more bytes arriving).
             std::string one(1, buf_[0]);
             buf_.erase(0, 1);
-            ParserEvent e;
-            if (state_ == State::THINK)      e.type = ParserEvent::REASONING;
-            else                              e.type = ParserEvent::CONTENT;
-            e.text = one;
-            out.push_back(std::move(e));
+            emit_plain(one);
         }
     }
     // If we ended mid-tool-call (model truncated), close it cleanly.
