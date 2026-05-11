@@ -955,8 +955,8 @@ include:
     tag-latest: 'auto'
     tag-suffix: '-gpu-nvidia-cuda-13-ds4'
     runs-on: 'ubuntu-latest'
-    base-image: "ubuntu:24.04"
-    skip-drivers: 'false'
+    base-image: "nvidia/cuda:13.0.0-devel-ubuntu24.04"
+    skip-drivers: 'true'
     backend: "ds4"
     dockerfile: "./backend/Dockerfile.ds4"
     context: "./"
@@ -965,10 +965,10 @@ include:
     cuda-major-version: "13"
     cuda-minor-version: "0"
     platforms: 'linux/arm64'
-    skip-drivers: 'false'
+    skip-drivers: 'true'
     tag-latest: 'auto'
     tag-suffix: '-nvidia-l4t-cuda-13-arm64-ds4'
-    base-image: "ubuntu:24.04"
+    base-image: "nvidia/cuda:13.0.0-devel-ubuntu24.04"
     runs-on: 'ubuntu-24.04-arm'
     ubuntu-version: '2404'
     backend: "ds4"
@@ -2355,8 +2355,8 @@ include:
     tag-latest: 'auto'
     tag-suffix: '-cpu-ds4'
     runs-on: 'ubuntu-latest'
-    base-image: "ubuntu:24.04"
-    skip-drivers: 'false'
+    base-image: "nvidia/cuda:13.0.0-devel-ubuntu24.04"
+    skip-drivers: 'true'
     backend: "ds4"
     dockerfile: "./backend/Dockerfile.ds4"
     context: "./"
@@ -2369,8 +2369,8 @@ include:
     tag-latest: 'auto'
     tag-suffix: '-cpu-ds4'
     runs-on: 'ubuntu-24.04-arm'
-    base-image: "ubuntu:24.04"
-    skip-drivers: 'false'
+    base-image: "nvidia/cuda:13.0.0-devel-ubuntu24.04"
+    skip-drivers: 'true'
     backend: "ds4"
     dockerfile: "./backend/Dockerfile.ds4"
     context: "./"

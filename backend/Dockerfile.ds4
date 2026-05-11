@@ -2,40 +2,35 @@ ARG BASE_IMAGE=ubuntu:24.04
 ARG APT_MIRROR=""
 ARG APT_PORTS_MIRROR=""
 
+# BASE_IMAGE is either ubuntu:24.04 (for cpu builds) or nvidia/cuda:13.0.0-devel-ubuntu24.04
+# (for cublas builds). Both ship apt + Ubuntu Noble packages; the nvidia/cuda base
+# additionally provides /usr/local/cuda. Darwin (Metal) builds bypass this Dockerfile
+# entirely via scripts/build/ds4-darwin.sh.
 FROM ${BASE_IMAGE} AS builder
 ARG BUILD_TYPE
-ARG CUDA_MAJOR_VERSION
-ARG CUDA_MINOR_VERSION
-ARG CMAKE_ARGS
 ARG TARGETARCH
 ARG TARGETVARIANT
-ARG APT_MIRROR
-ARG APT_PORTS_MIRROR
-# install-base-deps.sh reads UBUNTU_VERSION (e.g. "2404") to fetch the right
-# NVIDIA cuda-keyring / cudss / nvpl debs. Mirrors Dockerfile.llama-cpp.
-ARG UBUNTU_VERSION=2404
-ARG SKIP_DRIVERS=false
 
 ENV BUILD_TYPE=${BUILD_TYPE} \
-    CUDA_MAJOR_VERSION=${CUDA_MAJOR_VERSION} \
-    CUDA_MINOR_VERSION=${CUDA_MINOR_VERSION} \
-    TARGETARCH=${TARGETARCH} \
-    UBUNTU_VERSION=${UBUNTU_VERSION} \
-    SKIP_DRIVERS=${SKIP_DRIVERS} \
-    APT_MIRROR=${APT_MIRROR} \
-    APT_PORTS_MIRROR=${APT_PORTS_MIRROR} \
     DEBIAN_FRONTEND=noninteractive \
     PATH=/usr/local/cuda/bin:${PATH}
 
 WORKDIR /build
 
-RUN --mount=type=bind,source=.docker/install-base-deps.sh,target=/usr/local/sbin/install-base-deps \
-    --mount=type=bind,source=.docker/apt-mirror.sh,target=/usr/local/sbin/apt-mirror \
-    bash /usr/local/sbin/install-base-deps && \
+# Install build-time deps via plain apt - install-base-deps.sh's full pipeline
+# (CUDA keyring + from-source gRPC) is unnecessary here:
+#   - CUDA: when BASE_IMAGE=nvidia/cuda:*, /usr/local/cuda is already populated;
+#     for the cpu build we don't need CUDA at all.
+#   - gRPC/Protobuf: system apt packages are sufficient; ds4's wrapper only links
+#     against them, it doesn't ship the gRPC source tree.
+#   - nlohmann-json: dsml_renderer's only third-party dep.
+RUN apt-get update && \
     apt-get install -y --no-install-recommends \
+        git cmake build-essential pkg-config ca-certificates \
         libgrpc++-dev libprotobuf-dev protobuf-compiler protobuf-compiler-grpc \
-        nlohmann-json3-dev git cmake && \
-    apt-get clean
+        nlohmann-json3-dev && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
 
 COPY . /LocalAI
 
