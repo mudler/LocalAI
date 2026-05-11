@@ -1,5 +1,7 @@
 #include "kv_cache.h"
 
+#include <cerrno>
+#include <cstdio>
 #include <cstring>
 #include <dirent.h>
 #include <fstream>
@@ -92,7 +94,12 @@ KvCache::KvCache() = default;
 
 void KvCache::SetDir(const std::string &dir) {
     dir_ = dir;
-    if (!dir_.empty()) mkdir_p(dir_);
+    if (!dir_.empty()) {
+        mkdir_p(dir_);
+        std::fprintf(stderr, "ds4 KvCache: enabled at %s\n", dir_.c_str());
+    } else {
+        std::fprintf(stderr, "ds4 KvCache: disabled (no dir set)\n");
+    }
 }
 
 std::string KvCache::Path(const std::string &rendered_text) const {
@@ -156,11 +163,23 @@ size_t KvCache::LoadLongestPrefix(ds4_session *session,
 }
 
 void KvCache::Save(ds4_session *session, const std::string &rendered_text, int ctx_size) {
-    if (dir_.empty() || !session) return;
+    if (dir_.empty()) {
+        std::fprintf(stderr, "ds4 KvCache::Save: skipped (dir empty)\n");
+        return;
+    }
+    if (!session) {
+        std::fprintf(stderr, "ds4 KvCache::Save: skipped (session null)\n");
+        return;
+    }
     std::string path = Path(rendered_text);
     uint64_t payload_bytes = ds4_session_payload_bytes(session);
+    std::fprintf(stderr, "ds4 KvCache::Save: path=%s payload_bytes=%llu prefix_len=%zu\n",
+                 path.c_str(), (unsigned long long)payload_bytes, rendered_text.size());
     FILE *fp = std::fopen(path.c_str(), "wb");
-    if (!fp) return;
+    if (!fp) {
+        std::fprintf(stderr, "ds4 KvCache::Save: fopen failed: %s\n", std::strerror(errno));
+        return;
+    }
     char magic[4] = {'D','S','4','G'};
     uint32_t version = 1;
     uint32_t ctx = static_cast<uint32_t>(ctx_size);
@@ -174,7 +193,13 @@ void KvCache::Save(ds4_session *session, const std::string &rendered_text, int c
     char errbuf[256] = {0};
     int rc = ds4_session_save_payload(session, fp, errbuf, sizeof(errbuf));
     std::fclose(fp);
-    if (rc != 0) std::remove(path.c_str());
+    if (rc != 0) {
+        std::fprintf(stderr, "ds4 KvCache::Save: ds4_session_save_payload rc=%d err=%s; removing %s\n",
+                     rc, errbuf, path.c_str());
+        std::remove(path.c_str());
+    } else {
+        std::fprintf(stderr, "ds4 KvCache::Save: wrote %s ok\n", path.c_str());
+    }
 }
 
 } // namespace ds4cpp

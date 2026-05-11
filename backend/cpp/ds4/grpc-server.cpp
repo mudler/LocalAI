@@ -414,11 +414,26 @@ public:
         std::string cache_key = render_prompt_text(request);
         size_t cache_hit = maybe_load_cache(cache_key);
         (void)cache_hit; // future: skip prompt prefix if hit covers full prompt
-        int rc = ds4_engine_generate_argmax(g_engine, &prompt, n_predict, g_ctx_size,
-                                            collect_emit, collect_done, &collect,
-                                            nullptr, nullptr);
+
+        // Manual generation loop using g_session so the live KV state advances
+        // with each token. ds4_engine_generate_argmax() is a self-contained
+        // helper that doesn't update g_session, which would leave
+        // ds4_session_payload_bytes() at 0 and prevent disk KV cache writes.
+        char err[256] = {0};
+        int rc = ds4_session_sync(g_session, &prompt, err, sizeof(err));
         int prompt_len = prompt.len;
         ds4_tokens_free(&prompt);
+        if (rc == 0) {
+            int eos = ds4_token_eos(g_engine);
+            for (int i = 0; i < n_predict; ++i) {
+                int token = ds4_session_argmax(g_session);
+                if (token == eos) break;
+                collect_emit(&collect, token);
+                rc = ds4_session_eval(g_session, token, err, sizeof(err));
+                if (rc != 0) break;
+            }
+            collect_done(&collect);
+        }
         maybe_save_cache(cache_key);
 
         // Flush any buffered parser state.
@@ -428,7 +443,7 @@ public:
 
         if (rc != 0) {
             return GStatus(StatusCode::INTERNAL,
-                          "ds4_engine_generate_argmax rc=" + std::to_string(rc));
+                          std::string("ds4 generation failed: ") + err);
         }
 
         // Emit one ChatDelta with content/reasoning/tool_calls.
@@ -462,11 +477,23 @@ public:
         StreamCtx s = {g_engine, writer, {}, 0, false, {}};
         std::string cache_key = render_prompt_text(request);
         size_t cache_hit = maybe_load_cache(cache_key);
-        (void)cache_hit; // future: skip prompt prefix if hit covers full prompt
-        int rc = ds4_engine_generate_argmax(g_engine, &prompt, n_predict, g_ctx_size,
-                                            stream_emit, stream_done, &s,
-                                            nullptr, nullptr);
+        (void)cache_hit;
+
+        // Manual loop on g_session - see Predict() above for the rationale.
+        char err[256] = {0};
+        int rc = ds4_session_sync(g_session, &prompt, err, sizeof(err));
         ds4_tokens_free(&prompt);
+        if (rc == 0) {
+            int eos = ds4_token_eos(g_engine);
+            for (int i = 0; i < n_predict && !s.aborted; ++i) {
+                int token = ds4_session_argmax(g_session);
+                if (token == eos) break;
+                stream_emit(&s, token);
+                rc = ds4_session_eval(g_session, token, err, sizeof(err));
+                if (rc != 0) break;
+            }
+            stream_done(&s);
+        }
         maybe_save_cache(cache_key);
 
         // Flush parser state.
@@ -487,7 +514,7 @@ public:
 
         if (rc != 0 && !s.aborted) {
             return GStatus(StatusCode::INTERNAL,
-                          "ds4_engine_generate_argmax rc=" + std::to_string(rc));
+                          std::string("ds4 generation failed: ") + err);
         }
         return GStatus::OK;
     }
