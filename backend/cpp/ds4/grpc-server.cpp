@@ -246,12 +246,16 @@ static void build_prompt(ds4_engine *engine, const backend::PredictOptions *requ
     }
     for (const auto &m : request->messages()) {
         if (m.role() == sys_role) continue;
-        // Tool-call rendering (assistant turns that carry tool_calls JSON, and
-        // role=tool messages) goes through dsml_renderer in Task 16. For now,
-        // pass content verbatim - tool-call-bearing assistant turns will be
-        // misrendered until Task 16 lands, which is acceptable during plan
-        // execution because the e2e suite's tools cap doesn't run until then.
-        ds4_chat_append_message(engine, out, m.role().c_str(), m.content().c_str());
+        if (m.role() == "assistant" && !m.toolcalls().empty()) {
+            std::string combined = m.content();
+            combined += ds4_backend::RenderAssistantToolCalls(m.toolcalls());
+            ds4_chat_append_message(engine, out, "assistant", combined.c_str());
+        } else if (m.role() == "tool") {
+            std::string body = ds4_backend::RenderToolResult(m.toolcallid(), m.content());
+            ds4_chat_append_message(engine, out, "user", body.c_str());
+        } else {
+            ds4_chat_append_message(engine, out, m.role().c_str(), m.content().c_str());
+        }
     }
     ds4_chat_append_assistant_prefix(engine, out, think);
 }
