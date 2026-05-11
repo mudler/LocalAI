@@ -251,18 +251,68 @@ options:
 
 These are set via the `options:` array in the model configuration (format: `key:value`):
 
+**Common options**
+
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
-| `spec_type` | string | `none` | Speculative decoding type (see table below) |
+| `spec_type` / `speculative_type` | string | `none` | Speculative decoding type, or comma-separated list to chain multiple (see table below) |
 | `spec_n_max` / `draft_max` | int | 16 | Maximum number of tokens to draft per step |
 | `spec_n_min` / `draft_min` | int | 0 | Minimum draft tokens required to use speculation |
 | `spec_p_min` / `draft_p_min` | float | 0.75 | Minimum probability threshold for greedy acceptance |
 | `spec_p_split` | float | 0.1 | Split probability for tree-based branching |
+
+**Draft-model options** (apply when `spec_type=draft`, i.e. a `draft_model` is configured)
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `draft_gpu_layers` | int | -1 | GPU layers for the draft model (-1 = use default) |
+| `draft_threads` / `spec_draft_threads` | int | same as main | Threads used by the draft model (`<= 0` = hardware concurrency) |
+| `draft_threads_batch` / `spec_draft_threads_batch` | int | same as `draft_threads` | Threads used by the draft model during batch / prompt processing |
+| `draft_cache_type_k` / `spec_draft_cache_type_k` | string | `f16` | KV cache K data type for the draft model (same values as `cache_type_k`) |
+| `draft_cache_type_v` / `spec_draft_cache_type_v` | string | `f16` | KV cache V data type for the draft model |
+| `draft_cpu_moe` / `spec_draft_cpu_moe` | bool | false | Keep all MoE expert weights of the draft model on CPU |
+| `draft_n_cpu_moe` / `spec_draft_n_cpu_moe` | int | 0 | Keep MoE expert weights of the first N draft-model layers on CPU |
+| `draft_override_tensor` / `spec_draft_override_tensor` | string | "" | Comma-separated `<tensor regex>=<buffer type>` overrides for the draft model |
+| `draft_ctx_size` | int | (ignored) | Deprecated upstream: the draft now shares the target context size. Accepted for backward compatibility but has no effect. |
+
+**`ngram_simple` options** (used when `spec_type` includes `ngram_simple`)
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
 | `spec_ngram_size_n` / `ngram_size_n` | int | 12 | N-gram lookup size |
 | `spec_ngram_size_m` / `ngram_size_m` | int | 48 | M-gram proposal size |
 | `spec_ngram_min_hits` / `ngram_min_hits` | int | 1 | Minimum hits for accepting n-gram proposals |
-| `draft_gpu_layers` | int | -1 | GPU layers for the draft model (-1 = use default) |
-| `draft_ctx_size` | int | 0 | Context size for the draft model (0 = auto) |
+
+**`ngram_mod` options** (used when `spec_type` includes `ngram_mod`)
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `spec_ngram_mod_n_min` | int | 48 | Minimum number of ngram tokens to use |
+| `spec_ngram_mod_n_max` | int | 64 | Maximum number of ngram tokens to use |
+| `spec_ngram_mod_n_match` | int | 24 | Ngram lookup length |
+
+**`ngram_map_k` options** (used when `spec_type` includes `ngram_map_k`)
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `spec_ngram_map_k_size_n` | int | 12 | N-gram lookup size |
+| `spec_ngram_map_k_size_m` | int | 48 | M-gram proposal size |
+| `spec_ngram_map_k_min_hits` | int | 1 | Minimum hits for accepting proposals |
+
+**`ngram_map_k4v` options** (used when `spec_type` includes `ngram_map_k4v`)
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `spec_ngram_map_k4v_size_n` | int | 12 | N-gram lookup size |
+| `spec_ngram_map_k4v_size_m` | int | 48 | M-gram proposal size |
+| `spec_ngram_map_k4v_min_hits` | int | 1 | Minimum hits for accepting proposals |
+
+**`ngram_cache` lookup files**
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `spec_lookup_cache_static` / `lookup_cache_static` | string | "" | Path to a static ngram lookup cache file |
+| `spec_lookup_cache_dynamic` / `lookup_cache_dynamic` | string | "" | Path to a dynamic ngram lookup cache file (updated by generation) |
 
 #### Speculative Type Values
 
@@ -276,6 +326,8 @@ These are set via the `options:` array in the model configuration (format: `key:
 | `ngram_map_k4v` | N-gram with keys and 4 m-gram values |
 | `ngram_mod` | Modified n-gram speculation |
 | `ngram_cache` | 3-level n-gram cache |
+
+Multiple types can be chained by passing a comma-separated list to `spec_type` (e.g. `spec_type:ngram_simple,ngram_mod`). The runtime tries them in order and accepts the first proposal that meets the acceptance criteria.
 
 {{% notice note %}}
 Speculative decoding is automatically disabled when multimodal models (with `mmproj`) are active. The `n_draft` parameter can also be overridden per-request.

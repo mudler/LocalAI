@@ -36,6 +36,8 @@
 #include <cstdlib>
 #include <fstream>
 #include <iterator>
+#include <list>
+#include <map>
 #include <mutex>
 #include <signal.h>
 #include <thread>
@@ -728,6 +730,135 @@ static void params_parse(server_context& /*ctx_server*/, const backend::ModelOpt
             // The draft context size is no longer a separate field upstream: the draft
             // shares the target context size. Accept the option for backward
             // compatibility but silently ignore it.
+
+        // --- ngram_mod family (upstream --spec-ngram-mod-*) ---
+        } else if (!strcmp(optname, "spec_ngram_mod_n_min")) {
+            if (optval != NULL) {
+                try { params.speculative.ngram_mod.n_min = std::stoi(optval_str); } catch (...) {}
+            }
+        } else if (!strcmp(optname, "spec_ngram_mod_n_max")) {
+            if (optval != NULL) {
+                try { params.speculative.ngram_mod.n_max = std::stoi(optval_str); } catch (...) {}
+            }
+        } else if (!strcmp(optname, "spec_ngram_mod_n_match")) {
+            if (optval != NULL) {
+                try { params.speculative.ngram_mod.n_match = std::stoi(optval_str); } catch (...) {}
+            }
+
+        // --- ngram_map_k family (upstream --spec-ngram-map-k-*) ---
+        } else if (!strcmp(optname, "spec_ngram_map_k_size_n")) {
+            if (optval != NULL) {
+                try { params.speculative.ngram_map_k.size_n = (uint16_t)std::stoi(optval_str); } catch (...) {}
+            }
+        } else if (!strcmp(optname, "spec_ngram_map_k_size_m")) {
+            if (optval != NULL) {
+                try { params.speculative.ngram_map_k.size_m = (uint16_t)std::stoi(optval_str); } catch (...) {}
+            }
+        } else if (!strcmp(optname, "spec_ngram_map_k_min_hits")) {
+            if (optval != NULL) {
+                try { params.speculative.ngram_map_k.min_hits = (uint16_t)std::stoi(optval_str); } catch (...) {}
+            }
+
+        // --- ngram_map_k4v family (upstream --spec-ngram-map-k4v-*) ---
+        } else if (!strcmp(optname, "spec_ngram_map_k4v_size_n")) {
+            if (optval != NULL) {
+                try { params.speculative.ngram_map_k4v.size_n = (uint16_t)std::stoi(optval_str); } catch (...) {}
+            }
+        } else if (!strcmp(optname, "spec_ngram_map_k4v_size_m")) {
+            if (optval != NULL) {
+                try { params.speculative.ngram_map_k4v.size_m = (uint16_t)std::stoi(optval_str); } catch (...) {}
+            }
+        } else if (!strcmp(optname, "spec_ngram_map_k4v_min_hits")) {
+            if (optval != NULL) {
+                try { params.speculative.ngram_map_k4v.min_hits = (uint16_t)std::stoi(optval_str); } catch (...) {}
+            }
+
+        // --- ngram lookup caches (upstream --lookup-cache-static / -dynamic) ---
+        } else if (!strcmp(optname, "spec_lookup_cache_static") || !strcmp(optname, "lookup_cache_static")) {
+            params.speculative.ngram_cache.lookup_cache_static = optval_str;
+        } else if (!strcmp(optname, "spec_lookup_cache_dynamic") || !strcmp(optname, "lookup_cache_dynamic")) {
+            params.speculative.ngram_cache.lookup_cache_dynamic = optval_str;
+
+        // --- draft model KV cache types (upstream --spec-draft-type-k / -v) ---
+        } else if (!strcmp(optname, "draft_cache_type_k") || !strcmp(optname, "spec_draft_cache_type_k")) {
+            params.speculative.draft.cache_type_k = kv_cache_type_from_str(optval_str);
+        } else if (!strcmp(optname, "draft_cache_type_v") || !strcmp(optname, "spec_draft_cache_type_v")) {
+            params.speculative.draft.cache_type_v = kv_cache_type_from_str(optval_str);
+
+        // --- draft model thread counts (upstream --spec-draft-threads / -batch) ---
+        } else if (!strcmp(optname, "draft_threads") || !strcmp(optname, "spec_draft_threads")) {
+            if (optval != NULL) {
+                try {
+                    int n = std::stoi(optval_str);
+                    if (n <= 0) n = (int)std::thread::hardware_concurrency();
+                    params.speculative.draft.cpuparams.n_threads = n;
+                } catch (...) {}
+            }
+        } else if (!strcmp(optname, "draft_threads_batch") || !strcmp(optname, "spec_draft_threads_batch")) {
+            if (optval != NULL) {
+                try {
+                    int n = std::stoi(optval_str);
+                    if (n <= 0) n = (int)std::thread::hardware_concurrency();
+                    params.speculative.draft.cpuparams_batch.n_threads = n;
+                } catch (...) {}
+            }
+
+        // --- draft model MoE on CPU (upstream --spec-draft-cpu-moe / --spec-draft-n-cpu-moe) ---
+        } else if (!strcmp(optname, "draft_cpu_moe") || !strcmp(optname, "spec_draft_cpu_moe")) {
+            // Bool-style flag: optval may be missing, "true"/"1"/"yes" enables.
+            const bool enable = (optval == NULL) ||
+                optval_str == "true" || optval_str == "1" || optval_str == "yes" ||
+                optval_str == "on" || optval_str == "enabled";
+            if (enable) {
+                params.speculative.draft.tensor_buft_overrides.push_back(llm_ffn_exps_cpu_override());
+            }
+        } else if (!strcmp(optname, "draft_n_cpu_moe") || !strcmp(optname, "spec_draft_n_cpu_moe")) {
+            if (optval != NULL) {
+                try {
+                    int n = std::stoi(optval_str);
+                    if (n < 0) n = 0;
+                    // Keep override-name storage alive for the lifetime of the params struct
+                    // (mirrors upstream arg.cpp behavior with a function-local static).
+                    static std::list<std::string> buft_overrides_draft;
+                    for (int i = 0; i < n; ++i) {
+                        buft_overrides_draft.push_back(llm_ffn_exps_block_regex(i));
+                        params.speculative.draft.tensor_buft_overrides.push_back(
+                            {buft_overrides_draft.back().c_str(), ggml_backend_cpu_buffer_type()});
+                    }
+                } catch (...) {}
+            }
+
+        // --- draft model tensor buffer overrides (upstream --spec-draft-override-tensor) ---
+        } else if (!strcmp(optname, "draft_override_tensor") || !strcmp(optname, "spec_draft_override_tensor")) {
+            // Format: <tensor regex>=<buffer type>,<tensor regex>=<buffer type>,...
+            // We replicate upstream's parse_tensor_buffer_overrides (static in arg.cpp).
+            ggml_backend_load_all();
+            std::map<std::string, ggml_backend_buffer_type_t> buft_list;
+            for (size_t i = 0; i < ggml_backend_dev_count(); ++i) {
+                auto * dev = ggml_backend_dev_get(i);
+                auto * buft = ggml_backend_dev_buffer_type(dev);
+                if (buft) {
+                    buft_list[ggml_backend_buft_name(buft)] = buft;
+                }
+            }
+            static std::list<std::string> draft_override_names;
+            std::string cur;
+            auto flush = [&](const std::string & spec) {
+                auto pos = spec.find('=');
+                if (pos == std::string::npos) return;
+                const std::string name = spec.substr(0, pos);
+                const std::string type = spec.substr(pos + 1);
+                auto it = buft_list.find(type);
+                if (it == buft_list.end()) return; // unknown buffer type: ignore
+                draft_override_names.push_back(name);
+                params.speculative.draft.tensor_buft_overrides.push_back(
+                    {draft_override_names.back().c_str(), it->second});
+            };
+            for (char c : optval_str) {
+                if (c == ',') { if (!cur.empty()) { flush(cur); cur.clear(); } }
+                else { cur.push_back(c); }
+            }
+            if (!cur.empty()) flush(cur);
         }
     }
 
