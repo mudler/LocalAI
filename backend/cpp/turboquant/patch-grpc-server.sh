@@ -108,4 +108,47 @@ else
     echo "==> $SRC has no post-#22397 speculative field refs, skipping spec rename patch"
 fi
 
+# 4. Revert the `ctx_server.impl->model_tgt` rename introduced by upstream
+#    ggml-org/llama.cpp#22838 (parallel drafting). The turboquant fork still
+#    exposes the field as `model` on `server_context_impl`. The two call sites
+#    are in the Rerank and ModelMetadata RPC handlers.
+if grep -q 'ctx_server\.impl->model_tgt' "$SRC"; then
+    echo "==> patching $SRC to revert ctx_server.impl->model_tgt -> ctx_server.impl->model"
+    sed -E 's/ctx_server\.impl->model_tgt/ctx_server.impl->model/g' "$SRC" > "$SRC.tmp"
+    mv "$SRC.tmp" "$SRC"
+    echo "==> model_tgt rename OK"
+else
+    echo "==> $SRC has no ctx_server.impl->model_tgt refs, skipping model_tgt rename patch"
+fi
+
+# 5. Define LOCALAI_LEGACY_LLAMA_CPP_SPEC at the top of the file so the
+#    grpc-server option parser skips the new option-handler blocks (ngram_mod,
+#    ngram_map_k, ngram_map_k4v, ngram_cache, draft.cache_type_*, draft.cpuparams*,
+#    draft.tensor_buft_overrides) introduced for the post-#22838 layout. Those
+#    blocks reference struct fields that simply do not exist in the fork.
+if grep -q '^#define LOCALAI_LEGACY_LLAMA_CPP_SPEC' "$SRC"; then
+    echo "==> $SRC already defines LOCALAI_LEGACY_LLAMA_CPP_SPEC, skipping"
+else
+    echo "==> patching $SRC to define LOCALAI_LEGACY_LLAMA_CPP_SPEC at the top"
+    # Insert the define before the very first `#include` so it precedes all the
+    # speculative-decoding code paths.
+    awk '
+        !done && /^#include/ {
+            print "#define LOCALAI_LEGACY_LLAMA_CPP_SPEC 1"
+            print "// ^ injected by backend/cpp/turboquant/patch-grpc-server.sh"
+            print ""
+            done = 1
+        }
+        { print }
+        END {
+            if (!done) {
+                print "patch-grpc-server.sh: no #include anchor found to insert LOCALAI_LEGACY_LLAMA_CPP_SPEC" > "/dev/stderr"
+                exit 1
+            }
+        }
+    ' "$SRC" > "$SRC.tmp"
+    mv "$SRC.tmp" "$SRC"
+    echo "==> LOCALAI_LEGACY_LLAMA_CPP_SPEC define OK"
+fi
+
 echo "==> all patches applied"

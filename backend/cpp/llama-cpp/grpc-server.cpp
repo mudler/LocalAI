@@ -445,12 +445,22 @@ static void params_parse(server_context& /*ctx_server*/, const backend::ModelOpt
     // Draft model for speculative decoding
     if (!request->draftmodel().empty()) {
         params.speculative.draft.mparams.path = request->draftmodel();
-        // Default to draft type if a draft model is set but no explicit type
+        // Default to draft type if a draft model is set but no explicit type.
+        // Upstream (post ggml-org/llama.cpp#22838) made the speculative type a
+        // vector; the turboquant fork still uses the legacy scalar. The
+        // LOCALAI_LEGACY_LLAMA_CPP_SPEC macro is injected by
+        // backend/cpp/turboquant/patch-grpc-server.sh for fork builds only.
+#ifdef LOCALAI_LEGACY_LLAMA_CPP_SPEC
+        if (params.speculative.type == COMMON_SPECULATIVE_TYPE_NONE) {
+            params.speculative.type = COMMON_SPECULATIVE_TYPE_DRAFT;
+        }
+#else
         const bool no_spec_type = params.speculative.types.empty() ||
             (params.speculative.types.size() == 1 && params.speculative.types[0] == COMMON_SPECULATIVE_TYPE_NONE);
         if (no_spec_type) {
             params.speculative.types = { COMMON_SPECULATIVE_TYPE_DRAFT };
         }
+#endif
     }
 
     //  params.model_alias ??
@@ -677,6 +687,17 @@ static void params_parse(server_context& /*ctx_server*/, const backend::ModelOpt
             }
         // Speculative decoding options
         } else if (!strcmp(optname, "spec_type") || !strcmp(optname, "speculative_type")) {
+#ifdef LOCALAI_LEGACY_LLAMA_CPP_SPEC
+            // Fork only knows a single scalar `type`. Take the first comma-
+            // separated value and assign it via the singular helper.
+            std::string first = optval_str;
+            const auto comma = first.find(',');
+            if (comma != std::string::npos) first = first.substr(0, comma);
+            auto type = common_speculative_type_from_name(first);
+            if (type != COMMON_SPECULATIVE_TYPE_COUNT) {
+                params.speculative.type = type;
+            }
+#else
             // Upstream switched to a vector of types (comma-separated for multi-type
             // chaining via common_speculative_types_from_names). We keep accepting a
             // single value here, but also tolerate comma-separated lists.
@@ -694,6 +715,7 @@ static void params_parse(server_context& /*ctx_server*/, const backend::ModelOpt
             if (!parsed.empty()) {
                 params.speculative.types = parsed;
             }
+#endif
         } else if (!strcmp(optname, "spec_n_max") || !strcmp(optname, "draft_max")) {
             if (optval != NULL) {
                 try { params.speculative.draft.n_max = std::stoi(optval_str); } catch (...) {}
@@ -731,6 +753,13 @@ static void params_parse(server_context& /*ctx_server*/, const backend::ModelOpt
             // shares the target context size. Accept the option for backward
             // compatibility but silently ignore it.
 
+// Everything below relies on struct shape introduced in ggml-org/llama.cpp#22838
+// (parallel drafting): `ngram_mod`, `ngram_map_k`, `ngram_map_k4v`,
+// `ngram_cache`, and the `draft.{cache_type_*, cpuparams*, tensor_buft_overrides}`
+// fields. The turboquant fork branched before that, so its build defines
+// LOCALAI_LEGACY_LLAMA_CPP_SPEC via patch-grpc-server.sh and these option
+// keys become unrecognized (silently dropped, like any unknown opt) for it.
+#ifndef LOCALAI_LEGACY_LLAMA_CPP_SPEC
         // --- ngram_mod family (upstream --spec-ngram-mod-*) ---
         } else if (!strcmp(optname, "spec_ngram_mod_n_min")) {
             if (optval != NULL) {
@@ -860,6 +889,7 @@ static void params_parse(server_context& /*ctx_server*/, const backend::ModelOpt
             }
             if (!cur.empty()) flush(cur);
         }
+#endif // LOCALAI_LEGACY_LLAMA_CPP_SPEC
     }
 
     // Set params.n_parallel from environment variable if not set via options (fallback)
