@@ -1,0 +1,37 @@
+ARG BASE_IMAGE=ubuntu:24.04
+ARG APT_MIRROR=""
+ARG APT_PORTS_MIRROR=""
+
+FROM ${BASE_IMAGE} AS builder
+ARG BUILD_TYPE
+ARG CUDA_MAJOR_VERSION
+ARG CUDA_MINOR_VERSION
+ARG CMAKE_ARGS
+ARG TARGETARCH
+ARG TARGETVARIANT
+ARG APT_MIRROR
+ARG APT_PORTS_MIRROR
+
+ENV BUILD_TYPE=${BUILD_TYPE} \
+    CUDA_MAJOR_VERSION=${CUDA_MAJOR_VERSION} \
+    CUDA_MINOR_VERSION=${CUDA_MINOR_VERSION} \
+    DEBIAN_FRONTEND=noninteractive \
+    PATH=/usr/local/cuda/bin:${PATH}
+
+WORKDIR /build
+
+RUN --mount=type=bind,source=.docker/install-base-deps.sh,target=/usr/local/sbin/install-base-deps \
+    --mount=type=bind,source=.docker/apt-mirror.sh,target=/usr/local/sbin/apt-mirror \
+    bash /usr/local/sbin/install-base-deps && \
+    apt-get install -y --no-install-recommends \
+        libgrpc++-dev libprotobuf-dev protobuf-compiler protobuf-compiler-grpc \
+        nlohmann-json3-dev git cmake && \
+    apt-get clean
+
+COPY . /LocalAI
+
+RUN --mount=type=cache,target=/root/.ccache,id=ds4-ccache-${TARGETARCH}-${BUILD_TYPE},sharing=locked \
+    make -C /LocalAI/backend/cpp/ds4 BUILD_TYPE=${BUILD_TYPE} NATIVE=false grpc-server package
+
+FROM scratch
+COPY --from=builder /LocalAI/backend/cpp/ds4/package/. ./
