@@ -34,7 +34,55 @@ The build matrix is data-only YAML at `.github/backend-matrix.yml` (not inside `
 
 **Without an entry here no image is ever built or pushed, and the gallery entry in `backend/index.yaml` will point at a tag that does not exist.** The `dockerfile:` field must point at `./backend/Dockerfile.<lang>` matching the language bucket from step 1 (e.g. `Dockerfile.python`, `Dockerfile.golang`, `Dockerfile.rust`). The `tag-suffix` must match the `uri:` in the corresponding `backend/index.yaml` image entry exactly.
 
-If you add a new language bucket, `scripts/changed-backends.js` also needs a branch in `inferBackendPath` so PR change-detection routes file edits correctly.
+**`scripts/changed-backends.js` registration — REQUIRED for any new dockerfile suffix.** This is the single most common omission, because it has no effect on the PR that adds the backend (when no prior path filter could catch it anyway) — it only breaks the *next* PR that touches your backend's directory, which then gets zero CI jobs and looks broken for unrelated reasons. Edit `scripts/changed-backends.js:inferBackendPath` and add a branch BEFORE the more-generic suffixes:
+
+```js
+if (item.dockerfile.endsWith("<your-dockerfile-suffix>")) {
+    return `backend/cpp/<your-backend>/`;   // or backend/python|go|rust/...
+}
+```
+
+The `endsWith()` test is against the matrix entry's `dockerfile:` value (e.g. `./backend/Dockerfile.ds4` → `endsWith("ds4")`). Specificity order matters here just like it does for importers: more-specific suffixes go BEFORE more-generic ones (e.g. `ds4` before `llama-cpp` even though both end with letters, because some upstream might one day call itself `super-ds4-llama-cpp`). Verify locally before pushing:
+
+```bash
+# Confirm your dockerfile suffix is unique enough
+node -e "
+const yaml = require('js-yaml'); const fs = require('fs');
+const m = yaml.load(fs.readFileSync('.github/backend-matrix.yml','utf8'));
+for (const e of m.include.filter(e => e.backend === '<your-backend>')) {
+  console.log(e.dockerfile, '->', e.dockerfile.endsWith('<suffix>'));
+}"
+```
+
+A quick way to find the right insertion point: `grep -n 'item.dockerfile.endsWith' scripts/changed-backends.js`.
+
+**`bump_deps.yaml` registration — REQUIRED for any backend pinning an upstream commit.** If your backend's Makefile has a `*_VERSION?=<sha>` pin to a third-party repo, the daily auto-bump bot at `.github/workflows/bump_deps.yaml` won't notice it unless you register the backend in its matrix. The bot runs `.github/bump_deps.sh` which `grep`s for `^$VAR?=` in the Makefile you list — so the pin MUST live in the Makefile (not in a separate shell script). The bump for ds4 (#9761) had to walk this back because the original landed the pin in `prepare.sh`, which the bot can't see. Pattern (for `antirez/ds4`):
+
+```yaml
+# .github/workflows/bump_deps.yaml
+matrix:
+  include:
+    - repository: "antirez/ds4"
+      variable: "DS4_VERSION"
+      branch: "main"
+      file: "backend/cpp/ds4/Makefile"
+```
+
+And the corresponding Makefile shape (mirror `backend/cpp/llama-cpp/Makefile`):
+
+```makefile
+DS4_VERSION?=ae302c2fa18cc6d9aefc021d0f27ae03c9ad2fc0
+DS4_REPO?=https://github.com/antirez/ds4
+...
+ds4:
+	mkdir -p ds4
+	cd ds4 && git init -q && \
+	git remote add origin $(DS4_REPO) && \
+	git fetch --depth 1 origin $(DS4_VERSION) && \
+	git checkout FETCH_HEAD
+```
+
+If you have a `prepare.sh` doing the clone, delete it — the recipe belongs in the Makefile target so `make purge && make` works as a clean-and-rebuild and so the bump bot finds the pin.
 
 **Placement in file:**
 - CPU builds: Add after other CPU builds (e.g., after `cpu-chatterbox`)
