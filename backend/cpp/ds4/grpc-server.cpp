@@ -207,6 +207,43 @@ static ds4_think_mode parse_think_mode(const backend::PredictOptions *request) {
     return DS4_THINK_HIGH;
 }
 
+// Build the rendered text for cache keying. We feed the same text the model
+// will see; that lets the cache survive small client-side reformatting of
+// chat history (the cache is keyed on bytes, not tokens).
+static std::string render_prompt_text(const backend::PredictOptions *request) {
+    // Two-mode: either the raw prompt or the chat-template path. We mirror
+    // build_prompt's branching but accumulate text (not tokens) so we can
+    // SHA1 it for the cache key. ds4_session caches a tokens-indexed
+    // checkpoint, but the disk format keys on bytes per ds4-server's design.
+    if (!request->usetokenizertemplate() || request->messages_size() == 0) {
+        return request->prompt();
+    }
+    std::string out;
+    const std::string sys_role = "system";
+    for (const auto &m : request->messages()) {
+        if (m.role() == sys_role) { out += "[sys] " + m.content() + "\n"; break; }
+    }
+    for (const auto &m : request->messages()) {
+        if (m.role() == sys_role) continue;
+        out += "[" + m.role() + "] " + m.content() + "\n";
+    }
+    return out;
+}
+
+ds4_backend::KvCache g_kv_cache;
+
+// Try to recover prefill state for `rendered`. Returns the matched prefix length.
+static size_t maybe_load_cache(const std::string &rendered) {
+    if (!g_kv_cache.enabled() || !g_session) return 0;
+    return g_kv_cache.LoadLongestPrefix(g_session, rendered, g_ctx_size);
+}
+
+static void maybe_save_cache(const std::string &rendered) {
+    if (g_kv_cache.enabled() && g_session) {
+        g_kv_cache.Save(g_session, rendered, g_ctx_size);
+    }
+}
+
 static void build_prompt(ds4_engine *engine, const backend::PredictOptions *request,
                          ds4_tokens *out) {
     if (!request->usetokenizertemplate() || request->messages_size() == 0) {
@@ -306,6 +343,8 @@ public:
             else if (k == "kv_cache_dir") g_kv_cache_dir = v;
         }
 
+        g_kv_cache.SetDir(g_kv_cache_dir);
+
         ds4_engine_options opt = {};
         opt.model_path = model_path.c_str();
         opt.mtp_path = mtp_path.empty() ? nullptr : mtp_path.c_str();
@@ -369,11 +408,15 @@ public:
         int n_predict = request->tokens() > 0 ? request->tokens() : 256;
 
         CollectCtx collect = {g_engine, "", {}, reply, 0, {}, "", ""};
+        std::string cache_key = render_prompt_text(request);
+        size_t cache_hit = maybe_load_cache(cache_key);
+        (void)cache_hit; // future: skip prompt prefix if hit covers full prompt
         int rc = ds4_engine_generate_argmax(g_engine, &prompt, n_predict, g_ctx_size,
                                             collect_emit, collect_done, &collect,
                                             nullptr, nullptr);
         int prompt_len = prompt.len;
         ds4_tokens_free(&prompt);
+        maybe_save_cache(cache_key);
 
         // Flush any buffered parser state.
         std::vector<ds4_backend::ParserEvent> events;
@@ -414,10 +457,14 @@ public:
         int n_predict = request->tokens() > 0 ? request->tokens() : 256;
 
         StreamCtx s = {g_engine, writer, {}, 0, false, {}};
+        std::string cache_key = render_prompt_text(request);
+        size_t cache_hit = maybe_load_cache(cache_key);
+        (void)cache_hit; // future: skip prompt prefix if hit covers full prompt
         int rc = ds4_engine_generate_argmax(g_engine, &prompt, n_predict, g_ctx_size,
                                             stream_emit, stream_done, &s,
                                             nullptr, nullptr);
         ds4_tokens_free(&prompt);
+        maybe_save_cache(cache_key);
 
         // Flush parser state.
         std::vector<ds4_backend::ParserEvent> events;
