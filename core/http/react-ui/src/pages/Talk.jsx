@@ -2,6 +2,9 @@ import { useState, useRef, useEffect, useCallback, useMemo } from 'react'
 import { useOutletContext, useNavigate } from 'react-router-dom'
 import { realtimeApi } from '../utils/api'
 import ModelSelector from '../components/ModelSelector'
+import ClientMCPDropdown from '../components/ClientMCPDropdown'
+import { useMCPClient } from '../hooks/useMCPClient'
+import { loadClientMCPServers } from '../utils/mcpClientStorage'
 
 const STATUS_STYLES = {
   disconnected: { icon: 'fa-solid fa-circle', color: 'var(--color-text-secondary)', bg: 'transparent' },
@@ -39,6 +42,21 @@ export default function Talk() {
   const [voice, setVoice] = useState('')
   const [voiceEdited, setVoiceEdited] = useState(false)
   const [language, setLanguage] = useState('')
+
+  // Client MCP — mirrors the chat page's wiring (useMCPClient + ClientMCPDropdown).
+  // Talk has a single ephemeral session, so the active server set lives in component
+  // state rather than per-chat config.
+  const [clientMCPServers, setClientMCPServers] = useState(() => loadClientMCPServers())
+  const [activeMCPIds, setActiveMCPIds] = useState([])
+  const {
+    connect: mcpConnect,
+    disconnect: mcpDisconnect,
+    getToolsForLLM,
+    isClientTool,
+    executeTool,
+    connectionStatuses,
+    getConnectedTools,
+  } = useMCPClient()
 
   // Diagnostics
   const [diagVisible, setDiagVisible] = useState(false)
@@ -84,6 +102,32 @@ export default function Talk() {
     transcriptEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [transcript])
 
+  // Mirror Chat.jsx: connect / disconnect client MCP servers as the user toggles them.
+  useEffect(() => {
+    const activeSet = new Set(activeMCPIds)
+    for (const server of clientMCPServers) {
+      const status = connectionStatuses[server.id]?.status
+      if (activeSet.has(server.id) && status !== 'connected' && status !== 'connecting') {
+        mcpConnect(server)
+      } else if (!activeSet.has(server.id) && (status === 'connected' || status === 'connecting')) {
+        mcpDisconnect(server.id)
+      }
+    }
+  }, [activeMCPIds.join(','), clientMCPServers, connectionStatuses, mcpConnect, mcpDisconnect])
+
+  const handleClientMCPToggle = useCallback((serverId) => {
+    setActiveMCPIds(prev => prev.includes(serverId) ? prev.filter(s => s !== serverId) : [...prev, serverId])
+  }, [])
+  const handleClientMCPServerAdded = useCallback((server) => {
+    setClientMCPServers(loadClientMCPServers())
+    setActiveMCPIds(prev => prev.includes(server.id) ? prev : [...prev, server.id])
+  }, [])
+  const handleClientMCPServerRemoved = useCallback(async (id) => {
+    await mcpDisconnect(id)
+    setClientMCPServers(loadClientMCPServers())
+    setActiveMCPIds(prev => prev.filter(s => s !== id))
+  }, [mcpDisconnect])
+
   const selectedModelInfo = pipelineModels.find(m => m.name === selectedModel)
 
   // ── Status helper ──
@@ -96,7 +140,9 @@ export default function Talk() {
   const sendSessionUpdate = useCallback(() => {
     const dc = dcRef.current
     if (!dc || dc.readyState !== 'open') return
-    if (!instructions.trim() && !voice.trim() && !language.trim()) return
+
+    const tools = getToolsForLLM()
+    if (!instructions.trim() && !voice.trim() && !language.trim() && tools.length === 0) return
 
     const session = {}
     if (instructions.trim()) session.instructions = instructions.trim()
@@ -105,9 +151,57 @@ export default function Talk() {
       if (voice.trim()) session.audio.output = { voice: voice.trim() }
       if (language.trim()) session.audio.input = { transcription: { language: language.trim() } }
     }
+    // Pass MCP-server-advertised tools straight through. Server-side they
+    // get rendered into the model's prompt via the function:/argument_regex
+    // pair on the model config (gallery/lfm.yaml for LFM2.5-Audio).
+    if (tools.length > 0) session.tools = tools
 
     dc.send(JSON.stringify({ type: 'session.update', session }))
-  }, [instructions, voice, language])
+  }, [instructions, voice, language, getToolsForLLM])
+
+  // Re-send session.update whenever the tool set changes mid-session so the
+  // model sees newly-toggled MCP servers without a reconnect.
+  useEffect(() => {
+    if (isConnected) sendSessionUpdate()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeMCPIds.join(',')])
+
+  // ── Function-call dispatcher ──
+  // Mirrors the chat-page agentic loop: collect args from the model's
+  // function_call_arguments.done event, hand them to the MCP client's
+  // executeTool, then echo the result back via conversation.item.create +
+  // response.create so the model can complete its turn with the tool output.
+  const handleFunctionCall = useCallback(async (event) => {
+    const dc = dcRef.current
+    if (!dc || dc.readyState !== 'open') return
+    const { call_id: callId, name, arguments: argsJson } = event
+    if (!callId || !name) return
+    if (!isClientTool(name)) {
+      // No MCP server advertises this tool — let the model know so it can
+      // recover instead of hanging.
+      dc.send(JSON.stringify({
+        type: 'conversation.item.create',
+        item: { type: 'function_call_output', call_id: callId, output: `Error: unknown tool "${name}"` },
+      }))
+      dc.send(JSON.stringify({ type: 'response.create' }))
+      return
+    }
+    updateStatus('thinking', `Running tool ${name}...`)
+    try {
+      const result = await executeTool(name, argsJson)
+      dc.send(JSON.stringify({
+        type: 'conversation.item.create',
+        item: { type: 'function_call_output', call_id: callId, output: typeof result === 'string' ? result : JSON.stringify(result) },
+      }))
+      dc.send(JSON.stringify({ type: 'response.create' }))
+    } catch (err) {
+      dc.send(JSON.stringify({
+        type: 'conversation.item.create',
+        item: { type: 'function_call_output', call_id: callId, output: `Error: ${err?.message || err}` },
+      }))
+      dc.send(JSON.stringify({ type: 'response.create' }))
+    }
+  }, [executeTool, isClientTool, updateStatus])
 
   // ── Server event handler ──
   const handleServerEvent = useCallback((event) => {
@@ -163,6 +257,11 @@ export default function Talk() {
       case 'response.output_audio.delta':
         updateStatus('speaking', 'Speaking...')
         break
+      case 'response.function_call_arguments.done':
+        // Don't await — keep the event loop free; handleFunctionCall sends
+        // conversation.item.create + response.create when it's done.
+        handleFunctionCall(event)
+        break
       case 'response.done':
         updateStatus('listening', 'Listening...')
         break
@@ -171,7 +270,7 @@ export default function Talk() {
         updateStatus('error', 'Error: ' + (event.error?.message || 'Unknown error'))
         break
     }
-  }, [sendSessionUpdate, updateStatus])
+  }, [sendSessionUpdate, updateStatus, handleFunctionCall])
 
   // ── Connect ──
   const connect = useCallback(async () => {
@@ -506,6 +605,21 @@ export default function Talk() {
               style={{ marginTop: 'var(--spacing-xs)' }}>
               <i className="fas fa-plus" style={{ marginRight: 'var(--spacing-xs)' }} /> Create Pipeline Model
             </button>
+          </div>
+
+          {/* Tools (client-side MCP servers, mirroring the chat page) */}
+          <div style={{ marginBottom: 'var(--spacing-md)' }}>
+            <label className="form-label" style={{ fontSize: '0.8125rem' }}>
+              <i className="fas fa-screwdriver-wrench" style={{ color: 'var(--color-primary)', marginRight: 4 }} /> Tools
+            </label>
+            <ClientMCPDropdown
+              activeServerIds={activeMCPIds}
+              onToggleServer={handleClientMCPToggle}
+              onServerAdded={handleClientMCPServerAdded}
+              onServerRemoved={handleClientMCPServerRemoved}
+              connectionStatuses={connectionStatuses}
+              getConnectedTools={getConnectedTools}
+            />
           </div>
 
           {/* Pipeline details */}

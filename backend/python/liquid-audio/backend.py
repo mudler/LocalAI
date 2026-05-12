@@ -741,10 +741,19 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
         ))
 
 
-    def _build_chat_state(self, messages, user_prompt):
-        """Build a ChatState from a list of (role, content) tuples plus an optional final user turn."""
+    def _build_chat_state(self, messages, user_prompt, tools_prelude=None):
+        """Build a ChatState from a list of (role, content) tuples plus an optional final user turn.
+
+        tools_prelude, when non-empty, is prepended as an extra system turn carrying
+        the LFM2 tool-list block — mirrors gallery/lfm.yaml's `function:` template
+        so the model sees the same prompt shape whether served via llama-cpp or here.
+        """
         from liquid_audio import ChatState
         chat = ChatState(self.processor)
+        if tools_prelude:
+            chat.new_turn("system")
+            chat.add_text(tools_prelude)
+            chat.end_turn()
         for role, content in messages:
             chat.new_turn(role)
             chat.add_text(content)
@@ -766,15 +775,49 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
             out.append((role, m.content or ""))
         return out
 
+    def _render_tools_prelude(self, request):
+        """Build the LFM2 `<|tool_list_start|>…<|tool_list_end|>` system prelude
+        from request.Tools (OpenAI Chat-Completions tool JSON). Returns "" when
+        no tools are attached. Output mirrors gallery/lfm.yaml's `function:`
+        template so the model sees the same prompt whether routed via llama-cpp
+        or this backend."""
+        tools_raw = getattr(request, "Tools", "") or ""
+        if not tools_raw:
+            return ""
+        try:
+            tools = json.loads(tools_raw)
+        except json.JSONDecodeError:
+            print(f"liquid-audio: ignoring malformed Tools JSON: {tools_raw[:200]!r}",
+                  file=sys.stderr)
+            return ""
+        if not isinstance(tools, list) or not tools:
+            return ""
+        # The LFM2 chat template uses single-quoted Python-dict-ish syntax in
+        # examples, but the tokenizer treats this whole block as opaque text;
+        # JSON works fine and is what other backends emit.
+        return (
+            "You are a function calling AI model. You are provided with functions to "
+            "execute. You may call one or more functions to assist with the user query. "
+            "Don't make assumptions about what values to plug into functions.\n"
+            "List of tools: <|tool_list_start|>"
+            + json.dumps(tools, separators=(",", ":"))
+            + "<|tool_list_end|>"
+        )
+
     def _generate_text_stream(self, request):
         """Yield text-only deltas from generate_sequential. Caller joins for unary Predict."""
         if self.model is None or self.processor is None:
             raise RuntimeError("Model not loaded")
         messages = self._collect_messages(request)
         user_prompt = request.Prompt or None
+        tools_prelude = self._render_tools_prelude(request)
         # If the request already carries Messages, Prompt is the templated form
         # of the same content — don't append a duplicate user turn.
-        chat = self._build_chat_state(messages, user_prompt if not messages else None)
+        chat = self._build_chat_state(
+            messages,
+            user_prompt if not messages else None,
+            tools_prelude=tools_prelude,
+        )
 
         max_new = request.Tokens if request.Tokens > 0 else int(self.options.get("max_new_tokens", 512))
         temperature = request.Temperature if request.Temperature > 0 else None

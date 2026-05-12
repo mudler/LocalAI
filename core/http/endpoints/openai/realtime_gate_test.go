@@ -2,6 +2,7 @@ package openai
 
 import (
 	"github.com/mudler/LocalAI/core/config"
+	"github.com/mudler/LocalAI/core/http/endpoints/openai/types"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
@@ -89,5 +90,64 @@ var _ = Describe("prepareRealtimeConfig", func() {
 		}
 		_, _, ok := prepareRealtimeConfig(cfg)
 		Expect(ok).To(BeTrue())
+	})
+})
+
+var _ = Describe("defaultMaxHistoryItems", func() {
+	It("caps realtime_audio sessions at 6", func() {
+		cfg := &config.ModelConfig{KnownUsecases: withUsecases(config.FLAG_REALTIME_AUDIO)}
+		Expect(defaultMaxHistoryItems(cfg)).To(Equal(6))
+	})
+	It("leaves legacy pipelines unlimited", func() {
+		cfg := &config.ModelConfig{Pipeline: config.Pipeline{LLM: "llama"}}
+		Expect(defaultMaxHistoryItems(cfg)).To(Equal(0))
+	})
+	It("tolerates nil", func() {
+		Expect(defaultMaxHistoryItems(nil)).To(Equal(0))
+	})
+})
+
+var _ = Describe("trimRealtimeItems", func() {
+	user := func(id string) *types.MessageItemUnion {
+		return &types.MessageItemUnion{User: &types.MessageItemUser{ID: id}}
+	}
+	assistant := func(id string) *types.MessageItemUnion {
+		return &types.MessageItemUnion{Assistant: &types.MessageItemAssistant{ID: id}}
+	}
+	fnCall := func(id, callID string) *types.MessageItemUnion {
+		return &types.MessageItemUnion{FunctionCall: &types.MessageItemFunctionCall{ID: id, CallID: callID}}
+	}
+	fnOut := func(id, callID string) *types.MessageItemUnion {
+		return &types.MessageItemUnion{FunctionCallOutput: &types.MessageItemFunctionCallOutput{ID: id, CallID: callID}}
+	}
+
+	It("returns the input unchanged when cap is zero", func() {
+		in := []*types.MessageItemUnion{user("u1"), assistant("a1")}
+		Expect(trimRealtimeItems(in, 0)).To(Equal(in))
+	})
+
+	It("returns the input unchanged when under the cap", func() {
+		in := []*types.MessageItemUnion{user("u1"), assistant("a1")}
+		Expect(trimRealtimeItems(in, 4)).To(Equal(in))
+	})
+
+	It("keeps the tail when over the cap", func() {
+		in := []*types.MessageItemUnion{user("u1"), assistant("a1"), user("u2"), assistant("a2"), user("u3")}
+		out := trimRealtimeItems(in, 3)
+		Expect(out).To(HaveLen(3))
+		Expect(out[0].User.ID).To(Equal("u2"))
+		Expect(out[2].User.ID).To(Equal("u3"))
+	})
+
+	It("pulls the cut left to keep a function_call paired with its output", func() {
+		// 0:user 1:fc 2:fc_out 3:assistant — cap=2 would otherwise start at
+		// index 2 (orphan fc_out). Helper must roll back to include 1.
+		in := []*types.MessageItemUnion{user("u1"), fnCall("fc1", "c1"), fnOut("fo1", "c1"), assistant("a1")}
+		out := trimRealtimeItems(in, 2)
+		// Expect at least the fc + fc_out + assistant (3 items, cap was 2)
+		// — the rollback prefers correctness over the cap.
+		Expect(len(out)).To(BeNumerically(">=", 3))
+		Expect(out[0].FunctionCall).NotTo(BeNil())
+		Expect(out[1].FunctionCallOutput).NotTo(BeNil())
 	})
 })

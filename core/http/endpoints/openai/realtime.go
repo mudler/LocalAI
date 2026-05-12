@@ -79,6 +79,12 @@ type Session struct {
 	InputSampleRate  int
 	OutputSampleRate int
 	MaxOutputTokens  types.IntOrInf
+	// MaxHistoryItems caps the number of MessageItems passed to the LLM each
+	// turn (0 = unlimited). Small models — especially the LFM2.5-Audio 1.5B
+	// served via the liquid-audio backend — degrade quickly past a handful
+	// of turns. Counted from the tail; FunctionCall + FunctionCallOutput
+	// pairs are kept together so we never feed an orphaned tool result.
+	MaxHistoryItems int
 
 	// Response cancellation: protects activeResponseCancel/activeResponseDone
 	responseMu           sync.Mutex
@@ -233,6 +239,34 @@ func registerRealtime(application *application.Application, model string) func(c
 	}
 }
 
+// defaultMaxHistoryItems picks a sensible default cap for the session.
+// Small any-to-any audio models degrade quickly past a handful of turns;
+// legacy pipelines composing larger LLMs keep the historical "unlimited"
+// default and rely on the LLM's own context window.
+func defaultMaxHistoryItems(cfg *config.ModelConfig) int {
+	if cfg != nil && cfg.HasUsecases(config.FLAG_REALTIME_AUDIO) {
+		return 6
+	}
+	return 0
+}
+
+// trimRealtimeItems returns the tail of items capped at maxItems (0 = no cap).
+// Walks backwards keeping function_call + function_call_output pairs together
+// so we never feed the LLM an orphaned tool result that references a call it
+// can't see.
+func trimRealtimeItems(items []*types.MessageItemUnion, maxItems int) []*types.MessageItemUnion {
+	if maxItems <= 0 || len(items) <= maxItems {
+		return items
+	}
+	// Find the cut point starting from len-maxItems and pull it left until
+	// we're not in the middle of a tool-call pair.
+	cut := len(items) - maxItems
+	for cut > 0 && items[cut] != nil && items[cut].FunctionCallOutput != nil {
+		cut--
+	}
+	return items[cut:]
+}
+
 // prepareRealtimeConfig validates a model config for use in a realtime session
 // and fills in pipeline slots for self-contained any-to-any models. It returns
 // an error code + message pair suitable for sendError; the bool indicates
@@ -311,6 +345,7 @@ func runRealtimeSession(application *application.Application, t Transport, model
 		Conversations:    make(map[string]*Conversation),
 		InputSampleRate:  defaultRemoteSampleRate,
 		OutputSampleRate: defaultRemoteSampleRate,
+		MaxHistoryItems:  defaultMaxHistoryItems(cfg),
 	}
 
 	// Create a default conversation
@@ -1191,7 +1226,8 @@ func triggerResponse(ctx context.Context, session *Session, conv *Conversation, 
 
 	imgIndex := 0
 	conv.Lock.Lock()
-	for _, item := range conv.Items {
+	items := trimRealtimeItems(conv.Items, session.MaxHistoryItems)
+	for _, item := range items {
 		if item.User != nil {
 			msg := schema.Message{
 				Role: string(types.MessageRoleUser),
