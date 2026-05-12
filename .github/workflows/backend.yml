@@ -154,7 +154,13 @@ jobs:
   # digest only — no tags are applied at build time.
   backend-merge-jobs-multiarch:
     needs: [generate-matrix, backend-jobs-multiarch]
-    if: needs.generate-matrix.outputs['has-merges-multiarch'] == 'true'
+    # !cancelled() lets the merge run even when a few build legs failed.
+    # Without it, GHA's default `needs:` cascade skips the entire merge
+    # matrix on a single failed/cancelled cell. We still want to publish
+    # the manifest lists for tag-suffixes whose legs all succeeded.
+    # Observed in v4.2.1: 2 singlearch build failures cascade-skipped all
+    # ~199 singlearch merge entries.
+    if: ${{ !cancelled() && needs.generate-matrix.outputs['has-merges-multiarch'] == 'true' }}
     uses: ./.github/workflows/backend_merge.yml
     with:
       tag-latest: ${{ matrix.tag-latest }}
@@ -170,7 +176,8 @@ jobs:
 
   backend-merge-jobs-singlearch:
     needs: [generate-matrix, backend-jobs-singlearch]
-    if: needs.generate-matrix.outputs['has-merges-singlearch'] == 'true'
+    # See note on backend-merge-jobs-multiarch above for !cancelled().
+    if: ${{ !cancelled() && needs.generate-matrix.outputs['has-merges-singlearch'] == 'true' }}
     uses: ./.github/workflows/backend_merge.yml
     with:
       tag-latest: ${{ matrix.tag-latest }}

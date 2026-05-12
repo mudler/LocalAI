@@ -126,6 +126,45 @@ jobs:
             docker buildx imagetools inspect "$first_tag"
           fi
 
+      # Delete the keepalive tags backend_build.yml created in
+      # quay.io/go-skynet/ci-cache. The user-facing manifest list now
+      # references the digests directly, so the keepalive anchors are no
+      # longer needed and would otherwise accumulate per run.
+      #
+      # Quay's docker registry v2 doesn't allow tag deletes — only digest
+      # deletes. The proper delete is the quay REST API, which requires an
+      # OAuth-scoped token. We try `quayPassword` as a bearer token: if the
+      # secret is an OAuth app token (typical for service accounts) the
+      # delete succeeds; otherwise this is a soft no-op and the tag persists
+      # until manually pruned. Failure here MUST NOT fail the merge — the
+      # merge has already produced the user-facing manifest list at this
+      # point and the keepalive tags are pure overhead.
+      - name: Cleanup keepalive tags in ci-cache
+        if: github.event_name != 'pull_request' && success()
+        env:
+          QUAY_TOKEN: ${{ secrets.quayPassword }}
+        run: |
+          set -uo pipefail
+          suffix='${{ inputs.tag-suffix }}'
+          run_id='${{ github.run_id }}'
+          # platform-tag is one of: amd64, arm64, single (set by
+          # backend_build.yml). Try all three; ignore 404s for the ones
+          # that don't exist for this tag-suffix.
+          rc=0
+          for plat in amd64 arm64 single; do
+            tag="keepalive-${run_id}${suffix}-${plat}"
+            url="https://quay.io/api/v1/repository/go-skynet/ci-cache/tag/${tag}"
+            http=$(curl -sS -o /dev/null -w '%{http_code}' \
+              -X DELETE -H "Authorization: Bearer ${QUAY_TOKEN}" "$url" || echo "000")
+            case "$http" in
+              204|200) echo "deleted $tag" ;;
+              404)     echo "not present: $tag" ;;
+              401|403) echo "auth not OAuth-scoped (http $http) for $tag — skipping; orphan tag will persist" ;;
+              *)       echo "unexpected http $http deleting $tag — skipping" ;;
+            esac
+          done
+          exit 0
+
       - name: Job summary
         if: github.event_name != 'pull_request'
         run: |

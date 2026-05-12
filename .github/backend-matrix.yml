@@ -389,7 +389,12 @@ include:
     tag-latest: 'auto'
     tag-suffix: '-gpu-nvidia-cuda-12-llama-cpp'
     builder-base-image: 'quay.io/go-skynet/ci-cache:base-grpc-cuda-12-amd64'
-    runs-on: 'ubuntu-latest'
+    # bigger-runner: cold builds for this entry consistently take 5h+ on
+    # ubuntu-latest (observed 5h36m on v4.2.1). Move back to bigger-runner
+    # so the build finishes well within GHA's 6h job timeout. Phase 5.3 of
+    # the free-tier migration (PR #9730) flipped this to ubuntu-latest as
+    # a 'highest-risk batch' with explicit per-entry revert.
+    runs-on: 'bigger-runner'
     base-image: "ubuntu:24.04"
     skip-drivers: 'false'
     backend: "llama-cpp"
@@ -403,7 +408,9 @@ include:
     tag-latest: 'auto'
     tag-suffix: '-gpu-nvidia-cuda-12-turboquant'
     builder-base-image: 'quay.io/go-skynet/ci-cache:base-grpc-cuda-12-amd64'
-    runs-on: 'ubuntu-latest'
+    # bigger-runner: same rationale as -gpu-nvidia-cuda-12-llama-cpp above
+    # (observed 6h5m wall-clock on v4.2.1, just past the 6h job timeout).
+    runs-on: 'bigger-runner'
     base-image: "ubuntu:24.04"
     skip-drivers: 'false'
     backend: "turboquant"
@@ -899,7 +906,9 @@ include:
     tag-latest: 'auto'
     tag-suffix: '-gpu-nvidia-cuda-13-llama-cpp'
     builder-base-image: 'quay.io/go-skynet/ci-cache:base-grpc-cuda-13-amd64'
-    runs-on: 'ubuntu-latest'
+    # bigger-runner: cold builds for this entry take 5h+ on ubuntu-latest
+    # (observed 5h37m on v4.2.1). Same rationale as the cuda-12 variant.
+    runs-on: 'bigger-runner'
     base-image: "ubuntu:24.04"
     skip-drivers: 'false'
     backend: "llama-cpp"
@@ -913,7 +922,8 @@ include:
     tag-latest: 'auto'
     tag-suffix: '-gpu-nvidia-cuda-13-turboquant'
     builder-base-image: 'quay.io/go-skynet/ci-cache:base-grpc-cuda-13-amd64'
-    runs-on: 'ubuntu-latest'
+    # bigger-runner: observed 6h5m wall-clock on v4.2.1 — at the GHA timeout.
+    runs-on: 'bigger-runner'
     base-image: "ubuntu:24.04"
     skip-drivers: 'false'
     backend: "turboquant"

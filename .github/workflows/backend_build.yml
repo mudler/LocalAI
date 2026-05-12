@@ -228,6 +228,31 @@ jobs:
           digest="${{ steps.build.outputs.digest }}"
           touch "/tmp/digests/${digest#sha256:}"
 
+      # Quay garbage-collects unreferenced manifests aggressively (we observed
+      # ~1-2h reaping in practice). When backend_merge.yml's `imagetools create`
+      # runs hours after the build finishes — which is normal here, since the
+      # build matrix can take 2h+ to drain at max-parallel: 8 — the per-arch
+      # digests pushed by `push-by-digest=true` above are unreferenced and may
+      # already be gone, producing `manifest not found` errors at merge time.
+      #
+      # Anchor each digest to a tag in our internal ci-cache image. Quay won't
+      # GC any manifest with at least one tag, and ci-cache is invisible to
+      # consumers so it's the natural place. The merge step still references
+      # the original digest in local-ai-backends; the cache tag exists only to
+      # keep the manifest alive across the gap. The merge job deletes these
+      # tags after publishing the user-facing manifest list.
+      - name: Anchor digest in ci-cache so quay GC won't reap before merge
+        if: github.event_name != 'pull_request'
+        env:
+          DIGEST: ${{ steps.build.outputs.digest }}
+        run: |
+          set -euo pipefail
+          tag="keepalive-${{ github.run_id }}${{ inputs.tag-suffix }}-${{ inputs.platform-tag || 'single' }}"
+          docker buildx imagetools create \
+            -t "quay.io/go-skynet/ci-cache:${tag}" \
+            "quay.io/go-skynet/local-ai-backends@${DIGEST}"
+          echo "anchored ${DIGEST} as quay.io/go-skynet/ci-cache:${tag}" >> "$GITHUB_STEP_SUMMARY"
+
       # Artifact name uses a `--` separator between tag-suffix and platform-tag
       # to avoid prefix collisions during the merge job's pattern-based download.
       # Tag-suffixes are not prefix-disjoint (e.g. -gpu-nvidia-cuda-12-vllm is a

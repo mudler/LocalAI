@@ -104,7 +104,9 @@ jobs:
     # backend_merge.yml's push-side steps are all gated on
     # github.event_name != 'pull_request', so on a PR the merge job would
     # do nothing. Skip it entirely to avoid spinning up an empty runner.
-    if: github.event_name != 'pull_request' && needs.generate-matrix.outputs['has-merges-multiarch'] == 'true'
+    # !cancelled() lets the merge run even when a few build legs fail —
+    # see the matching note in backend.yml.
+    if: ${{ !cancelled() && github.event_name != 'pull_request' && needs.generate-matrix.outputs['has-merges-multiarch'] == 'true' }}
     uses: ./.github/workflows/backend_merge.yml
     with:
       tag-latest: ${{ matrix.tag-latest }}
@@ -118,7 +120,7 @@ jobs:
 
   backend-merge-jobs-singlearch:
     needs: [generate-matrix, backend-jobs-singlearch]
-    if: github.event_name != 'pull_request' && needs.generate-matrix.outputs['has-merges-singlearch'] == 'true'
+    if: ${{ !cancelled() && github.event_name != 'pull_request' && needs.generate-matrix.outputs['has-merges-singlearch'] == 'true' }}
     uses: ./.github/workflows/backend_merge.yml
     with:
       tag-latest: ${{ matrix.tag-latest }}

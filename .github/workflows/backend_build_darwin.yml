@@ -116,6 +116,13 @@ jobs:
           # already), we don't have to chase missing dylibs one at a time.
           # The downloads cache makes the reinstall fast (~5s on a hit).
           brew reinstall ccache
+          # Same pattern for grpc: its CMake config (used by the llama-cpp
+          # `grpc-server` target) does find_package(absl). The cache restores
+          # /opt/homebrew/Cellar/grpc so brew above no-ops the install, but
+          # abseil isn't in our Cellar cache list and never gets installed
+          # alongside, leaving grpc's CMake unable to resolve it. Reinstalling
+          # grpc re-validates and pulls abseil in, mirroring the ccache fix.
+          brew reinstall grpc
           # The brew cache restores the Cellar dirs but NOT the bin symlinks
           # at /opt/homebrew/bin/*. brew install above sees the Cellar present
           # and decides "already installed" without re-linking, so on a cache-
