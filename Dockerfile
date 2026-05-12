@@ -305,7 +305,7 @@ EOT
 ###################################
 
 # Build React UI
-FROM node:25-slim AS react-ui-builder
+FROM node:26-slim AS react-ui-builder
 WORKDIR /app
 COPY core/http/react-ui/package*.json ./
 RUN npm install
