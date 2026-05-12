@@ -237,7 +237,7 @@ jobs:
       # platform-tag (single-arch entries) keeps the artifact name non-trailing.
       - name: Upload digest artifact
         if: github.event_name != 'pull_request'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: digests${{ inputs.tag-suffix }}--${{ inputs.platform-tag || 'single' }}
           path: /tmp/digests/*

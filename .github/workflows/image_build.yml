@@ -187,7 +187,7 @@ jobs:
 
       - name: Upload digest artifact
         if: github.event_name != 'pull_request'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: digests-localai${{ inputs.tag-suffix == '' && '-core' || inputs.tag-suffix }}-${{ inputs.platform-tag }}
           path: /tmp/digests/*
