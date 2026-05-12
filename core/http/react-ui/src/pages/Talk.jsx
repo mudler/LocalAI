@@ -75,7 +75,7 @@ export default function Talk() {
           if (!voiceEdited) setVoice(models[0].voice || '')
         }
       })
-      .catch(err => addToast(`Failed to load pipeline models: ${err.message}`, 'error', 5000, { link: { href: '/app/traces?tab=backend', text: 'View traces' } }))
+      .catch(err => addToast(`Failed to load realtime models: ${err.message}`, 'error', 5000, { link: { href: '/app/traces?tab=backend', text: 'View traces' } }))
       .finally(() => setModelsLoading(false))
   }, [])
 
@@ -176,7 +176,7 @@ export default function Talk() {
   // ── Connect ──
   const connect = useCallback(async () => {
     if (!selectedModel) {
-      addToast('Please select a pipeline model first.', 'warning')
+      addToast('Please select a realtime model first.', 'warning')
       return
     }
     if (!navigator.mediaDevices?.getUserMedia) {
@@ -509,7 +509,22 @@ export default function Talk() {
           </div>
 
           {/* Pipeline details */}
-          {selectedModelInfo && (
+          {selectedModelInfo && selectedModelInfo.self_contained && (
+            <div style={{
+              background: 'var(--color-bg-secondary)', borderRadius: 'var(--radius-sm)',
+              padding: 'var(--spacing-xs) var(--spacing-sm)', border: '1px solid var(--color-border)',
+              marginBottom: 'var(--spacing-xs)', fontSize: '0.75rem',
+              display: 'flex', alignItems: 'center', gap: 'var(--spacing-xs)',
+            }}>
+              <i className="fas fa-tower-broadcast" style={{ color: 'var(--color-primary)' }} />
+              <span style={{ color: 'var(--color-text-secondary)' }}>Self-contained any-to-any —</span>
+              <span style={{ fontFamily: 'var(--font-mono)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {selectedModelInfo.name}
+              </span>
+              <span style={{ color: 'var(--color-text-secondary)', marginLeft: 'auto' }}>handles VAD · STT · LLM · TTS</span>
+            </div>
+          )}
+          {selectedModelInfo && !selectedModelInfo.self_contained && (
             <div style={{
               display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 'var(--spacing-xs)',
               marginBottom: 'var(--spacing-xs)', fontSize: '0.75rem',
@@ -533,7 +548,8 @@ export default function Talk() {
           {selectedModelInfo && !isConnected && (
             <div style={{ marginBottom: 'var(--spacing-md)' }}>
               <button className="btn btn-secondary btn-sm" onClick={() => navigate(`/app/model-editor/${encodeURIComponent(selectedModel)}`)}>
-                <i className="fas fa-pen-to-square" style={{ marginRight: 'var(--spacing-xs)' }} /> Edit Pipeline
+                <i className="fas fa-pen-to-square" style={{ marginRight: 'var(--spacing-xs)' }} />
+                {selectedModelInfo.self_contained ? ' Edit Model Config' : ' Edit Pipeline'}
               </button>
             </div>
           )}

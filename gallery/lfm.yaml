@@ -10,6 +10,16 @@ config_file: |
         - <dummy32000>
         - </s>
         - <|endoftext|>
+    function:
+        # LFM2 Pythonic tool-call syntax: <|tool_call_start|>[name(k="v", ...)]<|tool_call_end|>
+        # Mirrors common_chat_params_init_lfm2 in llama.cpp/common/chat.cpp.
+        response_regex:
+            - '<\|tool_call_start\|>\[(?P<name>\w+)\((?P<arguments>.*?)\)\]<\|tool_call_end\|>'
+        argument_regex:
+            - '(?P<key>\w+)\s*=\s*"(?P<value>[^"]*)"'
+            - '(?P<key>\w+)\s*=\s*(?P<value>-?\d+(?:\.\d+)?|true|false|null)'
+        argument_regex_key_name: key
+        argument_regex_value_name: value
     template:
         chat: |
             {{.Input -}}

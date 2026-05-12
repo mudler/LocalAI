@@ -176,6 +176,10 @@ func (f *fakeGRPCBackend) AudioTransformStream(_ context.Context, _ ...ggrpc.Cal
 	return nil, nil
 }
 
+func (f *fakeGRPCBackend) AudioToAudioStream(_ context.Context, _ ...ggrpc.CallOption) (grpc.AudioToAudioStreamClient, error) {
+	return nil, nil
+}
+
 func (f *fakeGRPCBackend) ModelMetadata(_ context.Context, _ *pb.ModelOptions, _ ...ggrpc.CallOption) (*pb.ModelMetadataResponse, error) {
 	return &pb.ModelMetadataResponse{}, nil
 }

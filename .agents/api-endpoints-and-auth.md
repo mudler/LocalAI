@@ -284,7 +284,17 @@ Also bump the expected-length count in `api_instructions_test.go` and add the na
 
 ### 3. `capabilities.js` symbol (for new model-config FLAG_* flags)
 
-If your feature needs a new `FLAG_*` usecase flag in `core/config/model_config.go` (so users can filter gallery models by it, and so `/v1/models` surfaces it), also declare the matching symbol in `core/http/react-ui/src/utils/capabilities.js`:
+If your feature needs a new `FLAG_*` usecase flag in `core/config/model_config.go` (so users can filter gallery models by it, and so `/v1/models` surfaces it), you need to update **all** of:
+
+- `Usecase<Name>` string constant in `core/config/backend_capabilities.go`
+- `UsecaseInfoMap` entry mapping the string to its flag + gRPC method
+- `FLAG_<NAME>` bitmask in `core/config/model_config.go`
+- `GetAllModelConfigUsecases()` map entry (otherwise the YAML loader silently ignores the string)
+- `ModalityGroups` membership if the flag should affect `IsMultimodal()` (e.g. realtime_audio is in both speech-input and audio-output groups so a lone flag still reads as multimodal)
+- `GuessUsecases()` branch listing the backends that own this capability
+- `usecaseFilters` in `core/http/routes/ui_api.go` (drives the gallery filter dropdown)
+- `Models.jsx` `FILTERS` array + matching `filters.<camelCase>` i18n key in `core/http/react-ui/public/locales/en/models.json`
+- `core/http/react-ui/src/utils/capabilities.js`:
 
 ```js
 export const CAP_MY_CAPABILITY = 'FLAG_MY_CAPABILITY'

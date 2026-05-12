@@ -158,6 +158,11 @@ func (llm *Base) AudioTransformStream(in <-chan *pb.AudioTransformFrameRequest, 
 	return fmt.Errorf("unimplemented")
 }
 
+func (llm *Base) AudioToAudioStream(in <-chan *pb.AudioToAudioRequest, out chan<- *pb.AudioToAudioResponse) error {
+	close(out)
+	return fmt.Errorf("unimplemented")
+}
+
 func (llm *Base) StartFineTune(*pb.FineTuneRequest) (*pb.FineTuneJobResult, error) {
 	return nil, fmt.Errorf("unimplemented")
 }

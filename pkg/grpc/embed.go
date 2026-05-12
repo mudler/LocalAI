@@ -181,6 +181,31 @@ func (e *embedBackend) AudioTransformStream(ctx context.Context, opts ...grpc.Ca
 	}, nil
 }
 
+func (e *embedBackend) AudioToAudioStream(ctx context.Context, opts ...grpc.CallOption) (AudioToAudioStreamClient, error) {
+	reqs := make(chan *pb.AudioToAudioRequest, 8)
+	resps := make(chan *pb.AudioToAudioResponse, 8)
+	srvDone := make(chan error, 1)
+
+	server := &embedBackendAudioToAudioStream{
+		ctx:   ctx,
+		reqs:  reqs,
+		resps: resps,
+	}
+
+	go func() {
+		err := e.s.AudioToAudioStream(server)
+		close(resps)
+		srvDone <- err
+	}()
+
+	return &embedBackendAudioToAudioStreamClient{
+		ctx:     ctx,
+		reqs:    reqs,
+		resps:   resps,
+		srvDone: srvDone,
+	}, nil
+}
+
 func (e *embedBackend) ModelMetadata(ctx context.Context, in *pb.ModelOptions, opts ...grpc.CallOption) (*pb.ModelMetadataResponse, error) {
 	return e.s.ModelMetadata(ctx, in)
 }
@@ -236,6 +261,8 @@ func (e *embedBackend) Free(ctx context.Context) error {
 
 var _ pb.Backend_AudioTransformStreamServer = new(embedBackendAudioTransformStream)
 var _ AudioTransformStreamClient = new(embedBackendAudioTransformStreamClient)
+var _ pb.Backend_AudioToAudioStreamServer = new(embedBackendAudioToAudioStream)
+var _ AudioToAudioStreamClient = new(embedBackendAudioToAudioStreamClient)
 
 // embedBackendAudioTransformStream is the server side of an in-process bidi
 // stream. The hosted server reads requests from `reqs` (closed by client when
@@ -331,6 +358,99 @@ func (e *embedBackendAudioTransformStreamClient) CloseSend() error {
 }
 
 func (e *embedBackendAudioTransformStreamClient) Context() context.Context { return e.ctx }
+
+// embedBackendAudioToAudioStream is the in-process server-side handle for
+// the bidirectional any-to-any audio RPC. Mirrors embedBackendAudioTransform
+// Stream — the hosted server reads requests from `reqs` (closed by client
+// when done sending) and writes responses to `resps`.
+type embedBackendAudioToAudioStream struct {
+	ctx   context.Context
+	reqs  <-chan *pb.AudioToAudioRequest
+	resps chan<- *pb.AudioToAudioResponse
+}
+
+func (e *embedBackendAudioToAudioStream) Send(resp *pb.AudioToAudioResponse) error {
+	select {
+	case e.resps <- resp:
+		return nil
+	case <-e.ctx.Done():
+		return e.ctx.Err()
+	}
+}
+
+func (e *embedBackendAudioToAudioStream) Recv() (*pb.AudioToAudioRequest, error) {
+	select {
+	case req, ok := <-e.reqs:
+		if !ok {
+			return nil, io.EOF
+		}
+		return req, nil
+	case <-e.ctx.Done():
+		return nil, e.ctx.Err()
+	}
+}
+
+func (e *embedBackendAudioToAudioStream) SetHeader(md metadata.MD) error  { return nil }
+func (e *embedBackendAudioToAudioStream) SendHeader(md metadata.MD) error { return nil }
+func (e *embedBackendAudioToAudioStream) SetTrailer(md metadata.MD)       {}
+func (e *embedBackendAudioToAudioStream) Context() context.Context        { return e.ctx }
+func (e *embedBackendAudioToAudioStream) SendMsg(m any) error {
+	if x, ok := m.(*pb.AudioToAudioResponse); ok {
+		return e.Send(x)
+	}
+	return nil
+}
+func (e *embedBackendAudioToAudioStream) RecvMsg(m any) error { return nil }
+
+type embedBackendAudioToAudioStreamClient struct {
+	ctx       context.Context
+	reqs      chan<- *pb.AudioToAudioRequest
+	resps     <-chan *pb.AudioToAudioResponse
+	srvDone   <-chan error
+	closeOnce bool
+}
+
+func (e *embedBackendAudioToAudioStreamClient) Send(req *pb.AudioToAudioRequest) error {
+	select {
+	case e.reqs <- req:
+		return nil
+	case <-e.ctx.Done():
+		return e.ctx.Err()
+	}
+}
+
+func (e *embedBackendAudioToAudioStreamClient) Recv() (*pb.AudioToAudioResponse, error) {
+	select {
+	case resp, ok := <-e.resps:
+		if !ok {
+			// Server goroutine writes to srvDone immediately after closing
+			// resps; block (cap with ctx) so we don't race past a real error.
+			select {
+			case err := <-e.srvDone:
+				if err != nil {
+					return nil, err
+				}
+			case <-e.ctx.Done():
+				return nil, e.ctx.Err()
+			}
+			return nil, io.EOF
+		}
+		return resp, nil
+	case <-e.ctx.Done():
+		return nil, e.ctx.Err()
+	}
+}
+
+func (e *embedBackendAudioToAudioStreamClient) CloseSend() error {
+	if e.closeOnce {
+		return nil
+	}
+	e.closeOnce = true
+	close(e.reqs)
+	return nil
+}
+
+func (e *embedBackendAudioToAudioStreamClient) Context() context.Context { return e.ctx }
 
 var _ pb.Backend_AudioTranscriptionStreamServer = new(embedBackendAudioTranscriptionStream)
 

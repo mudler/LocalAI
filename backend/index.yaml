@@ -847,6 +847,35 @@
     nvidia-l4t-cuda-12: "nvidia-l4t-vibevoice"
     nvidia-l4t-cuda-13: "cuda13-nvidia-l4t-arm64-vibevoice"
   icon: https://avatars.githubusercontent.com/u/6154722?s=200&v=4
+- &liquid-audio
+  urls:
+    - https://github.com/Liquid4All/liquid-audio
+    - https://huggingface.co/LiquidAI/LFM2.5-Audio-1.5B
+  description: |
+    LiquidAI LFM2 / LFM2.5 Audio Python backend. End-to-end speech-to-speech, ASR,
+    TTS (4 baked voices), and text chat from a single 1.5B model. Wraps the
+    upstream `liquid-audio` package; supports fine-tuning via LocalAI's
+    /v1/fine-tuning/jobs endpoint.
+  tags:
+    - speech-to-speech
+    - any-to-any
+    - text-to-speech
+    - speech-to-text
+    - TTS
+    - ASR
+    - realtime
+  license: LFM-Open-License-v1.0
+  name: "liquid-audio"
+  alias: "liquid-audio"
+  capabilities:
+    nvidia: "cuda12-liquid-audio"
+    intel: "intel-liquid-audio"
+    amd: "rocm-liquid-audio"
+    default: "cpu-liquid-audio"
+    nvidia-cuda-13: "cuda13-liquid-audio"
+    nvidia-cuda-12: "cuda12-liquid-audio"
+    nvidia-l4t-cuda-13: "cuda13-nvidia-l4t-arm64-liquid-audio"
+  icon: https://cdn-avatars.huggingface.co/v1/production/uploads/61b8e2ba285851687028d395/7_6D7rWrLxp2hb6OHSV1p.png
 - &qwen-tts
   urls:
     - https://github.com/QwenLM/Qwen3-TTS
@@ -3437,6 +3466,77 @@
   uri: "quay.io/go-skynet/local-ai-backends:master-metal-darwin-arm64-vibevoice"
   mirrors:
     - localai/localai-backends:master-metal-darwin-arm64-vibevoice
+## liquid-audio
+- !!merge <<: *liquid-audio
+  name: "liquid-audio-development"
+  capabilities:
+    nvidia: "cuda12-liquid-audio-development"
+    intel: "intel-liquid-audio-development"
+    amd: "rocm-liquid-audio-development"
+    default: "cpu-liquid-audio-development"
+    nvidia-cuda-13: "cuda13-liquid-audio-development"
+    nvidia-cuda-12: "cuda12-liquid-audio-development"
+    nvidia-l4t-cuda-13: "cuda13-nvidia-l4t-arm64-liquid-audio-development"
+- !!merge <<: *liquid-audio
+  name: "cpu-liquid-audio"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-cpu-liquid-audio"
+  mirrors:
+    - localai/localai-backends:latest-cpu-liquid-audio
+- !!merge <<: *liquid-audio
+  name: "cpu-liquid-audio-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-cpu-liquid-audio"
+  mirrors:
+    - localai/localai-backends:master-cpu-liquid-audio
+- !!merge <<: *liquid-audio
+  name: "cuda12-liquid-audio"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-nvidia-cuda-12-liquid-audio"
+  mirrors:
+    - localai/localai-backends:latest-gpu-nvidia-cuda-12-liquid-audio
+- !!merge <<: *liquid-audio
+  name: "cuda12-liquid-audio-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-nvidia-cuda-12-liquid-audio"
+  mirrors:
+    - localai/localai-backends:master-gpu-nvidia-cuda-12-liquid-audio
+- !!merge <<: *liquid-audio
+  name: "cuda13-liquid-audio"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-nvidia-cuda-13-liquid-audio"
+  mirrors:
+    - localai/localai-backends:latest-gpu-nvidia-cuda-13-liquid-audio
+- !!merge <<: *liquid-audio
+  name: "cuda13-liquid-audio-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-nvidia-cuda-13-liquid-audio"
+  mirrors:
+    - localai/localai-backends:master-gpu-nvidia-cuda-13-liquid-audio
+- !!merge <<: *liquid-audio
+  name: "intel-liquid-audio"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-intel-liquid-audio"
+  mirrors:
+    - localai/localai-backends:latest-gpu-intel-liquid-audio
+- !!merge <<: *liquid-audio
+  name: "intel-liquid-audio-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-intel-liquid-audio"
+  mirrors:
+    - localai/localai-backends:master-gpu-intel-liquid-audio
+- !!merge <<: *liquid-audio
+  name: "rocm-liquid-audio"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-rocm-hipblas-liquid-audio"
+  mirrors:
+    - localai/localai-backends:latest-gpu-rocm-hipblas-liquid-audio
+- !!merge <<: *liquid-audio
+  name: "rocm-liquid-audio-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-rocm-hipblas-liquid-audio"
+  mirrors:
+    - localai/localai-backends:master-gpu-rocm-hipblas-liquid-audio
+- !!merge <<: *liquid-audio
+  name: "cuda13-nvidia-l4t-arm64-liquid-audio"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-nvidia-l4t-cuda-13-arm64-liquid-audio"
+  mirrors:
+    - localai/localai-backends:latest-nvidia-l4t-cuda-13-arm64-liquid-audio
+- !!merge <<: *liquid-audio
+  name: "cuda13-nvidia-l4t-arm64-liquid-audio-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-nvidia-l4t-cuda-13-arm64-liquid-audio"
+  mirrors:
+    - localai/localai-backends:master-nvidia-l4t-cuda-13-arm64-liquid-audio
 ## qwen-tts
 - !!merge <<: *qwen-tts
   name: "qwen-tts-development"

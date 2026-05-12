@@ -487,6 +487,66 @@ func (s *server) AudioTransformStream(stream pb.Backend_AudioTransformStreamServ
 	return recvErr
 }
 
+// AudioToAudioStream is the bidirectional any-to-any S2S handler. The
+// shape mirrors AudioTransformStream exactly (recv → in chan, out chan →
+// send) so backends can implement either via the same goroutine idiom.
+func (s *server) AudioToAudioStream(stream pb.Backend_AudioToAudioStreamServer) error {
+	if s.llm.Locking() {
+		s.llm.Lock()
+		defer s.llm.Unlock()
+	}
+
+	in := make(chan *pb.AudioToAudioRequest, 8)
+	out := make(chan *pb.AudioToAudioResponse, 8)
+
+	recvErrCh := make(chan error, 1)
+	go func() {
+		defer close(in)
+		for {
+			req, err := stream.Recv()
+			if err != nil {
+				if errors.Is(err, io.EOF) {
+					recvErrCh <- nil
+					return
+				}
+				recvErrCh <- err
+				return
+			}
+			select {
+			case in <- req:
+			case <-stream.Context().Done():
+				recvErrCh <- stream.Context().Err()
+				return
+			}
+		}
+	}()
+
+	sendDone := make(chan error, 1)
+	go func() {
+		for resp := range out {
+			if err := stream.Send(resp); err != nil {
+				sendDone <- err
+				for range out {
+				}
+				return
+			}
+		}
+		sendDone <- nil
+	}()
+
+	backendErr := s.llm.AudioToAudioStream(in, out)
+	sendErr := <-sendDone
+	recvErr := <-recvErrCh
+
+	if backendErr != nil {
+		return backendErr
+	}
+	if sendErr != nil {
+		return sendErr
+	}
+	return recvErr
+}
+
 func (s *server) StartFineTune(ctx context.Context, in *pb.FineTuneRequest) (*pb.FineTuneJobResult, error) {
 	if s.llm.Locking() {
 		s.llm.Lock()

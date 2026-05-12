@@ -45,6 +45,7 @@ type AIModel interface {
 
 	AudioTransform(*pb.AudioTransformRequest) (*pb.AudioTransformResult, error)
 	AudioTransformStream(in <-chan *pb.AudioTransformFrameRequest, out chan<- *pb.AudioTransformFrameResponse) error
+	AudioToAudioStream(in <-chan *pb.AudioToAudioRequest, out chan<- *pb.AudioToAudioResponse) error
 
 	ModelMetadata(*pb.ModelOptions) (*pb.ModelMetadataResponse, error)
 

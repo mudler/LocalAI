@@ -233,10 +233,46 @@ func registerRealtime(application *application.Application, model string) func(c
 	}
 }
 
+// prepareRealtimeConfig validates a model config for use in a realtime session
+// and fills in pipeline slots for self-contained any-to-any models. It returns
+// an error code + message pair suitable for sendError; the bool indicates
+// whether the caller should proceed. Extracted from runRealtimeSession so the
+// gate logic can be exercised in unit tests without a full Application.
+func prepareRealtimeConfig(cfg *config.ModelConfig) (errCode, errMsg string, ok bool) {
+	if cfg == nil {
+		return "invalid_model", "Model is not a pipeline model", false
+	}
+
+	// Self-contained any-to-any models (e.g. liquid-audio) own the whole
+	// loop in one engine — surface them by populating empty pipeline slots
+	// with the model's own name so newModel can resolve a config for each
+	// role. The user can still pin individual slots (e.g. Pipeline.VAD =
+	// silero-vad) and those wins.
+	if cfg.HasUsecases(config.FLAG_REALTIME_AUDIO) {
+		if cfg.Pipeline.VAD == "" {
+			cfg.Pipeline.VAD = cfg.Name
+		}
+		if cfg.Pipeline.Transcription == "" {
+			cfg.Pipeline.Transcription = cfg.Name
+		}
+		if cfg.Pipeline.LLM == "" {
+			cfg.Pipeline.LLM = cfg.Name
+		}
+		if cfg.Pipeline.TTS == "" {
+			cfg.Pipeline.TTS = cfg.Name
+		}
+		return "", "", true
+	}
+
+	if cfg.Pipeline.VAD == "" && cfg.Pipeline.Transcription == "" && cfg.Pipeline.TTS == "" && cfg.Pipeline.LLM == "" {
+		return "invalid_model", "Model is not a pipeline model", false
+	}
+	return "", "", true
+}
+
 // runRealtimeSession runs the main event loop for a realtime session.
 // It is transport-agnostic and works with both WebSocket and WebRTC.
 func runRealtimeSession(application *application.Application, t Transport, model string, evaluator *templates.Evaluator) {
-	// TODO: Allow any-to-any model to be specified
 	cl := application.ModelConfigLoader()
 	cfg, err := cl.LoadModelConfigFileByNameDefaultOptions(model, application.ApplicationConfig())
 	if err != nil {
@@ -245,9 +281,9 @@ func runRealtimeSession(application *application.Application, t Transport, model
 		return
 	}
 
-	if cfg == nil || (cfg.Pipeline.VAD == "" && cfg.Pipeline.Transcription == "" && cfg.Pipeline.TTS == "" && cfg.Pipeline.LLM == "") {
+	if code, msg, ok := prepareRealtimeConfig(cfg); !ok {
 		xlog.Error("model is not a pipeline", "model", model)
-		sendError(t, "invalid_model", "Model is not a pipeline model", "", "")
+		sendError(t, code, msg, "", "")
 		return
 	}
 

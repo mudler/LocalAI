@@ -805,6 +805,67 @@ func (c *Client) AudioTransformStream(ctx context.Context, opts ...grpc.CallOpti
 	}, nil
 }
 
+// AudioToAudioStreamClient is the duplex interface returned by
+// (*Client).AudioToAudioStream. Mirrors AudioTransformStreamClient's
+// shape so realtime-API callers can plug in interchangeable backends.
+type AudioToAudioStreamClient interface {
+	Send(*pb.AudioToAudioRequest) error
+	Recv() (*pb.AudioToAudioResponse, error)
+	CloseSend() error
+	Context() context.Context
+}
+
+type audioToAudioStreamClient struct {
+	pb.Backend_AudioToAudioStreamClient
+	conn   *grpc.ClientConn
+	closer func()
+}
+
+func (s *audioToAudioStreamClient) CloseSend() error {
+	err := s.Backend_AudioToAudioStreamClient.CloseSend()
+	if s.closer != nil {
+		s.closer()
+	}
+	return err
+}
+
+func (c *Client) AudioToAudioStream(ctx context.Context, opts ...grpc.CallOption) (AudioToAudioStreamClient, error) {
+	if !c.parallel {
+		c.opMutex.Lock()
+	}
+	c.setBusy(true)
+	c.wdMark()
+
+	cleanup := func() {
+		c.wdUnMark()
+		c.setBusy(false)
+		if !c.parallel {
+			c.opMutex.Unlock()
+		}
+	}
+
+	conn, err := c.dial()
+	if err != nil {
+		cleanup()
+		return nil, err
+	}
+	client := pb.NewBackendClient(conn)
+	stream, err := client.AudioToAudioStream(ctx, opts...)
+	if err != nil {
+		_ = conn.Close()
+		cleanup()
+		return nil, err
+	}
+	return &audioToAudioStreamClient{
+		Backend_AudioToAudioStreamClient: stream,
+		conn:                             conn,
+		closer: func() {
+			_ = conn.Close()
+			cleanup()
+		},
+	}, nil
+}
+
 func (c *Client) StartFineTune(ctx context.Context, in *pb.FineTuneRequest, opts ...grpc.CallOption) (*pb.FineTuneJobResult, error) {
 	if !c.parallel {
 		c.opMutex.Lock()

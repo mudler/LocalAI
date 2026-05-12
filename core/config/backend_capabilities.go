@@ -24,6 +24,7 @@ const (
 	UsecaseVAD             = "vad"
 	UsecaseAudioTransform  = "audio_transform"
 	UsecaseDiarization     = "diarization"
+	UsecaseRealtimeAudio   = "realtime_audio"
 )
 
 // GRPCMethod identifies a Backend service RPC from backend.proto.
@@ -45,6 +46,7 @@ const (
 	MethodVAD                GRPCMethod = "VAD"
 	MethodAudioTransform     GRPCMethod = "AudioTransform"
 	MethodDiarize            GRPCMethod = "Diarize"
+	MethodAudioToAudioStream GRPCMethod = "AudioToAudioStream"
 )
 
 // UsecaseInfo describes a single known_usecase value and how it maps
@@ -146,6 +148,11 @@ var UsecaseInfoMap = map[string]UsecaseInfo{
 		Flag:        FLAG_DIARIZATION,
 		GRPCMethod:  MethodDiarize,
 		Description: "Speaker diarization (who-spoke-when, per-speaker segments) via the Diarize RPC.",
+	},
+	UsecaseRealtimeAudio: {
+		Flag:        FLAG_REALTIME_AUDIO,
+		GRPCMethod:  MethodAudioToAudioStream,
+		Description: "Self-contained any-to-any audio model for the Realtime API — accepts microphone audio and emits speech + transcript (+ optional function calls) from a single backend via the AudioToAudioStream RPC.",
 	},
 }
 
@@ -395,6 +402,15 @@ var BackendCapabilities = map[string]BackendCapability{
 		PossibleUsecases: []string{UsecaseTTS, UsecaseSoundGeneration},
 		DefaultUsecases:  []string{UsecaseSoundGeneration},
 		Description:      "Meta MusicGen via transformers — music generation from text",
+	},
+
+	// --- Any-to-any audio backends ---
+	"liquid-audio": {
+		GRPCMethods:      []GRPCMethod{MethodPredict, MethodPredictStream, MethodAudioTranscription, MethodTTS, MethodAudioToAudioStream, MethodVAD},
+		PossibleUsecases: []string{UsecaseChat, UsecaseCompletion, UsecaseTranscript, UsecaseTTS, UsecaseRealtimeAudio, UsecaseVAD},
+		DefaultUsecases:  []string{UsecaseRealtimeAudio, UsecaseChat, UsecaseTranscript, UsecaseTTS, UsecaseVAD},
+		AcceptsAudios:    true,
+		Description:      "LFM2 / LFM2.5-Audio — self-contained any-to-any audio model for the Realtime API; also exposes chat, transcription, TTS and a stub energy-based VAD endpoint",
 	},
 
 	// --- Audio transform backends ---

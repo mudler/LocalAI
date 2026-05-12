@@ -3197,6 +3197,110 @@
     - filename: llama-cpp/models/LFM2.5-1.2B-Nova-Function-Calling.Q4_K_M.gguf
       sha256: 5d039ad4195447cf4b6dbee8f7fe11f985c01d671a18153084c869077e431fbf
       uri: https://huggingface.co/NovachronoAI/LFM2.5-1.2B-Nova-Function-Calling-GGUF/resolve/main/LFM2.5-1.2B-Nova-Function-Calling.Q4_K_M.gguf
+- name: lfm2.5-audio-1.5b-realtime
+  url: github:mudler/LocalAI/gallery/liquid-audio.yaml@master
+  urls:
+    - https://huggingface.co/LiquidAI/LFM2.5-Audio-1.5B
+  description: |
+    LFM2.5-Audio-1.5B is LiquidAI's any-to-any audio foundation model. The
+    1.2B LFM2.5 backbone plus a FastConformer audio encoder and an LFM2-based
+    audio detokenizer give real-time speech-to-speech with text + audio output
+    interleaved at 12.5 Hz / 24 kHz. This entry runs in S2S (speech-to-speech)
+    mode and is the model the LocalAI realtime API any-to-any path consumes.
+    Switch to ASR, TTS, or chat by picking the sibling gallery entries.
+  license: LFM-Open-License-v1.0
+  icon: https://cdn-avatars.huggingface.co/v1/production/uploads/61b8e2ba285851687028d395/7_6D7rWrLxp2hb6OHSV1p.png
+  tags:
+    - lfm2
+    - liquid
+    - audio
+    - speech-to-speech
+    - any-to-any
+    - realtime
+    - 1.5b
+  last_checked: "2026-05-11"
+  overrides:
+    backend: liquid-audio
+    # realtime_audio drives the Talk-page filter; the rest let the model
+    # also surface on the chat / transcribe / speech endpoints when called
+    # directly (the backend implements all three RPCs).
+    known_usecases:
+      - realtime_audio
+      - chat
+      - transcript
+      - tts
+      - vad
+    options:
+      - mode:s2s
+- name: lfm2.5-audio-1.5b-chat
+  url: github:mudler/LocalAI/gallery/liquid-audio.yaml@master
+  urls:
+    - https://huggingface.co/LiquidAI/LFM2.5-Audio-1.5B
+  description: |
+    LFM2.5-Audio-1.5B in text-only chat mode. The model runs `generate_sequential`
+    with no audio modality, behaving like a small LFM2 chat model. Pick this
+    entry for tool-calling experiments without the audio overhead.
+  license: LFM-Open-License-v1.0
+  tags:
+    - lfm2
+    - liquid
+    - audio
+    - chat
+    - 1.5b
+  last_checked: "2026-05-11"
+  overrides:
+    backend: liquid-audio
+    known_usecases:
+      - chat
+    options:
+      - mode:chat
+- name: lfm2.5-audio-1.5b-asr
+  url: github:mudler/LocalAI/gallery/liquid-audio.yaml@master
+  urls:
+    - https://huggingface.co/LiquidAI/LFM2.5-Audio-1.5B
+  description: |
+    LFM2.5-Audio-1.5B in ASR mode. System prompt `Perform ASR.` is prepended;
+    output is capitalised and punctuated. Wire this entry as a transcription
+    model on the /v1/audio/transcriptions endpoint.
+  license: LFM-Open-License-v1.0
+  tags:
+    - lfm2
+    - liquid
+    - audio
+    - asr
+    - speech-to-text
+    - 1.5b
+  last_checked: "2026-05-11"
+  overrides:
+    backend: liquid-audio
+    known_usecases:
+      - transcript
+    options:
+      - mode:asr
+- name: lfm2.5-audio-1.5b-tts
+  url: github:mudler/LocalAI/gallery/liquid-audio.yaml@master
+  urls:
+    - https://huggingface.co/LiquidAI/LFM2.5-Audio-1.5B
+  description: |
+    LFM2.5-Audio-1.5B in TTS mode. Four baked voices: us_male, us_female,
+    uk_male, uk_female — pick the default at load time via `voice:` option,
+    or override per-request via the OpenAI `/v1/audio/speech` `voice` field.
+  license: LFM-Open-License-v1.0
+  tags:
+    - lfm2
+    - liquid
+    - audio
+    - tts
+    - text-to-speech
+    - 1.5b
+  last_checked: "2026-05-11"
+  overrides:
+    backend: liquid-audio
+    known_usecases:
+      - tts
+    options:
+      - mode:tts
+      - voice:us_female
 - name: mistral-nemo-instruct-2407-12b-thinking-m-claude-opus-high-reasoning-i1
   url: github:mudler/LocalAI/gallery/virtual.yaml@master
   urls:

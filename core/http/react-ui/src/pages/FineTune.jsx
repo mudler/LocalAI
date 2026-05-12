@@ -732,6 +732,9 @@ export default function FineTune() {
   const [seed, setSeed] = useState(0)
   const [mixedPrecision, setMixedPrecision] = useState('')
   const [extraOptions, setExtraOptions] = useState([])
+  // liquid-audio specific knobs (folded into extra_options on submit)
+  const [liquidAudioVoice, setLiquidAudioVoice] = useState('')
+  const [liquidAudioValDataset, setLiquidAudioValDataset] = useState('')
   const [hfToken, setHfToken] = useState('')
   const [showAdvanced, setShowAdvanced] = useState(false)
   const [resumeFromCheckpoint, setResumeFromCheckpoint] = useState('')
@@ -800,6 +803,12 @@ export default function FineTune() {
       }
       for (const { key, value } of extraOptions) {
         if (key.trim()) extra[key.trim()] = value
+      }
+      // Fold liquid-audio specific fields into extra_options. The Python
+      // backend reads `voice` and `val_dataset` directly from there.
+      if (backend === 'liquid-audio') {
+        if (liquidAudioVoice) extra.voice = liquidAudioVoice
+        if (liquidAudioValDataset.trim()) extra.val_dataset = liquidAudioValDataset.trim()
       }
 
       const isAdapter = ['lora', 'loha', 'lokr'].includes(trainingType)
@@ -871,6 +880,10 @@ export default function FineTune() {
     const extra = {}
     for (const { key, value } of extraOptions) {
       if (key.trim()) extra[key.trim()] = value
+    }
+    if (backend === 'liquid-audio') {
+      if (liquidAudioVoice) extra.voice = liquidAudioVoice
+      if (liquidAudioValDataset.trim()) extra.val_dataset = liquidAudioValDataset.trim()
     }
     return {
       model,
@@ -965,10 +978,15 @@ export default function FineTune() {
       setSaveTotalLimit(Number(config.extra_options.save_total_limit))
     }
 
+    // Restore liquid-audio specific extras (also filtered out of the
+    // freeform list below).
+    if (config.extra_options?.voice != null) setLiquidAudioVoice(String(config.extra_options.voice))
+    if (config.extra_options?.val_dataset != null) setLiquidAudioValDataset(String(config.extra_options.val_dataset))
+
     // Convert extra_options object to [{key, value}] entries, filtering out handled keys
     if (config.extra_options && typeof config.extra_options === 'object') {
       const entries = Object.entries(config.extra_options)
-        .filter(([k]) => !['max_seq_length', 'save_total_limit', 'hf_token', 'eval_strategy', 'eval_steps', 'eval_split', 'eval_dataset_source', 'eval_split_ratio'].includes(k))
+        .filter(([k]) => !['max_seq_length', 'save_total_limit', 'hf_token', 'eval_strategy', 'eval_steps', 'eval_split', 'eval_dataset_source', 'eval_split_ratio', 'voice', 'val_dataset'].includes(k))
         .map(([key, value]) => ({ key, value: String(value) }))
       setExtraOptions(entries)
     }
@@ -1454,6 +1472,31 @@ export default function FineTune() {
                       <button type="button" className="btn" style={{ padding: 'var(--spacing-xs) var(--spacing-sm)' }} onClick={() => setResumeFromCheckpoint('')}>
                         <i className="fas fa-times" />
                       </button>
+                    </div>
+                  </div>
+                )}
+
+                {backend === 'liquid-audio' && (
+                  <div style={{ marginBottom: 'var(--spacing-md)' }}>
+                    <label className="form-label">Liquid Audio</label>
+                    <div style={{ fontSize: '0.8125rem', color: 'var(--color-text-muted)', marginBottom: 'var(--spacing-sm)' }}>
+                      Dataset must be preprocessed by <code>LFM2AudioChatMapper</code> (a directory of LFM2DataLoader-ready arrow files). See <code>liquid_audio/examples/preprocess_jenny_tts.py</code> for the conversion recipe.
+                    </div>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 'var(--spacing-sm)' }}>
+                      <div>
+                        <label className="form-label">TTS Voice (optional)</label>
+                        <select value={liquidAudioVoice} onChange={e => setLiquidAudioVoice(e.target.value)} className="input">
+                          <option value="">— inherit from system prompt —</option>
+                          <option value="us_male">us_male</option>
+                          <option value="us_female">us_female</option>
+                          <option value="uk_male">uk_male</option>
+                          <option value="uk_female">uk_female</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className="form-label">Validation Dataset (path)</label>
+                        <input type="text" value={liquidAudioValDataset} onChange={e => setLiquidAudioValDataset(e.target.value)} placeholder="e.g. /data/jenny_tts/val" className="input" />
+                      </div>
                     </div>
                   </div>
                 )}

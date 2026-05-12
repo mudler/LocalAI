@@ -24,6 +24,7 @@
     "diarization": "Diarization",
     "soundGen": "Sound",
     "audioTransform": "Audio FX",
+    "realtimeAudio": "Realtime Audio",
     "embedding": "Embeddings",
     "rerank": "Rerank",
     "detection": "Detection",

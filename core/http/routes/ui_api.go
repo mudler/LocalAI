@@ -54,6 +54,7 @@ var usecaseFilters = map[string]config.ModelConfigUsecase{
 	config.UsecaseVAD:             config.FLAG_VAD,
 	config.UsecaseAudioTransform:  config.FLAG_AUDIO_TRANSFORM,
 	config.UsecaseDiarization:     config.FLAG_DIARIZATION,
+	config.UsecaseRealtimeAudio:   config.FLAG_REALTIME_AUDIO,
 }
 
 

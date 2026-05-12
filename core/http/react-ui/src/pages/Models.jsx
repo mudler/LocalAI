@@ -28,6 +28,7 @@ const FILTERS = [
   { key: 'diarization', labelKey: 'filters.diarization', icon: 'fa-users' },
   { key: 'sound_generation', labelKey: 'filters.soundGen', icon: 'fa-music' },
   { key: 'audio_transform', labelKey: 'filters.audioTransform', icon: 'fa-sliders' },
+  { key: 'realtime_audio', labelKey: 'filters.realtimeAudio', icon: 'fa-tower-broadcast' },
   { key: 'embeddings', labelKey: 'filters.embedding', icon: 'fa-vector-square' },
   { key: 'rerank', labelKey: 'filters.rerank', icon: 'fa-sort' },
   { key: 'detection', labelKey: 'filters.detection', icon: 'fa-bullseye' },

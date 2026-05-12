@@ -48,6 +48,11 @@ service Backend {
 
   rpc AudioTransform(AudioTransformRequest) returns (AudioTransformResult) {}
   rpc AudioTransformStream(stream AudioTransformFrameRequest) returns (stream AudioTransformFrameResponse) {}
+  // AudioToAudioStream is the bidirectional any-to-any S2S RPC. Backends
+  // that load a speech-to-speech model consume input audio frames and emit
+  // interleaved audio + transcript + tool-call deltas as typed events.
+  // Backends without S2S support return UNIMPLEMENTED.
+  rpc AudioToAudioStream(stream AudioToAudioRequest) returns (stream AudioToAudioResponse) {}
 
   rpc ModelMetadata(ModelOptions) returns (ModelMetadataResponse) {}
 
@@ -766,6 +771,93 @@ message AudioTransformFrame {
 message AudioTransformFrameResponse {
   bytes pcm = 1;
   int64 frame_index = 2;
+}
+
+// === AudioToAudioStream messages =========================================
+//
+// Bidirectional stream between the LocalAI core and an any-to-any audio
+// model. The client opens the stream with a Config payload, then alternates
+// Frame (input audio) and Control (turn boundaries, function-call results,
+// session updates) payloads. The server streams back typed events: audio
+// frames carry PCM in `pcm`; transcript / tool-call deltas carry JSON in
+// `meta`; the stream ends with a `response.done` (success) or `error` event.
+
+message AudioToAudioRequest {
+  oneof payload {
+    AudioToAudioConfig  config  = 1;
+    AudioToAudioFrame   frame   = 2;
+    AudioToAudioControl control = 3;
+  }
+}
+
+message AudioToAudioConfig {
+  // PCM format for client→server audio. 0 => backend default
+  // (16 kHz for the LFM2-Audio Conformer encoder).
+  int32 input_sample_rate = 1;
+  // Preferred server→client audio rate. 0 => backend default
+  // (24 kHz for the LFM2-Audio vocoder).
+  int32 output_sample_rate = 2;
+  // Optional system prompt override. Empty => backend chooses based on
+  // mode (e.g. "Respond with interleaved text and audio.").
+  string system_prompt = 3;
+  // Optional baked-voice id. Models that only ship a fixed set of
+  // voices (e.g. LFM2-Audio: us_male/us_female/uk_male/uk_female) match
+  // this against their voice table; an empty string keeps the default.
+  string voice = 4;
+  // JSON-encoded array of tool definitions in OpenAI Chat Completions
+  // format. Empty => no tools.
+  string tools = 5;
+  // Free-form sampling / decoding parameters (temperature, top_k,
+  // max_new_tokens, audio_top_k, etc).
+  map<string, string> params = 6;
+  // True => reset any session-scoped state before processing further
+  // frames on this stream. The first Config implicitly resets.
+  bool reset = 7;
+}
+
+message AudioToAudioFrame {
+  // Raw PCM s16le mono at config.input_sample_rate. Empty pcm + end_of_input
+  // is a valid "user finished speaking" marker without trailing audio.
+  bytes pcm = 1;
+  // Marks the last frame of a user turn. The backend may begin emitting
+  // a response immediately after seeing this.
+  bool end_of_input = 2;
+}
+
+message AudioToAudioControl {
+  // Free-form control event names. Initial set:
+  //   "input_audio_buffer.commit"     — user finished speaking
+  //   "response.cancel"               — abort in-flight generation
+  //   "conversation.item.create"      — inject a non-audio item (e.g.
+  //                                     function_call_output as JSON in
+  //                                     `payload`)
+  //   "session.update"                — re-configure mid-stream
+  string event = 1;
+  // Event-specific JSON payload.
+  bytes payload = 2;
+}
+
+message AudioToAudioResponse {
+  // Event identifies what this frame carries. Mirrors the OpenAI Realtime
+  // API server-event names where applicable. Initial set:
+  //   "response.audio.delta"
+  //   "response.audio_transcript.delta"
+  //   "response.function_call_arguments.delta"
+  //   "response.function_call_arguments.done"
+  //   "response.done"
+  //   "error"
+  string event = 1;
+  // Populated when event = response.audio.delta.
+  bytes pcm = 2;
+  // Populated alongside pcm to identify its rate. 0 => same as the
+  // session's negotiated output_sample_rate.
+  int32 sample_rate = 3;
+  // JSON payload for non-PCM events (transcript chunk, tool args, error
+  // body).
+  bytes meta = 4;
+  // Monotonic per-stream counter, useful for client reordering and
+  // debugging.
+  int64 sequence = 5;
 }
 
 message ModelMetadataResponse {
