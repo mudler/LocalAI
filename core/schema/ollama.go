@@ -120,10 +120,14 @@ type OllamaGenerateResponse struct {
 	EvalDuration       int64     `json:"eval_duration,omitempty"`
 }
 
-// OllamaEmbedRequest represents a request to the Ollama Embed API
+// OllamaEmbedRequest represents a request to the Ollama Embed API.
+// Ollama's /api/embed endpoint accepts both `input` and `prompt` as the
+// input string value (see https://github.com/ollama/ollama/blob/main/docs/api.md#generate-embeddings),
+// so both keys are deserialized here for client compatibility.
 type OllamaEmbedRequest struct {
-	Model   string `json:"model"`
-	Input   any    `json:"input"` // string or []string
+	Model   string         `json:"model"`
+	Input   any            `json:"input,omitempty"`  // string or []string
+	Prompt  any            `json:"prompt,omitempty"` // string or []string (Ollama alias for Input)
 	Options *OllamaOptions `json:"options,omitempty"`
 }
 
@@ -135,10 +139,21 @@ func (r *OllamaEmbedRequest) ModelName(s *string) string {
 	return r.Model
 }
 
-// GetInputStrings normalizes the Input field to a string slice
+// GetInputStrings normalizes the Input/Prompt field to a string slice.
+// Input takes precedence over Prompt when both are provided.
 func (r *OllamaEmbedRequest) GetInputStrings() []string {
-	switch v := r.Input.(type) {
+	if v := normalizeOllamaEmbedInput(r.Input); v != nil {
+		return v
+	}
+	return normalizeOllamaEmbedInput(r.Prompt)
+}
+
+func normalizeOllamaEmbedInput(v any) []string {
+	switch v := v.(type) {
 	case string:
+		if v == "" {
+			return nil
+		}
 		return []string{v}
 	case []any:
 		var result []string
