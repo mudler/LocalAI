@@ -117,6 +117,12 @@ ARG CUDA_DOCKER_ARCH
 ENV CUDA_DOCKER_ARCH=${CUDA_DOCKER_ARCH}
 ARG CMAKE_ARGS
 ENV CMAKE_ARGS=${CMAKE_ARGS}
+# AMDGPU_TARGETS must be forwarded into the env here too — backend/cpp/llama-cpp/Makefile
+# (which the turboquant Makefile reuses via a sibling build dir) errors out when the var
+# is empty on a hipblas build, and the prebuilt path is what CI exercises most of the
+# time. The builder-fromsource stage above already does this; mirror it here.
+ARG AMDGPU_TARGETS
+ENV AMDGPU_TARGETS=${AMDGPU_TARGETS}
 ARG TARGETARCH
 ARG TARGETVARIANT
 
