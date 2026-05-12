@@ -33,7 +33,7 @@ dependencies = [
     "certifi",
     "setuptools",
     "pillow",
-    "charset-normalizer>=3.4.0",
+    "charset-normalizer>=3.4.7",
     "chardet",
     # L4T-specific accelerator stack (sourced from jetson-ai-lab below).
     "torch",
