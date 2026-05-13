@@ -240,6 +240,28 @@ func (re *RequestExtractor) SetOpenAIRequest(c echo.Context) error {
 	return nil
 }
 
+// extractToolChoiceFunctionName parses a tool_choice map and returns the
+// specific function name. Accepts both the OpenAI-spec nested shape
+// ({type:function, function:{name:...}}) and the legacy/Anthropic-compat
+// flat shape ({type:function, name:...}); the nested form wins when both
+// are present. Returns "" for malformed input or when the shape names a
+// mode rather than a specific tool.
+func extractToolChoiceFunctionName(m map[string]any) string {
+	tcType, ok := m["type"].(string)
+	if !ok || tcType != "function" {
+		return ""
+	}
+	if fn, ok := m["function"].(map[string]any); ok {
+		if n, ok := fn["name"].(string); ok && n != "" {
+			return n
+		}
+	}
+	if n, ok := m["name"].(string); ok {
+		return n
+	}
+	return ""
+}
+
 func mergeOpenAIRequestAndModelConfig(config *config.ModelConfig, input *schema.OpenAIRequest) error {
 	if input.Echo {
 		config.Echo = input.Echo
@@ -319,53 +341,54 @@ func mergeOpenAIRequestAndModelConfig(config *config.ModelConfig, input *schema.
 	}
 
 	if input.ToolsChoice != nil {
-		// OpenAI tool_choice has three valid shapes:
+		// OpenAI tool_choice has three valid shapes plus one tolerated
+		// non-spec form seen in the wild:
 		//
-		//   1. string mode:   "auto" | "none" | "required"
-		//   2. specific tool: {"type":"function", "function":{"name":"..."}}   (current spec)
-		//   3. legacy:        {"type":"function", "name":"..."}                 (older / Anthropic-compat)
+		//   1. string mode:    "auto" | "none" | "required"
+		//   2. specific tool:  {"type":"function", "function":{"name":"..."}}  (current spec)
+		//   3. legacy:         {"type":"function", "name":"..."}                (older / Anthropic-compat)
+		//   4. double-encoded: "{\"type\":\"function\", ...}"                   (some clients serialize the object)
 		//
-		// The previous code unmarshalled all three into functions.Tool via
-		// json.Unmarshal and then unconditionally set input.FunctionCall =
-		// {"name": toolChoice.Function.Name}. That had two consequences:
+		// The pre-#9559 code unmarshalled the string case through
+		// json.Unmarshal([]byte(content), &functions.Tool{}), which:
+		//   - failed for plain string modes (so "required" / "none" were
+		//     silently ignored and tools stayed enabled regardless), but
+		//   - happened to handle shape 4 by accident.
+		// It also could not parse shape 3 because functions.Tool has no
+		// flat top-level Name field.
 		//
-		//   - For string modes, json.Unmarshal([]byte("required"), &Tool{}) fails;
-		//     the error was silently discarded, name was "", and downstream
-		//     SetFunctionCallNameString("") meant the requested mode never applied.
-		//   - For the OpenAI-spec map shape, the json keys did not match
-		//     functions.Tool's field tags, so name was "" again.
-		//
-		// Mirror the parsing pattern from MergeOpenResponsesConfig (#9509) and
+		// Mirror the parsing pattern from MergeOpenResponsesConfig (#9509),
 		// route results through the existing input.FunctionCall string/map
 		// dispatch downstream (see the switch on input.FunctionCall in this
-		// same function). Tracked in #9508; sibling fix in #9526.
+		// same function), and preserve the shape-4 fallback so non-spec
+		// clients don't silently break. Tracked in #9508; sibling fix in #9526.
 		switch content := input.ToolsChoice.(type) {
 		case string:
 			// "auto" is the default and needs no override. "none" and "required"
 			// both reach SetFunctionCallString via the input.FunctionCall string
 			// branch below; ShouldUseFunctions() then returns false for "none"
-			// (tools disabled) and true for "required" (mode engaged), matching
-			// the OpenAI spec. Before this fix "none" was silently ignored
-			// (json.Unmarshal(`none`, &Tool{}) failed) so tools stayed enabled.
-			if content != "" && content != "auto" {
-				input.FunctionCall = content
+			// (tools disabled) and true for "required" (mode engaged).
+			//
+			// If the string looks like a JSON object, try shape 4 first: parse
+			// it as a tool_choice map and use the resulting name. Falling back
+			// to mode-string handling when the parse yields no usable name keeps
+			// genuinely-malformed input from accidentally engaging a mode.
+			if content == "" || content == "auto" {
+				break
 			}
+			if strings.HasPrefix(strings.TrimSpace(content), "{") {
+				var nested map[string]any
+				if err := json.Unmarshal([]byte(content), &nested); err == nil {
+					if name := extractToolChoiceFunctionName(nested); name != "" {
+						input.FunctionCall = map[string]any{"name": name}
+						break
+					}
+				}
+			}
+			input.FunctionCall = content
 		case map[string]any:
-			if tcType, ok := content["type"].(string); ok && tcType == "function" {
-				var name string
-				if fn, ok := content["function"].(map[string]any); ok {
-					if n, ok := fn["name"].(string); ok {
-						name = n
-					}
-				}
-				if name == "" {
-					if n, ok := content["name"].(string); ok {
-						name = n
-					}
-				}
-				if name != "" {
-					input.FunctionCall = map[string]any{"name": name}
-				}
+			if name := extractToolChoiceFunctionName(content); name != "" {
+				input.FunctionCall = map[string]any{"name": name}
 			}
 		}
 	}

@@ -452,6 +452,54 @@ var _ = Describe("SetModelAndConfig tool_choice parsing (chat completions)", fun
 		})
 	})
 
+	// Some non-spec clients send the object form serialized as a JSON string.
+	// The pre-#9559 code accepted that by accident; this Context locks in
+	// continued tolerance so those clients do not silently regress.
+	Context("double-encoded tool_choice (JSON string of an object, non-spec)", func() {
+		It("parses a serialized OpenAI-spec nested object", func() {
+			// tool_choice value is itself a JSON-encoded string containing the
+			// object form. Use json.Marshal of the inner blob so the escapes
+			// are correct regardless of the test reader.
+			inner := `{"type":"function","function":{"name":"get_weather"}}`
+			encoded, err := json.Marshal(inner)
+			Expect(err).ToNot(HaveOccurred())
+			rec := postJSON(app, "/v1/chat/completions", chatReq(string(encoded)))
+
+			Expect(rec.Code).To(Equal(http.StatusOK))
+			Expect(capturedConfig).ToNot(BeNil())
+			Expect(capturedConfig.ShouldCallSpecificFunction()).To(BeTrue())
+			Expect(capturedConfig.FunctionToCall()).To(Equal("get_weather"))
+		})
+
+		It("parses a serialized legacy/Anthropic flat object", func() {
+			inner := `{"type":"function","name":"get_weather"}`
+			encoded, err := json.Marshal(inner)
+			Expect(err).ToNot(HaveOccurred())
+			rec := postJSON(app, "/v1/chat/completions", chatReq(string(encoded)))
+
+			Expect(rec.Code).To(Equal(http.StatusOK))
+			Expect(capturedConfig).ToNot(BeNil())
+			Expect(capturedConfig.ShouldCallSpecificFunction()).To(BeTrue())
+			Expect(capturedConfig.FunctionToCall()).To(Equal("get_weather"))
+		})
+
+		It("falls back to mode-string handling when the JSON string parses but has no usable name", func() {
+			// A JSON-string that decodes to a map without a function name
+			// should not engage specific-function forcing. We expect it to
+			// fall through to the mode-string path; the resulting mode is
+			// the raw blob (nonsense), but ShouldCallSpecificFunction stays
+			// false - the invariant that matters.
+			inner := `{"type":"function"}`
+			encoded, err := json.Marshal(inner)
+			Expect(err).ToNot(HaveOccurred())
+			rec := postJSON(app, "/v1/chat/completions", chatReq(string(encoded)))
+
+			Expect(rec.Code).To(Equal(http.StatusOK))
+			Expect(capturedConfig).ToNot(BeNil())
+			Expect(capturedConfig.ShouldCallSpecificFunction()).To(BeFalse())
+		})
+	})
+
 	Context("malformed tool_choice", func() {
 		It("is a no-op when type is missing", func() {
 			rec := postJSON(app, "/v1/chat/completions",
