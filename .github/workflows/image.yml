@@ -151,7 +151,11 @@
               ubuntu-codename: 'noble'
 
     core-image-merge:
-      if: github.repository == 'mudler/LocalAI'
+      # !cancelled(): without it, GHA's default `needs:` cascade skips the
+      # merge whenever any matrix cell of the parent build fails or is
+      # cancelled. Same fix as backend.yml's merge jobs — we still want to
+      # publish the manifest list for tag-suffixes whose legs all succeeded.
+      if: ${{ !cancelled() && github.repository == 'mudler/LocalAI' }}
       needs: core-image-build
       uses: ./.github/workflows/image_merge.yml
       with:
@@ -164,7 +168,7 @@
         quayPassword: ${{ secrets.LOCALAI_REGISTRY_PASSWORD }}
 
     gpu-vulkan-image-merge:
-      if: github.repository == 'mudler/LocalAI'
+      if: ${{ !cancelled() && github.repository == 'mudler/LocalAI' }}
       needs: core-image-build
       uses: ./.github/workflows/image_merge.yml
       with:
@@ -183,7 +187,7 @@
     # Each merge job needs only its parent build matrix and is filtered by
     # tag-suffix in image_merge.yml's artifact-download pattern.
     gpu-nvidia-cuda-12-image-merge:
-      if: github.repository == 'mudler/LocalAI'
+      if: ${{ !cancelled() && github.repository == 'mudler/LocalAI' }}
       needs: core-image-build
       uses: ./.github/workflows/image_merge.yml
       with:
@@ -196,7 +200,7 @@
         quayPassword: ${{ secrets.LOCALAI_REGISTRY_PASSWORD }}
 
     gpu-nvidia-cuda-13-image-merge:
-      if: github.repository == 'mudler/LocalAI'
+      if: ${{ !cancelled() && github.repository == 'mudler/LocalAI' }}
       needs: core-image-build
       uses: ./.github/workflows/image_merge.yml
       with:
@@ -209,7 +213,7 @@
         quayPassword: ${{ secrets.LOCALAI_REGISTRY_PASSWORD }}
 
     gpu-intel-image-merge:
-      if: github.repository == 'mudler/LocalAI'
+      if: ${{ !cancelled() && github.repository == 'mudler/LocalAI' }}
       needs: core-image-build
       uses: ./.github/workflows/image_merge.yml
       with:
@@ -222,7 +226,7 @@
         quayPassword: ${{ secrets.LOCALAI_REGISTRY_PASSWORD }}
 
     gpu-hipblas-image-merge:
-      if: github.repository == 'mudler/LocalAI'
+      if: ${{ !cancelled() && github.repository == 'mudler/LocalAI' }}
       needs: hipblas-jobs
       uses: ./.github/workflows/image_merge.yml
       with:
@@ -235,7 +239,7 @@
         quayPassword: ${{ secrets.LOCALAI_REGISTRY_PASSWORD }}
 
     nvidia-l4t-arm64-image-merge:
-      if: github.repository == 'mudler/LocalAI'
+      if: ${{ !cancelled() && github.repository == 'mudler/LocalAI' }}
       needs: gh-runner
       uses: ./.github/workflows/image_merge.yml
       with:
@@ -248,7 +252,7 @@
         quayPassword: ${{ secrets.LOCALAI_REGISTRY_PASSWORD }}
 
     nvidia-l4t-arm64-cuda-13-image-merge:
-      if: github.repository == 'mudler/LocalAI'
+      if: ${{ !cancelled() && github.repository == 'mudler/LocalAI' }}
       needs: gh-runner
       uses: ./.github/workflows/image_merge.yml
       with:
