@@ -341,9 +341,12 @@ func mergeOpenAIRequestAndModelConfig(config *config.ModelConfig, input *schema.
 		// same function). Tracked in #9508; sibling fix in #9526.
 		switch content := input.ToolsChoice.(type) {
 		case string:
-			// "auto" is the default and needs no override; "none" is handled
-			// at the endpoint layer by skipping tool wiring. "required" must
-			// reach SetFunctionCallString to engage the mode field.
+			// "auto" is the default and needs no override. "none" and "required"
+			// both reach SetFunctionCallString via the input.FunctionCall string
+			// branch below; ShouldUseFunctions() then returns false for "none"
+			// (tools disabled) and true for "required" (mode engaged), matching
+			// the OpenAI spec. Before this fix "none" was silently ignored
+			// (json.Unmarshal(`none`, &Tool{}) failed) so tools stayed enabled.
 			if content != "" && content != "auto" {
 				input.FunctionCall = content
 			}
