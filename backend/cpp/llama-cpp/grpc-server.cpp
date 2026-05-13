@@ -32,6 +32,7 @@
 #include <grpcpp/health_check_service_interface.h>
 #include <grpcpp/security/server_credentials.h>
 #include <regex>
+#include <algorithm>
 #include <atomic>
 #include <cstdlib>
 #include <fstream>
@@ -450,6 +451,8 @@ static void params_parse(server_context& /*ctx_server*/, const backend::ModelOpt
         // vector; the turboquant fork still uses the legacy scalar. The
         // LOCALAI_LEGACY_LLAMA_CPP_SPEC macro is injected by
         // backend/cpp/turboquant/patch-grpc-server.sh for fork builds only.
+        // Upstream renamed COMMON_SPECULATIVE_TYPE_DRAFT -> ..._DRAFT_SIMPLE
+        // in ggml-org/llama.cpp#22964; the fork still uses the old name.
 #ifdef LOCALAI_LEGACY_LLAMA_CPP_SPEC
         if (params.speculative.type == COMMON_SPECULATIVE_TYPE_NONE) {
             params.speculative.type = COMMON_SPECULATIVE_TYPE_DRAFT;
@@ -458,7 +461,7 @@ static void params_parse(server_context& /*ctx_server*/, const backend::ModelOpt
         const bool no_spec_type = params.speculative.types.empty() ||
             (params.speculative.types.size() == 1 && params.speculative.types[0] == COMMON_SPECULATIVE_TYPE_NONE);
         if (no_spec_type) {
-            params.speculative.types = { COMMON_SPECULATIVE_TYPE_DRAFT };
+            params.speculative.types = { COMMON_SPECULATIVE_TYPE_DRAFT_SIMPLE };
         }
 #endif
     }
@@ -701,16 +704,27 @@ static void params_parse(server_context& /*ctx_server*/, const backend::ModelOpt
             // Upstream switched to a vector of types (comma-separated for multi-type
             // chaining via common_speculative_types_from_names). We keep accepting a
             // single value here, but also tolerate comma-separated lists.
+            //
+            // ggml-org/llama.cpp#22964 also renamed the registered names from
+            // underscore- to dash-separated form, and replaced the bare
+            // `draft`/`eagle3` aliases with `draft-simple`/`draft-eagle3`. We
+            // normalize each token here so existing model configs keep working.
+            auto normalize_spec_name = [](std::string s) -> std::string {
+                std::replace(s.begin(), s.end(), '_', '-');
+                if (s == "draft")  return "draft-simple";
+                if (s == "eagle3") return "draft-eagle3";
+                return s;
+            };
             std::vector<std::string> names;
             std::string item;
             for (char c : optval_str) {
                 if (c == ',') {
-                    if (!item.empty()) { names.push_back(item); item.clear(); }
+                    if (!item.empty()) { names.push_back(normalize_spec_name(item)); item.clear(); }
                 } else {
                     item.push_back(c);
                 }
             }
-            if (!item.empty()) names.push_back(item);
+            if (!item.empty()) names.push_back(normalize_spec_name(item));
             auto parsed = common_speculative_types_from_names(names);
             if (!parsed.empty()) {
                 params.speculative.types = parsed;
