@@ -5,6 +5,7 @@ import ModelSelector from '../components/ModelSelector'
 import ClientMCPDropdown from '../components/ClientMCPDropdown'
 import { useMCPClient } from '../hooks/useMCPClient'
 import { loadClientMCPServers } from '../utils/mcpClientStorage'
+import { useAuth } from '../context/AuthContext'
 
 const STATUS_STYLES = {
   disconnected: { icon: 'fa-solid fa-circle', color: 'var(--color-text-secondary)', bg: 'transparent' },
@@ -57,6 +58,12 @@ export default function Talk() {
     connectionStatuses,
     getConnectedTools,
   } = useMCPClient()
+
+  // LocalAI Assistant ("Manage Mode") — mirrors the chat-page toggle.
+  // Admin-only; the realtime endpoint enforces the gate too. When on, the
+  // backend mounts the in-process MCP admin tool surface for this session.
+  const { isAdmin } = useAuth()
+  const [manageMode, setManageMode] = useState(false)
 
   // Diagnostics
   const [diagVisible, setDiagVisible] = useState(false)
@@ -336,6 +343,7 @@ export default function Talk() {
       const data = await realtimeApi.call({
         sdp: pc.localDescription.sdp,
         model: selectedModel,
+        localai_assistant: manageMode,
       })
 
       await pc.setRemoteDescription({ type: 'answer', sdp: data.sdp })
@@ -344,7 +352,7 @@ export default function Talk() {
       updateStatus('error', 'Connection failed: ' + err.message)
       disconnect()
     }
-  }, [selectedModel, diagVisible, handleServerEvent, updateStatus, addToast])
+  }, [selectedModel, manageMode, diagVisible, handleServerEvent, updateStatus, addToast])
 
   // ── Disconnect ──
   const disconnect = useCallback(() => {
@@ -620,6 +628,26 @@ export default function Talk() {
               connectionStatuses={connectionStatuses}
               getConnectedTools={getConnectedTools}
             />
+            {isAdmin && (
+              <label style={{
+                display: 'flex', alignItems: 'center', gap: 'var(--spacing-xs)',
+                marginTop: 'var(--spacing-xs)', fontSize: '0.8125rem',
+                cursor: isConnected ? 'not-allowed' : 'pointer',
+                color: isConnected ? 'var(--color-text-secondary)' : 'var(--color-text)',
+              }}>
+                <input
+                  type="checkbox"
+                  checked={manageMode}
+                  disabled={isConnected}
+                  onChange={(e) => setManageMode(e.target.checked)}
+                />
+                <i className="fas fa-user-shield" style={{ color: 'var(--color-primary)' }} />
+                Manage Mode
+                <span style={{ color: 'var(--color-text-secondary)', fontSize: '0.75rem' }}>
+                  — let the model query LocalAI (models, backends, system info)
+                </span>
+              </label>
+            )}
           </div>
 
           {/* Pipeline details */}

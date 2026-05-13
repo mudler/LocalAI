@@ -15,6 +15,10 @@ import (
 type RealtimeCallRequest struct {
 	SDP   string `json:"sdp"`
 	Model string `json:"model"`
+	// LocalAIAssistant opts the session into the in-process admin tool
+	// surface (same modality as the chat page's "Manage Mode"). Admin-only;
+	// the realtime entry point gates it the same way the chat handler does.
+	LocalAIAssistant bool `json:"localai_assistant,omitempty"`
 }
 
 // RealtimeCallResponse is the JSON response for POST /v1/realtime/calls.
@@ -165,9 +169,13 @@ func RealtimeCalls(application *application.Application) echo.HandlerFunc {
 
 		// Start the realtime session in a goroutine
 		evaluator := application.TemplatesEvaluator()
+		opts := RealtimeSessionOptions{
+			LocalAIAssistant: req.LocalAIAssistant,
+			IsAdmin:          isCurrentUserAdmin(c, application),
+		}
 		go func() {
 			defer transport.Close()
-			runRealtimeSession(application, transport, req.Model, evaluator)
+			runRealtimeSession(application, transport, req.Model, evaluator, opts)
 		}()
 
 		return c.JSON(http.StatusCreated, RealtimeCallResponse{

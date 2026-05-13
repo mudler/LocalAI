@@ -20,6 +20,8 @@ import (
 	"github.com/mudler/LocalAI/core/backend"
 
 	"github.com/mudler/LocalAI/core/config"
+	"github.com/mudler/LocalAI/core/http/auth"
+	mcpTools "github.com/mudler/LocalAI/core/http/endpoints/mcp"
 	"github.com/mudler/LocalAI/core/http/endpoints/openai/types"
 	"github.com/mudler/LocalAI/core/schema"
 	"github.com/mudler/LocalAI/core/templates"
@@ -85,6 +87,14 @@ type Session struct {
 	// of turns. Counted from the tail; FunctionCall + FunctionCallOutput
 	// pairs are kept together so we never feed an orphaned tool result.
 	MaxHistoryItems int
+
+	// AssistantExecutor is non-nil when the session opted into the in-process
+	// LocalAI Assistant tool surface. Tool calls whose name matches this
+	// executor's catalog are run inproc and their output is fed back to the
+	// model server-side; the client never sees a function_call_arguments
+	// event for those. Mirrors the chat handler's metadata.localai_assistant
+	// path.
+	AssistantExecutor mcpTools.ToolExecutor
 
 	// Response cancellation: protects activeResponseCancel/activeResponseDone
 	responseMu           sync.Mutex
@@ -211,6 +221,19 @@ func RealtimeTranscriptionSession(application *application.Application) echo.Han
 	}
 }
 
+// RealtimeSessionOptions bundles per-session knobs decoded from the WS query
+// string (or the WebRTC handshake body). Mirrors what chat.go pulls off
+// `metadata.localai_assistant` — admin-only opt-in to the in-process
+// management tool surface.
+type RealtimeSessionOptions struct {
+	LocalAIAssistant bool
+	// AuthEnabled mirrors chat.go's requireAssistantAccess gate. We resolve
+	// admin role at handshake time (where the echo.Context has the auth
+	// cookie/Bearer) and drop the result here so runRealtimeSession can
+	// decide without holding onto the request.
+	IsAdmin bool
+}
+
 func Realtime(application *application.Application) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		ws, err := upgrader.Upgrade(c.Response(), c.Request(), nil)
@@ -224,18 +247,33 @@ func Realtime(application *application.Application) echo.HandlerFunc {
 
 		// Extract query parameters from Echo context before passing to websocket handler
 		model := c.QueryParam("model")
+		opts := RealtimeSessionOptions{
+			LocalAIAssistant: c.QueryParam("localai_assistant") == "1" || c.QueryParam("localai_assistant") == "true",
+			IsAdmin:          isCurrentUserAdmin(c, application),
+		}
 
-		registerRealtime(application, model)(ws)
+		registerRealtime(application, model, opts)(ws)
 		return nil
 	}
 }
 
-func registerRealtime(application *application.Application, model string) func(c *websocket.Conn) {
+// isCurrentUserAdmin replicates the chat-side admin check at the realtime
+// handshake. When auth is disabled, every caller is treated as admin (same
+// as chat's requireAssistantAccess).
+func isCurrentUserAdmin(c echo.Context, application *application.Application) bool {
+	if application == nil || application.ApplicationConfig() == nil || !application.ApplicationConfig().Auth.Enabled {
+		return true
+	}
+	user := auth.GetUser(c)
+	return user != nil && user.Role == auth.RoleAdmin
+}
+
+func registerRealtime(application *application.Application, model string, opts RealtimeSessionOptions) func(c *websocket.Conn) {
 	return func(conn *websocket.Conn) {
 		t := NewWebSocketTransport(conn)
 		evaluator := application.TemplatesEvaluator()
 		xlog.Debug("Realtime WebSocket connection established", "address", conn.RemoteAddr().String(), "model", model)
-		runRealtimeSession(application, t, model, evaluator)
+		runRealtimeSession(application, t, model, evaluator, opts)
 	}
 }
 
@@ -306,7 +344,7 @@ func prepareRealtimeConfig(cfg *config.ModelConfig) (errCode, errMsg string, ok 
 
 // runRealtimeSession runs the main event loop for a realtime session.
 // It is transport-agnostic and works with both WebSocket and WebRTC.
-func runRealtimeSession(application *application.Application, t Transport, model string, evaluator *templates.Evaluator) {
+func runRealtimeSession(application *application.Application, t Transport, model string, evaluator *templates.Evaluator, opts RealtimeSessionOptions) {
 	cl := application.ModelConfigLoader()
 	cfg, err := cl.LoadModelConfigFileByNameDefaultOptions(model, application.ApplicationConfig())
 	if err != nil {
@@ -321,7 +359,61 @@ func runRealtimeSession(application *application.Application, t Transport, model
 		return
 	}
 
+	// LocalAI Assistant opt-in: gate on admin (same rule as chat.go's
+	// requireAssistantAccess) and grab the process-wide holder's executor.
+	// We collect tools + system prompt here and merge them into the session
+	// below so they're live from the first response.create.
+	var assistantTools []types.ToolUnion
+	var assistantSystemPrompt string
+	var assistantExecutor mcpTools.ToolExecutor
+	if opts.LocalAIAssistant {
+		if !opts.IsAdmin {
+			sendError(t, "forbidden", "localai_assistant requires admin", "", "")
+			return
+		}
+		appCfg := application.ApplicationConfig()
+		if appCfg != nil && appCfg.DisableLocalAIAssistant {
+			sendError(t, "unavailable", "LocalAI Assistant is disabled on this server", "", "")
+			return
+		}
+		holder := application.LocalAIAssistant()
+		if holder == nil || !holder.HasTools() {
+			sendError(t, "unavailable", "LocalAI Assistant is not available on this server", "", "")
+			return
+		}
+		exec := holder.Executor()
+		fns, discErr := exec.DiscoverTools(context.Background())
+		if discErr != nil {
+			xlog.Error("realtime: failed to discover LocalAI Assistant tools", "error", discErr)
+			sendError(t, "tool_discovery_failed", "failed to discover assistant tools: "+discErr.Error(), "", "")
+			return
+		}
+		assistantExecutor = exec
+		assistantSystemPrompt = holder.SystemPrompt()
+		assistantTools = make([]types.ToolUnion, 0, len(fns))
+		for _, fn := range fns {
+			fnCopy := fn
+			assistantTools = append(assistantTools, types.ToolUnion{
+				Function: &types.ToolFunction{
+					Name:        fnCopy.Name,
+					Description: fnCopy.Description,
+					Parameters:  fnCopy.Parameters,
+				},
+			})
+		}
+		xlog.Debug("realtime: LocalAI Assistant tools injected", "count", len(fns))
+	}
+
 	sttModel := cfg.Pipeline.Transcription
+
+	// Compose the system prompt: prepend the assistant prompt when we have
+	// one (it teaches the model the safety rules and tool recipes), then the
+	// session's default voice instructions. Order matches chat.go's
+	// hasSystemMessage check — assistant prompt comes first.
+	instructions := defaultInstructions
+	if assistantSystemPrompt != "" {
+		instructions = assistantSystemPrompt + "\n\n" + defaultInstructions
+	}
 
 	sessionID := generateSessionID()
 	session := &Session{
@@ -329,8 +421,10 @@ func runRealtimeSession(application *application.Application, t Transport, model
 		TranscriptionOnly: false,
 		Model:             model,
 		Voice:             cfg.TTSConfig.Voice,
-		Instructions:      defaultInstructions,
+		Instructions:      instructions,
 		ModelConfig:       cfg,
+		Tools:             assistantTools,
+		AssistantExecutor: assistantExecutor,
 		TurnDetection: &types.TurnDetectionUnion{
 			ServerVad: &types.ServerVad{
 				Threshold:         0.5,
@@ -1647,8 +1741,16 @@ func triggerResponse(ctx context.Context, session *Session, conv *Conversation, 
 		})
 	}
 
-	// Handle Tool Calls
+	// Handle Tool Calls. Two paths:
+	//   - LocalAI Assistant tools (session.AssistantExecutor.IsTool) run
+	//     server-side; we append both the call and its output to conv.Items
+	//     and re-trigger a follow-up response so the model can speak the
+	//     result. The client only sees observability events.
+	//   - All other tools follow the standard OpenAI flow: emit
+	//     function_call_arguments.done and wait for the client to send
+	//     conversation.item.create back.
 	xlog.Debug("About to handle tool calls", "finalToolCallsCount", len(finalToolCalls))
+	executedAssistantTool := false
 	for i, tc := range finalToolCalls {
 		toolCallID := generateItemID()
 		callID := "call_" + generateUniqueID() // OpenAI uses call_xyz
@@ -1679,6 +1781,34 @@ func triggerResponse(ctx context.Context, session *Session, conv *Conversation, 
 			OutputIndex:     outputIndex,
 			Item:            fcItem,
 		})
+
+		serverSide := session.AssistantExecutor != nil && session.AssistantExecutor.IsTool(tc.Name)
+		if serverSide {
+			output, execErr := session.AssistantExecutor.ExecuteTool(ctx, tc.Name, tc.Arguments)
+			if execErr != nil {
+				output = "Error: " + execErr.Error()
+				xlog.Error("realtime: assistant tool execution failed", "tool", tc.Name, "error", execErr)
+			}
+			foItem := types.MessageItemUnion{
+				FunctionCallOutput: &types.MessageItemFunctionCallOutput{
+					ID:     generateItemID(),
+					CallID: callID,
+					Output: output,
+					Status: types.ItemStatusCompleted,
+				},
+			}
+			conv.Lock.Lock()
+			conv.Items = append(conv.Items, &foItem)
+			conv.Lock.Unlock()
+			sendEvent(t, types.ResponseOutputItemDoneEvent{
+				ServerEventBase: types.ServerEventBase{},
+				ResponseID:      responseID,
+				OutputIndex:     outputIndex,
+				Item:            fcItem,
+			})
+			executedAssistantTool = true
+			continue
+		}
 
 		sendEvent(t, types.ResponseFunctionCallArgumentsDeltaEvent{
 			ServerEventBase: types.ServerEventBase{},
@@ -1715,6 +1845,13 @@ func triggerResponse(ctx context.Context, session *Session, conv *Conversation, 
 			Status: types.ResponseStatusCompleted,
 		},
 	})
+
+	// If we executed any assistant tools inproc, run another response cycle
+	// so the model can speak the result. Mirrors the chat-side agentic loop
+	// but driven server-side rather than by client round-trip.
+	if executedAssistantTool {
+		triggerResponse(ctx, session, conv, t, nil)
+	}
 }
 
 // Helper functions to generate unique IDs
