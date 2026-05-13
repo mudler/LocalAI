@@ -316,22 +316,65 @@ These are set via the `options:` array in the model configuration (format: `key:
 
 #### Speculative Type Values
 
-| Type | Description |
-|------|-------------|
-| `none` | No speculative decoding (default) |
-| `draft` | Draft model-based speculation (auto-set when `draft_model` is configured) |
-| `eagle3` | EAGLE3 draft model architecture |
-| `ngram_simple` | Simple self-speculative using token history |
-| `ngram_map_k` | N-gram with key-only map |
-| `ngram_map_k4v` | N-gram with keys and 4 m-gram values |
-| `ngram_mod` | Modified n-gram speculation |
-| `ngram_cache` | 3-level n-gram cache |
+The canonical names match upstream llama.cpp (dash-separated). For backward compatibility LocalAI also accepts the underscore-separated forms and the bare `draft` / `eagle3` aliases.
 
-Multiple types can be chained by passing a comma-separated list to `spec_type` (e.g. `spec_type:ngram_simple,ngram_mod`). The runtime tries them in order and accepts the first proposal that meets the acceptance criteria.
+| Type | Aliases accepted | Description |
+|------|------------------|-------------|
+| `none` | | No speculative decoding (default) |
+| `draft-simple` | `draft`, `draft_simple` | Draft model-based speculation (auto-set when `draft_model` is configured) |
+| `draft-eagle3` | `eagle3`, `draft_eagle3` | EAGLE3 draft model architecture |
+| `ngram-simple` | `ngram_simple` | Simple self-speculative using token history |
+| `ngram-map-k` | `ngram_map_k` | N-gram with key-only map |
+| `ngram-map-k4v` | `ngram_map_k4v` | N-gram with keys and 4 m-gram values |
+| `ngram-mod` | `ngram_mod` | Modified n-gram speculation |
+| `ngram-cache` | `ngram_cache` | 3-level n-gram cache |
+
+Multiple types can be chained by passing a comma-separated list to `spec_type` (e.g. `spec_type:ngram-simple,ngram-mod`). The runtime tries them in order and accepts the first proposal that meets the acceptance criteria.
 
 {{% notice note %}}
 Speculative decoding is automatically disabled when multimodal models (with `mmproj`) are active. The `n_draft` parameter can also be overridden per-request.
 {{% /notice %}}
+
+### Reasoning Models (DeepSeek-R1, Qwen3, etc.)
+
+These load-time options control how the backend parses `<think>` reasoning blocks and how much budget the model is allowed for thinking. They are set per model via the `options:` array.
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `reasoning_format` | string | `deepseek` | Parser for reasoning/thinking blocks. One of `none`, `auto`, `deepseek`, `deepseek-legacy` (alias `deepseek_legacy`). |
+| `enable_reasoning` / `reasoning_budget` | int | `-1` | Reasoning budget in tokens: `-1` unlimited, `0` disabled, `>0` token cap for the thinking section. |
+| `prefill_assistant` | bool | `true` | When `false`, the trailing assistant message is not pre-filled by the chat template. |
+
+{{% notice note %}}
+This is the load-time reasoning configuration. The orthogonal per-request `enable_thinking` chat-template kwarg (set via the YAML `reasoning.disable` field) toggles thinking on/off per call without restarting the model.
+{{% /notice %}}
+
+### Multimodal Backend Options
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `mmproj_use_gpu` / `mmproj_offload` | bool | `true` | Set `false` to keep the multimodal projector on CPU (saves VRAM at cost of speed). |
+| `image_min_tokens` | int | `-1` | Minimum vision tokens per image. `-1` keeps the model default. |
+| `image_max_tokens` | int | `-1` | Maximum vision tokens per image. `-1` keeps the model default. |
+
+### Embedding & Reranking Backend Options
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `pooling_type` / `pooling` | string | auto | Pooling strategy for embeddings: `none`, `mean`, `cls`, `last`, `rank`. Reranking automatically uses `rank`. |
+| `embd_normalize` / `embedding_normalize` | int | `2` | Normalization: `-1` none, `0` max-abs, `1` taxicab, `2` Euclidean (L2), `>2` p-norm. |
+
+### Other Backend Tuning Options
+
+These llama.cpp options are passed through the `options:` array.
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `n_ubatch` / `ubatch` | int | same as `batch` | Physical batch size. Decouple from `n_batch` when an embedding/rerank workload needs a different value. |
+| `threads_batch` / `n_threads_batch` | int | same as `threads` | Threads used during prompt processing. `<= 0` means `hardware_concurrency()`. |
+| `direct_io` / `use_direct_io` | bool | `false` | Open the model with `O_DIRECT` (faster cold loads on NVMe; ignored if not supported). |
+| `verbosity` | int | `3` | llama.cpp internal log verbosity threshold. Higher = more verbose. |
+| `override_tensor` / `tensor_buft_overrides` | string | "" | Per-tensor buffer-type overrides for the main model. Format: `<tensor regex>=<buffer type>,<tensor regex>=<buffer type>,...`. Mirrors the existing `draft_override_tensor` syntax for the draft model. |
 
 ### Prompt Caching
 

@@ -685,6 +685,136 @@ static void params_parse(server_context& /*ctx_server*/, const backend::ModelOpt
                     // If conversion fails, keep default value (8)
                 }
             }
+
+        // --- physical batch size (upstream -ub / --ubatch-size) ---
+        // Note: line ~482 already aliases n_ubatch to n_batch as a default; this
+        // option lets users decouple the two (useful for embeddings/rerank).
+        } else if (!strcmp(optname, "n_ubatch") || !strcmp(optname, "ubatch")) {
+            if (optval != NULL) {
+                try { params.n_ubatch = std::stoi(optval_str); } catch (...) {}
+            }
+
+        // --- main-model batch threads (upstream -tb / --threads-batch) ---
+        } else if (!strcmp(optname, "threads_batch") || !strcmp(optname, "n_threads_batch")) {
+            if (optval != NULL) {
+                try {
+                    int n = std::stoi(optval_str);
+                    if (n <= 0) n = (int)std::thread::hardware_concurrency();
+                    params.cpuparams_batch.n_threads = n;
+                } catch (...) {}
+            }
+
+        // --- pooling type for embeddings (upstream --pooling) ---
+        } else if (!strcmp(optname, "pooling_type") || !strcmp(optname, "pooling")) {
+            if (optval != NULL) {
+                if      (optval_str == "none") params.pooling_type = LLAMA_POOLING_TYPE_NONE;
+                else if (optval_str == "mean") params.pooling_type = LLAMA_POOLING_TYPE_MEAN;
+                else if (optval_str == "cls")  params.pooling_type = LLAMA_POOLING_TYPE_CLS;
+                else if (optval_str == "last") params.pooling_type = LLAMA_POOLING_TYPE_LAST;
+                else if (optval_str == "rank") params.pooling_type = LLAMA_POOLING_TYPE_RANK;
+                // unknown values silently leave UNSPECIFIED (auto-detect)
+            }
+
+        // --- llama log verbosity threshold (upstream -lv / --verbosity) ---
+        } else if (!strcmp(optname, "verbosity")) {
+            if (optval != NULL) {
+                try { params.verbosity = std::stoi(optval_str); } catch (...) {}
+            }
+
+        // --- O_DIRECT model loading (upstream --direct-io) ---
+        } else if (!strcmp(optname, "direct_io") || !strcmp(optname, "use_direct_io")) {
+            if (optval_str == "true" || optval_str == "1" || optval_str == "yes" || optval_str == "on" || optval_str == "enabled") {
+                params.use_direct_io = true;
+            } else if (optval_str == "false" || optval_str == "0" || optval_str == "no" || optval_str == "off" || optval_str == "disabled") {
+                params.use_direct_io = false;
+            }
+
+        // --- embedding normalization (upstream --embd-normalize) ---
+        // -1 none, 0 max-abs, 1 taxicab, 2 L2 (default), >2 p-norm
+        } else if (!strcmp(optname, "embd_normalize") || !strcmp(optname, "embedding_normalize")) {
+            if (optval != NULL) {
+                try { params.embd_normalize = std::stoi(optval_str); } catch (...) {}
+            }
+
+        // --- reasoning parser (upstream --reasoning-format) ---
+        // Picks the parser for <think> blocks emitted by reasoning models.
+        // none / auto / deepseek / deepseek-legacy
+        } else if (!strcmp(optname, "reasoning_format")) {
+            if (optval != NULL) {
+                if      (optval_str == "none")             params.reasoning_format = COMMON_REASONING_FORMAT_NONE;
+                else if (optval_str == "auto")             params.reasoning_format = COMMON_REASONING_FORMAT_AUTO;
+                else if (optval_str == "deepseek")         params.reasoning_format = COMMON_REASONING_FORMAT_DEEPSEEK;
+                else if (optval_str == "deepseek-legacy" || optval_str == "deepseek_legacy")
+                                                            params.reasoning_format = COMMON_REASONING_FORMAT_DEEPSEEK_LEGACY;
+                // unknown values silently keep the upstream default (DEEPSEEK)
+            }
+
+        // --- reasoning budget (upstream --reasoning-budget) ---
+        // -1 unlimited, 0 disabled, >0 token budget for thinking blocks.
+        // Distinct from per-request `enable_thinking` (chat_template_kwargs).
+        } else if (!strcmp(optname, "enable_reasoning") || !strcmp(optname, "reasoning_budget")) {
+            if (optval != NULL) {
+                try { params.enable_reasoning = std::stoi(optval_str); } catch (...) {}
+            }
+
+        // --- prefill assistant turn (upstream --no-prefill-assistant) ---
+        } else if (!strcmp(optname, "prefill_assistant")) {
+            if (optval_str == "true" || optval_str == "1" || optval_str == "yes" || optval_str == "on" || optval_str == "enabled") {
+                params.prefill_assistant = true;
+            } else if (optval_str == "false" || optval_str == "0" || optval_str == "no" || optval_str == "off" || optval_str == "disabled") {
+                params.prefill_assistant = false;
+            }
+
+        // --- mmproj GPU offload (upstream --no-mmproj-offload, inverted) ---
+        } else if (!strcmp(optname, "mmproj_use_gpu") || !strcmp(optname, "mmproj_offload")) {
+            if (optval_str == "true" || optval_str == "1" || optval_str == "yes" || optval_str == "on" || optval_str == "enabled") {
+                params.mmproj_use_gpu = true;
+            } else if (optval_str == "false" || optval_str == "0" || optval_str == "no" || optval_str == "off" || optval_str == "disabled") {
+                params.mmproj_use_gpu = false;
+            }
+
+        // --- per-image vision token budget (upstream --image-min/max-tokens) ---
+        } else if (!strcmp(optname, "image_min_tokens")) {
+            if (optval != NULL) {
+                try { params.image_min_tokens = std::stoi(optval_str); } catch (...) {}
+            }
+        } else if (!strcmp(optname, "image_max_tokens")) {
+            if (optval != NULL) {
+                try { params.image_max_tokens = std::stoi(optval_str); } catch (...) {}
+            }
+
+        // --- main-model tensor buffer overrides (upstream --override-tensor) ---
+        // Format: <tensor regex>=<buffer type>,<tensor regex>=<buffer type>,...
+        // Mirrors the existing `draft_override_tensor` parser below.
+        } else if (!strcmp(optname, "override_tensor") || !strcmp(optname, "tensor_buft_overrides")) {
+            ggml_backend_load_all();
+            std::map<std::string, ggml_backend_buffer_type_t> buft_list;
+            for (size_t i = 0; i < ggml_backend_dev_count(); ++i) {
+                auto * dev = ggml_backend_dev_get(i);
+                auto * buft = ggml_backend_dev_buffer_type(dev);
+                if (buft) {
+                    buft_list[ggml_backend_buft_name(buft)] = buft;
+                }
+            }
+            static std::list<std::string> override_names;
+            std::string cur;
+            auto flush = [&](const std::string & spec) {
+                auto pos = spec.find('=');
+                if (pos == std::string::npos) return;
+                const std::string name = spec.substr(0, pos);
+                const std::string type = spec.substr(pos + 1);
+                auto it = buft_list.find(type);
+                if (it == buft_list.end()) return; // unknown buffer type: ignore
+                override_names.push_back(name);
+                params.tensor_buft_overrides.push_back(
+                    {override_names.back().c_str(), it->second});
+            };
+            for (char c : optval_str) {
+                if (c == ',') { if (!cur.empty()) { flush(cur); cur.clear(); } }
+                else { cur.push_back(c); }
+            }
+            if (!cur.empty()) flush(cur);
+
         // Speculative decoding options
         } else if (!strcmp(optname, "spec_type") || !strcmp(optname, "speculative_type")) {
 #ifdef LOCALAI_LEGACY_LLAMA_CPP_SPEC
@@ -2794,7 +2924,9 @@ public:
             }
         }
 
-        int embd_normalize = 2; // default to Euclidean/L2 norm
+        // Honor the load-time embd_normalize set via options:embd_normalize.
+        // -1 none, 0 max-abs, 1 taxicab, 2 L2 (default), >2 p-norm.
+        int embd_normalize = params_base.embd_normalize;
         // create and queue the task
         auto rd = ctx_server.get_response_reader();
         {
