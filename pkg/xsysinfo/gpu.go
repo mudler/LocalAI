@@ -827,10 +827,12 @@ func getVulkanGPUMemory() []GPUMemoryInfo {
 }
 
 type vulkanGPUTextInfo struct {
-	index      int
-	name       string
-	deviceType string
-	totalVRAM  uint64
+	index        int
+	name         string
+	deviceType   string
+	totalVRAM    uint64
+	budgetVRAM   uint64
+	usageVRAM    uint64
 }
 
 func parseVulkanGPUMemoryText(r io.Reader) []GPUMemoryInfo {
@@ -841,13 +843,19 @@ func parseVulkanGPUMemoryText(r io.Reader) []GPUMemoryInfo {
 	inMemoryHeaps := false
 	inHeap := false
 	heapSize := uint64(0)
+	heapBudget := uint64(0)
+	heapUsage := uint64(0)
 	heapDeviceLocal := false
 
 	flushHeap := func() {
 		if current != nil && inHeap && heapDeviceLocal {
 			current.totalVRAM += heapSize
+			current.usageVRAM += heapUsage
+			current.budgetVRAM += heapBudget
 		}
 		heapSize = 0
+		heapBudget = 0
+		heapUsage = 0
 		heapDeviceLocal = false
 		inHeap = false
 	}
@@ -857,14 +865,25 @@ func parseVulkanGPUMemoryText(r io.Reader) []GPUMemoryInfo {
 			return
 		}
 
+		if current.usageVRAM == 0 && current.budgetVRAM != 0 {
+			current.usageVRAM = current.totalVRAM - current.budgetVRAM
+		} else if current.usageVRAM != 0 && current.budgetVRAM == 0 {
+			current.budgetVRAM = current.totalVRAM - current.usageVRAM
+		} else if current.usageVRAM == 0 && current.budgetVRAM == 0 {
+			current.usageVRAM  = 0
+			current.budgetVRAM = current.totalVRAM
+		}
+
+		usagePercent := float64(current.usageVRAM) / float64(current.totalVRAM) * float64(100.0)
+
 		gpus = append(gpus, GPUMemoryInfo{
 			Index:        current.index,
 			Name:         current.name,
 			Vendor:       VendorVulkan,
 			TotalVRAM:    current.totalVRAM,
-			UsedVRAM:     0, // Vulkan heap size is capacity, not real-time usage.
-			FreeVRAM:     current.totalVRAM,
-			UsagePercent: 0,
+			UsedVRAM:     current.usageVRAM,
+			FreeVRAM:     current.budgetVRAM,
+			UsagePercent: usagePercent,
 		})
 	}
 
@@ -938,6 +957,20 @@ func parseVulkanGPUMemoryText(r io.Reader) []GPUMemoryInfo {
 		if strings.HasPrefix(line, "size") {
 			if size, ok := parseVulkanUintValue(line); ok {
 				heapSize = size
+			}
+			continue
+		}
+
+		if strings.HasPrefix(line, "budget") {
+			if budget, ok := parseVulkanUintValue(line); ok {
+				heapBudget = budget
+			}
+			continue
+		}
+
+		if strings.HasPrefix(line, "usage") {
+			if usage, ok := parseVulkanUintValue(line); ok {
+				heapUsage = usage
 			}
 			continue
 		}
