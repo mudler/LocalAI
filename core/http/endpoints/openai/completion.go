@@ -214,7 +214,7 @@ func CompletionEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, eva
 			// opted in via stream_options.include_usage.
 			if input.StreamOptions != nil && input.StreamOptions.IncludeUsage && latestUsage != nil {
 				trailer := streamUsageTrailerJSON(id, input.Model, created, *latestUsage)
-				fmt.Fprintf(c.Response().Writer, "data: %s\n\n", trailer)
+				_, _ = fmt.Fprintf(c.Response().Writer, "data: %s\n\n", trailer)
 			}
 
 			fmt.Fprintf(c.Response().Writer, "data: [DONE]\n\n")

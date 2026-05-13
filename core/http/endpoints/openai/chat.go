@@ -923,7 +923,7 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 				// {"choices":[],"usage":{...},"object":"chat.completion.chunk",...}
 				if input.StreamOptions != nil && input.StreamOptions.IncludeUsage && usage != nil {
 					trailer := streamUsageTrailerJSON(id, input.Model, created, *usage)
-					fmt.Fprintf(c.Response().Writer, "data: %s\n\n", trailer)
+					_, _ = fmt.Fprintf(c.Response().Writer, "data: %s\n\n", trailer)
 				}
 
 				fmt.Fprintf(c.Response().Writer, "data: [DONE]\n\n")
