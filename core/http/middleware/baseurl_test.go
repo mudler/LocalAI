@@ -100,4 +100,39 @@ var _ = Describe("BaseURL", func() {
 			Expect(actualURL).To(Equal("http://example.com/localai/"), "base URL")
 		})
 	})
+
+	// X-Forwarded-Prefix is attacker controllable on misconfigured proxy
+	// chains, and the value flows into the SPA HTML response (<base href>
+	// and asset URLs). BasePathPrefix must gate the header through
+	// SafeForwardedPrefix so values that turn the prefix into an open
+	// redirect or a protocol-relative URL are ignored and the base falls
+	// back to "/".
+	Context("with unsafe X-Forwarded-Prefix header", func() {
+		DescribeTable("falls back to / when the header is unsafe",
+			func(header string) {
+				app := echo.New()
+				actualURL := ""
+
+				app.GET("/app", func(c echo.Context) error {
+					actualURL = BaseURL(c)
+					return nil
+				})
+
+				req := httptest.NewRequest("GET", "/app", nil)
+				req.Header.Set("X-Forwarded-Prefix", header)
+				rec := httptest.NewRecorder()
+				app.ServeHTTP(rec, req)
+
+				Expect(rec.Code).To(Equal(200), "response status code")
+				Expect(actualURL).To(Equal("http://example.com/"), "base URL")
+			},
+			Entry("protocol-relative URL", "//evil.com"),
+			Entry("protocol-relative URL with path", "//evil.com/assets"),
+			Entry("backslash path", `/foo\bar`),
+			Entry("embedded NUL", "/foo\x00bar"),
+			Entry("CR injection", "/foo\rbar"),
+			Entry("LF injection", "/foo\nbar"),
+			Entry("missing leading slash", "evil"),
+		)
+	})
 })

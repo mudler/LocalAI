@@ -14,6 +14,13 @@ import (
 // the prefix in the URL), then falls back to the X-Forwarded-Prefix header
 // (when the proxy strips the prefix before forwarding, e.g. Caddy's
 // handle_path).
+//
+// The header fallback is gated through SafeForwardedPrefix because the value
+// flows into the SPA HTML response (both <base href> and the path-absolute
+// asset URL rewrite in serveIndex). X-Forwarded-Prefix is attacker
+// controllable on misconfigured proxy chains; without that gate a value like
+// "//evil.com" turns the asset rewrite into a protocol-relative URL that
+// loads JS from a foreign origin.
 func BasePathPrefix(c echo.Context) string {
 	path := c.Path()
 	origPath := c.Request().URL.Path
@@ -24,7 +31,7 @@ func BasePathPrefix(c echo.Context) string {
 
 	if path != origPath && strings.HasSuffix(origPath, path) && len(path) > 0 {
 		prefixLen := len(origPath) - len(path)
-		if prefixLen > 0 && prefixLen <= len(origPath) {
+		if prefixLen > 0 {
 			pathPrefix := origPath[:prefixLen]
 			if !strings.HasSuffix(pathPrefix, "/") {
 				pathPrefix += "/"
@@ -33,14 +40,11 @@ func BasePathPrefix(c echo.Context) string {
 		}
 	}
 
-	if forwardedPrefix := c.Request().Header.Get("X-Forwarded-Prefix"); forwardedPrefix != "" {
-		if !strings.HasPrefix(forwardedPrefix, "/") {
-			forwardedPrefix = "/" + forwardedPrefix
+	if validated, ok := SafeForwardedPrefix(c.Request().Header.Get("X-Forwarded-Prefix")); ok {
+		if !strings.HasSuffix(validated, "/") {
+			validated += "/"
 		}
-		if !strings.HasSuffix(forwardedPrefix, "/") {
-			forwardedPrefix += "/"
-		}
-		return forwardedPrefix
+		return validated
 	}
 
 	return "/"

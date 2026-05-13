@@ -465,6 +465,23 @@ var _ = Describe("API test", func() {
 				Expect(string(body)).ToNot(ContainSubstring(`="/assets/`), "asset URLs must include the prefix")
 				Expect(string(body)).ToNot(ContainSubstring(`="/favicon.svg"`), "favicon URL must include the prefix")
 			})
+
+			// X-Forwarded-Prefix is attacker controllable on misconfigured
+			// proxy chains. A value like "//evil.com" would otherwise turn the
+			// asset URL rewrite into a protocol-relative URL that loads JS
+			// from a foreign origin. BasePathPrefix must reject these via
+			// SafeForwardedPrefix and fall back to "/".
+			It("Should ignore an unsafe X-Forwarded-Prefix and not poison asset URLs", func() {
+				err, sc, body := getRequest("http://127.0.0.1:9090/app", http.Header{
+					"X-Forwarded-Proto":  {"https"},
+					"X-Forwarded-Host":   {"example.org"},
+					"X-Forwarded-Prefix": {"//evil.com"},
+				})
+				Expect(err).To(BeNil(), "error")
+				Expect(sc).To(Equal(200), "status code")
+				Expect(string(body)).ToNot(ContainSubstring("evil.com"), "unsafe prefix must not leak into the response")
+				Expect(string(body)).ToNot(ContainSubstring(`="//`), "asset URLs must not become protocol-relative")
+			})
 		})
 
 		Context("Applying models", func() {
