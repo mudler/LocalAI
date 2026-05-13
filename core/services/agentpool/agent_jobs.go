@@ -11,7 +11,6 @@ import (
 	"io"
 	"net"
 	"net/http"
-	"os"
 	"path/filepath"
 	"slices"
 	"strings"
@@ -46,8 +45,6 @@ type AgentJobService struct {
 	tasks     *xsync.SyncedMap[string, schema.Task]
 	jobs      *xsync.SyncedMap[string, schema.Job]
 	persister JobPersister
-	tasksFile string // Path to agent_tasks.json (kept for backward compat)
-	jobsFile  string // Path to agent_jobs.json (kept for backward compat)
 	userID    string // Scoping: empty for global (main service), set for per-user instances
 
 	// Job execution channel
@@ -70,9 +67,6 @@ type AgentJobService struct {
 	// Service lifecycle
 	ctx    context.Context
 	cancel context.CancelFunc
-
-	// Mutex for file operations
-	fileMutex sync.Mutex
 }
 
 // DistributedDispatcher is the interface for distributed job dispatching via NATS.
@@ -220,8 +214,6 @@ func NewAgentJobServiceWithPaths(
 			tasksFile: tasksFile,
 			jobsFile:  jobsFile,
 		},
-		tasksFile:     tasksFile,
-		jobsFile:      jobsFile,
 		jobQueue:      make(chan JobExecution, 100), // Buffer for 100 jobs
 		cancellations: xsync.NewSyncedMap[string, context.CancelFunc](),
 		cronScheduler: cron.New(), // Support seconds in cron
@@ -230,127 +222,63 @@ func NewAgentJobServiceWithPaths(
 	}
 }
 
-// LoadTasksFromFile loads tasks from agent_tasks.json
+// LoadTasksFromFile loads tasks from the file persister into the in-memory
+// map and schedules cron entries. No-op when persister is not file-backed.
 func (s *AgentJobService) LoadTasksFromFile() error {
-	if s.tasksFile == "" {
-		return nil // No file path configured
-	}
-
-	s.fileMutex.Lock()
-	defer s.fileMutex.Unlock()
-
-	if _, err := os.Stat(s.tasksFile); os.IsNotExist(err) {
-		xlog.Debug("agent_tasks.json not found, starting with empty tasks")
+	fp, ok := s.persister.(*fileJobPersister)
+	if !ok {
 		return nil
 	}
-
-	fileContent, err := os.ReadFile(s.tasksFile)
+	tasks, err := fp.LoadTasks(s.userID)
 	if err != nil {
-		return fmt.Errorf("failed to read tasks file: %w", err)
+		return err
 	}
-
-	var tasksFile schema.TasksFile
-	if err := json.Unmarshal(fileContent, &tasksFile); err != nil {
-		return fmt.Errorf("failed to parse tasks file: %w", err)
-	}
-
-	for _, task := range tasksFile.Tasks {
+	for _, task := range tasks {
 		s.tasks.Set(task.ID, task)
-		// Schedule cron if enabled and has cron expression
 		if task.Enabled && task.Cron != "" {
 			if err := s.ScheduleCronTask(task); err != nil {
 				xlog.Warn("Failed to schedule cron task on load", "error", err, "task_id", task.ID)
 			}
 		}
 	}
-
-	xlog.Info("Loaded tasks from file", "count", len(tasksFile.Tasks))
-
 	return nil
 }
 
-// SaveTasksToFile saves tasks to agent_tasks.json
+// SaveTasksToFile writes tasks via the file persister. No-op when persister
+// is not file-backed.
 func (s *AgentJobService) SaveTasksToFile() error {
-	if s.tasksFile == "" {
-		return nil // No file path configured
-	}
-
-	s.fileMutex.Lock()
-	defer s.fileMutex.Unlock()
-
-	tasksFile := schema.TasksFile{
-		Tasks: s.tasks.Values(),
-	}
-
-	fileContent, err := json.MarshalIndent(tasksFile, "", "  ")
-	if err != nil {
-		return fmt.Errorf("failed to marshal tasks: %w", err)
-	}
-
-	if err := os.WriteFile(s.tasksFile, fileContent, 0600); err != nil {
-		return fmt.Errorf("failed to write tasks file: %w", err)
-	}
-
-	return nil
-}
-
-// LoadJobsFromFile loads jobs from agent_jobs.json
-func (s *AgentJobService) LoadJobsFromFile() error {
-	if s.jobsFile == "" {
-		return nil // No file path configured
-	}
-
-	s.fileMutex.Lock()
-	defer s.fileMutex.Unlock()
-
-	if _, err := os.Stat(s.jobsFile); os.IsNotExist(err) {
-		xlog.Debug("agent_jobs.json not found, starting with empty jobs")
+	fp, ok := s.persister.(*fileJobPersister)
+	if !ok {
 		return nil
 	}
+	return fp.saveTasksToFile()
+}
 
-	fileContent, err := os.ReadFile(s.jobsFile)
+// LoadJobsFromFile loads jobs from the file persister into the in-memory map.
+// No-op when persister is not file-backed.
+func (s *AgentJobService) LoadJobsFromFile() error {
+	fp, ok := s.persister.(*fileJobPersister)
+	if !ok {
+		return nil
+	}
+	jobs, err := fp.LoadJobs(s.userID)
 	if err != nil {
-		return fmt.Errorf("failed to read jobs file: %w", err)
+		return err
 	}
-
-	var jobsFile schema.JobsFile
-	if err := json.Unmarshal(fileContent, &jobsFile); err != nil {
-		return fmt.Errorf("failed to parse jobs file: %w", err)
-	}
-
-	// Load jobs into memory
-	for _, job := range jobsFile.Jobs {
+	for _, job := range jobs {
 		s.jobs.Set(job.ID, job)
 	}
-
-	xlog.Info("Loaded jobs from file", "count", len(jobsFile.Jobs))
 	return nil
 }
 
-// SaveJobsToFile saves jobs to agent_jobs.json
+// SaveJobsToFile writes jobs via the file persister. No-op when persister
+// is not file-backed.
 func (s *AgentJobService) SaveJobsToFile() error {
-	if s.jobsFile == "" {
-		return nil // No file path configured
+	fp, ok := s.persister.(*fileJobPersister)
+	if !ok {
+		return nil
 	}
-
-	s.fileMutex.Lock()
-	defer s.fileMutex.Unlock()
-
-	jobsFile := schema.JobsFile{
-		Jobs:        s.jobs.Values(),
-		LastCleanup: time.Now(),
-	}
-
-	fileContent, err := json.MarshalIndent(jobsFile, "", "  ")
-	if err != nil {
-		return fmt.Errorf("failed to marshal jobs: %w", err)
-	}
-
-	if err := os.WriteFile(s.jobsFile, fileContent, 0600); err != nil {
-		return fmt.Errorf("failed to write jobs file: %w", err)
-	}
-
-	return nil
+	return fp.saveJobsToFile()
 }
 
 // CreateTask creates a new task
