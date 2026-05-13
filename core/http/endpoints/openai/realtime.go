@@ -1800,11 +1800,25 @@ func triggerResponse(ctx context.Context, session *Session, conv *Conversation, 
 			conv.Lock.Lock()
 			conv.Items = append(conv.Items, &foItem)
 			conv.Lock.Unlock()
+			// First the call, then the output — gives the UI two distinct
+			// transcript entries (🔧 calling X / 📋 X returned …).
 			sendEvent(t, types.ResponseOutputItemDoneEvent{
 				ServerEventBase: types.ServerEventBase{},
 				ResponseID:      responseID,
 				OutputIndex:     outputIndex,
 				Item:            fcItem,
+			})
+			sendEvent(t, types.ResponseOutputItemAddedEvent{
+				ServerEventBase: types.ServerEventBase{},
+				ResponseID:      responseID,
+				OutputIndex:     outputIndex,
+				Item:            foItem,
+			})
+			sendEvent(t, types.ResponseOutputItemDoneEvent{
+				ServerEventBase: types.ServerEventBase{},
+				ResponseID:      responseID,
+				OutputIndex:     outputIndex,
+				Item:            foItem,
 			})
 			executedAssistantTool = true
 			continue

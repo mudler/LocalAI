@@ -264,6 +264,29 @@ export default function Talk() {
       case 'response.output_audio.delta':
         updateStatus('speaking', 'Speaking...')
         break
+      case 'response.output_item.added':
+      case 'response.output_item.done': {
+        // Server-executed tools (Manage Mode) surface as output items —
+        // a FunctionCall when the model decides to invoke a tool, and a
+        // FunctionCallOutput once the server has run it. We only render
+        // 'done' for the call (so it shows up once with its arguments)
+        // and 'added' for the output (rendered immediately on arrival).
+        const item = event.item
+        if (!item) break
+        if (event.type === 'response.output_item.done' && item.FunctionCall) {
+          setTranscript(prev => [...prev, {
+            role: 'tool_call',
+            text: `${item.FunctionCall.name}(${item.FunctionCall.arguments || ''})`,
+          }])
+        } else if (event.type === 'response.output_item.added' && item.FunctionCallOutput) {
+          let preview = item.FunctionCallOutput.output || ''
+          // Pretty-print JSON for readability; fall back to raw string.
+          try { preview = JSON.stringify(JSON.parse(preview), null, 2) } catch (_) { /* keep raw */ }
+          setTranscript(prev => [...prev, { role: 'tool_result', text: preview }])
+          streamingRef.current = null  // assistant turn is now fresh after the tool
+        }
+        break
+      }
       case 'response.function_call_arguments.done':
         // Don't await — keep the event loop free; handleFunctionCall sends
         // conversation.item.create + response.create when it's done.
@@ -758,16 +781,28 @@ export default function Talk() {
                 Conversation will appear here...
               </p>
             )}
-            {transcript.map((entry, i) => (
-              <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: 'var(--spacing-xs)' }}>
-                <i className={entry.role === 'user' ? 'fa-solid fa-user' : 'fa-solid fa-robot'}
-                  style={{
-                    color: entry.role === 'user' ? 'var(--color-primary)' : 'var(--color-accent)',
-                    marginTop: 3, flexShrink: 0, fontSize: '0.75rem',
-                  }} />
-                <p style={{ margin: 0 }}>{entry.text}</p>
-              </div>
-            ))}
+            {transcript.map((entry, i) => {
+              const isToolCall = entry.role === 'tool_call'
+              const isToolResult = entry.role === 'tool_result'
+              const isUser = entry.role === 'user'
+              const iconClass = isToolCall ? 'fa-solid fa-screwdriver-wrench'
+                              : isToolResult ? 'fa-solid fa-clipboard-list'
+                              : isUser ? 'fa-solid fa-user' : 'fa-solid fa-robot'
+              const iconColor = isToolCall || isToolResult ? 'var(--color-text-secondary)'
+                              : isUser ? 'var(--color-primary)' : 'var(--color-accent)'
+              return (
+                <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: 'var(--spacing-xs)' }}>
+                  <i className={iconClass} style={{ color: iconColor, marginTop: 3, flexShrink: 0, fontSize: '0.75rem' }} />
+                  <p style={{
+                    margin: 0,
+                    fontFamily: (isToolCall || isToolResult) ? 'var(--font-mono)' : undefined,
+                    fontSize: (isToolCall || isToolResult) ? '0.8125rem' : undefined,
+                    color: (isToolCall || isToolResult) ? 'var(--color-text-secondary)' : undefined,
+                    whiteSpace: isToolResult ? 'pre-wrap' : undefined,
+                  }}>{entry.text}</p>
+                </div>
+              )
+            })}
             <div ref={transcriptEndRef} />
           </div>
 
