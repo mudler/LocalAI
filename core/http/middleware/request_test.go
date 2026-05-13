@@ -371,7 +371,7 @@ var _ = Describe("SetModelAndConfig tool_choice parsing (chat completions)", fun
 	})
 
 	AfterEach(func() {
-		os.RemoveAll(modelDir)
+		_ = os.RemoveAll(modelDir)
 	})
 
 	// chatReq wraps a tool_choice JSON fragment in a minimal valid chat-completions
