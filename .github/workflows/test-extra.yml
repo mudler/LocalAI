@@ -28,6 +28,7 @@ jobs:
       qwen-asr: ${{ steps.detect.outputs.qwen-asr }}
       nemo: ${{ steps.detect.outputs.nemo }}
       voxcpm: ${{ steps.detect.outputs.voxcpm }}
+      liquid-audio: ${{ steps.detect.outputs.liquid-audio }}
       llama-cpp-quantization: ${{ steps.detect.outputs.llama-cpp-quantization }}
       llama-cpp: ${{ steps.detect.outputs.llama-cpp }}
       ik-llama-cpp: ${{ steps.detect.outputs.ik-llama-cpp }}
@@ -447,6 +448,32 @@ jobs:
         run: |
           make --jobs=5 --output-sync=target -C backend/python/voxcpm
           make --jobs=5 --output-sync=target -C backend/python/voxcpm test
+  # liquid-audio: LFM2.5-Audio any-to-any backend. The CI smoke test
+  # exercises Health() and LoadModel(mode:finetune) — fine-tune mode
+  # short-circuits before pulling weights (backend.py:192), so no
+  # HuggingFace download or GPU is needed. The full-inference path is
+  # gated on LIQUID_AUDIO_MODEL_ID, which we don't set here.
+  tests-liquid-audio:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.liquid-audio == 'true' || needs.detect-changes.outputs.run-all == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Clone
+        uses: actions/checkout@v6
+        with:
+          submodules: true
+      - name: Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential ffmpeg
+          sudo apt-get install -y ca-certificates cmake curl patch python3-pip
+          # Install UV
+          curl -LsSf https://astral.sh/uv/install.sh | sh
+          pip install --user --no-cache-dir grpcio-tools==1.64.1
+      - name: Test liquid-audio
+        run: |
+          make --jobs=5 --output-sync=target -C backend/python/liquid-audio
+          make --jobs=5 --output-sync=target -C backend/python/liquid-audio test
   tests-llama-cpp-quantization:
     needs: detect-changes
     if: needs.detect-changes.outputs.llama-cpp-quantization == 'true' || needs.detect-changes.outputs.run-all == 'true'
