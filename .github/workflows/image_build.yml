@@ -202,7 +202,11 @@ jobs:
         if: github.event_name != 'pull_request'
         uses: actions/upload-artifact@v7
         with:
-          name: digests-localai${{ inputs.tag-suffix == '' && '-core' || inputs.tag-suffix }}-${{ inputs.platform-tag }}
+          # `--` separator + 'single' placeholder for empty platform-tag —
+          # same pattern as backend_build.yml. Prevents prefix collisions
+          # in the merge-side glob (e.g. -nvidia-l4t-arm64 is a prefix of
+          # -nvidia-l4t-arm64-cuda-13).
+          name: digests-localai${{ inputs.tag-suffix == '' && '-core' || inputs.tag-suffix }}--${{ inputs.platform-tag || 'single' }}
           path: /tmp/digests/*
           if-no-files-found: error
           retention-days: 1

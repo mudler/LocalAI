@@ -45,7 +45,10 @@ jobs:
       - name: Download digests
         uses: actions/download-artifact@v8
         with:
-          pattern: digests-localai${{ inputs.tag-suffix == '' && '-core' || inputs.tag-suffix }}-*
+          # `--` separator anchors the glob so we don't over-match sibling
+          # tag-suffixes (e.g. -nvidia-l4t-arm64 vs -nvidia-l4t-arm64-cuda-13).
+          # Must stay in sync with image_build.yml's upload-artifact name.
+          pattern: digests-localai${{ inputs.tag-suffix == '' && '-core' || inputs.tag-suffix }}--*
           merge-multiple: true
           path: /tmp/digests
 

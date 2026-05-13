@@ -175,7 +175,91 @@
         dockerPassword: ${{ secrets.DOCKERHUB_PASSWORD }}
         quayUsername: ${{ secrets.LOCALAI_REGISTRY_USERNAME }}
         quayPassword: ${{ secrets.LOCALAI_REGISTRY_PASSWORD }}
-  
+
+    # Single-arch server-image merges. Same conceptual fix as the backend
+    # singletons in PR #9781: image_build.yml pushes by canonical digest
+    # only, so without a downstream merge step there's no tag for consumers
+    # (no :latest-gpu-nvidia-cuda-12, no :v<X>-gpu-nvidia-cuda-12, etc.).
+    # Each merge job needs only its parent build matrix and is filtered by
+    # tag-suffix in image_merge.yml's artifact-download pattern.
+    gpu-nvidia-cuda-12-image-merge:
+      if: github.repository == 'mudler/LocalAI'
+      needs: core-image-build
+      uses: ./.github/workflows/image_merge.yml
+      with:
+        tag-latest: 'auto'
+        tag-suffix: '-gpu-nvidia-cuda-12'
+      secrets:
+        dockerUsername: ${{ secrets.DOCKERHUB_USERNAME }}
+        dockerPassword: ${{ secrets.DOCKERHUB_PASSWORD }}
+        quayUsername: ${{ secrets.LOCALAI_REGISTRY_USERNAME }}
+        quayPassword: ${{ secrets.LOCALAI_REGISTRY_PASSWORD }}
+
+    gpu-nvidia-cuda-13-image-merge:
+      if: github.repository == 'mudler/LocalAI'
+      needs: core-image-build
+      uses: ./.github/workflows/image_merge.yml
+      with:
+        tag-latest: 'auto'
+        tag-suffix: '-gpu-nvidia-cuda-13'
+      secrets:
+        dockerUsername: ${{ secrets.DOCKERHUB_USERNAME }}
+        dockerPassword: ${{ secrets.DOCKERHUB_PASSWORD }}
+        quayUsername: ${{ secrets.LOCALAI_REGISTRY_USERNAME }}
+        quayPassword: ${{ secrets.LOCALAI_REGISTRY_PASSWORD }}
+
+    gpu-intel-image-merge:
+      if: github.repository == 'mudler/LocalAI'
+      needs: core-image-build
+      uses: ./.github/workflows/image_merge.yml
+      with:
+        tag-latest: 'auto'
+        tag-suffix: '-gpu-intel'
+      secrets:
+        dockerUsername: ${{ secrets.DOCKERHUB_USERNAME }}
+        dockerPassword: ${{ secrets.DOCKERHUB_PASSWORD }}
+        quayUsername: ${{ secrets.LOCALAI_REGISTRY_USERNAME }}
+        quayPassword: ${{ secrets.LOCALAI_REGISTRY_PASSWORD }}
+
+    gpu-hipblas-image-merge:
+      if: github.repository == 'mudler/LocalAI'
+      needs: hipblas-jobs
+      uses: ./.github/workflows/image_merge.yml
+      with:
+        tag-latest: 'auto'
+        tag-suffix: '-gpu-hipblas'
+      secrets:
+        dockerUsername: ${{ secrets.DOCKERHUB_USERNAME }}
+        dockerPassword: ${{ secrets.DOCKERHUB_PASSWORD }}
+        quayUsername: ${{ secrets.LOCALAI_REGISTRY_USERNAME }}
+        quayPassword: ${{ secrets.LOCALAI_REGISTRY_PASSWORD }}
+
+    nvidia-l4t-arm64-image-merge:
+      if: github.repository == 'mudler/LocalAI'
+      needs: gh-runner
+      uses: ./.github/workflows/image_merge.yml
+      with:
+        tag-latest: 'auto'
+        tag-suffix: '-nvidia-l4t-arm64'
+      secrets:
+        dockerUsername: ${{ secrets.DOCKERHUB_USERNAME }}
+        dockerPassword: ${{ secrets.DOCKERHUB_PASSWORD }}
+        quayUsername: ${{ secrets.LOCALAI_REGISTRY_USERNAME }}
+        quayPassword: ${{ secrets.LOCALAI_REGISTRY_PASSWORD }}
+
+    nvidia-l4t-arm64-cuda-13-image-merge:
+      if: github.repository == 'mudler/LocalAI'
+      needs: gh-runner
+      uses: ./.github/workflows/image_merge.yml
+      with:
+        tag-latest: 'auto'
+        tag-suffix: '-nvidia-l4t-arm64-cuda-13'
+      secrets:
+        dockerUsername: ${{ secrets.DOCKERHUB_USERNAME }}
+        dockerPassword: ${{ secrets.DOCKERHUB_PASSWORD }}
+        quayUsername: ${{ secrets.LOCALAI_REGISTRY_USERNAME }}
+        quayPassword: ${{ secrets.LOCALAI_REGISTRY_PASSWORD }}
+
     gh-runner:
       if: github.repository == 'mudler/LocalAI'
       uses: ./.github/workflows/image_build.yml
