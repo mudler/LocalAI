@@ -264,26 +264,24 @@ export default function Talk() {
       case 'response.output_audio.delta':
         updateStatus('speaking', 'Speaking...')
         break
-      case 'response.output_item.added':
       case 'response.output_item.done': {
         // Server-executed tools (Manage Mode) surface as output items —
-        // a FunctionCall when the model decides to invoke a tool, and a
-        // FunctionCallOutput once the server has run it. We only render
-        // 'done' for the call (so it shows up once with its arguments)
-        // and 'added' for the output (rendered immediately on arrival).
+        // FunctionCall when the model invokes a tool, FunctionCallOutput
+        // once the server has run it. Render both on `done` so we get
+        // each transcript entry exactly once.
         const item = event.item
         if (!item) break
-        if (event.type === 'response.output_item.done' && item.FunctionCall) {
+        if (item.FunctionCall) {
           setTranscript(prev => [...prev, {
             role: 'tool_call',
             text: `${item.FunctionCall.name}(${item.FunctionCall.arguments || ''})`,
           }])
-        } else if (event.type === 'response.output_item.added' && item.FunctionCallOutput) {
+        } else if (item.FunctionCallOutput) {
           let preview = item.FunctionCallOutput.output || ''
           // Pretty-print JSON for readability; fall back to raw string.
           try { preview = JSON.stringify(JSON.parse(preview), null, 2) } catch (_) { /* keep raw */ }
           setTranscript(prev => [...prev, { role: 'tool_result', text: preview }])
-          streamingRef.current = null  // assistant turn is now fresh after the tool
+          streamingRef.current = null  // tool result ends the current assistant text run
         }
         break
       }

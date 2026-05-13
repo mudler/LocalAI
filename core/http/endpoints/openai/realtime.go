@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"math"
 	"os"
+	"strconv"
 	"sync"
 	"time"
 
@@ -95,6 +96,12 @@ type Session struct {
 	// event for those. Mirrors the chat handler's metadata.localai_assistant
 	// path.
 	AssistantExecutor mcpTools.ToolExecutor
+
+	// AssistantTools is the cached ToolUnion slice we injected at session
+	// creation. Re-applied after every client session.update so a
+	// client-driven tool refresh (e.g. toggling a client MCP server) doesn't
+	// silently strip Manage Mode's tools.
+	AssistantTools []types.ToolUnion
 
 	// Response cancellation: protects activeResponseCancel/activeResponseDone
 	responseMu           sync.Mutex
@@ -247,8 +254,9 @@ func Realtime(application *application.Application) echo.HandlerFunc {
 
 		// Extract query parameters from Echo context before passing to websocket handler
 		model := c.QueryParam("model")
+		assistantFlag, _ := strconv.ParseBool(c.QueryParam("localai_assistant"))
 		opts := RealtimeSessionOptions{
-			LocalAIAssistant: c.QueryParam("localai_assistant") == "1" || c.QueryParam("localai_assistant") == "true",
+			LocalAIAssistant: assistantFlag,
 			IsAdmin:          isCurrentUserAdmin(c, application),
 		}
 
@@ -424,6 +432,7 @@ func runRealtimeSession(application *application.Application, t Transport, model
 		Instructions:      instructions,
 		ModelConfig:       cfg,
 		Tools:             assistantTools,
+		AssistantTools:    assistantTools,
 		AssistantExecutor: assistantExecutor,
 		TurnDetection: &types.TurnDetectionUnion{
 			ServerVad: &types.ServerVad{
@@ -975,7 +984,28 @@ func updateSession(session *Session, update *types.SessionUnion, cl *config.Mode
 	}
 
 	if rt.Tools != nil {
-		session.Tools = rt.Tools
+		// Manage Mode tools survive a client-driven session.update — the
+		// alternative is silently dropping them whenever the user toggles
+		// a client MCP server, which would break the modality mid-session.
+		// Names from rt.Tools win on collision (the client is explicit;
+		// we preserve, we don't override).
+		merged := append([]types.ToolUnion(nil), rt.Tools...)
+		seen := make(map[string]struct{}, len(merged))
+		for _, t := range merged {
+			if t.Function != nil {
+				seen[t.Function.Name] = struct{}{}
+			}
+		}
+		for _, t := range session.AssistantTools {
+			if t.Function == nil {
+				continue
+			}
+			if _, ok := seen[t.Function.Name]; ok {
+				continue
+			}
+			merged = append(merged, t)
+		}
+		session.Tools = merged
 	}
 	if rt.ToolChoice != nil {
 		session.ToolChoice = rt.ToolChoice
@@ -1269,7 +1299,17 @@ func generateResponse(ctx context.Context, session *Session, utt []byte, transcr
 	triggerResponse(ctx, session, conv, t, nil)
 }
 
+// maxAssistantToolTurns caps the server-side agentic loop. Mirrors the
+// chat-page maxToolTurns:10 from useChat.js — the model gets up to this
+// many consecutive tool round-trips before we return control to the user
+// without another response cycle.
+const maxAssistantToolTurns = 10
+
 func triggerResponse(ctx context.Context, session *Session, conv *Conversation, t Transport, overrides *types.ResponseCreateParams) {
+	triggerResponseAtTurn(ctx, session, conv, t, overrides, 0)
+}
+
+func triggerResponseAtTurn(ctx context.Context, session *Session, conv *Conversation, t Transport, overrides *types.ResponseCreateParams, toolTurn int) {
 	config := session.ModelInterface.PredictConfig()
 
 	// Default values
@@ -1800,8 +1840,11 @@ func triggerResponse(ctx context.Context, session *Session, conv *Conversation, 
 			conv.Lock.Lock()
 			conv.Items = append(conv.Items, &foItem)
 			conv.Lock.Unlock()
-			// First the call, then the output — gives the UI two distinct
-			// transcript entries (🔧 calling X / 📋 X returned …).
+			// Close the call out and emit the output as its own paired
+			// added/done — the OpenAI spec pairs every item-done with a
+			// preceding item-added, so we re-pair here for the output.
+			// The UI renders the transcript entry on item.done for both
+			// shapes (FunctionCall + FunctionCallOutput).
 			sendEvent(t, types.ResponseOutputItemDoneEvent{
 				ServerEventBase: types.ServerEventBase{},
 				ResponseID:      responseID,
@@ -1862,9 +1905,15 @@ func triggerResponse(ctx context.Context, session *Session, conv *Conversation, 
 
 	// If we executed any assistant tools inproc, run another response cycle
 	// so the model can speak the result. Mirrors the chat-side agentic loop
-	// but driven server-side rather than by client round-trip.
+	// but driven server-side rather than by client round-trip. Bounded so a
+	// degenerate "model keeps calling tools" doesn't blow the stack.
 	if executedAssistantTool {
-		triggerResponse(ctx, session, conv, t, nil)
+		if toolTurn+1 >= maxAssistantToolTurns {
+			xlog.Warn("realtime: assistant tool-turn limit reached, stopping the agentic loop",
+				"limit", maxAssistantToolTurns, "model", session.Model)
+			return
+		}
+		triggerResponseAtTurn(ctx, session, conv, t, nil, toolTurn+1)
 	}
 }
 
