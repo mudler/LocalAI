@@ -42,6 +42,14 @@ func (p *fileJobPersister) DeleteJob(_ string) error {
 	return p.saveJobsToFile()
 }
 
+func (p *fileJobPersister) FlushTasks() error {
+	return p.saveTasksToFile()
+}
+
+func (p *fileJobPersister) FlushJobs() error {
+	return p.saveJobsToFile()
+}
+
 // GetJob returns nil — file persister has no authoritative reads.
 func (p *fileJobPersister) GetJob(_ string) (*schema.Job, error) {
 	return nil, nil

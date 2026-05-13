@@ -222,14 +222,11 @@ func NewAgentJobServiceWithPaths(
 	}
 }
 
-// LoadTasksFromFile loads tasks from the file persister into the in-memory
-// map and schedules cron entries. No-op when persister is not file-backed.
+// LoadTasksFromFile loads tasks from the persister into the in-memory map
+// and schedules cron entries. Named "FromFile" for backward compat; in DB
+// mode it loads from the database.
 func (s *AgentJobService) LoadTasksFromFile() error {
-	fp, ok := s.persister.(*fileJobPersister)
-	if !ok {
-		return nil
-	}
-	tasks, err := fp.LoadTasks(s.userID)
+	tasks, err := s.persister.LoadTasks(s.userID)
 	if err != nil {
 		return err
 	}
@@ -244,24 +241,18 @@ func (s *AgentJobService) LoadTasksFromFile() error {
 	return nil
 }
 
-// SaveTasksToFile writes tasks via the file persister. No-op when persister
-// is not file-backed.
+// SaveTasksToFile flushes the current tasks map via the persister. File
+// persister bulk-writes the JSON file atomically; DB persister no-ops
+// because per-task SaveTask calls already wrote through.
 func (s *AgentJobService) SaveTasksToFile() error {
-	fp, ok := s.persister.(*fileJobPersister)
-	if !ok {
-		return nil
-	}
-	return fp.saveTasksToFile()
+	return s.persister.FlushTasks()
 }
 
-// LoadJobsFromFile loads jobs from the file persister into the in-memory map.
-// No-op when persister is not file-backed.
+// LoadJobsFromFile loads jobs from the persister into the in-memory map.
+// Named "FromFile" for backward compat; in DB mode it loads from the
+// database.
 func (s *AgentJobService) LoadJobsFromFile() error {
-	fp, ok := s.persister.(*fileJobPersister)
-	if !ok {
-		return nil
-	}
-	jobs, err := fp.LoadJobs(s.userID)
+	jobs, err := s.persister.LoadJobs(s.userID)
 	if err != nil {
 		return err
 	}
@@ -271,14 +262,11 @@ func (s *AgentJobService) LoadJobsFromFile() error {
 	return nil
 }
 
-// SaveJobsToFile writes jobs via the file persister. No-op when persister
-// is not file-backed.
+// SaveJobsToFile flushes the current jobs map via the persister. File
+// persister bulk-writes the JSON file atomically; DB persister no-ops
+// because per-job SaveJob calls already wrote through.
 func (s *AgentJobService) SaveJobsToFile() error {
-	fp, ok := s.persister.(*fileJobPersister)
-	if !ok {
-		return nil
-	}
-	return fp.saveJobsToFile()
+	return s.persister.FlushJobs()
 }
 
 // CreateTask creates a new task
