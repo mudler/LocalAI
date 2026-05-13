@@ -131,13 +131,19 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 				delta.Reasoning = &reasoningDelta
 			}
 
+			// Usage rides as a struct field for the consumer to track the
+			// running cumulative — it is stripped before JSON marshal so the
+			// wire chunk stays spec-compliant (no `usage` on intermediate
+			// chunks). The dedicated trailer chunk (when include_usage=true)
+			// carries the final totals.
+			usageForChunk := usage
 			resp := schema.OpenAIResponse{
 				ID:      id,
 				Created: created,
 				Model:   req.Model, // we have to return what the user sent here, due to OpenAI spec.
 				Choices: []schema.Choice{{Delta: delta, Index: 0, FinishReason: nil}},
 				Object:  "chat.completion.chunk",
-				Usage:   usage,
+				Usage:   &usageForChunk,
 			}
 
 			responses <- resp
@@ -164,7 +170,7 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 		hasChatDeltaToolCalls := false
 		hasChatDeltaContent := false
 
-		_, tokenUsage, chatDeltas, err := ComputeChoices(req, prompt, config, cl, startupOptions, loader, func(s string, c *[]schema.Choice) {}, func(s string, usage backend.TokenUsage) bool {
+		_, _, chatDeltas, err := ComputeChoices(req, prompt, config, cl, startupOptions, loader, func(s string, c *[]schema.Choice) {}, func(s string, usage backend.TokenUsage) bool {
 			result += s
 
 			// Track whether ChatDeltas from the C++ autoparser contain
@@ -387,16 +393,11 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 
 		switch {
 		case noActionToRun:
-			usage := schema.OpenAIUsage{
-				PromptTokens:     tokenUsage.Prompt,
-				CompletionTokens: tokenUsage.Completion,
-				TotalTokens:      tokenUsage.Prompt + tokenUsage.Completion,
-			}
-			if extraUsage {
-				usage.TimingTokenGeneration = tokenUsage.TimingTokenGeneration
-				usage.TimingPromptProcessing = tokenUsage.TimingPromptProcessing
-			}
-
+			// Token-cumulative usage is communicated to the streaming
+			// consumer via the per-token callback's chunk struct (stripped
+			// before wire marshal). The final usage trailer — when the
+			// caller opted in with stream_options.include_usage — is built
+			// by the outer streaming loop, not here.
 			var result string
 			if !sentInitialRole {
 				var hqErr error
@@ -409,7 +410,7 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 			for _, chunk := range buildNoActionFinalChunks(
 				id, req.Model, created,
 				sentInitialRole, sentReasoning,
-				result, reasoning, usage,
+				result, reasoning,
 			) {
 				responses <- chunk
 			}
@@ -724,7 +725,13 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 							xlog.Debug("No choices in the response, skipping")
 							continue
 						}
-						usage = &ev.Usage // Copy a pointer to the latest usage chunk so that the stop message can reference it
+						// Capture the running cumulative usage from this chunk
+						// (when present) so the include_usage trailer can carry
+						// the final totals. Usage is stripped before marshal
+						// below so the wire chunk stays spec-compliant.
+						if ev.Usage != nil {
+							usage = ev.Usage
+						}
 						if len(ev.Choices[0].Delta.ToolCalls) > 0 {
 							toolsCalled = true
 							// Collect and merge tool call deltas for MCP execution
@@ -740,6 +747,11 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 								collectedContent += *sp
 							}
 						}
+						// OpenAI streaming spec: intermediate chunks must NOT
+						// carry a `usage` field. Strip the tracking copy
+						// before marshalling — usage is delivered via the
+						// dedicated trailer chunk when include_usage=true.
+						ev.Usage = nil
 						respData, err := json.Marshal(ev)
 						if err != nil {
 							xlog.Debug("Failed to marshal response", "error", err)
@@ -888,6 +900,9 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 					finishReason = FinishReasonFunctionCall
 				}
 
+				// Final delta chunk: empty delta with finish_reason set. Per
+				// OpenAI streaming spec this chunk does NOT carry usage —
+				// the optional trailer (below) does, gated on include_usage.
 				resp := &schema.OpenAIResponse{
 					ID:      id,
 					Created: created,
@@ -899,11 +914,18 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 							Delta:        &schema.Message{},
 						}},
 					Object: "chat.completion.chunk",
-					Usage:  *usage,
 				}
 				respData, _ := json.Marshal(resp)
-
 				fmt.Fprintf(c.Response().Writer, "data: %s\n\n", respData)
+
+				// Trailing usage chunk per OpenAI spec: emit only when the
+				// caller opted in via stream_options.include_usage. Shape:
+				// {"choices":[],"usage":{...},"object":"chat.completion.chunk",...}
+				if input.StreamOptions != nil && input.StreamOptions.IncludeUsage && usage != nil {
+					trailer := streamUsageTrailerJSON(id, input.Model, created, *usage)
+					fmt.Fprintf(c.Response().Writer, "data: %s\n\n", trailer)
+				}
+
 				fmt.Fprintf(c.Response().Writer, "data: [DONE]\n\n")
 				c.Response().Flush()
 				xlog.Debug("Stream ended")
@@ -1263,7 +1285,7 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 					Model:   input.Model, // we have to return what the user sent here, due to OpenAI spec.
 					Choices: result,
 					Object:  "chat.completion",
-					Usage:   usage,
+					Usage:   &usage,
 				}
 				respData, _ := json.Marshal(resp)
 				xlog.Debug("Response", "response", string(respData))

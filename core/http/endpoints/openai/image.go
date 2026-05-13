@@ -233,7 +233,7 @@ func ImageEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, appConfi
 			ID:      id,
 			Created: created,
 			Data:    result,
-			Usage: schema.OpenAIUsage{
+			Usage: &schema.OpenAIUsage{
 				PromptTokens:     0,
 				CompletionTokens: 0,
 				TotalTokens:      0,

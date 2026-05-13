@@ -82,7 +82,21 @@ type OpenAIResponse struct {
 	Choices []Choice `json:"choices,omitempty"`
 	Data    []Item   `json:"data,omitempty"`
 
-	Usage OpenAIUsage `json:"usage"`
+	// Usage is intentionally a pointer with omitempty: per the OpenAI
+	// chat-completion streaming spec, intermediate chunks must not carry
+	// a `usage` field. Marshalling a value-typed usage would emit
+	// `"usage":{"prompt_tokens":0,...}` on every chunk and break
+	// OpenAI-SDK consumers that filter on a truthy `result.usage`
+	// (continuedev/continue, Kilo Code, Roo Code, etc.).
+	Usage *OpenAIUsage `json:"usage,omitempty"`
+}
+
+// StreamOptions mirrors OpenAI's `stream_options` request field. The only
+// member currently honored is IncludeUsage; when true, the streaming
+// chat-completion response emits a trailing chunk with `choices:[]` and a
+// populated `usage` object.
+type StreamOptions struct {
+	IncludeUsage bool `json:"include_usage,omitempty" yaml:"include_usage,omitempty"`
 }
 
 type Choice struct {
@@ -197,6 +211,9 @@ type OpenAIRequest struct {
 	ToolsChoice any              `json:"tool_choice,omitempty" yaml:"tool_choice"`
 
 	Stream bool `json:"stream"`
+
+	// StreamOptions opts into OpenAI streaming extensions, e.g. include_usage.
+	StreamOptions *StreamOptions `json:"stream_options,omitempty" yaml:"stream_options,omitempty"`
 
 	// Image (not supported by OpenAI)
 	Quality string `json:"quality"`

@@ -609,54 +609,52 @@ var _ = Describe("buildNoActionFinalChunks", func() {
 		testModel   = "test-model"
 		testCreated = 1700000000
 	)
-	usage := schema.OpenAIUsage{PromptTokens: 5, CompletionTokens: 7, TotalTokens: 12}
 
-	Describe("Content streamed — trailing usage chunk", func() {
-		It("emits just one chunk with usage, no content, no reasoning when reasoning was streamed", func() {
+	Describe("Content streamed — trailing reasoning only", func() {
+		It("emits nothing when content and reasoning were already streamed", func() {
+			// Before the streaming-usage-spec fix this branch emitted a
+			// content-less chunk solely to carry `usage`. Per the OpenAI
+			// spec usage no longer rides on delta chunks; the dedicated
+			// trailer (when include_usage=true) carries it instead — so
+			// with nothing to deliver the helper returns no chunks.
 			chunks := buildNoActionFinalChunks(
 				testID, testModel, testCreated,
 				true, true,
-				"", "already-streamed-reasoning", usage,
+				"", "already-streamed-reasoning",
 			)
-
-			Expect(chunks).To(HaveLen(1))
-			Expect(chunks[0].Usage.TotalTokens).To(Equal(12))
-			Expect(contentOf(chunks[0])).To(BeEmpty())
-			Expect(reasoningOf(chunks[0])).To(BeEmpty(),
-				"reasoning must not be re-emitted once it was streamed via the callback")
+			Expect(chunks).To(BeEmpty())
 		})
 
 		It("emits a trailing reasoning delivery when reasoning came only at end", func() {
 			chunks := buildNoActionFinalChunks(
 				testID, testModel, testCreated,
 				true, false,
-				"", "autoparser final reasoning", usage,
+				"", "autoparser final reasoning",
 			)
 
 			Expect(chunks).To(HaveLen(1))
 			Expect(reasoningOf(chunks[0])).To(Equal("autoparser final reasoning"))
 			Expect(contentOf(chunks[0])).To(BeEmpty())
-			Expect(chunks[0].Usage.TotalTokens).To(Equal(12))
+			Expect(chunks[0].Usage).To(BeNil(),
+				"intermediate chunks must not carry usage per OpenAI spec")
 		})
 
-		It("omits reasoning when it's empty regardless of streamed flag", func() {
+		It("returns no chunks when reasoning is empty and content was streamed", func() {
 			chunks := buildNoActionFinalChunks(
 				testID, testModel, testCreated,
 				true, false,
-				"", "", usage,
+				"", "",
 			)
-
-			Expect(chunks).To(HaveLen(1))
-			Expect(reasoningOf(chunks[0])).To(BeEmpty())
+			Expect(chunks).To(BeEmpty())
 		})
 	})
 
-	Describe("Content not streamed — role, then content+usage", func() {
+	Describe("Content not streamed — role, then content", func() {
 		It("emits role chunk then content chunk without reasoning when reasoning was streamed", func() {
 			chunks := buildNoActionFinalChunks(
 				testID, testModel, testCreated,
 				false, true,
-				"the answer", "already-streamed-reasoning", usage,
+				"the answer", "already-streamed-reasoning",
 			)
 
 			Expect(chunks).To(HaveLen(2))
@@ -666,14 +664,14 @@ var _ = Describe("buildNoActionFinalChunks", func() {
 			Expect(contentOf(chunks[1])).To(Equal("the answer"))
 			Expect(reasoningOf(chunks[1])).To(BeEmpty(),
 				"reasoning must not be re-emitted if it was streamed earlier")
-			Expect(chunks[1].Usage.TotalTokens).To(Equal(12))
+			Expect(chunks[1].Usage).To(BeNil())
 		})
 
 		It("emits role, then content+reasoning when reasoning was not streamed", func() {
 			chunks := buildNoActionFinalChunks(
 				testID, testModel, testCreated,
 				false, false,
-				"the answer", "autoparser final reasoning", usage,
+				"the answer", "autoparser final reasoning",
 			)
 
 			Expect(chunks).To(HaveLen(2))
@@ -681,14 +679,14 @@ var _ = Describe("buildNoActionFinalChunks", func() {
 
 			Expect(contentOf(chunks[1])).To(Equal("the answer"))
 			Expect(reasoningOf(chunks[1])).To(Equal("autoparser final reasoning"))
-			Expect(chunks[1].Usage.TotalTokens).To(Equal(12))
+			Expect(chunks[1].Usage).To(BeNil())
 		})
 
 		It("still emits content even when reasoning is empty", func() {
 			chunks := buildNoActionFinalChunks(
 				testID, testModel, testCreated,
 				false, false,
-				"just an answer", "", usage,
+				"just an answer", "",
 			)
 
 			Expect(chunks).To(HaveLen(2))
@@ -702,7 +700,7 @@ var _ = Describe("buildNoActionFinalChunks", func() {
 			chunks := buildNoActionFinalChunks(
 				testID, testModel, testCreated,
 				false, false,
-				"hi", "reasoning", usage,
+				"hi", "reasoning",
 			)
 			for i, ch := range chunks {
 				Expect(ch.ID).To(Equal(testID), "chunk[%d] ID", i)

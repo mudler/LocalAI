@@ -255,7 +255,10 @@ export function useChat(initialModel = '') {
     )
     messages.push(...historyForApi, { role: 'user', content: messageContent })
 
-    const requestBody = { model, messages, stream: true }
+    // include_usage tells LocalAI to emit a trailing chunk with token totals;
+    // without it the spec-compliant server drops `usage` from the stream and
+    // the token-count badge would never populate.
+    const requestBody = { model, messages, stream: true, stream_options: { include_usage: true } }
     if (temperature !== null && temperature !== undefined) requestBody.temperature = temperature
     if (topP !== null && topP !== undefined) requestBody.top_p = topP
     if (topK !== null && topK !== undefined) requestBody.top_k = topK
