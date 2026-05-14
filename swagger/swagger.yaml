@@ -1650,6 +1650,10 @@ definitions:
       stop: {}
       stream:
         type: boolean
+      stream_options:
+        allOf:
+        - $ref: '#/definitions/schema.StreamOptions'
+        description: StreamOptions opts into OpenAI streaming extensions, e.g. include_usage.
       temperature:
         type: number
       tfz:
@@ -1698,7 +1702,15 @@ definitions:
       object:
         type: string
       usage:
-        $ref: '#/definitions/schema.OpenAIUsage'
+        allOf:
+        - $ref: '#/definitions/schema.OpenAIUsage'
+        description: |-
+          Usage is intentionally a pointer with omitempty: per the OpenAI
+          chat-completion streaming spec, intermediate chunks must not carry
+          a `usage` field. Marshalling a value-typed usage would emit
+          `"usage":{"prompt_tokens":0,...}` on every chunk and break
+          OpenAI-SDK consumers that filter on a truthy `result.usage`
+          (continuedev/continue, Kilo Code, Roo Code, etc.).
     type: object
   schema.OpenAIUsage:
     properties:
@@ -1812,6 +1824,11 @@ definitions:
         items:
           $ref: '#/definitions/schema.NodeData'
         type: array
+    type: object
+  schema.StreamOptions:
+    properties:
+      include_usage:
+        type: boolean
     type: object
   schema.SysInfoModel:
     properties:

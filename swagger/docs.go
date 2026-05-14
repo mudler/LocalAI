@@ -5347,6 +5347,14 @@ const docTemplate = `{
                 "stream": {
                     "type": "boolean"
                 },
+                "stream_options": {
+                    "description": "StreamOptions opts into OpenAI streaming extensions, e.g. include_usage.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/schema.StreamOptions"
+                        }
+                    ]
+                },
                 "temperature": {
                     "type": "number"
                 },
@@ -5412,7 +5420,12 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "usage": {
-                    "$ref": "#/definitions/schema.OpenAIUsage"
+                    "description": "Usage is intentionally a pointer with omitempty: per the OpenAI\nchat-completion streaming spec, intermediate chunks must not carry\na ` + "`" + `usage` + "`" + ` field. Marshalling a value-typed usage would emit\n` + "`" + `\"usage\":{\"prompt_tokens\":0,...}` + "`" + ` on every chunk and break\nOpenAI-SDK consumers that filter on a truthy ` + "`" + `result.usage` + "`" + `\n(continuedev/continue, Kilo Code, Roo Code, etc.).",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/schema.OpenAIUsage"
+                        }
+                    ]
                 }
             }
         },
@@ -5575,6 +5588,14 @@ const docTemplate = `{
                     "items": {
                         "$ref": "#/definitions/schema.NodeData"
                     }
+                }
+            }
+        },
+        "schema.StreamOptions": {
+            "type": "object",
+            "properties": {
+                "include_usage": {
+                    "type": "boolean"
                 }
             }
         },
