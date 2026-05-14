@@ -112,6 +112,8 @@ Add a YAML anchor definition in the `## metas` section (around line 2-300). Look
 
 Add image entries at the end of the file, following the pattern of similar backends such as `diffusers` or `chatterbox`. Include both `latest` (production) and `master` (development) tags.
 
+**Note on integrity:** OCI backends installed from a gallery whose `verification:` block is set are verified against a keyless-cosign policy before extraction; tarball/HTTP backends use the optional `sha256:` field. New backends do not need any extra YAML — the gallery-level `verification:` block covers every entry. See [.agents/backend-signing.md](backend-signing.md) for the producer-side CI step.
+
 ## 4. Update the Makefile
 
 The Makefile needs to be updated in several places to support building and testing the new backend:

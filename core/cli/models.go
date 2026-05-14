@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"os"
 
 	cliContext "github.com/mudler/LocalAI/core/cli/context"
 	"github.com/mudler/LocalAI/core/config"
@@ -32,6 +33,7 @@ type ModelsList struct {
 
 type ModelsInstall struct {
 	DisablePredownloadScan   bool     `env:"LOCALAI_DISABLE_PREDOWNLOAD_SCAN" help:"If true, disables the best-effort security scanner before downloading any files." group:"hardening" default:"false"`
+	RequireBackendIntegrity  bool     `env:"LOCALAI_REQUIRE_BACKEND_INTEGRITY,REQUIRE_BACKEND_INTEGRITY" help:"If true, reject backend installs without a configured signature verification policy (OCI URIs) or SHA256 (tarball/HTTP URIs)." group:"hardening" default:"false"`
 	AutoloadBackendGalleries bool     `env:"LOCALAI_AUTOLOAD_BACKEND_GALLERIES" help:"If true, automatically loads backend galleries" group:"backends" default:"true"`
 	ModelArgs                []string `arg:"" optional:"" name:"models" help:"Model configuration URLs to load"`
 
@@ -71,6 +73,10 @@ func (ml *ModelsList) Run(ctx *cliContext.Context) error {
 }
 
 func (mi *ModelsInstall) Run(ctx *cliContext.Context) error {
+
+	if mi.RequireBackendIntegrity {
+		_ = os.Setenv(gallery.RequireBackendIntegrityEnvVar, "1")
+	}
 
 	systemState, err := system.GetSystemState(
 		system.WithModelPath(mi.ModelsPath),

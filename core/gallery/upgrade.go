@@ -265,6 +265,16 @@ func UpgradeBackend(ctx context.Context, systemState *system.SystemState, modelL
 		return fmt.Errorf("no gallery entry found for backend %q", backendName)
 	}
 
+	// Resolve integrity options (cosign verifier for OCI URIs, strict-mode
+	// gate for missing SHA256/policy) BEFORE writing anything to disk.
+	// Without this, the upgrade path would atomically swap in an
+	// unverified backend even when the gallery has a verification policy
+	// — see backendDownloadOptions in backends.go.
+	downloadOpts, err := backendDownloadOptions(galleryEntry)
+	if err != nil {
+		return fmt.Errorf("upgrade %q: %w", backendName, err)
+	}
+
 	backendPath := filepath.Join(systemState.Backend.BackendsPath, backendName)
 	tmpPath := backendPath + ".upgrade-tmp"
 	backupPath := backendPath + ".backup"
@@ -285,7 +295,7 @@ func UpgradeBackend(ctx context.Context, systemState *system.SystemState, modelL
 			return fmt.Errorf("failed to copy backend from directory: %w", err)
 		}
 	} else {
-		if err := uri.DownloadFileWithContext(ctx, tmpPath, "", 1, 1, downloadStatus); err != nil {
+		if err := uri.DownloadFileWithContext(ctx, tmpPath, galleryEntry.SHA256, 1, 1, downloadStatus, downloadOpts...); err != nil {
 			os.RemoveAll(tmpPath)
 			return fmt.Errorf("failed to download backend: %w", err)
 		}

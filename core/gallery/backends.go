@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
@@ -16,6 +17,7 @@ import (
 	"github.com/mudler/LocalAI/pkg/downloader"
 	"github.com/mudler/LocalAI/pkg/model"
 	"github.com/mudler/LocalAI/pkg/oci"
+	"github.com/mudler/LocalAI/pkg/oci/cosignverify"
 	"github.com/mudler/LocalAI/pkg/system"
 	"github.com/mudler/xlog"
 	cp "github.com/otiai10/copy"
@@ -100,6 +102,91 @@ func writeBackendMetadata(backendPath string, metadata *BackendMetadata) error {
 	}
 
 	return nil
+}
+
+// RequireBackendIntegrityEnvVar promotes empty SHA256 / missing verification
+// policy from a warning to a hard failure. Off by default to keep upgrades
+// non-breaking; operators opt in explicitly. See backendDownloadOptions.
+const RequireBackendIntegrityEnvVar = "LOCALAI_REQUIRE_BACKEND_INTEGRITY"
+
+// strictBackendIntegrity reports whether the runtime is configured to refuse
+// backend installs that cannot be integrity-checked.
+func strictBackendIntegrity() bool {
+	b, _ := strconv.ParseBool(os.Getenv(RequireBackendIntegrityEnvVar))
+	return b
+}
+
+// backendDownloadOptions translates the gallery's verification policy into
+// downloader options, and gates the call on strict-integrity mode. Both
+// InstallBackend and UpgradeBackend MUST route their download through these
+// options — without them, the corresponding code path silently downloads
+// and activates unverified backend bytes even when the gallery has a
+// verification: policy configured.
+//
+// For OCI URIs with a verification policy, returns a slice containing
+// downloader.WithImageVerifier(v) — the downloader will then run cosign
+// signature verification between fetching the manifest and extracting
+// layers (see pkg/downloader/uri.go OCI branch).
+//
+// For OCI URIs without a verification policy, or non-OCI URIs without a
+// SHA256, the function either returns a non-fatal warning (default) or
+// fails the install (strict mode, gated by LOCALAI_REQUIRE_BACKEND_INTEGRITY).
+// The downloader itself also logs a warning when no SHA is supplied; this
+// is the higher-level gate that turns the configuration choice into policy.
+func backendDownloadOptions(config *GalleryBackend) ([]downloader.DownloadOption, error) {
+	uri := downloader.URI(config.URI)
+	hasVerification := config.Gallery.Verification != nil
+	hasSHA := config.SHA256 != ""
+
+	switch {
+	case uri.LooksLikeOCI():
+		if !hasVerification {
+			if strictBackendIntegrity() {
+				return nil, fmt.Errorf("strict integrity: gallery %q has no verification policy for OCI backend %q (set verification: in the gallery YAML or unset %s)",
+					config.Gallery.Name, config.Name, RequireBackendIntegrityEnvVar)
+			}
+			xlog.Warn("installing OCI backend without signature verification",
+				"backend", config.Name, "gallery", config.Gallery.Name, "uri", config.URI)
+			return nil, nil
+		}
+		v, err := newGalleryVerifier(config.Gallery.Verification)
+		if err != nil {
+			return nil, fmt.Errorf("gallery %q verification policy: %w", config.Gallery.Name, err)
+		}
+		return []downloader.DownloadOption{downloader.WithImageVerifier(v)}, nil
+
+	case uri.LooksLikeDir():
+		// Local directory — out of scope for integrity checks.
+		return nil, nil
+
+	default:
+		if !hasSHA && strictBackendIntegrity() {
+			return nil, fmt.Errorf("strict integrity: backend %q has no SHA256 (gallery %q)",
+				config.Name, config.Gallery.Name)
+		}
+		// Non-strict: pkg/downloader already emits a warning when sha is empty.
+		return nil, nil
+	}
+}
+
+// newGalleryVerifier constructs a cosignverify.Verifier from the gallery
+// policy. Parses NotBefore (RFC3339) here so YAML errors surface at install
+// time rather than during signature verification.
+func newGalleryVerifier(p *config.GalleryVerification) (*cosignverify.Verifier, error) {
+	pol := cosignverify.Policy{
+		Issuer:        p.Issuer,
+		IssuerRegex:   p.IssuerRegex,
+		Identity:      p.Identity,
+		IdentityRegex: p.IdentityRegex,
+	}
+	if p.NotBefore != "" {
+		t, err := time.Parse(time.RFC3339, p.NotBefore)
+		if err != nil {
+			return nil, fmt.Errorf("not_before %q: %w", p.NotBefore, err)
+		}
+		pol.NotBefore = t
+	}
+	return cosignverify.NewVerifier(pol, nil, nil)
 }
 
 // InstallBackendFromGallery installs a backend from the gallery.
@@ -213,6 +300,14 @@ func InstallBackend(ctx context.Context, systemState *system.SystemState, modelL
 		return fmt.Errorf("failed to create base path: %v", err)
 	}
 
+	// Build the download options once and reuse for every retry path —
+	// mirrors and tag fallbacks must verify against the same gallery
+	// policy or we open a hole where a non-default URI bypasses the check.
+	downloadOpts, optsErr := backendDownloadOptions(config)
+	if optsErr != nil {
+		return fmt.Errorf("backend %q: %w", config.Name, optsErr)
+	}
+
 	uri := downloader.URI(config.URI)
 	// Check if it is a directory
 	if uri.LooksLikeDir() {
@@ -222,7 +317,7 @@ func InstallBackend(ctx context.Context, systemState *system.SystemState, modelL
 		}
 	} else {
 		xlog.Debug("Downloading backend", "uri", config.URI, "backendPath", backendPath)
-		if err := uri.DownloadFileWithContext(ctx, backendPath, config.SHA256, 1, 1, downloadStatus); err != nil {
+		if err := uri.DownloadFileWithContext(ctx, backendPath, config.SHA256, 1, 1, downloadStatus, downloadOpts...); err != nil {
 			xlog.Debug("Backend download failed, trying fallback", "backendPath", backendPath, "error", err)
 
 			// resetBackendPath cleans up partial state from a failed OCI extraction
@@ -243,7 +338,7 @@ func InstallBackend(ctx context.Context, systemState *system.SystemState, modelL
 				default:
 				}
 				resetBackendPath()
-				if err := downloader.URI(mirror).DownloadFileWithContext(ctx, backendPath, config.SHA256, 1, 1, downloadStatus); err == nil {
+				if err := downloader.URI(mirror).DownloadFileWithContext(ctx, backendPath, config.SHA256, 1, 1, downloadStatus, downloadOpts...); err == nil {
 					success = true
 					xlog.Debug("Downloaded backend from mirror", "uri", config.URI, "backendPath", backendPath)
 					break
@@ -256,7 +351,7 @@ func InstallBackend(ctx context.Context, systemState *system.SystemState, modelL
 				if fallbackURI != string(config.URI) {
 					resetBackendPath()
 					xlog.Info("Trying fallback URI", "original", config.URI, "fallback", fallbackURI)
-					if err := downloader.URI(fallbackURI).DownloadFileWithContext(ctx, backendPath, config.SHA256, 1, 1, downloadStatus); err == nil {
+					if err := downloader.URI(fallbackURI).DownloadFileWithContext(ctx, backendPath, config.SHA256, 1, 1, downloadStatus, downloadOpts...); err == nil {
 						xlog.Info("Downloaded backend using fallback URI", "uri", fallbackURI, "backendPath", backendPath)
 						success = true
 					} else {
@@ -265,7 +360,7 @@ func InstallBackend(ctx context.Context, systemState *system.SystemState, modelL
 							resetBackendPath()
 							devFallbackURI := fallbackURI + "-" + devSuffix
 							xlog.Info("Trying development fallback URI", "fallback", devFallbackURI)
-							if err := downloader.URI(devFallbackURI).DownloadFileWithContext(ctx, backendPath, config.SHA256, 1, 1, downloadStatus); err == nil {
+							if err := downloader.URI(devFallbackURI).DownloadFileWithContext(ctx, backendPath, config.SHA256, 1, 1, downloadStatus, downloadOpts...); err == nil {
 								xlog.Info("Downloaded backend using development fallback URI", "uri", devFallbackURI, "backendPath", backendPath)
 								success = true
 							} else {
