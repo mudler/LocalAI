@@ -54,6 +54,30 @@ const (
 		"Avoid parenthetical asides, URLs, and anything that cannot be clearly vocalized."
 )
 
+// resolveOutputModalities returns the effective output modalities for a
+// response: response-level overrides session-level, and the OpenAI Realtime
+// spec default is ["audio"] when neither is set.
+func resolveOutputModalities(session, response []types.Modality) []types.Modality {
+	if len(response) > 0 {
+		return response
+	}
+	if len(session) > 0 {
+		return session
+	}
+	return []types.Modality{types.ModalityAudio}
+}
+
+// modalitiesContainAudio reports whether the resolved modalities include audio
+// output.
+func modalitiesContainAudio(m []types.Modality) bool {
+	for _, x := range m {
+		if x == types.ModalityAudio {
+			return true
+		}
+	}
+	return false
+}
+
 // A model can be "emulated" that is: transcribe audio to text -> feed text to the LLM -> generate audio as result
 // If the model support instead audio-to-audio, we will use the specific gRPC calls instead
 
@@ -82,6 +106,10 @@ type Session struct {
 	InputSampleRate  int
 	OutputSampleRate int
 	MaxOutputTokens  types.IntOrInf
+	// OutputModalities mirrors the OpenAI Realtime spec field of the same
+	// name. Empty means "use the spec default" (audio). ["text"] suppresses
+	// TTS so the client receives only response.output_text.* events.
+	OutputModalities []types.Modality
 	// MaxHistoryItems caps the number of MessageItems passed to the LLM each
 	// turn (0 = unlimited). Small models — especially the LFM2.5-Audio 1.5B
 	// served via the liquid-audio backend — degrade quickly past a handful
@@ -1015,6 +1043,10 @@ func updateSession(session *Session, update *types.SessionUnion, cl *config.Mode
 		session.MaxOutputTokens = rt.MaxOutputTokens
 	}
 
+	if len(rt.OutputModalities) > 0 {
+		session.OutputModalities = rt.OutputModalities
+	}
+
 	return nil
 }
 
@@ -1654,106 +1686,126 @@ func triggerResponseAtTurn(ctx context.Context, session *Session, conv *Conversa
 			})
 		}
 
-		// Check for cancellation before TTS
-		if ctx.Err() != nil {
-			xlog.Debug("Response cancelled before TTS (barge-in)")
-			sendCancelledResponse()
-			return
-		}
-
-		audioFilePath, res, err := session.ModelInterface.TTS(ctx, finalSpeech, session.Voice, session.InputAudioTranscription.Language)
-		if err != nil {
-			if ctx.Err() != nil {
-				xlog.Debug("TTS cancelled (barge-in)")
-				sendCancelledResponse()
-				return
-			}
-			xlog.Error("TTS failed", "error", err)
-			sendError(t, "tts_error", fmt.Sprintf("TTS generation failed: %v", err), "", item.Assistant.ID)
-			return
-		}
-		if !res.Success {
-			xlog.Error("TTS failed", "message", res.Message)
-			sendError(t, "tts_error", fmt.Sprintf("TTS generation failed: %s", res.Message), "", item.Assistant.ID)
-			return
-		}
-		defer os.Remove(audioFilePath)
-
-		audioBytes, err := os.ReadFile(audioFilePath)
-		if err != nil {
-			xlog.Error("failed to read TTS file", "error", err)
-			sendError(t, "tts_error", fmt.Sprintf("Failed to read TTS audio: %v", err), "", item.Assistant.ID)
-			return
-		}
-
-		// Parse WAV header to get raw PCM and the actual sample rate from the TTS backend.
-		pcmData, ttsSampleRate := laudio.ParseWAV(audioBytes)
-		if ttsSampleRate == 0 {
-			ttsSampleRate = localSampleRate
-		}
-		xlog.Debug("TTS audio parsed", "raw_bytes", len(audioBytes), "pcm_bytes", len(pcmData), "sample_rate", ttsSampleRate)
-
-		// SendAudio (WebRTC) passes PCM at the TTS sample rate directly to the
-		// Opus encoder, which resamples to 48kHz internally. This avoids a
-		// lossy intermediate resample through 16kHz.
-		// XXX: This is a noop in websocket mode; it's included in the JSON instead
-		if err := t.SendAudio(ctx, pcmData, ttsSampleRate); err != nil {
-			if ctx.Err() != nil {
-				xlog.Debug("Audio playback cancelled (barge-in)")
-				sendCancelledResponse()
-				return
-			}
-			xlog.Error("failed to send audio via transport", "error", err)
-		}
-
-		_, isWebRTC := t.(*WebRTCTransport)
-
-		// For WebSocket clients, resample to the session's output rate and
-		// deliver audio as base64 in JSON events. WebRTC clients already
-		// received audio over the RTP track, so skip the base64 payload.
 		var audioString string
-		if !isWebRTC {
-			wsPCM := pcmData
-			if ttsSampleRate != session.OutputSampleRate {
-				samples := sound.BytesToInt16sLE(pcmData)
-				resampled := sound.ResampleInt16(samples, ttsSampleRate, session.OutputSampleRate)
-				wsPCM = sound.Int16toBytesLE(resampled)
+		_, isWebRTC := t.(*WebRTCTransport)
+		modalities := resolveOutputModalities(session.OutputModalities, nil)
+		if modalitiesContainAudio(modalities) {
+			// Check for cancellation before TTS
+			if ctx.Err() != nil {
+				xlog.Debug("Response cancelled before TTS (barge-in)")
+				sendCancelledResponse()
+				return
 			}
-			audioString = base64.StdEncoding.EncodeToString(wsPCM)
-		}
 
-		sendEvent(t, types.ResponseOutputAudioTranscriptDeltaEvent{
-			ServerEventBase: types.ServerEventBase{},
-			ResponseID:      responseID,
-			ItemID:          item.Assistant.ID,
-			OutputIndex:     0,
-			ContentIndex:    0,
-			Delta:           finalSpeech,
-		})
-		sendEvent(t, types.ResponseOutputAudioTranscriptDoneEvent{
-			ServerEventBase: types.ServerEventBase{},
-			ResponseID:      responseID,
-			ItemID:          item.Assistant.ID,
-			OutputIndex:     0,
-			ContentIndex:    0,
-			Transcript:      finalSpeech,
-		})
+			audioFilePath, res, err := session.ModelInterface.TTS(ctx, finalSpeech, session.Voice, session.InputAudioTranscription.Language)
+			if err != nil {
+				if ctx.Err() != nil {
+					xlog.Debug("TTS cancelled (barge-in)")
+					sendCancelledResponse()
+					return
+				}
+				xlog.Error("TTS failed", "error", err)
+				sendError(t, "tts_error", fmt.Sprintf("TTS generation failed: %v", err), "", item.Assistant.ID)
+				return
+			}
+			if !res.Success {
+				xlog.Error("TTS failed", "message", res.Message)
+				sendError(t, "tts_error", fmt.Sprintf("TTS generation failed: %s", res.Message), "", item.Assistant.ID)
+				return
+			}
+			defer os.Remove(audioFilePath)
 
-		if !isWebRTC {
-			sendEvent(t, types.ResponseOutputAudioDeltaEvent{
+			audioBytes, err := os.ReadFile(audioFilePath)
+			if err != nil {
+				xlog.Error("failed to read TTS file", "error", err)
+				sendError(t, "tts_error", fmt.Sprintf("Failed to read TTS audio: %v", err), "", item.Assistant.ID)
+				return
+			}
+
+			// Parse WAV header to get raw PCM and the actual sample rate from the TTS backend.
+			pcmData, ttsSampleRate := laudio.ParseWAV(audioBytes)
+			if ttsSampleRate == 0 {
+				ttsSampleRate = localSampleRate
+			}
+			xlog.Debug("TTS audio parsed", "raw_bytes", len(audioBytes), "pcm_bytes", len(pcmData), "sample_rate", ttsSampleRate)
+
+			// SendAudio (WebRTC) passes PCM at the TTS sample rate directly to the
+			// Opus encoder, which resamples to 48kHz internally. This avoids a
+			// lossy intermediate resample through 16kHz.
+			// XXX: This is a noop in websocket mode; it's included in the JSON instead
+			if err := t.SendAudio(ctx, pcmData, ttsSampleRate); err != nil {
+				if ctx.Err() != nil {
+					xlog.Debug("Audio playback cancelled (barge-in)")
+					sendCancelledResponse()
+					return
+				}
+				xlog.Error("failed to send audio via transport", "error", err)
+			}
+
+			// For WebSocket clients, resample to the session's output rate and
+			// deliver audio as base64 in JSON events. WebRTC clients already
+			// received audio over the RTP track, so skip the base64 payload.
+			if !isWebRTC {
+				wsPCM := pcmData
+				if ttsSampleRate != session.OutputSampleRate {
+					samples := sound.BytesToInt16sLE(pcmData)
+					resampled := sound.ResampleInt16(samples, ttsSampleRate, session.OutputSampleRate)
+					wsPCM = sound.Int16toBytesLE(resampled)
+				}
+				audioString = base64.StdEncoding.EncodeToString(wsPCM)
+			}
+
+			sendEvent(t, types.ResponseOutputAudioTranscriptDeltaEvent{
 				ServerEventBase: types.ServerEventBase{},
 				ResponseID:      responseID,
 				ItemID:          item.Assistant.ID,
 				OutputIndex:     0,
 				ContentIndex:    0,
-				Delta:           audioString,
+				Delta:           finalSpeech,
 			})
-			sendEvent(t, types.ResponseOutputAudioDoneEvent{
+			sendEvent(t, types.ResponseOutputAudioTranscriptDoneEvent{
 				ServerEventBase: types.ServerEventBase{},
 				ResponseID:      responseID,
 				ItemID:          item.Assistant.ID,
 				OutputIndex:     0,
 				ContentIndex:    0,
+				Transcript:      finalSpeech,
+			})
+
+			if !isWebRTC {
+				sendEvent(t, types.ResponseOutputAudioDeltaEvent{
+					ServerEventBase: types.ServerEventBase{},
+					ResponseID:      responseID,
+					ItemID:          item.Assistant.ID,
+					OutputIndex:     0,
+					ContentIndex:    0,
+					Delta:           audioString,
+				})
+				sendEvent(t, types.ResponseOutputAudioDoneEvent{
+					ServerEventBase: types.ServerEventBase{},
+					ResponseID:      responseID,
+					ItemID:          item.Assistant.ID,
+					OutputIndex:     0,
+					ContentIndex:    0,
+				})
+			}
+		} else {
+			// Text-only mode: skip TTS, emit only the text events.
+			sendEvent(t, types.ResponseOutputTextDeltaEvent{
+				ServerEventBase: types.ServerEventBase{},
+				ResponseID:      responseID,
+				ItemID:          item.Assistant.ID,
+				OutputIndex:     0,
+				ContentIndex:    0,
+				Delta:           finalSpeech,
+			})
+			sendEvent(t, types.ResponseOutputTextDoneEvent{
+				ServerEventBase: types.ServerEventBase{},
+				ResponseID:      responseID,
+				ItemID:          item.Assistant.ID,
+				OutputIndex:     0,
+				ContentIndex:    0,
+				Text:            finalSpeech,
 			})
 		}
 
