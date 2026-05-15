@@ -16,6 +16,14 @@ const (
 
 func ListModels(bcl *config.ModelConfigLoader, ml *model.ModelLoader, filter config.ModelConfigFilterFn, looseFilePolicy LooseFilePolicy) ([]string, error) {
 
+	// Callers (e.g. the Ollama /api/tags handler) pass nil to mean "no
+	// filtering". Without this guard the loose-file loop below dereferences
+	// filter and panics, which Echo surfaces to clients as a dropped
+	// connection (see issue #9817).
+	if filter == nil {
+		filter = config.NoFilterFn
+	}
+
 	skipMap := map[string]struct{}{}
 
 	dataModels := []string{}
