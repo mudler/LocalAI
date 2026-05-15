@@ -190,13 +190,14 @@ func (s *Session) ToServer() types.SessionUnion {
 	} else {
 		return types.SessionUnion{
 			Realtime: &types.RealtimeSession{
-				ID:              s.ID,
-				Object:          "realtime.session",
-				Model:           s.Model,
-				Instructions:    s.Instructions,
-				Tools:           s.Tools,
-				ToolChoice:      s.ToolChoice,
-				MaxOutputTokens: s.MaxOutputTokens,
+				ID:               s.ID,
+				Object:           "realtime.session",
+				Model:            s.Model,
+				Instructions:     s.Instructions,
+				Tools:            s.Tools,
+				ToolChoice:       s.ToolChoice,
+				MaxOutputTokens:  s.MaxOutputTokens,
+				OutputModalities: s.OutputModalities,
 				Audio: &types.RealtimeSessionAudio{
 					Input: &types.SessionAudioInput{
 						TurnDetection: s.TurnDetection,
@@ -1688,7 +1689,11 @@ func triggerResponseAtTurn(ctx context.Context, session *Session, conv *Conversa
 
 		var audioString string
 		_, isWebRTC := t.(*WebRTCTransport)
-		modalities := resolveOutputModalities(session.OutputModalities, nil)
+		var respMods []types.Modality
+		if overrides != nil {
+			respMods = overrides.OutputModalities
+		}
+		modalities := resolveOutputModalities(session.OutputModalities, respMods)
 		if modalitiesContainAudio(modalities) {
 			// Check for cancellation before TTS
 			if ctx.Err() != nil {
