@@ -26,4 +26,13 @@ if [ "x${BUILD_PROFILE}" == "xl4t12" ]; then
     USE_PIP=true
 fi
 
+if [ "x${BUILD_PROFILE}" == "xhipblas" ]; then
+  ensureVenv
+  mkdir /tmp/ctranslate2-rocm
+  wget -O /tmp/ctranslate2-rocm/rocm-python-wheels-Linux.zip https://github.com/OpenNMT/CTranslate2/releases/download/v4.7.1/rocm-python-wheels-Linux.zip
+  unzip /tmp/ctranslate2-rocm/rocm-python-wheels-Linux.zip -d /tmp/ctranslate2-rocm/
+  python3 -m ensurepip
+  python3 -m pip install --no-dependencies --no-index --find-links=/tmp/ctranslate2-rocm/temp-linux/ ctranslate2
+fi
+
 installRequirements
