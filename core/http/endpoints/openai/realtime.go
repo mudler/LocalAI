@@ -1718,7 +1718,7 @@ func triggerResponseAtTurn(ctx context.Context, session *Session, conv *Conversa
 				sendError(t, "tts_error", fmt.Sprintf("TTS generation failed: %s", res.Message), "", item.Assistant.ID)
 				return
 			}
-			defer os.Remove(audioFilePath)
+			defer func() { _ = os.Remove(audioFilePath) }()
 
 			audioBytes, err := os.ReadFile(audioFilePath)
 			if err != nil {
