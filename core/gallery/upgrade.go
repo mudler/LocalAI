@@ -232,7 +232,7 @@ func summarizeNodeDrift(nodes []NodeBackendRef) (majority struct{ version, diges
 
 // UpgradeBackend upgrades a single backend to the latest gallery version using
 // an atomic swap with backup-based rollback on failure.
-func UpgradeBackend(ctx context.Context, systemState *system.SystemState, modelLoader *model.ModelLoader, galleries []config.Gallery, backendName string, downloadStatus func(string, string, string, float64)) error {
+func UpgradeBackend(ctx context.Context, systemState *system.SystemState, modelLoader *model.ModelLoader, galleries []config.Gallery, backendName string, downloadStatus func(string, string, string, float64), requireIntegrity bool) error {
 	// Look up the installed backend
 	installedBackends, err := ListSystemBackends(systemState)
 	if err != nil {
@@ -251,7 +251,7 @@ func UpgradeBackend(ctx context.Context, systemState *system.SystemState, modelL
 	// If this is a meta backend, recursively upgrade the concrete backend it points to
 	if installed.Metadata != nil && installed.Metadata.MetaBackendFor != "" {
 		xlog.Info("Meta backend detected, upgrading concrete backend", "meta", backendName, "concrete", installed.Metadata.MetaBackendFor)
-		return UpgradeBackend(ctx, systemState, modelLoader, galleries, installed.Metadata.MetaBackendFor, downloadStatus)
+		return UpgradeBackend(ctx, systemState, modelLoader, galleries, installed.Metadata.MetaBackendFor, downloadStatus, requireIntegrity)
 	}
 
 	// Find the gallery entry
@@ -270,7 +270,7 @@ func UpgradeBackend(ctx context.Context, systemState *system.SystemState, modelL
 	// Without this, the upgrade path would atomically swap in an
 	// unverified backend even when the gallery has a verification policy
 	// — see backendDownloadOptions in backends.go.
-	downloadOpts, err := backendDownloadOptions(galleryEntry)
+	downloadOpts, err := backendDownloadOptions(galleryEntry, requireIntegrity)
 	if err != nil {
 		return fmt.Errorf("upgrade %q: %w", backendName, err)
 	}

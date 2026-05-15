@@ -383,7 +383,7 @@ var _ = Describe("Upgrade Detection and Execution", func() {
 			})
 
 			ml := model.NewModelLoader(systemState)
-			err := UpgradeBackend(context.Background(), systemState, ml, galleries, "my-backend", nil)
+			err := UpgradeBackend(context.Background(), systemState, ml, galleries, "my-backend", nil, false)
 			Expect(err).NotTo(HaveOccurred())
 
 			// Verify run.sh was updated
@@ -417,7 +417,7 @@ var _ = Describe("Upgrade Detection and Execution", func() {
 			})
 
 			ml := model.NewModelLoader(systemState)
-			err := UpgradeBackend(context.Background(), systemState, ml, galleries, "my-backend", nil)
+			err := UpgradeBackend(context.Background(), systemState, ml, galleries, "my-backend", nil, false)
 			Expect(err).To(HaveOccurred())
 
 			// Verify v1 is still intact
@@ -455,13 +455,8 @@ var _ = Describe("Upgrade Detection and Execution", func() {
 				},
 			})
 
-			Expect(os.Setenv(RequireBackendIntegrityEnvVar, "1")).To(Succeed())
-			defer func() {
-				Expect(os.Unsetenv(RequireBackendIntegrityEnvVar)).To(Succeed())
-			}()
-
 			ml := model.NewModelLoader(systemState)
-			err := UpgradeBackend(context.Background(), systemState, ml, galleries, "my-backend", nil)
+			err := UpgradeBackend(context.Background(), systemState, ml, galleries, "my-backend", nil, true)
 			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).To(ContainSubstring("strict integrity"))
 

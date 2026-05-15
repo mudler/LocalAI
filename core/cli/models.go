@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"os"
 
 	cliContext "github.com/mudler/LocalAI/core/cli/context"
 	"github.com/mudler/LocalAI/core/config"
@@ -73,11 +72,6 @@ func (ml *ModelsList) Run(ctx *cliContext.Context) error {
 }
 
 func (mi *ModelsInstall) Run(ctx *cliContext.Context) error {
-
-	if mi.RequireBackendIntegrity {
-		_ = os.Setenv(gallery.RequireBackendIntegrityEnvVar, "1")
-	}
-
 	systemState, err := system.GetSystemState(
 		system.WithModelPath(mi.ModelsPath),
 		system.WithBackendPath(mi.BackendsPath),
@@ -141,7 +135,7 @@ func (mi *ModelsInstall) Run(ctx *cliContext.Context) error {
 		}
 
 		modelLoader := model.NewModelLoader(systemState)
-		err = startup.InstallModels(context.Background(), galleryService, galleries, backendGalleries, systemState, modelLoader, !mi.DisablePredownloadScan, mi.AutoloadBackendGalleries, progressCallback, modelName)
+		err = startup.InstallModels(context.Background(), galleryService, galleries, backendGalleries, systemState, modelLoader, !mi.DisablePredownloadScan, mi.AutoloadBackendGalleries, mi.RequireBackendIntegrity, progressCallback, modelName)
 		if err != nil {
 			return err
 		}

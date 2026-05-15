@@ -77,7 +77,7 @@ func (r *VLLMDistributed) Run(ctx *cliContext.Context) error {
 		return fmt.Errorf("getting system state: %w", err)
 	}
 
-	backendPath, err := findBackendPath("vllm", r.BackendGalleries, systemState)
+	backendPath, err := findBackendPath("vllm", r.BackendGalleries, systemState, r.RequireBackendIntegrity)
 	if err != nil {
 		return fmt.Errorf("cannot find vllm backend: %w", err)
 	}

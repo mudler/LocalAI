@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"os"
 
 	cliContext "github.com/mudler/LocalAI/core/cli/context"
 	"github.com/mudler/LocalAI/core/config"
@@ -22,16 +21,6 @@ type BackendsCMDFlags struct {
 	BackendsPath            string `env:"LOCALAI_BACKENDS_PATH,BACKENDS_PATH" type:"path" default:"${basepath}/backends" help:"Path containing backends used for inferencing" group:"storage"`
 	BackendsSystemPath      string `env:"LOCALAI_BACKENDS_SYSTEM_PATH,BACKEND_SYSTEM_PATH" type:"path" default:"/var/lib/local-ai/backends" help:"Path containing system backends used for inferencing" group:"backends"`
 	RequireBackendIntegrity bool   `env:"LOCALAI_REQUIRE_BACKEND_INTEGRITY,REQUIRE_BACKEND_INTEGRITY" help:"If true, reject backend installs without a configured signature verification policy (OCI URIs) or SHA256 (tarball/HTTP URIs)." group:"hardening" default:"false"`
-}
-
-// applyStrictIntegrity propagates the CLI flag into the env var that the
-// gallery install path reads. Keeps a single source of truth so a user
-// who sets the env var directly and one who passes --require-backend-integrity
-// behave identically.
-func (f *BackendsCMDFlags) applyStrictIntegrity() {
-	if f.RequireBackendIntegrity {
-		_ = os.Setenv(gallery.RequireBackendIntegrityEnvVar, "1")
-	}
 }
 
 type BackendsList struct {
@@ -110,7 +99,6 @@ func (bl *BackendsList) Run(ctx *cliContext.Context) error {
 }
 
 func (bi *BackendsInstall) Run(ctx *cliContext.Context) error {
-	bi.applyStrictIntegrity()
 	var galleries []config.Gallery
 	if err := json.Unmarshal([]byte(bi.BackendGalleries), &galleries); err != nil {
 		xlog.Error("unable to load galleries", "error", err)
@@ -139,7 +127,7 @@ func (bi *BackendsInstall) Run(ctx *cliContext.Context) error {
 	}
 
 	modelLoader := model.NewModelLoader(systemState)
-	err = galleryop.InstallExternalBackend(context.Background(), galleries, systemState, modelLoader, progressCallback, bi.BackendArgs, bi.Name, bi.Alias)
+	err = galleryop.InstallExternalBackend(context.Background(), galleries, systemState, modelLoader, progressCallback, bi.BackendArgs, bi.Name, bi.Alias, bi.RequireBackendIntegrity)
 	if err != nil {
 		return err
 	}
@@ -148,7 +136,6 @@ func (bi *BackendsInstall) Run(ctx *cliContext.Context) error {
 }
 
 func (bu *BackendsUpgrade) Run(ctx *cliContext.Context) error {
-	bu.applyStrictIntegrity()
 	var galleries []config.Gallery
 	if err := json.Unmarshal([]byte(bu.BackendGalleries), &galleries); err != nil {
 		xlog.Error("unable to load galleries", "error", err)
@@ -211,7 +198,7 @@ func (bu *BackendsUpgrade) Run(ctx *cliContext.Context) error {
 			}
 		}
 
-		if err := gallery.UpgradeBackend(context.Background(), systemState, modelLoader, galleries, name, progressCallback); err != nil {
+		if err := gallery.UpgradeBackend(context.Background(), systemState, modelLoader, galleries, name, progressCallback, bu.RequireBackendIntegrity); err != nil {
 			fmt.Printf("Failed to upgrade %s: %v\n", name, err)
 		} else {
 			fmt.Printf("Backend %s upgraded successfully\n", name)

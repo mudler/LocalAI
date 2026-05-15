@@ -18,7 +18,7 @@ import (
 // installing the backend from the gallery if it isn't present.
 // `name` is the gallery entry name (for vLLM the meta entry "vllm"
 // resolves to a platform-specific package via capability lookup).
-func findBackendPath(name, galleries string, systemState *system.SystemState) (string, error) {
+func findBackendPath(name, galleries string, systemState *system.SystemState, requireIntegrity bool) (string, error) {
 	backends, err := gallery.ListSystemBackends(systemState)
 	if err != nil {
 		return "", err
@@ -33,7 +33,7 @@ func findBackendPath(name, galleries string, systemState *system.SystemState) (s
 		xlog.Error("failed loading galleries", "error", err)
 		return "", err
 	}
-	if err := gallery.InstallBackendFromGallery(context.Background(), gals, systemState, ml, name, nil, true); err != nil {
+	if err := gallery.InstallBackendFromGallery(context.Background(), gals, systemState, ml, name, nil, true, requireIntegrity); err != nil {
 		xlog.Error("backend not found, failed to install it", "name", name, "error", err)
 		return "", err
 	}

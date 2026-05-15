@@ -28,7 +28,7 @@ func (r *MLXDistributed) Run(ctx *cliContext.Context) error {
 		return err
 	}
 
-	backendPath, err := findMLXDistributedBackendPath(r.BackendGalleries, systemState)
+	backendPath, err := findMLXDistributedBackendPath(r.BackendGalleries, systemState, r.RequireBackendIntegrity)
 	if err != nil {
 		return fmt.Errorf("cannot find mlx-distributed backend: %w", err)
 	}

@@ -13,7 +13,6 @@ import (
 	"github.com/mudler/LocalAI/core/application"
 	cliContext "github.com/mudler/LocalAI/core/cli/context"
 	"github.com/mudler/LocalAI/core/config"
-	"github.com/mudler/LocalAI/core/gallery"
 	"github.com/mudler/LocalAI/core/http"
 	"github.com/mudler/LocalAI/core/p2p"
 	"github.com/mudler/LocalAI/internal"
@@ -165,12 +164,6 @@ func (r *RunCMD) Run(ctx *cliContext.Context) error {
 	if r.Version {
 		fmt.Println(internal.Version)
 		return nil
-	}
-
-	// Propagate strict-integrity to the env so the gallery install path
-	// sees it whether the user set the CLI flag or the env var.
-	if r.RequireBackendIntegrity {
-		_ = os.Setenv(gallery.RequireBackendIntegrityEnvVar, "1")
 	}
 
 	os.MkdirAll(r.BackendsPath, 0750)
@@ -509,6 +502,10 @@ func (r *RunCMD) Run(ctx *cliContext.Context) error {
 
 	if r.AutoUpgradeBackends {
 		opts = append(opts, config.WithAutoUpgradeBackends(r.AutoUpgradeBackends))
+	}
+
+	if r.RequireBackendIntegrity {
+		opts = append(opts, config.WithRequireBackendIntegrity(r.RequireBackendIntegrity))
 	}
 
 	if r.PreferDevelopmentBackends {

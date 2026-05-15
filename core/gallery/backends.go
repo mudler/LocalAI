@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"strconv"
 	"strings"
 	"time"
 
@@ -104,18 +103,6 @@ func writeBackendMetadata(backendPath string, metadata *BackendMetadata) error {
 	return nil
 }
 
-// RequireBackendIntegrityEnvVar promotes empty SHA256 / missing verification
-// policy from a warning to a hard failure. Off by default to keep upgrades
-// non-breaking; operators opt in explicitly. See backendDownloadOptions.
-const RequireBackendIntegrityEnvVar = "LOCALAI_REQUIRE_BACKEND_INTEGRITY"
-
-// strictBackendIntegrity reports whether the runtime is configured to refuse
-// backend installs that cannot be integrity-checked.
-func strictBackendIntegrity() bool {
-	b, _ := strconv.ParseBool(os.Getenv(RequireBackendIntegrityEnvVar))
-	return b
-}
-
 // backendDownloadOptions translates the gallery's verification policy into
 // downloader options, and gates the call on strict-integrity mode. Both
 // InstallBackend and UpgradeBackend MUST route their download through these
@@ -129,11 +116,9 @@ func strictBackendIntegrity() bool {
 // layers (see pkg/downloader/uri.go OCI branch).
 //
 // For OCI URIs without a verification policy, or non-OCI URIs without a
-// SHA256, the function either returns a non-fatal warning (default) or
-// fails the install (strict mode, gated by LOCALAI_REQUIRE_BACKEND_INTEGRITY).
-// The downloader itself also logs a warning when no SHA is supplied; this
-// is the higher-level gate that turns the configuration choice into policy.
-func backendDownloadOptions(config *GalleryBackend) ([]downloader.DownloadOption, error) {
+// SHA256, the function either returns a non-fatal warning (requireIntegrity
+// false) or fails the install (requireIntegrity true).
+func backendDownloadOptions(config *GalleryBackend, requireIntegrity bool) ([]downloader.DownloadOption, error) {
 	uri := downloader.URI(config.URI)
 	hasVerification := config.Gallery.Verification != nil
 	hasSHA := config.SHA256 != ""
@@ -141,9 +126,9 @@ func backendDownloadOptions(config *GalleryBackend) ([]downloader.DownloadOption
 	switch {
 	case uri.LooksLikeOCI():
 		if !hasVerification {
-			if strictBackendIntegrity() {
-				return nil, fmt.Errorf("strict integrity: gallery %q has no verification policy for OCI backend %q (set verification: in the gallery YAML or unset %s)",
-					config.Gallery.Name, config.Name, RequireBackendIntegrityEnvVar)
+			if requireIntegrity {
+				return nil, fmt.Errorf("strict integrity: gallery %q has no verification policy for OCI backend %q (set verification: in the gallery YAML or disable --require-backend-integrity)",
+					config.Gallery.Name, config.Name)
 			}
 			xlog.Warn("installing OCI backend without signature verification",
 				"backend", config.Name, "gallery", config.Gallery.Name, "uri", config.URI)
@@ -160,7 +145,7 @@ func backendDownloadOptions(config *GalleryBackend) ([]downloader.DownloadOption
 		return nil, nil
 
 	default:
-		if !hasSHA && strictBackendIntegrity() {
+		if !hasSHA && requireIntegrity {
 			return nil, fmt.Errorf("strict integrity: backend %q has no SHA256 (gallery %q)",
 				config.Name, config.Gallery.Name)
 		}
@@ -190,7 +175,9 @@ func newGalleryVerifier(p *config.GalleryVerification) (*cosignverify.Verifier, 
 }
 
 // InstallBackendFromGallery installs a backend from the gallery.
-func InstallBackendFromGallery(ctx context.Context, galleries []config.Gallery, systemState *system.SystemState, modelLoader *model.ModelLoader, name string, downloadStatus func(string, string, string, float64), force bool) error {
+// requireIntegrity escalates a missing SHA256 / verification policy from a
+// warning to a hard failure (see backendDownloadOptions).
+func InstallBackendFromGallery(ctx context.Context, galleries []config.Gallery, systemState *system.SystemState, modelLoader *model.ModelLoader, name string, downloadStatus func(string, string, string, float64), force, requireIntegrity bool) error {
 	if !force {
 		// check if we already have the backend installed
 		backends, err := ListSystemBackends(systemState)
@@ -236,7 +223,7 @@ func InstallBackendFromGallery(ctx context.Context, galleries []config.Gallery, 
 		xlog.Debug("Installing backend from meta backend", "name", name, "bestBackend", bestBackend.Name)
 
 		// Then, let's install the best backend
-		if err := InstallBackend(ctx, systemState, modelLoader, bestBackend, downloadStatus); err != nil {
+		if err := InstallBackend(ctx, systemState, modelLoader, bestBackend, downloadStatus, requireIntegrity); err != nil {
 			return err
 		}
 
@@ -262,10 +249,10 @@ func InstallBackendFromGallery(ctx context.Context, galleries []config.Gallery, 
 		return nil
 	}
 
-	return InstallBackend(ctx, systemState, modelLoader, backend, downloadStatus)
+	return InstallBackend(ctx, systemState, modelLoader, backend, downloadStatus, requireIntegrity)
 }
 
-func InstallBackend(ctx context.Context, systemState *system.SystemState, modelLoader *model.ModelLoader, config *GalleryBackend, downloadStatus func(string, string, string, float64)) error {
+func InstallBackend(ctx context.Context, systemState *system.SystemState, modelLoader *model.ModelLoader, config *GalleryBackend, downloadStatus func(string, string, string, float64), requireIntegrity bool) error {
 	// Get configurable fallback tag values from SystemState
 	latestTag, masterTag, devSuffix := getFallbackTagValues(systemState)
 
@@ -303,7 +290,7 @@ func InstallBackend(ctx context.Context, systemState *system.SystemState, modelL
 	// Build the download options once and reuse for every retry path —
 	// mirrors and tag fallbacks must verify against the same gallery
 	// policy or we open a hole where a non-default URI bypasses the check.
-	downloadOpts, optsErr := backendDownloadOptions(config)
+	downloadOpts, optsErr := backendDownloadOptions(config, requireIntegrity)
 	if optsErr != nil {
 		return fmt.Errorf("backend %q: %w", config.Name, optsErr)
 	}

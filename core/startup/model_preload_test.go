@@ -47,7 +47,7 @@ var _ = Describe("Preload test", func() {
 			}, ml)
 			galleryService.Start(ctx, config.NewModelConfigLoader(tmpdir), systemState)
 
-			err := InstallModels(ctx, galleryService, []config.Gallery{}, []config.Gallery{}, systemState, ml, true, true, func(s1, s2, s3 string, f float64) {
+			err := InstallModels(ctx, galleryService, []config.Gallery{}, []config.Gallery{}, systemState, ml, true, true, false, func(s1, s2, s3 string, f float64) {
 				fmt.Println(s1, s2, s3, f)
 			}, url)
 			Expect(err).ToNot(HaveOccurred())
@@ -67,7 +67,7 @@ var _ = Describe("Preload test", func() {
 			}, ml)
 			galleryService.Start(ctx, config.NewModelConfigLoader(tmpdir), systemState)
 
-			err := InstallModels(ctx, galleryService, []config.Gallery{}, []config.Gallery{}, systemState, ml, true, true, func(s1, s2, s3 string, f float64) {
+			err := InstallModels(ctx, galleryService, []config.Gallery{}, []config.Gallery{}, systemState, ml, true, true, false, func(s1, s2, s3 string, f float64) {
 				fmt.Println(s1, s2, s3, f)
 			}, url)
 			Expect(err).ToNot(HaveOccurred())

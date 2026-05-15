@@ -217,7 +217,7 @@ func (uc *UpgradeChecker) runCheck(ctx context.Context) {
 				err = bm.UpgradeBackend(ctx, name, nil)
 			} else {
 				err = gallery.UpgradeBackend(ctx, uc.systemState, uc.modelLoader,
-					uc.galleries, name, nil)
+					uc.galleries, name, nil, uc.appConfig.RequireBackendIntegrity)
 			}
 			if err != nil {
 				xlog.Error("Failed to auto-upgrade backend",
