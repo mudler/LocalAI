@@ -163,7 +163,7 @@ require (
 	github.com/gocolly/colly v1.2.0 // indirect
 	github.com/gofiber/fiber/v2 v2.52.13 // indirect
 	github.com/golang/protobuf v1.5.4 // indirect
-	github.com/gomarkdown/markdown v0.0.0-20250311123330-531bef5e742b // indirect
+	github.com/gomarkdown/markdown v0.0.0-20260411013819-759bbc3e3207 // indirect
 	github.com/google/go-github/v69 v69.2.0 // indirect
 	github.com/google/go-querystring v1.1.0 // indirect
 	github.com/jackc/pgpassfile v1.0.0 // indirect
@@ -359,7 +359,7 @@ require (
 	github.com/jaypipes/pcidb v1.1.1 // indirect
 	github.com/jbenet/go-temp-err-catcher v0.1.0 // indirect
 	github.com/josharian/intern v1.0.0 // indirect
-	github.com/klauspost/compress v1.18.5 // indirect
+	github.com/klauspost/compress v1.18.5
 	github.com/klauspost/pgzip v1.2.5 // indirect
 	github.com/koron/go-ssdp v0.0.6 // indirect
 	github.com/libp2p/go-buffer-pool v0.1.0 // indirect
