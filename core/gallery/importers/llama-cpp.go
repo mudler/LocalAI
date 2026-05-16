@@ -338,11 +338,13 @@ func maybeApplyMTPDefaults(modelConfig *config.ModelConfig, details Details, cfg
 	config.ApplyMTPDefaults(modelConfig, n)
 }
 
-// pickMTPProbeURL returns the URL of the main (non-mmproj) GGUF shard that
-// should be inspected for an MTP head, or "" when no suitable URL is
-// available. The first non-mmproj entry of cfg.Files is preferred because
-// that is what the importer sets as modelConfig.PredictionOptions.Model.
-// For direct .gguf URLs the original details.URI is used.
+// pickMTPProbeURL returns an HTTP(S) URL pointing at the main (non-mmproj)
+// GGUF shard that should be inspected for an MTP head, or "" when no
+// suitable URL is available. Custom URI schemes (`huggingface://`,
+// `ollama://`, etc.) are run through `downloader.URI.ResolveURL` so the
+// resulting URL is something `gguf.ParseGGUFFileRemote` can actually open.
+// OCI/Ollama URIs are skipped because the artifact is not directly
+// streamable as a GGUF byte range.
 func pickMTPProbeURL(details Details, cfg *gallery.ModelConfig) string {
 	uri := downloader.URI(details.URI)
 
@@ -351,10 +353,7 @@ func pickMTPProbeURL(details Details, cfg *gallery.ModelConfig) string {
 	}
 
 	if strings.HasSuffix(strings.ToLower(details.URI), ".gguf") {
-		if uri.LooksLikeURL() {
-			return details.URI
-		}
-		return ""
+		return resolveHTTPProbe(details.URI)
 	}
 
 	for _, f := range cfg.Files {
@@ -365,11 +364,18 @@ func pickMTPProbeURL(details Details, cfg *gallery.ModelConfig) string {
 		if !strings.HasSuffix(lower, ".gguf") {
 			continue
 		}
-		probe := downloader.URI(f.URI)
-		if probe.LooksLikeURL() {
-			return f.URI
-		}
-		return ""
+		return resolveHTTPProbe(f.URI)
+	}
+	return ""
+}
+
+// resolveHTTPProbe resolves an importer-side URI to the HTTP(S) URL that
+// `gguf.ParseGGUFFileRemote` can range-fetch. Returns "" if the URI can't
+// be reduced to an HTTP(S) endpoint (e.g. local path, unsupported scheme).
+func resolveHTTPProbe(uri string) string {
+	resolved := downloader.URI(uri).ResolveURL()
+	if downloader.URI(resolved).LooksLikeHTTPURL() {
+		return resolved
 	}
 	return ""
 }
