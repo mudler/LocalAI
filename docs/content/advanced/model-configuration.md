@@ -340,20 +340,32 @@ Speculative decoding is automatically disabled when multimodal models (with `mmp
 
 `draft-mtp` enables [Multi-Token Prediction](https://github.com/ggml-org/llama.cpp/pull/22673) (ggml-org/llama.cpp#22673). MTP uses a small prediction head trained into the target model: the head runs alongside the main forward pass and proposes the next few tokens, which the target then verifies in a single batched step. Upstream reports ~1.85x-2.1x token throughput at ~72-82% draft acceptance on Qwen3.6 27B / 35B A3B.
 
+**Auto-detection (default).** When a GGUF declares an MTP head (the upstream `<arch>.nextn_predict_layers` metadata key, set by `convert_hf_to_gguf.py` for Qwen3.5/3.6 family models and similar), LocalAI auto-enables MTP with the following defaults:
+
+```yaml
+options:
+  - spec_type:draft-mtp
+  - spec_n_max:6
+  - spec_p_min:0.75
+```
+
+Detection runs both at **import time** (the `/import-model` UI / `POST /models/import-uri` flow range-fetches the GGUF header and writes the options into the generated YAML before you save it) and at **load time** (every llama-cpp model start re-checks the local header and appends the options if `spec_type` isn't already set). To opt out, set an explicit `spec_type:` / `speculative_type:` in your YAML - auto-detection always preserves the user value, including `spec_type:none`.
+
 **Two ways to load the MTP head:**
 
-1. **Embedded in the target GGUF** (the recommended path for LocalAI). When `spec_type` includes `draft-mtp` and `draft_model` is empty, the backend builds the MTP draft context directly from the target model's weights. The GGUF must have been converted with the MTP tensors included.
+1. **Embedded in the target GGUF** (the recommended path for LocalAI, and what auto-detection assumes). When `spec_type` includes `draft-mtp` and `draft_model` is empty, the backend builds the MTP draft context directly from the target model's weights. The GGUF must have been converted with the MTP tensors included.
 2. **Separate `mtp-*.gguf` sibling file.** If you point `draft_model` at the separate MTP-head GGUF that ships next to the main weights on HuggingFace, the backend will load it as a draft model. Note: upstream's `-hf` auto-discovery of `mtp-*.gguf` siblings is **not** wired into LocalAI's gRPC layer - you need to download the sibling file and configure `draft_model` explicitly.
 
-**Recommended options** (matches the upstream PR defaults):
+**Manual override knobs** (overlap with the auto-detect defaults above):
 
 | Option | Recommended | Notes |
 |--------|------------|-------|
 | `spec_type` | `draft-mtp` | Activates MTP. Can be chained with other types (see below). |
-| `spec_n_max` / `draft_max` | `2`-`3` | Number of draft tokens per step. Higher than 3 typically lowers acceptance enough to hurt throughput. |
+| `spec_n_max` / `draft_max` | `2`-`6` | Number of draft tokens per step. Upstream's PR suggests 2-3 for the tightest acceptance window; LocalAI's auto-default is 6 to favour throughput on models with high acceptance. |
+| `spec_p_min` | `0.75` | Pinned because upstream marks the current default with a "change to 0.0f" TODO; locking it here keeps acceptance thresholds stable across future llama.cpp bumps. |
 | `mmproj_use_gpu` | `false` (or unset `mmproj`) | MTP has a prompt-processing overhead; if the model is non-vision, drop the mmproj entirely to save VRAM. |
 
-**Minimal config** (MTP head embedded in the main GGUF):
+**Minimal config** (override-only, since auto-detection already covers this for MTP-capable GGUFs):
 
 ```yaml
 name: qwen3-mtp
