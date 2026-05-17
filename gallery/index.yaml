@@ -1,4 +1,50 @@
 ---
+- name: "ltx2.3-10eros"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/vantagewithai/LTX2.3-10Eros-GGUF
+  description: |
+    **GGUF Version of LTX2.3-10Eros for ComfyUI**
+
+    **Original model Link:** https://huggingface.co/TenStrip/LTX2.3-10Eros
+
+    **Watch us at Youtube:** @VantageWithAI
+
+    **10 Eros**
+
+    Nodes:
+    https://github.com/TenStrip/10S-Comfy-nodes
+
+    Reliant on https://huggingface.co/SulphurAI/Sulphur-2-base
+    This is a different merge attempt for ideal I2V use. It uses layer scaled merges of different steps, it's not a straight weight merge. It behaves much nicer than lora load and respects prompt. Prompt should be enhanced, LTX has very little self reasoning and input when it is conditioned, first frame and all following motions, evolutions, and audio must be commanded-you will get nothing if you don't ask it.
+
+    !!! Larger distilled Loras will harm the model's fine tune, try the cond_safe ones:
+    https://huggingface.co/TenStrip/LTX2.3_Distilled_Lora_1.1_Experiments/tree/main
+
+    For prompt enhancement, try this foreword in Grok or Uncensored LLM:
+
+    ...
+  tags:
+    - llm
+    - gguf
+  overrides:
+    backend: llama-cpp
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/LTX2.3-10Eros-GGUF/10Eros_v1-Q4_K_M.gguf
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/LTX2.3-10Eros-GGUF/10Eros_v1-Q4_K_M.gguf
+      sha256: 08a79f10f4d66a94bbecfda4b76541f100da5ea3e2afd0692ec4d9a77a2ce1de
+      uri: https://huggingface.co/vantagewithai/LTX2.3-10Eros-GGUF/resolve/main/10Eros_v1-Q4_K_M.gguf
 - name: "qwen3.6-40b-claude-4.6-opus-deckard-heretic-uncensored-thinking-neo-code-di-imatrix-max"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
