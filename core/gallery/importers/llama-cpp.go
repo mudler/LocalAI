@@ -1,10 +1,13 @@
 package importers
 
 import (
+	"context"
 	"encoding/json"
 	"path/filepath"
 	"strings"
+	"time"
 
+	gguf "github.com/gpustack/gguf-parser-go"
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/gallery"
 	"github.com/mudler/LocalAI/core/schema"
@@ -261,6 +264,13 @@ func (i *LlamaCPPImporter) Import(details Details) (gallery.ModelConfig, error) 
 	// Apply per-model-family inference parameter defaults
 	config.ApplyInferenceDefaults(&modelConfig, details.URI)
 
+	// Auto-detect Multi-Token Prediction heads (ggml-org/llama.cpp#22673) and
+	// enable speculative decoding. Mirrors the load-time hook so freshly
+	// imported configs already carry spec_type:draft-mtp before the model is
+	// ever loaded - users see it in the YAML preview rather than discovering
+	// it after the first start.
+	maybeApplyMTPDefaults(&modelConfig, details, &cfg)
+
 	data, err := yaml.Marshal(modelConfig)
 	if err != nil {
 		return gallery.ModelConfig{}, err
@@ -289,6 +299,85 @@ func pickPreferredGroup(groups []hfapi.ShardGroup, prefs []string) *hfapi.ShardG
 		}
 	}
 	return &groups[len(groups)-1]
+}
+
+// maybeApplyMTPDefaults parses the picked GGUF header (range-fetched over
+// HTTP for HF/URL imports) and, if the file declares a Multi-Token Prediction
+// head, appends the auto-MTP option keys to modelConfig.Options. Failures
+// during the probe are non-fatal: the importer keeps the config without MTP
+// so an unrelated network blip or weird header doesn't break the import.
+//
+// OCI/Ollama URIs are skipped because the artifact isn't directly fetchable
+// as a GGUF byte stream - the load-time hook (core/config/gguf.go) covers
+// those once the model is materialised on disk.
+func maybeApplyMTPDefaults(modelConfig *config.ModelConfig, details Details, cfg *gallery.ModelConfig) {
+	probeURL := pickMTPProbeURL(details, cfg)
+	if probeURL == "" {
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	defer func() {
+		if r := recover(); r != nil {
+			xlog.Debug("[mtp-importer] panic while probing GGUF header", "uri", probeURL, "recover", r)
+		}
+	}()
+
+	f, err := gguf.ParseGGUFFileRemote(ctx, probeURL)
+	if err != nil {
+		xlog.Debug("[mtp-importer] failed to read remote GGUF header for MTP detection", "uri", probeURL, "error", err)
+		return
+	}
+
+	n, ok := config.HasEmbeddedMTPHead(f)
+	if !ok {
+		return
+	}
+	config.ApplyMTPDefaults(modelConfig, n)
+}
+
+// pickMTPProbeURL returns an HTTP(S) URL pointing at the main (non-mmproj)
+// GGUF shard that should be inspected for an MTP head, or "" when no
+// suitable URL is available. Custom URI schemes (`huggingface://`,
+// `ollama://`, etc.) are run through `downloader.URI.ResolveURL` so the
+// resulting URL is something `gguf.ParseGGUFFileRemote` can actually open.
+// OCI/Ollama URIs are skipped because the artifact is not directly
+// streamable as a GGUF byte range.
+func pickMTPProbeURL(details Details, cfg *gallery.ModelConfig) string {
+	uri := downloader.URI(details.URI)
+
+	if uri.LooksLikeOCI() {
+		return ""
+	}
+
+	if strings.HasSuffix(strings.ToLower(details.URI), ".gguf") {
+		return resolveHTTPProbe(details.URI)
+	}
+
+	for _, f := range cfg.Files {
+		lower := strings.ToLower(f.Filename)
+		if strings.Contains(lower, "mmproj") {
+			continue
+		}
+		if !strings.HasSuffix(lower, ".gguf") {
+			continue
+		}
+		return resolveHTTPProbe(f.URI)
+	}
+	return ""
+}
+
+// resolveHTTPProbe resolves an importer-side URI to the HTTP(S) URL that
+// `gguf.ParseGGUFFileRemote` can range-fetch. Returns "" if the URI can't
+// be reduced to an HTTP(S) endpoint (e.g. local path, unsupported scheme).
+func resolveHTTPProbe(uri string) string {
+	resolved := downloader.URI(uri).ResolveURL()
+	if downloader.URI(resolved).LooksLikeHTTPURL() {
+		return resolved
+	}
+	return ""
 }
 
 // appendShardGroup copies every shard of group into cfg.Files under dest,

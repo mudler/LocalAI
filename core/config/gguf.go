@@ -54,6 +54,13 @@ func guessGGUFFromFile(cfg *ModelConfig, f *gguf.GGUFFile, defaultCtx int) {
 		cfg.modelTemplate = chatTemplate.ValueString()
 	}
 
+	// Auto-enable Multi-Token Prediction (ggml-org/llama.cpp#22673) when the
+	// GGUF carries an embedded MTP head. Skipped silently for non-MTP models
+	// and when the user already configured a spec_type.
+	if n, ok := HasEmbeddedMTPHead(f); ok {
+		ApplyMTPDefaults(cfg, n)
+	}
+
 	// Thinking support detection is done after model load via DetectThinkingSupportFromBackend
 
 	// template estimations

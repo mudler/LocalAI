@@ -2,6 +2,8 @@ package schema
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
 	"time"
 )
 
@@ -16,6 +18,79 @@ type OllamaOptions struct {
 	Seed          *int     `json:"seed,omitempty"`
 	Stop          []string `json:"stop,omitempty"`
 	NumCtx        int      `json:"num_ctx,omitempty"`
+}
+
+// UnmarshalJSON accepts integer parameters encoded as either JSON ints
+// (`8192`) or JSON floats (`8192.0`). Some clients - notably Home Assistant's
+// Ollama integration - serialize ints as floats, which stdlib json refuses
+// to decode into int fields. See https://github.com/mudler/LocalAI/issues/9837.
+func (o *OllamaOptions) UnmarshalJSON(data []byte) error {
+	type aux struct {
+		Temperature   *float64     `json:"temperature,omitempty"`
+		TopP          *float64     `json:"top_p,omitempty"`
+		TopK          *json.Number `json:"top_k,omitempty"`
+		NumPredict    *json.Number `json:"num_predict,omitempty"`
+		RepeatPenalty float64      `json:"repeat_penalty,omitempty"`
+		RepeatLastN   *json.Number `json:"repeat_last_n,omitempty"`
+		Seed          *json.Number `json:"seed,omitempty"`
+		Stop          []string     `json:"stop,omitempty"`
+		NumCtx        *json.Number `json:"num_ctx,omitempty"`
+	}
+	var a aux
+	if err := json.Unmarshal(data, &a); err != nil {
+		return err
+	}
+
+	o.Temperature = a.Temperature
+	o.TopP = a.TopP
+	o.RepeatPenalty = a.RepeatPenalty
+	o.Stop = a.Stop
+
+	var err error
+	if o.TopK, err = jsonNumberToIntPtr(a.TopK); err != nil {
+		return fmt.Errorf("options.top_k: %w", err)
+	}
+	if o.NumPredict, err = jsonNumberToIntPtr(a.NumPredict); err != nil {
+		return fmt.Errorf("options.num_predict: %w", err)
+	}
+	if o.Seed, err = jsonNumberToIntPtr(a.Seed); err != nil {
+		return fmt.Errorf("options.seed: %w", err)
+	}
+	if o.RepeatLastN, err = jsonNumberToInt(a.RepeatLastN); err != nil {
+		return fmt.Errorf("options.repeat_last_n: %w", err)
+	}
+	if o.NumCtx, err = jsonNumberToInt(a.NumCtx); err != nil {
+		return fmt.Errorf("options.num_ctx: %w", err)
+	}
+	return nil
+}
+
+// jsonNumberToInt parses a json.Number literal as an int, tolerating both
+// integer (`8192`) and float (`8192.0`) encodings. A nil pointer or empty
+// string yields 0, matching the zero-value semantics of the int fields.
+func jsonNumberToInt(n *json.Number) (int, error) {
+	if n == nil || *n == "" {
+		return 0, nil
+	}
+	if i, err := n.Int64(); err == nil {
+		return int(i), nil
+	}
+	f, err := n.Float64()
+	if err != nil {
+		return 0, err
+	}
+	return int(f), nil
+}
+
+func jsonNumberToIntPtr(n *json.Number) (*int, error) {
+	if n == nil {
+		return nil, nil
+	}
+	i, err := jsonNumberToInt(n)
+	if err != nil {
+		return nil, err
+	}
+	return &i, nil
 }
 
 // OllamaMessage represents a message in Ollama chat format
