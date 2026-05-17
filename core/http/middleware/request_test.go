@@ -306,3 +306,149 @@ var _ = Describe("MergeOpenResponsesConfig tool_choice parsing", func() {
 		})
 	})
 })
+
+// ---------------------------------------------------------------------------
+// MergeOpenAIRequestConfig — tool_choice parsing (/v1/chat/completions)
+// ---------------------------------------------------------------------------
+//
+// Mirrors the MergeOpenResponsesConfig suite above but exercises the OpenAI
+// chat/completions path. The bug: the old code tried to json.Unmarshal the
+// string "required" into a functions.Tool (always fails), then unconditionally
+// set FunctionCall to {"name":""}, so "required" mode was silently dropped and
+// SetFunctionCallNameString("") was called instead of SetFunctionCallString("required").
+var _ = Describe("MergeOpenAIRequestConfig tool_choice parsing", func() {
+	var cfg *config.ModelConfig
+
+	BeforeEach(func() {
+		cfg = &config.ModelConfig{}
+	})
+
+	Context("string tool_choice", func() {
+		It("applies \"required\" mode", func() {
+			req := &schema.OpenAIRequest{ToolsChoice: "required"}
+			Expect(MergeOpenAIRequestConfig(cfg, req)).To(Succeed())
+
+			Expect(cfg.ShouldCallSpecificFunction()).To(BeFalse())
+			Expect(cfg.ShouldUseFunctions()).To(BeTrue())
+		})
+
+		It("applies \"none\" mode", func() {
+			req := &schema.OpenAIRequest{ToolsChoice: "none"}
+			Expect(MergeOpenAIRequestConfig(cfg, req)).To(Succeed())
+
+			Expect(cfg.ShouldCallSpecificFunction()).To(BeFalse())
+			Expect(cfg.ShouldUseFunctions()).To(BeFalse())
+		})
+
+		It("leaves config untouched for \"auto\"", func() {
+			req := &schema.OpenAIRequest{ToolsChoice: "auto"}
+			Expect(MergeOpenAIRequestConfig(cfg, req)).To(Succeed())
+
+			Expect(cfg.ShouldCallSpecificFunction()).To(BeFalse())
+			Expect(cfg.FunctionToCall()).To(Equal(""))
+		})
+	})
+
+	Context("specific-function tool_choice (OpenAI spec shape)", func() {
+		It("parses {type:function, function:{name:...}} and sets the specific-function name", func() {
+			req := &schema.OpenAIRequest{
+				ToolsChoice: map[string]any{
+					"type":     "function",
+					"function": map[string]any{"name": "get_weather"},
+				},
+			}
+			Expect(MergeOpenAIRequestConfig(cfg, req)).To(Succeed())
+
+			Expect(cfg.ShouldCallSpecificFunction()).To(BeTrue())
+			Expect(cfg.FunctionToCall()).To(Equal("get_weather"))
+		})
+
+		It("prefers nested function.name over a stray top-level name", func() {
+			req := &schema.OpenAIRequest{
+				ToolsChoice: map[string]any{
+					"type":     "function",
+					"function": map[string]any{"name": "correct_name"},
+					"name":     "legacy_name",
+				},
+			}
+			Expect(MergeOpenAIRequestConfig(cfg, req)).To(Succeed())
+
+			Expect(cfg.FunctionToCall()).To(Equal("correct_name"))
+		})
+	})
+
+	Context("specific-function tool_choice (legacy flat shape)", func() {
+		It("parses {type:function, name:...} and sets the specific-function name", func() {
+			req := &schema.OpenAIRequest{
+				ToolsChoice: map[string]any{
+					"type": "function",
+					"name": "get_weather",
+				},
+			}
+			Expect(MergeOpenAIRequestConfig(cfg, req)).To(Succeed())
+
+			Expect(cfg.ShouldCallSpecificFunction()).To(BeTrue())
+			Expect(cfg.FunctionToCall()).To(Equal("get_weather"))
+		})
+	})
+
+	Context("malformed tool_choice", func() {
+		It("is a no-op when type is missing", func() {
+			req := &schema.OpenAIRequest{
+				ToolsChoice: map[string]any{
+					"function": map[string]any{"name": "get_weather"},
+				},
+			}
+			Expect(MergeOpenAIRequestConfig(cfg, req)).To(Succeed())
+
+			Expect(cfg.ShouldCallSpecificFunction()).To(BeFalse())
+		})
+
+		It("is a no-op when type is not \"function\"", func() {
+			req := &schema.OpenAIRequest{
+				ToolsChoice: map[string]any{
+					"type":     "object",
+					"function": map[string]any{"name": "get_weather"},
+				},
+			}
+			Expect(MergeOpenAIRequestConfig(cfg, req)).To(Succeed())
+
+			Expect(cfg.ShouldCallSpecificFunction()).To(BeFalse())
+		})
+
+		It("is a no-op when name is missing from both shapes", func() {
+			req := &schema.OpenAIRequest{
+				ToolsChoice: map[string]any{
+					"type":     "function",
+					"function": map[string]any{},
+				},
+			}
+			Expect(MergeOpenAIRequestConfig(cfg, req)).To(Succeed())
+
+			Expect(cfg.ShouldCallSpecificFunction()).To(BeFalse())
+			Expect(cfg.FunctionToCall()).To(Equal(""))
+		})
+
+		It("is a no-op when name is empty string", func() {
+			req := &schema.OpenAIRequest{
+				ToolsChoice: map[string]any{
+					"type":     "function",
+					"function": map[string]any{"name": ""},
+				},
+			}
+			Expect(MergeOpenAIRequestConfig(cfg, req)).To(Succeed())
+
+			Expect(cfg.ShouldCallSpecificFunction()).To(BeFalse())
+		})
+	})
+
+	Context("nil tool_choice", func() {
+		It("is a no-op", func() {
+			req := &schema.OpenAIRequest{ToolsChoice: nil}
+			Expect(MergeOpenAIRequestConfig(cfg, req)).To(Succeed())
+
+			Expect(cfg.ShouldCallSpecificFunction()).To(BeFalse())
+			Expect(cfg.FunctionToCall()).To(Equal(""))
+		})
+	})
+})

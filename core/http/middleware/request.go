@@ -14,7 +14,6 @@ import (
 	"github.com/mudler/LocalAI/core/schema"
 	"github.com/mudler/LocalAI/core/services/galleryop"
 	"github.com/mudler/LocalAI/core/templates"
-	"github.com/mudler/LocalAI/pkg/functions"
 	"github.com/mudler/LocalAI/pkg/model"
 	"github.com/mudler/LocalAI/pkg/utils"
 	"github.com/mudler/xlog"
@@ -225,7 +224,7 @@ func (re *RequestExtractor) SetOpenAIRequest(c echo.Context) error {
 	input.Context = ctxWithCorrelationID
 	input.Cancel = cancel
 
-	err := mergeOpenAIRequestAndModelConfig(cfg, input)
+	err := MergeOpenAIRequestConfig(cfg, input)
 	if err != nil {
 		return err
 	}
@@ -241,7 +240,7 @@ func (re *RequestExtractor) SetOpenAIRequest(c echo.Context) error {
 	return nil
 }
 
-func mergeOpenAIRequestAndModelConfig(config *config.ModelConfig, input *schema.OpenAIRequest) error {
+func MergeOpenAIRequestConfig(config *config.ModelConfig, input *schema.OpenAIRequest) error {
 	if input.Echo {
 		config.Echo = input.Echo
 	}
@@ -320,17 +319,32 @@ func mergeOpenAIRequestAndModelConfig(config *config.ModelConfig, input *schema.
 	}
 
 	if input.ToolsChoice != nil {
-		var toolChoice functions.Tool
-
 		switch content := input.ToolsChoice.(type) {
 		case string:
-			_ = json.Unmarshal([]byte(content), &toolChoice)
+			// "required" and "none" need explicit mode flags; "auto" is the
+			// default and must remain a no-op to avoid polluting FunctionToCall().
+			switch content {
+			case "required", "none":
+				input.FunctionCall = content
+			}
+			// "auto" — leave FunctionCall unset; model decides.
 		case map[string]any:
-			dat, _ := json.Marshal(content)
-			_ = json.Unmarshal(dat, &toolChoice)
-		}
-		input.FunctionCall = map[string]any{
-			"name": toolChoice.Function.Name,
+			// Specific tool. OpenAI spec nests the function name under "function":
+			//   {"type":"function", "function":{"name":"..."}}
+			// Legacy/Anthropic-compat form puts it at the top level:
+			//   {"type":"function", "name":"..."}
+			if tcType, ok := content["type"].(string); ok && tcType == "function" {
+				var name string
+				if fn, ok := content["function"].(map[string]any); ok {
+					name, _ = fn["name"].(string)
+				}
+				if name == "" {
+					name, _ = content["name"].(string)
+				}
+				if name != "" {
+					input.FunctionCall = map[string]any{"name": name}
+				}
+			}
 		}
 	}
 
