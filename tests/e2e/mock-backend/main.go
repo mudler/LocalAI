@@ -549,6 +549,17 @@ func (m *MockBackend) TokenizeString(ctx context.Context, in *pb.PredictOptions)
 	}, nil
 }
 
+func (m *MockBackend) Detokenize(ctx context.Context, in *pb.DetokenizeRequest) (*pb.DetokenizeResponse, error) {
+	xlog.Debug("Detokenize called", "tokens", in.Tokens)
+	parts := make([]string, len(in.Tokens))
+	for i, t := range in.Tokens {
+		parts[i] = strconv.Itoa(int(t))
+	}
+	return &pb.DetokenizeResponse{
+		Content: "detokenized: " + strings.Join(parts, " "),
+	}, nil
+}
+
 func (m *MockBackend) Status(ctx context.Context, in *pb.HealthMessage) (*pb.StatusResponse, error) {
 	xlog.Debug("Status called")
 	return &pb.StatusResponse{

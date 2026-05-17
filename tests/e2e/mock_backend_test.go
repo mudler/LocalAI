@@ -387,6 +387,78 @@ var _ = Describe("Mock Backend E2E Tests", Label("MockBackend"), func() {
 		})
 	})
 
+	Describe("Detokenization API", func() {
+		It("should return content for known token IDs", func() {
+			body := `{"model":"mock-model","tokens":[101,2023,2003,1037,3231,1012]}`
+			req, err := http.NewRequest("POST", apiURL+"/detokenize", strings.NewReader(body))
+			Expect(err).ToNot(HaveOccurred())
+			req.Header.Set("Content-Type", "application/json")
+
+			httpClient := &http.Client{Timeout: 30 * time.Second}
+			resp, err := httpClient.Do(req)
+			Expect(err).ToNot(HaveOccurred())
+			defer resp.Body.Close()
+			Expect(resp.StatusCode).To(Equal(200))
+
+			data, err := io.ReadAll(resp.Body)
+			Expect(err).ToNot(HaveOccurred())
+			var result map[string]any
+			Expect(json.Unmarshal(data, &result)).To(Succeed())
+			content, ok := result["content"].(string)
+			Expect(ok).To(BeTrue(), "response missing 'content' field: %s", string(data))
+			Expect(content).ToNot(BeEmpty())
+		})
+
+		It("should round-trip tokenize then detokenize", func() {
+			httpClient := &http.Client{Timeout: 30 * time.Second}
+
+			// Step 1: tokenize
+			tokenizeReq, err := http.NewRequest("POST", apiURL+"/tokenize",
+				strings.NewReader(`{"model":"mock-model","content":"Hello world"}`))
+			Expect(err).ToNot(HaveOccurred())
+			tokenizeReq.Header.Set("Content-Type", "application/json")
+
+			tokenizeResp, err := httpClient.Do(tokenizeReq)
+			Expect(err).ToNot(HaveOccurred())
+			defer tokenizeResp.Body.Close()
+			Expect(tokenizeResp.StatusCode).To(Equal(200))
+
+			tokenizeData, err := io.ReadAll(tokenizeResp.Body)
+			Expect(err).ToNot(HaveOccurred())
+			var tokenizeResult map[string]any
+			Expect(json.Unmarshal(tokenizeData, &tokenizeResult)).To(Succeed())
+
+			tokensRaw, ok := tokenizeResult["tokens"].([]any)
+			Expect(ok).To(BeTrue(), "tokenize response missing 'tokens': %s", string(tokenizeData))
+			Expect(tokensRaw).ToNot(BeEmpty())
+
+			// Step 2: detokenize the returned token IDs
+			tokens := make([]int, len(tokensRaw))
+			for i, t := range tokensRaw {
+				tokens[i] = int(t.(float64))
+			}
+			tokenJSON, err := json.Marshal(map[string]any{"model": "mock-model", "tokens": tokens})
+			Expect(err).ToNot(HaveOccurred())
+
+			detokenizeReq, err := http.NewRequest("POST", apiURL+"/detokenize", strings.NewReader(string(tokenJSON)))
+			Expect(err).ToNot(HaveOccurred())
+			detokenizeReq.Header.Set("Content-Type", "application/json")
+
+			detokenizeResp, err := httpClient.Do(detokenizeReq)
+			Expect(err).ToNot(HaveOccurred())
+			defer detokenizeResp.Body.Close()
+			Expect(detokenizeResp.StatusCode).To(Equal(200))
+
+			detokenizeData, err := io.ReadAll(detokenizeResp.Body)
+			Expect(err).ToNot(HaveOccurred())
+			var detokenizeResult map[string]any
+			Expect(json.Unmarshal(detokenizeData, &detokenizeResult)).To(Succeed())
+			content, ok := detokenizeResult["content"].(string)
+			Expect(ok).To(BeTrue(), "detokenize response missing 'content': %s", string(detokenizeData))
+			Expect(content).ToNot(BeEmpty())
+		})
+	})
+
 	Describe("Autoparser ChatDelta Streaming", Label("Autoparser"), func() {
 		// These tests verify that when the C++ autoparser handles tool calls
 		// and content via ChatDeltas (with empty raw message), the streaming
