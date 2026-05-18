@@ -31,6 +31,13 @@ on:
 jobs:
   merge:
     runs-on: ubuntu-latest
+    # id-token: write is required for keyless cosign — the workflow
+    # exchanges the GitHub OIDC token for a short-lived Fulcio cert that
+    # signs each pushed manifest. Without this permission the runner
+    # cannot mint the token, and `cosign sign` fails with "no token".
+    permissions:
+      contents: read
+      id-token: write
     env:
       quay_username: ${{ secrets.quayUsername }}
     steps:
@@ -56,6 +63,15 @@ jobs:
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@master
+
+      # cosign signs each pushed manifest list with --recursive so the
+      # index and every per-arch entry get an attached Sigstore bundle.
+      # 2.2+ is required for --new-bundle-format.
+      - name: Install cosign
+        if: github.event_name != 'pull_request'
+        uses: sigstore/cosign-installer@v3
+        with:
+          cosign-release: 'v2.4.1'
 
       - name: Login to DockerHub
         if: github.event_name != 'pull_request'
@@ -120,11 +136,26 @@ jobs:
           ' <<< "$DOCKER_METADATA_OUTPUT_JSON")
           if [ -z "$tags" ]; then
             echo "No quay.io tags from docker/metadata-action; skipping quay merge"
-          else
-            # shellcheck disable=SC2086
-            docker buildx imagetools create $tags \
-              $(printf 'quay.io/go-skynet/ci-cache@sha256:%s ' *)
+            exit 0
           fi
+          # shellcheck disable=SC2086
+          docker buildx imagetools create $tags \
+            $(printf 'quay.io/go-skynet/ci-cache@sha256:%s ' *)
+          # Resolve the manifest-list digest (any tag points at it) so
+          # cosign can sign by digest. Signing by tag would leave the
+          # signature orphaned the next time the tag moves.
+          first_tag=$(jq -cr '
+            .tags | map(select(startswith("quay.io/"))) | .[0]
+          ' <<< "$DOCKER_METADATA_OUTPUT_JSON")
+          digest=$(docker buildx imagetools inspect "$first_tag" --format '{{.Manifest.Digest}}')
+          # --recursive walks the list and signs every per-arch entry
+          # too — clients that resolve a tag to a platform-specific
+          # manifest before checking signatures need the per-arch
+          # signatures, not just the list-level one.
+          cosign sign --yes --recursive \
+            --new-bundle-format \
+            --registry-referrers-mode=oci-1-1 \
+            "quay.io/go-skynet/local-ai-backends@${digest}"
 
       - name: Create manifest list and push (dockerhub)
         if: github.event_name != 'pull_request'
@@ -139,11 +170,19 @@ jobs:
           ' <<< "$DOCKER_METADATA_OUTPUT_JSON")
           if [ -z "$tags" ]; then
             echo "No dockerhub tags from docker/metadata-action; skipping dockerhub merge"
-          else
-            # shellcheck disable=SC2086
-            docker buildx imagetools create $tags \
-              $(printf 'localai/localai-backends@sha256:%s ' *)
+            exit 0
           fi
+          # shellcheck disable=SC2086
+          docker buildx imagetools create $tags \
+            $(printf 'localai/localai-backends@sha256:%s ' *)
+          first_tag=$(jq -cr '
+            .tags | map(select(startswith("localai/"))) | .[0]
+          ' <<< "$DOCKER_METADATA_OUTPUT_JSON")
+          digest=$(docker buildx imagetools inspect "$first_tag" --format '{{.Manifest.Digest}}')
+          cosign sign --yes --recursive \
+            --new-bundle-format \
+            --registry-referrers-mode=oci-1-1 \
+            "localai/localai-backends@${digest}"
 
       - name: Inspect manifest
         if: github.event_name != 'pull_request'

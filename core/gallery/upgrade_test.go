@@ -383,7 +383,7 @@ var _ = Describe("Upgrade Detection and Execution", func() {
 			})
 
 			ml := model.NewModelLoader(systemState)
-			err := UpgradeBackend(context.Background(), systemState, ml, galleries, "my-backend", nil)
+			err := UpgradeBackend(context.Background(), systemState, ml, galleries, "my-backend", nil, false)
 			Expect(err).NotTo(HaveOccurred())
 
 			// Verify run.sh was updated
@@ -417,7 +417,7 @@ var _ = Describe("Upgrade Detection and Execution", func() {
 			})
 
 			ml := model.NewModelLoader(systemState)
-			err := UpgradeBackend(context.Background(), systemState, ml, galleries, "my-backend", nil)
+			err := UpgradeBackend(context.Background(), systemState, ml, galleries, "my-backend", nil, false)
 			Expect(err).To(HaveOccurred())
 
 			// Verify v1 is still intact
@@ -431,6 +431,42 @@ var _ = Describe("Upgrade Detection and Execution", func() {
 			var meta BackendMetadata
 			Expect(json.Unmarshal(metaData, &meta)).To(Succeed())
 			Expect(meta.Version).To(Equal("1.0.0"))
+		})
+
+		// Regression: an earlier version of UpgradeBackend wrote the
+		// downloaded bytes to disk without going through
+		// backendDownloadOptions, so the gallery's verification policy
+		// (and strict-integrity gate) didn't apply on upgrade. This test
+		// pins the upgrade path to the same integrity gate as installs:
+		// strict mode + an OCI URI without a verification: block must
+		// hard-fail *before* anything is downloaded or swapped in.
+		It("should refuse to upgrade an OCI backend that bypasses integrity in strict mode", func() {
+			installBackendWithVersion("my-backend", "1.0.0", "#!/bin/sh\necho v1")
+
+			// OCI URI, no Gallery.Verification → backendDownloadOptions
+			// returns a strict-integrity error before any network call.
+			writeGalleryYAML([]GalleryBackend{
+				{
+					Metadata: Metadata{
+						Name: "my-backend",
+					},
+					URI:     "oci://example.invalid/missing:never-fetched",
+					Version: "2.0.0",
+				},
+			})
+
+			ml := model.NewModelLoader(systemState)
+			err := UpgradeBackend(context.Background(), systemState, ml, galleries, "my-backend", nil, true)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("strict integrity"))
+
+			// The installed v1 must be untouched — the upgrade should
+			// have aborted before writing anything.
+			content, err := os.ReadFile(filepath.Join(backendsPath, "my-backend", "run.sh"))
+			Expect(err).NotTo(HaveOccurred())
+			Expect(string(content)).To(Equal("#!/bin/sh\necho v1"))
+			Expect(filepath.Join(backendsPath, "my-backend.upgrade-tmp")).NotTo(BeAnExistingFile())
+			Expect(filepath.Join(backendsPath, "my-backend.backup")).NotTo(BeAnExistingFile())
 		})
 	})
 })

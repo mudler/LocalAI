@@ -67,6 +67,7 @@ type RunCMD struct {
 	OllamaAPIRootEndpoint              bool     `env:"LOCALAI_OLLAMA_API_ROOT_ENDPOINT" default:"false" help:"Register Ollama-compatible health check on / (replaces web UI on root path). The /api/* Ollama endpoints are always available regardless of this flag" group:"api"`
 	DisableRuntimeSettings             bool     `env:"LOCALAI_DISABLE_RUNTIME_SETTINGS,DISABLE_RUNTIME_SETTINGS" default:"false" help:"Disables the runtime settings. When set to true, the server will not load the runtime settings from the runtime_settings.json file" group:"api"`
 	DisablePredownloadScan             bool     `env:"LOCALAI_DISABLE_PREDOWNLOAD_SCAN" help:"If true, disables the best-effort security scanner before downloading any files." group:"hardening" default:"false"`
+	RequireBackendIntegrity            bool     `env:"LOCALAI_REQUIRE_BACKEND_INTEGRITY,REQUIRE_BACKEND_INTEGRITY" help:"If true, backend installs without a configured signature verification policy (for OCI URIs) or SHA256 (for tarball/HTTP URIs) are rejected. Default is to warn and install. Set this in production once your gallery's verification: block is populated." group:"hardening" default:"false"`
 	OpaqueErrors                       bool     `env:"LOCALAI_OPAQUE_ERRORS" default:"false" help:"If true, all error responses are replaced with blank 500 errors. This is intended only for hardening against information leaks and is normally not recommended." group:"hardening"`
 	UseSubtleKeyComparison             bool     `env:"LOCALAI_SUBTLE_KEY_COMPARISON" default:"false" help:"If true, API Key validation comparisons will be performed using constant-time comparisons rather than simple equality. This trades off performance on each request for resiliancy against timing attacks." group:"hardening"`
 	DisableApiKeyRequirementForHttpGet bool     `env:"LOCALAI_DISABLE_API_KEY_REQUIREMENT_FOR_HTTP_GET" default:"false" help:"If true, a valid API key is not required to issue GET requests to portions of the web ui. This should only be enabled in secure testing environments" group:"hardening"`
@@ -501,6 +502,10 @@ func (r *RunCMD) Run(ctx *cliContext.Context) error {
 
 	if r.AutoUpgradeBackends {
 		opts = append(opts, config.WithAutoUpgradeBackends(r.AutoUpgradeBackends))
+	}
+
+	if r.RequireBackendIntegrity {
+		opts = append(opts, config.WithRequireBackendIntegrity(r.RequireBackendIntegrity))
 	}
 
 	if r.PreferDevelopmentBackends {

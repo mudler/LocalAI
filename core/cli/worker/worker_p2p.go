@@ -73,7 +73,7 @@ func (r *P2P) Run(ctx *cliContext.Context) error {
 			for {
 				xlog.Info("Starting llama-cpp-rpc-server", "address", address, "port", port)
 
-				grpcProcess, err := findLLamaCPPBackend(r.BackendGalleries, systemState)
+				grpcProcess, err := findLLamaCPPBackend(r.BackendGalleries, systemState, r.RequireBackendIntegrity)
 				if err != nil {
 					xlog.Error("Failed to find llama-cpp-rpc-server", "error", err)
 					return

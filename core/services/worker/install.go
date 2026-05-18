@@ -112,14 +112,14 @@ func (s *backendSupervisor) installBackend(req messaging.BackendInstallRequest, 
 		if req.URI != "" {
 			xlog.Info("Installing backend from external URI", "backend", req.Backend, "uri", req.URI, "force", force)
 			if err := galleryop.InstallExternalBackend(
-				context.Background(), galleries, s.systemState, s.ml, nil, req.URI, req.Name, req.Alias,
+				context.Background(), galleries, s.systemState, s.ml, nil, req.URI, req.Name, req.Alias, s.cfg.RequireBackendIntegrity,
 			); err != nil {
 				return "", fmt.Errorf("installing backend from gallery: %w", err)
 			}
 		} else {
 			xlog.Info("Installing backend from gallery", "backend", req.Backend, "force", force)
 			if err := gallery.InstallBackendFromGallery(
-				context.Background(), galleries, s.systemState, s.ml, req.Backend, nil, force,
+				context.Background(), galleries, s.systemState, s.ml, req.Backend, nil, force, s.cfg.RequireBackendIntegrity,
 			); err != nil {
 				return "", fmt.Errorf("installing backend from gallery: %w", err)
 			}
@@ -167,7 +167,7 @@ func (s *backendSupervisor) upgradeBackend(req messaging.BackendUpgradeRequest) 
 	if req.URI != "" {
 		xlog.Info("Upgrading backend from external URI", "backend", req.Backend, "uri", req.URI)
 		if err := galleryop.InstallExternalBackend(
-			context.Background(), galleries, s.systemState, s.ml, nil, req.URI, req.Name, req.Alias,
+			context.Background(), galleries, s.systemState, s.ml, nil, req.URI, req.Name, req.Alias, s.cfg.RequireBackendIntegrity,
 		); err != nil {
 			return fmt.Errorf("upgrading backend from external URI: %w", err)
 		}
@@ -175,6 +175,7 @@ func (s *backendSupervisor) upgradeBackend(req messaging.BackendUpgradeRequest) 
 		xlog.Info("Upgrading backend from gallery", "backend", req.Backend)
 		if err := gallery.InstallBackendFromGallery(
 			context.Background(), galleries, s.systemState, s.ml, req.Backend, nil, true, /* force */
+			s.cfg.RequireBackendIntegrity,
 		); err != nil {
 			return fmt.Errorf("upgrading backend from gallery: %w", err)
 		}

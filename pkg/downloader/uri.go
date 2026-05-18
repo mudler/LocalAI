@@ -39,6 +39,63 @@ const (
 
 type URI string
 
+// ImageVerifier verifies the integrity of an OCI image — typically a
+// cosign signature check against a sigstore policy. The downloader runs
+// VerifyImage between fetching the image manifest and extracting its
+// layers, so verification failure prevents any tampered bytes reaching
+// disk.
+//
+// pkg/oci/cosignverify.Verifier satisfies this interface.
+type ImageVerifier interface {
+	VerifyImage(ctx context.Context, imageRef string) error
+}
+
+type downloadOptions struct {
+	verifier ImageVerifier
+}
+
+// DownloadOption configures DownloadFileWithContext / DownloadFile.
+//
+// Variadic at the end of the signature keeps the public API backward
+// compatible: existing callers that don't care about verification keep
+// compiling untouched.
+type DownloadOption func(*downloadOptions)
+
+// WithImageVerifier attaches an ImageVerifier that runs against OCI
+// downloads only. No-op for tarball / HTTP / Ollama / local downloads —
+// those paths use SHA256 integrity instead.
+func WithImageVerifier(v ImageVerifier) DownloadOption {
+	return func(o *downloadOptions) { o.verifier = v }
+}
+
+func applyDownloadOptions(opts []DownloadOption) downloadOptions {
+	var o downloadOptions
+	for _, fn := range opts {
+		fn(&o)
+	}
+	return o
+}
+
+// pinnedImageRef rewrites `repo:tag` (or `repo[@digest]`) into `repo@<digest>`
+// so callers can pass the explicit digest the downloader just resolved to
+// any tag-following client, eliminating TOCTOU between fetches.
+func pinnedImageRef(ref, digest string) string {
+	// Strip an existing @digest if present so we always emit a clean ref.
+	if at := strings.LastIndex(ref, "@"); at != -1 {
+		// Only treat as a digest separator when not preceded by a slash
+		// (avoids breaking unusual hostnames). Conservative: just keep
+		// the registry+repo portion.
+		ref = ref[:at]
+	}
+	// Strip an existing :tag — find the rightmost colon after the last
+	// slash so we don't touch the registry port (e.g. localhost:5000/foo:latest).
+	slash := strings.LastIndex(ref, "/")
+	if colon := strings.LastIndex(ref, ":"); colon > slash {
+		ref = ref[:colon]
+	}
+	return ref + "@" + digest
+}
+
 // HF_ENDPOINT is the HuggingFace endpoint, can be overridden by setting the HF_ENDPOINT environment variable.
 var HF_ENDPOINT string = loadConfig()
 
@@ -362,11 +419,12 @@ func (u URI) ContentLength(ctx context.Context) (int64, error) {
 	return size, nil
 }
 
-func (uri URI) DownloadFile(filePath, sha string, fileN, total int, downloadStatus func(string, string, string, float64)) error {
-	return uri.DownloadFileWithContext(context.Background(), filePath, sha, fileN, total, downloadStatus)
+func (uri URI) DownloadFile(filePath, sha string, fileN, total int, downloadStatus func(string, string, string, float64), opts ...DownloadOption) error {
+	return uri.DownloadFileWithContext(context.Background(), filePath, sha, fileN, total, downloadStatus, opts...)
 }
 
-func (uri URI) DownloadFileWithContext(ctx context.Context, filePath, sha string, fileN, total int, downloadStatus func(string, string, string, float64)) error {
+func (uri URI) DownloadFileWithContext(ctx context.Context, filePath, sha string, fileN, total int, downloadStatus func(string, string, string, float64), opts ...DownloadOption) error {
+	dopts := applyDownloadOptions(opts)
 	url := uri.ResolveURL()
 	if uri.LooksLikeOCI() {
 
@@ -416,6 +474,23 @@ func (uri URI) DownloadFileWithContext(ctx context.Context, filePath, sha string
 		img, err := oci.GetImage(url, "", nil, nil)
 		if err != nil {
 			return fmt.Errorf("failed to get image %q: %v", url, err)
+		}
+
+		// Verify before extract so tampered bytes never reach disk. We
+		// re-pin the ref to the manifest digest we just fetched: the
+		// verifier would otherwise resolve the tag again, opening a tiny
+		// TOCTOU window in which a registry could swap the underlying
+		// manifest between the two HEADs.
+		if dopts.verifier != nil {
+			digest, derr := img.Digest()
+			if derr != nil {
+				return fmt.Errorf("resolving digest for verification of %q: %v", url, derr)
+			}
+			pinned := pinnedImageRef(url, digest.String())
+			if verr := dopts.verifier.VerifyImage(ctx, pinned); verr != nil {
+				return fmt.Errorf("image verification failed for %q: %w", url, verr)
+			}
+			xlog.Info("Image signature verified", "ref", pinned)
 		}
 
 		return oci.ExtractOCIImage(ctx, img, url, filePath, downloadStatus)

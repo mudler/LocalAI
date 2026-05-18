@@ -60,6 +60,13 @@ type ApplicationConfig struct {
 	AutoUpgradeBackends                         bool
 	PreferDevelopmentBackends                   bool
 
+	// RequireBackendIntegrity promotes a missing SHA256 (tarball/HTTP URIs)
+	// or missing verification policy (OCI URIs) from a warning to a hard
+	// failure during backend install/upgrade. Off by default to keep
+	// upgrades non-breaking; operators opt in explicitly via
+	// --require-backend-integrity / LOCALAI_REQUIRE_BACKEND_INTEGRITY.
+	RequireBackendIntegrity bool
+
 	SingleBackend           bool // Deprecated: use MaxActiveBackends = 1 instead
 	MaxActiveBackends       int  // Maximum number of active backends (0 = unlimited, 1 = single backend mode)
 	WatchDogIdle bool
@@ -434,6 +441,10 @@ var EnableBackendGalleriesAutoload = func(o *ApplicationConfig) {
 
 func WithAutoUpgradeBackends(v bool) AppOption {
 	return func(o *ApplicationConfig) { o.AutoUpgradeBackends = v }
+}
+
+func WithRequireBackendIntegrity(v bool) AppOption {
+	return func(o *ApplicationConfig) { o.RequireBackendIntegrity = v }
 }
 
 func WithPreferDevelopmentBackends(v bool) AppOption {

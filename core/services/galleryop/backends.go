@@ -113,7 +113,7 @@ func (g *GalleryService) backendHandler(op *ManagementOp[gallery.GalleryBackend,
 // InstallExternalBackend installs a backend from an external source (OCI image, URL, or path).
 // This method contains the logic to detect the input type and call the appropriate installation function.
 // It can be used by both CLI and Web UI for installing backends from external sources.
-func InstallExternalBackend(ctx context.Context, galleries []config.Gallery, systemState *system.SystemState, modelLoader *model.ModelLoader, downloadStatus func(string, string, string, float64), backend, name, alias string) error {
+func InstallExternalBackend(ctx context.Context, galleries []config.Gallery, systemState *system.SystemState, modelLoader *model.ModelLoader, downloadStatus func(string, string, string, float64), backend, name, alias string, requireIntegrity bool) error {
 	uri := downloader.URI(backend)
 	switch {
 	case uri.LooksLikeDir():
@@ -127,7 +127,7 @@ func InstallExternalBackend(ctx context.Context, galleries []config.Gallery, sys
 			},
 			Alias: alias,
 			URI:   backend,
-		}, downloadStatus); err != nil {
+		}, downloadStatus, requireIntegrity); err != nil {
 			return fmt.Errorf("error installing backend %s: %w", backend, err)
 		}
 	case uri.LooksLikeOCI() && !uri.LooksLikeOCIFile():
@@ -141,7 +141,7 @@ func InstallExternalBackend(ctx context.Context, galleries []config.Gallery, sys
 			},
 			Alias: alias,
 			URI:   backend,
-		}, downloadStatus); err != nil {
+		}, downloadStatus, requireIntegrity); err != nil {
 			return fmt.Errorf("error installing backend %s: %w", backend, err)
 		}
 	case uri.LooksLikeOCIFile():
@@ -163,7 +163,7 @@ func InstallExternalBackend(ctx context.Context, galleries []config.Gallery, sys
 			},
 			Alias: alias,
 			URI:   backend,
-		}, downloadStatus); err != nil {
+		}, downloadStatus, requireIntegrity); err != nil {
 			return fmt.Errorf("error installing backend %s: %w", backend, err)
 		}
 	default:
@@ -171,7 +171,7 @@ func InstallExternalBackend(ctx context.Context, galleries []config.Gallery, sys
 		if name != "" || alias != "" {
 			return fmt.Errorf("specifying a name or alias is not supported for gallery backends")
 		}
-		err := gallery.InstallBackendFromGallery(ctx, galleries, systemState, modelLoader, backend, downloadStatus, true)
+		err := gallery.InstallBackendFromGallery(ctx, galleries, systemState, modelLoader, backend, downloadStatus, true, requireIntegrity)
 		if err != nil {
 			return fmt.Errorf("error installing backend %s: %w", backend, err)
 		}

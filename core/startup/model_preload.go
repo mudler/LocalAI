@@ -21,12 +21,12 @@ import (
 // InstallModels will preload models from the given list of URLs and galleries
 // It will download the model if it is not already present in the model path
 // It will also try to resolve if the model is an embedded model YAML configuration
-func InstallModels(ctx context.Context, galleryService *galleryop.GalleryService, galleries, backendGalleries []config.Gallery, systemState *system.SystemState, modelLoader *model.ModelLoader, enforceScan, autoloadBackendGalleries bool, downloadStatus func(string, string, string, float64), models ...string) error {
+func InstallModels(ctx context.Context, galleryService *galleryop.GalleryService, galleries, backendGalleries []config.Gallery, systemState *system.SystemState, modelLoader *model.ModelLoader, enforceScan, autoloadBackendGalleries, requireBackendIntegrity bool, downloadStatus func(string, string, string, float64), models ...string) error {
 	// create an error that groups all errors
 	var err error
 	for _, url := range models {
 		// Check if it's a model gallery, or print a warning
-		e, found := installModel(ctx, galleries, backendGalleries, url, systemState, modelLoader, downloadStatus, enforceScan, autoloadBackendGalleries)
+		e, found := installModel(ctx, galleries, backendGalleries, url, systemState, modelLoader, downloadStatus, enforceScan, autoloadBackendGalleries, requireBackendIntegrity)
 		if e != nil && found {
 			xlog.Error("[startup] failed installing model", "error", err, "model", url)
 			err = errors.Join(err, e)
@@ -82,7 +82,7 @@ func InstallModels(ctx context.Context, galleryService *galleryop.GalleryService
 	return err
 }
 
-func installModel(ctx context.Context, galleries, backendGalleries []config.Gallery, modelName string, systemState *system.SystemState, modelLoader *model.ModelLoader, downloadStatus func(string, string, string, float64), enforceScan, autoloadBackendGalleries bool) (error, bool) {
+func installModel(ctx context.Context, galleries, backendGalleries []config.Gallery, modelName string, systemState *system.SystemState, modelLoader *model.ModelLoader, downloadStatus func(string, string, string, float64), enforceScan, autoloadBackendGalleries, requireBackendIntegrity bool) (error, bool) {
 	models, err := gallery.AvailableGalleryModels(galleries, systemState)
 	if err != nil {
 		return err, false
@@ -98,7 +98,7 @@ func installModel(ctx context.Context, galleries, backendGalleries []config.Gall
 	}
 
 	xlog.Info("installing model", "model", modelName, "license", model.License)
-	err = gallery.InstallModelFromGallery(ctx, galleries, backendGalleries, systemState, modelLoader, modelName, gallery.GalleryModel{}, downloadStatus, enforceScan, autoloadBackendGalleries)
+	err = gallery.InstallModelFromGallery(ctx, galleries, backendGalleries, systemState, modelLoader, modelName, gallery.GalleryModel{}, downloadStatus, enforceScan, autoloadBackendGalleries, requireBackendIntegrity)
 	if err != nil {
 		return err, true
 	}
