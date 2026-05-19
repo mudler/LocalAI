@@ -161,7 +161,11 @@ export default function Home() {
     const newFiles = []
     for (const file of fileList) {
       const base64 = await fileToBase64(file)
-      newFiles.push({ name: file.name, type: file.type, base64 })
+      const entry = { name: file.name, type: file.type, base64 }
+      if (!file.type.startsWith('image/') && !file.type.startsWith('audio/')) {
+        entry.textContent = await file.text().catch(() => '')
+      }
+      newFiles.push(entry)
     }
     setter(prev => [...prev, ...newFiles])
   }, [])
