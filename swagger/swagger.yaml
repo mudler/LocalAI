@@ -6,6 +6,22 @@ definitions:
         type: string
       url:
         type: string
+      verification:
+        $ref: '#/definitions/config.GalleryVerification'
+    type: object
+  config.GalleryVerification:
+    properties:
+      identity:
+        type: string
+      identity_regex:
+        type: string
+      issuer:
+        type: string
+      issuer_regex:
+        type: string
+      not_before:
+        description: NotBefore is an RFC3339 timestamp. Empty disables the time check.
+        type: string
     type: object
   functions.Function:
     properties:
