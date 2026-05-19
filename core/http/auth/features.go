@@ -144,6 +144,15 @@ var RouteFeatureRegistry = []RouteFeature{
 	{"POST", "/api/pii/analyze", FeaturePIIFilter},
 	{"POST", "/api/pii/redact", FeaturePIIFilter},
 
+	// Chat History (server-side persistence of WebUI conversations, #9432)
+	{"GET", "/api/conversations", FeatureChatHistory},
+	{"DELETE", "/api/conversations", FeatureChatHistory},
+	{"POST", "/api/conversations", FeatureChatHistory},
+	{"PUT", "/api/conversations/bulk", FeatureChatHistory},
+	{"GET", "/api/conversations/:id", FeatureChatHistory},
+	{"PUT", "/api/conversations/:id", FeatureChatHistory},
+	{"DELETE", "/api/conversations/:id", FeatureChatHistory},
+
 	// Quantization
 	{"POST", "/api/quantization/jobs", FeatureQuantization},
 	{"GET", "/api/quantization/jobs", FeatureQuantization},
@@ -206,5 +215,6 @@ func APIFeatureMetas() []FeatureMeta {
 		{FeatureVoiceRecognition, "Voice Recognition", true},
 		{FeatureAudioTransform, "Audio Transform", true},
 		{FeaturePIIFilter, "PII Analyze / Redact", true},
+		{FeatureChatHistory, "Chat History", true},
 	}
 }
