@@ -1,4 +1,54 @@
 ---
+- name: "sulphur-2-base"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/vantagewithai/Sulphur-2-Base-GGUF
+  description: |
+    **Quantized GGUF Versions of Sulphur 2 for ComfyUI**
+
+    **Original model Link:** https://huggingface.co/SulphurAI/Sulphur-2-base
+
+    **Watch us at Youtube:** @VantageWithAI
+
+    **Sulphur 2**
+
+    An uncensored video generation model based on LTX 2.3 supporting both t2v and i2v natively, as well as all of the other ltx 2.3 formats.
+
+    **Credits**
+
+      - **(TenStrip)** — Testing & model merging (His i2v merge of sulphur 2, highly recommend for i2v)
+      - **@s1lv3rc01n** — Testing & model merging/quantizing (silveroxides)
+      - **@mov7162** — Musubi Tuner guidance
+      - And many others, if you'd like to be on the credits and I didn't place you here, message me I likely assumed you didn't want to be here.
+
+    **Funders**
+
+      - Anonymous funder #1 — Supported the original Sulphur
+      - Anonymous funder #2 — Made Sulphur 2 possible; this model wouldn't exist without them
+
+    Thank you to everyone who contributed.
+  license: "other"
+  tags:
+    - llm
+    - gguf
+  overrides:
+    backend: llama-cpp
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/Sulphur-2-Base-GGUF/sulphur_dev-Q4_K_M.gguf
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/Sulphur-2-Base-GGUF/sulphur_dev-Q4_K_M.gguf
+      sha256: 208f581da25348fff42a26a073368891f5a2c029d16f9389265c0def4900f1e5
+      uri: https://huggingface.co/vantagewithai/Sulphur-2-Base-GGUF/resolve/main/sulphur_dev-Q4_K_M.gguf
 - name: "qwen3.6-40b-claude-4.6-opus-deckard-heretic-uncensored-thinking-neo-code-di-imatrix-max"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
