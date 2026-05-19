@@ -6,7 +6,7 @@ require (
 	dario.cat/mergo v1.0.2
 	fyne.io/fyne/v2 v2.7.3
 	github.com/Masterminds/sprig/v3 v3.3.0
-	github.com/alecthomas/kong v1.14.0
+	github.com/alecthomas/kong v1.15.0
 	github.com/anthropics/anthropic-sdk-go v1.42.0
 	github.com/aws/aws-sdk-go-v2 v1.41.6
 	github.com/aws/aws-sdk-go-v2/config v1.32.16
