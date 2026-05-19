@@ -1,10 +1,10 @@
 # ds4 backend Makefile.
 #
-# Upstream pin lives below as DS4_VERSION?=c9dd9499bfa57c1bbfbb4446eff963330ab5329b
+# Upstream pin lives below as DS4_VERSION?=599e49d253971451f710cb8323344e789906ed6c
 # (.github/bump_deps.sh) can find and update it - matches the
 # llama-cpp / ik-llama-cpp / turboquant convention.
 
-DS4_VERSION?=c9dd9499bfa57c1bbfbb4446eff963330ab5329b
+DS4_VERSION?=599e49d253971451f710cb8323344e789906ed6c
 DS4_REPO?=https://github.com/antirez/ds4
 
 CURRENT_MAKEFILE_DIR := $(dir $(abspath $(lastword $(MAKEFILE_LIST))))
