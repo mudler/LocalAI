@@ -4,7 +4,9 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
-	"testing"
+
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
 
 	"github.com/mudler/LocalAI/core/schema"
 	"github.com/mudler/LocalAI/core/services/chathistory"
@@ -23,152 +25,128 @@ func newConv(id, name string) schema.Conversation {
 	}
 }
 
-func TestStore_SaveListGetDelete(t *testing.T) {
-	dir := t.TempDir()
-	s := chathistory.New(dir)
+var _ = Describe("Store", func() {
+	var (
+		dir   string
+		store *chathistory.Store
+	)
 
-	userID := "alice"
-	if _, err := s.Save(userID, newConv("c1", "First")); err != nil {
-		t.Fatalf("save c1: %v", err)
-	}
-	if _, err := s.Save(userID, newConv("c2", "Second")); err != nil {
-		t.Fatalf("save c2: %v", err)
-	}
+	BeforeEach(func() {
+		dir = GinkgoT().TempDir()
+		store = chathistory.New(dir)
+	})
 
-	list, err := s.List(userID)
-	if err != nil {
-		t.Fatalf("list: %v", err)
-	}
-	if len(list) != 2 {
-		t.Fatalf("expected 2 conversations, got %d", len(list))
-	}
+	Context("basic CRUD", func() {
+		const userID = "alice"
 
-	got, err := s.Get(userID, "c1")
-	if err != nil {
-		t.Fatalf("get: %v", err)
-	}
-	if got.Name != "First" {
-		t.Fatalf("expected Name=First, got %q", got.Name)
-	}
-	if got.CreatedAt == 0 || got.UpdatedAt == 0 {
-		t.Fatalf("expected timestamps to be set, got CreatedAt=%d UpdatedAt=%d", got.CreatedAt, got.UpdatedAt)
-	}
+		It("saves, lists, gets, and deletes a conversation", func() {
+			_, err := store.Save(userID, newConv("c1", "First"))
+			Expect(err).NotTo(HaveOccurred())
+			_, err = store.Save(userID, newConv("c2", "Second"))
+			Expect(err).NotTo(HaveOccurred())
 
-	if err := s.Delete(userID, "c1"); err != nil {
-		t.Fatalf("delete: %v", err)
-	}
-	if _, err := s.Get(userID, "c1"); err != chathistory.ErrNotFound {
-		t.Fatalf("expected ErrNotFound after delete, got %v", err)
-	}
-}
+			list, err := store.List(userID)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(list).To(HaveLen(2))
 
-func TestStore_RoundTripsAcrossInstances(t *testing.T) {
-	dir := t.TempDir()
-	first := chathistory.New(dir)
-	if _, err := first.Save("bob", newConv("x", "Hi")); err != nil {
-		t.Fatalf("save: %v", err)
-	}
+			got, err := store.Get(userID, "c1")
+			Expect(err).NotTo(HaveOccurred())
+			Expect(got.Name).To(Equal("First"))
+			Expect(got.CreatedAt).NotTo(BeZero(), "Save should populate CreatedAt")
+			Expect(got.UpdatedAt).NotTo(BeZero(), "Save should populate UpdatedAt")
 
-	// Second store instance simulates a process restart: no in-memory cache,
-	// must read what the first instance wrote.
-	second := chathistory.New(dir)
-	got, err := second.Get("bob", "x")
-	if err != nil {
-		t.Fatalf("get after restart: %v", err)
-	}
-	if got.Name != "Hi" {
-		t.Fatalf("expected Name=Hi after reload, got %q", got.Name)
-	}
-}
+			Expect(store.Delete(userID, "c1")).To(Succeed())
+			_, err = store.Get(userID, "c1")
+			Expect(err).To(MatchError(chathistory.ErrNotFound))
+		})
+	})
 
-func TestStore_UserIsolation(t *testing.T) {
-	dir := t.TempDir()
-	s := chathistory.New(dir)
+	Context("persistence across Store instances", func() {
+		// Second Store instance simulates a process restart: no shared
+		// in-memory cache, so it must read what the first instance wrote
+		// for the round-trip to succeed.
+		It("loads conversations written by a previous instance", func() {
+			first := chathistory.New(dir)
+			_, err := first.Save("bob", newConv("x", "Hi"))
+			Expect(err).NotTo(HaveOccurred())
 
-	if _, err := s.Save("alice", newConv("a1", "alice's chat")); err != nil {
-		t.Fatalf("save alice: %v", err)
-	}
-	if _, err := s.Save("bob", newConv("b1", "bob's chat")); err != nil {
-		t.Fatalf("save bob: %v", err)
-	}
+			second := chathistory.New(dir)
+			got, err := second.Get("bob", "x")
+			Expect(err).NotTo(HaveOccurred())
+			Expect(got.Name).To(Equal("Hi"))
+		})
+	})
 
-	bobList, err := s.List("bob")
-	if err != nil {
-		t.Fatalf("list bob: %v", err)
-	}
-	if len(bobList) != 1 || bobList[0].ID != "b1" {
-		t.Fatalf("bob should see only b1, got %+v", bobList)
-	}
+	Context("user isolation", func() {
+		It("never leaks one user's data to another", func() {
+			_, err := store.Save("alice", newConv("a1", "alice's chat"))
+			Expect(err).NotTo(HaveOccurred())
+			_, err = store.Save("bob", newConv("b1", "bob's chat"))
+			Expect(err).NotTo(HaveOccurred())
 
-	if _, err := s.Get("bob", "a1"); err != chathistory.ErrNotFound {
-		t.Fatalf("bob shouldn't be able to see alice's a1, got %v", err)
-	}
-}
+			bobList, err := store.List("bob")
+			Expect(err).NotTo(HaveOccurred())
+			Expect(bobList).To(HaveLen(1))
+			Expect(bobList[0].ID).To(Equal("b1"))
 
-func TestStore_RejectsUnsafeIDs(t *testing.T) {
-	s := chathistory.New(t.TempDir())
+			_, err = store.Get("bob", "a1")
+			Expect(err).To(MatchError(chathistory.ErrNotFound))
+		})
+	})
 
-	cases := []string{
-		"../etc/passwd",
-		"a/b",
-		"a\\b",
-		"",
-		"id with spaces",
-	}
-	for _, id := range cases {
-		_, err := s.Save("alice", schema.Conversation{ID: id, Name: "x"})
-		if err == nil {
-			t.Errorf("expected error for unsafe id %q, got nil", id)
-		}
-	}
-}
+	Context("unsafe IDs", func() {
+		// idRegex must reject anything that could escape the user's
+		// directory or be misread by os.WriteFile. These are the
+		// classic path-traversal payloads plus a few edge cases.
+		DescribeTable("rejects",
+			func(badID string) {
+				_, err := store.Save("alice", schema.Conversation{ID: badID, Name: "x"})
+				Expect(err).To(HaveOccurred())
+			},
+			Entry("path traversal", "../etc/passwd"),
+			Entry("forward slash", "a/b"),
+			Entry("back slash", "a\\b"),
+			Entry("empty id", ""),
+			Entry("contains spaces", "id with spaces"),
+		)
+	})
 
-func TestStore_ReplaceAllOverwrites(t *testing.T) {
-	dir := t.TempDir()
-	s := chathistory.New(dir)
-	userID := "alice"
+	Context("ReplaceAll", func() {
+		// Bulk migration scenario: client uploads its entire
+		// conversation set in one shot, the store should overwrite
+		// anything previously there instead of merging.
+		It("overwrites the entire conversation set", func() {
+			const userID = "alice"
+			for _, id := range []string{"a", "b", "c"} {
+				_, err := store.Save(userID, newConv(id, id))
+				Expect(err).NotTo(HaveOccurred())
+			}
 
-	for _, id := range []string{"a", "b", "c"} {
-		if _, err := s.Save(userID, newConv(id, id)); err != nil {
-			t.Fatalf("save %s: %v", id, err)
-		}
-	}
+			Expect(store.ReplaceAll(userID, []schema.Conversation{newConv("z", "z")})).To(Succeed())
 
-	if err := s.ReplaceAll(userID, []schema.Conversation{newConv("z", "z")}); err != nil {
-		t.Fatalf("replace: %v", err)
-	}
+			list, err := store.List(userID)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(list).To(HaveLen(1))
+			Expect(list[0].ID).To(Equal("z"))
+		})
+	})
 
-	list, err := s.List(userID)
-	if err != nil {
-		t.Fatalf("list: %v", err)
-	}
-	if len(list) != 1 || list[0].ID != "z" {
-		t.Fatalf("expected only [z] after ReplaceAll, got %+v", list)
-	}
-}
+	Context("anonymous user", func() {
+		// Drift from the anonymous/ layout would silently strand
+		// anonymous users' history once they later log in, so the
+		// test pins the exact path.
+		It("stores conversations under the anonymous/ subdirectory", func() {
+			_, err := store.Save("", newConv("solo", "anon chat"))
+			Expect(err).NotTo(HaveOccurred())
 
-func TestStore_AnonymousUsesAnonymousDir(t *testing.T) {
-	dir := t.TempDir()
-	s := chathistory.New(dir)
+			expected := filepath.Join(dir, "anonymous", "conversations.json")
+			_, err = os.Stat(expected)
+			Expect(err).NotTo(HaveOccurred(), "expected anonymous conversations file at %s", expected)
 
-	if _, err := s.Save("", newConv("solo", "anon chat")); err != nil {
-		t.Fatalf("save anon: %v", err)
-	}
-
-	// Verify the file landed under the anonymous/ subdir, not at the root —
-	// any drift from this layout would silently strand anonymous users'
-	// history when they later log in.
-	expected := filepath.Join(dir, "anonymous", "conversations.json")
-	if _, err := os.Stat(expected); err != nil {
-		t.Fatalf("expected anonymous conversations file at %s: %v", expected, err)
-	}
-
-	second := chathistory.New(dir)
-	got, err := second.Get("", "solo")
-	if err != nil {
-		t.Fatalf("get anon: %v", err)
-	}
-	if got.Name != "anon chat" {
-		t.Fatalf("unexpected name: %q", got.Name)
-	}
-}
+			second := chathistory.New(dir)
+			got, err := second.Get("", "solo")
+			Expect(err).NotTo(HaveOccurred())
+			Expect(got.Name).To(Equal("anon chat"))
+		})
+	})
+})
