@@ -116,6 +116,12 @@ var instructionDefs = []instructionDef{
 		Tags:        []string{"router"},
 		Intro:       "Add a `router:` block to a ModelConfig to turn it into a routing model. The block declares a classifier (today: `feature` — handcrafted rules over prompt length and code-fence presence), a list of candidates (label + downstream model + optional rule), and a fallback. When a client addresses the routing model, the RouteModel middleware invokes the classifier, picks a candidate, and rewrites input.Model — the standard model-resolution path then runs ACL, disabled-state, and per-model PII against the chosen target. Depth-1 invariant: candidates must NOT themselves carry a `router:` block; runtime check returns 500 on violation. Decisions are logged to GET /api/router/decisions and surfaced in the /app/middleware Routing tab. POST /api/router/decide is the programmatic decision-oracle: external routers (e.g. an organisation-wide router service) send `{router, input}` and receive the classifier's label set + candidate model WITHOUT LocalAI rewriting, forwarding, or recording the call. Shares the classifier cache with the in-band path so warm-up costs are paid once.",
 	},
+	{
+		Name:        "chat-history",
+		Description: "Server-side persistence of WebUI chat conversations (#9432)",
+		Tags:        []string{"chat-history"},
+		Intro:       "Per-user CRUD over chat conversations. POST/PUT upsert by id; PUT /bulk replaces the entire conversation set in one shot (used for localStorage migration).",
+	},
 }
 
 // swaggerState holds parsed swagger spec data, initialised once.

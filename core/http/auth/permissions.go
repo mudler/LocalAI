@@ -56,6 +56,7 @@ const (
 	FeatureFaceRecognition    = "face_recognition"
 	FeatureVoiceRecognition   = "voice_recognition"
 	FeatureAudioTransform     = "audio_transform"
+	FeatureChatHistory        = "chat_history"
 )
 
 // AgentFeatures lists agent-related features (default OFF).
@@ -71,6 +72,7 @@ var APIFeatures = []string{
 	FeatureVAD, FeatureDetection, FeatureVideo, FeatureEmbeddings, FeatureSound,
 	FeatureRealtime, FeatureRerank, FeatureTokenize, FeatureMCP, FeatureStores,
 	FeatureFaceRecognition, FeatureVoiceRecognition, FeatureAudioTransform,
+	FeatureChatHistory,
 }
 
 // AllFeatures lists all known features (used by UI and validation).

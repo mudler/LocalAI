@@ -1,8 +1,10 @@
 package application
 
 import (
+	"cmp"
 	"context"
 	"math/rand/v2"
+	"path/filepath"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -12,6 +14,7 @@ import (
 	"github.com/mudler/LocalAI/core/http/auth"
 	mcpTools "github.com/mudler/LocalAI/core/http/endpoints/mcp"
 	"github.com/mudler/LocalAI/core/services/agentpool"
+	"github.com/mudler/LocalAI/core/services/chathistory"
 	"github.com/mudler/LocalAI/core/services/facerecognition"
 	"github.com/mudler/LocalAI/core/services/galleryop"
 	"github.com/mudler/LocalAI/core/services/monitoring"
@@ -57,6 +60,7 @@ type Application struct {
 	agentPoolService   atomic.Pointer[agentpool.AgentPoolService]
 	faceRegistry       facerecognition.Registry
 	voiceRegistry      voicerecognition.Registry
+	chatHistoryStore   *chathistory.Store
 	authDB             *gorm.DB
 	metricsService     *monitoring.LocalAIMetricsService
 	statsRecorder      *billing.Recorder
@@ -201,6 +205,13 @@ func (a *Application) FaceRegistry() facerecognition.Registry {
 // their own vector space.
 func (a *Application) VoiceRegistry() voicerecognition.Registry {
 	return a.voiceRegistry
+}
+
+// ChatHistoryStore returns the server-side WebUI chat history store, or nil
+// when the feature is disabled (LOCALAI_DISABLE_WEBUI=true or persistence
+// path could not be resolved).
+func (a *Application) ChatHistoryStore() *chathistory.Store {
+	return a.chatHistoryStore
 }
 
 // AuthDB returns the auth database connection, or nil if auth is not enabled.
@@ -408,6 +419,18 @@ func (a *Application) start() error {
 	)
 
 	a.agentJobService = agentJobService
+
+	// Initialize chat history store for the WebUI (issue #9432).
+	// Uses the same directory hierarchy as the agent pool — DataPath wins,
+	// then DynamicConfigsDir; we never fall back to a hard-coded path so
+	// containers without persistent volumes simply skip the feature.
+	if !a.applicationConfig.DisableWebUI {
+		if base := cmp.Or(a.applicationConfig.DataPath, a.applicationConfig.DynamicConfigsDir); base != "" {
+			a.chatHistoryStore = chathistory.New(filepath.Join(base, "chat_history"))
+		} else {
+			xlog.Warn("Chat history persistence disabled: no DataPath or DynamicConfigsDir configured")
+		}
+	}
 
 	return nil
 }

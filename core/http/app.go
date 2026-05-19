@@ -88,6 +88,8 @@ var quietPaths = []string{"/api/operations", "/api/resources", "/healthz", "/rea
 // @tag.description Document reranking
 // @tag.name instructions
 // @tag.description API instruction discovery — browse instruction areas and get endpoint guides
+// @tag.name chat-history
+// @tag.description Server-side persistence of WebUI chat conversations
 
 func API(application *application.Application) (*echo.Echo, error) {
 	e := echo.New()
@@ -384,7 +386,8 @@ func API(application *application.Application) (*echo.Echo, error) {
 	}
 
 	mcpMw := auth.RequireFeature(application.AuthDB(), auth.FeatureMCP)
-	routes.RegisterLocalAIRoutes(e, requestExtractor, application.ModelConfigLoader(), application.ModelLoader(), application.ApplicationConfig(), application.GalleryService(), opcache, application.TemplatesEvaluator(), application, adminMiddleware, mcpJobsMw, mcpMw)
+	chatHistoryMw := auth.RequireFeature(application.AuthDB(), auth.FeatureChatHistory)
+	routes.RegisterLocalAIRoutes(e, requestExtractor, application.ModelConfigLoader(), application.ModelLoader(), application.ApplicationConfig(), application.GalleryService(), opcache, application.TemplatesEvaluator(), application, adminMiddleware, mcpJobsMw, mcpMw, chatHistoryMw)
 	routes.RegisterAgentPoolRoutes(e, application, agentsMw, skillsMw, collectionsMw)
 	// Fine-tuning routes
 	fineTuningMw := auth.RequireFeature(application.AuthDB(), auth.FeatureFineTuning)
