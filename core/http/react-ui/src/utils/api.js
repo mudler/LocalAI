@@ -144,6 +144,25 @@ export const chatApi = {
   mcpComplete: (body) => postJSON(API_CONFIG.endpoints.mcpChatCompletions, body),
 }
 
+// Chat History API — server-side conversation persistence (#9432).
+// Endpoints return 404 when the WebUI's chat history feature is disabled, so
+// every call here is best-effort: callers should fall back to localStorage on
+// failure rather than surfacing a user-visible error.
+export const chatHistoryApi = {
+  list: () => fetchJSON(API_CONFIG.endpoints.conversations),
+  get: (id) => fetchJSON(API_CONFIG.endpoints.conversation(id)),
+  save: (conv) => fetchJSON(API_CONFIG.endpoints.conversation(conv.id), {
+    method: 'PUT',
+    body: JSON.stringify(conv),
+  }),
+  bulkReplace: (conversations) => fetchJSON(API_CONFIG.endpoints.conversationsBulk, {
+    method: 'PUT',
+    body: JSON.stringify({ conversations }),
+  }),
+  delete: (id) => fetchJSON(API_CONFIG.endpoints.conversation(id), { method: 'DELETE' }),
+  deleteAll: () => fetchJSON(API_CONFIG.endpoints.conversations, { method: 'DELETE' }),
+}
+
 // MCP API
 export const mcpApi = {
   listServers: (model) => fetchJSON(API_CONFIG.endpoints.mcpServers(model)),

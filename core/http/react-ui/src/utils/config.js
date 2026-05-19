@@ -51,6 +51,11 @@ export const API_CONFIG = {
     p2pStats: '/api/p2p/stats',
     p2pToken: '/api/p2p/token',
 
+    // Chat history (server-side persistence, #9432)
+    conversations: '/api/conversations',
+    conversation: (id) => `/api/conversations/${encodeURIComponent(id)}`,
+    conversationsBulk: '/api/conversations/bulk',
+
     // Agent jobs
     agentTasks: '/api/agent/tasks',
     agentTask: (id) => `/api/agent/tasks/${id}`,
