@@ -19,9 +19,9 @@
         pname = "localai";
         version = "custom";
         
- 	src = ./sources;
+ 	src = ./.;
         proxyVendor = true;
-        vendorHash = "sha256-MdadwbUc2pwfpC9ScsiIfjGIcAOgcwSm6rt/KNlTIuA=";
+        vendorHash = "sha256-6f3adjGsoFXlUtXjBDHP4Mv9jKCOK3aeUXprm0EAVO8=";
 
         nativeBuildInputs = with pkgs; [ 
           pkg-config cmake gcc protobuf go-protobuf protoc-gen-go protoc-gen-go-grpc
@@ -55,6 +55,42 @@
 
         postInstall = ''
           [ -f $out/bin/local-ai ] && mv $out/bin/local-ai $out/bin/localai
+        '';
+      };
+
+      devShells.${system}.default = pkgs.mkShell {
+        packages = with pkgs; [
+          # Build toolchain (stdenv already provides gcc)
+          go
+          gnumake
+          pkg-config
+          cmake
+          protobuf
+          go-protobuf
+          protoc-gen-go
+          protoc-gen-go-grpc
+
+          # React UI build (core/http/react-ui — `make react-ui`)
+          nodejs
+          bun  # alternative to npm, used by `make react-ui-docker`
+
+          # Linting / static analysis (see `make lint`)
+          golangci-lint
+          gofumpt
+          gotools  # goimports
+          go-tools # staticcheck
+
+          # Common dev conveniences
+          git
+          curl
+        ];
+
+        shellHook = ''
+          echo "LocalAI dev shell: $(go version), node $(node --version)"
+          echo "Build:       make build       (Go binary + React UI)"
+          echo "React UI:    make react-ui    (npm install && vite build)"
+          echo "Lint:        make lint        (only new issues vs master)"
+          echo "           or make lint-all   (full baseline)"
         '';
       };
     };
