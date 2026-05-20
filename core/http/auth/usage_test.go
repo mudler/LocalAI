@@ -8,6 +8,7 @@ import (
 	"github.com/mudler/LocalAI/core/http/auth"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"gorm.io/gorm"
 )
 
 var _ = Describe("Usage", func() {
@@ -241,6 +242,57 @@ var _ = Describe("Usage", func() {
 			Expect(loaded.Source).To(Equal(auth.UsageSourceWeb))
 			Expect(loaded.APIKeyID).To(BeNil())
 			Expect(loaded.APIKeyName).To(BeEmpty())
+		})
+	})
+
+	Describe("GetUserUsageBySource", func() {
+		insert := func(db *gorm.DB, userID, source, keyID, keyName string, tokens int64, when time.Time) {
+			rec := &auth.UsageRecord{
+				UserID:      userID,
+				Source:      source,
+				Model:       "gpt-4",
+				TotalTokens: tokens,
+				CreatedAt:   when,
+			}
+			if keyID != "" {
+				rec.APIKeyID = &keyID
+				rec.APIKeyName = keyName
+			}
+			Expect(auth.RecordUsage(db, rec)).To(Succeed())
+		}
+
+		It("returns only the caller's rows, never legacy", func() {
+			db := testDB()
+			now := time.Now()
+			insert(db, "alice", auth.UsageSourceAPIKey, "k1", "ci", 100, now)
+			insert(db, "alice", auth.UsageSourceWeb, "", "", 50, now)
+			insert(db, "alice", auth.UsageSourceLegacy, "", "", 30, now)
+			insert(db, "bob", auth.UsageSourceAPIKey, "k2", "bobk", 90, now)
+
+			buckets, totals, err := auth.GetUserUsageBySource(db, "alice", "month")
+			Expect(err).ToNot(HaveOccurred())
+
+			for _, b := range buckets {
+				Expect(b.UserID).To(Or(BeEmpty(), Equal("alice")))
+				Expect(b.Source).ToNot(Equal(auth.UsageSourceLegacy))
+			}
+
+			Expect(totals.GrandTotal.Tokens).To(Equal(int64(150)))
+			Expect(totals.BySource[auth.UsageSourceAPIKey].Tokens).To(Equal(int64(100)))
+			Expect(totals.BySource[auth.UsageSourceWeb].Tokens).To(Equal(int64(50)))
+			_, hasLegacy := totals.BySource[auth.UsageSourceLegacy]
+			Expect(hasLegacy).To(BeFalse())
+		})
+
+		It("snapshots survive key deletion", func() {
+			db := testDB()
+			now := time.Now()
+			insert(db, "alice", auth.UsageSourceAPIKey, "deleted-key", "old-name", 42, now)
+			_, totals, err := auth.GetUserUsageBySource(db, "alice", "month")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(totals.ByKey).To(HaveLen(1))
+			Expect(totals.ByKey[0].APIKeyName).To(Equal("old-name"))
+			Expect(totals.ByKey[0].APIKeyID).To(Equal("deleted-key"))
 		})
 	})
 })
