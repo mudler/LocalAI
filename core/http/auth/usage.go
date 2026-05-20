@@ -343,6 +343,52 @@ func parseLastUsedString(s string) time.Time {
 	return time.Time{}
 }
 
+// GetAllUsageBySource is the admin variant of GetUserUsageBySource.
+// Optional filters: userID and apiKeyID. Legacy is included.
+// truncated == true iff the per-key roll-up was capped at maxKeyTotals.
+func GetAllUsageBySource(db *gorm.DB, period, userID, apiKeyID string) ([]UsageBucket, SourceTotals, bool, error) {
+	sqlite := isSQLiteDB(db)
+	since, dateFmt := periodToWindow(period, sqlite)
+	bucketExpr := fmt.Sprintf("%s as bucket", dateFmt)
+
+	query := db.Model(&UsageRecord{}).
+		Select(bucketExpr+", source, COALESCE(api_key_id, '') as api_key_id, api_key_name, "+
+			"user_id, user_name, "+
+			"SUM(prompt_tokens) as prompt_tokens, "+
+			"SUM(completion_tokens) as completion_tokens, "+
+			"SUM(total_tokens) as total_tokens, "+
+			"COUNT(*) as request_count").
+		Group("bucket, source, api_key_id, api_key_name, user_id, user_name").
+		Order("bucket ASC")
+
+	query = applyFilters(query, userID, apiKeyID, since, true)
+
+	var buckets []UsageBucket
+	if err := query.Find(&buckets).Error; err != nil {
+		return nil, SourceTotals{}, false, err
+	}
+
+	totals := computeSourceTotals(db, userID, apiKeyID, since, true)
+
+	// Count distinct api_key_ids matching the filters. If > maxKeyTotals,
+	// the by_key slice was capped and we signal truncation to the caller.
+	truncated := false
+	var distinct int64
+	countQ := applyFilters(
+		db.Model(&UsageRecord{}).
+			Distinct("api_key_id").
+			Where("api_key_id IS NOT NULL AND api_key_id <> ''"),
+		userID, apiKeyID, since, true,
+	)
+	if err := countQ.Count(&distinct).Error; err != nil {
+		xlog.Warn("GetAllUsageBySource: distinct api_key_id count failed", "error", err)
+	} else {
+		truncated = distinct > maxKeyTotals
+	}
+
+	return buckets, totals, truncated, nil
+}
+
 func applyFilters(q *gorm.DB, userID, apiKeyID string, since time.Time, includeLegacy bool) *gorm.DB {
 	if userID != "" {
 		q = q.Where("user_id = ?", userID)

@@ -3,6 +3,7 @@
 package auth_test
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/mudler/LocalAI/core/http/auth"
@@ -295,6 +296,58 @@ var _ = Describe("Usage", func() {
 			Expect(totals.ByKey[0].APIKeyID).To(Equal("deleted-key"))
 			Expect(totals.ByKey[0].LastUsed).ToNot(BeZero())
 			Expect(totals.ByKey[0].LastUsed).To(BeTemporally("~", now, 2*time.Second))
+		})
+	})
+
+	Describe("GetAllUsageBySource", func() {
+		insert := func(db *gorm.DB, userID, source, keyID string, tokens int64) {
+			rec := &auth.UsageRecord{
+				UserID:      userID,
+				Source:      source,
+				Model:       "gpt-4",
+				TotalTokens: tokens,
+				CreatedAt:   time.Now(),
+			}
+			if keyID != "" {
+				rec.APIKeyID = &keyID
+				rec.APIKeyName = "name-" + keyID
+			}
+			Expect(auth.RecordUsage(db, rec)).To(Succeed())
+		}
+
+		It("includes legacy for admins", func() {
+			db := testDB()
+			insert(db, "alice", auth.UsageSourceAPIKey, "k1", 10)
+			insert(db, "legacy-api-key", auth.UsageSourceLegacy, "", 5)
+
+			_, totals, _, err := auth.GetAllUsageBySource(db, "month", "", "")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(totals.BySource).To(HaveKey(auth.UsageSourceLegacy))
+			Expect(totals.BySource[auth.UsageSourceLegacy].Tokens).To(Equal(int64(5)))
+		})
+
+		It("filters by user_id AND api_key_id", func() {
+			db := testDB()
+			insert(db, "alice", auth.UsageSourceAPIKey, "k1", 10)
+			insert(db, "alice", auth.UsageSourceAPIKey, "k2", 20)
+			insert(db, "bob", auth.UsageSourceAPIKey, "k3", 30)
+
+			_, totals, _, err := auth.GetAllUsageBySource(db, "month", "alice", "k2")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(totals.GrandTotal.Tokens).To(Equal(int64(20)))
+		})
+
+		It("sets truncated=true when by_key exceeds the cap", func() {
+			db := testDB()
+			for i := 0; i < 210; i++ {
+				insert(db, "alice", auth.UsageSourceAPIKey, fmt.Sprintf("key-%03d", i), int64(210-i))
+			}
+
+			_, totals, truncated, err := auth.GetAllUsageBySource(db, "month", "", "")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(truncated).To(BeTrue())
+			Expect(totals.ByKey).To(HaveLen(200))
+			Expect(totals.ByKey[0].Tokens > totals.ByKey[199].Tokens).To(BeTrue())
 		})
 	})
 })
