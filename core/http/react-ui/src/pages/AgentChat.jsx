@@ -9,6 +9,7 @@ import ResourceCards from '../components/ResourceCards'
 import ConfirmDialog from '../components/ConfirmDialog'
 import { useAgentChat } from '../hooks/useAgentChat'
 import { relativeTime } from '../utils/format'
+import { copyToClipboard } from '../utils/clipboard'
 
 function getLastMessagePreview(conv) {
   if (!conv.messages || conv.messages.length === 0) return ''
@@ -390,9 +391,13 @@ export default function AgentChat() {
     }
   }
 
-  const copyMessage = (content) => {
-    navigator.clipboard.writeText(content)
-    addToast('Copied to clipboard', 'success', 2000)
+  const copyMessage = async (content) => {
+    const ok = await copyToClipboard(content)
+    addToast(
+      ok ? 'Copied to clipboard' : 'Could not copy to clipboard',
+      ok ? 'success' : 'error',
+      ok ? 2000 : 3000,
+    )
   }
 
   const senderToRole = (sender) => {
