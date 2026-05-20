@@ -522,12 +522,6 @@ static void params_parse(server_context& /*ctx_server*/, const backend::ModelOpt
     // n_ctx_checkpoints: max context checkpoints per slot (default: 8)
     params.n_ctx_checkpoints = 8;
 
-    // llama memory fit fails if we don't provide a buffer for tensor overrides
-    const size_t ntbo = llama_max_tensor_buft_overrides();
-    while (params.tensor_buft_overrides.size() < ntbo) {
-        params.tensor_buft_overrides.push_back({nullptr, nullptr});
-    }
-
      // decode options. Options are in form optname:optvale, or if booleans only optname.
     for (int i = 0; i < request->options_size(); i++) {
         std::string opt = request->options(i);
@@ -1079,6 +1073,20 @@ static void params_parse(server_context& /*ctx_server*/, const backend::ModelOpt
     if (!params.kv_overrides.empty()) {
         params.kv_overrides.emplace_back();
         params.kv_overrides.back().key[0] = 0;
+    }
+
+    // tensor_buft_overrides sentinel termination (mirrors upstream common/arg.cpp).
+    // Real entries are pushed during option parsing; here we pad/terminate so the
+    // model loader sees back().pattern == nullptr (GGML_ASSERT at common.cpp:1543)
+    // and so llama_params_fit has the placeholder slots it requires.
+    {
+        const size_t ntbo = llama_max_tensor_buft_overrides();
+        while (params.tensor_buft_overrides.size() < ntbo) {
+            params.tensor_buft_overrides.push_back({nullptr, nullptr});
+        }
+    }
+    if (!params.speculative.draft.tensor_buft_overrides.empty()) {
+        params.speculative.draft.tensor_buft_overrides.push_back({nullptr, nullptr});
     }
 
     // TODO: Add yarn
