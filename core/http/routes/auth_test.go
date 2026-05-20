@@ -286,7 +286,9 @@ func newTestAuthApp(db *gorm.DB, appConfig *config.ApplicationConfig) *echo.Echo
 		return c.JSON(http.StatusOK, map[string]string{"message": "user deleted"})
 	}, adminMw)
 
-	// GET /api/auth/usage/sources - mirror of production handler
+	// Mirror of production handler in routes/auth.go GET /api/auth/usage/sources.
+	// Keep this body in sync with the real handler; this test app cannot call
+	// RegisterAuthRoutes because it needs a *application.Application.
 	e.GET("/api/auth/usage/sources", func(c echo.Context) error {
 		user := auth.GetUser(c)
 		if user == nil {
@@ -305,7 +307,8 @@ func newTestAuthApp(db *gorm.DB, appConfig *config.ApplicationConfig) *echo.Echo
 		})
 	})
 
-	// GET /api/auth/admin/usage/sources - mirror of production handler
+	// Mirror of production handler in routes/auth.go GET /api/auth/admin/usage/sources.
+	// Keep this body in sync with the real handler.
 	e.GET("/api/auth/admin/usage/sources", func(c echo.Context) error {
 		period := c.QueryParam("period")
 		if period == "" {
