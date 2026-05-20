@@ -39,6 +39,10 @@ curl http://localhost:8080/embeddings -X POST -H "Content-Type: application/json
 }'
 ```
 
+When `dimensions` is set, LocalAI truncates the returned embedding locally
+instead of forwarding the parameter to the backend. If the vector is too short,
+the request fails clearly.
+
 ## Manual Setup
 
 Create a `YAML` config file in the `models` directory. Specify the `backend` and the model file.

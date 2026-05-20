@@ -4,7 +4,9 @@ import (
 	"encoding/base64"
 	"encoding/binary"
 	"encoding/json"
+	"fmt"
 	"math"
+	"net/http"
 	"time"
 
 	"github.com/labstack/echo/v4"
@@ -40,6 +42,19 @@ func embeddingItem(embeddings []float32, index int, encodingFormat string) schem
 	return schema.Item{Embedding: embeddings, Index: index, Object: "embedding"}
 }
 
+func applyEmbeddingDimensions(embeddings []float32, dimensions int) ([]float32, error) {
+	if dimensions < 0 {
+		return nil, fmt.Errorf("embedding dimensions must be non-negative, got %d", dimensions)
+	}
+	if dimensions == 0 || len(embeddings) == dimensions {
+		return embeddings, nil
+	}
+	if len(embeddings) < dimensions {
+		return nil, fmt.Errorf("embedding dimensions requested %d but backend returned %d", dimensions, len(embeddings))
+	}
+	return append([]float32(nil), embeddings[:dimensions]...), nil
+}
+
 // EmbeddingsEndpoint is the OpenAI Embeddings API endpoint https://platform.openai.com/docs/api-reference/embeddings
 // @Summary Get a vector representation of a given input that can be easily consumed by machine learning models and algorithms.
 // @Tags embeddings
@@ -72,6 +87,10 @@ func EmbeddingsEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, app
 			if err != nil {
 				return err
 			}
+			embeddings, err = applyEmbeddingDimensions(embeddings, input.Dimensions)
+			if err != nil {
+				return echo.NewHTTPError(http.StatusBadRequest, err.Error())
+			}
 			items = append(items, embeddingItem(embeddings, i, input.EncodingFormat))
 		}
 
@@ -85,6 +104,10 @@ func EmbeddingsEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, app
 			embeddings, err := embedFn()
 			if err != nil {
 				return err
+			}
+			embeddings, err = applyEmbeddingDimensions(embeddings, input.Dimensions)
+			if err != nil {
+				return echo.NewHTTPError(http.StatusBadRequest, err.Error())
 			}
 			items = append(items, embeddingItem(embeddings, i, input.EncodingFormat))
 		}

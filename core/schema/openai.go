@@ -215,6 +215,11 @@ type OpenAIRequest struct {
 	// StreamOptions opts into OpenAI streaming extensions, e.g. include_usage.
 	StreamOptions *StreamOptions `json:"stream_options,omitempty" yaml:"stream_options,omitempty"`
 
+	// Embeddings API: requested output dimensionality. The HTTP layer applies
+	// this locally after backend inference so non-Matryoshka providers do not
+	// receive an unsupported upstream field.
+	Dimensions int `json:"dimensions,omitempty" yaml:"dimensions,omitempty"`
+
 	// Image (not supported by OpenAI)
 	Quality string `json:"quality"`
 	Step    int    `json:"step"`
