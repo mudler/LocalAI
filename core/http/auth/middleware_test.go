@@ -341,6 +341,23 @@ var _ = Describe("Auth Middleware", func() {
 			Expect(p.key).To(BeNil())
 		})
 
+		It("Bearer session token sets source=web, apikey=nil", func() {
+			db := testDB()
+			appConfig := config.NewApplicationConfig()
+			user := createTestUser(db, "alice@example.com", auth.RoleUser, auth.ProviderLocal)
+			token := createTestSession(db, user.ID)
+
+			var p probe
+			app := probeApp(db, appConfig, &p)
+			rec := doRequest(app, http.MethodGet, "/probe", withBearerToken(token))
+
+			Expect(rec.Code).To(Equal(http.StatusOK))
+			Expect(p.user).ToNot(BeNil())
+			Expect(p.user.ID).To(Equal(user.ID))
+			Expect(p.source).To(Equal(auth.UsageSourceWeb))
+			Expect(p.key).To(BeNil())
+		})
+
 		It("Bearer API key sets source=apikey and exposes the resolved *UserAPIKey", func() {
 			db := testDB()
 			appConfig := config.NewApplicationConfig()

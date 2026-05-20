@@ -438,8 +438,19 @@ func RequireQuota(db *gorm.DB) echo.MiddlewareFunc {
 }
 
 // tryAuthenticate attempts to authenticate the request using the database.
-// On success it returns the user and, as a side effect, populates the
-// auth_source and (for named-key paths) auth_apikey context values.
+//
+// On success it returns the user and, as a side effect, sets the following
+// values on the Echo context:
+//   - contextKeySource ("auth_source"): always set, one of UsageSourceWeb /
+//     UsageSourceAPIKey. UsageSourceLegacy is set elsewhere by the parent
+//     Middleware when a legacy env key matches.
+//   - contextKeyAPIKey ("auth_apikey"): set to the resolved *UserAPIKey for
+//     named-key branches (Bearer, x-api-key, xi-api-key, token cookie).
+//   - "_auth_session": session record, used by Middleware to drive cookie
+//     rotation. Only set on the session-cookie branch.
+//
+// contextKeyUser and contextKeyRole are populated by the parent Middleware
+// after this function returns.
 func tryAuthenticate(c echo.Context, db *gorm.DB, appConfig *config.ApplicationConfig) *User {
 	hmacSecret := appConfig.Auth.APIKeyHMACSecret
 
