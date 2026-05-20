@@ -1,4 +1,5 @@
 import { useState, useCallback, useRef, useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 
 let toastId = 0
 
@@ -54,6 +55,7 @@ export function ToastContainer({ toasts, removeToast }) {
 }
 
 function ToastItem({ toast, onRemove }) {
+  const { t } = useTranslation('common')
   const ref = useRef(null)
 
   useEffect(() => {
@@ -72,7 +74,11 @@ function ToastItem({ toast, onRemove }) {
       {toast.link && (
         <a href={toast.link.href} className="toast-link">{toast.link.text}</a>
       )}
-      <button onClick={() => onRemove(toast.id)} className="toast-close" aria-label="Dismiss notification">
+      <button
+        onClick={() => onRemove(toast.id)}
+        className="toast-close"
+        aria-label={t('actions.close')}
+      >
         <i className="fas fa-xmark" />
       </button>
     </div>

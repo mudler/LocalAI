@@ -230,4 +230,87 @@ mcp:
 		Expect(err).To(BeNil())
 		Expect(valid).To(BeTrue())
 	})
+	It("Test Validate rejects unmarshalable engine_args", func() {
+		// chan values cannot be JSON-marshalled. A valid YAML config could
+		// not produce one, but a Go caller stuffing a bad value would, and
+		// silently dropping it would change runtime behaviour.
+		cfg := &ModelConfig{
+			Backend: "vllm",
+			LLMConfig: LLMConfig{
+				EngineArgs: map[string]any{
+					"speculative_config": make(chan int),
+				},
+			},
+		}
+		valid, err := cfg.Validate()
+		Expect(valid).To(BeFalse())
+		Expect(err).ToNot(BeNil())
+		Expect(err.Error()).To(ContainSubstring("engine_args is not JSON-serialisable"))
+	})
+	It("Test Validate accepts well-formed engine_args", func() {
+		cfg := &ModelConfig{
+			Backend: "vllm",
+			LLMConfig: LLMConfig{
+				EngineArgs: map[string]any{
+					"data_parallel_size": 8,
+					"speculative_config": map[string]any{
+						"method":                 "ngram",
+						"num_speculative_tokens": 4,
+					},
+				},
+			},
+		}
+		valid, err := cfg.Validate()
+		Expect(err).To(BeNil())
+		Expect(valid).To(BeTrue())
+	})
+	Context("ConcurrencyGroups", func() {
+		It("returns nil when no groups are configured", func() {
+			cfg := &ModelConfig{Name: "no-groups"}
+			Expect(cfg.GetConcurrencyGroups()).To(BeNil())
+		})
+		It("returns nil when all entries are blank", func() {
+			cfg := &ModelConfig{
+				Name:              "blanks",
+				ConcurrencyGroups: []string{"", "   ", "\t"},
+			}
+			Expect(cfg.GetConcurrencyGroups()).To(BeNil())
+		})
+		It("trims whitespace, drops empty entries, and dedupes", func() {
+			cfg := &ModelConfig{
+				Name:              "messy",
+				ConcurrencyGroups: []string{" vram-heavy ", "", "vram-heavy", "vision", "  vision "},
+			}
+			Expect(cfg.GetConcurrencyGroups()).To(Equal([]string{"vram-heavy", "vision"}))
+		})
+		It("returns a defensive copy", func() {
+			cfg := &ModelConfig{
+				Name:              "copy",
+				ConcurrencyGroups: []string{"heavy"},
+			}
+			got := cfg.GetConcurrencyGroups()
+			got[0] = "tampered"
+			Expect(cfg.GetConcurrencyGroups()).To(Equal([]string{"heavy"}))
+		})
+		It("parses concurrency_groups from YAML", func() {
+			tmp, err := os.CreateTemp("", "concgroups.yaml")
+			Expect(err).To(BeNil())
+			defer func() { _ = os.Remove(tmp.Name()) }()
+			_, err = tmp.WriteString(
+				`name: heavy-a
+backend: llama-cpp
+parameters:
+  model: heavy-a.gguf
+concurrency_groups:
+  - vram-heavy
+  - "120b"
+`)
+			Expect(err).ToNot(HaveOccurred())
+			configs, err := readModelConfigsFromFile(tmp.Name())
+			Expect(err).To(BeNil())
+			Expect(configs).To(HaveLen(1))
+			Expect(configs[0].ConcurrencyGroups).To(Equal([]string{"vram-heavy", "120b"}))
+			Expect(configs[0].GetConcurrencyGroups()).To(Equal([]string{"vram-heavy", "120b"}))
+		})
+	})
 })

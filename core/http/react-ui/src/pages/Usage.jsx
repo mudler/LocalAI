@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef, Fragment } from 'react'
 import { useOutletContext } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { useAuth } from '../context/AuthContext'
 import { apiUrl } from '../utils/basePath'
 import LoadingSpinner from '../components/LoadingSpinner'
@@ -629,6 +630,7 @@ function ModelDistChart({ rows }) {
 export default function Usage() {
   const { addToast } = useOutletContext()
   const { isAdmin, authEnabled } = useAuth()
+  const { t } = useTranslation('admin')
   const [period, setPeriod] = useState('month')
   const [loading, setLoading] = useState(true)
   const [usage, setUsage] = useState([])
@@ -679,7 +681,7 @@ export default function Usage() {
 
   if (!authEnabled) {
     return (
-      <div className="page">
+      <div className="page page--wide">
         <div className="empty-state">
           <div className="empty-state-icon"><i className="fas fa-chart-bar" /></div>
           <h2 className="empty-state-title">Usage tracking unavailable</h2>
@@ -705,10 +707,10 @@ export default function Usage() {
   const monoCell = { fontFamily: 'var(--font-mono)', fontSize: '0.8125rem' }
 
   return (
-    <div className="page">
+    <div className="page page--wide">
       <div className="page-header" style={{ marginBottom: 'var(--spacing-sm)' }}>
-        <h1 className="page-title">Usage</h1>
-        <p className="page-subtitle">API token usage statistics</p>
+        <h1 className="page-title">{t('usage.title')}</h1>
+        <p className="page-subtitle">{t('usage.subtitle')}</p>
       </div>
 
       {/* Period selector + tabs */}

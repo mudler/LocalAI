@@ -44,6 +44,7 @@ func SoundGenerationEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader
 			bpm = &b
 		}
 		filePath, _, err := backend.SoundGeneration(
+			c.Request().Context(),
 			input.Text, input.Duration, input.Temperature, input.DoSample,
 			nil, nil,
 			input.Think, input.Caption, input.Lyrics, bpm, input.Keyscale,

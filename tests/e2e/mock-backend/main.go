@@ -13,6 +13,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync"
 
 	pb "github.com/mudler/LocalAI/pkg/grpc/proto"
 	"github.com/mudler/xlog"
@@ -31,6 +32,28 @@ type MockBackend struct {
 	pb.UnimplementedBackendServer
 }
 
+// lastLoadParams records the most recent LoadModel parameters so a Predict
+// call can echo them back. Used by the path-resolution e2e test, which needs
+// to verify that relative draft_model / mmproj / modelfile paths in the YAML
+// config arrive at the backend already resolved against the models directory.
+// Each backend binary serves a single model, so a single value is enough.
+var (
+	lastLoadParamsMu sync.RWMutex
+	lastLoadParams   *pb.ModelOptions
+)
+
+func recordLoadParams(opts *pb.ModelOptions) {
+	lastLoadParamsMu.Lock()
+	defer lastLoadParamsMu.Unlock()
+	lastLoadParams = opts
+}
+
+func snapshotLoadParams() *pb.ModelOptions {
+	lastLoadParamsMu.RLock()
+	defer lastLoadParamsMu.RUnlock()
+	return lastLoadParams
+}
+
 // promptHasToolResults checks if the prompt contains evidence of prior tool
 // execution — specifically the output from the mock MCP server's get_weather tool.
 func promptHasToolResults(prompt string) bool {
@@ -43,7 +66,12 @@ func (m *MockBackend) Health(ctx context.Context, in *pb.HealthMessage) (*pb.Rep
 }
 
 func (m *MockBackend) LoadModel(ctx context.Context, in *pb.ModelOptions) (*pb.Result, error) {
-	xlog.Debug("LoadModel called", "model", in.Model)
+	xlog.Debug("LoadModel called",
+		"model", in.Model,
+		"modelfile", in.ModelFile,
+		"draft_model", in.DraftModel,
+		"mmproj", in.MMProj)
+	recordLoadParams(in)
 	return &pb.Result{
 		Message: "Model loaded successfully (mocked)",
 		Success: true,
@@ -54,6 +82,31 @@ func (m *MockBackend) Predict(ctx context.Context, in *pb.PredictOptions) (*pb.R
 	xlog.Debug("Predict called", "prompt", in.Prompt)
 	if strings.Contains(in.Prompt, "MOCK_ERROR") {
 		return nil, fmt.Errorf("mock backend predict error: simulated failure")
+	}
+
+	// ECHO_LOAD_PARAMS lets path-resolution tests inspect what LoadModel
+	// received without adding a new RPC. The reply carries a JSON snapshot
+	// of the relevant ModelOptions fields so the test can assert that
+	// relative paths from the YAML have been resolved before reaching the
+	// backend.
+	if strings.Contains(in.Prompt, "ECHO_LOAD_PARAMS") {
+		opts := snapshotLoadParams()
+		snapshot := map[string]string{}
+		if opts != nil {
+			snapshot["model"] = opts.Model
+			snapshot["model_file"] = opts.ModelFile
+			snapshot["draft_model"] = opts.DraftModel
+			snapshot["mmproj"] = opts.MMProj
+		}
+		payload, err := json.Marshal(snapshot)
+		if err != nil {
+			return nil, fmt.Errorf("mock backend echo error: %w", err)
+		}
+		return &pb.Reply{
+			Message:      payload,
+			Tokens:       int32(len(snapshot)),
+			PromptTokens: 1,
+		}, nil
 	}
 
 	// Simulate C++ autoparser: tool call via ChatDeltas, empty message
@@ -628,6 +681,36 @@ func (m *MockBackend) VAD(ctx context.Context, in *pb.VADRequest) (*pb.VADRespon
 				End:   float32(duration),
 			},
 		},
+	}, nil
+}
+
+// Diarize returns a deterministic two-speaker layout that exercises the
+// HTTP layer's normalisation: raw labels "5" and "2" should become
+// SPEAKER_00 and SPEAKER_01 in first-seen order, the SPEAKER_00 totals
+// should reflect two segments (1.0s + 1.5s = 2.5s), and IncludeText must
+// gate the per-segment Text field.
+func (m *MockBackend) Diarize(ctx context.Context, in *pb.DiarizeRequest) (*pb.DiarizeResponse, error) {
+	xlog.Debug("Diarize called",
+		"dst", in.Dst,
+		"num_speakers", in.NumSpeakers,
+		"include_text", in.IncludeText)
+
+	seg := func(start, end float32, speaker, text string) *pb.DiarizeSegment {
+		out := &pb.DiarizeSegment{Start: start, End: end, Speaker: speaker}
+		if in.IncludeText {
+			out.Text = text
+		}
+		return out
+	}
+	return &pb.DiarizeResponse{
+		Segments: []*pb.DiarizeSegment{
+			seg(0.0, 1.0, "5", "hello there"),
+			seg(1.0, 2.0, "2", "general kenobi"),
+			seg(2.0, 3.5, "5", "you are a bold one"),
+		},
+		NumSpeakers: 2,
+		Duration:    3.5,
+		Language:    in.Language,
 	}, nil
 }
 

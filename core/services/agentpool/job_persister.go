@@ -16,6 +16,12 @@ type JobPersister interface {
 	SaveJob(userID string, job schema.Job) error
 	DeleteJob(jobID string) error
 
+	// Bulk flush of the current in-memory state. File-backed persister
+	// rewrites the whole JSON file; DB-backed persister no-ops because
+	// SaveTask/SaveJob are already write-through.
+	FlushTasks() error
+	FlushJobs() error
+
 	// Authoritative reads — DB returns fresh data; file returns nil, nil
 	GetJob(jobID string) (*schema.Job, error)
 	ListJobs(userID, taskID, status string, limit int) ([]schema.Job, error)

@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useNavigate, useOutletContext } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { skillsApi } from '../utils/api'
 import { useAuth } from '../context/AuthContext'
 import { useUserMap } from '../hooks/useUserMap'
@@ -9,6 +10,7 @@ import ConfirmDialog from '../components/ConfirmDialog'
 export default function Skills() {
   const { addToast } = useOutletContext()
   const navigate = useNavigate()
+  const { t } = useTranslation('skills')
   const { isAdmin, authEnabled, user } = useAuth()
   const userMap = useUserMap()
   const [skills, setSkills] = useState([])
@@ -56,13 +58,13 @@ export default function Skills() {
         setUnavailable(true)
         setSkills([])
       } else {
-        addToast(err.message || 'Failed to load skills', 'error')
+        addToast(err.message || t('toasts.loadFailed'), 'error')
         setSkills([])
       }
     } finally {
       setLoading(false)
     }
-  }, [searchQuery, addToast, isAdmin, authEnabled])
+  }, [searchQuery, addToast, isAdmin, authEnabled, t])
 
   useEffect(() => {
     fetchSkills()
@@ -70,18 +72,18 @@ export default function Skills() {
 
   const deleteSkill = async (name, userId) => {
     setConfirmDialog({
-      title: 'Delete Skill',
-      message: `Delete skill "${name}"? This action cannot be undone.`,
-      confirmLabel: 'Delete',
+      title: t('deleteDialog.title'),
+      message: t('deleteDialog.message', { name }),
+      confirmLabel: t('deleteDialog.confirm'),
       danger: true,
       onConfirm: async () => {
         setConfirmDialog(null)
         try {
           await skillsApi.delete(name, userId)
-          addToast(`Skill "${name}" deleted`, 'success')
+          addToast(t('toasts.deleted', { name }), 'success')
           fetchSkills()
         } catch (err) {
-          addToast(err.message || 'Failed to delete skill', 'error')
+          addToast(err.message || t('toasts.deleteFailed'), 'error')
         }
       },
     })
@@ -100,9 +102,9 @@ export default function Skills() {
       a.click()
       document.body.removeChild(a)
       URL.revokeObjectURL(a.href)
-      addToast(`Skill "${name}" exported`, 'success')
+      addToast(t('toasts.exported', { name }), 'success')
     } catch (err) {
-      addToast(err.message || 'Export failed', 'error')
+      addToast(err.message || t('toasts.exportFailed'), 'error')
     }
   }
 
@@ -112,10 +114,10 @@ export default function Skills() {
     setImporting(true)
     try {
       await skillsApi.import(file)
-      addToast(`Skill imported from "${file.name}"`, 'success')
+      addToast(t('toasts.imported', { file: file.name }), 'success')
       fetchSkills()
     } catch (err) {
-      addToast(err.message || 'Import failed', 'error')
+      addToast(err.message || t('toasts.importFailed'), 'error')
     } finally {
       setImporting(false)
       e.target.value = ''
@@ -128,7 +130,7 @@ export default function Skills() {
       const list = await skillsApi.listGitRepos()
       setGitRepos(Array.isArray(list) ? list : [])
     } catch (err) {
-      addToast(err.message || 'Failed to load Git repos', 'error')
+      addToast(err.message || t('toasts.loadReposFailed'), 'error')
       setGitRepos([])
     } finally {
       setGitReposLoading(false)
@@ -149,9 +151,9 @@ export default function Skills() {
       setGitRepoUrl('')
       await loadGitRepos()
       fetchSkills()
-      addToast('Git repo added and syncing', 'success')
+      addToast(t('toasts.repoAdded'), 'success')
     } catch (err) {
-      addToast(err.message || 'Failed to add repo', 'error')
+      addToast(err.message || t('toasts.addRepoFailed'), 'error')
     } finally {
       setGitReposAction(null)
     }
@@ -163,9 +165,9 @@ export default function Skills() {
       await skillsApi.syncGitRepo(id)
       await loadGitRepos()
       fetchSkills()
-      addToast('Repo synced', 'success')
+      addToast(t('toasts.synced'), 'success')
     } catch (err) {
-      addToast(err.message || 'Sync failed', 'error')
+      addToast(err.message || t('toasts.syncFailed'), 'error')
     } finally {
       setGitReposAction(null)
     }
@@ -176,17 +178,17 @@ export default function Skills() {
       await skillsApi.toggleGitRepo(id)
       await loadGitRepos()
       fetchSkills()
-      addToast('Repo toggled', 'success')
+      addToast(t('toasts.toggled'), 'success')
     } catch (err) {
-      addToast(err.message || 'Toggle failed', 'error')
+      addToast(err.message || t('toasts.toggleFailed'), 'error')
     }
   }
 
   const deleteGitRepo = async (id) => {
     setConfirmDialog({
-      title: 'Remove Git Repository',
-      message: 'Remove this Git repository? Skills from it will no longer be available.',
-      confirmLabel: 'Remove',
+      title: t('removeRepoDialog.title'),
+      message: t('removeRepoDialog.message'),
+      confirmLabel: t('removeRepoDialog.confirm'),
       danger: true,
       onConfirm: async () => {
         setConfirmDialog(null)
@@ -194,9 +196,9 @@ export default function Skills() {
           await skillsApi.deleteGitRepo(id)
           await loadGitRepos()
           fetchSkills()
-          addToast('Repo removed', 'success')
+          addToast(t('toasts.removed'), 'success')
         } catch (err) {
-          addToast(err.message || 'Remove failed', 'error')
+          addToast(err.message || t('toasts.removeFailed'), 'error')
         }
       },
     })
@@ -204,14 +206,14 @@ export default function Skills() {
 
   if (unavailable) {
     return (
-      <div className="page">
+      <div className="page page--wide">
         <div className="page-header">
-          <h1 className="page-title">Skills</h1>
-          <p className="page-subtitle">Skills service is not available or the index is rebuilding. Try again in a moment.</p>
+          <h1 className="page-title">{t('title')}</h1>
+          <p className="page-subtitle">{t('unavailable.subtitle')}</p>
         </div>
         <div style={{ display: 'flex', justifyContent: 'center', padding: 'var(--spacing-xl)' }}>
           <button className="btn btn-primary" onClick={() => { setUnavailable(false); fetchSkills() }}>
-            <i className="fas fa-redo" /> Retry
+            <i className="fas fa-redo" /> {t('unavailable.retry')}
           </button>
         </div>
       </div>
@@ -219,7 +221,7 @@ export default function Skills() {
   }
 
   return (
-    <div className="page">
+    <div className="page page--wide">
       <style>{`
         .skills-header-actions {
           display: flex;
@@ -312,23 +314,23 @@ export default function Skills() {
 
       <div className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
         <div>
-          <h1 className="page-title">Skills</h1>
-          <p className="page-subtitle">Manage agent skills (reusable instructions and resources)</p>
+          <h1 className="page-title">{t('title')}</h1>
+          <p className="page-subtitle">{t('subtitle')}</p>
         </div>
         <div className="skills-header-actions">
           <input
             type="text"
             className="input"
-            placeholder="Search skills..."
+            placeholder={t('search.placeholder')}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             style={{ width: '200px' }}
           />
           <button className="btn btn-primary" onClick={() => navigate('/app/skills/new')}>
-            <i className="fas fa-plus" /> New skill
+            <i className="fas fa-plus" /> {t('actions.newSkill')}
           </button>
           <label className="btn btn-secondary" style={{ cursor: 'pointer' }}>
-            <i className="fas fa-file-import" /> {importing ? 'Importing...' : 'Import'}
+            <i className="fas fa-file-import" /> {importing ? t('actions.importing') : t('actions.import')}
             <input
               type="file"
               accept=".tar.gz"
@@ -341,7 +343,7 @@ export default function Skills() {
             className={`btn ${showGitRepos ? 'btn-primary' : 'btn-secondary'}`}
             onClick={() => setShowGitRepos((v) => !v)}
           >
-            <i className="fas fa-code-branch" /> Git Repos
+            <i className="fas fa-code-branch" /> {t('actions.gitRepos')}
           </button>
         </div>
       </div>
@@ -349,21 +351,21 @@ export default function Skills() {
       {showGitRepos && (
         <div className="skills-git-section">
           <h2 className="skills-git-title">
-            <i className="fas fa-code-branch" style={{ marginRight: 'var(--spacing-xs)', color: 'var(--color-primary)' }} /> Git repositories
+            <i className="fas fa-code-branch" style={{ marginRight: 'var(--spacing-xs)', color: 'var(--color-primary)' }} /> {t('git.title')}
           </h2>
           <p className="skills-git-desc">
-            Add Git repositories to pull skills from. Skills will appear in the list after sync.
+            {t('git.description')}
           </p>
           <form onSubmit={addGitRepo} className="skills-git-form">
             <input
               type="url"
               className="input"
-              placeholder="https://github.com/user/repo or git@github.com:user/repo.git"
+              placeholder={t('git.urlPlaceholder')}
               value={gitRepoUrl}
               onChange={(e) => setGitRepoUrl(e.target.value)}
             />
             <button type="submit" className="btn btn-primary" disabled={gitReposAction === 'add'}>
-              {gitReposAction === 'add' ? <><i className="fas fa-spinner fa-spin" /> Adding...</> : 'Add repo'}
+              {gitReposAction === 'add' ? <><i className="fas fa-spinner fa-spin" /> {t('actions.adding')}</> : t('actions.addRepo')}
             </button>
           </form>
           {gitReposLoading ? (
@@ -371,7 +373,7 @@ export default function Skills() {
               <i className="fas fa-spinner fa-spin" style={{ fontSize: '1.5rem', color: 'var(--color-text-muted)' }} />
             </div>
           ) : gitRepos.length === 0 ? (
-            <p style={{ color: 'var(--color-text-secondary)', fontSize: '0.875rem' }}>No Git repos configured. Add one above.</p>
+            <p style={{ color: 'var(--color-text-secondary)', fontSize: '0.875rem' }}>{t('git.noRepos')}</p>
           ) : (
             <div>
               {gitRepos.map((r) => (
@@ -379,28 +381,28 @@ export default function Skills() {
                   <div>
                     <span className="skills-git-repo-name">{r.name || r.url}</span>
                     <span className="skills-git-repo-url">{r.url}</span>
-                    {!r.enabled && <span className="badge" style={{ marginLeft: 'var(--spacing-sm)' }}>Disabled</span>}
+                    {!r.enabled && <span className="badge" style={{ marginLeft: 'var(--spacing-sm)' }}>{t('git.disabled')}</span>}
                   </div>
                   <div className="skills-git-repo-actions">
                     <button
                       className="btn btn-secondary btn-sm"
                       onClick={() => syncGitRepo(r.id)}
                       disabled={gitReposAction === r.id}
-                      title="Sync"
+                      title={t('actions.sync')}
                     >
-                      {gitReposAction === r.id ? <i className="fas fa-spinner fa-spin" /> : <><i className="fas fa-sync-alt" /> Sync</>}
+                      {gitReposAction === r.id ? <i className="fas fa-spinner fa-spin" /> : <><i className="fas fa-sync-alt" /> {t('actions.sync')}</>}
                     </button>
                     <button
                       className="btn btn-secondary btn-sm"
                       onClick={() => toggleGitRepo(r.id)}
-                      title={r.enabled ? 'Disable' : 'Enable'}
+                      title={r.enabled ? t('actions.disable') : t('actions.enable')}
                     >
                       <i className={`fas fa-toggle-${r.enabled ? 'on' : 'off'}`} />
                     </button>
                     <button
                       className="btn btn-danger btn-sm"
                       onClick={() => deleteGitRepo(r.id)}
-                      title="Remove repo"
+                      title={t('git.removeRepo')}
                     >
                       <i className="fas fa-trash" />
                     </button>
@@ -419,14 +421,14 @@ export default function Skills() {
       ) : skills.length === 0 && !userGroups ? (
         <div className="empty-state">
           <div className="empty-state-icon"><i className="fas fa-book" /></div>
-          <h2 className="empty-state-title">No skills found</h2>
-          <p className="empty-state-text">Create a skill or import one to get started.</p>
+          <h2 className="empty-state-title">{t('empty.title')}</h2>
+          <p className="empty-state-text">{t('empty.text')}</p>
           <div style={{ display: 'flex', gap: 'var(--spacing-sm)', justifyContent: 'center' }}>
             <button className="btn btn-primary" onClick={() => navigate('/app/skills/new')}>
-              <i className="fas fa-plus" /> Create skill
+              <i className="fas fa-plus" /> {t('actions.createSkill')}
             </button>
             <label className="btn btn-secondary" style={{ cursor: 'pointer' }}>
-              <i className="fas fa-file-import" /> Import
+              <i className="fas fa-file-import" /> {t('actions.import')}
               <input
                 type="file"
                 accept=".tar.gz"
@@ -439,45 +441,45 @@ export default function Skills() {
         </div>
       ) : (
         <>
-        {userGroups && <h2 style={{ fontSize: '1.1rem', fontWeight: 600, marginBottom: 'var(--spacing-md)' }}>Your Skills</h2>}
+        {userGroups && <h2 style={{ fontSize: '1.1rem', fontWeight: 600, marginBottom: 'var(--spacing-md)' }}>{t('sections.yourSkills')}</h2>}
         {skills.length === 0 ? (
-          <p style={{ color: 'var(--color-text-secondary)', marginBottom: 'var(--spacing-md)' }}>You have no skills yet.</p>
+          <p style={{ color: 'var(--color-text-secondary)', marginBottom: 'var(--spacing-md)' }}>{t('empty.noPersonal')}</p>
         ) : (
         <div className="skills-grid">
           {skills.map((s) => (
             <div key={s.name} className="card">
               <div className="skills-card-header">
                 <h3 className="skills-card-name">{s.name}</h3>
-                {s.readOnly && <span className="badge">Read-only</span>}
+                {s.readOnly && <span className="badge">{t('card.readOnly')}</span>}
               </div>
               <p className="skills-card-desc">
-                {s.description || 'No description'}
+                {s.description || t('card.noDescription')}
               </p>
               <div className="skills-card-actions">
                 {!s.readOnly && (
                   <button
                     className="btn btn-secondary btn-sm"
                     onClick={() => navigate(`/app/skills/edit/${encodeURIComponent(s.name)}`)}
-                    title="Edit skill"
+                    title={t('card.editTitle')}
                   >
-                    <i className="fas fa-edit" /> Edit
+                    <i className="fas fa-edit" /> {t('actions.edit')}
                   </button>
                 )}
                 {!s.readOnly && (
                   <button
                     className="btn btn-danger btn-sm"
                     onClick={() => deleteSkill(s.name)}
-                    title="Delete skill"
+                    title={t('card.deleteTitle')}
                   >
-                    <i className="fas fa-trash" /> Delete
+                    <i className="fas fa-trash" /> {t('actions.delete')}
                   </button>
                 )}
                 <button
                   className="btn btn-secondary btn-sm"
                   onClick={() => exportSkill(s.name)}
-                  title="Export as .tar.gz"
+                  title={t('card.exportTitle')}
                 >
-                  <i className="fas fa-download" /> Export
+                  <i className="fas fa-download" /> {t('actions.export')}
                 </button>
               </div>
             </div>
@@ -499,7 +501,7 @@ export default function Skills() {
 
       {userGroups && (
         <UserGroupSection
-          title="Other Users' Skills"
+          title={t('sections.otherUsersSkills')}
           userGroups={userGroups}
           userMap={userMap}
           currentUserId={user?.id}
@@ -510,34 +512,34 @@ export default function Skills() {
                 <div key={s.name} className="card">
                   <div className="skills-card-header">
                     <h3 className="skills-card-name">{s.name}</h3>
-                    {s.readOnly && <span className="badge">Read-only</span>}
+                    {s.readOnly && <span className="badge">{t('card.readOnly')}</span>}
                   </div>
-                  <p className="skills-card-desc">{s.description || 'No description'}</p>
+                  <p className="skills-card-desc">{s.description || t('card.noDescription')}</p>
                   <div className="skills-card-actions">
                     {!s.readOnly && (
                       <button
                         className="btn btn-secondary btn-sm"
                         onClick={() => navigate(`/app/skills/edit/${encodeURIComponent(s.name)}?user_id=${encodeURIComponent(userId)}`)}
-                        title="Edit skill"
+                        title={t('card.editTitle')}
                       >
-                        <i className="fas fa-edit" /> Edit
+                        <i className="fas fa-edit" /> {t('actions.edit')}
                       </button>
                     )}
                     {!s.readOnly && (
                       <button
                         className="btn btn-danger btn-sm"
                         onClick={() => deleteSkill(s.name, userId)}
-                        title="Delete skill"
+                        title={t('card.deleteTitle')}
                       >
-                        <i className="fas fa-trash" /> Delete
+                        <i className="fas fa-trash" /> {t('actions.delete')}
                       </button>
                     )}
                     <button
                       className="btn btn-secondary btn-sm"
                       onClick={() => exportSkill(s.name, userId)}
-                      title="Export as .tar.gz"
+                      title={t('card.exportTitle')}
                     >
-                      <i className="fas fa-download" /> Export
+                      <i className="fas fa-download" /> {t('actions.export')}
                     </button>
                   </div>
                 </div>

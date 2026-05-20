@@ -1,18 +1,27 @@
-import { useState, useEffect, useCallback } from 'react'
-import { useNavigate, useOutletContext } from 'react-router-dom'
-import { backendsApi } from '../utils/api'
+import { useState, useEffect, useCallback, useRef } from 'react'
+import { useNavigate, useOutletContext, useSearchParams } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
+import { backendsApi, nodesApi } from '../utils/api'
 import { useDebouncedCallback } from '../hooks/useDebounce'
 import React from 'react'
 import { useOperations } from '../hooks/useOperations'
+import { useDistributedMode } from '../hooks/useDistributedMode'
 import LoadingSpinner from '../components/LoadingSpinner'
 import { renderMarkdown } from '../utils/markdown'
+import { safeHref } from '../utils/url'
 import ConfirmDialog from '../components/ConfirmDialog'
 import Toggle from '../components/Toggle'
+import NodeDistributionChip from '../components/NodeDistributionChip'
+import NodeInstallPicker from '../components/NodeInstallPicker'
+import Popover from '../components/Popover'
 
 export default function Backends() {
   const { addToast } = useOutletContext()
   const navigate = useNavigate()
+  const { t } = useTranslation('admin')
+  const [searchParams, setSearchParams] = useSearchParams()
   const { operations } = useOperations()
+  const { enabled: distributedEnabled, nodes: clusterNodes, refetch: refetchNodes } = useDistributedMode()
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [filter, setFilter] = useState('')
@@ -32,6 +41,31 @@ export default function Backends() {
   const [showAllBackends, setShowAllBackends] = useState(false)
   const [showDevelopment, setShowDevelopment] = useState(false)
   const [preferDevLoaded, setPreferDevLoaded] = useState(false)
+  const [pickerBackend, setPickerBackend] = useState(null)
+  const [pickerInitialSelection, setPickerInitialSelection] = useState([])
+  const [splitMenuFor, setSplitMenuFor] = useState(null)
+  // Anchor ref for the currently-open split-button chevron. Only one row's
+  // menu can be open at a time, so a single ref is enough — re-attached
+  // whenever splitMenuFor changes to a different row index.
+  const splitMenuAnchorRef = useRef(null)
+
+  // Target-node mode: set when navigated from /app/nodes via "+ Add backend".
+  // The gallery page header banners the scope; rows collapse their split-button
+  // to a single Install-on-this-node action; manual install posts to the
+  // per-node endpoint.
+  const targetNodeId = searchParams.get('target') || ''
+  const targetNode = targetNodeId
+    ? clusterNodes.find(n => n.id === targetNodeId) || null
+    : null
+
+  const clearTarget = useCallback(() => {
+    const next = new URLSearchParams(searchParams)
+    next.delete('target')
+    setSearchParams(next, { replace: true })
+  }, [searchParams, setSearchParams])
+
+  // The Popover component handles outside-click + Escape + focus return,
+  // so we don't reimplement it here.
 
   const fetchBackends = useCallback(async () => {
     try {
@@ -127,8 +161,52 @@ export default function Backends() {
     try {
       await backendsApi.install(id)
     } catch (err) {
+      // Distributed-mode 409 guard: surface the human message and steer the
+      // user to the picker rather than failing silently. The error body has
+      // a `code` field of "concrete_backend_requires_target".
+      const isConcreteGuard = err?.payload?.code === 'concrete_backend_requires_target'
+        || (err?.message || '').includes('hardware-specific build')
+      if (isConcreteGuard && distributedEnabled) {
+        const b = allBackends.find(x => x.id === id || x.name === id)
+        if (b) {
+          openPicker(b)
+          return
+        }
+      }
       addToast(`Install failed: ${err.message}`, 'error')
     }
+  }
+
+  // Install a single gallery backend on a specific node, used in target-node
+  // mode (the URL has ?target=<node-id> set from the Nodes page entry point).
+  const handleInstallOnTarget = async (id) => {
+    if (!targetNode) return
+    try {
+      await nodesApi.installBackend(targetNode.id, id)
+      addToast(`Installing ${id} on ${targetNode.name}…`, 'info')
+      // Per-node install is request-reply, not part of the global jobs feed —
+      // refetch to reflect the new Nodes column state.
+      setTimeout(() => { fetchBackends(); refetchNodes() }, 600)
+    } catch (err) {
+      addToast(`Install failed on ${targetNode.name}: ${err.message}`, 'error')
+    }
+  }
+
+  const openPicker = (b, initialSelection = []) => {
+    setPickerBackend(b)
+    setPickerInitialSelection(initialSelection)
+    setSplitMenuFor(null)
+  }
+
+  // Returns the IDs of nodes that don't yet have this backend installed.
+  // Used by the Nodes column "+" affordance to pre-select missing nodes.
+  const missingNodesFor = (b) => {
+    const installed = new Set((b?.nodes || []).map(n => n.node_id ?? n.NodeID))
+    return clusterNodes
+      .filter(n => (!n.node_type || n.node_type === 'backend')
+        && n.status === 'healthy'
+        && !installed.has(n.id))
+      .map(n => n.id)
   }
 
   const handleDelete = async (id) => {
@@ -179,10 +257,26 @@ export default function Backends() {
     e.preventDefault()
     if (!manualUri.trim()) { addToast('Please enter a URI', 'warning'); return }
     try {
-      const body = { uri: manualUri.trim() }
-      if (manualName.trim()) body.name = manualName.trim()
-      if (manualAlias.trim()) body.alias = manualAlias.trim()
-      await backendsApi.installExternal(body)
+      if (targetNode) {
+        // Target-node mode: route the manual install to the per-node endpoint
+        // so the backend lands only on this worker, not the whole cluster.
+        await nodesApi.installBackend(
+          targetNode.id,
+          manualName.trim() || '',
+          {
+            uri: manualUri.trim(),
+            name: manualName.trim() || undefined,
+            alias: manualAlias.trim() || undefined,
+          },
+        )
+        addToast(`Installing on ${targetNode.name}…`, 'info')
+        setTimeout(() => { fetchBackends(); refetchNodes() }, 600)
+      } else {
+        const body = { uri: manualUri.trim() }
+        if (manualName.trim()) body.name = manualName.trim()
+        if (manualAlias.trim()) body.alias = manualAlias.trim()
+        await backendsApi.installExternal(body)
+      }
       setManualUri('')
       setManualName('')
       setManualAlias('')
@@ -203,11 +297,11 @@ export default function Backends() {
 
   const FILTERS = [
     { key: '', label: 'All', icon: 'fa-layer-group' },
-    { key: 'llm', label: 'LLM', icon: 'fa-brain' },
+    { key: 'chat', label: 'Chat', icon: 'fa-brain' },
     { key: 'image', label: 'Image', icon: 'fa-image' },
     { key: 'video', label: 'Video', icon: 'fa-video' },
     { key: 'tts', label: 'TTS', icon: 'fa-microphone' },
-    { key: 'stt', label: 'STT', icon: 'fa-headphones' },
+    { key: 'transcript', label: 'STT', icon: 'fa-headphones' },
     { key: 'vision', label: 'Vision', icon: 'fa-eye' },
   ]
 
@@ -224,12 +318,37 @@ export default function Backends() {
   )
 
   return (
-    <div className="page">
+    <div className="page page--wide">
+      {/* Target-node banner: when this gallery is scoped to one node via
+          ?target=<id> (entered from /app/nodes), show the scope clearly and
+          give a fast way to clear it. Visually a primary-tinted strip so the
+          user knows they're in a special mode without it feeling alarming. */}
+      {targetNode && (
+        <div className="card" style={{
+          marginBottom: 'var(--spacing-md)',
+          padding: 'var(--spacing-sm) var(--spacing-md)',
+          background: 'var(--color-primary-light)',
+          border: '1px solid var(--color-primary-border)',
+          borderRadius: 'var(--radius-md)',
+          display: 'flex', alignItems: 'center', gap: 'var(--spacing-sm)',
+          flexWrap: 'wrap',
+        }}>
+          <i className="fas fa-bullseye" style={{ color: 'var(--color-primary)' }} />
+          <span style={{ color: 'var(--color-primary)', fontWeight: 500, fontSize: 'var(--text-sm)' }}>
+            Installing only on <span style={{ fontFamily: 'var(--font-mono)' }}>{targetNode.name}</span>
+          </span>
+          <span style={{ flex: 1 }} />
+          <button className="btn btn-ghost btn-sm" type="button" onClick={clearTarget}>
+            <i className="fas fa-times" /> Clear
+          </button>
+        </div>
+      )}
+
       {/* Header */}
       <div className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
         <div>
-          <h1 className="page-title">Backend Management</h1>
-          <p className="page-subtitle">Discover and install AI backends to power your models</p>
+          <h1 className="page-title">{t('backends.title')}</h1>
+          <p className="page-subtitle">{t('backends.subtitle')}</p>
         </div>
         <div style={{ display: 'flex', gap: 'var(--spacing-md)', alignItems: 'center' }}>
           <div style={{ display: 'flex', gap: 'var(--spacing-md)', fontSize: '0.8125rem' }}>
@@ -377,6 +496,7 @@ export default function Backends() {
                 <SortHeader col="repository">Repository</SortHeader>
                 <SortHeader col="license">License</SortHeader>
                 <SortHeader col="status">Status</SortHeader>
+                {distributedEnabled && !targetNode && <th>Nodes</th>}
                 <th style={{ textAlign: 'right' }}>Actions</th>
               </tr>
             </thead>
@@ -446,7 +566,10 @@ export default function Backends() {
                       ) : '-'}
                     </td>
 
-                    {/* Status */}
+                    {/* Status — in distributed mode the Nodes column is the
+                        installed signal, so we drop the global "Installed"
+                        badge here and only keep operation-progress / update
+                        signals to avoid stacking 6 badges in one cell. */}
                     <td>
                       {isProcessing ? (
                         <div className="inline-install">
@@ -464,9 +587,16 @@ export default function Backends() {
                         </div>
                       ) : b.installed ? (
                         <div style={{ display: 'flex', gap: 4, alignItems: 'center', flexWrap: 'wrap' }}>
-                          <span className="badge badge-success">
-                            <i className="fas fa-check" style={{ fontSize: '0.5rem', marginRight: 2 }} /> Installed
-                          </span>
+                          {!distributedEnabled && (
+                            <span className="badge badge-success">
+                              <i className="fas fa-check" style={{ fontSize: '0.5rem', marginRight: 2 }} /> Installed
+                            </span>
+                          )}
+                          {b.version && (
+                            <span className="badge" style={{ fontSize: '0.625rem', background: 'var(--color-bg-tertiary)', color: 'var(--color-text-secondary)' }}>
+                              v{b.version}
+                            </span>
+                          )}
                           {upgrades[b.name] && (
                             <span className="badge" style={{ fontSize: '0.625rem', background: 'var(--color-warning-light)', color: 'var(--color-warning)' }}>
                               <i className="fas fa-arrow-up" style={{ fontSize: '0.5rem', marginRight: 2 }} />
@@ -481,10 +611,67 @@ export default function Backends() {
                       )}
                     </td>
 
+                    {/* Nodes column (distributed mode only, hidden in target
+                        mode since it's redundant with the banner). The chip
+                        is read-only inspection; the adjacent + button is the
+                        write affordance — keeping them visually separate so
+                        users don't accidentally trigger the picker by clicking
+                        to read distribution. */}
+                    {distributedEnabled && !targetNode && (
+                      <td>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-xs)' }}>
+                          <NodeDistributionChip nodes={b.nodes || []} />
+                          {(() => {
+                            const missing = missingNodesFor(b)
+                            if (missing.length === 0 || isProcessing) return null
+                            return (
+                              <button
+                                type="button"
+                                className="btn btn-ghost btn-sm"
+                                onClick={(e) => { e.stopPropagation(); openPicker(b, missing) }}
+                                title={`Install on ${missing.length} more node${missing.length === 1 ? '' : 's'}`}
+                                aria-label="Install on more nodes"
+                                style={{ padding: '2px 6px' }}
+                              >
+                                <i className="fas fa-plus" style={{ fontSize: '0.6875rem' }} />
+                              </button>
+                            )
+                          })()}
+                        </div>
+                      </td>
+                    )}
+
                     {/* Actions */}
                     <td>
                       <div style={{ display: 'flex', gap: 'var(--spacing-xs)', justifyContent: 'flex-end' }} onClick={e => e.stopPropagation()}>
-                        {b.installed ? (
+                        {targetNode ? (
+                          // Target-node mode: collapse to a single per-node
+                          // action. The split-button is overkill when scope is
+                          // already pinned by the URL.
+                          (b.nodes || []).some(n => (n.node_id ?? n.NodeID) === targetNode.id) ? (
+                            <>
+                              <button className="btn btn-secondary btn-sm" onClick={() => handleInstallOnTarget(b.name || b.id)} disabled={isProcessing}
+                                title={`Reinstall on ${targetNode.name}`}>
+                                <i className={`fas ${isProcessing ? 'fa-spinner fa-spin' : 'fa-rotate'}`} /> Reinstall
+                              </button>
+                              <button className="btn btn-danger btn-sm" onClick={async () => {
+                                try {
+                                  await nodesApi.deleteBackend(targetNode.id, b.name || b.id)
+                                  addToast(`Removed ${b.name} from ${targetNode.name}`, 'success')
+                                  setTimeout(() => { fetchBackends(); refetchNodes() }, 600)
+                                } catch (err) {
+                                  addToast(`Remove failed: ${err.message}`, 'error')
+                                }
+                              }} title={`Remove from ${targetNode.name}`} disabled={isProcessing}>
+                                <i className="fas fa-trash" />
+                              </button>
+                            </>
+                          ) : (
+                            <button className="btn btn-primary btn-sm" onClick={() => handleInstallOnTarget(b.name || b.id)} disabled={isProcessing}>
+                              <i className={`fas ${isProcessing ? 'fa-spinner fa-spin' : 'fa-download'}`} /> Install on {targetNode.name}
+                            </button>
+                          )
+                        ) : b.installed ? (
                           <>
                             {upgrades[b.name] ? (
                               <button className="btn btn-primary btn-sm" onClick={() => handleUpgrade(b.name || b.id)} title={`Upgrade to ${upgrades[b.name]?.available_version ? 'v' + upgrades[b.name].available_version : 'latest'}`} disabled={isProcessing}>
@@ -499,6 +686,41 @@ export default function Backends() {
                               <i className="fas fa-trash" />
                             </button>
                           </>
+                        ) : distributedEnabled ? (
+                          // Split-button. Auto-resolving (meta) keeps fan-out
+                          // as the primary; hardware-specific routes the
+                          // primary directly to the picker — fan-out for a
+                          // CPU build is the silent footgun this guard exists
+                          // to prevent. Both share a chevron menu for the
+                          // alternate path.
+                          b.isMeta ? (
+                            <div style={{ display: 'inline-flex' }}>
+                              <button className="btn btn-primary btn-sm" onClick={() => handleInstall(b.name || b.id)} disabled={isProcessing} title="Install on all nodes" style={{ borderTopRightRadius: 0, borderBottomRightRadius: 0 }}>
+                                <i className={`fas ${isProcessing ? 'fa-spinner fa-spin' : 'fa-download'}`} /> Install on all
+                              </button>
+                              <button
+                                ref={splitMenuFor === idx ? splitMenuAnchorRef : undefined}
+                                className="btn btn-primary btn-sm"
+                                onClick={() => setSplitMenuFor(splitMenuFor === idx ? null : idx)}
+                                aria-haspopup="menu"
+                                aria-expanded={splitMenuFor === idx}
+                                aria-label="More install options"
+                                disabled={isProcessing}
+                                style={{ padding: '0 8px', borderLeft: '1px solid rgba(0,0,0,0.15)', borderTopLeftRadius: 0, borderBottomLeftRadius: 0 }}
+                              >
+                                <i className={`fas fa-chevron-${splitMenuFor === idx ? 'up' : 'down'}`} style={{ fontSize: '0.6875rem' }} />
+                              </button>
+                            </div>
+                          ) : (
+                            <button
+                              className="btn btn-primary btn-sm"
+                              onClick={() => openPicker(b)}
+                              disabled={isProcessing}
+                              title="Choose nodes to install on"
+                            >
+                              <i className={`fas ${isProcessing ? 'fa-spinner fa-spin' : 'fa-server'}`} /> Choose nodes…
+                            </button>
+                          )
                         ) : (
                           <button className="btn btn-primary btn-sm" onClick={() => handleInstall(b.name || b.id)} title="Install" disabled={isProcessing}>
                             <i className={`fas ${isProcessing ? 'fa-spinner fa-spin' : 'fa-download'}`} />
@@ -510,7 +732,7 @@ export default function Backends() {
                   {/* Expanded detail row */}
                   {isExpanded && (
                     <tr>
-                      <td colSpan="8" style={{ padding: 0 }}>
+                      <td colSpan={distributedEnabled && !targetNode ? 9 : 8} style={{ padding: 0 }}>
                         <BackendDetail backend={b} />
                       </td>
                     </tr>
@@ -549,6 +771,43 @@ export default function Backends() {
         danger={confirmDialog?.danger}
         onConfirm={confirmDialog?.onConfirm}
         onCancel={() => setConfirmDialog(null)}
+      />
+
+      {/* Single popover instance for the split-button menu, anchored to
+          whichever row's chevron is currently active. Reusing the existing
+          Popover gives us .card surface + outside-click + Escape + focus
+          return for free. */}
+      <Popover
+        anchor={splitMenuAnchorRef}
+        open={splitMenuFor !== null}
+        onClose={() => setSplitMenuFor(null)}
+        ariaLabel="Install options"
+      >
+        <div className="action-menu">
+          <button
+            type="button"
+            className="action-menu__item"
+            onClick={() => {
+              const b = backends[splitMenuFor]
+              if (b) openPicker(b)
+            }}
+          >
+            <i className="fas fa-server action-menu__icon" />
+            Install on specific nodes…
+          </button>
+        </div>
+      </Popover>
+
+      <NodeInstallPicker
+        open={!!pickerBackend}
+        onClose={() => { setPickerBackend(null); setPickerInitialSelection([]) }}
+        onComplete={() => { fetchBackends(); refetchNodes() }}
+        backend={pickerBackend}
+        nodes={clusterNodes}
+        allBackends={allBackends}
+        installedNodeIds={(pickerBackend?.nodes || []).map(n => n.node_id ?? n.NodeID)}
+        initialSelection={pickerInitialSelection}
+        addToast={addToast}
       />
     </div>
   )
@@ -602,7 +861,7 @@ function BackendDetail({ backend }) {
             {backend.urls?.length > 0 && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
                 {backend.urls.map((url, i) => (
-                  <a key={i} href={url} target="_blank" rel="noopener noreferrer" style={{ fontSize: '0.8125rem', color: 'var(--color-primary)', wordBreak: 'break-all' }}>
+                  <a key={i} href={safeHref(url)} target="_blank" rel="noopener noreferrer" style={{ fontSize: '0.8125rem', color: 'var(--color-primary)', wordBreak: 'break-all' }}>
                     <i className="fas fa-external-link-alt" style={{ marginRight: 4, fontSize: '0.6875rem' }} />{url}
                   </a>
                 ))}

@@ -86,6 +86,10 @@ export const modelsApi = {
   listCapabilities: () => fetchJSON(API_CONFIG.endpoints.modelsCapabilities),
   install: (id) => postJSON(API_CONFIG.endpoints.installModel(id), {}),
   delete: (id) => postJSON(API_CONFIG.endpoints.deleteModel(id), {}),
+  estimate: (id, contexts) => fetchJSON(
+    buildUrl(API_CONFIG.endpoints.modelEstimate(id),
+      contexts?.length ? { contexts: contexts.join(',') } : {})
+  ),
   getConfig: (id) => postJSON(API_CONFIG.endpoints.modelConfig(id), {}),
   getConfigJson: (name) => fetchJSON(API_CONFIG.endpoints.modelConfigJson(name)),
   getJob: (uid) => fetchJSON(API_CONFIG.endpoints.modelJob(uid)),
@@ -116,6 +120,7 @@ export const modelsApi = {
     method: 'PATCH',
     body: JSON.stringify(patch),
   }),
+  backendUsecases: () => fetchJSON('/api/backends/usecases'),
 }
 
 // Backends API
@@ -164,6 +169,26 @@ export const operationsApi = {
 export const settingsApi = {
   get: () => fetchJSON(API_CONFIG.endpoints.settings),
   save: (body) => postJSON(API_CONFIG.endpoints.settings, body),
+}
+
+// Branding / whitelabeling
+// /api/branding is public (no auth) — the login page reads it before the
+// user signs in. Asset uploads/deletes still require admin privileges.
+export const brandingApi = {
+  get: () => fetchJSON('/api/branding'),
+  uploadAsset: (kind, file) => {
+    const fd = new FormData()
+    fd.append('file', file)
+    return fetch(apiUrl(`/api/branding/asset/${enc(kind)}`), {
+      method: 'POST',
+      body: fd,
+      credentials: 'include',
+    }).then(handleResponse)
+  },
+  deleteAsset: (kind) => fetch(apiUrl(`/api/branding/asset/${enc(kind)}`), {
+    method: 'DELETE',
+    credentials: 'include',
+  }).then(handleResponse),
 }
 
 // Backend Logs API
@@ -217,12 +242,14 @@ export const videoApi = {
   generate: (body) => postJSON(API_CONFIG.endpoints.video, body),
 }
 
-async function postAudioBlob(endpoint, body) {
-  const response = await fetch(apiUrl(endpoint), {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
-  })
+// parseAudioBlobResponse — shared response handling for audio-blob endpoints.
+// Throws on non-2xx (with the API error message when present); returns the
+// blob plus the parsed Content-Disposition filename mapped to the server's
+// /generated-audio/ path so the UI can persist it in history. The audio
+// transform endpoint also surfaces the persisted *input* paths via
+// X-Audio-Input-Url / X-Audio-Reference-Url headers so the UI can replay
+// past (input, reference, output) triples from history.
+async function parseAudioBlobResponse(response) {
   if (!response.ok) {
     const data = await response.json().catch(() => ({}))
     throw new Error(data?.error?.message || `HTTP ${response.status}`)
@@ -233,8 +260,24 @@ async function postAudioBlob(endpoint, body) {
     const match = disposition.match(/filename[^;=\n]*=["']?([^"';\n]*)["']?/)
     if (match && match[1]) serverUrl = '/generated-audio/' + match[1]
   }
+  const inputUrl = response.headers.get('x-audio-input-url') || null
+  const referenceUrl = response.headers.get('x-audio-reference-url') || null
   const blob = await response.blob()
-  return { blob, serverUrl }
+  return { blob, serverUrl, inputUrl, referenceUrl }
+}
+
+async function postAudioBlob(endpoint, body) {
+  const response = await fetch(apiUrl(endpoint), {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  })
+  return parseAudioBlobResponse(response)
+}
+
+async function postMultipartAudioBlob(endpoint, formData) {
+  const response = await fetch(apiUrl(endpoint), { method: 'POST', body: formData })
+  return parseAudioBlobResponse(response)
 }
 
 // TTS
@@ -246,6 +289,26 @@ export const ttsApi = {
 // Sound generation
 export const soundApi = {
   generate: (body) => postAudioBlob(API_CONFIG.endpoints.soundGeneration, body),
+}
+
+// Audio transform (echo cancellation, noise suppression, voice conversion, etc.)
+export const audioTransformApi = {
+  process: ({ model, audioFile, referenceFile, format, sampleRate, params }) => {
+    const fd = new FormData()
+    fd.append('model', model)
+    fd.append('audio', audioFile, audioFile?.name || 'audio.wav')
+    if (referenceFile) fd.append('reference', referenceFile, referenceFile.name || 'reference.wav')
+    if (format) fd.append('response_format', format)
+    if (sampleRate) fd.append('sample_rate', String(sampleRate))
+    if (params) {
+      for (const [k, v] of Object.entries(params)) {
+        if (v == null || v === '') continue
+        fd.append(`params[${k}]`, String(v))
+      }
+    }
+    return postMultipartAudioBlob(API_CONFIG.endpoints.audioTransformations, fd)
+  },
+  streamUrl: () => apiUrl(API_CONFIG.endpoints.audioTransformStream).replace(/^http/, 'ws'),
 }
 
 // Audio transcription
@@ -387,8 +450,10 @@ export const adminUsersApi = {
   deleteQuota: (id, quotaId) => fetchJSON(`/api/auth/admin/users/${encodeURIComponent(id)}/quotas/${encodeURIComponent(quotaId)}`, {
     method: 'DELETE',
   }),
-  resetPassword: (id, password) => fetchJSON(`/api/auth/admin/users/${encodeURIComponent(id)}/password`, {
-    method: 'PUT', body: JSON.stringify({ password }), headers: { 'Content-Type': 'application/json' },
+  resetPassword: (id, password, acknowledgeWeak = false) => fetchJSON(`/api/auth/admin/users/${encodeURIComponent(id)}/password`, {
+    method: 'PUT',
+    body: JSON.stringify({ password, acknowledge_weak_password: acknowledgeWeak }),
+    headers: { 'Content-Type': 'application/json' },
   }),
 }
 
@@ -401,8 +466,9 @@ export const profileApi = {
   updateProfile: (name, avatarUrl) => fetchJSON('/api/auth/profile', {
     method: 'PUT', body: JSON.stringify({ name, avatar_url: avatarUrl || '' }), headers: { 'Content-Type': 'application/json' },
   }),
-  changePassword: (currentPassword, newPassword) => fetchJSON('/api/auth/password', {
-    method: 'PUT', body: JSON.stringify({ current_password: currentPassword, new_password: newPassword }),
+  changePassword: (currentPassword, newPassword, acknowledgeWeak = false) => fetchJSON('/api/auth/password', {
+    method: 'PUT',
+    body: JSON.stringify({ current_password: currentPassword, new_password: newPassword, acknowledge_weak_password: acknowledgeWeak }),
     headers: { 'Content-Type': 'application/json' },
   }),
 }
@@ -463,7 +529,17 @@ export const nodesApi = {
   approve: (id) => postJSON(API_CONFIG.endpoints.nodeApprove(id), {}),
   getModels: (id) => fetchJSON(API_CONFIG.endpoints.nodeModels(id)),
   getBackends: (id) => fetchJSON(API_CONFIG.endpoints.nodeBackends(id)),
-  installBackend: (id, backend) => postJSON(API_CONFIG.endpoints.nodeBackendsInstall(id), { backend }),
+  // installBackend installs a gallery backend on a single node. opts can
+  // override the gallery path and supply a direct URI (OCI image / URL / file
+  // path) plus an optional name+alias, mirroring the standalone /backends/
+  // install-external surface but scoped to one node.
+  installBackend: (id, backend, opts = {}) => postJSON(API_CONFIG.endpoints.nodeBackendsInstall(id), {
+    backend,
+    ...(opts.uri ? { uri: opts.uri } : {}),
+    ...(opts.name ? { name: opts.name } : {}),
+    ...(opts.alias ? { alias: opts.alias } : {}),
+    ...(opts.backend_galleries ? { backend_galleries: opts.backend_galleries } : {}),
+  }),
   deleteBackend: (id, backend) => postJSON(API_CONFIG.endpoints.nodeBackendsDelete(id), { backend }),
   getBackendLogs: (id) => fetchJSON(API_CONFIG.endpoints.nodeBackendLogs(id)),
   getBackendLogLines: (id, modelId) => fetchJSON(API_CONFIG.endpoints.nodeBackendLogsModel(id, modelId)),
@@ -471,6 +547,17 @@ export const nodesApi = {
   getLabels: (id) => fetchJSON(API_CONFIG.endpoints.nodeLabels(id)),
   mergeLabels: (id, labels) => fetchJSON(API_CONFIG.endpoints.nodeLabels(id), { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(labels) }),
   deleteLabel: (id, key) => fetchJSON(API_CONFIG.endpoints.nodeLabelKey(id, key), { method: 'DELETE' }),
+  // Set a sticky admin override for the per-node replica cap. The override
+  // is preserved across worker restarts; call resetMaxReplicasPerModel to
+  // hand control back to the worker's CLI flag.
+  updateMaxReplicasPerModel: (id, value) => fetchJSON(API_CONFIG.endpoints.nodeMaxReplicasPerModel(id), {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ value }),
+  }),
+  resetMaxReplicasPerModel: (id) => fetchJSON(API_CONFIG.endpoints.nodeMaxReplicasPerModel(id), {
+    method: 'DELETE',
+  }),
   listScheduling: () => fetchJSON(API_CONFIG.endpoints.nodesScheduling),
   setScheduling: (config) => postJSON(API_CONFIG.endpoints.nodesScheduling, config),
   deleteScheduling: (model) => fetchJSON(API_CONFIG.endpoints.nodesSchedulingModel(model), { method: 'DELETE' }),

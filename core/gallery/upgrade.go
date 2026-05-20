@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/mudler/LocalAI/core/config"
@@ -64,13 +65,51 @@ func CheckUpgradesAgainst(ctx context.Context, galleries []config.Gallery, syste
 
 	result := make(map[string]UpgradeInfo)
 
+	// Build a set of installed metadata names so we can suppress non-dev
+	// candidates whose `-development` counterpart is already installed —
+	// dev variants share an alias with the stable one and are explicit
+	// drop-in replacements, so auto-upgrade must never reintroduce the
+	// non-dev alongside them.
+	_, _, devSuffix := getFallbackTagValues(systemState)
+	devTag := "-" + devSuffix
+	installedNames := make(map[string]struct{}, len(installedBackends))
 	for _, installed := range installedBackends {
+		if installed.Metadata == nil || installed.Metadata.Name == "" {
+			continue
+		}
+		installedNames[installed.Metadata.Name] = struct{}{}
+	}
+
+	for key, installed := range installedBackends {
 		// Skip system backends — they are managed outside the gallery
 		if installed.IsSystem {
 			continue
 		}
 		if installed.Metadata == nil {
 			continue
+		}
+
+		// Skip synthetic alias rows: ListSystemBackends emits an extra
+		// entry keyed by the alias name that re-uses the chosen concrete's
+		// metadata pointer. Iterating it just duplicates the concrete's
+		// gallery lookup, and in distributed mode the wire-reconstructed
+		// version of that row carries a forged Metadata.Name = alias which
+		// can match an unrelated gallery entry.
+		if key != installed.Metadata.Name {
+			continue
+		}
+
+		// Drop-in replacement guard: skip non-dev `X` if `X-<devSuffix>`
+		// is installed. Without this, any upgrade flagged on the non-dev
+		// row (e.g. surfaced via a synthetic-alias path on older workers,
+		// or because both variants happen to be present on disk via stale
+		// state) would tell auto-upgrade to install the stable variant on
+		// top of the user's explicit dev pick.
+		name := installed.Metadata.Name
+		if !strings.HasSuffix(name, devTag) {
+			if _, devInstalled := installedNames[name+devTag]; devInstalled {
+				continue
+			}
 		}
 
 		// Find matching gallery entry by metadata name
@@ -193,7 +232,7 @@ func summarizeNodeDrift(nodes []NodeBackendRef) (majority struct{ version, diges
 
 // UpgradeBackend upgrades a single backend to the latest gallery version using
 // an atomic swap with backup-based rollback on failure.
-func UpgradeBackend(ctx context.Context, systemState *system.SystemState, modelLoader *model.ModelLoader, galleries []config.Gallery, backendName string, downloadStatus func(string, string, string, float64)) error {
+func UpgradeBackend(ctx context.Context, systemState *system.SystemState, modelLoader *model.ModelLoader, galleries []config.Gallery, backendName string, downloadStatus func(string, string, string, float64), requireIntegrity bool) error {
 	// Look up the installed backend
 	installedBackends, err := ListSystemBackends(systemState)
 	if err != nil {
@@ -212,7 +251,7 @@ func UpgradeBackend(ctx context.Context, systemState *system.SystemState, modelL
 	// If this is a meta backend, recursively upgrade the concrete backend it points to
 	if installed.Metadata != nil && installed.Metadata.MetaBackendFor != "" {
 		xlog.Info("Meta backend detected, upgrading concrete backend", "meta", backendName, "concrete", installed.Metadata.MetaBackendFor)
-		return UpgradeBackend(ctx, systemState, modelLoader, galleries, installed.Metadata.MetaBackendFor, downloadStatus)
+		return UpgradeBackend(ctx, systemState, modelLoader, galleries, installed.Metadata.MetaBackendFor, downloadStatus, requireIntegrity)
 	}
 
 	// Find the gallery entry
@@ -224,6 +263,16 @@ func UpgradeBackend(ctx context.Context, systemState *system.SystemState, modelL
 	galleryEntry := FindGalleryElement(galleryBackends, backendName)
 	if galleryEntry == nil {
 		return fmt.Errorf("no gallery entry found for backend %q", backendName)
+	}
+
+	// Resolve integrity options (cosign verifier for OCI URIs, strict-mode
+	// gate for missing SHA256/policy) BEFORE writing anything to disk.
+	// Without this, the upgrade path would atomically swap in an
+	// unverified backend even when the gallery has a verification policy
+	// — see backendDownloadOptions in backends.go.
+	downloadOpts, err := backendDownloadOptions(galleryEntry, requireIntegrity)
+	if err != nil {
+		return fmt.Errorf("upgrade %q: %w", backendName, err)
 	}
 
 	backendPath := filepath.Join(systemState.Backend.BackendsPath, backendName)
@@ -246,7 +295,7 @@ func UpgradeBackend(ctx context.Context, systemState *system.SystemState, modelL
 			return fmt.Errorf("failed to copy backend from directory: %w", err)
 		}
 	} else {
-		if err := uri.DownloadFileWithContext(ctx, tmpPath, "", 1, 1, downloadStatus); err != nil {
+		if err := uri.DownloadFileWithContext(ctx, tmpPath, galleryEntry.SHA256, 1, 1, downloadStatus, downloadOpts...); err != nil {
 			os.RemoveAll(tmpPath)
 			return fmt.Errorf("failed to download backend: %w", err)
 		}

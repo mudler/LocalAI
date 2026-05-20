@@ -59,7 +59,10 @@ function chip(page, key) {
 }
 
 function backendTrigger(page) {
-  return page.locator('button[aria-haspopup="listbox"]').first()
+  // Scope to <main>: the LanguageSwitcher in the sidebar also uses
+  // aria-haspopup="listbox", so an unscoped .first() selector picks it
+  // instead of the backend dropdown.
+  return page.locator('main button[aria-haspopup="listbox"]').first()
 }
 
 test.describe('Import form UX — Batch E (modality chip row)', () => {

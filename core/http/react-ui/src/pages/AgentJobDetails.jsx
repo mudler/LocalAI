@@ -162,9 +162,9 @@ export default function AgentJobDetails() {
     return rendered
   }
 
-  if (loading) return <div className="page" style={{ display: 'flex', justifyContent: 'center', padding: 'var(--spacing-xl)' }}><LoadingSpinner size="lg" /></div>
+  if (loading) return <div className="page page--narrow" style={{ display: 'flex', justifyContent: 'center', padding: 'var(--spacing-xl)' }}><LoadingSpinner size="lg" /></div>
   if (!job) return (
-    <div className="page">
+    <div className="page page--narrow">
       <div className="empty-state">
         <div className="empty-state-icon"><i className="fas fa-search" /></div>
         <h2 className="empty-state-title">Job not found</h2>
@@ -177,7 +177,7 @@ export default function AgentJobDetails() {
   const traces = Array.isArray(job.traces) ? job.traces : []
 
   return (
-    <div className="page" style={{ maxWidth: 900 }}>
+    <div className="page page--narrow">
       <div className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <div>
           <h1 className="page-title">Job Details</h1>

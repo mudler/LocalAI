@@ -57,8 +57,8 @@ func loadTranscriptionModel(ml *model.ModelLoader, modelConfig config.ModelConfi
 	return transcriptionModel, nil
 }
 
-func ModelTranscription(audio, language string, translate, diarize bool, prompt string, ml *model.ModelLoader, modelConfig config.ModelConfig, appConfig *config.ApplicationConfig) (*schema.TranscriptionResult, error) {
-	return ModelTranscriptionWithOptions(TranscriptionRequest{
+func ModelTranscription(ctx context.Context, audio, language string, translate, diarize bool, prompt string, ml *model.ModelLoader, modelConfig config.ModelConfig, appConfig *config.ApplicationConfig) (*schema.TranscriptionResult, error) {
+	return ModelTranscriptionWithOptions(ctx, TranscriptionRequest{
 		Audio:     audio,
 		Language:  language,
 		Translate: translate,
@@ -67,7 +67,7 @@ func ModelTranscription(audio, language string, translate, diarize bool, prompt 
 	}, ml, modelConfig, appConfig)
 }
 
-func ModelTranscriptionWithOptions(req TranscriptionRequest, ml *model.ModelLoader, modelConfig config.ModelConfig, appConfig *config.ApplicationConfig) (*schema.TranscriptionResult, error) {
+func ModelTranscriptionWithOptions(ctx context.Context, req TranscriptionRequest, ml *model.ModelLoader, modelConfig config.ModelConfig, appConfig *config.ApplicationConfig) (*schema.TranscriptionResult, error) {
 	transcriptionModel, err := loadTranscriptionModel(ml, modelConfig, appConfig)
 	if err != nil {
 		return nil, err
@@ -82,7 +82,7 @@ func ModelTranscriptionWithOptions(req TranscriptionRequest, ml *model.ModelLoad
 		audioSnippet = trace.AudioSnippet(req.Audio)
 	}
 
-	r, err := transcriptionModel.AudioTranscription(context.Background(), req.toProto(uint32(*modelConfig.Threads)))
+	r, err := transcriptionModel.AudioTranscription(ctx, req.toProto(uint32(*modelConfig.Threads)))
 	if err != nil {
 		if appConfig.EnableTracing {
 			errData := map[string]any{
@@ -149,7 +149,7 @@ type TranscriptionStreamChunk struct {
 // invokes onChunk for each event the backend produces. Backends that don't
 // support real streaming should still emit one terminal event with Final set,
 // which the HTTP layer turns into a single delta + done SSE pair.
-func ModelTranscriptionStream(req TranscriptionRequest, ml *model.ModelLoader, modelConfig config.ModelConfig, appConfig *config.ApplicationConfig, onChunk func(TranscriptionStreamChunk)) error {
+func ModelTranscriptionStream(ctx context.Context, req TranscriptionRequest, ml *model.ModelLoader, modelConfig config.ModelConfig, appConfig *config.ApplicationConfig, onChunk func(TranscriptionStreamChunk)) error {
 	transcriptionModel, err := loadTranscriptionModel(ml, modelConfig, appConfig)
 	if err != nil {
 		return err
@@ -158,7 +158,7 @@ func ModelTranscriptionStream(req TranscriptionRequest, ml *model.ModelLoader, m
 	pbReq := req.toProto(uint32(*modelConfig.Threads))
 	pbReq.Stream = true
 
-	return transcriptionModel.AudioTranscriptionStream(context.Background(), pbReq, func(chunk *proto.TranscriptStreamResponse) {
+	return transcriptionModel.AudioTranscriptionStream(ctx, pbReq, func(chunk *proto.TranscriptStreamResponse) {
 		if chunk == nil {
 			return
 		}
@@ -179,10 +179,21 @@ func transcriptResultFromProto(r *proto.TranscriptResult) *schema.TranscriptionR
 		Language: r.Language,
 		Duration: float64(r.Duration),
 	}
+
 	for _, s := range r.Segments {
 		var tks []int
 		for _, t := range s.Tokens {
 			tks = append(tks, int(t))
+		}
+		var words []schema.TranscriptionWord
+		for _, w := range s.Words {
+			var word = schema.TranscriptionWord{
+				Start: time.Duration(w.Start),
+				End:   time.Duration(w.End),
+				Text:  w.Text,
+			}
+			words = append(words, word)
+			tr.Words = append(tr.Words, word)
 		}
 		tr.Segments = append(tr.Segments,
 			schema.TranscriptionSegment{
@@ -192,6 +203,7 @@ func transcriptResultFromProto(r *proto.TranscriptResult) *schema.TranscriptionR
 				End:     time.Duration(s.End),
 				Tokens:  tks,
 				Speaker: s.Speaker,
+				Words:   words,
 			})
 	}
 	return tr

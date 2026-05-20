@@ -57,7 +57,7 @@ var _ = Describe("Node Backend Lifecycle (NATS-driven)", Label("Distributed"), f
 			FlushNATS(infra.NC)
 
 			adapter := nodes.NewRemoteUnloaderAdapter(registry, infra.NC)
-			installReply, err := adapter.InstallBackend(node.ID, "llama-cpp", "", "", "", "", "")
+			installReply, err := adapter.InstallBackend(node.ID, "llama-cpp", "", "", "", "", "", 0)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(installReply.Success).To(BeTrue())
 		})
@@ -78,7 +78,7 @@ var _ = Describe("Node Backend Lifecycle (NATS-driven)", Label("Distributed"), f
 			FlushNATS(infra.NC)
 
 			adapter := nodes.NewRemoteUnloaderAdapter(registry, infra.NC)
-			installReply, err := adapter.InstallBackend(node.ID, "nonexistent", "", "", "", "", "")
+			installReply, err := adapter.InstallBackend(node.ID, "nonexistent", "", "", "", "", "", 0)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(installReply.Success).To(BeFalse())
 			Expect(installReply.Error).To(ContainSubstring("backend not found"))
@@ -91,7 +91,7 @@ var _ = Describe("Node Backend Lifecycle (NATS-driven)", Label("Distributed"), f
 				Name: "gpu-node-2", Address: "h2:50051",
 			}
 			Expect(registry.Register(context.Background(), node, true)).To(Succeed())
-			Expect(registry.SetNodeModel(context.Background(), node.ID, "whisper-large", "loaded", "", 0)).To(Succeed())
+			Expect(registry.SetNodeModel(context.Background(), node.ID, "whisper-large", 0, "loaded", "", 0)).To(Succeed())
 
 			var stopReceived atomic.Int32
 			sub, err := infra.NC.Subscribe(messaging.SubjectNodeBackendStop(node.ID), func(data []byte) {
@@ -118,8 +118,8 @@ var _ = Describe("Node Backend Lifecycle (NATS-driven)", Label("Distributed"), f
 			node2 := &nodes.BackendNode{Name: "n2", Address: "h2:50051"}
 			registry.Register(context.Background(), node1, true)
 			registry.Register(context.Background(), node2, true)
-			registry.SetNodeModel(context.Background(), node1.ID, "shared-model", "loaded", "", 0)
-			registry.SetNodeModel(context.Background(), node2.ID, "shared-model", "loaded", "", 0)
+			registry.SetNodeModel(context.Background(), node1.ID, "shared-model", 0, "loaded", "", 0)
+			registry.SetNodeModel(context.Background(), node2.ID, "shared-model", 0, "loaded", "", 0)
 
 			var count atomic.Int32
 			sub1, _ := infra.NC.Subscribe(messaging.SubjectNodeBackendStop(node1.ID), func(data []byte) {

@@ -38,7 +38,7 @@ func DetectionEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, appC
 			return err
 		}
 
-		res, err := backend.Detection(image, input.Prompt, input.Points, input.Boxes, input.Threshold, ml, appConfig, *cfg)
+		res, err := backend.Detection(c.Request().Context(), image, input.Prompt, input.Points, input.Boxes, input.Threshold, ml, appConfig, *cfg)
 		if err != nil {
 			return mapBackendError(err)
 		}

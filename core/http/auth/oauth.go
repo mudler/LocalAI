@@ -30,11 +30,16 @@ type providerEntry struct {
 }
 
 // oauthUserInfo is a provider-agnostic representation of an authenticated user.
+// EmailVerified MUST reflect upstream verification: AssignRole compares Email
+// against the configured admin email, so an unverified claim of a privileged
+// address must not be honoured. Callers that cannot prove verification set
+// EmailVerified=false.
 type oauthUserInfo struct {
-	Subject   string
-	Email     string
-	Name      string
-	AvatarURL string
+	Subject       string
+	Email         string
+	EmailVerified bool
+	Name          string
+	AvatarURL     string
 }
 
 // OAuthManager manages multiple OAuth/OIDC providers.
@@ -236,10 +241,15 @@ func (m *OAuthManager) CallbackHandler(providerName string, db *gorm.DB, adminEm
 					email = strings.ToLower(strings.TrimSpace(userInfo.Email))
 				}
 
-				role := AssignRole(tx, email, adminEmail)
+				// roleEmail is what AssignRole and NeedsInviteOrApproval
+				// use to short-circuit on admin-email matches. Pass the
+				// unverified-email-substituted form so an IdP-supplied
+				// copy of LOCALAI_ADMIN_EMAIL doesn't bypass either gate.
+				roleEmail := emailForRoleDecision(email, userInfo.EmailVerified)
+				role := AssignRole(tx, roleEmail, adminEmail)
 				status := StatusActive
 
-				if NeedsInviteOrApproval(tx, email, adminEmail, registrationMode) {
+				if NeedsInviteOrApproval(tx, roleEmail, adminEmail, registrationMode) {
 					if registrationMode == "invite" {
 						if inviteCode == "" {
 							return fmt.Errorf("invite_required")
@@ -294,8 +304,11 @@ func (m *OAuthManager) CallbackHandler(providerName string, db *gorm.DB, adminEm
 			return c.JSON(http.StatusForbidden, map[string]string{"error": "account pending approval"})
 		}
 
-		// Maybe promote on login
-		MaybePromote(db, user, adminEmail)
+		// Same gate as roleEmail above: only verified emails can flip an
+		// existing user to admin via the LOCALAI_ADMIN_EMAIL match.
+		if userInfo.EmailVerified {
+			MaybePromote(db, user, adminEmail)
+		}
 
 		// Create session
 		sessionID, err := CreateSession(db, user.ID, hmacSecret)
@@ -321,20 +334,26 @@ func extractOIDCUserInfo(ctx context.Context, verifier *oidc.IDTokenVerifier, to
 	}
 
 	var claims struct {
-		Sub     string `json:"sub"`
-		Email   string `json:"email"`
-		Name    string `json:"name"`
-		Picture string `json:"picture"`
+		Sub           string `json:"sub"`
+		Email         string `json:"email"`
+		EmailVerified *bool  `json:"email_verified"`
+		Name          string `json:"name"`
+		Picture       string `json:"picture"`
 	}
 	if err := idToken.Claims(&claims); err != nil {
 		return nil, fmt.Errorf("failed to parse ID token claims: %w", err)
 	}
 
+	// Default to false on absence: an IdP that doesn't issue the claim is
+	// not asserting verification, and we must not promote on its email.
+	verified := claims.EmailVerified != nil && *claims.EmailVerified
+
 	return &oauthUserInfo{
-		Subject:   claims.Sub,
-		Email:     claims.Email,
-		Name:      claims.Name,
-		AvatarURL: claims.Picture,
+		Subject:       claims.Sub,
+		Email:         claims.Email,
+		EmailVerified: verified,
+		Name:          claims.Name,
+		AvatarURL:     claims.Picture,
 	}, nil
 }
 
@@ -353,16 +372,19 @@ type githubEmail struct {
 }
 
 // fetchGitHubUserInfoAsOAuth fetches GitHub user info and returns it as oauthUserInfo.
+// GitHub only surfaces verified emails (public profile email and the
+// /user/emails Verified=true filter), so a non-empty email is always verified.
 func fetchGitHubUserInfoAsOAuth(ctx context.Context, accessToken string) (*oauthUserInfo, error) {
 	info, err := fetchGitHubUserInfo(ctx, accessToken)
 	if err != nil {
 		return nil, err
 	}
 	return &oauthUserInfo{
-		Subject:   fmt.Sprintf("%d", info.ID),
-		Email:     info.Email,
-		Name:      info.Name,
-		AvatarURL: info.AvatarURL,
+		Subject:       fmt.Sprintf("%d", info.ID),
+		Email:         info.Email,
+		EmailVerified: info.Email != "",
+		Name:          info.Name,
+		AvatarURL:     info.AvatarURL,
 	}, nil
 }
 

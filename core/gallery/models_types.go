@@ -52,3 +52,39 @@ func (m *GalleryModel) GetTags() []string {
 func (m *GalleryModel) GetDescription() string {
 	return m.Description
 }
+
+// GetKnownUsecases returns the usecase flags declared by the gallery entry,
+// falling back to the resolved backend's default usecases when the entry has
+// none of its own. Returns nil only when neither source provides any.
+//
+// Why the fallback: many gallery entries omit known_usecases because their
+// backend has only one sensible mode (e.g. stablediffusion-ggml is always
+// image generation). Without this fallback such models silently disappear
+// from usecase-based filtering in the UI.
+func (m *GalleryModel) GetKnownUsecases() *config.ModelConfigUsecase {
+	if strs := overrideUsecaseStrings(m.Overrides); len(strs) > 0 {
+		return config.GetUsecasesFromYAML(strs)
+	}
+	if defaults := config.DefaultUsecasesForBackendCap(m.Backend); len(defaults) > 0 {
+		return config.GetUsecasesFromYAML(defaults)
+	}
+	return nil
+}
+
+func overrideUsecaseStrings(overrides map[string]any) []string {
+	raw, ok := overrides["known_usecases"]
+	if !ok {
+		return nil
+	}
+	list, ok := raw.([]any)
+	if !ok {
+		return nil
+	}
+	strs := make([]string, 0, len(list))
+	for _, v := range list {
+		if s, ok := v.(string); ok {
+			strs = append(strs, s)
+		}
+	}
+	return strs
+}

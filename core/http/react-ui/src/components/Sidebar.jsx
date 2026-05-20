@@ -1,44 +1,57 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { NavLink, useNavigate, useLocation } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import ThemeToggle from './ThemeToggle'
+import LanguageSwitcher from './LanguageSwitcher'
 import { useAuth } from '../context/AuthContext'
+import { useBranding } from '../contexts/BrandingContext'
 import { apiUrl } from '../utils/basePath'
 
 const COLLAPSED_KEY = 'localai_sidebar_collapsed'
 const SECTIONS_KEY = 'localai_sidebar_sections'
 
 const topItems = [
-  { path: '/app', icon: 'fas fa-home', label: 'Home' },
-  { path: '/app/models', icon: 'fas fa-download', label: 'Install Models', adminOnly: true },
-  { path: '/app/chat', icon: 'fas fa-comments', label: 'Chat' },
-  { path: '/app/studio', icon: 'fas fa-palette', label: 'Studio' },
-  { path: '/app/talk', icon: 'fas fa-phone', label: 'Talk' },
+  { path: '/app', icon: 'fas fa-home', labelKey: 'items.home' },
+  { path: '/app/models', icon: 'fas fa-download', labelKey: 'items.installModels', adminOnly: true },
+  { path: '/app/chat', icon: 'fas fa-comments', labelKey: 'items.chat' },
+  { path: '/app/studio', icon: 'fas fa-palette', labelKey: 'items.studio' },
+  { path: '/app/talk', icon: 'fas fa-phone', labelKey: 'items.talk' },
 ]
 
 const sections = [
   {
     id: 'tools',
-    title: 'Tools',
+    titleKey: 'sections.tools',
     items: [
-      { path: '/app/fine-tune', icon: 'fas fa-graduation-cap', label: 'Fine-Tune (Experimental)', feature: 'fine_tuning' },
-      { path: '/app/quantize', icon: 'fas fa-compress', label: 'Quantize (Experimental)', feature: 'quantization' },
+      { path: '/app/fine-tune', icon: 'fas fa-graduation-cap', labelKey: 'items.fineTune', feature: 'fine_tuning' },
+      { path: '/app/quantize', icon: 'fas fa-compress', labelKey: 'items.quantize', feature: 'quantization' },
+    ],
+  },
+  {
+    id: 'enhance',
+    titleKey: 'sections.enhance',
+    featureMap: {
+      '/app/transform': 'audio_transform',
+    },
+    items: [
+      { path: '/app/transform', icon: 'fas fa-wave-square', labelKey: 'items.audioTransform', feature: 'audio_transform' },
     ],
   },
   {
     id: 'biometrics',
-    title: 'Biometrics',
+    titleKey: 'sections.biometrics',
     featureMap: {
       '/app/face': 'face_recognition',
       '/app/voice': 'voice_recognition',
     },
     items: [
-      { path: '/app/face', icon: 'fas fa-face-smile', label: 'Face Recognition', feature: 'face_recognition' },
-      { path: '/app/voice', icon: 'fas fa-microphone-lines', label: 'Voice Recognition', feature: 'voice_recognition' },
+      { path: '/app/face', icon: 'fas fa-face-smile', labelKey: 'items.faceRecognition', feature: 'face_recognition' },
+      { path: '/app/voice', icon: 'fas fa-microphone-lines', labelKey: 'items.voiceRecognition', feature: 'voice_recognition' },
     ],
   },
   {
     id: 'agents',
-    title: 'Agents',
+    titleKey: 'sections.agents',
     featureMap: {
       '/app/agents': 'agents',
       '/app/skills': 'skills',
@@ -46,29 +59,31 @@ const sections = [
       '/app/agent-jobs': 'mcp_jobs',
     },
     items: [
-      { path: '/app/agents', icon: 'fas fa-robot', label: 'Agents' },
-      { path: '/app/skills', icon: 'fas fa-wand-magic-sparkles', label: 'Skills' },
-      { path: '/app/collections', icon: 'fas fa-database', label: 'Memory' },
-      { path: '/app/agent-jobs', icon: 'fas fa-tasks', label: 'MCP CI Jobs', feature: 'mcp' },
+      { path: '/app/agents', icon: 'fas fa-robot', labelKey: 'items.agents' },
+      { path: '/app/skills', icon: 'fas fa-wand-magic-sparkles', labelKey: 'items.skills' },
+      { path: '/app/collections', icon: 'fas fa-database', labelKey: 'items.memory' },
+      { path: '/app/agent-jobs', icon: 'fas fa-tasks', labelKey: 'items.mcpJobs', feature: 'mcp' },
     ],
   },
   {
     id: 'system',
-    title: 'System',
+    titleKey: 'sections.system',
     items: [
-      { path: '/app/usage', icon: 'fas fa-chart-bar', label: 'Usage', authOnly: true },
-      { path: '/app/users', icon: 'fas fa-users', label: 'Users', adminOnly: true, authOnly: true },
-      { path: '/app/backends', icon: 'fas fa-server', label: 'Backends', adminOnly: true },
-      { path: '/app/traces', icon: 'fas fa-chart-line', label: 'Traces', adminOnly: true },
-      { path: '/app/nodes', icon: 'fas fa-network-wired', label: 'Nodes', adminOnly: true, feature: 'distributed' },
-      { path: '/app/p2p', icon: 'fas fa-circle-nodes', label: 'Swarm', adminOnly: true },
-      { path: '/app/manage', icon: 'fas fa-desktop', label: 'System', adminOnly: true },
-      { path: '/app/settings', icon: 'fas fa-cog', label: 'Settings', adminOnly: true },
+      { path: '/app/usage', icon: 'fas fa-chart-bar', labelKey: 'items.usage', authOnly: true },
+      { path: '/app/users', icon: 'fas fa-users', labelKey: 'items.users', adminOnly: true, authOnly: true },
+      { path: '/app/backends', icon: 'fas fa-server', labelKey: 'items.backends', adminOnly: true },
+      { path: '/app/traces', icon: 'fas fa-chart-line', labelKey: 'items.traces', adminOnly: true },
+      { path: '/app/nodes', icon: 'fas fa-network-wired', labelKey: 'items.nodes', adminOnly: true, feature: 'distributed' },
+      { path: '/app/p2p', icon: 'fas fa-circle-nodes', labelKey: 'items.swarm', adminOnly: true },
+      { path: '/app/manage', icon: 'fas fa-desktop', labelKey: 'items.system', adminOnly: true },
+      { path: '/app/settings', icon: 'fas fa-cog', labelKey: 'items.settings', adminOnly: true },
     ],
   },
 ]
 
 function NavItem({ item, onClose, collapsed }) {
+  const { t } = useTranslation('nav')
+  const label = t(item.labelKey)
   return (
     <NavLink
       to={item.path}
@@ -77,10 +92,10 @@ function NavItem({ item, onClose, collapsed }) {
         `nav-item ${isActive ? 'active' : ''}`
       }
       onClick={onClose}
-      title={collapsed ? item.label : undefined}
+      title={collapsed ? label : undefined}
     >
       <i className={`${item.icon} nav-icon`} />
-      <span className="nav-label">{item.label}</span>
+      <span className="nav-label">{label}</span>
     </NavLink>
   )
 }
@@ -99,18 +114,44 @@ function saveSectionState(state) {
 }
 
 export default function Sidebar({ isOpen, onClose }) {
+  const { t } = useTranslation('nav')
   const [features, setFeatures] = useState({})
   const [collapsed, setCollapsed] = useState(() => {
     try { return localStorage.getItem(COLLAPSED_KEY) === 'true' } catch (_) { return false }
   })
   const [openSections, setOpenSections] = useState(loadSectionState)
   const { isAdmin, authEnabled, user, logout, hasFeature } = useAuth()
+  const branding = useBranding()
   const navigate = useNavigate()
   const location = useLocation()
+  const closeBtnRef = useRef(null)
 
   useEffect(() => {
     fetch(apiUrl('/api/features')).then(r => r.json()).then(setFeatures).catch(() => {})
   }, [])
+
+  // Stay in sync with external collapse dispatches (e.g. the chat
+  // page's focus mode). The collapse-toggle button still owns the
+  // localStorage write — listeners only mirror state, otherwise an
+  // outside dispatch would silently overwrite the user's preference.
+  useEffect(() => {
+    const handler = (e) => {
+      const next = !!e.detail?.collapsed
+      setCollapsed(prev => (prev === next ? prev : next))
+    }
+    window.addEventListener('sidebar-collapse', handler)
+    return () => window.removeEventListener('sidebar-collapse', handler)
+  }, [])
+
+  // Move focus into the drawer when opened on mobile/tablet so keyboard
+  // and screen-reader users land inside the dialog. Targeting the close
+  // button avoids hijacking the visual focus to a nav item the user may
+  // not have meant to activate.
+  useEffect(() => {
+    if (!isOpen) return
+    const id = window.requestAnimationFrame(() => closeBtnRef.current?.focus())
+    return () => window.cancelAnimationFrame(id)
+  }, [isOpen])
 
   // Auto-expand section containing the active route
   useEffect(() => {
@@ -168,17 +209,26 @@ export default function Sidebar({ isOpen, onClose }) {
     <>
       {isOpen && <div className="sidebar-overlay" onClick={onClose} />}
 
-      <aside className={`sidebar ${isOpen ? 'open' : ''} ${collapsed ? 'collapsed' : ''}`}>
+      <aside
+        id="app-sidebar"
+        className={`sidebar ${isOpen ? 'open' : ''} ${collapsed ? 'collapsed' : ''}`}
+        aria-label={t('primaryNavigation')}
+      >
         {/* Logo */}
         <div className="sidebar-header">
           <a href="./" className="sidebar-logo-link">
-            <img src={apiUrl('/static/logo_horizontal.png')} alt="LocalAI" className="sidebar-logo-img" />
+            <img src={apiUrl(branding.logoHorizontalUrl)} alt={branding.instanceName} className="sidebar-logo-img" />
           </a>
-          <a href="./" className="sidebar-logo-icon" title="LocalAI">
-            <img src={apiUrl('/static/logo.png')} alt="LocalAI" className="sidebar-logo-icon-img" />
+          <a href="./" className="sidebar-logo-icon" title={branding.instanceName}>
+            <img src={apiUrl(branding.logoUrl)} alt={branding.instanceName} className="sidebar-logo-icon-img" />
           </a>
-          <button className="sidebar-close-btn" onClick={onClose} aria-label="Close menu">
-            <i className="fas fa-times" />
+          <button
+            ref={closeBtnRef}
+            className="sidebar-close-btn"
+            onClick={onClose}
+            aria-label={t('closeMenu')}
+          >
+            <i className="fas fa-times" aria-hidden="true" />
           </button>
         </div>
 
@@ -201,15 +251,16 @@ export default function Sidebar({ isOpen, onClose }) {
 
             const isSectionOpen = openSections[section.id]
             const showItems = isSectionOpen || collapsed
+            const sectionTitle = t(section.titleKey)
 
             return (
               <div key={section.id} className="sidebar-section">
                 <button
                   className={`sidebar-section-title sidebar-section-toggle ${isSectionOpen ? 'open' : ''}`}
                   onClick={() => toggleSection(section.id)}
-                  title={collapsed ? section.title : undefined}
+                  title={collapsed ? sectionTitle : undefined}
                 >
-                  <span>{section.title}</span>
+                  <span>{sectionTitle}</span>
                   <i className="fas fa-chevron-right sidebar-section-chevron" />
                 </button>
                 {showItems && (
@@ -220,10 +271,10 @@ export default function Sidebar({ isOpen, onClose }) {
                         target="_blank"
                         rel="noopener noreferrer"
                         className="nav-item"
-                        title={collapsed ? 'API' : undefined}
+                        title={collapsed ? t('items.api') : undefined}
                       >
                         <i className="fas fa-code nav-icon" />
-                        <span className="nav-label">API</span>
+                        <span className="nav-label">{t('items.api')}</span>
                         <i className="fas fa-external-link-alt nav-external" />
                       </a>
                     )}
@@ -244,7 +295,7 @@ export default function Sidebar({ isOpen, onClose }) {
               <button
                 className="sidebar-user-link"
                 onClick={() => { navigate('/app/account'); onClose?.() }}
-                title="Account settings"
+                title={t('accountSettings')}
               >
                 {user.avatarUrl ? (
                   <img src={user.avatarUrl} alt="" className="sidebar-user-avatar" />
@@ -253,16 +304,17 @@ export default function Sidebar({ isOpen, onClose }) {
                 )}
                 <span className="nav-label sidebar-user-name">{user.name || user.email}</span>
               </button>
-              <button className="sidebar-logout-btn" onClick={logout} title="Logout">
+              <button className="sidebar-logout-btn" onClick={logout} title={t('logout')}>
                 <i className="fas fa-sign-out-alt" />
               </button>
             </div>
           )}
+          <LanguageSwitcher />
           <ThemeToggle />
           <button
             className="sidebar-collapse-btn"
             onClick={toggleCollapse}
-            title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+            title={collapsed ? t('expandSidebar') : t('collapseSidebar')}
           >
             <i className={`fas fa-chevron-${collapsed ? 'right' : 'left'}`} />
           </button>

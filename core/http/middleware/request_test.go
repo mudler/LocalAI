@@ -306,3 +306,248 @@ var _ = Describe("MergeOpenResponsesConfig tool_choice parsing", func() {
 		})
 	})
 })
+
+// ---------------------------------------------------------------------------
+// SetModelAndConfig + SetOpenAIRequest - /v1/chat/completions tool_choice parsing
+// ---------------------------------------------------------------------------
+//
+// Parallel to the MergeOpenResponsesConfig specs above, but for the chat
+// completions path. The parsing block lives in mergeOpenAIRequestAndModelConfig
+// (called from SetOpenAIRequest), so these tests drive the full middleware
+// chain the way the production /v1/chat/completions route does.
+//
+// What we assert per shape:
+//   - "required"                                  -> ShouldUseFunctions=true,  no specific name
+//   - "none"                                      -> ShouldUseFunctions=false (tools disabled)
+//   - "auto"                                      -> ShouldUseFunctions=true,  no specific name
+//   - {type:function, function:{name:"X"}} (spec) -> ShouldCallSpecificFunction=true, FunctionToCall="X"
+//   - {type:function, name:"X"}        (legacy)   -> ShouldCallSpecificFunction=true, FunctionToCall="X"
+//   - nested+flat both present                    -> nested wins
+//   - malformed (no type / no name)               -> no-op
+var _ = Describe("SetModelAndConfig tool_choice parsing (chat completions)", func() {
+	var (
+		app            *echo.Echo
+		modelDir       string
+		capturedConfig *config.ModelConfig
+	)
+
+	BeforeEach(func() {
+		var err error
+		modelDir, err = os.MkdirTemp("", "localai-test-models-*")
+		Expect(err).ToNot(HaveOccurred())
+
+		cfgContent := []byte("name: test-model\nbackend: llama-cpp\n")
+		Expect(os.WriteFile(filepath.Join(modelDir, "test-model.yaml"), cfgContent, 0644)).To(Succeed())
+
+		ss := &system.SystemState{
+			Model: system.Model{ModelsPath: modelDir},
+		}
+		appConfig := config.NewApplicationConfig()
+		appConfig.SystemState = ss
+
+		mcl := config.NewModelConfigLoader(modelDir)
+		ml := model.NewModelLoader(ss)
+		re := NewRequestExtractor(mcl, ml, appConfig)
+
+		capturedConfig = nil
+		app = echo.New()
+		app.POST("/v1/chat/completions",
+			func(c echo.Context) error {
+				if cfg, ok := c.Get(CONTEXT_LOCALS_KEY_MODEL_CONFIG).(*config.ModelConfig); ok {
+					capturedConfig = cfg
+				}
+				return c.String(http.StatusOK, "ok")
+			},
+			re.SetModelAndConfig(func() schema.LocalAIRequest { return new(schema.OpenAIRequest) }),
+			func(next echo.HandlerFunc) echo.HandlerFunc {
+				return func(c echo.Context) error {
+					if err := re.SetOpenAIRequest(c); err != nil {
+						return err
+					}
+					return next(c)
+				}
+			},
+		)
+	})
+
+	AfterEach(func() {
+		_ = os.RemoveAll(modelDir)
+	})
+
+	// chatReq wraps a tool_choice JSON fragment in a minimal valid chat-completions
+	// payload. The tools array is non-empty so downstream code paths that gate on
+	// len(input.Functions) see something to work with.
+	chatReq := func(toolChoiceJSON string) string {
+		return `{"model":"test-model",` +
+			`"messages":[{"role":"user","content":"hi"}],` +
+			`"tools":[{"type":"function","function":{"name":"get_weather"}}],` +
+			`"tool_choice":` + toolChoiceJSON + `}`
+	}
+
+	Context("string tool_choice", func() {
+		It("engages mode for tool_choice=\"required\"", func() {
+			rec := postJSON(app, "/v1/chat/completions", chatReq(`"required"`))
+
+			Expect(rec.Code).To(Equal(http.StatusOK))
+			Expect(capturedConfig).ToNot(BeNil())
+			Expect(capturedConfig.ShouldCallSpecificFunction()).To(BeFalse())
+			Expect(capturedConfig.ShouldUseFunctions()).To(BeTrue())
+		})
+
+		It("disables tools for tool_choice=\"none\"", func() {
+			// Before #9559 this was a silent no-op (json.Unmarshal of "none"
+			// into functions.Tool failed); now "none" is honored per OpenAI spec.
+			rec := postJSON(app, "/v1/chat/completions", chatReq(`"none"`))
+
+			Expect(rec.Code).To(Equal(http.StatusOK))
+			Expect(capturedConfig).ToNot(BeNil())
+			Expect(capturedConfig.ShouldUseFunctions()).To(BeFalse())
+			Expect(capturedConfig.ShouldCallSpecificFunction()).To(BeFalse())
+		})
+
+		It("leaves config untouched for tool_choice=\"auto\"", func() {
+			rec := postJSON(app, "/v1/chat/completions", chatReq(`"auto"`))
+
+			Expect(rec.Code).To(Equal(http.StatusOK))
+			Expect(capturedConfig).ToNot(BeNil())
+			Expect(capturedConfig.ShouldCallSpecificFunction()).To(BeFalse())
+			// "auto" is the default: tools available, model decides.
+			Expect(capturedConfig.ShouldUseFunctions()).To(BeTrue())
+			Expect(capturedConfig.FunctionToCall()).To(Equal(""))
+		})
+	})
+
+	Context("specific-function tool_choice (OpenAI spec shape)", func() {
+		It("parses {type:function, function:{name:...}} and forces the named function", func() {
+			rec := postJSON(app, "/v1/chat/completions",
+				chatReq(`{"type":"function","function":{"name":"get_weather"}}`))
+
+			Expect(rec.Code).To(Equal(http.StatusOK))
+			Expect(capturedConfig).ToNot(BeNil())
+			// Key invariant: a correctly-formed OpenAI tool_choice must engage
+			// grammar-based forcing via SetFunctionCallNameString.
+			Expect(capturedConfig.ShouldCallSpecificFunction()).To(BeTrue())
+			Expect(capturedConfig.FunctionToCall()).To(Equal("get_weather"))
+		})
+
+		It("prefers the nested function.name over a stray top-level name", func() {
+			rec := postJSON(app, "/v1/chat/completions",
+				chatReq(`{"type":"function","function":{"name":"correct_name"},"name":"legacy_name"}`))
+
+			Expect(rec.Code).To(Equal(http.StatusOK))
+			Expect(capturedConfig).ToNot(BeNil())
+			Expect(capturedConfig.FunctionToCall()).To(Equal("correct_name"))
+		})
+	})
+
+	Context("specific-function tool_choice (legacy Anthropic-compat shape)", func() {
+		It("parses {type:function, name:...} and forces the named function", func() {
+			rec := postJSON(app, "/v1/chat/completions",
+				chatReq(`{"type":"function","name":"get_weather"}`))
+
+			Expect(rec.Code).To(Equal(http.StatusOK))
+			Expect(capturedConfig).ToNot(BeNil())
+			Expect(capturedConfig.ShouldCallSpecificFunction()).To(BeTrue())
+			Expect(capturedConfig.FunctionToCall()).To(Equal("get_weather"))
+		})
+	})
+
+	// Some non-spec clients send the object form serialized as a JSON string.
+	// The pre-#9559 code accepted that by accident; this Context locks in
+	// continued tolerance so those clients do not silently regress.
+	Context("double-encoded tool_choice (JSON string of an object, non-spec)", func() {
+		It("parses a serialized OpenAI-spec nested object", func() {
+			// tool_choice value is itself a JSON-encoded string containing the
+			// object form. Use json.Marshal of the inner blob so the escapes
+			// are correct regardless of the test reader.
+			inner := `{"type":"function","function":{"name":"get_weather"}}`
+			encoded, err := json.Marshal(inner)
+			Expect(err).ToNot(HaveOccurred())
+			rec := postJSON(app, "/v1/chat/completions", chatReq(string(encoded)))
+
+			Expect(rec.Code).To(Equal(http.StatusOK))
+			Expect(capturedConfig).ToNot(BeNil())
+			Expect(capturedConfig.ShouldCallSpecificFunction()).To(BeTrue())
+			Expect(capturedConfig.FunctionToCall()).To(Equal("get_weather"))
+		})
+
+		It("parses a serialized legacy/Anthropic flat object", func() {
+			inner := `{"type":"function","name":"get_weather"}`
+			encoded, err := json.Marshal(inner)
+			Expect(err).ToNot(HaveOccurred())
+			rec := postJSON(app, "/v1/chat/completions", chatReq(string(encoded)))
+
+			Expect(rec.Code).To(Equal(http.StatusOK))
+			Expect(capturedConfig).ToNot(BeNil())
+			Expect(capturedConfig.ShouldCallSpecificFunction()).To(BeTrue())
+			Expect(capturedConfig.FunctionToCall()).To(Equal("get_weather"))
+		})
+
+		It("falls back to mode-string handling when the JSON string parses but has no usable name", func() {
+			// A JSON-string that decodes to a map without a function name
+			// should not engage specific-function forcing. We expect it to
+			// fall through to the mode-string path; the resulting mode is
+			// the raw blob (nonsense), but ShouldCallSpecificFunction stays
+			// false - the invariant that matters.
+			inner := `{"type":"function"}`
+			encoded, err := json.Marshal(inner)
+			Expect(err).ToNot(HaveOccurred())
+			rec := postJSON(app, "/v1/chat/completions", chatReq(string(encoded)))
+
+			Expect(rec.Code).To(Equal(http.StatusOK))
+			Expect(capturedConfig).ToNot(BeNil())
+			Expect(capturedConfig.ShouldCallSpecificFunction()).To(BeFalse())
+		})
+	})
+
+	Context("malformed tool_choice", func() {
+		It("is a no-op when type is missing", func() {
+			rec := postJSON(app, "/v1/chat/completions",
+				chatReq(`{"function":{"name":"get_weather"}}`))
+
+			Expect(rec.Code).To(Equal(http.StatusOK))
+			Expect(capturedConfig).ToNot(BeNil())
+			Expect(capturedConfig.ShouldCallSpecificFunction()).To(BeFalse())
+		})
+
+		It("is a no-op when type is not \"function\"", func() {
+			rec := postJSON(app, "/v1/chat/completions",
+				chatReq(`{"type":"object","function":{"name":"get_weather"}}`))
+
+			Expect(rec.Code).To(Equal(http.StatusOK))
+			Expect(capturedConfig).ToNot(BeNil())
+			Expect(capturedConfig.ShouldCallSpecificFunction()).To(BeFalse())
+		})
+
+		It("is a no-op when name is missing from both shapes", func() {
+			rec := postJSON(app, "/v1/chat/completions",
+				chatReq(`{"type":"function","function":{}}`))
+
+			Expect(rec.Code).To(Equal(http.StatusOK))
+			Expect(capturedConfig).ToNot(BeNil())
+			Expect(capturedConfig.ShouldCallSpecificFunction()).To(BeFalse())
+			Expect(capturedConfig.FunctionToCall()).To(Equal(""))
+		})
+
+		It("is a no-op when name is empty string", func() {
+			rec := postJSON(app, "/v1/chat/completions",
+				chatReq(`{"type":"function","function":{"name":""}}`))
+
+			Expect(rec.Code).To(Equal(http.StatusOK))
+			Expect(capturedConfig).ToNot(BeNil())
+			Expect(capturedConfig.ShouldCallSpecificFunction()).To(BeFalse())
+		})
+	})
+
+	Context("nil tool_choice", func() {
+		It("is a no-op", func() {
+			rec := postJSON(app, "/v1/chat/completions",
+				`{"model":"test-model","messages":[{"role":"user","content":"hi"}]}`)
+
+			Expect(rec.Code).To(Equal(http.StatusOK))
+			Expect(capturedConfig).ToNot(BeNil())
+			Expect(capturedConfig.ShouldCallSpecificFunction()).To(BeFalse())
+			Expect(capturedConfig.FunctionToCall()).To(Equal(""))
+		})
+	})
+})

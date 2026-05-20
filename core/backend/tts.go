@@ -21,6 +21,7 @@ import (
 )
 
 func ModelTTS(
+	ctx context.Context,
 	text,
 	voice,
 	language string,
@@ -70,7 +71,7 @@ func ModelTTS(
 		startTime = time.Now()
 	}
 
-	res, err := ttsModel.TTS(context.Background(), &proto.TTSRequest{
+	res, err := ttsModel.TTS(ctx, &proto.TTSRequest{
 		Text:     text,
 		Model:    modelPath,
 		Voice:    voice,
@@ -121,6 +122,7 @@ func ModelTTS(
 }
 
 func ModelTTSStream(
+	ctx context.Context,
 	text,
 	voice,
 	language string,
@@ -172,7 +174,7 @@ func ModelTTSStream(
 	var totalPCMBytes int
 	snippetCapped := false
 
-	err = ttsModel.TTSStream(context.Background(), &proto.TTSRequest{
+	err = ttsModel.TTSStream(ctx, &proto.TTSRequest{
 		Text:     text,
 		Model:    modelPath,
 		Voice:    voice,

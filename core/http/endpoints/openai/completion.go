@@ -39,6 +39,10 @@ func CompletionEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, eva
 				usage.TimingTokenGeneration = tokenUsage.TimingTokenGeneration
 				usage.TimingPromptProcessing = tokenUsage.TimingPromptProcessing
 			}
+			// Usage rides on the struct for the consumer to track the
+			// running cumulative; the consumer strips it before marshalling
+			// so intermediate chunks stay OpenAI-spec compliant.
+			usageForChunk := usage
 			resp := schema.OpenAIResponse{
 				ID:      id,
 				Created: created,
@@ -51,7 +55,7 @@ func CompletionEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, eva
 					},
 				},
 				Object: "text_completion",
-				Usage:  usage,
+				Usage:  &usageForChunk,
 			}
 			xlog.Debug("Sending goroutine", "text", s)
 
@@ -127,6 +131,8 @@ func CompletionEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, eva
 				ended <- process(id, predInput, input, config, ml, responses, extraUsage)
 			}()
 
+			var latestUsage *schema.OpenAIUsage
+
 		LOOP:
 			for {
 				select {
@@ -135,6 +141,14 @@ func CompletionEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, eva
 						xlog.Debug("No choices in the response, skipping")
 						continue
 					}
+					// Capture running cumulative usage for the optional trailer
+					// emitted after the final stop chunk when include_usage=true.
+					if ev.Usage != nil {
+						latestUsage = ev.Usage
+					}
+					// OpenAI streaming spec: intermediate chunks must NOT
+					// carry a `usage` field. Strip the tracking copy now.
+					ev.Usage = nil
 					respData, err := json.Marshal(ev)
 					if err != nil {
 						xlog.Debug("Failed to marshal response", "error", err)
@@ -194,8 +208,15 @@ func CompletionEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, eva
 				Object: "text_completion",
 			}
 			respData, _ := json.Marshal(resp)
-
 			fmt.Fprintf(c.Response().Writer, "data: %s\n\n", respData)
+
+			// Trailing usage chunk per OpenAI spec: emit only when the caller
+			// opted in via stream_options.include_usage.
+			if input.StreamOptions != nil && input.StreamOptions.IncludeUsage && latestUsage != nil {
+				trailer := streamUsageTrailerJSON(id, input.Model, created, *latestUsage)
+				_, _ = fmt.Fprintf(c.Response().Writer, "data: %s\n\n", trailer)
+			}
+
 			fmt.Fprintf(c.Response().Writer, "data: [DONE]\n\n")
 			c.Response().Flush()
 			return nil
@@ -247,7 +268,7 @@ func CompletionEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, eva
 			Model:   input.Model, // we have to return what the user sent here, due to OpenAI spec.
 			Choices: result,
 			Object:  "text_completion",
-			Usage:   usage,
+			Usage:   &usage,
 		}
 
 		jsonResult, _ := json.Marshal(resp)

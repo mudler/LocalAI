@@ -14,23 +14,29 @@ import (
 // InFlightTrackingClient wraps a grpc.Backend and tracks active inference requests
 // in the NodeRegistry. This allows the router's eviction logic to know which models
 // are actively serving and should not be unloaded.
+//
+// Per-replica: a single tracker instance is bound to (nodeID, modelName, replicaIndex).
+// The router constructs one tracker per Route() result, so each in-flight tick lands
+// on the correct row even when multiple replicas of the same model live on the same node.
 type InFlightTrackingClient struct {
 	grpc.Backend // embed for passthrough of untracked methods
 	registry     InFlightTracker
 	nodeID       string
 	modelName    string
+	replicaIndex int
 
-	firstOnce     sync.Once  // guards onFirstComplete
-	onFirstComplete func()   // called once after the first tracked inference call completes
+	firstOnce       sync.Once // guards onFirstComplete
+	onFirstComplete func()    // called once after the first tracked inference call completes
 }
 
 // NewInFlightTrackingClient wraps a gRPC backend client with in-flight tracking.
-func NewInFlightTrackingClient(inner grpc.Backend, registry InFlightTracker, nodeID, modelName string) *InFlightTrackingClient {
+func NewInFlightTrackingClient(inner grpc.Backend, registry InFlightTracker, nodeID, modelName string, replicaIndex int) *InFlightTrackingClient {
 	return &InFlightTrackingClient{
-		Backend:   inner,
-		registry:  registry,
-		nodeID:    nodeID,
-		modelName: modelName,
+		Backend:      inner,
+		registry:     registry,
+		nodeID:       nodeID,
+		modelName:    modelName,
+		replicaIndex: replicaIndex,
 	}
 }
 
@@ -43,14 +49,14 @@ func (c *InFlightTrackingClient) OnFirstComplete(fn func()) {
 }
 
 func (c *InFlightTrackingClient) track(ctx context.Context) func() {
-	if err := c.registry.IncrementInFlight(ctx, c.nodeID, c.modelName); err != nil {
-		xlog.Warn("Failed to increment in-flight counter", "node", c.nodeID, "model", c.modelName, "error", err)
+	if err := c.registry.IncrementInFlight(ctx, c.nodeID, c.modelName, c.replicaIndex); err != nil {
+		xlog.Warn("Failed to increment in-flight counter", "node", c.nodeID, "model", c.modelName, "replica", c.replicaIndex, "error", err)
 		return func() {}
 	}
 	return func() {
 		decCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
-		c.registry.DecrementInFlight(decCtx, c.nodeID, c.modelName)
+		c.registry.DecrementInFlight(decCtx, c.nodeID, c.modelName, c.replicaIndex)
 		// Release the initial reservation after the first inference call completes
 		if c.onFirstComplete != nil {
 			c.firstOnce.Do(c.onFirstComplete)

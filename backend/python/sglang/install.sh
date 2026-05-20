@@ -23,17 +23,32 @@ if [ "x${BUILD_PROFILE}" == "xcpu" ]; then
     EXTRA_PIP_INSTALL_FLAGS+=" --index-strategy=unsafe-best-match"
 fi
 
+# cublas12 needs a cu128 torch index (see requirements-cublas12.txt) — without
+# unsafe-best-match uv falls through to default PyPI's cu130 torch wheel and
+# the resulting sgl-kernel can't load on our cu12 host libs.
+if [ "x${BUILD_PROFILE}" == "xcublas12" ]; then
+    EXTRA_PIP_INSTALL_FLAGS+=" --index-strategy=unsafe-best-match"
+fi
+
+# sglang 0.5.11 (Gemma 4 support) declares flash-attn-4 as a hard dep, but
+# upstream only publishes pre-release wheels (4.0.0b*). uv rejects
+# pre-releases by default — opt in for sglang specifically. Drop this once
+# flash-attn-4 4.0 stable lands.
+EXTRA_PIP_INSTALL_FLAGS+=" --prerelease=allow"
+
 # JetPack 7 / L4T arm64 wheels are built for cp312 and shipped via
 # pypi.jetson-ai-lab.io. Bump the venv Python so the prebuilt sglang
-# wheel resolves cleanly. unsafe-best-match is required because the
-# jetson-ai-lab index lists transitive deps (e.g. decord) at older
-# versions only — without it uv refuses to fall through to PyPI for a
-# compatible wheel and resolution fails.
+# wheel resolves cleanly. The actual install on l4t13 goes through
+# pyproject.toml (see the elif branch below) so [tool.uv.sources] can
+# pin only torch/torchvision/torchaudio/sglang to the jetson-ai-lab
+# index — leaving PyPI as the path for transitive deps like
+# markdown-it-py / anthropic / propcache that the L4T mirror's proxy
+# 503s on. No --index-strategy flag here: the explicit index keeps the
+# scoping clean.
 if [ "x${BUILD_PROFILE}" == "xl4t13" ]; then
     PYTHON_VERSION="3.12"
     PYTHON_PATCH="12"
     PY_STANDALONE_TAG="20251120"
-    EXTRA_PIP_INSTALL_FLAGS+=" --index-strategy=unsafe-best-match"
 fi
 
 # sglang's CPU path has no prebuilt wheel on PyPI — upstream publishes
@@ -95,6 +110,27 @@ if [ "x${BUILD_TYPE}" == "x" ] || [ "x${FROM_SOURCE:-}" == "xtrue" ]; then
         fi
         uv pip install ${EXTRA_PIP_INSTALL_FLAGS:-} .
     popd
+# L4T arm64 (JetPack 7): drive the install through pyproject.toml so that
+# [tool.uv.sources] can pin torch/torchvision/torchaudio/sglang to the
+# jetson-ai-lab index, while everything else (transitive deps and
+# PyPI-resolvable packages like transformers / accelerate) comes from
+# PyPI. Bypasses installRequirements because uv pip install -r
+# requirements.txt does not honor sources — see
+# backend/python/sglang/pyproject.toml for the rationale. Mirrors the
+# equivalent path in backend/python/vllm/install.sh.
+elif [ "x${BUILD_PROFILE}" == "xl4t13" ]; then
+    ensureVenv
+    if [ "x${PORTABLE_PYTHON}" == "xtrue" ]; then
+        export C_INCLUDE_PATH="${C_INCLUDE_PATH:-}:$(_portable_dir)/include/python${PYTHON_VERSION}"
+    fi
+    pushd "${backend_dir}"
+        # Build deps first (matches installRequirements' requirements-install.txt
+        # pass — sglang/sgl-kernel sdists need packaging/setuptools-scm in the
+        # venv before they can build under --no-build-isolation).
+        uv pip install ${EXTRA_PIP_INSTALL_FLAGS:-} -r requirements-install.txt
+        uv pip install ${EXTRA_PIP_INSTALL_FLAGS:-} --requirement pyproject.toml
+    popd
+    runProtogen
 else
     installRequirements
 fi

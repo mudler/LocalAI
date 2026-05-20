@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"runtime"
+	"sync"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -106,6 +107,10 @@ type fakeModelRouter struct {
 	getNodeLabels    []NodeLabel
 	getNodeLabelsErr error
 
+	// FindNodesWithModel returns (keyed by model name)
+	findNodesWithModelByName map[string][]BackendNode
+	findNodesWithModelErr    error
+
 	// Track calls for assertions
 	decrementCalls []string // "nodeID:modelName"
 	incrementCalls []string
@@ -114,40 +119,56 @@ type fakeModelRouter struct {
 	touchCalls     []string
 }
 
-func (f *fakeModelRouter) FindAndLockNodeWithModel(_ context.Context, modelName string) (*BackendNode, *NodeModel, error) {
+func (f *fakeModelRouter) FindAndLockNodeWithModel(_ context.Context, modelName string, _ []string) (*BackendNode, *NodeModel, error) {
 	return f.findAndLockNode, f.findAndLockNM, f.findAndLockErr
 }
 
-func (f *fakeModelRouter) DecrementInFlight(_ context.Context, nodeID, modelName string) error {
+func (f *fakeModelRouter) DecrementInFlight(_ context.Context, nodeID, modelName string, _ int) error {
 	f.decrementCalls = append(f.decrementCalls, nodeID+":"+modelName)
 	return nil
 }
 
-func (f *fakeModelRouter) IncrementInFlight(_ context.Context, nodeID, modelName string) error {
+func (f *fakeModelRouter) IncrementInFlight(_ context.Context, nodeID, modelName string, _ int) error {
 	f.incrementCalls = append(f.incrementCalls, nodeID+":"+modelName)
 	return nil
 }
 
-func (f *fakeModelRouter) RemoveNodeModel(_ context.Context, nodeID, modelName string) error {
+func (f *fakeModelRouter) RemoveNodeModel(_ context.Context, nodeID, modelName string, _ int) error {
 	f.removeCalls = append(f.removeCalls, nodeID+":"+modelName)
 	return nil
 }
 
-func (f *fakeModelRouter) TouchNodeModel(_ context.Context, nodeID, modelName string) {
+func (f *fakeModelRouter) RemoveAllNodeModelReplicas(_ context.Context, nodeID, modelName string) error {
+	// Same recorded key as RemoveNodeModel so existing tests that assert "the
+	// model was removed" don't need to know whether the production code used
+	// the per-replica or all-replicas variant.
+	f.removeCalls = append(f.removeCalls, nodeID+":"+modelName)
+	return nil
+}
+
+func (f *fakeModelRouter) TouchNodeModel(_ context.Context, nodeID, modelName string, _ int) {
 	f.touchCalls = append(f.touchCalls, nodeID+":"+modelName)
 }
 
-func (f *fakeModelRouter) SetNodeModel(_ context.Context, nodeID, modelName, state, address string, _ int) error {
+func (f *fakeModelRouter) SetNodeModel(_ context.Context, nodeID, modelName string, _ int, state, address string, _ int) error {
 	f.setCalls = append(f.setCalls, fmt.Sprintf("%s:%s:%s:%s", nodeID, modelName, state, address))
 	return nil
 }
 
-func (f *fakeModelRouter) SetNodeModelLoadInfo(_ context.Context, _, _, _ string, _ []byte) error {
+func (f *fakeModelRouter) SetNodeModelLoadInfo(_ context.Context, _, _ string, _ int, _ string, _ []byte) error {
 	return nil
 }
 
 func (f *fakeModelRouter) GetModelLoadInfo(_ context.Context, _ string) (string, []byte, error) {
 	return "", nil, fmt.Errorf("not found")
+}
+
+func (f *fakeModelRouter) NextFreeReplicaIndex(_ context.Context, _, _ string, _ int) (int, error) {
+	return 0, nil
+}
+
+func (f *fakeModelRouter) CountReplicasOnNode(_ context.Context, _, _ string) (int, error) {
+	return 0, nil
 }
 
 func (f *fakeModelRouter) FindNodeWithVRAM(_ context.Context, _ uint64) (*BackendNode, error) {
@@ -182,6 +203,20 @@ func (f *fakeModelRouter) FindNodesBySelector(_ context.Context, _ map[string]st
 	return f.findBySelectorNodes, f.findBySelectorErr
 }
 
+func (f *fakeModelRouter) FindNodesWithFreeSlot(_ context.Context, _ string, _ []string) ([]BackendNode, error) {
+	// Default: same answer as FindNodesBySelector. Tests that need a
+	// specific filter can override by reusing findBySelectorNodes.
+	return f.findBySelectorNodes, f.findBySelectorErr
+}
+
+func (f *fakeModelRouter) ReserveVRAM(_ context.Context, _ string, _ uint64) error {
+	return nil
+}
+
+func (f *fakeModelRouter) ReleaseVRAM(_ context.Context, _ string, _ uint64) error {
+	return nil
+}
+
 func (f *fakeModelRouter) FindNodeWithVRAMFromSet(_ context.Context, _ uint64, _ []string) (*BackendNode, error) {
 	return f.findVRAMFromSetNode, f.findVRAMFromSetErr
 }
@@ -196,6 +231,25 @@ func (f *fakeModelRouter) FindLeastLoadedNodeFromSet(_ context.Context, _ []stri
 
 func (f *fakeModelRouter) GetNodeLabels(_ context.Context, _ string) ([]NodeLabel, error) {
 	return f.getNodeLabels, f.getNodeLabelsErr
+}
+
+func (f *fakeModelRouter) FindNodesWithModel(_ context.Context, modelName string) ([]BackendNode, error) {
+	if f.findNodesWithModelErr != nil {
+		return nil, f.findNodesWithModelErr
+	}
+	return f.findNodesWithModelByName[modelName], nil
+}
+
+// fakeConflictResolver implements ConcurrencyConflictResolver from a static map.
+type fakeConflictResolver struct {
+	conflicts map[string][]string
+}
+
+func (f *fakeConflictResolver) GetModelsConflictingWith(name string) []string {
+	if f == nil {
+		return nil
+	}
+	return f.conflicts[name]
 }
 
 // ---------------------------------------------------------------------------
@@ -236,16 +290,64 @@ func (f *stubClientFactory) NewClient(_ string, _ bool) grpc.Backend {
 // ---------------------------------------------------------------------------
 
 type fakeUnloader struct {
+	// mu guards installCalls and upgradeCalls so concurrent test
+	// goroutines (e.g. singleflight specs) don't race the slice appends.
+	mu sync.Mutex
+
 	installReply *messaging.BackendInstallReply
 	installErr   error
-	stopCalls    []string // "nodeID:model"
-	stopErr      error
-	unloadCalls  []string
-	unloadErr    error
+	installCalls []installCall // every InstallBackend invocation, in order
+	// installHook, if non-nil, runs at the start of InstallBackend before
+	// the call is recorded. Used by concurrency tests as a deterministic
+	// "block here" seam — set installHook to a function that sleeps or
+	// blocks on a channel to overlap two callers.
+	installHook func()
+
+	upgradeReply *messaging.BackendUpgradeReply
+	upgradeErr   error
+	upgradeCalls []upgradeCall // every UpgradeBackend invocation, in order
+
+	stopCalls   []string // "nodeID:model"
+	stopErr     error
+	unloadCalls []string
+	unloadErr   error
 }
 
-func (f *fakeUnloader) InstallBackend(_, _, _, _, _, _, _ string) (*messaging.BackendInstallReply, error) {
+// installCall captures the args we care about when asserting that the
+// reconciler / router did or did not fire a NATS install. The fake records
+// every call so tests can verify both presence and shape (e.g. that backend
+// is non-empty).
+type installCall struct {
+	nodeID  string
+	backend string
+	modelID string
+	replica int
+}
+
+type upgradeCall struct {
+	nodeID  string
+	backend string
+	replica int
+}
+
+func (f *fakeUnloader) InstallBackend(nodeID, backend, modelID, _, _, _, _ string, replica int) (*messaging.BackendInstallReply, error) {
+	// installHook intentionally runs OUTSIDE the mutex: the hook may block
+	// on a channel and we don't want to serialize concurrent callers,
+	// which would defeat the singleflight-overlap test.
+	if f.installHook != nil {
+		f.installHook()
+	}
+	f.mu.Lock()
+	f.installCalls = append(f.installCalls, installCall{nodeID, backend, modelID, replica})
+	f.mu.Unlock()
 	return f.installReply, f.installErr
+}
+
+func (f *fakeUnloader) UpgradeBackend(nodeID, backend, _, _, _, _ string, replica int) (*messaging.BackendUpgradeReply, error) {
+	f.mu.Lock()
+	f.upgradeCalls = append(f.upgradeCalls, upgradeCall{nodeID, backend, replica})
+	f.mu.Unlock()
+	return f.upgradeReply, f.upgradeErr
 }
 
 func (f *fakeUnloader) DeleteBackend(_, _ string) (*messaging.BackendDeleteReply, error) {
@@ -662,6 +764,28 @@ var _ = Describe("SmartRouter", func() {
 		})
 	})
 
+	Describe("ScheduleAndLoadModel (mock-based)", func() {
+		It("returns an error and does not fire a NATS install when no load info is stored", func() {
+			// Reproduces the reconciler scale-up bug: when GetModelLoadInfo
+			// returns ErrRecordNotFound (no replica has ever been loaded),
+			// the previous fallback called scheduleNewModel with an empty
+			// backend type, which the worker rejected on every reconciler
+			// tick. The fix bails out cleanly with an explanatory error and
+			// never sends backend.install.
+			unloader := &fakeUnloader{}
+			reg := &fakeModelRouter{}
+			router := NewSmartRouter(reg, SmartRouterOptions{Unloader: unloader})
+
+			node, err := router.ScheduleAndLoadModel(context.Background(), "never-loaded", nil)
+
+			Expect(err).To(HaveOccurred())
+			Expect(node).To(BeNil())
+			Expect(err.Error()).To(ContainSubstring("never-loaded"))
+			Expect(unloader.installCalls).To(BeEmpty(),
+				"reconciler must not fire backend.install when there is no load info to replicate")
+		})
+	})
+
 	// -----------------------------------------------------------------------
 	// Integration tests using real PostgreSQL (existing)
 	// -----------------------------------------------------------------------
@@ -690,8 +814,8 @@ var _ = Describe("SmartRouter", func() {
 			Expect(registry.Register(context.Background(), node, true)).To(Succeed())
 
 			// Load a model and give it in-flight requests so it cannot be evicted
-			Expect(registry.SetNodeModel(context.Background(), node.ID, "busy-model", "loaded", "", 0)).To(Succeed())
-			Expect(registry.IncrementInFlight(context.Background(), node.ID, "busy-model")).To(Succeed())
+			Expect(registry.SetNodeModel(context.Background(), node.ID, "busy-model", 0, "loaded", "", 0)).To(Succeed())
+			Expect(registry.IncrementInFlight(context.Background(), node.ID, "busy-model", 0)).To(Succeed())
 
 			router := NewSmartRouter(registry, SmartRouterOptions{DB: db})
 
@@ -711,8 +835,8 @@ var _ = Describe("SmartRouter", func() {
 				Address:  "10.0.0.101:50051",
 			}
 			Expect(registry.Register(context.Background(), node, true)).To(Succeed())
-			Expect(registry.SetNodeModel(context.Background(), node.ID, "cancel-model", "loaded", "", 0)).To(Succeed())
-			Expect(registry.IncrementInFlight(context.Background(), node.ID, "cancel-model")).To(Succeed())
+			Expect(registry.SetNodeModel(context.Background(), node.ID, "cancel-model", 0, "loaded", "", 0)).To(Succeed())
+			Expect(registry.IncrementInFlight(context.Background(), node.ID, "cancel-model", 0)).To(Succeed())
 
 			router := NewSmartRouter(registry, SmartRouterOptions{DB: db})
 
@@ -780,6 +904,150 @@ var _ = Describe("SmartRouter", func() {
 			Expect(original.Model).To(Equal(origModel))
 			Expect(original.ModelFile).To(Equal(origModelFile))
 			Expect(original.MMProj).To(Equal(origMMProj))
+		})
+	})
+
+	// -----------------------------------------------------------------------
+	// narrowByGroupAntiAffinity
+	// -----------------------------------------------------------------------
+	Describe("narrowByGroupAntiAffinity", func() {
+		var (
+			reg      *fakeModelRouter
+			resolver *fakeConflictResolver
+			router   *SmartRouter
+			ctx      context.Context
+		)
+
+		BeforeEach(func() {
+			reg = &fakeModelRouter{}
+			resolver = &fakeConflictResolver{conflicts: map[string][]string{}}
+			router = NewSmartRouter(reg, SmartRouterOptions{
+				ConflictResolver: resolver,
+			})
+			ctx = context.Background()
+		})
+
+		It("returns the input set unchanged when the model has no conflicts", func() {
+			candidates := []string{"n1", "n2", "n3"}
+			out, err := router.narrowByGroupAntiAffinity(ctx, "lonely", candidates)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(out).To(Equal(candidates))
+		})
+
+		It("removes nodes that already host a conflicting model", func() {
+			resolver.conflicts["b"] = []string{"a"}
+			reg.findNodesWithModelByName = map[string][]BackendNode{
+				"a": {{ID: "n1"}},
+			}
+			out, err := router.narrowByGroupAntiAffinity(ctx, "b", []string{"n1", "n2"})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(out).To(ConsistOf("n2"))
+		})
+
+		It("returns the original set unchanged when every candidate has a conflict (soft fallback)", func() {
+			resolver.conflicts["b"] = []string{"a"}
+			reg.findNodesWithModelByName = map[string][]BackendNode{
+				"a": {{ID: "n1"}, {ID: "n2"}},
+			}
+			candidates := []string{"n1", "n2"}
+			out, err := router.narrowByGroupAntiAffinity(ctx, "b", candidates)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(out).To(Equal(candidates))
+		})
+
+		It("removes nodes hosting any of multiple conflicting models", func() {
+			resolver.conflicts["c"] = []string{"a", "b"}
+			reg.findNodesWithModelByName = map[string][]BackendNode{
+				"a": {{ID: "n1"}},
+				"b": {{ID: "n2"}},
+			}
+			out, err := router.narrowByGroupAntiAffinity(ctx, "c", []string{"n1", "n2", "n3"})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(out).To(ConsistOf("n3"))
+		})
+
+		It("treats a nil candidate set (\"any healthy node\") by returning nil unchanged when narrowing yields nothing", func() {
+			resolver.conflicts["b"] = []string{"a"}
+			reg.findNodesWithModelByName = map[string][]BackendNode{
+				"a": {{ID: "n1"}, {ID: "n2"}},
+			}
+			out, err := router.narrowByGroupAntiAffinity(ctx, "b", nil)
+			Expect(err).ToNot(HaveOccurred())
+			// nil in → nil out: caller's "any healthy node" semantics preserved.
+			// Hard-narrowing nil would silently exclude every other node.
+			Expect(out).To(BeNil())
+		})
+
+		It("is a no-op when no resolver is configured", func() {
+			plain := NewSmartRouter(reg, SmartRouterOptions{})
+			candidates := []string{"n1", "n2"}
+			out, err := plain.narrowByGroupAntiAffinity(ctx, "b", candidates)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(out).To(Equal(candidates))
+		})
+	})
+
+	Describe("installBackendOnNode singleflight", func() {
+		It("coalesces concurrent identical installs into one NATS call", func() {
+			node := &BackendNode{ID: "n1", Name: "node-1", Address: "10.0.0.1:50051"}
+
+			// Slow install reply so concurrent calls overlap deterministically.
+			started := make(chan struct{}, 5)
+			release := make(chan struct{})
+			unloader := &fakeUnloader{
+				installReply: &messaging.BackendInstallReply{Success: true, Address: "10.0.0.1:50100"},
+			}
+			unloader.installHook = func() {
+				started <- struct{}{}
+				<-release
+			}
+
+			router := NewSmartRouter(&fakeModelRouter{}, SmartRouterOptions{
+				Unloader:      unloader,
+				ClientFactory: &stubClientFactory{client: &stubBackend{}},
+			})
+
+			// Fire 5 concurrent identical installBackendOnNode calls.
+			done := make(chan error, 5)
+			for i := 0; i < 5; i++ {
+				go func() {
+					_, err := router.installBackendOnNode(context.Background(), node, "llama-cpp", "my-model", 0)
+					done <- err
+				}()
+			}
+
+			// Only ONE call should have entered the unloader hook (the
+			// singleflight leader). The other 4 are coalesced and waiting on
+			// the leader's result.
+			Eventually(started).Should(Receive())
+			Consistently(started, 100*time.Millisecond).ShouldNot(Receive())
+
+			// Release the leader; the other 4 callers receive the same result.
+			close(release)
+			for i := 0; i < 5; i++ {
+				Expect(<-done).ToNot(HaveOccurred())
+			}
+			Expect(unloader.installCalls).To(HaveLen(1),
+				"singleflight should coalesce 5 concurrent identical loads into 1 NATS call")
+		})
+
+		It("does NOT coalesce installs for different (modelID, replica) keys", func() {
+			node := &BackendNode{ID: "n1", Name: "node-1", Address: "10.0.0.1:50051"}
+			unloader := &fakeUnloader{
+				installReply: &messaging.BackendInstallReply{Success: true, Address: "10.0.0.1:50100"},
+			}
+			router := NewSmartRouter(&fakeModelRouter{}, SmartRouterOptions{
+				Unloader:      unloader,
+				ClientFactory: &stubClientFactory{client: &stubBackend{}},
+			})
+
+			_, err1 := router.installBackendOnNode(context.Background(), node, "llama-cpp", "model-A", 0)
+			_, err2 := router.installBackendOnNode(context.Background(), node, "llama-cpp", "model-B", 0)
+			_, err3 := router.installBackendOnNode(context.Background(), node, "llama-cpp", "model-A", 1)
+			Expect(err1).ToNot(HaveOccurred())
+			Expect(err2).ToNot(HaveOccurred())
+			Expect(err3).ToNot(HaveOccurred())
+			Expect(unloader.installCalls).To(HaveLen(3))
 		})
 	})
 })

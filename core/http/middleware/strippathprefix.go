@@ -16,6 +16,11 @@ func StripPathPrefix() echo.MiddlewareFunc {
 			originalPath := c.Request().URL.Path
 
 			for _, prefix := range prefixes {
+				validated, ok := SafeForwardedPrefix(prefix)
+				if !ok {
+					continue
+				}
+				prefix = validated
 				if prefix != "" {
 					normalizedPrefix := prefix
 					if !strings.HasSuffix(prefix, "/") {

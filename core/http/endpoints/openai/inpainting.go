@@ -258,7 +258,7 @@ func InpaintingEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, app
 			Data: []schema.Item{{
 				URL: imgPath,
 			}},
-			Usage: schema.OpenAIUsage{
+			Usage: &schema.OpenAIUsage{
 				PromptTokens:     0,
 				CompletionTokens: 0,
 				TotalTokens:      0,

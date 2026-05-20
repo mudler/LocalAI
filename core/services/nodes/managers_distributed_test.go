@@ -7,6 +7,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/nats-io/nats.go"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"gorm.io/gorm"
@@ -21,10 +22,22 @@ import (
 // (or error). Used so each fan-out request can simulate a different worker
 // outcome without spinning up real NATS.
 type scriptedMessagingClient struct {
-	mu      sync.Mutex
-	replies map[string][]byte
-	errs    map[string]error
-	calls   []requestCall
+	mu             sync.Mutex
+	replies        map[string][]byte
+	errs           map[string]error
+	calls          []requestCall
+	matchedReplies map[string][]matchedReply
+}
+
+// matchedReply lets a test script a canned reply that only fires when the
+// inbound request matches a predicate. Used by scriptReplyMatching to
+// distinguish "install Force=true" (the fallback) from "install Force=false"
+// on the same subject.
+type matchedReply struct {
+	pred        func(messaging.BackendInstallRequest) bool
+	reply       []byte
+	fallback    []byte
+	fallbackErr error
 }
 
 func newScriptedMessagingClient() *scriptedMessagingClient {
@@ -48,10 +61,69 @@ func (s *scriptedMessagingClient) scriptErr(subject string, err error) {
 	s.errs[subject] = err
 }
 
+// scriptNoResponders scripts a nats.ErrNoResponders error for `subject` so
+// tests can simulate "old worker without backend.upgrade subscription"
+// scenarios. Uses the real nats sentinel so errors.Is(...) works at the
+// caller (the manager's NoResponders fallback path).
+func (s *scriptedMessagingClient) scriptNoResponders(subject string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.errs[subject] = nats.ErrNoResponders
+}
+
+// scriptReplyMatching is like scriptReply but the canned reply only fires
+// when the inbound request payload matches `pred(req)`. Lets tests
+// differentiate "install with Force=true" from "install Force=false" on
+// the same subject — useful for asserting the rolling-update fallback
+// path actually sets Force=true on its retry.
+//
+// If `pred` returns false (or the unmarshal of the payload into the
+// predicate's expected type fails), the subject falls through to whatever
+// was scripted before (or to the unscripted default ErrNoResponders).
+func (s *scriptedMessagingClient) scriptReplyMatching(subject string, pred func(messaging.BackendInstallRequest) bool, reply messaging.BackendInstallReply) {
+	raw, err := json.Marshal(reply)
+	Expect(err).ToNot(HaveOccurred())
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	prev := s.replies[subject] // may be nil — that's fine
+	prevErr := s.errs[subject] // may be nil — that's fine
+	if s.matchedReplies == nil {
+		s.matchedReplies = map[string][]matchedReply{}
+	}
+	s.matchedReplies[subject] = append(s.matchedReplies[subject], matchedReply{
+		pred:        pred,
+		reply:       raw,
+		fallback:    prev,
+		fallbackErr: prevErr,
+	})
+}
+
 func (s *scriptedMessagingClient) Request(subject string, data []byte, _ time.Duration) ([]byte, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.calls = append(s.calls, requestCall{Subject: subject, Data: data})
+
+	// Predicate-matched replies take precedence over flat scriptReply.
+	if matchers, ok := s.matchedReplies[subject]; ok {
+		var req messaging.BackendInstallRequest
+		_ = json.Unmarshal(data, &req)
+		for _, m := range matchers {
+			if m.pred(req) {
+				return m.reply, nil
+			}
+		}
+		// No predicate matched — fall through to the recorded fallback
+		// (whatever was scripted before scriptReplyMatching took over).
+		if matchers[0].fallback != nil {
+			return matchers[0].fallback, nil
+		}
+		if matchers[0].fallbackErr != nil {
+			return nil, matchers[0].fallbackErr
+		}
+		// No fallback either — default to ErrNoResponders.
+		return nil, nats.ErrNoResponders
+	}
+
 	if err, ok := s.errs[subject]; ok && err != nil {
 		return nil, err
 	}
@@ -79,10 +151,12 @@ func (s *scriptedMessagingClient) SubscribeReply(_ string, _ func([]byte, func([
 func (s *scriptedMessagingClient) IsConnected() bool { return true }
 func (s *scriptedMessagingClient) Close()            {}
 
-// fakeNoRespondersErr matches nats.ErrNoResponders by name only — we don't
-// import nats here to avoid pulling the whole client. The distributed
-// manager treats it via errors.Is, so the concrete type matters for the
-// "mark unhealthy" path; here we just want a non-nil error.
+// fakeNoRespondersErr is the unscripted-subject default. It matches
+// nats.ErrNoResponders by string only — used when a test forgets to script
+// a node so the failure is loud but doesn't tickle errors.Is(...) sentinel
+// paths the test wasn't deliberately exercising. Tests that DO want the
+// real sentinel (e.g. to drive the manager's NoResponders fallback) call
+// scriptNoResponders instead, which scripts nats.ErrNoResponders directly.
 type fakeNoRespondersErr struct{}
 
 func (e *fakeNoRespondersErr) Error() string { return "no responders" }
@@ -108,6 +182,7 @@ func (stubLocalBackendManager) UpgradeBackend(_ context.Context, _ string, _ gal
 func (stubLocalBackendManager) CheckUpgrades(_ context.Context) (map[string]gallery.UpgradeInfo, error) {
 	return nil, nil
 }
+func (stubLocalBackendManager) IsDistributed() bool { return false }
 
 var _ = Describe("DistributedBackendManager", func() {
 	var (
@@ -239,15 +314,34 @@ var _ = Describe("DistributedBackendManager", func() {
 	})
 
 	Describe("UpgradeBackend", func() {
+		// scriptInstalled tells the worker(s) named in `nodeIDs` to claim
+		// `backend` is installed when DistributedBackendManager.ListBackends()
+		// fans out backend.list. Anything not scripted defaults to an empty
+		// reply, which means "this node has no backends installed" and so
+		// upgrade should skip it.
+		scriptInstalled := func(backend string, nodeIDs ...string) {
+			for _, id := range nodeIDs {
+				mc.scriptReply(messaging.SubjectNodeBackendList(id),
+					messaging.BackendListReply{Backends: []messaging.NodeBackendInfo{{Name: backend}}})
+			}
+		}
+		scriptNoBackends := func(nodeIDs ...string) {
+			for _, id := range nodeIDs {
+				mc.scriptReply(messaging.SubjectNodeBackendList(id),
+					messaging.BackendListReply{Backends: nil})
+			}
+		}
+
 		Context("when every node fails to upgrade", func() {
 			It("returns an aggregated error", func() {
 				n1 := registerHealthyBackend("worker-a", "10.0.0.1:50051")
 				n2 := registerHealthyBackend("worker-b", "10.0.0.2:50051")
 
-				mc.scriptReply(messaging.SubjectNodeBackendInstall(n1.ID),
-					messaging.BackendInstallReply{Success: false, Error: "image manifest not found"})
-				mc.scriptReply(messaging.SubjectNodeBackendInstall(n2.ID),
-					messaging.BackendInstallReply{Success: false, Error: "registry unauthorized"})
+				scriptInstalled("vllm-development", n1.ID, n2.ID)
+				mc.scriptReply(messaging.SubjectNodeBackendUpgrade(n1.ID),
+					messaging.BackendUpgradeReply{Success: false, Error: "image manifest not found"})
+				mc.scriptReply(messaging.SubjectNodeBackendUpgrade(n2.ID),
+					messaging.BackendUpgradeReply{Success: false, Error: "registry unauthorized"})
 
 				err := mgr.UpgradeBackend(ctx, "vllm-development", nil)
 				Expect(err).To(HaveOccurred())
@@ -261,9 +355,90 @@ var _ = Describe("DistributedBackendManager", func() {
 		Context("when every node succeeds", func() {
 			It("returns nil", func() {
 				n1 := registerHealthyBackend("worker-a", "10.0.0.1:50051")
-				mc.scriptReply(messaging.SubjectNodeBackendInstall(n1.ID),
-					messaging.BackendInstallReply{Success: true})
+				scriptInstalled("vllm-development", n1.ID)
+				mc.scriptReply(messaging.SubjectNodeBackendUpgrade(n1.ID),
+					messaging.BackendUpgradeReply{Success: true})
 				Expect(mgr.UpgradeBackend(ctx, "vllm-development", nil)).To(Succeed())
+			})
+		})
+
+		// Smart fan-out: only nodes that actually report the backend installed
+		// receive the upgrade NATS request. Reproduces the bug where the
+		// "Upgrade All" UI button asked a darwin/arm64 worker to upgrade a
+		// linux-only backend it never had, producing a "no child with platform
+		// darwin/arm64 in index" error and a stuck pending_backend_ops row.
+		Context("when only one of two healthy nodes has the backend installed", func() {
+			It("upgrades only on that node and skips the other entirely", func() {
+				has := registerHealthyBackend("linux-amd64-worker", "10.0.0.1:50051")
+				lacks := registerHealthyBackend("mac-mini-m4", "10.0.0.2:50051")
+
+				scriptInstalled("cpu-insightface-development", has.ID)
+				scriptNoBackends(lacks.ID)
+				mc.scriptReply(messaging.SubjectNodeBackendUpgrade(has.ID),
+					messaging.BackendUpgradeReply{Success: true})
+				// Deliberately don't script SubjectNodeBackendUpgrade for `lacks`:
+				// if the manager attempts it, the scripted-client default returns
+				// fakeNoRespondersErr and the assertion below fails loudly.
+
+				Expect(mgr.UpgradeBackend(ctx, "cpu-insightface-development", nil)).To(Succeed())
+
+				mc.mu.Lock()
+				defer mc.mu.Unlock()
+				for _, call := range mc.calls {
+					Expect(call.Subject).ToNot(Equal(messaging.SubjectNodeBackendUpgrade(lacks.ID)),
+						"upgrade leaked to %s which does not have the backend installed", lacks.Name)
+				}
+			})
+		})
+
+		Context("when no node has the backend installed", func() {
+			It("returns a clear error and never attempts an install request", func() {
+				n1 := registerHealthyBackend("worker-a", "10.0.0.1:50051")
+				scriptNoBackends(n1.ID)
+
+				err := mgr.UpgradeBackend(ctx, "vllm-development", nil)
+				Expect(err).To(HaveOccurred())
+				Expect(err.Error()).To(ContainSubstring("not installed on any node"))
+
+				mc.mu.Lock()
+				defer mc.mu.Unlock()
+				for _, call := range mc.calls {
+					Expect(call.Subject).ToNot(Equal(messaging.SubjectNodeBackendUpgrade(n1.ID)))
+					Expect(call.Subject).ToNot(Equal(messaging.SubjectNodeBackendInstall(n1.ID)))
+				}
+			})
+		})
+
+		// Rolling-update fallback: pre-2026-05-08 workers don't subscribe to
+		// backend.upgrade, so the manager catches nats.ErrNoResponders and
+		// re-fires the legacy backend.install Force=true on the same node.
+		// Drop these specs once the fallback path itself is removed (see
+		// managers_distributed.go UpgradeBackend godoc for the deprecation).
+		Context("rolling-update fallback", func() {
+			It("falls back to backend.install Force=true when upgrade returns ErrNoResponders", func() {
+				n := registerHealthyBackend("worker-old", "10.0.0.1:50051")
+				scriptInstalled("vllm-development", n.ID)
+
+				// Old worker: no subscriber on backend.upgrade.
+				mc.scriptNoResponders(messaging.SubjectNodeBackendUpgrade(n.ID))
+				// Fallback re-fires legacy backend.install with Force=true.
+				mc.scriptReplyMatching(messaging.SubjectNodeBackendInstall(n.ID),
+					func(req messaging.BackendInstallRequest) bool { return req.Force },
+					messaging.BackendInstallReply{Success: true, Address: "10.0.0.1:50100"})
+
+				Expect(mgr.UpgradeBackend(ctx, "vllm-development", nil)).To(Succeed())
+			})
+
+			It("returns the upgrade error when it is not ErrNoResponders", func() {
+				n := registerHealthyBackend("worker-bad", "10.0.0.1:50051")
+				scriptInstalled("vllm-development", n.ID)
+
+				mc.scriptReply(messaging.SubjectNodeBackendUpgrade(n.ID),
+					messaging.BackendUpgradeReply{Success: false, Error: "disk full"})
+
+				err := mgr.UpgradeBackend(ctx, "vllm-development", nil)
+				Expect(err).To(HaveOccurred())
+				Expect(err.Error()).To(ContainSubstring("disk full"))
 			})
 		})
 	})

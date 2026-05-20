@@ -149,7 +149,7 @@ function BackendLogsDetail({ modelId }) {
   }
 
   return (
-    <div className="page">
+    <div className="page page--wide">
       <div className="page-header">
         <div>
           <h1 className="page-title" style={{ marginBottom: 0 }}>
@@ -283,7 +283,7 @@ export default function BackendLogs() {
 
   // No model specified — redirect to System page
   return (
-    <div className="page">
+    <div className="page page--wide">
       <div className="empty-state">
         <div className="empty-state-icon"><i className="fas fa-terminal" /></div>
         <h2 className="empty-state-title">No model selected</h2>

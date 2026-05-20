@@ -1,14 +1,15 @@
 import { useSearchParams } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import ImageGen from './ImageGen'
 import VideoGen from './VideoGen'
 import TTS from './TTS'
 import Sound from './Sound'
 
 const TABS = [
-  { key: 'images', label: 'Images', icon: 'fas fa-image' },
-  { key: 'video', label: 'Video', icon: 'fas fa-video' },
-  { key: 'tts', label: 'TTS', icon: 'fas fa-headphones' },
-  { key: 'sound', label: 'Sound', icon: 'fas fa-music' },
+  { key: 'images', labelKey: 'studio.tabs.images', icon: 'fas fa-image' },
+  { key: 'video', labelKey: 'studio.tabs.video', icon: 'fas fa-video' },
+  { key: 'tts', labelKey: 'studio.tabs.tts', icon: 'fas fa-headphones' },
+  { key: 'sound', labelKey: 'studio.tabs.sound', icon: 'fas fa-music' },
 ]
 
 const TAB_COMPONENTS = {
@@ -19,6 +20,7 @@ const TAB_COMPONENTS = {
 }
 
 export default function Studio() {
+  const { t } = useTranslation('media')
   const [searchParams, setSearchParams] = useSearchParams()
   const activeTab = searchParams.get('tab') || 'images'
 
@@ -38,7 +40,7 @@ export default function Studio() {
             onClick={() => setTab(tab.key)}
           >
             <i className={tab.icon} />
-            <span>{tab.label}</span>
+            <span>{t(tab.labelKey)}</span>
           </button>
         ))}
       </div>

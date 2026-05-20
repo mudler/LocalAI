@@ -31,7 +31,12 @@ func (f *fakeModelLocator) FindNodesWithModel(_ context.Context, _ string) ([]Ba
 	return f.nodes, f.findErr
 }
 
-func (f *fakeModelLocator) RemoveNodeModel(_ context.Context, nodeID, modelName string) error {
+func (f *fakeModelLocator) RemoveNodeModel(_ context.Context, nodeID, modelName string, _ int) error {
+	f.removedPairs = append(f.removedPairs, modelNodePair{nodeID, modelName})
+	return nil
+}
+
+func (f *fakeModelLocator) RemoveAllNodeModelReplicas(_ context.Context, nodeID, modelName string) error {
 	f.removedPairs = append(f.removedPairs, modelNodePair{nodeID, modelName})
 	return nil
 }

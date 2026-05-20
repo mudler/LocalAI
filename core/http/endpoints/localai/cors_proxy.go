@@ -12,39 +12,16 @@ import (
 
 	"github.com/labstack/echo/v4"
 	"github.com/mudler/LocalAI/core/config"
+	"github.com/mudler/LocalAI/pkg/utils"
 	"github.com/mudler/xlog"
 )
-
-var privateNetworks []*net.IPNet
-
-func init() {
-	for _, cidr := range []string{
-		"10.0.0.0/8",
-		"172.16.0.0/12",
-		"192.168.0.0/16",
-		"127.0.0.0/8",
-		"169.254.0.0/16",
-		"::1/128",
-		"fc00::/7",
-		"fe80::/10",
-	} {
-		_, network, _ := net.ParseCIDR(cidr)
-		privateNetworks = append(privateNetworks, network)
-	}
-}
-
-func isPrivateIP(ip net.IP) bool {
-	for _, network := range privateNetworks {
-		if network.Contains(ip) {
-			return true
-		}
-	}
-	return false
-}
 
 // CORSProxyEndpoint proxies HTTP requests to external MCP servers,
 // solving CORS issues for browser-based MCP connections.
 // The target URL is passed as a query parameter: /api/cors-proxy?url=https://...
+//
+// SSRF guard: the resolved IP is classified via utils.IsPublicIP and the
+// same IP is reused for the connection (DNS-rebinding mitigation).
 func CORSProxyEndpoint(appConfig *config.ApplicationConfig) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		targetURL := c.QueryParam("url")
@@ -61,12 +38,24 @@ func CORSProxyEndpoint(appConfig *config.ApplicationConfig) echo.HandlerFunc {
 			return c.JSON(http.StatusBadRequest, map[string]string{"error": "only http and https schemes are supported"})
 		}
 
-		ips, err := net.LookupIP(parsed.Hostname())
-		if err != nil {
+		hostname := parsed.Hostname()
+		if hostname == "" {
+			return c.JSON(http.StatusBadRequest, map[string]string{"error": "URL has no hostname"})
+		}
+		// Reject internal hostnames before DNS — split-horizon DNS or hosts
+		// files could otherwise map them to addresses the CIDR check accepts.
+		lowerHost := strings.ToLower(hostname)
+		if lowerHost == "localhost" || strings.HasSuffix(lowerHost, ".local") ||
+			lowerHost == "metadata.google.internal" || lowerHost == "instance-data" {
+			return c.JSON(http.StatusForbidden, map[string]string{"error": "requests to internal hosts are not allowed"})
+		}
+
+		ips, err := net.LookupIP(hostname)
+		if err != nil || len(ips) == 0 {
 			return c.JSON(http.StatusBadRequest, map[string]string{"error": "cannot resolve hostname"})
 		}
 		for _, ip := range ips {
-			if isPrivateIP(ip) {
+			if !utils.IsPublicIP(ip) {
 				return c.JSON(http.StatusForbidden, map[string]string{"error": "requests to private networks are not allowed"})
 			}
 		}

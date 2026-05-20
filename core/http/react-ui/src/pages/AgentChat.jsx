@@ -59,8 +59,7 @@ function AgentActivityGroup({ items }) {
             {items.map((item, idx) => (
               <div key={idx} className="chat-activity-item">
                 <span className="chat-activity-item-label">{new Date(item.timestamp).toLocaleTimeString()}</span>
-                <div className="chat-activity-item-content"
-                  dangerouslySetInnerHTML={{ __html: item.content }} />
+                <div className="chat-activity-item-content" style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{item.content}</div>
               </div>
             ))}
           </div>
@@ -101,6 +100,7 @@ export default function AgentChat() {
   const messagesEndRef = useRef(null)
   const messagesRef = useRef(null)
   const textareaRef = useRef(null)
+  const stickToBottomRef = useRef(true)
   const eventSourceRef = useRef(null)
   const messageIdCounter = useRef(0)
   const addMessageRef = useRef(addMessage)
@@ -260,10 +260,30 @@ export default function AgentChat() {
     }
   }, [name, userId, addToast, nextId])
 
-  // Auto-scroll to bottom
+  // Track whether the user is pinned to the bottom. If they scroll up
+  // while a response is streaming, stop forcing them back down.
   useEffect(() => {
+    const el = messagesRef.current
+    if (!el) return
+    const onScroll = () => {
+      const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight
+      stickToBottomRef.current = distanceFromBottom < 80
+    }
+    el.addEventListener('scroll', onScroll, { passive: true })
+    return () => el.removeEventListener('scroll', onScroll)
+  }, [])
+
+  // Auto-scroll only when the user hasn't scrolled away from the bottom.
+  useEffect(() => {
+    if (!stickToBottomRef.current) return
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages, streamContent, streamReasoning, streamToolCalls])
+
+  // When switching conversations, snap to bottom and re-pin.
+  useEffect(() => {
+    stickToBottomRef.current = true
+    messagesEndRef.current?.scrollIntoView({ behavior: 'auto' })
+  }, [activeId])
 
   // Highlight code blocks
   useEffect(() => {
@@ -598,7 +618,7 @@ export default function AgentChat() {
                 <div className="chat-message-bubble">
                   <div className="chat-message-content">
                     {role === 'user' ? (
-                      <div dangerouslySetInnerHTML={{ __html: msg.content.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\n/g, '<br>') }} />
+                      <div style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{msg.content}</div>
                     ) : (
                       <div dangerouslySetInnerHTML={{
                         __html: canvasMode

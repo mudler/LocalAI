@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useNavigate, useOutletContext } from 'react-router-dom'
+import { useTranslation, Trans } from 'react-i18next'
 import { agentsApi } from '../utils/api'
 import { useAuth } from '../context/AuthContext'
 import { useUserMap } from '../hooks/useUserMap'
@@ -9,6 +10,7 @@ import ConfirmDialog from '../components/ConfirmDialog'
 export default function Agents() {
   const { addToast } = useOutletContext()
   const navigate = useNavigate()
+  const { t } = useTranslation('agents')
   const { isAdmin, authEnabled, user } = useAuth()
   const userMap = useUserMap()
   const [agents, setAgents] = useState([])
@@ -25,7 +27,7 @@ export default function Agents() {
       const statuses = data.statuses || {}
       if (data.agent_hub_url) setAgentHubURL(data.agent_hub_url)
       setUserGroups(data.user_groups || null)
-      
+
       // Fetch observable counts for each agent
       const agentsWithCounts = await Promise.all(
         names.map(async (name) => {
@@ -45,11 +47,11 @@ export default function Agents() {
       )
       setAgents(agentsWithCounts)
     } catch (err) {
-      addToast(`Failed to load agents: ${err.message}`, 'error')
+      addToast(t('toasts.loadFailed', { message: err.message }), 'error')
     } finally {
       setLoading(false)
     }
-  }, [addToast, isAdmin, authEnabled])
+  }, [addToast, isAdmin, authEnabled, t])
 
   useEffect(() => {
     fetchAgents()
@@ -65,18 +67,18 @@ export default function Agents() {
 
   const handleDelete = (name, userId) => {
     setConfirmDialog({
-      title: 'Delete Agent',
-      message: `Delete agent "${name}"? This action cannot be undone.`,
-      confirmLabel: 'Delete',
+      title: t('deleteDialog.title'),
+      message: t('deleteDialog.message', { name }),
+      confirmLabel: t('deleteDialog.confirm'),
       danger: true,
       onConfirm: async () => {
         setConfirmDialog(null)
         try {
           await agentsApi.delete(name, userId)
-          addToast(`Agent "${name}" deleted`, 'success')
+          addToast(t('toasts.deleted', { name }), 'success')
           fetchAgents()
         } catch (err) {
-          addToast(`Failed to delete agent: ${err.message}`, 'error')
+          addToast(t('toasts.deleteFailed', { message: err.message }), 'error')
         }
       },
     })
@@ -88,14 +90,14 @@ export default function Agents() {
     try {
       if (isActive) {
         await agentsApi.pause(name, userId)
-        addToast(`Agent "${name}" paused`, 'success')
+        addToast(t('toasts.paused', { name }), 'success')
       } else {
         await agentsApi.resume(name, userId)
-        addToast(`Agent "${name}" resumed`, 'success')
+        addToast(t('toasts.resumed', { name }), 'success')
       }
       fetchAgents()
     } catch (err) {
-      addToast(`Failed to ${isActive ? 'pause' : 'resume'} agent: ${err.message}`, 'error')
+      addToast(t(isActive ? 'toasts.pauseFailed' : 'toasts.resumeFailed', { message: err.message }), 'error')
     }
   }
 
@@ -111,9 +113,9 @@ export default function Agents() {
       a.click()
       document.body.removeChild(a)
       URL.revokeObjectURL(url)
-      addToast(`Agent "${name}" exported`, 'success')
+      addToast(t('toasts.exported', { name }), 'success')
     } catch (err) {
-      addToast(`Failed to export agent: ${err.message}`, 'error')
+      addToast(t('toasts.exportFailed', { message: err.message }), 'error')
     }
   }
 
@@ -125,7 +127,7 @@ export default function Agents() {
       const config = JSON.parse(text)
       navigate('/app/agents/new', { state: { importedConfig: config } })
     } catch (err) {
-      addToast(`Failed to parse agent file: ${err.message}`, 'error')
+      addToast(t('toasts.parseFailed', { message: err.message }), 'error')
     }
     e.target.value = ''
   }
@@ -136,7 +138,7 @@ export default function Agents() {
   }
 
   return (
-    <div className="page">
+    <div className="page page--wide">
       <style>{`
         .agents-import-input { display: none; }
         .agents-toolbar {
@@ -181,21 +183,21 @@ export default function Agents() {
 
       <div className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <div>
-          <h1 className="page-title">Agents</h1>
-          <p className="page-subtitle">Manage autonomous AI agents</p>
+          <h1 className="page-title">{t('title')}</h1>
+          <p className="page-subtitle">{t('subtitle')}</p>
         </div>
         <div style={{ display: 'flex', gap: 'var(--spacing-sm)', alignItems: 'center' }}>
           {agentHubURL && (
             <a className="btn btn-secondary" href={agentHubURL} target="_blank" rel="noopener noreferrer">
-              <i className="fas fa-store" /> Agent Hub
+              <i className="fas fa-store" /> {t('actions.agentHub')}
             </a>
           )}
           <label className="btn btn-secondary">
-            <i className="fas fa-file-import" /> Import
+            <i className="fas fa-file-import" /> {t('actions.import')}
             <input type="file" accept=".json" className="agents-import-input" onChange={handleImport} />
           </label>
           <button className="btn btn-primary" onClick={() => navigate('/app/agents/new')}>
-            <i className="fas fa-plus" /> Create Agent
+            <i className="fas fa-plus" /> {t('actions.createAgent')}
           </button>
         </div>
       </div>
@@ -207,62 +209,68 @@ export default function Agents() {
       ) : agents.length === 0 && !userGroups ? (
         <div className="empty-state">
           <div className="empty-state-icon"><i className="fas fa-robot" /></div>
-          <h2 className="empty-state-title">No agents configured</h2>
-          <p className="empty-state-text">Create an agent to get started with autonomous AI workflows.</p>
+          <h2 className="empty-state-title">{t('empty.noConfigured')}</h2>
+          <p className="empty-state-text">{t('empty.noConfiguredText')}</p>
           {agentHubURL && (
             <p className="empty-state-text">
-              Don't know where to start? Browse the <a href={agentHubURL} target="_blank" rel="noopener noreferrer">Agent Hub</a> to find ready-made agent configurations you can import.
+              <Trans
+                i18nKey="agents:empty.browseHub"
+                values={{}}
+                components={{
+                  1: <a href={agentHubURL} target="_blank" rel="noopener noreferrer" />,
+                }}
+              />
             </p>
           )}
           <div style={{ display: 'flex', gap: 'var(--spacing-sm)', justifyContent: 'center', flexWrap: 'wrap' }}>
             <button className="btn btn-primary" onClick={() => navigate('/app/agents/new')}>
-              <i className="fas fa-plus" /> Create Agent
+              <i className="fas fa-plus" /> {t('actions.createAgent')}
             </button>
             <label className="btn btn-secondary">
-              <i className="fas fa-file-import" /> Import
+              <i className="fas fa-file-import" /> {t('actions.import')}
               <input type="file" accept=".json" className="agents-import-input" onChange={handleImport} />
             </label>
             {agentHubURL && (
               <a className="btn btn-secondary" href={agentHubURL} target="_blank" rel="noopener noreferrer">
-                <i className="fas fa-store" /> Agent Hub
+                <i className="fas fa-store" /> {t('actions.agentHub')}
               </a>
             )}
           </div>
         </div>
       ) : (
         <>
-          {userGroups && <h2 style={{ fontSize: '1.1rem', fontWeight: 600, marginBottom: 'var(--spacing-md)' }}>Your Agents</h2>}
+          {userGroups && <h2 style={{ fontSize: '1.1rem', fontWeight: 600, marginBottom: 'var(--spacing-md)' }}>{t('sections.yourAgents')}</h2>}
           <div className="agents-toolbar">
             <div className="agents-search">
               <i className="fas fa-search" />
               <input
                 className="input"
                 type="text"
-                placeholder="Search agents..."
+                placeholder={t('search.placeholder')}
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
               />
             </div>
             <span style={{ fontSize: '0.8125rem', color: 'var(--color-text-muted)' }}>
-              {filtered.length} of {agents.length} agent{agents.length !== 1 ? 's' : ''}
+              {t('search.summary', { shown: filtered.length, total: agents.length, count: agents.length })}
             </span>
           </div>
 
           {filtered.length === 0 ? (
             <div className="empty-state">
               <div className="empty-state-icon"><i className="fas fa-search" /></div>
-              <h2 className="empty-state-title">No matching agents</h2>
-              <p className="empty-state-text">No agents match "{search}"</p>
+              <h2 className="empty-state-title">{t('empty.noMatching')}</h2>
+              <p className="empty-state-text">{t('empty.noMatchingText', { query: search })}</p>
             </div>
           ) : (
             <div className="table-container">
               <table className="table">
                 <thead>
                   <tr>
-                    <th>Name</th>
-                    <th>Status</th>
-                    <th>Events</th>
-                    <th style={{ textAlign: 'right' }}>Actions</th>
+                    <th>{t('table.name')}</th>
+                    <th>{t('table.status')}</th>
+                    <th>{t('table.events')}</th>
+                    <th style={{ textAlign: 'right' }}>{t('table.actions')}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -281,7 +289,7 @@ export default function Agents() {
                           <a
                             className="agents-name"
                             onClick={() => navigate(`/app/agents/${encodeURIComponent(name)}/status`)}
-                            title={`${agent.eventsCount} events - Click to view`}
+                            title={t('table.eventsTooltip', { count: agent.eventsCount })}
                           >
                             {agent.eventsCount}
                           </a>
@@ -291,35 +299,35 @@ export default function Agents() {
                             <button
                               className={`btn btn-sm ${isActive ? 'btn-warning' : 'btn-success'}`}
                               onClick={() => handlePauseResume(agent)}
-                              title={isActive ? 'Pause' : 'Resume'}
+                              title={isActive ? t('actions.pause') : t('actions.resume')}
                             >
                               <i className={`fas ${isActive ? 'fa-pause' : 'fa-play'}`} />
                             </button>
                             <button
                               className="btn btn-secondary btn-sm"
                               onClick={() => navigate(`/app/agents/${encodeURIComponent(name)}/edit`)}
-                              title="Edit"
+                              title={t('actions.edit')}
                             >
                               <i className="fas fa-edit" />
                             </button>
                             <button
                               className="btn btn-secondary btn-sm"
                               onClick={() => navigate(`/app/agents/${encodeURIComponent(name)}/chat`)}
-                              title="Chat"
+                              title={t('actions.chat')}
                             >
                               <i className="fas fa-comment" />
                             </button>
                             <button
                               className="btn btn-secondary btn-sm"
                               onClick={() => handleExport(name)}
-                              title="Export"
+                              title={t('actions.export')}
                             >
                               <i className="fas fa-download" />
                             </button>
                             <button
                               className="btn btn-danger btn-sm"
                               onClick={() => handleDelete(name)}
-                              title="Delete"
+                              title={t('actions.delete')}
                             >
                               <i className="fas fa-trash" />
                             </button>
@@ -338,7 +346,7 @@ export default function Agents() {
 
       {userGroups && (
         <UserGroupSection
-          title="Other Users' Agents"
+          title={t('sections.otherUsersAgents')}
           userGroups={userGroups}
           userMap={userMap}
           currentUserId={user?.id}
@@ -348,9 +356,9 @@ export default function Agents() {
               <table className="table">
                 <thead>
                   <tr>
-                    <th>Name</th>
-                    <th>Status</th>
-                    <th style={{ textAlign: 'right' }}>Actions</th>
+                    <th>{t('table.name')}</th>
+                    <th>{t('table.status')}</th>
+                    <th style={{ textAlign: 'right' }}>{t('table.actions')}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -369,35 +377,35 @@ export default function Agents() {
                             <button
                               className={`btn btn-sm ${isActive ? 'btn-warning' : 'btn-success'}`}
                               onClick={() => handlePauseResume(a, userId)}
-                              title={isActive ? 'Pause' : 'Resume'}
+                              title={isActive ? t('actions.pause') : t('actions.resume')}
                             >
                               <i className={`fas ${isActive ? 'fa-pause' : 'fa-play'}`} />
                             </button>
                             <button
                               className="btn btn-secondary btn-sm"
                               onClick={() => navigate(`/app/agents/${encodeURIComponent(a.name)}/edit?user_id=${encodeURIComponent(userId)}`)}
-                              title="Edit"
+                              title={t('actions.edit')}
                             >
                               <i className="fas fa-edit" />
                             </button>
                             <button
                               className="btn btn-secondary btn-sm"
                               onClick={() => navigate(`/app/agents/${encodeURIComponent(a.name)}/chat?user_id=${encodeURIComponent(userId)}`)}
-                              title="Chat"
+                              title={t('actions.chat')}
                             >
                               <i className="fas fa-comment" />
                             </button>
                             <button
                               className="btn btn-secondary btn-sm"
                               onClick={() => handleExport(a.name, userId)}
-                              title="Export"
+                              title={t('actions.export')}
                             >
                               <i className="fas fa-download" />
                             </button>
                             <button
                               className="btn btn-danger btn-sm"
                               onClick={() => handleDelete(a.name, userId)}
-                              title="Delete"
+                              title={t('actions.delete')}
                             >
                               <i className="fas fa-trash" />
                             </button>

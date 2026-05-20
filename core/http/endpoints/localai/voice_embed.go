@@ -41,7 +41,7 @@ func VoiceEmbedEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, app
 		defer cleanup()
 
 		xlog.Debug("VoiceEmbed", "model", cfg.Name, "backend", cfg.Backend)
-		res, err := backend.VoiceEmbed(audio, ml, appConfig, *cfg)
+		res, err := backend.VoiceEmbed(c.Request().Context(), audio, ml, appConfig, *cfg)
 		if err != nil {
 			return mapBackendError(err)
 		}

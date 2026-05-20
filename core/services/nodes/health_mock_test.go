@@ -2,6 +2,7 @@ package nodes
 
 import (
 	"context"
+	"fmt"
 	"sync"
 	"time"
 
@@ -122,8 +123,8 @@ func (f *fakeNodeHealthStore) FindStaleNodes(_ context.Context, _ time.Duration)
 	return nil, nil
 }
 
-func (f *fakeNodeHealthStore) RemoveNodeModel(_ context.Context, nodeID, modelName string) error {
-	f.record("RemoveNodeModel:" + nodeID + ":" + modelName)
+func (f *fakeNodeHealthStore) RemoveNodeModel(_ context.Context, nodeID, modelName string, replicaIndex int) error {
+	f.record(fmt.Sprintf("RemoveNodeModel:%s:%s:%d", nodeID, modelName, replicaIndex))
 	return nil
 }
 
@@ -216,10 +217,22 @@ func (c *fakeBackendClient) GetTokenMetrics(_ context.Context, _ *pb.MetricsRequ
 func (c *fakeBackendClient) VAD(_ context.Context, _ *pb.VADRequest, _ ...ggrpc.CallOption) (*pb.VADResponse, error) {
 	return nil, nil
 }
+func (c *fakeBackendClient) Diarize(_ context.Context, _ *pb.DiarizeRequest, _ ...ggrpc.CallOption) (*pb.DiarizeResponse, error) {
+	return nil, nil
+}
 func (c *fakeBackendClient) AudioEncode(_ context.Context, _ *pb.AudioEncodeRequest, _ ...ggrpc.CallOption) (*pb.AudioEncodeResult, error) {
 	return nil, nil
 }
 func (c *fakeBackendClient) AudioDecode(_ context.Context, _ *pb.AudioDecodeRequest, _ ...ggrpc.CallOption) (*pb.AudioDecodeResult, error) {
+	return nil, nil
+}
+func (c *fakeBackendClient) AudioTransform(_ context.Context, _ *pb.AudioTransformRequest, _ ...ggrpc.CallOption) (*pb.AudioTransformResult, error) {
+	return nil, nil
+}
+func (c *fakeBackendClient) AudioTransformStream(_ context.Context, _ ...ggrpc.CallOption) (grpc.AudioTransformStreamClient, error) {
+	return nil, nil
+}
+func (c *fakeBackendClient) AudioToAudioStream(_ context.Context, _ ...ggrpc.CallOption) (grpc.AudioToAudioStreamClient, error) {
 	return nil, nil
 }
 func (c *fakeBackendClient) ModelMetadata(_ context.Context, _ *pb.ModelOptions, _ ...ggrpc.CallOption) (*pb.ModelMetadataResponse, error) {
@@ -311,6 +324,7 @@ func newTestHealthMonitor(store NodeHealthStore, factory BackendClientFactory, a
 		staleThreshold: staleThreshold,
 		autoOffline:    autoOffline,
 		clientFactory:  factory,
+		misses:         make(map[modelKey]int),
 	}
 }
 

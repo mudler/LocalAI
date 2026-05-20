@@ -4,7 +4,7 @@ set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
 add_subdirectory(./sources/stablediffusion-ggml.cpp)
 
-add_library(gosd MODULE gosd.cpp)
+add_library(gosd MODULE cpp/gosd.cpp)
 target_link_libraries(gosd PRIVATE stable-diffusion ggml)
 
 if(CMAKE_CXX_COMPILER_ID MATCHES "GNU" AND CMAKE_CXX_COMPILER_VERSION VERSION_LESS 9.0)

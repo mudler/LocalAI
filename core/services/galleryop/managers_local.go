@@ -16,6 +16,7 @@ type LocalModelManager struct {
 	modelLoader                 *model.ModelLoader
 	enforcePredownloadScans     bool
 	automaticallyInstallBackend bool
+	requireBackendIntegrity     bool
 }
 
 // NewLocalModelManager creates a LocalModelManager from the application config.
@@ -25,6 +26,7 @@ func NewLocalModelManager(appConfig *config.ApplicationConfig, ml *model.ModelLo
 		modelLoader:                 ml,
 		enforcePredownloadScans:     appConfig.EnforcePredownloadScans,
 		automaticallyInstallBackend: appConfig.AutoloadBackendGalleries,
+		requireBackendIntegrity:     appConfig.RequireBackendIntegrity,
 	}
 }
 
@@ -53,32 +55,34 @@ func (m *LocalModelManager) InstallModel(ctx context.Context, op *ManagementOp[g
 		if m.automaticallyInstallBackend && installedModel.Backend != "" {
 			xlog.Debug("Installing backend", "backend", installedModel.Backend)
 			return gallery.InstallBackendFromGallery(ctx, op.BackendGalleries, m.systemState,
-				m.modelLoader, installedModel.Backend, progressCb, false)
+				m.modelLoader, installedModel.Backend, progressCb, false, m.requireBackendIntegrity)
 		}
 		return nil
 	case op.GalleryElementName != "":
 		return gallery.InstallModelFromGallery(ctx, op.Galleries, op.BackendGalleries,
 			m.systemState, m.modelLoader, op.GalleryElementName, op.Req, progressCb,
-			m.enforcePredownloadScans, m.automaticallyInstallBackend)
+			m.enforcePredownloadScans, m.automaticallyInstallBackend, m.requireBackendIntegrity)
 	default:
 		return installModelFromRemoteConfig(ctx, m.systemState, m.modelLoader, op.Req,
-			progressCb, m.enforcePredownloadScans, m.automaticallyInstallBackend, op.BackendGalleries)
+			progressCb, m.enforcePredownloadScans, m.automaticallyInstallBackend, op.BackendGalleries, m.requireBackendIntegrity)
 	}
 }
 
 // LocalBackendManager handles backend install/delete on the local instance.
 type LocalBackendManager struct {
-	systemState      *system.SystemState
-	modelLoader      *model.ModelLoader
-	backendGalleries []config.Gallery
+	systemState             *system.SystemState
+	modelLoader             *model.ModelLoader
+	backendGalleries        []config.Gallery
+	requireBackendIntegrity bool
 }
 
 // NewLocalBackendManager creates a LocalBackendManager from the application config.
 func NewLocalBackendManager(appConfig *config.ApplicationConfig, ml *model.ModelLoader) *LocalBackendManager {
 	return &LocalBackendManager{
-		systemState:      appConfig.SystemState,
-		modelLoader:      ml,
-		backendGalleries: appConfig.BackendGalleries,
+		systemState:             appConfig.SystemState,
+		modelLoader:             ml,
+		backendGalleries:        appConfig.BackendGalleries,
+		requireBackendIntegrity: appConfig.RequireBackendIntegrity,
 	}
 }
 
@@ -93,7 +97,7 @@ func (b *LocalBackendManager) ListBackends() (gallery.SystemBackends, error) {
 }
 
 func (b *LocalBackendManager) UpgradeBackend(ctx context.Context, name string, progressCb ProgressCallback) error {
-	return gallery.UpgradeBackend(ctx, b.systemState, b.modelLoader, b.backendGalleries, name, progressCb)
+	return gallery.UpgradeBackend(ctx, b.systemState, b.modelLoader, b.backendGalleries, name, progressCb, b.requireBackendIntegrity)
 }
 
 func (b *LocalBackendManager) CheckUpgrades(ctx context.Context) (map[string]gallery.UpgradeInfo, error) {
@@ -103,8 +107,10 @@ func (b *LocalBackendManager) CheckUpgrades(ctx context.Context) (map[string]gal
 func (b *LocalBackendManager) InstallBackend(ctx context.Context, op *ManagementOp[gallery.GalleryBackend, any], progressCb ProgressCallback) error {
 	if op.ExternalURI != "" {
 		return InstallExternalBackend(ctx, b.backendGalleries, b.systemState, b.modelLoader,
-			progressCb, op.ExternalURI, op.ExternalName, op.ExternalAlias)
+			progressCb, op.ExternalURI, op.ExternalName, op.ExternalAlias, b.requireBackendIntegrity)
 	}
 	return gallery.InstallBackendFromGallery(ctx, b.backendGalleries, b.systemState,
-		b.modelLoader, op.GalleryElementName, progressCb, true)
+		b.modelLoader, op.GalleryElementName, progressCb, true, b.requireBackendIntegrity)
 }
+
+func (b *LocalBackendManager) IsDistributed() bool { return false }

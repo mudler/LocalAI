@@ -32,10 +32,13 @@
 #include <grpcpp/health_check_service_interface.h>
 #include <grpcpp/security/server_credentials.h>
 #include <regex>
+#include <algorithm>
 #include <atomic>
 #include <cstdlib>
 #include <fstream>
 #include <iterator>
+#include <list>
+#include <map>
 #include <mutex>
 #include <signal.h>
 #include <thread>
@@ -442,11 +445,25 @@ static void params_parse(server_context& /*ctx_server*/, const backend::ModelOpt
 
     // Draft model for speculative decoding
     if (!request->draftmodel().empty()) {
-        params.speculative.mparams_dft.path = request->draftmodel();
-        // Default to draft type if a draft model is set but no explicit type
+        params.speculative.draft.mparams.path = request->draftmodel();
+        // Default to draft type if a draft model is set but no explicit type.
+        // Upstream (post ggml-org/llama.cpp#22838) made the speculative type a
+        // vector; the turboquant fork still uses the legacy scalar. The
+        // LOCALAI_LEGACY_LLAMA_CPP_SPEC macro is injected by
+        // backend/cpp/turboquant/patch-grpc-server.sh for fork builds only.
+        // Upstream renamed COMMON_SPECULATIVE_TYPE_DRAFT -> ..._DRAFT_SIMPLE
+        // in ggml-org/llama.cpp#22964; the fork still uses the old name.
+#ifdef LOCALAI_LEGACY_LLAMA_CPP_SPEC
         if (params.speculative.type == COMMON_SPECULATIVE_TYPE_NONE) {
             params.speculative.type = COMMON_SPECULATIVE_TYPE_DRAFT;
         }
+#else
+        const bool no_spec_type = params.speculative.types.empty() ||
+            (params.speculative.types.size() == 1 && params.speculative.types[0] == COMMON_SPECULATIVE_TYPE_NONE);
+        if (no_spec_type) {
+            params.speculative.types = { COMMON_SPECULATIVE_TYPE_DRAFT_SIMPLE };
+        }
+#endif
     }
 
     //  params.model_alias ??
@@ -671,49 +688,360 @@ static void params_parse(server_context& /*ctx_server*/, const backend::ModelOpt
                     // If conversion fails, keep default value (8)
                 }
             }
+
+        // --- physical batch size (upstream -ub / --ubatch-size) ---
+        // Note: line ~482 already aliases n_ubatch to n_batch as a default; this
+        // option lets users decouple the two (useful for embeddings/rerank).
+        } else if (!strcmp(optname, "n_ubatch") || !strcmp(optname, "ubatch")) {
+            if (optval != NULL) {
+                try { params.n_ubatch = std::stoi(optval_str); } catch (...) {}
+            }
+
+        // --- main-model batch threads (upstream -tb / --threads-batch) ---
+        } else if (!strcmp(optname, "threads_batch") || !strcmp(optname, "n_threads_batch")) {
+            if (optval != NULL) {
+                try {
+                    int n = std::stoi(optval_str);
+                    if (n <= 0) n = (int)std::thread::hardware_concurrency();
+                    params.cpuparams_batch.n_threads = n;
+                } catch (...) {}
+            }
+
+        // --- pooling type for embeddings (upstream --pooling) ---
+        } else if (!strcmp(optname, "pooling_type") || !strcmp(optname, "pooling")) {
+            if (optval != NULL) {
+                if      (optval_str == "none") params.pooling_type = LLAMA_POOLING_TYPE_NONE;
+                else if (optval_str == "mean") params.pooling_type = LLAMA_POOLING_TYPE_MEAN;
+                else if (optval_str == "cls")  params.pooling_type = LLAMA_POOLING_TYPE_CLS;
+                else if (optval_str == "last") params.pooling_type = LLAMA_POOLING_TYPE_LAST;
+                else if (optval_str == "rank") params.pooling_type = LLAMA_POOLING_TYPE_RANK;
+                // unknown values silently leave UNSPECIFIED (auto-detect)
+            }
+
+        // --- llama log verbosity threshold (upstream -lv / --verbosity) ---
+        } else if (!strcmp(optname, "verbosity")) {
+            if (optval != NULL) {
+                try { params.verbosity = std::stoi(optval_str); } catch (...) {}
+            }
+
+        // --- O_DIRECT model loading (upstream --direct-io) ---
+        } else if (!strcmp(optname, "direct_io") || !strcmp(optname, "use_direct_io")) {
+            if (optval_str == "true" || optval_str == "1" || optval_str == "yes" || optval_str == "on" || optval_str == "enabled") {
+                params.use_direct_io = true;
+            } else if (optval_str == "false" || optval_str == "0" || optval_str == "no" || optval_str == "off" || optval_str == "disabled") {
+                params.use_direct_io = false;
+            }
+
+        // --- embedding normalization (upstream --embd-normalize) ---
+        // -1 none, 0 max-abs, 1 taxicab, 2 L2 (default), >2 p-norm
+        } else if (!strcmp(optname, "embd_normalize") || !strcmp(optname, "embedding_normalize")) {
+            if (optval != NULL) {
+                try { params.embd_normalize = std::stoi(optval_str); } catch (...) {}
+            }
+
+        // --- reasoning parser (upstream --reasoning-format) ---
+        // Picks the parser for <think> blocks emitted by reasoning models.
+        // none / auto / deepseek / deepseek-legacy
+        } else if (!strcmp(optname, "reasoning_format")) {
+            if (optval != NULL) {
+                if      (optval_str == "none")             params.reasoning_format = COMMON_REASONING_FORMAT_NONE;
+                else if (optval_str == "auto")             params.reasoning_format = COMMON_REASONING_FORMAT_AUTO;
+                else if (optval_str == "deepseek")         params.reasoning_format = COMMON_REASONING_FORMAT_DEEPSEEK;
+                else if (optval_str == "deepseek-legacy" || optval_str == "deepseek_legacy")
+                                                            params.reasoning_format = COMMON_REASONING_FORMAT_DEEPSEEK_LEGACY;
+                // unknown values silently keep the upstream default (DEEPSEEK)
+            }
+
+        // --- reasoning budget (upstream --reasoning-budget) ---
+        // -1 unlimited, 0 disabled, >0 token budget for thinking blocks.
+        // Distinct from per-request `enable_thinking` (chat_template_kwargs).
+        } else if (!strcmp(optname, "enable_reasoning") || !strcmp(optname, "reasoning_budget")) {
+            if (optval != NULL) {
+                try { params.enable_reasoning = std::stoi(optval_str); } catch (...) {}
+            }
+
+        // --- prefill assistant turn (upstream --no-prefill-assistant) ---
+        } else if (!strcmp(optname, "prefill_assistant")) {
+            if (optval_str == "true" || optval_str == "1" || optval_str == "yes" || optval_str == "on" || optval_str == "enabled") {
+                params.prefill_assistant = true;
+            } else if (optval_str == "false" || optval_str == "0" || optval_str == "no" || optval_str == "off" || optval_str == "disabled") {
+                params.prefill_assistant = false;
+            }
+
+        // --- mmproj GPU offload (upstream --no-mmproj-offload, inverted) ---
+        } else if (!strcmp(optname, "mmproj_use_gpu") || !strcmp(optname, "mmproj_offload")) {
+            if (optval_str == "true" || optval_str == "1" || optval_str == "yes" || optval_str == "on" || optval_str == "enabled") {
+                params.mmproj_use_gpu = true;
+            } else if (optval_str == "false" || optval_str == "0" || optval_str == "no" || optval_str == "off" || optval_str == "disabled") {
+                params.mmproj_use_gpu = false;
+            }
+
+        // --- per-image vision token budget (upstream --image-min/max-tokens) ---
+        } else if (!strcmp(optname, "image_min_tokens")) {
+            if (optval != NULL) {
+                try { params.image_min_tokens = std::stoi(optval_str); } catch (...) {}
+            }
+        } else if (!strcmp(optname, "image_max_tokens")) {
+            if (optval != NULL) {
+                try { params.image_max_tokens = std::stoi(optval_str); } catch (...) {}
+            }
+
+        // --- main-model tensor buffer overrides (upstream --override-tensor) ---
+        // Format: <tensor regex>=<buffer type>,<tensor regex>=<buffer type>,...
+        // Mirrors the existing `draft_override_tensor` parser below.
+        } else if (!strcmp(optname, "override_tensor") || !strcmp(optname, "tensor_buft_overrides")) {
+            ggml_backend_load_all();
+            std::map<std::string, ggml_backend_buffer_type_t> buft_list;
+            for (size_t i = 0; i < ggml_backend_dev_count(); ++i) {
+                auto * dev = ggml_backend_dev_get(i);
+                auto * buft = ggml_backend_dev_buffer_type(dev);
+                if (buft) {
+                    buft_list[ggml_backend_buft_name(buft)] = buft;
+                }
+            }
+            static std::list<std::string> override_names;
+            std::string cur;
+            auto flush = [&](const std::string & spec) {
+                auto pos = spec.find('=');
+                if (pos == std::string::npos) return;
+                const std::string name = spec.substr(0, pos);
+                const std::string type = spec.substr(pos + 1);
+                auto it = buft_list.find(type);
+                if (it == buft_list.end()) return; // unknown buffer type: ignore
+                override_names.push_back(name);
+                params.tensor_buft_overrides.push_back(
+                    {override_names.back().c_str(), it->second});
+            };
+            for (char c : optval_str) {
+                if (c == ',') { if (!cur.empty()) { flush(cur); cur.clear(); } }
+                else { cur.push_back(c); }
+            }
+            if (!cur.empty()) flush(cur);
+
         // Speculative decoding options
         } else if (!strcmp(optname, "spec_type") || !strcmp(optname, "speculative_type")) {
-            auto type = common_speculative_type_from_name(optval_str);
+#ifdef LOCALAI_LEGACY_LLAMA_CPP_SPEC
+            // Fork only knows a single scalar `type`. Take the first comma-
+            // separated value and assign it via the singular helper.
+            std::string first = optval_str;
+            const auto comma = first.find(',');
+            if (comma != std::string::npos) first = first.substr(0, comma);
+            auto type = common_speculative_type_from_name(first);
             if (type != COMMON_SPECULATIVE_TYPE_COUNT) {
                 params.speculative.type = type;
             }
+#else
+            // Upstream switched to a vector of types (comma-separated for multi-type
+            // chaining via common_speculative_types_from_names). We keep accepting a
+            // single value here, but also tolerate comma-separated lists.
+            //
+            // ggml-org/llama.cpp#22964 also renamed the registered names from
+            // underscore- to dash-separated form, and replaced the bare
+            // `draft`/`eagle3` aliases with `draft-simple`/`draft-eagle3`. We
+            // normalize each token here so existing model configs keep working.
+            auto normalize_spec_name = [](std::string s) -> std::string {
+                std::replace(s.begin(), s.end(), '_', '-');
+                if (s == "draft")  return "draft-simple";
+                if (s == "eagle3") return "draft-eagle3";
+                return s;
+            };
+            std::vector<std::string> names;
+            std::string item;
+            for (char c : optval_str) {
+                if (c == ',') {
+                    if (!item.empty()) { names.push_back(normalize_spec_name(item)); item.clear(); }
+                } else {
+                    item.push_back(c);
+                }
+            }
+            if (!item.empty()) names.push_back(normalize_spec_name(item));
+            auto parsed = common_speculative_types_from_names(names);
+            if (!parsed.empty()) {
+                params.speculative.types = parsed;
+            }
+#endif
         } else if (!strcmp(optname, "spec_n_max") || !strcmp(optname, "draft_max")) {
             if (optval != NULL) {
-                try { params.speculative.n_max = std::stoi(optval_str); } catch (...) {}
+                try { params.speculative.draft.n_max = std::stoi(optval_str); } catch (...) {}
             }
         } else if (!strcmp(optname, "spec_n_min") || !strcmp(optname, "draft_min")) {
             if (optval != NULL) {
-                try { params.speculative.n_min = std::stoi(optval_str); } catch (...) {}
+                try { params.speculative.draft.n_min = std::stoi(optval_str); } catch (...) {}
             }
         } else if (!strcmp(optname, "spec_p_min") || !strcmp(optname, "draft_p_min")) {
             if (optval != NULL) {
-                try { params.speculative.p_min = std::stof(optval_str); } catch (...) {}
+                try { params.speculative.draft.p_min = std::stof(optval_str); } catch (...) {}
             }
         } else if (!strcmp(optname, "spec_p_split")) {
             if (optval != NULL) {
-                try { params.speculative.p_split = std::stof(optval_str); } catch (...) {}
+                try { params.speculative.draft.p_split = std::stof(optval_str); } catch (...) {}
             }
         } else if (!strcmp(optname, "spec_ngram_size_n") || !strcmp(optname, "ngram_size_n")) {
             if (optval != NULL) {
-                try { params.speculative.ngram_size_n = (uint16_t)std::stoi(optval_str); } catch (...) {}
+                try { params.speculative.ngram_simple.size_n = (uint16_t)std::stoi(optval_str); } catch (...) {}
             }
         } else if (!strcmp(optname, "spec_ngram_size_m") || !strcmp(optname, "ngram_size_m")) {
             if (optval != NULL) {
-                try { params.speculative.ngram_size_m = (uint16_t)std::stoi(optval_str); } catch (...) {}
+                try { params.speculative.ngram_simple.size_m = (uint16_t)std::stoi(optval_str); } catch (...) {}
             }
         } else if (!strcmp(optname, "spec_ngram_min_hits") || !strcmp(optname, "ngram_min_hits")) {
             if (optval != NULL) {
-                try { params.speculative.ngram_min_hits = (uint16_t)std::stoi(optval_str); } catch (...) {}
+                try { params.speculative.ngram_simple.min_hits = (uint16_t)std::stoi(optval_str); } catch (...) {}
             }
         } else if (!strcmp(optname, "draft_gpu_layers")) {
             if (optval != NULL) {
-                try { params.speculative.n_gpu_layers = std::stoi(optval_str); } catch (...) {}
+                try { params.speculative.draft.n_gpu_layers = std::stoi(optval_str); } catch (...) {}
             }
         } else if (!strcmp(optname, "draft_ctx_size")) {
-            if (optval != NULL) {
-                try { params.speculative.n_ctx = std::stoi(optval_str); } catch (...) {}
-            }
+            // The draft context size is no longer a separate field upstream: the draft
+            // shares the target context size. Accept the option for backward
+            // compatibility but silently ignore it.
+
+// Everything below relies on struct shape introduced in ggml-org/llama.cpp#22838
+// (parallel drafting): `ngram_mod`, `ngram_map_k`, `ngram_map_k4v`,
+// `ngram_cache`, and the `draft.{cache_type_*, cpuparams*, tensor_buft_overrides}`
+// fields. The turboquant fork branched before that, so its build defines
+// LOCALAI_LEGACY_LLAMA_CPP_SPEC via patch-grpc-server.sh and these option
+// keys become unrecognized (silently dropped, like any unknown opt) for it.
+//
+// The `#ifdef LOCALAI_LEGACY_LLAMA_CPP_SPEC` / `#else` split below sits at the
+// closing-brace position of the `draft_ctx_size` branch on purpose: in the
+// legacy build the chain ends here (the brace closes draft_ctx_size), and in
+// the modern build the chain continues with `} else if (...)` instead, so the
+// brace count stays balanced under both branches of the preprocessor.
+#ifdef LOCALAI_LEGACY_LLAMA_CPP_SPEC
         }
+#else
+        // --- ngram_mod family (upstream --spec-ngram-mod-*) ---
+        } else if (!strcmp(optname, "spec_ngram_mod_n_min")) {
+            if (optval != NULL) {
+                try { params.speculative.ngram_mod.n_min = std::stoi(optval_str); } catch (...) {}
+            }
+        } else if (!strcmp(optname, "spec_ngram_mod_n_max")) {
+            if (optval != NULL) {
+                try { params.speculative.ngram_mod.n_max = std::stoi(optval_str); } catch (...) {}
+            }
+        } else if (!strcmp(optname, "spec_ngram_mod_n_match")) {
+            if (optval != NULL) {
+                try { params.speculative.ngram_mod.n_match = std::stoi(optval_str); } catch (...) {}
+            }
+
+        // --- ngram_map_k family (upstream --spec-ngram-map-k-*) ---
+        } else if (!strcmp(optname, "spec_ngram_map_k_size_n")) {
+            if (optval != NULL) {
+                try { params.speculative.ngram_map_k.size_n = (uint16_t)std::stoi(optval_str); } catch (...) {}
+            }
+        } else if (!strcmp(optname, "spec_ngram_map_k_size_m")) {
+            if (optval != NULL) {
+                try { params.speculative.ngram_map_k.size_m = (uint16_t)std::stoi(optval_str); } catch (...) {}
+            }
+        } else if (!strcmp(optname, "spec_ngram_map_k_min_hits")) {
+            if (optval != NULL) {
+                try { params.speculative.ngram_map_k.min_hits = (uint16_t)std::stoi(optval_str); } catch (...) {}
+            }
+
+        // --- ngram_map_k4v family (upstream --spec-ngram-map-k4v-*) ---
+        } else if (!strcmp(optname, "spec_ngram_map_k4v_size_n")) {
+            if (optval != NULL) {
+                try { params.speculative.ngram_map_k4v.size_n = (uint16_t)std::stoi(optval_str); } catch (...) {}
+            }
+        } else if (!strcmp(optname, "spec_ngram_map_k4v_size_m")) {
+            if (optval != NULL) {
+                try { params.speculative.ngram_map_k4v.size_m = (uint16_t)std::stoi(optval_str); } catch (...) {}
+            }
+        } else if (!strcmp(optname, "spec_ngram_map_k4v_min_hits")) {
+            if (optval != NULL) {
+                try { params.speculative.ngram_map_k4v.min_hits = (uint16_t)std::stoi(optval_str); } catch (...) {}
+            }
+
+        // --- ngram lookup caches (upstream --lookup-cache-static / -dynamic) ---
+        } else if (!strcmp(optname, "spec_lookup_cache_static") || !strcmp(optname, "lookup_cache_static")) {
+            params.speculative.ngram_cache.lookup_cache_static = optval_str;
+        } else if (!strcmp(optname, "spec_lookup_cache_dynamic") || !strcmp(optname, "lookup_cache_dynamic")) {
+            params.speculative.ngram_cache.lookup_cache_dynamic = optval_str;
+
+        // --- draft model KV cache types (upstream --spec-draft-type-k / -v) ---
+        } else if (!strcmp(optname, "draft_cache_type_k") || !strcmp(optname, "spec_draft_cache_type_k")) {
+            params.speculative.draft.cache_type_k = kv_cache_type_from_str(optval_str);
+        } else if (!strcmp(optname, "draft_cache_type_v") || !strcmp(optname, "spec_draft_cache_type_v")) {
+            params.speculative.draft.cache_type_v = kv_cache_type_from_str(optval_str);
+
+        // --- draft model thread counts (upstream --spec-draft-threads / -batch) ---
+        } else if (!strcmp(optname, "draft_threads") || !strcmp(optname, "spec_draft_threads")) {
+            if (optval != NULL) {
+                try {
+                    int n = std::stoi(optval_str);
+                    if (n <= 0) n = (int)std::thread::hardware_concurrency();
+                    params.speculative.draft.cpuparams.n_threads = n;
+                } catch (...) {}
+            }
+        } else if (!strcmp(optname, "draft_threads_batch") || !strcmp(optname, "spec_draft_threads_batch")) {
+            if (optval != NULL) {
+                try {
+                    int n = std::stoi(optval_str);
+                    if (n <= 0) n = (int)std::thread::hardware_concurrency();
+                    params.speculative.draft.cpuparams_batch.n_threads = n;
+                } catch (...) {}
+            }
+
+        // --- draft model MoE on CPU (upstream --spec-draft-cpu-moe / --spec-draft-n-cpu-moe) ---
+        } else if (!strcmp(optname, "draft_cpu_moe") || !strcmp(optname, "spec_draft_cpu_moe")) {
+            // Bool-style flag: optval may be missing, "true"/"1"/"yes" enables.
+            const bool enable = (optval == NULL) ||
+                optval_str == "true" || optval_str == "1" || optval_str == "yes" ||
+                optval_str == "on" || optval_str == "enabled";
+            if (enable) {
+                params.speculative.draft.tensor_buft_overrides.push_back(llm_ffn_exps_cpu_override());
+            }
+        } else if (!strcmp(optname, "draft_n_cpu_moe") || !strcmp(optname, "spec_draft_n_cpu_moe")) {
+            if (optval != NULL) {
+                try {
+                    int n = std::stoi(optval_str);
+                    if (n < 0) n = 0;
+                    // Keep override-name storage alive for the lifetime of the params struct
+                    // (mirrors upstream arg.cpp behavior with a function-local static).
+                    static std::list<std::string> buft_overrides_draft;
+                    for (int i = 0; i < n; ++i) {
+                        buft_overrides_draft.push_back(llm_ffn_exps_block_regex(i));
+                        params.speculative.draft.tensor_buft_overrides.push_back(
+                            {buft_overrides_draft.back().c_str(), ggml_backend_cpu_buffer_type()});
+                    }
+                } catch (...) {}
+            }
+
+        // --- draft model tensor buffer overrides (upstream --spec-draft-override-tensor) ---
+        } else if (!strcmp(optname, "draft_override_tensor") || !strcmp(optname, "spec_draft_override_tensor")) {
+            // Format: <tensor regex>=<buffer type>,<tensor regex>=<buffer type>,...
+            // We replicate upstream's parse_tensor_buffer_overrides (static in arg.cpp).
+            ggml_backend_load_all();
+            std::map<std::string, ggml_backend_buffer_type_t> buft_list;
+            for (size_t i = 0; i < ggml_backend_dev_count(); ++i) {
+                auto * dev = ggml_backend_dev_get(i);
+                auto * buft = ggml_backend_dev_buffer_type(dev);
+                if (buft) {
+                    buft_list[ggml_backend_buft_name(buft)] = buft;
+                }
+            }
+            static std::list<std::string> draft_override_names;
+            std::string cur;
+            auto flush = [&](const std::string & spec) {
+                auto pos = spec.find('=');
+                if (pos == std::string::npos) return;
+                const std::string name = spec.substr(0, pos);
+                const std::string type = spec.substr(pos + 1);
+                auto it = buft_list.find(type);
+                if (it == buft_list.end()) return; // unknown buffer type: ignore
+                draft_override_names.push_back(name);
+                params.speculative.draft.tensor_buft_overrides.push_back(
+                    {draft_override_names.back().c_str(), it->second});
+            };
+            for (char c : optval_str) {
+                if (c == ',') { if (!cur.empty()) { flush(cur); cur.clear(); } }
+                else { cur.push_back(c); }
+            }
+            if (!cur.empty()) flush(cur);
+        }
+#endif // LOCALAI_LEGACY_LLAMA_CPP_SPEC — closes the `else`/`#ifdef` opened at draft_ctx_size
     }
 
     // Set params.n_parallel from environment variable if not set via options (fallback)
@@ -933,8 +1261,8 @@ public:
             if (!params.mmproj.path.empty()) {
                 error_msg += " (with mmproj: " + params.mmproj.path + ")";
             }
-            if (params.speculative.has_dft() && !params.speculative.mparams_dft.path.empty()) {
-                error_msg += " (with draft model: " + params.speculative.mparams_dft.path + ")";
+            if (params.speculative.has_dft() && !params.speculative.draft.mparams.path.empty()) {
+                error_msg += " (with draft model: " + params.speculative.draft.mparams.path + ")";
             }
             
             // Add captured error details if available
@@ -2610,7 +2938,9 @@ public:
             }
         }
 
-        int embd_normalize = 2; // default to Euclidean/L2 norm
+        // Honor the load-time embd_normalize set via options:embd_normalize.
+        // -1 none, 0 max-abs, 1 taxicab, 2 L2 (default), >2 p-norm.
+        int embd_normalize = params_base.embd_normalize;
         // create and queue the task
         auto rd = ctx_server.get_response_reader();
         {
@@ -2704,7 +3034,7 @@ public:
 
             tasks.reserve(documents.size());
             for (size_t i = 0; i < documents.size(); i++) {
-                auto tmp = format_prompt_rerank(ctx_server.impl->model, ctx_server.impl->vocab, ctx_server.impl->mctx, request->query(), documents[i]);
+                auto tmp = format_prompt_rerank(ctx_server.impl->model_tgt, ctx_server.impl->vocab, ctx_server.impl->mctx, request->query(), documents[i]);
                 server_task task = server_task(SERVER_TASK_TYPE_RERANK);
                 task.id = rd.queue_tasks.get_new_id();
                 task.index = i;
@@ -2882,7 +3212,7 @@ public:
                 // Get template source and reconstruct a common_chat_template for analysis
                 std::string tmpl_src = common_chat_templates_source(ctx_server.impl->chat_params.tmpls.get());
                 if (!tmpl_src.empty()) {
-                    const auto * vocab = llama_model_get_vocab(ctx_server.impl->model);
+                    const auto * vocab = llama_model_get_vocab(ctx_server.impl->model_tgt);
                     std::string token_bos, token_eos;
                     if (vocab) {
                         auto bos_id = llama_vocab_bos(vocab);

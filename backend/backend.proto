@@ -41,8 +41,18 @@ service Backend {
 
   rpc VAD(VADRequest) returns (VADResponse) {}
 
+  rpc Diarize(DiarizeRequest) returns (DiarizeResponse) {}
+
   rpc AudioEncode(AudioEncodeRequest) returns (AudioEncodeResult) {}
   rpc AudioDecode(AudioDecodeRequest) returns (AudioDecodeResult) {}
+
+  rpc AudioTransform(AudioTransformRequest) returns (AudioTransformResult) {}
+  rpc AudioTransformStream(stream AudioTransformFrameRequest) returns (stream AudioTransformFrameResponse) {}
+  // AudioToAudioStream is the bidirectional any-to-any S2S RPC. Backends
+  // that load a speech-to-speech model consume input audio frames and emit
+  // interleaved audio + transcript + tool-call deltas as typed events.
+  // Backends without S2S support return UNIMPLEMENTED.
+  rpc AudioToAudioStream(stream AudioToAudioRequest) returns (stream AudioToAudioResponse) {}
 
   rpc ModelMetadata(ModelOptions) returns (ModelMetadataResponse) {}
 
@@ -310,6 +320,11 @@ message ModelOptions {
   bool Reranking = 71;
 
   repeated string Overrides = 72;
+
+  // EngineArgs carries a JSON-encoded map of backend-native engine arguments
+  // applied verbatim to the backend's engine constructor (e.g. vLLM AsyncEngineArgs).
+  // Unknown keys produce an error at LoadModel time.
+  string EngineArgs = 73;
 }
 
 message Result {
@@ -345,6 +360,12 @@ message TranscriptStreamResponse {
   TranscriptResult final_result = 2;
 }
 
+message TranscriptWord {
+  int64 start = 1;
+  int64 end = 2;
+  string text = 3;
+}
+
 message TranscriptSegment {
   int32 id = 1;
   int64 start = 2;
@@ -352,6 +373,7 @@ message TranscriptSegment {
   string text = 4;
   repeated int32 tokens = 5;
   string speaker = 6;
+  repeated TranscriptWord words = 7;
 }
 
 message GenerateImageRequest {
@@ -406,6 +428,43 @@ message VADSegment {
 
 message VADResponse {
   repeated VADSegment segments = 1;
+}
+
+// --- Speaker diarization messages ---
+//
+// Pure speaker diarization: "who spoke when". Returns time-stamped segments
+// labelled with cluster IDs (the same string for the same speaker across
+// segments). Some backends (e.g. vibevoice.cpp) produce diarization as a
+// by-product of ASR and may also fill in `text` per segment; backends with a
+// dedicated diarization pipeline (e.g. sherpa-onnx pyannote) leave `text`
+// empty and emit only the segmentation.
+
+message DiarizeRequest {
+  string dst = 1;                      // path to audio file (HTTP layer materialises uploads to a temp file)
+  uint32 threads = 2;
+  string language = 3;                 // optional; only meaningful for transcription-bundling backends
+  int32  num_speakers = 4;             // exact speaker count if known (>0 forces); 0 = auto
+  int32  min_speakers = 5;             // hint when auto-detecting; 0 = unset
+  int32  max_speakers = 6;             // hint when auto-detecting; 0 = unset
+  float  clustering_threshold = 7;     // distance threshold when num_speakers unknown; 0 = backend default
+  float  min_duration_on = 8;          // discard segments shorter than this (seconds); 0 = backend default
+  float  min_duration_off = 9;         // merge gaps shorter than this (seconds); 0 = backend default
+  bool   include_text = 10;            // when the backend can emit per-segment transcript for free, ask it to populate `text`
+}
+
+message DiarizeSegment {
+  int32  id = 1;
+  float  start = 2;                    // seconds
+  float  end = 3;                      // seconds
+  string speaker = 4;                  // backend-emitted speaker label (e.g. "0", "SPEAKER_00")
+  string text = 5;                     // optional per-segment transcript (empty unless include_text and supported)
+}
+
+message DiarizeResponse {
+  repeated DiarizeSegment segments = 1;
+  int32  num_speakers = 2;             // count of distinct speaker labels in `segments`
+  float  duration = 3;                 // total audio duration in seconds (0 if unknown)
+  string language = 4;                 // optional, when the backend bundles transcription
 }
 
 message SoundGenerationRequest {
@@ -662,6 +721,143 @@ message AudioDecodeResult {
   bytes pcm_data = 1;
   int32 sample_rate = 2;
   int32 samples_per_frame = 3;
+}
+
+// Generic audio transform: an audio-in, audio-out operation, optionally
+// conditioned on a second reference signal. Concrete transforms include
+// AEC + noise suppression + dereverberation (LocalVQE), voice conversion
+// (reference = target speaker), pitch shifting, etc.
+message AudioTransformRequest {
+  string audio_path = 1;             // required, primary input file path
+  string reference_path = 2;         // optional auxiliary; empty => zero-fill
+  string dst = 3;                    // required, output file path
+  map<string, string> params = 4;    // backend-specific tuning
+}
+
+message AudioTransformResult {
+  string dst = 1;
+  int32  sample_rate = 2;
+  int32  samples = 3;
+  bool   reference_provided = 4;
+}
+
+// Bidirectional streaming audio transform. The first message MUST carry a
+// Config; subsequent messages carry Frames. A second Config mid-stream
+// resets streaming state before the next frame.
+message AudioTransformFrameRequest {
+  oneof payload {
+    AudioTransformStreamConfig config = 1;
+    AudioTransformFrame        frame  = 2;
+  }
+}
+
+message AudioTransformStreamConfig {
+  enum SampleFormat {
+    F32_LE = 0;
+    S16_LE = 1;
+  }
+  SampleFormat sample_format = 1;
+  int32 sample_rate = 2;             // 0 => backend default
+  int32 frame_samples = 3;           // 0 => backend default
+  map<string, string> params = 4;
+  bool reset = 5;                    // reset streaming state before next frame
+}
+
+message AudioTransformFrame {
+  bytes audio_pcm = 1;               // frame_samples samples in stream's format
+  bytes reference_pcm = 2;           // empty => zero-fill (silent reference)
+}
+
+message AudioTransformFrameResponse {
+  bytes pcm = 1;
+  int64 frame_index = 2;
+}
+
+// === AudioToAudioStream messages =========================================
+//
+// Bidirectional stream between the LocalAI core and an any-to-any audio
+// model. The client opens the stream with a Config payload, then alternates
+// Frame (input audio) and Control (turn boundaries, function-call results,
+// session updates) payloads. The server streams back typed events: audio
+// frames carry PCM in `pcm`; transcript / tool-call deltas carry JSON in
+// `meta`; the stream ends with a `response.done` (success) or `error` event.
+
+message AudioToAudioRequest {
+  oneof payload {
+    AudioToAudioConfig  config  = 1;
+    AudioToAudioFrame   frame   = 2;
+    AudioToAudioControl control = 3;
+  }
+}
+
+message AudioToAudioConfig {
+  // PCM format for client→server audio. 0 => backend default
+  // (16 kHz for the LFM2-Audio Conformer encoder).
+  int32 input_sample_rate = 1;
+  // Preferred server→client audio rate. 0 => backend default
+  // (24 kHz for the LFM2-Audio vocoder).
+  int32 output_sample_rate = 2;
+  // Optional system prompt override. Empty => backend chooses based on
+  // mode (e.g. "Respond with interleaved text and audio.").
+  string system_prompt = 3;
+  // Optional baked-voice id. Models that only ship a fixed set of
+  // voices (e.g. LFM2-Audio: us_male/us_female/uk_male/uk_female) match
+  // this against their voice table; an empty string keeps the default.
+  string voice = 4;
+  // JSON-encoded array of tool definitions in OpenAI Chat Completions
+  // format. Empty => no tools.
+  string tools = 5;
+  // Free-form sampling / decoding parameters (temperature, top_k,
+  // max_new_tokens, audio_top_k, etc).
+  map<string, string> params = 6;
+  // True => reset any session-scoped state before processing further
+  // frames on this stream. The first Config implicitly resets.
+  bool reset = 7;
+}
+
+message AudioToAudioFrame {
+  // Raw PCM s16le mono at config.input_sample_rate. Empty pcm + end_of_input
+  // is a valid "user finished speaking" marker without trailing audio.
+  bytes pcm = 1;
+  // Marks the last frame of a user turn. The backend may begin emitting
+  // a response immediately after seeing this.
+  bool end_of_input = 2;
+}
+
+message AudioToAudioControl {
+  // Free-form control event names. Initial set:
+  //   "input_audio_buffer.commit"     — user finished speaking
+  //   "response.cancel"               — abort in-flight generation
+  //   "conversation.item.create"      — inject a non-audio item (e.g.
+  //                                     function_call_output as JSON in
+  //                                     `payload`)
+  //   "session.update"                — re-configure mid-stream
+  string event = 1;
+  // Event-specific JSON payload.
+  bytes payload = 2;
+}
+
+message AudioToAudioResponse {
+  // Event identifies what this frame carries. Mirrors the OpenAI Realtime
+  // API server-event names where applicable. Initial set:
+  //   "response.audio.delta"
+  //   "response.audio_transcript.delta"
+  //   "response.function_call_arguments.delta"
+  //   "response.function_call_arguments.done"
+  //   "response.done"
+  //   "error"
+  string event = 1;
+  // Populated when event = response.audio.delta.
+  bytes pcm = 2;
+  // Populated alongside pcm to identify its rate. 0 => same as the
+  // session's negotiated output_sample_rate.
+  int32 sample_rate = 3;
+  // JSON payload for non-PCM events (transcript chunk, tool args, error
+  // body).
+  bytes meta = 4;
+  // Monotonic per-stream counter, useful for client reordering and
+  // debugging.
+  int64 sequence = 5;
 }
 
 message ModelMetadataResponse {

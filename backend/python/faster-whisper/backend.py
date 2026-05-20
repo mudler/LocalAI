@@ -55,11 +55,27 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
         resultSegments = []
         text = ""
         try:
-            segments, info = self.model.transcribe(request.dst, beam_size=5, condition_on_previous_text=False)
+            word_timestamps = "word" in request.timestamp_granularities
+            segments, info = self.model.transcribe(request.dst, beam_size=5, condition_on_previous_text=False, word_timestamps=word_timestamps)
             id = 0
             for segment in segments:
                 print("[%.2fs -> %.2fs] %s" % (segment.start, segment.end, segment.text))
-                resultSegments.append(backend_pb2.TranscriptSegment(id=id, start=int(segment.start)*1e9, end=int(segment.end)*1e9, text=segment.text))
+                words = []
+                if word_timestamps and hasattr(segment, 'words'):
+                    for word in segment.words:
+                        words.append(backend_pb2.TranscriptWord(
+                            start=int(word.start * 1e9),
+                            end=int(word.end * 1e9),
+                            text=word.word
+                        ))
+
+                resultSegments.append(backend_pb2.TranscriptSegment(
+                    id=id,
+                    start=int(segment.start * 1e9),
+                    end=int(segment.end * 1e9),
+                    text=segment.text,
+                    words=words
+                ))
                 text += segment.text
                 id += 1
         except Exception as err:

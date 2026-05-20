@@ -1,6 +1,7 @@
 package application
 
 import (
+	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/pkg/model"
 	"github.com/mudler/xlog"
 )
@@ -24,6 +25,40 @@ func (a *Application) SyncPinnedModelsToWatchdog() {
 	}
 	wd.SetPinnedModels(pinned)
 	xlog.Debug("Synced pinned models to watchdog", "count", len(pinned))
+}
+
+// SyncModelGroupsToWatchdog reads concurrency_groups from all model configs and
+// updates the watchdog so EnforceGroupExclusivity has the current view.
+func (a *Application) SyncModelGroupsToWatchdog() {
+	cl := a.ModelConfigLoader()
+	if cl == nil {
+		return
+	}
+	wd := a.modelLoader.GetWatchDog()
+	if wd == nil {
+		return
+	}
+	groups := extractModelGroupsFromConfigs(cl.GetAllModelsConfigs())
+	wd.ReplaceModelGroups(groups)
+	xlog.Debug("Synced concurrency groups to watchdog", "count", len(groups))
+}
+
+// extractModelGroupsFromConfigs builds the model→groups map the watchdog
+// expects. Disabled models are skipped — their declared groups should not
+// block other models from loading.
+func extractModelGroupsFromConfigs(configs []config.ModelConfig) map[string][]string {
+	out := make(map[string][]string)
+	for _, cfg := range configs {
+		if cfg.IsDisabled() {
+			continue
+		}
+		gs := cfg.GetConcurrencyGroups()
+		if len(gs) == 0 {
+			continue
+		}
+		out[cfg.Name] = gs
+	}
+	return out
 }
 
 func (a *Application) StopWatchdog() error {
@@ -65,8 +100,9 @@ func (a *Application) startWatchdog() error {
 		// Set the watchdog on the model loader
 		a.modelLoader.SetWatchDog(wd)
 
-		// Sync pinned models from config to the watchdog
+		// Sync pinned models and concurrency groups from config to the watchdog
 		a.SyncPinnedModelsToWatchdog()
+		a.SyncModelGroupsToWatchdog()
 
 		// Start watchdog goroutine if any periodic checks are enabled
 		// LRU eviction doesn't need the Run() loop - it's triggered on model load
@@ -148,8 +184,9 @@ func (a *Application) RestartWatchdog() error {
 		newWD.RestoreState(oldState)
 	}
 
-	// Re-sync pinned models after restart
+	// Re-sync pinned models and concurrency groups after restart
 	a.SyncPinnedModelsToWatchdog()
+	a.SyncModelGroupsToWatchdog()
 
 	return nil
 }

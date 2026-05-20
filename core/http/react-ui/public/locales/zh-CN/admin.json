@@ -1,0 +1,62 @@
+{
+  "manage": {
+    "title": "系统",
+    "subtitle": "管理已安装的模型和后端"
+  },
+  "settings": {
+    "title": "设置",
+    "subtitle": "配置 LocalAI 运行时设置",
+    "saved": "设置保存成功",
+    "saveFailed": "保存失败：{{message}}",
+    "loadFailed": "加载设置失败：{{message}}",
+    "sections": {
+      "branding": "品牌",
+      "watchdog": "看门狗",
+      "memory": "内存",
+      "backends": "后端",
+      "performance": "性能",
+      "tracing": "追踪",
+      "api": "API 和 CORS",
+      "p2p": "P2P",
+      "galleries": "模型库",
+      "apikeys": "API 密钥",
+      "agents": "智能体任务",
+      "agentpool": "智能体池",
+      "assistant": "LocalAI Assistant",
+      "responses": "响应"
+    }
+  },
+  "backends": {
+    "title": "后端管理",
+    "subtitle": "发现并安装为模型提供支持的 AI 后端"
+  },
+  "backendLogs": {
+    "title": "后端日志",
+    "subtitle": "查看运行中后端的日志",
+    "empty": "暂无日志"
+  },
+  "traces": {
+    "title": "追踪",
+    "subtitle": "查看记录的 API 请求、响应和后端操作"
+  },
+  "nodes": {
+    "title": "分布式节点",
+    "subtitle": "管理后端和智能体工作节点"
+  },
+  "p2p": {
+    "title": "分布式 AI 计算",
+    "subtitle": "通过点对点分发将您的 AI 工作负载扩展到多个设备"
+  },
+  "users": {
+    "title": "用户",
+    "subtitle": "管理注册用户、角色和邀请"
+  },
+  "usage": {
+    "title": "使用情况",
+    "subtitle": "API 令牌使用统计"
+  },
+  "explorer": {
+    "title": "资源浏览器",
+    "subtitle": "浏览文件和配置"
+  }
+}

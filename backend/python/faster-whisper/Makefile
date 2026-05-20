@@ -11,3 +11,4 @@ protogen-clean:
 .PHONY: clean
 clean: protogen-clean
 	rm -rf venv __pycache__
+# trigger per-arch+merge rebuild for faster-whisper pilot

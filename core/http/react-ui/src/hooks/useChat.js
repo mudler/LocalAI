@@ -92,6 +92,9 @@ function createNewChat(model = '', systemPrompt = '', mcpMode = false) {
     mcpServers: [],
     mcpResources: [],
     clientMCPServers: [],
+    // localaiAssistant wires the chat to the in-process admin MCP server
+    // exposed by /v1/chat/completions when an admin opts in.
+    localaiAssistant: false,
     temperature: null,
     topP: null,
     topK: null,
@@ -215,9 +218,15 @@ export function useChat(initialModel = '') {
           })
           userFiles.push({ name: file.name, type: 'audio' })
         } else {
-          // Text/PDF files - append to content
-          userFiles.push({ name: file.name, type: 'file', content: file.textContent || '' })
-        }
+			// Text/PDF files - append to content
+			if (file.textContent) {
+				messageContent.push({
+					type: 'text',
+					text: `\n\n--- File: ${file.name} ---\n${file.textContent}\n--- End of ${file.name} ---`,
+				})
+			}
+			userFiles.push({ name: file.name, type: 'file', content: file.textContent || '' })
+		}
       }
     } else {
       messageContent = content
@@ -252,7 +261,10 @@ export function useChat(initialModel = '') {
     )
     messages.push(...historyForApi, { role: 'user', content: messageContent })
 
-    const requestBody = { model, messages, stream: true }
+    // include_usage tells LocalAI to emit a trailing chunk with token totals;
+    // without it the spec-compliant server drops `usage` from the stream and
+    // the token-count badge would never populate.
+    const requestBody = { model, messages, stream: true, stream_options: { include_usage: true } }
     if (temperature !== null && temperature !== undefined) requestBody.temperature = temperature
     if (topP !== null && topP !== undefined) requestBody.top_p = topP
     if (topK !== null && topK !== undefined) requestBody.top_k = topK
@@ -270,6 +282,14 @@ export function useChat(initialModel = '') {
     if (hasMcpResources) {
       if (!requestBody.metadata) requestBody.metadata = {}
       requestBody.metadata.mcp_resources = activeChat.mcpResources.join(',')
+    }
+
+    // LocalAI Assistant: opt this chat session into the in-process admin
+    // MCP server. The backend gates on admin role; the toggle is hidden
+    // for non-admins, but defense-in-depth still applies on the server.
+    if (activeChat.localaiAssistant) {
+      if (!requestBody.metadata) requestBody.metadata = {}
+      requestBody.metadata.localai_assistant = 'true'
     }
 
     // Client-side MCP: inject tools into request body

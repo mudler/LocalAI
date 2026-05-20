@@ -29,6 +29,7 @@ const (
 	BackendTraceVoiceVerify     BackendTraceType = "voice_verify"
 	BackendTraceVoiceAnalyze    BackendTraceType = "voice_analyze"
 	BackendTraceVoiceEmbed      BackendTraceType = "voice_embed"
+	BackendTraceAudioTransform  BackendTraceType = "audio_transform"
 	BackendTraceModelLoad       BackendTraceType = "model_load"
 )
 

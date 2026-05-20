@@ -10,8 +10,8 @@ on:
       - '*'
 
 concurrency:
-  group: ci-tests-extra-${{ github.head_ref || github.ref }}-${{ github.repository }}
-  cancel-in-progress: true
+  group: ci-tests-extra-${{ github.event.pull_request.number || github.sha }}-${{ github.repository }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   detect-changes:
@@ -28,6 +28,7 @@ jobs:
       qwen-asr: ${{ steps.detect.outputs.qwen-asr }}
       nemo: ${{ steps.detect.outputs.nemo }}
       voxcpm: ${{ steps.detect.outputs.voxcpm }}
+      liquid-audio: ${{ steps.detect.outputs.liquid-audio }}
       llama-cpp-quantization: ${{ steps.detect.outputs.llama-cpp-quantization }}
       llama-cpp: ${{ steps.detect.outputs.llama-cpp }}
       ik-llama-cpp: ${{ steps.detect.outputs.ik-llama-cpp }}
@@ -36,11 +37,14 @@ jobs:
       sglang: ${{ steps.detect.outputs.sglang }}
       acestep-cpp: ${{ steps.detect.outputs.acestep-cpp }}
       qwen3-tts-cpp: ${{ steps.detect.outputs.qwen3-tts-cpp }}
+      vibevoice-cpp: ${{ steps.detect.outputs.vibevoice-cpp }}
+      localvqe: ${{ steps.detect.outputs.localvqe }}
       voxtral: ${{ steps.detect.outputs.voxtral }}
       kokoros: ${{ steps.detect.outputs.kokoros }}
       insightface: ${{ steps.detect.outputs.insightface }}
       speaker-recognition: ${{ steps.detect.outputs.speaker-recognition }}
       sherpa-onnx: ${{ steps.detect.outputs.sherpa-onnx }}
+      whisper: ${{ steps.detect.outputs.whisper }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
@@ -444,6 +448,32 @@ jobs:
         run: |
           make --jobs=5 --output-sync=target -C backend/python/voxcpm
           make --jobs=5 --output-sync=target -C backend/python/voxcpm test
+  # liquid-audio: LFM2.5-Audio any-to-any backend. The CI smoke test
+  # exercises Health() and LoadModel(mode:finetune) — fine-tune mode
+  # short-circuits before pulling weights (backend.py:192), so no
+  # HuggingFace download or GPU is needed. The full-inference path is
+  # gated on LIQUID_AUDIO_MODEL_ID, which we don't set here.
+  tests-liquid-audio:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.liquid-audio == 'true' || needs.detect-changes.outputs.run-all == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Clone
+        uses: actions/checkout@v6
+        with:
+          submodules: true
+      - name: Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential ffmpeg
+          sudo apt-get install -y ca-certificates cmake curl patch python3-pip
+          # Install UV
+          curl -LsSf https://astral.sh/uv/install.sh | sh
+          pip install --user --no-cache-dir grpcio-tools==1.64.1
+      - name: Test liquid-audio
+        run: |
+          make --jobs=5 --output-sync=target -C backend/python/liquid-audio
+          make --jobs=5 --output-sync=target -C backend/python/liquid-audio test
   tests-llama-cpp-quantization:
     needs: detect-changes
     if: needs.detect-changes.outputs.llama-cpp-quantization == 'true' || needs.detect-changes.outputs.run-all == 'true'
@@ -507,6 +537,33 @@ jobs:
       - name: Build llama-cpp backend image and run audio transcription gRPC e2e tests
         run: |
           make test-extra-backend-llama-cpp-transcription
+  # PR-acceptance smoke gate: always runs on every PR (no detect-changes gate, no
+  # paths filter). Pulls the pre-built master CPU llama-cpp image from quay
+  # instead of building from source, so the cost is a docker pull (~30s) plus the
+  # short Qwen3-0.6B model download. Exercises the full gRPC surface — health,
+  # load, predict, stream — plus the logprobs/logit_bias specs that moved out of
+  # core/http/app_test.go. Anything heavier or per-backend is gated to the
+  # detect-changes path-filter above.
+  tests-llama-cpp-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Clone
+        uses: actions/checkout@v6
+        with:
+          submodules: true
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.25.4'
+      - name: Pull pre-built llama-cpp backend image
+        run: docker pull quay.io/go-skynet/local-ai-backends:master-cpu-llama-cpp
+      - name: Run e2e-backends smoke
+        env:
+          BACKEND_IMAGE: quay.io/go-skynet/local-ai-backends:master-cpu-llama-cpp
+          BACKEND_TEST_CAPS: health,load,predict,stream,logprobs,logit_bias
+        run: |
+          make test-extra-backend
   # Realtime e2e with sherpa-onnx driving VAD + STT + TTS against a mocked LLM.
   # Builds the sherpa-onnx Docker image, extracts the rootfs so the e2e suite
   # can discover the backend binary + shared libs, downloads the three model
@@ -554,6 +611,27 @@ jobs:
       - name: Build sherpa-onnx backend image and run streaming ASR gRPC e2e tests
         run: |
           make test-extra-backend-sherpa-onnx-transcription
+  # End-to-end transcription via the e2e-backends gRPC harness against
+  # the whisper.cpp backend. Drives AudioTranscription (offline) and
+  # AudioTranscriptionStream (real, segment-callback-driven deltas) on
+  # ggml-base.en + the JFK 11s clip.
+  tests-whisper-grpc-transcription:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.whisper == 'true' || needs.detect-changes.outputs.run-all == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - name: Clone
+        uses: actions/checkout@v6
+        with:
+          submodules: true
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.25.4'
+      - name: Build whisper backend image and run transcription gRPC e2e tests
+        run: |
+          make test-extra-backend-whisper-transcription
   # VITS TTS via the sherpa-onnx backend. Drives both TTS (file write) and
   # TTSStream (PCM chunks) on the e2e-backends harness.
   tests-sherpa-onnx-grpc-tts:
@@ -765,6 +843,117 @@ jobs:
       - name: Test qwen3-tts-cpp
         run: |
           make --jobs=5 --output-sync=target -C backend/go/qwen3-tts-cpp test
+  # Per-backend smoke for vibevoice-cpp: builds the .so + Go binary and
+  # runs `make -C backend/go/vibevoice-cpp test`. test.sh auto-downloads
+  # the published mudler/vibevoice.cpp-models bundle (TTS Q8_0 + ASR Q4_K
+  # + tokenizer + voice) and runs the closed-loop TTS → ASR Go test.
+  tests-vibevoice-cpp:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.vibevoice-cpp == 'true' || needs.detect-changes.outputs.run-all == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - name: Clone
+        uses: actions/checkout@v6
+        with:
+          submodules: true
+      - name: Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential cmake curl libopenblas-dev ffmpeg
+      - name: Setup Go
+        uses: actions/setup-go@v5
+      - name: Display Go version
+        run: go version
+      - name: Proto Dependencies
+        run: |
+          curl -L -s https://github.com/protocolbuffers/protobuf/releases/download/v26.1/protoc-26.1-linux-x86_64.zip -o protoc.zip && \
+          unzip -j -d /usr/local/bin protoc.zip bin/protoc && \
+          rm protoc.zip
+          go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.34.2
+          go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@1958fcbe2ca8bd93af633f11e97d44e567e945af
+          PATH="$PATH:$HOME/go/bin" make protogen-go
+      - name: Build vibevoice-cpp
+        run: |
+          make --jobs=5 --output-sync=target -C backend/go/vibevoice-cpp
+      - name: Test vibevoice-cpp
+        run: |
+          make --jobs=5 --output-sync=target -C backend/go/vibevoice-cpp test
+  # End-to-end TTS via the e2e-backends gRPC harness. Builds the
+  # vibevoice-cpp Docker image and drives Backend/TTS against it with a
+  # real LocalAI gRPC client.
+  tests-vibevoice-cpp-grpc-tts:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.vibevoice-cpp == 'true' || needs.detect-changes.outputs.run-all == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - name: Clone
+        uses: actions/checkout@v6
+        with:
+          submodules: true
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.25.4'
+      - name: Build vibevoice-cpp backend image and run TTS gRPC e2e tests
+        run: |
+          make test-extra-backend-vibevoice-cpp-tts
+  # End-to-end transcription via the e2e-backends gRPC harness. The
+  # vibevoice ASR is a 7B-param model (Q4_K weights ~10 GB on disk)
+  # and the JFK 30 s decode is too heavy for a free 4-core
+  # ubuntu-latest pool runner - two CI attempts got SIGTERM'd during
+  # LoadModel, before the test could even progress. Use the
+  # self-hosted 'bigger-runner' label (same one the GPU image builds
+  # in backend.yml use) and the documented dotnet/ghc/android cache
+  # purge to clear ~10-20 GB of headroom for the model + Docker
+  # image + working dir.
+  tests-vibevoice-cpp-grpc-transcription:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.vibevoice-cpp == 'true' || needs.detect-changes.outputs.run-all == 'true'
+    runs-on: bigger-runner
+    timeout-minutes: 150
+    steps:
+      - name: Clone
+        uses: actions/checkout@v6
+        with:
+          submodules: true
+      - name: Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+              make build-essential curl unzip ca-certificates git tar
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.25.4'
+      - name: Free disk space
+        run: |
+          sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/lib/android /opt/hostedtoolcache/CodeQL || true
+          df -h
+      - name: Build vibevoice-cpp backend image and run ASR gRPC e2e tests
+        run: |
+          make test-extra-backend-vibevoice-cpp-transcription
+  # End-to-end audio transform via the e2e-backends gRPC harness. The
+  # LocalVQE GGUF is small (~5 MB) and the model is real-time on CPU, so
+  # the default ubuntu-latest pool is plenty.
+  tests-localvqe-grpc-transform:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.localvqe == 'true' || needs.detect-changes.outputs.run-all == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - name: Clone
+        uses: actions/checkout@v6
+        with:
+          submodules: true
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.25.4'
+      - name: Build localvqe backend image and run audio_transform gRPC e2e tests
+        run: |
+          make test-extra-backend-localvqe-transform
   tests-voxtral:
     needs: detect-changes
     if: needs.detect-changes.outputs.voxtral == 'true' || needs.detect-changes.outputs.run-all == 'true'

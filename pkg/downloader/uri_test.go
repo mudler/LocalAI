@@ -295,6 +295,49 @@ var _ = Describe("Download Test", func() {
 			err = uri.DownloadFile(filePath, mockDataSha, 1, 1, func(s1, s2, s3 string, f float64) {})
 			Expect(err).ToNot(HaveOccurred())
 		})
+
+		// A file that fails its SHA check must not be usable. The historical
+		// implementation renamed the temp file to its final path *before*
+		// verifying the hash, so a mismatch returned an error but left a
+		// tampered file at the destination — the next caller (e.g. a backend
+		// launcher) could pick it up and run with it.
+		It("does not leave a corrupted file at the destination on SHA mismatch", func() {
+			mockServer := getMockServer(true)
+			defer mockServer.Close()
+			uri := URI(mockServer.URL)
+
+			// Use a clearly-wrong expected SHA; the server will return real
+			// data with a different hash.
+			wrongSHA := "0000000000000000000000000000000000000000000000000000000000000000"
+			err := uri.DownloadFile(filePath, wrongSHA, 1, 1, func(s1, s2, s3 string, f float64) {})
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("SHA"))
+
+			// The file must not exist at the final destination.
+			_, statErr := os.Stat(filePath)
+			Expect(os.IsNotExist(statErr)).To(BeTrue(),
+				"download with wrong SHA left a file at %s — a subsequent caller could load tampered content", filePath)
+		})
+
+		// A download without an expected digest is a supply-chain footgun.
+		// The downloader allows it (backend installs pass through here
+		// today and don't yet ship a digest) but it is the caller's
+		// responsibility to know when integrity is required. The downloader
+		// emits a WARN log on every empty-digest download to make this
+		// visible at the default log level.
+		It("succeeds with empty SHA but emits an integrity warning", func() {
+			mockServer := getMockServer(true)
+			defer mockServer.Close()
+			uri := URI(mockServer.URL)
+
+			// No assertion on logs (we don't capture xlog output here),
+			// but the call must succeed so existing backend installs do
+			// not regress.
+			err := uri.DownloadFile(filePath, "", 1, 1, func(s1, s2, s3 string, f float64) {})
+			Expect(err).ToNot(HaveOccurred())
+			_, statErr := os.Stat(filePath)
+			Expect(statErr).ToNot(HaveOccurred())
+		})
 	})
 
 	AfterEach(func() {

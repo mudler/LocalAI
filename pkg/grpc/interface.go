@@ -1,6 +1,8 @@
 package grpc
 
 import (
+	"context"
+
 	pb "github.com/mudler/LocalAI/pkg/grpc/proto"
 )
 
@@ -22,8 +24,8 @@ type AIModel interface {
 	VoiceVerify(*pb.VoiceVerifyRequest) (pb.VoiceVerifyResponse, error)
 	VoiceAnalyze(*pb.VoiceAnalyzeRequest) (pb.VoiceAnalyzeResponse, error)
 	VoiceEmbed(*pb.VoiceEmbedRequest) (pb.VoiceEmbedResponse, error)
-	AudioTranscription(*pb.TranscriptRequest) (pb.TranscriptResult, error)
-	AudioTranscriptionStream(*pb.TranscriptRequest, chan *pb.TranscriptStreamResponse) error
+	AudioTranscription(context.Context, *pb.TranscriptRequest) (pb.TranscriptResult, error)
+	AudioTranscriptionStream(context.Context, *pb.TranscriptRequest, chan *pb.TranscriptStreamResponse) error
 	TTS(*pb.TTSRequest) error
 	TTSStream(*pb.TTSRequest, chan []byte) error
 	SoundGeneration(*pb.SoundGenerationRequest) error
@@ -36,9 +38,14 @@ type AIModel interface {
 	StoresFind(*pb.StoresFindOptions) (pb.StoresFindResult, error)
 
 	VAD(*pb.VADRequest) (pb.VADResponse, error)
+	Diarize(*pb.DiarizeRequest) (pb.DiarizeResponse, error)
 
 	AudioEncode(*pb.AudioEncodeRequest) (*pb.AudioEncodeResult, error)
 	AudioDecode(*pb.AudioDecodeRequest) (*pb.AudioDecodeResult, error)
+
+	AudioTransform(*pb.AudioTransformRequest) (*pb.AudioTransformResult, error)
+	AudioTransformStream(in <-chan *pb.AudioTransformFrameRequest, out chan<- *pb.AudioTransformFrameResponse) error
+	AudioToAudioStream(in <-chan *pb.AudioToAudioRequest, out chan<- *pb.AudioToAudioResponse) error
 
 	ModelMetadata(*pb.ModelOptions) (*pb.ModelMetadataResponse, error)
 

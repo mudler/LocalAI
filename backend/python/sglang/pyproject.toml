@@ -1,0 +1,68 @@
+# L4T arm64 (JetPack 7 / sbsa cu130) install spec for the sglang backend.
+#
+# Why this file exists, and why only the l4t13 BUILD_PROFILE consumes it:
+#
+# pypi.jetson-ai-lab.io hosts the L4T-specific torch / sglang / sgl-kernel
+# wheels we need on aarch64 + cuda13, but it ALSO transparently proxies the
+# rest of PyPI through `/+f/<sha>/<filename>` URLs that 503 frequently.
+# With `--extra-index-url` + `--index-strategy=unsafe-best-match` (the
+# historical fix in install.sh) uv would pick those proxy URLs for ordinary
+# PyPI packages — markdown-it-py, anthropic, propcache, etc. — and trip on
+# the 503s. See e.g. CI run 25439791228 (markdown-it-py-4.0.0).
+#
+# `explicit = true` on the index makes uv consult the L4T mirror ONLY for
+# packages mapped under [tool.uv.sources]. Everything else goes to PyPI.
+# This breaks the historical 503 path without losing access to the L4T
+# wheels we actually need from there. Mirrors the equivalent fix already
+# in backend/python/vllm/pyproject.toml.
+#
+# `uv pip install -r requirements.txt` does NOT honor [tool.uv.sources]
+# (sources are project-mode only, not pip-compat mode), so install.sh's
+# l4t13 branch invokes `uv pip install --requirement pyproject.toml`
+# directly. Other BUILD_PROFILEs continue to use the requirements-*.txt
+# pipeline through libbackend.sh's installRequirements and never read
+# this file.
+[project]
+name = "localai-sglang-l4t13"
+version = "0.0.0"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+    # Mirror of requirements.txt — kept in sync manually for now since the
+    # l4t13 path bypasses installRequirements (see install.sh).
+    "grpcio==1.80.0",
+    "protobuf",
+    "certifi",
+    "setuptools",
+    "pillow",
+    # L4T-specific accelerator stack (sourced from jetson-ai-lab below).
+    "torch",
+    "torchvision",
+    "torchaudio",
+    # sglang on jetson — the [all] extra is deliberately omitted because it
+    # pulls outlines/decord, and decord has no aarch64 cp312 wheel anywhere
+    # (PyPI nor the jetson-ai-lab index ships only legacy cp35-cp37). With
+    # [all] uv backtracks through versions trying to satisfy decord and
+    # lands on sglang==0.1.16. The 0.5.0 floor matches the only major
+    # series the jetson-ai-lab sbsa/cu130 mirror currently publishes
+    # (sglang==0.5.1.post2 as of 2026-05-06). Bumping to >=0.5.11 here
+    # would make the build unsatisfiable until the mirror catches up.
+    # Gemma 4 / MTP recipes are therefore not supported on l4t13 — those
+    # features land on cublas12/cublas13 hosts that pull the newer wheel
+    # from PyPI. backend.py keeps backward compat with the 0.5.x SamplingParams
+    # field rename via runtime detection.
+    "sglang>=0.5.0",
+    # PyPI-resolvable packages that complete the runtime.
+    "accelerate",
+    "transformers",
+]
+
+[[tool.uv.index]]
+name = "jetson-ai-lab"
+url = "https://pypi.jetson-ai-lab.io/sbsa/cu130"
+explicit = true
+
+[tool.uv.sources]
+torch = { index = "jetson-ai-lab" }
+torchvision = { index = "jetson-ai-lab" }
+torchaudio = { index = "jetson-ai-lab" }
+sglang = { index = "jetson-ai-lab" }

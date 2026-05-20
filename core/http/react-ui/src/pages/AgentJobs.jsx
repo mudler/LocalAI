@@ -213,7 +213,7 @@ export default function AgentJobs() {
   // Wizard: no models installed
   if (!loading && models.length === 0) {
     return (
-      <div className="page">
+      <div className="page page--wide">
         <div className="page-header">
           <h1 className="page-title">Agent Jobs</h1>
           <p className="page-subtitle">Manage agent tasks and automated workflows</p>
@@ -240,7 +240,7 @@ export default function AgentJobs() {
   // Wizard: models but no MCP
   if (!loading && models.length > 0 && !hasMCPModels && tasks.length === 0) {
     return (
-      <div className="page">
+      <div className="page page--wide">
         <div className="page-header">
           <h1 className="page-title">Agent Jobs</h1>
           <p className="page-subtitle">Manage agent tasks and automated workflows</p>
@@ -273,7 +273,7 @@ export default function AgentJobs() {
   }
 
   return (
-    <div className="page">
+    <div className="page page--wide">
       <div className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <div>
           <h1 className="page-title">Agent Jobs</h1>

@@ -45,8 +45,34 @@ func MatchParserDefaults(modelID string) map[string]string {
 	return nil
 }
 
+// productionEngineArgsDefaults are vLLM ≥ 0.6 features that production deployments
+// almost always want. Applied at load time when the user hasn't set the key in
+// engine_args. Anything user-supplied wins; we never silently override.
+var productionEngineArgsDefaults = map[string]any{
+	"enable_prefix_caching":  true,
+	"enable_chunked_prefill": true,
+}
+
 func vllmDefaults(cfg *ModelConfig, modelPath string) {
-	// Check if user already set tool_parser or reasoning_parser in Options
+	applyEngineArgDefaults(cfg)
+	applyParserDefaults(cfg)
+}
+
+// applyEngineArgDefaults seeds production-friendly engine_args without overwriting
+// anything the user already set.
+func applyEngineArgDefaults(cfg *ModelConfig) {
+	if cfg.EngineArgs == nil {
+		cfg.EngineArgs = map[string]any{}
+	}
+	for k, v := range productionEngineArgsDefaults {
+		if _, set := cfg.EngineArgs[k]; set {
+			continue
+		}
+		cfg.EngineArgs[k] = v
+	}
+}
+
+func applyParserDefaults(cfg *ModelConfig) {
 	hasToolParser := false
 	hasReasoningParser := false
 	for _, opt := range cfg.Options {
@@ -61,7 +87,6 @@ func vllmDefaults(cfg *ModelConfig, modelPath string) {
 		return
 	}
 
-	// Try matching against Model field, then Name
 	parsers := MatchParserDefaults(cfg.Model)
 	if parsers == nil {
 		parsers = MatchParserDefaults(cfg.Name)

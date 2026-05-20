@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"os"
 	"path/filepath"
 	"testing"
@@ -79,7 +80,7 @@ var _ = Describe("Sherpa-ONNX", func() {
 		})
 
 		It("rejects AudioTranscription", func() {
-			_, err := (&SherpaBackend{}).AudioTranscription(&pb.TranscriptRequest{
+			_, err := (&SherpaBackend{}).AudioTranscription(context.Background(), &pb.TranscriptRequest{
 				Dst: "/tmp/nonexistent.wav",
 			})
 			Expect(err).To(HaveOccurred())

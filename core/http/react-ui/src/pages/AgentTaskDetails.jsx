@@ -159,12 +159,12 @@ export default function AgentTaskDetails() {
 
   const formatDate = (d) => d ? new Date(d).toLocaleString() : '-'
 
-  if (loading) return <div className="page" style={{ display: 'flex', justifyContent: 'center', padding: 'var(--spacing-xl)' }}><LoadingSpinner size="lg" /></div>
+  if (loading) return <div className="page page--narrow" style={{ display: 'flex', justifyContent: 'center', padding: 'var(--spacing-xl)' }}><LoadingSpinner size="lg" /></div>
 
   // View mode
   if (!isNew && !isEdit) {
     return (
-      <div className="page" style={{ maxWidth: 900 }}>
+      <div className="page page--narrow">
         <div className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div>
             <h1 className="page-title">{task.name || 'Task Details'}</h1>
@@ -306,7 +306,7 @@ export default function AgentTaskDetails() {
 
   // Edit/Create form
   return (
-    <div className="page" style={{ maxWidth: 900 }}>
+    <div className="page page--narrow">
       <div className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <h1 className="page-title">{isNew ? 'Create Task' : 'Edit Task'}</h1>
         <button className="btn btn-secondary btn-sm" onClick={() => navigate('/app/agent-jobs')}>

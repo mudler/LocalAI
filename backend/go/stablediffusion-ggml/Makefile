@@ -8,7 +8,7 @@ JOBS?=$(shell nproc --ignore=1)
 
 # stablediffusion.cpp (ggml)
 STABLEDIFFUSION_GGML_REPO?=https://github.com/leejet/stable-diffusion.cpp
-STABLEDIFFUSION_GGML_VERSION?=b8bdffc19962be7e5a84bfefeb2e31bd885b571a
+STABLEDIFFUSION_GGML_VERSION?=bd17f53b7386fb5f60e8587b75e73c4b2fed3426
 
 CMAKE_ARGS+=-DGGML_MAX_NAME=128
 
@@ -119,7 +119,7 @@ libgosd-fallback.so: sources/stablediffusion-ggml.cpp
 	SO_TARGET=libgosd-fallback.so CMAKE_ARGS="$(CMAKE_ARGS) -DGGML_AVX=off -DGGML_AVX2=off -DGGML_AVX512=off -DGGML_FMA=off -DGGML_F16C=off -DGGML_BMI2=off" $(MAKE) libgosd-custom
 	rm -rfv build*
 
-libgosd-custom: CMakeLists.txt gosd.cpp gosd.h
+libgosd-custom: CMakeLists.txt cpp/gosd.cpp cpp/gosd.h
 	mkdir -p build-$(SO_TARGET) && \
 	cd build-$(SO_TARGET) && \
 	cmake .. $(CMAKE_ARGS) && \

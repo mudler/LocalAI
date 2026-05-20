@@ -126,8 +126,17 @@ func TranscriptEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, app
 			return streamTranscription(c, req, ml, *config, appConfig)
 		}
 
-		tr, err := backend.ModelTranscriptionWithOptions(req, ml, *config, appConfig)
+		tr, err := backend.ModelTranscriptionWithOptions(c.Request().Context(), req, ml, *config, appConfig)
 		if err != nil {
+			// Log before returning so the underlying error survives. Echo's
+			// error handler turns this into a 500 with a generic body, which
+			// otherwise leaves operators chasing a silent failure — see e.g.
+			// distributed transcription, where the gRPC error from a remote
+			// node is the only signal of what actually went wrong.
+			xlog.Error("Transcription failed",
+				"model", config.Name,
+				"audio", dst,
+				"error", err)
 			return err
 		}
 
@@ -138,9 +147,43 @@ func TranscriptEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, app
 			return c.String(http.StatusOK, schema.TranscriptionResponse(tr, responseFormat))
 		case schema.TranscriptionResponseFormatJson:
 			tr.Segments = nil
+			tr.Words = nil
 			fallthrough
 		case schema.TranscriptionResponseFormatJsonVerbose, "": // maintain backwards compatibility
-			return c.JSON(http.StatusOK, tr)
+			trs := schema.TranscriptionResultSeconds{
+				Text:     tr.Text,
+				Language: tr.Language,
+				Duration: tr.Duration,
+				Words:    []schema.TranscriptionWordSeconds{},
+				Segments: []schema.TranscriptionSegmentSeconds{},
+			}
+			for _, word := range tr.Words {
+				trs.Words = append(trs.Words, schema.TranscriptionWordSeconds{
+					Start: word.Start.Seconds(),
+					End:   word.End.Seconds(),
+					Text:  word.Text,
+				})
+			}
+			for _, seg := range tr.Segments {
+				segWords := []schema.TranscriptionWordSeconds{}
+				for _, word := range seg.Words {
+					segWords = append(segWords, schema.TranscriptionWordSeconds{
+						Start: word.Start.Seconds(),
+						End:   word.End.Seconds(),
+						Text:  word.Text,
+					})
+				}
+				trs.Segments = append(trs.Segments, schema.TranscriptionSegmentSeconds{
+					Id:      seg.Id,
+					Start:   seg.Start.Seconds(),
+					End:     seg.End.Seconds(),
+					Text:    seg.Text,
+					Tokens:  seg.Tokens,
+					Speaker: seg.Speaker,
+					Words:   segWords,
+				})
+			}
+			return c.JSON(http.StatusOK, trs)
 		default:
 			return errors.New("invalid response_format")
 		}
@@ -173,7 +216,7 @@ func streamTranscription(c echo.Context, req backend.TranscriptionRequest, ml *m
 	var assembled strings.Builder
 	var finalResult *schema.TranscriptionResult
 
-	err := backend.ModelTranscriptionStream(req, ml, config, appConfig, func(chunk backend.TranscriptionStreamChunk) {
+	err := backend.ModelTranscriptionStream(c.Request().Context(), req, ml, config, appConfig, func(chunk backend.TranscriptionStreamChunk) {
 		if chunk.Delta != "" {
 			assembled.WriteString(chunk.Delta)
 			_ = writeEvent(map[string]any{
@@ -214,10 +257,36 @@ func streamTranscription(c echo.Context, req backend.TranscriptionRequest, ml *m
 			"delta": finalResult.Text,
 		})
 	}
-	_ = writeEvent(map[string]any{
+	// done carries the assembled text plus, when the backend produced them,
+	// per-segment timings, audio duration, and detected language. The OpenAI
+	// streaming spec only specifies `text`; the extra fields are an additive
+	// extension so streaming clients (e.g. notetaker) can build the same
+	// TranscriptionResultSeconds shape they get from the JSON response path
+	// without us forcing them off SSE just to recover segments. Spec-compliant
+	// clients ignore unknown fields.
+	doneEvent := map[string]any{
 		"type": "transcript.text.done",
 		"text": finalResult.Text,
-	})
+	}
+	if finalResult.Language != "" {
+		doneEvent["language"] = finalResult.Language
+	}
+	if finalResult.Duration > 0 {
+		doneEvent["duration"] = finalResult.Duration
+	}
+	if len(finalResult.Segments) > 0 {
+		segs := make([]map[string]any, 0, len(finalResult.Segments))
+		for _, seg := range finalResult.Segments {
+			segs = append(segs, map[string]any{
+				"id":    seg.Id,
+				"start": seg.Start.Seconds(),
+				"end":   seg.End.Seconds(),
+				"text":  seg.Text,
+			})
+		}
+		doneEvent["segments"] = segs
+	}
+	_ = writeEvent(doneEvent)
 	_, _ = fmt.Fprintf(c.Response().Writer, "data: [DONE]\n\n")
 	c.Response().Flush()
 	return nil

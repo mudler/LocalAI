@@ -1,11 +1,44 @@
 package openai
 
 import (
+	"encoding/json"
 	"fmt"
 
 	"github.com/mudler/LocalAI/core/schema"
 	"github.com/mudler/LocalAI/pkg/functions"
 )
+
+// streamUsageTrailerJSON returns the bytes of the OpenAI-spec trailing usage
+// chunk emitted in streaming completions when the request opts in via
+// `stream_options.include_usage: true`. The shape is:
+//
+//	{"id":"...","object":"chat.completion.chunk","created":N,
+//	 "model":"...","choices":[],"usage":{...}}
+//
+// `choices` is intentionally an empty array (not absent, not null) — that is
+// what the OpenAI spec mandates, and what consumers like the official OpenAI
+// SDK and Continue's openai-adapter look for to recognise this as the usage
+// chunk rather than a content chunk. schema.OpenAIResponse has `omitempty`
+// on Choices, so we cannot reuse it for the trailer.
+func streamUsageTrailerJSON(id, model string, created int, usage schema.OpenAIUsage) []byte {
+	trailer := struct {
+		ID      string             `json:"id"`
+		Created int                `json:"created"`
+		Model   string             `json:"model"`
+		Object  string             `json:"object"`
+		Choices []schema.Choice    `json:"choices"`
+		Usage   schema.OpenAIUsage `json:"usage"`
+	}{
+		ID:      id,
+		Created: created,
+		Model:   model,
+		Object:  "chat.completion.chunk",
+		Choices: []schema.Choice{},
+		Usage:   usage,
+	}
+	b, _ := json.Marshal(trailer)
+	return b
+}
 
 // hasRealCall reports whether functionResults contains at least one
 // entry whose Name is something other than the noAction sentinel.
@@ -25,10 +58,10 @@ func hasRealCall(functionResults []functions.FuncCallResults, noAction string) b
 // pseudo-function or emitted no tool calls at all).
 //
 // When content was already streamed (contentAlreadyStreamed=true) the
-// helper emits a single trailing usage chunk, optionally carrying
-// reasoning that was produced but not streamed incrementally. When
-// content was not streamed it emits a role chunk followed by a
-// content+reasoning+usage chunk — the "send everything at once" fallback.
+// helper emits a trailing reasoning chunk if any non-streamed reasoning
+// remains, else nothing. When content was not streamed it emits a role
+// chunk followed by a content (+reasoning) chunk — the "send everything
+// at once" fallback.
 //
 // Reasoning re-emission is guarded by reasoningAlreadyStreamed, not by
 // probing the extractor's Go-side state: the C++ autoparser delivers
@@ -36,6 +69,10 @@ func hasRealCall(functionResults []functions.FuncCallResults, noAction string) b
 // separate accumulator that extractor.Reasoning() does not expose.
 // Without this guard the callback would stream reasoning incrementally
 // and the final chunk would duplicate it.
+//
+// The returned chunks intentionally do NOT carry a `usage` field. The
+// usage trailer is emitted separately by the streaming handler when
+// `stream_options.include_usage` is true, per OpenAI spec.
 func buildNoActionFinalChunks(
 	id, model string,
 	created int,
@@ -43,26 +80,26 @@ func buildNoActionFinalChunks(
 	reasoningAlreadyStreamed bool,
 	content string,
 	reasoning string,
-	usage schema.OpenAIUsage,
 ) []schema.OpenAIResponse {
 	var out []schema.OpenAIResponse
 
 	if contentAlreadyStreamed {
-		delta := &schema.Message{}
-		if reasoning != "" && !reasoningAlreadyStreamed {
-			r := reasoning
-			delta.Reasoning = &r
+		if reasoning == "" || reasoningAlreadyStreamed {
+			return nil
 		}
+		r := reasoning
 		out = append(out, schema.OpenAIResponse{
 			ID: id, Created: created, Model: model,
-			Choices: []schema.Choice{{Delta: delta, Index: 0}},
-			Object:  "chat.completion.chunk",
-			Usage:   usage,
+			Choices: []schema.Choice{{
+				Delta: &schema.Message{Reasoning: &r},
+				Index: 0,
+			}},
+			Object: "chat.completion.chunk",
 		})
 		return out
 	}
 
-	// Content was not streamed — send role, then content (+reasoning) + usage.
+	// Content was not streamed — send role, then content (+reasoning).
 	out = append(out, schema.OpenAIResponse{
 		ID: id, Created: created, Model: model,
 		Choices: []schema.Choice{{
@@ -82,7 +119,6 @@ func buildNoActionFinalChunks(
 		ID: id, Created: created, Model: model,
 		Choices: []schema.Choice{{Delta: delta, Index: 0}},
 		Object:  "chat.completion.chunk",
-		Usage:   usage,
 	})
 	return out
 }

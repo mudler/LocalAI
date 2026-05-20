@@ -9,14 +9,17 @@ import (
 
 // ModelRouter is used by SmartRouter for routing decisions and model lifecycle.
 type ModelRouter interface {
-	FindAndLockNodeWithModel(ctx context.Context, modelName string) (*BackendNode, *NodeModel, error)
-	DecrementInFlight(ctx context.Context, nodeID, modelName string) error
-	IncrementInFlight(ctx context.Context, nodeID, modelName string) error
-	RemoveNodeModel(ctx context.Context, nodeID, modelName string) error
-	TouchNodeModel(ctx context.Context, nodeID, modelName string)
-	SetNodeModel(ctx context.Context, nodeID, modelName, state, address string, initialInFlight int) error
-	SetNodeModelLoadInfo(ctx context.Context, nodeID, modelName, backendType string, optsBlob []byte) error
+	FindAndLockNodeWithModel(ctx context.Context, modelName string, candidateNodeIDs []string) (*BackendNode, *NodeModel, error)
+	DecrementInFlight(ctx context.Context, nodeID, modelName string, replicaIndex int) error
+	IncrementInFlight(ctx context.Context, nodeID, modelName string, replicaIndex int) error
+	RemoveNodeModel(ctx context.Context, nodeID, modelName string, replicaIndex int) error
+	RemoveAllNodeModelReplicas(ctx context.Context, nodeID, modelName string) error
+	TouchNodeModel(ctx context.Context, nodeID, modelName string, replicaIndex int)
+	SetNodeModel(ctx context.Context, nodeID, modelName string, replicaIndex int, state, address string, initialInFlight int) error
+	SetNodeModelLoadInfo(ctx context.Context, nodeID, modelName string, replicaIndex int, backendType string, optsBlob []byte) error
 	GetModelLoadInfo(ctx context.Context, modelName string) (backendType string, optsBlob []byte, err error)
+	NextFreeReplicaIndex(ctx context.Context, nodeID, modelName string, maxSlots int) (int, error)
+	CountReplicasOnNode(ctx context.Context, nodeID, modelName string) (int, error)
 	FindNodeWithVRAM(ctx context.Context, minBytes uint64) (*BackendNode, error)
 	FindIdleNode(ctx context.Context) (*BackendNode, error)
 	FindLeastLoadedNode(ctx context.Context) (*BackendNode, error)
@@ -25,10 +28,22 @@ type ModelRouter interface {
 	Get(ctx context.Context, nodeID string) (*BackendNode, error)
 	GetModelScheduling(ctx context.Context, modelName string) (*ModelSchedulingConfig, error)
 	FindNodesBySelector(ctx context.Context, selector map[string]string) ([]BackendNode, error)
+	FindNodesWithFreeSlot(ctx context.Context, modelName string, candidateNodeIDs []string) ([]BackendNode, error)
+	ReserveVRAM(ctx context.Context, nodeID string, bytes uint64) error
+	ReleaseVRAM(ctx context.Context, nodeID string, bytes uint64) error
 	FindNodeWithVRAMFromSet(ctx context.Context, minBytes uint64, nodeIDs []string) (*BackendNode, error)
 	FindIdleNodeFromSet(ctx context.Context, nodeIDs []string) (*BackendNode, error)
 	FindLeastLoadedNodeFromSet(ctx context.Context, nodeIDs []string) (*BackendNode, error)
 	GetNodeLabels(ctx context.Context, nodeID string) ([]NodeLabel, error)
+	FindNodesWithModel(ctx context.Context, modelName string) ([]BackendNode, error)
+}
+
+// ConcurrencyConflictResolver returns the names of configured models that
+// share at least one concurrency group with the given model. It is satisfied
+// by *config.ModelConfigLoader and lets the SmartRouter make group-aware
+// placement decisions without importing the config package's full surface.
+type ConcurrencyConflictResolver interface {
+	GetModelsConflictingWith(modelName string) []string
 }
 
 // NodeHealthStore is used by HealthMonitor for node status management.
@@ -40,13 +55,14 @@ type NodeHealthStore interface {
 	MarkHealthy(ctx context.Context, nodeID string) error
 	Heartbeat(ctx context.Context, nodeID string, update *HeartbeatUpdate) error
 	FindStaleNodes(ctx context.Context, threshold time.Duration) ([]BackendNode, error)
-	RemoveNodeModel(ctx context.Context, nodeID, modelName string) error
+	RemoveNodeModel(ctx context.Context, nodeID, modelName string, replicaIndex int) error
 }
 
 // ModelLocator is used by RemoteUnloaderAdapter for model discovery.
 type ModelLocator interface {
 	FindNodesWithModel(ctx context.Context, modelName string) ([]BackendNode, error)
-	RemoveNodeModel(ctx context.Context, nodeID, modelName string) error
+	RemoveNodeModel(ctx context.Context, nodeID, modelName string, replicaIndex int) error
+	RemoveAllNodeModelReplicas(ctx context.Context, nodeID, modelName string) error
 }
 
 // ModelLookup is used by DistributedModelStore for model existence queries.
@@ -58,8 +74,8 @@ type ModelLookup interface {
 
 // InFlightTracker is used by InFlightTrackingClient for request counting.
 type InFlightTracker interface {
-	IncrementInFlight(ctx context.Context, nodeID, modelName string) error
-	DecrementInFlight(ctx context.Context, nodeID, modelName string) error
+	IncrementInFlight(ctx context.Context, nodeID, modelName string, replicaIndex int) error
+	DecrementInFlight(ctx context.Context, nodeID, modelName string, replicaIndex int) error
 }
 
 // NodeManager is used by HTTP endpoints for node registration and lifecycle.
@@ -76,7 +92,8 @@ type NodeManager interface {
 	Heartbeat(ctx context.Context, nodeID string, update *HeartbeatUpdate) error
 	GetNodeModels(ctx context.Context, nodeID string) ([]NodeModel, error)
 	UpdateAuthRefs(ctx context.Context, nodeID, authUserID, apiKeyID string) error
-	RemoveNodeModel(ctx context.Context, nodeID, modelName string) error
+	RemoveNodeModel(ctx context.Context, nodeID, modelName string, replicaIndex int) error
+	RemoveAllNodeModelReplicas(ctx context.Context, nodeID, modelName string) error
 }
 
 // BackendClientFactory creates gRPC backend clients.

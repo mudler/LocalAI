@@ -8,6 +8,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
+	grpc "github.com/mudler/LocalAI/pkg/grpc"
 	pb "github.com/mudler/LocalAI/pkg/grpc/proto"
 	ggrpc "google.golang.org/grpc"
 )
@@ -22,14 +23,14 @@ type fakeInFlightTracker struct {
 	incrementErr error
 }
 
-func (f *fakeInFlightTracker) IncrementInFlight(_ context.Context, _, _ string) error {
+func (f *fakeInFlightTracker) IncrementInFlight(_ context.Context, _, _ string, _ int) error {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	f.increments++
 	return f.incrementErr
 }
 
-func (f *fakeInFlightTracker) DecrementInFlight(_ context.Context, _, _ string) error {
+func (f *fakeInFlightTracker) DecrementInFlight(_ context.Context, _, _ string, _ int) error {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	f.decrements++
@@ -155,12 +156,28 @@ func (f *fakeGRPCBackend) VAD(_ context.Context, _ *pb.VADRequest, _ ...ggrpc.Ca
 	return &pb.VADResponse{}, nil
 }
 
+func (f *fakeGRPCBackend) Diarize(_ context.Context, _ *pb.DiarizeRequest, _ ...ggrpc.CallOption) (*pb.DiarizeResponse, error) {
+	return &pb.DiarizeResponse{}, nil
+}
+
 func (f *fakeGRPCBackend) AudioEncode(_ context.Context, _ *pb.AudioEncodeRequest, _ ...ggrpc.CallOption) (*pb.AudioEncodeResult, error) {
 	return &pb.AudioEncodeResult{}, nil
 }
 
 func (f *fakeGRPCBackend) AudioDecode(_ context.Context, _ *pb.AudioDecodeRequest, _ ...ggrpc.CallOption) (*pb.AudioDecodeResult, error) {
 	return &pb.AudioDecodeResult{}, nil
+}
+
+func (f *fakeGRPCBackend) AudioTransform(_ context.Context, _ *pb.AudioTransformRequest, _ ...ggrpc.CallOption) (*pb.AudioTransformResult, error) {
+	return &pb.AudioTransformResult{}, nil
+}
+
+func (f *fakeGRPCBackend) AudioTransformStream(_ context.Context, _ ...ggrpc.CallOption) (grpc.AudioTransformStreamClient, error) {
+	return nil, nil
+}
+
+func (f *fakeGRPCBackend) AudioToAudioStream(_ context.Context, _ ...ggrpc.CallOption) (grpc.AudioToAudioStreamClient, error) {
+	return nil, nil
 }
 
 func (f *fakeGRPCBackend) ModelMetadata(_ context.Context, _ *pb.ModelOptions, _ ...ggrpc.CallOption) (*pb.ModelMetadataResponse, error) {
@@ -218,7 +235,7 @@ var _ = Describe("InFlightTrackingClient", func() {
 			predictReply:  &pb.Reply{Message: []byte("hello")},
 			streamReplies: []*pb.Reply{{Message: []byte("chunk")}},
 		}
-		client = NewInFlightTrackingClient(backend, tracker, "node-1", "llama")
+		client = NewInFlightTrackingClient(backend, tracker, "node-1", "llama", 0)
 	})
 
 	Describe("track", func() {

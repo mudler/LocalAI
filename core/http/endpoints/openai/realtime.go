@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"math"
 	"os"
+	"strconv"
 	"sync"
 	"time"
 
@@ -20,6 +21,8 @@ import (
 	"github.com/mudler/LocalAI/core/backend"
 
 	"github.com/mudler/LocalAI/core/config"
+	"github.com/mudler/LocalAI/core/http/auth"
+	mcpTools "github.com/mudler/LocalAI/core/http/endpoints/mcp"
 	"github.com/mudler/LocalAI/core/http/endpoints/openai/types"
 	"github.com/mudler/LocalAI/core/schema"
 	"github.com/mudler/LocalAI/core/templates"
@@ -51,6 +54,30 @@ const (
 		"Avoid parenthetical asides, URLs, and anything that cannot be clearly vocalized."
 )
 
+// resolveOutputModalities returns the effective output modalities for a
+// response: response-level overrides session-level, and the OpenAI Realtime
+// spec default is ["audio"] when neither is set.
+func resolveOutputModalities(session, response []types.Modality) []types.Modality {
+	if len(response) > 0 {
+		return response
+	}
+	if len(session) > 0 {
+		return session
+	}
+	return []types.Modality{types.ModalityAudio}
+}
+
+// modalitiesContainAudio reports whether the resolved modalities include audio
+// output.
+func modalitiesContainAudio(m []types.Modality) bool {
+	for _, x := range m {
+		if x == types.ModalityAudio {
+			return true
+		}
+	}
+	return false
+}
+
 // A model can be "emulated" that is: transcribe audio to text -> feed text to the LLM -> generate audio as result
 // If the model support instead audio-to-audio, we will use the specific gRPC calls instead
 
@@ -79,6 +106,30 @@ type Session struct {
 	InputSampleRate  int
 	OutputSampleRate int
 	MaxOutputTokens  types.IntOrInf
+	// OutputModalities mirrors the OpenAI Realtime spec field of the same
+	// name. Empty means "use the spec default" (audio). ["text"] suppresses
+	// TTS so the client receives only response.output_text.* events.
+	OutputModalities []types.Modality
+	// MaxHistoryItems caps the number of MessageItems passed to the LLM each
+	// turn (0 = unlimited). Small models — especially the LFM2.5-Audio 1.5B
+	// served via the liquid-audio backend — degrade quickly past a handful
+	// of turns. Counted from the tail; FunctionCall + FunctionCallOutput
+	// pairs are kept together so we never feed an orphaned tool result.
+	MaxHistoryItems int
+
+	// AssistantExecutor is non-nil when the session opted into the in-process
+	// LocalAI Assistant tool surface. Tool calls whose name matches this
+	// executor's catalog are run inproc and their output is fed back to the
+	// model server-side; the client never sees a function_call_arguments
+	// event for those. Mirrors the chat handler's metadata.localai_assistant
+	// path.
+	AssistantExecutor mcpTools.ToolExecutor
+
+	// AssistantTools is the cached ToolUnion slice we injected at session
+	// creation. Re-applied after every client session.update so a
+	// client-driven tool refresh (e.g. toggling a client MCP server) doesn't
+	// silently strip Manage Mode's tools.
+	AssistantTools []types.ToolUnion
 
 	// Response cancellation: protects activeResponseCancel/activeResponseDone
 	responseMu           sync.Mutex
@@ -139,13 +190,14 @@ func (s *Session) ToServer() types.SessionUnion {
 	} else {
 		return types.SessionUnion{
 			Realtime: &types.RealtimeSession{
-				ID:              s.ID,
-				Object:          "realtime.session",
-				Model:           s.Model,
-				Instructions:    s.Instructions,
-				Tools:           s.Tools,
-				ToolChoice:      s.ToolChoice,
-				MaxOutputTokens: s.MaxOutputTokens,
+				ID:               s.ID,
+				Object:           "realtime.session",
+				Model:            s.Model,
+				Instructions:     s.Instructions,
+				Tools:            s.Tools,
+				ToolChoice:       s.ToolChoice,
+				MaxOutputTokens:  s.MaxOutputTokens,
+				OutputModalities: s.OutputModalities,
 				Audio: &types.RealtimeSessionAudio{
 					Input: &types.SessionAudioInput{
 						TurnDetection: s.TurnDetection,
@@ -205,6 +257,19 @@ func RealtimeTranscriptionSession(application *application.Application) echo.Han
 	}
 }
 
+// RealtimeSessionOptions bundles per-session knobs decoded from the WS query
+// string (or the WebRTC handshake body). Mirrors what chat.go pulls off
+// `metadata.localai_assistant` — admin-only opt-in to the in-process
+// management tool surface.
+type RealtimeSessionOptions struct {
+	LocalAIAssistant bool
+	// AuthEnabled mirrors chat.go's requireAssistantAccess gate. We resolve
+	// admin role at handshake time (where the echo.Context has the auth
+	// cookie/Bearer) and drop the result here so runRealtimeSession can
+	// decide without holding onto the request.
+	IsAdmin bool
+}
+
 func Realtime(application *application.Application) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		ws, err := upgrader.Upgrade(c.Response(), c.Request(), nil)
@@ -218,25 +283,105 @@ func Realtime(application *application.Application) echo.HandlerFunc {
 
 		// Extract query parameters from Echo context before passing to websocket handler
 		model := c.QueryParam("model")
+		assistantFlag, _ := strconv.ParseBool(c.QueryParam("localai_assistant"))
+		opts := RealtimeSessionOptions{
+			LocalAIAssistant: assistantFlag,
+			IsAdmin:          isCurrentUserAdmin(c, application),
+		}
 
-		registerRealtime(application, model)(ws)
+		registerRealtime(application, model, opts)(ws)
 		return nil
 	}
 }
 
-func registerRealtime(application *application.Application, model string) func(c *websocket.Conn) {
+// isCurrentUserAdmin replicates the chat-side admin check at the realtime
+// handshake. When auth is disabled, every caller is treated as admin (same
+// as chat's requireAssistantAccess).
+func isCurrentUserAdmin(c echo.Context, application *application.Application) bool {
+	if application == nil || application.ApplicationConfig() == nil || !application.ApplicationConfig().Auth.Enabled {
+		return true
+	}
+	user := auth.GetUser(c)
+	return user != nil && user.Role == auth.RoleAdmin
+}
+
+func registerRealtime(application *application.Application, model string, opts RealtimeSessionOptions) func(c *websocket.Conn) {
 	return func(conn *websocket.Conn) {
 		t := NewWebSocketTransport(conn)
 		evaluator := application.TemplatesEvaluator()
 		xlog.Debug("Realtime WebSocket connection established", "address", conn.RemoteAddr().String(), "model", model)
-		runRealtimeSession(application, t, model, evaluator)
+		runRealtimeSession(application, t, model, evaluator, opts)
 	}
+}
+
+// defaultMaxHistoryItems picks a sensible default cap for the session.
+// Small any-to-any audio models degrade quickly past a handful of turns;
+// legacy pipelines composing larger LLMs keep the historical "unlimited"
+// default and rely on the LLM's own context window.
+func defaultMaxHistoryItems(cfg *config.ModelConfig) int {
+	if cfg != nil && cfg.HasUsecases(config.FLAG_REALTIME_AUDIO) {
+		return 6
+	}
+	return 0
+}
+
+// trimRealtimeItems returns the tail of items capped at maxItems (0 = no cap).
+// Walks backwards keeping function_call + function_call_output pairs together
+// so we never feed the LLM an orphaned tool result that references a call it
+// can't see.
+func trimRealtimeItems(items []*types.MessageItemUnion, maxItems int) []*types.MessageItemUnion {
+	if maxItems <= 0 || len(items) <= maxItems {
+		return items
+	}
+	// Find the cut point starting from len-maxItems and pull it left until
+	// we're not in the middle of a tool-call pair.
+	cut := len(items) - maxItems
+	for cut > 0 && items[cut] != nil && items[cut].FunctionCallOutput != nil {
+		cut--
+	}
+	return items[cut:]
+}
+
+// prepareRealtimeConfig validates a model config for use in a realtime session
+// and fills in pipeline slots for self-contained any-to-any models. It returns
+// an error code + message pair suitable for sendError; the bool indicates
+// whether the caller should proceed. Extracted from runRealtimeSession so the
+// gate logic can be exercised in unit tests without a full Application.
+func prepareRealtimeConfig(cfg *config.ModelConfig) (errCode, errMsg string, ok bool) {
+	if cfg == nil {
+		return "invalid_model", "Model is not a pipeline model", false
+	}
+
+	// Self-contained any-to-any models (e.g. liquid-audio) own the whole
+	// loop in one engine — surface them by populating empty pipeline slots
+	// with the model's own name so newModel can resolve a config for each
+	// role. The user can still pin individual slots (e.g. Pipeline.VAD =
+	// silero-vad) and those wins.
+	if cfg.HasUsecases(config.FLAG_REALTIME_AUDIO) {
+		if cfg.Pipeline.VAD == "" {
+			cfg.Pipeline.VAD = cfg.Name
+		}
+		if cfg.Pipeline.Transcription == "" {
+			cfg.Pipeline.Transcription = cfg.Name
+		}
+		if cfg.Pipeline.LLM == "" {
+			cfg.Pipeline.LLM = cfg.Name
+		}
+		if cfg.Pipeline.TTS == "" {
+			cfg.Pipeline.TTS = cfg.Name
+		}
+		return "", "", true
+	}
+
+	if cfg.Pipeline.VAD == "" && cfg.Pipeline.Transcription == "" && cfg.Pipeline.TTS == "" && cfg.Pipeline.LLM == "" {
+		return "invalid_model", "Model is not a pipeline model", false
+	}
+	return "", "", true
 }
 
 // runRealtimeSession runs the main event loop for a realtime session.
 // It is transport-agnostic and works with both WebSocket and WebRTC.
-func runRealtimeSession(application *application.Application, t Transport, model string, evaluator *templates.Evaluator) {
-	// TODO: Allow any-to-any model to be specified
+func runRealtimeSession(application *application.Application, t Transport, model string, evaluator *templates.Evaluator, opts RealtimeSessionOptions) {
 	cl := application.ModelConfigLoader()
 	cfg, err := cl.LoadModelConfigFileByNameDefaultOptions(model, application.ApplicationConfig())
 	if err != nil {
@@ -245,13 +390,67 @@ func runRealtimeSession(application *application.Application, t Transport, model
 		return
 	}
 
-	if cfg == nil || (cfg.Pipeline.VAD == "" && cfg.Pipeline.Transcription == "" && cfg.Pipeline.TTS == "" && cfg.Pipeline.LLM == "") {
+	if code, msg, ok := prepareRealtimeConfig(cfg); !ok {
 		xlog.Error("model is not a pipeline", "model", model)
-		sendError(t, "invalid_model", "Model is not a pipeline model", "", "")
+		sendError(t, code, msg, "", "")
 		return
 	}
 
+	// LocalAI Assistant opt-in: gate on admin (same rule as chat.go's
+	// requireAssistantAccess) and grab the process-wide holder's executor.
+	// We collect tools + system prompt here and merge them into the session
+	// below so they're live from the first response.create.
+	var assistantTools []types.ToolUnion
+	var assistantSystemPrompt string
+	var assistantExecutor mcpTools.ToolExecutor
+	if opts.LocalAIAssistant {
+		if !opts.IsAdmin {
+			sendError(t, "forbidden", "localai_assistant requires admin", "", "")
+			return
+		}
+		appCfg := application.ApplicationConfig()
+		if appCfg != nil && appCfg.DisableLocalAIAssistant {
+			sendError(t, "unavailable", "LocalAI Assistant is disabled on this server", "", "")
+			return
+		}
+		holder := application.LocalAIAssistant()
+		if holder == nil || !holder.HasTools() {
+			sendError(t, "unavailable", "LocalAI Assistant is not available on this server", "", "")
+			return
+		}
+		exec := holder.Executor()
+		fns, discErr := exec.DiscoverTools(context.Background())
+		if discErr != nil {
+			xlog.Error("realtime: failed to discover LocalAI Assistant tools", "error", discErr)
+			sendError(t, "tool_discovery_failed", "failed to discover assistant tools: "+discErr.Error(), "", "")
+			return
+		}
+		assistantExecutor = exec
+		assistantSystemPrompt = holder.SystemPrompt()
+		assistantTools = make([]types.ToolUnion, 0, len(fns))
+		for _, fn := range fns {
+			fnCopy := fn
+			assistantTools = append(assistantTools, types.ToolUnion{
+				Function: &types.ToolFunction{
+					Name:        fnCopy.Name,
+					Description: fnCopy.Description,
+					Parameters:  fnCopy.Parameters,
+				},
+			})
+		}
+		xlog.Debug("realtime: LocalAI Assistant tools injected", "count", len(fns))
+	}
+
 	sttModel := cfg.Pipeline.Transcription
+
+	// Compose the system prompt: prepend the assistant prompt when we have
+	// one (it teaches the model the safety rules and tool recipes), then the
+	// session's default voice instructions. Order matches chat.go's
+	// hasSystemMessage check — assistant prompt comes first.
+	instructions := defaultInstructions
+	if assistantSystemPrompt != "" {
+		instructions = assistantSystemPrompt + "\n\n" + defaultInstructions
+	}
 
 	sessionID := generateSessionID()
 	session := &Session{
@@ -259,8 +458,11 @@ func runRealtimeSession(application *application.Application, t Transport, model
 		TranscriptionOnly: false,
 		Model:             model,
 		Voice:             cfg.TTSConfig.Voice,
-		Instructions:      defaultInstructions,
+		Instructions:      instructions,
 		ModelConfig:       cfg,
+		Tools:             assistantTools,
+		AssistantTools:    assistantTools,
+		AssistantExecutor: assistantExecutor,
 		TurnDetection: &types.TurnDetectionUnion{
 			ServerVad: &types.ServerVad{
 				Threshold:         0.5,
@@ -275,6 +477,7 @@ func runRealtimeSession(application *application.Application, t Transport, model
 		Conversations:    make(map[string]*Conversation),
 		InputSampleRate:  defaultRemoteSampleRate,
 		OutputSampleRate: defaultRemoteSampleRate,
+		MaxHistoryItems:  defaultMaxHistoryItems(cfg),
 	}
 
 	// Create a default conversation
@@ -810,7 +1013,28 @@ func updateSession(session *Session, update *types.SessionUnion, cl *config.Mode
 	}
 
 	if rt.Tools != nil {
-		session.Tools = rt.Tools
+		// Manage Mode tools survive a client-driven session.update — the
+		// alternative is silently dropping them whenever the user toggles
+		// a client MCP server, which would break the modality mid-session.
+		// Names from rt.Tools win on collision (the client is explicit;
+		// we preserve, we don't override).
+		merged := append([]types.ToolUnion(nil), rt.Tools...)
+		seen := make(map[string]struct{}, len(merged))
+		for _, t := range merged {
+			if t.Function != nil {
+				seen[t.Function.Name] = struct{}{}
+			}
+		}
+		for _, t := range session.AssistantTools {
+			if t.Function == nil {
+				continue
+			}
+			if _, ok := seen[t.Function.Name]; ok {
+				continue
+			}
+			merged = append(merged, t)
+		}
+		session.Tools = merged
 	}
 	if rt.ToolChoice != nil {
 		session.ToolChoice = rt.ToolChoice
@@ -818,6 +1042,10 @@ func updateSession(session *Session, update *types.SessionUnion, cl *config.Mode
 
 	if rt.MaxOutputTokens != 0 {
 		session.MaxOutputTokens = rt.MaxOutputTokens
+	}
+
+	if len(rt.OutputModalities) > 0 {
+		session.OutputModalities = rt.OutputModalities
 	}
 
 	return nil
@@ -1104,7 +1332,17 @@ func generateResponse(ctx context.Context, session *Session, utt []byte, transcr
 	triggerResponse(ctx, session, conv, t, nil)
 }
 
+// maxAssistantToolTurns caps the server-side agentic loop. Mirrors the
+// chat-page maxToolTurns:10 from useChat.js — the model gets up to this
+// many consecutive tool round-trips before we return control to the user
+// without another response cycle.
+const maxAssistantToolTurns = 10
+
 func triggerResponse(ctx context.Context, session *Session, conv *Conversation, t Transport, overrides *types.ResponseCreateParams) {
+	triggerResponseAtTurn(ctx, session, conv, t, overrides, 0)
+}
+
+func triggerResponseAtTurn(ctx context.Context, session *Session, conv *Conversation, t Transport, overrides *types.ResponseCreateParams, toolTurn int) {
 	config := session.ModelInterface.PredictConfig()
 
 	// Default values
@@ -1155,7 +1393,8 @@ func triggerResponse(ctx context.Context, session *Session, conv *Conversation, 
 
 	imgIndex := 0
 	conv.Lock.Lock()
-	for _, item := range conv.Items {
+	items := trimRealtimeItems(conv.Items, session.MaxHistoryItems)
+	for _, item := range items {
 		if item.User != nil {
 			msg := schema.Message{
 				Role: string(types.MessageRoleUser),
@@ -1448,106 +1687,130 @@ func triggerResponse(ctx context.Context, session *Session, conv *Conversation, 
 			})
 		}
 
-		// Check for cancellation before TTS
-		if ctx.Err() != nil {
-			xlog.Debug("Response cancelled before TTS (barge-in)")
-			sendCancelledResponse()
-			return
-		}
-
-		audioFilePath, res, err := session.ModelInterface.TTS(ctx, finalSpeech, session.Voice, session.InputAudioTranscription.Language)
-		if err != nil {
-			if ctx.Err() != nil {
-				xlog.Debug("TTS cancelled (barge-in)")
-				sendCancelledResponse()
-				return
-			}
-			xlog.Error("TTS failed", "error", err)
-			sendError(t, "tts_error", fmt.Sprintf("TTS generation failed: %v", err), "", item.Assistant.ID)
-			return
-		}
-		if !res.Success {
-			xlog.Error("TTS failed", "message", res.Message)
-			sendError(t, "tts_error", fmt.Sprintf("TTS generation failed: %s", res.Message), "", item.Assistant.ID)
-			return
-		}
-		defer os.Remove(audioFilePath)
-
-		audioBytes, err := os.ReadFile(audioFilePath)
-		if err != nil {
-			xlog.Error("failed to read TTS file", "error", err)
-			sendError(t, "tts_error", fmt.Sprintf("Failed to read TTS audio: %v", err), "", item.Assistant.ID)
-			return
-		}
-
-		// Parse WAV header to get raw PCM and the actual sample rate from the TTS backend.
-		pcmData, ttsSampleRate := laudio.ParseWAV(audioBytes)
-		if ttsSampleRate == 0 {
-			ttsSampleRate = localSampleRate
-		}
-		xlog.Debug("TTS audio parsed", "raw_bytes", len(audioBytes), "pcm_bytes", len(pcmData), "sample_rate", ttsSampleRate)
-
-		// SendAudio (WebRTC) passes PCM at the TTS sample rate directly to the
-		// Opus encoder, which resamples to 48kHz internally. This avoids a
-		// lossy intermediate resample through 16kHz.
-		// XXX: This is a noop in websocket mode; it's included in the JSON instead
-		if err := t.SendAudio(ctx, pcmData, ttsSampleRate); err != nil {
-			if ctx.Err() != nil {
-				xlog.Debug("Audio playback cancelled (barge-in)")
-				sendCancelledResponse()
-				return
-			}
-			xlog.Error("failed to send audio via transport", "error", err)
-		}
-
-		_, isWebRTC := t.(*WebRTCTransport)
-
-		// For WebSocket clients, resample to the session's output rate and
-		// deliver audio as base64 in JSON events. WebRTC clients already
-		// received audio over the RTP track, so skip the base64 payload.
 		var audioString string
-		if !isWebRTC {
-			wsPCM := pcmData
-			if ttsSampleRate != session.OutputSampleRate {
-				samples := sound.BytesToInt16sLE(pcmData)
-				resampled := sound.ResampleInt16(samples, ttsSampleRate, session.OutputSampleRate)
-				wsPCM = sound.Int16toBytesLE(resampled)
-			}
-			audioString = base64.StdEncoding.EncodeToString(wsPCM)
+		_, isWebRTC := t.(*WebRTCTransport)
+		var respMods []types.Modality
+		if overrides != nil {
+			respMods = overrides.OutputModalities
 		}
+		modalities := resolveOutputModalities(session.OutputModalities, respMods)
+		if modalitiesContainAudio(modalities) {
+			// Check for cancellation before TTS
+			if ctx.Err() != nil {
+				xlog.Debug("Response cancelled before TTS (barge-in)")
+				sendCancelledResponse()
+				return
+			}
 
-		sendEvent(t, types.ResponseOutputAudioTranscriptDeltaEvent{
-			ServerEventBase: types.ServerEventBase{},
-			ResponseID:      responseID,
-			ItemID:          item.Assistant.ID,
-			OutputIndex:     0,
-			ContentIndex:    0,
-			Delta:           finalSpeech,
-		})
-		sendEvent(t, types.ResponseOutputAudioTranscriptDoneEvent{
-			ServerEventBase: types.ServerEventBase{},
-			ResponseID:      responseID,
-			ItemID:          item.Assistant.ID,
-			OutputIndex:     0,
-			ContentIndex:    0,
-			Transcript:      finalSpeech,
-		})
+			audioFilePath, res, err := session.ModelInterface.TTS(ctx, finalSpeech, session.Voice, session.InputAudioTranscription.Language)
+			if err != nil {
+				if ctx.Err() != nil {
+					xlog.Debug("TTS cancelled (barge-in)")
+					sendCancelledResponse()
+					return
+				}
+				xlog.Error("TTS failed", "error", err)
+				sendError(t, "tts_error", fmt.Sprintf("TTS generation failed: %v", err), "", item.Assistant.ID)
+				return
+			}
+			if !res.Success {
+				xlog.Error("TTS failed", "message", res.Message)
+				sendError(t, "tts_error", fmt.Sprintf("TTS generation failed: %s", res.Message), "", item.Assistant.ID)
+				return
+			}
+			defer func() { _ = os.Remove(audioFilePath) }()
 
-		if !isWebRTC {
-			sendEvent(t, types.ResponseOutputAudioDeltaEvent{
+			audioBytes, err := os.ReadFile(audioFilePath)
+			if err != nil {
+				xlog.Error("failed to read TTS file", "error", err)
+				sendError(t, "tts_error", fmt.Sprintf("Failed to read TTS audio: %v", err), "", item.Assistant.ID)
+				return
+			}
+
+			// Parse WAV header to get raw PCM and the actual sample rate from the TTS backend.
+			pcmData, ttsSampleRate := laudio.ParseWAV(audioBytes)
+			if ttsSampleRate == 0 {
+				ttsSampleRate = localSampleRate
+			}
+			xlog.Debug("TTS audio parsed", "raw_bytes", len(audioBytes), "pcm_bytes", len(pcmData), "sample_rate", ttsSampleRate)
+
+			// SendAudio (WebRTC) passes PCM at the TTS sample rate directly to the
+			// Opus encoder, which resamples to 48kHz internally. This avoids a
+			// lossy intermediate resample through 16kHz.
+			// XXX: This is a noop in websocket mode; it's included in the JSON instead
+			if err := t.SendAudio(ctx, pcmData, ttsSampleRate); err != nil {
+				if ctx.Err() != nil {
+					xlog.Debug("Audio playback cancelled (barge-in)")
+					sendCancelledResponse()
+					return
+				}
+				xlog.Error("failed to send audio via transport", "error", err)
+			}
+
+			// For WebSocket clients, resample to the session's output rate and
+			// deliver audio as base64 in JSON events. WebRTC clients already
+			// received audio over the RTP track, so skip the base64 payload.
+			if !isWebRTC {
+				wsPCM := pcmData
+				if ttsSampleRate != session.OutputSampleRate {
+					samples := sound.BytesToInt16sLE(pcmData)
+					resampled := sound.ResampleInt16(samples, ttsSampleRate, session.OutputSampleRate)
+					wsPCM = sound.Int16toBytesLE(resampled)
+				}
+				audioString = base64.StdEncoding.EncodeToString(wsPCM)
+			}
+
+			sendEvent(t, types.ResponseOutputAudioTranscriptDeltaEvent{
 				ServerEventBase: types.ServerEventBase{},
 				ResponseID:      responseID,
 				ItemID:          item.Assistant.ID,
 				OutputIndex:     0,
 				ContentIndex:    0,
-				Delta:           audioString,
+				Delta:           finalSpeech,
 			})
-			sendEvent(t, types.ResponseOutputAudioDoneEvent{
+			sendEvent(t, types.ResponseOutputAudioTranscriptDoneEvent{
 				ServerEventBase: types.ServerEventBase{},
 				ResponseID:      responseID,
 				ItemID:          item.Assistant.ID,
 				OutputIndex:     0,
 				ContentIndex:    0,
+				Transcript:      finalSpeech,
+			})
+
+			if !isWebRTC {
+				sendEvent(t, types.ResponseOutputAudioDeltaEvent{
+					ServerEventBase: types.ServerEventBase{},
+					ResponseID:      responseID,
+					ItemID:          item.Assistant.ID,
+					OutputIndex:     0,
+					ContentIndex:    0,
+					Delta:           audioString,
+				})
+				sendEvent(t, types.ResponseOutputAudioDoneEvent{
+					ServerEventBase: types.ServerEventBase{},
+					ResponseID:      responseID,
+					ItemID:          item.Assistant.ID,
+					OutputIndex:     0,
+					ContentIndex:    0,
+				})
+			}
+		} else {
+			// Text-only mode: skip TTS, emit only the text events.
+			sendEvent(t, types.ResponseOutputTextDeltaEvent{
+				ServerEventBase: types.ServerEventBase{},
+				ResponseID:      responseID,
+				ItemID:          item.Assistant.ID,
+				OutputIndex:     0,
+				ContentIndex:    0,
+				Delta:           finalSpeech,
+			})
+			sendEvent(t, types.ResponseOutputTextDoneEvent{
+				ServerEventBase: types.ServerEventBase{},
+				ResponseID:      responseID,
+				ItemID:          item.Assistant.ID,
+				OutputIndex:     0,
+				ContentIndex:    0,
+				Text:            finalSpeech,
 			})
 		}
 
@@ -1575,8 +1838,16 @@ func triggerResponse(ctx context.Context, session *Session, conv *Conversation, 
 		})
 	}
 
-	// Handle Tool Calls
+	// Handle Tool Calls. Two paths:
+	//   - LocalAI Assistant tools (session.AssistantExecutor.IsTool) run
+	//     server-side; we append both the call and its output to conv.Items
+	//     and re-trigger a follow-up response so the model can speak the
+	//     result. The client only sees observability events.
+	//   - All other tools follow the standard OpenAI flow: emit
+	//     function_call_arguments.done and wait for the client to send
+	//     conversation.item.create back.
 	xlog.Debug("About to handle tool calls", "finalToolCallsCount", len(finalToolCalls))
+	executedAssistantTool := false
 	for i, tc := range finalToolCalls {
 		toolCallID := generateItemID()
 		callID := "call_" + generateUniqueID() // OpenAI uses call_xyz
@@ -1607,6 +1878,51 @@ func triggerResponse(ctx context.Context, session *Session, conv *Conversation, 
 			OutputIndex:     outputIndex,
 			Item:            fcItem,
 		})
+
+		serverSide := session.AssistantExecutor != nil && session.AssistantExecutor.IsTool(tc.Name)
+		if serverSide {
+			output, execErr := session.AssistantExecutor.ExecuteTool(ctx, tc.Name, tc.Arguments)
+			if execErr != nil {
+				output = "Error: " + execErr.Error()
+				xlog.Error("realtime: assistant tool execution failed", "tool", tc.Name, "error", execErr)
+			}
+			foItem := types.MessageItemUnion{
+				FunctionCallOutput: &types.MessageItemFunctionCallOutput{
+					ID:     generateItemID(),
+					CallID: callID,
+					Output: output,
+					Status: types.ItemStatusCompleted,
+				},
+			}
+			conv.Lock.Lock()
+			conv.Items = append(conv.Items, &foItem)
+			conv.Lock.Unlock()
+			// Close the call out and emit the output as its own paired
+			// added/done — the OpenAI spec pairs every item-done with a
+			// preceding item-added, so we re-pair here for the output.
+			// The UI renders the transcript entry on item.done for both
+			// shapes (FunctionCall + FunctionCallOutput).
+			sendEvent(t, types.ResponseOutputItemDoneEvent{
+				ServerEventBase: types.ServerEventBase{},
+				ResponseID:      responseID,
+				OutputIndex:     outputIndex,
+				Item:            fcItem,
+			})
+			sendEvent(t, types.ResponseOutputItemAddedEvent{
+				ServerEventBase: types.ServerEventBase{},
+				ResponseID:      responseID,
+				OutputIndex:     outputIndex,
+				Item:            foItem,
+			})
+			sendEvent(t, types.ResponseOutputItemDoneEvent{
+				ServerEventBase: types.ServerEventBase{},
+				ResponseID:      responseID,
+				OutputIndex:     outputIndex,
+				Item:            foItem,
+			})
+			executedAssistantTool = true
+			continue
+		}
 
 		sendEvent(t, types.ResponseFunctionCallArgumentsDeltaEvent{
 			ServerEventBase: types.ServerEventBase{},
@@ -1643,6 +1959,19 @@ func triggerResponse(ctx context.Context, session *Session, conv *Conversation, 
 			Status: types.ResponseStatusCompleted,
 		},
 	})
+
+	// If we executed any assistant tools inproc, run another response cycle
+	// so the model can speak the result. Mirrors the chat-side agentic loop
+	// but driven server-side rather than by client round-trip. Bounded so a
+	// degenerate "model keeps calling tools" doesn't blow the stack.
+	if executedAssistantTool {
+		if toolTurn+1 >= maxAssistantToolTurns {
+			xlog.Warn("realtime: assistant tool-turn limit reached, stopping the agentic loop",
+				"limit", maxAssistantToolTurns, "model", session.Model)
+			return
+		}
+		triggerResponseAtTurn(ctx, session, conv, t, nil, toolTurn+1)
+	}
 }
 
 // Helper functions to generate unique IDs

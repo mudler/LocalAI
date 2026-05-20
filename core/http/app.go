@@ -10,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
@@ -160,12 +161,32 @@ func API(application *application.Application) (*echo.Echo, error) {
 		})
 	}
 
+	// Security headers (CSP, X-Content-Type-Options, X-Frame-Options,
+	// Referrer-Policy). Set early so every response — including 404s and
+	// errors — picks them up.
+	e.Use(httpMiddleware.SecurityHeaders())
+
 	// Custom logger middleware using xlog
 	e.Use(func(next echo.HandlerFunc) echo.HandlerFunc {
 		return func(c echo.Context) error {
 			req := c.Request()
 			res := c.Response()
 			err := next(c)
+
+			// Echo's central HTTPErrorHandler runs *after* this middleware
+			// returns, so res.Status still reads the default 200 here when a
+			// handler returned an error without writing a response. Mirror
+			// echo.DefaultHTTPErrorHandler's status derivation so the access
+			// log reflects the status the client actually receives — without
+			// this, every silent handler error logs as 200.
+			status := res.Status
+			if err != nil && !res.Committed {
+				status = http.StatusInternalServerError
+				var he *echo.HTTPError
+				if errors.As(err, &he) {
+					status = he.Code
+				}
+			}
 
 			// Fix for #7989: Reduce log verbosity of Web UI polling, resources API, and health checks
 			// These paths are logged at DEBUG level (hidden by default) instead of INFO.
@@ -177,10 +198,10 @@ func API(application *application.Application) (*echo.Echo, error) {
 				}
 			}
 
-			if isQuietPath && res.Status == 200 {
-				xlog.Debug("HTTP request", "method", req.Method, "path", req.URL.Path, "status", res.Status)
+			if isQuietPath && status == 200 {
+				xlog.Debug("HTTP request", "method", req.Method, "path", req.URL.Path, "status", status)
 			} else {
-				xlog.Info("HTTP request", "method", req.Method, "path", req.URL.Path, "status", res.Status)
+				xlog.Info("HTTP request", "method", req.Method, "path", req.URL.Path, "status", status)
 			}
 			return err
 		}
@@ -262,13 +283,19 @@ func API(application *application.Application) (*echo.Echo, error) {
 		e.Use(auth.RequireQuota(application.AuthDB()))
 	}
 
-	// CORS middleware
+	// CORS middleware. When CORS=true the operator must also specify the
+	// allowed origins; an empty allowlist would otherwise let Echo fall back
+	// to AllowOrigins=["*"], which is almost never what someone enabling
+	// "strict CORS" intended.
 	if application.ApplicationConfig().CORS {
-		corsConfig := middleware.CORSConfig{}
-		if application.ApplicationConfig().CORSAllowOrigins != "" {
-			corsConfig.AllowOrigins = strings.Split(application.ApplicationConfig().CORSAllowOrigins, ",")
+		if application.ApplicationConfig().CORSAllowOrigins == "" {
+			xlog.Warn("LOCALAI_CORS=true but LOCALAI_CORS_ALLOW_ORIGINS is empty; refusing to register a wildcard CORS policy. Set the allowlist or unset LOCALAI_CORS.")
+		} else {
+			corsConfig := middleware.CORSConfig{
+				AllowOrigins: strings.Split(application.ApplicationConfig().CORSAllowOrigins, ","),
+			}
+			e.Use(middleware.CORSWithConfig(corsConfig))
 		}
-		e.Use(middleware.CORSWithConfig(corsConfig))
 	} else {
 		e.Use(middleware.CORS())
 	}
@@ -409,11 +436,31 @@ func API(application *application.Application) (*echo.Echo, error) {
 				if err != nil {
 					return c.String(http.StatusNotFound, "React UI not built")
 				}
-				// Inject <base href> for reverse-proxy support
+				// Inject <base href> for reverse-proxy support; baseURL comes
+				// from attacker-controllable Host / X-Forwarded-Host headers.
 				baseURL := httpMiddleware.BaseURL(c)
 				if baseURL != "" {
-					baseTag := `<base href="` + baseURL + `" />`
+					baseTag := `<base href="` + httpMiddleware.SecureBaseHref(baseURL) + `" />`
 					indexHTML = []byte(strings.Replace(string(indexHTML), "<head>", "<head>\n  "+baseTag, 1))
+				}
+				// <base href> only changes how relative URLs resolve; path-absolute
+				// URLs (those starting with `/`) still resolve against the origin
+				// and would bypass the reverse-proxy prefix. Rewrite the internal
+				// path-absolute references emitted by the build so the browser
+				// requests them through the proxy under the prefix.
+				//
+				// HTML-escape the prefix before interpolating it into attributes:
+				// BasePathPrefix already gates X-Forwarded-Prefix via
+				// SafeForwardedPrefix, but the validator only blocks open-redirect
+				// shapes (// prefix, backslashes, control chars), not attribute
+				// breakout characters like `"`. Escaping makes this resilient
+				// even if the validator ever loosens.
+				if prefix := httpMiddleware.BasePathPrefix(c); prefix != "/" {
+					safePrefix := httpMiddleware.SecureBaseHref(prefix)
+					html := string(indexHTML)
+					html = strings.ReplaceAll(html, `="/assets/`, `="`+safePrefix+`assets/`)
+					html = strings.ReplaceAll(html, `="/favicon.svg"`, `="`+safePrefix+`favicon.svg"`)
+					indexHTML = []byte(html)
 				}
 				return c.HTMLBlob(http.StatusOK, indexHTML)
 			}
@@ -425,9 +472,11 @@ func API(application *application.Application) (*echo.Echo, error) {
 			e.GET("/app", serveIndex)
 			e.GET("/app/*", serveIndex)
 
-			// prefixRedirect performs a redirect that preserves X-Forwarded-Prefix for reverse-proxy support.
+			// prefixRedirect performs a redirect that preserves X-Forwarded-Prefix
+			// for reverse-proxy support. The prefix is forgeable on misconfigured
+			// proxy chains, so reject anything that isn't a same-origin path.
 			prefixRedirect := func(c echo.Context, target string) error {
-				if prefix := c.Request().Header.Get("X-Forwarded-Prefix"); prefix != "" {
+				if prefix, ok := httpMiddleware.SafeForwardedPrefix(c.Request().Header.Get("X-Forwarded-Prefix")); ok {
 					target = strings.TrimSuffix(prefix, "/") + target
 				}
 				return c.Redirect(http.StatusMovedPermanently, target)
@@ -447,29 +496,48 @@ func API(application *application.Application) (*echo.Echo, error) {
 				return prefixRedirect(c, "/app/"+p)
 			})
 
-			// Serve React static assets (JS, CSS, etc.)
-			serveReactAsset := func(c echo.Context) error {
-				p := "assets/" + c.Param("*")
-				f, err := reactFS.Open(p)
-				if err == nil {
-					defer f.Close()
-					stat, statErr := f.Stat()
-					if statErr == nil && !stat.IsDir() {
-						contentType := mime.TypeByExtension(filepath.Ext(p))
-						if contentType == "" {
-							contentType = echo.MIMEOctetStream
+			// Serve React static assets (JS, CSS, etc.) and i18n locale JSONs
+			// from the embedded React build.
+			serveReactSubdir := func(subdir string) echo.HandlerFunc {
+				return func(c echo.Context) error {
+					p := subdir + "/" + c.Param("*")
+					f, err := reactFS.Open(p)
+					if err == nil {
+						defer f.Close()
+						stat, statErr := f.Stat()
+						if statErr == nil && !stat.IsDir() {
+							contentType := mime.TypeByExtension(filepath.Ext(p))
+							if contentType == "" {
+								contentType = echo.MIMEOctetStream
+							}
+							return c.Stream(http.StatusOK, contentType, f)
 						}
-						return c.Stream(http.StatusOK, contentType, f)
 					}
+					return echo.NewHTTPError(http.StatusNotFound)
 				}
-				return echo.NewHTTPError(http.StatusNotFound)
 			}
-			e.GET("/assets/*", serveReactAsset)
+			e.GET("/assets/*", serveReactSubdir("assets"))
+			e.GET("/locales/*", serveReactSubdir("locales"))
 		}
 	}
 	routes.RegisterJINARoutes(e, requestExtractor, application.ModelConfigLoader(), application.ModelLoader(), application.ApplicationConfig())
 
 	// Note: 404 handling is done via HTTPErrorHandler above, no need for catch-all route
+
+	// HTTP server timeouts.
+	//
+	//   - ReadHeaderTimeout: bounds the slow-headers Slowloris case. 30s is
+	//     enough for a real client on a poor connection but cuts off a
+	//     drip-feeding attacker.
+	//   - IdleTimeout: bounds idle keep-alive connections.
+	//
+	// We deliberately leave ReadTimeout and WriteTimeout at 0:
+	//   - Request bodies can be multi-GB model/dataset uploads.
+	//   - Chat-completion and SSE responses can stream for many minutes.
+	// Operators who need stricter limits should front the server with a
+	// reverse proxy that terminates slow clients per-request.
+	e.Server.ReadHeaderTimeout = 30 * time.Second
+	e.Server.IdleTimeout = 120 * time.Second
 
 	// Log startup message
 	e.Server.RegisterOnShutdown(func() {

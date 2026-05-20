@@ -613,6 +613,101 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/branding": {
+            "get": {
+                "description": "Returns the configured instance name, tagline, and asset URLs. Public — no authentication required.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "branding"
+                ],
+                "summary": "Get instance branding",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/localai.BrandingResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/branding/asset/{kind}": {
+            "post": {
+                "description": "Upload a custom logo, horizontal logo, or favicon. The file replaces any previous override for that kind.",
+                "consumes": [
+                    "multipart/form-data"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "branding"
+                ],
+                "summary": "Upload a branding asset",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Asset kind: logo, logo_horizontal, or favicon",
+                        "name": "kind",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "file",
+                        "description": "Image file (png, jpeg, svg, webp, ico — up to 5MiB)",
+                        "name": "file",
+                        "in": "formData",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/localai.BrandingResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "description": "Remove a custom branding asset; the UI falls back to the bundled LocalAI default.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "branding"
+                ],
+                "summary": "Reset a branding asset to default",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Asset kind: logo, logo_horizontal, or favicon",
+                        "name": "kind",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/localai.BrandingResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/api/instructions": {
             "get": {
                 "description": "Returns a compact list of instruction areas with descriptions and URLs for detailed guides",
@@ -824,7 +919,7 @@ const docTemplate = `{
         },
         "/api/models/vram-estimate": {
             "post": {
-                "description": "Estimates VRAM based on model weight files, context size, and GPU layers",
+                "description": "Estimates VRAM based on model weight files at multiple context sizes",
                 "consumes": [
                     "application/json"
                 ],
@@ -842,7 +937,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/localai.vramEstimateRequest"
+                            "$ref": "#/definitions/modeladmin.VRAMRequest"
                         }
                     }
                 ],
@@ -850,7 +945,7 @@ const docTemplate = `{
                     "200": {
                         "description": "VRAM estimate",
                         "schema": {
-                            "$ref": "#/definitions/localai.vramEstimateResponse"
+                            "$ref": "#/definitions/modeladmin.VRAMResponse"
                         }
                     }
                 }
@@ -902,6 +997,90 @@ const docTemplate = `{
                         "description": "Internal Server Error",
                         "schema": {
                             "$ref": "#/definitions/localai.ModelResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/nodes/{id}/max-replicas-per-model": {
+            "put": {
+                "tags": [
+                    "Nodes"
+                ],
+                "summary": "Update a node's max replicas per model",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Node ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "New value",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/localai.UpdateMaxReplicasPerModelRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "integer"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "value must be \u003e= 1",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "404": {
+                        "description": "node not found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "tags": [
+                    "Nodes"
+                ],
+                "summary": "Reset a node's max replicas per model to the worker default",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Node ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "boolean"
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "node not found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     }
                 }
@@ -975,6 +1154,130 @@ const docTemplate = `{
                         "description": "Traces cleared"
                     }
                 }
+            }
+        },
+        "/audio/transform": {
+            "post": {
+                "description": "Runs an audio-in / audio-out transform conditioned on an optional auxiliary reference signal. Concrete transforms include AEC + noise suppression + dereverberation (LocalVQE), voice conversion (reference = target speaker), and pitch shifting. The backend determines the operation; pass model-specific tuning via repeated ` + "`" + `params[\u003ckey\u003e]=\u003cvalue\u003e` + "`" + ` form fields.",
+                "consumes": [
+                    "multipart/form-data"
+                ],
+                "produces": [
+                    "audio/x-wav"
+                ],
+                "tags": [
+                    "audio"
+                ],
+                "summary": "Transform audio (echo cancellation, noise suppression, voice conversion, etc.)",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "model",
+                        "name": "model",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "file",
+                        "description": "primary input audio file",
+                        "name": "audio",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "file",
+                        "description": "auxiliary reference audio (loopback for AEC, target voice for conversion, etc.)",
+                        "name": "reference",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "wav | mp3 | ogg | flac",
+                        "name": "response_format",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "desired output sample rate",
+                        "name": "sample_rate",
+                        "in": "formData"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "transformed audio file",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "/audio/transformations": {
+            "post": {
+                "description": "Runs an audio-in / audio-out transform conditioned on an optional auxiliary reference signal. Concrete transforms include AEC + noise suppression + dereverberation (LocalVQE), voice conversion (reference = target speaker), and pitch shifting. The backend determines the operation; pass model-specific tuning via repeated ` + "`" + `params[\u003ckey\u003e]=\u003cvalue\u003e` + "`" + ` form fields.",
+                "consumes": [
+                    "multipart/form-data"
+                ],
+                "produces": [
+                    "audio/x-wav"
+                ],
+                "tags": [
+                    "audio"
+                ],
+                "summary": "Transform audio (echo cancellation, noise suppression, voice conversion, etc.)",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "model",
+                        "name": "model",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "file",
+                        "description": "primary input audio file",
+                        "name": "audio",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "file",
+                        "description": "auxiliary reference audio (loopback for AEC, target voice for conversion, etc.)",
+                        "name": "reference",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "wav | mp3 | ogg | flac",
+                        "name": "response_format",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "desired output sample rate",
+                        "name": "sample_rate",
+                        "in": "formData"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "transformed audio file",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "/audio/transformations/stream": {
+            "get": {
+                "description": "Streams binary PCM frames in (interleaved stereo: ch0=audio, ch1=reference) and out (mono). The first message must be a JSON ` + "`" + `session.update` + "`" + ` envelope describing model + sample format + frame size + backend params. Server emits binary PCM on the same cadence.",
+                "tags": [
+                    "audio"
+                ],
+                "summary": "Bidirectional realtime audio transform over WebSocket.",
+                "responses": {}
             }
         },
         "/backend/monitor": {
@@ -1248,6 +1551,35 @@ const docTemplate = `{
                 }
             }
         },
+        "/branding/asset/{kind}": {
+            "get": {
+                "description": "Serves the admin-uploaded logo, horizontal logo, or favicon. 404 when no override is set.",
+                "produces": [
+                    "image/*"
+                ],
+                "tags": [
+                    "branding"
+                ],
+                "summary": "Serve a custom branding asset",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Asset kind: logo, logo_horizontal, or favicon",
+                        "name": "kind",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    },
+                    "404": {
+                        "description": "Not Found"
+                    }
+                }
+            }
+        },
         "/metrics": {
             "get": {
                 "produces": [
@@ -1458,6 +1790,95 @@ const docTemplate = `{
                         "description": "generated audio/wav file",
                         "schema": {
                             "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/audio/diarization": {
+            "post": {
+                "consumes": [
+                    "multipart/form-data"
+                ],
+                "tags": [
+                    "audio"
+                ],
+                "summary": "Identify speakers in audio (who spoke when).",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "model",
+                        "name": "model",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "file",
+                        "description": "audio file",
+                        "name": "file",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "exact speaker count (\u003e0 forces; 0 = auto)",
+                        "name": "num_speakers",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "lower bound when auto-detecting",
+                        "name": "min_speakers",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "upper bound when auto-detecting",
+                        "name": "max_speakers",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "number",
+                        "description": "clustering distance threshold when num_speakers is unknown",
+                        "name": "clustering_threshold",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "number",
+                        "description": "discard segments shorter than this (seconds)",
+                        "name": "min_duration_on",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "number",
+                        "description": "merge gaps shorter than this (seconds)",
+                        "name": "min_duration_off",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "audio language hint (only meaningful for backends that bundle ASR)",
+                        "name": "language",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "include per-segment transcript when the backend supports it",
+                        "name": "include_text",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "json (default), verbose_json, or rttm",
+                        "name": "response_format",
+                        "in": "formData"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/schema.DiarizationResult"
                         }
                     }
                 }
@@ -2657,6 +3078,10 @@ const docTemplate = `{
                 "name": {
                     "type": "string"
                 },
+                "sha256": {
+                    "description": "SHA256 is the expected sha256 of the backend tarball at URI / Mirrors.\nEmpty disables the integrity check; OCI URIs carry their own digest.",
+                    "type": "string"
+                },
                 "size": {
                     "description": "Size is an optional hardcoded model size string (e.g. \"500MB\", \"14.5GB\").\nUsed when the size cannot be estimated automatically.",
                     "type": "string"
@@ -2847,6 +3272,26 @@ const docTemplate = `{
                 }
             }
         },
+        "localai.BrandingResponse": {
+            "type": "object",
+            "properties": {
+                "favicon_url": {
+                    "type": "string"
+                },
+                "instance_name": {
+                    "type": "string"
+                },
+                "instance_tagline": {
+                    "type": "string"
+                },
+                "logo_horizontal_url": {
+                    "type": "string"
+                },
+                "logo_url": {
+                    "type": "string"
+                }
+            }
+        },
         "localai.GalleryBackend": {
             "type": "object",
             "properties": {
@@ -2951,53 +3396,12 @@ const docTemplate = `{
                 }
             }
         },
-        "localai.vramEstimateRequest": {
+        "localai.UpdateMaxReplicasPerModelRequest": {
             "type": "object",
             "properties": {
-                "context_size": {
-                    "description": "context length to estimate for (default 8192)",
+                "value": {
+                    "description": "Value is the new per-model replica cap on this node. Must be \u003e= 1.",
                     "type": "integer"
-                },
-                "gpu_layers": {
-                    "description": "number of layers to offload to GPU (0 = all)",
-                    "type": "integer"
-                },
-                "kv_quant_bits": {
-                    "description": "KV cache quantization bits (0 = fp16)",
-                    "type": "integer"
-                },
-                "model": {
-                    "description": "model name (must be installed)",
-                    "type": "string"
-                }
-            }
-        },
-        "localai.vramEstimateResponse": {
-            "type": "object",
-            "properties": {
-                "context_note": {
-                    "description": "note when context_size was defaulted",
-                    "type": "string"
-                },
-                "model_max_context": {
-                    "description": "model's trained maximum context length",
-                    "type": "integer"
-                },
-                "sizeBytes": {
-                    "description": "total model weight size in bytes",
-                    "type": "integer"
-                },
-                "sizeDisplay": {
-                    "description": "human-readable size (e.g. \"4.2 GB\")",
-                    "type": "string"
-                },
-                "vramBytes": {
-                    "description": "estimated VRAM usage in bytes",
-                    "type": "integer"
-                },
-                "vramDisplay": {
-                    "description": "human-readable VRAM (e.g. \"6.1 GB\")",
-                    "type": "string"
                 }
             }
         },
@@ -3012,6 +3416,49 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "timestamp": {
+                    "type": "string"
+                }
+            }
+        },
+        "modeladmin.VRAMRequest": {
+            "type": "object",
+            "properties": {
+                "context_size": {
+                    "type": "integer"
+                },
+                "gpu_layers": {
+                    "type": "integer"
+                },
+                "kv_quant_bits": {
+                    "type": "integer"
+                },
+                "model": {
+                    "type": "string"
+                }
+            }
+        },
+        "modeladmin.VRAMResponse": {
+            "type": "object",
+            "properties": {
+                "context_length": {
+                    "type": "integer"
+                },
+                "context_note": {
+                    "type": "string"
+                },
+                "model_max_context": {
+                    "type": "integer"
+                },
+                "size_bytes": {
+                    "type": "integer"
+                },
+                "size_display": {
+                    "type": "string"
+                },
+                "vram_bytes": {
+                    "type": "integer"
+                },
+                "vram_display": {
                     "type": "string"
                 }
             }
@@ -3354,6 +3801,75 @@ const docTemplate = `{
                     "items": {
                         "$ref": "#/definitions/schema.Detection"
                     }
+                }
+            }
+        },
+        "schema.DiarizationResult": {
+            "type": "object",
+            "properties": {
+                "duration": {
+                    "type": "number"
+                },
+                "language": {
+                    "type": "string"
+                },
+                "num_speakers": {
+                    "type": "integer"
+                },
+                "segments": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.DiarizationSegment"
+                    }
+                },
+                "speakers": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.DiarizationSpeaker"
+                    }
+                },
+                "task": {
+                    "type": "string"
+                }
+            }
+        },
+        "schema.DiarizationSegment": {
+            "type": "object",
+            "properties": {
+                "end": {
+                    "type": "number"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "label": {
+                    "type": "string"
+                },
+                "speaker": {
+                    "type": "string"
+                },
+                "start": {
+                    "type": "number"
+                },
+                "text": {
+                    "type": "string"
+                }
+            }
+        },
+        "schema.DiarizationSpeaker": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "type": "string"
+                },
+                "label": {
+                    "type": "string"
+                },
+                "segment_count": {
+                    "type": "integer"
+                },
+                "total_speech_duration": {
+                    "type": "number"
                 }
             }
         },
@@ -4831,6 +5347,14 @@ const docTemplate = `{
                 "stream": {
                     "type": "boolean"
                 },
+                "stream_options": {
+                    "description": "StreamOptions opts into OpenAI streaming extensions, e.g. include_usage.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/schema.StreamOptions"
+                        }
+                    ]
+                },
                 "temperature": {
                     "type": "number"
                 },
@@ -4896,7 +5420,12 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "usage": {
-                    "$ref": "#/definitions/schema.OpenAIUsage"
+                    "description": "Usage is intentionally a pointer with omitempty: per the OpenAI\nchat-completion streaming spec, intermediate chunks must not carry\na ` + "`" + `usage` + "`" + ` field. Marshalling a value-typed usage would emit\n` + "`" + `\"usage\":{\"prompt_tokens\":0,...}` + "`" + ` on every chunk and break\nOpenAI-SDK consumers that filter on a truthy ` + "`" + `result.usage` + "`" + `\n(continuedev/continue, Kilo Code, Roo Code, etc.).",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/schema.OpenAIUsage"
+                        }
+                    ]
                 }
             }
         },
@@ -5059,6 +5588,14 @@ const docTemplate = `{
                     "items": {
                         "$ref": "#/definitions/schema.NodeData"
                     }
+                }
+            }
+        },
+        "schema.StreamOptions": {
+            "type": "object",
+            "properties": {
+                "include_usage": {
+                    "type": "boolean"
                 }
             }
         },

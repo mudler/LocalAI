@@ -4,6 +4,7 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"sync"
 	"time"
 
 	"github.com/mudler/LocalAI/core/config"
@@ -280,6 +281,71 @@ var _ = Describe("AgentJobService", func() {
 			retrieved, err := newService.GetJob(jobID)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(retrieved.TaskID).To(Equal(taskID))
+		})
+
+		It("does not surface a partial file when saves and loads race", func() {
+			// Regression for the macOS-only CI flake where a concurrent
+			// LoadJobsFromFile landed between os.WriteFile's open(O_TRUNC)
+			// and write, yielding "unexpected end of JSON input" at offset 0.
+			// Atomic temp+rename in the persister eliminates the window.
+			task := schema.Task{
+				Name:    "Race Task",
+				Model:   "test-model",
+				Prompt:  "Test prompt",
+				Enabled: true,
+			}
+
+			taskID, err := service.CreateTask(task)
+			Expect(err).NotTo(HaveOccurred())
+
+			_, err = service.ExecuteJob(taskID, map[string]string{}, "test", nil)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(service.SaveJobsToFile()).To(Succeed())
+
+			newService := agentpool.NewAgentJobService(
+				appConfig,
+				modelLoader,
+				configLoader,
+				evaluator,
+			)
+
+			var wg sync.WaitGroup
+			deadline := time.Now().Add(500 * time.Millisecond)
+			readerErrs := make(chan error, 1024)
+
+			for range 4 {
+				wg.Add(1)
+				go func() {
+					defer wg.Done()
+					for time.Now().Before(deadline) {
+						_ = service.SaveJobsToFile()
+					}
+				}()
+			}
+
+			for range 4 {
+				wg.Add(1)
+				go func() {
+					defer wg.Done()
+					for time.Now().Before(deadline) {
+						if err := newService.LoadJobsFromFile(); err != nil {
+							readerErrs <- err
+							return
+						}
+					}
+				}()
+			}
+
+			wg.Wait()
+			close(readerErrs)
+
+			var firstErr error
+			for err := range readerErrs {
+				if firstErr == nil {
+					firstErr = err
+				}
+			}
+			Expect(firstErr).NotTo(HaveOccurred(), "concurrent load saw a partial/empty file")
 		})
 	})
 

@@ -1,15 +1,20 @@
 import { useEffect, useRef } from 'react'
+import { useTranslation } from 'react-i18next'
 
 export default function ConfirmDialog({
   open,
-  title = 'Confirm',
+  title,
   message,
-  confirmLabel = 'Confirm',
-  cancelLabel = 'Cancel',
+  confirmLabel,
+  cancelLabel,
   danger = false,
   onConfirm,
   onCancel,
 }) {
+  const { t } = useTranslation('common')
+  const titleText = title ?? t('actions.confirm')
+  const confirmText = confirmLabel ?? t('actions.confirm')
+  const cancelText = cancelLabel ?? t('actions.cancel')
   const dialogRef = useRef(null)
   const confirmRef = useRef(null)
 
@@ -69,19 +74,19 @@ export default function ConfirmDialog({
       >
         <div className="confirm-dialog-header">
           {danger && <i className="fas fa-exclamation-triangle confirm-dialog-danger-icon" />}
-          <span id={titleId} className="confirm-dialog-title">{title}</span>
+          <span id={titleId} className="confirm-dialog-title">{titleText}</span>
         </div>
         {message && <div id={bodyId} className="confirm-dialog-body">{message}</div>}
         <div className="confirm-dialog-actions">
           <button className="btn btn-secondary btn-sm" onClick={onCancel}>
-            {cancelLabel}
+            {cancelText}
           </button>
           <button
             ref={confirmRef}
             className={`btn btn-sm ${danger ? 'btn-danger' : 'btn-primary'}`}
             onClick={onConfirm}
           >
-            {confirmLabel}
+            {confirmText}
           </button>
         </div>
       </div>

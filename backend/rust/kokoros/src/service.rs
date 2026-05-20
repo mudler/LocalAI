@@ -351,6 +351,30 @@ impl Backend for KokorosService {
         Err(Status::unimplemented("Not supported"))
     }
 
+    async fn diarize(
+        &self,
+        _: Request<backend::DiarizeRequest>,
+    ) -> Result<Response<backend::DiarizeResponse>, Status> {
+        Err(Status::unimplemented("Not supported"))
+    }
+
+    async fn audio_transform(
+        &self,
+        _: Request<backend::AudioTransformRequest>,
+    ) -> Result<Response<backend::AudioTransformResult>, Status> {
+        Err(Status::unimplemented("Not supported"))
+    }
+
+    type AudioTransformStreamStream =
+        ReceiverStream<Result<backend::AudioTransformFrameResponse, Status>>;
+
+    async fn audio_transform_stream(
+        &self,
+        _: Request<tonic::Streaming<backend::AudioTransformFrameRequest>>,
+    ) -> Result<Response<Self::AudioTransformStreamStream>, Status> {
+        Err(Status::unimplemented("Not supported"))
+    }
+
     async fn sound_generation(
         &self,
         _: Request<backend::SoundGenerationRequest>,

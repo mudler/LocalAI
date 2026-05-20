@@ -283,7 +283,7 @@ export default function Quantize() {
   const effectiveQuantType = useCustomQuant ? customQuantType : quantType
 
   return (
-    <div className="page quantize-page">
+    <div className="page page--narrow quantize-page">
       <div className="page-header quantize-page__header">
         <div>
           <h1 className="page-title">

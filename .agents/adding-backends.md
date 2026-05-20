@@ -28,13 +28,61 @@ For Rust backends, you'll typically need (see `backend/rust/kokoros/` as a refer
 - `run.sh` - Sets `LD_LIBRARY_PATH`/`SSL_CERT_DIR` and execs the binary via the bundled `lib/ld.so`
 - `sources/<UpstreamProject>/` - Git submodule with the upstream Rust crate
 
-## 2. Add Build Configurations to `.github/workflows/backend.yml`
+## 2. Add Build Configurations to `.github/backend-matrix.yml`
 
-Add build matrix entries for each platform/GPU type you want to support. Look at similar backends for reference — `chatterbox`/`faster-whisper` for Python, `piper`/`silero-vad` for Go, `kokoros` for Rust.
+The build matrix is data-only YAML at `.github/backend-matrix.yml` (not inside `backend.yml` itself). `backend.yml` (master push) and `backend_pr.yml` (PR) load it via `scripts/changed-backends.js`, which also handles per-file path filtering so only touched backends rebuild on PRs and master pushes alike. Add build matrix entries to `.github/backend-matrix.yml` for each platform/GPU type you want to support. Look at similar backends for reference — `chatterbox`/`faster-whisper` for Python, `piper`/`silero-vad` for Go, `kokoros` for Rust.
 
 **Without an entry here no image is ever built or pushed, and the gallery entry in `backend/index.yaml` will point at a tag that does not exist.** The `dockerfile:` field must point at `./backend/Dockerfile.<lang>` matching the language bucket from step 1 (e.g. `Dockerfile.python`, `Dockerfile.golang`, `Dockerfile.rust`). The `tag-suffix` must match the `uri:` in the corresponding `backend/index.yaml` image entry exactly.
 
-If you add a new language bucket, `scripts/changed-backends.js` also needs a branch in `inferBackendPath` so PR change-detection routes file edits correctly.
+**`scripts/changed-backends.js` registration — REQUIRED for any new dockerfile suffix.** This is the single most common omission, because it has no effect on the PR that adds the backend (when no prior path filter could catch it anyway) — it only breaks the *next* PR that touches your backend's directory, which then gets zero CI jobs and looks broken for unrelated reasons. Edit `scripts/changed-backends.js:inferBackendPath` and add a branch BEFORE the more-generic suffixes:
+
+```js
+if (item.dockerfile.endsWith("<your-dockerfile-suffix>")) {
+    return `backend/cpp/<your-backend>/`;   // or backend/python|go|rust/...
+}
+```
+
+The `endsWith()` test is against the matrix entry's `dockerfile:` value (e.g. `./backend/Dockerfile.ds4` → `endsWith("ds4")`). Specificity order matters here just like it does for importers: more-specific suffixes go BEFORE more-generic ones (e.g. `ds4` before `llama-cpp` even though both end with letters, because some upstream might one day call itself `super-ds4-llama-cpp`). Verify locally before pushing:
+
+```bash
+# Confirm your dockerfile suffix is unique enough
+node -e "
+const yaml = require('js-yaml'); const fs = require('fs');
+const m = yaml.load(fs.readFileSync('.github/backend-matrix.yml','utf8'));
+for (const e of m.include.filter(e => e.backend === '<your-backend>')) {
+  console.log(e.dockerfile, '->', e.dockerfile.endsWith('<suffix>'));
+}"
+```
+
+A quick way to find the right insertion point: `grep -n 'item.dockerfile.endsWith' scripts/changed-backends.js`.
+
+**`bump_deps.yaml` registration — REQUIRED for any backend pinning an upstream commit.** If your backend's Makefile has a `*_VERSION?=<sha>` pin to a third-party repo, the daily auto-bump bot at `.github/workflows/bump_deps.yaml` won't notice it unless you register the backend in its matrix. The bot runs `.github/bump_deps.sh` which `grep`s for `^$VAR?=` in the Makefile you list — so the pin MUST live in the Makefile (not in a separate shell script). The bump for ds4 (#9761) had to walk this back because the original landed the pin in `prepare.sh`, which the bot can't see. Pattern (for `antirez/ds4`):
+
+```yaml
+# .github/workflows/bump_deps.yaml
+matrix:
+  include:
+    - repository: "antirez/ds4"
+      variable: "DS4_VERSION"
+      branch: "main"
+      file: "backend/cpp/ds4/Makefile"
+```
+
+And the corresponding Makefile shape (mirror `backend/cpp/llama-cpp/Makefile`):
+
+```makefile
+DS4_VERSION?=ae302c2fa18cc6d9aefc021d0f27ae03c9ad2fc0
+DS4_REPO?=https://github.com/antirez/ds4
+...
+ds4:
+	mkdir -p ds4
+	cd ds4 && git init -q && \
+	git remote add origin $(DS4_REPO) && \
+	git fetch --depth 1 origin $(DS4_VERSION) && \
+	git checkout FETCH_HEAD
+```
+
+If you have a `prepare.sh` doing the clone, delete it — the recipe belongs in the Makefile target so `make purge && make` works as a clean-and-rebuild and so the bump bot finds the pin.
 
 **Placement in file:**
 - CPU builds: Add after other CPU builds (e.g., after `cpu-chatterbox`)
@@ -43,8 +91,16 @@ If you add a new language bucket, `scripts/changed-backends.js` also needs a bra
 
 **Additional build types you may need:**
 - ROCm/HIP: Use `build-type: 'hipblas'` with `base-image: "rocm/dev-ubuntu-24.04:7.2.1"`
-- Intel/SYCL: Use `build-type: 'intel'` or `build-type: 'sycl_f16'`/`sycl_f32` with `base-image: "intel/oneapi-basekit:2025.3.0-0-devel-ubuntu24.04"`
+- Intel/SYCL: Use `build-type: 'intel'` or `build-type: 'sycl_f16'`/`sycl_f32` with `base-image: "intel/oneapi-basekit:2025.3.2-0-devel-ubuntu24.04"`
 - L4T (ARM): Use `build-type: 'l4t'` with `platforms: 'linux/arm64'` and `runs-on: 'ubuntu-24.04-arm'`
+
+**Per-arch native builds (`linux/amd64` + `linux/arm64`):**
+
+Multi-arch backends are NOT a single matrix entry with `platforms: 'linux/amd64,linux/arm64'`. Instead, add **two** entries — one with `platforms: 'linux/amd64'` + `platform-tag: 'amd64'` + `runs-on: 'ubuntu-latest'`, one with `platforms: 'linux/arm64'` + `platform-tag: 'arm64'` + `runs-on: 'ubuntu-24.04-arm'` — both sharing the same `tag-suffix`. The script detects the shared `tag-suffix` and emits a `merge-matrix` entry, so `backend-merge-jobs` (in `backend.yml`/`backend_pr.yml`) automatically assembles the manifest list from per-arch digest artifacts. See `-cpu-faster-whisper` in `.github/backend-matrix.yml` for a reference shape.
+
+**llama-cpp / ik-llama-cpp / turboquant variants only — `builder-base-image`:**
+
+Entries whose `dockerfile` is `./backend/Dockerfile.{llama-cpp,ik-llama-cpp,turboquant}` must also set a `builder-base-image` field pointing at a prebuilt base from `quay.io/go-skynet/ci-cache:base-grpc-*` (CI builds these via `.github/workflows/base-images.yml`). The mapping is by `(build-type, platforms)` — see existing entries for the pattern. CI uses these prebuilt bases to skip the gRPC compile (~25–35 min cold). Local `make backends/<name>` ignores `builder-base-image` and uses the from-source path inside the Dockerfile, so you don't need quay access for local builds.
 
 ## 3. Add Backend Metadata to `backend/index.yaml`
 
@@ -55,6 +111,8 @@ Add a YAML anchor definition in the `## metas` section (around line 2-300). Look
 **Step 3b: Add Image Entries**
 
 Add image entries at the end of the file, following the pattern of similar backends such as `diffusers` or `chatterbox`. Include both `latest` (production) and `master` (development) tags.
+
+**Note on integrity:** OCI backends installed from a gallery whose `verification:` block is set are verified against a keyless-cosign policy before extraction; tarball/HTTP backends use the optional `sha256:` field. New backends do not need any extra YAML — the gallery-level `verification:` block covers every entry. See [.agents/backend-signing.md](backend-signing.md) for the producer-side CI step.
 
 ## 4. Update the Makefile
 
@@ -145,7 +203,7 @@ docker-build-backends: ... docker-build-<backend-name>
 After adding a new backend, verify:
 
 - [ ] Backend directory structure is complete with all necessary files
-- [ ] Build configurations added to `.github/workflows/backend.yml` for all desired platforms
+- [ ] Build configurations added to `.github/backend-matrix.yml` for all desired platforms (per-arch entries with `platform-tag` for multi-arch; `builder-base-image` for llama-cpp / ik-llama-cpp / turboquant)
 - [ ] Meta definition added to `backend/index.yaml` in the `## metas` section
 - [ ] Image entries added to `backend/index.yaml` for all build variants (latest + development)
 - [ ] Tag suffixes match between workflow file and index.yaml

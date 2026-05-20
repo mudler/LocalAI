@@ -1,29 +1,32 @@
 import { test, expect } from '@playwright/test'
 
 test.describe('Manage Page - Backend Logs Link', () => {
-  test('models table shows terminal icon for logs', async ({ page }) => {
+  test('row action menu exposes Backend logs entry with terminal icon', async ({ page }) => {
     await page.goto('/app/manage')
-    // Wait for models to load
     await expect(page.locator('.table')).toBeVisible({ timeout: 10_000 })
 
-    // Check for terminal icon (backend logs link)
-    const terminalIcon = page.locator('a[title="Backend logs"] i.fa-terminal')
-    await expect(terminalIcon.first()).toBeVisible()
+    // Row actions live behind the kebab (ActionMenu) — open the first row's menu.
+    const trigger = page.locator('button.action-menu__trigger').first()
+    await expect(trigger).toBeVisible()
+    await trigger.click()
+
+    const logsItem = page.getByRole('menuitem', { name: 'Backend logs' })
+    await expect(logsItem).toBeVisible()
+    await expect(logsItem.locator('i.fa-terminal')).toBeVisible()
   })
 
-  test('terminal icon links to backend-logs page', async ({ page }) => {
+  test('Backend logs menu item navigates to backend-logs page', async ({ page }) => {
     await page.goto('/app/manage')
     await expect(page.locator('.table')).toBeVisible({ timeout: 10_000 })
 
-    const logsLink = page.locator('a[title="Backend logs"]').first()
-    await expect(logsLink).toBeVisible()
+    const trigger = page.locator('button.action-menu__trigger').first()
+    await expect(trigger).toBeVisible()
+    await trigger.click()
 
-    // Link uses href="#" with onClick for navigation
-    const href = await logsLink.getAttribute('href')
-    expect(href).toBe('#')
+    const logsItem = page.getByRole('menuitem', { name: 'Backend logs' })
+    await expect(logsItem).toBeVisible()
+    await logsItem.click()
 
-    // Click and verify navigation
-    await logsLink.click()
     await expect(page).toHaveURL(/\/app\/backend-logs\//)
   })
 })

@@ -10,8 +10,8 @@ on:
       - '*'
 
 concurrency:
-  group: ci-tests-e2e-backend-${{ github.head_ref || github.ref }}-${{ github.repository }}
-  cancel-in-progress: true
+  group: ci-tests-e2e-backend-${{ github.event.pull_request.number || github.sha }}-${{ github.repository }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   tests-e2e-backend:
@@ -24,6 +24,8 @@ jobs:
         uses: actions/checkout@v6
         with:
           submodules: true
+      - name: Configure apt mirror on runner
+        uses: ./.github/actions/configure-apt-mirror
       - name: Setup Go ${{ matrix.go-version }}
         uses: actions/setup-go@v5
         with:

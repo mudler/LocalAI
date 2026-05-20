@@ -1,13 +1,20 @@
 ARG BASE_IMAGE=ubuntu:24.04
-ARG GRPC_BASE_IMAGE=${BASE_IMAGE}
 ARG INTEL_BASE_IMAGE=${BASE_IMAGE}
 ARG UBUNTU_CODENAME=noble
+# Optional alternate Ubuntu apt mirror(s). Empty = use upstream.
+# See .docker/apt-mirror.sh for accepted values.
+ARG APT_MIRROR=""
+ARG APT_PORTS_MIRROR=""
 
 FROM ${BASE_IMAGE} AS requirements
 
+ARG APT_MIRROR
+ARG APT_PORTS_MIRROR
 ENV DEBIAN_FRONTEND=noninteractive
 
-RUN apt-get update && \
+RUN --mount=type=bind,source=.docker/apt-mirror.sh,target=/usr/local/sbin/apt-mirror \
+    APT_MIRROR="${APT_MIRROR}" APT_PORTS_MIRROR="${APT_PORTS_MIRROR}" sh /usr/local/sbin/apt-mirror && \
+    apt-get update && \
     apt-get install -y --no-install-recommends \
         ca-certificates curl wget espeak-ng libgomp1 \
         ffmpeg libopenblas0 libopenblas-dev libopus0 sox && \
@@ -241,10 +248,14 @@ WORKDIR /build
 # This is a temporary workaround until Intel fixes their repository
 FROM ${INTEL_BASE_IMAGE} AS intel
 ARG UBUNTU_CODENAME=noble
+ARG APT_MIRROR
+ARG APT_PORTS_MIRROR
 RUN wget -qO - https://repositories.intel.com/gpu/intel-graphics.key | \
 gpg --yes --dearmor --output /usr/share/keyrings/intel-graphics.gpg
 RUN echo "deb [arch=amd64 signed-by=/usr/share/keyrings/intel-graphics.gpg] https://repositories.intel.com/gpu/ubuntu ${UBUNTU_CODENAME}/lts/2350 unified" > /etc/apt/sources.list.d/intel-graphics.list
-RUN apt-get update && \
+RUN --mount=type=bind,source=.docker/apt-mirror.sh,target=/usr/local/sbin/apt-mirror \
+    APT_MIRROR="${APT_MIRROR}" APT_PORTS_MIRROR="${APT_PORTS_MIRROR}" sh /usr/local/sbin/apt-mirror && \
+    apt-get update && \
     apt-get install -y --no-install-recommends \
         intel-oneapi-runtime-libs && \
     apt-get clean && \
@@ -294,7 +305,7 @@ EOT
 ###################################
 
 # Build React UI
-FROM node:25-slim AS react-ui-builder
+FROM node:26-slim AS react-ui-builder
 WORKDIR /app
 COPY core/http/react-ui/package*.json ./
 RUN npm install

@@ -61,7 +61,7 @@ func RegisterLocalAIRoutes(router *echo.Echo,
 			appConfig.SystemState,
 			galleryService,
 			app.UpgradeChecker())
-		router.POST("/backends/apply", backendGalleryEndpointService.ApplyBackendEndpoint(), adminMiddleware)
+		router.POST("/backends/apply", backendGalleryEndpointService.ApplyBackendEndpoint(appConfig.SystemState), adminMiddleware)
 		router.POST("/backends/delete/:name", backendGalleryEndpointService.DeleteBackendEndpoint(), adminMiddleware)
 		router.GET("/backends", backendGalleryEndpointService.ListBackendsEndpoint(), adminMiddleware)
 		router.GET("/backends/available", backendGalleryEndpointService.ListAvailableBackendsEndpoint(appConfig.SystemState), adminMiddleware)
@@ -147,6 +147,22 @@ func RegisterLocalAIRoutes(router *echo.Echo,
 		ttsHandler,
 		requestExtractor.BuildFilteredFirstAvailableDefaultModel(config.BuildUsecaseFilterFn(config.FLAG_TTS)),
 		requestExtractor.SetModelAndConfig(func() schema.LocalAIRequest { return new(schema.TTSRequest) }))
+
+	// audio transform (echo cancellation, noise suppression, voice conversion, etc.)
+	audioTransformHandler := localai.AudioTransformEndpoint(cl, ml, appConfig)
+	audioTransformMiddleware := []echo.MiddlewareFunc{
+		middleware.TraceMiddleware(app),
+		requestExtractor.BuildFilteredFirstAvailableDefaultModel(config.BuildUsecaseFilterFn(config.FLAG_AUDIO_TRANSFORM)),
+		requestExtractor.SetModelAndConfig(func() schema.LocalAIRequest { return new(schema.AudioTransformRequest) }),
+	}
+	router.POST("/audio/transformations", audioTransformHandler, audioTransformMiddleware...)
+	router.POST("/audio/transform", audioTransformHandler, audioTransformMiddleware...)
+
+	// audio transform streaming WS (sits before the request-extractor pipeline —
+	// the upgrade is handled by the endpoint itself).
+	router.GET("/audio/transformations/stream",
+		localai.AudioTransformStreamEndpoint(app),
+		middleware.TraceMiddleware(app))
 
 	vadHandler := localai.VADEndpoint(cl, ml, appConfig)
 	router.POST("/vad",
@@ -256,6 +272,7 @@ func RegisterLocalAIRoutes(router *echo.Echo,
 					"completions":      "/v1/completions",
 					"embeddings":       "/v1/embeddings",
 					"transcription":    "/v1/audio/transcriptions",
+					"diarization":      "/v1/audio/diarization",
 					"image_generation": "/v1/images/generations",
 				},
 				"config_management": map[string]string{
@@ -329,11 +346,12 @@ func RegisterLocalAIRoutes(router *echo.Echo,
 
 	router.GET("/api/features", func(c echo.Context) error {
 		return c.JSON(200, map[string]bool{
-			"agents":       appConfig.AgentPool.Enabled,
-			"mcp":          !appConfig.DisableMCP,
-			"fine_tuning":  true,
-			"quantization": true,
-			"distributed":  appConfig.Distributed.Enabled,
+			"agents":            appConfig.AgentPool.Enabled,
+			"mcp":               !appConfig.DisableMCP,
+			"fine_tuning":       true,
+			"quantization":      true,
+			"distributed":       appConfig.Distributed.Enabled,
+			"localai_assistant": !appConfig.DisableLocalAIAssistant && app.LocalAIAssistant() != nil,
 		})
 	})
 

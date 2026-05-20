@@ -1,6 +1,7 @@
 package config
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"regexp"
@@ -85,6 +86,11 @@ type ModelConfig struct {
 	Usage       string `yaml:"usage,omitempty" json:"usage,omitempty"`
 	Disabled    *bool  `yaml:"disabled,omitempty" json:"disabled,omitempty"`
 	Pinned      *bool  `yaml:"pinned,omitempty" json:"pinned,omitempty"`
+
+	// ConcurrencyGroups declares per-node mutual-exclusion groups: the model
+	// cannot be loaded alongside another model that shares any group name.
+	// See docs/content/advanced/vram-management.md for usage.
+	ConcurrencyGroups []string `yaml:"concurrency_groups,omitempty" json:"concurrency_groups,omitempty"`
 
 	Options   []string `yaml:"options,omitempty" json:"options,omitempty"`
 	Overrides []string `yaml:"overrides,omitempty" json:"overrides,omitempty"`
@@ -241,7 +247,13 @@ type LLMConfig struct {
 	DisableLogStatus     bool             `yaml:"disable_log_stats,omitempty" json:"disable_log_stats,omitempty"`           // vLLM
 	DType                string           `yaml:"dtype,omitempty" json:"dtype,omitempty"`                                   // vLLM
 	LimitMMPerPrompt     LimitMMPerPrompt `yaml:"limit_mm_per_prompt,omitempty" json:"limit_mm_per_prompt,omitempty"`       // vLLM
-	MMProj               string           `yaml:"mmproj,omitempty" json:"mmproj,omitempty"`
+	// EngineArgs is a backend-native passthrough applied to the engine constructor
+	// (e.g. vLLM AsyncEngineArgs). Values may be primitives or nested maps; nested
+	// maps materialise into the backend's nested config dataclasses (e.g.
+	// SpeculativeConfig, KVTransferConfig, CompilationConfig). Unknown keys cause
+	// the backend to fail LoadModel with a list of valid names.
+	EngineArgs map[string]any `yaml:"engine_args,omitempty" json:"engine_args,omitempty"`
+	MMProj     string         `yaml:"mmproj,omitempty" json:"mmproj,omitempty"`
 
 	FlashAttention *string `yaml:"flash_attention,omitempty" json:"flash_attention,omitempty"`
 	NoKVOffloading bool    `yaml:"no_kv_offloading,omitempty" json:"no_kv_offloading,omitempty"`
@@ -545,6 +557,15 @@ func (c *ModelConfig) Validate() (bool, error) {
 		}
 	}
 
+	// engine_args crosses the gRPC boundary as a JSON-encoded string. Reject
+	// unmarshalable values here so a config that would silently lose user-set
+	// options at load time is rejected at parse time instead.
+	if len(c.EngineArgs) > 0 {
+		if _, err := json.Marshal(c.EngineArgs); err != nil {
+			return false, fmt.Errorf("engine_args is not JSON-serialisable: %w", err)
+		}
+	}
+
 	return true, nil
 }
 
@@ -571,6 +592,28 @@ func (c *ModelConfig) IsPinned() bool {
 	return c.Pinned != nil && *c.Pinned
 }
 
+// GetConcurrencyGroups returns the model's concurrency groups, normalized:
+// trimmed of whitespace, empty entries dropped, deduped. Returns nil when no
+// effective groups remain. The result is a fresh slice; the caller may
+// mutate it without affecting the config.
+func (c *ModelConfig) GetConcurrencyGroups() []string {
+	if len(c.ConcurrencyGroups) == 0 {
+		return nil
+	}
+	out := make([]string, 0, len(c.ConcurrencyGroups))
+	for _, g := range c.ConcurrencyGroups {
+		g = strings.TrimSpace(g)
+		if g == "" || slices.Contains(out, g) {
+			continue
+		}
+		out = append(out, g)
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	return out
+}
+
 type ModelConfigUsecase int
 
 const (
@@ -587,13 +630,45 @@ const (
 	FLAG_TOKENIZE         ModelConfigUsecase = 0b001000000000
 	FLAG_VAD              ModelConfigUsecase = 0b010000000000
 	FLAG_VIDEO            ModelConfigUsecase = 0b100000000000
-	FLAG_DETECTION        ModelConfigUsecase = 0b1000000000000
-	FLAG_FACE_RECOGNITION    ModelConfigUsecase = 0b10000000000000
-	FLAG_SPEAKER_RECOGNITION ModelConfigUsecase = 0b100000000000000
+	FLAG_DETECTION           ModelConfigUsecase = 0b1000000000000
+	FLAG_VISION              ModelConfigUsecase = 0b10000000000000
+	FLAG_FACE_RECOGNITION    ModelConfigUsecase = 0b100000000000000
+	FLAG_SPEAKER_RECOGNITION ModelConfigUsecase = 0b1000000000000000
+	FLAG_AUDIO_TRANSFORM     ModelConfigUsecase = 0b10000000000000000
+	FLAG_DIARIZATION         ModelConfigUsecase = 0b100000000000000000
+	FLAG_REALTIME_AUDIO      ModelConfigUsecase = 0b1000000000000000000
 
 	// Common Subsets
 	FLAG_LLM ModelConfigUsecase = FLAG_CHAT | FLAG_COMPLETION | FLAG_EDIT
 )
+
+// ModalityGroups defines groups of usecases that belong to the same modality.
+// Flags within the same group are NOT orthogonal (e.g., chat and completion are
+// both text/language). A model is multimodal when its usecases span 2+ groups.
+var ModalityGroups = []ModelConfigUsecase{
+	FLAG_CHAT | FLAG_COMPLETION | FLAG_EDIT,    // text/language
+	FLAG_VISION | FLAG_DETECTION,               // visual understanding
+	FLAG_TRANSCRIPT | FLAG_REALTIME_AUDIO,      // speech input — realtime_audio is any-to-any, so it counts here too
+	FLAG_TTS | FLAG_SOUND_GENERATION | FLAG_REALTIME_AUDIO, // audio output — and here, so a lone realtime_audio flag still reads as multimodal
+	FLAG_AUDIO_TRANSFORM,                       // audio in/out transforms
+	FLAG_IMAGE | FLAG_VIDEO,                    // visual generation
+}
+
+// IsMultimodal returns true if the given usecases span two or more orthogonal
+// modality groups. For example chat+vision is multimodal, but chat+completion
+// is not (both belong to the text/language group).
+func IsMultimodal(usecases ModelConfigUsecase) bool {
+	groupCount := 0
+	for _, group := range ModalityGroups {
+		if usecases&group != 0 {
+			groupCount++
+			if groupCount >= 2 {
+				return true
+			}
+		}
+	}
+	return false
+}
 
 func GetAllModelConfigUsecases() map[string]ModelConfigUsecase {
 	return map[string]ModelConfigUsecase{
@@ -612,9 +687,13 @@ func GetAllModelConfigUsecases() map[string]ModelConfigUsecase {
 		"FLAG_VAD":              FLAG_VAD,
 		"FLAG_LLM":              FLAG_LLM,
 		"FLAG_VIDEO":            FLAG_VIDEO,
-		"FLAG_DETECTION":        FLAG_DETECTION,
+		"FLAG_DETECTION":           FLAG_DETECTION,
+		"FLAG_VISION":              FLAG_VISION,
 		"FLAG_FACE_RECOGNITION":    FLAG_FACE_RECOGNITION,
 		"FLAG_SPEAKER_RECOGNITION": FLAG_SPEAKER_RECOGNITION,
+		"FLAG_AUDIO_TRANSFORM":     FLAG_AUDIO_TRANSFORM,
+		"FLAG_DIARIZATION":         FLAG_DIARIZATION,
+		"FLAG_REALTIME_AUDIO":      FLAG_REALTIME_AUDIO,
 	}
 }
 
@@ -752,6 +831,13 @@ func (c *ModelConfig) GuessUsecases(u ModelConfigUsecase) bool {
 		}
 	}
 
+	if (u & FLAG_AUDIO_TRANSFORM) == FLAG_AUDIO_TRANSFORM {
+		audioTransformBackends := []string{"localvqe"}
+		if !slices.Contains(audioTransformBackends, c.Backend) {
+			return false
+		}
+	}
+
 	if (u & FLAG_SOUND_GENERATION) == FLAG_SOUND_GENERATION {
 		soundGenBackends := []string{"transformers-musicgen", "ace-step", "acestep-cpp", "mock-backend"}
 		if !slices.Contains(soundGenBackends, c.Backend) {
@@ -768,6 +854,26 @@ func (c *ModelConfig) GuessUsecases(u ModelConfigUsecase) bool {
 
 	if (u & FLAG_VAD) == FLAG_VAD {
 		if c.Backend != "silero-vad" && c.Backend != "sherpa-onnx" && !(c.Backend == "whisper" && slices.Contains(c.Options, "vad_only")) {
+			return false
+		}
+	}
+
+	if (u & FLAG_DIARIZATION) == FLAG_DIARIZATION {
+		// vibevoice-cpp emits speaker-labelled segments natively from its
+		// ASR pass; sherpa-onnx pipes pyannote segmentation + speaker
+		// embeddings + clustering. Both surface as a Diarize gRPC.
+		diarizationBackends := []string{"vibevoice-cpp", "sherpa-onnx"}
+		if !slices.Contains(diarizationBackends, c.Backend) {
+			return false
+		}
+	}
+
+	if (u & FLAG_REALTIME_AUDIO) == FLAG_REALTIME_AUDIO {
+		// Backends that own a single any-to-any loop and implement
+		// AudioToAudioStream — listed here so models without an explicit
+		// known_usecases still surface on the Talk page.
+		realtimeAudioBackends := []string{"liquid-audio"}
+		if !slices.Contains(realtimeAudioBackends, c.Backend) {
 			return false
 		}
 	}

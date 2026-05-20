@@ -180,6 +180,54 @@ var _ = Describe("Node HTTP handlers", func() {
 			Expect(json.Unmarshal(rec.Body.Bytes(), &resp)).To(Succeed())
 			Expect(resp["status"]).To(Equal(nodes.StatusPending))
 		})
+
+		// Regression: a worker re-register used to wipe every UI-added label
+		// because the endpoint called SetNodeLabels (replace-all) with only
+		// what the worker sent. Operators reported "labels assigned to node
+		// do not persist" — the labels survived until the next worker
+		// restart, then disappeared.
+		It("preserves UI-added labels across worker re-register", func() {
+			ctx := context.Background()
+			e := echo.New()
+
+			// 1. Worker first-registers with one label.
+			body1 := `{"name":"worker-merge","address":"10.0.0.50:50051","labels":{"tier":"a","gpu":"a100"}}`
+			req1 := httptest.NewRequest(http.MethodPost, "/", strings.NewReader(body1))
+			req1.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+			rec1 := httptest.NewRecorder()
+			handler := RegisterNodeEndpoint(registry, "", true, nil, "")
+			Expect(handler(e.NewContext(req1, rec1))).To(Succeed())
+			Expect(rec1.Code).To(Equal(http.StatusCreated))
+
+			node, err := registry.GetByName(ctx, "worker-merge")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(node).ToNot(BeNil())
+
+			// 2. Operator adds a label via the UI.
+			Expect(registry.SetNodeLabel(ctx, node.ID, "owner", "ettore")).To(Succeed())
+
+			// 3. Worker restarts and re-registers, sending its own labels
+			//    (different from the UI-added one).
+			body2 := `{"name":"worker-merge","address":"10.0.0.50:50051","labels":{"tier":"b","gpu":"a100"}}`
+			req2 := httptest.NewRequest(http.MethodPost, "/", strings.NewReader(body2))
+			req2.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+			rec2 := httptest.NewRecorder()
+			Expect(handler(e.NewContext(req2, rec2))).To(Succeed())
+			Expect(rec2.Code).To(Equal(http.StatusCreated))
+
+			// 4. Assert the UI-added label survived AND the worker labels updated.
+			labels, err := registry.GetNodeLabels(ctx, node.ID)
+			Expect(err).ToNot(HaveOccurred())
+			byKey := map[string]string{}
+			for _, l := range labels {
+				byKey[l.Key] = l.Value
+			}
+			Expect(byKey).To(HaveKeyWithValue("owner", "ettore"),
+				"UI-added label must survive a worker re-register")
+			Expect(byKey).To(HaveKeyWithValue("tier", "b"),
+				"worker label updates must apply on re-register")
+			Expect(byKey).To(HaveKeyWithValue("gpu", "a100"))
+		})
 	})
 
 	Describe("ListNodesEndpoint", func() {

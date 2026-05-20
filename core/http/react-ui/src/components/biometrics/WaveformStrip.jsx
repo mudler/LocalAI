@@ -1,53 +1,14 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef } from 'react'
+import useAudioPeaks from '../../hooks/useAudioPeaks'
 
-// WaveformStrip — decode an audio source (data URL or blob URL) via AudioContext,
-// render a mono waveform, and overlay colored segment regions.
+// WaveformStrip — display-only waveform with optional colored segment
+// overlays. For a player with click-to-seek + audio controls, use
+// `components/audio/WaveformPlayer` instead. Both share the
+// `useAudioPeaks` hook for peak extraction.
 // segments: [{ start: seconds, end: seconds, label?, tone? }]
 export default function WaveformStrip({ src, segments = [], height = 120 }) {
   const canvasRef = useRef(null)
-  const [duration, setDuration] = useState(0)
-  const [peaks, setPeaks] = useState(null)
-  const [err, setErr] = useState(null)
-
-  useEffect(() => {
-    setPeaks(null)
-    setDuration(0)
-    setErr(null)
-    if (!src) return
-    let cancelled = false
-
-    async function decode() {
-      try {
-        const response = await fetch(src)
-        const buf = await response.arrayBuffer()
-        const Ctx = window.AudioContext || window.webkitAudioContext
-        const ctx = new Ctx()
-        const audioBuf = await ctx.decodeAudioData(buf.slice(0))
-        if (cancelled) { ctx.close(); return }
-        const data = audioBuf.getChannelData(0)
-        const BUCKETS = 480
-        const step = Math.max(1, Math.floor(data.length / BUCKETS))
-        const result = new Float32Array(BUCKETS)
-        for (let i = 0; i < BUCKETS; i++) {
-          let peak = 0
-          const start = i * step
-          const end = Math.min(start + step, data.length)
-          for (let j = start; j < end; j++) {
-            const v = Math.abs(data[j])
-            if (v > peak) peak = v
-          }
-          result[i] = peak
-        }
-        setPeaks(result)
-        setDuration(audioBuf.duration)
-        ctx.close()
-      } catch (e) {
-        if (!cancelled) setErr(e?.message || 'Could not decode audio')
-      }
-    }
-    decode()
-    return () => { cancelled = true }
-  }, [src])
+  const { peaks, duration, error } = useAudioPeaks(src)
 
   useEffect(() => {
     if (!canvasRef.current || !peaks) return
@@ -61,7 +22,6 @@ export default function WaveformStrip({ src, segments = [], height = 120 }) {
     ctx.scale(dpr, dpr)
     ctx.clearRect(0, 0, cssW, cssH)
 
-    // Waveform
     const accent = getComputedStyle(canvas).getPropertyValue('--biometrics-wave').trim() || '#e8a87c'
     ctx.fillStyle = accent
     const mid = cssH / 2
@@ -72,7 +32,7 @@ export default function WaveformStrip({ src, segments = [], height = 120 }) {
     }
   }, [peaks, height])
 
-  if (err) return <div className="biometrics-waveform biometrics-waveform--error">{err}</div>
+  if (error) return <div className="biometrics-waveform biometrics-waveform--error">{error}</div>
   if (!src) return null
 
   return (

@@ -111,7 +111,7 @@ libgosam3-fallback.so: sources/sam3.cpp
 	SO_TARGET=libgosam3-fallback.so CMAKE_ARGS="$(CMAKE_ARGS) -DGGML_AVX=off -DGGML_AVX2=off -DGGML_AVX512=off -DGGML_FMA=off -DGGML_F16C=off -DGGML_BMI2=off" $(MAKE) libgosam3-custom
 	rm -rfv build*
 
-libgosam3-custom: CMakeLists.txt gosam3.cpp gosam3.h
+libgosam3-custom: CMakeLists.txt cpp/gosam3.cpp cpp/gosam3.h
 	mkdir -p build-$(SO_TARGET) && \
 	cd build-$(SO_TARGET) && \
 	cmake .. $(CMAKE_ARGS) && \

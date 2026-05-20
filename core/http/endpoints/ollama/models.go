@@ -32,13 +32,15 @@ func ListModelsEndpoint(bcl *config.ModelConfigLoader, ml *model.ModelLoader) ec
 
 			digest := fmt.Sprintf("sha256:%x", sha256.Sum256([]byte(name)))
 
+			details, caps := modelMetaFromConfig(bcl, name)
 			entry := schema.OllamaModelEntry{
-				Name:       ollamaName,
-				Model:      ollamaName,
-				ModifiedAt: time.Now().UTC(),
-				Size:       0,
-				Digest:     digest,
-				Details:    modelDetailsFromConfig(bcl, name),
+				Name:         ollamaName,
+				Model:        ollamaName,
+				ModifiedAt:   time.Now().UTC(),
+				Size:         0,
+				Digest:       digest,
+				Details:      details,
+				Capabilities: caps,
 			}
 			models = append(models, entry)
 		}
@@ -72,10 +74,12 @@ func ShowModelEndpoint(bcl *config.ModelConfigLoader) echo.HandlerFunc {
 		}
 
 		resp := schema.OllamaShowResponse{
-			Modelfile:  fmt.Sprintf("FROM %s", cfg.Model),
-			Parameters: "",
-			Template:   cfg.TemplateConfig.Chat,
-			Details:    modelDetailsFromModelConfig(&cfg),
+			Modelfile:    fmt.Sprintf("FROM %s", cfg.Model),
+			Parameters:   "",
+			Template:     cfg.TemplateConfig.Chat,
+			Details:      modelDetailsFromModelConfig(&cfg),
+			ModelInfo:    modelInfoFromModelConfig(&cfg),
+			Capabilities: modelCapabilities(&cfg),
 		}
 
 		return c.JSON(200, resp)
@@ -95,14 +99,16 @@ func ListRunningEndpoint(bcl *config.ModelConfigLoader, ml *model.ModelLoader) e
 				ollamaName += ":latest"
 			}
 
+			details, caps := modelMetaFromConfig(bcl, name)
 			entry := schema.OllamaPsEntry{
-				Name:      ollamaName,
-				Model:     ollamaName,
-				Size:      0,
-				Digest:    fmt.Sprintf("sha256:%x", sha256.Sum256([]byte(name))),
-				Details:   modelDetailsFromConfig(bcl, name),
-				ExpiresAt: time.Now().Add(24 * time.Hour).UTC(),
-				SizeVRAM:  0,
+				Name:         ollamaName,
+				Model:        ollamaName,
+				Size:         0,
+				Digest:       fmt.Sprintf("sha256:%x", sha256.Sum256([]byte(name))),
+				Details:      details,
+				ExpiresAt:    time.Now().Add(24 * time.Hour).UTC(),
+				SizeVRAM:     0,
+				Capabilities: caps,
 			}
 			models = append(models, entry)
 		}
@@ -125,18 +131,46 @@ func HeartbeatEndpoint() echo.HandlerFunc {
 	}
 }
 
-func modelDetailsFromConfig(bcl *config.ModelConfigLoader, name string) schema.OllamaModelDetails {
+// modelMetaFromConfig fetches the ModelConfig for `name` and derives both the
+// Ollama details block and capability list. Returns zero values when the model
+// is not configured.
+func modelMetaFromConfig(bcl *config.ModelConfigLoader, name string) (schema.OllamaModelDetails, []string) {
 	configName := strings.Split(name, ":")[0]
 	cfg, exists := bcl.GetModelConfig(configName)
 	if !exists {
-		return schema.OllamaModelDetails{}
+		return schema.OllamaModelDetails{}, nil
 	}
-	return modelDetailsFromModelConfig(&cfg)
+	return modelDetailsFromModelConfig(&cfg), modelCapabilities(&cfg)
 }
 
 func modelDetailsFromModelConfig(cfg *config.ModelConfig) schema.OllamaModelDetails {
-	return schema.OllamaModelDetails{
-		Format: "gguf",
-		Family: cfg.Backend,
+	family := cfg.Backend
+	details := schema.OllamaModelDetails{
+		Format:            "gguf",
+		Family:            family,
+		ParameterSize:     extractParameterSize(cfg.Model),
+		QuantizationLevel: extractQuantizationLevel(cfg.Model),
 	}
+	if family != "" {
+		details.Families = []string{family}
+	}
+	return details
+}
+
+// modelInfoFromModelConfig returns a small map of model_info entries derived
+// from the LocalAI ModelConfig. Ollama clients use this map for architecture
+// and context-length information; we expose what we can without loading the
+// model.
+func modelInfoFromModelConfig(cfg *config.ModelConfig) map[string]any {
+	info := map[string]any{}
+	if cfg.Backend != "" {
+		info["general.architecture"] = cfg.Backend
+	}
+	if cfg.ContextSize != nil && *cfg.ContextSize > 0 {
+		info["general.context_length"] = *cfg.ContextSize
+	}
+	if len(info) == 0 {
+		return nil
+	}
+	return info
 }

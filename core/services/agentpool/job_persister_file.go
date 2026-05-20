@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"path/filepath"
 	"sync"
 	"time"
 
@@ -38,6 +39,14 @@ func (p *fileJobPersister) SaveJob(_ string, _ schema.Job) error {
 }
 
 func (p *fileJobPersister) DeleteJob(_ string) error {
+	return p.saveJobsToFile()
+}
+
+func (p *fileJobPersister) FlushTasks() error {
+	return p.saveTasksToFile()
+}
+
+func (p *fileJobPersister) FlushJobs() error {
 	return p.saveJobsToFile()
 }
 
@@ -127,7 +136,7 @@ func (p *fileJobPersister) saveTasksToFile() error {
 		return fmt.Errorf("failed to marshal tasks: %w", err)
 	}
 
-	return os.WriteFile(p.tasksFile, data, 0600)
+	return writeFileAtomic(p.tasksFile, data, 0600)
 }
 
 // saveJobsToFile serializes the entire jobs map to the JSON file.
@@ -149,5 +158,45 @@ func (p *fileJobPersister) saveJobsToFile() error {
 		return fmt.Errorf("failed to marshal jobs: %w", err)
 	}
 
-	return os.WriteFile(p.jobsFile, data, 0600)
+	return writeFileAtomic(p.jobsFile, data, 0600)
+}
+
+// writeFileAtomic writes data to path via a same-directory temp file + rename.
+// os.WriteFile opens with O_TRUNC, so a concurrent reader can land between the
+// truncate and the write and see an empty file ("unexpected end of JSON input").
+// rename(2) is atomic on POSIX, so readers see either the prior contents or the
+// new contents and never a zero-byte window.
+func writeFileAtomic(path string, data []byte, perm os.FileMode) error {
+	dir := filepath.Dir(path)
+	tmp, err := os.CreateTemp(dir, filepath.Base(path)+".tmp-*")
+	if err != nil {
+		return fmt.Errorf("failed to create temp file: %w", err)
+	}
+	tmpPath := tmp.Name()
+	removeTmp := func() { _ = os.Remove(tmpPath) }
+
+	if _, err := tmp.Write(data); err != nil {
+		_ = tmp.Close()
+		removeTmp()
+		return fmt.Errorf("failed to write temp file: %w", err)
+	}
+	if err := tmp.Chmod(perm); err != nil {
+		_ = tmp.Close()
+		removeTmp()
+		return fmt.Errorf("failed to chmod temp file: %w", err)
+	}
+	if err := tmp.Sync(); err != nil {
+		_ = tmp.Close()
+		removeTmp()
+		return fmt.Errorf("failed to sync temp file: %w", err)
+	}
+	if err := tmp.Close(); err != nil {
+		removeTmp()
+		return fmt.Errorf("failed to close temp file: %w", err)
+	}
+	if err := os.Rename(tmpPath, path); err != nil {
+		removeTmp()
+		return fmt.Errorf("failed to rename temp file: %w", err)
+	}
+	return nil
 }

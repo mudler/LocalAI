@@ -3,6 +3,7 @@ package base
 // This is a wrapper to satisfy the GRPC service interface
 // It is meant to be used by the main executable that is the server for the specific backend type (falcon, gpt3, etc)
 import (
+	"context"
 	"fmt"
 	"os"
 
@@ -57,11 +58,11 @@ func (llm *Base) GenerateVideo(*pb.GenerateVideoRequest) error {
 	return fmt.Errorf("unimplemented")
 }
 
-func (llm *Base) AudioTranscription(*pb.TranscriptRequest) (pb.TranscriptResult, error) {
+func (llm *Base) AudioTranscription(context.Context, *pb.TranscriptRequest) (pb.TranscriptResult, error) {
 	return pb.TranscriptResult{}, fmt.Errorf("unimplemented")
 }
 
-func (llm *Base) AudioTranscriptionStream(*pb.TranscriptRequest, chan *pb.TranscriptStreamResponse) error {
+func (llm *Base) AudioTranscriptionStream(context.Context, *pb.TranscriptRequest, chan *pb.TranscriptStreamResponse) error {
 	return fmt.Errorf("unimplemented")
 }
 
@@ -99,6 +100,10 @@ func (llm *Base) VoiceAnalyze(*pb.VoiceAnalyzeRequest) (pb.VoiceAnalyzeResponse,
 
 func (llm *Base) VoiceEmbed(*pb.VoiceEmbedRequest) (pb.VoiceEmbedResponse, error) {
 	return pb.VoiceEmbedResponse{}, fmt.Errorf("unimplemented")
+}
+
+func (llm *Base) Diarize(*pb.DiarizeRequest) (pb.DiarizeResponse, error) {
+	return pb.DiarizeResponse{}, fmt.Errorf("unimplemented")
 }
 
 func (llm *Base) TokenizeString(opts *pb.PredictOptions) (pb.TokenizationResponse, error) {
@@ -142,6 +147,20 @@ func (llm *Base) AudioEncode(*pb.AudioEncodeRequest) (*pb.AudioEncodeResult, err
 
 func (llm *Base) AudioDecode(*pb.AudioDecodeRequest) (*pb.AudioDecodeResult, error) {
 	return nil, fmt.Errorf("unimplemented")
+}
+
+func (llm *Base) AudioTransform(*pb.AudioTransformRequest) (*pb.AudioTransformResult, error) {
+	return nil, fmt.Errorf("unimplemented")
+}
+
+func (llm *Base) AudioTransformStream(in <-chan *pb.AudioTransformFrameRequest, out chan<- *pb.AudioTransformFrameResponse) error {
+	close(out)
+	return fmt.Errorf("unimplemented")
+}
+
+func (llm *Base) AudioToAudioStream(in <-chan *pb.AudioToAudioRequest, out chan<- *pb.AudioToAudioResponse) error {
+	close(out)
+	return fmt.Errorf("unimplemented")
 }
 
 func (llm *Base) StartFineTune(*pb.FineTuneRequest) (*pb.FineTuneJobResult, error) {

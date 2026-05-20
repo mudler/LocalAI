@@ -35,7 +35,7 @@ func FaceAnalyzeEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, ap
 		}
 
 		xlog.Debug("FaceAnalyze", "model", cfg.Name, "backend", cfg.Backend, "actions", input.Actions)
-		res, err := backend.FaceAnalyze(img, input.Actions, input.AntiSpoofing, ml, appConfig, *cfg)
+		res, err := backend.FaceAnalyze(c.Request().Context(), img, input.Actions, input.AntiSpoofing, ml, appConfig, *cfg)
 		if err != nil {
 			return mapBackendError(err)
 		}

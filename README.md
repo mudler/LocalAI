@@ -38,7 +38,7 @@
 - **Built-in AI agents** — autonomous agents with tool use, RAG, MCP, and skills
 - **Privacy-first** — your data never leaves your infrastructure
 
-Created and maintained by [Ettore Di Giacinto](https://github.com/mudler).
+Created by [Ettore Di Giacinto](https://github.com/mudler) and maintained by the [LocalAI team](#team).
 
 > [:book: Documentation](https://localai.io/) | [:speech_balloon: Discord](https://discord.gg/uJAeKSAGDy) | [💻 Quickstart](https://localai.io/basics/getting_started/) | [🖼️ Models](https://models.localai.io/) | [❓FAQ](https://localai.io/faq/)
 
@@ -201,13 +201,14 @@ See the full [Backend & Model Compatibility Table](https://localai.io/model-comp
 - [Media & blog posts](https://localai.io/basics/news/#media-blogs-social)
 - [Examples](https://github.com/mudler/LocalAI-examples)
 
-## Autonomous Development Team
+## Team
 
-LocalAI is helped being maintained by a team of autonomous AI agents led by an AI Scrum Master.
+LocalAI is maintained by a small team of humans, together with the wider community of contributors.
 
-- **Live Reports**: [reports.localai.io](http://reports.localai.io)
-- **Project Board**: [Agent task tracking](https://github.com/users/mudler/projects/6)
-- **Blog Post**: [Learn about the experiment](https://mudler.pm/posts/2026/02/28/a-call-to-open-source-maintainers-stop-babysitting-ai-how-i-built-a-100-local-autonomous-dev-team-to-maintain-localai-and-why-you-should-too/)
+- **[Ettore Di Giacinto](https://github.com/mudler)** — original author and project lead
+- **[Richard Palethorpe](https://github.com/richiejp)** — maintainer
+
+A huge thank you to everyone who contributes code, reviews PRs, files issues, and helps users in [Discord](https://discord.gg/uJAeKSAGDy) — LocalAI is a community-driven project and wouldn't exist without you. See the full [contributors list](https://github.com/mudler/LocalAI/graphs/contributors).
 
 ## Citation
 
@@ -250,7 +251,7 @@ A special thanks to individual sponsors, a full list is on [GitHub](https://gith
 
 ## License
 
-LocalAI is a community-driven project created by [Ettore Di Giacinto](https://github.com/mudler/).
+LocalAI is a community-driven project created by [Ettore Di Giacinto](https://github.com/mudler/) and maintained by the [LocalAI team](#team).
 
 MIT - Author Ettore Di Giacinto <mudler@localai.io>
 

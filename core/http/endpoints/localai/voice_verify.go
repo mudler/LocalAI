@@ -42,7 +42,7 @@ func VoiceVerifyEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, ap
 		defer cleanup2()
 
 		xlog.Debug("VoiceVerify", "model", cfg.Name, "backend", cfg.Backend)
-		res, err := backend.VoiceVerify(audio1, audio2, input.Threshold, input.AntiSpoofing, ml, appConfig, *cfg)
+		res, err := backend.VoiceVerify(c.Request().Context(), audio1, audio2, input.Threshold, input.AntiSpoofing, ml, appConfig, *cfg)
 		if err != nil {
 			return mapBackendError(err)
 		}

@@ -23,6 +23,8 @@ import (
 // backends that should appear in the import form dropdown.
 var knownPrefOnlyBackends = []schema.KnownBackend{
 	// Text LLM
+	// ds4: antirez/ds4 - single-model DeepSeek V4 Flash engine; auto-detected via DS4Importer
+	{Name: "ds4", Modality: "text", AutoDetect: false, Description: "antirez/ds4 DeepSeek V4 Flash engine (auto-detected; pref-only fallback)"},
 	{Name: "sglang", Modality: "text", AutoDetect: false, Description: "SGLang runtime (preference-only)"},
 	{Name: "tinygrad", Modality: "text", AutoDetect: false, Description: "tinygrad runtime (preference-only)"},
 	{Name: "trl", Modality: "text", AutoDetect: false, Description: "Transformers Reinforcement Learning (preference-only)"},
@@ -36,6 +38,8 @@ var knownPrefOnlyBackends = []schema.KnownBackend{
 	{Name: "faster-qwen3-tts", Modality: "tts", AutoDetect: false, Description: "Faster Qwen3 TTS (preference-only)"},
 	// Detection
 	{Name: "sam3-cpp", Modality: "detection", AutoDetect: false, Description: "SAM3 C++ object detection (preference-only)"},
+	// Audio transform (audio-in / audio-out, optional reference signal)
+	{Name: "localvqe", Modality: "audio-transform", AutoDetect: false, Description: "LocalVQE C++ joint AEC + noise suppression + dereverberation (preference-only)"},
 }
 
 // UpgradeInfoProvider is an interface for querying cached backend upgrade information.
@@ -98,12 +102,24 @@ func (mgs *BackendEndpointService) GetAllStatusEndpoint() echo.HandlerFunc {
 // @Param request body GalleryBackend true "query params"
 // @Success 200 {object} schema.BackendResponse "Response"
 // @Router /backends/apply [post]
-func (mgs *BackendEndpointService) ApplyBackendEndpoint() echo.HandlerFunc {
+func (mgs *BackendEndpointService) ApplyBackendEndpoint(systemState *system.SystemState) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		input := new(GalleryBackend)
 		// Get input data from the request body
 		if err := c.Bind(input); err != nil {
 			return err
+		}
+
+		// In distributed mode, refuse to fan out a hardware-specific build to
+		// every node — a CPU build landing on a GPU cluster is almost always
+		// wrong, and the silent footgun is exactly what this guard exists for.
+		// Auto-resolving (meta) backends are fine because each node picks its
+		// own variant. Tooling can recover by hitting
+		// POST /api/nodes/{id}/backends/install per target node.
+		if mgs.backendApplier.BackendManager().IsDistributed() && input.ID != "" {
+			if guard := concreteFanOutGuard(c, mgs.galleries, systemState, input.ID); guard != nil {
+				return guard
+			}
 		}
 
 		uuid, err := uuid.NewUUID()
@@ -118,6 +134,66 @@ func (mgs *BackendEndpointService) ApplyBackendEndpoint() echo.HandlerFunc {
 
 		return c.JSON(200, schema.BackendResponse{ID: uuid.String(), StatusURL: fmt.Sprintf("%sbackends/jobs/%s", middleware.BaseURL(c), uuid.String())})
 	}
+}
+
+// concreteFanOutGuard returns a 409 response if the requested backend is a
+// hardware-specific build (not auto-resolving / meta) and we are in
+// distributed mode. It looks up the backend in the configured galleries; if
+// the lookup itself fails (gallery unreachable, name not found), the guard
+// stays out of the way and lets the install enqueue normally — a missing
+// name will surface from the worker as a clearer error than the guard could
+// produce here. The response body deliberately speaks human, with `code` and
+// `meta_alternative` as the programmatic contract for tooling.
+func concreteFanOutGuard(c echo.Context, galleries []config.Gallery, systemState *system.SystemState, backendID string) error {
+	// Use the unfiltered listing because in distributed mode the frontend's
+	// hardware is irrelevant — the install targets workers, not us — and the
+	// filtered list would hide variants that don't match the frontend host
+	// (e.g. a CUDA build on a CPU-only frontend), preventing the guard from
+	// firing for exactly the cases it's meant to protect against.
+	available, err := gallery.AvailableBackendsUnfiltered(galleries, systemState)
+	if err != nil {
+		return nil
+	}
+	requested := available.FindByName(backendID)
+	if requested == nil || requested.IsMeta() {
+		return nil
+	}
+
+	// Try to find an auto-resolving (meta) backend that has this concrete
+	// variant in its CapabilitiesMap, so we can suggest it as a one-shot
+	// alternative. Optional — empty string is fine if no parent exists.
+	metaAlternative := ""
+	for _, b := range available {
+		if !b.IsMeta() {
+			continue
+		}
+		for _, concrete := range b.CapabilitiesMap {
+			if concrete == backendID {
+				metaAlternative = b.Name
+				break
+			}
+		}
+		if metaAlternative != "" {
+			break
+		}
+	}
+
+	msg := fmt.Sprintf(
+		"Backend %q is a hardware-specific build and won't run correctly on every node in this cluster. In distributed mode, install it on specific nodes:\n\n  POST /api/nodes/{node_id}/backends/install\n  {\"backend\": %q}",
+		backendID, backendID,
+	)
+	if metaAlternative != "" {
+		msg += fmt.Sprintf(
+			"\n\nTo install across all nodes, use the auto-resolving backend %q — each node picks its own variant based on its hardware.",
+			metaAlternative,
+		)
+	}
+
+	return c.JSON(409, map[string]any{
+		"error":            msg,
+		"code":             "concrete_backend_requires_target",
+		"meta_alternative": metaAlternative,
+	})
 }
 
 // DeleteBackendEndpoint lets delete backends from a LocalAI instance

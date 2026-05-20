@@ -1,7 +1,8 @@
 --extra-index-url https://download.pytorch.org/whl/xpu
+# vllm's own deps (torch==2.11.0+xpu, vllm_xpu_kernels, pydantic, …) are
+# installed from upstream's requirements/xpu.txt during the source build —
+# see install.sh. Only list what LocalAI's vllm backend.py needs directly.
 accelerate
-torch
 transformers
-optimum[openvino]
-setuptools
 bitsandbytes
+setuptools

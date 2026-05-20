@@ -23,3 +23,15 @@ fi
 
 
 installRequirements
+
+# chatterbox-tts upstream pulls `russian-text-stresser` (unpinned git URL) which
+# transitively pins spacy==3.6.* and other ancient packages. That cascade forces
+# pip to backtrack through Jinja2/MarkupSafe/omegaconf/ruamel.yaml into Python-2-era
+# sdists that no longer build. We install chatterbox-tts itself with --no-deps and
+# list its real runtime deps in requirements-*.txt instead.
+echo "Installing chatterbox-tts with --no-deps"
+if [ "x${USE_PIP}" == "xtrue" ]; then
+    pip install ${EXTRA_PIP_INSTALL_FLAGS:-} --no-deps "chatterbox-tts@git+https://git@github.com/mudler/chatterbox.git@faster"
+else
+    uv pip install ${EXTRA_PIP_INSTALL_FLAGS:-} --no-deps "chatterbox-tts@git+https://git@github.com/mudler/chatterbox.git@faster"
+fi

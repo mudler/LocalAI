@@ -41,6 +41,34 @@ var _ = Describe("E2E test", func() {
 				Expect(len(resp.Choices)).To(Equal(1), fmt.Sprint(resp))
 				Expect(resp.Choices[0].Message.Content).To(Or(ContainSubstring("4"), ContainSubstring("four")), fmt.Sprint(resp.Choices[0].Message.Content))
 			})
+
+			// Smoke: verifies the AIO container streams chat completions end-to-end.
+			// Catches packaging/proxy regressions where the streaming path breaks
+			// even though non-streaming works.
+			It("streams correctly", func() {
+				model := "gpt-4"
+				stream := client.Chat.Completions.NewStreaming(context.TODO(),
+					openai.ChatCompletionNewParams{
+						Model: model,
+						Messages: []openai.ChatCompletionMessageParamUnion{
+							openai.UserMessage("Count to three."),
+						},
+					})
+				defer stream.Close()
+
+				var chunks int
+				var combined string
+				for stream.Next() {
+					chunk := stream.Current()
+					if len(chunk.Choices) > 0 && chunk.Choices[0].Delta.Content != "" {
+						chunks++
+						combined += chunk.Choices[0].Delta.Content
+					}
+				}
+				Expect(stream.Err()).ToNot(HaveOccurred())
+				Expect(chunks).To(BeNumerically(">", 1), "expected multi-chunk stream, got %d", chunks)
+				Expect(combined).ToNot(BeEmpty(), "stream produced no content")
+			})
 		})
 
 		Context("function calls", func() {

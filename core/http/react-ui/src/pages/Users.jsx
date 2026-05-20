@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useOutletContext } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { useAuth } from '../context/AuthContext'
 import { adminUsersApi, adminInvitesApi } from '../utils/api'
 import LoadingSpinner from '../components/LoadingSpinner'
@@ -658,6 +659,7 @@ function InvitesTab({ addToast }) {
 export default function Users() {
   const { addToast } = useOutletContext()
   const { user: currentUser } = useAuth()
+  const { t } = useTranslation('admin')
   const [users, setUsers] = useState([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
@@ -669,6 +671,8 @@ export default function Users() {
   const [passwordResetUser, setPasswordResetUser] = useState(null)
   const [newPassword, setNewPassword] = useState('')
   const [resettingPassword, setResettingPassword] = useState(false)
+  const [resetWeakWarning, setResetWeakWarning] = useState('')
+  const [resetAcknowledgeWeak, setResetAcknowledgeWeak] = useState(false)
 
   const fetchUsers = useCallback(async () => {
     setLoading(true)
@@ -764,18 +768,26 @@ export default function Users() {
   const handleResetPassword = (u) => {
     setPasswordResetUser(u)
     setNewPassword('')
+    setResetWeakWarning('')
+    setResetAcknowledgeWeak(false)
   }
 
   const confirmResetPassword = async () => {
-    if (!passwordResetUser || newPassword.length < 8) return
+    if (!passwordResetUser || newPassword.length === 0) return
     setResettingPassword(true)
     try {
-      await adminUsersApi.resetPassword(passwordResetUser.id, newPassword)
+      await adminUsersApi.resetPassword(passwordResetUser.id, newPassword, resetAcknowledgeWeak)
       addToast(`Password reset for ${passwordResetUser.name || passwordResetUser.email}`, 'success')
       setPasswordResetUser(null)
       setNewPassword('')
+      setResetWeakWarning('')
+      setResetAcknowledgeWeak(false)
     } catch (err) {
-      addToast(`Failed to reset password: ${err.message}`, 'error')
+      if (err.body?.overridable) {
+        setResetWeakWarning(err.body.error || err.message)
+      } else {
+        addToast(`Failed to reset password: ${err.message}`, 'error')
+      }
     } finally {
       setResettingPassword(false)
     }
@@ -794,10 +806,10 @@ export default function Users() {
   const isSelf = (u) => currentUser && (u.id === currentUser.id || u.email === currentUser.email)
 
   return (
-    <div className="page">
+    <div className="page page--wide">
       <div className="page-header">
-        <h1 className="page-title">Users</h1>
-        <p className="page-subtitle">Manage registered users, roles, and invites</p>
+        <h1 className="page-title">{t('users.title')}</h1>
+        <p className="page-subtitle">{t('users.subtitle')}</p>
       </div>
 
       {/* Tab bar */}
@@ -963,18 +975,35 @@ export default function Users() {
             <input
               type="password"
               className="input"
-              placeholder="New password (min 8 characters)"
+              placeholder="New password (min 12 characters)"
               value={newPassword}
-              onChange={e => setNewPassword(e.target.value)}
-              onKeyDown={e => { if (e.key === 'Enter' && newPassword.length >= 8) confirmResetPassword() }}
+              onChange={e => {
+                setNewPassword(e.target.value)
+                setResetWeakWarning('')
+                setResetAcknowledgeWeak(false)
+              }}
+              onKeyDown={e => { if (e.key === 'Enter' && newPassword.length > 0) confirmResetPassword() }}
               autoFocus
             />
+            {resetWeakWarning && (
+              <div role="alert" style={{ marginTop: 'var(--spacing-sm)', display: 'flex', flexDirection: 'column', gap: 'var(--spacing-xs)' }}>
+                <div className="login-warning">{resetWeakWarning}</div>
+                <label style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-xs)', fontSize: '0.875rem' }}>
+                  <input
+                    type="checkbox"
+                    checked={resetAcknowledgeWeak}
+                    onChange={e => setResetAcknowledgeWeak(e.target.checked)}
+                  />
+                  Use this password anyway
+                </label>
+              </div>
+            )}
             <div className="perm-modal-actions" style={{ marginTop: 'var(--spacing-md)' }}>
               <button className="btn btn-secondary" onClick={() => setPasswordResetUser(null)}>Cancel</button>
               <button
                 className="btn btn-primary"
                 onClick={confirmResetPassword}
-                disabled={resettingPassword || newPassword.length < 8}
+                disabled={resettingPassword || newPassword.length === 0}
               >
                 {resettingPassword ? 'Resetting...' : 'Reset Password'}
               </button>

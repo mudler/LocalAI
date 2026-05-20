@@ -1,14 +1,18 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { useAuth } from '../context/AuthContext'
+import { useBranding } from '../contexts/BrandingContext'
 import { apiUrl } from '../utils/basePath'
 import './auth.css'
 
 export default function Login() {
   const navigate = useNavigate()
+  const { t } = useTranslation('auth')
   const { code: urlInviteCode } = useParams()
   const [searchParams] = useSearchParams()
   const { authEnabled, staticApiKeyRequired, user, loading: authLoading, refresh } = useAuth()
+  const branding = useBranding()
   const [providers, setProviders] = useState([])
   const [hasUsers, setHasUsers] = useState(true)
   const [registrationMode, setRegistrationMode] = useState('open')
@@ -24,6 +28,12 @@ export default function Login() {
   const [error, setError] = useState('')
   const [message, setMessage] = useState('')
   const [submitting, setSubmitting] = useState(false)
+  // weakPasswordWarning is the server-side rejection message for an
+  // overridable weak-password failure. When set, the form shows an
+  // acknowledgement checkbox; ticking it sends acknowledge_weak_password
+  // on the next submit so the server skips the entropy check.
+  const [weakPasswordWarning, setWeakPasswordWarning] = useState('')
+  const [acknowledgeWeakPassword, setAcknowledgeWeakPassword] = useState(false)
   const [showTokenLogin, setShowTokenLogin] = useState(false)
   const [token, setToken] = useState('')
 
@@ -47,9 +57,9 @@ export default function Login() {
   useEffect(() => {
     const errorParam = searchParams.get('error')
     if (errorParam === 'invite_required') {
-      setError('A valid invite code is required to register')
+      setError(t('login.errors.inviteRequired'))
     }
-  }, [searchParams])
+  }, [searchParams, t])
 
   useEffect(() => {
     fetch(apiUrl('/api/auth/status'))
@@ -86,14 +96,14 @@ export default function Login() {
       const data = await res.json()
 
       if (!res.ok) {
-        setError(extractError(data, 'Login failed'))
+        setError(extractError(data, t('login.errors.loginFailed')))
         setSubmitting(false)
         return
       }
 
       await refresh()
     } catch {
-      setError('Network error')
+      setError(t('login.errors.networkError'))
       setSubmitting(false)
     }
   }
@@ -104,7 +114,7 @@ export default function Login() {
     setMessage('')
 
     if (password !== confirmPassword) {
-      setError('Passwords do not match')
+      setError(t('login.errors.passwordsDoNotMatch'))
       return
     }
 
@@ -115,6 +125,9 @@ export default function Login() {
       if (inviteCode) {
         body.inviteCode = inviteCode
       }
+      if (acknowledgeWeakPassword) {
+        body.acknowledge_weak_password = true
+      }
 
       const res = await fetch(apiUrl('/api/auth/register'), {
         method: 'POST',
@@ -124,13 +137,21 @@ export default function Login() {
       const data = await res.json()
 
       if (!res.ok) {
-        setError(extractError(data, 'Registration failed'))
+        if (data && data.overridable) {
+          setWeakPasswordWarning(extractError(data, ''))
+          setError('')
+        } else {
+          setError(extractError(data, t('login.errors.registrationFailed')))
+          setWeakPasswordWarning('')
+          setAcknowledgeWeakPassword(false)
+        }
         setSubmitting(false)
         return
       }
+      setWeakPasswordWarning('')
 
       if (data.pending) {
-        setMessage(data.message || 'Registration successful, awaiting approval.')
+        setMessage(data.message || t('login.messages.registrationPending'))
         setSubmitting(false)
         return
       }
@@ -139,7 +160,7 @@ export default function Login() {
       window.location.href = '/app'
       return
     } catch {
-      setError('Network error')
+      setError(t('login.errors.networkError'))
       setSubmitting(false)
     }
   }
@@ -147,7 +168,7 @@ export default function Login() {
   const handleTokenLogin = async (e) => {
     e.preventDefault()
     if (!token.trim()) {
-      setError('Please enter a token')
+      setError(t('login.errors.enterToken'))
       return
     }
     setError('')
@@ -162,14 +183,14 @@ export default function Login() {
       const data = await res.json()
 
       if (!res.ok) {
-        setError(extractError(data, 'Invalid token'))
+        setError(extractError(data, t('login.errors.invalidToken')))
         setSubmitting(false)
         return
       }
 
       await refresh()
     } catch {
-      setError('Network error')
+      setError(t('login.errors.networkError'))
       setSubmitting(false)
     }
   }
@@ -182,8 +203,10 @@ export default function Login() {
       <div className="login-page">
         <div className="card login-card">
           <div className="login-header">
-            <img src={apiUrl('/static/logo.png')} alt="LocalAI" className="login-logo" />
-            <p className="login-subtitle">Enter your API key to continue</p>
+            <img src={apiUrl(branding.logoUrl)} alt={branding.instanceName} className="login-logo" />
+            <h1 className="login-title">{branding.instanceName}</h1>
+            {branding.instanceTagline && <p className="login-tagline">{branding.instanceTagline}</p>}
+            <p className="login-subtitle">{t('login.tokenSubtitle')}</p>
           </div>
 
           {error && (
@@ -197,12 +220,12 @@ export default function Login() {
                 type="password"
                 value={token}
                 onChange={(e) => { setToken(e.target.value); setError('') }}
-                placeholder="Enter API key..."
+                placeholder={t('login.tokenPlaceholder')}
                 autoFocus
               />
             </div>
             <button type="submit" className="btn btn-primary login-btn-full" disabled={submitting}>
-              {submitting ? 'Signing in...' : 'Sign In'}
+              {submitting ? t('login.signingIn') : t('login.signIn')}
             </button>
           </form>
         </div>
@@ -230,9 +253,15 @@ export default function Login() {
     <div className="login-page">
       <div className="card login-card">
         <div className="login-header">
-          <img src={apiUrl('/static/logo.png')} alt="LocalAI" className="login-logo" />
+          <img src={apiUrl(branding.logoUrl)} alt={branding.instanceName} className="login-logo" />
+          <h1 className="login-title">{branding.instanceName}</h1>
+          {branding.instanceTagline && <p className="login-tagline">{branding.instanceTagline}</p>}
           <p className="login-subtitle">
-            {!hasUsers ? 'Create your admin account' : mode === 'register' ? 'Create an account' : 'Sign in to continue'}
+            {!hasUsers
+              ? t('login.createAdminSubtitle')
+              : mode === 'register'
+                ? t('login.registerSubtitle')
+                : t('login.subtitle')}
           </p>
         </div>
 
@@ -250,7 +279,7 @@ export default function Login() {
             className="btn btn-primary login-btn-full"
             style={{ marginBottom: hasOIDC ? '0.5rem' : undefined }}
           >
-            <i className="fab fa-github" /> Sign in with GitHub
+            <i className="fab fa-github" /> {t('login.signInWithGitHub')}
           </a>
         )}
 
@@ -259,47 +288,47 @@ export default function Login() {
             href={oidcLoginUrl}
             className="btn btn-primary login-btn-full"
           >
-            <i className="fas fa-sign-in-alt" /> Sign in with SSO
+            <i className="fas fa-sign-in-alt" /> {t('login.signInWithSSO')}
           </a>
         )}
 
         {hasOAuth && hasLocal && (
-          <div className="login-divider">or</div>
+          <div className="login-divider">{t('login.or')}</div>
         )}
 
         {hasLocal && mode === 'login' && (
           <form onSubmit={handleEmailLogin}>
             <div className="form-group">
-              <label className="form-label">Email</label>
+              <label className="form-label">{t('login.email')}</label>
               <input
                 className="input"
                 type="email"
                 value={email}
                 onChange={(e) => { setEmail(e.target.value); setError('') }}
-                placeholder="you@example.com"
+                placeholder={t('login.emailPlaceholder')}
                 autoFocus={!hasGitHub}
                 required
               />
             </div>
             <div className="form-group">
-              <label className="form-label">Password</label>
+              <label className="form-label">{t('login.password')}</label>
               <input
                 className="input"
                 type="password"
                 value={password}
                 onChange={(e) => { setPassword(e.target.value); setError('') }}
-                placeholder="Enter password..."
+                placeholder={t('login.passwordPlaceholder')}
                 required
               />
             </div>
             <button type="submit" className="btn btn-primary login-btn-full" disabled={submitting}>
-              {submitting ? 'Signing in...' : 'Sign In'}
+              {submitting ? t('login.signingIn') : t('login.signIn')}
             </button>
             {!(registrationMode === 'invite' && hasUsers && !urlInviteCode) && (
               <p className="login-footer">
-                Don't have an account?{' '}
+                {t('login.noAccount')}{' '}
                 <button type="button" className="login-link" onClick={() => { setMode('register'); setError(''); setMessage('') }}>
-                  Register
+                  {t('login.register')}
                 </button>
               </p>
             )}
@@ -311,72 +340,93 @@ export default function Login() {
             {showInviteField && (
               <div className="form-group">
                 <label className="form-label">
-                  Invite Code{inviteRequired ? '' : ' (optional — skip the approval wait)'}
+                  {t('login.inviteCodeLabel')}{inviteRequired ? '' : t('login.inviteCodeOptional')}
                 </label>
                 <input
                   className="input"
                   type="text"
                   value={inviteCode}
                   onChange={(e) => { setInviteCode(e.target.value); setError('') }}
-                  placeholder="Paste your invite code..."
+                  placeholder={t('login.inviteCodePlaceholder')}
                   required={inviteRequired}
                   readOnly={!!urlInviteCode}
                 />
               </div>
             )}
             <div className="form-group">
-              <label className="form-label">Email</label>
+              <label className="form-label">{t('login.email')}</label>
               <input
                 className="input"
                 type="email"
                 value={email}
                 onChange={(e) => { setEmail(e.target.value); setError('') }}
-                placeholder="you@example.com"
+                placeholder={t('login.emailPlaceholder')}
                 autoFocus
                 required
               />
             </div>
             <div className="form-group">
-              <label className="form-label">Name</label>
+              <label className="form-label">{t('login.name')}</label>
               <input
                 className="input"
                 type="text"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                placeholder="Your name (optional)"
+                placeholder={t('login.namePlaceholder')}
               />
             </div>
             <div className="form-group">
-              <label className="form-label">Password</label>
+              <label className="form-label">{t('login.password')}</label>
               <input
                 className="input"
                 type="password"
                 value={password}
-                onChange={(e) => { setPassword(e.target.value); setError('') }}
-                placeholder="At least 8 characters"
-                minLength={8}
+                onChange={(e) => {
+                  setPassword(e.target.value)
+                  setError('')
+                  setWeakPasswordWarning('')
+                  setAcknowledgeWeakPassword(false)
+                }}
+                placeholder={t('login.newPasswordPlaceholder')}
                 required
               />
             </div>
             <div className="form-group">
-              <label className="form-label">Confirm Password</label>
+              <label className="form-label">{t('login.confirmPassword')}</label>
               <input
                 className="input"
                 type="password"
                 value={confirmPassword}
                 onChange={(e) => { setConfirmPassword(e.target.value); setError('') }}
-                placeholder="Repeat password"
+                placeholder={t('login.confirmPasswordPlaceholder')}
                 required
               />
             </div>
+            {weakPasswordWarning && (
+              <div className="form-group" role="alert">
+                <div className="login-warning">{weakPasswordWarning}</div>
+                <label style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-xs)', marginTop: 'var(--spacing-xs)', fontSize: '0.875rem' }}>
+                  <input
+                    type="checkbox"
+                    checked={acknowledgeWeakPassword}
+                    onChange={(e) => setAcknowledgeWeakPassword(e.target.checked)}
+                  />
+                  Use this password anyway
+                </label>
+              </div>
+            )}
             <button type="submit" className="btn btn-primary login-btn-full" disabled={submitting}>
-              {submitting ? 'Creating account...' : !hasUsers ? 'Create Admin Account' : 'Register'}
+              {submitting
+                ? t('login.creatingAccount')
+                : !hasUsers
+                  ? t('login.createAdminAccount')
+                  : t('login.register')}
             </button>
             {hasUsers && (
               <p className="login-footer">
-                Already have an account?{' '}
+                {t('login.hasAccount')}{' '}
                 <button type="button" className="login-link" onClick={() => { setMode('login'); setError(''); setMessage('') }}>
-                  Sign in
+                  {t('login.signIn')}
                 </button>
               </p>
             )}
@@ -389,7 +439,7 @@ export default function Login() {
             type="button"
             onClick={() => setShowTokenLogin(!showTokenLogin)}
           >
-            {showTokenLogin ? 'Hide token login' : 'Login with API Token'}
+            {showTokenLogin ? t('login.hideTokenLogin') : t('login.showTokenLogin')}
           </button>
           {showTokenLogin && (
             <form onSubmit={handleTokenLogin} className="login-token-form">
@@ -399,11 +449,11 @@ export default function Login() {
                   type="password"
                   value={token}
                   onChange={(e) => { setToken(e.target.value); setError('') }}
-                  placeholder="Enter API token..."
+                  placeholder={t('login.tokenAltPlaceholder')}
                 />
               </div>
               <button type="submit" className="btn btn-secondary login-btn-full" disabled={submitting}>
-                <i className="fas fa-key" /> Login with Token
+                <i className="fas fa-key" /> {t('login.loginWithToken')}
               </button>
             </form>
           )}

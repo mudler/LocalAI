@@ -32,6 +32,12 @@ func (p *dbJobPersister) DeleteJob(jobID string) error {
 	return p.store.DeleteJob(jobID)
 }
 
+// FlushTasks is a no-op: SaveTask already writes through to the DB.
+func (p *dbJobPersister) FlushTasks() error { return nil }
+
+// FlushJobs is a no-op: SaveJob already writes through to the DB.
+func (p *dbJobPersister) FlushJobs() error { return nil }
+
 func (p *dbJobPersister) GetJob(jobID string) (*schema.Job, error) {
 	rec, err := p.store.GetJob(jobID)
 	if err != nil {

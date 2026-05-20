@@ -36,6 +36,7 @@
   --color-text-primary: #eceff4;         /* nord6 */
   --color-text-secondary: #d8dee9;       /* nord4 */
   --color-text-muted: #a1acb9;
+  --color-text-tertiary: #8a96a5;        /* slightly dimmer than muted, still WCAG AA on dark surfaces — used for metadata */
   --color-text-disabled: #6e7a8c;
   --color-text-inverse: #2e3440;
 
@@ -142,6 +143,19 @@
   --sidebar-width-collapsed: 52px;
   --color-toggle-off: #2f3644;
   --color-toggle-on: var(--color-primary);
+
+  /* Page-width archetypes — applied via .page / .page--narrow /
+     .page--medium / .page--wide. Default is wide-enough for ops/data
+     tables; medium suits two-column app pages (sticky nav + form);
+     narrow caps reading width. */
+  --page-max-narrow: 760px;
+  --page-max-medium: 1080px;
+  --page-max-default: 1600px;
+  --page-max-wide: none;
+
+  /* Responsive breakpoints — kept here so JS can read them via getComputedStyle. */
+  --bp-mobile: 640px;
+  --bp-tablet: 1024px;
 }
 
 [data-theme="light"] {
@@ -177,6 +191,7 @@
   --color-text-primary: #2e3440;         /* nord0 */
   --color-text-secondary: #3b4252;       /* nord1 */
   --color-text-muted: #6e7a8c;
+  --color-text-tertiary: #6e7a8c;        /* matches muted in light theme — going lighter would fail contrast on white */
   --color-text-disabled: #a1acb9;
   --color-text-inverse: #ffffff;
 
@@ -232,4 +247,13 @@
 
   --color-toggle-off: #c3cad6;
   --color-toggle-on: var(--color-primary);
+
+  /* Page-width archetypes — see :root block for usage. */
+  --page-max-narrow: 760px;
+  --page-max-medium: 1080px;
+  --page-max-default: 1600px;
+  --page-max-wide: none;
+
+  --bp-mobile: 640px;
+  --bp-tablet: 1024px;
 }

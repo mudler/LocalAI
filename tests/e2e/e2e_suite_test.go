@@ -169,6 +169,52 @@ var _ = BeforeSuite(func() {
 		Expect(os.WriteFile(filepath.Join(modelsPath, name+".yaml"), data, 0644)).To(Succeed())
 	}
 
+	// Path-resolution model — declares relative draft_model / mmproj paths
+	// so the e2e test can confirm they arrive at the backend resolved
+	// against the models directory (regression guard for issue #9675).
+	pathResolutionCfg := map[string]any{
+		"name":    "mock-model-path-resolution",
+		"backend": "mock-backend",
+		"parameters": map[string]any{
+			"model": "subdir/mock-main.bin",
+		},
+		"draft_model": "subdir/mock-draft.bin",
+		"mmproj":      "subdir/mock-mmproj.bin",
+	}
+	pathResolutionData, err := yaml.Marshal(pathResolutionCfg)
+	Expect(err).ToNot(HaveOccurred())
+	Expect(os.WriteFile(filepath.Join(modelsPath, "mock-model-path-resolution.yaml"), pathResolutionData, 0644)).To(Succeed())
+
+	// Same but with an absolute draft_model — must not let a user-supplied
+	// config reach files outside the models directory. filepath.Join
+	// strips the leading slash, so /etc/passwd becomes <modelsPath>/etc/passwd.
+	pathEscapeCfg := map[string]any{
+		"name":    "mock-model-path-escape",
+		"backend": "mock-backend",
+		"parameters": map[string]any{
+			"model": "subdir/mock-main.bin",
+		},
+		"draft_model": "/etc/passwd",
+	}
+	pathEscapeData, err := yaml.Marshal(pathEscapeCfg)
+	Expect(err).ToNot(HaveOccurred())
+	Expect(os.WriteFile(filepath.Join(modelsPath, "mock-model-path-escape.yaml"), pathEscapeData, 0644)).To(Succeed())
+
+	// Diarization model — known_usecases bypasses the FLAG_DIARIZATION
+	// backend-name guard so the /v1/audio/diarization route can dispatch
+	// to the mock backend.
+	diarizeCfg := map[string]any{
+		"name":           "mock-diarize",
+		"backend":        "mock-backend",
+		"known_usecases": []string{"FLAG_DIARIZATION"},
+		"parameters": map[string]any{
+			"model": "mock-diarize.bin",
+		},
+	}
+	diarizeData, err := yaml.Marshal(diarizeCfg)
+	Expect(err).ToNot(HaveOccurred())
+	Expect(os.WriteFile(filepath.Join(modelsPath, "mock-diarize.yaml"), diarizeData, 0644)).To(Succeed())
+
 	// Pipeline model that wires the component models together.
 	pipelineCfg := map[string]any{
 		"name": "realtime-pipeline",

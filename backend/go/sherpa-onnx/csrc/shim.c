@@ -311,6 +311,87 @@ int32_t sherpa_shim_speech_segment_n(const void *h) {
 }
 
 // ==================================================================
+// Offline speaker diarization config
+// ==================================================================
+
+void *sherpa_shim_diarize_config_new(void) {
+    return calloc(1, sizeof(SherpaOnnxOfflineSpeakerDiarizationConfig));
+}
+
+void sherpa_shim_diarize_config_free(void *h) {
+    if (!h) return;
+    SherpaOnnxOfflineSpeakerDiarizationConfig *c =
+        (SherpaOnnxOfflineSpeakerDiarizationConfig *)h;
+    free((char *)c->segmentation.pyannote.model);
+    free((char *)c->segmentation.provider);
+    free((char *)c->embedding.model);
+    free((char *)c->embedding.provider);
+    free(c);
+}
+
+void sherpa_shim_diarize_config_set_segmentation_model(void *h, const char *v) {
+    shim_set_str(&((SherpaOnnxOfflineSpeakerDiarizationConfig *)h)->segmentation.pyannote.model, v);
+}
+void sherpa_shim_diarize_config_set_segmentation_num_threads(void *h, int32_t v) {
+    ((SherpaOnnxOfflineSpeakerDiarizationConfig *)h)->segmentation.num_threads = v;
+}
+void sherpa_shim_diarize_config_set_segmentation_provider(void *h, const char *v) {
+    shim_set_str(&((SherpaOnnxOfflineSpeakerDiarizationConfig *)h)->segmentation.provider, v);
+}
+void sherpa_shim_diarize_config_set_segmentation_debug(void *h, int32_t v) {
+    ((SherpaOnnxOfflineSpeakerDiarizationConfig *)h)->segmentation.debug = v;
+}
+void sherpa_shim_diarize_config_set_embedding_model(void *h, const char *v) {
+    shim_set_str(&((SherpaOnnxOfflineSpeakerDiarizationConfig *)h)->embedding.model, v);
+}
+void sherpa_shim_diarize_config_set_embedding_num_threads(void *h, int32_t v) {
+    ((SherpaOnnxOfflineSpeakerDiarizationConfig *)h)->embedding.num_threads = v;
+}
+void sherpa_shim_diarize_config_set_embedding_provider(void *h, const char *v) {
+    shim_set_str(&((SherpaOnnxOfflineSpeakerDiarizationConfig *)h)->embedding.provider, v);
+}
+void sherpa_shim_diarize_config_set_embedding_debug(void *h, int32_t v) {
+    ((SherpaOnnxOfflineSpeakerDiarizationConfig *)h)->embedding.debug = v;
+}
+void sherpa_shim_diarize_config_set_clustering_num_clusters(void *h, int32_t v) {
+    ((SherpaOnnxOfflineSpeakerDiarizationConfig *)h)->clustering.num_clusters = v;
+}
+void sherpa_shim_diarize_config_set_clustering_threshold(void *h, float v) {
+    ((SherpaOnnxOfflineSpeakerDiarizationConfig *)h)->clustering.threshold = v;
+}
+void sherpa_shim_diarize_config_set_min_duration_on(void *h, float v) {
+    ((SherpaOnnxOfflineSpeakerDiarizationConfig *)h)->min_duration_on = v;
+}
+void sherpa_shim_diarize_config_set_min_duration_off(void *h, float v) {
+    ((SherpaOnnxOfflineSpeakerDiarizationConfig *)h)->min_duration_off = v;
+}
+
+void *sherpa_shim_create_offline_speaker_diarization(void *h) {
+    return (void *)SherpaOnnxCreateOfflineSpeakerDiarization(
+        (const SherpaOnnxOfflineSpeakerDiarizationConfig *)h);
+}
+
+void sherpa_shim_diarize_set_clustering(void *sd, int32_t num_clusters, float threshold) {
+    if (!sd) return;
+    SherpaOnnxOfflineSpeakerDiarizationConfig cfg;
+    memset(&cfg, 0, sizeof(cfg));
+    cfg.clustering.num_clusters = num_clusters;
+    cfg.clustering.threshold    = threshold;
+    SherpaOnnxOfflineSpeakerDiarizationSetConfig(
+        (const SherpaOnnxOfflineSpeakerDiarization *)sd, &cfg);
+}
+
+void sherpa_shim_diarize_segment_at(const void *segs, int32_t i,
+                                    float *out_start, float *out_end,
+                                    int32_t *out_speaker) {
+    const SherpaOnnxOfflineSpeakerDiarizationSegment *arr =
+        (const SherpaOnnxOfflineSpeakerDiarizationSegment *)segs;
+    if (out_start)   *out_start   = arr[i].start;
+    if (out_end)     *out_end     = arr[i].end;
+    if (out_speaker) *out_speaker = arr[i].speaker;
+}
+
+// ==================================================================
 // TTS streaming callback trampoline
 // ==================================================================
 

@@ -1,0 +1,66 @@
+{
+  "cluster": {
+    "vram": "Cluster VRAM",
+    "ram": "Cluster RAM",
+    "nodesOnline": "{{healthy}}/{{total}} nodes online"
+  },
+  "resourceGpu": "GPU",
+  "resourceRam": "RAM",
+  "assistant": {
+    "title": "Manage LocalAI by chatting",
+    "description": "Install models, switch backends, edit configs and check status by talking to LocalAI.",
+    "open": "Open assistant",
+    "tooltip": "Manage LocalAI by chatting"
+  },
+  "input": {
+    "placeholder": "Message...",
+    "attachImage": "Attach image",
+    "attachAudio": "Attach audio",
+    "attachFile": "Attach file",
+    "enterToSend": "Enter to send",
+    "selectModelFirst": "Select a model first",
+    "sendMessage": "Send message",
+    "selectModelToast": "Please select a model first"
+  },
+  "quickLinks": {
+    "manageByChat": "Manage by chat",
+    "installedModels": "Installed Models",
+    "browseGallery": "Browse Gallery",
+    "importModel": "Import Model",
+    "documentation": "Documentation"
+  },
+  "loadedModels": {
+    "count_one": "{{count}} model loaded",
+    "count_other": "{{count}} models loaded",
+    "stop": "Stop model",
+    "stopAll": "Stop all"
+  },
+  "stopDialog": {
+    "title": "Stop Model",
+    "message": "Stop model {{model}}?",
+    "confirm": "Stop {{model}}",
+    "stopAllTitle": "Stop All Models",
+    "stopAllMessage": "Stop all {{count}} loaded models?",
+    "stopAllConfirm": "Stop all",
+    "stoppedToast": "Stopped {{model}}",
+    "allStoppedToast": "All models stopped",
+    "stopFailed": "Failed to stop: {{message}}"
+  },
+  "wizard": {
+    "getStarted": "Get started with {{name}}",
+    "intro": "Install your first model to begin. Browse the gallery or import your own.",
+    "steps": {
+      "step1Title": "Browse the Model Gallery",
+      "step1Body": "Find the right model for your needs from our curated collection.",
+      "step2Title": "Install a Model",
+      "step2Body": "Click install to download and configure it automatically.",
+      "step3Title": "Start Chatting",
+      "step3Body": "Chat with your model right from the browser or use the API."
+    },
+    "browseGallery": "Browse Model Gallery",
+    "importModel": "Import Model",
+    "docs": "Docs",
+    "noModelsTitle": "No Models Available",
+    "noModelsBody": "There are no models installed yet. Ask your administrator to set up models so you can start chatting."
+  }
+}

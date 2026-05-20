@@ -193,6 +193,9 @@ var knownModelsNameSuffixToSkip []string = []string{
 	".bin",
 	".gguf",
 	".ggml",
+	".ckpt",
+	".zip",
+	".tag",
 	".partial",
 	".tar.gz",
 }

@@ -22,12 +22,19 @@ import (
 	"github.com/mudler/LocalAI/core/backend"
 
 	model "github.com/mudler/LocalAI/pkg/model"
+	"github.com/mudler/LocalAI/pkg/utils"
 	"github.com/mudler/xlog"
 )
 
+var videoDownloadClient = http.Client{Timeout: 30 * time.Second}
+
 func downloadFile(url string) (string, error) {
+	if err := utils.ValidateExternalURL(url); err != nil {
+		return "", fmt.Errorf("URL validation failed: %w", err)
+	}
+
 	// Get the data
-	resp, err := http.Get(url)
+	resp, err := videoDownloadClient.Get(url)
 	if err != nil {
 		return "", err
 	}

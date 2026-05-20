@@ -1212,6 +1212,9 @@ async function promptGPT(systemPrompt, input) {
 
   // Add stream parameter for both regular chat and MCP (MCP now supports SSE streaming)
   requestBody.stream = true;
+  // include_usage tells LocalAI to emit a trailing chunk with token totals;
+  // the spec-compliant server otherwise drops `usage` from the stream.
+  requestBody.stream_options = { include_usage: true };
   
   // Add generation parameters if they are set (null means use default)
   if (activeChat.temperature !== null && activeChat.temperature !== undefined) {

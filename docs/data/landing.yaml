@@ -166,7 +166,7 @@ imageText:
   title: LocalAI - Run AI models locally with ease
   subtitle: |
     LocalAI makes it simple to run various AI models on your own hardware. From text generation to image creation, autonomous agents to semantic search - all orchestrated through a unified API.
-    LocalAI, created by **Ettore Di Giacinto (mudler)**,  is a Free and Open Source, community-driven project to make Free, Open AI accessible to everyone. The LocalAI stack is MIT licensed, and the models trained by LocalAI are available under the Apache 2.0 License.
+    LocalAI, created by **[Ettore Di Giacinto (mudler)](https://github.com/mudler)** and maintained by the **LocalAI team** (Ettore Di Giacinto and **[Richard Palethorpe (richiejp)](https://github.com/richiejp)**), is a Free and Open Source, community-driven project to make Free, Open AI accessible to everyone. The LocalAI stack is MIT licensed, and the models trained by LocalAI are available under the Apache 2.0 License.
 
   list:
     - text: OpenAI API compatibility

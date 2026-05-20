@@ -102,6 +102,9 @@ const (
 	capVoiceEmbed    = "voice_embed"
 	capVoiceVerify   = "voice_verify"
 	capVoiceAnalyze  = "voice_analyze"
+	capAudioTransform = "audio_transform"
+	capLogprobs      = "logprobs"
+	capLogitBias     = "logit_bias"
 
 	defaultPrompt             = "The capital of France is"
 	streamPrompt              = "Once upon a time"
@@ -191,7 +194,18 @@ var _ = Describe("Backend container", Ordered, func() {
 
 	BeforeAll(func() {
 		image := os.Getenv("BACKEND_IMAGE")
-		Expect(image).NotTo(BeEmpty(), "BACKEND_IMAGE env var must be set (e.g. local-ai-backend:llama-cpp)")
+		// BACKEND_BINARY is an escape hatch for hardware-gated backends (e.g. ds4)
+		// where building a full Docker image around an 80+ GB model is impractical.
+		// Points at a `run.sh` produced by `make -C backend/cpp/<name> package`.
+		binary := os.Getenv("BACKEND_BINARY")
+		Expect(image != "" || binary != "").To(BeTrue(),
+			"either BACKEND_IMAGE or BACKEND_BINARY env var must be set")
+		Expect(image != "" && binary != "").To(BeFalse(),
+			"BACKEND_IMAGE and BACKEND_BINARY are mutually exclusive")
+		if binary != "" {
+			Expect(filepath.Base(binary)).To(Equal("run.sh"),
+				"BACKEND_BINARY must point at a run.sh produced by 'make -C backend/cpp/<name> package'")
+		}
 
 		modelURL := os.Getenv("BACKEND_TEST_MODEL_URL")
 		modelFile = os.Getenv("BACKEND_TEST_MODEL_FILE")
@@ -200,7 +214,11 @@ var _ = Describe("Backend container", Ordered, func() {
 			"one of BACKEND_TEST_MODEL_URL, BACKEND_TEST_MODEL_FILE, or BACKEND_TEST_MODEL_NAME must be set")
 
 		caps = parseCaps()
-		GinkgoWriter.Printf("Testing image=%q with capabilities=%v\n", image, keys(caps))
+		src := image
+		if src == "" {
+			src = binary
+		}
+		GinkgoWriter.Printf("Testing src=%q with capabilities=%v\n", src, keys(caps))
 
 		prompt = os.Getenv("BACKEND_TEST_PROMPT")
 		if prompt == "" {
@@ -220,10 +238,13 @@ var _ = Describe("Backend container", Ordered, func() {
 		workDir, err = os.MkdirTemp("", "backend-e2e-*")
 		Expect(err).NotTo(HaveOccurred())
 
-		// Extract the image filesystem so we can run run.sh directly.
-		binaryDir = filepath.Join(workDir, "rootfs")
-		Expect(os.MkdirAll(binaryDir, 0o755)).To(Succeed())
-		extractImage(image, binaryDir)
+		if image != "" {
+			binaryDir = filepath.Join(workDir, "rootfs")
+			Expect(os.MkdirAll(binaryDir, 0o755)).To(Succeed())
+			extractImage(image, binaryDir)
+		} else {
+			binaryDir = filepath.Dir(binary)
+		}
 		Expect(filepath.Join(binaryDir, "run.sh")).To(BeAnExistingFile())
 
 		// Download the model once if not provided and no HF name given.
@@ -422,6 +443,7 @@ var _ = Describe("Backend container", Ordered, func() {
 
 		var chunks int
 		var combined string
+		var firstChunks []string
 		for {
 			msg, err := stream.Recv()
 			if err == io.EOF {
@@ -431,10 +453,69 @@ var _ = Describe("Backend container", Ordered, func() {
 			if len(msg.GetMessage()) > 0 {
 				chunks++
 				combined += string(msg.GetMessage())
+				if len(firstChunks) < 2 {
+					firstChunks = append(firstChunks, string(msg.GetMessage()))
+				}
 			}
 		}
 		Expect(chunks).To(BeNumerically(">", 0), "no stream chunks received")
+		// Regression guard: a bug in llama-cpp's grpc-server.cpp caused the
+		// role-init array element to get the same ChatDelta stamped, duplicating
+		// the first content token. Applies to any streaming backend.
+		if len(firstChunks) >= 2 {
+			Expect(firstChunks[0]).NotTo(Equal(firstChunks[1]),
+				"first content token was duplicated: %v", firstChunks)
+		}
 		GinkgoWriter.Printf("Stream: %d chunks, combined=%q\n", chunks, combined)
+	})
+
+	// Logprobs: backends that wire OpenAI-compatible logprobs return a
+	// JSON-encoded payload in Reply.logprobs (see backend.proto). The exact
+	// shape is backend-specific; we only assert that the field is populated
+	// when requested. Gated by capLogprobs because not every backend
+	// implements it.
+	It("returns logprobs when requested", func() {
+		if !caps[capLogprobs] {
+			Skip("logprobs capability not enabled")
+		}
+		ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
+		defer cancel()
+		res, err := client.Predict(ctx, &pb.PredictOptions{
+			Prompt:      prompt,
+			Tokens:      10,
+			Temperature: 0.1,
+			TopK:        40,
+			TopP:        0.9,
+			Logprobs:    1,
+			TopLogprobs: 1,
+		})
+		Expect(err).NotTo(HaveOccurred())
+		Expect(res.GetMessage()).NotTo(BeEmpty(), "Predict produced empty output")
+		Expect(res.GetLogprobs()).NotTo(BeEmpty(), "Reply.logprobs was empty when requested")
+		GinkgoWriter.Printf("Logprobs: %d bytes\n", len(res.GetLogprobs()))
+	})
+
+	// Logit bias: encoded as a JSON string keyed by token id. We don't
+	// know the model's tokenizer, so we exercise the API path with a
+	// nonsense bias map that any backend should accept and ignore for
+	// unknown ids. The assertion is that the request succeeds — proving
+	// the LogitBias plumbing is wired end-to-end.
+	It("accepts logit_bias when supplied", func() {
+		if !caps[capLogitBias] {
+			Skip("logit_bias capability not enabled")
+		}
+		ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
+		defer cancel()
+		res, err := client.Predict(ctx, &pb.PredictOptions{
+			Prompt:      prompt,
+			Tokens:      10,
+			Temperature: 0.1,
+			TopK:        40,
+			TopP:        0.9,
+			LogitBias:   `{"1":-100}`,
+		})
+		Expect(err).NotTo(HaveOccurred())
+		Expect(res.GetMessage()).NotTo(BeEmpty(), "Predict produced empty output with logit_bias")
 	})
 
 	It("computes embeddings via Embedding", func() {
@@ -970,6 +1051,96 @@ var _ = Describe("Backend container", Ordered, func() {
 		Expect(totalBytes).To(BeNumerically(">", 1024),
 			"streamed audio too short: %d bytes", totalBytes)
 		GinkgoWriter.Printf("TTSStream: %d chunks, %d bytes\n", chunks, totalBytes)
+	})
+
+	It("transforms audio via AudioTransform (batch)", func() {
+		if !caps[capAudioTransform] {
+			Skip("audio_transform capability not enabled")
+		}
+		// Need an audio fixture — reuse the transcription audio knob.
+		Expect(audioFile).NotTo(BeEmpty(),
+			"BACKEND_TEST_AUDIO_FILE or BACKEND_TEST_AUDIO_URL must be set when audio_transform cap is enabled")
+
+		dst := filepath.Join(workDir, "transformed.wav")
+		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+		defer cancel()
+		res, err := client.AudioTransform(ctx, &pb.AudioTransformRequest{
+			AudioPath: audioFile,
+			Dst:       dst,
+		})
+		Expect(err).NotTo(HaveOccurred())
+		Expect(res).NotTo(BeNil())
+		Expect(res.SampleRate).To(BeNumerically(">", int32(0)),
+			"AudioTransform did not report a sample rate")
+		Expect(res.Samples).To(BeNumerically(">", int32(0)),
+			"AudioTransform did not report any output samples")
+		Expect(res.ReferenceProvided).To(BeFalse())
+
+		info, err := os.Stat(dst)
+		Expect(err).NotTo(HaveOccurred(), "AudioTransform did not write a file at %s", dst)
+		Expect(info.Size()).To(BeNumerically(">", int64(1024)),
+			"AudioTransform output too small: %d bytes", info.Size())
+		GinkgoWriter.Printf("AudioTransform: wrote %s (%d bytes, sr=%d, samples=%d)\n",
+			dst, info.Size(), res.SampleRate, res.Samples)
+	})
+
+	It("streams audio via AudioTransformStream (bidi)", func() {
+		if !caps[capAudioTransform] {
+			Skip("audio_transform capability not enabled")
+		}
+
+		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+		defer cancel()
+		stream, err := client.AudioTransformStream(ctx)
+		Expect(err).NotTo(HaveOccurred())
+
+		// First message: Config. Pick the most permissive defaults so the
+		// test works against any audio-transform backend (LocalVQE wants
+		// 16 kHz / 256-sample / s16; other backends may default differently).
+		err = stream.Send(&pb.AudioTransformFrameRequest{
+			Payload: &pb.AudioTransformFrameRequest_Config{
+				Config: &pb.AudioTransformStreamConfig{
+					SampleFormat: pb.AudioTransformStreamConfig_S16_LE,
+				},
+			},
+		})
+		Expect(err).NotTo(HaveOccurred())
+
+		// Send a handful of synthetic silent frames — 256 mono s16 samples
+		// each — and assert the backend echoes a frame back per input.
+		const (
+			frameSamples = 256
+			sampleSize   = 2 // s16
+			nFrames      = 5
+		)
+		silentFrame := make([]byte, frameSamples*sampleSize)
+		for i := 0; i < nFrames; i++ {
+			err = stream.Send(&pb.AudioTransformFrameRequest{
+				Payload: &pb.AudioTransformFrameRequest_Frame{
+					Frame: &pb.AudioTransformFrame{AudioPcm: silentFrame},
+				},
+			})
+			Expect(err).NotTo(HaveOccurred(),
+				"sending frame %d failed", i)
+		}
+		Expect(stream.CloseSend()).To(Succeed())
+
+		var rxFrames int
+		var rxBytes int
+		for {
+			resp, err := stream.Recv()
+			if err == io.EOF {
+				break
+			}
+			Expect(err).NotTo(HaveOccurred())
+			if pcm := resp.GetPcm(); len(pcm) > 0 {
+				rxFrames++
+				rxBytes += len(pcm)
+			}
+		}
+		Expect(rxFrames).To(BeNumerically(">=", nFrames),
+			"AudioTransformStream returned %d frames for %d sent", rxFrames, nFrames)
+		GinkgoWriter.Printf("AudioTransformStream: rx %d frames, %d bytes\n", rxFrames, rxBytes)
 	})
 })
 

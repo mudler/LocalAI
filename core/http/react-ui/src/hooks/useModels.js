@@ -6,9 +6,9 @@ export function useModels(capability) {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
 
-  const fetchModels = useCallback(async () => {
+  const fetchModels = useCallback(async ({ silent = false } = {}) => {
     try {
-      setLoading(true)
+      if (!silent) setLoading(true)
       const data = await modelsApi.listCapabilities()
       let items = data?.data || []
       if (capability) {
@@ -30,15 +30,19 @@ export function useModels(capability) {
         setError(err.message)
       }
     } finally {
-      setLoading(false)
+      if (!silent) setLoading(false)
     }
   }, [capability])
+
+  // Subsequent refetches stay silent so consumers don't blank their tables
+  // (e.g. the Manage page auto-refreshes every 10s in distributed mode).
+  const refetch = useCallback(() => fetchModels({ silent: true }), [fetchModels])
 
   useEffect(() => {
     fetchModels()
   }, [fetchModels])
 
-  return { models, loading, error, refetch: fetchModels }
+  return { models, loading, error, refetch }
 }
 
 export function useGalleryModels(params = {}) {

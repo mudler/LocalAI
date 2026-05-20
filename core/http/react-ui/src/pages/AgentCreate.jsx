@@ -812,14 +812,14 @@ export default function AgentCreate() {
 
   if (loading) {
     return (
-      <div className="page" style={{ display: 'flex', justifyContent: 'center', padding: 'var(--spacing-xl)' }}>
+      <div className="page page--narrow" style={{ display: 'flex', justifyContent: 'center', padding: 'var(--spacing-xl)' }}>
         <i className="fas fa-spinner fa-spin" style={{ fontSize: '2rem', color: 'var(--color-primary)' }} />
       </div>
     )
   }
 
   return (
-    <div className="page">
+    <div className="page page--narrow">
       <style>{`
         .agent-form-container {
           display: flex;

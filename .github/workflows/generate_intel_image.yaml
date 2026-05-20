@@ -7,8 +7,8 @@ on:
       - master
 
 concurrency:
-  group: intel-cache-${{ github.head_ref || github.ref }}-${{ github.repository }}
-  cancel-in-progress: true
+  group: intel-cache-${{ github.event.pull_request.number || github.sha }}-${{ github.repository }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   generate_caches:

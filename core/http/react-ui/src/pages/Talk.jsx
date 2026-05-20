@@ -2,6 +2,10 @@ import { useState, useRef, useEffect, useCallback, useMemo } from 'react'
 import { useOutletContext, useNavigate } from 'react-router-dom'
 import { realtimeApi } from '../utils/api'
 import ModelSelector from '../components/ModelSelector'
+import ClientMCPDropdown from '../components/ClientMCPDropdown'
+import { useMCPClient } from '../hooks/useMCPClient'
+import { loadClientMCPServers } from '../utils/mcpClientStorage'
+import { useAuth } from '../context/AuthContext'
 
 const STATUS_STYLES = {
   disconnected: { icon: 'fa-solid fa-circle', color: 'var(--color-text-secondary)', bg: 'transparent' },
@@ -40,6 +44,27 @@ export default function Talk() {
   const [voiceEdited, setVoiceEdited] = useState(false)
   const [language, setLanguage] = useState('')
 
+  // Client MCP — mirrors the chat page's wiring (useMCPClient + ClientMCPDropdown).
+  // Talk has a single ephemeral session, so the active server set lives in component
+  // state rather than per-chat config.
+  const [clientMCPServers, setClientMCPServers] = useState(() => loadClientMCPServers())
+  const [activeMCPIds, setActiveMCPIds] = useState([])
+  const {
+    connect: mcpConnect,
+    disconnect: mcpDisconnect,
+    getToolsForLLM,
+    isClientTool,
+    executeTool,
+    connectionStatuses,
+    getConnectedTools,
+  } = useMCPClient()
+
+  // LocalAI Assistant ("Manage Mode") — mirrors the chat-page toggle.
+  // Admin-only; the realtime endpoint enforces the gate too. When on, the
+  // backend mounts the in-process MCP admin tool surface for this session.
+  const { isAdmin } = useAuth()
+  const [manageMode, setManageMode] = useState(false)
+
   // Diagnostics
   const [diagVisible, setDiagVisible] = useState(false)
 
@@ -75,7 +100,7 @@ export default function Talk() {
           if (!voiceEdited) setVoice(models[0].voice || '')
         }
       })
-      .catch(err => addToast(`Failed to load pipeline models: ${err.message}`, 'error', 5000, { link: { href: '/app/traces?tab=backend', text: 'View traces' } }))
+      .catch(err => addToast(`Failed to load realtime models: ${err.message}`, 'error', 5000, { link: { href: '/app/traces?tab=backend', text: 'View traces' } }))
       .finally(() => setModelsLoading(false))
   }, [])
 
@@ -83,6 +108,32 @@ export default function Talk() {
   useEffect(() => {
     transcriptEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [transcript])
+
+  // Mirror Chat.jsx: connect / disconnect client MCP servers as the user toggles them.
+  useEffect(() => {
+    const activeSet = new Set(activeMCPIds)
+    for (const server of clientMCPServers) {
+      const status = connectionStatuses[server.id]?.status
+      if (activeSet.has(server.id) && status !== 'connected' && status !== 'connecting') {
+        mcpConnect(server)
+      } else if (!activeSet.has(server.id) && (status === 'connected' || status === 'connecting')) {
+        mcpDisconnect(server.id)
+      }
+    }
+  }, [activeMCPIds.join(','), clientMCPServers, connectionStatuses, mcpConnect, mcpDisconnect])
+
+  const handleClientMCPToggle = useCallback((serverId) => {
+    setActiveMCPIds(prev => prev.includes(serverId) ? prev.filter(s => s !== serverId) : [...prev, serverId])
+  }, [])
+  const handleClientMCPServerAdded = useCallback((server) => {
+    setClientMCPServers(loadClientMCPServers())
+    setActiveMCPIds(prev => prev.includes(server.id) ? prev : [...prev, server.id])
+  }, [])
+  const handleClientMCPServerRemoved = useCallback(async (id) => {
+    await mcpDisconnect(id)
+    setClientMCPServers(loadClientMCPServers())
+    setActiveMCPIds(prev => prev.filter(s => s !== id))
+  }, [mcpDisconnect])
 
   const selectedModelInfo = pipelineModels.find(m => m.name === selectedModel)
 
@@ -96,7 +147,9 @@ export default function Talk() {
   const sendSessionUpdate = useCallback(() => {
     const dc = dcRef.current
     if (!dc || dc.readyState !== 'open') return
-    if (!instructions.trim() && !voice.trim() && !language.trim()) return
+
+    const tools = getToolsForLLM()
+    if (!instructions.trim() && !voice.trim() && !language.trim() && tools.length === 0) return
 
     const session = {}
     if (instructions.trim()) session.instructions = instructions.trim()
@@ -105,9 +158,57 @@ export default function Talk() {
       if (voice.trim()) session.audio.output = { voice: voice.trim() }
       if (language.trim()) session.audio.input = { transcription: { language: language.trim() } }
     }
+    // Pass MCP-server-advertised tools straight through. Server-side they
+    // get rendered into the model's prompt via the function:/argument_regex
+    // pair on the model config (gallery/lfm.yaml for LFM2.5-Audio).
+    if (tools.length > 0) session.tools = tools
 
     dc.send(JSON.stringify({ type: 'session.update', session }))
-  }, [instructions, voice, language])
+  }, [instructions, voice, language, getToolsForLLM])
+
+  // Re-send session.update whenever the tool set changes mid-session so the
+  // model sees newly-toggled MCP servers without a reconnect.
+  useEffect(() => {
+    if (isConnected) sendSessionUpdate()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeMCPIds.join(',')])
+
+  // ── Function-call dispatcher ──
+  // Mirrors the chat-page agentic loop: collect args from the model's
+  // function_call_arguments.done event, hand them to the MCP client's
+  // executeTool, then echo the result back via conversation.item.create +
+  // response.create so the model can complete its turn with the tool output.
+  const handleFunctionCall = useCallback(async (event) => {
+    const dc = dcRef.current
+    if (!dc || dc.readyState !== 'open') return
+    const { call_id: callId, name, arguments: argsJson } = event
+    if (!callId || !name) return
+    if (!isClientTool(name)) {
+      // No MCP server advertises this tool — let the model know so it can
+      // recover instead of hanging.
+      dc.send(JSON.stringify({
+        type: 'conversation.item.create',
+        item: { type: 'function_call_output', call_id: callId, output: `Error: unknown tool "${name}"` },
+      }))
+      dc.send(JSON.stringify({ type: 'response.create' }))
+      return
+    }
+    updateStatus('thinking', `Running tool ${name}...`)
+    try {
+      const result = await executeTool(name, argsJson)
+      dc.send(JSON.stringify({
+        type: 'conversation.item.create',
+        item: { type: 'function_call_output', call_id: callId, output: typeof result === 'string' ? result : JSON.stringify(result) },
+      }))
+      dc.send(JSON.stringify({ type: 'response.create' }))
+    } catch (err) {
+      dc.send(JSON.stringify({
+        type: 'conversation.item.create',
+        item: { type: 'function_call_output', call_id: callId, output: `Error: ${err?.message || err}` },
+      }))
+      dc.send(JSON.stringify({ type: 'response.create' }))
+    }
+  }, [executeTool, isClientTool, updateStatus])
 
   // ── Server event handler ──
   const handleServerEvent = useCallback((event) => {
@@ -163,6 +264,32 @@ export default function Talk() {
       case 'response.output_audio.delta':
         updateStatus('speaking', 'Speaking...')
         break
+      case 'response.output_item.done': {
+        // Server-executed tools (Manage Mode) surface as output items —
+        // FunctionCall when the model invokes a tool, FunctionCallOutput
+        // once the server has run it. Render both on `done` so we get
+        // each transcript entry exactly once.
+        const item = event.item
+        if (!item) break
+        if (item.FunctionCall) {
+          setTranscript(prev => [...prev, {
+            role: 'tool_call',
+            text: `${item.FunctionCall.name}(${item.FunctionCall.arguments || ''})`,
+          }])
+        } else if (item.FunctionCallOutput) {
+          let preview = item.FunctionCallOutput.output || ''
+          // Pretty-print JSON for readability; fall back to raw string.
+          try { preview = JSON.stringify(JSON.parse(preview), null, 2) } catch (_) { /* keep raw */ }
+          setTranscript(prev => [...prev, { role: 'tool_result', text: preview }])
+          streamingRef.current = null  // tool result ends the current assistant text run
+        }
+        break
+      }
+      case 'response.function_call_arguments.done':
+        // Don't await — keep the event loop free; handleFunctionCall sends
+        // conversation.item.create + response.create when it's done.
+        handleFunctionCall(event)
+        break
       case 'response.done':
         updateStatus('listening', 'Listening...')
         break
@@ -171,12 +298,12 @@ export default function Talk() {
         updateStatus('error', 'Error: ' + (event.error?.message || 'Unknown error'))
         break
     }
-  }, [sendSessionUpdate, updateStatus])
+  }, [sendSessionUpdate, updateStatus, handleFunctionCall])
 
   // ── Connect ──
   const connect = useCallback(async () => {
     if (!selectedModel) {
-      addToast('Please select a pipeline model first.', 'warning')
+      addToast('Please select a realtime model first.', 'warning')
       return
     }
     if (!navigator.mediaDevices?.getUserMedia) {
@@ -237,6 +364,7 @@ export default function Talk() {
       const data = await realtimeApi.call({
         sdp: pc.localDescription.sdp,
         model: selectedModel,
+        localai_assistant: manageMode,
       })
 
       await pc.setRemoteDescription({ type: 'answer', sdp: data.sdp })
@@ -245,7 +373,7 @@ export default function Talk() {
       updateStatus('error', 'Connection failed: ' + err.message)
       disconnect()
     }
-  }, [selectedModel, diagVisible, handleServerEvent, updateStatus, addToast])
+  }, [selectedModel, manageMode, diagVisible, handleServerEvent, updateStatus, addToast])
 
   // ── Disconnect ──
   const disconnect = useCallback(() => {
@@ -443,7 +571,7 @@ export default function Talk() {
 
   // ── Render ──
   return (
-    <div className="page" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+    <div className="page page--narrow" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
       <div style={{ width: '100%', maxWidth: '48rem' }}>
         <div style={{ textAlign: 'center', marginBottom: 'var(--spacing-lg)' }}>
           <h1 className="page-title">Talk</h1>
@@ -508,8 +636,58 @@ export default function Talk() {
             </button>
           </div>
 
+          {/* Tools (client-side MCP servers, mirroring the chat page) */}
+          <div style={{ marginBottom: 'var(--spacing-md)' }}>
+            <label className="form-label" style={{ fontSize: '0.8125rem' }}>
+              <i className="fas fa-screwdriver-wrench" style={{ color: 'var(--color-primary)', marginRight: 4 }} /> Tools
+            </label>
+            <ClientMCPDropdown
+              activeServerIds={activeMCPIds}
+              onToggleServer={handleClientMCPToggle}
+              onServerAdded={handleClientMCPServerAdded}
+              onServerRemoved={handleClientMCPServerRemoved}
+              connectionStatuses={connectionStatuses}
+              getConnectedTools={getConnectedTools}
+            />
+            {isAdmin && (
+              <label style={{
+                display: 'flex', alignItems: 'center', gap: 'var(--spacing-xs)',
+                marginTop: 'var(--spacing-xs)', fontSize: '0.8125rem',
+                cursor: isConnected ? 'not-allowed' : 'pointer',
+                color: isConnected ? 'var(--color-text-secondary)' : 'var(--color-text)',
+              }}>
+                <input
+                  type="checkbox"
+                  checked={manageMode}
+                  disabled={isConnected}
+                  onChange={(e) => setManageMode(e.target.checked)}
+                />
+                <i className="fas fa-user-shield" style={{ color: 'var(--color-primary)' }} />
+                Manage Mode
+                <span style={{ color: 'var(--color-text-secondary)', fontSize: '0.75rem' }}>
+                  — let the model query LocalAI (models, backends, system info)
+                </span>
+              </label>
+            )}
+          </div>
+
           {/* Pipeline details */}
-          {selectedModelInfo && (
+          {selectedModelInfo && selectedModelInfo.self_contained && (
+            <div style={{
+              background: 'var(--color-bg-secondary)', borderRadius: 'var(--radius-sm)',
+              padding: 'var(--spacing-xs) var(--spacing-sm)', border: '1px solid var(--color-border)',
+              marginBottom: 'var(--spacing-xs)', fontSize: '0.75rem',
+              display: 'flex', alignItems: 'center', gap: 'var(--spacing-xs)',
+            }}>
+              <i className="fas fa-tower-broadcast" style={{ color: 'var(--color-primary)' }} />
+              <span style={{ color: 'var(--color-text-secondary)' }}>Self-contained any-to-any —</span>
+              <span style={{ fontFamily: 'var(--font-mono)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {selectedModelInfo.name}
+              </span>
+              <span style={{ color: 'var(--color-text-secondary)', marginLeft: 'auto' }}>handles VAD · STT · LLM · TTS</span>
+            </div>
+          )}
+          {selectedModelInfo && !selectedModelInfo.self_contained && (
             <div style={{
               display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 'var(--spacing-xs)',
               marginBottom: 'var(--spacing-xs)', fontSize: '0.75rem',
@@ -533,7 +711,8 @@ export default function Talk() {
           {selectedModelInfo && !isConnected && (
             <div style={{ marginBottom: 'var(--spacing-md)' }}>
               <button className="btn btn-secondary btn-sm" onClick={() => navigate(`/app/model-editor/${encodeURIComponent(selectedModel)}`)}>
-                <i className="fas fa-pen-to-square" style={{ marginRight: 'var(--spacing-xs)' }} /> Edit Pipeline
+                <i className="fas fa-pen-to-square" style={{ marginRight: 'var(--spacing-xs)' }} />
+                {selectedModelInfo.self_contained ? ' Edit Model Config' : ' Edit Pipeline'}
               </button>
             </div>
           )}
@@ -600,16 +779,28 @@ export default function Talk() {
                 Conversation will appear here...
               </p>
             )}
-            {transcript.map((entry, i) => (
-              <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: 'var(--spacing-xs)' }}>
-                <i className={entry.role === 'user' ? 'fa-solid fa-user' : 'fa-solid fa-robot'}
-                  style={{
-                    color: entry.role === 'user' ? 'var(--color-primary)' : 'var(--color-accent)',
-                    marginTop: 3, flexShrink: 0, fontSize: '0.75rem',
-                  }} />
-                <p style={{ margin: 0 }}>{entry.text}</p>
-              </div>
-            ))}
+            {transcript.map((entry, i) => {
+              const isToolCall = entry.role === 'tool_call'
+              const isToolResult = entry.role === 'tool_result'
+              const isUser = entry.role === 'user'
+              const iconClass = isToolCall ? 'fa-solid fa-screwdriver-wrench'
+                              : isToolResult ? 'fa-solid fa-clipboard-list'
+                              : isUser ? 'fa-solid fa-user' : 'fa-solid fa-robot'
+              const iconColor = isToolCall || isToolResult ? 'var(--color-text-secondary)'
+                              : isUser ? 'var(--color-primary)' : 'var(--color-accent)'
+              return (
+                <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: 'var(--spacing-xs)' }}>
+                  <i className={iconClass} style={{ color: iconColor, marginTop: 3, flexShrink: 0, fontSize: '0.75rem' }} />
+                  <p style={{
+                    margin: 0,
+                    fontFamily: (isToolCall || isToolResult) ? 'var(--font-mono)' : undefined,
+                    fontSize: (isToolCall || isToolResult) ? '0.8125rem' : undefined,
+                    color: (isToolCall || isToolResult) ? 'var(--color-text-secondary)' : undefined,
+                    whiteSpace: isToolResult ? 'pre-wrap' : undefined,
+                  }}>{entry.text}</p>
+                </div>
+              )
+            })}
             <div ref={transcriptEndRef} />
           </div>
 

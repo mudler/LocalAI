@@ -3,7 +3,9 @@ package grpc
 import (
 	"context"
 	"crypto/subtle"
+	"errors"
 	"fmt"
+	"io"
 	"log"
 	"net"
 	"os"
@@ -216,7 +218,7 @@ func (s *server) AudioTranscription(ctx context.Context, in *pb.TranscriptReques
 		s.llm.Lock()
 		defer s.llm.Unlock()
 	}
-	result, err := s.llm.AudioTranscription(in)
+	result, err := s.llm.AudioTranscription(ctx, in)
 	if err != nil {
 		return nil, err
 	}
@@ -258,7 +260,7 @@ func (s *server) AudioTranscriptionStream(in *pb.TranscriptRequest, stream pb.Ba
 		done <- true
 	}()
 
-	err := s.llm.AudioTranscriptionStream(in, resultChan)
+	err := s.llm.AudioTranscriptionStream(stream.Context(), in, resultChan)
 	<-done
 
 	return err
@@ -375,6 +377,18 @@ func (s *server) VAD(ctx context.Context, in *pb.VADRequest) (*pb.VADResponse, e
 	return &res, nil
 }
 
+func (s *server) Diarize(ctx context.Context, in *pb.DiarizeRequest) (*pb.DiarizeResponse, error) {
+	if s.llm.Locking() {
+		s.llm.Lock()
+		defer s.llm.Unlock()
+	}
+	res, err := s.llm.Diarize(in)
+	if err != nil {
+		return nil, err
+	}
+	return &res, nil
+}
+
 func (s *server) AudioEncode(ctx context.Context, in *pb.AudioEncodeRequest) (*pb.AudioEncodeResult, error) {
 	if s.llm.Locking() {
 		s.llm.Lock()
@@ -397,6 +411,140 @@ func (s *server) AudioDecode(ctx context.Context, in *pb.AudioDecodeRequest) (*p
 		return nil, err
 	}
 	return res, nil
+}
+
+func (s *server) AudioTransform(ctx context.Context, in *pb.AudioTransformRequest) (*pb.AudioTransformResult, error) {
+	if s.llm.Locking() {
+		s.llm.Lock()
+		defer s.llm.Unlock()
+	}
+	res, err := s.llm.AudioTransform(in)
+	if err != nil {
+		return nil, err
+	}
+	return res, nil
+}
+
+func (s *server) AudioTransformStream(stream pb.Backend_AudioTransformStreamServer) error {
+	if s.llm.Locking() {
+		s.llm.Lock()
+		defer s.llm.Unlock()
+	}
+
+	in := make(chan *pb.AudioTransformFrameRequest, 4)
+	out := make(chan *pb.AudioTransformFrameResponse, 4)
+
+	// Pump incoming frames from the gRPC stream into `in`. EOF closes the
+	// channel, which signals the backend that the client is done sending.
+	recvErrCh := make(chan error, 1)
+	go func() {
+		defer close(in)
+		for {
+			req, err := stream.Recv()
+			if err != nil {
+				if errors.Is(err, io.EOF) {
+					recvErrCh <- nil
+					return
+				}
+				recvErrCh <- err
+				return
+			}
+			select {
+			case in <- req:
+			case <-stream.Context().Done():
+				recvErrCh <- stream.Context().Err()
+				return
+			}
+		}
+	}()
+
+	// Pump outgoing frames from `out` to the gRPC stream. The backend closes
+	// `out` on completion.
+	sendDone := make(chan error, 1)
+	go func() {
+		for resp := range out {
+			if err := stream.Send(resp); err != nil {
+				sendDone <- err
+				// Drain `out` so the backend can finish.
+				for range out {
+				}
+				return
+			}
+		}
+		sendDone <- nil
+	}()
+
+	backendErr := s.llm.AudioTransformStream(in, out)
+	sendErr := <-sendDone
+	recvErr := <-recvErrCh
+
+	if backendErr != nil {
+		return backendErr
+	}
+	if sendErr != nil {
+		return sendErr
+	}
+	return recvErr
+}
+
+// AudioToAudioStream is the bidirectional any-to-any S2S handler. The
+// shape mirrors AudioTransformStream exactly (recv → in chan, out chan →
+// send) so backends can implement either via the same goroutine idiom.
+func (s *server) AudioToAudioStream(stream pb.Backend_AudioToAudioStreamServer) error {
+	if s.llm.Locking() {
+		s.llm.Lock()
+		defer s.llm.Unlock()
+	}
+
+	in := make(chan *pb.AudioToAudioRequest, 8)
+	out := make(chan *pb.AudioToAudioResponse, 8)
+
+	recvErrCh := make(chan error, 1)
+	go func() {
+		defer close(in)
+		for {
+			req, err := stream.Recv()
+			if err != nil {
+				if errors.Is(err, io.EOF) {
+					recvErrCh <- nil
+					return
+				}
+				recvErrCh <- err
+				return
+			}
+			select {
+			case in <- req:
+			case <-stream.Context().Done():
+				recvErrCh <- stream.Context().Err()
+				return
+			}
+		}
+	}()
+
+	sendDone := make(chan error, 1)
+	go func() {
+		for resp := range out {
+			if err := stream.Send(resp); err != nil {
+				sendDone <- err
+				for range out {
+				}
+				return
+			}
+		}
+		sendDone <- nil
+	}()
+
+	backendErr := s.llm.AudioToAudioStream(in, out)
+	sendErr := <-sendDone
+	recvErr := <-recvErrCh
+
+	if backendErr != nil {
+		return backendErr
+	}
+	if sendErr != nil {
+		return sendErr
+	}
+	return recvErr
 }
 
 func (s *server) StartFineTune(ctx context.Context, in *pb.FineTuneRequest) (*pb.FineTuneJobResult, error) {

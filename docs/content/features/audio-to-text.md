@@ -16,6 +16,8 @@ The transcription endpoint allows to convert audio files to text. The endpoint s
 
 The endpoint input supports all the audio formats supported by `ffmpeg`.
 
+> Looking for **"who spoke when"** instead of a flat transcript? See [Speaker Diarization](/features/audio-diarization/) — `/v1/audio/diarization` returns time-stamped speaker segments and supports the `rttm` format used by `pyannote.metrics`.
+
 ## Usage
 
 Once LocalAI is started and whisper models are installed, you can use the `/v1/audio/transcriptions` API endpoint.
@@ -154,3 +156,7 @@ curl http://localhost:8080/v1/audio/transcriptions \
   -F file="@jfk.wav" \
   -F model="qwen3-asr"
 ```
+
+## See also
+
+- [Audio Transform]({{< relref "audio-transform.md" >}}) — clean up the audio (echo cancellation, noise suppression, dereverberation) before passing it to a transcription model.

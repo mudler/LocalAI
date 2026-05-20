@@ -85,6 +85,29 @@ func initializeTracing(maxItems int) {
 	doInitializeTracing()
 }
 
+// sensitiveTraceHeaders is the set of header names whose values must not
+// land in the in-memory trace buffer. Keys are canonical — http.Header
+// stores them that way, so range yields canonical keys directly.
+var sensitiveTraceHeaders = map[string]struct{}{
+	"Authorization":       {},
+	"Proxy-Authorization": {},
+	"Cookie":              {},
+	"Set-Cookie":          {},
+	"X-Api-Key":           {},
+	"Xi-Api-Key":          {},
+	"X-Auth-Token":        {},
+}
+
+func redactSensitiveHeaders(h http.Header) http.Header {
+	out := h.Clone()
+	for k := range out {
+		if _, ok := sensitiveTraceHeaders[k]; ok {
+			out[k] = []string{"[redacted]"}
+		}
+	}
+	return out
+}
+
 // TraceMiddleware intercepts and logs JSON API requests and responses
 func TraceMiddleware(app *application.Application) echo.MiddlewareFunc {
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
@@ -130,11 +153,15 @@ func TraceMiddleware(app *application.Application) echo.MiddlewareFunc {
 				status = http.StatusInternalServerError
 			}
 
-			// Create exchange log (always, even on error)
-			requestHeaders := c.Request().Header.Clone()
+			// Create exchange log (always, even on error). Sensitive headers
+			// (Authorization, API keys, cookies) are redacted before storage —
+			// the trace endpoint is admin-only but the buffer is also reachable
+			// via any heap-dump-style introspection, and tokens shouldn't
+			// outlive the request that carried them.
+			requestHeaders := redactSensitiveHeaders(c.Request().Header)
 			requestBody := make([]byte, len(body))
 			copy(requestBody, body)
-			responseHeaders := c.Response().Header().Clone()
+			responseHeaders := redactSensitiveHeaders(c.Response().Header())
 			responseBody := make([]byte, resBody.Len())
 			copy(responseBody, resBody.Bytes())
 			exchange := APIExchange{

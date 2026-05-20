@@ -1,0 +1,116 @@
+{
+  "activity": {
+    "thought": "思考",
+    "tool": "工具",
+    "result": "结果",
+    "toolResult": "{{name}} 的结果",
+    "thinking": "思考中..."
+  },
+  "header": {
+    "manageModeTooltip": "此聊天可以通过与 LocalAI 对话来安装模型、编辑配置和管理后端。",
+    "modelInfo": "模型信息",
+    "chatSettings": "聊天设置",
+    "modelInfoTitle": "模型信息：{{model}}",
+    "editConfig": "编辑配置",
+    "close": "关闭"
+  },
+  "modelInfo": {
+    "backend": "后端",
+    "modelFile": "模型文件",
+    "contextSize": "上下文大小",
+    "threads": "线程数",
+    "mcp": "MCP",
+    "configured": "已配置",
+    "chatTemplate": "聊天模板",
+    "yes": "是",
+    "gpuLayers": "GPU 层数"
+  },
+  "context": {
+    "label": "上下文：{{percent}}%",
+    "labelWithTokens": "上下文：{{percent}}% （{{tokens}} 个 token）"
+  },
+  "settings": {
+    "title": "聊天设置",
+    "manageMode": "管理模式",
+    "manageModeDesc": "允许此聊天通过与 LocalAI 对话来安装模型、切换后端和编辑配置。",
+    "systemPrompt": "系统提示",
+    "systemPromptPlaceholder": "你是一个有用的助手...",
+    "temperature": "温度",
+    "topP": "Top P",
+    "topK": "Top K",
+    "contextSize": "上下文大小",
+    "contextSizePlaceholder": "2048",
+    "clearHistory": "清除聊天记录"
+  },
+  "empty": {
+    "manageTitle": "通过聊天管理 LocalAI",
+    "manageText": "可以请求安装模型、切换后端、编辑配置或检查状态。助手会总结操作并在更改任何内容前等待您确认。",
+    "startTitle": "开始对话",
+    "readyText": "准备与 {{model}} 聊天",
+    "selectModelText": "在上方选择一个模型以开始",
+    "suggestionsManage": [
+      "已经安装了什么？",
+      "安装一个聊天模型",
+      "显示系统状态",
+      "更新一个后端"
+    ],
+    "suggestionsChat": [
+      "解释这是如何工作的",
+      "帮我写代码",
+      "总结一份文档",
+      "头脑风暴"
+    ],
+    "recent": "最近",
+    "noMessages": "暂无消息",
+    "hintEnter": "回车发送",
+    "hintShiftEnter": "Shift+回车换行",
+    "hintAttach": "附加文件"
+  },
+  "errors": {
+    "viewTraces": "查看追踪以了解详情"
+  },
+  "actions": {
+    "copy": "复制",
+    "regenerate": "重新生成"
+  },
+  "streaming": {
+    "transferring": "正在传输模型...",
+    "transferringTo": "正在传输模型到 {{node}}..."
+  },
+  "tokens": {
+    "perSec": "{{count}} tok/s",
+    "peak": "峰值：{{count}} tok/s",
+    "usage": "{{prompt}}p + {{completion}}c = {{total}}"
+  },
+  "input": {
+    "placeholder": "消息...",
+    "attachFile": "附加文件",
+    "stopGenerating": "停止生成",
+    "canvasTitle": "Canvas — 将代码块和媒体提取到侧边栏以便预览、复制和下载",
+    "canvasLabel": "Canvas",
+    "openCanvas": "打开 Canvas 面板"
+  },
+  "deleteAllDialog": {
+    "title": "删除所有聊天",
+    "message": "删除所有聊天？此操作无法撤销。",
+    "confirm": "全部删除"
+  },
+  "toasts": {
+    "selectModel": "请选择一个模型",
+    "copied": "已复制到剪贴板"
+  },
+  "menu": {
+    "trigger": "聊天",
+    "triggerTitle": "对话 (Ctrl/Cmd+K)",
+    "search": "搜索对话...",
+    "clearSearch": "清除搜索",
+    "noMatch": "没有对话匹配您的搜索",
+    "noConversations": "暂无对话",
+    "rename": "重命名",
+    "exportMarkdown": "导出为 Markdown",
+    "deleteChat": "删除聊天",
+    "newChat": "新对话",
+    "clearAll": "清除全部",
+    "deleteAllTitle": "删除所有对话"
+  }
+}

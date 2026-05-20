@@ -33,6 +33,7 @@ func HuggingFaceScan(uri URI) (*HuggingFaceScanResult, error) {
 	if err != nil {
 		return nil, err
 	}
+	defer results.Body.Close()
 	if results.StatusCode != 200 {
 		return nil, fmt.Errorf("unexpected status code during HuggingFaceScan: %d", results.StatusCode)
 	}

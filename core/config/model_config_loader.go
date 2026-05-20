@@ -249,6 +249,40 @@ func (bcl *ModelConfigLoader) RemoveModelConfig(m string) {
 	delete(bcl.configs, m)
 }
 
+// GetModelsConflictingWith returns the names of every other configured (and
+// not-disabled) model that shares at least one concurrency group with the
+// named model. Returns nil if the named model has no groups, is unknown, or
+// has no peers in any of its groups. The result excludes the queried name.
+func (bcl *ModelConfigLoader) GetModelsConflictingWith(name string) []string {
+	bcl.Lock()
+	defer bcl.Unlock()
+	target, ok := bcl.configs[name]
+	if !ok {
+		return nil
+	}
+	targetGroups := target.GetConcurrencyGroups()
+	if len(targetGroups) == 0 {
+		return nil
+	}
+	var conflicts []string
+	for n, cfg := range bcl.configs {
+		if n == name || cfg.IsDisabled() {
+			continue
+		}
+		other := cfg.GetConcurrencyGroups()
+		if len(other) == 0 {
+			continue
+		}
+		for _, g := range targetGroups {
+			if slices.Contains(other, g) {
+				conflicts = append(conflicts, n)
+				break
+			}
+		}
+	}
+	return conflicts
+}
+
 // UpdateModelConfig updates an existing model config in the loader.
 // This is useful for updating runtime-detected properties like thinking support.
 func (bcl *ModelConfigLoader) UpdateModelConfig(m string, updater func(*ModelConfig)) {

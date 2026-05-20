@@ -8,7 +8,8 @@ url = '/advanced/vram-management'
 When running multiple models in LocalAI, especially on systems with limited GPU memory (VRAM), you may encounter situations where loading a new model fails because there isn't enough available VRAM. LocalAI provides several mechanisms to automatically manage model memory allocation and prevent VRAM exhaustion:
 
 1. **Max Active Backends (LRU Eviction)**: Limit the number of loaded models, evicting the least recently used when the limit is reached
-2. **Watchdog Mechanisms**: Automatically unload idle or stuck models based on configurable timeouts
+2. **Concurrency Groups**: Per-model anti-affinity rules that prevent specific models from coexisting on the same node
+3. **Watchdog Mechanisms**: Automatically unload idle or stuck models based on configurable timeouts
 
 ## The Problem
 
@@ -135,6 +136,86 @@ LOCALAI_SINGLE_ACTIVE_BACKEND=true ./local-ai
 - Single GPU systems with very limited VRAM
 - When you only need one model active at a time
 - Simple deployments where model switching is acceptable
+
+## Solution 1b: Concurrency Groups (per-model anti-affinity)
+
+`--max-active-backends` is a global count — three loaded models is fine, but it
+doesn't know that two of them are 120B and shouldn't share a GPU.
+**Concurrency groups** give per-model rules: any two models that share a group
+name are mutually exclusive on the same node. Loading one evicts the others.
+Models with no groups behave exactly as before.
+
+This addresses [issue #9659](https://github.com/mudler/LocalAI/issues/9659):
+
+> allow my zed prediction model to run alongside anything but don't allow my
+> two 120b models to run alongside each other
+
+### Configuration
+
+Declare groups per model in the YAML config — no CLI flag, no env var:
+
+```yaml
+# llama-120b-a.yaml
+name: llama-120b-a
+backend: llama-cpp
+parameters:
+  model: llama-120b-a.gguf
+concurrency_groups: ["vram-heavy"]
+```
+
+```yaml
+# llama-120b-b.yaml
+name: llama-120b-b
+backend: llama-cpp
+parameters:
+  model: llama-120b-b.gguf
+concurrency_groups: ["vram-heavy"]
+```
+
+```yaml
+# zed-predict.yaml — no groups, runs alongside anything
+name: zed-predict
+backend: llama-cpp
+parameters:
+  model: zed-predict.gguf
+```
+
+With this configuration:
+
+1. Request `zed-predict` → loads.
+2. Request `llama-120b-a` → loads alongside `zed-predict`.
+3. Request `llama-120b-b` → `llama-120b-a` is evicted (shared group
+   `vram-heavy`); `zed-predict` stays loaded.
+
+A model can declare multiple groups; two models conflict if they share **any**
+group name. Group names are arbitrary strings — pick names that make sense for
+your hardware (`vram-heavy`, `gpu-1`, `large-context`, ...).
+
+### Interaction with other knobs
+
+- **`--max-active-backends`**: groups are checked *before* the LRU cap. Group
+  evictions may already make room; LRU then enforces the global count.
+- **`pinned: true`**: a pinned model is never evicted, including by a group
+  conflict. The new request is loaded with a warning logged — pinning two
+  models in the same group is a configuration mismatch.
+- **`--force-eviction-when-busy`**: same retry semantics as LRU. A busy
+  conflict is skipped and retried (`--lru-eviction-max-retries`,
+  `--lru-eviction-retry-interval`); after retries exhaust, the load proceeds
+  with a warning.
+
+### Distributed mode
+
+`concurrency_groups` is enforced **per node**, not cluster-wide — VRAM is a
+node-local resource, so two heavy models on different nodes is fine. The
+distributed scheduler additionally uses the rule as a placement hint: when
+choosing where to load a new model, it prefers nodes that don't already host a
+same-group model, falling back to eviction only if every candidate has a
+conflict.
+
+`concurrency_groups` composes with `NodeSelector` (which decides *which
+nodes* a model is eligible for) — the two filters apply in sequence. Use
+`NodeSelector` to target hardware classes; use `concurrency_groups` to keep
+specific models from co-residing on whichever node hosts them.
 
 ## Solution 2: Watchdog Mechanisms
 

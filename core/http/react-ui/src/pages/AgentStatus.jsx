@@ -260,7 +260,7 @@ export default function AgentStatus() {
   const tree = buildTree(observables)
 
   return (
-    <div className="page">
+    <div className="page page--wide">
       <style>{`
         .as-card {
           background: var(--color-bg-secondary);

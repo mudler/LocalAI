@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useParams, useOutletContext } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import ModelSelector from '../components/ModelSelector'
 import { CAP_VIDEO } from '../utils/capabilities'
 import LoadingSpinner from '../components/LoadingSpinner'
@@ -13,6 +14,7 @@ const SIZES = ['256x256', '512x512', '768x768', '1024x1024']
 export default function VideoGen() {
   const { model: urlModel } = useParams()
   const { addToast } = useOutletContext()
+  const { t } = useTranslation('media')
   const [model, setModel] = useState(urlModel || '')
   const [prompt, setPrompt] = useState('')
   const [negativePrompt, setNegativePrompt] = useState('')
@@ -34,8 +36,8 @@ export default function VideoGen() {
 
   const handleGenerate = async (e) => {
     e.preventDefault()
-    if (!prompt.trim()) { addToast('Please enter a prompt', 'warning'); return }
-    if (!model) { addToast('Please select a model', 'warning'); return }
+    if (!prompt.trim()) { addToast(t('video.toasts.noPrompt'), 'warning'); return }
+    if (!model) { addToast(t('video.toasts.noModel'), 'warning'); return }
 
     setLoading(true)
     setVideos([])
@@ -57,7 +59,7 @@ export default function VideoGen() {
       const results = data?.data || []
       setVideos(results)
       if (!results.length) {
-        addToast('No videos generated', 'warning')
+        addToast(t('video.toasts.noResults'), 'warning')
       } else {
         const urlResults = results.filter(r => r.url && !r.url.startsWith('data:')).map(r => ({ url: r.url }))
         if (urlResults.length) {
@@ -80,53 +82,53 @@ export default function VideoGen() {
     <div className="media-layout">
       <div className="media-controls">
         <div className="page-header">
-          <h1 className="page-title"><i className="fas fa-video" /> Video Generation</h1>
+          <h1 className="page-title"><i className="fas fa-video" /> {t('video.title')}</h1>
         </div>
 
         <form onSubmit={handleGenerate}>
           <div className="form-group">
-            <label className="form-label">Model</label>
+            <label className="form-label">{t('video.labels.model')}</label>
             <ModelSelector value={model} onChange={setModel} capability={CAP_VIDEO} />
           </div>
           <div className="form-group">
-            <label className="form-label">Prompt</label>
-            <textarea className="textarea" value={prompt} onChange={(e) => setPrompt(e.target.value)} placeholder="Describe the video..." rows={3} />
+            <label className="form-label">{t('video.labels.prompt')}</label>
+            <textarea className="textarea" value={prompt} onChange={(e) => setPrompt(e.target.value)} placeholder={t('video.labels.promptPlaceholder')} rows={3} />
           </div>
           <div className="form-group">
-            <label className="form-label">Negative Prompt</label>
+            <label className="form-label">{t('image.labels.negativePrompt')}</label>
             <textarea className="textarea" value={negativePrompt} onChange={(e) => setNegativePrompt(e.target.value)} rows={2} />
           </div>
 
           <div className="form-grid-3col">
             <div className="form-group">
-              <label className="form-label">Size</label>
+              <label className="form-label">{t('video.labels.size')}</label>
               <select className="input btn-full" value={size} onChange={(e) => setSize(e.target.value)}>
                 {SIZES.map(s => <option key={s} value={s}>{s}</option>)}
               </select>
             </div>
             <div className="form-group">
-              <label className="form-label">Duration (s)</label>
+              <label className="form-label">{t('video.labels.duration')}</label>
               <input className="input" type="text" value={seconds} onChange={(e) => setSeconds(e.target.value)} placeholder="Auto" />
             </div>
             <div className="form-group">
-              <label className="form-label">FPS</label>
+              <label className="form-label">{t('video.labels.fps')}</label>
               <input className="input" type="number" value={fps} onChange={(e) => setFps(e.target.value)} />
             </div>
           </div>
 
           <div className={`collapsible-header ${showAdvanced ? 'open' : ''}`} onClick={() => setShowAdvanced(!showAdvanced)}>
-            <i className="fas fa-chevron-right" /> Advanced
+            <i className="fas fa-chevron-right" /> {t('video.labels.advanced')}
           </div>
           {showAdvanced && (
             <div className="form-grid-3col">
-              <div className="form-group"><label className="form-label">Steps</label><input className="input" type="number" value={steps} onChange={(e) => setSteps(e.target.value)} /></div>
-              <div className="form-group"><label className="form-label">Seed</label><input className="input" type="number" value={seed} onChange={(e) => setSeed(e.target.value)} /></div>
+              <div className="form-group"><label className="form-label">{t('image.labels.steps')}</label><input className="input" type="number" value={steps} onChange={(e) => setSteps(e.target.value)} /></div>
+              <div className="form-group"><label className="form-label">{t('video.labels.seed')}</label><input className="input" type="number" value={seed} onChange={(e) => setSeed(e.target.value)} /></div>
               <div className="form-group"><label className="form-label">CFG Scale</label><input className="input" type="number" step="0.1" value={cfgScale} onChange={(e) => setCfgScale(e.target.value)} /></div>
             </div>
           )}
 
           <div className={`collapsible-header ${showImageInputs ? 'open' : ''}`} onClick={() => setShowImageInputs(!showImageInputs)}>
-            <i className="fas fa-chevron-right" /> Image Inputs
+            <i className="fas fa-chevron-right" /> {t('image.labels.imageInputs')}
           </div>
           {showImageInputs && (
             <div className="form-grid-2col">
@@ -136,7 +138,7 @@ export default function VideoGen() {
           )}
 
           <button type="submit" className="btn btn-primary btn-full" disabled={loading}>
-            {loading ? <><LoadingSpinner size="sm" /> Generating...</> : <><i className="fas fa-video" /> Generate Video</>}
+            {loading ? <><LoadingSpinner size="sm" /> {t('video.actions.generating')}</> : <><i className="fas fa-video" /> {t('video.actions.generate')}</>}
           </button>
         </form>
         <MediaHistory {...historyProps} />
@@ -163,7 +165,7 @@ export default function VideoGen() {
           ) : (
             <div style={{ textAlign: 'center', color: 'var(--color-text-muted)' }}>
               <i className="fas fa-video" style={{ fontSize: '3rem', marginBottom: 'var(--spacing-md)', opacity: 0.4 }} />
-              <p>Generated videos will appear here</p>
+              <p>{t('video.empty')}</p>
             </div>
           )}
         </div>

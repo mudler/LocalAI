@@ -5,8 +5,8 @@
     pull_request:
   
   concurrency:
-    group: ci-${{ github.head_ref || github.ref }}-${{ github.repository }}
-    cancel-in-progress: true
+    group: ci-${{ github.event.pull_request.number || github.sha }}-${{ github.repository }}
+    cancel-in-progress: ${{ github.event_name == 'pull_request' }}
   
   jobs:
     image-build:
@@ -18,9 +18,9 @@
         cuda-major-version: ${{ matrix.cuda-major-version }}
         cuda-minor-version: ${{ matrix.cuda-minor-version }}
         platforms: ${{ matrix.platforms }}
+        platform-tag: ${{ matrix.platform-tag || '' }}
         runs-on: ${{ matrix.runs-on }}
         base-image: ${{ matrix.base-image }}
-        grpc-base-image: ${{ matrix.grpc-base-image }}
         makeflags: ${{ matrix.makeflags }}
         ubuntu-version: ${{ matrix.ubuntu-version }}
       secrets:
@@ -60,24 +60,32 @@
               tag-latest: 'false'
               tag-suffix: '-hipblas'
               base-image: "rocm/dev-ubuntu-24.04:7.2.1"
-              grpc-base-image: "ubuntu:24.04"
               runs-on: 'ubuntu-latest'
               makeflags: "--jobs=3 --output-sync=target"
               ubuntu-version: '2404'
             - build-type: 'sycl'
               platforms: 'linux/amd64'
               tag-latest: 'false'
-              base-image: "intel/oneapi-basekit:2025.3.0-0-devel-ubuntu24.04"
-              grpc-base-image: "ubuntu:24.04"
+              base-image: "intel/oneapi-basekit:2025.3.2-0-devel-ubuntu24.04"
               tag-suffix: 'sycl'
               runs-on: 'ubuntu-latest'
               makeflags: "--jobs=3 --output-sync=target"
               ubuntu-version: '2404'
             - build-type: 'vulkan'
-              platforms: 'linux/amd64,linux/arm64'
+              platforms: 'linux/amd64'
+              platform-tag: 'amd64'
               tag-latest: 'false'
               tag-suffix: '-vulkan-core'
               runs-on: 'ubuntu-latest'
+              base-image: "ubuntu:24.04"
+              makeflags: "--jobs=4 --output-sync=target"
+              ubuntu-version: '2404'
+            - build-type: 'vulkan'
+              platforms: 'linux/arm64'
+              platform-tag: 'arm64'
+              tag-latest: 'false'
+              tag-suffix: '-vulkan-core'
+              runs-on: 'ubuntu-24.04-arm'
               base-image: "ubuntu:24.04"
               makeflags: "--jobs=4 --output-sync=target"
               ubuntu-version: '2404'

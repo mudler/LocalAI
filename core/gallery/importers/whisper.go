@@ -9,6 +9,7 @@ import (
 	"github.com/mudler/LocalAI/core/gallery"
 	"github.com/mudler/LocalAI/core/schema"
 	"github.com/mudler/LocalAI/pkg/downloader"
+	hfapi "github.com/mudler/LocalAI/pkg/huggingface-api"
 	"go.yaml.in/yaml/v2"
 )
 
@@ -42,8 +43,7 @@ func (i *WhisperImporter) Match(details Details) bool {
 	}
 
 	// Direct URL or path ending in ggml-*.bin
-	base := filepath.Base(details.URI)
-	if strings.HasPrefix(base, "ggml-") && strings.HasSuffix(strings.ToLower(base), ".bin") {
+	if isGGMLFilename(filepath.Base(details.URI)) {
 		return true
 	}
 
@@ -76,6 +76,12 @@ func (i *WhisperImporter) Import(details Details) (gallery.ModelConfig, error) {
 		description = "Imported from " + details.URI
 	}
 
+	preferredQuants, _ := preferencesMap["quantizations"].(string)
+	quants := []string{"q5_0"}
+	if preferredQuants != "" {
+		quants = strings.Split(preferredQuants, ",")
+	}
+
 	cfg := gallery.ModelConfig{
 		Name:        name,
 		Description: description,
@@ -89,37 +95,43 @@ func (i *WhisperImporter) Import(details Details) (gallery.ModelConfig, error) {
 	}
 
 	uri := downloader.URI(details.URI)
+	directGGML := isGGMLFilename(filepath.Base(details.URI))
 	switch {
-	case uri.LooksLikeURL():
+	case uri.LooksLikeURL() && directGGML:
+		// Direct file URL (e.g. .../resolve/main/ggml-base.en.bin). We
+		// already know the exact file the user wants — no quant pick.
 		fileName, err := uri.FilenameFromUrl()
 		if err != nil {
 			return gallery.ModelConfig{}, err
 		}
+		target := filepath.Join("whisper", "models", name, fileName)
 		cfg.Files = append(cfg.Files, gallery.File{
 			URI:      details.URI,
-			Filename: fileName,
+			Filename: target,
 		})
 		modelConfig.PredictionOptions = schema.PredictionOptions{
-			BasicModelRequest: schema.BasicModelRequest{Model: fileName},
+			BasicModelRequest: schema.BasicModelRequest{Model: target},
 		}
 	case details.HuggingFace != nil:
+		// HF repo: collect every ggml-*.bin, pick the preferred quant
+		// (default q5_0), nest under whisper/models/<name>/ so the same
+		// repo can ship multiple quants without colliding on disk.
+		var ggmlFiles []hfapi.ModelFile
 		for _, f := range details.HuggingFace.Files {
-			base := filepath.Base(f.Path)
-			if !strings.HasPrefix(base, "ggml-") {
-				continue
+			if isGGMLFilename(filepath.Base(f.Path)) {
+				ggmlFiles = append(ggmlFiles, f)
 			}
-			if !strings.HasSuffix(strings.ToLower(base), ".bin") {
-				continue
-			}
+		}
+		if chosen, ok := pickPreferredGGMLFile(ggmlFiles, quants); ok {
+			target := filepath.Join("whisper", "models", name, filepath.Base(chosen.Path))
 			cfg.Files = append(cfg.Files, gallery.File{
-				URI:      f.URL,
-				Filename: base,
-				SHA256:   f.SHA256,
+				URI:      chosen.URL,
+				Filename: target,
+				SHA256:   chosen.SHA256,
 			})
 			modelConfig.PredictionOptions = schema.PredictionOptions{
-				BasicModelRequest: schema.BasicModelRequest{Model: base},
+				BasicModelRequest: schema.BasicModelRequest{Model: target},
 			}
-			break
 		}
 	default:
 		// Bare URI with no HF metadata (pref-only path). Point the config at
@@ -136,4 +148,31 @@ func (i *WhisperImporter) Import(details Details) (gallery.ModelConfig, error) {
 	cfg.ConfigFile = string(data)
 
 	return cfg, nil
+}
+
+// isGGMLFilename returns true when name follows whisper.cpp's "ggml-*.bin"
+// packaging convention. The .bin check is case-insensitive; the ggml- prefix
+// is exact.
+func isGGMLFilename(name string) bool {
+	return strings.HasPrefix(name, "ggml-") && strings.HasSuffix(strings.ToLower(name), ".bin")
+}
+
+// pickPreferredGGMLFile walks prefs in order and returns the first ggml file
+// whose basename contains any preference token (case-insensitive match on the
+// quant suffix, e.g. "q5_0"). When no preference matches, falls back to the
+// last file — mirroring llama-cpp's pickPreferredGroup behaviour so a missing
+// quant still yields *something* the user can run.
+func pickPreferredGGMLFile(files []hfapi.ModelFile, prefs []string) (hfapi.ModelFile, bool) {
+	if len(files) == 0 {
+		return hfapi.ModelFile{}, false
+	}
+	for _, pref := range prefs {
+		lower := strings.ToLower(pref)
+		for _, f := range files {
+			if strings.Contains(strings.ToLower(filepath.Base(f.Path)), lower) {
+				return f, true
+			}
+		}
+	}
+	return files[len(files)-1], true
 }

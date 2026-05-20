@@ -16,6 +16,7 @@ import (
 	pb "github.com/mudler/LocalAI/pkg/grpc/proto"
 	"github.com/mudler/LocalAI/pkg/vram"
 	"github.com/mudler/xlog"
+	"golang.org/x/sync/singleflight"
 	"google.golang.org/protobuf/proto"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
@@ -37,18 +38,29 @@ type SmartRouterOptions struct {
 	AuthToken     string
 	ClientFactory BackendClientFactory // optional; defaults to tokenClientFactory
 	DB            *gorm.DB             // for advisory locks during routing
+	// ConflictResolver, when set, lets the scheduler narrow placement
+	// candidates by per-model concurrency_groups (#9659). When nil, group
+	// anti-affinity is disabled at the scheduler layer; the per-node
+	// watchdog still enforces the rule on arrival.
+	ConflictResolver ConcurrencyConflictResolver
 }
 
 // SmartRouter routes inference requests to the best available backend node.
 // It uses the ModelRouter interface (backed by NodeRegistry in production) for routing decisions.
 type SmartRouter struct {
-	registry       ModelRouter
-	unloader       NodeCommandSender    // optional, for NATS-driven load/unload
-	fileStager     FileStager           // optional, for distributed file transfer
-	galleriesJSON  string               // backend gallery config for dynamic installation
-	clientFactory  BackendClientFactory // creates gRPC backend clients
-	db             *gorm.DB             // for advisory locks during routing
-	stagingTracker *StagingTracker      // tracks file staging progress for UI visibility
+	registry         ModelRouter
+	unloader         NodeCommandSender    // optional, for NATS-driven load/unload
+	fileStager       FileStager           // optional, for distributed file transfer
+	galleriesJSON    string               // backend gallery config for dynamic installation
+	clientFactory    BackendClientFactory // creates gRPC backend clients
+	db               *gorm.DB             // for advisory locks during routing
+	stagingTracker   *StagingTracker      // tracks file staging progress for UI visibility
+	conflictResolver ConcurrencyConflictResolver
+	// installFlight coalesces concurrent identical NATS install requests
+	// (same nodeID + backend + modelID + replica) so 6 simultaneous chat
+	// completions for one not-yet-loaded model produce ONE round-trip, not
+	// six. Avoids amplifying head-of-line blocking on the worker side.
+	installFlight singleflight.Group
 }
 
 // NewSmartRouter creates a new SmartRouter backed by the given ModelRouter.
@@ -59,13 +71,14 @@ func NewSmartRouter(registry ModelRouter, opts SmartRouterOptions) *SmartRouter 
 		factory = &tokenClientFactory{token: opts.AuthToken}
 	}
 	return &SmartRouter{
-		registry:       registry,
-		unloader:       opts.Unloader,
-		fileStager:     opts.FileStager,
-		galleriesJSON:  opts.GalleriesJSON,
-		clientFactory:  factory,
-		db:             opts.DB,
-		stagingTracker: NewStagingTracker(),
+		registry:         registry,
+		unloader:         opts.Unloader,
+		fileStager:       opts.FileStager,
+		galleriesJSON:    opts.GalleriesJSON,
+		clientFactory:    factory,
+		db:               opts.DB,
+		stagingTracker:   NewStagingTracker(),
+		conflictResolver: opts.ConflictResolver,
 	}
 }
 
@@ -77,19 +90,23 @@ func (r *SmartRouter) StagingTracker() *StagingTracker { return r.stagingTracker
 
 // scheduleLoadResult holds the result of scheduling and loading a model on a node.
 type scheduleLoadResult struct {
-	Node        *BackendNode
-	Client      grpc.Backend
-	BackendAddr string
+	Node         *BackendNode
+	Client       grpc.Backend
+	BackendAddr  string
+	ReplicaIndex int
 }
 
 // scheduleAndLoad is the shared core for loading a model on a new node.
 // Used by both Route() (for first-time loads) and ScheduleAndLoadModel() (for reconciler scale-ups).
 //
-// Steps: pick node → install backend → stage files → LoadModel → SetNodeModel.
+// Steps: pick node + replica slot → install backend → stage files → LoadModel → SetNodeModel.
+//
+// scheduleNewModel allocates the replica index internally so the worker's
+// processKey, port, and the registry row all agree.
 func (r *SmartRouter) scheduleAndLoad(ctx context.Context, backendType, trackingKey, modelName string,
 	modelOpts *pb.ModelOptions, parallel bool, initialInFlight int) (*scheduleLoadResult, error) {
 
-	node, backendAddr, err := r.scheduleNewModel(ctx, backendType, trackingKey, modelOpts)
+	node, backendAddr, replicaIndex, err := r.scheduleNewModel(ctx, backendType, trackingKey, modelOpts)
 	if err != nil {
 		return nil, fmt.Errorf("no available nodes: %w", err)
 	}
@@ -122,21 +139,21 @@ func (r *SmartRouter) scheduleAndLoad(ctx context.Context, backendType, tracking
 		}
 	}
 
-	// Record the model as loaded on this node
-	if err := r.registry.SetNodeModel(ctx, node.ID, trackingKey, "loaded", backendAddr, initialInFlight); err != nil {
-		xlog.Warn("Failed to record model on node", "node", node.Name, "model", trackingKey, "error", err)
+	// Record the model as loaded on this node (specific replica slot).
+	if err := r.registry.SetNodeModel(ctx, node.ID, trackingKey, replicaIndex, "loaded", backendAddr, initialInFlight); err != nil {
+		xlog.Warn("Failed to record model on node", "node", node.Name, "model", trackingKey, "replica", replicaIndex, "error", err)
 	}
 
 	// Store load metadata for future replica scale-ups by the reconciler
 	if modelOpts != nil {
 		if optsBlob, marshalErr := proto.Marshal(modelOpts); marshalErr == nil {
-			if storeErr := r.registry.SetNodeModelLoadInfo(ctx, node.ID, trackingKey, backendType, optsBlob); storeErr != nil {
-				xlog.Warn("Failed to store model load info", "node", node.Name, "model", trackingKey, "error", storeErr)
+			if storeErr := r.registry.SetNodeModelLoadInfo(ctx, node.ID, trackingKey, replicaIndex, backendType, optsBlob); storeErr != nil {
+				xlog.Warn("Failed to store model load info", "node", node.Name, "model", trackingKey, "replica", replicaIndex, "error", storeErr)
 			}
 		}
 	}
 
-	return &scheduleLoadResult{Node: node, Client: client, BackendAddr: backendAddr}, nil
+	return &scheduleLoadResult{Node: node, Client: client, BackendAddr: backendAddr, ReplicaIndex: replicaIndex}, nil
 }
 
 // ScheduleAndLoadModel implements ModelScheduler for the reconciler.
@@ -146,12 +163,13 @@ func (r *SmartRouter) ScheduleAndLoadModel(ctx context.Context, modelName string
 	// Get load info from an existing replica (stored when Route() first loaded the model)
 	backendType, optsBlob, err := r.registry.GetModelLoadInfo(ctx, modelName)
 	if err != nil {
-		// No existing replica with stored opts — fall back to install-only.
-		// This happens on the very first load (before Route() has stored opts).
-		xlog.Warn("No stored model load info for reconciler scale-up, falling back to backend install only",
-			"model", modelName, "error", err)
-		node, _, schedErr := r.scheduleNewModel(ctx, "", modelName, nil)
-		return node, schedErr
+		// No replica has ever been loaded for this model, so we have no
+		// backend type or model options to replicate. The previous fallback
+		// fired backend.install with backend="" every reconciler tick, which
+		// the worker rejected ("backend name is empty"). Skip cleanly: the
+		// model needs to be served at least once via Route() so its load
+		// info is stored — then the reconciler can replicate it.
+		return nil, fmt.Errorf("no load info for model %s: serve at least one request for it before the reconciler can replicate (cause: %w)", modelName, err)
 	}
 
 	// Deserialize the stored model options
@@ -160,7 +178,8 @@ func (r *SmartRouter) ScheduleAndLoadModel(ctx context.Context, modelName string
 		return nil, fmt.Errorf("unmarshalling stored model options for %s: %w", modelName, err)
 	}
 
-	// initialInFlight=0: reconciler is pre-loading, not serving a request
+	// initialInFlight=0: reconciler is pre-loading, not serving a request.
+	// scheduleAndLoad picks both the node and the replica slot internally.
 	result, err := r.scheduleAndLoad(ctx, backendType, modelName, modelName, &modelOpts, false, 0)
 	if err != nil {
 		return nil, err
@@ -193,38 +212,49 @@ func (r *SmartRouter) Route(ctx context.Context, modelID, modelName, backendType
 		trackingKey = modelName
 	}
 
+	// Resolve the model's NodeSelector once so cached-replica lookup and the
+	// new-load scheduler agree on the candidate set. Without this, a cached
+	// replica on a node the selector now excludes was picked over a matching
+	// replica elsewhere, and the fall-through then tried to load on the
+	// matching node where the model was already at capacity (eviction-busy).
+	candidateNodeIDs, err := r.resolveSelectorCandidates(ctx, trackingKey)
+	if err != nil {
+		return nil, err
+	}
+
 	// Step 1: Find and atomically lock a node with this model loaded
-	node, nm, err := r.registry.FindAndLockNodeWithModel(ctx, trackingKey)
+	node, nm, err := r.registry.FindAndLockNodeWithModel(ctx, trackingKey, candidateNodeIDs)
 	if err == nil && node != nil {
 		modelAddr := node.Address
 		if nm.Address != "" {
 			modelAddr = nm.Address
 		}
+		replicaIdx := nm.ReplicaIndex
 
 		// Verify the backend process is still alive via gRPC health check
 		if !r.probeHealth(ctx, node, modelAddr) {
-			// Stale — roll back the increment, remove the model record, fall through
-			r.registry.DecrementInFlight(ctx, node.ID, trackingKey)
-			r.registry.RemoveNodeModel(ctx, node.ID, trackingKey)
+			// Stale — roll back the increment, remove the specific replica row, fall through
+			r.registry.DecrementInFlight(ctx, node.ID, trackingKey, replicaIdx)
+			r.registry.RemoveNodeModel(ctx, node.ID, trackingKey, replicaIdx)
 			xlog.Warn("Backend not reachable for cached model, falling through to reload",
-				"node", node.Name, "model", modelName)
+				"node", node.Name, "model", modelName, "replica", replicaIdx)
 		} else {
 			// Verify node still matches scheduling constraints
 			if !r.nodeMatchesScheduling(ctx, node, trackingKey) {
-				r.registry.DecrementInFlight(ctx, node.ID, trackingKey)
+				r.registry.DecrementInFlight(ctx, node.ID, trackingKey, replicaIdx)
 				xlog.Info("Cached model on node that no longer matches selector, falling through",
-					"node", node.Name, "model", trackingKey)
+					"node", node.Name, "model", trackingKey, "replica", replicaIdx)
 				// Fall through to step 2 (scheduleNewModel)
 			} else {
 				// Node is alive — FindAndLockNodeWithModel already incremented in-flight as a
 				// reservation. InFlightTrackingClient handles per-inference tracking, and its
 				// onFirstComplete callback releases the reservation after the first inference
 				// call finishes, so in-flight returns to 0 when idle.
-				r.registry.TouchNodeModel(ctx, node.ID, trackingKey)
+				r.registry.TouchNodeModel(ctx, node.ID, trackingKey, replicaIdx)
 				grpcClient := r.buildClientForAddr(node, modelAddr, parallel)
-				tracked := NewInFlightTrackingClient(grpcClient, r.registry, node.ID, trackingKey)
+				tracked := NewInFlightTrackingClient(grpcClient, r.registry, node.ID, trackingKey, replicaIdx)
 				tracked.OnFirstComplete(func() {
-					r.registry.DecrementInFlight(context.Background(), node.ID, trackingKey)
+					r.registry.DecrementInFlight(context.Background(), node.ID, trackingKey, replicaIdx)
 				})
 				return &RouteResult{
 					Node:   node,
@@ -240,35 +270,36 @@ func (r *SmartRouter) Route(ctx context.Context, modelID, modelName, backendType
 	// Step 2: Model not loaded — schedule loading with distributed lock to prevent duplicates
 	loadModel := func() (*RouteResult, error) {
 		// Re-check after acquiring lock — another request may have loaded it
-		node, nm, err := r.registry.FindAndLockNodeWithModel(ctx, trackingKey)
+		node, nm, err := r.registry.FindAndLockNodeWithModel(ctx, trackingKey, candidateNodeIDs)
 		if err == nil && node != nil {
 			modelAddr := node.Address
 			if nm.Address != "" {
 				modelAddr = nm.Address
 			}
+			replicaIdx := nm.ReplicaIndex
 
 			// Verify the backend process is still alive via gRPC health check
 			if !r.probeHealth(ctx, node, modelAddr) {
-				// Stale — roll back the increment, remove the model record, continue loading
-				r.registry.DecrementInFlight(ctx, node.ID, trackingKey)
-				r.registry.RemoveNodeModel(ctx, node.ID, trackingKey)
+				// Stale — roll back the increment, remove the specific replica row, continue loading
+				r.registry.DecrementInFlight(ctx, node.ID, trackingKey, replicaIdx)
+				r.registry.RemoveNodeModel(ctx, node.ID, trackingKey, replicaIdx)
 				xlog.Warn("Backend not reachable for cached model inside lock, proceeding to load",
-					"node", node.Name, "model", modelName)
+					"node", node.Name, "model", modelName, "replica", replicaIdx)
 			} else {
 				// Verify node still matches scheduling constraints
 				if !r.nodeMatchesScheduling(ctx, node, trackingKey) {
-					r.registry.DecrementInFlight(ctx, node.ID, trackingKey)
+					r.registry.DecrementInFlight(ctx, node.ID, trackingKey, replicaIdx)
 					xlog.Info("Cached model on node that no longer matches selector, falling through",
-						"node", node.Name, "model", trackingKey)
+						"node", node.Name, "model", trackingKey, "replica", replicaIdx)
 					// Fall through to scheduling below
 				} else {
 					// Model loaded while we waited — FindAndLockNodeWithModel already incremented
 					// in-flight as a reservation. Release it after the first inference completes.
-					r.registry.TouchNodeModel(ctx, node.ID, trackingKey)
+					r.registry.TouchNodeModel(ctx, node.ID, trackingKey, replicaIdx)
 					grpcClient := r.buildClientForAddr(node, modelAddr, parallel)
-					tracked := NewInFlightTrackingClient(grpcClient, r.registry, node.ID, trackingKey)
+					tracked := NewInFlightTrackingClient(grpcClient, r.registry, node.ID, trackingKey, replicaIdx)
 					tracked.OnFirstComplete(func() {
-						r.registry.DecrementInFlight(context.Background(), node.ID, trackingKey)
+						r.registry.DecrementInFlight(context.Background(), node.ID, trackingKey, replicaIdx)
 					})
 					return &RouteResult{
 						Node:   node,
@@ -281,15 +312,17 @@ func (r *SmartRouter) Route(ctx context.Context, modelID, modelName, backendType
 			}
 		}
 
-		// Still not loaded — use shared schedule-and-load logic
+		// Still not loaded — use shared schedule-and-load logic, which picks
+		// both the node and the replica slot.
 		result, err := r.scheduleAndLoad(ctx, backendType, trackingKey, modelName, modelOpts, parallel, 1)
 		if err != nil {
 			return nil, err
 		}
 
-		tracked := NewInFlightTrackingClient(result.Client, r.registry, result.Node.ID, trackingKey)
+		replicaIdx := result.ReplicaIndex
+		tracked := NewInFlightTrackingClient(result.Client, r.registry, result.Node.ID, trackingKey, replicaIdx)
 		tracked.OnFirstComplete(func() {
-			r.registry.DecrementInFlight(context.Background(), result.Node.ID, trackingKey)
+			r.registry.DecrementInFlight(context.Background(), result.Node.ID, trackingKey, replicaIdx)
 		})
 		return &RouteResult{
 			Node:   result.Node,
@@ -338,6 +371,84 @@ func extractNodeIDs(nodes []BackendNode) []string {
 	return ids
 }
 
+// resolveSelectorCandidates returns the node IDs that match the model's
+// NodeSelector. Returns nil when no selector is configured ("any healthy node"
+// — registry helpers treat nil as no filter). Returns an error when a
+// non-empty selector matches zero healthy nodes, since there is nothing to
+// route or schedule on.
+func (r *SmartRouter) resolveSelectorCandidates(ctx context.Context, modelID string) ([]string, error) {
+	sched, _ := r.registry.GetModelScheduling(ctx, modelID)
+	if sched == nil || sched.NodeSelector == "" {
+		return nil, nil
+	}
+	selector := parseSelectorJSON(sched.NodeSelector)
+	if len(selector) == 0 {
+		return nil, nil
+	}
+	candidates, err := r.registry.FindNodesBySelector(ctx, selector)
+	if err != nil {
+		return nil, fmt.Errorf("looking up nodes for selector %s: %w", sched.NodeSelector, err)
+	}
+	if len(candidates) == 0 {
+		return nil, fmt.Errorf("no healthy nodes match selector for model %s: %s", modelID, sched.NodeSelector)
+	}
+	return extractNodeIDs(candidates), nil
+}
+
+// narrowByGroupAntiAffinity removes candidate nodes that already host a model
+// declared as concurrent-conflicting with modelID via concurrency_groups
+// (#9659). This is a soft filter: when *every* candidate would be excluded,
+// the original set is returned and the per-node watchdog evicts on arrival.
+//
+// candidates may be nil ("any healthy node" — registry helpers treat nil as
+// no filter). nil is returned unchanged: hard-narrowing the implicit "all
+// nodes" set would silently exclude every node we know nothing about.
+func (r *SmartRouter) narrowByGroupAntiAffinity(ctx context.Context, modelID string, candidates []string) ([]string, error) {
+	if r.conflictResolver == nil || candidates == nil {
+		return candidates, nil
+	}
+	conflicts := r.conflictResolver.GetModelsConflictingWith(modelID)
+	if len(conflicts) == 0 {
+		return candidates, nil
+	}
+
+	excluded := make(map[string]struct{})
+	for _, name := range conflicts {
+		nodes, err := r.registry.FindNodesWithModel(ctx, name)
+		if err != nil {
+			// Best-effort: a single lookup failure shouldn't fail placement.
+			// Log and move on — the watchdog still enforces the rule on arrival.
+			xlog.Warn("Group anti-affinity: lookup failed, skipping", "model", name, "error", err)
+			continue
+		}
+		for _, n := range nodes {
+			excluded[n.ID] = struct{}{}
+		}
+	}
+	if len(excluded) == 0 {
+		return candidates, nil
+	}
+
+	narrowed := candidates[:0:0]
+	for _, id := range candidates {
+		if _, bad := excluded[id]; bad {
+			continue
+		}
+		narrowed = append(narrowed, id)
+	}
+	if len(narrowed) == 0 {
+		// Soft fallback: every candidate has a conflict. Return the original
+		// set and let the per-node watchdog evict on arrival rather than
+		// failing the request.
+		xlog.Debug("Group anti-affinity: all candidates conflict, falling back to original set",
+			"model", modelID, "conflicts", conflicts)
+		return candidates, nil
+	}
+	xlog.Debug("Group anti-affinity narrowed candidates",
+		"model", modelID, "before", len(candidates), "after", len(narrowed))
+	return narrowed, nil
+}
+
 // nodeMatchesScheduling checks if a node satisfies the scheduling constraints for a model.
 // Returns true if no constraints exist or the node matches all selector labels.
 func (r *SmartRouter) nodeMatchesScheduling(ctx context.Context, node *BackendNode, modelName string) bool {
@@ -370,33 +481,55 @@ func (r *SmartRouter) nodeMatchesScheduling(ctx context.Context, node *BackendNo
 	return true
 }
 
-// scheduleNewModel picks the best node for loading a new model.
-// Strategy: VRAM-aware → idle-first → least-loaded.
+// scheduleNewModel picks the best node for loading a new model and allocates
+// the replica slot.
+// Strategy: filter to nodes with a free slot for this model → VRAM-aware →
+// idle-first → least-loaded → eviction.
 // Sends backend.install via NATS so the chosen node has the right backend running.
-func (r *SmartRouter) scheduleNewModel(ctx context.Context, backendType, modelID string, modelOpts *pb.ModelOptions) (*BackendNode, string, error) {
+//
+// Returns (node, gRPC address, replicaIndex, err). replicaIndex is the slot
+// the worker has been told to use; the caller must pass the same index into
+// SetNodeModel so the registry row matches the live process.
+func (r *SmartRouter) scheduleNewModel(ctx context.Context, backendType, modelID string, modelOpts *pb.ModelOptions) (*BackendNode, string, int, error) {
 	// Estimate VRAM required for the model
 	var estimatedVRAM uint64
 	if modelOpts != nil {
 		estimatedVRAM = r.estimateModelVRAM(ctx, modelOpts)
 	}
 
-	// Check for scheduling constraints (node selector)
-	sched, _ := r.registry.GetModelScheduling(ctx, modelID)
-	var candidateNodeIDs []string // nil = all nodes eligible
-
-	if sched != nil && sched.NodeSelector != "" {
-		selector := parseSelectorJSON(sched.NodeSelector)
-		if len(selector) > 0 {
-			candidates, err := r.registry.FindNodesBySelector(ctx, selector)
-			if err != nil || len(candidates) == 0 {
-				return nil, "", fmt.Errorf("no healthy nodes match selector for model %s: %v", modelID, sched.NodeSelector)
-			}
-			candidateNodeIDs = extractNodeIDs(candidates)
-		}
+	// Check for scheduling constraints (node selector). If a selector is set,
+	// we restrict the candidate pool to matching nodes; otherwise nil means
+	// "any healthy node".
+	candidateNodeIDs, err := r.resolveSelectorCandidates(ctx, modelID)
+	if err != nil {
+		return nil, "", 0, err
 	}
 
+	// Apply concurrency-group anti-affinity (#9659): prefer nodes that don't
+	// already host a model declared exclusive with this one. Soft filter — if
+	// every candidate has a conflict, the original set is returned and the
+	// per-node watchdog evicts on arrival.
+	candidateNodeIDs, err = r.narrowByGroupAntiAffinity(ctx, modelID, candidateNodeIDs)
+	if err != nil {
+		return nil, "", 0, err
+	}
+
+	// Narrow candidates to nodes that still have a free replica slot for this
+	// model. Without this filter, the scheduler would happily pick a node
+	// already at capacity for this model (e.g. when MinReplicas > free
+	// cluster capacity), which is what caused the original 30s flap loop.
+	freeSlotNodes, err := r.registry.FindNodesWithFreeSlot(ctx, modelID, candidateNodeIDs)
+	if err != nil {
+		xlog.Warn("Failed to query nodes with free slot; falling back to selector-only filtering",
+			"model", modelID, "error", err)
+	} else if len(freeSlotNodes) > 0 {
+		// Replace the candidate set with only those that have capacity.
+		candidateNodeIDs = extractNodeIDs(freeSlotNodes)
+	}
+	// If freeSlotNodes is empty (everyone full), candidateNodeIDs is whatever
+	// it was — we'll fall through to eviction below.
+
 	var node *BackendNode
-	var err error
 
 	if estimatedVRAM > 0 {
 		if candidateNodeIDs != nil {
@@ -429,20 +562,71 @@ func (r *SmartRouter) scheduleNewModel(ctx context.Context, backendType, modelID
 		evictedNode, evictErr := r.evictLRUAndFreeNode(ctx)
 		if evictErr != nil {
 			if errors.Is(evictErr, ErrEvictionBusy) {
-				return nil, "", fmt.Errorf("no healthy nodes available: %w", evictErr)
+				return nil, "", 0, fmt.Errorf("no healthy nodes available: %w", evictErr)
 			}
-			return nil, "", fmt.Errorf("no healthy nodes available and eviction failed: %w", evictErr)
+			return nil, "", 0, fmt.Errorf("no healthy nodes available and eviction failed: %w", evictErr)
 		}
 		node = evictedNode
 	}
 
-	// Send backend.install — the worker installs the backend if needed and starts the gRPC process
-	addr, err := r.installBackendOnNode(ctx, node, backendType, modelID)
-	if err != nil {
-		return nil, "", fmt.Errorf("installing backend on node %s: %w", node.Name, err)
+	// Allocate the replica slot before sending backend.install so the worker
+	// uses the same slot for its processKey + port. Default to 0 when the
+	// node's MaxReplicasPerModel is 1 (preserves single-replica behavior).
+	maxSlots := node.MaxReplicasPerModel
+	if maxSlots < 1 {
+		maxSlots = 1
+	}
+	replicaIdx, slotErr := r.registry.NextFreeReplicaIndex(ctx, node.ID, modelID, maxSlots)
+	if slotErr != nil {
+		// All slots on this node are taken — fall back to eviction. This is
+		// rare in practice because FindNodesWithFreeSlot already filtered;
+		// it can race with another concurrent scheduler.
+		xlog.Warn("Chosen node has no free replica slot, evicting LRU",
+			"node", node.Name, "model", modelID, "max_slots", maxSlots)
+		evictedNode, evictErr := r.evictLRUAndFreeNode(ctx)
+		if evictErr != nil {
+			return nil, "", 0, fmt.Errorf("no replica slot on %s and eviction failed: %w", node.Name, evictErr)
+		}
+		node = evictedNode
+		replicaIdx, slotErr = r.registry.NextFreeReplicaIndex(ctx, node.ID, modelID, node.MaxReplicasPerModel)
+		if slotErr != nil {
+			return nil, "", 0, fmt.Errorf("no replica slot on %s after eviction: %w", node.Name, slotErr)
+		}
 	}
 
-	return node, addr, nil
+	// Soft-reserve VRAM up front so a second scheduling tick within the same
+	// heartbeat window can't pick this node based on stale free-VRAM
+	// numbers. The worker's next heartbeat resets reserved_vram to the
+	// authoritative reading; explicit rollback below covers the failure
+	// window between reservation and a successful install.
+	reserved := false
+	if estimatedVRAM > 0 {
+		reserveErr := r.registry.ReserveVRAM(ctx, node.ID, estimatedVRAM)
+		if reserveErr != nil {
+			// ErrInsufficientVRAM races with another scheduler — log and
+			// proceed without a reservation rather than failing the load.
+			// FindNodeWithVRAM already accounted for reserved_vram, so this
+			// is a tight race window; the worker will reconcile via heartbeat.
+			xlog.Warn("Failed to reserve VRAM, proceeding without reservation",
+				"node", node.Name, "bytes", estimatedVRAM, "error", reserveErr)
+		} else {
+			reserved = true
+		}
+	}
+
+	// Send backend.install — the worker installs the backend if needed and
+	// starts the gRPC process bound to a port for this (model, replica) slot.
+	addr, installErr := r.installBackendOnNode(ctx, node, backendType, modelID, replicaIdx)
+	if installErr != nil {
+		// Roll back the reservation explicitly so the column is accurate
+		// before the next heartbeat. Best-effort.
+		if reserved {
+			_ = r.registry.ReleaseVRAM(ctx, node.ID, estimatedVRAM)
+		}
+		return nil, "", 0, fmt.Errorf("installing backend on node %s: %w", node.Name, installErr)
+	}
+
+	return node, addr, replicaIdx, nil
 }
 
 // estimateModelVRAM estimates the VRAM required for a model using the unified estimator.
@@ -450,10 +634,14 @@ func (r *SmartRouter) estimateModelVRAM(ctx context.Context, opts *pb.ModelOptio
 	estCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
 
+	ctxSize := uint32(opts.ContextSize)
+	if ctxSize == 0 {
+		ctxSize = 8192
+	}
+
 	input := vram.ModelEstimateInput{
 		Options: vram.EstimateOptions{
-			ContextLength: uint32(opts.ContextSize),
-			GPULayers:     int(opts.NGPULayers),
+			GPULayers: int(opts.NGPULayers),
 		},
 	}
 
@@ -471,52 +659,53 @@ func (r *SmartRouter) estimateModelVRAM(ctx context.Context, opts *pb.ModelOptio
 		}
 	}
 
-	// If model file exists, get its size as fallback
-	if opts.ModelFile != "" && len(input.Files) == 0 {
-		if info, err := os.Stat(opts.ModelFile); err == nil {
-			return vram.EstimateFromSize(uint64(info.Size())).VRAMBytes
-		}
-	}
-
 	if len(input.Files) == 0 && input.HFRepo == "" && input.Size == "" {
 		return 0
 	}
 
-	result, err := vram.EstimateModel(estCtx, input)
-	if err != nil || result.VRAMBytes == 0 {
-		// Last resort: try model file size
-		if opts.ModelFile != "" {
-			if info, statErr := os.Stat(opts.ModelFile); statErr == nil {
-				return vram.EstimateFromSize(uint64(info.Size())).VRAMBytes
-			}
-		}
+	result, err := vram.EstimateModelMultiContext(estCtx, input, []uint32{ctxSize})
+	if err != nil {
 		return 0
 	}
-	return result.VRAMBytes
+	return result.VRAMForContext(ctxSize)
 }
 
-// installBackendOnNode sends a NATS backend.install request-reply to the node.
-// The worker installs the backend from gallery (if not already installed),
-// starts the gRPC process, and replies when ready.
-// installBackendOnNode installs a backend on a node and returns the gRPC address.
-func (r *SmartRouter) installBackendOnNode(ctx context.Context, node *BackendNode, backendType, modelID string) (string, error) {
+// installBackendOnNode sends a NATS backend.install request-reply to the node
+// and returns the gRPC address. Concurrent identical calls (same nodeID +
+// backend + modelID + replica) coalesce via singleflight: 6 chat completions
+// for the same not-yet-loaded model produce 1 NATS round-trip and 6 callers
+// share the result. This kills the load-amplification we saw in the live
+// cluster where 6× simultaneous BackendLoader logs sat behind one slow
+// install in the worker's NATS callback queue.
+//
+// Routine load: the worker's fast-path "already running → return current
+// address" is correct here. Upgrades go through
+// DistributedBackendManager.UpgradeBackend on the backend.upgrade subject.
+func (r *SmartRouter) installBackendOnNode(ctx context.Context, node *BackendNode, backendType, modelID string, replicaIndex int) (string, error) {
 	if r.unloader == nil {
 		return "", fmt.Errorf("no NATS connection for backend installation")
 	}
 
-	reply, err := r.unloader.InstallBackend(node.ID, backendType, modelID, r.galleriesJSON, "", "", "")
+	key := fmt.Sprintf("%s|%s|%s|%d", node.ID, backendType, modelID, replicaIndex)
+	v, err, _ := r.installFlight.Do(key, func() (any, error) {
+		reply, err := r.unloader.InstallBackend(node.ID, backendType, modelID, r.galleriesJSON, "", "", "", replicaIndex)
+		if err != nil {
+			return "", err
+		}
+		if !reply.Success {
+			return "", fmt.Errorf("worker replied with error: %s", reply.Error)
+		}
+		// Return the backend's gRPC address (per-replica port from worker)
+		addr := reply.Address
+		if addr == "" {
+			addr = node.Address // fallback to node base address
+		}
+		return addr, nil
+	})
 	if err != nil {
 		return "", err
 	}
-	if !reply.Success {
-		return "", fmt.Errorf("worker replied with error: %s", reply.Error)
-	}
-	// Return the backend's gRPC address (new: per-process port from worker)
-	addr := reply.Address
-	if addr == "" {
-		addr = node.Address // fallback to node base address
-	}
-	return addr, nil
+	return v.(string), nil
 }
 
 func (r *SmartRouter) buildClientForAddr(node *BackendNode, addr string, parallel bool) grpc.Backend {
@@ -789,7 +978,8 @@ func closeClient(client grpc.Backend) {
 	}
 }
 
-// UnloadModel sends a NATS unload event to a specific node for the given model.
+// UnloadModel sends a NATS unload event to a specific node for the given model
+// and removes every replica row for (nodeID, modelName).
 // The worker process handles Free() + kill + deregister.
 func (r *SmartRouter) UnloadModel(ctx context.Context, nodeID, modelName string) error {
 	if r.unloader == nil {
@@ -799,7 +989,7 @@ func (r *SmartRouter) UnloadModel(ctx context.Context, nodeID, modelName string)
 	if err := r.unloader.StopBackend(nodeID, modelName); err != nil {
 		return fmt.Errorf("failed to stop backend on node %s: %w", nodeID, err)
 	}
-	r.registry.RemoveNodeModel(ctx, nodeID, modelName)
+	r.registry.RemoveAllNodeModelReplicas(ctx, nodeID, modelName)
 	return nil
 }
 
@@ -851,9 +1041,10 @@ func (r *SmartRouter) evictLRUAndFreeNode(ctx context.Context) (*BackendNode, er
 				First(&lru).Error; err != nil {
 				return err
 			}
-			// Remove inside the same transaction
-			return tx.Where("node_id = ? AND model_name = ?", lru.NodeID, lru.ModelName).
-				Delete(&NodeModel{}).Error
+			// Remove inside the same transaction. Target the specific replica row
+			// by ID so we don't accidentally delete sibling replicas of the same
+			// model on the same node.
+			return tx.Where("id = ?", lru.ID).Delete(&NodeModel{}).Error
 		})
 
 		if err == nil {

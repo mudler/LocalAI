@@ -1,5 +1,5 @@
 # Disable parallel execution for backend builds
-.NOTPARALLEL: backends/diffusers backends/llama-cpp backends/turboquant backends/outetts backends/piper backends/stablediffusion-ggml backends/whisper backends/faster-whisper backends/silero-vad backends/local-store backends/huggingface backends/avian backends/rfdetr backends/insightface backends/speaker-recognition backends/kitten-tts backends/kokoro backends/chatterbox backends/llama-cpp-darwin backends/neutts build-darwin-python-backend build-darwin-go-backend backends/mlx backends/diffuser-darwin backends/mlx-vlm backends/mlx-audio backends/mlx-distributed backends/stablediffusion-ggml-darwin backends/vllm backends/vllm-omni backends/sglang backends/moonshine backends/pocket-tts backends/qwen-tts backends/faster-qwen3-tts backends/qwen-asr backends/nemo backends/voxcpm backends/whisperx backends/ace-step backends/acestep-cpp backends/fish-speech backends/voxtral backends/opus backends/trl backends/llama-cpp-quantization backends/kokoros backends/sam3-cpp backends/qwen3-tts-cpp backends/tinygrad backends/sherpa-onnx
+.NOTPARALLEL: backends/diffusers backends/llama-cpp backends/turboquant backends/outetts backends/piper backends/stablediffusion-ggml backends/whisper backends/faster-whisper backends/silero-vad backends/local-store backends/huggingface backends/avian backends/rfdetr backends/insightface backends/speaker-recognition backends/kitten-tts backends/kokoro backends/chatterbox backends/llama-cpp-darwin backends/neutts build-darwin-python-backend build-darwin-go-backend backends/mlx backends/diffuser-darwin backends/mlx-vlm backends/mlx-audio backends/mlx-distributed backends/stablediffusion-ggml-darwin backends/vllm backends/vllm-omni backends/sglang backends/moonshine backends/pocket-tts backends/qwen-tts backends/faster-qwen3-tts backends/qwen-asr backends/nemo backends/voxcpm backends/whisperx backends/ace-step backends/acestep-cpp backends/fish-speech backends/voxtral backends/opus backends/trl backends/llama-cpp-quantization backends/kokoros backends/sam3-cpp backends/qwen3-tts-cpp backends/vibevoice-cpp backends/localvqe backends/tinygrad backends/sherpa-onnx backends/ds4 backends/ds4-darwin backends/liquid-audio
 
 GOCMD=go
 GOTEST=$(GOCMD) test
@@ -9,6 +9,13 @@ LAUNCHER_BINARY_NAME=local-ai-launcher
 
 UBUNTU_VERSION?=2404
 UBUNTU_CODENAME?=noble
+
+# Optional Ubuntu apt mirror overrides forwarded to docker builds.
+# Empty = use upstream archive.ubuntu.com / security.ubuntu.com / ports.ubuntu.com.
+# Set e.g. APT_MIRROR=http://azure.archive.ubuntu.com to route apt traffic
+# during outages of the default Ubuntu pool.
+APT_MIRROR?=
+APT_PORTS_MIRROR?=
 
 GORELEASER?=
 
@@ -65,7 +72,7 @@ endif
 TEST_PATHS?=./api/... ./pkg/... ./core/...
 
 
-.PHONY: all test build vendor
+.PHONY: all test build vendor lint lint-all
 
 all: help
 
@@ -85,6 +92,7 @@ clean: ## Remove build related file
 clean-tests:
 	rm -rf test-models
 	rm -rf test-dir
+	rm -f tests/e2e/mock-backend/mock-backend
 
 ## Install Go tools
 install-go-tools:
@@ -143,32 +151,56 @@ osx-signed: build
 run: ## run local-ai
 	CGO_LDFLAGS="$(CGO_LDFLAGS)" $(GOCMD) run ./
 
-test-models/testmodel.ggml:
-	mkdir -p test-models
-	mkdir -p test-dir
-	wget -q https://huggingface.co/mradermacher/gpt2-alpaca-gpt4-GGUF/resolve/main/gpt2-alpaca-gpt4.Q4_K_M.gguf -O test-models/testmodel.ggml
-	wget -q https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base.en.bin -O test-models/whisper-en
-	wget -q https://cdn.openai.com/whisper/draft-20220913a/micro-machines.wav -O test-dir/audio.wav
-	cp tests/models_fixtures/* test-models
-
-prepare-test: protogen-go
-	cp tests/models_fixtures/* test-models
+prepare-test: protogen-go build-mock-backend
 
 ########################################################
 ## Tests
 ########################################################
 
 ## Test targets
-test: test-models/testmodel.ggml protogen-go
+## After the test-suite reorg (see plans/test-reorg) the default `make test`
+## no longer downloads multi-GB GGUF/whisper fixtures or builds llama-cpp /
+## transformers / piper / whisper / stablediffusion-ggml. core/http/app_test.go
+## now drives the mock-backend binary built by build-mock-backend; real-backend
+## inference moved into tests/e2e-backends/ (per-backend, path-filtered) and
+## tests/e2e-aio/ (nightly).
+test: prepare-test
 	@echo 'Running tests'
 	export GO_TAGS="debug"
-	$(MAKE) prepare-test
 	OPUS_SHIM_LIBRARY=$(abspath ./pkg/opus/shim/libopusshim.so) \
-	HUGGINGFACE_GRPC=$(abspath ./)/backend/python/transformers/run.sh TEST_DIR=$(abspath ./)/test-dir/ FIXTURES=$(abspath ./)/tests/fixtures CONFIG_FILE=$(abspath ./)/test-models/config.yaml MODELS_PATH=$(abspath ./)/test-models BACKENDS_PATH=$(abspath ./)/backends \
-	$(GOCMD) run github.com/onsi/ginkgo/v2/ginkgo --label-filter="!llama-gguf"  --flake-attempts $(TEST_FLAKES) --fail-fast -v -r $(TEST_PATHS)
-	$(MAKE) test-llama-gguf
-	$(MAKE) test-tts
-	$(MAKE) test-stablediffusion
+	$(GOCMD) run github.com/onsi/ginkgo/v2/ginkgo --flake-attempts $(TEST_FLAKES) --fail-fast -v -r $(TEST_PATHS)
+
+########################################################
+## Lint
+########################################################
+## Runs golangci-lint with config from .golangci.yml. Includes the standard
+## linter set plus forbidigo, which enforces the Ginkgo/Gomega-only test
+## convention documented in .agents/coding-style.md.
+##
+## LINT_EXCLUDE_DIRS_RE matches directories whose Go packages can't typecheck
+## without C/C++ headers we don't install in the lint runner (cgo wrappers
+## around llama.cpp, piper/spdlog, silero-vad/onnxruntime, and Fyne/OpenGL for
+## the launcher). Their compile-time correctness is enforced by their own
+## build pipelines. Keep this as a deny list — `go list ./...` discovers
+## everything else automatically, so new packages are scanned by default.
+LINT_EXCLUDE_DIRS_RE=/(backend/go/(piper|silero-vad|llm)|cmd/launcher)(/|$$)
+
+lint:
+	@command -v golangci-lint >/dev/null 2>&1 || { \
+		echo 'golangci-lint not installed. Install: go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@latest'; \
+		exit 1; \
+	}
+	golangci-lint run $$(go list -e -f '{{.Dir}}' ./... | grep -vE '$(LINT_EXCLUDE_DIRS_RE)')
+
+## Like `lint` but reports every issue, including the pre-existing baseline
+## that `lint` ignores via .golangci.yml's new-from-merge-base. Use this to
+## see what's available to clean up.
+lint-all:
+	@command -v golangci-lint >/dev/null 2>&1 || { \
+		echo 'golangci-lint not installed. Install: go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@latest'; \
+		exit 1; \
+	}
+	golangci-lint run --new=false --new-from-merge-base= --new-from-rev= $$(go list -e -f '{{.Dir}}' ./... | grep -vE '$(LINT_EXCLUDE_DIRS_RE)')
 
 ########################################################
 ## E2E AIO tests (uses standard image with pre-configured models)
@@ -184,6 +216,8 @@ docker-build-e2e:
 		--build-arg CUDA_MINOR_VERSION=$(CUDA_MINOR_VERSION) \
 		--build-arg UBUNTU_VERSION=$(UBUNTU_VERSION) \
 		--build-arg UBUNTU_CODENAME=$(UBUNTU_CODENAME) \
+		--build-arg APT_MIRROR=$(APT_MIRROR) \
+		--build-arg APT_PORTS_MIRROR=$(APT_PORTS_MIRROR) \
 		--build-arg GO_TAGS="$(GO_TAGS)" \
 		-t local-ai:tests -f Dockerfile .
 
@@ -198,6 +232,20 @@ run-e2e-aio: protogen-go
 	@echo 'Running e2e AIO tests'
 	$(GOCMD) run github.com/onsi/ginkgo/v2/ginkgo --flake-attempts $(TEST_FLAKES) -v -r ./tests/e2e-aio
 
+# vLLM multi-node DP smoke (CPU). Builds local-ai:tests and the
+# cpu-vllm backend from the current working tree, then drives a
+# head + headless follower via testcontainers-go and asserts a chat
+# completion. BuildKit caches both images, so re-runs only rebuild
+# what changed. The test lives under tests/e2e/distributed and is
+# selected by the VLLMMultinode label so it doesn't run alongside
+# the other distributed-suite tests by default.
+test-e2e-vllm-multinode: docker-build-e2e extract-backend-vllm protogen-go
+	@echo 'Running e2e vLLM multi-node DP test'
+	LOCALAI_IMAGE=local-ai \
+	LOCALAI_IMAGE_TAG=tests \
+	LOCALAI_VLLM_BACKEND_DIR=$(abspath ./local-backends/vllm) \
+	$(GOCMD) run github.com/onsi/ginkgo/v2/ginkgo --label-filter='VLLMMultinode' -v -r ./tests/e2e/distributed
+
 ########################################################
 ## E2E tests
 ########################################################
@@ -211,6 +259,8 @@ prepare-e2e:
 		--build-arg CUDA_MINOR_VERSION=$(CUDA_MINOR_VERSION) \
 		--build-arg UBUNTU_VERSION=$(UBUNTU_VERSION) \
 		--build-arg UBUNTU_CODENAME=$(UBUNTU_CODENAME) \
+		--build-arg APT_MIRROR=$(APT_MIRROR) \
+		--build-arg APT_PORTS_MIRROR=$(APT_PORTS_MIRROR) \
 		--build-arg GO_TAGS="$(GO_TAGS)" \
 		--build-arg MAKEFLAGS="$(DOCKER_MAKEFLAGS)" \
 		-t localai-tests .
@@ -235,20 +285,12 @@ teardown-e2e:
 ## Integration and unit tests
 ########################################################
 
-test-llama-gguf: prepare-test
-	TEST_DIR=$(abspath ./)/test-dir/ FIXTURES=$(abspath ./)/tests/fixtures CONFIG_FILE=$(abspath ./)/test-models/config.yaml MODELS_PATH=$(abspath ./)/test-models BACKENDS_PATH=$(abspath ./)/backends \
-	$(GOCMD) run github.com/onsi/ginkgo/v2/ginkgo --label-filter="llama-gguf" --flake-attempts $(TEST_FLAKES) -v -r $(TEST_PATHS)
-
-test-tts: prepare-test
-	TEST_DIR=$(abspath ./)/test-dir/ FIXTURES=$(abspath ./)/tests/fixtures CONFIG_FILE=$(abspath ./)/test-models/config.yaml MODELS_PATH=$(abspath ./)/test-models BACKENDS_PATH=$(abspath ./)/backends \
-	$(GOCMD) run github.com/onsi/ginkgo/v2/ginkgo --label-filter="tts" --flake-attempts $(TEST_FLAKES) -v -r $(TEST_PATHS)
-
-test-stablediffusion: prepare-test
-	TEST_DIR=$(abspath ./)/test-dir/ FIXTURES=$(abspath ./)/tests/fixtures CONFIG_FILE=$(abspath ./)/test-models/config.yaml MODELS_PATH=$(abspath ./)/test-models BACKENDS_PATH=$(abspath ./)/backends \
-	$(GOCMD) run github.com/onsi/ginkgo/v2/ginkgo --label-filter="stablediffusion" --flake-attempts $(TEST_FLAKES) -v -r $(TEST_PATHS)
-
-test-stores:
-	$(GOCMD) run github.com/onsi/ginkgo/v2/ginkgo --label-filter="stores" --flake-attempts $(TEST_FLAKES) -v -r tests/integration
+## Storage / vector-store integration. Requires the local-store backend to
+## be available — we build it on demand and pass its location via
+## BACKENDS_PATH (the model loader looks there for the gRPC binary).
+test-stores: backends/local-store
+	BACKENDS_PATH=$(abspath ./)/backends \
+	$(GOCMD) run github.com/onsi/ginkgo/v2/ginkgo --flake-attempts $(TEST_FLAKES) -v -r tests/integration
 
 test-opus:
 	@echo 'Running opus backend tests'
@@ -260,6 +302,8 @@ test-opus-docker:
 	docker build --target builder \
 	  --build-arg BUILD_TYPE=$(or $(BUILD_TYPE),) \
 	  --build-arg BASE_IMAGE=$(or $(BASE_IMAGE),ubuntu:24.04) \
+	  --build-arg APT_MIRROR=$(APT_MIRROR) \
+	  --build-arg APT_PORTS_MIRROR=$(APT_PORTS_MIRROR) \
 	  --build-arg BACKEND=opus \
 	  -t localai-opus-test -f backend/Dockerfile.golang .
 	docker run --rm localai-opus-test \
@@ -269,23 +313,13 @@ test-realtime: build-mock-backend
 	@echo 'Running realtime e2e tests (mock backend)'
 	$(GOCMD) run github.com/onsi/ginkgo/v2/ginkgo --label-filter="Realtime && !real-models" --flake-attempts $(TEST_FLAKES) -v -r ./tests/e2e
 
-# Real-model realtime tests. Set REALTIME_TEST_MODEL to use your own pipeline,
-# or leave unset to auto-build one from the component env vars below.
+# Container-based real-model realtime testing. Build env vars / pipeline
+# definition kept here so test-realtime-models-docker can drive a fully wired
+# pipeline (VAD + STT + LLM + TTS) from inside a containerised runner.
 REALTIME_VAD?=silero-vad-ggml
 REALTIME_STT?=whisper-1
 REALTIME_LLM?=qwen3-0.6b
 REALTIME_TTS?=tts-1
-REALTIME_BACKENDS_PATH?=$(abspath ./)/backends
-
-test-realtime-models: build-mock-backend
-	@echo 'Running realtime e2e tests (real models)'
-	REALTIME_TEST_MODEL=$${REALTIME_TEST_MODEL:-realtime-test-pipeline} \
-	REALTIME_VAD=$(REALTIME_VAD) \
-	REALTIME_STT=$(REALTIME_STT) \
-	REALTIME_LLM=$(REALTIME_LLM) \
-	REALTIME_TTS=$(REALTIME_TTS) \
-	REALTIME_BACKENDS_PATH=$(REALTIME_BACKENDS_PATH) \
-	$(GOCMD) run github.com/onsi/ginkgo/v2/ginkgo --label-filter="Realtime" --flake-attempts $(TEST_FLAKES) -v -r ./tests/e2e
 
 # --- Container-based real-model testing ---
 
@@ -299,7 +333,7 @@ local-backends:
 
 extract-backend-%: docker-build-% local-backends
 	@echo "Extracting backend $*..."
-	@CID=$$(docker create local-ai-backend:$*) && \
+	@CID=$$(docker create --entrypoint=/run.sh local-ai-backend:$*) && \
 	  rm -rf local-backends/$* && mkdir -p local-backends/$* && \
 	  docker cp $$CID:/ - | tar -xf - -C local-backends/$* && \
 	  docker rm $$CID > /dev/null
@@ -311,6 +345,8 @@ test-realtime-models-docker: build-mock-backend
 	  --build-arg BUILD_TYPE=$(or $(BUILD_TYPE),cublas) \
 	  --build-arg CUDA_MAJOR_VERSION=$(or $(CUDA_MAJOR_VERSION),13) \
 	  --build-arg CUDA_MINOR_VERSION=$(or $(CUDA_MINOR_VERSION),0) \
+	  --build-arg APT_MIRROR=$(APT_MIRROR) \
+	  --build-arg APT_PORTS_MIRROR=$(APT_PORTS_MIRROR) \
 	  -t localai-test-runner .
 	docker run --rm \
 	  $(REALTIME_DOCKER_FLAGS) \
@@ -427,6 +463,7 @@ prepare-test-extra: protogen-python
 	$(MAKE) -C backend/python/vllm-omni
 	$(MAKE) -C backend/python/sglang
 	$(MAKE) -C backend/python/vibevoice
+	$(MAKE) -C backend/python/liquid-audio
 	$(MAKE) -C backend/python/moonshine
 	$(MAKE) -C backend/python/pocket-tts
 	$(MAKE) -C backend/python/qwen-tts
@@ -452,6 +489,7 @@ test-extra: prepare-test-extra
 	$(MAKE) -C backend/python/vllm test
 	$(MAKE) -C backend/python/vllm-omni test
 	$(MAKE) -C backend/python/vibevoice test
+	$(MAKE) -C backend/python/liquid-audio test
 	$(MAKE) -C backend/python/moonshine test
 	$(MAKE) -C backend/python/pocket-tts test
 	$(MAKE) -C backend/python/qwen-tts test
@@ -528,7 +566,9 @@ test-extra-backend: protogen-go
 
 ## Convenience wrappers: build the image, then exercise it.
 test-extra-backend-llama-cpp: docker-build-llama-cpp
-	BACKEND_IMAGE=local-ai-backend:llama-cpp $(MAKE) test-extra-backend
+	BACKEND_IMAGE=local-ai-backend:llama-cpp \
+	BACKEND_TEST_CAPS=health,load,predict,stream,logprobs,logit_bias \
+	$(MAKE) test-extra-backend
 
 test-extra-backend-ik-llama-cpp: docker-build-ik-llama-cpp
 	BACKEND_IMAGE=local-ai-backend:ik-llama-cpp $(MAKE) test-extra-backend
@@ -556,6 +596,7 @@ test-extra-backend-llama-cpp-transcription: docker-build-llama-cpp
 	BACKEND_TEST_MMPROJ_URL=https://huggingface.co/ggml-org/Qwen3-ASR-0.6B-GGUF/resolve/main/mmproj-Qwen3-ASR-0.6B-Q8_0.gguf \
 	BACKEND_TEST_AUDIO_URL=https://github.com/ggml-org/whisper.cpp/raw/master/samples/jfk.wav \
 	BACKEND_TEST_CAPS=health,load,transcription \
+	BACKEND_TEST_CTX_SIZE=2048 \
 	$(MAKE) test-extra-backend
 
 ## vllm is resolved from a HuggingFace model id (no file download) and
@@ -569,6 +610,14 @@ test-extra-backend-vllm: docker-build-vllm
 	BACKEND_TEST_CAPS=health,load,predict,stream,tools \
 	BACKEND_TEST_OPTIONS=tool_parser:hermes \
 	$(MAKE) test-extra-backend
+
+## vllm multi-node data-parallel smoke test. Runs LocalAI head + a
+## `local-ai p2p-worker vllm` follower in docker compose against
+## Qwen2.5-0.5B with data_parallel_size=2. Requires 2 NVIDIA GPUs and
+## nvidia-container-runtime on the host — vLLM v1's DP coordinator is
+## not viable on CPU so this cannot run in CI without GPU.
+test-extra-backend-vllm-multinode:
+	./tests/e2e/vllm-multinode/smoke.sh
 
 ## tinygrad mirrors the vllm target (same model, same caps, same parser) so
 ## the two backends are directly comparable. The LLM path covers Predict,
@@ -824,6 +873,54 @@ test-extra-backend-sherpa-onnx-tts: docker-build-sherpa-onnx
 	BACKEND_TEST_CAPS=health,load,tts \
 	$(MAKE) test-extra-backend
 
+## VibeVoice TTS via the vibevoice-cpp backend. ModelFile is the
+## realtime gguf; the supplementary tokenizer + voice prompt land
+## alongside it under the harness's models dir and are wired through
+## via the standard Options[] convention (tokenizer=, voice=).
+test-extra-backend-vibevoice-cpp-tts: docker-build-vibevoice-cpp
+	BACKEND_IMAGE=local-ai-backend:vibevoice-cpp \
+	BACKEND_TEST_MODEL_URL='https://huggingface.co/mudler/vibevoice.cpp-models/resolve/main/vibevoice-realtime-0.5B-q8_0.gguf#vibevoice-realtime-0.5B-q8_0.gguf' \
+	BACKEND_TEST_EXTRA_FILES='https://huggingface.co/mudler/vibevoice.cpp-models/resolve/main/tokenizer.gguf#tokenizer.gguf|https://huggingface.co/mudler/vibevoice.cpp-models/resolve/main/voice-en-Carter_man.gguf#voice-en-Carter_man.gguf' \
+	BACKEND_TEST_OPTIONS=tokenizer:tokenizer.gguf,voice:voice-en-Carter_man.gguf \
+	BACKEND_TEST_CAPS=health,load,tts \
+	$(MAKE) test-extra-backend
+
+## VibeVoice ASR (long-form, with diarization). type=asr tells the
+## backend's Load() to slot ModelFile into the asr_model role; the
+## tokenizer is supplied via Options[]. Uses the Q4_K quant (~10 GB)
+## rather than Q8_0 (~14 GB) so the bundle fits inside ubuntu-latest's
+## post-image disk budget.
+test-extra-backend-vibevoice-cpp-transcription: docker-build-vibevoice-cpp
+	BACKEND_IMAGE=local-ai-backend:vibevoice-cpp \
+	BACKEND_TEST_MODEL_URL='https://huggingface.co/mudler/vibevoice.cpp-models/resolve/main/vibevoice-asr-q4_k.gguf#vibevoice-asr-q4_k.gguf' \
+	BACKEND_TEST_EXTRA_FILES='https://huggingface.co/mudler/vibevoice.cpp-models/resolve/main/tokenizer.gguf#tokenizer.gguf' \
+	BACKEND_TEST_AUDIO_URL=https://github.com/ggml-org/whisper.cpp/raw/master/samples/jfk.wav \
+	BACKEND_TEST_OPTIONS=type:asr,tokenizer:tokenizer.gguf \
+	BACKEND_TEST_CAPS=health,load,transcription \
+	$(MAKE) test-extra-backend
+
+## Audio transcription wrapper for the whisper.cpp backend.
+## Drives the AudioTranscription / AudioTranscriptionStream RPCs against
+## ggml-base.en (~145 MB) using the JFK 11s clip. The streaming spec
+## asserts len(deltas) >= 1 and concat(deltas) == final.Text - whisper-
+## specific multi-segment assertions live in backend/go/whisper/gowhisper_test.go.
+test-extra-backend-whisper-transcription: docker-build-whisper
+	BACKEND_IMAGE=local-ai-backend:whisper \
+	BACKEND_TEST_MODEL_URL=https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base.en.bin \
+	BACKEND_TEST_AUDIO_URL=https://github.com/ggml-org/whisper.cpp/raw/master/samples/jfk.wav \
+	BACKEND_TEST_CAPS=health,load,transcription \
+	$(MAKE) test-extra-backend
+
+## LocalVQE audio transform (joint AEC + noise suppression + dereverb).
+## Exercises the audio_transform capability end-to-end: batch transform
+## of a real WAV fixture and bidi streaming of synthetic silent frames.
+test-extra-backend-localvqe-transform: docker-build-localvqe
+	BACKEND_IMAGE=local-ai-backend:localvqe \
+	BACKEND_TEST_MODEL_URL='https://huggingface.co/LocalAI-io/LocalVQE/resolve/main/localvqe-v1-1.3M-f32.gguf#localvqe-v1-1.3M-f32.gguf' \
+	BACKEND_TEST_AUDIO_URL=https://github.com/ggml-org/whisper.cpp/raw/master/samples/jfk.wav \
+	BACKEND_TEST_CAPS=health,load,audio_transform \
+	$(MAKE) test-extra-backend
+
 ## sglang mirrors the vllm setup: HuggingFace model id, same tiny Qwen,
 ## tool-call extraction via sglang's native qwen parser. CPU builds use
 ## sglang's upstream pyproject_cpu.toml recipe (see backend/python/sglang/install.sh).
@@ -866,6 +963,8 @@ docker:
 		--build-arg CUDA_MINOR_VERSION=$(CUDA_MINOR_VERSION) \
 		--build-arg UBUNTU_VERSION=$(UBUNTU_VERSION) \
 		--build-arg UBUNTU_CODENAME=$(UBUNTU_CODENAME) \
+		--build-arg APT_MIRROR=$(APT_MIRROR) \
+		--build-arg APT_PORTS_MIRROR=$(APT_PORTS_MIRROR) \
 		-t $(DOCKER_IMAGE) .
 
 docker-cuda12:
@@ -879,6 +978,8 @@ docker-cuda12:
 		--build-arg BUILD_TYPE=$(BUILD_TYPE) \
 		--build-arg UBUNTU_VERSION=$(UBUNTU_VERSION) \
 		--build-arg UBUNTU_CODENAME=$(UBUNTU_CODENAME) \
+		--build-arg APT_MIRROR=$(APT_MIRROR) \
+		--build-arg APT_PORTS_MIRROR=$(APT_PORTS_MIRROR) \
 		-t $(DOCKER_IMAGE)-cuda-12 .
 
 docker-image-intel:
@@ -892,6 +993,8 @@ docker-image-intel:
 		--build-arg CUDA_MINOR_VERSION=$(CUDA_MINOR_VERSION) \
 		--build-arg UBUNTU_VERSION=$(UBUNTU_VERSION) \
 		--build-arg UBUNTU_CODENAME=$(UBUNTU_CODENAME) \
+		--build-arg APT_MIRROR=$(APT_MIRROR) \
+		--build-arg APT_PORTS_MIRROR=$(APT_PORTS_MIRROR) \
 		-t $(DOCKER_IMAGE) .
 
 ########################################################
@@ -907,6 +1010,10 @@ backends/%: docker-build-% docker-save-% build
 backends/llama-cpp-darwin: build
 	bash ./scripts/build/llama-cpp-darwin.sh
 	./local-ai backends install "ocifile://$(abspath ./backend-images/llama-cpp.tar)"
+
+backends/ds4-darwin: build
+	bash ./scripts/build/ds4-darwin.sh
+	./local-ai backends install "ocifile://$(abspath ./backend-images/ds4.tar)"
 
 build-darwin-python-backend: build
 	bash ./scripts/build/python-darwin.sh
@@ -949,6 +1056,10 @@ BACKEND_IK_LLAMA_CPP = ik-llama-cpp|ik-llama-cpp|.|false|false
 # turboquant is a llama.cpp fork with TurboQuant KV-cache quantization.
 # Reuses backend/cpp/llama-cpp grpc-server sources via a thin wrapper Makefile.
 BACKEND_TURBOQUANT = turboquant|turboquant|.|false|false
+# ds4 is antirez/ds4, a DeepSeek V4 Flash-specific inference engine.
+# Single-model; hardware-only validation lives at tests/e2e-backends/
+# (BACKEND_BINARY mode); see docs/superpowers/plans/2026-05-11-ds4-backend.md.
+BACKEND_DS4 = ds4|ds4|.|false|false
 
 # Golang backends
 BACKEND_PIPER = piper|golang|.|false|true
@@ -961,6 +1072,8 @@ BACKEND_WHISPER = whisper|golang|.|false|true
 BACKEND_VOXTRAL = voxtral|golang|.|false|true
 BACKEND_ACESTEP_CPP = acestep-cpp|golang|.|false|true
 BACKEND_QWEN3_TTS_CPP = qwen3-tts-cpp|golang|.|false|true
+BACKEND_VIBEVOICE_CPP = vibevoice-cpp|golang|.|false|true
+BACKEND_LOCALVQE = localvqe|golang|.|false|true
 BACKEND_OPUS = opus|golang|.|false|true
 BACKEND_SHERPA_ONNX = sherpa-onnx|golang|.|false|true
 
@@ -982,6 +1095,7 @@ BACKEND_SGLANG = sglang|python|.|false|true
 BACKEND_DIFFUSERS = diffusers|python|.|--progress=plain|true
 BACKEND_CHATTERBOX = chatterbox|python|.|false|true
 BACKEND_VIBEVOICE = vibevoice|python|.|--progress=plain|true
+BACKEND_LIQUID_AUDIO = liquid-audio|python|.|--progress=plain|true
 BACKEND_MOONSHINE = moonshine|python|.|false|true
 BACKEND_POCKET_TTS = pocket-tts|python|.|false|true
 BACKEND_QWEN_TTS = qwen-tts|python|.|false|true
@@ -1015,7 +1129,10 @@ define docker-build-backend
 		--build-arg CUDA_MINOR_VERSION=$(CUDA_MINOR_VERSION) \
 		--build-arg UBUNTU_VERSION=$(UBUNTU_VERSION) \
 		--build-arg UBUNTU_CODENAME=$(UBUNTU_CODENAME) \
+		--build-arg APT_MIRROR=$(APT_MIRROR) \
+		--build-arg APT_PORTS_MIRROR=$(APT_PORTS_MIRROR) \
 		$(if $(FROM_SOURCE),--build-arg FROM_SOURCE=$(FROM_SOURCE)) \
+		$(if $(AMDGPU_TARGETS),--build-arg AMDGPU_TARGETS=$(AMDGPU_TARGETS)) \
 		$(if $(filter true,$(5)),--build-arg BACKEND=$(1)) \
 		-t local-ai-backend:$(1) -f backend/Dockerfile.$(2) $(3)
 endef
@@ -1030,6 +1147,7 @@ endef
 $(eval $(call generate-docker-build-target,$(BACKEND_LLAMA_CPP)))
 $(eval $(call generate-docker-build-target,$(BACKEND_IK_LLAMA_CPP)))
 $(eval $(call generate-docker-build-target,$(BACKEND_TURBOQUANT)))
+$(eval $(call generate-docker-build-target,$(BACKEND_DS4)))
 $(eval $(call generate-docker-build-target,$(BACKEND_PIPER)))
 $(eval $(call generate-docker-build-target,$(BACKEND_LOCAL_STORE)))
 $(eval $(call generate-docker-build-target,$(BACKEND_HUGGINGFACE)))
@@ -1056,6 +1174,7 @@ $(eval $(call generate-docker-build-target,$(BACKEND_SGLANG)))
 $(eval $(call generate-docker-build-target,$(BACKEND_DIFFUSERS)))
 $(eval $(call generate-docker-build-target,$(BACKEND_CHATTERBOX)))
 $(eval $(call generate-docker-build-target,$(BACKEND_VIBEVOICE)))
+$(eval $(call generate-docker-build-target,$(BACKEND_LIQUID_AUDIO)))
 $(eval $(call generate-docker-build-target,$(BACKEND_MOONSHINE)))
 $(eval $(call generate-docker-build-target,$(BACKEND_POCKET_TTS)))
 $(eval $(call generate-docker-build-target,$(BACKEND_QWEN_TTS)))
@@ -1068,6 +1187,8 @@ $(eval $(call generate-docker-build-target,$(BACKEND_WHISPERX)))
 $(eval $(call generate-docker-build-target,$(BACKEND_ACE_STEP)))
 $(eval $(call generate-docker-build-target,$(BACKEND_ACESTEP_CPP)))
 $(eval $(call generate-docker-build-target,$(BACKEND_QWEN3_TTS_CPP)))
+$(eval $(call generate-docker-build-target,$(BACKEND_VIBEVOICE_CPP)))
+$(eval $(call generate-docker-build-target,$(BACKEND_LOCALVQE)))
 $(eval $(call generate-docker-build-target,$(BACKEND_MLX)))
 $(eval $(call generate-docker-build-target,$(BACKEND_MLX_VLM)))
 $(eval $(call generate-docker-build-target,$(BACKEND_MLX_DISTRIBUTED)))
@@ -1082,7 +1203,7 @@ $(eval $(call generate-docker-build-target,$(BACKEND_SHERPA_ONNX)))
 docker-save-%: backend-images
 	docker save local-ai-backend:$* -o backend-images/$*.tar
 
-docker-build-backends: docker-build-llama-cpp docker-build-ik-llama-cpp docker-build-turboquant docker-build-rerankers docker-build-vllm docker-build-vllm-omni docker-build-sglang docker-build-transformers docker-build-outetts docker-build-diffusers docker-build-kokoro docker-build-faster-whisper docker-build-coqui docker-build-chatterbox docker-build-vibevoice docker-build-moonshine docker-build-pocket-tts docker-build-qwen-tts docker-build-fish-speech docker-build-faster-qwen3-tts docker-build-qwen-asr docker-build-nemo docker-build-voxcpm docker-build-whisperx docker-build-ace-step docker-build-acestep-cpp docker-build-voxtral docker-build-mlx-distributed docker-build-trl docker-build-llama-cpp-quantization docker-build-tinygrad docker-build-kokoros docker-build-sam3-cpp docker-build-qwen3-tts-cpp docker-build-insightface docker-build-speaker-recognition docker-build-sherpa-onnx docker-build-avian
+docker-build-backends: docker-build-llama-cpp docker-build-ik-llama-cpp docker-build-turboquant docker-build-ds4 docker-build-rerankers docker-build-vllm docker-build-vllm-omni docker-build-sglang docker-build-transformers docker-build-outetts docker-build-diffusers docker-build-kokoro docker-build-faster-whisper docker-build-coqui docker-build-chatterbox docker-build-vibevoice docker-build-liquid-audio docker-build-moonshine docker-build-pocket-tts docker-build-qwen-tts docker-build-fish-speech docker-build-faster-qwen3-tts docker-build-qwen-asr docker-build-nemo docker-build-voxcpm docker-build-whisperx docker-build-ace-step docker-build-acestep-cpp docker-build-voxtral docker-build-mlx-distributed docker-build-trl docker-build-llama-cpp-quantization docker-build-tinygrad docker-build-kokoros docker-build-sam3-cpp docker-build-qwen3-tts-cpp docker-build-vibevoice-cpp docker-build-localvqe docker-build-insightface docker-build-speaker-recognition docker-build-sherpa-onnx docker-build-avian
 
 ########################################################
 ### Mock Backend for E2E Tests

@@ -47,7 +47,7 @@ func VoiceIdentifyEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, 
 		threshold := cmp.Or(input.Threshold, defaultVoiceIdentifyThreshold)
 
 		xlog.Debug("VoiceIdentify", "model", cfg.Name, "topK", topK, "threshold", threshold)
-		embed, err := backend.VoiceEmbed(audio, ml, appConfig, *cfg)
+		embed, err := backend.VoiceEmbed(c.Request().Context(), audio, ml, appConfig, *cfg)
 		if err != nil {
 			return mapBackendError(err)
 		}

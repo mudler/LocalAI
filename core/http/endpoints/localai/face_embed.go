@@ -41,7 +41,7 @@ func FaceEmbedEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, appC
 		}
 
 		xlog.Debug("FaceEmbed", "model", cfg.Name, "backend", cfg.Backend)
-		vec, err := backend.FaceEmbed(img, ml, appConfig, *cfg)
+		vec, err := backend.FaceEmbed(c.Request().Context(), img, ml, appConfig, *cfg)
 		if err != nil {
 			return mapBackendError(err)
 		}

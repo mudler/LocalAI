@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useOutletContext } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { p2pApi } from '../utils/api'
 import LoadingSpinner from '../components/LoadingSpinner'
 import ImageSelector, { useImageSelector, dockerImage, dockerFlags } from '../components/ImageSelector'
@@ -103,6 +104,7 @@ function StepNumber({ n, bg, color }) {
 
 export default function P2P() {
   const { addToast } = useOutletContext()
+  const { t } = useTranslation('admin')
   const [workers, setWorkers] = useState([])
   const [mlxWorkers, setMlxWorkers] = useState([])
   const [federation, setFederation] = useState([])
@@ -170,7 +172,7 @@ export default function P2P() {
 
   if (loading) {
     return (
-      <div className="page" style={{ display: 'flex', justifyContent: 'center', padding: 'var(--spacing-xl)' }}>
+      <div className="page page--narrow" style={{ display: 'flex', justifyContent: 'center', padding: 'var(--spacing-xl)' }}>
         <LoadingSpinner size="lg" />
       </div>
     )
@@ -179,7 +181,7 @@ export default function P2P() {
   // ── P2P Disabled ──
   if (!enabled) {
     return (
-      <div className="page">
+      <div className="page page--narrow">
         <div style={{ textAlign: 'center', padding: 'var(--spacing-xl) 0' }}>
           <i className="fas fa-network-wired" style={{ fontSize: '3rem', color: 'var(--color-primary)', marginBottom: 'var(--spacing-md)' }} />
           <h1 style={{ fontSize: '1.5rem', fontWeight: 600, marginBottom: 'var(--spacing-sm)' }}>
@@ -292,14 +294,14 @@ export default function P2P() {
   const mlxTotal = stats.mlx_workers?.total ?? 0
 
   return (
-    <div className="page">
+    <div className="page page--narrow">
       <div className="page-header">
         <h1 className="page-title">
           <i className="fas fa-circle-nodes" style={{ marginRight: 'var(--spacing-sm)' }} />
-          Distributed AI Computing
+          {t('p2p.title')}
         </h1>
         <p className="page-subtitle">
-          Scale your AI workloads across multiple devices with peer-to-peer distribution
+          {t('p2p.subtitle')}
           {' '}
           <a href="https://localai.io/features/distribute/" target="_blank" rel="noopener noreferrer"
             style={{ color: 'var(--color-primary)' }}>

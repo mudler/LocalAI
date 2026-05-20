@@ -1,0 +1,161 @@
+---
+name: 'build base-grpc images'
+
+# Builds + pushes pre-compiled builder base images that downstream
+# llama-cpp / ik-llama-cpp / turboquant variant Dockerfiles will FROM
+# (PR 2). Each base contains apt deps + protoc + cmake + gRPC at
+# /opt/grpc + (conditionally) CUDA / ROCm / Vulkan toolchains.
+#
+# Triggers:
+#   - schedule (Saturdays 05:00 UTC) - picks up Ubuntu/CUDA/ROCm
+#     security updates and re-runs ahead of the backend.yml weekly
+#     cron (Sundays 06:00 UTC).
+#   - workflow_dispatch - manual one-off rebuild.
+#   - push to master that touches Dockerfile.base-grpc-builder or
+#     this workflow itself - keeps bases in sync with their inputs.
+#
+# Bootstrap (one-time after this PR merges):
+#   gh workflow run base-images.yml --ref master
+# Wait ~30 min for all 9 matrix variants to push to
+# quay.io/go-skynet/ci-cache:base-grpc-* before merging PR 2.
+
+on:
+  schedule:
+    - cron: '0 5 * * 6'
+  workflow_dispatch:
+  push:
+    branches: [master]
+    paths:
+      - 'backend/Dockerfile.base-grpc-builder'
+      - '.github/workflows/base-images.yml'
+      # The install logic and apt-mirror helper are bind-mounted into
+      # Dockerfile.base-grpc-builder at build time — changes to either
+      # affect the produced base images and must trigger a rebuild.
+      - '.docker/install-base-deps.sh'
+      - '.docker/apt-mirror.sh'
+
+concurrency:
+  group: ci-base-images-${{ github.event.pull_request.number || github.sha }}-${{ github.repository }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  build:
+    if: github.repository == 'mudler/LocalAI'
+    runs-on: ${{ matrix.runs-on }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - tag: 'base-grpc-amd64'
+            runs-on: 'ubuntu-latest'
+            base-image: 'ubuntu:24.04'
+            build-type: ''
+            cuda-major-version: ''
+            cuda-minor-version: ''
+            ubuntu-version: '2404'
+          - tag: 'base-grpc-arm64'
+            runs-on: 'ubuntu-24.04-arm'
+            base-image: 'ubuntu:24.04'
+            build-type: ''
+            cuda-major-version: ''
+            cuda-minor-version: ''
+            ubuntu-version: '2404'
+          - tag: 'base-grpc-cuda-12-amd64'
+            runs-on: 'ubuntu-latest'
+            base-image: 'ubuntu:24.04'
+            build-type: 'cublas'
+            cuda-major-version: '12'
+            cuda-minor-version: '8'
+            ubuntu-version: '2404'
+          - tag: 'base-grpc-cuda-13-amd64'
+            runs-on: 'ubuntu-latest'
+            base-image: 'ubuntu:22.04'
+            build-type: 'cublas'
+            cuda-major-version: '13'
+            cuda-minor-version: '0'
+            ubuntu-version: '2204'
+          - tag: 'base-grpc-cuda-13-arm64'
+            runs-on: 'ubuntu-24.04-arm'
+            base-image: 'ubuntu:24.04'
+            build-type: 'cublas'
+            cuda-major-version: '13'
+            cuda-minor-version: '0'
+            ubuntu-version: '2404'
+          - tag: 'base-grpc-rocm-amd64'
+            runs-on: 'ubuntu-latest'
+            base-image: 'rocm/dev-ubuntu-24.04:7.2.1'
+            build-type: 'hipblas'
+            cuda-major-version: ''
+            cuda-minor-version: ''
+            ubuntu-version: '2404'
+          - tag: 'base-grpc-vulkan-amd64'
+            runs-on: 'ubuntu-latest'
+            base-image: 'ubuntu:24.04'
+            build-type: 'vulkan'
+            cuda-major-version: ''
+            cuda-minor-version: ''
+            ubuntu-version: '2404'
+          - tag: 'base-grpc-vulkan-arm64'
+            runs-on: 'ubuntu-24.04-arm'
+            base-image: 'ubuntu:24.04'
+            build-type: 'vulkan'
+            cuda-major-version: ''
+            cuda-minor-version: ''
+            ubuntu-version: '2404'
+          - tag: 'base-grpc-intel-amd64'
+            runs-on: 'ubuntu-latest'
+            base-image: 'intel/oneapi-basekit:2025.3.2-0-devel-ubuntu24.04'
+            build-type: 'sycl'
+            cuda-major-version: ''
+            cuda-minor-version: ''
+            ubuntu-version: '2404'
+          # Legacy JetPack r36.4.0 base for older Jetson devices (CUDA 12).
+          # Distinct from base-grpc-cuda-13-arm64 (Ubuntu 24.04 + CUDA 13 sbsa)
+          # which targets newer Jetsons. Some matrix entries
+          # (-nvidia-l4t-arm64-llama-cpp / -turboquant) still build against
+          # the JetPack image, so we need a matching base.
+          - tag: 'base-grpc-l4t-cuda-12-arm64'
+            runs-on: 'ubuntu-24.04-arm'
+            base-image: 'nvcr.io/nvidia/l4t-jetpack:r36.4.0'
+            build-type: 'l4t'
+            cuda-major-version: '12'
+            cuda-minor-version: '0'
+            ubuntu-version: '2204'
+            # JetPack r36.4.0 already ships CUDA preinstalled at /usr/local/cuda;
+            # apt-installing cuda-nvcc-12-0 from the public repos fails because
+            # those packages aren't published for the JetPack apt feed. Match
+            # the original l4t matrix entry which set skip-drivers: 'true'.
+            skip-drivers: 'true'
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          submodules: false
+      - name: Free disk space
+        uses: ./.github/actions/free-disk-space
+      - name: Set up build disk
+        uses: ./.github/actions/setup-build-disk
+      - uses: docker/setup-qemu-action@master
+        with:
+          platforms: all
+      - uses: docker/setup-buildx-action@master
+      - uses: docker/login-action@v4
+        with:
+          registry: quay.io
+          username: ${{ secrets.LOCALAI_REGISTRY_USERNAME }}
+          password: ${{ secrets.LOCALAI_REGISTRY_PASSWORD }}
+      - uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: ./backend/Dockerfile.base-grpc-builder
+          build-args: |
+            BASE_IMAGE=${{ matrix.base-image }}
+            BUILD_TYPE=${{ matrix.build-type }}
+            CUDA_MAJOR_VERSION=${{ matrix.cuda-major-version }}
+            CUDA_MINOR_VERSION=${{ matrix.cuda-minor-version }}
+            UBUNTU_VERSION=${{ matrix.ubuntu-version }}
+            SKIP_DRIVERS=${{ matrix.skip-drivers || 'false' }}
+          cache-from: type=registry,ref=quay.io/go-skynet/ci-cache:cache-${{ matrix.tag }}
+          cache-to: type=registry,ref=quay.io/go-skynet/ci-cache:cache-${{ matrix.tag }},mode=max,ignore-error=true
+          provenance: false
+          tags: quay.io/go-skynet/ci-cache:${{ matrix.tag }}
+          push: true

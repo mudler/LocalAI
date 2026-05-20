@@ -112,6 +112,7 @@ export default function SearchableSelect({
         ref={buttonRef}
         type="button"
         className="input"
+        disabled={disabled}
         aria-haspopup="listbox"
         aria-expanded={open}
         onClick={() => { if (!disabled) { setOpen(!open); setQuery(''); setFocusIndex(-1) } }}

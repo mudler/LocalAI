@@ -8,6 +8,12 @@ run: sglang
 	bash run.sh
 	@echo "sglang run."
 
+.PHONY: test
+test: sglang
+	@echo "Testing sglang..."
+	bash test.sh
+	@echo "sglang tested."
+
 .PHONY: protogen-clean
 protogen-clean:
 	$(RM) backend_pb2_grpc.py backend_pb2.py

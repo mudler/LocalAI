@@ -5,7 +5,7 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 add_subdirectory(./sources/whisper.cpp)
 
-add_library(gowhisper MODULE gowhisper.cpp)
+add_library(gowhisper MODULE cpp/gowhisper.cpp)
 target_link_libraries(gowhisper PRIVATE whisper ggml)
 
 if(CMAKE_CXX_COMPILER_ID MATCHES "GNU" AND CMAKE_CXX_COMPILER_VERSION VERSION_LESS 9.0)

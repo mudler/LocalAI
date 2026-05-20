@@ -233,6 +233,132 @@ var _ = Describe("Upgrade Detection and Execution", func() {
 			Expect(upgrades["my-backend"].InstalledVersion).To(BeEmpty())
 			Expect(upgrades["my-backend"].AvailableVersion).To(Equal("2.0.0"))
 		})
+
+		// Dev-aware suppression: when `<X>-development` is installed it
+		// stands in for the stable `<X>` via alias resolution. Auto-upgrade
+		// must never reintroduce the stable variant alongside the dev one,
+		// because the install would land on disk and (depending on
+		// preference tokens) either shadow the dev pick or sit unused next
+		// to it. These tests fix CheckUpgradesAgainst to honor that.
+		// Names are kept generic ("my-backend") so the capability filter
+		// in AvailableBackends doesn't drop them on a CPU-only test host.
+		It("suppresses non-dev candidate when its -development counterpart is installed", func() {
+			writeGalleryYAML([]GalleryBackend{
+				{
+					Metadata: Metadata{Name: "my-backend"},
+					URI:      filepath.Join(tempDir, "stable"),
+					Version:  "2.0.0",
+				},
+				{
+					Metadata: Metadata{Name: "my-backend-development"},
+					URI:      filepath.Join(tempDir, "dev"),
+					Version:  "2.0.0",
+				},
+			})
+
+			installed := SystemBackends{
+				"my-backend-development": SystemBackend{
+					Name: "my-backend-development",
+					Metadata: &BackendMetadata{
+						Name:    "my-backend-development",
+						Version: "1.0.0",
+					},
+				},
+			}
+
+			upgrades, err := CheckUpgradesAgainst(context.Background(), galleries, systemState, installed)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(upgrades).To(HaveKey("my-backend-development"))
+			Expect(upgrades).NotTo(HaveKey("my-backend"))
+		})
+
+		It("dev variant wins even when non-dev is also present (vestigial state)", func() {
+			// Either via legacy state, manual install, or a worker still
+			// emitting synthetic aliases, the non-dev row may be present
+			// alongside the dev one. Auto-upgrade must still keep its
+			// hands off the non-dev — installing the stable variant on
+			// top of the user's explicit dev pick is exactly what the
+			// alias drop-in promise forbids. Users who genuinely want
+			// the non-dev upgraded can trigger it manually via
+			// /api/backends/upgrade/<name>.
+			writeGalleryYAML([]GalleryBackend{
+				{
+					Metadata: Metadata{Name: "my-backend"},
+					URI:      filepath.Join(tempDir, "stable"),
+					Version:  "2.0.0",
+				},
+				{
+					Metadata: Metadata{Name: "my-backend-development"},
+					URI:      filepath.Join(tempDir, "dev"),
+					Version:  "2.0.0",
+				},
+			})
+
+			installed := SystemBackends{
+				"my-backend": SystemBackend{
+					Name: "my-backend",
+					Metadata: &BackendMetadata{
+						Name:    "my-backend",
+						Version: "1.0.0",
+					},
+				},
+				"my-backend-development": SystemBackend{
+					Name: "my-backend-development",
+					Metadata: &BackendMetadata{
+						Name:    "my-backend-development",
+						Version: "1.0.0",
+					},
+				},
+			}
+
+			upgrades, err := CheckUpgradesAgainst(context.Background(), galleries, systemState, installed)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(upgrades).To(HaveKey("my-backend-development"))
+			Expect(upgrades).NotTo(HaveKey("my-backend"))
+		})
+
+		It("ignores synthetic alias rows whose key differs from Metadata.Name", func() {
+			// ListSystemBackends emits an extra row keyed by the alias name
+			// that re-uses the chosen concrete's metadata pointer. Pre-fix
+			// this row caused a duplicate gallery lookup in single-node
+			// (harmless by accident) and a phantom upgrade in distributed
+			// mode (real bug — the wire-reconstructed row carries
+			// Metadata.Name = alias and resolves against an unrelated entry).
+			writeGalleryYAML([]GalleryBackend{
+				{
+					Metadata: Metadata{Name: "my-alias"},
+					URI:      filepath.Join(tempDir, "stable-meta"),
+					Version:  "2.0.0",
+				},
+				{
+					Metadata: Metadata{Name: "my-backend-development"},
+					URI:      filepath.Join(tempDir, "dev"),
+					Version:  "2.0.0",
+				},
+			})
+
+			devMeta := &BackendMetadata{
+				Name:    "my-backend-development",
+				Version: "1.0.0",
+				Alias:   "my-alias",
+			}
+			installed := SystemBackends{
+				"my-backend-development": SystemBackend{
+					Name:     "my-backend-development",
+					Metadata: devMeta,
+				},
+				// Synthetic alias row: key != Metadata.Name.
+				"my-alias": SystemBackend{
+					Name:     "my-alias",
+					Metadata: devMeta,
+				},
+			}
+
+			upgrades, err := CheckUpgradesAgainst(context.Background(), galleries, systemState, installed)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(upgrades).To(HaveKey("my-backend-development"))
+			Expect(upgrades).NotTo(HaveKey("my-alias"))
+		})
 	})
 
 	Describe("UpgradeBackend", func() {
@@ -257,7 +383,7 @@ var _ = Describe("Upgrade Detection and Execution", func() {
 			})
 
 			ml := model.NewModelLoader(systemState)
-			err := UpgradeBackend(context.Background(), systemState, ml, galleries, "my-backend", nil)
+			err := UpgradeBackend(context.Background(), systemState, ml, galleries, "my-backend", nil, false)
 			Expect(err).NotTo(HaveOccurred())
 
 			// Verify run.sh was updated
@@ -291,7 +417,7 @@ var _ = Describe("Upgrade Detection and Execution", func() {
 			})
 
 			ml := model.NewModelLoader(systemState)
-			err := UpgradeBackend(context.Background(), systemState, ml, galleries, "my-backend", nil)
+			err := UpgradeBackend(context.Background(), systemState, ml, galleries, "my-backend", nil, false)
 			Expect(err).To(HaveOccurred())
 
 			// Verify v1 is still intact
@@ -305,6 +431,42 @@ var _ = Describe("Upgrade Detection and Execution", func() {
 			var meta BackendMetadata
 			Expect(json.Unmarshal(metaData, &meta)).To(Succeed())
 			Expect(meta.Version).To(Equal("1.0.0"))
+		})
+
+		// Regression: an earlier version of UpgradeBackend wrote the
+		// downloaded bytes to disk without going through
+		// backendDownloadOptions, so the gallery's verification policy
+		// (and strict-integrity gate) didn't apply on upgrade. This test
+		// pins the upgrade path to the same integrity gate as installs:
+		// strict mode + an OCI URI without a verification: block must
+		// hard-fail *before* anything is downloaded or swapped in.
+		It("should refuse to upgrade an OCI backend that bypasses integrity in strict mode", func() {
+			installBackendWithVersion("my-backend", "1.0.0", "#!/bin/sh\necho v1")
+
+			// OCI URI, no Gallery.Verification → backendDownloadOptions
+			// returns a strict-integrity error before any network call.
+			writeGalleryYAML([]GalleryBackend{
+				{
+					Metadata: Metadata{
+						Name: "my-backend",
+					},
+					URI:     "oci://example.invalid/missing:never-fetched",
+					Version: "2.0.0",
+				},
+			})
+
+			ml := model.NewModelLoader(systemState)
+			err := UpgradeBackend(context.Background(), systemState, ml, galleries, "my-backend", nil, true)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("strict integrity"))
+
+			// The installed v1 must be untouched — the upgrade should
+			// have aborted before writing anything.
+			content, err := os.ReadFile(filepath.Join(backendsPath, "my-backend", "run.sh"))
+			Expect(err).NotTo(HaveOccurred())
+			Expect(string(content)).To(Equal("#!/bin/sh\necho v1"))
+			Expect(filepath.Join(backendsPath, "my-backend.upgrade-tmp")).NotTo(BeAnExistingFile())
+			Expect(filepath.Join(backendsPath, "my-backend.backup")).NotTo(BeAnExistingFile())
 		})
 	})
 })

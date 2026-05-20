@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
-import { useParams, useOutletContext, Link } from 'react-router-dom'
+import { useParams, useOutletContext, Link, useNavigate } from 'react-router-dom'
 import { nodesApi } from '../utils/api'
 import { formatTimestamp } from '../utils/format'
 import { apiUrl } from '../utils/basePath'
@@ -19,6 +19,16 @@ export default function NodeBackendLogs() {
   const { nodeId, modelId: rawModelId } = useParams()
   const modelId = decodeURIComponent(rawModelId || '')
   const { addToast } = useOutletContext()
+  const navigate = useNavigate()
+
+  // The route param can be a bare model name ("qwen3-0.6b") OR a per-replica
+  // process key ("qwen3-0.6b#0"). The worker's BackendLogStore treats them
+  // differently — bare = aggregate across replicas, suffixed = exact replica.
+  // Surface that distinction so operators know what they're looking at.
+  const replicaSepIdx = modelId.indexOf('#')
+  const baseModelName = replicaSepIdx >= 0 ? modelId.slice(0, replicaSepIdx) : modelId
+  const replicaIndex = replicaSepIdx >= 0 ? parseInt(modelId.slice(replicaSepIdx + 1), 10) : null
+  const isMerged = replicaIndex === null
 
   const [lines, setLines] = useState([])
   const [loading, setLoading] = useState(true)
@@ -27,6 +37,10 @@ export default function NodeBackendLogs() {
   const [showDetails, setShowDetails] = useState(true)
   const [wsConnected, setWsConnected] = useState(false)
   const [nodeName, setNodeName] = useState('')
+  // Replicas of this base model on this node — drives whether the
+  // merged-vs-replica toggle is rendered. Single-replica deployments
+  // never see the toggle (no decision to make).
+  const [replicas, setReplicas] = useState([])
   const logContainerRef = useRef(null)
   const wsRef = useRef(null)
   const reconnectTimerRef = useRef(null)
@@ -42,6 +56,22 @@ export default function NodeBackendLogs() {
       nodesApi.get(nodeId).then(n => setNodeName(n.name || nodeId)).catch(() => {})
     }
   }, [nodeId])
+
+  // Fetch the replica list for this base model on this node so we know
+  // whether to render the merged-vs-replica toggle. Cheap query; runs once
+  // per (nodeId, baseModelName) change.
+  useEffect(() => {
+    if (!nodeId || !baseModelName) return
+    nodesApi.getModels(nodeId)
+      .then(arr => {
+        const reps = (Array.isArray(arr) ? arr : [])
+          .filter(m => m.model_name === baseModelName)
+          .map(m => m.replica_index ?? 0)
+          .sort((a, b) => a - b)
+        setReplicas(reps)
+      })
+      .catch(() => setReplicas([]))
+  }, [nodeId, baseModelName])
 
   // Auto-scroll to bottom when new lines arrive
   useEffect(() => {
@@ -126,7 +156,7 @@ export default function NodeBackendLogs() {
 
   if (!nodeId || !modelId) {
     return (
-      <div className="page">
+      <div className="page page--wide">
         <div className="empty-state">
           <div className="empty-state-icon"><i className="fas fa-terminal" /></div>
           <h2 className="empty-state-title">No node/model selected</h2>
@@ -139,13 +169,54 @@ export default function NodeBackendLogs() {
     )
   }
 
+  // Show the merged/per-replica toggle only when this model has > 1 replica
+  // on this node. Single-replica deployments don't see a control they can't
+  // meaningfully use.
+  const showReplicaToggle = replicas.length > 1
+
   return (
-    <div className="page">
+    <div className="page page--wide">
       <div className="page-header">
         <div>
           <h1 className="page-title" style={{ marginBottom: 0 }}>
             <i className="fas fa-terminal" style={{ fontSize: '0.8em', marginRight: 'var(--spacing-sm)' }} />
-            {modelId}
+            {baseModelName}
+            {!isMerged && (
+              <span
+                className="cell-mono"
+                style={{
+                  marginLeft: 'var(--spacing-sm)',
+                  fontSize: '0.6875rem',
+                  fontWeight: 500,
+                  padding: '2px 8px',
+                  borderRadius: 'var(--radius-sm)',
+                  background: 'var(--color-bg-tertiary)',
+                  border: '1px solid var(--color-border-subtle)',
+                  color: 'var(--color-text-secondary)',
+                  verticalAlign: 'middle',
+                }}
+              >
+                replica {replicaIndex}
+              </span>
+            )}
+            {isMerged && replicas.length > 1 && (
+              <span
+                className="cell-mono"
+                style={{
+                  marginLeft: 'var(--spacing-sm)',
+                  fontSize: '0.6875rem',
+                  fontWeight: 500,
+                  padding: '2px 8px',
+                  borderRadius: 'var(--radius-sm)',
+                  background: 'var(--color-bg-tertiary)',
+                  border: '1px solid var(--color-border-subtle)',
+                  color: 'var(--color-text-secondary)',
+                  verticalAlign: 'middle',
+                }}
+              >
+                merged · {replicas.length} replicas
+              </span>
+            )}
           </h1>
           <p className="page-subtitle" style={{ marginTop: 'var(--spacing-xs)' }}>
             Backend logs from node <strong>{nodeName || nodeId}</strong>
@@ -153,6 +224,33 @@ export default function NodeBackendLogs() {
           </p>
         </div>
       </div>
+
+      {showReplicaToggle && (
+        <div role="radiogroup" aria-label="Replica scope" className="segmented" style={{ marginBottom: 'var(--spacing-sm)' }}>
+          {replicas.map(idx => (
+            <button
+              key={idx}
+              type="button"
+              role="radio"
+              aria-checked={replicaIndex === idx}
+              className={`segmented__item${replicaIndex === idx ? ' is-active' : ''}`}
+              onClick={() => navigate(`/app/node-backend-logs/${nodeId}/${encodeURIComponent(baseModelName + '#' + idx)}`)}
+            >
+              Replica {idx}
+            </button>
+          ))}
+          <button
+            type="button"
+            role="radio"
+            aria-checked={isMerged}
+            className={`segmented__item${isMerged ? ' is-active' : ''}`}
+            onClick={() => navigate(`/app/node-backend-logs/${nodeId}/${encodeURIComponent(baseModelName)}`)}
+            title="Show an interleaved timeline of all replicas — useful for comparing replica behavior side-by-side"
+          >
+            <i className="fas fa-layer-group" aria-hidden="true" /> All merged
+          </button>
+        </div>
+      )}
 
       {/* Toolbar */}
       <div style={{ display: 'flex', gap: 'var(--spacing-sm)', marginBottom: 'var(--spacing-md)', alignItems: 'center', flexWrap: 'wrap' }}>

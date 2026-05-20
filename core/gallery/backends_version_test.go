@@ -47,7 +47,7 @@ var _ = Describe("Backend versioning", func() {
 		backend.URI = srcDir
 		backend.Version = "1.2.3"
 
-		err = gallery.InstallBackend(context.Background(), systemState, modelLoader, backend, nil)
+		err = gallery.InstallBackend(context.Background(), systemState, modelLoader, backend, nil, false)
 		Expect(err).NotTo(HaveOccurred())
 
 		// Read the metadata file and check version
@@ -74,7 +74,7 @@ var _ = Describe("Backend versioning", func() {
 		backend.URI = srcDir
 		backend.Version = "2.0.0"
 
-		err = gallery.InstallBackend(context.Background(), systemState, modelLoader, backend, nil)
+		err = gallery.InstallBackend(context.Background(), systemState, modelLoader, backend, nil, false)
 		Expect(err).NotTo(HaveOccurred())
 
 		metadataPath := filepath.Join(tempDir, "test-backend-uri", "metadata.json")
@@ -100,7 +100,7 @@ var _ = Describe("Backend versioning", func() {
 		backend.URI = srcDir
 		// Version intentionally left empty
 
-		err = gallery.InstallBackend(context.Background(), systemState, modelLoader, backend, nil)
+		err = gallery.InstallBackend(context.Background(), systemState, modelLoader, backend, nil, false)
 		Expect(err).NotTo(HaveOccurred())
 
 		metadataPath := filepath.Join(tempDir, "test-backend-noversion", "metadata.json")

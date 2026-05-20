@@ -36,6 +36,9 @@ type GalleryBackend struct {
 	Version         string            `json:"version,omitempty" yaml:"version,omitempty"`
 	Mirrors         []string          `json:"mirrors,omitempty" yaml:"mirrors,omitempty"`
 	CapabilitiesMap map[string]string `json:"capabilities,omitempty" yaml:"capabilities,omitempty"`
+	// SHA256 is the expected sha256 of the backend tarball at URI / Mirrors.
+	// Empty disables the integrity check; OCI URIs carry their own digest.
+	SHA256 string `json:"sha256,omitempty" yaml:"sha256,omitempty"`
 }
 
 func (backend *GalleryBackend) FindBestBackendFromMeta(systemState *system.SystemState, backends GalleryElements[*GalleryBackend]) *GalleryBackend {

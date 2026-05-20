@@ -1,0 +1,55 @@
+{
+  "title": "智能体",
+  "subtitle": "管理自主 AI 智能体",
+  "actions": {
+    "agentHub": "Agent Hub",
+    "import": "导入",
+    "createAgent": "创建智能体",
+    "edit": "编辑",
+    "chat": "聊天",
+    "export": "导出",
+    "delete": "删除",
+    "pause": "暂停",
+    "resume": "恢复"
+  },
+  "table": {
+    "name": "名称",
+    "status": "状态",
+    "events": "事件",
+    "actions": "操作",
+    "eventsTooltip": "{{count}} 个事件 - 点击查看"
+  },
+  "search": {
+    "placeholder": "搜索智能体...",
+    "summary_one": "{{total}} 个智能体中的 {{shown}} 个",
+    "summary_other": "{{total}} 个智能体中的 {{shown}} 个"
+  },
+  "empty": {
+    "noConfigured": "未配置智能体",
+    "noConfiguredText": "创建一个智能体以开始自主 AI 工作流。",
+    "browseHub": "不知从何开始？浏览 <1>Agent Hub</1> 寻找现成的智能体配置以便导入。",
+    "noMatching": "没有匹配的智能体",
+    "noMatchingText": "没有智能体匹配 \"{{query}}\""
+  },
+  "sections": {
+    "yourAgents": "您的智能体",
+    "otherUsersAgents": "其他用户的智能体"
+  },
+  "deleteDialog": {
+    "title": "删除智能体",
+    "message": "删除智能体 \"{{name}}\"？此操作无法撤销。",
+    "confirm": "删除"
+  },
+  "toasts": {
+    "loadFailed": "加载智能体失败：{{message}}",
+    "deleted": "智能体 \"{{name}}\" 已删除",
+    "deleteFailed": "删除智能体失败：{{message}}",
+    "paused": "智能体 \"{{name}}\" 已暂停",
+    "resumed": "智能体 \"{{name}}\" 已恢复",
+    "pauseFailed": "暂停智能体失败：{{message}}",
+    "resumeFailed": "恢复智能体失败：{{message}}",
+    "exported": "智能体 \"{{name}}\" 已导出",
+    "exportFailed": "导出智能体失败：{{message}}",
+    "parseFailed": "解析智能体文件失败：{{message}}"
+  }
+}

@@ -9,10 +9,18 @@ The streaming path applies sglang's per-request FunctionCallParser and
 ReasoningParser so tool_calls and reasoning_content are emitted
 incrementally inside ChatDelta, which is a capability sglang exposes
 natively and vLLM does not.
+
+Like the vLLM backend, this one accepts an arbitrary ``engine_args:``
+map in the model YAML; keys are validated against ``ServerArgs`` fields
+and forwarded to ``Engine(**kwargs)``. That covers speculative decoding
+(EAGLE/EAGLE3/DFLASH/NGRAM/STANDALONE plus MTP via NEXTN), attention
+backend selection, MoE knobs, hierarchical cache, and so on.
 """
 import asyncio
 from concurrent import futures
 import argparse
+import dataclasses
+import difflib
 import signal
 import sys
 import os
@@ -38,6 +46,7 @@ from grpc_auth import get_auth_interceptors
 # are wrapped in try/except so older / leaner installs that omit them
 # still load the backend for plain text generation.
 from sglang.srt.entrypoints.engine import Engine
+from sglang.srt.server_args import ServerArgs
 
 try:
     from sglang.srt.function_call.function_call_parser import FunctionCallParser
@@ -66,6 +75,19 @@ except Exception:
     HAS_TRANSFORMERS = False
 
 
+# sglang 0.5.11 renamed SamplingParams.seed -> sampling_seed (PR #21952).
+# Earlier 0.5.x releases (e.g. 0.5.1.post2 — the wheel still pinned by the
+# pypi.jetson-ai-lab.io sbsa/cu130 mirror used by the l4t13 build profile)
+# accept only `seed`. Detect the supported keyword once at import time so
+# both versions work without a hard pin floor.
+try:
+    import inspect as _inspect
+    from sglang.srt.sampling.sampling_params import SamplingParams as _SamplingParams
+    _SEED_KEY = "sampling_seed" if "sampling_seed" in _inspect.signature(_SamplingParams).parameters else "seed"
+except Exception:
+    _SEED_KEY = "sampling_seed"
+
+
 _ONE_DAY_IN_SECONDS = 60 * 60 * 24
 MAX_WORKERS = int(os.environ.get('PYTHON_GRPC_MAX_WORKERS', '1'))
 
@@ -81,6 +103,37 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
             key, value = opt.split(":", 1)
             opts[key.strip()] = value.strip()
         return opts
+
+    def _apply_engine_args(self, engine_kwargs: dict, engine_args_json: str) -> dict:
+        """Merge user-supplied engine_args (JSON object) into the kwargs dict
+        that will be forwarded to ``sglang.Engine`` (which constructs a
+        ``ServerArgs`` from them).
+
+        Mirrors ``backend/python/vllm/backend.py::_apply_engine_args`` but
+        operates on the kwargs dict because sglang's ``Engine.__init__``
+        accepts ``**kwargs`` directly rather than a pre-built dataclass.
+        Validation happens against ``ServerArgs`` fields so a typo fails
+        early with a close-match suggestion instead of producing a confusing
+        ``TypeError`` deep inside engine startup.
+        """
+        if not engine_args_json:
+            return engine_kwargs
+        try:
+            extra = json.loads(engine_args_json)
+        except json.JSONDecodeError as e:
+            raise ValueError(f"engine_args is not valid JSON: {e}") from e
+        if not isinstance(extra, dict):
+            raise ValueError(
+                f"engine_args must be a JSON object, got {type(extra).__name__}"
+            )
+        valid = {f.name for f in dataclasses.fields(ServerArgs)}
+        for key in extra:
+            if key not in valid:
+                suggestion = difflib.get_close_matches(key, valid, n=1)
+                hint = f" did you mean {suggestion[0]!r}?" if suggestion else ""
+                raise ValueError(f"unknown engine_args key {key!r}.{hint}")
+        engine_kwargs.update(extra)
+        return engine_kwargs
 
     def _messages_to_dicts(self, messages) -> List[dict]:
         result: List[dict] = []
@@ -136,6 +189,16 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
             engine_kwargs["tool_call_parser"] = self.tool_parser_name
         if self.reasoning_parser_name:
             engine_kwargs["reasoning_parser"] = self.reasoning_parser_name
+
+        # engine_args from YAML overrides typed fields above so operators can
+        # tune anything ServerArgs exposes (speculative decoding, attention
+        # backend, MoE, hierarchical cache, …) without waiting on protobuf
+        # changes.
+        try:
+            engine_kwargs = self._apply_engine_args(engine_kwargs, request.EngineArgs)
+        except ValueError as err:
+            print(f"engine_args error: {err}", file=sys.stderr)
+            return backend_pb2.Result(success=False, message=str(err))
 
         try:
             self.llm = Engine(**engine_kwargs)
@@ -221,7 +284,7 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
             "TopP": "top_p",
             "TopK": "top_k",
             "MinP": "min_p",
-            "Seed": "seed",
+            "Seed": _SEED_KEY,
             "StopPrompts": "stop",
             "StopTokenIds": "stop_token_ids",
             "IgnoreEOS": "ignore_eos",

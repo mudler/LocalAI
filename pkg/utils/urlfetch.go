@@ -49,7 +49,7 @@ func ValidateExternalURL(rawURL string) error {
 			return fmt.Errorf("unable to parse resolved IP: %s", ipStr)
 		}
 
-		if !isPublicIP(ip) {
+		if !IsPublicIP(ip) {
 			return fmt.Errorf("requests to internal network addresses are not allowed")
 		}
 	}
@@ -57,7 +57,11 @@ func ValidateExternalURL(rawURL string) error {
 	return nil
 }
 
-func isPublicIP(ip net.IP) bool {
+// IsPublicIP reports whether ip refers to a host on the public internet, i.e.
+// not loopback, link-local, private (RFC 1918 / RFC 4193), or unspecified.
+// Covers 0.0.0.0/8, ::/128, and IPv4-mapped IPv6 wrapping a private address —
+// holes hand-rolled CIDR lists tend to miss.
+func IsPublicIP(ip net.IP) bool {
 	if ip.IsLoopback() ||
 		ip.IsLinkLocalUnicast() ||
 		ip.IsLinkLocalMulticast() ||
@@ -66,7 +70,6 @@ func isPublicIP(ip net.IP) bool {
 		return false
 	}
 
-	// Block IPv4-mapped IPv6 addresses that wrap private IPv4
 	if ip4 := ip.To4(); ip4 != nil {
 		return !ip4.IsLoopback() &&
 			!ip4.IsLinkLocalUnicast() &&

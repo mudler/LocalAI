@@ -4,7 +4,6 @@ import (
 	"context"
 	"strings"
 	"sync"
-	"time"
 
 	hfapi "github.com/mudler/LocalAI/pkg/huggingface-api"
 )
@@ -15,12 +14,10 @@ var (
 )
 
 type hfSizeCacheEntry struct {
-	result    EstimateResult
-	err       error
-	expiresAt time.Time
+	totalBytes uint64
+	err        error
+	generation uint64
 }
-
-const hfSizeCacheTTL = 15 * time.Minute
 
 // ExtractHFRepoID extracts a HuggingFace repo ID from a string.
 // It handles both short form ("org/model") and full URL form
@@ -62,30 +59,31 @@ func ExtractHFRepoID(s string) (string, bool) {
 	return "", false
 }
 
-// EstimateFromHFRepo estimates model size by querying the HuggingFace API for file listings.
-// Results are cached for 15 minutes.
-func EstimateFromHFRepo(ctx context.Context, repoID string) (EstimateResult, error) {
+// hfRepoWeightSize returns the total weight file size for a HuggingFace repo.
+// Results are cached and invalidated when the gallery generation changes.
+func hfRepoWeightSize(ctx context.Context, repoID string) (uint64, error) {
+	gen := currentGeneration()
 	hfSizeCacheMu.Lock()
-	if entry, ok := hfSizeCacheData[repoID]; ok && time.Now().Before(entry.expiresAt) {
+	if entry, ok := hfSizeCacheData[repoID]; ok && entry.generation == gen {
 		hfSizeCacheMu.Unlock()
-		return entry.result, entry.err
+		return entry.totalBytes, entry.err
 	}
 	hfSizeCacheMu.Unlock()
 
-	result, err := estimateFromHFRepoUncached(ctx, repoID)
+	totalBytes, err := hfRepoWeightSizeUncached(ctx, repoID)
 
 	hfSizeCacheMu.Lock()
 	hfSizeCacheData[repoID] = hfSizeCacheEntry{
-		result:    result,
-		err:       err,
-		expiresAt: time.Now().Add(hfSizeCacheTTL),
+		totalBytes: totalBytes,
+		err:        err,
+		generation: gen,
 	}
 	hfSizeCacheMu.Unlock()
 
-	return result, err
+	return totalBytes, err
 }
 
-func estimateFromHFRepoUncached(ctx context.Context, repoID string) (EstimateResult, error) {
+func hfRepoWeightSizeUncached(ctx context.Context, repoID string) (uint64, error) {
 	client := hfapi.NewClient()
 
 	type listResult struct {
@@ -100,17 +98,17 @@ func estimateFromHFRepoUncached(ctx context.Context, repoID string) (EstimateRes
 
 	select {
 	case <-ctx.Done():
-		return EstimateResult{}, ctx.Err()
+		return 0, ctx.Err()
 	case res := <-ch:
 		if res.err != nil {
-			return EstimateResult{}, res.err
+			return 0, res.err
 		}
-		return estimateFromFileInfos(res.files), nil
+		return sumWeightFileBytes(res.files), nil
 	}
 }
 
-func estimateFromFileInfos(files []hfapi.FileInfo) EstimateResult {
-	var totalSize int64
+func sumWeightFileBytes(files []hfapi.FileInfo) uint64 {
+	var total int64
 	for _, f := range files {
 		if f.Type != "file" {
 			continue
@@ -128,20 +126,10 @@ func estimateFromFileInfos(files []hfapi.FileInfo) EstimateResult {
 		if f.LFS != nil && f.LFS.Size > 0 {
 			size = f.LFS.Size
 		}
-		totalSize += size
+		total += size
 	}
-
-	if totalSize <= 0 {
-		return EstimateResult{}
+	if total < 0 {
+		return 0
 	}
-
-	sizeBytes := uint64(totalSize)
-	vramBytes := sizeOnlyVRAM(sizeBytes, 8192)
-
-	return EstimateResult{
-		SizeBytes:   sizeBytes,
-		SizeDisplay: FormatBytes(sizeBytes),
-		VRAMBytes:   vramBytes,
-		VRAMDisplay: FormatBytes(vramBytes),
-	}
+	return uint64(total)
 }

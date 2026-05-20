@@ -1,8 +1,10 @@
 package xsysinfo
 
 import (
+	"bufio"
 	"bytes"
 	"encoding/json"
+	"io"
 	"os"
 	"os/exec"
 	"strconv"
@@ -801,14 +803,15 @@ func GetResourceAggregateInfo() AggregateMemoryInfo {
 	return resourceInfo.Aggregate
 }
 
-// getVulkanGPUMemory queries GPUs using vulkaninfo as a fallback
-// Note: Vulkan provides memory heap info but not real-time usage
+// getVulkanGPUMemory queries GPUs using vulkaninfo as a fallback.
+// Note: vulkaninfo JSON is a Vulkan Profiles export and does not include
+// VkPhysicalDeviceMemoryProperties, so memory heaps are parsed from text output.
 func getVulkanGPUMemory() []GPUMemoryInfo {
 	if _, err := exec.LookPath("vulkaninfo"); err != nil {
 		return nil
 	}
 
-	cmd := exec.Command("vulkaninfo", "--json")
+	cmd := exec.Command("vulkaninfo", "--text")
 
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout
@@ -819,58 +822,205 @@ func getVulkanGPUMemory() []GPUMemoryInfo {
 		return nil
 	}
 
-	// Parse Vulkan JSON output
-	var result struct {
-		VkPhysicalDevices []struct {
-			DeviceName                       string `json:"deviceName"`
-			DeviceType                       string `json:"deviceType"`
-			VkPhysicalDeviceMemoryProperties struct {
-				MemoryHeaps []struct {
-					Flags int    `json:"flags"`
-					Size  uint64 `json:"size"`
-				} `json:"memoryHeaps"`
-			} `json:"VkPhysicalDeviceMemoryProperties"`
-		} `json:"VkPhysicalDevices"`
-	}
+	return parseVulkanGPUMemoryText(strings.NewReader(stdout.String()))
 
-	if err := json.Unmarshal(stdout.Bytes(), &result); err != nil {
-		xlog.Debug("failed to parse vulkaninfo output", "error", err)
-		return nil
-	}
+}
 
+type vulkanGPUTextInfo struct {
+	index        int
+	name         string
+	deviceType   string
+	totalVRAM    uint64
+	budgetVRAM   uint64
+	usageVRAM    uint64
+}
+
+func parseVulkanGPUMemoryText(r io.Reader) []GPUMemoryInfo {
 	var gpus []GPUMemoryInfo
+	var current *vulkanGPUTextInfo
 
-	for i, device := range result.VkPhysicalDevices {
-		// Skip non-discrete/integrated GPUs if possible
-		if device.DeviceType == "VK_PHYSICAL_DEVICE_TYPE_CPU" {
-			continue
+	inMemoryProperties := false
+	inMemoryHeaps := false
+	inHeap := false
+	heapSize := uint64(0)
+	heapBudget := uint64(0)
+	heapUsage := uint64(0)
+	heapDeviceLocal := false
+
+	flushHeap := func() {
+		if current != nil && inHeap && heapDeviceLocal {
+			current.totalVRAM += heapSize
+			current.usageVRAM += heapUsage
+			current.budgetVRAM += heapBudget
+		}
+		heapSize = 0
+		heapBudget = 0
+		heapUsage = 0
+		heapDeviceLocal = false
+		inHeap = false
+	}
+
+	flushGPU := func() {
+		if current == nil || current.totalVRAM == 0 || current.deviceType == "PHYSICAL_DEVICE_TYPE_CPU" {
+			return
 		}
 
-		// Sum up device-local memory heaps
-		var totalVRAM uint64
-		for _, heap := range device.VkPhysicalDeviceMemoryProperties.MemoryHeaps {
-			// Flag 1 = VK_MEMORY_HEAP_DEVICE_LOCAL_BIT
-			if heap.Flags&1 != 0 {
-				totalVRAM += heap.Size
-			}
+		if current.usageVRAM == 0 && current.budgetVRAM != 0 {
+			current.usageVRAM = current.totalVRAM - current.budgetVRAM
+		} else if current.usageVRAM != 0 && current.budgetVRAM == 0 {
+			current.budgetVRAM = current.totalVRAM - current.usageVRAM
+		} else if current.usageVRAM == 0 && current.budgetVRAM == 0 {
+			current.usageVRAM  = 0
+			current.budgetVRAM = current.totalVRAM
 		}
 
-		if totalVRAM == 0 {
-			continue
-		}
+		usagePercent := float64(current.usageVRAM) / float64(current.totalVRAM) * float64(100.0)
 
 		gpus = append(gpus, GPUMemoryInfo{
-			Index:        i,
-			Name:         device.DeviceName,
+			Index:        current.index,
+			Name:         current.name,
 			Vendor:       VendorVulkan,
-			TotalVRAM:    totalVRAM,
-			UsedVRAM:     0, // Vulkan doesn't provide real-time usage
-			FreeVRAM:     totalVRAM,
-			UsagePercent: 0,
+			TotalVRAM:    current.totalVRAM,
+			UsedVRAM:     current.usageVRAM,
+			FreeVRAM:     current.budgetVRAM,
+			UsagePercent: usagePercent,
 		})
 	}
 
+	scanner := bufio.NewScanner(r)
+	for scanner.Scan() {
+		line := strings.TrimSpace(scanner.Text())
+		if line == "" {
+			continue
+		}
+
+		if index, ok := parseVulkanGPUHeader(line); ok {
+			flushHeap()
+			flushGPU()
+			current = &vulkanGPUTextInfo{index: index}
+			inMemoryProperties = false
+			inMemoryHeaps = false
+			continue
+		}
+
+		if current == nil {
+			continue
+		}
+
+		if strings.HasPrefix(line, "deviceType") {
+			current.deviceType = parseVulkanValue(line)
+			continue
+		}
+
+		if strings.HasPrefix(line, "deviceName") {
+			current.name = parseVulkanValue(line)
+			continue
+		}
+
+		if line == "VkPhysicalDeviceMemoryProperties:" {
+			inMemoryProperties = true
+			inMemoryHeaps = false
+			flushHeap()
+			continue
+		}
+
+		if !inMemoryProperties {
+			continue
+		}
+
+		if strings.HasPrefix(line, "memoryHeaps:") {
+			inMemoryHeaps = true
+			continue
+		}
+
+		if strings.HasPrefix(line, "memoryTypes:") {
+			flushHeap()
+			inMemoryProperties = false
+			inMemoryHeaps = false
+			continue
+		}
+
+		if !inMemoryHeaps {
+			continue
+		}
+
+		if strings.HasPrefix(line, "memoryHeaps[") {
+			flushHeap()
+			inHeap = true
+			continue
+		}
+
+		if !inHeap {
+			continue
+		}
+
+		if strings.HasPrefix(line, "size") {
+			if size, ok := parseVulkanUintValue(line); ok {
+				heapSize = size
+			}
+			continue
+		}
+
+		if strings.HasPrefix(line, "budget") {
+			if budget, ok := parseVulkanUintValue(line); ok {
+				heapBudget = budget
+			}
+			continue
+		}
+
+		if strings.HasPrefix(line, "usage") {
+			if usage, ok := parseVulkanUintValue(line); ok {
+				heapUsage = usage
+			}
+			continue
+		}
+
+		if strings.Contains(line, "MEMORY_HEAP_DEVICE_LOCAL_BIT") {
+			heapDeviceLocal = true
+		}
+	}
+
+	flushHeap()
+	flushGPU()
+
 	return gpus
+}
+
+func parseVulkanGPUHeader(line string) (int, bool) {
+	if !strings.HasPrefix(line, "GPU") || !strings.HasSuffix(line, ":") {
+		return 0, false
+	}
+
+	index, err := strconv.Atoi(strings.TrimSuffix(strings.TrimPrefix(line, "GPU"), ":"))
+	if err != nil {
+		return 0, false
+	}
+
+	return index, true
+}
+
+func parseVulkanValue(line string) string {
+	_, value, ok := strings.Cut(line, "=")
+	if !ok {
+		return ""
+	}
+
+	return strings.TrimSpace(value)
+}
+
+func parseVulkanUintValue(line string) (uint64, bool) {
+	value := parseVulkanValue(line)
+	fields := strings.Fields(value)
+	if len(fields) == 0 {
+		return 0, false
+	}
+
+	parsed, err := strconv.ParseUint(fields[0], 0, 64)
+	if err != nil {
+		return 0, false
+	}
+
+	return parsed, true
 }
 
 // getAppleGPUMemory detects Apple Silicon GPUs using system_profiler (macOS only).

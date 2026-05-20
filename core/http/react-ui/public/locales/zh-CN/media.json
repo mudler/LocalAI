@@ -1,0 +1,154 @@
+{
+  "studio": {
+    "tabs": {
+      "images": "图像",
+      "video": "视频",
+      "tts": "TTS",
+      "sound": "声音"
+    }
+  },
+  "image": {
+    "title": "图像生成",
+    "labels": {
+      "model": "模型",
+      "prompt": "提示词",
+      "promptPlaceholder": "描述您想要生成的图像...",
+      "negativePrompt": "负面提示词",
+      "negativePromptPlaceholder": "想要避免的内容...",
+      "size": "尺寸",
+      "count": "数量 (1-4)",
+      "advanced": "高级设置",
+      "imageInputs": "图像输入",
+      "steps": "步数",
+      "stepsPlaceholder": "20",
+      "seed": "随机种子",
+      "seedPlaceholder": "随机",
+      "sourceImage": "源图像 (img2img)",
+      "refImages": "参考图像",
+      "refImagesAdded_one": "已添加 {{count}} 张图像",
+      "refImagesAdded_other": "已添加 {{count}} 张图像"
+    },
+    "actions": {
+      "generate": "生成",
+      "generating": "生成中..."
+    },
+    "empty": "生成的图像将显示在此处",
+    "toasts": {
+      "noPrompt": "请输入提示词",
+      "noModel": "请选择一个模型",
+      "noResults": "未生成图像"
+    }
+  },
+  "video": {
+    "title": "视频生成",
+    "labels": {
+      "model": "模型",
+      "prompt": "提示词",
+      "promptPlaceholder": "描述您想要生成的视频...",
+      "duration": "时长（秒）",
+      "fps": "FPS",
+      "size": "尺寸",
+      "advanced": "高级设置",
+      "seed": "随机种子",
+      "seedPlaceholder": "随机"
+    },
+    "actions": {
+      "generate": "生成视频",
+      "generating": "生成中..."
+    },
+    "empty": "生成的视频将显示在此处",
+    "toasts": {
+      "noPrompt": "请输入提示词",
+      "noModel": "请选择一个模型",
+      "noResults": "未生成视频"
+    }
+  },
+  "tts": {
+    "title": "文字转语音",
+    "labels": {
+      "model": "模型",
+      "voice": "声音",
+      "voicePlaceholder": "可选的声音 ID",
+      "input": "文本",
+      "inputPlaceholder": "输入要合成的文本..."
+    },
+    "actions": {
+      "generate": "生成音频",
+      "generating": "生成中..."
+    },
+    "empty": "生成的音频将显示在此处",
+    "toasts": {
+      "noText": "请输入文本",
+      "noModel": "请选择一个模型",
+      "generateFailed": "生成失败"
+    }
+  },
+  "sound": {
+    "title": "声音生成",
+    "labels": {
+      "model": "模型",
+      "prompt": "提示词",
+      "promptPlaceholder": "描述您想要生成的声音...",
+      "duration": "时长（秒）",
+      "language": "语言",
+      "vocalLanguage": "声乐语言",
+      "lyrics": "歌词（可选）",
+      "lyricsPlaceholder": "用于声乐生成的歌词",
+      "advanced": "高级设置",
+      "seed": "随机种子",
+      "seedPlaceholder": "随机"
+    },
+    "actions": {
+      "generate": "生成",
+      "generating": "生成中..."
+    },
+    "empty": "生成的音频将显示在此处",
+    "toasts": {
+      "noPrompt": "请输入提示词",
+      "noModel": "请选择一个模型",
+      "generateFailed": "生成失败"
+    }
+  },
+  "talk": {
+    "title": "通话",
+    "subtitle": "实时语音对话",
+    "actions": {
+      "start": "开始会话",
+      "stop": "结束会话",
+      "connecting": "连接中...",
+      "muted": "已静音",
+      "mute": "静音",
+      "unmute": "取消静音"
+    },
+    "labels": {
+      "model": "模型",
+      "voice": "声音",
+      "voicePlaceholder": "alloy",
+      "language": "语言",
+      "languagePlaceholder": "zh",
+      "instructions": "指令",
+      "instructionsPlaceholder": "设置助手的角色..."
+    },
+    "status": {
+      "idle": "空闲",
+      "connecting": "连接中...",
+      "listening": "正在聆听...",
+      "speaking": "正在说话...",
+      "ended": "会话已结束"
+    },
+    "toasts": {
+      "noModel": "请先选择一个模型",
+      "connectFailed": "连接失败：{{message}}"
+    }
+  },
+  "history": {
+    "title": "历史",
+    "empty": "暂无历史",
+    "deleteEntry": "删除条目",
+    "clear": "清除历史",
+    "clearTitle": "清除全部历史",
+    "clearMessage": "删除所有历史条目？此操作无法撤销。",
+    "clearConfirm": "清除",
+    "cleared": "历史已清除"
+  }
+}

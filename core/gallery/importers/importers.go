@@ -125,7 +125,13 @@ var defaultImporters = []Importer{
 	&KittenTTSImporter{},
 	&NeuTTSImporter{},
 	&ChatterboxImporter{},
+	// VibeVoiceCppImporter must precede VibeVoiceImporter — the older
+	// Python-backend importer matches any repo name containing "vibevoice"
+	// and would otherwise swallow the C++ port's GGUF bundles.
+	&VibeVoiceCppImporter{},
 	&VibeVoiceImporter{},
+	// LiquidAudio (Python) — keep before LlamaCPP so non-GGUF LFM2-Audio repos route here.
+	&LiquidAudioImporter{},
 	&CoquiImporter{},
 	// Image/Video (Batch 3)
 	&StableDiffusionGGMLImporter{},
@@ -149,6 +155,11 @@ var defaultImporters = []Importer{
 	// checkpoints may carry tokenizer-adjacent artefacts.
 	&RFDetrImporter{},
 	// Existing
+	// DS4Importer must precede LlamaCPPImporter - ds4 weights are GGUFs and
+	// would otherwise be claimed by the generic .gguf-handling llama-cpp
+	// importer. Matches only the antirez/deepseek-v4-gguf repo + filename
+	// pattern, so false-positives against arbitrary GGUFs are impossible.
+	&DS4Importer{},
 	&LlamaCPPImporter{},
 	&MLXImporter{},
 	&VLLMImporter{},

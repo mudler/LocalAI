@@ -8,7 +8,7 @@ JOBS?=$(shell nproc --ignore=1)
 
 # whisper.cpp version
 WHISPER_REPO?=https://github.com/ggml-org/whisper.cpp
-WHISPER_CPP_VERSION?=fc674574ca27cac59a15e5b22a09b9d9ad62aafe
+WHISPER_CPP_VERSION?=afa2ea544fb4b0448916b4a31ecd33c8685bd482
 SO_TARGET?=libgowhisper.so
 
 CMAKE_ARGS+=-DBUILD_SHARED_LIBS=OFF
@@ -111,7 +111,7 @@ libgowhisper-fallback.so: sources/whisper.cpp
 	SO_TARGET=libgowhisper-fallback.so CMAKE_ARGS="$(CMAKE_ARGS) -DGGML_AVX=off -DGGML_AVX2=off -DGGML_AVX512=off -DGGML_FMA=off -DGGML_F16C=off -DGGML_BMI2=off" $(MAKE) libgowhisper-custom
 	rm -rfv build*
 
-libgowhisper-custom: CMakeLists.txt gowhisper.cpp gowhisper.h
+libgowhisper-custom: CMakeLists.txt cpp/gowhisper.cpp cpp/gowhisper.h
 	mkdir -p build-$(SO_TARGET) && \
 	cd build-$(SO_TARGET) && \
 	cmake .. $(CMAKE_ARGS) && \

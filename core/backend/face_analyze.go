@@ -12,6 +12,7 @@ import (
 )
 
 func FaceAnalyze(
+	ctx context.Context,
 	img string,
 	actions []string,
 	antiSpoofing bool,
@@ -35,7 +36,7 @@ func FaceAnalyze(
 		startTime = time.Now()
 	}
 
-	res, err := faceModel.FaceAnalyze(context.Background(), &proto.FaceAnalyzeRequest{
+	res, err := faceModel.FaceAnalyze(ctx, &proto.FaceAnalyzeRequest{
 		Img:          img,
 		Actions:      actions,
 		AntiSpoofing: antiSpoofing,

@@ -10,7 +10,7 @@ set(SAM3_BUILD_TESTS OFF CACHE BOOL "Disable sam3.cpp tests" FORCE)
 
 add_subdirectory(./sources/sam3.cpp)
 
-add_library(gosam3 MODULE gosam3.cpp)
+add_library(gosam3 MODULE cpp/gosam3.cpp)
 target_link_libraries(gosam3 PRIVATE sam3 ggml)
 
 if(CMAKE_CXX_COMPILER_ID MATCHES "GNU" AND CMAKE_CXX_COMPILER_VERSION VERSION_LESS 9.0)

@@ -15,6 +15,7 @@ import (
 )
 
 func SoundGeneration(
+	ctx context.Context,
 	text string,
 	duration *float32,
 	temperature *float32,
@@ -101,7 +102,7 @@ func SoundGeneration(
 		startTime = time.Now()
 	}
 
-	res, err := soundGenModel.SoundGeneration(context.Background(), req)
+	res, err := soundGenModel.SoundGeneration(ctx, req)
 
 	if appConfig.EnableTracing {
 		errStr := ""

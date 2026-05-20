@@ -344,7 +344,7 @@ export default function SkillEdit() {
 
   if (loading) {
     return (
-      <div className="page" style={{ display: 'flex', justifyContent: 'center', padding: 'var(--spacing-xl)' }}>
+      <div className="page page--narrow" style={{ display: 'flex', justifyContent: 'center', padding: 'var(--spacing-xl)' }}>
         <i className="fas fa-spinner fa-spin" style={{ fontSize: '2rem', color: 'var(--color-primary)' }} />
       </div>
     )
@@ -357,7 +357,7 @@ export default function SkillEdit() {
   ]
 
   return (
-    <div className="page" style={{ maxWidth: 960 }}>
+    <div className="page page--narrow">
       <style>{`
         .skilledit-back-link {
           display: inline-flex;

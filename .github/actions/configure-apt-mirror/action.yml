@@ -1,0 +1,100 @@
+name: 'Configure apt mirror'
+description: |
+  Reconfigure the GitHub Actions runner's Ubuntu apt sources to use an
+  alternate mirror, and emit the effective URLs as outputs so callers can
+  forward them as Docker build-args.
+
+  Two mirror profiles depending on where the runner lives, because the
+  best mirror differs by network:
+
+    * github-hosted runners run on Azure, so they default to the
+      Azure-hosted Ubuntu mirror (lowest latency, same VPC).
+    * self-hosted runners (arc-runner-set, bigger-runner, ...) typically
+      cannot route to azure.archive.ubuntu.com, so they default to the
+      kernel.org mirror, which is publicly reachable from anywhere.
+
+  Pass an empty string to either input to skip the rewrite for that
+  profile and keep upstream archive.ubuntu.com / ports.ubuntu.com.
+
+inputs:
+  github-hosted-mirror:
+    description: 'archive/security mirror URL for github-hosted runners (empty = upstream)'
+    required: false
+    default: 'http://azure.archive.ubuntu.com'
+  github-hosted-ports-mirror:
+    description: 'ports.ubuntu.com mirror URL for github-hosted runners (empty = upstream)'
+    required: false
+    default: 'http://azure.ports.ubuntu.com'
+  self-hosted-mirror:
+    description: 'archive/security mirror URL for self-hosted runners (empty = upstream)'
+    required: false
+    # HTTP, not HTTPS: the bare ubuntu:24.04 builder image doesn't ship
+    # ca-certificates, so the very first apt-get update over TLS would
+    # fail with "No system certificates available" before it can install
+    # anything. apt validates package integrity via GPG signatures, so
+    # plain HTTP is safe for the archive itself.
+    default: 'http://mirrors.edge.kernel.org'
+  self-hosted-ports-mirror:
+    description: 'ports.ubuntu.com mirror URL for self-hosted runners (empty = upstream)'
+    required: false
+    # mirrors.edge.kernel.org does NOT carry /ubuntu-ports/ — only the
+    # main /ubuntu/ archive — so arm64 builds 404 there. Leave ports
+    # upstream by default. The original DDoS was on archive.ubuntu.com
+    # so ports.ubuntu.com remains the path of least surprise.
+    default: ''
+
+outputs:
+  effective-mirror:
+    description: 'The mirror URL actually applied for this runner (or empty)'
+    value: ${{ steps.pick.outputs.mirror }}
+  effective-ports-mirror:
+    description: 'The ports mirror URL actually applied for this runner (or empty)'
+    value: ${{ steps.pick.outputs.ports-mirror }}
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Pick effective mirror for this runner
+      id: pick
+      shell: bash
+      env:
+        RUNNER_ENV: ${{ runner.environment }}
+        GH_MIRROR: ${{ inputs.github-hosted-mirror }}
+        GH_PORTS_MIRROR: ${{ inputs.github-hosted-ports-mirror }}
+        SH_MIRROR: ${{ inputs.self-hosted-mirror }}
+        SH_PORTS_MIRROR: ${{ inputs.self-hosted-ports-mirror }}
+      run: |
+        if [ "${RUNNER_ENV}" = "github-hosted" ]; then
+          MIRROR="${GH_MIRROR}"
+          PORTS_MIRROR="${GH_PORTS_MIRROR}"
+        else
+          MIRROR="${SH_MIRROR}"
+          PORTS_MIRROR="${SH_PORTS_MIRROR}"
+        fi
+        echo "configure-apt-mirror: runner=${RUNNER_ENV} mirror='${MIRROR}' ports-mirror='${PORTS_MIRROR}'"
+        echo "mirror=${MIRROR}" >> "$GITHUB_OUTPUT"
+        echo "ports-mirror=${PORTS_MIRROR}" >> "$GITHUB_OUTPUT"
+
+    - name: Rewrite apt sources
+      if: steps.pick.outputs.mirror != '' || steps.pick.outputs.ports-mirror != ''
+      shell: bash
+      env:
+        APT_MIRROR: ${{ steps.pick.outputs.mirror }}
+        APT_PORTS_MIRROR: ${{ steps.pick.outputs.ports-mirror }}
+      run: |
+        set -e
+        # Ubuntu 24.04 (noble) ships DEB822 sources at
+        # /etc/apt/sources.list.d/ubuntu.sources; older releases use
+        # /etc/apt/sources.list. Rewrite whichever exists.
+        for f in /etc/apt/sources.list.d/ubuntu.sources /etc/apt/sources.list; do
+          sudo test -f "$f" || continue
+          if [ -n "${APT_MIRROR}" ]; then
+            # Comma delimiter so the alternation pipe in the regex is not
+            # interpreted as the s/// separator.
+            sudo sed -i -E "s,https?://(archive\.ubuntu\.com|security\.ubuntu\.com),${APT_MIRROR},g" "$f"
+          fi
+          if [ -n "${APT_PORTS_MIRROR}" ]; then
+            sudo sed -i -E "s,https?://ports\.ubuntu\.com,${APT_PORTS_MIRROR},g" "$f"
+          fi
+        done
+        echo "Runner apt mirror configured (APT_MIRROR='${APT_MIRROR}', APT_PORTS_MIRROR='${APT_PORTS_MIRROR}')"

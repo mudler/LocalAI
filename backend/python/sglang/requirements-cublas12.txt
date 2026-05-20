@@ -1,5 +1,12 @@
+# sglang 0.5.11 hard-pins torch==2.9.1. PyPI's default torch 2.9.1 wheel is
+# now the cu130 build, which drags in cu130-flavoured sgl-kernel/sglang-kernel
+# binaries that need libnvrtc.so.13 — incompatible with our cu12 host libs.
+# Pin the cu128 PyTorch index so uv pulls cu12-flavoured torch (and the
+# matching sgl-kernel cu12 wheels). install.sh adds --index-strategy=unsafe-best-match
+# for cublas12 so uv consults this index alongside PyPI.
+--extra-index-url https://download.pytorch.org/whl/cu128
 accelerate
-torch==2.7.1
+torch==2.9.1
 torchvision
-torchaudio==2.7.1
+torchaudio
 transformers

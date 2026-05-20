@@ -1,24 +1,24 @@
----
-name: "deepseek-r1"
-
 config_file: |
-  backend: "llama-cpp"
-  context_size: 131072
-  mmap: true
-  f16: true
-  stopwords:
-    - <｜begin▁of▁sentence｜>
-    - <｜end▁of▁sentence｜>
-    - <｜User｜>
-    - <｜Assistant｜>
-  template:
-    chat_message: |
-      {{if eq .RoleName "system" -}}{{.Content }}
-      {{ end -}}
-      {{if eq .RoleName "user" -}}<｜User｜>{{.Content}}
-      {{end -}}
-      {{if eq .RoleName "assistant" -}}<｜Assistant｜>{{.Content}}<｜end▁of▁sentence｜>{{end}}
-    completion: |
-      {{.Input}}
-    chat: |
-      {{.Input -}}<｜Assistant｜>
+    backend: llama-cpp
+    context_size: 131072
+    f16: true
+    known_usecases:
+        - chat
+    mmap: true
+    stopwords:
+        - <｜begin▁of▁sentence｜>
+        - <｜end▁of▁sentence｜>
+        - <｜User｜>
+        - <｜Assistant｜>
+    template:
+        chat: |
+            {{.Input -}}<｜Assistant｜>
+        chat_message: |
+            {{if eq .RoleName "system" -}}{{.Content }}
+            {{ end -}}
+            {{if eq .RoleName "user" -}}<｜User｜>{{.Content}}
+            {{end -}}
+            {{if eq .RoleName "assistant" -}}<｜Assistant｜>{{.Content}}<｜end▁of▁sentence｜>{{end}}
+        completion: |
+            {{.Input}}
+name: deepseek-r1

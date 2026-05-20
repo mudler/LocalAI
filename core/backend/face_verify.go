@@ -12,6 +12,7 @@ import (
 )
 
 func FaceVerify(
+	ctx context.Context,
 	img1, img2 string,
 	threshold float32,
 	antiSpoofing bool,
@@ -35,7 +36,7 @@ func FaceVerify(
 		startTime = time.Now()
 	}
 
-	res, err := faceModel.FaceVerify(context.Background(), &proto.FaceVerifyRequest{
+	res, err := faceModel.FaceVerify(ctx, &proto.FaceVerifyRequest{
 		Img1:         img1,
 		Img2:         img2,
 		Threshold:    threshold,

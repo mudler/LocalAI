@@ -12,6 +12,7 @@ import (
 )
 
 func VoiceAnalyze(
+	ctx context.Context,
 	audio string,
 	actions []string,
 	loader *model.ModelLoader,
@@ -34,7 +35,7 @@ func VoiceAnalyze(
 		startTime = time.Now()
 	}
 
-	res, err := voiceModel.VoiceAnalyze(context.Background(), &proto.VoiceAnalyzeRequest{
+	res, err := voiceModel.VoiceAnalyze(ctx, &proto.VoiceAnalyzeRequest{
 		Audio:   audio,
 		Actions: actions,
 	})

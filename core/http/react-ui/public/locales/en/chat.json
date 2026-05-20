@@ -1,0 +1,116 @@
+{
+  "activity": {
+    "thought": "Thought",
+    "tool": "Tool",
+    "result": "Result",
+    "toolResult": "{{name}} result",
+    "thinking": "Thinking..."
+  },
+  "header": {
+    "manageModeTooltip": "This chat can install models, edit configs and manage backends by talking to LocalAI.",
+    "modelInfo": "Model info",
+    "chatSettings": "Chat settings",
+    "modelInfoTitle": "Model Info: {{model}}",
+    "editConfig": "Edit config",
+    "close": "Close"
+  },
+  "modelInfo": {
+    "backend": "Backend",
+    "modelFile": "Model file",
+    "contextSize": "Context size",
+    "threads": "Threads",
+    "mcp": "MCP",
+    "configured": "Configured",
+    "chatTemplate": "Chat template",
+    "yes": "Yes",
+    "gpuLayers": "GPU layers"
+  },
+  "context": {
+    "label": "Context: {{percent}}%",
+    "labelWithTokens": "Context: {{percent}}% ({{tokens}} tokens)"
+  },
+  "settings": {
+    "title": "Chat Settings",
+    "manageMode": "Manage mode",
+    "manageModeDesc": "Let this chat install models, switch backends, and edit configs by talking to LocalAI.",
+    "systemPrompt": "System Prompt",
+    "systemPromptPlaceholder": "You are a helpful assistant...",
+    "temperature": "Temperature",
+    "topP": "Top P",
+    "topK": "Top K",
+    "contextSize": "Context Size",
+    "contextSizePlaceholder": "2048",
+    "clearHistory": "Clear chat history"
+  },
+  "empty": {
+    "manageTitle": "Manage LocalAI by chatting",
+    "manageText": "Ask to install models, switch backends, edit configs, or check status. The assistant will summarise actions and wait for your confirmation before changing anything.",
+    "startTitle": "Start a conversation",
+    "readyText": "Ready to chat with {{model}}",
+    "selectModelText": "Select a model above to get started",
+    "suggestionsManage": [
+      "What is installed?",
+      "Install a chat model",
+      "Show system status",
+      "Update a backend"
+    ],
+    "suggestionsChat": [
+      "Explain how this works",
+      "Help me write code",
+      "Summarize a document",
+      "Brainstorm ideas"
+    ],
+    "recent": "Recent",
+    "noMessages": "No messages yet",
+    "hintEnter": "Enter to send",
+    "hintShiftEnter": "Shift+Enter for newline",
+    "hintAttach": "Attach files"
+  },
+  "errors": {
+    "viewTraces": "View traces for details"
+  },
+  "actions": {
+    "copy": "Copy",
+    "regenerate": "Regenerate"
+  },
+  "streaming": {
+    "transferring": "Transferring model...",
+    "transferringTo": "Transferring model to {{node}}..."
+  },
+  "tokens": {
+    "perSec": "{{count}} tok/s",
+    "peak": "Peak: {{count}} tok/s",
+    "usage": "{{prompt}}p + {{completion}}c = {{total}}"
+  },
+  "input": {
+    "placeholder": "Message...",
+    "attachFile": "Attach file",
+    "stopGenerating": "Stop generating",
+    "canvasTitle": "Canvas — extract code blocks and media into a side panel for preview, copy, and download",
+    "canvasLabel": "Canvas",
+    "openCanvas": "Open canvas panel"
+  },
+  "deleteAllDialog": {
+    "title": "Delete All Chats",
+    "message": "Delete all chats? This cannot be undone.",
+    "confirm": "Delete all"
+  },
+  "toasts": {
+    "selectModel": "Please select a model",
+    "copied": "Copied to clipboard"
+  },
+  "menu": {
+    "trigger": "Chats",
+    "triggerTitle": "Conversations (Ctrl/Cmd+K)",
+    "search": "Search conversations...",
+    "clearSearch": "Clear search",
+    "noMatch": "No conversations match your search",
+    "noConversations": "No conversations yet",
+    "rename": "Rename",
+    "exportMarkdown": "Export as Markdown",
+    "deleteChat": "Delete chat",
+    "newChat": "New chat",
+    "clearAll": "Clear all",
+    "deleteAllTitle": "Delete all conversations"
+  }
+}

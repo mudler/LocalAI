@@ -3,6 +3,7 @@ package openai
 import (
 	"encoding/json"
 	"fmt"
+	"net/http"
 	"time"
 
 	"github.com/google/uuid"
@@ -21,6 +22,18 @@ import (
 
 	"github.com/mudler/xlog"
 )
+
+// hasSystemMessage reports whether the message slice already contains a
+// system-role message — used to avoid clobbering a caller-supplied system
+// prompt when the LocalAI Assistant modality is on.
+func hasSystemMessage(messages []schema.Message) bool {
+	for _, m := range messages {
+		if m.Role == "system" {
+			return true
+		}
+	}
+	return false
+}
 
 // mergeToolCallDeltas merges streaming tool call deltas into complete tool calls.
 // In SSE streaming, a single tool call arrives as multiple chunks sharing the same Index:
@@ -59,7 +72,7 @@ func mergeToolCallDeltas(existing []schema.ToolCall, deltas []schema.ToolCall) [
 // @Param request body schema.OpenAIRequest true "query params"
 // @Success 200 {object} schema.OpenAIResponse "Response"
 // @Router /v1/chat/completions [post]
-func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator *templates.Evaluator, startupOptions *config.ApplicationConfig, natsClient mcpTools.MCPNATSClient) echo.HandlerFunc {
+func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator *templates.Evaluator, startupOptions *config.ApplicationConfig, natsClient mcpTools.MCPNATSClient, assistantHolder *mcpTools.LocalAIAssistantHolder) echo.HandlerFunc {
 	process := func(s string, req *schema.OpenAIRequest, config *config.ModelConfig, loader *model.ModelLoader, responses chan schema.OpenAIResponse, extraUsage bool, id string, created int) error {
 		initialMessage := schema.OpenAIResponse{
 			ID:      id,
@@ -118,13 +131,19 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 				delta.Reasoning = &reasoningDelta
 			}
 
+			// Usage rides as a struct field for the consumer to track the
+			// running cumulative — it is stripped before JSON marshal so the
+			// wire chunk stays spec-compliant (no `usage` on intermediate
+			// chunks). The dedicated trailer chunk (when include_usage=true)
+			// carries the final totals.
+			usageForChunk := usage
 			resp := schema.OpenAIResponse{
 				ID:      id,
 				Created: created,
 				Model:   req.Model, // we have to return what the user sent here, due to OpenAI spec.
 				Choices: []schema.Choice{{Delta: delta, Index: 0, FinishReason: nil}},
 				Object:  "chat.completion.chunk",
-				Usage:   usage,
+				Usage:   &usageForChunk,
 			}
 
 			responses <- resp
@@ -151,7 +170,7 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 		hasChatDeltaToolCalls := false
 		hasChatDeltaContent := false
 
-		_, tokenUsage, chatDeltas, err := ComputeChoices(req, prompt, config, cl, startupOptions, loader, func(s string, c *[]schema.Choice) {}, func(s string, usage backend.TokenUsage) bool {
+		_, _, chatDeltas, err := ComputeChoices(req, prompt, config, cl, startupOptions, loader, func(s string, c *[]schema.Choice) {}, func(s string, usage backend.TokenUsage) bool {
 			result += s
 
 			// Track whether ChatDeltas from the C++ autoparser contain
@@ -374,16 +393,11 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 
 		switch {
 		case noActionToRun:
-			usage := schema.OpenAIUsage{
-				PromptTokens:     tokenUsage.Prompt,
-				CompletionTokens: tokenUsage.Completion,
-				TotalTokens:      tokenUsage.Prompt + tokenUsage.Completion,
-			}
-			if extraUsage {
-				usage.TimingTokenGeneration = tokenUsage.TimingTokenGeneration
-				usage.TimingPromptProcessing = tokenUsage.TimingPromptProcessing
-			}
-
+			// Token-cumulative usage is communicated to the streaming
+			// consumer via the per-token callback's chunk struct (stripped
+			// before wire marshal). The final usage trailer — when the
+			// caller opted in with stream_options.include_usage — is built
+			// by the outer streaming loop, not here.
 			var result string
 			if !sentInitialRole {
 				var hqErr error
@@ -396,7 +410,7 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 			for _, chunk := range buildNoActionFinalChunks(
 				id, req.Model, created,
 				sentInitialRole, sentReasoning,
-				result, reasoning, usage,
+				result, reasoning,
 			) {
 				responses <- chunk
 			}
@@ -442,6 +456,47 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 		// MCP tool injection: when mcp_servers is set in metadata and model has MCP config
 		var mcpExecutor mcpTools.ToolExecutor
 		mcpServers := mcpTools.MCPServersFromMetadata(input.Metadata)
+
+		// LocalAI Assistant modality: an admin opted into the in-process MCP
+		// admin tool surface. Runs *before* the regular MCP block — when both
+		// are set, the assistant tools win (the admin cannot mix them with
+		// per-model MCP servers in the same chat session by design).
+		assistantMode := mcpTools.LocalAIAssistantFromMetadata(input.Metadata)
+		if assistantMode {
+			if err := requireAssistantAccess(c, startupOptions.Auth.Enabled); err != nil {
+				return err
+			}
+			// Read the disable flag live: an admin can flip it via /api/settings
+			// and the next request must see the change without a restart.
+			if startupOptions.DisableLocalAIAssistant {
+				return echo.NewHTTPError(http.StatusServiceUnavailable, "LocalAI Assistant is disabled on this server")
+			}
+			if assistantHolder == nil || !assistantHolder.HasTools() {
+				return echo.NewHTTPError(http.StatusServiceUnavailable, "LocalAI Assistant is not available on this server")
+			}
+			mcpExecutor = assistantHolder.Executor()
+			mcpFuncs, discErr := mcpExecutor.DiscoverTools(c.Request().Context())
+			if discErr != nil {
+				xlog.Error("Failed to discover LocalAI Assistant tools", "error", discErr)
+				return echo.NewHTTPError(http.StatusInternalServerError, "discover assistant tools: "+discErr.Error())
+			}
+			for _, fn := range mcpFuncs {
+				funcs = append(funcs, fn)
+				input.Tools = append(input.Tools, functions.Tool{Type: "function", Function: fn})
+			}
+			shouldUseFn = len(funcs) > 0 && config.ShouldUseFunctions()
+
+			// Prepend the embedded system prompt unless the caller supplied
+			// their own system message. Why: the prompt is what teaches the
+			// model the safety rules and recipes. If a caller already has a
+			// system message they're responsible for keeping the assistant
+			// safe, so we leave it alone.
+			if !hasSystemMessage(input.Messages) {
+				input.Messages = append([]schema.Message{{Role: "system", StringContent: assistantHolder.SystemPrompt()}}, input.Messages...)
+			}
+
+			xlog.Debug("LocalAI Assistant tools injected", "count", len(mcpFuncs))
+		}
 
 		// MCP prompt and resource injection (extracted before tool injection)
 		mcpPromptName, mcpPromptArgs := mcpTools.MCPPromptFromMetadata(input.Metadata)
@@ -670,7 +725,13 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 							xlog.Debug("No choices in the response, skipping")
 							continue
 						}
-						usage = &ev.Usage // Copy a pointer to the latest usage chunk so that the stop message can reference it
+						// Capture the running cumulative usage from this chunk
+						// (when present) so the include_usage trailer can carry
+						// the final totals. Usage is stripped before marshal
+						// below so the wire chunk stays spec-compliant.
+						if ev.Usage != nil {
+							usage = ev.Usage
+						}
 						if len(ev.Choices[0].Delta.ToolCalls) > 0 {
 							toolsCalled = true
 							// Collect and merge tool call deltas for MCP execution
@@ -686,6 +747,11 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 								collectedContent += *sp
 							}
 						}
+						// OpenAI streaming spec: intermediate chunks must NOT
+						// carry a `usage` field. Strip the tracking copy
+						// before marshalling — usage is delivered via the
+						// dedicated trailer chunk when include_usage=true.
+						ev.Usage = nil
 						respData, err := json.Marshal(ev)
 						if err != nil {
 							xlog.Debug("Failed to marshal response", "error", err)
@@ -834,6 +900,9 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 					finishReason = FinishReasonFunctionCall
 				}
 
+				// Final delta chunk: empty delta with finish_reason set. Per
+				// OpenAI streaming spec this chunk does NOT carry usage —
+				// the optional trailer (below) does, gated on include_usage.
 				resp := &schema.OpenAIResponse{
 					ID:      id,
 					Created: created,
@@ -845,11 +914,18 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 							Delta:        &schema.Message{},
 						}},
 					Object: "chat.completion.chunk",
-					Usage:  *usage,
 				}
 				respData, _ := json.Marshal(resp)
-
 				fmt.Fprintf(c.Response().Writer, "data: %s\n\n", respData)
+
+				// Trailing usage chunk per OpenAI spec: emit only when the
+				// caller opted in via stream_options.include_usage. Shape:
+				// {"choices":[],"usage":{...},"object":"chat.completion.chunk",...}
+				if input.StreamOptions != nil && input.StreamOptions.IncludeUsage && usage != nil {
+					trailer := streamUsageTrailerJSON(id, input.Model, created, *usage)
+					_, _ = fmt.Fprintf(c.Response().Writer, "data: %s\n\n", trailer)
+				}
+
 				fmt.Fprintf(c.Response().Writer, "data: [DONE]\n\n")
 				c.Response().Flush()
 				xlog.Debug("Stream ended")
@@ -1209,7 +1285,7 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 					Model:   input.Model, // we have to return what the user sent here, due to OpenAI spec.
 					Choices: result,
 					Object:  "chat.completion",
-					Usage:   usage,
+					Usage:   &usage,
 				}
 				respData, _ := json.Marshal(resp)
 				xlog.Debug("Response", "response", string(respData))

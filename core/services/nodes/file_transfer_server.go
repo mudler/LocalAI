@@ -109,6 +109,21 @@ func StartFileTransferServerWithListener(lis net.Listener, stagingDir, modelsDir
 		registerBackendLogHandlers(mux, token, ls)
 	}
 
+	// Liveness/readiness probes — unauthenticated so container orchestrators
+	// (Docker HEALTHCHECK, k8s probes) can hit them without the bearer token.
+	// Reaching this point means the listener is bound and the mux is serving.
+	healthHandler := func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet && r.Method != http.MethodHead {
+			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte("ok"))
+	}
+	mux.HandleFunc("/readyz", healthHandler)
+	mux.HandleFunc("/healthz", healthHandler)
+
 	addr := lis.Addr().String()
 	server := &http.Server{
 		Handler:           mux,

@@ -164,7 +164,7 @@ export default function CollectionDetails() {
   }
 
   return (
-    <div className="page">
+    <div className="page page--narrow">
       <style>{`
         .collection-detail-upload-form {
           display: flex;
