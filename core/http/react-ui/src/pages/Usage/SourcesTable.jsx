@@ -37,7 +37,10 @@ function formatRelative(iso) {
 //   onSelectKey: (id|null) => void
 //   search / setSearch: free-text filter state lifted to the parent
 //   sortKey / setSortKey: sort column state lifted to the parent
-//   existingKeyIds: Set<string> of current (non-revoked) api key ids
+//   existingKeyIds: Set<string> of current (non-revoked) api key ids, or null
+//     when the parent hasn't yet learned which keys exist. Null suppresses the
+//     revoked badge entirely so live keys aren't dimmed during the fetch or
+//     after a failure.
 export default function SourcesTable({
   totals,
   selectedKey,
@@ -46,7 +49,7 @@ export default function SourcesTable({
   setSearch,
   sortKey,
   setSortKey,
-  existingKeyIds = new Set(),
+  existingKeyIds = null,
 }) {
   const { t } = useTranslation('admin')
 
@@ -59,7 +62,7 @@ export default function SourcesTable({
       tokens: k.tokens,
       requests: k.requests,
       last_used: k.last_used,
-      revoked: !existingKeyIds.has(k.api_key_id),
+      revoked: existingKeyIds != null && !existingKeyIds.has(k.api_key_id),
     }))
     const web = totals?.by_source?.web
       ? [{

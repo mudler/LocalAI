@@ -28,8 +28,9 @@ export default function SourcesTab({ period, adminUserId }) {
   const [sortKey, setSortKey] = useState('tokens')
 
   // Pull the current set of API key ids so the table can mark unknown keys as
-  // revoked. Failure is non-fatal: the revoked badge just won't render.
-  const [existingKeyIds, setExistingKeyIds] = useState(new Set())
+  // revoked. null = "don't know yet" so the table won't dim live keys during
+  // the fetch or after a failure.
+  const [existingKeyIds, setExistingKeyIds] = useState(null)
   useEffect(() => {
     apiKeysApi
       .list()
@@ -37,7 +38,7 @@ export default function SourcesTab({ period, adminUserId }) {
         const list = Array.isArray(resp) ? resp : (resp?.keys || [])
         setExistingKeyIds(new Set(list.map((k) => k.id)))
       })
-      .catch(() => { /* revoked detection is best-effort */ })
+      .catch(() => { /* leave existingKeyIds null so revoked detection is skipped */ })
   }, [])
 
   useEffect(() => {
