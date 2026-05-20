@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { usageApi } from '../../utils/api'
+import { usageApi, apiKeysApi } from '../../utils/api'
 import { useAuth } from '../../context/AuthContext'
 import LoadingSpinner from '../../components/LoadingSpinner'
+import SourceMixRibbon from './SourceMixRibbon'
+import SourcesTable from './SourcesTable'
 
 const EMPTY_DATA = {
   buckets: [],
@@ -11,9 +13,8 @@ const EMPTY_DATA = {
 }
 
 // SourcesTab fetches and renders per-source / per-API-key usage breakdown.
-// Task 9 ships a minimal skeleton (raw totals + key list) so the data path is
-// exercised end to end. Tasks 10 and 11 replace the placeholders with the
-// SourceMixRibbon, SourceTimeChart and SourcesTable visualisations.
+// Task 10 replaces the raw JSON / list placeholders with SourceMixRibbon and
+// SourcesTable. Task 11 will add the time chart and drill-in chip.
 export default function SourcesTab({ period, adminUserId }) {
   const { t } = useTranslation('admin')
   const { isAdmin } = useAuth()
@@ -22,12 +23,22 @@ export default function SourcesTab({ period, adminUserId }) {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
 
-  // State held now even though Tasks 10/11 will use it visually.
   const [selectedKey, setSelectedKey] = useState(null)
-  // eslint-disable-next-line no-unused-vars
   const [search, setSearch] = useState('')
-  // eslint-disable-next-line no-unused-vars
   const [sortKey, setSortKey] = useState('tokens')
+
+  // Pull the current set of API key ids so the table can mark unknown keys as
+  // revoked. Failure is non-fatal: the revoked badge just won't render.
+  const [existingKeyIds, setExistingKeyIds] = useState(new Set())
+  useEffect(() => {
+    apiKeysApi
+      .list()
+      .then((resp) => {
+        const list = Array.isArray(resp) ? resp : (resp?.keys || [])
+        setExistingKeyIds(new Set(list.map((k) => k.id)))
+      })
+      .catch(() => { /* revoked detection is best-effort */ })
+  }, [])
 
   useEffect(() => {
     let cancelled = false
@@ -77,67 +88,27 @@ export default function SourcesTab({ period, adminUserId }) {
     )
   }
 
-  // Skeleton placeholders: Tasks 10 and 11 replace these with SourceMixRibbon,
-  // SourceTimeChart, and SourcesTable.
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--spacing-md)' }}>
       <div className="card" style={{ padding: 'var(--spacing-md)' }}>
-        <div style={{
-          fontSize: '0.6875rem',
-          color: 'var(--color-text-muted)',
-          fontWeight: 500,
-          textTransform: 'uppercase',
-          letterSpacing: '0.03em',
-          marginBottom: 'var(--spacing-xs)',
-        }}>{t('usage.sources.mixTitle')}</div>
-        <pre style={{
-          fontSize: '0.75rem',
-          background: 'var(--color-bg-secondary)',
-          padding: 'var(--spacing-sm)',
-          borderRadius: 'var(--radius-sm)',
-          overflow: 'auto',
-          margin: 0,
-          fontFamily: 'var(--font-mono)',
-        }}>{JSON.stringify(totals.by_source, null, 2)}</pre>
+        <SourceMixRibbon
+          bySource={totals.by_source}
+          keyCount={(totals.by_key || []).length}
+          onSelectSourceClass={(cls) => setSelectedKey(cls)}
+        />
       </div>
 
       <div className="card" style={{ padding: 'var(--spacing-md)' }}>
-        <div style={{
-          fontSize: '0.6875rem',
-          color: 'var(--color-text-muted)',
-          fontWeight: 500,
-          textTransform: 'uppercase',
-          letterSpacing: '0.03em',
-          marginBottom: 'var(--spacing-xs)',
-        }}>{t('usage.sources.topSources')}</div>
-        <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
-          {(totals.by_key || []).map((k) => {
-            const isSelected = selectedKey === k.api_key_id
-            return (
-              <li
-                key={k.api_key_id}
-                onClick={() => setSelectedKey(isSelected ? null : k.api_key_id)}
-                style={{
-                  padding: 'var(--spacing-xs) var(--spacing-sm)',
-                  cursor: 'pointer',
-                  fontWeight: isSelected ? 600 : 400,
-                  fontSize: '0.8125rem',
-                  borderRadius: 'var(--radius-sm)',
-                  background: isSelected ? 'var(--color-bg-secondary)' : 'transparent',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 6,
-                }}
-              >
-                <i className="fas fa-key" style={{ color: 'var(--color-text-muted)', fontSize: '0.75rem' }} />
-                <span style={{ fontFamily: 'var(--font-mono)' }}>{k.api_key_name || k.api_key_id}</span>
-                <span style={{ color: 'var(--color-text-muted)', marginLeft: 'auto', fontFamily: 'var(--font-mono)' }}>
-                  {Number(k.tokens || 0).toLocaleString()}
-                </span>
-              </li>
-            )
-          })}
-        </ul>
+        <SourcesTable
+          totals={totals}
+          selectedKey={selectedKey}
+          onSelectKey={setSelectedKey}
+          search={search}
+          setSearch={setSearch}
+          sortKey={sortKey}
+          setSortKey={setSortKey}
+          existingKeyIds={existingKeyIds}
+        />
       </div>
 
       {truncated && (
