@@ -8,11 +8,27 @@ import (
 	"gorm.io/gorm"
 )
 
+// Source classification for a UsageRecord.
+const (
+	UsageSourceAPIKey = "apikey" // request authenticated with a named UserAPIKey
+	UsageSourceWeb    = "web"    // request authenticated with a session cookie (web UI)
+	UsageSourceLegacy = "legacy" // request authenticated with an env-configured legacy key
+)
+
 // UsageRecord represents a single API request's token usage.
 type UsageRecord struct {
-	ID               uint   `gorm:"primaryKey;autoIncrement"`
-	UserID           string `gorm:"size:36;index:idx_usage_user_time"`
-	UserName         string `gorm:"size:255"`
+	ID       uint   `gorm:"primaryKey;autoIncrement"`
+	UserID   string `gorm:"size:36;index:idx_usage_user_time"`
+	UserName string `gorm:"size:255"`
+
+	// Source classifies how the request authenticated. One of UsageSource* constants.
+	// Empty for pre-feature rows until the InitDB backfill runs.
+	Source string `gorm:"size:16;index:idx_usage_source"`
+	// APIKeyID is the UserAPIKey.ID when Source == UsageSourceAPIKey. Nil otherwise.
+	APIKeyID *string `gorm:"size:36;index:idx_usage_apikey"`
+	// APIKeyName is a snapshot of UserAPIKey.Name at write time. Survives key deletion.
+	APIKeyName string `gorm:"size:255"`
+
 	Model            string `gorm:"size:255;index"`
 	Endpoint         string `gorm:"size:255"`
 	PromptTokens     int64
@@ -30,9 +46,12 @@ func RecordUsage(db *gorm.DB, record *UsageRecord) error {
 // UsageBucket is an aggregated time bucket for the dashboard.
 type UsageBucket struct {
 	Bucket           string `json:"bucket"`
-	Model            string `json:"model"`
+	Model            string `json:"model,omitempty"`
 	UserID           string `json:"user_id,omitempty"`
 	UserName         string `json:"user_name,omitempty"`
+	Source           string `json:"source,omitempty"`
+	APIKeyID         string `json:"api_key_id,omitempty"`
+	APIKeyName       string `json:"api_key_name,omitempty"`
 	PromptTokens     int64  `json:"prompt_tokens"`
 	CompletionTokens int64  `json:"completion_tokens"`
 	TotalTokens      int64  `json:"total_tokens"`

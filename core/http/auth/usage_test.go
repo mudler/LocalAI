@@ -158,4 +158,47 @@ var _ = Describe("Usage", func() {
 			}
 		})
 	})
+
+	Describe("UsageRecord with source fields", func() {
+		It("persists Source, APIKeyID, APIKeyName", func() {
+			db := testDB()
+			keyID := "key-uuid-1"
+			record := &auth.UsageRecord{
+				UserID:      "user-1",
+				UserName:    "Test User",
+				Source:      auth.UsageSourceAPIKey,
+				APIKeyID:    &keyID,
+				APIKeyName:  "ci-runner",
+				Model:       "gpt-4",
+				Endpoint:    "/v1/chat/completions",
+				TotalTokens: 150,
+				CreatedAt:   time.Now(),
+			}
+			Expect(auth.RecordUsage(db, record)).To(Succeed())
+
+			var loaded auth.UsageRecord
+			Expect(db.First(&loaded, record.ID).Error).To(Succeed())
+			Expect(loaded.Source).To(Equal(auth.UsageSourceAPIKey))
+			Expect(loaded.APIKeyID).ToNot(BeNil())
+			Expect(*loaded.APIKeyID).To(Equal("key-uuid-1"))
+			Expect(loaded.APIKeyName).To(Equal("ci-runner"))
+		})
+
+		It("allows nil APIKeyID for web/legacy sources", func() {
+			db := testDB()
+			record := &auth.UsageRecord{
+				UserID:    "user-1",
+				Source:    auth.UsageSourceWeb,
+				Model:     "gpt-4",
+				CreatedAt: time.Now(),
+			}
+			Expect(auth.RecordUsage(db, record)).To(Succeed())
+
+			var loaded auth.UsageRecord
+			Expect(db.First(&loaded, record.ID).Error).To(Succeed())
+			Expect(loaded.Source).To(Equal(auth.UsageSourceWeb))
+			Expect(loaded.APIKeyID).To(BeNil())
+			Expect(loaded.APIKeyName).To(BeEmpty())
+		})
+	})
 })
