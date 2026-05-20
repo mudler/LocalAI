@@ -4,7 +4,7 @@ numba==0.60.0
 accelerate
 transformers>=5.8.0
 bitsandbytes
-sentence-transformers==5.4.0
+sentence-transformers==5.5.0
 diffusers
 soundfile
 protobuf==6.33.5
