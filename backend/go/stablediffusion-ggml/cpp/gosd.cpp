@@ -1188,6 +1188,9 @@ int gen_video(sd_vid_gen_params_t *p, int steps, char *dst, float cfg_scale, int
     p->high_noise_sample_params.scheduler                = scheduler;
     p->high_noise_sample_params.flow_shift               = flow_shift;
 
+    // Pin output fps in params; upstream uses it for audio sync (and we also mux at this rate).
+    p->fps = fps;
+
     // Load init/end reference images if provided (resized to output dims).
     uint8_t* init_buf = nullptr;
     uint8_t* end_buf  = nullptr;
@@ -1206,11 +1209,14 @@ int gen_video(sd_vid_gen_params_t *p, int steps, char *dst, float cfg_scale, int
 
     // Generate
     int num_frames_out = 0;
-    sd_image_t* frames = generate_video(sd_c, p, &num_frames_out);
+    sd_image_t* frames = nullptr;
+    sd_audio_t* audio = nullptr;
+    bool ok = generate_video(sd_c, p, &frames, &num_frames_out, &audio);
     std::free(p);
 
-    if (!frames || num_frames_out == 0) {
+    if (!ok || !frames || num_frames_out == 0) {
         fprintf(stderr, "generate_video produced no frames\n");
+        if (audio) free_sd_audio(audio);
         if (init_buf) free(init_buf);
         if (end_buf) free(end_buf);
         return 1;
@@ -1224,6 +1230,7 @@ int gen_video(sd_vid_gen_params_t *p, int steps, char *dst, float cfg_scale, int
         if (frames[i].data) free(frames[i].data);
     }
     free(frames);
+    if (audio) free_sd_audio(audio);
     if (init_buf) free(init_buf);
     if (end_buf) free(end_buf);
 
