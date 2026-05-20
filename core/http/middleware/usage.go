@@ -149,9 +149,17 @@ func UsageMiddleware(db *gorm.DB) echo.MiddlewareFunc {
 				return handlerErr
 			}
 
+			source := auth.GetSource(c)
+			if source == "" {
+				// Auth disabled or unrecognised path: classify as web so the row is still
+				// bucketable rather than silently dropped from per-source aggregates.
+				source = auth.UsageSourceWeb
+			}
+
 			record := &auth.UsageRecord{
 				UserID:           user.ID,
 				UserName:         user.Name,
+				Source:           source,
 				Model:            resp.Model,
 				Endpoint:         c.Request().URL.Path,
 				PromptTokens:     resp.Usage.PromptTokens,
@@ -159,6 +167,12 @@ func UsageMiddleware(db *gorm.DB) echo.MiddlewareFunc {
 				TotalTokens:      resp.Usage.TotalTokens,
 				Duration:         time.Since(startTime).Milliseconds(),
 				CreatedAt:        startTime,
+			}
+
+			if key := auth.GetAPIKey(c); key != nil {
+				id := key.ID
+				record.APIKeyID = &id
+				record.APIKeyName = key.Name
 			}
 
 			batcher.add(record)
