@@ -1170,8 +1170,8 @@
       use_tokenizer_template: true
   files:
     - filename: llama-cpp/models/Qwen_Qwen3.5-35B-A3B-GGUF/Qwen_Qwen3.5-35B-A3B-Q4_K_M.gguf
-      sha256: ac15eef4c742ff7700cba697238b25832087b67578f213d5ea24c9e3a6dc4457
       uri: https://huggingface.co/bartowski/Qwen_Qwen3.5-35B-A3B-GGUF/resolve/main/Qwen_Qwen3.5-35B-A3B-Q4_K_M.gguf
+      sha256: 2f2df1e8b2e92b642c1850ea1734b341cc8ca5098c42cc0a8b8c436a8d4751ab
     - filename: llama-cpp/mmproj/Qwen_Qwen3.5-35B-A3B-GGUF/mmproj-Qwen_Qwen3.5-35B-A3B-f16.gguf
       sha256: 10cf13cb1f8434f30df8fa7e5bde98d542fbf397550cb489dfa9eb8ac7069035
       uri: https://huggingface.co/bartowski/Qwen_Qwen3.5-35B-A3B-GGUF/resolve/main/mmproj-Qwen_Qwen3.5-35B-A3B-f16.gguf
