@@ -293,6 +293,8 @@ var _ = Describe("Usage", func() {
 			Expect(totals.ByKey).To(HaveLen(1))
 			Expect(totals.ByKey[0].APIKeyName).To(Equal("old-name"))
 			Expect(totals.ByKey[0].APIKeyID).To(Equal("deleted-key"))
+			Expect(totals.ByKey[0].LastUsed).ToNot(BeZero())
+			Expect(totals.ByKey[0].LastUsed).To(BeTemporally("~", now, 2*time.Second))
 		})
 	})
 })

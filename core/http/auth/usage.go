@@ -5,6 +5,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/mudler/xlog"
 	"gorm.io/gorm"
 )
 
@@ -263,6 +264,7 @@ func computeSourceTotals(db *gorm.DB, userID, apiKeyID string, since time.Time, 
 		Requests int64
 	}
 	if err := bySourceQ.Scan(&bySourceRows).Error; err != nil {
+		xlog.Warn("computeSourceTotals: by-source Scan failed", "error", err)
 		return totals
 	}
 	for _, r := range bySourceRows {
@@ -285,7 +287,9 @@ func computeSourceTotals(db *gorm.DB, userID, apiKeyID string, since time.Time, 
 	// *time.Time. Postgres returns a proper timestamp. We accept both shapes
 	// via a Rows.Scan into a string column, then parse uniformly.
 	rows, err := byKeyQ.Rows()
-	if err == nil {
+	if err != nil {
+		xlog.Warn("computeSourceTotals: by-key Rows() failed", "error", err)
+	} else {
 		defer rows.Close()
 		out := make([]KeyTotal, 0)
 		for rows.Next() {
@@ -303,6 +307,9 @@ func computeSourceTotals(db *gorm.DB, userID, apiKeyID string, since time.Time, 
 				Requests:   requests,
 				LastUsed:   parseLastUsedString(lastUsedRaw),
 			})
+		}
+		if rerr := rows.Err(); rerr != nil {
+			xlog.Warn("computeSourceTotals: by-key rows iteration failed", "error", rerr)
 		}
 		totals.ByKey = out
 	}
@@ -332,6 +339,7 @@ func parseLastUsedString(s string) time.Time {
 			return t
 		}
 	}
+	xlog.Warn("parseLastUsedString: unrecognised format", "value", s)
 	return time.Time{}
 }
 
