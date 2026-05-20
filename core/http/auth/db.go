@@ -38,8 +38,14 @@ func InitDB(databaseURL string) (*gorm.DB, error) {
 	}
 
 	// Backfill: users created before the provider column existed have an empty
-	// provider — treat them as local accounts so the UI can identify them.
+	// provider - treat them as local accounts so the UI can identify them.
 	db.Exec("UPDATE users SET provider = ? WHERE provider = '' OR provider IS NULL", ProviderLocal)
+
+	// Backfill: pre-feature usage_records have no source column. Classify them so the
+	// new per-source aggregators include them.
+	if err := BackfillUsageSource(db); err != nil {
+		return nil, fmt.Errorf("failed to backfill usage source: %w", err)
+	}
 
 	// Create composite index on users(provider, subject) for fast OAuth lookups
 	if err := db.Exec("CREATE INDEX IF NOT EXISTS idx_users_provider_subject ON users(provider, subject)").Error; err != nil {

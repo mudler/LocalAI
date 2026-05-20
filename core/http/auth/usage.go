@@ -138,6 +138,28 @@ func GetUserUsage(db *gorm.DB, userID, period string) ([]UsageBucket, error) {
 	return buckets, nil
 }
 
+// BackfillUsageSource sets the Source column on pre-feature usage rows.
+// Idempotent: only touches rows where source is NULL or empty.
+//   - rows whose user_id == "legacy-api-key" -> UsageSourceLegacy
+//   - everything else                        -> UsageSourceWeb
+func BackfillUsageSource(db *gorm.DB) error {
+	// Legacy first (more specific predicate)
+	if err := db.Exec(
+		`UPDATE usage_records SET source = ? WHERE (source IS NULL OR source = '') AND user_id = ?`,
+		UsageSourceLegacy, "legacy-api-key",
+	).Error; err != nil {
+		return fmt.Errorf("backfill legacy usage source: %w", err)
+	}
+	// Everything else -> web
+	if err := db.Exec(
+		`UPDATE usage_records SET source = ? WHERE (source IS NULL OR source = '')`,
+		UsageSourceWeb,
+	).Error; err != nil {
+		return fmt.Errorf("backfill web usage source: %w", err)
+	}
+	return nil
+}
+
 // GetAllUsage returns aggregated usage for all users (admin). Optional userID filter.
 func GetAllUsage(db *gorm.DB, period, userID string) ([]UsageBucket, error) {
 	sqlite := isSQLiteDB(db)

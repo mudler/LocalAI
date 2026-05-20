@@ -159,6 +159,48 @@ var _ = Describe("Usage", func() {
 		})
 	})
 
+	Describe("Usage source backfill", func() {
+		It("backfills 'web' for pre-feature rows", func() {
+			db := testDB()
+
+			rawDB, err := db.DB()
+			Expect(err).ToNot(HaveOccurred())
+			_, err = rawDB.Exec(
+				`INSERT INTO usage_records (user_id, source, model, created_at, total_tokens, prompt_tokens, completion_tokens, duration) VALUES (?, '', ?, ?, 0, 0, 0, 0)`,
+				"user-x", "gpt-4", time.Now())
+			Expect(err).ToNot(HaveOccurred())
+
+			Expect(auth.BackfillUsageSource(db)).To(Succeed())
+
+			var loaded auth.UsageRecord
+			Expect(db.Where("user_id = ?", "user-x").First(&loaded).Error).To(Succeed())
+			Expect(loaded.Source).To(Equal(auth.UsageSourceWeb))
+		})
+
+		It("backfills 'legacy' for pre-feature rows with legacy-api-key user_id", func() {
+			db := testDB()
+
+			rawDB, err := db.DB()
+			Expect(err).ToNot(HaveOccurred())
+			_, err = rawDB.Exec(
+				`INSERT INTO usage_records (user_id, source, model, created_at, total_tokens, prompt_tokens, completion_tokens, duration) VALUES (?, '', ?, ?, 0, 0, 0, 0)`,
+				"legacy-api-key", "gpt-4", time.Now())
+			Expect(err).ToNot(HaveOccurred())
+
+			Expect(auth.BackfillUsageSource(db)).To(Succeed())
+
+			var loaded auth.UsageRecord
+			Expect(db.Where("user_id = ?", "legacy-api-key").First(&loaded).Error).To(Succeed())
+			Expect(loaded.Source).To(Equal(auth.UsageSourceLegacy))
+		})
+
+		It("is idempotent on re-run", func() {
+			db := testDB()
+			Expect(auth.BackfillUsageSource(db)).To(Succeed())
+			Expect(auth.BackfillUsageSource(db)).To(Succeed())
+		})
+	})
+
 	Describe("UsageRecord with source fields", func() {
 		It("persists Source, APIKeyID, APIKeyName", func() {
 			db := testDB()
