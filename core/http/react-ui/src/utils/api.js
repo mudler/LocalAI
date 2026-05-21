@@ -422,6 +422,14 @@ export const usageApi = {
     if (userId) url += `&user_id=${encodeURIComponent(userId)}`
     return fetchJSON(url)
   },
+  getMySources: (period) =>
+    fetchJSON(`/api/auth/usage/sources?period=${period || 'month'}`),
+  getAdminSources: (period, userId, apiKeyId) => {
+    let url = `/api/auth/admin/usage/sources?period=${period || 'month'}`
+    if (userId) url += `&user_id=${encodeURIComponent(userId)}`
+    if (apiKeyId) url += `&api_key_id=${encodeURIComponent(apiKeyId)}`
+    return fetchJSON(url)
+  },
   getMyQuotas: () => fetchJSON('/api/auth/quota'),
 }
 
