@@ -9,7 +9,7 @@
 # fork and upstream (flat vs nested `common_params_speculative`, missing
 # `get_media_marker()`, `ctx_server.impl->model` vs `model_tgt`, and a
 # LOCALAI_LEGACY_LLAMA_CPP_SPEC compile gate). As of TURBOQUANT_VERSION
-# 2cbfdc62 the fork has rebased past ggml-org/llama.cpp#21962, #22397 and
+# 4c1c3ac0 the fork has rebased past ggml-org/llama.cpp#21962, #22397 and
 # #22838, so the shared grpc-server.cpp compiles unmodified against the fork.
 # Only the fork-specific KV-cache enum entries remain.
 #
