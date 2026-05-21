@@ -28,6 +28,8 @@ var _ = Describe("InstallBackendOnNodeEndpoint async behavior", func() {
 		opcache        *galleryop.OpCache
 		appCfg         *config.ApplicationConfig
 		dispatched     chan galleryop.ManagementOp[gallery.GalleryBackend, any]
+		done           chan struct{}
+		drainExited    chan struct{}
 	)
 
 	BeforeEach(func() {
@@ -41,11 +43,29 @@ var _ = Describe("InstallBackendOnNodeEndpoint async behavior", func() {
 		// handler's `go func() { ch <- op }()` send does not block waiting
 		// for the real worker (which is not running in this unit test).
 		dispatched = make(chan galleryop.ManagementOp[gallery.GalleryBackend, any], 4)
+		done = make(chan struct{})
+		drainExited = make(chan struct{})
 		go func() {
-			for op := range galleryService.BackendGalleryChannel {
-				dispatched <- op
+			defer close(drainExited)
+			for {
+				select {
+				case op := <-galleryService.BackendGalleryChannel:
+					dispatched <- op
+				case <-done:
+					return
+				}
 			}
 		}()
+	})
+
+	AfterEach(func() {
+		// Signal the drain goroutine to exit. We do NOT close
+		// BackendGalleryChannel: the handler's dispatch goroutine may still
+		// be pending (specs that don't Eventually-Receive), and a send on a
+		// closed channel panics. Signalling via `done` lets the drain
+		// goroutine return without touching the gallery channel.
+		close(done)
+		Eventually(drainExited, "2s").Should(BeClosed())
 	})
 
 	It("returns 202 with a jobID and dispatches a TargetNodeID-scoped op", func() {

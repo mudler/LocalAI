@@ -443,7 +443,9 @@ func InstallBackendOnNodeEndpoint(_ nodes.NodeCommandSender, galleryService *gal
 		galleries := appConfig.BackendGalleries
 		if req.BackendGalleries != "" {
 			var custom []config.Gallery
-			if err := json.Unmarshal([]byte(req.BackendGalleries), &custom); err == nil && len(custom) > 0 {
+			if err := json.Unmarshal([]byte(req.BackendGalleries), &custom); err != nil {
+				xlog.Warn("Ignoring malformed backend_galleries override; falling back to configured galleries", "error", err, "nodeID", nodeID)
+			} else if len(custom) > 0 {
 				galleries = custom
 			}
 		}
