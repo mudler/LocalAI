@@ -17,6 +17,7 @@ import ChatsMenu from '../components/ChatsMenu'
 import { useAuth } from '../context/AuthContext'
 import { useOperations } from '../hooks/useOperations'
 import { relativeTime } from '../utils/format'
+import { copyToClipboard } from '../utils/clipboard'
 
 function getLastMessagePreview(chat) {
   if (!chat.history || chat.history.length === 0) return ''
@@ -798,10 +799,14 @@ export default function Chat() {
     }
   }
 
-  const copyMessage = (content) => {
+  const copyMessage = async (content) => {
     const text = typeof content === 'string' ? content : content?.[0]?.text || ''
-    navigator.clipboard.writeText(text)
-    addToast(t('toasts.copied'), 'success', 2000)
+    const ok = await copyToClipboard(text)
+    if (ok) {
+      addToast(t('toasts.copied'), 'success', 2000)
+    } else {
+      addToast(t('toasts.copyFailed'), 'error', 3000)
+    }
   }
 
   const contextPercent = getContextUsagePercent()
