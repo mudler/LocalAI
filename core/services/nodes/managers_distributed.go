@@ -331,13 +331,23 @@ func (d *DistributedBackendManager) ListBackends() (gallery.SystemBackends, erro
 // non-healthy nodes get retried when they come back instead of being silently
 // skipped. Reply success from the NATS round-trip deletes the queue row;
 // reply.Success==false is treated as an error so the row stays for retry.
+//
+// When op.TargetNodeID is set, only that node is visited - the same allowlist
+// path UpgradeBackend uses. Empty TargetNodeID preserves the original fan-out
+// behavior so the periodic reconciler and /api/backends/install/:id keep
+// working unchanged.
 func (d *DistributedBackendManager) InstallBackend(ctx context.Context, op *galleryop.ManagementOp[gallery.GalleryBackend, any], progressCb galleryop.ProgressCallback) error {
 	galleriesJSON, _ := json.Marshal(op.Galleries)
 	backendName := op.GalleryElementName
 
-	result, err := d.enqueueAndDrainBackendOp(ctx, OpBackendInstall, backendName, galleriesJSON, nil, func(node BackendNode) error {
+	var targetNodeIDs map[string]bool
+	if op.TargetNodeID != "" {
+		targetNodeIDs = map[string]bool{op.TargetNodeID: true}
+	}
+
+	result, err := d.enqueueAndDrainBackendOp(ctx, OpBackendInstall, backendName, galleriesJSON, targetNodeIDs, func(node BackendNode) error {
 		// Admin-driven backend install: not tied to a specific replica slot.
-		// Pass replica 0 — the worker's processKey is "backend#0" when no
+		// Pass replica 0 - the worker's processKey is "backend#0" when no
 		// modelID is supplied, matching pre-PR4 behavior.
 		reply, err := d.adapter.InstallBackend(node.ID, backendName, "", string(galleriesJSON), op.ExternalURI, op.ExternalName, op.ExternalAlias, 0)
 		if err != nil {

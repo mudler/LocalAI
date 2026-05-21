@@ -2,6 +2,7 @@ package galleryop
 
 import (
 	"context"
+	"strings"
 
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/pkg/xsync"
@@ -29,6 +30,12 @@ type ManagementOp[T any, E any] struct {
 	ExternalURI   string // The OCI image, URL, or path
 	ExternalName  string // Custom name for the backend
 	ExternalAlias string // Custom alias for the backend
+
+	// TargetNodeID scopes a backend install/upgrade to a single worker node.
+	// Empty means fan out to every healthy backend node (the previous behavior).
+	// Set by InstallBackendOnNodeEndpoint so an admin can install a hardware-specific
+	// build on one node without touching the rest of the cluster.
+	TargetNodeID string
 
 	// Upgrade is true if this is an upgrade operation (not a fresh install)
 	Upgrade bool
@@ -114,4 +121,32 @@ func (m *OpCache) GetStatus() (map[string]string, map[string]string) {
 	}
 
 	return processingModelsData, taskTypes
+}
+
+// NodeScopedKeyPrefix is the opcache key prefix used by InstallBackendOnNodeEndpoint
+// so per-node installs do not collide on the bare backend name. Format:
+// "node:<nodeID>:<backend>". Read by /api/operations to extract nodeID for the UI.
+const NodeScopedKeyPrefix = "node:"
+
+// NodeScopedKey returns the opcache key for a node-scoped backend operation.
+// The prefix lets ParseNodeScopedKey detach the nodeID back out so the
+// operations endpoint can surface it without storing nodeID separately.
+func NodeScopedKey(nodeID, backend string) string {
+	return NodeScopedKeyPrefix + nodeID + ":" + backend
+}
+
+// ParseNodeScopedKey extracts (nodeID, backend) from a key built by NodeScopedKey.
+// Returns ok=false for keys that lack the prefix or are missing the nodeID or
+// backend segment. Backend names containing colons are preserved because we
+// split on the first colon after the prefix only.
+func ParseNodeScopedKey(key string) (nodeID, backend string, ok bool) {
+	rest, hasPrefix := strings.CutPrefix(key, NodeScopedKeyPrefix)
+	if !hasPrefix {
+		return "", "", false
+	}
+	nodeID, backend, ok = strings.Cut(rest, ":")
+	if !ok || nodeID == "" || backend == "" {
+		return "", "", false
+	}
+	return nodeID, backend, true
 }

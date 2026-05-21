@@ -311,6 +311,47 @@ var _ = Describe("DistributedBackendManager", func() {
 				Expect(mgr.InstallBackend(ctx, op("vllm-development"), nil)).To(Succeed())
 			})
 		})
+
+		Context("when op.TargetNodeID is set to a healthy node", func() {
+			It("installs only on that node, leaving the others untouched", func() {
+				target := registerHealthyBackend("worker-target", "10.0.0.1:50051")
+				other := registerHealthyBackend("worker-other", "10.0.0.2:50051")
+
+				mc.scriptReply(messaging.SubjectNodeBackendInstall(target.ID),
+					messaging.BackendInstallReply{Success: true, Address: "10.0.0.1:50100"})
+				// No reply scripted for `other`: if InstallBackend fans out
+				// to it, the fakeNoRespondersErr default would surface and
+				// the test would fail.
+
+				targetedOp := &galleryop.ManagementOp[gallery.GalleryBackend, any]{
+					GalleryElementName: "llama-cpp",
+					TargetNodeID:       target.ID,
+				}
+				Expect(mgr.InstallBackend(ctx, targetedOp, nil)).To(Succeed())
+
+				mc.mu.Lock()
+				defer mc.mu.Unlock()
+				Expect(mc.calls).To(HaveLen(1))
+				Expect(mc.calls[0].Subject).To(Equal(messaging.SubjectNodeBackendInstall(target.ID)))
+				Expect(mc.calls[0].Subject).ToNot(Equal(messaging.SubjectNodeBackendInstall(other.ID)))
+			})
+		})
+
+		Context("when op.TargetNodeID is set to a node that does not exist", func() {
+			It("returns nil without sending any NATS request", func() {
+				registerHealthyBackend("worker-a", "10.0.0.1:50051")
+
+				ghostOp := &galleryop.ManagementOp[gallery.GalleryBackend, any]{
+					GalleryElementName: "llama-cpp",
+					TargetNodeID:       "this-id-does-not-exist",
+				}
+				Expect(mgr.InstallBackend(ctx, ghostOp, nil)).To(Succeed())
+
+				mc.mu.Lock()
+				defer mc.mu.Unlock()
+				Expect(mc.calls).To(BeEmpty())
+			})
+		})
 	})
 
 	Describe("UpgradeBackend", func() {

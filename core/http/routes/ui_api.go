@@ -214,6 +214,17 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 				}
 			}
 
+			// Node-scoped backend ops (from /api/nodes/:id/backends/install)
+			// carry the nodeID inside the opcache key as "node:<nodeID>:<backend>".
+			// Pull it back out so the operations panel can label which node the
+			// install is targeting, and so the display name is just the backend
+			// slug instead of the full prefixed key.
+			scopedNodeID := ""
+			if nodeID, backend, ok := galleryop.ParseNodeScopedKey(galleryID); ok {
+				scopedNodeID = nodeID
+				galleryID = backend
+			}
+
 			// Extract display name (remove repo prefix if exists)
 			displayName := galleryID
 			if strings.Contains(galleryID, "@") {
@@ -236,6 +247,12 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 				"isCancelled": isCancelled,
 				"cancellable": isCancellable,
 				"message":     message,
+			}
+			// Only attach nodeID when this op was node-scoped: an empty string
+			// would mislead the UI into rendering a node attribution that never
+			// existed in the first place.
+			if scopedNodeID != "" {
+				opData["nodeID"] = scopedNodeID
 			}
 			if status != nil && status.Error != nil {
 				opData["error"] = status.Error.Error()
