@@ -196,4 +196,24 @@ var _ = Describe("ManagementOp with External Backend", func() {
 		Expect(op.ExternalName).To(Equal("test-backend"))
 		Expect(op.ExternalAlias).To(Equal("test-alias"))
 	})
+
+	Context("TargetNodeID field", func() {
+		It("defaults to empty string", func() {
+			op := galleryop.ManagementOp[string, string]{
+				ExternalURI: "oci://example.com/backend:latest",
+			}
+			Expect(op.TargetNodeID).To(BeEmpty())
+		})
+
+		It("preserves TargetNodeID across a channel send", func() {
+			ch := make(chan galleryop.ManagementOp[string, string], 1)
+			ch <- galleryop.ManagementOp[string, string]{
+				GalleryElementName: "llama-cpp",
+				TargetNodeID:       "node-abc-123",
+			}
+			received := <-ch
+			Expect(received.TargetNodeID).To(Equal("node-abc-123"))
+			Expect(received.GalleryElementName).To(Equal("llama-cpp"))
+		})
+	})
 })

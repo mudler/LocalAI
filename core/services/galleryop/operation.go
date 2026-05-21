@@ -30,6 +30,12 @@ type ManagementOp[T any, E any] struct {
 	ExternalName  string // Custom name for the backend
 	ExternalAlias string // Custom alias for the backend
 
+	// TargetNodeID scopes a backend install/upgrade to a single worker node.
+	// Empty means fan out to every healthy backend node (the previous behavior).
+	// Set by InstallBackendOnNodeEndpoint so an admin can install a hardware-specific
+	// build on one node without touching the rest of the cluster.
+	TargetNodeID string
+
 	// Upgrade is true if this is an upgrade operation (not a fresh install)
 	Upgrade bool
 }
