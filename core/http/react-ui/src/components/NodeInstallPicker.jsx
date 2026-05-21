@@ -255,7 +255,7 @@ export default function NodeInstallPicker({
         if (status?.completed) { resolve({ done: true }); return }
         if (status?.error) { resolve({ done: true, error: status.error }); return }
         if (status?.processed && !status?.completed) {
-          resolve({ done: true, error: status.error || (status.cancelled ? 'cancelled' : '') })
+          resolve({ done: true, error: status.error || 'install did not complete' })
           return
         }
       } catch (err) {
@@ -294,21 +294,23 @@ export default function NodeInstallPicker({
         .catch(err => ({ id, ok: false, error: err?.message || 'dispatch failed' }))
     ))
 
+    // Classify dispatch results synchronously OUTSIDE the setter. React may
+    // invoke a functional state updater more than once (StrictMode dev double
+    // invoke, concurrent rendering replay): building the jobs array inside
+    // the closure would duplicate entries and re-poll the same job.
     const jobs = []
-    setPerNode(prev => {
-      const next = { ...prev }
-      for (const r of dispatchResults) {
-        if (r.status !== 'fulfilled') continue
-        const v = r.value
-        if (v.ok && v.jobID) {
-          next[v.id] = { status: 'installing', jobID: v.jobID }
-          jobs.push({ nodeID: v.id, jobID: v.jobID })
-        } else {
-          next[v.id] = { status: 'error', error: v.error || 'dispatch failed' }
-        }
+    const dispatchPatch = {}
+    for (const r of dispatchResults) {
+      if (r.status !== 'fulfilled') continue
+      const v = r.value
+      if (v.ok && v.jobID) {
+        dispatchPatch[v.id] = { status: 'installing', jobID: v.jobID }
+        jobs.push({ nodeID: v.id, jobID: v.jobID })
+      } else {
+        dispatchPatch[v.id] = { status: 'error', error: v.error || 'dispatch failed' }
       }
-      return next
-    })
+    }
+    setPerNode(prev => ({ ...prev, ...dispatchPatch }))
 
     // Phase 2: poll each job. Promise.all resolves when the last job settles;
     // intermediate updates flip per-row state via the setPerNode inside pollJob.
@@ -369,21 +371,21 @@ export default function NodeInstallPicker({
         .catch(err => ({ id, ok: false, error: err?.message || 'dispatch failed' }))
     ))
 
+    // Same precaution as in submit(): classify outside the functional setter
+    // so a replayed updater can't push duplicate jobs into the polling list.
     const jobs = []
-    setPerNode(prev => {
-      const next = { ...prev }
-      for (const r of dispatchResults) {
-        if (r.status !== 'fulfilled') continue
-        const v = r.value
-        if (v.ok && v.jobID) {
-          next[v.id] = { status: 'installing', jobID: v.jobID }
-          jobs.push({ nodeID: v.id, jobID: v.jobID })
-        } else {
-          next[v.id] = { status: 'error', error: v.error || 'dispatch failed' }
-        }
+    const dispatchPatch = {}
+    for (const r of dispatchResults) {
+      if (r.status !== 'fulfilled') continue
+      const v = r.value
+      if (v.ok && v.jobID) {
+        dispatchPatch[v.id] = { status: 'installing', jobID: v.jobID }
+        jobs.push({ nodeID: v.id, jobID: v.jobID })
+      } else {
+        dispatchPatch[v.id] = { status: 'error', error: v.error || 'dispatch failed' }
       }
-      return next
-    })
+    }
+    setPerNode(prev => ({ ...prev, ...dispatchPatch }))
 
     await Promise.all(jobs.map(async ({ nodeID, jobID }) => {
       const result = await pollJob(jobID)
