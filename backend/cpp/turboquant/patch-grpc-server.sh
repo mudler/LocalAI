@@ -1,30 +1,23 @@
 #!/bin/bash
 # Patch the shared backend/cpp/llama-cpp/grpc-server.cpp *copy* used by the
-# turboquant build to account for the gaps between upstream and the fork:
+# turboquant build:
 #
 #   1. Augment the kv_cache_types[] allow-list so `LoadModel` accepts the
 #      fork-specific `turbo2` / `turbo3` / `turbo4` cache types.
-#   2. Replace `get_media_marker()` (added upstream in ggml-org/llama.cpp#21962,
-#      server-side random per-instance marker) with the legacy "<__media__>"
-#      literal. The fork branched before that PR, so server-common.cpp has no
-#      get_media_marker symbol. The fork's mtmd_default_marker() still returns
-#      "<__media__>", and Go-side tooling falls back to that sentinel when the
-#      backend does not expose media_marker, so substituting the literal keeps
-#      behavior identical on the turboquant path.
-#   3. Revert the `common_params_speculative` field references to the
-#      pre-refactor flat layout. Upstream ggml-org/llama.cpp#22397 split the
-#      struct into nested `draft` / `ngram_simple` / `ngram_mod` / etc. members;
-#      the turboquant fork branched before that PR and still exposes the flat
-#      `n_max`, `mparams_dft`, `ngram_size_n`, ... fields. The substitutions
-#      below map the new nested paths back to the legacy flat names so the
-#      shared grpc-server.cpp keeps compiling against the fork's common.h.
-#      Drop this block once the fork rebases past #22397.
+#
+# Historical context: this script used to also paper over API gaps between the
+# fork and upstream (flat vs nested `common_params_speculative`, missing
+# `get_media_marker()`, `ctx_server.impl->model` vs `model_tgt`, and a
+# LOCALAI_LEGACY_LLAMA_CPP_SPEC compile gate). As of TURBOQUANT_VERSION
+# 2cbfdc62 the fork has rebased past ggml-org/llama.cpp#21962, #22397 and
+# #22838, so the shared grpc-server.cpp compiles unmodified against the fork.
+# Only the fork-specific KV-cache enum entries remain.
 #
 # We patch the *copy* sitting in turboquant-<flavor>-build/, never the original
-# under backend/cpp/llama-cpp/, so the stock llama-cpp build keeps compiling
+# under backend/cpp/llama-cpp/, so the stock llama-cpp build stays compiling
 # against vanilla upstream.
 #
-# Idempotent: skips each insertion if its marker is already present (so re-runs
+# Idempotent: skips the insertion if its marker is already present (so re-runs
 # of the same build dir don't double-insert).
 
 set -euo pipefail
@@ -52,7 +45,7 @@ else
     awk '
         /^    GGML_TYPE_Q5_1,$/ && !done {
             print
-            print "    // turboquant fork extras — added by patch-grpc-server.sh"
+            print "    // turboquant fork extras - added by patch-grpc-server.sh"
             print "    GGML_TYPE_TURBO2_0,"
             print "    GGML_TYPE_TURBO3_0,"
             print "    GGML_TYPE_TURBO4_0,"
@@ -70,85 +63,6 @@ else
     mv "$SRC.tmp" "$SRC"
 
     echo "==> KV allow-list patch OK"
-fi
-
-if grep -q 'get_media_marker()' "$SRC"; then
-    echo "==> patching $SRC to replace get_media_marker() with legacy \"<__media__>\" literal"
-    # Only one call site today (ModelMetadata), but replace all occurrences to
-    # stay robust if upstream adds more. Use a temp file to avoid relying on
-    # sed -i portability (the builder image uses GNU sed, but keeping this
-    # consistent with the awk block above).
-    sed 's/get_media_marker()/"<__media__>"/g' "$SRC" > "$SRC.tmp"
-    mv "$SRC.tmp" "$SRC"
-    echo "==> get_media_marker() substitution OK"
-else
-    echo "==> $SRC has no get_media_marker() call, skipping media-marker patch"
-fi
-
-if grep -q 'params\.speculative\.draft\.\|params\.speculative\.ngram_simple\.' "$SRC"; then
-    echo "==> patching $SRC to revert common_params_speculative refs to pre-#22397 flat layout"
-    # Each substitution is the exact post-refactor path → legacy flat field.
-    # Order doesn't matter because the source paths are disjoint, but we keep
-    # the most-specific (mparams.path) first for readability.
-    sed -E \
-        -e 's/params\.speculative\.draft\.mparams\.path/params.speculative.mparams_dft.path/g' \
-        -e 's/params\.speculative\.draft\.n_max/params.speculative.n_max/g' \
-        -e 's/params\.speculative\.draft\.n_min/params.speculative.n_min/g' \
-        -e 's/params\.speculative\.draft\.p_min/params.speculative.p_min/g' \
-        -e 's/params\.speculative\.draft\.p_split/params.speculative.p_split/g' \
-        -e 's/params\.speculative\.draft\.n_gpu_layers/params.speculative.n_gpu_layers/g' \
-        -e 's/params\.speculative\.draft\.n_ctx/params.speculative.n_ctx/g' \
-        -e 's/params\.speculative\.ngram_simple\.size_n/params.speculative.ngram_size_n/g' \
-        -e 's/params\.speculative\.ngram_simple\.size_m/params.speculative.ngram_size_m/g' \
-        -e 's/params\.speculative\.ngram_simple\.min_hits/params.speculative.ngram_min_hits/g' \
-        "$SRC" > "$SRC.tmp"
-    mv "$SRC.tmp" "$SRC"
-    echo "==> speculative field rename OK"
-else
-    echo "==> $SRC has no post-#22397 speculative field refs, skipping spec rename patch"
-fi
-
-# 4. Revert the `ctx_server.impl->model_tgt` rename introduced by upstream
-#    ggml-org/llama.cpp#22838 (parallel drafting). The turboquant fork still
-#    exposes the field as `model` on `server_context_impl`. The two call sites
-#    are in the Rerank and ModelMetadata RPC handlers.
-if grep -q 'ctx_server\.impl->model_tgt' "$SRC"; then
-    echo "==> patching $SRC to revert ctx_server.impl->model_tgt -> ctx_server.impl->model"
-    sed -E 's/ctx_server\.impl->model_tgt/ctx_server.impl->model/g' "$SRC" > "$SRC.tmp"
-    mv "$SRC.tmp" "$SRC"
-    echo "==> model_tgt rename OK"
-else
-    echo "==> $SRC has no ctx_server.impl->model_tgt refs, skipping model_tgt rename patch"
-fi
-
-# 5. Define LOCALAI_LEGACY_LLAMA_CPP_SPEC at the top of the file so the
-#    grpc-server option parser skips the new option-handler blocks (ngram_mod,
-#    ngram_map_k, ngram_map_k4v, ngram_cache, draft.cache_type_*, draft.cpuparams*,
-#    draft.tensor_buft_overrides) introduced for the post-#22838 layout. Those
-#    blocks reference struct fields that simply do not exist in the fork.
-if grep -q '^#define LOCALAI_LEGACY_LLAMA_CPP_SPEC' "$SRC"; then
-    echo "==> $SRC already defines LOCALAI_LEGACY_LLAMA_CPP_SPEC, skipping"
-else
-    echo "==> patching $SRC to define LOCALAI_LEGACY_LLAMA_CPP_SPEC at the top"
-    # Insert the define before the very first `#include` so it precedes all the
-    # speculative-decoding code paths.
-    awk '
-        !done && /^#include/ {
-            print "#define LOCALAI_LEGACY_LLAMA_CPP_SPEC 1"
-            print "// ^ injected by backend/cpp/turboquant/patch-grpc-server.sh"
-            print ""
-            done = 1
-        }
-        { print }
-        END {
-            if (!done) {
-                print "patch-grpc-server.sh: no #include anchor found to insert LOCALAI_LEGACY_LLAMA_CPP_SPEC" > "/dev/stderr"
-                exit 1
-            }
-        }
-    ' "$SRC" > "$SRC.tmp"
-    mv "$SRC.tmp" "$SRC"
-    echo "==> LOCALAI_LEGACY_LLAMA_CPP_SPEC define OK"
 fi
 
 echo "==> all patches applied"
