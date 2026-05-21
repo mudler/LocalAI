@@ -7,7 +7,6 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
-	"time"
 
 	"github.com/labstack/echo/v4"
 	"github.com/mudler/LocalAI/core/http/auth"
@@ -38,6 +37,10 @@ var _ = Describe("UsageMiddleware", func() {
 		middleware.InitUsageRecorder(db)
 	})
 
+	AfterEach(func() {
+		middleware.ShutdownUsageRecorder()
+	})
+
 	okHandler := func(c echo.Context) error {
 		body, _ := json.Marshal(map[string]any{
 			"model": "gpt-4",
@@ -51,8 +54,9 @@ var _ = Describe("UsageMiddleware", func() {
 		return nil
 	}
 
-	// The batcher flushes every 5s. For tests we wait one tick past that.
-	flush := func() { time.Sleep(6 * time.Second) }
+	// FlushNow drains pending records synchronously, replacing the 6s sleep
+	// that was previously needed to wait for the batcher's ticker.
+	flush := middleware.FlushNow
 
 	It("records source=web when auth_source is web", func() {
 		e.POST("/v1/chat/completions", okHandler, func(next echo.HandlerFunc) echo.HandlerFunc {
@@ -94,6 +98,26 @@ var _ = Describe("UsageMiddleware", func() {
 		Expect(rec.APIKeyID).ToNot(BeNil())
 		Expect(*rec.APIKeyID).To(Equal("key-1"))
 		Expect(rec.APIKeyName).To(Equal("ci-runner"))
+	})
+
+	It("FlushNow drains pending records synchronously", func() {
+		e.POST("/v1/chat/completions", okHandler, func(next echo.HandlerFunc) echo.HandlerFunc {
+			return func(c echo.Context) error {
+				c.Set("auth_user", &auth.User{ID: "carol", Name: "Carol"})
+				c.Set("auth_source", auth.UsageSourceWeb)
+				return next(c)
+			}
+		}, middleware.UsageMiddleware(db))
+
+		req := httptest.NewRequest("POST", "/v1/chat/completions", bytes.NewReader([]byte(`{}`)))
+		e.ServeHTTP(httptest.NewRecorder(), req)
+
+		// No sleep: FlushNow should drain immediately.
+		middleware.FlushNow()
+
+		var rec auth.UsageRecord
+		Expect(db.Where("user_id = ?", "carol").First(&rec).Error).To(Succeed())
+		Expect(rec.Source).To(Equal(auth.UsageSourceWeb))
 	})
 
 	It("falls back to source=web when auth_source is empty", func() {
