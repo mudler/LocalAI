@@ -2,6 +2,7 @@ package galleryop
 
 import (
 	"context"
+	"strings"
 
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/pkg/xsync"
@@ -135,23 +136,17 @@ func NodeScopedKey(nodeID, backend string) string {
 }
 
 // ParseNodeScopedKey extracts (nodeID, backend) from a key built by NodeScopedKey.
-// Returns ok=false for keys that lack the prefix or are missing the backend
-// segment. Backend names containing colons are preserved because we split on
-// the first colon after the prefix only.
+// Returns ok=false for keys that lack the prefix or are missing the nodeID or
+// backend segment. Backend names containing colons are preserved because we
+// split on the first colon after the prefix only.
 func ParseNodeScopedKey(key string) (nodeID, backend string, ok bool) {
-	if len(key) <= len(NodeScopedKeyPrefix) || key[:len(NodeScopedKeyPrefix)] != NodeScopedKeyPrefix {
+	rest, hasPrefix := strings.CutPrefix(key, NodeScopedKeyPrefix)
+	if !hasPrefix {
 		return "", "", false
 	}
-	rest := key[len(NodeScopedKeyPrefix):]
-	idx := -1
-	for i := 0; i < len(rest); i++ {
-		if rest[i] == ':' {
-			idx = i
-			break
-		}
-	}
-	if idx < 0 || idx == len(rest)-1 {
+	nodeID, backend, ok = strings.Cut(rest, ":")
+	if !ok || nodeID == "" || backend == "" {
 		return "", "", false
 	}
-	return rest[:idx], rest[idx+1:], true
+	return nodeID, backend, true
 }

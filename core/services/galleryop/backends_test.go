@@ -246,5 +246,10 @@ var _ = Describe("ManagementOp with External Backend", func() {
 			_, _, ok := galleryop.ParseNodeScopedKey("node:only-one-segment")
 			Expect(ok).To(BeFalse())
 		})
+
+		It("rejects keys with an empty nodeID segment", func() {
+			_, _, ok := galleryop.ParseNodeScopedKey("node::llama-cpp")
+			Expect(ok).To(BeFalse())
+		})
 	})
 })
