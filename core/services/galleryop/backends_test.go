@@ -216,4 +216,35 @@ var _ = Describe("ManagementOp with External Backend", func() {
 			Expect(received.GalleryElementName).To(Equal("llama-cpp"))
 		})
 	})
+
+	Describe("NodeScopedKey", func() {
+		It("builds a unique key per (nodeID, backend) pair", func() {
+			Expect(galleryop.NodeScopedKey("node-a", "llama-cpp")).To(Equal("node:node-a:llama-cpp"))
+			Expect(galleryop.NodeScopedKey("node-b", "llama-cpp")).To(Equal("node:node-b:llama-cpp"))
+			Expect(galleryop.NodeScopedKey("node-a", "vllm")).To(Equal("node:node-a:vllm"))
+		})
+
+		It("handles backend names containing colons", func() {
+			// Gallery IDs sometimes look like "official@llama-cpp"; nodeIDs are UUIDs
+			// without colons, but the backend slug may contain anything. Splitting on
+			// the first colon after the prefix MUST yield the full backend back.
+			key := galleryop.NodeScopedKey("node-1", "official@llama-cpp:v2")
+			node, backend, ok := galleryop.ParseNodeScopedKey(key)
+			Expect(ok).To(BeTrue())
+			Expect(node).To(Equal("node-1"))
+			Expect(backend).To(Equal("official@llama-cpp:v2"))
+		})
+
+		It("rejects keys without the node prefix", func() {
+			_, _, ok := galleryop.ParseNodeScopedKey("llama-cpp")
+			Expect(ok).To(BeFalse())
+			_, _, ok = galleryop.ParseNodeScopedKey("official@llama-cpp")
+			Expect(ok).To(BeFalse())
+		})
+
+		It("rejects malformed node-prefixed keys", func() {
+			_, _, ok := galleryop.ParseNodeScopedKey("node:only-one-segment")
+			Expect(ok).To(BeFalse())
+		})
+	})
 })
