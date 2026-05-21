@@ -470,7 +470,7 @@ func InstallBackendOnNodeEndpoint(_ nodes.NodeCommandSender, galleryService *gal
 		xlog.Info("Node-scoped backend install dispatched", "node", nodeID, "backend", req.Backend, "uri", req.URI, "jobID", jobID)
 		return c.JSON(http.StatusAccepted, map[string]string{
 			"jobID":     jobID,
-			"statusURL": "/api/backends/job/" + jobID,
+			"statusUrl": "/api/backends/job/" + jobID,
 			"message":   "backend installation started",
 		})
 	}
