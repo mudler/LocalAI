@@ -444,11 +444,15 @@ These llama.cpp options are passed through the `options:` array.
 
 ### Prompt Caching
 
+The recommended way to enable prompt caching for the `llama-cpp` backend is the **server-side prompt cache** controlled by `cache_ram` / `kv_unified` / `cache_idle_slots` in the `options:` array (see [llama.cpp backend options]({{%relref "features/text-generation#server-side-prompt-cache-repeated-system-prompts" %}})). It's on by default since LocalAI v4.3 and is what gives repeated system prompts a near-zero prefill on the second call.
+
+The fields below come from upstream llama.cpp's **CLI completion tool** and are passed through to the gRPC backend for compatibility, but the gRPC server itself does not consume them: keep them empty unless you're targeting a non-llama-cpp backend that reads them.
+
 | Field | Type | Description |
 |-------|------|-------------|
-| `prompt_cache_path` | string | Path to store prompt cache (relative to models directory) |
-| `prompt_cache_all` | bool | Cache all prompts automatically |
-| `prompt_cache_ro` | bool | Read-only prompt cache |
+| `prompt_cache_path` | string | (legacy / unused by llama-cpp gRPC server) Path to a file-backed prompt cache for upstream's CLI completion tool. |
+| `prompt_cache_all` | bool | (legacy / unused by llama-cpp gRPC server) |
+| `prompt_cache_ro` | bool | (legacy / unused by llama-cpp gRPC server) |
 
 ### Text Processing
 
