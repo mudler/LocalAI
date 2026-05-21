@@ -162,6 +162,7 @@ export default function SourcesTab({ period, adminUserId }) {
           sortKey={sortKey}
           setSortKey={setSortKey}
           existingKeyIds={existingKeyIds}
+          showUserColumn={isAdmin}
         />
       </div>
 

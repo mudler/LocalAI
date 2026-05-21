@@ -198,20 +198,37 @@ type TotalsEntry struct {
 	Requests int64 `json:"requests"`
 }
 
-// KeyTotal is the per-key roll-up returned by sources endpoints.
+// KeyTotal is the per-key roll-up returned by sources endpoints. UserID and
+// UserName are snapshotted from the UsageRecord so revoked-and-deleted keys
+// still carry their owner attribution in admin views.
 type KeyTotal struct {
 	APIKeyID   string    `json:"api_key_id"`
 	APIKeyName string    `json:"api_key_name"`
+	UserID     string    `json:"user_id"`
+	UserName   string    `json:"user_name"`
 	Tokens     int64     `json:"tokens"`
 	Requests   int64     `json:"requests"`
 	LastUsed   time.Time `json:"last_used"`
 }
 
+// UserSourceTotal is a per-(user, source) roll-up for sources that don't carry
+// a named API key identity (web, legacy). It exists so admin views can show
+// which user generated each block of Web UI / legacy traffic; the per-apikey
+// breakdown for source=apikey already lives in KeyTotal.
+type UserSourceTotal struct {
+	Source   string `json:"source"`
+	UserID   string `json:"user_id"`
+	UserName string `json:"user_name"`
+	Tokens   int64  `json:"tokens"`
+	Requests int64  `json:"requests"`
+}
+
 // SourceTotals summarises a per-source breakdown.
 type SourceTotals struct {
-	BySource   map[string]TotalsEntry `json:"by_source"`
-	ByKey      []KeyTotal             `json:"by_key"` // server-sorted desc by tokens, capped
-	GrandTotal TotalsEntry            `json:"grand_total"`
+	BySource     map[string]TotalsEntry `json:"by_source"`
+	ByKey        []KeyTotal             `json:"by_key"`                   // server-sorted desc by tokens, capped
+	ByUserSource []UserSourceTotal      `json:"by_user_source,omitempty"` // populated only when includeLegacy=true
+	GrandTotal   TotalsEntry            `json:"grand_total"`
 }
 
 const maxKeyTotals = 200
@@ -275,9 +292,10 @@ func computeSourceTotals(db *gorm.DB, userID, apiKeyID string, since time.Time, 
 
 	byKeyQ := db.Model(&UsageRecord{}).
 		Select("COALESCE(api_key_id, '') as api_key_id, api_key_name, "+
+			"user_id, user_name, "+
 			"SUM(total_tokens) as tokens, COUNT(*) as requests, MAX(created_at) as last_used").
 		Where("api_key_id IS NOT NULL AND api_key_id <> ''").
-		Group("api_key_id, api_key_name").
+		Group("api_key_id, api_key_name, user_id, user_name").
 		Order("tokens DESC").
 		Limit(maxKeyTotals)
 	byKeyQ = applyFilters(byKeyQ, userID, apiKeyID, since, includeLegacy)
@@ -294,15 +312,17 @@ func computeSourceTotals(db *gorm.DB, userID, apiKeyID string, since time.Time, 
 		out := make([]KeyTotal, 0)
 		for rows.Next() {
 			var (
-				apiKeyID, apiKeyName, lastUsedRaw string
-				tokens, requests                  int64
+				apiKeyID, apiKeyName, userIDCol, userName, lastUsedRaw string
+				tokens, requests                                       int64
 			)
-			if scanErr := rows.Scan(&apiKeyID, &apiKeyName, &tokens, &requests, &lastUsedRaw); scanErr != nil {
+			if scanErr := rows.Scan(&apiKeyID, &apiKeyName, &userIDCol, &userName, &tokens, &requests, &lastUsedRaw); scanErr != nil {
 				continue
 			}
 			out = append(out, KeyTotal{
 				APIKeyID:   apiKeyID,
 				APIKeyName: apiKeyName,
+				UserID:     userIDCol,
+				UserName:   userName,
 				Tokens:     tokens,
 				Requests:   requests,
 				LastUsed:   parseLastUsedString(lastUsedRaw),
@@ -312,6 +332,27 @@ func computeSourceTotals(db *gorm.DB, userID, apiKeyID string, since time.Time, 
 			xlog.Warn("computeSourceTotals: by-key rows iteration failed", "error", rerr)
 		}
 		totals.ByKey = out
+	}
+
+	// by_user_source: only populated for admin callers (includeLegacy=true) so
+	// they can attribute Web UI / legacy traffic to specific users. Per-apikey
+	// rows already carry user info via KeyTotal above, so this query only
+	// covers source != apikey.
+	if includeLegacy {
+		byUserSourceQ := db.Model(&UsageRecord{}).
+			Select("source, user_id, user_name, "+
+				"SUM(total_tokens) as tokens, COUNT(*) as requests").
+			Where("source <> ?", UsageSourceAPIKey).
+			Group("source, user_id, user_name").
+			Order("tokens DESC")
+		byUserSourceQ = applyFilters(byUserSourceQ, userID, apiKeyID, since, includeLegacy)
+
+		var byUserSourceRows []UserSourceTotal
+		if scanErr := byUserSourceQ.Scan(&byUserSourceRows).Error; scanErr != nil {
+			xlog.Warn("computeSourceTotals: by-user-source Scan failed", "error", scanErr)
+		} else {
+			totals.ByUserSource = byUserSourceRows
+		}
 	}
 
 	return totals
