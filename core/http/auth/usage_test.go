@@ -349,5 +349,86 @@ var _ = Describe("Usage", func() {
 			Expect(totals.ByKey).To(HaveLen(200))
 			Expect(totals.ByKey[0].Tokens > totals.ByKey[199].Tokens).To(BeTrue())
 		})
+
+		// insertNamed records a row with explicit user_id, user_name, source,
+		// and optional api key snapshot. Used by the user-attribution tests
+		// below which the older insert helper can't express.
+		insertNamed := func(db *gorm.DB, userID, userName, source, keyID, keyName string, tokens int64) {
+			rec := &auth.UsageRecord{
+				UserID:      userID,
+				UserName:    userName,
+				Source:      source,
+				Model:       "gpt-4",
+				TotalTokens: tokens,
+				CreatedAt:   time.Now(),
+			}
+			if keyID != "" {
+				rec.APIKeyID = &keyID
+				rec.APIKeyName = keyName
+			}
+			Expect(auth.RecordUsage(db, rec)).To(Succeed())
+		}
+
+		It("attributes each KeyTotal to its owner user", func() {
+			db := testDB()
+			insertNamed(db, "alice", "Alice", auth.UsageSourceAPIKey, "k1", "ci-runner", 100)
+			insertNamed(db, "bob", "Bob", auth.UsageSourceAPIKey, "k2", "lap", 50)
+
+			_, totals, _, err := auth.GetAllUsageBySource(db, "month", "", "")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(totals.ByKey).To(HaveLen(2))
+
+			byID := map[string]auth.KeyTotal{}
+			for _, k := range totals.ByKey {
+				byID[k.APIKeyID] = k
+			}
+			Expect(byID["k1"].UserID).To(Equal("alice"))
+			Expect(byID["k1"].UserName).To(Equal("Alice"))
+			Expect(byID["k2"].UserID).To(Equal("bob"))
+			Expect(byID["k2"].UserName).To(Equal("Bob"))
+		})
+
+		It("breaks Web UI and legacy traffic out per user in by_user_source for admin", func() {
+			db := testDB()
+			// Alice and Bob both have Web UI traffic; a synthetic legacy user
+			// also contributes. ByUserSource should expose one row per
+			// (source, user) pair, never for source=apikey.
+			insertNamed(db, "alice", "Alice", auth.UsageSourceWeb, "", "", 30)
+			insertNamed(db, "bob", "Bob", auth.UsageSourceWeb, "", "", 70)
+			insertNamed(db, "legacy-api-key", "API Key User", auth.UsageSourceLegacy, "", "", 10)
+			insertNamed(db, "alice", "Alice", auth.UsageSourceAPIKey, "k1", "ci-runner", 5)
+
+			_, totals, _, err := auth.GetAllUsageBySource(db, "month", "", "")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(totals.ByUserSource).ToNot(BeEmpty())
+
+			for _, r := range totals.ByUserSource {
+				Expect(r.Source).ToNot(Equal(auth.UsageSourceAPIKey))
+			}
+
+			webByUser := map[string]int64{}
+			legacyByUser := map[string]int64{}
+			for _, r := range totals.ByUserSource {
+				switch r.Source {
+				case auth.UsageSourceWeb:
+					webByUser[r.UserID] = r.Tokens
+				case auth.UsageSourceLegacy:
+					legacyByUser[r.UserID] = r.Tokens
+				}
+			}
+			Expect(webByUser["alice"]).To(Equal(int64(30)))
+			Expect(webByUser["bob"]).To(Equal(int64(70)))
+			Expect(legacyByUser["legacy-api-key"]).To(Equal(int64(10)))
+		})
+
+		It("does NOT populate by_user_source in the non-admin path", func() {
+			db := testDB()
+			insertNamed(db, "alice", "Alice", auth.UsageSourceWeb, "", "", 30)
+
+			_, totals, err := auth.GetUserUsageBySource(db, "alice", "month")
+			Expect(err).ToNot(HaveOccurred())
+			// Non-admin path uses includeLegacy=false, so by_user_source stays nil.
+			Expect(totals.ByUserSource).To(BeNil())
+		})
 	})
 })

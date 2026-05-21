@@ -6,6 +6,7 @@ const SORT_FNS = {
   requests: (a, b) => (b.requests || 0) - (a.requests || 0),
   last_used: (a, b) => new Date(b.last_used || 0).getTime() - new Date(a.last_used || 0).getTime(),
   name: (a, b) => (a.name || '').localeCompare(b.name || ''),
+  user: (a, b) => (a.userName || '').localeCompare(b.userName || ''),
 }
 
 function formatTokens(n) {
@@ -41,6 +42,8 @@ function formatRelative(iso) {
 //     when the parent hasn't yet learned which keys exist. Null suppresses the
 //     revoked badge entirely so live keys aren't dimmed during the fetch or
 //     after a failure.
+//   showUserColumn: render the User column. Admin views set this true so the
+//     reader can attribute each key (and each Web UI row) to its owner.
 export default function SourcesTable({
   totals,
   selectedKey,
@@ -50,6 +53,7 @@ export default function SourcesTable({
   sortKey,
   setSortKey,
   existingKeyIds = null,
+  showUserColumn = false,
 }) {
   const { t } = useTranslation('admin')
 
@@ -58,39 +62,70 @@ export default function SourcesTable({
       kind: 'apikey',
       id: k.api_key_id,
       name: k.api_key_name || k.api_key_id,
+      userID: k.user_id || '',
+      userName: k.user_name || '',
       prefix: '',
       tokens: k.tokens,
       requests: k.requests,
       last_used: k.last_used,
       revoked: existingKeyIds != null && !existingKeyIds.has(k.api_key_id),
     }))
-    const web = totals?.by_source?.web
-      ? [{
+
+    // Pseudo-rows for sources that don't have a named key identity.
+    // In admin view (showUserColumn=true), prefer the per-user breakdown
+    // from totals.by_user_source so each user's Web UI / legacy traffic
+    // gets its own row. Otherwise fall back to the global by_source aggregate.
+    let unkeyed = []
+    if (showUserColumn && Array.isArray(totals?.by_user_source) && totals.by_user_source.length > 0) {
+      unkeyed = totals.by_user_source.map((r) => ({
+        kind: r.source,
+        id: r.source + ':' + (r.user_id || ''),
+        name: r.source === 'legacy' ? t('usage.sources.legacy') : t('usage.sources.webUI'),
+        userID: r.user_id || '',
+        userName: r.user_name || '',
+        prefix: '-',
+        tokens: r.tokens,
+        requests: r.requests,
+      }))
+    } else {
+      if (totals?.by_source?.web) {
+        unkeyed.push({
           kind: 'web',
           id: 'web',
           name: t('usage.sources.webUI'),
+          userID: '',
+          userName: '',
           prefix: '-',
           tokens: totals.by_source.web.tokens,
           requests: totals.by_source.web.requests,
-        }]
-      : []
-    const leg = totals?.by_source?.legacy
-      ? [{
+        })
+      }
+      if (totals?.by_source?.legacy) {
+        unkeyed.push({
           kind: 'legacy',
           id: 'legacy',
           name: t('usage.sources.legacy'),
+          userID: '',
+          userName: '',
           prefix: '-',
           tokens: totals.by_source.legacy.tokens,
           requests: totals.by_source.legacy.requests,
-        }]
-      : []
-    return [...named, ...web, ...leg]
-  }, [totals, existingKeyIds, t])
+        })
+      }
+    }
+
+    return [...named, ...unkeyed]
+  }, [totals, existingKeyIds, showUserColumn, t])
 
   const filtered = useMemo(() => {
     const q = (search || '').trim().toLowerCase()
     const list = q
-      ? rows.filter((r) => (r.name || '').toLowerCase().includes(q) || (r.prefix || '').toLowerCase().includes(q))
+      ? rows.filter((r) =>
+          (r.name || '').toLowerCase().includes(q) ||
+          (r.prefix || '').toLowerCase().includes(q) ||
+          (r.userName || '').toLowerCase().includes(q) ||
+          (r.userID || '').toLowerCase().includes(q)
+        )
       : rows
     return [...list].sort(SORT_FNS[sortKey] || SORT_FNS.tokens)
   }, [rows, search, sortKey])
@@ -134,6 +169,7 @@ export default function SourcesTable({
             <option value="requests">{t('usage.sources.sortRequests')}</option>
             <option value="last_used">{t('usage.sources.sortLastUsed')}</option>
             <option value="name">{t('usage.sources.sortName')}</option>
+            {showUserColumn && <option value="user">{t('usage.sources.sortUser')}</option>}
           </select>
         </label>
       </div>
@@ -143,6 +179,7 @@ export default function SourcesTable({
           <thead>
             <tr>
               <th>{t('usage.sources.sortName')}</th>
+              {showUserColumn && <th style={{ width: 180 }}>{t('usage.sources.sortUser')}</th>}
               <th style={{ width: 110 }}>Prefix</th>
               <th style={{ width: 100, textAlign: 'right' }}>{t('usage.sources.sortRequests')}</th>
               <th style={{ width: 100, textAlign: 'right' }}>{t('usage.sources.sortTokens')}</th>
@@ -182,6 +219,11 @@ export default function SourcesTable({
                       )}
                     </span>
                   </td>
+                  {showUserColumn && (
+                    <td style={{ color: 'var(--color-text-secondary)', fontSize: '0.8125rem' }}>
+                      {r.userName || r.userID || '-'}
+                    </td>
+                  )}
                   <td style={{ color: 'var(--color-text-muted)', fontSize: '0.75rem' }}>{r.prefix || '-'}</td>
                   <td style={{ textAlign: 'right', fontFamily: 'var(--font-mono)' }}>
                     {Number(r.requests || 0).toLocaleString()}
