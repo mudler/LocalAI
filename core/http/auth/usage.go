@@ -290,7 +290,7 @@ func computeSourceTotals(db *gorm.DB, userID, apiKeyID string, since time.Time, 
 	if err != nil {
 		xlog.Warn("computeSourceTotals: by-key Rows() failed", "error", err)
 	} else {
-		defer rows.Close()
+		defer func() { _ = rows.Close() }()
 		out := make([]KeyTotal, 0)
 		for rows.Next() {
 			var (
