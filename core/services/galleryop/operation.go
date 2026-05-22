@@ -53,6 +53,30 @@ type OpStatus struct {
 	GalleryElementName string  `json:"gallery_element_name"`
 	Cancelled          bool    `json:"cancelled"`   // Cancelled is true if the operation was cancelled
 	Cancellable        bool    `json:"cancellable"` // Cancellable is true if the operation can be cancelled
+
+	// Nodes is the per-node breakdown for a fanned-out backend install.
+	// Populated by DistributedBackendManager (per-node terminal status)
+	// and by the Phase 2 progress bridge (per-byte ticks). The
+	// /api/operations handler surfaces this so the UI can render an
+	// expandable per-node view of an in-flight install.
+	Nodes []NodeProgress `json:"nodes,omitempty"`
+}
+
+// NodeProgress is a single node's contribution to a backend install
+// operation. Populated by DistributedBackendManager (per-node terminal
+// status) and by the Phase 2 progress bridge (per-byte ticks). Read by
+// the /api/operations handler so the UI can render an expandable
+// per-node breakdown.
+type NodeProgress struct {
+	NodeID     string  `json:"node_id"`
+	NodeName   string  `json:"node_name"`
+	Status     string  `json:"status"` // "queued" | "running_on_worker" | "success" | "error" | "downloading"
+	FileName   string  `json:"file_name,omitempty"`
+	Current    string  `json:"current,omitempty"`
+	Total      string  `json:"total,omitempty"`
+	Percentage float64 `json:"percentage"`
+	Phase      string  `json:"phase,omitempty"`
+	Error      string  `json:"error,omitempty"`
 }
 
 type OpCache struct {
