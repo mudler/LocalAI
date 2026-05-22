@@ -113,15 +113,7 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 				contentDelta = goContent
 			}
 
-			usage := schema.OpenAIUsage{
-				PromptTokens:     tokenUsage.Prompt,
-				CompletionTokens: tokenUsage.Completion,
-				TotalTokens:      tokenUsage.Prompt + tokenUsage.Completion,
-			}
-			if extraUsage {
-				usage.TimingTokenGeneration = tokenUsage.TimingTokenGeneration
-				usage.TimingPromptProcessing = tokenUsage.TimingPromptProcessing
-			}
+			usage := streamUsageFromTokenUsage(tokenUsage, extraUsage)
 
 			delta := &schema.Message{}
 			if contentDelta != "" {
@@ -170,7 +162,7 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 		hasChatDeltaToolCalls := false
 		hasChatDeltaContent := false
 
-		_, _, chatDeltas, err := ComputeChoices(req, prompt, config, cl, startupOptions, loader, func(s string, c *[]schema.Choice) {}, func(s string, usage backend.TokenUsage) bool {
+		_, finalUsage, chatDeltas, err := ComputeChoices(req, prompt, config, cl, startupOptions, loader, func(s string, c *[]schema.Choice) {}, func(s string, usage backend.TokenUsage) bool {
 			result += s
 
 			// Track whether ChatDeltas from the C++ autoparser contain
@@ -425,6 +417,13 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 				responses <- chunk
 			}
 		}
+
+		// Issue #9927: surface the authoritative cumulative token counts to
+		// the outer streaming loop so the include_usage trailer is non-zero
+		// when tools were in play. The sentinel has empty Choices so it is
+		// skipped on the wire by the outer loop, but its Usage is captured
+		// into the running tracker before the skip.
+		responses <- usageSentinelChunk(id, req.Model, created, finalUsage, extraUsage)
 
 		close(responses)
 		return err
@@ -721,16 +720,19 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 						input.Cancel()
 						break LOOP
 					case ev := <-responses:
-						if len(ev.Choices) == 0 {
-							xlog.Debug("No choices in the response, skipping")
-							continue
-						}
 						// Capture the running cumulative usage from this chunk
 						// (when present) so the include_usage trailer can carry
 						// the final totals. Usage is stripped before marshal
 						// below so the wire chunk stays spec-compliant.
-						if ev.Usage != nil {
-							usage = ev.Usage
+						//
+						// Done before the empty-Choices skip so usage-only
+						// sentinel chunks (issue #9927, used by processTools
+						// to forward the final TokenUsage from ComputeChoices)
+						// update the tracker without emitting on the wire.
+						usage = applyChunkToUsage(usage, ev)
+						if len(ev.Choices) == 0 {
+							xlog.Debug("No choices in the response, skipping")
+							continue
 						}
 						if len(ev.Choices[0].Delta.ToolCalls) > 0 {
 							toolsCalled = true

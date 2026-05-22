@@ -4,9 +4,60 @@ import (
 	"encoding/json"
 	"fmt"
 
+	"github.com/mudler/LocalAI/core/backend"
 	"github.com/mudler/LocalAI/core/schema"
 	"github.com/mudler/LocalAI/pkg/functions"
 )
+
+// streamUsageFromTokenUsage converts the backend's cumulative TokenUsage into
+// the OpenAI-spec OpenAIUsage shape used on the wire. `extraUsage` controls
+// whether the non-standard timing fields are forwarded.
+func streamUsageFromTokenUsage(usage backend.TokenUsage, extraUsage bool) schema.OpenAIUsage {
+	out := schema.OpenAIUsage{
+		PromptTokens:     usage.Prompt,
+		CompletionTokens: usage.Completion,
+		TotalTokens:      usage.Prompt + usage.Completion,
+	}
+	if extraUsage {
+		out.TimingTokenGeneration = usage.TimingTokenGeneration
+		out.TimingPromptProcessing = usage.TimingPromptProcessing
+	}
+	return out
+}
+
+// usageSentinelChunk builds a final usage-only SSE chunk used by the tool-call
+// streaming path (processTools) to communicate authoritative token counts to
+// the outer streaming loop. The chunk has empty Choices so the outer loop's
+// empty-Choices guard prevents wire emission; it carries Usage so the loop's
+// running tracker can capture totals for the include_usage trailer.
+//
+// Background (issue #9927): unlike the no-tools `process` path which stamps
+// Usage on every emitted chunk, processTools' emissions are conditional on
+// parser output, and the deferred-final-chunk helpers (buildNoActionFinalChunks
+// / buildDeferredToolCallChunks) deliberately do NOT carry Usage (regression
+// test from issue #8546). Without this sentinel the trailer reported zeros
+// whenever the request included `tools`.
+func usageSentinelChunk(id, model string, created int, usage backend.TokenUsage, extraUsage bool) schema.OpenAIResponse {
+	u := streamUsageFromTokenUsage(usage, extraUsage)
+	return schema.OpenAIResponse{
+		ID:      id,
+		Created: created,
+		Model:   model,
+		Object:  "chat.completion.chunk",
+		Usage:   &u,
+	}
+}
+
+// applyChunkToUsage updates the running usage tracker from an inbound chunk.
+// Usage is captured regardless of whether the chunk has Choices: sentinel
+// usage-only chunks (empty Choices, non-nil Usage) are how processTools
+// communicates final counts to the trailer emitter.
+func applyChunkToUsage(running *schema.OpenAIUsage, ev schema.OpenAIResponse) *schema.OpenAIUsage {
+	if ev.Usage != nil {
+		return ev.Usage
+	}
+	return running
+}
 
 // streamUsageTrailerJSON returns the bytes of the OpenAI-spec trailing usage
 // chunk emitted in streaming completions when the request opts in via

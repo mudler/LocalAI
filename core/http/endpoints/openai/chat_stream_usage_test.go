@@ -3,6 +3,7 @@ package openai
 import (
 	"encoding/json"
 
+	"github.com/mudler/LocalAI/core/backend"
 	"github.com/mudler/LocalAI/core/schema"
 	"github.com/mudler/LocalAI/pkg/functions"
 	. "github.com/onsi/ginkgo/v2"
@@ -149,6 +150,168 @@ var _ = Describe("streaming usage spec compliance", func() {
 			Expect(u["prompt_tokens"]).To(BeNumerically("==", 18))
 			Expect(u["completion_tokens"]).To(BeNumerically("==", 14))
 			Expect(u["total_tokens"]).To(BeNumerically("==", 32))
+		})
+	})
+
+	// Regression coverage for issue #9927: streaming usage trailer reported
+	// zeros when the request included `tools`. processTools (the streaming
+	// worker for tool-enabled requests) was discarding the cumulative
+	// TokenUsage from ComputeChoices instead of forwarding it to the outer
+	// loop. The fix: processTools emits a "usage sentinel" chunk (empty
+	// Choices, populated Usage) right before closing the responses channel,
+	// and the outer loop captures Usage *before* the empty-Choices skip.
+	Describe("streamUsageFromTokenUsage", func() {
+		It("converts backend TokenUsage to schema OpenAIUsage", func() {
+			tu := backend.TokenUsage{Prompt: 18, Completion: 213}
+			u := streamUsageFromTokenUsage(tu, false)
+			Expect(u.PromptTokens).To(Equal(18))
+			Expect(u.CompletionTokens).To(Equal(213))
+			Expect(u.TotalTokens).To(Equal(231))
+			Expect(u.TimingTokenGeneration).To(BeZero())
+			Expect(u.TimingPromptProcessing).To(BeZero())
+		})
+		It("includes timings when extraUsage is true", func() {
+			tu := backend.TokenUsage{
+				Prompt: 10, Completion: 20,
+				TimingPromptProcessing: 0.5,
+				TimingTokenGeneration:  1.5,
+			}
+			u := streamUsageFromTokenUsage(tu, true)
+			Expect(u.TimingPromptProcessing).To(Equal(0.5))
+			Expect(u.TimingTokenGeneration).To(Equal(1.5))
+		})
+	})
+
+	Describe("usageSentinelChunk", func() {
+		It("carries Usage but empty Choices so the outer streaming loop can capture totals without emitting on the wire", func() {
+			tu := backend.TokenUsage{Prompt: 18, Completion: 213}
+			ch := usageSentinelChunk("req-1", "Qwen3.6", 100, tu, false)
+
+			Expect(ch.Choices).To(BeEmpty(),
+				"sentinel must have no Choices so the outer loop's empty-Choices skip prevents wire emission")
+			Expect(ch.Usage).ToNot(BeNil(),
+				"sentinel must carry Usage so the outer loop can populate the include_usage trailer")
+			Expect(ch.Usage.PromptTokens).To(Equal(18))
+			Expect(ch.Usage.CompletionTokens).To(Equal(213))
+			Expect(ch.Usage.TotalTokens).To(Equal(231))
+			Expect(ch.ID).To(Equal("req-1"))
+			Expect(ch.Model).To(Equal("Qwen3.6"))
+			Expect(ch.Created).To(Equal(100))
+			Expect(ch.Object).To(Equal("chat.completion.chunk"))
+		})
+	})
+
+	Describe("applyChunkToUsage", func() {
+		It("updates running usage from a sentinel chunk with empty Choices", func() {
+			running := &schema.OpenAIUsage{}
+			sentinel := schema.OpenAIResponse{
+				Usage: &schema.OpenAIUsage{PromptTokens: 18, CompletionTokens: 213, TotalTokens: 231},
+			}
+			updated := applyChunkToUsage(running, sentinel)
+			Expect(updated.PromptTokens).To(Equal(18))
+			Expect(updated.CompletionTokens).To(Equal(213))
+			Expect(updated.TotalTokens).To(Equal(231))
+		})
+		It("keeps running usage when chunk has no Usage", func() {
+			running := &schema.OpenAIUsage{PromptTokens: 1, CompletionTokens: 2, TotalTokens: 3}
+			chunk := schema.OpenAIResponse{
+				Choices: []schema.Choice{{Delta: &schema.Message{}, Index: 0}},
+			}
+			updated := applyChunkToUsage(running, chunk)
+			Expect(updated.PromptTokens).To(Equal(1))
+			Expect(updated.CompletionTokens).To(Equal(2))
+			Expect(updated.TotalTokens).To(Equal(3))
+		})
+	})
+
+	// Flow-level contract: this test mirrors the outer streaming loop's
+	// per-chunk handling block exactly. It documents the chain by which the
+	// tools-streaming path delivers token counts to the include_usage trailer.
+	// Any future change that breaks this contract (reordering the skip, or
+	// dropping the sentinel-emission step in processTools) will surface as a
+	// behavioral regression of issue #9927.
+	Describe("tools-flow usage capture through outer-loop sequence", func() {
+		It("captures usage from a tool-call streaming sequence that ends in a sentinel chunk", func() {
+			hello := "Hello"
+			args := `{"x":1}`
+			toolID := "call_1"
+			feed := []schema.OpenAIResponse{
+				// Role chunk emitted on first content token, no Usage.
+				{
+					Object:  "chat.completion.chunk",
+					Choices: []schema.Choice{{Delta: &schema.Message{Role: "assistant"}, Index: 0}},
+				},
+				// Content delta chunk, no Usage.
+				{
+					Object:  "chat.completion.chunk",
+					Choices: []schema.Choice{{Delta: &schema.Message{Content: &hello}, Index: 0}},
+				},
+				// Tool call deltas (XML/JSON iterative parser path), no Usage.
+				{
+					Object: "chat.completion.chunk",
+					Choices: []schema.Choice{{Delta: &schema.Message{
+						Role: "assistant",
+						ToolCalls: []schema.ToolCall{{
+							Index: 0, ID: toolID, Type: "function",
+							FunctionCall: schema.FunctionCall{Name: "do_thing", Arguments: args},
+						}},
+					}, Index: 0}},
+				},
+				// Final usage sentinel forwarded from ComputeChoices' returned
+				// TokenUsage. Empty Choices, populated Usage.
+				usageSentinelChunk("req-1", "m", 0,
+					backend.TokenUsage{Prompt: 18, Completion: 213}, false),
+			}
+
+			// Mirror the outer loop body in chat.go ChatEndpoint exactly.
+			usage := &schema.OpenAIUsage{}
+			wireChunks := 0
+			for _, ev := range feed {
+				usage = applyChunkToUsage(usage, ev)
+				if len(ev.Choices) == 0 {
+					continue
+				}
+				wireChunks++
+			}
+
+			Expect(wireChunks).To(Equal(3),
+				"the 3 real delta chunks must reach the wire; the sentinel must not")
+			Expect(usage.PromptTokens).To(Equal(18),
+				"trailer must report the prompt tokens from the sentinel (issue #9927)")
+			Expect(usage.CompletionTokens).To(Equal(213),
+				"trailer must report the completion tokens from the sentinel (issue #9927)")
+			Expect(usage.TotalTokens).To(Equal(231))
+		})
+
+		It("would still report zeros without a sentinel, demonstrating the original bug shape", func() {
+			// Same sequence as the previous test minus the sentinel. This
+			// pins the contract that processTools is responsible for adding
+			// the sentinel: without it, the trailer cannot recover the
+			// counts because the deferred-final-chunk helpers deliberately
+			// omit Usage (regression test from issue #8546).
+			hello := "Hello"
+			feed := []schema.OpenAIResponse{
+				{
+					Object:  "chat.completion.chunk",
+					Choices: []schema.Choice{{Delta: &schema.Message{Role: "assistant"}, Index: 0}},
+				},
+				{
+					Object:  "chat.completion.chunk",
+					Choices: []schema.Choice{{Delta: &schema.Message{Content: &hello}, Index: 0}},
+				},
+			}
+
+			usage := &schema.OpenAIUsage{}
+			for _, ev := range feed {
+				usage = applyChunkToUsage(usage, ev)
+				if len(ev.Choices) == 0 {
+					continue
+				}
+			}
+
+			Expect(usage.PromptTokens).To(Equal(0))
+			Expect(usage.CompletionTokens).To(Equal(0))
+			Expect(usage.TotalTokens).To(Equal(0))
 		})
 	})
 
