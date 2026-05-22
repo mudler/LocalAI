@@ -136,4 +136,36 @@ var _ = Describe("Backend hooks and parser defaults", func() {
 			Expect(cfg.EngineArgs["enable_chunked_prefill"]).To(Equal(true))
 		})
 	})
+
+	Context("PromptCacheAll default", func() {
+		It("defaults to true when omitted from YAML", func() {
+			cfg := &ModelConfig{}
+			cfg.SetDefaults()
+
+			Expect(cfg.PromptCacheAll).NotTo(BeNil())
+			Expect(*cfg.PromptCacheAll).To(BeTrue())
+		})
+
+		It("preserves an explicit false from YAML", func() {
+			falseV := false
+			cfg := &ModelConfig{
+				LLMConfig: LLMConfig{PromptCacheAll: &falseV},
+			}
+			cfg.SetDefaults()
+
+			Expect(cfg.PromptCacheAll).NotTo(BeNil())
+			Expect(*cfg.PromptCacheAll).To(BeFalse())
+		})
+
+		It("preserves an explicit true from YAML", func() {
+			trueV := true
+			cfg := &ModelConfig{
+				LLMConfig: LLMConfig{PromptCacheAll: &trueV},
+			}
+			cfg.SetDefaults()
+
+			Expect(cfg.PromptCacheAll).NotTo(BeNil())
+			Expect(*cfg.PromptCacheAll).To(BeTrue())
+		})
+	})
 })
