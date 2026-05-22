@@ -77,3 +77,6 @@ local-backends/
 tests/e2e-ui/ui-test-server
 core/http/react-ui/playwright-report/
 core/http/react-ui/test-results/
+
+# Local worktrees
+.worktrees/
