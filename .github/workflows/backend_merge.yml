@@ -66,7 +66,8 @@ jobs:
 
       # cosign signs each pushed manifest list with --recursive so the
       # index and every per-arch entry get an attached Sigstore bundle.
-      # 2.2+ is required for --new-bundle-format.
+      # Recent cosign releases always emit the new bundle format, so
+      # there's no extra CLI flag to opt into it.
       - name: Install cosign
         if: github.event_name != 'pull_request'
         uses: sigstore/cosign-installer@v3
@@ -153,7 +154,6 @@ jobs:
           # manifest before checking signatures need the per-arch
           # signatures, not just the list-level one.
           cosign sign --yes --recursive \
-            --new-bundle-format \
             --registry-referrers-mode=oci-1-1 \
             "quay.io/go-skynet/local-ai-backends@${digest}"
 
@@ -180,7 +180,6 @@ jobs:
           ' <<< "$DOCKER_METADATA_OUTPUT_JSON")
           digest=$(docker buildx imagetools inspect "$first_tag" --format '{{.Manifest.Digest}}')
           cosign sign --yes --recursive \
-            --new-bundle-format \
             --registry-referrers-mode=oci-1-1 \
             "localai/localai-backends@${digest}"
 
