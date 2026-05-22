@@ -3,13 +3,16 @@ package nodes
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"sync"
 	"time"
 
+	"github.com/nats-io/nats.go"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
+	"github.com/mudler/LocalAI/core/services/galleryop"
 	"github.com/mudler/LocalAI/core/services/messaging"
 )
 
@@ -284,5 +287,29 @@ var _ = Describe("RemoteUnloaderAdapter timeout configuration", func() {
 
 		Expect(mc.calls).To(HaveLen(1))
 		Expect(mc.calls[0].Timeout).To(Equal(11 * time.Minute))
+	})
+})
+
+var _ = Describe("RemoteUnloaderAdapter NATS timeout handling", func() {
+	It("wraps nats.ErrTimeout from InstallBackend in galleryop.ErrWorkerStillInstalling", func() {
+		mc := newScriptedMessagingClient()
+		mc.scriptErr(messaging.SubjectNodeBackendInstall("n1"), nats.ErrTimeout)
+		adapter := NewRemoteUnloaderAdapter(nil, mc, 100*time.Millisecond, 1*time.Second)
+
+		_, err := adapter.InstallBackend("n1", "vllm", "", "[]", "", "", "", 0)
+		Expect(err).To(HaveOccurred())
+		Expect(errors.Is(err, galleryop.ErrWorkerStillInstalling)).To(BeTrue(),
+			"expected wrapped ErrWorkerStillInstalling, got %v", err)
+	})
+
+	It("does NOT wrap non-timeout errors", func() {
+		mc := newScriptedMessagingClient()
+		mc.scriptErr(messaging.SubjectNodeBackendInstall("n1"), nats.ErrNoResponders)
+		adapter := NewRemoteUnloaderAdapter(nil, mc, 100*time.Millisecond, 1*time.Second)
+
+		_, err := adapter.InstallBackend("n1", "vllm", "", "[]", "", "", "", 0)
+		Expect(err).To(HaveOccurred())
+		Expect(errors.Is(err, galleryop.ErrWorkerStillInstalling)).To(BeFalse())
+		Expect(errors.Is(err, nats.ErrNoResponders)).To(BeTrue())
 	})
 })

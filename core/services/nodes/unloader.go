@@ -2,9 +2,14 @@ package nodes
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"strings"
 	"time"
 
+	"github.com/nats-io/nats.go"
+
+	"github.com/mudler/LocalAI/core/services/galleryop"
 	"github.com/mudler/LocalAI/core/services/messaging"
 	"github.com/mudler/xlog"
 )
@@ -108,7 +113,7 @@ func (a *RemoteUnloaderAdapter) InstallBackend(nodeID, backendType, modelID, gal
 	subject := messaging.SubjectNodeBackendInstall(nodeID)
 	xlog.Info("Sending NATS backend.install", "nodeID", nodeID, "backend", backendType, "modelID", modelID, "replica", replicaIndex)
 
-	return messaging.RequestJSON[messaging.BackendInstallRequest, messaging.BackendInstallReply](a.nats, subject, messaging.BackendInstallRequest{
+	reply, err := messaging.RequestJSON[messaging.BackendInstallRequest, messaging.BackendInstallReply](a.nats, subject, messaging.BackendInstallRequest{
 		Backend:          backendType,
 		ModelID:          modelID,
 		BackendGalleries: galleriesJSON,
@@ -117,6 +122,11 @@ func (a *RemoteUnloaderAdapter) InstallBackend(nodeID, backendType, modelID, gal
 		Alias:            alias,
 		ReplicaIndex:     int32(replicaIndex),
 	}, a.installTimeout)
+	if err != nil && isNATSTimeout(err) {
+		return nil, fmt.Errorf("%w (subject=%s nodeID=%s backend=%s): %v",
+			galleryop.ErrWorkerStillInstalling, subject, nodeID, backendType, err)
+	}
+	return reply, err
 }
 
 // UpgradeBackend sends a backend.upgrade request-reply to a worker node.
@@ -132,7 +142,7 @@ func (a *RemoteUnloaderAdapter) UpgradeBackend(nodeID, backendType, galleriesJSO
 	subject := messaging.SubjectNodeBackendUpgrade(nodeID)
 	xlog.Info("Sending NATS backend.upgrade", "nodeID", nodeID, "backend", backendType, "replica", replicaIndex)
 
-	return messaging.RequestJSON[messaging.BackendUpgradeRequest, messaging.BackendUpgradeReply](a.nats, subject, messaging.BackendUpgradeRequest{
+	reply, err := messaging.RequestJSON[messaging.BackendUpgradeRequest, messaging.BackendUpgradeReply](a.nats, subject, messaging.BackendUpgradeRequest{
 		Backend:          backendType,
 		BackendGalleries: galleriesJSON,
 		URI:              uri,
@@ -140,6 +150,11 @@ func (a *RemoteUnloaderAdapter) UpgradeBackend(nodeID, backendType, galleriesJSO
 		Alias:            alias,
 		ReplicaIndex:     int32(replicaIndex),
 	}, a.upgradeTimeout)
+	if err != nil && isNATSTimeout(err) {
+		return nil, fmt.Errorf("%w (subject=%s nodeID=%s backend=%s): %v",
+			galleryop.ErrWorkerStillInstalling, subject, nodeID, backendType, err)
+	}
+	return reply, err
 }
 
 // installWithForceFallback is the rolling-update fallback used by
@@ -152,7 +167,7 @@ func (a *RemoteUnloaderAdapter) installWithForceFallback(nodeID, backendType, ga
 	subject := messaging.SubjectNodeBackendInstall(nodeID)
 	xlog.Warn("Falling back to legacy backend.install Force=true (old worker)", "nodeID", nodeID, "backend", backendType)
 
-	return messaging.RequestJSON[messaging.BackendInstallRequest, messaging.BackendInstallReply](a.nats, subject, messaging.BackendInstallRequest{
+	reply, err := messaging.RequestJSON[messaging.BackendInstallRequest, messaging.BackendInstallReply](a.nats, subject, messaging.BackendInstallRequest{
 		Backend:          backendType,
 		BackendGalleries: galleriesJSON,
 		URI:              uri,
@@ -161,6 +176,11 @@ func (a *RemoteUnloaderAdapter) installWithForceFallback(nodeID, backendType, ga
 		ReplicaIndex:     int32(replicaIndex),
 		Force:            true,
 	}, a.upgradeTimeout)
+	if err != nil && isNATSTimeout(err) {
+		return nil, fmt.Errorf("%w (subject=%s nodeID=%s backend=%s): %v",
+			galleryop.ErrWorkerStillInstalling, subject, nodeID, backendType, err)
+	}
+	return reply, err
 }
 
 // ListBackends queries a worker node for its installed backends via NATS request-reply.
@@ -238,4 +258,15 @@ func (a *RemoteUnloaderAdapter) DeleteModelFiles(modelName string) error {
 func (a *RemoteUnloaderAdapter) StopNode(nodeID string) error {
 	subject := messaging.SubjectNodeStop(nodeID)
 	return a.nats.Publish(subject, nil)
+}
+
+// isNATSTimeout returns true if err looks like a NATS request-reply timeout.
+// nats.ErrTimeout is the canonical sentinel; context.DeadlineExceeded can
+// also surface depending on the client's path; we accept both, plus a
+// string-match fallback for clients that return a bare error.
+func isNATSTimeout(err error) bool {
+	if errors.Is(err, nats.ErrTimeout) || errors.Is(err, context.DeadlineExceeded) {
+		return true
+	}
+	return err != nil && strings.Contains(err.Error(), "nats: timeout")
 }
