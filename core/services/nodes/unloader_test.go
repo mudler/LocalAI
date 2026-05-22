@@ -60,6 +60,7 @@ type publishCall struct {
 type requestCall struct {
 	Subject string
 	Data    []byte
+	Timeout time.Duration
 }
 
 func (f *fakeMessagingClient) Publish(subject string, data any) error {
@@ -93,10 +94,10 @@ func (f *fakeMessagingClient) SubscribeReply(_ string, _ func(data []byte, reply
 	return &fakeSubscription{}, nil
 }
 
-func (f *fakeMessagingClient) Request(subject string, data []byte, _ time.Duration) ([]byte, error) {
+func (f *fakeMessagingClient) Request(subject string, data []byte, timeout time.Duration) ([]byte, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
-	f.requestCalls = append(f.requestCalls, requestCall{Subject: subject, Data: data})
+	f.requestCalls = append(f.requestCalls, requestCall{Subject: subject, Data: data, Timeout: timeout})
 	return f.requestReply, f.requestErr
 }
 
@@ -119,7 +120,7 @@ var _ = Describe("RemoteUnloaderAdapter", func() {
 	BeforeEach(func() {
 		locator = &fakeModelLocator{}
 		mc = &fakeMessagingClient{}
-		adapter = NewRemoteUnloaderAdapter(locator, mc)
+		adapter = NewRemoteUnloaderAdapter(locator, mc, 3*time.Minute, 15*time.Minute)
 	})
 
 	Describe("UnloadRemoteModel", func() {
@@ -154,7 +155,7 @@ var _ = Describe("RemoteUnloaderAdapter", func() {
 			}
 			// Use a messaging client that fails the first Publish call only.
 			failOnce := &failOnceMessagingClient{inner: mc, failOn: 0}
-			adapter = NewRemoteUnloaderAdapter(locator, failOnce)
+			adapter = NewRemoteUnloaderAdapter(locator, failOnce, 3*time.Minute, 15*time.Minute)
 
 			Expect(adapter.UnloadRemoteModel("llama")).To(Succeed())
 
@@ -259,3 +260,29 @@ func (f *failOnceMessagingClient) Request(subject string, data []byte, timeout t
 
 func (f *failOnceMessagingClient) IsConnected() bool { return true }
 func (f *failOnceMessagingClient) Close()            {}
+
+var _ = Describe("RemoteUnloaderAdapter timeout configuration", func() {
+	It("passes the configured install timeout to the messaging client", func() {
+		mc := newScriptedMessagingClient()
+		mc.scriptReply(messaging.SubjectNodeBackendInstall("n1"), messaging.BackendInstallReply{Success: true, Address: "127.0.0.1:0"})
+		adapter := NewRemoteUnloaderAdapter(nil, mc, 7*time.Minute, 11*time.Minute)
+
+		_, err := adapter.InstallBackend("n1", "llama-cpp", "", "[]", "", "", "", 0)
+		Expect(err).ToNot(HaveOccurred())
+
+		Expect(mc.calls).To(HaveLen(1))
+		Expect(mc.calls[0].Timeout).To(Equal(7 * time.Minute))
+	})
+
+	It("passes the configured upgrade timeout to the messaging client", func() {
+		mc := newScriptedMessagingClient()
+		mc.scriptReply(messaging.SubjectNodeBackendUpgrade("n1"), messaging.BackendUpgradeReply{Success: true})
+		adapter := NewRemoteUnloaderAdapter(nil, mc, 7*time.Minute, 11*time.Minute)
+
+		_, err := adapter.UpgradeBackend("n1", "llama-cpp", "[]", "", "", "", 0)
+		Expect(err).ToNot(HaveOccurred())
+
+		Expect(mc.calls).To(HaveLen(1))
+		Expect(mc.calls[0].Timeout).To(Equal(11 * time.Minute))
+	})
+})

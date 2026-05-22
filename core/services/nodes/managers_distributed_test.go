@@ -98,10 +98,10 @@ func (s *scriptedMessagingClient) scriptReplyMatching(subject string, pred func(
 	})
 }
 
-func (s *scriptedMessagingClient) Request(subject string, data []byte, _ time.Duration) ([]byte, error) {
+func (s *scriptedMessagingClient) Request(subject string, data []byte, timeout time.Duration) ([]byte, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	s.calls = append(s.calls, requestCall{Subject: subject, Data: data})
+	s.calls = append(s.calls, requestCall{Subject: subject, Data: data, Timeout: timeout})
 
 	// Predicate-matched replies take precedence over flat scriptReply.
 	if matchers, ok := s.matchedReplies[subject]; ok {
@@ -204,7 +204,7 @@ var _ = Describe("DistributedBackendManager", func() {
 		Expect(err).ToNot(HaveOccurred())
 
 		mc = newScriptedMessagingClient()
-		adapter = NewRemoteUnloaderAdapter(nil, mc)
+		adapter = NewRemoteUnloaderAdapter(nil, mc, 3*time.Minute, 15*time.Minute)
 		mgr = &DistributedBackendManager{
 			local:    stubLocalBackendManager{},
 			adapter:  adapter,

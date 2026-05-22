@@ -3,6 +3,7 @@ package distributed_test
 import (
 	"context"
 	"encoding/json"
+	"time"
 
 	"github.com/mudler/LocalAI/core/services/messaging"
 	"github.com/mudler/LocalAI/core/services/nodes"
@@ -78,7 +79,7 @@ var _ = Describe("SmartRouter trackingKey", Label("Distributed"), func() {
 		Expect(registry.Register(context.Background(), node, true)).To(Succeed())
 		nodeID = node.ID
 
-		unloader := nodes.NewRemoteUnloaderAdapter(registry, infra.NC)
+		unloader := nodes.NewRemoteUnloaderAdapter(registry, infra.NC, 3*time.Minute, 15*time.Minute)
 		router = nodes.NewSmartRouter(registry, nodes.SmartRouterOptions{
 			Unloader: unloader,
 		})

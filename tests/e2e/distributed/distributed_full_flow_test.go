@@ -225,7 +225,7 @@ var _ = Describe("Full Distributed Inference Flow", Label("Distributed"), func()
 	// newTestSmartRouter creates a SmartRouter with NATS wired up and a mock
 	// backend.install handler that always replies success for all registered nodes.
 	newTestSmartRouter := func(reg *nodes.NodeRegistry, extraOpts ...nodes.SmartRouterOptions) *nodes.SmartRouter {
-		unloader := nodes.NewRemoteUnloaderAdapter(reg, infra.NC)
+		unloader := nodes.NewRemoteUnloaderAdapter(reg, infra.NC, 3*time.Minute, 15*time.Minute)
 
 		opts := nodes.SmartRouterOptions{
 			Unloader: unloader,
@@ -395,7 +395,7 @@ var _ = Describe("Full Distributed Inference Flow", Label("Distributed"), func()
 		Expect(err).ToNot(HaveOccurred())
 
 		// Create RemoteUnloaderAdapter and unload model
-		unloader := nodes.NewRemoteUnloaderAdapter(registry, infra.NC)
+		unloader := nodes.NewRemoteUnloaderAdapter(registry, infra.NC, 3*time.Minute, 15*time.Minute)
 		err = unloader.UnloadRemoteModel("old-model")
 		Expect(err).ToNot(HaveOccurred())
 

@@ -43,15 +43,23 @@ type NodeCommandSender interface {
 // This mirrors the local ModelLoader's startProcess()/deleteProcess() but
 // over NATS for remote nodes.
 type RemoteUnloaderAdapter struct {
-	registry ModelLocator
-	nats     messaging.MessagingClient
+	registry       ModelLocator
+	nats           messaging.MessagingClient
+	installTimeout time.Duration
+	upgradeTimeout time.Duration
 }
 
-// NewRemoteUnloaderAdapter creates a new adapter.
-func NewRemoteUnloaderAdapter(registry ModelLocator, nats messaging.MessagingClient) *RemoteUnloaderAdapter {
+// NewRemoteUnloaderAdapter creates a new adapter. installTimeout and
+// upgradeTimeout govern the NATS request-reply deadlines for backend.install
+// and backend.upgrade respectively. Use
+// DistributedConfig.BackendInstallTimeoutOrDefault() /
+// BackendUpgradeTimeoutOrDefault() at construction.
+func NewRemoteUnloaderAdapter(registry ModelLocator, nats messaging.MessagingClient, installTimeout, upgradeTimeout time.Duration) *RemoteUnloaderAdapter {
 	return &RemoteUnloaderAdapter{
-		registry: registry,
-		nats:     nats,
+		registry:       registry,
+		nats:           nats,
+		installTimeout: installTimeout,
+		upgradeTimeout: upgradeTimeout,
 	}
 }
 
@@ -87,11 +95,13 @@ func (a *RemoteUnloaderAdapter) UnloadRemoteModel(modelName string) error {
 // is on disk, the worker just spawns a process; only a missing binary
 // triggers a full gallery pull.
 //
-// Timeout: 3 minutes. Most calls return in under 2 seconds (process already
-// running). The 3-minute ceiling covers the cold-binary spawn-after-download
-// case while still failing fast enough to surface real worker hangs.
+// Timeout: configured via DistributedConfig.BackendInstallTimeoutOrDefault
+// (default 15m). Most calls return in under 2 seconds (process already
+// running). The 15-minute ceiling covers the cold-binary spawn-after-download
+// case on slow links (Jetson Wi-Fi, multi-GB CUDA images) while still
+// failing fast enough to surface real worker hangs.
 //
-// For force-reinstall (admin-driven Upgrade), use UpgradeBackend instead —
+// For force-reinstall (admin-driven Upgrade), use UpgradeBackend instead -
 // it lives on a different NATS subject so it cannot head-of-line-block
 // routine load traffic on the same worker.
 func (a *RemoteUnloaderAdapter) InstallBackend(nodeID, backendType, modelID, galleriesJSON, uri, name, alias string, replicaIndex int) (*messaging.BackendInstallReply, error) {
@@ -106,17 +116,18 @@ func (a *RemoteUnloaderAdapter) InstallBackend(nodeID, backendType, modelID, gal
 		Name:             name,
 		Alias:            alias,
 		ReplicaIndex:     int32(replicaIndex),
-	}, 3*time.Minute)
+	}, a.installTimeout)
 }
 
 // UpgradeBackend sends a backend.upgrade request-reply to a worker node.
 // The worker stops every live process for this backend, force-reinstalls
 // from the gallery (overwriting the on-disk artifact), and replies. The
 // next routine InstallBackend call spawns a fresh process with the new
-// binary — upgrade itself does not start a process.
+// binary - upgrade itself does not start a process.
 //
-// Timeout: 15 minutes. Real-world worst case observed: 8–10 minutes for
-// large CUDA-l4t backend images on Jetson over WiFi.
+// Timeout: configured via DistributedConfig.BackendUpgradeTimeoutOrDefault
+// (default 15m). Real-world worst case observed: 8-10 minutes for large
+// CUDA-l4t backend images on Jetson over WiFi.
 func (a *RemoteUnloaderAdapter) UpgradeBackend(nodeID, backendType, galleriesJSON, uri, name, alias string, replicaIndex int) (*messaging.BackendUpgradeReply, error) {
 	subject := messaging.SubjectNodeBackendUpgrade(nodeID)
 	xlog.Info("Sending NATS backend.upgrade", "nodeID", nodeID, "backend", backendType, "replica", replicaIndex)
@@ -128,7 +139,7 @@ func (a *RemoteUnloaderAdapter) UpgradeBackend(nodeID, backendType, galleriesJSO
 		Name:             name,
 		Alias:            alias,
 		ReplicaIndex:     int32(replicaIndex),
-	}, 15*time.Minute)
+	}, a.upgradeTimeout)
 }
 
 // installWithForceFallback is the rolling-update fallback used by
@@ -149,7 +160,7 @@ func (a *RemoteUnloaderAdapter) installWithForceFallback(nodeID, backendType, ga
 		Alias:            alias,
 		ReplicaIndex:     int32(replicaIndex),
 		Force:            true,
-	}, 15*time.Minute)
+	}, a.upgradeTimeout)
 }
 
 // ListBackends queries a worker node for its installed backends via NATS request-reply.
