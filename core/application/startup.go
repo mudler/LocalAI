@@ -552,6 +552,13 @@ func loadRuntimeSettingsFromFile(options *config.ApplicationConfig) {
 			options.TracingMaxItems = *settings.TracingMaxItems
 		}
 	}
+	if settings.TracingMaxBodyBytes != nil {
+		// Allow the on-disk setting to override the CLI/env default. The
+		// startup default is non-zero (see NewApplicationConfig), so a plain
+		// `== 0` guard like the others would never trigger; we instead respect
+		// any value the file specifies. 0 in the file means "uncapped".
+		options.TracingMaxBodyBytes = *settings.TracingMaxBodyBytes
+	}
 
 	// Branding / whitelabeling. There are no env vars for these — the file is
 	// the only source — so apply unconditionally. Without this block a server

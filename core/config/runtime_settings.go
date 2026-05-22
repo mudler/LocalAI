@@ -38,6 +38,7 @@ type RuntimeSettings struct {
 	Debug                *bool `json:"debug,omitempty"`
 	EnableTracing        *bool `json:"enable_tracing,omitempty"`
 	TracingMaxItems      *int  `json:"tracing_max_items,omitempty"`
+	TracingMaxBodyBytes  *int  `json:"tracing_max_body_bytes,omitempty"` // Per-body cap in bytes; 0 disables the cap
 	EnableBackendLogging *bool `json:"enable_backend_logging,omitempty"`
 
 	// Security/CORS settings

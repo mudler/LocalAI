@@ -406,7 +406,15 @@ export default function Traces() {
         <button className="btn btn-secondary btn-sm" onClick={fetchTraces}><i className="fas fa-rotate" /> Refresh</button>
         <button className="btn btn-secondary btn-sm" onClick={handleExport} disabled={traces.length === 0}><i className="fas fa-download" /> Export</button>
         <div style={{ flex: 1 }} />
-        <button className="btn btn-danger btn-sm" onClick={handleClear} disabled={traces.length === 0}><i className="fas fa-trash" /> Clear</button>
+        <button
+          className="btn btn-danger btn-sm"
+          onClick={handleClear}
+          /* Stay enabled while loading: a massive in-memory trace buffer is
+             precisely the case where the user can't see the table yet and
+             needs Clear to recover. Clearing an already-empty server-side
+             buffer is a harmless no-op. */
+          disabled={!loading && traces.length === 0}
+        ><i className="fas fa-trash" /> Clear</button>
       </div>
 
       {settings && (() => {

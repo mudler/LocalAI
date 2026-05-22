@@ -100,6 +100,7 @@ type RunCMD struct {
 	LoadToMemory                       []string `env:"LOCALAI_LOAD_TO_MEMORY,LOAD_TO_MEMORY" help:"A list of models to load into memory at startup" group:"models"`
 	EnableTracing                      bool     `env:"LOCALAI_ENABLE_TRACING,ENABLE_TRACING" help:"Enable API tracing" group:"api"`
 	TracingMaxItems                    int      `env:"LOCALAI_TRACING_MAX_ITEMS" default:"1024" help:"Maximum number of traces to keep" group:"api"`
+	TracingMaxBodyBytes                int      `env:"LOCALAI_TRACING_MAX_BODY_BYTES" default:"65536" help:"Maximum bytes captured per request/response body in the trace buffer (0 = uncapped). Caps memory growth from chatty endpoints like /embeddings." group:"api"`
 	AgentJobRetentionDays              int      `env:"LOCALAI_AGENT_JOB_RETENTION_DAYS,AGENT_JOB_RETENTION_DAYS" default:"30" help:"Number of days to keep agent job history (default: 30)" group:"api"`
 	OpenResponsesStoreTTL              string   `env:"LOCALAI_OPEN_RESPONSES_STORE_TTL,OPEN_RESPONSES_STORE_TTL" default:"0" help:"TTL for Open Responses store (e.g., 1h, 30m, 0 = no expiration)" group:"api"`
 
@@ -273,6 +274,7 @@ func (r *RunCMD) Run(ctx *cliContext.Context) error {
 		opts = append(opts, config.EnableTracing)
 	}
 	opts = append(opts, config.WithTracingMaxItems(r.TracingMaxItems))
+	opts = append(opts, config.WithTracingMaxBodyBytes(r.TracingMaxBodyBytes))
 
 	token := ""
 	if r.Peer2Peer || r.Peer2PeerToken != "" {

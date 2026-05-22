@@ -21,6 +21,7 @@ type ApplicationConfig struct {
 	Debug                               bool
 	EnableTracing                       bool
 	TracingMaxItems                     int
+	TracingMaxBodyBytes                 int // Per-body cap for captured request/response bodies; 0 disables the cap
 	EnableBackendLogging                bool
 	GeneratedContentDir                 string
 
@@ -187,6 +188,7 @@ func NewApplicationConfig(o ...AppOption) *ApplicationConfig {
 		LRUEvictionRetryInterval: 1 * time.Second,        // Default: 1 second
 		WatchDogInterval:         500 * time.Millisecond, // Default: 500ms
 		TracingMaxItems:          1024,
+		TracingMaxBodyBytes:      64 * 1024, // 64 KiB - caps each request/response body in the trace buffer
 		AgentPool: AgentPoolConfig{
 			Enabled:         true,
 			Timeout:         "5m",
@@ -578,6 +580,12 @@ func WithTracingMaxItems(items int) AppOption {
 	}
 }
 
+func WithTracingMaxBodyBytes(bytes int) AppOption {
+	return func(o *ApplicationConfig) {
+		o.TracingMaxBodyBytes = bytes
+	}
+}
+
 func WithGeneratedContentDir(generatedContentDir string) AppOption {
 	return func(o *ApplicationConfig) {
 		o.GeneratedContentDir = generatedContentDir
@@ -920,6 +928,7 @@ func (o *ApplicationConfig) ToRuntimeSettings() RuntimeSettings {
 	f16 := o.F16
 	debug := o.Debug
 	tracingMaxItems := o.TracingMaxItems
+	tracingMaxBodyBytes := o.TracingMaxBodyBytes
 	enableTracing := o.EnableTracing
 	enableBackendLogging := o.EnableBackendLogging
 	cors := o.CORS
@@ -1008,6 +1017,7 @@ func (o *ApplicationConfig) ToRuntimeSettings() RuntimeSettings {
 		F16:                       &f16,
 		Debug:                     &debug,
 		TracingMaxItems:           &tracingMaxItems,
+		TracingMaxBodyBytes:       &tracingMaxBodyBytes,
 		EnableTracing:             &enableTracing,
 		EnableBackendLogging:      &enableBackendLogging,
 		CORS:                      &cors,
@@ -1145,6 +1155,9 @@ func (o *ApplicationConfig) ApplyRuntimeSettings(settings *RuntimeSettings) (req
 	}
 	if settings.TracingMaxItems != nil {
 		o.TracingMaxItems = *settings.TracingMaxItems
+	}
+	if settings.TracingMaxBodyBytes != nil {
+		o.TracingMaxBodyBytes = *settings.TracingMaxBodyBytes
 	}
 	if settings.EnableBackendLogging != nil {
 		o.EnableBackendLogging = *settings.EnableBackendLogging
