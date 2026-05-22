@@ -619,6 +619,32 @@ var _ = Describe("DistributedBackendManager", func() {
 				Expect(pcts).To(ConsistOf(10.0, 100.0))
 			})
 		})
+
+		Context("InstallBackend tolerates silent (pre-Phase-2) workers", func() {
+			It("completes successfully even when no progress events are ever published", func() {
+				node := registerHealthyBackend("worker-silent", "10.0.0.8:50051")
+				mc.scriptReply(messaging.SubjectNodeBackendInstall(node.ID), messaging.BackendInstallReply{Success: true, Address: "10.0.0.8:50051"})
+				// NO scheduleProgressPublish call - silent worker.
+
+				var ticks int
+				var mu sync.Mutex
+				progressCb := func(file, current, total string, pct float64) {
+					mu.Lock()
+					defer mu.Unlock()
+					ticks++
+				}
+
+				opVal := op("vllm")
+				opVal.ID = "op-silent-1"
+				Expect(mgr.InstallBackend(ctx, opVal, progressCb)).To(Succeed())
+
+				Consistently(func() int {
+					mu.Lock()
+					defer mu.Unlock()
+					return ticks
+				}, "200ms").Should(Equal(0))
+			})
+		})
 	})
 
 	Describe("UpgradeBackend", func() {
