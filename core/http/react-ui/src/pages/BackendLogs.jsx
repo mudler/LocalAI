@@ -1,9 +1,10 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
-import { useParams, useSearchParams, useOutletContext, Link } from 'react-router-dom'
-import { backendLogsApi } from '../utils/api'
+import { useParams, useSearchParams, useOutletContext, Link, Navigate } from 'react-router-dom'
+import { backendLogsApi, nodesApi } from '../utils/api'
 import { formatTimestamp } from '../utils/format'
 import { apiUrl } from '../utils/basePath'
 import LoadingSpinner from '../components/LoadingSpinner'
+import { useDistributedMode } from '../hooks/useDistributedMode'
 
 function wsUrl(path) {
   const proto = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
@@ -274,11 +275,158 @@ function BackendLogsDetail({ modelId }) {
   )
 }
 
+// DistributedBackendLogsResolver runs only in distributed mode. The local
+// /api/backend-logs WebSocket has no backend behind it here (inference lives
+// on workers), so we resolve modelId → hosting node(s) and forward to the
+// per-node logs page. One hit redirects automatically; multiple hits render
+// a picker so the operator can pick which worker's logs to inspect.
+function DistributedBackendLogsResolver({ modelId, fromTimestamp }) {
+  const [hits, setHits] = useState(null) // [{ node, model }] once resolved
+  const [error, setError] = useState(null)
+
+  useEffect(() => {
+    let cancelled = false
+    ;(async () => {
+      try {
+        const nodes = await nodesApi.list()
+        const nodeList = Array.isArray(nodes) ? nodes : []
+        // Fan out to each node and collect entries that match this model.
+        // Per-node failures are tolerated — a single offline worker shouldn't
+        // hide logs available on its peers.
+        const perNode = await Promise.all(nodeList.map(async (node) => {
+          try {
+            const models = await nodesApi.getModels(node.id)
+            const matches = (Array.isArray(models) ? models : []).filter(m => m.model_name === modelId)
+            return matches.map(m => ({ node, model: m }))
+          } catch {
+            return []
+          }
+        }))
+        if (cancelled) return
+        setHits(perNode.flat())
+      } catch (err) {
+        if (!cancelled) setError(err)
+      }
+    })()
+    return () => { cancelled = true }
+  }, [modelId])
+
+  if (error) {
+    return (
+      <div className="page page--wide">
+        <div className="empty-state">
+          <div className="empty-state-icon"><i className="fas fa-exclamation-triangle" /></div>
+          <h2 className="empty-state-title">Failed to resolve hosting nodes</h2>
+          <p className="empty-state-text">{error.message}</p>
+        </div>
+      </div>
+    )
+  }
+
+  if (hits === null) {
+    return (
+      <div style={{ display: 'flex', justifyContent: 'center', padding: 'var(--spacing-xl)' }}>
+        <LoadingSpinner size="lg" />
+      </div>
+    )
+  }
+
+  if (hits.length === 0) {
+    return (
+      <div className="page page--wide">
+        <div className="empty-state">
+          <div className="empty-state-icon"><i className="fas fa-terminal" /></div>
+          <h2 className="empty-state-title">Model not loaded on any worker</h2>
+          <p className="empty-state-text">
+            <span style={{ fontFamily: 'var(--font-mono)' }}>{modelId}</span> isn't currently loaded on any node in the cluster.
+            Check the <Link to="/app/nodes" style={{ color: 'var(--color-primary)' }}>Nodes page</Link> to see which models are running where.
+          </p>
+        </div>
+      </div>
+    )
+  }
+
+  // Bare model name aggregates this node's replicas via the worker's log
+  // store; preserve ?from= so the deep-link from a trace still scrolls to
+  // the right line on arrival.
+  const buildHref = (nodeId) => {
+    const base = `/app/node-backend-logs/${nodeId}/${encodeURIComponent(modelId)}`
+    return fromTimestamp ? `${base}?from=${encodeURIComponent(fromTimestamp)}` : base
+  }
+
+  if (hits.length === 1) {
+    return <Navigate to={buildHref(hits[0].node.id)} replace />
+  }
+
+  // Multiple workers host this model — let the operator pick.
+  return (
+    <div className="page page--wide">
+      <div className="page-header">
+        <div>
+          <h1 className="page-title" style={{ marginBottom: 0 }}>
+            <i className="fas fa-terminal" style={{ fontSize: '0.8em', marginRight: 'var(--spacing-sm)' }} />
+            {modelId}
+          </h1>
+          <p className="page-subtitle" style={{ marginTop: 'var(--spacing-xs)' }}>
+            Hosted on {hits.length} workers — pick one to view its logs.
+          </p>
+        </div>
+      </div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--spacing-xs)' }}>
+        {hits.map(({ node, model }) => (
+          <Link
+            key={`${node.id}#${model.replica_index ?? 0}`}
+            to={buildHref(node.id)}
+            style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+              padding: 'var(--spacing-sm) var(--spacing-md)',
+              background: 'var(--color-bg-primary)', border: '1px solid var(--color-border)',
+              borderRadius: 'var(--radius-md)', textDecoration: 'none', color: 'inherit',
+            }}
+          >
+            <div>
+              <div style={{ fontWeight: 500 }}>{node.name || node.id}</div>
+              <div style={{ fontSize: '0.75rem', color: 'var(--color-text-secondary)', fontFamily: 'var(--font-mono)' }}>
+                {node.id}{model.replica_index ? ` · replica ${model.replica_index}` : ''} · {model.state}
+              </div>
+            </div>
+            <i className="fas fa-chevron-right" style={{ color: 'var(--color-text-muted)' }} />
+          </Link>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+// BackendLogsRouter picks between the local WebSocket view (standalone) and
+// the distributed resolver. The probe runs once via useDistributedMode so a
+// 503 from /api/nodes (the canonical "distributed disabled" signal) keeps the
+// existing standalone path intact.
+function BackendLogsRouter({ modelId }) {
+  const [searchParams] = useSearchParams()
+  const fromTimestamp = searchParams.get('from')
+  const { enabled: distributedMode, loading } = useDistributedMode()
+
+  if (loading) {
+    return (
+      <div style={{ display: 'flex', justifyContent: 'center', padding: 'var(--spacing-xl)' }}>
+        <LoadingSpinner size="lg" />
+      </div>
+    )
+  }
+
+  if (distributedMode) {
+    return <DistributedBackendLogsResolver modelId={modelId} fromTimestamp={fromTimestamp} />
+  }
+
+  return <BackendLogsDetail modelId={modelId} />
+}
+
 export default function BackendLogs() {
   const { modelId } = useParams()
 
   if (modelId) {
-    return <BackendLogsDetail modelId={decodeURIComponent(modelId)} />
+    return <BackendLogsRouter modelId={decodeURIComponent(modelId)} />
   }
 
   // No model specified — redirect to System page
