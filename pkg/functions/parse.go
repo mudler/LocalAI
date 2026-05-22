@@ -618,6 +618,24 @@ func buildContent(before string, parser *ChatMsgParser) string {
 // This provides better streaming and partial parsing support.
 // When format is nil or when format is set, tries "find scope/tool start, split, parse suffix"
 // first (llama.cpp PEG order) so that content before the tool block does not cause parse failure.
+// filterMalformedXMLToolCalls discards any FuncCallResults whose Name begins with
+// '{'. This guards against the glm-4.5 format auto-detecting Hermes-style
+// <tool_call>{"name":"...","arguments":{...}}</tool_call> output: the iterative
+// parser treats the entire JSON object as the function name because it can't find
+// the expected <arg_key> element inside the scope.  Such results would cause the
+// streaming callback to emit a delta with the raw JSON blob as the tool name.
+// The JSON fallback path (ParseJSONIterative) handles Hermes format correctly, so
+// we drop these false positives and let auto-detection continue.
+func filterMalformedXMLToolCalls(calls []FuncCallResults) []FuncCallResults {
+	var out []FuncCallResults
+	for _, c := range calls {
+		if !strings.HasPrefix(strings.TrimSpace(c.Name), "{") {
+			out = append(out, c)
+		}
+	}
+	return out
+}
+
 func ParseXMLIterative(s string, format *XMLToolCallFormat, isPartial bool) ([]FuncCallResults, error) {
 	// Try split-on-scope first so reasoning/content before tool block is skipped
 	if format != nil {
@@ -629,7 +647,14 @@ func ParseXMLIterative(s string, format *XMLToolCallFormat, isPartial bool) ([]F
 		for _, fmtPreset := range formats {
 			if fmtPreset.format != nil {
 				if pr, ok := tryParseXMLFromScopeStart(s, fmtPreset.format, isPartial); ok {
-					return pr.ToolCalls, nil
+					// Discard results where the function name is a JSON object —
+					// those are false positives from formats like glm-4.5 that
+					// mis-parse Hermes-style <tool_call>JSON</tool_call> blocks.
+					valid := filterMalformedXMLToolCalls(pr.ToolCalls)
+					if len(valid) > 0 {
+						return valid, nil
+					}
+					// All results were malformed; try the next format.
 				}
 			}
 		}
@@ -649,14 +674,23 @@ func ParseXMLIterative(s string, format *XMLToolCallFormat, isPartial bool) ([]F
 				if err != nil {
 					// Check if it's a partial exception (recoverable)
 					if _, ok := err.(*ChatMsgPartialException); ok {
-						// Partial parse, return what we have
-						return parser.ToolCalls(), nil
+						// Partial parse, return what we have (filtered).
+						// If all results are malformed (e.g., glm-4.5 false positive),
+						// fall through to try the next format rather than returning garbage.
+						valid := filterMalformedXMLToolCalls(parser.ToolCalls())
+						if len(valid) > 0 {
+							return valid, nil
+						}
 					}
 					// Try next format
 					continue
 				}
 				if success && len(parser.ToolCalls()) > 0 {
-					return parser.ToolCalls(), nil
+					valid := filterMalformedXMLToolCalls(parser.ToolCalls())
+					if len(valid) > 0 {
+						return valid, nil
+					}
+					// All malformed; try next format
 				}
 			}
 		}

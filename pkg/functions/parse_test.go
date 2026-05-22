@@ -253,6 +253,58 @@ Some text after the JSON
 			Expect(results[1].Name).To(Equal("subtract"))
 			Expect(results[1].Arguments).To(Equal(`{"x":10,"y":7}`))
 		})
+
+		// Regression test for https://github.com/mudler/LocalAI/issues/9722
+		// Hermes/NousResearch models wrap a single JSON tool call in <tool_call> tags
+		// without JSONRegexMatch. Multiple parsers (extractJSON + PEG) must not produce
+		// duplicate FuncCallResults that then appear at different streaming indices.
+		It("should return exactly one result for a bare Hermes-style tool_call without JSONRegexMatch", func() {
+			input := "<tool_call>\n{\"name\": \"bash\", \"arguments\": {\"script\": \"ls /tmp | wc -l\"}}\n</tool_call>"
+
+			results := ParseFunctionCall(input, functionConfig)
+			Expect(results).To(HaveLen(1), "multiple parsers must not produce duplicate entries for the same call")
+			Expect(results[0].Name).To(Equal("bash"))
+			Expect(results[0].Arguments).To(Equal(`{"script":"ls /tmp | wc -l"}`))
+		})
+
+		It("should return exactly one result for a bare Hermes-style tool_call with complex arguments", func() {
+			input := "<tool_call>\n{\"name\": \"search\", \"arguments\": {\"query\": \"golang channels\", \"max_results\": 5}}\n</tool_call>"
+
+			results := ParseFunctionCall(input, functionConfig)
+			Expect(results).To(HaveLen(1), "multiple parsers must not produce duplicate entries for the same call")
+			Expect(results[0].Name).To(Equal("search"))
+		})
+
+		// Regression test for https://github.com/mudler/LocalAI/issues/9722
+		// The glm-4.5 XML format auto-detects <tool_call>...</tool_call> blocks and,
+		// when no <arg_key> element is present, treats the entire content as the function
+		// name. For Hermes-style output, that content is a JSON object, causing the
+		// streaming callback to emit a delta with '{"name":"bash",...}' as the tool name.
+		// ParseXMLIterative must discard such results so the JSON fallback path fires.
+		It("should not auto-detect Hermes tool_call as glm-4.5 format with JSON function name", func() {
+			input := "<tool_call>\n{\"name\": \"bash\", \"arguments\": {\"script\": \"ls\"}}\n</tool_call>"
+
+			// ParseXMLIterative with nil format (auto-detect) must not return a result
+			// where the function name is the raw JSON blob.
+			results, err := ParseXMLIterative(input, nil, false)
+			Expect(err).ToNot(HaveOccurred())
+			for _, r := range results {
+				Expect(r.Name).NotTo(HavePrefix("{"),
+					"auto-detected XML result must not have a JSON blob as function name, got: %s", r.Name)
+			}
+		})
+
+		It("should not auto-detect partial Hermes tool_call as glm-4.5 format during streaming", func() {
+			// Partial output — </tool_call> not yet received.
+			partial := "<tool_call>\n{\"name\": \"bash\", \"arguments\": {\"script\": \"ls\"}}"
+
+			results, err := ParseXMLIterative(partial, nil, true)
+			Expect(err).ToNot(HaveOccurred())
+			for _, r := range results {
+				Expect(r.Name).NotTo(HavePrefix("{"),
+					"streaming partial XML result must not have a JSON blob as function name")
+			}
+		})
 	})
 	Context("ParseTextContent", func() {
 		It("Can extract notes from the LLM result", func() {
