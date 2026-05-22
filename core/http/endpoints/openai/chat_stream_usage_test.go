@@ -1,11 +1,14 @@
 package openai
 
 import (
+	"context"
 	"encoding/json"
 
 	"github.com/mudler/LocalAI/core/backend"
+	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/schema"
 	"github.com/mudler/LocalAI/pkg/functions"
+	"github.com/mudler/LocalAI/pkg/model"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
@@ -153,13 +156,6 @@ var _ = Describe("streaming usage spec compliance", func() {
 		})
 	})
 
-	// Regression coverage for issue #9927: streaming usage trailer reported
-	// zeros when the request included `tools`. processTools (the streaming
-	// worker for tool-enabled requests) was discarding the cumulative
-	// TokenUsage from ComputeChoices instead of forwarding it to the outer
-	// loop. The fix: processTools emits a "usage sentinel" chunk (empty
-	// Choices, populated Usage) right before closing the responses channel,
-	// and the outer loop captures Usage *before* the empty-Choices skip.
 	Describe("streamUsageFromTokenUsage", func() {
 		It("converts backend TokenUsage to schema OpenAIUsage", func() {
 			tu := backend.TokenUsage{Prompt: 18, Completion: 213}
@@ -179,139 +175,6 @@ var _ = Describe("streaming usage spec compliance", func() {
 			u := streamUsageFromTokenUsage(tu, true)
 			Expect(u.TimingPromptProcessing).To(Equal(0.5))
 			Expect(u.TimingTokenGeneration).To(Equal(1.5))
-		})
-	})
-
-	Describe("usageSentinelChunk", func() {
-		It("carries Usage but empty Choices so the outer streaming loop can capture totals without emitting on the wire", func() {
-			tu := backend.TokenUsage{Prompt: 18, Completion: 213}
-			ch := usageSentinelChunk("req-1", "Qwen3.6", 100, tu, false)
-
-			Expect(ch.Choices).To(BeEmpty(),
-				"sentinel must have no Choices so the outer loop's empty-Choices skip prevents wire emission")
-			Expect(ch.Usage).ToNot(BeNil(),
-				"sentinel must carry Usage so the outer loop can populate the include_usage trailer")
-			Expect(ch.Usage.PromptTokens).To(Equal(18))
-			Expect(ch.Usage.CompletionTokens).To(Equal(213))
-			Expect(ch.Usage.TotalTokens).To(Equal(231))
-			Expect(ch.ID).To(Equal("req-1"))
-			Expect(ch.Model).To(Equal("Qwen3.6"))
-			Expect(ch.Created).To(Equal(100))
-			Expect(ch.Object).To(Equal("chat.completion.chunk"))
-		})
-	})
-
-	Describe("applyChunkToUsage", func() {
-		It("updates running usage from a sentinel chunk with empty Choices", func() {
-			running := &schema.OpenAIUsage{}
-			sentinel := schema.OpenAIResponse{
-				Usage: &schema.OpenAIUsage{PromptTokens: 18, CompletionTokens: 213, TotalTokens: 231},
-			}
-			updated := applyChunkToUsage(running, sentinel)
-			Expect(updated.PromptTokens).To(Equal(18))
-			Expect(updated.CompletionTokens).To(Equal(213))
-			Expect(updated.TotalTokens).To(Equal(231))
-		})
-		It("keeps running usage when chunk has no Usage", func() {
-			running := &schema.OpenAIUsage{PromptTokens: 1, CompletionTokens: 2, TotalTokens: 3}
-			chunk := schema.OpenAIResponse{
-				Choices: []schema.Choice{{Delta: &schema.Message{}, Index: 0}},
-			}
-			updated := applyChunkToUsage(running, chunk)
-			Expect(updated.PromptTokens).To(Equal(1))
-			Expect(updated.CompletionTokens).To(Equal(2))
-			Expect(updated.TotalTokens).To(Equal(3))
-		})
-	})
-
-	// Flow-level contract: this test mirrors the outer streaming loop's
-	// per-chunk handling block exactly. It documents the chain by which the
-	// tools-streaming path delivers token counts to the include_usage trailer.
-	// Any future change that breaks this contract (reordering the skip, or
-	// dropping the sentinel-emission step in processTools) will surface as a
-	// behavioral regression of issue #9927.
-	Describe("tools-flow usage capture through outer-loop sequence", func() {
-		It("captures usage from a tool-call streaming sequence that ends in a sentinel chunk", func() {
-			hello := "Hello"
-			args := `{"x":1}`
-			toolID := "call_1"
-			feed := []schema.OpenAIResponse{
-				// Role chunk emitted on first content token, no Usage.
-				{
-					Object:  "chat.completion.chunk",
-					Choices: []schema.Choice{{Delta: &schema.Message{Role: "assistant"}, Index: 0}},
-				},
-				// Content delta chunk, no Usage.
-				{
-					Object:  "chat.completion.chunk",
-					Choices: []schema.Choice{{Delta: &schema.Message{Content: &hello}, Index: 0}},
-				},
-				// Tool call deltas (XML/JSON iterative parser path), no Usage.
-				{
-					Object: "chat.completion.chunk",
-					Choices: []schema.Choice{{Delta: &schema.Message{
-						Role: "assistant",
-						ToolCalls: []schema.ToolCall{{
-							Index: 0, ID: toolID, Type: "function",
-							FunctionCall: schema.FunctionCall{Name: "do_thing", Arguments: args},
-						}},
-					}, Index: 0}},
-				},
-				// Final usage sentinel forwarded from ComputeChoices' returned
-				// TokenUsage. Empty Choices, populated Usage.
-				usageSentinelChunk("req-1", "m", 0,
-					backend.TokenUsage{Prompt: 18, Completion: 213}, false),
-			}
-
-			// Mirror the outer loop body in chat.go ChatEndpoint exactly.
-			usage := &schema.OpenAIUsage{}
-			wireChunks := 0
-			for _, ev := range feed {
-				usage = applyChunkToUsage(usage, ev)
-				if len(ev.Choices) == 0 {
-					continue
-				}
-				wireChunks++
-			}
-
-			Expect(wireChunks).To(Equal(3),
-				"the 3 real delta chunks must reach the wire; the sentinel must not")
-			Expect(usage.PromptTokens).To(Equal(18),
-				"trailer must report the prompt tokens from the sentinel (issue #9927)")
-			Expect(usage.CompletionTokens).To(Equal(213),
-				"trailer must report the completion tokens from the sentinel (issue #9927)")
-			Expect(usage.TotalTokens).To(Equal(231))
-		})
-
-		It("would still report zeros without a sentinel, demonstrating the original bug shape", func() {
-			// Same sequence as the previous test minus the sentinel. This
-			// pins the contract that processTools is responsible for adding
-			// the sentinel: without it, the trailer cannot recover the
-			// counts because the deferred-final-chunk helpers deliberately
-			// omit Usage (regression test from issue #8546).
-			hello := "Hello"
-			feed := []schema.OpenAIResponse{
-				{
-					Object:  "chat.completion.chunk",
-					Choices: []schema.Choice{{Delta: &schema.Message{Role: "assistant"}, Index: 0}},
-				},
-				{
-					Object:  "chat.completion.chunk",
-					Choices: []schema.Choice{{Delta: &schema.Message{Content: &hello}, Index: 0}},
-				},
-			}
-
-			usage := &schema.OpenAIUsage{}
-			for _, ev := range feed {
-				usage = applyChunkToUsage(usage, ev)
-				if len(ev.Choices) == 0 {
-					continue
-				}
-			}
-
-			Expect(usage.PromptTokens).To(Equal(0))
-			Expect(usage.CompletionTokens).To(Equal(0))
-			Expect(usage.TotalTokens).To(Equal(0))
 		})
 	})
 
@@ -337,6 +200,163 @@ var _ = Describe("streaming usage spec compliance", func() {
 			if req.StreamOptions != nil {
 				Expect(req.StreamOptions.IncludeUsage).To(BeFalse())
 			}
+		})
+	})
+})
+
+// Functional regression coverage for issue #9927: the streaming workers
+// must surface the cumulative TokenUsage returned by ComputeChoices to
+// their caller. The earlier broken implementations discarded that value
+// (`_, _, chatDeltas, err := ComputeChoices(...)`) and threw away the
+// counts on the floor, so the include_usage trailer always reported
+// zeros when tools were enabled.
+//
+// These tests stub backend.ModelInferenceFunc so the worker exercises the
+// real ComputeChoices → predFunc → LLMResponse pipeline. If a future change
+// drops the TokenUsage somewhere along that path, the assertions on the
+// returned value fail with a concrete count mismatch (e.g. 0 vs 213),
+// not with a "function undefined" compile error.
+var _ = Describe("streaming workers surface final TokenUsage (issue #9927)", func() {
+	var (
+		origInference modelInferenceFunc
+		appCfg        *config.ApplicationConfig
+	)
+
+	BeforeEach(func() {
+		origInference = backend.ModelInferenceFunc
+		appCfg = config.NewApplicationConfig()
+	})
+
+	AfterEach(func() {
+		backend.ModelInferenceFunc = origInference
+	})
+
+	// mockBackendUsage installs a stub backend that yields one LLMResponse
+	// carrying the supplied TokenUsage. ComputeChoices' single-attempt path
+	// copies these counts into the value it returns to the worker.
+	mockBackendUsage := func(usage backend.TokenUsage, response string) {
+		backend.ModelInferenceFunc = func(
+			ctx context.Context, s string, messages schema.Messages,
+			images, videos, audios []string,
+			loader *model.ModelLoader, c *config.ModelConfig, cl *config.ModelConfigLoader,
+			o *config.ApplicationConfig,
+			tokenCallback func(string, backend.TokenUsage) bool,
+			tools, toolChoice string,
+			logprobs, topLogprobs *int,
+			logitBias map[string]float64,
+			metadata map[string]string,
+		) (func() (backend.LLMResponse, error), error) {
+			return func() (backend.LLMResponse, error) {
+				return backend.LLMResponse{
+					Response: response,
+					Usage:    usage,
+				}, nil
+			}, nil
+		}
+	}
+
+	makeReq := func() *schema.OpenAIRequest {
+		ctx, cancel := context.WithCancel(context.Background())
+		req := &schema.OpenAIRequest{
+			Context: ctx,
+			Cancel:  cancel,
+		}
+		req.Model = "test-model" // promoted from BasicModelRequest
+		return req
+	}
+
+	// drainResponses consumes everything the worker pushes onto the channel
+	// so the worker is never blocked on its send. The channel is unbuffered
+	// (matching production), so the drain goroutine must be running before
+	// the worker is called.
+	drainResponses := func(ch <-chan schema.OpenAIResponse) <-chan struct{} {
+		done := make(chan struct{})
+		go func() {
+			for range ch {
+			}
+			close(done)
+		}()
+		return done
+	}
+
+	Describe("processStream (no-tools path)", func() {
+		It("returns the cumulative TokenUsage produced by the backend", func() {
+			mockBackendUsage(backend.TokenUsage{Prompt: 18, Completion: 213}, "Hello there")
+
+			req := makeReq()
+			cfg := &config.ModelConfig{}
+			responses := make(chan schema.OpenAIResponse)
+			done := drainResponses(responses)
+
+			actual, err := processStream("prompt", req, cfg, nil, appCfg, nil, responses, "req-1", 0)
+			<-done
+
+			Expect(err).ToNot(HaveOccurred())
+			Expect(actual.Prompt).To(Equal(18),
+				"prompt tokens must round-trip from backend through processStream")
+			Expect(actual.Completion).To(Equal(213),
+				"completion tokens must round-trip from backend through processStream")
+		})
+
+		It("returns zero TokenUsage when the backend reports zero (negative control)", func() {
+			mockBackendUsage(backend.TokenUsage{}, "x")
+
+			req := makeReq()
+			cfg := &config.ModelConfig{}
+			responses := make(chan schema.OpenAIResponse)
+			done := drainResponses(responses)
+
+			actual, err := processStream("prompt", req, cfg, nil, appCfg, nil, responses, "req-1", 0)
+			<-done
+
+			Expect(err).ToNot(HaveOccurred())
+			Expect(actual.Prompt).To(BeZero())
+			Expect(actual.Completion).To(BeZero())
+		})
+	})
+
+	Describe("processStreamWithTools (tools path)", func() {
+		It("returns the cumulative TokenUsage produced by the backend", func() {
+			// This is the direct regression check for issue #9927: with tools
+			// enabled, the trailer was reporting {0,0,0} because the worker
+			// discarded ComputeChoices' second return value.
+			mockBackendUsage(backend.TokenUsage{Prompt: 18, Completion: 213}, "answer")
+
+			req := makeReq()
+			cfg := &config.ModelConfig{}
+			responses := make(chan schema.OpenAIResponse)
+			done := drainResponses(responses)
+			var textContent string
+
+			actual, err := processStreamWithTools("none", "prompt", req, cfg, nil, appCfg, nil, responses, "req-1", 0, &textContent)
+			<-done
+
+			Expect(err).ToNot(HaveOccurred())
+			Expect(actual.Prompt).To(Equal(18),
+				"prompt tokens must round-trip from backend through processStreamWithTools (issue #9927)")
+			Expect(actual.Completion).To(Equal(213),
+				"completion tokens must round-trip from backend through processStreamWithTools (issue #9927)")
+		})
+
+		It("forwards timing fields when the backend supplies them", func() {
+			mockBackendUsage(backend.TokenUsage{
+				Prompt: 10, Completion: 20,
+				TimingPromptProcessing: 0.5,
+				TimingTokenGeneration:  1.5,
+			}, "answer")
+
+			req := makeReq()
+			cfg := &config.ModelConfig{}
+			responses := make(chan schema.OpenAIResponse)
+			done := drainResponses(responses)
+			var textContent string
+
+			actual, err := processStreamWithTools("none", "prompt", req, cfg, nil, appCfg, nil, responses, "req-1", 0, &textContent)
+			<-done
+
+			Expect(err).ToNot(HaveOccurred())
+			Expect(actual.TimingPromptProcessing).To(Equal(0.5))
+			Expect(actual.TimingTokenGeneration).To(Equal(1.5))
 		})
 	})
 })
