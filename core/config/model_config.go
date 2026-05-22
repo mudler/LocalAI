@@ -209,7 +209,7 @@ type LLMConfig struct {
 	RMSNormEps      float32  `yaml:"rms_norm_eps,omitempty" json:"rms_norm_eps,omitempty"`
 	NGQA            int32    `yaml:"ngqa,omitempty" json:"ngqa,omitempty"`
 	PromptCachePath string   `yaml:"prompt_cache_path,omitempty" json:"prompt_cache_path,omitempty"`
-	PromptCacheAll  bool     `yaml:"prompt_cache_all,omitempty" json:"prompt_cache_all,omitempty"`
+	PromptCacheAll  *bool    `yaml:"prompt_cache_all,omitempty" json:"prompt_cache_all,omitempty"`
 	PromptCacheRO   bool     `yaml:"prompt_cache_ro,omitempty" json:"prompt_cache_ro,omitempty"`
 	MirostatETA     *float64 `yaml:"mirostat_eta,omitempty" json:"mirostat_eta,omitempty"`
 	MirostatTAU     *float64 `yaml:"mirostat_tau,omitempty" json:"mirostat_tau,omitempty"`
@@ -492,6 +492,13 @@ func (cfg *ModelConfig) SetDefaults(opts ...ConfigLoaderOption) {
 
 	if cfg.Reranking == nil {
 		cfg.Reranking = &falseV
+	}
+
+	if cfg.PromptCacheAll == nil {
+		// Match upstream llama.cpp's default (common/common.h: cache_prompt = true)
+		// and let cache_idle_slots / kv_unified actually do useful work; users can
+		// opt out with an explicit `prompt_cache_all: false` in the model YAML.
+		cfg.PromptCacheAll = &trueV
 	}
 
 	if threads == 0 {
