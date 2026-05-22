@@ -141,6 +141,15 @@ func (a *RemoteUnloaderAdapter) InstallBackend(
 			}
 			// Goroutine guard: a slow onProgress callback must not stall
 			// the NATS reader thread.
+			//
+			// NOTE: events spawn one goroutine each, so ordering at the
+			// consumer is best-effort. In practice the worker debounces to
+			// ~250ms which is far larger than goroutine scheduling jitter,
+			// so reordering is rare. The worker's final Flush() event is
+			// intended to win as the terminal tick. A future hardening pass
+			// could add a Seq uint64 field to BackendInstallProgressEvent
+			// and drop stale-by-seq at the bridge if reordering becomes a
+			// real UX issue.
 			go onProgress(ev)
 		})
 		if subErr != nil {
