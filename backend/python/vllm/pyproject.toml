@@ -1,32 +1,34 @@
 # L4T arm64 (JetPack 7 / sbsa cu130) install spec for the vllm backend.
 #
-# Why this file exists, and why only the l4t13 BUILD_PROFILE consumes it:
+# Since PyTorch 2.11 (April 2026) PyPI publishes aarch64 + cu130 manylinux
+# wheels directly for torch / torchvision / torchaudio, and vllm 0.20+ ships
+# an aarch64 wheel whose Requires-Dist pins those exact versions. uv's
+# resolver therefore locks an ABI-consistent set without any custom index.
+# https://pytorch.org/blog/vllm-and-pytorch-work-together-to-improve-the-developer-experience-on-aarch64/
 #
-# pypi.jetson-ai-lab.io hosts the L4T-specific torch / vllm / flash-attn
-# wheels we need on aarch64 + cuda13, but it ALSO transparently proxies the
-# rest of PyPI through `/+f/<sha>/<filename>` URLs that 503 frequently. With
-# `--extra-index-url` + `--index-strategy=unsafe-best-match` (the historical
-# fix in install.sh) uv would pick those proxy URLs for ordinary PyPI
-# packages — `anthropic`, `openai`, `propcache`, `annotated-types` — and
-# trip on the 503s. See e.g. CI run 25212201349 (anthropic-0.97.0).
+# Historically this file pinned torch / vllm / flash-attn / torchvision /
+# torchaudio to pypi.jetson-ai-lab.io's SBSA cu130 mirror via
+# [tool.uv.sources]. That mirror drifted out of sync (it published torch
+# 2.11.0 next to a vllm wheel still built against torch 2.10's c10 ABI,
+# producing `undefined symbol: _ZN3c1013MessageLoggerC1EPKciib` at import
+# time). Moving to PyPI eliminates that drift class entirely.
 #
-# `explicit = true` on the index makes uv consult the L4T mirror ONLY for
-# packages mapped under [tool.uv.sources]. Everything else goes to PyPI.
-# This breaks the historical 503 path without losing access to the L4T
-# wheels we actually need from there.
+# flash-attn is intentionally dropped: PyPI ships no aarch64 wheel for it,
+# but vLLM 0.20+ already bundles its own vllm_flash_attn (fa2 + fa3)
+# inside the main wheel, so the Dao-AILab package is not required at
+# runtime.
 #
-# `uv pip install -r requirements.txt` does NOT honor [tool.uv.sources]
-# (sources are project-mode only, not pip-compat mode), so install.sh's
-# l4t13 branch invokes `uv pip install --requirement pyproject.toml`
-# directly. Other BUILD_PROFILEs continue to use the requirements-*.txt
-# pipeline through libbackend.sh's installRequirements and never read
-# this file.
+# pyproject.toml (rather than requirements.txt) is still used on l4t13 so
+# the build deps pass in requirements-install.txt - fastsafetensors's sdist
+# needs pybind11 in the venv before --no-build-isolation can succeed - can
+# run first; install.sh's l4t13 branch invokes `uv pip install --requirement
+# pyproject.toml` after that pre-pass.
 [project]
 name = "localai-vllm-l4t13"
 version = "0.0.0"
 requires-python = ">=3.12,<3.13"
 dependencies = [
-    # Mirror of requirements.txt — kept in sync manually for now since the
+    # Mirror of requirements.txt - kept in sync manually for now since the
     # l4t13 path bypasses installRequirements (see install.sh).
     "grpcio==1.80.0",
     "protobuf",
@@ -35,27 +37,17 @@ dependencies = [
     "pillow",
     "charset-normalizer>=3.4.7",
     "chardet",
-    # L4T-specific accelerator stack (sourced from jetson-ai-lab below).
+    # Accelerator stack from PyPI (aarch64 + cu130 wheels). vllm's
+    # Requires-Dist locks torch==2.11.0 / torchvision==0.26.0 /
+    # torchaudio==2.11.0, so listing them unpinned here just lets the
+    # resolver echo those exact versions back.
     "torch",
     "torchvision",
     "torchaudio",
-    "flash-attn",
     "vllm",
-    # PyPI-resolvable packages that complete the runtime — accelerate,
+    # PyPI-resolvable packages that complete the runtime - accelerate,
     # transformers, bitsandbytes carry their own wheels for aarch64.
     "accelerate",
     "transformers",
     "bitsandbytes",
 ]
-
-[[tool.uv.index]]
-name = "jetson-ai-lab"
-url = "https://pypi.jetson-ai-lab.io/sbsa/cu130"
-explicit = true
-
-[tool.uv.sources]
-torch = { index = "jetson-ai-lab" }
-torchvision = { index = "jetson-ai-lab" }
-torchaudio = { index = "jetson-ai-lab" }
-flash-attn = { index = "jetson-ai-lab" }
-vllm = { index = "jetson-ai-lab" }
