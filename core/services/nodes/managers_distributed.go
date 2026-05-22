@@ -75,7 +75,7 @@ func NewDistributedBackendManager(appConfig *config.ApplicationConfig, ml *model
 type NodeOpStatus struct {
 	NodeID   string `json:"node_id"`
 	NodeName string `json:"node_name"`
-	Status   string `json:"status"` // "success" | "queued" | "error"
+	Status   string `json:"status"` // "success" | "queued" | "error" | "running_on_worker"
 	Error    string `json:"error,omitempty"`
 }
 

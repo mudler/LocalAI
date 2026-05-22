@@ -1517,15 +1517,20 @@ func (r *NodeRegistry) RecordPendingBackendOpFailure(ctx context.Context, id uin
 
 // RecordPendingBackendOpInFlight is the "soft failure" cousin of
 // RecordPendingBackendOpFailure. Used when a NATS install round-trip timed
-// out but the worker is still installing in the background. Increments
-// Attempts and stores the message in LastError, but pushes NextRetryAt out
-// by `retryDelay` (typically the install timeout) so the reconciler does
-// not immediately re-fire another install while the worker is still busy.
+// out but the worker is still installing in the background. Stores the
+// message in LastError and pushes NextRetryAt out by `retryDelay` (typically
+// the install timeout) so the reconciler does not immediately re-fire
+// another install while the worker is still busy.
+//
+// Attempts is intentionally NOT incremented: an in-flight timeout is not a
+// failed attempt, it is a still-in-progress one. Incrementing it would let a
+// genuinely-progressing slow install (e.g. 30 GB CUDA image on Wi-Fi) trip
+// the maxPendingBackendOpAttempts cap in the reconciler and dead-letter the
+// row while the worker is still legitimately working.
 func (r *NodeRegistry) RecordPendingBackendOpInFlight(ctx context.Context, id uint, lastError string, retryDelay time.Duration) error {
 	return r.db.WithContext(ctx).Model(&PendingBackendOp{}).
 		Where("id = ?", id).
 		Updates(map[string]any{
-			"attempts":      gorm.Expr("attempts + 1"),
 			"last_error":    lastError,
 			"next_retry_at": time.Now().Add(retryDelay),
 		}).Error
