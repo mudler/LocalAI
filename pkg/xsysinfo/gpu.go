@@ -41,6 +41,13 @@ type GPUMemoryInfo struct {
 	Index        int     `json:"index"`
 	Name         string  `json:"name"`
 	Vendor       string  `json:"vendor"`
+	// BDF is the canonical PCI bus address (dddd:bb:dd.f) when known.
+	// Populated by detection paths that can attribute the device to a
+	// PCI location (clinfo, future amdgpu/nvidia paths); empty for
+	// non-PCI devices (Apple, integrated SoCs) or detection paths
+	// that don't surface it (nvidia-smi --query-gpu doesn't include
+	// pci.bus_id by default).
+	BDF          string  `json:"bdf,omitempty"`
 	TotalVRAM    uint64  `json:"total_vram"`    // Total VRAM in bytes
 	UsedVRAM     uint64  `json:"used_vram"`     // Used VRAM in bytes
 	FreeVRAM     uint64  `json:"free_vram"`     // Free VRAM in bytes

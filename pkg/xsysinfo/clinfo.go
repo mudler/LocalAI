@@ -81,9 +81,39 @@ func runCLInfo() []GPUMemoryInfo {
 // getCLInfoGPUMemory is a best-effort fallback for hosts where the
 // vendor's own management binary (nvidia-smi / xpu-smi / rocm-smi)
 // isn't installed but the OpenCL ICD is. Live used/free aren't exposed
-// via standard CL_ properties, so TotalVRAM is mirrored into FreeVRAM.
+// via standard CL_ properties; we synthesise them by attributing
+// per-process VRAM allocations from the kernel DRM fdinfo interface
+// to each clinfo-reported GPU via the shared PCI BDF.
 func getCLInfoGPUMemory() []GPUMemoryInfo {
-	return clinfoOnce()
+	gpus := clinfoOnce()
+	if len(gpus) == 0 {
+		return nil
+	}
+	usage := drmFdInfoUsageByBDF()
+	for i := range gpus {
+		gpus[i] = applyDRMUsage(gpus[i], usage[gpus[i].BDF])
+	}
+	return gpus
+}
+
+// applyDRMUsage stamps live VRAM accounting onto a GPUMemoryInfo
+// whose TotalVRAM came from a static source (e.g. clinfo). Caller
+// already populated TotalVRAM and FreeVRAM=TotalVRAM as defaults; if
+// DRM accounting reports usage, we trust it and rederive free/percent.
+func applyDRMUsage(g GPUMemoryInfo, used uint64) GPUMemoryInfo {
+	if used == 0 || g.TotalVRAM == 0 {
+		return g
+	}
+	if used > g.TotalVRAM {
+		// Process-private DRM total can momentarily exceed device
+		// VRAM (over-commit via host memory mirror). Clamp so the UI
+		// doesn't display absurd percentages.
+		used = g.TotalVRAM
+	}
+	g.UsedVRAM = used
+	g.FreeVRAM = g.TotalVRAM - used
+	g.UsagePercent = float64(used) / float64(g.TotalVRAM) * 100
+	return g
 }
 
 // parseCLInfoJSON returns one GPUMemoryInfo per discrete GPU. UMA
@@ -107,13 +137,14 @@ func parseCLInfoJSON(raw []byte) []GPUMemoryInfo {
 			if !d.Type.isGPU() || d.HostUnifiedMemory || d.GlobalMemSize == 0 {
 				continue
 			}
+			bdf := clinfoBDF(d)
 			info := GPUMemoryInfo{
 				Name:      strings.TrimSpace(d.Name),
 				Vendor:    clinfoVendor(d.VendorID, d.Vendor),
+				BDF:       bdf,
 				TotalVRAM: d.GlobalMemSize,
 				FreeVRAM:  d.GlobalMemSize,
 			}
-			bdf := clinfoBDF(d)
 			if bdf == "" {
 				noBDF = append(noBDF, info)
 				continue
