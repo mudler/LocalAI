@@ -105,6 +105,24 @@ When S3 is not configured, model files are transferred directly from the fronten
 
 For high-throughput or very large model files, S3 can be more efficient since it avoids streaming through the frontend.
 
+### Install Progress Streaming
+
+While a worker is pulling an OCI image for a backend install, it publishes
+debounced progress events (~250ms) on `nodes.<nodeID>.backend.install.<opID>.progress`.
+The frontend subscribes for the duration of the install request and forwards each
+event into the operation status so the admin UI surfaces per-file byte progress
+and percentage in real time, the same way local-mode installs already do.
+
+The NATS reply for `backend.install` is still the source of truth for the
+final success/failure; dropped progress events are acceptable and the install
+completes regardless.
+
+**Mixed-version clusters:** Workers running pre-2026-05-22 code do not publish
+on the new progress subject. New frontends tolerate that silently. The install
+still completes via the reply; the UI keeps showing the message from the
+install-timeout fallback path (`still installing in background`) until the
+pending operation row clears.
+
 ## Worker Configuration
 
 Workers are started with the `worker` subcommand. Each worker is generic — it doesn't need a backend type at startup:
