@@ -515,16 +515,48 @@ func getAMDGPUMemory() []GPUMemoryInfo {
 	return gpus
 }
 
-// getIntelGPUMemory queries Intel GPUs using xpu-smi or intel_gpu_top
+// getIntelGPUMemory queries Intel GPUs via xpu-smi, intel_gpu_top, or
+// clinfo (in that order). xpu-smi is the canonical Intel tool but
+// requires the separate xpumanager package; clinfo ships with the
+// OpenCL ICD loader and is present in most oneAPI base images, so it
+// serves as the last-resort fallback.
 func getIntelGPUMemory() []GPUMemoryInfo {
-	// Try xpu-smi first (Intel's official GPU management tool)
-	gpus := getIntelXPUSMI()
-	if len(gpus) > 0 {
+	if gpus := getIntelXPUSMI(); len(gpus) > 0 {
 		return gpus
 	}
+	if gpus := getIntelGPUTop(); len(gpus) > 0 {
+		return gpus
+	}
+	// clinfo enumerates every OpenCL platform, so guard the
+	// subprocess with the cached ghw GPU list: non-Intel hosts skip
+	// it entirely.
+	if !hasGHWVendor(VendorIntel) {
+		return nil
+	}
+	var out []GPUMemoryInfo
+	for _, g := range getCLInfoGPUMemory() {
+		if g.Vendor == VendorIntel {
+			out = append(out, g)
+		}
+	}
+	return out
+}
 
-	// Fallback to intel_gpu_top
-	return getIntelGPUTop()
+// hasGHWVendor reports whether ghw observed any GPU whose vendor name
+// matches (case-insensitive substring). Uses the package-level cache
+// in GPUs() so the call is free after the first invocation.
+func hasGHWVendor(vendor string) bool {
+	gpus, _ := GPUs()
+	target := strings.ToUpper(vendor)
+	for _, g := range gpus {
+		if g.DeviceInfo == nil || g.DeviceInfo.Vendor == nil {
+			continue
+		}
+		if strings.Contains(strings.ToUpper(g.DeviceInfo.Vendor.Name), target) {
+			return true
+		}
+	}
+	return false
 }
 
 // getIntelXPUSMI queries Intel GPUs using xpu-smi
