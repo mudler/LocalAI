@@ -415,16 +415,59 @@ var _ = Describe("DistributedBackendManager", func() {
 				Expect(backends["vllm"].Nodes).To(HaveLen(1))
 				Expect(backends["vllm"].Nodes[0].NodeID).To(Equal(node.ID))
 
-				// NOTE: clearing the pending_backend_ops row when backend.list
-				// confirms the install is a separate enhancement (see Phase 1b
-				// in the plan footer). Today the row is cleared on the next
-				// reconciler-driven retry when InstallBackend round-trips
-				// successfully. Assert the row STILL exists so any future code
-				// that auto-clears makes this test fail loudly and reminds the
-				// author to flip the assertion.
+				// Phase 1b shipped: ListBackends proactively clears install rows
+				// whose intent is now satisfied by backend.list confirmation. The
+				// operator UI clears immediately instead of waiting for the next
+				// reconciler tick after NextRetryAt.
 				rowsAfter, _ := registry.ListPendingBackendOps(ctx)
-				Expect(rowsAfter).To(HaveLen(1),
-					"row clearing on ListBackends success is a Phase 1b follow-up; if it ships, flip this expectation")
+				Expect(rowsAfter).To(BeEmpty(),
+					"install row should clear once backend.list confirms presence on the target node")
+			})
+		})
+
+		Context("ListBackends clears confirmed install rows", func() {
+			It("deletes the pending_backend_ops install row when the backend is reported installed on its target node", func() {
+				node := registerHealthyBackend("worker-a", "10.0.0.5:50051")
+
+				// Pre-stage: simulate an admin install that timed out at the NATS
+				// round-trip, leaving an install row in the queue.
+				mc.scriptErr(messaging.SubjectNodeBackendInstall(node.ID), nats.ErrTimeout)
+				err := mgr.InstallBackend(ctx, op("vllm"), nil)
+				Expect(err).To(HaveOccurred())
+				Expect(errors.Is(err, galleryop.ErrWorkerStillInstalling)).To(BeTrue())
+
+				rows, _ := registry.ListPendingBackendOps(ctx)
+				Expect(rows).To(HaveLen(1))
+
+				// Worker finishes installing in the background. backend.list now
+				// confirms presence; ListBackends should proactively clear the row.
+				mc.scriptReply(messaging.SubjectNodeBackendList(node.ID), messaging.BackendListReply{
+					Backends: []messaging.NodeBackendInfo{{Name: "vllm"}},
+				})
+
+				backends, listErr := mgr.ListBackends()
+				Expect(listErr).ToNot(HaveOccurred())
+				Expect(backends).To(HaveKey("vllm"))
+
+				rowsAfter, _ := registry.ListPendingBackendOps(ctx)
+				Expect(rowsAfter).To(BeEmpty(),
+					"ListBackends should clear install rows whose intent is now satisfied by backend.list")
+			})
+
+			It("does NOT clear an upgrade row even if the backend is reported installed", func() {
+				node := registerHealthyBackend("worker-b", "10.0.0.6:50051")
+
+				Expect(registry.UpsertPendingBackendOp(ctx, node.ID, "vllm", OpBackendUpgrade, []byte("[]"))).To(Succeed())
+
+				mc.scriptReply(messaging.SubjectNodeBackendList(node.ID), messaging.BackendListReply{
+					Backends: []messaging.NodeBackendInfo{{Name: "vllm"}},
+				})
+
+				_, listErr := mgr.ListBackends()
+				Expect(listErr).ToNot(HaveOccurred())
+
+				rowsAfter, _ := registry.ListPendingBackendOps(ctx)
+				Expect(rowsAfter).To(HaveLen(1), "upgrade rows must not be cleared by backend.list presence")
 			})
 		})
 	})

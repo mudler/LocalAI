@@ -341,7 +341,58 @@ func (d *DistributedBackendManager) ListBackends() (gallery.SystemBackends, erro
 			result[b.Name] = entry
 		}
 	}
+
+	// Proactively clear pending_backend_ops install rows whose intent is now
+	// satisfied: the backend is reported installed on its target node. Without
+	// this, the row sits in the queue until next_retry_at expires (up to the
+	// install timeout, default 15m) and the operator UI shows the install as
+	// "still installing in background" for that whole window even though the
+	// worker has actually been ready for minutes. We only clear install rows;
+	// upgrade and delete rows have presence-based semantics that do NOT match
+	// backend.list confirmation.
+	d.clearSatisfiedInstallRows(context.Background(), result)
 	return result, nil
+}
+
+// clearSatisfiedInstallRows removes pending_backend_ops install rows whose
+// (nodeID, backend) pair now appears in the cluster-wide backend listing.
+// Called by ListBackends after fan-out so the proactive clear sees every
+// node's report. Best-effort: a DB failure is logged and the row stays for
+// the reconciler to drain via its slower path.
+func (d *DistributedBackendManager) clearSatisfiedInstallRows(ctx context.Context, backends gallery.SystemBackends) {
+	rows, err := d.registry.ListPendingBackendOps(ctx)
+	if err != nil {
+		xlog.Debug("clearSatisfiedInstallRows: failed to list pending ops", "error", err)
+		return
+	}
+	if len(rows) == 0 {
+		return
+	}
+	// Build a (nodeID, backend) presence set from the listing.
+	present := make(map[string]map[string]bool, len(backends))
+	for name, b := range backends {
+		for _, ref := range b.Nodes {
+			if present[ref.NodeID] == nil {
+				present[ref.NodeID] = make(map[string]bool)
+			}
+			present[ref.NodeID][name] = true
+		}
+	}
+	for _, row := range rows {
+		if row.Op != OpBackendInstall {
+			continue
+		}
+		if !present[row.NodeID][row.Backend] {
+			continue
+		}
+		if err := d.registry.DeletePendingBackendOp(ctx, row.ID); err != nil {
+			xlog.Debug("clearSatisfiedInstallRows: delete failed",
+				"id", row.ID, "node", row.NodeID, "backend", row.Backend, "error", err)
+			continue
+		}
+		xlog.Info("Reconciler: pending install row satisfied by backend.list",
+			"node", row.NodeID, "backend", row.Backend)
+	}
 }
 
 // InstallBackend fans out installation through the pending-ops queue so
