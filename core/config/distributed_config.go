@@ -40,7 +40,7 @@ type DistributedConfig struct {
 	// model-row cleanup on MarkUnhealthy / MarkDraining).
 	DisablePerModelHealthCheck bool
 
-	MCPCIJobTimeout     time.Duration // MCP CI job execution timeout (default 10m)
+	MCPCIJobTimeout time.Duration // MCP CI job execution timeout (default 10m)
 
 	BackendInstallTimeout time.Duration // NATS round-trip timeout for backend.install (default 15m)
 	BackendUpgradeTimeout time.Duration // NATS round-trip timeout for backend.upgrade (default 15m)
@@ -71,13 +71,13 @@ func (c DistributedConfig) Validate() error {
 	}
 	// Check for negative durations
 	for name, d := range map[string]time.Duration{
-		"mcp-tool-timeout":      c.MCPToolTimeout,
-		"mcp-discovery-timeout": c.MCPDiscoveryTimeout,
-		"worker-wait-timeout":   c.WorkerWaitTimeout,
-		"drain-timeout":         c.DrainTimeout,
-		"health-check-interval": c.HealthCheckInterval,
-		"stale-node-threshold":  c.StaleNodeThreshold,
-		"mcp-ci-job-timeout":    c.MCPCIJobTimeout,
+		"mcp-tool-timeout":        c.MCPToolTimeout,
+		"mcp-discovery-timeout":   c.MCPDiscoveryTimeout,
+		"worker-wait-timeout":     c.WorkerWaitTimeout,
+		"drain-timeout":           c.DrainTimeout,
+		"health-check-interval":   c.HealthCheckInterval,
+		"stale-node-threshold":    c.StaleNodeThreshold,
+		"mcp-ci-job-timeout":      c.MCPCIJobTimeout,
 		"backend-install-timeout": c.BackendInstallTimeout,
 		"backend-upgrade-timeout": c.BackendUpgradeTimeout,
 	} {
@@ -160,13 +160,13 @@ var EnableAutoApproveNodes = func(o *ApplicationConfig) {
 
 // Defaults for distributed timeouts.
 const (
-	DefaultMCPToolTimeout      = 360 * time.Second
-	DefaultMCPDiscoveryTimeout = 60 * time.Second
-	DefaultWorkerWaitTimeout   = 5 * time.Minute
-	DefaultDrainTimeout        = 30 * time.Second
-	DefaultHealthCheckInterval = 15 * time.Second
-	DefaultStaleNodeThreshold  = 60 * time.Second
-	DefaultMCPCIJobTimeout     = 10 * time.Minute
+	DefaultMCPToolTimeout        = 360 * time.Second
+	DefaultMCPDiscoveryTimeout   = 60 * time.Second
+	DefaultWorkerWaitTimeout     = 5 * time.Minute
+	DefaultDrainTimeout          = 30 * time.Second
+	DefaultHealthCheckInterval   = 15 * time.Second
+	DefaultStaleNodeThreshold    = 60 * time.Second
+	DefaultMCPCIJobTimeout       = 10 * time.Minute
 	DefaultBackendInstallTimeout = 15 * time.Minute
 	DefaultBackendUpgradeTimeout = 15 * time.Minute
 )
