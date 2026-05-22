@@ -91,6 +91,21 @@ func (g *GalleryService) backendHandler(op *ManagementOp[gallery.GalleryBackend,
 			})
 			return err
 		}
+		if errors.Is(err, ErrWorkerStillInstalling) {
+			// Soft failure: at least one worker timed out replying but is
+			// still running the install in the background. Mark the op as
+			// processed with a non-error message so the admin UI shows a
+			// yellow in-progress state rather than red. The reconciler's
+			// next pass will reconcile the actual outcome via backend.list.
+			xlog.Info("worker still installing in background", "backend", op.GalleryElementName, "error", err)
+			g.UpdateStatus(op.ID, &OpStatus{
+				Processed:          true,
+				GalleryElementName: op.GalleryElementName,
+				Message:            fmt.Sprintf("backend %s: worker still installing in background; reconciler will confirm completion (%v)", op.GalleryElementName, err),
+				Cancellable:        false,
+			})
+			return nil
+		}
 		xlog.Error("error installing backend", "error", err, "backend", op.GalleryElementName)
 		if !op.Delete {
 			// If we didn't install the backend, we need to make sure we don't have a leftover directory
