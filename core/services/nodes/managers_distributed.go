@@ -49,6 +49,13 @@ func (d *DistributedModelManager) InstallModel(ctx context.Context, op *galleryo
 	return d.local.InstallModel(ctx, op, progressCb)
 }
 
+// nodeProgressSink is the narrow interface DistributedBackendManager uses to
+// publish per-node progress without dragging in the full *GalleryService.
+// nil means "no sink, skip per-node writes" (used by single-node tests).
+type nodeProgressSink interface {
+	UpdateNodeProgress(opID, nodeID string, np galleryop.NodeProgress)
+}
+
 // DistributedBackendManager wraps a local BackendManager and adds NATS fan-out
 // for backend deletion so worker nodes clean up stale files.
 type DistributedBackendManager struct {
@@ -57,16 +64,20 @@ type DistributedBackendManager struct {
 	registry         *NodeRegistry
 	backendGalleries []config.Gallery
 	systemState      *system.SystemState
+	progressSink     nodeProgressSink
 }
 
 // NewDistributedBackendManager creates a DistributedBackendManager.
-func NewDistributedBackendManager(appConfig *config.ApplicationConfig, ml *model.ModelLoader, adapter *RemoteUnloaderAdapter, registry *NodeRegistry) *DistributedBackendManager {
+// progressSink may be nil to disable per-node OpStatus writes (single-node
+// tests don't need it).
+func NewDistributedBackendManager(appConfig *config.ApplicationConfig, ml *model.ModelLoader, adapter *RemoteUnloaderAdapter, registry *NodeRegistry, progressSink nodeProgressSink) *DistributedBackendManager {
 	return &DistributedBackendManager{
 		local:            galleryop.NewLocalBackendManager(appConfig, ml),
 		adapter:          adapter,
 		registry:         registry,
 		backendGalleries: appConfig.BackendGalleries,
 		systemState:      appConfig.SystemState,
+		progressSink:     progressSink,
 	}
 }
 
@@ -117,25 +128,48 @@ func (r BackendOpResult) Err() error {
 // when the node returns.
 // targetNodeIDs is an optional allowlist: when non-nil, only nodes whose ID is
 // in the set are visited. Used by UpgradeBackend to avoid asking nodes that
-// never had the backend installed to "upgrade" it — such requests fail at the
+// never had the backend installed to "upgrade" it - such requests fail at the
 // gallery (no platform variant) and would otherwise leave a forever-retrying
 // pending_backend_ops row. nil means "fan out to every node" (Install/Delete).
-func (d *DistributedBackendManager) enqueueAndDrainBackendOp(ctx context.Context, op, backend string, galleriesJSON []byte, targetNodeIDs map[string]bool, apply func(node BackendNode) error) (BackendOpResult, error) {
+//
+// opID is the gallery operation identifier; when non-empty and progressSink is
+// set, every per-node terminal status appended to BackendOpResult is also
+// mirrored into the sink so the UI's per-node OpStatus.Nodes view stays in
+// lockstep with the manager's view. opID may be empty for ops that aren't
+// gallery-tracked (e.g. DeleteBackend's plain code path).
+func (d *DistributedBackendManager) enqueueAndDrainBackendOp(ctx context.Context, opID, op, backend string, galleriesJSON []byte, targetNodeIDs map[string]bool, apply func(node BackendNode) error) (BackendOpResult, error) {
 	allNodes, err := d.registry.List(ctx)
 	if err != nil {
 		return BackendOpResult{}, err
 	}
 
+	// emitNodeProgress is a small helper that funnels every NodeOpStatus we
+	// append to result.Nodes into the per-node OpStatus sink (when configured
+	// and opID is known). Keeping it inline avoids drift between the
+	// BackendOpResult view and the sink view - they're written from the same
+	// code path on the same terminal statuses.
+	emitNodeProgress := func(node BackendNode, status, errMsg string) {
+		if d.progressSink == nil || opID == "" {
+			return
+		}
+		d.progressSink.UpdateNodeProgress(opID, node.ID, galleryop.NodeProgress{
+			NodeID:   node.ID,
+			NodeName: node.Name,
+			Status:   status,
+			Error:    errMsg,
+		})
+	}
+
 	result := BackendOpResult{Nodes: make([]NodeOpStatus, 0, len(allNodes))}
 	for _, node := range allNodes {
-		// Pending nodes haven't been approved yet — no intent to apply.
+		// Pending nodes haven't been approved yet - no intent to apply.
 		if node.Status == StatusPending {
 			continue
 		}
 		// Backend lifecycle ops only make sense on backend-type workers.
 		// Agent workers don't subscribe to backend.install/delete/list, so
 		// enqueueing for them guarantees a forever-retrying row that the
-		// reconciler can never drain. Silently skip — they aren't consumers.
+		// reconciler can never drain. Silently skip - they aren't consumers.
 		if node.NodeType != "" && node.NodeType != NodeTypeBackend {
 			continue
 		}
@@ -144,19 +178,23 @@ func (d *DistributedBackendManager) enqueueAndDrainBackendOp(ctx context.Context
 		}
 		if err := d.registry.UpsertPendingBackendOp(ctx, node.ID, backend, op, galleriesJSON); err != nil {
 			xlog.Warn("Failed to enqueue backend op", "op", op, "node", node.Name, "backend", backend, "error", err)
+			errMsg := fmt.Sprintf("enqueue failed: %v", err)
 			result.Nodes = append(result.Nodes, NodeOpStatus{
 				NodeID: node.ID, NodeName: node.Name, Status: "error",
-				Error: fmt.Sprintf("enqueue failed: %v", err),
+				Error: errMsg,
 			})
+			emitNodeProgress(node, "error", errMsg)
 			continue
 		}
 
 		if node.Status != StatusHealthy {
 			// Intent is recorded; reconciler will retry when the node recovers.
+			errMsg := fmt.Sprintf("node %s, will retry when healthy", node.Status)
 			result.Nodes = append(result.Nodes, NodeOpStatus{
 				NodeID: node.ID, NodeName: node.Name, Status: "queued",
-				Error: fmt.Sprintf("node %s, will retry when healthy", node.Status),
+				Error: errMsg,
 			})
+			emitNodeProgress(node, "queued", errMsg)
 			continue
 		}
 
@@ -170,6 +208,7 @@ func (d *DistributedBackendManager) enqueueAndDrainBackendOp(ctx context.Context
 			result.Nodes = append(result.Nodes, NodeOpStatus{
 				NodeID: node.ID, NodeName: node.Name, Status: "success",
 			})
+			emitNodeProgress(node, "success", "")
 			continue
 		}
 
@@ -190,6 +229,7 @@ func (d *DistributedBackendManager) enqueueAndDrainBackendOp(ctx context.Context
 			result.Nodes = append(result.Nodes, NodeOpStatus{
 				NodeID: node.ID, NodeName: node.Name, Status: "running_on_worker", Error: errMsg,
 			})
+			emitNodeProgress(node, "running_on_worker", errMsg)
 			continue
 		}
 
@@ -203,6 +243,7 @@ func (d *DistributedBackendManager) enqueueAndDrainBackendOp(ctx context.Context
 		result.Nodes = append(result.Nodes, NodeOpStatus{
 			NodeID: node.ID, NodeName: node.Name, Status: "error", Error: errMsg,
 		})
+		emitNodeProgress(node, "error", errMsg)
 	}
 	return result, nil
 }
@@ -244,7 +285,11 @@ func (d *DistributedBackendManager) DeleteBackend(name string) error {
 	}
 
 	ctx := context.Background()
-	result, err := d.enqueueAndDrainBackendOp(ctx, OpBackendDelete, name, nil, nil, func(node BackendNode) error {
+	// Empty opID: plain DeleteBackend isn't gallery-tracked the same way as
+	// Install/Upgrade (no progress dialog), so we skip the per-node sink
+	// writes here. DeleteBackendDetailed is the HTTP path that surfaces
+	// per-node results in its own response.
+	result, err := d.enqueueAndDrainBackendOp(ctx, "", OpBackendDelete, name, nil, nil, func(node BackendNode) error {
 		reply, err := d.adapter.DeleteBackend(node.ID, name)
 		if err != nil {
 			return err
@@ -267,7 +312,7 @@ func (d *DistributedBackendManager) DeleteBackendDetailed(ctx context.Context, n
 	if err := d.local.DeleteBackend(name); err != nil && !errors.Is(err, gallery.ErrBackendNotFound) {
 		return BackendOpResult{}, err
 	}
-	return d.enqueueAndDrainBackendOp(ctx, OpBackendDelete, name, nil, nil, func(node BackendNode) error {
+	return d.enqueueAndDrainBackendOp(ctx, "", OpBackendDelete, name, nil, nil, func(node BackendNode) error {
 		reply, err := d.adapter.DeleteBackend(node.ID, name)
 		if err != nil {
 			return err
@@ -414,11 +459,41 @@ func (d *DistributedBackendManager) InstallBackend(ctx context.Context, op *gall
 		targetNodeIDs = map[string]bool{op.TargetNodeID: true}
 	}
 
-	result, err := d.enqueueAndDrainBackendOp(ctx, OpBackendInstall, backendName, galleriesJSON, targetNodeIDs, func(node BackendNode) error {
+	result, err := d.enqueueAndDrainBackendOp(ctx, op.ID, OpBackendInstall, backendName, galleriesJSON, targetNodeIDs, func(node BackendNode) error {
+		// onProgress fans each BackendInstallProgressEvent into two
+		// observers: the legacy single-bar progressCb (kept so callers
+		// that only consume the aggregate view keep working) and the
+		// per-node sink (so OpStatus.Nodes gets a "downloading" tick
+		// per file/percentage with node attribution). Defined inside the
+		// loop so each node captures its own node.Name into the closure.
+		onProgress := func(ev messaging.BackendInstallProgressEvent) {
+			if progressCb != nil {
+				progressCb(ev.FileName, ev.Current, ev.Total, ev.Percentage)
+			}
+			if d.progressSink != nil && op.ID != "" {
+				d.progressSink.UpdateNodeProgress(op.ID, ev.NodeID, galleryop.NodeProgress{
+					NodeID:     ev.NodeID,
+					NodeName:   node.Name,
+					Status:     "downloading",
+					FileName:   ev.FileName,
+					Current:    ev.Current,
+					Total:      ev.Total,
+					Percentage: ev.Percentage,
+					Phase:      ev.Phase,
+				})
+			}
+		}
+		// nil-callback shortcut: when there is nothing to deliver to,
+		// hand the adapter a nil onProgress so it skips the per-op NATS
+		// subscription. Matches the pre-Phase-4 bridgeProgressCb semantics.
+		var onProgressArg func(messaging.BackendInstallProgressEvent)
+		if progressCb != nil || d.progressSink != nil {
+			onProgressArg = onProgress
+		}
 		// Admin-driven backend install: not tied to a specific replica slot.
 		// Pass replica 0 - the worker's processKey is "backend#0" when no
 		// modelID is supplied, matching pre-PR4 behavior.
-		reply, err := d.adapter.InstallBackend(node.ID, backendName, "", string(galleriesJSON), op.ExternalURI, op.ExternalName, op.ExternalAlias, 0, op.ID, bridgeProgressCb(progressCb))
+		reply, err := d.adapter.InstallBackend(node.ID, backendName, "", string(galleriesJSON), op.ExternalURI, op.ExternalName, op.ExternalAlias, 0, op.ID, onProgressArg)
 		if err != nil {
 			return err
 		}
@@ -473,7 +548,11 @@ func (d *DistributedBackendManager) UpgradeBackend(ctx context.Context, name str
 		targetNodeIDs[n.NodeID] = true
 	}
 
-	result, err := d.enqueueAndDrainBackendOp(ctx, OpBackendUpgrade, name, galleriesJSON, targetNodeIDs, func(node BackendNode) error {
+	// Empty opID: the caller (galleryop) doesn't thread an op ID into
+	// UpgradeBackend today, so we can't tag per-node sink writes with the
+	// right OpStatus key. Until the upgrade path takes a ManagementOp the
+	// way InstallBackend does, the sink stays no-op here.
+	result, err := d.enqueueAndDrainBackendOp(ctx, "", OpBackendUpgrade, name, galleriesJSON, targetNodeIDs, func(node BackendNode) error {
 		reply, err := d.adapter.UpgradeBackend(node.ID, name, string(galleriesJSON), "", "", "", 0)
 		if err != nil {
 			// Rolling-update fallback: an older worker doesn't know
@@ -547,19 +626,4 @@ func summarizeRunningOnWorker(nodes []NodeOpStatus) string {
 		}
 	}
 	return strings.Join(names, ", ")
-}
-
-// bridgeProgressCb adapts a BackendInstallProgressEvent stream to the
-// (file, current, total, percentage) callback shape that
-// galleryop.ProgressCallback expects (and that backendHandler already
-// translates into OpStatus.UpdateStatus). nil in -> nil out so callers
-// that don't pass a progressCb skip subscription work on the adapter
-// side, matching the reconciler-retry semantics.
-func bridgeProgressCb(progressCb galleryop.ProgressCallback) func(messaging.BackendInstallProgressEvent) {
-	if progressCb == nil {
-		return nil
-	}
-	return func(ev messaging.BackendInstallProgressEvent) {
-		progressCb(ev.FileName, ev.Current, ev.Total, ev.Percentage)
-	}
 }

@@ -253,7 +253,7 @@ var _ = Describe("Model and Backend Managers", Label("Distributed"), func() {
 			appCfg.SystemState = ss
 
 			adapter := nodes.NewRemoteUnloaderAdapter(registry, infra.NC, 3*time.Minute, 15*time.Minute)
-			distMgr := nodes.NewDistributedBackendManager(appCfg, ml, adapter, registry)
+			distMgr := nodes.NewDistributedBackendManager(appCfg, ml, adapter, registry, nil)
 
 			err = distMgr.DeleteBackend("my-backend")
 			Expect(err).ToNot(HaveOccurred())
@@ -300,7 +300,7 @@ var _ = Describe("Model and Backend Managers", Label("Distributed"), func() {
 			appCfg.SystemState = ss
 
 			adapter := nodes.NewRemoteUnloaderAdapter(registry, infra.NC, 3*time.Minute, 15*time.Minute)
-			distMgr := nodes.NewDistributedBackendManager(appCfg, ml, adapter, registry)
+			distMgr := nodes.NewDistributedBackendManager(appCfg, ml, adapter, registry, nil)
 
 			// Should NOT return an error even though the backend doesn't exist locally
 			err = distMgr.DeleteBackend("remote-only-backend")

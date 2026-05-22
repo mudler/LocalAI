@@ -13,6 +13,7 @@ import (
 	. "github.com/onsi/gomega"
 	"gorm.io/gorm"
 
+	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/gallery"
 	"github.com/mudler/LocalAI/core/services/galleryop"
 	"github.com/mudler/LocalAI/core/services/messaging"
@@ -256,8 +257,43 @@ func (s *scriptedMessagingClient) SubscribeReply(_ string, _ func([]byte, func([
 func (s *scriptedMessagingClient) IsConnected() bool { return true }
 func (s *scriptedMessagingClient) Close()            {}
 
+// recordingNodeCall captures a single UpdateNodeProgress invocation so
+// per-node OpStatus tests can assert on the sequence of writes the
+// DistributedBackendManager fans out into the sink.
+type recordingNodeCall struct {
+	OpID     string
+	NodeID   string
+	Progress galleryop.NodeProgress
+}
+
+// recordingProgressSink is a test-only nodeProgressSink that just records
+// every call. Used by the per-node OpStatus specs below to assert the
+// manager wrote the expected terminal and downloading entries.
+type recordingProgressSink struct {
+	mu    sync.Mutex
+	calls []recordingNodeCall
+}
+
+func (r *recordingProgressSink) UpdateNodeProgress(opID, nodeID string, np galleryop.NodeProgress) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.calls = append(r.calls, recordingNodeCall{OpID: opID, NodeID: nodeID, Progress: np})
+}
+
+func (r *recordingProgressSink) callsFor(opID, nodeID string) []galleryop.NodeProgress {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	out := []galleryop.NodeProgress{}
+	for _, c := range r.calls {
+		if c.OpID == opID && c.NodeID == nodeID {
+			out = append(out, c.Progress)
+		}
+	}
+	return out
+}
+
 // fakeNoRespondersErr is the unscripted-subject default. It matches
-// nats.ErrNoResponders by string only — used when a test forgets to script
+// nats.ErrNoResponders by string only - used when a test forgets to script
 // a node so the failure is loud but doesn't tickle errors.Is(...) sentinel
 // paths the test wasn't deliberately exercising. Tests that DO want the
 // real sentinel (e.g. to drive the manager's NoResponders fallback) call
@@ -643,6 +679,75 @@ var _ = Describe("DistributedBackendManager", func() {
 					defer mu.Unlock()
 					return ticks
 				}, "200ms").Should(Equal(0))
+			})
+		})
+
+		Context("populates per-node OpStatus entries", func() {
+			var sink *recordingProgressSink
+
+			BeforeEach(func() {
+				// Reconstruct mgr with the recording sink so the new code
+				// path (per-node OpStatus writes) is exercised. The default
+				// mgr in the outer BeforeEach has progressSink=nil so the
+				// pre-existing specs keep verifying the no-sink behavior.
+				sink = &recordingProgressSink{}
+				appCfg := &config.ApplicationConfig{}
+				mgr = NewDistributedBackendManager(appCfg, nil, adapter, registry, sink)
+				// stubLocalBackendManager mirrors the production behaviour
+				// where the frontend node rarely has the backend installed
+				// locally - the NATS fan-out is what these specs verify.
+				mgr.local = stubLocalBackendManager{}
+			})
+
+			It("emits a success entry for each healthy node visited", func() {
+				node := registerHealthyBackend("worker-ok", "10.0.0.9:50051")
+				mc.scriptReply(messaging.SubjectNodeBackendInstall(node.ID),
+					messaging.BackendInstallReply{Success: true, Address: "10.0.0.9:50051"})
+
+				opVal := op("vllm")
+				opVal.ID = "op-node-success"
+				Expect(mgr.InstallBackend(ctx, opVal, nil)).To(Succeed())
+
+				calls := sink.callsFor("op-node-success", node.ID)
+				Expect(calls).ToNot(BeEmpty())
+				Expect(calls[len(calls)-1].Status).To(Equal("success"))
+				Expect(calls[len(calls)-1].NodeName).To(Equal("worker-ok"))
+			})
+
+			It("emits a running_on_worker entry when NATS times out", func() {
+				node := registerHealthyBackend("worker-slow", "10.0.0.10:50051")
+				mc.scriptErr(messaging.SubjectNodeBackendInstall(node.ID), nats.ErrTimeout)
+
+				opVal := op("vllm")
+				opVal.ID = "op-node-slow"
+				// Soft failure: returns wrapped ErrWorkerStillInstalling.
+				_ = mgr.InstallBackend(ctx, opVal, nil)
+
+				calls := sink.callsFor("op-node-slow", node.ID)
+				Expect(calls).ToNot(BeEmpty())
+				Expect(calls[len(calls)-1].Status).To(Equal("running_on_worker"))
+			})
+
+			It("emits downloading entries from progress events", func() {
+				node := registerHealthyBackend("worker-dl", "10.0.0.11:50051")
+				mc.scriptReply(messaging.SubjectNodeBackendInstall(node.ID),
+					messaging.BackendInstallReply{Success: true})
+				mc.scheduleProgressPublish(node.ID, "op-node-dl", []messaging.BackendInstallProgressEvent{
+					{OpID: "op-node-dl", NodeID: node.ID, Backend: "vllm", FileName: "vllm.tar", Current: "1 GB", Total: "1 GB", Percentage: 100, Phase: "downloading"},
+				})
+
+				opVal := op("vllm")
+				opVal.ID = "op-node-dl"
+				Expect(mgr.InstallBackend(ctx, opVal, nil)).To(Succeed())
+
+				Eventually(func() bool {
+					for _, np := range sink.callsFor("op-node-dl", node.ID) {
+						if np.Status == "downloading" && np.Percentage == 100.0 {
+							return true
+						}
+					}
+					return false
+				}, "1s").Should(BeTrue())
 			})
 		})
 	})
