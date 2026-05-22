@@ -28,6 +28,18 @@ type scriptedMessagingClient struct {
 	errs           map[string]error
 	calls          []requestCall
 	matchedReplies map[string][]matchedReply
+	publishes      []progressPublishCall
+}
+
+// progressPublishCall records a single Publish invocation. The progress
+// publisher tests assert on the sequence of BackendInstallProgressEvent
+// values written to a per-op subject, so we capture both subject and the
+// decoded event. Named to avoid clashing with the simpler `publishCall`
+// already defined in unloader_test.go (which stores raw JSON bytes for
+// non-progress assertions).
+type progressPublishCall struct {
+	Subject string
+	Event   messaging.BackendInstallProgressEvent
 }
 
 // matchedReply lets a test script a canned reply that only fires when the
@@ -136,7 +148,39 @@ func (s *scriptedMessagingClient) Request(subject string, data []byte, timeout t
 	return nil, &fakeNoRespondersErr{}
 }
 
-func (s *scriptedMessagingClient) Publish(_ string, _ any) error { return nil }
+// Publish records each call so progress-publisher tests can assert on the
+// stream of events written to a subject. The real messaging.Client JSON
+// encodes the payload before sending, but our publisher hands a typed
+// struct directly, so we handle both shapes.
+func (s *scriptedMessagingClient) Publish(subject string, data any) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	switch ev := data.(type) {
+	case messaging.BackendInstallProgressEvent:
+		s.publishes = append(s.publishes, progressPublishCall{Subject: subject, Event: ev})
+	case []byte:
+		var e messaging.BackendInstallProgressEvent
+		_ = json.Unmarshal(ev, &e)
+		s.publishes = append(s.publishes, progressPublishCall{Subject: subject, Event: e})
+	}
+	return nil
+}
+
+// publishCalls returns every BackendInstallProgressEvent that was published
+// to `subject`, in order. Lets tests assert on debounce behavior without
+// depending on internal Publish timing.
+func (s *scriptedMessagingClient) publishCalls(subject string) []messaging.BackendInstallProgressEvent {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	out := make([]messaging.BackendInstallProgressEvent, 0)
+	for _, c := range s.publishes {
+		if c.Subject != subject {
+			continue
+		}
+		out = append(out, c.Event)
+	}
+	return out
+}
 func (s *scriptedMessagingClient) Subscribe(_ string, _ func([]byte)) (messaging.Subscription, error) {
 	return &fakeSubscription{}, nil
 }
