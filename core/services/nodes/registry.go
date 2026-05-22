@@ -17,24 +17,24 @@ import (
 // Workers are generic — they don't have a fixed backend type.
 // The SmartRouter dynamically installs backends via NATS backend.install events.
 type BackendNode struct {
-	ID            string    `gorm:"primaryKey;size:36" json:"id"`
-	Name          string    `gorm:"uniqueIndex;size:255" json:"name"`
-	NodeType      string    `gorm:"size:32;default:backend" json:"node_type"`    // backend, agent
-	Address       string    `gorm:"size:255" json:"address"`                     // host:port for gRPC
-	HTTPAddress   string    `gorm:"size:255" json:"http_address"`                // host:port for HTTP file transfer
-	Status        string    `gorm:"size:32;default:registering" json:"status"`   // registering, healthy, unhealthy, draining, pending
-	TokenHash     string    `gorm:"size:64" json:"-"`                            // SHA-256 of registration token
-	TotalVRAM     uint64    `gorm:"column:total_vram" json:"total_vram"`         // Total GPU VRAM in bytes
-	AvailableVRAM uint64    `gorm:"column:available_vram" json:"available_vram"` // Available GPU VRAM in bytes
+	ID            string `gorm:"primaryKey;size:36" json:"id"`
+	Name          string `gorm:"uniqueIndex;size:255" json:"name"`
+	NodeType      string `gorm:"size:32;default:backend" json:"node_type"`    // backend, agent
+	Address       string `gorm:"size:255" json:"address"`                     // host:port for gRPC
+	HTTPAddress   string `gorm:"size:255" json:"http_address"`                // host:port for HTTP file transfer
+	Status        string `gorm:"size:32;default:registering" json:"status"`   // registering, healthy, unhealthy, draining, pending
+	TokenHash     string `gorm:"size:64" json:"-"`                            // SHA-256 of registration token
+	TotalVRAM     uint64 `gorm:"column:total_vram" json:"total_vram"`         // Total GPU VRAM in bytes
+	AvailableVRAM uint64 `gorm:"column:available_vram" json:"available_vram"` // Available GPU VRAM in bytes
 	// ReservedVRAM is a soft, in-tick reservation deducted by the scheduler when
 	// it picks this node to load a model. Workers reset it back to 0 on each
 	// heartbeat (the worker is the source of truth for actual free VRAM); the
 	// reservation is only here to keep two scheduling decisions within the
 	// same heartbeat window from over-committing the same node.
-	ReservedVRAM        uint64    `gorm:"column:reserved_vram;default:0" json:"reserved_vram"`
-	TotalRAM            uint64    `gorm:"column:total_ram" json:"total_ram"`         // Total system RAM in bytes (fallback when no GPU)
-	AvailableRAM        uint64    `gorm:"column:available_ram" json:"available_ram"` // Available system RAM in bytes
-	GPUVendor           string    `gorm:"column:gpu_vendor;size:32" json:"gpu_vendor"` // nvidia, amd, intel, vulkan, unknown
+	ReservedVRAM uint64 `gorm:"column:reserved_vram;default:0" json:"reserved_vram"`
+	TotalRAM     uint64 `gorm:"column:total_ram" json:"total_ram"`           // Total system RAM in bytes (fallback when no GPU)
+	AvailableRAM uint64 `gorm:"column:available_ram" json:"available_ram"`   // Available system RAM in bytes
+	GPUVendor    string `gorm:"column:gpu_vendor;size:32" json:"gpu_vendor"` // nvidia, amd, intel, vulkan, unknown
 	// MaxReplicasPerModel caps how many replicas of any one model can run on
 	// this node concurrently. Default 1 preserves the historical "one
 	// (node, model)" assumption; set higher (via worker --max-replicas-per-model)
@@ -44,12 +44,12 @@ type BackendNode struct {
 	// admin override. When true, the worker's CLI value is ignored on
 	// re-registration so the override survives worker restarts. Cleared
 	// by an explicit "reset to worker default" action.
-	MaxReplicasPerModelManuallySet bool `gorm:"column:max_replicas_per_model_manually_set;default:false" json:"max_replicas_per_model_manually_set"`
-	APIKeyID            string    `gorm:"size:36" json:"-"` // auto-provisioned API key ID (for cleanup)
-	AuthUserID          string    `gorm:"size:36" json:"-"` // auto-provisioned user ID (for cleanup)
-	LastHeartbeat       time.Time `gorm:"column:last_heartbeat" json:"last_heartbeat"`
-	CreatedAt           time.Time `json:"created_at"`
-	UpdatedAt           time.Time `json:"updated_at"`
+	MaxReplicasPerModelManuallySet bool      `gorm:"column:max_replicas_per_model_manually_set;default:false" json:"max_replicas_per_model_manually_set"`
+	APIKeyID                       string    `gorm:"size:36" json:"-"` // auto-provisioned API key ID (for cleanup)
+	AuthUserID                     string    `gorm:"size:36" json:"-"` // auto-provisioned user ID (for cleanup)
+	LastHeartbeat                  time.Time `gorm:"column:last_heartbeat" json:"last_heartbeat"`
+	CreatedAt                      time.Time `json:"created_at"`
+	UpdatedAt                      time.Time `json:"updated_at"`
 }
 
 const (
@@ -79,17 +79,17 @@ const (
 // gRPC Address (each replica is a separate worker process on its own port),
 // and its own InFlight counter.
 type NodeModel struct {
-	ID           string `gorm:"primaryKey;size:36" json:"id"`
-	NodeID       string `gorm:"index;size:36" json:"node_id"`
-	ModelName    string `gorm:"index;size:255" json:"model_name"`
-	ReplicaIndex int    `gorm:"column:replica_index;default:0;index" json:"replica_index"`
-	Address      string `gorm:"size:255" json:"address"`           // gRPC address for this replica's backend process
-	State        string `gorm:"size:32;default:idle" json:"state"` // loading, loaded, unloading, idle
-	InFlight     int    `json:"in_flight"`                         // number of active requests on this replica
-	LastUsed     time.Time `json:"last_used"`
-	LoadingBy     string    `gorm:"size:36" json:"loading_by,omitempty"`     // frontend ID that triggered loading
-	BackendType   string    `gorm:"size:128" json:"backend_type,omitempty"`  // e.g. "llama-cpp"; used by reconciler to replicate loads
-	ModelOptsBlob []byte    `gorm:"type:bytea" json:"-"`                     // serialized pb.ModelOptions for replica scale-ups
+	ID            string    `gorm:"primaryKey;size:36" json:"id"`
+	NodeID        string    `gorm:"index;size:36" json:"node_id"`
+	ModelName     string    `gorm:"index;size:255" json:"model_name"`
+	ReplicaIndex  int       `gorm:"column:replica_index;default:0;index" json:"replica_index"`
+	Address       string    `gorm:"size:255" json:"address"`           // gRPC address for this replica's backend process
+	State         string    `gorm:"size:32;default:idle" json:"state"` // loading, loaded, unloading, idle
+	InFlight      int       `json:"in_flight"`                         // number of active requests on this replica
+	LastUsed      time.Time `json:"last_used"`
+	LoadingBy     string    `gorm:"size:36" json:"loading_by,omitempty"`    // frontend ID that triggered loading
+	BackendType   string    `gorm:"size:128" json:"backend_type,omitempty"` // e.g. "llama-cpp"; used by reconciler to replicate loads
+	ModelOptsBlob []byte    `gorm:"type:bytea" json:"-"`                    // serialized pb.ModelOptions for replica scale-ups
 	CreatedAt     time.Time `json:"created_at"`
 	UpdatedAt     time.Time `json:"updated_at"`
 }
@@ -1287,7 +1287,7 @@ func (r *NodeRegistry) UpdateMaxReplicasPerModel(ctx context.Context, nodeID str
 	res := r.db.WithContext(ctx).Model(&BackendNode{}).
 		Where("id = ?", nodeID).
 		Updates(map[string]any{
-			ColMaxReplicasPerModel:    n,
+			ColMaxReplicasPerModel:                n,
 			"max_replicas_per_model_manually_set": true,
 		})
 	if res.Error != nil {
@@ -1460,7 +1460,7 @@ func (r *NodeRegistry) UpsertPendingBackendOp(ctx context.Context, nodeID, backe
 		NextRetryAt: time.Now(),
 	}
 	return r.db.WithContext(ctx).Clauses(clause.OnConflict{
-		Columns: []clause.Column{{Name: "node_id"}, {Name: "backend"}, {Name: "op"}},
+		Columns:   []clause.Column{{Name: "node_id"}, {Name: "backend"}, {Name: "op"}},
 		DoUpdates: clause.AssignmentColumns([]string{"galleries", "next_retry_at"}),
 	}).Create(&row).Error
 }
@@ -1513,6 +1513,22 @@ func (r *NodeRegistry) RecordPendingBackendOpFailure(ctx context.Context, id uin
 		row.NextRetryAt = time.Now().Add(backoffForAttempt(row.Attempts))
 		return tx.Save(&row).Error
 	})
+}
+
+// RecordPendingBackendOpInFlight is the "soft failure" cousin of
+// RecordPendingBackendOpFailure. Used when a NATS install round-trip timed
+// out but the worker is still installing in the background. Increments
+// Attempts and stores the message in LastError, but pushes NextRetryAt out
+// by `retryDelay` (typically the install timeout) so the reconciler does
+// not immediately re-fire another install while the worker is still busy.
+func (r *NodeRegistry) RecordPendingBackendOpInFlight(ctx context.Context, id uint, lastError string, retryDelay time.Duration) error {
+	return r.db.WithContext(ctx).Model(&PendingBackendOp{}).
+		Where("id = ?", id).
+		Updates(map[string]any{
+			"attempts":      gorm.Expr("attempts + 1"),
+			"last_error":    lastError,
+			"next_retry_at": time.Now().Add(retryDelay),
+		}).Error
 }
 
 // backoffForAttempt is exponential from 30s doubling up to a 15m cap. The

@@ -3,6 +3,7 @@ package nodes
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"runtime"
 	"sync"
 	"time"
@@ -350,6 +351,33 @@ var _ = Describe("DistributedBackendManager", func() {
 				mc.mu.Lock()
 				defer mc.mu.Unlock()
 				Expect(mc.calls).To(BeEmpty())
+			})
+		})
+
+		Context("when InstallBackend times out on a worker", func() {
+			It("returns galleryop.ErrWorkerStillInstalling and keeps the queue row with NextRetryAt pushed out", func() {
+				n := registerHealthyBackend("slow", "10.0.0.1:50051")
+
+				// Script a NATS timeout on the install subject. The adapter
+				// wraps this into galleryop.ErrWorkerStillInstalling, which
+				// the manager should treat as a soft failure.
+				mc.scriptErr(messaging.SubjectNodeBackendInstall(n.ID), nats.ErrTimeout)
+
+				err := mgr.InstallBackend(ctx, op("vllm"), nil)
+				Expect(err).To(HaveOccurred())
+				Expect(errors.Is(err, galleryop.ErrWorkerStillInstalling)).To(BeTrue(),
+					"expected wrapped ErrWorkerStillInstalling, got %v", err)
+
+				rows, err := registry.ListPendingBackendOps(ctx)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(rows).To(HaveLen(1))
+				Expect(rows[0].Backend).To(Equal("vllm"))
+				// The adapter is configured with a 3m install timeout in this
+				// suite (NewRemoteUnloaderAdapter above). NextRetryAt should
+				// be ~now+3m; a > now+2m bound is safe-but-tight enough to
+				// catch the buggy short default (30s exponential backoff).
+				Expect(rows[0].NextRetryAt).To(BeTemporally(">", time.Now().Add(2*time.Minute)),
+					"NextRetryAt should be pushed to ~now+installTimeout, not the short default")
 			})
 		})
 	})

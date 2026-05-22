@@ -68,6 +68,13 @@ func NewRemoteUnloaderAdapter(registry ModelLocator, nats messaging.MessagingCli
 	}
 }
 
+// InstallTimeout returns the configured backend.install round-trip timeout.
+// Used by DistributedBackendManager to push NextRetryAt out by this duration
+// when a worker times out replying but is still installing in the background.
+func (a *RemoteUnloaderAdapter) InstallTimeout() time.Duration {
+	return a.installTimeout
+}
+
 // UnloadRemoteModel finds the node(s) hosting the given model and tells them
 // to stop their backend process via NATS backend.stop event.
 // The worker process handles: Free() → kill process.

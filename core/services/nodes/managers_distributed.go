@@ -173,8 +173,25 @@ func (d *DistributedBackendManager) enqueueAndDrainBackendOp(ctx context.Context
 		}
 
 		// Record failure for backoff. If it's an ErrNoResponders, the node's
-		// gone AWOL — mark unhealthy so the router stops picking it too.
+		// gone AWOL - mark unhealthy so the router stops picking it too.
 		errMsg := applyErr.Error()
+
+		// Worker-still-installing is a "soft" failure: the worker is most
+		// likely still pulling the OCI image. Keep the row, push NextRetryAt
+		// out so the reconciler does not immediately re-fire another install
+		// while the worker is still busy, and report the in-progress state
+		// to the caller. The next reconciler pass / backend.list confirms
+		// the actual outcome.
+		if errors.Is(applyErr, galleryop.ErrWorkerStillInstalling) {
+			if id, err := d.findPendingRow(ctx, node.ID, backend, op); err == nil {
+				_ = d.registry.RecordPendingBackendOpInFlight(ctx, id, errMsg, d.adapter.InstallTimeout())
+			}
+			result.Nodes = append(result.Nodes, NodeOpStatus{
+				NodeID: node.ID, NodeName: node.Name, Status: "running_on_worker", Error: errMsg,
+			})
+			continue
+		}
+
 		if errors.Is(applyErr, nats.ErrNoResponders) {
 			xlog.Warn("No NATS responders for node, marking unhealthy", "node", node.Name, "nodeID", node.ID)
 			d.registry.MarkUnhealthy(ctx, node.ID)
@@ -361,7 +378,19 @@ func (d *DistributedBackendManager) InstallBackend(ctx context.Context, op *gall
 	if err != nil {
 		return err
 	}
-	return result.Err()
+	if hardErr := result.Err(); hardErr != nil {
+		return hardErr
+	}
+	// No hard failures, but if at least one node reported running_on_worker,
+	// surface a wrapped ErrWorkerStillInstalling so galleryop can render a
+	// yellow in-progress state instead of green success. The reconciler
+	// will confirm the actual outcome on its next pass via backend.list.
+	for _, n := range result.Nodes {
+		if n.Status == "running_on_worker" {
+			return fmt.Errorf("%w: %s", galleryop.ErrWorkerStillInstalling, summarizeRunningOnWorker(result.Nodes))
+		}
+	}
+	return nil
 }
 
 // UpgradeBackend uses a separate NATS subject (backend.upgrade) so the slow
@@ -417,7 +446,18 @@ func (d *DistributedBackendManager) UpgradeBackend(ctx context.Context, name str
 	if err != nil {
 		return err
 	}
-	return result.Err()
+	if hardErr := result.Err(); hardErr != nil {
+		return hardErr
+	}
+	// Same in-progress surfacing as InstallBackend: a long-running worker
+	// upgrade that timed out the NATS round-trip must not be reported as
+	// green success.
+	for _, n := range result.Nodes {
+		if n.Status == "running_on_worker" {
+			return fmt.Errorf("%w: %s", galleryop.ErrWorkerStillInstalling, summarizeRunningOnWorker(result.Nodes))
+		}
+	}
+	return nil
 }
 
 // IsDistributed reports that installs from this manager fan out across the
@@ -442,4 +482,17 @@ func (d *DistributedBackendManager) CheckUpgrades(ctx context.Context) (map[stri
 	// resolution). The `installed` argument is what the old code got wrong —
 	// it used to come from the empty frontend filesystem.
 	return gallery.CheckUpgradesAgainst(ctx, d.backendGalleries, d.systemState, installed)
+}
+
+// summarizeRunningOnWorker builds a short human-readable summary of which
+// nodes are still installing in the background, for inclusion in the
+// wrapped ErrWorkerStillInstalling error.
+func summarizeRunningOnWorker(nodes []NodeOpStatus) string {
+	var names []string
+	for _, n := range nodes {
+		if n.Status == "running_on_worker" {
+			names = append(names, n.NodeName)
+		}
+	}
+	return strings.Join(names, ", ")
 }
