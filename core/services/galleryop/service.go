@@ -135,6 +135,47 @@ func (g *GalleryService) UpdateStatus(s string, op *OpStatus) {
 	}
 }
 
+// UpdateNodeProgress merges a per-node progress tick into OpStatus.Nodes,
+// keyed by nodeID, and mirrors the latest values into the aggregate
+// Progress / FileName / DownloadedFileSize / TotalFileSize / Message
+// fields so the legacy single-bar OperationsBar view keeps working
+// unchanged alongside the new per-node breakdown.
+//
+// We deliberately do NOT delegate the aggregate mirror to UpdateStatus
+// here: UpdateStatus overwrites the entire OpStatus, which would clobber
+// the Nodes slice we just merged into. Doing the merge + mirror under a
+// single lock keeps both views consistent and concurrent-safe.
+func (g *GalleryService) UpdateNodeProgress(opID, nodeID string, np NodeProgress) {
+	g.Lock()
+	defer g.Unlock()
+	status := g.statuses[opID]
+	if status == nil {
+		status = &OpStatus{}
+		g.statuses[opID] = status
+	}
+	merged := false
+	for i := range status.Nodes {
+		if status.Nodes[i].NodeID == nodeID {
+			status.Nodes[i] = np
+			merged = true
+			break
+		}
+	}
+	if !merged {
+		status.Nodes = append(status.Nodes, np)
+	}
+
+	// Mirror the latest tick into the legacy aggregate fields so the
+	// existing single-bar UI keeps rendering meaningful progress.
+	status.FileName = np.FileName
+	status.Progress = np.Percentage
+	status.DownloadedFileSize = np.Current
+	status.TotalFileSize = np.Total
+	if np.Phase != "" {
+		status.Message = np.Phase
+	}
+}
+
 func (g *GalleryService) GetStatus(s string) *OpStatus {
 	g.Lock()
 	defer g.Unlock()
