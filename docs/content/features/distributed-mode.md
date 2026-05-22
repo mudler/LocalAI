@@ -123,6 +123,28 @@ still completes via the reply; the UI keeps showing the message from the
 install-timeout fallback path (`still installing in background`) until the
 pending operation row clears.
 
+#### Per-Node Operations Breakdown
+
+When an admin backend install fans out to more than one worker, the
+**Operations Bar** at the top of the admin UI shows a per-node breakdown.
+Click the "N nodes" chevron on the operation row to expand a list with one
+entry per target node, each carrying:
+
+- A color-coded status pill: queued (gray), downloading (blue), worker
+  busy / running on worker (yellow), done (green), failed (red).
+- The current file being pulled, current/total bytes, percentage.
+- A thin per-node progress bar.
+- Any error message returned by the worker for that node.
+
+The yellow "Worker busy" pill appears when the NATS round-trip to a node
+timed out but the worker is still installing in the background. Hover the
+pill for the full tooltip.
+
+The breakdown is driven by the `nodes` array on the `/api/operations`
+response, which the frontend polls every second. Single-node installs and
+model installs render the same single-line card as before: the per-node
+section only appears when more than one node is involved.
+
 ## Worker Configuration
 
 Workers are started with the `worker` subcommand. Each worker is generic — it doesn't need a backend type at startup:
