@@ -380,6 +380,53 @@ var _ = Describe("DistributedBackendManager", func() {
 					"NextRetryAt should be pushed to ~now+installTimeout, not the short default")
 			})
 		})
+
+		Context("end-to-end: timeout then successful reconcile via backend.list", func() {
+			It("surfaces the install in ListBackends after the worker finishes", func() {
+				// Use the same node-registration helper the Task 5 test uses
+				// so the test fixture is identical to the prior context.
+				node := registerHealthyBackend("jetson", "10.0.0.2:50051")
+
+				// First install attempt: NATS times out. The adapter wraps
+				// this as galleryop.ErrWorkerStillInstalling and the manager
+				// keeps the pending_backend_ops row alive with NextRetryAt
+				// pushed out (asserted in the previous context).
+				mc.scriptErr(messaging.SubjectNodeBackendInstall(node.ID), nats.ErrTimeout)
+
+				err := mgr.InstallBackend(ctx, op("vllm"), nil)
+				Expect(err).To(HaveOccurred())
+				Expect(errors.Is(err, galleryop.ErrWorkerStillInstalling)).To(BeTrue(),
+					"expected wrapped ErrWorkerStillInstalling, got %v", err)
+
+				rows, listErr := registry.ListPendingBackendOps(ctx)
+				Expect(listErr).ToNot(HaveOccurred())
+				Expect(rows).To(HaveLen(1))
+
+				// The worker finished installing in the background. Script
+				// backend.list on the same scriptedMessagingClient so the
+				// manager's ListBackends fan-out reports the backend.
+				mc.scriptReply(messaging.SubjectNodeBackendList(node.ID), messaging.BackendListReply{
+					Backends: []messaging.NodeBackendInfo{{Name: "vllm"}},
+				})
+
+				backends, listErr := mgr.ListBackends()
+				Expect(listErr).ToNot(HaveOccurred())
+				Expect(backends).To(HaveKey("vllm"))
+				Expect(backends["vllm"].Nodes).To(HaveLen(1))
+				Expect(backends["vllm"].Nodes[0].NodeID).To(Equal(node.ID))
+
+				// NOTE: clearing the pending_backend_ops row when backend.list
+				// confirms the install is a separate enhancement (see Phase 1b
+				// in the plan footer). Today the row is cleared on the next
+				// reconciler-driven retry when InstallBackend round-trips
+				// successfully. Assert the row STILL exists so any future code
+				// that auto-clears makes this test fail loudly and reminds the
+				// author to flip the assertion.
+				rowsAfter, _ := registry.ListPendingBackendOps(ctx)
+				Expect(rowsAfter).To(HaveLen(1),
+					"row clearing on ListBackends success is a Phase 1b follow-up; if it ships, flip this expectation")
+			})
+		})
 	})
 
 	Describe("UpgradeBackend", func() {
