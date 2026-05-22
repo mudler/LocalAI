@@ -19,7 +19,7 @@ var _ = Describe("BackendInstallProgress", func() {
 
 		It("sanitizes NATS-reserved characters in node and op tokens", func() {
 			// '.' is the NATS hierarchy delimiter, '*' and '>' are wildcards,
-			// and whitespace must be stripped — sanitizeSubjectToken replaces
+			// and whitespace must be stripped - sanitizeSubjectToken replaces
 			// all of them with '-'. The resulting subject must still parse as
 			// exactly six hierarchy segments: nodes/<node>/backend/install/<op>/progress.
 			subj := messaging.SubjectNodeBackendInstallProgress("a.b c", "x.y z")
