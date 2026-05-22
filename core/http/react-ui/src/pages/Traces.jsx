@@ -220,7 +220,10 @@ function BackendTraceDetail({ trace }) {
         </div>
       )}
 
-      {/* Backend logs link */}
+      {/* Backend logs link — /app/backend-logs/:modelId is the unified entry
+          point: in standalone mode it streams local logs, in distributed mode
+          it resolves the model to the host worker(s) and either redirects to
+          /app/node-backend-logs/<nodeId>/<modelId> or shows a node picker. */}
       {trace.model_name && (
         <div style={{ marginBottom: 'var(--spacing-md)' }}>
           <a
