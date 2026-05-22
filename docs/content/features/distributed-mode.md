@@ -86,6 +86,8 @@ The frontend is a standard LocalAI instance with distributed mode enabled. These
 | `--auto-approve-nodes` | `LOCALAI_AUTO_APPROVE_NODES` | `false` | Auto-approve new worker nodes (skip admin approval) |
 | `--auth` | `LOCALAI_AUTH` | `false` | **Must be `true`** for distributed mode |
 | `--auth-database-url` | `LOCALAI_AUTH_DATABASE_URL` | *(required)* | PostgreSQL connection URL |
+| `--backend-install-timeout` | `LOCALAI_NATS_BACKEND_INSTALL_TIMEOUT` | `15m` | NATS round-trip timeout for `backend.install` requests sent to worker nodes. Raise on slow links pulling multi-GB OCI images (e.g. Jetson over Wi-Fi). If the round-trip times out but the worker is still installing in the background, the admin UI shows the operation as `still installing in background` rather than failed, and the reconciler confirms completion via the next `backend.list` poll. |
+| `--backend-upgrade-timeout` | `LOCALAI_NATS_BACKEND_UPGRADE_TIMEOUT` | `15m` | NATS round-trip timeout for `backend.upgrade` requests (force-reinstall path). Same semantics as install timeout. |
 
 ### Optional: S3 Object Storage
 
