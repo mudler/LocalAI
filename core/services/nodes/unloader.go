@@ -2,6 +2,7 @@ package nodes
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
@@ -33,7 +34,7 @@ type backendStopRequest struct {
 // nats.ErrNoResponders for old workers that don't subscribe to the new
 // backend.upgrade subject.
 type NodeCommandSender interface {
-	InstallBackend(nodeID, backendType, modelID, galleriesJSON, uri, name, alias string, replicaIndex int) (*messaging.BackendInstallReply, error)
+	InstallBackend(nodeID, backendType, modelID, galleriesJSON, uri, name, alias string, replicaIndex int, opID string, onProgress func(messaging.BackendInstallProgressEvent)) (*messaging.BackendInstallReply, error)
 	UpgradeBackend(nodeID, backendType, galleriesJSON, uri, name, alias string, replicaIndex int) (*messaging.BackendUpgradeReply, error)
 	DeleteBackend(nodeID, backendName string) (*messaging.BackendDeleteReply, error)
 	ListBackends(nodeID string) (*messaging.BackendListReply, error)
@@ -116,9 +117,39 @@ func (a *RemoteUnloaderAdapter) UnloadRemoteModel(modelName string) error {
 // For force-reinstall (admin-driven Upgrade), use UpgradeBackend instead -
 // it lives on a different NATS subject so it cannot head-of-line-block
 // routine load traffic on the same worker.
-func (a *RemoteUnloaderAdapter) InstallBackend(nodeID, backendType, modelID, galleriesJSON, uri, name, alias string, replicaIndex int) (*messaging.BackendInstallReply, error) {
+func (a *RemoteUnloaderAdapter) InstallBackend(
+	nodeID, backendType, modelID, galleriesJSON, uri, name, alias string,
+	replicaIndex int,
+	opID string,
+	onProgress func(messaging.BackendInstallProgressEvent),
+) (*messaging.BackendInstallReply, error) {
 	subject := messaging.SubjectNodeBackendInstall(nodeID)
-	xlog.Info("Sending NATS backend.install", "nodeID", nodeID, "backend", backendType, "modelID", modelID, "replica", replicaIndex)
+	xlog.Info("Sending NATS backend.install", "nodeID", nodeID, "backend", backendType, "modelID", modelID, "replica", replicaIndex, "opID", opID)
+
+	// Subscribe to the per-op progress subject BEFORE publishing the install
+	// request so we don't miss early events. When onProgress is nil OR opID
+	// is empty (the reconciler-driven retry path), skip subscription entirely:
+	// silent installs cost nothing extra.
+	var sub messaging.Subscription
+	if onProgress != nil && opID != "" {
+		progressSubject := messaging.SubjectNodeBackendInstallProgress(nodeID, opID)
+		s, subErr := a.nats.Subscribe(progressSubject, func(raw []byte) {
+			var ev messaging.BackendInstallProgressEvent
+			if err := json.Unmarshal(raw, &ev); err != nil {
+				xlog.Debug("malformed install progress event", "subject", progressSubject, "error", err)
+				return
+			}
+			// Goroutine guard: a slow onProgress callback must not stall
+			// the NATS reader thread.
+			go onProgress(ev)
+		})
+		if subErr != nil {
+			xlog.Warn("Failed to subscribe to install progress subject; proceeding without progress streaming",
+				"subject", progressSubject, "error", subErr)
+		} else {
+			sub = s
+		}
+	}
 
 	reply, err := messaging.RequestJSON[messaging.BackendInstallRequest, messaging.BackendInstallReply](a.nats, subject, messaging.BackendInstallRequest{
 		Backend:          backendType,
@@ -128,7 +159,13 @@ func (a *RemoteUnloaderAdapter) InstallBackend(nodeID, backendType, modelID, gal
 		Name:             name,
 		Alias:            alias,
 		ReplicaIndex:     int32(replicaIndex),
+		OpID:             opID,
 	}, a.installTimeout)
+
+	if sub != nil {
+		_ = sub.Unsubscribe()
+	}
+
 	if err != nil && isNATSTimeout(err) {
 		return nil, fmt.Errorf("%w (subject=%s nodeID=%s backend=%s): %v",
 			galleryop.ErrWorkerStillInstalling, subject, nodeID, backendType, err)

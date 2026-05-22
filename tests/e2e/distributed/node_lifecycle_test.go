@@ -58,7 +58,7 @@ var _ = Describe("Node Backend Lifecycle (NATS-driven)", Label("Distributed"), f
 			FlushNATS(infra.NC)
 
 			adapter := nodes.NewRemoteUnloaderAdapter(registry, infra.NC, 3*time.Minute, 15*time.Minute)
-			installReply, err := adapter.InstallBackend(node.ID, "llama-cpp", "", "", "", "", "", 0)
+			installReply, err := adapter.InstallBackend(node.ID, "llama-cpp", "", "", "", "", "", 0, "", nil)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(installReply.Success).To(BeTrue())
 		})
@@ -79,7 +79,7 @@ var _ = Describe("Node Backend Lifecycle (NATS-driven)", Label("Distributed"), f
 			FlushNATS(infra.NC)
 
 			adapter := nodes.NewRemoteUnloaderAdapter(registry, infra.NC, 3*time.Minute, 15*time.Minute)
-			installReply, err := adapter.InstallBackend(node.ID, "nonexistent", "", "", "", "", "", 0)
+			installReply, err := adapter.InstallBackend(node.ID, "nonexistent", "", "", "", "", "", 0, "", nil)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(installReply.Success).To(BeFalse())
 			Expect(installReply.Error).To(ContainSubstring("backend not found"))

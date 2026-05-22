@@ -270,7 +270,7 @@ var _ = Describe("RemoteUnloaderAdapter timeout configuration", func() {
 		mc.scriptReply(messaging.SubjectNodeBackendInstall("n1"), messaging.BackendInstallReply{Success: true, Address: "127.0.0.1:0"})
 		adapter := NewRemoteUnloaderAdapter(nil, mc, 7*time.Minute, 11*time.Minute)
 
-		_, err := adapter.InstallBackend("n1", "llama-cpp", "", "[]", "", "", "", 0)
+		_, err := adapter.InstallBackend("n1", "llama-cpp", "", "[]", "", "", "", 0, "", nil)
 		Expect(err).ToNot(HaveOccurred())
 
 		Expect(mc.calls).To(HaveLen(1))
@@ -296,7 +296,7 @@ var _ = Describe("RemoteUnloaderAdapter NATS timeout handling", func() {
 		mc.scriptErr(messaging.SubjectNodeBackendInstall("n1"), nats.ErrTimeout)
 		adapter := NewRemoteUnloaderAdapter(nil, mc, 100*time.Millisecond, 1*time.Second)
 
-		_, err := adapter.InstallBackend("n1", "vllm", "", "[]", "", "", "", 0)
+		_, err := adapter.InstallBackend("n1", "vllm", "", "[]", "", "", "", 0, "", nil)
 		Expect(err).To(HaveOccurred())
 		Expect(errors.Is(err, galleryop.ErrWorkerStillInstalling)).To(BeTrue(),
 			"expected wrapped ErrWorkerStillInstalling, got %v", err)
@@ -307,9 +307,52 @@ var _ = Describe("RemoteUnloaderAdapter NATS timeout handling", func() {
 		mc.scriptErr(messaging.SubjectNodeBackendInstall("n1"), nats.ErrNoResponders)
 		adapter := NewRemoteUnloaderAdapter(nil, mc, 100*time.Millisecond, 1*time.Second)
 
-		_, err := adapter.InstallBackend("n1", "vllm", "", "[]", "", "", "", 0)
+		_, err := adapter.InstallBackend("n1", "vllm", "", "[]", "", "", "", 0, "", nil)
 		Expect(err).To(HaveOccurred())
 		Expect(errors.Is(err, galleryop.ErrWorkerStillInstalling)).To(BeFalse())
 		Expect(errors.Is(err, nats.ErrNoResponders)).To(BeTrue())
+	})
+})
+
+var _ = Describe("RemoteUnloaderAdapter install progress streaming", func() {
+	It("forwards BackendInstallProgressEvent values into the onProgress callback when the worker publishes them", func() {
+		mc := newScriptedMessagingClient()
+		mc.scriptReply(messaging.SubjectNodeBackendInstall("n1"), messaging.BackendInstallReply{Success: true, Address: "127.0.0.1:0"})
+		mc.scheduleProgressPublish("n1", "op-abc", []messaging.BackendInstallProgressEvent{
+			{OpID: "op-abc", NodeID: "n1", Backend: "vllm", FileName: "vllm.tar.zst", Current: "100 MB", Total: "1 GB", Percentage: 10},
+			{OpID: "op-abc", NodeID: "n1", Backend: "vllm", FileName: "vllm.tar.zst", Current: "500 MB", Total: "1 GB", Percentage: 50},
+		})
+
+		adapter := NewRemoteUnloaderAdapter(nil, mc, 1*time.Second, 1*time.Second)
+		var (
+			received []messaging.BackendInstallProgressEvent
+			mu       sync.Mutex
+		)
+		onProgress := func(ev messaging.BackendInstallProgressEvent) {
+			mu.Lock()
+			defer mu.Unlock()
+			received = append(received, ev)
+		}
+
+		_, err := adapter.InstallBackend("n1", "vllm", "", "[]", "", "", "", 0, "op-abc", onProgress)
+		Expect(err).ToNot(HaveOccurred())
+
+		Eventually(func() int {
+			mu.Lock()
+			defer mu.Unlock()
+			return len(received)
+		}, "1s").Should(Equal(2))
+	})
+
+	It("does NOT subscribe when onProgress is nil (reconciler retry path)", func() {
+		mc := newScriptedMessagingClient()
+		mc.scriptReply(messaging.SubjectNodeBackendInstall("n1"), messaging.BackendInstallReply{Success: true})
+
+		adapter := NewRemoteUnloaderAdapter(nil, mc, 1*time.Second, 1*time.Second)
+		_, err := adapter.InstallBackend("n1", "vllm", "", "[]", "", "", "", 0, "", nil)
+		Expect(err).ToNot(HaveOccurred())
+
+		Expect(mc.subscribeCalls()).To(BeEmpty(),
+			"reconciler-driven retries must not subscribe to the per-op progress subject")
 	})
 })

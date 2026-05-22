@@ -68,9 +68,9 @@ type ModelScheduler interface {
 
 // ReplicaReconcilerOptions holds configuration for creating a ReplicaReconciler.
 type ReplicaReconcilerOptions struct {
-	Registry *NodeRegistry
+	Registry  *NodeRegistry
 	Scheduler ModelScheduler
-	Unloader NodeCommandSender
+	Unloader  NodeCommandSender
 	// Adapter is the NATS sender used to retry pending backend ops. When nil,
 	// the state-reconciler pending-drain pass is a no-op (single-node mode).
 	Adapter *RemoteUnloaderAdapter
@@ -78,7 +78,7 @@ type ReplicaReconcilerOptions struct {
 	// addresses. Matches the worker's token so HealthCheck auth succeeds.
 	RegistrationToken string
 	// Prober overrides the default gRPC health probe (used by tests).
-	Prober ModelProber
+	Prober          ModelProber
 	DB              *gorm.DB
 	Interval        time.Duration // default 30s
 	ScaleDownDelay  time.Duration // default 5m
@@ -191,7 +191,7 @@ func (rc *ReplicaReconciler) drainPendingBackendOps(ctx context.Context) {
 			// Pending-op drain for admin install — not a per-replica load.
 			// Replica 0 is the conventional admin slot. Install is idempotent:
 			// the worker short-circuits if the backend is already running.
-			reply, err := rc.adapter.InstallBackend(op.NodeID, op.Backend, "", string(op.Galleries), "", "", "", 0)
+			reply, err := rc.adapter.InstallBackend(op.NodeID, op.Backend, "", string(op.Galleries), "", "", "", 0, "", nil)
 			if err != nil {
 				applyErr = err
 			} else if !reply.Success {

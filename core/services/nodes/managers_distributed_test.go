@@ -23,12 +23,14 @@ import (
 // (or error). Used so each fan-out request can simulate a different worker
 // outcome without spinning up real NATS.
 type scriptedMessagingClient struct {
-	mu             sync.Mutex
-	replies        map[string][]byte
-	errs           map[string]error
-	calls          []requestCall
-	matchedReplies map[string][]matchedReply
-	publishes      []progressPublishCall
+	mu                         sync.Mutex
+	replies                    map[string][]byte
+	errs                       map[string]error
+	calls                      []requestCall
+	matchedReplies             map[string][]matchedReply
+	publishes                  []progressPublishCall
+	scheduledProgressPublishes []scheduledProgressPublish
+	subscribes                 []string
 }
 
 // progressPublishCall records a single Publish invocation. The progress
@@ -40,6 +42,16 @@ type scriptedMessagingClient struct {
 type progressPublishCall struct {
 	Subject string
 	Event   messaging.BackendInstallProgressEvent
+}
+
+// scheduledProgressPublish queues a batch of BackendInstallProgressEvent
+// values to be delivered the next time Subscribe is called with the matching
+// subject. This lets master-side tests assert that the adapter installs its
+// handler BEFORE publishing the install request, by scripting events to be
+// delivered as soon as the subscription appears.
+type scheduledProgressPublish struct {
+	subject string
+	events  []messaging.BackendInstallProgressEvent
 }
 
 // matchedReply lets a test script a canned reply that only fires when the
@@ -181,7 +193,55 @@ func (s *scriptedMessagingClient) publishCalls(subject string) []messaging.Backe
 	}
 	return out
 }
-func (s *scriptedMessagingClient) Subscribe(_ string, _ func([]byte)) (messaging.Subscription, error) {
+
+// scheduleProgressPublish queues a set of BackendInstallProgressEvent values
+// to be delivered on the next Subscribe call matching the per-op progress
+// subject. A short delay before delivery gives the subscriber time to install
+// its message handler before the events arrive.
+func (s *scriptedMessagingClient) scheduleProgressPublish(nodeID, opID string, events []messaging.BackendInstallProgressEvent) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.scheduledProgressPublishes = append(s.scheduledProgressPublishes, scheduledProgressPublish{
+		subject: messaging.SubjectNodeBackendInstallProgress(nodeID, opID),
+		events:  events,
+	})
+}
+
+// subscribeCalls returns the subjects on which Subscribe was invoked.
+// Used to confirm the master skipped subscription when onProgress was nil.
+func (s *scriptedMessagingClient) subscribeCalls() []string {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	out := make([]string, len(s.subscribes))
+	copy(out, s.subscribes)
+	return out
+}
+
+func (s *scriptedMessagingClient) Subscribe(subject string, handler func([]byte)) (messaging.Subscription, error) {
+	s.mu.Lock()
+	s.subscribes = append(s.subscribes, subject)
+	matched := []scheduledProgressPublish{}
+	remaining := s.scheduledProgressPublishes[:0]
+	for _, sp := range s.scheduledProgressPublishes {
+		if sp.subject == subject {
+			matched = append(matched, sp)
+		} else {
+			remaining = append(remaining, sp)
+		}
+	}
+	s.scheduledProgressPublishes = remaining
+	s.mu.Unlock()
+
+	go func() {
+		time.Sleep(20 * time.Millisecond)
+		for _, sp := range matched {
+			for _, ev := range sp.events {
+				raw, _ := json.Marshal(ev)
+				handler(raw)
+			}
+		}
+	}()
+
 	return &fakeSubscription{}, nil
 }
 func (s *scriptedMessagingClient) QueueSubscribe(_ string, _ string, _ func([]byte)) (messaging.Subscription, error) {
