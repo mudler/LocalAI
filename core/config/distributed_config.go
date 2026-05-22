@@ -42,6 +42,9 @@ type DistributedConfig struct {
 
 	MCPCIJobTimeout     time.Duration // MCP CI job execution timeout (default 10m)
 
+	BackendInstallTimeout time.Duration // NATS round-trip timeout for backend.install (default 15m)
+	BackendUpgradeTimeout time.Duration // NATS round-trip timeout for backend.upgrade (default 15m)
+
 	MaxUploadSize int64 // Maximum upload body size in bytes (default 50 GB)
 
 	AgentWorkerConcurrency int `yaml:"agent_worker_concurrency" json:"agent_worker_concurrency" env:"LOCALAI_AGENT_WORKER_CONCURRENCY"`
@@ -75,6 +78,8 @@ func (c DistributedConfig) Validate() error {
 		"health-check-interval": c.HealthCheckInterval,
 		"stale-node-threshold":  c.StaleNodeThreshold,
 		"mcp-ci-job-timeout":    c.MCPCIJobTimeout,
+		"backend-install-timeout": c.BackendInstallTimeout,
+		"backend-upgrade-timeout": c.BackendUpgradeTimeout,
 	} {
 		if d < 0 {
 			return fmt.Errorf("%s must not be negative", name)
@@ -137,6 +142,18 @@ func WithStorageSecretKey(key string) AppOption {
 	}
 }
 
+func WithBackendInstallTimeout(d time.Duration) AppOption {
+	return func(o *ApplicationConfig) {
+		o.Distributed.BackendInstallTimeout = d
+	}
+}
+
+func WithBackendUpgradeTimeout(d time.Duration) AppOption {
+	return func(o *ApplicationConfig) {
+		o.Distributed.BackendUpgradeTimeout = d
+	}
+}
+
 var EnableAutoApproveNodes = func(o *ApplicationConfig) {
 	o.Distributed.AutoApproveNodes = true
 }
@@ -150,10 +167,22 @@ const (
 	DefaultHealthCheckInterval = 15 * time.Second
 	DefaultStaleNodeThreshold  = 60 * time.Second
 	DefaultMCPCIJobTimeout     = 10 * time.Minute
+	DefaultBackendInstallTimeout = 15 * time.Minute
+	DefaultBackendUpgradeTimeout = 15 * time.Minute
 )
 
 // DefaultMaxUploadSize is the default maximum upload body size (50 GB).
 const DefaultMaxUploadSize int64 = 50 << 30
+
+// BackendInstallTimeoutOrDefault returns the configured timeout or the default.
+func (c DistributedConfig) BackendInstallTimeoutOrDefault() time.Duration {
+	return cmp.Or(c.BackendInstallTimeout, DefaultBackendInstallTimeout)
+}
+
+// BackendUpgradeTimeoutOrDefault returns the configured timeout or the default.
+func (c DistributedConfig) BackendUpgradeTimeoutOrDefault() time.Duration {
+	return cmp.Or(c.BackendUpgradeTimeout, DefaultBackendUpgradeTimeout)
+}
 
 // MCPToolTimeoutOrDefault returns the configured timeout or the default.
 func (c DistributedConfig) MCPToolTimeoutOrDefault() time.Duration {
