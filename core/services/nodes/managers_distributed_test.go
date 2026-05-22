@@ -574,6 +574,51 @@ var _ = Describe("DistributedBackendManager", func() {
 				Expect(rowsAfter).To(HaveLen(1), "upgrade rows must not be cleared by backend.list presence")
 			})
 		})
+
+		Context("InstallBackend streams progress events to the caller's progressCb", func() {
+			It("invokes progressCb once per worker-published progress event", func() {
+				node := registerHealthyBackend("worker-prog", "10.0.0.7:50051")
+
+				mc.scriptReply(messaging.SubjectNodeBackendInstall(node.ID), messaging.BackendInstallReply{Success: true, Address: "10.0.0.7:50051"})
+				mc.scheduleProgressPublish(node.ID, "op-prog-1", []messaging.BackendInstallProgressEvent{
+					{OpID: "op-prog-1", NodeID: node.ID, Backend: "vllm", FileName: "vllm.tar", Current: "100 MB", Total: "1 GB", Percentage: 10},
+					{OpID: "op-prog-1", NodeID: node.ID, Backend: "vllm", FileName: "vllm.tar", Current: "1 GB", Total: "1 GB", Percentage: 100},
+				})
+
+				type tick struct {
+					FileName, Current, Total string
+					Percentage               float64
+				}
+				var (
+					pcCalls []tick
+					mu      sync.Mutex
+				)
+				progressCb := func(file, current, total string, pct float64) {
+					mu.Lock()
+					defer mu.Unlock()
+					pcCalls = append(pcCalls, tick{file, current, total, pct})
+				}
+
+				opVal := op("vllm")
+				opVal.ID = "op-prog-1"
+				Expect(mgr.InstallBackend(ctx, opVal, progressCb)).To(Succeed())
+
+				Eventually(func() int {
+					mu.Lock()
+					defer mu.Unlock()
+					return len(pcCalls)
+				}, "1s").Should(Equal(2))
+				mu.Lock()
+				defer mu.Unlock()
+				// The adapter dispatches each progress event to its own goroutine
+				// (see unloader.go: `go onProgress(ev)`) so two events emitted back
+				// to back can land at the bridge in either order. Assert the set of
+				// percentages observed contains both ticks, rather than depending
+				// on goroutine scheduling for ordering.
+				pcts := []float64{pcCalls[0].Percentage, pcCalls[1].Percentage}
+				Expect(pcts).To(ConsistOf(10.0, 100.0))
+			})
+		})
 	})
 
 	Describe("UpgradeBackend", func() {

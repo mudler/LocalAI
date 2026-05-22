@@ -10,6 +10,7 @@ import (
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/gallery"
 	"github.com/mudler/LocalAI/core/services/galleryop"
+	"github.com/mudler/LocalAI/core/services/messaging"
 	"github.com/mudler/LocalAI/pkg/model"
 	"github.com/mudler/LocalAI/pkg/system"
 	"github.com/mudler/xlog"
@@ -417,7 +418,7 @@ func (d *DistributedBackendManager) InstallBackend(ctx context.Context, op *gall
 		// Admin-driven backend install: not tied to a specific replica slot.
 		// Pass replica 0 - the worker's processKey is "backend#0" when no
 		// modelID is supplied, matching pre-PR4 behavior.
-		reply, err := d.adapter.InstallBackend(node.ID, backendName, "", string(galleriesJSON), op.ExternalURI, op.ExternalName, op.ExternalAlias, 0, "", nil)
+		reply, err := d.adapter.InstallBackend(node.ID, backendName, "", string(galleriesJSON), op.ExternalURI, op.ExternalName, op.ExternalAlias, 0, op.ID, bridgeProgressCb(progressCb))
 		if err != nil {
 			return err
 		}
@@ -546,4 +547,19 @@ func summarizeRunningOnWorker(nodes []NodeOpStatus) string {
 		}
 	}
 	return strings.Join(names, ", ")
+}
+
+// bridgeProgressCb adapts a BackendInstallProgressEvent stream to the
+// (file, current, total, percentage) callback shape that
+// galleryop.ProgressCallback expects (and that backendHandler already
+// translates into OpStatus.UpdateStatus). nil in -> nil out so callers
+// that don't pass a progressCb skip subscription work on the adapter
+// side, matching the reconciler-retry semantics.
+func bridgeProgressCb(progressCb galleryop.ProgressCallback) func(messaging.BackendInstallProgressEvent) {
+	if progressCb == nil {
+		return nil
+	}
+	return func(ev messaging.BackendInstallProgressEvent) {
+		progressCb(ev.FileName, ev.Current, ev.Total, ev.Percentage)
+	}
 }
