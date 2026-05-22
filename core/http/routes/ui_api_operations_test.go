@@ -62,6 +62,63 @@ var _ = Describe("/api/operations with node-scoped backend ops", func() {
 		Expect(found["isBackend"]).To(Equal(true))
 	})
 
+	It("surfaces per-node OpStatus entries on /api/operations", func() {
+		appCfg := &config.ApplicationConfig{}
+		galleryService := galleryop.NewGalleryService(appCfg, nil)
+		opcache := galleryop.NewOpCache(galleryService)
+
+		jobID := "test-op-nodes-1"
+		// Register a backend op so the handler treats this as a backend
+		// install (no need to consult the gallery during the test).
+		opcache.SetBackend("vllm", jobID)
+
+		// Populate per-node entries via the P4.2 helper. The helper also
+		// allocates an OpStatus under jobID, which the handler will read.
+		galleryService.UpdateNodeProgress(jobID, "node-b", galleryop.NodeProgress{
+			NodeID: "node-b", NodeName: "worker-b", Status: "running_on_worker",
+		})
+		galleryService.UpdateNodeProgress(jobID, "node-a", galleryop.NodeProgress{
+			NodeID: "node-a", NodeName: "worker-a", Status: "downloading", Percentage: 30, FileName: "vllm.tar",
+		})
+
+		e := echo.New()
+		routes.RegisterUIAPIRoutes(e, nil, nil, appCfg, galleryService, opcache, &application.Application{}, noopMw)
+
+		req := httptest.NewRequest(http.MethodGet, "/api/operations", nil)
+		rec := httptest.NewRecorder()
+		e.ServeHTTP(rec, req)
+		Expect(rec.Code).To(Equal(http.StatusOK))
+
+		var envelope struct {
+			Operations []map[string]any `json:"operations"`
+		}
+		Expect(json.Unmarshal(rec.Body.Bytes(), &envelope)).To(Succeed())
+
+		var found map[string]any
+		for _, op := range envelope.Operations {
+			if op["jobID"] == jobID {
+				found = op
+				break
+			}
+		}
+		Expect(found).ToNot(BeNil(), "operation should appear in /api/operations")
+		nodes, ok := found["nodes"].([]any)
+		Expect(ok).To(BeTrue(), "operation should have a nodes array")
+		Expect(nodes).To(HaveLen(2))
+
+		// Stable sort by node_name: "worker-a" comes before "worker-b"
+		// even though UpdateNodeProgress was called in reverse order.
+		first := nodes[0].(map[string]any)
+		Expect(first["node_name"]).To(Equal("worker-a"))
+		Expect(first["status"]).To(Equal("downloading"))
+		Expect(first["file_name"]).To(Equal("vllm.tar"))
+		Expect(first["percentage"]).To(Equal(30.0))
+
+		second := nodes[1].(map[string]any)
+		Expect(second["node_name"]).To(Equal("worker-b"))
+		Expect(second["status"]).To(Equal("running_on_worker"))
+	})
+
 	It("does not emit nodeID for non-node-scoped backend ops", func() {
 		appCfg := &config.ApplicationConfig{}
 		galleryService := galleryop.NewGalleryService(appCfg, nil)
