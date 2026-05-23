@@ -21,7 +21,7 @@ func recordModelLoadFailure(appConfig *config.ApplicationConfig, modelName, back
 	if !appConfig.EnableTracing {
 		return
 	}
-	trace.InitBackendTracingIfEnabled(appConfig.TracingMaxItems)
+	trace.InitBackendTracingIfEnabled(appConfig.TracingMaxItems, appConfig.TracingMaxBodyBytes)
 	trace.RecordBackendTrace(trace.BackendTrace{
 		Timestamp: time.Now(),
 		Type:      trace.BackendTraceModelLoad,

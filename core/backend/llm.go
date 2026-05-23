@@ -305,7 +305,7 @@ func ModelInference(ctx context.Context, s string, messages schema.Messages, ima
 	}
 
 	if o.EnableTracing {
-		trace.InitBackendTracingIfEnabled(o.TracingMaxItems)
+		trace.InitBackendTracingIfEnabled(o.TracingMaxItems, o.TracingMaxBodyBytes)
 
 		traceData := map[string]any{
 			"chat_template":     c.TemplateConfig.Chat,
@@ -316,9 +316,13 @@ func ModelInference(ctx context.Context, s string, messages schema.Messages, ima
 			"audios_count":      len(audios),
 		}
 
+		// Cap the captured fields up front: agent-pool LLM calls embed the
+		// full augmented chat history in messages and the full reply in
+		// response, so without a per-field cap a single trace can dwarf the
+		// rest of the buffer. The cap matches the API-trace body cap.
 		if len(messages) > 0 {
 			if msgJSON, err := json.Marshal(messages); err == nil {
-				traceData["messages"] = string(msgJSON)
+				traceData["messages"] = trace.TruncateToBytes(string(msgJSON), o.TracingMaxBodyBytes)
 			}
 		}
 		if reasoningJSON, err := json.Marshal(c.ReasoningConfig); err == nil {
@@ -337,7 +341,7 @@ func ModelInference(ctx context.Context, s string, messages schema.Messages, ima
 			resp, err := originalFn()
 			duration := time.Since(startTime)
 
-			traceData["response"] = resp.Response
+			traceData["response"] = trace.TruncateToBytes(resp.Response, o.TracingMaxBodyBytes)
 			traceData["token_usage"] = map[string]any{
 				"prompt":     resp.Usage.Prompt,
 				"completion": resp.Usage.Completion,
@@ -359,10 +363,10 @@ func ModelInference(ctx context.Context, s string, messages schema.Messages, ima
 					toolCallCount += len(d.ToolCalls)
 				}
 				if len(contentParts) > 0 {
-					chatDeltasInfo["content"] = strings.Join(contentParts, "")
+					chatDeltasInfo["content"] = trace.TruncateToBytes(strings.Join(contentParts, ""), o.TracingMaxBodyBytes)
 				}
 				if len(reasoningParts) > 0 {
-					chatDeltasInfo["reasoning_content"] = strings.Join(reasoningParts, "")
+					chatDeltasInfo["reasoning_content"] = trace.TruncateToBytes(strings.Join(reasoningParts, ""), o.TracingMaxBodyBytes)
 				}
 				if toolCallCount > 0 {
 					chatDeltasInfo["tool_call_count"] = toolCallCount
