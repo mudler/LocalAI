@@ -233,7 +233,12 @@ func initDistributed(cfg *config.ApplicationConfig, authDB *gorm.DB, configLoade
 		xlog.Info("File stager initialized (HTTP direct transfer)")
 	}
 	// Create RemoteUnloaderAdapter — needed by SmartRouter and startup.go
-	remoteUnloader := nodes.NewRemoteUnloaderAdapter(registry, natsClient)
+	remoteUnloader := nodes.NewRemoteUnloaderAdapter(
+		registry,
+		natsClient,
+		cfg.Distributed.BackendInstallTimeoutOrDefault(),
+		cfg.Distributed.BackendUpgradeTimeoutOrDefault(),
+	)
 
 	// All dependencies ready — build SmartRouter with all options at once
 	var conflictResolver nodes.ConcurrencyConflictResolver

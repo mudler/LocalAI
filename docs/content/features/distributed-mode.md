@@ -86,6 +86,8 @@ The frontend is a standard LocalAI instance with distributed mode enabled. These
 | `--auto-approve-nodes` | `LOCALAI_AUTO_APPROVE_NODES` | `false` | Auto-approve new worker nodes (skip admin approval) |
 | `--auth` | `LOCALAI_AUTH` | `false` | **Must be `true`** for distributed mode |
 | `--auth-database-url` | `LOCALAI_AUTH_DATABASE_URL` | *(required)* | PostgreSQL connection URL |
+| `--backend-install-timeout` | `LOCALAI_NATS_BACKEND_INSTALL_TIMEOUT` | `15m` | How long the frontend waits for a worker to acknowledge a backend install before considering the request stalled. Raise it when workers pull large backend images over slow links. If a worker takes longer than this, the operation shows as "still installing in background" in the admin UI and clears once the worker finishes. |
+| `--backend-upgrade-timeout` | `LOCALAI_NATS_BACKEND_UPGRADE_TIMEOUT` | `15m` | Same as the install timeout, applied to backend upgrades (force-reinstall). |
 
 ### Optional: S3 Object Storage
 
@@ -102,6 +104,31 @@ For multi-host deployments where workers don't share a filesystem, S3-compatible
 When S3 is not configured, model files are transferred directly from the frontend to workers via **HTTP** — no shared filesystem needed. Each worker runs a small HTTP file transfer server alongside the gRPC backend process. This is the default and works out of the box.
 
 For high-throughput or very large model files, S3 can be more efficient since it avoids streaming through the frontend.
+
+### Watching Backend Installs
+
+While a worker downloads a backend, the admin **Operations Bar** at the top
+of the UI shows real-time progress: current file, downloaded/total bytes,
+and percentage. This works the same as single-node mode.
+
+When an install targets more than one worker, an **N nodes** chevron
+appears on the operation row. Click it to expand a per-node breakdown,
+with one row per worker showing:
+
+- A status pill: **Queued** (gray), **Downloading** (blue), **Worker busy**
+  (yellow), **Done** (green), or **Failed** (red).
+- The file currently being downloaded with current/total bytes and percentage.
+- A thin per-node progress bar.
+- Any error returned by the worker.
+
+The yellow **Worker busy** pill means the worker took longer than
+`--backend-install-timeout` to acknowledge but is most likely still
+working in the background. The admin UI clears it as soon as the worker
+finishes; no action is required from the operator.
+
+If a worker is running an older LocalAI release that does not report
+progress, its row in the breakdown will still show terminal status
+(queued / done / failed / worker busy) but no per-file progress.
 
 ## Worker Configuration
 

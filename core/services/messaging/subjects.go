@@ -144,6 +144,12 @@ type BackendInstallRequest struct {
 	// worker still works (the master's install fallback path also uses this
 	// when backend.upgrade returns nats.ErrNoResponders).
 	Force bool `json:"force,omitempty"`
+	// OpID identifies the admin-side operation. When non-empty the worker
+	// publishes BackendInstallProgressEvent values to
+	// SubjectNodeBackendInstallProgress(nodeID, OpID) while the install is
+	// running, debounced to roughly 250ms. Empty means the caller is a
+	// reconciler-driven retry that does not need progress streamed.
+	OpID string `json:"op_id,omitempty"`
 }
 
 // BackendInstallReply is the response from a backend.install NATS request.
