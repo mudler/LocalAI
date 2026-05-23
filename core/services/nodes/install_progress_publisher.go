@@ -60,7 +60,7 @@ func (p *DebouncedInstallProgressPublisher) OnDownload(file, current, total stri
 		Current:    current,
 		Total:      total,
 		Percentage: percentage,
-		Phase:      "downloading",
+		Phase:      messaging.PhaseDownloading,
 	}
 
 	p.mu.Lock()

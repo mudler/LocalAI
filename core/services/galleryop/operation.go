@@ -62,15 +62,30 @@ type OpStatus struct {
 	Nodes []NodeProgress `json:"nodes,omitempty"`
 }
 
+// NodeStatus values shared between NodeProgress (per-node tick) and the
+// NodeOpStatus surfaced by DistributedBackendManager's fan-out. Defined
+// as exported constants so producers (the manager, the progress bridge)
+// and consumers (the /api/operations handler, the React OperationsBar
+// through its JSON contract) stay in sync via a single source of truth.
+const (
+	NodeStatusQueued          = "queued"            // node accepted the intent but install has not started
+	NodeStatusDownloading     = "downloading"       // worker is actively pulling the OCI image
+	NodeStatusRunningOnWorker = "running_on_worker" // NATS round-trip timed out but worker is still installing
+	NodeStatusSuccess         = "success"           // install completed on this node
+	NodeStatusError           = "error"             // install failed on this node
+)
+
 // NodeProgress is a single node's contribution to a backend install
 // operation. Populated by DistributedBackendManager (per-node terminal
 // status) and by the Phase 2 progress bridge (per-byte ticks). Read by
 // the /api/operations handler so the UI can render an expandable
 // per-node breakdown.
+//
+// Status holds one of the NodeStatus* constants above.
 type NodeProgress struct {
 	NodeID     string  `json:"node_id"`
 	NodeName   string  `json:"node_name"`
-	Status     string  `json:"status"` // "queued" | "running_on_worker" | "success" | "error" | "downloading"
+	Status     string  `json:"status"`
 	FileName   string  `json:"file_name,omitempty"`
 	Current    string  `json:"current,omitempty"`
 	Total      string  `json:"total,omitempty"`

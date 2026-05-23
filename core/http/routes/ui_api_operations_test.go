@@ -75,10 +75,10 @@ var _ = Describe("/api/operations with node-scoped backend ops", func() {
 		// Populate per-node entries via the P4.2 helper. The helper also
 		// allocates an OpStatus under jobID, which the handler will read.
 		galleryService.UpdateNodeProgress(jobID, "node-b", galleryop.NodeProgress{
-			NodeID: "node-b", NodeName: "worker-b", Status: "running_on_worker",
+			NodeID: "node-b", NodeName: "worker-b", Status: galleryop.NodeStatusRunningOnWorker,
 		})
 		galleryService.UpdateNodeProgress(jobID, "node-a", galleryop.NodeProgress{
-			NodeID: "node-a", NodeName: "worker-a", Status: "downloading", Percentage: 30, FileName: "vllm.tar",
+			NodeID: "node-a", NodeName: "worker-a", Status: galleryop.NodeStatusDownloading, Percentage: 30, FileName: "vllm.tar",
 		})
 
 		e := echo.New()

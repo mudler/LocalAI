@@ -84,10 +84,11 @@ func NewDistributedBackendManager(appConfig *config.ApplicationConfig, ml *model
 // NodeOpStatus is the per-node outcome of a backend lifecycle operation.
 // Returned as part of BackendOpResult so the frontend can surface exactly
 // what happened on each worker instead of a single joined error string.
+// Status holds one of the galleryop.NodeStatus* constants.
 type NodeOpStatus struct {
 	NodeID   string `json:"node_id"`
 	NodeName string `json:"node_name"`
-	Status   string `json:"status"` // "success" | "queued" | "error" | "running_on_worker"
+	Status   string `json:"status"`
 	Error    string `json:"error,omitempty"`
 }
 
@@ -105,7 +106,7 @@ type BackendOpResult struct {
 func (r BackendOpResult) Err() error {
 	var failures []string
 	for _, n := range r.Nodes {
-		if n.Status == "error" {
+		if n.Status == galleryop.NodeStatusError {
 			failures = append(failures, fmt.Sprintf("%s: %s", n.NodeName, n.Error))
 		}
 	}
@@ -180,10 +181,10 @@ func (d *DistributedBackendManager) enqueueAndDrainBackendOp(ctx context.Context
 			xlog.Warn("Failed to enqueue backend op", "op", op, "node", node.Name, "backend", backend, "error", err)
 			errMsg := fmt.Sprintf("enqueue failed: %v", err)
 			result.Nodes = append(result.Nodes, NodeOpStatus{
-				NodeID: node.ID, NodeName: node.Name, Status: "error",
+				NodeID: node.ID, NodeName: node.Name, Status: galleryop.NodeStatusError,
 				Error: errMsg,
 			})
-			emitNodeProgress(node, "error", errMsg)
+			emitNodeProgress(node, galleryop.NodeStatusError, errMsg)
 			continue
 		}
 
@@ -191,10 +192,10 @@ func (d *DistributedBackendManager) enqueueAndDrainBackendOp(ctx context.Context
 			// Intent is recorded; reconciler will retry when the node recovers.
 			errMsg := fmt.Sprintf("node %s, will retry when healthy", node.Status)
 			result.Nodes = append(result.Nodes, NodeOpStatus{
-				NodeID: node.ID, NodeName: node.Name, Status: "queued",
+				NodeID: node.ID, NodeName: node.Name, Status: galleryop.NodeStatusQueued,
 				Error: errMsg,
 			})
-			emitNodeProgress(node, "queued", errMsg)
+			emitNodeProgress(node, galleryop.NodeStatusQueued, errMsg)
 			continue
 		}
 
@@ -206,9 +207,9 @@ func (d *DistributedBackendManager) enqueueAndDrainBackendOp(ctx context.Context
 				xlog.Debug("Failed to clear pending backend op after success", "error", err)
 			}
 			result.Nodes = append(result.Nodes, NodeOpStatus{
-				NodeID: node.ID, NodeName: node.Name, Status: "success",
+				NodeID: node.ID, NodeName: node.Name, Status: galleryop.NodeStatusSuccess,
 			})
-			emitNodeProgress(node, "success", "")
+			emitNodeProgress(node, galleryop.NodeStatusSuccess, "")
 			continue
 		}
 
@@ -227,9 +228,9 @@ func (d *DistributedBackendManager) enqueueAndDrainBackendOp(ctx context.Context
 				_ = d.registry.RecordPendingBackendOpInFlight(ctx, id, errMsg, d.adapter.InstallTimeout())
 			}
 			result.Nodes = append(result.Nodes, NodeOpStatus{
-				NodeID: node.ID, NodeName: node.Name, Status: "running_on_worker", Error: errMsg,
+				NodeID: node.ID, NodeName: node.Name, Status: galleryop.NodeStatusRunningOnWorker, Error: errMsg,
 			})
-			emitNodeProgress(node, "running_on_worker", errMsg)
+			emitNodeProgress(node, galleryop.NodeStatusRunningOnWorker, errMsg)
 			continue
 		}
 
@@ -241,9 +242,9 @@ func (d *DistributedBackendManager) enqueueAndDrainBackendOp(ctx context.Context
 			_ = d.registry.RecordPendingBackendOpFailure(ctx, id, errMsg)
 		}
 		result.Nodes = append(result.Nodes, NodeOpStatus{
-			NodeID: node.ID, NodeName: node.Name, Status: "error", Error: errMsg,
+			NodeID: node.ID, NodeName: node.Name, Status: galleryop.NodeStatusError, Error: errMsg,
 		})
-		emitNodeProgress(node, "error", errMsg)
+		emitNodeProgress(node, galleryop.NodeStatusError, errMsg)
 	}
 	return result, nil
 }
@@ -474,7 +475,7 @@ func (d *DistributedBackendManager) InstallBackend(ctx context.Context, op *gall
 				d.progressSink.UpdateNodeProgress(op.ID, ev.NodeID, galleryop.NodeProgress{
 					NodeID:     ev.NodeID,
 					NodeName:   node.Name,
-					Status:     "downloading",
+					Status:     galleryop.NodeStatusDownloading,
 					FileName:   ev.FileName,
 					Current:    ev.Current,
 					Total:      ev.Total,
@@ -513,7 +514,7 @@ func (d *DistributedBackendManager) InstallBackend(ctx context.Context, op *gall
 	// yellow in-progress state instead of green success. The reconciler
 	// will confirm the actual outcome on its next pass via backend.list.
 	for _, n := range result.Nodes {
-		if n.Status == "running_on_worker" {
+		if n.Status == galleryop.NodeStatusRunningOnWorker {
 			return fmt.Errorf("%w: %s", galleryop.ErrWorkerStillInstalling, summarizeRunningOnWorker(result.Nodes))
 		}
 	}
@@ -584,7 +585,7 @@ func (d *DistributedBackendManager) UpgradeBackend(ctx context.Context, name str
 	// upgrade that timed out the NATS round-trip must not be reported as
 	// green success.
 	for _, n := range result.Nodes {
-		if n.Status == "running_on_worker" {
+		if n.Status == galleryop.NodeStatusRunningOnWorker {
 			return fmt.Errorf("%w: %s", galleryop.ErrWorkerStillInstalling, summarizeRunningOnWorker(result.Nodes))
 		}
 	}
@@ -621,7 +622,7 @@ func (d *DistributedBackendManager) CheckUpgrades(ctx context.Context) (map[stri
 func summarizeRunningOnWorker(nodes []NodeOpStatus) string {
 	var names []string
 	for _, n := range nodes {
-		if n.Status == "running_on_worker" {
+		if n.Status == galleryop.NodeStatusRunningOnWorker {
 			names = append(names, n.NodeName)
 		}
 	}

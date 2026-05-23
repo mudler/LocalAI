@@ -10,6 +10,23 @@ import (
 	"github.com/mudler/LocalAI/core/services/galleryop"
 )
 
+var _ = Describe("NodeStatus constants", func() {
+	// Pin the wire-format string values. A future refactor that renames
+	// a constant must NOT silently change the JSON value the UI receives
+	// (or the cross-package contract with the nodes package, which
+	// reuses these constants for NodeOpStatus.Status).
+	DescribeTable("status constant",
+		func(actual, expected string) {
+			Expect(actual).To(Equal(expected))
+		},
+		Entry("queued", galleryop.NodeStatusQueued, "queued"),
+		Entry("downloading", galleryop.NodeStatusDownloading, "downloading"),
+		Entry("running on worker", galleryop.NodeStatusRunningOnWorker, "running_on_worker"),
+		Entry("success", galleryop.NodeStatusSuccess, "success"),
+		Entry("error", galleryop.NodeStatusError, "error"),
+	)
+})
+
 var _ = Describe("OpStatus.Nodes", func() {
 	It("defaults to empty on a fresh OpStatus", func() {
 		os := &galleryop.OpStatus{}
@@ -22,12 +39,12 @@ var _ = Describe("OpStatus.Nodes", func() {
 				{
 					NodeID:     "node-1",
 					NodeName:   "worker-a",
-					Status:     "running_on_worker",
+					Status:     galleryop.NodeStatusRunningOnWorker,
 					FileName:   "vllm.tar.zst",
 					Current:    "412 MB",
 					Total:      "2.1 GB",
 					Percentage: 19.6,
-					Phase:      "downloading",
+					Phase:      "downloading", // literal pins the wire-format value
 					Error:      "",
 				},
 			},
@@ -54,7 +71,7 @@ var _ = Describe("GalleryService.UpdateNodeProgress", func() {
 
 	It("creates a node entry on first call", func() {
 		svc.UpdateNodeProgress("op1", "n1", galleryop.NodeProgress{
-			NodeID: "n1", NodeName: "worker-a", Status: "downloading", Percentage: 12.0,
+			NodeID: "n1", NodeName: "worker-a", Status: galleryop.NodeStatusDownloading, Percentage: 12.0,
 		})
 		st := svc.GetStatus("op1")
 		Expect(st).ToNot(BeNil())
@@ -64,8 +81,8 @@ var _ = Describe("GalleryService.UpdateNodeProgress", func() {
 	})
 
 	It("merges subsequent updates into the same NodeID entry, not appending", func() {
-		svc.UpdateNodeProgress("op1", "n1", galleryop.NodeProgress{NodeID: "n1", NodeName: "worker-a", Status: "downloading", Percentage: 12.0})
-		svc.UpdateNodeProgress("op1", "n1", galleryop.NodeProgress{NodeID: "n1", NodeName: "worker-a", Status: "downloading", Percentage: 48.0, FileName: "vllm.tar"})
+		svc.UpdateNodeProgress("op1", "n1", galleryop.NodeProgress{NodeID: "n1", NodeName: "worker-a", Status: galleryop.NodeStatusDownloading, Percentage: 12.0})
+		svc.UpdateNodeProgress("op1", "n1", galleryop.NodeProgress{NodeID: "n1", NodeName: "worker-a", Status: galleryop.NodeStatusDownloading, Percentage: 48.0, FileName: "vllm.tar"})
 		st := svc.GetStatus("op1")
 		Expect(st.Nodes).To(HaveLen(1))
 		Expect(st.Nodes[0].Percentage).To(Equal(48.0))
@@ -73,15 +90,15 @@ var _ = Describe("GalleryService.UpdateNodeProgress", func() {
 	})
 
 	It("appends a new entry for a different NodeID", func() {
-		svc.UpdateNodeProgress("op1", "n1", galleryop.NodeProgress{NodeID: "n1", NodeName: "worker-a", Status: "downloading", Percentage: 12.0})
-		svc.UpdateNodeProgress("op1", "n2", galleryop.NodeProgress{NodeID: "n2", NodeName: "worker-b", Status: "queued"})
+		svc.UpdateNodeProgress("op1", "n1", galleryop.NodeProgress{NodeID: "n1", NodeName: "worker-a", Status: galleryop.NodeStatusDownloading, Percentage: 12.0})
+		svc.UpdateNodeProgress("op1", "n2", galleryop.NodeProgress{NodeID: "n2", NodeName: "worker-b", Status: galleryop.NodeStatusQueued})
 		st := svc.GetStatus("op1")
 		Expect(st.Nodes).To(HaveLen(2))
 	})
 
 	It("mirrors the latest tick into the aggregate OpStatus fields", func() {
 		svc.UpdateNodeProgress("op1", "n1", galleryop.NodeProgress{
-			NodeID: "n1", NodeName: "worker-a", Status: "downloading",
+			NodeID: "n1", NodeName: "worker-a", Status: galleryop.NodeStatusDownloading,
 			Percentage: 33.0, FileName: "vllm.tar", Current: "330 MB", Total: "1 GB",
 		})
 		st := svc.GetStatus("op1")
@@ -98,8 +115,8 @@ var _ = Describe("GalleryService.UpdateNodeProgress", func() {
 		// and the UI would flicker between one node and another on a
 		// multi-worker install. UpdateStatus must carry forward existing
 		// Nodes when the incoming op has none.
-		svc.UpdateNodeProgress("op1", "n1", galleryop.NodeProgress{NodeID: "n1", NodeName: "worker-a", Status: "success"})
-		svc.UpdateNodeProgress("op1", "n2", galleryop.NodeProgress{NodeID: "n2", NodeName: "worker-b", Status: "downloading", Percentage: 30.0})
+		svc.UpdateNodeProgress("op1", "n1", galleryop.NodeProgress{NodeID: "n1", NodeName: "worker-a", Status: galleryop.NodeStatusSuccess})
+		svc.UpdateNodeProgress("op1", "n2", galleryop.NodeProgress{NodeID: "n2", NodeName: "worker-b", Status: galleryop.NodeStatusDownloading, Percentage: 30.0})
 
 		// Now simulate the legacy progressCb path: a fresh OpStatus
 		// pointer with no Nodes set, carrying only aggregate fields.
@@ -118,11 +135,11 @@ var _ = Describe("GalleryService.UpdateNodeProgress", func() {
 		// If a caller explicitly passes a non-empty Nodes slice on the
 		// incoming op, that should replace the existing slice (no merge).
 		// Only an EMPTY incoming slice triggers the carry-forward.
-		svc.UpdateNodeProgress("op1", "n1", galleryop.NodeProgress{NodeID: "n1", NodeName: "worker-a", Status: "success"})
+		svc.UpdateNodeProgress("op1", "n1", galleryop.NodeProgress{NodeID: "n1", NodeName: "worker-a", Status: galleryop.NodeStatusSuccess})
 		svc.UpdateStatus("op1", &galleryop.OpStatus{
 			Progress: 100.0,
 			Nodes: []galleryop.NodeProgress{
-				{NodeID: "n9", NodeName: "worker-final", Status: "success"},
+				{NodeID: "n9", NodeName: "worker-final", Status: galleryop.NodeStatusSuccess},
 			},
 		})
 		st := svc.GetStatus("op1")

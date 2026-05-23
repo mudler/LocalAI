@@ -710,7 +710,7 @@ var _ = Describe("DistributedBackendManager", func() {
 
 				calls := sink.callsFor("op-node-success", node.ID)
 				Expect(calls).ToNot(BeEmpty())
-				Expect(calls[len(calls)-1].Status).To(Equal("success"))
+				Expect(calls[len(calls)-1].Status).To(Equal(galleryop.NodeStatusSuccess))
 				Expect(calls[len(calls)-1].NodeName).To(Equal("worker-ok"))
 			})
 
@@ -725,7 +725,7 @@ var _ = Describe("DistributedBackendManager", func() {
 
 				calls := sink.callsFor("op-node-slow", node.ID)
 				Expect(calls).ToNot(BeEmpty())
-				Expect(calls[len(calls)-1].Status).To(Equal("running_on_worker"))
+				Expect(calls[len(calls)-1].Status).To(Equal(galleryop.NodeStatusRunningOnWorker))
 			})
 
 			It("emits downloading entries from progress events", func() {
@@ -733,7 +733,7 @@ var _ = Describe("DistributedBackendManager", func() {
 				mc.scriptReply(messaging.SubjectNodeBackendInstall(node.ID),
 					messaging.BackendInstallReply{Success: true})
 				mc.scheduleProgressPublish(node.ID, "op-node-dl", []messaging.BackendInstallProgressEvent{
-					{OpID: "op-node-dl", NodeID: node.ID, Backend: "vllm", FileName: "vllm.tar", Current: "1 GB", Total: "1 GB", Percentage: 100, Phase: "downloading"},
+					{OpID: "op-node-dl", NodeID: node.ID, Backend: "vllm", FileName: "vllm.tar", Current: "1 GB", Total: "1 GB", Percentage: 100, Phase: messaging.PhaseDownloading},
 				})
 
 				opVal := op("vllm")
@@ -742,7 +742,7 @@ var _ = Describe("DistributedBackendManager", func() {
 
 				Eventually(func() bool {
 					for _, np := range sink.callsFor("op-node-dl", node.ID) {
-						if np.Status == "downloading" && np.Percentage == 100.0 {
+						if np.Status == galleryop.NodeStatusDownloading && np.Percentage == 100.0 {
 							return true
 						}
 					}
