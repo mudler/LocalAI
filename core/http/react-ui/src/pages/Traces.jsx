@@ -467,6 +467,17 @@ export default function Traces() {
                   disabled={!settings.enable_tracing}
                 />
               </SettingRow>
+              <SettingRow label="Max Body Bytes" description="Per-field cap for captured bodies and backend trace Data (0 = uncapped). Prevents oversized LLM histories or TTS snippets from locking this page in loading.">
+                <input
+                  className="input"
+                  type="number"
+                  style={{ width: 120 }}
+                  value={settings.tracing_max_body_bytes ?? ''}
+                  onChange={(e) => setSettings(prev => ({ ...prev, tracing_max_body_bytes: parseInt(e.target.value) || 0 }))}
+                  placeholder="65536"
+                  disabled={!settings.enable_tracing}
+                />
+              </SettingRow>
               <SettingRow label="Enable Backend Logging" description="Capture backend process output per model (without requiring debug mode)">
                 <Toggle
                   checked={settings.enable_backend_logging}
