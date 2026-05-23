@@ -110,6 +110,18 @@ func (g *GalleryService) DeleteBackend(name string) error {
 func (g *GalleryService) UpdateStatus(s string, op *OpStatus) {
 	g.Lock()
 	defer g.Unlock()
+	// Preserve any per-node entries already accumulated by UpdateNodeProgress:
+	// the legacy progressCb path (used by the Phase 2 install bridge) calls
+	// UpdateStatus with a fresh *OpStatus on every tick, which would otherwise
+	// wipe the Nodes slice and leave the UI flickering between one node and
+	// another. If the caller explicitly populates Nodes on the incoming op,
+	// that wins; an empty Nodes slice on the incoming op is treated as "no
+	// new per-node data" and the previous Nodes are carried forward.
+	if op != nil && len(op.Nodes) == 0 {
+		if prev := g.statuses[s]; prev != nil && len(prev.Nodes) > 0 {
+			op.Nodes = prev.Nodes
+		}
+	}
 	g.statuses[s] = op
 
 	// Persist to PostgreSQL in distributed mode

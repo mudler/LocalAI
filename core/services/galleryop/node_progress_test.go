@@ -90,4 +90,43 @@ var _ = Describe("GalleryService.UpdateNodeProgress", func() {
 		Expect(st.DownloadedFileSize).To(Equal("330 MB"))
 		Expect(st.TotalFileSize).To(Equal("1 GB"))
 	})
+
+	It("preserves accumulated Nodes when a subsequent UpdateStatus comes through the legacy path", func() {
+		// Regression: the Phase 2 progress bridge also calls the legacy
+		// progressCb -> UpdateStatus(opID, &OpStatus{...}) on every tick.
+		// Without preservation that overwrite would wipe the Nodes slice
+		// and the UI would flicker between one node and another on a
+		// multi-worker install. UpdateStatus must carry forward existing
+		// Nodes when the incoming op has none.
+		svc.UpdateNodeProgress("op1", "n1", galleryop.NodeProgress{NodeID: "n1", NodeName: "worker-a", Status: "success"})
+		svc.UpdateNodeProgress("op1", "n2", galleryop.NodeProgress{NodeID: "n2", NodeName: "worker-b", Status: "downloading", Percentage: 30.0})
+
+		// Now simulate the legacy progressCb path: a fresh OpStatus
+		// pointer with no Nodes set, carrying only aggregate fields.
+		svc.UpdateStatus("op1", &galleryop.OpStatus{
+			Progress: 30.0,
+			Message:  "downloading",
+		})
+
+		st := svc.GetStatus("op1")
+		Expect(st.Nodes).To(HaveLen(2), "Nodes accumulated before the legacy UpdateStatus must be preserved")
+		ids := []string{st.Nodes[0].NodeID, st.Nodes[1].NodeID}
+		Expect(ids).To(ConsistOf("n1", "n2"))
+	})
+
+	It("allows an explicit empty-then-populated Nodes transition to win when caller sets Nodes", func() {
+		// If a caller explicitly passes a non-empty Nodes slice on the
+		// incoming op, that should replace the existing slice (no merge).
+		// Only an EMPTY incoming slice triggers the carry-forward.
+		svc.UpdateNodeProgress("op1", "n1", galleryop.NodeProgress{NodeID: "n1", NodeName: "worker-a", Status: "success"})
+		svc.UpdateStatus("op1", &galleryop.OpStatus{
+			Progress: 100.0,
+			Nodes: []galleryop.NodeProgress{
+				{NodeID: "n9", NodeName: "worker-final", Status: "success"},
+			},
+		})
+		st := svc.GetStatus("op1")
+		Expect(st.Nodes).To(HaveLen(1))
+		Expect(st.Nodes[0].NodeID).To(Equal("n9"))
+	})
 })
