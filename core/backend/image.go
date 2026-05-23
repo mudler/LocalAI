@@ -41,7 +41,7 @@ func ImageGeneration(height, width, step, seed int, positive_prompt, negative_pr
 	}
 
 	if appConfig.EnableTracing {
-		trace.InitBackendTracingIfEnabled(appConfig.TracingMaxItems)
+		trace.InitBackendTracingIfEnabled(appConfig.TracingMaxItems, appConfig.TracingMaxBodyBytes)
 
 		traceData := map[string]any{
 			"positive_prompt": positive_prompt,

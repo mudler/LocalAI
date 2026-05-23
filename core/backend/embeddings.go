@@ -67,7 +67,7 @@ func ModelEmbedding(s string, tokens []int, loader *model.ModelLoader, modelConf
 	}
 
 	if appConfig.EnableTracing {
-		trace.InitBackendTracingIfEnabled(appConfig.TracingMaxItems)
+		trace.InitBackendTracingIfEnabled(appConfig.TracingMaxItems, appConfig.TracingMaxBodyBytes)
 
 		traceData := map[string]any{
 			"input_text":         trace.TruncateString(s, 1000),
