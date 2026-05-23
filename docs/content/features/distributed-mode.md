@@ -86,8 +86,8 @@ The frontend is a standard LocalAI instance with distributed mode enabled. These
 | `--auto-approve-nodes` | `LOCALAI_AUTO_APPROVE_NODES` | `false` | Auto-approve new worker nodes (skip admin approval) |
 | `--auth` | `LOCALAI_AUTH` | `false` | **Must be `true`** for distributed mode |
 | `--auth-database-url` | `LOCALAI_AUTH_DATABASE_URL` | *(required)* | PostgreSQL connection URL |
-| `--backend-install-timeout` | `LOCALAI_NATS_BACKEND_INSTALL_TIMEOUT` | `15m` | NATS round-trip timeout for `backend.install` requests sent to worker nodes. Raise on slow links pulling multi-GB OCI images (e.g. Jetson over Wi-Fi). If the round-trip times out but the worker is still installing in the background, the admin UI shows the operation as `still installing in background` rather than failed, and the reconciler confirms completion via the next `backend.list` poll. |
-| `--backend-upgrade-timeout` | `LOCALAI_NATS_BACKEND_UPGRADE_TIMEOUT` | `15m` | NATS round-trip timeout for `backend.upgrade` requests (force-reinstall path). Same semantics as install timeout. |
+| `--backend-install-timeout` | `LOCALAI_NATS_BACKEND_INSTALL_TIMEOUT` | `15m` | How long the frontend waits for a worker to acknowledge a backend install before considering the request stalled. Raise it when workers pull large backend images over slow links. If a worker takes longer than this, the operation shows as "still installing in background" in the admin UI and clears once the worker finishes. |
+| `--backend-upgrade-timeout` | `LOCALAI_NATS_BACKEND_UPGRADE_TIMEOUT` | `15m` | Same as the install timeout, applied to backend upgrades (force-reinstall). |
 
 ### Optional: S3 Object Storage
 
@@ -105,45 +105,30 @@ When S3 is not configured, model files are transferred directly from the fronten
 
 For high-throughput or very large model files, S3 can be more efficient since it avoids streaming through the frontend.
 
-### Install Progress Streaming
+### Watching Backend Installs
 
-While a worker is pulling an OCI image for a backend install, it publishes
-debounced progress events (~250ms) on `nodes.<nodeID>.backend.install.<opID>.progress`.
-The frontend subscribes for the duration of the install request and forwards each
-event into the operation status so the admin UI surfaces per-file byte progress
-and percentage in real time, the same way local-mode installs already do.
+While a worker downloads a backend, the admin **Operations Bar** at the top
+of the UI shows real-time progress: current file, downloaded/total bytes,
+and percentage. This works the same as single-node mode.
 
-The NATS reply for `backend.install` is still the source of truth for the
-final success/failure; dropped progress events are acceptable and the install
-completes regardless.
+When an install targets more than one worker, an **N nodes** chevron
+appears on the operation row. Click it to expand a per-node breakdown,
+with one row per worker showing:
 
-**Mixed-version clusters:** Workers running pre-2026-05-22 code do not publish
-on the new progress subject. New frontends tolerate that silently. The install
-still completes via the reply; the UI keeps showing the message from the
-install-timeout fallback path (`still installing in background`) until the
-pending operation row clears.
-
-#### Per-Node Operations Breakdown
-
-When an admin backend install fans out to more than one worker, the
-**Operations Bar** at the top of the admin UI shows a per-node breakdown.
-Click the "N nodes" chevron on the operation row to expand a list with one
-entry per target node, each carrying:
-
-- A color-coded status pill: queued (gray), downloading (blue), worker
-  busy / running on worker (yellow), done (green), failed (red).
-- The current file being pulled, current/total bytes, percentage.
+- A status pill: **Queued** (gray), **Downloading** (blue), **Worker busy**
+  (yellow), **Done** (green), or **Failed** (red).
+- The file currently being downloaded with current/total bytes and percentage.
 - A thin per-node progress bar.
-- Any error message returned by the worker for that node.
+- Any error returned by the worker.
 
-The yellow "Worker busy" pill appears when the NATS round-trip to a node
-timed out but the worker is still installing in the background. Hover the
-pill for the full tooltip.
+The yellow **Worker busy** pill means the worker took longer than
+`--backend-install-timeout` to acknowledge but is most likely still
+working in the background. The admin UI clears it as soon as the worker
+finishes; no action is required from the operator.
 
-The breakdown is driven by the `nodes` array on the `/api/operations`
-response, which the frontend polls every second. Single-node installs and
-model installs render the same single-line card as before: the per-node
-section only appears when more than one node is involved.
+If a worker is running an older LocalAI release that does not report
+progress, its row in the breakdown will still show terminal status
+(queued / done / failed / worker busy) but no per-file progress.
 
 ## Worker Configuration
 
