@@ -3236,6 +3236,38 @@ const docTemplate = `{
                 }
             }
         },
+        "galleryop.NodeProgress": {
+            "type": "object",
+            "properties": {
+                "current": {
+                    "type": "string"
+                },
+                "error": {
+                    "type": "string"
+                },
+                "file_name": {
+                    "type": "string"
+                },
+                "node_id": {
+                    "type": "string"
+                },
+                "node_name": {
+                    "type": "string"
+                },
+                "percentage": {
+                    "type": "number"
+                },
+                "phase": {
+                    "type": "string"
+                },
+                "status": {
+                    "type": "string"
+                },
+                "total": {
+                    "type": "string"
+                }
+            }
+        },
         "galleryop.OpStatus": {
             "type": "object",
             "properties": {
@@ -3266,6 +3298,13 @@ const docTemplate = `{
                 },
                 "message": {
                     "type": "string"
+                },
+                "nodes": {
+                    "description": "Nodes is the per-node breakdown for a fanned-out backend install.\nPopulated by DistributedBackendManager (per-node terminal status)\nand by the Phase 2 progress bridge (per-byte ticks). The\n/api/operations handler surfaces this so the UI can render an\nexpandable per-node view of an in-flight install.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/galleryop.NodeProgress"
+                    }
                 },
                 "processed": {
                     "type": "boolean"

@@ -210,6 +210,27 @@ definitions:
           $ref: '#/definitions/gallery.NodeDriftInfo'
         type: array
     type: object
+  galleryop.NodeProgress:
+    properties:
+      current:
+        type: string
+      error:
+        type: string
+      file_name:
+        type: string
+      node_id:
+        type: string
+      node_name:
+        type: string
+      percentage:
+        type: number
+      phase:
+        type: string
+      status:
+        type: string
+      total:
+        type: string
+    type: object
   galleryop.OpStatus:
     properties:
       cancellable:
@@ -232,6 +253,16 @@ definitions:
         type: string
       message:
         type: string
+      nodes:
+        description: |-
+          Nodes is the per-node breakdown for a fanned-out backend install.
+          Populated by DistributedBackendManager (per-node terminal status)
+          and by the Phase 2 progress bridge (per-byte ticks). The
+          /api/operations handler surfaces this so the UI can render an
+          expandable per-node view of an in-flight install.
+        items:
+          $ref: '#/definitions/galleryop.NodeProgress'
+        type: array
       processed:
         type: boolean
       progress:
