@@ -33,6 +33,7 @@
     "i18next-browser-languagedetector": "^8.2.1",
     "i18next-http-backend": "^3.0.6",
     "marked": "^15.0.7",
+    "path-to-regexp": "8.4.0",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
     "react-i18next": "^17.0.6",
