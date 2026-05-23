@@ -71,15 +71,15 @@ func (c DistributedConfig) Validate() error {
 	}
 	// Check for negative durations
 	for name, d := range map[string]time.Duration{
-		"mcp-tool-timeout":        c.MCPToolTimeout,
-		"mcp-discovery-timeout":   c.MCPDiscoveryTimeout,
-		"worker-wait-timeout":     c.WorkerWaitTimeout,
-		"drain-timeout":           c.DrainTimeout,
-		"health-check-interval":   c.HealthCheckInterval,
-		"stale-node-threshold":    c.StaleNodeThreshold,
-		"mcp-ci-job-timeout":      c.MCPCIJobTimeout,
-		"backend-install-timeout": c.BackendInstallTimeout,
-		"backend-upgrade-timeout": c.BackendUpgradeTimeout,
+		FlagMCPToolTimeout:        c.MCPToolTimeout,
+		FlagMCPDiscoveryTimeout:   c.MCPDiscoveryTimeout,
+		FlagWorkerWaitTimeout:     c.WorkerWaitTimeout,
+		FlagDrainTimeout:          c.DrainTimeout,
+		FlagHealthCheckInterval:   c.HealthCheckInterval,
+		FlagStaleNodeThreshold:    c.StaleNodeThreshold,
+		FlagMCPCIJobTimeout:       c.MCPCIJobTimeout,
+		FlagBackendInstallTimeout: c.BackendInstallTimeout,
+		FlagBackendUpgradeTimeout: c.BackendUpgradeTimeout,
 	} {
 		if d < 0 {
 			return fmt.Errorf("%s must not be negative", name)
@@ -157,6 +157,24 @@ func WithBackendUpgradeTimeout(d time.Duration) AppOption {
 var EnableAutoApproveNodes = func(o *ApplicationConfig) {
 	o.Distributed.AutoApproveNodes = true
 }
+
+// Flag names for distributed timeout / interval configuration. These are
+// the kebab-case identifiers kong derives from the matching RunCMD struct
+// fields; they appear in Validate error messages and any other operator-
+// facing surface that needs to reference a specific knob by name. Keeping
+// them as constants prevents the string from drifting from the actual
+// flag a future rename would produce.
+const (
+	FlagMCPToolTimeout        = "mcp-tool-timeout"
+	FlagMCPDiscoveryTimeout   = "mcp-discovery-timeout"
+	FlagWorkerWaitTimeout     = "worker-wait-timeout"
+	FlagDrainTimeout          = "drain-timeout"
+	FlagHealthCheckInterval   = "health-check-interval"
+	FlagStaleNodeThreshold    = "stale-node-threshold"
+	FlagMCPCIJobTimeout       = "mcp-ci-job-timeout"
+	FlagBackendInstallTimeout = "backend-install-timeout"
+	FlagBackendUpgradeTimeout = "backend-upgrade-timeout"
+)
 
 // Defaults for distributed timeouts.
 const (
