@@ -517,16 +517,27 @@ static void params_parse(server_context& /*ctx_server*/, const backend::ModelOpt
     params.warmup = true;
     // no_op_offload: disable host tensor op offload (default: false)
     params.no_op_offload = false;
-    // kv_unified: enable unified KV cache (default: false)
-    params.kv_unified = false;
-    // n_ctx_checkpoints: max context checkpoints per slot (default: 8)
-    params.n_ctx_checkpoints = 8;
-
-    // llama memory fit fails if we don't provide a buffer for tensor overrides
-    const size_t ntbo = llama_max_tensor_buft_overrides();
-    while (params.tensor_buft_overrides.size() < ntbo) {
-        params.tensor_buft_overrides.push_back({nullptr, nullptr});
-    }
+    // kv_unified: enable unified KV cache. Upstream's server auto-enables this
+    // when the slot count is auto (-np <0), bumping n_parallel to 4 alongside.
+    // LocalAI keeps n_parallel=1 by default, which would skip that auto path
+    // and leave kv_unified=false. We flip the default to true here so the
+    // server-side prompt cache (cache_idle_slots) is actually usable on the
+    // single-slot path that LocalAI ships with: without it, idle slots are
+    // never persisted across requests and the prompt cache is dead weight.
+    // Users can opt out with `options: [ "kv_unified:false" ]`.
+    params.kv_unified = true;
+    // n_ctx_checkpoints: max context checkpoints per slot. Match upstream's
+    // default (32); the previous LocalAI-specific 8 was unnecessarily tight
+    // and limits partial-prefix recovery without a clear memory rationale.
+    params.n_ctx_checkpoints = 32;
+    // cache_idle_slots: save and clear idle slot KV to the prompt cache on
+    // task switch. Upstream default is true; the server auto-disables it if
+    // kv_unified=false or cache_ram_mib=0, so flipping kv_unified above is
+    // what actually unlocks it.
+    params.cache_idle_slots = true;
+    // checkpoint_every_nt: create a context checkpoint every N tokens during
+    // prefill (-1 disables). Match upstream's default (8192).
+    params.checkpoint_every_nt = 8192;
 
      // decode options. Options are in form optname:optvale, or if booleans only optname.
     for (int i = 0; i < request->options_size(); i++) {
@@ -685,7 +696,29 @@ static void params_parse(server_context& /*ctx_server*/, const backend::ModelOpt
                 try {
                     params.n_ctx_checkpoints = std::stoi(optval_str);
                 } catch (const std::exception& e) {
-                    // If conversion fails, keep default value (8)
+                    // If conversion fails, keep default value (32)
+                }
+            }
+
+        // --- server-side idle-slot prompt cache toggle (upstream --cache-idle-slots) ---
+        // Saves the slot's KV state into the host-side prompt cache on task
+        // switch so a later request with the same prefix can warm-load it.
+        // Auto-disabled by the server if kv_unified=false or cache_ram=0.
+        } else if (!strcmp(optname, "cache_idle_slots") || !strcmp(optname, "idle_slots_cache")) {
+            if (optval_str == "true" || optval_str == "1" || optval_str == "yes" || optval_str == "on" || optval_str == "enabled") {
+                params.cache_idle_slots = true;
+            } else if (optval_str == "false" || optval_str == "0" || optval_str == "no" || optval_str == "off" || optval_str == "disabled") {
+                params.cache_idle_slots = false;
+            }
+
+        // --- prefill checkpoint cadence (upstream -cpent / --checkpoint-every-n-tokens) ---
+        // -1 disables checkpointing during prefill.
+        } else if (!strcmp(optname, "checkpoint_every_nt") || !strcmp(optname, "checkpoint_every_n_tokens")) {
+            if (optval != NULL) {
+                try {
+                    params.checkpoint_every_nt = std::stoi(optval_str);
+                } catch (const std::exception& e) {
+                    // If conversion fails, keep default value (8192)
                 }
             }
 
@@ -1079,6 +1112,20 @@ static void params_parse(server_context& /*ctx_server*/, const backend::ModelOpt
     if (!params.kv_overrides.empty()) {
         params.kv_overrides.emplace_back();
         params.kv_overrides.back().key[0] = 0;
+    }
+
+    // tensor_buft_overrides sentinel termination (mirrors upstream common/arg.cpp).
+    // Real entries are pushed during option parsing; here we pad/terminate so the
+    // model loader sees back().pattern == nullptr (GGML_ASSERT at common.cpp:1543)
+    // and so llama_params_fit has the placeholder slots it requires.
+    {
+        const size_t ntbo = llama_max_tensor_buft_overrides();
+        while (params.tensor_buft_overrides.size() < ntbo) {
+            params.tensor_buft_overrides.push_back({nullptr, nullptr});
+        }
+    }
+    if (!params.speculative.draft.tensor_buft_overrides.empty()) {
+        params.speculative.draft.tensor_buft_overrides.push_back({nullptr, nullptr});
     }
 
     // TODO: Add yarn

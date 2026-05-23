@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect, useRef } from 'react'
 import Modal from './Modal'
 import SearchableSelect from './SearchableSelect'
-import { nodesApi } from '../utils/api'
+import { nodesApi, backendsApi } from '../utils/api'
 
 // NodeInstallPicker is the single multi-node install surface used both from
 // the Backends gallery split-button and from the "Install on more nodes" `+`
@@ -240,6 +240,37 @@ export default function NodeInstallPicker({
   }
   const clearSelection = () => setSelected(new Set())
 
+  // pollJob resolves with { done: true, error?: string } once a single job
+  // completes, fails, or is cancelled. Bounded by a hard wall-clock cap so a
+  // stuck worker eventually surfaces in the UI as "Failed" instead of
+  // spinning forever.
+  const pollJob = (jobID) => new Promise((resolve) => {
+    const POLL_INTERVAL_MS = 1500
+    const HARD_CAP_MS = 6 * 60 * 1000 // 6 min - generous for a fresh worker download
+    const startedAt = Date.now()
+
+    const tick = async () => {
+      try {
+        const status = await backendsApi.getJob(jobID)
+        if (status?.completed) { resolve({ done: true }); return }
+        if (status?.error) { resolve({ done: true, error: status.error }); return }
+        if (status?.processed && !status?.completed) {
+          resolve({ done: true, error: status.error || 'install did not complete' })
+          return
+        }
+      } catch (err) {
+        resolve({ done: true, error: err?.message || 'polling failed' })
+        return
+      }
+      if (Date.now() - startedAt > HARD_CAP_MS) {
+        resolve({ done: true, error: 'timed out waiting for install to finish' })
+        return
+      }
+      setTimeout(tick, POLL_INTERVAL_MS)
+    }
+    tick()
+  })
+
   const submit = async () => {
     if (selected.size === 0 || submitting) return
     if (counts.overrides > 0 && !showMismatchConfirm) {
@@ -255,38 +286,68 @@ export default function NodeInstallPicker({
       return next
     })
 
-    const results = await Promise.allSettled(ids.map(id =>
+    // Phase 1: dispatch all installs in parallel. Each POST returns immediately
+    // with { jobID } now that the handler is async.
+    const dispatchResults = await Promise.allSettled(ids.map(id =>
       nodesApi.installBackend(id, effectiveBackendName)
-        .then(r => ({ id, ok: true, message: r?.message }))
-        .catch(err => ({ id, ok: false, error: err?.message || 'install failed' }))
+        .then(r => ({ id, ok: true, jobID: r?.jobID }))
+        .catch(err => ({ id, ok: false, error: err?.message || 'dispatch failed' }))
     ))
 
-    let successCount = 0, failCount = 0
-    setPerNode(prev => {
-      const next = { ...prev }
-      for (const r of results) {
-        if (r.status !== 'fulfilled') continue
-        const v = r.value
-        if (v.ok) {
-          next[v.id] = { status: 'done' }
-          successCount++
-        } else {
-          next[v.id] = { status: 'error', error: v.error }
-          failCount++
-        }
+    // Classify dispatch results synchronously OUTSIDE the setter. React may
+    // invoke a functional state updater more than once (StrictMode dev double
+    // invoke, concurrent rendering replay): building the jobs array inside
+    // the closure would duplicate entries and re-poll the same job.
+    const jobs = []
+    const dispatchPatch = {}
+    for (const r of dispatchResults) {
+      if (r.status !== 'fulfilled') continue
+      const v = r.value
+      if (v.ok && v.jobID) {
+        dispatchPatch[v.id] = { status: 'installing', jobID: v.jobID }
+        jobs.push({ nodeID: v.id, jobID: v.jobID })
+      } else {
+        dispatchPatch[v.id] = { status: 'error', error: v.error || 'dispatch failed' }
       }
-      return next
+    }
+    setPerNode(prev => ({ ...prev, ...dispatchPatch }))
+
+    // Phase 2: poll each job. Promise.all resolves when the last job settles;
+    // intermediate updates flip per-row state via the setPerNode inside pollJob.
+    await Promise.all(jobs.map(async ({ nodeID, jobID }) => {
+      const result = await pollJob(jobID)
+      setPerNode(prev => {
+        const next = { ...prev }
+        if (result.error) {
+          next[nodeID] = { status: 'error', error: result.error, jobID }
+        } else {
+          next[nodeID] = { status: 'done', jobID }
+        }
+        return next
+      })
+    }))
+
+    // Phase 3: summary toast + onComplete. Read latest state via functional setter.
+    let successCount = 0
+    let failCount = 0
+    setPerNode(prev => {
+      for (const v of Object.values(prev)) {
+        if (v.status === 'done') successCount++
+        else if (v.status === 'error') failCount++
+      }
+      return prev
     })
+
     setSubmitting(false)
 
     if (successCount > 0 && onComplete) onComplete()
 
-    if (failCount === 0) {
+    if (failCount === 0 && successCount > 0) {
       addToast?.(`Installed on ${successCount} node${successCount === 1 ? '' : 's'}`, 'success')
       setTimeout(() => onClose?.(), 800)
-    } else if (successCount === 0) {
+    } else if (successCount === 0 && failCount > 0) {
       addToast?.(`Install failed on all ${failCount} node${failCount === 1 ? '' : 's'}`, 'error')
-    } else {
+    } else if (successCount > 0 && failCount > 0) {
       addToast?.(`Installed on ${successCount}, failed on ${failCount}`, 'warning')
     }
   }
@@ -297,32 +358,58 @@ export default function NodeInstallPicker({
       .map(([id]) => id)
     if (failedIds.length === 0) return
     setSelected(new Set(failedIds))
-    // Replace state for failed rows so they show "installing" again, not stale errors.
     setPerNode(prev => {
       const next = { ...prev }
       failedIds.forEach(id => { next[id] = { status: 'installing' } })
       return next
     })
     setSubmitting(true)
-    const results = await Promise.allSettled(failedIds.map(id =>
+
+    const dispatchResults = await Promise.allSettled(failedIds.map(id =>
       nodesApi.installBackend(id, effectiveBackendName)
-        .then(r => ({ id, ok: true, message: r?.message }))
-        .catch(err => ({ id, ok: false, error: err?.message || 'install failed' }))
+        .then(r => ({ id, ok: true, jobID: r?.jobID }))
+        .catch(err => ({ id, ok: false, error: err?.message || 'dispatch failed' }))
     ))
+
+    // Same precaution as in submit(): classify outside the functional setter
+    // so a replayed updater can't push duplicate jobs into the polling list.
+    const jobs = []
+    const dispatchPatch = {}
+    for (const r of dispatchResults) {
+      if (r.status !== 'fulfilled') continue
+      const v = r.value
+      if (v.ok && v.jobID) {
+        dispatchPatch[v.id] = { status: 'installing', jobID: v.jobID }
+        jobs.push({ nodeID: v.id, jobID: v.jobID })
+      } else {
+        dispatchPatch[v.id] = { status: 'error', error: v.error || 'dispatch failed' }
+      }
+    }
+    setPerNode(prev => ({ ...prev, ...dispatchPatch }))
+
+    await Promise.all(jobs.map(async ({ nodeID, jobID }) => {
+      const result = await pollJob(jobID)
+      setPerNode(prev => {
+        const next = { ...prev }
+        if (result.error) next[nodeID] = { status: 'error', error: result.error, jobID }
+        else next[nodeID] = { status: 'done', jobID }
+        return next
+      })
+    }))
+
+    setSubmitting(false)
+
     let successCount = 0, failCount = 0
     setPerNode(prev => {
-      const next = { ...prev }
-      for (const r of results) {
-        if (r.status !== 'fulfilled') continue
-        const v = r.value
-        if (v.ok) { next[v.id] = { status: 'done' }; successCount++ }
-        else { next[v.id] = { status: 'error', error: v.error }; failCount++ }
+      for (const id of failedIds) {
+        const v = prev[id]
+        if (v?.status === 'done') successCount++
+        else if (v?.status === 'error') failCount++
       }
-      return next
+      return prev
     })
-    setSubmitting(false)
     if (successCount > 0 && onComplete) onComplete()
-    if (failCount === 0) {
+    if (failCount === 0 && successCount > 0) {
       addToast?.(`Installed on ${successCount} node${successCount === 1 ? '' : 's'}`, 'success')
       setTimeout(() => onClose?.(), 800)
     }

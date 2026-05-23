@@ -6,7 +6,9 @@ import (
 	"strings"
 
 	"github.com/labstack/echo/v4"
+	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/http/endpoints/localai"
+	"github.com/mudler/LocalAI/core/services/galleryop"
 	"github.com/mudler/LocalAI/core/services/nodes"
 	"gorm.io/gorm"
 )
@@ -53,7 +55,12 @@ func RegisterNodeSelfServiceRoutes(e *echo.Echo, registry *nodes.NodeRegistry, r
 
 // RegisterNodeAdminRoutes registers /api/nodes/ endpoints used by admins
 // (list, get, get models, drain, delete, approve, backend management). Protected by admin middleware.
-func RegisterNodeAdminRoutes(e *echo.Echo, registry *nodes.NodeRegistry, unloader nodes.NodeCommandSender, adminMw echo.MiddlewareFunc, authDB *gorm.DB, hmacSecret string, registrationToken string) {
+//
+// galleryService/opcache/appConfig are threaded in for the async node-scoped
+// backend install path (POST /:id/backends/install). That handler enqueues a
+// ManagementOp on the gallery channel rather than blocking on a NATS reply, so
+// the browser gets HTTP 202 + jobID immediately instead of waiting up to 3 minutes.
+func RegisterNodeAdminRoutes(e *echo.Echo, registry *nodes.NodeRegistry, unloader nodes.NodeCommandSender, galleryService *galleryop.GalleryService, opcache *galleryop.OpCache, appConfig *config.ApplicationConfig, adminMw echo.MiddlewareFunc, authDB *gorm.DB, hmacSecret string, registrationToken string) {
 	if registry == nil {
 		return
 	}
@@ -78,7 +85,7 @@ func RegisterNodeAdminRoutes(e *echo.Echo, registry *nodes.NodeRegistry, unloade
 
 	// Backend management on workers
 	admin.GET("/:id/backends", localai.ListBackendsOnNodeEndpoint(unloader))
-	admin.POST("/:id/backends/install", localai.InstallBackendOnNodeEndpoint(unloader))
+	admin.POST("/:id/backends/install", localai.InstallBackendOnNodeEndpoint(unloader, galleryService, opcache, appConfig))
 	admin.POST("/:id/backends/delete", localai.DeleteBackendOnNodeEndpoint(unloader))
 
 	// Model management on workers

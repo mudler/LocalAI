@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next'
 import { useAuth } from '../context/AuthContext'
 import { apiUrl } from '../utils/basePath'
 import LoadingSpinner from '../components/LoadingSpinner'
+import SourcesTab from './Usage/SourcesTab'
 
 const PERIODS = [
   { key: 'day', label: 'Day' },
@@ -724,23 +725,27 @@ export default function Usage() {
             {p.label}
           </button>
         ))}
+        <div style={{ width: 1, height: 20, background: 'var(--color-border-subtle)', margin: '0 var(--spacing-xs)' }} />
+        <button
+          className={`btn btn-sm ${activeTab === 'models' ? 'btn-primary' : 'btn-secondary'}`}
+          onClick={() => setActiveTab('models')}
+        >
+          <i className="fas fa-cube" style={{ fontSize: '0.7rem' }} /> Models
+        </button>
         {isAdmin && (
-          <>
-            <div style={{ width: 1, height: 20, background: 'var(--color-border-subtle)', margin: '0 var(--spacing-xs)' }} />
-            <button
-              className={`btn btn-sm ${activeTab === 'models' ? 'btn-primary' : 'btn-secondary'}`}
-              onClick={() => setActiveTab('models')}
-            >
-              <i className="fas fa-cube" style={{ fontSize: '0.7rem' }} /> Models
-            </button>
-            <button
-              className={`btn btn-sm ${activeTab === 'users' ? 'btn-primary' : 'btn-secondary'}`}
-              onClick={() => setActiveTab('users')}
-            >
-              <i className="fas fa-users" style={{ fontSize: '0.7rem' }} /> Users
-            </button>
-          </>
+          <button
+            className={`btn btn-sm ${activeTab === 'users' ? 'btn-primary' : 'btn-secondary'}`}
+            onClick={() => setActiveTab('users')}
+          >
+            <i className="fas fa-users" style={{ fontSize: '0.7rem' }} /> Users
+          </button>
         )}
+        <button
+          className={`btn btn-sm ${activeTab === 'sources' ? 'btn-primary' : 'btn-secondary'}`}
+          onClick={() => setActiveTab('sources')}
+        >
+          <i className="fas fa-key" style={{ fontSize: '0.7rem' }} /> {t('usage.sources.tab')}
+        </button>
         <div style={{ flex: 1 }} />
         <button className="btn btn-secondary btn-sm" onClick={fetchUsage} disabled={loading} style={{ gap: 4 }}>
           <i className={`fas fa-rotate${loading ? ' fa-spin' : ''}`} /> Refresh
@@ -883,6 +888,10 @@ export default function Usage() {
                 </table>
               </div>
             )
+          )}
+
+          {activeTab === 'sources' && (
+            <SourcesTab period={period} adminUserId={selectedUserId} />
           )}
         </>
       )}

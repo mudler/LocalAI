@@ -2,6 +2,14 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import { operationsApi } from '../utils/api'
 import { useAuth } from '../context/AuthContext'
 
+// Serialize ops into a stable comparison key. Each op is a flat map of
+// primitives, so JSON.stringify is good enough and stable as long as the
+// server emits keys in the same order (Go's map iteration into JSON happens
+// to be stable here because we build an explicit map[string]any).
+function serializeOps(ops) {
+  return JSON.stringify(ops)
+}
+
 export function useOperations(pollInterval = 1000) {
   const [operations, setOperations] = useState([])
   const [loading, setLoading] = useState(true)
@@ -11,16 +19,26 @@ export function useOperations(pollInterval = 1000) {
 
   const previousCountRef = useRef(0)
   const onAllCompleteRef = useRef(null)
+  // Track the last payload we wrote into state. Each poll otherwise produces
+  // a fresh array reference even when nothing changed, and that re-render
+  // ripples into the Chat page — wiping the user's text selection mid-read
+  // (#9904).
+  const lastSerializedRef = useRef('[]')
 
   const fetchOperations = useCallback(async () => {
     if (!isAdmin) {
-      setLoading(false)
+      setLoading((prev) => (prev ? false : prev))
       return
     }
     try {
       const data = await operationsApi.list()
       const ops = data?.operations || (Array.isArray(data) ? data : [])
-      setOperations(ops)
+
+      const serialized = serializeOps(ops)
+      if (serialized !== lastSerializedRef.current) {
+        lastSerializedRef.current = serialized
+        setOperations(ops)
+      }
 
       // Separate active (non-failed) operations from failed ones
       const activeOps = ops.filter(op => !op.error)
@@ -32,11 +50,11 @@ export function useOperations(pollInterval = 1000) {
       }
       previousCountRef.current = activeOps.length
 
-      setError(null)
+      setError((prev) => (prev === null ? prev : null))
     } catch (err) {
-      setError(err.message)
+      setError((prev) => (prev === err.message ? prev : err.message))
     } finally {
-      setLoading(false)
+      setLoading((prev) => (prev ? false : prev))
     }
   }, [isAdmin])
 

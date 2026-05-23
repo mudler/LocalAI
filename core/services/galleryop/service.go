@@ -110,6 +110,18 @@ func (g *GalleryService) DeleteBackend(name string) error {
 func (g *GalleryService) UpdateStatus(s string, op *OpStatus) {
 	g.Lock()
 	defer g.Unlock()
+	// Preserve any per-node entries already accumulated by UpdateNodeProgress:
+	// the legacy progressCb path (used by the Phase 2 install bridge) calls
+	// UpdateStatus with a fresh *OpStatus on every tick, which would otherwise
+	// wipe the Nodes slice and leave the UI flickering between one node and
+	// another. If the caller explicitly populates Nodes on the incoming op,
+	// that wins; an empty Nodes slice on the incoming op is treated as "no
+	// new per-node data" and the previous Nodes are carried forward.
+	if op != nil && len(op.Nodes) == 0 {
+		if prev := g.statuses[s]; prev != nil && len(prev.Nodes) > 0 {
+			op.Nodes = prev.Nodes
+		}
+	}
 	g.statuses[s] = op
 
 	// Persist to PostgreSQL in distributed mode
@@ -132,6 +144,47 @@ func (g *GalleryService) UpdateStatus(s string, op *OpStatus) {
 	// Publish progress to NATS in distributed mode
 	if g.natsClient != nil {
 		g.natsClient.Publish(messaging.SubjectGalleryProgress(s), op)
+	}
+}
+
+// UpdateNodeProgress merges a per-node progress tick into OpStatus.Nodes,
+// keyed by nodeID, and mirrors the latest values into the aggregate
+// Progress / FileName / DownloadedFileSize / TotalFileSize / Message
+// fields so the legacy single-bar OperationsBar view keeps working
+// unchanged alongside the new per-node breakdown.
+//
+// We deliberately do NOT delegate the aggregate mirror to UpdateStatus
+// here: UpdateStatus overwrites the entire OpStatus, which would clobber
+// the Nodes slice we just merged into. Doing the merge + mirror under a
+// single lock keeps both views consistent and concurrent-safe.
+func (g *GalleryService) UpdateNodeProgress(opID, nodeID string, np NodeProgress) {
+	g.Lock()
+	defer g.Unlock()
+	status := g.statuses[opID]
+	if status == nil {
+		status = &OpStatus{}
+		g.statuses[opID] = status
+	}
+	merged := false
+	for i := range status.Nodes {
+		if status.Nodes[i].NodeID == nodeID {
+			status.Nodes[i] = np
+			merged = true
+			break
+		}
+	}
+	if !merged {
+		status.Nodes = append(status.Nodes, np)
+	}
+
+	// Mirror the latest tick into the legacy aggregate fields so the
+	// existing single-bar UI keeps rendering meaningful progress.
+	status.FileName = np.FileName
+	status.Progress = np.Percentage
+	status.DownloadedFileSize = np.Current
+	status.TotalFileSize = np.Total
+	if np.Phase != "" {
+		status.Message = np.Phase
 	}
 }
 

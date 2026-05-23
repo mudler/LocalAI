@@ -28,6 +28,7 @@ import (
 	"github.com/mudler/LocalAI/core/services/monitoring"
 	"github.com/mudler/LocalAI/core/services/nodes"
 	"github.com/mudler/LocalAI/core/services/quantization"
+	"github.com/mudler/LocalAI/pkg/signals"
 
 	"github.com/mudler/xlog"
 )
@@ -267,9 +268,12 @@ func API(application *application.Application) (*echo.Echo, error) {
 		e.Static("/generated-videos", videoPath)
 	}
 
-	// Initialize usage recording when auth DB is available
+	// Initialize usage recording when auth DB is available, and ensure the
+	// batcher drains its in-memory queue on graceful shutdown so the last
+	// few seconds of usage don't disappear when the process exits.
 	if application.AuthDB() != nil {
 		httpMiddleware.InitUsageRecorder(application.AuthDB())
+		signals.RegisterGracefulTerminationHandler(httpMiddleware.ShutdownUsageRecorder)
 	}
 
 	// Auth is applied to _all_ endpoints. Filtering out endpoints to bypass is
@@ -403,7 +407,7 @@ func API(application *application.Application) (*echo.Echo, error) {
 		}
 	}
 	routes.RegisterNodeSelfServiceRoutes(e, registry, distCfg.RegistrationToken, distCfg.AutoApproveNodes, application.AuthDB(), application.ApplicationConfig().Auth.APIKeyHMACSecret)
-	routes.RegisterNodeAdminRoutes(e, registry, remoteUnloader, adminMiddleware, application.AuthDB(), application.ApplicationConfig().Auth.APIKeyHMACSecret, application.ApplicationConfig().Distributed.RegistrationToken)
+	routes.RegisterNodeAdminRoutes(e, registry, remoteUnloader, application.GalleryService(), opcache, application.ApplicationConfig(), adminMiddleware, application.AuthDB(), application.ApplicationConfig().Auth.APIKeyHMACSecret, application.ApplicationConfig().Distributed.RegistrationToken)
 
 	// Distributed SSE routes (job progress + agent events via NATS)
 	if d := application.Distributed(); d != nil {

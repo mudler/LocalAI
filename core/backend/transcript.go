@@ -76,10 +76,10 @@ func ModelTranscriptionWithOptions(ctx context.Context, req TranscriptionRequest
 	var startTime time.Time
 	var audioSnippet map[string]any
 	if appConfig.EnableTracing {
-		trace.InitBackendTracingIfEnabled(appConfig.TracingMaxItems)
+		trace.InitBackendTracingIfEnabled(appConfig.TracingMaxItems, appConfig.TracingMaxBodyBytes)
 		startTime = time.Now()
 		// Capture audio before the backend call — the backend may delete the file.
-		audioSnippet = trace.AudioSnippet(req.Audio)
+		audioSnippet = trace.AudioSnippet(req.Audio, appConfig.TracingMaxBodyBytes)
 	}
 
 	r, err := transcriptionModel.AudioTranscription(ctx, req.toProto(uint32(*modelConfig.Threads)))

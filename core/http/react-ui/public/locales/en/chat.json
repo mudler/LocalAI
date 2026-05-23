@@ -97,7 +97,8 @@
   },
   "toasts": {
     "selectModel": "Please select a model",
-    "copied": "Copied to clipboard"
+    "copied": "Copied to clipboard",
+    "copyFailed": "Could not copy to clipboard"
   },
   "menu": {
     "trigger": "Chats",

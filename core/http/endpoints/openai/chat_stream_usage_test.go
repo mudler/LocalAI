@@ -1,10 +1,14 @@
 package openai
 
 import (
+	"context"
 	"encoding/json"
 
+	"github.com/mudler/LocalAI/core/backend"
+	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/schema"
 	"github.com/mudler/LocalAI/pkg/functions"
+	"github.com/mudler/LocalAI/pkg/model"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
@@ -152,6 +156,28 @@ var _ = Describe("streaming usage spec compliance", func() {
 		})
 	})
 
+	Describe("streamUsageFromTokenUsage", func() {
+		It("converts backend TokenUsage to schema OpenAIUsage", func() {
+			tu := backend.TokenUsage{Prompt: 18, Completion: 213}
+			u := streamUsageFromTokenUsage(tu, false)
+			Expect(u.PromptTokens).To(Equal(18))
+			Expect(u.CompletionTokens).To(Equal(213))
+			Expect(u.TotalTokens).To(Equal(231))
+			Expect(u.TimingTokenGeneration).To(BeZero())
+			Expect(u.TimingPromptProcessing).To(BeZero())
+		})
+		It("includes timings when extraUsage is true", func() {
+			tu := backend.TokenUsage{
+				Prompt: 10, Completion: 20,
+				TimingPromptProcessing: 0.5,
+				TimingTokenGeneration:  1.5,
+			}
+			u := streamUsageFromTokenUsage(tu, true)
+			Expect(u.TimingPromptProcessing).To(Equal(0.5))
+			Expect(u.TimingTokenGeneration).To(Equal(1.5))
+		})
+	})
+
 	Describe("OpenAIRequest.StreamOptions", func() {
 		It("parses stream_options.include_usage=true", func() {
 			body := []byte(`{
@@ -174,6 +200,163 @@ var _ = Describe("streaming usage spec compliance", func() {
 			if req.StreamOptions != nil {
 				Expect(req.StreamOptions.IncludeUsage).To(BeFalse())
 			}
+		})
+	})
+})
+
+// Functional regression coverage for issue #9927: the streaming workers
+// must surface the cumulative TokenUsage returned by ComputeChoices to
+// their caller. The earlier broken implementations discarded that value
+// (`_, _, chatDeltas, err := ComputeChoices(...)`) and threw away the
+// counts on the floor, so the include_usage trailer always reported
+// zeros when tools were enabled.
+//
+// These tests stub backend.ModelInferenceFunc so the worker exercises the
+// real ComputeChoices → predFunc → LLMResponse pipeline. If a future change
+// drops the TokenUsage somewhere along that path, the assertions on the
+// returned value fail with a concrete count mismatch (e.g. 0 vs 213),
+// not with a "function undefined" compile error.
+var _ = Describe("streaming workers surface final TokenUsage (issue #9927)", func() {
+	var (
+		origInference modelInferenceFunc
+		appCfg        *config.ApplicationConfig
+	)
+
+	BeforeEach(func() {
+		origInference = backend.ModelInferenceFunc
+		appCfg = config.NewApplicationConfig()
+	})
+
+	AfterEach(func() {
+		backend.ModelInferenceFunc = origInference
+	})
+
+	// mockBackendUsage installs a stub backend that yields one LLMResponse
+	// carrying the supplied TokenUsage. ComputeChoices' single-attempt path
+	// copies these counts into the value it returns to the worker.
+	mockBackendUsage := func(usage backend.TokenUsage, response string) {
+		backend.ModelInferenceFunc = func(
+			ctx context.Context, s string, messages schema.Messages,
+			images, videos, audios []string,
+			loader *model.ModelLoader, c *config.ModelConfig, cl *config.ModelConfigLoader,
+			o *config.ApplicationConfig,
+			tokenCallback func(string, backend.TokenUsage) bool,
+			tools, toolChoice string,
+			logprobs, topLogprobs *int,
+			logitBias map[string]float64,
+			metadata map[string]string,
+		) (func() (backend.LLMResponse, error), error) {
+			return func() (backend.LLMResponse, error) {
+				return backend.LLMResponse{
+					Response: response,
+					Usage:    usage,
+				}, nil
+			}, nil
+		}
+	}
+
+	makeReq := func() *schema.OpenAIRequest {
+		ctx, cancel := context.WithCancel(context.Background())
+		req := &schema.OpenAIRequest{
+			Context: ctx,
+			Cancel:  cancel,
+		}
+		req.Model = "test-model" // promoted from BasicModelRequest
+		return req
+	}
+
+	// drainResponses consumes everything the worker pushes onto the channel
+	// so the worker is never blocked on its send. The channel is unbuffered
+	// (matching production), so the drain goroutine must be running before
+	// the worker is called.
+	drainResponses := func(ch <-chan schema.OpenAIResponse) <-chan struct{} {
+		done := make(chan struct{})
+		go func() {
+			for range ch {
+			}
+			close(done)
+		}()
+		return done
+	}
+
+	Describe("processStream (no-tools path)", func() {
+		It("returns the cumulative TokenUsage produced by the backend", func() {
+			mockBackendUsage(backend.TokenUsage{Prompt: 18, Completion: 213}, "Hello there")
+
+			req := makeReq()
+			cfg := &config.ModelConfig{}
+			responses := make(chan schema.OpenAIResponse)
+			done := drainResponses(responses)
+
+			actual, err := processStream("prompt", req, cfg, nil, appCfg, nil, responses, "req-1", 0)
+			<-done
+
+			Expect(err).ToNot(HaveOccurred())
+			Expect(actual.Prompt).To(Equal(18),
+				"prompt tokens must round-trip from backend through processStream")
+			Expect(actual.Completion).To(Equal(213),
+				"completion tokens must round-trip from backend through processStream")
+		})
+
+		It("returns zero TokenUsage when the backend reports zero (negative control)", func() {
+			mockBackendUsage(backend.TokenUsage{}, "x")
+
+			req := makeReq()
+			cfg := &config.ModelConfig{}
+			responses := make(chan schema.OpenAIResponse)
+			done := drainResponses(responses)
+
+			actual, err := processStream("prompt", req, cfg, nil, appCfg, nil, responses, "req-1", 0)
+			<-done
+
+			Expect(err).ToNot(HaveOccurred())
+			Expect(actual.Prompt).To(BeZero())
+			Expect(actual.Completion).To(BeZero())
+		})
+	})
+
+	Describe("processStreamWithTools (tools path)", func() {
+		It("returns the cumulative TokenUsage produced by the backend", func() {
+			// This is the direct regression check for issue #9927: with tools
+			// enabled, the trailer was reporting {0,0,0} because the worker
+			// discarded ComputeChoices' second return value.
+			mockBackendUsage(backend.TokenUsage{Prompt: 18, Completion: 213}, "answer")
+
+			req := makeReq()
+			cfg := &config.ModelConfig{}
+			responses := make(chan schema.OpenAIResponse)
+			done := drainResponses(responses)
+			var textContent string
+
+			actual, err := processStreamWithTools("none", "prompt", req, cfg, nil, appCfg, nil, responses, "req-1", 0, &textContent)
+			<-done
+
+			Expect(err).ToNot(HaveOccurred())
+			Expect(actual.Prompt).To(Equal(18),
+				"prompt tokens must round-trip from backend through processStreamWithTools (issue #9927)")
+			Expect(actual.Completion).To(Equal(213),
+				"completion tokens must round-trip from backend through processStreamWithTools (issue #9927)")
+		})
+
+		It("forwards timing fields when the backend supplies them", func() {
+			mockBackendUsage(backend.TokenUsage{
+				Prompt: 10, Completion: 20,
+				TimingPromptProcessing: 0.5,
+				TimingTokenGeneration:  1.5,
+			}, "answer")
+
+			req := makeReq()
+			cfg := &config.ModelConfig{}
+			responses := make(chan schema.OpenAIResponse)
+			done := drainResponses(responses)
+			var textContent string
+
+			actual, err := processStreamWithTools("none", "prompt", req, cfg, nil, appCfg, nil, responses, "req-1", 0, &textContent)
+			<-done
+
+			Expect(err).ToNot(HaveOccurred())
+			Expect(actual.TimingPromptProcessing).To(Equal(0.5))
+			Expect(actual.TimingTokenGeneration).To(Equal(1.5))
 		})
 	})
 })

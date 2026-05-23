@@ -220,7 +220,10 @@ function BackendTraceDetail({ trace }) {
         </div>
       )}
 
-      {/* Backend logs link */}
+      {/* Backend logs link — /app/backend-logs/:modelId is the unified entry
+          point: in standalone mode it streams local logs, in distributed mode
+          it resolves the model to the host worker(s) and either redirects to
+          /app/node-backend-logs/<nodeId>/<modelId> or shows a node picker. */}
       {trace.model_name && (
         <div style={{ marginBottom: 'var(--spacing-md)' }}>
           <a
@@ -406,7 +409,15 @@ export default function Traces() {
         <button className="btn btn-secondary btn-sm" onClick={fetchTraces}><i className="fas fa-rotate" /> Refresh</button>
         <button className="btn btn-secondary btn-sm" onClick={handleExport} disabled={traces.length === 0}><i className="fas fa-download" /> Export</button>
         <div style={{ flex: 1 }} />
-        <button className="btn btn-danger btn-sm" onClick={handleClear} disabled={traces.length === 0}><i className="fas fa-trash" /> Clear</button>
+        <button
+          className="btn btn-danger btn-sm"
+          onClick={handleClear}
+          /* Stay enabled while loading: a massive in-memory trace buffer is
+             precisely the case where the user can't see the table yet and
+             needs Clear to recover. Clearing an already-empty server-side
+             buffer is a harmless no-op. */
+          disabled={!loading && traces.length === 0}
+        ><i className="fas fa-trash" /> Clear</button>
       </div>
 
       {settings && (() => {
@@ -456,6 +467,17 @@ export default function Traces() {
                   value={settings.tracing_max_items ?? ''}
                   onChange={(e) => setSettings(prev => ({ ...prev, tracing_max_items: parseInt(e.target.value) || 0 }))}
                   placeholder="100"
+                  disabled={!settings.enable_tracing}
+                />
+              </SettingRow>
+              <SettingRow label="Max Body Bytes" description="Per-field cap for captured bodies and backend trace Data (0 = uncapped). Prevents oversized LLM histories or TTS snippets from locking this page in loading.">
+                <input
+                  className="input"
+                  type="number"
+                  style={{ width: 120 }}
+                  value={settings.tracing_max_body_bytes ?? ''}
+                  onChange={(e) => setSettings(prev => ({ ...prev, tracing_max_body_bytes: parseInt(e.target.value) || 0 }))}
+                  placeholder="65536"
                   disabled={!settings.enable_tracing}
                 />
               </SettingRow>

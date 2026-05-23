@@ -2,9 +2,15 @@ package nodes
 
 import (
 	"context"
+	"encoding/json"
+	"errors"
 	"fmt"
+	"strings"
 	"time"
 
+	"github.com/nats-io/nats.go"
+
+	"github.com/mudler/LocalAI/core/services/galleryop"
 	"github.com/mudler/LocalAI/core/services/messaging"
 	"github.com/mudler/xlog"
 )
@@ -28,7 +34,7 @@ type backendStopRequest struct {
 // nats.ErrNoResponders for old workers that don't subscribe to the new
 // backend.upgrade subject.
 type NodeCommandSender interface {
-	InstallBackend(nodeID, backendType, modelID, galleriesJSON, uri, name, alias string, replicaIndex int) (*messaging.BackendInstallReply, error)
+	InstallBackend(nodeID, backendType, modelID, galleriesJSON, uri, name, alias string, replicaIndex int, opID string, onProgress func(messaging.BackendInstallProgressEvent)) (*messaging.BackendInstallReply, error)
 	UpgradeBackend(nodeID, backendType, galleriesJSON, uri, name, alias string, replicaIndex int) (*messaging.BackendUpgradeReply, error)
 	DeleteBackend(nodeID, backendName string) (*messaging.BackendDeleteReply, error)
 	ListBackends(nodeID string) (*messaging.BackendListReply, error)
@@ -43,16 +49,31 @@ type NodeCommandSender interface {
 // This mirrors the local ModelLoader's startProcess()/deleteProcess() but
 // over NATS for remote nodes.
 type RemoteUnloaderAdapter struct {
-	registry ModelLocator
-	nats     messaging.MessagingClient
+	registry       ModelLocator
+	nats           messaging.MessagingClient
+	installTimeout time.Duration
+	upgradeTimeout time.Duration
 }
 
-// NewRemoteUnloaderAdapter creates a new adapter.
-func NewRemoteUnloaderAdapter(registry ModelLocator, nats messaging.MessagingClient) *RemoteUnloaderAdapter {
+// NewRemoteUnloaderAdapter creates a new adapter. installTimeout and
+// upgradeTimeout govern the NATS request-reply deadlines for backend.install
+// and backend.upgrade respectively. Use
+// DistributedConfig.BackendInstallTimeoutOrDefault() /
+// BackendUpgradeTimeoutOrDefault() at construction.
+func NewRemoteUnloaderAdapter(registry ModelLocator, nats messaging.MessagingClient, installTimeout, upgradeTimeout time.Duration) *RemoteUnloaderAdapter {
 	return &RemoteUnloaderAdapter{
-		registry: registry,
-		nats:     nats,
+		registry:       registry,
+		nats:           nats,
+		installTimeout: installTimeout,
+		upgradeTimeout: upgradeTimeout,
 	}
+}
+
+// InstallTimeout returns the configured backend.install round-trip timeout.
+// Used by DistributedBackendManager to push NextRetryAt out by this duration
+// when a worker times out replying but is still installing in the background.
+func (a *RemoteUnloaderAdapter) InstallTimeout() time.Duration {
+	return a.installTimeout
 }
 
 // UnloadRemoteModel finds the node(s) hosting the given model and tells them
@@ -87,18 +108,59 @@ func (a *RemoteUnloaderAdapter) UnloadRemoteModel(modelName string) error {
 // is on disk, the worker just spawns a process; only a missing binary
 // triggers a full gallery pull.
 //
-// Timeout: 3 minutes. Most calls return in under 2 seconds (process already
-// running). The 3-minute ceiling covers the cold-binary spawn-after-download
-// case while still failing fast enough to surface real worker hangs.
+// Timeout: configured via DistributedConfig.BackendInstallTimeoutOrDefault
+// (default 15m). Most calls return in under 2 seconds (process already
+// running). The 15-minute ceiling covers the cold-binary spawn-after-download
+// case on slow links (Jetson Wi-Fi, multi-GB CUDA images) while still
+// failing fast enough to surface real worker hangs.
 //
-// For force-reinstall (admin-driven Upgrade), use UpgradeBackend instead —
+// For force-reinstall (admin-driven Upgrade), use UpgradeBackend instead -
 // it lives on a different NATS subject so it cannot head-of-line-block
 // routine load traffic on the same worker.
-func (a *RemoteUnloaderAdapter) InstallBackend(nodeID, backendType, modelID, galleriesJSON, uri, name, alias string, replicaIndex int) (*messaging.BackendInstallReply, error) {
+func (a *RemoteUnloaderAdapter) InstallBackend(
+	nodeID, backendType, modelID, galleriesJSON, uri, name, alias string,
+	replicaIndex int,
+	opID string,
+	onProgress func(messaging.BackendInstallProgressEvent),
+) (*messaging.BackendInstallReply, error) {
 	subject := messaging.SubjectNodeBackendInstall(nodeID)
-	xlog.Info("Sending NATS backend.install", "nodeID", nodeID, "backend", backendType, "modelID", modelID, "replica", replicaIndex)
+	xlog.Info("Sending NATS backend.install", "nodeID", nodeID, "backend", backendType, "modelID", modelID, "replica", replicaIndex, "opID", opID)
 
-	return messaging.RequestJSON[messaging.BackendInstallRequest, messaging.BackendInstallReply](a.nats, subject, messaging.BackendInstallRequest{
+	// Subscribe to the per-op progress subject BEFORE publishing the install
+	// request so we don't miss early events. When onProgress is nil OR opID
+	// is empty (the reconciler-driven retry path), skip subscription entirely:
+	// silent installs cost nothing extra.
+	var sub messaging.Subscription
+	if onProgress != nil && opID != "" {
+		progressSubject := messaging.SubjectNodeBackendInstallProgress(nodeID, opID)
+		s, subErr := a.nats.Subscribe(progressSubject, func(raw []byte) {
+			var ev messaging.BackendInstallProgressEvent
+			if err := json.Unmarshal(raw, &ev); err != nil {
+				xlog.Debug("malformed install progress event", "subject", progressSubject, "error", err)
+				return
+			}
+			// Goroutine guard: a slow onProgress callback must not stall
+			// the NATS reader thread.
+			//
+			// NOTE: events spawn one goroutine each, so ordering at the
+			// consumer is best-effort. In practice the worker debounces to
+			// ~250ms which is far larger than goroutine scheduling jitter,
+			// so reordering is rare. The worker's final Flush() event is
+			// intended to win as the terminal tick. A future hardening pass
+			// could add a Seq uint64 field to BackendInstallProgressEvent
+			// and drop stale-by-seq at the bridge if reordering becomes a
+			// real UX issue.
+			go onProgress(ev)
+		})
+		if subErr != nil {
+			xlog.Warn("Failed to subscribe to install progress subject; proceeding without progress streaming",
+				"subject", progressSubject, "error", subErr)
+		} else {
+			sub = s
+		}
+	}
+
+	reply, err := messaging.RequestJSON[messaging.BackendInstallRequest, messaging.BackendInstallReply](a.nats, subject, messaging.BackendInstallRequest{
 		Backend:          backendType,
 		ModelID:          modelID,
 		BackendGalleries: galleriesJSON,
@@ -106,29 +168,46 @@ func (a *RemoteUnloaderAdapter) InstallBackend(nodeID, backendType, modelID, gal
 		Name:             name,
 		Alias:            alias,
 		ReplicaIndex:     int32(replicaIndex),
-	}, 3*time.Minute)
+		OpID:             opID,
+	}, a.installTimeout)
+
+	if sub != nil {
+		_ = sub.Unsubscribe()
+	}
+
+	if err != nil && isNATSTimeout(err) {
+		return nil, fmt.Errorf("%w (subject=%s nodeID=%s backend=%s): %v",
+			galleryop.ErrWorkerStillInstalling, subject, nodeID, backendType, err)
+	}
+	return reply, err
 }
 
 // UpgradeBackend sends a backend.upgrade request-reply to a worker node.
 // The worker stops every live process for this backend, force-reinstalls
 // from the gallery (overwriting the on-disk artifact), and replies. The
 // next routine InstallBackend call spawns a fresh process with the new
-// binary — upgrade itself does not start a process.
+// binary - upgrade itself does not start a process.
 //
-// Timeout: 15 minutes. Real-world worst case observed: 8–10 minutes for
-// large CUDA-l4t backend images on Jetson over WiFi.
+// Timeout: configured via DistributedConfig.BackendUpgradeTimeoutOrDefault
+// (default 15m). Real-world worst case observed: 8-10 minutes for large
+// CUDA-l4t backend images on Jetson over WiFi.
 func (a *RemoteUnloaderAdapter) UpgradeBackend(nodeID, backendType, galleriesJSON, uri, name, alias string, replicaIndex int) (*messaging.BackendUpgradeReply, error) {
 	subject := messaging.SubjectNodeBackendUpgrade(nodeID)
 	xlog.Info("Sending NATS backend.upgrade", "nodeID", nodeID, "backend", backendType, "replica", replicaIndex)
 
-	return messaging.RequestJSON[messaging.BackendUpgradeRequest, messaging.BackendUpgradeReply](a.nats, subject, messaging.BackendUpgradeRequest{
+	reply, err := messaging.RequestJSON[messaging.BackendUpgradeRequest, messaging.BackendUpgradeReply](a.nats, subject, messaging.BackendUpgradeRequest{
 		Backend:          backendType,
 		BackendGalleries: galleriesJSON,
 		URI:              uri,
 		Name:             name,
 		Alias:            alias,
 		ReplicaIndex:     int32(replicaIndex),
-	}, 15*time.Minute)
+	}, a.upgradeTimeout)
+	if err != nil && isNATSTimeout(err) {
+		return nil, fmt.Errorf("%w (subject=%s nodeID=%s backend=%s): %v",
+			galleryop.ErrWorkerStillInstalling, subject, nodeID, backendType, err)
+	}
+	return reply, err
 }
 
 // installWithForceFallback is the rolling-update fallback used by
@@ -141,7 +220,7 @@ func (a *RemoteUnloaderAdapter) installWithForceFallback(nodeID, backendType, ga
 	subject := messaging.SubjectNodeBackendInstall(nodeID)
 	xlog.Warn("Falling back to legacy backend.install Force=true (old worker)", "nodeID", nodeID, "backend", backendType)
 
-	return messaging.RequestJSON[messaging.BackendInstallRequest, messaging.BackendInstallReply](a.nats, subject, messaging.BackendInstallRequest{
+	reply, err := messaging.RequestJSON[messaging.BackendInstallRequest, messaging.BackendInstallReply](a.nats, subject, messaging.BackendInstallRequest{
 		Backend:          backendType,
 		BackendGalleries: galleriesJSON,
 		URI:              uri,
@@ -149,7 +228,12 @@ func (a *RemoteUnloaderAdapter) installWithForceFallback(nodeID, backendType, ga
 		Alias:            alias,
 		ReplicaIndex:     int32(replicaIndex),
 		Force:            true,
-	}, 15*time.Minute)
+	}, a.upgradeTimeout)
+	if err != nil && isNATSTimeout(err) {
+		return nil, fmt.Errorf("%w (subject=%s nodeID=%s backend=%s): %v",
+			galleryop.ErrWorkerStillInstalling, subject, nodeID, backendType, err)
+	}
+	return reply, err
 }
 
 // ListBackends queries a worker node for its installed backends via NATS request-reply.
@@ -227,4 +311,15 @@ func (a *RemoteUnloaderAdapter) DeleteModelFiles(modelName string) error {
 func (a *RemoteUnloaderAdapter) StopNode(nodeID string) error {
 	subject := messaging.SubjectNodeStop(nodeID)
 	return a.nats.Publish(subject, nil)
+}
+
+// isNATSTimeout returns true if err looks like a NATS request-reply timeout.
+// nats.ErrTimeout is the canonical sentinel; context.DeadlineExceeded can
+// also surface depending on the client's path; we accept both, plus a
+// string-match fallback for clients that return a bare error.
+func isNATSTimeout(err error) bool {
+	if errors.Is(err, nats.ErrTimeout) || errors.Is(err, context.DeadlineExceeded) {
+		return true
+	}
+	return err != nil && strings.Contains(err.Error(), "nats: timeout")
 }

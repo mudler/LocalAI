@@ -1,14 +1,33 @@
+import { useState } from 'react'
 import { useOperations } from '../hooks/useOperations'
+
+const nodeStatusLabels = {
+  success: 'Done',
+  error: 'Failed',
+  queued: 'Queued',
+  running_on_worker: 'Worker busy',
+  downloading: 'Downloading',
+}
+
+const runningOnWorkerTooltip = 'NATS round-trip timed out, but the worker is still installing in the background. The reconciler will confirm completion.'
 
 export default function OperationsBar() {
   const { operations, cancelOperation, dismissFailedOp } = useOperations()
+  const [expanded, setExpanded] = useState({})
 
   if (operations.length === 0) return null
 
+  const toggle = (key) => setExpanded((m) => ({ ...m, [key]: !m[key] }))
+
   return (
     <div className="operations-bar">
-      {operations.map(op => (
-        <div key={op.jobID || op.id} className="operation-item">
+      {operations.map(op => {
+        const key = op.jobID || op.id
+        const nodes = Array.isArray(op.nodes) ? op.nodes : []
+        const canExpand = nodes.length > 1
+        const isOpen = !!expanded[key]
+        return (
+        <div key={key} className="operation-item">
           <div className="operation-info">
             {op.error ? (
               <i className="fas fa-circle-exclamation" style={{ color: 'var(--color-error)', marginRight: 'var(--spacing-xs)' }} />
@@ -80,8 +99,55 @@ export default function OperationsBar() {
               <i className="fas fa-xmark" />
             </button>
           ) : null}
+          {canExpand && (
+            <button
+              type="button"
+              className="operation-expand"
+              onClick={() => toggle(key)}
+              aria-expanded={isOpen}
+              title={isOpen ? 'Hide per-node detail' : `Show ${nodes.length} nodes`}
+            >
+              <i className={`fas fa-chevron-${isOpen ? 'up' : 'down'}`} />
+              <span className="operation-expand-label">{nodes.length} nodes</span>
+            </button>
+          )}
+          {canExpand && isOpen && (
+            <ul className="operation-nodes-list">
+              {nodes.map((n) => (
+                <li key={n.node_id} className={`operation-node operation-node-${n.status}`}>
+                  <span
+                    className={`operation-node-status operation-node-status-${n.status}`}
+                    title={n.status === 'running_on_worker' ? runningOnWorkerTooltip : undefined}
+                  >
+                    {nodeStatusLabels[n.status] || n.status}
+                  </span>
+                  <span className="operation-node-name">{n.node_name || n.node_id}</span>
+                  {n.file_name && <span className="operation-node-file">{n.file_name}</span>}
+                  {(n.current || n.total) && (
+                    <span className="operation-node-bytes">
+                      {n.current || '?'} / {n.total || '?'}
+                    </span>
+                  )}
+                  {n.percentage > 0 && (
+                    <span className="operation-node-pct">{Math.round(n.percentage)}%</span>
+                  )}
+                  {n.error && (
+                    <span className="operation-node-error" title={n.error}>
+                      {n.error.length > 80 ? n.error.slice(0, 80) + '...' : n.error}
+                    </span>
+                  )}
+                  {n.percentage > 0 && n.percentage < 100 && (
+                    <div className="operation-node-bar-container">
+                      <div className="operation-node-bar" style={{ width: `${n.percentage}%` }} />
+                    </div>
+                  )}
+                </li>
+              ))}
+            </ul>
+          )}
         </div>
-      ))}
+        )
+      })}
     </div>
   )
 }

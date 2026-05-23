@@ -218,9 +218,15 @@ export function useChat(initialModel = '') {
           })
           userFiles.push({ name: file.name, type: 'audio' })
         } else {
-          // Text/PDF files - append to content
-          userFiles.push({ name: file.name, type: 'file', content: file.textContent || '' })
-        }
+			// Text/PDF files - append to content
+			if (file.textContent) {
+				messageContent.push({
+					type: 'text',
+					text: `\n\n--- File: ${file.name} ---\n${file.textContent}\n--- End of ${file.name} ---`,
+				})
+			}
+			userFiles.push({ name: file.name, type: 'file', content: file.textContent || '' })
+		}
       }
     } else {
       messageContent = content

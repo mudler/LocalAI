@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"sync/atomic"
+	"time"
 
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/services/galleryop"
@@ -175,7 +176,7 @@ var _ = Describe("Model and Backend Managers", Label("Distributed"), func() {
 			appCfg := config.NewApplicationConfig()
 			appCfg.SystemState = ss
 
-			adapter := nodes.NewRemoteUnloaderAdapter(registry, infra.NC)
+			adapter := nodes.NewRemoteUnloaderAdapter(registry, infra.NC, 3*time.Minute, 15*time.Minute)
 			distMgr := nodes.NewDistributedModelManager(appCfg, ml, adapter)
 
 			err = distMgr.DeleteModel("big-model")
@@ -251,8 +252,8 @@ var _ = Describe("Model and Backend Managers", Label("Distributed"), func() {
 			appCfg := config.NewApplicationConfig()
 			appCfg.SystemState = ss
 
-			adapter := nodes.NewRemoteUnloaderAdapter(registry, infra.NC)
-			distMgr := nodes.NewDistributedBackendManager(appCfg, ml, adapter, registry)
+			adapter := nodes.NewRemoteUnloaderAdapter(registry, infra.NC, 3*time.Minute, 15*time.Minute)
+			distMgr := nodes.NewDistributedBackendManager(appCfg, ml, adapter, registry, nil)
 
 			err = distMgr.DeleteBackend("my-backend")
 			Expect(err).ToNot(HaveOccurred())
@@ -298,8 +299,8 @@ var _ = Describe("Model and Backend Managers", Label("Distributed"), func() {
 			appCfg := config.NewApplicationConfig()
 			appCfg.SystemState = ss
 
-			adapter := nodes.NewRemoteUnloaderAdapter(registry, infra.NC)
-			distMgr := nodes.NewDistributedBackendManager(appCfg, ml, adapter, registry)
+			adapter := nodes.NewRemoteUnloaderAdapter(registry, infra.NC, 3*time.Minute, 15*time.Minute)
+			distMgr := nodes.NewDistributedBackendManager(appCfg, ml, adapter, registry, nil)
 
 			// Should NOT return an error even though the backend doesn't exist locally
 			err = distMgr.DeleteBackend("remote-only-backend")

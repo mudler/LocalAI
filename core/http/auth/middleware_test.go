@@ -303,4 +303,122 @@ var _ = Describe("Auth Middleware", func() {
 			}
 		})
 	})
+
+	Describe("auth context plumbing for usage source", func() {
+		// probeApp builds a minimal echo app with the auth middleware and a single
+		// "/probe" route that captures the user, source, and apikey from context.
+		type probe struct {
+			user   *auth.User
+			source string
+			key    *auth.UserAPIKey
+		}
+		probeApp := func(db *gorm.DB, appConfig *config.ApplicationConfig, p *probe) *echo.Echo {
+			e := echo.New()
+			e.Use(auth.Middleware(db, appConfig))
+			e.GET("/probe", func(c echo.Context) error {
+				p.user = auth.GetUser(c)
+				p.source = auth.GetSource(c)
+				p.key = auth.GetAPIKey(c)
+				return c.NoContent(http.StatusOK)
+			})
+			return e
+		}
+
+		It("session cookie sets source=web, apikey=nil", func() {
+			db := testDB()
+			appConfig := config.NewApplicationConfig()
+			user := createTestUser(db, "alice@example.com", auth.RoleUser, auth.ProviderLocal)
+			token := createTestSession(db, user.ID)
+
+			var p probe
+			app := probeApp(db, appConfig, &p)
+			rec := doRequest(app, http.MethodGet, "/probe", withSessionCookie(token))
+
+			Expect(rec.Code).To(Equal(http.StatusOK))
+			Expect(p.user).ToNot(BeNil())
+			Expect(p.user.ID).To(Equal(user.ID))
+			Expect(p.source).To(Equal(auth.UsageSourceWeb))
+			Expect(p.key).To(BeNil())
+		})
+
+		It("Bearer session token sets source=web, apikey=nil", func() {
+			db := testDB()
+			appConfig := config.NewApplicationConfig()
+			user := createTestUser(db, "alice@example.com", auth.RoleUser, auth.ProviderLocal)
+			token := createTestSession(db, user.ID)
+
+			var p probe
+			app := probeApp(db, appConfig, &p)
+			rec := doRequest(app, http.MethodGet, "/probe", withBearerToken(token))
+
+			Expect(rec.Code).To(Equal(http.StatusOK))
+			Expect(p.user).ToNot(BeNil())
+			Expect(p.user.ID).To(Equal(user.ID))
+			Expect(p.source).To(Equal(auth.UsageSourceWeb))
+			Expect(p.key).To(BeNil())
+		})
+
+		It("Bearer API key sets source=apikey and exposes the resolved *UserAPIKey", func() {
+			db := testDB()
+			appConfig := config.NewApplicationConfig()
+			user := createTestUser(db, "alice@example.com", auth.RoleUser, auth.ProviderLocal)
+			plaintext, key, err := auth.CreateAPIKey(db, user.ID, "ci", auth.RoleUser, appConfig.Auth.APIKeyHMACSecret, nil)
+			Expect(err).ToNot(HaveOccurred())
+
+			var p probe
+			app := probeApp(db, appConfig, &p)
+			rec := doRequest(app, http.MethodGet, "/probe", withBearerToken(plaintext))
+
+			Expect(rec.Code).To(Equal(http.StatusOK))
+			Expect(p.source).To(Equal(auth.UsageSourceAPIKey))
+			Expect(p.key).ToNot(BeNil())
+			Expect(p.key.ID).To(Equal(key.ID))
+		})
+
+		It("x-api-key header sets source=apikey", func() {
+			db := testDB()
+			appConfig := config.NewApplicationConfig()
+			user := createTestUser(db, "alice@example.com", auth.RoleUser, auth.ProviderLocal)
+			plaintext, _, err := auth.CreateAPIKey(db, user.ID, "ci", auth.RoleUser, appConfig.Auth.APIKeyHMACSecret, nil)
+			Expect(err).ToNot(HaveOccurred())
+
+			var p probe
+			app := probeApp(db, appConfig, &p)
+			rec := doRequest(app, http.MethodGet, "/probe", withXApiKey(plaintext))
+
+			Expect(rec.Code).To(Equal(http.StatusOK))
+			Expect(p.source).To(Equal(auth.UsageSourceAPIKey))
+			Expect(p.key).ToNot(BeNil())
+		})
+
+		It("token cookie sets source=apikey", func() {
+			db := testDB()
+			appConfig := config.NewApplicationConfig()
+			user := createTestUser(db, "alice@example.com", auth.RoleUser, auth.ProviderLocal)
+			plaintext, _, err := auth.CreateAPIKey(db, user.ID, "ci", auth.RoleUser, appConfig.Auth.APIKeyHMACSecret, nil)
+			Expect(err).ToNot(HaveOccurred())
+
+			var p probe
+			app := probeApp(db, appConfig, &p)
+			rec := doRequest(app, http.MethodGet, "/probe", withTokenCookie(plaintext))
+
+			Expect(rec.Code).To(Equal(http.StatusOK))
+			Expect(p.source).To(Equal(auth.UsageSourceAPIKey))
+			Expect(p.key).ToNot(BeNil())
+		})
+
+		It("legacy env key sets source=legacy, apikey=nil", func() {
+			db := testDB()
+			appConfig := config.NewApplicationConfig()
+			appConfig.ApiKeys = []string{"legacy-secret"}
+
+			var p probe
+			app := probeApp(db, appConfig, &p)
+			rec := doRequest(app, http.MethodGet, "/probe", withBearerToken("legacy-secret"))
+
+			Expect(rec.Code).To(Equal(http.StatusOK))
+			Expect(p.source).To(Equal(auth.UsageSourceLegacy))
+			Expect(p.key).To(BeNil())
+		})
+	})
 })

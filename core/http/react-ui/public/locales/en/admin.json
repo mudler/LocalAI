@@ -53,7 +53,30 @@
   },
   "usage": {
     "title": "Usage",
-    "subtitle": "API token usage statistics"
+    "subtitle": "API token usage statistics",
+    "sources": {
+      "tab": "Sources",
+      "mixTitle": "Source mix",
+      "ribbonAria": "{{apikey}}% API keys, {{web}}% Web UI, {{legacy}}% Legacy",
+      "topSources": "Top sources over time",
+      "searchPlaceholder": "Search by name or prefix",
+      "sortBy": "Sort",
+      "sortTokens": "Tokens",
+      "sortRequests": "Requests",
+      "sortLastUsed": "Last used",
+      "sortName": "Name",
+      "sortUser": "User",
+      "webUI": "Web UI",
+      "legacy": "Legacy",
+      "revoked": "revoked",
+      "filteredTo": "Filtered to: {{name}}",
+      "clearFilter": "Clear filter",
+      "other": "Other ({{count}})",
+      "noTrafficShort": "No requests in this period.",
+      "noKeysYet": "Once requests come in, you'll see them broken down here.",
+      "createKey": "Create your first API key",
+      "truncatedWarning": "Showing top 200 keys. Apply a filter to narrow further."
+    }
   },
   "explorer": {
     "title": "Explorer",

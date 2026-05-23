@@ -67,7 +67,7 @@ func ModelTTS(
 
 	var startTime time.Time
 	if appConfig.EnableTracing {
-		trace.InitBackendTracingIfEnabled(appConfig.TracingMaxItems)
+		trace.InitBackendTracingIfEnabled(appConfig.TracingMaxItems, appConfig.TracingMaxBodyBytes)
 		startTime = time.Now()
 	}
 
@@ -93,7 +93,7 @@ func ModelTTS(
 			"language": language,
 		}
 		if err == nil && res.Success {
-			if snippet := trace.AudioSnippet(filePath); snippet != nil {
+			if snippet := trace.AudioSnippet(filePath, appConfig.TracingMaxBodyBytes); snippet != nil {
 				maps.Copy(data, snippet)
 			}
 		}
@@ -161,7 +161,7 @@ func ModelTTSStream(
 
 	var startTime time.Time
 	if appConfig.EnableTracing {
-		trace.InitBackendTracingIfEnabled(appConfig.TracingMaxItems)
+		trace.InitBackendTracingIfEnabled(appConfig.TracingMaxItems, appConfig.TracingMaxBodyBytes)
 		startTime = time.Now()
 	}
 
@@ -260,7 +260,7 @@ func ModelTTSStream(
 			"streaming": true,
 		}
 		if resultErr == nil && len(snippetPCM) > 0 {
-			if snippet := trace.AudioSnippetFromPCM(snippetPCM, int(sampleRate), totalPCMBytes); snippet != nil {
+			if snippet := trace.AudioSnippetFromPCM(snippetPCM, int(sampleRate), totalPCMBytes, appConfig.TracingMaxBodyBytes); snippet != nil {
 				maps.Copy(data, snippet)
 			}
 		}

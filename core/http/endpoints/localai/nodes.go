@@ -16,8 +16,11 @@ import (
 	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
 	"github.com/labstack/echo/v4"
+	"github.com/mudler/LocalAI/core/config"
+	"github.com/mudler/LocalAI/core/gallery"
 	"github.com/mudler/LocalAI/core/http/auth"
 	"github.com/mudler/LocalAI/core/schema"
+	"github.com/mudler/LocalAI/core/services/galleryop"
 	"github.com/mudler/LocalAI/core/services/nodes"
 	"github.com/mudler/xlog"
 	"gorm.io/gorm"
@@ -381,14 +384,24 @@ func ResumeNodeEndpoint(registry *nodes.NodeRegistry) echo.HandlerFunc {
 	}
 }
 
-// InstallBackendOnNodeEndpoint triggers backend installation on a worker node via NATS.
+// InstallBackendOnNodeEndpoint triggers backend installation on a worker node.
+// Async: enqueues a ManagementOp on the gallery service channel and returns a
+// jobID immediately. The gallery service worker goroutine drives the actual
+// install via DistributedBackendManager.InstallBackend, which honors the op's
+// TargetNodeID to scope the fan-out to one node. The UI polls /api/backends/job/:uid
+// for progress, mirroring /api/backends/install/:id.
+//
 // Backend can be either a gallery ID (resolved against BackendGalleries) or a
-// direct URI install (URI + Name + optional Alias) — same shape as the
+// direct URI install (URI + Name + optional Alias) - same shape as the
 // standalone /api/backends/install-external path, just scoped to one node.
-func InstallBackendOnNodeEndpoint(unloader nodes.NodeCommandSender) echo.HandlerFunc {
+//
+// The legacy unloader argument is retained for signature symmetry with
+// DeleteBackendOnNodeEndpoint / ListBackendsOnNodeEndpoint but is no longer
+// used here - the async path goes through galleryService.
+func InstallBackendOnNodeEndpoint(_ nodes.NodeCommandSender, galleryService *galleryop.GalleryService, opcache *galleryop.OpCache, appConfig *config.ApplicationConfig) echo.HandlerFunc {
 	return func(c echo.Context) error {
-		if unloader == nil {
-			return c.JSON(http.StatusServiceUnavailable, nodeError(http.StatusServiceUnavailable, "NATS not configured"))
+		if galleryService == nil {
+			return c.JSON(http.StatusServiceUnavailable, nodeError(http.StatusServiceUnavailable, "gallery service not configured"))
 		}
 		nodeID := c.Param("id")
 		var req struct {
@@ -401,25 +414,65 @@ func InstallBackendOnNodeEndpoint(unloader nodes.NodeCommandSender) echo.Handler
 		if err := c.Bind(&req); err != nil {
 			return c.JSON(http.StatusBadRequest, nodeError(http.StatusBadRequest, "invalid request body"))
 		}
-		// Either a gallery backend name or a direct URI must be supplied.
 		if req.Backend == "" && req.URI == "" {
 			return c.JSON(http.StatusBadRequest, nodeError(http.StatusBadRequest, "backend name or uri required"))
 		}
-		// Admin-driven backend install: not tied to a specific replica slot
-		// (no model is being loaded). Pass replica 0 to match the worker's
-		// admin process-key convention (`backend#0`). The worker's fast path
-		// takes over if the backend is already running — upgrades go through
-		// the dedicated /api/backends/upgrade path on backend.upgrade.
-		reply, err := unloader.InstallBackend(nodeID, req.Backend, "", req.BackendGalleries, req.URI, req.Name, req.Alias, 0)
+
+		jobUUID, err := uuid.NewUUID()
 		if err != nil {
-			xlog.Error("Failed to install backend on node", "node", nodeID, "backend", req.Backend, "uri", req.URI, "error", err)
-			return c.JSON(http.StatusInternalServerError, nodeError(http.StatusInternalServerError, "failed to install backend on node"))
+			return c.JSON(http.StatusInternalServerError, nodeError(http.StatusInternalServerError, "failed to generate job id"))
 		}
-		if !reply.Success {
-			xlog.Error("Backend install failed on node", "node", nodeID, "backend", req.Backend, "uri", req.URI, "error", reply.Error)
-			return c.JSON(http.StatusInternalServerError, nodeError(http.StatusInternalServerError, "backend installation failed"))
+		jobID := jobUUID.String()
+
+		// Cache key: for gallery installs, use the backend slug; for URI
+		// installs prefer the provided Name (falling back to URI). All keys
+		// are node-scoped so concurrent installs of the same backend on
+		// different nodes do not stomp each other in opcache.
+		backendKey := req.Backend
+		if backendKey == "" {
+			backendKey = req.Name
+			if backendKey == "" {
+				backendKey = req.URI
+			}
 		}
-		return c.JSON(http.StatusOK, map[string]string{"message": "backend installed"})
+		cacheKey := galleryop.NodeScopedKey(nodeID, backendKey)
+		opcache.SetBackend(cacheKey, jobID)
+
+		// Optional caller-supplied galleries override. Mirrors the standalone
+		// install path so an admin can point at a private gallery.
+		galleries := appConfig.BackendGalleries
+		if req.BackendGalleries != "" {
+			var custom []config.Gallery
+			if err := json.Unmarshal([]byte(req.BackendGalleries), &custom); err != nil {
+				xlog.Warn("Ignoring malformed backend_galleries override; falling back to configured galleries", "error", err, "nodeID", nodeID)
+			} else if len(custom) > 0 {
+				galleries = custom
+			}
+		}
+
+		ctx, cancelFunc := context.WithCancel(context.Background())
+		op := galleryop.ManagementOp[gallery.GalleryBackend, any]{
+			ID:                 jobID,
+			GalleryElementName: req.Backend,
+			Galleries:          galleries,
+			TargetNodeID:       nodeID,
+			ExternalURI:        req.URI,
+			ExternalName:       req.Name,
+			ExternalAlias:      req.Alias,
+			Context:            ctx,
+			CancelFunc:         cancelFunc,
+		}
+		galleryService.StoreCancellation(jobID, cancelFunc)
+		go func() {
+			galleryService.BackendGalleryChannel <- op
+		}()
+
+		xlog.Info("Node-scoped backend install dispatched", "node", nodeID, "backend", req.Backend, "uri", req.URI, "jobID", jobID)
+		return c.JSON(http.StatusAccepted, map[string]string{
+			"jobID":     jobID,
+			"statusUrl": "/api/backends/job/" + jobID,
+			"message":   "backend installation started",
+		})
 	}
 }
 

@@ -97,7 +97,8 @@
   },
   "toasts": {
     "selectModel": "Seleziona un modello",
-    "copied": "Copiato negli appunti"
+    "copied": "Copiato negli appunti",
+    "copyFailed": "Impossibile copiare negli appunti"
   },
   "menu": {
     "trigger": "Chat",

@@ -3,13 +3,16 @@ package nodes
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"sync"
 	"time"
 
+	"github.com/nats-io/nats.go"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
+	"github.com/mudler/LocalAI/core/services/galleryop"
 	"github.com/mudler/LocalAI/core/services/messaging"
 )
 
@@ -60,6 +63,7 @@ type publishCall struct {
 type requestCall struct {
 	Subject string
 	Data    []byte
+	Timeout time.Duration
 }
 
 func (f *fakeMessagingClient) Publish(subject string, data any) error {
@@ -93,10 +97,10 @@ func (f *fakeMessagingClient) SubscribeReply(_ string, _ func(data []byte, reply
 	return &fakeSubscription{}, nil
 }
 
-func (f *fakeMessagingClient) Request(subject string, data []byte, _ time.Duration) ([]byte, error) {
+func (f *fakeMessagingClient) Request(subject string, data []byte, timeout time.Duration) ([]byte, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
-	f.requestCalls = append(f.requestCalls, requestCall{Subject: subject, Data: data})
+	f.requestCalls = append(f.requestCalls, requestCall{Subject: subject, Data: data, Timeout: timeout})
 	return f.requestReply, f.requestErr
 }
 
@@ -119,7 +123,7 @@ var _ = Describe("RemoteUnloaderAdapter", func() {
 	BeforeEach(func() {
 		locator = &fakeModelLocator{}
 		mc = &fakeMessagingClient{}
-		adapter = NewRemoteUnloaderAdapter(locator, mc)
+		adapter = NewRemoteUnloaderAdapter(locator, mc, 3*time.Minute, 15*time.Minute)
 	})
 
 	Describe("UnloadRemoteModel", func() {
@@ -154,7 +158,7 @@ var _ = Describe("RemoteUnloaderAdapter", func() {
 			}
 			// Use a messaging client that fails the first Publish call only.
 			failOnce := &failOnceMessagingClient{inner: mc, failOn: 0}
-			adapter = NewRemoteUnloaderAdapter(locator, failOnce)
+			adapter = NewRemoteUnloaderAdapter(locator, failOnce, 3*time.Minute, 15*time.Minute)
 
 			Expect(adapter.UnloadRemoteModel("llama")).To(Succeed())
 
@@ -259,3 +263,96 @@ func (f *failOnceMessagingClient) Request(subject string, data []byte, timeout t
 
 func (f *failOnceMessagingClient) IsConnected() bool { return true }
 func (f *failOnceMessagingClient) Close()            {}
+
+var _ = Describe("RemoteUnloaderAdapter timeout configuration", func() {
+	It("passes the configured install timeout to the messaging client", func() {
+		mc := newScriptedMessagingClient()
+		mc.scriptReply(messaging.SubjectNodeBackendInstall("n1"), messaging.BackendInstallReply{Success: true, Address: "127.0.0.1:0"})
+		adapter := NewRemoteUnloaderAdapter(nil, mc, 7*time.Minute, 11*time.Minute)
+
+		_, err := adapter.InstallBackend("n1", "llama-cpp", "", "[]", "", "", "", 0, "", nil)
+		Expect(err).ToNot(HaveOccurred())
+
+		Expect(mc.calls).To(HaveLen(1))
+		Expect(mc.calls[0].Timeout).To(Equal(7 * time.Minute))
+	})
+
+	It("passes the configured upgrade timeout to the messaging client", func() {
+		mc := newScriptedMessagingClient()
+		mc.scriptReply(messaging.SubjectNodeBackendUpgrade("n1"), messaging.BackendUpgradeReply{Success: true})
+		adapter := NewRemoteUnloaderAdapter(nil, mc, 7*time.Minute, 11*time.Minute)
+
+		_, err := adapter.UpgradeBackend("n1", "llama-cpp", "[]", "", "", "", 0)
+		Expect(err).ToNot(HaveOccurred())
+
+		Expect(mc.calls).To(HaveLen(1))
+		Expect(mc.calls[0].Timeout).To(Equal(11 * time.Minute))
+	})
+})
+
+var _ = Describe("RemoteUnloaderAdapter NATS timeout handling", func() {
+	It("wraps nats.ErrTimeout from InstallBackend in galleryop.ErrWorkerStillInstalling", func() {
+		mc := newScriptedMessagingClient()
+		mc.scriptErr(messaging.SubjectNodeBackendInstall("n1"), nats.ErrTimeout)
+		adapter := NewRemoteUnloaderAdapter(nil, mc, 100*time.Millisecond, 1*time.Second)
+
+		_, err := adapter.InstallBackend("n1", "vllm", "", "[]", "", "", "", 0, "", nil)
+		Expect(err).To(HaveOccurred())
+		Expect(errors.Is(err, galleryop.ErrWorkerStillInstalling)).To(BeTrue(),
+			"expected wrapped ErrWorkerStillInstalling, got %v", err)
+	})
+
+	It("does NOT wrap non-timeout errors", func() {
+		mc := newScriptedMessagingClient()
+		mc.scriptErr(messaging.SubjectNodeBackendInstall("n1"), nats.ErrNoResponders)
+		adapter := NewRemoteUnloaderAdapter(nil, mc, 100*time.Millisecond, 1*time.Second)
+
+		_, err := adapter.InstallBackend("n1", "vllm", "", "[]", "", "", "", 0, "", nil)
+		Expect(err).To(HaveOccurred())
+		Expect(errors.Is(err, galleryop.ErrWorkerStillInstalling)).To(BeFalse())
+		Expect(errors.Is(err, nats.ErrNoResponders)).To(BeTrue())
+	})
+})
+
+var _ = Describe("RemoteUnloaderAdapter install progress streaming", func() {
+	It("forwards BackendInstallProgressEvent values into the onProgress callback when the worker publishes them", func() {
+		mc := newScriptedMessagingClient()
+		mc.scriptReply(messaging.SubjectNodeBackendInstall("n1"), messaging.BackendInstallReply{Success: true, Address: "127.0.0.1:0"})
+		mc.scheduleProgressPublish("n1", "op-abc", []messaging.BackendInstallProgressEvent{
+			{OpID: "op-abc", NodeID: "n1", Backend: "vllm", FileName: "vllm.tar.zst", Current: "100 MB", Total: "1 GB", Percentage: 10},
+			{OpID: "op-abc", NodeID: "n1", Backend: "vllm", FileName: "vllm.tar.zst", Current: "500 MB", Total: "1 GB", Percentage: 50},
+		})
+
+		adapter := NewRemoteUnloaderAdapter(nil, mc, 1*time.Second, 1*time.Second)
+		var (
+			received []messaging.BackendInstallProgressEvent
+			mu       sync.Mutex
+		)
+		onProgress := func(ev messaging.BackendInstallProgressEvent) {
+			mu.Lock()
+			defer mu.Unlock()
+			received = append(received, ev)
+		}
+
+		_, err := adapter.InstallBackend("n1", "vllm", "", "[]", "", "", "", 0, "op-abc", onProgress)
+		Expect(err).ToNot(HaveOccurred())
+
+		Eventually(func() int {
+			mu.Lock()
+			defer mu.Unlock()
+			return len(received)
+		}, "1s").Should(Equal(2))
+	})
+
+	It("does NOT subscribe when onProgress is nil (reconciler retry path)", func() {
+		mc := newScriptedMessagingClient()
+		mc.scriptReply(messaging.SubjectNodeBackendInstall("n1"), messaging.BackendInstallReply{Success: true})
+
+		adapter := NewRemoteUnloaderAdapter(nil, mc, 1*time.Second, 1*time.Second)
+		_, err := adapter.InstallBackend("n1", "vllm", "", "[]", "", "", "", 0, "", nil)
+		Expect(err).ToNot(HaveOccurred())
+
+		Expect(mc.subscribeCalls()).To(BeEmpty(),
+			"reconciler-driven retries must not subscribe to the per-op progress subject")
+	})
+})

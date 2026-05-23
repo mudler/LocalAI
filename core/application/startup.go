@@ -17,9 +17,9 @@ import (
 	"github.com/mudler/LocalAI/core/services/jobs"
 	"github.com/mudler/LocalAI/core/services/nodes"
 	"github.com/mudler/LocalAI/core/services/storage"
-	"github.com/mudler/LocalAI/pkg/vram"
 	coreStartup "github.com/mudler/LocalAI/core/startup"
 	"github.com/mudler/LocalAI/internal"
+	"github.com/mudler/LocalAI/pkg/vram"
 
 	"github.com/mudler/LocalAI/pkg/model"
 	"github.com/mudler/LocalAI/pkg/sanitize"
@@ -200,7 +200,7 @@ func New(opts ...config.AppOption) (*Application, error) {
 				nodes.NewDistributedModelManager(options, application.modelLoader, distSvc.Unloader),
 			)
 			application.galleryService.SetBackendManager(
-				nodes.NewDistributedBackendManager(options, application.modelLoader, distSvc.Unloader, distSvc.Registry),
+				nodes.NewDistributedBackendManager(options, application.modelLoader, distSvc.Unloader, distSvc.Registry, application.galleryService),
 			)
 		}
 	}
@@ -551,6 +551,13 @@ func loadRuntimeSettingsFromFile(options *config.ApplicationConfig) {
 		if options.TracingMaxItems == 0 {
 			options.TracingMaxItems = *settings.TracingMaxItems
 		}
+	}
+	if settings.TracingMaxBodyBytes != nil {
+		// Allow the on-disk setting to override the CLI/env default. The
+		// startup default is non-zero (see NewApplicationConfig), so a plain
+		// `== 0` guard like the others would never trigger; we instead respect
+		// any value the file specifies. 0 in the file means "uncapped".
+		options.TracingMaxBodyBytes = *settings.TracingMaxBodyBytes
 	}
 
 	// Branding / whitelabeling. There are no env vars for these — the file is

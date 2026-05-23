@@ -984,6 +984,10 @@ github.com/mudler/memory v0.0.0-20260406210934-424c1ecf2cf8 h1:Ry8RiWy8fZ6Ff4E7d
 github.com/mudler/memory v0.0.0-20260406210934-424c1ecf2cf8/go.mod h1:EA8Ashhd56o32qN7ouPKFSRUs/Z+LrRCF4v6R2Oarm8=
 github.com/mudler/skillserver v0.0.6 h1:ixz6wUekLdTmbnpAavCkTydDF6UdXAG3ncYufSPK9G0=
 github.com/mudler/skillserver v0.0.6/go.mod h1:z3yFhcL9bSykmmh6xgGu0hyoItd4CnxgtWMEWw8uFJU=
+github.com/mudler/skillserver v0.0.7-0.20260520212528-3dae7f041b1e h1:ryXE1UEzGhLkDFYuaxJ0fZ6fg4l++TWfMCTJ1E7bYS8=
+github.com/mudler/skillserver v0.0.7-0.20260520212528-3dae7f041b1e/go.mod h1:z3yFhcL9bSykmmh6xgGu0hyoItd4CnxgtWMEWw8uFJU=
+github.com/mudler/skillserver v0.0.7-0.20260520220837-a7317cbf9145 h1:z59tA3IDYPt71nzH1jpxeaA1LuDw8aZfpTQFNU43Zb8=
+github.com/mudler/skillserver v0.0.7-0.20260520220837-a7317cbf9145/go.mod h1:z3yFhcL9bSykmmh6xgGu0hyoItd4CnxgtWMEWw8uFJU=
 github.com/mudler/water v0.0.0-20250808092830-dd90dcf09025 h1:WFLP5FHInarYGXi6B/Ze204x7Xy6q/I4nCZnWEyPHK0=
 github.com/mudler/water v0.0.0-20250808092830-dd90dcf09025/go.mod h1:QuIFdRstyGJt+MTTkWY+mtD7U6xwjOR6SwKUjmLZtR4=
 github.com/mudler/xlog v0.0.6 h1:3nBV4THK8kY0Y8FDXXvWAnuAJoOyO7EAXteJeAoHUC0=

@@ -13,14 +13,14 @@ else
 fi
 
 # Handle l4t build profiles (Python 3.12, pip fallback) if needed.
-# unsafe-best-match is required on l4t13 because the jetson-ai-lab index
-# lists transitive deps at limited versions — without it uv pins to the
-# first matching index and fails to resolve a compatible wheel from PyPI.
+# Since PyTorch 2.11 (April 2026) PyPI ships aarch64 + cu130 manylinux wheels
+# directly for torch/torchvision/torchaudio and an aarch64 vllm wheel pinned
+# to that torch, so the jetson-ai-lab mirror is no longer needed.
+# https://pytorch.org/blog/vllm-and-pytorch-work-together-to-improve-the-developer-experience-on-aarch64/
 if [ "x${BUILD_PROFILE}" == "xl4t13" ]; then
   PYTHON_VERSION="3.12"
   PYTHON_PATCH="12"
   PY_STANDALONE_TAG="20251120"
-  EXTRA_PIP_INSTALL_FLAGS="${EXTRA_PIP_INSTALL_FLAGS:-} --index-strategy=unsafe-best-match"
 fi
 
 if [ "x${BUILD_PROFILE}" == "xl4t12" ]; then
@@ -42,18 +42,11 @@ if [ "x${BUILD_TYPE}" == "xhipblas" ]; then
     else
         uv pip install vllm==0.14.0 --extra-index-url https://wheels.vllm.ai/rocm/0.14.0/rocm700
     fi
-elif [ "x${BUILD_PROFILE}" == "xl4t13" ]; then
-    # JetPack 7 / L4T arm64 cu130 — vllm comes from the prebuilt SBSA wheel
-    # at jetson-ai-lab. Version is unpinned: the index ships whatever build
-    # matches the cu130/cp312 ABI. unsafe-best-match lets uv fall through
-    # to PyPI for transitive deps not present on the jetson-ai-lab index.
-    if [ "x${USE_PIP}" == "xtrue" ]; then
-        pip install vllm --extra-index-url https://pypi.jetson-ai-lab.io/sbsa/cu130
-    else
-        uv pip install --index-strategy=unsafe-best-match vllm --extra-index-url https://pypi.jetson-ai-lab.io/sbsa/cu130
-    fi
-elif [ "x${BUILD_PROFILE}" == "xcublas13" ]; then
-    # vllm 0.19+ defaults to cu130 wheels on PyPI, no extra index needed.
+elif [ "x${BUILD_PROFILE}" == "xcublas13" ] || [ "x${BUILD_PROFILE}" == "xl4t13" ]; then
+    # cublas13 (x86_64) and l4t13 (aarch64) both pull vllm from PyPI now:
+    # vllm 0.19+ defaults to cu130 wheels on x86_64 and vllm 0.20+ ships an
+    # aarch64 manylinux wheel pinned to torch==2.11.0. No extra index needed
+    # in either case.
     if [ "x${USE_PIP}" == "xtrue" ]; then
         pip install vllm --torch-backend=auto
     else

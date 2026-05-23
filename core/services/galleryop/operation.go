@@ -2,6 +2,7 @@ package galleryop
 
 import (
 	"context"
+	"strings"
 
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/pkg/xsync"
@@ -30,6 +31,12 @@ type ManagementOp[T any, E any] struct {
 	ExternalName  string // Custom name for the backend
 	ExternalAlias string // Custom alias for the backend
 
+	// TargetNodeID scopes a backend install/upgrade to a single worker node.
+	// Empty means fan out to every healthy backend node (the previous behavior).
+	// Set by InstallBackendOnNodeEndpoint so an admin can install a hardware-specific
+	// build on one node without touching the rest of the cluster.
+	TargetNodeID string
+
 	// Upgrade is true if this is an upgrade operation (not a fresh install)
 	Upgrade bool
 }
@@ -46,6 +53,45 @@ type OpStatus struct {
 	GalleryElementName string  `json:"gallery_element_name"`
 	Cancelled          bool    `json:"cancelled"`   // Cancelled is true if the operation was cancelled
 	Cancellable        bool    `json:"cancellable"` // Cancellable is true if the operation can be cancelled
+
+	// Nodes is the per-node breakdown for a fanned-out backend install.
+	// Populated by DistributedBackendManager (per-node terminal status)
+	// and by the Phase 2 progress bridge (per-byte ticks). The
+	// /api/operations handler surfaces this so the UI can render an
+	// expandable per-node view of an in-flight install.
+	Nodes []NodeProgress `json:"nodes,omitempty"`
+}
+
+// NodeStatus values shared between NodeProgress (per-node tick) and the
+// NodeOpStatus surfaced by DistributedBackendManager's fan-out. Defined
+// as exported constants so producers (the manager, the progress bridge)
+// and consumers (the /api/operations handler, the React OperationsBar
+// through its JSON contract) stay in sync via a single source of truth.
+const (
+	NodeStatusQueued          = "queued"            // node accepted the intent but install has not started
+	NodeStatusDownloading     = "downloading"       // worker is actively pulling the OCI image
+	NodeStatusRunningOnWorker = "running_on_worker" // NATS round-trip timed out but worker is still installing
+	NodeStatusSuccess         = "success"           // install completed on this node
+	NodeStatusError           = "error"             // install failed on this node
+)
+
+// NodeProgress is a single node's contribution to a backend install
+// operation. Populated by DistributedBackendManager (per-node terminal
+// status) and by the Phase 2 progress bridge (per-byte ticks). Read by
+// the /api/operations handler so the UI can render an expandable
+// per-node breakdown.
+//
+// Status holds one of the NodeStatus* constants above.
+type NodeProgress struct {
+	NodeID     string  `json:"node_id"`
+	NodeName   string  `json:"node_name"`
+	Status     string  `json:"status"`
+	FileName   string  `json:"file_name,omitempty"`
+	Current    string  `json:"current,omitempty"`
+	Total      string  `json:"total,omitempty"`
+	Percentage float64 `json:"percentage"`
+	Phase      string  `json:"phase,omitempty"`
+	Error      string  `json:"error,omitempty"`
 }
 
 type OpCache struct {
@@ -114,4 +160,32 @@ func (m *OpCache) GetStatus() (map[string]string, map[string]string) {
 	}
 
 	return processingModelsData, taskTypes
+}
+
+// NodeScopedKeyPrefix is the opcache key prefix used by InstallBackendOnNodeEndpoint
+// so per-node installs do not collide on the bare backend name. Format:
+// "node:<nodeID>:<backend>". Read by /api/operations to extract nodeID for the UI.
+const NodeScopedKeyPrefix = "node:"
+
+// NodeScopedKey returns the opcache key for a node-scoped backend operation.
+// The prefix lets ParseNodeScopedKey detach the nodeID back out so the
+// operations endpoint can surface it without storing nodeID separately.
+func NodeScopedKey(nodeID, backend string) string {
+	return NodeScopedKeyPrefix + nodeID + ":" + backend
+}
+
+// ParseNodeScopedKey extracts (nodeID, backend) from a key built by NodeScopedKey.
+// Returns ok=false for keys that lack the prefix or are missing the nodeID or
+// backend segment. Backend names containing colons are preserved because we
+// split on the first colon after the prefix only.
+func ParseNodeScopedKey(key string) (nodeID, backend string, ok bool) {
+	rest, hasPrefix := strings.CutPrefix(key, NodeScopedKeyPrefix)
+	if !hasPrefix {
+		return "", "", false
+	}
+	nodeID, backend, ok = strings.Cut(rest, ":")
+	if !ok || nodeID == "" || backend == "" {
+		return "", "", false
+	}
+	return nodeID, backend, true
 }
