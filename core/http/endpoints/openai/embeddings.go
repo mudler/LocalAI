@@ -102,6 +102,15 @@ func EmbeddingsEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, app
 		jsonResult, _ := json.Marshal(resp)
 		xlog.Debug("Response", "response", string(jsonResult))
 
+		// LocalAI's embeddings endpoint does not currently track per-call
+		// token counts (the gRPC Embedding RPC returns a vector, not a
+		// usage block), so we stamp with zeros. The point of stamping is
+		// that the billing pipeline still sees the request and emits the
+		// localai_billed_requests_total counter; without this the call
+		// would be silently dropped by the unrecorded-counter path. When
+		// embeddings learn to report usage, swap the zeros for real counts.
+		middleware.StampUsage(c, input.Model, 0, 0)
+
 		// Return the prediction in the response body
 		return c.JSON(200, resp)
 	}

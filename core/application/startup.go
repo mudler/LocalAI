@@ -15,8 +15,14 @@ import (
 	"github.com/mudler/LocalAI/core/http/auth"
 	"github.com/mudler/LocalAI/core/services/galleryop"
 	"github.com/mudler/LocalAI/core/services/jobs"
+	"github.com/mudler/LocalAI/core/services/monitoring"
 	"github.com/mudler/LocalAI/core/services/nodes"
+	"github.com/mudler/LocalAI/core/services/routing/admission"
+	"github.com/mudler/LocalAI/core/services/routing/billing"
+	"github.com/mudler/LocalAI/core/services/routing/pii"
+	"github.com/mudler/LocalAI/core/services/routing/router"
 	"github.com/mudler/LocalAI/core/services/storage"
+	"github.com/mudler/LocalAI/pkg/signals"
 	coreStartup "github.com/mudler/LocalAI/core/startup"
 	"github.com/mudler/LocalAI/internal"
 	"github.com/mudler/LocalAI/pkg/vram"
@@ -127,6 +133,117 @@ func New(opts ...config.AppOption) (*Application, error) {
 			}
 		}()
 	}
+
+	// Initialize the OTel + Prometheus metric pipeline before any
+	// counter is created. monitoring.NewLocalAIMetricsService calls
+	// otel.SetMeterProvider, so any subsequent otel.Meter() call —
+	// including billing.NewRecorder below — sees the real provider
+	// rather than the no-op global. Initialising metrics later (in
+	// core/http/app.go) leaves billing's counters bound to a no-op
+	// meter and never reaches /metrics. We deliberately ignore
+	// DisableMetrics here for ordering purposes; the HTTP middleware
+	// that records api_call histograms is still gated.
+	if !options.DisableMetrics {
+		ms, err := monitoring.NewLocalAIMetricsService()
+		if err != nil {
+			xlog.Error("failed to initialize metrics provider", "error", err)
+		} else {
+			application.metricsService = ms
+			// Bind the billing package's counters to the same meter the
+			// metrics service exports. Without this, billing's counters
+			// resolve via the OTel global and never reach /metrics.
+			billing.SetMeter(ms.Meter)
+		}
+	}
+
+	// Wire the routing-module billing recorder. The recorder runs in
+	// every mode (auth on/off, distributed/single-node) so that token
+	// tracking is not gated on auth — a no-auth single-user box still
+	// gets dashboards and `/api/usage` populated.
+	//
+	// fallbackUser is wired *unconditionally* when stats are enabled.
+	// UsageMiddleware uses it as the attribution source whenever
+	// auth.GetUser(c) is nil — that covers (a) no-auth deployments and
+	// (b) internal callers under auth-on (cron flushers, distributed
+	// worker callbacks) that hit a recordable endpoint without a user
+	// in context. The billing.user_id_present invariant still rejects
+	// empty IDs; LocalUser() returns a stable UUID per data path.
+	if !options.DisableStats {
+		var statsBackend billing.StatsBackend
+		switch {
+		case application.authDB != nil:
+			statsBackend = billing.NewGormBackend(application.authDB, 0, 0)
+			xlog.Info("stats: using auth DB for usage records")
+		default:
+			statsBackend = billing.NewMemoryBackend(0)
+			xlog.Info("stats: using in-memory ring buffer (no-auth single-user mode)")
+		}
+		application.fallbackUser = billing.LocalUser(options.DataPath)
+		application.statsRecorder = billing.NewRecorder(statsBackend)
+		// Drain pending records on SIGTERM. The GORM backend buffers up
+		// to maxPending (5k) records across a 5s flush tick, so without
+		// this the last few seconds of usage disappear on graceful exit.
+		signals.RegisterGracefulTerminationHandler(func() {
+			_ = application.statsRecorder.Close()
+		})
+		xlog.Info("stats: fallback user wired", "local_user_id", application.fallbackUser.ID)
+	} else {
+		xlog.Info("stats: disabled by --disable-stats")
+	}
+
+	// Wire the regex PII filter. Default-on: a single-user box gets
+	// the built-in pattern set the first time it starts, with email/
+	// phone/SSN/credit-card on mask and api_key_prefix on block. If
+	// the operator wants different actions, --pii-config points at a
+	// YAML file that overrides per-id; --disable-pii turns it off
+	// entirely.
+	if !options.DisablePII {
+		patterns, err := pii.LoadConfig(options.PIIConfigPath)
+		if err != nil {
+			return nil, fmt.Errorf("pii config: %w", err)
+		}
+		application.piiRedactor = pii.NewRedactor(patterns)
+		application.piiEvents = pii.NewMemoryEventStore(0)
+		// Apply persisted per-pattern overrides — admins toggling
+		// action/disabled via the UI and clicking "Save to disk" land
+		// here on the next start. Bad ids are warned and ignored so a
+		// stale entry doesn't block startup.
+		for id, ov := range options.PIIPatternOverrides {
+			if ov.Action != nil {
+				if err := application.piiRedactor.SetAction(id, pii.Action(*ov.Action)); err != nil {
+					xlog.Warn("pii: persisted override skipped", "pattern", id, "error", err)
+					continue
+				}
+			}
+			if ov.Disabled != nil {
+				if err := application.piiRedactor.SetDisabled(id, *ov.Disabled); err != nil {
+					xlog.Warn("pii: persisted disable skipped", "pattern", id, "error", err)
+				}
+			}
+		}
+		xlog.Info("pii: filter enabled",
+			"patterns", len(patterns),
+			"config_path", options.PIIConfigPath,
+			"persisted_overrides", len(options.PIIPatternOverrides),
+		)
+	} else {
+		xlog.Info("pii: disabled by --disable-pii")
+	}
+
+	// Wire the routing decision log. Always-on when stats are enabled —
+	// the per-router admin page reads this as the live activity feed
+	// and as input to drift checks for subsystem 5.
+	if !options.DisableStats {
+		application.routerDecisions = router.NewMemoryDecisionStore(0)
+	}
+	// Process-wide classifier cache shared across all route middlewares so
+	// the embedding-cache stats endpoint sees a single source of truth.
+	application.routerRegistry = router.NewRegistry()
+
+	// Subsystem 5: admission control. Limiter is always wired so a
+	// model that gains a limits: block via gallery install or YAML
+	// edit takes effect on the next restart without conditional plumbing.
+	application.admissionLimiter = admission.New()
 
 	// Wire JobStore for DB-backed task/job persistence whenever auth DB is available.
 	// This ensures tasks and jobs survive restarts in both single-node and distributed modes.
@@ -289,6 +406,20 @@ func New(opts ...config.AppOption) (*Application, error) {
 	// Note: startupConfigCopy was already created above, so it has the original env var values
 	if options.DynamicConfigsDir != "" {
 		loadRuntimeSettingsFromFile(options)
+	}
+
+	// Wire the cloudproxy MITM listener. Opt-in: empty MITMListen
+	// means "no MITM" — operators must explicitly choose to start
+	// it because clients have to install the generated CA cert.
+	// The handler reuses the global redactor + event store so an
+	// admin who's already configured PII filtering for direct API
+	// traffic doesn't need a parallel config for MITM traffic.
+	// Runs after loadRuntimeSettingsFromFile so a listener configured
+	// via /api/settings is brought back up across restarts.
+	if options.MITMListen != "" {
+		if err := startMITMProxy(application, options); err != nil {
+			return nil, fmt.Errorf("mitm: startup: %w", err)
+		}
 	}
 
 	application.ModelLoader().SetBackendLoggingEnabled(options.EnableBackendLogging)
@@ -578,6 +709,25 @@ func loadRuntimeSettingsFromFile(options *config.ApplicationConfig) {
 	}
 	if settings.FaviconFile != nil {
 		options.Branding.FaviconFile = *settings.FaviconFile
+	}
+
+	// MITM listener address. The CLI flag WithMITMListen populates
+	// options at startup; if the user configured MITM via /api/settings
+	// after the fact, only the file holds the value. Apply when the
+	// CLI flag did not already set it. (Intercept hosts now live in
+	// model YAML mitm.hosts: rather than runtime_settings.json.)
+	if settings.MITMListen != nil && options.MITMListen == "" {
+		options.MITMListen = *settings.MITMListen
+	}
+
+	// PII pattern overrides — file is the only source; CLI flags don't
+	// reach into this map. Apply unconditionally when present; the
+	// redactor wiring below sees the result on first construction.
+	if settings.PIIPatternOverrides != nil {
+		options.PIIPatternOverrides = make(map[string]config.PIIPatternRuntimeOverride, len(*settings.PIIPatternOverrides))
+		for id, ov := range *settings.PIIPatternOverrides {
+			options.PIIPatternOverrides[id] = ov
+		}
 	}
 
 	// Backend upgrade flags

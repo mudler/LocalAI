@@ -40,6 +40,54 @@ type ApplicationConfig struct {
 	P2PNetworkID                  string
 	Federated                     bool
 
+	// DisableStats turns off per-request token tracking. By default the
+	// routing module's billing recorder runs in every mode (including
+	// no-auth single-user) so dashboards and `/api/usage` are immediately
+	// useful; set this to opt out of that, e.g., for ephemeral CI runs
+	// or privacy-strict deployments where no token-count history should
+	// touch disk or memory.
+	DisableStats bool
+
+	// PIIConfigPath points to an optional YAML file describing the PII
+	// pattern set. When empty, the routing/pii module's DefaultPatterns()
+	// (email, phone, SSN, credit card, IPv4, API key prefixes) are
+	// loaded with their default actions. Each entry overrides the
+	// matching default by ID:
+	//
+	//   patterns:
+	//     - id: email
+	//       action: route_local      # downgrade default mask -> route_local
+	//     - id: ssn
+	//       action: block            # upgrade default mask -> block
+	//
+	// Unknown ids are rejected with a clear error at startup.
+	PIIConfigPath string
+
+	// DisablePII turns the regex PII filter off entirely. Default
+	// (false) enables it on the OpenAI chat completions route.
+	DisablePII bool
+
+	// MITMListen is the address (host:port) the cloudproxy MITM
+	// listener binds on. Empty disables the MITM proxy entirely.
+	// Use case: redacting PII from Claude Code / Codex CLI traffic
+	// without LocalAI holding the upstream API key. Clients set
+	// HTTPS_PROXY=http://localai:port and trust the CA cert
+	// LocalAI exposes at /api/middleware/proxy-ca.crt.
+	MITMListen string
+
+	// MITMCADir holds the persisted MITM proxy CA cert and private
+	// key. The CA is generated on first start; subsequent starts
+	// reload it so clients keep trusting the same root. The key
+	// file is mode 0600.
+	MITMCADir string
+
+
+	// PIIPatternOverrides applies persisted per-id deltas (action,
+	// disabled) to the live redactor at startup. Loaded from
+	// runtime_settings.json and applied right after pii.NewRedactor.
+	// nil/empty leaves the YAML defaults in place.
+	PIIPatternOverrides map[string]PIIPatternRuntimeOverride
+
 	DisableWebUI                       bool
 	OllamaAPIRootEndpoint              bool
 	EnforcePredownloadScans            bool
@@ -604,6 +652,45 @@ func WithDataPath(dataPath string) AppOption {
 	}
 }
 
+// WithDisableStats turns off the billing recorder. CLI: --disable-stats.
+func WithDisableStats(disable bool) AppOption {
+	return func(o *ApplicationConfig) {
+		o.DisableStats = disable
+	}
+}
+
+// WithPIIConfigPath points the routing PII filter at a YAML config
+// file. CLI: --pii-config.
+func WithPIIConfigPath(path string) AppOption {
+	return func(o *ApplicationConfig) {
+		o.PIIConfigPath = path
+	}
+}
+
+// WithDisablePII turns the regex PII filter off. CLI: --disable-pii.
+func WithDisablePII(disable bool) AppOption {
+	return func(o *ApplicationConfig) {
+		o.DisablePII = disable
+	}
+}
+
+// WithMITMListen sets the address the cloudproxy MITM listener
+// binds on. Empty = disabled. CLI: --mitm-listen.
+func WithMITMListen(addr string) AppOption {
+	return func(o *ApplicationConfig) {
+		o.MITMListen = addr
+	}
+}
+
+// WithMITMCADir sets the directory used to persist the MITM proxy
+// CA cert + key. CLI: --mitm-ca-dir.
+func WithMITMCADir(dir string) AppOption {
+	return func(o *ApplicationConfig) {
+		o.MITMCADir = dir
+	}
+}
+
+
 func WithDynamicConfigDir(dynamicConfigsDir string) AppOption {
 	return func(o *ApplicationConfig) {
 		o.DynamicConfigsDir = dynamicConfigsDir
@@ -998,6 +1085,8 @@ func (o *ApplicationConfig) ToRuntimeSettings() RuntimeSettings {
 	logoHorizontalFile := o.Branding.LogoHorizontalFile
 	faviconFile := o.Branding.FaviconFile
 
+	mitmListen := o.MITMListen
+
 	return RuntimeSettings{
 		WatchdogEnabled:           &watchdogEnabled,
 		WatchdogIdleEnabled:       &watchdogIdle,
@@ -1051,6 +1140,7 @@ func (o *ApplicationConfig) ToRuntimeSettings() RuntimeSettings {
 		LogoFile:                  &logoFile,
 		LogoHorizontalFile:        &logoHorizontalFile,
 		FaviconFile:               &faviconFile,
+		MITMListen:                &mitmListen,
 	}
 }
 
@@ -1274,6 +1364,10 @@ func (o *ApplicationConfig) ApplyRuntimeSettings(settings *RuntimeSettings) (req
 	}
 	if settings.FaviconFile != nil {
 		o.Branding.FaviconFile = *settings.FaviconFile
+	}
+
+	if settings.MITMListen != nil {
+		o.MITMListen = *settings.MITMListen
 	}
 
 	// Note: ApiKeys requires special handling (merging with startup keys) - handled in caller

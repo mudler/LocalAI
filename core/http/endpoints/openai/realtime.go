@@ -497,6 +497,7 @@ func runRealtimeSession(application *application.Application, t Transport, model
 		application.ModelLoader(),
 		application.ApplicationConfig(),
 		evaluator,
+		buildRealtimeRoutingContext(application, sessionID),
 	)
 	if err != nil {
 		xlog.Error("failed to load model", "error", err)
@@ -627,6 +628,7 @@ func runRealtimeSession(application *application.Application, t Transport, model
 					application.ModelLoader(),
 					application.ApplicationConfig(),
 					evaluator,
+					buildRealtimeRoutingContext(application, session.ID),
 				); err != nil {
 					xlog.Error("failed to update session", "error", err)
 					sendError(t, "session_update_error", "Failed to update session", "", "")
@@ -946,7 +948,7 @@ func updateTransSession(session *Session, update *types.SessionUnion, cl *config
 	return nil
 }
 
-func updateSession(session *Session, update *types.SessionUnion, cl *config.ModelConfigLoader, ml *model.ModelLoader, appConfig *config.ApplicationConfig, evaluator *templates.Evaluator) error {
+func updateSession(session *Session, update *types.SessionUnion, cl *config.ModelConfigLoader, ml *model.ModelLoader, appConfig *config.ApplicationConfig, evaluator *templates.Evaluator, routing *RealtimeRoutingContext) error {
 	sessionLock.Lock()
 	defer sessionLock.Unlock()
 
@@ -985,7 +987,7 @@ func updateSession(session *Session, update *types.SessionUnion, cl *config.Mode
 	}
 
 	if rt.Model != "" || (rt.Audio != nil && rt.Audio.Output != nil && rt.Audio.Output.Voice != "") || (rt.Audio != nil && rt.Audio.Input != nil && rt.Audio.Input.Transcription != nil) {
-		m, err := newModel(&session.ModelConfig.Pipeline, cl, ml, appConfig, evaluator)
+		m, err := newModel(&session.ModelConfig.Pipeline, cl, ml, appConfig, evaluator, routing)
 		if err != nil {
 			return err
 		}

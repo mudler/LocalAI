@@ -163,6 +163,11 @@ func (llm *Base) AudioToAudioStream(in <-chan *pb.AudioToAudioRequest, out chan<
 	return fmt.Errorf("unimplemented")
 }
 
+func (llm *Base) Forward(ctx context.Context, in <-chan *pb.ForwardRequest, out chan<- *pb.ForwardReply) error {
+	close(out)
+	return fmt.Errorf("unimplemented")
+}
+
 func (llm *Base) StartFineTune(*pb.FineTuneRequest) (*pb.FineTuneJobResult, error) {
 	return nil, fmt.Errorf("unimplemented")
 }

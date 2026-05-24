@@ -216,6 +216,11 @@ func RegisterLocalAIRoutes(router *echo.Echo,
 	router.GET("/api/p2p", localai.ShowP2PNodes(appConfig), adminMiddleware)
 	router.GET("/api/p2p/token", localai.ShowP2PToken(appConfig), adminMiddleware)
 
+	// Score (logprob over candidate continuations) — admin-only smoke-test
+	// surface for the gRPC Score primitive. Production consumers should
+	// use application.ScorerFactory() directly rather than HTTP.
+	router.POST("/api/score", localai.ScoreEndpoint(cl, ml, appConfig), adminMiddleware)
+
 	router.GET("/version", func(c echo.Context) error {
 		return c.JSON(200, struct {
 			Version string `json:"version"`

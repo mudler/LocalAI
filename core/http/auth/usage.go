@@ -17,6 +17,18 @@ const (
 )
 
 // UsageRecord represents a single API request's token usage.
+//
+// Model semantics: Model is the legacy column kept for backward-compatible
+// aggregation; new code should write RequestedModel (what the client asked
+// for) and ServedModel (what actually ran after routing). When no router
+// is in play, all three are equal.
+//
+// PreFilterPromptTokens vs PromptTokens: PromptTokens is the count after
+// PII redaction (i.e., what the backend processed and was billed for).
+// PreFilterPromptTokens is the count of the original prompt before any
+// PII filtering; PostFilterPromptTokens duplicates PromptTokens for
+// queryability symmetry. For non-PII paths PreFilterPromptTokens ==
+// PostFilterPromptTokens == PromptTokens.
 type UsageRecord struct {
 	ID       uint   `gorm:"primaryKey;autoIncrement"`
 	UserID   string `gorm:"size:36;index:idx_usage_user_time"`
@@ -37,6 +49,22 @@ type UsageRecord struct {
 	TotalTokens      int64
 	Duration         int64     // milliseconds
 	CreatedAt        time.Time `gorm:"index:idx_usage_user_time"`
+
+	// Routing extension fields. Nullable / zero-valued for legacy rows.
+	RequestedModel         string  `gorm:"size:255;index"`
+	ServedModel            string  `gorm:"size:255;index"`
+	PreFilterPromptTokens  int64   // tokens the client sent before PII redaction
+	PostFilterPromptTokens int64   // tokens after redaction (== PromptTokens unless filter shrunk it)
+	CachedTokens           int64   // backend-reported KV-cache hit tokens
+	PrefillTokens          int64   // backend-reported prefill tokens (subset of prompt)
+	DraftTokens            int64   // speculative-decoding draft tokens
+	PricingVersionID       string  `gorm:"size:64;index"` // FK to pricing_version; "" when no pricing was applied
+	CostUSD                float64 // computed at insert when pricing is available; 0 with empty PricingVersionID = unknown
+
+	// Cross-subsystem correlation. Empty when the subsystem didn't run.
+	CorrelationID    string `gorm:"size:64;index"`
+	RouterDecisionID string `gorm:"size:64;index"`
+	PIIEventID       string `gorm:"size:64"`
 }
 
 // RecordUsage inserts a usage record.

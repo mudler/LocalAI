@@ -18,10 +18,14 @@ type Message struct {
 	// The message content
 	Content any `json:"content" yaml:"content"`
 
-	StringContent string   `json:"string_content,omitempty" yaml:"string_content,omitempty"`
-	StringImages  []string `json:"string_images,omitempty" yaml:"string_images,omitempty"`
-	StringVideos  []string `json:"string_videos,omitempty" yaml:"string_videos,omitempty"`
-	StringAudios  []string `json:"string_audios,omitempty" yaml:"string_audios,omitempty"`
+	// Staging buffers populated by the request middleware while
+	// decoding multimodal Content. Never serialised — strict
+	// providers (Anthropic) 400 on unknown message fields when the
+	// cloud-proxy passthrough re-marshals Message verbatim.
+	StringContent string   `json:"-" yaml:"-"`
+	StringImages  []string `json:"-" yaml:"-"`
+	StringVideos  []string `json:"-" yaml:"-"`
+	StringAudios  []string `json:"-" yaml:"-"`
 
 	// A result of a function call
 	FunctionCall any `json:"function_call,omitempty" yaml:"function_call,omitempty"`

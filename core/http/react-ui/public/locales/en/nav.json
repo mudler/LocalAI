@@ -36,6 +36,7 @@
     "mcpJobs": "MCP CI Jobs",
     "usage": "Usage",
     "users": "Users",
+    "middleware": "Middleware",
     "backends": "Backends",
     "traces": "Traces",
     "nodes": "Nodes",
