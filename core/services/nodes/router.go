@@ -61,7 +61,18 @@ type SmartRouter struct {
 	// completions for one not-yet-loaded model produce ONE round-trip, not
 	// six. Avoids amplifying head-of-line blocking on the worker side.
 	installFlight singleflight.Group
+	// probeCache memoizes recent successful gRPC HealthCheck results so
+	// per-request routing doesn't stall behind a busy backend's serialized
+	// HealthCheck/Predict. See probe_cache.go for the rationale.
+	probeCache *probeCache
 }
+
+// probeCacheTTL is how long a successful gRPC HealthCheck on a backend is
+// trusted before the next request re-probes. Matches healthCheckTTL in
+// pkg/model/model.go so the single-process and distributed paths share a
+// staleness budget. The background HealthMonitor still reaps dead backends
+// independently within ~45s (see perModelMissThreshold).
+const probeCacheTTL = 30 * time.Second
 
 // NewSmartRouter creates a new SmartRouter backed by the given ModelRouter.
 // All optional dependencies are passed via SmartRouterOptions to avoid post-creation races.
@@ -79,6 +90,7 @@ func NewSmartRouter(registry ModelRouter, opts SmartRouterOptions) *SmartRouter 
 		db:               opts.DB,
 		stagingTracker:   NewStagingTracker(),
 		conflictResolver: opts.ConflictResolver,
+		probeCache:       newProbeCache(probeCacheTTL),
 	}
 }
 
@@ -961,14 +973,26 @@ func (r *SmartRouter) stageGenericOptions(ctx context.Context, node *BackendNode
 }
 
 // probeHealth checks whether a backend process on the given node/addr is alive
-// via a gRPC health check with a 2-second timeout. The client is closed after the check.
+// via a gRPC health check with a 2-second timeout. The client is closed after
+// the check.
+//
+// The result is memoized in r.probeCache for probeCacheTTL. With per-request
+// routing every inference call lands here, and unbounded re-probing can stall
+// behind a busy backend that serializes HealthCheck against active Predict.
+// Concurrent probes for the same (node, addr) coalesce via singleflight so a
+// burst of N requests for a cold cache costs at most one round-trip, not N.
+// Failed probes invalidate the cache so the staleness recovery path
+// (DecrementInFlight + RemoveNodeModel) still triggers on the next request.
 func (r *SmartRouter) probeHealth(ctx context.Context, node *BackendNode, addr string) bool {
-	client := r.buildClientForAddr(node, addr, false)
-	defer closeClient(client)
-	checkCtx, cancel := context.WithTimeout(ctx, 2*time.Second)
-	defer cancel()
-	ok, _ := client.HealthCheck(checkCtx)
-	return ok
+	key := node.ID + "|" + addr
+	return r.probeCache.DoOrCached(key, func() bool {
+		client := r.buildClientForAddr(node, addr, false)
+		defer closeClient(client)
+		checkCtx, cancel := context.WithTimeout(ctx, 2*time.Second)
+		defer cancel()
+		ok, _ := client.HealthCheck(checkCtx)
+		return ok
+	})
 }
 
 // closeClient closes a gRPC backend client if it implements io.Closer.

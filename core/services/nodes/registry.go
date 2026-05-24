@@ -668,10 +668,21 @@ func (r *NodeRegistry) FindNodesWithModel(ctx context.Context, modelName string)
 	return nodes, nil
 }
 
-// FindAndLockNodeWithModel atomically finds the least-loaded node with the given
-// model loaded and increments its in-flight counter within a single transaction.
-// The SELECT FOR UPDATE row lock prevents concurrent eviction from removing the
-// NodeModel row between the find and increment operations.
+// FindAndLockNodeWithModel atomically finds the best loaded replica of the
+// given model and increments its in-flight counter within a single
+// transaction. The SELECT FOR UPDATE row lock prevents concurrent eviction
+// from removing the NodeModel row between the find and increment operations,
+// and serializes contending routers so concurrent picks distribute across
+// replicas instead of all landing on the same row.
+//
+// **Policy:** the SQL ORDER BY below MUST mirror PickBestReplica
+// (replicapicker.go). PickBestReplica is the canonical Go implementation of
+// the same rule — the per-frontend rotating-replica cache (TODO, see
+// pkg/model/loader.go) will eventually use it against in-memory snapshots so
+// hot inference requests don't pay this DB round-trip. If you change the
+// ordering here, change both sides; the TestFindAndLockNodeWithModelMirror
+// spec ("agrees with PickBestReplica on a seeded dataset") fails fast if they
+// drift.
 //
 // When candidateNodeIDs is non-empty, only nodes in that set are considered.
 // Pass nil (or empty) to consider any node. This lets callers pre-filter by
@@ -683,16 +694,16 @@ func (r *NodeRegistry) FindAndLockNodeWithModel(ctx context.Context, modelName s
 	var node BackendNode
 
 	err := r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		// Order by in_flight ASC (least busy replica), then by last_used ASC
-		// (round-robin between equally-loaded replicas — oldest used wins, and
-		// every successful pick refreshes last_used below, so the "oldest" naturally
-		// rotates through the candidate set). available_vram DESC is the final
-		// tiebreaker for cold starts where last_used is identical.
+		// Mirror of PickBestReplica's policy (see replicapicker.go):
+		//   1. in_flight ASC — least busy replica.
+		//   2. last_used ASC — round-robin between equally-loaded replicas.
+		//      Every successful pick refreshes last_used below, so the
+		//      "oldest" tier naturally rotates through the candidate set.
+		//      Without this tier, in_flight ties collapsed to "fattest GPU
+		//      wins every time" and one node took nearly all the load.
+		//   3. available_vram DESC — final tiebreaker for cold starts where
+		//      last_used is identical across replicas.
 		//
-		// Without the last_used tier, a tie on in_flight (the common case at low
-		// to moderate concurrency where requests don't overlap) collapses to
-		// "biggest GPU wins every time" and one node ends up taking nearly all
-		// the load while replicas on other nodes sit idle.
 		// Filter on backend_nodes.status = healthy in the inner JOIN itself,
 		// not only in the later node-fetch step. The previous version picked
 		// a (node_id, replica) pair purely on node_models state, then bailed
