@@ -40,6 +40,11 @@ jobs:
       id-token: write
     env:
       quay_username: ${{ secrets.quayUsername }}
+      # cosign v2.4.x still gates --registry-referrers-mode=oci-1-1 behind
+      # this flag. Without it, signing fails with:
+      #   invalid argument "oci-1-1" for "--registry-referrers-mode" flag:
+      #   in order to use mode "oci-1-1", you must set COSIGN_EXPERIMENTAL=1
+      COSIGN_EXPERIMENTAL: '1'
     steps:
       # Sparse checkout: the merge job needs `.github/scripts/` (for the
       # keepalive cleanup script) but none of the source tree.
