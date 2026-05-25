@@ -32,6 +32,7 @@ const (
 	BackendTraceVoiceEmbed      BackendTraceType = "voice_embed"
 	BackendTraceAudioTransform  BackendTraceType = "audio_transform"
 	BackendTraceModelLoad       BackendTraceType = "model_load"
+	BackendTraceScore           BackendTraceType = "score"
 )
 
 type BackendTrace struct {
@@ -41,9 +42,20 @@ type BackendTrace struct {
 	ModelName string           `json:"model_name"`
 	Backend   string           `json:"backend"`
 	Summary   string           `json:"summary"`
-	Error     string           `json:"error,omitempty"`
-	Data      map[string]any   `json:"data"`
+	// Body is the full request payload sent to the backend, when one
+	// applies (currently: cloud-proxy passthrough forwards). Summary
+	// is a short preview for the trace list; Body is the full
+	// payload shown when the row is expanded. Capped by the recorder
+	// to keep the in-memory ring buffer bounded.
+	Body  string         `json:"body,omitempty"`
+	Error string         `json:"error,omitempty"`
+	Data  map[string]any `json:"data"`
 }
+
+// MaxTraceBodyBytes caps the per-trace stored request body. Roomy
+// enough to keep typical chat histories intact while preventing a
+// runaway buffer when a caller streams MB-scale payloads.
+const MaxTraceBodyBytes = 1 << 20
 
 var backendTraceBuffer *circularbuffer.Queue[*BackendTrace]
 var backendMu sync.Mutex
@@ -201,4 +213,14 @@ func TruncateToBytes(s string, maxBytes int) string {
 		return s[:maxBytes]
 	}
 	return s[:maxBytes-len(suffix)] + suffix
+}
+
+// TruncateBytes is the []byte counterpart of TruncateString — it copies
+// at most maxLen bytes, avoiding a full string([]byte) allocation when
+// the input is a large request body.
+func TruncateBytes(b []byte, maxLen int) string {
+	if len(b) <= maxLen {
+		return string(b)
+	}
+	return string(b[:maxLen]) + "..."
 }

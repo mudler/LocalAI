@@ -51,6 +51,25 @@ var _ = Describe("RuntimeSettings persistence helpers", func() {
 		})
 	})
 
+	// MITM round trip pins the contract that loadRuntimeSettingsFromFile
+	// MITM listener address must survive a write/read round trip so the
+	// next process restart can bring the listener back up. (Intercept
+	// hosts now live in model YAML rather than runtime_settings.json.)
+	Describe("MITM round trip", func() {
+		It("preserves mitm_listen across read/write", func() {
+			listen := ":8443"
+			Expect(cfg.WritePersistedSettings(config.RuntimeSettings{
+				MITMListen: &listen,
+			})).To(Succeed())
+
+			got, err := cfg.ReadPersistedSettings()
+			Expect(err).ToNot(HaveOccurred())
+
+			Expect(got.MITMListen).ToNot(BeNil())
+			Expect(*got.MITMListen).To(Equal(":8443"))
+		})
+	})
+
 	// PreserveOnSaveDoesNotClobberAssets reproduces the user-reported
 	// regression: an admin uploads a logo, then clicks Save on the
 	// Settings page. The Save body still has the stale pre-upload

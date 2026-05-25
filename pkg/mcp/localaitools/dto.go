@@ -137,6 +137,179 @@ type SetBrandingRequest struct {
 	InstanceTagline *string `json:"instance_tagline,omitempty" jsonschema:"Optional short subtitle shown beneath the instance name. Pass an empty string to clear."`
 }
 
+// UsageStatsQuery is the input for get_usage_stats. UserID is optional;
+// when empty the tool returns the calling user's own usage in auth-on
+// mode, or the synthetic local user's usage in single-user no-auth
+// mode. Admins (or the local user) may pass UserID to inspect another
+// user; the LocalAIClient implementation enforces the role check.
+type UsageStatsQuery struct {
+	Period string `json:"period,omitempty" jsonschema:"Time window. One of: day, week, month, all. Defaults to month."`
+	UserID string `json:"user_id,omitempty" jsonschema:"Optional user id to query. Empty = caller's own usage. Querying another user requires admin role."`
+	All    bool   `json:"all,omitempty"     jsonschema:"When true, returns the cluster-wide /api/usage/all view (admin-only when auth is on)."`
+}
+
+// UsageStats is the response shape for get_usage_stats. Mirrors what
+// /api/usage and /api/usage/all return so the LLM can correlate
+// dashboard numbers with what it pulls via MCP.
+type UsageStats struct {
+	Viewer  UsageViewer   `json:"viewer"`
+	Period  string        `json:"period"`
+	Totals  UsageTotals   `json:"totals"`
+	Buckets []UsageBucket `json:"buckets"`
+}
+
+type UsageViewer struct {
+	ID   string `json:"id"`
+	Name string `json:"name"`
+	Role string `json:"role,omitempty"`
+}
+
+type UsageTotals struct {
+	PromptTokens     int64 `json:"prompt_tokens"`
+	CompletionTokens int64 `json:"completion_tokens"`
+	TotalTokens      int64 `json:"total_tokens"`
+	RequestCount     int64 `json:"request_count"`
+}
+
+type UsageBucket struct {
+	Bucket           string `json:"bucket"`
+	Model            string `json:"model"`
+	UserID           string `json:"user_id,omitempty"`
+	UserName         string `json:"user_name,omitempty"`
+	PromptTokens     int64  `json:"prompt_tokens"`
+	CompletionTokens int64  `json:"completion_tokens"`
+	TotalTokens      int64  `json:"total_tokens"`
+	RequestCount     int64  `json:"request_count"`
+}
+
+// ---- PII / sensitive data tools ----
+
+// PIIPattern is one row in the list_pii_patterns response.
+type PIIPattern struct {
+	ID             string `json:"id"`
+	Description    string `json:"description"`
+	Action         string `json:"action"` // mask | block | route_local
+	MaxMatchLength int    `json:"max_match_length"`
+}
+
+// PIIEventsQuery filters get_pii_events.
+type PIIEventsQuery struct {
+	CorrelationID string `json:"correlation_id,omitempty" jsonschema:"Optional X-Correlation-ID join key (binds events to the request and usage record)."`
+	UserID        string `json:"user_id,omitempty"        jsonschema:"Optional user id to scope the query."`
+	PatternID     string `json:"pattern_id,omitempty"     jsonschema:"Optional pattern id (e.g. email, ssn)."`
+	Limit         int    `json:"limit,omitempty"          jsonschema:"Maximum events. Defaults to 100."`
+}
+
+// PIIEvent is the LLM-facing view of one redaction record. The matched
+// value is never exposed; admins audit by hash_prefix.
+type PIIEvent struct {
+	ID            string `json:"id"`
+	CorrelationID string `json:"correlation_id"`
+	UserID        string `json:"user_id"`
+	Direction     string `json:"direction"`
+	PatternID     string `json:"pattern_id"`
+	ByteOffset    int    `json:"byte_offset"`
+	Length        int    `json:"length"`
+	HashPrefix    string `json:"hash_prefix"`
+	Action        string `json:"action"`
+	CreatedAt     string `json:"created_at"`
+}
+
+// PIIRedactTestRequest is the input for test_pii_redaction.
+type PIIRedactTestRequest struct {
+	Text string `json:"text" jsonschema:"The candidate text. Will be run through the redactor without recording an event."`
+}
+
+// PIIRedactTestResult is the output for test_pii_redaction. spans
+// describes where the redactor matched; redacted is the text after
+// applying mask actions; blocked / local_only flag stronger actions.
+type PIIRedactTestResult struct {
+	Redacted  string        `json:"redacted"`
+	Spans     []PIIEventSpan `json:"spans"`
+	Blocked   bool          `json:"blocked"`
+	LocalOnly bool          `json:"local_only"`
+}
+
+type PIIEventSpan struct {
+	Start      int    `json:"start"`
+	End        int    `json:"end"`
+	Pattern    string `json:"pattern"`
+	HashPrefix string `json:"hash_prefix"`
+}
+
+// PIIPatternActionUpdate is the input for set_pii_pattern_action.
+// At least one of Action or Disabled must be set. Mutations are
+// transient by default — call persist_pii_patterns to flush them
+// to runtime_settings.json so the next start re-applies them.
+type PIIPatternActionUpdate struct {
+	ID       string `json:"id" jsonschema:"Pattern id to mutate (e.g. email, ssn, credit_card, api_key_prefix)."`
+	Action   string `json:"action,omitempty" jsonschema:"New action: mask, block, or route_local. Optional — omit to leave the action unchanged."`
+	Disabled *bool  `json:"disabled,omitempty" jsonschema:"Set true to skip this pattern entirely; false to re-enable. Optional — omit to leave enabled-state unchanged."`
+}
+
+// MiddlewareStatus is the aggregated /api/middleware/status payload —
+// the React Middleware page renders this in one go. Routing is a
+// placeholder until subsystem 2 lands.
+type MiddlewareStatus struct {
+	PII    MiddlewarePIIStatus    `json:"pii"`
+	Router MiddlewareRouterStatus `json:"router"`
+}
+
+// MiddlewarePIIStatus shows what the redactor is doing right now and
+// which models opt in. enabled_globally=false means --disable-pii.
+type MiddlewarePIIStatus struct {
+	EnabledGlobally           bool                  `json:"enabled_globally"`
+	Reason                    string                `json:"reason,omitempty"`
+	DefaultEnabledForBackends []string              `json:"default_enabled_for_backends,omitempty"`
+	Patterns                  []PIIPattern          `json:"patterns"`
+	Models                    []MiddlewarePIIModel  `json:"models"`
+	RecentEventCount          int                   `json:"recent_event_count"`
+}
+
+// MiddlewarePIIModel is one model row in the per-model PII table.
+type MiddlewarePIIModel struct {
+	Name              string            `json:"name"`
+	Backend           string            `json:"backend"`
+	Enabled           bool              `json:"enabled"`
+	Explicit          bool              `json:"explicit"`             // Did YAML set Enabled, or did the backend prefix decide?
+	DefaultForBackend bool              `json:"default_for_backend"`  // Backend matches the auto-on rule (proxy-*).
+	Overrides         map[string]string `json:"overrides,omitempty"`
+}
+
+// MiddlewareRouterStatus is the placeholder shape the Routing tab
+// reads. Subsystem 2 fills in Models with real RouterDecision rows.
+type MiddlewareRouterStatus struct {
+	Configured bool     `json:"configured"`
+	Models     []string `json:"models"`
+	Note       string   `json:"note,omitempty"`
+}
+
+// RouterDecisionsQuery filters get_router_decisions.
+type RouterDecisionsQuery struct {
+	CorrelationID string `json:"correlation_id,omitempty" jsonschema:"Optional X-Correlation-ID join key (binds decisions to the request and usage record)."`
+	UserID        string `json:"user_id,omitempty"        jsonschema:"Optional user id to scope the query."`
+	RouterModel   string `json:"router_model,omitempty"   jsonschema:"Optional router model name to filter by (e.g. smart-router)."`
+	Limit         int    `json:"limit,omitempty"          jsonschema:"Maximum decisions. Defaults to 100."`
+}
+
+// RouterDecision is the LLM-facing view of one routing decision. The
+// prompt is NEVER stored; admins audit by hash if they need to dedupe
+// recurring routing patterns.
+type RouterDecision struct {
+	ID             string  `json:"id"`
+	CorrelationID  string  `json:"correlation_id"`
+	UserID         string  `json:"user_id"`
+	RouterModel    string  `json:"router_model"`
+	RequestedModel string  `json:"requested_model"`
+	ServedModel    string  `json:"served_model"`
+	Classifier     string  `json:"classifier"`
+	Label          string  `json:"label"`
+	Score          float64 `json:"score"`
+	LatencyMs      int64   `json:"latency_ms"`
+	Cached         bool    `json:"cached"`
+	CreatedAt      string  `json:"created_at"`
+}
+
 // VRAMEstimateRequest is the input for vram_estimate. The output type is
 // pkg/vram.EstimateResult — used directly via the LocalAIClient interface
 // so the LLM sees the same shape (size_bytes/size_display/vram_bytes/

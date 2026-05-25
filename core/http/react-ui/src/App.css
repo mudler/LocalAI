@@ -1847,6 +1847,24 @@ select.input {
   color: var(--color-accent);
 }
 
+/* badge-link marks a badge that navigates somewhere (e.g. the use-case
+   chips that open a playground page). Signals clickability the bare
+   colour variant doesn't: pointer cursor, and a hover state that lifts
+   the background/text so links read as interactive while non-link
+   badges (Embeddings, VAD, Score, ...) stay flat. */
+.badge-link {
+  cursor: pointer;
+  text-decoration: none;
+  transition: background-color 0.12s ease, color 0.12s ease, box-shadow 0.12s ease;
+}
+.badge-link:hover,
+.badge-link:focus-visible {
+  background: var(--color-info);
+  color: var(--color-bg-primary);
+  box-shadow: 0 0 0 1px var(--color-info);
+  outline: none;
+}
+
 /* Horizontal row of badges used inside table cells — consistent spacing so
    cells line up regardless of how many badges are present. */
 .badge-row {

@@ -17,6 +17,10 @@ import (
 	"github.com/mudler/LocalAI/core/schema"
 	"github.com/mudler/LocalAI/core/services/galleryop"
 	"github.com/mudler/LocalAI/core/services/modeladmin"
+	"github.com/mudler/LocalAI/core/http/auth"
+	"github.com/mudler/LocalAI/core/services/routing/billing"
+	"github.com/mudler/LocalAI/core/services/routing/pii"
+	"github.com/mudler/LocalAI/core/services/routing/router"
 	"github.com/mudler/LocalAI/internal"
 	localaitools "github.com/mudler/LocalAI/pkg/mcp/localaitools"
 	"github.com/mudler/LocalAI/pkg/model"
@@ -36,12 +40,32 @@ type Client struct {
 	ModelLoader  *model.ModelLoader
 	Gallery      *galleryop.GalleryService
 
+	// StatsRecorder and FallbackUser are optional — they back the
+	// get_usage_stats tool. nil StatsRecorder makes the tool return an
+	// "unavailable" error, which keeps the assistant responsive on
+	// deployments that ran with --disable-stats or where startup wired
+	// the inproc client before stats were ready.
+	StatsRecorder *billing.Recorder
+	FallbackUser  *auth.User
+
+	// PIIRedactor and PIIEvents back the list_pii_patterns,
+	// get_pii_events, and test_pii_redaction tools. nil values cause
+	// the tools to return a "filter disabled" error.
+	PIIRedactor *pii.Redactor
+	PIIEvents   pii.EventStore
+
+	// RouterDecisions backs the get_router_decisions tool. nil makes
+	// the tool return an empty list — same shape the REST endpoint
+	// returns when stats are disabled.
+	RouterDecisions router.DecisionStore
+
 	modelAdmin *modeladmin.ConfigService
 }
 
 // New builds a Client wired to the given services. All fields are required
 // except ModelLoader (used only for SystemInfo's loaded-models report and
-// best-effort ShutdownModel calls during config edits).
+// best-effort ShutdownModel calls during config edits) and the stats
+// fields (StatsRecorder, FallbackUser) which gate get_usage_stats.
 func New(appConfig *config.ApplicationConfig, systemState *system.SystemState, cl *config.ModelConfigLoader, ml *model.ModelLoader, gs *galleryop.GalleryService) *Client {
 	return &Client{
 		AppConfig:    appConfig,
@@ -518,6 +542,300 @@ func capabilityToFlag(capability localaitools.Capability) (config.ModelConfigUse
 		return config.FLAG_VAD, true
 	}
 	return 0, false
+}
+
+// ---- Usage / billing ----
+
+func (c *Client) GetUsageStats(ctx context.Context, q localaitools.UsageStatsQuery) (*localaitools.UsageStats, error) {
+	if c.StatsRecorder == nil {
+		return nil, errors.New("usage tracking is not available on this server")
+	}
+	period := q.Period
+	if period == "" {
+		period = "month"
+	}
+
+	// Resolve which user this is. In single-user no-auth mode the
+	// inproc client doesn't have an echo context to read auth.GetUser
+	// from, so the FallbackUser is the only available identity. When
+	// auth IS on, the assistant runs under a privileged session and the
+	// caller can pass q.UserID; we don't enforce admin here because the
+	// MCP server itself is gated on admin (see prompts/10_safety.md).
+	var viewerID, viewerName, viewerRole string
+	switch {
+	case q.UserID != "":
+		viewerID = q.UserID
+	case c.FallbackUser != nil:
+		viewerID = c.FallbackUser.ID
+		viewerName = c.FallbackUser.Name
+		viewerRole = c.FallbackUser.Role
+	default:
+		return nil, errors.New("no user context for usage query (auth is on but no user id was provided)")
+	}
+
+	queryUser := viewerID
+	if q.All {
+		// /api/usage/all: cluster-wide by default, but honour the
+		// optional UserID filter so admins can scope to one user —
+		// matches the REST endpoint's ?user_id=… query param. Empty
+		// q.UserID falls through to the cluster-wide aggregate.
+		queryUser = q.UserID
+	}
+
+	rows, err := c.StatsRecorder.Aggregate(ctx, billing.AggregateQuery{
+		UserID: queryUser,
+		Period: period,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("aggregate usage: %w", err)
+	}
+
+	totals := localaitools.UsageTotals{}
+	buckets := make([]localaitools.UsageBucket, 0, len(rows))
+	for _, r := range rows {
+		buckets = append(buckets, localaitools.UsageBucket{
+			Bucket:           r.Bucket,
+			Model:            r.Model,
+			UserID:           r.UserID,
+			UserName:         r.UserName,
+			PromptTokens:     r.PromptTokens,
+			CompletionTokens: r.CompletionTokens,
+			TotalTokens:      r.TotalTokens,
+			RequestCount:     r.RequestCount,
+		})
+		totals.PromptTokens += r.PromptTokens
+		totals.CompletionTokens += r.CompletionTokens
+		totals.TotalTokens += r.TotalTokens
+		totals.RequestCount += r.RequestCount
+	}
+
+	return &localaitools.UsageStats{
+		Viewer:  localaitools.UsageViewer{ID: viewerID, Name: viewerName, Role: viewerRole},
+		Period:  period,
+		Totals:  totals,
+		Buckets: buckets,
+	}, nil
+}
+
+// ---- PII filter ----
+
+func (c *Client) ListPIIPatterns(_ context.Context) ([]localaitools.PIIPattern, error) {
+	if c.PIIRedactor == nil {
+		return nil, errors.New("PII filter is disabled")
+	}
+	patterns := c.PIIRedactor.Patterns()
+	out := make([]localaitools.PIIPattern, 0, len(patterns))
+	for _, p := range patterns {
+		out = append(out, localaitools.PIIPattern{
+			ID:             p.ID,
+			Description:    p.Description,
+			Action:         string(p.Action),
+			MaxMatchLength: p.MaxMatchLength,
+		})
+	}
+	return out, nil
+}
+
+func (c *Client) GetPIIEvents(ctx context.Context, q localaitools.PIIEventsQuery) ([]localaitools.PIIEvent, error) {
+	if c.PIIEvents == nil {
+		return nil, errors.New("PII filter is disabled")
+	}
+	events, err := c.PIIEvents.List(ctx, pii.ListQuery{
+		CorrelationID: q.CorrelationID,
+		UserID:        q.UserID,
+		PatternID:     q.PatternID,
+		Kind:          pii.KindPII,
+		Limit:         q.Limit,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("list pii events: %w", err)
+	}
+	out := make([]localaitools.PIIEvent, 0, len(events))
+	for _, e := range events {
+		out = append(out, localaitools.PIIEvent{
+			ID:            e.ID,
+			CorrelationID: e.CorrelationID,
+			UserID:        e.UserID,
+			Direction:     string(e.Direction),
+			PatternID:     e.PatternID,
+			ByteOffset:    e.ByteOffset,
+			Length:        e.Length,
+			HashPrefix:    e.HashPrefix,
+			Action:        string(e.Action),
+			CreatedAt:     e.CreatedAt.Format("2006-01-02T15:04:05Z07:00"),
+		})
+	}
+	return out, nil
+}
+
+func (c *Client) SetPIIPatternAction(_ context.Context, req localaitools.PIIPatternActionUpdate) error {
+	if c.PIIRedactor == nil {
+		return errors.New("PII filter is disabled")
+	}
+	if req.ID == "" {
+		return errors.New("pattern id is required")
+	}
+	if req.Action == "" && req.Disabled == nil {
+		return errors.New("must specify action and/or disabled")
+	}
+	if req.Action != "" {
+		if err := c.PIIRedactor.SetAction(req.ID, pii.Action(req.Action)); err != nil {
+			return err
+		}
+	}
+	if req.Disabled != nil {
+		if err := c.PIIRedactor.SetDisabled(req.ID, *req.Disabled); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// PersistPIIPatterns snapshots the current redactor state into
+// runtime_settings.json. Mirrors POST /api/pii/patterns/persist.
+func (c *Client) PersistPIIPatterns(_ context.Context) error {
+	if c.PIIRedactor == nil {
+		return errors.New("PII filter is disabled")
+	}
+	if c.AppConfig == nil {
+		return errors.New("app config not available")
+	}
+	existing, err := c.AppConfig.ReadPersistedSettings()
+	if err != nil {
+		return fmt.Errorf("read settings: %w", err)
+	}
+	defaults, err := pii.LoadConfig(c.AppConfig.PIIConfigPath)
+	if err != nil {
+		return fmt.Errorf("reload defaults: %w", err)
+	}
+	defaultByID := make(map[string]pii.Pattern, len(defaults))
+	for _, d := range defaults {
+		defaultByID[d.ID] = d
+	}
+	overrides := map[string]config.PIIPatternRuntimeOverride{}
+	for _, p := range c.PIIRedactor.Patterns() {
+		d, known := defaultByID[p.ID]
+		ov := config.PIIPatternRuntimeOverride{}
+		changed := false
+		if !known || p.Action != d.Action {
+			action := string(p.Action)
+			ov.Action = &action
+			changed = true
+		}
+		if !known || p.Disabled != d.Disabled {
+			disabled := p.Disabled
+			ov.Disabled = &disabled
+			changed = true
+		}
+		if changed {
+			overrides[p.ID] = ov
+		}
+	}
+	existing.PIIPatternOverrides = &overrides
+	if err := c.AppConfig.WritePersistedSettings(existing); err != nil {
+		return fmt.Errorf("write settings: %w", err)
+	}
+	c.AppConfig.PIIPatternOverrides = overrides
+	return nil
+}
+
+func (c *Client) GetRouterDecisions(ctx context.Context, q localaitools.RouterDecisionsQuery) ([]localaitools.RouterDecision, error) {
+	if c.RouterDecisions == nil {
+		return []localaitools.RouterDecision{}, nil
+	}
+	rows, err := c.RouterDecisions.List(ctx, router.DecisionListQuery{
+		CorrelationID: q.CorrelationID,
+		UserID:        q.UserID,
+		RouterModel:   q.RouterModel,
+		Limit:         q.Limit,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("list router decisions: %w", err)
+	}
+	out := make([]localaitools.RouterDecision, 0, len(rows))
+	for _, r := range rows {
+		out = append(out, localaitools.RouterDecision{
+			ID:             r.ID,
+			CorrelationID:  r.CorrelationID,
+			UserID:         r.UserID,
+			RouterModel:    r.RouterModel,
+			RequestedModel: r.RequestedModel,
+			ServedModel:    r.ServedModel,
+			Classifier:     r.Classifier,
+			Label:          r.Label,
+			Score:          r.Score,
+			LatencyMs:      r.LatencyMs,
+			Cached:         r.Cached,
+			CreatedAt:      r.CreatedAt.Format("2006-01-02T15:04:05Z07:00"),
+		})
+	}
+	return out, nil
+}
+
+func (c *Client) GetMiddlewareStatus(ctx context.Context) (*localaitools.MiddlewareStatus, error) {
+	router := localaitools.MiddlewareRouterStatus{
+		Configured: false,
+		Models:     []string{},
+		Note:       "Intelligent routing is not yet implemented.",
+	}
+	piiSection := localaitools.MiddlewarePIIStatus{
+		EnabledGlobally: c.PIIRedactor != nil,
+		Patterns:        []localaitools.PIIPattern{},
+		Models:          []localaitools.MiddlewarePIIModel{},
+	}
+	if c.PIIRedactor == nil {
+		piiSection.Reason = "--disable-pii"
+		return &localaitools.MiddlewareStatus{PII: piiSection, Router: router}, nil
+	}
+	piiSection.DefaultEnabledForBackends = []string{"cloud-proxy"}
+	for _, p := range c.PIIRedactor.Patterns() {
+		piiSection.Patterns = append(piiSection.Patterns, localaitools.PIIPattern{
+			ID:             p.ID,
+			Description:    p.Description,
+			Action:         string(p.Action),
+			MaxMatchLength: p.MaxMatchLength,
+		})
+	}
+	if c.ConfigLoader != nil {
+		for _, cfg := range c.ConfigLoader.GetAllModelsConfigs() {
+			cfg := cfg
+			piiSection.Models = append(piiSection.Models, localaitools.MiddlewarePIIModel{
+				Name:              cfg.Name,
+				Backend:           cfg.Backend,
+				Enabled:           cfg.PIIIsEnabled(),
+				Explicit:          cfg.PII.Enabled != nil,
+				DefaultForBackend: cfg.Backend == "cloud-proxy",
+				Overrides:         cfg.PIIPatternOverrides(),
+			})
+		}
+	}
+	if c.PIIEvents != nil {
+		if n, err := c.PIIEvents.Count(ctx); err == nil {
+			piiSection.RecentEventCount = n
+		}
+	}
+	return &localaitools.MiddlewareStatus{PII: piiSection, Router: router}, nil
+}
+
+func (c *Client) TestPIIRedaction(_ context.Context, req localaitools.PIIRedactTestRequest) (*localaitools.PIIRedactTestResult, error) {
+	if c.PIIRedactor == nil {
+		return nil, errors.New("PII filter is disabled")
+	}
+	res := c.PIIRedactor.Redact(req.Text)
+	out := &localaitools.PIIRedactTestResult{
+		Redacted:  res.Redacted,
+		Blocked:   res.Blocked,
+		LocalOnly: res.LocalOnly,
+	}
+	for _, s := range res.Spans {
+		out.Spans = append(out.Spans, localaitools.PIIEventSpan{
+			Start:      s.Start,
+			End:        s.End,
+			Pattern:    s.Pattern,
+			HashPrefix: s.HashPrefix,
+		})
+	}
+	return out, nil
 }
 
 func capabilityFlagsOf(m *config.ModelConfig) []string {

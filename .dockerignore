@@ -4,6 +4,7 @@
 .devcontainer
 models
 backends
+volumes
 examples/chatbot-ui/models
 backend/go/image/stablediffusion-ggml/build/
 backend/go/*/build
@@ -21,3 +22,11 @@ __pycache__
 # backend virtual environments
 **/venv
 backend/python/**/source
+
+# In-place llama.cpp clone + per-variant build copies. The Makefile
+# clones llama.cpp itself at the pinned LLAMA_VERSION; if a stale
+# local checkout is COPY'd into the image, the `llama.cpp:` target
+# sees the directory and skips re-cloning, so grpc-server.cpp ends
+# up compiled against whatever (likely older) commit the host had.
+backend/cpp/llama-cpp/llama.cpp
+backend/cpp/llama-cpp-*-build

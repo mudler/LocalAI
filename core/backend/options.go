@@ -242,6 +242,18 @@ func grpcModelOpts(c config.ModelConfig, modelPath string) *pb.ModelOptions {
 		Tokenizer: c.Tokenizer,
 	}
 
+	if c.Backend == "cloud-proxy" {
+		opts.Proxy = &pb.ProxyOptions{
+			UpstreamUrl:            c.Proxy.UpstreamURL,
+			Mode:                   c.Proxy.Mode,
+			Provider:               c.Proxy.Provider,
+			ApiKeyEnv:              c.Proxy.APIKeyEnv,
+			ApiKeyFile:             c.Proxy.APIKeyFile,
+			UpstreamModel:          c.Proxy.UpstreamModel,
+			RequestTimeoutSeconds:  int32(c.Proxy.RequestTimeoutSeconds),
+		}
+	}
+
 	if c.MMProj != "" {
 		opts.MMProj = filepath.Join(modelPath, c.MMProj)
 	}

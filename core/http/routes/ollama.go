@@ -17,7 +17,7 @@ func RegisterOllamaRoutes(app *echo.Echo,
 	application *application.Application) {
 
 	traceMiddleware := middleware.TraceMiddleware(application)
-	usageMiddleware := middleware.UsageMiddleware(application.AuthDB())
+	usageMiddleware := middleware.UsageMiddleware(application.StatsRecorder(), application.FallbackUser())
 
 	// Chat endpoint: POST /api/chat
 	chatHandler := ollama.ChatEndpoint(

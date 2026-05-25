@@ -49,20 +49,31 @@ var DiffusersPipelineOptions = []FieldOption{
 	{Value: "StableVideoDiffusionPipeline", Label: "StableVideoDiffusionPipeline"},
 }
 
+// UsecaseOptions must stay in sync with GetAllModelConfigUsecases in
+// core/config/model_config.go — a value missing here is silently
+// inaccessible from the model editor, which is how `score` (the router
+// classifier usecase) hid for an entire release.
 var UsecaseOptions = []FieldOption{
 	{Value: "chat", Label: "Chat"},
 	{Value: "completion", Label: "Completion"},
 	{Value: "edit", Label: "Edit"},
 	{Value: "embeddings", Label: "Embeddings"},
 	{Value: "rerank", Label: "Rerank"},
+	{Value: "score", Label: "Score (Router Classifier)"},
 	{Value: "image", Label: "Image"},
+	{Value: "vision", Label: "Vision"},
+	{Value: "detection", Label: "Detection"},
+	{Value: "face_recognition", Label: "Face Recognition"},
 	{Value: "transcript", Label: "Transcript"},
+	{Value: "diarization", Label: "Diarization"},
+	{Value: "speaker_recognition", Label: "Speaker Recognition"},
 	{Value: "tts", Label: "TTS"},
 	{Value: "sound_generation", Label: "Sound Generation"},
+	{Value: "audio_transform", Label: "Audio Transform"},
+	{Value: "realtime_audio", Label: "Realtime Audio"},
 	{Value: "tokenize", Label: "Tokenize"},
 	{Value: "vad", Label: "VAD"},
 	{Value: "video", Label: "Video"},
-	{Value: "detection", Label: "Detection"},
 }
 
 var DiffusersSchedulerOptions = []FieldOption{

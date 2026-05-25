@@ -308,6 +308,17 @@ func mergeOpenAIRequestAndModelConfig(config *config.ModelConfig, input *schema.
 		config.Temperature = input.Temperature
 	}
 
+	// Collapse the modern max_completion_tokens alias into the
+	// legacy Maxtokens field so downstream code reads exactly one.
+	// MaxCompletionTokens wins on conflict — it's the canonical
+	// name per OpenAI's deprecation guidance, and a client that
+	// took the trouble to send it intends that value. Clearing
+	// the sibling prevents both names from being emitted if input
+	// is re-marshaled (cloud-proxy passthrough).
+	if input.MaxCompletionTokens != nil {
+		input.Maxtokens = input.MaxCompletionTokens
+		input.MaxCompletionTokens = nil
+	}
 	if input.Maxtokens != nil {
 		config.Maxtokens = input.Maxtokens
 	}

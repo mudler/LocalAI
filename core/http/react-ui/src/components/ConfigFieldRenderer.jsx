@@ -5,6 +5,10 @@ import SearchableSelect from './SearchableSelect'
 import SearchableModelSelect from './SearchableModelSelect'
 import AutocompleteInput from './AutocompleteInput'
 import CodeEditor from './CodeEditor'
+import StructuredCodeEditor from './StructuredCodeEditor'
+import PIIPatternListEditor from './PIIPatternListEditor'
+import RouterCandidatesEditor from './RouterCandidatesEditor'
+import RouterPoliciesEditor from './RouterPoliciesEditor'
 
 // Map autocomplete provider to SearchableModelSelect capability
 const PROVIDER_TO_CAPABILITY = {
@@ -300,8 +304,17 @@ export default function ConfigFieldRenderer({ field, value, onChange, onRemove, 
     )
   }
 
-  // Code editor
+  // Code editor. Two flavours:
+  //   - Plain CodeEditor when the form value is a string (Go template
+  //     blobs etc. — what the original `code-editor` shipped for).
+  //   - StructuredCodeEditor when the form value is a structured
+  //     object/array (e.g. `router.candidates`, where the canonical
+  //     value is `[{label, model, rules}, ...]`). The wrapper keeps a
+  //     YAML representation in the textarea while publishing the
+  //     parsed structure back to form state, so the save flow can
+  //     unflatten it into the YAML file cleanly.
   if (component === 'code-editor') {
+    const isStructured = value !== null && value !== undefined && typeof value !== 'string'
     return (
       <div style={{ padding: 'var(--spacing-sm) 0', borderBottom: '1px solid var(--color-border-subtle)' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
@@ -310,7 +323,9 @@ export default function ConfigFieldRenderer({ field, value, onChange, onRemove, 
             <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', marginTop: 2 }}>{description}</div>
           </div>
         </div>
-        <CodeEditor value={value || ''} onChange={handleChange} minHeight="80px" />
+        {isStructured
+          ? <StructuredCodeEditor value={value} onChange={handleChange} minHeight="80px" />
+          : <CodeEditor value={value || ''} onChange={handleChange} minHeight="80px" />}
       </div>
     )
   }
@@ -341,6 +356,57 @@ export default function ConfigFieldRenderer({ field, value, onChange, onRemove, 
           </div>
         </div>
         <JsonEditor value={value} onChange={handleChange} />
+      </div>
+    )
+  }
+
+  // Router candidates — routing table editor. Each row is
+  // {model, labels[]}; the labels picker reads from router.policies
+  // via FormContext so candidate labels match the declared vocabulary.
+  if (component === 'router-candidates') {
+    return (
+      <div style={{ padding: 'var(--spacing-sm) 0', borderBottom: '1px solid var(--color-border-subtle)' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+          <div>
+            <div style={{ fontSize: '0.875rem', fontWeight: 500 }}><FieldLabel field={field} /></div>
+            <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', marginTop: 2 }}>{description}</div>
+          </div>
+        </div>
+        <RouterCandidatesEditor value={value} onChange={handleChange} />
+      </div>
+    )
+  }
+
+  // Router policies — label vocabulary editor. Each row is
+  // {label, description}; the description ends up verbatim in the
+  // routing system prompt sent to the classifier model.
+  if (component === 'router-policies') {
+    return (
+      <div style={{ padding: 'var(--spacing-sm) 0', borderBottom: '1px solid var(--color-border-subtle)' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+          <div>
+            <div style={{ fontSize: '0.875rem', fontWeight: 500 }}><FieldLabel field={field} /></div>
+            <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', marginTop: 2 }}>{description}</div>
+          </div>
+        </div>
+        <RouterPoliciesEditor value={value} onChange={handleChange} />
+      </div>
+    )
+  }
+
+  // PII pattern list — per-model action overrides for named patterns.
+  // The pattern catalog is loaded from /api/pii/patterns at render time
+  // so new built-in patterns surface automatically.
+  if (component === 'pii-pattern-list') {
+    return (
+      <div style={{ padding: 'var(--spacing-sm) 0', borderBottom: '1px solid var(--color-border-subtle)' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+          <div>
+            <div style={{ fontSize: '0.875rem', fontWeight: 500 }}><FieldLabel field={field} /></div>
+            <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', marginTop: 2 }}>{description}</div>
+          </div>
+        </div>
+        <PIIPatternListEditor value={value} onChange={handleChange} />
       </div>
     )
   }

@@ -54,6 +54,141 @@ parameters:
 			Expect(err).To(BeNil())
 			Expect(valid).To(BeTrue())
 
+			// llama-cpp configs can't mix the score usecase with
+			// chat/completion/embeddings — Score bypasses the slot
+			// loop and would race the llama_context. The check fires
+			// at load and save time; here we exercise it directly.
+			scoreFlag := FLAG_SCORE | FLAG_CHAT
+			conflicting := ModelConfig{
+				Name:          "router-but-also-chat",
+				Backend:       "llama-cpp",
+				KnownUsecases: &scoreFlag,
+			}
+			valid, err = conflicting.Validate()
+			Expect(valid).To(BeFalse())
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("score is incompatible"))
+
+			scoreOnly := FLAG_SCORE
+			dedicated := ModelConfig{
+				Name:          "router-only",
+				Backend:       "llama-cpp",
+				KnownUsecases: &scoreOnly,
+			}
+			valid, err = dedicated.Validate()
+			Expect(valid).To(BeTrue())
+			Expect(err).NotTo(HaveOccurred())
+
+			// The constraint is llama-cpp-specific; other backends
+			// may safely combine.
+			scoreAndChat := FLAG_SCORE | FLAG_CHAT
+			otherBackend := ModelConfig{
+				Name:          "vllm-router-and-chat",
+				Backend:       "vllm",
+				KnownUsecases: &scoreAndChat,
+			}
+			valid, err = otherBackend.Validate()
+			Expect(valid).To(BeTrue())
+			Expect(err).NotTo(HaveOccurred())
+
+			// Cloud-proxy: api_key_env and api_key_file are mutually
+			// exclusive — picking both is a config bug we catch at
+			// load/save rather than at backend-load time.
+			bothKeys := ModelConfig{
+				Name:    "both-keys",
+				Backend: "cloud-proxy",
+				Proxy: ProxyConfig{
+					UpstreamURL: "https://example.com/v1",
+					APIKeyEnv:   "OPENAI_KEY",
+					APIKeyFile:  "/run/secrets/openai",
+				},
+			}
+			valid, err = bothKeys.Validate()
+			Expect(valid).To(BeFalse())
+			Expect(err).To(MatchError(ContainSubstring("mutually exclusive")))
+
+			// Translate mode requires a provider — without one, the
+			// backend has no way to pick a wire format.
+			translateNoProvider := ModelConfig{
+				Name:    "translate-no-provider",
+				Backend: "cloud-proxy",
+				Proxy:   ProxyConfig{UpstreamURL: "https://example.com/v1", Mode: ProxyModeTranslate},
+			}
+			valid, err = translateNoProvider.Validate()
+			Expect(valid).To(BeFalse())
+			Expect(err).To(MatchError(ContainSubstring("translate mode requires provider")))
+
+			// Unknown mode is rejected.
+			badMode := ModelConfig{
+				Name:    "bad-mode",
+				Backend: "cloud-proxy",
+				Proxy:   ProxyConfig{UpstreamURL: "https://example.com/v1", Mode: "rewrite"},
+			}
+			valid, err = badMode.Validate()
+			Expect(valid).To(BeFalse())
+			Expect(err).To(MatchError(ContainSubstring("unknown mode")))
+
+			// Passthrough (default) with one key source is happy.
+			passthroughOK := ModelConfig{
+				Name:    "passthrough-ok",
+				Backend: "cloud-proxy",
+				Proxy:   ProxyConfig{UpstreamURL: "https://example.com/v1", APIKeyEnv: "OPENAI_KEY"},
+			}
+			valid, err = passthroughOK.Validate()
+			Expect(valid).To(BeTrue())
+			Expect(err).NotTo(HaveOccurred())
+
+			// router.score_normalization: load-time rejection of an
+			// unknown value. The classifier consumes it lazily, so
+			// without this validation a YAML typo wouldn't surface
+			// until the first router request panicked deep in
+			// NewScoreClassifier.
+			badNorm := ModelConfig{
+				Name: "bad-norm",
+				Router: RouterConfig{
+					ScoreNormalization: "men", // typo of "mean"
+				},
+			}
+			valid, err = badNorm.Validate()
+			Expect(valid).To(BeFalse())
+			Expect(err).To(MatchError(ContainSubstring("unknown score_normalization")))
+
+			// Accepted values pass.
+			for _, mode := range []string{"", ScoreNormalizationRaw, ScoreNormalizationMean} {
+				goodNorm := ModelConfig{
+					Name:   "good-norm-" + mode,
+					Router: RouterConfig{ScoreNormalization: mode},
+				}
+				valid, err = goodNorm.Validate()
+				Expect(valid).To(BeTrue(), "score_normalization=%q should be accepted", mode)
+				Expect(err).NotTo(HaveOccurred())
+			}
+
+			// router.classifier_system_template: parse-time rejection
+			// of malformed Go templates. Same reasoning as above —
+			// without this the parse error wouldn't surface until
+			// the first router request panicked in NewScoreClassifier.
+			badTmpl := ModelConfig{
+				Name: "bad-tmpl",
+				Router: RouterConfig{
+					ClassifierSystemTemplate: "Routes: {{range .Policies",
+				},
+			}
+			valid, err = badTmpl.Validate()
+			Expect(valid).To(BeFalse())
+			Expect(err).To(MatchError(ContainSubstring("classifier_system_template parse error")))
+
+			// Well-formed template passes.
+			goodTmpl := ModelConfig{
+				Name: "good-tmpl",
+				Router: RouterConfig{
+					ClassifierSystemTemplate: `Routes: {{range .Policies}}{{.Label}} {{end}}`,
+				},
+			}
+			valid, err = goodTmpl.Validate()
+			Expect(valid).To(BeTrue())
+			Expect(err).NotTo(HaveOccurred())
+
 			// download https://raw.githubusercontent.com/mudler/LocalAI/v2.25.0/embedded/models/hermes-2-pro-mistral.yaml
 			httpClient := http.Client{}
 			resp, err := httpClient.Get("https://raw.githubusercontent.com/mudler/LocalAI/v2.25.0/embedded/models/hermes-2-pro-mistral.yaml")
@@ -168,6 +303,29 @@ parameters:
 		Expect(i.HasUsecases(FLAG_TTS)).To(BeFalse())
 		Expect(i.HasUsecases(FLAG_COMPLETION)).To(BeTrue())
 		Expect(i.HasUsecases(FLAG_CHAT)).To(BeTrue())
+
+		// Declared `known_usecases: [score]` is authoritative — the
+		// guessing heuristic must NOT add chat on top, even though the
+		// inherited chatml template would otherwise satisfy the chat
+		// heuristic. Score means "this model is reserved for the
+		// router classifier"; surfacing it as a chat model defeats the
+		// reservation and reintroduces the slot contention the load-time
+		// score/chat conflict check exists to prevent.
+		scoreReserved := FLAG_SCORE
+		j := ModelConfig{
+			Name:          "arch-router",
+			Backend:       "llama-cpp",
+			KnownUsecases: &scoreReserved,
+			TemplateConfig: TemplateConfig{
+				Chat:    "inherited from chatml",
+				ChatMessage: "inherited from chatml",
+				Completion:  "inherited from chatml",
+			},
+		}
+		Expect(j.HasUsecases(FLAG_SCORE)).To(BeTrue())
+		Expect(j.HasUsecases(FLAG_CHAT)).To(BeFalse())
+		Expect(j.HasUsecases(FLAG_COMPLETION)).To(BeFalse())
+		Expect(j.HasUsecases(FLAG_EMBEDDINGS)).To(BeFalse())
 	})
 	It("Test Validate with invalid MCP config", func() {
 		tmp, err := os.CreateTemp("", "config.yaml")

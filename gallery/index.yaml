@@ -23520,6 +23520,75 @@
     - python
   parameters:
     model: cross-encoder
+- name: bge-m3-colbert
+  url: github:mudler/LocalAI/gallery/bge-m3-colbert.yaml@master
+  icon: https://cdn-avatars.huggingface.co/v1/production/uploads/1664511063789-632c234f42c386ebd2710434.png
+  urls:
+    - https://huggingface.co/BAAI/bge-m3
+  description: |
+    BAAI/bge-m3 loaded by the rerankers backend in ColBERT
+    (late-interaction MaxSim) mode. Pairs with the `colbert` router
+    classifier to score policy descriptions against the prompt
+    without an LLM round-trip — robust on abstract or short labels
+    where next-token scoring with Arch-Router-style models is noisy.
+  license: mit
+  tags:
+    - reranker
+    - colbert
+    - router
+    - gpu
+    - python
+  parameters:
+    model: bge-m3-colbert
+- &arch-router-1_5b
+  url: github:mudler/LocalAI/gallery/chatml.yaml@master
+  name: arch-router-1.5b-q4
+  icon: https://cdn-avatars.huggingface.co/v1/production/uploads/66b681906c8d3b36786b764c/uyP7mxDVv0HbV9Hv_KfHk.jpeg
+  license: other
+  urls:
+    - https://huggingface.co/katanemo/Arch-Router-1.5B
+    - https://huggingface.co/mradermacher/Arch-Router-1.5B-GGUF
+  description: |
+    Arch-Router-1.5B is a compact router LLM from Katanemo, fine-tuned from
+    Qwen2.5-1.5B-Instruct. Given a prompt and a set of user-defined route
+    policies (domain + action), it picks the best-matching policy name so
+    requests can be dispatched to the appropriate downstream model. Designed
+    for low-latency, high-throughput use inside the Arch proxy, it pairs
+    with LocalAI's router classifier as a preference-aligned alternative to
+    embedding/ColBERT-based routing on concrete, well-described policies.
+  tags:
+    - llm
+    - gguf
+    - qwen
+    - qwen2.5
+    - 1.5b
+    - router
+    - cpu
+    - gpu
+  overrides:
+    # Replace the inherited [chat] usecase from chatml.yaml — Arch-Router
+    # is exclusively a router-classifier model, and chat+score conflict
+    # on llama-cpp (the score path races the llama_context against
+    # concurrent generation traffic; see model_config.go validation).
+    known_usecases:
+      - score
+    parameters:
+      model: Arch-Router-1.5B.Q4_K_M.gguf
+  files:
+    - filename: Arch-Router-1.5B.Q4_K_M.gguf
+      sha256: 9abe34414ebfe3921a1d157ed3ce8718e21e59a1f80693a33969a82ea40df636
+      uri: huggingface://mradermacher/Arch-Router-1.5B-GGUF/Arch-Router-1.5B.Q4_K_M.gguf
+- !!merge <<: *arch-router-1_5b
+  name: arch-router-1.5b-q8
+  overrides:
+    known_usecases:
+      - score
+    parameters:
+      model: Arch-Router-1.5B.Q8_0.gguf
+  files:
+    - filename: Arch-Router-1.5B.Q8_0.gguf
+      sha256: 236fcf372bb25f314dafa1605d84566db60ddad98b889aaa072a3108ec48ef22
+      uri: huggingface://mradermacher/Arch-Router-1.5B-GGUF/Arch-Router-1.5B.Q8_0.gguf
 - name: dolphin-2.9-llama3-8b
   url: github:mudler/LocalAI/gallery/hermes-2-pro-mistral.yaml@master
   urls:
