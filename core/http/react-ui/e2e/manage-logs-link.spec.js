@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test'
+import { test, expect } from './coverage-fixtures.js'
 
 test.describe('Manage Page - Backend Logs Link', () => {
   test('row action menu exposes Backend logs entry with terminal icon', async ({ page }) => {

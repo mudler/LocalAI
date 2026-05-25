@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test'
+import { test, expect } from './coverage-fixtures.js'
 
 test.describe('Navigation', () => {
   test('/ redirects to /app', async ({ page }) => {

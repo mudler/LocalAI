@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test'
+import { test, expect } from './coverage-fixtures.js'
 
 async function setupChatPage(page) {
   // Mock capabilities endpoint so ModelSelector auto-selects a model
