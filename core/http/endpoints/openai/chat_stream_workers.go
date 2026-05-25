@@ -7,6 +7,7 @@ import (
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/schema"
 	"github.com/mudler/LocalAI/pkg/functions"
+	pb "github.com/mudler/LocalAI/pkg/grpc/proto"
 	"github.com/mudler/LocalAI/pkg/model"
 	reason "github.com/mudler/LocalAI/pkg/reasoning"
 	"github.com/mudler/xlog"
@@ -81,6 +82,34 @@ func emitJSONToolCallDeltas(
 		lastEmittedCount = i + 1
 	}
 	return lastEmittedCount
+}
+
+// chooseDeferredReasoning picks the source of truth for the end-of-stream
+// reasoning flush in processStreamWithTools. When the C++ autoparser was
+// active during the stream (preferAutoparser), it returns the autoparser's
+// own classified reasoning_content from ChatDeltas — usually empty when the
+// autoparser is in pure-content fallback mode. Otherwise it falls back to
+// the Go-side streaming extractor, which is the right source for backends
+// without an autoparser (vLLM, etc.).
+//
+// Why: the Go-side extractor's accumulated Reasoning() can be polluted by
+// PrependThinkingTokenIfNeeded — when the tokenizer template contains a
+// thinking start token (qwen3's jinja template has <think> inside an
+// {% if enable_thinking %} block, and DetectThinkingStartToken does not
+// evaluate jinja conditionals), prefill detection treats every chunk's
+// content as reasoning, even when the model emitted a raw tool-call JSON
+// in non-thinking mode. Without this guard, qwen3-4b with streaming + tools
+// (after #9985 flipped the gallery to use_tokenizer_template) emits a
+// trailing SSE chunk where `reasoning` carries the tool-call JSON.
+func chooseDeferredReasoning(
+	preferAutoparser bool,
+	chatDeltas []*pb.ChatDelta,
+	extractor *reason.ReasoningExtractor,
+) string {
+	if preferAutoparser {
+		return functions.ReasoningFromChatDeltas(chatDeltas)
+	}
+	return extractor.Reasoning()
 }
 
 // processStream is the streaming worker for chat completions with no
@@ -228,6 +257,17 @@ func processStreamWithTools(
 	hasChatDeltaToolCalls := false
 	hasChatDeltaContent := false
 
+	// preferAutoparser is sticky: once the C++ autoparser has ever delivered
+	// content or reasoning via ChatDeltas, we trust its classification for the
+	// rest of the stream — including for the end-of-stream reasoning flush in
+	// buildDeferredToolCallChunks. Otherwise the Go-side extractor's
+	// accumulated Reasoning() can be polluted by prefill detection
+	// misclassifying content as reasoning (this happens when <think> appears
+	// in the tokenizer template and the model emits non-reasoning content
+	// like a raw tool-call JSON — qwen3-4b after #9985 enabled
+	// use_tokenizer_template). Mirrors the analogous flag in processStream.
+	preferAutoparser := false
+
 	// X-LocalAI-Node attribution is handled by middleware.ExposeNodeHeader
 	// at the wrapper layer; no in-band signalling from this worker.
 
@@ -251,12 +291,17 @@ func processStreamWithTools(
 
 		if usage.HasChatDeltaContent() {
 			rawReasoning, cd := usage.ChatDeltaReasoningAndContent()
+			preferAutoparser = true
 			contentDelta = cd
 			reasoningDelta = extractor.ProcessChatDeltaReasoning(rawReasoning)
-		} else {
+		} else if !preferAutoparser {
 			reasoningDelta = goReasoning
 			contentDelta = goContent
 		}
+		// If preferAutoparser is already true but this chunk carried no
+		// autoparser data, leave both deltas empty — the next autoparser
+		// chunk will pick things up. Falling back to Go-side here would
+		// re-introduce the prefill-misclassification leak.
 
 		// Emit reasoning deltas in their own SSE chunks before any tool-call chunks
 		// (OpenAI spec: reasoning and tool_calls never share a delta)
@@ -399,7 +444,14 @@ func processStreamWithTools(
 	} else {
 		// Fallback: parse tool calls from raw text (no chat deltas from backend)
 		xlog.Debug("[ChatDeltas] no pre-parsed tool calls, falling back to Go-side text parsing")
-		reasoning = extractor.Reasoning()
+		// When the autoparser was active during streaming (preferAutoparser),
+		// trust its reasoning classification rather than the Go-side
+		// extractor's accumulated state — the latter may have misclassified
+		// content as reasoning due to prefill detection on a tokenizer
+		// template that contains <think>. This was visible on qwen3-4b after
+		// #9985 enabled use_tokenizer_template: a streaming tool-call JSON
+		// would leak as a trailing reasoning chunk via the deferred flush.
+		reasoning = chooseDeferredReasoning(preferAutoparser, chatDeltas, extractor)
 		cleanedResult := extractor.CleanedContent()
 		*textContentToReturn = functions.ParseTextContent(cleanedResult, cfg.FunctionsConfig)
 		cleanedResult = functions.CleanupLLMResult(cleanedResult, cfg.FunctionsConfig)
