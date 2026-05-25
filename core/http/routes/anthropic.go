@@ -16,6 +16,7 @@ import (
 	"github.com/mudler/LocalAI/core/services/routing/pii"
 	"github.com/mudler/LocalAI/core/services/routing/piiadapter"
 	"github.com/mudler/LocalAI/core/services/routing/router"
+	"github.com/mudler/LocalAI/pkg/distributedhdr"
 	"github.com/mudler/xlog"
 )
 
@@ -40,6 +41,7 @@ func RegisterAnthropicRoutes(app *echo.Echo,
 	)
 
 	messagesMiddleware := []echo.MiddlewareFunc{
+		middleware.ExposeNodeHeader(application.ApplicationConfig()),
 		middleware.UsageMiddleware(application.StatsRecorder(), application.FallbackUser()),
 		middleware.TraceMiddleware(application),
 		re.BuildFilteredFirstAvailableDefaultModel(config.BuildUsecaseFilterFn(config.FLAG_CHAT)),
@@ -111,6 +113,7 @@ func setAnthropicRequestContext(appConfig *config.ApplicationConfig) echo.Middle
 
 			// Add the correlation ID to the new context
 			ctxWithCorrelationID := context.WithValue(c1, middleware.CorrelationIDKey, correlationID)
+			ctxWithCorrelationID = distributedhdr.Inherit(ctxWithCorrelationID, reqCtx)
 
 			input.Context = ctxWithCorrelationID
 			input.Cancel = cancel

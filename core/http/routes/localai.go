@@ -165,12 +165,15 @@ func RegisterLocalAIRoutes(router *echo.Echo,
 		middleware.TraceMiddleware(app))
 
 	vadHandler := localai.VADEndpoint(cl, ml, appConfig)
+	vadNodeHeader := middleware.ExposeNodeHeader(appConfig)
 	router.POST("/vad",
 		vadHandler,
+		vadNodeHeader,
 		requestExtractor.BuildFilteredFirstAvailableDefaultModel(config.BuildUsecaseFilterFn(config.FLAG_VAD)),
 		requestExtractor.SetModelAndConfig(func() schema.LocalAIRequest { return new(schema.VADRequest) }))
 	router.POST("/v1/vad",
 		vadHandler,
+		vadNodeHeader,
 		requestExtractor.BuildFilteredFirstAvailableDefaultModel(config.BuildUsecaseFilterFn(config.FLAG_VAD)),
 		requestExtractor.SetModelAndConfig(func() schema.LocalAIRequest { return new(schema.VADRequest) }))
 
