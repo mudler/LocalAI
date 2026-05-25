@@ -156,11 +156,17 @@ func (r *SmartRouter) scheduleAndLoad(ctx context.Context, backendType, tracking
 		xlog.Warn("Failed to record model on node", "node", node.Name, "model", trackingKey, "replica", replicaIndex, "error", err)
 	}
 
-	// Store load metadata for future replica scale-ups by the reconciler
+	// Store load metadata for future replica scale-ups by the reconciler.
+	// Writes both per-replica (NodeModel.model_opts_blob) for backward compat
+	// and per-model (ModelLoadInfo table) so the reconciler can recover after
+	// every replica row has been removed (Bug-1).
 	if modelOpts != nil {
 		if optsBlob, marshalErr := proto.Marshal(modelOpts); marshalErr == nil {
 			if storeErr := r.registry.SetNodeModelLoadInfo(ctx, node.ID, trackingKey, replicaIndex, backendType, optsBlob); storeErr != nil {
 				xlog.Warn("Failed to store model load info", "node", node.Name, "model", trackingKey, "replica", replicaIndex, "error", storeErr)
+			}
+			if storeErr := r.registry.UpsertModelLoadInfo(ctx, trackingKey, backendType, optsBlob); storeErr != nil {
+				xlog.Warn("Failed to upsert per-model load info", "model", trackingKey, "error", storeErr)
 			}
 		}
 	}
