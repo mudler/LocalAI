@@ -263,13 +263,23 @@ func processStreamWithTools(
 		} else {
 			// Try JSON tool call parsing for streaming.
 			// Only emit NEW tool calls (same guard as XML parser above).
+			//
+			// Issue #9988 defense: ParseJSONIterative may return stub objects
+			// for partial input that has not yet committed a tool name (e.g.
+			// `{"n` healed to `{"n":1}`). Treat any entry without a usable
+			// `name` as "not yet a tool call" — break instead of continue, and
+			// advance lastEmittedCount only past actually-emitted entries. The
+			// previous version of this block set
+			// `lastEmittedCount = len(jsonResults)` unconditionally, which
+			// gated off ALL subsequent content emission as soon as one stub
+			// landed in results (the qwen3 + streaming + tools "{\"" leak).
 			jsonResults, jsonErr := functions.ParseJSONIterative(cleanedResult, true)
 			if jsonErr == nil && len(jsonResults) > lastEmittedCount {
 				for i := lastEmittedCount; i < len(jsonResults); i++ {
 					jsonObj := jsonResults[i]
 					name, ok := jsonObj["name"].(string)
 					if !ok || name == "" {
-						continue
+						break
 					}
 					args := "{}"
 					if argsVal, ok := jsonObj["arguments"]; ok {
@@ -305,8 +315,8 @@ func processStreamWithTools(
 						Object: "chat.completion.chunk",
 					}
 					responses <- initialMessage
+					lastEmittedCount = i + 1
 				}
-				lastEmittedCount = len(jsonResults)
 			}
 		}
 		return true
