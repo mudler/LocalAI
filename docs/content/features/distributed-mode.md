@@ -490,6 +490,7 @@ The **Replica Reconciler** runs as a background process on the frontend:
 - **Scale down**: Removes idle replicas after 5 minutes of inactivity
 - **Maintain minimum**: Ensures `min_replicas` are always loaded (recovers from node failures)
 - **Eviction protection**: Models with auto-scaling enabled are never evicted below `min_replicas`
+- **Restart-safe**: Per-model load metadata (backend type + `ModelOptions`) is persisted in the `model_load_infos` PostgreSQL table on the first successful dispatch, so a frontend restart or rolling upgrade does not require a fresh inference request to repopulate state before the reconciler can scale up replacement replicas.
 
 All fields are optional and composable:
 - Node selector only: pin model to matching nodes, single replica
