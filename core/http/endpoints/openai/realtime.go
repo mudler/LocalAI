@@ -1572,6 +1572,15 @@ func triggerResponseAtTurn(ctx context.Context, session *Session, conv *Conversa
 			"tool_calls", len(deltaToolCalls),
 			"content_len", len(deltaContent),
 			"reasoning_len", len(deltaReasoning))
+		// Issue #9985: when the autoparser only delivered content (no
+		// reasoning_content), it may be running in the "pure content"
+		// PEG fallback (non-jinja path) which leaves <think>…</think>
+		// embedded in the content. Run Go-side extraction defensively.
+		// ExtractReasoningWithConfig is a no-op when no tag pair matches,
+		// so it's safe to apply unconditionally in the no-reasoning branch.
+		if deltaReasoning == "" && deltaContent != "" {
+			deltaReasoning, deltaContent = reasoning.ExtractReasoningWithConfig(deltaContent, thinkingStartToken, config.ReasoningConfig)
+		}
 		reasoningText = deltaReasoning
 		responseWithoutReasoning = deltaContent
 		textContent = deltaContent

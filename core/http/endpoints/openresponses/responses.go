@@ -1971,6 +1971,10 @@ func handleOpenResponsesStream(c echo.Context, responseID string, createdAt int6
 
 			// Source reasoning from: (1) ChatDeltas from C++ autoparser, (2) extractor's
 			// streaming state, (3) final extraction from the finetuned result.
+			// Issue #9985: when the autoparser delivered Content but no
+			// ReasoningContent, it was running in the "pure content" PEG fallback
+			// (non-jinja path) which leaves reasoning tags embedded in content.
+			// Fall back to the streaming Go-side extractor's split in that case.
 			if chatDeltaReasoning := functions.ReasoningFromChatDeltas(chatDeltas); chatDeltaReasoning != "" {
 				finalReasoning = chatDeltaReasoning
 				finalCleanedResult = functions.ContentFromChatDeltas(chatDeltas)

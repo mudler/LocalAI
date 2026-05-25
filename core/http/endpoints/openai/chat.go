@@ -68,6 +68,57 @@ func mergeToolCallDeltas(existing []schema.ToolCall, deltas []schema.ToolCall) [
 	return existing
 }
 
+// applyAutoparserOverride replaces the Go-side reasoning-extraction result with
+// the C++ autoparser's classified ChatDeltas when those deltas contain
+// actionable content or reasoning. It preserves the original logprobs.
+//
+// When the autoparser did not classify any reasoning (deltaReasoning == "") but
+// deltaContent still carries an unparsed reasoning tag pair (e.g. the
+// non-jinja "pure content" fallback path on a <think> model — issue #9985),
+// the Go-side reasoning extractor is run on deltaContent as a defensive
+// fallback so <think>…</think> blocks do not leak into the OpenAI `content`
+// field.
+func applyAutoparserOverride(
+	chatDeltas []*pb.ChatDelta,
+	thinkingStartToken string,
+	reasoningConfig reason.Config,
+	existing []schema.Choice,
+) []schema.Choice {
+	if len(chatDeltas) == 0 {
+		return existing
+	}
+	deltaContent := functions.ContentFromChatDeltas(chatDeltas)
+	deltaReasoning := functions.ReasoningFromChatDeltas(chatDeltas)
+	if deltaContent == "" && deltaReasoning == "" {
+		return existing
+	}
+	// Fallback for non-jinja models (issue #9985): when the C++ autoparser
+	// did not classify reasoning but the raw content still contains a known
+	// reasoning tag pair, run Go-side extraction on the content so that the
+	// <think>…</think> block does not leak into the OpenAI `content` field.
+	// When the autoparser DID populate ReasoningContent, leave its
+	// content/reasoning split alone — trust the parser. We replace
+	// deltaContent unconditionally because ExtractReasoningWithConfig is a
+	// no-op when no tag pair matches; this also strips empty thinking
+	// blocks like "<think></think>" that some models emit when reasoning
+	// is disabled.
+	if deltaReasoning == "" && deltaContent != "" {
+		deltaReasoning, deltaContent = reason.ExtractReasoningWithConfig(deltaContent, thinkingStartToken, reasoningConfig)
+	}
+	xlog.Debug("[ChatDeltas] non-SSE no-tools: overriding result with C++ autoparser deltas",
+		"content_len", len(deltaContent), "reasoning_len", len(deltaReasoning))
+	stopReason := FinishReasonStop
+	message := &schema.Message{Role: "assistant", Content: &deltaContent}
+	if deltaReasoning != "" {
+		message.Reasoning = &deltaReasoning
+	}
+	newChoice := schema.Choice{FinishReason: &stopReason, Index: 0, Message: message}
+	if len(existing) > 0 && existing[0].Logprobs != nil {
+		newChoice.Logprobs = existing[0].Logprobs
+	}
+	return []schema.Choice{newChoice}
+}
+
 // ChatEndpoint is the OpenAI Completion API endpoint https://platform.openai.com/docs/api-reference/chat/create
 // @Summary Generate a chat completions for a given prompt and model.
 // @Tags inference
@@ -757,24 +808,8 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 				// For non-tool requests: prefer C++ autoparser chat deltas over
 				// Go-side tag extraction (which can mangle output when thinkingStartToken
 				// differs from the model's actual reasoning tags, e.g. Gemma 4).
-				if !shouldUseFn && len(chatDeltas) > 0 {
-					deltaContent := functions.ContentFromChatDeltas(chatDeltas)
-					deltaReasoning := functions.ReasoningFromChatDeltas(chatDeltas)
-					if deltaContent != "" || deltaReasoning != "" {
-						xlog.Debug("[ChatDeltas] non-SSE no-tools: overriding result with C++ autoparser deltas",
-							"content_len", len(deltaContent), "reasoning_len", len(deltaReasoning))
-						stopReason := FinishReasonStop
-						message := &schema.Message{Role: "assistant", Content: &deltaContent}
-						if deltaReasoning != "" {
-							message.Reasoning = &deltaReasoning
-						}
-						newChoice := schema.Choice{FinishReason: &stopReason, Index: 0, Message: message}
-						// Preserve logprobs from the original result
-						if len(result) > 0 && result[0].Logprobs != nil {
-							newChoice.Logprobs = result[0].Logprobs
-						}
-						result = []schema.Choice{newChoice}
-					}
+				if !shouldUseFn {
+					result = applyAutoparserOverride(chatDeltas, thinkingStartToken, config.ReasoningConfig, result)
 				}
 
 				// Tool parsing is deferred here (only when shouldUseFn) so chat deltas are available

@@ -52,6 +52,13 @@ func processStream(
 	thinkingStartToken := reason.DetectThinkingStartToken(template, &cfg.ReasoningConfig)
 	extractor := reason.NewReasoningExtractor(thinkingStartToken, cfg.ReasoningConfig)
 
+	// preferAutoparser is sticky: once the C++ autoparser has ever classified
+	// reasoning_content, we trust it for the rest of the stream. Until then we
+	// fall back to Go-side extraction so that a "pure content" autoparser
+	// (non-jinja path, issue #9985) does not leak <think>…</think> tokens
+	// straight into the OpenAI `content` field.
+	preferAutoparser := false
+
 	_, finalUsage, _, err := ComputeChoices(req, s, cfg, cl, startupOptions, loader, func(s string, c *[]schema.Choice) {}, func(s string, tokenUsage backend.TokenUsage) bool {
 		var reasoningDelta, contentDelta string
 
@@ -64,8 +71,16 @@ func processStream(
 		// Otherwise fall back to Go-side extraction.
 		if tokenUsage.HasChatDeltaContent() {
 			rawReasoning, cd := tokenUsage.ChatDeltaReasoningAndContent()
-			contentDelta = cd
-			reasoningDelta = extractor.ProcessChatDeltaReasoning(rawReasoning)
+			if rawReasoning != "" {
+				preferAutoparser = true
+			}
+			if preferAutoparser {
+				contentDelta = cd
+				reasoningDelta = extractor.ProcessChatDeltaReasoning(rawReasoning)
+			} else {
+				reasoningDelta = goReasoning
+				contentDelta = goContent
+			}
 		} else {
 			reasoningDelta = goReasoning
 			contentDelta = goContent
