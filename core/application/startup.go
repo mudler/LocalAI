@@ -15,6 +15,7 @@ import (
 	"github.com/mudler/LocalAI/core/http/auth"
 	"github.com/mudler/LocalAI/core/services/galleryop"
 	"github.com/mudler/LocalAI/core/services/jobs"
+	"github.com/mudler/LocalAI/core/services/messaging"
 	"github.com/mudler/LocalAI/core/services/monitoring"
 	"github.com/mudler/LocalAI/core/services/nodes"
 	"github.com/mudler/LocalAI/core/services/routing/admission"
@@ -311,6 +312,30 @@ func New(opts ...config.AppOption) (*Application, error) {
 					xlog.Warn("Failed to clean stale gallery operations", "error", err)
 				}
 				application.galleryService.SetGalleryStore(distSvc.DistStores.Gallery)
+			}
+			// Hydrate from the store first so the wildcard subscriber finds an
+			// already-populated statuses map for any operations still in flight
+			// on a peer replica.
+			if err := application.galleryService.Hydrate(); err != nil {
+				xlog.Warn("Gallery service hydrate failed", "error", err)
+			}
+			// Bind cache-invalidation handler before SubscribeBroadcasts so the
+			// first inbound event is already routed. Peer replicas install a
+			// model and broadcast on SubjectCacheInvalidateModels; this
+			// callback re-runs LoadModelConfigsFromPath so a subsequent chat
+			// completion that load-balances onto this replica finds the new
+			// config. The originating replica reloads inline in modelHandler
+			// and never enters this path.
+			gs := application.galleryService
+			sys := options.SystemState
+			cfgLoaderOpts := options.ToConfigLoaderOptions()
+			gs.OnModelsChanged = func(_ messaging.CacheInvalidateEvent) {
+				if err := application.ModelConfigLoader().LoadModelConfigsFromPath(sys.Model.ModelsPath, cfgLoaderOpts...); err != nil {
+					xlog.Warn("Failed to reload model configs after peer invalidation", "error", err)
+				}
+			}
+			if err := application.galleryService.SubscribeBroadcasts(); err != nil {
+				xlog.Warn("Gallery service subscribe failed", "error", err)
 			}
 			// Wire distributed model/backend managers so delete propagates to workers
 			application.galleryService.SetModelManager(

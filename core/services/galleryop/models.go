@@ -9,6 +9,7 @@ import (
 
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/gallery"
+	"github.com/mudler/LocalAI/core/services/messaging"
 	"github.com/mudler/LocalAI/pkg/model"
 	"github.com/mudler/LocalAI/pkg/system"
 	"github.com/mudler/LocalAI/pkg/utils"
@@ -110,6 +111,19 @@ func (g *GalleryService) modelHandler(op *ManagementOp[gallery.GalleryModel, gal
 	if err != nil {
 		return err
 	}
+
+	// Tell peer replicas to refresh their own ModelConfigLoader. The local
+	// LoadModelConfigsFromPath above already covered THIS replica; without
+	// this broadcast a chat completion routed by the load balancer to a peer
+	// would fail to find a model just installed.
+	op2 := "install"
+	if op.Delete {
+		op2 = "delete"
+	}
+	g.publishCacheInvalidate(messaging.SubjectCacheInvalidateModels, messaging.CacheInvalidateEvent{
+		Element: op.GalleryElementName,
+		Op:      op2,
+	})
 
 	g.UpdateStatus(op.ID,
 		&OpStatus{
