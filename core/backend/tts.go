@@ -29,7 +29,10 @@ func ModelTTS(
 	appConfig *config.ApplicationConfig,
 	modelConfig config.ModelConfig,
 ) (string, *proto.Result, error) {
-	opts := ModelOptions(modelConfig, appConfig)
+	// model.WithContext(ctx) overrides the app-context default set in
+	// ModelOptions so distributed routing decisions reach the request's
+	// X-LocalAI-Node holder via distributedhdr.Stamp.
+	opts := ModelOptions(modelConfig, appConfig, model.WithContext(ctx))
 	ttsModel, err := loader.Load(opts...)
 	if err != nil {
 		recordModelLoadFailure(appConfig, modelConfig.Name, modelConfig.Backend, err, nil)
@@ -131,7 +134,7 @@ func ModelTTSStream(
 	modelConfig config.ModelConfig,
 	audioCallback func([]byte) error,
 ) error {
-	opts := ModelOptions(modelConfig, appConfig)
+	opts := ModelOptions(modelConfig, appConfig, model.WithContext(ctx))
 	ttsModel, err := loader.Load(opts...)
 	if err != nil {
 		recordModelLoadFailure(appConfig, modelConfig.Name, modelConfig.Backend, err, nil)

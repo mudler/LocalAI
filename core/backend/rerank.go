@@ -20,7 +20,7 @@ type RerankResult struct {
 }
 
 // Reranker scores a list of candidate documents against a query.
-// Returns one RerankResult per input document (no top-N truncation —
+// Returns one RerankResult per input document (no top-N truncation -
 // callers that need it can sort and slice).
 type Reranker interface {
 	Rerank(ctx context.Context, query string, documents []string) ([]RerankResult, error)
@@ -41,7 +41,7 @@ func (r *modelReranker) Rerank(ctx context.Context, query string, documents []st
 	req := &proto.RerankRequest{
 		Query:     query,
 		Documents: documents,
-		// TopN=0 → backend returns scores for every document. Truncating
+		// TopN=0: backend returns scores for every document. Truncating
 		// here would silently zero out labels the reranker considered
 		// unlikely, which the router classifier needs.
 	}
@@ -57,7 +57,10 @@ func (r *modelReranker) Rerank(ctx context.Context, query string, documents []st
 }
 
 func Rerank(ctx context.Context, request *proto.RerankRequest, loader *model.ModelLoader, appConfig *config.ApplicationConfig, modelConfig config.ModelConfig) (*proto.RerankResult, error) {
-	opts := ModelOptions(modelConfig, appConfig)
+	// model.WithContext(ctx) overrides the app-context default set in
+	// ModelOptions so distributed routing decisions reach the request's
+	// X-LocalAI-Node holder via distributedhdr.Stamp.
+	opts := ModelOptions(modelConfig, appConfig, model.WithContext(ctx))
 	rerankModel, err := loader.Load(opts...)
 	if err != nil {
 		recordModelLoadFailure(appConfig, modelConfig.Name, modelConfig.Backend, err, nil)

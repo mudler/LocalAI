@@ -21,6 +21,13 @@ import (
 // The caller owns the `responses` channel and is expected to read from
 // it while this function runs; processStream closes the channel before
 // returning.
+//
+// X-LocalAI-Node attribution (when --expose-node-header is on) is
+// handled by middleware.ExposeNodeHeader at the response writer wrapper
+// layer; no in-band signal from the worker is needed. The initial
+// role=assistant chunk is still emitted from the first token callback
+// rather than eagerly here, so the wrapper's lazy lookup against the
+// loader runs AFTER ml.Load has stamped the per-modelID node ID.
 func processStream(
 	s string,
 	req *schema.OpenAIRequest,
@@ -32,13 +39,7 @@ func processStream(
 	id string,
 	created int,
 ) (backend.TokenUsage, error) {
-	responses <- schema.OpenAIResponse{
-		ID:      id,
-		Created: created,
-		Model:   req.Model, // we have to return what the user sent here, due to OpenAI spec.
-		Choices: []schema.Choice{{Delta: &schema.Message{Role: "assistant"}, Index: 0, FinishReason: nil}},
-		Object:  "chat.completion.chunk",
-	}
+	sentInitialRole := false
 
 	// Detect if thinking token is already in prompt or template
 	// When UseTokenizerTemplate is enabled, predInput is empty, so we check the template
@@ -68,6 +69,17 @@ func processStream(
 		} else {
 			reasoningDelta = goReasoning
 			contentDelta = goContent
+		}
+
+		if !sentInitialRole {
+			sentInitialRole = true
+			responses <- schema.OpenAIResponse{
+				ID:      id,
+				Created: created,
+				Model:   req.Model, // we have to return what the user sent here, due to OpenAI spec.
+				Choices: []schema.Choice{{Delta: &schema.Message{Role: "assistant"}, Index: 0, FinishReason: nil}},
+				Object:  "chat.completion.chunk",
+			}
 		}
 
 		delta := &schema.Message{}
@@ -129,6 +141,9 @@ func processStreamWithTools(
 	sentReasoning := false
 	hasChatDeltaToolCalls := false
 	hasChatDeltaContent := false
+
+	// X-LocalAI-Node attribution is handled by middleware.ExposeNodeHeader
+	// at the wrapper layer; no in-band signalling from this worker.
 
 	_, finalUsage, chatDeltas, err := ComputeChoices(req, prompt, cfg, cl, startupOptions, loader, func(s string, c *[]schema.Choice) {}, func(s string, usage backend.TokenUsage) bool {
 		result += s
