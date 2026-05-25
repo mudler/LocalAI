@@ -570,9 +570,11 @@ static void params_parse(server_context& /*ctx_server*/, const backend::ModelOpt
     // kv_unified=false or cache_ram_mib=0, so flipping kv_unified above is
     // what actually unlocks it.
     params.cache_idle_slots = true;
-    // checkpoint_every_nt: create a context checkpoint every N tokens during
-    // prefill (-1 disables). Match upstream's default (8192).
-    params.checkpoint_every_nt = 8192;
+    // checkpoint_min_step: minimum spacing between context checkpoints in
+    // tokens (0 disables the minimum). Match upstream's default (256). This
+    // field was renamed from `checkpoint_every_nt` in llama.cpp; the semantics
+    // also shifted from a fixed cadence to a minimum spacing.
+    params.checkpoint_min_step = 256;
 
      // decode options. Options are in form optname:optvale, or if booleans only optname.
     for (int i = 0; i < request->options_size(); i++) {
@@ -746,14 +748,18 @@ static void params_parse(server_context& /*ctx_server*/, const backend::ModelOpt
                 params.cache_idle_slots = false;
             }
 
-        // --- prefill checkpoint cadence (upstream -cpent / --checkpoint-every-n-tokens) ---
-        // -1 disables checkpointing during prefill.
-        } else if (!strcmp(optname, "checkpoint_every_nt") || !strcmp(optname, "checkpoint_every_n_tokens")) {
+        // --- minimum context-checkpoint spacing (upstream -cms / --checkpoint-min-step) ---
+        // 0 disables the minimum-spacing gate. Old option names (`checkpoint_every_nt`,
+        // `checkpoint_every_n_tokens`) are kept as aliases for backward compatibility
+        // with existing user configs: upstream renamed the field and shifted its
+        // semantics from a fixed cadence to a minimum spacing.
+        } else if (!strcmp(optname, "checkpoint_min_step") || !strcmp(optname, "checkpoint_min_spacing") ||
+                   !strcmp(optname, "checkpoint_every_nt") || !strcmp(optname, "checkpoint_every_n_tokens")) {
             if (optval != NULL) {
                 try {
-                    params.checkpoint_every_nt = std::stoi(optval_str);
+                    params.checkpoint_min_step = std::stoi(optval_str);
                 } catch (const std::exception& e) {
-                    // If conversion fails, keep default value (8192)
+                    // If conversion fails, keep default value (256)
                 }
             }
 
