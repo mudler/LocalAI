@@ -1,10 +1,8 @@
 package application
 
 import (
-	"cmp"
 	"context"
 	"math/rand/v2"
-	"path/filepath"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -420,15 +418,18 @@ func (a *Application) start() error {
 
 	a.agentJobService = agentJobService
 
-	// Initialize chat history store for the WebUI (issue #9432).
-	// Uses the same directory hierarchy as the agent pool — DataPath wins,
-	// then DynamicConfigsDir; we never fall back to a hard-coded path so
-	// containers without persistent volumes simply skip the feature.
-	if !a.applicationConfig.DisableWebUI {
-		if base := cmp.Or(a.applicationConfig.DataPath, a.applicationConfig.DynamicConfigsDir); base != "" {
-			a.chatHistoryStore = chathistory.New(filepath.Join(base, "chat_history"))
+	// Initialize chat history store for the WebUI (issue #9432). Reuses the
+	// shared auth database so per-user chat history sits alongside agent
+	// configs and jobs in one place — mudler's review on #9902 called out
+	// the file-based store as inconsistent with the rest of LocalAI's
+	// per-user state. When auth is disabled the store stays nil and the
+	// React UI falls back to localStorage.
+	if !a.applicationConfig.DisableWebUI && a.authDB != nil {
+		store, err := chathistory.New(a.authDB)
+		if err != nil {
+			xlog.Warn("Chat history persistence disabled: failed to initialise store", "error", err)
 		} else {
-			xlog.Warn("Chat history persistence disabled: no DataPath or DynamicConfigsDir configured")
+			a.chatHistoryStore = store
 		}
 	}
 
