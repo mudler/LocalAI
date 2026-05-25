@@ -30844,6 +30844,7 @@
     parameters:
       model: ltx-2.3-22b-dev-UD-Q4_K_M.gguf
     options:
+      - diffusion_model
       - llm_path:gemma-3-12b-it-qat-UD-Q4_K_XL.gguf
       - vae_path:ltx-2.3-22b-dev_video_vae.safetensors
       - audio_vae_path:ltx-2.3-22b-dev_audio_vae.safetensors
@@ -30875,6 +30876,7 @@
     parameters:
       model: ltx-2.3-22b-dev-Q4_K_M.gguf
     options:
+      - diffusion_model
       - llm_path:gemma-3-12b-it-qat-UD-Q4_K_XL.gguf
       - vae_path:ltx-2.3-22b-dev_video_vae.safetensors
       - audio_vae_path:ltx-2.3-22b-dev_audio_vae.safetensors
@@ -30906,6 +30908,7 @@
     parameters:
       model: ltx-2.3-22b-dev-Q8_0.gguf
     options:
+      - diffusion_model
       - llm_path:gemma-3-12b-it-qat-UD-Q4_K_XL.gguf
       - vae_path:ltx-2.3-22b-dev_video_vae.safetensors
       - audio_vae_path:ltx-2.3-22b-dev_audio_vae.safetensors
@@ -30965,6 +30968,7 @@
     parameters:
       model: ltx-2.3-22b-distilled-UD-Q4_K_M.gguf
     options:
+      - diffusion_model
       - llm_path:gemma-3-12b-it-qat-UD-Q4_K_XL.gguf
       - vae_path:ltx-2.3-22b-distilled_video_vae.safetensors
       - audio_vae_path:ltx-2.3-22b-distilled_audio_vae.safetensors
@@ -30995,6 +30999,7 @@
     parameters:
       model: ltx-2.3-22b-distilled-Q4_K_M.gguf
     options:
+      - diffusion_model
       - llm_path:gemma-3-12b-it-qat-UD-Q4_K_XL.gguf
       - vae_path:ltx-2.3-22b-distilled_video_vae.safetensors
       - audio_vae_path:ltx-2.3-22b-distilled_audio_vae.safetensors
@@ -31025,6 +31030,7 @@
     parameters:
       model: ltx-2.3-22b-distilled-Q8_0.gguf
     options:
+      - diffusion_model
       - llm_path:gemma-3-12b-it-qat-UD-Q4_K_XL.gguf
       - vae_path:ltx-2.3-22b-distilled_video_vae.safetensors
       - audio_vae_path:ltx-2.3-22b-distilled_audio_vae.safetensors
