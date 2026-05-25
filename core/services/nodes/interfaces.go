@@ -17,6 +17,7 @@ type ModelRouter interface {
 	TouchNodeModel(ctx context.Context, nodeID, modelName string, replicaIndex int)
 	SetNodeModel(ctx context.Context, nodeID, modelName string, replicaIndex int, state, address string, initialInFlight int) error
 	SetNodeModelLoadInfo(ctx context.Context, nodeID, modelName string, replicaIndex int, backendType string, optsBlob []byte) error
+	UpsertModelLoadInfo(ctx context.Context, modelName, backendType string, optsBlob []byte) error
 	GetModelLoadInfo(ctx context.Context, modelName string) (backendType string, optsBlob []byte, err error)
 	NextFreeReplicaIndex(ctx context.Context, nodeID, modelName string, maxSlots int) (int, error)
 	CountReplicasOnNode(ctx context.Context, nodeID, modelName string) (int, error)
