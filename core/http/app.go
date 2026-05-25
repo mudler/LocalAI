@@ -367,6 +367,20 @@ func API(application *application.Application) (*echo.Echo, error) {
 	var opcache *galleryop.OpCache
 	if !application.ApplicationConfig().DisableWebUI {
 		opcache = galleryop.NewOpCache(application.GalleryService())
+		// In distributed mode, wire the NATS client + gallery store so this
+		// replica's OpCache stays in sync with peers — without this the
+		// /api/operations endpoint returns whatever this single replica
+		// happened to admit, and a load-balanced UI poll alternates between
+		// "operation visible" and "operation gone" between replicas.
+		if d := application.Distributed(); d != nil {
+			opcache.SetMessagingClient(d.Nats)
+			if d.DistStores != nil && d.DistStores.Gallery != nil {
+				opcache.SetGalleryStore(d.DistStores.Gallery)
+			}
+			if err := opcache.Start(application.ApplicationConfig().Context); err != nil {
+				xlog.Warn("OpCache distributed subscribe failed; running standalone", "error", err)
+			}
+		}
 	}
 
 	mcpMw := auth.RequireFeature(application.AuthDB(), auth.FeatureMCP)
