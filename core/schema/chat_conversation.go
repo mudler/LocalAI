@@ -2,7 +2,6 @@ package schema
 
 import (
 	"encoding/json"
-	"time"
 )
 
 // Conversation represents a chat conversation persisted server-side.
@@ -37,10 +36,4 @@ type ConvTokenUsage struct {
 	Prompt     int `json:"prompt"`
 	Completion int `json:"completion"`
 	Total      int `json:"total"`
-}
-
-// ConversationsFile is the on-disk representation for a user's conversations.
-type ConversationsFile struct {
-	Conversations []Conversation `json:"conversations"`
-	UpdatedAt     time.Time      `json:"updated_at,omitempty"`
 }
