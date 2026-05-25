@@ -376,6 +376,8 @@ int load_model(const char *model, char *model_path, char* options[], int threads
     const char *clip_g_path  = "";
     const char *t5xxl_path  = "";
     const char *vae_path  = "";
+    const char *audio_vae_path = "";
+    const char *embeddings_connectors_path = "";
     const char *scheduler_str = "";
     const char *sampler = "";
     const char *clip_vision_path = "";
@@ -430,6 +432,12 @@ int load_model(const char *model, char *model_path, char* options[], int threads
         }
         if (!strcmp(optname, "vae_path")) {
             vae_path = strdup(optval);
+        }
+        if (!strcmp(optname, "audio_vae_path")) {
+            audio_vae_path = strdup(optval);
+        }
+        if (!strcmp(optname, "embeddings_connectors_path")) {
+            embeddings_connectors_path = strdup(optval);
         }
         if (!strcmp(optname, "scheduler")) {
             scheduler_str = optval;
@@ -563,6 +571,8 @@ int load_model(const char *model, char *model_path, char* options[], int threads
     ctx_params.diffusion_model_path = diffusion_model_path;
     ctx_params.high_noise_diffusion_model_path = high_noise_diffusion_model_path;
     ctx_params.vae_path = vae_path;
+    ctx_params.audio_vae_path = audio_vae_path;
+    ctx_params.embeddings_connectors_path = embeddings_connectors_path;
     ctx_params.taesd_path = taesd_path;
     ctx_params.control_net_path = control_net_path;
     if (lora_dir && strlen(lora_dir) > 0) {

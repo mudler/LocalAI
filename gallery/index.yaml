@@ -30805,6 +30805,246 @@
       - torch_dtype:bf16
     parameters:
       model: Lightricks/LTX-2.3
+- &ltx-2-3-dev-ggml
+  name: ltx-2.3-22b-dev-ggml
+  url: github:mudler/LocalAI/gallery/ltx-ggml.yaml@master
+  urls:
+    - https://huggingface.co/Lightricks/LTX-2.3
+    - https://huggingface.co/unsloth/LTX-2.3-GGUF
+    - https://huggingface.co/unsloth/gemma-3-12b-it-qat-GGUF
+  description: |
+    LTX-2.3 22B dev - DiT-based audio-video foundation model from Lightricks,
+    GGUF-quantized for the stable-diffusion.cpp backend. Generates synchronized
+    video and audio from a text prompt (T2V), a reference image (I2V), or
+    first/last frame pairs (FLF2V). Uses gemma-3-12b-it as the text encoder
+    and ships dedicated video and audio VAEs plus an embeddings_connectors
+    safetensors that bridges the LLM hidden states to the diffusion model.
+
+    This entry uses the dynamic (UD) Q4_K_M quantization of the 22B model
+    (~16 GB) paired with the UD-Q4_K_XL QAT Gemma encoder (~7.4 GB).
+    Recommended generation: width=1280, height=720, video_frames=33,
+    fps=24, sampler=euler, cfg_scale=6.0.
+  license: ltx-2-community-license-agreement
+  icon: https://cdn-avatars.huggingface.co/v1/production/uploads/1652783139615-628375426db5127097cf5442.png
+  tags:
+    - ltx
+    - ltx-2
+    - text-to-video
+    - image-to-video
+    - first-last-frame-to-video
+    - audio-video
+    - video-generation
+    - diffusion
+    - gguf
+    - quantized
+    - 22b
+    - cpu
+    - gpu
+  overrides:
+    parameters:
+      model: ltx-2.3-22b-dev-UD-Q4_K_M.gguf
+    options:
+      - llm_path:gemma-3-12b-it-qat-UD-Q4_K_XL.gguf
+      - vae_path:ltx-2.3-22b-dev_video_vae.safetensors
+      - audio_vae_path:ltx-2.3-22b-dev_audio_vae.safetensors
+      - embeddings_connectors_path:ltx-2.3-22b-dev_embeddings_connectors.safetensors
+  files:
+    - filename: ltx-2.3-22b-dev-UD-Q4_K_M.gguf
+      sha256: a6983fcf16cda13ec6dc22711dae47fa7cf160204d5a3b42b0c09d1f13fc853b
+      uri: huggingface://unsloth/LTX-2.3-GGUF/ltx-2.3-22b-dev-UD-Q4_K_M.gguf
+    - filename: gemma-3-12b-it-qat-UD-Q4_K_XL.gguf
+      sha256: da98f81c86916ed1c76b3eeda56b25cb7b8352b01093e2edb8028110fe2cb53b
+      uri: huggingface://unsloth/gemma-3-12b-it-qat-GGUF/gemma-3-12b-it-qat-UD-Q4_K_XL.gguf
+    - filename: ltx-2.3-22b-dev_video_vae.safetensors
+      sha256: 8732bb70cf4343541815f45c9f90f5ff0519d679bd63483afc27bf79a08d3f4e
+      uri: huggingface://unsloth/LTX-2.3-GGUF/vae/ltx-2.3-22b-dev_video_vae.safetensors
+    - filename: ltx-2.3-22b-dev_audio_vae.safetensors
+      sha256: d7711812d9387ce940c2cd5d65a4f5a1e57bf6087cf618d89b56dd3c722c4dea
+      uri: huggingface://unsloth/LTX-2.3-GGUF/vae/ltx-2.3-22b-dev_audio_vae.safetensors
+    - filename: ltx-2.3-22b-dev_embeddings_connectors.safetensors
+      sha256: a5c5148788d8d9d5d1e650e4cbf3502a46a2f7f975ce70c59082732c8905a8ae
+      uri: huggingface://unsloth/LTX-2.3-GGUF/text_encoders/ltx-2.3-22b-dev_embeddings_connectors.safetensors
+- !!merge <<: *ltx-2-3-dev-ggml
+  name: ltx-2.3-22b-dev-ggml-q4_k_m
+  description: |
+    LTX-2.3 22B dev - non-dynamic Q4_K_M quantization (~14.3 GB). Same
+    pipeline as ltx-2.3-22b-dev-ggml but with the plain Q4_K_M weights
+    instead of the dynamic UD-Q4_K_M variant. Slightly smaller and slightly
+    lower quality.
+  overrides:
+    parameters:
+      model: ltx-2.3-22b-dev-Q4_K_M.gguf
+    options:
+      - llm_path:gemma-3-12b-it-qat-UD-Q4_K_XL.gguf
+      - vae_path:ltx-2.3-22b-dev_video_vae.safetensors
+      - audio_vae_path:ltx-2.3-22b-dev_audio_vae.safetensors
+      - embeddings_connectors_path:ltx-2.3-22b-dev_embeddings_connectors.safetensors
+  files:
+    - filename: ltx-2.3-22b-dev-Q4_K_M.gguf
+      sha256: e053e3d7827f3a69ecd00e55395d3a8f8616ab10d3a394e8d2b65ae204d490e0
+      uri: huggingface://unsloth/LTX-2.3-GGUF/ltx-2.3-22b-dev-Q4_K_M.gguf
+    - filename: gemma-3-12b-it-qat-UD-Q4_K_XL.gguf
+      sha256: da98f81c86916ed1c76b3eeda56b25cb7b8352b01093e2edb8028110fe2cb53b
+      uri: huggingface://unsloth/gemma-3-12b-it-qat-GGUF/gemma-3-12b-it-qat-UD-Q4_K_XL.gguf
+    - filename: ltx-2.3-22b-dev_video_vae.safetensors
+      sha256: 8732bb70cf4343541815f45c9f90f5ff0519d679bd63483afc27bf79a08d3f4e
+      uri: huggingface://unsloth/LTX-2.3-GGUF/vae/ltx-2.3-22b-dev_video_vae.safetensors
+    - filename: ltx-2.3-22b-dev_audio_vae.safetensors
+      sha256: d7711812d9387ce940c2cd5d65a4f5a1e57bf6087cf618d89b56dd3c722c4dea
+      uri: huggingface://unsloth/LTX-2.3-GGUF/vae/ltx-2.3-22b-dev_audio_vae.safetensors
+    - filename: ltx-2.3-22b-dev_embeddings_connectors.safetensors
+      sha256: a5c5148788d8d9d5d1e650e4cbf3502a46a2f7f975ce70c59082732c8905a8ae
+      uri: huggingface://unsloth/LTX-2.3-GGUF/text_encoders/ltx-2.3-22b-dev_embeddings_connectors.safetensors
+- !!merge <<: *ltx-2-3-dev-ggml
+  name: ltx-2.3-22b-dev-ggml-q8_0
+  description: |
+    LTX-2.3 22B dev - Q8_0 quantization (~22.8 GB). Highest-quality
+    quantized dev variant on the cpp backend; needs roughly twice the
+    VRAM/RAM of the Q4 entries but produces noticeably cleaner audio
+    and motion. Paired with the QAT Gemma-3 12B encoder.
+  overrides:
+    parameters:
+      model: ltx-2.3-22b-dev-Q8_0.gguf
+    options:
+      - llm_path:gemma-3-12b-it-qat-UD-Q4_K_XL.gguf
+      - vae_path:ltx-2.3-22b-dev_video_vae.safetensors
+      - audio_vae_path:ltx-2.3-22b-dev_audio_vae.safetensors
+      - embeddings_connectors_path:ltx-2.3-22b-dev_embeddings_connectors.safetensors
+  files:
+    - filename: ltx-2.3-22b-dev-Q8_0.gguf
+      sha256: c4e78967e6c6824864e81e8a9ac182dcd5d06cccfea937347484f4258ab6145c
+      uri: huggingface://unsloth/LTX-2.3-GGUF/ltx-2.3-22b-dev-Q8_0.gguf
+    - filename: gemma-3-12b-it-qat-UD-Q4_K_XL.gguf
+      sha256: da98f81c86916ed1c76b3eeda56b25cb7b8352b01093e2edb8028110fe2cb53b
+      uri: huggingface://unsloth/gemma-3-12b-it-qat-GGUF/gemma-3-12b-it-qat-UD-Q4_K_XL.gguf
+    - filename: ltx-2.3-22b-dev_video_vae.safetensors
+      sha256: 8732bb70cf4343541815f45c9f90f5ff0519d679bd63483afc27bf79a08d3f4e
+      uri: huggingface://unsloth/LTX-2.3-GGUF/vae/ltx-2.3-22b-dev_video_vae.safetensors
+    - filename: ltx-2.3-22b-dev_audio_vae.safetensors
+      sha256: d7711812d9387ce940c2cd5d65a4f5a1e57bf6087cf618d89b56dd3c722c4dea
+      uri: huggingface://unsloth/LTX-2.3-GGUF/vae/ltx-2.3-22b-dev_audio_vae.safetensors
+    - filename: ltx-2.3-22b-dev_embeddings_connectors.safetensors
+      sha256: a5c5148788d8d9d5d1e650e4cbf3502a46a2f7f975ce70c59082732c8905a8ae
+      uri: huggingface://unsloth/LTX-2.3-GGUF/text_encoders/ltx-2.3-22b-dev_embeddings_connectors.safetensors
+- &ltx-2-3-distilled-ggml
+  name: ltx-2.3-22b-distilled-ggml
+  url: github:mudler/LocalAI/gallery/ltx-ggml.yaml@master
+  urls:
+    - https://huggingface.co/Lightricks/LTX-2.3
+    - https://huggingface.co/unsloth/LTX-2.3-GGUF
+    - https://huggingface.co/unsloth/gemma-3-12b-it-qat-GGUF
+  description: |
+    LTX-2.3 22B distilled - faster student of the dev model, GGUF-quantized
+    for the stable-diffusion.cpp backend. Trades a small amount of quality
+    for substantially fewer sampling steps, making it the right pick for
+    iterative previews and CPU-offloaded inference. Same input modalities
+    as the dev entry (T2V / I2V / FLF2V) and the same gemma-3-12b-it text
+    encoder.
+
+    This entry uses the dynamic (UD) Q4_K_M quantization of the 22B
+    distilled model (~16.3 GB). Recommended generation: width=1280,
+    height=720, video_frames=33, fps=24, sampler=euler, cfg_scale=6.0.
+  license: ltx-2-community-license-agreement
+  icon: https://cdn-avatars.huggingface.co/v1/production/uploads/1652783139615-628375426db5127097cf5442.png
+  tags:
+    - ltx
+    - ltx-2
+    - distilled
+    - text-to-video
+    - image-to-video
+    - first-last-frame-to-video
+    - audio-video
+    - video-generation
+    - diffusion
+    - gguf
+    - quantized
+    - 22b
+    - cpu
+    - gpu
+  overrides:
+    parameters:
+      model: ltx-2.3-22b-distilled-UD-Q4_K_M.gguf
+    options:
+      - llm_path:gemma-3-12b-it-qat-UD-Q4_K_XL.gguf
+      - vae_path:ltx-2.3-22b-distilled_video_vae.safetensors
+      - audio_vae_path:ltx-2.3-22b-distilled_audio_vae.safetensors
+      - embeddings_connectors_path:ltx-2.3-22b-distilled_embeddings_connectors.safetensors
+  files:
+    - filename: ltx-2.3-22b-distilled-UD-Q4_K_M.gguf
+      sha256: 451ef931569f084c69743d1917096b149eb489517ec0e1de76eaadeb4dbbc9bf
+      uri: huggingface://unsloth/LTX-2.3-GGUF/distilled/ltx-2.3-22b-distilled-UD-Q4_K_M.gguf
+    - filename: gemma-3-12b-it-qat-UD-Q4_K_XL.gguf
+      sha256: da98f81c86916ed1c76b3eeda56b25cb7b8352b01093e2edb8028110fe2cb53b
+      uri: huggingface://unsloth/gemma-3-12b-it-qat-GGUF/gemma-3-12b-it-qat-UD-Q4_K_XL.gguf
+    - filename: ltx-2.3-22b-distilled_video_vae.safetensors
+      sha256: e68d6d8f8a42942ac9b862cc315beb3bc30805a8876c7ad63ba5bf7a2b8e168a
+      uri: huggingface://unsloth/LTX-2.3-GGUF/vae/ltx-2.3-22b-distilled_video_vae.safetensors
+    - filename: ltx-2.3-22b-distilled_audio_vae.safetensors
+      sha256: 3cd6a6eb8cb28f5ecc12f1f3126952b2a3d2b0b42ad3270e63cefafafe0d9b57
+      uri: huggingface://unsloth/LTX-2.3-GGUF/vae/ltx-2.3-22b-distilled_audio_vae.safetensors
+    - filename: ltx-2.3-22b-distilled_embeddings_connectors.safetensors
+      sha256: c61cbb396e2a8175d8b2da51f0fdac885a4ccd22c9f64dafa5aa2c455dc8a507
+      uri: huggingface://unsloth/LTX-2.3-GGUF/text_encoders/ltx-2.3-22b-distilled_embeddings_connectors.safetensors
+- !!merge <<: *ltx-2-3-distilled-ggml
+  name: ltx-2.3-22b-distilled-ggml-q4_k_m
+  description: |
+    LTX-2.3 22B distilled - non-dynamic Q4_K_M quantization (~14.3 GB).
+    Same pipeline as ltx-2.3-22b-distilled-ggml but with the plain Q4_K_M
+    weights instead of the dynamic UD-Q4_K_M variant.
+  overrides:
+    parameters:
+      model: ltx-2.3-22b-distilled-Q4_K_M.gguf
+    options:
+      - llm_path:gemma-3-12b-it-qat-UD-Q4_K_XL.gguf
+      - vae_path:ltx-2.3-22b-distilled_video_vae.safetensors
+      - audio_vae_path:ltx-2.3-22b-distilled_audio_vae.safetensors
+      - embeddings_connectors_path:ltx-2.3-22b-distilled_embeddings_connectors.safetensors
+  files:
+    - filename: ltx-2.3-22b-distilled-Q4_K_M.gguf
+      sha256: 4e4459bee04199bf93187ba385729f6b7d8e874d754b72d26e751fe2066f4358
+      uri: huggingface://unsloth/LTX-2.3-GGUF/distilled/ltx-2.3-22b-distilled-Q4_K_M.gguf
+    - filename: gemma-3-12b-it-qat-UD-Q4_K_XL.gguf
+      sha256: da98f81c86916ed1c76b3eeda56b25cb7b8352b01093e2edb8028110fe2cb53b
+      uri: huggingface://unsloth/gemma-3-12b-it-qat-GGUF/gemma-3-12b-it-qat-UD-Q4_K_XL.gguf
+    - filename: ltx-2.3-22b-distilled_video_vae.safetensors
+      sha256: e68d6d8f8a42942ac9b862cc315beb3bc30805a8876c7ad63ba5bf7a2b8e168a
+      uri: huggingface://unsloth/LTX-2.3-GGUF/vae/ltx-2.3-22b-distilled_video_vae.safetensors
+    - filename: ltx-2.3-22b-distilled_audio_vae.safetensors
+      sha256: 3cd6a6eb8cb28f5ecc12f1f3126952b2a3d2b0b42ad3270e63cefafafe0d9b57
+      uri: huggingface://unsloth/LTX-2.3-GGUF/vae/ltx-2.3-22b-distilled_audio_vae.safetensors
+    - filename: ltx-2.3-22b-distilled_embeddings_connectors.safetensors
+      sha256: c61cbb396e2a8175d8b2da51f0fdac885a4ccd22c9f64dafa5aa2c455dc8a507
+      uri: huggingface://unsloth/LTX-2.3-GGUF/text_encoders/ltx-2.3-22b-distilled_embeddings_connectors.safetensors
+- !!merge <<: *ltx-2-3-distilled-ggml
+  name: ltx-2.3-22b-distilled-ggml-q8_0
+  description: |
+    LTX-2.3 22B distilled - Q8_0 quantization (~22.8 GB). Highest-quality
+    distilled variant on the cpp backend; useful when you want the
+    distilled sampling cost but the cleanest possible output.
+  overrides:
+    parameters:
+      model: ltx-2.3-22b-distilled-Q8_0.gguf
+    options:
+      - llm_path:gemma-3-12b-it-qat-UD-Q4_K_XL.gguf
+      - vae_path:ltx-2.3-22b-distilled_video_vae.safetensors
+      - audio_vae_path:ltx-2.3-22b-distilled_audio_vae.safetensors
+      - embeddings_connectors_path:ltx-2.3-22b-distilled_embeddings_connectors.safetensors
+  files:
+    - filename: ltx-2.3-22b-distilled-Q8_0.gguf
+      sha256: ed3be27373771404ed59239e8c2686fb6f8d3cd6a1db7f257d811c8d1a381ef8
+      uri: huggingface://unsloth/LTX-2.3-GGUF/distilled/ltx-2.3-22b-distilled-Q8_0.gguf
+    - filename: gemma-3-12b-it-qat-UD-Q4_K_XL.gguf
+      sha256: da98f81c86916ed1c76b3eeda56b25cb7b8352b01093e2edb8028110fe2cb53b
+      uri: huggingface://unsloth/gemma-3-12b-it-qat-GGUF/gemma-3-12b-it-qat-UD-Q4_K_XL.gguf
+    - filename: ltx-2.3-22b-distilled_video_vae.safetensors
+      sha256: e68d6d8f8a42942ac9b862cc315beb3bc30805a8876c7ad63ba5bf7a2b8e168a
+      uri: huggingface://unsloth/LTX-2.3-GGUF/vae/ltx-2.3-22b-distilled_video_vae.safetensors
+    - filename: ltx-2.3-22b-distilled_audio_vae.safetensors
+      sha256: 3cd6a6eb8cb28f5ecc12f1f3126952b2a3d2b0b42ad3270e63cefafafe0d9b57
+      uri: huggingface://unsloth/LTX-2.3-GGUF/vae/ltx-2.3-22b-distilled_audio_vae.safetensors
+    - filename: ltx-2.3-22b-distilled_embeddings_connectors.safetensors
+      sha256: c61cbb396e2a8175d8b2da51f0fdac885a4ccd22c9f64dafa5aa2c455dc8a507
+      uri: huggingface://unsloth/LTX-2.3-GGUF/text_encoders/ltx-2.3-22b-distilled_embeddings_connectors.safetensors
 - name: deepseek-v4-flash-q2
   description: |
     DeepSeek V4 Flash (IQ2XXS GGUF, ~81 GB) - only loadable via the ds4 backend.
