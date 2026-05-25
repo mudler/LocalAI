@@ -325,7 +325,17 @@ func ParseJSONIterative(s string, isPartial bool) ([]map[string]any, error) {
 		if jsonValue != nil {
 			// Convert to map[string]any if it's an object, or handle arrays
 			if obj, ok := jsonValue.(map[string]any); ok {
-				results = append(results, obj)
+				// Skip stub objects that healed away to nothing. Partial inputs
+				// like `{`, `{"`, or `{"n` go through parseJSONWithStack and
+				// come back as `{"<marker>":1}`; after removeHealingMarkerFromJSON
+				// drops the marker key the map is empty. Returning it as a
+				// real result trips the streaming tool-call detector
+				// (chat_stream_workers.go) into thinking a tool call landed,
+				// gating off content emission for the rest of the stream
+				// (issue #9988).
+				if !(isPartialJSON && len(obj) == 0) {
+					results = append(results, obj)
+				}
 			} else if arr, ok := jsonValue.([]any); ok {
 				// Handle arrays: extract objects from array
 				for _, item := range arr {

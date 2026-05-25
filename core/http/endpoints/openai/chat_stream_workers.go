@@ -12,6 +12,77 @@ import (
 	"github.com/mudler/xlog"
 )
 
+// emitJSONToolCallDeltas iterates the JSON tool-call objects produced by the
+// streaming tool-call detector and emits SSE chunks for the ones the caller
+// hasn't already emitted. It returns the new lastEmittedCount.
+//
+// Semantics:
+//   - Skips entries before lastEmittedCount (already emitted).
+//   - Emits one tool_call chunk per consecutive entry that has a usable
+//     `name` string.
+//   - Stops at the first entry without a name (typically the partial-JSON
+//     tail or a healing-marker stub — see issue #9988) so the caller doesn't
+//     advance past it. Bumping lastEmittedCount past an unparsed stub
+//     permanently gates off content emission for the rest of the stream.
+//   - When jsonResults is empty (the autoparser-working case, where the raw
+//     text result is cleared and only ChatDeltas carry tool calls), this is
+//     a no-op and lastEmittedCount is returned unchanged.
+//
+// The autoparser-correctly-classifying-tool-calls path is unaffected: it
+// delivers tool calls via TokenUsage.ChatDeltas, and the deferred
+// end-of-stream block (ToolCallsFromChatDeltas → buildDeferredToolCallChunks)
+// emits them; this helper sees an empty jsonResults and emits nothing.
+func emitJSONToolCallDeltas(
+	jsonResults []map[string]any,
+	lastEmittedCount int,
+	id, model string,
+	created int,
+	responses chan<- schema.OpenAIResponse,
+) int {
+	for i := lastEmittedCount; i < len(jsonResults); i++ {
+		jsonObj := jsonResults[i]
+		name, ok := jsonObj["name"].(string)
+		if !ok || name == "" {
+			break
+		}
+		args := "{}"
+		if argsVal, ok := jsonObj["arguments"]; ok {
+			if argsStr, ok := argsVal.(string); ok {
+				args = argsStr
+			} else {
+				argsBytes, _ := json.Marshal(argsVal)
+				args = string(argsBytes)
+			}
+		}
+		responses <- schema.OpenAIResponse{
+			ID:      id,
+			Created: created,
+			Model:   model,
+			Choices: []schema.Choice{{
+				Delta: &schema.Message{
+					Role: "assistant",
+					ToolCalls: []schema.ToolCall{
+						{
+							Index: i,
+							ID:    id,
+							Type:  "function",
+							FunctionCall: schema.FunctionCall{
+								Name:      name,
+								Arguments: args,
+							},
+						},
+					},
+				},
+				Index:        0,
+				FinishReason: nil,
+			}},
+			Object: "chat.completion.chunk",
+		}
+		lastEmittedCount = i + 1
+	}
+	return lastEmittedCount
+}
+
 // processStream is the streaming worker for chat completions with no
 // tool/function calling involved. It pushes SSE-shaped chunks onto
 // `responses` and returns the authoritative cumulative TokenUsage from
@@ -279,49 +350,10 @@ func processStreamWithTools(
 			// Try JSON tool call parsing for streaming.
 			// Only emit NEW tool calls (same guard as XML parser above).
 			jsonResults, jsonErr := functions.ParseJSONIterative(cleanedResult, true)
-			if jsonErr == nil && len(jsonResults) > lastEmittedCount {
-				for i := lastEmittedCount; i < len(jsonResults); i++ {
-					jsonObj := jsonResults[i]
-					name, ok := jsonObj["name"].(string)
-					if !ok || name == "" {
-						continue
-					}
-					args := "{}"
-					if argsVal, ok := jsonObj["arguments"]; ok {
-						if argsStr, ok := argsVal.(string); ok {
-							args = argsStr
-						} else {
-							argsBytes, _ := json.Marshal(argsVal)
-							args = string(argsBytes)
-						}
-					}
-					initialMessage := schema.OpenAIResponse{
-						ID:      id,
-						Created: created,
-						Model:   req.Model,
-						Choices: []schema.Choice{{
-							Delta: &schema.Message{
-								Role: "assistant",
-								ToolCalls: []schema.ToolCall{
-									{
-										Index: i,
-										ID:    id,
-										Type:  "function",
-										FunctionCall: schema.FunctionCall{
-											Name:      name,
-											Arguments: args,
-										},
-									},
-								},
-							},
-							Index:        0,
-							FinishReason: nil,
-						}},
-						Object: "chat.completion.chunk",
-					}
-					responses <- initialMessage
-				}
-				lastEmittedCount = len(jsonResults)
+			if jsonErr == nil {
+				lastEmittedCount = emitJSONToolCallDeltas(
+					jsonResults, lastEmittedCount, id, req.Model, created, responses,
+				)
 			}
 		}
 		return true
