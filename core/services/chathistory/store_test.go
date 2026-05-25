@@ -2,14 +2,15 @@ package chathistory_test
 
 import (
 	"encoding/json"
-	"os"
-	"path/filepath"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
+	"gorm.io/gorm"
+
 	"github.com/mudler/LocalAI/core/schema"
 	"github.com/mudler/LocalAI/core/services/chathistory"
+	"github.com/mudler/LocalAI/core/services/testutil"
 )
 
 func newConv(id, name string) schema.Conversation {
@@ -27,13 +28,15 @@ func newConv(id, name string) schema.Conversation {
 
 var _ = Describe("Store", func() {
 	var (
-		dir   string
+		db    *gorm.DB
 		store *chathistory.Store
 	)
 
 	BeforeEach(func() {
-		dir = GinkgoT().TempDir()
-		store = chathistory.New(dir)
+		db = testutil.SetupTestDB()
+		var err error
+		store, err = chathistory.New(db)
+		Expect(err).NotTo(HaveOccurred())
 	})
 
 	Context("basic CRUD", func() {
@@ -62,15 +65,17 @@ var _ = Describe("Store", func() {
 	})
 
 	Context("persistence across Store instances", func() {
-		// Second Store instance simulates a process restart: no shared
-		// in-memory cache, so it must read what the first instance wrote
-		// for the round-trip to succeed.
+		// Two Stores sharing the same *gorm.DB simulate a process restart:
+		// no shared in-memory state, so the second must read what the first
+		// wrote for the round-trip to succeed.
 		It("loads conversations written by a previous instance", func() {
-			first := chathistory.New(dir)
-			_, err := first.Save("bob", newConv("x", "Hi"))
+			first, err := chathistory.New(db)
+			Expect(err).NotTo(HaveOccurred())
+			_, err = first.Save("bob", newConv("x", "Hi"))
 			Expect(err).NotTo(HaveOccurred())
 
-			second := chathistory.New(dir)
+			second, err := chathistory.New(db)
+			Expect(err).NotTo(HaveOccurred())
 			got, err := second.Get("bob", "x")
 			Expect(err).NotTo(HaveOccurred())
 			Expect(got.Name).To(Equal("Hi"))
@@ -94,10 +99,11 @@ var _ = Describe("Store", func() {
 		})
 	})
 
-	Context("unsafe IDs", func() {
-		// idRegex must reject anything that could escape the user's
-		// directory or be misread by os.WriteFile. These are the
-		// classic path-traversal payloads plus a few edge cases.
+	Context("malformed IDs", func() {
+		// The DB-backed store no longer needs to defend against path
+		// traversal, but idRegex still rejects whitespace / control
+		// characters so IDs stay safe in logs and HTTP responses. The
+		// same payloads exercise the empty-string and over-length cases.
 		DescribeTable("rejects",
 			func(badID string) {
 				_, err := store.Save("alice", schema.Conversation{ID: badID, Name: "x"})
@@ -112,9 +118,9 @@ var _ = Describe("Store", func() {
 	})
 
 	Context("ReplaceAll", func() {
-		// Bulk migration scenario: client uploads its entire
-		// conversation set in one shot, the store should overwrite
-		// anything previously there instead of merging.
+		// Bulk migration scenario: client uploads its entire conversation
+		// set in one shot, the store should overwrite anything previously
+		// there instead of merging.
 		It("overwrites the entire conversation set", func() {
 			const userID = "alice"
 			for _, id := range []string{"a", "b", "c"} {
@@ -132,21 +138,42 @@ var _ = Describe("Store", func() {
 	})
 
 	Context("anonymous user", func() {
-		// Drift from the anonymous/ layout would silently strand
-		// anonymous users' history once they later log in, so the
-		// test pins the exact path.
-		It("stores conversations under the anonymous/ subdirectory", func() {
+		// UserID == "" maps to the anonymous slice. We can no longer pin a
+		// directory layout (the previous file-based store wrote
+		// anonymous/conversations.json), so the test checks the round-trip
+		// and the per-user isolation guarantee instead.
+		It("stores and retrieves conversations for an empty user ID", func() {
 			_, err := store.Save("", newConv("solo", "anon chat"))
 			Expect(err).NotTo(HaveOccurred())
 
-			expected := filepath.Join(dir, "anonymous", "conversations.json")
-			_, err = os.Stat(expected)
-			Expect(err).NotTo(HaveOccurred(), "expected anonymous conversations file at %s", expected)
-
-			second := chathistory.New(dir)
-			got, err := second.Get("", "solo")
+			got, err := store.Get("", "solo")
 			Expect(err).NotTo(HaveOccurred())
 			Expect(got.Name).To(Equal("anon chat"))
+
+			// And the conversation must NOT leak to a logged-in user.
+			_, err = store.Get("alice", "solo")
+			Expect(err).To(MatchError(chathistory.ErrNotFound))
+		})
+	})
+
+	Context("DeleteAll", func() {
+		It("wipes the user's entire chat history without touching others", func() {
+			_, err := store.Save("alice", newConv("a1", "alice 1"))
+			Expect(err).NotTo(HaveOccurred())
+			_, err = store.Save("alice", newConv("a2", "alice 2"))
+			Expect(err).NotTo(HaveOccurred())
+			_, err = store.Save("bob", newConv("b1", "bob 1"))
+			Expect(err).NotTo(HaveOccurred())
+
+			Expect(store.DeleteAll("alice")).To(Succeed())
+
+			aliceList, err := store.List("alice")
+			Expect(err).NotTo(HaveOccurred())
+			Expect(aliceList).To(BeEmpty())
+
+			bobList, err := store.List("bob")
+			Expect(err).NotTo(HaveOccurred())
+			Expect(bobList).To(HaveLen(1))
 		})
 	})
 })
