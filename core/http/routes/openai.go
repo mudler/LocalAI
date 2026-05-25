@@ -20,6 +20,13 @@ func RegisterOpenAIRoutes(app *echo.Echo,
 	// openAI compatible API endpoint
 	traceMiddleware := middleware.TraceMiddleware(application)
 	usageMiddleware := middleware.UsageMiddleware(application.StatsRecorder(), application.FallbackUser())
+	// X-LocalAI-Node attribution middleware: wraps the response writer and
+	// stamps the header on first write when --expose-node-header is on. No-op
+	// otherwise. Applied to every inference path that routes through
+	// ml.Load (chat, completion, embeddings, audio transcriptions/speech,
+	// image generation/inpainting) so distributed-mode operators can observe
+	// which worker served each request.
+	nodeHeaderMiddleware := middleware.ExposeNodeHeader(application.ApplicationConfig())
 
 	// realtime
 	// TODO: Modify/disable the API key middleware for this endpoint to allow ephemeral keys created by sessions
@@ -37,6 +44,7 @@ func RegisterOpenAIRoutes(app *echo.Echo,
 	// chat
 	chatHandler := openai.ChatEndpoint(application.ModelConfigLoader(), application.ModelLoader(), application.TemplatesEvaluator(), application.ApplicationConfig(), natsClient, application.LocalAIAssistant(), application.PIIRedactor(), application.PIIEvents())
 	chatMiddleware := []echo.MiddlewareFunc{
+		nodeHeaderMiddleware,
 		usageMiddleware,
 		traceMiddleware,
 		re.BuildFilteredFirstAvailableDefaultModel(config.BuildUsecaseFilterFn(config.FLAG_CHAT)),
@@ -110,6 +118,7 @@ func RegisterOpenAIRoutes(app *echo.Echo,
 	// completion
 	completionHandler := openai.CompletionEndpoint(application.ModelConfigLoader(), application.ModelLoader(), application.TemplatesEvaluator(), application.ApplicationConfig(), application.PIIRedactor(), application.PIIEvents())
 	completionMiddleware := []echo.MiddlewareFunc{
+		nodeHeaderMiddleware,
 		usageMiddleware,
 		traceMiddleware,
 		re.BuildFilteredFirstAvailableDefaultModel(config.BuildUsecaseFilterFn(config.FLAG_COMPLETION)),
@@ -131,6 +140,7 @@ func RegisterOpenAIRoutes(app *echo.Echo,
 	// embeddings
 	embeddingHandler := openai.EmbeddingsEndpoint(application.ModelConfigLoader(), application.ModelLoader(), application.ApplicationConfig())
 	embeddingMiddleware := []echo.MiddlewareFunc{
+		nodeHeaderMiddleware,
 		usageMiddleware,
 		traceMiddleware,
 		re.BuildFilteredFirstAvailableDefaultModel(config.BuildUsecaseFilterFn(config.FLAG_EMBEDDINGS)),
@@ -151,6 +161,7 @@ func RegisterOpenAIRoutes(app *echo.Echo,
 
 	audioHandler := openai.TranscriptEndpoint(application.ModelConfigLoader(), application.ModelLoader(), application.ApplicationConfig())
 	audioMiddleware := []echo.MiddlewareFunc{
+		nodeHeaderMiddleware,
 		traceMiddleware,
 		re.BuildFilteredFirstAvailableDefaultModel(config.BuildUsecaseFilterFn(config.FLAG_TRANSCRIPT)),
 		re.SetModelAndConfig(func() schema.LocalAIRequest { return new(schema.OpenAIRequest) }),
@@ -186,6 +197,7 @@ func RegisterOpenAIRoutes(app *echo.Echo,
 
 	audioSpeechHandler := localai.TTSEndpoint(application.ModelConfigLoader(), application.ModelLoader(), application.ApplicationConfig())
 	audioSpeechMiddleware := []echo.MiddlewareFunc{
+		nodeHeaderMiddleware,
 		traceMiddleware,
 		re.BuildFilteredFirstAvailableDefaultModel(config.BuildUsecaseFilterFn(config.FLAG_TTS)),
 		re.SetModelAndConfig(func() schema.LocalAIRequest { return new(schema.TTSRequest) }),
@@ -197,6 +209,7 @@ func RegisterOpenAIRoutes(app *echo.Echo,
 	// images
 	imageHandler := openai.ImageEndpoint(application.ModelConfigLoader(), application.ModelLoader(), application.ApplicationConfig())
 	imageMiddleware := []echo.MiddlewareFunc{
+		nodeHeaderMiddleware,
 		traceMiddleware,
 		// Default: use the first available image generation model
 		re.BuildFilteredFirstAvailableDefaultModel(config.BuildUsecaseFilterFn(config.FLAG_IMAGE)),

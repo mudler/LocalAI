@@ -30,17 +30,20 @@ type modelEmbedder struct {
 	appConfig   *config.ApplicationConfig
 }
 
-func (e *modelEmbedder) Embed(_ context.Context, text string) ([]float32, error) {
-	fn, err := ModelEmbedding(text, nil, e.loader, e.modelConfig, e.appConfig)
+func (e *modelEmbedder) Embed(ctx context.Context, text string) ([]float32, error) {
+	fn, err := ModelEmbedding(ctx, text, nil, e.loader, e.modelConfig, e.appConfig)
 	if err != nil {
 		return nil, err
 	}
 	return fn()
 }
 
-func ModelEmbedding(s string, tokens []int, loader *model.ModelLoader, modelConfig config.ModelConfig, appConfig *config.ApplicationConfig) (func() ([]float32, error), error) {
+func ModelEmbedding(ctx context.Context, s string, tokens []int, loader *model.ModelLoader, modelConfig config.ModelConfig, appConfig *config.ApplicationConfig) (func() ([]float32, error), error) {
 
-	opts := ModelOptions(modelConfig, appConfig)
+	// model.WithContext(ctx) overrides the app-context default set in
+	// ModelOptions so distributed routing decisions reach the request's
+	// X-LocalAI-Node holder via distributedhdr.Stamp.
+	opts := ModelOptions(modelConfig, appConfig, model.WithContext(ctx))
 
 	inferenceModel, err := loader.Load(opts...)
 	if err != nil {

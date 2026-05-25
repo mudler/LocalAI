@@ -63,7 +63,7 @@ func EmbeddingsEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, app
 
 		for i, s := range config.InputToken {
 			// get the model function to call for the result
-			embedFn, err := backend.ModelEmbedding("", s, ml, *config, appConfig)
+			embedFn, err := backend.ModelEmbedding(input.Context, "", s, ml, *config, appConfig)
 			if err != nil {
 				return err
 			}
@@ -77,7 +77,7 @@ func EmbeddingsEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, app
 
 		for i, s := range config.InputStrings {
 			// get the model function to call for the result
-			embedFn, err := backend.ModelEmbedding(s, []int{}, ml, *config, appConfig)
+			embedFn, err := backend.ModelEmbedding(input.Context, s, []int{}, ml, *config, appConfig)
 			if err != nil {
 				return err
 			}

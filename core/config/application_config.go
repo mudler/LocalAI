@@ -160,6 +160,18 @@ type ApplicationConfig struct {
 	// Distributed / Horizontal Scaling
 	Distributed DistributedConfig
 
+	// ExposeNodeHeader, when true, activates middleware.ExposeNodeHeader on
+	// the inference routes (OpenAI chat/completions/embeddings, Anthropic
+	// /v1/messages, Ollama /api/chat,/api/generate,/api/embed). The
+	// middleware wraps the response writer and attaches an "X-LocalAI-Node"
+	// response header carrying the ID of the distributed-mode worker node
+	// that served the request. Off by default because the node ID is
+	// internal topology that can aid attacker reconnaissance if surfaced on
+	// a public endpoint; operators opt in explicitly via
+	// --expose-node-header / LOCALAI_EXPOSE_NODE_HEADER for debugging,
+	// observability and load-balancer attribution.
+	ExposeNodeHeader bool
+
 	// LocalAI Assistant chat modality. Hard-disable the in-process admin MCP
 	// server with this flag; runtime-toggleable via /api/settings.
 	DisableLocalAIAssistant bool
@@ -977,6 +989,15 @@ func WithAuthDefaultAPIKeyExpiry(expiry string) AppOption {
 func WithDisableLocalAIAssistant(disabled bool) AppOption {
 	return func(o *ApplicationConfig) {
 		o.DisableLocalAIAssistant = disabled
+	}
+}
+
+// WithExposeNodeHeader enables the X-LocalAI-Node response header on
+// inference endpoints. Default off; the node ID reveals internal cluster
+// topology and is opt-in for that reason.
+func WithExposeNodeHeader(enabled bool) AppOption {
+	return func(o *ApplicationConfig) {
+		o.ExposeNodeHeader = enabled
 	}
 }
 
