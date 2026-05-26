@@ -168,20 +168,21 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
 
             if getattr(r, 'time_stamps', None) and len(r.time_stamps) > 0:
                 for idx, ts in enumerate(r.time_stamps):
-                    start_ms = 0
-                    end_ms = 0
+                    start_ns = 0
+                    end_ns = 0
                     seg_text = text
+                    # Go's time.Duration is in nanoseconds, so convert seconds → ns.
                     if hasattr(ts, 'start_time') and hasattr(ts, 'end_time') and hasattr(ts, 'text'):
                         # ForcedAlignItem dataclass (from qwen_asr forced aligner)
-                        start_ms = int(float(ts.start_time) * 1000) if ts.start_time is not None else 0
-                        end_ms = int(float(ts.end_time) * 1000) if ts.end_time is not None else 0
+                        start_ns = int(float(ts.start_time) * 1_000_000_000) if ts.start_time is not None else 0
+                        end_ns = int(float(ts.end_time) * 1_000_000_000) if ts.end_time is not None else 0
                         seg_text = str(ts.text) if ts.text else ""
                     elif isinstance(ts, (list, tuple)) and len(ts) >= 3:
-                        start_ms = int(float(ts[0]) * 1000) if ts[0] is not None else 0
-                        end_ms = int(float(ts[1]) * 1000) if ts[1] is not None else 0
+                        start_ns = int(float(ts[0]) * 1_000_000_000) if ts[0] is not None else 0
+                        end_ns = int(float(ts[1]) * 1_000_000_000) if ts[1] is not None else 0
                         seg_text = ts[2] if len(ts) > 2 and ts[2] is not None else ""
                     result_segments.append(backend_pb2.TranscriptSegment(
-                        id=idx, start=start_ms, end=end_ms, text=seg_text
+                        id=idx, start=start_ns, end=end_ns, text=seg_text
                     ))
             else:
                 if text:
