@@ -99,8 +99,15 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
             if not results or len(results) == 0:
                 return backend_pb2.TranscriptResult(segments=[], text="")
 
-            # Get the transcript text from the first result
-            text = results[0]
+            # Get the transcript text from the first result.
+            # CTC models return List[str], TDT/RNNT models return List[Hypothesis]
+            # where the actual text lives in Hypothesis.text.
+            result = results[0]
+            if isinstance(result, str):
+                text = result
+            else:
+                text = getattr(result, 'text', None) or ""
+
             if text:
                 # Create a single segment with the full transcription
                 result_segments.append(backend_pb2.TranscriptSegment(
