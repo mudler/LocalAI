@@ -2,165 +2,19 @@ package middleware
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
-	"sync"
-	"sync/atomic"
 	"time"
 
 	"github.com/labstack/echo/v4"
 	"github.com/mudler/LocalAI/core/http/auth"
+	"github.com/mudler/LocalAI/core/services/routing/billing"
 	"github.com/mudler/xlog"
-	"gorm.io/gorm"
 )
 
-const (
-	usageFlushInterval = 5 * time.Second
-	// usageMaxPending bounds the in-memory queue. Sized for bursty inference
-	// traffic on a self-hosted instance with a slow or unavailable DB.
-	usageMaxPending = 50000
-)
-
-// usageBatcher accumulates usage records and flushes them to the DB periodically.
-type usageBatcher struct {
-	mu       sync.Mutex
-	pending  []*auth.UsageRecord
-	db       *gorm.DB
-	stop     chan struct{}
-	done     chan struct{}
-	stopOnce sync.Once
-}
-
-// droppedRecords counts records discarded because the in-memory queue was full.
-// Used to rate-limit the warn log so a sustained outage doesn't flood it.
-var droppedRecords atomic.Uint64
-
-func (b *usageBatcher) add(r *auth.UsageRecord) {
-	b.mu.Lock()
-	if len(b.pending) >= usageMaxPending {
-		b.mu.Unlock()
-		// Rate-limit: one warn per 1024 drops keeps the log readable.
-		n := droppedRecords.Add(1)
-		if n&1023 == 1 {
-			xlog.Warn("usage batcher full, dropping record",
-				"cap", usageMaxPending, "total_dropped", n)
-		}
-		return
-	}
-	b.pending = append(b.pending, r)
-	b.mu.Unlock()
-}
-
-func (b *usageBatcher) flush() {
-	b.mu.Lock()
-	batch := b.pending
-	b.pending = nil
-	b.mu.Unlock()
-
-	if len(batch) == 0 {
-		return
-	}
-
-	if err := b.db.Create(&batch).Error; err != nil {
-		xlog.Error("Failed to flush usage batch", "count", len(batch), "error", err)
-		// Cap-aware re-queue: prepend as much of the failed batch as fits
-		// alongside any records added concurrently with the failed write.
-		b.mu.Lock()
-		room := usageMaxPending - len(b.pending)
-		if room > 0 {
-			if room > len(batch) {
-				room = len(batch)
-			}
-			b.pending = append(batch[:room], b.pending...)
-		}
-		b.mu.Unlock()
-	}
-}
-
-func (b *usageBatcher) run() {
-	defer close(b.done)
-	ticker := time.NewTicker(usageFlushInterval)
-	defer ticker.Stop()
-	for {
-		select {
-		case <-ticker.C:
-			b.flush()
-		case <-b.stop:
-			b.flush() // final drain
-			return
-		}
-	}
-}
-
-func (b *usageBatcher) shutdown() {
-	b.stopOnce.Do(func() {
-		close(b.stop)
-		<-b.done
-	})
-}
-
-// The package-level batcher is guarded by batcherMu so Init / Shutdown cycles
-// (the test pattern) don't race against UsageMiddleware reads.
-var (
-	batcherMu sync.RWMutex
-	batcher   *usageBatcher
-)
-
-func currentBatcher() *usageBatcher {
-	batcherMu.RLock()
-	defer batcherMu.RUnlock()
-	return batcher
-}
-
-// InitUsageRecorder starts a background goroutine that periodically flushes
-// accumulated usage records to the database. Calling it more than once
-// shuts down the previous batcher first so its goroutine doesn't leak.
-func InitUsageRecorder(db *gorm.DB) {
-	if db == nil {
-		return
-	}
-
-	batcherMu.Lock()
-	old := batcher
-	batcher = nil
-	batcherMu.Unlock()
-	if old != nil {
-		old.shutdown()
-	}
-
-	b := &usageBatcher{
-		db:   db,
-		stop: make(chan struct{}),
-		done: make(chan struct{}),
-	}
-	batcherMu.Lock()
-	batcher = b
-	batcherMu.Unlock()
-
-	go b.run()
-}
-
-// ShutdownUsageRecorder stops the background flusher and synchronously drains
-// pending records once. Safe to call multiple times. Not yet wired into the
-// application lifecycle; intended for graceful process exit and tests.
-func ShutdownUsageRecorder() {
-	batcherMu.Lock()
-	b := batcher
-	batcher = nil
-	batcherMu.Unlock()
-	if b != nil {
-		b.shutdown()
-	}
-}
-
-// FlushNow synchronously flushes any pending usage records. Intended for tests
-// that need deterministic behaviour without waiting for the ticker.
-func FlushNow() {
-	if b := currentBatcher(); b != nil {
-		b.flush()
-	}
-}
-
-// usageResponseBody is the minimal structure we need from the response JSON.
+// usageResponseBody is the minimal structure we need from an OpenAI-shaped
+// JSON response. Anthropic responses are decoded separately because their
+// usage block uses different field names (input_tokens / output_tokens).
 type usageResponseBody struct {
 	Model string `json:"model"`
 	Usage *struct {
@@ -170,19 +24,47 @@ type usageResponseBody struct {
 	} `json:"usage"`
 }
 
-// UsageMiddleware extracts token usage from OpenAI-compatible response JSON
-// and records it per-user.
-func UsageMiddleware(db *gorm.DB) echo.MiddlewareFunc {
+// anthropicResponseBody covers /v1/messages JSON responses.
+type anthropicResponseBody struct {
+	Model string `json:"model"`
+	Usage *struct {
+		InputTokens  int64 `json:"input_tokens"`
+		OutputTokens int64 `json:"output_tokens"`
+	} `json:"usage"`
+}
+
+// UsageMiddleware records token usage for inference requests via the
+// billing.Recorder. Two paths produce a record:
+//
+//  1. Handler-stamped (preferred): the request handler called
+//     middleware.StampUsage with the canonical token counts before
+//     returning. This is the only reliable path for streaming responses
+//     — clients rarely set OpenAI's stream_options.include_usage, and
+//     Anthropic's usage lives in a separate message_delta event.
+//  2. Body-parsed (fallback): the response is parsed for an OpenAI- or
+//     Anthropic-shaped usage block. Used by passthrough proxies and
+//     foreign endpoints.
+//
+// Recorder being nil (e.g., --disable-stats) makes the middleware a
+// transparent pass-through. fallbackUser is used when auth.GetUser(c)
+// returns nil; without it, an unauthenticated request would be dropped.
+//
+// Every request that fails to produce a record ticks
+// localai_usage_unrecorded_total so silent billing misses are observable.
+func UsageMiddleware(recorder *billing.Recorder, fallbackUser *auth.User) echo.MiddlewareFunc {
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
 		return func(c echo.Context) error {
-			b := currentBatcher()
-			if db == nil || b == nil {
+			if recorder == nil {
 				return next(c)
 			}
 
 			startTime := time.Now()
 
-			// Wrap response writer to capture body
+			// Wrap response writer to capture body for the fallback parser.
+			// When the handler stamps the context we never read this buffer,
+			// so the cost is the per-chunk Write going through one extra
+			// indirection — accepted overhead in exchange for one billing
+			// path that works for both stamping and body-parse callers.
 			resBody := new(bytes.Buffer)
 			origWriter := c.Response().Writer
 			mw := &bodyWriter{
@@ -193,53 +75,34 @@ func UsageMiddleware(db *gorm.DB) echo.MiddlewareFunc {
 
 			handlerErr := next(c)
 
-			// Restore original writer
 			c.Response().Writer = origWriter
 
-			// Only record on successful responses
+			endpoint := c.Request().URL.Path
+
 			if c.Response().Status < 200 || c.Response().Status >= 300 {
 				return handlerErr
 			}
 
-			// Get authenticated user
 			user := auth.GetUser(c)
 			if user == nil {
+				user = fallbackUser
+			}
+			if user == nil || user.ID == "" {
+				billing.CountUnrecorded(context.Background(), endpoint, "no_user")
 				return handlerErr
 			}
 
-			// Try to parse usage from response
-			responseBytes := resBody.Bytes()
-			if len(responseBytes) == 0 {
+			model, prompt, completion, total, ok := tokensFromContext(c)
+			if !ok {
+				model, prompt, completion, total, ok = tokensFromBody(resBody.Bytes(), c.Response().Header().Get("Content-Type"))
+			}
+			if !ok {
+				billing.CountUnrecorded(context.Background(), endpoint, "no_usage")
 				return handlerErr
 			}
 
-			// Check content type
-			ct := c.Response().Header().Get("Content-Type")
-			isJSON := ct == "" || ct == "application/json" || bytes.HasPrefix([]byte(ct), []byte("application/json"))
-			isSSE := bytes.HasPrefix([]byte(ct), []byte("text/event-stream"))
-
-			if !isJSON && !isSSE {
-				return handlerErr
-			}
-
-			var resp usageResponseBody
-			if isSSE {
-				last, ok := lastSSEData(responseBytes)
-				if !ok {
-					return handlerErr
-				}
-				if err := json.Unmarshal(last, &resp); err != nil {
-					return handlerErr
-				}
-			} else {
-				if err := json.Unmarshal(responseBytes, &resp); err != nil {
-					return handlerErr
-				}
-			}
-
-			if resp.Usage == nil {
-				return handlerErr
-			}
+			requested, served := modelsFromContext(c, model)
+			pre, post := promptTokensFromContext(c, prompt)
 
 			source := auth.GetSource(c)
 			if source == "" {
@@ -249,16 +112,21 @@ func UsageMiddleware(db *gorm.DB) echo.MiddlewareFunc {
 			}
 
 			record := &auth.UsageRecord{
-				UserID:           user.ID,
-				UserName:         user.Name,
-				Source:           source,
-				Model:            resp.Model,
-				Endpoint:         c.Request().URL.Path,
-				PromptTokens:     resp.Usage.PromptTokens,
-				CompletionTokens: resp.Usage.CompletionTokens,
-				TotalTokens:      resp.Usage.TotalTokens,
-				Duration:         time.Since(startTime).Milliseconds(),
-				CreatedAt:        startTime,
+				UserID:                 user.ID,
+				UserName:               user.Name,
+				Source:                 source,
+				Model:                  model,
+				Endpoint:               endpoint,
+				PromptTokens:           prompt,
+				CompletionTokens:       completion,
+				TotalTokens:            total,
+				Duration:               time.Since(startTime).Milliseconds(),
+				CreatedAt:              startTime,
+				RequestedModel:         requested,
+				ServedModel:            served,
+				PreFilterPromptTokens:  pre,
+				PostFilterPromptTokens: post,
+				CorrelationID:          correlationIDFromContext(c),
 			}
 
 			if key := auth.GetAPIKey(c); key != nil {
@@ -267,11 +135,143 @@ func UsageMiddleware(db *gorm.DB) echo.MiddlewareFunc {
 				record.APIKeyName = key.Name
 			}
 
-			b.add(record)
+			if err := recorder.Record(context.Background(), record); err != nil {
+				xlog.Error("usage middleware: recorder.Record failed", "error", err, "user", user.ID, "model", model)
+				billing.CountUnrecorded(context.Background(), endpoint, "record_failed")
+			}
 
 			return handlerErr
 		}
 	}
+}
+
+// tokensFromContext returns canonical token counts stamped by a handler
+// via middleware.StampUsage. Returns ok=false when no stamp is present
+// — the caller then tries the body-parse fallback.
+//
+// A model name without token counts is not considered "stamped" because a
+// record with zero tokens looks the same as a never-recorded request to
+// later analytics; the second condition is what gates ok.
+func tokensFromContext(c echo.Context) (model string, prompt, completion, total int64, ok bool) {
+	if v, found := c.Get(ContextKeyResponseModel).(string); found {
+		model = v
+	}
+	pPresent := false
+	cPresent := false
+	if v, found := c.Get(ContextKeyPromptTokens).(int64); found {
+		prompt = v
+		pPresent = true
+	}
+	if v, found := c.Get(ContextKeyCompletionTokens).(int64); found {
+		completion = v
+		cPresent = true
+	}
+	if v, found := c.Get(ContextKeyTotalTokens).(int64); found {
+		total = v
+	} else {
+		total = prompt + completion
+	}
+	ok = pPresent || cPresent
+	return
+}
+
+// tokensFromBody covers the passthrough-proxy / foreign-endpoint case
+// where no handler stamps the context. Returns ok=false on any parse
+// failure or missing-usage; the caller increments the unrecorded counter.
+func tokensFromBody(responseBytes []byte, contentType string) (model string, prompt, completion, total int64, ok bool) {
+	if len(responseBytes) == 0 {
+		return
+	}
+	isJSON := contentType == "" || contentType == "application/json" || bytes.HasPrefix([]byte(contentType), []byte("application/json"))
+	isSSE := bytes.HasPrefix([]byte(contentType), []byte("text/event-stream"))
+	if !isJSON && !isSSE {
+		return
+	}
+
+	payload := responseBytes
+	if isSSE {
+		// For SSE, the canonical usage chunk is the *last* non-[DONE] data
+		// line. OpenAI clients only emit one if stream_options.include_usage
+		// is set; Anthropic emits a final message_delta with usage. Both
+		// fit the "last data: line" rule.
+		last, lastOk := lastSSEData(responseBytes)
+		if !lastOk {
+			return
+		}
+		payload = last
+	}
+
+	// Try OpenAI shape first (handles /v1/chat/completions, /v1/completions,
+	// /v1/embeddings, /v1/edits, and any proxy that translates to OpenAI).
+	// A usage block whose token fields all decoded to zero is ambiguous —
+	// it could be an Anthropic body that happens to have a `usage` key —
+	// so fall through to the Anthropic parser instead of recording zeros.
+	var openAI usageResponseBody
+	if err := json.Unmarshal(payload, &openAI); err == nil && openAI.Usage != nil {
+		if openAI.Usage.PromptTokens != 0 || openAI.Usage.CompletionTokens != 0 || openAI.Usage.TotalTokens != 0 {
+			model = openAI.Model
+			prompt = openAI.Usage.PromptTokens
+			completion = openAI.Usage.CompletionTokens
+			total = openAI.Usage.TotalTokens
+			if total == 0 {
+				total = prompt + completion
+			}
+			ok = true
+			return
+		}
+	}
+
+	// Fall through to Anthropic shape (proxy passthrough territory).
+	var ant anthropicResponseBody
+	if err := json.Unmarshal(payload, &ant); err == nil && ant.Usage != nil {
+		if ant.Usage.InputTokens != 0 || ant.Usage.OutputTokens != 0 {
+			model = ant.Model
+			prompt = ant.Usage.InputTokens
+			completion = ant.Usage.OutputTokens
+			total = prompt + completion
+			ok = true
+			return
+		}
+	}
+
+	return
+}
+
+// modelsFromContext returns (requested, served) using context-set values
+// when present, falling back to the response-reported model for both.
+// The router middleware (subsystem 2 of the routing plan) populates
+// these; until it lands they are equal.
+func modelsFromContext(c echo.Context, fallback string) (string, string) {
+	requested := fallback
+	served := fallback
+	if v, ok := c.Get(ContextKeyRequestedModel).(string); ok && v != "" {
+		requested = v
+	}
+	if v, ok := c.Get(ContextKeyServedModel).(string); ok && v != "" {
+		served = v
+	}
+	return requested, served
+}
+
+func promptTokensFromContext(c echo.Context, fallback int64) (int64, int64) {
+	pre := fallback
+	post := fallback
+	if v, ok := c.Get(ContextKeyPreFilterPromptTokens).(int64); ok && v > 0 {
+		pre = v
+	}
+	if v, ok := c.Get(ContextKeyPostFilterPromptTokens).(int64); ok && v > 0 {
+		post = v
+	}
+	return pre, post
+}
+
+func correlationIDFromContext(c echo.Context) string {
+	if v, ok := c.Get(ContextKeyCorrelationID).(string); ok {
+		return v
+	}
+	// X-Correlation-ID header is set by trace.go middleware; read it as a
+	// fallback if the echo-context binding hasn't been populated yet.
+	return c.Response().Header().Get("X-Correlation-ID")
 }
 
 // lastSSEData returns the payload of the last "data: " line whose content is not "[DONE]".

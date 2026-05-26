@@ -356,6 +356,133 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
         except Exception as e:
             return backend_pb2.Result(success=False, message=str(e))
 
+    async def Score(self, request, context):
+        """
+        Joint log-probability of each candidate continuation given the
+        shared prompt. Used by routing-policy multi-label classification
+        (read the distribution rather than asking the model to emit a
+        single argmax label), reranking, and reward-model scoring.
+
+        Implementation uses vLLM's `prompt_logprobs` to recover the
+        per-token log P(token_i | tokens_<i) for the full concatenated
+        sequence; the candidate's tokens are the suffix whose logprobs
+        get summed. max_tokens=1 because vLLM requires at least one
+        generated token; the generated token is discarded.
+        """
+        if not hasattr(self, 'llm') or self.llm is None:
+            context.set_code(grpc.StatusCode.FAILED_PRECONDITION)
+            context.set_details("Model not loaded")
+            return backend_pb2.ScoreResponse()
+        if not hasattr(self, 'tokenizer') or self.tokenizer is None:
+            context.set_code(grpc.StatusCode.FAILED_PRECONDITION)
+            context.set_details("Tokenizer not available")
+            return backend_pb2.ScoreResponse()
+        if len(request.candidates) == 0:
+            context.set_code(grpc.StatusCode.INVALID_ARGUMENT)
+            context.set_details("candidates must be non-empty")
+            return backend_pb2.ScoreResponse()
+
+        try:
+            prompt = request.prompt or ""
+            prompt_token_ids = self.tokenizer.encode(prompt)
+            prompt_len = len(prompt_token_ids)
+            results = []
+
+            for candidate in request.candidates:
+                # Tokenise the concatenated sequence. We can't naively
+                # use len(prompt_tokens) + len(tokenizer.encode(candidate))
+                # because BPE merges at the boundary may produce a
+                # different tokenisation. Encoding the joined text and
+                # walking the divergence point is the correct primitive.
+                full_text = prompt + candidate
+                full_token_ids = self.tokenizer.encode(full_text)
+
+                divergence = prompt_len
+                min_len = min(prompt_len, len(full_token_ids))
+                for i in range(min_len):
+                    if prompt_token_ids[i] != full_token_ids[i]:
+                        divergence = i
+                        break
+
+                candidate_token_ids = full_token_ids[divergence:]
+                num_candidate_tokens = len(candidate_token_ids)
+                if num_candidate_tokens == 0:
+                    results.append(backend_pb2.CandidateScore(
+                        log_prob=0.0,
+                        length_normalized_log_prob=0.0,
+                        num_tokens=0,
+                    ))
+                    continue
+
+                sampling = SamplingParams(
+                    max_tokens=1,
+                    temperature=0.0,
+                    prompt_logprobs=1,
+                    detokenize=False,
+                )
+
+                request_id = random_uuid()
+                last_output = None
+                outputs_iter = self.llm.generate(
+                    {"prompt": full_text},
+                    sampling_params=sampling,
+                    request_id=request_id,
+                )
+                try:
+                    async for out in outputs_iter:
+                        last_output = out
+                finally:
+                    try:
+                        await outputs_iter.aclose()
+                    except Exception:
+                        pass
+
+                if last_output is None or not getattr(last_output, "prompt_logprobs", None):
+                    context.set_code(grpc.StatusCode.INTERNAL)
+                    context.set_details("vLLM did not return prompt_logprobs")
+                    return backend_pb2.ScoreResponse()
+
+                prompt_logprobs = last_output.prompt_logprobs
+                total = 0.0
+                tokens_proto = []
+                for offset, tok_id in enumerate(candidate_token_ids):
+                    position = divergence + offset
+                    if position >= len(prompt_logprobs) or prompt_logprobs[position] is None:
+                        continue
+                    entry = prompt_logprobs[position]
+                    lp_obj = entry.get(tok_id)
+                    if lp_obj is not None:
+                        lp = lp_obj.logprob
+                    else:
+                        # Token not in top-K; vLLM's top-1 may miss it.
+                        # Fall back to the lowest available logprob in the
+                        # entry — a conservative lower-bound on the true
+                        # log P, biased against this candidate.
+                        lp = min(v.logprob for v in entry.values())
+                    total += lp
+                    if request.include_token_logprobs:
+                        tokens_proto.append(backend_pb2.TokenLogProb(
+                            token=self.tokenizer.decode([tok_id]),
+                            log_prob=lp,
+                        ))
+
+                cs = backend_pb2.CandidateScore(
+                    log_prob=total,
+                    num_tokens=num_candidate_tokens,
+                )
+                if request.length_normalize and num_candidate_tokens > 0:
+                    cs.length_normalized_log_prob = total / num_candidate_tokens
+                if tokens_proto:
+                    cs.tokens.extend(tokens_proto)
+                results.append(cs)
+
+            return backend_pb2.ScoreResponse(candidates=results)
+        except Exception as e:
+            print(f"Score error: {e}", file=sys.stderr)
+            context.set_code(grpc.StatusCode.INTERNAL)
+            context.set_details(str(e))
+            return backend_pb2.ScoreResponse()
+
     async def _predict(self, request, context, streaming=False):
         # Build the sampling parameters
         # NOTE: this must stay in sync with the vllm backend

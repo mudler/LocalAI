@@ -94,6 +94,31 @@ type NodeModel struct {
 	UpdatedAt     time.Time `json:"updated_at"`
 }
 
+// ModelLoadInfo is per-model load metadata kept independently of NodeModel rows
+// so the Replica Reconciler can re-load a model after every replica row has
+// been removed (worker death, eviction, MarkOffline reaping, frontend restart
+// with stale heartbeats).
+//
+// Why a separate table when the same blob is also stamped on each NodeModel
+// row? NodeModel rows are tied to a live (node, replica) slot and get deleted
+// when a backend stops being healthy. Tying the only copy of load info to
+// that lifecycle is exactly what caused Bug-1: a frontend restart followed by
+// transient worker-row removal left no copy of ModelOptions, so the reconciler
+// could not bring `min_replicas` back without a fresh inference request.
+//
+// Keyed by ModelName (the tracking key used by the router); last-write-wins
+// on the opts blob because two concurrent frontends dispatching the same
+// model with slightly different opts converge on whichever finished last.
+// That is identical to the per-NodeModel-row semantics today; if a stronger
+// guarantee is needed in the future, the row carries UpdatedAt for ordering.
+type ModelLoadInfo struct {
+	ModelName     string    `gorm:"primaryKey;size:255" json:"model_name"`
+	BackendType   string    `gorm:"size:128" json:"backend_type"`
+	ModelOptsBlob []byte    `gorm:"type:bytea" json:"-"`
+	CreatedAt     time.Time `json:"created_at"`
+	UpdatedAt     time.Time `json:"updated_at"`
+}
+
 // NodeLabel is a key-value label on a node (like K8s labels).
 type NodeLabel struct {
 	ID     string `gorm:"primaryKey;size:36" json:"id"`
@@ -178,7 +203,7 @@ type NodeRegistry struct {
 // when multiple instances (frontend + workers) start at the same time.
 func NewNodeRegistry(db *gorm.DB) (*NodeRegistry, error) {
 	if err := advisorylock.WithLockCtx(context.Background(), db, advisorylock.KeySchemaMigrate, func() error {
-		return db.AutoMigrate(&BackendNode{}, &NodeModel{}, &NodeLabel{}, &ModelSchedulingConfig{}, &PendingBackendOp{})
+		return db.AutoMigrate(&BackendNode{}, &NodeModel{}, &NodeLabel{}, &ModelSchedulingConfig{}, &PendingBackendOp{}, &ModelLoadInfo{})
 	}); err != nil {
 		return nil, fmt.Errorf("migrating node tables: %w", err)
 	}
@@ -622,10 +647,54 @@ func (r *NodeRegistry) SetNodeModelLoadInfo(ctx context.Context, nodeID, modelNa
 		Updates(map[string]any{"backend_type": backendType, "model_opts_blob": optsBlob}).Error
 }
 
+// UpsertModelLoadInfo records or replaces the per-model load info in the
+// dedicated ModelLoadInfo table. Unlike SetNodeModelLoadInfo (which writes the
+// blob onto a specific replica row and dies with it), this survives every
+// NodeModel row being removed and so lets the reconciler recover replicas
+// after worker death + frontend restart (Bug-1).
+//
+// ON CONFLICT updates backend_type, model_opts_blob, and updated_at. Two
+// frontends dispatching the same model concurrently with slightly different
+// opts converge on whichever transaction committed last; that matches the
+// existing per-replica blob semantics today.
+func (r *NodeRegistry) UpsertModelLoadInfo(ctx context.Context, modelName, backendType string, optsBlob []byte) error {
+	if modelName == "" {
+		return fmt.Errorf("model name is required")
+	}
+	now := time.Now()
+	rec := ModelLoadInfo{
+		ModelName:     modelName,
+		BackendType:   backendType,
+		ModelOptsBlob: optsBlob,
+		CreatedAt:     now,
+		UpdatedAt:     now,
+	}
+	return r.db.WithContext(ctx).Clauses(clause.OnConflict{
+		Columns: []clause.Column{{Name: "model_name"}},
+		DoUpdates: clause.Assignments(map[string]any{
+			"backend_type":    backendType,
+			"model_opts_blob": optsBlob,
+			"updated_at":      now,
+		}),
+	}).Create(&rec).Error
+}
+
 // GetModelLoadInfo retrieves the stored backend type and serialized model
-// options from any existing loaded replica. Returns gorm.ErrRecordNotFound
-// if no replica has stored options.
+// options. Reads from the dedicated ModelLoadInfo table first (survives every
+// NodeModel row being deleted); falls back to scanning loaded NodeModel rows
+// for the load info stamped before any frontend in this cluster ran an
+// UpsertModelLoadInfo (rolling-upgrade transition). Returns
+// gorm.ErrRecordNotFound when neither source has an entry.
 func (r *NodeRegistry) GetModelLoadInfo(ctx context.Context, modelName string) (backendType string, optsBlob []byte, err error) {
+	var info ModelLoadInfo
+	err = r.db.WithContext(ctx).Where("model_name = ?", modelName).First(&info).Error
+	if err == nil {
+		return info.BackendType, info.ModelOptsBlob, nil
+	}
+	if !errors.Is(err, gorm.ErrRecordNotFound) {
+		return "", nil, err
+	}
+
 	var nm NodeModel
 	err = r.db.WithContext(ctx).
 		Where("model_name = ? AND state = ? AND model_opts_blob IS NOT NULL", modelName, "loaded").
@@ -668,10 +737,21 @@ func (r *NodeRegistry) FindNodesWithModel(ctx context.Context, modelName string)
 	return nodes, nil
 }
 
-// FindAndLockNodeWithModel atomically finds the least-loaded node with the given
-// model loaded and increments its in-flight counter within a single transaction.
-// The SELECT FOR UPDATE row lock prevents concurrent eviction from removing the
-// NodeModel row between the find and increment operations.
+// FindAndLockNodeWithModel atomically finds the best loaded replica of the
+// given model and increments its in-flight counter within a single
+// transaction. The SELECT FOR UPDATE row lock prevents concurrent eviction
+// from removing the NodeModel row between the find and increment operations,
+// and serializes contending routers so concurrent picks distribute across
+// replicas instead of all landing on the same row.
+//
+// **Policy:** the SQL ORDER BY below MUST mirror PickBestReplica
+// (replicapicker.go). PickBestReplica is the canonical Go implementation of
+// the same rule — the per-frontend rotating-replica cache (TODO, see
+// pkg/model/loader.go) will eventually use it against in-memory snapshots so
+// hot inference requests don't pay this DB round-trip. If you change the
+// ordering here, change both sides; the TestFindAndLockNodeWithModelMirror
+// spec ("agrees with PickBestReplica on a seeded dataset") fails fast if they
+// drift.
 //
 // When candidateNodeIDs is non-empty, only nodes in that set are considered.
 // Pass nil (or empty) to consider any node. This lets callers pre-filter by
@@ -683,16 +763,16 @@ func (r *NodeRegistry) FindAndLockNodeWithModel(ctx context.Context, modelName s
 	var node BackendNode
 
 	err := r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		// Order by in_flight ASC (least busy replica), then by last_used ASC
-		// (round-robin between equally-loaded replicas — oldest used wins, and
-		// every successful pick refreshes last_used below, so the "oldest" naturally
-		// rotates through the candidate set). available_vram DESC is the final
-		// tiebreaker for cold starts where last_used is identical.
+		// Mirror of PickBestReplica's policy (see replicapicker.go):
+		//   1. in_flight ASC — least busy replica.
+		//   2. last_used ASC — round-robin between equally-loaded replicas.
+		//      Every successful pick refreshes last_used below, so the
+		//      "oldest" tier naturally rotates through the candidate set.
+		//      Without this tier, in_flight ties collapsed to "fattest GPU
+		//      wins every time" and one node took nearly all the load.
+		//   3. available_vram DESC — final tiebreaker for cold starts where
+		//      last_used is identical across replicas.
 		//
-		// Without the last_used tier, a tie on in_flight (the common case at low
-		// to moderate concurrency where requests don't overlap) collapses to
-		// "biggest GPU wins every time" and one node ends up taking nearly all
-		// the load while replicas on other nodes sit idle.
 		// Filter on backend_nodes.status = healthy in the inner JOIN itself,
 		// not only in the later node-fetch step. The previous version picked
 		// a (node_id, replica) pair purely on node_models state, then bailed

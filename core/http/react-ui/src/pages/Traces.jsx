@@ -238,6 +238,23 @@ function BackendTraceDetail({ trace }) {
       {/* Audio snippet */}
       {trace.data && <AudioSnippet data={trace.data} />}
 
+      {/* Request body: cloud-proxy passthrough records the full
+          payload here (capped to ~1MB upstream); pretty-print when
+          it parses as JSON, otherwise show the raw text. */}
+      {trace.body && (
+        <div style={{ marginBottom: 'var(--spacing-md)' }}>
+          <h4 style={{ fontSize: '0.8125rem', fontWeight: 600, marginBottom: 'var(--spacing-xs)' }}>Request Body</h4>
+          <pre style={{
+            background: 'var(--color-bg-primary)', border: '1px solid var(--color-border)',
+            borderRadius: 'var(--radius-sm)', padding: 'var(--spacing-sm)',
+            fontSize: '0.75rem', fontFamily: 'var(--font-mono)', whiteSpace: 'pre-wrap', wordBreak: 'break-word',
+            overflow: 'auto', maxHeight: '50vh', margin: 0,
+          }}>
+            {formatLargeValue(trace.body)}
+          </pre>
+        </div>
+      )}
+
       {/* Data fields */}
       {trace.data && Object.keys(trace.data).length > 0 && <DataFields data={trace.data} />}
     </div>

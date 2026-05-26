@@ -26,6 +26,10 @@ go-bert
 LocalAI
 /local-ai
 /local-ai-launcher
+# Root-level build artifacts when running `go build ./...` against
+# Go backend packages whose main lives under backend/go/.
+/cloud-proxy
+/local-store
 # prevent above rules from omitting the helm chart
 !charts/*
 # prevent above rules from omitting the api/localai folder

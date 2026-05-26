@@ -3,6 +3,7 @@ package nodes
 import (
 	"context"
 	"runtime"
+	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -356,6 +357,79 @@ var _ = Describe("NodeRegistry", func() {
 			// replica.
 			_, _, err := registry.FindAndLockNodeWithModel(context.Background(), "no-match-model", []string{emptyIncluded.ID})
 			Expect(err).To(HaveOccurred())
+		})
+
+		It("agrees with PickBestReplica on a seeded dataset (policy mirror)", func() {
+			// Guard against drift between the SQL ORDER BY in
+			// FindAndLockNodeWithModel and the canonical Go implementation in
+			// PickBestReplica. The two layers will eventually diverge in
+			// caller (DB-backed atomic pick vs in-memory snapshot pick for the
+			// per-frontend rotating cache), but the policy itself must stay
+			// the single source of truth. If this test fails, update *both*
+			// sides — never just one.
+			//
+			// Scenario exercises all three tiers:
+			//   - "loser-busy" has the most VRAM but in_flight=2 — loses tier 1.
+			//   - "loser-recent" ties at in_flight=0 but its last_used is the
+			//     newest of the in_flight=0 group — loses tier 2.
+			//   - "winner-mid" and "winner-fat" both tie at in_flight=0 and
+			//     share the oldest last_used — tier 3 decides: fattest wins.
+			loserBusy := makeNode("mirror-loser-busy", "10.0.0.70:50051", 32_000_000_000)
+			loserRecent := makeNode("mirror-loser-recent", "10.0.0.71:50051", 8_000_000_000)
+			winnerMid := makeNode("mirror-winner-mid", "10.0.0.72:50051", 16_000_000_000)
+			winnerFat := makeNode("mirror-winner-fat", "10.0.0.73:50051", 24_000_000_000)
+			for _, n := range []*BackendNode{loserBusy, loserRecent, winnerMid, winnerFat} {
+				Expect(registry.Register(context.Background(), n, true)).To(Succeed())
+				Expect(registry.SetNodeModel(context.Background(), n.ID, "mirror-model", 0, "loaded", "", 0)).To(Succeed())
+			}
+
+			// Force in_flight=2 on the "busy" node so tier 1 disqualifies it.
+			Expect(registry.IncrementInFlight(context.Background(), loserBusy.ID, "mirror-model", 0)).To(Succeed())
+			Expect(registry.IncrementInFlight(context.Background(), loserBusy.ID, "mirror-model", 0)).To(Succeed())
+
+			// Slam last_used to known values so the test is deterministic
+			// regardless of clock resolution between the helpers above.
+			base := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
+			set := func(id string, t time.Time) {
+				Expect(db.Model(&NodeModel{}).
+					Where("node_id = ? AND model_name = ?", id, "mirror-model").
+					Update("last_used", t).Error).To(Succeed())
+			}
+			set(loserBusy.ID, base) // newest doesn't matter — already disqualified by tier 1
+			set(loserRecent.ID, base.Add(time.Hour))
+			set(winnerMid.ID, base)
+			set(winnerFat.ID, base)
+
+			// Pull the same dataset both pickers will operate on. The Go
+			// picker is a faithful representation of the policy; the SQL is
+			// the production path.
+			var rows []NodeModel
+			Expect(db.Where("model_name = ? AND state = ?", "mirror-model", "loaded").
+				Find(&rows).Error).To(Succeed())
+			candidates := make([]ReplicaCandidate, 0, len(rows))
+			for _, nm := range rows {
+				var bn BackendNode
+				Expect(db.First(&bn, "id = ? AND status = ?", nm.NodeID, StatusHealthy).Error).To(Succeed())
+				candidates = append(candidates, ReplicaCandidate{
+					NodeID:        nm.NodeID,
+					Address:       bn.Address,
+					ReplicaIndex:  nm.ReplicaIndex,
+					InFlight:      nm.InFlight,
+					LastUsed:      nm.LastUsed,
+					AvailableVRAM: bn.AvailableVRAM,
+				})
+			}
+			goPick := PickBestReplica(candidates)
+			Expect(goPick).ToNot(BeNil())
+
+			sqlNode, _, err := registry.FindAndLockNodeWithModel(context.Background(), "mirror-model", nil)
+			Expect(err).ToNot(HaveOccurred())
+
+			Expect(sqlNode.ID).To(Equal(goPick.NodeID),
+				"SQL ORDER BY picked %s; PickBestReplica picked %s — policy has drifted",
+				sqlNode.ID, goPick.NodeID)
+			// Sanity check: the policy says winner-fat wins on tier 3.
+			Expect(goPick.NodeID).To(Equal(winnerFat.ID))
 		})
 	})
 
@@ -1024,6 +1098,71 @@ var _ = Describe("NodeRegistry", func() {
 			_, err := registry.FindNodeWithVRAM(context.Background(), 8_000_000_000)
 			Expect(err).To(HaveOccurred(),
 				"reserved capacity must remove a node from VRAM-aware candidates")
+		})
+	})
+
+	Describe("ModelLoadInfo persistence (Bug-1)", func() {
+		It("survives every NodeModel row being removed", func() {
+			ctx := context.Background()
+
+			// One node with one loaded replica + per-replica blob (the legacy path).
+			node := makeNode("li-1", "10.0.1.1:50051", 8_000_000_000)
+			Expect(registry.Register(ctx, node, true)).To(Succeed())
+			Expect(registry.SetNodeModel(ctx, node.ID, "load-info-model", 0, "loaded", node.Address, 0)).To(Succeed())
+			Expect(registry.SetNodeModelLoadInfo(ctx, node.ID, "load-info-model", 0, "llama-cpp", []byte("opts-v1"))).To(Succeed())
+
+			// Persist per-model via the new path (the dispatch hook does this).
+			Expect(registry.UpsertModelLoadInfo(ctx, "load-info-model", "llama-cpp", []byte("opts-v1"))).To(Succeed())
+
+			// Simulate worker death + MarkOffline reaping: every NodeModel row gone.
+			Expect(registry.RemoveAllNodeModelReplicas(ctx, node.ID, "load-info-model")).To(Succeed())
+
+			bt, blob, err := registry.GetModelLoadInfo(ctx, "load-info-model")
+			Expect(err).ToNot(HaveOccurred(),
+				"per-model load info must survive every NodeModel row going away")
+			Expect(bt).To(Equal("llama-cpp"))
+			Expect(blob).To(Equal([]byte("opts-v1")))
+		})
+
+		It("ON CONFLICT updates backend type and opts (last-write-wins)", func() {
+			ctx := context.Background()
+
+			Expect(registry.UpsertModelLoadInfo(ctx, "lww", "llama-cpp", []byte("v1"))).To(Succeed())
+			Expect(registry.UpsertModelLoadInfo(ctx, "lww", "vllm", []byte("v2"))).To(Succeed())
+
+			bt, blob, err := registry.GetModelLoadInfo(ctx, "lww")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(bt).To(Equal("vllm"))
+			Expect(blob).To(Equal([]byte("v2")))
+		})
+
+		It("falls back to legacy NodeModel blob when no per-model row exists", func() {
+			// Pre-fix rolling-upgrade path: a frontend that ran before the new
+			// table existed only wrote the per-replica blob. The new
+			// GetModelLoadInfo must still find it so an upgrade doesn't
+			// regress the reconciler for already-loaded models.
+			ctx := context.Background()
+
+			node := makeNode("li-legacy", "10.0.1.2:50051", 8_000_000_000)
+			Expect(registry.Register(ctx, node, true)).To(Succeed())
+			Expect(registry.SetNodeModel(ctx, node.ID, "legacy-model", 0, "loaded", node.Address, 0)).To(Succeed())
+			Expect(registry.SetNodeModelLoadInfo(ctx, node.ID, "legacy-model", 0, "llama-cpp", []byte("legacy-opts"))).To(Succeed())
+
+			bt, blob, err := registry.GetModelLoadInfo(ctx, "legacy-model")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(bt).To(Equal("llama-cpp"))
+			Expect(blob).To(Equal([]byte("legacy-opts")))
+		})
+
+		It("returns ErrRecordNotFound when neither source has the model", func() {
+			ctx := context.Background()
+			_, _, err := registry.GetModelLoadInfo(ctx, "never-loaded")
+			Expect(err).To(MatchError(gorm.ErrRecordNotFound))
+		})
+
+		It("rejects empty model names", func() {
+			err := registry.UpsertModelLoadInfo(context.Background(), "", "llama-cpp", []byte("x"))
+			Expect(err).To(HaveOccurred())
 		})
 	})
 })

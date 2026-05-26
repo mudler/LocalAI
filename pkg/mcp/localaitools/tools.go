@@ -19,6 +19,12 @@ const (
 	ToolListNodes           = "list_nodes"
 	ToolVRAMEstimate        = "vram_estimate"
 	ToolGetBranding         = "get_branding"
+	ToolGetUsageStats       = "get_usage_stats"
+	ToolListPIIPatterns     = "list_pii_patterns"
+	ToolGetPIIEvents        = "get_pii_events"
+	ToolTestPIIRedaction    = "test_pii_redaction"
+	ToolGetMiddlewareStatus = "get_middleware_status"
+	ToolGetRouterDecisions  = "get_router_decisions"
 
 	// Mutating tools — guarded by Options.DisableMutating and the
 	// LLM-side safety prompt (see prompts/10_safety.md).
@@ -32,6 +38,8 @@ const (
 	ToolToggleModelState  = "toggle_model_state"
 	ToolToggleModelPinned = "toggle_model_pinned"
 	ToolSetBranding       = "set_branding"
+	ToolSetPIIPatternAction = "set_pii_pattern_action"
+	ToolPersistPIIPatterns  = "persist_pii_patterns"
 )
 
 // DefaultServerName is the MCP Implementation.Name surfaced when

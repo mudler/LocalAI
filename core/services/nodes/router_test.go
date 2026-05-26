@@ -159,6 +159,10 @@ func (f *fakeModelRouter) SetNodeModelLoadInfo(_ context.Context, _, _ string, _
 	return nil
 }
 
+func (f *fakeModelRouter) UpsertModelLoadInfo(_ context.Context, _, _ string, _ []byte) error {
+	return nil
+}
+
 func (f *fakeModelRouter) GetModelLoadInfo(_ context.Context, _ string) (string, []byte, error) {
 	return "", nil, fmt.Errorf("not found")
 }

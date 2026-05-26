@@ -10,6 +10,7 @@ import (
 	"github.com/mudler/LocalAI/core/http/endpoints/ollama"
 	"github.com/mudler/LocalAI/core/http/middleware"
 	"github.com/mudler/LocalAI/core/schema"
+	"github.com/mudler/LocalAI/pkg/distributedhdr"
 )
 
 func RegisterOllamaRoutes(app *echo.Echo,
@@ -17,7 +18,8 @@ func RegisterOllamaRoutes(app *echo.Echo,
 	application *application.Application) {
 
 	traceMiddleware := middleware.TraceMiddleware(application)
-	usageMiddleware := middleware.UsageMiddleware(application.AuthDB())
+	usageMiddleware := middleware.UsageMiddleware(application.StatsRecorder(), application.FallbackUser())
+	nodeHeaderMiddleware := middleware.ExposeNodeHeader(application.ApplicationConfig())
 
 	// Chat endpoint: POST /api/chat
 	chatHandler := ollama.ChatEndpoint(
@@ -27,6 +29,7 @@ func RegisterOllamaRoutes(app *echo.Echo,
 		application.ApplicationConfig(),
 	)
 	chatMiddleware := []echo.MiddlewareFunc{
+		nodeHeaderMiddleware,
 		usageMiddleware,
 		traceMiddleware,
 		re.BuildFilteredFirstAvailableDefaultModel(config.BuildUsecaseFilterFn(config.FLAG_CHAT)),
@@ -43,6 +46,7 @@ func RegisterOllamaRoutes(app *echo.Echo,
 		application.ApplicationConfig(),
 	)
 	generateMiddleware := []echo.MiddlewareFunc{
+		nodeHeaderMiddleware,
 		usageMiddleware,
 		traceMiddleware,
 		re.BuildFilteredFirstAvailableDefaultModel(config.BuildUsecaseFilterFn(config.FLAG_CHAT)),
@@ -58,6 +62,7 @@ func RegisterOllamaRoutes(app *echo.Echo,
 		application.ApplicationConfig(),
 	)
 	embedMiddleware := []echo.MiddlewareFunc{
+		nodeHeaderMiddleware,
 		usageMiddleware,
 		traceMiddleware,
 		re.BuildFilteredFirstAvailableDefaultModel(config.BuildUsecaseFilterFn(config.FLAG_EMBEDDINGS)),
@@ -108,6 +113,7 @@ func setOllamaChatRequestContext(appConfig *config.ApplicationConfig) echo.Middl
 			}()
 
 			ctxWithCorrelationID := context.WithValue(c1, middleware.CorrelationIDKey, correlationID)
+			ctxWithCorrelationID = distributedhdr.Inherit(ctxWithCorrelationID, reqCtx)
 			input.Context = ctxWithCorrelationID
 			input.Cancel = cancel
 
@@ -149,6 +155,7 @@ func setOllamaGenerateRequestContext(appConfig *config.ApplicationConfig) echo.M
 			}()
 
 			ctxWithCorrelationID := context.WithValue(c1, middleware.CorrelationIDKey, correlationID)
+			ctxWithCorrelationID = distributedhdr.Inherit(ctxWithCorrelationID, reqCtx)
 			input.Ctx = ctxWithCorrelationID
 			input.Cancel = cancel
 

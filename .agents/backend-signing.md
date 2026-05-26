@@ -49,6 +49,12 @@ cosign sign --yes --recursive \
 Sign by digest, never by tag — signing by tag binds the signature to
 whatever the tag points at *now*, and a subsequent tag push orphans it.
 
+`--registry-referrers-mode=oci-1-1` is still gated behind
+`COSIGN_EXPERIMENTAL=1` in cosign v2.4.x (set at the job env level in
+`backend_merge.yml`). Re-evaluate when bumping the pinned cosign release
+— newer versions are expected to graduate this flag and the env var can
+then be dropped.
+
 `backend_build_darwin.yml` builds and pushes single-arch darwin images
 that bypass the manifest-list merge. If/when those entries get a gallery
 `verification:` policy, the equivalent cosign step has to land there

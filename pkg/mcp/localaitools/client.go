@@ -67,4 +67,43 @@ type LocalAIClient interface {
 	// SetBranding updates the text branding fields. Asset uploads are not
 	// exposed over MCP — admins use the Settings UI for binary files.
 	SetBranding(ctx context.Context, req SetBrandingRequest) (*Branding, error)
+
+	// ---- Usage / billing ----
+
+	// GetUsageStats returns aggregated token usage. In single-user
+	// no-auth mode this reports the synthetic local user's usage. The
+	// implementation enforces "admin required to query other users".
+	GetUsageStats(ctx context.Context, q UsageStatsQuery) (*UsageStats, error)
+
+	// ---- PII filter ----
+	// ListPIIPatterns returns the active PII pattern set with each
+	// one's action.
+	ListPIIPatterns(ctx context.Context) ([]PIIPattern, error)
+	// GetPIIEvents returns recent redaction events. Implementation
+	// enforces "admin required" when auth is on.
+	GetPIIEvents(ctx context.Context, q PIIEventsQuery) ([]PIIEvent, error)
+	// TestPIIRedaction dry-runs the redactor against text. No event
+	// is recorded.
+	TestPIIRedaction(ctx context.Context, req PIIRedactTestRequest) (*PIIRedactTestResult, error)
+	// SetPIIPatternAction mutates the named pattern's action and/or
+	// disabled state in-process. Transient until PersistPIIPatterns is
+	// called — runtime_settings.json then applies the deltas on the
+	// next start. Admin-required.
+	SetPIIPatternAction(ctx context.Context, req PIIPatternActionUpdate) error
+
+	// PersistPIIPatterns snapshots the live redactor's per-pattern
+	// (action, disabled) state into runtime_settings.json. Admin-required.
+	PersistPIIPatterns(ctx context.Context) error
+
+	// ---- Middleware admin ----
+	// GetMiddlewareStatus returns the aggregated state surfaced on the
+	// /app/middleware page: active PII patterns, per-model resolved
+	// enabled state, recent event count, router placeholder.
+	GetMiddlewareStatus(ctx context.Context) (*MiddlewareStatus, error)
+
+	// ---- Router (intelligent routing) ----
+	// GetRouterDecisions returns recent routing decisions for the
+	// /app/middleware Routing tab and for agent-driven introspection.
+	// Admin-required when auth is on.
+	GetRouterDecisions(ctx context.Context, q RouterDecisionsQuery) ([]RouterDecision, error)
 }

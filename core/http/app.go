@@ -25,10 +25,8 @@ import (
 	"github.com/mudler/LocalAI/core/schema"
 	"github.com/mudler/LocalAI/core/services/finetune"
 	"github.com/mudler/LocalAI/core/services/galleryop"
-	"github.com/mudler/LocalAI/core/services/monitoring"
 	"github.com/mudler/LocalAI/core/services/nodes"
 	"github.com/mudler/LocalAI/core/services/quantization"
-	"github.com/mudler/LocalAI/pkg/signals"
 
 	"github.com/mudler/xlog"
 )
@@ -213,19 +211,18 @@ func API(application *application.Application) (*echo.Echo, error) {
 		e.Use(middleware.Recover())
 	}
 
-	// Metrics middleware
-	if !application.ApplicationConfig().DisableMetrics {
-		metricsService, err := monitoring.NewLocalAIMetricsService()
-		if err != nil {
-			return nil, err
-		}
-
-		if metricsService != nil {
-			e.Use(localai.LocalAIMetricsAPIMiddleware(metricsService))
-			e.Server.RegisterOnShutdown(func() {
-				metricsService.Shutdown()
-			})
-		}
+	// Metrics middleware. The metric service was created in
+	// application.start() so the OTel global provider is set before any
+	// counter is registered (the routing-module billing recorder relies
+	// on this). We reuse that instance here rather than calling
+	// monitoring.NewLocalAIMetricsService a second time, which would
+	// create a second provider, second prometheus exporter, and orphan
+	// whichever instance lost the SetMeterProvider race.
+	if metricsService := application.MetricsService(); metricsService != nil {
+		e.Use(localai.LocalAIMetricsAPIMiddleware(metricsService))
+		e.Server.RegisterOnShutdown(func() {
+			_ = metricsService.Shutdown()
+		})
 	}
 
 	// Health Checks should always be exempt from auth, so register these first
@@ -268,13 +265,9 @@ func API(application *application.Application) (*echo.Echo, error) {
 		e.Static("/generated-videos", videoPath)
 	}
 
-	// Initialize usage recording when auth DB is available, and ensure the
-	// batcher drains its in-memory queue on graceful shutdown so the last
-	// few seconds of usage don't disappear when the process exits.
-	if application.AuthDB() != nil {
-		httpMiddleware.InitUsageRecorder(application.AuthDB())
-		signals.RegisterGracefulTerminationHandler(httpMiddleware.ShutdownUsageRecorder)
-	}
+	// Usage recording is initialised in application/startup.go and
+	// surfaced via application.StatsRecorder(); routes wire UsageMiddleware
+	// against that recorder regardless of auth state.
 
 	// Auth is applied to _all_ endpoints. Filtering out endpoints to bypass is
 	// the role of the exempt-path logic inside the middleware.
@@ -361,12 +354,33 @@ func API(application *application.Application) (*echo.Echo, error) {
 	// Register auth routes (login, callback, API keys, user management)
 	routes.RegisterAuthRoutes(e, application)
 
+	// Register routing-module usage endpoints. Unlike /api/auth/usage
+	// these go through the StatsRecorder and work in no-auth single-user
+	// mode by attributing requests to the synthetic "local" user.
+	routes.RegisterUsageRoutes(e, application)
+	routes.RegisterPIIRoutes(e, application)
+	routes.RegisterMiddlewareRoutes(e, application)
+
 	routes.RegisterElevenLabsRoutes(e, requestExtractor, application.ModelConfigLoader(), application.ModelLoader(), application.ApplicationConfig())
 
 	// Create opcache for tracking UI operations (used by both UI and LocalAI routes)
 	var opcache *galleryop.OpCache
 	if !application.ApplicationConfig().DisableWebUI {
 		opcache = galleryop.NewOpCache(application.GalleryService())
+		// In distributed mode, wire the NATS client + gallery store so this
+		// replica's OpCache stays in sync with peers — without this the
+		// /api/operations endpoint returns whatever this single replica
+		// happened to admit, and a load-balanced UI poll alternates between
+		// "operation visible" and "operation gone" between replicas.
+		if d := application.Distributed(); d != nil {
+			opcache.SetMessagingClient(d.Nats)
+			if d.DistStores != nil && d.DistStores.Gallery != nil {
+				opcache.SetGalleryStore(d.DistStores.Gallery)
+			}
+			if err := opcache.Start(application.ApplicationConfig().Context); err != nil {
+				xlog.Warn("OpCache distributed subscribe failed; running standalone", "error", err)
+			}
+		}
 	}
 
 	mcpMw := auth.RequireFeature(application.AuthDB(), auth.FeatureMCP)
