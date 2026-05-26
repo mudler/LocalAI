@@ -232,6 +232,17 @@ func DefaultRegistry() map[string]FieldMetaOverride {
 			Description: "Use the chat template from the model's tokenizer config",
 			Order:       43,
 		},
+		// Router section template — kept in the templates UI section
+		// (rather than the router section under "other") so operators
+		// editing prompt shapes find all template-typed fields in one
+		// place, mirroring how chat / chat_message are grouped.
+		"router.classifier_system_template": {
+			Section:     "templates",
+			Label:       "Router Classifier System Prompt",
+			Description: "Go text/template (with sprig functions) for the routing system prompt the score classifier feeds to its classifier_model. Executed with `.Policies` ([]{Label, Description}). Empty falls back to the built-in Arch-Router-shaped prompt (route-listing block + JSON output schema). Override when the classifier model was trained on a different schema or you need the routing instructions in a different language. The candidate format scored against the model is fixed at `{\"route\": \"<label>\"}` — keep your override's output schema instruction matching that.",
+			Component:   "code-editor",
+			Order:       44,
+		},
 
 		// --- Pipeline ---
 		"pipeline.llm": {
@@ -319,6 +330,208 @@ func DefaultRegistry() map[string]FieldMetaOverride {
 			Label:       "CUDA",
 			Description: "Enable CUDA for diffusers",
 			Order:       82,
+		},
+
+		// --- PII filtering (per-model) ---
+		"pii.enabled": {
+			Section:     "other",
+			Label:       "PII Filtering Enabled",
+			Description: "Enable PII redaction middleware for this model. Unset means use the default (off for local backends, on for proxy-* / cloud-hosted backends).",
+			Component:   "toggle",
+			Order:       200,
+		},
+		"pii.patterns": {
+			Section:     "other",
+			Label:       "PII Pattern Overrides",
+			Description: "Override the global default action for specific patterns on this model. Patterns not listed here inherit the global action (Settings → Middleware → Filtering).",
+			Component:   "pii-pattern-list",
+			Order:       201,
+		},
+
+		// --- Cloud passthrough proxy ---
+		// These only have an effect when Backend is set to
+		// "cloud-proxy". When the upstream URL is empty, the model
+		// fails closed — the chat handler does NOT silently fall back
+		// to the local gRPC pipeline.
+		"proxy.mode": {
+			Section:     "other",
+			Label:       "Proxy Mode",
+			Description: "passthrough forwards the client's OpenAI body verbatim — point upstream_url at an OpenAI-compatible endpoint (incl. Anthropic's /v1/chat/completions compat layer). translate converts OpenAI ↔ Anthropic Messages so you can target a native API (/v1/messages); tool_calls and usage tokens survive the round-trip.",
+			Component:   "select",
+			Options: []FieldOption{
+				{Value: "passthrough", Label: "passthrough (raw forward)"},
+				{Value: "translate", Label: "translate (OpenAI ↔ native)"},
+			},
+			Default: "passthrough",
+			Order:   208,
+		},
+		"proxy.provider": {
+			Section:     "other",
+			Label:       "Proxy Provider",
+			Description: "Upstream API family. Drives auth header shape (Bearer vs x-api-key + anthropic-version) and, in translate mode, which request/response codec is used.",
+			Component:   "select",
+			Options: []FieldOption{
+				{Value: "openai", Label: "OpenAI"},
+				{Value: "anthropic", Label: "Anthropic"},
+			},
+			Default: "openai",
+			Order:   209,
+		},
+		"proxy.upstream_url": {
+			Section:     "other",
+			Label:       "Proxy Upstream URL",
+			Description: "Full POST endpoint of the upstream provider (e.g. https://api.openai.com/v1/chat/completions). Only used when Backend is cloud-proxy.",
+			Component:   "input",
+			Order:       210,
+		},
+		"proxy.api_key_env": {
+			Section:     "other",
+			Label:       "Proxy API Key Env Var",
+			Description: "Name of the environment variable holding the upstream API key. Reading from env keeps the secret out of the YAML and the admin UI.",
+			Component:   "input",
+			Order:       211,
+		},
+		"proxy.upstream_model": {
+			Section:     "other",
+			Label:       "Proxy Upstream Model",
+			Description: "Model name sent to the upstream. Leave empty to forward the client's model field unchanged. Useful when the LocalAI alias differs from the upstream's canonical name.",
+			Component:   "input",
+			Order:       212,
+		},
+		"proxy.request_timeout_seconds": {
+			Section:     "other",
+			Label:       "Proxy Request Timeout (seconds)",
+			Description: "Caps the upstream HTTP request duration. 0 disables the deadline; the request still ends when the client disconnects.",
+			Component:   "number",
+			Min:         f64(0),
+			Order:       213,
+		},
+
+		// --- MITM intercept hosts ---
+		// Each host listed here is claimed by this model config; the
+		// cloudproxy MITM listener (see Middleware → MITM Proxy) uses
+		// THIS config's pii: settings to filter the intercepted traffic.
+		// A host claimed by two configs is a critical error — the
+		// listener refuses to start until resolved.
+		"mitm.hosts": {
+			Section:     "other",
+			Label:       "MITM Intercept Hosts",
+			Description: "Hostnames the cloudproxy MITM proxy terminates TLS for on behalf of this model config. PII filtering and pattern overrides flow from this model when the host is intercepted. Each host must be unique across all configs.",
+			Component:   "string-list",
+			Order:       220,
+		},
+
+		// --- Router ---
+		// Routing turns this model config into a dispatcher: the
+		// classifier scores every policy label as a continuation of
+		// the routing prompt and picks the first candidate whose
+		// labels are a superset of the active set. The Routing tab of
+		// the middleware admin page surfaces every model with a router
+		// block.
+		"router.classifier": {
+			Section:     "other",
+			Label:       "Classifier",
+			Description: "Picks a candidate by scoring every policy label against the prompt. Only \"score\" is shipped today; it asks the classifier_model to rank each label and reads off the softmax. Empty defaults to \"score\".",
+			Component:   "select",
+			Options: []FieldOption{
+				{Value: "score", Label: "Score (Arch-Router-style)"},
+			},
+			Order: 230,
+		},
+		"router.classifier_model": {
+			Section:              "other",
+			Label:                "Classifier Model",
+			Description:          "Loaded LocalAI model the score classifier asks to rank each policy label as a continuation. Must support the Score gRPC primitive (today: llama-cpp, vLLM) and use the ChatML template. Arch-Router-1.5B Q4_K_M is the canonical choice; any small ChatML instruct model also works at a higher activation_threshold.",
+			Component:            "model-select",
+			AutocompleteProvider: ProviderModelsChat,
+			Order:                231,
+		},
+		"router.fallback": {
+			Section:              "other",
+			Label:                "Fallback Model",
+			Description:          "Model used when no candidate's labels cover the classifier's active label set, or when the classifier errors. Empty means router failures bubble up as HTTP 500 — fail-fast, not silent-bypass.",
+			Component:            "model-select",
+			AutocompleteProvider: ProviderModelsChat,
+			Order:                232,
+		},
+		"router.activation_threshold": {
+			Section:     "other",
+			Label:       "Activation Threshold",
+			Description: "Softmax-probability floor a policy must clear to join the active label set for a request. Higher → single-label dominant routes; lower → more multi-label activations. 0 picks the package default (0.15). On Arch-Router-1.5B a value around 0.40 keeps the dominant label clean without losing genuine compound activations.",
+			Component:   "slider",
+			Min:         f64(0),
+			Max:         f64(1),
+			Step:        f64(0.05),
+			Order:       233,
+		},
+		"router.classifier_cache_size": {
+			Section:     "other",
+			Label:       "Classifier L1 Cache Size",
+			Description: "Bounded LRU keyed on (case-folded, whitespace-trimmed) prompt — amortises the classifier round-trip across verbatim repeats common in agent loops. 0 here means \"use the default\" (1024); the cache cannot be disabled from YAML.",
+			Component:   "number",
+			Min:         f64(0),
+			Order:       234,
+		},
+		"router.policies": {
+			Section:     "other",
+			Label:       "Policies",
+			Description: "Label vocabulary the classifier scores over. Each policy has a label and a short natural-language description fed verbatim to the classifier model. Short action-oriented sentences work best (\"writing or debugging code\"; \"small talk\").",
+			Component:   "router-policies",
+			Order:       235,
+		},
+		"router.candidates": {
+			Section:     "other",
+			Label:       "Candidates",
+			Description: "Routing table: each entry binds a downstream model to a set of policy labels it can serve. Order matters — the middleware picks the FIRST candidate whose labels are a superset of the active set, so list candidates smallest → largest.",
+			Component:   "router-candidates",
+			Order:       236,
+		},
+		"router.score_normalization": {
+			Section:     "other",
+			Label:       "Score Normalization",
+			Description: "How the score classifier collapses per-candidate joint log-probs into the softmax input. \"raw\" (default) feeds joint log-prob as-is — on-distribution for Arch-Router (the route the model would actually emit if decoded freely). \"mean\" divides by candidate token count — fairer to long labels but off-distribution for models trained to emit fixed-format outputs.",
+			Component:   "select",
+			Options: []FieldOption{
+				{Value: "", Label: "Raw (default)"},
+				{Value: "raw", Label: "Raw"},
+				{Value: "mean", Label: "Mean (length-normalised)"},
+			},
+			Order: 240,
+		},
+		"router.embedding_cache.embedding_model": {
+			Section:              "other",
+			Label:                "L2 Cache: Embedding Model",
+			Description:          "Embedding model used by the L2 decision cache. Embeds incoming probes and looks them up in the per-router local-store collection. Empty disables the cache entirely. nomic-embed-text-v1.5 is the recommended default.",
+			Component:            "model-select",
+			AutocompleteProvider: ProviderModels,
+			Order:                237,
+		},
+		"router.embedding_cache.similarity_threshold": {
+			Section:     "other",
+			Label:       "L2 Cache: Similarity Threshold",
+			Description: "Cosine-similarity floor a cache candidate must clear to count as a hit. 0 picks the package default (0.80). Re-tune per embedding model — the histogram on the Routing tab shows where the cosine distribution actually sits.",
+			Component:   "slider",
+			Min:         f64(0),
+			Max:         f64(1),
+			Step:        f64(0.01),
+			Order:       238,
+		},
+		"router.embedding_cache.confidence_threshold": {
+			Section:     "other",
+			Label:       "L2 Cache: Confidence Threshold",
+			Description: "Minimum top-label probability a classifier decision must have to be inserted into the cache. 0 picks the package default (0.60). Uncertain decisions are skipped so they can't poison future paraphrases.",
+			Component:   "slider",
+			Min:         f64(0),
+			Max:         f64(1),
+			Step:        f64(0.05),
+			Order:       239,
+		},
+		"router.embedding_cache.store_name": {
+			Section:     "other",
+			Label:       "L2 Cache: Store Name",
+			Description: "Optional override for the local-store collection used by this router's cache. Empty defaults to \"router-cache-<router-model-name>\". Two routers sharing a store_name share their cache (rare).",
+			Component:   "input",
+			Order:       240,
 		},
 	}
 }

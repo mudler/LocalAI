@@ -14,6 +14,7 @@ import (
 	"github.com/mudler/LocalAI/core/schema"
 	"github.com/mudler/LocalAI/core/services/galleryop"
 	"github.com/mudler/LocalAI/core/templates"
+	"github.com/mudler/LocalAI/pkg/distributedhdr"
 	"github.com/mudler/LocalAI/pkg/model"
 	"github.com/mudler/LocalAI/pkg/utils"
 	"github.com/mudler/xlog"
@@ -220,6 +221,7 @@ func (re *RequestExtractor) SetOpenAIRequest(c echo.Context) error {
 
 	// Add the correlation ID to the new context
 	ctxWithCorrelationID := context.WithValue(c1, CorrelationIDKey, correlationID)
+	ctxWithCorrelationID = distributedhdr.Inherit(ctxWithCorrelationID, reqCtx)
 
 	input.Context = ctxWithCorrelationID
 	input.Cancel = cancel
@@ -308,6 +310,17 @@ func mergeOpenAIRequestAndModelConfig(config *config.ModelConfig, input *schema.
 		config.Temperature = input.Temperature
 	}
 
+	// Collapse the modern max_completion_tokens alias into the
+	// legacy Maxtokens field so downstream code reads exactly one.
+	// MaxCompletionTokens wins on conflict — it's the canonical
+	// name per OpenAI's deprecation guidance, and a client that
+	// took the trouble to send it intends that value. Clearing
+	// the sibling prevents both names from being emitted if input
+	// is re-marshaled (cloud-proxy passthrough).
+	if input.MaxCompletionTokens != nil {
+		input.Maxtokens = input.MaxCompletionTokens
+		input.MaxCompletionTokens = nil
+	}
 	if input.Maxtokens != nil {
 		config.Maxtokens = input.Maxtokens
 	}
@@ -621,6 +634,7 @@ func (re *RequestExtractor) SetOpenResponsesRequest(c echo.Context) error {
 
 	// Add the correlation ID to the new context
 	ctxWithCorrelationID := context.WithValue(c1, CorrelationIDKey, correlationID)
+	ctxWithCorrelationID = distributedhdr.Inherit(ctxWithCorrelationID, reqCtx)
 
 	input.Context = ctxWithCorrelationID
 	input.Cancel = cancel

@@ -7,10 +7,110 @@ import (
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/schema"
 	"github.com/mudler/LocalAI/pkg/functions"
+	pb "github.com/mudler/LocalAI/pkg/grpc/proto"
 	"github.com/mudler/LocalAI/pkg/model"
 	reason "github.com/mudler/LocalAI/pkg/reasoning"
 	"github.com/mudler/xlog"
 )
+
+// emitJSONToolCallDeltas iterates the JSON tool-call objects produced by the
+// streaming tool-call detector and emits SSE chunks for the ones the caller
+// hasn't already emitted. It returns the new lastEmittedCount.
+//
+// Semantics:
+//   - Skips entries before lastEmittedCount (already emitted).
+//   - Emits one tool_call chunk per consecutive entry that has a usable
+//     `name` string.
+//   - Stops at the first entry without a name (typically the partial-JSON
+//     tail or a healing-marker stub — see issue #9988) so the caller doesn't
+//     advance past it. Bumping lastEmittedCount past an unparsed stub
+//     permanently gates off content emission for the rest of the stream.
+//   - When jsonResults is empty (the autoparser-working case, where the raw
+//     text result is cleared and only ChatDeltas carry tool calls), this is
+//     a no-op and lastEmittedCount is returned unchanged.
+//
+// The autoparser-correctly-classifying-tool-calls path is unaffected: it
+// delivers tool calls via TokenUsage.ChatDeltas, and the deferred
+// end-of-stream block (ToolCallsFromChatDeltas → buildDeferredToolCallChunks)
+// emits them; this helper sees an empty jsonResults and emits nothing.
+func emitJSONToolCallDeltas(
+	jsonResults []map[string]any,
+	lastEmittedCount int,
+	id, model string,
+	created int,
+	responses chan<- schema.OpenAIResponse,
+) int {
+	for i := lastEmittedCount; i < len(jsonResults); i++ {
+		jsonObj := jsonResults[i]
+		name, ok := jsonObj["name"].(string)
+		if !ok || name == "" {
+			break
+		}
+		args := "{}"
+		if argsVal, ok := jsonObj["arguments"]; ok {
+			if argsStr, ok := argsVal.(string); ok {
+				args = argsStr
+			} else {
+				argsBytes, _ := json.Marshal(argsVal)
+				args = string(argsBytes)
+			}
+		}
+		responses <- schema.OpenAIResponse{
+			ID:      id,
+			Created: created,
+			Model:   model,
+			Choices: []schema.Choice{{
+				Delta: &schema.Message{
+					Role: "assistant",
+					ToolCalls: []schema.ToolCall{
+						{
+							Index: i,
+							ID:    id,
+							Type:  "function",
+							FunctionCall: schema.FunctionCall{
+								Name:      name,
+								Arguments: args,
+							},
+						},
+					},
+				},
+				Index:        0,
+				FinishReason: nil,
+			}},
+			Object: "chat.completion.chunk",
+		}
+		lastEmittedCount = i + 1
+	}
+	return lastEmittedCount
+}
+
+// chooseDeferredReasoning picks the source of truth for the end-of-stream
+// reasoning flush in processStreamWithTools. When the C++ autoparser was
+// active during the stream (preferAutoparser), it returns the autoparser's
+// own classified reasoning_content from ChatDeltas — usually empty when the
+// autoparser is in pure-content fallback mode. Otherwise it falls back to
+// the Go-side streaming extractor, which is the right source for backends
+// without an autoparser (vLLM, etc.).
+//
+// Why: the Go-side extractor's accumulated Reasoning() can be polluted by
+// PrependThinkingTokenIfNeeded — when the tokenizer template contains a
+// thinking start token (qwen3's jinja template has <think> inside an
+// {% if enable_thinking %} block, and DetectThinkingStartToken does not
+// evaluate jinja conditionals), prefill detection treats every chunk's
+// content as reasoning, even when the model emitted a raw tool-call JSON
+// in non-thinking mode. Without this guard, qwen3-4b with streaming + tools
+// (after #9985 flipped the gallery to use_tokenizer_template) emits a
+// trailing SSE chunk where `reasoning` carries the tool-call JSON.
+func chooseDeferredReasoning(
+	preferAutoparser bool,
+	chatDeltas []*pb.ChatDelta,
+	extractor *reason.ReasoningExtractor,
+) string {
+	if preferAutoparser {
+		return functions.ReasoningFromChatDeltas(chatDeltas)
+	}
+	return extractor.Reasoning()
+}
 
 // processStream is the streaming worker for chat completions with no
 // tool/function calling involved. It pushes SSE-shaped chunks onto
@@ -21,6 +121,13 @@ import (
 // The caller owns the `responses` channel and is expected to read from
 // it while this function runs; processStream closes the channel before
 // returning.
+//
+// X-LocalAI-Node attribution (when --expose-node-header is on) is
+// handled by middleware.ExposeNodeHeader at the response writer wrapper
+// layer; no in-band signal from the worker is needed. The initial
+// role=assistant chunk is still emitted from the first token callback
+// rather than eagerly here, so the wrapper's lazy lookup against the
+// loader runs AFTER ml.Load has stamped the per-modelID node ID.
 func processStream(
 	s string,
 	req *schema.OpenAIRequest,
@@ -32,13 +139,7 @@ func processStream(
 	id string,
 	created int,
 ) (backend.TokenUsage, error) {
-	responses <- schema.OpenAIResponse{
-		ID:      id,
-		Created: created,
-		Model:   req.Model, // we have to return what the user sent here, due to OpenAI spec.
-		Choices: []schema.Choice{{Delta: &schema.Message{Role: "assistant"}, Index: 0, FinishReason: nil}},
-		Object:  "chat.completion.chunk",
-	}
+	sentInitialRole := false
 
 	// Detect if thinking token is already in prompt or template
 	// When UseTokenizerTemplate is enabled, predInput is empty, so we check the template
@@ -50,6 +151,13 @@ func processStream(
 	}
 	thinkingStartToken := reason.DetectThinkingStartToken(template, &cfg.ReasoningConfig)
 	extractor := reason.NewReasoningExtractor(thinkingStartToken, cfg.ReasoningConfig)
+
+	// preferAutoparser is sticky: once the C++ autoparser has ever classified
+	// reasoning_content, we trust it for the rest of the stream. Until then we
+	// fall back to Go-side extraction so that a "pure content" autoparser
+	// (non-jinja path, issue #9985) does not leak <think>…</think> tokens
+	// straight into the OpenAI `content` field.
+	preferAutoparser := false
 
 	_, finalUsage, _, err := ComputeChoices(req, s, cfg, cl, startupOptions, loader, func(s string, c *[]schema.Choice) {}, func(s string, tokenUsage backend.TokenUsage) bool {
 		var reasoningDelta, contentDelta string
@@ -63,11 +171,30 @@ func processStream(
 		// Otherwise fall back to Go-side extraction.
 		if tokenUsage.HasChatDeltaContent() {
 			rawReasoning, cd := tokenUsage.ChatDeltaReasoningAndContent()
-			contentDelta = cd
-			reasoningDelta = extractor.ProcessChatDeltaReasoning(rawReasoning)
+			if rawReasoning != "" {
+				preferAutoparser = true
+			}
+			if preferAutoparser {
+				contentDelta = cd
+				reasoningDelta = extractor.ProcessChatDeltaReasoning(rawReasoning)
+			} else {
+				reasoningDelta = goReasoning
+				contentDelta = goContent
+			}
 		} else {
 			reasoningDelta = goReasoning
 			contentDelta = goContent
+		}
+
+		if !sentInitialRole {
+			sentInitialRole = true
+			responses <- schema.OpenAIResponse{
+				ID:      id,
+				Created: created,
+				Model:   req.Model, // we have to return what the user sent here, due to OpenAI spec.
+				Choices: []schema.Choice{{Delta: &schema.Message{Role: "assistant"}, Index: 0, FinishReason: nil}},
+				Object:  "chat.completion.chunk",
+			}
 		}
 
 		delta := &schema.Message{}
@@ -130,6 +257,20 @@ func processStreamWithTools(
 	hasChatDeltaToolCalls := false
 	hasChatDeltaContent := false
 
+	// preferAutoparser is sticky: once the C++ autoparser has ever delivered
+	// content or reasoning via ChatDeltas, we trust its classification for the
+	// rest of the stream — including for the end-of-stream reasoning flush in
+	// buildDeferredToolCallChunks. Otherwise the Go-side extractor's
+	// accumulated Reasoning() can be polluted by prefill detection
+	// misclassifying content as reasoning (this happens when <think> appears
+	// in the tokenizer template and the model emits non-reasoning content
+	// like a raw tool-call JSON — qwen3-4b after #9985 enabled
+	// use_tokenizer_template). Mirrors the analogous flag in processStream.
+	preferAutoparser := false
+
+	// X-LocalAI-Node attribution is handled by middleware.ExposeNodeHeader
+	// at the wrapper layer; no in-band signalling from this worker.
+
 	_, finalUsage, chatDeltas, err := ComputeChoices(req, prompt, cfg, cl, startupOptions, loader, func(s string, c *[]schema.Choice) {}, func(s string, usage backend.TokenUsage) bool {
 		result += s
 
@@ -150,12 +291,17 @@ func processStreamWithTools(
 
 		if usage.HasChatDeltaContent() {
 			rawReasoning, cd := usage.ChatDeltaReasoningAndContent()
+			preferAutoparser = true
 			contentDelta = cd
 			reasoningDelta = extractor.ProcessChatDeltaReasoning(rawReasoning)
-		} else {
+		} else if !preferAutoparser {
 			reasoningDelta = goReasoning
 			contentDelta = goContent
 		}
+		// If preferAutoparser is already true but this chunk carried no
+		// autoparser data, leave both deltas empty — the next autoparser
+		// chunk will pick things up. Falling back to Go-side here would
+		// re-introduce the prefill-misclassification leak.
 
 		// Emit reasoning deltas in their own SSE chunks before any tool-call chunks
 		// (OpenAI spec: reasoning and tool_calls never share a delta)
@@ -249,49 +395,10 @@ func processStreamWithTools(
 			// Try JSON tool call parsing for streaming.
 			// Only emit NEW tool calls (same guard as XML parser above).
 			jsonResults, jsonErr := functions.ParseJSONIterative(cleanedResult, true)
-			if jsonErr == nil && len(jsonResults) > lastEmittedCount {
-				for i := lastEmittedCount; i < len(jsonResults); i++ {
-					jsonObj := jsonResults[i]
-					name, ok := jsonObj["name"].(string)
-					if !ok || name == "" {
-						continue
-					}
-					args := "{}"
-					if argsVal, ok := jsonObj["arguments"]; ok {
-						if argsStr, ok := argsVal.(string); ok {
-							args = argsStr
-						} else {
-							argsBytes, _ := json.Marshal(argsVal)
-							args = string(argsBytes)
-						}
-					}
-					initialMessage := schema.OpenAIResponse{
-						ID:      id,
-						Created: created,
-						Model:   req.Model,
-						Choices: []schema.Choice{{
-							Delta: &schema.Message{
-								Role: "assistant",
-								ToolCalls: []schema.ToolCall{
-									{
-										Index: i,
-										ID:    id,
-										Type:  "function",
-										FunctionCall: schema.FunctionCall{
-											Name:      name,
-											Arguments: args,
-										},
-									},
-								},
-							},
-							Index:        0,
-							FinishReason: nil,
-						}},
-						Object: "chat.completion.chunk",
-					}
-					responses <- initialMessage
-				}
-				lastEmittedCount = len(jsonResults)
+			if jsonErr == nil {
+				lastEmittedCount = emitJSONToolCallDeltas(
+					jsonResults, lastEmittedCount, id, req.Model, created, responses,
+				)
 			}
 		}
 		return true
@@ -337,7 +444,14 @@ func processStreamWithTools(
 	} else {
 		// Fallback: parse tool calls from raw text (no chat deltas from backend)
 		xlog.Debug("[ChatDeltas] no pre-parsed tool calls, falling back to Go-side text parsing")
-		reasoning = extractor.Reasoning()
+		// When the autoparser was active during streaming (preferAutoparser),
+		// trust its reasoning classification rather than the Go-side
+		// extractor's accumulated state — the latter may have misclassified
+		// content as reasoning due to prefill detection on a tokenizer
+		// template that contains <think>. This was visible on qwen3-4b after
+		// #9985 enabled use_tokenizer_template: a streaming tool-call JSON
+		// would leak as a trailing reasoning chunk via the deferred flush.
+		reasoning = chooseDeferredReasoning(preferAutoparser, chatDeltas, extractor)
 		cleanedResult := extractor.CleanedContent()
 		*textContentToReturn = functions.ParseTextContent(cleanedResult, cfg.FunctionsConfig)
 		cleanedResult = functions.CleanupLLMResult(cleanedResult, cfg.FunctionsConfig)

@@ -388,6 +388,49 @@ func (bcl *ModelConfigLoader) Preload(modelPath string) error {
 	return nil
 }
 
+// MITMHostOwnership is the result of mapping intercept hosts to the
+// model configs that claim them. The invariant the dispatcher relies
+// on: every host belongs to AT MOST one model config. Any duplicate
+// is surfaced via Conflicts and disables the MITM listener until
+// resolved — a half-applied "first wins" rule would silently mask
+// configuration drift, so we fail loud.
+type MITMHostOwnership struct {
+	// Owners maps lowercase hostname → owning model name. Empty when
+	// no model declares mitm.hosts.
+	Owners map[string]string
+	// Conflicts lists hosts claimed by 2+ configs, with the names of
+	// the configs that claim them. Non-empty Conflicts means callers
+	// must NOT start the MITM listener.
+	Conflicts map[string][]string
+}
+
+// MITMHostOwners walks every loaded ModelConfig's mitm.hosts, builds
+// the host→owner index, and reports any duplicates. The lookup table
+// is hostname-lowercased to match the Server's allowlist semantics.
+func (bcl *ModelConfigLoader) MITMHostOwners() MITMHostOwnership {
+	bcl.Lock()
+	defer bcl.Unlock()
+	owners := map[string]string{}
+	collisions := map[string][]string{}
+	for name, cfg := range bcl.configs {
+		for _, h := range cfg.MITM.Hosts {
+			h = strings.ToLower(strings.TrimSpace(h))
+			if h == "" {
+				continue
+			}
+			if existing, ok := owners[h]; ok && existing != name {
+				if _, seen := collisions[h]; !seen {
+					collisions[h] = []string{existing}
+				}
+				collisions[h] = append(collisions[h], name)
+				continue
+			}
+			owners[h] = name
+		}
+	}
+	return MITMHostOwnership{Owners: owners, Conflicts: collisions}
+}
+
 // LoadModelConfigsFromPath reads all the configurations of the models from a path
 // (non-recursive)
 func (bcl *ModelConfigLoader) LoadModelConfigsFromPath(path string, opts ...ConfigLoaderOption) error {

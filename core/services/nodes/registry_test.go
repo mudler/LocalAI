@@ -1100,4 +1100,69 @@ var _ = Describe("NodeRegistry", func() {
 				"reserved capacity must remove a node from VRAM-aware candidates")
 		})
 	})
+
+	Describe("ModelLoadInfo persistence (Bug-1)", func() {
+		It("survives every NodeModel row being removed", func() {
+			ctx := context.Background()
+
+			// One node with one loaded replica + per-replica blob (the legacy path).
+			node := makeNode("li-1", "10.0.1.1:50051", 8_000_000_000)
+			Expect(registry.Register(ctx, node, true)).To(Succeed())
+			Expect(registry.SetNodeModel(ctx, node.ID, "load-info-model", 0, "loaded", node.Address, 0)).To(Succeed())
+			Expect(registry.SetNodeModelLoadInfo(ctx, node.ID, "load-info-model", 0, "llama-cpp", []byte("opts-v1"))).To(Succeed())
+
+			// Persist per-model via the new path (the dispatch hook does this).
+			Expect(registry.UpsertModelLoadInfo(ctx, "load-info-model", "llama-cpp", []byte("opts-v1"))).To(Succeed())
+
+			// Simulate worker death + MarkOffline reaping: every NodeModel row gone.
+			Expect(registry.RemoveAllNodeModelReplicas(ctx, node.ID, "load-info-model")).To(Succeed())
+
+			bt, blob, err := registry.GetModelLoadInfo(ctx, "load-info-model")
+			Expect(err).ToNot(HaveOccurred(),
+				"per-model load info must survive every NodeModel row going away")
+			Expect(bt).To(Equal("llama-cpp"))
+			Expect(blob).To(Equal([]byte("opts-v1")))
+		})
+
+		It("ON CONFLICT updates backend type and opts (last-write-wins)", func() {
+			ctx := context.Background()
+
+			Expect(registry.UpsertModelLoadInfo(ctx, "lww", "llama-cpp", []byte("v1"))).To(Succeed())
+			Expect(registry.UpsertModelLoadInfo(ctx, "lww", "vllm", []byte("v2"))).To(Succeed())
+
+			bt, blob, err := registry.GetModelLoadInfo(ctx, "lww")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(bt).To(Equal("vllm"))
+			Expect(blob).To(Equal([]byte("v2")))
+		})
+
+		It("falls back to legacy NodeModel blob when no per-model row exists", func() {
+			// Pre-fix rolling-upgrade path: a frontend that ran before the new
+			// table existed only wrote the per-replica blob. The new
+			// GetModelLoadInfo must still find it so an upgrade doesn't
+			// regress the reconciler for already-loaded models.
+			ctx := context.Background()
+
+			node := makeNode("li-legacy", "10.0.1.2:50051", 8_000_000_000)
+			Expect(registry.Register(ctx, node, true)).To(Succeed())
+			Expect(registry.SetNodeModel(ctx, node.ID, "legacy-model", 0, "loaded", node.Address, 0)).To(Succeed())
+			Expect(registry.SetNodeModelLoadInfo(ctx, node.ID, "legacy-model", 0, "llama-cpp", []byte("legacy-opts"))).To(Succeed())
+
+			bt, blob, err := registry.GetModelLoadInfo(ctx, "legacy-model")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(bt).To(Equal("llama-cpp"))
+			Expect(blob).To(Equal([]byte("legacy-opts")))
+		})
+
+		It("returns ErrRecordNotFound when neither source has the model", func() {
+			ctx := context.Background()
+			_, _, err := registry.GetModelLoadInfo(ctx, "never-loaded")
+			Expect(err).To(MatchError(gorm.ErrRecordNotFound))
+		})
+
+		It("rejects empty model names", func() {
+			err := registry.UpsertModelLoadInfo(context.Background(), "", "llama-cpp", []byte("x"))
+			Expect(err).To(HaveOccurred())
+		})
+	})
 })

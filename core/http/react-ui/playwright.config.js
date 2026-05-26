@@ -12,7 +12,16 @@ export default defineConfig({
   projects: [
     {
       name: 'chromium',
-      use: { browserName: 'chromium' },
+      use: {
+        browserName: 'chromium',
+        // Use a nix-provided Chromium when PLAYWRIGHT_CHROMIUM_PATH is set
+        // (the flake dev shell exports it). Avoids Playwright's downloaded
+        // browser, which can't resolve system libs (libglib-2.0, …) on NixOS.
+        // Unset in CI, where `playwright install --with-deps` is used instead.
+        ...(process.env.PLAYWRIGHT_CHROMIUM_PATH
+          ? { launchOptions: { executablePath: process.env.PLAYWRIGHT_CHROMIUM_PATH } }
+          : {}),
+      },
     },
   ],
   webServer: process.env.PLAYWRIGHT_EXTERNAL_SERVER ? undefined : {

@@ -173,12 +173,12 @@ func ImportModelEndpoint(cl *config.ModelConfigLoader, appConfig *config.Applica
 		// Validate without calling SetDefaults() — runtime defaults should not
 		// be persisted to disk. SetDefaults() is called when loading configs
 		// for inference via LoadModelConfigsFromPath().
-		if valid, _ := modelConfig.Validate(); !valid {
-			response := ModelResponse{
-				Success: false,
-				Error:   "Invalid configuration",
+		if valid, vErr := modelConfig.Validate(); !valid {
+			msg := "Invalid configuration"
+			if vErr != nil {
+				msg = vErr.Error()
 			}
-			return c.JSON(http.StatusBadRequest, response)
+			return c.JSON(http.StatusBadRequest, ModelResponse{Success: false, Error: msg})
 		}
 
 		// Create the configuration file

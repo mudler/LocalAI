@@ -53,9 +53,22 @@ jobs:
           node-version: '22'
       - name: Build React UI
         run: make react-ui
-      - name: Test
+      # Runs the core suite with coverage and fails if total coverage dropped
+      # below the committed baseline (coverage-baseline.txt). The gate is
+      # strict — any decrease fails. Raise the baseline with
+      # `make test-coverage-baseline` and commit it when coverage rises.
+      - name: Test (with coverage gate)
         run: |
-          PATH="$PATH:/root/go/bin" make --jobs 5 --output-sync=target test
+          PATH="$PATH:/root/go/bin" make --jobs 5 --output-sync=target test-coverage-check
+      - name: Upload coverage report
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-linux
+          path: |
+            coverage/coverage.out
+            coverage/coverage.html
+          if-no-files-found: ignore
       - name: Setup tmate session if tests fail
         if: ${{ failure() }}
         uses: mxschmitt/action-tmate@v3.23

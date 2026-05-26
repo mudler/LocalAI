@@ -181,8 +181,15 @@ type OpenAIRequest struct {
 	Context context.Context    `json:"-"`
 	Cancel  context.CancelFunc `json:"-"`
 
+	// OpenAIRequest is a union over chat / completion / embedding /
+	// edit / image / whisper endpoints. Most fields apply to only one
+	// endpoint family — they MUST be omitempty so the re-marshal path
+	// in cloud-proxy passthrough doesn't ship whisper's `file:""` or
+	// embedding's `input:null` to an upstream chat endpoint, which
+	// strict providers (OpenAI) reject as unknown parameters.
+
 	// whisper
-	File string `json:"file" validate:"required"`
+	File string `json:"file,omitempty" validate:"required"`
 	// Multiple input images for img2img or inpainting
 	Files []string `json:"files,omitempty"`
 	// Reference images for models that support them (e.g., Flux Kontext)
@@ -190,47 +197,54 @@ type OpenAIRequest struct {
 	//whisper/image
 	ResponseFormat any `json:"response_format,omitempty"`
 	// image
-	Size string `json:"size"`
+	Size string `json:"size,omitempty"`
 	// Prompt is read only by completion/image API calls
-	Prompt any `json:"prompt" yaml:"prompt"`
+	Prompt any `json:"prompt,omitempty" yaml:"prompt"`
 
 	// Edit endpoint
-	Instruction string `json:"instruction" yaml:"instruction"`
-	Input       any    `json:"input" yaml:"input"`
+	Instruction string `json:"instruction,omitempty" yaml:"instruction"`
+	Input       any    `json:"input,omitempty" yaml:"input"`
 
-	Stop any `json:"stop" yaml:"stop"`
+	Stop any `json:"stop,omitempty" yaml:"stop"`
 
 	// Messages is read only by chat/completion API calls
-	Messages []Message `json:"messages" yaml:"messages"`
+	Messages []Message `json:"messages,omitempty" yaml:"messages"`
 
 	// A list of available functions to call
-	Functions    functions.Functions `json:"functions" yaml:"functions"`
-	FunctionCall any                 `json:"function_call" yaml:"function_call"` // might be a string or an object
+	Functions    functions.Functions `json:"functions,omitempty" yaml:"functions"`
+	FunctionCall any                 `json:"function_call,omitempty" yaml:"function_call"` // might be a string or an object
 
 	Tools       []functions.Tool `json:"tools,omitempty" yaml:"tools"`
 	ToolsChoice any              `json:"tool_choice,omitempty" yaml:"tool_choice"`
 
-	Stream bool `json:"stream"`
+	Stream bool `json:"stream,omitempty"`
 
 	// StreamOptions opts into OpenAI streaming extensions, e.g. include_usage.
 	StreamOptions *StreamOptions `json:"stream_options,omitempty" yaml:"stream_options,omitempty"`
 
 	// Image (not supported by OpenAI)
-	Quality string `json:"quality"`
-	Step    int    `json:"step"`
+	Quality string `json:"quality,omitempty"`
+	Step    int    `json:"step,omitempty"`
+
+	// LocalAI-specific request fields below. They carry server-side
+	// routing/templating hints and are NOT part of the OpenAI surface
+	// — leaking them upstream as zero values trips strict providers
+	// (e.g. OpenAI 400s with "Unknown parameter: 'backend'."), so
+	// they must use omitempty to disappear from re-marshaled bodies
+	// in the cloud-proxy passthrough path.
 
 	// A grammar to constrain the LLM output
-	Grammar string `json:"grammar" yaml:"grammar"`
+	Grammar string `json:"grammar,omitempty" yaml:"grammar"`
 
-	JSONFunctionGrammarObject *functions.JSONFunctionStructure `json:"grammar_json_functions" yaml:"grammar_json_functions"`
+	JSONFunctionGrammarObject *functions.JSONFunctionStructure `json:"grammar_json_functions,omitempty" yaml:"grammar_json_functions"`
 
-	Backend string `json:"backend" yaml:"backend"`
+	Backend string `json:"backend,omitempty" yaml:"backend"`
 
-	ModelBaseName string `json:"model_base_name" yaml:"model_base_name"`
+	ModelBaseName string `json:"model_base_name,omitempty" yaml:"model_base_name"`
 
-	ReasoningEffort string `json:"reasoning_effort" yaml:"reasoning_effort"`
+	ReasoningEffort string `json:"reasoning_effort,omitempty" yaml:"reasoning_effort"`
 
-	Metadata map[string]string `json:"metadata" yaml:"metadata"`
+	Metadata map[string]string `json:"metadata,omitempty" yaml:"metadata"`
 }
 
 type ModelsDataResponse struct {

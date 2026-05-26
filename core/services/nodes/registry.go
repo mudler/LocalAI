@@ -94,6 +94,31 @@ type NodeModel struct {
 	UpdatedAt     time.Time `json:"updated_at"`
 }
 
+// ModelLoadInfo is per-model load metadata kept independently of NodeModel rows
+// so the Replica Reconciler can re-load a model after every replica row has
+// been removed (worker death, eviction, MarkOffline reaping, frontend restart
+// with stale heartbeats).
+//
+// Why a separate table when the same blob is also stamped on each NodeModel
+// row? NodeModel rows are tied to a live (node, replica) slot and get deleted
+// when a backend stops being healthy. Tying the only copy of load info to
+// that lifecycle is exactly what caused Bug-1: a frontend restart followed by
+// transient worker-row removal left no copy of ModelOptions, so the reconciler
+// could not bring `min_replicas` back without a fresh inference request.
+//
+// Keyed by ModelName (the tracking key used by the router); last-write-wins
+// on the opts blob because two concurrent frontends dispatching the same
+// model with slightly different opts converge on whichever finished last.
+// That is identical to the per-NodeModel-row semantics today; if a stronger
+// guarantee is needed in the future, the row carries UpdatedAt for ordering.
+type ModelLoadInfo struct {
+	ModelName     string    `gorm:"primaryKey;size:255" json:"model_name"`
+	BackendType   string    `gorm:"size:128" json:"backend_type"`
+	ModelOptsBlob []byte    `gorm:"type:bytea" json:"-"`
+	CreatedAt     time.Time `json:"created_at"`
+	UpdatedAt     time.Time `json:"updated_at"`
+}
+
 // NodeLabel is a key-value label on a node (like K8s labels).
 type NodeLabel struct {
 	ID     string `gorm:"primaryKey;size:36" json:"id"`
@@ -178,7 +203,7 @@ type NodeRegistry struct {
 // when multiple instances (frontend + workers) start at the same time.
 func NewNodeRegistry(db *gorm.DB) (*NodeRegistry, error) {
 	if err := advisorylock.WithLockCtx(context.Background(), db, advisorylock.KeySchemaMigrate, func() error {
-		return db.AutoMigrate(&BackendNode{}, &NodeModel{}, &NodeLabel{}, &ModelSchedulingConfig{}, &PendingBackendOp{})
+		return db.AutoMigrate(&BackendNode{}, &NodeModel{}, &NodeLabel{}, &ModelSchedulingConfig{}, &PendingBackendOp{}, &ModelLoadInfo{})
 	}); err != nil {
 		return nil, fmt.Errorf("migrating node tables: %w", err)
 	}
@@ -622,10 +647,54 @@ func (r *NodeRegistry) SetNodeModelLoadInfo(ctx context.Context, nodeID, modelNa
 		Updates(map[string]any{"backend_type": backendType, "model_opts_blob": optsBlob}).Error
 }
 
+// UpsertModelLoadInfo records or replaces the per-model load info in the
+// dedicated ModelLoadInfo table. Unlike SetNodeModelLoadInfo (which writes the
+// blob onto a specific replica row and dies with it), this survives every
+// NodeModel row being removed and so lets the reconciler recover replicas
+// after worker death + frontend restart (Bug-1).
+//
+// ON CONFLICT updates backend_type, model_opts_blob, and updated_at. Two
+// frontends dispatching the same model concurrently with slightly different
+// opts converge on whichever transaction committed last; that matches the
+// existing per-replica blob semantics today.
+func (r *NodeRegistry) UpsertModelLoadInfo(ctx context.Context, modelName, backendType string, optsBlob []byte) error {
+	if modelName == "" {
+		return fmt.Errorf("model name is required")
+	}
+	now := time.Now()
+	rec := ModelLoadInfo{
+		ModelName:     modelName,
+		BackendType:   backendType,
+		ModelOptsBlob: optsBlob,
+		CreatedAt:     now,
+		UpdatedAt:     now,
+	}
+	return r.db.WithContext(ctx).Clauses(clause.OnConflict{
+		Columns: []clause.Column{{Name: "model_name"}},
+		DoUpdates: clause.Assignments(map[string]any{
+			"backend_type":    backendType,
+			"model_opts_blob": optsBlob,
+			"updated_at":      now,
+		}),
+	}).Create(&rec).Error
+}
+
 // GetModelLoadInfo retrieves the stored backend type and serialized model
-// options from any existing loaded replica. Returns gorm.ErrRecordNotFound
-// if no replica has stored options.
+// options. Reads from the dedicated ModelLoadInfo table first (survives every
+// NodeModel row being deleted); falls back to scanning loaded NodeModel rows
+// for the load info stamped before any frontend in this cluster ran an
+// UpsertModelLoadInfo (rolling-upgrade transition). Returns
+// gorm.ErrRecordNotFound when neither source has an entry.
 func (r *NodeRegistry) GetModelLoadInfo(ctx context.Context, modelName string) (backendType string, optsBlob []byte, err error) {
+	var info ModelLoadInfo
+	err = r.db.WithContext(ctx).Where("model_name = ?", modelName).First(&info).Error
+	if err == nil {
+		return info.BackendType, info.ModelOptsBlob, nil
+	}
+	if !errors.Is(err, gorm.ErrRecordNotFound) {
+		return "", nil, err
+	}
+
 	var nm NodeModel
 	err = r.db.WithContext(ctx).
 		Where("model_name = ? AND state = ? AND model_opts_blob IS NOT NULL", modelName, "loaded").

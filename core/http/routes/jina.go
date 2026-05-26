@@ -20,6 +20,7 @@ func RegisterJINARoutes(app *echo.Echo,
 	rerankHandler := jina.JINARerankEndpoint(cl, ml, appConfig)
 	app.POST("/v1/rerank",
 		rerankHandler,
+		middleware.ExposeNodeHeader(appConfig),
 		re.BuildFilteredFirstAvailableDefaultModel(config.BuildUsecaseFilterFn(config.FLAG_RERANK)),
 		re.SetModelAndConfig(func() schema.LocalAIRequest { return new(schema.JINARerankRequest) }))
 }

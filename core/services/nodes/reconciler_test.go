@@ -423,6 +423,47 @@ var _ = Describe("ReplicaReconciler", func() {
 			Expect(cap).To(Equal(2))
 		})
 	})
+
+	Context("frontend-restart scenario (Bug-1)", func() {
+		It("recovers replicas after every NodeModel row has been removed", func() {
+			ctx := context.Background()
+
+			// One healthy node. UpsertModelLoadInfo records per-model metadata
+			// independently of any NodeModel row, mirroring what
+			// scheduleAndLoad does on a successful dispatch.
+			node := registerNode("restart-node", "10.0.20.1:50051")
+			setSchedulingConfig("restart-model", 2, 4, "")
+			Expect(registry.UpsertModelLoadInfo(ctx, "restart-model", "llama-cpp", []byte("opts-from-pre-restart"))).To(Succeed())
+
+			// Simulate the bug: between frontend instances the NodeModel rows
+			// are wiped (MarkOffline path, stale-heartbeat reaping). The
+			// per-model load info row stays because it's not tied to any
+			// (node, replica) slot.
+			Expect(registry.RemoveAllNodeModelReplicas(ctx, node.ID, "restart-model")).To(Succeed())
+
+			// Pre-fix: GetModelLoadInfo returned ErrRecordNotFound here and
+			// the reconciler logged "no load info" every 30s until a manual
+			// inference request arrived.
+			bt, blob, err := registry.GetModelLoadInfo(ctx, "restart-model")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(bt).To(Equal("llama-cpp"))
+			Expect(blob).To(Equal([]byte("opts-from-pre-restart")))
+
+			// And the reconciler tick should now call into the scheduler
+			// for the missing replicas instead of bailing out.
+			scheduler := &fakeScheduler{scheduleNode: node}
+			reconciler := NewReplicaReconciler(ReplicaReconcilerOptions{
+				Registry:  registry,
+				Scheduler: scheduler,
+				DB:        db,
+			})
+			reconciler.reconcile(ctx)
+
+			Expect(scheduler.scheduleCalls).ToNot(BeEmpty(),
+				"reconciler must call the scheduler after a frontend restart that wiped NodeModel rows")
+			Expect(scheduler.scheduleCalls[0].modelName).To(Equal("restart-model"))
+		})
+	})
 })
 
 // fakeProber lets tests control whether a model's gRPC address "responds".

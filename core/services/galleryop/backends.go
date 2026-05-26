@@ -9,6 +9,7 @@ import (
 
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/gallery"
+	"github.com/mudler/LocalAI/core/services/messaging"
 	"github.com/mudler/LocalAI/pkg/downloader"
 	"github.com/mudler/LocalAI/pkg/model"
 	"github.com/mudler/LocalAI/pkg/system"
@@ -113,6 +114,21 @@ func (g *GalleryService) backendHandler(op *ManagementOp[gallery.GalleryBackend,
 		}
 		return err
 	}
+
+	// Tell peer replicas that the backend set has changed. UpgradeChecker
+	// caches upgrade-available bits for 6 hours, so without this peers would
+	// keep advertising an upgrade for a backend that already moved.
+	opName := "install"
+	switch {
+	case op.Delete:
+		opName = "delete"
+	case op.Upgrade:
+		opName = "upgrade"
+	}
+	g.publishCacheInvalidate(messaging.SubjectCacheInvalidateBackends, messaging.CacheInvalidateEvent{
+		Element: op.GalleryElementName,
+		Op:      opName,
+	})
 
 	g.UpdateStatus(op.ID,
 		&OpStatus{

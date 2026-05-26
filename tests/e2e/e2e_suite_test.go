@@ -38,8 +38,14 @@ var (
 	apiPort           int
 	apiURL            string
 	mockBackendPath   string
+	cloudProxyPath    string
 	mcpServerURL      string
 	mcpServerShutdown func()
+
+	// Cloud-proxy fake upstreams. Live for the whole suite so the four
+	// cloud-proxy model YAMLs can point at their URLs at startup time.
+	cpOpenAIUpstream    *fakeOpenAIUpstreamServer
+	cpAnthropicUpstream *fakeAnthropicUpstreamServer
 )
 
 var _ = BeforeSuite(func() {
@@ -285,6 +291,96 @@ var _ = BeforeSuite(func() {
 		systemOpts = append(systemOpts, system.WithBackendPath(backendPath))
 	}
 
+	// Cloud-proxy backend e2e setup. The cloud-proxy binary lives next
+	// to mock-backend and is registered under its canonical "cloud-proxy"
+	// name. Fake upstreams come up first so the model YAMLs can encode
+	// their URLs at startup time. Build is best-effort — when the binary
+	// isn't present, the cloud-proxy specs Skip and the rest of the
+	// suite is unaffected.
+	cloudProxyCandidates := []string{
+		filepath.Join("..", "e2e", "mock-backend", "cloud-proxy"),
+		filepath.Join("tests", "e2e", "mock-backend", "cloud-proxy"),
+		filepath.Join("..", "..", "tests", "e2e", "mock-backend", "cloud-proxy"),
+	}
+	for _, p := range cloudProxyCandidates {
+		if _, err := os.Stat(p); err == nil {
+			cloudProxyPath = p
+			break
+		}
+	}
+	if cloudProxyPath != "" {
+		Expect(os.Chmod(cloudProxyPath, 0755)).To(Succeed())
+
+		cpOpenAIUpstream = newFakeOpenAIUpstream()
+		cpAnthropicUpstream = newFakeAnthropicUpstream()
+
+		// API keys are read from env vars — set placeholder values so
+		// the cloud-proxy backend's Load() doesn't fail with "unset".
+		// The fake upstreams accept any auth header.
+		Expect(os.Setenv("CLOUD_PROXY_E2E_OPENAI_KEY", "sk-e2e-openai")).To(Succeed())
+		Expect(os.Setenv("CLOUD_PROXY_E2E_ANTHROPIC_KEY", "sk-ant-e2e")).To(Succeed())
+
+		cloudProxyConfigs := []map[string]any{
+			{
+				"name":    "cp-passthrough-openai",
+				"backend": "cloud-proxy",
+				"parameters": map[string]any{
+					"model": "cloud-proxy-passthrough-openai.bin",
+				},
+				"proxy": map[string]any{
+					"mode":         "passthrough",
+					"provider":     "openai",
+					"upstream_url": cpOpenAIUpstream.URL() + "/v1/chat/completions",
+					"api_key_env":  "CLOUD_PROXY_E2E_OPENAI_KEY",
+				},
+			},
+			{
+				"name":    "cp-passthrough-anthropic",
+				"backend": "cloud-proxy",
+				"parameters": map[string]any{
+					"model": "cloud-proxy-passthrough-anthropic.bin",
+				},
+				"proxy": map[string]any{
+					"mode":         "passthrough",
+					"provider":     "anthropic",
+					"upstream_url": cpAnthropicUpstream.URL() + "/v1/messages",
+					"api_key_env":  "CLOUD_PROXY_E2E_ANTHROPIC_KEY",
+				},
+			},
+			{
+				"name":    "cp-translate-openai",
+				"backend": "cloud-proxy",
+				"parameters": map[string]any{
+					"model": "cloud-proxy-translate-openai.bin",
+				},
+				"proxy": map[string]any{
+					"mode":         "translate",
+					"provider":     "openai",
+					"upstream_url": cpOpenAIUpstream.URL() + "/v1/chat/completions",
+					"api_key_env":  "CLOUD_PROXY_E2E_OPENAI_KEY",
+				},
+			},
+			{
+				"name":    "cp-translate-anthropic",
+				"backend": "cloud-proxy",
+				"parameters": map[string]any{
+					"model": "cloud-proxy-translate-anthropic.bin",
+				},
+				"proxy": map[string]any{
+					"mode":         "translate",
+					"provider":     "anthropic",
+					"upstream_url": cpAnthropicUpstream.URL() + "/v1/messages",
+					"api_key_env":  "CLOUD_PROXY_E2E_ANTHROPIC_KEY",
+				},
+			},
+		}
+		for _, cfg := range cloudProxyConfigs {
+			data, err := yaml.Marshal(cfg)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(os.WriteFile(filepath.Join(modelsPath, cfg["name"].(string)+".yaml"), data, 0644)).To(Succeed())
+		}
+	}
+
 	systemState, err := system.GetSystemState(systemOpts...)
 	Expect(err).ToNot(HaveOccurred())
 
@@ -305,6 +401,9 @@ var _ = BeforeSuite(func() {
 	// Register mock backend (always available for non-realtime tests).
 	application.ModelLoader().SetExternalBackend("mock-backend", mockBackendPath)
 	application.ModelLoader().SetExternalBackend("opus", mockBackendPath)
+	if cloudProxyPath != "" {
+		application.ModelLoader().SetExternalBackend("cloud-proxy", cloudProxyPath)
+	}
 
 	// Create HTTP app
 	app, err = httpapi.API(application)
@@ -347,6 +446,12 @@ var _ = AfterSuite(func() {
 	}
 	if mcpServerShutdown != nil {
 		mcpServerShutdown()
+	}
+	if cpOpenAIUpstream != nil {
+		cpOpenAIUpstream.Close()
+	}
+	if cpAnthropicUpstream != nil {
+		cpAnthropicUpstream.Close()
 	}
 	if tmpDir != "" {
 		os.RemoveAll(tmpDir)

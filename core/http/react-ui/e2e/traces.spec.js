@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test'
+import { test, expect } from './coverage-fixtures.js'
 
 test.describe('Traces Settings', () => {
   test.beforeEach(async ({ page }) => {

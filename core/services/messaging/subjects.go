@@ -64,6 +64,16 @@ func SubjectGalleryProgress(opID string) string {
 	return subjectGalleryPrefix + sanitizeSubjectToken(opID) + ".progress"
 }
 
+// SubjectGalleryOpStart and SubjectGalleryOpEnd are broadcast subjects for the
+// in-memory OpCache lifecycle. Frontend replicas publish to these when an
+// admin admits a new install/delete (Start) and when an operation is
+// dismissed (End), so peer replicas can keep their OpCache in sync without
+// hitting PostgreSQL on every UI poll.
+const (
+	SubjectGalleryOpStart = "gallery.opcache.start"
+	SubjectGalleryOpEnd   = "gallery.opcache.end"
+)
+
 // Control Signals (Pub/Sub — targeted cancellation)
 const (
 	subjectJobCancelPrefix      = "jobs."
@@ -321,7 +331,25 @@ func SubjectNodeFilesListDir(nodeID string) string {
 // Cache Invalidation (Pub/Sub — broadcast to all instances)
 const (
 	SubjectCacheInvalidateSkills = "cache.invalidate.skills"
+	// SubjectCacheInvalidateModels is broadcast by the replica that completed
+	// a model install/delete. Peers subscribe and re-run
+	// ModelConfigLoader.LoadModelConfigsFromPath so a chat completion routed
+	// to a different replica can find the newly installed model.
+	SubjectCacheInvalidateModels = "cache.invalidate.models"
+	// SubjectCacheInvalidateBackends is broadcast after a backend
+	// install/upgrade/delete. Peers retrigger their UpgradeChecker so the
+	// 6-hour upgrade-available cache flips to fresh on every replica, not
+	// just the one that handled the request.
+	SubjectCacheInvalidateBackends = "cache.invalidate.backends"
 )
+
+// CacheInvalidateEvent is the payload for cache invalidation broadcasts.
+// Element names a specific model/backend when known; empty means "the whole
+// set was touched, do a full reload."
+type CacheInvalidateEvent struct {
+	Element string `json:"element,omitempty"`
+	Op      string `json:"op,omitempty"` // "install" | "delete" | "upgrade"
+}
 
 // SubjectCacheInvalidateCollection returns the NATS subject for collection cache invalidation.
 func SubjectCacheInvalidateCollection(name string) string {

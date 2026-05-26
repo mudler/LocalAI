@@ -69,10 +69,41 @@ else
 	GORELEASER=$(shell which goreleaser)
 endif
 
-TEST_PATHS?=./api/... ./pkg/... ./core/...
+TEST_PATHS?=./api/... ./pkg/... ./core/... ./backend/go/cloud-proxy/... ./backend/go/local-store/...
+
+## Coverage output and the committed baseline that CI compares against.
+## The gate is strict: total coverage must never decrease (no tolerance).
+## covermode=atomic makes line coverage deterministic regardless of test
+## ordering or flake retries, so there is no run-to-run jitter to absorb.
+COVERAGE_DIR?=$(abspath ./coverage)
+COVERAGE_PROFILE?=$(COVERAGE_DIR)/coverage.out
+COVERAGE_BASELINE?=coverage-baseline.txt
+## Coverage is collected one recursive root at a time and merged (see
+## scripts/run-coverage.sh): passing several recursive roots to a single
+## ginkgo invocation only keeps one root's coverprofile. Mirrors TEST_PATHS
+## minus ./api (which doesn't exist).
+COVERAGE_ROOTS?=./pkg ./core
+## Build tags for the coverage build. `auth` is required to compile the real
+## auth implementation and its ~150 `//go:build auth` tests (otherwise they're
+## invisible and the gate scores auth against a stub). `debug` matches `test`.
+COVERAGE_TAGS?=debug auth
+## Coverage is attributed to these packages via --coverpkg, so the in-process
+## integration suites (COVERAGE_E2E_ROOTS) credit the core/http handlers they
+## drive over HTTP — not just their own test package.
+COVERAGE_COVERPKG?=github.com/mudler/LocalAI/core/...,github.com/mudler/LocalAI/pkg/...
+## In-process integration suites folded into coverage. Run non-recursively
+## (excludes tests/e2e/distributed, which needs containers) with the mock
+## backend built by prepare-test. real-models specs need a downloaded model,
+## so they're filtered out. NOTE: tests/integration is intentionally NOT here —
+## it needs the local-store backend built (`make backends/local-store`), which
+## the coverage CI job doesn't do.
+COVERAGE_E2E_ROOTS?=./tests/e2e
+COVERAGE_E2E_LABELS?=!real-models
+## Drop generated protobuf from the denominator (it has no tests by design).
+COVERAGE_EXCLUDE_RE?=grpc/proto/.*[.]pb[.]go
 
 
-.PHONY: all test build vendor lint lint-all
+.PHONY: all test test-coverage test-coverage-baseline test-coverage-check test-ui test-ui-coverage-baseline test-ui-coverage-check install-hooks build vendor lint lint-all
 
 all: help
 
@@ -170,6 +201,36 @@ test: prepare-test
 	OPUS_SHIM_LIBRARY=$(abspath ./pkg/opus/shim/libopusshim.so) \
 	$(GOCMD) run github.com/onsi/ginkgo/v2/ginkgo --flake-attempts $(TEST_FLAKES) --fail-fast -v -r $(TEST_PATHS)
 
+## Runs the core suite ($(TEST_PATHS)) with statement-coverage instrumentation
+## and writes a merged profile to $(COVERAGE_PROFILE). Deliberately omits
+## --fail-fast so a single failure doesn't truncate the coverage number, and
+## uses covermode=atomic so the result is deterministic. Prints the total.
+test-coverage: prepare-test
+	@echo 'Running tests with coverage'
+	GINKGO_TAGS="$(COVERAGE_TAGS)" \
+	COVERAGE_COVERPKG="$(COVERAGE_COVERPKG)" \
+	COVERAGE_E2E_ROOTS="$(COVERAGE_E2E_ROOTS)" \
+	COVERAGE_E2E_LABELS="$(COVERAGE_E2E_LABELS)" \
+	COVERAGE_EXCLUDE_RE='$(COVERAGE_EXCLUDE_RE)' \
+	OPUS_SHIM_LIBRARY=$(abspath ./pkg/opus/shim/libopusshim.so) \
+	scripts/run-coverage.sh $(COVERAGE_DIR) $(COVERAGE_PROFILE) $(TEST_FLAKES) $(COVERAGE_ROOTS)
+	@$(GOCMD) tool cover -html=$(COVERAGE_PROFILE) -o $(COVERAGE_DIR)/coverage.html
+	@$(GOCMD) tool cover -func=$(COVERAGE_PROFILE) | tail -n1
+
+## Writes the current total coverage to $(COVERAGE_BASELINE). Run this (and
+## commit the result) whenever a change legitimately raises coverage so the
+## ratchet moves up. Never lower it by hand.
+test-coverage-baseline: test-coverage
+	@$(GOCMD) tool cover -func=$(COVERAGE_PROFILE) | awk '/^total:/{gsub(/%/,"",$$NF); print $$NF}' > $(COVERAGE_BASELINE)
+	@echo "Saved coverage baseline: $$(cat $(COVERAGE_BASELINE))%"
+
+## CI gate: fails if total coverage dropped more than COVERAGE_TOLERANCE
+## (default 0.5pp) below the committed baseline. A small tolerance absorbs the
+## run-to-run jitter from the in-process tests/e2e suite folded in via
+## --coverpkg (timing-dependent which handler lines execute).
+test-coverage-check: test-coverage
+	@scripts/coverage-check.sh $(COVERAGE_PROFILE) $(COVERAGE_BASELINE)
+
 ########################################################
 ## Lint
 ########################################################
@@ -185,12 +246,17 @@ test: prepare-test
 ## everything else automatically, so new packages are scanned by default.
 LINT_EXCLUDE_DIRS_RE=/(backend/go/(piper|silero-vad|llm)|cmd/launcher)(/|$$)
 
+## Set LINT_NEW_FROM to a git ref to override .golangci.yml's
+## new-from-merge-base (origin/master). Useful from a fork clone where
+## origin/master is stale relative to the canonical repo — the pre-commit
+## hook passes the resolved upstream ref here so local lint matches CI.
+LINT_NEW_FROM?=
 lint:
 	@command -v golangci-lint >/dev/null 2>&1 || { \
 		echo 'golangci-lint not installed. Install: go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@latest'; \
 		exit 1; \
 	}
-	golangci-lint run $$(go list -e -f '{{.Dir}}' ./... | grep -vE '$(LINT_EXCLUDE_DIRS_RE)')
+	golangci-lint run $(if $(LINT_NEW_FROM),--new-from-merge-base=$(LINT_NEW_FROM),) $$(go list -e -f '{{.Dir}}' ./... | grep -vE '$(LINT_EXCLUDE_DIRS_RE)')
 
 ## Like `lint` but reports every issue, including the pre-existing baseline
 ## that `lint` ignores via .golangci.yml's new-from-merge-base. Use this to
@@ -201,6 +267,17 @@ lint-all:
 		exit 1; \
 	}
 	golangci-lint run --new=false --new-from-merge-base= --new-from-rev= $$(go list -e -f '{{.Dir}}' ./... | grep -vE '$(LINT_EXCLUDE_DIRS_RE)')
+
+########################################################
+## Git hooks
+########################################################
+## Points git at the versioned .githooks/ directory so the pre-commit hook
+## (lint + coverage gate) runs locally. Run once per clone. Undo with:
+## `git config --unset core.hooksPath`. Skip a single commit with
+## `git commit --no-verify`.
+install-hooks:
+	git config core.hooksPath .githooks
+	@echo 'Installed git hooks: core.hooksPath -> .githooks (pre-commit runs lint + test-coverage-check on Go changes)'
 
 ########################################################
 ## E2E AIO tests (uses standard image with pre-configured models)
@@ -268,12 +345,13 @@ prepare-e2e:
 run-e2e-image:
 	docker run -p 5390:8080 -e MODELS_PATH=/models -e THREADS=1 -e DEBUG=true -d --rm -v $(TEST_DIR):/models --name e2e-tests-$(RANDOM) localai-tests
 
-test-e2e: build-mock-backend prepare-e2e run-e2e-image
+test-e2e: build-mock-backend build-cloud-proxy-backend prepare-e2e run-e2e-image
 	@echo 'Running e2e tests'
 	BUILD_TYPE=$(BUILD_TYPE) \
 	LOCALAI_API=http://$(E2E_BRIDGE_IP):5390 \
 	$(GOCMD) run github.com/onsi/ginkgo/v2/ginkgo --flake-attempts $(TEST_FLAKES) -v -r ./tests/e2e
 	$(MAKE) clean-mock-backend
+	$(MAKE) clean-cloud-proxy-backend
 	$(MAKE) teardown-e2e
 	docker rmi localai-tests
 
@@ -1064,6 +1142,7 @@ BACKEND_DS4 = ds4|ds4|.|false|false
 # Golang backends
 BACKEND_PIPER = piper|golang|.|false|true
 BACKEND_LOCAL_STORE = local-store|golang|.|false|true
+BACKEND_CLOUD_PROXY = cloud-proxy|golang|.|false|true
 BACKEND_HUGGINGFACE = huggingface|golang|.|false|true
 BACKEND_SILERO_VAD = silero-vad|golang|.|false|true
 BACKEND_STABLEDIFFUSION_GGML = stablediffusion-ggml|golang|.|--progress=plain|true
@@ -1149,6 +1228,7 @@ $(eval $(call generate-docker-build-target,$(BACKEND_TURBOQUANT)))
 $(eval $(call generate-docker-build-target,$(BACKEND_DS4)))
 $(eval $(call generate-docker-build-target,$(BACKEND_PIPER)))
 $(eval $(call generate-docker-build-target,$(BACKEND_LOCAL_STORE)))
+$(eval $(call generate-docker-build-target,$(BACKEND_CLOUD_PROXY)))
 $(eval $(call generate-docker-build-target,$(BACKEND_HUGGINGFACE)))
 $(eval $(call generate-docker-build-target,$(BACKEND_SILERO_VAD)))
 $(eval $(call generate-docker-build-target,$(BACKEND_STABLEDIFFUSION_GGML)))
@@ -1201,7 +1281,7 @@ $(eval $(call generate-docker-build-target,$(BACKEND_SHERPA_ONNX)))
 docker-save-%: backend-images
 	docker save local-ai-backend:$* -o backend-images/$*.tar
 
-docker-build-backends: docker-build-llama-cpp docker-build-ik-llama-cpp docker-build-turboquant docker-build-ds4 docker-build-rerankers docker-build-vllm docker-build-vllm-omni docker-build-sglang docker-build-transformers docker-build-outetts docker-build-diffusers docker-build-kokoro docker-build-faster-whisper docker-build-coqui docker-build-chatterbox docker-build-vibevoice docker-build-liquid-audio docker-build-moonshine docker-build-pocket-tts docker-build-qwen-tts docker-build-fish-speech docker-build-faster-qwen3-tts docker-build-qwen-asr docker-build-nemo docker-build-voxcpm docker-build-whisperx docker-build-ace-step docker-build-acestep-cpp docker-build-voxtral docker-build-mlx-distributed docker-build-trl docker-build-llama-cpp-quantization docker-build-tinygrad docker-build-kokoros docker-build-sam3-cpp docker-build-qwen3-tts-cpp docker-build-vibevoice-cpp docker-build-localvqe docker-build-insightface docker-build-speaker-recognition docker-build-sherpa-onnx
+docker-build-backends: docker-build-llama-cpp docker-build-ik-llama-cpp docker-build-turboquant docker-build-ds4 docker-build-rerankers docker-build-vllm docker-build-vllm-omni docker-build-sglang docker-build-transformers docker-build-outetts docker-build-diffusers docker-build-kokoro docker-build-faster-whisper docker-build-coqui docker-build-chatterbox docker-build-vibevoice docker-build-liquid-audio docker-build-moonshine docker-build-pocket-tts docker-build-qwen-tts docker-build-fish-speech docker-build-faster-qwen3-tts docker-build-qwen-asr docker-build-nemo docker-build-voxcpm docker-build-whisperx docker-build-ace-step docker-build-acestep-cpp docker-build-voxtral docker-build-mlx-distributed docker-build-trl docker-build-llama-cpp-quantization docker-build-tinygrad docker-build-kokoros docker-build-sam3-cpp docker-build-qwen3-tts-cpp docker-build-vibevoice-cpp docker-build-localvqe docker-build-insightface docker-build-speaker-recognition docker-build-sherpa-onnx docker-build-cloud-proxy
 
 ########################################################
 ### Mock Backend for E2E Tests
@@ -1213,6 +1293,12 @@ build-mock-backend: protogen-go
 clean-mock-backend:
 	rm -f tests/e2e/mock-backend/mock-backend
 
+build-cloud-proxy-backend: protogen-go
+	$(GOCMD) build -o tests/e2e/mock-backend/cloud-proxy ./backend/go/cloud-proxy
+
+clean-cloud-proxy-backend:
+	rm -f tests/e2e/mock-backend/cloud-proxy
+
 ########################################################
 ### UI E2E Test Server
 ########################################################
@@ -1222,6 +1308,41 @@ build-ui-test-server: build-mock-backend react-ui protogen-go
 
 test-ui-e2e: build-ui-test-server
 	cd core/http/react-ui && npm install && npx playwright install --with-deps chromium && npx playwright test
+
+## Fast Playwright e2e run used by the pre-commit hook on React UI changes.
+## Force-rebuilds the (non-instrumented) dist so the suite tests the working
+## tree — not a stale dist the `react-ui` skip-guard would leave — re-embeds
+## it into ui-test-server, and runs the specs. Uses the nix-provided browser
+## when PLAYWRIGHT_CHROMIUM_PATH is set (flake dev shell), else falls back to
+## downloading it as `test-ui-e2e` does.
+test-ui: build-mock-backend protogen-go
+	cd core/http/react-ui && bun install && bun run build
+	$(GOCMD) build -o tests/e2e-ui/ui-test-server ./tests/e2e-ui
+	cd core/http/react-ui && sh $(CURDIR)/scripts/ensure-playwright-browser.sh && bunx playwright test
+
+## React UI code coverage from the Playwright e2e suite. Builds an
+## istanbul-instrumented bundle (COVERAGE=true), re-embeds it into the
+## ui-test-server (the dist is //go:embed'ed at compile time), runs the
+## Playwright specs — which harvest window.__coverage__ via the coverage
+## fixture — and writes an nyc report to core/http/react-ui/coverage/.
+## Removes the instrumented dist afterwards so normal builds aren't served
+## instrumented assets.
+test-ui-coverage: build-mock-backend protogen-go
+	trap 'rm -rf "$(CURDIR)/core/http/react-ui/dist"' EXIT; \
+	( cd core/http/react-ui && bun install && bun run build:coverage ) && \
+	$(GOCMD) build -o tests/e2e-ui/ui-test-server ./tests/e2e-ui && \
+	( cd core/http/react-ui && rm -rf .nyc_output coverage && \
+	    sh $(CURDIR)/scripts/ensure-playwright-browser.sh && \
+	    bunx playwright test && bun run coverage:report )
+
+## UI coverage baseline (committed) and the strict gate that compares against
+## it — the React mirror of test-coverage-baseline / test-coverage-check.
+test-ui-coverage-baseline: test-ui-coverage
+	@node -e 'const fs=require("fs");process.stdout.write(String(JSON.parse(fs.readFileSync("core/http/react-ui/coverage/coverage-summary.json")).total.lines.pct))' > core/http/react-ui/coverage-baseline.txt
+	@echo "Saved UI coverage baseline: $$(cat core/http/react-ui/coverage-baseline.txt)% lines"
+
+test-ui-coverage-check: test-ui-coverage
+	sh $(CURDIR)/scripts/ui-coverage-check.sh core/http/react-ui/coverage/coverage-summary.json core/http/react-ui/coverage-baseline.txt
 
 test-ui-e2e-docker:
 	docker build -t localai-ui-e2e -f tests/e2e-ui/Dockerfile .

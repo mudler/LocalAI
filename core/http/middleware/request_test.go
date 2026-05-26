@@ -156,9 +156,13 @@ var _ = Describe("SetModelAndConfig middleware", func() {
 // ---------------------------------------------------------------------------
 //
 // The OpenAI chat/completions spec nests the function name under "function":
-//     {"type":"function", "function":{"name":"my_function"}}
+//
+//	{"type":"function", "function":{"name":"my_function"}}
+//
 // The legacy Anthropic-compat shape puts it at the top level:
-//     {"type":"function", "name":"my_function"}
+//
+//	{"type":"function", "name":"my_function"}
+//
 // Both need to reach SetFunctionCallNameString (not SetFunctionCallString,
 // which is the mode field "none"/"auto"/"required").
 //
@@ -548,6 +552,48 @@ var _ = Describe("SetModelAndConfig tool_choice parsing (chat completions)", fun
 			Expect(capturedConfig).ToNot(BeNil())
 			Expect(capturedConfig.ShouldCallSpecificFunction()).To(BeFalse())
 			Expect(capturedConfig.FunctionToCall()).To(Equal(""))
+		})
+	})
+
+	// OpenAI deprecated max_tokens in favour of max_completion_tokens
+	// (gpt-5 / o-series reject the legacy name). The middleware accepts
+	// both and collapses to the legacy internal Maxtokens field so
+	// downstream code reads exactly one.
+	Context("max_completion_tokens alias", func() {
+		chatReqMaxTokens := func(fields string) string {
+			return `{"model":"test-model",` +
+				`"messages":[{"role":"user","content":"hi"}],` +
+				fields + `}`
+		}
+
+		It("accepts the modern max_completion_tokens name", func() {
+			rec := postJSON(app, "/v1/chat/completions",
+				chatReqMaxTokens(`"max_completion_tokens":64`))
+
+			Expect(rec.Code).To(Equal(http.StatusOK))
+			Expect(capturedConfig).ToNot(BeNil())
+			Expect(capturedConfig.Maxtokens).ToNot(BeNil())
+			Expect(*capturedConfig.Maxtokens).To(Equal(64))
+		})
+
+		It("still accepts the legacy max_tokens name", func() {
+			rec := postJSON(app, "/v1/chat/completions",
+				chatReqMaxTokens(`"max_tokens":48`))
+
+			Expect(rec.Code).To(Equal(http.StatusOK))
+			Expect(capturedConfig).ToNot(BeNil())
+			Expect(capturedConfig.Maxtokens).ToNot(BeNil())
+			Expect(*capturedConfig.Maxtokens).To(Equal(48))
+		})
+
+		It("prefers max_completion_tokens when both are set", func() {
+			rec := postJSON(app, "/v1/chat/completions",
+				chatReqMaxTokens(`"max_tokens":48,"max_completion_tokens":64`))
+
+			Expect(rec.Code).To(Equal(http.StatusOK))
+			Expect(capturedConfig).ToNot(BeNil())
+			Expect(capturedConfig.Maxtokens).ToNot(BeNil())
+			Expect(*capturedConfig.Maxtokens).To(Equal(64))
 		})
 	})
 })

@@ -26,7 +26,7 @@ import torch.cuda
 
 XPU=os.environ.get("XPU", "0") == "1"
 import transformers as transformers_module
-from transformers import AutoTokenizer, AutoModel, AutoProcessor, set_seed, TextIteratorStreamer, StoppingCriteriaList, StopStringCriteria
+from transformers import AutoTokenizer, AutoModel, AutoProcessor, set_seed, TextIteratorStreamer, StoppingCriteriaList, StopStringCriteria, pipeline
 from scipy.io import wavfile
 from sentence_transformers import SentenceTransformer
 
@@ -200,6 +200,21 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
                 autoTokenizer = False
                 self.model = SentenceTransformer(model_name, trust_remote_code=request.TrustRemoteCode)
                 self.SentenceTransformer = True
+            elif request.Type == "TokenClassification":
+                # NER / PII tagging via HuggingFace's token-classification
+                # pipeline. aggregation_strategy="simple" merges B-/I- tags
+                # into single spans and gives byte offsets back. The
+                # tokenizer is bundled inside the pipeline, so we skip the
+                # AutoTokenizer load below.
+                autoTokenizer = False
+                self.tokenClassifier = pipeline(
+                    "token-classification",
+                    model=model_name,
+                    aggregation_strategy="simple",
+                    device=0 if self.CUDA else -1,
+                    trust_remote_code=request.TrustRemoteCode,
+                )
+                self.TokenClassification = True
             else:
                 # Generic: dynamically resolve model class from transformers
                 model_type = TYPE_ALIASES.get(request.Type, request.Type)
@@ -252,6 +267,39 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
             print("Error:", err, file=sys.stderr)
             return backend_pb2.Result(success=False, message=f"Unexpected {err=}, {type(err)=}")
         return backend_pb2.Result(message="Model loaded successfully", success=True)
+
+    def TokenClassify(self, request, context):
+        # Runs HuggingFace's token-classification pipeline and returns
+        # the aggregated entity spans. The pipeline gives us byte
+        # offsets via aggregation_strategy="simple" (set at load
+        # time), so the caller can slice the original text without
+        # re-tokenising on the Go side.
+        if not getattr(self, "TokenClassification", False):
+            context.set_code(grpc.StatusCode.FAILED_PRECONDITION)
+            context.set_details("model was not loaded as Type=TokenClassification")
+            return backend_pb2.TokenClassifyResponse()
+        try:
+            results = self.tokenClassifier(request.text)
+        except Exception as err:
+            print("TokenClassify error:", err, file=sys.stderr)
+            context.set_code(grpc.StatusCode.INTERNAL)
+            context.set_details(f"token-classification failed: {err}")
+            return backend_pb2.TokenClassifyResponse()
+
+        threshold = request.threshold if request.threshold > 0 else 0.0
+        entities = []
+        for r in results:
+            score = float(r.get("score", 0.0))
+            if score < threshold:
+                continue
+            entities.append(backend_pb2.TokenClassifyEntity(
+                entity_group=str(r.get("entity_group") or r.get("entity") or ""),
+                start=int(r.get("start", 0)),
+                end=int(r.get("end", 0)),
+                score=score,
+                text=str(r.get("word", "")),
+            ))
+        return backend_pb2.TokenClassifyResponse(entities=entities)
 
     def Embedding(self, request, context):
         set_seed(request.Seed)

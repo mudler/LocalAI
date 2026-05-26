@@ -98,6 +98,8 @@ func EditEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 		jsonResult, _ := json.Marshal(resp)
 		xlog.Debug("Response", "response", string(jsonResult))
 
+		middleware.StampUsage(c, input.Model, totalTokenUsage.Prompt, totalTokenUsage.Completion)
+
 		// Return the prediction in the response body
 		return c.JSON(200, resp)
 	}
