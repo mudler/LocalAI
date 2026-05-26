@@ -140,7 +140,9 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
         if not text:
             return False
         # CJK + common punctuation
-        endings = set('。！？；…♪～»）)】」』"'》>）')
+        endings = set("。！？；…♪～»）)】」』》>）")
+        # Smart quotes (U+201C, U+201D, U+2018, U+2019)
+        endings.update(["\u201c", "\u201d", "\u2018", "\u2019"])
         # Latin endings
         endings.update('.!?;')
         return text[-1] in endings
