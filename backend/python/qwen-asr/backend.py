@@ -152,10 +152,13 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
                 context = request.prompt.strip()
 
             has_aligner = getattr(self.model, 'forced_aligner', None) is not None
-            results = self.model.transcribe(
-                audio=audio_path, language=language, context=context,
-                return_time_stamps=has_aligner,
-            )
+            try:
+                results = self.model.transcribe(
+                    audio=audio_path, language=language, context=context,
+                    return_time_stamps=has_aligner,
+                )
+            except TypeError:
+                results = self.model.transcribe(audio=audio_path, language=language, context=context)
 
             if not results:
                 return backend_pb2.TranscriptResult(segments=[], text="")
@@ -170,9 +173,9 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
                     seg_text = text
                     if hasattr(ts, 'start_time') and hasattr(ts, 'end_time') and hasattr(ts, 'text'):
                         # ForcedAlignItem dataclass (from qwen_asr forced aligner)
-                        start_ms = int(ts.start_time * 1000) if ts.start_time is not None else 0
-                        end_ms = int(ts.end_time * 1000) if ts.end_time is not None else 0
-                        seg_text = ts.text or ""
+                        start_ms = int(float(ts.start_time) * 1000) if ts.start_time is not None else 0
+                        end_ms = int(float(ts.end_time) * 1000) if ts.end_time is not None else 0
+                        seg_text = str(ts.text) if ts.text else ""
                     elif isinstance(ts, (list, tuple)) and len(ts) >= 3:
                         start_ms = int(float(ts[0]) * 1000) if ts[0] is not None else 0
                         end_ms = int(float(ts[1]) * 1000) if ts[1] is not None else 0
