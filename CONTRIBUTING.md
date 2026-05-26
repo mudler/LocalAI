@@ -198,6 +198,7 @@ For AI-assisted development, see [`AGENTS.md`](AGENTS.md) (or the equivalent [`C
 
 - Prefer modern Go idioms — for example, use `any` instead of `interface{}`.
 - Use [`golangci-lint`](https://golangci-lint.run) to catch common issues before submitting a PR.
+- Run `make install-hooks` once per clone to enable the pre-commit hook: Go changes run `make lint` + the coverage gate (`make test-coverage-check`); `core/http/react-ui/` changes run the Playwright e2e suite (`make test-ui`). Bypass a single commit with `git commit --no-verify`.
 - Use [`github.com/mudler/xlog`](https://github.com/mudler/xlog) for logging (same API as `slog`). Do not use `fmt.Println` or the standard `log` package for operational logging.
 - Use tab indentation for Go files (as defined in `.editorconfig`).
 

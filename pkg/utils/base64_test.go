@@ -37,11 +37,6 @@ var _ = Describe("utils/base64 tests", func() {
 		Expect(err).ToNot(BeNil())
 		Expect(err).To(MatchError("not valid base64 data type string"))
 	})
-	It("GetImageURLAsBase64 can actually download images and calculates something", func() {
-		// This test doesn't actually _check_ the results at this time, which is bad, but there wasn't a test at all before...
-		input := "https://upload.wikimedia.org/wikipedia/en/2/29/Wargames.jpg"
-		b64, err := GetContentURIAsBase64(input)
-		Expect(err).To(BeNil())
-		Expect(b64).ToNot(BeNil())
-	})
+	// The http(s) download branch is exercised hermetically in
+	// base64_internal_test.go (white-box, no external network).
 })
