@@ -105,10 +105,8 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
             result = results[0]
             if isinstance(result, str):
                 text = result
-            elif hasattr(result, 'text'):
-                text = result.text if result.text else ""
             else:
-                text = str(result) if result else ""
+                text = getattr(result, 'text', None) or ""
 
             if text:
                 # Create a single segment with the full transcription
