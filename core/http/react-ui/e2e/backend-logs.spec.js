@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test'
+import { test, expect } from './coverage-fixtures.js'
 
 test.describe('Backend Logs', () => {
   test('model detail page shows title', async ({ page }) => {
