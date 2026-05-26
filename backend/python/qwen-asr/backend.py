@@ -135,6 +135,59 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
         return backend_pb2.Result(message="Model loaded successfully", success=True)
 
     @staticmethod
+    def _is_cjk(ch):
+        """Check if a character is CJK (Chinese/Japanese/Korean)."""
+        cp = ord(ch)
+        return (
+            0x4E00 <= cp <= 0x9FFF      # CJK Unified Ideographs
+            or 0x3400 <= cp <= 0x4DBF   # Extension A
+            or 0x20000 <= cp <= 0x2A6DF # Extension B
+            or 0xF900 <= cp <= 0xFAFF   # Compatibility Ideographs
+            or 0x3040 <= cp <= 0x309F   # Hiragana
+            or 0x30A0 <= cp <= 0x30FF   # Katakana
+            or 0xAC00 <= cp <= 0xD7AF   # Hangul Syllables
+        )
+
+    @staticmethod
+    def _is_punct(ch):
+        """Check if a character is punctuation (no space before it)."""
+        import unicodedata
+        cat = unicodedata.category(ch)
+        return cat.startswith('P')
+
+    @staticmethod
+    def _smart_join(tokens):
+        """Join tokens with spaces for non-CJK text, without spaces for CJK.
+
+        Rules:
+          - Between two CJK chars: no space
+          - Between two non-CJK tokens: space
+          - Before punctuation: no space
+          - CJK adjacent to non-CJK: no space (smooth mixed-text transition)
+        """
+        if not tokens:
+            return ""
+        result = [tokens[0]]
+        for token in tokens[1:]:
+            if not token:
+                continue
+            prev_ch = result[-1][-1] if result[-1] else ''
+            curr_ch = token[0]
+            # Punctuation never gets a space before it
+            if BackendServicer._is_punct(curr_ch):
+                result.append(token)
+            # CJK to CJK: no space
+            elif prev_ch and BackendServicer._is_cjk(prev_ch) and BackendServicer._is_cjk(curr_ch):
+                result.append(token)
+            # CJK adjacent to non-CJK or vice versa: no space
+            elif prev_ch and (BackendServicer._is_cjk(prev_ch) or BackendServicer._is_cjk(curr_ch)):
+                result.append(token)
+            # Both non-CJK (Latin, Cyrillic, etc.): add space
+            else:
+                result.append(' ' + token)
+        return "".join(result)
+
+    @staticmethod
     def _extract_word_info(ts):
         """Return (start_sec, end_sec, text) from a ForcedAlignItem or tuple."""
         if hasattr(ts, 'start_time') and hasattr(ts, 'end_time') and hasattr(ts, 'text'):
@@ -209,7 +262,7 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
                     id=len(result),
                     start=int(buf_start * 1_000_000_000),
                     end=int(buf_end * 1_000_000_000),
-                    text="".join(buf_text),
+                    text=self._smart_join(buf_text),
                 ))
                 buf_text = []
                 buf_start = None
@@ -226,7 +279,7 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
                 id=len(result),
                 start=int(buf_start * 1_000_000_000),
                 end=int(buf_end * 1_000_000_000),
-                text="".join(buf_text),
+                text=self._smart_join(buf_text),
             ))
 
         return result
