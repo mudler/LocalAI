@@ -30,3 +30,19 @@ backend/python/**/source
 # up compiled against whatever (likely older) commit the host had.
 backend/cpp/llama-cpp/llama.cpp
 backend/cpp/llama-cpp-*-build
+
+# Rust backend build output (sources are tracked; target/ is generated)
+backend/rust/*/target
+
+# Local-only artifacts that bloat the build context but the image never needs.
+# Saved image tarballs, locally-installed backends, the host-built binary, and
+# assorted tool/scratch dirs. None of these are git-tracked.
+backend-images
+local-backends
+local-ai
+.crush
+protoc
+tests
+
+# Installed via npm inside the build stage; no need to ship the host copy.
+**/node_modules
