@@ -134,6 +134,87 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
 
         return backend_pb2.Result(message="Model loaded successfully", success=True)
 
+    @staticmethod
+    def _is_sentence_end(text):
+        """Check if text ends with sentence-terminating punctuation."""
+        if not text:
+            return False
+        # CJK + common punctuation
+        endings = set('。！？；…♪～»）)】」』"'》>）')
+        # Latin endings
+        endings.update('.!?;')
+        return text[-1] in endings
+
+    @staticmethod
+    def _extract_word_info(ts):
+        """Return (start_sec, end_sec, text) from a ForcedAlignItem or tuple."""
+        if hasattr(ts, 'start_time') and hasattr(ts, 'end_time') and hasattr(ts, 'text'):
+            return (
+                float(ts.start_time) if ts.start_time is not None else 0.0,
+                float(ts.end_time) if ts.end_time is not None else 0.0,
+                str(ts.text) if ts.text else "",
+            )
+        elif isinstance(ts, (list, tuple)) and len(ts) >= 3:
+            return (
+                float(ts[0]) if ts[0] is not None else 0.0,
+                float(ts[1]) if ts[1] is not None else 0.0,
+                ts[2] if len(ts) > 2 and ts[2] is not None else "",
+            )
+        return (0.0, 0.0, "")
+
+    def _build_segments(self, time_stamps, granularity):
+        """Build TranscriptSegment list from forced-aligner output.
+
+        granularity:
+          - "word": one segment per aligned item (character / word)
+          - "segment" (default): merge consecutive items at sentence boundaries
+        """
+        if granularity == "word":
+            result = []
+            for idx, ts in enumerate(time_stamps):
+                s, e, t = self._extract_word_info(ts)
+                result.append(backend_pb2.TranscriptSegment(
+                    id=idx,
+                    start=int(s * 1_000_000_000),
+                    end=int(e * 1_000_000_000),
+                    text=t,
+                ))
+            return result
+
+        # segment mode — merge at sentence boundaries
+        result = []
+        buf_text = []
+        buf_start = None
+        buf_end = 0.0
+
+        for ts in time_stamps:
+            s, e, t = self._extract_word_info(ts)
+            if buf_start is None:
+                buf_start = s
+            buf_text.append(t)
+            buf_end = e
+
+            if self._is_sentence_end(t):
+                result.append(backend_pb2.TranscriptSegment(
+                    id=len(result),
+                    start=int(buf_start * 1_000_000_000),
+                    end=int(buf_end * 1_000_000_000),
+                    text="".join(buf_text),
+                ))
+                buf_text = []
+                buf_start = None
+
+        # flush remaining
+        if buf_text and buf_start is not None:
+            result.append(backend_pb2.TranscriptSegment(
+                id=len(result),
+                start=int(buf_start * 1_000_000_000),
+                end=int(buf_end * 1_000_000_000),
+                text="".join(buf_text),
+            ))
+
+        return result
+
     def AudioTranscription(self, request, context):
         result_segments = []
         text = ""
@@ -147,18 +228,22 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
             if request.language and request.language.strip():
                 language = request.language.strip()
 
-            context = ""
+            ctx = ""
             if request.prompt and request.prompt.strip():
-                context = request.prompt.strip()
+                ctx = request.prompt.strip()
+
+            # Determine requested granularity (default: segment)
+            granularities = list(request.timestamp_granularities) if request.timestamp_granularities else []
+            granularity = "word" if "word" in granularities else "segment"
 
             has_aligner = getattr(self.model, 'forced_aligner', None) is not None
             try:
                 results = self.model.transcribe(
-                    audio=audio_path, language=language, context=context,
+                    audio=audio_path, language=language, context=ctx,
                     return_time_stamps=has_aligner,
                 )
             except TypeError:
-                results = self.model.transcribe(audio=audio_path, language=language, context=context)
+                results = self.model.transcribe(audio=audio_path, language=language, context=ctx)
 
             if not results:
                 return backend_pb2.TranscriptResult(segments=[], text="")
@@ -167,23 +252,7 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
             text = r.text or ""
 
             if getattr(r, 'time_stamps', None) and len(r.time_stamps) > 0:
-                for idx, ts in enumerate(r.time_stamps):
-                    start_ns = 0
-                    end_ns = 0
-                    seg_text = text
-                    # Go's time.Duration is in nanoseconds, so convert seconds → ns.
-                    if hasattr(ts, 'start_time') and hasattr(ts, 'end_time') and hasattr(ts, 'text'):
-                        # ForcedAlignItem dataclass (from qwen_asr forced aligner)
-                        start_ns = int(float(ts.start_time) * 1_000_000_000) if ts.start_time is not None else 0
-                        end_ns = int(float(ts.end_time) * 1_000_000_000) if ts.end_time is not None else 0
-                        seg_text = str(ts.text) if ts.text else ""
-                    elif isinstance(ts, (list, tuple)) and len(ts) >= 3:
-                        start_ns = int(float(ts[0]) * 1_000_000_000) if ts[0] is not None else 0
-                        end_ns = int(float(ts[1]) * 1_000_000_000) if ts[1] is not None else 0
-                        seg_text = ts[2] if len(ts) > 2 and ts[2] is not None else ""
-                    result_segments.append(backend_pb2.TranscriptSegment(
-                        id=idx, start=start_ns, end=end_ns, text=seg_text
-                    ))
+                result_segments = self._build_segments(r.time_stamps, granularity)
             else:
                 if text:
                     result_segments.append(backend_pb2.TranscriptSegment(
