@@ -135,19 +135,6 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
         return backend_pb2.Result(message="Model loaded successfully", success=True)
 
     @staticmethod
-    def _is_sentence_end(text):
-        """Check if text ends with sentence-terminating punctuation."""
-        if not text:
-            return False
-        # CJK + common punctuation
-        endings = set("。！？；…♪～»）)】」』》>）")
-        # Smart quotes (U+201C, U+201D, U+2018, U+2019)
-        endings.update(["\u201c", "\u201d", "\u2018", "\u2019"])
-        # Latin endings
-        endings.update('.!?;')
-        return text[-1] in endings
-
-    @staticmethod
     def _extract_word_info(ts):
         """Return (start_sec, end_sec, text) from a ForcedAlignItem or tuple."""
         if hasattr(ts, 'start_time') and hasattr(ts, 'end_time') and hasattr(ts, 'text'):
@@ -164,12 +151,34 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
             )
         return (0.0, 0.0, "")
 
+    @staticmethod
+    def _compute_gap_threshold(time_stamps):
+        """Compute a gap threshold for sentence boundary detection.
+
+        Uses the median inter-item gap multiplied by a factor, with a
+        minimum floor of 0.3s.  Returns 0 if there are too few items.
+        """
+        if len(time_stamps) < 2:
+            return 0.0
+        gaps = []
+        for i in range(1, len(time_stamps)):
+            prev_s, prev_e, _ = BackendServicer._extract_word_info(time_stamps[i - 1])
+            curr_s, _, _ = BackendServicer._extract_word_info(time_stamps[i])
+            gaps.append(curr_s - prev_e)
+        if not gaps:
+            return 0.0
+        gaps.sort()
+        median = gaps[len(gaps) // 2]
+        # threshold = max(median * 4, 0.3s)
+        return max(median * 4, 0.3)
+
     def _build_segments(self, time_stamps, granularity):
         """Build TranscriptSegment list from forced-aligner output.
 
         granularity:
           - "word": one segment per aligned item (character / word)
-          - "segment" (default): merge consecutive items at sentence boundaries
+          - "segment" (default): merge consecutive items, splitting at
+            time gaps that exceed a dynamic threshold (sentence boundaries).
         """
         if granularity == "word":
             result = []
@@ -183,20 +192,19 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
                 ))
             return result
 
-        # segment mode — merge at sentence boundaries
+        # segment mode — merge at time-gap boundaries
+        threshold = self._compute_gap_threshold(time_stamps)
         result = []
         buf_text = []
         buf_start = None
         buf_end = 0.0
+        prev_end = None
 
         for ts in time_stamps:
             s, e, t = self._extract_word_info(ts)
-            if buf_start is None:
-                buf_start = s
-            buf_text.append(t)
-            buf_end = e
 
-            if self._is_sentence_end(t):
+            # Detect sentence boundary via time gap
+            if prev_end is not None and (s - prev_end) >= threshold and buf_text:
                 result.append(backend_pb2.TranscriptSegment(
                     id=len(result),
                     start=int(buf_start * 1_000_000_000),
@@ -205,6 +213,12 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
                 ))
                 buf_text = []
                 buf_start = None
+
+            if buf_start is None:
+                buf_start = s
+            buf_text.append(t)
+            buf_end = e
+            prev_end = e
 
         # flush remaining
         if buf_text and buf_start is not None:
