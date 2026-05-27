@@ -11,7 +11,7 @@ JOBS?=$(shell nproc --ignore=1)
 # build; leaving this on `master` always picks up the latest C-API surface
 # (incl. the per-detection accessor functions used by gorfdetrcpp.go).
 RFDETR_REPO?=https://github.com/mudler/rf-detr.cpp.git
-RFDETR_VERSION?=main
+RFDETR_VERSION?=5d5549e06c8bde2fba080985643638ae7154b829
 
 ifeq ($(NATIVE),false)
 	CMAKE_ARGS+=-DGGML_NATIVE=OFF
