@@ -9,6 +9,7 @@ import { useResources } from '../hooks/useResources'
 import SearchableSelect from '../components/SearchableSelect'
 import ConfirmDialog from '../components/ConfirmDialog'
 import GalleryLoader from '../components/GalleryLoader'
+import Toggle from '../components/Toggle'
 import React from 'react'
 
 
@@ -325,6 +326,13 @@ export default function Models() {
             </button>
           )
         })}
+        {totalGpuMemory > 0 && (
+          <label className="filter-bar-group__toggle" style={{ marginLeft: 'auto' }}>
+            <Toggle checked={fitsFilter} onChange={setFitsFilter} />
+            <i className="fas fa-microchip" />
+            <span>{t('filters.fitsGpu')}</span>
+          </label>
+        )}
         {allBackends.length > 0 && (
           <SearchableSelect
             value={backendFilter}
@@ -333,7 +341,7 @@ export default function Models() {
             placeholder={t('filters.allBackends')}
             allOption={t('filters.allBackends')}
             searchPlaceholder={t('filters.searchBackends')}
-            style={{ marginLeft: 'auto' }}
+            style={totalGpuMemory > 0 ? undefined : { marginLeft: 'auto' }}
           />
         )}
       </div>
@@ -355,16 +363,6 @@ export default function Models() {
         <span style={{ fontWeight: 600, minWidth: '3em' }}>
           {CONTEXT_LABELS[CONTEXT_SIZES.indexOf(contextSize)]}
         </span>
-        {totalGpuMemory > 0 && (
-          <label style={{ marginLeft: 'auto', display: 'inline-flex', alignItems: 'center', gap: 'var(--spacing-xs)', color: 'var(--color-text-secondary)', cursor: 'pointer' }}>
-            <input
-              type="checkbox"
-              checked={fitsFilter}
-              onChange={(e) => setFitsFilter(e.target.checked)}
-            />
-            <span>{t('filters.fitsGpu')}</span>
-          </label>
-        )}
       </div>
 
       {/* Table */}
