@@ -29,7 +29,7 @@
     "rerank": "Rerank",
     "detection": "Detection",
     "vad": "VAD",
-    "fitsGpu": "Fits in my GPU",
+    "fitsGpu": "Fits in GPU",
     "allBackends": "All Backends",
     "searchBackends": "Search backends..."
   },

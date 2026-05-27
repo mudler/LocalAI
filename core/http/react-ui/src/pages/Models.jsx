@@ -326,6 +326,13 @@ export default function Models() {
             </button>
           )
         })}
+        {totalGpuMemory > 0 && (
+          <label className="filter-bar-group__toggle" style={{ marginLeft: 'auto' }}>
+            <Toggle checked={fitsFilter} onChange={setFitsFilter} />
+            <i className="fas fa-microchip" />
+            <span>{t('filters.fitsGpu')}</span>
+          </label>
+        )}
         {allBackends.length > 0 && (
           <SearchableSelect
             value={backendFilter}
@@ -334,7 +341,7 @@ export default function Models() {
             placeholder={t('filters.allBackends')}
             allOption={t('filters.allBackends')}
             searchPlaceholder={t('filters.searchBackends')}
-            style={{ marginLeft: 'auto' }}
+            style={totalGpuMemory > 0 ? undefined : { marginLeft: 'auto' }}
           />
         )}
       </div>
@@ -356,20 +363,6 @@ export default function Models() {
         <span style={{ fontWeight: 600, minWidth: '3em' }}>
           {CONTEXT_LABELS[CONTEXT_SIZES.indexOf(contextSize)]}
         </span>
-        {totalGpuMemory > 0 && (
-          <label
-            className="filter-bar-group__toggle"
-            style={{
-              marginLeft: 'auto',
-              paddingLeft: 'var(--spacing-md)',
-              borderLeft: '1px solid var(--color-border-subtle)',
-            }}
-          >
-            <Toggle checked={fitsFilter} onChange={setFitsFilter} />
-            <i className="fas fa-microchip" />
-            <span>{t('filters.fitsGpu')}</span>
-          </label>
-        )}
       </div>
 
       {/* Table */}

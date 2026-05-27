@@ -282,14 +282,14 @@ test.describe('Models Gallery - Fits In GPU Filter', () => {
     await expect(page.locator('th', { hasText: 'Backend' })).toBeVisible({ timeout: 10_000 })
   })
 
-  test('fits checkbox is visible when GPU resources are available', async ({ page }) => {
-    await expect(page.getByText('Fits in my GPU')).toBeVisible()
+  test('fits toggle is visible when GPU resources are available', async ({ page }) => {
+    await expect(page.getByText('Fits in GPU')).toBeVisible()
   })
 
   test('enabling fits filter hides models that exceed available VRAM', async ({ page }) => {
     await expect(page.locator('tr', { hasText: 'stablediffusion-model' })).toBeVisible()
 
-    await page.getByLabel('Fits in my GPU').check()
+    await page.getByLabel('Fits in GPU').check()
 
     await expect(page.locator('tr', { hasText: 'stablediffusion-model' })).toHaveCount(0)
     await expect(page.locator('tr', { hasText: 'llama-model' })).toBeVisible()
@@ -298,8 +298,8 @@ test.describe('Models Gallery - Fits In GPU Filter', () => {
   })
 
   test('fits filter state persists after reload', async ({ page }) => {
-    await page.getByLabel('Fits in my GPU').check()
+    await page.getByLabel('Fits in GPU').check()
     await page.reload()
-    await expect(page.getByLabel('Fits in my GPU')).toBeChecked()
+    await expect(page.getByLabel('Fits in GPU')).toBeChecked()
   })
 })
