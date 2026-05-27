@@ -9,6 +9,7 @@ import { useResources } from '../hooks/useResources'
 import SearchableSelect from '../components/SearchableSelect'
 import ConfirmDialog from '../components/ConfirmDialog'
 import GalleryLoader from '../components/GalleryLoader'
+import Toggle from '../components/Toggle'
 import React from 'react'
 
 
@@ -356,12 +357,16 @@ export default function Models() {
           {CONTEXT_LABELS[CONTEXT_SIZES.indexOf(contextSize)]}
         </span>
         {totalGpuMemory > 0 && (
-          <label style={{ marginLeft: 'auto', display: 'inline-flex', alignItems: 'center', gap: 'var(--spacing-xs)', color: 'var(--color-text-secondary)', cursor: 'pointer' }}>
-            <input
-              type="checkbox"
-              checked={fitsFilter}
-              onChange={(e) => setFitsFilter(e.target.checked)}
-            />
+          <label
+            className="filter-bar-group__toggle"
+            style={{
+              marginLeft: 'auto',
+              paddingLeft: 'var(--spacing-md)',
+              borderLeft: '1px solid var(--color-border-subtle)',
+            }}
+          >
+            <Toggle checked={fitsFilter} onChange={setFitsFilter} />
+            <i className="fas fa-microchip" />
             <span>{t('filters.fitsGpu')}</span>
           </label>
         )}
