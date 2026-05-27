@@ -15,6 +15,62 @@ const MOCK_MODELS_RESPONSE = {
   currentPage: 1,
 }
 
+const MOCK_GPU_RESOURCES_RESPONSE = {
+  type: 'gpu',
+  available: true,
+  gpus: [
+    {
+      index: 0,
+      name: 'Mock GPU',
+      vendor: 'nvidia',
+      total_vram: 12 * 1024 * 1024 * 1024,
+      used_vram: 2 * 1024 * 1024 * 1024,
+      free_vram: 10 * 1024 * 1024 * 1024,
+      usage_percent: 16.7,
+    },
+  ],
+  aggregate: {
+    total_memory: 12 * 1024 * 1024 * 1024,
+    used_memory: 2 * 1024 * 1024 * 1024,
+    free_memory: 10 * 1024 * 1024 * 1024,
+    usage_percent: 16.7,
+    gpu_count: 1,
+  },
+}
+
+const MOCK_ESTIMATES = {
+  'llama-model': {
+    sizeBytes: 4 * 1024 * 1024 * 1024,
+    sizeDisplay: '4.00 GB',
+    estimates: {
+      '8192': {
+        vramBytes: 8 * 1024 * 1024 * 1024,
+        vramDisplay: '8.00 GB',
+      },
+    },
+  },
+  'whisper-model': {
+    sizeBytes: 1 * 1024 * 1024 * 1024,
+    sizeDisplay: '1.00 GB',
+    estimates: {
+      '8192': {
+        vramBytes: 2 * 1024 * 1024 * 1024,
+        vramDisplay: '2.00 GB',
+      },
+    },
+  },
+  'stablediffusion-model': {
+    sizeBytes: 8 * 1024 * 1024 * 1024,
+    sizeDisplay: '8.00 GB',
+    estimates: {
+      '8192': {
+        vramBytes: 16 * 1024 * 1024 * 1024,
+        vramDisplay: '16.00 GB',
+      },
+    },
+  },
+}
+
 test.describe('Models Gallery - Backend Features', () => {
   test.beforeEach(async ({ page }) => {
     await page.route('**/api/models*', (route) => {
@@ -194,5 +250,56 @@ test.describe('Models Gallery - Multi-select Filters', () => {
 
     // TTS should be auto-removed from selection
     await expect(ttsBtn).not.toHaveClass(/active/)
+  })
+})
+
+test.describe('Models Gallery - Fits In GPU Filter', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.route('**/api/models*', (route) => {
+      route.fulfill({
+        contentType: 'application/json',
+        body: JSON.stringify(MOCK_MODELS_RESPONSE),
+      })
+    })
+
+    await page.route('**/api/resources', (route) => {
+      route.fulfill({
+        contentType: 'application/json',
+        body: JSON.stringify(MOCK_GPU_RESOURCES_RESPONSE),
+      })
+    })
+
+    await page.route('**/api/models/estimate/*', (route) => {
+      const url = new URL(route.request().url())
+      const id = decodeURIComponent(url.pathname.split('/').pop() || '')
+      route.fulfill({
+        contentType: 'application/json',
+        body: JSON.stringify(MOCK_ESTIMATES[id] || {}),
+      })
+    })
+
+    await page.goto('/app/models')
+    await expect(page.locator('th', { hasText: 'Backend' })).toBeVisible({ timeout: 10_000 })
+  })
+
+  test('fits checkbox is visible when GPU resources are available', async ({ page }) => {
+    await expect(page.getByText('Fits in my GPU')).toBeVisible()
+  })
+
+  test('enabling fits filter hides models that exceed available VRAM', async ({ page }) => {
+    await expect(page.locator('tr', { hasText: 'stablediffusion-model' })).toBeVisible()
+
+    await page.getByLabel('Fits in my GPU').check()
+
+    await expect(page.locator('tr', { hasText: 'stablediffusion-model' })).toHaveCount(0)
+    await expect(page.locator('tr', { hasText: 'llama-model' })).toBeVisible()
+    // Unknown estimate stays visible until an explicit non-fit verdict exists.
+    await expect(page.locator('tr', { hasText: 'unknown-model' })).toBeVisible()
+  })
+
+  test('fits filter state persists after reload', async ({ page }) => {
+    await page.getByLabel('Fits in my GPU').check()
+    await page.reload()
+    await expect(page.getByLabel('Fits in my GPU')).toBeChecked()
   })
 })
