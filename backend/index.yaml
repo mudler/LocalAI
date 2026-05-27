@@ -253,6 +253,34 @@
     nvidia-l4t-cuda-13: "cuda13-nvidia-l4t-arm64-sam3-cpp"
     intel: "intel-sycl-f32-sam3-cpp"
     vulkan: "vulkan-sam3-cpp"
+- &rfdetrcpp
+  name: "rfdetr-cpp"
+  alias: "rfdetr-cpp"
+  license: apache-2.0
+  description: |
+    Native RF-DETR object detection and instance segmentation in C/C++
+    using GGML. Loads pre-built GGUF weights from the mudler/rfdetr-cpp-*
+    family (Nano/Small/Base/Medium/Large + SegNano/SegSmall/SegMedium)
+    and returns bounding boxes, class labels, confidence scores, and
+    (for segmentation variants) PNG-encoded per-detection masks.
+  urls:
+    - https://github.com/mudler/rf-detr.cpp
+  tags:
+    - object-detection
+    - image-segmentation
+    - rfdetr
+    - gpu
+    - cpu
+  capabilities:
+    default: "cpu-rfdetr-cpp"
+    nvidia: "cuda12-rfdetr-cpp"
+    nvidia-cuda-12: "cuda12-rfdetr-cpp"
+    nvidia-cuda-13: "cuda13-rfdetr-cpp"
+    nvidia-l4t: "nvidia-l4t-arm64-rfdetr-cpp"
+    nvidia-l4t-cuda-12: "nvidia-l4t-arm64-rfdetr-cpp"
+    nvidia-l4t-cuda-13: "cuda13-nvidia-l4t-arm64-rfdetr-cpp"
+    intel: "intel-sycl-f32-rfdetr-cpp"
+    vulkan: "vulkan-rfdetr-cpp"
 - &vllm
   name: "vllm"
   license: apache-2.0
@@ -2349,6 +2377,99 @@
   uri: "quay.io/go-skynet/local-ai-backends:master-gpu-vulkan-sam3-cpp"
   mirrors:
     - localai/localai-backends:master-gpu-vulkan-sam3-cpp
+## rfdetr-cpp
+- !!merge <<: *rfdetrcpp
+  name: "rfdetr-cpp-development"
+  capabilities:
+    default: "cpu-rfdetr-cpp-development"
+    nvidia: "cuda12-rfdetr-cpp-development"
+    nvidia-cuda-12: "cuda12-rfdetr-cpp-development"
+    nvidia-cuda-13: "cuda13-rfdetr-cpp-development"
+    nvidia-l4t: "nvidia-l4t-arm64-rfdetr-cpp-development"
+    nvidia-l4t-cuda-12: "nvidia-l4t-arm64-rfdetr-cpp-development"
+    nvidia-l4t-cuda-13: "cuda13-nvidia-l4t-arm64-rfdetr-cpp-development"
+    intel: "intel-sycl-f32-rfdetr-cpp-development"
+    vulkan: "vulkan-rfdetr-cpp-development"
+- !!merge <<: *rfdetrcpp
+  name: "cpu-rfdetr-cpp"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-cpu-rfdetr-cpp"
+  mirrors:
+    - localai/localai-backends:latest-cpu-rfdetr-cpp
+- !!merge <<: *rfdetrcpp
+  name: "cpu-rfdetr-cpp-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-cpu-rfdetr-cpp"
+  mirrors:
+    - localai/localai-backends:master-cpu-rfdetr-cpp
+- !!merge <<: *rfdetrcpp
+  name: "cuda12-rfdetr-cpp"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-nvidia-cuda-12-rfdetr-cpp"
+  mirrors:
+    - localai/localai-backends:latest-gpu-nvidia-cuda-12-rfdetr-cpp
+- !!merge <<: *rfdetrcpp
+  name: "cuda12-rfdetr-cpp-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-nvidia-cuda-12-rfdetr-cpp"
+  mirrors:
+    - localai/localai-backends:master-gpu-nvidia-cuda-12-rfdetr-cpp
+- !!merge <<: *rfdetrcpp
+  name: "cuda13-rfdetr-cpp"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-nvidia-cuda-13-rfdetr-cpp"
+  mirrors:
+    - localai/localai-backends:latest-gpu-nvidia-cuda-13-rfdetr-cpp
+- !!merge <<: *rfdetrcpp
+  name: "cuda13-rfdetr-cpp-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-nvidia-cuda-13-rfdetr-cpp"
+  mirrors:
+    - localai/localai-backends:master-gpu-nvidia-cuda-13-rfdetr-cpp
+- !!merge <<: *rfdetrcpp
+  name: "nvidia-l4t-arm64-rfdetr-cpp"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-nvidia-l4t-arm64-rfdetr-cpp"
+  mirrors:
+    - localai/localai-backends:latest-nvidia-l4t-arm64-rfdetr-cpp
+- !!merge <<: *rfdetrcpp
+  name: "nvidia-l4t-arm64-rfdetr-cpp-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-nvidia-l4t-arm64-rfdetr-cpp"
+  mirrors:
+    - localai/localai-backends:master-nvidia-l4t-arm64-rfdetr-cpp
+- !!merge <<: *rfdetrcpp
+  name: "cuda13-nvidia-l4t-arm64-rfdetr-cpp"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-nvidia-l4t-cuda-13-arm64-rfdetr-cpp"
+  mirrors:
+    - localai/localai-backends:latest-nvidia-l4t-cuda-13-arm64-rfdetr-cpp
+- !!merge <<: *rfdetrcpp
+  name: "cuda13-nvidia-l4t-arm64-rfdetr-cpp-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-nvidia-l4t-cuda-13-arm64-rfdetr-cpp"
+  mirrors:
+    - localai/localai-backends:master-nvidia-l4t-cuda-13-arm64-rfdetr-cpp
+- !!merge <<: *rfdetrcpp
+  name: "intel-sycl-f32-rfdetr-cpp"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-intel-sycl-f32-rfdetr-cpp"
+  mirrors:
+    - localai/localai-backends:latest-gpu-intel-sycl-f32-rfdetr-cpp
+- !!merge <<: *rfdetrcpp
+  name: "intel-sycl-f32-rfdetr-cpp-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-intel-sycl-f32-rfdetr-cpp"
+  mirrors:
+    - localai/localai-backends:master-gpu-intel-sycl-f32-rfdetr-cpp
+- !!merge <<: *rfdetrcpp
+  name: "intel-sycl-f16-rfdetr-cpp"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-intel-sycl-f16-rfdetr-cpp"
+  mirrors:
+    - localai/localai-backends:latest-gpu-intel-sycl-f16-rfdetr-cpp
+- !!merge <<: *rfdetrcpp
+  name: "intel-sycl-f16-rfdetr-cpp-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-intel-sycl-f16-rfdetr-cpp"
+  mirrors:
+    - localai/localai-backends:master-gpu-intel-sycl-f16-rfdetr-cpp
+- !!merge <<: *rfdetrcpp
+  name: "vulkan-rfdetr-cpp"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-vulkan-rfdetr-cpp"
+  mirrors:
+    - localai/localai-backends:latest-gpu-vulkan-rfdetr-cpp
+- !!merge <<: *rfdetrcpp
+  name: "vulkan-rfdetr-cpp-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-vulkan-rfdetr-cpp"
+  mirrors:
+    - localai/localai-backends:master-gpu-vulkan-rfdetr-cpp
 ## Rerankers
 - !!merge <<: *rerankers
   name: "rerankers-development"
