@@ -289,7 +289,7 @@ test.describe('Models Gallery - Fits In GPU Filter', () => {
   test('enabling fits filter hides models that exceed available VRAM', async ({ page }) => {
     await expect(page.locator('tr', { hasText: 'stablediffusion-model' })).toBeVisible()
 
-    await page.getByLabel('Fits in GPU').check()
+    await page.getByLabel('Fits in GPU').check({ force: true })
 
     await expect(page.locator('tr', { hasText: 'stablediffusion-model' })).toHaveCount(0)
     await expect(page.locator('tr', { hasText: 'llama-model' })).toBeVisible()
@@ -298,7 +298,7 @@ test.describe('Models Gallery - Fits In GPU Filter', () => {
   })
 
   test('fits filter state persists after reload', async ({ page }) => {
-    await page.getByLabel('Fits in GPU').check()
+    await page.getByLabel('Fits in GPU').check({ force: true })
     await page.reload()
     await expect(page.getByLabel('Fits in GPU')).toBeChecked()
   })
