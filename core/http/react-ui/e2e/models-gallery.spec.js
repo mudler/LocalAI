@@ -289,7 +289,9 @@ test.describe('Models Gallery - Fits In GPU Filter', () => {
   test('enabling fits filter hides models that exceed available VRAM', async ({ page }) => {
     await expect(page.locator('tr', { hasText: 'stablediffusion-model' })).toBeVisible()
 
-    await page.getByLabel('Fits in GPU').check({ force: true })
+    // The shared <Toggle> visually hides its native input (opacity:0;w:0;h:0),
+    // so .check() can't interact with it directly — click the visible track.
+    await page.locator('label.filter-bar-group__toggle', { hasText: 'Fits in GPU' }).locator('.toggle__track').click()
 
     await expect(page.locator('tr', { hasText: 'stablediffusion-model' })).toHaveCount(0)
     await expect(page.locator('tr', { hasText: 'llama-model' })).toBeVisible()
@@ -298,7 +300,7 @@ test.describe('Models Gallery - Fits In GPU Filter', () => {
   })
 
   test('fits filter state persists after reload', async ({ page }) => {
-    await page.getByLabel('Fits in GPU').check({ force: true })
+    await page.locator('label.filter-bar-group__toggle', { hasText: 'Fits in GPU' }).locator('.toggle__track').click()
     await page.reload()
     await expect(page.getByLabel('Fits in GPU')).toBeChecked()
   })
