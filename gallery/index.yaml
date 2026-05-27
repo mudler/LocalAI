@@ -3,35 +3,7 @@
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
     - https://huggingface.co/Jackrong/Qwopus3.5-9B-Coder-MTP-GGUF
-  description: |
-    # 🌟 Qwopus3.5-9B-v3.5
-
-    ## 💡 Model Overview & v3.5 Design
-
-    Qwopus3.5-9B-v3.5 is a **data-scaled continuation** of the Qwopus3.5-9B-v3 model.
-
-    The training data in v3.5 is expanded to cover a broader range of domains, including mathematics, programming, puzzle-solving, multilingual dialogue, instruction-following, multi-turn interactions, and STEM-related tasks.
-
-    Qwopus3.5-9B-v3.5 is a reasoning-enhanced model based on **Qwen3.5-9B**, designed for:
-
-      - 🧩 Structured reasoning
-      - 🔧 Tool-augmented workflows
-      - 🔁 Multi-step agentic tasks
-      - ⚡ Token-efficient inference
-
-    Compared with Qwopus3.5-9B-v3, **3.5 version does not introduce a new architecture, RL stage, or template redesign**.
-
-    This version is trained with approximately **2× more SFT data**.
-
-    ## 🎯 Motivation & Generalization Insight
-
-    The motivation behind v3.5 comes from a simple observation:
-
-    > This work is motivated by the hypothesis that scaling high-quality SFT data may further enhance the generalization ability of large language models.
-
-    In earlier Qwopus3.5 experiments, structured reasoning was observed to improve both **accuracy and efficiency**:
-
-    ...
+  description: "# \U0001F31F Qwopus3.5-9B-v3.5\n\n## \U0001F4A1 Model Overview & v3.5 Design\n\nQwopus3.5-9B-v3.5 is a **data-scaled continuation** of the Qwopus3.5-9B-v3 model.\n\nThe training data in v3.5 is expanded to cover a broader range of domains, including mathematics, programming, puzzle-solving, multilingual dialogue, instruction-following, multi-turn interactions, and STEM-related tasks.\n\nQwopus3.5-9B-v3.5 is a reasoning-enhanced model based on **Qwen3.5-9B**, designed for:\n\n  - \U0001F9E9 Structured reasoning\n  - \U0001F527 Tool-augmented workflows\n  - \U0001F501 Multi-step agentic tasks\n  - ⚡ Token-efficient inference\n\nCompared with Qwopus3.5-9B-v3, **3.5 version does not introduce a new architecture, RL stage, or template redesign**.\n\nThis version is trained with approximately **2× more SFT data**.\n\n## \U0001F3AF Motivation & Generalization Insight\n\nThe motivation behind v3.5 comes from a simple observation:\n\n> This work is motivated by the hypothesis that scaling high-quality SFT data may further enhance the generalization ability of large language models.\n\nIn earlier Qwopus3.5 experiments, structured reasoning was observed to improve both **accuracy and efficiency**:\n\n...\n"
   license: "apache-2.0"
   tags:
     - llm
@@ -67,26 +39,7 @@
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
     - https://huggingface.co/Jackrong/Qwopus3.6-27B-v2-MTP-GGUF
-  description: |
-    🪐 Qwopus3.6-27B-v2-MTP
-    MTP Release
-
-    Multi-Token Prediction reasoning model fine-tuned from Qwen3.6-27B
-
-    🧬 Trace Inversion & Negentropy
-    🧠 27B Parameters
-    ⚡ Speculative Decoding
-    🛠️ Coding / DevOps / Math
-
-    💡 What is Qwopus3.6-27B-v2-MTP?
-    🪐 Qwopus3.6-27B-v2-MTP is a speed-oriented reasoning release built on top of Qwen3.6-27B. It keeps the Qwopus line's focus on reconstructed reasoning traces, coding discipline, DevOps procedures, and mathematical derivations, while adding Multi-Token Prediction for faster generation. The goal is simple: preserve the depth and structure of a 27B reasoning model while making real interactive use noticeably faster.
-
-    ⚡ MTP DecodingAuxiliary future-token prediction improves throughput on long reasoning, code, math, and strict-format prompts.
-    🧩 Structured ReasoningInherits the Qwopus training recipe built around reconstructed step-by-step reasoning trajectories.
-    🧪 GB10 TestedValidated on a 30-question local benchmark across Logic, Coding, DevOps, Math, and Edge tasks.
-    🚀 Practical SpeedDesigned for workflows where strong answers matter, but waiting several extra minutes per task does not.
-
-    ...
+  description: "\U0001FA90 Qwopus3.6-27B-v2-MTP\nMTP Release\n\nMulti-Token Prediction reasoning model fine-tuned from Qwen3.6-27B\n\n\U0001F9EC Trace Inversion & Negentropy\n\U0001F9E0 27B Parameters\n⚡ Speculative Decoding\n\U0001F6E0️ Coding / DevOps / Math\n\n\U0001F4A1 What is Qwopus3.6-27B-v2-MTP?\n\U0001FA90 Qwopus3.6-27B-v2-MTP is a speed-oriented reasoning release built on top of Qwen3.6-27B. It keeps the Qwopus line's focus on reconstructed reasoning traces, coding discipline, DevOps procedures, and mathematical derivations, while adding Multi-Token Prediction for faster generation. The goal is simple: preserve the depth and structure of a 27B reasoning model while making real interactive use noticeably faster.\n\n⚡ MTP DecodingAuxiliary future-token prediction improves throughput on long reasoning, code, math, and strict-format prompts.\n\U0001F9E9 Structured ReasoningInherits the Qwopus training recipe built around reconstructed step-by-step reasoning trajectories.\n\U0001F9EA GB10 TestedValidated on a 30-question local benchmark across Logic, Coding, DevOps, Math, and Edge tasks.\n\U0001F680 Practical SpeedDesigned for workflows where strong answers matter, but waiting several extra minutes per task does not.\n\n...\n"
   license: "apache-2.0"
   tags:
     - llm
@@ -6208,6 +6161,7 @@
   files:
     - filename: rfdetr-nano-q8_0.gguf
       uri: huggingface://mudler/rfdetr-cpp-nano/rfdetr-nano-q8_0.gguf
+      sha256: 940084c60a780f1a19a51458ae3a601454b3b843675fa0713ff43ae5bccc0d9b
 - name: rfdetr-cpp-base
   url: github:mudler/LocalAI/gallery/virtual.yaml@master
   urls:
@@ -6233,6 +6187,7 @@
   files:
     - filename: rfdetr-base-f16.gguf
       uri: huggingface://mudler/rfdetr-cpp-base/rfdetr-base-f16.gguf
+      sha256: 8a68b21a90478564bcbb758557069a618d96e25e7c358207fd85ba45b90faf52
 - name: rfdetr-cpp-small
   url: github:mudler/LocalAI/gallery/virtual.yaml@master
   urls:
