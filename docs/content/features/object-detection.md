@@ -5,7 +5,7 @@ weight = 13
 url = "/features/object-detection/"
 +++
 
-LocalAI supports object detection and image segmentation through various backends. This feature allows you to identify and locate objects within images with high accuracy and real-time performance. Available backends include [RF-DETR](https://github.com/roboflow/rf-detr) for object detection and [sam3.cpp](https://github.com/PABannier/sam3.cpp) for image segmentation (SAM 3/2/EdgeTAM).
+LocalAI supports object detection and image segmentation through various backends. This feature allows you to identify and locate objects within images with high accuracy and real-time performance. Available backends include [RF-DETR](https://github.com/roboflow/rf-detr) (Python) and [rf-detr.cpp](https://github.com/mudler/rf-detr.cpp) (native C++/ggml) for object detection and segmentation, and [sam3.cpp](https://github.com/PABannier/sam3.cpp) for image segmentation (SAM 3/2/EdgeTAM).
 
 For detecting **faces** specifically, see the dedicated
 [Face Recognition](/features/face-recognition/) feature — its
@@ -135,6 +135,74 @@ Currently, the following model is available in the [Model Gallery]({{%relref "fe
 
 You can browse and install this model through the LocalAI web interface or using the command line.
 
+### RF-DETR Native Backend (rfdetr-cpp)
+
+The `rfdetr-cpp` backend is a native C++/ggml implementation of RF-DETR
+inference based on [rf-detr.cpp](https://github.com/mudler/rf-detr.cpp). It
+runs as a Go gRPC service that dlopens a per-CPU-variant shared library, so
+there is no Python runtime on the inference path — startup is fast and the
+binary is self-contained.
+
+Compared to the Python `rfdetr` backend, the native backend:
+
+- Has no Python or PyTorch dependency at inference time
+- Loads quantized GGUF models (F32, F16, Q8_0, Q4_K) for smaller footprint
+- Supports both detection and segmentation variants of RF-DETR
+- Returns segmentation masks as PNG bytes in `Detection.mask`
+
+#### Setup
+
+1. **Install the backend**
+
+   ```bash
+   local-ai backends install rfdetr-cpp
+   ```
+
+2. **Using the Model Gallery (Recommended)**
+
+   The gallery ships ready-to-run entries for every published variant:
+
+   ```bash
+   # Detection variants
+   local-ai run rfdetr-cpp-nano
+   local-ai run rfdetr-cpp-small
+   local-ai run rfdetr-cpp-base
+   local-ai run rfdetr-cpp-medium
+   local-ai run rfdetr-cpp-large
+
+   # Segmentation variants (return per-instance PNG masks)
+   local-ai run rfdetr-cpp-seg-nano
+   local-ai run rfdetr-cpp-seg-small
+   local-ai run rfdetr-cpp-seg-medium
+   local-ai run rfdetr-cpp-seg-large
+   local-ai run rfdetr-cpp-seg-xlarge
+   local-ai run rfdetr-cpp-seg-2xlarge
+   ```
+
+3. **Manual Configuration**
+
+   ```yaml
+   name: rfdetr-cpp-seg-nano
+   backend: rfdetr-cpp
+   parameters:
+     model: rfdetr-seg-nano-f16.gguf
+     threads: 4
+   known_usecases:
+     - detection
+   ```
+
+   Pre-quantized GGUFs are published under
+   [`mudler/rfdetr-cpp-*`](https://huggingface.co/mudler?search_models=rfdetr-cpp)
+   on Hugging Face. Each repo carries the F32/F16/Q8_0/Q4_K quants — F16 is
+   the recommended default (matches F32 accuracy, ~1.86x smaller).
+
+#### Segmentation Output
+
+When running a segmentation model (any `rfdetr-cpp-seg-*` variant), each
+`Detection` in the response carries a `mask` field with a base64-encoded
+PNG of the per-instance binary mask. The mask is sized to the original
+image resolution and aligns with the corresponding bounding box.
+
 ### SAM3 Backend (sam3-cpp)
 
 The sam3-cpp backend provides image segmentation using [sam3.cpp](https://github.com/PABannier/sam3.cpp), a portable C++ implementation of Meta's Segment Anything Model. It supports multiple model architectures:
@@ -261,7 +329,8 @@ local-ai run --debug rfdetr-base
 
 LocalAI includes a dedicated **object-detection** category for models and backends that specialize in identifying and locating objects within images. This category currently includes:
 
-- **RF-DETR**: Real-time transformer-based object detection
+- **RF-DETR**: Real-time transformer-based object detection (Python backend)
+- **rfdetr-cpp**: Native C++/ggml RF-DETR for detection + segmentation
 - **sam3-cpp**: SAM 3/2/EdgeTAM image segmentation
 
 Additional object detection models and backends will be added to this category in the future. You can filter models by the `object-detection` tag in the model gallery to find all available object detection models.

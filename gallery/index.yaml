@@ -6182,6 +6182,317 @@
       - detection
     parameters:
       model: rfdetr-base
+- name: rfdetr-cpp-nano
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://github.com/mudler/rf-detr.cpp
+    - https://huggingface.co/mudler/rfdetr-cpp-nano
+  description: |
+    RF-DETR Nano object detection model, served via the native rfdetr.cpp backend (ggml + purego, no Python).
+    Q8_0 quantization is the recommended default for CPU: same accuracy as F16/F32, ~20MB on disk, fastest CPU latency.
+    Pure C++/ggml runtime; no Python dependencies. Drop-in for the /v1/detection endpoint.
+  license: apache-2.0
+  icon: https://avatars.githubusercontent.com/u/53104118?s=200&v=4
+  tags:
+    - object-detection
+    - rfdetr
+    - native
+    - cpp
+    - cpu
+  overrides:
+    backend: rfdetr-cpp
+    known_usecases:
+      - detection
+    parameters:
+      model: rfdetr-nano-q8_0.gguf
+  files:
+    - filename: rfdetr-nano-q8_0.gguf
+      uri: huggingface://mudler/rfdetr-cpp-nano/rfdetr-nano-q8_0.gguf
+- name: rfdetr-cpp-base
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://github.com/mudler/rf-detr.cpp
+    - https://huggingface.co/mudler/rfdetr-cpp-base
+  description: |
+    RF-DETR Base object detection model, served via the native rfdetr.cpp backend.
+    F16 quantization is recommended on CPU: identical accuracy to F32, half the size, fastest.
+  license: apache-2.0
+  icon: https://avatars.githubusercontent.com/u/53104118?s=200&v=4
+  tags:
+    - object-detection
+    - rfdetr
+    - native
+    - cpp
+    - cpu
+  overrides:
+    backend: rfdetr-cpp
+    known_usecases:
+      - detection
+    parameters:
+      model: rfdetr-base-f16.gguf
+  files:
+    - filename: rfdetr-base-f16.gguf
+      uri: huggingface://mudler/rfdetr-cpp-base/rfdetr-base-f16.gguf
+- name: rfdetr-cpp-small
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://github.com/mudler/rf-detr.cpp
+    - https://huggingface.co/mudler/rfdetr-cpp-small
+  description: |
+    RF-DETR Small object detection model (DINOv2-small backbone, 512px input, 3 decoder layers), served
+    via the native rfdetr.cpp backend (ggml + purego, no Python). A step up from Nano in accuracy while
+    staying lightweight on CPU. F16 quantization is the recommended default: identical accuracy to F32
+    at roughly half the size. Drop-in for the /v1/detection endpoint.
+  license: apache-2.0
+  icon: https://avatars.githubusercontent.com/u/53104118?s=200&v=4
+  tags:
+    - object-detection
+    - rfdetr
+    - native
+    - cpp
+    - cpu
+  overrides:
+    backend: rfdetr-cpp
+    known_usecases:
+      - detection
+    parameters:
+      model: rfdetr-small-f16.gguf
+  files:
+    - filename: rfdetr-small-f16.gguf
+      sha256: 5365264a976bb99ab31f735f43326e50b0804a60cd1709abe8c1c95114c4d79d
+      uri: huggingface://mudler/rfdetr-cpp-small/rfdetr-small-f16.gguf
+- name: rfdetr-cpp-medium
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://github.com/mudler/rf-detr.cpp
+    - https://huggingface.co/mudler/rfdetr-cpp-medium
+  description: |
+    RF-DETR Medium object detection model (DINOv2-small backbone, 576px input, 4 decoder layers), served
+    via the native rfdetr.cpp backend. Balanced detection quality vs. CPU latency — recommended when
+    Base is not accurate enough but Large is too slow. F16 quantization is the recommended default:
+    identical accuracy to F32, half the size. Drop-in for the /v1/detection endpoint.
+  license: apache-2.0
+  icon: https://avatars.githubusercontent.com/u/53104118?s=200&v=4
+  tags:
+    - object-detection
+    - rfdetr
+    - native
+    - cpp
+    - cpu
+  overrides:
+    backend: rfdetr-cpp
+    known_usecases:
+      - detection
+    parameters:
+      model: rfdetr-medium-f16.gguf
+  files:
+    - filename: rfdetr-medium-f16.gguf
+      sha256: 685b8f50890f099bbc603454309b2d5f1d471541420b95c20c6ed296aec1e7ae
+      uri: huggingface://mudler/rfdetr-cpp-medium/rfdetr-medium-f16.gguf
+- name: rfdetr-cpp-large
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://github.com/mudler/rf-detr.cpp
+    - https://huggingface.co/mudler/rfdetr-cpp-large
+  description: |
+    RF-DETR Large object detection model (DINOv2-small backbone, 704px input, 4 decoder layers), served
+    via the native rfdetr.cpp backend. Highest-accuracy detection variant — best for offline workflows
+    and high-resolution inputs where CPU latency is secondary to recall. F16 quantization is the
+    recommended default: identical accuracy to F32, half the size. Drop-in for the /v1/detection endpoint.
+  license: apache-2.0
+  icon: https://avatars.githubusercontent.com/u/53104118?s=200&v=4
+  tags:
+    - object-detection
+    - rfdetr
+    - native
+    - cpp
+    - cpu
+  overrides:
+    backend: rfdetr-cpp
+    known_usecases:
+      - detection
+    parameters:
+      model: rfdetr-large-f16.gguf
+  files:
+    - filename: rfdetr-large-f16.gguf
+      sha256: 819f1abc72f746a686722eacc9c4db992b7ca853b26e390ab0a66ca6ea70060a
+      uri: huggingface://mudler/rfdetr-cpp-large/rfdetr-large-f16.gguf
+- name: rfdetr-cpp-seg-nano
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://github.com/mudler/rf-detr.cpp
+    - https://huggingface.co/mudler/rfdetr-cpp-seg-nano
+  description: |
+    RF-DETR Seg-Nano instance segmentation model (DINOv2-small backbone, 312px input, 4 decoder layers,
+    100 queries), served via the native rfdetr.cpp backend. Smallest segmentation variant — fastest CPU
+    latency, ideal for edge deployment. Returns both bounding boxes and per-instance masks via the
+    /v1/detection endpoint. F16 quantization is the recommended default: identical accuracy to F32,
+    half the size.
+  license: apache-2.0
+  icon: https://avatars.githubusercontent.com/u/53104118?s=200&v=4
+  tags:
+    - object-detection
+    - image-segmentation
+    - rfdetr
+    - native
+    - cpp
+    - cpu
+  overrides:
+    backend: rfdetr-cpp
+    known_usecases:
+      - detection
+    parameters:
+      model: rfdetr-seg-nano-f16.gguf
+  files:
+    - filename: rfdetr-seg-nano-f16.gguf
+      sha256: 9f9a0ab547743992b6c664d41ee1a6afcd66b21b04609a68f76c0eec88648c2b
+      uri: huggingface://mudler/rfdetr-cpp-seg-nano/rfdetr-seg-nano-f16.gguf
+- name: rfdetr-cpp-seg-small
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://github.com/mudler/rf-detr.cpp
+    - https://huggingface.co/mudler/rfdetr-cpp-seg-small
+  description: |
+    RF-DETR Seg-Small instance segmentation model (DINOv2-small backbone, 384px input, 4 decoder layers,
+    100 queries), served via the native rfdetr.cpp backend. Step up from Seg-Nano in mask quality while
+    staying CPU-friendly. Returns both bounding boxes and per-instance masks via the /v1/detection
+    endpoint. F16 quantization is the recommended default: identical accuracy to F32, half the size.
+  license: apache-2.0
+  icon: https://avatars.githubusercontent.com/u/53104118?s=200&v=4
+  tags:
+    - object-detection
+    - image-segmentation
+    - rfdetr
+    - native
+    - cpp
+    - cpu
+  overrides:
+    backend: rfdetr-cpp
+    known_usecases:
+      - detection
+    parameters:
+      model: rfdetr-seg-small-f16.gguf
+  files:
+    - filename: rfdetr-seg-small-f16.gguf
+      sha256: 1b569a182aea941ec645a1923c1e8ad9db05e006db36136da9f148d1ec066670
+      uri: huggingface://mudler/rfdetr-cpp-seg-small/rfdetr-seg-small-f16.gguf
+- name: rfdetr-cpp-seg-medium
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://github.com/mudler/rf-detr.cpp
+    - https://huggingface.co/mudler/rfdetr-cpp-seg-medium
+  description: |
+    RF-DETR Seg-Medium instance segmentation model (DINOv2-small backbone, 432px input, 5 decoder layers,
+    200 queries), served via the native rfdetr.cpp backend. Balanced segmentation quality vs. CPU latency
+    — recommended for everyday segmentation workloads. Returns both bounding boxes and per-instance masks
+    via the /v1/detection endpoint. F16 quantization is the recommended default.
+  license: apache-2.0
+  icon: https://avatars.githubusercontent.com/u/53104118?s=200&v=4
+  tags:
+    - object-detection
+    - image-segmentation
+    - rfdetr
+    - native
+    - cpp
+    - cpu
+  overrides:
+    backend: rfdetr-cpp
+    known_usecases:
+      - detection
+    parameters:
+      model: rfdetr-seg-medium-f16.gguf
+  files:
+    - filename: rfdetr-seg-medium-f16.gguf
+      sha256: 885d85ed6935495fc50ff464e06b6ea3bd8e8386865852d68a8be0f649d65afe
+      uri: huggingface://mudler/rfdetr-cpp-seg-medium/rfdetr-seg-medium-f16.gguf
+- name: rfdetr-cpp-seg-large
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://github.com/mudler/rf-detr.cpp
+    - https://huggingface.co/mudler/rfdetr-cpp-seg-large
+  description: |
+    RF-DETR Seg-Large instance segmentation model (DINOv2-small backbone, 504px input, 5 decoder layers,
+    200 queries), served via the native rfdetr.cpp backend. Higher-resolution input than Seg-Medium for
+    sharper mask boundaries. Returns both bounding boxes and per-instance masks via the /v1/detection
+    endpoint. F16 quantization is the recommended default: identical accuracy to F32, half the size.
+  license: apache-2.0
+  icon: https://avatars.githubusercontent.com/u/53104118?s=200&v=4
+  tags:
+    - object-detection
+    - image-segmentation
+    - rfdetr
+    - native
+    - cpp
+    - cpu
+  overrides:
+    backend: rfdetr-cpp
+    known_usecases:
+      - detection
+    parameters:
+      model: rfdetr-seg-large-f16.gguf
+  files:
+    - filename: rfdetr-seg-large-f16.gguf
+      sha256: 90423066d0791b4ae249f3986cce1f095a1e4090bf46800bf7f9e371ea80d559
+      uri: huggingface://mudler/rfdetr-cpp-seg-large/rfdetr-seg-large-f16.gguf
+- name: rfdetr-cpp-seg-xlarge
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://github.com/mudler/rf-detr.cpp
+    - https://huggingface.co/mudler/rfdetr-cpp-seg-xlarge
+  description: |
+    RF-DETR Seg-XLarge instance segmentation model (DINOv2-small backbone, 624px input, 6 decoder layers,
+    300 queries), served via the native rfdetr.cpp backend. High-capacity segmentation variant with more
+    queries and deeper decoder — best for dense scenes with many instances. Returns both bounding boxes
+    and per-instance masks via the /v1/detection endpoint. F16 quantization is the recommended default.
+  license: apache-2.0
+  icon: https://avatars.githubusercontent.com/u/53104118?s=200&v=4
+  tags:
+    - object-detection
+    - image-segmentation
+    - rfdetr
+    - native
+    - cpp
+    - cpu
+  overrides:
+    backend: rfdetr-cpp
+    known_usecases:
+      - detection
+    parameters:
+      model: rfdetr-seg-xlarge-f16.gguf
+  files:
+    - filename: rfdetr-seg-xlarge-f16.gguf
+      sha256: 0b82de4a6e65a40bc930979a1a4281cb24de35203d30eeefd797c858101a7bec
+      uri: huggingface://mudler/rfdetr-cpp-seg-xlarge/rfdetr-seg-xlarge-f16.gguf
+- name: rfdetr-cpp-seg-2xlarge
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://github.com/mudler/rf-detr.cpp
+    - https://huggingface.co/mudler/rfdetr-cpp-seg-2xlarge
+  description: |
+    RF-DETR Seg-2XLarge instance segmentation model (DINOv2-small backbone, 768px input, 6 decoder layers,
+    300 queries), served via the native rfdetr.cpp backend. Highest-accuracy segmentation variant — best
+    for offline workflows and high-resolution inputs where CPU latency is secondary to mask quality.
+    Returns both bounding boxes and per-instance masks via the /v1/detection endpoint. F16 quantization
+    is the recommended default: identical accuracy to F32, half the size.
+  license: apache-2.0
+  icon: https://avatars.githubusercontent.com/u/53104118?s=200&v=4
+  tags:
+    - object-detection
+    - image-segmentation
+    - rfdetr
+    - native
+    - cpp
+    - cpu
+  overrides:
+    backend: rfdetr-cpp
+    known_usecases:
+      - detection
+    parameters:
+      model: rfdetr-seg-2xlarge-f16.gguf
+  files:
+    - filename: rfdetr-seg-2xlarge-f16.gguf
+      sha256: 7f957997db23e844194ea8266a95b4adc3deb6d0b71c0924922b20fbdeafa299
+      uri: huggingface://mudler/rfdetr-cpp-seg-2xlarge/rfdetr-seg-2xlarge-f16.gguf
 - name: edgetam
   url: github:mudler/LocalAI/gallery/virtual.yaml@master
   urls:
