@@ -1313,6 +1313,13 @@ build-ui-test-server: build-mock-backend react-ui protogen-go
 test-ui-e2e: build-ui-test-server
 	cd core/http/react-ui && npm install && npx playwright install --with-deps chromium && npx playwright test
 
+## Optional Playwright worker count for the UI e2e targets below. Pass
+## UI_TEST_WORKERS=N (e.g. `make test-ui-coverage UI_TEST_WORKERS=20`) to
+## override Playwright's default (cores/2). Empty by default so Playwright
+## picks its own worker count.
+UI_TEST_WORKERS ?=
+PLAYWRIGHT_WORKERS_FLAG = $(if $(UI_TEST_WORKERS),--workers=$(UI_TEST_WORKERS),)
+
 ## Fast Playwright e2e run used by the pre-commit hook on React UI changes.
 ## Force-rebuilds the (non-instrumented) dist so the suite tests the working
 ## tree — not a stale dist the `react-ui` skip-guard would leave — re-embeds
@@ -1322,22 +1329,24 @@ test-ui-e2e: build-ui-test-server
 test-ui: build-mock-backend protogen-go
 	cd core/http/react-ui && bun install && bun run build
 	$(GOCMD) build -o tests/e2e-ui/ui-test-server ./tests/e2e-ui
-	cd core/http/react-ui && sh $(CURDIR)/scripts/ensure-playwright-browser.sh && bunx playwright test
+	cd core/http/react-ui && sh $(CURDIR)/scripts/ensure-playwright-browser.sh && bunx playwright test $(PLAYWRIGHT_WORKERS_FLAG)
 
-## React UI code coverage from the Playwright e2e suite. Builds an
-## istanbul-instrumented bundle (COVERAGE=true), re-embeds it into the
-## ui-test-server (the dist is //go:embed'ed at compile time), runs the
-## Playwright specs — which harvest window.__coverage__ via the coverage
-## fixture — and writes an nyc report to core/http/react-ui/coverage/.
-## Removes the instrumented dist afterwards so normal builds aren't served
-## instrumented assets.
+## React UI code coverage from the Playwright e2e suite. Builds a
+## NON-instrumented bundle with source maps (COVERAGE_V8=true), re-embeds it
+## into the ui-test-server (the dist is //go:embed'ed at compile time), runs the
+## Playwright specs which collect native Chromium V8 coverage (PW_V8_COVERAGE=1)
+## — far cheaper than istanbul's build-time counters (~40% faster end-to-end) —
+## convert it to istanbul via v8-to-istanbul in the coverage fixture, and write
+## an nyc report to core/http/react-ui/coverage/. Removes the dist afterwards so
+## normal builds aren't served source-mapped assets. (The legacy istanbul path
+## still exists: `bun run build:coverage` + unset PW_V8_COVERAGE.)
 test-ui-coverage: build-mock-backend protogen-go
 	trap 'rm -rf "$(CURDIR)/core/http/react-ui/dist"' EXIT; \
-	( cd core/http/react-ui && bun install && bun run build:coverage ) && \
+	( cd core/http/react-ui && bun install && bun run build:coverage-v8 ) && \
 	$(GOCMD) build -o tests/e2e-ui/ui-test-server ./tests/e2e-ui && \
 	( cd core/http/react-ui && rm -rf .nyc_output coverage && \
 	    sh $(CURDIR)/scripts/ensure-playwright-browser.sh && \
-	    bunx playwright test && bun run coverage:report )
+	    PW_V8_COVERAGE=1 bunx playwright test $(PLAYWRIGHT_WORKERS_FLAG) && bun run coverage:report )
 
 ## UI coverage baseline (committed) and the strict gate that compares against
 ## it — the React mirror of test-coverage-baseline / test-coverage-check.

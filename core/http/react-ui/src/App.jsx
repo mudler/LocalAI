@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, Suspense } from 'react'
 import { Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import Sidebar from './components/Sidebar'
@@ -122,7 +122,14 @@ export default function App() {
         </header>
         <div className="main-content-inner">
           <div className="page-transition" key={location.pathname}>
-            <Outlet context={{ addToast }} />
+            {/* Per-route Suspense catches React.lazy chunk loads (router.jsx)
+                here, inside the App layout. Without it, suspension would bubble
+                up to main.jsx's outer boundary and unmount the sidebar/header
+                on every navigation. fallback={null} keeps the shell stable; the
+                page-content area briefly blanks while the chunk arrives. */}
+            <Suspense fallback={null}>
+              <Outlet context={{ addToast }} />
+            </Suspense>
           </div>
         </div>
         {!isChatRoute && (

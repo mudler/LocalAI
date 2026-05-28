@@ -4,7 +4,7 @@ import { getArtifactIcon } from '../utils/artifacts'
 import { safeHref } from '../utils/url'
 import { copyToClipboard } from '../utils/clipboard'
 import DOMPurify from 'dompurify'
-import hljs from 'highlight.js'
+import hljs from '../utils/hljs'
 
 export default function CanvasPanel({ artifacts, selectedId, onSelect, onClose }) {
   const [showPreview, setShowPreview] = useState(true)
