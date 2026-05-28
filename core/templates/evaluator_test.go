@@ -218,4 +218,41 @@ var _ = Describe("Templates", func() {
 			})
 		}
 	})
+	// Regression test for mudler/LocalAI#10039: when a model has no Go-side
+	// TemplateConfig.ChatMessage block (e.g. backends that rely on the GGUF's
+	// jinja template), TemplateMessages falls through to the role-prefix path.
+	// That path must still render messages whose StringContent is populated but
+	// Content (any) is nil — which is the shape /v1/responses produced before
+	// the fix to convertORInputToMessages.
+	Context("fallback path with StringContent-only message (no ChatMessage template)", func() {
+		var evaluator *Evaluator
+		BeforeEach(func() {
+			evaluator = NewEvaluator("")
+		})
+		It("renders the role prefix and content when only StringContent is set", func() {
+			cfg := &config.ModelConfig{
+				TemplateConfig: config.TemplateConfig{},
+				Roles:          map[string]string{"user": "USER: "},
+			}
+			messages := []schema.Message{
+				{
+					Role:          "user",
+					StringContent: "hello",
+					// Content intentionally left nil — reproduces /v1/responses string-input.
+				},
+			}
+			templated := evaluator.TemplateMessages(schema.OpenAIRequest{}, messages, cfg, []functions.Function{}, false)
+			Expect(templated).To(Equal("USER: hello"), templated)
+		})
+		It("renders content even with no role mapping", func() {
+			cfg := &config.ModelConfig{
+				TemplateConfig: config.TemplateConfig{},
+			}
+			messages := []schema.Message{
+				{Role: "user", StringContent: "hello"},
+			}
+			templated := evaluator.TemplateMessages(schema.OpenAIRequest{}, messages, cfg, []functions.Function{}, false)
+			Expect(templated).To(Equal("hello"), templated)
+		})
+	})
 })
