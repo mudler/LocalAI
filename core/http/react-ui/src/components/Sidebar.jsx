@@ -6,6 +6,7 @@ import LanguageSwitcher from './LanguageSwitcher'
 import { useAuth } from '../context/AuthContext'
 import { useBranding } from '../contexts/BrandingContext'
 import { apiUrl } from '../utils/basePath'
+import { preloadRoute } from '../router'
 
 const COLLAPSED_KEY = 'localai_sidebar_collapsed'
 const SECTIONS_KEY = 'localai_sidebar_sections'
@@ -85,6 +86,10 @@ const sections = [
 function NavItem({ item, onClose, collapsed }) {
   const { t } = useTranslation('nav')
   const label = t(item.labelKey)
+  // Warm the route's lazy chunk before the user clicks. Touch fires ~150ms
+  // before the synthetic click on mobile; mouseenter/focus cover desktop and
+  // keyboard. The underlying import() is memoised so multiple triggers are free.
+  const preload = () => preloadRoute(item.path)
   return (
     <NavLink
       to={item.path}
@@ -93,6 +98,9 @@ function NavItem({ item, onClose, collapsed }) {
         `nav-item ${isActive ? 'active' : ''}`
       }
       onClick={onClose}
+      onMouseEnter={preload}
+      onFocus={preload}
+      onTouchStart={preload}
       title={collapsed ? label : undefined}
     >
       <i className={`${item.icon} nav-icon`} />
@@ -296,6 +304,9 @@ export default function Sidebar({ isOpen, onClose }) {
               <button
                 className="sidebar-user-link"
                 onClick={() => { navigate('/app/account'); onClose?.() }}
+                onMouseEnter={() => preloadRoute('/app/account')}
+                onFocus={() => preloadRoute('/app/account')}
+                onTouchStart={() => preloadRoute('/app/account')}
                 title={t('accountSettings')}
               >
                 {user.avatarUrl ? (

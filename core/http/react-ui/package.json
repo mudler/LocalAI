@@ -12,6 +12,7 @@
     "test:e2e": "playwright test",
     "test:e2e:ui": "playwright test --ui",
     "build:coverage": "COVERAGE=true vite build",
+    "build:coverage-v8": "COVERAGE_V8=true vite build",
     "coverage:report": "nyc report"
   },
   "dependencies": {
@@ -42,6 +43,7 @@
     "yaml": "^2.8.3"
   },
   "devDependencies": {
+    "@bcoe/v8-coverage": "^1.0.2",
     "@eslint/js": "^9.27.0",
     "@playwright/test": "1.58.2",
     "@vitejs/plugin-react": "^6.0.2",
@@ -51,6 +53,7 @@
     "globals": "^16.1.0",
     "i18next-parser": "^9.4.0",
     "nyc": "^18.0.0",
+    "v8-to-istanbul": "^9.3.0",
     "vite": "^8.0.14",
     "vite-plugin-istanbul": "^9.0.0"
   }
