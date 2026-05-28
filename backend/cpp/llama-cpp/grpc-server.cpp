@@ -3458,7 +3458,7 @@ public:
         if (body.count("prompt") != 0) {
             const bool add_special = json_value(body, "add_special", false);
 
-            llama_tokens tokens = tokenize_mixed(ctx_server.impl->vocab, body.at("content"), add_special, true);
+            llama_tokens tokens = tokenize_mixed(ctx_server.impl->vocab, body.at("prompt"), add_special, true);
 
 
             for (const auto& token : tokens) {

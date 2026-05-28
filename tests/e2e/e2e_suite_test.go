@@ -236,6 +236,65 @@ var _ = BeforeSuite(func() {
 	Expect(err).ToNot(HaveOccurred())
 	Expect(os.WriteFile(filepath.Join(modelsPath, "realtime-pipeline.yaml"), pipelineData, 0644)).To(Succeed())
 
+	// Router model setup: a score classifier (mock-backend Score) selects
+	// between two candidate chat models based on keyword matches against the
+	// candidate label fragments. Exercises the full RouteModel middleware path
+	// — probe extraction, ScoreClassifier.fitMessages (with the classifier's
+	// real TokenizeString and ContextSize wired), Score RPC, and fanout to
+	// the chosen candidate. The classifier MUST carry a chat template, since
+	// buildClassifier now rejects routers whose classifier model has none.
+	chatMLTpl := map[string]any{
+		"chat":         "{{.Input -}}\n<|im_start|>assistant\n",
+		"chat_message": "<|im_start|>{{ .RoleName }}\n{{ if .Content }}{{ .Content }}{{ end }}<|im_end|>",
+	}
+	classifierCfg := map[string]any{
+		"name":           "mock-classifier",
+		"backend":        "mock-backend",
+		"known_usecases": []string{"score"},
+		"context_size":   4096,
+		"stopwords":      []string{"<|im_end|>"},
+		"parameters":     map[string]any{"model": "mock-classifier.bin"},
+		"template":       chatMLTpl,
+	}
+	classifierData, err := yaml.Marshal(classifierCfg)
+	Expect(err).ToNot(HaveOccurred())
+	Expect(os.WriteFile(filepath.Join(modelsPath, "mock-classifier.yaml"), classifierData, 0644)).To(Succeed())
+
+	for _, name := range []string{"mock-cand-casual", "mock-cand-code"} {
+		candCfg := map[string]any{
+			"name":           name,
+			"backend":        "mock-backend",
+			"known_usecases": []string{"chat"},
+			"parameters":     map[string]any{"model": name + ".bin"},
+		}
+		candData, err := yaml.Marshal(candCfg)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(os.WriteFile(filepath.Join(modelsPath, name+".yaml"), candData, 0644)).To(Succeed())
+	}
+
+	routerCfg := map[string]any{
+		"name":           "smart-router",
+		"known_usecases": []string{"chat"},
+		"router": map[string]any{
+			"classifier":           "score",
+			"classifier_model":     "mock-classifier",
+			"activation_threshold": 0.40,
+			"fallback":             "mock-cand-casual",
+			"policies": []map[string]any{
+				{"label": "casual-chat", "description": "small talk and general conversation"},
+				{"label": "code-generation", "description": "writing or debugging code"},
+				{"label": "math-reasoning", "description": "arithmetic and word problems"},
+			},
+			"candidates": []map[string]any{
+				{"model": "mock-cand-casual", "labels": []string{"casual-chat"}},
+				{"model": "mock-cand-code", "labels": []string{"code-generation", "math-reasoning"}},
+			},
+		},
+	}
+	routerData, err := yaml.Marshal(routerCfg)
+	Expect(err).ToNot(HaveOccurred())
+	Expect(os.WriteFile(filepath.Join(modelsPath, "smart-router.yaml"), routerData, 0644)).To(Succeed())
+
 	// If REALTIME_TEST_MODEL=realtime-test-pipeline, auto-create a pipeline
 	// config from the REALTIME_VAD/STT/LLM/TTS env vars so real-model tests
 	// can run without the user having to write a YAML file manually.

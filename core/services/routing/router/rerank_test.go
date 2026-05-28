@@ -3,6 +3,8 @@ package router
 import (
 	"context"
 	"errors"
+	"fmt"
+	"strings"
 
 	"github.com/mudler/LocalAI/core/backend"
 	. "github.com/onsi/ginkgo/v2"
@@ -41,6 +43,31 @@ var _ = Describe("RerankClassifier", func() {
 		Expect(err).NotTo(HaveOccurred())
 		Expect(equalLabels(d.Labels, []string{"code-generation"})).To(BeTrue(), "got %v", d.Labels)
 		Expect(d.Score).To(BeNumerically(">=", 0.9))
+	})
+
+	It("trims the query to the reranker context, keeping the newest turns", func() {
+		r := &stubReranker{results: []backend.RerankResult{
+			{Index: 0, RelevanceScore: 0.92},
+			{Index: 1, RelevanceScore: 0.10},
+			{Index: 2, RelevanceScore: 0.05},
+		}}
+		wordCount := func(s string) (int, error) { return len(strings.Fields(s)), nil }
+		// budget = 60 − longest policy description − 16 margin; still well under
+		// the ~120-word transcript, so the oldest turns drop.
+		c := NewRerankClassifier(testPolicies(), r, 0, 0).WithTokenTrim(wordCount, 60)
+
+		msgs := make([]string, 0, 31)
+		for i := range 30 {
+			msgs = append(msgs, fmt.Sprintf("OLDturn%d aaa bbb ccc", i))
+		}
+		msgs = append(msgs, "NEWESTTURN zzz")
+		full := strings.Join(msgs, "\n")
+
+		_, err := c.Classify(context.Background(), Probe{Prompt: full, Messages: msgs})
+		Expect(err).NotTo(HaveOccurred())
+		Expect(r.lastQ).To(ContainSubstring("NEWESTTURN"), "newest turn must survive")
+		Expect(r.lastQ).NotTo(ContainSubstring("OLDturn0 "), "oldest turns trimmed to fit context")
+		Expect(r.lastQ).NotTo(Equal(full), "must not rerank the untrimmed prompt")
 	})
 
 	It("activates multiple labels when several descriptions clear threshold", func() {

@@ -105,6 +105,7 @@ const (
 	capAudioTransform = "audio_transform"
 	capLogprobs      = "logprobs"
 	capLogitBias     = "logit_bias"
+	capTokenize      = "tokenize"
 
 	defaultPrompt             = "The capital of France is"
 	streamPrompt              = "Once upon a time"
@@ -424,6 +425,23 @@ var _ = Describe("Backend container", Ordered, func() {
 		Expect(res.GetMessage()).NotTo(BeEmpty(), "Predict produced empty output")
 		GinkgoWriter.Printf("Predict: %q (tokens=%d, prompt_tokens=%d)\n",
 			res.GetMessage(), res.GetTokens(), res.GetPromptTokens())
+	})
+
+	// Regression guard for the raw-prompt tokenize RPC. The llama.cpp handler
+	// read the prompt from the wrong JSON key ("content" instead of "prompt"),
+	// so any non-empty prompt threw and the RPC returned "Unexpected error in
+	// RPC handling". The mock backend reimplements TokenizeString in Go, so only
+	// a real backend exercises the C++ path — this spec is that coverage.
+	It("tokenizes a prompt via TokenizeString", func() {
+		if !caps[capTokenize] {
+			Skip("tokenize capability not enabled")
+		}
+		ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+		defer cancel()
+		res, err := client.TokenizeString(ctx, &pb.PredictOptions{Prompt: prompt})
+		Expect(err).NotTo(HaveOccurred(), "TokenizeString RPC failed")
+		Expect(res.GetTokens()).NotTo(BeEmpty(), "TokenizeString returned no tokens for a non-empty prompt")
+		GinkgoWriter.Printf("Tokenize: %d tokens for %q\n", len(res.GetTokens()), prompt)
 	})
 
 	It("streams output via PredictStream", func() {

@@ -240,7 +240,6 @@ var grandfatheredUnregistered = []string{
 	"swap_space",
 	"system_prompt",
 	"template.edit",
-	"template.function",
 	"template.join_chat_messages_by_character",
 	"template.multimodal",
 	"template.reply_prefix",

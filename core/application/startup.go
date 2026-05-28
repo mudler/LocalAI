@@ -441,11 +441,7 @@ func New(opts ...config.AppOption) (*Application, error) {
 	// traffic doesn't need a parallel config for MITM traffic.
 	// Runs after loadRuntimeSettingsFromFile so a listener configured
 	// via /api/settings is brought back up across restarts.
-	if options.MITMListen != "" {
-		if err := startMITMProxy(application, options); err != nil {
-			return nil, fmt.Errorf("mitm: startup: %w", err)
-		}
-	}
+	startMITMIfConfigured(application, options)
 
 	application.ModelLoader().SetBackendLoggingEnabled(options.EnableBackendLogging)
 

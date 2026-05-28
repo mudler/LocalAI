@@ -91,6 +91,13 @@ type ScoreClassifierOptions struct {
 	// override that instructs the model to emit a different schema
 	// would silently desync from what the scorer actually scores.
 	SystemPromptTemplate string
+
+	// TokenCounter + MaxContextTokens drive conversation trimming: when
+	// both are set, Classify drops the oldest turns until the rendered
+	// prompt fits the classifier's context. Nil/0 disables — Classify
+	// sends Probe.Prompt as-is and relies on the backend's n_ctx guard.
+	TokenCounter     func(string) (int, error)
+	MaxContextTokens int
 }
 
 // ScoreClassifier scores every policy label as the model's actual
@@ -126,6 +133,10 @@ type ScoreClassifier struct {
 	// turn-end token so its probability folds into the joint
 	// log-prob. Built once at construction; same list every call.
 	candidates []string
+
+	// budget caps the rendered prompt at the classifier's context minus the
+	// longest candidate; nil/disabled sends Probe.Prompt as-is.
+	budget *lazyBudget
 
 	cache *labelSetCache
 }
@@ -191,6 +202,7 @@ func NewScoreClassifier(policies []ScorePolicy, scorer backend.Scorer, opts Scor
 		systemPrompt:        systemPrompt,
 		labelOrder:          labels,
 		candidates:          candidates,
+		budget:              &lazyBudget{tokenize: opts.TokenCounter, maxContext: opts.MaxContextTokens, extras: candidates},
 		cache:               newLabelSetCache(opts.CacheCap),
 	}
 }
@@ -218,11 +230,19 @@ func (c *ScoreClassifier) Name() string { return ClassifierScore }
 
 func (c *ScoreClassifier) Classify(ctx context.Context, p Probe) (Decision, error) {
 	start := time.Now()
-	key := cacheKey(p.Prompt)
+
+	// Trim oldest turns until the rendered prompt fits the classifier's
+	// context. Cache-keyed on the trimmed text so conversations that
+	// trim to the same tail share an entry.
+	userText := trimmedProbeText(p, c.budget, func(joined string) (string, error) {
+		return c.renderer(c.systemPrompt, joined)
+	})
+
+	key := cacheKey(userText)
 	if hit, ok := c.cache.get(key); ok {
 		return Decision{Labels: hit, Score: 1.0, Latency: time.Since(start)}, nil
 	}
-	prompt, err := c.renderer(c.systemPrompt, p.Prompt)
+	prompt, err := c.renderer(c.systemPrompt, userText)
 	if err != nil {
 		return errDecision(start, fmt.Errorf("score classify: render prompt: %w", err))
 	}
@@ -330,6 +350,12 @@ func softmax(logProbs []float64) []float64 {
 }
 
 func (c *ScoreClassifier) CacheLen() int { return c.cache.len() }
+
+// probeTokenBudget returns the token ceiling for the rendered prompt (context
+// − longest candidate − margin), computed once via the shared lazyBudget. 0
+// means trimming is off (no tokenizer/context) or impossible (candidates fill
+// the context).
+func (c *ScoreClassifier) probeTokenBudget() int { return c.budget.get() }
 
 // buildScoreSystemPrompt renders the Arch-Router-style routing
 // instructions: routes listed in a structured block, output schema

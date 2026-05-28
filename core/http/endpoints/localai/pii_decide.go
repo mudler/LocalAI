@@ -15,9 +15,9 @@ import (
 //
 // External routers (e.g. the localai-org/platform router) call this
 // before dispatching to learn whether to mask the prompt in place,
-// route to a local-only backend, block the request, or pass it
-// through. LocalAI's in-band PII middleware is the alternative path
-// for direct-to-LocalAI clients — same Redactor, different framing.
+// block the request, or pass it through. LocalAI's in-band PII
+// middleware is the alternative path for direct-to-LocalAI clients —
+// same Redactor, different framing.
 //
 // Takes the *pii.Redactor directly rather than the whole
 // *application.Application so the handler stays unit-testable with a
@@ -62,24 +62,18 @@ func PIIDecideEndpoint(redactor *pii.Redactor) echo.HandlerFunc {
 	}
 }
 
-// actionAllow is the wire-only value for "no findings". The other
-// three map to existing pii.Action* constants; allow has no in-band
-// counterpart because the in-band middleware simply passes through.
-const actionAllow = "allow"
-
 // suggestedAction collapses the Redactor's Result flags onto a single
-// wire-format action using the in-band ordering (block > route_local
-// > mask > allow). Spans-without-Blocked-or-LocalOnly means every
-// match resolved to ActionMask.
+// wire-format action using the in-band ordering (block > mask >
+// allow). "allow" covers both "nothing matched" and "matched but every
+// span resolved to the allow action" — in both cases the caller may
+// dispatch unchanged, with the Findings list reporting what was seen.
 func suggestedAction(res pii.Result) string {
 	switch {
 	case res.Blocked:
 		return string(pii.ActionBlock)
-	case res.LocalOnly:
-		return string(pii.ActionRouteLocal)
-	case len(res.Spans) > 0:
+	case res.Masked:
 		return string(pii.ActionMask)
 	default:
-		return actionAllow
+		return string(pii.ActionAllow)
 	}
 }

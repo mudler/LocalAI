@@ -283,6 +283,18 @@ parameters:
 		Expect(e.HasUsecases(FLAG_CHAT)).To(BeFalse())
 		Expect(e.HasUsecases(FLAG_EMBEDDINGS)).To(BeTrue())
 
+		// Router models are chat dispatchers: no chat template of their
+		// own, but invoked through the chat endpoint, so they default to
+		// chat-capable.
+		r := ModelConfig{
+			Name: "r",
+			Router: RouterConfig{
+				Candidates: []RouterCandidate{{Model: "downstream", Labels: []string{"general"}}},
+			},
+		}
+		Expect(r.HasUsecases(FLAG_ANY)).To(BeTrue())
+		Expect(r.HasUsecases(FLAG_CHAT)).To(BeTrue())
+
 		f := ModelConfig{
 			Name:    "f",
 			Backend: "piper",

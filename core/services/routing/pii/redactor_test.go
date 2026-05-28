@@ -96,7 +96,7 @@ var _ = Describe("Redactor", func() {
 		res := r.Redact("")
 		Expect(res.Redacted).To(BeEmpty())
 		Expect(res.Blocked).To(BeFalse())
-		Expect(res.LocalOnly).To(BeFalse())
+		Expect(res.Masked).To(BeFalse())
 		Expect(res.Spans).To(BeEmpty())
 	})
 
@@ -165,10 +165,12 @@ var _ = Describe("RedactWithOverrides", func() {
 var _ = Describe("SetAction", func() {
 	It("swaps in place", func() {
 		r := NewRedactor(mustCompile("email"))
-		Expect(r.SetAction("email", ActionRouteLocal)).To(Succeed())
+		Expect(r.SetAction("email", ActionAllow)).To(Succeed())
 		res := r.Redact("contact alice@example.com")
-		Expect(res.LocalOnly).To(BeTrue(), "expected LocalOnly after SetAction(route_local)")
-		Expect(res.Blocked).To(BeFalse(), "SetAction(route_local) should not block")
+		Expect(res.Masked).To(BeFalse(), "allow leaves text intact, so nothing is masked")
+		Expect(res.Redacted).To(ContainSubstring("alice@example.com"), "allow should leave the match in place")
+		Expect(res.Spans).To(HaveLen(1), "allow still records the match")
+		Expect(res.Blocked).To(BeFalse(), "SetAction(allow) should not block")
 	})
 
 	It("rejects unknown id", func() {

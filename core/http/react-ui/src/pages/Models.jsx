@@ -1,6 +1,7 @@
 import { useState, useCallback, useEffect } from 'react'
-import { useNavigate, useOutletContext } from 'react-router-dom'
+import { useNavigate, useOutletContext, useLocation } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
+import { fromState } from '../utils/editorNav'
 import { modelsApi } from '../utils/api'
 import { safeHref } from '../utils/url'
 import { useDebouncedCallback } from '../hooks/useDebounce'
@@ -40,6 +41,7 @@ const FILTERS = [
 export default function Models() {
   const { addToast } = useOutletContext()
   const navigate = useNavigate()
+  const location = useLocation()
   const { t } = useTranslation('models')
   const { operations } = useOperations()
   const { resources } = useResources()
@@ -286,7 +288,7 @@ export default function Models() {
               </a>
             </div>
           </div>
-          <button className="btn btn-primary btn-sm" onClick={() => navigate('/app/model-editor')}>
+          <button className="btn btn-primary btn-sm" onClick={() => navigate('/app/model-editor', { state: fromState(location, 'Models') })}>
             <i className="fas fa-plus" /> {t('actions.addModel')}
           </button>
           <button className="btn btn-secondary btn-sm" onClick={() => navigate('/app/import-model')}>

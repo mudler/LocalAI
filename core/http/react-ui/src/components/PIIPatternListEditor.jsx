@@ -5,7 +5,7 @@ import SearchableSelect from './SearchableSelect'
 const ACTION_OPTIONS = [
   { value: 'mask', label: 'Mask — replace with a [REDACTED:id] placeholder' },
   { value: 'block', label: 'Block — reject the request (request side) / mask in stream' },
-  { value: 'route_local', label: 'Route local — keep text, force local-only routing' },
+  { value: 'allow', label: 'Allow — detect & log, leave text unchanged' },
 ]
 
 export default function PIIPatternListEditor({ value, onChange }) {

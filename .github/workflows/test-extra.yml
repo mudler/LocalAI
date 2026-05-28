@@ -563,7 +563,7 @@ jobs:
       - name: Run e2e-backends smoke
         env:
           BACKEND_IMAGE: quay.io/go-skynet/local-ai-backends:master-cpu-llama-cpp
-          BACKEND_TEST_CAPS: health,load,predict,stream,logprobs,logit_bias
+          BACKEND_TEST_CAPS: health,load,predict,stream,logprobs,logit_bias,tokenize
         run: |
           make test-extra-backend
   # Realtime e2e with sherpa-onnx driving VAD + STT + TTS against a mocked LLM.

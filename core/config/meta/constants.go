@@ -8,6 +8,7 @@ const (
 	ProviderModelsTTS        = "models:tts"
 	ProviderModelsTranscript = "models:transcript"
 	ProviderModelsVAD        = "models:vad"
+	ProviderModelsScore      = "models:score"
 )
 
 // Static option lists embedded directly in field metadata.

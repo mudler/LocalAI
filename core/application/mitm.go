@@ -11,6 +11,29 @@ import (
 	"github.com/mudler/xlog"
 )
 
+// startMITMIfConfigured brings up the cloudproxy MITM listener when an
+// address is configured, treating any startup failure as non-fatal.
+//
+// The listener is opt-in middleware whose address is persisted in runtime
+// settings (/api/settings → runtime_settings.json) and replayed on every
+// boot. A bad value — e.g. a host the process can't bind, like a LAN IP
+// inside a container — must NOT abort the whole server: doing so crash-loops
+// with no way out, because the Settings UI used to correct the address can't
+// load if startup never completes. So on failure we log loudly and carry on;
+// the admin fixes the address via /api/settings, which calls RestartMITM.
+func startMITMIfConfigured(app *Application, options *config.ApplicationConfig) {
+	if options.MITMListen == "" {
+		return
+	}
+	if err := startMITMProxy(app, options); err != nil {
+		xlog.Error("mitm: cloudproxy listener failed to start — continuing without it",
+			"listen", options.MITMListen,
+			"error", err,
+			"hint", "fix the address via Settings (e.g. \":8082\" to bind all interfaces) and the listener will restart",
+		)
+	}
+}
+
 func startMITMProxy(app *Application, options *config.ApplicationConfig) error {
 	app.mitmMutex.Lock()
 	defer app.mitmMutex.Unlock()
