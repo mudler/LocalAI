@@ -21,7 +21,6 @@ import (
 const (
 	ctxKeyCorrelationID    = "routing.correlation_id"
 	ctxKeyPIIEventID       = "routing.pii_event_id"
-	ctxKeyLocalOnly        = "routing.local_only"
 	// Must match the constants in core/http/middleware/request.go.
 	// Echoing them across packages would create an import cycle
 	// (http/middleware imports this package). Drift is caught by
@@ -37,7 +36,7 @@ const (
 //
 // Consumers of the override map: the action returned from PIIPatternOverrides
 // is the raw YAML string (e.g. "block"). Validation against the canonical
-// ActionMask/Block/RouteLocal constants happens here, so a typo in a model
+// ActionMask/Block/Allow constants happens here, so a typo in a model
 // YAML logs and is ignored rather than panicking.
 type ModelPIIConfig interface {
 	PIIIsEnabled() bool
@@ -77,9 +76,8 @@ type Adapter struct {
 //     to the client.
 //   - On match with action=mask: the redacted text replaces the
 //     original on the parsed request. PIIEvents are recorded.
-//   - On match with action=route_local: the original text is left
-//     intact, but the echo context is annotated so the (future) router
-//     middleware refuses cloud-proxy candidates.
+//   - On match with action=allow: the original text is left intact; a
+//     PIIEvent is still recorded so the detection is auditable.
 //
 // recorder is the Recorder on which to record events; nil disables
 // recording (the redaction still happens). fallbackUser supplies the
@@ -138,7 +136,7 @@ func RequestMiddleware(redactor *Redactor, store EventStore, adapter Adapter, fa
 					overrides = make(map[string]Action, len(raw))
 					for id, action := range raw {
 						switch Action(action) {
-						case ActionMask, ActionBlock, ActionRouteLocal:
+						case ActionMask, ActionBlock, ActionAllow:
 							overrides[id] = Action(action)
 						default:
 							xlog.Warn("pii: ignoring unknown action in per-model override",
@@ -151,7 +149,6 @@ func RequestMiddleware(redactor *Redactor, store EventStore, adapter Adapter, fa
 			texts := adapter.Scan(parsed)
 			updates := make([]ScannedText, 0, len(texts))
 			var blocked bool
-			var localOnly bool
 			var firstEventID string
 
 			for _, st := range texts {
@@ -201,9 +198,6 @@ func RequestMiddleware(redactor *Redactor, store EventStore, adapter Adapter, fa
 				if res.Blocked {
 					blocked = true
 				}
-				if res.LocalOnly {
-					localOnly = true
-				}
 				updates = append(updates, ScannedText{Index: st.Index, Text: res.Redacted})
 			}
 
@@ -224,10 +218,6 @@ func RequestMiddleware(redactor *Redactor, store EventStore, adapter Adapter, fa
 			if firstEventID != "" {
 				c.Set(ctxKeyPIIEventID, firstEventID)
 			}
-			if localOnly {
-				c.Set(ctxKeyLocalOnly, true)
-			}
-
 			return next(c)
 		}
 	}

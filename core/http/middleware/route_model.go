@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"hash/fnv"
+	"strconv"
 	"strings"
 	"time"
 
@@ -86,6 +87,12 @@ type ClassifierDeps struct {
 	// templates.Evaluator so any model the operator points at gets
 	// its own chat template applied.
 	Evaluator *templates.Evaluator
+
+	// TokenCounter binds the classifier model's tokenizer for the score
+	// classifier's token-trim path. Optional; nil falls back to the
+	// backend's n_ctx guard. Plain func type so core/application supplies
+	// it as a method value without importing this package.
+	TokenCounter func(modelName string) func(text string) (int, error)
 }
 
 // ProbeExtractor pulls the prompt content out of a parsed request so
@@ -212,7 +219,6 @@ func recordHTTPDecision(c echo.Context, store router.DecisionStore, result *rout
 	_ = store.Record(context.Background(), result.ToDecisionRecord(newDecisionID(), correlationID, userID, source))
 }
 
-
 // GetOrBuildClassifier looks up a built Classifier for the named router
 // model in the registry and builds it on miss. Exported so the
 // /api/router/decide decision-oracle endpoint can share the same
@@ -262,9 +268,10 @@ func routerConfigFingerprint(rc config.RouterConfig, classifierCfg *config.Model
 	h := fnv.New64a()
 	h.Write(bytes)
 	if classifierCfg != nil {
-		// Narrow projection: only the fields newTemplateRenderer and
-		// firstStopWord actually read. Hashing the whole ModelConfig
-		// would invalidate the cache on irrelevant parameter changes.
+		// Narrow projection: only the fields buildClassifier reads (renderer,
+		// stop tokens, context_size → MaxContextTokens). Hashing the whole
+		// ModelConfig would invalidate the cache on irrelevant changes;
+		// omitting context_size would let a reload leave a stale token budget.
 		h.Write([]byte{0}) // separator so empty fields don't collide
 		h.Write([]byte(classifierCfg.TemplateConfig.Chat))
 		h.Write([]byte{0})
@@ -273,6 +280,10 @@ func routerConfigFingerprint(rc config.RouterConfig, classifierCfg *config.Model
 		for _, sw := range classifierCfg.StopWords {
 			h.Write([]byte(sw))
 			h.Write([]byte{0})
+		}
+		h.Write([]byte{0})
+		if classifierCfg.ContextSize != nil {
+			h.Write([]byte(strconv.Itoa(*classifierCfg.ContextSize)))
 		}
 	}
 	return h.Sum64()
@@ -319,10 +330,29 @@ func buildClassifier(cfg *config.ModelConfig, deps ClassifierDeps) (router.Class
 		if deps.ModelLookup != nil {
 			if classifierCfg := deps.ModelLookup(rc.ClassifierModel); classifierCfg != nil {
 				if deps.Evaluator != nil {
-					opts.PromptRenderer = newTemplateRenderer(deps.Evaluator, classifierCfg)
+					// The router renders the scoring prompt client-side, so the
+					// classifier model MUST carry a chat template — refusing
+					// here beats silently falling back to a generic ChatML
+					// envelope the model may not have been trained on.
+					renderer := newTemplateRenderer(deps.Evaluator, classifierCfg)
+					if renderer == nil {
+						return nil, fmt.Errorf(
+							"router classifier score: classifier_model %q has no chat template "+
+								"(set template.chat and template.chat_message in its config). The router "+
+								"renders the scoring prompt with the classifier model's own template; "+
+								"without it the prompt format would not match the model",
+							rc.ClassifierModel)
+					}
+					opts.PromptRenderer = renderer
 				}
 				if st := pickAssistantTurnEnd(classifierCfg.StopWords, classifierCfg.TemplateConfig.ChatMessage); st != "" {
 					opts.StopToken = st
+				}
+				// Token-exact conversation trim — score classifier drops the
+				// oldest turns using the model's own tokenizer.
+				if count, ctxTokens := modelTokenTrim(rc.ClassifierModel, deps); count != nil {
+					opts.TokenCounter = count
+					opts.MaxContextTokens = ctxTokens
 				}
 			}
 		}
@@ -335,7 +365,11 @@ func buildClassifier(cfg *config.ModelConfig, deps ClassifierDeps) (router.Class
 		if reranker == nil {
 			return nil, fmt.Errorf("router classifier colbert: classifier_model %q not loadable", rc.ClassifierModel)
 		}
-		inner = router.NewRerankClassifier(policies, reranker, cacheCap, rc.ActivationThreshold)
+		rerankClassifier := router.NewRerankClassifier(policies, reranker, cacheCap, rc.ActivationThreshold)
+		if count, ctxTokens := modelTokenTrim(rc.ClassifierModel, deps); count != nil {
+			rerankClassifier = rerankClassifier.WithTokenTrim(count, ctxTokens)
+		}
+		inner = rerankClassifier
 	default:
 		return nil, fmt.Errorf("router: unknown classifier %q (supported: %s)", name, strings.Join([]string{router.ClassifierScore, router.ClassifierColbert}, ", "))
 	}
@@ -523,7 +557,41 @@ func wrapWithEmbeddingCache(cfg *config.ModelConfig, inner router.Classifier, de
 	if vstore == nil {
 		return nil, fmt.Errorf("vector store %q not loadable", storeName)
 	}
-	return router.NewEmbeddingCacheClassifier(inner, embedder, vstore, ec.SimilarityThreshold, ec.ConfidenceThreshold), nil
+	cache := router.NewEmbeddingCacheClassifier(inner, embedder, vstore, ec.SimilarityThreshold, ec.ConfidenceThreshold)
+	// Trim the probe to the embedder model's own context (e.g. nomic-embed at
+	// 8k) rather than a fixed guess — otherwise the cache key is an embedding
+	// of a silently-truncated conversation.
+	if count, ctxTokens := modelTokenTrim(ec.EmbeddingModel, deps); count != nil {
+		cache = cache.WithTokenTrim(count, ctxTokens)
+	}
+	return cache, nil
+}
+
+// modelTokenTrim returns a model's own tokenizer and the token ceiling its
+// probe must fit, or (nil, 0) when no tokenizer is available (only then can we
+// not trim exactly). The ceiling is min(effective context, effective batch):
+// score/embed/rerank all decode the whole prompt in one pass, so it must fit
+// both the context window and a single batch. Using the backend's *effective*
+// values — not the raw config fields — means trimming still works when
+// context_size and batch are unset; otherwise a non-trivial prompt overflows
+// the default window and every classification fails.
+func modelTokenTrim(modelName string, deps ClassifierDeps) (func(string) (int, error), int) {
+	if deps.TokenCounter == nil || deps.ModelLookup == nil {
+		return nil, 0
+	}
+	cfg := deps.ModelLookup(modelName)
+	if cfg == nil {
+		return nil, 0
+	}
+	count := deps.TokenCounter(modelName)
+	if count == nil {
+		return nil, 0
+	}
+	ceiling := backend.EffectiveContextSize(*cfg)
+	if b := backend.EffectiveBatchSize(*cfg); b < ceiling {
+		ceiling = b
+	}
+	return count, ceiling
 }
 
 func newDecisionID() string {
@@ -545,6 +613,41 @@ func OpenAIProbe(parsed any) (router.Probe, bool) {
 	return OpenAIProbeFromRequest(req), true
 }
 
+// messageText flattens a chat message's Content to plain text: string content
+// verbatim; []any structured content contributes only its "text" blocks.
+func messageText(content any) string {
+	switch ct := content.(type) {
+	case string:
+		return ct
+	case []any:
+		var b strings.Builder
+		for _, block := range ct {
+			if bm, ok := block.(map[string]any); ok && bm["type"] == "text" {
+				if t, ok := bm["text"].(string); ok {
+					if b.Len() > 0 {
+						b.WriteByte('\n')
+					}
+					b.WriteString(t)
+				}
+			}
+		}
+		return b.String()
+	}
+	return ""
+}
+
+// messageProbeParts drops empty (e.g. image-only) messages so they don't
+// consume budget or emit blank lines.
+func messageProbeParts(texts []string) []string {
+	parts := make([]string, 0, len(texts))
+	for _, t := range texts {
+		if t != "" {
+			parts = append(parts, t)
+		}
+	}
+	return parts
+}
+
 // OpenAIProbeFromRequest is the typed counterpart of OpenAIProbe — same
 // extraction logic, but takes the request struct directly. Realtime and
 // other non-HTTP callers use it to feed a probe to router.Resolve
@@ -553,24 +656,15 @@ func OpenAIProbeFromRequest(req *schema.OpenAIRequest) router.Probe {
 	if req == nil {
 		return router.Probe{}
 	}
-	var b strings.Builder
+	texts := make([]string, len(req.Messages))
 	for i := range req.Messages {
-		switch ct := req.Messages[i].Content.(type) {
-		case string:
-			b.WriteString(ct)
-			b.WriteByte('\n')
-		case []any:
-			for _, block := range ct {
-				if bm, ok := block.(map[string]any); ok && bm["type"] == "text" {
-					if t, ok := bm["text"].(string); ok {
-						b.WriteString(t)
-						b.WriteByte('\n')
-					}
-				}
-			}
-		}
+		texts[i] = messageText(req.Messages[i].Content)
 	}
-	return router.Probe{Prompt: b.String()}
+	parts := messageProbeParts(texts)
+	// Prompt carries the full conversation; each classifier trims it to its own
+	// model's context (see modelTokenTrim). Messages preserves the per-turn
+	// split the trimmer drops oldest-first.
+	return router.Probe{Prompt: router.JoinTurns(parts), Messages: parts}
 }
 
 // AnthropicProbe is the AnthropicRequest analogue of OpenAIProbe.
@@ -579,25 +673,10 @@ func AnthropicProbe(parsed any) (router.Probe, bool) {
 	if !ok || req == nil {
 		return router.Probe{}, false
 	}
-	var b strings.Builder
+	texts := make([]string, len(req.Messages))
 	for i := range req.Messages {
-		switch ct := req.Messages[i].Content.(type) {
-		case string:
-			b.WriteString(ct)
-			b.WriteByte('\n')
-		case []any:
-			for _, block := range ct {
-				if bm, ok := block.(map[string]any); ok && bm["type"] == "text" {
-					if t, ok := bm["text"].(string); ok {
-						b.WriteString(t)
-						b.WriteByte('\n')
-					}
-				}
-			}
-		}
+		texts[i] = messageText(req.Messages[i].Content)
 	}
-	return router.Probe{
-		Prompt: b.String(),
-	}, true
+	parts := messageProbeParts(texts)
+	return router.Probe{Prompt: router.JoinTurns(parts), Messages: parts}, true
 }
-

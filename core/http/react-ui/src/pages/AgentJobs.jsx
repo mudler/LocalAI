@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
-import { useNavigate, useOutletContext } from 'react-router-dom'
+import { useNavigate, useOutletContext, useLocation } from 'react-router-dom'
 import { agentJobsApi, modelsApi } from '../utils/api'
+import { fromState } from '../utils/editorNav'
 import { useModels } from '../hooks/useModels'
 import { useAuth } from '../context/AuthContext'
 import { useUserMap } from '../hooks/useUserMap'
@@ -13,6 +14,7 @@ import ConfirmDialog from '../components/ConfirmDialog'
 export default function AgentJobs() {
   const { addToast } = useOutletContext()
   const navigate = useNavigate()
+  const location = useLocation()
   const { models } = useModels()
   const { isAdmin, authEnabled, user } = useAuth()
   const userMap = useUserMap()
@@ -338,7 +340,7 @@ export default function AgentJobs() {
                       </td>
                       <td>
                         {task.model ? (
-                          <a onClick={() => navigate(`/app/model-editor/${encodeURIComponent(task.model)}`)} style={{ cursor: 'pointer', color: 'var(--color-primary)', fontSize: '0.8125rem' }}>
+                          <a onClick={() => navigate(`/app/model-editor/${encodeURIComponent(task.model)}`, { state: fromState(location, 'Agent Jobs') })} style={{ cursor: 'pointer', color: 'var(--color-primary)', fontSize: '0.8125rem' }}>
                             {task.model}
                           </a>
                         ) : '-'}

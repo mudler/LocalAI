@@ -88,9 +88,23 @@ func getSeed(c config.ModelConfig) int32 {
 }
 
 func grpcModelOpts(c config.ModelConfig, modelPath string) *pb.ModelOptions {
+	// Resolve context size first — the backend defaults to 4096 when unset,
+	// and batch sizing below has to match that effective value or the
+	// FLAG_SCORE guard misses the n_batch < n_ctx GGML_ASSERT crash.
+	ctxSize := 4096
+	if c.ContextSize != nil {
+		ctxSize = *c.ContextSize
+	}
+
 	b := 512
 	if c.Batch != 0 {
 		b = c.Batch
+	} else if c.HasUsecases(config.FLAG_SCORE) && ctxSize > b {
+		// Score models decode prompt+candidate in one llama_decode which
+		// asserts n_tokens <= n_batch and aborts on failure. Sizing the
+		// batch to n_ctx means anything that fits the context fits one
+		// decode. Explicit `batch:` in the config still wins.
+		b = ctxSize
 	}
 
 	flashAttention := "auto"
@@ -132,11 +146,6 @@ func grpcModelOpts(c config.ModelConfig, modelPath string) *pb.ModelOptions {
 			mmap = false
 			xlog.Info("Auto-disabling mmap for Intel SYCL backend", "backend", c.Backend)
 		}
-	}
-
-	ctxSize := 4096
-	if c.ContextSize != nil {
-		ctxSize = *c.ContextSize
 	}
 
 	mmlock := false

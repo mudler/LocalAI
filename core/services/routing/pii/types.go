@@ -11,13 +11,14 @@
 // drops in without changing call sites.
 //
 // Configuration model: each pattern has an Action (block | mask |
-// route_local). Actions are evaluated in this order:
+// allow). Actions are evaluated in this order:
 //   - block: short-circuits the request with an error (the middleware
 //     returns 400 to the client).
 //   - mask: replaces the matched span with ReplacementFor(pattern).
-//   - route_local: leaves the text alone but sets a context flag the
-//     router (subsystem 2) treats as "this request must stay on a local
-//     model" — never crosses the boundary to a cloud proxy backend.
+//   - allow: detect-and-log only — the span is left intact and a
+//     PIIEvent is still recorded, but the text passes through
+//     unchanged. Useful to downgrade a pattern's default while keeping
+//     it visible in the audit log.
 package pii
 
 import "time"
@@ -36,11 +37,13 @@ const (
 	// the matched value).
 	ActionBlock Action = "block"
 
-	// ActionRouteLocal leaves the text intact but flags the request so
-	// the content router will refuse to dispatch it to a cloud proxy
-	// backend. Useful when a deployment trusts local models with
-	// sensitive data but not external providers.
-	ActionRouteLocal Action = "route_local"
+	// ActionAllow detects and logs the match but leaves the text
+	// intact — no masking, no blocking. A PIIEvent is still recorded,
+	// so the detection is auditable and forms the basis for surfacing
+	// detected-PII labels to the router (a future router-model
+	// feature). Use it to downgrade a pattern's default action for a
+	// model while keeping the pattern visible.
+	ActionAllow Action = "allow"
 )
 
 // Direction tags whether a PIIEvent fired on input (request body before
@@ -74,14 +77,15 @@ type Span struct {
 // the call site must enforce this by returning a 400 / refusing to
 // dispatch.
 //
-// LocalOnly is true iff at least one matched pattern had
-// Action=route_local. The router middleware reads this and constrains
-// candidate selection.
+// Masked is true iff at least one matched span was replaced with a
+// placeholder (Action=mask). Spans with Action=allow are recorded but
+// leave Masked false. Lets callers (e.g. the decision oracle)
+// distinguish "matched and redacted" from "matched but passed through".
 type Result struct {
-	Redacted  string
-	Spans     []Span
-	Blocked   bool
-	LocalOnly bool
+	Redacted string
+	Spans    []Span
+	Blocked  bool
+	Masked   bool
 }
 
 // Pattern is one configurable rule. Description is shown in the admin

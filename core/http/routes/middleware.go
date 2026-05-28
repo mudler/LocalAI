@@ -135,13 +135,14 @@ func RegisterMiddlewareRoutes(e *echo.Echo, app *application.Application) {
 		app.ModelConfigLoader(),
 		app.ApplicationConfig(),
 		middleware.ClassifierDeps{
-			Scorer:      app.Scorer,
-			Embedder:    app.Embedder,
-			VectorStore: app.VectorStore,
-			Reranker:    app.Reranker,
-			ModelLookup: app.ModelConfigLookup(),
-			Registry:    app.RouterClassifierRegistry(),
-			Evaluator:   app.TemplatesEvaluator(),
+			Scorer:       app.Scorer,
+			TokenCounter: app.TokenCounter,
+			Embedder:     app.Embedder,
+			VectorStore:  app.VectorStore,
+			Reranker:     app.Reranker,
+			ModelLookup:  app.ModelConfigLookup(),
+			Registry:     app.RouterClassifierRegistry(),
+			Evaluator:    app.TemplatesEvaluator(),
 		},
 	)
 	e.POST("/api/router/decide", func(c echo.Context) error {
@@ -220,8 +221,8 @@ func buildRouterStatus(app *application.Application) map[string]any {
 	}
 
 	out := map[string]any{
-		"configured":          hasAny,
-		"models":              models,
+		"configured":            hasAny,
+		"models":                models,
 		"recent_decision_count": recentCount,
 		"available_classifiers": []string{router.ClassifierScore},
 	}

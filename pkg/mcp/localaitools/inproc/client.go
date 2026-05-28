@@ -823,9 +823,9 @@ func (c *Client) TestPIIRedaction(_ context.Context, req localaitools.PIIRedactT
 	}
 	res := c.PIIRedactor.Redact(req.Text)
 	out := &localaitools.PIIRedactTestResult{
-		Redacted:  res.Redacted,
-		Blocked:   res.Blocked,
-		LocalOnly: res.LocalOnly,
+		Redacted: res.Redacted,
+		Blocked:  res.Blocked,
+		Masked:   res.Masked,
 	}
 	for _, s := range res.Spans {
 		out.Spans = append(out.Spans, localaitools.PIIEventSpan{
