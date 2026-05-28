@@ -111,7 +111,11 @@ func (e *Evaluator) TemplateMessages(input schema.OpenAIRequest, messages []sche
 			}
 		}
 		r := config.Roles[role]
-		contentExists := i.Content != nil && i.StringContent != ""
+		// Treat StringContent as the source of truth — every downstream fallback branch in this
+		// function reads StringContent, not Content. Gating on both with && silently drops
+		// messages that have StringContent set but Content nil (e.g. /v1/responses string-input
+		// before mudler/LocalAI#10039 fix).
+		contentExists := i.StringContent != ""
 
 		fcall := i.FunctionCall
 		if len(i.ToolCalls) > 0 {
