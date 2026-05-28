@@ -573,8 +573,12 @@ static void params_parse(server_context& /*ctx_server*/, const backend::ModelOpt
     // checkpoint_min_step: minimum spacing between context checkpoints in
     // tokens (0 disables the minimum). Match upstream's default (256). This
     // field was renamed from `checkpoint_every_nt` in llama.cpp; the semantics
-    // also shifted from a fixed cadence to a minimum spacing.
+    // also shifted from a fixed cadence to a minimum spacing. The turboquant
+    // fork branched before the field existed, so skip it on the legacy path
+    // (LOCALAI_LEGACY_LLAMA_CPP_SPEC is injected by patch-grpc-server.sh).
+#ifndef LOCALAI_LEGACY_LLAMA_CPP_SPEC
     params.checkpoint_min_step = 256;
+#endif
 
      // decode options. Options are in form optname:optvale, or if booleans only optname.
     for (int i = 0; i < request->options_size(); i++) {
@@ -748,11 +752,18 @@ static void params_parse(server_context& /*ctx_server*/, const backend::ModelOpt
                 params.cache_idle_slots = false;
             }
 
+#ifndef LOCALAI_LEGACY_LLAMA_CPP_SPEC
         // --- minimum context-checkpoint spacing (upstream -cms / --checkpoint-min-step) ---
         // 0 disables the minimum-spacing gate. Old option names (`checkpoint_every_nt`,
         // `checkpoint_every_n_tokens`) are kept as aliases for backward compatibility
         // with existing user configs: upstream renamed the field and shifted its
         // semantics from a fixed cadence to a minimum spacing.
+        //
+        // Gated out for the turboquant fork, which lacks common_params::
+        // checkpoint_min_step. The leading `}` closing the cache_idle_slots
+        // branch is removed with this block; the next `} else if` (n_ubatch)
+        // then closes cache_idle_slots, so braces stay balanced under both
+        // preprocessor branches.
         } else if (!strcmp(optname, "checkpoint_min_step") || !strcmp(optname, "checkpoint_min_spacing") ||
                    !strcmp(optname, "checkpoint_every_nt") || !strcmp(optname, "checkpoint_every_n_tokens")) {
             if (optval != NULL) {
@@ -762,6 +773,7 @@ static void params_parse(server_context& /*ctx_server*/, const backend::ModelOpt
                     // If conversion fails, keep default value (256)
                 }
             }
+#endif
 
         // --- physical batch size (upstream -ub / --ubatch-size) ---
         // Note: line ~482 already aliases n_ubatch to n_batch as a default; this
@@ -1165,9 +1177,15 @@ static void params_parse(server_context& /*ctx_server*/, const backend::ModelOpt
             params.tensor_buft_overrides.push_back({nullptr, nullptr});
         }
     }
+    // The draft tensor_buft_overrides are only populated under the modern
+    // (post-#22838) layout, whose population code is itself gated by
+    // LOCALAI_LEGACY_LLAMA_CPP_SPEC above. The turboquant fork lacks
+    // common_params_speculative::draft entirely, so skip the sentinel there too.
+#ifndef LOCALAI_LEGACY_LLAMA_CPP_SPEC
     if (!params.speculative.draft.tensor_buft_overrides.empty()) {
         params.speculative.draft.tensor_buft_overrides.push_back({nullptr, nullptr});
     }
+#endif
 
     // TODO: Add yarn
 
