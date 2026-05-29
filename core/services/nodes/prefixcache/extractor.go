@@ -32,18 +32,25 @@ func ExtractChain(model, prompt string, cfg Config) []uint64 {
 	}
 	data := []byte(prompt)
 	nBlocks := (len(data) + cfg.WindowBytes - 1) / cfg.WindowBytes
+	depth := min(nBlocks, cfg.MaxDepth)
 	salt := xxhash.Sum64String(model)
-	var chain []uint64
+	// One Digest reused across blocks: Reset() restores the seed-0 initial
+	// state, so Reset()+Write produces the byte-identical value to a fresh
+	// New()+Write. xxhash seed 0 is stateless, so output is unchanged while we
+	// avoid allocating a Digest per block. The output determinism across
+	// processes (peers exchange these hashes over NATS) is preserved.
+	h := xxhash.New()
+	chain := make([]uint64, 0, depth)
 	prev := salt
-	for i := range min(nBlocks, cfg.MaxDepth) {
+	var pb [8]byte
+	for i := range depth {
 		off := i * cfg.WindowBytes
 		end := min(off+cfg.WindowBytes, len(data))
-		d := xxhash.New()
-		var pb [8]byte
+		h.Reset()
 		binary.LittleEndian.PutUint64(pb[:], prev)
-		_, _ = d.Write(pb[:])
-		_, _ = d.Write(data[off:end])
-		prev = d.Sum64()
+		_, _ = h.Write(pb[:])
+		_, _ = h.Write(data[off:end])
+		prev = h.Sum64()
 		chain = append(chain, prev)
 	}
 	return chain
