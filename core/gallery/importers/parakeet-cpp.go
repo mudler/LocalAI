@@ -15,7 +15,7 @@ import (
 
 var _ Importer = &ParakeetCppImporter{}
 
-// ParakeetCppImporter recognises parakeet.cpp GGUF weights — the C++/ggml port
+// ParakeetCppImporter recognises parakeet.cpp GGUF weights, the C++/ggml port
 // of NVIDIA NeMo Parakeet. The signal is narrow on purpose: parakeet.cpp names
 // its weights "<arch>-<size>-<quant>.gguf" (e.g. tdt_ctc-110m-f16.gguf,
 // rnnt-0.6b-q4_k.gguf, realtime_eou_120m-v1-q8_0.gguf), so we only match a
@@ -111,7 +111,7 @@ func (i *ParakeetCppImporter) Import(details Details) (gallery.ModelConfig, erro
 	switch {
 	case uri.LooksLikeURL() && directGGUF:
 		// Direct file URL (e.g. .../resolve/main/tdt_ctc-110m-f16.gguf). The
-		// exact file is known — no quant pick.
+		// exact file is known, no quant pick.
 		fileName, err := uri.FilenameFromUrl()
 		if err != nil {
 			return gallery.ModelConfig{}, err

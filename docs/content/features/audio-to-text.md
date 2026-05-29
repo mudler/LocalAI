@@ -160,7 +160,7 @@ curl http://localhost:8080/v1/audio/transcriptions \
 
 ## Using the parakeet-cpp backend
 
-[parakeet.cpp](https://github.com/mudler/parakeet.cpp) is a C++/ggml port of NVIDIA NeMo Parakeet that matches the upstream PyTorch models on CPU. GGUF weights for every model × quant are published in a single repo, [`mudler/parakeet-cpp-gguf`](https://huggingface.co/mudler/parakeet-cpp-gguf) — F16 is the recommended default; Q4_K stays near-lossless on the small models. The easiest path is to import directly (the GGUFs auto-detect to this backend):
+[parakeet.cpp](https://github.com/mudler/parakeet.cpp) is a C++/ggml port of NVIDIA NeMo Parakeet that matches the upstream PyTorch models on CPU. GGUF weights for every model and quant are published in a single repo, [`mudler/parakeet-cpp-gguf`](https://huggingface.co/mudler/parakeet-cpp-gguf). F16 is the recommended default, and Q4_K stays near-lossless on the small models. The easiest path is to import directly (the GGUFs auto-detect to this backend):
 
 ```bash
 local-ai models import https://huggingface.co/mudler/parakeet-cpp-gguf/resolve/main/tdt_ctc-110m-f16.gguf
@@ -185,7 +185,7 @@ curl http://localhost:8080/v1/audio/transcriptions \
   -F "timestamp_granularities[]=word"
 ```
 
-For real-time use, load a cache-aware streaming model (e.g. `realtime_eou_120m-v1-*.gguf`) and pass `-F stream=true` — deltas are emitted as the audio is decoded, with end-of-utterance events closing each segment.
+For real-time use, load a cache-aware streaming model (e.g. `realtime_eou_120m-v1-*.gguf`) and pass `-F stream=true`. Deltas are emitted as the audio is decoded, with end-of-utterance events closing each segment.
 
 ## See also
 

@@ -23,7 +23,7 @@ import (
 // is enough to spot drift.
 //
 // Functions that return char* are declared as uintptr so we can call
-// parakeet_capi_free_string on the same pointer after copying — the
+// parakeet_capi_free_string on the same pointer after copying, the
 // C-API contract is "caller owns and must free the returned buffer".
 var (
 	CppAbiVersion         func() int32
@@ -46,7 +46,7 @@ var (
 // streamChunkSamples is how much 16 kHz mono PCM we hand to stream_feed per
 // call (1 s). The session buffers internally and decodes once a full
 // cache-aware encoder chunk is available, so this only bounds how often we
-// poll for newly-finalized text — not the model's actual chunk size.
+// poll for newly-finalized text, not the model's actual chunk size.
 const streamChunkSamples = 16000
 
 // transcriptJSON mirrors the document returned by
@@ -197,7 +197,7 @@ func wordsRequested(granularities []string) bool {
 }
 
 // secondsToNanos converts the C-API's fractional-second timestamps into the
-// int64 nanoseconds LocalAI carries on TranscriptSegment/TranscriptWord — the
+// int64 nanoseconds LocalAI carries on TranscriptSegment/TranscriptWord, the
 // same nanosecond convention the whisper backend uses.
 func secondsToNanos(sec float64) int64 {
 	return int64(sec * 1e9)
@@ -370,7 +370,7 @@ func (p *ParakeetCpp) Free() error {
 // check, which can't distinguish a C-owned heap pointer from Go-managed
 // memory. It is safe here: the pointer addresses a malloc'd C buffer the
 // Go GC neither tracks nor moves, and we dereference it immediately to
-// copy the bytes out — the same pattern (and the same tolerated warning)
+// copy the bytes out, the same pattern (and the same tolerated warning)
 // as the whisper backend's unsafe.Slice over segsPtr.
 func goStringFromCPtr(cptr uintptr) string {
 	if cptr == 0 {
