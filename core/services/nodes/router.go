@@ -259,12 +259,19 @@ func (r *SmartRouter) Route(ctx context.Context, modelID, modelName, backendType
 		trackingKey = modelName
 	}
 
+	// Fetch the model's scheduling config once: it is immutable for the life of
+	// this request, and resolveSelectorCandidates, buildPreference, and
+	// nodeMatchesScheduling all read it. Fetching once gives a consistent
+	// snapshot and avoids three DB round-trips for one row. nil sched means
+	// "no scheduling constraints", same as before.
+	sched, _ := r.registry.GetModelScheduling(ctx, trackingKey)
+
 	// Resolve the model's NodeSelector once so cached-replica lookup and the
 	// new-load scheduler agree on the candidate set. Without this, a cached
 	// replica on a node the selector now excludes was picked over a matching
 	// replica elsewhere, and the fall-through then tried to load on the
 	// matching node where the model was already at capacity (eviction-busy).
-	candidateNodeIDs, err := r.resolveSelectorCandidates(ctx, trackingKey)
+	candidateNodeIDs, err := r.resolveSelectorCandidates(ctx, trackingKey, sched)
 	if err != nil {
 		return nil, err
 	}
@@ -273,7 +280,7 @@ func (r *SmartRouter) Route(ctx context.Context, modelID, modelName, backendType
 	// FindAndLockNodeWithModel toward the warm-cache node; observeChain is
 	// non-nil only when this model uses prefix_cache, gating the Observe calls
 	// below. Both are nil (no-op) when prefix-cache routing is disabled.
-	pref, observeChain := r.buildPreference(ctx, trackingKey, candidateNodeIDs)
+	pref, observeChain := r.buildPreference(ctx, trackingKey, candidateNodeIDs, sched)
 
 	// Step 1: Find and atomically lock a node with this model loaded
 	node, nm, err := r.registry.FindAndLockNodeWithModel(ctx, trackingKey, candidateNodeIDs, pref)
@@ -296,7 +303,7 @@ func (r *SmartRouter) Route(ctx context.Context, modelID, modelName, backendType
 				"node", node.Name, "model", modelName, "replica", replicaIdx)
 		} else {
 			// Verify node still matches scheduling constraints
-			if !r.nodeMatchesScheduling(ctx, node, trackingKey) {
+			if !r.nodeMatchesScheduling(ctx, node, sched) {
 				r.registry.DecrementInFlight(ctx, node.ID, trackingKey, replicaIdx)
 				xlog.Info("Cached model on node that no longer matches selector, falling through",
 					"node", node.Name, "model", trackingKey, "replica", replicaIdx)
@@ -347,7 +354,7 @@ func (r *SmartRouter) Route(ctx context.Context, modelID, modelName, backendType
 					"node", node.Name, "model", modelName, "replica", replicaIdx)
 			} else {
 				// Verify node still matches scheduling constraints
-				if !r.nodeMatchesScheduling(ctx, node, trackingKey) {
+				if !r.nodeMatchesScheduling(ctx, node, sched) {
 					r.registry.DecrementInFlight(ctx, node.ID, trackingKey, replicaIdx)
 					xlog.Info("Cached model on node that no longer matches selector, falling through",
 						"node", node.Name, "model", trackingKey, "replica", replicaIdx)
@@ -446,7 +453,7 @@ func extractNodeIDs(nodes []BackendNode) []string {
 // When prefix-cache routing is disabled (nil provider), no chain is present,
 // or the policy resolves to round-robin, both returns are nil and routing is
 // the unchanged round-robin floor.
-func (r *SmartRouter) buildPreference(ctx context.Context, modelID string, candidateNodeIDs []string) (*RoutePreference, []uint64) {
+func (r *SmartRouter) buildPreference(ctx context.Context, modelID string, candidateNodeIDs []string, sched *ModelSchedulingConfig) (*RoutePreference, []uint64) {
 	if r.prefixProvider == nil {
 		return nil, nil
 	}
@@ -458,7 +465,7 @@ func (r *SmartRouter) buildPreference(ctx context.Context, modelID string, candi
 	// Resolve per-model policy + thresholds over the global config.
 	policy := r.prefixConfig.GlobalPolicy
 	cfg := r.prefixConfig
-	if sched, _ := r.registry.GetModelScheduling(ctx, modelID); sched != nil {
+	if sched != nil {
 		policy = prefixcache.ParsePolicy(sched.RoutePolicy).Resolve(r.prefixConfig.GlobalPolicy)
 		if sched.BalanceAbsThreshold > 0 {
 			cfg.BalanceAbsThreshold = sched.BalanceAbsThreshold
@@ -533,8 +540,7 @@ func (r *SmartRouter) observePrefix(modelID string, chain []uint64, nodeID strin
 // — registry helpers treat nil as no filter). Returns an error when a
 // non-empty selector matches zero healthy nodes, since there is nothing to
 // route or schedule on.
-func (r *SmartRouter) resolveSelectorCandidates(ctx context.Context, modelID string) ([]string, error) {
-	sched, _ := r.registry.GetModelScheduling(ctx, modelID)
+func (r *SmartRouter) resolveSelectorCandidates(ctx context.Context, modelID string, sched *ModelSchedulingConfig) ([]string, error) {
 	if sched == nil || sched.NodeSelector == "" {
 		return nil, nil
 	}
@@ -608,9 +614,8 @@ func (r *SmartRouter) narrowByGroupAntiAffinity(ctx context.Context, modelID str
 
 // nodeMatchesScheduling checks if a node satisfies the scheduling constraints for a model.
 // Returns true if no constraints exist or the node matches all selector labels.
-func (r *SmartRouter) nodeMatchesScheduling(ctx context.Context, node *BackendNode, modelName string) bool {
-	sched, err := r.registry.GetModelScheduling(ctx, modelName)
-	if err != nil || sched == nil || sched.NodeSelector == "" {
+func (r *SmartRouter) nodeMatchesScheduling(ctx context.Context, node *BackendNode, sched *ModelSchedulingConfig) bool {
+	if sched == nil || sched.NodeSelector == "" {
 		return true // no constraints
 	}
 
@@ -657,7 +662,8 @@ func (r *SmartRouter) scheduleNewModel(ctx context.Context, backendType, modelID
 	// Check for scheduling constraints (node selector). If a selector is set,
 	// we restrict the candidate pool to matching nodes; otherwise nil means
 	// "any healthy node".
-	candidateNodeIDs, err := r.resolveSelectorCandidates(ctx, modelID)
+	sched, _ := r.registry.GetModelScheduling(ctx, modelID)
+	candidateNodeIDs, err := r.resolveSelectorCandidates(ctx, modelID, sched)
 	if err != nil {
 		return nil, "", 0, err
 	}
