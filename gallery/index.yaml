@@ -29903,6 +29903,68 @@
     - filename: localvqe-v1.1-1.3M-f32.gguf
       sha256: c118227c6b433d6aa36d9e4b993e0f31aa60787ea38d301d04db917a4a2b0a84
       uri: huggingface://LocalAI-io/LocalVQE/localvqe-v1.1-1.3M-f32.gguf
+- name: localvqe-v1.2-1.3m
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://github.com/localai-org/LocalVQE
+    - https://huggingface.co/LocalAI-io/LocalVQE
+  description: |
+    LocalVQE v1.2 (1.3 M parameters, F32) — compact joint acoustic echo
+    cancellation, noise suppression, and dereverberation for 16 kHz mono
+    speech. Shares the same DeepVQE-style architecture (arch_version 3) as
+    v1.3 but with narrower encoder/decoder widths, so it runs at ~9.7×
+    realtime (~1.6 ms per 16 ms frame on a 4-thread Zen4 CPU) — about ¼ the
+    per-hop cost of v1.3. Widens the echo-search window to 1024 ms (v1.1 used
+    512 ms). ~5 MB on disk. The budget-friendly choice for low-core or
+    power-constrained devices.
+  license: apache-2.0
+  icon: https://avatars.githubusercontent.com/u/260893928
+  tags:
+    - audio-transform
+    - aec
+    - acoustic-echo-cancellation
+    - noise-suppression
+    - dereverberation
+    - cpu
+  overrides:
+    backend: localvqe
+    parameters:
+      model: localvqe-v1.2-1.3M-f32.gguf
+  files:
+    - filename: localvqe-v1.2-1.3M-f32.gguf
+      sha256: 4856ecf5f522b23fb2bc5caeac81f323c0ef1c4c156a9c7d40a6adbe092ba9ce
+      uri: huggingface://LocalAI-io/LocalVQE/localvqe-v1.2-1.3M-f32.gguf
+- name: localvqe-v1.3-4.8m
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://github.com/localai-org/LocalVQE
+    - https://huggingface.co/LocalAI-io/LocalVQE
+  description: |
+    LocalVQE v1.3 (4.8 M parameters, F32) — current default release. Joint
+    acoustic echo cancellation, noise suppression, and dereverberation for
+    16 kHz mono speech, with a wider encoder/decoder trained from scratch
+    under a noise-floor-aware loss recipe. ~4.7× realtime (~3.3 ms per 16 ms
+    frame on a 4-thread Zen4 CPU); ~19 MB on disk. Improves doubletalk speech
+    quality (+0.25 deg MOS) and far-end echo cancellation (ERLE +5.2–9.3 dB)
+    over v1.2; on far-end-only scenes some users may still prefer v1.2's
+    gentler trade-off. Same 16 ms algorithmic latency as the compact models.
+  license: apache-2.0
+  icon: https://avatars.githubusercontent.com/u/260893928
+  tags:
+    - audio-transform
+    - aec
+    - acoustic-echo-cancellation
+    - noise-suppression
+    - dereverberation
+    - cpu
+  overrides:
+    backend: localvqe
+    parameters:
+      model: localvqe-v1.3-4.8M-f32.gguf
+  files:
+    - filename: localvqe-v1.3-4.8M-f32.gguf
+      sha256: c4f7912485c32cfc206c536f2f050b52513f2f613fdbc616391f6b26ab1d51ec
+      uri: huggingface://LocalAI-io/LocalVQE/localvqe-v1.3-4.8M-f32.gguf
 - name: tlacuilo-12b
   url: github:mudler/LocalAI/gallery/mistral-0.3.yaml@master
   urls:
