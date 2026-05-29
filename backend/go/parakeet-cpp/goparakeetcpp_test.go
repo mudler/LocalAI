@@ -43,6 +43,10 @@ func ensureLibLoaded() {
 		purego.RegisterLibFunc(&CppFree, lib, "parakeet_capi_free")
 		purego.RegisterLibFunc(&CppTranscribePath, lib, "parakeet_capi_transcribe_path")
 		purego.RegisterLibFunc(&CppTranscribePathJSON, lib, "parakeet_capi_transcribe_path_json")
+		purego.RegisterLibFunc(&CppStreamBegin, lib, "parakeet_capi_stream_begin")
+		purego.RegisterLibFunc(&CppStreamFeed, lib, "parakeet_capi_stream_feed")
+		purego.RegisterLibFunc(&CppStreamFinalize, lib, "parakeet_capi_stream_finalize")
+		purego.RegisterLibFunc(&CppStreamFree, lib, "parakeet_capi_stream_free")
 		purego.RegisterLibFunc(&CppFreeString, lib, "parakeet_capi_free_string")
 		purego.RegisterLibFunc(&CppLastError, lib, "parakeet_capi_last_error")
 	})
@@ -110,6 +114,51 @@ var _ = Describe("ParakeetCpp", func() {
 			Expect(seg.End).To(BeNumerically(">=", seg.Start))
 			Expect(seg.Words[len(seg.Words)-1].End).To(Equal(seg.End),
 				"segment end tracks the last word")
+		})
+	})
+
+	Context("AudioTranscriptionStream", func() {
+		It("streams deltas and a closing FinalResult from a cache-aware model", func() {
+			// Streaming needs a cache-aware streaming model (e.g.
+			// realtime_eou); the offline test model would fail stream_begin.
+			modelPath := os.Getenv("PARAKEET_BACKEND_TEST_STREAM_MODEL")
+			audioPath := os.Getenv("PARAKEET_BACKEND_TEST_WAV")
+			if modelPath == "" || audioPath == "" {
+				Skip("set PARAKEET_BACKEND_TEST_STREAM_MODEL (cache-aware streaming model) and PARAKEET_BACKEND_TEST_WAV")
+			}
+			ensureLibLoaded()
+
+			p := &ParakeetCpp{}
+			Expect(p.Load(&pb.ModelOptions{ModelFile: modelPath})).To(Succeed())
+			defer func() { _ = p.Free() }()
+
+			results := make(chan *pb.TranscriptStreamResponse, 64)
+			errCh := make(chan error, 1)
+			go func() {
+				errCh <- p.AudioTranscriptionStream(context.Background(),
+					&pb.TranscriptRequest{Dst: audioPath}, results)
+			}()
+
+			var deltas []string
+			var final *pb.TranscriptResult
+			for r := range results {
+				if r.Delta != "" {
+					deltas = append(deltas, r.Delta)
+				}
+				if r.FinalResult != nil {
+					final = r.FinalResult
+				}
+			}
+			Expect(<-errCh).ToNot(HaveOccurred())
+
+			Expect(final).ToNot(BeNil(), "expected a closing FinalResult")
+			Expect(strings.TrimSpace(final.Text)).ToNot(BeEmpty(),
+				"expected a non-empty streamed transcript")
+			Expect(final.Segments).ToNot(BeEmpty(),
+				"FinalResult always carries at least one segment")
+			// The concatenated deltas reconstruct the final transcript.
+			Expect(strings.TrimSpace(strings.Join(deltas, ""))).To(Equal(strings.TrimSpace(final.Text)),
+				"deltas should reconstruct the final text")
 		})
 	})
 })

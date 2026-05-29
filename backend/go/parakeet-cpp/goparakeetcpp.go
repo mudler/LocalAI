@@ -5,11 +5,17 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"os"
+	"path/filepath"
 	"strings"
 	"unsafe"
 
+	"github.com/go-audio/wav"
 	"github.com/mudler/LocalAI/pkg/grpc/base"
 	pb "github.com/mudler/LocalAI/pkg/grpc/proto"
+	"github.com/mudler/LocalAI/pkg/utils"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 // purego-bound entry points from libparakeet.so. Names match
@@ -27,7 +33,21 @@ var (
 	CppTranscribePathJSON func(ctx uintptr, wavPath string, decoder int32) uintptr
 	CppFreeString         func(s uintptr)
 	CppLastError          func(ctx uintptr) string
+
+	// Cache-aware streaming (RNN-T) entry points. stream_begin returns 0 for
+	// non-streaming models. feed/finalize return a malloc'd char* (uintptr,
+	// freed via CppFreeString); feed writes 1 to *eouOut on an <EOU>/<EOB>.
+	CppStreamBegin    func(ctx uintptr) uintptr
+	CppStreamFeed     func(s uintptr, pcm []float32, nSamples int32, eouOut unsafe.Pointer) uintptr
+	CppStreamFinalize func(s uintptr) uintptr
+	CppStreamFree     func(s uintptr)
 )
+
+// streamChunkSamples is how much 16 kHz mono PCM we hand to stream_feed per
+// call (1 s). The session buffers internally and decodes once a full
+// cache-aware encoder chunk is available, so this only bounds how often we
+// poll for newly-finalized text — not the model's actual chunk size.
+const streamChunkSamples = 16000
 
 // transcriptJSON mirrors the document returned by
 // parakeet_capi_transcribe_path_json (see parakeet_capi.h):
@@ -183,14 +203,152 @@ func secondsToNanos(sec float64) int64 {
 	return int64(sec * 1e9)
 }
 
-// AudioTranscriptionStream is a placeholder for L0. L2 wires
-// parakeet_capi_stream_{begin,feed,finalize} into a real cache-aware
-// streaming flow with <EOU>/<EOB> events; until then the streaming gRPC
-// endpoint surfaces this error rather than silently emitting nothing
-// (the server would otherwise hang on its result channel).
-func (p *ParakeetCpp) AudioTranscriptionStream(_ context.Context, _ *pb.TranscriptRequest, results chan *pb.TranscriptStreamResponse) error {
-	close(results)
-	return errors.New("parakeet-cpp: streaming not implemented in L0")
+// AudioTranscriptionStream drives the cache-aware streaming RNN-T over the
+// audio at opts.Dst: it decodes the file to 16 kHz mono PCM, feeds it in
+// chunks to parakeet_capi_stream_feed, and emits each newly-finalized text
+// run as a TranscriptStreamResponse delta. <EOU>/<EOB> events close the
+// current segment; a closing FinalResult carries the full transcript and the
+// per-utterance segments.
+//
+// stream_begin returns 0 for models that are not cache-aware streaming models
+// (only e.g. nvidia/parakeet_realtime_eou_120m-v1 qualifies); we surface that
+// as an error rather than silently emitting nothing.
+func (p *ParakeetCpp) AudioTranscriptionStream(ctx context.Context, opts *pb.TranscriptRequest, results chan *pb.TranscriptStreamResponse) error {
+	defer close(results)
+
+	if p.ctxPtr == 0 {
+		return errors.New("parakeet-cpp: model not loaded")
+	}
+	if opts.Dst == "" {
+		return errors.New("parakeet-cpp: TranscriptRequest.dst (audio path) is required")
+	}
+	if err := ctx.Err(); err != nil {
+		return status.Error(codes.Canceled, "transcription cancelled")
+	}
+
+	data, duration, err := decodeWavMono16k(opts.Dst)
+	if err != nil {
+		return err
+	}
+
+	stream := CppStreamBegin(p.ctxPtr)
+	if stream == 0 {
+		msg := CppLastError(p.ctxPtr)
+		if msg == "" {
+			msg = "model is not a cache-aware streaming model"
+		}
+		return fmt.Errorf("parakeet-cpp: stream_begin failed: %s", msg)
+	}
+	defer CppStreamFree(stream)
+
+	var (
+		full     strings.Builder
+		segText  strings.Builder
+		segments []*pb.TranscriptSegment
+		segID    int32
+	)
+
+	flushSegment := func() {
+		t := strings.TrimSpace(segText.String())
+		segText.Reset()
+		if t == "" {
+			return
+		}
+		segments = append(segments, &pb.TranscriptSegment{Id: segID, Text: t})
+		segID++
+	}
+
+	// emitDelta consumes the malloc'd char* returned by feed/finalize: frees
+	// it, accumulates the text, and sends a delta when non-empty. A 0 return
+	// is an error (vs the "" empty-but-non-NULL no-new-text case).
+	emitDelta := func(ret uintptr) error {
+		if ret == 0 {
+			msg := CppLastError(p.ctxPtr)
+			if msg == "" {
+				msg = "unknown error"
+			}
+			return fmt.Errorf("parakeet-cpp: stream feed/finalize failed: %s", msg)
+		}
+		delta := goStringFromCPtr(ret)
+		CppFreeString(ret)
+		if delta == "" {
+			return nil
+		}
+		full.WriteString(delta)
+		segText.WriteString(delta)
+		results <- &pb.TranscriptStreamResponse{Delta: delta}
+		return nil
+	}
+
+	for off := 0; off < len(data); off += streamChunkSamples {
+		if err := ctx.Err(); err != nil {
+			return status.Error(codes.Canceled, "transcription cancelled")
+		}
+		end := min(off+streamChunkSamples, len(data))
+		chunk := data[off:end]
+
+		var eou int32
+		ret := CppStreamFeed(stream, chunk, int32(len(chunk)), unsafe.Pointer(&eou))
+		if err := emitDelta(ret); err != nil {
+			return err
+		}
+		if eou != 0 {
+			flushSegment()
+		}
+	}
+
+	// Flush the streaming tail (final encoder chunk).
+	if err := emitDelta(CppStreamFinalize(stream)); err != nil {
+		return err
+	}
+	flushSegment()
+
+	text := strings.TrimSpace(full.String())
+	if len(segments) == 0 && text != "" {
+		segments = append(segments, &pb.TranscriptSegment{Id: 0, Text: text})
+	}
+	results <- &pb.TranscriptStreamResponse{
+		FinalResult: &pb.TranscriptResult{
+			Text:     text,
+			Segments: segments,
+			Duration: duration,
+		},
+	}
+	return nil
+}
+
+// decodeWavMono16k converts any input audio to 16 kHz mono PCM and returns the
+// float samples plus the clip duration in seconds. Mirrors the whisper
+// backend: utils.AudioToWav (ffmpeg) normalises rate/channels, go-audio
+// decodes the PCM.
+func decodeWavMono16k(path string) ([]float32, float32, error) {
+	dir, err := os.MkdirTemp("", "parakeet")
+	if err != nil {
+		return nil, 0, err
+	}
+	defer func() { _ = os.RemoveAll(dir) }()
+
+	converted := filepath.Join(dir, "converted.wav")
+	if err := utils.AudioToWav(path, converted); err != nil {
+		return nil, 0, err
+	}
+
+	fh, err := os.Open(converted)
+	if err != nil {
+		return nil, 0, err
+	}
+	defer func() { _ = fh.Close() }()
+
+	buf, err := wav.NewDecoder(fh).FullPCMBuffer()
+	if err != nil {
+		return nil, 0, err
+	}
+	data := buf.AsFloat32Buffer().Data
+	var duration float32
+	if buf.Format != nil && buf.Format.SampleRate > 0 {
+		duration = float32(len(data)) / float32(buf.Format.SampleRate)
+	}
+	return data, duration, nil
 }
 
 // Free releases the underlying parakeet_ctx. Called by LocalAI when the

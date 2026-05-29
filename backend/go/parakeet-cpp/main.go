@@ -47,6 +47,10 @@ func main() {
 		{&CppFree, "parakeet_capi_free"},
 		{&CppTranscribePath, "parakeet_capi_transcribe_path"},
 		{&CppTranscribePathJSON, "parakeet_capi_transcribe_path_json"},
+		{&CppStreamBegin, "parakeet_capi_stream_begin"},
+		{&CppStreamFeed, "parakeet_capi_stream_feed"},
+		{&CppStreamFinalize, "parakeet_capi_stream_finalize"},
+		{&CppStreamFree, "parakeet_capi_stream_free"},
 		{&CppFreeString, "parakeet_capi_free_string"},
 		{&CppLastError, "parakeet_capi_last_error"},
 	}
