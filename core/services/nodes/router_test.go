@@ -1343,8 +1343,8 @@ var _ = Describe("SmartRouter prefix-cache routing", func() {
 		})
 	})
 
-	Context("invalidate on unload", func() {
-		It("invalidates the prefix entry so a hot prefix no longer decides to that node", func() {
+	Context("removal chokepoint on unload", func() {
+		It("removes the replica via the registry so the removal hook invalidates the prefix entry", func() {
 			idx := prefixcache.NewIndex(prefixcache.DefaultConfig())
 			reg := loadedReg()
 			router := NewSmartRouter(reg, SmartRouterOptions{
@@ -1360,9 +1360,16 @@ var _ = Describe("SmartRouter prefix-cache routing", func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(idx.Decide("m", []uint64{5, 6}, []string{"X"}, time.Now()).HotNodeID).To(Equal("X"))
 
-			// Unload removes the replica and must invalidate the prefix entry.
+			// UnloadModel must route the eviction through the registry removal
+			// chokepoint (RemoveAllNodeModelReplicas). The registry's
+			// SetReplicaRemovedHook is what invalidates the prefix index in
+			// production; the router no longer invalidates directly. Here the
+			// fake registry records the removal but fires no hook, so we assert
+			// the chokepoint is exercised rather than the downstream
+			// invalidation (covered by the registry hook integration tests).
 			Expect(router.UnloadModel(context.Background(), "X", "m")).To(Succeed())
-			Expect(idx.Decide("m", []uint64{5, 6}, []string{"X"}, time.Now()).HotNodeID).To(BeEmpty())
+			Expect(reg.removeCalls).To(ContainElement("X:m"),
+				"UnloadModel must remove the replica via the registry removal chokepoint")
 		})
 	})
 })

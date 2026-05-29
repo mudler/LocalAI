@@ -296,9 +296,6 @@ func (r *SmartRouter) Route(ctx context.Context, modelID, modelName, backendType
 			// Stale — roll back the increment, remove the specific replica row, fall through
 			r.registry.DecrementInFlight(ctx, node.ID, trackingKey, replicaIdx)
 			r.registry.RemoveNodeModel(ctx, node.ID, trackingKey, replicaIdx)
-			if r.prefixProvider != nil {
-				r.prefixProvider.Invalidate(trackingKey, node.ID)
-			}
 			xlog.Warn("Backend not reachable for cached model, falling through to reload",
 				"node", node.Name, "model", modelName, "replica", replicaIdx)
 		} else {
@@ -347,9 +344,6 @@ func (r *SmartRouter) Route(ctx context.Context, modelID, modelName, backendType
 				// Stale — roll back the increment, remove the specific replica row, continue loading
 				r.registry.DecrementInFlight(ctx, node.ID, trackingKey, replicaIdx)
 				r.registry.RemoveNodeModel(ctx, node.ID, trackingKey, replicaIdx)
-				if r.prefixProvider != nil {
-					r.prefixProvider.Invalidate(trackingKey, node.ID)
-				}
 				xlog.Warn("Backend not reachable for cached model inside lock, proceeding to load",
 					"node", node.Name, "model", modelName, "replica", replicaIdx)
 			} else {
@@ -1165,9 +1159,6 @@ func (r *SmartRouter) UnloadModel(ctx context.Context, nodeID, modelName string)
 		return fmt.Errorf("failed to stop backend on node %s: %w", nodeID, err)
 	}
 	r.registry.RemoveAllNodeModelReplicas(ctx, nodeID, modelName)
-	if r.prefixProvider != nil {
-		r.prefixProvider.Invalidate(modelName, nodeID)
-	}
 	return nil
 }
 
