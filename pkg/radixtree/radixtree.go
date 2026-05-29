@@ -69,3 +69,50 @@ func (t *Tree[V]) LongestMatch(key []uint64, now time.Time) (V, int, bool) {
 func (t *Tree[V]) expired(n *node[V], now time.Time) bool {
 	return t.opts.TTL > 0 && now.Sub(n.lastSeen) > t.opts.TTL
 }
+
+// Insert records value at the node for key, refreshing lastSeen along the
+// traversed path so active prefixes stay live. Re-inserting an existing key
+// overwrites the value (last writer wins) and refreshes recency.
+func (t *Tree[V]) Insert(key []uint64, value V, now time.Time) {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	cur := t.root
+	for _, k := range key {
+		next, ok := cur.children[k]
+		if !ok {
+			next = &node[V]{children: map[uint64]*node[V]{}}
+			cur.children[k] = next
+		}
+		cur = next
+		cur.lastSeen = now
+	}
+	if !cur.hasValue {
+		t.size++
+	}
+	cur.value, cur.hasValue, cur.lastSeen = value, true, now
+	if t.opts.MaxEntries > 0 && t.size > t.opts.MaxEntries {
+		t.evictOldestLocked(now)
+	}
+}
+
+// evictOldestLocked drops the single least-recently-seen value-bearing node.
+// Called with t.mu held.
+func (t *Tree[V]) evictOldestLocked(now time.Time) {
+	var victim *node[V]
+	var walk func(n *node[V])
+	walk = func(n *node[V]) {
+		if n.hasValue && (victim == nil || n.lastSeen.Before(victim.lastSeen)) {
+			victim = n
+		}
+		for _, c := range n.children {
+			walk(c)
+		}
+	}
+	walk(t.root)
+	if victim != nil {
+		victim.hasValue = false
+		var zero V
+		victim.value = zero
+		t.size--
+	}
+}

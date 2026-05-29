@@ -19,3 +19,28 @@ var _ = Describe("Tree construction", func() {
 		Expect(depth).To(Equal(0))
 	})
 })
+
+var _ = Describe("Insert and LongestMatch", func() {
+	It("returns the deepest matching prefix value", func() {
+		tr := radixtree.New[string](radixtree.Options{TTL: time.Hour})
+		tr.Insert([]uint64{1, 2}, "nodeA", t0)
+		tr.Insert([]uint64{1, 2, 3, 4}, "nodeB", t0)
+
+		v, depth, ok := tr.LongestMatch([]uint64{1, 2, 3, 4, 5}, t0)
+		Expect(ok).To(BeTrue())
+		Expect(v).To(Equal("nodeB"))
+		Expect(depth).To(Equal(4))
+
+		v, depth, ok = tr.LongestMatch([]uint64{1, 2, 9}, t0)
+		Expect(ok).To(BeTrue())
+		Expect(v).To(Equal("nodeA"))
+		Expect(depth).To(Equal(2))
+	})
+
+	It("returns ok=false when no prefix is stored", func() {
+		tr := radixtree.New[string](radixtree.Options{TTL: time.Hour})
+		tr.Insert([]uint64{7, 8}, "nodeA", t0)
+		_, _, ok := tr.LongestMatch([]uint64{1, 2}, t0)
+		Expect(ok).To(BeFalse())
+	})
+})
