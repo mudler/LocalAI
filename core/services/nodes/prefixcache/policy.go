@@ -9,9 +9,9 @@ package prefixcache
 type RoutePolicy int
 
 const (
-	RoutePolicyDefault    RoutePolicy = iota // inherit global default
-	RoutePolicyRoundRobin                    // today's behavior (the floor)
-	RoutePolicyPrefixCache                   // cache-aware routing
+	RoutePolicyDefault     RoutePolicy = iota // inherit global default
+	RoutePolicyRoundRobin                     // today's behavior (the floor)
+	RoutePolicyPrefixCache                    // cache-aware routing
 )
 
 // ParsePolicy maps a config string to a RoutePolicy. Unknown or empty strings
