@@ -19,6 +19,7 @@ import (
 	"github.com/mudler/LocalAI/core/trace"
 
 	"github.com/mudler/LocalAI/core/gallery"
+	"github.com/mudler/LocalAI/pkg/distributedhdr"
 	"github.com/mudler/LocalAI/pkg/grpc/proto"
 	model "github.com/mudler/LocalAI/pkg/model"
 	"github.com/mudler/LocalAI/pkg/utils"
@@ -93,6 +94,10 @@ func ModelInference(ctx context.Context, s string, messages schema.Messages, ima
 			}
 		}
 	}
+
+	// Make the rendered prompt's prefix chain available to the distributed router
+	// for prefix-cache-aware node selection. No-op in single-process mode.
+	ctx = distributedhdr.MaybeWithPrefixChain(ctx, c.Name, s)
 
 	opts := ModelOptions(*c, o, model.WithContext(ctx))
 	inferenceModel, err := loader.Load(opts...)
