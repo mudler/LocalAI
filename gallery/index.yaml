@@ -31513,3 +31513,283 @@
     - filename: ds4flash.gguf
       sha256: 31598c67c8b8744d3bcebcd19aa62253c6dc43cef3b8adf9f593656c9e86fd8c
       uri: huggingface://antirez/deepseek-v4-gguf/DeepSeek-V4-Flash-IQ2XXS-w2Q2K-AProjQ8-SExpQ8-OutQ8-chat-v2.gguf
+- name: parakeet-cpp-tdt_ctc-110m
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/mudler/parakeet-cpp-gguf
+    - https://github.com/mudler/parakeet.cpp
+  description: |
+    Hybrid TDT+CTC FastConformer, 110M. F16 GGUF for the parakeet-cpp backend (C++/ggml port of NVIDIA NeMo Parakeet),
+    byte-identical to NeMo at WER 0. Faster than NeMo on CPU and GPU.
+  license: cc-by-4.0
+  tags:
+    - parakeet
+    - parakeet-cpp
+    - asr
+    - speech-recognition
+    - stt
+    - gguf
+    - ggml
+  overrides:
+    backend: parakeet-cpp
+    known_usecases:
+      - transcript
+    name: parakeet-cpp-tdt_ctc-110m
+    parameters:
+      model: parakeet-cpp/tdt_ctc-110m-f16.gguf
+  files:
+    - filename: parakeet-cpp/tdt_ctc-110m-f16.gguf
+      uri: huggingface://mudler/parakeet-cpp-gguf/tdt_ctc-110m-f16.gguf
+      sha256: 7f9a6376edde6a74592ace48b2ebdc27a1ac972d0be9dfcc29e668d99381faf1
+- name: parakeet-cpp-realtime_eou_120m-v1
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/mudler/parakeet-cpp-gguf
+    - https://github.com/mudler/parakeet.cpp
+  description: |
+    Cache-aware streaming RNNT FastConformer with end-of-utterance (EOU) detection, 120M. Use with streaming transcription. F16 GGUF for the parakeet-cpp backend (C++/ggml port of NVIDIA NeMo Parakeet),
+    byte-identical to NeMo at WER 0. Faster than NeMo on CPU and GPU.
+  license: cc-by-4.0
+  tags:
+    - parakeet
+    - parakeet-cpp
+    - asr
+    - speech-recognition
+    - stt
+    - gguf
+    - ggml
+  overrides:
+    backend: parakeet-cpp
+    known_usecases:
+      - transcript
+    name: parakeet-cpp-realtime_eou_120m-v1
+    parameters:
+      model: parakeet-cpp/realtime_eou_120m-v1-f16.gguf
+  files:
+    - filename: parakeet-cpp/realtime_eou_120m-v1-f16.gguf
+      uri: huggingface://mudler/parakeet-cpp-gguf/realtime_eou_120m-v1-f16.gguf
+      sha256: d1a2b12f12b8a096a57499c9111ed13b442a2b786e17a292c168be45088f0edc
+- name: parakeet-cpp-ctc-0.6b
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/mudler/parakeet-cpp-gguf
+    - https://github.com/mudler/parakeet.cpp
+  description: |
+    CTC FastConformer, 0.6B. F16 GGUF for the parakeet-cpp backend (C++/ggml port of NVIDIA NeMo Parakeet),
+    byte-identical to NeMo at WER 0. Faster than NeMo on CPU and GPU.
+  license: cc-by-4.0
+  tags:
+    - parakeet
+    - parakeet-cpp
+    - asr
+    - speech-recognition
+    - stt
+    - gguf
+    - ggml
+  overrides:
+    backend: parakeet-cpp
+    known_usecases:
+      - transcript
+    name: parakeet-cpp-ctc-0.6b
+    parameters:
+      model: parakeet-cpp/ctc-0.6b-f16.gguf
+  files:
+    - filename: parakeet-cpp/ctc-0.6b-f16.gguf
+      uri: huggingface://mudler/parakeet-cpp-gguf/ctc-0.6b-f16.gguf
+      sha256: 97fcefa21ae78a04d9dedd5d4776535f37e14e252e9c156758a9ace0fd56bafb
+- name: parakeet-cpp-rnnt-0.6b
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/mudler/parakeet-cpp-gguf
+    - https://github.com/mudler/parakeet.cpp
+  description: |
+    RNNT FastConformer, 0.6B. F16 GGUF for the parakeet-cpp backend (C++/ggml port of NVIDIA NeMo Parakeet),
+    byte-identical to NeMo at WER 0. Faster than NeMo on CPU and GPU.
+  license: cc-by-4.0
+  tags:
+    - parakeet
+    - parakeet-cpp
+    - asr
+    - speech-recognition
+    - stt
+    - gguf
+    - ggml
+  overrides:
+    backend: parakeet-cpp
+    known_usecases:
+      - transcript
+    name: parakeet-cpp-rnnt-0.6b
+    parameters:
+      model: parakeet-cpp/rnnt-0.6b-f16.gguf
+  files:
+    - filename: parakeet-cpp/rnnt-0.6b-f16.gguf
+      uri: huggingface://mudler/parakeet-cpp-gguf/rnnt-0.6b-f16.gguf
+      sha256: 20308eb952a856b217dc52ae89f530fcef09119f4580b0068c1181a70442a8cf
+- name: parakeet-cpp-tdt-0.6b-v2
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/mudler/parakeet-cpp-gguf
+    - https://github.com/mudler/parakeet.cpp
+  description: |
+    TDT FastConformer, 0.6B (v2). F16 GGUF for the parakeet-cpp backend (C++/ggml port of NVIDIA NeMo Parakeet),
+    byte-identical to NeMo at WER 0. Faster than NeMo on CPU and GPU.
+  license: cc-by-4.0
+  tags:
+    - parakeet
+    - parakeet-cpp
+    - asr
+    - speech-recognition
+    - stt
+    - gguf
+    - ggml
+  overrides:
+    backend: parakeet-cpp
+    known_usecases:
+      - transcript
+    name: parakeet-cpp-tdt-0.6b-v2
+    parameters:
+      model: parakeet-cpp/tdt-0.6b-v2-f16.gguf
+  files:
+    - filename: parakeet-cpp/tdt-0.6b-v2-f16.gguf
+      uri: huggingface://mudler/parakeet-cpp-gguf/tdt-0.6b-v2-f16.gguf
+      sha256: f8df7f5dc7b9ceb5cd0637a81194aab5d93022ace555ce81c8969c7a694b8f3d
+- name: parakeet-cpp-tdt-0.6b-v3
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/mudler/parakeet-cpp-gguf
+    - https://github.com/mudler/parakeet.cpp
+  description: |
+    TDT FastConformer, 0.6B (v3, multilingual). F16 GGUF for the parakeet-cpp backend (C++/ggml port of NVIDIA NeMo Parakeet),
+    byte-identical to NeMo at WER 0. Faster than NeMo on CPU and GPU.
+  license: cc-by-4.0
+  tags:
+    - parakeet
+    - parakeet-cpp
+    - asr
+    - speech-recognition
+    - stt
+    - gguf
+    - ggml
+  overrides:
+    backend: parakeet-cpp
+    known_usecases:
+      - transcript
+    name: parakeet-cpp-tdt-0.6b-v3
+    parameters:
+      model: parakeet-cpp/tdt-0.6b-v3-f16.gguf
+  files:
+    - filename: parakeet-cpp/tdt-0.6b-v3-f16.gguf
+      uri: huggingface://mudler/parakeet-cpp-gguf/tdt-0.6b-v3-f16.gguf
+      sha256: 8ba47343e1e919895aca90e099150a01ed203ee0942d8ed31e27295efc5abb22
+- name: parakeet-cpp-ctc-1.1b
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/mudler/parakeet-cpp-gguf
+    - https://github.com/mudler/parakeet.cpp
+  description: |
+    CTC FastConformer, 1.1B. F16 GGUF for the parakeet-cpp backend (C++/ggml port of NVIDIA NeMo Parakeet),
+    byte-identical to NeMo at WER 0. Faster than NeMo on CPU and GPU.
+  license: cc-by-4.0
+  tags:
+    - parakeet
+    - parakeet-cpp
+    - asr
+    - speech-recognition
+    - stt
+    - gguf
+    - ggml
+  overrides:
+    backend: parakeet-cpp
+    known_usecases:
+      - transcript
+    name: parakeet-cpp-ctc-1.1b
+    parameters:
+      model: parakeet-cpp/ctc-1.1b-f16.gguf
+  files:
+    - filename: parakeet-cpp/ctc-1.1b-f16.gguf
+      uri: huggingface://mudler/parakeet-cpp-gguf/ctc-1.1b-f16.gguf
+      sha256: 48eac4cf0975f0e31f5a8b857972524e2536363b88ec2bf7147e70bbb006e57b
+- name: parakeet-cpp-rnnt-1.1b
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/mudler/parakeet-cpp-gguf
+    - https://github.com/mudler/parakeet.cpp
+  description: |
+    RNNT FastConformer, 1.1B. F16 GGUF for the parakeet-cpp backend (C++/ggml port of NVIDIA NeMo Parakeet),
+    byte-identical to NeMo at WER 0. Faster than NeMo on CPU and GPU.
+  license: cc-by-4.0
+  tags:
+    - parakeet
+    - parakeet-cpp
+    - asr
+    - speech-recognition
+    - stt
+    - gguf
+    - ggml
+  overrides:
+    backend: parakeet-cpp
+    known_usecases:
+      - transcript
+    name: parakeet-cpp-rnnt-1.1b
+    parameters:
+      model: parakeet-cpp/rnnt-1.1b-f16.gguf
+  files:
+    - filename: parakeet-cpp/rnnt-1.1b-f16.gguf
+      uri: huggingface://mudler/parakeet-cpp-gguf/rnnt-1.1b-f16.gguf
+      sha256: 981b5941251b5bbbc15bd8672114040ddb697f9b8aae5b15217f445b7cd68e83
+- name: parakeet-cpp-tdt-1.1b
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/mudler/parakeet-cpp-gguf
+    - https://github.com/mudler/parakeet.cpp
+  description: |
+    TDT FastConformer, 1.1B. F16 GGUF for the parakeet-cpp backend (C++/ggml port of NVIDIA NeMo Parakeet),
+    byte-identical to NeMo at WER 0. Faster than NeMo on CPU and GPU.
+  license: cc-by-4.0
+  tags:
+    - parakeet
+    - parakeet-cpp
+    - asr
+    - speech-recognition
+    - stt
+    - gguf
+    - ggml
+  overrides:
+    backend: parakeet-cpp
+    known_usecases:
+      - transcript
+    name: parakeet-cpp-tdt-1.1b
+    parameters:
+      model: parakeet-cpp/tdt-1.1b-f16.gguf
+  files:
+    - filename: parakeet-cpp/tdt-1.1b-f16.gguf
+      uri: huggingface://mudler/parakeet-cpp-gguf/tdt-1.1b-f16.gguf
+      sha256: 83075a3e00c0fe43248f6b8fac24a29096e4fab28b944dbba7ff380a918b56b5
+- name: parakeet-cpp-tdt_ctc-1.1b
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/mudler/parakeet-cpp-gguf
+    - https://github.com/mudler/parakeet.cpp
+  description: |
+    Hybrid TDT+CTC FastConformer, 1.1B. F16 GGUF for the parakeet-cpp backend (C++/ggml port of NVIDIA NeMo Parakeet),
+    byte-identical to NeMo at WER 0. Faster than NeMo on CPU and GPU.
+  license: cc-by-4.0
+  tags:
+    - parakeet
+    - parakeet-cpp
+    - asr
+    - speech-recognition
+    - stt
+    - gguf
+    - ggml
+  overrides:
+    backend: parakeet-cpp
+    known_usecases:
+      - transcript
+    name: parakeet-cpp-tdt_ctc-1.1b
+    parameters:
+      model: parakeet-cpp/tdt_ctc-1.1b-f16.gguf
+  files:
+    - filename: parakeet-cpp/tdt_ctc-1.1b-f16.gguf
+      uri: huggingface://mudler/parakeet-cpp-gguf/tdt_ctc-1.1b-f16.gguf
+      sha256: cd53f64eefac2623a12f2f118ef50b56622dc3012f42c815c6adf0d08292f387
