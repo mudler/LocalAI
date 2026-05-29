@@ -45,4 +45,31 @@ var _ = Describe("Extractor", func() {
 	It("returns nil for empty prompt", func() {
 		Expect(prefixcache.ExtractChain("m", "", cfg)).To(BeNil())
 	})
+
+	It("stays stable across turns once the prompt grows past the depth cap", func() {
+		small := cfg
+		small.WindowBytes = 4
+		small.MaxDepth = 3 // 12-byte head budget
+
+		// base is longer than MaxDepth*WindowBytes so the chain is capped to
+		// the first 3 head blocks.
+		base := "system-rules-stable-prefix-that-exceeds-the-budget"
+		Expect(len(base)).To(BeNumerically(">", small.WindowBytes*small.MaxDepth))
+
+		turnN := prefixcache.ExtractChain("m", base, small)
+		turnN1 := prefixcache.ExtractChain("m", base+"more text appended", small)
+		// Both capped to the same first MaxDepth head blocks -> identical chains.
+		Expect(turnN).To(HaveLen(small.MaxDepth))
+		Expect(turnN1).To(HaveLen(small.MaxDepth))
+		Expect(turnN1).To(Equal(turnN))
+
+		// A prompt diverging WITHIN the budget shares the leading hashes up to
+		// the divergence block and differs after. "system-r" matches base for
+		// the first two 4-byte blocks ("syst","em-r"), then block 2 differs.
+		divergent := prefixcache.ExtractChain("m", "system-rDIFFERENT-tail", small)
+		Expect(divergent).To(HaveLen(small.MaxDepth))
+		Expect(divergent[0]).To(Equal(turnN[0]))
+		Expect(divergent[1]).To(Equal(turnN[1]))
+		Expect(divergent[2]).NotTo(Equal(turnN[2]))
+	})
 })

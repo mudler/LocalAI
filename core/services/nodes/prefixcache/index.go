@@ -47,15 +47,27 @@ func (ix *Index) Decide(model string, chain []uint64, candidateNodeIDs []string,
 		}
 	}
 	// Cold order: candidates ascending by cacheWeight, tie-break by node id.
-	cold := append([]string(nil), candidateNodeIDs...)
+	// Weight is O(tree size), so precompute it once per candidate (decorate-
+	// sort-undecorate) instead of calling it inside the O(n log n) comparator.
+	type weighted struct {
+		id     string
+		weight float64
+	}
+	cold := make([]weighted, len(candidateNodeIDs))
+	for i, id := range candidateNodeIDs {
+		cold[i] = weighted{id: id, weight: t.Weight(id, now)}
+	}
 	sort.Slice(cold, func(i, j int) bool {
-		wi, wj := t.Weight(cold[i], now), t.Weight(cold[j], now)
-		if wi != wj {
-			return wi < wj
+		if cold[i].weight != cold[j].weight {
+			return cold[i].weight < cold[j].weight
 		}
-		return cold[i] < cold[j]
+		return cold[i].id < cold[j].id
 	})
-	d.ColdOrder = cold
+	order := make([]string, len(cold))
+	for i, c := range cold {
+		order[i] = c.id
+	}
+	d.ColdOrder = order
 	return d
 }
 

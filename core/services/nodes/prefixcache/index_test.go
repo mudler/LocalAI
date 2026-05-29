@@ -1,6 +1,7 @@
 package prefixcache_test
 
 import (
+	"sync"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -46,5 +47,35 @@ var _ = Describe("Index provider", func() {
 		idx.Invalidate("m", "A")
 		d := idx.Decide("m", []uint64{1, 2}, []string{"A"}, t0)
 		Expect(d.HotNodeID).To(Equal(""))
+	})
+
+	It("is safe for concurrent Decide/Observe/Invalidate (run with -race)", func() {
+		idx := prefixcache.NewIndex(cfg)
+		models := []string{"m1", "m2"}
+		nodes := []string{"A", "B", "C"}
+		var wg sync.WaitGroup
+		for g := range 8 {
+			wg.Add(1)
+			go func(g int) {
+				defer GinkgoRecover()
+				defer wg.Done()
+				model := models[g%len(models)]
+				node := nodes[g%len(nodes)]
+				now := t0
+				for i := range 200 {
+					chain := []uint64{uint64(g), uint64(i % 7), uint64(i)}
+					switch i % 3 {
+					case 0:
+						idx.Observe(model, chain, node, now)
+					case 1:
+						idx.Decide(model, chain, nodes, now)
+					case 2:
+						idx.Invalidate(model, node)
+					}
+					now = now.Add(time.Millisecond)
+				}
+			}(g)
+		}
+		wg.Wait()
 	})
 })
