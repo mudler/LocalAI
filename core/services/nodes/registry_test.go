@@ -1142,6 +1142,48 @@ var _ = Describe("NodeRegistry", func() {
 			Expect(fired[removed{model: "model-a", node: node.ID}]).To(Equal(1))
 			Expect(fired[removed{model: "model-b", node: node.ID}]).To(Equal(1))
 		})
+
+		// Atomicity: the bulk node-scoped delete in MarkOffline/MarkDraining/
+		// re-register now captures the model names and deletes the rows inside a
+		// single transaction. A true SetNodeModel-between-capture-and-delete race
+		// can't be forced deterministically here, but we can assert the
+		// post-condition the transaction guarantees: the set of fired hooks
+		// equals exactly the set of node_models rows the operation removed, with
+		// nothing left behind. If the capture and delete ever saw inconsistent
+		// snapshots, either a surviving row (delete missed it) or a missing hook
+		// (capture missed it) would break one of these assertions.
+		It("MarkOffline fires hooks for exactly the rows it deletes (consistent snapshot)", func() {
+			node := makeNode("hook-atomic-offline", "10.0.0.244:50051", 8_000_000_000)
+			seedTwoModels(node)
+
+			// Capture what the transaction should remove, straight from the DB,
+			// before running the operation.
+			before, err := registry.GetNodeModels(context.Background(), node.ID)
+			Expect(err).ToNot(HaveOccurred())
+			expectedModels := map[string]struct{}{}
+			for _, nm := range before {
+				expectedModels[nm.ModelName] = struct{}{}
+			}
+			Expect(expectedModels).To(HaveLen(2), "seed should create two distinct models")
+
+			fired := map[string]struct{}{}
+			registry.SetReplicaRemovedHook(func(modelName, nodeID string) {
+				Expect(nodeID).To(Equal(node.ID))
+				fired[modelName] = struct{}{}
+			})
+
+			Expect(registry.MarkOffline(context.Background(), node.ID)).To(Succeed())
+
+			// Hooks fired for exactly the distinct models that existed.
+			Expect(fired).To(Equal(expectedModels),
+				"hooks must fire for exactly the set of models the transaction deleted")
+
+			// And the delete actually emptied the node_models rows for the node:
+			// no row survives that did not get a hook.
+			after, err := registry.GetNodeModels(context.Background(), node.ID)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(after).To(BeEmpty(), "no node_models row should survive the bulk delete")
+		})
 	})
 
 	Describe("ApplyAutoLabels", func() {

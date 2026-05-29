@@ -336,10 +336,18 @@ func (r *NodeRegistry) Register(ctx context.Context, node *BackendNode, autoAppr
 			node.APIKeyID = existing.APIKeyID
 		}
 		// Clear stale model records — the node restarted and has nothing loaded.
-		// Capture the distinct models first so the prefix-cache index can be
-		// invalidated for each (the single chokepoint must cover this path too).
-		removedModels := r.nodeModelNames(ctx, r.db, existing.ID)
-		if err := r.db.WithContext(ctx).Where("node_id = ?", existing.ID).Delete(&NodeModel{}).Error; err != nil {
+		// Capture the distinct models and run the bulk delete inside a single
+		// transaction so the set of fired hooks equals exactly the set of rows
+		// deleted: a SetNodeModel landing between the capture and the delete can
+		// no longer be deleted without its hook firing (no interleaving gap).
+		// Fire the hooks only after the transaction commits so a rollback does
+		// not invalidate the prefix-cache index for a removal that did not
+		// persist (the single chokepoint must cover this path too).
+		var removedModels []string
+		if err := r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+			removedModels = r.nodeModelNames(ctx, tx, existing.ID)
+			return tx.Where("node_id = ?", existing.ID).Delete(&NodeModel{}).Error
+		}); err != nil {
 			xlog.Warn("Failed to clear stale model records on re-register", "node", node.Name, "error", err)
 		} else {
 			for _, m := range removedModels {
@@ -422,9 +430,18 @@ func (r *NodeRegistry) MarkOffline(ctx context.Context, nodeID string) error {
 		return err
 	}
 	// Clear model records — node is shutting down. Capture the distinct models
-	// first so the prefix-cache index is invalidated for each.
-	removedModels := r.nodeModelNames(ctx, r.db, nodeID)
-	if err := r.db.WithContext(ctx).Where("node_id = ?", nodeID).Delete(&NodeModel{}).Error; err != nil {
+	// and run the bulk delete inside a single transaction so the set of fired
+	// hooks equals exactly the set of rows deleted: a SetNodeModel landing
+	// between the capture and the delete can no longer be deleted without its
+	// hook firing (no interleaving gap). The status flip above is a separate,
+	// pre-existing operation and routing already filters non-healthy nodes, so
+	// it stays outside this transaction. Fire hooks only after commit so a
+	// rollback does not invalidate the index for a removal that did not persist.
+	var removedModels []string
+	if err := r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		removedModels = r.nodeModelNames(ctx, tx, nodeID)
+		return tx.Where("node_id = ?", nodeID).Delete(&NodeModel{}).Error
+	}); err != nil {
 		xlog.Warn("Failed to clear model records on offline", "node", nodeID, "error", err)
 	} else {
 		for _, m := range removedModels {
@@ -678,10 +695,18 @@ func (r *NodeRegistry) MarkDraining(ctx context.Context, nodeID string) error {
 	if err := r.setStatus(ctx, nodeID, StatusDraining); err != nil {
 		return err
 	}
-	// Capture the distinct models first so the prefix-cache index is
-	// invalidated for each removed model.
-	removedModels := r.nodeModelNames(ctx, r.db, nodeID)
-	if err := r.db.WithContext(ctx).Where("node_id = ?", nodeID).Delete(&NodeModel{}).Error; err != nil {
+	// Capture the distinct models and run the bulk delete inside a single
+	// transaction so the set of fired hooks equals exactly the set of rows
+	// deleted: a SetNodeModel landing between the capture and the delete can no
+	// longer be deleted without its hook firing (no interleaving gap). The
+	// status flip above is a separate, pre-existing operation and stays outside
+	// this transaction. Fire hooks only after commit so a rollback does not
+	// invalidate the index for a removal that did not persist.
+	var removedModels []string
+	if err := r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		removedModels = r.nodeModelNames(ctx, tx, nodeID)
+		return tx.Where("node_id = ?", nodeID).Delete(&NodeModel{}).Error
+	}); err != nil {
 		xlog.Warn("Failed to clear model records on draining", "node", nodeID, "error", err)
 	} else {
 		for _, m := range removedModels {
