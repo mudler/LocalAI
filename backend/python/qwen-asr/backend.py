@@ -150,6 +150,9 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
         if self._ts_model is not None:
             return self._ts_model
         if not self._forced_aligner_name:
+            if want_timestamps:
+                print("WARNING: timestamps requested but no forced_aligner configured; "
+                      "returning plain text without timestamps", file=sys.stderr)
             return self.model  # no aligner configured — fall back silently
         with self._ts_lock:
             if self._ts_model is not None:
@@ -256,6 +259,20 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
         # threshold = max(median * 4, 0.3s)
         return max(median * 4, 0.3)
 
+    @staticmethod
+    def _compute_gap_threshold_from_extracted(extracted):
+        """Same as _compute_gap_threshold but accepts pre-extracted (s, e, t) tuples."""
+        if len(extracted) < 2:
+            return 0.0
+        gaps = []
+        for i in range(1, len(extracted)):
+            gaps.append(extracted[i][0] - extracted[i - 1][1])
+        if not gaps:
+            return 0.0
+        gaps.sort()
+        median = gaps[len(gaps) // 2]
+        return max(median * 4, 0.3)
+
     def _build_segments(self, time_stamps, granularity):
         """Build TranscriptSegment list from forced-aligner output.
 
@@ -268,27 +285,28 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
         are returned with no ``words`` children.
         """
         # Always compute sentence-level segments via gap merging.
-        threshold = self._compute_gap_threshold(time_stamps)
-        sentence_groups = []   # list of (list_of_ts,)
+        # Extract word info once and reuse throughout.
+        extracted = [self._extract_word_info(ts) for ts in time_stamps]
+        threshold = self._compute_gap_threshold_from_extracted(extracted)
+        sentence_groups = []   # list of list of (s, e, t)
         buf = []
         prev_end = None
 
-        for ts in time_stamps:
-            s, e, t = self._extract_word_info(ts)
+        for info in extracted:
+            s, e, t = info
             if prev_end is not None and (s - prev_end) >= threshold and buf:
                 sentence_groups.append(buf)
                 buf = []
-            buf.append(ts)
+            buf.append(info)
             prev_end = e
         if buf:
             sentence_groups.append(buf)
 
         result = []
         for group in sentence_groups:
-            words_info = [self._extract_word_info(ts) for ts in group]
-            seg_start = words_info[0][0]
-            seg_end = words_info[-1][1]
-            seg_text = self._smart_join([w[2] for w in words_info if w[2]])
+            seg_start = group[0][0]
+            seg_end = group[-1][1]
+            seg_text = self._smart_join([w[2] for w in group if w[2]])
 
             seg = backend_pb2.TranscriptSegment(
                 id=len(result),
@@ -298,7 +316,7 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
             )
 
             if granularity == "word":
-                for ws, we, wt in words_info:
+                for ws, we, wt in group:
                     if wt:
                         seg.words.append(backend_pb2.TranscriptWord(
                             start=int(ws * 1_000_000_000),
@@ -335,7 +353,7 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
             # Select model: with or without forced aligner
             if want_timestamps:
                 model = self._get_ts_model()
-                has_aligner = self._forced_aligner_name is not None
+                has_aligner = model is not self.model
             else:
                 model = self.model
                 has_aligner = False
