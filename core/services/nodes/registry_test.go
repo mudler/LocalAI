@@ -473,6 +473,60 @@ var _ = Describe("NodeRegistry", func() {
 		})
 	})
 
+	Describe("LoadedReplicaStats", func() {
+		var n1, n2, n3 *BackendNode
+
+		BeforeEach(func() {
+			n1 = makeNode("stats-1", "10.0.0.80:50051", 8_000_000_000)
+			n2 = makeNode("stats-2", "10.0.0.81:50051", 8_000_000_000)
+			n3 = makeNode("stats-3", "10.0.0.82:50051", 8_000_000_000)
+			Expect(registry.Register(context.Background(), n1, true)).To(Succeed())
+			Expect(registry.Register(context.Background(), n2, true)).To(Succeed())
+			Expect(registry.Register(context.Background(), n3, true)).To(Succeed())
+			// n1 loaded+busy, n2 loaded+idle, n3 has a different model only.
+			Expect(registry.SetNodeModel(context.Background(), n1.ID, "stats-model", 0, "loaded", "10.0.0.80:6000", 0)).To(Succeed())
+			Expect(registry.SetNodeModel(context.Background(), n2.ID, "stats-model", 0, "loaded", "10.0.0.81:6000", 0)).To(Succeed())
+			Expect(registry.SetNodeModel(context.Background(), n3.ID, "other-model", 0, "loaded", "", 0)).To(Succeed())
+			Expect(registry.IncrementInFlight(context.Background(), n1.ID, "stats-model", 0)).To(Succeed())
+			Expect(registry.IncrementInFlight(context.Background(), n1.ID, "stats-model", 0)).To(Succeed())
+		})
+
+		It("returns loaded healthy replicas with in-flight counts", func() {
+			stats, err := registry.LoadedReplicaStats(context.Background(), "stats-model", nil)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(stats).To(HaveLen(2))
+			byNode := map[string]ReplicaCandidate{}
+			for _, s := range stats {
+				byNode[s.NodeID] = s
+			}
+			Expect(byNode).To(HaveKey(n1.ID))
+			Expect(byNode).To(HaveKey(n2.ID))
+			Expect(byNode[n1.ID].InFlight).To(Equal(2))
+			Expect(byNode[n2.ID].InFlight).To(Equal(0))
+		})
+
+		It("filters to the candidate node set when provided", func() {
+			stats, err := registry.LoadedReplicaStats(context.Background(), "stats-model", []string{n2.ID})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(stats).To(HaveLen(1))
+			Expect(stats[0].NodeID).To(Equal(n2.ID))
+		})
+
+		It("excludes unhealthy nodes", func() {
+			Expect(registry.MarkUnhealthy(context.Background(), n1.ID)).To(Succeed())
+			stats, err := registry.LoadedReplicaStats(context.Background(), "stats-model", nil)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(stats).To(HaveLen(1))
+			Expect(stats[0].NodeID).To(Equal(n2.ID))
+		})
+
+		It("returns empty for a model with no loaded replicas", func() {
+			stats, err := registry.LoadedReplicaStats(context.Background(), "no-such-model", nil)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(stats).To(BeEmpty())
+		})
+	})
+
 	Describe("MarkHealthy and MarkUnhealthy round-trip", func() {
 		It("transitions healthy -> unhealthy -> healthy", func() {
 			node := makeNode("roundtrip-node", "10.0.0.60:50051", 8_000_000_000)

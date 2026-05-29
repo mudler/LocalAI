@@ -12,7 +12,9 @@ import (
 	. "github.com/onsi/gomega"
 
 	"github.com/mudler/LocalAI/core/services/messaging"
+	"github.com/mudler/LocalAI/core/services/nodes/prefixcache"
 	"github.com/mudler/LocalAI/core/services/testutil"
+	"github.com/mudler/LocalAI/pkg/distributedhdr"
 	grpc "github.com/mudler/LocalAI/pkg/grpc"
 	pb "github.com/mudler/LocalAI/pkg/grpc/proto"
 	ggrpc "google.golang.org/grpc"
@@ -111,16 +113,32 @@ type fakeModelRouter struct {
 	findNodesWithModelByName map[string][]BackendNode
 	findNodesWithModelErr    error
 
+	// LoadedReplicaStats returns (keyed by model name)
+	loadedReplicaStatsByName map[string][]ReplicaCandidate
+	loadedReplicaStatsErr    error
+
 	// Track calls for assertions
 	decrementCalls []string // "nodeID:modelName"
 	incrementCalls []string
 	removeCalls    []string
 	setCalls       []string
 	touchCalls     []string
+
+	// Preferences passed to FindAndLockNodeWithModel, in call order. nil
+	// entries are recorded too, so tests can assert "preference was nil".
+	findAndLockPrefs []*RoutePreference
 }
 
-func (f *fakeModelRouter) FindAndLockNodeWithModel(_ context.Context, modelName string, _ []string, _ *RoutePreference) (*BackendNode, *NodeModel, error) {
+func (f *fakeModelRouter) FindAndLockNodeWithModel(_ context.Context, modelName string, _ []string, pref *RoutePreference) (*BackendNode, *NodeModel, error) {
+	f.findAndLockPrefs = append(f.findAndLockPrefs, pref)
 	return f.findAndLockNode, f.findAndLockNM, f.findAndLockErr
+}
+
+func (f *fakeModelRouter) LoadedReplicaStats(_ context.Context, modelName string, _ []string) ([]ReplicaCandidate, error) {
+	if f.loadedReplicaStatsErr != nil {
+		return nil, f.loadedReplicaStatsErr
+	}
+	return f.loadedReplicaStatsByName[modelName], nil
 }
 
 func (f *fakeModelRouter) DecrementInFlight(_ context.Context, nodeID, modelName string, _ int) error {
@@ -1054,4 +1072,183 @@ var _ = Describe("SmartRouter", func() {
 			Expect(unloader.installCalls).To(HaveLen(3))
 		})
 	})
+})
+
+// ---------------------------------------------------------------------------
+// Fake prefixcache.Provider for SmartRouter prefix-cache routing tests
+// ---------------------------------------------------------------------------
+
+type observeRecord struct {
+	model  string
+	chain  []uint64
+	nodeID string
+}
+
+type invalidateRecord struct {
+	model  string
+	nodeID string
+}
+
+// fakePrefixProvider records all interactions and returns a configurable
+// decision. decideFn lets a test compute a decision from the live observations
+// so it can model "second request prefers the previously observed node".
+type fakePrefixProvider struct {
+	decideCalls int
+	observed    []observeRecord
+	invalidated []invalidateRecord
+	decision    prefixcache.PrefixDecision
+}
+
+func (f *fakePrefixProvider) Decide(_ string, _ []uint64, _ []string, _ time.Time) prefixcache.PrefixDecision {
+	f.decideCalls++
+	return f.decision
+}
+
+func (f *fakePrefixProvider) Observe(model string, chain []uint64, nodeID string, _ time.Time) bool {
+	f.observed = append(f.observed, observeRecord{model: model, chain: append([]uint64(nil), chain...), nodeID: nodeID})
+	return true
+}
+
+func (f *fakePrefixProvider) Invalidate(model, nodeID string) {
+	f.invalidated = append(f.invalidated, invalidateRecord{model: model, nodeID: nodeID})
+}
+
+func (f *fakePrefixProvider) Evict(_ time.Time) {}
+
+var _ = Describe("SmartRouter prefix-cache routing", func() {
+	var (
+		backend  *stubBackend
+		factory  *stubClientFactory
+		unloader *fakeUnloader
+	)
+
+	BeforeEach(func() {
+		backend = &stubBackend{healthResult: true}
+		factory = &stubClientFactory{client: backend}
+		unloader = &fakeUnloader{
+			installReply: &messaging.BackendInstallReply{Success: true, Address: "10.0.0.1:9001"},
+		}
+	})
+
+	// loadedReg builds a fake registry with one loaded healthy replica for
+	// "m" on node "X", plus matching replica stats so buildPreference can run.
+	loadedReg := func() *fakeModelRouter {
+		node := &BackendNode{ID: "X", Name: "node-x", Address: "10.0.0.1:50051"}
+		nm := &NodeModel{NodeID: "X", ModelName: "m", Address: "10.0.0.1:9001"}
+		return &fakeModelRouter{
+			findAndLockNode: node,
+			findAndLockNM:   nm,
+			getModelScheduling: &ModelSchedulingConfig{
+				RoutePolicy: "prefix_cache",
+			},
+			loadedReplicaStatsByName: map[string][]ReplicaCandidate{
+				"m": {{NodeID: "X", InFlight: 0}},
+			},
+		}
+	}
+
+	Context("nil provider (round-robin floor)", func() {
+		It("passes a nil preference and never decides or observes", func() {
+			reg := loadedReg()
+			router := NewSmartRouter(reg, SmartRouterOptions{Unloader: unloader, ClientFactory: factory})
+
+			ctx := distributedhdr.WithPrefixChain(context.Background(), []uint64{1, 2, 3})
+			_, err := router.Route(ctx, "m", "models/m.gguf", "llama-cpp", nil, false)
+			Expect(err).ToNot(HaveOccurred())
+
+			Expect(reg.findAndLockPrefs).ToNot(BeEmpty())
+			for _, p := range reg.findAndLockPrefs {
+				Expect(p).To(BeNil())
+			}
+		})
+	})
+
+	Context("with a provider", func() {
+		It("passes the decided node as the preference and observes the pick", func() {
+			reg := loadedReg()
+			prov := &fakePrefixProvider{decision: prefixcache.PrefixDecision{HotNodeID: "X", MatchRatio: 1.0}}
+			router := NewSmartRouter(reg, SmartRouterOptions{
+				Unloader:       unloader,
+				ClientFactory:  factory,
+				PrefixProvider: prov,
+				PrefixConfig:   prefixcache.DefaultConfig(),
+			})
+
+			ctx := distributedhdr.WithPrefixChain(context.Background(), []uint64{1, 2, 3})
+			_, err := router.Route(ctx, "m", "models/m.gguf", "llama-cpp", nil, false)
+			Expect(err).ToNot(HaveOccurred())
+
+			Expect(prov.decideCalls).To(BeNumerically(">=", 1))
+			Expect(reg.findAndLockPrefs[0]).ToNot(BeNil())
+			Expect(reg.findAndLockPrefs[0].PreferredNodeID).To(Equal("X"))
+			Expect(prov.observed).To(HaveLen(1))
+			Expect(prov.observed[0].nodeID).To(Equal("X"))
+			Expect(prov.observed[0].chain).To(Equal([]uint64{1, 2, 3}))
+		})
+
+		It("routes a recurring prefix back to the previously observed node", func() {
+			// Real Index as the provider: first request observes X, second
+			// request with the same chain must yield PreferredNodeID == X.
+			idx := prefixcache.NewIndex(prefixcache.DefaultConfig())
+			reg := loadedReg()
+			router := NewSmartRouter(reg, SmartRouterOptions{
+				Unloader:       unloader,
+				ClientFactory:  factory,
+				PrefixProvider: idx,
+				PrefixConfig:   prefixcache.DefaultConfig(),
+			})
+
+			ctx := distributedhdr.WithPrefixChain(context.Background(), []uint64{7, 8, 9})
+			_, err := router.Route(ctx, "m", "models/m.gguf", "llama-cpp", nil, false)
+			Expect(err).ToNot(HaveOccurred())
+			// First request landed on X (cold placement on the only candidate)
+			// and observed the prefix there.
+			Expect(idx.Decide("m", []uint64{7, 8, 9}, []string{"X"}, time.Now()).HotNodeID).To(Equal("X"))
+
+			// Second request, same chain: X is now the warm-cache hot match, so
+			// the preference must point at it.
+			_, err = router.Route(ctx, "m", "models/m.gguf", "llama-cpp", nil, false)
+			Expect(err).ToNot(HaveOccurred())
+			last := reg.findAndLockPrefs[len(reg.findAndLockPrefs)-1]
+			Expect(last).ToNot(BeNil())
+			Expect(last.PreferredNodeID).To(Equal("X"))
+		})
+
+		It("does not decide or observe when no prefix chain is present", func() {
+			reg := loadedReg()
+			prov := &fakePrefixProvider{decision: prefixcache.PrefixDecision{HotNodeID: "X", MatchRatio: 1.0}}
+			router := NewSmartRouter(reg, SmartRouterOptions{
+				Unloader:       unloader,
+				ClientFactory:  factory,
+				PrefixProvider: prov,
+				PrefixConfig:   prefixcache.DefaultConfig(),
+			})
+
+			_, err := router.Route(context.Background(), "m", "models/m.gguf", "llama-cpp", nil, false)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(prov.decideCalls).To(Equal(0))
+			Expect(prov.observed).To(BeEmpty())
+			Expect(reg.findAndLockPrefs[0]).To(BeNil())
+		})
+
+		It("does not observe for round-robin models even with a chain", func() {
+			reg := loadedReg()
+			reg.getModelScheduling = &ModelSchedulingConfig{RoutePolicy: "round_robin"}
+			prov := &fakePrefixProvider{decision: prefixcache.PrefixDecision{HotNodeID: "X", MatchRatio: 1.0}}
+			router := NewSmartRouter(reg, SmartRouterOptions{
+				Unloader:       unloader,
+				ClientFactory:  factory,
+				PrefixProvider: prov,
+				PrefixConfig:   prefixcache.DefaultConfig(),
+			})
+
+			ctx := distributedhdr.WithPrefixChain(context.Background(), []uint64{1, 2, 3})
+			_, err := router.Route(ctx, "m", "models/m.gguf", "llama-cpp", nil, false)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(prov.decideCalls).To(Equal(0))
+			Expect(prov.observed).To(BeEmpty())
+			Expect(reg.findAndLockPrefs[0]).To(BeNil())
+		})
+	})
+
 })

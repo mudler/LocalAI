@@ -844,6 +844,52 @@ func (r *NodeRegistry) FindAndLockNodeWithModel(ctx context.Context, modelName s
 	return &node, &nm, nil
 }
 
+// LoadedReplicaStats returns one ReplicaCandidate per loaded+healthy replica of
+// modelName, carrying its current in-flight count. It is a read used by the
+// prefix-cache router to apply the load guard when choosing a preferred node.
+// When candidateNodeIDs is non-empty, only replicas on those nodes are
+// returned; pass nil to consider any healthy node. The result is never nil;
+// an empty slice means no loaded replica exists.
+func (r *NodeRegistry) LoadedReplicaStats(ctx context.Context, modelName string, candidateNodeIDs []string) ([]ReplicaCandidate, error) {
+	type row struct {
+		NodeID        string
+		Address       string
+		ReplicaIndex  int
+		InFlight      int
+		LastUsed      time.Time
+		AvailableVRAM uint64
+	}
+	q := r.db.WithContext(ctx).Model(&NodeModel{}).
+		Joins("JOIN backend_nodes ON backend_nodes.id = node_models.node_id").
+		Where("node_models.model_name = ? AND node_models.state = ? AND backend_nodes.status = ?",
+			modelName, "loaded", StatusHealthy)
+	if len(candidateNodeIDs) > 0 {
+		q = q.Where("node_models.node_id IN ?", candidateNodeIDs)
+	}
+
+	var rows []row
+	err := q.Select("node_models.node_id AS node_id, node_models.address AS address, " +
+		"node_models.replica_index AS replica_index, node_models.in_flight AS in_flight, " +
+		"node_models.last_used AS last_used, backend_nodes.available_vram AS available_vram").
+		Scan(&rows).Error
+	if err != nil {
+		return nil, fmt.Errorf("loading replica stats for %s: %w", modelName, err)
+	}
+
+	out := make([]ReplicaCandidate, 0, len(rows))
+	for _, rw := range rows {
+		out = append(out, ReplicaCandidate{
+			NodeID:        rw.NodeID,
+			Address:       rw.Address,
+			ReplicaIndex:  rw.ReplicaIndex,
+			InFlight:      rw.InFlight,
+			LastUsed:      rw.LastUsed,
+			AvailableVRAM: rw.AvailableVRAM,
+		})
+	}
+	return out, nil
+}
+
 // TouchNodeModel updates the last_used timestamp for LRU tracking on a single
 // replica row.
 func (r *NodeRegistry) TouchNodeModel(ctx context.Context, nodeID, modelName string, replicaIndex int) {

@@ -121,6 +121,9 @@ func (f *fakeModelRouterForSmartRouter) GetNodeLabels(_ context.Context, _ strin
 func (f *fakeModelRouterForSmartRouter) FindNodesWithModel(_ context.Context, _ string) ([]BackendNode, error) {
 	return nil, nil
 }
+func (f *fakeModelRouterForSmartRouter) LoadedReplicaStats(_ context.Context, _ string, _ []string) ([]ReplicaCandidate, error) {
+	return nil, nil
+}
 
 // Compile-time check
 var _ ModelRouter = (*fakeModelRouterForSmartRouter)(nil)
