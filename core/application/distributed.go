@@ -257,6 +257,9 @@ func initDistributed(cfg *config.ApplicationConfig, authDB *gorm.DB, configLoade
 		if cfg.Distributed.PrefixCacheTTL > 0 {
 			prefixCfg.TTL = cfg.Distributed.PrefixCacheTTL
 		}
+		if err := prefixCfg.Validate(); err != nil {
+			return nil, fmt.Errorf("invalid prefix-cache configuration: %w", err)
+		}
 		idx := prefixcache.NewIndex(prefixCfg)
 		prefixSync := prefixcache.NewSync(idx, natsClient)
 		pressure = prefixcache.NewPressure(prefixCfg.PressureWindow)
