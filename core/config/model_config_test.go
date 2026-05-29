@@ -471,4 +471,33 @@ concurrency_groups:
 			Expect(configs[0].GetConcurrencyGroups()).To(Equal([]string{"vram-heavy", "120b"}))
 		})
 	})
+
+	// When templating is delegated to the backend (use_tokenizer_template),
+	// the backend also owns tool-call grammar generation and parsing. A
+	// LocalAI-generated grammar sent alongside would override the backend's
+	// native (name-first) tool pipeline and make it stream the tool-call JSON
+	// back as plain content (issue #10052). SetDefaults must therefore couple
+	// the two: tokenizer template implies grammar generation is disabled.
+	Context("use_tokenizer_template couples with grammar disable (issue #10052)", func() {
+		It("disables Go grammar generation when the tokenizer template is used", func() {
+			cfg := &ModelConfig{
+				TemplateConfig: TemplateConfig{UseTokenizerTemplate: true},
+			}
+			Expect(cfg.FunctionsConfig.GrammarConfig.NoGrammar).To(BeFalse())
+
+			cfg.SetDefaults()
+
+			Expect(cfg.FunctionsConfig.GrammarConfig.NoGrammar).To(BeTrue(),
+				"use_tokenizer_template must imply grammar.disable so tools go to the backend's native pipeline")
+		})
+
+		It("leaves grammar generation enabled when the tokenizer template is not used", func() {
+			cfg := &ModelConfig{}
+
+			cfg.SetDefaults()
+
+			Expect(cfg.FunctionsConfig.GrammarConfig.NoGrammar).To(BeFalse(),
+				"models that template in Go still rely on the Go-generated grammar")
+		})
+	})
 })

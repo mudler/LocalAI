@@ -17,6 +17,13 @@ config_file: |
     # "pure content" PEG parser that leaks reasoning tags into content.
     options:
         - use_jinja:true
+    # With use_tokenizer_template the backend (llama.cpp) owns tool-call
+    # grammar generation and parsing too. Disabling LocalAI's own grammar lets
+    # llama.cpp's native name-first tool pipeline run; otherwise the generated
+    # grammar overrides it and the tool-call JSON leaks into content (#10052).
+    function:
+        grammar:
+            disable: true
     template:
         use_tokenizer_template: true
 name: qwen3
