@@ -1251,4 +1251,26 @@ var _ = Describe("SmartRouter prefix-cache routing", func() {
 		})
 	})
 
+	Context("invalidate on unload", func() {
+		It("invalidates the prefix entry so a hot prefix no longer decides to that node", func() {
+			idx := prefixcache.NewIndex(prefixcache.DefaultConfig())
+			reg := loadedReg()
+			router := NewSmartRouter(reg, SmartRouterOptions{
+				Unloader:       unloader,
+				ClientFactory:  factory,
+				PrefixProvider: idx,
+				PrefixConfig:   prefixcache.DefaultConfig(),
+			})
+
+			ctx := distributedhdr.WithPrefixChain(context.Background(), []uint64{5, 6})
+			// Warm the cache: X now holds the prefix.
+			_, err := router.Route(ctx, "m", "models/m.gguf", "llama-cpp", nil, false)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(idx.Decide("m", []uint64{5, 6}, []string{"X"}, time.Now()).HotNodeID).To(Equal("X"))
+
+			// Unload removes the replica and must invalidate the prefix entry.
+			Expect(router.UnloadModel(context.Background(), "X", "m")).To(Succeed())
+			Expect(idx.Decide("m", []uint64{5, 6}, []string{"X"}, time.Now()).HotNodeID).To(BeEmpty())
+		})
+	})
 })
