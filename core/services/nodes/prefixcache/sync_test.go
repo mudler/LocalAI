@@ -1,6 +1,8 @@
 package prefixcache_test
 
 import (
+	"time"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
@@ -15,7 +17,24 @@ func (f *fakePub) Publish(subject string, v any) error {
 	return nil
 }
 
+// Sync must satisfy the Provider seam so SmartRouter can hold a single
+// prefixcache.Provider that broadcasts via NATS.
+var _ prefixcache.Provider = (*prefixcache.Sync)(nil)
+
 var _ = Describe("Sync", func() {
+	It("delegates Evict to the wrapped index", func() {
+		cfg := prefixcache.DefaultConfig()
+		cfg.TTL = time.Minute
+		idx := prefixcache.NewIndex(cfg)
+		s := prefixcache.NewSync(idx, &fakePub{})
+		s.Observe("m", []uint64{1, 2}, "A", t0)
+		// Before TTL: still hot.
+		Expect(idx.Decide("m", []uint64{1, 2}, []string{"A"}, t0).HotNodeID).To(Equal("A"))
+		// After TTL via Sync.Evict: entry is swept.
+		s.Evict(t0.Add(2 * time.Minute))
+		Expect(idx.Decide("m", []uint64{1, 2}, []string{"A"}, t0.Add(2*time.Minute)).HotNodeID).To(BeEmpty())
+	})
+
 	It("publishes an observe event when Observe is new", func() {
 		idx := prefixcache.NewIndex(prefixcache.DefaultConfig())
 		pub := &fakePub{}
