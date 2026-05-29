@@ -41,23 +41,13 @@ func Select(cands []Candidate, d PrefixDecision, cfg Config) string {
 	if d.HotNodeID != "" && d.MatchRatio >= cfg.MinPrefixMatch && eligible[d.HotNodeID] {
 		return d.HotNodeID
 	}
-	// Cold placement: lowest cacheWeight eligible node.
+	// Cold placement: lowest cacheWeight eligible node. ColdOrder is guaranteed
+	// to cover all candidate node IDs (buildPreference passes a permutation of
+	// the full candidate set), so a "" return means no candidate was eligible.
 	for _, id := range d.ColdOrder {
 		if eligible[id] {
 			return id
 		}
 	}
-	// No cold ranking covered the eligible set: pick any eligible node
-	// deterministically (least in-flight, then node id) so behavior is stable.
-	best := ""
-	bestIF := 0
-	for _, c := range cands {
-		if !eligible[c.NodeID] {
-			continue
-		}
-		if best == "" || c.InFlight < bestIF || (c.InFlight == bestIF && c.NodeID < best) {
-			best, bestIF = c.NodeID, c.InFlight
-		}
-	}
-	return best
+	return ""
 }

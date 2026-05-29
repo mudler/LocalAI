@@ -25,7 +25,7 @@ var _ = Describe("Select (filter-then-score)", func() {
 	It("rejects the hot match when it violates the absolute load guard", func() {
 		cands := []prefixcache.Candidate{cand("A", 5), cand("B", 0)}
 		got := prefixcache.Select(cands, prefixcache.PrefixDecision{
-			HotNodeID: "A", MatchRatio: 0.9,
+			HotNodeID: "A", MatchRatio: 0.9, ColdOrder: []string{"B", "A"},
 		}, cfg)
 		Expect(got).To(Equal("B")) // A 5 > min(0)+2, drop to cold placement
 	})
@@ -49,6 +49,17 @@ var _ = Describe("Select (filter-then-score)", func() {
 
 	It("returns empty when no candidates", func() {
 		Expect(prefixcache.Select(nil, prefixcache.PrefixDecision{}, cfg)).To(Equal(""))
+	})
+
+	It("returns empty when ColdOrder covers no eligible candidate", func() {
+		// Documented contract: ColdOrder is a permutation of all candidate node
+		// IDs, so "" means none were eligible. Here ColdOrder lists only "A"
+		// (and "A" is filtered out by the load guard), so nothing is selectable.
+		cands := []prefixcache.Candidate{cand("A", 9), cand("B", 0)}
+		got := prefixcache.Select(cands, prefixcache.PrefixDecision{
+			ColdOrder: []string{"A"},
+		}, cfg)
+		Expect(got).To(Equal(""))
 	})
 })
 
