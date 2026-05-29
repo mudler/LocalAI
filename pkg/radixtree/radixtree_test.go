@@ -109,3 +109,24 @@ var _ = Describe("Remove", func() {
 		Expect(tr.Weight("A", t0)).To(BeNumerically("==", 0))
 	})
 })
+
+var _ = Describe("Concurrent access", func() {
+	It("is race-free under parallel insert/match/weight", func() {
+		tr := radixtree.New[string](radixtree.Options{TTL: time.Hour})
+		done := make(chan struct{})
+		for g := 0; g < 8; g++ {
+			go func(g int) {
+				defer GinkgoRecover()
+				for i := 0; i < 1000; i++ {
+					tr.Insert([]uint64{uint64(g), uint64(i % 10)}, "n", t0)
+					tr.LongestMatch([]uint64{uint64(g), 1}, t0)
+					tr.Weight("n", t0)
+				}
+				done <- struct{}{}
+			}(g)
+		}
+		for g := 0; g < 8; g++ {
+			<-done
+		}
+	})
+})
