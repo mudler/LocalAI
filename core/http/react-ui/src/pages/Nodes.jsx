@@ -493,6 +493,13 @@ function SchedulingForm({ onSave, onCancel }) {
   const [selector, setSelector] = useState({})
   const [minReplicas, setMinReplicas] = useState(1)
   const [maxReplicas, setMaxReplicas] = useState(0)
+  // Prefix-cache routing controls. Empty routePolicy means "inherit the
+  // cluster default"; the three thresholds at 0 likewise inherit, so they
+  // stay out of the POST body's effective override only when explicitly set.
+  const [routePolicy, setRoutePolicy] = useState('')
+  const [balanceAbsThreshold, setBalanceAbsThreshold] = useState(0)
+  const [balanceRelThreshold, setBalanceRelThreshold] = useState(0)
+  const [minPrefixMatch, setMinPrefixMatch] = useState(0)
 
   const hasSelector = Object.keys(selector).length > 0
 
@@ -508,6 +515,10 @@ function SchedulingForm({ onSave, onCancel }) {
       node_selector: hasSelector ? selector : undefined,
       min_replicas: mode === 'placement' ? 0 : minReplicas,
       max_replicas: mode === 'placement' ? 0 : maxReplicas,
+      route_policy: routePolicy,
+      balance_abs_threshold: balanceAbsThreshold,
+      balance_rel_threshold: balanceRelThreshold,
+      min_prefix_match: minPrefixMatch,
     })
   }
 
@@ -591,6 +602,76 @@ function SchedulingForm({ onSave, onCancel }) {
               onChange={setMaxReplicas}
               presets={[{ v: 0, l: 'no limit' }, { v: 2 }, { v: 4 }, { v: 8 }]}
             />
+          </div>
+        )}
+
+        {/* Per-model routing policy. Left empty/zero these inherit the
+            cluster-wide defaults; set them to override how requests for this
+            model are spread across replicas. */}
+        <div>
+          <label className="form-label" htmlFor="sched-route-policy">Routing policy</label>
+          <select
+            id="sched-route-policy"
+            className="input"
+            value={routePolicy}
+            onChange={e => setRoutePolicy(e.target.value)}
+          >
+            <option value="">Default (cluster setting)</option>
+            <option value="round_robin">Round Robin</option>
+            <option value="prefix_cache">Prefix Cache</option>
+          </select>
+          <span style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', display: 'block', marginTop: 6 }}>
+            Prefix Cache routes shared-prefix requests to the same replica to reuse its KV cache, falling back to round-robin when replicas are imbalanced.
+          </span>
+        </div>
+
+        {routePolicy === 'prefix_cache' && (
+          <div style={{ display: 'flex', gap: 'var(--spacing-md)' }}>
+            <div style={{ flex: 1 }}>
+              <label className="form-label" htmlFor="sched-min-prefix-match">Min prefix match</label>
+              <input
+                id="sched-min-prefix-match"
+                className="input"
+                type="number"
+                step="0.05"
+                min="0"
+                max="1"
+                value={minPrefixMatch}
+                onChange={e => setMinPrefixMatch(parseFloat(e.target.value) || 0)}
+              />
+              <span style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', display: 'block', marginTop: 6 }}>
+                Fraction of the prompt (0..1) that must match a cached prefix before affinity kicks in. 0 inherits the default.
+              </span>
+            </div>
+            <div style={{ flex: 1 }}>
+              <label className="form-label" htmlFor="sched-balance-abs">Balance abs threshold</label>
+              <input
+                id="sched-balance-abs"
+                className="input"
+                type="number"
+                min="0"
+                value={balanceAbsThreshold}
+                onChange={e => setBalanceAbsThreshold(parseInt(e.target.value) || 0)}
+              />
+              <span style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', display: 'block', marginTop: 6 }}>
+                Max absolute in-flight gap allowed before falling back to round-robin. 0 inherits the default.
+              </span>
+            </div>
+            <div style={{ flex: 1 }}>
+              <label className="form-label" htmlFor="sched-balance-rel">Balance rel threshold</label>
+              <input
+                id="sched-balance-rel"
+                className="input"
+                type="number"
+                step="0.1"
+                min="0"
+                value={balanceRelThreshold}
+                onChange={e => setBalanceRelThreshold(parseFloat(e.target.value) || 0)}
+              />
+              <span style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', display: 'block', marginTop: 6 }}>
+                Max relative in-flight ratio (&gt;= 1) allowed before falling back to round-robin. 0 inherits the default.
+              </span>
+            </div>
           </div>
         )}
       </div>
@@ -1475,6 +1556,8 @@ export default function Nodes() {
                   <th>Node Selector</th>
                   <th>Min Replicas</th>
                   <th>Max Replicas</th>
+                  <th>Routing</th>
+                  <th>Thresholds</th>
                   <th>Status</th>
                   <th style={{ textAlign: 'right' }}>Actions</th>
                 </tr></thead>
@@ -1518,6 +1601,18 @@ export default function Nodes() {
                       </td>
                       <td style={{ fontFamily: 'var(--font-mono)' }}>
                         {isAutoScaling ? (cfg.max_replicas || 'no limit') : '-'}
+                      </td>
+                      <td style={{ fontSize: '0.8125rem' }}>
+                        {cfg.route_policy || 'default'}
+                      </td>
+                      <td style={{ fontFamily: 'var(--font-mono)', fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>
+                        {cfg.route_policy === 'prefix_cache' ? (
+                          <>
+                            <div>match: {cfg.min_prefix_match ? cfg.min_prefix_match : 'inherit'}</div>
+                            <div>abs: {cfg.balance_abs_threshold ? cfg.balance_abs_threshold : 'inherit'}</div>
+                            <div>rel: {cfg.balance_rel_threshold ? cfg.balance_rel_threshold : 'inherit'}</div>
+                          </>
+                        ) : '-'}
                       </td>
                       <td>
                         {isUnsatisfiable ? (
