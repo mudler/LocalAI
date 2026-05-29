@@ -49,12 +49,12 @@ func (ix *Index) tree(model string) *radixtree.Tree[string] {
 func (ix *Index) Decide(model string, chain []uint64, candidateNodeIDs []string, now time.Time) PrefixDecision {
 	t := ix.tree(model)
 	var d PrefixDecision
-	// Build the candidate set once: used both to validate the hot match and to
-	// weigh cold candidates.
-	candidates := make(map[string]struct{}, len(candidateNodeIDs))
-	for _, id := range candidateNodeIDs {
-		candidates[id] = struct{}{}
-	}
+	// WeightsFor computes every candidate weight in a single tree walk and
+	// returns a map pre-populated with an entry (weight 0 by default) for every
+	// requested candidate. Candidacy is therefore exactly "is a key in weights",
+	// so we derive the hot-match membership check from it rather than building a
+	// second set.
+	weights := t.WeightsFor(candidateNodeIDs, now)
 	if len(chain) > 0 {
 		if node, depth, ok := t.LongestMatch(chain, now); ok {
 			// LongestMatch searches the whole tree, so the deepest match can be
@@ -65,25 +65,26 @@ func (ix *Index) Decide(model string, chain []uint64, candidateNodeIDs []string,
 			// fall back to cold placement. A future refinement could ask the tree
 			// for the longest match restricted to the candidate nodes, yielding a
 			// shallower-but-valid match instead of dropping it entirely.
-			if _, ok := candidates[node]; ok {
+			if _, ok := weights[node]; ok {
 				d.HotNodeID = node
 				d.MatchRatio = float64(depth) / float64(len(chain))
 			}
 		}
 	}
 	// Cold order: candidates ascending by cacheWeight, tie-break by node id.
-	// WeightsFor computes every candidate weight in a single tree walk, so the
-	// sort comparator reads precomputed weights instead of triggering an O(tree
-	// size) Weight call per comparison.
-	weights := t.WeightsFor(candidateNodeIDs, now)
+	// The sort comparator reads precomputed weights instead of triggering an
+	// O(tree size) Weight call per comparison. With at most one candidate the
+	// input order is already the cold order, so skip the sort.
 	order := make([]string, len(candidateNodeIDs))
 	copy(order, candidateNodeIDs)
-	sort.Slice(order, func(i, j int) bool {
-		if weights[order[i]] != weights[order[j]] {
-			return weights[order[i]] < weights[order[j]]
-		}
-		return order[i] < order[j]
-	})
+	if len(order) > 1 {
+		sort.Slice(order, func(i, j int) bool {
+			if weights[order[i]] != weights[order[j]] {
+				return weights[order[i]] < weights[order[j]]
+			}
+			return order[i] < order[j]
+		})
+	}
 	d.ColdOrder = order
 	return d
 }
