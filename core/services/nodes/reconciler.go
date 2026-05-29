@@ -429,10 +429,14 @@ func (rc *ReplicaReconciler) reconcileModel(ctx context.Context, cfg ModelSchedu
 		}
 		xlog.Info("Reconciler: scaling up to meet minimum", "model", cfg.ModelName,
 			"current", current, "min", cfg.MinReplicas, "adding", needed)
-		rc.scaleUp(ctx, cfg, needed)
-		// Successful (or partial) scale-up clears the hysteresis so a future
-		// dip starts fresh.
-		_ = rc.registry.ClearUnsatisfiable(ctx, cfg.ModelName)
+		if rc.scaleUp(ctx, cfg, needed) {
+			// A real (or partial) scale-up clears the hysteresis so a future
+			// dip starts fresh. If scaleUp added nothing (scheduler errored or
+			// no node could be loaded) we leave the hysteresis intact so the
+			// next tick retries from where it left off rather than resetting
+			// the unsatisfiable counter on a failed attempt.
+			_ = rc.registry.ClearUnsatisfiable(ctx, cfg.ModelName)
+		}
 		return
 	}
 
@@ -460,8 +464,11 @@ func (rc *ReplicaReconciler) reconcileModel(ctx context.Context, cfg ModelSchedu
 			}
 			xlog.Info("Reconciler: all replicas busy, scaling up", "model", cfg.ModelName,
 				"current", current)
-			rc.scaleUp(ctx, cfg, 1)
-			scaledUp = true
+			// Only mark the tick as having scaled up if a replica was actually
+			// added. On a failed scaleUp, leave scaledUp false so the pressure
+			// path below and the scale-down logic still apply as they would
+			// have if the busy-burst path had not run.
+			scaledUp = rc.scaleUp(ctx, cfg, 1)
 		}
 	}
 
@@ -485,14 +492,20 @@ func (rc *ReplicaReconciler) reconcileModel(ctx context.Context, cfg ModelSchedu
 						"model", cfg.ModelName, "current", current,
 						"pressure", pressureCount,
 						"threshold", rc.pressureThreshold)
-					rc.scaleUp(ctx, cfg, 1)
-					scaledUp = true
-					// Consume the signal: Pressure.Count is non-draining (it
-					// prunes only by age), so a single burst stays in-window for
-					// the whole window and would re-fire scaleUp on every tick.
-					// Reset clears the model's events so a fresh scale-up needs
-					// fresh forced-disturbs to accumulate.
-					rc.pressure.Reset(cfg.ModelName)
+					if rc.scaleUp(ctx, cfg, 1) {
+						scaledUp = true
+						// Consume the signal only on a real scale-up:
+						// Pressure.Count is non-draining (it prunes only by
+						// age), so a single burst stays in-window for the whole
+						// window and would re-fire scaleUp on every tick. Reset
+						// clears the model's events so a fresh scale-up needs
+						// fresh forced-disturbs to accumulate. If scaleUp added
+						// nothing (scheduler errored or no node could be loaded)
+						// we preserve the signal so the next tick retries off
+						// the same accumulated pressure instead of having to
+						// re-accumulate a full window from scratch.
+						rc.pressure.Reset(cfg.ModelName)
+					}
 				}
 				// No capacity: transient demand, not a misconfig - let the next
 				// tick retry naturally (mirrors the busy-burst path's choice not
@@ -535,10 +548,17 @@ func (rc *ReplicaReconciler) markCapacityProblem(ctx context.Context, modelName,
 // scaleUp schedules additional replicas of the model. Callers in
 // reconcileModel are expected to have already capped `count` against
 // ClusterCapacityForModel so this function never tries to overshoot.
-func (rc *ReplicaReconciler) scaleUp(ctx context.Context, cfg ModelSchedulingConfig, count int) {
+//
+// Returns true if at least one replica was actually scheduled. Callers use
+// this to gate signal-consuming side effects (Pressure.Reset,
+// ClearUnsatisfiable) on a real scale-up: a failed/no-op scaleUp must not
+// discard the accumulated forced-disturb pressure or clear the unsatisfiable
+// hysteresis, otherwise the signal has to re-accumulate from scratch and the
+// next tick can't simply retry.
+func (rc *ReplicaReconciler) scaleUp(ctx context.Context, cfg ModelSchedulingConfig, count int) bool {
 	if rc.scheduler == nil {
 		xlog.Warn("Reconciler: no scheduler available, cannot scale up")
-		return
+		return false
 	}
 
 	// Resolve selector → candidate node IDs (nil when no selector → "any
@@ -546,18 +566,21 @@ func (rc *ReplicaReconciler) scaleUp(ctx context.Context, cfg ModelSchedulingCon
 	// reconcileModel, but defensively short-circuit here too.
 	candidateNodeIDs, ok := rc.candidateNodeIDsForSelector(ctx, cfg)
 	if !ok {
-		return
+		return false
 	}
 
+	scheduled := 0
 	for i := 0; i < count; i++ {
 		node, err := rc.scheduler.ScheduleAndLoadModel(ctx, cfg.ModelName, candidateNodeIDs)
 		if err != nil {
 			xlog.Warn("Reconciler: failed to scale up replica", "model", cfg.ModelName,
 				"attempt", i+1, "error", err)
-			return // stop trying on first failure
+			break // stop trying on first failure
 		}
+		scheduled++
 		xlog.Info("Reconciler: scaled up replica", "model", cfg.ModelName, "node", node.Name)
 	}
+	return scheduled > 0
 }
 
 // scaleDownIdle removes idle replicas above the floor.

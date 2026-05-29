@@ -2,6 +2,7 @@ package nodes
 
 import (
 	"context"
+	"errors"
 	"runtime"
 	"time"
 
@@ -335,6 +336,70 @@ var _ = Describe("ReplicaReconciler", func() {
 			reconciler.reconcile(context.Background())
 			Expect(scheduler.scheduleCalls).To(HaveLen(1),
 				"a single burst must not re-trigger scale-up on the next in-window tick")
+		})
+
+		It("does not consume the pressure signal when scaleUp fails", func() {
+			// Pressure above threshold and capacity exists, but the scheduler
+			// errors so no replica is actually added. The forced-disturb signal
+			// must be preserved (NOT Reset) so the next tick retries the
+			// scale-up off the same accumulated pressure, instead of having to
+			// re-accumulate a full window of forced-disturbs from scratch.
+			node := registerNode("fail-node", "10.0.0.66:50051")
+			Expect(registry.SetNodeModel(context.Background(), node.ID, "fail-model", 0, "loaded", "addr1", 0)).To(Succeed())
+			setSchedulingConfig("fail-model", 1, 4, "")
+
+			pressure := prefixcache.NewPressure(time.Minute)
+			now := time.Now()
+			pressure.Record("fail-model", now)
+			pressure.Record("fail-model", now)
+			pressure.Record("fail-model", now)
+			Expect(pressure.Count("fail-model", time.Now())).To(BeNumerically(">=", 1))
+
+			// Scheduler errors: scaleUp attempts but adds nothing.
+			scheduler := &fakeScheduler{scheduleErr: errors.New("schedule boom")}
+			reconciler := NewReplicaReconciler(ReplicaReconcilerOptions{
+				Registry:  registry,
+				Scheduler: scheduler,
+				DB:        db,
+				Pressure:  pressure,
+			})
+
+			reconciler.reconcile(context.Background())
+
+			Expect(scheduler.scheduleCalls).To(HaveLen(1),
+				"scaleUp must have attempted exactly one schedule call")
+			Expect(pressure.Count("fail-model", time.Now())).To(BeNumerically(">=", 1),
+				"a failed scaleUp must NOT consume (Reset) the pressure signal — next tick should retry")
+		})
+
+		It("consumes the pressure signal only when scaleUp succeeds", func() {
+			// Mirror of the failure case: when the scheduler succeeds and a
+			// replica is actually added, the forced-disturb signal IS consumed
+			// (Reset to 0) so a single burst scales up only once.
+			node := registerNode("ok-node", "10.0.0.67:50051")
+			Expect(registry.SetNodeModel(context.Background(), node.ID, "ok-model", 0, "loaded", "addr1", 0)).To(Succeed())
+			setSchedulingConfig("ok-model", 1, 4, "")
+
+			pressure := prefixcache.NewPressure(time.Minute)
+			now := time.Now()
+			pressure.Record("ok-model", now)
+			pressure.Record("ok-model", now)
+			pressure.Record("ok-model", now)
+
+			scheduler := &fakeScheduler{scheduleNode: node}
+			reconciler := NewReplicaReconciler(ReplicaReconcilerOptions{
+				Registry:  registry,
+				Scheduler: scheduler,
+				DB:        db,
+				Pressure:  pressure,
+			})
+
+			reconciler.reconcile(context.Background())
+
+			Expect(scheduler.scheduleCalls).To(HaveLen(1),
+				"successful scaleUp must have scheduled one replica")
+			Expect(pressure.Count("ok-model", time.Now())).To(Equal(0),
+				"a successful scaleUp must consume (Reset) the pressure signal to 0")
 		})
 
 		It("performs at most one scale-up per tick when both busy and over pressure", func() {
