@@ -41,6 +41,26 @@ var _ = Describe("Index provider", func() {
 		Expect(d.ColdOrder).To(Equal([]string{"B", "A"})) // B lower weight first
 	})
 
+	It("drops the hot match when the matched node is not in the candidate set", func() {
+		idx := prefixcache.NewIndex(cfg)
+		idx.Observe("m", []uint64{1, 2, 3, 4}, "A", t0)
+		// A holds the longest match, but A is not a candidate (offline /
+		// unloaded). The matched node must be ignored so cold placement runs
+		// and no false forced-disturb fires upstream.
+		d := idx.Decide("m", []uint64{1, 2, 3, 4, 5}, []string{"B", "C"}, t0)
+		Expect(d.HotNodeID).To(Equal(""))
+		Expect(d.MatchRatio).To(Equal(0.0))
+		Expect(d.ColdOrder).To(ConsistOf("B", "C"))
+	})
+
+	It("keeps the hot match when the matched node is a candidate", func() {
+		idx := prefixcache.NewIndex(cfg)
+		idx.Observe("m", []uint64{1, 2, 3, 4}, "A", t0)
+		d := idx.Decide("m", []uint64{1, 2, 3, 4, 5}, []string{"A", "B"}, t0)
+		Expect(d.HotNodeID).To(Equal("A"))
+		Expect(d.MatchRatio).To(BeNumerically("~", 4.0/5.0, 0.001))
+	})
+
 	It("forgets a node on Invalidate", func() {
 		idx := prefixcache.NewIndex(cfg)
 		idx.Observe("m", []uint64{1, 2}, "A", t0)

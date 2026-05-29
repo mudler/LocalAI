@@ -40,33 +40,41 @@ func (ix *Index) tree(model string) *radixtree.Tree[string] {
 func (ix *Index) Decide(model string, chain []uint64, candidateNodeIDs []string, now time.Time) PrefixDecision {
 	t := ix.tree(model)
 	var d PrefixDecision
+	// Build the candidate set once: used both to validate the hot match and to
+	// weigh cold candidates.
+	candidates := make(map[string]struct{}, len(candidateNodeIDs))
+	for _, id := range candidateNodeIDs {
+		candidates[id] = struct{}{}
+	}
 	if len(chain) > 0 {
 		if node, depth, ok := t.LongestMatch(chain, now); ok {
-			d.HotNodeID = node
-			d.MatchRatio = float64(depth) / float64(len(chain))
+			// LongestMatch searches the whole tree, so the deepest match can be
+			// a node that is offline / unloaded / not in the candidate set.
+			// Treating that as a hot match produces a false forced-disturb signal
+			// upstream (the warm node was absent, not load-saturated). Only honor
+			// the match when the matched node is an actual candidate; otherwise
+			// fall back to cold placement. A future refinement could ask the tree
+			// for the longest match restricted to the candidate nodes, yielding a
+			// shallower-but-valid match instead of dropping it entirely.
+			if _, ok := candidates[node]; ok {
+				d.HotNodeID = node
+				d.MatchRatio = float64(depth) / float64(len(chain))
+			}
 		}
 	}
 	// Cold order: candidates ascending by cacheWeight, tie-break by node id.
-	// Weight is O(tree size), so precompute it once per candidate (decorate-
-	// sort-undecorate) instead of calling it inside the O(n log n) comparator.
-	type weighted struct {
-		id     string
-		weight float64
-	}
-	cold := make([]weighted, len(candidateNodeIDs))
-	for i, id := range candidateNodeIDs {
-		cold[i] = weighted{id: id, weight: t.Weight(id, now)}
-	}
-	sort.Slice(cold, func(i, j int) bool {
-		if cold[i].weight != cold[j].weight {
-			return cold[i].weight < cold[j].weight
+	// WeightsFor computes every candidate weight in a single tree walk, so the
+	// sort comparator reads precomputed weights instead of triggering an O(tree
+	// size) Weight call per comparison.
+	weights := t.WeightsFor(candidateNodeIDs, now)
+	order := make([]string, len(candidateNodeIDs))
+	copy(order, candidateNodeIDs)
+	sort.Slice(order, func(i, j int) bool {
+		if weights[order[i]] != weights[order[j]] {
+			return weights[order[i]] < weights[order[j]]
 		}
-		return cold[i].id < cold[j].id
+		return order[i] < order[j]
 	})
-	order := make([]string, len(cold))
-	for i, c := range cold {
-		order[i] = c.id
-	}
 	d.ColdOrder = order
 	return d
 }
