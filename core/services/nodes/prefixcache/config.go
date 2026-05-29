@@ -42,12 +42,43 @@ func DefaultConfig() Config {
 	}
 }
 
-func (c Config) Validate() error {
-	if c.MinPrefixMatch < 0 || c.MinPrefixMatch > 1 {
-		return fmt.Errorf("prefixcache: min_prefix_match must be in [0,1], got %v", c.MinPrefixMatch)
+// validateThresholdBounds enforces the numeric bounds shared between the
+// per-model override validator (ValidateThresholds) and Config.Validate:
+// minMatch in [0,1]; absThr >= 0; relThr == 0 (inherit) or >= 1. It is the
+// single source of truth for those bounds so the endpoint and the global
+// config cannot drift apart.
+func validateThresholdBounds(absThr int, relThr, minMatch float64) error {
+	if minMatch < 0 || minMatch > 1 {
+		return fmt.Errorf("prefixcache: min_prefix_match must be in [0,1], got %v", minMatch)
 	}
-	if c.BalanceAbsThreshold < 0 {
-		return fmt.Errorf("prefixcache: balance_abs_threshold must be >= 0, got %d", c.BalanceAbsThreshold)
+	if absThr < 0 {
+		return fmt.Errorf("prefixcache: balance_abs_threshold must be >= 0, got %d", absThr)
+	}
+	if relThr != 0 && relThr < 1 {
+		return fmt.Errorf("prefixcache: balance_rel_threshold must be 0 (inherit) or >= 1, got %v", relThr)
+	}
+	return nil
+}
+
+// ValidateThresholds checks per-model override bounds. routePolicy must be one
+// of "", "round_robin", "prefix_cache" (explicit allow-list - NOT ParsePolicy,
+// which maps unknown to Default and would accept typos). minMatch in [0,1];
+// absThr >= 0; relThr == 0 (inherit) or >= 1.
+func ValidateThresholds(routePolicy string, absThr int, relThr, minMatch float64) error {
+	switch routePolicy {
+	case "", "round_robin", "prefix_cache":
+	default:
+		return fmt.Errorf(`prefixcache: route_policy must be one of "", "round_robin", "prefix_cache", got %q`, routePolicy)
+	}
+	return validateThresholdBounds(absThr, relThr, minMatch)
+}
+
+func (c Config) Validate() error {
+	// Config.BalanceRelThreshold has no "inherit" sentinel - it is a concrete
+	// global value that must be >= 1 - so pass 0 for relThr to the shared
+	// numeric check and assert the >= 1 floor here separately.
+	if err := validateThresholdBounds(c.BalanceAbsThreshold, 0, c.MinPrefixMatch); err != nil {
+		return err
 	}
 	if c.BalanceRelThreshold < 1 {
 		return fmt.Errorf("prefixcache: balance_rel_threshold must be >= 1, got %v", c.BalanceRelThreshold)

@@ -30,3 +30,41 @@ var _ = Describe("Config", func() {
 		Expect(c.Validate()).To(HaveOccurred())
 	})
 })
+
+var _ = Describe("ValidateThresholds", func() {
+	It("accepts valid values across all route policies", func() {
+		Expect(prefixcache.ValidateThresholds("", 3, 0, 0.4)).To(Succeed())
+		Expect(prefixcache.ValidateThresholds("round_robin", 0, 1.5, 0)).To(Succeed())
+		Expect(prefixcache.ValidateThresholds("prefix_cache", 2, 2.0, 1.0)).To(Succeed())
+	})
+
+	It("rejects an unknown route_policy (explicit allow-list, no silent default)", func() {
+		err := prefixcache.ValidateThresholds("bogus", 0, 0, 0)
+		Expect(err).To(HaveOccurred())
+		Expect(err.Error()).To(ContainSubstring("route_policy"))
+	})
+
+	It("rejects min_prefix_match above 1", func() {
+		err := prefixcache.ValidateThresholds("", 0, 0, 1.5)
+		Expect(err).To(HaveOccurred())
+		Expect(err.Error()).To(ContainSubstring("min_prefix_match"))
+	})
+
+	It("rejects a negative min_prefix_match", func() {
+		err := prefixcache.ValidateThresholds("", 0, 0, -0.1)
+		Expect(err).To(HaveOccurred())
+		Expect(err.Error()).To(ContainSubstring("min_prefix_match"))
+	})
+
+	It("rejects a negative balance_abs_threshold", func() {
+		err := prefixcache.ValidateThresholds("", -1, 0, 0)
+		Expect(err).To(HaveOccurred())
+		Expect(err.Error()).To(ContainSubstring("balance_abs_threshold"))
+	})
+
+	It("rejects balance_rel_threshold between 0 and 1 exclusive", func() {
+		err := prefixcache.ValidateThresholds("", 0, 0.5, 0)
+		Expect(err).To(HaveOccurred())
+		Expect(err.Error()).To(ContainSubstring("balance_rel_threshold"))
+	})
+})
