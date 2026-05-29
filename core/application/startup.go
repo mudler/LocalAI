@@ -449,13 +449,15 @@ func New(opts ...config.AppOption) (*Application, error) {
 
 	application.ModelLoader().SetBackendLoggingEnabled(options.EnableBackendLogging)
 
-	// turn off any process that was started by GRPC if the context is canceled
+	// Safety-net cleanup if the application context is cancelled without
+	// the caller invoking Shutdown directly. This is fire-and-forget — it
+	// races binary exit and is unreliable in tests; the deterministic path
+	// is application.Shutdown(), which Shutdown's sync.Once dedupes with
+	// this goroutine.
 	go func() {
 		<-options.Context.Done()
 		xlog.Debug("Context canceled, shutting down")
-		application.distributed.Shutdown()
-		err := application.ModelLoader().StopAllGRPC()
-		if err != nil {
+		if err := application.Shutdown(); err != nil {
 			xlog.Error("error while stopping all grpc backends", "error", err)
 		}
 	}()
