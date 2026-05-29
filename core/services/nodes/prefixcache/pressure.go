@@ -11,9 +11,10 @@ import (
 // SmartRouter.buildPreference). The reconciler reads Count to decide whether
 // the cache-warm replica is saturated enough to warrant a scale-up.
 //
-// Entries older than the window are dropped lazily on Count, so the slice never
-// grows unbounded for an active model and an idle model's history decays to
-// zero on the next read.
+// Entries older than the window are dropped on both Record and Count, so the
+// slice never grows unbounded - even for a model that takes records but is
+// never Counted (e.g. one with zero loaded replicas the reconciler skips). An
+// idle model's history also decays to zero on the next read.
 type Pressure struct {
 	mu     sync.Mutex
 	window time.Duration
@@ -29,11 +30,28 @@ func NewPressure(window time.Duration) *Pressure {
 	}
 }
 
-// Record appends a forced-disturb timestamp for the model.
+// pruneLocked drops entries older than cutoff, compacting in place. The cutoff
+// boundary itself is inclusive so an event exactly window-old still counts.
+// Callers must hold p.mu.
+func pruneLocked(ts []time.Time, cutoff time.Time) []time.Time {
+	kept := ts[:0]
+	for _, t := range ts {
+		if !t.Before(cutoff) {
+			kept = append(kept, t)
+		}
+	}
+	return kept
+}
+
+// Record appends a forced-disturb timestamp for the model and prunes entries
+// older than the window, so the per-model slice stays bounded regardless of how
+// often Count runs.
 func (p *Pressure) Record(model string, now time.Time) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
-	p.events[model] = append(p.events[model], now)
+	cutoff := now.Add(-p.window)
+	kept := append(pruneLocked(p.events[model], cutoff), now)
+	p.events[model] = kept
 }
 
 // Count returns the number of records for the model within [now-window, now],
@@ -45,15 +63,7 @@ func (p *Pressure) Count(model string, now time.Time) int {
 	if len(ts) == 0 {
 		return 0
 	}
-	cutoff := now.Add(-p.window)
-	kept := ts[:0]
-	for _, t := range ts {
-		// Keep entries within [now-window, now]; the cutoff boundary itself is
-		// inclusive so an event exactly window-old still counts.
-		if !t.Before(cutoff) {
-			kept = append(kept, t)
-		}
-	}
+	kept := pruneLocked(ts, now.Add(-p.window))
 	if len(kept) == 0 {
 		delete(p.events, model)
 		return 0

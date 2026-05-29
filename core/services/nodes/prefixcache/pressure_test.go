@@ -42,4 +42,33 @@ var _ = Describe("Pressure counter", func() {
 		// one nanosecond past the window drops it.
 		Expect(p.Count("m", t0.Add(time.Minute+1))).To(Equal(0))
 	})
+
+	It("bounds the backing slice in Record without any Count calls", func() {
+		p := prefixcache.NewPressure(time.Minute)
+		// Record many timestamps, advancing now well past the window between
+		// each, and never call Count. Each Record must prune the entries that
+		// have fallen out of [now-window, now] so the slice cannot accumulate.
+		var last time.Time
+		for i := 0; i < 1000; i++ {
+			last = t0.Add(time.Duration(i) * 10 * time.Second)
+			p.Record("m", last)
+		}
+		// With a 1m window and 10s spacing, at most ~7 records (the boundary is
+		// inclusive) can be within [last-window, last]. The slice must stay that
+		// bounded, never growing toward 1000.
+		Expect(p.LenForTest("m")).To(BeNumerically("<=", 7))
+		// And the in-window count must reflect only those bounded entries.
+		Expect(p.Count("m", last)).To(Equal(p.LenForTest("m")))
+	})
+
+	It("does not accumulate repeated out-of-window Records", func() {
+		p := prefixcache.NewPressure(time.Minute)
+		// Each record is more than a window apart, so every Record prunes the
+		// previous one. The slice should never hold more than a single entry.
+		for i := 0; i < 100; i++ {
+			p.Record("m", t0.Add(time.Duration(i)*2*time.Minute))
+		}
+		Expect(p.LenForTest("m")).To(Equal(1))
+		Expect(p.Count("m", t0.Add(198*time.Minute))).To(Equal(1))
+	})
 })

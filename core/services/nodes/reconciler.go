@@ -58,12 +58,11 @@ type ReplicaReconciler struct {
 	// don't hammer every worker every tick for models we just heard from.
 	probeStaleAfter time.Duration
 	// pressure is the shared forced-disturb counter written by the router. When
-	// a model's count within pressureWindow reaches pressureThreshold the
+	// a model's count within the Pressure's rolling window reaches pressureThreshold the
 	// reconciler treats its cache-warm replica as saturated and scales up,
 	// subject to the same MaxReplicas/capacity/UnsatisfiableUntil machinery as
 	// the other scale-up paths. nil disables this signal (a true no-op).
 	pressure          *prefixcache.Pressure
-	pressureWindow    time.Duration
 	pressureThreshold int
 }
 
@@ -95,9 +94,6 @@ type ReplicaReconcilerOptions struct {
 	// Pressure is the shared forced-disturb counter written by the router. nil
 	// disables the cache-saturation autoscale signal (a true no-op).
 	Pressure *prefixcache.Pressure
-	// PressureWindow is the rolling window over which forced-disturb events are
-	// counted. Default prefixcache.DefaultConfig().PressureWindow (1m).
-	PressureWindow time.Duration
 	// PressureThreshold is the forced-disturb count within PressureWindow that
 	// triggers a scale-up. Default prefixcache.DefaultConfig().PressureScaleThreshold (1).
 	PressureThreshold int
@@ -121,10 +117,6 @@ func NewReplicaReconciler(opts ReplicaReconcilerOptions) *ReplicaReconciler {
 	if prober == nil {
 		prober = grpcModelProber{token: opts.RegistrationToken}
 	}
-	pressureWindow := opts.PressureWindow
-	if pressureWindow == 0 {
-		pressureWindow = prefixcache.DefaultConfig().PressureWindow
-	}
 	pressureThreshold := opts.PressureThreshold
 	if pressureThreshold == 0 {
 		pressureThreshold = prefixcache.DefaultConfig().PressureScaleThreshold
@@ -140,7 +132,6 @@ func NewReplicaReconciler(opts ReplicaReconcilerOptions) *ReplicaReconciler {
 		scaleDownDelay:    scaleDownDelay,
 		probeStaleAfter:   probeStaleAfter,
 		pressure:          opts.Pressure,
-		pressureWindow:    pressureWindow,
 		pressureThreshold: pressureThreshold,
 	}
 }
@@ -473,14 +464,14 @@ func (rc *ReplicaReconciler) reconcileModel(ctx context.Context, cfg ModelSchedu
 	//     block at the top of reconcileModel, so a no-capacity model will not
 	//     spin. Pressure never overrides MaxReplicas or force-evicts.
 	if rc.pressure != nil && current > 0 && (cfg.MaxReplicas == 0 || int(current) < cfg.MaxReplicas) {
-		if rc.pressure.Count(cfg.ModelName, time.Now()) >= rc.pressureThreshold {
+		if pressureCount := rc.pressure.Count(cfg.ModelName, time.Now()); pressureCount >= rc.pressureThreshold {
 			candidateNodeIDs, selectorMatched := rc.candidateNodeIDsForSelector(ctx, cfg)
 			if selectorMatched {
 				capacity, capErr := rc.registry.ClusterCapacityForModel(ctx, cfg.ModelName, candidateNodeIDs)
 				if capErr == nil && capacity > 0 {
 					xlog.Info("Reconciler: prefix-cache forced-disturb pressure, scaling up",
 						"model", cfg.ModelName, "current", current,
-						"pressure", rc.pressure.Count(cfg.ModelName, time.Now()),
+						"pressure", pressureCount,
 						"threshold", rc.pressureThreshold)
 					rc.scaleUp(ctx, cfg, 1)
 				}
