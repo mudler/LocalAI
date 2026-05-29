@@ -18,6 +18,14 @@ function inferBackendPath(item) {
   if (item.dockerfile.endsWith("python")) {
     return `backend/python/${item.backend}/`;
   }
+  // parakeet-cpp is a Go backend (Dockerfile.golang) wrapping the parakeet.cpp
+  // ggml port via purego. It lives in backend/go/parakeet-cpp/; this explicit
+  // branch (placed before the generic golang one, which would also resolve it
+  // correctly) documents the mapping and guards against a future
+  // dockerfile-suffix change.
+  if (item.backend === "parakeet-cpp") {
+    return `backend/go/parakeet-cpp/`;
+  }
   if (item.dockerfile.endsWith("golang")) {
     return `backend/go/${item.backend}/`;
   }
