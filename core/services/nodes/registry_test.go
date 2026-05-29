@@ -245,7 +245,7 @@ var _ = Describe("NodeRegistry", func() {
 			Expect(registry.Register(context.Background(), node, true)).To(Succeed())
 			Expect(registry.SetNodeModel(context.Background(), node.ID, "my-model", 0, "loaded", "10.0.0.40:50052", 0)).To(Succeed())
 
-			foundNode, foundNM, err := registry.FindAndLockNodeWithModel(context.Background(), "my-model", nil)
+			foundNode, foundNM, err := registry.FindAndLockNodeWithModel(context.Background(), "my-model", nil, nil)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(foundNode.ID).To(Equal(node.ID))
 			Expect(foundNM.ModelName).To(Equal("my-model"))
@@ -257,7 +257,7 @@ var _ = Describe("NodeRegistry", func() {
 		})
 
 		It("returns error when model is not loaded anywhere", func() {
-			_, _, err := registry.FindAndLockNodeWithModel(context.Background(), "nonexistent-model", nil)
+			_, _, err := registry.FindAndLockNodeWithModel(context.Background(), "nonexistent-model", nil, nil)
 			Expect(err).To(HaveOccurred())
 		})
 
@@ -274,7 +274,7 @@ var _ = Describe("NodeRegistry", func() {
 			Expect(registry.IncrementInFlight(context.Background(), n1.ID, "shared-model", 0)).To(Succeed())
 			Expect(registry.IncrementInFlight(context.Background(), n1.ID, "shared-model", 0)).To(Succeed())
 
-			foundNode, _, err := registry.FindAndLockNodeWithModel(context.Background(), "shared-model", nil)
+			foundNode, _, err := registry.FindAndLockNodeWithModel(context.Background(), "shared-model", nil, nil)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(foundNode.Name).To(Equal("lock-light"))
 		})
@@ -299,7 +299,7 @@ var _ = Describe("NodeRegistry", func() {
 			Expect(registry.IncrementInFlight(context.Background(), included.ID, "filtered-model", 0)).To(Succeed())
 			Expect(registry.IncrementInFlight(context.Background(), included.ID, "filtered-model", 0)).To(Succeed())
 
-			foundNode, foundNM, err := registry.FindAndLockNodeWithModel(context.Background(), "filtered-model", []string{included.ID})
+			foundNode, foundNM, err := registry.FindAndLockNodeWithModel(context.Background(), "filtered-model", []string{included.ID}, nil)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(foundNode.ID).To(Equal(included.ID))
 			Expect(foundNM.NodeID).To(Equal(included.ID))
@@ -326,7 +326,7 @@ var _ = Describe("NodeRegistry", func() {
 			// (FindAndLockNodeWithModel atomically increments to lock the row.)
 			picks := make([]string, 0, 9)
 			for i := 0; i < 9; i++ {
-				n, nm, err := registry.FindAndLockNodeWithModel(context.Background(), "rr-model", nil)
+				n, nm, err := registry.FindAndLockNodeWithModel(context.Background(), "rr-model", nil, nil)
 				Expect(err).ToNot(HaveOccurred())
 				picks = append(picks, n.Name)
 				Expect(registry.DecrementInFlight(context.Background(), n.ID, "rr-model", nm.ReplicaIndex)).To(Succeed())
@@ -355,7 +355,7 @@ var _ = Describe("NodeRegistry", func() {
 			// query must return an error so Route() falls through to schedule
 			// a fresh load on a matching node instead of reusing the excluded
 			// replica.
-			_, _, err := registry.FindAndLockNodeWithModel(context.Background(), "no-match-model", []string{emptyIncluded.ID})
+			_, _, err := registry.FindAndLockNodeWithModel(context.Background(), "no-match-model", []string{emptyIncluded.ID}, nil)
 			Expect(err).To(HaveOccurred())
 		})
 
@@ -422,7 +422,7 @@ var _ = Describe("NodeRegistry", func() {
 			goPick := PickBestReplica(candidates)
 			Expect(goPick).ToNot(BeNil())
 
-			sqlNode, _, err := registry.FindAndLockNodeWithModel(context.Background(), "mirror-model", nil)
+			sqlNode, _, err := registry.FindAndLockNodeWithModel(context.Background(), "mirror-model", nil, nil)
 			Expect(err).ToNot(HaveOccurred())
 
 			Expect(sqlNode.ID).To(Equal(goPick.NodeID),
@@ -430,6 +430,46 @@ var _ = Describe("NodeRegistry", func() {
 				sqlNode.ID, goPick.NodeID)
 			// Sanity check: the policy says winner-fat wins on tier 3.
 			Expect(goPick.NodeID).To(Equal(winnerFat.ID))
+		})
+	})
+
+	Describe("FindAndLockNodeWithModel preference", func() {
+		var nodeA, nodeB *BackendNode
+
+		BeforeEach(func() {
+			nodeA = makeNode("pref-a", "10.0.0.70:50051", 8_000_000_000)
+			nodeB = makeNode("pref-b", "10.0.0.71:50051", 8_000_000_000)
+			Expect(registry.Register(context.Background(), nodeA, true)).To(Succeed())
+			Expect(registry.Register(context.Background(), nodeB, true)).To(Succeed())
+			// Both loaded+healthy for model "pref-model", in_flight 0.
+			Expect(registry.SetNodeModel(context.Background(), nodeA.ID, "pref-model", 0, "loaded", "", 0)).To(Succeed())
+			Expect(registry.SetNodeModel(context.Background(), nodeB.ID, "pref-model", 0, "loaded", "", 0)).To(Succeed())
+		})
+
+		It("locks the preferred node when eligible", func() {
+			node, nm, err := registry.FindAndLockNodeWithModel(context.Background(), "pref-model", nil, &RoutePreference{PreferredNodeID: nodeB.ID})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(node.ID).To(Equal(nodeB.ID))
+			Expect(nm.NodeID).To(Equal(nodeB.ID))
+
+			// in_flight is incremented atomically via gorm.Expr, so verify the
+			// persisted value through a re-fetch (the returned struct mirrors
+			// the pre-increment read, like the default-pick path).
+			persisted, err := registry.GetNodeModel(context.Background(), nodeB.ID, "pref-model", 0)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(persisted.InFlight).To(Equal(1))
+		})
+
+		It("falls back to default order when preferred not loaded", func() {
+			node, _, err := registry.FindAndLockNodeWithModel(context.Background(), "pref-model", nil, &RoutePreference{PreferredNodeID: "ZZZ"})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(node.ID).To(BeElementOf(nodeA.ID, nodeB.ID))
+		})
+
+		It("nil preference behaves like before", func() {
+			node, _, err := registry.FindAndLockNodeWithModel(context.Background(), "pref-model", nil, nil)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(node).ToNot(BeNil())
 		})
 	})
 

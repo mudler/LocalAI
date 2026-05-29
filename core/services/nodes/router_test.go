@@ -119,7 +119,7 @@ type fakeModelRouter struct {
 	touchCalls     []string
 }
 
-func (f *fakeModelRouter) FindAndLockNodeWithModel(_ context.Context, modelName string, _ []string) (*BackendNode, *NodeModel, error) {
+func (f *fakeModelRouter) FindAndLockNodeWithModel(_ context.Context, modelName string, _ []string, _ *RoutePreference) (*BackendNode, *NodeModel, error) {
 	return f.findAndLockNode, f.findAndLockNM, f.findAndLockErr
 }
 

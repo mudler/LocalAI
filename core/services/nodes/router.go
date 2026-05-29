@@ -241,7 +241,7 @@ func (r *SmartRouter) Route(ctx context.Context, modelID, modelName, backendType
 	}
 
 	// Step 1: Find and atomically lock a node with this model loaded
-	node, nm, err := r.registry.FindAndLockNodeWithModel(ctx, trackingKey, candidateNodeIDs)
+	node, nm, err := r.registry.FindAndLockNodeWithModel(ctx, trackingKey, candidateNodeIDs, nil)
 	if err == nil && node != nil {
 		modelAddr := node.Address
 		if nm.Address != "" {
@@ -288,7 +288,7 @@ func (r *SmartRouter) Route(ctx context.Context, modelID, modelName, backendType
 	// Step 2: Model not loaded — schedule loading with distributed lock to prevent duplicates
 	loadModel := func() (*RouteResult, error) {
 		// Re-check after acquiring lock — another request may have loaded it
-		node, nm, err := r.registry.FindAndLockNodeWithModel(ctx, trackingKey, candidateNodeIDs)
+		node, nm, err := r.registry.FindAndLockNodeWithModel(ctx, trackingKey, candidateNodeIDs, nil)
 		if err == nil && node != nil {
 			modelAddr := node.Address
 			if nm.Address != "" {

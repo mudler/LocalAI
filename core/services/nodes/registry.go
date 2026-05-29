@@ -744,6 +744,13 @@ func (r *NodeRegistry) FindNodesWithModel(ctx context.Context, modelName string)
 	return nodes, nil
 }
 
+// RoutePreference biases FindAndLockNodeWithModel. PreferredNodeID, when set
+// and load-eligible and still loaded/healthy, is locked instead of the default
+// ORDER BY pick. Nil preference => unchanged behavior.
+type RoutePreference struct {
+	PreferredNodeID string
+}
+
 // FindAndLockNodeWithModel atomically finds the best loaded replica of the
 // given model and increments its in-flight counter within a single
 // transaction. The SELECT FOR UPDATE row lock prevents concurrent eviction
@@ -765,7 +772,7 @@ func (r *NodeRegistry) FindNodesWithModel(ctx context.Context, modelName string)
 // NodeSelector so a cached replica on a now-excluded node isn't picked over a
 // matching replica elsewhere — the selector-mismatch fall-through path used to
 // trigger an eviction-busy loop when both sides had the model loaded.
-func (r *NodeRegistry) FindAndLockNodeWithModel(ctx context.Context, modelName string, candidateNodeIDs []string) (*BackendNode, *NodeModel, error) {
+func (r *NodeRegistry) FindAndLockNodeWithModel(ctx context.Context, modelName string, candidateNodeIDs []string, pref *RoutePreference) (*BackendNode, *NodeModel, error) {
 	var nm NodeModel
 	var node BackendNode
 
@@ -788,17 +795,32 @@ func (r *NodeRegistry) FindAndLockNodeWithModel(ctx context.Context, modelName s
 		// stale row in the same window, and other helpers that mirror this
 		// JOIN need the same invariant. Belt-and-braces: status filter here
 		// AND the status-checked node fetch below.
-		q := tx.Clauses(clause.Locking{Strength: "UPDATE"}).
+		base := tx.Clauses(clause.Locking{Strength: "UPDATE"}).
 			Joins("JOIN backend_nodes ON backend_nodes.id = node_models.node_id").
 			Where("node_models.model_name = ? AND node_models.state = ? AND backend_nodes.status = ?",
 				modelName, "loaded", StatusHealthy)
 		if len(candidateNodeIDs) > 0 {
-			q = q.Where("node_models.node_id IN ?", candidateNodeIDs)
+			base = base.Where("node_models.node_id IN ?", candidateNodeIDs)
 		}
-		if err := q.
-			Order("node_models.in_flight ASC, node_models.last_used ASC, backend_nodes.available_vram DESC").
-			First(&nm).Error; err != nil {
-			return err
+
+		picked := false
+		if pref != nil && pref.PreferredNodeID != "" {
+			// Try to lock a loaded replica on the preferred node. The caller
+			// has already applied the load guard when choosing PreferredNodeID,
+			// so here we only require it still be loaded+healthy. Pick the
+			// lowest-in_flight replica on that node.
+			q := base.Session(&gorm.Session{}).Where("node_models.node_id = ?", pref.PreferredNodeID).
+				Order("node_models.in_flight ASC, node_models.last_used ASC")
+			if err := q.First(&nm).Error; err == nil {
+				picked = true
+			}
+		}
+		if !picked {
+			if err := base.
+				Order("node_models.in_flight ASC, node_models.last_used ASC, backend_nodes.available_vram DESC").
+				First(&nm).Error; err != nil {
+				return err
+			}
 		}
 
 		if err := tx.Model(&nm).Updates(map[string]any{

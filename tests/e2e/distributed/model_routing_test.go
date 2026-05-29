@@ -63,7 +63,7 @@ var _ = Describe("Model Routing", Label("Distributed"), func() {
 			Expect(models[0].InFlight).To(Equal(2))
 
 			// FindAndLockNodeWithModel should return this node and atomically increment in-flight
-			foundNode, foundModel, err := registry.FindAndLockNodeWithModel(context.Background(), "llama3", nil)
+			foundNode, foundModel, err := registry.FindAndLockNodeWithModel(context.Background(), "llama3", nil, nil)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(foundNode.ID).To(Equal(node.ID))
 			Expect(foundModel.ModelName).To(Equal("llama3"))
