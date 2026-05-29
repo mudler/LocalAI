@@ -18,3 +18,20 @@ func PrefixChain(ctx context.Context) []uint64 {
 	}
 	return nil
 }
+
+// PrefixChainHook, when set at startup (distributed mode only), builds a prefix
+// hash chain from a model id and rendered prompt. Left nil in single-process
+// mode so there is zero overhead. See core/application/distributed.go.
+var PrefixChainHook func(model, prompt string) []uint64
+
+// MaybeWithPrefixChain attaches a prefix chain to ctx iff the hook is set and
+// returns a non-empty chain. Otherwise returns ctx unchanged.
+func MaybeWithPrefixChain(ctx context.Context, model, prompt string) context.Context {
+	if PrefixChainHook == nil {
+		return ctx
+	}
+	if chain := PrefixChainHook(model, prompt); len(chain) > 0 {
+		return WithPrefixChain(ctx, chain)
+	}
+	return ctx
+}
