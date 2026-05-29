@@ -175,3 +175,27 @@ func (t *Tree[V]) Weight(value V, now time.Time) float64 {
 	walk(t.root)
 	return sum
 }
+
+// Remove drops every entry whose value equals value, then prunes empty
+// branches. Used when a replica is unloaded or its node goes offline so the
+// tree never points at a node that no longer holds the model.
+func (t *Tree[V]) Remove(value V) {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	var clear func(n *node[V]) bool
+	clear = func(n *node[V]) bool {
+		for k, c := range n.children {
+			if clear(c) {
+				delete(n.children, k)
+			}
+		}
+		if n.hasValue && n.value == value {
+			n.hasValue = false
+			var zero V
+			n.value = zero
+			t.size--
+		}
+		return n != t.root && !n.hasValue && len(n.children) == 0
+	}
+	clear(t.root)
+}

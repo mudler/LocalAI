@@ -94,3 +94,18 @@ var _ = Describe("Weight", func() {
 		Expect(tr.Weight("A", t0.Add(2*time.Minute))).To(BeNumerically("==", 0))
 	})
 })
+
+var _ = Describe("Remove", func() {
+	It("drops every entry anchored to a value and prunes", func() {
+		tr := radixtree.New[string](radixtree.Options{TTL: time.Hour})
+		tr.Insert([]uint64{1, 2}, "A", t0)
+		tr.Insert([]uint64{1, 2, 3}, "B", t0)
+		tr.Remove("A")
+		_, _, ok := tr.LongestMatch([]uint64{1, 2}, t0)
+		Expect(ok).To(BeFalse()) // A gone; node {1,2} has no value
+		v, _, ok := tr.LongestMatch([]uint64{1, 2, 3}, t0)
+		Expect(ok).To(BeTrue())
+		Expect(v).To(Equal("B")) // B survives
+		Expect(tr.Weight("A", t0)).To(BeNumerically("==", 0))
+	})
+})
