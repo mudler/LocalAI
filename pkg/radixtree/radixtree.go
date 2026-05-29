@@ -6,6 +6,7 @@
 package radixtree
 
 import (
+	"math"
 	"sync"
 	"time"
 )
@@ -147,4 +148,30 @@ func (t *Tree[V]) pruneLocked(n *node[V], now time.Time) bool {
 		t.size--
 	}
 	return n != t.root && !n.hasValue && len(n.children) == 0
+}
+
+// Weight returns the recency-weighted count of live entries anchored to value:
+// sum over non-expired entries of 0.5^(age/HalfLife). With HalfLife==0 every
+// live entry contributes 1.0 (a plain count). This is the "valuable warm cache"
+// proxy used for cold placement and autoscale.
+func (t *Tree[V]) Weight(value V, now time.Time) float64 {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	var sum float64
+	var walk func(n *node[V])
+	walk = func(n *node[V]) {
+		if n.hasValue && n.value == value && !t.expired(n, now) {
+			if t.opts.HalfLife <= 0 {
+				sum += 1
+			} else {
+				age := now.Sub(n.lastSeen).Seconds()
+				sum += math.Pow(0.5, age/t.opts.HalfLife.Seconds())
+			}
+		}
+		for _, c := range n.children {
+			walk(c)
+		}
+	}
+	walk(t.root)
+	return sum
 }

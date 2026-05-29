@@ -69,3 +69,28 @@ var _ = Describe("TTL expiry", func() {
 		Expect(tr.Len()).To(Equal(0))
 	})
 })
+
+var _ = Describe("Weight", func() {
+	It("counts live entries for a value with no decay", func() {
+		tr := radixtree.New[string](radixtree.Options{TTL: time.Hour}) // HalfLife=0
+		tr.Insert([]uint64{1}, "A", t0)
+		tr.Insert([]uint64{1, 2}, "A", t0)
+		tr.Insert([]uint64{9}, "B", t0)
+		Expect(tr.Weight("A", t0)).To(BeNumerically("==", 2))
+		Expect(tr.Weight("B", t0)).To(BeNumerically("==", 1))
+		Expect(tr.Weight("C", t0)).To(BeNumerically("==", 0))
+	})
+
+	It("decays older entries by half-life", func() {
+		tr := radixtree.New[string](radixtree.Options{TTL: time.Hour, HalfLife: time.Minute})
+		tr.Insert([]uint64{1}, "A", t0)
+		// one half-life later, the entry weighs 0.5
+		Expect(tr.Weight("A", t0.Add(time.Minute))).To(BeNumerically("~", 0.5, 0.001))
+	})
+
+	It("ignores expired entries", func() {
+		tr := radixtree.New[string](radixtree.Options{TTL: time.Minute})
+		tr.Insert([]uint64{1}, "A", t0)
+		Expect(tr.Weight("A", t0.Add(2*time.Minute))).To(BeNumerically("==", 0))
+	})
+})
