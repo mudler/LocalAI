@@ -228,6 +228,31 @@ func (r *NodeRegistry) fireReplicaRemoved(modelName, nodeID string) {
 	}
 }
 
+// nodeModelNames returns the DISTINCT model names that have node_models rows
+// for nodeID, using db (which may be a transaction handle). Used by the bulk
+// node-scoped delete paths (Register re-register cleanup, MarkOffline,
+// MarkDraining, Deregister) to capture what will be removed BEFORE the delete
+// so they can fire the replica-removed hook once per distinct model afterwards
+// and keep the prefix-cache index from pointing at a node that no longer hosts
+// the model. Skips the query entirely when no hook is set (these are lifecycle
+// ops, not the request hot path, but the query is pure overhead with no hook).
+func (r *NodeRegistry) nodeModelNames(ctx context.Context, db *gorm.DB, nodeID string) []string {
+	if fn := r.replicaRemovedHook.Load(); fn == nil || *fn == nil {
+		return nil
+	}
+	var names []string
+	if err := db.WithContext(ctx).Model(&NodeModel{}).
+		Where("node_id = ?", nodeID).
+		Distinct().
+		Pluck("model_name", &names).Error; err != nil {
+		// Non-fatal: proceed with the delete, just skip hook invalidation.
+		// A stale prefix-cache entry self-heals on the next routing miss.
+		xlog.Warn("Failed to enumerate node models before bulk delete; skipping prefix-cache invalidation", "node", nodeID, "error", err)
+		return nil
+	}
+	return names
+}
+
 // NewNodeRegistry creates a NodeRegistry and auto-migrates the schema.
 // Uses a PostgreSQL advisory lock to prevent concurrent migration races
 // when multiple instances (frontend + workers) start at the same time.
@@ -310,9 +335,16 @@ func (r *NodeRegistry) Register(ctx context.Context, node *BackendNode, autoAppr
 		if node.APIKeyID == "" {
 			node.APIKeyID = existing.APIKeyID
 		}
-		// Clear stale model records — the node restarted and has nothing loaded
+		// Clear stale model records — the node restarted and has nothing loaded.
+		// Capture the distinct models first so the prefix-cache index can be
+		// invalidated for each (the single chokepoint must cover this path too).
+		removedModels := r.nodeModelNames(ctx, r.db, existing.ID)
 		if err := r.db.WithContext(ctx).Where("node_id = ?", existing.ID).Delete(&NodeModel{}).Error; err != nil {
 			xlog.Warn("Failed to clear stale model records on re-register", "node", node.Name, "error", err)
+		} else {
+			for _, m := range removedModels {
+				r.fireReplicaRemoved(m, existing.ID)
+			}
 		}
 	} else if errors.Is(err, gorm.ErrRecordNotFound) {
 		// Create new node
@@ -389,9 +421,15 @@ func (r *NodeRegistry) MarkOffline(ctx context.Context, nodeID string) error {
 	if err := r.setStatus(ctx, nodeID, StatusOffline); err != nil {
 		return err
 	}
-	// Clear model records — node is shutting down
+	// Clear model records — node is shutting down. Capture the distinct models
+	// first so the prefix-cache index is invalidated for each.
+	removedModels := r.nodeModelNames(ctx, r.db, nodeID)
 	if err := r.db.WithContext(ctx).Where("node_id = ?", nodeID).Delete(&NodeModel{}).Error; err != nil {
 		xlog.Warn("Failed to clear model records on offline", "node", nodeID, "error", err)
+	} else {
+		for _, m := range removedModels {
+			r.fireReplicaRemoved(m, nodeID)
+		}
 	}
 	return nil
 }
@@ -498,7 +536,11 @@ func (r *NodeRegistry) Deregister(ctx context.Context, nodeID string) error {
 		return fmt.Errorf("node %s not found: %w", nodeID, err)
 	}
 
-	return db.Transaction(func(tx *gorm.DB) error {
+	// Capture the distinct models removed so the prefix-cache index can be
+	// invalidated once the transaction commits.
+	var removedModels []string
+	if err := db.Transaction(func(tx *gorm.DB) error {
+		removedModels = r.nodeModelNames(ctx, tx, nodeID)
 		if err := tx.Where("node_id = ?", nodeID).Delete(&NodeModel{}).Error; err != nil {
 			return fmt.Errorf("deleting node models for %s: %w", nodeID, err)
 		}
@@ -513,7 +555,13 @@ func (r *NodeRegistry) Deregister(ctx context.Context, nodeID string) error {
 			}
 		}
 		return nil
-	})
+	}); err != nil {
+		return err
+	}
+	for _, m := range removedModels {
+		r.fireReplicaRemoved(m, nodeID)
+	}
+	return nil
 }
 
 // HeartbeatUpdate contains optional fields to update on heartbeat.
@@ -630,8 +678,15 @@ func (r *NodeRegistry) MarkDraining(ctx context.Context, nodeID string) error {
 	if err := r.setStatus(ctx, nodeID, StatusDraining); err != nil {
 		return err
 	}
+	// Capture the distinct models first so the prefix-cache index is
+	// invalidated for each removed model.
+	removedModels := r.nodeModelNames(ctx, r.db, nodeID)
 	if err := r.db.WithContext(ctx).Where("node_id = ?", nodeID).Delete(&NodeModel{}).Error; err != nil {
 		xlog.Warn("Failed to clear model records on draining", "node", nodeID, "error", err)
+	} else {
+		for _, m := range removedModels {
+			r.fireReplicaRemoved(m, nodeID)
+		}
 	}
 	return nil
 }
@@ -898,10 +953,12 @@ func (r *NodeRegistry) LoadedReplicaStats(ctx context.Context, modelName string,
 		q = q.Where("node_models.node_id IN ?", candidateNodeIDs)
 	}
 
+	// Narrow to only the columns the sole consumer (router buildPreference)
+	// reads: NodeID and InFlight. The other ReplicaCandidate fields stay at
+	// their zero value, which the consumer does not read. This avoids the
+	// JOIN-side available_vram fetch and the extra column transfer.
 	var rows []row
-	err := q.Select("node_models.node_id AS node_id, node_models.address AS address, " +
-		"node_models.replica_index AS replica_index, node_models.in_flight AS in_flight, " +
-		"node_models.last_used AS last_used, backend_nodes.available_vram AS available_vram").
+	err := q.Select("node_models.node_id AS node_id, node_models.in_flight AS in_flight").
 		Scan(&rows).Error
 	if err != nil {
 		return nil, fmt.Errorf("loading replica stats for %s: %w", modelName, err)

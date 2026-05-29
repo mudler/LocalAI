@@ -1067,6 +1067,81 @@ var _ = Describe("NodeRegistry", func() {
 				Expect(registry.RemoveAllNodeModelReplicas(context.Background(), node.ID, "no-hook-model")).To(Succeed())
 			}).ToNot(Panic())
 		})
+
+		// firedModelSet collects the distinct model names the hook saw for the
+		// given node. The bulk node-scoped deletes below remove every replica of
+		// every model on the node in one statement, so the chokepoint must fire
+		// the hook once per distinct model name (the consumer's Invalidate
+		// drops all entries for that (model, node) pair).
+		seedTwoModels := func(node *BackendNode) {
+			Expect(registry.Register(context.Background(), node, true)).To(Succeed())
+			Expect(registry.SetNodeModel(context.Background(), node.ID, "model-a", 0, "loaded", "a0", 0)).To(Succeed())
+			Expect(registry.SetNodeModel(context.Background(), node.ID, "model-a", 1, "loaded", "a1", 0)).To(Succeed())
+			Expect(registry.SetNodeModel(context.Background(), node.ID, "model-b", 0, "loaded", "b0", 0)).To(Succeed())
+		}
+
+		It("fires once per distinct model after MarkOffline", func() {
+			node := makeNode("hook-offline", "10.0.0.240:50051", 8_000_000_000)
+			seedTwoModels(node)
+
+			fired := map[removed]int{}
+			registry.SetReplicaRemovedHook(func(modelName, nodeID string) {
+				fired[removed{model: modelName, node: nodeID}]++
+			})
+
+			Expect(registry.MarkOffline(context.Background(), node.ID)).To(Succeed())
+			Expect(fired).To(HaveLen(2))
+			Expect(fired[removed{model: "model-a", node: node.ID}]).To(Equal(1))
+			Expect(fired[removed{model: "model-b", node: node.ID}]).To(Equal(1))
+		})
+
+		It("fires once per distinct model after MarkDraining", func() {
+			node := makeNode("hook-draining", "10.0.0.241:50051", 8_000_000_000)
+			seedTwoModels(node)
+
+			fired := map[removed]int{}
+			registry.SetReplicaRemovedHook(func(modelName, nodeID string) {
+				fired[removed{model: modelName, node: nodeID}]++
+			})
+
+			Expect(registry.MarkDraining(context.Background(), node.ID)).To(Succeed())
+			Expect(fired).To(HaveLen(2))
+			Expect(fired[removed{model: "model-a", node: node.ID}]).To(Equal(1))
+			Expect(fired[removed{model: "model-b", node: node.ID}]).To(Equal(1))
+		})
+
+		It("fires once per distinct model after Deregister", func() {
+			node := makeNode("hook-deregister", "10.0.0.242:50051", 8_000_000_000)
+			seedTwoModels(node)
+
+			fired := map[removed]int{}
+			registry.SetReplicaRemovedHook(func(modelName, nodeID string) {
+				fired[removed{model: modelName, node: nodeID}]++
+			})
+
+			Expect(registry.Deregister(context.Background(), node.ID)).To(Succeed())
+			Expect(fired).To(HaveLen(2))
+			Expect(fired[removed{model: "model-a", node: node.ID}]).To(Equal(1))
+			Expect(fired[removed{model: "model-b", node: node.ID}]).To(Equal(1))
+		})
+
+		It("fires once per distinct model when re-registration clears stale rows", func() {
+			node := makeNode("hook-reregister", "10.0.0.243:50051", 8_000_000_000)
+			seedTwoModels(node)
+
+			fired := map[removed]int{}
+			registry.SetReplicaRemovedHook(func(modelName, nodeID string) {
+				fired[removed{model: modelName, node: nodeID}]++
+			})
+
+			// Re-register the same node (same name): the re-register path
+			// clears the stale model rows, which must fire the hook.
+			again := makeNode("hook-reregister", "10.0.0.243:50052", 8_000_000_000)
+			Expect(registry.Register(context.Background(), again, true)).To(Succeed())
+			Expect(fired).To(HaveLen(2))
+			Expect(fired[removed{model: "model-a", node: node.ID}]).To(Equal(1))
+			Expect(fired[removed{model: "model-b", node: node.ID}]).To(Equal(1))
+		})
 	})
 
 	Describe("ApplyAutoLabels", func() {
