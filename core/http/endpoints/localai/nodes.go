@@ -26,6 +26,7 @@ import (
 	"github.com/mudler/LocalAI/core/schema"
 	"github.com/mudler/LocalAI/core/services/galleryop"
 	"github.com/mudler/LocalAI/core/services/nodes"
+	"github.com/mudler/LocalAI/core/services/nodes/prefixcache"
 	"github.com/mudler/LocalAI/pkg/httpclient"
 )
 
@@ -912,22 +913,30 @@ func GetSchedulingEndpoint(registry *nodes.NodeRegistry) echo.HandlerFunc {
 }
 
 // SetSchedulingRequest is the request body for creating/updating a scheduling config.
+//
+// The four prefix-cache fields are POINTERS so an omitted field is
+// distinguishable from an explicit zero. On update, an omitted prefix-cache
+// field preserves the model's previously-configured value instead of resetting
+// it (see SetSchedulingEndpoint's PATCH-style merge). ModelName, NodeSelector,
+// MinReplicas and MaxReplicas keep their full-replace PUT semantics.
 type SetSchedulingRequest struct {
 	ModelName           string            `json:"model_name"`
 	NodeSelector        map[string]string `json:"node_selector,omitempty"`
 	MinReplicas         int               `json:"min_replicas"`
 	MaxReplicas         int               `json:"max_replicas"`
-	RoutePolicy         string            `json:"route_policy,omitempty"`
-	BalanceAbsThreshold int               `json:"balance_abs_threshold,omitempty"`
-	BalanceRelThreshold float64           `json:"balance_rel_threshold,omitempty"`
-	MinPrefixMatch      float64           `json:"min_prefix_match,omitempty"`
+	RoutePolicy         *string           `json:"route_policy,omitempty"`
+	BalanceAbsThreshold *int              `json:"balance_abs_threshold,omitempty"`
+	BalanceRelThreshold *float64          `json:"balance_rel_threshold,omitempty"`
+	MinPrefixMatch      *float64          `json:"min_prefix_match,omitempty"`
 }
 
 // validateSchedulingRequest enforces the invariants of a scheduling config.
-// It returns nil when the request is valid, or an error with a user-facing
-// message describing the first violation. It is a pure function so it can be
-// unit-tested without a database.
-func validateSchedulingRequest(req SetSchedulingRequest) error {
+// The prefix-cache bounds are delegated to prefixcache.ValidateThresholds (the
+// single source of truth), and are checked against the RESOLVED values passed
+// in (provided-or-preserved), so validation only rejects bad values the caller
+// actually supplied. It returns nil when valid, or an error with a user-facing
+// message describing the first violation.
+func validateSchedulingRequest(req SetSchedulingRequest, routePolicy string, absThr int, relThr, minMatch float64) error {
 	if req.ModelName == "" {
 		return errors.New("model_name is required")
 	}
@@ -940,27 +949,20 @@ func validateSchedulingRequest(req SetSchedulingRequest) error {
 	if req.MaxReplicas > 0 && req.MinReplicas > req.MaxReplicas {
 		return errors.New("min_replicas must be <= max_replicas")
 	}
-	// Explicit allow-list: prefixcache.ParsePolicy maps unknown strings to
-	// the Default policy, which would silently accept typos. Reject any
-	// non-empty value outside the known set instead.
-	switch req.RoutePolicy {
-	case "", "round_robin", "prefix_cache":
-	default:
-		return errors.New(`route_policy must be one of "", "round_robin", "prefix_cache"`)
-	}
-	if req.MinPrefixMatch < 0 || req.MinPrefixMatch > 1 {
-		return errors.New("min_prefix_match must be in [0,1]")
-	}
-	if req.BalanceAbsThreshold < 0 {
-		return errors.New("balance_abs_threshold must be >= 0")
-	}
-	if req.BalanceRelThreshold != 0 && req.BalanceRelThreshold < 1 {
-		return errors.New("balance_rel_threshold must be 0 (inherit) or >= 1")
+	if err := prefixcache.ValidateThresholds(routePolicy, absThr, relThr, minMatch); err != nil {
+		return err
 	}
 	return nil
 }
 
 // SetSchedulingEndpoint creates or updates a model scheduling config.
+//
+// The registry upsert full-replaces all columns, so a request that omits the
+// prefix-cache fields would otherwise wipe a model's previously-configured
+// routing settings. To avoid that footgun the four prefix-cache fields are
+// merged PATCH-style: a non-nil request pointer wins; a nil one preserves the
+// existing config's value (or the zero default when no config exists yet). The
+// non-prefix fields keep their full-replace PUT behavior.
 func SetSchedulingEndpoint(registry *nodes.NodeRegistry) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		ctx := c.Request().Context()
@@ -968,7 +970,44 @@ func SetSchedulingEndpoint(registry *nodes.NodeRegistry) echo.HandlerFunc {
 		if err := c.Bind(&req); err != nil {
 			return c.JSON(http.StatusBadRequest, nodeError(http.StatusBadRequest, "invalid request body"))
 		}
-		if err := validateSchedulingRequest(req); err != nil {
+
+		// Fetch the existing config (may be nil) so omitted prefix-cache fields
+		// can fall back to the stored value rather than resetting to zero.
+		var existing *nodes.ModelSchedulingConfig
+		if req.ModelName != "" {
+			var err error
+			existing, err = registry.GetModelScheduling(ctx, req.ModelName)
+			if err != nil {
+				return c.JSON(http.StatusInternalServerError, nodeError(http.StatusInternalServerError, "failed to load existing scheduling config"))
+			}
+		}
+
+		// Resolve each prefix-cache field: provided pointer wins, otherwise keep
+		// the existing value (zero/default when there is no existing config).
+		routePolicy := ""
+		absThr := 0
+		relThr := 0.0
+		minMatch := 0.0
+		if existing != nil {
+			routePolicy = existing.RoutePolicy
+			absThr = existing.BalanceAbsThreshold
+			relThr = existing.BalanceRelThreshold
+			minMatch = existing.MinPrefixMatch
+		}
+		if req.RoutePolicy != nil {
+			routePolicy = *req.RoutePolicy
+		}
+		if req.BalanceAbsThreshold != nil {
+			absThr = *req.BalanceAbsThreshold
+		}
+		if req.BalanceRelThreshold != nil {
+			relThr = *req.BalanceRelThreshold
+		}
+		if req.MinPrefixMatch != nil {
+			minMatch = *req.MinPrefixMatch
+		}
+
+		if err := validateSchedulingRequest(req, routePolicy, absThr, relThr, minMatch); err != nil {
 			return c.JSON(http.StatusBadRequest, nodeError(http.StatusBadRequest, err.Error()))
 		}
 
@@ -987,10 +1026,10 @@ func SetSchedulingEndpoint(registry *nodes.NodeRegistry) echo.HandlerFunc {
 			NodeSelector:        selectorJSON,
 			MinReplicas:         req.MinReplicas,
 			MaxReplicas:         req.MaxReplicas,
-			RoutePolicy:         req.RoutePolicy,
-			BalanceAbsThreshold: req.BalanceAbsThreshold,
-			BalanceRelThreshold: req.BalanceRelThreshold,
-			MinPrefixMatch:      req.MinPrefixMatch,
+			RoutePolicy:         routePolicy,
+			BalanceAbsThreshold: absThr,
+			BalanceRelThreshold: relThr,
+			MinPrefixMatch:      minMatch,
 		}
 		if err := registry.SetModelScheduling(ctx, config); err != nil {
 			return c.JSON(http.StatusInternalServerError, nodeError(http.StatusInternalServerError, "failed to set scheduling config"))

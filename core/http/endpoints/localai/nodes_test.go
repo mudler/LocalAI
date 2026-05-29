@@ -299,6 +299,43 @@ var _ = Describe("Node HTTP handlers", func() {
 			Expect(ok).To(BeTrue())
 			Expect(errObj["message"]).To(ContainSubstring("balance_rel_threshold"))
 		})
+
+		// Regression for the partial-update footgun: a min/max-only POST used to
+		// full-replace every column and silently reset the prefix-cache settings
+		// to empty/zero. The pointer-merge must preserve omitted prefix fields.
+		It("preserves prefix-cache settings across a min_replicas-only update", func() {
+			ctx := context.Background()
+
+			rec := postScheduling(`{"model_name":"merge-model","route_policy":"prefix_cache","min_prefix_match":0.4}`)
+			Expect(rec.Code).To(Equal(http.StatusOK))
+
+			// Update only min_replicas - omits all prefix-cache fields.
+			rec = postScheduling(`{"model_name":"merge-model","min_replicas":2}`)
+			Expect(rec.Code).To(Equal(http.StatusOK))
+
+			cfg, err := registry.GetModelScheduling(ctx, "merge-model")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(cfg).ToNot(BeNil())
+			Expect(cfg.MinReplicas).To(Equal(2), "the provided non-prefix field must update")
+			Expect(cfg.RoutePolicy).To(Equal("prefix_cache"), "omitted route_policy must be preserved")
+			Expect(cfg.MinPrefixMatch).To(BeNumerically("~", 0.4, 1e-9), "omitted min_prefix_match must be preserved")
+		})
+
+		It("updates a prefix-cache field when it is explicitly provided", func() {
+			ctx := context.Background()
+
+			rec := postScheduling(`{"model_name":"update-model","route_policy":"prefix_cache","min_prefix_match":0.4}`)
+			Expect(rec.Code).To(Equal(http.StatusOK))
+
+			rec = postScheduling(`{"model_name":"update-model","route_policy":"round_robin"}`)
+			Expect(rec.Code).To(Equal(http.StatusOK))
+
+			cfg, err := registry.GetModelScheduling(ctx, "update-model")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(cfg).ToNot(BeNil())
+			Expect(cfg.RoutePolicy).To(Equal("round_robin"), "explicitly provided route_policy must update")
+			Expect(cfg.MinPrefixMatch).To(BeNumerically("~", 0.4, 1e-9), "omitted min_prefix_match must still be preserved")
+		})
 	})
 
 	Describe("ListNodesEndpoint", func() {
