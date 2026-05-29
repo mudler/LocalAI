@@ -71,3 +71,12 @@ func (p *Pressure) Count(model string, now time.Time) int {
 	p.events[model] = kept
 	return len(kept)
 }
+
+// Reset clears all recorded events for model. Call after acting on the signal
+// (a pressure-triggered scale-up) so a single burst does not trigger repeated
+// scale-ups across consecutive ticks.
+func (p *Pressure) Reset(model string) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	delete(p.events, model)
+}

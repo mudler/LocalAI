@@ -61,6 +61,30 @@ var _ = Describe("Pressure counter", func() {
 		Expect(p.Count("m", last)).To(Equal(p.LenForTest("m")))
 	})
 
+	It("clears all recorded events on Reset", func() {
+		p := prefixcache.NewPressure(time.Minute)
+		p.Record("m", t0)
+		p.Record("m", t0.Add(10*time.Second))
+		p.Record("m", t0.Add(20*time.Second))
+		Expect(p.Count("m", t0.Add(30*time.Second))).To(BeNumerically(">", 0))
+
+		p.Reset("m")
+
+		// After Reset the model has no in-window events even though the
+		// timestamps would otherwise still be within [now-window, now].
+		Expect(p.Count("m", t0.Add(30*time.Second))).To(Equal(0))
+		Expect(p.LenForTest("m")).To(Equal(0))
+	})
+
+	It("Reset only clears the named model", func() {
+		p := prefixcache.NewPressure(time.Minute)
+		p.Record("a", t0)
+		p.Record("b", t0)
+		p.Reset("a")
+		Expect(p.Count("a", t0.Add(time.Second))).To(Equal(0))
+		Expect(p.Count("b", t0.Add(time.Second))).To(Equal(1))
+	})
+
 	It("does not accumulate repeated out-of-window Records", func() {
 		p := prefixcache.NewPressure(time.Minute)
 		// Each record is more than a window apart, so every Record prunes the
