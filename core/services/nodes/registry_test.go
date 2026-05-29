@@ -1021,6 +1021,54 @@ var _ = Describe("NodeRegistry", func() {
 		})
 	})
 
+	Describe("SetReplicaRemovedHook", func() {
+		type removed struct{ model, node string }
+
+		It("fires once with (model, node) after RemoveNodeModel", func() {
+			node := makeNode("hook-remove-one", "10.0.0.230:50051", 8_000_000_000)
+			Expect(registry.Register(context.Background(), node, true)).To(Succeed())
+			Expect(registry.SetNodeModel(context.Background(), node.ID, "hook-model", 0, "loaded", "a", 0)).To(Succeed())
+
+			var fired []removed
+			registry.SetReplicaRemovedHook(func(modelName, nodeID string) {
+				fired = append(fired, removed{model: modelName, node: nodeID})
+			})
+
+			Expect(registry.RemoveNodeModel(context.Background(), node.ID, "hook-model", 0)).To(Succeed())
+			Expect(fired).To(HaveLen(1))
+			Expect(fired[0]).To(Equal(removed{model: "hook-model", node: node.ID}))
+		})
+
+		It("fires once with (model, node) after RemoveAllNodeModelReplicas", func() {
+			node := makeNode("hook-remove-all", "10.0.0.231:50051", 16_000_000_000)
+			Expect(registry.Register(context.Background(), node, true)).To(Succeed())
+			Expect(registry.SetNodeModel(context.Background(), node.ID, "hook-all-model", 0, "loaded", "a", 0)).To(Succeed())
+			Expect(registry.SetNodeModel(context.Background(), node.ID, "hook-all-model", 1, "loaded", "b", 0)).To(Succeed())
+
+			var fired []removed
+			registry.SetReplicaRemovedHook(func(modelName, nodeID string) {
+				fired = append(fired, removed{model: modelName, node: nodeID})
+			})
+
+			// One call covers all replicas of that model on the node; the
+			// consumer's Invalidate(model, node) drops all entries for the pair.
+			Expect(registry.RemoveAllNodeModelReplicas(context.Background(), node.ID, "hook-all-model")).To(Succeed())
+			Expect(fired).To(HaveLen(1))
+			Expect(fired[0]).To(Equal(removed{model: "hook-all-model", node: node.ID}))
+		})
+
+		It("does not panic when no hook is set", func() {
+			node := makeNode("hook-unset", "10.0.0.232:50051", 8_000_000_000)
+			Expect(registry.Register(context.Background(), node, true)).To(Succeed())
+			Expect(registry.SetNodeModel(context.Background(), node.ID, "no-hook-model", 0, "loaded", "a", 0)).To(Succeed())
+
+			Expect(func() {
+				Expect(registry.RemoveNodeModel(context.Background(), node.ID, "no-hook-model", 0)).To(Succeed())
+				Expect(registry.RemoveAllNodeModelReplicas(context.Background(), node.ID, "no-hook-model")).To(Succeed())
+			}).ToNot(Panic())
+		})
+	})
+
 	Describe("ApplyAutoLabels", func() {
 		It("mirrors MaxReplicasPerModel as the node.replica-slots label", func() {
 			node := makeNode("auto-label-replicas", "10.0.0.220:50051", 16_000_000_000)

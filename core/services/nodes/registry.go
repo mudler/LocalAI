@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"sync/atomic"
 	"time"
 
 	"github.com/google/uuid"
@@ -203,6 +204,28 @@ const (
 // NodeRegistry manages backend node registration and lookup in PostgreSQL.
 type NodeRegistry struct {
 	db *gorm.DB
+	// replicaRemovedHook is invoked after a replica row for (modelName, nodeID)
+	// is removed. It is the single chokepoint that lets the prefix-cache index
+	// be invalidated no matter which removal path (router eviction, reconciler
+	// scale-down, probe reaper, health-monitor reap, RemoteUnloaderAdapter) ran.
+	// Stored in an atomic.Pointer so the startup wiring (setter) and request /
+	// reconcile handling (fire) are race-free.
+	replicaRemovedHook atomic.Pointer[func(modelName, nodeID string)]
+}
+
+// SetReplicaRemovedHook registers a callback invoked after a replica row for
+// (modelName, nodeID) is removed from the registry. Used to invalidate the
+// prefix-cache index so it never points at a node that no longer hosts the
+// model. Set once at startup before serving. Safe to leave unset (no-op).
+func (r *NodeRegistry) SetReplicaRemovedHook(fn func(modelName, nodeID string)) {
+	r.replicaRemovedHook.Store(&fn)
+}
+
+// fireReplicaRemoved invokes the replica-removed hook if one is set. Nil-safe.
+func (r *NodeRegistry) fireReplicaRemoved(modelName, nodeID string) {
+	if fn := r.replicaRemovedHook.Load(); fn != nil && *fn != nil {
+		(*fn)(modelName, nodeID)
+	}
 }
 
 // NewNodeRegistry creates a NodeRegistry and auto-migrates the schema.
@@ -719,16 +742,24 @@ func (r *NodeRegistry) GetModelLoadInfo(ctx context.Context, modelName string) (
 // to keep the contract explicit (probeLoadedModels and scaleDownIdle iterate
 // per-row and must not orphan healthy siblings).
 func (r *NodeRegistry) RemoveNodeModel(ctx context.Context, nodeID, modelName string, replicaIndex int) error {
-	return r.db.WithContext(ctx).Where("node_id = ? AND model_name = ? AND replica_index = ?", nodeID, modelName, replicaIndex).
-		Delete(&NodeModel{}).Error
+	if err := r.db.WithContext(ctx).Where("node_id = ? AND model_name = ? AND replica_index = ?", nodeID, modelName, replicaIndex).
+		Delete(&NodeModel{}).Error; err != nil {
+		return err
+	}
+	r.fireReplicaRemoved(modelName, nodeID)
+	return nil
 }
 
 // RemoveAllNodeModelReplicas removes every replica of modelName on nodeID.
 // Used by callers (e.g. node deregistration, full backend stop) that genuinely
 // want to clear all replicas, not just one.
 func (r *NodeRegistry) RemoveAllNodeModelReplicas(ctx context.Context, nodeID, modelName string) error {
-	return r.db.WithContext(ctx).Where("node_id = ? AND model_name = ?", nodeID, modelName).
-		Delete(&NodeModel{}).Error
+	if err := r.db.WithContext(ctx).Where("node_id = ? AND model_name = ?", nodeID, modelName).
+		Delete(&NodeModel{}).Error; err != nil {
+		return err
+	}
+	r.fireReplicaRemoved(modelName, nodeID)
+	return nil
 }
 
 // FindNodesWithModel returns nodes that have the given model loaded.
