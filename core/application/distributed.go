@@ -265,6 +265,17 @@ func initDistributed(cfg *config.ApplicationConfig, authDB *gorm.DB, configLoade
 		pressure = prefixcache.NewPressure(prefixCfg.PressureWindow)
 		prefixProvider = prefixSync
 
+		// Invalidate the prefix-cache index whenever a replica row is removed.
+		// SetReplicaRemovedHook fires from the single chokepoint all removal paths
+		// funnel through (RemoveNodeModel / RemoveAllNodeModelReplicas), so this
+		// one hook covers every path: reconciler scale-down, probe reaper,
+		// health-monitor reap, RemoteUnloaderAdapter, and the router. Registering
+		// it only inside this enabled block keeps the disabled path a true no-op
+		// (the registry stays hook-less).
+		registry.SetReplicaRemovedHook(func(modelName, nodeID string) {
+			prefixSync.Invalidate(modelName, nodeID)
+		})
+
 		distributedhdr.PrefixChainHook = func(model, prompt string) []uint64 {
 			return prefixcache.ExtractChain(model, prompt, prefixCfg)
 		}
