@@ -300,6 +300,71 @@ var _ = Describe("ReplicaReconciler", func() {
 				"pressure must never override MaxReplicas")
 		})
 
+		It("consumes the pressure signal so a single burst scales up only once", func() {
+			// A single burst of forced-disturbs (well within the window) must
+			// trigger exactly ONE pressure scale-up. A subsequent tick, with the
+			// SAME events still in-window, must NOT scale again: the first
+			// scale-up consumed (Reset) the signal. Without the fix, the
+			// non-draining Count keeps returning >= threshold every tick and
+			// drives the model toward MaxReplicas off a single burst.
+			node := registerNode("consume-node", "10.0.0.64:50051")
+			Expect(registry.SetNodeModel(context.Background(), node.ID, "consume-model", 0, "loaded", "addr1", 0)).To(Succeed())
+			setSchedulingConfig("consume-model", 1, 4, "")
+
+			pressure := prefixcache.NewPressure(time.Minute)
+			now := time.Now()
+			pressure.Record("consume-model", now)
+			pressure.Record("consume-model", now)
+			pressure.Record("consume-model", now)
+
+			scheduler := &fakeScheduler{scheduleNode: node}
+			reconciler := NewReplicaReconciler(ReplicaReconcilerOptions{
+				Registry:  registry,
+				Scheduler: scheduler,
+				DB:        db,
+				Pressure:  pressure,
+			})
+
+			// First tick: pressure above threshold → one scale-up.
+			reconciler.reconcile(context.Background())
+			Expect(scheduler.scheduleCalls).To(HaveLen(1),
+				"first tick must scale up once on the burst")
+
+			// Second tick: the burst's events are still inside the window, but
+			// the first scale-up Reset them, so no further scale-up occurs.
+			reconciler.reconcile(context.Background())
+			Expect(scheduler.scheduleCalls).To(HaveLen(1),
+				"a single burst must not re-trigger scale-up on the next in-window tick")
+		})
+
+		It("performs at most one scale-up per tick when both busy and over pressure", func() {
+			// The single loaded replica is busy (all-replicas-busy fires) AND
+			// pressure is above threshold. Both scale-up paths are eligible in
+			// the same tick. The invariant is at-most-one scaleUp(+1) per tick,
+			// so exactly one schedule call must happen, not two.
+			node := registerNode("dual-node", "10.0.0.65:50051")
+			Expect(registry.SetNodeModel(context.Background(), node.ID, "dual-model", 0, "loaded", "addr1", 0)).To(Succeed())
+			Expect(registry.IncrementInFlight(context.Background(), node.ID, "dual-model", 0)).To(Succeed())
+			setSchedulingConfig("dual-model", 1, 4, "")
+
+			pressure := prefixcache.NewPressure(time.Minute)
+			pressure.Record("dual-model", time.Now())
+			pressure.Record("dual-model", time.Now())
+
+			scheduler := &fakeScheduler{scheduleNode: node}
+			reconciler := NewReplicaReconciler(ReplicaReconcilerOptions{
+				Registry:  registry,
+				Scheduler: scheduler,
+				DB:        db,
+				Pressure:  pressure,
+			})
+
+			reconciler.reconcile(context.Background())
+
+			Expect(scheduler.scheduleCalls).To(HaveLen(1),
+				"busy + pressure in one tick must still scale up by exactly one, not two")
+		})
+
 		It("does not spin when pressure is high but no capacity exists", func() {
 			// Single node, cap 1, already loaded → capacity 0. Pressure is high
 			// but there is nowhere to place a replica: must not call scheduler.

@@ -436,6 +436,14 @@ func (rc *ReplicaReconciler) reconcileModel(ctx context.Context, cfg ModelSchedu
 		return
 	}
 
+	// scaledUp tracks whether a scale-up already fired in this tick. The two
+	// scale-up paths below (busy-burst and pressure) share the single `current`
+	// value read once above; scaleUp does not re-check it. So at most one of
+	// them may fire per tick, otherwise a model that is both busy AND over the
+	// pressure threshold would scale +2 and could overshoot MaxReplicas by one.
+	// Scale-down is also skipped in a tick that scaled up.
+	scaledUp := false
+
 	// 2. Auto-scale up if all replicas are busy
 	if current > 0 && (cfg.MaxReplicas == 0 || int(current) < cfg.MaxReplicas) {
 		if rc.allReplicasBusy(ctx, cfg.ModelName) {
@@ -453,6 +461,7 @@ func (rc *ReplicaReconciler) reconcileModel(ctx context.Context, cfg ModelSchedu
 			xlog.Info("Reconciler: all replicas busy, scaling up", "model", cfg.ModelName,
 				"current", current)
 			rc.scaleUp(ctx, cfg, 1)
+			scaledUp = true
 		}
 	}
 
@@ -463,7 +472,10 @@ func (rc *ReplicaReconciler) reconcileModel(ctx context.Context, cfg ModelSchedu
 	//     busy-burst path, and the same UnsatisfiableUntil cooldown gates this
 	//     block at the top of reconcileModel, so a no-capacity model will not
 	//     spin. Pressure never overrides MaxReplicas or force-evicts.
-	if rc.pressure != nil && current > 0 && (cfg.MaxReplicas == 0 || int(current) < cfg.MaxReplicas) {
+	//
+	//     Skipped when the busy-burst path already scaled up this tick: at most
+	//     one scaleUp(+1) per tick (see scaledUp above).
+	if !scaledUp && rc.pressure != nil && current > 0 && (cfg.MaxReplicas == 0 || int(current) < cfg.MaxReplicas) {
 		if pressureCount := rc.pressure.Count(cfg.ModelName, time.Now()); pressureCount >= rc.pressureThreshold {
 			candidateNodeIDs, selectorMatched := rc.candidateNodeIDsForSelector(ctx, cfg)
 			if selectorMatched {
@@ -474,6 +486,13 @@ func (rc *ReplicaReconciler) reconcileModel(ctx context.Context, cfg ModelSchedu
 						"pressure", pressureCount,
 						"threshold", rc.pressureThreshold)
 					rc.scaleUp(ctx, cfg, 1)
+					scaledUp = true
+					// Consume the signal: Pressure.Count is non-draining (it
+					// prunes only by age), so a single burst stays in-window for
+					// the whole window and would re-fire scaleUp on every tick.
+					// Reset clears the model's events so a fresh scale-up needs
+					// fresh forced-disturbs to accumulate.
+					rc.pressure.Reset(cfg.ModelName)
 				}
 				// No capacity: transient demand, not a misconfig - let the next
 				// tick retry naturally (mirrors the busy-burst path's choice not
@@ -482,13 +501,13 @@ func (rc *ReplicaReconciler) reconcileModel(ctx context.Context, cfg ModelSchedu
 		}
 	}
 
-	// 3. Scale down idle replicas above minimum
-	floor := cfg.MinReplicas
-	if floor < 1 {
-		floor = 1
-	}
-	if int(current) > floor {
-		rc.scaleDownIdle(ctx, cfg, int(current), floor)
+	// 3. Scale down idle replicas above minimum. Skipped in a tick that already
+	//    scaled up so we never scale up and down in the same pass.
+	if !scaledUp {
+		floor := max(cfg.MinReplicas, 1)
+		if int(current) > floor {
+			rc.scaleDownIdle(ctx, cfg, int(current), floor)
+		}
 	}
 }
 
