@@ -732,6 +732,17 @@ func (cfg *ModelConfig) SetDefaults(opts ...ConfigLoaderOption) {
 		cfg.Proxy.Mode = ProxyModePassthrough
 	}
 
+	// When templating is delegated to the backend (use_tokenizer_template),
+	// the backend also owns tool-call grammar generation and parsing. Sending
+	// a LocalAI-generated grammar alongside overrides the backend's native
+	// (name-first) tool pipeline and makes it stream the tool-call JSON back as
+	// plain content (issue #10052). The GGUF auto-import path already couples
+	// these two flags; enforce it here so gallery and hand-written configs that
+	// set use_tokenizer_template directly stay consistent.
+	if cfg.TemplateConfig.UseTokenizerTemplate {
+		cfg.FunctionsConfig.GrammarConfig.NoGrammar = true
+	}
+
 	// Apply model-family-specific inference defaults before generic fallbacks.
 	// This ensures gallery-installed and runtime-loaded models get optimal parameters.
 	ApplyInferenceDefaults(cfg, cfg.Name, cfg.Model)
