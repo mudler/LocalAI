@@ -51,3 +51,19 @@ var _ = Describe("Select (filter-then-score)", func() {
 		Expect(prefixcache.Select(nil, prefixcache.PrefixDecision{}, cfg)).To(Equal(""))
 	})
 })
+
+var _ = Describe("Select round-robin floor invariant", func() {
+	It("never pins to a saturated hot node (round-robin floor)", func() {
+		cfg := prefixcache.DefaultConfig()
+		cands := []prefixcache.Candidate{{NodeID: "hot", InFlight: 50}, {NodeID: "cool", InFlight: 0}}
+		got := prefixcache.Select(cands, prefixcache.PrefixDecision{HotNodeID: "hot", MatchRatio: 1.0, ColdOrder: []string{"cool", "hot"}}, cfg)
+		Expect(got).To(Equal("cool"))
+	})
+
+	It("improves reuse when balanced", func() {
+		cfg := prefixcache.DefaultConfig()
+		cands := []prefixcache.Candidate{{NodeID: "hot", InFlight: 1}, {NodeID: "cool", InFlight: 0}}
+		got := prefixcache.Select(cands, prefixcache.PrefixDecision{HotNodeID: "hot", MatchRatio: 1.0, ColdOrder: []string{"cool", "hot"}}, cfg)
+		Expect(got).To(Equal("hot")) // within slack -> reuse
+	})
+})
