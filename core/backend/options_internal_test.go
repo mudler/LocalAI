@@ -124,6 +124,25 @@ var _ = Describe("grpcModelOpts NBatch", func() {
 		Expect(opts.NBatch).To(BeEquivalentTo(1024))
 	})
 
+	It("sizes the batch to the context window for embedding models", func() {
+		// Embedding/rerank pool over the whole sequence in one physical batch
+		// (n_ubatch); without this the input is capped at the 512 default and
+		// the backend returns "input is too large to process".
+		embeddings := true
+		cfg := config.ModelConfig{Threads: &threads, LLMConfig: config.LLMConfig{ContextSize: &ctx}}
+		cfg.Embeddings = &embeddings
+		opts := grpcModelOpts(cfg, "/tmp/models")
+		Expect(opts.NBatch).To(BeEquivalentTo(4096))
+	})
+
+	It("sizes the batch to the context window for rerank models", func() {
+		reranking := true
+		cfg := config.ModelConfig{Threads: &threads, LLMConfig: config.LLMConfig{ContextSize: &ctx}}
+		cfg.Reranking = &reranking
+		opts := grpcModelOpts(cfg, "/tmp/models")
+		Expect(opts.NBatch).To(BeEquivalentTo(4096))
+	})
+
 	It("does not raise the batch when a score model's context is below the default", func() {
 		small := 256
 		cfg := config.ModelConfig{Threads: &threads, LLMConfig: config.LLMConfig{ContextSize: &small}, KnownUsecases: &scoreUsecase}
