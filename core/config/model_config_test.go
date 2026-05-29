@@ -10,6 +10,23 @@ import (
 )
 
 var _ = Describe("Test cases for config related functions", func() {
+	Context("ModelID", func() {
+		It("returns Name when set", func() {
+			c := ModelConfig{Name: "my-name"}
+			c.Model = "my-model"
+			Expect(c.ModelID()).To(Equal("my-name"))
+		})
+		It("falls back to Model when Name is empty", func() {
+			c := ModelConfig{}
+			c.Model = "my-model"
+			Expect(c.ModelID()).To(Equal("my-model"))
+		})
+		It("returns empty string when both are empty", func() {
+			c := ModelConfig{}
+			Expect(c.ModelID()).To(Equal(""))
+		})
+	})
+
 	Context("Test Read configuration functions", func() {
 		It("Test Validate", func() {
 			tmp, err := os.CreateTemp("", "config.yaml")

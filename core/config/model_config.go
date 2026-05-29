@@ -694,6 +694,18 @@ func (c *ModelConfig) IsModelURL() bool {
 	return uri.LooksLikeURL()
 }
 
+// ModelID returns the identifier used to reference this model across the
+// system: the configured Name, falling back to Model when Name is empty.
+// This is the single source of truth for the id fed to model.WithModelID and
+// the prefix-cache chain salt; both MUST agree with the router's tracking key
+// or the prefix-cache salt diverges silently.
+func (c ModelConfig) ModelID() string {
+	if c.Name != "" {
+		return c.Name
+	}
+	return c.Model
+}
+
 // ModelFileName returns the filename of the model
 // If the model is a URL, it will return the MD5 of the URL which is the filename
 func (c *ModelConfig) ModelFileName() string {

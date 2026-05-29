@@ -97,14 +97,10 @@ func ModelInference(ctx context.Context, s string, messages schema.Messages, ima
 
 	// Make the rendered prompt's prefix chain available to the distributed router
 	// for prefix-cache-aware node selection. No-op in single-process mode. The
-	// model id MUST match the router's tracking key, which ModelOptions derives
-	// as c.Name with a fallback to c.Model when Name is empty, so mirror that
-	// fallback here or the chain salt and the tracking key would diverge.
-	prefixModelID := c.Name
-	if prefixModelID == "" {
-		prefixModelID = c.Model
-	}
-	ctx = distributedhdr.MaybeWithPrefixChain(ctx, prefixModelID, s)
+	// model id MUST match the id ModelOptions feeds to model.WithModelID, so both
+	// use the shared config.ModelConfig.ModelID() helper (Name with a fallback to
+	// Model) or the chain salt and the tracking key would diverge.
+	ctx = distributedhdr.MaybeWithPrefixChain(ctx, c.ModelID(), s)
 
 	opts := ModelOptions(*c, o, model.WithContext(ctx))
 	inferenceModel, err := loader.Load(opts...)
