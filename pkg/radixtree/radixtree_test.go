@@ -171,7 +171,7 @@ var _ = Describe("MaxEntries eviction", func() {
 		tr.Insert([]uint64{2}, "B", t0.Add(time.Second))
 		Expect(tr.Len()).To(Equal(2))
 
-		for i := 0; i < 10; i++ {
+		for i := range 10 {
 			tr.Insert([]uint64{uint64(100 + i)}, "X", t0.Add(time.Duration(i+2)*time.Second))
 			Expect(tr.Len()).To(Equal(2))
 		}
@@ -201,10 +201,10 @@ var _ = Describe("Concurrent access", func() {
 	It("is race-free under parallel insert/match/weight", func() {
 		tr := radixtree.New[string](radixtree.Options{TTL: time.Hour})
 		done := make(chan struct{})
-		for g := 0; g < 8; g++ {
+		for g := range 8 {
 			go func(g int) {
 				defer GinkgoRecover()
-				for i := 0; i < 1000; i++ {
+				for i := range 1000 {
 					tr.Insert([]uint64{uint64(g), uint64(i % 10)}, "n", t0)
 					tr.LongestMatch([]uint64{uint64(g), 1}, t0)
 					tr.Weight("n", t0)
@@ -212,7 +212,7 @@ var _ = Describe("Concurrent access", func() {
 				done <- struct{}{}
 			}(g)
 		}
-		for g := 0; g < 8; g++ {
+		for range 8 {
 			<-done
 		}
 	})

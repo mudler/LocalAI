@@ -878,14 +878,7 @@ func (r *NodeRegistry) LoadedReplicaStats(ctx context.Context, modelName string,
 
 	out := make([]ReplicaCandidate, 0, len(rows))
 	for _, rw := range rows {
-		out = append(out, ReplicaCandidate{
-			NodeID:        rw.NodeID,
-			Address:       rw.Address,
-			ReplicaIndex:  rw.ReplicaIndex,
-			InFlight:      rw.InFlight,
-			LastUsed:      rw.LastUsed,
-			AvailableVRAM: rw.AvailableVRAM,
-		})
+		out = append(out, ReplicaCandidate(rw))
 	}
 	return out, nil
 }

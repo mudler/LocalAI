@@ -475,7 +475,7 @@ func (rc *ReplicaReconciler) reconcileModel(ctx context.Context, cfg ModelSchedu
 						"threshold", rc.pressureThreshold)
 					rc.scaleUp(ctx, cfg, 1)
 				}
-				// No capacity: transient demand, not a misconfig — let the next
+				// No capacity: transient demand, not a misconfig - let the next
 				// tick retry naturally (mirrors the busy-burst path's choice not
 				// to enter cooldown for burst load).
 			}

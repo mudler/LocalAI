@@ -505,7 +505,7 @@ func (r *SmartRouter) buildPreference(ctx context.Context, modelID string, candi
 
 	// Forced-disturb: a usable hot prefix match existed but the load guard
 	// forced us off the warm node (Select either picked a different node or
-	// nothing). This is the scale-worthy signal — the cache-warm replica is
+	// nothing). This is the scale-worthy signal - the cache-warm replica is
 	// saturated. It deliberately does not fire for all-unique workloads (no
 	// hot match), avoiding false-positive scale-ups. nil pressure is a no-op.
 	if r.pressure != nil && d.HotNodeID != "" && d.MatchRatio >= cfg.MinPrefixMatch && chosen != d.HotNodeID {

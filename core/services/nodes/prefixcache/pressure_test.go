@@ -49,7 +49,7 @@ var _ = Describe("Pressure counter", func() {
 		// each, and never call Count. Each Record must prune the entries that
 		// have fallen out of [now-window, now] so the slice cannot accumulate.
 		var last time.Time
-		for i := 0; i < 1000; i++ {
+		for i := range 1000 {
 			last = t0.Add(time.Duration(i) * 10 * time.Second)
 			p.Record("m", last)
 		}
@@ -65,7 +65,7 @@ var _ = Describe("Pressure counter", func() {
 		p := prefixcache.NewPressure(time.Minute)
 		// Each record is more than a window apart, so every Record prunes the
 		// previous one. The slice should never hold more than a single entry.
-		for i := 0; i < 100; i++ {
+		for i := range 100 {
 			p.Record("m", t0.Add(time.Duration(i)*2*time.Minute))
 		}
 		Expect(p.LenForTest("m")).To(Equal(1))

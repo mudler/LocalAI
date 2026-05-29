@@ -299,7 +299,7 @@ func initDistributed(cfg *config.ApplicationConfig, authDB *gorm.DB, configLoade
 		}()
 		xlog.Info("Prefix-cache-aware routing enabled", "ttl", prefixCfg.TTL, "evictInterval", evictInterval)
 	} else {
-		xlog.Info("Prefix-cache-aware routing disabled — using round-robin routing")
+		xlog.Info("Prefix-cache-aware routing disabled: using round-robin routing")
 	}
 
 	// All dependencies ready — build SmartRouter with all options at once

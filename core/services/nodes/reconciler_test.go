@@ -332,7 +332,7 @@ var _ = Describe("ReplicaReconciler", func() {
 			reconciler.reconcile(context.Background())
 
 			Expect(scheduler.scheduleCalls).To(BeEmpty(),
-				"no capacity means no scale-up — must not spin the scheduler")
+				"no capacity means no scale-up: must not spin the scheduler")
 		})
 	})
 

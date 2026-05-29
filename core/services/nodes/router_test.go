@@ -1292,7 +1292,7 @@ var _ = Describe("SmartRouter prefix-cache routing", func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			Expect(pressure.Count("m", time.Now())).To(BeNumerically(">", 0),
-				"hot match existed but the load guard forced us off X — must record pressure")
+				"hot match existed but the load guard forced us off X: must record pressure")
 		})
 
 		It("does not record pressure when the hot node is itself eligible", func() {
@@ -1339,7 +1339,7 @@ var _ = Describe("SmartRouter prefix-cache routing", func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			Expect(pressure.Count("m", time.Now())).To(Equal(0),
-				"no hot match means no cache to disturb — must not false-positive")
+				"no hot match means no cache to disturb: must not false-positive")
 		})
 	})
 
