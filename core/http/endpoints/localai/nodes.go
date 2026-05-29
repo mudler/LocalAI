@@ -6,6 +6,7 @@ import (
 	"crypto/subtle"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -912,10 +913,51 @@ func GetSchedulingEndpoint(registry *nodes.NodeRegistry) echo.HandlerFunc {
 
 // SetSchedulingRequest is the request body for creating/updating a scheduling config.
 type SetSchedulingRequest struct {
-	ModelName    string            `json:"model_name"`
-	NodeSelector map[string]string `json:"node_selector,omitempty"`
-	MinReplicas  int               `json:"min_replicas"`
-	MaxReplicas  int               `json:"max_replicas"`
+	ModelName           string            `json:"model_name"`
+	NodeSelector        map[string]string `json:"node_selector,omitempty"`
+	MinReplicas         int               `json:"min_replicas"`
+	MaxReplicas         int               `json:"max_replicas"`
+	RoutePolicy         string            `json:"route_policy,omitempty"`
+	BalanceAbsThreshold int               `json:"balance_abs_threshold,omitempty"`
+	BalanceRelThreshold float64           `json:"balance_rel_threshold,omitempty"`
+	MinPrefixMatch      float64           `json:"min_prefix_match,omitempty"`
+}
+
+// validateSchedulingRequest enforces the invariants of a scheduling config.
+// It returns nil when the request is valid, or an error with a user-facing
+// message describing the first violation. It is a pure function so it can be
+// unit-tested without a database.
+func validateSchedulingRequest(req SetSchedulingRequest) error {
+	if req.ModelName == "" {
+		return errors.New("model_name is required")
+	}
+	if req.MinReplicas < 0 {
+		return errors.New("min_replicas must be >= 0")
+	}
+	if req.MaxReplicas < 0 {
+		return errors.New("max_replicas must be >= 0")
+	}
+	if req.MaxReplicas > 0 && req.MinReplicas > req.MaxReplicas {
+		return errors.New("min_replicas must be <= max_replicas")
+	}
+	// Explicit allow-list: prefixcache.ParsePolicy maps unknown strings to
+	// the Default policy, which would silently accept typos. Reject any
+	// non-empty value outside the known set instead.
+	switch req.RoutePolicy {
+	case "", "round_robin", "prefix_cache":
+	default:
+		return errors.New(`route_policy must be one of "", "round_robin", "prefix_cache"`)
+	}
+	if req.MinPrefixMatch < 0 || req.MinPrefixMatch > 1 {
+		return errors.New("min_prefix_match must be in [0,1]")
+	}
+	if req.BalanceAbsThreshold < 0 {
+		return errors.New("balance_abs_threshold must be >= 0")
+	}
+	if req.BalanceRelThreshold != 0 && req.BalanceRelThreshold < 1 {
+		return errors.New("balance_rel_threshold must be 0 (inherit) or >= 1")
+	}
+	return nil
 }
 
 // SetSchedulingEndpoint creates or updates a model scheduling config.
@@ -926,17 +968,8 @@ func SetSchedulingEndpoint(registry *nodes.NodeRegistry) echo.HandlerFunc {
 		if err := c.Bind(&req); err != nil {
 			return c.JSON(http.StatusBadRequest, nodeError(http.StatusBadRequest, "invalid request body"))
 		}
-		if req.ModelName == "" {
-			return c.JSON(http.StatusBadRequest, nodeError(http.StatusBadRequest, "model_name is required"))
-		}
-		if req.MinReplicas < 0 {
-			return c.JSON(http.StatusBadRequest, nodeError(http.StatusBadRequest, "min_replicas must be >= 0"))
-		}
-		if req.MaxReplicas < 0 {
-			return c.JSON(http.StatusBadRequest, nodeError(http.StatusBadRequest, "max_replicas must be >= 0"))
-		}
-		if req.MaxReplicas > 0 && req.MinReplicas > req.MaxReplicas {
-			return c.JSON(http.StatusBadRequest, nodeError(http.StatusBadRequest, "min_replicas must be <= max_replicas"))
+		if err := validateSchedulingRequest(req); err != nil {
+			return c.JSON(http.StatusBadRequest, nodeError(http.StatusBadRequest, err.Error()))
 		}
 
 		// Serialize node selector to JSON
@@ -950,10 +983,14 @@ func SetSchedulingEndpoint(registry *nodes.NodeRegistry) echo.HandlerFunc {
 		}
 
 		config := &nodes.ModelSchedulingConfig{
-			ModelName:    req.ModelName,
-			NodeSelector: selectorJSON,
-			MinReplicas:  req.MinReplicas,
-			MaxReplicas:  req.MaxReplicas,
+			ModelName:           req.ModelName,
+			NodeSelector:        selectorJSON,
+			MinReplicas:         req.MinReplicas,
+			MaxReplicas:         req.MaxReplicas,
+			RoutePolicy:         req.RoutePolicy,
+			BalanceAbsThreshold: req.BalanceAbsThreshold,
+			BalanceRelThreshold: req.BalanceRelThreshold,
+			MinPrefixMatch:      req.MinPrefixMatch,
 		}
 		if err := registry.SetModelScheduling(ctx, config); err != nil {
 			return c.JSON(http.StatusInternalServerError, nodeError(http.StatusInternalServerError, "failed to set scheduling config"))
