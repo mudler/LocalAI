@@ -110,6 +110,93 @@ var _ = Describe("Remove", func() {
 	})
 })
 
+var _ = Describe("TTL boundary", func() {
+	It("treats age exactly equal to TTL as still live, and one tick past as expired", func() {
+		tr := radixtree.New[string](radixtree.Options{TTL: time.Minute})
+		tr.Insert([]uint64{1, 2}, "A", t0)
+
+		// age == TTL: strict greater-than means this is still live.
+		_, _, ok := tr.LongestMatch([]uint64{1, 2}, t0.Add(time.Minute))
+		Expect(ok).To(BeTrue())
+
+		// one nanosecond past TTL: expired.
+		_, _, ok = tr.LongestMatch([]uint64{1, 2}, t0.Add(time.Minute+time.Nanosecond))
+		Expect(ok).To(BeFalse())
+	})
+})
+
+var _ = Describe("MaxEntries eviction", func() {
+	It("drops the least-recently-seen entry when the cap is exceeded", func() {
+		tr := radixtree.New[string](radixtree.Options{TTL: time.Hour, MaxEntries: 2})
+		tr.Insert([]uint64{1}, "A", t0)
+		tr.Insert([]uint64{2}, "B", t0.Add(time.Second))
+		tr.Insert([]uint64{3}, "C", t0.Add(2*time.Second))
+
+		Expect(tr.Len()).To(Equal(2))
+
+		// A was the least-recently-seen, so it is the one dropped.
+		_, _, ok := tr.LongestMatch([]uint64{1}, t0.Add(2*time.Second))
+		Expect(ok).To(BeFalse())
+
+		// B and C survive.
+		_, _, ok = tr.LongestMatch([]uint64{2}, t0.Add(2*time.Second))
+		Expect(ok).To(BeTrue())
+		_, _, ok = tr.LongestMatch([]uint64{3}, t0.Add(2*time.Second))
+		Expect(ok).To(BeTrue())
+	})
+
+	It("prunes value-less ancestors left behind by an eviction", func() {
+		// {1,2} carries A's value-less ancestor at depth 1; {1,2,3} carries B.
+		// Evicting B (oldest, deepest) must reclaim {1,2,3} and its now-childless
+		// ancestor {1,2} since neither holds a value afterwards. Then a fresh
+		// unrelated key keeps Len at the cap, proving no stale internal nodes
+		// inflate the count.
+		tr := radixtree.New[string](radixtree.Options{TTL: time.Hour, MaxEntries: 2})
+		tr.Insert([]uint64{1, 2, 3}, "B", t0)
+		tr.Insert([]uint64{5}, "C", t0.Add(time.Second))
+		tr.Insert([]uint64{6}, "D", t0.Add(2*time.Second))
+
+		Expect(tr.Len()).To(Equal(2))
+		// B (oldest) evicted; its deep branch reclaimed.
+		_, _, ok := tr.LongestMatch([]uint64{1, 2, 3}, t0.Add(2*time.Second))
+		Expect(ok).To(BeFalse())
+		_, _, ok = tr.LongestMatch([]uint64{1, 2}, t0.Add(2*time.Second))
+		Expect(ok).To(BeFalse())
+		Expect(tr.Weight("B", t0.Add(2*time.Second))).To(BeNumerically("==", 0))
+	})
+
+	It("reclaims structure so the tree never grows past the cap under churn", func() {
+		tr := radixtree.New[string](radixtree.Options{TTL: time.Hour, MaxEntries: 2})
+		tr.Insert([]uint64{1}, "A", t0)
+		tr.Insert([]uint64{2}, "B", t0.Add(time.Second))
+		Expect(tr.Len()).To(Equal(2))
+
+		for i := 0; i < 10; i++ {
+			tr.Insert([]uint64{uint64(100 + i)}, "X", t0.Add(time.Duration(i+2)*time.Second))
+			Expect(tr.Len()).To(Equal(2))
+		}
+	})
+})
+
+var _ = Describe("Empty key", func() {
+	It("LongestMatch on an empty key returns ok=false", func() {
+		tr := radixtree.New[string](radixtree.Options{TTL: time.Hour})
+		tr.Insert([]uint64{1, 2}, "A", t0)
+		_, depth, ok := tr.LongestMatch([]uint64{}, t0)
+		Expect(ok).To(BeFalse())
+		Expect(depth).To(Equal(0))
+	})
+
+	It("Insert with an empty key is a no-op that creates no root value", func() {
+		tr := radixtree.New[string](radixtree.Options{TTL: time.Hour})
+		Expect(func() { tr.Insert([]uint64{}, "A", t0) }).NotTo(Panic())
+		Expect(tr.Len()).To(Equal(0))
+		_, _, ok := tr.LongestMatch([]uint64{}, t0)
+		Expect(ok).To(BeFalse())
+		Expect(tr.Weight("A", t0)).To(BeNumerically("==", 0))
+	})
+})
+
 var _ = Describe("Concurrent access", func() {
 	It("is race-free under parallel insert/match/weight", func() {
 		tr := radixtree.New[string](radixtree.Options{TTL: time.Hour})

@@ -15,7 +15,9 @@ import (
 type Options struct {
 	// TTL is the idle lifetime of an entry. An entry whose lastSeen is older
 	// than TTL (relative to the `now` passed in) is treated as absent and is
-	// swept by Evict. Refreshed on every Insert that traverses it.
+	// swept by Evict. Refreshed on every Insert that traverses it. The boundary
+	// is strict greater-than: an entry whose age is exactly equal to TTL is
+	// still live; it expires only once age exceeds TTL.
 	TTL time.Duration
 	// HalfLife controls recency weighting in Weight(). An entry contributes
 	// 0.5^(age/HalfLife). Zero means "no decay" (every live entry counts 1).
@@ -28,7 +30,7 @@ type Options struct {
 // Tree is a prefix tree. V is the stored value type (for prefix-cache routing,
 // a node identifier). Safe for concurrent use.
 type Tree[V comparable] struct {
-	mu   sync.Mutex
+	mu   sync.RWMutex
 	opts Options
 	root *node[V]
 	size int
@@ -49,8 +51,8 @@ func New[V comparable](opts Options) *Tree[V] {
 // LongestMatch returns the value at the deepest stored, non-expired prefix of
 // key, the matched depth (number of key elements consumed), and ok.
 func (t *Tree[V]) LongestMatch(key []uint64, now time.Time) (V, int, bool) {
-	t.mu.Lock()
-	defer t.mu.Unlock()
+	t.mu.RLock()
+	defer t.mu.RUnlock()
 	var best V
 	bestDepth, found := 0, false
 	cur := t.root
@@ -67,14 +69,21 @@ func (t *Tree[V]) LongestMatch(key []uint64, now time.Time) (V, int, bool) {
 	return best, bestDepth, found
 }
 
+// expired reports whether n's lastSeen is older than the configured TTL. The
+// comparison is strict greater-than: an entry whose age equals TTL exactly is
+// still considered live. With TTL == 0 (unbounded) nothing ever expires.
 func (t *Tree[V]) expired(n *node[V], now time.Time) bool {
 	return t.opts.TTL > 0 && now.Sub(n.lastSeen) > t.opts.TTL
 }
 
 // Insert records value at the node for key, refreshing lastSeen along the
 // traversed path so active prefixes stay live. Re-inserting an existing key
-// overwrites the value (last writer wins) and refreshes recency.
+// overwrites the value (last writer wins) and refreshes recency. Inserting an
+// empty key is a no-op: the root never holds a value.
 func (t *Tree[V]) Insert(key []uint64, value V, now time.Time) {
+	if len(key) == 0 {
+		return
+	}
 	t.mu.Lock()
 	defer t.mu.Unlock()
 	cur := t.root
@@ -96,8 +105,8 @@ func (t *Tree[V]) Insert(key []uint64, value V, now time.Time) {
 	}
 }
 
-// evictOldestLocked drops the single least-recently-seen value-bearing node.
-// Called with t.mu held.
+// evictOldestLocked drops the single least-recently-seen value-bearing node and
+// prunes any empty branches the removal leaves behind. Called with t.mu held.
 func (t *Tree[V]) evictOldestLocked(now time.Time) {
 	var victim *node[V]
 	var walk func(n *node[V])
@@ -111,37 +120,23 @@ func (t *Tree[V]) evictOldestLocked(now time.Time) {
 	}
 	walk(t.root)
 	if victim != nil {
-		victim.hasValue = false
-		var zero V
-		victim.value = zero
-		t.size--
+		// Clear the victim's value and reclaim it plus any ancestors that are
+		// now both value-less and childless.
+		t.pruneWalk(t.root, func(n *node[V]) bool { return n == victim })
 	}
 }
 
-// Len returns the number of live (value-bearing) entries, including not-yet-
-// swept expired ones. Use after Evict for the post-sweep count.
-func (t *Tree[V]) Len() int {
-	t.mu.Lock()
-	defer t.mu.Unlock()
-	return t.size
-}
-
-// Evict removes expired value-bearing nodes and prunes resulting empty
-// branches. O(n) in tree size; call periodically from a background sweeper.
-func (t *Tree[V]) Evict(now time.Time) {
-	t.mu.Lock()
-	defer t.mu.Unlock()
-	t.pruneLocked(t.root, now)
-}
-
-// pruneLocked returns true if n should be removed from its parent.
-func (t *Tree[V]) pruneLocked(n *node[V], now time.Time) bool {
+// pruneWalk clears the value of every node for which shouldClear returns true,
+// then removes the now empty (value-less and childless) branches that result.
+// It keeps t.size accurate by decrementing once per cleared node. Returns true
+// if n itself should be removed from its parent. Called with t.mu held.
+func (t *Tree[V]) pruneWalk(n *node[V], shouldClear func(*node[V]) bool) bool {
 	for k, c := range n.children {
-		if t.pruneLocked(c, now) {
+		if t.pruneWalk(c, shouldClear) {
 			delete(n.children, k)
 		}
 	}
-	if n.hasValue && t.expired(n, now) {
+	if n.hasValue && shouldClear(n) {
 		n.hasValue = false
 		var zero V
 		n.value = zero
@@ -150,13 +145,29 @@ func (t *Tree[V]) pruneLocked(n *node[V], now time.Time) bool {
 	return n != t.root && !n.hasValue && len(n.children) == 0
 }
 
+// Len returns the number of live (value-bearing) entries, including not-yet-
+// swept expired ones. Use after Evict for the post-sweep count.
+func (t *Tree[V]) Len() int {
+	t.mu.RLock()
+	defer t.mu.RUnlock()
+	return t.size
+}
+
+// Evict removes expired value-bearing nodes and prunes resulting empty
+// branches. O(n) in tree size; call periodically from a background sweeper.
+func (t *Tree[V]) Evict(now time.Time) {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	t.pruneWalk(t.root, func(n *node[V]) bool { return t.expired(n, now) })
+}
+
 // Weight returns the recency-weighted count of live entries anchored to value:
 // sum over non-expired entries of 0.5^(age/HalfLife). With HalfLife==0 every
 // live entry contributes 1.0 (a plain count). This is the "valuable warm cache"
 // proxy used for cold placement and autoscale.
 func (t *Tree[V]) Weight(value V, now time.Time) float64 {
-	t.mu.Lock()
-	defer t.mu.Unlock()
+	t.mu.RLock()
+	defer t.mu.RUnlock()
 	var sum float64
 	var walk func(n *node[V])
 	walk = func(n *node[V]) {
@@ -182,20 +193,5 @@ func (t *Tree[V]) Weight(value V, now time.Time) float64 {
 func (t *Tree[V]) Remove(value V) {
 	t.mu.Lock()
 	defer t.mu.Unlock()
-	var clear func(n *node[V]) bool
-	clear = func(n *node[V]) bool {
-		for k, c := range n.children {
-			if clear(c) {
-				delete(n.children, k)
-			}
-		}
-		if n.hasValue && n.value == value {
-			n.hasValue = false
-			var zero V
-			n.value = zero
-			t.size--
-		}
-		return n != t.root && !n.hasValue && len(n.children) == 0
-	}
-	clear(t.root)
+	t.pruneWalk(t.root, func(n *node[V]) bool { return n.value == value })
 }
