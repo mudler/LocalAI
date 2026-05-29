@@ -35,27 +35,16 @@ func (s *Sync) Observe(model string, chain []uint64, nodeID string, now time.Tim
 	return changed
 }
 
-// invalidator is the optional capability, satisfied by *Index, that reports
-// whether an invalidation could have dropped anything (i.e. a tree for the
-// model existed). Sync uses it to avoid broadcasting empty invalidations: the
-// registry chokepoint fires Invalidate for every replica removal of every
-// model, so most calls target models that never used the prefix cache.
-type invalidator interface {
-	invalidateExisting(model, nodeID string) bool
-}
-
-// Invalidate drops locally and broadcasts only when there was something to
-// drop. When the wrapped Provider exposes the invalidator capability we gate
-// the NATS broadcast on its result; otherwise we fall back to the prior
-// always-invalidate, always-broadcast behavior.
+// Invalidate drops the local entry and broadcasts to peers. The local drop is a
+// no-op for models that were never cached (Index.Invalidate does not intern a
+// tree). The broadcast is UNCONDITIONAL (when a publisher is configured): the
+// registry chokepoint fires for every replica removal, and a peer frontend may
+// hold a stale entry for the model even when THIS frontend never cached it, so
+// gating the broadcast on local-tree existence would drop cross-frontend
+// invalidations and leave peers routing to a removed replica until their TTL.
 func (s *Sync) Invalidate(model, nodeID string) {
-	hadTree := true
-	if inv, ok := s.idx.(invalidator); ok {
-		hadTree = inv.invalidateExisting(model, nodeID)
-	} else {
-		s.idx.Invalidate(model, nodeID)
-	}
-	if hadTree && s.pub != nil {
+	s.idx.Invalidate(model, nodeID)
+	if s.pub != nil {
 		ev := messaging.PrefixCacheInvalidateEvent{Model: model, NodeID: nodeID}
 		if err := s.pub.Publish(messaging.SubjectPrefixCacheInvalidate, ev); err != nil {
 			xlog.Debug("prefixcache: invalidate publish failed", "error", err)

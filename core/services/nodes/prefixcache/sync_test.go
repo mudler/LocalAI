@@ -45,24 +45,26 @@ var _ = Describe("Sync", func() {
 		Expect(pub.published).To(HaveLen(1))
 	})
 
-	It("does not publish an invalidate for a model with no prefix-cache tree", func() {
+	It("broadcasts an invalidate even for a model with no local tree, without interning one", func() {
 		idx := prefixcache.NewIndex(prefixcache.DefaultConfig())
 		pub := &fakePub{}
 		s := prefixcache.NewSync(idx, pub)
-		// Round-robin model that never used the cache: removing a replica must
-		// neither intern a tree nor broadcast an invalidate.
+		// A peer frontend may hold a stale entry for this model even though THIS
+		// frontend never cached it, so the invalidate MUST be broadcast for
+		// cross-frontend coherence. The local drop must still not intern a tree.
 		s.Invalidate("never-cached", "A")
-		Expect(pub.published).To(BeEmpty())
+		Expect(pub.published).To(HaveLen(1))
+		Expect(pub.published[0]).To(BeAssignableToTypeOf(messaging.PrefixCacheInvalidateEvent{}))
 		Expect(idx.TreeCountForTest()).To(Equal(0))
 	})
 
-	It("publishes an invalidate only after an Observe created the tree", func() {
+	It("broadcasts an invalidate for a cached model too", func() {
 		idx := prefixcache.NewIndex(prefixcache.DefaultConfig())
 		pub := &fakePub{}
 		s := prefixcache.NewSync(idx, pub)
 		s.Observe("m", []uint64{1, 2}, "A", t0) // creates the tree (also publishes observe)
 		pub.published = nil
-		s.Invalidate("m", "A") // tree exists -> publish
+		s.Invalidate("m", "A")
 		Expect(pub.published).To(HaveLen(1))
 		Expect(pub.published[0]).To(BeAssignableToTypeOf(messaging.PrefixCacheInvalidateEvent{}))
 	})
