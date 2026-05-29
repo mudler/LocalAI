@@ -577,12 +577,8 @@ func (r *RunCMD) Run(ctx *cliContext.Context) error {
 	}
 
 	signals.RegisterGracefulTerminationHandler(func() {
-		if err := app.ModelLoader().StopAllGRPC(); err != nil {
-			xlog.Error("error while stopping all grpc backends", "error", err)
-		}
-		// Clean up distributed services (idempotent — safe if already called)
-		if d := app.Distributed(); d != nil {
-			d.Shutdown()
+		if err := app.Shutdown(); err != nil {
+			xlog.Error("error while shutting down application", "error", err)
 		}
 	})
 

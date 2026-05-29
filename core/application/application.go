@@ -90,6 +90,8 @@ type Application struct {
 	// LocalAI Assistant in-process MCP server. nil when DisableLocalAIAssistant
 	// is set; otherwise initialised in start() after galleryService.
 	localAIAssistant *mcpTools.LocalAIAssistantHolder
+
+	shutdownOnce sync.Once
 }
 
 func newApplication(appConfig *config.ApplicationConfig) *Application {
@@ -318,6 +320,24 @@ func (a *Application) Distributed() *DistributedServices {
 // IsDistributed returns true if the application is running in distributed mode.
 func (a *Application) IsDistributed() bool {
 	return a.distributed != nil
+}
+
+// Shutdown stops backend gRPC processes and distributed services
+// synchronously on the caller's stack. The context-cancel goroutine wired
+// in New does the same work asynchronously, which races test-binary exit
+// and CLI shutdown — orphaning spawned mock-backend / llama.cpp / etc.
+// children to init. Callers that need a guarantee that cleanup has
+// finished before they proceed (AfterSuite/AfterEach, signal handlers)
+// must call this. Safe to call multiple times.
+func (a *Application) Shutdown() error {
+	var err error
+	a.shutdownOnce.Do(func() {
+		a.distributed.Shutdown()
+		if a.modelLoader != nil {
+			err = a.modelLoader.StopAllGRPC()
+		}
+	})
+	return err
 }
 
 // waitForHealthyWorker blocks until at least one healthy backend worker is registered.

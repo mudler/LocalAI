@@ -308,6 +308,11 @@ var _ = Describe("API test", func() {
 	var cancel context.CancelFunc
 	var tmpdir string
 	var modelDir string
+	// localAIApp captures the Application so AfterEach can synchronously
+	// stop the spawned gRPC backend processes. application.New cancels
+	// them asynchronously on context cancel, which races with test-binary
+	// exit and leaks mock-backend children to init.
+	var localAIApp *application.Application
 
 	commonOpts := []config.AppOption{
 		config.WithDebug(true),
@@ -736,14 +741,14 @@ parameters:
 			)
 			Expect(err).ToNot(HaveOccurred())
 
-			application, err := application.New(
+			localAIApp, err = application.New(
 				append(commonOpts,
 					config.WithContext(c),
 					config.WithSystemState(systemState),
 				)...)
 			Expect(err).ToNot(HaveOccurred())
-			application.ModelLoader().SetExternalBackend("mock-backend", mockBackendPath)
-			app, err = API(application)
+			localAIApp.ModelLoader().SetExternalBackend("mock-backend", mockBackendPath)
+			app, err = API(localAIApp)
 			Expect(err).ToNot(HaveOccurred())
 			go func() {
 				if err := app.Start("127.0.0.1:9090"); err != nil && err != http.ErrServerClosed {
@@ -765,6 +770,11 @@ parameters:
 			}, "2m").ShouldNot(HaveOccurred())
 		})
 		AfterEach(func() {
+			// Synchronous shutdown — context-cancel cleanup is async and races
+			// test-binary exit, orphaning mock-backend children to init.
+			if localAIApp != nil {
+				_ = localAIApp.Shutdown()
+			}
 			cancel()
 			if app != nil {
 				ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
@@ -976,15 +986,15 @@ parameters:
 			)
 			Expect(err).ToNot(HaveOccurred())
 
-			application, err := application.New(
+			localAIApp, err = application.New(
 				append(commonOpts,
 					config.WithContext(c),
 					config.WithSystemState(systemState),
 					config.WithConfigFile(configFile))...,
 			)
 			Expect(err).ToNot(HaveOccurred())
-			application.ModelLoader().SetExternalBackend("mock-backend", mockBackendPath)
-			app, err = API(application)
+			localAIApp.ModelLoader().SetExternalBackend("mock-backend", mockBackendPath)
+			app, err = API(localAIApp)
 			Expect(err).ToNot(HaveOccurred())
 
 			go func() {
@@ -1005,6 +1015,11 @@ parameters:
 			}, "2m").ShouldNot(HaveOccurred())
 		})
 		AfterEach(func() {
+			// Synchronous shutdown — context-cancel cleanup is async and races
+			// test-binary exit, orphaning mock-backend children to init.
+			if localAIApp != nil {
+				_ = localAIApp.Shutdown()
+			}
 			cancel()
 			if app != nil {
 				ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
