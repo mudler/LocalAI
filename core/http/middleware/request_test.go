@@ -597,3 +597,137 @@ var _ = Describe("SetModelAndConfig tool_choice parsing (chat completions)", fun
 		})
 	})
 })
+
+// These tests cover the per-request reasoning_effort -> enable_thinking mapping.
+// The merge lives in mergeOpenAIRequestAndModelConfig (called from
+// SetOpenAIRequest), so they drive the full middleware chain like the
+// production /v1/chat/completions route does. The block builds its own app per
+// test so the model config can be varied (some cases need reasoning.disable set
+// in the model YAML to assert that an explicit config disable wins).
+//
+// Mapping under test (issue #10072):
+//   - reasoning_effort=none                 -> DisableReasoning=true
+//   - reasoning_effort=low/medium/high      -> DisableReasoning=false, UNLESS the
+//     model config explicitly set true
+//   - empty / unrecognized                  -> no change
+var _ = Describe("SetModelAndConfig reasoning_effort parsing (chat completions)", func() {
+	var modelDir string
+
+	BeforeEach(func() {
+		var err error
+		modelDir, err = os.MkdirTemp("", "localai-test-models-*")
+		Expect(err).ToNot(HaveOccurred())
+	})
+
+	AfterEach(func() {
+		_ = os.RemoveAll(modelDir)
+	})
+
+	// buildApp writes a model config with the given YAML body and returns an app
+	// plus a pointer to the captured per-request config.
+	buildApp := func(cfgYAML string) (*echo.Echo, **config.ModelConfig) {
+		Expect(os.WriteFile(filepath.Join(modelDir, "test-model.yaml"), []byte(cfgYAML), 0644)).To(Succeed())
+
+		ss := &system.SystemState{Model: system.Model{ModelsPath: modelDir}}
+		appConfig := config.NewApplicationConfig()
+		appConfig.SystemState = ss
+		mcl := config.NewModelConfigLoader(modelDir)
+		ml := model.NewModelLoader(ss)
+		re := NewRequestExtractor(mcl, ml, appConfig)
+
+		captured := new(*config.ModelConfig)
+		app := echo.New()
+		app.POST("/v1/chat/completions",
+			func(c echo.Context) error {
+				if cfg, ok := c.Get(CONTEXT_LOCALS_KEY_MODEL_CONFIG).(*config.ModelConfig); ok {
+					*captured = cfg
+				}
+				return c.String(http.StatusOK, "ok")
+			},
+			re.SetModelAndConfig(func() schema.LocalAIRequest { return new(schema.OpenAIRequest) }),
+			func(next echo.HandlerFunc) echo.HandlerFunc {
+				return func(c echo.Context) error {
+					if err := re.SetOpenAIRequest(c); err != nil {
+						return err
+					}
+					return next(c)
+				}
+			},
+		)
+		return app, captured
+	}
+
+	chatReq := func(effort string) string {
+		return `{"model":"test-model",` +
+			`"messages":[{"role":"user","content":"hi"}],` +
+			`"reasoning_effort":` + effort + `}`
+	}
+
+	plainCfg := "name: test-model\nbackend: llama-cpp\n"
+
+	It("disables thinking for reasoning_effort=none", func() {
+		app, captured := buildApp(plainCfg)
+		rec := postJSON(app, "/v1/chat/completions", chatReq(`"none"`))
+
+		Expect(rec.Code).To(Equal(http.StatusOK))
+		Expect(*captured).ToNot(BeNil())
+		Expect((*captured).ReasoningConfig.DisableReasoning).ToNot(BeNil())
+		Expect(*(*captured).ReasoningConfig.DisableReasoning).To(BeTrue())
+	})
+
+	It("enables thinking for reasoning_effort=high when config is unset", func() {
+		app, captured := buildApp(plainCfg)
+		rec := postJSON(app, "/v1/chat/completions", chatReq(`"high"`))
+
+		Expect(rec.Code).To(Equal(http.StatusOK))
+		Expect(*captured).ToNot(BeNil())
+		Expect((*captured).ReasoningConfig.DisableReasoning).ToNot(BeNil())
+		Expect(*(*captured).ReasoningConfig.DisableReasoning).To(BeFalse())
+	})
+
+	It("enables thinking for reasoning_effort=high when config explicitly set false", func() {
+		app, captured := buildApp(plainCfg + "reasoning:\n  disable: false\n")
+		rec := postJSON(app, "/v1/chat/completions", chatReq(`"high"`))
+
+		Expect(rec.Code).To(Equal(http.StatusOK))
+		Expect(*captured).ToNot(BeNil())
+		Expect((*captured).ReasoningConfig.DisableReasoning).ToNot(BeNil())
+		Expect(*(*captured).ReasoningConfig.DisableReasoning).To(BeFalse())
+	})
+
+	It("config wins: reasoning_effort=high cannot re-enable when config explicitly disabled", func() {
+		app, captured := buildApp(plainCfg + "reasoning:\n  disable: true\n")
+		rec := postJSON(app, "/v1/chat/completions", chatReq(`"high"`))
+
+		Expect(rec.Code).To(Equal(http.StatusOK))
+		Expect(*captured).ToNot(BeNil())
+		Expect((*captured).ReasoningConfig.DisableReasoning).ToNot(BeNil())
+		Expect(*(*captured).ReasoningConfig.DisableReasoning).To(BeTrue())
+	})
+
+	It("is a no-op when reasoning_effort is empty", func() {
+		app, captured := buildApp(plainCfg)
+		rec := postJSON(app, "/v1/chat/completions",
+			`{"model":"test-model","messages":[{"role":"user","content":"hi"}]}`)
+
+		Expect(rec.Code).To(Equal(http.StatusOK))
+		Expect(*captured).ToNot(BeNil())
+		Expect((*captured).ReasoningConfig.DisableReasoning).To(BeNil())
+	})
+
+	It("is case-insensitive (None disables, HIGH enables)", func() {
+		app, captured := buildApp(plainCfg)
+		rec := postJSON(app, "/v1/chat/completions", chatReq(`"None"`))
+		Expect(rec.Code).To(Equal(http.StatusOK))
+		Expect(*captured).ToNot(BeNil())
+		Expect((*captured).ReasoningConfig.DisableReasoning).ToNot(BeNil())
+		Expect(*(*captured).ReasoningConfig.DisableReasoning).To(BeTrue())
+
+		app2, captured2 := buildApp(plainCfg)
+		rec2 := postJSON(app2, "/v1/chat/completions", chatReq(`"HIGH"`))
+		Expect(rec2.Code).To(Equal(http.StatusOK))
+		Expect(*captured2).ToNot(BeNil())
+		Expect((*captured2).ReasoningConfig.DisableReasoning).ToNot(BeNil())
+		Expect(*(*captured2).ReasoningConfig.DisableReasoning).To(BeFalse())
+	})
+})
