@@ -116,3 +116,35 @@ func (t *Tree[V]) evictOldestLocked(now time.Time) {
 		t.size--
 	}
 }
+
+// Len returns the number of live (value-bearing) entries, including not-yet-
+// swept expired ones. Use after Evict for the post-sweep count.
+func (t *Tree[V]) Len() int {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	return t.size
+}
+
+// Evict removes expired value-bearing nodes and prunes resulting empty
+// branches. O(n) in tree size; call periodically from a background sweeper.
+func (t *Tree[V]) Evict(now time.Time) {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	t.pruneLocked(t.root, now)
+}
+
+// pruneLocked returns true if n should be removed from its parent.
+func (t *Tree[V]) pruneLocked(n *node[V], now time.Time) bool {
+	for k, c := range n.children {
+		if t.pruneLocked(c, now) {
+			delete(n.children, k)
+		}
+	}
+	if n.hasValue && t.expired(n, now) {
+		n.hasValue = false
+		var zero V
+		n.value = zero
+		t.size--
+	}
+	return n != t.root && !n.hasValue && len(n.children) == 0
+}

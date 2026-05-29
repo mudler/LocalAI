@@ -44,3 +44,28 @@ var _ = Describe("Insert and LongestMatch", func() {
 		Expect(ok).To(BeFalse())
 	})
 })
+
+var _ = Describe("TTL expiry", func() {
+	It("does not match an entry past its TTL", func() {
+		tr := radixtree.New[string](radixtree.Options{TTL: time.Minute})
+		tr.Insert([]uint64{1, 2}, "nodeA", t0)
+		_, _, ok := tr.LongestMatch([]uint64{1, 2}, t0.Add(2*time.Minute))
+		Expect(ok).To(BeFalse())
+	})
+
+	It("refreshes lastSeen on re-insert so a live path survives", func() {
+		tr := radixtree.New[string](radixtree.Options{TTL: time.Minute})
+		tr.Insert([]uint64{1, 2}, "nodeA", t0)
+		tr.Insert([]uint64{1, 2}, "nodeA", t0.Add(50*time.Second))
+		_, _, ok := tr.LongestMatch([]uint64{1, 2}, t0.Add(90*time.Second))
+		Expect(ok).To(BeTrue())
+	})
+
+	It("Evict reclaims expired nodes", func() {
+		tr := radixtree.New[string](radixtree.Options{TTL: time.Minute})
+		tr.Insert([]uint64{1, 2}, "nodeA", t0)
+		Expect(tr.Len()).To(Equal(1))
+		tr.Evict(t0.Add(2 * time.Minute))
+		Expect(tr.Len()).To(Equal(0))
+	})
+})
