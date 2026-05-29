@@ -17,18 +17,28 @@ type Config struct {
 	HalfLife            time.Duration // recency decay for cacheWeight
 	WindowBytes         int           // chunk window size
 	MaxDepth            int           // max trailing blocks hashed
+	// PressureWindow is the rolling window over which forced-disturb events are
+	// counted for the autoscale signal (see Pressure). Default 1 minute.
+	PressureWindow time.Duration
+	// PressureScaleThreshold is the minimum forced-disturb count within
+	// PressureWindow that makes the reconciler treat the cache-warm replica as
+	// saturated and scale up (subject to MaxReplicas and capacity). Default 1,
+	// i.e. any sustained forced-disturb.
+	PressureScaleThreshold int
 }
 
 func DefaultConfig() Config {
 	return Config{
-		GlobalPolicy:        RoutePolicyPrefixCache,
-		MinPrefixMatch:      0.3,
-		BalanceAbsThreshold: 2,
-		BalanceRelThreshold: 1.5,
-		TTL:                 5 * time.Minute,
-		HalfLife:            2 * time.Minute,
-		WindowBytes:         256,
-		MaxDepth:            64,
+		GlobalPolicy:           RoutePolicyPrefixCache,
+		MinPrefixMatch:         0.3,
+		BalanceAbsThreshold:    2,
+		BalanceRelThreshold:    1.5,
+		TTL:                    5 * time.Minute,
+		HalfLife:               2 * time.Minute,
+		WindowBytes:            256,
+		MaxDepth:               64,
+		PressureWindow:         time.Minute,
+		PressureScaleThreshold: 1,
 	}
 }
 

@@ -56,6 +56,11 @@ type SmartRouterOptions struct {
 	// ModelSchedulingConfig refine it per request. Unused when PrefixProvider
 	// is nil.
 	PrefixConfig prefixcache.Config
+	// Pressure, when set, records a forced-disturb each time a request had a
+	// usable hot prefix match but the load guard forced it off the warm node.
+	// The reconciler reads the same instance to autoscale a saturated cache-warm
+	// replica. nil disables recording (the disabled path stays a no-op).
+	Pressure *prefixcache.Pressure
 }
 
 // SmartRouter routes inference requests to the best available backend node.
@@ -74,6 +79,9 @@ type SmartRouter struct {
 	// and thresholds.
 	prefixProvider prefixcache.Provider
 	prefixConfig   prefixcache.Config
+	// pressure records forced-disturb events (hot match forced off the warm
+	// node by the load guard). nil disables recording. See SmartRouterOptions.
+	pressure *prefixcache.Pressure
 	// installFlight coalesces concurrent identical NATS install requests
 	// (same nodeID + backend + modelID + replica) so 6 simultaneous chat
 	// completions for one not-yet-loaded model produce ONE round-trip, not
@@ -111,6 +119,7 @@ func NewSmartRouter(registry ModelRouter, opts SmartRouterOptions) *SmartRouter 
 		probeCache:       newProbeCache(probeCacheTTL),
 		prefixProvider:   opts.PrefixProvider,
 		prefixConfig:     opts.PrefixConfig,
+		pressure:         opts.Pressure,
 	}
 }
 
@@ -493,6 +502,16 @@ func (r *SmartRouter) buildPreference(ctx context.Context, modelID string, candi
 
 	d := r.prefixProvider.Decide(modelID, chain, ids, time.Now())
 	chosen := prefixcache.Select(cands, d, cfg)
+
+	// Forced-disturb: a usable hot prefix match existed but the load guard
+	// forced us off the warm node (Select either picked a different node or
+	// nothing). This is the scale-worthy signal — the cache-warm replica is
+	// saturated. It deliberately does not fire for all-unique workloads (no
+	// hot match), avoiding false-positive scale-ups. nil pressure is a no-op.
+	if r.pressure != nil && d.HotNodeID != "" && d.MatchRatio >= cfg.MinPrefixMatch && chosen != d.HotNodeID {
+		r.pressure.Record(modelID, time.Now())
+	}
+
 	if chosen == "" {
 		return nil, chain
 	}

@@ -8,6 +8,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
+	"github.com/mudler/LocalAI/core/services/nodes/prefixcache"
 	"github.com/mudler/LocalAI/core/services/testutil"
 	"gorm.io/gorm"
 )
@@ -242,6 +243,96 @@ var _ = Describe("ReplicaReconciler", func() {
 			Expect(scheduler.scheduleCalls[0].modelName).To(Equal("model-f"))
 			Expect(scheduler.scheduleCalls[0].candidateIDs).To(ContainElement(node1.ID))
 			Expect(scheduler.scheduleCalls[0].candidateIDs).ToNot(ContainElement(node2.ID))
+		})
+	})
+
+	Describe("Forced-disturb pressure autoscale (Phase 6)", func() {
+		It("scales up when pressure exceeds threshold, replicas<max, and capacity exists", func() {
+			// One node with spare slots, one loaded idle replica (so the
+			// all-busy path does not fire). Pressure for the model is above the
+			// threshold, which is the only reason to scale here.
+			node := registerNode("pressure-node", "10.0.0.60:50051")
+			Expect(registry.SetNodeModel(context.Background(), node.ID, "pressure-model", 0, "loaded", "addr1", 0)).To(Succeed())
+			setSchedulingConfig("pressure-model", 1, 4, "")
+
+			pressure := prefixcache.NewPressure(time.Minute)
+			pressure.Record("pressure-model", time.Now())
+
+			scheduler := &fakeScheduler{scheduleNode: node}
+			reconciler := NewReplicaReconciler(ReplicaReconcilerOptions{
+				Registry:  registry,
+				Scheduler: scheduler,
+				DB:        db,
+				Pressure:  pressure,
+			})
+
+			reconciler.reconcile(context.Background())
+
+			Expect(scheduler.scheduleCalls).To(HaveLen(1),
+				"forced-disturb pressure above threshold must trigger a scale-up")
+			Expect(scheduler.scheduleCalls[0].modelName).To(Equal("pressure-model"))
+		})
+
+		It("does not scale up on pressure when already at max_replicas", func() {
+			// Two nodes, both loaded (idle), MaxReplicas=2 → at max. Pressure is
+			// high but MaxReplicas must never be overridden.
+			node1 := registerNode("pmax-1", "10.0.0.61:50051")
+			node2 := registerNode("pmax-2", "10.0.0.62:50051")
+			Expect(registry.SetNodeModel(context.Background(), node1.ID, "pmax-model", 0, "loaded", "addr1", 0)).To(Succeed())
+			Expect(registry.SetNodeModel(context.Background(), node2.ID, "pmax-model", 0, "loaded", "addr2", 0)).To(Succeed())
+			setSchedulingConfig("pmax-model", 1, 2, "")
+
+			pressure := prefixcache.NewPressure(time.Minute)
+			pressure.Record("pmax-model", time.Now())
+			pressure.Record("pmax-model", time.Now())
+
+			scheduler := &fakeScheduler{scheduleNode: node1}
+			reconciler := NewReplicaReconciler(ReplicaReconcilerOptions{
+				Registry:  registry,
+				Scheduler: scheduler,
+				DB:        db,
+				Pressure:  pressure,
+			})
+
+			reconciler.reconcile(context.Background())
+
+			Expect(scheduler.scheduleCalls).To(BeEmpty(),
+				"pressure must never override MaxReplicas")
+		})
+
+		It("does not spin when pressure is high but no capacity exists", func() {
+			// Single node, cap 1, already loaded → capacity 0. Pressure is high
+			// but there is nowhere to place a replica: must not call scheduler.
+			registerCappedNodeFn := func(name, address string, cap int) *BackendNode {
+				node := &BackendNode{
+					Name:                name,
+					NodeType:            NodeTypeBackend,
+					Address:             address,
+					MaxReplicasPerModel: cap,
+				}
+				Expect(registry.Register(context.Background(), node, true)).To(Succeed())
+				return node
+			}
+			node := registerCappedNodeFn("pcap-node", "10.0.0.63:50051", 1)
+			Expect(registry.SetNodeModel(context.Background(), node.ID, "pcap-model", 0, "loaded", "addr1", 0)).To(Succeed())
+			// MaxReplicas high enough that replicas<max, so only capacity guards it.
+			setSchedulingConfig("pcap-model", 1, 4, "")
+
+			pressure := prefixcache.NewPressure(time.Minute)
+			pressure.Record("pcap-model", time.Now())
+
+			scheduler := &fakeScheduler{scheduleNode: node}
+			reconciler := NewReplicaReconciler(ReplicaReconcilerOptions{
+				Registry:  registry,
+				Scheduler: scheduler,
+				DB:        db,
+				Pressure:  pressure,
+			})
+
+			reconciler.reconcile(context.Background())
+
+			Expect(scheduler.scheduleCalls).To(BeEmpty(),
+				"no capacity means no scale-up — must not spin the scheduler")
 		})
 	})
 

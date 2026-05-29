@@ -1251,6 +1251,98 @@ var _ = Describe("SmartRouter prefix-cache routing", func() {
 		})
 	})
 
+	Context("forced-disturb pressure", func() {
+		// disturbReg builds a registry with two candidate replicas for "m":
+		// the hot node X is saturated (high in_flight) and Y is free. Select
+		// will therefore reject the hot node and pick Y, which is the
+		// forced-disturb signal. findAndLockNode returns Y so Route succeeds.
+		disturbReg := func() *fakeModelRouter {
+			nodeY := &BackendNode{ID: "Y", Name: "node-y", Address: "10.0.0.2:50051"}
+			nm := &NodeModel{NodeID: "Y", ModelName: "m", Address: "10.0.0.2:9001"}
+			return &fakeModelRouter{
+				findAndLockNode: nodeY,
+				findAndLockNM:   nm,
+				getModelScheduling: &ModelSchedulingConfig{
+					RoutePolicy: "prefix_cache",
+				},
+				loadedReplicaStatsByName: map[string][]ReplicaCandidate{
+					"m": {{NodeID: "X", InFlight: 50}, {NodeID: "Y", InFlight: 0}},
+				},
+			}
+		}
+
+		It("records pressure when a strong hot match was forced off the warm node", func() {
+			reg := disturbReg()
+			prov := &fakePrefixProvider{decision: prefixcache.PrefixDecision{
+				HotNodeID:  "X",
+				MatchRatio: 1.0,
+				ColdOrder:  []string{"Y", "X"},
+			}}
+			pressure := prefixcache.NewPressure(time.Minute)
+			router := NewSmartRouter(reg, SmartRouterOptions{
+				Unloader:       unloader,
+				ClientFactory:  factory,
+				PrefixProvider: prov,
+				PrefixConfig:   prefixcache.DefaultConfig(),
+				Pressure:       pressure,
+			})
+
+			ctx := distributedhdr.WithPrefixChain(context.Background(), []uint64{1, 2, 3})
+			_, err := router.Route(ctx, "m", "models/m.gguf", "llama-cpp", nil, false)
+			Expect(err).ToNot(HaveOccurred())
+
+			Expect(pressure.Count("m", time.Now())).To(BeNumerically(">", 0),
+				"hot match existed but the load guard forced us off X — must record pressure")
+		})
+
+		It("does not record pressure when the hot node is itself eligible", func() {
+			reg := loadedReg() // single node X, in_flight 0 → X stays eligible
+			prov := &fakePrefixProvider{decision: prefixcache.PrefixDecision{
+				HotNodeID:  "X",
+				MatchRatio: 1.0,
+			}}
+			pressure := prefixcache.NewPressure(time.Minute)
+			router := NewSmartRouter(reg, SmartRouterOptions{
+				Unloader:       unloader,
+				ClientFactory:  factory,
+				PrefixProvider: prov,
+				PrefixConfig:   prefixcache.DefaultConfig(),
+				Pressure:       pressure,
+			})
+
+			ctx := distributedhdr.WithPrefixChain(context.Background(), []uint64{1, 2, 3})
+			_, err := router.Route(ctx, "m", "models/m.gguf", "llama-cpp", nil, false)
+			Expect(err).ToNot(HaveOccurred())
+
+			Expect(pressure.Count("m", time.Now())).To(Equal(0),
+				"chosen == hot node, no disturb")
+		})
+
+		It("does not record pressure for an all-unique workload with no hot match", func() {
+			reg := loadedReg()
+			prov := &fakePrefixProvider{decision: prefixcache.PrefixDecision{
+				HotNodeID:  "", // no prefix match at all
+				MatchRatio: 0,
+				ColdOrder:  []string{"X"},
+			}}
+			pressure := prefixcache.NewPressure(time.Minute)
+			router := NewSmartRouter(reg, SmartRouterOptions{
+				Unloader:       unloader,
+				ClientFactory:  factory,
+				PrefixProvider: prov,
+				PrefixConfig:   prefixcache.DefaultConfig(),
+				Pressure:       pressure,
+			})
+
+			ctx := distributedhdr.WithPrefixChain(context.Background(), []uint64{1, 2, 3})
+			_, err := router.Route(ctx, "m", "models/m.gguf", "llama-cpp", nil, false)
+			Expect(err).ToNot(HaveOccurred())
+
+			Expect(pressure.Count("m", time.Now())).To(Equal(0),
+				"no hot match means no cache to disturb — must not false-positive")
+		})
+	})
+
 	Context("invalidate on unload", func() {
 		It("invalidates the prefix entry so a hot prefix no longer decides to that node", func() {
 			idx := prefixcache.NewIndex(prefixcache.DefaultConfig())

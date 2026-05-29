@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/mudler/LocalAI/core/services/advisorylock"
+	"github.com/mudler/LocalAI/core/services/nodes/prefixcache"
 	grpcclient "github.com/mudler/LocalAI/pkg/grpc"
 	"github.com/mudler/xlog"
 	"github.com/nats-io/nats.go"
@@ -56,6 +57,14 @@ type ReplicaReconciler struct {
 	// probeStaleAfter: only probe node_models rows older than this so we
 	// don't hammer every worker every tick for models we just heard from.
 	probeStaleAfter time.Duration
+	// pressure is the shared forced-disturb counter written by the router. When
+	// a model's count within pressureWindow reaches pressureThreshold the
+	// reconciler treats its cache-warm replica as saturated and scales up,
+	// subject to the same MaxReplicas/capacity/UnsatisfiableUntil machinery as
+	// the other scale-up paths. nil disables this signal (a true no-op).
+	pressure          *prefixcache.Pressure
+	pressureWindow    time.Duration
+	pressureThreshold int
 }
 
 // ModelScheduler abstracts the scheduling logic needed by the reconciler.
@@ -83,6 +92,15 @@ type ReplicaReconcilerOptions struct {
 	Interval        time.Duration // default 30s
 	ScaleDownDelay  time.Duration // default 5m
 	ProbeStaleAfter time.Duration // default 2m
+	// Pressure is the shared forced-disturb counter written by the router. nil
+	// disables the cache-saturation autoscale signal (a true no-op).
+	Pressure *prefixcache.Pressure
+	// PressureWindow is the rolling window over which forced-disturb events are
+	// counted. Default prefixcache.DefaultConfig().PressureWindow (1m).
+	PressureWindow time.Duration
+	// PressureThreshold is the forced-disturb count within PressureWindow that
+	// triggers a scale-up. Default prefixcache.DefaultConfig().PressureScaleThreshold (1).
+	PressureThreshold int
 }
 
 // NewReplicaReconciler creates a new ReplicaReconciler.
@@ -103,16 +121,27 @@ func NewReplicaReconciler(opts ReplicaReconcilerOptions) *ReplicaReconciler {
 	if prober == nil {
 		prober = grpcModelProber{token: opts.RegistrationToken}
 	}
+	pressureWindow := opts.PressureWindow
+	if pressureWindow == 0 {
+		pressureWindow = prefixcache.DefaultConfig().PressureWindow
+	}
+	pressureThreshold := opts.PressureThreshold
+	if pressureThreshold == 0 {
+		pressureThreshold = prefixcache.DefaultConfig().PressureScaleThreshold
+	}
 	return &ReplicaReconciler{
-		registry:        opts.Registry,
-		scheduler:       opts.Scheduler,
-		unloader:        opts.Unloader,
-		adapter:         opts.Adapter,
-		prober:          prober,
-		db:              opts.DB,
-		interval:        interval,
-		scaleDownDelay:  scaleDownDelay,
-		probeStaleAfter: probeStaleAfter,
+		registry:          opts.Registry,
+		scheduler:         opts.Scheduler,
+		unloader:          opts.Unloader,
+		adapter:           opts.Adapter,
+		prober:            prober,
+		db:                opts.DB,
+		interval:          interval,
+		scaleDownDelay:    scaleDownDelay,
+		probeStaleAfter:   probeStaleAfter,
+		pressure:          opts.Pressure,
+		pressureWindow:    pressureWindow,
+		pressureThreshold: pressureThreshold,
 	}
 }
 
@@ -433,6 +462,32 @@ func (rc *ReplicaReconciler) reconcileModel(ctx context.Context, cfg ModelSchedu
 			xlog.Info("Reconciler: all replicas busy, scaling up", "model", cfg.ModelName,
 				"current", current)
 			rc.scaleUp(ctx, cfg, 1)
+		}
+	}
+
+	// 2b. Auto-scale up on prefix-cache forced-disturb pressure. A forced-disturb
+	//     is recorded by the router when a request had a usable hot prefix match
+	//     but the load guard forced it off the warm node: the cache-warm replica
+	//     is saturated. We reuse the same MaxReplicas + capacity guards as the
+	//     busy-burst path, and the same UnsatisfiableUntil cooldown gates this
+	//     block at the top of reconcileModel, so a no-capacity model will not
+	//     spin. Pressure never overrides MaxReplicas or force-evicts.
+	if rc.pressure != nil && current > 0 && (cfg.MaxReplicas == 0 || int(current) < cfg.MaxReplicas) {
+		if rc.pressure.Count(cfg.ModelName, time.Now()) >= rc.pressureThreshold {
+			candidateNodeIDs, selectorMatched := rc.candidateNodeIDsForSelector(ctx, cfg)
+			if selectorMatched {
+				capacity, capErr := rc.registry.ClusterCapacityForModel(ctx, cfg.ModelName, candidateNodeIDs)
+				if capErr == nil && capacity > 0 {
+					xlog.Info("Reconciler: prefix-cache forced-disturb pressure, scaling up",
+						"model", cfg.ModelName, "current", current,
+						"pressure", rc.pressure.Count(cfg.ModelName, time.Now()),
+						"threshold", rc.pressureThreshold)
+					rc.scaleUp(ctx, cfg, 1)
+				}
+				// No capacity: transient demand, not a misconfig — let the next
+				// tick retry naturally (mirrors the busy-burst path's choice not
+				// to enter cooldown for burst load).
+			}
 		}
 	}
 
