@@ -547,3 +547,61 @@ realvalue
 		})
 	})
 })
+
+var _ = Describe("JSON schema property ordering (issue #10052)", func() {
+	// A function-call shaped schema. The grammar must honor the configured
+	// properties_order. Before the fix, the sort guard `aOrder != 0 && bOrder != 0`
+	// treated the first listed key (index 0) as "unset" and fell back to
+	// alphabetical order, so "arguments" was emitted before "name" even when
+	// properties_order put name first.
+	const schema = `{
+		"type": "object",
+		"properties": {
+			"name": {"type": "string"},
+			"arguments": {"type": "object", "properties": {"cmd": {"type": "string"}}}
+		}
+	}`
+
+	// keyIndex finds the position of an object-key literal (escaped as \"key\"
+	// in GBNF), which only appears where the key is emitted in the rule — not
+	// in derived rule names like root-name.
+	keyIndex := func(grammar, key string) int {
+		return strings.Index(grammar, `\"`+key+`\"`)
+	}
+
+	It("honors properties_order with name listed first (index 0)", func() {
+		grammar, err := NewJSONSchemaConverter("name,arguments").GrammarFromBytes([]byte(schema))
+		Expect(err).To(BeNil())
+		ni := keyIndex(grammar, "name")
+		ai := keyIndex(grammar, "arguments")
+		Expect(ni).To(BeNumerically(">=", 0))
+		Expect(ai).To(BeNumerically(">=", 0))
+		Expect(ni).To(BeNumerically("<", ai),
+			"properties_order lists name first, so the grammar must emit \"name\" before \"arguments\"")
+	})
+
+	It("keeps alphabetical order when properties_order is empty", func() {
+		grammar, err := NewJSONSchemaConverter("").GrammarFromBytes([]byte(schema))
+		Expect(err).To(BeNil())
+		// No explicit order: keys fall back to alphabetical, so "arguments"
+		// precedes "name". This is the documented default and must not change.
+		Expect(keyIndex(grammar, "arguments")).To(BeNumerically("<", keyIndex(grammar, "name")))
+	})
+
+	It("sorts keys present in properties_order ahead of unlisted keys", func() {
+		const schemaWithExtra = `{
+			"type": "object",
+			"properties": {
+				"name": {"type": "string"},
+				"arguments": {"type": "object", "properties": {"cmd": {"type": "string"}}},
+				"aaa_unlisted": {"type": "string"}
+			}
+		}`
+		// "aaa_unlisted" is alphabetically first but not in the order list, so
+		// it must still come after the listed name/arguments keys.
+		grammar, err := NewJSONSchemaConverter("name,arguments").GrammarFromBytes([]byte(schemaWithExtra))
+		Expect(err).To(BeNil())
+		Expect(keyIndex(grammar, "name")).To(BeNumerically("<", keyIndex(grammar, "arguments")))
+		Expect(keyIndex(grammar, "arguments")).To(BeNumerically("<", keyIndex(grammar, "aaa_unlisted")))
+	})
+})
