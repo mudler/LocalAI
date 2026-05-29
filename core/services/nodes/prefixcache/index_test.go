@@ -69,6 +69,20 @@ var _ = Describe("Index provider", func() {
 		Expect(d.HotNodeID).To(Equal(""))
 	})
 
+	It("does not intern an empty tree when invalidating a model that has none", func() {
+		idx := prefixcache.NewIndex(cfg)
+		Expect(idx.TreeCountForTest()).To(Equal(0))
+		// Round-robin model that never used the prefix cache: invalidating a
+		// replica removal must be a no-op and must not retain a tree.
+		idx.Invalidate("never-cached", "A")
+		idx.Invalidate("never-cached", "B")
+		idx.Invalidate("other", "C")
+		Expect(idx.TreeCountForTest()).To(Equal(0))
+		// And a Decide afterwards still works without a hot match.
+		d := idx.Decide("never-cached", []uint64{1}, []string{"A"}, t0)
+		Expect(d.HotNodeID).To(Equal(""))
+	})
+
 	It("is safe for concurrent Decide/Observe/Invalidate (run with -race)", func() {
 		idx := prefixcache.NewIndex(cfg)
 		models := []string{"m1", "m2"}

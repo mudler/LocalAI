@@ -20,6 +20,15 @@ func NewIndex(cfg Config) *Index {
 	return &Index{cfg: cfg, trees: map[string]*radixtree.Tree[string]{}}
 }
 
+// existingTree returns the tree for model without creating one. The bool
+// reports whether a tree already existed.
+func (ix *Index) existingTree(model string) (*radixtree.Tree[string], bool) {
+	ix.mu.RLock()
+	defer ix.mu.RUnlock()
+	t, ok := ix.trees[model]
+	return t, ok
+}
+
 func (ix *Index) tree(model string) *radixtree.Tree[string] {
 	ix.mu.RLock()
 	t, ok := ix.trees[model]
@@ -92,7 +101,22 @@ func (ix *Index) Observe(model string, chain []uint64, nodeID string, now time.T
 }
 
 func (ix *Index) Invalidate(model, nodeID string) {
-	ix.tree(model).Remove(nodeID)
+	ix.invalidateExisting(model, nodeID)
+}
+
+// invalidateExisting drops all entries for (model, nodeID) only if a tree for
+// model already exists. It never interns an empty tree (a registry chokepoint
+// fires Invalidate for every replica removal of every model, including
+// round-robin models that never used the prefix cache, so lazily creating a
+// tree here would grow the trees map unboundedly). It returns whether a tree
+// existed, so Sync can skip the NATS broadcast when there was nothing to drop.
+func (ix *Index) invalidateExisting(model, nodeID string) bool {
+	t, ok := ix.existingTree(model)
+	if !ok {
+		return false
+	}
+	t.Remove(nodeID)
+	return true
 }
 
 func (ix *Index) Evict(now time.Time) {

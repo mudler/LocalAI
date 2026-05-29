@@ -45,6 +45,28 @@ var _ = Describe("Sync", func() {
 		Expect(pub.published).To(HaveLen(1))
 	})
 
+	It("does not publish an invalidate for a model with no prefix-cache tree", func() {
+		idx := prefixcache.NewIndex(prefixcache.DefaultConfig())
+		pub := &fakePub{}
+		s := prefixcache.NewSync(idx, pub)
+		// Round-robin model that never used the cache: removing a replica must
+		// neither intern a tree nor broadcast an invalidate.
+		s.Invalidate("never-cached", "A")
+		Expect(pub.published).To(BeEmpty())
+		Expect(idx.TreeCountForTest()).To(Equal(0))
+	})
+
+	It("publishes an invalidate only after an Observe created the tree", func() {
+		idx := prefixcache.NewIndex(prefixcache.DefaultConfig())
+		pub := &fakePub{}
+		s := prefixcache.NewSync(idx, pub)
+		s.Observe("m", []uint64{1, 2}, "A", t0) // creates the tree (also publishes observe)
+		pub.published = nil
+		s.Invalidate("m", "A") // tree exists -> publish
+		Expect(pub.published).To(HaveLen(1))
+		Expect(pub.published[0]).To(BeAssignableToTypeOf(messaging.PrefixCacheInvalidateEvent{}))
+	})
+
 	It("applies a peer observe event into the local index", func() {
 		idx := prefixcache.NewIndex(prefixcache.DefaultConfig())
 		s := prefixcache.NewSync(idx, &fakePub{})

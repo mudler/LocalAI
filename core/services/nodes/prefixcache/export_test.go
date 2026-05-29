@@ -7,3 +7,12 @@ func (p *Pressure) LenForTest(model string) int {
 	defer p.mu.Unlock()
 	return len(p.events[model])
 }
+
+// TreeCountForTest exposes the number of per-model radix trees the Index
+// currently retains, so black-box tests can assert that Invalidate does not
+// intern empty trees for models that never used the prefix cache. Test-only.
+func (ix *Index) TreeCountForTest() int {
+	ix.mu.RLock()
+	defer ix.mu.RUnlock()
+	return len(ix.trees)
+}
