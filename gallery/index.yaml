@@ -3,29 +3,7 @@
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
     - https://huggingface.co/LiquidAI/LFM2.5-8B-A1B-GGUF
-  description: |
-    Try LFM •
-    Docs •
-    LEAP •
-    Discord
-
-    # LFM2.5-8B-A1B
-
-    LFM2.5 is a new family of hybrid models designed for on-device deployment. It builds on the LFM2 architecture with extended pre-training and reinforcement learning.
-
-      - **On-device personal assistant**: Designed to power real-life applications, chaining tool calls, and following complex instructions on all devices.
-      - **Compressed performance**: Competitive with much larger dense and MoE models on instruction following and agentic tasks.
-      - **Unmatched throughput**: Fastest in its size class on both CPU and GPU inference, with day-one support for llama.cpp, MLX, vLLM, and SGLang.
-
-    Find more information about LFM2.5-8B-A1B in our blog post.
-
-    **AA-Omniscience Index (higher is better) rewards correct answers and penalizes hallucinations. Scores range from -100 to 100. See more results on Artificial Analysis.*
-
-    ## 🗒️ Model Details
-
-    LFM2.5-8B-A1B is a general-purpose text-only model with the following features:
-
-    ...
+  description: "Try LFM •\nDocs •\nLEAP •\nDiscord\n\n# LFM2.5-8B-A1B\n\nLFM2.5 is a new family of hybrid models designed for on-device deployment. It builds on the LFM2 architecture with extended pre-training and reinforcement learning.\n\n  - **On-device personal assistant**: Designed to power real-life applications, chaining tool calls, and following complex instructions on all devices.\n  - **Compressed performance**: Competitive with much larger dense and MoE models on instruction following and agentic tasks.\n  - **Unmatched throughput**: Fastest in its size class on both CPU and GPU inference, with day-one support for llama.cpp, MLX, vLLM, and SGLang.\n\nFind more information about LFM2.5-8B-A1B in our blog post.\n\n**AA-Omniscience Index (higher is better) rewards correct answers and penalizes hallucinations. Scores range from -100 to 100. See more results on Artificial Analysis.*\n\n## \U0001F5D2️ Model Details\n\nLFM2.5-8B-A1B is a general-purpose text-only model with the following features:\n\n...\n"
   license: "other"
   tags:
     - llm
@@ -52,8 +30,8 @@
       use_tokenizer_template: true
   files:
     - filename: llama-cpp/models/LFM2.5-8B-A1B-GGUF/LFM2.5-8B-A1B-Q4_K_M.gguf
-      sha256: 3ef9879143342a46cdd00b5f6f3919b77ee693945f9d73eea99344eadd6950b6
       uri: https://huggingface.co/LiquidAI/LFM2.5-8B-A1B-GGUF/resolve/main/LFM2.5-8B-A1B-Q4_K_M.gguf
+      sha256: 4923ec14f06b968b74d663e5949867d2d9c3bf13a20b8be1a9f9af39989b2bb0
 - name: "qwopus3.5-9b-coder-mtp"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
