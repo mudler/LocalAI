@@ -86,5 +86,10 @@ func (c Config) Validate() error {
 	if c.WindowBytes <= 0 || c.MaxDepth <= 0 {
 		return fmt.Errorf("prefixcache: window_bytes and max_depth must be > 0")
 	}
+	// TTL must be positive: it is the entry idle-lifetime and the eviction
+	// ticker runs at TTL/2, so time.NewTicker would panic on TTL <= 0.
+	if c.TTL <= 0 {
+		return fmt.Errorf("prefixcache: ttl must be > 0, got %v", c.TTL)
+	}
 	return nil
 }

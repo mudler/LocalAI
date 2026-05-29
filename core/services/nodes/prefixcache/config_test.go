@@ -28,6 +28,9 @@ var _ = Describe("Config", func() {
 		c = prefixcache.DefaultConfig()
 		c.BalanceAbsThreshold = -1
 		Expect(c.Validate()).To(HaveOccurred())
+		c = prefixcache.DefaultConfig()
+		c.TTL = 0
+		Expect(c.Validate()).To(HaveOccurred()) // TTL/2 ticker would panic
 	})
 })
 
