@@ -632,6 +632,30 @@ var _ = Describe("NodeRegistry", func() {
 			Expect(fetched.MaxReplicas).To(Equal(5))
 		})
 
+		It("persists and updates route policy and thresholds", func() {
+			err := registry.SetModelScheduling(context.Background(), &ModelSchedulingConfig{
+				ModelName: "prefix-cache-model", RoutePolicy: "prefix_cache",
+				BalanceAbsThreshold: 3, BalanceRelThreshold: 2.0, MinPrefixMatch: 0.4,
+			})
+			Expect(err).ToNot(HaveOccurred())
+
+			got, err := registry.GetModelScheduling(context.Background(), "prefix-cache-model")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(got.RoutePolicy).To(Equal("prefix_cache"))
+			Expect(got.BalanceAbsThreshold).To(Equal(3))
+			Expect(got.BalanceRelThreshold).To(BeNumerically("==", 2.0))
+			Expect(got.MinPrefixMatch).To(BeNumerically("==", 0.4))
+
+			// Update must not be dropped on conflict.
+			Expect(registry.SetModelScheduling(context.Background(), &ModelSchedulingConfig{
+				ModelName: "prefix-cache-model", RoutePolicy: "round_robin",
+			})).ToNot(HaveOccurred())
+
+			got, err = registry.GetModelScheduling(context.Background(), "prefix-cache-model")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(got.RoutePolicy).To(Equal("round_robin"))
+		})
+
 		It("lists all configs", func() {
 			Expect(registry.SetModelScheduling(context.Background(), &ModelSchedulingConfig{ModelName: "list-a", MinReplicas: 1})).To(Succeed())
 			Expect(registry.SetModelScheduling(context.Background(), &ModelSchedulingConfig{ModelName: "list-b", MaxReplicas: 2})).To(Succeed())
