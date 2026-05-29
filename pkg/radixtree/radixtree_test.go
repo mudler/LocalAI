@@ -95,6 +95,62 @@ var _ = Describe("Weight", func() {
 	})
 })
 
+var _ = Describe("WeightsFor", func() {
+	It("matches per-value Weight with no decay", func() {
+		tr := radixtree.New[string](radixtree.Options{TTL: time.Hour}) // HalfLife=0
+		tr.Insert([]uint64{1}, "A", t0)
+		tr.Insert([]uint64{1, 2}, "A", t0)
+		tr.Insert([]uint64{9}, "B", t0)
+
+		got := tr.WeightsFor([]string{"A", "B", "C"}, t0)
+		Expect(got).To(HaveLen(3))
+		Expect(got["A"]).To(BeNumerically("==", 2))
+		Expect(got["B"]).To(BeNumerically("==", 1))
+		Expect(got["C"]).To(BeNumerically("==", 0))
+	})
+
+	It("matches per-value Weight under decay", func() {
+		tr := radixtree.New[string](radixtree.Options{TTL: time.Hour, HalfLife: time.Minute})
+		tr.Insert([]uint64{1}, "A", t0)
+		tr.Insert([]uint64{1, 2}, "A", t0.Add(30*time.Second))
+		tr.Insert([]uint64{9}, "B", t0)
+
+		now := t0.Add(time.Minute)
+		got := tr.WeightsFor([]string{"A", "B", "C"}, now)
+		Expect(got["A"]).To(BeNumerically("~", tr.Weight("A", now), 1e-12))
+		Expect(got["B"]).To(BeNumerically("~", tr.Weight("B", now), 1e-12))
+		Expect(got["C"]).To(BeNumerically("==", 0))
+	})
+
+	It("respects TTL expiry and matches Weight at a non-zero age under decay", func() {
+		tr := radixtree.New[string](radixtree.Options{TTL: time.Minute, HalfLife: 30 * time.Second})
+		tr.Insert([]uint64{1}, "A", t0)                     // will be expired at now
+		tr.Insert([]uint64{2}, "A", t0.Add(90*time.Second)) // live, aged 30s at now
+		tr.Insert([]uint64{9}, "B", t0)                     // expired at now
+
+		now := t0.Add(2 * time.Minute)
+		got := tr.WeightsFor([]string{"A", "B"}, now)
+		Expect(got["A"]).To(BeNumerically("~", tr.Weight("A", now), 1e-12))
+		Expect(got["A"]).To(BeNumerically("~", 0.5, 0.001)) // single live entry aged one half-life
+		Expect(got["B"]).To(BeNumerically("==", 0))
+	})
+
+	It("returns an empty map for an empty values slice", func() {
+		tr := radixtree.New[string](radixtree.Options{TTL: time.Hour})
+		tr.Insert([]uint64{1}, "A", t0)
+		Expect(tr.WeightsFor(nil, t0)).To(BeEmpty())
+		Expect(tr.WeightsFor([]string{}, t0)).To(BeEmpty())
+	})
+
+	It("maps a value not present in the tree to 0", func() {
+		tr := radixtree.New[string](radixtree.Options{TTL: time.Hour})
+		tr.Insert([]uint64{1}, "A", t0)
+		got := tr.WeightsFor([]string{"Z"}, t0)
+		Expect(got).To(HaveLen(1))
+		Expect(got["Z"]).To(BeNumerically("==", 0))
+	})
+})
+
 var _ = Describe("Remove", func() {
 	It("drops every entry anchored to a value and prunes", func() {
 		tr := radixtree.New[string](radixtree.Options{TTL: time.Hour})

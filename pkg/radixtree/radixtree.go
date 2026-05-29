@@ -161,6 +161,18 @@ func (t *Tree[V]) Evict(now time.Time) {
 	t.pruneWalk(t.root, func(n *node[V]) bool { return t.expired(n, now) })
 }
 
+// contribution returns the recency-weighted score a single live, non-expired
+// node adds to its value's weight: 1.0 when HalfLife<=0 (a plain count), else
+// 0.5^(age/HalfLife). It does not check hasValue or expiry; callers must filter
+// those first. Shared by Weight and WeightsFor so the metric stays identical.
+func (t *Tree[V]) contribution(n *node[V], now time.Time) float64 {
+	if t.opts.HalfLife <= 0 {
+		return 1
+	}
+	age := now.Sub(n.lastSeen).Seconds()
+	return math.Pow(0.5, age/t.opts.HalfLife.Seconds())
+}
+
 // Weight returns the recency-weighted count of live entries anchored to value:
 // sum over non-expired entries of 0.5^(age/HalfLife). With HalfLife==0 every
 // live entry contributes 1.0 (a plain count). This is the "valuable warm cache"
@@ -172,12 +184,7 @@ func (t *Tree[V]) Weight(value V, now time.Time) float64 {
 	var walk func(n *node[V])
 	walk = func(n *node[V]) {
 		if n.hasValue && n.value == value && !t.expired(n, now) {
-			if t.opts.HalfLife <= 0 {
-				sum += 1
-			} else {
-				age := now.Sub(n.lastSeen).Seconds()
-				sum += math.Pow(0.5, age/t.opts.HalfLife.Seconds())
-			}
+			sum += t.contribution(n, now)
 		}
 		for _, c := range n.children {
 			walk(c)
@@ -185,6 +192,37 @@ func (t *Tree[V]) Weight(value V, now time.Time) float64 {
 	}
 	walk(t.root)
 	return sum
+}
+
+// WeightsFor returns the recency-weighted weight (same metric as Weight) for
+// each value in values, computed in a single tree traversal. Values not present
+// in the tree map to 0. This is O(N + len(values)) versus calling Weight once
+// per value (O(len(values) * N)). Concurrency-safe (read lock).
+func (t *Tree[V]) WeightsFor(values []V, now time.Time) map[V]float64 {
+	want := make(map[V]struct{}, len(values))
+	result := make(map[V]float64, len(values))
+	for _, v := range values {
+		want[v] = struct{}{}
+		result[v] = 0
+	}
+	if len(want) == 0 {
+		return result
+	}
+	t.mu.RLock()
+	defer t.mu.RUnlock()
+	var walk func(n *node[V])
+	walk = func(n *node[V]) {
+		if n.hasValue && !t.expired(n, now) {
+			if _, ok := want[n.value]; ok {
+				result[n.value] += t.contribution(n, now)
+			}
+		}
+		for _, c := range n.children {
+			walk(c)
+		}
+	}
+	walk(t.root)
+	return result
 }
 
 // Remove drops every entry whose value equals value, then prunes empty
