@@ -42,6 +42,7 @@ func ensureLibLoaded() {
 		purego.RegisterLibFunc(&CppLoad, lib, "parakeet_capi_load")
 		purego.RegisterLibFunc(&CppFree, lib, "parakeet_capi_free")
 		purego.RegisterLibFunc(&CppTranscribePath, lib, "parakeet_capi_transcribe_path")
+		purego.RegisterLibFunc(&CppTranscribePathJSON, lib, "parakeet_capi_transcribe_path_json")
 		purego.RegisterLibFunc(&CppFreeString, lib, "parakeet_capi_free_string")
 		purego.RegisterLibFunc(&CppLastError, lib, "parakeet_capi_last_error")
 	})
@@ -79,9 +80,36 @@ var _ = Describe("ParakeetCpp", func() {
 			Expect(strings.TrimSpace(res.Text)).ToNot(BeEmpty(),
 				"expected non-empty transcript for %s", audioPath)
 			Expect(res.Segments).To(HaveLen(1),
-				"L0 synthesises a single whole-clip segment")
+				"synthesises a single whole-clip segment")
 			Expect(res.Segments[0].Text).To(Equal(res.Text),
 				"single segment text must equal the top-level text")
+			// Default (no granularities) is segment-level: no per-word timings.
+			Expect(res.Segments[0].Words).To(BeEmpty(),
+				"word timings are opt-in via timestamp_granularities")
+		})
+
+		It("emits word-level timestamps when granularity=word", func() {
+			modelPath, audioPath := fixturesOrSkip()
+			ensureLibLoaded()
+
+			p := &ParakeetCpp{}
+			Expect(p.Load(&pb.ModelOptions{ModelFile: modelPath})).To(Succeed())
+			defer func() { _ = p.Free() }()
+
+			res, err := p.AudioTranscription(context.Background(), &pb.TranscriptRequest{
+				Dst:                    audioPath,
+				TimestampGranularities: []string{"word"},
+			})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(res.Segments).To(HaveLen(1))
+			seg := res.Segments[0]
+			Expect(seg.Words).ToNot(BeEmpty(),
+				"expected per-word timestamps with granularity=word")
+			// Monotonic, non-negative timings spanning the segment.
+			Expect(seg.Words[0].Start).To(BeNumerically(">=", int64(0)))
+			Expect(seg.End).To(BeNumerically(">=", seg.Start))
+			Expect(seg.Words[len(seg.Words)-1].End).To(Equal(seg.End),
+				"segment end tracks the last word")
 		})
 	})
 })

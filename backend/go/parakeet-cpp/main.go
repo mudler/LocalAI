@@ -46,6 +46,7 @@ func main() {
 		{&CppLoad, "parakeet_capi_load"},
 		{&CppFree, "parakeet_capi_free"},
 		{&CppTranscribePath, "parakeet_capi_transcribe_path"},
+		{&CppTranscribePathJSON, "parakeet_capi_transcribe_path_json"},
 		{&CppFreeString, "parakeet_capi_free_string"},
 		{&CppLastError, "parakeet_capi_last_error"},
 	}

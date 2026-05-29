@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
@@ -19,13 +20,41 @@ import (
 // parakeet_capi_free_string on the same pointer after copying — the
 // C-API contract is "caller owns and must free the returned buffer".
 var (
-	CppAbiVersion     func() int32
-	CppLoad           func(ggufPath string) uintptr
-	CppFree           func(ctx uintptr)
-	CppTranscribePath func(ctx uintptr, wavPath string, decoder int32) uintptr
-	CppFreeString     func(s uintptr)
-	CppLastError      func(ctx uintptr) string
+	CppAbiVersion         func() int32
+	CppLoad               func(ggufPath string) uintptr
+	CppFree               func(ctx uintptr)
+	CppTranscribePath     func(ctx uintptr, wavPath string, decoder int32) uintptr
+	CppTranscribePathJSON func(ctx uintptr, wavPath string, decoder int32) uintptr
+	CppFreeString         func(s uintptr)
+	CppLastError          func(ctx uintptr) string
 )
+
+// transcriptJSON mirrors the document returned by
+// parakeet_capi_transcribe_path_json (see parakeet_capi.h):
+//
+//	{"text":"...",
+//	 "words":[{"w":"...","start":0.480,"end":0.640,"conf":0.9100}, ...],
+//	 "tokens":[{"id":123,"t":0.480,"conf":0.9100}, ...]}
+//
+// "start"/"end"/"t" are seconds; "conf" is confidence in (0,1].
+type transcriptJSON struct {
+	Text   string            `json:"text"`
+	Words  []transcriptWord  `json:"words"`
+	Tokens []transcriptToken `json:"tokens"`
+}
+
+type transcriptWord struct {
+	W     string  `json:"w"`
+	Start float64 `json:"start"`
+	End   float64 `json:"end"`
+	Conf  float64 `json:"conf"`
+}
+
+type transcriptToken struct {
+	ID   int32   `json:"id"`
+	T    float64 `json:"t"`
+	Conf float64 `json:"conf"`
+}
 
 // ParakeetCpp owns a single loaded parakeet_ctx. The C engine is a
 // thread-unsafe singleton (mirrors whisper.cpp / vibevoice.cpp), so we
@@ -54,19 +83,21 @@ func (p *ParakeetCpp) Load(opts *pb.ModelOptions) error {
 	return nil
 }
 
-// AudioTranscription runs parakeet_capi_transcribe_path on the wav at
-// opts.Dst. For L0 we ask the default decoder (decoder=0) which selects
-// the right head per architecture (transducer for tdt/rnnt/hybrid, CTC
-// for ctc).
+// AudioTranscription runs parakeet_capi_transcribe_path_json on the wav at
+// opts.Dst with the default decoder (decoder=0, which selects the right head
+// per architecture: transducer for tdt/rnnt/hybrid, CTC for ctc) and shapes
+// the per-word timestamps into a LocalAI TranscriptResult.
 //
-// For L0 only `dst` from the request is honoured; translate/diarize/
-// prompt/temperature/language/threads/timestamp_granularities/stream
-// are ignored — L1 wires word/segment timestamps via
-// parakeet_capi_transcribe_path_json, L2 adds AudioTranscriptionStream.
+// Parakeet emits word- and token-level timestamps but no native segment
+// boundaries, so we synthesise a single whole-clip segment spanning the first
+// word start to the last word end. Word-level timings are attached only when
+// the caller opts in via timestamp_granularities=["word"] (matching the
+// OpenAI API, whose default is segment-level); token ids always populate
+// Segment.Tokens.
 //
-// The response carries a single synthesised segment spanning the whole
-// clip so downstream HTTP shapers (which expect at least one segment)
-// stay happy; per-segment timings come in L1.
+// translate/diarize/prompt/temperature/language/threads are not applicable to
+// parakeet and are ignored; streaming is handled by AudioTranscriptionStream
+// (L2).
 func (p *ParakeetCpp) AudioTranscription(_ context.Context, opts *pb.TranscriptRequest) (pb.TranscriptResult, error) {
 	if p.ctxPtr == 0 {
 		return pb.TranscriptResult{}, errors.New("parakeet-cpp: model not loaded")
@@ -75,24 +106,81 @@ func (p *ParakeetCpp) AudioTranscription(_ context.Context, opts *pb.TranscriptR
 		return pb.TranscriptResult{}, errors.New("parakeet-cpp: TranscriptRequest.dst (audio path) is required")
 	}
 
-	cstr := CppTranscribePath(p.ctxPtr, opts.Dst, 0)
+	cstr := CppTranscribePathJSON(p.ctxPtr, opts.Dst, 0)
 	if cstr == 0 {
 		msg := CppLastError(p.ctxPtr)
 		if msg == "" {
 			msg = "unknown error"
 		}
-		return pb.TranscriptResult{}, fmt.Errorf("parakeet-cpp: transcribe_path failed: %s", msg)
+		return pb.TranscriptResult{}, fmt.Errorf("parakeet-cpp: transcribe_path_json failed: %s", msg)
 	}
 
-	text := strings.TrimSpace(goStringFromCPtr(cstr))
+	raw := goStringFromCPtr(cstr)
 	CppFreeString(cstr)
 
+	var doc transcriptJSON
+	if err := json.Unmarshal([]byte(raw), &doc); err != nil {
+		return pb.TranscriptResult{}, fmt.Errorf("parakeet-cpp: decode transcript json: %w", err)
+	}
+
+	text := strings.TrimSpace(doc.Text)
+
+	words := make([]*pb.TranscriptWord, 0, len(doc.Words))
+	for _, w := range doc.Words {
+		words = append(words, &pb.TranscriptWord{
+			Start: secondsToNanos(w.Start),
+			End:   secondsToNanos(w.End),
+			Text:  w.W,
+		})
+	}
+
+	tokens := make([]int32, 0, len(doc.Tokens))
+	for _, t := range doc.Tokens {
+		tokens = append(tokens, t.ID)
+	}
+
+	// Single whole-clip segment, spanning the first word start to the last
+	// word end (0/0 when the clip produced no words).
+	var segStart, segEnd int64
+	if len(words) > 0 {
+		segStart = words[0].Start
+		segEnd = words[len(words)-1].End
+	}
+	seg := &pb.TranscriptSegment{
+		Id:     0,
+		Start:  segStart,
+		End:    segEnd,
+		Text:   text,
+		Tokens: tokens,
+	}
+	if wordsRequested(opts.TimestampGranularities) {
+		seg.Words = words
+	}
+
 	return pb.TranscriptResult{
-		Text: text,
-		Segments: []*pb.TranscriptSegment{
-			{Id: 0, Start: 0, End: 0, Text: text},
-		},
+		Text:     text,
+		Segments: []*pb.TranscriptSegment{seg},
 	}, nil
+}
+
+// wordsRequested reports whether the caller asked for word-level timestamps.
+// The OpenAI transcription API gates word timings behind
+// timestamp_granularities[] containing "word" and defaults to segment-level
+// otherwise; we follow that contract.
+func wordsRequested(granularities []string) bool {
+	for _, g := range granularities {
+		if strings.EqualFold(strings.TrimSpace(g), "word") {
+			return true
+		}
+	}
+	return false
+}
+
+// secondsToNanos converts the C-API's fractional-second timestamps into the
+// int64 nanoseconds LocalAI carries on TranscriptSegment/TranscriptWord — the
+// same nanosecond convention the whisper backend uses.
+func secondsToNanos(sec float64) int64 {
+	return int64(sec * 1e9)
 }
 
 // AudioTranscriptionStream is a placeholder for L0. L2 wires
