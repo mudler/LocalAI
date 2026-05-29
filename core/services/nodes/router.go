@@ -504,6 +504,20 @@ func (r *SmartRouter) buildPreference(ctx context.Context, modelID string, candi
 	d := r.prefixProvider.Decide(modelID, chain, ids, time.Now())
 	chosen := prefixcache.Select(cands, d, cfg)
 
+	// Observability for the prefix-cache routing decision. One line per request
+	// at Debug: enable with DEBUG=true on the frontend to assess cache-aware
+	// routing. hotMatchHonored=true means we routed to the cache-warm replica;
+	// false with a non-empty hotNode means the load guard forced a cold pick.
+	xlog.Debug("prefix-cache routing decision",
+		"model", modelID,
+		"chainDepth", len(chain),
+		"candidates", len(cands),
+		"hotNode", d.HotNodeID,
+		"matchRatio", d.MatchRatio,
+		"minMatch", cfg.MinPrefixMatch,
+		"chosen", chosen,
+		"hotMatchHonored", d.HotNodeID != "" && chosen == d.HotNodeID)
+
 	// Forced-disturb: a usable hot prefix match existed but the load guard
 	// forced us off the warm node (Select either picked a different node or
 	// nothing). This is the scale-worthy signal - the cache-warm replica is
@@ -527,6 +541,7 @@ func (r *SmartRouter) observePrefix(modelID string, chain []uint64, nodeID strin
 		return
 	}
 	r.prefixProvider.Observe(modelID, chain, nodeID, time.Now())
+	xlog.Debug("prefix-cache observed assignment", "model", modelID, "node", nodeID, "chainDepth", len(chain))
 }
 
 // resolveSelectorCandidates returns the node IDs that match the model's
