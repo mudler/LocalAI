@@ -150,10 +150,9 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
         if self._ts_model is not None:
             return self._ts_model
         if not self._forced_aligner_name:
-            if want_timestamps:
-                print("WARNING: timestamps requested but no forced_aligner configured; "
-                      "returning plain text without timestamps", file=sys.stderr)
-            return self.model  # no aligner configured — fall back silently
+            print("WARNING: timestamps requested but no forced_aligner configured; "
+                  "returning plain text without timestamps", file=sys.stderr)
+            return None  # no aligner configured — signal caller to fall back
         with self._ts_lock:
             if self._ts_model is not None:
                 return self._ts_model
@@ -165,6 +164,10 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
             self._ts_model = Qwen3ASRModel.from_pretrained(
                 self.model_path, **load_kwargs
             )
+            # Drop the base-only copy to avoid holding both in VRAM.
+            if self.model is not None:
+                del self.model
+                self.model = None
             print("Forced-aligner model loaded", file=sys.stderr)
             return self._ts_model
 
@@ -239,29 +242,13 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
         return (0.0, 0.0, "")
 
     @staticmethod
-    def _compute_gap_threshold(time_stamps):
+    def _compute_gap_threshold_from_extracted(extracted):
         """Compute a gap threshold for sentence boundary detection.
 
-        Uses the median inter-item gap multiplied by a factor, with a
-        minimum floor of 0.3s.  Returns 0 if there are too few items.
+        Accepts pre-extracted (start, end, text) tuples.  Uses the median
+        inter-item gap multiplied by a factor, with a minimum floor of 0.3s.
+        Returns 0 if there are too few items.
         """
-        if len(time_stamps) < 2:
-            return 0.0
-        gaps = []
-        for i in range(1, len(time_stamps)):
-            prev_s, prev_e, _ = BackendServicer._extract_word_info(time_stamps[i - 1])
-            curr_s, _, _ = BackendServicer._extract_word_info(time_stamps[i])
-            gaps.append(curr_s - prev_e)
-        if not gaps:
-            return 0.0
-        gaps.sort()
-        median = gaps[len(gaps) // 2]
-        # threshold = max(median * 4, 0.3s)
-        return max(median * 4, 0.3)
-
-    @staticmethod
-    def _compute_gap_threshold_from_extracted(extracted):
-        """Same as _compute_gap_threshold but accepts pre-extracted (s, e, t) tuples."""
         if len(extracted) < 2:
             return 0.0
         gaps = []
@@ -352,8 +339,15 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
 
             # Select model: with or without forced aligner
             if want_timestamps:
-                model = self._get_ts_model()
-                has_aligner = model is not self.model
+                ts_model = self._get_ts_model()
+                if ts_model is None:
+                    # No aligner configured — fall back to plain transcription
+                    model = self.model
+                    has_aligner = False
+                    want_timestamps = False
+                else:
+                    model = ts_model
+                    has_aligner = True
             else:
                 model = self.model
                 has_aligner = False
