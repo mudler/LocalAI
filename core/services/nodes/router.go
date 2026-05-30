@@ -311,7 +311,7 @@ func (r *SmartRouter) Route(ctx context.Context, modelID, modelName, backendType
 				// onFirstComplete callback releases the reservation after the first inference
 				// call finishes, so in-flight returns to 0 when idle.
 				r.registry.TouchNodeModel(ctx, node.ID, trackingKey, replicaIdx)
-				r.observePrefix(trackingKey, observeChain, node.ID)
+				r.observePrefix(trackingKey, observeChain, prefixcache.ReplicaKey{NodeID: node.ID, Replica: replicaIdx})
 				grpcClient := r.buildClientForAddr(node, modelAddr, parallel)
 				tracked := NewInFlightTrackingClient(grpcClient, r.registry, node.ID, trackingKey, replicaIdx)
 				tracked.OnFirstComplete(func() {
@@ -357,7 +357,7 @@ func (r *SmartRouter) Route(ctx context.Context, modelID, modelName, backendType
 					// Model loaded while we waited — FindAndLockNodeWithModel already incremented
 					// in-flight as a reservation. Release it after the first inference completes.
 					r.registry.TouchNodeModel(ctx, node.ID, trackingKey, replicaIdx)
-					r.observePrefix(trackingKey, observeChain, node.ID)
+					r.observePrefix(trackingKey, observeChain, prefixcache.ReplicaKey{NodeID: node.ID, Replica: replicaIdx})
 					grpcClient := r.buildClientForAddr(node, modelAddr, parallel)
 					tracked := NewInFlightTrackingClient(grpcClient, r.registry, node.ID, trackingKey, replicaIdx)
 					tracked.OnFirstComplete(func() {
@@ -381,9 +381,9 @@ func (r *SmartRouter) Route(ctx context.Context, modelID, modelName, backendType
 			return nil, err
 		}
 
-		// Cold load landed on result.Node: record the assignment so subsequent
-		// requests with the same prefix prefer it.
-		r.observePrefix(trackingKey, observeChain, result.Node.ID)
+		// Cold load landed on result.Node replica result.ReplicaIndex: record the
+		// assignment so subsequent requests with the same prefix prefer it.
+		r.observePrefix(trackingKey, observeChain, prefixcache.ReplicaKey{NodeID: result.Node.ID, Replica: result.ReplicaIndex})
 
 		replicaIdx := result.ReplicaIndex
 		tracked := NewInFlightTrackingClient(result.Client, r.registry, result.Node.ID, trackingKey, replicaIdx)
@@ -475,73 +475,71 @@ func (r *SmartRouter) buildPreference(ctx context.Context, modelID string, candi
 		return nil, nil
 	}
 
-	// Load the candidate replicas and dedup to one entry per node. When a node
-	// hosts multiple replicas we take the MIN in-flight across its replicas as
-	// the node's load: routing chooses a node, and FindAndLockNodeWithModel
-	// then locks that node's least-loaded replica, so the min replica is the
-	// load the request will actually see.
+	// Load the candidate replicas PER REPLICA. Affinity is tracked per replica
+	// (each replica is a separate process with its own KV cache), so two
+	// replicas of the same model on the same node are two distinct candidates.
+	// FindAndLockNodeWithModel then locks the EXACT (node, replica) the policy
+	// chose.
 	stats, err := r.registry.LoadedReplicaStats(ctx, modelID, candidateNodeIDs)
 	if err != nil {
 		xlog.Debug("prefixcache: loading replica stats failed, skipping preference", "model", modelID, "error", err)
 		return nil, chain
 	}
-	perNode := make(map[string]int, len(stats))
-	for _, s := range stats {
-		if cur, ok := perNode[s.NodeID]; !ok || s.InFlight < cur {
-			perNode[s.NodeID] = s.InFlight
-		}
-	}
-	if len(perNode) == 0 {
+	if len(stats) == 0 {
 		return nil, chain
 	}
-	cands := make([]prefixcache.Candidate, 0, len(perNode))
-	ids := make([]string, 0, len(perNode))
-	for id, inFlight := range perNode {
-		cands = append(cands, prefixcache.Candidate{NodeID: id, InFlight: inFlight})
-		ids = append(ids, id)
+	cands := make([]prefixcache.Candidate, 0, len(stats))
+	keys := make([]prefixcache.ReplicaKey, 0, len(stats))
+	for _, s := range stats {
+		key := prefixcache.ReplicaKey{NodeID: s.NodeID, Replica: s.ReplicaIndex}
+		cands = append(cands, prefixcache.Candidate{Key: key, InFlight: s.InFlight})
+		keys = append(keys, key)
 	}
 
-	d := r.prefixProvider.Decide(modelID, chain, ids, time.Now())
-	chosen := prefixcache.Select(cands, d, cfg)
+	d := r.prefixProvider.Decide(modelID, chain, keys, time.Now())
+	chosen, ok := prefixcache.Select(cands, d, cfg)
 
 	// Observability for the prefix-cache routing decision. One line per request
 	// at Debug: enable with DEBUG=true on the frontend to assess cache-aware
 	// routing. hotMatchHonored=true means we routed to the cache-warm replica;
-	// false with a non-empty hotNode means the load guard forced a cold pick.
+	// false with HasHot means the load guard forced a cold pick.
 	xlog.Debug("prefix-cache routing decision",
 		"model", modelID,
 		"chainDepth", len(chain),
 		"candidates", len(cands),
-		"hotNode", d.HotNodeID,
+		"hotNode", d.Hot.NodeID,
+		"hotReplica", d.Hot.Replica,
+		"hasHot", d.HasHot,
 		"matchRatio", d.MatchRatio,
 		"minMatch", cfg.MinPrefixMatch,
-		"chosen", chosen,
-		"hotMatchHonored", d.HotNodeID != "" && chosen == d.HotNodeID)
+		"chosen", fmt.Sprintf("%s/%d", chosen.NodeID, chosen.Replica),
+		"hotMatchHonored", d.HasHot && chosen == d.Hot)
 
 	// Forced-disturb: a usable hot prefix match existed but the load guard
-	// forced us off the warm node (Select either picked a different node or
-	// nothing). This is the scale-worthy signal - the cache-warm replica is
-	// saturated. It deliberately does not fire for all-unique workloads (no
-	// hot match), avoiding false-positive scale-ups. nil pressure is a no-op.
-	if r.pressure != nil && d.HotNodeID != "" && d.MatchRatio >= cfg.MinPrefixMatch && chosen != d.HotNodeID {
+	// forced us off the warm replica (Select picked a different replica). This
+	// is the scale-worthy signal - the cache-warm replica is saturated. It
+	// deliberately does not fire for all-unique workloads (no hot match),
+	// avoiding false-positive scale-ups. nil pressure is a no-op.
+	if r.pressure != nil && d.HasHot && d.MatchRatio >= cfg.MinPrefixMatch && chosen != d.Hot {
 		r.pressure.Record(modelID, time.Now())
 	}
 
-	if chosen == "" {
+	if !ok {
 		return nil, chain
 	}
-	return &RoutePreference{PreferredNodeID: chosen}, chain
+	return &RoutePreference{PreferredNodeID: chosen.NodeID, PreferredReplica: chosen.Replica}, chain
 }
 
-// observePrefix records that nodeID served the request whose prompt prefix is
-// chain. It is a no-op when prefix-cache routing is disabled or the chain is
-// empty (round-robin models pass a nil chain so the tree is never polluted).
-func (r *SmartRouter) observePrefix(modelID string, chain []uint64, nodeID string) {
+// observePrefix records that the replica `key` served the request whose prompt
+// prefix is chain. It is a no-op when prefix-cache routing is disabled or the
+// chain is empty (round-robin models pass a nil chain so the tree is never
+// polluted).
+func (r *SmartRouter) observePrefix(modelID string, chain []uint64, key prefixcache.ReplicaKey) {
 	if r.prefixProvider == nil || len(chain) == 0 {
 		return
 	}
-	r.prefixProvider.Observe(modelID, chain, nodeID, time.Now())
-	xlog.Debug("prefix-cache observed assignment", "model", modelID, "node", nodeID, "chainDepth", len(chain))
+	r.prefixProvider.Observe(modelID, chain, key, time.Now())
+	xlog.Debug("prefix-cache observed assignment", "model", modelID, "node", key.NodeID, "replica", key.Replica, "chainDepth", len(chain))
 }
 
 // resolveSelectorCandidates returns the node IDs that match the model's

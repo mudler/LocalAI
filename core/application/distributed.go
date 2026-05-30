@@ -272,8 +272,12 @@ func initDistributed(cfg *config.ApplicationConfig, authDB *gorm.DB, configLoade
 		// health-monitor reap, RemoteUnloaderAdapter, and the router. Registering
 		// it only inside this enabled block keeps the disabled path a true no-op
 		// (the registry stays hook-less).
-		registry.SetReplicaRemovedHook(func(modelName, nodeID string) {
-			prefixSync.Invalidate(modelName, nodeID)
+		registry.SetReplicaRemovedHook(func(model, node string, replica int) {
+			if replica < 0 {
+				prefixSync.InvalidateNode(model, node)
+			} else {
+				prefixSync.Invalidate(model, prefixcache.ReplicaKey{NodeID: node, Replica: replica})
+			}
 		})
 
 		distributedhdr.PrefixChainHook = func(model, prompt string) []uint64 {

@@ -208,23 +208,28 @@ type NodeRegistry struct {
 	// is removed. It is the single chokepoint that lets the prefix-cache index
 	// be invalidated no matter which removal path (router eviction, reconciler
 	// scale-down, probe reaper, health-monitor reap, RemoteUnloaderAdapter) ran.
-	// Stored in an atomic.Pointer so the startup wiring (setter) and request /
-	// reconcile handling (fire) are race-free.
-	replicaRemovedHook atomic.Pointer[func(modelName, nodeID string)]
+	// The replicaIndex argument is the SPECIFIC replica removed, or negative to
+	// signal "all replicas of (modelName, nodeID)". Stored in an atomic.Pointer
+	// so the startup wiring (setter) and request / reconcile handling (fire) are
+	// race-free.
+	replicaRemovedHook atomic.Pointer[func(modelName, nodeID string, replicaIndex int)]
 }
 
 // SetReplicaRemovedHook registers a callback invoked after a replica row for
-// (modelName, nodeID) is removed from the registry. Used to invalidate the
-// prefix-cache index so it never points at a node that no longer hosts the
-// model. Set once at startup before serving. Safe to leave unset (no-op).
-func (r *NodeRegistry) SetReplicaRemovedHook(fn func(modelName, nodeID string)) {
+// (modelName, nodeID) is removed from the registry. replicaIndex is the
+// specific replica removed, or negative to mean "all replicas of the node".
+// Used to invalidate the prefix-cache index so it never points at a replica
+// that no longer hosts the model. Set once at startup before serving. Safe to
+// leave unset (no-op).
+func (r *NodeRegistry) SetReplicaRemovedHook(fn func(modelName, nodeID string, replicaIndex int)) {
 	r.replicaRemovedHook.Store(&fn)
 }
 
-// fireReplicaRemoved invokes the replica-removed hook if one is set. Nil-safe.
-func (r *NodeRegistry) fireReplicaRemoved(modelName, nodeID string) {
+// fireReplicaRemoved invokes the replica-removed hook if one is set. A negative
+// replicaIndex means all replicas of (modelName, nodeID). Nil-safe.
+func (r *NodeRegistry) fireReplicaRemoved(modelName, nodeID string, replicaIndex int) {
 	if fn := r.replicaRemovedHook.Load(); fn != nil && *fn != nil {
-		(*fn)(modelName, nodeID)
+		(*fn)(modelName, nodeID, replicaIndex)
 	}
 }
 
@@ -351,7 +356,7 @@ func (r *NodeRegistry) Register(ctx context.Context, node *BackendNode, autoAppr
 			xlog.Warn("Failed to clear stale model records on re-register", "node", node.Name, "error", err)
 		} else {
 			for _, m := range removedModels {
-				r.fireReplicaRemoved(m, existing.ID)
+				r.fireReplicaRemoved(m, existing.ID, -1)
 			}
 		}
 	} else if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -445,7 +450,7 @@ func (r *NodeRegistry) MarkOffline(ctx context.Context, nodeID string) error {
 		xlog.Warn("Failed to clear model records on offline", "node", nodeID, "error", err)
 	} else {
 		for _, m := range removedModels {
-			r.fireReplicaRemoved(m, nodeID)
+			r.fireReplicaRemoved(m, nodeID, -1)
 		}
 	}
 	return nil
@@ -576,7 +581,7 @@ func (r *NodeRegistry) Deregister(ctx context.Context, nodeID string) error {
 		return err
 	}
 	for _, m := range removedModels {
-		r.fireReplicaRemoved(m, nodeID)
+		r.fireReplicaRemoved(m, nodeID, -1)
 	}
 	return nil
 }
@@ -710,7 +715,7 @@ func (r *NodeRegistry) MarkDraining(ctx context.Context, nodeID string) error {
 		xlog.Warn("Failed to clear model records on draining", "node", nodeID, "error", err)
 	} else {
 		for _, m := range removedModels {
-			r.fireReplicaRemoved(m, nodeID)
+			r.fireReplicaRemoved(m, nodeID, -1)
 		}
 	}
 	return nil
@@ -826,7 +831,7 @@ func (r *NodeRegistry) RemoveNodeModel(ctx context.Context, nodeID, modelName st
 		Delete(&NodeModel{}).Error; err != nil {
 		return err
 	}
-	r.fireReplicaRemoved(modelName, nodeID)
+	r.fireReplicaRemoved(modelName, nodeID, replicaIndex)
 	return nil
 }
 
@@ -838,7 +843,8 @@ func (r *NodeRegistry) RemoveAllNodeModelReplicas(ctx context.Context, nodeID, m
 		Delete(&NodeModel{}).Error; err != nil {
 		return err
 	}
-	r.fireReplicaRemoved(modelName, nodeID)
+	// Negative index signals "all replicas of (modelName, nodeID)".
+	r.fireReplicaRemoved(modelName, nodeID, -1)
 	return nil
 }
 
@@ -855,11 +861,15 @@ func (r *NodeRegistry) FindNodesWithModel(ctx context.Context, modelName string)
 	return nodes, nil
 }
 
-// RoutePreference biases FindAndLockNodeWithModel. PreferredNodeID, when set
-// and load-eligible and still loaded/healthy, is locked instead of the default
-// ORDER BY pick. Nil preference => unchanged behavior.
+// RoutePreference biases FindAndLockNodeWithModel. PreferredNodeID +
+// PreferredReplica, when set and the exact (node, replica) row is still
+// loaded/healthy, is locked instead of the default ORDER BY pick. The caller
+// (the prefix-cache router) has already applied the load guard, so the lock
+// targets the EXACT replica it chose, not the least-loaded replica on the node.
+// Nil preference => unchanged behavior.
 type RoutePreference struct {
-	PreferredNodeID string
+	PreferredNodeID  string
+	PreferredReplica int
 }
 
 // FindAndLockNodeWithModel atomically finds the best loaded replica of the
@@ -916,12 +926,13 @@ func (r *NodeRegistry) FindAndLockNodeWithModel(ctx context.Context, modelName s
 
 		picked := false
 		if pref != nil && pref.PreferredNodeID != "" {
-			// Try to lock a loaded replica on the preferred node. The caller
-			// has already applied the load guard when choosing PreferredNodeID,
-			// so here we only require it still be loaded+healthy. Pick the
-			// lowest-in_flight replica on that node.
-			q := base.Session(&gorm.Session{}).Where("node_models.node_id = ?", pref.PreferredNodeID).
-				Order("node_models.in_flight ASC, node_models.last_used ASC")
+			// Lock the EXACT (node_id, replica_index) row the caller chose. The
+			// caller (prefix-cache router) has already applied the load guard
+			// per replica, so here we only require that exact replica still be
+			// loaded+healthy. Fall through to the default ORDER BY when that
+			// specific replica is not found/loaded.
+			q := base.Session(&gorm.Session{}).
+				Where("node_models.node_id = ? AND node_models.replica_index = ?", pref.PreferredNodeID, pref.PreferredReplica)
 			if err := q.First(&nm).Error; err == nil {
 				picked = true
 			}

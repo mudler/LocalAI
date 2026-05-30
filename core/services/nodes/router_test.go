@@ -1079,38 +1079,42 @@ var _ = Describe("SmartRouter", func() {
 // ---------------------------------------------------------------------------
 
 type observeRecord struct {
-	model  string
-	chain  []uint64
-	nodeID string
+	model string
+	chain []uint64
+	key   prefixcache.ReplicaKey
 }
 
 type invalidateRecord struct {
-	model  string
-	nodeID string
+	model string
+	key   prefixcache.ReplicaKey
 }
 
 // fakePrefixProvider records all interactions and returns a configurable
-// decision. decideFn lets a test compute a decision from the live observations
-// so it can model "second request prefers the previously observed node".
+// decision.
 type fakePrefixProvider struct {
-	decideCalls int
-	observed    []observeRecord
-	invalidated []invalidateRecord
-	decision    prefixcache.PrefixDecision
+	decideCalls     int
+	observed        []observeRecord
+	invalidated     []invalidateRecord
+	invalidatedNode []string
+	decision        prefixcache.PrefixDecision
 }
 
-func (f *fakePrefixProvider) Decide(_ string, _ []uint64, _ []string, _ time.Time) prefixcache.PrefixDecision {
+func (f *fakePrefixProvider) Decide(_ string, _ []uint64, _ []prefixcache.ReplicaKey, _ time.Time) prefixcache.PrefixDecision {
 	f.decideCalls++
 	return f.decision
 }
 
-func (f *fakePrefixProvider) Observe(model string, chain []uint64, nodeID string, _ time.Time) bool {
-	f.observed = append(f.observed, observeRecord{model: model, chain: append([]uint64(nil), chain...), nodeID: nodeID})
+func (f *fakePrefixProvider) Observe(model string, chain []uint64, key prefixcache.ReplicaKey, _ time.Time) bool {
+	f.observed = append(f.observed, observeRecord{model: model, chain: append([]uint64(nil), chain...), key: key})
 	return true
 }
 
-func (f *fakePrefixProvider) Invalidate(model, nodeID string) {
-	f.invalidated = append(f.invalidated, invalidateRecord{model: model, nodeID: nodeID})
+func (f *fakePrefixProvider) Invalidate(model string, key prefixcache.ReplicaKey) {
+	f.invalidated = append(f.invalidated, invalidateRecord{model: model, key: key})
+}
+
+func (f *fakePrefixProvider) InvalidateNode(model, nodeID string) {
+	f.invalidatedNode = append(f.invalidatedNode, model+":"+nodeID)
 }
 
 func (f *fakePrefixProvider) Evict(_ time.Time) {}
@@ -1166,7 +1170,7 @@ var _ = Describe("SmartRouter prefix-cache routing", func() {
 	Context("with a provider", func() {
 		It("passes the decided node as the preference and observes the pick", func() {
 			reg := loadedReg()
-			prov := &fakePrefixProvider{decision: prefixcache.PrefixDecision{HotNodeID: "X", MatchRatio: 1.0}}
+			prov := &fakePrefixProvider{decision: prefixcache.PrefixDecision{Hot: prefixcache.ReplicaKey{NodeID: "X"}, HasHot: true, MatchRatio: 1.0}}
 			router := NewSmartRouter(reg, SmartRouterOptions{
 				Unloader:       unloader,
 				ClientFactory:  factory,
@@ -1181,8 +1185,9 @@ var _ = Describe("SmartRouter prefix-cache routing", func() {
 			Expect(prov.decideCalls).To(BeNumerically(">=", 1))
 			Expect(reg.findAndLockPrefs[0]).ToNot(BeNil())
 			Expect(reg.findAndLockPrefs[0].PreferredNodeID).To(Equal("X"))
+			Expect(reg.findAndLockPrefs[0].PreferredReplica).To(Equal(0))
 			Expect(prov.observed).To(HaveLen(1))
-			Expect(prov.observed[0].nodeID).To(Equal("X"))
+			Expect(prov.observed[0].key).To(Equal(prefixcache.ReplicaKey{NodeID: "X", Replica: 0}))
 			Expect(prov.observed[0].chain).To(Equal([]uint64{1, 2, 3}))
 		})
 
@@ -1203,7 +1208,9 @@ var _ = Describe("SmartRouter prefix-cache routing", func() {
 			Expect(err).ToNot(HaveOccurred())
 			// First request landed on X (cold placement on the only candidate)
 			// and observed the prefix there.
-			Expect(idx.Decide("m", []uint64{7, 8, 9}, []string{"X"}, time.Now()).HotNodeID).To(Equal("X"))
+			dFirst := idx.Decide("m", []uint64{7, 8, 9}, []prefixcache.ReplicaKey{{NodeID: "X", Replica: 0}}, time.Now())
+			Expect(dFirst.HasHot).To(BeTrue())
+			Expect(dFirst.Hot).To(Equal(prefixcache.ReplicaKey{NodeID: "X", Replica: 0}))
 
 			// Second request, same chain: X is now the warm-cache hot match, so
 			// the preference must point at it.
@@ -1212,11 +1219,54 @@ var _ = Describe("SmartRouter prefix-cache routing", func() {
 			last := reg.findAndLockPrefs[len(reg.findAndLockPrefs)-1]
 			Expect(last).ToNot(BeNil())
 			Expect(last.PreferredNodeID).To(Equal("X"))
+			Expect(last.PreferredReplica).To(Equal(0))
+		})
+
+		It("prefers the exact hot replica when two replicas share a node", func() {
+			// Two replicas of "m" live on the SAME node X: replica 0 and replica
+			// 1. A hot prefix observed on (X,0) must produce a preference that
+			// locks replica 0 specifically, NOT the sibling replica 1 on the same
+			// node. This is the replica-granular regression this change fixes.
+			idx := prefixcache.NewIndex(prefixcache.DefaultConfig())
+			node := &BackendNode{ID: "X", Name: "node-x", Address: "10.0.0.1:50051"}
+			nm := &NodeModel{NodeID: "X", ModelName: "m", ReplicaIndex: 0, Address: "10.0.0.1:9001"}
+			reg := &fakeModelRouter{
+				findAndLockNode: node,
+				findAndLockNM:   nm,
+				getModelScheduling: &ModelSchedulingConfig{
+					RoutePolicy: "prefix_cache",
+				},
+				loadedReplicaStatsByName: map[string][]ReplicaCandidate{
+					"m": {
+						{NodeID: "X", ReplicaIndex: 0, InFlight: 0},
+						{NodeID: "X", ReplicaIndex: 1, InFlight: 0},
+					},
+				},
+			}
+			// Seed the index so (X,0) is the warm replica for this chain.
+			idx.Observe("m", []uint64{1, 2, 3}, prefixcache.ReplicaKey{NodeID: "X", Replica: 0}, time.Now())
+
+			router := NewSmartRouter(reg, SmartRouterOptions{
+				Unloader:       unloader,
+				ClientFactory:  factory,
+				PrefixProvider: idx,
+				PrefixConfig:   prefixcache.DefaultConfig(),
+			})
+
+			ctx := distributedhdr.WithPrefixChain(context.Background(), []uint64{1, 2, 3})
+			_, err := router.Route(ctx, "m", "models/m.gguf", "llama-cpp", nil, false)
+			Expect(err).ToNot(HaveOccurred())
+
+			pref := reg.findAndLockPrefs[0]
+			Expect(pref).ToNot(BeNil())
+			Expect(pref.PreferredNodeID).To(Equal("X"))
+			Expect(pref.PreferredReplica).To(Equal(0),
+				"the hot prefix lives on replica 0; the same-node sibling replica 1 must NOT be chosen")
 		})
 
 		It("does not decide or observe when no prefix chain is present", func() {
 			reg := loadedReg()
-			prov := &fakePrefixProvider{decision: prefixcache.PrefixDecision{HotNodeID: "X", MatchRatio: 1.0}}
+			prov := &fakePrefixProvider{decision: prefixcache.PrefixDecision{Hot: prefixcache.ReplicaKey{NodeID: "X"}, HasHot: true, MatchRatio: 1.0}}
 			router := NewSmartRouter(reg, SmartRouterOptions{
 				Unloader:       unloader,
 				ClientFactory:  factory,
@@ -1234,7 +1284,7 @@ var _ = Describe("SmartRouter prefix-cache routing", func() {
 		It("does not observe for round-robin models even with a chain", func() {
 			reg := loadedReg()
 			reg.getModelScheduling = &ModelSchedulingConfig{RoutePolicy: "round_robin"}
-			prov := &fakePrefixProvider{decision: prefixcache.PrefixDecision{HotNodeID: "X", MatchRatio: 1.0}}
+			prov := &fakePrefixProvider{decision: prefixcache.PrefixDecision{Hot: prefixcache.ReplicaKey{NodeID: "X"}, HasHot: true, MatchRatio: 1.0}}
 			router := NewSmartRouter(reg, SmartRouterOptions{
 				Unloader:       unloader,
 				ClientFactory:  factory,
@@ -1274,9 +1324,10 @@ var _ = Describe("SmartRouter prefix-cache routing", func() {
 		It("records pressure when a strong hot match was forced off the warm node", func() {
 			reg := disturbReg()
 			prov := &fakePrefixProvider{decision: prefixcache.PrefixDecision{
-				HotNodeID:  "X",
+				Hot:        prefixcache.ReplicaKey{NodeID: "X"},
+				HasHot:     true,
 				MatchRatio: 1.0,
-				ColdOrder:  []string{"Y", "X"},
+				ColdOrder:  []prefixcache.ReplicaKey{{NodeID: "Y"}, {NodeID: "X"}},
 			}}
 			pressure := prefixcache.NewPressure(time.Minute)
 			router := NewSmartRouter(reg, SmartRouterOptions{
@@ -1298,7 +1349,8 @@ var _ = Describe("SmartRouter prefix-cache routing", func() {
 		It("does not record pressure when the hot node is itself eligible", func() {
 			reg := loadedReg() // single node X, in_flight 0 → X stays eligible
 			prov := &fakePrefixProvider{decision: prefixcache.PrefixDecision{
-				HotNodeID:  "X",
+				Hot:        prefixcache.ReplicaKey{NodeID: "X"},
+				HasHot:     true,
 				MatchRatio: 1.0,
 			}}
 			pressure := prefixcache.NewPressure(time.Minute)
@@ -1321,9 +1373,9 @@ var _ = Describe("SmartRouter prefix-cache routing", func() {
 		It("does not record pressure for an all-unique workload with no hot match", func() {
 			reg := loadedReg()
 			prov := &fakePrefixProvider{decision: prefixcache.PrefixDecision{
-				HotNodeID:  "", // no prefix match at all
+				HasHot:     false, // no prefix match at all
 				MatchRatio: 0,
-				ColdOrder:  []string{"X"},
+				ColdOrder:  []prefixcache.ReplicaKey{{NodeID: "X"}},
 			}}
 			pressure := prefixcache.NewPressure(time.Minute)
 			router := NewSmartRouter(reg, SmartRouterOptions{
@@ -1358,7 +1410,7 @@ var _ = Describe("SmartRouter prefix-cache routing", func() {
 			// Warm the cache: X now holds the prefix.
 			_, err := router.Route(ctx, "m", "models/m.gguf", "llama-cpp", nil, false)
 			Expect(err).ToNot(HaveOccurred())
-			Expect(idx.Decide("m", []uint64{5, 6}, []string{"X"}, time.Now()).HotNodeID).To(Equal("X"))
+			Expect(idx.Decide("m", []uint64{5, 6}, []prefixcache.ReplicaKey{{NodeID: "X", Replica: 0}}, time.Now()).Hot).To(Equal(prefixcache.ReplicaKey{NodeID: "X", Replica: 0}))
 
 			// UnloadModel must route the eviction through the registry removal
 			// chokepoint (RemoveAllNodeModelReplicas). The registry's

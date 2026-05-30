@@ -471,6 +471,30 @@ var _ = Describe("NodeRegistry", func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(node).ToNot(BeNil())
 		})
+
+		It("locks the EXACT preferred replica when the node hosts two replicas", func() {
+			// A single node hosts replica 0 and replica 1 of a model, both
+			// loaded+healthy. The preference must lock the SPECIFIC replica
+			// requested, not the least-loaded replica on the node.
+			node := makeNode("pref-multi", "10.0.0.72:50051", 16_000_000_000)
+			node.MaxReplicasPerModel = 2
+			Expect(registry.Register(context.Background(), node, true)).To(Succeed())
+			Expect(registry.SetNodeModel(context.Background(), node.ID, "multi-model", 0, "loaded", "addr0", 0)).To(Succeed())
+			Expect(registry.SetNodeModel(context.Background(), node.ID, "multi-model", 1, "loaded", "addr1", 0)).To(Succeed())
+
+			// pref={node, 1} must lock replica 1 specifically.
+			gotNode, nm1, err := registry.FindAndLockNodeWithModel(context.Background(), "multi-model", nil,
+				&RoutePreference{PreferredNodeID: node.ID, PreferredReplica: 1})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(gotNode.ID).To(Equal(node.ID))
+			Expect(nm1.ReplicaIndex).To(Equal(1))
+
+			// pref={node, 0} must lock replica 0 specifically.
+			_, nm0, err := registry.FindAndLockNodeWithModel(context.Background(), "multi-model", nil,
+				&RoutePreference{PreferredNodeID: node.ID, PreferredReplica: 0})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(nm0.ReplicaIndex).To(Equal(0))
+		})
 	})
 
 	Describe("LoadedReplicaStats", func() {
@@ -1022,39 +1046,46 @@ var _ = Describe("NodeRegistry", func() {
 	})
 
 	Describe("SetReplicaRemovedHook", func() {
-		type removed struct{ model, node string }
+		type removed struct {
+			model, node string
+			replica     int
+		}
 
-		It("fires once with (model, node) after RemoveNodeModel", func() {
+		It("fires once with the specific replica after RemoveNodeModel", func() {
 			node := makeNode("hook-remove-one", "10.0.0.230:50051", 8_000_000_000)
 			Expect(registry.Register(context.Background(), node, true)).To(Succeed())
-			Expect(registry.SetNodeModel(context.Background(), node.ID, "hook-model", 0, "loaded", "a", 0)).To(Succeed())
+			Expect(registry.SetNodeModel(context.Background(), node.ID, "hook-model", 1, "loaded", "a", 0)).To(Succeed())
 
 			var fired []removed
-			registry.SetReplicaRemovedHook(func(modelName, nodeID string) {
-				fired = append(fired, removed{model: modelName, node: nodeID})
+			registry.SetReplicaRemovedHook(func(modelName, nodeID string, replicaIndex int) {
+				fired = append(fired, removed{model: modelName, node: nodeID, replica: replicaIndex})
 			})
 
-			Expect(registry.RemoveNodeModel(context.Background(), node.ID, "hook-model", 0)).To(Succeed())
+			// RemoveNodeModel(replica 1) must fire with the SPECIFIC replica index.
+			Expect(registry.RemoveNodeModel(context.Background(), node.ID, "hook-model", 1)).To(Succeed())
 			Expect(fired).To(HaveLen(1))
-			Expect(fired[0]).To(Equal(removed{model: "hook-model", node: node.ID}))
+			Expect(fired[0]).To(Equal(removed{model: "hook-model", node: node.ID, replica: 1}))
 		})
 
-		It("fires once with (model, node) after RemoveAllNodeModelReplicas", func() {
+		It("fires once with replica<0 after RemoveAllNodeModelReplicas", func() {
 			node := makeNode("hook-remove-all", "10.0.0.231:50051", 16_000_000_000)
 			Expect(registry.Register(context.Background(), node, true)).To(Succeed())
 			Expect(registry.SetNodeModel(context.Background(), node.ID, "hook-all-model", 0, "loaded", "a", 0)).To(Succeed())
 			Expect(registry.SetNodeModel(context.Background(), node.ID, "hook-all-model", 1, "loaded", "b", 0)).To(Succeed())
 
 			var fired []removed
-			registry.SetReplicaRemovedHook(func(modelName, nodeID string) {
-				fired = append(fired, removed{model: modelName, node: nodeID})
+			registry.SetReplicaRemovedHook(func(modelName, nodeID string, replicaIndex int) {
+				fired = append(fired, removed{model: modelName, node: nodeID, replica: replicaIndex})
 			})
 
-			// One call covers all replicas of that model on the node; the
-			// consumer's Invalidate(model, node) drops all entries for the pair.
+			// One call covers all replicas of that model on the node: a negative
+			// replica index signals "all replicas", and the consumer's
+			// InvalidateNode drops every entry for the (model, node) pair.
 			Expect(registry.RemoveAllNodeModelReplicas(context.Background(), node.ID, "hook-all-model")).To(Succeed())
 			Expect(fired).To(HaveLen(1))
-			Expect(fired[0]).To(Equal(removed{model: "hook-all-model", node: node.ID}))
+			Expect(fired[0].model).To(Equal("hook-all-model"))
+			Expect(fired[0].node).To(Equal(node.ID))
+			Expect(fired[0].replica).To(BeNumerically("<", 0))
 		})
 
 		It("does not panic when no hook is set", func() {
@@ -1085,7 +1116,9 @@ var _ = Describe("NodeRegistry", func() {
 			seedTwoModels(node)
 
 			fired := map[removed]int{}
-			registry.SetReplicaRemovedHook(func(modelName, nodeID string) {
+			registry.SetReplicaRemovedHook(func(modelName, nodeID string, replicaIndex int) {
+				// Bulk node-scoped deletes signal "all replicas" with replica<0.
+				Expect(replicaIndex).To(BeNumerically("<", 0))
 				fired[removed{model: modelName, node: nodeID}]++
 			})
 
@@ -1100,7 +1133,9 @@ var _ = Describe("NodeRegistry", func() {
 			seedTwoModels(node)
 
 			fired := map[removed]int{}
-			registry.SetReplicaRemovedHook(func(modelName, nodeID string) {
+			registry.SetReplicaRemovedHook(func(modelName, nodeID string, replicaIndex int) {
+				// Bulk node-scoped deletes signal "all replicas" with replica<0.
+				Expect(replicaIndex).To(BeNumerically("<", 0))
 				fired[removed{model: modelName, node: nodeID}]++
 			})
 
@@ -1115,7 +1150,9 @@ var _ = Describe("NodeRegistry", func() {
 			seedTwoModels(node)
 
 			fired := map[removed]int{}
-			registry.SetReplicaRemovedHook(func(modelName, nodeID string) {
+			registry.SetReplicaRemovedHook(func(modelName, nodeID string, replicaIndex int) {
+				// Bulk node-scoped deletes signal "all replicas" with replica<0.
+				Expect(replicaIndex).To(BeNumerically("<", 0))
 				fired[removed{model: modelName, node: nodeID}]++
 			})
 
@@ -1130,7 +1167,9 @@ var _ = Describe("NodeRegistry", func() {
 			seedTwoModels(node)
 
 			fired := map[removed]int{}
-			registry.SetReplicaRemovedHook(func(modelName, nodeID string) {
+			registry.SetReplicaRemovedHook(func(modelName, nodeID string, replicaIndex int) {
+				// Bulk node-scoped deletes signal "all replicas" with replica<0.
+				Expect(replicaIndex).To(BeNumerically("<", 0))
 				fired[removed{model: modelName, node: nodeID}]++
 			})
 
@@ -1167,8 +1206,9 @@ var _ = Describe("NodeRegistry", func() {
 			Expect(expectedModels).To(HaveLen(2), "seed should create two distinct models")
 
 			fired := map[string]struct{}{}
-			registry.SetReplicaRemovedHook(func(modelName, nodeID string) {
+			registry.SetReplicaRemovedHook(func(modelName, nodeID string, replicaIndex int) {
 				Expect(nodeID).To(Equal(node.ID))
+				Expect(replicaIndex).To(BeNumerically("<", 0))
 				fired[modelName] = struct{}{}
 			})
 

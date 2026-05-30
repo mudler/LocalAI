@@ -107,9 +107,15 @@ var _ = Describe("Prefix-cache aware routing", Label("Distributed"), func() {
 
 		// Wire the registry chokepoint hook ourselves. In production distributed.go
 		// wires this; a bare SmartRouter test must register it so removal-path
-		// invalidation is exercised end to end.
-		registry.SetReplicaRemovedHook(func(modelName, nodeID string) {
-			idx.Invalidate(modelName, nodeID)
+		// invalidation is exercised end to end. A negative replica index means
+		// "all replicas of the node" (InvalidateNode); otherwise drop the exact
+		// replica.
+		registry.SetReplicaRemovedHook(func(modelName, nodeID string, replica int) {
+			if replica < 0 {
+				idx.InvalidateNode(modelName, nodeID)
+			} else {
+				idx.Invalidate(modelName, prefixcache.ReplicaKey{NodeID: nodeID, Replica: replica})
+			}
 		})
 
 		// Register TWO healthy nodes and mark the model loaded on both (replica 0).
@@ -133,12 +139,13 @@ var _ = Describe("Prefix-cache aware routing", Label("Distributed"), func() {
 
 	It("locks affinity, honors shared prefixes, isolates unrelated chains, and re-homes on failover", func() {
 		now := time.Now()
-		ids := []string{nodeXID, nodeYID}
+		// Both nodes host replica 0 of the model.
+		keys := []prefixcache.ReplicaKey{{NodeID: nodeXID, Replica: 0}, {NodeID: nodeYID, Replica: 0}}
 
 		// --- Step 1: cold miss + observe -------------------------------------
 		// chainA's prefix has never been seen, so there is no hot match yet; the
 		// request cold-places on some loaded node X and the assignment is recorded.
-		Expect(idx.Decide(model, chainA, ids, now).HotNodeID).To(BeEmpty(),
+		Expect(idx.Decide(model, chainA, keys, now).HasHot).To(BeFalse(),
 			"step 1: chainA must be a cold miss (no prior affinity)")
 		placedNode := routeAndSettle(chainA)
 		Expect(placedNode).To(Or(Equal(nodeXID), Equal(nodeYID)))
@@ -150,8 +157,9 @@ var _ = Describe("Prefix-cache aware routing", Label("Distributed"), func() {
 		} else {
 			nodeY = nodeXID
 		}
-		Expect(idx.Decide(model, chainA, ids, time.Now()).HotNodeID).To(Equal(nodeX),
-			"step 1: chainA must now be recorded against the node that served it")
+		hotX := prefixcache.ReplicaKey{NodeID: nodeX, Replica: 0}
+		Expect(idx.Decide(model, chainA, keys, time.Now()).Hot).To(Equal(hotX),
+			"step 1: chainA must now be recorded against the replica that served it")
 
 		// --- Step 2: hot-match affinity --------------------------------------
 		// The SAME chain routes back to X.
@@ -162,7 +170,7 @@ var _ = Describe("Prefix-cache aware routing", Label("Distributed"), func() {
 		// A DIFFERENT chain that shares the leading prefix [1,2,3] with X's chain
 		// but diverges at the tail still matches the shared head and routes to X.
 		// Before the radix-tree fix this fell through to a cold placement.
-		Expect(idx.Decide(model, chainShared, ids, time.Now()).HotNodeID).To(Equal(nodeX),
+		Expect(idx.Decide(model, chainShared, keys, time.Now()).Hot).To(Equal(hotX),
 			"step 3: chainShared must hot-match X on the shared prefix")
 		Expect(routeAndSettle(chainShared)).To(Equal(nodeX),
 			"step 3: chainShared must route to X via the shared-prefix match")
@@ -172,7 +180,7 @@ var _ = Describe("Prefix-cache aware routing", Label("Distributed"), func() {
 		// NOT hot-match X's affinity. (Cold placement may still pick X or Y by
 		// load/cacheWeight, but it must not be a false hot match.) Asserting the
 		// provider decision directly is the robust check.
-		Expect(idx.Decide(model, chainUnrelated, ids, time.Now()).HotNodeID).To(BeEmpty(),
+		Expect(idx.Decide(model, chainUnrelated, keys, time.Now()).HasHot).To(BeFalse(),
 			"step 4: chainUnrelated must be a cold miss, not a false hot match on X")
 
 		// --- Step 5: failover + invalidation ---------------------------------
@@ -182,8 +190,9 @@ var _ = Describe("Prefix-cache aware routing", Label("Distributed"), func() {
 		// must no longer pin to X (it re-homes to Y on the next observe).
 		Expect(registry.RemoveAllNodeModelReplicas(context.Background(), nodeX, model)).To(Succeed())
 
+		yKeys := []prefixcache.ReplicaKey{{NodeID: nodeY, Replica: 0}}
 		// The chokepoint hook dropped X from the index immediately.
-		Expect(idx.Decide(model, chainA, []string{nodeY}, time.Now()).HotNodeID).ToNot(Equal(nodeX),
+		Expect(idx.Decide(model, chainA, yKeys, time.Now()).Hot).ToNot(Equal(hotX),
 			"step 5: after X's replica is removed, chainA must no longer pin to X")
 
 		// Route(chainA): only Y still hosts the model, so it fails over to Y.
@@ -191,10 +200,35 @@ var _ = Describe("Prefix-cache aware routing", Label("Distributed"), func() {
 			"step 5: chainA must fail over to the surviving node Y")
 
 		// And the entry has re-homed: chainA now hot-matches Y, never X.
-		reHomed := idx.Decide(model, chainA, []string{nodeY}, time.Now())
-		Expect(reHomed.HotNodeID).ToNot(Equal(nodeX),
+		reHomed := idx.Decide(model, chainA, yKeys, time.Now())
+		hotY := prefixcache.ReplicaKey{NodeID: nodeY, Replica: 0}
+		Expect(reHomed.Hot).ToNot(Equal(hotX),
 			"step 5: chainA must not re-home to the removed node X")
-		Expect(reHomed.HotNodeID).To(Equal(nodeY),
+		Expect(reHomed.Hot).To(Equal(hotY),
 			"step 5: chainA must re-home to the surviving node Y")
+	})
+
+	It("tracks affinity per replica when ONE node hosts TWO replicas of the model", func() {
+		// This is the bug the replica-granular change fixes: two replicas of the
+		// same model on the SAME node are distinct KV caches. A prefix observed
+		// on replica (node,0) must NOT be reported as hot on the sibling replica
+		// (node,1) of the same node.
+		const multiNodeModel = "multi-replica-model"
+		multiNode := &nodes.BackendNode{Name: "node-multi", Address: "127.0.0.1:50060", MaxReplicasPerModel: 2}
+		Expect(registry.Register(context.Background(), multiNode, true)).To(Succeed())
+		Expect(registry.SetNodeModel(context.Background(), multiNode.ID, multiNodeModel, 0, "loaded", "addr0", 0)).To(Succeed())
+		Expect(registry.SetNodeModel(context.Background(), multiNode.ID, multiNodeModel, 1, "loaded", "addr1", 0)).To(Succeed())
+
+		chain := []uint64{42, 43, 44}
+		key0 := prefixcache.ReplicaKey{NodeID: multiNode.ID, Replica: 0}
+		key1 := prefixcache.ReplicaKey{NodeID: multiNode.ID, Replica: 1}
+
+		// Observe the chain on replica 0 only.
+		idx.Observe(multiNodeModel, chain, key0, time.Now())
+
+		d := idx.Decide(multiNodeModel, chain, []prefixcache.ReplicaKey{key0, key1}, time.Now())
+		Expect(d.HasHot).To(BeTrue())
+		Expect(d.Hot).To(Equal(key0),
+			"the prefix was served by replica 0; the SAME-node sibling replica 1 must NOT be chosen")
 	})
 })
