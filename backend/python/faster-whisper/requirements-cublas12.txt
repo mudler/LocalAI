@@ -1,8 +1,0 @@
-torch==2.4.1
-faster-whisper
-opencv-python
-accelerate
-compel
-peft
-sentencepiece
-optimum-quanto

@@ -1,9 +1,0 @@
-.cache/
-sources/
-build/
-build-*/
-package/
-voxtral
-*.so
-*.dylib
-compile_commands.json

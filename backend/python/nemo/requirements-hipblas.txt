@@ -1,3 +1,0 @@
---extra-index-url https://download.pytorch.org/whl/rocm7.0
-torch
-nemo_toolkit[asr]

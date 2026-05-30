@@ -1,4 +1,0 @@
-accelerate
-torch
-transformers
-bitsandbytes

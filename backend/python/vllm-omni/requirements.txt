@@ -1,7 +1,0 @@
-grpcio==1.76.0
-protobuf
-certifi
-setuptools
-pillow
-numpy
-soundfile

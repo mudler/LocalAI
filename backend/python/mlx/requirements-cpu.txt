@@ -1,2 +1,0 @@
-mlx-lm
-mlx[cpu]

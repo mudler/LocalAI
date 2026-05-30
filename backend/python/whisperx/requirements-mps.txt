@@ -1,2 +1,0 @@
-torch
-whisperx @ git+https://github.com/m-bain/whisperX.git

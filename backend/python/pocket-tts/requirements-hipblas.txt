@@ -1,4 +1,0 @@
---extra-index-url https://download.pytorch.org/whl/rocm7.0
-pocket-tts
-scipy
-torch==2.10.0+rocm7.0

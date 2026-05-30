@@ -115,6 +115,7 @@ var defaultImporters = []Importer{
 	&NemoImporter{},
 	&FasterWhisperImporter{},
 	&QwenASRImporter{},
+	&FunASRImporter{},
 	// TTS (Batch 2)
 	&PiperImporter{},
 	&BarkImporter{},

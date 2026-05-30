@@ -1,6 +1,0 @@
-grpcio==1.80.0
-protobuf==7.35.0
-certifi
-setuptools
-scipy==1.15.1
-numpy>=2.0.0

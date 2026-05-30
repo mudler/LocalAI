@@ -1,5 +1,0 @@
----
-name: "sentencetransformers"
-
-config_file: |
-  backend: sentencetransformers

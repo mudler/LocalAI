@@ -1,7 +1,0 @@
-.cache/
-sources/
-build/
-package/
-whisper
-*.so
-compile_commands.json
