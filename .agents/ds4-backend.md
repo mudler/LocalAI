@@ -68,6 +68,34 @@ go test -count=1 -timeout=30m -v ./tests/e2e-backends/...
 
 CI does not load the model; the suite is opt-in via env vars.
 
+## Distributed mode
+
+ds4 supports **layer-split** distributed inference (a model too big for one host,
+split by transformer layer; the GGUF must be present on every machine, each loads
+only its slice). Topology is **inverted** vs llama.cpp: the coordinator listens,
+workers dial in.
+
+- **`ds4-worker` binary**: built and packaged next to `grpc-server` (`package.sh`
+  copies it into `package/`). Links the same engine objects plus `ds4_distributed.o`;
+  **no gRPC/protobuf dependency** (speaks ds4's own TCP transport), so it builds
+  even where `grpc-server` can't. Runs the worker serving loop (`ds4_dist_run`).
+- **Coordinator wiring**: the ds4 `grpc-server` acts as coordinator when `LoadModel`
+  `ModelOptions.Options` (from model-YAML `options:`) carry:
+  - `ds4_role:coordinator` (enables distributed mode; absent → single-node, back-compat)
+  - `ds4_layers:0:19` (coordinator's own slice, inclusive; `N:output` includes the head)
+  - `ds4_listen:0.0.0.0:1234` (address workers dial into)
+  - `ds4_route_timeout:60` (optional; seconds Predict/PredictStream wait for the route
+    to form before returning gRPC `UNAVAILABLE`; default 60)
+- **Worker CLI**: `local-ai worker ds4-distributed -- <ds4-worker args>` resolves the
+  ds4 backend and execs the packaged `ds4-worker` (raw passthrough), e.g.
+  `--role worker --model /models/ds4flash.gguf --layers 20:output --coordinator <host> 1234`.
+
+Opt-in e2e in `tests/e2e-backends/backend_test.go`, gated by
+`BACKEND_TEST_DS4_DISTRIBUTED=1` (plus `BACKEND_TEST_DS4_WORKER_BINARY`,
+`BACKEND_TEST_DS4_WORKER_LAYERS`, `BACKEND_TEST_DS4_COORDINATOR_LAYERS`,
+`BACKEND_TEST_DS4_LISTEN`). Design spec:
+`docs/superpowers/specs/2026-05-30-ds4-distributed-inference-design.md`.
+
 ## Importer
 
 `core/gallery/importers/ds4.go` (`DS4Importer`) auto-detects ds4 weights by

@@ -104,3 +104,36 @@ if(DS4_NATIVE)
         target_compile_options(${TARGET} PRIVATE -march=native)
     endif()
 endif()
+
+# ds4-worker: standalone distributed worker. Links the same ds4 engine objects
+# (including ds4_distributed.o) but has NO gRPC/protobuf dependency - it speaks
+# ds4's own TCP transport via ds4_dist_run(). Buildable wherever the engine
+# objects build, even on hosts without protobuf/grpc dev headers.
+add_executable(ds4-worker worker_main.c)
+target_include_directories(ds4-worker PRIVATE ${DS4_DIR})
+foreach(obj ${DS4_OBJS})
+    target_sources(ds4-worker PRIVATE ${obj})
+    set_source_files_properties(${obj} PROPERTIES EXTERNAL_OBJECT TRUE GENERATED TRUE)
+endforeach()
+# worker_main.c is C, but the engine objects built by nvcc (ds4_cuda.o) and the
+# Metal path (ds4_metal.o, Obj-C++) reference the C++ runtime (libstdc++). Force
+# the C++ linker driver so those symbols resolve; the C driver would not link
+# libstdc++ and the CUDA/Metal builds fail with undefined std:: references.
+set_target_properties(ds4-worker PROPERTIES LINKER_LANGUAGE CXX)
+target_link_libraries(ds4-worker PRIVATE Threads::Threads m)
+
+if(DS4_GPU STREQUAL "cuda")
+    target_link_libraries(ds4-worker PRIVATE CUDA::cudart CUDA::cublas)
+elseif(DS4_GPU STREQUAL "metal")
+    target_link_libraries(ds4-worker PRIVATE ${FOUNDATION_LIB} ${METAL_LIB})
+elseif(DS4_GPU STREQUAL "cpu")
+    target_compile_definitions(ds4-worker PRIVATE DS4_NO_GPU)
+endif()
+
+if(DS4_NATIVE)
+    if(APPLE)
+        target_compile_options(ds4-worker PRIVATE -mcpu=native)
+    else()
+        target_compile_options(ds4-worker PRIVATE -march=native)
+    endif()
+endif()

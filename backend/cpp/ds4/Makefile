@@ -66,6 +66,7 @@ grpc-server: ds4/ds4.o
 	mkdir -p $(BUILD_DIR)
 	cd $(BUILD_DIR) && cmake $(CMAKE_ARGS) $(CURRENT_MAKEFILE_DIR) && cmake --build . --config Release -j $(JOBS)
 	cp $(BUILD_DIR)/grpc-server grpc-server
+	cp $(BUILD_DIR)/ds4-worker ds4-worker
 
 package: grpc-server
 	bash package.sh
@@ -74,7 +75,7 @@ test:
 	@echo "ds4 backend: e2e coverage at tests/e2e-backends/ (BACKEND_BINARY mode)"
 
 clean:
-	rm -rf $(BUILD_DIR) grpc-server package
+	rm -rf $(BUILD_DIR) grpc-server ds4-worker package
 	if [ -d ds4 ]; then $(MAKE) -C ds4 clean; fi
 
 purge: clean
