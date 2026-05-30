@@ -15,6 +15,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <signal.h>
+#include <limits.h>
 
 #include "ds4.h"
 #include "ds4_distributed.h"
@@ -30,8 +31,8 @@ static const char *need_arg(int *i, int argc, char **argv, const char *flag) {
 static int parse_int_arg(const char *s, const char *flag) {
     char *end = NULL;
     long v = strtol(s, &end, 10);
-    if (!end || *end != '\0') {
-        fprintf(stderr, "ds4-worker: invalid integer for %s: %s\n", flag, s);
+    if (!s[0] || *end || v <= 0 || v > INT_MAX) {
+        fprintf(stderr, "ds4-worker: invalid value for %s: %s\n", flag, s);
         exit(2);
     }
     return (int)v;
