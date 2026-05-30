@@ -64,7 +64,7 @@ type streamCallState struct {
 }
 
 // onNewSegment is the Go side of the C trampoline declared in
-// gowhisper.cpp:new_segment_cb. Whisper.cpp invokes it once per
+// crispasr_shim.cpp:new_segment_cb. Whisper.cpp invokes it once per
 // new-segment event during whisper_full(). Reads segment text via the
 // existing CppGetSegment* getters (safe to call against the singleton
 // ctx; whisper.cpp is the only writer and it has already published the
@@ -124,14 +124,14 @@ func (w *CrispASR) Load(opts *pb.ModelOptions) error {
 
 	if vadOnly {
 		if ret := CppLoadModelVAD(opts.ModelFile); ret != 0 {
-			return fmt.Errorf("Failed to load Whisper VAD model")
+			return fmt.Errorf("Failed to load CrispASR VAD model")
 		}
 
 		return nil
 	}
 
 	if ret := CppLoadModel(opts.ModelFile); ret != 0 {
-		return fmt.Errorf("Failed to load Whisper transcription model")
+		return fmt.Errorf("Failed to load CrispASR transcription model")
 	}
 
 	return nil
