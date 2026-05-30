@@ -424,6 +424,68 @@ engine_args:
 - **Network reachability.** The head's `data_parallel_rpc_port` plus a range of ZMQ ports (typically `data_parallel_rpc_port..+N`) must be reachable from every follower. Open them in your firewall / security group.
 - **Topology must match exactly.** A mismatch in `--data-parallel-size` between head and any follower will hang the handshake. Check the head's vLLM logs for `waiting for N DP ranks` if startup stalls.
 
+## ds4 Layer-Split Distributed Inference
+
+The ds4 backend (DeepSeek V4 Flash) supports **layer-parallel** distributed inference: a single model that is too large for one machine is split by transformer layer across several machines. Each machine must have the GGUF present locally, but loads **only its own slice** of the layers. This lets you run a model whose weights exceed any single host's memory.
+
+This is **not** routed through the SmartRouter — it is a model-internal split, configured manually (Phase 1). It is unrelated to the NATS/PostgreSQL distributed mode described above.
+
+### Topology
+
+ds4 uses a **coordinator/worker** split:
+
+- The **coordinator** owns tokenization, sampling, the prompt, and a low layer range (e.g. `0:19`). It is LocalAI's ds4 backend and **listens** on a host/port. Workers dial into it.
+- One or more **workers** own higher layer ranges (e.g. `20:output`). Each worker loads only its slice and **dials the coordinator** to register the range it can serve. The last worker normally owns the output head.
+- Activations flow through the connected slices and back to the coordinator. The route is "ready" only once the coordinator plus all connected workers cover every layer.
+
+This dial direction is the **inverse** of the llama.cpp RPC model, where the main server dials *out* to a list of `rpc-server` workers. With ds4 the **workers dial in** to the coordinator.
+
+### Coordinator setup
+
+The coordinator is a normal LocalAI ds4 model whose YAML carries distributed `options:`:
+
+```yaml
+name: ds4flash
+backend: ds4
+options:
+  - "ds4_role:coordinator"
+  - "ds4_layers:0:19"
+  - "ds4_listen:0.0.0.0:1234"
+```
+
+| Option | Meaning |
+|--------|---------|
+| `ds4_role:coordinator` | Enables distributed coordinator mode. Without `ds4_role`, the backend behaves as a normal single-node ds4 model. |
+| `ds4_layers:0:19` | The coordinator's own layer slice (inclusive). |
+| `ds4_listen:0.0.0.0:1234` | Address that workers dial into. |
+| `ds4_route_timeout:60` | Optional. Seconds the coordinator waits for the worker route to form before returning an error on a request. Defaults to 60. |
+
+Once the model is loaded, the coordinator serves requests exactly like a single-node ds4 model — generation goes through the ordinary inference path and is transparently routed across the layer slices.
+
+### Worker setup
+
+On each worker machine (with the GGUF present locally), start a worker pointed at the coordinator:
+
+```bash
+local-ai worker ds4-distributed -- \
+  --role worker \
+  --model /models/ds4flash.gguf \
+  --layers 20:output \
+  --coordinator <coordinator-host> 1234
+```
+
+`local-ai worker ds4-distributed` resolves the ds4 backend and execs the packaged `ds4-worker` binary, passing everything after `--` straight through.
+
+### Layer-range semantics
+
+- Ranges are **inclusive**: `0:19` is layers 0 through 19.
+- `N:output` means layer N through the final layer **plus the output head**. The last worker normally owns the output head.
+- The coordinator and all connected workers together **must cover every layer**. Until they do, the coordinator returns a gRPC `UNAVAILABLE` error on inference requests (so a worker that starts slightly after the coordinator is tolerated — once it connects and the route is complete, requests succeed). The wait is tunable via `ds4_route_timeout`.
+
+{{% notice note %}}
+ds4 layer-split inference is **manual setup** in this release (Phase 1): you place the coordinator config and launch each worker yourself, and the layer ranges must be partitioned by hand so they cover the whole model. P2P auto-discovery of the coordinator is planned for a later phase.
+{{% /notice %}}
+
 ## Scaling
 
 **Adding worker capacity:** Start additional `worker` instances pointing to the same frontend. They self-register automatically:
