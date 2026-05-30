@@ -122,6 +122,33 @@
     nvidia-cuda-12: "cuda12-whisper"
     nvidia-l4t-cuda-12: "nvidia-l4t-arm64-whisper"
     nvidia-l4t-cuda-13: "cuda13-nvidia-l4t-arm64-whisper"
+- &crispasr
+  name: "crispasr"
+  alias: "crispasr"
+  license: mit
+  icon: https://user-images.githubusercontent.com/1991296/235238348-05d0f6a4-da44-4900-a1de-d0707e75b763.jpeg
+  description: |
+    CrispASR unified speech engine (whisper.cpp fork on ggml) supporting many ASR architectures (Parakeet, Canary, Voxtral, Qwen3-ASR, Granite, Wav2Vec2, Moonshine, OmniASR, FireRedASR, and more).
+  urls:
+    - https://github.com/CrispStrobe/CrispASR
+  tags:
+    - audio-transcription
+    - CPU
+    - GPU
+    - CUDA
+    - HIP
+  capabilities:
+    default: "cpu-crispasr"
+    nvidia: "cuda12-crispasr"
+    intel: "intel-sycl-f16-crispasr"
+    metal: "metal-crispasr"
+    amd: "rocm-crispasr"
+    vulkan: "vulkan-crispasr"
+    nvidia-l4t: "nvidia-l4t-arm64-crispasr"
+    nvidia-cuda-13: "cuda13-crispasr"
+    nvidia-cuda-12: "cuda12-crispasr"
+    nvidia-l4t-cuda-12: "nvidia-l4t-arm64-crispasr"
+    nvidia-l4t-cuda-13: "cuda13-nvidia-l4t-arm64-crispasr"
 - &parakeetcpp
   name: "parakeet-cpp"
   alias: "parakeet-cpp"
@@ -1957,6 +1984,131 @@
   uri: "quay.io/go-skynet/local-ai-backends:master-gpu-nvidia-cuda-13-whisper"
   mirrors:
     - localai/localai-backends:master-gpu-nvidia-cuda-13-whisper
+## crispasr
+- !!merge <<: *crispasr
+  name: "crispasr-development"
+  capabilities:
+    default: "cpu-crispasr-development"
+    nvidia: "cuda12-crispasr-development"
+    intel: "intel-sycl-f16-crispasr-development"
+    metal: "metal-crispasr-development"
+    amd: "rocm-crispasr-development"
+    vulkan: "vulkan-crispasr-development"
+    nvidia-l4t: "nvidia-l4t-arm64-crispasr-development"
+    nvidia-cuda-13: "cuda13-crispasr-development"
+    nvidia-cuda-12: "cuda12-crispasr-development"
+    nvidia-l4t-cuda-12: "nvidia-l4t-arm64-crispasr-development"
+    nvidia-l4t-cuda-13: "cuda13-nvidia-l4t-arm64-crispasr-development"
+- !!merge <<: *crispasr
+  name: "nvidia-l4t-arm64-crispasr"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-nvidia-l4t-arm64-crispasr"
+  mirrors:
+    - localai/localai-backends:latest-nvidia-l4t-arm64-crispasr
+- !!merge <<: *crispasr
+  name: "nvidia-l4t-arm64-crispasr-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-nvidia-l4t-arm64-crispasr"
+  mirrors:
+    - localai/localai-backends:master-nvidia-l4t-arm64-crispasr
+- !!merge <<: *crispasr
+  name: "cuda13-nvidia-l4t-arm64-crispasr"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-nvidia-l4t-cuda-13-arm64-crispasr"
+  mirrors:
+    - localai/localai-backends:latest-nvidia-l4t-cuda-13-arm64-crispasr
+- !!merge <<: *crispasr
+  name: "cuda13-nvidia-l4t-arm64-crispasr-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-nvidia-l4t-cuda-13-arm64-crispasr"
+  mirrors:
+    - localai/localai-backends:master-nvidia-l4t-cuda-13-arm64-crispasr
+- !!merge <<: *crispasr
+  name: "cpu-crispasr"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-cpu-crispasr"
+  mirrors:
+    - localai/localai-backends:latest-cpu-crispasr
+- !!merge <<: *crispasr
+  name: "metal-crispasr"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-metal-darwin-arm64-crispasr"
+  mirrors:
+    - localai/localai-backends:latest-metal-darwin-arm64-crispasr
+- !!merge <<: *crispasr
+  name: "metal-crispasr-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-metal-darwin-arm64-crispasr"
+  mirrors:
+    - localai/localai-backends:master-metal-darwin-arm64-crispasr
+- !!merge <<: *crispasr
+  name: "cpu-crispasr-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-cpu-crispasr"
+  mirrors:
+    - localai/localai-backends:master-cpu-crispasr
+- !!merge <<: *crispasr
+  name: "cuda12-crispasr"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-nvidia-cuda-12-crispasr"
+  mirrors:
+    - localai/localai-backends:latest-gpu-nvidia-cuda-12-crispasr
+- !!merge <<: *crispasr
+  name: "rocm-crispasr"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-rocm-hipblas-crispasr"
+  mirrors:
+    - localai/localai-backends:latest-gpu-rocm-hipblas-crispasr
+- !!merge <<: *crispasr
+  name: "intel-sycl-f32-crispasr"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-intel-sycl-f32-crispasr"
+  mirrors:
+    - localai/localai-backends:latest-gpu-intel-sycl-f32-crispasr
+- !!merge <<: *crispasr
+  name: "intel-sycl-f16-crispasr"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-intel-sycl-f16-crispasr"
+  mirrors:
+    - localai/localai-backends:latest-gpu-intel-sycl-f16-crispasr
+- !!merge <<: *crispasr
+  name: "vulkan-crispasr"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-vulkan-crispasr"
+  mirrors:
+    - localai/localai-backends:latest-gpu-vulkan-crispasr
+- !!merge <<: *crispasr
+  name: "vulkan-crispasr-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-vulkan-crispasr"
+  mirrors:
+    - localai/localai-backends:master-gpu-vulkan-crispasr
+- !!merge <<: *crispasr
+  name: "metal-crispasr"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-metal-darwin-arm64-crispasr"
+  mirrors:
+    - localai/localai-backends:latest-metal-darwin-arm64-crispasr
+- !!merge <<: *crispasr
+  name: "metal-crispasr-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-metal-darwin-arm64-crispasr"
+  mirrors:
+    - localai/localai-backends:master-metal-darwin-arm64-crispasr
+- !!merge <<: *crispasr
+  name: "cuda12-crispasr-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-nvidia-cuda-12-crispasr"
+  mirrors:
+    - localai/localai-backends:master-gpu-nvidia-cuda-12-crispasr
+- !!merge <<: *crispasr
+  name: "rocm-crispasr-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-rocm-hipblas-crispasr"
+  mirrors:
+    - localai/localai-backends:master-gpu-rocm-hipblas-crispasr
+- !!merge <<: *crispasr
+  name: "intel-sycl-f32-crispasr-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-intel-sycl-f32-crispasr"
+  mirrors:
+    - localai/localai-backends:master-gpu-intel-sycl-f32-crispasr
+- !!merge <<: *crispasr
+  name: "intel-sycl-f16-crispasr-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-intel-sycl-f16-crispasr"
+  mirrors:
+    - localai/localai-backends:master-gpu-intel-sycl-f16-crispasr
+- !!merge <<: *crispasr
+  name: "cuda13-crispasr"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-nvidia-cuda-13-crispasr"
+  mirrors:
+    - localai/localai-backends:latest-gpu-nvidia-cuda-13-crispasr
+- !!merge <<: *crispasr
+  name: "cuda13-crispasr-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-nvidia-cuda-13-crispasr"
+  mirrors:
+    - localai/localai-backends:master-gpu-nvidia-cuda-13-crispasr
 ## parakeet-cpp
 - !!merge <<: *parakeetcpp
   name: "parakeet-cpp-development"
