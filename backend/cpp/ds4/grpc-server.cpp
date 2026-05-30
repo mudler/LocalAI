@@ -24,7 +24,9 @@ extern "C" {
 #include <atomic>
 #include <chrono>
 #include <csignal>
+#include <cstdlib>
 #include <cstring>
+#include <ctime>
 #include <iostream>
 #include <memory>
 #include <mutex>
@@ -51,6 +53,12 @@ ds4_session *g_session = nullptr;
 int g_ctx_size = 32768;
 std::string g_kv_cache_dir; // empty disables disk cache
 
+// Distributed coordinator state. g_distributed is set true when LoadModel is
+// given 'ds4_role:coordinator'; generation then waits for the worker route to
+// form before running. Single-node behavior is unchanged when unset.
+bool g_distributed = false;
+int g_route_timeout_sec = 60;
+
 std::atomic<Server *> g_server{nullptr};
 
 // Parse a "key:value" option string. Returns empty when no colon.
@@ -58,6 +66,52 @@ static std::pair<std::string, std::string> split_option(const std::string &opt) 
     auto colon = opt.find(':');
     if (colon == std::string::npos) return {opt, ""};
     return {opt.substr(0, colon), opt.substr(colon + 1)};
+}
+
+// Parse a ds4 layer spec "START:END" or "START:output" into the engine's
+// distributed layer fields. Returns false on malformed input.
+static bool parse_layers_spec(const std::string &spec, ds4_distributed_layers *out) {
+    auto colon = spec.find(':');
+    if (colon == std::string::npos) return false;
+    std::string lhs = spec.substr(0, colon);
+    std::string rhs = spec.substr(colon + 1);
+    if (lhs.empty() || rhs.empty()) return false;
+    char *end = nullptr;
+    long start = std::strtol(lhs.c_str(), &end, 10);
+    if (!end || *end != '\0' || start < 0) return false;
+    out->start = static_cast<uint32_t>(start);
+    out->has_output = false;
+    if (rhs == "output") {
+        out->has_output = true;
+        out->end = out->start; // engine treats has_output as "through final layer"
+    } else {
+        long e = std::strtol(rhs.c_str(), &end, 10);
+        if (!end || *end != '\0' || e < start) return false;
+        out->end = static_cast<uint32_t>(e);
+    }
+    out->set = true;
+    return true;
+}
+
+// When acting as a distributed coordinator, block until the worker route
+// covers all layers (ds4_session_distributed_route_ready == 1) or the timeout
+// elapses. Returns an empty string on success, or an error message to return
+// to the client. No-op when not distributed.
+static std::string wait_route_ready(ds4_session *session) {
+    if (!g_distributed) return "";
+    char err[256] = {0};
+    const int deadline_polls = g_route_timeout_sec * 10; // 100ms per poll
+    for (int i = 0; i <= deadline_polls; ++i) {
+        int ready = ds4_session_distributed_route_ready(session, err, sizeof(err));
+        if (ready == 1) return "";
+        if (ready < 0) {
+            return std::string("ds4 distributed route error: ") +
+                   (err[0] ? err : "unknown");
+        }
+        struct timespec ts = {0, 100L * 1000L * 1000L}; // 100ms
+        nanosleep(&ts, nullptr);
+    }
+    return "ds4 distributed route incomplete: workers not connected (layers uncovered)";
 }
 
 static void append_token_text(ds4_engine *engine, int token, std::string &out) {
@@ -394,12 +448,17 @@ public:
         std::string mtp_path;
         int mtp_draft = 0;
         float mtp_margin = 3.0f;
+        std::string ds4_role, ds4_layers, ds4_listen;
         for (const auto &opt : request->options()) {
             auto [k, v] = split_option(opt);
             if (k == "mtp_path") mtp_path = v;
             else if (k == "mtp_draft") mtp_draft = std::stoi(v);
             else if (k == "mtp_margin") mtp_margin = std::stof(v);
             else if (k == "kv_cache_dir") g_kv_cache_dir = v;
+            else if (k == "ds4_role") ds4_role = v;
+            else if (k == "ds4_layers") ds4_layers = v;
+            else if (k == "ds4_listen") ds4_listen = v;
+            else if (k == "ds4_route_timeout") g_route_timeout_sec = std::stoi(v);
         }
 
         g_kv_cache.SetDir(g_kv_cache_dir);
@@ -421,6 +480,37 @@ public:
 #else
         opt.backend = DS4_BACKEND_CUDA;
 #endif
+
+        // Coordinator wiring. 'ds4_role:coordinator' enables layer-split
+        // distributed inference: this process listens on ds4_listen and owns
+        // the ds4_layers slice; workers dial in (see `local-ai worker
+        // ds4-distributed`). Absent ds4_role => unchanged single-node path.
+        static std::string s_listen_host;
+        if (ds4_role == "coordinator") {
+            if (ds4_layers.empty() || ds4_listen.empty()) {
+                result->set_success(false);
+                result->set_message("ds4: ds4_role:coordinator requires ds4_layers and ds4_listen");
+                return GStatus::OK;
+            }
+            auto host_port = split_option(ds4_listen); // "host:port" -> {host, port}
+            if (host_port.second.empty()) {
+                result->set_success(false);
+                result->set_message("ds4: ds4_listen must be host:port");
+                return GStatus::OK;
+            }
+            ds4_distributed_layers layers = {};
+            if (!parse_layers_spec(ds4_layers, &layers)) {
+                result->set_success(false);
+                result->set_message("ds4: invalid ds4_layers (want START:END or START:output)");
+                return GStatus::OK;
+            }
+            s_listen_host = host_port.first;
+            opt.distributed.role = DS4_DISTRIBUTED_COORDINATOR;
+            opt.distributed.layers = layers;
+            opt.distributed.listen_host = s_listen_host.c_str();
+            opt.distributed.listen_port = std::stoi(host_port.second);
+            g_distributed = true;
+        }
 
         int rc = ds4_engine_open(&g_engine, &opt);
         if (rc != 0 || !g_engine) {
@@ -461,6 +551,9 @@ public:
         std::lock_guard<std::mutex> lock(g_engine_mu);
         if (!g_engine || !g_session) {
             return GStatus(StatusCode::FAILED_PRECONDITION, "ds4: model not loaded");
+        }
+        if (std::string route_err = wait_route_ready(g_session); !route_err.empty()) {
+            return GStatus(StatusCode::UNAVAILABLE, route_err);
         }
         ds4_tokens prompt = {};
         build_prompt(g_engine, request, &prompt);
@@ -557,6 +650,9 @@ public:
         std::lock_guard<std::mutex> lock(g_engine_mu);
         if (!g_engine || !g_session) {
             return GStatus(StatusCode::FAILED_PRECONDITION, "ds4: model not loaded");
+        }
+        if (std::string route_err = wait_route_ready(g_session); !route_err.empty()) {
+            return GStatus(StatusCode::UNAVAILABLE, route_err);
         }
         ds4_tokens prompt = {};
         build_prompt(g_engine, request, &prompt);
