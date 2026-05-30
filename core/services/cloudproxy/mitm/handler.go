@@ -12,12 +12,14 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/mudler/xlog"
+	"golang.org/x/net/http2"
+
 	"github.com/mudler/LocalAI/core/schema"
 	"github.com/mudler/LocalAI/core/services/cloudproxy/ssewire"
 	"github.com/mudler/LocalAI/core/services/routing/pii"
 	"github.com/mudler/LocalAI/core/services/routing/piiadapter"
-	"github.com/mudler/xlog"
-	"golang.org/x/net/http2"
+	"github.com/mudler/LocalAI/pkg/httpclient"
 )
 
 // PIIHandlerOptions configures NewPIIHandler.
@@ -87,7 +89,14 @@ func NewPIIHandler(opts PIIHandlerOptions) InterceptHandler {
 	}
 
 	d := &piiDispatcher{
-		client:        &http.Client{Transport: transport},
+		// Refuse redirects: the MITM client forwards to the real
+		// upstream over TLS, and a 3xx means the upstream (or something
+		// impersonating it) is trying to bounce the request elsewhere.
+		// Following it would replay caller headers — including provider
+		// API keys such as Anthropic's x-api-key, which Go does NOT
+		// strip on cross-host redirects — to an unvetted host. Surface
+		// it as an error (handled as a 502) instead.
+		client:        httpclient.New(httpclient.WithTransport(transport)),
 		redactor:      opts.Redactor,
 		store:         opts.EventStore,
 		patternAction: patternAction,

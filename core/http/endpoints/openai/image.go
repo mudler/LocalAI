@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"net/http"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -16,15 +15,18 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
+
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/http/middleware"
 	"github.com/mudler/LocalAI/core/schema"
 
 	"github.com/mudler/LocalAI/core/backend"
 
+	"github.com/mudler/xlog"
+
+	"github.com/mudler/LocalAI/pkg/httpclient"
 	model "github.com/mudler/LocalAI/pkg/model"
 	"github.com/mudler/LocalAI/pkg/utils"
-	"github.com/mudler/xlog"
 )
 
 func downloadFile(url string) (string, error) {
@@ -33,7 +35,7 @@ func downloadFile(url string) (string, error) {
 	}
 
 	// Get the data
-	resp, err := http.Get(url)
+	resp, err := httpclient.New(httpclient.WithFollowRedirects()).Get(url)
 	if err != nil {
 		return "", err
 	}

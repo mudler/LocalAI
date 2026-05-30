@@ -16,9 +16,11 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/mudler/xlog"
+
 	"github.com/mudler/LocalAI/core/services/storage"
 	"github.com/mudler/LocalAI/pkg/downloader"
-	"github.com/mudler/xlog"
+	"github.com/mudler/LocalAI/pkg/httpclient"
 )
 
 // HTTPFileStager implements FileStager using HTTP for environments without S3.
@@ -67,14 +69,12 @@ func NewHTTPFileStager(httpAddrFor func(nodeID string) (string, error), token st
 	return &HTTPFileStager{
 		httpAddrFor: httpAddrFor,
 		token:       token,
-		client: &http.Client{
-			// No Timeout set — for large uploads, http.Client.Timeout covers the
-			// entire request lifecycle including the body upload. If it fires
-			// mid-write, Go closes the connection causing "connection reset by peer"
-			// on the server. Instead we use ResponseHeaderTimeout on the transport
-			// to cover only the wait-for-server-response phase.
-			Transport: transport,
-		},
+		// No Timeout set — for large uploads, http.Client.Timeout covers the
+		// entire request lifecycle including the body upload. If it fires
+		// mid-write, Go closes the connection causing "connection reset by peer"
+		// on the server. Instead we use ResponseHeaderTimeout on the transport
+		// to cover only the wait-for-server-response phase.
+		client:          httpclient.New(httpclient.WithTransport(transport)),
 		responseTimeout: responseTimeout,
 		maxRetries:      maxRetries,
 	}
