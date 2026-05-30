@@ -25,7 +25,10 @@ JOBS?=$(shell nproc 2>/dev/null || sysctl -n hw.ncpu 2>/dev/null || echo 4)
 BUILD_TYPE?=
 NATIVE?=false
 
-CMAKE_ARGS?=-DCMAKE_BUILD_TYPE=Release -DPARAKEET_SHARED=ON -DPARAKEET_BUILD_CLI=OFF
+# Build ggml statically into libparakeet.so (PIC) so the shared lib is
+# self-contained: dlopen needs no libggml*.so alongside it, only system libs
+# (libstdc++/libgomp/libc) that the runtime image already provides.
+CMAKE_ARGS?=-DCMAKE_BUILD_TYPE=Release -DPARAKEET_SHARED=ON -DPARAKEET_BUILD_CLI=OFF -DBUILD_SHARED_LIBS=OFF -DCMAKE_POSITION_INDEPENDENT_CODE=ON
 
 ifeq ($(NATIVE),false)
 	CMAKE_ARGS+=-DGGML_NATIVE=OFF
