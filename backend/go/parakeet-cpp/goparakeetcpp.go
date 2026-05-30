@@ -376,7 +376,7 @@ func goStringFromCPtr(cptr uintptr) string {
 	if cptr == 0 {
 		return ""
 	}
-	p := unsafe.Pointer(cptr)
+	p := unsafe.Pointer(cptr) //nolint:govet // C-owned malloc'd buffer, not Go-GC memory (see doc above)
 	n := 0
 	for *(*byte)(unsafe.Add(p, n)) != 0 {
 		n++
