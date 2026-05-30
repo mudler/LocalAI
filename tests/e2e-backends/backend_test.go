@@ -1155,7 +1155,7 @@ var _ = Describe("Backend container", Ordered, func() {
 // This spec is entirely opt-in. It only runs when BACKEND_TEST_DS4_DISTRIBUTED=1
 // is set, AND the suite's normal BACKEND_BINARY (the packaged ds4 run.sh) and
 // BACKEND_TEST_MODEL_FILE (the GGUF, present on this machine) are provided. With
-// none of those set it compiles and SKIPs cleanly — no hardware, model, or
+// none of those set it compiles and SKIPs cleanly: no hardware, model, or
 // network required.
 //
 // What it covers (single-host, two-process): coordinator option-loading
@@ -1166,7 +1166,7 @@ var _ = Describe("Backend container", Ordered, func() {
 //
 // What it does NOT cover: multi-host networking, >1 worker, failure/timeout
 // paths, or the `local-ai worker ds4-distributed` CLI wrapper (that resolves
-// the backend + execs ds4-worker and is unit-tested separately) — here we exec
+// the backend + execs ds4-worker and is unit-tested separately); here we exec
 // the packaged ds4-worker binary directly so the e2e stays self-contained.
 //
 // Env vars (in addition to BACKEND_BINARY + BACKEND_TEST_MODEL_FILE):

@@ -75,18 +75,18 @@ split by transformer layer; the GGUF must be present on every machine, each load
 only its slice). Topology is **inverted** vs llama.cpp: the coordinator listens,
 workers dial in.
 
-- **`ds4-worker` binary** — built and packaged next to `grpc-server` (`package.sh`
+- **`ds4-worker` binary**: built and packaged next to `grpc-server` (`package.sh`
   copies it into `package/`). Links the same engine objects plus `ds4_distributed.o`;
   **no gRPC/protobuf dependency** (speaks ds4's own TCP transport), so it builds
   even where `grpc-server` can't. Runs the worker serving loop (`ds4_dist_run`).
-- **Coordinator wiring** — the ds4 `grpc-server` acts as coordinator when `LoadModel`
+- **Coordinator wiring**: the ds4 `grpc-server` acts as coordinator when `LoadModel`
   `ModelOptions.Options` (from model-YAML `options:`) carry:
   - `ds4_role:coordinator` (enables distributed mode; absent → single-node, back-compat)
   - `ds4_layers:0:19` (coordinator's own slice, inclusive; `N:output` includes the head)
   - `ds4_listen:0.0.0.0:1234` (address workers dial into)
   - `ds4_route_timeout:60` (optional; seconds Predict/PredictStream wait for the route
     to form before returning gRPC `UNAVAILABLE`; default 60)
-- **Worker CLI** — `local-ai worker ds4-distributed -- <ds4-worker args>` resolves the
+- **Worker CLI**: `local-ai worker ds4-distributed -- <ds4-worker args>` resolves the
   ds4 backend and execs the packaged `ds4-worker` (raw passthrough), e.g.
   `--role worker --model /models/ds4flash.gguf --layers 20:output --coordinator <host> 1234`.
 

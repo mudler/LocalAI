@@ -428,7 +428,7 @@ engine_args:
 
 The ds4 backend (DeepSeek V4 Flash) supports **layer-parallel** distributed inference: a single model that is too large for one machine is split by transformer layer across several machines. Each machine must have the GGUF present locally, but loads **only its own slice** of the layers. This lets you run a model whose weights exceed any single host's memory.
 
-This is **not** routed through the SmartRouter — it is a model-internal split, configured manually (Phase 1). It is unrelated to the NATS/PostgreSQL distributed mode described above.
+This is **not** routed through the SmartRouter: it is a model-internal split, configured manually (Phase 1). It is unrelated to the NATS/PostgreSQL distributed mode described above.
 
 ### Topology
 
@@ -464,7 +464,7 @@ options:
 Worker↔coordinator traffic is **plaintext and unauthenticated**: there is no TLS or auth on this channel. Bind `ds4_listen` to an address on a trusted/private network only; using `0.0.0.0` exposes the coordinator on every interface. Run the layer split exclusively over a network you control.
 {{% /notice %}}
 
-Once the model is loaded, the coordinator serves requests exactly like a single-node ds4 model — generation goes through the ordinary inference path and is transparently routed across the layer slices.
+Once the model is loaded, the coordinator serves requests exactly like a single-node ds4 model: generation goes through the ordinary inference path and is transparently routed across the layer slices.
 
 ### Worker setup
 
@@ -484,7 +484,7 @@ local-ai worker ds4-distributed -- \
 
 - Ranges are **inclusive**: `0:19` is layers 0 through 19.
 - `N:output` means layer N through the final layer **plus the output head**. The last worker normally owns the output head.
-- The coordinator and all connected workers together **must cover every layer**. Until they do, the coordinator returns a gRPC `UNAVAILABLE` error on inference requests (so a worker that starts slightly after the coordinator is tolerated — once it connects and the route is complete, requests succeed). The wait is tunable via `ds4_route_timeout`.
+- The coordinator and all connected workers together **must cover every layer**. Until they do, the coordinator returns a gRPC `UNAVAILABLE` error on inference requests (so a worker that starts slightly after the coordinator is tolerated: once it connects and the route is complete, requests succeed). The wait is tunable via `ds4_route_timeout`.
 
 {{% notice note %}}
 ds4 layer-split inference is **manual setup** in this release (Phase 1): you place the coordinator config and launch each worker yourself, and the layer ranges must be partitioned by hand so they cover the whole model. P2P auto-discovery of the coordinator is planned for a later phase.
