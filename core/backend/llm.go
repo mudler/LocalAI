@@ -100,7 +100,16 @@ func ModelInference(ctx context.Context, s string, messages schema.Messages, ima
 	// model id MUST match the id ModelOptions feeds to model.WithModelID, so both
 	// use the shared config.ModelConfig.ModelID() helper (Name with a fallback to
 	// Model) or the chain salt and the tracking key would diverge.
-	ctx = distributedhdr.MaybeWithPrefixChain(ctx, c.ModelID(), s)
+	//
+	// s is empty for UseTokenizerTemplate models (the backend tokenizes the
+	// structured messages itself), so fall back to a prefix-stable serialization
+	// of the messages - otherwise prefix routing would silently degrade to
+	// round-robin for the bulk of modern chat models.
+	chainSource := s
+	if chainSource == "" {
+		chainSource = messagesPrefixSource(messages)
+	}
+	ctx = distributedhdr.MaybeWithPrefixChain(ctx, c.ModelID(), chainSource)
 
 	opts := ModelOptions(*c, o, model.WithContext(ctx))
 	inferenceModel, err := loader.Load(opts...)
