@@ -211,8 +211,10 @@ func secondsToNanos(sec float64) int64 {
 // per-utterance segments.
 //
 // stream_begin returns 0 for models that are not cache-aware streaming models
-// (only e.g. nvidia/parakeet_realtime_eou_120m-v1 qualifies); we surface that
-// as an error rather than silently emitting nothing.
+// (only e.g. nvidia/parakeet_realtime_eou_120m-v1 qualifies). For those we fall
+// back to a single offline transcription emitted as one delta plus a closing
+// FinalResult, matching LocalAI's non-streaming streaming contract (and the
+// whisper backend), so the streaming endpoint works for every model.
 func (p *ParakeetCpp) AudioTranscriptionStream(ctx context.Context, opts *pb.TranscriptRequest, results chan *pb.TranscriptStreamResponse) error {
 	defer close(results)
 
@@ -226,20 +228,26 @@ func (p *ParakeetCpp) AudioTranscriptionStream(ctx context.Context, opts *pb.Tra
 		return status.Error(codes.Canceled, "transcription cancelled")
 	}
 
+	stream := CppStreamBegin(p.ctxPtr)
+	if stream == 0 {
+		// Not a cache-aware streaming model: run a normal offline
+		// transcription and emit it as one delta + a closing final result.
+		res, err := p.AudioTranscription(ctx, opts)
+		if err != nil {
+			return err
+		}
+		if t := strings.TrimSpace(res.Text); t != "" {
+			results <- &pb.TranscriptStreamResponse{Delta: t}
+		}
+		results <- &pb.TranscriptStreamResponse{FinalResult: &res}
+		return nil
+	}
+	defer CppStreamFree(stream)
+
 	data, duration, err := decodeWavMono16k(opts.Dst)
 	if err != nil {
 		return err
 	}
-
-	stream := CppStreamBegin(p.ctxPtr)
-	if stream == 0 {
-		msg := CppLastError(p.ctxPtr)
-		if msg == "" {
-			msg = "model is not a cache-aware streaming model"
-		}
-		return fmt.Errorf("parakeet-cpp: stream_begin failed: %s", msg)
-	}
-	defer CppStreamFree(stream)
 
 	var (
 		full     strings.Builder
