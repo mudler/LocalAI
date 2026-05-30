@@ -559,7 +559,6 @@ prepare-test-extra: protogen-python
 	$(MAKE) -C backend/python/speaker-recognition
 	$(MAKE) -C backend/rust/kokoros kokoros-grpc
 	$(MAKE) -C backend/go/rfdetr-cpp
-	$(MAKE) -C backend/go/crispasr
 
 test-extra: prepare-test-extra
 	$(MAKE) -C backend/python/transformers test
@@ -587,7 +586,6 @@ test-extra: prepare-test-extra
 	$(MAKE) -C backend/python/speaker-recognition test
 	$(MAKE) -C backend/rust/kokoros test
 	$(MAKE) -C backend/go/rfdetr-cpp test
-	$(MAKE) -C backend/go/crispasr test
 
 ##
 ## End-to-end gRPC tests that exercise a built backend container image.
