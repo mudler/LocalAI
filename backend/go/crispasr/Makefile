@@ -61,6 +61,13 @@ sources/CrispASR:
 	git fetch origin && \
 	git checkout $(CRISPASR_VERSION) && \
 	git submodule update --init --recursive --depth 1 --single-branch
+	# CrispASR's src/CMakeLists.txt locates its vendored llama.cpp
+	# (crispasr-llama-core, used by the chat C-ABI) via ${CMAKE_SOURCE_DIR},
+	# which assumes CrispASR is the top-level CMake project. We add_subdirectory
+	# it, so ${CMAKE_SOURCE_DIR} is THIS backend dir and the talk-llama sources
+	# aren't found. Rewrite to ${PROJECT_SOURCE_DIR} (the crispasr project root),
+	# which is correct both standalone and as a subproject. Idempotent.
+	sed -i 's#\$${CMAKE_SOURCE_DIR}/examples/talk-llama#\$${PROJECT_SOURCE_DIR}/examples/talk-llama#' sources/CrispASR/src/CMakeLists.txt
 
 # Detect OS
 UNAME_S := $(shell uname -s)
