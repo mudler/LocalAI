@@ -231,9 +231,18 @@ func (t *Tree[V]) WeightsFor(values []V, now time.Time) map[V]float64 {
 
 // Remove drops every entry whose value equals value, then prunes empty
 // branches. Used when a replica is unloaded or its node goes offline so the
-// tree never points at a node that no longer holds the model.
+// tree never points at a node that no longer holds the model. It is the
+// equality special case of RemoveFunc.
 func (t *Tree[V]) Remove(value V) {
+	t.RemoveFunc(func(v V) bool { return v == value })
+}
+
+// RemoveFunc drops every entry whose value satisfies pred, then prunes empty
+// branches. Generalizes Remove (Remove(v) == RemoveFunc(func(x V) bool { return
+// x == v })). Used to drop, in one walk, every entry that belongs to a class of
+// values (for example all replicas of a single node).
+func (t *Tree[V]) RemoveFunc(pred func(V) bool) {
 	t.mu.Lock()
 	defer t.mu.Unlock()
-	t.pruneWalk(t.root, func(n *node[V]) bool { return n.value == value })
+	t.pruneWalk(t.root, func(n *node[V]) bool { return pred(n.value) })
 }

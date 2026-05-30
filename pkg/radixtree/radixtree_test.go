@@ -213,6 +213,37 @@ var _ = Describe("Remove", func() {
 	})
 })
 
+var _ = Describe("RemoveFunc", func() {
+	It("drops every entry matching the predicate, prunes, and keeps the rest", func() {
+		tr := radixtree.New[string](radixtree.Options{TTL: time.Hour})
+		tr.Insert([]uint64{1, 2}, "drop-a", t0)
+		tr.Insert([]uint64{3, 4}, "drop-b", t0)
+		tr.Insert([]uint64{7, 8, 9}, "keep", t0)
+		// Drop everything whose value starts with "drop".
+		tr.RemoveFunc(func(v string) bool { return len(v) >= 4 && v[:4] == "drop" })
+		_, _, ok := tr.LongestMatch([]uint64{1, 2}, t0)
+		Expect(ok).To(BeFalse())
+		_, _, ok = tr.LongestMatch([]uint64{3, 4}, t0)
+		Expect(ok).To(BeFalse())
+		v, _, ok := tr.LongestMatch([]uint64{7, 8, 9}, t0)
+		Expect(ok).To(BeTrue())
+		Expect(v).To(Equal("keep"))
+		Expect(tr.Len()).To(Equal(3)) // only the 3-node "keep" chain remains
+	})
+
+	It("makes Remove a special case of RemoveFunc", func() {
+		tr := radixtree.New[string](radixtree.Options{TTL: time.Hour})
+		tr.Insert([]uint64{1, 2}, "A", t0)
+		tr.Insert([]uint64{7, 8, 9}, "B", t0)
+		tr.RemoveFunc(func(v string) bool { return v == "A" })
+		_, _, ok := tr.LongestMatch([]uint64{1, 2}, t0)
+		Expect(ok).To(BeFalse())
+		v, _, ok := tr.LongestMatch([]uint64{7, 8, 9}, t0)
+		Expect(ok).To(BeTrue())
+		Expect(v).To(Equal("B"))
+	})
+})
+
 var _ = Describe("TTL boundary", func() {
 	It("treats age exactly equal to TTL as still live, and one tick past as expired", func() {
 		tr := radixtree.New[string](radixtree.Options{TTL: time.Minute})

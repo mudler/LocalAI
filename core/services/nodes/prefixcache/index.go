@@ -9,27 +9,29 @@ import (
 )
 
 // Index is the guessed (routing-history) Provider backed by per-model radix
-// trees. Safe for concurrent use.
+// trees keyed by ReplicaKey. Affinity is per replica, so the same prefix served
+// by two replicas of one node resolves back to the exact replica that served it.
+// Safe for concurrent use.
 type Index struct {
 	cfg   Config
 	mu    sync.RWMutex
-	trees map[string]*radixtree.Tree[string]
+	trees map[string]*radixtree.Tree[ReplicaKey]
 }
 
 func NewIndex(cfg Config) *Index {
-	return &Index{cfg: cfg, trees: map[string]*radixtree.Tree[string]{}}
+	return &Index{cfg: cfg, trees: map[string]*radixtree.Tree[ReplicaKey]{}}
 }
 
 // existingTree returns the tree for model without creating one. The bool
 // reports whether a tree already existed.
-func (ix *Index) existingTree(model string) (*radixtree.Tree[string], bool) {
+func (ix *Index) existingTree(model string) (*radixtree.Tree[ReplicaKey], bool) {
 	ix.mu.RLock()
 	defer ix.mu.RUnlock()
 	t, ok := ix.trees[model]
 	return t, ok
 }
 
-func (ix *Index) tree(model string) *radixtree.Tree[string] {
+func (ix *Index) tree(model string) *radixtree.Tree[ReplicaKey] {
 	ix.mu.RLock()
 	t, ok := ix.trees[model]
 	ix.mu.RUnlock()
@@ -41,12 +43,12 @@ func (ix *Index) tree(model string) *radixtree.Tree[string] {
 	if t, ok = ix.trees[model]; ok {
 		return t
 	}
-	t = radixtree.New[string](radixtree.Options{TTL: ix.cfg.TTL, HalfLife: ix.cfg.HalfLife})
+	t = radixtree.New[ReplicaKey](radixtree.Options{TTL: ix.cfg.TTL, HalfLife: ix.cfg.HalfLife})
 	ix.trees[model] = t
 	return t
 }
 
-func (ix *Index) Decide(model string, chain []uint64, candidateNodeIDs []string, now time.Time) PrefixDecision {
+func (ix *Index) Decide(model string, chain []uint64, candidates []ReplicaKey, now time.Time) PrefixDecision {
 	t := ix.tree(model)
 	var d PrefixDecision
 	// WeightsFor computes every candidate weight in a single tree walk and
@@ -54,70 +56,68 @@ func (ix *Index) Decide(model string, chain []uint64, candidateNodeIDs []string,
 	// requested candidate. Candidacy is therefore exactly "is a key in weights",
 	// so we derive the hot-match membership check from it rather than building a
 	// second set.
-	weights := t.WeightsFor(candidateNodeIDs, now)
+	weights := t.WeightsFor(candidates, now)
 	if len(chain) > 0 {
-		if node, depth, ok := t.LongestMatch(chain, now); ok {
+		if key, depth, ok := t.LongestMatch(chain, now); ok {
 			// LongestMatch searches the whole tree, so the deepest match can be
-			// a node that is offline / unloaded / not in the candidate set.
+			// a replica that is offline / unloaded / not in the candidate set.
 			// Treating that as a hot match produces a false forced-disturb signal
-			// upstream (the warm node was absent, not load-saturated). Only honor
-			// the match when the matched node is an actual candidate; otherwise
-			// fall back to cold placement. A future refinement could ask the tree
-			// for the longest match restricted to the candidate nodes, yielding a
-			// shallower-but-valid match instead of dropping it entirely.
-			if _, ok := weights[node]; ok {
-				d.HotNodeID = node
+			// upstream (the warm replica was absent, not load-saturated). Only honor
+			// the match when the matched replica is an actual candidate; otherwise
+			// fall back to cold placement.
+			if _, ok := weights[key]; ok {
+				d.Hot = key
+				d.HasHot = true
 				d.MatchRatio = float64(depth) / float64(len(chain))
 			}
 		}
 	}
-	// Cold order: candidates ascending by cacheWeight, tie-break by node id.
-	// The sort comparator reads precomputed weights instead of triggering an
-	// O(tree size) Weight call per comparison. With at most one candidate the
+	// Cold order: candidates ascending by cacheWeight, tie-break by NodeID then
+	// Replica. The sort comparator reads precomputed weights instead of triggering
+	// an O(tree size) Weight call per comparison. With at most one candidate the
 	// input order is already the cold order, so skip the sort.
-	order := make([]string, len(candidateNodeIDs))
-	copy(order, candidateNodeIDs)
+	order := make([]ReplicaKey, len(candidates))
+	copy(order, candidates)
 	if len(order) > 1 {
 		sort.Slice(order, func(i, j int) bool {
 			if weights[order[i]] != weights[order[j]] {
 				return weights[order[i]] < weights[order[j]]
 			}
-			return order[i] < order[j]
+			return order[i].less(order[j])
 		})
 	}
 	d.ColdOrder = order
 	return d
 }
 
-func (ix *Index) Observe(model string, chain []uint64, nodeID string, now time.Time) bool {
-	if len(chain) == 0 || nodeID == "" {
+func (ix *Index) Observe(model string, chain []uint64, key ReplicaKey, now time.Time) bool {
+	if len(chain) == 0 || key.NodeID == "" {
 		return false
 	}
 	t := ix.tree(model)
 	// New/extended iff the current deepest match for this exact chain is not
-	// already this node at full depth.
-	node, depth, ok := t.LongestMatch(chain, now)
-	t.Insert(chain, nodeID, now)
-	return !ok || depth < len(chain) || node != nodeID
+	// already this replica at full depth.
+	cur, depth, ok := t.LongestMatch(chain, now)
+	t.Insert(chain, key, now)
+	return !ok || depth < len(chain) || cur != key
 }
 
-func (ix *Index) Invalidate(model, nodeID string) {
-	ix.invalidateExisting(model, nodeID)
-}
-
-// invalidateExisting drops all entries for (model, nodeID) only if a tree for
-// model already exists. It never interns an empty tree (a registry chokepoint
-// fires Invalidate for every replica removal of every model, including
-// round-robin models that never used the prefix cache, so lazily creating a
-// tree here would grow the trees map unboundedly). It returns whether a tree
-// existed, so Sync can skip the NATS broadcast when there was nothing to drop.
-func (ix *Index) invalidateExisting(model, nodeID string) bool {
-	t, ok := ix.existingTree(model)
-	if !ok {
-		return false
+// Invalidate drops all entries for ONE replica. It never interns an empty tree
+// (a registry chokepoint fires Invalidate for every replica removal of every
+// model, including round-robin models that never used the prefix cache, so
+// lazily creating a tree here would grow the trees map unboundedly).
+func (ix *Index) Invalidate(model string, key ReplicaKey) {
+	if t, ok := ix.existingTree(model); ok {
+		t.RemoveFunc(func(k ReplicaKey) bool { return k == key })
 	}
-	t.Remove(nodeID)
-	return true
+}
+
+// InvalidateNode drops entries for ALL replicas of nodeID. Like Invalidate it
+// does not intern an empty tree.
+func (ix *Index) InvalidateNode(model, nodeID string) {
+	if t, ok := ix.existingTree(model); ok {
+		t.RemoveFunc(func(k ReplicaKey) bool { return k.NodeID == nodeID })
+	}
 }
 
 func (ix *Index) Evict(now time.Time) {
