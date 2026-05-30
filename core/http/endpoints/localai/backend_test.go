@@ -140,6 +140,7 @@ var _ = Describe("Backend Endpoints", func() {
 			expectPrefOnly("trl", "text")
 			expectPrefOnly("mlx-vlm", "text")
 			expectPrefOnly("whisperx", "asr")
+			expectPrefOnly("crispasr", "asr")
 			expectPrefOnly("kokoros", "tts")
 			expectPrefOnly("qwen-tts", "tts")
 			expectPrefOnly("qwen3-tts-cpp", "tts")
