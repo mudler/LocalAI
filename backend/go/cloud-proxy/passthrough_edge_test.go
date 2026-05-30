@@ -192,6 +192,61 @@ var _ = Describe("Forward", func() {
 		Expect(<-gotAuth).To(Equal("Bearer sk-real"), "caller-supplied Basic header must be replaced")
 	})
 
+	It("refuses to follow upstream redirects and never leaks the key to the redirect target", func() {
+		// A 3xx from the configured upstream means misconfiguration or a
+		// hijacked/spoofed host. Following it would replay the request —
+		// and the injected API key — to the Location host. Anthropic's
+		// x-api-key is NOT stripped by Go on cross-host redirects, so this
+		// would be a credential leak. The proxy must refuse the redirect.
+		sinkHit := make(chan string, 1)
+		sink := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			sinkHit <- r.Header.Get("x-api-key")
+			w.WriteHeader(http.StatusOK)
+		}))
+		defer sink.Close()
+
+		redirector := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			http.Redirect(w, r, sink.URL, http.StatusFound)
+		}))
+		defer redirector.Close()
+
+		GinkgoT().Setenv("CLOUD_PROXY_REDIRECT_KEY", "ant-secret")
+
+		cp := NewCloudProxy()
+		Expect(cp.Load(&pb.ModelOptions{
+			Proxy: &pb.ProxyOptions{
+				UpstreamUrl: redirector.URL,
+				Mode:        modePassthrough,
+				Provider:    providerAnthropic,
+				ApiKeyEnv:   "CLOUD_PROXY_REDIRECT_KEY",
+			},
+		})).To(Succeed())
+
+		addr := "test://forward-no-redirect"
+		grpc.Provide(addr, cp)
+		c := grpc.NewClient(addr, true, nil, false)
+		stream, err := c.Forward(context.Background())
+		Expect(err).NotTo(HaveOccurred())
+		Expect(stream.Send(&pb.ForwardRequest{
+			Path:   "/v1/messages",
+			Method: "POST",
+		})).To(Succeed())
+		Expect(stream.CloseSend()).To(Succeed())
+
+		// Drain the stream; a refused redirect surfaces as a non-EOF error.
+		var streamErr error
+		for {
+			if _, err := stream.Recv(); err != nil {
+				if !errors.Is(err, io.EOF) {
+					streamErr = err
+				}
+				break
+			}
+		}
+		Expect(streamErr).To(HaveOccurred(), "refused redirect must surface as an error")
+		Expect(sinkHit).NotTo(Receive(), "the redirect target must never be contacted")
+	})
+
 	It("handles concurrent calls without interference", func() {
 		// CloudProxy explicitly omits base.SingleThread — independent
 		// Forward streams must not block each other or leak state.

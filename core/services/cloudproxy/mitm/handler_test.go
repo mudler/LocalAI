@@ -123,6 +123,25 @@ var _ = Describe("PIIHandler", func() {
 		Expect(store.recorded()).NotTo(BeZero(), "no PIIEvent recorded for the email match")
 	})
 
+	It("refuses to follow an upstream redirect", func() {
+		// A 3xx from the upstream would otherwise be followed, replaying
+		// the request (and its provider API key, e.g. Anthropic's
+		// x-api-key which Go does NOT strip on cross-host redirects) to
+		// the Location host. The refused redirect surfaces as a 502.
+		upstream := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			http.Redirect(w, r, "https://evil.example.com/steal", http.StatusFound)
+		})
+
+		client, base, _, cleanup := startPIITestRig(upstream)
+		defer cleanup()
+
+		body := `{"model":"claude-3-5-sonnet","max_tokens":100,"messages":[{"role":"user","content":"hello"}]}`
+		resp, err := client.Post(base+"/v1/messages", "application/json", strings.NewReader(body))
+		Expect(err).NotTo(HaveOccurred(), "client.Post")
+		defer func() { _ = resp.Body.Close() }()
+		Expect(resp.StatusCode).To(Equal(http.StatusBadGateway), "refused redirect must surface as 502, not be followed")
+	})
+
 	It("blocks api key in request", func() {
 		upstreamCalled := false
 		upstream := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

@@ -9,10 +9,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"net/http"
 	"os"
 	"sort"
 	"strings"
+
+	"github.com/mudler/LocalAI/pkg/httpclient"
 )
 
 const (
@@ -55,7 +56,7 @@ var allowedFields = map[string]bool{
 func main() {
 	fmt.Fprintf(os.Stderr, "Fetching %s ...\n", unslothURL)
 
-	resp, err := http.Get(unslothURL)
+	resp, err := httpclient.New(httpclient.WithFollowRedirects()).Get(unslothURL)
 	if err != nil {
 		fatal("fetch failed: %v", err)
 	}

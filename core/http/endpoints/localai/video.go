@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"net/http"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -15,18 +14,23 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
+
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/http/middleware"
 	"github.com/mudler/LocalAI/core/schema"
 
 	"github.com/mudler/LocalAI/core/backend"
 
+	"github.com/mudler/xlog"
+
+	"github.com/mudler/LocalAI/pkg/httpclient"
 	model "github.com/mudler/LocalAI/pkg/model"
 	"github.com/mudler/LocalAI/pkg/utils"
-	"github.com/mudler/xlog"
 )
 
-var videoDownloadClient = http.Client{Timeout: 30 * time.Second}
+// Downloading user-supplied media URLs legitimately follows redirects (CDNs);
+// WithFollowRedirects still strips any credential header on a cross-host hop.
+var videoDownloadClient = httpclient.NewWithTimeout(30*time.Second, httpclient.WithFollowRedirects())
 
 func downloadFile(url string) (string, error) {
 	if err := utils.ValidateExternalURL(url); err != nil {

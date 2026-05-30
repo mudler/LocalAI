@@ -19,6 +19,7 @@ import (
 	"github.com/mudler/LocalAI/core/gallery"
 	"github.com/mudler/LocalAI/core/schema"
 	"github.com/mudler/LocalAI/core/services/modeladmin"
+	"github.com/mudler/LocalAI/pkg/httpclient"
 	localaitools "github.com/mudler/LocalAI/pkg/mcp/localaitools"
 	"github.com/mudler/LocalAI/pkg/vram"
 )
@@ -36,11 +37,9 @@ type Client struct {
 // New returns a Client targeting baseURL with an optional bearer token.
 func New(baseURL, apiKey string) *Client {
 	return &Client{
-		BaseURL: strings.TrimRight(baseURL, "/"),
-		APIKey:  apiKey,
-		HTTPClient: &http.Client{
-			Timeout: 60 * time.Second,
-		},
+		BaseURL:    strings.TrimRight(baseURL, "/"),
+		APIKey:     apiKey,
+		HTTPClient: httpclient.NewWithTimeout(60 * time.Second),
 	}
 }
 
@@ -394,8 +393,8 @@ func (c *Client) UpgradeBackend(ctx context.Context, name string) (string, error
 
 func (c *Client) SystemInfo(ctx context.Context) (*localaitools.SystemInfo, error) {
 	var welcome struct {
-		Version           string   `json:"Version"`
-		LoadedModels      []any    `json:"LoadedModels"`
+		Version           string          `json:"Version"`
+		LoadedModels      []any           `json:"LoadedModels"`
 		InstalledBackends map[string]bool `json:"InstalledBackends"`
 	}
 	if err := c.do(ctx, http.MethodGet, routeWelcome, nil, &welcome); err != nil {

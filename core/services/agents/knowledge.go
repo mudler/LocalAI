@@ -13,6 +13,8 @@ import (
 
 	"github.com/mudler/cogito"
 	"github.com/mudler/xlog"
+
+	"github.com/mudler/LocalAI/pkg/httpclient"
 )
 
 // KBSearchResult represents a search result from the knowledge base.
@@ -61,7 +63,7 @@ func KBAutoSearchPrompt(ctx context.Context, apiURL, apiKey, collection, query s
 		req.Header.Set("Authorization", "Bearer "+apiKey)
 	}
 
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := httpclient.New().Do(req)
 	if err != nil {
 		xlog.Warn("KB auto-search: request failed", "error", err)
 		return ""
@@ -181,7 +183,7 @@ func KBStoreContent(ctx context.Context, apiURL, apiKey, collection, content, us
 		req.Header.Set("Authorization", "Bearer "+apiKey)
 	}
 
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := httpclient.New().Do(req)
 	if err != nil {
 		return fmt.Errorf("upload request failed: %w", err)
 	}

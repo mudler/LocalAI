@@ -16,14 +16,16 @@ import (
 	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
 	"github.com/labstack/echo/v4"
+	"github.com/mudler/xlog"
+	"gorm.io/gorm"
+
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/gallery"
 	"github.com/mudler/LocalAI/core/http/auth"
 	"github.com/mudler/LocalAI/core/schema"
 	"github.com/mudler/LocalAI/core/services/galleryop"
 	"github.com/mudler/LocalAI/core/services/nodes"
-	"github.com/mudler/xlog"
-	"gorm.io/gorm"
+	"github.com/mudler/LocalAI/pkg/httpclient"
 )
 
 // nodeError builds a schema.ErrorResponse for node endpoints.
@@ -65,15 +67,15 @@ func GetNodeEndpoint(registry *nodes.NodeRegistry) echo.HandlerFunc {
 
 // RegisterNodeRequest is the request body for registering a new worker node.
 type RegisterNodeRequest struct {
-	Name          string `json:"name"`
-	NodeType      string `json:"node_type,omitempty"` // "backend" (default) or "agent"
-	Address       string `json:"address"`
-	HTTPAddress   string `json:"http_address,omitempty"`
-	Token         string `json:"token,omitempty"`
-	TotalVRAM     uint64 `json:"total_vram,omitempty"`
-	AvailableVRAM uint64 `json:"available_vram,omitempty"`
-	TotalRAM      uint64 `json:"total_ram,omitempty"`
-	AvailableRAM  uint64 `json:"available_ram,omitempty"`
+	Name          string            `json:"name"`
+	NodeType      string            `json:"node_type,omitempty"` // "backend" (default) or "agent"
+	Address       string            `json:"address"`
+	HTTPAddress   string            `json:"http_address,omitempty"`
+	Token         string            `json:"token,omitempty"`
+	TotalVRAM     uint64            `json:"total_vram,omitempty"`
+	AvailableVRAM uint64            `json:"available_vram,omitempty"`
+	TotalRAM      uint64            `json:"total_ram,omitempty"`
+	AvailableRAM  uint64            `json:"available_ram,omitempty"`
 	GPUVendor     string            `json:"gpu_vendor,omitempty"`
 	Labels        map[string]string `json:"labels,omitempty"`
 	// MaxReplicasPerModel is the per-node cap on replicas of any single model.
@@ -983,6 +985,6 @@ func proxyHTTPToWorker(httpAddress, path, token string) (*http.Response, error) 
 		req.Header.Set("Authorization", "Bearer "+token)
 	}
 
-	client := &http.Client{Timeout: 15 * time.Second}
+	client := httpclient.NewWithTimeout(15 * time.Second)
 	return client.Do(req)
 }

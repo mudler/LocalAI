@@ -56,6 +56,20 @@ linters:
         # are exempt — see linters.exclusions.rules below.
         - pattern: '^os\.(Getenv|LookupEnv|Environ)$'
           msg: 'Plumb config through ApplicationConfig (or the relevant CLI struct) instead of reading env directly. CLI entry points (core/cli/) bind env vars via kong''s `env:` tag — that is the only sanctioned env→struct boundary. See .agents/coding-style.md.'
+        # Outbound HTTP must go through pkg/httpclient, which refuses redirects
+        # by default and sets a TLS floor. The std-library default client and
+        # the http.Get/Post/... convenience helpers follow redirects (up to 10)
+        # and, on a cross-host redirect, forward custom credential headers such
+        # as Anthropic's x-api-key to the redirect target — leaking the secret
+        # (GHSA-3mj3-57v2-4636). forbidigo can't precisely match the
+        # `&http.Client{}` composite literal without also flagging legitimate
+        # `*http.Client` type references, so that form is enforced by
+        # convention + review; these two patterns catch the implicit-default
+        # client, which is the common footgun.
+        - pattern: '^http\.DefaultClient$'
+          msg: 'Use pkg/httpclient (httpclient.New / NewWithTimeout) instead of http.DefaultClient — the std client follows redirects and leaks credential headers cross-host (GHSA-3mj3-57v2-4636). See .agents/coding-style.md.'
+        - pattern: '^http\.(Get|Post|PostForm|Head)$'
+          msg: 'Use pkg/httpclient (httpclient.New / NewWithTimeout) instead of http.Get/Post/PostForm/Head — these use http.DefaultClient, which follows redirects and leaks credential headers cross-host (GHSA-3mj3-57v2-4636). See .agents/coding-style.md.'
   exclusions:
     paths:
       # Upstream whisper.cpp source tree fetched by the whisper backend Makefile.
@@ -94,4 +108,19 @@ linters:
       # (LOCALAI_COSIGN_LIVE, etc.) to skip live-network specs.
       - path: _test\.go$
         text: 'os\.(Getenv|LookupEnv|Environ)'
+        linters: [forbidigo]
+      # pkg/httpclient is the sanctioned home for outbound HTTP clients; it
+      # necessarily references net/http directly.
+      - path: ^pkg/httpclient/
+        text: 'http\.(DefaultClient|Get|Post|PostForm|Head)'
+        linters: [forbidigo]
+      # Tests drive local httptest servers where redirect/TLS hardening is
+      # irrelevant; the std client is fine there.
+      - path: _test\.go$
+        text: 'http\.(DefaultClient|Get|Post|PostForm|Head)'
+        linters: [forbidigo]
+      # Vendored upstream whisper.cpp Go bindings are a separate module and
+      # cannot import pkg/httpclient.
+      - path: ^backend/go/whisper/sources/
+        text: 'http\.(DefaultClient|Get|Post|PostForm|Head)'
         linters: [forbidigo]

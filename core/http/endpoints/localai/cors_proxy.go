@@ -11,9 +11,11 @@ import (
 	"time"
 
 	"github.com/labstack/echo/v4"
-	"github.com/mudler/LocalAI/core/config"
-	"github.com/mudler/LocalAI/pkg/utils"
 	"github.com/mudler/xlog"
+
+	"github.com/mudler/LocalAI/core/config"
+	"github.com/mudler/LocalAI/pkg/httpclient"
+	"github.com/mudler/LocalAI/pkg/utils"
 )
 
 // CORSProxyEndpoint proxies HTTP requests to external MCP servers,
@@ -77,7 +79,7 @@ func CORSProxyEndpoint(appConfig *config.ApplicationConfig) echo.HandlerFunc {
 				)
 			},
 		}
-		client := &http.Client{Transport: transport, Timeout: 10 * time.Minute}
+		client := httpclient.New(httpclient.WithTransport(transport), httpclient.WithTimeout(10*time.Minute))
 
 		xlog.Debug("CORS proxy request", "method", c.Request().Method, "target", targetURL)
 
