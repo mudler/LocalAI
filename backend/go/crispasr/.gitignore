@@ -1,0 +1,5 @@
+sources
+build*
+libgocrispasr*.so
+crispasr
+package
