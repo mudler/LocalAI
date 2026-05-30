@@ -53,6 +53,18 @@ var _ = Describe("Index provider", func() {
 		Expect(d.ColdOrder).To(ConsistOf("B", "C"))
 	})
 
+	It("returns a hot match for a query that only shares a prefix with an observed chain", func() {
+		// The real-world case: a node served chain [1,2,3,4]; a new request
+		// shares the leading block [1,2,3] but diverges at the tail ([1,2,3,9]).
+		// With prefix matching (value recorded at every node) Decide must still
+		// route to the warm node, matching at the depth of the shared prefix.
+		idx := prefixcache.NewIndex(cfg)
+		idx.Observe("m", []uint64{1, 2, 3, 4}, "A", t0)
+		d := idx.Decide("m", []uint64{1, 2, 3, 9}, []string{"A", "B"}, t0)
+		Expect(d.HotNodeID).To(Equal("A"))
+		Expect(d.MatchRatio).To(BeNumerically("~", 3.0/4.0, 0.001)) // shared [1,2,3] of len-4 query
+	})
+
 	It("keeps the hot match when the matched node is a candidate", func() {
 		idx := prefixcache.NewIndex(cfg)
 		idx.Observe("m", []uint64{1, 2, 3, 4}, "A", t0)

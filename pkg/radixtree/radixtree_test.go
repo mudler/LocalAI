@@ -22,6 +22,32 @@ var _ = Describe("Tree construction", func() {
 
 var _ = Describe("Insert and LongestMatch", func() {
 	It("returns the deepest matching prefix value", func() {
+		// Non-overlapping chains keep the longest-prefix intent clean: every
+		// node on the value's own chain records that value, and no other Insert
+		// overwrites a shared prefix node. A query that runs off the end of a
+		// chain stops matching at the deepest stored element it reached.
+		tr := radixtree.New[string](radixtree.Options{TTL: time.Hour})
+		tr.Insert([]uint64{1, 2, 3, 4}, "nodeB", t0)
+		tr.Insert([]uint64{7, 8}, "nodeA", t0)
+
+		v, depth, ok := tr.LongestMatch([]uint64{1, 2, 3, 4, 5}, t0)
+		Expect(ok).To(BeTrue())
+		Expect(v).To(Equal("nodeB"))
+		Expect(depth).To(Equal(4))
+
+		v, depth, ok = tr.LongestMatch([]uint64{7, 8, 9}, t0)
+		Expect(ok).To(BeTrue())
+		Expect(v).To(Equal("nodeA"))
+		Expect(depth).To(Equal(2))
+	})
+
+	It("lets the last writer own a shared prefix node", func() {
+		// When two chains share a leading block, value-at-every-node means the
+		// later Insert overwrites the shared prefix node. Inserting nodeA on
+		// [1,2] then nodeB on [1,2,3,4] makes nodeB own [1] and [1,2], so a
+		// query that diverges within the shared block resolves to nodeB. This
+		// is the intended recency heuristic: the most recent chain through that
+		// block is the one most likely still warm.
 		tr := radixtree.New[string](radixtree.Options{TTL: time.Hour})
 		tr.Insert([]uint64{1, 2}, "nodeA", t0)
 		tr.Insert([]uint64{1, 2, 3, 4}, "nodeB", t0)
@@ -31,9 +57,10 @@ var _ = Describe("Insert and LongestMatch", func() {
 		Expect(v).To(Equal("nodeB"))
 		Expect(depth).To(Equal(4))
 
+		// The shared prefix [1,2] is now owned by nodeB (last writer wins).
 		v, depth, ok = tr.LongestMatch([]uint64{1, 2, 9}, t0)
 		Expect(ok).To(BeTrue())
-		Expect(v).To(Equal("nodeA"))
+		Expect(v).To(Equal("nodeB"))
 		Expect(depth).To(Equal(2))
 	})
 
@@ -42,6 +69,20 @@ var _ = Describe("Insert and LongestMatch", func() {
 		tr.Insert([]uint64{7, 8}, "nodeA", t0)
 		_, _, ok := tr.LongestMatch([]uint64{1, 2}, t0)
 		Expect(ok).To(BeFalse())
+	})
+
+	It("matches a shared prefix when the query tail diverges", func() {
+		// SGLang/vLLM-style prefix matching: a single Insert of a full chain
+		// must let any query that shares a leading block match at the depth of
+		// the deepest shared element, even though the tails differ. This is the
+		// core use case (shared system prompt / multi-turn extension / volatile
+		// tail), not exact-repeat.
+		tr := radixtree.New[string](radixtree.Options{TTL: time.Hour})
+		tr.Insert([]uint64{1, 2, 3, 4, 5}, "nodeA", t0)
+		v, depth, ok := tr.LongestMatch([]uint64{1, 2, 3, 9, 9}, t0)
+		Expect(ok).To(BeTrue())
+		Expect(depth).To(Equal(3)) // shared prefix [1,2,3]
+		Expect(v).To(Equal("nodeA"))
 	})
 })
 
@@ -63,8 +104,10 @@ var _ = Describe("TTL expiry", func() {
 
 	It("Evict reclaims expired nodes", func() {
 		tr := radixtree.New[string](radixtree.Options{TTL: time.Minute})
+		// Value-at-every-node: Insert of a 2-element chain records nodeA at both
+		// {1} and {1,2}, so Len is 2 (one valued node per distinct prefix).
 		tr.Insert([]uint64{1, 2}, "nodeA", t0)
-		Expect(tr.Len()).To(Equal(1))
+		Expect(tr.Len()).To(Equal(2))
 		tr.Evict(t0.Add(2 * time.Minute))
 		Expect(tr.Len()).To(Equal(0))
 	})
@@ -153,13 +196,17 @@ var _ = Describe("WeightsFor", func() {
 
 var _ = Describe("Remove", func() {
 	It("drops every entry anchored to a value and prunes", func() {
+		// Non-overlapping chains so Remove("A") and the survival of B are both
+		// meaningful: with value-at-every-node, overlapping chains would let the
+		// later writer own the shared prefix nodes, so A could own nothing and
+		// the test would be vacuous.
 		tr := radixtree.New[string](radixtree.Options{TTL: time.Hour})
 		tr.Insert([]uint64{1, 2}, "A", t0)
-		tr.Insert([]uint64{1, 2, 3}, "B", t0)
+		tr.Insert([]uint64{7, 8, 9}, "B", t0)
 		tr.Remove("A")
 		_, _, ok := tr.LongestMatch([]uint64{1, 2}, t0)
-		Expect(ok).To(BeFalse()) // A gone; node {1,2} has no value
-		v, _, ok := tr.LongestMatch([]uint64{1, 2, 3}, t0)
+		Expect(ok).To(BeFalse()) // A gone; its branch is fully reclaimed
+		v, _, ok := tr.LongestMatch([]uint64{7, 8, 9}, t0)
 		Expect(ok).To(BeTrue())
 		Expect(v).To(Equal("B")) // B survives
 		Expect(tr.Weight("A", t0)).To(BeNumerically("==", 0))
@@ -202,11 +249,12 @@ var _ = Describe("MaxEntries eviction", func() {
 	})
 
 	It("prunes value-less ancestors left behind by an eviction", func() {
-		// {1,2} carries A's value-less ancestor at depth 1; {1,2,3} carries B.
-		// Evicting B (oldest, deepest) must reclaim {1,2,3} and its now-childless
-		// ancestor {1,2} since neither holds a value afterwards. Then a fresh
-		// unrelated key keeps Len at the cap, proving no stale internal nodes
-		// inflate the count.
+		// Value-at-every-node: Inserting the deep chain B = [1,2,3] records B at
+		// {1}, {1,2}, and {1,2,3} (three valued nodes). With the cap at 2, the
+		// least-recently-seen valued nodes are evicted one per subsequent Insert.
+		// The two fresh single-element keys (C, D) are newer, so eviction keeps
+		// peeling B's nodes off until B's entire branch is reclaimed - none of
+		// its internal nodes may linger and inflate Len past the cap.
 		tr := radixtree.New[string](radixtree.Options{TTL: time.Hour, MaxEntries: 2})
 		tr.Insert([]uint64{1, 2, 3}, "B", t0)
 		tr.Insert([]uint64{5}, "C", t0.Add(time.Second))

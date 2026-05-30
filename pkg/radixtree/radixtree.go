@@ -76,10 +76,15 @@ func (t *Tree[V]) expired(n *node[V], now time.Time) bool {
 	return t.opts.TTL > 0 && now.Sub(n.lastSeen) > t.opts.TTL
 }
 
-// Insert records value at the node for key, refreshing lastSeen along the
-// traversed path so active prefixes stay live. Re-inserting an existing key
-// overwrites the value (last writer wins) and refreshes recency. Inserting an
-// empty key is a no-op: the root never holds a value.
+// Insert records value at EVERY node along the key chain, not just the leaf,
+// so each prefix-block node remembers the value (node id) that served that
+// prefix. This is what makes LongestMatch find a shared prefix even when the
+// query tail diverges (SGLang/vLLM-style prefix matching). Re-inserting a
+// different value over a shared prefix node overwrites it: the last writer
+// owns the shared prefix node (a recency heuristic, and the correct one - the
+// most recent chain that traversed that block is the one most likely warm).
+// lastSeen is refreshed on every traversed node so active prefixes stay live.
+// Inserting an empty key is a no-op: the root never holds a value.
 func (t *Tree[V]) Insert(key []uint64, value V, now time.Time) {
 	if len(key) == 0 {
 		return
@@ -94,12 +99,11 @@ func (t *Tree[V]) Insert(key []uint64, value V, now time.Time) {
 			cur.children[k] = next
 		}
 		cur = next
-		cur.lastSeen = now
+		if !cur.hasValue {
+			t.size++
+		}
+		cur.value, cur.hasValue, cur.lastSeen = value, true, now
 	}
-	if !cur.hasValue {
-		t.size++
-	}
-	cur.value, cur.hasValue, cur.lastSeen = value, true, now
 	if t.opts.MaxEntries > 0 && t.size > t.opts.MaxEntries {
 		t.evictOldestLocked(now)
 	}
