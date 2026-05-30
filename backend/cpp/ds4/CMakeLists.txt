@@ -60,6 +60,11 @@ elseif(DS4_GPU STREQUAL "cpu")
     set(DS4_OBJS "${DS4_DIR}/ds4_cpu.o")
 endif()
 
+# ds4.c now references ds4_distributed.c (distributed inference was split into
+# its own translation unit upstream). It is a single GPU-agnostic object shared
+# by every GPU mode, so link it in regardless of DS4_GPU.
+list(APPEND DS4_OBJS "${DS4_DIR}/ds4_distributed.o")
+
 add_executable(${TARGET}
     grpc-server.cpp
     dsml_parser.cpp
