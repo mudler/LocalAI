@@ -3117,7 +3117,6 @@ include:
     dockerfile: "./backend/Dockerfile.golang"
     context: "./"
     ubuntu-version: '2404'
-  # parakeet-cpp
   - build-type: 'hipblas'
     cuda-major-version: ""
     cuda-minor-version: ""
