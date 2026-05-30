@@ -460,6 +460,10 @@ options:
 | `ds4_listen:0.0.0.0:1234` | Address that workers dial into. |
 | `ds4_route_timeout:60` | Optional. Seconds the coordinator waits for the worker route to form before returning an error on a request. Defaults to 60. |
 
+{{% notice warning %}}
+Worker↔coordinator traffic is **plaintext and unauthenticated**: there is no TLS or auth on this channel. Bind `ds4_listen` to an address on a trusted/private network only; using `0.0.0.0` exposes the coordinator on every interface. Run the layer split exclusively over a network you control.
+{{% /notice %}}
+
 Once the model is loaded, the coordinator serves requests exactly like a single-node ds4 model — generation goes through the ordinary inference path and is transparently routed across the layer slices.
 
 ### Worker setup
