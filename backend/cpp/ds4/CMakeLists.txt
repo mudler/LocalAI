@@ -115,6 +115,11 @@ foreach(obj ${DS4_OBJS})
     target_sources(ds4-worker PRIVATE ${obj})
     set_source_files_properties(${obj} PROPERTIES EXTERNAL_OBJECT TRUE GENERATED TRUE)
 endforeach()
+# worker_main.c is C, but the engine objects built by nvcc (ds4_cuda.o) and the
+# Metal path (ds4_metal.o, Obj-C++) reference the C++ runtime (libstdc++). Force
+# the C++ linker driver so those symbols resolve; the C driver would not link
+# libstdc++ and the CUDA/Metal builds fail with undefined std:: references.
+set_target_properties(ds4-worker PROPERTIES LINKER_LANGUAGE CXX)
 target_link_libraries(ds4-worker PRIVATE Threads::Threads m)
 
 if(DS4_GPU STREQUAL "cuda")
