@@ -23,6 +23,7 @@ extern "C" {
 
 #include <atomic>
 #include <chrono>
+#include <climits>
 #include <csignal>
 #include <cstdlib>
 #include <cstring>
@@ -68,6 +69,17 @@ static std::pair<std::string, std::string> split_option(const std::string &opt) 
     return {opt.substr(0, colon), opt.substr(colon + 1)};
 }
 
+// Parse a positive base-10 integer. Returns false (without throwing) on empty,
+// trailing garbage, non-positive, or overflow - unlike std::stoi.
+static bool parse_positive_int(const std::string &s, int *out) {
+    if (s.empty()) return false;
+    char *end = nullptr;
+    long v = std::strtol(s.c_str(), &end, 10);
+    if (!end || *end != '\0' || v <= 0 || v > INT_MAX) return false;
+    *out = static_cast<int>(v);
+    return true;
+}
+
 // Parse a ds4 layer spec "START:END" or "START:output" into the engine's
 // distributed layer fields. Returns false on malformed input.
 static bool parse_layers_spec(const std::string &spec, ds4_distributed_layers *out) {
@@ -97,19 +109,33 @@ static bool parse_layers_spec(const std::string &spec, ds4_distributed_layers *o
 // covers all layers (ds4_session_distributed_route_ready == 1) or the timeout
 // elapses. Returns an empty string on success, or an error message to return
 // to the client. No-op when not distributed.
-static std::string wait_route_ready(ds4_session *session) {
+//
+// Takes the g_engine_mu lock by reference and RELEASES it during each poll
+// sleep. The wait can span up to g_route_timeout_sec seconds while workers
+// connect; holding g_engine_mu the whole time would block the Status/Health
+// readiness probes (they also lock g_engine_mu), making LocalAI's loader treat
+// a still-starting worker as hung.
+static std::string wait_route_ready(std::unique_lock<std::mutex> &lock) {
     if (!g_distributed) return "";
     char err[256] = {0};
     const int deadline_polls = g_route_timeout_sec * 10; // 100ms per poll
     for (int i = 0; i <= deadline_polls; ++i) {
-        int ready = ds4_session_distributed_route_ready(session, err, sizeof(err));
+        int ready = ds4_session_distributed_route_ready(g_session, err, sizeof(err));
         if (ready == 1) return "";
         if (ready < 0) {
             return std::string("ds4 distributed route error: ") +
                    (err[0] ? err : "unknown");
         }
+        // Release the lock while sleeping so Status/Health and other RPCs can
+        // interleave during worker startup.
+        lock.unlock();
         struct timespec ts = {0, 100L * 1000L * 1000L}; // 100ms
         nanosleep(&ts, nullptr);
+        lock.lock();
+        // A concurrent Free() may have torn down the engine while we slept.
+        if (!g_engine || !g_session) {
+            return "ds4: model unloaded while waiting for distributed route";
+        }
     }
     return "ds4 distributed route incomplete: workers not connected (layers uncovered)";
 }
@@ -431,6 +457,11 @@ public:
                      backend::Result *result) override {
         std::lock_guard<std::mutex> lock(g_engine_mu);
 
+        // Reset distributed state so a model swap (a second LoadModel without
+        // ds4_role) doesn't inherit a stale coordinator configuration.
+        g_distributed = false;
+        g_route_timeout_sec = 60;
+
         if (g_engine) {
             if (g_session) { ds4_session_free(g_session); g_session = nullptr; }
             ds4_engine_close(g_engine);
@@ -458,7 +489,13 @@ public:
             else if (k == "ds4_role") ds4_role = v;
             else if (k == "ds4_layers") ds4_layers = v;
             else if (k == "ds4_listen") ds4_listen = v;
-            else if (k == "ds4_route_timeout") g_route_timeout_sec = std::stoi(v);
+            else if (k == "ds4_route_timeout") {
+                if (!parse_positive_int(v, &g_route_timeout_sec)) {
+                    result->set_success(false);
+                    result->set_message("ds4: ds4_route_timeout must be a positive integer");
+                    return GStatus::OK;
+                }
+            }
         }
 
         g_kv_cache.SetDir(g_kv_cache_dir);
@@ -485,6 +522,10 @@ public:
         // distributed inference: this process listens on ds4_listen and owns
         // the ds4_layers slice; workers dial in (see `local-ai worker
         // ds4-distributed`). Absent ds4_role => unchanged single-node path.
+        // Must be static: opt.distributed.listen_host is a const char* the
+        // engine retains past this call, so it cannot point at a local that
+        // goes out of scope (otherwise a future "simplify to local" refactor
+        // reintroduces a dangling pointer).
         static std::string s_listen_host;
         if (ds4_role == "coordinator") {
             if (ds4_layers.empty() || ds4_listen.empty()) {
@@ -492,10 +533,18 @@ public:
                 result->set_message("ds4: ds4_role:coordinator requires ds4_layers and ds4_listen");
                 return GStatus::OK;
             }
+            // host:port for IPv4/hostname; IPv6 literals are unsupported (the
+            // first colon would split inside the address).
             auto host_port = split_option(ds4_listen); // "host:port" -> {host, port}
             if (host_port.second.empty()) {
                 result->set_success(false);
                 result->set_message("ds4: ds4_listen must be host:port");
+                return GStatus::OK;
+            }
+            int listen_port = 0;
+            if (!parse_positive_int(host_port.second, &listen_port)) {
+                result->set_success(false);
+                result->set_message("ds4: ds4_listen port must be a positive integer");
                 return GStatus::OK;
             }
             ds4_distributed_layers layers = {};
@@ -508,7 +557,7 @@ public:
             opt.distributed.role = DS4_DISTRIBUTED_COORDINATOR;
             opt.distributed.layers = layers;
             opt.distributed.listen_host = s_listen_host.c_str();
-            opt.distributed.listen_port = std::stoi(host_port.second);
+            opt.distributed.listen_port = listen_port;
             g_distributed = true;
         }
 
@@ -548,11 +597,11 @@ public:
 
     GStatus Predict(ServerContext *, const backend::PredictOptions *request,
                    backend::Reply *reply) override {
-        std::lock_guard<std::mutex> lock(g_engine_mu);
+        std::unique_lock<std::mutex> lock(g_engine_mu);
         if (!g_engine || !g_session) {
             return GStatus(StatusCode::FAILED_PRECONDITION, "ds4: model not loaded");
         }
-        if (std::string route_err = wait_route_ready(g_session); !route_err.empty()) {
+        if (std::string route_err = wait_route_ready(lock); !route_err.empty()) {
             return GStatus(StatusCode::UNAVAILABLE, route_err);
         }
         ds4_tokens prompt = {};
@@ -647,11 +696,11 @@ public:
 
     GStatus PredictStream(ServerContext *, const backend::PredictOptions *request,
                          ServerWriter<backend::Reply> *writer) override {
-        std::lock_guard<std::mutex> lock(g_engine_mu);
+        std::unique_lock<std::mutex> lock(g_engine_mu);
         if (!g_engine || !g_session) {
             return GStatus(StatusCode::FAILED_PRECONDITION, "ds4: model not loaded");
         }
-        if (std::string route_err = wait_route_ready(g_session); !route_err.empty()) {
+        if (std::string route_err = wait_route_ready(lock); !route_err.empty()) {
             return GStatus(StatusCode::UNAVAILABLE, route_err);
         }
         ds4_tokens prompt = {};
