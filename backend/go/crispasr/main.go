@@ -37,18 +37,13 @@ func main() {
 		{&CppGetSegmentText, "get_segment_text"},
 		{&CppGetSegmentStart, "get_segment_t0"},
 		{&CppGetSegmentEnd, "get_segment_t1"},
-		{&CppNTokens, "n_tokens"},
-		{&CppGetTokenID, "get_token_id"},
-		{&CppGetSegmentSpeakerTurnNext, "get_segment_speaker_turn_next"},
+		{&CppGetBackend, "get_backend"},
 		{&CppSetAbort, "set_abort"},
-		{&CppSetNewSegmentCallback, "set_new_segment_callback"},
 	}
 
 	for _, lf := range libFuncs {
 		purego.RegisterLibFunc(lf.FuncPtr, lib, lf.Name)
 	}
-
-	goNewSegmentCb = purego.NewCallback(onNewSegment)
 
 	flag.Parse()
 

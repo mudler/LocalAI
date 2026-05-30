@@ -7,7 +7,6 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
-	"sync/atomic"
 	"unsafe"
 
 	"github.com/go-audio/wav"
@@ -19,93 +18,16 @@ import (
 )
 
 var (
-	CppLoadModel                 func(modelPath string) int
-	CppLoadModelVAD              func(modelPath string) int
-	CppVAD                       func(pcmf32 []float32, pcmf32Size uintptr, segsOut unsafe.Pointer, segsOutLen unsafe.Pointer) int
-	CppTranscribe                func(threads uint32, lang string, translate bool, diarize bool, pcmf32 []float32, pcmf32Len uintptr, segsOutLen unsafe.Pointer, prompt string) int
-	CppGetSegmentText            func(i int) string
-	CppGetSegmentStart           func(i int) int64
-	CppGetSegmentEnd             func(i int) int64
-	CppNTokens                   func(i int) int
-	CppGetTokenID                func(i int, j int) int
-	CppGetSegmentSpeakerTurnNext func(i int) bool
-	CppSetAbort                  func(v int)
-	// Set by main.go via purego.RegisterLibFunc. Installs (or clears with cb=0)
-	// the C-side trampoline that whisper.cpp invokes per new segment.
-	CppSetNewSegmentCallback func(cbPtr uintptr, userData uintptr)
+	CppLoadModel       func(modelPath string, threads int) int
+	CppLoadModelVAD    func(modelPath string) int
+	CppVAD             func(pcmf32 []float32, pcmf32Size uintptr, segsOut unsafe.Pointer, segsOutLen unsafe.Pointer) int
+	CppTranscribe      func(threads uint32, lang string, translate bool, diarize bool, pcmf32 []float32, pcmf32Len uintptr, segsOutLen unsafe.Pointer, prompt string) int
+	CppGetSegmentText  func(i int) string
+	CppGetSegmentStart func(i int) int64
+	CppGetSegmentEnd   func(i int) int64
+	CppGetBackend      func() string
+	CppSetAbort        func(v int)
 )
-
-// streamCallStates maps per-AudioTranscriptionStream call IDs to the
-// state the Go callback needs to emit deltas. Only one entry is ever
-// live today (base.SingleThread), but the map shape mirrors
-// sherpa-onnx's TTS callback registry and survives a future SingleThread
-// removal without a contract change.
-var (
-	streamCallStates sync.Map // uint64 -> *streamCallState
-	streamCallSeq    atomic.Uint64
-	goNewSegmentCb   uintptr // purego.NewCallback(onNewSegment) result; set in main.go at boot
-)
-
-type streamCallState struct {
-	results chan *pb.TranscriptStreamResponse
-	diarize bool
-	// nextIdx tracks how many segments we've already emitted. The C
-	// trampoline passes idx_first = total - n_new, but we walk from
-	// nextIdx to (idx_first + n_new) defensively in case whisper.cpp ever
-	// coalesces multiple commits into a single callback invocation.
-	nextIdx int
-	// assembled mirrors the literal concat of every Delta sent on results.
-	// We reuse it as the final TranscriptResult.Text so the e2e
-	// invariant `final.Text == concat(deltas)` holds exactly. Written from
-	// the cgo decode thread inside onNewSegment and read by the streaming
-	// method after CppTranscribe returns; the cgo boundary provides the
-	// happens-before edge.
-	assembled strings.Builder
-}
-
-// onNewSegment is the Go side of the C trampoline declared in
-// crispasr_shim.cpp:new_segment_cb. Whisper.cpp invokes it once per
-// new-segment event during whisper_full(). Reads segment text via the
-// existing CppGetSegment* getters (safe to call against the singleton
-// ctx; whisper.cpp is the only writer and it has already published the
-// segments by the time this fires).
-//
-// Sends deltas synchronously: if the channel is full, this blocks the
-// whisper decode thread. That's the intended backpressure path -
-// dropping deltas would break the concat(deltas) == final.Text invariant
-// the e2e suite asserts.
-func onNewSegment(idxFirst int32, nNew int32, userData uintptr) {
-	v, ok := streamCallStates.Load(uint64(userData))
-	if !ok {
-		return // call already torn down (race with cancel + cb fire)
-	}
-	state := v.(*streamCallState)
-	end := int(idxFirst) + int(nNew)
-	for i := state.nextIdx; i < end; i++ {
-		txt := strings.ToValidUTF8(strings.Clone(CppGetSegmentText(i)), "�")
-		txt = strings.TrimSpace(txt)
-		if state.diarize && CppGetSegmentSpeakerTurnNext(i) {
-			txt += " [SPEAKER_TURN]"
-		}
-		if txt == "" {
-			state.nextIdx = i + 1
-			continue
-		}
-		// Prefix subsequent deltas with a single space so the assembled
-		// stream reads as one space-joined transcript. The first delta has
-		// no leading space, otherwise concat(deltas) would not match
-		// final.Text and the e2e invariant would break.
-		var delta string
-		if state.assembled.Len() == 0 {
-			delta = txt
-		} else {
-			delta = " " + txt
-		}
-		state.results <- &pb.TranscriptStreamResponse{Delta: delta}
-		state.assembled.WriteString(delta)
-		state.nextIdx = i + 1
-	}
-}
 
 type CrispASR struct {
 	base.SingleThread
@@ -130,9 +52,11 @@ func (w *CrispASR) Load(opts *pb.ModelOptions) error {
 		return nil
 	}
 
-	if ret := CppLoadModel(opts.ModelFile); ret != 0 {
+	if ret := CppLoadModel(opts.ModelFile, int(opts.Threads)); ret != 0 {
 		return fmt.Errorf("Failed to load CrispASR transcription model")
 	}
+
+	fmt.Fprintf(os.Stderr, "CrispASR backend selected: %s\n", CppGetBackend())
 
 	return nil
 }
@@ -244,24 +168,17 @@ func (w *CrispASR) AudioTranscription(ctx context.Context, opts *pb.TranscriptRe
 		// segment start/end conversion factor taken from https://github.com/ggml-org/whisper.cpp/blob/master/examples/cli/cli.cpp#L895
 		s := CppGetSegmentStart(i) * (10000000)
 		t := CppGetSegmentEnd(i) * (10000000)
-		// whisper.cpp can emit bytes that aren't valid UTF-8 (e.g. a multibyte
-		// codepoint split across token boundaries); protobuf string fields
-		// reject those at marshal time. Scrub before the value escapes cgo.
+		// The session result can emit bytes that aren't valid UTF-8 (e.g. a
+		// multibyte codepoint split across token boundaries); protobuf string
+		// fields reject those at marshal time. Scrub before the value escapes
+		// cgo. The session result is segment+word based and exposes no token
+		// IDs, so Tokens is left empty.
 		txt := strings.ToValidUTF8(strings.Clone(CppGetSegmentText(i)), "�")
-		tokens := make([]int32, CppNTokens(i))
 
-		if opts.Diarize && CppGetSegmentSpeakerTurnNext(i) {
-			txt += " [SPEAKER_TURN]"
-		}
-
-		for j := range tokens {
-			tokens[j] = int32(CppGetTokenID(i, j))
-		}
 		segment := &pb.TranscriptSegment{
 			Id:    int32(i),
 			Text:  txt,
 			Start: s, End: t,
-			Tokens: tokens,
 		}
 
 		segments = append(segments, segment)
@@ -277,11 +194,13 @@ func (w *CrispASR) AudioTranscription(ctx context.Context, opts *pb.TranscriptRe
 	}, nil
 }
 
-// AudioTranscriptionStream runs whisper_full() and emits deltas via
-// whisper.cpp's new_segment_callback as segments are decoded, then a
-// final TranscriptResult. The offline AudioTranscription is unchanged;
-// both paths share whisper's single-instance ctx and the SingleThread
-// concurrency model.
+// AudioTranscriptionStream runs the session transcribe to completion and then
+// emits one delta per non-empty segment, followed by a final TranscriptResult.
+// Progressive/real-time streaming isn't available via the session API (there
+// is no per-decode callback), so deltas are emitted per-segment after the
+// blocking decode returns rather than as segments are produced. The offline
+// AudioTranscription is unchanged; both paths share the session and the
+// SingleThread concurrency model.
 func (w *CrispASR) AudioTranscriptionStream(ctx context.Context, opts *pb.TranscriptRequest, results chan *pb.TranscriptStreamResponse) error {
 	defer close(results)
 
@@ -317,23 +236,9 @@ func (w *CrispASR) AudioTranscriptionStream(ctx context.Context, opts *pb.Transc
 		duration = float32(len(data)) / float32(buf.Format.SampleRate)
 	}
 
-	// Register per-call state and install the C-side callback. defer
-	// teardown so even a panic clears the C pointer (otherwise a stale
-	// callback fires on the next AudioTranscription call).
-	callID := streamCallSeq.Add(1)
-	state := &streamCallState{
-		results: results,
-		diarize: opts.Diarize,
-	}
-	streamCallStates.Store(callID, state)
-	CppSetNewSegmentCallback(goNewSegmentCb, uintptr(callID))
-	defer func() {
-		CppSetNewSegmentCallback(0, 0)
-		streamCallStates.Delete(callID)
-	}()
-
 	// Same abort-watcher pattern as AudioTranscription. Joined synchronously
 	// so a late CppSetAbort(1) cannot fire after this function returns.
+	// Best-effort only: the session transcribe is blocking with no abort hook.
 	done := make(chan struct{})
 	var wg sync.WaitGroup
 	wg.Add(1)
@@ -360,33 +265,39 @@ func (w *CrispASR) AudioTranscriptionStream(ctx context.Context, opts *pb.Transc
 		return fmt.Errorf("Failed Transcribe")
 	}
 
-	// Build the final TranscriptResult. Segments[] mirrors the offline
-	// path so the SSE done event carries the same per-segment shape.
-	// final.Text reuses the assembled stream so concat(deltas) == final.Text
-	// holds exactly, matching the e2e contract.
+	// Walk the segments once: emit a delta per non-empty segment and build the
+	// final TranscriptResult.Segments alongside. The first delta has no leading
+	// space and subsequent ones are prefixed with a single space, so
+	// concat(deltas) == final.Text exactly, matching the e2e contract.
 	segments := []*pb.TranscriptSegment{}
+	var assembled strings.Builder
 	for i := range int(segsLen) {
 		s := CppGetSegmentStart(i) * 10000000
 		t := CppGetSegmentEnd(i) * 10000000
 		txt := strings.ToValidUTF8(strings.Clone(CppGetSegmentText(i)), "�")
-		tokens := make([]int32, CppNTokens(i))
-		if opts.Diarize && CppGetSegmentSpeakerTurnNext(i) {
-			txt += " [SPEAKER_TURN]"
-		}
-		for j := range tokens {
-			tokens[j] = int32(CppGetTokenID(i, j))
-		}
 		segments = append(segments, &pb.TranscriptSegment{
 			Id:    int32(i),
 			Text:  txt,
 			Start: s, End: t,
-			Tokens: tokens,
 		})
+
+		trimmed := strings.TrimSpace(txt)
+		if trimmed == "" {
+			continue
+		}
+		var delta string
+		if assembled.Len() == 0 {
+			delta = trimmed
+		} else {
+			delta = " " + trimmed
+		}
+		results <- &pb.TranscriptStreamResponse{Delta: delta}
+		assembled.WriteString(delta)
 	}
 
 	final := &pb.TranscriptResult{
 		Segments: segments,
-		Text:     state.assembled.String(),
+		Text:     assembled.String(),
 		Language: opts.Language,
 		Duration: duration,
 	}

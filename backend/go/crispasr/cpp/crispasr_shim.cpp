@@ -4,42 +4,37 @@
 #include <atomic>
 #include <vector>
 
+// Opaque session types. crispasr.h declares `struct crispasr_session;` but not
+// the result type nor the open/transcribe/result accessors — those are
+// CA_EXPORT extern "C" symbols in src/crispasr_c_api.cpp, so we forward-declare
+// exactly the ones we use. Signatures verified against
+// sources/CrispASR/src/crispasr_c_api.cpp.
+struct crispasr_session_result;
+extern "C" {
+crispasr_session *crispasr_session_open(const char *model_path, int n_threads);
+void crispasr_session_close(crispasr_session *s);
+const char *crispasr_session_backend(crispasr_session *s);
+int crispasr_session_set_translate(crispasr_session *s, int enable);
+crispasr_session_result *crispasr_session_transcribe_lang(
+    crispasr_session *s, const float *pcm, int n_samples, const char *language);
+int crispasr_session_result_n_segments(crispasr_session_result *r);
+const char *crispasr_session_result_segment_text(crispasr_session_result *r,
+                                                  int i);
+int64_t crispasr_session_result_segment_t0(crispasr_session_result *r, int i);
+int64_t crispasr_session_result_segment_t1(crispasr_session_result *r, int i);
+void crispasr_session_result_free(crispasr_session_result *r);
+}
+
+static crispasr_session *g_session = nullptr;
+static crispasr_session_result *g_result = nullptr;
+
 static struct whisper_vad_context *vctx;
-static struct whisper_context *ctx;
 static std::vector<float> flat_segs;
 
 static std::atomic<int> g_abort{0};
 
-static std::atomic<uintptr_t> g_go_new_segment_cb{0};
-static std::atomic<uintptr_t> g_go_new_segment_user_data{0};
-
-static bool abort_cb(void * /*user_data*/) {
-    return g_abort.load(std::memory_order_relaxed) != 0;
-}
-
-static void new_segment_cb(struct whisper_context *cb_ctx,
-                           struct whisper_state * /*state*/, int n_new,
-                           void * /*user_data*/) {
-    uintptr_t go_cb = g_go_new_segment_cb.load(std::memory_order_relaxed);
-    if (go_cb == 0) {
-        return;
-    }
-    int total = whisper_full_n_segments(cb_ctx);
-    int idx_first = total - n_new;
-    if (idx_first < 0) {
-        idx_first = 0;
-    }
-    uintptr_t ud = g_go_new_segment_user_data.load(std::memory_order_relaxed);
-    reinterpret_cast<go_new_segment_cb>(go_cb)(idx_first, n_new, ud);
-}
-
 extern "C" void set_abort(int v) {
-    g_abort.store(v, std::memory_order_relaxed);
-}
-
-extern "C" void set_new_segment_callback(uintptr_t cb_ptr, uintptr_t user_data) {
-    g_go_new_segment_cb.store(cb_ptr, std::memory_order_relaxed);
-    g_go_new_segment_user_data.store(user_data, std::memory_order_relaxed);
+  g_abort.store(v, std::memory_order_relaxed);
 }
 
 static void ggml_log_cb(enum ggml_log_level level, const char *log,
@@ -73,18 +68,18 @@ static void ggml_log_cb(enum ggml_log_level level, const char *log,
   fflush(stderr);
 }
 
-int load_model(const char *const model_path) {
+int load_model(const char *const model_path, int threads) {
   whisper_log_set(ggml_log_cb, nullptr);
   ggml_backend_load_all();
 
-  struct whisper_context_params cparams = whisper_context_default_params();
-
-  ctx = whisper_init_from_file_with_params(model_path, cparams);
-  if (ctx == nullptr) {
-    fprintf(stderr, "error: Also failed to init model as transcriber\n");
+  g_session = crispasr_session_open(model_path, threads);
+  if (g_session == nullptr) {
+    fprintf(stderr, "error: failed to open CrispASR session for model\n");
     return 1;
   }
 
+  fprintf(stderr, "info: CrispASR backend selected: %s\n",
+          crispasr_session_backend(g_session));
   return 0;
 }
 
@@ -141,69 +136,66 @@ int vad(float pcmf32[], size_t pcmf32_len, float **segs_out,
   return 0;
 }
 
-int transcribe(uint32_t threads, char *lang, bool translate, bool tdrz,
-               float pcmf32[], size_t pcmf32_len, size_t *segs_out_len, char *prompt) {
-  whisper_full_params wparams =
-      whisper_full_default_params(CRISPASR_SAMPLING_GREEDY);
+// threads, diarize and prompt are accepted for Go-side API parity but unused
+// in Phase 1: the thread count is fixed at session open, and diarization and
+// the initial prompt are separate CrispASR features not yet wired through the
+// session ASR path.
+int transcribe(uint32_t threads, char *lang, bool translate, bool diarize,
+               float pcmf32[], size_t pcmf32_len, size_t *segs_out_len,
+               char *prompt) {
+  (void)threads;
+  (void)diarize;
+  (void)prompt;
 
-  wparams.n_threads = threads;
-  if (*lang != '\0')
-    wparams.language = lang;
-  else {
-    wparams.language = nullptr;
+  if (!g_session) {
+    return 1;
   }
 
-  wparams.translate = translate;
-  wparams.debug_mode = true;
-  wparams.print_progress = true;
-  wparams.tdrz_enable = tdrz;
-  wparams.initial_prompt = prompt;
-
-  // Reset stale abort flag from any prior cancelled call, then install the
-  // ggml abort hook so a subsequent set_abort(1) from Go aborts the next
-  // compute graph step.
+  // Reset stale abort flag from any prior cancelled call. set_abort remains
+  // best-effort: the session transcribe call is blocking and exposes no abort
+  // hook, so a mid-decode abort cannot interrupt it.
   g_abort.store(0, std::memory_order_relaxed);
-  // Only install the new-segment callback when streaming is requested
-  // (Go side calls set_new_segment_callback before transcribe()). Leaving
-  // it always-on is harmless but adds a function-pointer dispatch per
-  // segment for the offline path.
-  if (g_go_new_segment_cb.load(std::memory_order_relaxed) != 0) {
-      wparams.new_segment_callback = new_segment_cb;
-      wparams.new_segment_callback_user_data = nullptr;
+
+  crispasr_session_set_translate(g_session, translate ? 1 : 0);
+
+  if (g_result) {
+    crispasr_session_result_free(g_result);
+    g_result = nullptr;
   }
-  wparams.abort_callback = abort_cb;
-  wparams.abort_callback_user_data = nullptr;
 
-  fprintf(stderr, "info: Enable tdrz: %d\n", tdrz);
-  fprintf(stderr, "info: Initial prompt: \"%s\"\n", prompt);
-
-  if (whisper_full(ctx, wparams, pcmf32, pcmf32_len)) {
-    if (g_abort.load(std::memory_order_relaxed)) {
-      return 2;   // aborted by client
-    }
+  const char *language = (lang && *lang) ? lang : nullptr;
+  g_result = crispasr_session_transcribe_lang(g_session, pcmf32, (int)pcmf32_len,
+                                              language);
+  if (!g_result) {
     fprintf(stderr, "error: transcription failed\n");
     return 1;
   }
 
-  *segs_out_len = whisper_full_n_segments(ctx);
-
+  *segs_out_len = crispasr_session_result_n_segments(g_result);
   return 0;
 }
 
 const char *get_segment_text(int i) {
-  return whisper_full_get_segment_text(ctx, i);
+  if (!g_result) {
+    return "";
+  }
+  return crispasr_session_result_segment_text(g_result, i);
 }
 
-int64_t get_segment_t0(int i) { return whisper_full_get_segment_t0(ctx, i); }
-
-int64_t get_segment_t1(int i) { return whisper_full_get_segment_t1(ctx, i); }
-
-int n_tokens(int i) { return whisper_full_n_tokens(ctx, i); }
-
-int32_t get_token_id(int i, int j) {
-  return whisper_full_get_token_id(ctx, i, j);
+int64_t get_segment_t0(int i) {
+  if (!g_result) {
+    return 0;
+  }
+  return crispasr_session_result_segment_t0(g_result, i);
 }
 
-bool get_segment_speaker_turn_next(int i) {
-  return whisper_full_get_segment_speaker_turn_next(ctx, i);
+int64_t get_segment_t1(int i) {
+  if (!g_result) {
+    return 0;
+  }
+  return crispasr_session_result_segment_t1(g_result, i);
+}
+
+const char *get_backend(void) {
+  return g_session ? crispasr_session_backend(g_session) : "";
 }
