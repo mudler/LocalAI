@@ -34,16 +34,11 @@ func recordModelLoadFailure(appConfig *config.ApplicationConfig, modelName, back
 }
 
 func ModelOptions(c config.ModelConfig, so *config.ApplicationConfig, opts ...model.Option) []model.Option {
-	name := c.Name
-	if name == "" {
-		name = c.Model
-	}
-
 	defOpts := []model.Option{
 		model.WithBackendString(c.Backend),
 		model.WithModel(c.Model),
 		model.WithContext(so.Context),
-		model.WithModelID(name),
+		model.WithModelID(c.ModelID()),
 	}
 
 	threads := 1

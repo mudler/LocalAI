@@ -230,6 +230,114 @@ var _ = Describe("Node HTTP handlers", func() {
 		})
 	})
 
+	Describe("SetSchedulingEndpoint", func() {
+		postScheduling := func(body string) *httptest.ResponseRecorder {
+			e := echo.New()
+			req := httptest.NewRequest(http.MethodPost, "/", strings.NewReader(body))
+			req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+			rec := httptest.NewRecorder()
+			c := e.NewContext(req, rec)
+			handler := SetSchedulingEndpoint(registry)
+			Expect(handler(c)).To(Succeed())
+			return rec
+		}
+
+		It("persists prefix-cache fields and round-trips them via GET", func() {
+			ctx := context.Background()
+			rec := postScheduling(`{"model_name":"pc-model","route_policy":"prefix_cache","balance_abs_threshold":3,"min_prefix_match":0.4}`)
+			Expect(rec.Code).To(Equal(http.StatusOK))
+
+			cfg, err := registry.GetModelScheduling(ctx, "pc-model")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(cfg).ToNot(BeNil())
+			Expect(cfg.RoutePolicy).To(Equal("prefix_cache"))
+			Expect(cfg.BalanceAbsThreshold).To(Equal(3))
+			Expect(cfg.MinPrefixMatch).To(BeNumerically("~", 0.4, 1e-9))
+
+			e := echo.New()
+			getReq := httptest.NewRequest(http.MethodGet, "/", nil)
+			getRec := httptest.NewRecorder()
+			gc := e.NewContext(getReq, getRec)
+			gc.SetParamNames("model")
+			gc.SetParamValues("pc-model")
+			Expect(GetSchedulingEndpoint(registry)(gc)).To(Succeed())
+			Expect(getRec.Code).To(Equal(http.StatusOK))
+
+			var got nodes.ModelSchedulingConfig
+			Expect(json.Unmarshal(getRec.Body.Bytes(), &got)).To(Succeed())
+			Expect(got.RoutePolicy).To(Equal("prefix_cache"))
+			Expect(got.BalanceAbsThreshold).To(Equal(3))
+			Expect(got.MinPrefixMatch).To(BeNumerically("~", 0.4, 1e-9))
+		})
+
+		It("returns 400 for an out-of-range min_prefix_match", func() {
+			rec := postScheduling(`{"model_name":"bad-mpm","min_prefix_match":2}`)
+			Expect(rec.Code).To(Equal(http.StatusBadRequest))
+			var resp map[string]any
+			Expect(json.Unmarshal(rec.Body.Bytes(), &resp)).To(Succeed())
+			errObj, ok := resp["error"].(map[string]any)
+			Expect(ok).To(BeTrue())
+			Expect(errObj["message"]).To(ContainSubstring("min_prefix_match"))
+		})
+
+		It("returns 400 for an unknown route_policy", func() {
+			rec := postScheduling(`{"model_name":"bad-policy","route_policy":"bogus"}`)
+			Expect(rec.Code).To(Equal(http.StatusBadRequest))
+			var resp map[string]any
+			Expect(json.Unmarshal(rec.Body.Bytes(), &resp)).To(Succeed())
+			errObj, ok := resp["error"].(map[string]any)
+			Expect(ok).To(BeTrue())
+			Expect(errObj["message"]).To(ContainSubstring("route_policy"))
+		})
+
+		It("returns 400 for a balance_rel_threshold between 0 and 1", func() {
+			rec := postScheduling(`{"model_name":"bad-rel","balance_rel_threshold":0.5}`)
+			Expect(rec.Code).To(Equal(http.StatusBadRequest))
+			var resp map[string]any
+			Expect(json.Unmarshal(rec.Body.Bytes(), &resp)).To(Succeed())
+			errObj, ok := resp["error"].(map[string]any)
+			Expect(ok).To(BeTrue())
+			Expect(errObj["message"]).To(ContainSubstring("balance_rel_threshold"))
+		})
+
+		// Regression for the partial-update footgun: a min/max-only POST used to
+		// full-replace every column and silently reset the prefix-cache settings
+		// to empty/zero. The pointer-merge must preserve omitted prefix fields.
+		It("preserves prefix-cache settings across a min_replicas-only update", func() {
+			ctx := context.Background()
+
+			rec := postScheduling(`{"model_name":"merge-model","route_policy":"prefix_cache","min_prefix_match":0.4}`)
+			Expect(rec.Code).To(Equal(http.StatusOK))
+
+			// Update only min_replicas - omits all prefix-cache fields.
+			rec = postScheduling(`{"model_name":"merge-model","min_replicas":2}`)
+			Expect(rec.Code).To(Equal(http.StatusOK))
+
+			cfg, err := registry.GetModelScheduling(ctx, "merge-model")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(cfg).ToNot(BeNil())
+			Expect(cfg.MinReplicas).To(Equal(2), "the provided non-prefix field must update")
+			Expect(cfg.RoutePolicy).To(Equal("prefix_cache"), "omitted route_policy must be preserved")
+			Expect(cfg.MinPrefixMatch).To(BeNumerically("~", 0.4, 1e-9), "omitted min_prefix_match must be preserved")
+		})
+
+		It("updates a prefix-cache field when it is explicitly provided", func() {
+			ctx := context.Background()
+
+			rec := postScheduling(`{"model_name":"update-model","route_policy":"prefix_cache","min_prefix_match":0.4}`)
+			Expect(rec.Code).To(Equal(http.StatusOK))
+
+			rec = postScheduling(`{"model_name":"update-model","route_policy":"round_robin"}`)
+			Expect(rec.Code).To(Equal(http.StatusOK))
+
+			cfg, err := registry.GetModelScheduling(ctx, "update-model")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(cfg).ToNot(BeNil())
+			Expect(cfg.RoutePolicy).To(Equal("round_robin"), "explicitly provided route_policy must update")
+			Expect(cfg.MinPrefixMatch).To(BeNumerically("~", 0.4, 1e-9), "omitted min_prefix_match must still be preserved")
+		})
+	})
+
 	Describe("ListNodesEndpoint", func() {
 		It("returns an empty list when no nodes are registered", func() {
 			e := echo.New()

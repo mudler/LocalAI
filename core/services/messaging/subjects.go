@@ -355,3 +355,35 @@ type CacheInvalidateEvent struct {
 func SubjectCacheInvalidateCollection(name string) string {
 	return "cache.invalidate.collections." + sanitizeSubjectToken(name)
 }
+
+// Prefix-Cache Routing Sync (Pub/Sub - broadcast to all frontends)
+//
+// Frontends share prefix-cache observations so a request routed to any replica
+// benefits from the prefix-affinity another replica already learned. This
+// mirrors the OpCache live-sync pattern: plain NATS Core pub/sub, no JetStream.
+const (
+	SubjectPrefixCacheObserve    = "prefixcache.observe"
+	SubjectPrefixCacheInvalidate = "prefixcache.invalidate"
+)
+
+// PrefixCacheObserveEvent announces that the replica (NodeID, Replica) served a
+// request whose prefix chain ends at the given hashes for model. Chain is the
+// full shallow-to-deep hash chain so peers can insert the same path. Affinity is
+// per replica (a backend process with its own KV cache), not per node, so the
+// replica index is carried so peers attribute the observation to the same one.
+type PrefixCacheObserveEvent struct {
+	Model   string   `json:"model"`
+	Chain   []uint64 `json:"chain"`
+	NodeID  string   `json:"node_id"`
+	Replica int      `json:"replica"`
+}
+
+// PrefixCacheInvalidateEvent tells peers to drop entries for a replica. When
+// Replica >= 0 it targets the single replica (Model, NodeID, Replica). When
+// Replica < 0 it targets ALL replicas of (Model, NodeID), for example when a
+// whole node goes offline.
+type PrefixCacheInvalidateEvent struct {
+	Model   string `json:"model"`
+	NodeID  string `json:"node_id"`
+	Replica int    `json:"replica"`
+}
