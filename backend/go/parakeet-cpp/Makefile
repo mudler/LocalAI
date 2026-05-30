@@ -54,7 +54,8 @@ sources/parakeet.cpp:
 	git init -q && \
 	git remote add origin $(PARAKEET_REPO) && \
 	git fetch --depth 1 origin $(PARAKEET_VERSION) && \
-	git checkout FETCH_HEAD
+	git checkout FETCH_HEAD && \
+	git submodule update --init --recursive --depth 1 --single-branch
 
 # Build the shared lib + header out-of-tree, then stage them next to the
 # Go sources so purego.Dlopen("libparakeet.so") and the cgo-less build
