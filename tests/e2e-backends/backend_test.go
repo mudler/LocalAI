@@ -1276,10 +1276,11 @@ var _ = Describe("ds4 layer-split distributed inference", Ordered, func() {
 		// LoadModel path.
 		loadCtx, loadCancel := context.WithTimeout(context.Background(), 10*time.Minute)
 		defer loadCancel()
+		ctxSize := envInt32("BACKEND_TEST_CTX_SIZE", 512)
 		res, err := client.LoadModel(loadCtx, &pb.ModelOptions{
 			Model:       modelFile,
 			ModelFile:   modelFile,
-			ContextSize: envInt32("BACKEND_TEST_CTX_SIZE", 512),
+			ContextSize: ctxSize,
 			Threads:     envInt32("BACKEND_TEST_THREADS", 4),
 			NGPULayers:  0,
 			MMap:        true,
@@ -1299,6 +1300,7 @@ var _ = Describe("ds4 layer-split distributed inference", Ordered, func() {
 			"--model", modelFile,
 			"--layers", workerLayers,
 			"--coordinator", listenHost, listenPort,
+			"-c", fmt.Sprintf("%d", ctxSize),
 		}
 		switch accel {
 		case "", "cpu":
@@ -1353,7 +1355,7 @@ var _ = Describe("ds4 layer-split distributed inference", Ordered, func() {
 			}
 			last = string(res.GetMessage())
 			if last == "" {
-				return fmt.Errorf("Predict returned empty content")
+				return fmt.Errorf("predict returned empty content")
 			}
 			return nil
 		}, 5*time.Minute, 2*time.Second).Should(Succeed(),
