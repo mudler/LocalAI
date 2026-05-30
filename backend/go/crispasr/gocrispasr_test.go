@@ -67,7 +67,7 @@ func fixturesOrSkip() (string, string) {
 	modelPath := os.Getenv("CRISPASR_MODEL_PATH")
 	audioPath := os.Getenv("CRISPASR_AUDIO_PATH")
 	if modelPath == "" || audioPath == "" {
-		Skip("set WHISPER_MODEL_PATH and WHISPER_AUDIO_PATH to run this spec")
+		Skip("set CRISPASR_MODEL_PATH and CRISPASR_AUDIO_PATH to run this spec")
 	}
 	return modelPath, audioPath
 }
