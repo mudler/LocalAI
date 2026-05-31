@@ -129,11 +129,16 @@ func (p *ParakeetCpp) Load(opts *pb.ModelOptions) error {
 	if maxWaitMs < 0 {
 		maxWaitMs = 0
 	}
-	xlog.Info("parakeet-cpp: dynamic batching configured",
-		"batch_max_size", maxSize, "batch_max_wait_ms", maxWaitMs)
-	p.batStop = make(chan struct{})
-	p.bat = newBatcher(maxSize, time.Duration(maxWaitMs)*time.Millisecond, p.runBatch)
-	go p.bat.run(p.batStop) // dispatcher runs until Free closes batStop
+	if CppTranscribePcmBatchJSON != nil {
+		p.batStop = make(chan struct{})
+		p.bat = newBatcher(maxSize, time.Duration(maxWaitMs)*time.Millisecond, p.runBatch)
+		go p.bat.run(p.batStop) // dispatcher runs until Free closes batStop
+		xlog.Info("parakeet-cpp: dynamic batching enabled",
+			"batch_max_size", maxSize, "batch_max_wait_ms", maxWaitMs)
+	} else {
+		xlog.Info("parakeet-cpp: batched C-API not present in libparakeet.so; " +
+			"batching disabled, using per-request transcription")
+	}
 	return nil
 }
 
@@ -221,13 +226,29 @@ func (p *ParakeetCpp) AudioTranscription(ctx context.Context, opts *pb.Transcrip
 		return pb.TranscriptResult{}, errors.New("parakeet-cpp: TranscriptRequest.dst (audio path) is required")
 	}
 
+	// Fallback when the batched C-API is unavailable: transcribe directly from
+	// the file path (original behavior, no batching).
+	if p.bat == nil {
+		cstr := CppTranscribePathJSON(p.ctxPtr, opts.Dst, 0)
+		if cstr == 0 {
+			return pb.TranscriptResult{}, fmt.Errorf("parakeet-cpp: transcribe_path_json failed: %s", CppLastError(p.ctxPtr))
+		}
+		raw := goStringFromCPtr(cstr)
+		CppFreeString(cstr)
+		var doc transcriptJSON
+		if err := json.Unmarshal([]byte(raw), &doc); err != nil {
+			return pb.TranscriptResult{}, fmt.Errorf("parakeet-cpp: decode transcript json: %w", err)
+		}
+		return transcriptResultFromDoc(doc, opts), nil
+	}
+
+	// Batched path: decode to PCM, submit to the batcher, wait for this request's
+	// JSON element. The dispatcher is the sole engine caller on this path; both
+	// sends honour ctx cancellation.
 	pcm, _, err := decodeWavMono16k(opts.Dst)
 	if err != nil {
 		return pb.TranscriptResult{}, err
 	}
-
-	// Submit to the batcher and wait for our per-clip JSON; the dispatcher is
-	// the sole engine caller on this path. Both sends honour ctx cancellation.
 	rep := make(chan batchReply, 1)
 	select {
 	case p.bat.submit <- &batchRequest{pcm: pcm, decoder: 0, reply: rep}:
@@ -243,50 +264,36 @@ func (p *ParakeetCpp) AudioTranscription(ctx context.Context, opts *pb.Transcrip
 	if res.err != nil {
 		return pb.TranscriptResult{}, res.err
 	}
-
 	var doc transcriptJSON
 	if err := json.Unmarshal([]byte(res.json), &doc); err != nil {
 		return pb.TranscriptResult{}, fmt.Errorf("parakeet-cpp: decode transcript json: %w", err)
 	}
+	return transcriptResultFromDoc(doc, opts), nil
+}
 
+// transcriptResultFromDoc maps a decoded transcriptJSON to a TranscriptResult,
+// synthesising a single whole-clip segment and attaching word timings only when
+// the caller requested word granularity. Shared by the batched and direct paths.
+func transcriptResultFromDoc(doc transcriptJSON, opts *pb.TranscriptRequest) pb.TranscriptResult {
 	text := strings.TrimSpace(doc.Text)
-
 	words := make([]*pb.TranscriptWord, 0, len(doc.Words))
 	for _, w := range doc.Words {
-		words = append(words, &pb.TranscriptWord{
-			Start: secondsToNanos(w.Start),
-			End:   secondsToNanos(w.End),
-			Text:  w.W,
-		})
+		words = append(words, &pb.TranscriptWord{Start: secondsToNanos(w.Start), End: secondsToNanos(w.End), Text: w.W})
 	}
-
 	tokens := make([]int32, 0, len(doc.Tokens))
 	for _, t := range doc.Tokens {
 		tokens = append(tokens, t.ID)
 	}
-
-	// Single whole-clip segment, spanning the first word start to the last
-	// word end (0/0 when the clip produced no words).
 	var segStart, segEnd int64
 	if len(words) > 0 {
 		segStart = words[0].Start
 		segEnd = words[len(words)-1].End
 	}
-	seg := &pb.TranscriptSegment{
-		Id:     0,
-		Start:  segStart,
-		End:    segEnd,
-		Text:   text,
-		Tokens: tokens,
-	}
+	seg := &pb.TranscriptSegment{Id: 0, Start: segStart, End: segEnd, Text: text, Tokens: tokens}
 	if wordsRequested(opts.TimestampGranularities) {
 		seg.Words = words
 	}
-
-	return pb.TranscriptResult{
-		Text:     text,
-		Segments: []*pb.TranscriptSegment{seg},
-	}, nil
+	return pb.TranscriptResult{Text: text, Segments: []*pb.TranscriptSegment{seg}}
 }
 
 // wordsRequested reports whether the caller asked for word-level timestamps.

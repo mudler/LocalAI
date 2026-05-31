@@ -47,7 +47,6 @@ func main() {
 		{&CppFree, "parakeet_capi_free"},
 		{&CppTranscribePath, "parakeet_capi_transcribe_path"},
 		{&CppTranscribePathJSON, "parakeet_capi_transcribe_path_json"},
-		{&CppTranscribePcmBatchJSON, "parakeet_capi_transcribe_pcm_batch_json"},
 		{&CppStreamBegin, "parakeet_capi_stream_begin"},
 		{&CppStreamFeed, "parakeet_capi_stream_feed"},
 		{&CppStreamFinalize, "parakeet_capi_stream_finalize"},
@@ -57,6 +56,13 @@ func main() {
 	}
 	for _, lf := range libFuncs {
 		purego.RegisterLibFunc(lf.FuncPtr, lib, lf.Name)
+	}
+
+	// The batched-JSON entry point exists only in newer libparakeet.so (ABI >= 2).
+	// Probe with Dlsym and register only if present, so the backend still loads
+	// against an older library (it falls back to per-request transcription).
+	if sym, err := purego.Dlsym(lib, "parakeet_capi_transcribe_pcm_batch_json"); err == nil && sym != 0 {
+		purego.RegisterLibFunc(&CppTranscribePcmBatchJSON, lib, "parakeet_capi_transcribe_pcm_batch_json")
 	}
 
 	fmt.Fprintf(os.Stderr, "[parakeet-cpp] ABI=%d\n", CppAbiVersion())
