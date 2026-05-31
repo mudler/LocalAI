@@ -17,6 +17,7 @@ import (
 	"github.com/mudler/LocalAI/pkg/grpc/base"
 	pb "github.com/mudler/LocalAI/pkg/grpc/proto"
 	"github.com/mudler/LocalAI/pkg/utils"
+	"github.com/mudler/xlog"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
@@ -100,6 +101,7 @@ type ParakeetCpp struct {
 	ctxPtr   uintptr
 	engineMu sync.Mutex // sole guard of the one C engine (dispatcher + streaming)
 	bat      *batcher
+	batStop  chan struct{}
 }
 
 // Load is the LocalAI gRPC entry point for LoadModel: it calls
@@ -127,8 +129,11 @@ func (p *ParakeetCpp) Load(opts *pb.ModelOptions) error {
 	if maxWaitMs < 0 {
 		maxWaitMs = 0
 	}
+	xlog.Info("parakeet-cpp: dynamic batching configured",
+		"batch_max_size", maxSize, "batch_max_wait_ms", maxWaitMs)
+	p.batStop = make(chan struct{})
 	p.bat = newBatcher(maxSize, time.Duration(maxWaitMs)*time.Millisecond, p.runBatch)
-	go p.bat.run(make(chan struct{})) // dispatcher lives for the process lifetime
+	go p.bat.run(p.batStop) // dispatcher runs until Free closes batStop
 	return nil
 }
 
@@ -152,10 +157,14 @@ func optInt(opts *pb.ModelOptions, key string, def int) int {
 // engine on the unary path. It concatenates the batch PCM, calls the batched
 // JSON C-API under engineMu, splits the JSON array, and replies to each request.
 func (p *ParakeetCpp) runBatch(reqs []*batchRequest) {
-	var concat []float32
 	nSamples := make([]int32, len(reqs))
+	total := 0
 	for i, r := range reqs {
 		nSamples[i] = int32(len(r.pcm))
+		total += len(r.pcm)
+	}
+	concat := make([]float32, 0, total)
+	for _, r := range reqs {
 		concat = append(concat, r.pcm...)
 	}
 	var dec int32
@@ -340,8 +349,12 @@ func (p *ParakeetCpp) AudioTranscriptionStream(ctx context.Context, opts *pb.Tra
 		return nil
 	}
 	defer CppStreamFree(stream)
-	// The engine is a single shared context; streaming is mutually exclusive
-	// with batched unary dispatch, so hold engineMu for the whole session.
+	// The C engine is a single shared context: a streaming session and a batched
+	// unary dispatch must never touch it at once, so hold engineMu for the whole
+	// stream. This lock is intentionally taken AFTER the non-streaming fallback
+	// above returns: that fallback goes through AudioTranscription -> the batcher
+	// -> runBatch, which itself acquires engineMu, so locking here first would
+	// deadlock. Do not hoist this lock above the fallback.
 	p.engineMu.Lock()
 	defer p.engineMu.Unlock()
 
@@ -463,6 +476,12 @@ func decodeWavMono16k(path string) ([]float32, float32, error) {
 // Free releases the underlying parakeet_ctx. Called by LocalAI when the
 // model is unloaded.
 func (p *ParakeetCpp) Free() error {
+	// Stop the dispatcher before releasing the engine so no in-flight runBatch
+	// can touch a freed ctx (close leak / use-after-free on reload).
+	if p.batStop != nil {
+		close(p.batStop)
+		p.batStop = nil
+	}
 	if p.ctxPtr != 0 {
 		CppFree(p.ctxPtr)
 		p.ctxPtr = 0
