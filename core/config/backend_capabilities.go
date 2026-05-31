@@ -22,9 +22,11 @@ const (
 	UsecaseRerank          = "rerank"
 	UsecaseDetection       = "detection"
 	UsecaseVAD             = "vad"
-	UsecaseAudioTransform  = "audio_transform"
-	UsecaseDiarization     = "diarization"
-	UsecaseRealtimeAudio   = "realtime_audio"
+	UsecaseAudioTransform      = "audio_transform"
+	UsecaseDiarization         = "diarization"
+	UsecaseRealtimeAudio       = "realtime_audio"
+	UsecaseFaceRecognition     = "face_recognition"
+	UsecaseSpeakerRecognition  = "speaker_recognition"
 )
 
 // GRPCMethod identifies a Backend service RPC from backend.proto.
@@ -47,6 +49,11 @@ const (
 	MethodAudioTransform     GRPCMethod = "AudioTransform"
 	MethodDiarize            GRPCMethod = "Diarize"
 	MethodAudioToAudioStream GRPCMethod = "AudioToAudioStream"
+	MethodFaceVerify         GRPCMethod = "FaceVerify"
+	MethodFaceAnalyze        GRPCMethod = "FaceAnalyze"
+	MethodVoiceVerify        GRPCMethod = "VoiceVerify"
+	MethodVoiceEmbed         GRPCMethod = "VoiceEmbed"
+	MethodVoiceAnalyze       GRPCMethod = "VoiceAnalyze"
 )
 
 // UsecaseInfo describes a single known_usecase value and how it maps
@@ -153,6 +160,16 @@ var UsecaseInfoMap = map[string]UsecaseInfo{
 		Flag:        FLAG_REALTIME_AUDIO,
 		GRPCMethod:  MethodAudioToAudioStream,
 		Description: "Self-contained any-to-any audio model for the Realtime API — accepts microphone audio and emits speech + transcript (+ optional function calls) from a single backend via the AudioToAudioStream RPC.",
+	},
+	UsecaseFaceRecognition: {
+		Flag:        FLAG_FACE_RECOGNITION,
+		GRPCMethod:  MethodFaceVerify,
+		Description: "Face recognition — verify identity, analyze attributes (age/gender/emotion) via FaceVerify and FaceAnalyze RPCs.",
+	},
+	UsecaseSpeakerRecognition: {
+		Flag:        FLAG_SPEAKER_RECOGNITION,
+		GRPCMethod:  MethodVoiceVerify,
+		Description: "Speaker recognition — verify identity, embed and analyze voice via VoiceVerify, VoiceEmbed and VoiceAnalyze RPCs.",
 	},
 }
 
@@ -470,6 +487,21 @@ var BackendCapabilities = map[string]BackendCapability{
 		PossibleUsecases: []string{UsecaseDetection},
 		DefaultUsecases:  []string{UsecaseDetection},
 		Description:      "RF-DETR C++ object detection",
+	},
+
+	// --- Face and speaker recognition backends ---
+	"insightface": {
+		GRPCMethods:      []GRPCMethod{MethodEmbedding, MethodDetect, MethodFaceVerify, MethodFaceAnalyze},
+		PossibleUsecases: []string{UsecaseEmbeddings, UsecaseDetection, UsecaseFaceRecognition},
+		DefaultUsecases:  []string{UsecaseFaceRecognition},
+		AcceptsImages:    true,
+		Description:      "InsightFace — face detection, embedding, verification and attribute analysis",
+	},
+	"speaker-recognition": {
+		GRPCMethods:      []GRPCMethod{MethodVoiceVerify, MethodVoiceEmbed, MethodVoiceAnalyze},
+		PossibleUsecases: []string{UsecaseSpeakerRecognition},
+		DefaultUsecases:  []string{UsecaseSpeakerRecognition},
+		Description:      "Speaker recognition — voice identity verification and analysis",
 	},
 	"silero-vad": {
 		GRPCMethods:      []GRPCMethod{MethodVAD},
