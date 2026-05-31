@@ -81,6 +81,11 @@
           gotools  # goimports
           go-tools # staticcheck
 
+          # Audio transforms: pkg/utils/ffmpeg_test.go shells out to the
+          # `ffmpeg` CLI, exercised by `make test-coverage` (the pre-commit
+          # gate). Headless build = the CLI without GUI/X deps.
+          ffmpeg-headless
+
           # Common dev conveniences
           git
           curl
