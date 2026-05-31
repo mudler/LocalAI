@@ -55,6 +55,7 @@ func ensureLibLoaded() {
 		purego.RegisterLibFunc(&CppTTSSynthesize, gosd, "tts_synthesize")
 		purego.RegisterLibFunc(&CppTTSFree, gosd, "tts_free")
 		purego.RegisterLibFunc(&CppTTSSetVoice, gosd, "tts_set_voice")
+		purego.RegisterLibFunc(&CppTTSSetVoiceFile, gosd, "tts_set_voice_file")
 	})
 	if libLoadErr != nil {
 		Skip("whisper library not loadable: " + libLoadErr.Error())

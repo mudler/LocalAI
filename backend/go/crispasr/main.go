@@ -43,6 +43,7 @@ func main() {
 		{&CppTTSSynthesize, "tts_synthesize"},
 		{&CppTTSFree, "tts_free"},
 		{&CppTTSSetVoice, "tts_set_voice"},
+		{&CppTTSSetVoiceFile, "tts_set_voice_file"},
 	}
 
 	for _, lf := range libFuncs {

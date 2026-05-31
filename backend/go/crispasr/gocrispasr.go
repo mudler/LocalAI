@@ -32,6 +32,7 @@ var (
 	CppTTSSynthesize   func(text string, outNSamples unsafe.Pointer) uintptr
 	CppTTSFree         func(ptr uintptr)
 	CppTTSSetVoice     func(name string) int
+	CppTTSSetVoiceFile func(path string, refText string) int
 )
 
 type CrispASR struct {
@@ -53,6 +54,9 @@ func (w *CrispASR) Load(opts *pb.ModelOptions) error {
 	vadOnly := false
 	backendName := ""
 	codecPath := ""
+	speakerName := ""
+	voicePath := ""
+	voiceRefText := ""
 
 	for _, oo := range opts.Options {
 		if oo == "vad_only" {
@@ -64,6 +68,12 @@ func (w *CrispASR) Load(opts *pb.ModelOptions) error {
 			backendName = value
 		case ok && key == "codec":
 			codecPath = value
+		case ok && key == "speaker":
+			speakerName = value
+		case ok && key == "voice":
+			voicePath = value
+		case ok && key == "voice_text":
+			voiceRefText = value
 		default:
 			fmt.Fprintf(os.Stderr, "Unrecognized option: %v\n", oo)
 		}
@@ -83,6 +93,12 @@ func (w *CrispASR) Load(opts *pb.ModelOptions) error {
 		codecPath = filepath.Join(filepath.Dir(opts.ModelFile), codecPath)
 	}
 
+	// A voice file (.gguf pack or .wav prompt) is resolved against the model
+	// directory just like the codec, so a config can reference a sibling file.
+	if voicePath != "" && !filepath.IsAbs(voicePath) {
+		voicePath = filepath.Join(filepath.Dir(opts.ModelFile), voicePath)
+	}
+
 	if ret := CppLoadModel(opts.ModelFile, int(opts.Threads), backendName); ret != 0 {
 		return fmt.Errorf("Failed to load CrispASR transcription model")
 	}
@@ -95,6 +111,22 @@ func (w *CrispASR) Load(opts *pb.ModelOptions) error {
 			return fmt.Errorf("crispasr: failed to load companion file %q (rc=%d)", codecPath, rc)
 		}
 		fmt.Fprintf(os.Stderr, "CrispASR companion file loaded: %s\n", codecPath)
+	}
+
+	// Apply the Load-time default voice. A baked speaker (speaker:) is selected
+	// by name and is best-effort: a backend that can't honor it is logged, not
+	// fatal. A voice file (voice:) is a hard requirement once configured, so a
+	// negative rc fails Load.
+	if speakerName != "" {
+		if rc := CppTTSSetVoice(speakerName); rc != 0 {
+			fmt.Fprintf(os.Stderr, "crispasr: speaker %q not applied (rc=%d)\n", speakerName, rc)
+		}
+	}
+	if voicePath != "" {
+		if rc := CppTTSSetVoiceFile(voicePath, voiceRefText); rc < 0 {
+			return fmt.Errorf("crispasr: failed to load voice %q (rc=%d)", voicePath, rc)
+		}
+		fmt.Fprintf(os.Stderr, "CrispASR voice loaded: %s\n", voicePath)
 	}
 
 	fmt.Fprintf(os.Stderr, "CrispASR backend selected: %s\n", CppGetBackend())

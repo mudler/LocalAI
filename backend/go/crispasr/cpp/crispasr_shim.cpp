@@ -31,6 +31,8 @@ float *crispasr_session_synthesize(crispasr_session *s, const char *text,
                                    int *out_n_samples);
 void crispasr_pcm_free(float *pcm);
 int crispasr_session_set_speaker_name(crispasr_session *s, const char *name);
+int crispasr_session_set_voice(crispasr_session *s, const char *path,
+                               const char *ref_text_or_null);
 }
 
 static crispasr_session *g_session = nullptr;
@@ -238,4 +240,14 @@ void tts_free(float *pcm) {
 int tts_set_voice(const char *name) {
   if (!g_session || !name || !*name) return 0;
   return crispasr_session_set_speaker_name(g_session, name);
+}
+
+// tts_set_voice_file loads a voice from a file: a .gguf path selects a voice
+// pack, a .wav path with a non-empty ref_text performs zero-shot voice cloning
+// (the C API returns -2 when ref_text is required but missing). Returns -1 when
+// no session is open or path is null.
+int tts_set_voice_file(const char *path, const char *ref_text) {
+  if (!g_session || !path) return -1;
+  const char *ref = (ref_text && *ref_text) ? ref_text : nullptr;
+  return crispasr_session_set_voice(g_session, path, ref);
 }

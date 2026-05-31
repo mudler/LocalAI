@@ -19,4 +19,5 @@ void set_abort(int v);
 float *tts_synthesize(const char *text, int *out_n_samples); // 24kHz mono float, malloc'd; NULL on failure
 void tts_free(float *pcm);
 int tts_set_voice(const char *name); // best-effort speaker selection; 0 ok
+int tts_set_voice_file(const char *path, const char *ref_text); // load voice pack (.gguf) or zero-shot clone (.wav + ref_text)
 }
