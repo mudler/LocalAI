@@ -32256,3 +32256,24 @@
   files:
     - filename: vibevoice-asr-q4_k.gguf
       uri: huggingface://cstr/vibevoice-asr-GGUF/vibevoice-asr-q4_k.gguf
+- name: vibevoice-tts-crispasr
+  url: github:mudler/LocalAI/gallery/vibevoice-tts-crispasr.yaml@master
+  urls:
+    - https://huggingface.co/cstr/vibevoice-realtime-0.5b-GGUF
+  description: |
+    VibeVoice Realtime 0.5B text-to-speech (TTS) model, synthesized through the CrispASR backend. Produces 24 kHz mono audio; runs end-to-end on CPU with a built-in default voice. Default GGUF size ~636 MB.
+  tags:
+    - crispasr
+    - tts
+    - text-to-speech
+    - gguf
+  overrides:
+    backend: crispasr
+    known_usecases:
+      - tts
+    name: vibevoice-tts-crispasr
+    parameters:
+      model: vibevoice-realtime-0.5b-q4_k.gguf
+  files:
+    - filename: vibevoice-realtime-0.5b-q4_k.gguf
+      uri: huggingface://cstr/vibevoice-realtime-0.5b-GGUF/vibevoice-realtime-0.5b-q4_k.gguf
