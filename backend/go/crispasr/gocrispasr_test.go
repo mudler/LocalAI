@@ -45,6 +45,7 @@ func ensureLibLoaded() {
 			return
 		}
 		purego.RegisterLibFunc(&CppLoadModel, gosd, "load_model")
+		purego.RegisterLibFunc(&CppSetCodecPath, gosd, "set_codec_path")
 		purego.RegisterLibFunc(&CppTranscribe, gosd, "transcribe")
 		purego.RegisterLibFunc(&CppGetSegmentText, gosd, "get_segment_text")
 		purego.RegisterLibFunc(&CppGetSegmentStart, gosd, "get_segment_t0")

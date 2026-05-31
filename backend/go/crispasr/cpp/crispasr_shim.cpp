@@ -12,6 +12,10 @@
 struct crispasr_session_result;
 extern "C" {
 crispasr_session *crispasr_session_open(const char *model_path, int n_threads);
+crispasr_session *crispasr_session_open_explicit(const char *model_path,
+                                                 const char *backend_name,
+                                                 int n_threads);
+int crispasr_session_set_codec_path(crispasr_session *s, const char *path);
 void crispasr_session_close(crispasr_session *s);
 const char *crispasr_session_backend(crispasr_session *s);
 int crispasr_session_set_translate(crispasr_session *s, int enable);
@@ -72,11 +76,17 @@ static void ggml_log_cb(enum ggml_log_level level, const char *log,
   fflush(stderr);
 }
 
-int load_model(const char *const model_path, int threads) {
+int load_model(const char *const model_path, int threads,
+               const char *backend_name) {
   whisper_log_set(ggml_log_cb, nullptr);
   ggml_backend_load_all();
 
-  g_session = crispasr_session_open(model_path, threads);
+  if (backend_name && *backend_name) {
+    g_session =
+        crispasr_session_open_explicit(model_path, backend_name, threads);
+  } else {
+    g_session = crispasr_session_open(model_path, threads);
+  }
   if (g_session == nullptr) {
     fprintf(stderr, "error: failed to open CrispASR session for model\n");
     return 1;
@@ -85,6 +95,14 @@ int load_model(const char *const model_path, int threads) {
   fprintf(stderr, "info: CrispASR backend selected: %s\n",
           crispasr_session_backend(g_session));
   return 0;
+}
+
+// set_codec_path forwards a companion file (qwen3-tts codec, orpheus SNAC,
+// chatterbox s3gen, or mimo-asr tokenizer) to the active session. Returns 0 on
+// success or when the active backend needs no companion, negative on failure,
+// and -1 when no session is open.
+int set_codec_path(const char *path) {
+  return g_session ? crispasr_session_set_codec_path(g_session, path) : -1;
 }
 
 int load_model_vad(const char *const model_path) {

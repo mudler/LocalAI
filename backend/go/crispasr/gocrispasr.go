@@ -19,7 +19,8 @@ import (
 )
 
 var (
-	CppLoadModel       func(modelPath string, threads int) int
+	CppLoadModel       func(modelPath string, threads int, backendName string) int
+	CppSetCodecPath    func(path string) int
 	CppLoadModelVAD    func(modelPath string) int
 	CppVAD             func(pcmf32 []float32, pcmf32Size uintptr, segsOut unsafe.Pointer, segsOutLen unsafe.Pointer) int
 	CppTranscribe      func(threads uint32, lang string, translate bool, diarize bool, pcmf32 []float32, pcmf32Len uintptr, segsOutLen unsafe.Pointer, prompt string) int
@@ -37,13 +38,33 @@ type CrispASR struct {
 	base.SingleThread
 }
 
+// splitOption splits a "prefix:value" model option into its key and value,
+// matching the convention used by other backends (see sherpa-onnx). It returns
+// ok=false when the option carries no ':' separator.
+func splitOption(oo string) (key, value string, ok bool) {
+	parts := strings.SplitN(oo, ":", 2)
+	if len(parts) != 2 {
+		return "", "", false
+	}
+	return parts[0], parts[1], true
+}
+
 func (w *CrispASR) Load(opts *pb.ModelOptions) error {
 	vadOnly := false
+	backendName := ""
+	codecPath := ""
 
 	for _, oo := range opts.Options {
 		if oo == "vad_only" {
 			vadOnly = true
-		} else {
+			continue
+		}
+		switch key, value, ok := splitOption(oo); {
+		case ok && key == "backend":
+			backendName = value
+		case ok && key == "codec":
+			codecPath = value
+		default:
 			fmt.Fprintf(os.Stderr, "Unrecognized option: %v\n", oo)
 		}
 	}
@@ -56,8 +77,24 @@ func (w *CrispASR) Load(opts *pb.ModelOptions) error {
 		return nil
 	}
 
-	if ret := CppLoadModel(opts.ModelFile, int(opts.Threads)); ret != 0 {
+	// Resolve a relative companion path against the model directory so a config
+	// can reference a sibling codec/tokenizer file by name alone.
+	if codecPath != "" && !filepath.IsAbs(codecPath) {
+		codecPath = filepath.Join(filepath.Dir(opts.ModelFile), codecPath)
+	}
+
+	if ret := CppLoadModel(opts.ModelFile, int(opts.Threads), backendName); ret != 0 {
 		return fmt.Errorf("Failed to load CrispASR transcription model")
+	}
+
+	// Load the companion file (codec/tokenizer/s3gen) after the session is open.
+	// rc==0 means success or "not applicable" for the active backend; only a
+	// negative code is fatal.
+	if codecPath != "" {
+		if rc := CppSetCodecPath(codecPath); rc < 0 {
+			return fmt.Errorf("crispasr: failed to load companion file %q (rc=%d)", codecPath, rc)
+		}
+		fmt.Fprintf(os.Stderr, "CrispASR companion file loaded: %s\n", codecPath)
 	}
 
 	fmt.Fprintf(os.Stderr, "CrispASR backend selected: %s\n", CppGetBackend())

@@ -31,6 +31,7 @@ func main() {
 
 	libFuncs := []LibFuncs{
 		{&CppLoadModel, "load_model"},
+		{&CppSetCodecPath, "set_codec_path"},
 		{&CppLoadModelVAD, "load_model_vad"},
 		{&CppVAD, "vad"},
 		{&CppTranscribe, "transcribe"},

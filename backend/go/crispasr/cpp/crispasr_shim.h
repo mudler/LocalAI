@@ -2,7 +2,9 @@
 #include <cstdint>
 
 extern "C" {
-int load_model(const char *const model_path, int threads);
+int load_model(const char *const model_path, int threads,
+               const char *backend_name);
+int set_codec_path(const char *path);
 int load_model_vad(const char *const model_path);
 int vad(float pcmf32[], size_t pcmf32_size, float **segs_out,
         size_t *segs_out_len);
