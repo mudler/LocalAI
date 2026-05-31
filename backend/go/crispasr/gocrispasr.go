@@ -84,7 +84,7 @@ func (w *CrispASR) VAD(req *pb.VADRequest) (pb.VADResponse, error) {
 
 	// unsafeptr warning is caused by segsPtr being on the stack and therefor being subject to stack copying AFAICT
 	// however the stack shouldn't have grown between setting segsPtr and now, also the memory pointed to is allocated by C++
-	segs := unsafe.Slice((*float32)(unsafe.Pointer(segsPtr)), segsLen)
+	segs := unsafe.Slice((*float32)(unsafe.Pointer(segsPtr)), segsLen) //nolint:govet // segsPtr addresses C++-owned heap memory passed back through the cgo-free purego boundary; the uintptr->Pointer round-trip is intentional and the buffer outlives this read.
 
 	vadSegments := []*pb.VADSegment{}
 	for i := range len(segs) >> 1 {
@@ -110,7 +110,7 @@ func (w *CrispASR) AudioTranscription(ctx context.Context, opts *pb.TranscriptRe
 	if err != nil {
 		return pb.TranscriptResult{}, err
 	}
-	defer os.RemoveAll(dir)
+	defer func() { _ = os.RemoveAll(dir) }()
 
 	convertedPath := filepath.Join(dir, "converted.wav")
 
@@ -122,7 +122,7 @@ func (w *CrispASR) AudioTranscription(ctx context.Context, opts *pb.TranscriptRe
 	if err != nil {
 		return pb.TranscriptResult{}, err
 	}
-	defer fh.Close()
+	defer func() { _ = fh.Close() }()
 
 	d := wav.NewDecoder(fh)
 	buf, err := d.FullPCMBuffer()
@@ -320,7 +320,7 @@ func (w *CrispASR) synthesize(text string) ([]float32, error) {
 		return nil, fmt.Errorf("crispasr: synthesis failed (the loaded model may not be a supported TTS backend, or needs extra config e.g. orpheus SNAC codec)")
 	}
 	defer CppTTSFree(ptr)
-	src := unsafe.Slice((*float32)(unsafe.Pointer(ptr)), int(n))
+	src := unsafe.Slice((*float32)(unsafe.Pointer(ptr)), int(n)) //nolint:govet // ptr addresses C-allocated PCM returned across the purego boundary; copied out immediately below, before tts_free.
 	out := make([]float32, int(n)) // copy out of C memory before free
 	copy(out, src)
 	return out, nil
