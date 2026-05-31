@@ -9,6 +9,7 @@ import (
 	"sync"
 	"unsafe"
 
+	"github.com/go-audio/audio"
 	"github.com/go-audio/wav"
 	"github.com/mudler/LocalAI/pkg/grpc/base"
 	pb "github.com/mudler/LocalAI/pkg/grpc/proto"
@@ -27,6 +28,9 @@ var (
 	CppGetSegmentEnd   func(i int) int64
 	CppGetBackend      func() string
 	CppSetAbort        func(v int)
+	CppTTSSynthesize   func(text string, outNSamples unsafe.Pointer) uintptr
+	CppTTSFree         func(ptr uintptr)
+	CppTTSSetVoice     func(name string) int
 )
 
 type CrispASR struct {
@@ -302,5 +306,114 @@ func (w *CrispASR) AudioTranscriptionStream(ctx context.Context, opts *pb.Transc
 		Duration: duration,
 	}
 	results <- &pb.TranscriptStreamResponse{FinalResult: final}
+	return nil
+}
+
+// synthesize returns 24 kHz mono float32 PCM for text via the open session.
+func (w *CrispASR) synthesize(text string) ([]float32, error) {
+	if text == "" {
+		return nil, fmt.Errorf("crispasr: TTS requires non-empty text")
+	}
+	var n int32
+	ptr := CppTTSSynthesize(text, unsafe.Pointer(&n))
+	if ptr == 0 || n <= 0 {
+		return nil, fmt.Errorf("crispasr: synthesis failed (the loaded model may not be a supported TTS backend, or needs extra config e.g. orpheus SNAC codec)")
+	}
+	defer CppTTSFree(ptr)
+	src := unsafe.Slice((*float32)(unsafe.Pointer(ptr)), int(n))
+	out := make([]float32, int(n)) // copy out of C memory before free
+	copy(out, src)
+	return out, nil
+}
+
+func (w *CrispASR) TTS(req *pb.TTSRequest) error {
+	if req.Dst == "" {
+		return fmt.Errorf("crispasr: TTS requires a destination path")
+	}
+	if v := strings.TrimSpace(req.Voice); v != "" {
+		CppTTSSetVoice(v)
+	}
+	pcm, err := w.synthesize(req.Text)
+	if err != nil {
+		return err
+	}
+	return writeWAV24k(req.Dst, pcm)
+}
+
+// TTSStream is the streaming counterpart to TTS. CrispASR has no progressive
+// (native streaming) synth, so we synthesize the whole utterance, encode it to
+// a 24 kHz WAV, and emit the encoded bytes as a single chunk. The gRPC server
+// wrapper (pkg/grpc/server.go:TTSStream) ranges over the channel until it is
+// closed, so this method owns the close - mirrors vibevoice-cpp's TTSStream.
+func (w *CrispASR) TTSStream(req *pb.TTSRequest, results chan []byte) error {
+	defer close(results)
+
+	if req.Text == "" {
+		return fmt.Errorf("crispasr: TTSStream requires text")
+	}
+	if v := strings.TrimSpace(req.Voice); v != "" {
+		CppTTSSetVoice(v)
+	}
+	pcm, err := w.synthesize(req.Text)
+	if err != nil {
+		return err
+	}
+
+	tmp, err := os.CreateTemp("", "crispasr-tts-stream-*.wav")
+	if err != nil {
+		return fmt.Errorf("crispasr: tempfile: %w", err)
+	}
+	dst := tmp.Name()
+	if err := tmp.Close(); err != nil {
+		return fmt.Errorf("crispasr: close tempfile: %w", err)
+	}
+	defer func() { _ = os.Remove(dst) }()
+
+	if err := writeWAV24k(dst, pcm); err != nil {
+		return err
+	}
+
+	encoded, err := os.ReadFile(dst)
+	if err != nil {
+		return fmt.Errorf("crispasr: read tempfile: %w", err)
+	}
+	results <- encoded
+	return nil
+}
+
+// writeWAV24k writes pcm as a 24000 Hz, mono, 16-bit PCM WAV at dst.
+func writeWAV24k(dst string, pcm []float32) error {
+	f, err := os.Create(dst)
+	if err != nil {
+		return fmt.Errorf("crispasr: create %q: %w", dst, err)
+	}
+
+	enc := wav.NewEncoder(f, 24000, 16, 1, 1)
+	ints := make([]int, len(pcm))
+	for i, s := range pcm {
+		if s > 1 {
+			s = 1
+		} else if s < -1 {
+			s = -1
+		}
+		ints[i] = int(s * 32767)
+	}
+	buf := &audio.IntBuffer{
+		Format:         &audio.Format{NumChannels: 1, SampleRate: 24000},
+		Data:           ints,
+		SourceBitDepth: 16,
+	}
+	if err := enc.Write(buf); err != nil {
+		_ = enc.Close()
+		_ = f.Close()
+		return fmt.Errorf("crispasr: encode WAV: %w", err)
+	}
+	if err := enc.Close(); err != nil {
+		_ = f.Close()
+		return fmt.Errorf("crispasr: finalize WAV: %w", err)
+	}
+	if err := f.Close(); err != nil {
+		return fmt.Errorf("crispasr: close %q: %w", dst, err)
+	}
 	return nil
 }

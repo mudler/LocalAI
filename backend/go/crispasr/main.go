@@ -39,6 +39,9 @@ func main() {
 		{&CppGetSegmentEnd, "get_segment_t1"},
 		{&CppGetBackend, "get_backend"},
 		{&CppSetAbort, "set_abort"},
+		{&CppTTSSynthesize, "tts_synthesize"},
+		{&CppTTSFree, "tts_free"},
+		{&CppTTSSetVoice, "tts_set_voice"},
 	}
 
 	for _, lf := range libFuncs {
