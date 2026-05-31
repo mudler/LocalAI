@@ -291,6 +291,12 @@ var BackendCapabilities = map[string]BackendCapability{
 		DefaultUsecases:  []string{UsecaseTranscript},
 		Description:      "NVIDIA NeMo speech recognition",
 	},
+	"parakeet-cpp": {
+		GRPCMethods:      []GRPCMethod{MethodAudioTranscription},
+		PossibleUsecases: []string{UsecaseTranscript},
+		DefaultUsecases:  []string{UsecaseTranscript},
+		Description:      "NVIDIA NeMo Parakeet ASR (parakeet.cpp)",
+	},
 	"qwen-asr": {
 		GRPCMethods:      []GRPCMethod{MethodAudioTranscription},
 		PossibleUsecases: []string{UsecaseTranscript},
