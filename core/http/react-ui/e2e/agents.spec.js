@@ -20,5 +20,10 @@ test.describe('Agents page', () => {
       page.waitForURL(/\/app\/agents\/new$/),
       create.click(),
     ])
+    // Wait for AgentCreate.jsx to actually render, not just for the URL to
+    // change. Ending the test the instant the route matched let the component
+    // mount race the coverage teardown — its ~400 lines were collected only
+    // when the render won, swinging total UI coverage ~1pp run-to-run.
+    await expect(page.getByRole('heading', { name: 'Create Agent' })).toBeVisible()
   })
 })

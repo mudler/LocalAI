@@ -32,6 +32,9 @@ var _ = Describe("SecurityHeaders", func() {
 		Expect(csp).To(ContainSubstring("frame-ancestors 'self'"))
 		Expect(csp).To(ContainSubstring("object-src 'none'"))
 		Expect(csp).To(ContainSubstring("base-uri 'self'"))
+		// blob: must be in connect-src so the waveform renderer can XHR/fetch
+		// a freshly-created object URL (uploaded/enhanced clip).
+		Expect(csp).To(ContainSubstring("connect-src 'self' ws: wss: https: blob:"))
 	})
 
 	It("sets X-Content-Type-Options: nosniff", func() {
