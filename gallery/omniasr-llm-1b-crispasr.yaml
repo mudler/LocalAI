@@ -1,7 +1,0 @@
----
-name: "omniasr-llm-1b-crispasr"
-
-config_file: |
-  backend: crispasr
-  parameters:
-    model: omniasr-llm-1b-q4_k.gguf

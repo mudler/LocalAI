@@ -1,7 +1,0 @@
----
-name: "mimo-asr-crispasr"
-
-config_file: |
-  backend: crispasr
-  parameters:
-    model: mimo-asr-q4_k.gguf

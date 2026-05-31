@@ -1,7 +1,0 @@
----
-name: "mega-asr-crispasr"
-
-config_file: |
-  backend: crispasr
-  parameters:
-    model: mega-asr-1.7b-q4_k.gguf

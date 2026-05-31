@@ -1,7 +1,0 @@
----
-name: "moonshine-streaming-crispasr"
-
-config_file: |
-  backend: crispasr
-  parameters:
-    model: moonshine-streaming-tiny-q4_k.gguf

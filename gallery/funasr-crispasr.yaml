@@ -1,7 +1,0 @@
----
-name: "funasr-crispasr"
-
-config_file: |
-  backend: crispasr
-  parameters:
-    model: funasr-nano-2512-f16.gguf

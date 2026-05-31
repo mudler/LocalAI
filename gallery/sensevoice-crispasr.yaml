@@ -1,7 +1,0 @@
----
-name: "sensevoice-crispasr"
-
-config_file: |
-  backend: crispasr
-  parameters:
-    model: sensevoice-small-q4_k.gguf

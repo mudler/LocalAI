@@ -1,7 +1,0 @@
----
-name: "fun-asr-mlt-nano-crispasr"
-
-config_file: |
-  backend: crispasr
-  parameters:
-    model: funasr-mlt-nano-2512-f16.gguf

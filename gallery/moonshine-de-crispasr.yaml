@@ -1,7 +1,0 @@
----
-name: "moonshine-de-crispasr"
-
-config_file: |
-  backend: crispasr
-  parameters:
-    model: moonshine-base-de-fidoriel-q4_k.gguf

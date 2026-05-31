@@ -1,7 +1,0 @@
----
-name: "kyutai-stt-crispasr"
-
-config_file: |
-  backend: crispasr
-  parameters:
-    model: kyutai-stt-1b-q4_k.gguf
