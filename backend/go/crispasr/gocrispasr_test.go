@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"os"
+	"path/filepath"
 	"strings"
 	"sync"
 	"testing"
@@ -50,6 +51,9 @@ func ensureLibLoaded() {
 		purego.RegisterLibFunc(&CppGetSegmentEnd, gosd, "get_segment_t1")
 		purego.RegisterLibFunc(&CppGetBackend, gosd, "get_backend")
 		purego.RegisterLibFunc(&CppSetAbort, gosd, "set_abort")
+		purego.RegisterLibFunc(&CppTTSSynthesize, gosd, "tts_synthesize")
+		purego.RegisterLibFunc(&CppTTSFree, gosd, "tts_free")
+		purego.RegisterLibFunc(&CppTTSSetVoice, gosd, "tts_set_voice")
 	})
 	if libLoadErr != nil {
 		Skip("whisper library not loadable: " + libLoadErr.Error())
@@ -66,6 +70,17 @@ func fixturesOrSkip() (string, string) {
 		Skip("set CRISPASR_MODEL_PATH and CRISPASR_AUDIO_PATH to run this spec")
 	}
 	return modelPath, audioPath
+}
+
+// ttsModelOrSkip returns the TTS model path or skips the spec when the env var
+// is unset. Like the transcription fixtures, this never runs in default CI — it
+// needs a real TTS model (e.g. a vibevoice GGUF) on disk.
+func ttsModelOrSkip() string {
+	modelPath := os.Getenv("CRISPASR_TTS_MODEL_PATH")
+	if modelPath == "" {
+		Skip("set CRISPASR_TTS_MODEL_PATH to run this spec")
+	}
+	return modelPath
 }
 
 var _ = Describe("CrispASR", func() {
@@ -151,6 +166,26 @@ var _ = Describe("CrispASR", func() {
 				"expected final to carry multiple segments")
 			Expect(assembled.String()).To(Equal(finalText),
 				"concat(deltas) must equal final.Text")
+		})
+	})
+
+	Context("TTS", func() {
+		It("synthesizes a non-empty WAV", func() {
+			ttsModel := ttsModelOrSkip()
+			ensureLibLoaded()
+
+			w := &CrispASR{}
+			Expect(w.Load(&pb.ModelOptions{ModelFile: ttsModel})).To(Succeed())
+
+			dst := filepath.Join(GinkgoT().TempDir(), "out.wav")
+			Expect(w.TTS(&pb.TTSRequest{Text: "Hello from CrispASR.", Dst: dst})).To(Succeed())
+
+			info, err := os.Stat(dst)
+			Expect(err).ToNot(HaveOccurred(), "synthesized WAV should exist at %q", dst)
+			// A real 24 kHz mono WAV is a 44-byte header plus samples; anything
+			// this small would mean an empty/failed synth.
+			Expect(info.Size()).To(BeNumerically(">", 1024),
+				"expected a non-trivial WAV, got %d bytes", info.Size())
 		})
 	})
 })
