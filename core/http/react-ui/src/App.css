@@ -6984,6 +6984,88 @@ select.input {
   color: var(--color-primary);
 }
 
+/* Spectrogram (AudioTransform spectral view) */
+.audio-spectrogram-pair {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--spacing-md);
+}
+@media (max-width: 720px) {
+  .audio-spectrogram-pair {
+    grid-template-columns: 1fr;
+  }
+}
+.audio-spectrogram {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-xs);
+  width: 100%;
+  min-width: 0;
+}
+.audio-spectrogram__label {
+  font-size: var(--text-sm);
+  color: var(--color-text-secondary);
+}
+.audio-spectrogram__canvas-wrap {
+  position: relative;
+  width: 100%;
+  background: var(--color-surface-sunken);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+.audio-spectrogram__canvas-wrap--empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.audio-spectrogram__hint {
+  color: var(--color-text-muted);
+  font-size: var(--text-sm);
+}
+.audio-spectrogram__loading {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-text-muted);
+  font-size: var(--text-sm);
+}
+.audio-spectrogram__error {
+  padding: var(--spacing-md);
+  color: var(--color-error);
+  font-size: var(--text-sm);
+}
+.audio-spectrogram__axis {
+  position: absolute;
+  left: 6px;
+  font-size: 10px;
+  color: var(--color-text-muted);
+  background: var(--color-bg-overlay);
+  padding: 0 4px;
+  border-radius: var(--radius-sm);
+  pointer-events: none;
+  font-variant-numeric: tabular-nums;
+}
+.audio-spectrogram__axis--top {
+  top: 4px;
+}
+.audio-spectrogram__axis--bottom {
+  bottom: 4px;
+}
+.audio-spectrogram__duration {
+  position: absolute;
+  right: 8px;
+  bottom: 6px;
+  font-size: 11px;
+  color: var(--color-text-muted);
+  font-variant-numeric: tabular-nums;
+  background: var(--color-bg-overlay);
+  padding: 1px 6px;
+  border-radius: var(--radius-sm);
+}
+
 /* Audio Transform Studio tab */
 .audio-transform-stack {
   display: flex;
