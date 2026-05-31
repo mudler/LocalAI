@@ -326,13 +326,24 @@ func (w *CrispASR) synthesize(text string) ([]float32, error) {
 	return out, nil
 }
 
+// setVoice applies a per-call speaker/voice override (best effort). CrispASR
+// returns a negative code when the active backend can't honor the name; we log
+// it rather than fail, so an unknown voice falls back to the default speaker.
+func setVoice(voice string) {
+	v := strings.TrimSpace(voice)
+	if v == "" {
+		return
+	}
+	if rc := CppTTSSetVoice(v); rc != 0 {
+		fmt.Fprintf(os.Stderr, "crispasr: voice %q not applied by the active TTS backend (rc=%d); using default\n", v, rc)
+	}
+}
+
 func (w *CrispASR) TTS(req *pb.TTSRequest) error {
 	if req.Dst == "" {
 		return fmt.Errorf("crispasr: TTS requires a destination path")
 	}
-	if v := strings.TrimSpace(req.Voice); v != "" {
-		CppTTSSetVoice(v)
-	}
+	setVoice(req.Voice)
 	pcm, err := w.synthesize(req.Text)
 	if err != nil {
 		return err
@@ -351,9 +362,7 @@ func (w *CrispASR) TTSStream(req *pb.TTSRequest, results chan []byte) error {
 	if req.Text == "" {
 		return fmt.Errorf("crispasr: TTSStream requires text")
 	}
-	if v := strings.TrimSpace(req.Voice); v != "" {
-		CppTTSSetVoice(v)
-	}
+	setVoice(req.Voice)
 	pcm, err := w.synthesize(req.Text)
 	if err != nil {
 		return err
