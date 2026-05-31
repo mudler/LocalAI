@@ -32277,6 +32277,84 @@
   files:
     - filename: vibevoice-realtime-0.5b-q4_k.gguf
       uri: huggingface://cstr/vibevoice-realtime-0.5b-GGUF/vibevoice-realtime-0.5b-q4_k.gguf
+- name: chatterbox-tts-crispasr
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/cstr/chatterbox-GGUF
+  description: |
+    Chatterbox (ResembleAI, MIT) text-to-speech synthesized through the CrispASR backend. Two-GGUF runtime: a Llama T3 token model plus an S3Gen codec companion (tokens to 24 kHz waveform). Auto-detected by CrispASR and ships with a built-in default voice; runs end-to-end on CPU and produces 24 kHz mono audio. Default GGUF sizes ~630 MB (T3) + ~358 MB (S3Gen).
+  tags:
+    - crispasr
+    - tts
+    - text-to-speech
+    - gguf
+  overrides:
+    backend: crispasr
+    known_usecases:
+      - tts
+    name: chatterbox-tts-crispasr
+    options:
+      - "codec:chatterbox-s3gen-q8_0.gguf"
+    parameters:
+      model: chatterbox-t3-q8_0.gguf
+  files:
+    - filename: chatterbox-t3-q8_0.gguf
+      uri: huggingface://cstr/chatterbox-GGUF/chatterbox-t3-q8_0.gguf
+    - filename: chatterbox-s3gen-q8_0.gguf
+      uri: huggingface://cstr/chatterbox-GGUF/chatterbox-s3gen-q8_0.gguf
+- name: qwen3-tts-customvoice-crispasr
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/cstr/qwen3-tts-0.6b-customvoice-GGUF
+  description: |
+    Qwen3-TTS CustomVoice 0.6B (12 Hz) text-to-speech synthesized through the CrispASR backend. Fixed-speaker fine-tune driven via an explicit backend selector plus a tokenizer codec companion. Ships baked speakers (vivian, aiden, dylan, eric, ono_anna, ryan, serena, sohee, uncle_fu); the default config selects vivian. Runs end-to-end on CPU and produces 24 kHz mono audio. Default GGUF sizes ~968 MB (talker) + ~358 MB (tokenizer).
+  tags:
+    - crispasr
+    - tts
+    - text-to-speech
+    - gguf
+  overrides:
+    backend: crispasr
+    known_usecases:
+      - tts
+    name: qwen3-tts-customvoice-crispasr
+    options:
+      - "backend:qwen3-tts"
+      - "codec:qwen3-tts-tokenizer-12hz.gguf"
+      - "speaker:vivian"
+    parameters:
+      model: qwen3-tts-12hz-0.6b-customvoice-q8_0.gguf
+  files:
+    - filename: qwen3-tts-12hz-0.6b-customvoice-q8_0.gguf
+      uri: huggingface://cstr/qwen3-tts-0.6b-customvoice-GGUF/qwen3-tts-12hz-0.6b-customvoice-q8_0.gguf
+    - filename: qwen3-tts-tokenizer-12hz.gguf
+      uri: huggingface://cstr/qwen3-tts-tokenizer-12hz-GGUF/qwen3-tts-tokenizer-12hz.gguf
+- name: orpheus-tts-crispasr
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/cstr/orpheus-3b-base-GGUF
+  description: |
+    Orpheus-3B (Llama-3.2 base) text-to-speech synthesized through the CrispASR backend. Auto-detected by CrispASR; needs a SNAC 24 kHz codec companion and a baked speaker. Ships speaker tara (selected by the default config). Runs end-to-end on CPU and produces 24 kHz mono audio. Default GGUF sizes ~3.5 GB (model) + ~26 MB (SNAC codec).
+  tags:
+    - crispasr
+    - tts
+    - text-to-speech
+    - gguf
+  overrides:
+    backend: crispasr
+    known_usecases:
+      - tts
+    name: orpheus-tts-crispasr
+    options:
+      - "codec:snac-24khz.gguf"
+      - "speaker:tara"
+    parameters:
+      model: orpheus-3b-base-q8_0.gguf
+  files:
+    - filename: orpheus-3b-base-q8_0.gguf
+      uri: huggingface://cstr/orpheus-3b-base-GGUF/orpheus-3b-base-q8_0.gguf
+    - filename: snac-24khz.gguf
+      uri: huggingface://cstr/snac-24khz-GGUF/snac-24khz.gguf
 - name: hubert-crispasr
   url: github:mudler/LocalAI/gallery/virtual.yaml@master
   urls:
