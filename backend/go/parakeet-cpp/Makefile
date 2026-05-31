@@ -34,14 +34,18 @@ ifeq ($(NATIVE),false)
 	CMAKE_ARGS+=-DGGML_NATIVE=OFF
 endif
 
+# parakeet.cpp gates its GGML backends behind PARAKEET_GGML_* options and does
+# set(GGML_CUDA ${PARAKEET_GGML_CUDA} CACHE BOOL "" FORCE), so a bare -DGGML_CUDA=ON
+# is overwritten back to OFF and the build silently falls back to CPU. Forward the
+# PARAKEET_GGML_* options instead. (openblas is not gated, so -DGGML_BLAS passes through.)
 ifeq ($(BUILD_TYPE),cublas)
-	CMAKE_ARGS+=-DGGML_CUDA=ON
+	CMAKE_ARGS+=-DPARAKEET_GGML_CUDA=ON
 else ifeq ($(BUILD_TYPE),openblas)
 	CMAKE_ARGS+=-DGGML_BLAS=ON -DGGML_BLAS_VENDOR=OpenBLAS
 else ifeq ($(BUILD_TYPE),hipblas)
-	CMAKE_ARGS+=-DGGML_HIP=ON
+	CMAKE_ARGS+=-DPARAKEET_GGML_HIP=ON
 else ifeq ($(BUILD_TYPE),vulkan)
-	CMAKE_ARGS+=-DGGML_VULKAN=ON
+	CMAKE_ARGS+=-DPARAKEET_GGML_VULKAN=ON
 endif
 
 .PHONY: parakeet-cpp-grpc package build clean purge test all
