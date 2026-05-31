@@ -1,0 +1,10 @@
+---
+name: "moonshine-streaming-crispasr"
+
+config_file: |
+  backend: crispasr
+  options:
+    - "backend:moonshine-streaming"
+    - "codec:tokenizer.bin"
+  parameters:
+    model: moonshine-streaming-tiny-q4_k.gguf

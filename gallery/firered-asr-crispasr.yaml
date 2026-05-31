@@ -1,0 +1,9 @@
+---
+name: "firered-asr-crispasr"
+
+config_file: |
+  backend: crispasr
+  options:
+    - "backend:firered-asr"
+  parameters:
+    model: firered-asr2-aed-q4_k.gguf

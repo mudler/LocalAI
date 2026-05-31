@@ -1,0 +1,9 @@
+---
+name: "qwen3-tts-crispasr"
+
+config_file: |
+  backend: crispasr
+  options:
+    - "codec:qwen3-tts-tokenizer-12hz.gguf"
+  parameters:
+    model: qwen3-tts-12hz-0.6b-base-q8_0.gguf
