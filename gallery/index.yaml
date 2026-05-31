@@ -31773,7 +31773,7 @@
       sha256: cd53f64eefac2623a12f2f118ef50b56622dc3012f42c815c6adf0d08292f387
 
 - name: parakeet-crispasr
-  url: github:mudler/LocalAI/gallery/parakeet-crispasr.yaml@master
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
   urls:
     - https://huggingface.co/cstr/parakeet-tdt-0.6b-v3-GGUF
   description: |
@@ -31795,7 +31795,7 @@
     - filename: parakeet-tdt-0.6b-v3-q4_k.gguf
       uri: huggingface://cstr/parakeet-tdt-0.6b-v3-GGUF/parakeet-tdt-0.6b-v3-q4_k.gguf
 - name: parakeet-v2-crispasr
-  url: github:mudler/LocalAI/gallery/parakeet-v2-crispasr.yaml@master
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
   urls:
     - https://huggingface.co/cstr/parakeet-tdt-0.6b-v2-GGUF
   description: |
@@ -31817,7 +31817,7 @@
     - filename: parakeet-tdt-0.6b-v2-q4_k.gguf
       uri: huggingface://cstr/parakeet-tdt-0.6b-v2-GGUF/parakeet-tdt-0.6b-v2-q4_k.gguf
 - name: parakeet-ja-crispasr
-  url: github:mudler/LocalAI/gallery/parakeet-ja-crispasr.yaml@master
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
   urls:
     - https://huggingface.co/cstr/parakeet-tdt-0.6b-ja-GGUF
   description: |
@@ -31839,7 +31839,7 @@
     - filename: parakeet-tdt-0.6b-ja.gguf
       uri: huggingface://cstr/parakeet-tdt-0.6b-ja-GGUF/parakeet-tdt-0.6b-ja.gguf
 - name: parakeet-tdt-1.1b-crispasr
-  url: github:mudler/LocalAI/gallery/parakeet-tdt-1.1b-crispasr.yaml@master
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
   urls:
     - https://huggingface.co/cstr/parakeet-tdt-1.1b-GGUF
   description: |
@@ -31861,7 +31861,7 @@
     - filename: parakeet-tdt-1.1b-q4_k.gguf
       uri: huggingface://cstr/parakeet-tdt-1.1b-GGUF/parakeet-tdt-1.1b-q4_k.gguf
 - name: parakeet-tdt_ctc-110m-crispasr
-  url: github:mudler/LocalAI/gallery/parakeet-tdt_ctc-110m-crispasr.yaml@master
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
   urls:
     - https://huggingface.co/cstr/parakeet-tdt_ctc-110m-GGUF
   description: |
@@ -31883,7 +31883,7 @@
     - filename: parakeet-tdt_ctc-110m-q4_k.gguf
       uri: huggingface://cstr/parakeet-tdt_ctc-110m-GGUF/parakeet-tdt_ctc-110m-q4_k.gguf
 - name: parakeet-tdt_ctc-1.1b-crispasr
-  url: github:mudler/LocalAI/gallery/parakeet-tdt_ctc-1.1b-crispasr.yaml@master
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
   urls:
     - https://huggingface.co/cstr/parakeet-tdt_ctc-1.1b-GGUF
   description: |
@@ -31905,7 +31905,7 @@
     - filename: parakeet-tdt_ctc-1.1b-q4_k.gguf
       uri: huggingface://cstr/parakeet-tdt_ctc-1.1b-GGUF/parakeet-tdt_ctc-1.1b-q4_k.gguf
 - name: parakeet-rnnt-0.6b-crispasr
-  url: github:mudler/LocalAI/gallery/parakeet-rnnt-0.6b-crispasr.yaml@master
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
   urls:
     - https://huggingface.co/cstr/parakeet-rnnt-0.6b-GGUF
   description: |
@@ -31927,7 +31927,7 @@
     - filename: parakeet-rnnt-0.6b-q4_k.gguf
       uri: huggingface://cstr/parakeet-rnnt-0.6b-GGUF/parakeet-rnnt-0.6b-q4_k.gguf
 - name: parakeet-rnnt-1.1b-crispasr
-  url: github:mudler/LocalAI/gallery/parakeet-rnnt-1.1b-crispasr.yaml@master
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
   urls:
     - https://huggingface.co/cstr/parakeet-rnnt-1.1b-GGUF
   description: |
@@ -31949,7 +31949,7 @@
     - filename: parakeet-rnnt-1.1b-q4_k.gguf
       uri: huggingface://cstr/parakeet-rnnt-1.1b-GGUF/parakeet-rnnt-1.1b-q4_k.gguf
 - name: fastconformer-ctc-crispasr
-  url: github:mudler/LocalAI/gallery/fastconformer-ctc-crispasr.yaml@master
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
   urls:
     - https://huggingface.co/cstr/stt-en-fastconformer-ctc-large-GGUF
   description: |
@@ -31971,7 +31971,7 @@
     - filename: stt-en-fastconformer-ctc-large-q4_k.gguf
       uri: huggingface://cstr/stt-en-fastconformer-ctc-large-GGUF/stt-en-fastconformer-ctc-large-q4_k.gguf
 - name: canary-crispasr
-  url: github:mudler/LocalAI/gallery/canary-crispasr.yaml@master
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
   urls:
     - https://huggingface.co/cstr/canary-1b-v2-GGUF
   description: |
@@ -31993,7 +31993,7 @@
     - filename: canary-1b-v2-q4_k.gguf
       uri: huggingface://cstr/canary-1b-v2-GGUF/canary-1b-v2-q4_k.gguf
 - name: voxtral-crispasr
-  url: github:mudler/LocalAI/gallery/voxtral-crispasr.yaml@master
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
   urls:
     - https://huggingface.co/cstr/voxtral-mini-3b-2507-GGUF
   description: |
@@ -32015,7 +32015,7 @@
     - filename: voxtral-mini-3b-2507-q4_k.gguf
       uri: huggingface://cstr/voxtral-mini-3b-2507-GGUF/voxtral-mini-3b-2507-q4_k.gguf
 - name: voxtral4b-crispasr
-  url: github:mudler/LocalAI/gallery/voxtral4b-crispasr.yaml@master
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
   urls:
     - https://huggingface.co/cstr/voxtral-mini-4b-realtime-GGUF
   description: |
@@ -32037,7 +32037,7 @@
     - filename: voxtral-mini-4b-realtime-q4_k.gguf
       uri: huggingface://cstr/voxtral-mini-4b-realtime-GGUF/voxtral-mini-4b-realtime-q4_k.gguf
 - name: granite-crispasr
-  url: github:mudler/LocalAI/gallery/granite-crispasr.yaml@master
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
   urls:
     - https://huggingface.co/cstr/granite-speech-4.0-1b-GGUF
   description: |
@@ -32059,7 +32059,7 @@
     - filename: granite-speech-4.0-1b-q4_k.gguf
       uri: huggingface://cstr/granite-speech-4.0-1b-GGUF/granite-speech-4.0-1b-q4_k.gguf
 - name: granite-4.1-crispasr
-  url: github:mudler/LocalAI/gallery/granite-4.1-crispasr.yaml@master
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
   urls:
     - https://huggingface.co/cstr/granite-speech-4.1-2b-GGUF
   description: |
@@ -32081,7 +32081,7 @@
     - filename: granite-speech-4.1-2b-q4_k.gguf
       uri: huggingface://cstr/granite-speech-4.1-2b-GGUF/granite-speech-4.1-2b-q4_k.gguf
 - name: granite-4.1-plus-crispasr
-  url: github:mudler/LocalAI/gallery/granite-4.1-plus-crispasr.yaml@master
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
   urls:
     - https://huggingface.co/cstr/granite-speech-4.1-2b-plus-GGUF
   description: |
@@ -32103,7 +32103,7 @@
     - filename: granite-speech-4.1-2b-plus-q4_k.gguf
       uri: huggingface://cstr/granite-speech-4.1-2b-plus-GGUF/granite-speech-4.1-2b-plus-q4_k.gguf
 - name: granite-4.1-nar-crispasr
-  url: github:mudler/LocalAI/gallery/granite-4.1-nar-crispasr.yaml@master
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
   urls:
     - https://huggingface.co/cstr/granite-speech-4.1-2b-nar-GGUF
   description: |
@@ -32125,7 +32125,7 @@
     - filename: granite-speech-4.1-2b-nar-q4_k.gguf
       uri: huggingface://cstr/granite-speech-4.1-2b-nar-GGUF/granite-speech-4.1-2b-nar-q4_k.gguf
 - name: qwen3-crispasr
-  url: github:mudler/LocalAI/gallery/qwen3-crispasr.yaml@master
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
   urls:
     - https://huggingface.co/cstr/qwen3-asr-0.6b-GGUF
   description: |
@@ -32147,7 +32147,7 @@
     - filename: qwen3-asr-0.6b-q4_k.gguf
       uri: huggingface://cstr/qwen3-asr-0.6b-GGUF/qwen3-asr-0.6b-q4_k.gguf
 - name: qwen3-1.7b-crispasr
-  url: github:mudler/LocalAI/gallery/qwen3-1.7b-crispasr.yaml@master
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
   urls:
     - https://huggingface.co/cstr/qwen3-asr-1.7b-GGUF
   description: |
@@ -32169,7 +32169,7 @@
     - filename: qwen3-asr-1.7b-q4_k.gguf
       uri: huggingface://cstr/qwen3-asr-1.7b-GGUF/qwen3-asr-1.7b-q4_k.gguf
 - name: cohere-crispasr
-  url: github:mudler/LocalAI/gallery/cohere-crispasr.yaml@master
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
   urls:
     - https://huggingface.co/cstr/cohere-transcribe-03-2026-GGUF
   description: |
@@ -32191,7 +32191,7 @@
     - filename: cohere-transcribe-q4_k.gguf
       uri: huggingface://cstr/cohere-transcribe-03-2026-GGUF/cohere-transcribe-q4_k.gguf
 - name: wav2vec2-crispasr
-  url: github:mudler/LocalAI/gallery/wav2vec2-crispasr.yaml@master
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
   urls:
     - https://huggingface.co/cstr/wav2vec2-large-xlsr-53-english-GGUF
   description: |
@@ -32213,7 +32213,7 @@
     - filename: wav2vec2-xlsr-en-q4_k.gguf
       uri: huggingface://cstr/wav2vec2-large-xlsr-53-english-GGUF/wav2vec2-xlsr-en-q4_k.gguf
 - name: wav2vec2-de-crispasr
-  url: github:mudler/LocalAI/gallery/wav2vec2-de-crispasr.yaml@master
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
   urls:
     - https://huggingface.co/cstr/wav2vec2-large-xlsr-53-german-GGUF
   description: |
@@ -32235,7 +32235,7 @@
     - filename: wav2vec2-large-xlsr-53-german-q4_k.gguf
       uri: huggingface://cstr/wav2vec2-large-xlsr-53-german-GGUF/wav2vec2-large-xlsr-53-german-q4_k.gguf
 - name: vibevoice-crispasr
-  url: github:mudler/LocalAI/gallery/vibevoice-crispasr.yaml@master
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
   urls:
     - https://huggingface.co/cstr/vibevoice-asr-GGUF
   description: |
@@ -32257,7 +32257,7 @@
     - filename: vibevoice-asr-q4_k.gguf
       uri: huggingface://cstr/vibevoice-asr-GGUF/vibevoice-asr-q4_k.gguf
 - name: vibevoice-tts-crispasr
-  url: github:mudler/LocalAI/gallery/vibevoice-tts-crispasr.yaml@master
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
   urls:
     - https://huggingface.co/cstr/vibevoice-realtime-0.5b-GGUF
   description: |
@@ -32278,7 +32278,7 @@
     - filename: vibevoice-realtime-0.5b-q4_k.gguf
       uri: huggingface://cstr/vibevoice-realtime-0.5b-GGUF/vibevoice-realtime-0.5b-q4_k.gguf
 - name: hubert-crispasr
-  url: github:mudler/LocalAI/gallery/hubert-crispasr.yaml@master
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
   urls:
     - https://huggingface.co/cstr/hubert-large-ls960-ft-GGUF
   description: |
@@ -32302,7 +32302,7 @@
     - filename: hubert-large-ls960-ft-q4_k.gguf
       uri: huggingface://cstr/hubert-large-ls960-ft-GGUF/hubert-large-ls960-ft-q4_k.gguf
 - name: data2vec-crispasr
-  url: github:mudler/LocalAI/gallery/data2vec-crispasr.yaml@master
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
   urls:
     - https://huggingface.co/cstr/data2vec-audio-960h-GGUF
   description: |
@@ -32326,7 +32326,7 @@
     - filename: data2vec-audio-base-960h-q4_k.gguf
       uri: huggingface://cstr/data2vec-audio-960h-GGUF/data2vec-audio-base-960h-q4_k.gguf
 - name: glm-asr-crispasr
-  url: github:mudler/LocalAI/gallery/glm-asr-crispasr.yaml@master
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
   urls:
     - https://huggingface.co/cstr/glm-asr-nano-GGUF
   description: |
@@ -32350,7 +32350,7 @@
     - filename: glm-asr-nano-q4_k.gguf
       uri: huggingface://cstr/glm-asr-nano-GGUF/glm-asr-nano-q4_k.gguf
 - name: kyutai-stt-crispasr
-  url: github:mudler/LocalAI/gallery/kyutai-stt-crispasr.yaml@master
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
   urls:
     - https://huggingface.co/cstr/kyutai-stt-1b-GGUF
   description: |
@@ -32374,7 +32374,7 @@
     - filename: kyutai-stt-1b-q4_k.gguf
       uri: huggingface://cstr/kyutai-stt-1b-GGUF/kyutai-stt-1b-q4_k.gguf
 - name: firered-asr-crispasr
-  url: github:mudler/LocalAI/gallery/firered-asr-crispasr.yaml@master
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
   urls:
     - https://huggingface.co/cstr/firered-asr2-aed-GGUF
   description: |
@@ -32398,7 +32398,7 @@
     - filename: firered-asr2-aed-q4_k.gguf
       uri: huggingface://cstr/firered-asr2-aed-GGUF/firered-asr2-aed-q4_k.gguf
 - name: moonshine-crispasr
-  url: github:mudler/LocalAI/gallery/moonshine-crispasr.yaml@master
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
   urls:
     - https://huggingface.co/cstr/moonshine-tiny-GGUF
   description: |
@@ -32425,7 +32425,7 @@
     - filename: tokenizer.bin
       uri: huggingface://cstr/moonshine-tiny-GGUF/tokenizer.bin
 - name: moonshine-de-crispasr
-  url: github:mudler/LocalAI/gallery/moonshine-de-crispasr.yaml@master
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
   urls:
     - https://huggingface.co/cstr/moonshine-base-de-fidoriel-GGUF
   description: |
@@ -32453,7 +32453,7 @@
     - filename: tokenizer.bin
       uri: huggingface://cstr/moonshine-base-de-fidoriel-GGUF/tokenizer.bin
 - name: moonshine-tiny-de-crispasr
-  url: github:mudler/LocalAI/gallery/moonshine-tiny-de-crispasr.yaml@master
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
   urls:
     - https://huggingface.co/cstr/moonshine-tiny-de-fidoriel-GGUF
   description: |
@@ -32481,7 +32481,7 @@
     - filename: tokenizer.bin
       uri: huggingface://cstr/moonshine-tiny-de-fidoriel-GGUF/tokenizer.bin
 - name: moonshine-streaming-crispasr
-  url: github:mudler/LocalAI/gallery/moonshine-streaming-crispasr.yaml@master
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
   urls:
     - https://huggingface.co/cstr/moonshine-streaming-tiny-GGUF
   description: |
@@ -32508,7 +32508,7 @@
     - filename: tokenizer.bin
       uri: huggingface://cstr/moonshine-streaming-tiny-GGUF/tokenizer.bin
 - name: mimo-asr-crispasr
-  url: github:mudler/LocalAI/gallery/mimo-asr-crispasr.yaml@master
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
   urls:
     - https://huggingface.co/cstr/mimo-asr-GGUF
   description: |
@@ -32535,7 +32535,7 @@
     - filename: mimo-tokenizer-q4_k.gguf
       uri: huggingface://cstr/mimo-tokenizer-GGUF/mimo-tokenizer-q4_k.gguf
 - name: qwen3-tts-crispasr
-  url: github:mudler/LocalAI/gallery/qwen3-tts-crispasr.yaml@master
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
   urls:
     - https://huggingface.co/cstr/qwen3-tts-0.6b-base-GGUF
   description: |
@@ -32560,7 +32560,7 @@
     - filename: qwen3-tts-tokenizer-12hz.gguf
       uri: huggingface://cstr/qwen3-tts-tokenizer-12hz-GGUF/qwen3-tts-tokenizer-12hz.gguf
 - name: orpheus-crispasr
-  url: github:mudler/LocalAI/gallery/orpheus-crispasr.yaml@master
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
   urls:
     - https://huggingface.co/cstr/orpheus-3b-base-GGUF
   description: |
@@ -32585,7 +32585,7 @@
     - filename: snac-24khz.gguf
       uri: huggingface://cstr/snac-24khz-GGUF/snac-24khz.gguf
 - name: chatterbox-crispasr
-  url: github:mudler/LocalAI/gallery/chatterbox-crispasr.yaml@master
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
   urls:
     - https://huggingface.co/cstr/chatterbox-GGUF
   description: |

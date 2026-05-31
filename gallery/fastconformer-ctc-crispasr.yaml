@@ -1,7 +1,0 @@
----
-name: "fastconformer-ctc-crispasr"
-
-config_file: |
-  backend: crispasr
-  parameters:
-    model: stt-en-fastconformer-ctc-large-q4_k.gguf

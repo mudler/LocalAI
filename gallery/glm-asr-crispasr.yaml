@@ -1,9 +1,0 @@
----
-name: "glm-asr-crispasr"
-
-config_file: |
-  backend: crispasr
-  options:
-    - "backend:glm-asr"
-  parameters:
-    model: glm-asr-nano-q4_k.gguf

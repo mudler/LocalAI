@@ -1,7 +1,0 @@
----
-name: "cohere-crispasr"
-
-config_file: |
-  backend: crispasr
-  parameters:
-    model: cohere-transcribe-q4_k.gguf

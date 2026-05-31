@@ -1,9 +1,0 @@
----
-name: "chatterbox-crispasr"
-
-config_file: |
-  backend: crispasr
-  options:
-    - "codec:chatterbox-s3gen-q8_0.gguf"
-  parameters:
-    model: chatterbox-t3-q8_0.gguf

@@ -1,7 +1,0 @@
----
-name: "parakeet-tdt_ctc-1.1b-crispasr"
-
-config_file: |
-  backend: crispasr
-  parameters:
-    model: parakeet-tdt_ctc-1.1b-q4_k.gguf

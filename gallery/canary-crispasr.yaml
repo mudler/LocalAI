@@ -1,7 +1,0 @@
----
-name: "canary-crispasr"
-
-config_file: |
-  backend: crispasr
-  parameters:
-    model: canary-1b-v2-q4_k.gguf

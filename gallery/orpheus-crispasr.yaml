@@ -1,9 +1,0 @@
----
-name: "orpheus-crispasr"
-
-config_file: |
-  backend: crispasr
-  options:
-    - "codec:snac-24khz.gguf"
-  parameters:
-    model: orpheus-3b-base-q8_0.gguf

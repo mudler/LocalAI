@@ -1,7 +1,0 @@
----
-name: "wav2vec2-de-crispasr"
-
-config_file: |
-  backend: crispasr
-  parameters:
-    model: wav2vec2-large-xlsr-53-german-q4_k.gguf

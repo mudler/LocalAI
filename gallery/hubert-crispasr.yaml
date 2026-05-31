@@ -1,9 +1,0 @@
----
-name: "hubert-crispasr"
-
-config_file: |
-  backend: crispasr
-  options:
-    - "backend:hubert"
-  parameters:
-    model: hubert-large-ls960-ft-q4_k.gguf

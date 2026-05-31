@@ -1,7 +1,0 @@
----
-name: "vibevoice-tts-crispasr"
-
-config_file: |
-  backend: crispasr
-  parameters:
-    model: vibevoice-realtime-0.5b-q4_k.gguf

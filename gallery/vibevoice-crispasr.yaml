@@ -1,7 +1,0 @@
----
-name: "vibevoice-crispasr"
-
-config_file: |
-  backend: crispasr
-  parameters:
-    model: vibevoice-asr-q4_k.gguf

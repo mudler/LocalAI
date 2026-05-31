@@ -1,7 +1,0 @@
----
-name: "qwen3-crispasr"
-
-config_file: |
-  backend: crispasr
-  parameters:
-    model: qwen3-asr-0.6b-q4_k.gguf
