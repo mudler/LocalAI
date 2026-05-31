@@ -31771,3 +31771,844 @@
     - filename: parakeet-cpp/tdt_ctc-1.1b-f16.gguf
       uri: huggingface://mudler/parakeet-cpp-gguf/tdt_ctc-1.1b-f16.gguf
       sha256: cd53f64eefac2623a12f2f118ef50b56622dc3012f42c815c6adf0d08292f387
+
+- name: parakeet-crispasr
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/cstr/parakeet-tdt-0.6b-v3-GGUF
+  description: |
+    NVIDIA Parakeet TDT 0.6B v3 (FastConformer + Token-and-Duration Transducer), 25-language ASR. Runs via the CrispASR backend. Default GGUF size ~467 MB.
+  tags:
+    - crispasr
+    - asr
+    - speech-recognition
+    - stt
+    - gguf
+  overrides:
+    backend: crispasr
+    known_usecases:
+      - transcript
+    name: parakeet-crispasr
+    parameters:
+      model: parakeet-tdt-0.6b-v3-q4_k.gguf
+  files:
+    - filename: parakeet-tdt-0.6b-v3-q4_k.gguf
+      uri: huggingface://cstr/parakeet-tdt-0.6b-v3-GGUF/parakeet-tdt-0.6b-v3-q4_k.gguf
+- name: parakeet-v2-crispasr
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/cstr/parakeet-tdt-0.6b-v2-GGUF
+  description: |
+    NVIDIA Parakeet TDT 0.6B v2 (FastConformer + TDT), English-only ASR. Runs via the CrispASR backend. Default GGUF size ~468 MB.
+  tags:
+    - crispasr
+    - asr
+    - speech-recognition
+    - stt
+    - gguf
+  overrides:
+    backend: crispasr
+    known_usecases:
+      - transcript
+    name: parakeet-v2-crispasr
+    parameters:
+      model: parakeet-tdt-0.6b-v2-q4_k.gguf
+  files:
+    - filename: parakeet-tdt-0.6b-v2-q4_k.gguf
+      uri: huggingface://cstr/parakeet-tdt-0.6b-v2-GGUF/parakeet-tdt-0.6b-v2-q4_k.gguf
+- name: parakeet-ja-crispasr
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/cstr/parakeet-tdt-0.6b-ja-GGUF
+  description: |
+    NVIDIA Parakeet TDT 0.6B Japanese ASR (F16 default; Q4_K is quantisation-sensitive for this model). Runs via the CrispASR backend. Default GGUF size ~1.24 GB.
+  tags:
+    - crispasr
+    - asr
+    - speech-recognition
+    - stt
+    - gguf
+  overrides:
+    backend: crispasr
+    known_usecases:
+      - transcript
+    name: parakeet-ja-crispasr
+    parameters:
+      model: parakeet-tdt-0.6b-ja.gguf
+  files:
+    - filename: parakeet-tdt-0.6b-ja.gguf
+      uri: huggingface://cstr/parakeet-tdt-0.6b-ja-GGUF/parakeet-tdt-0.6b-ja.gguf
+- name: parakeet-tdt-1.1b-crispasr
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/cstr/parakeet-tdt-1.1b-GGUF
+  description: |
+    NVIDIA Parakeet TDT 1.1B (42-layer FastConformer encoder), English-only ASR. Runs via the CrispASR backend. Default GGUF size ~808 MB.
+  tags:
+    - crispasr
+    - asr
+    - speech-recognition
+    - stt
+    - gguf
+  overrides:
+    backend: crispasr
+    known_usecases:
+      - transcript
+    name: parakeet-tdt-1.1b-crispasr
+    parameters:
+      model: parakeet-tdt-1.1b-q4_k.gguf
+  files:
+    - filename: parakeet-tdt-1.1b-q4_k.gguf
+      uri: huggingface://cstr/parakeet-tdt-1.1b-GGUF/parakeet-tdt-1.1b-q4_k.gguf
+- name: parakeet-tdt_ctc-110m-crispasr
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/cstr/parakeet-tdt_ctc-110m-GGUF
+  description: |
+    NVIDIA Parakeet hybrid TDT+CTC 110M (smallest, CTC decode), English-only ASR. Runs via the CrispASR backend. Default GGUF size ~91 MB.
+  tags:
+    - crispasr
+    - asr
+    - speech-recognition
+    - stt
+    - gguf
+  overrides:
+    backend: crispasr
+    known_usecases:
+      - transcript
+    name: parakeet-tdt_ctc-110m-crispasr
+    parameters:
+      model: parakeet-tdt_ctc-110m-q4_k.gguf
+  files:
+    - filename: parakeet-tdt_ctc-110m-q4_k.gguf
+      uri: huggingface://cstr/parakeet-tdt_ctc-110m-GGUF/parakeet-tdt_ctc-110m-q4_k.gguf
+- name: parakeet-tdt_ctc-1.1b-crispasr
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/cstr/parakeet-tdt_ctc-1.1b-GGUF
+  description: |
+    NVIDIA Parakeet hybrid TDT+CTC 1.1B (multilingual, casing + punctuation) ASR. Runs via the CrispASR backend. Default GGUF size ~810 MB.
+  tags:
+    - crispasr
+    - asr
+    - speech-recognition
+    - stt
+    - gguf
+  overrides:
+    backend: crispasr
+    known_usecases:
+      - transcript
+    name: parakeet-tdt_ctc-1.1b-crispasr
+    parameters:
+      model: parakeet-tdt_ctc-1.1b-q4_k.gguf
+  files:
+    - filename: parakeet-tdt_ctc-1.1b-q4_k.gguf
+      uri: huggingface://cstr/parakeet-tdt_ctc-1.1b-GGUF/parakeet-tdt_ctc-1.1b-q4_k.gguf
+- name: parakeet-rnnt-0.6b-crispasr
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/cstr/parakeet-rnnt-0.6b-GGUF
+  description: |
+    NVIDIA Parakeet RNN-Transducer 0.6B (24-layer FastConformer) ASR. Runs via the CrispASR backend. Default GGUF size ~447 MB.
+  tags:
+    - crispasr
+    - asr
+    - speech-recognition
+    - stt
+    - gguf
+  overrides:
+    backend: crispasr
+    known_usecases:
+      - transcript
+    name: parakeet-rnnt-0.6b-crispasr
+    parameters:
+      model: parakeet-rnnt-0.6b-q4_k.gguf
+  files:
+    - filename: parakeet-rnnt-0.6b-q4_k.gguf
+      uri: huggingface://cstr/parakeet-rnnt-0.6b-GGUF/parakeet-rnnt-0.6b-q4_k.gguf
+- name: parakeet-rnnt-1.1b-crispasr
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/cstr/parakeet-rnnt-1.1b-GGUF
+  description: |
+    NVIDIA Parakeet RNN-Transducer 1.1B (42-layer FastConformer) ASR. Runs via the CrispASR backend. Default GGUF size ~770 MB.
+  tags:
+    - crispasr
+    - asr
+    - speech-recognition
+    - stt
+    - gguf
+  overrides:
+    backend: crispasr
+    known_usecases:
+      - transcript
+    name: parakeet-rnnt-1.1b-crispasr
+    parameters:
+      model: parakeet-rnnt-1.1b-q4_k.gguf
+  files:
+    - filename: parakeet-rnnt-1.1b-q4_k.gguf
+      uri: huggingface://cstr/parakeet-rnnt-1.1b-GGUF/parakeet-rnnt-1.1b-q4_k.gguf
+- name: fastconformer-ctc-crispasr
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/cstr/stt-en-fastconformer-ctc-large-GGUF
+  description: |
+    NVIDIA STT-EN FastConformer-CTC Large, English ASR. Runs via the CrispASR backend. Default GGUF size ~83 MB.
+  tags:
+    - crispasr
+    - asr
+    - speech-recognition
+    - stt
+    - gguf
+  overrides:
+    backend: crispasr
+    known_usecases:
+      - transcript
+    name: fastconformer-ctc-crispasr
+    parameters:
+      model: stt-en-fastconformer-ctc-large-q4_k.gguf
+  files:
+    - filename: stt-en-fastconformer-ctc-large-q4_k.gguf
+      uri: huggingface://cstr/stt-en-fastconformer-ctc-large-GGUF/stt-en-fastconformer-ctc-large-q4_k.gguf
+- name: canary-crispasr
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/cstr/canary-1b-v2-GGUF
+  description: |
+    NVIDIA Canary 1B v2 (FastConformer encoder-decoder), multilingual ASR + translation. Runs via the CrispASR backend. Default GGUF size ~600 MB.
+  tags:
+    - crispasr
+    - asr
+    - speech-recognition
+    - stt
+    - gguf
+  overrides:
+    backend: crispasr
+    known_usecases:
+      - transcript
+    name: canary-crispasr
+    parameters:
+      model: canary-1b-v2-q4_k.gguf
+  files:
+    - filename: canary-1b-v2-q4_k.gguf
+      uri: huggingface://cstr/canary-1b-v2-GGUF/canary-1b-v2-q4_k.gguf
+- name: voxtral-crispasr
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/cstr/voxtral-mini-3b-2507-GGUF
+  description: |
+    Mistral Voxtral Mini 3B (audio LLM) ASR. Runs via the CrispASR backend. Default GGUF size ~2.5 GB.
+  tags:
+    - crispasr
+    - asr
+    - speech-recognition
+    - stt
+    - gguf
+  overrides:
+    backend: crispasr
+    known_usecases:
+      - transcript
+    name: voxtral-crispasr
+    parameters:
+      model: voxtral-mini-3b-2507-q4_k.gguf
+  files:
+    - filename: voxtral-mini-3b-2507-q4_k.gguf
+      uri: huggingface://cstr/voxtral-mini-3b-2507-GGUF/voxtral-mini-3b-2507-q4_k.gguf
+- name: voxtral4b-crispasr
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/cstr/voxtral-mini-4b-realtime-GGUF
+  description: |
+    Mistral Voxtral Mini 4B Realtime (audio LLM) ASR. Runs via the CrispASR backend. Default GGUF size ~3.3 GB.
+  tags:
+    - crispasr
+    - asr
+    - speech-recognition
+    - stt
+    - gguf
+  overrides:
+    backend: crispasr
+    known_usecases:
+      - transcript
+    name: voxtral4b-crispasr
+    parameters:
+      model: voxtral-mini-4b-realtime-q4_k.gguf
+  files:
+    - filename: voxtral-mini-4b-realtime-q4_k.gguf
+      uri: huggingface://cstr/voxtral-mini-4b-realtime-GGUF/voxtral-mini-4b-realtime-q4_k.gguf
+- name: granite-crispasr
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/cstr/granite-speech-4.0-1b-GGUF
+  description: |
+    IBM Granite Speech 4.0 1B ASR. Runs via the CrispASR backend. Default GGUF size ~2.94 GB.
+  tags:
+    - crispasr
+    - asr
+    - speech-recognition
+    - stt
+    - gguf
+  overrides:
+    backend: crispasr
+    known_usecases:
+      - transcript
+    name: granite-crispasr
+    parameters:
+      model: granite-speech-4.0-1b-q4_k.gguf
+  files:
+    - filename: granite-speech-4.0-1b-q4_k.gguf
+      uri: huggingface://cstr/granite-speech-4.0-1b-GGUF/granite-speech-4.0-1b-q4_k.gguf
+- name: granite-4.1-crispasr
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/cstr/granite-speech-4.1-2b-GGUF
+  description: |
+    IBM Granite Speech 4.1 2B ASR. Runs via the CrispASR backend. Default GGUF size ~2.94 GB.
+  tags:
+    - crispasr
+    - asr
+    - speech-recognition
+    - stt
+    - gguf
+  overrides:
+    backend: crispasr
+    known_usecases:
+      - transcript
+    name: granite-4.1-crispasr
+    parameters:
+      model: granite-speech-4.1-2b-q4_k.gguf
+  files:
+    - filename: granite-speech-4.1-2b-q4_k.gguf
+      uri: huggingface://cstr/granite-speech-4.1-2b-GGUF/granite-speech-4.1-2b-q4_k.gguf
+- name: granite-4.1-plus-crispasr
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/cstr/granite-speech-4.1-2b-plus-GGUF
+  description: |
+    IBM Granite Speech 4.1 2B Plus ASR. Runs via the CrispASR backend. Default GGUF size ~2.96 GB.
+  tags:
+    - crispasr
+    - asr
+    - speech-recognition
+    - stt
+    - gguf
+  overrides:
+    backend: crispasr
+    known_usecases:
+      - transcript
+    name: granite-4.1-plus-crispasr
+    parameters:
+      model: granite-speech-4.1-2b-plus-q4_k.gguf
+  files:
+    - filename: granite-speech-4.1-2b-plus-q4_k.gguf
+      uri: huggingface://cstr/granite-speech-4.1-2b-plus-GGUF/granite-speech-4.1-2b-plus-q4_k.gguf
+- name: granite-4.1-nar-crispasr
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/cstr/granite-speech-4.1-2b-nar-GGUF
+  description: |
+    IBM Granite Speech 4.1 2B NAR (non-autoregressive) ASR. Runs via the CrispASR backend. Default GGUF size ~3.2 GB.
+  tags:
+    - crispasr
+    - asr
+    - speech-recognition
+    - stt
+    - gguf
+  overrides:
+    backend: crispasr
+    known_usecases:
+      - transcript
+    name: granite-4.1-nar-crispasr
+    parameters:
+      model: granite-speech-4.1-2b-nar-q4_k.gguf
+  files:
+    - filename: granite-speech-4.1-2b-nar-q4_k.gguf
+      uri: huggingface://cstr/granite-speech-4.1-2b-nar-GGUF/granite-speech-4.1-2b-nar-q4_k.gguf
+- name: qwen3-crispasr
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/cstr/qwen3-asr-0.6b-GGUF
+  description: |
+    Qwen3-ASR 0.6B ASR. Runs via the CrispASR backend. Default GGUF size ~500 MB.
+  tags:
+    - crispasr
+    - asr
+    - speech-recognition
+    - stt
+    - gguf
+  overrides:
+    backend: crispasr
+    known_usecases:
+      - transcript
+    name: qwen3-crispasr
+    parameters:
+      model: qwen3-asr-0.6b-q4_k.gguf
+  files:
+    - filename: qwen3-asr-0.6b-q4_k.gguf
+      uri: huggingface://cstr/qwen3-asr-0.6b-GGUF/qwen3-asr-0.6b-q4_k.gguf
+- name: qwen3-1.7b-crispasr
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/cstr/qwen3-asr-1.7b-GGUF
+  description: |
+    Qwen3-ASR 1.7B ASR. Runs via the CrispASR backend. Default GGUF size ~1.3 GB.
+  tags:
+    - crispasr
+    - asr
+    - speech-recognition
+    - stt
+    - gguf
+  overrides:
+    backend: crispasr
+    known_usecases:
+      - transcript
+    name: qwen3-1.7b-crispasr
+    parameters:
+      model: qwen3-asr-1.7b-q4_k.gguf
+  files:
+    - filename: qwen3-asr-1.7b-q4_k.gguf
+      uri: huggingface://cstr/qwen3-asr-1.7b-GGUF/qwen3-asr-1.7b-q4_k.gguf
+- name: cohere-crispasr
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/cstr/cohere-transcribe-03-2026-GGUF
+  description: |
+    Cohere Transcribe (03-2026) ASR. Runs via the CrispASR backend. Default GGUF size ~550 MB.
+  tags:
+    - crispasr
+    - asr
+    - speech-recognition
+    - stt
+    - gguf
+  overrides:
+    backend: crispasr
+    known_usecases:
+      - transcript
+    name: cohere-crispasr
+    parameters:
+      model: cohere-transcribe-q4_k.gguf
+  files:
+    - filename: cohere-transcribe-q4_k.gguf
+      uri: huggingface://cstr/cohere-transcribe-03-2026-GGUF/cohere-transcribe-q4_k.gguf
+- name: wav2vec2-crispasr
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/cstr/wav2vec2-large-xlsr-53-english-GGUF
+  description: |
+    wav2vec2 Large XLSR-53 English (CTC) ASR. Runs via the CrispASR backend. Default GGUF size ~212 MB.
+  tags:
+    - crispasr
+    - asr
+    - speech-recognition
+    - stt
+    - gguf
+  overrides:
+    backend: crispasr
+    known_usecases:
+      - transcript
+    name: wav2vec2-crispasr
+    parameters:
+      model: wav2vec2-xlsr-en-q4_k.gguf
+  files:
+    - filename: wav2vec2-xlsr-en-q4_k.gguf
+      uri: huggingface://cstr/wav2vec2-large-xlsr-53-english-GGUF/wav2vec2-xlsr-en-q4_k.gguf
+- name: wav2vec2-de-crispasr
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/cstr/wav2vec2-large-xlsr-53-german-GGUF
+  description: |
+    wav2vec2 Large XLSR-53 German (CTC) ASR. Runs via the CrispASR backend. Default GGUF size ~222 MB.
+  tags:
+    - crispasr
+    - asr
+    - speech-recognition
+    - stt
+    - gguf
+  overrides:
+    backend: crispasr
+    known_usecases:
+      - transcript
+    name: wav2vec2-de-crispasr
+    parameters:
+      model: wav2vec2-large-xlsr-53-german-q4_k.gguf
+  files:
+    - filename: wav2vec2-large-xlsr-53-german-q4_k.gguf
+      uri: huggingface://cstr/wav2vec2-large-xlsr-53-german-GGUF/wav2vec2-large-xlsr-53-german-q4_k.gguf
+- name: vibevoice-crispasr
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/cstr/vibevoice-asr-GGUF
+  description: |
+    VibeVoice ASR. Runs via the CrispASR backend. Default GGUF size ~4.5 GB.
+  tags:
+    - crispasr
+    - asr
+    - speech-recognition
+    - stt
+    - gguf
+  overrides:
+    backend: crispasr
+    known_usecases:
+      - transcript
+    name: vibevoice-crispasr
+    parameters:
+      model: vibevoice-asr-q4_k.gguf
+  files:
+    - filename: vibevoice-asr-q4_k.gguf
+      uri: huggingface://cstr/vibevoice-asr-GGUF/vibevoice-asr-q4_k.gguf
+- name: vibevoice-tts-crispasr
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/cstr/vibevoice-realtime-0.5b-GGUF
+  description: |
+    VibeVoice Realtime 0.5B text-to-speech (TTS) model, synthesized through the CrispASR backend. Produces 24 kHz mono audio; runs end-to-end on CPU with a built-in default voice. Default GGUF size ~636 MB.
+  tags:
+    - crispasr
+    - tts
+    - text-to-speech
+    - gguf
+  overrides:
+    backend: crispasr
+    known_usecases:
+      - tts
+    name: vibevoice-tts-crispasr
+    parameters:
+      model: vibevoice-realtime-0.5b-q4_k.gguf
+  files:
+    - filename: vibevoice-realtime-0.5b-q4_k.gguf
+      uri: huggingface://cstr/vibevoice-realtime-0.5b-GGUF/vibevoice-realtime-0.5b-q4_k.gguf
+- name: chatterbox-tts-crispasr
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/cstr/chatterbox-GGUF
+  description: |
+    Chatterbox (ResembleAI, MIT) text-to-speech synthesized through the CrispASR backend. Two-GGUF runtime: a Llama T3 token model plus an S3Gen codec companion (tokens to 24 kHz waveform). Auto-detected by CrispASR and ships with a built-in default voice; runs end-to-end on CPU and produces 24 kHz mono audio. Default GGUF sizes ~630 MB (T3) + ~358 MB (S3Gen).
+  tags:
+    - crispasr
+    - tts
+    - text-to-speech
+    - gguf
+  overrides:
+    backend: crispasr
+    known_usecases:
+      - tts
+    name: chatterbox-tts-crispasr
+    options:
+      - "codec:chatterbox-s3gen-q8_0.gguf"
+    parameters:
+      model: chatterbox-t3-q8_0.gguf
+  files:
+    - filename: chatterbox-t3-q8_0.gguf
+      uri: huggingface://cstr/chatterbox-GGUF/chatterbox-t3-q8_0.gguf
+    - filename: chatterbox-s3gen-q8_0.gguf
+      uri: huggingface://cstr/chatterbox-GGUF/chatterbox-s3gen-q8_0.gguf
+- name: qwen3-tts-customvoice-crispasr
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/cstr/qwen3-tts-0.6b-customvoice-GGUF
+  description: |
+    Qwen3-TTS CustomVoice 0.6B (12 Hz) text-to-speech synthesized through the CrispASR backend. Fixed-speaker fine-tune driven via an explicit backend selector plus a tokenizer codec companion. Ships baked speakers (vivian, aiden, dylan, eric, ono_anna, ryan, serena, sohee, uncle_fu); the default config selects vivian. Runs end-to-end on CPU and produces 24 kHz mono audio. Default GGUF sizes ~968 MB (talker) + ~358 MB (tokenizer).
+  tags:
+    - crispasr
+    - tts
+    - text-to-speech
+    - gguf
+  overrides:
+    backend: crispasr
+    known_usecases:
+      - tts
+    name: qwen3-tts-customvoice-crispasr
+    options:
+      - "backend:qwen3-tts"
+      - "codec:qwen3-tts-tokenizer-12hz.gguf"
+      - "speaker:vivian"
+    parameters:
+      model: qwen3-tts-12hz-0.6b-customvoice-q8_0.gguf
+  files:
+    - filename: qwen3-tts-12hz-0.6b-customvoice-q8_0.gguf
+      uri: huggingface://cstr/qwen3-tts-0.6b-customvoice-GGUF/qwen3-tts-12hz-0.6b-customvoice-q8_0.gguf
+    - filename: qwen3-tts-tokenizer-12hz.gguf
+      uri: huggingface://cstr/qwen3-tts-tokenizer-12hz-GGUF/qwen3-tts-tokenizer-12hz.gguf
+- name: orpheus-tts-crispasr
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/cstr/orpheus-3b-base-GGUF
+  description: |
+    Orpheus-3B (Llama-3.2 base) text-to-speech synthesized through the CrispASR backend. Auto-detected by CrispASR; needs a SNAC 24 kHz codec companion and a baked speaker. Ships speaker tara (selected by the default config). Runs end-to-end on CPU and produces 24 kHz mono audio. Default GGUF sizes ~3.5 GB (model) + ~26 MB (SNAC codec).
+  tags:
+    - crispasr
+    - tts
+    - text-to-speech
+    - gguf
+  overrides:
+    backend: crispasr
+    known_usecases:
+      - tts
+    name: orpheus-tts-crispasr
+    options:
+      - "codec:snac-24khz.gguf"
+      - "speaker:tara"
+    parameters:
+      model: orpheus-3b-base-q8_0.gguf
+  files:
+    - filename: orpheus-3b-base-q8_0.gguf
+      uri: huggingface://cstr/orpheus-3b-base-GGUF/orpheus-3b-base-q8_0.gguf
+    - filename: snac-24khz.gguf
+      uri: huggingface://cstr/snac-24khz-GGUF/snac-24khz.gguf
+- name: hubert-crispasr
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/cstr/hubert-large-ls960-ft-GGUF
+  description: |
+    HuBERT Large (LS960 fine-tune) CTC speech recognition, English. Runs via the CrispASR backend with an explicit backend selector. Default GGUF size ~200 MB.
+  tags:
+    - crispasr
+    - asr
+    - speech-recognition
+    - stt
+    - gguf
+  overrides:
+    backend: crispasr
+    known_usecases:
+      - transcript
+    name: hubert-crispasr
+    options:
+      - "backend:hubert"
+    parameters:
+      model: hubert-large-ls960-ft-q4_k.gguf
+  files:
+    - filename: hubert-large-ls960-ft-q4_k.gguf
+      uri: huggingface://cstr/hubert-large-ls960-ft-GGUF/hubert-large-ls960-ft-q4_k.gguf
+- name: data2vec-crispasr
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/cstr/data2vec-audio-960h-GGUF
+  description: |
+    data2vec Audio Base (960h) CTC speech recognition, English. Runs via the CrispASR backend with an explicit backend selector. Default GGUF size ~60 MB.
+  tags:
+    - crispasr
+    - asr
+    - speech-recognition
+    - stt
+    - gguf
+  overrides:
+    backend: crispasr
+    known_usecases:
+      - transcript
+    name: data2vec-crispasr
+    options:
+      - "backend:data2vec"
+    parameters:
+      model: data2vec-audio-base-960h-q4_k.gguf
+  files:
+    - filename: data2vec-audio-base-960h-q4_k.gguf
+      uri: huggingface://cstr/data2vec-audio-960h-GGUF/data2vec-audio-base-960h-q4_k.gguf
+- name: glm-asr-crispasr
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/cstr/glm-asr-nano-GGUF
+  description: |
+    GLM-ASR Nano speech recognition. Runs via the CrispASR backend with an explicit backend selector. Default GGUF size ~1.2 GB.
+  tags:
+    - crispasr
+    - asr
+    - speech-recognition
+    - stt
+    - gguf
+  overrides:
+    backend: crispasr
+    known_usecases:
+      - transcript
+    name: glm-asr-crispasr
+    options:
+      - "backend:glm-asr"
+    parameters:
+      model: glm-asr-nano-q4_k.gguf
+  files:
+    - filename: glm-asr-nano-q4_k.gguf
+      uri: huggingface://cstr/glm-asr-nano-GGUF/glm-asr-nano-q4_k.gguf
+- name: kyutai-stt-crispasr
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/cstr/kyutai-stt-1b-GGUF
+  description: |
+    Kyutai STT 1B (Moshi-style) speech recognition. Runs via the CrispASR backend with an explicit backend selector. Default GGUF size ~636 MB.
+  tags:
+    - crispasr
+    - asr
+    - speech-recognition
+    - stt
+    - gguf
+  overrides:
+    backend: crispasr
+    known_usecases:
+      - transcript
+    name: kyutai-stt-crispasr
+    options:
+      - "backend:kyutai-stt"
+    parameters:
+      model: kyutai-stt-1b-q4_k.gguf
+  files:
+    - filename: kyutai-stt-1b-q4_k.gguf
+      uri: huggingface://cstr/kyutai-stt-1b-GGUF/kyutai-stt-1b-q4_k.gguf
+- name: firered-asr-crispasr
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/cstr/firered-asr2-aed-GGUF
+  description: |
+    FireRed-ASR2 AED speech recognition. Runs via the CrispASR backend with an explicit backend selector. Default GGUF size ~918 MB.
+  tags:
+    - crispasr
+    - asr
+    - speech-recognition
+    - stt
+    - gguf
+  overrides:
+    backend: crispasr
+    known_usecases:
+      - transcript
+    name: firered-asr-crispasr
+    options:
+      - "backend:firered-asr"
+    parameters:
+      model: firered-asr2-aed-q4_k.gguf
+  files:
+    - filename: firered-asr2-aed-q4_k.gguf
+      uri: huggingface://cstr/firered-asr2-aed-GGUF/firered-asr2-aed-q4_k.gguf
+- name: moonshine-crispasr
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/cstr/moonshine-tiny-GGUF
+  description: |
+    Moonshine Tiny speech recognition, English. Runs via the CrispASR backend with an explicit backend selector and a companion tokenizer. Default GGUF size ~20 MB.
+  tags:
+    - crispasr
+    - asr
+    - speech-recognition
+    - stt
+    - gguf
+  overrides:
+    backend: crispasr
+    known_usecases:
+      - transcript
+    name: moonshine-crispasr
+    options:
+      - "backend:moonshine"
+      - "codec:tokenizer.bin"
+    parameters:
+      model: moonshine-tiny-q4_k.gguf
+  files:
+    - filename: moonshine-tiny-q4_k.gguf
+      uri: huggingface://cstr/moonshine-tiny-GGUF/moonshine-tiny-q4_k.gguf
+    - filename: tokenizer.bin
+      uri: huggingface://cstr/moonshine-tiny-GGUF/tokenizer.bin
+- name: moonshine-de-crispasr
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/cstr/moonshine-base-de-fidoriel-GGUF
+  description: |
+    Moonshine Base German fine-tune (fidoriel), best-quality German Moonshine. Runs via the CrispASR backend with an explicit backend selector and a companion tokenizer. Default GGUF size ~39 MB.
+  license: CC-BY-NC-SA-4.0
+  tags:
+    - crispasr
+    - asr
+    - speech-recognition
+    - stt
+    - gguf
+  overrides:
+    backend: crispasr
+    known_usecases:
+      - transcript
+    name: moonshine-de-crispasr
+    options:
+      - "backend:moonshine"
+      - "codec:tokenizer.bin"
+    parameters:
+      model: moonshine-base-de-fidoriel-q4_k.gguf
+  files:
+    - filename: moonshine-base-de-fidoriel-q4_k.gguf
+      uri: huggingface://cstr/moonshine-base-de-fidoriel-GGUF/moonshine-base-de-fidoriel-q4_k.gguf
+    - filename: tokenizer.bin
+      uri: huggingface://cstr/moonshine-base-de-fidoriel-GGUF/tokenizer.bin
+- name: moonshine-tiny-de-crispasr
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/cstr/moonshine-tiny-de-fidoriel-GGUF
+  description: |
+    Moonshine Tiny German fine-tune (fidoriel), smaller/faster German Moonshine. Runs via the CrispASR backend with an explicit backend selector and a companion tokenizer. Default GGUF size ~17 MB.
+  license: CC-BY-NC-SA-4.0
+  tags:
+    - crispasr
+    - asr
+    - speech-recognition
+    - stt
+    - gguf
+  overrides:
+    backend: crispasr
+    known_usecases:
+      - transcript
+    name: moonshine-tiny-de-crispasr
+    options:
+      - "backend:moonshine"
+      - "codec:tokenizer.bin"
+    parameters:
+      model: moonshine-tiny-de-fidoriel-q4_k.gguf
+  files:
+    - filename: moonshine-tiny-de-fidoriel-q4_k.gguf
+      uri: huggingface://cstr/moonshine-tiny-de-fidoriel-GGUF/moonshine-tiny-de-fidoriel-q4_k.gguf
+    - filename: tokenizer.bin
+      uri: huggingface://cstr/moonshine-tiny-de-fidoriel-GGUF/tokenizer.bin
+- name: moonshine-streaming-crispasr
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/cstr/moonshine-streaming-tiny-GGUF
+  description: |
+    Moonshine Streaming Tiny speech recognition. Runs via the CrispASR backend with an explicit backend selector and a companion tokenizer. Default GGUF size ~31 MB.
+  tags:
+    - crispasr
+    - asr
+    - speech-recognition
+    - stt
+    - gguf
+  overrides:
+    backend: crispasr
+    known_usecases:
+      - transcript
+    name: moonshine-streaming-crispasr
+    options:
+      - "backend:moonshine-streaming"
+      - "codec:tokenizer.bin"
+    parameters:
+      model: moonshine-streaming-tiny-q4_k.gguf
+  files:
+    - filename: moonshine-streaming-tiny-q4_k.gguf
+      uri: huggingface://cstr/moonshine-streaming-tiny-GGUF/moonshine-streaming-tiny-q4_k.gguf
+    - filename: tokenizer.bin
+      uri: huggingface://cstr/moonshine-streaming-tiny-GGUF/tokenizer.bin
+- name: mimo-asr-crispasr
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/cstr/mimo-asr-GGUF
+  description: |
+    MiMo-ASR speech recognition. Runs via the CrispASR backend with an explicit backend selector and a companion tokenizer GGUF. Default GGUF size ~4.2 GB.
+  tags:
+    - crispasr
+    - asr
+    - speech-recognition
+    - stt
+    - gguf
+  overrides:
+    backend: crispasr
+    known_usecases:
+      - transcript
+    name: mimo-asr-crispasr
+    options:
+      - "backend:mimo-asr"
+      - "codec:mimo-tokenizer-q4_k.gguf"
+    parameters:
+      model: mimo-asr-q4_k.gguf
+  files:
+    - filename: mimo-asr-q4_k.gguf
+      uri: huggingface://cstr/mimo-asr-GGUF/mimo-asr-q4_k.gguf
+    - filename: mimo-tokenizer-q4_k.gguf
+      uri: huggingface://cstr/mimo-tokenizer-GGUF/mimo-tokenizer-q4_k.gguf
