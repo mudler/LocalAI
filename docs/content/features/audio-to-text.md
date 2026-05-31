@@ -187,6 +187,22 @@ curl http://localhost:8080/v1/audio/transcriptions \
 
 For real-time use, load a cache-aware streaming model (e.g. `realtime_eou_120m-v1-*.gguf`) and pass `-F stream=true`. Deltas are emitted as the audio is decoded, with end-of-utterance events closing each segment.
 
+### Dynamic batching
+
+The backend coalesces concurrent transcription requests into a single batched engine call, which improves throughput on GPU when many requests arrive at once. Two `options:` knobs control it:
+
+```yaml
+name: parakeet-110m
+backend: parakeet-cpp
+parameters:
+  model: tdt_ctc-110m-f16.gguf
+options:
+- batch_max_size:8      # max requests coalesced into one batch (default 8)
+- batch_max_wait_ms:15  # how long to wait to fill a batch, in ms (default 15)
+```
+
+Set `batch_max_size:1` to disable batching (requests run one at a time). This is recommended on CPU, where batching does not help and only adds latency. Batching only affects concurrent unary requests; streaming sessions always run on their own.
+
 ## See also
 
 - [Audio Transform]({{< relref "audio-transform.md" >}}) — clean up the audio (echo cancellation, noise suppression, dereverberation) before passing it to a transcription model.

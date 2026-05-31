@@ -43,6 +43,7 @@ func ensureLibLoaded() {
 		purego.RegisterLibFunc(&CppFree, lib, "parakeet_capi_free")
 		purego.RegisterLibFunc(&CppTranscribePath, lib, "parakeet_capi_transcribe_path")
 		purego.RegisterLibFunc(&CppTranscribePathJSON, lib, "parakeet_capi_transcribe_path_json")
+		purego.RegisterLibFunc(&CppTranscribePcmBatchJSON, lib, "parakeet_capi_transcribe_pcm_batch_json")
 		purego.RegisterLibFunc(&CppStreamBegin, lib, "parakeet_capi_stream_begin")
 		purego.RegisterLibFunc(&CppStreamFeed, lib, "parakeet_capi_stream_feed")
 		purego.RegisterLibFunc(&CppStreamFinalize, lib, "parakeet_capi_stream_finalize")

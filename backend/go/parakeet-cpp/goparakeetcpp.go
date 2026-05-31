@@ -7,7 +7,10 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
+	"sync"
+	"time"
 	"unsafe"
 
 	"github.com/go-audio/wav"
@@ -33,6 +36,15 @@ var (
 	CppTranscribePathJSON func(ctx uintptr, wavPath string, decoder int32) uintptr
 	CppFreeString         func(s uintptr)
 	CppLastError          func(ctx uintptr) string
+
+	// Batched JSON transcription: takes a concatenated float buffer of clips
+	// plus their per-clip sample counts (sum(nSamples)==len(samplesConcat))
+	// and returns a malloc'd char* JSON ARRAY of per-clip {"text","words",
+	// "tokens"} objects (uintptr, freed via CppFreeString). purego passes the
+	// Go slices as the base pointer of their backing array (kept alive for the
+	// call), matching the CppStreamFeed pcm []float32 binding pattern; the C
+	// side reads them as const float*/const int*.
+	CppTranscribePcmBatchJSON func(ctx uintptr, samplesConcat []float32, nSamples []int32, nClips int32, sampleRate int32, decoder int32) uintptr
 
 	// Cache-aware streaming (RNN-T) entry points. stream_begin returns 0 for
 	// non-streaming models. feed/finalize return a malloc'd char* (uintptr,
@@ -77,11 +89,17 @@ type transcriptToken struct {
 }
 
 // ParakeetCpp owns a single loaded parakeet_ctx. The C engine is a
-// thread-unsafe singleton (mirrors whisper.cpp / vibevoice.cpp), so we
-// serialize calls through base.SingleThread.
+// thread-unsafe singleton (mirrors whisper.cpp / vibevoice.cpp). Rather than
+// serialize every call through base.SingleThread, we route unary
+// transcription through an in-process batcher (its sole dispatcher goroutine
+// is the only caller of the engine on that path) and guard the shared engine
+// with engineMu so a streaming session and a batched-unary dispatch never
+// touch it concurrently.
 type ParakeetCpp struct {
-	base.SingleThread
-	ctxPtr uintptr
+	base.Base
+	ctxPtr   uintptr
+	engineMu sync.Mutex // sole guard of the one C engine (dispatcher + streaming)
+	bat      *batcher
 }
 
 // Load is the LocalAI gRPC entry point for LoadModel: it calls
@@ -100,13 +118,81 @@ func (p *ParakeetCpp) Load(opts *pb.ModelOptions) error {
 		return fmt.Errorf("parakeet-cpp: parakeet_capi_load failed for %q", opts.ModelFile)
 	}
 	p.ctxPtr = ctx
+
+	// Dynamic batching knobs (model YAML options:, key:value form). On GPU,
+	// coalescing concurrent requests into one batched engine call improves
+	// throughput; set batch_max_size:1 to disable (recommended on CPU).
+	maxSize := optInt(opts, "batch_max_size", 8)
+	maxWaitMs := optInt(opts, "batch_max_wait_ms", 15)
+	if maxWaitMs < 0 {
+		maxWaitMs = 0
+	}
+	p.bat = newBatcher(maxSize, time.Duration(maxWaitMs)*time.Millisecond, p.runBatch)
+	go p.bat.run(make(chan struct{})) // dispatcher lives for the process lifetime
 	return nil
 }
 
-// AudioTranscription runs parakeet_capi_transcribe_path_json on the wav at
-// opts.Dst with the default decoder (decoder=0, which selects the right head
-// per architecture: transducer for tdt/rnnt/hybrid, CTC for ctc) and shapes
-// the per-word timestamps into a LocalAI TranscriptResult.
+// optInt reads an integer model option (key:value form) from ModelOptions,
+// returning def when absent or unparseable. The options array carries the
+// model YAML's options: entries (see core/config; siblings such as
+// acestep-cpp parse the same key:value form via strings.Cut on ":").
+func optInt(opts *pb.ModelOptions, key string, def int) int {
+	for _, o := range opts.GetOptions() {
+		k, v, ok := strings.Cut(o, ":")
+		if ok && strings.TrimSpace(k) == key {
+			if n, err := strconv.Atoi(strings.TrimSpace(v)); err == nil {
+				return n
+			}
+		}
+	}
+	return def
+}
+
+// runBatch is the dispatcher's batch handler and the ONLY caller of the C
+// engine on the unary path. It concatenates the batch PCM, calls the batched
+// JSON C-API under engineMu, splits the JSON array, and replies to each request.
+func (p *ParakeetCpp) runBatch(reqs []*batchRequest) {
+	var concat []float32
+	nSamples := make([]int32, len(reqs))
+	for i, r := range reqs {
+		nSamples[i] = int32(len(r.pcm))
+		concat = append(concat, r.pcm...)
+	}
+	var dec int32
+	if len(reqs) > 0 {
+		dec = reqs[0].decoder
+	}
+	p.engineMu.Lock()
+	cstr := CppTranscribePcmBatchJSON(p.ctxPtr, concat, nSamples, int32(len(reqs)), 16000, dec)
+	p.engineMu.Unlock()
+	if cstr == 0 {
+		err := fmt.Errorf("parakeet-cpp: batch transcribe failed: %s", CppLastError(p.ctxPtr))
+		for _, r := range reqs {
+			r.reply <- batchReply{err: err}
+		}
+		return
+	}
+	raw := goStringFromCPtr(cstr)
+	CppFreeString(cstr)
+	var docs []json.RawMessage
+	if err := json.Unmarshal([]byte(raw), &docs); err != nil || len(docs) != len(reqs) {
+		e := fmt.Errorf("parakeet-cpp: batch json: got %d results for %d reqs (%v)", len(docs), len(reqs), err)
+		for _, r := range reqs {
+			r.reply <- batchReply{err: e}
+		}
+		return
+	}
+	for i, r := range reqs {
+		r.reply <- batchReply{json: string(docs[i])}
+	}
+}
+
+// AudioTranscription decodes the wav at opts.Dst to 16 kHz mono PCM and
+// submits it to the in-process batcher, which coalesces concurrent requests
+// into a single batched engine call (parakeet_capi_transcribe_pcm_batch_json)
+// with the default decoder (decoder=0, which selects the right head per
+// architecture: transducer for tdt/rnnt/hybrid, CTC for ctc) and shapes the
+// per-word timestamps into a LocalAI TranscriptResult.
 //
 // Parakeet emits word- and token-level timestamps but no native segment
 // boundaries, so we synthesise a single whole-clip segment spanning the first
@@ -118,7 +204,7 @@ func (p *ParakeetCpp) Load(opts *pb.ModelOptions) error {
 // translate/diarize/prompt/temperature/language/threads are not applicable to
 // parakeet and are ignored; streaming is handled by AudioTranscriptionStream
 // (L2).
-func (p *ParakeetCpp) AudioTranscription(_ context.Context, opts *pb.TranscriptRequest) (pb.TranscriptResult, error) {
+func (p *ParakeetCpp) AudioTranscription(ctx context.Context, opts *pb.TranscriptRequest) (pb.TranscriptResult, error) {
 	if p.ctxPtr == 0 {
 		return pb.TranscriptResult{}, errors.New("parakeet-cpp: model not loaded")
 	}
@@ -126,20 +212,31 @@ func (p *ParakeetCpp) AudioTranscription(_ context.Context, opts *pb.TranscriptR
 		return pb.TranscriptResult{}, errors.New("parakeet-cpp: TranscriptRequest.dst (audio path) is required")
 	}
 
-	cstr := CppTranscribePathJSON(p.ctxPtr, opts.Dst, 0)
-	if cstr == 0 {
-		msg := CppLastError(p.ctxPtr)
-		if msg == "" {
-			msg = "unknown error"
-		}
-		return pb.TranscriptResult{}, fmt.Errorf("parakeet-cpp: transcribe_path_json failed: %s", msg)
+	pcm, _, err := decodeWavMono16k(opts.Dst)
+	if err != nil {
+		return pb.TranscriptResult{}, err
 	}
 
-	raw := goStringFromCPtr(cstr)
-	CppFreeString(cstr)
+	// Submit to the batcher and wait for our per-clip JSON; the dispatcher is
+	// the sole engine caller on this path. Both sends honour ctx cancellation.
+	rep := make(chan batchReply, 1)
+	select {
+	case p.bat.submit <- &batchRequest{pcm: pcm, decoder: 0, reply: rep}:
+	case <-ctx.Done():
+		return pb.TranscriptResult{}, status.Error(codes.Canceled, "transcription cancelled")
+	}
+	var res batchReply
+	select {
+	case res = <-rep:
+	case <-ctx.Done():
+		return pb.TranscriptResult{}, status.Error(codes.Canceled, "transcription cancelled")
+	}
+	if res.err != nil {
+		return pb.TranscriptResult{}, res.err
+	}
 
 	var doc transcriptJSON
-	if err := json.Unmarshal([]byte(raw), &doc); err != nil {
+	if err := json.Unmarshal([]byte(res.json), &doc); err != nil {
 		return pb.TranscriptResult{}, fmt.Errorf("parakeet-cpp: decode transcript json: %w", err)
 	}
 
@@ -243,6 +340,10 @@ func (p *ParakeetCpp) AudioTranscriptionStream(ctx context.Context, opts *pb.Tra
 		return nil
 	}
 	defer CppStreamFree(stream)
+	// The engine is a single shared context; streaming is mutually exclusive
+	// with batched unary dispatch, so hold engineMu for the whole session.
+	p.engineMu.Lock()
+	defer p.engineMu.Unlock()
 
 	data, duration, err := decodeWavMono16k(opts.Dst)
 	if err != nil {
