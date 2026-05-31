@@ -2204,7 +2204,15 @@ public:
         // content element — attaching to both would duplicate the first
         // token since oaicompat_msg_diffs is the same for both.
         json first_res_json = first_result->to_json();
-        if (first_res_json.is_array()) {
+        // Upstream llama.cpp (ggml-org/llama.cpp#23884) now emits an initial
+        // "begin" partial whose to_json() returns null, used only to signal the
+        // HTTP layer to flush 200 status headers before any token. gRPC has no
+        // such concept, so there is nothing to emit — the real tokens arrive in
+        // the loop below. Feeding this null into build_reply_from_json would
+        // throw (uncaught) and surface as a generic RPC error.
+        if (first_res_json.is_null()) {
+            // skip the begin-of-stream marker
+        } else if (first_res_json.is_array()) {
             for (const auto & res : first_res_json) {
                 auto reply = build_reply_from_json(res, first_result.get());
                 // Skip chat deltas for role-init elements (have "role" in
@@ -2234,7 +2242,10 @@ public:
             }
 
             json res_json = result->to_json();
-            if (res_json.is_array()) {
+            if (res_json.is_null()) {
+                // begin-of-stream marker (see note above) — nothing to emit
+                continue;
+            } else if (res_json.is_array()) {
                 for (const auto & res : res_json) {
                     auto reply = build_reply_from_json(res, result.get());
                     bool is_role_init = res.contains("choices") && !res["choices"].empty() &&
