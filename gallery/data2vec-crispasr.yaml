@@ -1,0 +1,7 @@
+---
+name: "data2vec-crispasr"
+
+config_file: |
+  backend: crispasr
+  parameters:
+    model: data2vec-audio-base-960h-q4_k.gguf

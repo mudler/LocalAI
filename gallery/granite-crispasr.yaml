@@ -1,0 +1,7 @@
+---
+name: "granite-crispasr"
+
+config_file: |
+  backend: crispasr
+  parameters:
+    model: granite-speech-4.0-1b-q4_k.gguf

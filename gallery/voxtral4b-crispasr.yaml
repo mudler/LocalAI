@@ -1,0 +1,7 @@
+---
+name: "voxtral4b-crispasr"
+
+config_file: |
+  backend: crispasr
+  parameters:
+    model: voxtral-mini-4b-realtime-q4_k.gguf

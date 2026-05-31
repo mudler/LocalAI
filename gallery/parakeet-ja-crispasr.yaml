@@ -1,0 +1,7 @@
+---
+name: "parakeet-ja-crispasr"
+
+config_file: |
+  backend: crispasr
+  parameters:
+    model: parakeet-tdt-0.6b-ja.gguf

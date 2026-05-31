@@ -1,0 +1,7 @@
+---
+name: "paraformer-crispasr"
+
+config_file: |
+  backend: crispasr
+  parameters:
+    model: paraformer-zh-q4_k.gguf
