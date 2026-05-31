@@ -162,6 +162,9 @@ func optInt(opts *pb.ModelOptions, key string, def int) int {
 // engine on the unary path. It concatenates the batch PCM, calls the batched
 // JSON C-API under engineMu, splits the JSON array, and replies to each request.
 func (p *ParakeetCpp) runBatch(reqs []*batchRequest) {
+	// Observability: the actual coalesced batch size per engine call. Debug-level
+	// so it stays silent in normal operation but lets operators confirm/tune batching.
+	xlog.Debug("parakeet-cpp: dispatching batch", "size", len(reqs))
 	nSamples := make([]int32, len(reqs))
 	total := 0
 	for i, r := range reqs {
