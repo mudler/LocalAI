@@ -23,6 +23,10 @@ const char *crispasr_session_result_segment_text(crispasr_session_result *r,
 int64_t crispasr_session_result_segment_t0(crispasr_session_result *r, int i);
 int64_t crispasr_session_result_segment_t1(crispasr_session_result *r, int i);
 void crispasr_session_result_free(crispasr_session_result *r);
+float *crispasr_session_synthesize(crispasr_session *s, const char *text,
+                                   int *out_n_samples);
+void crispasr_pcm_free(float *pcm);
+int crispasr_session_set_speaker_name(crispasr_session *s, const char *name);
 }
 
 static crispasr_session *g_session = nullptr;
@@ -198,4 +202,22 @@ int64_t get_segment_t1(int i) {
 
 const char *get_backend(void) {
   return g_session ? crispasr_session_backend(g_session) : "";
+}
+
+// TTS uses the already-open session (crispasr_session_open auto-detects a TTS
+// model). Output is 24 kHz mono float PCM (upstream CrispASR convention),
+// malloc'd by the C API; the caller must release it via tts_free.
+float *tts_synthesize(const char *text, int *out_n_samples) {
+  if (out_n_samples) *out_n_samples = 0;
+  if (!g_session || !text) return nullptr;
+  return crispasr_session_synthesize(g_session, text, out_n_samples);
+}
+
+void tts_free(float *pcm) {
+  if (pcm) crispasr_pcm_free(pcm);
+}
+
+int tts_set_voice(const char *name) {
+  if (!g_session || !name || !*name) return 0;
+  return crispasr_session_set_speaker_name(g_session, name);
 }

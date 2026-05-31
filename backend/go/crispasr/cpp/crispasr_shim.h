@@ -14,4 +14,7 @@ int64_t get_segment_t0(int i);
 int64_t get_segment_t1(int i);
 const char *get_backend(void);
 void set_abort(int v);
+float *tts_synthesize(const char *text, int *out_n_samples); // 24kHz mono float, malloc'd; NULL on failure
+void tts_free(float *pcm);
+int tts_set_voice(const char *name); // best-effort speaker selection; 0 ok
 }
