@@ -50,6 +50,17 @@ func Run(ctx *cliContext.Context, cfg *Config) error {
 		xlog.Warn("Failed to parse backend galleries", "error", err)
 	}
 
+	// Prefetch gallery models over the worker's outbound internet before we
+	// start accepting backend.install events. Non-fatal on every failure path:
+	// if the gallery is unreachable, an ID is unknown, or LOCALAI_GALLERIES is
+	// malformed, the worker still starts and the master can push files on
+	// demand (existing fallback behaviour). Placed BEFORE registration so a
+	// large download doesn't delay heartbeat — registration happens after.
+	// Actually: keep it before registration so a worker that's still warming
+	// the cache isn't yet announced as ready. The fast no-op path on a hot
+	// PVC keeps restarts cheap.
+	prefetchModels(context.Background(), cfg, systemState, ml, galleries, nil)
+
 	// Self-registration with frontend (with retry)
 	regClient := &workerregistry.RegistrationClient{
 		FrontendURL:       cfg.RegisterTo,
