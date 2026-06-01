@@ -6,12 +6,14 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"net/http"
 	"os"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/ipfs/go-log"
+	"github.com/libp2p/go-libp2p/core/network"
 	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/mudler/LocalAI/core/schema"
 	"github.com/mudler/LocalAI/pkg/utils"
@@ -87,37 +89,39 @@ func nodeAnnounce(ctx context.Context, node *node.Node) {
 	)
 }
 
-func proxyP2PConnection(ctx context.Context, node *node.Node, serviceID string, conn net.Conn) {
-	ledger, _ := node.Ledger()
+// openPeerStream resolves serviceID to its advertised peer in the services
+// ledger and opens a libp2p stream to that peer over the service protocol.
+// Returns the stream or an error describing which lookup step failed.
+func openPeerStream(ctx context.Context, n *node.Node, serviceID string) (network.Stream, error) {
+	ledger, _ := n.Ledger()
 	// Retrieve current ID for ip in the blockchain
 	existingValue, found := ledger.GetKey(protocol.ServicesLedgerKey, serviceID)
 	service := &types.Service{}
 	existingValue.Unmarshal(service)
 	// If mismatch, update the blockchain
 	if !found {
-		zlog.Error("Service not found on blockchain")
-		conn.Close()
-		//	ll.Debugf("service '%s' not found on blockchain", serviceID)
-		return
+		return nil, errors.New("service not found on blockchain")
 	}
 
 	// Decode the Peer
 	d, err := peer.Decode(service.PeerID)
 	if err != nil {
-		zlog.Error("cannot decode peer")
-
-		conn.Close()
-		//	ll.Debugf("could not decode peer '%s'", service.PeerID)
-		return
+		return nil, fmt.Errorf("cannot decode peer: %w", err)
 	}
 
 	// Open a stream
-	stream, err := node.Host().NewStream(ctx, d, protocol.ServiceProtocol.ID())
+	stream, err := n.Host().NewStream(ctx, d, protocol.ServiceProtocol.ID())
 	if err != nil {
-		zlog.Error("cannot open stream peer", "error", err)
+		return nil, fmt.Errorf("cannot open stream peer: %w", err)
+	}
+	return stream, nil
+}
 
+func proxyP2PConnection(ctx context.Context, node *node.Node, serviceID string, conn net.Conn) {
+	stream, err := openPeerStream(ctx, node, serviceID)
+	if err != nil {
+		zlog.Error("Could not open peer stream", "error", err)
 		conn.Close()
-		//	ll.Debugf("could not open stream '%s'", err.Error())
 		return
 	}
 	//	ll.Debugf("(service %s) Redirecting", serviceID, l.Addr().String())
@@ -129,6 +133,44 @@ func proxyP2PConnection(ctx context.Context, node *node.Node, serviceID string, 
 
 	stream.Close()
 	conn.Close()
+}
+
+// proxyHTTPToPeer forwards an already-parsed HTTP request to the chosen peer
+// over a libp2p stream and streams the response back to conn. When duplex is
+// true (a websocket upgrade) it runs a bidirectional copy after writing the
+// request, so post-101 frames flow both ways. The response is never buffered,
+// so SSE keeps flowing.
+func proxyHTTPToPeer(ctx context.Context, n *node.Node, serviceID string, conn net.Conn, req *http.Request, duplex bool) {
+	stream, err := openPeerStream(ctx, n, serviceID)
+	if err != nil {
+		zlog.Error("Could not open peer stream", "error", err)
+		_ = conn.Close()
+		return
+	}
+	// Force the peer to close after responding so the one-way io.Copy below
+	// terminates. Without this the peer keeps the HTTP/1.1 connection alive and
+	// io.Copy(conn, stream) blocks forever, leaking the goroutine, conn, and
+	// stream. Websocket upgrades keep keep-alive: their duplex copy owns the
+	// lifetime.
+	req.Close = !duplex
+	if err := req.Write(stream); err != nil {
+		zlog.Error("Could not write request to peer", "error", err)
+		_ = stream.Close()
+		_ = conn.Close()
+		return
+	}
+	if duplex {
+		closer := make(chan struct{}, 2)
+		go copyStream(closer, stream, conn)
+		go copyStream(closer, conn, stream)
+		<-closer
+		_ = stream.Close()
+		_ = conn.Close()
+		return
+	}
+	_, _ = io.Copy(conn, stream)
+	_ = stream.Close()
+	_ = conn.Close()
 }
 
 func allocateLocalService(ctx context.Context, node *node.Node, listenAddr, service string) error {

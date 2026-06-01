@@ -1,6 +1,8 @@
 package p2p
 
 import (
+	"bufio"
+	"strings"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -143,5 +145,37 @@ var _ = Describe("affinityPreferred", func() {
 		Expect(affinityPreferred(nil, "m1", []uint64{1}, nil, cfg, ref)).To(Equal(""))
 		idx := prefixcache.NewIndex(cfg)
 		Expect(affinityPreferred(idx, "m1", nil, nil, cfg, ref)).To(Equal(""))
+	})
+})
+
+var _ = Describe("L7 request handling", func() {
+	It("reads a buffered request and its body under the cap", func() {
+		raw := "POST /v1/chat/completions HTTP/1.1\r\nHost: x\r\nContent-Length: 28\r\n\r\n" +
+			`{"model":"m1","messages":[]}`
+		req, body, err := readRequest(bufio.NewReader(strings.NewReader(raw)), 1024)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(req.URL.Path).To(Equal("/v1/chat/completions"))
+		Expect(string(body)).To(ContainSubstring(`"model":"m1"`))
+	})
+
+	It("rejects a body over the cap with ErrBodyTooLarge", func() {
+		big := strings.Repeat("a", 200)
+		raw := "POST /x HTTP/1.1\r\nHost: x\r\nContent-Length: 200\r\n\r\n" + big
+		_, _, err := readRequest(bufio.NewReader(strings.NewReader(raw)), 64)
+		Expect(err).To(MatchError(ErrBodyTooLarge))
+	})
+
+	It("detects a websocket upgrade request", func() {
+		raw := "GET /v1/realtime HTTP/1.1\r\nHost: x\r\nConnection: Upgrade\r\nUpgrade: websocket\r\n\r\n"
+		req, _, err := readRequest(bufio.NewReader(strings.NewReader(raw)), 1024)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(isWebsocketUpgrade(req)).To(BeTrue())
+	})
+
+	It("does not flag a normal POST as a websocket upgrade", func() {
+		raw := "POST /v1/chat/completions HTTP/1.1\r\nHost: x\r\nContent-Length: 2\r\n\r\n{}"
+		req, _, err := readRequest(bufio.NewReader(strings.NewReader(raw)), 1024)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(isWebsocketUpgrade(req)).To(BeFalse())
 	})
 })

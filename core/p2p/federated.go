@@ -146,27 +146,6 @@ func extractModel(path, queryModel string, body []byte) string {
 	return probe.Model
 }
 
-// SelectBestServer picks the online federated peer to serve the next request
-// using the shared cluster-routing policy (least in-flight, then most free
-// VRAM). Returns "" when no peer is online.
-func (fs *FederatedServer) SelectBestServer() string {
-	fs.syncTableStatus()
-	// Snapshot the node set before taking fs.Lock so the fs critical section
-	// only guards requestTable. GetAvailableNodes takes its own global mutex;
-	// calling it outside fs.Lock avoids a fs.Mutex -> node.mu lock ordering.
-	nodes := GetAvailableNodes(fs.service)
-	fs.Lock()
-	defer fs.Unlock()
-	candidates := buildFederatedCandidates(nodes, fs.requestTable, time.Now(), "")
-	best := clusterrouting.PickBestReplica(candidates)
-	if best == nil {
-		xlog.Debug("No online federated peers to select", "request_table", fs.requestTable)
-		return ""
-	}
-	xlog.Debug("Selected federated peer", "peer", best.NodeID, "request_table", fs.requestTable)
-	return best.NodeID
-}
-
 // affinityPreferred returns the peer the prefix index considers warm for this
 // chain, or "" when there is no match strong enough among the candidates. It
 // reuses prefixcache's per-model radix-tree Decide; the final load-guarded pick
