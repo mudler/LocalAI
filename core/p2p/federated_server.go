@@ -145,7 +145,7 @@ func (fs *FederatedServer) proxy(ctx context.Context, node *node.Node) error {
 					// Websocket: no readable model; route by load only.
 					workerID, _ = fs.selectPeer("", nil, now)
 				default:
-					model = extractModel(req.URL.Path, req.URL.Query().Get("model"), body)
+					model = extractModel(req.URL.Query().Get("model"), body)
 					workerID, chain = fs.selectPeer(model, body, now)
 				}
 
