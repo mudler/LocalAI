@@ -40,6 +40,7 @@
     "traces": "Tracce",
     "nodes": "Nodi",
     "swarm": "Swarm",
+    "cluster": "Cluster",
     "system": "Sistema",
     "settings": "Impostazioni",
     "api": "API"

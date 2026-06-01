@@ -40,6 +40,7 @@
     "traces": "追踪",
     "nodes": "节点",
     "swarm": "Swarm",
+    "cluster": "集群",
     "system": "系统",
     "settings": "设置",
     "api": "API"
