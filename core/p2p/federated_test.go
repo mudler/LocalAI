@@ -7,6 +7,7 @@ import (
 	. "github.com/onsi/gomega"
 
 	"github.com/mudler/LocalAI/core/schema"
+	"github.com/mudler/LocalAI/core/services/nodes/prefixcache"
 	"github.com/mudler/LocalAI/pkg/clusterrouting"
 )
 
@@ -113,5 +114,34 @@ var _ = Describe("extractModel", func() {
 
 	It("returns empty on non-JSON / unparseable body without panicking", func() {
 		Expect(extractModel("/x", "", []byte("--multipart-boundary--"))).To(Equal(""))
+	})
+})
+
+var _ = Describe("affinityPreferred", func() {
+	ref := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
+
+	It("returns the warm peer once a chain has been observed for it", func() {
+		cfg := prefixcache.DefaultConfig()
+		idx := prefixcache.NewIndex(cfg)
+		chain := prefixcache.ExtractChain("m1", `{"model":"m1","messages":[{"role":"system","content":"hello world this is a fairly long shared system prompt"}]}`, cfg)
+		idx.Observe("m1", chain, prefixcache.ReplicaKey{NodeID: "warm"}, ref)
+
+		cands := []clusterrouting.ReplicaCandidate{{NodeID: "warm"}, {NodeID: "cold"}}
+		Expect(affinityPreferred(idx, "m1", chain, cands, cfg, ref)).To(Equal("warm"))
+	})
+
+	It("returns empty when no chain has been observed", func() {
+		cfg := prefixcache.DefaultConfig()
+		idx := prefixcache.NewIndex(cfg)
+		chain := prefixcache.ExtractChain("m1", `{"model":"m1","messages":[{"role":"system","content":"hello world this is a fairly long shared system prompt"}]}`, cfg)
+		cands := []clusterrouting.ReplicaCandidate{{NodeID: "warm"}, {NodeID: "cold"}}
+		Expect(affinityPreferred(idx, "m1", chain, cands, cfg, ref)).To(Equal(""))
+	})
+
+	It("returns empty for a nil index or empty chain", func() {
+		cfg := prefixcache.DefaultConfig()
+		Expect(affinityPreferred(nil, "m1", []uint64{1}, nil, cfg, ref)).To(Equal(""))
+		idx := prefixcache.NewIndex(cfg)
+		Expect(affinityPreferred(idx, "m1", nil, nil, cfg, ref)).To(Equal(""))
 	})
 })
