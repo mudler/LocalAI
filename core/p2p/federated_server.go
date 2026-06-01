@@ -70,9 +70,9 @@ func (fs *FederatedServer) proxy(ctx context.Context, node *node.Node) error {
 				} else if fs.loadBalanced {
 					xlog.Debug("Load balancing request")
 
-					workerID = fs.SelectLeastUsedServer()
+					workerID = fs.SelectBestServer()
 					if workerID == "" {
-						xlog.Debug("Least used server not found, selecting random")
+						xlog.Debug("Best server not found, selecting random")
 						workerID = fs.RandomServer()
 					}
 				} else {

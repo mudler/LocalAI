@@ -4,7 +4,10 @@ import (
 	"fmt"
 	"math/rand/v2"
 	"sync"
+	"time"
 
+	"github.com/mudler/LocalAI/core/schema"
+	"github.com/mudler/LocalAI/pkg/clusterrouting"
 	"github.com/mudler/xlog"
 )
 
@@ -74,28 +77,46 @@ func (fs *FederatedServer) syncTableStatus() {
 	}
 }
 
-func (fs *FederatedServer) SelectLeastUsedServer() string {
-	fs.syncTableStatus()
+// buildFederatedCandidates maps the currently-online federated peers into the
+// shared routing policy's candidate form. InFlight comes from the per-peer
+// request counter (lower means fewer requests routed there); AvailableVRAM
+// comes from the gossiped NodeData. LastUsed is intentionally left zero:
+// federation has no per-peer last-used clock, and the request counter already
+// spreads load, so the VRAM tier deterministically breaks in-flight ties.
+func buildFederatedCandidates(nodes []schema.NodeData, requestTable map[string]int, now time.Time) []clusterrouting.ReplicaCandidate {
+	candidates := make([]clusterrouting.ReplicaCandidate, 0, len(nodes))
+	for _, nd := range nodes {
+		if !nd.IsOnlineAt(now) {
+			continue
+		}
+		candidates = append(candidates, clusterrouting.ReplicaCandidate{
+			NodeID:        nd.ID,
+			InFlight:      requestTable[nd.ID],
+			AvailableVRAM: nd.AvailableVRAM,
+		})
+	}
+	return candidates
+}
 
+// SelectBestServer picks the online federated peer to serve the next request
+// using the shared cluster-routing policy (least in-flight, then most free
+// VRAM). Returns "" when no peer is online.
+func (fs *FederatedServer) SelectBestServer() string {
+	fs.syncTableStatus()
+	// Snapshot the node set before taking fs.Lock so the fs critical section
+	// only guards requestTable. GetAvailableNodes takes its own global mutex;
+	// calling it outside fs.Lock avoids a fs.Mutex -> node.mu lock ordering.
+	nodes := GetAvailableNodes(fs.service)
 	fs.Lock()
 	defer fs.Unlock()
-
-	xlog.Debug("SelectLeastUsedServer()", "request_table", fs.requestTable)
-
-	// cycle over requestTable and find the entry with the lower number
-	// if there are multiple entries with the same number, select one randomly
-	// if there are no entries, return an empty string
-	var min int
-	var minKey string
-	for k, v := range fs.requestTable {
-		if min == 0 || v < min {
-			min = v
-			minKey = k
-		}
+	candidates := buildFederatedCandidates(nodes, fs.requestTable, time.Now())
+	best := clusterrouting.PickBestReplica(candidates)
+	if best == nil {
+		xlog.Debug("No online federated peers to select", "request_table", fs.requestTable)
+		return ""
 	}
-	xlog.Debug("Selected tunnel", "tunnel", minKey, "requests_served", min, "request_table", fs.requestTable)
-
-	return minKey
+	xlog.Debug("Selected federated peer", "peer", best.NodeID, "request_table", fs.requestTable)
+	return best.NodeID
 }
 
 func (fs *FederatedServer) RecordRequest(nodeID string) {
