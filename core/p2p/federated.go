@@ -32,6 +32,7 @@ type FederatedServer struct {
 	bodyLimit                     int64 // max request body bytes (0 = unlimited)
 	prefixCfg                     prefixcache.Config
 	prefixIndex                   *prefixcache.Index
+	prefixSync                    *prefixcache.Sync
 }
 
 func NewFederatedServer(listenAddr, service, p2pToken string, loadBalanced bool, workerTarget string, bodyLimit int64) *FederatedServer {
