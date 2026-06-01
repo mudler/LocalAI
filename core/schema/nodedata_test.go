@@ -31,4 +31,9 @@ var _ = Describe("NodeData", func() {
 		nd := schema.NodeData{AvailableVRAM: 8_000_000_000}
 		Expect(nd.AvailableVRAM).To(Equal(uint64(8_000_000_000)))
 	})
+
+	It("carries the advertised model set", func() {
+		nd := schema.NodeData{Models: []string{"llama-3", "qwen"}}
+		Expect(nd.Models).To(ConsistOf("llama-3", "qwen"))
+	})
 })

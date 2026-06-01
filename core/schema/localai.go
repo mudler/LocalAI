@@ -137,6 +137,12 @@ type NodeData struct {
 	// Zero for CPU-only nodes and for peers on an older version that does not
 	// publish it; the routing policy treats zero as the lowest VRAM tier.
 	AvailableVRAM uint64
+	// Models is the set of model names this peer currently serves, gossiped so
+	// the federation proxy can route a request only to peers that have the
+	// requested model. Empty means "unknown" (an older peer, or one that has
+	// not loaded any model yet) and is treated as eligible for any model so a
+	// mixed-version swarm is not starved.
+	Models []string
 }
 
 func (d NodeData) IsOnline() bool {

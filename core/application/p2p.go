@@ -53,9 +53,21 @@ func (a *Application) StartP2P() error {
 			return err
 		}
 
+		// modelsFn reports the model names this instance currently serves so the
+		// federation proxy can route a request only to peers that have the
+		// requested model. It is re-evaluated on every announce tick.
+		modelsFn := func() []string {
+			cfgs := a.ModelConfigLoader().GetAllModelsConfigs()
+			names := make([]string, 0, len(cfgs))
+			for _, c := range cfgs {
+				names = append(names, c.Name)
+			}
+			return names
+		}
+
 		// Here a new node is created and started
 		// and a service is exposed by the node
-		node, err := p2p.ExposeService(ctx, "localhost", port, a.applicationConfig.P2PToken, p2p.NetworkID(networkID, p2p.FederatedID))
+		node, err := p2p.ExposeService(ctx, "localhost", port, a.applicationConfig.P2PToken, p2p.NetworkID(networkID, p2p.FederatedID), modelsFn)
 		if err != nil {
 			return err
 		}

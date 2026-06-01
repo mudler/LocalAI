@@ -312,7 +312,7 @@ func ensureService(ctx context.Context, n *node.Node, nd *schema.NodeData, sserv
 }
 
 // This is the P2P worker main
-func ExposeService(ctx context.Context, host, port, token, servicesID string) (*node.Node, error) {
+func ExposeService(ctx context.Context, host, port, token, servicesID string, modelsFn func() []string) (*node.Node, error) {
 	if servicesID == "" {
 		servicesID = defaultServicesID
 	}
@@ -348,11 +348,16 @@ func ExposeService(ctx context.Context, host, port, token, servicesID string) (*
 		20*time.Second,
 		func() {
 			updatedMap := map[string]any{}
+			var models []string
+			if modelsFn != nil {
+				models = modelsFn()
+			}
 			updatedMap[name] = &schema.NodeData{
 				Name:          name,
 				LastSeen:      time.Now(),
 				ID:            nodeID(name),
 				AvailableVRAM: xsysinfo.GetGPUAggregateInfo().FreeVRAM,
+				Models:        models,
 			}
 			ledger.Add(servicesID, updatedMap)
 		},
