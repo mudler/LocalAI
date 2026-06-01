@@ -189,7 +189,7 @@ For real-time use, load a cache-aware streaming model (e.g. `realtime_eou_120m-v
 
 ### Dynamic batching
 
-The backend coalesces concurrent transcription requests into a single batched engine call, which improves throughput on GPU when many requests arrive at once. Two `options:` knobs control it:
+The backend can coalesce concurrent transcription requests into a single batched engine call, which improves throughput on GPU when many requests arrive at once. Batching is **off by default** (`batch_max_size:1`, one request at a time); raise it to opt in. Two `options:` knobs control it:
 
 ```yaml
 name: parakeet-110m
@@ -197,11 +197,11 @@ backend: parakeet-cpp
 parameters:
   model: tdt_ctc-110m-f16.gguf
 options:
-- batch_max_size:8      # max requests coalesced into one batch (default 8)
+- batch_max_size:8      # max requests coalesced into one batch (default 1 = off)
 - batch_max_wait_ms:15  # how long to wait to fill a batch, in ms (default 15)
 ```
 
-Set `batch_max_size:1` to disable batching (requests run one at a time). This is recommended on CPU, where batching does not help and only adds latency. Batching only affects concurrent unary requests; streaming sessions always run on their own.
+By default each request runs on its own. Raise `batch_max_size` (for example 4 to 16) to enable batching; it pays off on GPU under concurrent load, where coalescing the per-step decode GEMMs across requests is a large throughput win. Leave it at 1 on CPU and for low-concurrency setups, where batching only adds latency. Batching only affects concurrent unary requests; streaming sessions always run on their own.
 
 ## See also
 

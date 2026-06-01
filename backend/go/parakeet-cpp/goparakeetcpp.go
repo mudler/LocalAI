@@ -121,10 +121,12 @@ func (p *ParakeetCpp) Load(opts *pb.ModelOptions) error {
 	}
 	p.ctxPtr = ctx
 
-	// Dynamic batching knobs (model YAML options:, key:value form). On GPU,
-	// coalescing concurrent requests into one batched engine call improves
-	// throughput; set batch_max_size:1 to disable (recommended on CPU).
-	maxSize := optInt(opts, "batch_max_size", 8)
+	// Dynamic batching knobs (model YAML options:, key:value form). Batching is
+	// OFF by default (batch_max_size:1): each request runs on its own. On GPU,
+	// raising batch_max_size coalesces concurrent requests into one batched
+	// engine call and improves throughput under load; leave it at 1 on CPU and
+	// for low-concurrency setups, where batching only adds latency.
+	maxSize := optInt(opts, "batch_max_size", 1)
 	maxWaitMs := optInt(opts, "batch_max_wait_ms", 15)
 	if maxWaitMs < 0 {
 		maxWaitMs = 0
@@ -133,8 +135,13 @@ func (p *ParakeetCpp) Load(opts *pb.ModelOptions) error {
 		p.batStop = make(chan struct{})
 		p.bat = newBatcher(maxSize, time.Duration(maxWaitMs)*time.Millisecond, p.runBatch)
 		go p.bat.run(p.batStop) // dispatcher runs until Free closes batStop
-		xlog.Info("parakeet-cpp: dynamic batching enabled",
-			"batch_max_size", maxSize, "batch_max_wait_ms", maxWaitMs)
+		if maxSize > 1 {
+			xlog.Info("parakeet-cpp: dynamic batching enabled",
+				"batch_max_size", maxSize, "batch_max_wait_ms", maxWaitMs)
+		} else {
+			xlog.Info("parakeet-cpp: dynamic batching off (batch_max_size=1); " +
+				"set batch_max_size>1 to coalesce concurrent requests on GPU")
+		}
 	} else {
 		xlog.Info("parakeet-cpp: batched C-API not present in libparakeet.so; " +
 			"batching disabled, using per-request transcription")
