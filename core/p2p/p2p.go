@@ -152,6 +152,7 @@ func proxyHTTPToPeer(ctx context.Context, n *node.Node, serviceID string, conn n
 	// io.Copy(conn, stream) blocks forever, leaking the goroutine, conn, and
 	// stream. Websocket upgrades keep keep-alive: their duplex copy owns the
 	// lifetime.
+	req.Header.Del("Connection")
 	req.Close = !duplex
 	if err := req.Write(stream); err != nil {
 		zlog.Error("Could not write request to peer", "error", err)
