@@ -179,3 +179,18 @@ var _ = Describe("L7 request handling", func() {
 		Expect(isWebsocketUpgrade(req)).To(BeFalse())
 	})
 })
+
+var _ = Describe("affinityPreferred with a sync provider", func() {
+	ref := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
+
+	It("returns the warm peer when the provider is a Sync wrapping the index", func() {
+		cfg := prefixcache.DefaultConfig()
+		idx := prefixcache.NewIndex(cfg)
+		sync := prefixcache.NewSync(idx, nil)
+		chain := prefixcache.ExtractChain("m1", `{"model":"m1","messages":[{"role":"system","content":"a long shared system prompt for affinity"}]}`, cfg)
+		sync.Observe("m1", chain, prefixcache.ReplicaKey{NodeID: "warm"}, ref)
+
+		cands := []clusterrouting.ReplicaCandidate{{NodeID: "warm"}, {NodeID: "cold"}}
+		Expect(affinityPreferred(sync, "m1", chain, cands, cfg, ref)).To(Equal("warm"))
+	})
+})

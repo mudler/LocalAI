@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/mudler/LocalAI/core/schema"
+	"github.com/mudler/LocalAI/core/services/nodes/prefixcache"
 	"github.com/mudler/edgevpn/pkg/node"
 	"github.com/mudler/xlog"
 )
@@ -62,9 +63,18 @@ func isWebsocketUpgrade(req *http.Request) bool {
 }
 
 func (f *FederatedServer) Start(ctx context.Context) error {
-	n, err := NewNode(f.p2ptoken)
+	var extraOpts []node.Option
+	if f.syncAffinity {
+		extraOpts = append(extraOpts, node.EnableGenericHub, node.GenericChannelHandlers(f.affinityHandler()))
+	}
+	n, err := NewNode(f.p2ptoken, extraOpts...)
 	if err != nil {
 		return fmt.Errorf("creating a new node: %w", err)
+	}
+	if f.syncAffinity {
+		f.prefixSync = prefixcache.NewSync(f.prefixIndex, &genericChannelPublisher{node: n})
+		f.prefixProvider = f.prefixSync
+		xlog.Info("Federation affinity sync enabled (generic channel)")
 	}
 	err = n.Start(ctx)
 	if err != nil {
@@ -76,6 +86,8 @@ func (f *FederatedServer) Start(ctx context.Context) error {
 	}, false); err != nil {
 		return err
 	}
+
+	go f.evictLoop(ctx)
 
 	return f.proxy(ctx, n)
 }
