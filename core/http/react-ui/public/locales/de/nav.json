@@ -55,6 +55,7 @@
     "nodes": "Knoten",
     "scheduling": "Planung",
     "swarm": "Swarm",
+    "cluster": "Cluster",
     "system": "System",
     "settings": "Einstellungen",
     "api": "API",
