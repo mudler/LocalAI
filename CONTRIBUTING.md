@@ -266,6 +266,12 @@ The e2e tests run LocalAI in a Docker container and exercise the API:
 make test-e2e
 ```
 
+### React UI tests and coverage
+
+The React UI (`core/http/react-ui/`) is covered by Playwright e2e specs, gated by a **monotonic line-coverage ratchet** (`make test-ui-coverage-check`, run in CI and pre-commit). The metric is non-deterministic — a fast local box reads higher than a slow CI runner for the same code — so a small tolerance is unavoidable.
+
+**If your change lowers UI coverage, raise it back by adding specs — do not widen the tolerance or hand-lower the baseline.** A *render-smoke* spec (navigate to a page, assert its header is visible) cheaply covers an entire lazy page. See `core/http/react-ui/e2e/page-render-smoke.spec.js` and the full policy in [.agents/building-and-testing.md](.agents/building-and-testing.md#react-ui-coverage).
+
 ### Running E2E container tests
 
 These tests build a standard LocalAI Docker image and run it with pre-configured model configs to verify that most endpoints work correctly:
