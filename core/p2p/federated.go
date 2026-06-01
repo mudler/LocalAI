@@ -1,6 +1,7 @@
 package p2p
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"math/rand/v2"
@@ -33,20 +34,25 @@ type FederatedServer struct {
 	prefixCfg                     prefixcache.Config
 	prefixIndex                   *prefixcache.Index
 	prefixSync                    *prefixcache.Sync
+	prefixProvider                prefixcache.Provider // Index (sync off) or Sync (sync on)
+	syncAffinity                  bool
 }
 
-func NewFederatedServer(listenAddr, service, p2pToken string, loadBalanced bool, workerTarget string, bodyLimit int64) *FederatedServer {
+func NewFederatedServer(listenAddr, service, p2pToken string, loadBalanced bool, workerTarget string, bodyLimit int64, syncAffinity bool) *FederatedServer {
 	cfg := prefixcache.DefaultConfig()
+	idx := prefixcache.NewIndex(cfg)
 	return &FederatedServer{
-		listenAddr:   listenAddr,
-		service:      service,
-		p2ptoken:     p2pToken,
-		requestTable: map[string]int{},
-		loadBalanced: loadBalanced,
-		workerTarget: workerTarget,
-		bodyLimit:    bodyLimit,
-		prefixCfg:    cfg,
-		prefixIndex:  prefixcache.NewIndex(cfg),
+		listenAddr:     listenAddr,
+		service:        service,
+		p2ptoken:       p2pToken,
+		requestTable:   map[string]int{},
+		loadBalanced:   loadBalanced,
+		workerTarget:   workerTarget,
+		bodyLimit:      bodyLimit,
+		prefixCfg:      cfg,
+		prefixIndex:    idx,
+		prefixProvider: idx,
+		syncAffinity:   syncAffinity,
 	}
 }
 
@@ -151,7 +157,7 @@ func extractModel(queryModel string, body []byte) string {
 // chain, or "" when there is no match strong enough among the candidates. It
 // reuses prefixcache's per-model radix-tree Decide; the final load-guarded pick
 // is done by clusterrouting.PickWithAffinity so the VRAM tier is preserved.
-func affinityPreferred(idx *prefixcache.Index, model string, chain []uint64, candidates []clusterrouting.ReplicaCandidate, cfg prefixcache.Config, now time.Time) string {
+func affinityPreferred(idx prefixcache.Provider, model string, chain []uint64, candidates []clusterrouting.ReplicaCandidate, cfg prefixcache.Config, now time.Time) string {
 	if idx == nil || len(chain) == 0 || len(candidates) == 0 {
 		return ""
 	}
@@ -186,9 +192,9 @@ func (fs *FederatedServer) selectPeer(model string, body []byte, now time.Time) 
 	}
 	var chain []uint64
 	preferred := ""
-	if fs.prefixIndex != nil && model != "" && len(body) > 0 {
+	if fs.prefixProvider != nil && model != "" && len(body) > 0 {
 		chain = prefixcache.ExtractChain(model, string(body), fs.prefixCfg)
-		preferred = affinityPreferred(fs.prefixIndex, model, chain, candidates, fs.prefixCfg, now)
+		preferred = affinityPreferred(fs.prefixProvider, model, chain, candidates, fs.prefixCfg, now)
 	}
 	best := clusterrouting.PickWithAffinity(candidates, preferred, fs.prefixCfg.BalanceAbsThreshold)
 	if best == nil {
@@ -200,10 +206,29 @@ func (fs *FederatedServer) selectPeer(model string, body []byte, now time.Time) 
 // observeServed records that peerID served the given chain for model, so the
 // next request sharing that prefix is routed back to the same warm peer.
 func (fs *FederatedServer) observeServed(model string, chain []uint64, peerID string, now time.Time) {
-	if fs.prefixIndex == nil || len(chain) == 0 || peerID == "" || model == "" {
+	if fs.prefixProvider == nil || len(chain) == 0 || peerID == "" || model == "" {
 		return
 	}
-	fs.prefixIndex.Observe(model, chain, prefixcache.ReplicaKey{NodeID: peerID}, now)
+	fs.prefixProvider.Observe(model, chain, prefixcache.ReplicaKey{NodeID: peerID}, now)
+}
+
+// evictLoop periodically sweeps expired affinity entries so the in-memory tree
+// does not grow unbounded. Runs for the lifetime of the proxy.
+func (fs *FederatedServer) evictLoop(ctx context.Context) {
+	interval := fs.prefixCfg.TTL / 2
+	if interval <= 0 {
+		interval = time.Minute
+	}
+	t := time.NewTicker(interval)
+	defer t.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case now := <-t.C:
+			fs.prefixProvider.Evict(now)
+		}
+	}
 }
 
 func (fs *FederatedServer) RecordRequest(nodeID string) {
