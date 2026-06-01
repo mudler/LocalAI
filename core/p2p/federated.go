@@ -130,7 +130,7 @@ func servesModel(nd schema.NodeData, model string) bool {
 // cheapest source first: an explicit query value, then the JSON body "model"
 // field. Returns "" when it cannot be determined (for example a multipart or
 // websocket request), in which case the caller routes by load/affinity only.
-func extractModel(path, queryModel string, body []byte) string {
+func extractModel(queryModel string, body []byte) string {
 	if strings.TrimSpace(queryModel) != "" {
 		return queryModel
 	}

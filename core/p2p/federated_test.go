@@ -102,20 +102,20 @@ var _ = Describe("model-aware candidate building", func() {
 var _ = Describe("extractModel", func() {
 	It("reads the JSON body model field", func() {
 		body := []byte(`{"model":"llama-3","messages":[]}`)
-		Expect(extractModel("/v1/chat/completions", "", body)).To(Equal("llama-3"))
+		Expect(extractModel("", body)).To(Equal("llama-3"))
 	})
 
 	It("prefers a path/query model over the body", func() {
 		body := []byte(`{"model":"frombody"}`)
-		Expect(extractModel("/x", "fromquery", body)).To(Equal("fromquery"))
+		Expect(extractModel("fromquery", body)).To(Equal("fromquery"))
 	})
 
 	It("returns empty when no model is present", func() {
-		Expect(extractModel("/x", "", []byte(`{"messages":[]}`))).To(Equal(""))
+		Expect(extractModel("", []byte(`{"messages":[]}`))).To(Equal(""))
 	})
 
 	It("returns empty on non-JSON / unparseable body without panicking", func() {
-		Expect(extractModel("/x", "", []byte("--multipart-boundary--"))).To(Equal(""))
+		Expect(extractModel("", []byte("--multipart-boundary--"))).To(Equal(""))
 	})
 })
 
