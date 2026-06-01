@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/mudler/LocalAI/core/schema"
+	"github.com/mudler/LocalAI/core/services/nodes/prefixcache"
 	"github.com/mudler/LocalAI/pkg/clusterrouting"
 	"github.com/mudler/xlog"
 )
@@ -28,9 +29,13 @@ type FederatedServer struct {
 	requestTable                  map[string]int
 	loadBalanced                  bool
 	workerTarget                  string
+	bodyLimit                     int64 // max request body bytes (0 = unlimited)
+	prefixCfg                     prefixcache.Config
+	prefixIndex                   *prefixcache.Index
 }
 
-func NewFederatedServer(listenAddr, service, p2pToken string, loadBalanced bool, workerTarget string) *FederatedServer {
+func NewFederatedServer(listenAddr, service, p2pToken string, loadBalanced bool, workerTarget string, bodyLimit int64) *FederatedServer {
+	cfg := prefixcache.DefaultConfig()
 	return &FederatedServer{
 		listenAddr:   listenAddr,
 		service:      service,
@@ -38,6 +43,9 @@ func NewFederatedServer(listenAddr, service, p2pToken string, loadBalanced bool,
 		requestTable: map[string]int{},
 		loadBalanced: loadBalanced,
 		workerTarget: workerTarget,
+		bodyLimit:    bodyLimit,
+		prefixCfg:    cfg,
+		prefixIndex:  prefixcache.NewIndex(cfg),
 	}
 }
 
@@ -157,6 +165,65 @@ func (fs *FederatedServer) SelectBestServer() string {
 	}
 	xlog.Debug("Selected federated peer", "peer", best.NodeID, "request_table", fs.requestTable)
 	return best.NodeID
+}
+
+// affinityPreferred returns the peer the prefix index considers warm for this
+// chain, or "" when there is no match strong enough among the candidates. It
+// reuses prefixcache's per-model radix-tree Decide; the final load-guarded pick
+// is done by clusterrouting.PickWithAffinity so the VRAM tier is preserved.
+func affinityPreferred(idx *prefixcache.Index, model string, chain []uint64, candidates []clusterrouting.ReplicaCandidate, cfg prefixcache.Config, now time.Time) string {
+	if idx == nil || len(chain) == 0 || len(candidates) == 0 {
+		return ""
+	}
+	keys := make([]prefixcache.ReplicaKey, 0, len(candidates))
+	for _, c := range candidates {
+		keys = append(keys, prefixcache.ReplicaKey{NodeID: c.NodeID})
+	}
+	d := idx.Decide(model, chain, keys, now)
+	if d.HasHot && d.MatchRatio >= cfg.MinPrefixMatch {
+		return d.Hot.NodeID
+	}
+	return ""
+}
+
+// selectPeer chooses the federated peer to serve a request for model with the
+// given raw body. It filters candidates by model, computes the prefix chain,
+// consults the affinity index, and makes the final load+VRAM-aware pick. It
+// returns the chosen peer ID and the chain (so the caller can Observe after a
+// successful forward). An empty model and nil body degrade to load+VRAM only.
+// Returns "" when no eligible peer is online.
+func (fs *FederatedServer) selectPeer(model string, body []byte, now time.Time) (string, []uint64) {
+	fs.syncTableStatus()
+	nodes := GetAvailableNodes(fs.service)
+	// Snapshot candidates under the lock (it only guards requestTable), then
+	// release before the prefix hashing and tree walk, which are lock-free
+	// (candidates is a copy; prefixIndex/prefixCfg are set once at construction).
+	fs.Lock()
+	candidates := buildFederatedCandidates(nodes, fs.requestTable, now, model)
+	fs.Unlock()
+	if len(candidates) == 0 {
+		return "", nil
+	}
+	var chain []uint64
+	preferred := ""
+	if fs.prefixIndex != nil && model != "" && len(body) > 0 {
+		chain = prefixcache.ExtractChain(model, string(body), fs.prefixCfg)
+		preferred = affinityPreferred(fs.prefixIndex, model, chain, candidates, fs.prefixCfg, now)
+	}
+	best := clusterrouting.PickWithAffinity(candidates, preferred, fs.prefixCfg.BalanceAbsThreshold)
+	if best == nil {
+		return "", chain
+	}
+	return best.NodeID, chain
+}
+
+// observeServed records that peerID served the given chain for model, so the
+// next request sharing that prefix is routed back to the same warm peer.
+func (fs *FederatedServer) observeServed(model string, chain []uint64, peerID string, now time.Time) {
+	if fs.prefixIndex == nil || len(chain) == 0 || peerID == "" || model == "" {
+		return
+	}
+	fs.prefixIndex.Observe(model, chain, prefixcache.ReplicaKey{NodeID: peerID}, now)
 }
 
 func (fs *FederatedServer) RecordRequest(nodeID string) {
