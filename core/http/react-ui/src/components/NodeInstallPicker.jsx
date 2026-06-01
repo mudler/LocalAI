@@ -462,7 +462,7 @@ export default function NodeInstallPicker({
               Approve pending workers or register new ones.
               {pendingCount > 0 && ` (${pendingCount} awaiting approval.)`}
             </p>
-            <a className="btn btn-secondary btn-sm" href="/app/nodes">
+            <a className="btn btn-secondary btn-sm" href="/app/cluster">
               <i className="fas fa-network-wired" /> Manage nodes
             </a>
           </div>
@@ -651,7 +651,7 @@ export default function NodeInstallPicker({
 
             {pendingCount > 0 && (
               <p className="text-meta mt-0 mb-sm">
-                +{pendingCount} awaiting approval — <a href="/app/nodes" className="text-primary">approve from Nodes</a>.
+                +{pendingCount} awaiting approval — <a href="/app/cluster" className="text-primary">approve from Nodes</a>.
               </p>
             )}
 
