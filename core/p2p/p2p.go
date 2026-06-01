@@ -15,6 +15,7 @@ import (
 	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/mudler/LocalAI/core/schema"
 	"github.com/mudler/LocalAI/pkg/utils"
+	"github.com/mudler/LocalAI/pkg/xsysinfo"
 	"github.com/mudler/edgevpn/pkg/config"
 	"github.com/mudler/edgevpn/pkg/node"
 	"github.com/mudler/edgevpn/pkg/protocol"
@@ -348,9 +349,10 @@ func ExposeService(ctx context.Context, host, port, token, servicesID string) (*
 		func() {
 			updatedMap := map[string]any{}
 			updatedMap[name] = &schema.NodeData{
-				Name:     name,
-				LastSeen: time.Now(),
-				ID:       nodeID(name),
+				Name:          name,
+				LastSeen:      time.Now(),
+				ID:            nodeID(name),
+				AvailableVRAM: xsysinfo.GetGPUAggregateInfo().FreeVRAM,
 			}
 			ledger.Add(servicesID, updatedMap)
 		},
