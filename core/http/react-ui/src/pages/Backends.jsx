@@ -49,7 +49,7 @@ export default function Backends() {
   // whenever splitMenuFor changes to a different row index.
   const splitMenuAnchorRef = useRef(null)
 
-  // Target-node mode: set when navigated from /app/nodes via "+ Add backend".
+  // Target-node mode: set when navigated from /app/cluster via "+ Add backend".
   // The gallery page header banners the scope; rows collapse their split-button
   // to a single Install-on-this-node action; manual install posts to the
   // per-node endpoint.
@@ -323,7 +323,7 @@ export default function Backends() {
   return (
     <div className="page page--wide">
       {/* Target-node banner: when this gallery is scoped to one node via
-          ?target=<id> (entered from /app/nodes), show the scope clearly and
+          ?target=<id> (entered from /app/cluster), show the scope clearly and
           give a fast way to clear it. Visually a primary-tinted strip so the
           user knows they're in a special mode without it feeling alarming. */}
       {targetNode && (
