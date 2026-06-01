@@ -409,11 +409,12 @@ func ExposeService(ctx context.Context, host, port, token, servicesID string, mo
 	return n, err
 }
 
-func NewNode(token string) (*node.Node, error) {
+func NewNode(token string, extraOpts ...node.Option) (*node.Node, error) {
 	nodeOpts, err := newNodeOpts(token)
 	if err != nil {
 		return nil, err
 	}
+	nodeOpts = append(nodeOpts, extraOpts...)
 
 	n, err := node.New(nodeOpts...)
 	if err != nil {
