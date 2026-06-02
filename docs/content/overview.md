@@ -13,6 +13,8 @@ icon = "info"
 
 LocalAI is a composable AI stack for running models locally: a small core that speaks the OpenAI and Anthropic APIs, with each model backend added only when you need it. It's simple, efficient, and private by default, and a drop-in replacement that keeps your data on your own hardware.
 
+![How LocalAI works: clients speak one API to a small core, which routes each request over gRPC to separate backend processes pulled on demand](/images/diagrams/architecture-overview.png)
+
 ## Why LocalAI?
 
 In today's AI landscape, privacy, control, and flexibility are paramount. LocalAI addresses these needs by:
