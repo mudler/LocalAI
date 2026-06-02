@@ -4,6 +4,8 @@ description: Configure LocalAI behind a TLS termination reverse proxy (HAProxy, 
 weight: 100
 ---
 
+![TLS at the edge: terminate TLS at the reverse proxy and forward headers so LocalAI emits correct https URLs](/images/diagrams/reverse-proxy-tls.png)
+
 # TLS Reverse Proxy Configuration
 
 When running LocalAI behind a TLS termination reverse proxy, the Web UI may fail to load static assets (CSS, JS) correctly because the application doesn't automatically detect that it's being served over HTTPS. This guide explains how to properly configure your reverse proxy to work with LocalAI.

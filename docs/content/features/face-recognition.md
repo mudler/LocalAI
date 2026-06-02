@@ -5,6 +5,8 @@ weight = 14
 url = "/features/face-recognition/"
 +++
 
+![Face recognition: 1:N match against a vector store, with an anti-spoofing liveness gate that can veto a verification](/images/diagrams/face-recognition-flow.png)
+
 LocalAI supports face recognition through the `insightface` backend:
 face verification (1:1), face identification (1:N) against a built-in
 vector store, face embedding, face detection, demographic analysis
