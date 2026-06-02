@@ -52,6 +52,15 @@ type AgentWorkerCMD struct {
 	Subject string `env:"LOCALAI_AGENT_SUBJECT" default:"agent.execute" help:"NATS subject for agent execution" group:"distributed"`
 	Queue   string `env:"LOCALAI_AGENT_QUEUE" default:"agent-workers" help:"NATS queue group name" group:"distributed"`
 
+	NatsJWT         string `env:"LOCALAI_NATS_JWT" help:"NATS user JWT override (defaults to nats_jwt from registration)" group:"distributed"`
+	NatsUserSeed    string `env:"LOCALAI_NATS_USER_SEED" help:"NATS user seed override (defaults to nats_user_seed from registration)" group:"distributed"`
+	NatsServiceJWT  string `env:"LOCALAI_NATS_SERVICE_JWT" help:"Fallback NATS service JWT when registration does not mint agent JWT" group:"distributed"`
+	NatsServiceSeed string `env:"LOCALAI_NATS_SERVICE_SEED" help:"Fallback NATS service seed paired with LOCALAI_NATS_SERVICE_JWT" group:"distributed"`
+	NatsRequireAuth bool   `env:"LOCALAI_NATS_REQUIRE_AUTH" default:"false" help:"Require NATS JWT+seed to connect" group:"distributed"`
+	NatsTLSCA       string `env:"LOCALAI_NATS_TLS_CA" type:"existingfile" help:"PEM file for NATS server CA (private PKI)" group:"distributed"`
+	NatsTLSCert     string `env:"LOCALAI_NATS_TLS_CERT" type:"existingfile" help:"Client certificate for NATS mTLS" group:"distributed"`
+	NatsTLSKey      string `env:"LOCALAI_NATS_TLS_KEY" type:"existingfile" help:"Client private key for NATS mTLS" group:"distributed"`
+
 	// Timeouts
 	MCPCIJobTimeout string `env:"LOCALAI_MCP_CI_JOB_TIMEOUT" default:"10m" help:"Timeout for MCP CI job execution" group:"distributed"`
 }
@@ -81,7 +90,7 @@ func (cmd *AgentWorkerCMD) Run(ctx *cliContext.Context) error {
 		registrationBody["token"] = cmd.RegistrationToken
 	}
 
-	nodeID, apiToken, err := regClient.RegisterWithRetry(context.Background(), registrationBody, 10)
+	nodeID, apiToken, regNatsJWT, regNatsSeed, err := regClient.RegisterWithRetry(context.Background(), registrationBody, 10)
 	if err != nil {
 		return fmt.Errorf("registration failed: %w", err)
 	}
@@ -105,7 +114,20 @@ func (cmd *AgentWorkerCMD) Run(ctx *cliContext.Context) error {
 	go regClient.HeartbeatLoop(shutdownCtx, nodeID, heartbeatInterval, func() map[string]any { return map[string]any{} })
 
 	// Connect to NATS
-	natsClient, err := messaging.New(cmd.NatsURL)
+	natsJWT := cmp.Or(cmd.NatsJWT, regNatsJWT, cmd.NatsServiceJWT)
+	natsSeed := cmp.Or(cmd.NatsUserSeed, regNatsSeed, cmd.NatsServiceSeed)
+	if cmd.NatsRequireAuth && (natsJWT == "" || natsSeed == "") {
+		return fmt.Errorf("NATS JWT+seed required: enable frontend minting or set LOCALAI_NATS_* env vars")
+	}
+	natsTLS := messaging.TLSFiles{CA: cmd.NatsTLSCA, Cert: cmd.NatsTLSCert, Key: cmd.NatsTLSKey}
+	var natsOpts []messaging.Option
+	if natsJWT != "" && natsSeed != "" {
+		natsOpts = append(natsOpts, messaging.WithUserJWT(natsJWT, natsSeed))
+	}
+	if natsTLS.Enabled() {
+		natsOpts = append(natsOpts, messaging.WithTLS(natsTLS))
+	}
+	natsClient, err := messaging.New(cmd.NatsURL, natsOpts...)
 	if err != nil {
 		return fmt.Errorf("connecting to NATS: %w", err)
 	}

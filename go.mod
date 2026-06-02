@@ -41,7 +41,9 @@ require (
 	github.com/mudler/go-processmanager v0.1.1
 	github.com/mudler/memory v0.0.0-20260406210934-424c1ecf2cf8
 	github.com/mudler/xlog v0.0.6
+	github.com/nats-io/jwt/v2 v2.7.4
 	github.com/nats-io/nats.go v1.52.0
+	github.com/nats-io/nkeys v0.4.15
 	github.com/ollama/ollama v0.20.4
 	github.com/onsi/ginkgo/v2 v2.29.0
 	github.com/onsi/gomega v1.41.0
@@ -134,7 +136,6 @@ require (
 	github.com/mattn/go-sqlite3 v1.14.28 // indirect
 	github.com/moby/moby/api v1.54.2 // indirect
 	github.com/moby/moby/client v0.4.1 // indirect
-	github.com/nats-io/nkeys v0.4.15 // indirect
 	github.com/nats-io/nuid v1.0.1 // indirect
 	github.com/oklog/ulid v1.3.1 // indirect
 	github.com/secure-systems-lab/go-securesystemslib v0.9.1 // indirect

@@ -59,64 +59,63 @@ func (c *RegistrationClient) setAuth(req *http.Request) {
 // RegisterResponse is the JSON body returned by /api/node/register.
 type RegisterResponse struct {
 	ID       string `json:"id"`
-	APIToken string `json:"api_token,omitempty"`
+	APIToken     string `json:"api_token,omitempty"`
+	NatsJWT      string `json:"nats_jwt,omitempty"`
+	NatsUserSeed string `json:"nats_user_seed,omitempty"`
 }
 
 // Register sends a single registration request and returns the node ID and
-// (optionally) an auto-provisioned API token.
-func (c *RegistrationClient) Register(ctx context.Context, body map[string]any) (string, string, error) {
+// optional credentials (API token for agent workers, NATS JWT when configured).
+func (c *RegistrationClient) Register(ctx context.Context, body map[string]any) (nodeID, apiToken, natsJWT, natsSeed string, err error) {
 	jsonBody, _ := json.Marshal(body)
 	url := c.baseURL() + "/api/node/register"
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(jsonBody))
 	if err != nil {
-		return "", "", fmt.Errorf("creating request: %w", err)
+		return "", "", "", "", fmt.Errorf("creating request: %w", err)
 	}
 	req.Header.Set("Content-Type", "application/json")
 	c.setAuth(req)
 
 	resp, err := c.httpClient().Do(req)
 	if err != nil {
-		return "", "", fmt.Errorf("posting to %s: %w", url, err)
+		return "", "", "", "", fmt.Errorf("posting to %s: %w", url, err)
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return "", "", fmt.Errorf("registration failed with status %d", resp.StatusCode)
+		return "", "", "", "", fmt.Errorf("registration failed with status %d", resp.StatusCode)
 	}
 
 	var result RegisterResponse
 	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-		return "", "", fmt.Errorf("decoding response: %w", err)
+		return "", "", "", "", fmt.Errorf("decoding response: %w", err)
 	}
-	return result.ID, result.APIToken, nil
+	return result.ID, result.APIToken, result.NatsJWT, result.NatsUserSeed, nil
 }
 
 // RegisterWithRetry retries registration with exponential backoff.
-func (c *RegistrationClient) RegisterWithRetry(ctx context.Context, body map[string]any, maxRetries int) (string, string, error) {
+func (c *RegistrationClient) RegisterWithRetry(ctx context.Context, body map[string]any, maxRetries int) (nodeID, apiToken, natsJWT, natsSeed string, err error) {
 	backoff := 2 * time.Second
 	maxBackoff := 30 * time.Second
 
-	var nodeID, apiToken string
-	var err error
-
 	for attempt := 1; attempt <= maxRetries; attempt++ {
-		nodeID, apiToken, err = c.Register(ctx, body)
+		nodeID, apiToken, natsJWT, natsSeed, err = c.Register(ctx, body)
 		if err == nil {
-			return nodeID, apiToken, nil
+			return nodeID, apiToken, natsJWT, natsSeed, nil
 		}
 		if attempt == maxRetries {
-			return "", "", fmt.Errorf("failed after %d attempts: %w", maxRetries, err)
+			return "", "", "", "", fmt.Errorf("failed after %d attempts: %w", maxRetries, err)
 		}
 		xlog.Warn("Registration failed, retrying", "attempt", attempt, "next_retry", backoff, "error", err)
 		select {
 		case <-ctx.Done():
-			return "", "", ctx.Err()
+			return "", "", "", "", ctx.Err()
 		case <-time.After(backoff):
 		}
 		backoff = min(backoff*2, maxBackoff)
 	}
-	return nodeID, apiToken, err
+	return nodeID, apiToken, natsJWT, natsSeed, err
 }
 
 // Heartbeat sends a single heartbeat POST with the given body.

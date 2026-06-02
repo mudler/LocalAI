@@ -12,6 +12,8 @@ import (
 	"github.com/labstack/echo/v4"
 	"github.com/mudler/LocalAI/core/services/nodes"
 	"github.com/mudler/LocalAI/core/services/testutil"
+	"github.com/mudler/LocalAI/pkg/natsauth"
+	"github.com/nats-io/nkeys"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -63,7 +65,7 @@ var _ = Describe("Node HTTP handlers", func() {
 			rec := httptest.NewRecorder()
 			c := e.NewContext(req, rec)
 
-			handler := RegisterNodeEndpoint(registry, "", true, nil, "")
+			handler := RegisterNodeEndpoint(registry, "", true, nil, "", natsauth.Config{})
 			Expect(handler(c)).To(Succeed())
 			Expect(rec.Code).To(Equal(http.StatusCreated))
 
@@ -74,6 +76,29 @@ var _ = Describe("Node HTTP handlers", func() {
 			Expect(resp["status"]).To(Equal(nodes.StatusHealthy))
 		})
 
+		It("returns nats_jwt when account seed is configured", func() {
+			akp, err := nkeys.CreateAccount()
+			Expect(err).ToNot(HaveOccurred())
+			seed, err := akp.Seed()
+			Expect(err).ToNot(HaveOccurred())
+
+			e := echo.New()
+			body := `{"name":"worker-nats","address":"10.0.0.2:50051"}`
+			req := httptest.NewRequest(http.MethodPost, "/", strings.NewReader(body))
+			req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+			rec := httptest.NewRecorder()
+			c := e.NewContext(req, rec)
+
+			natsCfg := natsauth.Config{AccountSeed: string(seed)}
+			handler := RegisterNodeEndpoint(registry, "", true, nil, "", natsCfg)
+			Expect(handler(c)).To(Succeed())
+			Expect(rec.Code).To(Equal(http.StatusCreated))
+
+			var resp map[string]any
+			Expect(json.Unmarshal(rec.Body.Bytes(), &resp)).To(Succeed())
+			Expect(resp["nats_jwt"]).ToNot(BeEmpty())
+		})
+
 		It("returns 400 when name is missing", func() {
 			e := echo.New()
 			body := `{"address":"10.0.0.1:50051"}`
@@ -82,7 +107,7 @@ var _ = Describe("Node HTTP handlers", func() {
 			rec := httptest.NewRecorder()
 			c := e.NewContext(req, rec)
 
-			handler := RegisterNodeEndpoint(registry, "", true, nil, "")
+			handler := RegisterNodeEndpoint(registry, "", true, nil, "", natsauth.Config{})
 			Expect(handler(c)).To(Succeed())
 			Expect(rec.Code).To(Equal(http.StatusBadRequest))
 
@@ -102,7 +127,7 @@ var _ = Describe("Node HTTP handlers", func() {
 			rec := httptest.NewRecorder()
 			c := e.NewContext(req, rec)
 
-			handler := RegisterNodeEndpoint(registry, "", true, nil, "")
+			handler := RegisterNodeEndpoint(registry, "", true, nil, "", natsauth.Config{})
 			Expect(handler(c)).To(Succeed())
 			Expect(rec.Code).To(Equal(http.StatusBadRequest))
 
@@ -121,7 +146,7 @@ var _ = Describe("Node HTTP handlers", func() {
 			rec := httptest.NewRecorder()
 			c := e.NewContext(req, rec)
 
-			handler := RegisterNodeEndpoint(registry, "", true, nil, "")
+			handler := RegisterNodeEndpoint(registry, "", true, nil, "", natsauth.Config{})
 			Expect(handler(c)).To(Succeed())
 			Expect(rec.Code).To(Equal(http.StatusBadRequest))
 
@@ -140,7 +165,7 @@ var _ = Describe("Node HTTP handlers", func() {
 			rec := httptest.NewRecorder()
 			c := e.NewContext(req, rec)
 
-			handler := RegisterNodeEndpoint(registry, "", true, nil, "")
+			handler := RegisterNodeEndpoint(registry, "", true, nil, "", natsauth.Config{})
 			Expect(handler(c)).To(Succeed())
 			Expect(rec.Code).To(Equal(http.StatusBadRequest))
 
@@ -159,7 +184,7 @@ var _ = Describe("Node HTTP handlers", func() {
 			rec := httptest.NewRecorder()
 			c := e.NewContext(req, rec)
 
-			handler := RegisterNodeEndpoint(registry, "correct-token", true, nil, "")
+			handler := RegisterNodeEndpoint(registry, "correct-token", true, nil, "", natsauth.Config{})
 			Expect(handler(c)).To(Succeed())
 			Expect(rec.Code).To(Equal(http.StatusUnauthorized))
 		})
@@ -172,7 +197,7 @@ var _ = Describe("Node HTTP handlers", func() {
 			rec := httptest.NewRecorder()
 			c := e.NewContext(req, rec)
 
-			handler := RegisterNodeEndpoint(registry, "", false, nil, "")
+			handler := RegisterNodeEndpoint(registry, "", false, nil, "", natsauth.Config{})
 			Expect(handler(c)).To(Succeed())
 			Expect(rec.Code).To(Equal(http.StatusCreated))
 
@@ -195,7 +220,7 @@ var _ = Describe("Node HTTP handlers", func() {
 			req1 := httptest.NewRequest(http.MethodPost, "/", strings.NewReader(body1))
 			req1.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
 			rec1 := httptest.NewRecorder()
-			handler := RegisterNodeEndpoint(registry, "", true, nil, "")
+			handler := RegisterNodeEndpoint(registry, "", true, nil, "", natsauth.Config{})
 			Expect(handler(e.NewContext(req1, rec1))).To(Succeed())
 			Expect(rec1.Code).To(Equal(http.StatusCreated))
 

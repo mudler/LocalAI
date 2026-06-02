@@ -15,6 +15,7 @@ import (
 	"github.com/mudler/LocalAI/core/cli/workerregistry"
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/gallery"
+
 	"github.com/mudler/LocalAI/core/services/messaging"
 	"github.com/mudler/LocalAI/core/services/nodes"
 	grpc "github.com/mudler/LocalAI/pkg/grpc"
@@ -68,7 +69,7 @@ func Run(ctx *cliContext.Context, cfg *Config) error {
 	}
 
 	registrationBody := cfg.registrationBody()
-	nodeID, _, err := regClient.RegisterWithRetry(context.Background(), registrationBody, 10)
+	nodeID, _, natsJWT, natsSeed, err := regClient.RegisterWithRetry(context.Background(), registrationBody, 10)
 	if err != nil {
 		return fmt.Errorf("failed to register with frontend: %w", err)
 	}
@@ -94,7 +95,8 @@ func Run(ctx *cliContext.Context, cfg *Config) error {
 
 	// Connect to NATS
 	xlog.Info("Connecting to NATS", "url", sanitize.URL(cfg.NatsURL))
-	natsClient, err := messaging.New(cfg.NatsURL)
+	natsTLS := messaging.TLSFiles{CA: cfg.NatsTLSCA, Cert: cfg.NatsTLSCert, Key: cfg.NatsTLSKey}
+	natsClient, err := connectNATS(cfg.NatsURL, cfg.NatsJWT, cfg.NatsUserSeed, natsJWT, natsSeed, cfg.NatsRequireAuth, natsTLS)
 	if err != nil {
 		nodes.ShutdownFileTransferServer(httpServer)
 		return fmt.Errorf("connecting to NATS: %w", err)

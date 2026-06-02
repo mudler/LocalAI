@@ -18,8 +18,13 @@ type Client struct {
 }
 
 // New creates a new NATS client with auto-reconnect.
-func New(url string) (*Client, error) {
-	nc, err := nats.Connect(url,
+func New(url string, opts ...Option) (*Client, error) {
+	var cfg connectConfig
+	for _, o := range opts {
+		o(&cfg)
+	}
+
+	natsOpts := []nats.Option{
 		nats.RetryOnFailedConnect(true),
 		nats.MaxReconnects(-1),
 		nats.DisconnectErrHandler(func(_ *nats.Conn, err error) {
@@ -33,7 +38,23 @@ func New(url string) (*Client, error) {
 		nats.ClosedHandler(func(_ *nats.Conn) {
 			xlog.Info("NATS connection closed")
 		}),
-	)
+	}
+	if cfg.userJWT != "" && cfg.userSeed != "" {
+		jwt, seed := cfg.userJWT, cfg.userSeed
+		natsOpts = append(natsOpts, nats.UserJWTAndSeed(jwt, seed))
+	}
+	if cfg.tls.Enabled() {
+		if err := cfg.tls.Validate(); err != nil {
+			return nil, err
+		}
+		tlsOpts, err := cfg.tls.natsOptions()
+		if err != nil {
+			return nil, err
+		}
+		natsOpts = append(natsOpts, tlsOpts...)
+	}
+
+	nc, err := nats.Connect(url, natsOpts...)
 	if err != nil {
 		return nil, fmt.Errorf("connecting to NATS at %s: %w", sanitize.URL(url), err)
 	}

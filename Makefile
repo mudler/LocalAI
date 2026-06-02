@@ -309,13 +309,20 @@ run-e2e-aio: protogen-go
 	@echo 'Running e2e AIO tests'
 	$(GOCMD) run github.com/onsi/ginkgo/v2/ginkgo --flake-attempts $(TEST_FLAKES) -v -r ./tests/e2e-aio
 
+# Distributed architecture e2e (PostgreSQL + NATS via testcontainers).
+# Includes NatsJWT specs (JWT-enabled NATS). Requires Docker.
+# VLLMMultinode is excluded here; use test-e2e-vllm-multinode for that.
+test-e2e-distributed: protogen-go
+	@echo 'Running distributed e2e tests (label Distributed, incl. NatsJWT)'
+	$(GOCMD) run github.com/onsi/ginkgo/v2/ginkgo --label-filter='Distributed && !VLLMMultinode' --flake-attempts $(TEST_FLAKES) -v -r ./tests/e2e/distributed
+
 # vLLM multi-node DP smoke (CPU). Builds local-ai:tests and the
 # cpu-vllm backend from the current working tree, then drives a
 # head + headless follower via testcontainers-go and asserts a chat
 # completion. BuildKit caches both images, so re-runs only rebuild
 # what changed. The test lives under tests/e2e/distributed and is
 # selected by the VLLMMultinode label so it doesn't run alongside
-# the other distributed-suite tests by default.
+# test-e2e-distributed.
 test-e2e-vllm-multinode: docker-build-e2e extract-backend-vllm protogen-go
 	@echo 'Running e2e vLLM multi-node DP test'
 	LOCALAI_IMAGE=local-ai \

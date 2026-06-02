@@ -159,6 +159,14 @@ type RunCMD struct {
 	DistributedPrefixCacheTTL string `env:"LOCALAI_DISTRIBUTED_PREFIX_CACHE_TTL" help:"Idle-timeout for prefix-cache index entries; also drives the background eviction cadence (every TTL/2). Default 5m." group:"distributed"`
 	BackendInstallTimeout     string `env:"LOCALAI_NATS_BACKEND_INSTALL_TIMEOUT" help:"NATS round-trip timeout for backend.install requests sent to worker nodes (default 15m). Increase for slow links pulling multi-GB images." group:"distributed"`
 	BackendUpgradeTimeout     string `env:"LOCALAI_NATS_BACKEND_UPGRADE_TIMEOUT" help:"NATS round-trip timeout for backend.upgrade requests (default 15m)." group:"distributed"`
+	NatsAccountSeed           string `env:"LOCALAI_NATS_ACCOUNT_SEED" help:"NATS account signing seed (SU...) used to mint per-node worker JWTs at registration" group:"distributed"`
+	NatsServiceJWT            string `env:"LOCALAI_NATS_SERVICE_JWT" help:"NATS user JWT for the frontend (and agent workers) to publish control-plane messages" group:"distributed"`
+	NatsServiceSeed           string `env:"LOCALAI_NATS_SERVICE_SEED" help:"NATS user signing seed (SU...) paired with LOCALAI_NATS_SERVICE_JWT" group:"distributed"`
+	NatsWorkerJWTTTL          string `env:"LOCALAI_NATS_WORKER_JWT_TTL" help:"Lifetime of minted per-node NATS JWTs (e.g. 24h, default 24h)" group:"distributed"`
+	NatsRequireAuth           bool   `env:"LOCALAI_NATS_REQUIRE_AUTH" default:"false" help:"Require NATS JWT credentials (service JWT + account seed) when distributed mode is enabled" group:"distributed"`
+	NatsTLSCA                 string `env:"LOCALAI_NATS_TLS_CA" type:"existingfile" help:"PEM file for NATS server CA (private PKI); use with tls:// in --nats-url" group:"distributed"`
+	NatsTLSCert               string `env:"LOCALAI_NATS_TLS_CERT" type:"existingfile" help:"Client certificate for NATS mTLS" group:"distributed"`
+	NatsTLSKey                string `env:"LOCALAI_NATS_TLS_KEY" type:"existingfile" help:"Client private key for NATS mTLS" group:"distributed"`
 	ExposeNodeHeader          bool   `env:"LOCALAI_EXPOSE_NODE_HEADER" default:"false" help:"Set the X-LocalAI-Node response header on inference responses (OpenAI chat/completions/embeddings, Anthropic /v1/messages, Ollama /api/chat,/api/generate,/api/embed) with the ID of the worker that served the request. Disabled by default: the node ID reveals internal topology and should not be exposed on a public endpoint. Best-effort: under heavy concurrency the header may reflect a recent routing decision rather than this exact request's." group:"distributed"`
 
 	Version bool
@@ -282,6 +290,34 @@ func (r *RunCMD) Run(ctx *cliContext.Context) error {
 	}
 	if r.RegistrationToken != "" {
 		opts = append(opts, config.WithRegistrationToken(r.RegistrationToken))
+	}
+	if r.NatsAccountSeed != "" {
+		opts = append(opts, config.WithNatsAccountSeed(r.NatsAccountSeed))
+	}
+	if r.NatsServiceJWT != "" {
+		opts = append(opts, config.WithNatsServiceJWT(r.NatsServiceJWT))
+	}
+	if r.NatsServiceSeed != "" {
+		opts = append(opts, config.WithNatsServiceSeed(r.NatsServiceSeed))
+	}
+	if r.NatsWorkerJWTTTL != "" {
+		d, err := time.ParseDuration(r.NatsWorkerJWTTTL)
+		if err != nil {
+			return fmt.Errorf("invalid LOCALAI_NATS_WORKER_JWT_TTL %q: %w", r.NatsWorkerJWTTTL, err)
+		}
+		opts = append(opts, config.WithNatsWorkerJWTTTL(d))
+	}
+	if r.NatsRequireAuth {
+		opts = append(opts, config.EnableNatsRequireAuth)
+	}
+	if r.NatsTLSCA != "" {
+		opts = append(opts, config.WithNatsTLSCA(r.NatsTLSCA))
+	}
+	if r.NatsTLSCert != "" {
+		opts = append(opts, config.WithNatsTLSCert(r.NatsTLSCert))
+	}
+	if r.NatsTLSKey != "" {
+		opts = append(opts, config.WithNatsTLSKey(r.NatsTLSKey))
 	}
 	if r.AutoApproveNodes {
 		opts = append(opts, config.EnableAutoApproveNodes)
