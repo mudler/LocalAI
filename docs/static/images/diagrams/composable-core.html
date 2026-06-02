@@ -106,7 +106,7 @@ const right = [
 // ---- connectors (drawn first, under cards) ----
 function socket(x,y){ svg.appendChild(el("rect",{x:x-6,y:y-6,width:12,height:12,fill:INK})); }
 function connector(x1,y1,x2,y2,more){
-  svg.appendChild(el("line",{x1,y1,x2,y2,stroke:more?DIM:INK,"stroke-width":3,"stroke-dasharray":"2 8","stroke-linecap":"round"}));
+  svg.appendChild(el("line",{x1,y1,x2,y2,stroke:more?DIM:INK,"stroke-width":4,"stroke-dasharray":"6 5","stroke-linecap":"round"}));
   socket(x1,y1); socket(x2,y2);
 }
 left.forEach((t,i)=>{
@@ -127,9 +127,9 @@ function tile(x,row,t){
   svg.appendChild(el("text",{x:x+22,y:y+40,"font-family":"Bricolage Grotesque","font-weight":800,"font-size":26,fill:t.more?SOFT:INK},t.n));
   svg.appendChild(el("text",{x:x+22,y:y+66,"font-family":"Archivo","font-weight":700,"font-size":15,"letter-spacing":".02em",fill:t.more?DIM:SOFT},t.s));
   if(!t.more){
-    const bw=118,bh=24,bx=x+TW-bw-16,by=y+TH-bh-14;
+    const bw=134,bh=24,bx=x+TW-bw-16,by=y+TH-bh-14;
     svg.appendChild(el("rect",{x:bx,y:by,width:bw,height:bh,fill:PAPER,stroke:INK,"stroke-width":2}));
-    svg.appendChild(el("text",{x:bx+bw/2,y:by+17,"text-anchor":"middle","font-family":"Archivo","font-weight":700,"font-size":12,"letter-spacing":".1em",fill:RUSTD},"SEPARATE IMAGE"));
+    svg.appendChild(el("text",{x:bx+bw/2,y:by+17,"text-anchor":"middle","font-family":"Archivo","font-weight":700,"font-size":11,"letter-spacing":".05em",fill:RUSTD},"SEPARATE IMAGE"));
   }
 }
 left.forEach((t,i)=> tile(LX, rows[i], t));

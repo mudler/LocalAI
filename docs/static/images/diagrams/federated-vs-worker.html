@@ -91,7 +91,7 @@ function pill(x,y,w,s,col){
 const LX=20, LW=680, PY=8, PH=544;
 svg.appendChild(el("rect",{x:LX,y:PY,width:LW,height:PH,fill:"none",stroke:COLD,"stroke-width":2.5,"stroke-dasharray":"2 8"}));
 txt(LX+18,PY+34,"FEDERATED",{f:"Bricolage Grotesque",w:800,sz:26,fill:COLDD});
-pill(LX+LW-208,PY+12,190,"WHOLE REQUEST · ROUND-ROBIN",COLDD);
+pill(LX+LW-176,PY+12,158,"WHOLE REQUEST",COLDD);
 
 // request in
 const LCEN=LX+LW/2;
@@ -147,7 +147,7 @@ svg.appendChild(el("line",{x1:740,y1:PY+8,x2:740,y2:PH-8,stroke:INK,"stroke-widt
 const RX=760, RW=700;
 svg.appendChild(el("rect",{x:RX,y:PY,width:RW,height:PH,fill:"none",stroke:RUST,"stroke-width":2.5,"stroke-dasharray":"2 8"}));
 txt(RX+18,PY+34,"WORKER",{f:"Bricolage Grotesque",w:800,sz:26,fill:RUSTD});
-pill(RX+RW-228,PY+12,210,"SPLIT REQUEST · MODEL SHARDED",RUSTD);
+pill(RX+RW-176,PY+12,158,"SPLIT REQUEST",RUSTD);
 
 const RCEN=RX+RW/2;
 // request in
@@ -180,20 +180,12 @@ wShards.forEach((sd,i)=>{
   txt(cc,wBaseY+24,sd.mem+" mem",{w:700,sz:13,a:"middle",ls:".04em",fill:RUSTD});
 });
 
-// request -> first node (top)
-vArrow(RCEN,PY+110,wCols[0]+wNW/2,wNodeY+ (wMaxH-wShards[0].h),RUSTD);
-
-// activations flow node -> node -> node (horizontal, between node tops)
-function actArrow(i,j){
-  const a=wCols[i], b=wCols[j];
-  const topA=wBaseY-wShards[i].h, topB=wBaseY-wShards[j].h;
-  const yA=topA+19, yB=topB+19;
-  arrow(a+wNW, yA, b, yB, RUST, "2 8");
-}
-actArrow(0,1);
-actArrow(1,2);
-// activations label
-txt(RCEN, wNodeY-10,"activations stream node → node → node",{w:700,sz:14,a:"middle",ls:".03em",fill:RUSTD});
+// request is split across the whole sharded fleet (all nodes active)
+wShards.forEach((sd,i)=>{
+  const cc=wCols[i]+wNW/2;
+  const top=wBaseY-sd.h;
+  vArrow(RCEN,PY+110,cc,top,RUSTD);
+});
 
 // caption
 txt(RCEN,PH-6,"weights sharded across all nodes",{f:"Bricolage Grotesque",w:700,sz:18,a:"middle",fill:RUSTD});
