@@ -7,6 +7,8 @@ tags = ["Proxy", "Cloud", "Routing", "Advanced"]
 categories = ["Features"]
 +++
 
+![Cloud proxy: a local API call is proxied to a hosted model while PII is redacted out and back](/images/diagrams/cloud-proxy-sequence.png)
+
 LocalAI can forward chat-completion and Anthropic Messages requests to an
 external provider instead of running them through the local gRPC backend
 pipeline. Configure a model with `backend: cloud-proxy` and a `proxy.upstream_url`,

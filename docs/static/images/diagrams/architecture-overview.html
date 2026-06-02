@@ -75,12 +75,12 @@ function arrow(x1,y1,x2,y2,color,dash){
 }
 
 // ---------- CLIENTS (left) ----------
-txt(20,46,"CLIENTS",{w:700,sz:14,ls:".2em",fill:SOFT});
-const clients=[{n:"OpenAI · Anthropic"},{n:"Your app"},{n:"curl · HTTP"}];
+txt(24,46,"API CLIENTS",{w:700,sz:14,ls:".2em",fill:SOFT});
+const clients=[{n:"OpenAI · Anthropic"},{n:"ElevenLabs · Ollama"},{n:"LocalAI API · curl"}];
 const CLX=24, CLW=210, CLH=66, clY=[80,210,340];
 clients.forEach((c,i)=>{
   shadowRect(CLX,clY[i],CLW,CLH,PAPER2);
-  txt(CLX+CLW/2,clY[i]+41,c.n,{f:"Bricolage Grotesque",w:700,sz:20,a:"middle"});
+  txt(CLX+CLW/2,clY[i]+41,c.n,{f:"Bricolage Grotesque",w:700,sz:18,a:"middle"});
 });
 
 // ---------- CORE (center) ----------
@@ -92,7 +92,7 @@ svg.appendChild(el("line",{x1:COX,y1:COY+64,x2:COX+COW,y2:COY+64,stroke:INK,"str
 txt(COX+26,COY+34,"LocalAI core",{f:"Bricolage Grotesque",w:800,sz:30,fill:PAPER});
 txt(COX+COW-26,COY+40,"one small binary",{w:700,sz:14,ls:".06em",a:"end",fill:"#F1D9C8"});
 // internal modules
-const mods=["OpenAI & Anthropic API","Smart router","Web UI","Agents · LocalAGI","Memory · LocalRecall"];
+const mods=["Drop-in API server","Smart router","Web UI","Agents · LocalAGI","Memory · LocalRecall"];
 const MX=COX+26, MW=COW-52, MH=58; let my=COY+88;
 mods.forEach(m=>{
   svg.appendChild(el("rect",{x:MX,y:my,width:MW,height:MH,fill:HI,stroke:INK,"stroke-width":2.5}));
@@ -102,10 +102,10 @@ mods.forEach(m=>{
 
 // ---------- gRPC boundary ----------
 const GX=836;
-svg.appendChild(el("line",{x1:GX,y1:50,x2:GX,y2:520,stroke:RUSTD,"stroke-width":3,"stroke-dasharray":"3 8"}));
-const gbW=92,gbH=30,gbx=GX-gbW/2,gby=275;
+const gbW=98,gbH=32,gbx=GX-gbW/2,gby=38;
+svg.appendChild(el("line",{x1:GX,y1:gby+gbH+6,x2:GX,y2:520,stroke:RUSTD,"stroke-width":3,"stroke-dasharray":"3 8"}));
 svg.appendChild(el("rect",{x:gbx,y:gby,width:gbW,height:gbH,fill:PAPER,stroke:RUSTD,"stroke-width":2.5}));
-txt(GX,gby+21,"gRPC",{f:"Bricolage Grotesque",w:800,sz:18,a:"middle",fill:RUSTD});
+txt(GX,gby+22,"gRPC",{f:"Bricolage Grotesque",w:800,sz:18,a:"middle",fill:RUSTD});
 
 // ---------- BACKENDS (right, 2 x 3) ----------
 txt(1460,46,"BACKENDS",{w:700,sz:14,ls:".2em",a:"end",fill:SOFT});

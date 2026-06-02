@@ -4,6 +4,8 @@ title: "Realtime API"
 weight: 60
 ---
 
+![The realtime voice loop: VAD to STT to LLM to TTS, over WebSocket or WebRTC](/images/diagrams/realtime-pipeline.png)
+
 LocalAI supports the [OpenAI Realtime API](https://platform.openai.com/docs/guides/realtime) which enables low-latency, multi-modal conversations (voice and text) over WebSocket.
 
 To use the Realtime API, you need to configure a pipeline model that defines the components for Voice Activity Detection (VAD), Transcription (STT), Language Model (LLM), and Text-to-Speech (TTS).

@@ -6,6 +6,8 @@ icon = "hub"
 description = "Learn how to install, configure, and manage models in LocalAI"
 +++
 
+![Model resolution: many sources converge on one resolve, auto-detect backend, load, and serve path](/images/diagrams/model-resolution.png)
+
 This section covers everything you need to know about installing and configuring models in LocalAI. You'll learn multiple methods to get models running.
 
 ## Prerequisites

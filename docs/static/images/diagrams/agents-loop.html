@@ -1,0 +1,166 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700;12..96,800&family=Archivo:wght@500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#F3E8D2; --paper2:#ECDFC2; --ink:#211C14; --ink-soft:#5A5142;
+    --rust:#B43A2C; --rust-deep:#8F2C20; --cold:#3F6E73; --hi:#E7D6AE; --dim:#A99F88;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{width:1600px;height:900px}
+  body{
+    background:var(--paper);color:var(--ink);font-family:"Archivo",sans-serif;
+    position:relative;overflow:hidden;
+    background-image:
+      linear-gradient(var(--paper2) 1px,transparent 1px),
+      linear-gradient(90deg,var(--paper2) 1px,transparent 1px);
+    background-size:40px 40px;
+  }
+  .frame{position:absolute;inset:26px;border:3px solid var(--ink);}
+  .wrap{position:absolute;inset:26px;padding:30px 56px 26px;display:flex;flex-direction:column}
+  header{display:flex;align-items:flex-end;justify-content:space-between;gap:30px}
+  .eyebrow{font-weight:700;letter-spacing:.22em;text-transform:uppercase;font-size:17px;color:var(--rust-deep)}
+  .eyebrow b{color:var(--ink)}
+  h1{font-family:"Bricolage Grotesque",sans-serif;font-weight:800;font-size:50px;line-height:.98;letter-spacing:-.015em;margin-top:6px}
+  h1 em{font-style:normal;color:var(--rust)}
+  .stamp{border:3px solid var(--ink);padding:10px 16px 8px;transform:rotate(3deg);text-align:center;background:var(--paper);box-shadow:6px 6px 0 var(--ink);flex:none}
+  .stamp .k{font-family:"Bricolage Grotesque";font-weight:800;font-size:21px;letter-spacing:.04em;line-height:1.05}
+  .stamp .s{font-weight:700;font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--ink-soft);margin-top:5px}
+  .stage{flex:1;margin-top:8px}
+  svg{width:100%;height:100%;overflow:visible}
+  footer{display:flex;align-items:center;justify-content:space-between;margin-top:6px;gap:24px}
+  .note{font-weight:600;font-size:18px;color:var(--ink-soft);line-height:1.3;max-width:1080px}
+  .note b{color:var(--ink)}
+  .url{font-family:"Bricolage Grotesque";font-weight:800;font-size:22px;color:var(--rust-deep);letter-spacing:.01em;flex:none}
+  .url span{color:var(--ink)}
+</style>
+</head>
+<body>
+  <div class="frame"></div>
+  <div class="wrap">
+    <header>
+      <div>
+        <div class="eyebrow">LocalAI <b>&middot;</b> Agents</div>
+        <h1>The in-process <em>agent loop</em></h1>
+      </div>
+      <div class="stamp">
+        <div class="k">SELF</div>
+        <div class="s">hosted</div>
+      </div>
+    </header>
+    <div class="stage"><svg viewBox="0 0 1480 560" id="svg"></svg></div>
+    <footer>
+      <div class="note">Agents call LocalAI's own chat API in a loop; progress streams back over SSE.</div>
+      <div class="url">localai.io<span>/features/agents</span></div>
+    </footer>
+  </div>
+<script>
+const INK="#211C14", PAPER="#F3E8D2", PAPER2="#ECDFC2", HI="#E7D6AE", SOFT="#5A5142", RUST="#B43A2C", RUSTD="#8F2C20", COLD="#3F6E73", DIM="#A99F88";
+function el(t,a,x){const e=document.createElementNS("http://www.w3.org/2000/svg",t);for(const k in a)e.setAttribute(k,a[k]);if(x!=null)e.textContent=x;return e;}
+const svg=document.getElementById("svg");
+function shadowRect(x,y,w,h,fill,stroke,sw,dash){
+  svg.appendChild(el("rect",{x:x+7,y:y+7,width:w,height:h,fill:INK}));
+  svg.appendChild(el("rect",{x,y,width:w,height:h,fill,stroke:stroke||INK,"stroke-width":sw||3.5,"stroke-dasharray":dash||"none"}));
+}
+function txt(x,y,s,o){o=o||{};svg.appendChild(el("text",{x,y,"font-family":o.f||"Archivo","font-weight":o.w||700,"font-size":o.sz||15,"letter-spacing":o.ls||"0","text-anchor":o.a||"start",fill:o.fill||INK},s));}
+function arrow(x1,y1,x2,y2,color,dash){
+  const mx=(x1+x2)/2;
+  svg.appendChild(el("path",{d:`M ${x1} ${y1} C ${mx} ${y1}, ${mx} ${y2}, ${x2-11} ${y2}`,fill:"none",stroke:color,"stroke-width":3.5,"stroke-linecap":"round","stroke-dasharray":dash||"none"}));
+  const a=7;
+  svg.appendChild(el("path",{d:`M ${x2-11} ${y2} l -${a+4} -${a} M ${x2-11} ${y2} l -${a+4} ${a}`,fill:"none",stroke:color,"stroke-width":3.5,"stroke-linecap":"round"}));
+}
+function varrow(x1,y1,x2,y2,color,dash){
+  const my=(y1+y2)/2;
+  svg.appendChild(el("path",{d:`M ${x1} ${y1} C ${x1} ${my}, ${x2} ${my}, ${x2} ${y2-11}`,fill:"none",stroke:color,"stroke-width":3.5,"stroke-linecap":"round","stroke-dasharray":dash||"none"}));
+  const a=7;
+  svg.appendChild(el("path",{d:`M ${x2} ${y2-11} l -${a} -${a+4} M ${x2} ${y2-11} l ${a} -${a+4}`,fill:"none",stroke:color,"stroke-width":3.5,"stroke-linecap":"round"}));
+}
+
+// ---------- USER (left) ----------
+const UX=20, UW=160, UH=72, UY=66;
+shadowRect(UX,UY,UW,UH,PAPER2);
+txt(UX+UW/2,UY+45,"User",{f:"Bricolage Grotesque",w:800,sz:26,a:"middle"});
+
+// ---------- AGENT POOL ----------
+const APX=20, APW=200, APH=80, APY=240;
+shadowRect(APX,APY,APW,APH,HI);
+txt(APX+APW/2,APY+38,"AgentPool",{f:"Bricolage Grotesque",w:800,sz:24,a:"middle"});
+txt(APX+APW/2,APY+62,"core/services",{w:700,sz:13,a:"middle",fill:SOFT});
+
+// ---------- REASONING LOOP (center) ----------
+const LX=300, LW=320, LY=180, LH=230;
+shadowRect(LX,LY,LW,LH,PAPER,INK,4);
+svg.appendChild(el("rect",{x:LX,y:LY,width:LW,height:54,fill:COLD}));
+svg.appendChild(el("line",{x1:LX,y1:LY+54,x2:LX+LW,y2:LY+54,stroke:INK,"stroke-width":4}));
+txt(LX+22,LY+36,"Agent reasoning loop",{f:"Bricolage Grotesque",w:800,sz:23,fill:PAPER});
+txt(LX+LW/2,LY+92,"think → act → observe",{f:"Bricolage Grotesque",w:700,sz:19,a:"middle",fill:INK});
+txt(LX+LW/2,LY+120,"iterate until done",{w:700,sz:15,a:"middle",fill:SOFT});
+
+// loop side-boxes inside the loop card
+const sbW=88, sbH=42, sbY=LY+LH-66;
+const sbItems=[{n:"Actions"},{n:"RAG"},{n:"MCP tools"}];
+const sbGap=(LW-44 - sbW*3)/2; let sbx=LX+22;
+sbItems.forEach((it)=>{
+  svg.appendChild(el("rect",{x:sbx,y:sbY,width:sbW,height:sbH,fill:HI,stroke:INK,"stroke-width":2.5}));
+  txt(sbx+sbW/2,sbY+27,it.n,{f:"Bricolage Grotesque",w:700,sz:it.n.length>6?15:17,a:"middle"});
+  sbx+=sbW+sbGap;
+});
+
+// ---------- CHAT COMPLETIONS (right, rust) ----------
+const CCX=900, CCW=300, CCY=120, CCH=96;
+shadowRect(CCX,CCY,CCW,CCH,PAPER,RUST,4);
+svg.appendChild(el("rect",{x:CCX,y:CCY,width:CCW,height:40,fill:RUST}));
+svg.appendChild(el("line",{x1:CCX,y1:CCY+40,x2:CCX+CCW,y2:CCY+40,stroke:INK,"stroke-width":3.5}));
+txt(CCX+CCW/2,CCY+27,"LocalAI's own endpoint",{w:700,sz:14,a:"middle",fill:PAPER});
+txt(CCX+CCW/2,CCY+74,"POST /v1/chat/completions",{f:"Bricolage Grotesque",w:800,sz:19,a:"middle",fill:RUSTD});
+
+// ---------- MODEL INFERENCE ----------
+const MIX=900, MIW=300, MIH=88, MIY=320;
+shadowRect(MIX,MIY,MIW,MIH,"#EFE0BF");
+txt(MIX+MIW/2,MIY+40,"Model inference",{f:"Bricolage Grotesque",w:800,sz:24,a:"middle"});
+txt(MIX+MIW/2,MIY+68,"backend · gRPC",{w:700,sz:15,a:"middle",fill:SOFT});
+
+// ---------- WEB UI (bottom right) ----------
+const WX=1230, WW=180, WH=80, WY=440;
+shadowRect(WX,WY,WW,WH,PAPER2);
+txt(WX+WW/2,WY+38,"Web UI",{f:"Bricolage Grotesque",w:800,sz:24,a:"middle"});
+txt(WX+WW/2,WY+62,"live progress",{w:700,sz:13,a:"middle",fill:SOFT});
+
+// ---------- SSE box ----------
+const SSX=900, SSW=170, SSH=58, SSY=451;
+svg.appendChild(el("rect",{x:SSX,y:SSY,width:SSW,height:SSH,fill:PAPER,stroke:COLD,"stroke-width":3,"stroke-dasharray":"4 7"}));
+txt(SSX+SSW/2,SSY+27,"GET /sse",{f:"Bricolage Grotesque",w:800,sz:19,a:"middle",fill:COLD});
+txt(SSX+SSW/2,SSY+47,"event stream",{w:700,sz:12,a:"middle",fill:SOFT});
+
+// ---------- ARROWS ----------
+// User -> AgentPool  (POST chat)
+arrow(UX+UW, UY+UH/2, APX+APW, APY+APH/2, INK);
+txt(UX+UW/2+10, 175, "POST /api/agents/:name/chat", {w:700,sz:12.5,a:"middle",fill:RUSTD});
+
+// AgentPool -> reasoning loop
+arrow(APX+APW, APY+APH/2, LX, LY+LH/2, INK);
+
+// reasoning loop -> chat completions (prominent rust, self-call)
+arrow(LX+LW, LY+44, CCX, CCY+CCH/2, RUST, "2 8");
+txt((LX+LW+CCX)/2+4, LY+8, "calls back into LocalAI", {w:700,sz:13,a:"middle",fill:RUSTD});
+
+// chat completions -> model inference
+varrow(CCX+CCW/2, CCY+CCH, MIX+MIW/2, MIY, RUSTD);
+
+// model inference -> back to loop (result returns)
+arrow(MIX, MIY+MIH/2, LX+LW, LY+LH-92, RUST, "2 8");
+txt((LX+LW+MIX)/2, MIY+MIH/2-12, "result returns", {w:700,sz:13,a:"middle",fill:RUSTD});
+
+// reasoning loop -> SSE
+arrow(LX+LW, LY+LH-22, SSX, SSY+SSH/2, COLD, "3 7");
+txt((LX+LW+SSX)/2, SSY+SSH+22, "emits events", {w:700,sz:13,a:"middle",fill:COLD});
+
+// SSE -> Web UI
+arrow(SSX+SSW, SSY+SSH/2, WX, WY+WH/2, COLD, "3 7");
+</script>
+</body>
+</html>

@@ -5,6 +5,8 @@ weight = 17
 url = "/features/audio-transform/"
 +++
 
+![Audio transform: two inputs (mic plus reference) become one cleaned output; interleaved-stereo on the wire](/images/diagrams/audio-transform-io.png)
+
 The audio-transform endpoints take **audio in** and emit **audio out**, optionally
 conditioned on a second reference audio signal. The category is generic by
 design — concrete operations include joint **acoustic echo cancellation +
