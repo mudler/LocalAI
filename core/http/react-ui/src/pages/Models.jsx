@@ -9,11 +9,13 @@ import { useResources } from '../hooks/useResources'
 import SearchableSelect from '../components/SearchableSelect'
 import ConfirmDialog from '../components/ConfirmDialog'
 import GalleryLoader from '../components/GalleryLoader'
+import Toggle from '../components/Toggle'
 import React from 'react'
 
 
 const CONTEXT_SIZES = [8192, 16384, 32768, 65536, 131072, 262144]
 const CONTEXT_LABELS = ['8K', '16K', '32K', '64K', '128K', '256K']
+const FITS_FILTER_STORAGE_KEY = 'localai-models-fits-filter'
 
 
 const FILTERS = [
@@ -59,6 +61,13 @@ export default function Models() {
   const [estimates, setEstimates] = useState({})
   const [contextSize, setContextSize] = useState(CONTEXT_SIZES[0])
   const [confirmDialog, setConfirmDialog] = useState(null)
+  const [fitsFilter, setFitsFilter] = useState(() => {
+    try {
+      return localStorage.getItem(FITS_FILTER_STORAGE_KEY) === '1'
+    } catch {
+      return false
+    }
+  })
 
   // Total GPU memory for "fits" check
   const totalGpuMemory = resources?.aggregate?.total_memory || 0
@@ -240,6 +249,23 @@ export default function Models() {
     return vramBytes <= totalGpuMemory * 0.95
   }
 
+  useEffect(() => {
+    try {
+      localStorage.setItem(FITS_FILTER_STORAGE_KEY, fitsFilter ? '1' : '0')
+    } catch {
+      // Ignore storage errors (e.g., private browsing restrictions).
+    }
+  }, [fitsFilter])
+
+  const visibleModels = models.filter((model) => {
+    if (!fitsFilter) return true
+    const name = model.name || model.id
+    const vramBytes = estimates[name]?.estimates?.[String(contextSize)]?.vramBytes
+    const fit = fitsGpu(vramBytes)
+    // Keep models visible while estimate is still loading; hide only explicit non-fits.
+    return fit !== false
+  })
+
   return (
     <div className="page page--wide">
       <div className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
@@ -300,6 +326,13 @@ export default function Models() {
             </button>
           )
         })}
+        {totalGpuMemory > 0 && (
+          <label className="filter-bar-group__toggle" style={{ marginLeft: 'auto' }}>
+            <Toggle checked={fitsFilter} onChange={setFitsFilter} />
+            <i className="fas fa-microchip" />
+            <span>{t('filters.fitsGpu')}</span>
+          </label>
+        )}
         {allBackends.length > 0 && (
           <SearchableSelect
             value={backendFilter}
@@ -308,7 +341,7 @@ export default function Models() {
             placeholder={t('filters.allBackends')}
             allOption={t('filters.allBackends')}
             searchPlaceholder={t('filters.searchBackends')}
-            style={{ marginLeft: 'auto' }}
+            style={totalGpuMemory > 0 ? undefined : { marginLeft: 'auto' }}
           />
         )}
       </div>
@@ -335,17 +368,17 @@ export default function Models() {
       {/* Table */}
       {loading ? (
         <GalleryLoader />
-      ) : models.length === 0 ? (
+      ) : visibleModels.length === 0 ? (
         <div className="empty-state">
           <div className="empty-state-icon"><i className="fas fa-search" /></div>
           <h2 className="empty-state-title">{t('empty.title')}</h2>
           <p className="empty-state-text">
-            {search || filters.length > 0 || backendFilter ? t('empty.withFilters') : t('empty.noFilters')}
+            {search || filters.length > 0 || backendFilter || fitsFilter ? t('empty.withFilters') : t('empty.noFilters')}
           </p>
-          {(search || filters.length > 0 || backendFilter) && (
+          {(search || filters.length > 0 || backendFilter || fitsFilter) && (
             <button
               className="btn btn-secondary btn-sm"
-              onClick={() => { handleSearch(''); setFilters([]); setBackendFilter(''); setPage(1) }}
+              onClick={() => { handleSearch(''); setFilters([]); setBackendFilter(''); setFitsFilter(false); setPage(1) }}
             >
               <i className="fas fa-times" /> {t('search.clearFilters')}
             </button>
@@ -372,7 +405,7 @@ export default function Models() {
                 </tr>
               </thead>
               <tbody>
-                {models.map((model, idx) => {
+                {visibleModels.map((model, idx) => {
                   const name = model.name || model.id
                   const estData = estimates[name]
                   const sizeDisplay = estData?.sizeDisplay

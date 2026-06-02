@@ -11,9 +11,11 @@ import (
 	"strings"
 	"sync/atomic"
 
+	"github.com/mudler/xlog"
+
 	"github.com/mudler/LocalAI/pkg/grpc/base"
 	pb "github.com/mudler/LocalAI/pkg/grpc/proto"
-	"github.com/mudler/xlog"
+	"github.com/mudler/LocalAI/pkg/httpclient"
 )
 
 // Mirror of core/config.Proxy{Mode,Provider}* — backends don't
@@ -48,10 +50,15 @@ type proxyConfig struct {
 }
 
 func NewCloudProxy() *CloudProxy {
-	// No Client-level Timeout — that would bound streaming SSE
-	// responses too, which can legitimately last minutes. Per-request
-	// deadlines come from the gRPC stream context.
-	return &CloudProxy{client: &http.Client{}}
+	// httpclient.New refuses redirects outright: the proxy talks to a
+	// single configured upstream API (OpenAI/Anthropic/...) that answers
+	// directly, so a 3xx means misconfiguration, a hijacked upstream, or
+	// DNS trickery — never normal operation. Following it would replay the
+	// request, including the operator's x-api-key (which Go does NOT strip
+	// on cross-host redirects), to an unvetted host and leak the key
+	// (GHSA-3mj3-57v2-4636). It also imposes no body deadline, so streaming
+	// SSE responses that legitimately last minutes are not truncated.
+	return &CloudProxy{client: httpclient.New()}
 }
 
 func (c *CloudProxy) Load(opts *pb.ModelOptions) error {
@@ -426,4 +433,3 @@ func isHopByHopHeader(name string) bool {
 	}
 	return false
 }
-

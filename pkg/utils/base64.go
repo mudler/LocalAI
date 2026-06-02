@@ -4,17 +4,16 @@ import (
 	"encoding/base64"
 	"fmt"
 	"io"
-	"net/http"
 	"regexp"
 	"strings"
 	"time"
 
 	"github.com/mudler/xlog"
+
+	"github.com/mudler/LocalAI/pkg/httpclient"
 )
 
-var base64DownloadClient http.Client = http.Client{
-	Timeout: 30 * time.Second,
-}
+var base64DownloadClient = httpclient.NewWithTimeout(30*time.Second, httpclient.WithFollowRedirects())
 
 // Match `data:<mime>[;param=value...];base64,` — browser-produced data URIs
 // often carry codec/charset params between the mime type and `;base64,`

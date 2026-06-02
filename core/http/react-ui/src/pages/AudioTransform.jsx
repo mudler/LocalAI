@@ -5,6 +5,7 @@ import { CAP_AUDIO_TRANSFORM } from '../utils/capabilities'
 import LoadingSpinner from '../components/LoadingSpinner'
 import ErrorWithTraceLink from '../components/ErrorWithTraceLink'
 import WaveformPlayer from '../components/audio/WaveformPlayer'
+import Spectrogram from '../components/audio/Spectrogram'
 import { audioTransformApi } from '../utils/api'
 import { useMediaCapture } from '../hooks/useMediaCapture'
 import useObjectUrl from '../hooks/useObjectUrl'
@@ -261,6 +262,24 @@ export default function AudioTransform() {
             </div>
           ) : (
             <div className="audio-transform-stack">
+              {audioUrl && (
+                <div className="audio-spectrogram-pair">
+                  <Spectrogram src={audioUrl} label="Input spectrum" testId="spectrogram-input" />
+                  {outputUrl ? (
+                    <Spectrogram src={outputUrl} label="Output spectrum" testId="spectrogram-output" />
+                  ) : (
+                    <div className="audio-spectrogram">
+                      <div className="audio-spectrogram__label">Output spectrum</div>
+                      <div
+                        className="audio-spectrogram__canvas-wrap audio-spectrogram__canvas-wrap--empty"
+                        style={{ height: 140 }}
+                      >
+                        <span className="audio-spectrogram__hint">Transform to compare attenuation</span>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
               <WaveformPlayer src={audioUrl} label="Audio" height={96} />
               <WaveformPlayer src={referenceUrl} label="Reference" height={96} dimmed={!referenceFile} />
               {outputUrl && (

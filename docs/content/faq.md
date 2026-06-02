@@ -12,6 +12,22 @@ url = "/faq/"
 Here are answers to some of the most common questions.
 
 
+### Do I need to install all the backends?
+
+No. You install only the backends your models use. LocalAI's core is a single binary (or container) that provides the OpenAI-compatible API, request routing, the web UI, and agents. Each inference backend (llama.cpp, vLLM, whisper.cpp, stable-diffusion, MLX, and others) is a separate artifact, installed only when a model needs it.
+
+In practice:
+
+- **You install one backend, not all of them.** Run a model with `local-ai run <model>` and the matching backend is pulled automatically; nothing else is downloaded.
+- **Each backend is purpose-built for its engine.** LocalAI builds a dedicated gRPC backend around each engine, so every one stays independently optimized without a single binary trying to support every model architecture at once.
+- **You manage backends individually** with `local-ai backends list/install/uninstall` or from the web UI.
+
+The catalog's breadth is optionality: you only ever run what your models use.
+
+### Can I bring my own model or backend?
+
+Yes. You can load any compatible model, not just the ones in the gallery. And because every backend talks to the core over a simple gRPC interface, you can write your own backend in any language and plug it in, exactly how the built-in backends work. Nothing about the core is closed off, which gives you the flexibility to run precisely the stack you want.
+
 ### How do I get models? 
 
 Most gguf-based models should work, but newer models may require additions to the API. If a model doesn't work, please feel free to open up issues. However, be cautious about downloading models from the internet and directly onto your machine, as there may be security vulnerabilities in lama.cpp or ggml that could be maliciously exploited. Some models can be found on Hugging Face: https://huggingface.co/models?search=gguf, or models from gpt4all are compatible too: https://github.com/nomic-ai/gpt4all.

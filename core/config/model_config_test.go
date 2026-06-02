@@ -10,6 +10,23 @@ import (
 )
 
 var _ = Describe("Test cases for config related functions", func() {
+	Context("ModelID", func() {
+		It("returns Name when set", func() {
+			c := ModelConfig{Name: "my-name"}
+			c.Model = "my-model"
+			Expect(c.ModelID()).To(Equal("my-name"))
+		})
+		It("falls back to Model when Name is empty", func() {
+			c := ModelConfig{}
+			c.Model = "my-model"
+			Expect(c.ModelID()).To(Equal("my-model"))
+		})
+		It("returns empty string when both are empty", func() {
+			c := ModelConfig{}
+			Expect(c.ModelID()).To(Equal(""))
+		})
+	})
+
 	Context("Test Read configuration functions", func() {
 		It("Test Validate", func() {
 			tmp, err := os.CreateTemp("", "config.yaml")
@@ -469,6 +486,35 @@ concurrency_groups:
 			Expect(configs).To(HaveLen(1))
 			Expect(configs[0].ConcurrencyGroups).To(Equal([]string{"vram-heavy", "120b"}))
 			Expect(configs[0].GetConcurrencyGroups()).To(Equal([]string{"vram-heavy", "120b"}))
+		})
+	})
+
+	// When templating is delegated to the backend (use_tokenizer_template),
+	// the backend also owns tool-call grammar generation and parsing. A
+	// LocalAI-generated grammar sent alongside would override the backend's
+	// native (name-first) tool pipeline and make it stream the tool-call JSON
+	// back as plain content (issue #10052). SetDefaults must therefore couple
+	// the two: tokenizer template implies grammar generation is disabled.
+	Context("use_tokenizer_template couples with grammar disable (issue #10052)", func() {
+		It("disables Go grammar generation when the tokenizer template is used", func() {
+			cfg := &ModelConfig{
+				TemplateConfig: TemplateConfig{UseTokenizerTemplate: true},
+			}
+			Expect(cfg.FunctionsConfig.GrammarConfig.NoGrammar).To(BeFalse())
+
+			cfg.SetDefaults()
+
+			Expect(cfg.FunctionsConfig.GrammarConfig.NoGrammar).To(BeTrue(),
+				"use_tokenizer_template must imply grammar.disable so tools go to the backend's native pipeline")
+		})
+
+		It("leaves grammar generation enabled when the tokenizer template is not used", func() {
+			cfg := &ModelConfig{}
+
+			cfg.SetDefaults()
+
+			Expect(cfg.FunctionsConfig.GrammarConfig.NoGrammar).To(BeFalse(),
+				"models that template in Go still rely on the Go-generated grammar")
 		})
 	})
 })

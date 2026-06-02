@@ -7,6 +7,8 @@ tags = ["Proxy", "MITM", "Privacy", "Routing", "Advanced"]
 categories = ["Features"]
 +++
 
+![MITM proxy: allowlisted hosts are decrypted and scanned, everything else is a blind TCP tunnel](/images/diagrams/mitm-intercept.png)
+
 LocalAI can act as a local HTTPS proxy that **redacts PII from your Claude
 Code, OpenAI Codex CLI, or any HTTPS client** without holding their API keys.
 The proxy intercepts only the LLM API endpoints you allowlist (default:

@@ -5,6 +5,8 @@ weight = 15
 url = "/features/distribute/"
 +++
 
+![Federated vs worker mode: federated routes a whole request to one node; worker shards one model across nodes](/images/diagrams/federated-vs-worker.png)
+
 {{% notice tip %}}
 Looking for production-grade horizontal scaling with PostgreSQL and NATS? See [Distributed Mode]({{% relref "features/distributed-mode" %}}).
 {{% /notice %}}

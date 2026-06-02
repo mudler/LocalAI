@@ -73,6 +73,7 @@
           # React UI build (core/http/react-ui — `make react-ui`)
           nodejs
           bun  # alternative to npm, used by `make react-ui-docker`
+          chromium  # Playwright e2e / UI coverage browser (see PLAYWRIGHT_CHROMIUM_PATH below)
 
           # Linting / static analysis (see `make lint`)
           golangci-lint
@@ -80,12 +81,24 @@
           gotools  # goimports
           go-tools # staticcheck
 
+          # Audio transforms: pkg/utils/ffmpeg_test.go shells out to the
+          # `ffmpeg` CLI, exercised by `make test-coverage` (the pre-commit
+          # gate). Headless build = the CLI without GUI/X deps.
+          ffmpeg-headless
+
           # Common dev conveniences
           git
           curl
         ];
 
         shellHook = ''
+          # Point Playwright at the nix-provided Chromium instead of its own
+          # downloaded build, which can't resolve system libs (libglib-2.0, …)
+          # on NixOS. playwright.config.js reads PLAYWRIGHT_CHROMIUM_PATH and
+          # the Makefile skips `playwright install` when it's set.
+          export PLAYWRIGHT_CHROMIUM_PATH="${pkgs.chromium}/bin/chromium"
+          export PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1
+
           echo "LocalAI dev shell: $(go version), node $(node --version)"
           echo "Build:       make build       (Go binary + React UI)"
           echo "React UI:    make react-ui    (npm install && vite build)"

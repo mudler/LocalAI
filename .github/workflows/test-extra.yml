@@ -37,6 +37,7 @@ jobs:
       sglang: ${{ steps.detect.outputs.sglang }}
       acestep-cpp: ${{ steps.detect.outputs.acestep-cpp }}
       qwen3-tts-cpp: ${{ steps.detect.outputs.qwen3-tts-cpp }}
+      rfdetr-cpp: ${{ steps.detect.outputs.rfdetr-cpp }}
       vibevoice-cpp: ${{ steps.detect.outputs.vibevoice-cpp }}
       localvqe: ${{ steps.detect.outputs.localvqe }}
       voxtral: ${{ steps.detect.outputs.voxtral }}
@@ -45,6 +46,7 @@ jobs:
       speaker-recognition: ${{ steps.detect.outputs.speaker-recognition }}
       sherpa-onnx: ${{ steps.detect.outputs.sherpa-onnx }}
       whisper: ${{ steps.detect.outputs.whisper }}
+      parakeet-cpp: ${{ steps.detect.outputs.parakeet-cpp }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
@@ -632,6 +634,26 @@ jobs:
       - name: Build whisper backend image and run transcription gRPC e2e tests
         run: |
           make test-extra-backend-whisper-transcription
+  # Parakeet ASR via the parakeet-cpp backend (C++/ggml port of NeMo
+  # Parakeet). Drives AudioTranscription (offline, with word timestamps) on
+  # tdt_ctc-110m + the JFK 11s clip.
+  tests-parakeet-cpp-grpc-transcription:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.parakeet-cpp == 'true' || needs.detect-changes.outputs.run-all == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - name: Clone
+        uses: actions/checkout@v6
+        with:
+          submodules: true
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.25.4'
+      - name: Build parakeet-cpp backend image and run transcription gRPC e2e tests
+        run: |
+          make test-extra-backend-parakeet-cpp-transcription
   # VITS TTS via the sherpa-onnx backend. Drives both TTS (file write) and
   # TTSStream (PCM chunks) on the e2e-backends harness.
   tests-sherpa-onnx-grpc-tts:
@@ -843,6 +865,42 @@ jobs:
       - name: Test qwen3-tts-cpp
         run: |
           make --jobs=5 --output-sync=target -C backend/go/qwen3-tts-cpp test
+  # Per-backend smoke for rfdetr-cpp: builds the .so + Go binary and runs
+  # `make -C backend/go/rfdetr-cpp test`. test.sh fetches the small (~20 MB)
+  # rfdetr-nano-q8_0 GGUF from the published mudler/rfdetr-cpp-nano HF repo
+  # via curl and synthesises a tiny PNG to exercise the wire protocol.
+  tests-rfdetr-cpp:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.rfdetr-cpp == 'true' || needs.detect-changes.outputs.run-all == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Clone
+        uses: actions/checkout@v6
+        with:
+          submodules: true
+      - name: Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential cmake curl libopenblas-dev
+      - name: Setup Go
+        uses: actions/setup-go@v5
+      - name: Display Go version
+        run: go version
+      - name: Proto Dependencies
+        run: |
+          # Install protoc
+          curl -L -s https://github.com/protocolbuffers/protobuf/releases/download/v26.1/protoc-26.1-linux-x86_64.zip -o protoc.zip && \
+          unzip -j -d /usr/local/bin protoc.zip bin/protoc && \
+          rm protoc.zip
+          go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.34.2
+          go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@1958fcbe2ca8bd93af633f11e97d44e567e945af
+          PATH="$PATH:$HOME/go/bin" make protogen-go
+      - name: Build rfdetr-cpp
+        run: |
+          make --jobs=5 --output-sync=target -C backend/go/rfdetr-cpp
+      - name: Test rfdetr-cpp
+        run: |
+          make --jobs=5 --output-sync=target -C backend/go/rfdetr-cpp test
   # Per-backend smoke for vibevoice-cpp: builds the .so + Go binary and
   # runs `make -C backend/go/vibevoice-cpp test`. test.sh auto-downloads
   # the published mudler/vibevoice.cpp-models bundle (TTS Q8_0 + ASR Q4_K

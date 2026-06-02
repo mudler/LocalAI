@@ -21,17 +21,19 @@ import (
 
 	"github.com/Masterminds/sprig/v3"
 	"github.com/google/uuid"
+	"github.com/mudler/cogito"
+	"github.com/mudler/cogito/clients"
+	"github.com/mudler/xlog"
+	"github.com/robfig/cron/v3"
+
 	"github.com/mudler/LocalAI/core/config"
 	mcpTools "github.com/mudler/LocalAI/core/http/endpoints/mcp"
 	"github.com/mudler/LocalAI/core/schema"
 	"github.com/mudler/LocalAI/core/services/jobs"
 	"github.com/mudler/LocalAI/core/templates"
+	"github.com/mudler/LocalAI/pkg/httpclient"
 	"github.com/mudler/LocalAI/pkg/model"
 	"github.com/mudler/LocalAI/pkg/xsync"
-	"github.com/mudler/cogito"
-	"github.com/mudler/cogito/clients"
-	"github.com/mudler/xlog"
-	"github.com/robfig/cron/v3"
 )
 
 // AgentJobService manages agent tasks and job execution
@@ -647,7 +649,7 @@ func (s *AgentJobService) fetchMultimediaFromURL(url string, headers map[string]
 	}
 
 	// Execute request
-	client := &http.Client{Timeout: 30 * time.Second}
+	client := httpclient.NewWithTimeout(30 * time.Second)
 	resp, err := client.Do(req)
 	if err != nil {
 		return "", fmt.Errorf("failed to fetch URL: %w", err)
@@ -1249,7 +1251,7 @@ func (s *AgentJobService) sendWebhook(job schema.Job, task schema.Task, webhookC
 	}
 
 	// Execute with retry
-	client := &http.Client{Timeout: 30 * time.Second}
+	client := httpclient.NewWithTimeout(30 * time.Second)
 	err = s.executeWithRetry(client, req)
 	if err != nil {
 		xlog.Error("Webhook delivery failed", "error", err, "job_id", job.ID, "webhook_url", webhookConfig.URL)

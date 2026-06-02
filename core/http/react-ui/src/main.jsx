@@ -4,6 +4,7 @@ import { RouterProvider } from 'react-router-dom'
 import { ThemeProvider } from './contexts/ThemeContext'
 import { BrandingProvider } from './contexts/BrandingContext'
 import { AuthProvider } from './context/AuthContext'
+import { OperationsProvider } from './contexts/OperationsContext'
 import { router } from './router'
 import './i18n'
 import '@fortawesome/fontawesome-free/css/all.min.css'
@@ -30,7 +31,9 @@ createRoot(document.getElementById('root')).render(
       <ThemeProvider>
         <BrandingProvider>
           <AuthProvider>
-            <RouterProvider router={router} />
+            <OperationsProvider>
+              <RouterProvider router={router} />
+            </OperationsProvider>
           </AuthProvider>
         </BrandingProvider>
       </ThemeProvider>

@@ -5,8 +5,9 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"net/http"
 	"strings"
+
+	"github.com/mudler/LocalAI/pkg/httpclient"
 )
 
 type HuggingFaceScanResult struct {
@@ -29,7 +30,7 @@ func HuggingFaceScan(uri URI) (*HuggingFaceScanResult, error) {
 	if len(cleanParts) <= 4 || (cleanParts[2] != "huggingface.co" && cleanParts[2] != hfHost) {
 		return nil, ErrNonHuggingFaceFile
 	}
-	results, err := http.Get(fmt.Sprintf("%s/api/models/%s/%s/scan", HF_ENDPOINT, cleanParts[3], cleanParts[4]))
+	results, err := httpclient.New(httpclient.WithFollowRedirects()).Get(fmt.Sprintf("%s/api/models/%s/%s/scan", HF_ENDPOINT, cleanParts[3], cleanParts[4]))
 	if err != nil {
 		return nil, err
 	}

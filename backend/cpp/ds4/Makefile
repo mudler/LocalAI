@@ -1,10 +1,10 @@
 # ds4 backend Makefile.
 #
-# Upstream pin lives below as DS4_VERSION?=ad0209f6a4b067574d2b4afe896c08c177156b31
+# Upstream pin lives below as DS4_VERSION?=ba00a8a88c4c5810a3d1fed6b7b8fa2b44b82fdc
 # (.github/bump_deps.sh) can find and update it - matches the
 # llama-cpp / ik-llama-cpp / turboquant convention.
 
-DS4_VERSION?=ad0209f6a4b067574d2b4afe896c08c177156b31
+DS4_VERSION?=ba00a8a88c4c5810a3d1fed6b7b8fa2b44b82fdc
 DS4_REPO?=https://github.com/antirez/ds4
 
 CURRENT_MAKEFILE_DIR := $(dir $(abspath $(lastword $(MAKEFILE_LIST))))
@@ -18,16 +18,19 @@ UNAME_S := $(shell uname -s)
 
 CMAKE_ARGS ?= -DCMAKE_BUILD_TYPE=Release
 
+# ds4_distributed.o is a GPU-agnostic translation unit that ds4.c/ds4_cpu.o now
+# reference (upstream split distributed inference into its own .c). The same
+# object is shared by every GPU mode, so it is appended unconditionally below.
 ifeq ($(BUILD_TYPE),cublas)
     CMAKE_ARGS += -DDS4_GPU=cuda
-    DS4_OBJ_TARGET := ds4.o ds4_cuda.o
+    DS4_OBJ_TARGET := ds4.o ds4_cuda.o ds4_distributed.o
 else ifeq ($(UNAME_S),Darwin)
     CMAKE_ARGS += -DDS4_GPU=metal
-    DS4_OBJ_TARGET := ds4.o ds4_metal.o
+    DS4_OBJ_TARGET := ds4.o ds4_metal.o ds4_distributed.o
 else
     # CPU reference path (Linux only - macOS CPU path is broken by VM bug per ds4 README).
     CMAKE_ARGS += -DDS4_GPU=cpu
-    DS4_OBJ_TARGET := ds4_cpu.o
+    DS4_OBJ_TARGET := ds4_cpu.o ds4_distributed.o
 endif
 
 ifneq ($(NATIVE),true)
@@ -52,17 +55,18 @@ ds4:
 # the right per-platform compile flags (Objective-C/Metal on Darwin, nvcc on Linux+CUDA).
 ds4/ds4.o: ds4
 ifeq ($(BUILD_TYPE),cublas)
-	+$(MAKE) -C ds4 ds4.o ds4_cuda.o
+	+$(MAKE) -C ds4 ds4.o ds4_cuda.o ds4_distributed.o
 else ifeq ($(UNAME_S),Darwin)
-	+$(MAKE) -C ds4 ds4.o ds4_metal.o
+	+$(MAKE) -C ds4 ds4.o ds4_metal.o ds4_distributed.o
 else
-	+$(MAKE) -C ds4 ds4_cpu.o
+	+$(MAKE) -C ds4 ds4_cpu.o ds4_distributed.o
 endif
 
 grpc-server: ds4/ds4.o
 	mkdir -p $(BUILD_DIR)
 	cd $(BUILD_DIR) && cmake $(CMAKE_ARGS) $(CURRENT_MAKEFILE_DIR) && cmake --build . --config Release -j $(JOBS)
 	cp $(BUILD_DIR)/grpc-server grpc-server
+	cp $(BUILD_DIR)/ds4-worker ds4-worker
 
 package: grpc-server
 	bash package.sh
@@ -71,7 +75,7 @@ test:
 	@echo "ds4 backend: e2e coverage at tests/e2e-backends/ (BACKEND_BINARY mode)"
 
 clean:
-	rm -rf $(BUILD_DIR) grpc-server package
+	rm -rf $(BUILD_DIR) grpc-server ds4-worker package
 	if [ -d ds4 ]; then $(MAKE) -C ds4 clean; fi
 
 purge: clean

@@ -5,6 +5,8 @@ weight = 17
 url = "/features/audio-diarization/"
 +++
 
+![Diarization: segment, embed, and cluster (or a single ASR pass) into speaker-labelled segments](/images/diagrams/diarization-pipeline.png)
+
 Speaker diarization answers the question **"who spoke when?"** — given an audio clip with multiple speakers, it returns time-stamped segments labelled with a stable speaker ID (`SPEAKER_00`, `SPEAKER_01`, …).
 
 LocalAI exposes this through the `/v1/audio/diarization` endpoint, modelled after `/v1/audio/transcriptions`. Two backends are supported today:

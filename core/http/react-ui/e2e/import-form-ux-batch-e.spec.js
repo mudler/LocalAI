@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test'
+import { test, expect } from './coverage-fixtures.js'
 
 // Batch E — modality chip row. A horizontal chip row sits above the Backend
 // dropdown (inside the Simple-mode Options disclosure and in Power >

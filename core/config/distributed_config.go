@@ -49,6 +49,17 @@ type DistributedConfig struct {
 
 	AgentWorkerConcurrency int `yaml:"agent_worker_concurrency" json:"agent_worker_concurrency" env:"LOCALAI_AGENT_WORKER_CONCURRENCY"`
 	JobWorkerConcurrency   int `yaml:"job_worker_concurrency" json:"job_worker_concurrency" env:"LOCALAI_JOB_WORKER_CONCURRENCY"`
+
+	// PrefixCacheDisabled turns off prefix-cache-aware routing, falling back to
+	// round-robin (the floor). Prefix-cache routing is ON by default in
+	// distributed mode; this flag exists so operators can opt out. The CLI
+	// surfaces a default-true --distributed-prefix-cache enable flag and sets
+	// this when the operator passes --distributed-prefix-cache=false.
+	PrefixCacheDisabled bool
+	// PrefixCacheTTL is the idle-timeout for prefix-cache index entries and
+	// drives the background eviction cadence (eviction runs every TTL/2). Zero
+	// means use the prefixcache package default (5m).
+	PrefixCacheTTL time.Duration
 }
 
 // Validate checks that the distributed configuration is internally consistent.
@@ -156,6 +167,20 @@ func WithBackendUpgradeTimeout(d time.Duration) AppOption {
 
 var EnableAutoApproveNodes = func(o *ApplicationConfig) {
 	o.Distributed.AutoApproveNodes = true
+}
+
+// DisablePrefixCache turns off prefix-cache-aware routing (falls back to
+// round-robin). Prefix-cache routing is enabled by default in distributed mode.
+var DisablePrefixCache = func(o *ApplicationConfig) {
+	o.Distributed.PrefixCacheDisabled = true
+}
+
+// WithPrefixCacheTTL sets the prefix-cache index idle-timeout (and the
+// background eviction cadence, which runs every TTL/2).
+func WithPrefixCacheTTL(d time.Duration) AppOption {
+	return func(o *ApplicationConfig) {
+		o.Distributed.PrefixCacheTTL = d
+	}
 }
 
 // Flag names for distributed timeout / interval configuration. These are

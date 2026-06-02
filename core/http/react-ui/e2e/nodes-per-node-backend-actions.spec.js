@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test'
+import { test, expect } from './coverage-fixtures.js'
 
 // These specs cover the per-node backend row in the Nodes page:
 //   - the upgrade affordance is self-explanatory (icon + tooltip)

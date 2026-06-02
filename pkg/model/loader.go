@@ -53,6 +53,13 @@ type ModelLoader struct {
 	modelRouter              ModelRouter // distributed mode: route to remote node
 	backendLogs              *BackendLogStore
 	backendLoggingEnabled    atomic.Bool
+	// stoppingProcs marks backend processes that LocalAI is stopping on
+	// purpose (model unload / graceful shutdown), keyed by the
+	// *process.Process pointer. The exit-watcher goroutine in startProcess
+	// consults it to decide whether an exit is an expected stop or a crash —
+	// the exit code can't, since a child killed by our own SIGTERM/SIGKILL
+	// reports -1, indistinguishable from a signal-induced crash.
+	stoppingProcs sync.Map
 }
 
 // NewModelLoader creates a new ModelLoader instance.

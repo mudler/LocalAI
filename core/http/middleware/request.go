@@ -310,6 +310,26 @@ func mergeOpenAIRequestAndModelConfig(config *config.ModelConfig, input *schema.
 		config.Temperature = input.Temperature
 	}
 
+	// Map the per-request reasoning_effort onto the reasoning toggle the
+	// backend reads (enable_thinking metadata, set in gRPCPredictOpts).
+	// "none" disables thinking for this request - the use case from #10072,
+	// running a single Qwen3-style model and turning reasoning off per
+	// request. Any explicit effort level enables thinking, UNLESS the model
+	// config explicitly disabled it (DisableReasoning==true wins): an
+	// operator who deliberately turned reasoning off should not be overridden
+	// by a request. A value of "none" always disables, since that never
+	// conflicts with a config that also disables.
+	switch strings.ToLower(input.ReasoningEffort) {
+	case "none":
+		disable := true
+		config.ReasoningConfig.DisableReasoning = &disable
+	case "minimal", "low", "medium", "high":
+		if config.ReasoningConfig.DisableReasoning == nil || !*config.ReasoningConfig.DisableReasoning {
+			enable := false
+			config.ReasoningConfig.DisableReasoning = &enable
+		}
+	}
+
 	// Collapse the modern max_completion_tokens alias into the
 	// legacy Maxtokens field so downstream code reads exactly one.
 	// MaxCompletionTokens wins on conflict — it's the canonical

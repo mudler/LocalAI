@@ -10,7 +10,7 @@ import (
 	"time"
 
 	"github.com/labstack/echo/v4"
-	"github.com/mudler/LocalAI/core/application"
+	localaiapp "github.com/mudler/LocalAI/core/application"
 	"github.com/mudler/LocalAI/core/config"
 	httpapi "github.com/mudler/LocalAI/core/http"
 	"github.com/mudler/LocalAI/pkg/system"
@@ -41,6 +41,7 @@ var (
 	cloudProxyPath    string
 	mcpServerURL      string
 	mcpServerShutdown func()
+	localAIApp        *localaiapp.Application
 
 	// Cloud-proxy fake upstreams. Live for the whole suite so the four
 	// cloud-proxy model YAMLs can point at their URLs at startup time.
@@ -390,7 +391,7 @@ var _ = BeforeSuite(func() {
 	// Create application instance (GeneratedContentDir so sound-generation/TTS can write files the handler sends)
 	generatedDir := filepath.Join(tmpDir, "generated")
 	Expect(os.MkdirAll(generatedDir, 0750)).To(Succeed())
-	application, err := application.New(
+	localAIApp, err = localaiapp.New(
 		config.WithContext(appCtx),
 		config.WithSystemState(systemState),
 		config.WithDebug(true),
@@ -399,14 +400,14 @@ var _ = BeforeSuite(func() {
 	Expect(err).ToNot(HaveOccurred())
 
 	// Register mock backend (always available for non-realtime tests).
-	application.ModelLoader().SetExternalBackend("mock-backend", mockBackendPath)
-	application.ModelLoader().SetExternalBackend("opus", mockBackendPath)
+	localAIApp.ModelLoader().SetExternalBackend("mock-backend", mockBackendPath)
+	localAIApp.ModelLoader().SetExternalBackend("opus", mockBackendPath)
 	if cloudProxyPath != "" {
-		application.ModelLoader().SetExternalBackend("cloud-proxy", cloudProxyPath)
+		localAIApp.ModelLoader().SetExternalBackend("cloud-proxy", cloudProxyPath)
 	}
 
 	// Create HTTP app
-	app, err = httpapi.API(application)
+	app, err = httpapi.API(localAIApp)
 	Expect(err).ToNot(HaveOccurred())
 
 	// Get free port
@@ -436,6 +437,14 @@ var _ = BeforeSuite(func() {
 })
 
 var _ = AfterSuite(func() {
+	// Synchronous shutdown — the context-cancel goroutine in application.New
+	// runs the same cleanup asynchronously, which races test-binary exit and
+	// orphans spawned mock-backend children to init.
+	if localAIApp != nil {
+		if err := localAIApp.Shutdown(); err != nil {
+			xlog.Error("error shutting down application", "error", err)
+		}
+	}
 	if appCancel != nil {
 		appCancel()
 	}

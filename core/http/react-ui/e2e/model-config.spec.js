@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test'
+import { test, expect } from './coverage-fixtures.js'
 
 const MOCK_METADATA = {
   sections: [
@@ -188,4 +188,40 @@ test.describe('Model Editor - Interactive Tab', () => {
     await expect(page.locator('input[placeholder="Search fields to add..."]')).toBeVisible()
     await expect(page.locator('text=Model Name')).toBeVisible()
   })
+
+  test('shows the estimated VRAM annotation when the model has a context size', async ({ page }) => {
+    // Regression: the editor reads the /api/models/vram-estimate response,
+    // whose shape is snake_case (vram_display). The hook previously read
+    // camelCase (vramDisplay) and silently showed nothing.
+    await page.route('**/api/models/edit/mock-model', (route) => {
+      route.fulfill({
+        contentType: 'application/json',
+        body: JSON.stringify({
+          config: 'name: mock-model\nbackend: mock-backend\ncontext_size: 4096\nparameters:\n  model: mock-model.bin\n',
+          name: 'mock-model',
+        }),
+      })
+    })
+    let estimateCalled = false
+    await page.route('**/api/models/vram-estimate', (route) => {
+      estimateCalled = true
+      route.fulfill({
+        contentType: 'application/json',
+        body: JSON.stringify({
+          size_bytes: 4294967296,
+          size_display: '4 GiB',
+          vram_bytes: 5583457484,
+          vram_display: '5.2 GiB',
+          context_length: 4096,
+        }),
+      })
+    })
+
+    await page.goto('/app/model-editor/mock-model')
+    await expect(page.locator('h1', { hasText: 'Model Editor' })).toBeVisible({ timeout: 10_000 })
+
+    await expect(page.getByText(/~\s*5\.2 GiB VRAM/)).toBeVisible({ timeout: 10_000 })
+    expect(estimateCalled).toBe(true)
+  })
+
 })

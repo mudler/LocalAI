@@ -7,6 +7,8 @@ tags = ["Routing", "Privacy", "PII", "Middleware", "Advanced"]
 categories = ["Features"]
 +++
 
+![The request lifecycle: one shared hook chain for auth, model routing, and PII, with decision and event logs](/images/diagrams/middleware-lifecycle.png)
+
 LocalAI ships a request-middleware layer that sits between the HTTP API and
 the backend dispatcher. Two subsystems share that layer because they share
 the same lifecycle hook: **PII filtering** scans the request body before it

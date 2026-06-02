@@ -694,6 +694,18 @@ func (c *ModelConfig) IsModelURL() bool {
 	return uri.LooksLikeURL()
 }
 
+// ModelID returns the identifier used to reference this model across the
+// system: the configured Name, falling back to Model when Name is empty.
+// This is the single source of truth for the id fed to model.WithModelID and
+// the prefix-cache chain salt; both MUST agree with the router's tracking key
+// or the prefix-cache salt diverges silently.
+func (c ModelConfig) ModelID() string {
+	if c.Name != "" {
+		return c.Name
+	}
+	return c.Model
+}
+
 // ModelFileName returns the filename of the model
 // If the model is a URL, it will return the MD5 of the URL which is the filename
 func (c *ModelConfig) ModelFileName() string {
@@ -730,6 +742,17 @@ func (cfg *ModelConfig) SetDefaults(opts ...ConfigLoaderOption) {
 	// inference path reads cfg.Proxy.Mode.
 	if cfg.Proxy.Mode == "" {
 		cfg.Proxy.Mode = ProxyModePassthrough
+	}
+
+	// When templating is delegated to the backend (use_tokenizer_template),
+	// the backend also owns tool-call grammar generation and parsing. Sending
+	// a LocalAI-generated grammar alongside overrides the backend's native
+	// (name-first) tool pipeline and makes it stream the tool-call JSON back as
+	// plain content (issue #10052). The GGUF auto-import path already couples
+	// these two flags; enforce it here so gallery and hand-written configs that
+	// set use_tokenizer_template directly stay consistent.
+	if cfg.TemplateConfig.UseTokenizerTemplate {
+		cfg.FunctionsConfig.GrammarConfig.NoGrammar = true
 	}
 
 	// Apply model-family-specific inference defaults before generic fallbacks.

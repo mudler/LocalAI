@@ -1,4 +1,4 @@
-package nodes
+package clusterrouting
 
 import (
 	"time"
@@ -36,7 +36,7 @@ var _ = Describe("PickBestReplica", func() {
 
 	It("uses oldest last_used as the tiebreaker when in_flight ties", func() {
 		// All three tied on in_flight=0. Without last_used, available_vram
-		// would pin every pick to the fattest node — the exact bug
+		// would pin every pick to the fattest node: the exact bug
 		// fix(distributed): round-robin replicas of the same model addressed.
 		cs := []ReplicaCandidate{
 			{NodeID: "fat-recent", InFlight: 0, LastUsed: ref.Add(2 * time.Second), AvailableVRAM: 24_000_000_000},
@@ -47,7 +47,7 @@ var _ = Describe("PickBestReplica", func() {
 	})
 
 	It("uses largest available_vram as the final tiebreaker", func() {
-		// in_flight tied AND last_used tied — pick the largest GPU.
+		// in_flight tied AND last_used tied: pick the largest GPU.
 		cs := []ReplicaCandidate{
 			{NodeID: "small", InFlight: 0, LastUsed: ref, AvailableVRAM: 8_000_000_000},
 			{NodeID: "fat", InFlight: 0, LastUsed: ref, AvailableVRAM: 24_000_000_000},

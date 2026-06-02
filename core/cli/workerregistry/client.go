@@ -15,6 +15,8 @@ import (
 	"time"
 
 	"github.com/mudler/xlog"
+
+	"github.com/mudler/LocalAI/pkg/httpclient"
 )
 
 // RegistrationClient talks to the frontend's /api/node/* endpoints.
@@ -37,7 +39,7 @@ func (c *RegistrationClient) httpTimeout() time.Duration {
 // httpClient returns the shared HTTP client, initializing it on first use.
 func (c *RegistrationClient) httpClient() *http.Client {
 	c.clientOnce.Do(func() {
-		c.client = &http.Client{Timeout: c.httpTimeout()}
+		c.client = httpclient.NewWithTimeout(c.httpTimeout())
 	})
 	return c.client
 }

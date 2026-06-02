@@ -198,6 +198,7 @@ For AI-assisted development, see [`AGENTS.md`](AGENTS.md) (or the equivalent [`C
 
 - Prefer modern Go idioms — for example, use `any` instead of `interface{}`.
 - Use [`golangci-lint`](https://golangci-lint.run) to catch common issues before submitting a PR.
+- Run `make install-hooks` once per clone to enable the pre-commit hook: Go changes run `make lint` + the coverage gate (`make test-coverage-check`); `core/http/react-ui/` changes run the Playwright e2e suite (`make test-ui`). Bypass a single commit with `git commit --no-verify`.
 - Use [`github.com/mudler/xlog`](https://github.com/mudler/xlog) for logging (same API as `slog`). Do not use `fmt.Println` or the standard `log` package for operational logging.
 - Use tab indentation for Go files (as defined in `.editorconfig`).
 
@@ -264,6 +265,12 @@ The e2e tests run LocalAI in a Docker container and exercise the API:
 ```bash
 make test-e2e
 ```
+
+### React UI tests and coverage
+
+The React UI (`core/http/react-ui/`) is covered by Playwright e2e specs, gated by a **monotonic line-coverage ratchet** (`make test-ui-coverage-check`, run in CI and pre-commit). The metric is non-deterministic — a fast local box reads higher than a slow CI runner for the same code — so a small tolerance is unavoidable.
+
+**If your change lowers UI coverage, raise it back by adding specs — do not widen the tolerance or hand-lower the baseline.** A *render-smoke* spec (navigate to a page, assert its header is visible) cheaply covers an entire lazy page. See `core/http/react-ui/e2e/page-render-smoke.spec.js` and the full policy in [.agents/building-and-testing.md](.agents/building-and-testing.md#react-ui-coverage).
 
 ### Running E2E container tests
 

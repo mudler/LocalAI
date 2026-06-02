@@ -23,6 +23,7 @@
     "diarization": "说话人分离",
     "embedding": "嵌入",
     "rerank": "重排",
+    "fitsGpu": "适合 GPU",
     "allBackends": "所有后端",
     "searchBackends": "搜索后端..."
   },

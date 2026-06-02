@@ -15,6 +15,7 @@ mkdir -p build/darwin/lib
 mkdir -p backend-images
 
 cp -rf backend/cpp/ds4/grpc-server build/darwin/
+cp -rf backend/cpp/ds4/ds4-worker  build/darwin/
 cp -rf backend/cpp/ds4/run.sh      build/darwin/
 
 # Apple Silicon: pick up Homebrew-installed protobuf utf8_validity if present.
@@ -28,7 +29,7 @@ for file in $ADDITIONAL_LIBS; do
 done
 
 # Walk dylibs via otool -L and bundle anything that isn't a system framework.
-for file in build/darwin/grpc-server; do
+for file in build/darwin/grpc-server build/darwin/ds4-worker; do
     LIBS="$(otool -L "$file" | awk 'NR > 1 { system("echo " $1) } ' | xargs echo)"
     for lib in $LIBS; do
         if [[ "$lib" == *.dylib ]] && [[ -e "$lib" ]]; then

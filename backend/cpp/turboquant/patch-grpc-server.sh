@@ -124,8 +124,11 @@ fi
 # 5. Define LOCALAI_LEGACY_LLAMA_CPP_SPEC at the top of the file so the
 #    grpc-server option parser skips the new option-handler blocks (ngram_mod,
 #    ngram_map_k, ngram_map_k4v, ngram_cache, draft.cache_type_*, draft.cpuparams*,
-#    draft.tensor_buft_overrides) introduced for the post-#22838 layout. Those
-#    blocks reference struct fields that simply do not exist in the fork.
+#    draft.tensor_buft_overrides) introduced for the post-#22838 layout, the
+#    draft.tensor_buft_overrides sentinel termination, and the
+#    common_params::checkpoint_min_step default/option (added with the
+#    35c9b1f3 bump). Those blocks reference struct fields that simply do not
+#    exist in the fork.
 if grep -q '^#define LOCALAI_LEGACY_LLAMA_CPP_SPEC' "$SRC"; then
     echo "==> $SRC already defines LOCALAI_LEGACY_LLAMA_CPP_SPEC, skipping"
 else

@@ -31,12 +31,18 @@
 
 **LocalAI** is the open-source AI engine. Run any model - LLMs, vision, voice, image, video - on any hardware. No GPU required.
 
-- **Drop-in API compatibility** — OpenAI, Anthropic, ElevenLabs APIs
-- **36+ backends** — llama.cpp, vLLM, transformers, whisper, diffusers, MLX...
-- **Any hardware** — NVIDIA, AMD, Intel, Apple Silicon, Vulkan, or CPU-only
-- **Multi-user ready** — API key auth, user quotas, role-based access
-- **Built-in AI agents** — autonomous agents with tool use, RAG, MCP, and skills
-- **Privacy-first** — your data never leaves your infrastructure
+**A small core, not a bundle.** Each backend wraps a best-in-class engine (llama.cpp, vLLM, whisper.cpp, stable-diffusion, MLX...) in its own image, pulled only when a model needs it. You install nothing you don't use.
+
+- **Composable by design**: backends are separate and pulled on demand, so you install only what your model needs
+- **Open and extensible**: load any model, or build your own backend in any language against an open interface
+- **Drop-in API compatibility**: OpenAI, Anthropic, and ElevenLabs APIs across every backend
+- **Any model, any modality**: LLMs, vision, voice, image, and video behind one API
+- **Any hardware**: NVIDIA, AMD, Intel, Apple Silicon, Vulkan, or CPU-only
+- **Multi-user ready**: API key auth, user quotas, role-based access
+- **Built-in AI agents**: autonomous agents with tool use, RAG, MCP, and skills
+- **Privacy-first**: your data never leaves your infrastructure
+
+![A small LocalAI core with backends (llama.cpp, vLLM, MLX, whisper.cpp, stable-diffusion, kokoro, parakeet.cpp...) plugged in as separate on-demand images](docs/static/images/diagrams/composable-core.png)
 
 Created by [Ettore Di Giacinto](https://github.com/mudler) and maintained by the [LocalAI team](#team).
 

@@ -341,6 +341,19 @@ func processStreamWithTools(
 			}
 		}
 
+		// Issue #9722: when the C++ autoparser is already producing tool
+		// calls (it delivers them via ChatDeltas, which are flushed at
+		// end-of-stream by ToolCallsFromChatDeltas -> buildDeferredToolCallChunks),
+		// skip the Go-side iterative parser below. Running both parsers makes
+		// the same logical tool call surface at multiple `index` values.
+		// The deferred flush is guarded by lastEmittedCount, so the race where
+		// the Go parser already emitted before this flag flipped also stays
+		// single-emission. Backends without an autoparser (e.g. vLLM) keep
+		// hasChatDeltaToolCalls=false and are unaffected.
+		if hasChatDeltaToolCalls {
+			return true
+		}
+
 		// Try incremental XML parsing for streaming support using iterative parser
 		// This allows emitting partial tool calls as they're being generated
 		cleanedResult := functions.CleanupLLMResult(result, cfg.FunctionsConfig)

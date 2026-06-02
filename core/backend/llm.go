@@ -19,6 +19,7 @@ import (
 	"github.com/mudler/LocalAI/core/trace"
 
 	"github.com/mudler/LocalAI/core/gallery"
+	"github.com/mudler/LocalAI/pkg/distributedhdr"
 	"github.com/mudler/LocalAI/pkg/grpc/proto"
 	model "github.com/mudler/LocalAI/pkg/model"
 	"github.com/mudler/LocalAI/pkg/utils"
@@ -93,6 +94,22 @@ func ModelInference(ctx context.Context, s string, messages schema.Messages, ima
 			}
 		}
 	}
+
+	// Make the rendered prompt's prefix chain available to the distributed router
+	// for prefix-cache-aware node selection. No-op in single-process mode. The
+	// model id MUST match the id ModelOptions feeds to model.WithModelID, so both
+	// use the shared config.ModelConfig.ModelID() helper (Name with a fallback to
+	// Model) or the chain salt and the tracking key would diverge.
+	//
+	// s is empty for UseTokenizerTemplate models (the backend tokenizes the
+	// structured messages itself), so fall back to a prefix-stable serialization
+	// of the messages - otherwise prefix routing would silently degrade to
+	// round-robin for the bulk of modern chat models.
+	chainSource := s
+	if chainSource == "" {
+		chainSource = messagesPrefixSource(messages)
+	}
+	ctx = distributedhdr.MaybeWithPrefixChain(ctx, c.ModelID(), chainSource)
 
 	opts := ModelOptions(*c, o, model.WithContext(ctx))
 	inferenceModel, err := loader.Load(opts...)

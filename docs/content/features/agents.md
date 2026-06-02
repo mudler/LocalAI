@@ -5,6 +5,8 @@ weight = 21
 url = '/features/agents'
 +++
 
+![The in-process agent loop: agents call LocalAI's own chat API in a loop, streaming progress over SSE](/images/diagrams/agents-loop.png)
+
 LocalAI includes a built-in agent platform powered by [LocalAGI](https://github.com/mudler/LocalAGI). Agents are autonomous AI entities that can reason, use tools, maintain memory, and interact with external services — all running locally as part of the LocalAI process.
 
 ## Overview

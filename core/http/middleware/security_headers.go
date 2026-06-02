@@ -17,7 +17,10 @@ func SecurityHeaders() echo.MiddlewareFunc {
 		"img-src 'self' data: blob: https:; " +
 		"media-src 'self' data: blob:; " +
 		"font-src 'self' data:; " +
-		"connect-src 'self' ws: wss: https:; " +
+		// blob: lets the waveform renderer XHR/fetch a freshly-created object
+		// URL (e.g. an uploaded clip before it has a server URL). XHR/fetch of
+		// blob: falls under connect-src, not media-src.
+		"connect-src 'self' ws: wss: https: blob:; " +
 		"frame-src 'self' blob:; " +
 		"worker-src 'self' blob:; " +
 		"object-src 'none'; " +

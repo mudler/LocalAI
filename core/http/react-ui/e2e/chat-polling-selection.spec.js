@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test'
+import { test, expect } from './coverage-fixtures.js'
 
 // Regression coverage for issue #9904:
 // - /api/operations was polled every 1s and *always* re-rendered the Chat
