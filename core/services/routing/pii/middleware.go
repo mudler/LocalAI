@@ -19,14 +19,14 @@ import (
 // drag the http/middleware package into pii's import graph and create
 // a cycle (http/middleware will import this one).
 const (
-	ctxKeyCorrelationID    = "routing.correlation_id"
-	ctxKeyPIIEventID       = "routing.pii_event_id"
+	ctxKeyCorrelationID = "routing.correlation_id"
+	ctxKeyPIIEventID    = "routing.pii_event_id"
 	// Must match the constants in core/http/middleware/request.go.
 	// Echoing them across packages would create an import cycle
 	// (http/middleware imports this package). Drift is caught by
 	// integration tests against the chat route.
-	ctxKeyParsedRequest    = "LOCALAI_REQUEST"
-	ctxKeyModelConfig      = "MODEL_CONFIG"
+	ctxKeyParsedRequest = "LOCALAI_REQUEST"
+	ctxKeyModelConfig   = "MODEL_CONFIG"
 )
 
 // ModelPIIConfig is the duck-typed view this middleware needs of the
@@ -41,6 +41,44 @@ const (
 type ModelPIIConfig interface {
 	PIIIsEnabled() bool
 	PIIPatternOverrides() map[string]string
+}
+
+// ModelNERConfig is the optional encoder/NER view of a model's PII
+// config. It is kept separate from ModelPIIConfig so existing
+// implementers (and regex-only test stubs) don't have to grow methods:
+// the middleware type-asserts for it and runs the NER tier only when
+// the model both satisfies this interface and names a Model. As with
+// ModelPIIConfig, *config.ModelConfig satisfies it without dragging
+// core/config into this package's import graph.
+type ModelNERConfig interface {
+	PIINERModel() string
+	PIINERMinScore() float32
+	PIINERDefaultAction() string
+	PIINEREntityActions() map[string]string
+}
+
+// NERDetectorResolver returns the NER detector for a model name, or nil
+// if that model can't supply one (unknown / not loadable). Supplied by
+// the application layer, which owns the model loader and the
+// core/backend dependency — this keeps the pii package free of both. A
+// nil resolver (or the option being unset) disables the NER tier.
+type NERDetectorResolver func(modelName string) NERDetector
+
+// Option configures optional RequestMiddleware behaviour. Threaded as
+// variadic options so adding the NER tier doesn't break the existing
+// four-argument call sites (routes and tests).
+type Option func(*mwOptions)
+
+type mwOptions struct {
+	nerResolver NERDetectorResolver
+}
+
+// WithNERResolver enables the encoder/NER tier. When a request's model
+// carries a pii.ner.model, the middleware resolves a detector for it
+// and runs RedactWithNER (regex + NER, merged); without this option, or
+// when no NER model is configured, redaction stays regex-only.
+func WithNERResolver(r NERDetectorResolver) Option {
+	return func(o *mwOptions) { o.nerResolver = r }
 }
 
 // ScannedText is one piece of user text from the request. Index is
@@ -84,7 +122,11 @@ type Adapter struct {
 // no-auth identity. The middleware writes ctxKeyPIIEventID on the echo
 // context so the usage middleware can later cross-reference the event
 // with the UsageRecord.
-func RequestMiddleware(redactor *Redactor, store EventStore, adapter Adapter, fallbackUser *auth.User) echo.MiddlewareFunc {
+func RequestMiddleware(redactor *Redactor, store EventStore, adapter Adapter, fallbackUser *auth.User, opts ...Option) echo.MiddlewareFunc {
+	var o mwOptions
+	for _, opt := range opts {
+		opt(&o)
+	}
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
 		return func(c echo.Context) error {
 			if redactor == nil || len(redactor.Patterns()) == 0 || adapter.Scan == nil {
@@ -146,6 +188,38 @@ func RequestMiddleware(redactor *Redactor, store EventStore, adapter Adapter, fa
 				}
 			}
 
+			// Resolve the encoder/NER tier once per request. Only when
+			// the option supplied a resolver, the model satisfies
+			// ModelNERConfig, names a Model, and that model resolves to
+			// a detector. Otherwise nerCfg.Detector stays nil and the
+			// redaction path below is regex-only.
+			var nerCfg NERConfig
+			if o.nerResolver != nil {
+				if nc, ok := c.Get(ctxKeyModelConfig).(ModelNERConfig); ok {
+					if nerModel := nc.PIINERModel(); nerModel != "" {
+						det := o.nerResolver(nerModel)
+						if det == nil {
+							// Fail closed: a configured NER model that
+							// cannot be resolved (not installed, wrong
+							// name, or load failure) must block, not
+							// silently downgrade to regex-only — same
+							// reasoning as the detector-error path below.
+							xlog.Error("pii: configured NER model could not be resolved; blocking request (fail-closed)", "ner_model", nerModel)
+							return blockNERUnavailable(c, store, correlationID, userID)
+						}
+						nerCfg = NERConfig{
+							Detector: det,
+							MinScore: nc.PIINERMinScore(),
+							// §9.7: a detected entity is masked unless an
+							// admin downgrades it — safe-by-default for a
+							// PII filter. Empty/invalid config => mask.
+							DefaultAction: validActionOr(nc.PIINERDefaultAction(), ActionMask),
+							EntityActions: validActions(nc.PIINEREntityActions()),
+						}
+					}
+				}
+			}
+
 			texts := adapter.Scan(parsed)
 			updates := make([]ScannedText, 0, len(texts))
 			var blocked bool
@@ -155,7 +229,27 @@ func RequestMiddleware(redactor *Redactor, store EventStore, adapter Adapter, fa
 				if st.Text == "" {
 					continue
 				}
-				res := redactor.RedactWithOverrides(st.Text, overrides)
+				var res Result
+				if nerCfg.Detector != nil {
+					// Fail closed: a NER-backend outage at request time
+					// must NOT silently downgrade to regex-only. The NER
+					// tier was explicitly configured for this model, so
+					// the semantic check it provides is part of the
+					// contract — serving the request with only the cheap
+					// regex tier would leak exactly the PII NER was added
+					// to catch. RedactWithNER still returns a best-effort
+					// regex Result alongside the error (the redactor stays
+					// fail-open and leaves the policy to us); we discard it
+					// and block.
+					r2, nerErr := redactor.RedactWithNER(c.Request().Context(), st.Text, overrides, nerCfg)
+					if nerErr != nil {
+						xlog.Error("pii: NER detector failed; blocking request (fail-closed)", "error", nerErr)
+						return blockNERUnavailable(c, store, correlationID, userID)
+					}
+					res = r2
+				} else {
+					res = redactor.RedactWithOverrides(st.Text, overrides)
+				}
 				if len(res.Spans) == 0 {
 					continue
 				}
@@ -221,6 +315,86 @@ func RequestMiddleware(redactor *Redactor, store EventStore, adapter Adapter, fa
 			return next(c)
 		}
 	}
+}
+
+// nerUnavailablePattern is the sentinel PatternID recorded on the
+// fail-closed audit event when a model's configured NER tier cannot
+// run. It is not a real regex pattern — it marks a request blocked
+// because the encoder/NER check was unavailable (model unresolved or
+// backend error), so the events log distinguishes it from a content
+// block (which carries a real pattern ID).
+const nerUnavailablePattern = "__ner_unavailable__"
+
+// blockNERUnavailable records a fail-closed audit event and returns the
+// response used when a model has an NER tier configured but it could
+// not run. Failing closed is deliberate for a PII filter: if the
+// semantic check the operator asked for cannot execute, refusing the
+// request is safer than serving it with only the cheap regex tier. The
+// 503 (vs the 400 used for a content block) tells clients and operators
+// this was a dependency outage, not sensitive data in the request.
+func blockNERUnavailable(c echo.Context, store EventStore, correlationID, userID string) error {
+	ev := PIIEvent{
+		ID:            newEventID(),
+		Kind:          KindPII,
+		CorrelationID: correlationID,
+		UserID:        userID,
+		Direction:     DirectionIn,
+		PatternID:     nerUnavailablePattern,
+		Action:        ActionBlock,
+		CreatedAt:     time.Now().UTC(),
+	}
+	if store != nil {
+		if err := store.Record(context.Background(), ev); err != nil {
+			xlog.Error("pii: failed to record NER-unavailable event", "error", err)
+		}
+	}
+	c.Set(ctxKeyPIIEventID, ev.ID)
+	return c.JSON(http.StatusServiceUnavailable, map[string]any{
+		"error": map[string]string{
+			"message": "request blocked: PII NER check is configured but unavailable",
+			"type":    "pii_ner_unavailable",
+		},
+		"correlation_id": correlationID,
+		"pii_event_id":   ev.ID,
+	})
+}
+
+// validAction converts a raw YAML action string to the typed Action,
+// returning "" for anything that isn't a known action.
+func validAction(raw string) Action {
+	switch Action(raw) {
+	case ActionMask, ActionBlock, ActionAllow:
+		return Action(raw)
+	default:
+		return ""
+	}
+}
+
+// validActionOr is validAction with a fallback for empty/invalid input.
+func validActionOr(raw string, fallback Action) Action {
+	if a := validAction(raw); a != "" {
+		return a
+	}
+	return fallback
+}
+
+// validActions converts a raw entity-group->action map to typed
+// Actions, dropping (and logging) unknown actions so a model YAML typo
+// is ignored rather than taking the request down — mirroring how the
+// per-pattern overrides are validated above.
+func validActions(raw map[string]string) map[string]Action {
+	if len(raw) == 0 {
+		return nil
+	}
+	out := make(map[string]Action, len(raw))
+	for group, action := range raw {
+		if a := validAction(action); a != "" {
+			out[group] = a
+		} else {
+			xlog.Warn("pii: ignoring unknown NER entity action", "group", group, "action", action)
+		}
+	}
+	return out
 }
 
 func actionForPattern(patterns []Pattern, id string) Action {

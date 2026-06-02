@@ -390,6 +390,36 @@ func DefaultRegistry() map[string]FieldMetaOverride {
 			Component:   "pii-pattern-list",
 			Order:       201,
 		},
+		"pii.ner.model": {
+			Section:     "pii",
+			Label:       "NER Model",
+			Description: "Optional token-classification (NER) model run alongside the regex patterns for semantic PII detection. Empty disables the NER tier. Requires the regex tier to be active (a non-empty global pattern set).",
+			Component:   "model-select",
+			Order:       202,
+		},
+		"pii.ner.min_score": {
+			Section:     "pii",
+			Label:       "NER Min Score",
+			Description: "Drop NER detections scored below this confidence before they are acted on. 0 keeps every detection.",
+			Component:   "slider",
+			Min:         f64(0),
+			Max:         f64(1),
+			Step:        f64(0.01),
+			Order:       203,
+		},
+		"pii.ner.default_action": {
+			Section:     "pii",
+			Label:       "NER Default Action",
+			Description: "Action applied to detected entity groups with no explicit per-entity override. Defaults to mask — the safe-by-default policy for a PII filter.",
+			Component:   "select",
+			Options: []FieldOption{
+				{Value: "mask", Label: "mask (redact the span)"},
+				{Value: "block", Label: "block (reject the request)"},
+				{Value: "allow", Label: "allow (detect & log only)"},
+			},
+			Default: "mask",
+			Order:   204,
+		},
 
 		// --- Cloud passthrough proxy ---
 		// These only have an effect when Backend is set to

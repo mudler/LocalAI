@@ -20,6 +20,7 @@ import (
 	"github.com/mudler/LocalAI/core/services/routing/billing"
 	"github.com/mudler/LocalAI/core/services/cloudproxy/mitm"
 	"github.com/mudler/LocalAI/core/services/routing/pii"
+	"github.com/mudler/LocalAI/core/services/routing/piidetector"
 	"github.com/mudler/LocalAI/core/services/routing/router"
 	"github.com/mudler/LocalAI/core/services/voicerecognition"
 	"github.com/mudler/LocalAI/core/templates"
@@ -252,6 +253,25 @@ func (a *Application) PIIRedactor() *pii.Redactor {
 // against it.
 func (a *Application) PIIEvents() pii.EventStore {
 	return a.piiEvents
+}
+
+// PIINERResolver returns the resolver the chat PII middleware's encoder
+// tier uses to turn a configured NER model name into a detector. It
+// looks the model up in the config loader and binds a token-classifier
+// over the shared model loader (lazy — the model loads on first
+// Detect). Unknown or unconfigured names resolve to nil so the redactor
+// falls back to regex-only. Pass it via pii.WithNERResolver.
+func (a *Application) PIINERResolver() pii.NERDetectorResolver {
+	return func(modelName string) pii.NERDetector {
+		if modelName == "" {
+			return nil
+		}
+		cfg, ok := a.ModelConfigLoader().GetModelConfig(modelName)
+		if !ok {
+			return nil
+		}
+		return piidetector.New(a.ModelLoader(), cfg, a.ApplicationConfig())
+	}
 }
 
 // MITMCA returns the cloudproxy MITM proxy's CA, or nil when the

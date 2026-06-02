@@ -221,6 +221,11 @@ var grandfatheredUnregistered = []string{
 	"parameters.top_logprobs",
 	"parameters.translate",
 	"parameters.typical_p",
+	// pii.ner.entity_actions is a map[entityGroup]action; like
+	// pii.patterns it needs a dedicated map-editor component (cf.
+	// "pii-pattern-list") before it gets a proper registry entry. The
+	// three scalar pii.ner.* fields are registered in registry.go.
+	"pii.ner.entity_actions",
 	"pinned",
 	"prompt_cache_all",
 	"prompt_cache_path",

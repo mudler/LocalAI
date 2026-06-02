@@ -3,6 +3,7 @@ package pii
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -72,6 +73,34 @@ func (f fakeModelPIIConfig) PIIPatternOverrides() map[string]string { return f.o
 // enabled=true for the default test path; explicit-false tests should
 // use the gating spec further down instead.
 func withModelConfig(cfg fakeModelPIIConfig) echo.MiddlewareFunc {
+	return func(next echo.HandlerFunc) echo.HandlerFunc {
+		return func(c echo.Context) error {
+			c.Set(ctxKeyModelConfig, cfg)
+			return next(c)
+		}
+	}
+}
+
+// fakeModelNERConfig satisfies both ModelPIIConfig and ModelNERConfig.
+// It embeds fakeModelPIIConfig so the existing per-model gate works and
+// adds the NER accessors the middleware type-asserts for.
+type fakeModelNERConfig struct {
+	fakeModelPIIConfig
+	nerModel      string
+	nerMinScore   float32
+	nerDefault    string
+	nerEntityActs map[string]string
+}
+
+func (f fakeModelNERConfig) PIINERModel() string                    { return f.nerModel }
+func (f fakeModelNERConfig) PIINERMinScore() float32                { return f.nerMinScore }
+func (f fakeModelNERConfig) PIINERDefaultAction() string            { return f.nerDefault }
+func (f fakeModelNERConfig) PIINEREntityActions() map[string]string { return f.nerEntityActs }
+
+// withModelConfigVal wires an arbitrary value onto the context as the
+// model config, for configs (like fakeModelNERConfig) that aren't the
+// plain fakeModelPIIConfig taken by withModelConfig.
+func withModelConfigVal(cfg any) echo.MiddlewareFunc {
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
 		return func(c echo.Context) error {
 			c.Set(ctxKeyModelConfig, cfg)
@@ -288,6 +317,122 @@ var _ = Describe("RequestMiddleware", func() {
 		events, _ := store.List(context.Background(), ListQuery{Limit: 100})
 		Expect(events).To(HaveLen(1))
 		Expect(events[0].Action).To(Equal(ActionBlock), "event must record the resolved (override) action")
+	})
+
+	It("NER tier masks detected entities end-to-end", func() {
+		// Happy path through the middleware: a configured NER model
+		// resolves to a detector, RedactWithNER runs, and the PER span
+		// is masked in place. Proves the WithNERResolver wiring works.
+		red := newTestRedactor("email")
+		store := NewMemoryEventStore(0)
+		defer func() { _ = store.Close() }()
+
+		det := &stubNERDetector{entities: []NEREntity{
+			{Group: "PER", Start: 6, End: 11, Score: 0.95}, // "Alice"
+		}}
+		body := &fakeRequest{Messages: []string{"Hi I'm Alice today"}}
+		mw := RequestMiddleware(red, store, fakeAdapter(), nil,
+			WithNERResolver(func(string) NERDetector { return det }))
+
+		e := echo.New()
+		e.POST("/chat", func(c echo.Context) error {
+			return c.JSON(http.StatusOK, map[string]string{"ok": "yes"})
+		}, setRequestOnContext(body),
+			withModelConfigVal(fakeModelNERConfig{
+				fakeModelPIIConfig: fakeModelPIIConfig{enabled: true},
+				nerModel:           "privacy-filter",
+				nerDefault:         "mask",
+			}), mw)
+
+		req := httptest.NewRequest(http.MethodPost, "/chat", strings.NewReader(`{}`))
+		w := httptest.NewRecorder()
+		e.ServeHTTP(w, req)
+
+		Expect(w.Code).To(Equal(http.StatusOK), "body=%s", w.Body.String())
+		Expect(det.calls).To(Equal(1))
+		Expect(body.Messages[0]).To(ContainSubstring("[REDACTED:ner:PER]"))
+	})
+
+	It("fails closed (503) when the NER detector errors", func() {
+		// The NER tier is configured for this model. A request-time
+		// detector outage must NOT downgrade to regex-only — the
+		// request is refused so the semantic check can't be silently
+		// skipped.
+		red := newTestRedactor("email")
+		store := NewMemoryEventStore(0)
+		defer func() { _ = store.Close() }()
+
+		det := &stubNERDetector{err: errors.New("backend offline")}
+		body := &fakeRequest{Messages: []string{"contact alice@example.com"}}
+		mw := RequestMiddleware(red, store, fakeAdapter(), nil,
+			WithNERResolver(func(string) NERDetector { return det }))
+
+		e := echo.New()
+		handlerCalled := false
+		e.POST("/chat", func(c echo.Context) error {
+			handlerCalled = true
+			return c.JSON(http.StatusOK, map[string]string{"ok": "yes"})
+		}, setRequestOnContext(body),
+			withModelConfigVal(fakeModelNERConfig{
+				fakeModelPIIConfig: fakeModelPIIConfig{enabled: true},
+				nerModel:           "privacy-filter",
+				nerDefault:         "mask",
+			}), mw)
+
+		req := httptest.NewRequest(http.MethodPost, "/chat", strings.NewReader(`{}`))
+		w := httptest.NewRecorder()
+		e.ServeHTTP(w, req)
+
+		Expect(w.Code).To(Equal(http.StatusServiceUnavailable), "expected 503 fail-closed; body=%s", w.Body.String())
+		Expect(handlerCalled).To(BeFalse(), "handler must not run when NER is unavailable")
+		// The matched value must not leak in the (best-effort regex)
+		// result — we block before applying anything.
+		Expect(body.Messages[0]).To(ContainSubstring("alice@example.com"), "request body must be untouched on a fail-closed block")
+
+		var resp map[string]any
+		Expect(json.Unmarshal(w.Body.Bytes(), &resp)).To(Succeed())
+		errBlock, ok := resp["error"].(map[string]any)
+		Expect(ok).To(BeTrue())
+		Expect(errBlock["type"]).To(Equal("pii_ner_unavailable"))
+
+		events, _ := store.List(context.Background(), ListQuery{Limit: 100})
+		Expect(events).To(HaveLen(1))
+		Expect(events[0].Action).To(Equal(ActionBlock))
+		Expect(events[0].PatternID).To(Equal(nerUnavailablePattern))
+	})
+
+	It("fails closed (503) when the configured NER model cannot be resolved", func() {
+		// ner.model is set but the resolver can't bind a detector (model
+		// not installed / wrong name / load failure). Same fail-closed
+		// policy as a runtime detector error.
+		red := newTestRedactor("email")
+		store := NewMemoryEventStore(0)
+		defer func() { _ = store.Close() }()
+
+		body := &fakeRequest{Messages: []string{"contact alice@example.com"}}
+		mw := RequestMiddleware(red, store, fakeAdapter(), nil,
+			WithNERResolver(func(string) NERDetector { return nil })) // unresolved
+
+		e := echo.New()
+		handlerCalled := false
+		e.POST("/chat", func(c echo.Context) error {
+			handlerCalled = true
+			return c.JSON(http.StatusOK, map[string]string{"ok": "yes"})
+		}, setRequestOnContext(body),
+			withModelConfigVal(fakeModelNERConfig{
+				fakeModelPIIConfig: fakeModelPIIConfig{enabled: true},
+				nerModel:           "missing-model",
+			}), mw)
+
+		req := httptest.NewRequest(http.MethodPost, "/chat", strings.NewReader(`{}`))
+		w := httptest.NewRecorder()
+		e.ServeHTTP(w, req)
+
+		Expect(w.Code).To(Equal(http.StatusServiceUnavailable), "expected 503 fail-closed; body=%s", w.Body.String())
+		Expect(handlerCalled).To(BeFalse())
+		events, _ := store.List(context.Background(), ListQuery{Limit: 100})
+		Expect(events).To(HaveLen(1))
+		Expect(events[0].PatternID).To(Equal(nerUnavailablePattern))
 	})
 
 	It("nil redactor is passthrough", func() {

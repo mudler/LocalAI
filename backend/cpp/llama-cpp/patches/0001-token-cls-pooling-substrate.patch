@@ -1,0 +1,157 @@
+diff --git a/common/arg.cpp b/common/arg.cpp
+index e0f6c6066..6a62c43f2 100644
+--- a/common/arg.cpp
++++ b/common/arg.cpp
+@@ -1923,14 +1923,15 @@ common_params_context common_params_parser_init(common_params & params, llama_ex
+         }
+     ).set_sampling().set_env("LLAMA_ARG_BACKEND_SAMPLING"));
+     add_opt(common_arg(
+-        {"--pooling"}, "{none,mean,cls,last,rank}",
++        {"--pooling"}, "{none,mean,cls,last,rank,token-cls}",
+         "pooling type for embeddings, use model default if unspecified",
+         [](common_params & params, const std::string & value) {
+-            /**/ if (value == "none") { params.pooling_type = LLAMA_POOLING_TYPE_NONE; }
+-            else if (value == "mean") { params.pooling_type = LLAMA_POOLING_TYPE_MEAN; }
+-            else if (value == "cls")  { params.pooling_type = LLAMA_POOLING_TYPE_CLS;  }
+-            else if (value == "last") { params.pooling_type = LLAMA_POOLING_TYPE_LAST; }
+-            else if (value == "rank") { params.pooling_type = LLAMA_POOLING_TYPE_RANK; }
++            /**/ if (value == "none")      { params.pooling_type = LLAMA_POOLING_TYPE_NONE;      }
++            else if (value == "mean")      { params.pooling_type = LLAMA_POOLING_TYPE_MEAN;      }
++            else if (value == "cls")       { params.pooling_type = LLAMA_POOLING_TYPE_CLS;       }
++            else if (value == "last")      { params.pooling_type = LLAMA_POOLING_TYPE_LAST;      }
++            else if (value == "rank")      { params.pooling_type = LLAMA_POOLING_TYPE_RANK;      }
++            else if (value == "token-cls") { params.pooling_type = LLAMA_POOLING_TYPE_TOKEN_CLS; }
+             else { throw std::invalid_argument("invalid value"); }
+         }
+     ).set_examples({LLAMA_EXAMPLE_EMBEDDING, LLAMA_EXAMPLE_RETRIEVAL, LLAMA_EXAMPLE_SERVER, LLAMA_EXAMPLE_DEBUG}).set_env("LLAMA_ARG_POOLING"));
+diff --git a/examples/embedding/embedding.cpp b/examples/embedding/embedding.cpp
+index f6a20ef9d..4281da592 100644
+--- a/examples/embedding/embedding.cpp
++++ b/examples/embedding/embedding.cpp
+@@ -54,7 +54,7 @@ static void batch_decode(llama_context * ctx, llama_batch & batch, float * outpu
+         const float * embd = nullptr;
+         int embd_pos = 0;
+ 
+-        if (pooling_type == LLAMA_POOLING_TYPE_NONE) {
++        if (pooling_type == LLAMA_POOLING_TYPE_NONE || pooling_type == LLAMA_POOLING_TYPE_TOKEN_CLS) {
+             // try to get token embeddings
+             embd = llama_get_embeddings_ith(ctx, i);
+             embd_pos = i;
+@@ -246,7 +246,7 @@ int main(int argc, char ** argv) {
+ 
+     // count number of embeddings
+     int n_embd_count = 0;
+-    if (pooling_type == LLAMA_POOLING_TYPE_NONE) {
++    if (pooling_type == LLAMA_POOLING_TYPE_NONE || pooling_type == LLAMA_POOLING_TYPE_TOKEN_CLS) {
+         for (int k = 0; k < n_prompts; k++) {
+             n_embd_count += inputs[k].size();
+         }
+@@ -272,7 +272,7 @@ int main(int argc, char ** argv) {
+         if (batch.n_tokens + n_toks > n_batch || s >= n_seq_max) {
+             float * out = emb + e * n_embd_out;
+             batch_decode(ctx, batch, out, s, n_embd_out, params.embd_normalize);
+-            e += pooling_type == LLAMA_POOLING_TYPE_NONE ? batch.n_tokens : s;
++            e += (pooling_type == LLAMA_POOLING_TYPE_NONE || pooling_type == LLAMA_POOLING_TYPE_TOKEN_CLS) ? batch.n_tokens : s;
+             s = 0;
+             common_batch_clear(batch);
+         }
+@@ -289,7 +289,7 @@ int main(int argc, char ** argv) {
+     if (params.embd_out.empty()) {
+         LOG("\n");
+ 
+-        if (pooling_type == LLAMA_POOLING_TYPE_NONE) {
++        if (pooling_type == LLAMA_POOLING_TYPE_NONE || pooling_type == LLAMA_POOLING_TYPE_TOKEN_CLS) {
+             for (int j = 0; j < n_embd_count; j++) {
+                 LOG("embedding %d: ", j);
+                 for (int i = 0; i < std::min(3, n_embd_out); i++) {
+diff --git a/gguf-py/gguf/constants.py b/gguf-py/gguf/constants.py
+index 5a567e2d1..d2763dfed 100644
+--- a/gguf-py/gguf/constants.py
++++ b/gguf-py/gguf/constants.py
+@@ -4172,6 +4172,7 @@ class PoolingType(IntEnum):
+     CLS  = 2
+     LAST = 3
+     RANK = 4
++    TOKEN_CLS = 5
+ 
+ 
+ class GGMLQuantizationType(IntEnum):
+diff --git a/include/llama.h b/include/llama.h
+index e8374c53b..d22f3c816 100644
+--- a/include/llama.h
++++ b/include/llama.h
+@@ -175,6 +175,7 @@ extern "C" {
+         LLAMA_POOLING_TYPE_CLS  = 2,
+         LLAMA_POOLING_TYPE_LAST = 3,
+         LLAMA_POOLING_TYPE_RANK = 4, // used by reranking models to attach the classification head to the graph
++        LLAMA_POOLING_TYPE_TOKEN_CLS = 5, // used by token classification models to attach the classification head to each token
+     };
+ 
+     enum llama_attention_type {
+diff --git a/src/llama-context.cpp b/src/llama-context.cpp
+index ad36c0666..769cc620c 100644
+--- a/src/llama-context.cpp
++++ b/src/llama-context.cpp
+@@ -1420,6 +1420,17 @@ int llama_context::encode(const llama_batch & batch_inp) {
+                     GGML_ASSERT(n_tokens*n_embd_out <= (int64_t) embd.size);
+                     ggml_backend_tensor_get_async(backend_embd, t_embd, embd.data, 0, n_tokens*n_embd_out*sizeof(float));
+                 } break;
++            case LLAMA_POOLING_TYPE_TOKEN_CLS:
++                {
++                    // extract token classification outputs
++                    GGML_ASSERT(embd.data != nullptr);
++                    GGML_ASSERT(hparams.n_cls_out > 0);
++                    GGML_ASSERT(hparams.n_embd_out() == hparams.n_cls_out);
++
++                    const uint32_t n_cls_out = hparams.n_cls_out;
++                    GGML_ASSERT(n_tokens*n_cls_out <= (int64_t) embd.size);
++                    ggml_backend_tensor_get_async(backend_embd, t_embd, embd.data, 0, n_tokens*n_cls_out*sizeof(float));
++                } break;
+             case LLAMA_POOLING_TYPE_MEAN:
+             case LLAMA_POOLING_TYPE_CLS:
+             case LLAMA_POOLING_TYPE_LAST:
+@@ -1864,6 +1875,22 @@ int llama_context::decode(const llama_batch & batch_inp) {
+                             ggml_backend_tensor_get_async(backend_embd, t_embd, embd_out, 0, n_outputs*n_embd_out*sizeof(float));
+                         }
+                     } break;
++                case LLAMA_POOLING_TYPE_TOKEN_CLS:
++                    {
++                        // extract token classification outputs
++                        GGML_ASSERT(embd.data != nullptr);
++                        GGML_ASSERT(hparams.n_cls_out > 0);
++                        GGML_ASSERT(hparams.n_embd_out() == hparams.n_cls_out);
++
++                        const uint32_t n_cls_out = hparams.n_cls_out;
++                        float * embd_out = embd.data + n_outputs_prev*n_cls_out;
++
++                        if (n_outputs) {
++                            GGML_ASSERT( n_outputs_prev + n_outputs <= n_outputs_all);
++                            GGML_ASSERT((n_outputs_prev + n_outputs)*n_cls_out <= (int64_t) embd.size);
++                            ggml_backend_tensor_get_async(backend_embd, t_embd, embd_out, 0, n_outputs*n_cls_out*sizeof(float));
++                        }
++                    } break;
+                 case LLAMA_POOLING_TYPE_MEAN:
+                 case LLAMA_POOLING_TYPE_CLS:
+                 case LLAMA_POOLING_TYPE_LAST:
+diff --git a/src/llama-graph.cpp b/src/llama-graph.cpp
+index e6ec3054d..afa2eb665 100644
+--- a/src/llama-graph.cpp
++++ b/src/llama-graph.cpp
+@@ -2939,6 +2939,17 @@ void llm_graph_context::build_pooling(
+             {
+                 cur = inp;
+             } break;
++        case LLAMA_POOLING_TYPE_TOKEN_CLS:
++            {
++                cur = inp;
++
++                if (cls_out) {
++                    cur = ggml_mul_mat(ctx0, cls_out, cur);
++                    if (cls_out_b) {
++                        cur = ggml_add(ctx0, cur, cls_out_b);
++                    }
++                }
++            } break;
+         case LLAMA_POOLING_TYPE_MEAN:
+             {
+                 ggml_tensor * inp_mean = build_inp_mean();

@@ -69,7 +69,7 @@ func RegisterAnthropicRoutes(app *echo.Echo,
 			},
 		),
 		middleware.AdmissionControl(application.AdmissionLimiter(), application.PIIEvents()),
-		pii.RequestMiddleware(application.PIIRedactor(), application.PIIEvents(), piiadapter.Anthropic(), application.FallbackUser()),
+		pii.RequestMiddleware(application.PIIRedactor(), application.PIIEvents(), piiadapter.Anthropic(), application.FallbackUser(), pii.WithNERResolver(application.PIINERResolver())),
 	}
 
 	// Main Anthropic endpoint

@@ -390,6 +390,35 @@ type PIIConfig struct {
 	// not listed inherit the global action. The regex itself stays
 	// global — only the action is settable per-model.
 	Patterns []PIIPatternOverride `yaml:"patterns,omitempty" json:"patterns,omitempty"`
+
+	// NER configures the optional encoder/NER tier: a
+	// token-classification model (e.g. the privacy-filter backend) run
+	// alongside the regex patterns for semantic PII detection. Off
+	// unless Model is set. Requires the regex tier to be active (a
+	// non-empty global pattern set).
+	NER PIINERConfig `yaml:"ner,omitempty" json:"ner,omitempty"`
+}
+
+// @Description Optional encoder/NER tier for PII detection — a
+// token-classification model layered on top of the regex patterns.
+type PIINERConfig struct {
+	// Model is the name of the loaded token-classification model to run
+	// (its own model config supplies the backend). Empty disables the
+	// NER tier for this model.
+	Model string `yaml:"model,omitempty" json:"model,omitempty"`
+	// MinScore drops detections the model scores below this confidence
+	// before they are acted on. 0 keeps every detection.
+	MinScore float32 `yaml:"min_score,omitempty" json:"min_score,omitempty"`
+	// DefaultAction (mask | block | allow) applies to detected entity
+	// groups with no explicit EntityActions entry. Empty defaults to
+	// "mask" — the safe-by-default policy for a PII filter (a detected
+	// entity is masked unless an admin downgrades it).
+	DefaultAction string `yaml:"default_action,omitempty" json:"default_action,omitempty"`
+	// EntityActions maps an entity group the model emits (e.g.
+	// "private_person", "EMAIL") to an action, overriding DefaultAction
+	// for that group. Lets admins block credentials, allow-log
+	// low-risk groups, and mask the rest.
+	EntityActions map[string]string `yaml:"entity_actions,omitempty" json:"entity_actions,omitempty"`
 }
 
 // @Description Per-model action override for a single PII pattern.
@@ -425,6 +454,33 @@ func (c *ModelConfig) PIIPatternOverrides() map[string]string {
 			continue
 		}
 		out[p.ID] = p.Action
+	}
+	return out
+}
+
+// PIINERModel returns the configured NER (token-classification) model
+// name for this model's PII filter, or "" if the encoder tier is off.
+// Read via the optional ModelNERConfig interface in
+// core/services/routing/pii/middleware.go.
+func (c *ModelConfig) PIINERModel() string { return c.PII.NER.Model }
+
+// PIINERMinScore returns the confidence floor for NER detections.
+func (c *ModelConfig) PIINERMinScore() float32 { return c.PII.NER.MinScore }
+
+// PIINERDefaultAction returns the raw default-action string for NER
+// entity groups without an explicit override. The pii package validates
+// it and applies the "mask" fallback.
+func (c *ModelConfig) PIINERDefaultAction() string { return c.PII.NER.DefaultAction }
+
+// PIINEREntityActions returns the per-entity-group action overrides as a
+// fresh map of raw action strings (validated by the pii package).
+func (c *ModelConfig) PIINEREntityActions() map[string]string {
+	if len(c.PII.NER.EntityActions) == 0 {
+		return nil
+	}
+	out := make(map[string]string, len(c.PII.NER.EntityActions))
+	for k, v := range c.PII.NER.EntityActions {
+		out[k] = v
 	}
 	return out
 }
