@@ -151,13 +151,11 @@ fY.forEach((y)=>{
   arrow(FX+FW, y+FH/2, SPX, ty, INK);
 });
 
-// state plane -> workers (dashed, gRPC / jobs)
-wY.forEach((y)=> arrow(SPX+SPW, SPY + 120, WX, y+WH/2, RUSTD, "2 8"));
-
-// ---- annotated arrow: NATS -> Worker #2 : backend.install ----
+// NATS messaging bus -> workers (dashed). Workers coordinate via NATS;
+// PostgreSQL is the frontends' shared state, not something workers connect to.
 const natsY = SPY+82+CHH+18 + CHH/2; // NATS chip center y
-arrow(SPX+SPW, natsY, WX, wY[1]+30, RUSTD, "2 8");
-// label
+wY.forEach((y)=> arrow(SPX+SPW, natsY, WX, y+WH/2, RUSTD, "2 8"));
+// label the NATS bus arrows
 const labW=140, labH=26, labX=(SPX+SPW+WX)/2-labW/2, labY=natsY-46;
 svg.appendChild(el("rect",{x:labX,y:labY,width:labW,height:labH,fill:PAPER,stroke:RUSTD,"stroke-width":2}));
 txt(labX+labW/2,labY+18,"backend.install",{f:"Bricolage Grotesque",w:700,sz:14,a:"middle",fill:RUSTD});
