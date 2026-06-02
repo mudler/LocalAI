@@ -1,3 +1,4 @@
 --extra-index-url https://download.pytorch.org/whl/cu130
 torch
+texterrors==1.1.6
 nemo_toolkit[asr]
