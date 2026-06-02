@@ -42,6 +42,8 @@
 - **Built-in AI agents**: autonomous agents with tool use, RAG, MCP, and skills
 - **Privacy-first**: your data never leaves your infrastructure
 
+![A small LocalAI core with backends (llama.cpp, vLLM, MLX, whisper.cpp, stable-diffusion, kokoro, parakeet.cpp...) plugged in as separate on-demand images](docs/static/images/diagrams/composable-core.png)
+
 Created by [Ettore Di Giacinto](https://github.com/mudler) and maintained by the [LocalAI team](#team).
 
 > [:book: Documentation](https://localai.io/) | [:speech_balloon: Discord](https://discord.gg/uJAeKSAGDy) | [💻 Quickstart](https://localai.io/basics/getting_started/) | [🖼️ Models](https://models.localai.io/) | [❓FAQ](https://localai.io/faq/)
