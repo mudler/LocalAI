@@ -15,29 +15,6 @@ Distributed mode requires authentication enabled with a **PostgreSQL** database 
 
 ![Distributed mode architecture: a load balancer fronts stateless SmartRouter frontends backed by a shared NATS/PostgreSQL/S3 plane, with generic workers running per-model gRPC backends](/images/diagrams/distributed-mode-arch.png)
 
-```
-                    ┌─────────────────┐
-                    │   Load Balancer  │
-                    └────────┬────────┘
-                             │
-              ┌──────────────┼──────────────┐
-              │              │              │
-      ┌───────▼──────┐ ┌────▼─────┐ ┌─────▼──────┐
-      │  Frontend #1 │ │ Frontend │ │ Frontend #N│
-      │  (LocalAI)   │ │  #2      │ │  (LocalAI) │
-      └──────┬───────┘ └────┬─────┘ └─────┬──────┘
-             │              │              │
-     ┌───────▼──────────────▼──────────────▼───────┐
-     │              PostgreSQL + NATS               │
-     │  (node registry, jobs, coordination)         │
-     └───────┬──────────────┬──────────────┬───────┘
-             │              │              │
-      ┌──────▼──────┐ ┌────▼─────┐ ┌─────▼──────┐
-      │  Worker #1  │ │ Worker   │ │ Worker #N  │
-      │  (generic)  │ │ #2       │ │  (generic) │
-      └─────────────┘ └──────────┘ └────────────┘
-```
-
 **Frontends** are stateless LocalAI instances that receive API requests and route them to worker nodes via the **SmartRouter**. All frontends share state through PostgreSQL and coordinate via NATS.
 
 **Workers** are generic processes that self-register with a frontend. They don't have a fixed backend type — the SmartRouter dynamically installs the required backend via NATS `backend.install` events when a model request arrives.
