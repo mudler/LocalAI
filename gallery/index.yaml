@@ -1,4 +1,52 @@
 ---
+- name: "step-3.7-flash"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/stepfun-ai/Step-3.7-Flash-GGUF
+  description: |
+    **[ModelPage]**: https://static.stepfun.com/blog/step-3.7-flash/
+
+    ## 1. Introduction
+
+    Step 3.7 Flash is a 198B-parameter sparse Mixture-of-Experts (MoE) vision-language model that combines a 196B-parameter language backbone with a 1.8B-parameter vision encoder for native image understanding. Engineered for high-frequency production workloads, it activates approximately 11B parameters per token and delivers a throughput of up to 400 tokens per second. Step 3.7 Flash supports a 256k context window and offers three selectable reasoning levels (low, medium, and high) so developers can easily balance speed, cost, and cognitive depth.
+
+    We built Step 3.7 Flash for developers who need to scale agentic workflows that combine perception, search, and reasoning. It is designed to handle intensive tasks such as parsing massive financial reports in one pass, running multi-step search loops with cross-source verification, or operating concurrent coding agents in high-throughput pipelines.
+
+    ## 2. Capabilities & Performance
+
+    ### Multimodal Perception and Verification
+
+    ...
+  license: "apache-2.0"
+  tags:
+    - llm
+    - gguf
+    - vision
+    - multimodal
+    - reasoning
+  icon: https://example.com/photo.jpg
+  overrides:
+    backend: llama-cpp
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+    mmproj: llama-cpp/mmproj/Step-3.7-Flash-GGUF/mmproj-step3.7-flash-f16.gguf
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/Step-3.7-Flash-GGUF/Step-3.7.imatrix.gguf
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/Step-3.7-Flash-GGUF/Step-3.7.imatrix.gguf
+      sha256: 7f94ca213e4560d30b492b332128527c6808041ec3526df6c2816884eb107203
+      uri: https://huggingface.co/stepfun-ai/Step-3.7-Flash-GGUF/resolve/main/Step-3.7.imatrix.gguf
+    - filename: llama-cpp/mmproj/Step-3.7-Flash-GGUF/mmproj-step3.7-flash-f16.gguf
+      sha256: 5f25d11f92235c69682ca820af5f4cb125ae1142c8c33c018d0b3c9000a2ec1c
+      uri: https://huggingface.co/stepfun-ai/Step-3.7-Flash-GGUF/resolve/main/mmproj-step3.7-flash-f16.gguf
 - name: "lfm2.5-8b-a1b"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
