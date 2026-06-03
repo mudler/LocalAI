@@ -58,40 +58,53 @@ func (c *RegistrationClient) setAuth(req *http.Request) {
 
 // RegisterResponse is the JSON body returned by /api/node/register.
 type RegisterResponse struct {
-	ID       string `json:"id"`
+	ID           string `json:"id"`
+	Status       string `json:"status,omitempty"` // "pending" until an admin approves the node
 	APIToken     string `json:"api_token,omitempty"`
 	NatsJWT      string `json:"nats_jwt,omitempty"`
 	NatsUserSeed string `json:"nats_user_seed,omitempty"`
 }
 
-// Register sends a single registration request and returns the node ID and
-// optional credentials (API token for agent workers, NATS JWT when configured).
-func (c *RegistrationClient) Register(ctx context.Context, body map[string]any) (nodeID, apiToken, natsJWT, natsSeed string, err error) {
+// RegisterFull sends a single registration request and returns the full
+// response (node ID, approval status, and optional API token / NATS creds).
+// Re-registration is idempotent: the frontend preserves the node row and mints
+// a fresh NATS JWT each call, so this doubles as the credential-refresh call.
+func (c *RegistrationClient) RegisterFull(ctx context.Context, body map[string]any) (*RegisterResponse, error) {
 	jsonBody, _ := json.Marshal(body)
 	url := c.baseURL() + "/api/node/register"
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(jsonBody))
 	if err != nil {
-		return "", "", "", "", fmt.Errorf("creating request: %w", err)
+		return nil, fmt.Errorf("creating request: %w", err)
 	}
 	req.Header.Set("Content-Type", "application/json")
 	c.setAuth(req)
 
 	resp, err := c.httpClient().Do(req)
 	if err != nil {
-		return "", "", "", "", fmt.Errorf("posting to %s: %w", url, err)
+		return nil, fmt.Errorf("posting to %s: %w", url, err)
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return "", "", "", "", fmt.Errorf("registration failed with status %d", resp.StatusCode)
+		return nil, fmt.Errorf("registration failed with status %d", resp.StatusCode)
 	}
 
 	var result RegisterResponse
 	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-		return "", "", "", "", fmt.Errorf("decoding response: %w", err)
+		return nil, fmt.Errorf("decoding response: %w", err)
 	}
-	return result.ID, result.APIToken, result.NatsJWT, result.NatsUserSeed, nil
+	return &result, nil
+}
+
+// Register sends a single registration request and returns the node ID and
+// optional credentials (API token for agent workers, NATS JWT when configured).
+func (c *RegistrationClient) Register(ctx context.Context, body map[string]any) (nodeID, apiToken, natsJWT, natsSeed string, err error) {
+	res, err := c.RegisterFull(ctx, body)
+	if err != nil {
+		return "", "", "", "", err
+	}
+	return res.ID, res.APIToken, res.NatsJWT, res.NatsUserSeed, nil
 }
 
 // RegisterWithRetry retries registration with exponential backoff.
