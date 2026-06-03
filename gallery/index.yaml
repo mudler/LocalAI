@@ -147,6 +147,26 @@
       - token_classify
     parameters:
       model: llama-cpp/models/privacy-filter-multilingual/privacy-filter-multilingual-f16.gguf
+    # Detection policy used when another model references this one via
+    # pii.detectors. Default-mask everything the model flags; block the
+    # credential/financial-secret/crypto categories. Keys are the model's
+    # own entity-group names (uppercase, no separators); anything not
+    # listed falls through to default_action: mask.
+    pii_detection:
+      min_score: 0.5
+      default_action: mask
+      entity_actions:
+        PASSWORD: block
+        PIN: block
+        CVV: block
+        CREDITCARD: block
+        IBAN: block
+        BIC: block
+        BANKACCOUNT: block
+        SSN: block
+        BITCOINADDRESS: block
+        ETHEREUMADDRESS: block
+        LITECOINADDRESS: block
   files:
     - filename: llama-cpp/models/privacy-filter-multilingual/privacy-filter-multilingual-f16.gguf
       sha256: 01b76572f80b7d2ebee80a27cb9c3699c26b04cae1c402eee7664fc17a4b5ce6

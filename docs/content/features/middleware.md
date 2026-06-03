@@ -39,52 +39,52 @@ and block actions.
 
 ## PII filtering
 
-PII redaction is **per-model and off by default**. The default flips to
-**on for any backend whose name starts with `proxy-`** because that traffic
-crosses the network to a third-party provider. Explicit `pii.enabled`
-in a model's YAML always wins over the backend default.
+PII redaction is **per-model, NER-based, and runs request-side (input)**.
+It is **off by default**, flipping to **on for any `cloud-proxy` backend**
+because that traffic crosses the network to a third-party provider.
+Explicit `pii.enabled` in a model's YAML always wins over the backend
+default.
 
-### Pattern catalog
+> The earlier regex pattern tier (`pii.patterns`, the built-in pattern
+> catalogue, `--pii-config`, the `/api/pii/patterns|test|decide` endpoints)
+> and response/streaming-side redaction have been **removed**. Detection is
+> now driven entirely by token-classification (NER) models. Legacy keys
+> no-op with a startup warning.
 
-The built-in regex tier ships six patterns. Each has a default action
-(`mask`, `block`, or `allow`) and a length cap that prevents
-pathological inputs from blowing up scanning time:
+### Detector models
 
-| ID | Description | Default action | Max length |
-|---|---|---|---|
-| `email` | Email address | `mask` | 254 |
-| `phone` | Phone number (international or US) | `mask` | 24 |
-| `ssn` | US Social Security Number | `mask` | 11 |
-| `credit_card` | Credit card number (Luhn-verified) | `mask` | 19 |
-| `ipv4` | IPv4 address | `mask` | 15 |
-| `api_key_prefix` | `sk-`, `pk-`, `xoxb-`, `ghp_`, `github_pat_` | **`block`** | 200 |
-
-`mask` rewrites the match to `[REDACTED:<id>]` in the request body before
-forwarding. `block` returns HTTP 400 with `error.type=pii_blocked` to the
-client without forwarding. `allow` detects and logs the match (a PIIEvent
-is still recorded) but leaves the text unchanged — use it to downgrade a
-pattern's default for a model while keeping it visible in the audit log.
-It is also the foundation for surfacing detected-PII labels to the router,
-a planned router-model feature.
-
-### Per-model configuration
-
-Add a `pii:` block to a model YAML to opt in (or out, or to override
-per-pattern actions):
+A **detector** is a `token_classify` model (e.g. an `openai-privacy-filter`
+GGUF) that carries the detection *policy* in a top-level `pii_detection:`
+block — defined once, on the model itself:
 
 ```yaml
-# Local model — explicit opt-in so chats with this model get redaction
-# applied request-side.
-name: qwen-7b-local
+name: privacy-filter-multilingual
 backend: llama-cpp
-pii:
-  enabled: true
+embeddings: true              # TOKEN_CLS pooling
+known_usecases:
+  - token_classify
+pii_detection:
+  min_score: 0.5              # drop detections below this confidence
+  default_action: mask        # applied to any detected group with no entry
+  entity_actions:             # which PII to block vs mask vs allow-log
+    PASSWORD: block
+    CREDITCARD: block
+    EMAIL: mask
 ```
 
+`mask` rewrites the matched span to `[REDACTED:ner:<GROUP>]` in the request
+body before forwarding. `block` returns HTTP 400 (`error.type=pii_blocked`)
+without forwarding. `allow` detects and logs (a PIIEvent is still recorded)
+but leaves the text unchanged. The entity-group names are whatever the model
+emits (the privacy-filter family uses uppercase names like `EMAIL`,
+`PASSWORD`, `CREDITCARD`).
+
+### Consuming models
+
+Any model opts in by enabling PII and referencing one or more detectors —
+no per-consumer policy:
+
 ```yaml
-# Cloud-bound model — defaults to enabled because backend is cloud-proxy.
-# Tighten api_key_prefix from the global default and downgrade email to
-# allow so emails are logged but pass through unchanged.
 name: claude-strict
 backend: cloud-proxy
 proxy:
@@ -93,85 +93,47 @@ proxy:
   upstream_url: https://api.anthropic.com/v1/messages
   api_key_env: ANTHROPIC_API_KEY
 pii:
-  patterns:
-    - id: api_key_prefix
-      action: block        # already the default, made explicit for audit
-    - id: email
-      action: allow
+  enabled: true               # default-on for cloud-proxy; explicit for audit
+  detectors:
+    - privacy-filter-multilingual
 ```
 
-The regex itself stays global — only the action is settable per-model.
-Adding new patterns is a build-time concern (extend `patternRegexps` in
-`core/services/routing/pii/patterns.go`).
-
-### NER tier (optional)
-
-The regex matcher covers high-precision patterns. For natural-language
-PII (proper names, addresses, organization names) LocalAI carries an
-**encoder NER tier** that runs after the regex pass. It expects a
-transformers token-classification model wired through the `TokenClassify`
-gRPC primitive (e.g. `dslim/bert-base-NER`). The detector annotates
-spans with an entity group (`PER`, `LOC`, `ORG`, `MISC`); per-group
-actions are configurable through the same `pii:` block.
-
-The NER tier ships as a contract (`NERDetector`, `NERConfig` in
-`core/services/routing/pii/ner.go`); an operator-facing knob to load and
-attach a detector is not plumbed yet. When no detector is configured the
-regex tier still runs.
-
-### Streaming PII filter
-
-Buffered (`/v1/chat/completions` without `"stream": true`) responses are
-forwarded verbatim today — only the request-side scan runs. Streaming
-responses run through `pii.StreamFilter` which buffers SSE chunks until
-either a full pattern matches or the buffer's max length is reached,
-then emits the safe prefix. The streaming filter is what makes the
-cloud-proxy backend and the MITM proxy safe to expose to clients that
-issue streaming requests.
-
-The streaming filter is wired automatically for any model with `pii.enabled`
-true — there is no separate streaming toggle.
+Multiple detectors **union** their detections; overlapping spans resolve to
+the strongest action (`block` > `mask` > `allow`). A configured detector
+that can't be loaded **fails the request closed** (HTTP 503,
+`error.type=pii_ner_unavailable`) rather than silently skipping the check.
+The same NER path runs on the [MITM proxy]({{< relref "mitm-proxy.md" >}})
+request body for intercepted hosts. Response/output redaction is out of
+scope for now.
 
 ### Admin page
 
 The `/app/middleware` page (admin role only) has four tabs — **Filtering**,
 **Routing**, **MITM Proxy** (see the [MITM doc]({{< relref "mitm-proxy.md" >}})),
-and **Events**. The Filtering tab shows:
-
-- The pattern catalogue with live action dropdowns. Changing an action via
-  the UI calls `PUT /api/pii/patterns/:id` and updates the live redactor
-  in-process. Click **Persist** in the action header to write the current
-  state into `runtime_settings.json` so the next process start re-applies it.
-- A per-model resolved-state table — each model row reports `enabled`,
-  the per-pattern overrides, and which patterns are effectively active.
-- A live test panel that posts sample text to `/api/pii/test` and
-  highlights matches with their resolved actions, without storing the
-  text in the event log.
+and **Events**. The Filtering tab shows a per-model table: each row reports
+`enabled` and the detector model(s) it references, plus the recent event
+count. Detection policy is edited on each detector model's config (Models →
+edit → PII), not globally.
 
 ### REST surface
 
 | Method | Path | Auth | Purpose |
 |---|---|---|---|
-| GET | `/api/pii/patterns` | any | Live pattern list with current actions. Used by the UI catalogue. |
-| POST | `/api/pii/test` | any | Dry-run the redactor on `{"text":"..."}`. Returns hits and the would-be-rewritten body. Does not write to the event log. |
-| GET | `/api/pii/events` | admin | Recent middleware events — PII redactions, MITM connect/traffic, admission denials. Filterable by `correlation_id`, `user_id`, `pattern_id`, `kind`. |
-| PUT | `/api/pii/patterns/:id` | admin | Update a pattern in-process. Body accepts `{"action":"mask"\|"block"\|"allow"}` and/or `{"disabled":true\|false}`. Transient — reverts on restart unless persisted. |
-| POST | `/api/pii/patterns/persist` | admin | Snapshot the live per-pattern (action, disabled) state into `runtime_settings.json`. |
-| GET | `/api/middleware/status` | admin | Aggregated dashboard data: patterns + per-model resolved state + router status + MITM status + admission status. One round-trip for the UI. |
+| GET | `/api/pii/events` | admin | Recent middleware events — PII redactions, MITM connect/traffic, admission denials. Filterable by `correlation_id`, `user_id`, `pattern_id` (e.g. `ner:EMAIL`), `kind`. |
+| GET | `/api/middleware/status` | admin | Aggregated dashboard data: per-model PII state + detectors + router status + MITM status + admission status. One round-trip for the UI. |
 
 ### MCP tools
 
-The same surface is mirrored through the LocalAI Assistant MCP server so
-the in-process and stdio assistants can manage the filter conversationally:
+The same surface is mirrored through the LocalAI Assistant MCP server:
 
 | Tool | Read/Write | Purpose |
 |---|---|---|
-| `list_pii_patterns` | read | Returns the live pattern list. |
 | `get_pii_events` | read | Recent redaction / block events with optional filters. |
-| `test_pii_redaction` | read | Dry-run sample text without writing to the event log. |
 | `get_middleware_status` | read | Aggregator — the same payload as `GET /api/middleware/status`. |
-| `set_pii_pattern_action` | write | Update a pattern's action. Admin-only. |
-| `persist_pii_patterns` | write | Snapshot live state to `runtime_settings.json`. Admin-only. |
+
+Detection policy is part of a detector model's config, so it is managed
+through the model-config tools (`edit_model_config`), not a dedicated PII
+tool.
 
 ---
 
