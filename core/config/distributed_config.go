@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/mudler/LocalAI/core/services/messaging"
+	"github.com/mudler/LocalAI/pkg/natsauth"
 	"github.com/mudler/xlog"
 )
 
@@ -17,6 +19,16 @@ type DistributedConfig struct {
 	StorageURL        string // --storage-url / LOCALAI_STORAGE_URL (S3 endpoint)
 	RegistrationToken string // --registration-token / LOCALAI_REGISTRATION_TOKEN (required token for node registration)
 	AutoApproveNodes  bool   // --auto-approve-nodes / LOCALAI_AUTO_APPROVE_NODES (skip admin approval for new workers)
+
+	// NATS JWT auth (optional; see pkg/natsauth and docs/features/distributed-mode.md)
+	NatsAccountSeed  string        // LOCALAI_NATS_ACCOUNT_SEED — account signing seed to mint per-node worker JWTs
+	NatsServiceJWT   string        // LOCALAI_NATS_SERVICE_JWT — user JWT for frontends / agent workers
+	NatsServiceSeed  string        // LOCALAI_NATS_SERVICE_SEED — signing seed paired with service JWT
+	NatsWorkerJWTTTL time.Duration // LOCALAI_NATS_WORKER_JWT_TTL — minted worker JWT lifetime (default 24h)
+	NatsRequireAuth  bool          // LOCALAI_NATS_REQUIRE_AUTH — fail startup if NATS credentials are missing
+	NatsTLSCA        string        // LOCALAI_NATS_TLS_CA — PEM file for private CA (server verify)
+	NatsTLSCert      string        // LOCALAI_NATS_TLS_CERT — client cert for NATS mTLS
+	NatsTLSKey       string        // LOCALAI_NATS_TLS_KEY — client key paired with NatsTLSCert
 
 	// S3 configuration (used when StorageURL is set)
 	StorageBucket    string // --storage-bucket / LOCALAI_STORAGE_BUCKET
@@ -80,6 +92,13 @@ func (c DistributedConfig) Validate() error {
 	if c.RegistrationToken == "" {
 		xlog.Warn("distributed mode running without registration token — node endpoints are unprotected")
 	}
+	if err := c.NatsAuthConfig().Validate(); err != nil {
+		return err
+	}
+	if err := c.NatsTLSFiles().Validate(); err != nil {
+		return err
+	}
+	c.NatsAuthConfig().WarnIfInsecure(true)
 	// Check for negative durations
 	for name, d := range map[string]time.Duration{
 		FlagMCPToolTimeout:        c.MCPToolTimeout,
@@ -120,6 +139,52 @@ func WithNatsURL(url string) AppOption {
 func WithRegistrationToken(token string) AppOption {
 	return func(o *ApplicationConfig) {
 		o.Distributed.RegistrationToken = token
+	}
+}
+
+func WithNatsAccountSeed(seed string) AppOption {
+	return func(o *ApplicationConfig) {
+		o.Distributed.NatsAccountSeed = seed
+	}
+}
+
+func WithNatsServiceJWT(jwt string) AppOption {
+	return func(o *ApplicationConfig) {
+		o.Distributed.NatsServiceJWT = jwt
+	}
+}
+
+func WithNatsServiceSeed(seed string) AppOption {
+	return func(o *ApplicationConfig) {
+		o.Distributed.NatsServiceSeed = seed
+	}
+}
+
+func WithNatsWorkerJWTTTL(d time.Duration) AppOption {
+	return func(o *ApplicationConfig) {
+		o.Distributed.NatsWorkerJWTTTL = d
+	}
+}
+
+var EnableNatsRequireAuth = func(o *ApplicationConfig) {
+	o.Distributed.NatsRequireAuth = true
+}
+
+func WithNatsTLSCA(path string) AppOption {
+	return func(o *ApplicationConfig) {
+		o.Distributed.NatsTLSCA = path
+	}
+}
+
+func WithNatsTLSCert(path string) AppOption {
+	return func(o *ApplicationConfig) {
+		o.Distributed.NatsTLSCert = path
+	}
+}
+
+func WithNatsTLSKey(path string) AppOption {
+	return func(o *ApplicationConfig) {
+		o.Distributed.NatsTLSKey = path
 	}
 }
 
@@ -216,6 +281,44 @@ const (
 
 // DefaultMaxUploadSize is the default maximum upload body size (50 GB).
 const DefaultMaxUploadSize int64 = 50 << 30
+
+// NatsTLSFiles returns NATS TLS/mTLS PEM paths for the messaging client.
+func (c DistributedConfig) NatsTLSFiles() messaging.TLSFiles {
+	return messaging.TLSFiles{
+		CA:   c.NatsTLSCA,
+		Cert: c.NatsTLSCert,
+		Key:  c.NatsTLSKey,
+	}
+}
+
+// NatsMessagingOptions builds messaging client options (JWT + TLS) for distributed components.
+// Pass explicit userJWT/userSeed when set (e.g. worker overrides); empty uses service JWT from config.
+func (c DistributedConfig) NatsMessagingOptions(userJWT, userSeed string) []messaging.Option {
+	var opts []messaging.Option
+	jwt, seed := userJWT, userSeed
+	if jwt == "" && seed == "" {
+		auth := c.NatsAuthConfig()
+		jwt, seed = auth.ServiceUserJWT, auth.ServiceUserSeed
+	}
+	if jwt != "" && seed != "" {
+		opts = append(opts, messaging.WithUserJWT(jwt, seed))
+	}
+	if tls := c.NatsTLSFiles(); tls.Enabled() {
+		opts = append(opts, messaging.WithTLS(tls))
+	}
+	return opts
+}
+
+// NatsAuthConfig builds pkg/natsauth settings from distributed configuration.
+func (c DistributedConfig) NatsAuthConfig() natsauth.Config {
+	return natsauth.Config{
+		AccountSeed:     c.NatsAccountSeed,
+		ServiceUserJWT:  c.NatsServiceJWT,
+		ServiceUserSeed: c.NatsServiceSeed,
+		WorkerJWTTTL:    c.NatsWorkerJWTTTL,
+		RequireAuth:     c.NatsRequireAuth,
+	}
+}
 
 // BackendInstallTimeoutOrDefault returns the configured timeout or the default.
 func (c DistributedConfig) BackendInstallTimeoutOrDefault() time.Duration {

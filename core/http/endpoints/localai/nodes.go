@@ -28,6 +28,7 @@ import (
 	"github.com/mudler/LocalAI/core/services/nodes"
 	"github.com/mudler/LocalAI/core/services/nodes/prefixcache"
 	"github.com/mudler/LocalAI/pkg/httpclient"
+	"github.com/mudler/LocalAI/pkg/natsauth"
 )
 
 // nodeError builds a schema.ErrorResponse for node endpoints.
@@ -89,7 +90,7 @@ type RegisterNodeRequest struct {
 // RegisterNodeEndpoint registers a new backend node.
 // expectedToken is the registration token configured on the frontend (may be empty to disable auth).
 // autoApprove controls whether new nodes go directly to "healthy" or require admin approval.
-func RegisterNodeEndpoint(registry *nodes.NodeRegistry, expectedToken string, autoApprove bool, authDB *gorm.DB, hmacSecret string) echo.HandlerFunc {
+func RegisterNodeEndpoint(registry *nodes.NodeRegistry, expectedToken string, autoApprove bool, authDB *gorm.DB, hmacSecret string, natsCfg natsauth.Config) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		var req RegisterNodeRequest
 		if err := c.Bind(&req); err != nil {
@@ -217,13 +218,15 @@ func RegisterNodeEndpoint(registry *nodes.NodeRegistry, expectedToken string, au
 			}
 		}
 
+		attachNatsJWT(response, node, natsCfg)
+
 		return c.JSON(http.StatusCreated, response)
 	}
 }
 
 // ApproveNodeEndpoint approves a pending node, setting its status to healthy.
 // For agent workers, it also provisions an API key so they can call the inference API.
-func ApproveNodeEndpoint(registry *nodes.NodeRegistry, authDB *gorm.DB, hmacSecret string) echo.HandlerFunc {
+func ApproveNodeEndpoint(registry *nodes.NodeRegistry, authDB *gorm.DB, hmacSecret string, natsCfg natsauth.Config) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		ctx := c.Request().Context()
 		id := c.Param("id")
@@ -253,8 +256,24 @@ func ApproveNodeEndpoint(registry *nodes.NodeRegistry, authDB *gorm.DB, hmacSecr
 			}
 		}
 
+		attachNatsJWT(response, node, natsCfg)
+
 		return c.JSON(http.StatusOK, response)
 	}
+}
+
+// attachNatsJWT adds a per-node NATS user JWT to a register/approve response when minting is enabled.
+func attachNatsJWT(response map[string]any, node *nodes.BackendNode, natsCfg natsauth.Config) {
+	if !natsCfg.CanMintWorkers() || node == nil || node.Status == nodes.StatusPending {
+		return
+	}
+	jwt, seed, err := natsCfg.MintWorkerJWT(node.ID, node.NodeType)
+	if err != nil {
+		xlog.Warn("Failed to mint NATS JWT for node", "node", node.Name, "id", node.ID, "error", err)
+		return
+	}
+	response["nats_jwt"] = jwt
+	response["nats_user_seed"] = seed
 }
 
 // provisionAgentWorkerKey creates a dedicated user and API key for an agent worker node.

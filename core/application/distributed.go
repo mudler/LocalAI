@@ -102,7 +102,12 @@ func initDistributed(cfg *config.ApplicationConfig, authDB *gorm.DB, configLoade
 	xlog.Info("Distributed instance", "id", cfg.Distributed.InstanceID)
 
 	// Connect to NATS
-	natsClient, err := messaging.New(cfg.Distributed.NatsURL)
+	natsAuth := cfg.Distributed.NatsAuthConfig()
+	if natsAuth.RequireAuth && (natsAuth.ServiceUserJWT == "" || natsAuth.ServiceUserSeed == "") {
+		return nil, fmt.Errorf("LOCALAI_NATS_REQUIRE_AUTH requires LOCALAI_NATS_SERVICE_JWT and LOCALAI_NATS_SERVICE_SEED")
+	}
+	natsOpts := cfg.Distributed.NatsMessagingOptions("", "")
+	natsClient, err := messaging.New(cfg.Distributed.NatsURL, natsOpts...)
 	if err != nil {
 		return nil, fmt.Errorf("connecting to NATS: %w", err)
 	}
