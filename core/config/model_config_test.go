@@ -7,6 +7,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"gopkg.in/yaml.v3"
 )
 
 var _ = Describe("Test cases for config related functions", func() {
@@ -253,7 +254,6 @@ parameters:
 		})
 	})
 	It("Properly handles backend usecase matching", func() {
-
 		a := ModelConfig{
 			Name: "a",
 		}
@@ -371,7 +371,7 @@ parameters:
 			Backend:       "llama-cpp",
 			KnownUsecases: &scoreReserved,
 			TemplateConfig: TemplateConfig{
-				Chat:    "inherited from chatml",
+				Chat:        "inherited from chatml",
 				ChatMessage: "inherited from chatml",
 				Completion:  "inherited from chatml",
 			},
@@ -574,5 +574,48 @@ concurrency_groups:
 			Expect(cfg.FunctionsConfig.GrammarConfig.NoGrammar).To(BeFalse(),
 				"models that template in Go still rely on the Go-generated grammar")
 		})
+	})
+})
+
+var _ = Describe("PII config accessors", func() {
+	It("PIIDetectors returns a fresh copy of the consumer's detector list", func() {
+		cfg := &ModelConfig{PII: PIIConfig{Detectors: []string{"a", "b"}}}
+		got := cfg.PIIDetectors()
+		Expect(got).To(Equal([]string{"a", "b"}))
+		got[0] = "mutated"
+		Expect(cfg.PII.Detectors[0]).To(Equal("a"), "accessor must not alias the underlying slice")
+	})
+
+	It("PIIDetectors is nil when none are configured", func() {
+		Expect((&ModelConfig{}).PIIDetectors()).To(BeNil())
+	})
+
+	It("exposes the detector model's pii_detection policy", func() {
+		cfg := &ModelConfig{PIIDetection: PIIDetectionConfig{
+			MinScore:      0.5,
+			DefaultAction: "mask",
+			EntityActions: map[string]string{"PASSWORD": "block", "EMAIL": "mask"},
+		}}
+		Expect(cfg.PIIDetectionMinScore()).To(BeNumerically("~", 0.5, 1e-6))
+		Expect(cfg.PIIDetectionDefaultAction()).To(Equal("mask"))
+		ea := cfg.PIIDetectionEntityActions()
+		Expect(ea).To(HaveKeyWithValue("PASSWORD", "block"))
+		ea["PASSWORD"] = "mutated"
+		Expect(cfg.PIIDetection.EntityActions["PASSWORD"]).To(Equal("block"), "accessor must return a fresh map")
+	})
+
+	It("PIIDeprecatedKeysSet reports legacy pii.patterns / pii.ner keys", func() {
+		Expect((&ModelConfig{}).PIIDeprecatedKeysSet()).To(BeFalse())
+		Expect((&ModelConfig{PII: PIIConfig{Patterns: []any{map[string]any{"id": "email"}}}}).PIIDeprecatedKeysSet()).To(BeTrue())
+		Expect((&ModelConfig{PII: PIIConfig{NER: map[string]any{"model": "x"}}}).PIIDeprecatedKeysSet()).To(BeTrue())
+	})
+
+	It("unmarshals pii.detectors and pii_detection from YAML", func() {
+		var cfg ModelConfig
+		raw := []byte("name: consumer\npii:\n  enabled: true\n  detectors: [pf]\npii_detection:\n  min_score: 0.4\n  default_action: mask\n  entity_actions:\n    PASSWORD: block\n")
+		Expect(yaml.Unmarshal(raw, &cfg)).To(Succeed())
+		Expect(cfg.PIIDetectors()).To(Equal([]string{"pf"}))
+		Expect(cfg.PIIDetectionDefaultAction()).To(Equal("mask"))
+		Expect(cfg.PIIDetectionEntityActions()).To(HaveKeyWithValue("PASSWORD", "block"))
 	})
 })

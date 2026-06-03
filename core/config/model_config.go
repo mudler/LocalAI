@@ -14,6 +14,7 @@ import (
 	"github.com/mudler/LocalAI/pkg/functions"
 	"github.com/mudler/LocalAI/pkg/reasoning"
 	"github.com/mudler/cogito"
+	"github.com/mudler/xlog"
 	"gopkg.in/yaml.v3"
 )
 
@@ -23,7 +24,6 @@ const (
 
 // @Description TTS configuration
 type TTSConfig struct {
-
 	// Voice wav path or id
 	Voice string `yaml:"voice,omitempty" json:"voice,omitempty"`
 
@@ -103,13 +103,18 @@ type ModelConfig struct {
 	Options   []string `yaml:"options,omitempty" json:"options,omitempty"`
 	Overrides []string `yaml:"overrides,omitempty" json:"overrides,omitempty"`
 
-	MCP    MCPConfig       `yaml:"mcp,omitempty" json:"mcp,omitempty"`
-	Agent  AgentConfig     `yaml:"agent,omitempty" json:"agent,omitempty"`
-	PII    PIIConfig       `yaml:"pii,omitempty" json:"pii,omitempty"`
-	Router RouterConfig    `yaml:"router,omitempty" json:"router,omitempty"`
-	Proxy  ProxyConfig     `yaml:"proxy,omitempty" json:"proxy,omitempty"`
-	MITM   MITMModelConfig `yaml:"mitm,omitempty" json:"mitm,omitempty"`
-	Limits LimitsConfig    `yaml:"limits,omitempty" json:"limits,omitempty"`
+	MCP   MCPConfig   `yaml:"mcp,omitempty" json:"mcp,omitempty"`
+	Agent AgentConfig `yaml:"agent,omitempty" json:"agent,omitempty"`
+	PII   PIIConfig   `yaml:"pii,omitempty" json:"pii,omitempty"`
+	// PIIDetection is the detection policy when THIS model is used as a
+	// PII detector (a token_classify model named in another model's
+	// pii.detectors). Ignored on models that aren't referenced as
+	// detectors.
+	PIIDetection PIIDetectionConfig `yaml:"pii_detection,omitempty" json:"pii_detection,omitempty"`
+	Router       RouterConfig       `yaml:"router,omitempty" json:"router,omitempty"`
+	Proxy        ProxyConfig        `yaml:"proxy,omitempty" json:"proxy,omitempty"`
+	MITM         MITMModelConfig    `yaml:"mitm,omitempty" json:"mitm,omitempty"`
+	Limits       LimitsConfig       `yaml:"limits,omitempty" json:"limits,omitempty"`
 }
 
 // @Description Admission-control limits applied per request. The
@@ -384,47 +389,44 @@ type PIIConfig struct {
 	// the YAML key is distinguishable from explicit false.
 	Enabled *bool `yaml:"enabled,omitempty" json:"enabled,omitempty"`
 
-	// Patterns lets a model upgrade or downgrade individual pattern
-	// actions (mask | block | allow) relative to the global
-	// defaults loaded from --pii-config / DefaultPatterns. Pattern IDs
-	// not listed inherit the global action. The regex itself stays
-	// global — only the action is settable per-model.
-	Patterns []PIIPatternOverride `yaml:"patterns,omitempty" json:"patterns,omitempty"`
+	// Patterns and NER are removed config keys (the regex tier and the
+	// per-consumer NER policy). They are retained as untyped shadows ONLY
+	// so a YAML that still carries them parses instead of erroring on an
+	// unknown key; Validate() emits a loud warning when either is set. Use
+	// Detectors + the detector model's pii_detection block instead.
+	//
+	// Deprecated: removed next release.
+	Patterns []any `yaml:"patterns,omitempty" json:"patterns,omitempty"`
+	// Deprecated: removed next release. See Patterns.
+	NER map[string]any `yaml:"ner,omitempty" json:"ner,omitempty"`
 
-	// NER configures the optional encoder/NER tier: a
-	// token-classification model (e.g. the privacy-filter backend) run
-	// alongside the regex patterns for semantic PII detection. Off
-	// unless Model is set. Requires the regex tier to be active (a
-	// non-empty global pattern set).
-	NER PIINERConfig `yaml:"ner,omitempty" json:"ner,omitempty"`
+	// Detectors lists the token-classification (NER) models whose
+	// detections drive PII redaction for this model. The detection policy
+	// (min score, per-entity actions, default action) lives on each named
+	// detector model's own pii_detection block, not here — a consuming
+	// model just opts in by listing detectors. Multiple detectors union
+	// their hits; overlapping spans resolve to the strongest action.
+	Detectors []string `yaml:"detectors,omitempty" json:"detectors,omitempty"`
 }
 
-// @Description Optional encoder/NER tier for PII detection — a
-// token-classification model layered on top of the regex patterns.
-type PIINERConfig struct {
-	// Model is the name of the loaded token-classification model to run
-	// (its own model config supplies the backend). Empty disables the
-	// NER tier for this model.
-	Model string `yaml:"model,omitempty" json:"model,omitempty"`
+// @Description Detection policy for a token-classification (NER) model
+// used as a PII detector. Lives on the detector model's own config so the
+// model is a self-describing policy unit: consuming models reference it by
+// name (via pii.detectors) and inherit this policy with no per-consumer
+// overrides.
+type PIIDetectionConfig struct {
 	// MinScore drops detections the model scores below this confidence
 	// before they are acted on. 0 keeps every detection.
 	MinScore float32 `yaml:"min_score,omitempty" json:"min_score,omitempty"`
 	// DefaultAction (mask | block | allow) applies to detected entity
 	// groups with no explicit EntityActions entry. Empty defaults to
-	// "mask" — the safe-by-default policy for a PII filter (a detected
-	// entity is masked unless an admin downgrades it).
+	// "mask" — the safe-by-default policy for a PII filter.
 	DefaultAction string `yaml:"default_action,omitempty" json:"default_action,omitempty"`
-	// EntityActions maps an entity group the model emits (e.g.
-	// "private_person", "EMAIL") to an action, overriding DefaultAction
-	// for that group. Lets admins block credentials, allow-log
-	// low-risk groups, and mask the rest.
+	// EntityActions maps an entity group the model emits (e.g. "EMAIL",
+	// "PASSWORD") to an action, overriding DefaultAction for that group.
+	// This is where an operator says which PII to block vs mask vs
+	// allow-log.
 	EntityActions map[string]string `yaml:"entity_actions,omitempty" json:"entity_actions,omitempty"`
-}
-
-// @Description Per-model action override for a single PII pattern.
-type PIIPatternOverride struct {
-	ID     string `yaml:"id" json:"id"`
-	Action string `yaml:"action" json:"action"`
 }
 
 // PIIIsEnabled returns the resolved PII state for this model. Single
@@ -437,49 +439,42 @@ func (c *ModelConfig) PIIIsEnabled() bool {
 	return c.Backend == "cloud-proxy"
 }
 
-// PIIPatternOverrides returns the per-pattern action overrides as a map
-// keyed by pattern ID. The values are the raw action strings — the pii
-// package validates and converts them.
-//
-// Returned via the documented modelPIIConfig interface in
-// core/services/routing/pii/middleware.go without taking a config
-// dependency on this package.
-func (c *ModelConfig) PIIPatternOverrides() map[string]string {
-	if len(c.PII.Patterns) == 0 {
+// PIIDeprecatedKeysSet reports whether this config still carries the
+// removed pii.patterns / pii.ner keys, so Validate() can warn the
+// operator to migrate to pii.detectors + the detector's pii_detection.
+func (c *ModelConfig) PIIDeprecatedKeysSet() bool {
+	return len(c.PII.Patterns) > 0 || len(c.PII.NER) > 0
+}
+
+// PIIDetectors returns the names of the token-classification models that
+// drive PII redaction for this (consuming) model. Read via the
+// ModelPIIConfig interface in core/services/routing/pii/middleware.go.
+func (c *ModelConfig) PIIDetectors() []string {
+	if len(c.PII.Detectors) == 0 {
 		return nil
 	}
-	out := make(map[string]string, len(c.PII.Patterns))
-	for _, p := range c.PII.Patterns {
-		if p.ID == "" {
-			continue
-		}
-		out[p.ID] = p.Action
-	}
+	out := make([]string, len(c.PII.Detectors))
+	copy(out, c.PII.Detectors)
 	return out
 }
 
-// PIINERModel returns the configured NER (token-classification) model
-// name for this model's PII filter, or "" if the encoder tier is off.
-// Read via the optional ModelNERConfig interface in
-// core/services/routing/pii/middleware.go.
-func (c *ModelConfig) PIINERModel() string { return c.PII.NER.Model }
+// PIIDetectionMinScore returns the confidence floor this model applies
+// when used as a PII detector.
+func (c *ModelConfig) PIIDetectionMinScore() float32 { return c.PIIDetection.MinScore }
 
-// PIINERMinScore returns the confidence floor for NER detections.
-func (c *ModelConfig) PIINERMinScore() float32 { return c.PII.NER.MinScore }
+// PIIDetectionDefaultAction returns the raw default-action string applied
+// to detected entity groups without an explicit override. The pii package
+// validates it and applies the "mask" fallback.
+func (c *ModelConfig) PIIDetectionDefaultAction() string { return c.PIIDetection.DefaultAction }
 
-// PIINERDefaultAction returns the raw default-action string for NER
-// entity groups without an explicit override. The pii package validates
-// it and applies the "mask" fallback.
-func (c *ModelConfig) PIINERDefaultAction() string { return c.PII.NER.DefaultAction }
-
-// PIINEREntityActions returns the per-entity-group action overrides as a
-// fresh map of raw action strings (validated by the pii package).
-func (c *ModelConfig) PIINEREntityActions() map[string]string {
-	if len(c.PII.NER.EntityActions) == 0 {
+// PIIDetectionEntityActions returns the per-entity-group action policy as
+// a fresh map of raw action strings (validated by the pii package).
+func (c *ModelConfig) PIIDetectionEntityActions() map[string]string {
+	if len(c.PIIDetection.EntityActions) == 0 {
 		return nil
 	}
-	out := make(map[string]string, len(c.PII.NER.EntityActions))
-	for k, v := range c.PII.NER.EntityActions {
+	out := make(map[string]string, len(c.PIIDetection.EntityActions))
+	for k, v := range c.PIIDetection.EntityActions {
 		out[k] = v
 	}
 	return out
@@ -528,8 +523,10 @@ func (c *MCPConfig) MCPConfigFromYAML() (MCPGenericConfig[MCPRemoteServers], MCP
 type MCPGenericConfig[T any] struct {
 	Servers T `yaml:"mcpServers,omitempty" json:"mcpServers,omitempty"`
 }
-type MCPRemoteServers map[string]MCPRemoteServer
-type MCPSTDIOServers map[string]MCPSTDIOServer
+type (
+	MCPRemoteServers map[string]MCPRemoteServer
+	MCPSTDIOServers  map[string]MCPSTDIOServer
+)
 
 // @Description MCP remote server configuration
 type MCPRemoteServer struct {
@@ -983,6 +980,16 @@ func (cfg *ModelConfig) SetDefaults(opts ...ConfigLoaderOption) {
 }
 
 func (c *ModelConfig) Validate() (bool, error) {
+	// The regex PII tier and the per-consumer pii.ner block were removed.
+	// Warn (don't fail) so a server mid-upgrade still boots while the
+	// operator migrates to pii.detectors + the detector model's
+	// pii_detection block.
+	if c.PIIDeprecatedKeysSet() {
+		xlog.Warn("pii.patterns and pii.ner are removed; they no longer filter anything. "+
+			"Use pii.detectors on this model plus a pii_detection block on the named detector model(s).",
+			"model", c.Name)
+	}
+
 	downloadedFileNames := []string{}
 	for _, f := range c.DownloadFiles {
 		downloadedFileNames = append(downloadedFileNames, f.Filename)

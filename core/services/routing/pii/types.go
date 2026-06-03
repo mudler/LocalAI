@@ -62,10 +62,11 @@ const (
 // substring slicing; call sites that need to log it strip it via
 // HashPrefix.
 type Span struct {
-	Start     int
-	End       int
-	Pattern   string // matches Pattern.ID
+	Start      int
+	End        int
+	Pattern    string // synthetic detector id, "ner:<GROUP>"
 	HashPrefix string // first 8 chars of sha256(matched value); audit-safe
+	Action     Action // the action that fired for this span (after merge)
 }
 
 // Result is what Redact returns. Redacted is the input string after
@@ -86,30 +87,6 @@ type Result struct {
 	Spans    []Span
 	Blocked  bool
 	Masked   bool
-}
-
-// Pattern is one configurable rule. Description is shown in the admin
-// UI alongside the pattern; the regex itself stays an implementation
-// detail (a leak-prone admin showing an SSN regex with a sample value
-// in the field is a risk we deliberately design around).
-type Pattern struct {
-	ID          string
-	Description string
-	Action      Action
-	// Disabled skips the pattern entirely when true — useful for
-	// admins who want to keep a regex around (visible in the UI) but
-	// turn it off without removing the YAML entry. Default-false so
-	// every existing pattern stays active without touching its config.
-	Disabled bool
-	// MaxMatchLength is the longest possible match in characters. The
-	// streaming filter (subsystem 3, follow-up commit) uses this to
-	// size its tail buffer. For regex patterns we compute it at
-	// compile time from the pattern's structure when possible, or set
-	// a conservative upper bound otherwise.
-	MaxMatchLength int
-
-	// internal — populated by Compile().
-	regex regexpMatcher
 }
 
 // EventKind classifies a stored audit event. The store is shared by the

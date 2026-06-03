@@ -12,13 +12,13 @@ import (
 	"github.com/mudler/LocalAI/core/http/auth"
 	mcpTools "github.com/mudler/LocalAI/core/http/endpoints/mcp"
 	"github.com/mudler/LocalAI/core/services/agentpool"
+	"github.com/mudler/LocalAI/core/services/cloudproxy/mitm"
 	"github.com/mudler/LocalAI/core/services/facerecognition"
 	"github.com/mudler/LocalAI/core/services/galleryop"
 	"github.com/mudler/LocalAI/core/services/monitoring"
 	"github.com/mudler/LocalAI/core/services/nodes"
 	"github.com/mudler/LocalAI/core/services/routing/admission"
 	"github.com/mudler/LocalAI/core/services/routing/billing"
-	"github.com/mudler/LocalAI/core/services/cloudproxy/mitm"
 	"github.com/mudler/LocalAI/core/services/routing/pii"
 	"github.com/mudler/LocalAI/core/services/routing/piidetector"
 	"github.com/mudler/LocalAI/core/services/routing/router"
@@ -72,15 +72,15 @@ type Application struct {
 	// 1-to-1 host↔model invariant the dispatcher relies on. Read by
 	// /api/middleware/status so the admin UI can surface the cause.
 	mitmHostConflicts atomic.Pointer[map[string][]string]
-	routerDecisions    router.DecisionStore
-	routerRegistry     *router.Registry
-	admissionLimiter   *admission.Limiter
-	watchdogMutex      sync.Mutex
-	watchdogStop       chan bool
-	p2pMutex           sync.Mutex
-	p2pCtx             context.Context
-	p2pCancel          context.CancelFunc
-	agentJobMutex      sync.Mutex
+	routerDecisions   router.DecisionStore
+	routerRegistry    *router.Registry
+	admissionLimiter  *admission.Limiter
+	watchdogMutex     sync.Mutex
+	watchdogStop      chan bool
+	p2pMutex          sync.Mutex
+	p2pCtx            context.Context
+	p2pCancel         context.CancelFunc
+	agentJobMutex     sync.Mutex
 
 	// Distributed mode services (nil when not in distributed mode)
 	distributed *DistributedServices
@@ -255,22 +255,28 @@ func (a *Application) PIIEvents() pii.EventStore {
 	return a.piiEvents
 }
 
-// PIINERResolver returns the resolver the chat PII middleware's encoder
-// tier uses to turn a configured NER model name into a detector. It
-// looks the model up in the config loader and binds a token-classifier
-// over the shared model loader (lazy — the model loads on first
-// Detect). Unknown or unconfigured names resolve to nil so the redactor
-// falls back to regex-only. Pass it via pii.WithNERResolver.
+// PIINERResolver returns the resolver the chat PII middleware uses to
+// turn a configured detector model name into a ready-to-use NERConfig:
+// a token-classifier bound over the shared model loader (lazy — the
+// model loads on first Detect) plus the detection policy read from that
+// model's own pii_detection block. Unknown names resolve to (zero,
+// false) so the middleware fails closed. Pass it via pii.WithNERResolver.
 func (a *Application) PIINERResolver() pii.NERDetectorResolver {
-	return func(modelName string) pii.NERDetector {
+	return func(modelName string) (pii.NERConfig, bool) {
 		if modelName == "" {
-			return nil
+			return pii.NERConfig{}, false
 		}
 		cfg, ok := a.ModelConfigLoader().GetModelConfig(modelName)
 		if !ok {
-			return nil
+			return pii.NERConfig{}, false
 		}
-		return piidetector.New(a.ModelLoader(), cfg, a.ApplicationConfig())
+		det := piidetector.New(a.ModelLoader(), cfg, a.ApplicationConfig())
+		return pii.NERConfigFromRaw(
+			det,
+			cfg.PIIDetectionMinScore(),
+			cfg.PIIDetectionDefaultAction(),
+			cfg.PIIDetectionEntityActions(),
+		), true
 	}
 }
 

@@ -18,8 +18,8 @@ type RuntimeSettings struct {
 	WatchdogInterval    *string `json:"watchdog_interval,omitempty"` // Interval between watchdog checks (e.g., 2s, 30s)
 
 	// Backend management
-	SingleBackend           *bool `json:"single_backend,omitempty"`      // Deprecated: use MaxActiveBackends = 1 instead
-	MaxActiveBackends       *int  `json:"max_active_backends,omitempty"` // Maximum number of active backends (0 = unlimited, 1 = single backend mode)
+	SingleBackend             *bool `json:"single_backend,omitempty"`              // Deprecated: use MaxActiveBackends = 1 instead
+	MaxActiveBackends         *int  `json:"max_active_backends,omitempty"`         // Maximum number of active backends (0 = unlimited, 1 = single backend mode)
 	AutoUpgradeBackends       *bool `json:"auto_upgrade_backends,omitempty"`       // Automatically upgrade backends when new versions are detected
 	PreferDevelopmentBackends *bool `json:"prefer_development_backends,omitempty"` // Prefer development backend versions by default in UI
 	// Memory Reclaimer settings (works with GPU if available, otherwise RAM)
@@ -96,20 +96,4 @@ type RuntimeSettings struct {
 	// changing it after the CA has been generated would orphan
 	// trusted clients.
 	MITMListen *string `json:"mitm_listen,omitempty"`
-
-	// PII pattern overrides — keyed by pattern id, applied to the live
-	// redactor at startup and persisted by POST /api/pii/patterns/persist.
-	// Distinguishes from --pii-config (which replaces the entire
-	// pattern set) by only carrying the per-id action/enabled deltas
-	// against the global default catalog.
-	PIIPatternOverrides *map[string]PIIPatternRuntimeOverride `json:"pii_pattern_overrides,omitempty"`
-}
-
-// PIIPatternRuntimeOverride captures the persistable deltas an admin
-// has applied to a single global PII pattern. Both fields are pointers
-// so an override that only flips Disabled doesn't have to also restate
-// Action (and vice versa).
-type PIIPatternRuntimeOverride struct {
-	Action   *string `json:"action,omitempty"`
-	Disabled *bool   `json:"disabled,omitempty"`
 }

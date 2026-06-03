@@ -383,33 +383,29 @@ func DefaultRegistry() map[string]FieldMetaOverride {
 			Component:   "toggle",
 			Order:       200,
 		},
-		"pii.patterns": {
-			Section:     "pii",
-			Label:       "PII Pattern Overrides",
-			Description: "Override the global default action for specific patterns on this model. Patterns not listed here inherit the global action (Settings → Middleware → Filtering).",
-			Component:   "pii-pattern-list",
-			Order:       201,
+		"pii.detectors": {
+			Section:              "pii",
+			Label:                "PII Detector Models",
+			Description:          "Token-classification (NER) models that scan this model's requests for PII. The detection policy (which entities, what action, min score) lives on each detector model's own PII Detection block. Multiple detectors union their hits.",
+			Component:            "model-multi-select",
+			AutocompleteProvider: "models:token_classify",
+			Order:                201,
 		},
-		"pii.ner.model": {
+
+		// --- PII detection policy (on a token_classify detector model) ---
+		"pii_detection.min_score": {
 			Section:     "pii",
-			Label:       "NER Model",
-			Description: "Optional token-classification (NER) model run alongside the regex patterns for semantic PII detection. Empty disables the NER tier. Requires the regex tier to be active (a non-empty global pattern set).",
-			Component:   "model-select",
-			Order:       202,
-		},
-		"pii.ner.min_score": {
-			Section:     "pii",
-			Label:       "NER Min Score",
-			Description: "Drop NER detections scored below this confidence before they are acted on. 0 keeps every detection.",
+			Label:       "Detector Min Score",
+			Description: "When this model is used as a PII detector, drop detections scored below this confidence before they are acted on. 0 keeps every detection.",
 			Component:   "slider",
 			Min:         f64(0),
 			Max:         f64(1),
 			Step:        f64(0.01),
-			Order:       203,
+			Order:       210,
 		},
-		"pii.ner.default_action": {
+		"pii_detection.default_action": {
 			Section:     "pii",
-			Label:       "NER Default Action",
+			Label:       "Detector Default Action",
 			Description: "Action applied to detected entity groups with no explicit per-entity override. Defaults to mask — the safe-by-default policy for a PII filter.",
 			Component:   "select",
 			Options: []FieldOption{
@@ -418,7 +414,14 @@ func DefaultRegistry() map[string]FieldMetaOverride {
 				{Value: "allow", Label: "allow (detect & log only)"},
 			},
 			Default: "mask",
-			Order:   204,
+			Order:   211,
+		},
+		"pii_detection.entity_actions": {
+			Section:     "pii",
+			Label:       "Detector Entity Actions",
+			Description: "Per-entity-group action policy for this detector model (e.g. PASSWORD → block, EMAIL → mask). Groups without an entry use the default action.",
+			Component:   "entity-action-list",
+			Order:       212,
 		},
 
 		// --- Cloud passthrough proxy ---

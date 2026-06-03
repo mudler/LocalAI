@@ -299,44 +299,20 @@ func buildAdmissionStatus(app *application.Application) map[string]any {
 }
 
 // buildPIIStatus builds the pii section of /api/middleware/status. It
-// reads the live redactor, walks every model config, and reports the
-// resolved enabled state plus any per-pattern overrides — that's what
-// the admin page renders side-by-side so the operator can see at a
-// glance which models are protected.
-//
-// Returns a sentinel "disabled" payload when the redactor is nil
-// (--disable-pii), letting the page show "filter switched off" rather
-// than a confusing empty state.
+// walks every model config and reports the resolved enabled state plus
+// the NER detector models each one references — that's what the admin
+// page renders so the operator can see at a glance which models are
+// protected and by which detectors. The detection policy itself
+// (entity→action, min score) lives on each detector model's
+// pii_detection block.
 func buildPIIStatus(app *application.Application) map[string]any {
-	redactor := app.PIIRedactor()
-	if redactor == nil {
-		return map[string]any{
-			"enabled_globally": false,
-			"reason":           "--disable-pii",
-			"patterns":         []any{},
-			"models":           []any{},
-		}
-	}
-
-	patterns := redactor.Patterns()
-	patternList := make([]map[string]any, 0, len(patterns))
-	for _, p := range patterns {
-		patternList = append(patternList, map[string]any{
-			"id":               p.ID,
-			"description":      p.Description,
-			"action":           string(p.Action),
-			"disabled":         p.Disabled,
-			"max_match_length": p.MaxMatchLength,
-		})
-	}
-
 	models := []map[string]any{}
 	for _, cfg := range app.ModelConfigLoader().GetAllModelsConfigs() {
 		entry := map[string]any{
 			"name":      cfg.Name,
 			"backend":   cfg.Backend,
 			"enabled":   cfg.PIIIsEnabled(),
-			"overrides": cfg.PIIPatternOverrides(),
+			"detectors": cfg.PIIDetectors(),
 		}
 		// explicit-set tells the UI whether the resolved state came
 		// from the YAML or the backend-prefix default. Helps admins
@@ -356,7 +332,6 @@ func buildPIIStatus(app *application.Application) map[string]any {
 	return map[string]any{
 		"enabled_globally":             true,
 		"default_enabled_for_backends": []string{"cloud-proxy"},
-		"patterns":                     patternList,
 		"models":                       models,
 		"recent_event_count":           recentCount,
 	}

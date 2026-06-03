@@ -30,39 +30,28 @@ const (
 )
 
 // ModelPIIConfig is the duck-typed view this middleware needs of the
-// per-model PII configuration carried on the echo context. *config.ModelConfig
-// satisfies it via PIIIsEnabled / PIIPatternOverrides; the indirection
-// keeps the pii package from importing core/config.
+// per-model PII configuration carried on the echo context.
+// *config.ModelConfig satisfies it via PIIIsEnabled / PIIDetectors; the
+// indirection keeps the pii package from importing core/config.
 //
-// Consumers of the override map: the action returned from PIIPatternOverrides
-// is the raw YAML string (e.g. "block"). Validation against the canonical
-// ActionMask/Block/Allow constants happens here, so a typo in a model
-// YAML logs and is ignored rather than panicking.
+// PIIDetectors lists the token-classification models whose detections
+// drive redaction for this (consuming) model. The detection policy lives
+// on each named detector model — resolved via NERDetectorResolver — so
+// this consuming view carries no per-entity actions of its own.
 type ModelPIIConfig interface {
 	PIIIsEnabled() bool
-	PIIPatternOverrides() map[string]string
+	PIIDetectors() []string
 }
 
-// ModelNERConfig is the optional encoder/NER view of a model's PII
-// config. It is kept separate from ModelPIIConfig so existing
-// implementers (and regex-only test stubs) don't have to grow methods:
-// the middleware type-asserts for it and runs the NER tier only when
-// the model both satisfies this interface and names a Model. As with
-// ModelPIIConfig, *config.ModelConfig satisfies it without dragging
-// core/config into this package's import graph.
-type ModelNERConfig interface {
-	PIINERModel() string
-	PIINERMinScore() float32
-	PIINERDefaultAction() string
-	PIINEREntityActions() map[string]string
-}
-
-// NERDetectorResolver returns the NER detector for a model name, or nil
-// if that model can't supply one (unknown / not loadable). Supplied by
-// the application layer, which owns the model loader and the
-// core/backend dependency — this keeps the pii package free of both. A
-// nil resolver (or the option being unset) disables the NER tier.
-type NERDetectorResolver func(modelName string) NERDetector
+// NERDetectorResolver resolves a detector model name to a ready-to-use
+// NERConfig — the detector plus the policy (min score, entity→action
+// map, default action) read from that model's own pii_detection block.
+// ok is false when the name can't supply a detector (unknown model, not
+// a token_classify model, or load failure); the middleware fails closed
+// in that case. Supplied by the application layer, which owns the model
+// loader and the core/backend dependency, keeping the pii package free of
+// both. A nil resolver (or the option being unset) disables the NER tier.
+type NERDetectorResolver func(modelName string) (NERConfig, bool)
 
 // Option configures optional RequestMiddleware behaviour. Threaded as
 // variadic options so adding the NER tier doesn't break the existing
@@ -73,10 +62,10 @@ type mwOptions struct {
 	nerResolver NERDetectorResolver
 }
 
-// WithNERResolver enables the encoder/NER tier. When a request's model
-// carries a pii.ner.model, the middleware resolves a detector for it
-// and runs RedactWithNER (regex + NER, merged); without this option, or
-// when no NER model is configured, redaction stays regex-only.
+// WithNERResolver enables the NER tier. When a request's model lists
+// pii.detectors, the middleware resolves each to a NERConfig and runs
+// RedactNER (the union of all detectors' hits, merged). Without this
+// option, or when a model lists no detectors, redaction is a no-op.
 func WithNERResolver(r NERDetectorResolver) Option {
 	return func(o *mwOptions) { o.nerResolver = r }
 }
@@ -129,32 +118,27 @@ func RequestMiddleware(redactor *Redactor, store EventStore, adapter Adapter, fa
 	}
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
 		return func(c echo.Context) error {
-			if redactor == nil || len(redactor.Patterns()) == 0 || adapter.Scan == nil {
+			if redactor == nil || adapter.Scan == nil {
 				return next(c)
 			}
 
-			// Per-model gating: redaction is opt-in per model. If the
-			// resolved config disables PII for this model (the default
-			// for non-proxy backends), pass through immediately. We do
-			// this before parsing the request so a disabled model
-			// doesn't pay the regex scan cost.
-			if cfg, ok := c.Get(ctxKeyModelConfig).(ModelPIIConfig); ok {
-				if !cfg.PIIIsEnabled() {
-					return next(c)
-				}
-			} else {
-				// No ModelPIIConfig on context → fail-closed: skip
-				// redaction. This protects routes that wire the
-				// middleware before SetModelAndConfig runs (or non-chat
-				// routes that don't carry a model). The middleware was
-				// previously fail-open, applying the global redactor
-				// unconditionally; the new contract is per-model
-				// opt-in, and a missing model is treated as disabled.
+			// Per-model gating: redaction is opt-in per model. A missing
+			// ModelPIIConfig (non-chat routes, or middleware wired before
+			// SetModelAndConfig) or PIIIsEnabled()==false passes through.
+			cfg, ok := c.Get(ctxKeyModelConfig).(ModelPIIConfig)
+			if !ok || !cfg.PIIIsEnabled() {
 				return next(c)
 			}
 
 			parsed := c.Get(ctxKeyParsedRequest)
 			if parsed == nil {
+				return next(c)
+			}
+
+			// A PII-enabled model with no detectors (or no resolver wired)
+			// has nothing to scan with — pass through.
+			detectors := cfg.PIIDetectors()
+			if len(detectors) == 0 || o.nerResolver == nil {
 				return next(c)
 			}
 
@@ -168,56 +152,19 @@ func RequestMiddleware(redactor *Redactor, store EventStore, adapter Adapter, fa
 			}
 			correlationID, _ := c.Get(ctxKeyCorrelationID).(string)
 
-			// Resolve per-model action overrides once per request. The
-			// raw map is YAML strings; convert to the typed Action set
-			// and silently drop unknown values rather than failing the
-			// request — model YAML typos shouldn't take chat down.
-			var overrides map[string]Action
-			if cfg, ok := c.Get(ctxKeyModelConfig).(ModelPIIConfig); ok {
-				if raw := cfg.PIIPatternOverrides(); len(raw) > 0 {
-					overrides = make(map[string]Action, len(raw))
-					for id, action := range raw {
-						switch Action(action) {
-						case ActionMask, ActionBlock, ActionAllow:
-							overrides[id] = Action(action)
-						default:
-							xlog.Warn("pii: ignoring unknown action in per-model override",
-								"pattern", id, "action", action)
-						}
-					}
+			// Resolve each named detector to its NERConfig (detector +
+			// the policy from that model's own pii_detection block). A
+			// configured detector that can't be resolved fails closed:
+			// serving the request without the semantic check the operator
+			// asked for is exactly the leak this tier exists to prevent.
+			cfgs := make([]NERConfig, 0, len(detectors))
+			for _, name := range detectors {
+				nc, ok := o.nerResolver(name)
+				if !ok {
+					xlog.Error("pii: configured detector model could not be resolved; blocking request (fail-closed)", "detector", name)
+					return blockNERUnavailable(c, store, correlationID, userID)
 				}
-			}
-
-			// Resolve the encoder/NER tier once per request. Only when
-			// the option supplied a resolver, the model satisfies
-			// ModelNERConfig, names a Model, and that model resolves to
-			// a detector. Otherwise nerCfg.Detector stays nil and the
-			// redaction path below is regex-only.
-			var nerCfg NERConfig
-			if o.nerResolver != nil {
-				if nc, ok := c.Get(ctxKeyModelConfig).(ModelNERConfig); ok {
-					if nerModel := nc.PIINERModel(); nerModel != "" {
-						det := o.nerResolver(nerModel)
-						if det == nil {
-							// Fail closed: a configured NER model that
-							// cannot be resolved (not installed, wrong
-							// name, or load failure) must block, not
-							// silently downgrade to regex-only — same
-							// reasoning as the detector-error path below.
-							xlog.Error("pii: configured NER model could not be resolved; blocking request (fail-closed)", "ner_model", nerModel)
-							return blockNERUnavailable(c, store, correlationID, userID)
-						}
-						nerCfg = NERConfig{
-							Detector: det,
-							MinScore: nc.PIINERMinScore(),
-							// §9.7: a detected entity is masked unless an
-							// admin downgrades it — safe-by-default for a
-							// PII filter. Empty/invalid config => mask.
-							DefaultAction: validActionOr(nc.PIINERDefaultAction(), ActionMask),
-							EntityActions: validActions(nc.PIINEREntityActions()),
-						}
-					}
-				}
+				cfgs = append(cfgs, nc)
 			}
 
 			texts := adapter.Scan(parsed)
@@ -229,38 +176,24 @@ func RequestMiddleware(redactor *Redactor, store EventStore, adapter Adapter, fa
 				if st.Text == "" {
 					continue
 				}
-				var res Result
-				if nerCfg.Detector != nil {
-					// Fail closed: a NER-backend outage at request time
-					// must NOT silently downgrade to regex-only. The NER
-					// tier was explicitly configured for this model, so
-					// the semantic check it provides is part of the
-					// contract — serving the request with only the cheap
-					// regex tier would leak exactly the PII NER was added
-					// to catch. RedactWithNER still returns a best-effort
-					// regex Result alongside the error (the redactor stays
-					// fail-open and leaves the policy to us); we discard it
-					// and block.
-					r2, nerErr := redactor.RedactWithNER(c.Request().Context(), st.Text, overrides, nerCfg)
-					if nerErr != nil {
-						xlog.Error("pii: NER detector failed; blocking request (fail-closed)", "error", nerErr)
-						return blockNERUnavailable(c, store, correlationID, userID)
-					}
-					res = r2
-				} else {
-					res = redactor.RedactWithOverrides(st.Text, overrides)
+				// Fail closed: a detector outage at request time must NOT
+				// silently serve the request. The NER tier was explicitly
+				// configured for this model, so the semantic check is part
+				// of the contract.
+				res, nerErr := RedactNER(c.Request().Context(), st.Text, cfgs)
+				if nerErr != nil {
+					xlog.Error("pii: NER detector failed; blocking request (fail-closed)", "error", nerErr)
+					return blockNERUnavailable(c, store, correlationID, userID)
 				}
 				if len(res.Spans) == 0 {
 					continue
 				}
 
-				// Persist one event per span so admins can see exactly
-				// which patterns fired in which positions. The action
-				// recorded is the resolved one (after override), so the
-				// events log reflects what actually happened to the
-				// request, not the global default.
+				// Persist one event per detected span. The action recorded
+				// is the one that actually fired (carried on the span after
+				// the overlap merge), so the events log reflects what
+				// happened to the request.
 				for _, span := range res.Spans {
-					action := actionForSpan(redactor.Patterns(), span.Pattern, overrides)
 					ev := PIIEvent{
 						ID:            newEventID(),
 						CorrelationID: correlationID,
@@ -270,7 +203,7 @@ func RequestMiddleware(redactor *Redactor, store EventStore, adapter Adapter, fa
 						ByteOffset:    span.Start,
 						Length:        span.End - span.Start,
 						HashPrefix:    span.HashPrefix,
-						Action:        action,
+						Action:        span.Action,
 						CreatedAt:     time.Now().UTC(),
 					}
 					if firstEventID == "" {
@@ -395,26 +328,6 @@ func validActions(raw map[string]string) map[string]Action {
 		}
 	}
 	return out
-}
-
-func actionForPattern(patterns []Pattern, id string) Action {
-	for _, p := range patterns {
-		if p.ID == id {
-			return p.Action
-		}
-	}
-	return ActionMask
-}
-
-// actionForSpan returns the resolved action for a span, preferring a
-// per-request override over the pattern's stored action. Used so the
-// PIIEvent log reflects the action that actually fired (e.g., a model
-// upgraded email from mask to block — the event row says "block").
-func actionForSpan(patterns []Pattern, id string, overrides map[string]Action) Action {
-	if action, ok := overrides[id]; ok {
-		return action
-	}
-	return actionForPattern(patterns, id)
 }
 
 func newEventID() string {

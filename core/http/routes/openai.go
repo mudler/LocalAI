@@ -16,7 +16,8 @@ import (
 
 func RegisterOpenAIRoutes(app *echo.Echo,
 	re *middleware.RequestExtractor,
-	application *application.Application) {
+	application *application.Application,
+) {
 	// openAI compatible API endpoint
 	traceMiddleware := middleware.TraceMiddleware(application)
 	usageMiddleware := middleware.UsageMiddleware(application.StatsRecorder(), application.FallbackUser())
@@ -42,7 +43,7 @@ func RegisterOpenAIRoutes(app *echo.Echo,
 	}
 
 	// chat
-	chatHandler := openai.ChatEndpoint(application.ModelConfigLoader(), application.ModelLoader(), application.TemplatesEvaluator(), application.ApplicationConfig(), natsClient, application.LocalAIAssistant(), application.PIIRedactor(), application.PIIEvents())
+	chatHandler := openai.ChatEndpoint(application.ModelConfigLoader(), application.ModelLoader(), application.TemplatesEvaluator(), application.ApplicationConfig(), natsClient, application.LocalAIAssistant())
 	chatMiddleware := []echo.MiddlewareFunc{
 		nodeHeaderMiddleware,
 		usageMiddleware,
@@ -117,7 +118,7 @@ func RegisterOpenAIRoutes(app *echo.Echo,
 	app.POST("/edits", editHandler, editMiddleware...)
 
 	// completion
-	completionHandler := openai.CompletionEndpoint(application.ModelConfigLoader(), application.ModelLoader(), application.TemplatesEvaluator(), application.ApplicationConfig(), application.PIIRedactor(), application.PIIEvents())
+	completionHandler := openai.CompletionEndpoint(application.ModelConfigLoader(), application.ModelLoader(), application.TemplatesEvaluator(), application.ApplicationConfig())
 	completionMiddleware := []echo.MiddlewareFunc{
 		nodeHeaderMiddleware,
 		usageMiddleware,

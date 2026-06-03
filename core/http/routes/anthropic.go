@@ -22,8 +22,8 @@ import (
 
 func RegisterAnthropicRoutes(app *echo.Echo,
 	re *middleware.RequestExtractor,
-	application *application.Application) {
-
+	application *application.Application,
+) {
 	// Anthropic Messages API endpoint
 	var natsClient mcpTools.MCPNATSClient
 	if d := application.Distributed(); d != nil {
@@ -36,8 +36,6 @@ func RegisterAnthropicRoutes(app *echo.Echo,
 		application.TemplatesEvaluator(),
 		application.ApplicationConfig(),
 		natsClient,
-		application.PIIRedactor(),
-		application.PIIEvents(),
 	)
 
 	messagesMiddleware := []echo.MiddlewareFunc{

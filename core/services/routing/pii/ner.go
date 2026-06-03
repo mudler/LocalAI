@@ -71,6 +71,23 @@ func (c NERConfig) ResolveAction(group string) (Action, bool) {
 	return "", false
 }
 
+// NERConfigFromRaw builds a typed NERConfig from a detector plus the raw
+// policy strings carried on a detector model's pii_detection config. An
+// empty or invalid default_action becomes ActionMask — the safe-by-default
+// policy for a PII filter (a detected entity is masked unless an admin
+// downgrades it). Unknown per-entity actions are dropped (and logged by
+// validActions). This is the single conversion point the application-layer
+// resolver uses, so the detector model's policy reaches the redactor in
+// exactly one shape.
+func NERConfigFromRaw(detector NERDetector, minScore float32, defaultAction string, entityActions map[string]string) NERConfig {
+	return NERConfig{
+		Detector:      detector,
+		MinScore:      minScore,
+		DefaultAction: validActionOr(defaultAction, ActionMask),
+		EntityActions: validActions(entityActions),
+	}
+}
+
 // nerPatternID returns the synthetic pattern ID that audit rows carry
 // for NER hits. Prefixing with "ner:" keeps these distinguishable from
 // regex pattern IDs in the events tab and in filter queries; admins
