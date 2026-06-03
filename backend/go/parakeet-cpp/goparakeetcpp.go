@@ -236,10 +236,19 @@ func (p *ParakeetCpp) AudioTranscription(ctx context.Context, opts *pb.Transcrip
 		return pb.TranscriptResult{}, errors.New("parakeet-cpp: TranscriptRequest.dst (audio path) is required")
 	}
 
-	// Fallback when the batched C-API is unavailable: transcribe directly from
-	// the file path (original behavior, no batching).
+	// Fallback when the batched C-API is unavailable: transcribe from a file
+	// path (original behavior, no batching). The C library's audio loader only
+	// understands 16 kHz mono WAV/PCM, so convert the input first - otherwise
+	// any non-WAV upload (MP3, etc.) fails with "failed to load audio". This
+	// mirrors what every other audio backend (whisper, crispasr) does via
+	// utils.AudioToWav before handing the file to the engine.
 	if p.bat == nil {
-		cstr := CppTranscribePathJSON(p.ctxPtr, opts.Dst, 0)
+		converted, cleanup, err := convertToWavMono16k(opts.Dst)
+		if err != nil {
+			return pb.TranscriptResult{}, err
+		}
+		defer cleanup()
+		cstr := CppTranscribePathJSON(p.ctxPtr, converted, 0)
 		if cstr == 0 {
 			return pb.TranscriptResult{}, fmt.Errorf("parakeet-cpp: transcribe_path_json failed: %s", CppLastError(p.ctxPtr))
 		}
@@ -460,17 +469,33 @@ func (p *ParakeetCpp) AudioTranscriptionStream(ctx context.Context, opts *pb.Tra
 // float samples plus the clip duration in seconds. Mirrors the whisper
 // backend: utils.AudioToWav (ffmpeg) normalises rate/channels, go-audio
 // decodes the PCM.
-func decodeWavMono16k(path string) ([]float32, float32, error) {
+// convertToWavMono16k converts an arbitrary audio file to a 16 kHz mono WAV in
+// a fresh temp dir and returns the path together with a cleanup func the caller
+// must defer. WAV inputs already at 16 kHz/mono/16-bit are passed through by
+// utils.AudioToWav (hardlink/copy), everything else is transcoded via ffmpeg.
+// Used by the direct (non-batched) transcription path, which hands a file path
+// to the C library's WAV-only audio loader.
+func convertToWavMono16k(path string) (string, func(), error) {
 	dir, err := os.MkdirTemp("", "parakeet")
 	if err != nil {
-		return nil, 0, err
+		return "", func() {}, err
 	}
-	defer func() { _ = os.RemoveAll(dir) }()
+	cleanup := func() { _ = os.RemoveAll(dir) }
 
 	converted := filepath.Join(dir, "converted.wav")
 	if err := utils.AudioToWav(path, converted); err != nil {
+		cleanup()
+		return "", func() {}, err
+	}
+	return converted, cleanup, nil
+}
+
+func decodeWavMono16k(path string) ([]float32, float32, error) {
+	converted, cleanup, err := convertToWavMono16k(path)
+	if err != nil {
 		return nil, 0, err
 	}
+	defer cleanup()
 
 	fh, err := os.Open(converted)
 	if err != nil {
