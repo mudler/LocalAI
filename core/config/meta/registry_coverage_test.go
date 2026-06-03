@@ -221,11 +221,6 @@ var grandfatheredUnregistered = []string{
 	"parameters.top_logprobs",
 	"parameters.translate",
 	"parameters.typical_p",
-	// Deprecated PII keys kept only as untyped shadows so old YAMLs still
-	// parse; Validate() warns. No UI surface — use pii.detectors +
-	// pii_detection. Removed next release.
-	"pii.ner",
-	"pii.patterns",
 	"pinned",
 	"prompt_cache_all",
 	"prompt_cache_path",

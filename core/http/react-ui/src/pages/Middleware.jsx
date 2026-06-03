@@ -6,8 +6,8 @@ import { settingsApi } from '../utils/api'
 import LoadingSpinner from '../components/LoadingSpinner'
 
 // Middleware admin page. Three tabs:
-//   - Filtering: PII pattern catalogue + per-model resolved state +
-//     per-model detector list (policy lives on each detector model).
+//   - Filtering: per-model resolved PII state + per-model detector list
+//     (detection policy lives on each detector model's pii_detection block).
 //   - Routing: placeholder until subsystem 2 lands. Renders the note
 //     from /api/router/status so admins see "not yet implemented" rather
 //     than an empty page.
@@ -872,7 +872,7 @@ function EventsTab({ events }) {
           <div className="empty-state-icon"><i className="fas fa-list-ul" /></div>
           <h2 className="empty-state-title">No events</h2>
           <p className="empty-state-text">
-            Events appear here when the PII filter matches a pattern, when the MITM proxy decides whether
+            Events appear here when a PII detector flags an entity, when the MITM proxy decides whether
             to intercept a hostname, or when an intercepted request finishes. Request bodies are never
             stored — use the API and backend traces for that.
           </p>

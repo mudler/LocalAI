@@ -604,12 +604,6 @@ var _ = Describe("PII config accessors", func() {
 		Expect(cfg.PIIDetection.EntityActions["PASSWORD"]).To(Equal("block"), "accessor must return a fresh map")
 	})
 
-	It("PIIDeprecatedKeysSet reports legacy pii.patterns / pii.ner keys", func() {
-		Expect((&ModelConfig{}).PIIDeprecatedKeysSet()).To(BeFalse())
-		Expect((&ModelConfig{PII: PIIConfig{Patterns: []any{map[string]any{"id": "email"}}}}).PIIDeprecatedKeysSet()).To(BeTrue())
-		Expect((&ModelConfig{PII: PIIConfig{NER: map[string]any{"model": "x"}}}).PIIDeprecatedKeysSet()).To(BeTrue())
-	})
-
 	It("unmarshals pii.detectors and pii_detection from YAML", func() {
 		var cfg ModelConfig
 		raw := []byte("name: consumer\npii:\n  enabled: true\n  detectors: [pf]\npii_detection:\n  min_score: 0.4\n  default_action: mask\n  entity_actions:\n    PASSWORD: block\n")

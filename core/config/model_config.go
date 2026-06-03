@@ -14,7 +14,6 @@ import (
 	"github.com/mudler/LocalAI/pkg/functions"
 	"github.com/mudler/LocalAI/pkg/reasoning"
 	"github.com/mudler/cogito"
-	"github.com/mudler/xlog"
 	"gopkg.in/yaml.v3"
 )
 
@@ -389,17 +388,6 @@ type PIIConfig struct {
 	// the YAML key is distinguishable from explicit false.
 	Enabled *bool `yaml:"enabled,omitempty" json:"enabled,omitempty"`
 
-	// Patterns and NER are removed config keys (the regex tier and the
-	// per-consumer NER policy). They are retained as untyped shadows ONLY
-	// so a YAML that still carries them parses instead of erroring on an
-	// unknown key; Validate() emits a loud warning when either is set. Use
-	// Detectors + the detector model's pii_detection block instead.
-	//
-	// Deprecated: removed next release.
-	Patterns []any `yaml:"patterns,omitempty" json:"patterns,omitempty"`
-	// Deprecated: removed next release. See Patterns.
-	NER map[string]any `yaml:"ner,omitempty" json:"ner,omitempty"`
-
 	// Detectors lists the token-classification (NER) models whose
 	// detections drive PII redaction for this model. The detection policy
 	// (min score, per-entity actions, default action) lives on each named
@@ -437,13 +425,6 @@ func (c *ModelConfig) PIIIsEnabled() bool {
 		return *c.PII.Enabled
 	}
 	return c.Backend == "cloud-proxy"
-}
-
-// PIIDeprecatedKeysSet reports whether this config still carries the
-// removed pii.patterns / pii.ner keys, so Validate() can warn the
-// operator to migrate to pii.detectors + the detector's pii_detection.
-func (c *ModelConfig) PIIDeprecatedKeysSet() bool {
-	return len(c.PII.Patterns) > 0 || len(c.PII.NER) > 0
 }
 
 // PIIDetectors returns the names of the token-classification models that
@@ -980,16 +961,6 @@ func (cfg *ModelConfig) SetDefaults(opts ...ConfigLoaderOption) {
 }
 
 func (c *ModelConfig) Validate() (bool, error) {
-	// The regex PII tier and the per-consumer pii.ner block were removed.
-	// Warn (don't fail) so a server mid-upgrade still boots while the
-	// operator migrates to pii.detectors + the detector model's
-	// pii_detection block.
-	if c.PIIDeprecatedKeysSet() {
-		xlog.Warn("pii.patterns and pii.ner are removed; they no longer filter anything. "+
-			"Use pii.detectors on this model plus a pii_detection block on the named detector model(s).",
-			"model", c.Name)
-	}
-
 	downloadedFileNames := []string{}
 	for _, f := range c.DownloadFiles {
 		downloadedFileNames = append(downloadedFileNames, f.Filename)
