@@ -6,7 +6,8 @@ import SearchableModelSelect from './SearchableModelSelect'
 import AutocompleteInput from './AutocompleteInput'
 import CodeEditor from './CodeEditor'
 import StructuredCodeEditor from './StructuredCodeEditor'
-import PIIPatternListEditor from './PIIPatternListEditor'
+import EntityActionListEditor from './EntityActionListEditor'
+import ModelMultiSelect from './ModelMultiSelect'
 import RouterCandidatesEditor from './RouterCandidatesEditor'
 import RouterPoliciesEditor from './RouterPoliciesEditor'
 
@@ -17,6 +18,7 @@ const PROVIDER_TO_CAPABILITY = {
   'models:transcript': 'FLAG_TRANSCRIPT',
   'models:vad': 'FLAG_VAD',
   'models:score': 'FLAG_SCORE',
+  'models:token_classify': 'FLAG_TOKEN_CLASSIFY',
 }
 
 function coerceValue(raw, uiType) {
@@ -395,10 +397,10 @@ export default function ConfigFieldRenderer({ field, value, onChange, onRemove, 
     )
   }
 
-  // PII pattern list — per-model action overrides for named patterns.
-  // The pattern catalog is loaded from /api/pii/patterns at render time
-  // so new built-in patterns surface automatically.
-  if (component === 'pii-pattern-list') {
+  // PII detectors — a capability-filtered multi-select of token_classify
+  // models (the consuming model's pii.detectors list).
+  if (component === 'model-multi-select') {
+    const cap = PROVIDER_TO_CAPABILITY[field.autocomplete_provider] || undefined
     return (
       <div style={{ padding: 'var(--spacing-sm) 0', borderBottom: '1px solid var(--color-border-subtle)' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
@@ -407,7 +409,23 @@ export default function ConfigFieldRenderer({ field, value, onChange, onRemove, 
             <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', marginTop: 2 }}>{description}</div>
           </div>
         </div>
-        <PIIPatternListEditor value={value} onChange={handleChange} />
+        <ModelMultiSelect value={value} onChange={handleChange} capability={cap} placeholder={field.placeholder} />
+      </div>
+    )
+  }
+
+  // PII detection entity-action map — a detector model's
+  // pii_detection.entity_actions (entity group -> mask|block|allow).
+  if (component === 'entity-action-list') {
+    return (
+      <div style={{ padding: 'var(--spacing-sm) 0', borderBottom: '1px solid var(--color-border-subtle)' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+          <div>
+            <div style={{ fontSize: '0.875rem', fontWeight: 500 }}><FieldLabel field={field} /></div>
+            <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', marginTop: 2 }}>{description}</div>
+          </div>
+        </div>
+        <EntityActionListEditor value={value} onChange={handleChange} />
       </div>
     )
   }
