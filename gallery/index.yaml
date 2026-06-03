@@ -108,6 +108,7 @@
       uri: https://huggingface.co/unsloth/Step-3.7-Flash-GGUF/resolve/main/mmproj-F32.gguf
 - name: "privacy-filter-multilingual"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  icon: https://cdn-avatars.huggingface.co/v1/production/uploads/5fd5e18a90b6dc4633f6d292/QPiv8pt4JNxr0FdGnpFef.png
   urls:
     - https://huggingface.co/OpenMed/privacy-filter-multilingual
     - https://huggingface.co/localai-org/privacy-filter-multilingual-GGUF
@@ -122,12 +123,14 @@
     tr, vi, zh), spanning identity, contact, address, financial, vehicle,
     digital, and crypto entities.
 
-    In LocalAI this powers the **encoder/NER tier of the PII redactor**: set
-    `known_usecases: [token_classify]` (as below) and reference the model by name
-    from another config's `pii.ner.model` to layer semantic PII detection on top
-    of the regex patterns. It runs locally with **no Python**, served by the
-    vendored llama.cpp backend's `TokenClassify` RPC (constrained BIOES Viterbi
-    decode → UTF-8 byte-offset entity spans).
+    In LocalAI this is a **PII detector** for the NER redactor tier: set
+    `known_usecases: [token_classify]` (as below), and any model opts into
+    redaction by listing this one under `pii.detectors`. The detection policy
+    (which categories to mask vs block, the score threshold) lives on this
+    model's own `pii_detection` block — see the overrides below. It runs
+    locally with **no Python**, served by the vendored llama.cpp backend's
+    `TokenClassify` RPC (constrained BIOES Viterbi decode → UTF-8 byte-offset
+    entity spans).
 
     Architecture: gpt-oss-style sparse MoE (8 layers, 128 experts top-4, ~50M
     active per token), bidirectional banded attention, o200k tokenizer; served
