@@ -1,4 +1,58 @@
 ---
+- name: "step-3.7-flash"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/unsloth/Step-3.7-Flash-GGUF
+  description: |
+    **[ModelPage]**: https://static.stepfun.com/blog/step-3.7-flash/
+
+    ## 1. Introduction
+
+    Step 3.7 Flash is a 198B-parameter sparse Mixture-of-Experts (MoE) vision-language model that combines a 196B-parameter language backbone with a 1.8B-parameter vision encoder for native image understanding. Engineered for high-frequency production workloads, it activates approximately 11B parameters per token and delivers a throughput of up to 400 tokens per second. Step 3.7 Flash supports a 256k context window and offers three selectable reasoning levels (low, medium, and high) so developers can easily balance speed, cost, and cognitive depth.
+
+    We built Step 3.7 Flash for developers who need to scale agentic workflows that combine perception, search, and reasoning. It is designed to handle intensive tasks such as parsing massive financial reports in one pass, running multi-step search loops with cross-source verification, or operating concurrent coding agents in high-throughput pipelines.
+
+    ## 2. Capabilities & Performance
+
+    ### Multimodal Perception and Verification
+
+    ...
+  license: "apache-2.0"
+  tags:
+    - llm
+    - gguf
+  icon: https://example.com/photo.jpg
+  overrides:
+    backend: llama-cpp
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+    mmproj: llama-cpp/mmproj/Step-3.7-Flash-GGUF/mmproj-F32.gguf
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/Step-3.7-Flash-GGUF/Step-3.7-Flash-UD-Q4_K_M-00001-of-00004.gguf
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/Step-3.7-Flash-GGUF/Step-3.7-Flash-UD-Q4_K_M-00001-of-00004.gguf
+      sha256: 3ace7518df03a818243c55076e8c5b422961aa3cefe4fa8f120d4456dd2edde7
+      uri: https://huggingface.co/unsloth/Step-3.7-Flash-GGUF/resolve/main/UD-Q4_K_M/Step-3.7-Flash-UD-Q4_K_M-00001-of-00004.gguf
+    - filename: llama-cpp/models/Step-3.7-Flash-GGUF/Step-3.7-Flash-UD-Q4_K_M-00002-of-00004.gguf
+      sha256: 1ff05ea5a4518c488548219ec944aadec6a1a075140a3f81ae258ec51b755a75
+      uri: https://huggingface.co/unsloth/Step-3.7-Flash-GGUF/resolve/main/UD-Q4_K_M/Step-3.7-Flash-UD-Q4_K_M-00002-of-00004.gguf
+    - filename: llama-cpp/models/Step-3.7-Flash-GGUF/Step-3.7-Flash-UD-Q4_K_M-00003-of-00004.gguf
+      sha256: 47c1b36d9e6df9fcd6e05873bdaa101a54b85e56bcd775ce0a199453387c339d
+      uri: https://huggingface.co/unsloth/Step-3.7-Flash-GGUF/resolve/main/UD-Q4_K_M/Step-3.7-Flash-UD-Q4_K_M-00003-of-00004.gguf
+    - filename: llama-cpp/models/Step-3.7-Flash-GGUF/Step-3.7-Flash-UD-Q4_K_M-00004-of-00004.gguf
+      sha256: 1cc54c0a491b63b86ef0ddc631950c2b881ed701de9ffb1903338d3cbf088262
+      uri: https://huggingface.co/unsloth/Step-3.7-Flash-GGUF/resolve/main/UD-Q4_K_M/Step-3.7-Flash-UD-Q4_K_M-00004-of-00004.gguf
+    - filename: llama-cpp/mmproj/Step-3.7-Flash-GGUF/mmproj-F32.gguf
+      sha256: 2fab13dcd32e4b3dc4410297df80f4d82627308e725dedac802940ceca7dff13
+      uri: https://huggingface.co/unsloth/Step-3.7-Flash-GGUF/resolve/main/mmproj-F32.gguf
 - name: "lfm2.5-8b-a1b"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
