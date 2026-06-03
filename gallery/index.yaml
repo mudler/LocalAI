@@ -31833,7 +31833,6 @@
     - filename: parakeet-cpp/tdt_ctc-1.1b-f16.gguf
       uri: huggingface://mudler/parakeet-cpp-gguf/tdt_ctc-1.1b-f16.gguf
       sha256: cd53f64eefac2623a12f2f118ef50b56622dc3012f42c815c6adf0d08292f387
-
 - name: parakeet-crispasr
   url: github:mudler/LocalAI/gallery/virtual.yaml@master
   urls:
@@ -32076,6 +32075,7 @@
   files:
     - filename: voxtral-mini-3b-2507-q4_k.gguf
       uri: huggingface://cstr/voxtral-mini-3b-2507-GGUF/voxtral-mini-3b-2507-q4_k.gguf
+      sha256: 306088d884e36aa512aa41ea66087b9fd7f3e11e1568ccf6ca5df12dc97595a2
 - name: voxtral4b-crispasr
   url: github:mudler/LocalAI/gallery/virtual.yaml@master
   urls:
@@ -32098,6 +32098,7 @@
   files:
     - filename: voxtral-mini-4b-realtime-q4_k.gguf
       uri: huggingface://cstr/voxtral-mini-4b-realtime-GGUF/voxtral-mini-4b-realtime-q4_k.gguf
+      sha256: 7dda1dba692f18c9d30a6064943b92c562853b399e96320929d2e1399c9d41cc
 - name: granite-crispasr
   url: github:mudler/LocalAI/gallery/virtual.yaml@master
   urls:
@@ -32120,6 +32121,7 @@
   files:
     - filename: granite-speech-4.0-1b-q4_k.gguf
       uri: huggingface://cstr/granite-speech-4.0-1b-GGUF/granite-speech-4.0-1b-q4_k.gguf
+      sha256: 4ab89d22379b0286033d5c958d7d0759860c4cb9e8ce81cab2e9272303321301
 - name: granite-4.1-crispasr
   url: github:mudler/LocalAI/gallery/virtual.yaml@master
   urls:
@@ -32142,6 +32144,7 @@
   files:
     - filename: granite-speech-4.1-2b-q4_k.gguf
       uri: huggingface://cstr/granite-speech-4.1-2b-GGUF/granite-speech-4.1-2b-q4_k.gguf
+      sha256: d2fd66c801c37eb12b9ae1792994e406ce5a53ff0c864cc8cfe33f91d8eb7920
 - name: granite-4.1-plus-crispasr
   url: github:mudler/LocalAI/gallery/virtual.yaml@master
   urls:
@@ -32164,6 +32167,7 @@
   files:
     - filename: granite-speech-4.1-2b-plus-q4_k.gguf
       uri: huggingface://cstr/granite-speech-4.1-2b-plus-GGUF/granite-speech-4.1-2b-plus-q4_k.gguf
+      sha256: 797ad005c53305d4fdea1fadd7baa62bd3310a3e2975c7964e48c76a41198dd4
 - name: granite-4.1-nar-crispasr
   url: github:mudler/LocalAI/gallery/virtual.yaml@master
   urls:
@@ -32186,6 +32190,7 @@
   files:
     - filename: granite-speech-4.1-2b-nar-q4_k.gguf
       uri: huggingface://cstr/granite-speech-4.1-2b-nar-GGUF/granite-speech-4.1-2b-nar-q4_k.gguf
+      sha256: 7ffa9fd63b20c72cdc72c114631d5f6dfc2d81bf0e1e5255c350a9b6826f2ba4
 - name: qwen3-crispasr
   url: github:mudler/LocalAI/gallery/virtual.yaml@master
   urls:
@@ -32208,6 +32213,7 @@
   files:
     - filename: qwen3-asr-0.6b-q4_k.gguf
       uri: huggingface://cstr/qwen3-asr-0.6b-GGUF/qwen3-asr-0.6b-q4_k.gguf
+      sha256: 4c67426908a518c28c24bc780df27175fcf84ce4d6dbd678133a4531904bbcc9
 - name: qwen3-1.7b-crispasr
   url: github:mudler/LocalAI/gallery/virtual.yaml@master
   urls:
@@ -32230,6 +32236,7 @@
   files:
     - filename: qwen3-asr-1.7b-q4_k.gguf
       uri: huggingface://cstr/qwen3-asr-1.7b-GGUF/qwen3-asr-1.7b-q4_k.gguf
+      sha256: 1f1d26ee044f0f041b0a7bfcf6d560996103c951acbde6eb48ccb24e7edfc69c
 - name: cohere-crispasr
   url: github:mudler/LocalAI/gallery/virtual.yaml@master
   urls:
@@ -32252,6 +32259,7 @@
   files:
     - filename: cohere-transcribe-q4_k.gguf
       uri: huggingface://cstr/cohere-transcribe-03-2026-GGUF/cohere-transcribe-q4_k.gguf
+      sha256: 2931fc0ac6d6708eef5389aadf1ebd5eec7b8e764bac385be585e910c0e7b410
 - name: wav2vec2-crispasr
   url: github:mudler/LocalAI/gallery/virtual.yaml@master
   urls:
@@ -32274,6 +32282,7 @@
   files:
     - filename: wav2vec2-xlsr-en-q4_k.gguf
       uri: huggingface://cstr/wav2vec2-large-xlsr-53-english-GGUF/wav2vec2-xlsr-en-q4_k.gguf
+      sha256: e28e4131af7eb4cc2dc2c15464801f4a6437a5f7cd51f45e5b12883ef7e8bc8f
 - name: wav2vec2-de-crispasr
   url: github:mudler/LocalAI/gallery/virtual.yaml@master
   urls:
@@ -32296,6 +32305,7 @@
   files:
     - filename: wav2vec2-large-xlsr-53-german-q4_k.gguf
       uri: huggingface://cstr/wav2vec2-large-xlsr-53-german-GGUF/wav2vec2-large-xlsr-53-german-q4_k.gguf
+      sha256: d134f7470d6b1f24a47fd165840697340b5259dc93b7d35cf43e14fb0d0213e7
 - name: vibevoice-crispasr
   url: github:mudler/LocalAI/gallery/virtual.yaml@master
   urls:
@@ -32318,6 +32328,7 @@
   files:
     - filename: vibevoice-asr-q4_k.gguf
       uri: huggingface://cstr/vibevoice-asr-GGUF/vibevoice-asr-q4_k.gguf
+      sha256: f1e87bb5c25dd469b495759e59c4554c4e8ec254f36c5c659737ff3e61ace982
 - name: vibevoice-tts-crispasr
   url: github:mudler/LocalAI/gallery/virtual.yaml@master
   urls:
@@ -32339,6 +32350,7 @@
   files:
     - filename: vibevoice-realtime-0.5b-q4_k.gguf
       uri: huggingface://cstr/vibevoice-realtime-0.5b-GGUF/vibevoice-realtime-0.5b-q4_k.gguf
+      sha256: e3244986d8939a9a8f65701196efbfe3f8b81afd307b29f434fe259b9c411ef1
 - name: chatterbox-tts-crispasr
   url: github:mudler/LocalAI/gallery/virtual.yaml@master
   urls:
@@ -32362,8 +32374,10 @@
   files:
     - filename: chatterbox-t3-q8_0.gguf
       uri: huggingface://cstr/chatterbox-GGUF/chatterbox-t3-q8_0.gguf
+      sha256: 7b2da930c27df7e43d17a077bb58433b1bc33474ad66d781f715a7125f65d075
     - filename: chatterbox-s3gen-q8_0.gguf
       uri: huggingface://cstr/chatterbox-GGUF/chatterbox-s3gen-q8_0.gguf
+      sha256: 6bbb93b892deeea73330cf773218e776e4bd0cf6ba71f60ef4dba72c922d0b3b
 - name: qwen3-tts-customvoice-crispasr
   url: github:mudler/LocalAI/gallery/virtual.yaml@master
   urls:
@@ -32389,8 +32403,10 @@
   files:
     - filename: qwen3-tts-12hz-0.6b-customvoice-q8_0.gguf
       uri: huggingface://cstr/qwen3-tts-0.6b-customvoice-GGUF/qwen3-tts-12hz-0.6b-customvoice-q8_0.gguf
+      sha256: 5227dcbc4df7c5533341d111cc469fa491a48e722b23dd10f553181b52dff2d9
     - filename: qwen3-tts-tokenizer-12hz.gguf
       uri: huggingface://cstr/qwen3-tts-tokenizer-12hz-GGUF/qwen3-tts-tokenizer-12hz.gguf
+      sha256: 70dc95dbfdd9aa5d9d406236ff771d061bf17b0cda02a72513953355606e719b
 - name: orpheus-tts-crispasr
   url: github:mudler/LocalAI/gallery/virtual.yaml@master
   urls:
@@ -32415,8 +32431,10 @@
   files:
     - filename: orpheus-3b-base-q8_0.gguf
       uri: huggingface://cstr/orpheus-3b-base-GGUF/orpheus-3b-base-q8_0.gguf
+      sha256: 380e891d72adee9ad7db7b6f8626f737d1285a7cf8c98d256d70094182ed0615
     - filename: snac-24khz.gguf
       uri: huggingface://cstr/snac-24khz-GGUF/snac-24khz.gguf
+      sha256: b4b044631df62ececa86ab080516b3e619cd8f93caabd5f6758c7eae14981bd8
 - name: hubert-crispasr
   url: github:mudler/LocalAI/gallery/virtual.yaml@master
   urls:
@@ -32441,6 +32459,7 @@
   files:
     - filename: hubert-large-ls960-ft-q4_k.gguf
       uri: huggingface://cstr/hubert-large-ls960-ft-GGUF/hubert-large-ls960-ft-q4_k.gguf
+      sha256: 7cfd627da224e0c77b466e27bb10613fe834e7156cf5a58de9ad7885ba5af937
 - name: data2vec-crispasr
   url: github:mudler/LocalAI/gallery/virtual.yaml@master
   urls:
@@ -32465,6 +32484,7 @@
   files:
     - filename: data2vec-audio-base-960h-q4_k.gguf
       uri: huggingface://cstr/data2vec-audio-960h-GGUF/data2vec-audio-base-960h-q4_k.gguf
+      sha256: 93b6ab01f1f83525157d797a385a3e9e014c6761d3e974351363adc452a86f7e
 - name: glm-asr-crispasr
   url: github:mudler/LocalAI/gallery/virtual.yaml@master
   urls:
@@ -32489,6 +32509,7 @@
   files:
     - filename: glm-asr-nano-q4_k.gguf
       uri: huggingface://cstr/glm-asr-nano-GGUF/glm-asr-nano-q4_k.gguf
+      sha256: 2e4f3360f69e7f7dfd24127305583ea16629975c643a771f8603ca04c6ab50d4
 - name: kyutai-stt-crispasr
   url: github:mudler/LocalAI/gallery/virtual.yaml@master
   urls:
@@ -32513,6 +32534,7 @@
   files:
     - filename: kyutai-stt-1b-q4_k.gguf
       uri: huggingface://cstr/kyutai-stt-1b-GGUF/kyutai-stt-1b-q4_k.gguf
+      sha256: 32937b2c337e8b8b1bfd68bc90f07a1dbc9fcdfd5e7099dc770e15f0cbff512e
 - name: firered-asr-crispasr
   url: github:mudler/LocalAI/gallery/virtual.yaml@master
   urls:
@@ -32537,6 +32559,7 @@
   files:
     - filename: firered-asr2-aed-q4_k.gguf
       uri: huggingface://cstr/firered-asr2-aed-GGUF/firered-asr2-aed-q4_k.gguf
+      sha256: c5f40fe5b467296395027c7397d87043a39e3223fcd049056ed5ba88974e9e0d
 - name: moonshine-crispasr
   url: github:mudler/LocalAI/gallery/virtual.yaml@master
   urls:
@@ -32562,8 +32585,10 @@
   files:
     - filename: moonshine-tiny-q4_k.gguf
       uri: huggingface://cstr/moonshine-tiny-GGUF/moonshine-tiny-q4_k.gguf
+      sha256: 333bb4a7df0c51da04fa2694fdc944936e75e79e57745c7ac3fd11f3176a8368
     - filename: tokenizer.bin
       uri: huggingface://cstr/moonshine-tiny-GGUF/tokenizer.bin
+      sha256: 0e90e02b765a10f0fa35b7d67877df29dd22a1fd4890899c9b1b203a19bc8999
 - name: moonshine-de-crispasr
   url: github:mudler/LocalAI/gallery/virtual.yaml@master
   urls:
@@ -32590,8 +32615,10 @@
   files:
     - filename: moonshine-base-de-fidoriel-q4_k.gguf
       uri: huggingface://cstr/moonshine-base-de-fidoriel-GGUF/moonshine-base-de-fidoriel-q4_k.gguf
+      sha256: 6ce0bec4248720d3474ee80db2b35dbac8e5608106a47fe8853fc36a6d77aeb8
     - filename: tokenizer.bin
       uri: huggingface://cstr/moonshine-base-de-fidoriel-GGUF/tokenizer.bin
+      sha256: 0e90e02b765a10f0fa35b7d67877df29dd22a1fd4890899c9b1b203a19bc8999
 - name: moonshine-tiny-de-crispasr
   url: github:mudler/LocalAI/gallery/virtual.yaml@master
   urls:
@@ -32618,8 +32645,10 @@
   files:
     - filename: moonshine-tiny-de-fidoriel-q4_k.gguf
       uri: huggingface://cstr/moonshine-tiny-de-fidoriel-GGUF/moonshine-tiny-de-fidoriel-q4_k.gguf
+      sha256: cc2a94570dae9c9996d6c27c3b0d307973d08b43802a271922fb583f0a2afc71
     - filename: tokenizer.bin
       uri: huggingface://cstr/moonshine-tiny-de-fidoriel-GGUF/tokenizer.bin
+      sha256: 0e90e02b765a10f0fa35b7d67877df29dd22a1fd4890899c9b1b203a19bc8999
 - name: moonshine-streaming-crispasr
   url: github:mudler/LocalAI/gallery/virtual.yaml@master
   urls:
@@ -32645,8 +32674,10 @@
   files:
     - filename: moonshine-streaming-tiny-q4_k.gguf
       uri: huggingface://cstr/moonshine-streaming-tiny-GGUF/moonshine-streaming-tiny-q4_k.gguf
+      sha256: 46bf62ab1323da8ff3cf3936b62c08980590396a324bb822c91e38e821d972cc
     - filename: tokenizer.bin
       uri: huggingface://cstr/moonshine-streaming-tiny-GGUF/tokenizer.bin
+      sha256: 0e90e02b765a10f0fa35b7d67877df29dd22a1fd4890899c9b1b203a19bc8999
 - name: mimo-asr-crispasr
   url: github:mudler/LocalAI/gallery/virtual.yaml@master
   urls:
@@ -32672,5 +32703,7 @@
   files:
     - filename: mimo-asr-q4_k.gguf
       uri: huggingface://cstr/mimo-asr-GGUF/mimo-asr-q4_k.gguf
+      sha256: 12dbc7cc7a20c7add6ff00bf8b12bca1c46304e0100a5c5a6e74bdecfc57a306
     - filename: mimo-tokenizer-q4_k.gguf
       uri: huggingface://cstr/mimo-tokenizer-GGUF/mimo-tokenizer-q4_k.gguf
+      sha256: 3f3a903b10294ead4ef6a4afec035639fd2113b1d307d42f649a97cc85670e3f

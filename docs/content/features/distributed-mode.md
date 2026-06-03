@@ -13,34 +13,15 @@ Distributed mode requires authentication enabled with a **PostgreSQL** database 
 
 ## Architecture Overview
 
-```
-                    ┌─────────────────┐
-                    │   Load Balancer  │
-                    └────────┬────────┘
-                             │
-              ┌──────────────┼──────────────┐
-              │              │              │
-      ┌───────▼──────┐ ┌────▼─────┐ ┌─────▼──────┐
-      │  Frontend #1 │ │ Frontend │ │ Frontend #N│
-      │  (LocalAI)   │ │  #2      │ │  (LocalAI) │
-      └──────┬───────┘ └────┬─────┘ └─────┬──────┘
-             │              │              │
-     ┌───────▼──────────────▼──────────────▼───────┐
-     │              PostgreSQL + NATS               │
-     │  (node registry, jobs, coordination)         │
-     └───────┬──────────────┬──────────────┬───────┘
-             │              │              │
-      ┌──────▼──────┐ ┌────▼─────┐ ┌─────▼──────┐
-      │  Worker #1  │ │ Worker   │ │ Worker #N  │
-      │  (generic)  │ │ #2       │ │  (generic) │
-      └─────────────┘ └──────────┘ └────────────┘
-```
+![Distributed mode architecture: a load balancer fronts stateless SmartRouter frontends backed by a shared NATS/PostgreSQL/S3 plane, with generic workers running per-model gRPC backends](/images/diagrams/distributed-mode-arch.png)
 
 **Frontends** are stateless LocalAI instances that receive API requests and route them to worker nodes via the **SmartRouter**. All frontends share state through PostgreSQL and coordinate via NATS.
 
 **Workers** are generic processes that self-register with a frontend. They don't have a fixed backend type — the SmartRouter dynamically installs the required backend via NATS `backend.install` events when a model request arrives.
 
 ### Scheduling Algorithm
+
+![SmartRouter scheduling: idle-first placement that checks for an already-loaded node, then free VRAM, then an idle node, then preemptive LRU eviction, ending in backend.install and LoadModel](/images/diagrams/smartrouter-scheduling.png)
 
 The SmartRouter uses **idle-first** scheduling with **preemptive eviction**:
 1. If the model is already loaded on a node → use it (per-model gRPC address)
@@ -431,6 +412,8 @@ The ds4 backend (DeepSeek V4 Flash) supports **layer-parallel** distributed infe
 This is **not** routed through the SmartRouter: it is a model-internal split, configured manually (Phase 1). It is unrelated to the NATS/PostgreSQL distributed mode described above.
 
 ### Topology
+
+![ds4 layer-split topology: workers dial in to the coordinator and own higher layer ranges, the inverse of llama.cpp RPC where the main server dials out to rpc-servers](/images/diagrams/ds4-layer-split.png)
 
 ds4 uses a **coordinator/worker** split:
 

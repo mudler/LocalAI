@@ -5,6 +5,8 @@ weight = 15
 url = "/features/voice-recognition/"
 +++
 
+![Voice recognition: register, identify, and forget voiceprints in a vector store, for 1:1 verify or 1:N identify](/images/diagrams/voice-recognition-flow.png)
+
 LocalAI supports voice (speaker) recognition through the
 `speaker-recognition` backend: speaker verification (1:1), speaker
 identification (1:N) against a built-in vector store, speaker

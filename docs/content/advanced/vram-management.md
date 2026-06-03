@@ -5,6 +5,8 @@ weight = 22
 url = '/advanced/vram-management'
 +++
 
+![VRAM management: least-recently-used eviction and concurrency-group anti-affinity keep hot models warm](/images/diagrams/vram-eviction.png)
+
 When running multiple models in LocalAI, especially on systems with limited GPU memory (VRAM), you may encounter situations where loading a new model fails because there isn't enough available VRAM. LocalAI provides several mechanisms to automatically manage model memory allocation and prevent VRAM exhaustion:
 
 1. **Max Active Backends (LRU Eviction)**: Limit the number of loaded models, evicting the least recently used when the limit is reached
