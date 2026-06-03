@@ -1057,6 +1057,19 @@ func (c *ModelConfig) Validate() (bool, error) {
 				"with chat/completion/embeddings — split into separate model configs")
 	}
 
+	// TokenClassify on llama-cpp likewise bypasses the slot loop (direct
+	// decode, see grpc-server.cpp on TokenClassify) and races concurrent
+	// generation. Unlike score it REQUIRES embeddings (TOKEN_CLS pooling),
+	// so the conflict is with generation only, not embeddings.
+	const tokenClassifyConflicts = FLAG_CHAT | FLAG_COMPLETION
+	if (c.Backend == "llama-cpp" || c.Backend == "llama") &&
+		c.HasUsecases(FLAG_TOKEN_CLASSIFY) && c.KnownUsecases != nil &&
+		*c.KnownUsecases&tokenClassifyConflicts != 0 {
+		return false, fmt.Errorf(
+			"known_usecases conflict on llama-cpp: token_classify is incompatible " +
+				"with chat/completion — split into separate model configs")
+	}
+
 	// router.score_normalization is consumed lazily by the score
 	// classifier at first-request time; without load-time validation
 	// a typo wouldn't surface until the first router request panicked
@@ -1169,6 +1182,17 @@ const (
 	// chat/completion/embeddings.
 	FLAG_SCORE ModelConfigUsecase = 0b10000000000000000000
 
+	// Marks a model as wired for the TokenClassify gRPC primitive (the
+	// openai-privacy-filter PII NER tier — per-token BIOES classification).
+	// Like FLAG_SCORE it must be declared explicitly via
+	// `known_usecases: [token_classify]`; there's no heuristic. On the
+	// llama-cpp backend TokenClassify bypasses the slot loop and races the
+	// llama_context (see grpc-server.cpp on TokenClassify), so Validate()
+	// refuses a llama-cpp config combining it with chat/completion. Unlike
+	// FLAG_SCORE, embeddings is NOT a conflict — TokenClassify REQUIRES
+	// TOKEN_CLS pooling, which is loaded via the embeddings flag.
+	FLAG_TOKEN_CLASSIFY ModelConfigUsecase = 0b100000000000000000000
+
 	// Common Subsets
 	FLAG_LLM ModelConfigUsecase = FLAG_CHAT | FLAG_COMPLETION | FLAG_EDIT
 )
@@ -1226,6 +1250,7 @@ func GetAllModelConfigUsecases() map[string]ModelConfigUsecase {
 		"FLAG_DIARIZATION":         FLAG_DIARIZATION,
 		"FLAG_REALTIME_AUDIO":      FLAG_REALTIME_AUDIO,
 		"FLAG_SCORE":               FLAG_SCORE,
+		"FLAG_TOKEN_CLASSIFY":      FLAG_TOKEN_CLASSIFY,
 	}
 }
 
@@ -1253,19 +1278,20 @@ func GetUsecasesFromYAML(input []string) *ModelConfigUsecase {
 // HasUsecases examines a ModelConfig and determines which endpoints have a chance of success.
 //
 // Declared known_usecases are normally additive — the guessing heuristic
-// still adds whatever it can infer from backend/templates. The one
-// exception is FLAG_SCORE: when the operator declared score, they
-// reserved the model for the router classifier. Letting GuessUsecases
-// paint chat/completion on top would surface it in chat pickers it was
-// deliberately kept out of, and (on llama-cpp) reintroduce the slot
-// contention the score/chat conflict check exists to prevent. So a
-// declared score list is authoritative.
+// still adds whatever it can infer from backend/templates. The exceptions
+// are FLAG_SCORE and FLAG_TOKEN_CLASSIFY: when the operator declared
+// either, they reserved the model for an internal direct-decode primitive
+// (the router classifier, or the PII NER tier). Letting GuessUsecases
+// paint chat/completion/embeddings on top would surface it in pickers it
+// was deliberately kept out of, and (on llama-cpp) reintroduce the slot
+// contention the conflict check exists to prevent. So a declared score or
+// token_classify list is authoritative.
 func (c *ModelConfig) HasUsecases(u ModelConfigUsecase) bool {
 	if c.KnownUsecases != nil {
 		if (u & *c.KnownUsecases) == u {
 			return true
 		}
-		if (*c.KnownUsecases & FLAG_SCORE) == FLAG_SCORE {
+		if (*c.KnownUsecases & (FLAG_SCORE | FLAG_TOKEN_CLASSIFY)) != 0 {
 			return false
 		}
 	}
@@ -1435,6 +1461,15 @@ func (c *ModelConfig) GuessUsecases(u ModelConfigUsecase) bool {
 		// (it reserves the model from generation traffic on llama-cpp),
 		// so HasUsecases(FLAG_SCORE) is true only when KnownUsecases
 		// declares it explicitly.
+		return false
+	}
+
+	if (u & FLAG_TOKEN_CLASSIFY) == FLAG_TOKEN_CLASSIFY {
+		// No heuristic: token-classification intent is a deliberate
+		// operator choice (it reserves the model from generation traffic
+		// on llama-cpp, and the model's TOKEN_CLS head isn't useful as
+		// general embeddings), so HasUsecases(FLAG_TOKEN_CLASSIFY) is true
+		// only when KnownUsecases declares it explicitly.
 		return false
 	}
 

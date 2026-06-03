@@ -108,6 +108,31 @@ parameters:
 			Expect(valid).To(BeTrue())
 			Expect(err).NotTo(HaveOccurred())
 
+			// token_classify on llama-cpp also bypasses the slot loop, so
+			// it can't mix with chat/completion — but unlike score it
+			// REQUIRES embeddings (TOKEN_CLS pooling), so embeddings is not
+			// a conflict.
+			tcAndChat := FLAG_TOKEN_CLASSIFY | FLAG_CHAT
+			tcConflicting := ModelConfig{
+				Name:          "ner-but-also-chat",
+				Backend:       "llama-cpp",
+				KnownUsecases: &tcAndChat,
+			}
+			valid, err = tcConflicting.Validate()
+			Expect(valid).To(BeFalse())
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("token_classify is incompatible"))
+
+			tcAndEmbeddings := FLAG_TOKEN_CLASSIFY | FLAG_EMBEDDINGS
+			tcWithEmbeddings := ModelConfig{
+				Name:          "pii-ner",
+				Backend:       "llama-cpp",
+				KnownUsecases: &tcAndEmbeddings,
+			}
+			valid, err = tcWithEmbeddings.Validate()
+			Expect(valid).To(BeTrue())
+			Expect(err).NotTo(HaveOccurred())
+
 			// Cloud-proxy: api_key_env and api_key_file are mutually
 			// exclusive — picking both is a config bug we catch at
 			// load/save rather than at backend-load time.
@@ -355,6 +380,27 @@ parameters:
 		Expect(j.HasUsecases(FLAG_CHAT)).To(BeFalse())
 		Expect(j.HasUsecases(FLAG_COMPLETION)).To(BeFalse())
 		Expect(j.HasUsecases(FLAG_EMBEDDINGS)).To(BeFalse())
+
+		// Declared `known_usecases: [token_classify]` is likewise
+		// authoritative — a PII NER model is reserved for the redactor's
+		// NER tier and must not surface as chat or as a general embeddings
+		// model, even though it loads with embeddings enabled (its
+		// TOKEN_CLS head produces BIOES logits, not reusable embeddings).
+		tcReserved := FLAG_TOKEN_CLASSIFY
+		embTrue := true
+		k := ModelConfig{
+			Name:          "privacy-filter",
+			Backend:       "llama-cpp",
+			KnownUsecases: &tcReserved,
+			Embeddings:    &embTrue,
+			TemplateConfig: TemplateConfig{
+				Chat:        "inherited from chatml",
+				ChatMessage: "inherited from chatml",
+			},
+		}
+		Expect(k.HasUsecases(FLAG_TOKEN_CLASSIFY)).To(BeTrue())
+		Expect(k.HasUsecases(FLAG_CHAT)).To(BeFalse())
+		Expect(k.HasUsecases(FLAG_EMBEDDINGS)).To(BeFalse())
 	})
 	It("Test Validate with invalid MCP config", func() {
 		tmp, err := os.CreateTemp("", "config.yaml")
