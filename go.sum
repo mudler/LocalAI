@@ -972,6 +972,8 @@ github.com/mudler/LocalAGI v0.0.0-20260508125235-37810d918a87 h1:az+2umaD/sT1rRv
 github.com/mudler/LocalAGI v0.0.0-20260508125235-37810d918a87/go.mod h1:x77p9W1zKZr+W+UcEwg8/qdp00p4XXOI69wE7WlXZc0=
 github.com/mudler/cogito v0.9.5-0.20260315222927-63abdec7189b h1:A74T2Lauvg61KodYqsjTYDY05kPLcW+efVZjd23dghU=
 github.com/mudler/cogito v0.9.5-0.20260315222927-63abdec7189b/go.mod h1:6sfja3lcu2nWRzEc0wwqGNu/eCG3EWgij+8s7xyUeQ4=
+github.com/mudler/cogito v0.9.5-0.20260531081147-2c13b6ac29cf h1:njoYjFON9qXKcErNvPl1WoxmSzl4zE9Wexyk2YN82FM=
+github.com/mudler/cogito v0.9.5-0.20260531081147-2c13b6ac29cf/go.mod h1:6sfja3lcu2nWRzEc0wwqGNu/eCG3EWgij+8s7xyUeQ4=
 github.com/mudler/edgevpn v0.32.2 h1:umTPyyZgkom/A81Bk4HbP0p1ZSEU5EFPW3Bg+YPxI8A=
 github.com/mudler/edgevpn v0.32.2/go.mod h1:UaMc8MORbcRsAjuO5gVJj9Bn3Nq2AP5U9NTb6epVyv8=
 github.com/mudler/go-piper v0.0.0-20241023091659-2494246fd9fc h1:RxwneJl1VgvikiX28EkpdAyL4yQVnJMrbquKospjHyA=
