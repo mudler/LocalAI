@@ -70,6 +70,19 @@
           protoc-gen-go
           protoc-gen-go-grpc
 
+          # C++ gRPC + protobuf for the vendored llama.cpp backend
+          # (backend/cpp/llama-cpp `make grpc-server`). The CMake build does
+          # find_package(gRPC)/find_package(Protobuf); without grpc here the
+          # shell exposes protobuf alone and the build fails to locate gRPC
+          # (or links a stale, version-skewed grpc from the store). nixpkgs
+          # builds `grpc` against this same `protobuf`, so the pair is
+          # self-consistent. Docker (backend/Dockerfile.base-grpc-builder)
+          # compiles gRPC v1.65.0 / protoc v27.1 from source; nixpkgs here is
+          # newer (grpc 1.80 / protobuf 34) but wire- and ABI-consistent
+          # within the backend. Pin protobuf_27 + a grpc override if exact
+          # Docker version parity is ever required.
+          grpc
+
           # React UI build (core/http/react-ui — `make react-ui`)
           nodejs
           bun  # alternative to npm, used by `make react-ui-docker`
