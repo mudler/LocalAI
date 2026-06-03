@@ -21,14 +21,14 @@ type DistributedConfig struct {
 	AutoApproveNodes  bool   // --auto-approve-nodes / LOCALAI_AUTO_APPROVE_NODES (skip admin approval for new workers)
 
 	// NATS JWT auth (optional; see pkg/natsauth and docs/features/distributed-mode.md)
-	NatsAccountSeed   string        // LOCALAI_NATS_ACCOUNT_SEED — account signing seed to mint per-node worker JWTs
-	NatsServiceJWT    string        // LOCALAI_NATS_SERVICE_JWT — user JWT for frontends / agent workers
-	NatsServiceSeed   string        // LOCALAI_NATS_SERVICE_SEED — signing seed paired with service JWT
-	NatsWorkerJWTTTL  time.Duration // LOCALAI_NATS_WORKER_JWT_TTL — minted worker JWT lifetime (default 24h)
-	NatsRequireAuth   bool          // LOCALAI_NATS_REQUIRE_AUTH — fail startup if NATS credentials are missing
-	NatsTLSCA         string        // LOCALAI_NATS_TLS_CA — PEM file for private CA (server verify)
-	NatsTLSCert       string        // LOCALAI_NATS_TLS_CERT — client cert for NATS mTLS
-	NatsTLSKey        string        // LOCALAI_NATS_TLS_KEY — client key paired with NatsTLSCert
+	NatsAccountSeed  string        // LOCALAI_NATS_ACCOUNT_SEED — account signing seed to mint per-node worker JWTs
+	NatsServiceJWT   string        // LOCALAI_NATS_SERVICE_JWT — user JWT for frontends / agent workers
+	NatsServiceSeed  string        // LOCALAI_NATS_SERVICE_SEED — signing seed paired with service JWT
+	NatsWorkerJWTTTL time.Duration // LOCALAI_NATS_WORKER_JWT_TTL — minted worker JWT lifetime (default 24h)
+	NatsRequireAuth  bool          // LOCALAI_NATS_REQUIRE_AUTH — fail startup if NATS credentials are missing
+	NatsTLSCA        string        // LOCALAI_NATS_TLS_CA — PEM file for private CA (server verify)
+	NatsTLSCert      string        // LOCALAI_NATS_TLS_CERT — client cert for NATS mTLS
+	NatsTLSKey       string        // LOCALAI_NATS_TLS_KEY — client key paired with NatsTLSCert
 
 	// S3 configuration (used when StorageURL is set)
 	StorageBucket    string // --storage-bucket / LOCALAI_STORAGE_BUCKET
@@ -293,7 +293,7 @@ func (c DistributedConfig) NatsTLSFiles() messaging.TLSFiles {
 
 // NatsMessagingOptions builds messaging client options (JWT + TLS) for distributed components.
 // Pass explicit userJWT/userSeed when set (e.g. worker overrides); empty uses service JWT from config.
-func (c DistributedConfig) NatsMessagingOptions(userJWT, userSeed string) ([]messaging.Option, error) {
+func (c DistributedConfig) NatsMessagingOptions(userJWT, userSeed string) []messaging.Option {
 	var opts []messaging.Option
 	jwt, seed := userJWT, userSeed
 	if jwt == "" && seed == "" {
@@ -306,7 +306,7 @@ func (c DistributedConfig) NatsMessagingOptions(userJWT, userSeed string) ([]mes
 	if tls := c.NatsTLSFiles(); tls.Enabled() {
 		opts = append(opts, messaging.WithTLS(tls))
 	}
-	return opts, nil
+	return opts
 }
 
 // NatsAuthConfig builds pkg/natsauth settings from distributed configuration.

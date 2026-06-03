@@ -65,4 +65,35 @@ var _ = Describe("NATS JWT Auth", Label("Distributed", "NatsJWT"), func() {
 			Expect(subj).NotTo(ContainSubstring("backend.install"))
 		}
 	})
+
+	// Regression guard for the silent permission gaps: decoding the JWT claims
+	// (above) only proves the agent JWT is *restrictive*, not that it is
+	// *sufficient*. Stand a real agent connection up against the enforcing
+	// server and exercise every subscription core/cli/agent_worker.go actually
+	// makes — a denied SUB now surfaces synchronously via confirmSubscription,
+	// so a missing allow rule fails this test instead of silently dropping
+	// backend.stop / MCP-CI deliveries at runtime.
+	It("lets an agent-minted JWT establish all the subscriptions the agent worker uses", func() {
+		const nodeID = "agent-node-subs"
+		cfg := natsauth.Config{AccountSeed: infra.AccountSeed, WorkerJWTTTL: time.Hour}
+		token, seed, err := cfg.MintWorkerJWT(nodeID, "agent")
+		Expect(err).ToNot(HaveOccurred())
+
+		nc, err := messaging.New(infra.NatsURL, messaging.WithUserJWT(token, seed))
+		Expect(err).ToNot(HaveOccurred())
+		DeferCleanup(nc.Close)
+
+		// Mirror core/cli/agent_worker.go exactly.
+		_, err = nc.QueueSubscribeReply(messaging.SubjectMCPToolExecute, messaging.QueueAgentWorkers, func([]byte, func([]byte)) {})
+		Expect(err).ToNot(HaveOccurred(), "agent JWT must allow %s", messaging.SubjectMCPToolExecute)
+
+		_, err = nc.QueueSubscribeReply(messaging.SubjectMCPDiscovery, messaging.QueueAgentWorkers, func([]byte, func([]byte)) {})
+		Expect(err).ToNot(HaveOccurred(), "agent JWT must allow %s", messaging.SubjectMCPDiscovery)
+
+		_, err = nc.QueueSubscribe(messaging.SubjectMCPCIJobsNew, messaging.QueueWorkers, func([]byte) {})
+		Expect(err).ToNot(HaveOccurred(), "agent JWT must allow %s (MCP CI jobs)", messaging.SubjectMCPCIJobsNew)
+
+		_, err = nc.Subscribe(messaging.SubjectNodeBackendStop(nodeID), func([]byte) {})
+		Expect(err).ToNot(HaveOccurred(), "agent JWT must allow %s (MCP session cleanup)", messaging.SubjectNodeBackendStop(nodeID))
+	})
 })

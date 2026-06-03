@@ -16,13 +16,16 @@ func WorkerPermissions(nodeID, nodeType string) (pubAllow, subAllow []string) {
 	switch nodeType {
 	case "agent":
 		// Agent workers consume queue workloads; they must not handle backend.install.
+		// Keep this list in sync with the subscriptions in core/cli/agent_worker.go.
 		subAllow = []string{
 			"agent.execute",
 			"jobs.*.cancel",
 			"jobs.*.progress",
 			"jobs.*.result",
+			"jobs.mcp-ci.new", // MCP CI jobs dispatched to agent workers
 			"mcp.tools.execute",
 			"mcp.discovery",
+			prefix + ".backend.stop", // stop events drive MCP session cleanup
 			"_INBOX.>",
 		}
 		pubAllow = []string{

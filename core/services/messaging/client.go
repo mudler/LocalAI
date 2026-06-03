@@ -2,14 +2,21 @@ package messaging
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
+	"strings"
 	"sync"
 	"time"
 
 	"github.com/mudler/LocalAI/pkg/sanitize"
 	"github.com/mudler/xlog"
 	"github.com/nats-io/nats.go"
+	"github.com/nats-io/nkeys"
 )
+
+// subscribeConfirmTimeout bounds the server round-trip used to detect whether a
+// subscription was rejected (e.g. by JWT permissions) before returning to the caller.
+const subscribeConfirmTimeout = 5 * time.Second
 
 // Client wraps a NATS connection and provides helpers for pub/sub and queue subscriptions.
 type Client struct {
@@ -38,10 +45,47 @@ func New(url string, opts ...Option) (*Client, error) {
 		nats.ClosedHandler(func(_ *nats.Conn) {
 			xlog.Info("NATS connection closed")
 		}),
+		// Surface async errors (notably permission violations) that NATS would
+		// otherwise deliver silently. A subscription the server rejects for a
+		// JWT permission means the worker never receives those messages, so make
+		// it loud rather than letting the feature fail invisibly.
+		nats.ErrorHandler(func(_ *nats.Conn, sub *nats.Subscription, err error) {
+			subject := ""
+			if sub != nil {
+				subject = sub.Subject
+			}
+			if errors.Is(err, nats.ErrPermissionViolation) {
+				xlog.Error("NATS permission violation — check JWT pub/sub allow lists", "subject", subject, "error", err)
+				return
+			}
+			xlog.Warn("NATS async error", "subject", subject, "error", err)
+		}),
 	}
-	if cfg.userJWT != "" && cfg.userSeed != "" {
-		jwt, seed := cfg.userJWT, cfg.userSeed
-		natsOpts = append(natsOpts, nats.UserJWTAndSeed(jwt, seed))
+	switch {
+	case cfg.jwtProvider != nil:
+		// Fetch creds on every (re)connect so a refresh loop can rotate the JWT
+		// before expiry; the server expiring the old JWT triggers a reconnect
+		// that transparently picks up the new one.
+		natsOpts = append(natsOpts, nats.UserJWT(
+			func() (string, error) {
+				jwt, _ := cfg.jwtProvider()
+				if jwt == "" {
+					return "", fmt.Errorf("no NATS user JWT available")
+				}
+				return jwt, nil
+			},
+			func(nonce []byte) ([]byte, error) {
+				_, seed := cfg.jwtProvider()
+				kp, err := nkeys.FromSeed([]byte(seed))
+				if err != nil {
+					return nil, fmt.Errorf("loading NATS user seed: %w", err)
+				}
+				defer kp.Wipe()
+				return kp.Sign(nonce)
+			},
+		))
+	case cfg.userJWT != "" && cfg.userSeed != "":
+		natsOpts = append(natsOpts, nats.UserJWTAndSeed(cfg.userJWT, cfg.userSeed))
 	}
 	if cfg.tls.Enabled() {
 		if err := cfg.tls.Validate(); err != nil {
@@ -75,21 +119,65 @@ func (c *Client) Publish(subject string, data any) error {
 
 // Subscribe creates a subscription on the given subject. All subscribers receive every message.
 func (c *Client) Subscribe(subject string, handler func([]byte)) (Subscription, error) {
-	c.mu.RLock()
-	defer c.mu.RUnlock()
-	return c.conn.Subscribe(subject, func(msg *nats.Msg) {
-		handler(msg.Data)
+	return c.confirmSubscription(subject, func(conn *nats.Conn) (*nats.Subscription, error) {
+		return conn.Subscribe(subject, func(msg *nats.Msg) {
+			handler(msg.Data)
+		})
 	})
 }
 
 // QueueSubscribe creates a queue subscription. Within the same queue group,
 // only one subscriber receives each message (load-balanced).
 func (c *Client) QueueSubscribe(subject, queue string, handler func([]byte)) (Subscription, error) {
-	c.mu.RLock()
-	defer c.mu.RUnlock()
-	return c.conn.QueueSubscribe(subject, queue, func(msg *nats.Msg) {
-		handler(msg.Data)
+	return c.confirmSubscription(subject, func(conn *nats.Conn) (*nats.Subscription, error) {
+		return conn.QueueSubscribe(subject, queue, func(msg *nats.Msg) {
+			handler(msg.Data)
+		})
 	})
+}
+
+// confirmSubscription creates a subscription via mk and forces a server
+// round-trip so that a permissions violation — which NATS otherwise reports
+// only asynchronously — is returned to the caller synchronously. The server
+// emits the "-ERR Permissions Violation" for a rejected SUB before the PONG
+// that satisfies the flush, so by the time FlushTimeout returns the violation
+// is recorded as the connection's last error. Without this, a worker whose JWT
+// lacks a subject gets a non-nil subscription that never receives a message,
+// turning a permission misconfiguration into a silent failure.
+func (c *Client) confirmSubscription(subject string, mk func(*nats.Conn) (*nats.Subscription, error)) (Subscription, error) {
+	c.mu.RLock()
+	conn := c.conn
+	c.mu.RUnlock()
+	if conn == nil {
+		return nil, fmt.Errorf("subscribe to %s: nil NATS connection", subject)
+	}
+
+	sub, err := mk(conn)
+	if err != nil {
+		return nil, err
+	}
+
+	// A failed flush here means we could not round-trip to the server (not yet
+	// connected, reconnecting, slow link). RetryOnFailedConnect intentionally
+	// buffers subscriptions across that gap, so do NOT fail — keep the
+	// subscription and let it replay on (re)connect; a later permission
+	// violation is still logged by the async error handler in New.
+	if err := conn.FlushTimeout(subscribeConfirmTimeout); err != nil {
+		xlog.Debug("Could not confirm NATS subscription (will replay on connect)", "subject", subject, "error", err)
+		return sub, nil
+	}
+	// Flush succeeded, so any permission violation for this SUB has already been
+	// recorded as the connection's last error (the server emits it before the
+	// PONG). LastError is per-connection; match the exact quoted subject the
+	// server echoes ("Subscription to \"<subject>\"") so a stale violation for
+	// another subject can't be mis-attributed here.
+	if lerr := conn.LastError(); lerr != nil &&
+		errors.Is(lerr, nats.ErrPermissionViolation) &&
+		strings.Contains(lerr.Error(), `Subscription to "`+subject+`"`) {
+		_ = sub.Unsubscribe()
+		return nil, fmt.Errorf("subscription to %s denied by NATS server (check JWT sub allow list): %w", subject, lerr)
+	}
+	return sub, nil
 }
 
 // Request sends a request and waits for a reply (request-reply pattern).
@@ -107,15 +195,15 @@ func (c *Client) Request(subject string, data []byte, timeout time.Duration) ([]
 // SubscribeReply creates a subscription that supports replying to requests.
 // The handler receives the raw request data and the reply subject.
 func (c *Client) SubscribeReply(subject string, handler func(data []byte, reply func([]byte))) (Subscription, error) {
-	c.mu.RLock()
-	defer c.mu.RUnlock()
-	return c.conn.Subscribe(subject, func(msg *nats.Msg) {
-		handler(msg.Data, func(replyData []byte) {
-			if msg.Reply != "" {
-				if err := msg.Respond(replyData); err != nil {
-					xlog.Warn("Failed to send NATS reply", "subject", subject, "error", err)
+	return c.confirmSubscription(subject, func(conn *nats.Conn) (*nats.Subscription, error) {
+		return conn.Subscribe(subject, func(msg *nats.Msg) {
+			handler(msg.Data, func(replyData []byte) {
+				if msg.Reply != "" {
+					if err := msg.Respond(replyData); err != nil {
+						xlog.Warn("Failed to send NATS reply", "subject", subject, "error", err)
+					}
 				}
-			}
+			})
 		})
 	})
 }
@@ -123,15 +211,15 @@ func (c *Client) SubscribeReply(subject string, handler func(data []byte, reply 
 // QueueSubscribeReply creates a queue subscription that supports replying to requests.
 // Load-balanced across subscribers in the same queue group, with request-reply support.
 func (c *Client) QueueSubscribeReply(subject, queue string, handler func(data []byte, reply func([]byte))) (Subscription, error) {
-	c.mu.RLock()
-	defer c.mu.RUnlock()
-	return c.conn.QueueSubscribe(subject, queue, func(msg *nats.Msg) {
-		handler(msg.Data, func(replyData []byte) {
-			if msg.Reply != "" {
-				if err := msg.Respond(replyData); err != nil {
-					xlog.Warn("Failed to send NATS reply", "subject", subject, "error", err)
+	return c.confirmSubscription(subject, func(conn *nats.Conn) (*nats.Subscription, error) {
+		return conn.QueueSubscribe(subject, queue, func(msg *nats.Msg) {
+			handler(msg.Data, func(replyData []byte) {
+				if msg.Reply != "" {
+					if err := msg.Respond(replyData); err != nil {
+						xlog.Warn("Failed to send NATS reply", "subject", subject, "error", err)
+					}
 				}
-			}
+			})
 		})
 	})
 }

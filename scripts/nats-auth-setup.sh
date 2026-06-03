@@ -30,8 +30,8 @@ nsc add user -n "$SERVICE_USER" --account "$ACCOUNT"
 
 # Broad publish for frontend control plane (tighten with custom claims in production).
 nsc edit user -n "$SERVICE_USER" --account "$ACCOUNT" \
-	--allow-pub "nodes.>,gallery.>,agent.>,jobs.>,mcp.>,cache.>,finetune.>" \
-	--allow-sub "nodes.>,gallery.>,agent.>,jobs.>,mcp.>,cache.>,_INBOX.>"
+	--allow-pub "nodes.>,gallery.>,agent.>,jobs.>,mcp.>,cache.>,prefixcache.>,finetune.>" \
+	--allow-sub "nodes.>,gallery.>,agent.>,jobs.>,mcp.>,cache.>,prefixcache.>,_INBOX.>"
 
 KEYS_DIR="${NATS_KEYS_DIR:-./nats-keys}"
 mkdir -p "$KEYS_DIR"

@@ -8,9 +8,17 @@ import (
 
 // connectNATS opens a NATS client using JWT+seed from env or registration (env wins).
 func connectNATS(url, envJWT, envSeed, registerJWT, registerSeed string, requireAuth bool, tls messaging.TLSFiles) (*messaging.Client, error) {
+	// Env credentials take precedence, but only fall back to registration when
+	// the env supplied neither half — otherwise a JWT set without its seed (or
+	// vice-versa) would be silently completed from a different source.
 	jwt, seed := envJWT, envSeed
-	if jwt == "" {
+	if jwt == "" && seed == "" {
 		jwt, seed = registerJWT, registerSeed
+	}
+	// A JWT without its paired seed (or vice-versa) is a misconfiguration: refuse
+	// rather than silently connecting anonymously, which would look authenticated.
+	if (jwt == "") != (seed == "") {
+		return nil, fmt.Errorf("NATS JWT and seed must be provided together (got JWT set=%t, seed set=%t)", jwt != "", seed != "")
 	}
 	var opts []messaging.Option
 	if jwt != "" && seed != "" {
