@@ -20,7 +20,7 @@ const PAGES = [
   ['/app/manage', 'Manage'],
   ['/app/backends', 'Backends'],
   ['/app/settings', 'Settings'],
-  ['/app/nodes', 'Nodes'],
+  ['/app/cluster', 'Cluster'],
   ['/app/face', 'Face recognition'],
   ['/app/voice', 'Voice recognition'],
   ['/app/fine-tune', 'Fine-tuning'],
