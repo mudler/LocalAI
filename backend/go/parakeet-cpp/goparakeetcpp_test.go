@@ -3,11 +3,14 @@ package main
 import (
 	"context"
 	"os"
+	"path/filepath"
 	"strings"
 	"sync"
 	"testing"
 
 	"github.com/ebitengine/purego"
+	"github.com/go-audio/audio"
+	"github.com/go-audio/wav"
 	pb "github.com/mudler/LocalAI/pkg/grpc/proto"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -70,6 +73,24 @@ func fixturesOrSkip() (string, string) {
 	return modelPath, audioPath
 }
 
+// writeMono16kWav writes `samples` frames of 16 kHz mono 16-bit silence to
+// path. The result is already in AudioToWav's target format, so the conversion
+// helper copies it through without invoking ffmpeg.
+func writeMono16kWav(path string, samples int) {
+	GinkgoHelper()
+	f, err := os.Create(path)
+	Expect(err).ToNot(HaveOccurred())
+	enc := wav.NewEncoder(f, 16000, 16, 1, 1)
+	buf := &audio.IntBuffer{
+		Format:         &audio.Format{NumChannels: 1, SampleRate: 16000},
+		SourceBitDepth: 16,
+		Data:           make([]int, samples),
+	}
+	Expect(enc.Write(buf)).To(Succeed())
+	Expect(enc.Close()).To(Succeed())
+	Expect(f.Close()).To(Succeed())
+}
+
 var _ = Describe("ParakeetCpp", func() {
 	Context("AudioTranscription", func() {
 		It("transcribes a WAV via the parakeet C-API", func() {
@@ -117,6 +138,39 @@ var _ = Describe("ParakeetCpp", func() {
 			Expect(seg.End).To(BeNumerically(">=", seg.Start))
 			Expect(seg.Words[len(seg.Words)-1].End).To(Equal(seg.End),
 				"segment end tracks the last word")
+		})
+	})
+
+	Context("convertToWavMono16k", func() {
+		// The non-batched transcription path hands a file path to the C
+		// library's WAV-only audio loader, so it must convert first.
+		// utils.AudioToWav passes an already-16kHz/mono/16-bit WAV through
+		// without ffmpeg, which lets us exercise the helper (and the
+		// regression: the direct path used to skip conversion entirely)
+		// without a model, the C library, or ffmpeg.
+		It("returns a decodable 16kHz mono WAV copy and cleans it up", func() {
+			dir := GinkgoT().TempDir()
+			src := filepath.Join(dir, "input.wav")
+			writeMono16kWav(src, 16000) // 1s of silence at 16 kHz
+
+			converted, cleanup, err := convertToWavMono16k(src)
+			Expect(err).ToNot(HaveOccurred())
+
+			// It must produce a fresh temp file, not return the original path.
+			Expect(converted).ToNot(Equal(src))
+			Expect(converted).To(BeAnExistingFile())
+
+			pcm, _, err := decodeWavMono16k(converted)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(pcm).To(HaveLen(16000), "round-trips the sample count")
+
+			cleanup()
+			Expect(converted).ToNot(BeAnExistingFile(), "cleanup removes the temp dir")
+		})
+
+		It("errors on a non-existent input rather than passing the path through", func() {
+			_, _, err := convertToWavMono16k(filepath.Join(GinkgoT().TempDir(), "missing.mp3"))
+			Expect(err).To(HaveOccurred())
 		})
 	})
 
