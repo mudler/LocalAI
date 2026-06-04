@@ -308,6 +308,13 @@ func buildAdmissionStatus(app *application.Application) map[string]any {
 func buildPIIStatus(app *application.Application) map[string]any {
 	models := []map[string]any{}
 	for _, cfg := range app.ModelConfigLoader().GetAllModelsConfigs() {
+		// Only list models PII filtering can actually apply to (reachable
+		// through a text-accepting endpoint with a PII adapter wired).
+		// Skips VAD/STT/embedding/image-only models and the token_classify
+		// detector models themselves, which are the filters, not consumers.
+		if !cfg.PIIFilterApplies() {
+			continue
+		}
 		entry := map[string]any{
 			"name":      cfg.Name,
 			"backend":   cfg.Backend,

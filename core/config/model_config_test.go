@@ -662,3 +662,35 @@ var _ = Describe("GGUF importer chat-default guard (reservedNonChatModel)", func
 		Expect(good.HasUsecases(FLAG_TOKEN_CLASSIFY)).To(BeTrue())
 	})
 })
+
+var _ = Describe("PIIFilterApplies (Middleware admin list scoping)", func() {
+	withUsecases := func(backend string, flags ModelConfigUsecase) *ModelConfig {
+		return &ModelConfig{Name: "m", Backend: backend, KnownUsecases: &flags}
+	}
+
+	It("includes chat-capable models and cloud-proxy models", func() {
+		Expect(withUsecases("llama-cpp", FLAG_CHAT).PIIFilterApplies()).To(BeTrue())
+		// cloud-proxy is always covered (MITM / proxy chat path), regardless
+		// of declared usecases.
+		Expect((&ModelConfig{Name: "claude", Backend: "cloud-proxy"}).PIIFilterApplies()).To(BeTrue())
+	})
+
+	It("excludes the detector and score models themselves", func() {
+		// token_classify detectors are the filters, not consumers; score
+		// classifiers are internal primitives. Both short-circuit
+		// HasUsecases(FLAG_CHAT) to false.
+		Expect(withUsecases("llama-cpp", FLAG_TOKEN_CLASSIFY).PIIFilterApplies()).To(BeFalse())
+		Expect(withUsecases("llama-cpp", FLAG_SCORE).PIIFilterApplies()).To(BeFalse())
+	})
+
+	It("excludes non-text and embedding-only models", func() {
+		// Embedding-only: HasUsecases(FLAG_CHAT) falls to GuessUsecases,
+		// which returns false for a templateless / embeddings model.
+		emb := withUsecases("llama-cpp", FLAG_EMBEDDINGS)
+		t := true
+		emb.Embeddings = &t
+		Expect(emb.PIIFilterApplies()).To(BeFalse())
+		// VAD model with nothing declared: no chat template -> not covered.
+		Expect((&ModelConfig{Name: "vad", Backend: "silero-vad"}).PIIFilterApplies()).To(BeFalse())
+	})
+})

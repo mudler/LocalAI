@@ -439,6 +439,30 @@ func (c *ModelConfig) PIIDetectors() []string {
 	return out
 }
 
+// piiCoverableUsecases lists the model usecases whose serving API has a
+// request-side PII filter wired (a piiadapter + the pii middleware). It is
+// the single source of truth shared by the Middleware admin list
+// (PIIFilterApplies) and the global default-on usecase selector. Grow it as
+// adapters are added for new endpoints. cloud-proxy carries no usecase flag
+// but is always covered (via the MITM / proxy chat path), so PIIFilterApplies
+// handles it separately.
+var piiCoverableUsecases = []ModelConfigUsecase{FLAG_CHAT}
+
+// PIIFilterApplies reports whether request-side PII filtering can apply to
+// this model at all — i.e. it is reachable through a text-accepting endpoint
+// that has a PII adapter wired. Used to scope the Middleware admin view so it
+// lists only models PII could protect, not every config (VAD, STT,
+// embedding-only, image, or the token_classify detector models themselves,
+// which are the filters rather than consumers). Detector/score models return
+// false naturally: HasUsecases short-circuits to false for any usecase a
+// declared score/token_classify model did not itself declare.
+func (c *ModelConfig) PIIFilterApplies() bool {
+	if c.Backend == "cloud-proxy" {
+		return true
+	}
+	return slices.ContainsFunc(piiCoverableUsecases, c.HasUsecases)
+}
+
 // PIIDetectionMinScore returns the confidence floor this model applies
 // when used as a PII detector.
 func (c *ModelConfig) PIIDetectionMinScore() float32 { return c.PIIDetection.MinScore }
