@@ -499,6 +499,16 @@ type Pipeline struct {
 	// the pipeline's LLM without editing the LLM model config. Overrides the LLM's
 	// own reasoning_effort. Unset leaves the LLM model config in charge.
 	ReasoningEffort string `yaml:"reasoning_effort,omitempty" json:"reasoning_effort,omitempty"`
+
+	// Streaming opts each pipeline stage into incremental delivery (LLM tokens,
+	// TTS audio chunks, transcription text). Unset stages keep the blocking
+	// unary path, so existing configs are unaffected.
+	Streaming PipelineStreaming `yaml:"streaming,omitempty" json:"streaming,omitempty"`
+
+	// DisableThinking suppresses reasoning/thinking for the pipeline LLM (maps
+	// to enable_thinking=false backend metadata) without editing the underlying
+	// LLM model config. Unset leaves the LLM model config in charge.
+	DisableThinking *bool `yaml:"disable_thinking,omitempty" json:"disable_thinking,omitempty"`
 }
 
 // ApplyReasoningEffort resolves the effective reasoning effort — a per-request
@@ -528,6 +538,29 @@ func (c *ModelConfig) ApplyReasoningEffort(requestEffort string) {
 			c.ReasoningConfig.DisableReasoning = &enable
 		}
 	}
+}
+
+// @Description PipelineStreaming toggles incremental delivery per realtime stage.
+type PipelineStreaming struct {
+	LLM           *bool `yaml:"llm,omitempty" json:"llm,omitempty"`
+	TTS           *bool `yaml:"tts,omitempty" json:"tts,omitempty"`
+	Transcription *bool `yaml:"transcription,omitempty" json:"transcription,omitempty"`
+}
+
+// StreamLLM reports whether LLM tokens should be streamed for this pipeline.
+func (p Pipeline) StreamLLM() bool { return p.Streaming.LLM != nil && *p.Streaming.LLM }
+
+// StreamTTS reports whether TTS audio should be streamed for this pipeline.
+func (p Pipeline) StreamTTS() bool { return p.Streaming.TTS != nil && *p.Streaming.TTS }
+
+// StreamTranscription reports whether transcription text should be streamed.
+func (p Pipeline) StreamTranscription() bool {
+	return p.Streaming.Transcription != nil && *p.Streaming.Transcription
+}
+
+// ThinkingDisabled reports whether the pipeline forces the LLM's thinking off.
+func (p Pipeline) ThinkingDisabled() bool {
+	return p.DisableThinking != nil && *p.DisableThinking
 }
 
 // @Description File configuration for model downloads
