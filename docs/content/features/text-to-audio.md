@@ -296,6 +296,28 @@ curl http://localhost:8080/tts -H "Content-Type: application/json" -d '{
    }' | aplay
 ```
 
+#### Language
+
+You can hint the synthesis language with the `language` request field:
+
+```
+curl http://localhost:8080/tts -H "Content-Type: application/json" -d '{
+     "model": "qwen-tts",
+     "input": "Bonjour le monde.",
+     "language": "fr"
+   }' | aplay
+```
+
+Supported languages: `en` (English), `zh` (Chinese), `ru` (Russian), `ja` (Japanese), `ko` (Korean), `de` (German), `fr` (French), `es` (Spanish), `it` (Italian), `pt` (Portuguese).
+
+The value is matched case-insensitively and accepts a few forms for convenience:
+
+- the two-letter code (`fr`, `FR`)
+- a locale/region form, whose region is ignored (`fr-FR`, `pt_BR`, `zh-Hans` → `fr`/`pt`/`zh`)
+- the English full name (`french`, `Portuguese`)
+
+If the field is omitted or the value isn't one of the supported languages, the backend defaults to English.
+
 #### Custom Voice Mode
 
 Qwen3-TTS supports predefined speakers. You can specify a speaker using the `voice` parameter:
