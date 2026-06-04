@@ -113,6 +113,7 @@ func RegisterOpenAIRoutes(app *echo.Echo,
 				return next(c)
 			}
 		},
+		pii.RequestMiddleware(application.PIIRedactor(), application.PIIEvents(), piiadapter.OpenAICompletion(), application.FallbackUser(), pii.WithNERResolver(application.PIINERResolver()), pii.WithPolicyResolver(application.PIIPolicyResolver())),
 	}
 	app.POST("/v1/edits", editHandler, editMiddleware...)
 	app.POST("/edits", editHandler, editMiddleware...)
@@ -134,6 +135,7 @@ func RegisterOpenAIRoutes(app *echo.Echo,
 				return next(c)
 			}
 		},
+		pii.RequestMiddleware(application.PIIRedactor(), application.PIIEvents(), piiadapter.OpenAICompletion(), application.FallbackUser(), pii.WithNERResolver(application.PIINERResolver()), pii.WithPolicyResolver(application.PIIPolicyResolver())),
 	}
 	app.POST("/v1/completions", completionHandler, completionMiddleware...)
 	app.POST("/completions", completionHandler, completionMiddleware...)
@@ -156,6 +158,7 @@ func RegisterOpenAIRoutes(app *echo.Echo,
 				return next(c)
 			}
 		},
+		pii.RequestMiddleware(application.PIIRedactor(), application.PIIEvents(), piiadapter.OpenAICompletion(), application.FallbackUser(), pii.WithNERResolver(application.PIINERResolver()), pii.WithPolicyResolver(application.PIIPolicyResolver())),
 	}
 	app.POST("/v1/embeddings", embeddingHandler, embeddingMiddleware...)
 	app.POST("/embeddings", embeddingHandler, embeddingMiddleware...)

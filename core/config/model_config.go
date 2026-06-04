@@ -446,7 +446,7 @@ func (c *ModelConfig) PIIDetectors() []string {
 // adapters are added for new endpoints. cloud-proxy carries no usecase flag
 // but is always covered (via the MITM / proxy chat path), so PIIFilterApplies
 // handles it separately.
-var piiCoverableUsecases = []ModelConfigUsecase{FLAG_CHAT}
+var piiCoverableUsecases = []ModelConfigUsecase{FLAG_CHAT, FLAG_COMPLETION, FLAG_EDIT, FLAG_EMBEDDINGS}
 
 // PIIFilterApplies reports whether request-side PII filtering can apply to
 // this model at all — i.e. it is reachable through a text-accepting endpoint

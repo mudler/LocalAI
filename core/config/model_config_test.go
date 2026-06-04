@@ -683,19 +683,24 @@ var _ = Describe("PIIFilterApplies (Middleware admin list scoping)", func() {
 		Expect(withUsecases("llama-cpp", FLAG_SCORE).PIIFilterApplies()).To(BeFalse())
 	})
 
-	It("excludes non-text and embedding-only models", func() {
-		// Embedding-only: HasUsecases(FLAG_CHAT) falls to GuessUsecases,
-		// which returns false for a templateless / embeddings model.
+	It("includes embedding and completion models (their request text is filtered)", func() {
+		// Phase 4 wired PII onto /v1/embeddings, /v1/completions and /v1/edits,
+		// so those usecases are now coverable.
 		emb := withUsecases("llama-cpp", FLAG_EMBEDDINGS)
 		t := true
 		emb.Embeddings = &t
-		Expect(emb.PIIFilterApplies()).To(BeFalse())
-		// VAD model with nothing declared: no chat template -> not covered.
+		Expect(emb.PIIFilterApplies()).To(BeTrue())
+		Expect(withUsecases("llama-cpp", FLAG_COMPLETION).PIIFilterApplies()).To(BeTrue())
+	})
+
+	It("excludes models with no text-accepting, PII-covered endpoint", func() {
+		// VAD / audio-in models carry no coverable usecase.
 		Expect((&ModelConfig{Name: "vad", Backend: "silero-vad"}).PIIFilterApplies()).To(BeFalse())
+		Expect(withUsecases("whisper", FLAG_TRANSCRIPT).PIIFilterApplies()).To(BeFalse())
 	})
 
 	It("exposes the coverable usecases as canonical FLAG_ strings", func() {
 		// Drives the Default PII policy usecase selector; grows with coverage.
-		Expect(PIICoverableUsecaseStrings()).To(Equal([]string{"FLAG_CHAT"}))
+		Expect(PIICoverableUsecaseStrings()).To(Equal([]string{"FLAG_CHAT", "FLAG_COMPLETION", "FLAG_EDIT", "FLAG_EMBEDDINGS"}))
 	})
 })
