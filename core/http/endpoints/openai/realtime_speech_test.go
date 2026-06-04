@@ -47,7 +47,7 @@ var _ = Describe("emitSpeech", func() {
 		// A minimal real WAV file for the unary TTS path to read + parse.
 		f, err := os.CreateTemp("", "emit-*.wav")
 		Expect(err).ToNot(HaveOccurred())
-		defer os.Remove(f.Name())
+		defer func() { _ = os.Remove(f.Name()) }()
 		pcm := make([]byte, 320) // 160 samples of silence
 		hdr := laudio.NewWAVHeader(uint32(len(pcm)))
 		Expect(hdr.Write(f)).To(Succeed())

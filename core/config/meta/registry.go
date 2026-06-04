@@ -308,6 +308,34 @@ func DefaultRegistry() map[string]FieldMetaOverride {
 			},
 			Order: 64,
 		},
+		"pipeline.disable_thinking": {
+			Section:     "pipeline",
+			Label:       "Disable Thinking",
+			Description: "Suppress reasoning/thinking output from the pipeline LLM (sets enable_thinking=false on the underlying model). Use for models that emit <think> blocks you don't want spoken or streamed back to the realtime client.",
+			Component:   "toggle",
+			Order:       65,
+		},
+		"pipeline.streaming.llm": {
+			Section:     "pipeline",
+			Label:       "Stream LLM",
+			Description: "Stream LLM tokens to the realtime client as they are generated instead of waiting for the full response. Emits incremental response.output_audio_transcript.delta / text deltas.",
+			Component:   "toggle",
+			Order:       66,
+		},
+		"pipeline.streaming.tts": {
+			Section:     "pipeline",
+			Label:       "Stream TTS",
+			Description: "Stream synthesized audio chunks to the realtime client as they are produced (requires a TTS backend that implements TTSStream). Falls back to unary synthesis otherwise.",
+			Component:   "toggle",
+			Order:       67,
+		},
+		"pipeline.streaming.transcription": {
+			Section:     "pipeline",
+			Label:       "Stream Transcription",
+			Description: "Stream partial transcription text to the realtime client as the STT backend produces it (requires a transcription backend that implements AudioTranscriptionStream). Falls back to unary transcription otherwise.",
+			Component:   "toggle",
+			Order:       68,
+		},
 
 		// --- Functions ---
 		"function.grammar.parallel_calls": {
