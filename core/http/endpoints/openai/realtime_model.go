@@ -313,7 +313,7 @@ func newRealtimeDecisionID() string {
 }
 
 func (m *wrappedModel) TTS(ctx context.Context, text, voice, language string) (string, *proto.Result, error) {
-	return backend.ModelTTS(ctx, text, voice, language, m.modelLoader, m.appConfig, *m.TTSConfig)
+	return backend.ModelTTS(ctx, text, voice, language, "", nil, m.modelLoader, m.appConfig, *m.TTSConfig)
 }
 
 func (m *wrappedModel) PredictConfig() *config.ModelConfig {

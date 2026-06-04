@@ -1996,11 +1996,25 @@ definitions:
       input:
         description: text input
         type: string
+      instructions:
+        description: |-
+          Instructions is a free-form, per-request style/voice description. It maps to
+          the OpenAI `instructions` field and is forwarded to the backend so expressive
+          TTS models (e.g. Qwen3-TTS CustomVoice/VoiceDesign) can vary tone or designed
+          voice per request instead of only via the static YAML option.
+        type: string
       language:
         description: (optional) language to use with TTS model
         type: string
       model:
         type: string
+      params:
+        additionalProperties:
+          type: string
+        description: |-
+          Params carries optional, backend-specific per-request generation parameters
+          (LocalAI extension, e.g. Chatterbox exaggeration/cfg_weight/temperature).
+        type: object
       response_format:
         description: (optional) output format
         type: string

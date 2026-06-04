@@ -5897,12 +5897,23 @@ const docTemplate = `{
                     "description": "text input",
                     "type": "string"
                 },
+                "instructions": {
+                    "description": "Instructions is a free-form, per-request style/voice description. It maps to\nthe OpenAI ` + "`" + `instructions` + "`" + ` field and is forwarded to the backend so expressive\nTTS models (e.g. Qwen3-TTS CustomVoice/VoiceDesign) can vary tone or designed\nvoice per request instead of only via the static YAML option.",
+                    "type": "string"
+                },
                 "language": {
                     "description": "(optional) language to use with TTS model",
                     "type": "string"
                 },
                 "model": {
                     "type": "string"
+                },
+                "params": {
+                    "description": "Params carries optional, backend-specific per-request generation parameters\n(LocalAI extension, e.g. Chatterbox exaggeration/cfg_weight/temperature).",
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    }
                 },
                 "response_format": {
                     "description": "(optional) output format",

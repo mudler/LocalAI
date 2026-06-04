@@ -20,11 +20,32 @@ import (
 	"github.com/mudler/LocalAI/pkg/utils"
 )
 
+// newTTSRequest assembles the gRPC TTSRequest from the per-request inputs. The
+// optional instructions string is only attached when non-empty so backends can
+// distinguish "no per-request instruction" (fall back to YAML) from an explicit
+// empty one. params is forwarded as-is (nil when unset).
+func newTTSRequest(text, modelPath, voice, dst, language, instructions string, params map[string]string) *proto.TTSRequest {
+	req := &proto.TTSRequest{
+		Text:     text,
+		Model:    modelPath,
+		Voice:    voice,
+		Dst:      dst,
+		Language: &language,
+		Params:   params,
+	}
+	if instructions != "" {
+		req.Instructions = &instructions
+	}
+	return req
+}
+
 func ModelTTS(
 	ctx context.Context,
 	text,
 	voice,
-	language string,
+	language,
+	instructions string,
+	params map[string]string,
 	loader *model.ModelLoader,
 	appConfig *config.ApplicationConfig,
 	modelConfig config.ModelConfig,
@@ -74,13 +95,9 @@ func ModelTTS(
 		startTime = time.Now()
 	}
 
-	res, err := ttsModel.TTS(ctx, &proto.TTSRequest{
-		Text:     text,
-		Model:    modelPath,
-		Voice:    voice,
-		Dst:      filePath,
-		Language: &language,
-	})
+	ttsRequest := newTTSRequest(text, modelPath, voice, filePath, language, instructions, params)
+
+	res, err := ttsModel.TTS(ctx, ttsRequest)
 
 	if appConfig.EnableTracing {
 		errStr := ""
@@ -128,7 +145,9 @@ func ModelTTSStream(
 	ctx context.Context,
 	text,
 	voice,
-	language string,
+	language,
+	instructions string,
+	params map[string]string,
 	loader *model.ModelLoader,
 	appConfig *config.ApplicationConfig,
 	modelConfig config.ModelConfig,
@@ -177,12 +196,10 @@ func ModelTTSStream(
 	var totalPCMBytes int
 	snippetCapped := false
 
-	err = ttsModel.TTSStream(ctx, &proto.TTSRequest{
-		Text:     text,
-		Model:    modelPath,
-		Voice:    voice,
-		Language: &language,
-	}, func(reply *proto.Reply) {
+	// Streaming TTS writes to the HTTP response, not a file, so dst is empty.
+	ttsRequest := newTTSRequest(text, modelPath, voice, "", language, instructions, params)
+
+	err = ttsModel.TTSStream(ctx, ttsRequest, func(reply *proto.Reply) {
 		// First message contains sample rate info
 		if !headerSent && len(reply.Message) > 0 {
 			var info map[string]any

@@ -60,6 +60,14 @@ type TTSRequest struct {
 	Format   string `json:"response_format,omitempty" yaml:"response_format,omitempty"` // (optional) output format
 	Stream     bool   `json:"stream,omitempty" yaml:"stream,omitempty"`                   // (optional) enable streaming TTS
 	SampleRate int    `json:"sample_rate,omitempty" yaml:"sample_rate,omitempty"`         // (optional) desired output sample rate
+	// Instructions is a free-form, per-request style/voice description. It maps to
+	// the OpenAI `instructions` field and is forwarded to the backend so expressive
+	// TTS models (e.g. Qwen3-TTS CustomVoice/VoiceDesign) can vary tone or designed
+	// voice per request instead of only via the static YAML option.
+	Instructions string `json:"instructions,omitempty" yaml:"instructions,omitempty"`
+	// Params carries optional, backend-specific per-request generation parameters
+	// (LocalAI extension, e.g. Chatterbox exaggeration/cfg_weight/temperature).
+	Params map[string]string `json:"params,omitempty" yaml:"params,omitempty"`
 }
 
 // @Description VAD request body
