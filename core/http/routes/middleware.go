@@ -306,6 +306,7 @@ func buildAdmissionStatus(app *application.Application) map[string]any {
 // (entity→action, min score) lives on each detector model's
 // pii_detection block.
 func buildPIIStatus(app *application.Application) map[string]any {
+	appCfg := app.ApplicationConfig()
 	models := []map[string]any{}
 	for _, cfg := range app.ModelConfigLoader().GetAllModelsConfigs() {
 		// Only list models PII filtering can actually apply to (reachable
@@ -315,17 +316,27 @@ func buildPIIStatus(app *application.Application) map[string]any {
 		if !cfg.PIIFilterApplies() {
 			continue
 		}
+		explicit := cfg.PII.Enabled != nil
+		ownDetectors := cfg.PIIDetectors()
+		// Resolve through the shared policy so the table reflects the EFFECTIVE
+		// state, including the instance-wide default detector / default-on
+		// usecases — what the request path actually does.
+		enabled, detectors := app.ResolvePIIPolicy(&cfg)
+
 		entry := map[string]any{
 			"name":      cfg.Name,
 			"backend":   cfg.Backend,
-			"enabled":   cfg.PIIIsEnabled(),
-			"detectors": cfg.PIIDetectors(),
+			"enabled":   enabled,
+			"detectors": detectors,
+			"explicit":  explicit,
+			// Why is this on? backend default (cloud-proxy) vs a global
+			// default-on usecase vs an explicit YAML toggle. Helps admins
+			// understand the resolved state without reading source.
+			"default_for_backend": !explicit && cfg.Backend == "cloud-proxy",
+			"default_for_usecase": !explicit && cfg.Backend != "cloud-proxy" && enabled,
+			// The detectors came from the global default, not this model's YAML.
+			"detectors_from_default": enabled && len(ownDetectors) == 0 && len(detectors) > 0,
 		}
-		// explicit-set tells the UI whether the resolved state came
-		// from the YAML or the backend-prefix default. Helps admins
-		// understand "why is this on?" without reading source.
-		entry["explicit"] = cfg.PII.Enabled != nil
-		entry["default_for_backend"] = cfg.Backend == "cloud-proxy"
 		models = append(models, entry)
 	}
 
@@ -341,5 +352,9 @@ func buildPIIStatus(app *application.Application) map[string]any {
 		"default_enabled_for_backends": []string{"cloud-proxy"},
 		"models":                       models,
 		"recent_event_count":           recentCount,
+		// Instance-wide default policy (the Default PII policy editor).
+		"default_detectors":  appCfg.PIIDefaultDetectors,
+		"default_usecases":   appCfg.PIIDefaultUsecases,
+		"coverable_usecases": config.PIICoverableUsecaseStrings(),
 	}
 }

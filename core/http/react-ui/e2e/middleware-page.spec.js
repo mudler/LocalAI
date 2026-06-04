@@ -14,6 +14,10 @@ const MOCK_STATUS = {
       { name: 'claude-strict', backend: 'cloud-proxy', enabled: true, explicit: true, default_for_backend: true, detectors: ['privacy-filter-multilingual'] },
     ],
     recent_event_count: 2,
+    // Instance-wide default policy (Default PII policy editor).
+    default_detectors: [],
+    default_usecases: ['FLAG_CHAT'],
+    coverable_usecases: ['FLAG_CHAT'],
   },
   router: {
     configured: true,
@@ -109,6 +113,17 @@ test.describe('Middleware page — admin in no-auth mode', () => {
     await page.route('**/api/router/decisions?**', (route) =>
       route.fulfill({ contentType: 'application/json', body: JSON.stringify(MOCK_DECISIONS) })
     )
+    // The Default PII policy detector picker is capability-filtered to
+    // token_classify via /api/models/capabilities.
+    await page.route('**/api/models/capabilities', (route) =>
+      route.fulfill({
+        contentType: 'application/json',
+        body: JSON.stringify({ models: [{ id: 'privacy-filter-multilingual', capabilities: ['FLAG_TOKEN_CLASSIFY'], backend: 'llama-cpp' }] }),
+      })
+    )
+    await page.route('**/api/settings', (route) =>
+      route.fulfill({ contentType: 'application/json', body: JSON.stringify({ success: true }) })
+    )
   })
 
   test('Filtering tab renders per-model state and referenced detectors', async ({ page }) => {
@@ -123,6 +138,19 @@ test.describe('Middleware page — admin in no-auth mode', () => {
 
     // Default-policy banner names the backends with PII on by default.
     await expect(page.getByText(/cloud-proxy/).first()).toBeVisible()
+  })
+
+  test('Filtering tab shows the instance-wide Default PII policy editor', async ({ page }) => {
+    await page.goto('/app/middleware')
+
+    // The default-policy card and its controls render.
+    await expect(page.getByText('Default PII policy')).toBeVisible()
+    await expect(page.getByText('Default detector model(s)')).toBeVisible()
+
+    // A coverable usecase is offered as a default-on checkbox, pre-checked
+    // from default_usecases: ['FLAG_CHAT'].
+    const chatToggle = page.getByRole('checkbox').first()
+    await expect(chatToggle).toBeChecked()
   })
 
   test('Routing tab renders configured routers and recent decisions', async ({ page }) => {

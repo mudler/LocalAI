@@ -463,6 +463,24 @@ func (c *ModelConfig) PIIFilterApplies() bool {
 	return slices.ContainsFunc(piiCoverableUsecases, c.HasUsecases)
 }
 
+// PIICoverableUsecaseStrings returns the canonical FLAG_* names of the
+// usecases PII filtering covers, in piiCoverableUsecases order. The Middleware
+// "Default PII policy" editor offers exactly these as the default-on options,
+// so the UI selector grows automatically as coverage is added.
+func PIICoverableUsecaseStrings() []string {
+	names := GetAllModelConfigUsecases()
+	out := make([]string, 0, len(piiCoverableUsecases))
+	for _, flag := range piiCoverableUsecases {
+		for name, f := range names {
+			if f == flag {
+				out = append(out, name)
+				break
+			}
+		}
+	}
+	return out
+}
+
 // PIIDetectionMinScore returns the confidence floor this model applies
 // when used as a PII detector.
 func (c *ModelConfig) PIIDetectionMinScore() float32 { return c.PIIDetection.MinScore }
