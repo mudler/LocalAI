@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
@@ -932,13 +933,12 @@ func (r *SmartRouter) stageModelFiles(ctx context.Context, node *BackendNode, op
 		{"AudioPath", &opts.AudioPath},
 	}
 
-	// Count stageable files for progress tracking
+	// Count stageable files for progress tracking. Directory models expand to
+	// the number of files they contain, matching what stageDirectory uploads.
 	totalFiles := 0
 	for _, f := range fields {
 		if *f.val != "" {
-			if _, err := os.Stat(*f.val); err == nil {
-				totalFiles++
-			}
+			totalFiles += countStageableFiles(*f.val)
 		}
 	}
 	for _, adapter := range opts.LoraAdapters {
@@ -969,8 +969,33 @@ func (r *SmartRouter) stageModelFiles(ctx context.Context, node *BackendNode, op
 			*f.val = ""
 			continue
 		}
-		fileIdx++
 		localPath := *f.val
+
+		// Directory models (e.g. qwen3-tts-cpp ships its weights and tokenizer
+		// ggufs under one directory) can't be uploaded as a single file — the
+		// stager would open the directory and read its fd, failing with
+		// "is a directory" (EISDIR). Expand the directory and stage each
+		// contained file, then rewrite the field to the remote directory.
+		if fi, statErr := os.Stat(localPath); statErr == nil && fi.IsDir() {
+			remoteDir, dirErr := r.stageDirectory(ctx, node, trackingKey, localPath, keyMapper, &fileIdx, totalFiles)
+			if dirErr != nil {
+				if f.name == "ModelFile" {
+					xlog.Error("Failed to stage model directory for remote node", "node", node.Name, "field", f.name, "path", localPath, "error", dirErr)
+					return nil, fmt.Errorf("staging model file: %w", dirErr)
+				}
+				xlog.Warn("Failed to stage model directory, clearing field", "field", f.name, "path", localPath, "error", dirErr)
+				*f.val = ""
+				continue
+			}
+			*f.val = remoteDir
+			if f.name == "ModelFile" && opts.Model != "" {
+				opts.ModelPath = DeriveRemoteModelPath(remoteDir, opts.Model)
+				xlog.Debug("Derived remote ModelPath", "modelPath", opts.ModelPath)
+			}
+			continue
+		}
+
+		fileIdx++
 		key := keyMapper.Key(localPath)
 
 		// Attach progress callback to context for byte-level tracking
@@ -1072,6 +1097,77 @@ func (r *SmartRouter) withStagingCallback(ctx context.Context, trackingKey, file
 		}
 		r.stagingTracker.UpdateFile(trackingKey, fn, fileIdx, bytesSent, totalBytes, speed)
 	})
+}
+
+// countStageableFiles returns the number of regular files a model path expands
+// to for staging: 1 for a regular file, the contained file count for a
+// directory, and 0 if the path does not exist.
+func countStageableFiles(path string) int {
+	fi, err := os.Stat(path)
+	if err != nil {
+		return 0
+	}
+	if !fi.IsDir() {
+		return 1
+	}
+	n := 0
+	_ = filepath.WalkDir(path, func(_ string, d fs.DirEntry, walkErr error) error {
+		if walkErr != nil {
+			return nil
+		}
+		if !d.IsDir() {
+			n++
+		}
+		return nil
+	})
+	return n
+}
+
+// stageDirectory stages every file under a directory-based model (e.g.
+// qwen3-tts-cpp, whose weights and tokenizer ggufs live in one directory).
+// Each file is uploaded individually with a structure-preserving key; the
+// returned path is the remote directory that contained them, suitable for the
+// backend's ModelFile/ModelPath. fileIdx is advanced per staged file so the
+// staging progress tracker stays accurate.
+func (r *SmartRouter) stageDirectory(ctx context.Context, node *BackendNode, trackingKey, dir string, keyMapper *StagingKeyMapper, fileIdx *int, totalFiles int) (string, error) {
+	var remoteDir string
+	err := filepath.WalkDir(dir, func(path string, d fs.DirEntry, walkErr error) error {
+		if walkErr != nil {
+			return walkErr
+		}
+		if d.IsDir() {
+			return nil
+		}
+
+		*fileIdx++
+		fileName := filepath.Base(path)
+		stageCtx := r.withStagingCallback(ctx, trackingKey, fileName, *fileIdx, totalFiles)
+		xlog.Info("Staging file", "model", trackingKey, "node", node.Name, "field", "ModelDir", "file", fileName, "fileIndex", *fileIdx, "totalFiles", totalFiles)
+
+		remoteFile, err := r.fileStager.EnsureRemote(stageCtx, node.ID, path, keyMapper.Key(path))
+		if err != nil {
+			return fmt.Errorf("staging %s: %w", path, err)
+		}
+		r.stagingTracker.FileComplete(trackingKey, *fileIdx, totalFiles)
+
+		// Every file under dir shares the same remote parent directory; derive
+		// it from this file's staged path and its path relative to dir.
+		rel, relErr := filepath.Rel(dir, path)
+		if relErr != nil {
+			return relErr
+		}
+		remoteDir = DeriveRemoteModelPath(remoteFile, rel)
+
+		r.stageCompanionFiles(ctx, node, path, keyMapper.Key)
+		return nil
+	})
+	if err != nil {
+		return "", err
+	}
+	if remoteDir == "" {
+		return "", fmt.Errorf("model directory %s contains no files", dir)
+	}
+	return remoteDir, nil
 }
 
 // stageCompanionFiles stages known companion files that exist alongside
