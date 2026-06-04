@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"strings"
 	"syscall"
 
 	"github.com/mudler/LocalAI/core/application"
@@ -21,6 +22,20 @@ import (
 func main() {
 	mockBackend := flag.String("mock-backend", "", "path to mock-backend binary")
 	port := flag.Int("port", 8089, "port to listen on")
+	// piiYAML lets a test inject a per-model `pii:` block into the
+	// auto-generated mock-model.yaml. Used by the middleware end-to-end
+	// verification (and any future test that wants to exercise per-model
+	// gating without bringing up a real backend). The argument is the
+	// body of the pii: block — the leading "pii:\n  " is added here.
+	piiYAML := flag.String("pii-yaml", "", "optional pii: block to merge into mock-model.yaml")
+	// extraModels accepts repeatable name=yaml pairs that get written
+	// as additional model files. Used by the routing E2E to seed
+	// candidate models a router model can dispatch to.
+	extraModelFlag := flag.String("extra-model", "", "extra model YAML, formatted as 'name|<full yaml body>'. Repeatable via comma-then-pipe? — for the router test we ship a single big string with embedded newlines.")
+	// routerYAML appends a `router:` block to mock-model.yaml. Used by
+	// the routing E2E to turn mock-model into a smart-router that
+	// dispatches to extra-models.
+	routerYAML := flag.String("router-yaml", "", "optional router: block to merge into mock-model.yaml")
 	flag.Parse()
 
 	if *mockBackend == "" {
@@ -71,9 +86,31 @@ func main() {
 		fmt.Fprintf(os.Stderr, "error marshaling config: %v\n", err)
 		os.Exit(1)
 	}
-	if err := os.WriteFile(filepath.Join(modelsPath, "mock-model.yaml"), configYAML, 0644); err != nil {
+	body := configYAML
+	if *piiYAML != "" {
+		body = append(body, []byte("pii:\n  "+*piiYAML+"\n")...)
+	}
+	if *routerYAML != "" {
+		body = append(body, []byte("router:\n  "+*routerYAML+"\n")...)
+	}
+	if err := os.WriteFile(filepath.Join(modelsPath, "mock-model.yaml"), body, 0644); err != nil {
 		fmt.Fprintf(os.Stderr, "error writing config: %v\n", err)
 		os.Exit(1)
+	}
+
+	if *extraModelFlag != "" {
+		// extra-model format: "name|<yaml body>". The yaml body is
+		// inlined verbatim — caller controls indentation. Single name
+		// per flag invocation; multi-flag is fine because flag.String
+		// only keeps the last but the test passes only one.
+		parts := strings.SplitN(*extraModelFlag, "|", 2)
+		if len(parts) == 2 {
+			extraPath := filepath.Join(modelsPath, parts[0]+".yaml")
+			if err := os.WriteFile(extraPath, []byte(parts[1]), 0644); err != nil {
+				fmt.Fprintf(os.Stderr, "error writing extra model: %v\n", err)
+				os.Exit(1)
+			}
+		}
 	}
 
 	// Set up system state

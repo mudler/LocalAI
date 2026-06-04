@@ -17,10 +17,12 @@ import (
 	"github.com/google/go-containerregistry/pkg/v1/tarball"
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
 
+	"github.com/mudler/xlog"
+
+	"github.com/mudler/LocalAI/pkg/httpclient"
 	"github.com/mudler/LocalAI/pkg/oci"
 	"github.com/mudler/LocalAI/pkg/utils"
 	"github.com/mudler/LocalAI/pkg/xio"
-	"github.com/mudler/xlog"
 )
 
 const (
@@ -171,7 +173,7 @@ func (uri URI) ReadWithAuthorizationAndCallback(ctx context.Context, basePath st
 		req.Header.Add("Authorization", authorization)
 	}
 
-	response, err := http.DefaultClient.Do(req)
+	response, err := downloadClient.Do(req)
 	if err != nil {
 		return err
 	}
@@ -347,9 +349,15 @@ func calculateHashForPartialFile(file *os.File) (hash.Hash, error) {
 	return hash, nil
 }
 
+// downloadClient is the shared client for HTTP(S) downloads and size
+// probes. It follows redirects (model hosts and CDNs rely on them) but
+// strips credential headers on any cross-host hop, and sets no body
+// deadline so large downloads are not truncated.
+var downloadClient = httpclient.New(httpclient.WithFollowRedirects())
+
 func (uri URI) checkSeverSupportsRangeHeader() (bool, error) {
 	url := uri.ResolveURL()
-	resp, err := http.Head(url)
+	resp, err := downloadClient.Head(url)
 	if err != nil {
 		return false, err
 	}
@@ -376,7 +384,7 @@ func (u URI) ContentLength(ctx context.Context) (int64, error) {
 	if err != nil {
 		return 0, err
 	}
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := downloadClient.Do(req)
 	if err != nil {
 		return 0, err
 	}
@@ -395,7 +403,7 @@ func (u URI) ContentLength(ctx context.Context) (int64, error) {
 		return 0, err
 	}
 	req2.Header.Set("Range", "bytes=0-0")
-	resp2, err := http.DefaultClient.Do(req2)
+	resp2, err := downloadClient.Do(req2)
 	if err != nil {
 		return 0, err
 	}
@@ -584,7 +592,7 @@ func (uri URI) DownloadFileWithContext(ctx context.Context, filePath, sha string
 		contentLength = l.Size()
 	} else {
 		// Start the request
-		resp, err := http.DefaultClient.Do(req)
+		resp, err := downloadClient.Do(req)
 		if err != nil {
 			// Check if error is due to context cancellation
 			if errors.Is(err, context.Canceled) {

@@ -14,6 +14,7 @@ import (
 	"github.com/mudler/LocalAI/core/schema"
 	"github.com/mudler/LocalAI/core/services/galleryop"
 	"github.com/mudler/LocalAI/core/templates"
+	"github.com/mudler/LocalAI/pkg/distributedhdr"
 	"github.com/mudler/LocalAI/pkg/model"
 	"github.com/mudler/LocalAI/pkg/utils"
 	"github.com/mudler/xlog"
@@ -220,6 +221,7 @@ func (re *RequestExtractor) SetOpenAIRequest(c echo.Context) error {
 
 	// Add the correlation ID to the new context
 	ctxWithCorrelationID := context.WithValue(c1, CorrelationIDKey, correlationID)
+	ctxWithCorrelationID = distributedhdr.Inherit(ctxWithCorrelationID, reqCtx)
 
 	input.Context = ctxWithCorrelationID
 	input.Cancel = cancel
@@ -308,6 +310,37 @@ func mergeOpenAIRequestAndModelConfig(config *config.ModelConfig, input *schema.
 		config.Temperature = input.Temperature
 	}
 
+	// Map the per-request reasoning_effort onto the reasoning toggle the
+	// backend reads (enable_thinking metadata, set in gRPCPredictOpts).
+	// "none" disables thinking for this request - the use case from #10072,
+	// running a single Qwen3-style model and turning reasoning off per
+	// request. Any explicit effort level enables thinking, UNLESS the model
+	// config explicitly disabled it (DisableReasoning==true wins): an
+	// operator who deliberately turned reasoning off should not be overridden
+	// by a request. A value of "none" always disables, since that never
+	// conflicts with a config that also disables.
+	switch strings.ToLower(input.ReasoningEffort) {
+	case "none":
+		disable := true
+		config.ReasoningConfig.DisableReasoning = &disable
+	case "minimal", "low", "medium", "high":
+		if config.ReasoningConfig.DisableReasoning == nil || !*config.ReasoningConfig.DisableReasoning {
+			enable := false
+			config.ReasoningConfig.DisableReasoning = &enable
+		}
+	}
+
+	// Collapse the modern max_completion_tokens alias into the
+	// legacy Maxtokens field so downstream code reads exactly one.
+	// MaxCompletionTokens wins on conflict — it's the canonical
+	// name per OpenAI's deprecation guidance, and a client that
+	// took the trouble to send it intends that value. Clearing
+	// the sibling prevents both names from being emitted if input
+	// is re-marshaled (cloud-proxy passthrough).
+	if input.MaxCompletionTokens != nil {
+		input.Maxtokens = input.MaxCompletionTokens
+		input.MaxCompletionTokens = nil
+	}
 	if input.Maxtokens != nil {
 		config.Maxtokens = input.Maxtokens
 	}
@@ -621,6 +654,7 @@ func (re *RequestExtractor) SetOpenResponsesRequest(c echo.Context) error {
 
 	// Add the correlation ID to the new context
 	ctxWithCorrelationID := context.WithValue(c1, CorrelationIDKey, correlationID)
+	ctxWithCorrelationID = distributedhdr.Inherit(ctxWithCorrelationID, reqCtx)
 
 	input.Context = ctxWithCorrelationID
 	input.Cancel = cancel

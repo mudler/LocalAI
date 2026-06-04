@@ -5,6 +5,8 @@ weight = 17
 url = "/features/audio-transform/"
 +++
 
+![Audio transform: two inputs (mic plus reference) become one cleaned output; interleaved-stereo on the wire](/images/diagrams/audio-transform-io.png)
+
 The audio-transform endpoints take **audio in** and emit **audio out**, optionally
 conditioned on a second reference audio signal. The category is generic by
 design — concrete operations include joint **acoustic echo cancellation +
@@ -103,9 +105,11 @@ ends the session cleanly.
 
 ### Latency
 
-LocalVQE has 16 ms algorithmic latency (one hop). At runtime, ~1.66 ms of CPU
-time per frame on a modern desktop, leaving the rest of the budget for
-network and downstream playback.
+LocalVQE has 16 ms algorithmic latency (one hop). At runtime the per-frame CPU
+cost depends on the model: ~1.6 ms for the compact 1.3 M models (v1.1/v1.2,
+~9.7× realtime) and ~3.3 ms for the wider v1.3 4.8 M model (~4.7× realtime) on
+a 4-thread modern desktop, leaving the rest of the budget for network and
+downstream playback.
 
 ## Backend-specific tuning (LocalVQE)
 
@@ -120,11 +124,16 @@ A reasonable starting point is `-50` dBFS.
 
 ## Configuring a model
 
+LocalVQE ships several weight releases in the gallery: `localvqe-v1.3-4.8m`
+(current default — best quality), `localvqe-v1.2-1.3m` and `localvqe-v1.1-1.3m`
+(compact, ~¼ the per-hop cost — good for low-core or power-constrained hosts).
+All share the same backend and request API; only the `model` filename differs.
+
 ```yaml
 name: localvqe
 backend: localvqe
 parameters:
-  model: localvqe-v1.1-1.3M-f32.gguf
+  model: localvqe-v1.3-4.8M-f32.gguf
 
 # Backend-specific defaults can be set in Options[]; per-request
 # params[*] form fields override.

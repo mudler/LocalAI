@@ -97,7 +97,8 @@
   },
   "toasts": {
     "selectModel": "请选择一个模型",
-    "copied": "已复制到剪贴板"
+    "copied": "已复制到剪贴板",
+    "copyFailed": "无法复制到剪贴板"
   },
   "menu": {
     "trigger": "聊天",

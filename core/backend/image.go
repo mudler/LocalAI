@@ -1,6 +1,7 @@
 package backend
 
 import (
+	"context"
 	"time"
 
 	"github.com/mudler/LocalAI/core/config"
@@ -10,9 +11,12 @@ import (
 	model "github.com/mudler/LocalAI/pkg/model"
 )
 
-func ImageGeneration(height, width, step, seed int, positive_prompt, negative_prompt, src, dst string, loader *model.ModelLoader, modelConfig config.ModelConfig, appConfig *config.ApplicationConfig, refImages []string) (func() error, error) {
+func ImageGeneration(ctx context.Context, height, width, step, seed int, positive_prompt, negative_prompt, src, dst string, loader *model.ModelLoader, modelConfig config.ModelConfig, appConfig *config.ApplicationConfig, refImages []string) (func() error, error) {
 
-	opts := ModelOptions(modelConfig, appConfig)
+	// model.WithContext(ctx) overrides the app-context default set in
+	// ModelOptions so distributed routing decisions reach the request's
+	// X-LocalAI-Node holder via distributedhdr.Stamp.
+	opts := ModelOptions(modelConfig, appConfig, model.WithContext(ctx))
 	inferenceModel, err := loader.Load(
 		opts...,
 	)
@@ -23,7 +27,7 @@ func ImageGeneration(height, width, step, seed int, positive_prompt, negative_pr
 
 	fn := func() error {
 		_, err := inferenceModel.GenerateImage(
-			appConfig.Context,
+			ctx,
 			&proto.GenerateImageRequest{
 				Height:           int32(height),
 				Width:            int32(width),
@@ -41,7 +45,7 @@ func ImageGeneration(height, width, step, seed int, positive_prompt, negative_pr
 	}
 
 	if appConfig.EnableTracing {
-		trace.InitBackendTracingIfEnabled(appConfig.TracingMaxItems)
+		trace.InitBackendTracingIfEnabled(appConfig.TracingMaxItems, appConfig.TracingMaxBodyBytes)
 
 		traceData := map[string]any{
 			"positive_prompt": positive_prompt,

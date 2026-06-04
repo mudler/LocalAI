@@ -2,8 +2,9 @@ import { useState, useEffect, useRef } from 'react'
 import { renderMarkdown } from '../utils/markdown'
 import { getArtifactIcon } from '../utils/artifacts'
 import { safeHref } from '../utils/url'
+import { copyToClipboard } from '../utils/clipboard'
 import DOMPurify from 'dompurify'
-import hljs from 'highlight.js'
+import hljs from '../utils/hljs'
 
 export default function CanvasPanel({ artifacts, selectedId, onSelect, onClose }) {
   const [showPreview, setShowPreview] = useState(true)
@@ -23,11 +24,13 @@ export default function CanvasPanel({ artifacts, selectedId, onSelect, onClose }
     }
   }, [current, showPreview])
 
-  const handleCopy = () => {
+  const handleCopy = async () => {
     const text = current.code || current.url || ''
-    navigator.clipboard.writeText(text)
-    setCopySuccess(true)
-    setTimeout(() => setCopySuccess(false), 2000)
+    const ok = await copyToClipboard(text)
+    if (ok) {
+      setCopySuccess(true)
+      setTimeout(() => setCopySuccess(false), 2000)
+    }
   }
 
   const handleDownload = () => {

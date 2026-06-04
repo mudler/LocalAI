@@ -165,12 +165,15 @@ func RegisterLocalAIRoutes(router *echo.Echo,
 		middleware.TraceMiddleware(app))
 
 	vadHandler := localai.VADEndpoint(cl, ml, appConfig)
+	vadNodeHeader := middleware.ExposeNodeHeader(appConfig)
 	router.POST("/vad",
 		vadHandler,
+		vadNodeHeader,
 		requestExtractor.BuildFilteredFirstAvailableDefaultModel(config.BuildUsecaseFilterFn(config.FLAG_VAD)),
 		requestExtractor.SetModelAndConfig(func() schema.LocalAIRequest { return new(schema.VADRequest) }))
 	router.POST("/v1/vad",
 		vadHandler,
+		vadNodeHeader,
 		requestExtractor.BuildFilteredFirstAvailableDefaultModel(config.BuildUsecaseFilterFn(config.FLAG_VAD)),
 		requestExtractor.SetModelAndConfig(func() schema.LocalAIRequest { return new(schema.VADRequest) }))
 
@@ -215,6 +218,11 @@ func RegisterLocalAIRoutes(router *echo.Echo,
 	// p2p
 	router.GET("/api/p2p", localai.ShowP2PNodes(appConfig), adminMiddleware)
 	router.GET("/api/p2p/token", localai.ShowP2PToken(appConfig), adminMiddleware)
+
+	// Score (logprob over candidate continuations) — admin-only smoke-test
+	// surface for the gRPC Score primitive. Production consumers should
+	// use application.ScorerFactory() directly rather than HTTP.
+	router.POST("/api/score", localai.ScoreEndpoint(cl, ml, appConfig), adminMiddleware)
 
 	router.GET("/version", func(c echo.Context) error {
 		return c.JSON(200, struct {

@@ -42,7 +42,7 @@ func VideoGeneration(height, width int32, prompt, negativePrompt, startImage, en
 	}
 
 	if appConfig.EnableTracing {
-		trace.InitBackendTracingIfEnabled(appConfig.TracingMaxItems)
+		trace.InitBackendTracingIfEnabled(appConfig.TracingMaxItems, appConfig.TracingMaxBodyBytes)
 
 		traceData := map[string]any{
 			"prompt":          prompt,

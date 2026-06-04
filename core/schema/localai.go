@@ -60,6 +60,14 @@ type TTSRequest struct {
 	Format   string `json:"response_format,omitempty" yaml:"response_format,omitempty"` // (optional) output format
 	Stream     bool   `json:"stream,omitempty" yaml:"stream,omitempty"`                   // (optional) enable streaming TTS
 	SampleRate int    `json:"sample_rate,omitempty" yaml:"sample_rate,omitempty"`         // (optional) desired output sample rate
+	// Instructions is a free-form, per-request style/voice description. It maps to
+	// the OpenAI `instructions` field and is forwarded to the backend so expressive
+	// TTS models (e.g. Qwen3-TTS CustomVoice/VoiceDesign) can vary tone or designed
+	// voice per request instead of only via the static YAML option.
+	Instructions string `json:"instructions,omitempty" yaml:"instructions,omitempty"`
+	// Params carries optional, backend-specific per-request generation parameters
+	// (LocalAI extension, e.g. Chatterbox exaggeration/cfg_weight/temperature).
+	Params map[string]string `json:"params,omitempty" yaml:"params,omitempty"`
 }
 
 // @Description VAD request body
@@ -429,4 +437,99 @@ type SettingsResponse struct {
 	Success bool   `json:"success"`
 	Error   string `json:"error,omitempty"`
 	Message string `json:"message,omitempty"`
+}
+
+// RouterDecideRequest is the input for POST /api/router/decide — the
+// programmatic decision-oracle endpoint. Given the name of a router
+// model (a ModelConfig that carries a `router:` block) and a prompt,
+// the endpoint returns the classifier's label set plus the candidate
+// model the in-band RouteModel middleware would have chosen. The
+// endpoint does NOT rewrite any request, forward to a backend, or
+// record a row in the decision store — it is a pure decision oracle
+// for external routers that want LocalAI's classifier opinion without
+// committing LocalAI to handle the request.
+type RouterDecideRequest struct {
+	// Router is the name of the router model (a ModelConfig with a
+	// `router:` block). Required.
+	Router string `json:"router"`
+	// Input is the user-visible prompt text to classify. Required.
+	// Schema-shape extraction (chat-message concatenation, etc.) is
+	// the caller's responsibility — matches the Probe contract used
+	// by the in-band middleware.
+	Input string `json:"input"`
+}
+
+// RouterDecideResponse carries the classifier's decision plus the
+// resolved candidate. Mirrors router.Decision with the addition of
+// Candidate/Fallback so the caller learns which downstream model
+// would have served the request without re-implementing the
+// label-set → candidate match locally.
+type RouterDecideResponse struct {
+	// Router echoes the requested router model.
+	Router string `json:"router"`
+	// Classifier is the classifier name that produced the decision
+	// (e.g. "score").
+	Classifier string `json:"classifier"`
+	// Labels is the set of active policy labels.
+	Labels []string `json:"labels"`
+	// Candidate is the model that would be routed to. Empty when no
+	// candidate covers Labels AND no fallback is configured.
+	Candidate string `json:"candidate,omitempty"`
+	// Fallback is true when Candidate is the router's configured
+	// fallback because no candidate covered Labels. Lets callers
+	// distinguish "matched" from "fell back" without comparing names.
+	Fallback bool `json:"fallback,omitempty"`
+	// Score is the top label's softmax probability (the
+	// classifier-side confidence signal).
+	Score float64 `json:"score"`
+	// LatencyMs is the classifier's wall-clock cost.
+	LatencyMs int64 `json:"latency_ms"`
+	// Cached is true when the decision came from the L2 embedding
+	// cache rather than a fresh classifier run.
+	Cached bool `json:"cached,omitempty"`
+	// CacheSimilarity carries the cosine similarity of the cache hit
+	// (0 when not cached).
+	CacheSimilarity float64 `json:"cache_similarity,omitempty"`
+}
+
+// PIIDecideRequest is the input for POST /api/pii/decide — the
+// programmatic PII-decision oracle. External routers call it before
+// dispatching a request to learn whether the content carries PII and
+// what action the configured pattern set would take. The endpoint
+// inspects the text and returns findings + a suggested action; it
+// does NOT mutate the input, record an audit event, or rewrite any
+// downstream request. The caller composes the decision with its own
+// policy (mask, block, route to local-only backends, allow).
+type PIIDecideRequest struct {
+	// Text is the user-visible content to inspect. Required.
+	Text string `json:"text"`
+}
+
+// PIIDecideResponse carries the redactor's findings.
+// SuggestedAction is derived from the action ordering used by the
+// internal redactor (block > route_local > mask > allow) so callers
+// don't need to replicate that logic.
+type PIIDecideResponse struct {
+	// Findings is one entry per matched span — pattern id, byte
+	// range, and audit-safe hash prefix (never the matched value).
+	Findings []PIIFinding `json:"findings"`
+	// SuggestedAction is the strongest action across all findings:
+	// "block", "route_local", "mask", or "allow" (no findings).
+	SuggestedAction string `json:"suggested_action"`
+	// RedactedPreview is the input with mask-action spans replaced
+	// by their placeholders. Identical to Text when no findings or
+	// when the strongest action is block/route_local (which don't
+	// rewrite content).
+	RedactedPreview string `json:"redacted_preview"`
+}
+
+// PIIFinding mirrors pii.Span on the wire. Pattern is the pattern id
+// that matched (e.g. "email"). HashPrefix is the first 8 chars of
+// sha256(matched value) — lets admins correlate recurring leaks
+// without recovering the value itself.
+type PIIFinding struct {
+	Start      int    `json:"start"`
+	End        int    `json:"end"`
+	Pattern    string `json:"pattern"`
+	HashPrefix string `json:"hash_prefix"`
 }

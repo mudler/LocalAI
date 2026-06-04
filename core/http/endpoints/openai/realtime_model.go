@@ -2,13 +2,18 @@ package openai
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 
+	"github.com/mudler/LocalAI/core/application"
 	"github.com/mudler/LocalAI/core/backend"
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/http/endpoints/openai/types"
+	"github.com/mudler/LocalAI/core/http/middleware"
 	"github.com/mudler/LocalAI/core/schema"
+	"github.com/mudler/LocalAI/core/services/routing/router"
 	"github.com/mudler/LocalAI/core/templates"
 	"github.com/mudler/LocalAI/pkg/functions"
 	"github.com/mudler/LocalAI/pkg/grpc/proto"
@@ -34,6 +39,15 @@ type wrappedModel struct {
 	modelLoader *model.ModelLoader
 	confLoader  *config.ModelConfigLoader
 	evaluator   *templates.Evaluator
+
+	// Routing — populated by newModel when the application wires routing
+	// deps in. nil-safe: with classifierRegistry == nil the per-turn
+	// routing block in Predict is skipped, preserving today's "one LLM
+	// for the whole session" behaviour.
+	routerDeps        *middleware.ClassifierDeps
+	routerStore       router.DecisionStore
+	routerSessionID   string
+	routerUserID      string
 }
 
 // anyToAnyModel represent a model which supports Any-to-Any operations
@@ -90,9 +104,24 @@ func (m *wrappedModel) Predict(ctx context.Context, messages schema.Messages, im
 		Messages: messages,
 	}
 
+	// Per-turn routing: when the session's LLMConfig is a router, swap
+	// to the candidate the classifier picks for this turn's prompt.
+	// LLMConfig itself is held by value (we never mutate it) — turnCfg
+	// is the config we dispatch against.
+	turnCfg := m.LLMConfig
+	if m.LLMConfig.HasRouter() && m.routerDeps != nil {
+		chosen, err := m.routeTurn(ctx, &input)
+		if err != nil {
+			xlog.Warn("realtime routing failed; using session default LLM",
+				"router_model", m.LLMConfig.Name, "error", err)
+		} else if chosen != nil {
+			turnCfg = chosen
+		}
+	}
+
 	var predInput string
 	var funcs []functions.Function
-	if !m.LLMConfig.TemplateConfig.UseTokenizerTemplate {
+	if !turnCfg.TemplateConfig.UseTokenizerTemplate {
 		if len(tools) > 0 {
 			for _, t := range tools {
 				if t.Function != nil {
@@ -120,11 +149,11 @@ func (m *wrappedModel) Predict(ctx context.Context, messages schema.Messages, im
 			noActionName := "answer"
 			noActionDescription := "use this action to answer without performing any action"
 
-			if m.LLMConfig.FunctionsConfig.NoActionFunctionName != "" {
-				noActionName = m.LLMConfig.FunctionsConfig.NoActionFunctionName
+			if turnCfg.FunctionsConfig.NoActionFunctionName != "" {
+				noActionName = turnCfg.FunctionsConfig.NoActionFunctionName
 			}
-			if m.LLMConfig.FunctionsConfig.NoActionDescriptionName != "" {
-				noActionDescription = m.LLMConfig.FunctionsConfig.NoActionDescriptionName
+			if turnCfg.FunctionsConfig.NoActionDescriptionName != "" {
+				noActionDescription = turnCfg.FunctionsConfig.NoActionDescriptionName
 			}
 
 			noActionGrammar := functions.Function{
@@ -140,16 +169,16 @@ func (m *wrappedModel) Predict(ctx context.Context, messages schema.Messages, im
 				},
 			}
 
-			if !m.LLMConfig.FunctionsConfig.DisableNoAction {
+			if !turnCfg.FunctionsConfig.DisableNoAction {
 				funcs = append(funcs, noActionGrammar)
 			}
 		}
 
-		predInput = m.evaluator.TemplateMessages(input, input.Messages, m.LLMConfig, funcs, len(funcs) > 0)
+		predInput = m.evaluator.TemplateMessages(input, input.Messages, turnCfg, funcs, len(funcs) > 0)
 
 		xlog.Debug("Prompt (after templating)", "prompt", predInput)
-		if m.LLMConfig.Grammar != "" {
-			xlog.Debug("Grammar", "grammar", m.LLMConfig.Grammar)
+		if turnCfg.Grammar != "" {
+			xlog.Debug("Grammar", "grammar", turnCfg.Grammar)
 		}
 	}
 
@@ -159,33 +188,33 @@ func (m *wrappedModel) Predict(ctx context.Context, messages schema.Messages, im
 			// String values: "auto", "required", "none"
 			switch toolChoice.Mode {
 			case types.ToolChoiceModeRequired:
-				m.LLMConfig.SetFunctionCallString("required")
+				turnCfg.SetFunctionCallString("required")
 			case types.ToolChoiceModeNone:
 				// Don't use tools
-				m.LLMConfig.SetFunctionCallString("none")
+				turnCfg.SetFunctionCallString("none")
 			case types.ToolChoiceModeAuto:
 				// Default behavior - let model decide
 			}
 		} else if toolChoice.Function != nil {
 			// Specific function specified
-			m.LLMConfig.SetFunctionCallNameString(toolChoice.Function.Name)
+			turnCfg.SetFunctionCallNameString(toolChoice.Function.Name)
 		}
 	}
 
 	// Generate grammar for function calling if tools are provided and grammar generation is enabled
-	shouldUseFn := len(tools) > 0 && m.LLMConfig.ShouldUseFunctions()
+	shouldUseFn := len(tools) > 0 && turnCfg.ShouldUseFunctions()
 
-	if !m.LLMConfig.FunctionsConfig.GrammarConfig.NoGrammar && shouldUseFn {
+	if !turnCfg.FunctionsConfig.GrammarConfig.NoGrammar && shouldUseFn {
 		// Force picking one of the functions by the request
-		if m.LLMConfig.FunctionToCall() != "" {
-			funcs = functions.Functions(funcs).Select(m.LLMConfig.FunctionToCall())
+		if turnCfg.FunctionToCall() != "" {
+			funcs = functions.Functions(funcs).Select(turnCfg.FunctionToCall())
 		}
 
 		// Generate grammar from function definitions
-		jsStruct := functions.Functions(funcs).ToJSONStructure(m.LLMConfig.FunctionsConfig.FunctionNameKey, m.LLMConfig.FunctionsConfig.FunctionNameKey)
-		g, err := jsStruct.Grammar(m.LLMConfig.FunctionsConfig.GrammarOptions()...)
+		jsStruct := functions.Functions(funcs).ToJSONStructure(turnCfg.FunctionsConfig.FunctionNameKey, turnCfg.FunctionsConfig.FunctionNameKey)
+		g, err := jsStruct.Grammar(turnCfg.FunctionsConfig.GrammarOptions()...)
 		if err == nil {
-			m.LLMConfig.Grammar = g
+			turnCfg.Grammar = g
 			xlog.Debug("Generated grammar for function calling", "grammar", g)
 		} else {
 			xlog.Error("Failed generating grammar", "error", err)
@@ -237,11 +266,54 @@ func (m *wrappedModel) Predict(ctx context.Context, messages schema.Messages, im
 		toolChoiceJSON = string(b)
 	}
 
-	return backend.ModelInference(ctx, predInput, messages, images, videos, audios, m.modelLoader, m.LLMConfig, m.confLoader, m.appConfig, tokenCallback, toolsJSON, toolChoiceJSON, logprobs, topLogprobs, logitBias, nil)
+	return backend.ModelInference(ctx, predInput, messages, images, videos, audios, m.modelLoader, turnCfg, m.confLoader, m.appConfig, tokenCallback, toolsJSON, toolChoiceJSON, logprobs, topLogprobs, logitBias, nil)
+}
+
+// routeTurn classifies this turn's prompt against the session's router
+// LLM config and returns the candidate ModelConfig to dispatch against.
+// Returns nil with no error when routing was attempted but the resolver
+// signalled "no decision" — the caller falls back to the session
+// default. Records the decision in the store using the realtime session
+// id as the correlation id so the admin UI can group turn-by-turn
+// decisions under one session row.
+func (m *wrappedModel) routeTurn(ctx context.Context, req *schema.OpenAIRequest) (*config.ModelConfig, error) {
+	if m.routerDeps == nil {
+		return nil, nil
+	}
+	registry := m.routerDeps.Registry
+	if registry == nil {
+		registry = router.NewRegistry()
+	}
+	classifier, classifierErr := middleware.GetOrBuildClassifier(registry, m.LLMConfig, *m.routerDeps)
+	if classifierErr != nil {
+		xlog.Warn("realtime router: classifier unavailable — using fallback",
+			"router_model", m.LLMConfig.Name, "error", classifierErr)
+		classifier = nil
+	}
+	loader := func(name string) (*config.ModelConfig, error) {
+		return m.confLoader.LoadModelConfigFileByNameDefaultOptions(name, m.appConfig)
+	}
+	probe := middleware.OpenAIProbeFromRequest(req)
+
+	result, err := router.Resolve(ctx, m.LLMConfig, classifier, loader, probe)
+	if err != nil {
+		return nil, err
+	}
+
+	if m.routerStore != nil {
+		_ = m.routerStore.Record(context.Background(), result.ToDecisionRecord(newRealtimeDecisionID(), m.routerSessionID, m.routerUserID, router.SourceRealtime))
+	}
+	return result.ChosenConfig, nil
+}
+
+func newRealtimeDecisionID() string {
+	var b [12]byte
+	_, _ = rand.Read(b[:])
+	return "rd_" + hex.EncodeToString(b[:])
 }
 
 func (m *wrappedModel) TTS(ctx context.Context, text, voice, language string) (string, *proto.Result, error) {
-	return backend.ModelTTS(ctx, text, voice, language, m.modelLoader, m.appConfig, *m.TTSConfig)
+	return backend.ModelTTS(ctx, text, voice, language, "", nil, m.modelLoader, m.appConfig, *m.TTSConfig)
 }
 
 func (m *wrappedModel) PredictConfig() *config.ModelConfig {
@@ -279,8 +351,49 @@ func newTranscriptionOnlyModel(pipeline *config.Pipeline, cl *config.ModelConfig
 	}, cfgSST, nil
 }
 
+// RealtimeRoutingContext is the bundle of routing dependencies the
+// realtime pipeline needs to consult router.Resolve per turn. nil-safe:
+// passing nil skips routing entirely and preserves the historical "one
+// LLM for the whole session" behaviour.
+type RealtimeRoutingContext struct {
+	Deps      *middleware.ClassifierDeps
+	Store     router.DecisionStore
+	SessionID string
+	UserID    string
+}
+
+// buildRealtimeRoutingContext assembles the routing dependencies the
+// realtime pipeline needs from the application container. Returns nil
+// when no Application is wired (tests, stripped builds) — that path
+// leaves wrappedModel.Predict on the historical "no routing" path
+// instead of failing at session start.
+func buildRealtimeRoutingContext(a *application.Application, sessionID string) *RealtimeRoutingContext {
+	if a == nil {
+		return nil
+	}
+	deps := &middleware.ClassifierDeps{
+		Scorer:      a.Scorer,
+		Embedder:    a.Embedder,
+		VectorStore: a.VectorStore,
+		Reranker:    a.Reranker,
+		ModelLookup: a.ModelConfigLookup(),
+		Registry:    a.RouterClassifierRegistry(),
+		Evaluator:   a.TemplatesEvaluator(),
+	}
+	userID := ""
+	if u := a.FallbackUser(); u != nil {
+		userID = u.ID
+	}
+	return &RealtimeRoutingContext{
+		Deps:      deps,
+		Store:     a.RouterDecisions(),
+		SessionID: sessionID,
+		UserID:    userID,
+	}
+}
+
 // returns and loads either a wrapped model or a model that support audio-to-audio
-func newModel(pipeline *config.Pipeline, cl *config.ModelConfigLoader, ml *model.ModelLoader, appConfig *config.ApplicationConfig, evaluator *templates.Evaluator) (Model, error) {
+func newModel(pipeline *config.Pipeline, cl *config.ModelConfigLoader, ml *model.ModelLoader, appConfig *config.ApplicationConfig, evaluator *templates.Evaluator, routing *RealtimeRoutingContext) (Model, error) {
 	xlog.Debug("Creating new model pipeline model", "pipeline", pipeline)
 
 	cfgVAD, err := cl.LoadModelConfigFileByName(pipeline.VAD, ml.ModelPath)
@@ -346,7 +459,7 @@ func newModel(pipeline *config.Pipeline, cl *config.ModelConfigLoader, ml *model
 		return nil, fmt.Errorf("failed to validate config: %w", err)
 	}
 
-	return &wrappedModel{
+	wm := &wrappedModel{
 		TTSConfig:           cfgTTS,
 		TranscriptionConfig: cfgSST,
 		LLMConfig:           cfgLLM,
@@ -356,5 +469,12 @@ func newModel(pipeline *config.Pipeline, cl *config.ModelConfigLoader, ml *model
 		modelLoader: ml,
 		appConfig:   appConfig,
 		evaluator:   evaluator,
-	}, nil
+	}
+	if routing != nil {
+		wm.routerDeps = routing.Deps
+		wm.routerStore = routing.Store
+		wm.routerSessionID = routing.SessionID
+		wm.routerUserID = routing.UserID
+	}
+	return wm, nil
 }

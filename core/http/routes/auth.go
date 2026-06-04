@@ -789,6 +789,30 @@ func RegisterAuthRoutes(e *echo.Echo, app *application.Application) {
 		})
 	})
 
+	// GET /api/auth/usage/sources - caller's per-source breakdown (no legacy)
+	e.GET("/api/auth/usage/sources", func(c echo.Context) error {
+		user := auth.GetUser(c)
+		if user == nil {
+			return c.JSON(http.StatusUnauthorized, map[string]string{"error": "not authenticated"})
+		}
+
+		period := c.QueryParam("period")
+		if period == "" {
+			period = "month"
+		}
+
+		buckets, totals, err := auth.GetUserUsageBySource(db, user.ID, period)
+		if err != nil {
+			return c.JSON(http.StatusInternalServerError, map[string]string{"error": "failed to get usage"})
+		}
+
+		return c.JSON(http.StatusOK, map[string]any{
+			"buckets":   buckets,
+			"totals":    totals,
+			"truncated": false,
+		})
+	})
+
 	// Admin endpoints
 	adminMw := auth.RequireAdmin()
 
@@ -1101,6 +1125,27 @@ func RegisterAuthRoutes(e *echo.Echo, app *application.Application) {
 		return c.JSON(http.StatusOK, map[string]any{
 			"usage":  buckets,
 			"totals": totals,
+		})
+	}, adminMw)
+
+	// GET /api/auth/admin/usage/sources - all users' per-source breakdown (admin only)
+	e.GET("/api/auth/admin/usage/sources", func(c echo.Context) error {
+		period := c.QueryParam("period")
+		if period == "" {
+			period = "month"
+		}
+		userID := c.QueryParam("user_id")
+		apiKeyID := c.QueryParam("api_key_id")
+
+		buckets, totals, truncated, err := auth.GetAllUsageBySource(db, period, userID, apiKeyID)
+		if err != nil {
+			return c.JSON(http.StatusInternalServerError, map[string]string{"error": "failed to get usage"})
+		}
+
+		return c.JSON(http.StatusOK, map[string]any{
+			"buckets":   buckets,
+			"totals":    totals,
+			"truncated": truncated,
 		})
 	}, adminMw)
 

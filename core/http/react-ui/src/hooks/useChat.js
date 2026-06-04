@@ -197,7 +197,6 @@ export function useChat(initialModel = '') {
     const temperature = activeChat.temperature
     const topP = activeChat.topP
     const topK = activeChat.topK
-    const contextSize = activeChat.contextSize
 
     // Build user message content
     let messageContent
@@ -268,7 +267,10 @@ export function useChat(initialModel = '') {
     if (temperature !== null && temperature !== undefined) requestBody.temperature = temperature
     if (topP !== null && topP !== undefined) requestBody.top_p = topP
     if (topK !== null && topK !== undefined) requestBody.top_k = topK
-    if (contextSize) requestBody.max_tokens = contextSize
+    // contextSize is the model's input+output window, not an
+    // output cap. Backends bound generation at remaining context
+    // automatically; Anthropic translate mode supplies its own
+    // default. So we deliberately do not send any output-token cap.
 
     // MCP: send selected servers via metadata so the backend activates them
     const hasMcpServers = activeChat.mcpServers && activeChat.mcpServers.length > 0

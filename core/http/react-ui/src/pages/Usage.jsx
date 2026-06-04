@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next'
 import { useAuth } from '../context/AuthContext'
 import { apiUrl } from '../utils/basePath'
 import LoadingSpinner from '../components/LoadingSpinner'
+import SourcesTab from './Usage/SourcesTab'
 
 const PERIODS = [
   { key: 'day', label: 'Day' },
@@ -629,7 +630,7 @@ function ModelDistChart({ rows }) {
 
 export default function Usage() {
   const { addToast } = useOutletContext()
-  const { isAdmin, authEnabled } = useAuth()
+  const { isAdmin, authEnabled, loading: authLoading } = useAuth()
   const { t } = useTranslation('admin')
   const [period, setPeriod] = useState('month')
   const [loading, setLoading] = useState(true)
@@ -644,8 +645,13 @@ export default function Usage() {
   const fetchUsage = useCallback(async () => {
     setLoading(true)
     try {
-      const usagePromise = fetch(apiUrl(`/api/auth/usage?period=${period}`))
-      const quotaPromise = fetch(apiUrl('/api/auth/quota'))
+      // /api/usage works in no-auth single-user mode (returns the synthetic
+      // local user's usage). /api/auth/usage is the legacy auth-required
+      // path; we keep using it when auth is on so /api/auth/quota and
+      // friends remain consistent.
+      const userUsageURL = authEnabled ? '/api/auth/usage' : '/api/usage'
+      const usagePromise = fetch(apiUrl(`${userUsageURL}?period=${period}`))
+      const quotaPromise = authEnabled ? fetch(apiUrl('/api/auth/quota')) : Promise.resolve(null)
 
       const [res, quotaRes] = await Promise.all([usagePromise, quotaPromise])
 
@@ -654,13 +660,18 @@ export default function Usage() {
       setUsage(data.usage || [])
       setTotals(data.totals || {})
 
-      if (quotaRes.ok) {
+      if (quotaRes && quotaRes.ok) {
         const quotaData = await quotaRes.json()
         setQuotas(quotaData.quotas || [])
       }
 
       if (isAdmin) {
-        const adminRes = await fetch(apiUrl(`/api/auth/admin/usage?period=${period}`))
+        // /api/usage/all serves the cluster-wide view in both modes.
+        // The synthetic local user has Role: admin, so single-user mode
+        // gets the admin-style cross-user table (which collapses to one
+        // row, but keeps the UI shape consistent).
+        const adminURL = authEnabled ? '/api/auth/admin/usage' : '/api/usage/all'
+        const adminRes = await fetch(apiUrl(`${adminURL}?period=${period}`))
         if (adminRes.ok) {
           const adminData = await adminRes.json()
           setAdminUsage(adminData.usage || [])
@@ -672,24 +683,12 @@ export default function Usage() {
     } finally {
       setLoading(false)
     }
-  }, [period, isAdmin, addToast])
+  }, [period, isAdmin, authEnabled, addToast])
 
   useEffect(() => {
-    if (authEnabled) fetchUsage()
-    else setLoading(false)
-  }, [fetchUsage, authEnabled])
-
-  if (!authEnabled) {
-    return (
-      <div className="page page--wide">
-        <div className="empty-state">
-          <div className="empty-state-icon"><i className="fas fa-chart-bar" /></div>
-          <h2 className="empty-state-title">Usage tracking unavailable</h2>
-          <p className="empty-state-text">Authentication must be enabled to track API usage.</p>
-        </div>
-      </div>
-    )
-  }
+    if (authLoading) return
+    fetchUsage()
+  }, [fetchUsage, authLoading])
 
   const modelRows = aggregateByModel(isAdmin ? adminUsage : usage)
   const userRows = isAdmin ? aggregateByUser(adminUsage) : []
@@ -724,23 +723,27 @@ export default function Usage() {
             {p.label}
           </button>
         ))}
+        <div style={{ width: 1, height: 20, background: 'var(--color-border-subtle)', margin: '0 var(--spacing-xs)' }} />
+        <button
+          className={`btn btn-sm ${activeTab === 'models' ? 'btn-primary' : 'btn-secondary'}`}
+          onClick={() => setActiveTab('models')}
+        >
+          <i className="fas fa-cube" style={{ fontSize: '0.7rem' }} /> Models
+        </button>
         {isAdmin && (
-          <>
-            <div style={{ width: 1, height: 20, background: 'var(--color-border-subtle)', margin: '0 var(--spacing-xs)' }} />
-            <button
-              className={`btn btn-sm ${activeTab === 'models' ? 'btn-primary' : 'btn-secondary'}`}
-              onClick={() => setActiveTab('models')}
-            >
-              <i className="fas fa-cube" style={{ fontSize: '0.7rem' }} /> Models
-            </button>
-            <button
-              className={`btn btn-sm ${activeTab === 'users' ? 'btn-primary' : 'btn-secondary'}`}
-              onClick={() => setActiveTab('users')}
-            >
-              <i className="fas fa-users" style={{ fontSize: '0.7rem' }} /> Users
-            </button>
-          </>
+          <button
+            className={`btn btn-sm ${activeTab === 'users' ? 'btn-primary' : 'btn-secondary'}`}
+            onClick={() => setActiveTab('users')}
+          >
+            <i className="fas fa-users" style={{ fontSize: '0.7rem' }} /> Users
+          </button>
         )}
+        <button
+          className={`btn btn-sm ${activeTab === 'sources' ? 'btn-primary' : 'btn-secondary'}`}
+          onClick={() => setActiveTab('sources')}
+        >
+          <i className="fas fa-key" style={{ fontSize: '0.7rem' }} /> {t('usage.sources.tab')}
+        </button>
         <div style={{ flex: 1 }} />
         <button className="btn btn-secondary btn-sm" onClick={fetchUsage} disabled={loading} style={{ gap: 4 }}>
           <i className={`fas fa-rotate${loading ? ' fa-spin' : ''}`} /> Refresh
@@ -883,6 +886,10 @@ export default function Usage() {
                 </table>
               </div>
             )
+          )}
+
+          {activeTab === 'sources' && (
+            <SourcesTab period={period} adminUserId={selectedUserId} />
           )}
         </>
       )}

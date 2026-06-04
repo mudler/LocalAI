@@ -13,6 +13,10 @@ import (
 	mcpTools "github.com/mudler/LocalAI/core/http/endpoints/mcp"
 	"github.com/mudler/LocalAI/core/http/middleware"
 	"github.com/mudler/LocalAI/core/schema"
+	"github.com/mudler/LocalAI/core/services/routing/pii"
+	"github.com/mudler/LocalAI/core/services/routing/piiadapter"
+	"github.com/mudler/LocalAI/core/services/routing/router"
+	"github.com/mudler/LocalAI/pkg/distributedhdr"
 	"github.com/mudler/xlog"
 )
 
@@ -32,14 +36,39 @@ func RegisterAnthropicRoutes(app *echo.Echo,
 		application.TemplatesEvaluator(),
 		application.ApplicationConfig(),
 		natsClient,
+		application.PIIRedactor(),
+		application.PIIEvents(),
 	)
 
 	messagesMiddleware := []echo.MiddlewareFunc{
-		middleware.UsageMiddleware(application.AuthDB()),
+		middleware.ExposeNodeHeader(application.ApplicationConfig()),
+		middleware.UsageMiddleware(application.StatsRecorder(), application.FallbackUser()),
 		middleware.TraceMiddleware(application),
 		re.BuildFilteredFirstAvailableDefaultModel(config.BuildUsecaseFilterFn(config.FLAG_CHAT)),
 		re.SetModelAndConfig(func() schema.LocalAIRequest { return new(schema.AnthropicRequest) }),
 		setAnthropicRequestContext(application.ApplicationConfig()),
+		// RouteModel runs after the request is parsed but before the
+		// PII filter — see the OpenAI route for why this order matters
+		// (per-model PII configs apply to the routed target).
+		middleware.RouteModel(
+			application.ModelConfigLoader(),
+			application.ApplicationConfig(),
+			application.RouterDecisions(),
+			application.FallbackUser(),
+			middleware.AnthropicProbe,
+			router.SourceAnthropic,
+			middleware.ClassifierDeps{
+				Scorer:      application.Scorer,
+				Embedder:    application.Embedder,
+				VectorStore: application.VectorStore,
+				Reranker:    application.Reranker,
+				ModelLookup: application.ModelConfigLookup(),
+				Registry:    application.RouterClassifierRegistry(),
+				Evaluator:   application.TemplatesEvaluator(),
+			},
+		),
+		middleware.AdmissionControl(application.AdmissionLimiter(), application.PIIEvents()),
+		pii.RequestMiddleware(application.PIIRedactor(), application.PIIEvents(), piiadapter.Anthropic(), application.FallbackUser()),
 	}
 
 	// Main Anthropic endpoint
@@ -84,6 +113,7 @@ func setAnthropicRequestContext(appConfig *config.ApplicationConfig) echo.Middle
 
 			// Add the correlation ID to the new context
 			ctxWithCorrelationID := context.WithValue(c1, middleware.CorrelationIDKey, correlationID)
+			ctxWithCorrelationID = distributedhdr.Inherit(ctxWithCorrelationID, reqCtx)
 
 			input.Context = ctxWithCorrelationID
 			input.Cancel = cancel

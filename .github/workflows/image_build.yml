@@ -106,6 +106,7 @@ jobs:
             type=ref,event=branch
             type=semver,pattern={{raw}}
             type=sha
+            type=raw,value={{branch}}-{{date 'X'}}-{{sha}},enable={{is_default_branch}}
           flavor: |
             latest=${{ inputs.tag-latest }}
             suffix=${{ inputs.tag-suffix }},onlatest=true

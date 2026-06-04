@@ -6,6 +6,7 @@ import (
 	"crypto/subtle"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -16,11 +17,18 @@ import (
 	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
 	"github.com/labstack/echo/v4"
-	"github.com/mudler/LocalAI/core/http/auth"
-	"github.com/mudler/LocalAI/core/schema"
-	"github.com/mudler/LocalAI/core/services/nodes"
 	"github.com/mudler/xlog"
 	"gorm.io/gorm"
+
+	"github.com/mudler/LocalAI/core/config"
+	"github.com/mudler/LocalAI/core/gallery"
+	"github.com/mudler/LocalAI/core/http/auth"
+	"github.com/mudler/LocalAI/core/schema"
+	"github.com/mudler/LocalAI/core/services/galleryop"
+	"github.com/mudler/LocalAI/core/services/nodes"
+	"github.com/mudler/LocalAI/core/services/nodes/prefixcache"
+	"github.com/mudler/LocalAI/pkg/httpclient"
+	"github.com/mudler/LocalAI/pkg/natsauth"
 )
 
 // nodeError builds a schema.ErrorResponse for node endpoints.
@@ -62,15 +70,15 @@ func GetNodeEndpoint(registry *nodes.NodeRegistry) echo.HandlerFunc {
 
 // RegisterNodeRequest is the request body for registering a new worker node.
 type RegisterNodeRequest struct {
-	Name          string `json:"name"`
-	NodeType      string `json:"node_type,omitempty"` // "backend" (default) or "agent"
-	Address       string `json:"address"`
-	HTTPAddress   string `json:"http_address,omitempty"`
-	Token         string `json:"token,omitempty"`
-	TotalVRAM     uint64 `json:"total_vram,omitempty"`
-	AvailableVRAM uint64 `json:"available_vram,omitempty"`
-	TotalRAM      uint64 `json:"total_ram,omitempty"`
-	AvailableRAM  uint64 `json:"available_ram,omitempty"`
+	Name          string            `json:"name"`
+	NodeType      string            `json:"node_type,omitempty"` // "backend" (default) or "agent"
+	Address       string            `json:"address"`
+	HTTPAddress   string            `json:"http_address,omitempty"`
+	Token         string            `json:"token,omitempty"`
+	TotalVRAM     uint64            `json:"total_vram,omitempty"`
+	AvailableVRAM uint64            `json:"available_vram,omitempty"`
+	TotalRAM      uint64            `json:"total_ram,omitempty"`
+	AvailableRAM  uint64            `json:"available_ram,omitempty"`
 	GPUVendor     string            `json:"gpu_vendor,omitempty"`
 	Labels        map[string]string `json:"labels,omitempty"`
 	// MaxReplicasPerModel is the per-node cap on replicas of any single model.
@@ -82,7 +90,7 @@ type RegisterNodeRequest struct {
 // RegisterNodeEndpoint registers a new backend node.
 // expectedToken is the registration token configured on the frontend (may be empty to disable auth).
 // autoApprove controls whether new nodes go directly to "healthy" or require admin approval.
-func RegisterNodeEndpoint(registry *nodes.NodeRegistry, expectedToken string, autoApprove bool, authDB *gorm.DB, hmacSecret string) echo.HandlerFunc {
+func RegisterNodeEndpoint(registry *nodes.NodeRegistry, expectedToken string, autoApprove bool, authDB *gorm.DB, hmacSecret string, natsCfg natsauth.Config) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		var req RegisterNodeRequest
 		if err := c.Bind(&req); err != nil {
@@ -210,13 +218,15 @@ func RegisterNodeEndpoint(registry *nodes.NodeRegistry, expectedToken string, au
 			}
 		}
 
+		attachNatsJWT(response, node, natsCfg)
+
 		return c.JSON(http.StatusCreated, response)
 	}
 }
 
 // ApproveNodeEndpoint approves a pending node, setting its status to healthy.
 // For agent workers, it also provisions an API key so they can call the inference API.
-func ApproveNodeEndpoint(registry *nodes.NodeRegistry, authDB *gorm.DB, hmacSecret string) echo.HandlerFunc {
+func ApproveNodeEndpoint(registry *nodes.NodeRegistry, authDB *gorm.DB, hmacSecret string, natsCfg natsauth.Config) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		ctx := c.Request().Context()
 		id := c.Param("id")
@@ -246,8 +256,24 @@ func ApproveNodeEndpoint(registry *nodes.NodeRegistry, authDB *gorm.DB, hmacSecr
 			}
 		}
 
+		attachNatsJWT(response, node, natsCfg)
+
 		return c.JSON(http.StatusOK, response)
 	}
+}
+
+// attachNatsJWT adds a per-node NATS user JWT to a register/approve response when minting is enabled.
+func attachNatsJWT(response map[string]any, node *nodes.BackendNode, natsCfg natsauth.Config) {
+	if !natsCfg.CanMintWorkers() || node == nil || node.Status == nodes.StatusPending {
+		return
+	}
+	jwt, seed, err := natsCfg.MintWorkerJWT(node.ID, node.NodeType)
+	if err != nil {
+		xlog.Warn("Failed to mint NATS JWT for node", "node", node.Name, "id", node.ID, "error", err)
+		return
+	}
+	response["nats_jwt"] = jwt
+	response["nats_user_seed"] = seed
 }
 
 // provisionAgentWorkerKey creates a dedicated user and API key for an agent worker node.
@@ -381,14 +407,24 @@ func ResumeNodeEndpoint(registry *nodes.NodeRegistry) echo.HandlerFunc {
 	}
 }
 
-// InstallBackendOnNodeEndpoint triggers backend installation on a worker node via NATS.
+// InstallBackendOnNodeEndpoint triggers backend installation on a worker node.
+// Async: enqueues a ManagementOp on the gallery service channel and returns a
+// jobID immediately. The gallery service worker goroutine drives the actual
+// install via DistributedBackendManager.InstallBackend, which honors the op's
+// TargetNodeID to scope the fan-out to one node. The UI polls /api/backends/job/:uid
+// for progress, mirroring /api/backends/install/:id.
+//
 // Backend can be either a gallery ID (resolved against BackendGalleries) or a
-// direct URI install (URI + Name + optional Alias) — same shape as the
+// direct URI install (URI + Name + optional Alias) - same shape as the
 // standalone /api/backends/install-external path, just scoped to one node.
-func InstallBackendOnNodeEndpoint(unloader nodes.NodeCommandSender) echo.HandlerFunc {
+//
+// The legacy unloader argument is retained for signature symmetry with
+// DeleteBackendOnNodeEndpoint / ListBackendsOnNodeEndpoint but is no longer
+// used here - the async path goes through galleryService.
+func InstallBackendOnNodeEndpoint(_ nodes.NodeCommandSender, galleryService *galleryop.GalleryService, opcache *galleryop.OpCache, appConfig *config.ApplicationConfig) echo.HandlerFunc {
 	return func(c echo.Context) error {
-		if unloader == nil {
-			return c.JSON(http.StatusServiceUnavailable, nodeError(http.StatusServiceUnavailable, "NATS not configured"))
+		if galleryService == nil {
+			return c.JSON(http.StatusServiceUnavailable, nodeError(http.StatusServiceUnavailable, "gallery service not configured"))
 		}
 		nodeID := c.Param("id")
 		var req struct {
@@ -401,25 +437,65 @@ func InstallBackendOnNodeEndpoint(unloader nodes.NodeCommandSender) echo.Handler
 		if err := c.Bind(&req); err != nil {
 			return c.JSON(http.StatusBadRequest, nodeError(http.StatusBadRequest, "invalid request body"))
 		}
-		// Either a gallery backend name or a direct URI must be supplied.
 		if req.Backend == "" && req.URI == "" {
 			return c.JSON(http.StatusBadRequest, nodeError(http.StatusBadRequest, "backend name or uri required"))
 		}
-		// Admin-driven backend install: not tied to a specific replica slot
-		// (no model is being loaded). Pass replica 0 to match the worker's
-		// admin process-key convention (`backend#0`). The worker's fast path
-		// takes over if the backend is already running — upgrades go through
-		// the dedicated /api/backends/upgrade path on backend.upgrade.
-		reply, err := unloader.InstallBackend(nodeID, req.Backend, "", req.BackendGalleries, req.URI, req.Name, req.Alias, 0)
+
+		jobUUID, err := uuid.NewUUID()
 		if err != nil {
-			xlog.Error("Failed to install backend on node", "node", nodeID, "backend", req.Backend, "uri", req.URI, "error", err)
-			return c.JSON(http.StatusInternalServerError, nodeError(http.StatusInternalServerError, "failed to install backend on node"))
+			return c.JSON(http.StatusInternalServerError, nodeError(http.StatusInternalServerError, "failed to generate job id"))
 		}
-		if !reply.Success {
-			xlog.Error("Backend install failed on node", "node", nodeID, "backend", req.Backend, "uri", req.URI, "error", reply.Error)
-			return c.JSON(http.StatusInternalServerError, nodeError(http.StatusInternalServerError, "backend installation failed"))
+		jobID := jobUUID.String()
+
+		// Cache key: for gallery installs, use the backend slug; for URI
+		// installs prefer the provided Name (falling back to URI). All keys
+		// are node-scoped so concurrent installs of the same backend on
+		// different nodes do not stomp each other in opcache.
+		backendKey := req.Backend
+		if backendKey == "" {
+			backendKey = req.Name
+			if backendKey == "" {
+				backendKey = req.URI
+			}
 		}
-		return c.JSON(http.StatusOK, map[string]string{"message": "backend installed"})
+		cacheKey := galleryop.NodeScopedKey(nodeID, backendKey)
+		opcache.SetBackend(cacheKey, jobID)
+
+		// Optional caller-supplied galleries override. Mirrors the standalone
+		// install path so an admin can point at a private gallery.
+		galleries := appConfig.BackendGalleries
+		if req.BackendGalleries != "" {
+			var custom []config.Gallery
+			if err := json.Unmarshal([]byte(req.BackendGalleries), &custom); err != nil {
+				xlog.Warn("Ignoring malformed backend_galleries override; falling back to configured galleries", "error", err, "nodeID", nodeID)
+			} else if len(custom) > 0 {
+				galleries = custom
+			}
+		}
+
+		ctx, cancelFunc := context.WithCancel(context.Background())
+		op := galleryop.ManagementOp[gallery.GalleryBackend, any]{
+			ID:                 jobID,
+			GalleryElementName: req.Backend,
+			Galleries:          galleries,
+			TargetNodeID:       nodeID,
+			ExternalURI:        req.URI,
+			ExternalName:       req.Name,
+			ExternalAlias:      req.Alias,
+			Context:            ctx,
+			CancelFunc:         cancelFunc,
+		}
+		galleryService.StoreCancellation(jobID, cancelFunc)
+		go func() {
+			galleryService.BackendGalleryChannel <- op
+		}()
+
+		xlog.Info("Node-scoped backend install dispatched", "node", nodeID, "backend", req.Backend, "uri", req.URI, "jobID", jobID)
+		return c.JSON(http.StatusAccepted, map[string]string{
+			"jobID":     jobID,
+			"statusUrl": "/api/backends/job/" + jobID,
+			"message":   "backend installation started",
+		})
 	}
 }
 
@@ -856,14 +932,56 @@ func GetSchedulingEndpoint(registry *nodes.NodeRegistry) echo.HandlerFunc {
 }
 
 // SetSchedulingRequest is the request body for creating/updating a scheduling config.
+//
+// The four prefix-cache fields are POINTERS so an omitted field is
+// distinguishable from an explicit zero. On update, an omitted prefix-cache
+// field preserves the model's previously-configured value instead of resetting
+// it (see SetSchedulingEndpoint's PATCH-style merge). ModelName, NodeSelector,
+// MinReplicas and MaxReplicas keep their full-replace PUT semantics.
 type SetSchedulingRequest struct {
-	ModelName    string            `json:"model_name"`
-	NodeSelector map[string]string `json:"node_selector,omitempty"`
-	MinReplicas  int               `json:"min_replicas"`
-	MaxReplicas  int               `json:"max_replicas"`
+	ModelName           string            `json:"model_name"`
+	NodeSelector        map[string]string `json:"node_selector,omitempty"`
+	MinReplicas         int               `json:"min_replicas"`
+	MaxReplicas         int               `json:"max_replicas"`
+	RoutePolicy         *string           `json:"route_policy,omitempty"`
+	BalanceAbsThreshold *int              `json:"balance_abs_threshold,omitempty"`
+	BalanceRelThreshold *float64          `json:"balance_rel_threshold,omitempty"`
+	MinPrefixMatch      *float64          `json:"min_prefix_match,omitempty"`
+}
+
+// validateSchedulingRequest enforces the invariants of a scheduling config.
+// The prefix-cache bounds are delegated to prefixcache.ValidateThresholds (the
+// single source of truth), and are checked against the RESOLVED values passed
+// in (provided-or-preserved), so validation only rejects bad values the caller
+// actually supplied. It returns nil when valid, or an error with a user-facing
+// message describing the first violation.
+func validateSchedulingRequest(req SetSchedulingRequest, routePolicy string, absThr int, relThr, minMatch float64) error {
+	if req.ModelName == "" {
+		return errors.New("model_name is required")
+	}
+	if req.MinReplicas < 0 {
+		return errors.New("min_replicas must be >= 0")
+	}
+	if req.MaxReplicas < 0 {
+		return errors.New("max_replicas must be >= 0")
+	}
+	if req.MaxReplicas > 0 && req.MinReplicas > req.MaxReplicas {
+		return errors.New("min_replicas must be <= max_replicas")
+	}
+	if err := prefixcache.ValidateThresholds(routePolicy, absThr, relThr, minMatch); err != nil {
+		return err
+	}
+	return nil
 }
 
 // SetSchedulingEndpoint creates or updates a model scheduling config.
+//
+// The registry upsert full-replaces all columns, so a request that omits the
+// prefix-cache fields would otherwise wipe a model's previously-configured
+// routing settings. To avoid that footgun the four prefix-cache fields are
+// merged PATCH-style: a non-nil request pointer wins; a nil one preserves the
+// existing config's value (or the zero default when no config exists yet). The
+// non-prefix fields keep their full-replace PUT behavior.
 func SetSchedulingEndpoint(registry *nodes.NodeRegistry) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		ctx := c.Request().Context()
@@ -871,17 +989,45 @@ func SetSchedulingEndpoint(registry *nodes.NodeRegistry) echo.HandlerFunc {
 		if err := c.Bind(&req); err != nil {
 			return c.JSON(http.StatusBadRequest, nodeError(http.StatusBadRequest, "invalid request body"))
 		}
-		if req.ModelName == "" {
-			return c.JSON(http.StatusBadRequest, nodeError(http.StatusBadRequest, "model_name is required"))
+
+		// Fetch the existing config (may be nil) so omitted prefix-cache fields
+		// can fall back to the stored value rather than resetting to zero.
+		var existing *nodes.ModelSchedulingConfig
+		if req.ModelName != "" {
+			var err error
+			existing, err = registry.GetModelScheduling(ctx, req.ModelName)
+			if err != nil {
+				return c.JSON(http.StatusInternalServerError, nodeError(http.StatusInternalServerError, "failed to load existing scheduling config"))
+			}
 		}
-		if req.MinReplicas < 0 {
-			return c.JSON(http.StatusBadRequest, nodeError(http.StatusBadRequest, "min_replicas must be >= 0"))
+
+		// Resolve each prefix-cache field: provided pointer wins, otherwise keep
+		// the existing value (zero/default when there is no existing config).
+		routePolicy := ""
+		absThr := 0
+		relThr := 0.0
+		minMatch := 0.0
+		if existing != nil {
+			routePolicy = existing.RoutePolicy
+			absThr = existing.BalanceAbsThreshold
+			relThr = existing.BalanceRelThreshold
+			minMatch = existing.MinPrefixMatch
 		}
-		if req.MaxReplicas < 0 {
-			return c.JSON(http.StatusBadRequest, nodeError(http.StatusBadRequest, "max_replicas must be >= 0"))
+		if req.RoutePolicy != nil {
+			routePolicy = *req.RoutePolicy
 		}
-		if req.MaxReplicas > 0 && req.MinReplicas > req.MaxReplicas {
-			return c.JSON(http.StatusBadRequest, nodeError(http.StatusBadRequest, "min_replicas must be <= max_replicas"))
+		if req.BalanceAbsThreshold != nil {
+			absThr = *req.BalanceAbsThreshold
+		}
+		if req.BalanceRelThreshold != nil {
+			relThr = *req.BalanceRelThreshold
+		}
+		if req.MinPrefixMatch != nil {
+			minMatch = *req.MinPrefixMatch
+		}
+
+		if err := validateSchedulingRequest(req, routePolicy, absThr, relThr, minMatch); err != nil {
+			return c.JSON(http.StatusBadRequest, nodeError(http.StatusBadRequest, err.Error()))
 		}
 
 		// Serialize node selector to JSON
@@ -895,10 +1041,14 @@ func SetSchedulingEndpoint(registry *nodes.NodeRegistry) echo.HandlerFunc {
 		}
 
 		config := &nodes.ModelSchedulingConfig{
-			ModelName:    req.ModelName,
-			NodeSelector: selectorJSON,
-			MinReplicas:  req.MinReplicas,
-			MaxReplicas:  req.MaxReplicas,
+			ModelName:           req.ModelName,
+			NodeSelector:        selectorJSON,
+			MinReplicas:         req.MinReplicas,
+			MaxReplicas:         req.MaxReplicas,
+			RoutePolicy:         routePolicy,
+			BalanceAbsThreshold: absThr,
+			BalanceRelThreshold: relThr,
+			MinPrefixMatch:      minMatch,
 		}
 		if err := registry.SetModelScheduling(ctx, config); err != nil {
 			return c.JSON(http.StatusInternalServerError, nodeError(http.StatusInternalServerError, "failed to set scheduling config"))
@@ -930,6 +1080,6 @@ func proxyHTTPToWorker(httpAddress, path, token string) (*http.Response, error) 
 		req.Header.Set("Authorization", "Bearer "+token)
 	}
 
-	client := &http.Client{Timeout: 15 * time.Second}
+	client := httpclient.NewWithTimeout(15 * time.Second)
 	return client.Do(req)
 }

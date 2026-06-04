@@ -53,6 +53,13 @@ type ModelLoader struct {
 	modelRouter              ModelRouter // distributed mode: route to remote node
 	backendLogs              *BackendLogStore
 	backendLoggingEnabled    atomic.Bool
+	// stoppingProcs marks backend processes that LocalAI is stopping on
+	// purpose (model unload / graceful shutdown), keyed by the
+	// *process.Process pointer. The exit-watcher goroutine in startProcess
+	// consults it to decide whether an exit is an expected stop or a crash —
+	// the exit code can't, since a child killed by our own SIGTERM/SIGKILL
+	// reports -1, indistinguishable from a signal-induced crash.
+	stoppingProcs sync.Map
 }
 
 // NewModelLoader creates a new ModelLoader instance.
@@ -250,6 +257,49 @@ func (ml *ModelLoader) ListLoadedModels() []*Model {
 }
 
 func (ml *ModelLoader) LoadModel(modelID, modelName string, loader func(string, string, string) (*Model, error)) (*Model, error) {
+	ml.mu.Lock()
+	distributed := ml.modelRouter != nil
+	ml.mu.Unlock()
+
+	if distributed {
+		// Distributed mode: SmartRouter must run per inference request so
+		// PickBestReplica (core/services/nodes/replicapicker.go) picks the
+		// least-loaded replica each time. The cached *Model returned from a
+		// previous call holds a client wrapper bound to one (nodeID,
+		// replicaIndex), so reusing it pins every subsequent request to the
+		// node that won the very first pick — defeating per-replica load
+		// balancing. Bypass the cache and the loading-coalesce map; the
+		// router does its own coalescing for first-time loads (advisory DB
+		// lock + singleflight on backend.install RPC), so concurrent first
+		// requests still produce a single worker-side install.
+		//
+		// TODO(distributed-cache): if profiling shows the per-request
+		// FindAndLockNodeWithModel SELECT FOR UPDATE becomes a hot path
+		// under burst load, replace this branch with a per-modelID cache
+		// that holds a *list* of replicas (refreshed every ~5s in
+		// background) and picks per call via PickBestReplica against
+		// locally-tracked in-flight counters. Same policy, no DB round-trip
+		// per inference. Trade-off: cross-frontend in-flight visibility
+		// becomes eventually consistent, acceptable for 1-3 frontend
+		// deployments.
+		modelFile := filepath.Join(ml.ModelPath, modelName)
+		model, err := loader(modelID, modelName, modelFile)
+		if err != nil {
+			return nil, fmt.Errorf("failed to route model with internal loader: %s", err)
+		}
+		if model == nil {
+			return nil, fmt.Errorf("loader didn't return a model")
+		}
+		// Record the latest mapping so DistributedModelStore.Range, shutdown,
+		// and listing endpoints see a representative entry. The DB is the
+		// source of truth for cluster-wide state; the local store is just a
+		// stub for in-process callers.
+		ml.mu.Lock()
+		ml.store.Set(modelID, model)
+		ml.mu.Unlock()
+		return model, nil
+	}
+
 	ml.mu.Lock()
 
 	// Check if we already have a loaded model

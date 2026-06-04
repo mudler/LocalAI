@@ -122,6 +122,62 @@
     nvidia-cuda-12: "cuda12-whisper"
     nvidia-l4t-cuda-12: "nvidia-l4t-arm64-whisper"
     nvidia-l4t-cuda-13: "cuda13-nvidia-l4t-arm64-whisper"
+- &crispasr
+  name: "crispasr"
+  alias: "crispasr"
+  license: mit
+  icon: https://user-images.githubusercontent.com/1991296/235238348-05d0f6a4-da44-4900-a1de-d0707e75b763.jpeg
+  description: |
+    CrispASR unified speech engine (whisper.cpp fork on ggml) supporting many ASR architectures (Parakeet, Canary, Voxtral, Qwen3-ASR, Granite, Wav2Vec2, Moonshine, OmniASR, FireRedASR, and more).
+  urls:
+    - https://github.com/CrispStrobe/CrispASR
+  tags:
+    - audio-transcription
+    - CPU
+    - GPU
+    - CUDA
+    - HIP
+  capabilities:
+    default: "cpu-crispasr"
+    nvidia: "cuda12-crispasr"
+    intel: "intel-sycl-f16-crispasr"
+    metal: "metal-crispasr"
+    amd: "rocm-crispasr"
+    vulkan: "vulkan-crispasr"
+    nvidia-l4t: "nvidia-l4t-arm64-crispasr"
+    nvidia-cuda-13: "cuda13-crispasr"
+    nvidia-cuda-12: "cuda12-crispasr"
+    nvidia-l4t-cuda-12: "nvidia-l4t-arm64-crispasr"
+    nvidia-l4t-cuda-13: "cuda13-nvidia-l4t-arm64-crispasr"
+- &parakeetcpp
+  name: "parakeet-cpp"
+  alias: "parakeet-cpp"
+  license: mit
+  icon: https://avatars.githubusercontent.com/u/95302084
+  description: |
+    parakeet.cpp is a C++/ggml port of NVIDIA NeMo Parakeet automatic speech recognition (ASR) models.
+    It supports the tdt, ctc, rnnt and hybrid decoder families as well as cache-aware streaming transcription,
+    and runs on CPU, NVIDIA CUDA, AMD ROCm/HIP, Intel SYCL and NVIDIA Jetson (L4T) targets.
+  urls:
+    - https://github.com/mudler/parakeet.cpp
+  tags:
+    - audio-transcription
+    - CPU
+    - GPU
+    - CUDA
+    - HIP
+  capabilities:
+    default: "cpu-parakeet-cpp"
+    nvidia: "cuda12-parakeet-cpp"
+    intel: "intel-sycl-f16-parakeet-cpp"
+    metal: "metal-parakeet-cpp"
+    amd: "rocm-parakeet-cpp"
+    vulkan: "vulkan-parakeet-cpp"
+    nvidia-l4t: "nvidia-l4t-arm64-parakeet-cpp"
+    nvidia-cuda-13: "cuda13-parakeet-cpp"
+    nvidia-cuda-12: "cuda12-parakeet-cpp"
+    nvidia-l4t-cuda-12: "nvidia-l4t-arm64-parakeet-cpp"
+    nvidia-l4t-cuda-13: "cuda13-nvidia-l4t-arm64-parakeet-cpp"
 - &voxtral
   name: "voxtral"
   alias: "voxtral"
@@ -253,6 +309,34 @@
     nvidia-l4t-cuda-13: "cuda13-nvidia-l4t-arm64-sam3-cpp"
     intel: "intel-sycl-f32-sam3-cpp"
     vulkan: "vulkan-sam3-cpp"
+- &rfdetrcpp
+  name: "rfdetr-cpp"
+  alias: "rfdetr-cpp"
+  license: apache-2.0
+  description: |
+    Native RF-DETR object detection and instance segmentation in C/C++
+    using GGML. Loads pre-built GGUF weights from the mudler/rfdetr-cpp-*
+    family (Nano/Small/Base/Medium/Large + SegNano/SegSmall/SegMedium)
+    and returns bounding boxes, class labels, confidence scores, and
+    (for segmentation variants) PNG-encoded per-detection masks.
+  urls:
+    - https://github.com/mudler/rf-detr.cpp
+  tags:
+    - object-detection
+    - image-segmentation
+    - rfdetr
+    - gpu
+    - cpu
+  capabilities:
+    default: "cpu-rfdetr-cpp"
+    nvidia: "cuda12-rfdetr-cpp"
+    nvidia-cuda-12: "cuda12-rfdetr-cpp"
+    nvidia-cuda-13: "cuda13-rfdetr-cpp"
+    nvidia-l4t: "nvidia-l4t-arm64-rfdetr-cpp"
+    nvidia-l4t-cuda-12: "nvidia-l4t-arm64-rfdetr-cpp"
+    nvidia-l4t-cuda-13: "cuda13-nvidia-l4t-arm64-rfdetr-cpp"
+    intel: "intel-sycl-f32-rfdetr-cpp"
+    vulkan: "vulkan-rfdetr-cpp"
 - &vllm
   name: "vllm"
   license: apache-2.0
@@ -1919,6 +2003,246 @@
   uri: "quay.io/go-skynet/local-ai-backends:master-gpu-nvidia-cuda-13-whisper"
   mirrors:
     - localai/localai-backends:master-gpu-nvidia-cuda-13-whisper
+## crispasr
+- !!merge <<: *crispasr
+  name: "crispasr-development"
+  capabilities:
+    default: "cpu-crispasr-development"
+    nvidia: "cuda12-crispasr-development"
+    intel: "intel-sycl-f16-crispasr-development"
+    metal: "metal-crispasr-development"
+    amd: "rocm-crispasr-development"
+    vulkan: "vulkan-crispasr-development"
+    nvidia-l4t: "nvidia-l4t-arm64-crispasr-development"
+    nvidia-cuda-13: "cuda13-crispasr-development"
+    nvidia-cuda-12: "cuda12-crispasr-development"
+    nvidia-l4t-cuda-12: "nvidia-l4t-arm64-crispasr-development"
+    nvidia-l4t-cuda-13: "cuda13-nvidia-l4t-arm64-crispasr-development"
+- !!merge <<: *crispasr
+  name: "nvidia-l4t-arm64-crispasr"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-nvidia-l4t-arm64-crispasr"
+  mirrors:
+    - localai/localai-backends:latest-nvidia-l4t-arm64-crispasr
+- !!merge <<: *crispasr
+  name: "nvidia-l4t-arm64-crispasr-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-nvidia-l4t-arm64-crispasr"
+  mirrors:
+    - localai/localai-backends:master-nvidia-l4t-arm64-crispasr
+- !!merge <<: *crispasr
+  name: "cuda13-nvidia-l4t-arm64-crispasr"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-nvidia-l4t-cuda-13-arm64-crispasr"
+  mirrors:
+    - localai/localai-backends:latest-nvidia-l4t-cuda-13-arm64-crispasr
+- !!merge <<: *crispasr
+  name: "cuda13-nvidia-l4t-arm64-crispasr-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-nvidia-l4t-cuda-13-arm64-crispasr"
+  mirrors:
+    - localai/localai-backends:master-nvidia-l4t-cuda-13-arm64-crispasr
+- !!merge <<: *crispasr
+  name: "cpu-crispasr"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-cpu-crispasr"
+  mirrors:
+    - localai/localai-backends:latest-cpu-crispasr
+- !!merge <<: *crispasr
+  name: "metal-crispasr"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-metal-darwin-arm64-crispasr"
+  mirrors:
+    - localai/localai-backends:latest-metal-darwin-arm64-crispasr
+- !!merge <<: *crispasr
+  name: "metal-crispasr-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-metal-darwin-arm64-crispasr"
+  mirrors:
+    - localai/localai-backends:master-metal-darwin-arm64-crispasr
+- !!merge <<: *crispasr
+  name: "cpu-crispasr-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-cpu-crispasr"
+  mirrors:
+    - localai/localai-backends:master-cpu-crispasr
+- !!merge <<: *crispasr
+  name: "cuda12-crispasr"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-nvidia-cuda-12-crispasr"
+  mirrors:
+    - localai/localai-backends:latest-gpu-nvidia-cuda-12-crispasr
+- !!merge <<: *crispasr
+  name: "rocm-crispasr"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-rocm-hipblas-crispasr"
+  mirrors:
+    - localai/localai-backends:latest-gpu-rocm-hipblas-crispasr
+- !!merge <<: *crispasr
+  name: "intel-sycl-f32-crispasr"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-intel-sycl-f32-crispasr"
+  mirrors:
+    - localai/localai-backends:latest-gpu-intel-sycl-f32-crispasr
+- !!merge <<: *crispasr
+  name: "intel-sycl-f16-crispasr"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-intel-sycl-f16-crispasr"
+  mirrors:
+    - localai/localai-backends:latest-gpu-intel-sycl-f16-crispasr
+- !!merge <<: *crispasr
+  name: "vulkan-crispasr"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-vulkan-crispasr"
+  mirrors:
+    - localai/localai-backends:latest-gpu-vulkan-crispasr
+- !!merge <<: *crispasr
+  name: "vulkan-crispasr-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-vulkan-crispasr"
+  mirrors:
+    - localai/localai-backends:master-gpu-vulkan-crispasr
+- !!merge <<: *crispasr
+  name: "metal-crispasr"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-metal-darwin-arm64-crispasr"
+  mirrors:
+    - localai/localai-backends:latest-metal-darwin-arm64-crispasr
+- !!merge <<: *crispasr
+  name: "metal-crispasr-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-metal-darwin-arm64-crispasr"
+  mirrors:
+    - localai/localai-backends:master-metal-darwin-arm64-crispasr
+- !!merge <<: *crispasr
+  name: "cuda12-crispasr-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-nvidia-cuda-12-crispasr"
+  mirrors:
+    - localai/localai-backends:master-gpu-nvidia-cuda-12-crispasr
+- !!merge <<: *crispasr
+  name: "rocm-crispasr-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-rocm-hipblas-crispasr"
+  mirrors:
+    - localai/localai-backends:master-gpu-rocm-hipblas-crispasr
+- !!merge <<: *crispasr
+  name: "intel-sycl-f32-crispasr-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-intel-sycl-f32-crispasr"
+  mirrors:
+    - localai/localai-backends:master-gpu-intel-sycl-f32-crispasr
+- !!merge <<: *crispasr
+  name: "intel-sycl-f16-crispasr-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-intel-sycl-f16-crispasr"
+  mirrors:
+    - localai/localai-backends:master-gpu-intel-sycl-f16-crispasr
+- !!merge <<: *crispasr
+  name: "cuda13-crispasr"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-nvidia-cuda-13-crispasr"
+  mirrors:
+    - localai/localai-backends:latest-gpu-nvidia-cuda-13-crispasr
+- !!merge <<: *crispasr
+  name: "cuda13-crispasr-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-nvidia-cuda-13-crispasr"
+  mirrors:
+    - localai/localai-backends:master-gpu-nvidia-cuda-13-crispasr
+## parakeet-cpp
+- !!merge <<: *parakeetcpp
+  name: "parakeet-cpp-development"
+  capabilities:
+    default: "cpu-parakeet-cpp-development"
+    nvidia: "cuda12-parakeet-cpp-development"
+    intel: "intel-sycl-f16-parakeet-cpp-development"
+    metal: "metal-parakeet-cpp-development"
+    amd: "rocm-parakeet-cpp-development"
+    vulkan: "vulkan-parakeet-cpp-development"
+    nvidia-l4t: "nvidia-l4t-arm64-parakeet-cpp-development"
+    nvidia-cuda-13: "cuda13-parakeet-cpp-development"
+    nvidia-cuda-12: "cuda12-parakeet-cpp-development"
+    nvidia-l4t-cuda-12: "nvidia-l4t-arm64-parakeet-cpp-development"
+    nvidia-l4t-cuda-13: "cuda13-nvidia-l4t-arm64-parakeet-cpp-development"
+- !!merge <<: *parakeetcpp
+  name: "nvidia-l4t-arm64-parakeet-cpp"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-nvidia-l4t-arm64-parakeet-cpp"
+  mirrors:
+    - localai/localai-backends:latest-nvidia-l4t-arm64-parakeet-cpp
+- !!merge <<: *parakeetcpp
+  name: "nvidia-l4t-arm64-parakeet-cpp-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-nvidia-l4t-arm64-parakeet-cpp"
+  mirrors:
+    - localai/localai-backends:master-nvidia-l4t-arm64-parakeet-cpp
+- !!merge <<: *parakeetcpp
+  name: "cuda13-nvidia-l4t-arm64-parakeet-cpp"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-nvidia-l4t-cuda-13-arm64-parakeet-cpp"
+  mirrors:
+    - localai/localai-backends:latest-nvidia-l4t-cuda-13-arm64-parakeet-cpp
+- !!merge <<: *parakeetcpp
+  name: "cuda13-nvidia-l4t-arm64-parakeet-cpp-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-nvidia-l4t-cuda-13-arm64-parakeet-cpp"
+  mirrors:
+    - localai/localai-backends:master-nvidia-l4t-cuda-13-arm64-parakeet-cpp
+- !!merge <<: *parakeetcpp
+  name: "cpu-parakeet-cpp"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-cpu-parakeet-cpp"
+  mirrors:
+    - localai/localai-backends:latest-cpu-parakeet-cpp
+- !!merge <<: *parakeetcpp
+  name: "cpu-parakeet-cpp-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-cpu-parakeet-cpp"
+  mirrors:
+    - localai/localai-backends:master-cpu-parakeet-cpp
+- !!merge <<: *parakeetcpp
+  name: "metal-parakeet-cpp"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-metal-darwin-arm64-parakeet-cpp"
+  mirrors:
+    - localai/localai-backends:latest-metal-darwin-arm64-parakeet-cpp
+- !!merge <<: *parakeetcpp
+  name: "metal-parakeet-cpp-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-metal-darwin-arm64-parakeet-cpp"
+  mirrors:
+    - localai/localai-backends:master-metal-darwin-arm64-parakeet-cpp
+- !!merge <<: *parakeetcpp
+  name: "cuda12-parakeet-cpp"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-nvidia-cuda-12-parakeet-cpp"
+  mirrors:
+    - localai/localai-backends:latest-gpu-nvidia-cuda-12-parakeet-cpp
+- !!merge <<: *parakeetcpp
+  name: "cuda12-parakeet-cpp-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-nvidia-cuda-12-parakeet-cpp"
+  mirrors:
+    - localai/localai-backends:master-gpu-nvidia-cuda-12-parakeet-cpp
+- !!merge <<: *parakeetcpp
+  name: "rocm-parakeet-cpp"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-rocm-hipblas-parakeet-cpp"
+  mirrors:
+    - localai/localai-backends:latest-gpu-rocm-hipblas-parakeet-cpp
+- !!merge <<: *parakeetcpp
+  name: "rocm-parakeet-cpp-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-rocm-hipblas-parakeet-cpp"
+  mirrors:
+    - localai/localai-backends:master-gpu-rocm-hipblas-parakeet-cpp
+- !!merge <<: *parakeetcpp
+  name: "intel-sycl-f32-parakeet-cpp"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-intel-sycl-f32-parakeet-cpp"
+  mirrors:
+    - localai/localai-backends:latest-gpu-intel-sycl-f32-parakeet-cpp
+- !!merge <<: *parakeetcpp
+  name: "intel-sycl-f32-parakeet-cpp-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-intel-sycl-f32-parakeet-cpp"
+  mirrors:
+    - localai/localai-backends:master-gpu-intel-sycl-f32-parakeet-cpp
+- !!merge <<: *parakeetcpp
+  name: "intel-sycl-f16-parakeet-cpp"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-intel-sycl-f16-parakeet-cpp"
+  mirrors:
+    - localai/localai-backends:latest-gpu-intel-sycl-f16-parakeet-cpp
+- !!merge <<: *parakeetcpp
+  name: "intel-sycl-f16-parakeet-cpp-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-intel-sycl-f16-parakeet-cpp"
+  mirrors:
+    - localai/localai-backends:master-gpu-intel-sycl-f16-parakeet-cpp
+- !!merge <<: *parakeetcpp
+  name: "vulkan-parakeet-cpp"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-vulkan-parakeet-cpp"
+  mirrors:
+    - localai/localai-backends:latest-gpu-vulkan-parakeet-cpp
+- !!merge <<: *parakeetcpp
+  name: "vulkan-parakeet-cpp-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-vulkan-parakeet-cpp"
+  mirrors:
+    - localai/localai-backends:master-gpu-vulkan-parakeet-cpp
+- !!merge <<: *parakeetcpp
+  name: "cuda13-parakeet-cpp"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-nvidia-cuda-13-parakeet-cpp"
+  mirrors:
+    - localai/localai-backends:latest-gpu-nvidia-cuda-13-parakeet-cpp
+- !!merge <<: *parakeetcpp
+  name: "cuda13-parakeet-cpp-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-nvidia-cuda-13-parakeet-cpp"
+  mirrors:
+    - localai/localai-backends:master-gpu-nvidia-cuda-13-parakeet-cpp
 ## stablediffusion-ggml
 - !!merge <<: *stablediffusionggml
   name: "cpu-stablediffusion-ggml"
@@ -2368,6 +2692,99 @@
   uri: "quay.io/go-skynet/local-ai-backends:master-gpu-vulkan-sam3-cpp"
   mirrors:
     - localai/localai-backends:master-gpu-vulkan-sam3-cpp
+## rfdetr-cpp
+- !!merge <<: *rfdetrcpp
+  name: "rfdetr-cpp-development"
+  capabilities:
+    default: "cpu-rfdetr-cpp-development"
+    nvidia: "cuda12-rfdetr-cpp-development"
+    nvidia-cuda-12: "cuda12-rfdetr-cpp-development"
+    nvidia-cuda-13: "cuda13-rfdetr-cpp-development"
+    nvidia-l4t: "nvidia-l4t-arm64-rfdetr-cpp-development"
+    nvidia-l4t-cuda-12: "nvidia-l4t-arm64-rfdetr-cpp-development"
+    nvidia-l4t-cuda-13: "cuda13-nvidia-l4t-arm64-rfdetr-cpp-development"
+    intel: "intel-sycl-f32-rfdetr-cpp-development"
+    vulkan: "vulkan-rfdetr-cpp-development"
+- !!merge <<: *rfdetrcpp
+  name: "cpu-rfdetr-cpp"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-cpu-rfdetr-cpp"
+  mirrors:
+    - localai/localai-backends:latest-cpu-rfdetr-cpp
+- !!merge <<: *rfdetrcpp
+  name: "cpu-rfdetr-cpp-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-cpu-rfdetr-cpp"
+  mirrors:
+    - localai/localai-backends:master-cpu-rfdetr-cpp
+- !!merge <<: *rfdetrcpp
+  name: "cuda12-rfdetr-cpp"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-nvidia-cuda-12-rfdetr-cpp"
+  mirrors:
+    - localai/localai-backends:latest-gpu-nvidia-cuda-12-rfdetr-cpp
+- !!merge <<: *rfdetrcpp
+  name: "cuda12-rfdetr-cpp-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-nvidia-cuda-12-rfdetr-cpp"
+  mirrors:
+    - localai/localai-backends:master-gpu-nvidia-cuda-12-rfdetr-cpp
+- !!merge <<: *rfdetrcpp
+  name: "cuda13-rfdetr-cpp"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-nvidia-cuda-13-rfdetr-cpp"
+  mirrors:
+    - localai/localai-backends:latest-gpu-nvidia-cuda-13-rfdetr-cpp
+- !!merge <<: *rfdetrcpp
+  name: "cuda13-rfdetr-cpp-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-nvidia-cuda-13-rfdetr-cpp"
+  mirrors:
+    - localai/localai-backends:master-gpu-nvidia-cuda-13-rfdetr-cpp
+- !!merge <<: *rfdetrcpp
+  name: "nvidia-l4t-arm64-rfdetr-cpp"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-nvidia-l4t-arm64-rfdetr-cpp"
+  mirrors:
+    - localai/localai-backends:latest-nvidia-l4t-arm64-rfdetr-cpp
+- !!merge <<: *rfdetrcpp
+  name: "nvidia-l4t-arm64-rfdetr-cpp-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-nvidia-l4t-arm64-rfdetr-cpp"
+  mirrors:
+    - localai/localai-backends:master-nvidia-l4t-arm64-rfdetr-cpp
+- !!merge <<: *rfdetrcpp
+  name: "cuda13-nvidia-l4t-arm64-rfdetr-cpp"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-nvidia-l4t-cuda-13-arm64-rfdetr-cpp"
+  mirrors:
+    - localai/localai-backends:latest-nvidia-l4t-cuda-13-arm64-rfdetr-cpp
+- !!merge <<: *rfdetrcpp
+  name: "cuda13-nvidia-l4t-arm64-rfdetr-cpp-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-nvidia-l4t-cuda-13-arm64-rfdetr-cpp"
+  mirrors:
+    - localai/localai-backends:master-nvidia-l4t-cuda-13-arm64-rfdetr-cpp
+- !!merge <<: *rfdetrcpp
+  name: "intel-sycl-f32-rfdetr-cpp"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-intel-sycl-f32-rfdetr-cpp"
+  mirrors:
+    - localai/localai-backends:latest-gpu-intel-sycl-f32-rfdetr-cpp
+- !!merge <<: *rfdetrcpp
+  name: "intel-sycl-f32-rfdetr-cpp-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-intel-sycl-f32-rfdetr-cpp"
+  mirrors:
+    - localai/localai-backends:master-gpu-intel-sycl-f32-rfdetr-cpp
+- !!merge <<: *rfdetrcpp
+  name: "intel-sycl-f16-rfdetr-cpp"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-intel-sycl-f16-rfdetr-cpp"
+  mirrors:
+    - localai/localai-backends:latest-gpu-intel-sycl-f16-rfdetr-cpp
+- !!merge <<: *rfdetrcpp
+  name: "intel-sycl-f16-rfdetr-cpp-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-intel-sycl-f16-rfdetr-cpp"
+  mirrors:
+    - localai/localai-backends:master-gpu-intel-sycl-f16-rfdetr-cpp
+- !!merge <<: *rfdetrcpp
+  name: "vulkan-rfdetr-cpp"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-vulkan-rfdetr-cpp"
+  mirrors:
+    - localai/localai-backends:latest-gpu-vulkan-rfdetr-cpp
+- !!merge <<: *rfdetrcpp
+  name: "vulkan-rfdetr-cpp-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-vulkan-rfdetr-cpp"
+  mirrors:
+    - localai/localai-backends:master-gpu-vulkan-rfdetr-cpp
 ## Rerankers
 - !!merge <<: *rerankers
   name: "rerankers-development"

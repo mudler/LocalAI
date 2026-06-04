@@ -1118,6 +1118,117 @@
                 }
             }
         },
+        "/api/pii/decide": {
+            "post": {
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "pii"
+                ],
+                "summary": "Scan text for PII and return findings + suggested action (decision oracle)",
+                "parameters": [
+                    {
+                        "description": "decide params",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/schema.PIIDecideRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/schema.PIIDecideResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/router/decide": {
+            "post": {
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "router"
+                ],
+                "summary": "Classify a prompt against a router model's policies (decision oracle)",
+                "parameters": [
+                    {
+                        "description": "decide params",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/schema.RouterDecideRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/schema.RouterDecideResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "503": {
+                        "description": "Service Unavailable",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/api/traces": {
             "get": {
                 "description": "Returns captured API exchange traces (request/response pairs) in reverse chronological order",
@@ -2943,6 +3054,30 @@
                 },
                 "url": {
                     "type": "string"
+                },
+                "verification": {
+                    "$ref": "#/definitions/config.GalleryVerification"
+                }
+            }
+        },
+        "config.GalleryVerification": {
+            "type": "object",
+            "properties": {
+                "identity": {
+                    "type": "string"
+                },
+                "identity_regex": {
+                    "type": "string"
+                },
+                "issuer": {
+                    "type": "string"
+                },
+                "issuer_regex": {
+                    "type": "string"
+                },
+                "not_before": {
+                    "description": "NotBefore is an RFC3339 timestamp. Empty disables the time check.",
+                    "type": "string"
                 }
             }
         },
@@ -3209,6 +3344,38 @@
                 }
             }
         },
+        "galleryop.NodeProgress": {
+            "type": "object",
+            "properties": {
+                "current": {
+                    "type": "string"
+                },
+                "error": {
+                    "type": "string"
+                },
+                "file_name": {
+                    "type": "string"
+                },
+                "node_id": {
+                    "type": "string"
+                },
+                "node_name": {
+                    "type": "string"
+                },
+                "percentage": {
+                    "type": "number"
+                },
+                "phase": {
+                    "type": "string"
+                },
+                "status": {
+                    "type": "string"
+                },
+                "total": {
+                    "type": "string"
+                }
+            }
+        },
         "galleryop.OpStatus": {
             "type": "object",
             "properties": {
@@ -3227,7 +3394,6 @@
                 "downloaded_size": {
                     "type": "string"
                 },
-                "error": {},
                 "file_name": {
                     "type": "string"
                 },
@@ -3239,6 +3405,13 @@
                 },
                 "message": {
                     "type": "string"
+                },
+                "nodes": {
+                    "description": "Nodes is the per-node breakdown for a fanned-out backend install.\nPopulated by DistributedBackendManager (per-node terminal status)\nand by the Phase 2 progress bridge (per-byte ticks). The\n/api/operations handler surfaces this so the UI can render an\nexpandable per-node view of an in-flight install.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/galleryop.NodeProgress"
+                    }
                 },
                 "processed": {
                     "type": "boolean"
@@ -4643,27 +4816,6 @@
                     "description": "The message role",
                     "type": "string"
                 },
-                "string_audios": {
-                    "type": "array",
-                    "items": {
-                        "type": "string"
-                    }
-                },
-                "string_content": {
-                    "type": "string"
-                },
-                "string_images": {
-                    "type": "array",
-                    "items": {
-                        "type": "string"
-                    }
-                },
-                "string_videos": {
-                    "type": "array",
-                    "items": {
-                        "type": "string"
-                    }
-                },
                 "tool_call_id": {
                     "type": "string"
                 },
@@ -5257,6 +5409,10 @@
                         }
                     ]
                 },
+                "max_completion_tokens": {
+                    "description": "MaxCompletionTokens is the modern alias for max_tokens\n(OpenAI deprecated max_tokens; gpt-5 / o-series reject it).\nAccepted on the wire so up-to-date clients can use the new\nname; the request middleware collapses it into Maxtokens so\ninternal code reads exactly one field.",
+                    "type": "integer"
+                },
                 "max_tokens": {
                     "type": "integer"
                 },
@@ -5588,6 +5744,109 @@
                 }
             }
         },
+        "schema.PIIDecideRequest": {
+            "type": "object",
+            "properties": {
+                "text": {
+                    "description": "Text is the user-visible content to inspect. Required.",
+                    "type": "string"
+                }
+            }
+        },
+        "schema.PIIDecideResponse": {
+            "type": "object",
+            "properties": {
+                "findings": {
+                    "description": "Findings is one entry per matched span — pattern id, byte\nrange, and audit-safe hash prefix (never the matched value).",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.PIIFinding"
+                    }
+                },
+                "redacted_preview": {
+                    "description": "RedactedPreview is the input with mask-action spans replaced\nby their placeholders. Identical to Text when no findings or\nwhen the strongest action is block/route_local (which don't\nrewrite content).",
+                    "type": "string"
+                },
+                "suggested_action": {
+                    "description": "SuggestedAction is the strongest action across all findings:\n\"block\", \"route_local\", \"mask\", or \"allow\" (no findings).",
+                    "type": "string"
+                }
+            }
+        },
+        "schema.PIIFinding": {
+            "type": "object",
+            "properties": {
+                "end": {
+                    "type": "integer"
+                },
+                "hash_prefix": {
+                    "type": "string"
+                },
+                "pattern": {
+                    "type": "string"
+                },
+                "start": {
+                    "type": "integer"
+                }
+            }
+        },
+        "schema.RouterDecideRequest": {
+            "type": "object",
+            "properties": {
+                "input": {
+                    "description": "Input is the user-visible prompt text to classify. Required.\nSchema-shape extraction (chat-message concatenation, etc.) is\nthe caller's responsibility — matches the Probe contract used\nby the in-band middleware.",
+                    "type": "string"
+                },
+                "router": {
+                    "description": "Router is the name of the router model (a ModelConfig with a\n`router:` block). Required.",
+                    "type": "string"
+                }
+            }
+        },
+        "schema.RouterDecideResponse": {
+            "type": "object",
+            "properties": {
+                "cache_similarity": {
+                    "description": "CacheSimilarity carries the cosine similarity of the cache hit\n(0 when not cached).",
+                    "type": "number"
+                },
+                "cached": {
+                    "description": "Cached is true when the decision came from the L2 embedding\ncache rather than a fresh classifier run.",
+                    "type": "boolean"
+                },
+                "candidate": {
+                    "description": "Candidate is the model that would be routed to. Empty when no\ncandidate covers Labels AND no fallback is configured.",
+                    "type": "string"
+                },
+                "classifier": {
+                    "description": "Classifier is the classifier name that produced the decision\n(e.g. \"score\").",
+                    "type": "string"
+                },
+                "fallback": {
+                    "description": "Fallback is true when Candidate is the router's configured\nfallback because no candidate covered Labels. Lets callers\ndistinguish \"matched\" from \"fell back\" without comparing names.",
+                    "type": "boolean"
+                },
+                "labels": {
+                    "description": "Labels is the set of active policy labels.",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "latency_ms": {
+                    "description": "LatencyMs is the classifier's wall-clock cost.",
+                    "type": "integer"
+                },
+                "router": {
+                    "description": "Router echoes the requested router model.",
+                    "type": "string"
+                },
+                "score": {
+                    "description": "Score is the top label's softmax probability (the\nclassifier-side confidence signal).",
+                    "type": "number"
+                }
+            }
+        },
         "schema.StreamOptions": {
             "type": "object",
             "properties": {
@@ -5635,12 +5894,23 @@
                     "description": "text input",
                     "type": "string"
                 },
+                "instructions": {
+                    "description": "Instructions is a free-form, per-request style/voice description. It maps to\nthe OpenAI `instructions` field and is forwarded to the backend so expressive\nTTS models (e.g. Qwen3-TTS CustomVoice/VoiceDesign) can vary tone or designed\nvoice per request instead of only via the static YAML option.",
+                    "type": "string"
+                },
                 "language": {
                     "description": "(optional) language to use with TTS model",
                     "type": "string"
                 },
                 "model": {
                     "type": "string"
+                },
+                "params": {
+                    "description": "Params carries optional, backend-specific per-request generation parameters\n(LocalAI extension, e.g. Chatterbox exaggeration/cfg_weight/temperature).",
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    }
                 },
                 "response_format": {
                     "description": "(optional) output format",

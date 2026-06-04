@@ -180,6 +180,10 @@ func (f *fakeGRPCBackend) AudioToAudioStream(_ context.Context, _ ...ggrpc.CallO
 	return nil, nil
 }
 
+func (f *fakeGRPCBackend) Forward(_ context.Context, _ ...ggrpc.CallOption) (grpc.ForwardClient, error) {
+	return nil, nil
+}
+
 func (f *fakeGRPCBackend) ModelMetadata(_ context.Context, _ *pb.ModelOptions, _ ...ggrpc.CallOption) (*pb.ModelMetadataResponse, error) {
 	return &pb.ModelMetadataResponse{}, nil
 }
@@ -218,6 +222,14 @@ func (f *fakeGRPCBackend) StopQuantization(_ context.Context, _ *pb.Quantization
 
 func (f *fakeGRPCBackend) Free(_ context.Context) error {
 	return nil
+}
+
+func (f *fakeGRPCBackend) TokenClassify(_ context.Context, _ *pb.TokenClassifyRequest, _ ...ggrpc.CallOption) (*pb.TokenClassifyResponse, error) {
+	return nil, nil
+}
+
+func (f *fakeGRPCBackend) Score(_ context.Context, _ *pb.ScoreRequest, _ ...ggrpc.CallOption) (*pb.ScoreResponse, error) {
+	return nil, nil
 }
 
 // --- Tests ---

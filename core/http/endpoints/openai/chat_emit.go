@@ -4,9 +4,38 @@ import (
 	"encoding/json"
 	"fmt"
 
+	"github.com/mudler/LocalAI/core/backend"
 	"github.com/mudler/LocalAI/core/schema"
 	"github.com/mudler/LocalAI/pkg/functions"
 )
+
+// streamWorkerResult is what the streaming workers (process / processTools)
+// hand back to the outer ChatEndpoint loop through the `ended` channel.
+// Threading the final TokenUsage here, instead of piggy-backing it on the
+// `responses` SSE channel, keeps the SSE channel single-purpose (wire chunks)
+// and gives the trailer emitter a plain Go value to read after LOOP exits.
+// Fix for issue #9927: the previous tools-path worker never surfaced the
+// cumulative token counts at all, so the include_usage trailer reported zeros.
+type streamWorkerResult struct {
+	usage backend.TokenUsage
+	err   error
+}
+
+// streamUsageFromTokenUsage converts the backend's cumulative TokenUsage into
+// the OpenAI-spec OpenAIUsage shape used on the wire. `extraUsage` controls
+// whether the non-standard timing fields are forwarded.
+func streamUsageFromTokenUsage(usage backend.TokenUsage, extraUsage bool) schema.OpenAIUsage {
+	out := schema.OpenAIUsage{
+		PromptTokens:     usage.Prompt,
+		CompletionTokens: usage.Completion,
+		TotalTokens:      usage.Prompt + usage.Completion,
+	}
+	if extraUsage {
+		out.TimingTokenGeneration = usage.TimingTokenGeneration
+		out.TimingPromptProcessing = usage.TimingPromptProcessing
+	}
+	return out
+}
 
 // streamUsageTrailerJSON returns the bytes of the OpenAI-spec trailing usage
 // chunk emitted in streaming completions when the request opts in via

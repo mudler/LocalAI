@@ -97,7 +97,8 @@
   },
   "toasts": {
     "selectModel": "Bitte wählen Sie ein Modell",
-    "copied": "In die Zwischenablage kopiert"
+    "copied": "In die Zwischenablage kopiert",
+    "copyFailed": "Kopieren in die Zwischenablage fehlgeschlagen"
   },
   "menu": {
     "trigger": "Chats",

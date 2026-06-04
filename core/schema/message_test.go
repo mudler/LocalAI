@@ -255,6 +255,59 @@ var _ = Describe("LLM tests", func() {
 			Expect(protoMessages[0].ReasoningContent).To(Equal("thinking..."))
 		})
 
+		It("should not leak unset LocalAI-only or cross-endpoint request fields into JSON", func() {
+			// OpenAIRequest is a union over chat / completion /
+			// embedding / image / whisper. Strict upstream providers
+			// (OpenAI, Anthropic) 400 on unknown parameters when
+			// cloud-proxy passthrough re-marshals a chat request and
+			// whisper's `file`, image's `step`, embedding's `input`,
+			// etc. tag along as empty zero values.
+			req := OpenAIRequest{}
+			req.Model = "gpt-4"
+			data, err := json.Marshal(req)
+			Expect(err).NotTo(HaveOccurred())
+			body := string(data)
+			// Anchor with the trailing `:` so e.g. `"stream"` doesn't
+			// false-match `"stream_options"` if a future test setup
+			// populates the latter.
+			for _, key := range []string{
+				// LocalAI-only fields
+				`"backend":`, `"grammar":`, `"grammar_json_functions":`,
+				`"model_base_name":`, `"reasoning_effort":`,
+				// Cross-endpoint fields that don't belong on chat
+				`"file":`, `"size":`, `"prompt":`, `"instruction":`,
+				`"input":`, `"stop":`, `"messages":`, `"functions":`,
+				`"function_call":`, `"stream":`, `"quality":`, `"step":`,
+				`"metadata":`,
+			} {
+				Expect(body).NotTo(ContainSubstring(key), "unset field "+key+" must not appear in marshalled JSON")
+			}
+		})
+
+		It("should not leak internal String* staging fields into JSON", func() {
+			// Regression: the request middleware copies decoded
+			// Content into StringContent/StringImages/etc. for
+			// templating. When cloud-proxy passthrough re-marshals
+			// the request, strict providers (Anthropic) 400 with
+			// "messages.0.string_content: Extra inputs are not
+			// permitted" if these leak.
+			msg := Message{
+				Role:          "user",
+				Content:       "Hello",
+				StringContent: "Hello",
+				StringImages:  []string{"base64-blob"},
+				StringVideos:  []string{"base64-blob"},
+				StringAudios:  []string{"base64-blob"},
+			}
+			data, err := json.Marshal(msg)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(string(data)).NotTo(ContainSubstring("string_content"))
+			Expect(string(data)).NotTo(ContainSubstring("string_images"))
+			Expect(string(data)).NotTo(ContainSubstring("string_videos"))
+			Expect(string(data)).NotTo(ContainSubstring("string_audios"))
+			Expect(string(data)).To(ContainSubstring(`"content":"Hello"`))
+		})
+
 		It("should handle message with array content containing non-text parts", func() {
 			messages := Messages{
 				{
@@ -277,6 +330,42 @@ var _ = Describe("LLM tests", func() {
 			Expect(protoMessages).To(HaveLen(1))
 			Expect(protoMessages[0].Role).To(Equal("user"))
 			// Should only extract text parts
+			Expect(protoMessages[0].Content).To(Equal("Hello"))
+		})
+
+		// Regression for mudler/LocalAI#10039: ToProto is the path taken by
+		// UseTokenizerTemplate backends (e.g. imported GGUFs, where the backend
+		// applies the GGUF's jinja template to the raw messages). It reads
+		// Content, not StringContent — so a message that only populated
+		// StringContent (the shape /v1/responses produced before the fix)
+		// reached the backend with empty content. These two cases pin that
+		// contract: Content is authoritative, and producers must set it.
+		It("emits empty content when only StringContent is set (Content nil)", func() {
+			messages := Messages{
+				{
+					Role:          "user",
+					StringContent: "Hello",
+				},
+			}
+
+			protoMessages := messages.ToProto()
+
+			Expect(protoMessages).To(HaveLen(1))
+			Expect(protoMessages[0].Content).To(BeEmpty())
+		})
+
+		It("carries Content through to proto regardless of StringContent", func() {
+			messages := Messages{
+				{
+					Role:          "user",
+					Content:       "Hello",
+					StringContent: "Hello",
+				},
+			}
+
+			protoMessages := messages.ToProto()
+
+			Expect(protoMessages).To(HaveLen(1))
 			Expect(protoMessages[0].Content).To(Equal("Hello"))
 		})
 	})

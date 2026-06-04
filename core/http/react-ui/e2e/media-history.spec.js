@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test'
+import { test, expect } from './coverage-fixtures.js'
 
 function mockCapabilities(page, capabilities) {
   return page.route('**/api/models/capabilities', (route) => {

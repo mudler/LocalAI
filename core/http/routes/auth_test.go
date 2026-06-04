@@ -286,6 +286,45 @@ func newTestAuthApp(db *gorm.DB, appConfig *config.ApplicationConfig) *echo.Echo
 		return c.JSON(http.StatusOK, map[string]string{"message": "user deleted"})
 	}, adminMw)
 
+	// Mirror of production handler in routes/auth.go GET /api/auth/usage/sources.
+	// Keep this body in sync with the real handler; this test app cannot call
+	// RegisterAuthRoutes because it needs a *application.Application.
+	e.GET("/api/auth/usage/sources", func(c echo.Context) error {
+		user := auth.GetUser(c)
+		if user == nil {
+			return c.JSON(http.StatusUnauthorized, map[string]string{"error": "not authenticated"})
+		}
+		period := c.QueryParam("period")
+		if period == "" {
+			period = "month"
+		}
+		buckets, totals, err := auth.GetUserUsageBySource(db, user.ID, period)
+		if err != nil {
+			return c.JSON(http.StatusInternalServerError, map[string]string{"error": "failed to get usage"})
+		}
+		return c.JSON(http.StatusOK, map[string]any{
+			"buckets": buckets, "totals": totals, "truncated": false,
+		})
+	})
+
+	// Mirror of production handler in routes/auth.go GET /api/auth/admin/usage/sources.
+	// Keep this body in sync with the real handler.
+	e.GET("/api/auth/admin/usage/sources", func(c echo.Context) error {
+		period := c.QueryParam("period")
+		if period == "" {
+			period = "month"
+		}
+		userID := c.QueryParam("user_id")
+		apiKeyID := c.QueryParam("api_key_id")
+		buckets, totals, truncated, err := auth.GetAllUsageBySource(db, period, userID, apiKeyID)
+		if err != nil {
+			return c.JSON(http.StatusInternalServerError, map[string]string{"error": "failed to get usage"})
+		}
+		return c.JSON(http.StatusOK, map[string]any{
+			"buckets": buckets, "totals": totals, "truncated": truncated,
+		})
+	}, adminMw)
+
 	// Regular API endpoint for testing
 	e.POST("/v1/chat/completions", func(c echo.Context) error {
 		return c.String(http.StatusOK, "ok")
@@ -929,6 +968,112 @@ var _ = Describe("Auth Routes", Label("auth"), func() {
 			providers := resp["providers"].([]any)
 			Expect(providers).To(ContainElement(auth.ProviderLocal))
 			Expect(providers).To(ContainElement(auth.ProviderGitHub))
+		})
+	})
+
+	Describe("GET /api/auth/usage/sources", func() {
+		It("returns only the caller's data, never legacy", func() {
+			app := newTestAuthApp(db, appConfig)
+
+			alice := createRouteTestUser(db, "alice@example.com", auth.RoleUser)
+			aliceToken, err := auth.CreateSession(db, alice.ID, "")
+			Expect(err).ToNot(HaveOccurred())
+
+			keyID := "k-alice"
+			now := time.Now()
+			Expect(auth.RecordUsage(db, &auth.UsageRecord{
+				UserID: alice.ID, Source: auth.UsageSourceAPIKey,
+				APIKeyID: &keyID, APIKeyName: "alice-key",
+				Model: "gpt-4", TotalTokens: 100, CreatedAt: now,
+			})).To(Succeed())
+			Expect(auth.RecordUsage(db, &auth.UsageRecord{
+				UserID: alice.ID, Source: auth.UsageSourceWeb,
+				Model: "gpt-4", TotalTokens: 50, CreatedAt: now,
+			})).To(Succeed())
+			Expect(auth.RecordUsage(db, &auth.UsageRecord{
+				UserID: "legacy-api-key", Source: auth.UsageSourceLegacy,
+				Model: "gpt-4", TotalTokens: 30, CreatedAt: now,
+			})).To(Succeed())
+
+			rec := doAuthRequest(app, http.MethodGet, "/api/auth/usage/sources?period=month", nil, withSession(aliceToken))
+			Expect(rec.Code).To(Equal(http.StatusOK))
+
+			var resp struct {
+				Buckets   []auth.UsageBucket `json:"buckets"`
+				Totals    auth.SourceTotals  `json:"totals"`
+				Truncated bool               `json:"truncated"`
+			}
+			Expect(json.Unmarshal(rec.Body.Bytes(), &resp)).To(Succeed())
+			_, hasLegacy := resp.Totals.BySource[auth.UsageSourceLegacy]
+			Expect(hasLegacy).To(BeFalse())
+			Expect(resp.Totals.GrandTotal.Tokens).To(Equal(int64(150)))
+			Expect(resp.Truncated).To(BeFalse())
+		})
+
+		It("returns 401 when unauthenticated", func() {
+			app := newTestAuthApp(db, appConfig)
+
+			// Without a session cookie or bearer token, the global auth middleware
+			// should refuse the request before our handler runs.
+			rec := doAuthRequest(app, http.MethodGet, "/api/auth/usage/sources?period=month", nil)
+			Expect(rec.Code).To(Equal(http.StatusUnauthorized))
+		})
+	})
+
+	Describe("GET /api/auth/admin/usage/sources", func() {
+		It("returns 403 for non-admin", func() {
+			app := newTestAuthApp(db, appConfig)
+
+			alice := createRouteTestUser(db, "alice@example.com", auth.RoleUser)
+			aliceToken, _ := auth.CreateSession(db, alice.ID, "")
+
+			rec := doAuthRequest(app, http.MethodGet, "/api/auth/admin/usage/sources?period=month", nil, withSession(aliceToken))
+			Expect(rec.Code).To(Equal(http.StatusForbidden))
+		})
+
+		It("returns legacy bucket for admin and applies api_key_id filter", func() {
+			app := newTestAuthApp(db, appConfig)
+
+			admin := createRouteTestUser(db, "admin@example.com", auth.RoleAdmin)
+			adminToken, _ := auth.CreateSession(db, admin.ID, "")
+
+			k1 := "k1"
+			k2 := "k2"
+			now := time.Now()
+			Expect(auth.RecordUsage(db, &auth.UsageRecord{UserID: "alice", Source: auth.UsageSourceAPIKey, APIKeyID: &k1, APIKeyName: "ci", Model: "gpt-4", TotalTokens: 10, CreatedAt: now})).To(Succeed())
+			Expect(auth.RecordUsage(db, &auth.UsageRecord{UserID: "alice", Source: auth.UsageSourceAPIKey, APIKeyID: &k2, APIKeyName: "lap", Model: "gpt-4", TotalTokens: 20, CreatedAt: now})).To(Succeed())
+			Expect(auth.RecordUsage(db, &auth.UsageRecord{UserID: "legacy-api-key", Source: auth.UsageSourceLegacy, Model: "gpt-4", TotalTokens: 5, CreatedAt: now})).To(Succeed())
+
+			rec := doAuthRequest(app, http.MethodGet,
+				"/api/auth/admin/usage/sources?period=month&api_key_id=k2", nil, withSession(adminToken))
+			Expect(rec.Code).To(Equal(http.StatusOK))
+
+			var resp struct {
+				Totals    auth.SourceTotals `json:"totals"`
+				Truncated bool              `json:"truncated"`
+			}
+			Expect(json.Unmarshal(rec.Body.Bytes(), &resp)).To(Succeed())
+			Expect(resp.Totals.GrandTotal.Tokens).To(Equal(int64(20)))
+		})
+
+		It("includes legacy in by_source for admin with no filter", func() {
+			app := newTestAuthApp(db, appConfig)
+
+			admin := createRouteTestUser(db, "admin@example.com", auth.RoleAdmin)
+			adminToken, _ := auth.CreateSession(db, admin.ID, "")
+
+			now := time.Now()
+			Expect(auth.RecordUsage(db, &auth.UsageRecord{UserID: "legacy-api-key", Source: auth.UsageSourceLegacy, Model: "gpt-4", TotalTokens: 7, CreatedAt: now})).To(Succeed())
+
+			rec := doAuthRequest(app, http.MethodGet, "/api/auth/admin/usage/sources?period=month", nil, withSession(adminToken))
+			Expect(rec.Code).To(Equal(http.StatusOK))
+
+			var resp struct {
+				Totals auth.SourceTotals `json:"totals"`
+			}
+			Expect(json.Unmarshal(rec.Body.Bytes(), &resp)).To(Succeed())
+			Expect(resp.Totals.BySource).To(HaveKey(auth.UsageSourceLegacy))
+			Expect(resp.Totals.BySource[auth.UsageSourceLegacy].Tokens).To(Equal(int64(7)))
 		})
 	})
 })

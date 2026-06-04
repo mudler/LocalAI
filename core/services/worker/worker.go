@@ -15,6 +15,7 @@ import (
 	"github.com/mudler/LocalAI/core/cli/workerregistry"
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/gallery"
+
 	"github.com/mudler/LocalAI/core/services/messaging"
 	"github.com/mudler/LocalAI/core/services/nodes"
 	grpc "github.com/mudler/LocalAI/pkg/grpc"
@@ -50,16 +51,80 @@ func Run(ctx *cliContext.Context, cfg *Config) error {
 		xlog.Warn("Failed to parse backend galleries", "error", err)
 	}
 
+	// Prefetch gallery models over the worker's outbound internet before we
+	// start accepting backend.install events. Non-fatal on every failure path:
+	// if the gallery is unreachable, an ID is unknown, or LOCALAI_GALLERIES is
+	// malformed, the worker still starts and the master can push files on
+	// demand (existing fallback behaviour). Placed BEFORE registration so a
+	// large download doesn't delay heartbeat — registration happens after.
+	// Actually: keep it before registration so a worker that's still warming
+	// the cache isn't yet announced as ready. The fast no-op path on a hot
+	// PVC keeps restarts cheap.
+	prefetchModels(context.Background(), cfg, systemState, ml, galleries, nil)
+
 	// Self-registration with frontend (with retry)
 	regClient := &workerregistry.RegistrationClient{
 		FrontendURL:       cfg.RegisterTo,
 		RegistrationToken: cfg.RegistrationToken,
 	}
 
+	// Context cancelled on shutdown — used by registration waits, heartbeat, and
+	// other background goroutines.
+	shutdownCtx, shutdownCancel := context.WithCancel(context.Background())
+	defer shutdownCancel()
+
 	registrationBody := cfg.registrationBody()
-	nodeID, _, err := regClient.RegisterWithRetry(context.Background(), registrationBody, 10)
-	if err != nil {
-		return fmt.Errorf("failed to register with frontend: %w", err)
+	natsTLS := messaging.TLSFiles{CA: cfg.NatsTLSCA, Cert: cfg.NatsTLSCert, Key: cfg.NatsTLSKey}
+
+	// Resolve how to connect to NATS. Static env credentials cannot be re-minted,
+	// so register once and use them directly. Otherwise the credential manager
+	// (re)registers to obtain credentials — waiting through admin approval — and
+	// refreshes them before the minted JWT expires, so the connection survives
+	// expiry via a transparent reconnect.
+	var (
+		nodeID      string
+		connectNats func() (*messaging.Client, error)
+	)
+	if cfg.NatsJWT != "" || cfg.NatsUserSeed != "" {
+		nid, _, _, _, regErr := regClient.RegisterWithRetry(shutdownCtx, registrationBody, 10)
+		if regErr != nil {
+			return fmt.Errorf("failed to register with frontend: %w", regErr)
+		}
+		nodeID = nid
+		connectNats = func() (*messaging.Client, error) {
+			return connectNATS(cfg.NatsURL, cfg.NatsJWT, cfg.NatsUserSeed, "", "", cfg.NatsRequireAuth, natsTLS)
+		}
+	} else {
+		credMgr := workerregistry.NewNATSCredentialManager(
+			func(ctx context.Context) (*workerregistry.RegisterResponse, error) {
+				return regClient.RegisterFull(ctx, registrationBody)
+			},
+			cfg.NatsRequireAuth,
+		)
+		res, regErr := credMgr.Acquire(shutdownCtx)
+		if regErr != nil {
+			return fmt.Errorf("failed to register with frontend: %w", regErr)
+		}
+		nodeID = res.ID
+		connectNats = func() (*messaging.Client, error) {
+			var opts []messaging.Option
+			if credMgr.HasCredentials() {
+				opts = append(opts, messaging.WithUserJWTProvider(credMgr.Provider()))
+			}
+			if natsTLS.Enabled() {
+				opts = append(opts, messaging.WithTLS(natsTLS))
+			}
+			client, cerr := messaging.New(cfg.NatsURL, opts...)
+			if cerr == nil && credMgr.HasCredentials() {
+				go func() {
+					if err := credMgr.RefreshLoop(shutdownCtx); err != nil {
+						xlog.Error("NATS credential refresh permanently failed; shutting down worker", "error", err)
+						shutdownCancel()
+					}
+				}()
+			}
+			return client, cerr
+		}
 	}
 
 	xlog.Info("Registered with frontend", "nodeID", nodeID, "frontend", cfg.RegisterTo)
@@ -68,9 +133,6 @@ func Run(ctx *cliContext.Context, cfg *Config) error {
 		xlog.Warn("invalid heartbeat interval, using default 10s", "input", cfg.HeartbeatInterval, "error", err)
 	}
 	heartbeatInterval = cmp.Or(heartbeatInterval, 10*time.Second)
-	// Context cancelled on shutdown — used by heartbeat and other background goroutines
-	shutdownCtx, shutdownCancel := context.WithCancel(context.Background())
-	defer shutdownCancel()
 
 	// Start HTTP file transfer server
 	httpAddr := cfg.resolveHTTPAddr()
@@ -83,7 +145,7 @@ func Run(ctx *cliContext.Context, cfg *Config) error {
 
 	// Connect to NATS
 	xlog.Info("Connecting to NATS", "url", sanitize.URL(cfg.NatsURL))
-	natsClient, err := messaging.New(cfg.NatsURL)
+	natsClient, err := connectNats()
 	if err != nil {
 		nodes.ShutdownFileTransferServer(httpServer)
 		return fmt.Errorf("connecting to NATS: %w", err)
@@ -143,12 +205,21 @@ func Run(ctx *cliContext.Context, cfg *Config) error {
 	}
 
 	xlog.Info("Worker ready, waiting for backend.install events")
-	<-sigCh
+	// Exit on an OS signal or on an internal fatal condition (e.g. NATS
+	// credentials became unrenewable), so the worker restarts and re-acquires
+	// rather than lingering unable to serve.
+	var runErr error
+	select {
+	case <-sigCh:
+	case <-shutdownCtx.Done():
+		runErr = fmt.Errorf("worker shutting down: NATS credentials unavailable")
+		xlog.Error("Internal shutdown requested", "error", runErr)
+	}
 
 	xlog.Info("Shutting down worker")
 	shutdownCancel() // stop heartbeat loop immediately
 	regClient.GracefulDeregister(nodeID)
 	supervisor.stopAllBackends()
 	nodes.ShutdownFileTransferServer(httpServer)
-	return nil
+	return runErr
 }

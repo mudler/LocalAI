@@ -5,6 +5,8 @@ title = "Fine-tuning LLMs for text generation"
 weight = 22
 +++
 
+![Fine-tuning recipe: from dataset to a servable GGUF via LoRA fine-tune and merge](/images/diagrams/finetune-recipe.png)
+
 {{% notice note %}}
 Section under construction
  {{% /notice %}}

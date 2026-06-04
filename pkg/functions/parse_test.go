@@ -1782,6 +1782,101 @@ value
 				// Results may be empty or contain partial data
 				Expect(len(results)).To(BeNumerically(">=", 0))
 			})
+
+			// Regression: https://github.com/mudler/LocalAI/issues/9988.
+			// The streaming tool-call detector calls ParseJSONIterative on each
+			// new content chunk. If the parser returns a stub object whose only
+			// key is the synthetic healing marker, the caller treats it as
+			// "tool call detected" and gates content emission — qwen3 with
+			// streaming + tools used to leak only the first two characters of
+			// the JSON ("{\"") to clients as a result.
+			// Regression: https://github.com/mudler/LocalAI/issues/9988.
+			// parseJSONWithStack inserts a random-integer healing marker into
+			// keys (and sometimes values) to make a partial input parseable.
+			// Those marker characters must never reach the caller — keys made
+			// entirely of the marker must be dropped, and a marker suffix on a
+			// partial key must be stripped down to the prefix the model
+			// actually typed. Without this the streaming worker sees garbage
+			// keys like `"4310046988783340008"` and mistakes the stub for a
+			// completed tool call, then gates off content emission.
+			DescribeTable("partial JSON starts must not surface healing markers in keys",
+				func(input string) {
+					parser := NewChatMsgParser(input, true)
+					marker := parser.HealingMarker()
+					results, err := ParseJSONIterative(input, true)
+					if err != nil {
+						return
+					}
+					for _, obj := range results {
+						for k := range obj {
+							Expect(k).NotTo(ContainSubstring(marker),
+								"healing marker leaked into key %q for input=%q (full=%+v)", k, input, obj)
+							Expect(k).NotTo(MatchRegexp(`^[A-Za-z]?\d{6,}$`),
+								"key %q looks like a synthetic numeric marker for input=%q (full=%+v)",
+								k, input, obj)
+						}
+					}
+				},
+				Entry("just an opening brace", `{`),
+				Entry("brace + quote", `{"`),
+				Entry("brace + partial key", `{"n`),
+				Entry("brace + quoted partial key", `{"na`),
+				Entry("brace + complete key, no value yet", `{"name"`),
+				Entry("brace + key + colon", `{"name":`),
+				Entry("brace + key + opening quote of value", `{"name":"`),
+				Entry("brace + partial value", `{"name":"ans`),
+			)
+
+			DescribeTable("partial JSON that has not yet committed a tool name must not surface a stub object",
+				// The streaming tool-call detector treats every entry returned
+				// by ParseJSONIterative as a potential new tool call. For very
+				// early partial inputs like `{` or `{"` there is nothing the
+				// caller can act on yet — returning a stub object bumps
+				// lastEmittedCount and gates off content emission.
+				// (Partial-key results like `{"n` → `{"n": 1}` are OK at the
+				// parser level — the streaming caller filters them by
+				// requiring a usable `name` field. See the streaming
+				// defense in chat_stream_workers.go.)
+				func(input string) {
+					results, err := ParseJSONIterative(input, true)
+					if err != nil {
+						return
+					}
+					Expect(results).To(BeEmpty(),
+						"ParseJSONIterative(%q) should return no results — the partial input has no anchor", input)
+				},
+				Entry("just an opening brace", `{`),
+				Entry("brace + quote", `{"`),
+			)
+
+			It("returns a clean tool call once the JSON has a real name (issue #9988)", func() {
+				results, err := ParseJSONIterative(`{"name":"answer","arguments":{"message":"Hi"}}`, true)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(results).To(HaveLen(1))
+				Expect(results[0]).To(HaveKeyWithValue("name", "answer"))
+				for k := range results[0] {
+					Expect(k).NotTo(MatchRegexp(`^[A-Za-z]?\d{6,}$`),
+						"healing marker leaked as key %q", k)
+				}
+			})
+
+			It("strips healing-marker keys even when a real name is present (issue #9988)", func() {
+				// `{"name":"answer"` with no closing brace healed into a stub
+				// with both `name:"answer"` AND a marker-only key. The marker
+				// key must not surface.
+				parser := NewChatMsgParser(`{"name":"answer"`, true)
+				parser.SetHealingMarker("$marker$")
+				jsonValue, isPartial, _, err := parser.TryConsumeJSON()
+				Expect(err).NotTo(HaveOccurred())
+				Expect(isPartial).To(BeTrue())
+				obj, ok := jsonValue.(map[string]any)
+				Expect(ok).To(BeTrue())
+				Expect(obj).To(HaveKeyWithValue("name", "answer"))
+				for k := range obj {
+					Expect(k).NotTo(ContainSubstring("$marker$"),
+						"healing marker leaked into key %q", k)
+				}
+			})
 		})
 
 		Describe("Comprehensive JSON partial parsing tests (matching llama.cpp)", func() {

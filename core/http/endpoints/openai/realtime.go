@@ -497,6 +497,7 @@ func runRealtimeSession(application *application.Application, t Transport, model
 		application.ModelLoader(),
 		application.ApplicationConfig(),
 		evaluator,
+		buildRealtimeRoutingContext(application, sessionID),
 	)
 	if err != nil {
 		xlog.Error("failed to load model", "error", err)
@@ -627,6 +628,7 @@ func runRealtimeSession(application *application.Application, t Transport, model
 					application.ModelLoader(),
 					application.ApplicationConfig(),
 					evaluator,
+					buildRealtimeRoutingContext(application, session.ID),
 				); err != nil {
 					xlog.Error("failed to update session", "error", err)
 					sendError(t, "session_update_error", "Failed to update session", "", "")
@@ -946,7 +948,7 @@ func updateTransSession(session *Session, update *types.SessionUnion, cl *config
 	return nil
 }
 
-func updateSession(session *Session, update *types.SessionUnion, cl *config.ModelConfigLoader, ml *model.ModelLoader, appConfig *config.ApplicationConfig, evaluator *templates.Evaluator) error {
+func updateSession(session *Session, update *types.SessionUnion, cl *config.ModelConfigLoader, ml *model.ModelLoader, appConfig *config.ApplicationConfig, evaluator *templates.Evaluator, routing *RealtimeRoutingContext) error {
 	sessionLock.Lock()
 	defer sessionLock.Unlock()
 
@@ -985,7 +987,7 @@ func updateSession(session *Session, update *types.SessionUnion, cl *config.Mode
 	}
 
 	if rt.Model != "" || (rt.Audio != nil && rt.Audio.Output != nil && rt.Audio.Output.Voice != "") || (rt.Audio != nil && rt.Audio.Input != nil && rt.Audio.Input.Transcription != nil) {
-		m, err := newModel(&session.ModelConfig.Pipeline, cl, ml, appConfig, evaluator)
+		m, err := newModel(&session.ModelConfig.Pipeline, cl, ml, appConfig, evaluator, routing)
 		if err != nil {
 			return err
 		}
@@ -1570,6 +1572,15 @@ func triggerResponseAtTurn(ctx context.Context, session *Session, conv *Conversa
 			"tool_calls", len(deltaToolCalls),
 			"content_len", len(deltaContent),
 			"reasoning_len", len(deltaReasoning))
+		// Issue #9985: when the autoparser only delivered content (no
+		// reasoning_content), it may be running in the "pure content"
+		// PEG fallback (non-jinja path) which leaves <think>…</think>
+		// embedded in the content. Run Go-side extraction defensively.
+		// ExtractReasoningWithConfig is a no-op when no tag pair matches,
+		// so it's safe to apply unconditionally in the no-reasoning branch.
+		if deltaReasoning == "" && deltaContent != "" {
+			deltaReasoning, deltaContent = reasoning.ExtractReasoningWithConfig(deltaContent, thinkingStartToken, config.ReasoningConfig)
+		}
 		reasoningText = deltaReasoning
 		responseWithoutReasoning = deltaContent
 		textContent = deltaContent

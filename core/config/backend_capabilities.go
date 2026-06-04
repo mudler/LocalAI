@@ -22,9 +22,11 @@ const (
 	UsecaseRerank          = "rerank"
 	UsecaseDetection       = "detection"
 	UsecaseVAD             = "vad"
-	UsecaseAudioTransform  = "audio_transform"
-	UsecaseDiarization     = "diarization"
-	UsecaseRealtimeAudio   = "realtime_audio"
+	UsecaseAudioTransform      = "audio_transform"
+	UsecaseDiarization         = "diarization"
+	UsecaseRealtimeAudio       = "realtime_audio"
+	UsecaseFaceRecognition     = "face_recognition"
+	UsecaseSpeakerRecognition  = "speaker_recognition"
 )
 
 // GRPCMethod identifies a Backend service RPC from backend.proto.
@@ -47,6 +49,11 @@ const (
 	MethodAudioTransform     GRPCMethod = "AudioTransform"
 	MethodDiarize            GRPCMethod = "Diarize"
 	MethodAudioToAudioStream GRPCMethod = "AudioToAudioStream"
+	MethodFaceVerify         GRPCMethod = "FaceVerify"
+	MethodFaceAnalyze        GRPCMethod = "FaceAnalyze"
+	MethodVoiceVerify        GRPCMethod = "VoiceVerify"
+	MethodVoiceEmbed         GRPCMethod = "VoiceEmbed"
+	MethodVoiceAnalyze       GRPCMethod = "VoiceAnalyze"
 )
 
 // UsecaseInfo describes a single known_usecase value and how it maps
@@ -154,6 +161,16 @@ var UsecaseInfoMap = map[string]UsecaseInfo{
 		GRPCMethod:  MethodAudioToAudioStream,
 		Description: "Self-contained any-to-any audio model for the Realtime API — accepts microphone audio and emits speech + transcript (+ optional function calls) from a single backend via the AudioToAudioStream RPC.",
 	},
+	UsecaseFaceRecognition: {
+		Flag:        FLAG_FACE_RECOGNITION,
+		GRPCMethod:  MethodFaceVerify,
+		Description: "Face recognition — verify identity, analyze attributes (age/gender/emotion) via FaceVerify and FaceAnalyze RPCs.",
+	},
+	UsecaseSpeakerRecognition: {
+		Flag:        FLAG_SPEAKER_RECOGNITION,
+		GRPCMethod:  MethodVoiceVerify,
+		Description: "Speaker recognition — verify identity, embed and analyze voice via VoiceVerify, VoiceEmbed and VoiceAnalyze RPCs.",
+	},
 }
 
 // BackendCapability describes which gRPC methods and usecases a backend supports.
@@ -197,6 +214,13 @@ var BackendCapabilities = map[string]BackendCapability{
 		AcceptsImages:    true,
 		AcceptsVideos:    true,
 		Description:      "vLLM engine — high-throughput LLM serving with optional multimodal",
+	},
+	"sglang": {
+		GRPCMethods:      []GRPCMethod{MethodPredict, MethodPredictStream, MethodTokenizeString},
+		PossibleUsecases: []string{UsecaseChat, UsecaseCompletion, UsecaseTokenize, UsecaseVision},
+		DefaultUsecases:  []string{UsecaseChat},
+		AcceptsImages:    true,
+		Description:      "SGLang — fast LLM inference with structured generation and optional vision",
 	},
 	"vllm-omni": {
 		GRPCMethods:      []GRPCMethod{MethodPredict, MethodPredictStream, MethodGenerateImage, MethodGenerateVideo, MethodTTS},
@@ -291,6 +315,12 @@ var BackendCapabilities = map[string]BackendCapability{
 		DefaultUsecases:  []string{UsecaseTranscript},
 		Description:      "NVIDIA NeMo speech recognition",
 	},
+	"parakeet-cpp": {
+		GRPCMethods:      []GRPCMethod{MethodAudioTranscription},
+		PossibleUsecases: []string{UsecaseTranscript},
+		DefaultUsecases:  []string{UsecaseTranscript},
+		Description:      "NVIDIA NeMo Parakeet ASR (parakeet.cpp)",
+	},
 	"qwen-asr": {
 		GRPCMethods:      []GRPCMethod{MethodAudioTranscription},
 		PossibleUsecases: []string{UsecaseTranscript},
@@ -308,6 +338,18 @@ var BackendCapabilities = map[string]BackendCapability{
 		PossibleUsecases: []string{UsecaseTranscript, UsecaseTTS},
 		DefaultUsecases:  []string{UsecaseTranscript, UsecaseTTS},
 		Description:      "VibeVoice — bidirectional speech (transcription and synthesis)",
+	},
+	"vibevoice-cpp": {
+		GRPCMethods:      []GRPCMethod{MethodAudioTranscription, MethodTTS, MethodTTSStream},
+		PossibleUsecases: []string{UsecaseTranscript, UsecaseTTS},
+		DefaultUsecases:  []string{UsecaseTranscript, UsecaseTTS},
+		Description:      "VibeVoice C++ — bidirectional speech, C++ backend with streaming TTS",
+	},
+	"sherpa-onnx": {
+		GRPCMethods:      []GRPCMethod{MethodAudioTranscription, MethodTTS, MethodTTSStream, MethodVAD},
+		PossibleUsecases: []string{UsecaseTranscript, UsecaseTTS, UsecaseVAD},
+		DefaultUsecases:  []string{UsecaseTranscript},
+		Description:      "Sherpa-ONNX — multi-model speech toolkit (ASR, TTS, VAD)",
 	},
 
 	// --- TTS backends ---
@@ -352,6 +394,12 @@ var BackendCapabilities = map[string]BackendCapability{
 		PossibleUsecases: []string{UsecaseTTS},
 		DefaultUsecases:  []string{UsecaseTTS},
 		Description:      "Qwen TTS",
+	},
+	"qwen3-tts-cpp": {
+		GRPCMethods:      []GRPCMethod{MethodTTS},
+		PossibleUsecases: []string{UsecaseTTS},
+		DefaultUsecases:  []string{UsecaseTTS},
+		Description:      "Qwen3 TTS C++ — text-to-speech, C++ backend",
 	},
 	"faster-qwen3-tts": {
 		GRPCMethods:      []GRPCMethod{MethodTTS},
@@ -433,6 +481,27 @@ var BackendCapabilities = map[string]BackendCapability{
 		PossibleUsecases: []string{UsecaseDetection},
 		DefaultUsecases:  []string{UsecaseDetection},
 		Description:      "RF-DETR object detection",
+	},
+	"rfdetr-cpp": {
+		GRPCMethods:      []GRPCMethod{MethodDetect},
+		PossibleUsecases: []string{UsecaseDetection},
+		DefaultUsecases:  []string{UsecaseDetection},
+		Description:      "RF-DETR C++ object detection",
+	},
+
+	// --- Face and speaker recognition backends ---
+	"insightface": {
+		GRPCMethods:      []GRPCMethod{MethodEmbedding, MethodDetect, MethodFaceVerify, MethodFaceAnalyze},
+		PossibleUsecases: []string{UsecaseEmbeddings, UsecaseDetection, UsecaseFaceRecognition},
+		DefaultUsecases:  []string{UsecaseFaceRecognition},
+		AcceptsImages:    true,
+		Description:      "InsightFace — face detection, embedding, verification and attribute analysis",
+	},
+	"speaker-recognition": {
+		GRPCMethods:      []GRPCMethod{MethodVoiceVerify, MethodVoiceEmbed, MethodVoiceAnalyze},
+		PossibleUsecases: []string{UsecaseSpeakerRecognition},
+		DefaultUsecases:  []string{UsecaseSpeakerRecognition},
+		Description:      "Speaker recognition — voice identity verification and analysis",
 	},
 	"silero-vad": {
 		GRPCMethods:      []GRPCMethod{MethodVAD},

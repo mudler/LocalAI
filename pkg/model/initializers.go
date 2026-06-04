@@ -276,6 +276,37 @@ func (ml *ModelLoader) updateModelLastUsed(m *Model) {
 func (ml *ModelLoader) Load(opts ...Option) (grpc.Backend, error) {
 	o := NewOptions(opts...)
 
+	ml.mu.Lock()
+	distributed := ml.modelRouter != nil
+	ml.mu.Unlock()
+
+	// In distributed mode, SmartRouter must run per inference request so
+	// PickBestReplica (core/services/nodes/replicapicker.go) picks the
+	// least-loaded replica each time. Bypass the local cache and the local
+	// LRU / concurrency-group watchdog enforcement: both are scoped to the
+	// in-process Model store, which in distributed mode only holds stubs for
+	// remote replicas. SmartRouter handles cluster-wide eviction
+	// (evictLRUAndFreeNode) and concurrency-group anti-affinity
+	// (narrowByGroupAntiAffinity) at the scheduler layer.
+	//
+	// TODO(distributed-cache): see LoadModel for the rotating-replica-cache
+	// integration point that would let hot paths skip the per-request DB
+	// round-trip without giving up the shared PickBestReplica policy.
+	if distributed {
+		client, err := ml.backendLoader(opts...)
+		if err != nil {
+			return nil, err
+		}
+		if m := ml.CheckIsLoaded(o.modelID); m != nil && m.Process() == nil {
+			client = newConnectionEvictingClient(client, o.modelID, func() {
+				if err := ml.ShutdownModel(o.modelID); err != nil {
+					xlog.Warn("Failed to shut down remote model after connection error", "model", o.modelID, "error", err)
+				}
+			})
+		}
+		return client, nil
+	}
+
 	// Return earlier if we have a model already loaded
 	// (avoid looping through all the backends)
 	if m := ml.CheckIsLoaded(o.modelID); m != nil {

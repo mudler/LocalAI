@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"net/url"
 	"slices"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -56,7 +57,6 @@ var usecaseFilters = map[string]config.ModelConfigUsecase{
 	config.UsecaseDiarization:     config.FLAG_DIARIZATION,
 	config.UsecaseRealtimeAudio:   config.FLAG_REALTIME_AUDIO,
 }
-
 
 // extractHFRepo tries to find a HuggingFace repo ID from model overrides or URLs.
 func extractHFRepo(overrides map[string]any, urls []string) string {
@@ -214,6 +214,17 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 				}
 			}
 
+			// Node-scoped backend ops (from /api/nodes/:id/backends/install)
+			// carry the nodeID inside the opcache key as "node:<nodeID>:<backend>".
+			// Pull it back out so the operations panel can label which node the
+			// install is targeting, and so the display name is just the backend
+			// slug instead of the full prefixed key.
+			scopedNodeID := ""
+			if nodeID, backend, ok := galleryop.ParseNodeScopedKey(galleryID); ok {
+				scopedNodeID = nodeID
+				galleryID = backend
+			}
+
 			// Extract display name (remove repo prefix if exists)
 			displayName := galleryID
 			if strings.Contains(galleryID, "@") {
@@ -237,8 +248,52 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 				"cancellable": isCancellable,
 				"message":     message,
 			}
+			// Only attach nodeID when this op was node-scoped: an empty string
+			// would mislead the UI into rendering a node attribution that never
+			// existed in the first place.
+			if scopedNodeID != "" {
+				opData["nodeID"] = scopedNodeID
+			}
 			if status != nil && status.Error != nil {
 				opData["error"] = status.Error.Error()
+			}
+			// Expose the per-node breakdown when the Phase 4 progress sink
+			// has populated OpStatus.Nodes (distributed backend installs).
+			// We sort by node_name for stable UI rendering across polls;
+			// the underlying slice is order-dependent on UpdateNodeProgress
+			// arrival order, which the UI must not depend on. Single-node
+			// ops and model installs leave Nodes empty so this block emits
+			// no key, preserving the legacy payload shape.
+			if status != nil && len(status.Nodes) > 0 {
+				nodes := make([]map[string]any, 0, len(status.Nodes))
+				for _, n := range status.Nodes {
+					entry := map[string]any{
+						"node_id":    n.NodeID,
+						"node_name":  n.NodeName,
+						"status":     n.Status,
+						"percentage": n.Percentage,
+					}
+					if n.FileName != "" {
+						entry["file_name"] = n.FileName
+					}
+					if n.Current != "" {
+						entry["current"] = n.Current
+					}
+					if n.Total != "" {
+						entry["total"] = n.Total
+					}
+					if n.Phase != "" {
+						entry["phase"] = n.Phase
+					}
+					if n.Error != "" {
+						entry["error"] = n.Error
+					}
+					nodes = append(nodes, entry)
+				}
+				sort.SliceStable(nodes, func(i, j int) bool {
+					return fmt.Sprintf("%v", nodes[i]["node_name"]) < fmt.Sprintf("%v", nodes[j]["node_name"])
+				})
+				opData["nodes"] = nodes
 			}
 			operations = append(operations, opData)
 		}
@@ -540,11 +595,11 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 			NodeStatus string `json:"node_status"`
 		}
 		type modelCapability struct {
-			ID           string     `json:"id"`
-			Capabilities []string   `json:"capabilities"`
-			Backend      string     `json:"backend"`
-			Disabled     bool       `json:"disabled"`
-			Pinned       bool       `json:"pinned"`
+			ID           string   `json:"id"`
+			Capabilities []string `json:"capabilities"`
+			Backend      string   `json:"backend"`
+			Disabled     bool     `json:"disabled"`
+			Pinned       bool     `json:"pinned"`
 			// LoadedOn is populated only when the node registry is active
 			// (distributed mode). Lets the UI show "loaded on worker-1" without
 			// the operator having to expand every node manually. An empty slice
@@ -1142,17 +1197,17 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 		}
 
 		return c.JSON(200, map[string]any{
-			"backends":           backendsJSON,
-			"repositories":       appConfig.BackendGalleries,
-			"allTags":            tags,
-			"processingBackends": processingBackendsData,
-			"taskTypes":          taskTypes,
-			"availableBackends":  totalBackends,
-			"installedBackends":  installedBackendsCount,
-			"currentPage":        pageNum,
-			"totalPages":         totalPages,
-			"prevPage":           prevPage,
-			"nextPage":           nextPage,
+			"backends":                  backendsJSON,
+			"repositories":              appConfig.BackendGalleries,
+			"allTags":                   tags,
+			"processingBackends":        processingBackendsData,
+			"taskTypes":                 taskTypes,
+			"availableBackends":         totalBackends,
+			"installedBackends":         installedBackendsCount,
+			"currentPage":               pageNum,
+			"totalPages":                totalPages,
+			"prevPage":                  prevPage,
+			"nextPage":                  nextPage,
 			"systemCapability":          detectedCapability,
 			"preferDevelopmentBackends": appConfig.PreferDevelopmentBackends,
 		})
@@ -1582,4 +1637,3 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 	app.DELETE("/api/branding/asset/:kind", localai.DeleteBrandingAssetEndpoint(appConfig), adminMiddleware)
 
 }
-

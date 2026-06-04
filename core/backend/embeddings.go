@@ -1,6 +1,7 @@
 package backend
 
 import (
+	"context"
 	"fmt"
 	"time"
 
@@ -11,9 +12,38 @@ import (
 	model "github.com/mudler/LocalAI/pkg/model"
 )
 
-func ModelEmbedding(s string, tokens []int, loader *model.ModelLoader, modelConfig config.ModelConfig, appConfig *config.ApplicationConfig) (func() ([]float32, error), error) {
+// Embedder produces a fixed-dimension vector from a prompt. The
+// router's L2 embedding cache uses it to look up semantically-similar
+// past decisions.
+type Embedder interface {
+	Embed(ctx context.Context, text string) ([]float32, error)
+}
 
-	opts := ModelOptions(modelConfig, appConfig)
+// NewEmbedder binds (loader, modelConfig, appConfig) into an Embedder.
+func NewEmbedder(loader *model.ModelLoader, modelConfig config.ModelConfig, appConfig *config.ApplicationConfig) Embedder {
+	return &modelEmbedder{loader: loader, modelConfig: modelConfig, appConfig: appConfig}
+}
+
+type modelEmbedder struct {
+	loader      *model.ModelLoader
+	modelConfig config.ModelConfig
+	appConfig   *config.ApplicationConfig
+}
+
+func (e *modelEmbedder) Embed(ctx context.Context, text string) ([]float32, error) {
+	fn, err := ModelEmbedding(ctx, text, nil, e.loader, e.modelConfig, e.appConfig)
+	if err != nil {
+		return nil, err
+	}
+	return fn()
+}
+
+func ModelEmbedding(ctx context.Context, s string, tokens []int, loader *model.ModelLoader, modelConfig config.ModelConfig, appConfig *config.ApplicationConfig) (func() ([]float32, error), error) {
+
+	// model.WithContext(ctx) overrides the app-context default set in
+	// ModelOptions so distributed routing decisions reach the request's
+	// X-LocalAI-Node holder via distributedhdr.Stamp.
+	opts := ModelOptions(modelConfig, appConfig, model.WithContext(ctx))
 
 	inferenceModel, err := loader.Load(opts...)
 	if err != nil {
@@ -67,7 +97,7 @@ func ModelEmbedding(s string, tokens []int, loader *model.ModelLoader, modelConf
 	}
 
 	if appConfig.EnableTracing {
-		trace.InitBackendTracingIfEnabled(appConfig.TracingMaxItems)
+		trace.InitBackendTracingIfEnabled(appConfig.TracingMaxItems, appConfig.TracingMaxBodyBytes)
 
 		traceData := map[string]any{
 			"input_text":         trace.TruncateString(s, 1000),

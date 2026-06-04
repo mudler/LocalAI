@@ -179,16 +179,19 @@ export default function Backends() {
 
   // Install a single gallery backend on a specific node, used in target-node
   // mode (the URL has ?target=<node-id> set from the Nodes page entry point).
+  // The handler is async - we dispatch and let the global Operations panel
+  // surface progress; no need to await completion here.
   const handleInstallOnTarget = async (id) => {
     if (!targetNode) return
     try {
       await nodesApi.installBackend(targetNode.id, id)
-      addToast(`Installing ${id} on ${targetNode.name}…`, 'info')
-      // Per-node install is request-reply, not part of the global jobs feed —
-      // refetch to reflect the new Nodes column state.
-      setTimeout(() => { fetchBackends(); refetchNodes() }, 600)
+      addToast(`Installing ${id} on ${targetNode.name}...`, 'info')
+      // The install runs async via the gallery job queue. Refetch shortly so
+      // the Nodes column reflects "installing" state; the Operations panel
+      // tracks the actual progress until completion.
+      setTimeout(() => { fetchBackends(); refetchNodes() }, 1200)
     } catch (err) {
-      addToast(`Install failed on ${targetNode.name}: ${err.message}`, 'error')
+      addToast(`Install dispatch failed on ${targetNode.name}: ${err.message}`, 'error')
     }
   }
 

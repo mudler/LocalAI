@@ -499,7 +499,7 @@ The `llama.cpp` backend supports additional configuration options that can be sp
 |--------|------|-------------|---------|
 | `use_jinja` or `jinja` | boolean | Enable Jinja2 template processing for chat templates. When enabled, the backend uses Jinja2-based chat templates from the model for formatting messages. | `use_jinja:true` |
 | `context_shift` | boolean | Enable context shifting, which allows the model to dynamically adjust context window usage. | `context_shift:true` |
-| `cache_ram` | integer | Set the maximum RAM cache size in MiB for KV cache. Use `-1` for unlimited (default). | `cache_ram:2048` |
+| `cache_ram` | integer | Size budget in MiB for the **server-side prompt cache** (a host-RAM store of idle slot KV states that's reloaded on a prompt-prefix hit, see [upstream PR #16391](https://github.com/ggml-org/llama.cpp/pull/16391)). Default: `-1` (no limit). `0` disables the prompt cache entirely. Together with `kv_unified` and `cache_idle_slots` this is what makes a repeated system prompt skip prefill on subsequent calls. | `cache_ram:4096` |
 | `parallel` or `n_parallel` | integer | Enable parallel request processing. When set to a value greater than 1, enables continuous batching for handling multiple requests concurrently. | `parallel:4` |
 | `grpc_servers` or `rpc_servers` | string | Comma-separated list of gRPC server addresses for distributed inference. Allows distributing workload across multiple llama.cpp workers. | `grpc_servers:localhost:50051,localhost:50052` |
 | `fit_params` or `fit` | boolean | Enable auto-adjustment of model/context parameters to fit available device memory. Default: `true`. | `fit_params:true` |
@@ -512,9 +512,11 @@ The `llama.cpp` backend supports additional configuration options that can be sp
 | `check_tensors` | boolean | Validate tensor data for invalid values during model loading. Default: `false`. | `check_tensors:true` |
 | `warmup` | boolean | Enable warmup run after model loading. Default: `true`. | `warmup:false` |
 | `no_op_offload` | boolean | Disable offloading host tensor operations to device. Default: `false`. | `no_op_offload:true` |
-| `kv_unified` or `unified_kv` | boolean | Enable unified KV cache. Default: `false`. | `kv_unified:true` |
-| `n_ctx_checkpoints` or `ctx_checkpoints` | integer | Maximum number of context checkpoints per slot. Default: `8`. | `ctx_checkpoints:4` |
-| `split_mode` or `sm` | string | How to split the model across multiple GPUs: `none` (single GPU only), `layer` (default — split layers and KV across GPUs), `row` (split rows across GPUs), `tensor` (experimental tensor parallelism — requires `flash_attention: true`, no KV-cache quantization, manually set `context_size`, and a llama.cpp build that includes [#19378](https://github.com/ggml-org/llama.cpp/pull/19378)). | `split_mode:tensor` |
+| `kv_unified` or `unified_kv` | boolean | Use a single unified KV buffer shared across all sequences. Default: `true` (LocalAI override; upstream defaults to `false` but auto-enables it when slot count is auto). **Required for `cache_idle_slots` to work**: without it the server force-disables idle-slot saving at init, and the prompt cache is never written across requests. | `kv_unified:false` |
+| `cache_idle_slots` or `idle_slots_cache` | boolean | On a new task, save the previous slot's KV state into the prompt cache (and clear the slot) so a later request with the same prefix can warm-load it. Default: `true`. Auto-disabled by the server if `kv_unified=false` or `cache_ram=0`. | `cache_idle_slots:false` |
+| `n_ctx_checkpoints` or `ctx_checkpoints` | integer | Maximum number of context checkpoints per slot (used for partial-prefix recovery, e.g. SWA). Default: `32`. | `ctx_checkpoints:16` |
+| `checkpoint_min_step` or `checkpoint_min_spacing` (aliases: `checkpoint_every_nt`, `checkpoint_every_n_tokens`) | integer | Minimum spacing in tokens between context checkpoints. `0` disables the minimum-spacing gate. Default: `256`. (Renamed upstream from `checkpoint_every_nt`; semantics shifted from a fixed cadence to a minimum spacing.) | `checkpoint_min_step:1024` |
+| `split_mode` or `sm` | string | How to split the model across multiple GPUs: `none` (single GPU only), `layer` (default — split layers and KV across GPUs), `row` (split rows across GPUs), `tensor` (experimental tensor parallelism, requires `flash_attention: true`, manually set `context_size`, and a llama.cpp build that includes [#19378](https://github.com/ggml-org/llama.cpp/pull/19378); it historically also required KV-cache quantization to be disabled, but [#23792](https://github.com/ggml-org/llama.cpp/pull/23792) lifts that restriction so `cache_type_k`/`cache_type_v` quantization can be combined with tensor parallelism on builds that include it). | `split_mode:tensor` |
 
 **Example configuration with options:**
 
@@ -534,6 +536,27 @@ options:
 ```
 
 **Note:** The `parallel` option can also be set via the `LLAMACPP_PARALLEL` environment variable, and `grpc_servers` can be set via the `LLAMACPP_GRPC_SERVERS` environment variable. Options specified in the YAML file take precedence over environment variables.
+
+##### Server-side prompt cache (repeated system prompts)
+
+Agents, coding assistants, and Anthropic/OpenAI-compatible CLIs typically resend the same large system prompt on every turn. The llama.cpp server can short-circuit prefill for the matching prefix by stashing idle slot KV states in host RAM and reloading them on a hit. Three settings interact:
+
+| Setting | Default | Role |
+|---|---|---|
+| `cache_ram:N` | `-1` (no limit) | Allocates the host-side prompt cache. `0` disables it. |
+| `kv_unified:true` | `true` | Single unified KV buffer (**prerequisite** for idle-slot saving). |
+| `cache_idle_slots:true` | `true` | Persists the idle slot's KV into the prompt cache on task switch. |
+
+All three are on by default since LocalAI v4.3, so the prompt cache works out of the box for the common single-slot setup. If you're on an older release, or you've explicitly disabled one of them, add the following to recover the behaviour:
+
+```yaml
+options:
+  - cache_ram:4096       # or -1 for no limit
+  - kv_unified:true
+  - cache_idle_slots:true
+```
+
+Set `cache_ram:0` to opt out of the prompt cache entirely (saves host RAM at the cost of re-prefilling repeated prompts).
 
 #### Reference
 
@@ -874,7 +897,7 @@ The backend will automatically download the required files in order to run the m
 - `OVModelForCausalLM` requires OpenVINO IR [Text Generation](https://huggingface.co/models?library=openvino&pipeline_tag=text-generation) models from Hugging face
 - `OVModelForFeatureExtraction` works with any Safetensors Transformer [Feature Extraction](https://huggingface.co/models?pipeline_tag=feature-extraction&library=transformers,safetensors) model from Huggingface (Embedding Model)
 
-Please note that streaming is currently not implemente in `AutoModelForCausalLM` for Intel GPU.
+Please note that streaming is currently not implemented in `AutoModelForCausalLM` for Intel GPU.
 AMD GPU support is not implemented.
 Although AMD CPU is not officially supported by OpenVINO there are reports that it works: YMMV.
 

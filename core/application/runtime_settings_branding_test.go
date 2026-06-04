@@ -87,6 +87,28 @@ var _ = Describe("loadRuntimeSettingsFromFile", func() {
 		})
 	})
 
+	// MITM listener address. The file is the only source — no env var
+	// exists — so a regression here means an admin who configured the
+	// listener via /api/settings loses it after a reboot, even though
+	// the value is still on disk in the volume. (Intercept hosts now
+	// live in model YAML mitm.hosts: blocks, not runtime_settings.json.)
+	Describe("MITM fields", func() {
+		It("loads mitm_listen", func() {
+			cfg := &config.ApplicationConfig{DynamicConfigsDir: seedSettings(`{"mitm_listen": ":8443"}`)}
+			loadRuntimeSettingsFromFile(cfg)
+			Expect(cfg.MITMListen).To(Equal(":8443"))
+		})
+
+		It("does not override an explicit CLI flag", func() {
+			cfg := &config.ApplicationConfig{
+				DynamicConfigsDir: seedSettings(`{"mitm_listen": ":8443"}`),
+				MITMListen:        ":9999", // simulate WithMITMListen(":9999")
+			}
+			loadRuntimeSettingsFromFile(cfg)
+			Expect(cfg.MITMListen).To(Equal(":9999"), "CLI flag must win over the persisted file value")
+		})
+	})
+
 	// The Agent Pool block has a mix of zero and non-zero defaults
 	// (Enabled=true, EmbeddingModel="granite-...", MaxChunkingSize=400,
 	// VectorEngine="chromem", AgentHubURL="https://agenthub.localai.io").

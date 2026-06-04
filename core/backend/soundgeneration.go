@@ -98,7 +98,7 @@ func SoundGeneration(
 
 	var startTime time.Time
 	if appConfig.EnableTracing {
-		trace.InitBackendTracingIfEnabled(appConfig.TracingMaxItems)
+		trace.InitBackendTracingIfEnabled(appConfig.TracingMaxItems, appConfig.TracingMaxBodyBytes)
 		startTime = time.Now()
 	}
 

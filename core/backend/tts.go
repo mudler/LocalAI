@@ -20,16 +20,40 @@ import (
 	"github.com/mudler/LocalAI/pkg/utils"
 )
 
+// newTTSRequest assembles the gRPC TTSRequest from the per-request inputs. The
+// optional instructions string is only attached when non-empty so backends can
+// distinguish "no per-request instruction" (fall back to YAML) from an explicit
+// empty one. params is forwarded as-is (nil when unset).
+func newTTSRequest(text, modelPath, voice, dst, language, instructions string, params map[string]string) *proto.TTSRequest {
+	req := &proto.TTSRequest{
+		Text:     text,
+		Model:    modelPath,
+		Voice:    voice,
+		Dst:      dst,
+		Language: &language,
+		Params:   params,
+	}
+	if instructions != "" {
+		req.Instructions = &instructions
+	}
+	return req
+}
+
 func ModelTTS(
 	ctx context.Context,
 	text,
 	voice,
-	language string,
+	language,
+	instructions string,
+	params map[string]string,
 	loader *model.ModelLoader,
 	appConfig *config.ApplicationConfig,
 	modelConfig config.ModelConfig,
 ) (string, *proto.Result, error) {
-	opts := ModelOptions(modelConfig, appConfig)
+	// model.WithContext(ctx) overrides the app-context default set in
+	// ModelOptions so distributed routing decisions reach the request's
+	// X-LocalAI-Node holder via distributedhdr.Stamp.
+	opts := ModelOptions(modelConfig, appConfig, model.WithContext(ctx))
 	ttsModel, err := loader.Load(opts...)
 	if err != nil {
 		recordModelLoadFailure(appConfig, modelConfig.Name, modelConfig.Backend, err, nil)
@@ -67,17 +91,13 @@ func ModelTTS(
 
 	var startTime time.Time
 	if appConfig.EnableTracing {
-		trace.InitBackendTracingIfEnabled(appConfig.TracingMaxItems)
+		trace.InitBackendTracingIfEnabled(appConfig.TracingMaxItems, appConfig.TracingMaxBodyBytes)
 		startTime = time.Now()
 	}
 
-	res, err := ttsModel.TTS(ctx, &proto.TTSRequest{
-		Text:     text,
-		Model:    modelPath,
-		Voice:    voice,
-		Dst:      filePath,
-		Language: &language,
-	})
+	ttsRequest := newTTSRequest(text, modelPath, voice, filePath, language, instructions, params)
+
+	res, err := ttsModel.TTS(ctx, ttsRequest)
 
 	if appConfig.EnableTracing {
 		errStr := ""
@@ -93,7 +113,7 @@ func ModelTTS(
 			"language": language,
 		}
 		if err == nil && res.Success {
-			if snippet := trace.AudioSnippet(filePath); snippet != nil {
+			if snippet := trace.AudioSnippet(filePath, appConfig.TracingMaxBodyBytes); snippet != nil {
 				maps.Copy(data, snippet)
 			}
 		}
@@ -125,13 +145,15 @@ func ModelTTSStream(
 	ctx context.Context,
 	text,
 	voice,
-	language string,
+	language,
+	instructions string,
+	params map[string]string,
 	loader *model.ModelLoader,
 	appConfig *config.ApplicationConfig,
 	modelConfig config.ModelConfig,
 	audioCallback func([]byte) error,
 ) error {
-	opts := ModelOptions(modelConfig, appConfig)
+	opts := ModelOptions(modelConfig, appConfig, model.WithContext(ctx))
 	ttsModel, err := loader.Load(opts...)
 	if err != nil {
 		recordModelLoadFailure(appConfig, modelConfig.Name, modelConfig.Backend, err, nil)
@@ -161,7 +183,7 @@ func ModelTTSStream(
 
 	var startTime time.Time
 	if appConfig.EnableTracing {
-		trace.InitBackendTracingIfEnabled(appConfig.TracingMaxItems)
+		trace.InitBackendTracingIfEnabled(appConfig.TracingMaxItems, appConfig.TracingMaxBodyBytes)
 		startTime = time.Now()
 	}
 
@@ -174,12 +196,10 @@ func ModelTTSStream(
 	var totalPCMBytes int
 	snippetCapped := false
 
-	err = ttsModel.TTSStream(ctx, &proto.TTSRequest{
-		Text:     text,
-		Model:    modelPath,
-		Voice:    voice,
-		Language: &language,
-	}, func(reply *proto.Reply) {
+	// Streaming TTS writes to the HTTP response, not a file, so dst is empty.
+	ttsRequest := newTTSRequest(text, modelPath, voice, "", language, instructions, params)
+
+	err = ttsModel.TTSStream(ctx, ttsRequest, func(reply *proto.Reply) {
 		// First message contains sample rate info
 		if !headerSent && len(reply.Message) > 0 {
 			var info map[string]any
@@ -260,7 +280,7 @@ func ModelTTSStream(
 			"streaming": true,
 		}
 		if resultErr == nil && len(snippetPCM) > 0 {
-			if snippet := trace.AudioSnippetFromPCM(snippetPCM, int(sampleRate), totalPCMBytes); snippet != nil {
+			if snippet := trace.AudioSnippetFromPCM(snippetPCM, int(sampleRate), totalPCMBytes, appConfig.TracingMaxBodyBytes); snippet != nil {
 				maps.Copy(data, snippet)
 			}
 		}

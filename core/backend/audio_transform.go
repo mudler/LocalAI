@@ -78,7 +78,7 @@ func ModelAudioTransform(
 
 	var startTime time.Time
 	if appConfig.EnableTracing {
-		trace.InitBackendTracingIfEnabled(appConfig.TracingMaxItems)
+		trace.InitBackendTracingIfEnabled(appConfig.TracingMaxItems, appConfig.TracingMaxBodyBytes)
 		startTime = time.Now()
 	}
 
@@ -104,7 +104,7 @@ func ModelAudioTransform(
 			data["sample_rate"] = res.SampleRate
 			data["samples"] = res.Samples
 			data["reference_provided"] = res.ReferenceProvided
-			if snippet := trace.AudioSnippet(dst); snippet != nil {
+			if snippet := trace.AudioSnippet(dst, appConfig.TracingMaxBodyBytes); snippet != nil {
 				maps.Copy(data, snippet)
 			}
 		}

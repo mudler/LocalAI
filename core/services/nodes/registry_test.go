@@ -3,6 +3,7 @@ package nodes
 import (
 	"context"
 	"runtime"
+	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -244,7 +245,7 @@ var _ = Describe("NodeRegistry", func() {
 			Expect(registry.Register(context.Background(), node, true)).To(Succeed())
 			Expect(registry.SetNodeModel(context.Background(), node.ID, "my-model", 0, "loaded", "10.0.0.40:50052", 0)).To(Succeed())
 
-			foundNode, foundNM, err := registry.FindAndLockNodeWithModel(context.Background(), "my-model", nil)
+			foundNode, foundNM, err := registry.FindAndLockNodeWithModel(context.Background(), "my-model", nil, nil)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(foundNode.ID).To(Equal(node.ID))
 			Expect(foundNM.ModelName).To(Equal("my-model"))
@@ -256,7 +257,7 @@ var _ = Describe("NodeRegistry", func() {
 		})
 
 		It("returns error when model is not loaded anywhere", func() {
-			_, _, err := registry.FindAndLockNodeWithModel(context.Background(), "nonexistent-model", nil)
+			_, _, err := registry.FindAndLockNodeWithModel(context.Background(), "nonexistent-model", nil, nil)
 			Expect(err).To(HaveOccurred())
 		})
 
@@ -273,7 +274,7 @@ var _ = Describe("NodeRegistry", func() {
 			Expect(registry.IncrementInFlight(context.Background(), n1.ID, "shared-model", 0)).To(Succeed())
 			Expect(registry.IncrementInFlight(context.Background(), n1.ID, "shared-model", 0)).To(Succeed())
 
-			foundNode, _, err := registry.FindAndLockNodeWithModel(context.Background(), "shared-model", nil)
+			foundNode, _, err := registry.FindAndLockNodeWithModel(context.Background(), "shared-model", nil, nil)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(foundNode.Name).To(Equal("lock-light"))
 		})
@@ -298,7 +299,7 @@ var _ = Describe("NodeRegistry", func() {
 			Expect(registry.IncrementInFlight(context.Background(), included.ID, "filtered-model", 0)).To(Succeed())
 			Expect(registry.IncrementInFlight(context.Background(), included.ID, "filtered-model", 0)).To(Succeed())
 
-			foundNode, foundNM, err := registry.FindAndLockNodeWithModel(context.Background(), "filtered-model", []string{included.ID})
+			foundNode, foundNM, err := registry.FindAndLockNodeWithModel(context.Background(), "filtered-model", []string{included.ID}, nil)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(foundNode.ID).To(Equal(included.ID))
 			Expect(foundNM.NodeID).To(Equal(included.ID))
@@ -325,7 +326,7 @@ var _ = Describe("NodeRegistry", func() {
 			// (FindAndLockNodeWithModel atomically increments to lock the row.)
 			picks := make([]string, 0, 9)
 			for i := 0; i < 9; i++ {
-				n, nm, err := registry.FindAndLockNodeWithModel(context.Background(), "rr-model", nil)
+				n, nm, err := registry.FindAndLockNodeWithModel(context.Background(), "rr-model", nil, nil)
 				Expect(err).ToNot(HaveOccurred())
 				picks = append(picks, n.Name)
 				Expect(registry.DecrementInFlight(context.Background(), n.ID, "rr-model", nm.ReplicaIndex)).To(Succeed())
@@ -354,8 +355,199 @@ var _ = Describe("NodeRegistry", func() {
 			// query must return an error so Route() falls through to schedule
 			// a fresh load on a matching node instead of reusing the excluded
 			// replica.
-			_, _, err := registry.FindAndLockNodeWithModel(context.Background(), "no-match-model", []string{emptyIncluded.ID})
+			_, _, err := registry.FindAndLockNodeWithModel(context.Background(), "no-match-model", []string{emptyIncluded.ID}, nil)
 			Expect(err).To(HaveOccurred())
+		})
+
+		It("agrees with PickBestReplica on a seeded dataset (policy mirror)", func() {
+			// Guard against drift between the SQL ORDER BY in
+			// FindAndLockNodeWithModel and the canonical Go implementation in
+			// PickBestReplica. The two layers will eventually diverge in
+			// caller (DB-backed atomic pick vs in-memory snapshot pick for the
+			// per-frontend rotating cache), but the policy itself must stay
+			// the single source of truth. If this test fails, update *both*
+			// sides — never just one.
+			//
+			// Scenario exercises all three tiers:
+			//   - "loser-busy" has the most VRAM but in_flight=2 — loses tier 1.
+			//   - "loser-recent" ties at in_flight=0 but its last_used is the
+			//     newest of the in_flight=0 group — loses tier 2.
+			//   - "winner-mid" and "winner-fat" both tie at in_flight=0 and
+			//     share the oldest last_used — tier 3 decides: fattest wins.
+			loserBusy := makeNode("mirror-loser-busy", "10.0.0.70:50051", 32_000_000_000)
+			loserRecent := makeNode("mirror-loser-recent", "10.0.0.71:50051", 8_000_000_000)
+			winnerMid := makeNode("mirror-winner-mid", "10.0.0.72:50051", 16_000_000_000)
+			winnerFat := makeNode("mirror-winner-fat", "10.0.0.73:50051", 24_000_000_000)
+			for _, n := range []*BackendNode{loserBusy, loserRecent, winnerMid, winnerFat} {
+				Expect(registry.Register(context.Background(), n, true)).To(Succeed())
+				Expect(registry.SetNodeModel(context.Background(), n.ID, "mirror-model", 0, "loaded", "", 0)).To(Succeed())
+			}
+
+			// Force in_flight=2 on the "busy" node so tier 1 disqualifies it.
+			Expect(registry.IncrementInFlight(context.Background(), loserBusy.ID, "mirror-model", 0)).To(Succeed())
+			Expect(registry.IncrementInFlight(context.Background(), loserBusy.ID, "mirror-model", 0)).To(Succeed())
+
+			// Slam last_used to known values so the test is deterministic
+			// regardless of clock resolution between the helpers above.
+			base := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
+			set := func(id string, t time.Time) {
+				Expect(db.Model(&NodeModel{}).
+					Where("node_id = ? AND model_name = ?", id, "mirror-model").
+					Update("last_used", t).Error).To(Succeed())
+			}
+			set(loserBusy.ID, base) // newest doesn't matter — already disqualified by tier 1
+			set(loserRecent.ID, base.Add(time.Hour))
+			set(winnerMid.ID, base)
+			set(winnerFat.ID, base)
+
+			// Pull the same dataset both pickers will operate on. The Go
+			// picker is a faithful representation of the policy; the SQL is
+			// the production path.
+			var rows []NodeModel
+			Expect(db.Where("model_name = ? AND state = ?", "mirror-model", "loaded").
+				Find(&rows).Error).To(Succeed())
+			candidates := make([]ReplicaCandidate, 0, len(rows))
+			for _, nm := range rows {
+				var bn BackendNode
+				Expect(db.First(&bn, "id = ? AND status = ?", nm.NodeID, StatusHealthy).Error).To(Succeed())
+				candidates = append(candidates, ReplicaCandidate{
+					NodeID:        nm.NodeID,
+					Address:       bn.Address,
+					ReplicaIndex:  nm.ReplicaIndex,
+					InFlight:      nm.InFlight,
+					LastUsed:      nm.LastUsed,
+					AvailableVRAM: bn.AvailableVRAM,
+				})
+			}
+			goPick := PickBestReplica(candidates)
+			Expect(goPick).ToNot(BeNil())
+
+			sqlNode, _, err := registry.FindAndLockNodeWithModel(context.Background(), "mirror-model", nil, nil)
+			Expect(err).ToNot(HaveOccurred())
+
+			Expect(sqlNode.ID).To(Equal(goPick.NodeID),
+				"SQL ORDER BY picked %s; PickBestReplica picked %s — policy has drifted",
+				sqlNode.ID, goPick.NodeID)
+			// Sanity check: the policy says winner-fat wins on tier 3.
+			Expect(goPick.NodeID).To(Equal(winnerFat.ID))
+		})
+	})
+
+	Describe("FindAndLockNodeWithModel preference", func() {
+		var nodeA, nodeB *BackendNode
+
+		BeforeEach(func() {
+			nodeA = makeNode("pref-a", "10.0.0.70:50051", 8_000_000_000)
+			nodeB = makeNode("pref-b", "10.0.0.71:50051", 8_000_000_000)
+			Expect(registry.Register(context.Background(), nodeA, true)).To(Succeed())
+			Expect(registry.Register(context.Background(), nodeB, true)).To(Succeed())
+			// Both loaded+healthy for model "pref-model", in_flight 0.
+			Expect(registry.SetNodeModel(context.Background(), nodeA.ID, "pref-model", 0, "loaded", "", 0)).To(Succeed())
+			Expect(registry.SetNodeModel(context.Background(), nodeB.ID, "pref-model", 0, "loaded", "", 0)).To(Succeed())
+		})
+
+		It("locks the preferred node when eligible", func() {
+			node, nm, err := registry.FindAndLockNodeWithModel(context.Background(), "pref-model", nil, &RoutePreference{PreferredNodeID: nodeB.ID})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(node.ID).To(Equal(nodeB.ID))
+			Expect(nm.NodeID).To(Equal(nodeB.ID))
+
+			// in_flight is incremented atomically via gorm.Expr, so verify the
+			// persisted value through a re-fetch (the returned struct mirrors
+			// the pre-increment read, like the default-pick path).
+			persisted, err := registry.GetNodeModel(context.Background(), nodeB.ID, "pref-model", 0)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(persisted.InFlight).To(Equal(1))
+		})
+
+		It("falls back to default order when preferred not loaded", func() {
+			node, _, err := registry.FindAndLockNodeWithModel(context.Background(), "pref-model", nil, &RoutePreference{PreferredNodeID: "ZZZ"})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(node.ID).To(BeElementOf(nodeA.ID, nodeB.ID))
+		})
+
+		It("nil preference behaves like before", func() {
+			node, _, err := registry.FindAndLockNodeWithModel(context.Background(), "pref-model", nil, nil)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(node).ToNot(BeNil())
+		})
+
+		It("locks the EXACT preferred replica when the node hosts two replicas", func() {
+			// A single node hosts replica 0 and replica 1 of a model, both
+			// loaded+healthy. The preference must lock the SPECIFIC replica
+			// requested, not the least-loaded replica on the node.
+			node := makeNode("pref-multi", "10.0.0.72:50051", 16_000_000_000)
+			node.MaxReplicasPerModel = 2
+			Expect(registry.Register(context.Background(), node, true)).To(Succeed())
+			Expect(registry.SetNodeModel(context.Background(), node.ID, "multi-model", 0, "loaded", "addr0", 0)).To(Succeed())
+			Expect(registry.SetNodeModel(context.Background(), node.ID, "multi-model", 1, "loaded", "addr1", 0)).To(Succeed())
+
+			// pref={node, 1} must lock replica 1 specifically.
+			gotNode, nm1, err := registry.FindAndLockNodeWithModel(context.Background(), "multi-model", nil,
+				&RoutePreference{PreferredNodeID: node.ID, PreferredReplica: 1})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(gotNode.ID).To(Equal(node.ID))
+			Expect(nm1.ReplicaIndex).To(Equal(1))
+
+			// pref={node, 0} must lock replica 0 specifically.
+			_, nm0, err := registry.FindAndLockNodeWithModel(context.Background(), "multi-model", nil,
+				&RoutePreference{PreferredNodeID: node.ID, PreferredReplica: 0})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(nm0.ReplicaIndex).To(Equal(0))
+		})
+	})
+
+	Describe("LoadedReplicaStats", func() {
+		var n1, n2, n3 *BackendNode
+
+		BeforeEach(func() {
+			n1 = makeNode("stats-1", "10.0.0.80:50051", 8_000_000_000)
+			n2 = makeNode("stats-2", "10.0.0.81:50051", 8_000_000_000)
+			n3 = makeNode("stats-3", "10.0.0.82:50051", 8_000_000_000)
+			Expect(registry.Register(context.Background(), n1, true)).To(Succeed())
+			Expect(registry.Register(context.Background(), n2, true)).To(Succeed())
+			Expect(registry.Register(context.Background(), n3, true)).To(Succeed())
+			// n1 loaded+busy, n2 loaded+idle, n3 has a different model only.
+			Expect(registry.SetNodeModel(context.Background(), n1.ID, "stats-model", 0, "loaded", "10.0.0.80:6000", 0)).To(Succeed())
+			Expect(registry.SetNodeModel(context.Background(), n2.ID, "stats-model", 0, "loaded", "10.0.0.81:6000", 0)).To(Succeed())
+			Expect(registry.SetNodeModel(context.Background(), n3.ID, "other-model", 0, "loaded", "", 0)).To(Succeed())
+			Expect(registry.IncrementInFlight(context.Background(), n1.ID, "stats-model", 0)).To(Succeed())
+			Expect(registry.IncrementInFlight(context.Background(), n1.ID, "stats-model", 0)).To(Succeed())
+		})
+
+		It("returns loaded healthy replicas with in-flight counts", func() {
+			stats, err := registry.LoadedReplicaStats(context.Background(), "stats-model", nil)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(stats).To(HaveLen(2))
+			byNode := map[string]ReplicaCandidate{}
+			for _, s := range stats {
+				byNode[s.NodeID] = s
+			}
+			Expect(byNode).To(HaveKey(n1.ID))
+			Expect(byNode).To(HaveKey(n2.ID))
+			Expect(byNode[n1.ID].InFlight).To(Equal(2))
+			Expect(byNode[n2.ID].InFlight).To(Equal(0))
+		})
+
+		It("filters to the candidate node set when provided", func() {
+			stats, err := registry.LoadedReplicaStats(context.Background(), "stats-model", []string{n2.ID})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(stats).To(HaveLen(1))
+			Expect(stats[0].NodeID).To(Equal(n2.ID))
+		})
+
+		It("excludes unhealthy nodes", func() {
+			Expect(registry.MarkUnhealthy(context.Background(), n1.ID)).To(Succeed())
+			stats, err := registry.LoadedReplicaStats(context.Background(), "stats-model", nil)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(stats).To(HaveLen(1))
+			Expect(stats[0].NodeID).To(Equal(n2.ID))
+		})
+
+		It("returns empty for a model with no loaded replicas", func() {
+			stats, err := registry.LoadedReplicaStats(context.Background(), "no-such-model", nil)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(stats).To(BeEmpty())
 		})
 	})
 
@@ -556,6 +748,30 @@ var _ = Describe("NodeRegistry", func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(fetched.MinReplicas).To(Equal(2))
 			Expect(fetched.MaxReplicas).To(Equal(5))
+		})
+
+		It("persists and updates route policy and thresholds", func() {
+			err := registry.SetModelScheduling(context.Background(), &ModelSchedulingConfig{
+				ModelName: "prefix-cache-model", RoutePolicy: "prefix_cache",
+				BalanceAbsThreshold: 3, BalanceRelThreshold: 2.0, MinPrefixMatch: 0.4,
+			})
+			Expect(err).ToNot(HaveOccurred())
+
+			got, err := registry.GetModelScheduling(context.Background(), "prefix-cache-model")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(got.RoutePolicy).To(Equal("prefix_cache"))
+			Expect(got.BalanceAbsThreshold).To(Equal(3))
+			Expect(got.BalanceRelThreshold).To(BeNumerically("==", 2.0))
+			Expect(got.MinPrefixMatch).To(BeNumerically("==", 0.4))
+
+			// Update must not be dropped on conflict.
+			Expect(registry.SetModelScheduling(context.Background(), &ModelSchedulingConfig{
+				ModelName: "prefix-cache-model", RoutePolicy: "round_robin",
+			})).ToNot(HaveOccurred())
+
+			got, err = registry.GetModelScheduling(context.Background(), "prefix-cache-model")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(got.RoutePolicy).To(Equal("round_robin"))
 		})
 
 		It("lists all configs", func() {
@@ -829,6 +1045,187 @@ var _ = Describe("NodeRegistry", func() {
 		})
 	})
 
+	Describe("SetReplicaRemovedHook", func() {
+		type removed struct {
+			model, node string
+			replica     int
+		}
+
+		It("fires once with the specific replica after RemoveNodeModel", func() {
+			node := makeNode("hook-remove-one", "10.0.0.230:50051", 8_000_000_000)
+			Expect(registry.Register(context.Background(), node, true)).To(Succeed())
+			Expect(registry.SetNodeModel(context.Background(), node.ID, "hook-model", 1, "loaded", "a", 0)).To(Succeed())
+
+			var fired []removed
+			registry.SetReplicaRemovedHook(func(modelName, nodeID string, replicaIndex int) {
+				fired = append(fired, removed{model: modelName, node: nodeID, replica: replicaIndex})
+			})
+
+			// RemoveNodeModel(replica 1) must fire with the SPECIFIC replica index.
+			Expect(registry.RemoveNodeModel(context.Background(), node.ID, "hook-model", 1)).To(Succeed())
+			Expect(fired).To(HaveLen(1))
+			Expect(fired[0]).To(Equal(removed{model: "hook-model", node: node.ID, replica: 1}))
+		})
+
+		It("fires once with replica<0 after RemoveAllNodeModelReplicas", func() {
+			node := makeNode("hook-remove-all", "10.0.0.231:50051", 16_000_000_000)
+			Expect(registry.Register(context.Background(), node, true)).To(Succeed())
+			Expect(registry.SetNodeModel(context.Background(), node.ID, "hook-all-model", 0, "loaded", "a", 0)).To(Succeed())
+			Expect(registry.SetNodeModel(context.Background(), node.ID, "hook-all-model", 1, "loaded", "b", 0)).To(Succeed())
+
+			var fired []removed
+			registry.SetReplicaRemovedHook(func(modelName, nodeID string, replicaIndex int) {
+				fired = append(fired, removed{model: modelName, node: nodeID, replica: replicaIndex})
+			})
+
+			// One call covers all replicas of that model on the node: a negative
+			// replica index signals "all replicas", and the consumer's
+			// InvalidateNode drops every entry for the (model, node) pair.
+			Expect(registry.RemoveAllNodeModelReplicas(context.Background(), node.ID, "hook-all-model")).To(Succeed())
+			Expect(fired).To(HaveLen(1))
+			Expect(fired[0].model).To(Equal("hook-all-model"))
+			Expect(fired[0].node).To(Equal(node.ID))
+			Expect(fired[0].replica).To(BeNumerically("<", 0))
+		})
+
+		It("does not panic when no hook is set", func() {
+			node := makeNode("hook-unset", "10.0.0.232:50051", 8_000_000_000)
+			Expect(registry.Register(context.Background(), node, true)).To(Succeed())
+			Expect(registry.SetNodeModel(context.Background(), node.ID, "no-hook-model", 0, "loaded", "a", 0)).To(Succeed())
+
+			Expect(func() {
+				Expect(registry.RemoveNodeModel(context.Background(), node.ID, "no-hook-model", 0)).To(Succeed())
+				Expect(registry.RemoveAllNodeModelReplicas(context.Background(), node.ID, "no-hook-model")).To(Succeed())
+			}).ToNot(Panic())
+		})
+
+		// firedModelSet collects the distinct model names the hook saw for the
+		// given node. The bulk node-scoped deletes below remove every replica of
+		// every model on the node in one statement, so the chokepoint must fire
+		// the hook once per distinct model name (the consumer's Invalidate
+		// drops all entries for that (model, node) pair).
+		seedTwoModels := func(node *BackendNode) {
+			Expect(registry.Register(context.Background(), node, true)).To(Succeed())
+			Expect(registry.SetNodeModel(context.Background(), node.ID, "model-a", 0, "loaded", "a0", 0)).To(Succeed())
+			Expect(registry.SetNodeModel(context.Background(), node.ID, "model-a", 1, "loaded", "a1", 0)).To(Succeed())
+			Expect(registry.SetNodeModel(context.Background(), node.ID, "model-b", 0, "loaded", "b0", 0)).To(Succeed())
+		}
+
+		It("fires once per distinct model after MarkOffline", func() {
+			node := makeNode("hook-offline", "10.0.0.240:50051", 8_000_000_000)
+			seedTwoModels(node)
+
+			fired := map[removed]int{}
+			registry.SetReplicaRemovedHook(func(modelName, nodeID string, replicaIndex int) {
+				// Bulk node-scoped deletes signal "all replicas" with replica<0.
+				Expect(replicaIndex).To(BeNumerically("<", 0))
+				fired[removed{model: modelName, node: nodeID}]++
+			})
+
+			Expect(registry.MarkOffline(context.Background(), node.ID)).To(Succeed())
+			Expect(fired).To(HaveLen(2))
+			Expect(fired[removed{model: "model-a", node: node.ID}]).To(Equal(1))
+			Expect(fired[removed{model: "model-b", node: node.ID}]).To(Equal(1))
+		})
+
+		It("fires once per distinct model after MarkDraining", func() {
+			node := makeNode("hook-draining", "10.0.0.241:50051", 8_000_000_000)
+			seedTwoModels(node)
+
+			fired := map[removed]int{}
+			registry.SetReplicaRemovedHook(func(modelName, nodeID string, replicaIndex int) {
+				// Bulk node-scoped deletes signal "all replicas" with replica<0.
+				Expect(replicaIndex).To(BeNumerically("<", 0))
+				fired[removed{model: modelName, node: nodeID}]++
+			})
+
+			Expect(registry.MarkDraining(context.Background(), node.ID)).To(Succeed())
+			Expect(fired).To(HaveLen(2))
+			Expect(fired[removed{model: "model-a", node: node.ID}]).To(Equal(1))
+			Expect(fired[removed{model: "model-b", node: node.ID}]).To(Equal(1))
+		})
+
+		It("fires once per distinct model after Deregister", func() {
+			node := makeNode("hook-deregister", "10.0.0.242:50051", 8_000_000_000)
+			seedTwoModels(node)
+
+			fired := map[removed]int{}
+			registry.SetReplicaRemovedHook(func(modelName, nodeID string, replicaIndex int) {
+				// Bulk node-scoped deletes signal "all replicas" with replica<0.
+				Expect(replicaIndex).To(BeNumerically("<", 0))
+				fired[removed{model: modelName, node: nodeID}]++
+			})
+
+			Expect(registry.Deregister(context.Background(), node.ID)).To(Succeed())
+			Expect(fired).To(HaveLen(2))
+			Expect(fired[removed{model: "model-a", node: node.ID}]).To(Equal(1))
+			Expect(fired[removed{model: "model-b", node: node.ID}]).To(Equal(1))
+		})
+
+		It("fires once per distinct model when re-registration clears stale rows", func() {
+			node := makeNode("hook-reregister", "10.0.0.243:50051", 8_000_000_000)
+			seedTwoModels(node)
+
+			fired := map[removed]int{}
+			registry.SetReplicaRemovedHook(func(modelName, nodeID string, replicaIndex int) {
+				// Bulk node-scoped deletes signal "all replicas" with replica<0.
+				Expect(replicaIndex).To(BeNumerically("<", 0))
+				fired[removed{model: modelName, node: nodeID}]++
+			})
+
+			// Re-register the same node (same name): the re-register path
+			// clears the stale model rows, which must fire the hook.
+			again := makeNode("hook-reregister", "10.0.0.243:50052", 8_000_000_000)
+			Expect(registry.Register(context.Background(), again, true)).To(Succeed())
+			Expect(fired).To(HaveLen(2))
+			Expect(fired[removed{model: "model-a", node: node.ID}]).To(Equal(1))
+			Expect(fired[removed{model: "model-b", node: node.ID}]).To(Equal(1))
+		})
+
+		// Atomicity: the bulk node-scoped delete in MarkOffline/MarkDraining/
+		// re-register now captures the model names and deletes the rows inside a
+		// single transaction. A true SetNodeModel-between-capture-and-delete race
+		// can't be forced deterministically here, but we can assert the
+		// post-condition the transaction guarantees: the set of fired hooks
+		// equals exactly the set of node_models rows the operation removed, with
+		// nothing left behind. If the capture and delete ever saw inconsistent
+		// snapshots, either a surviving row (delete missed it) or a missing hook
+		// (capture missed it) would break one of these assertions.
+		It("MarkOffline fires hooks for exactly the rows it deletes (consistent snapshot)", func() {
+			node := makeNode("hook-atomic-offline", "10.0.0.244:50051", 8_000_000_000)
+			seedTwoModels(node)
+
+			// Capture what the transaction should remove, straight from the DB,
+			// before running the operation.
+			before, err := registry.GetNodeModels(context.Background(), node.ID)
+			Expect(err).ToNot(HaveOccurred())
+			expectedModels := map[string]struct{}{}
+			for _, nm := range before {
+				expectedModels[nm.ModelName] = struct{}{}
+			}
+			Expect(expectedModels).To(HaveLen(2), "seed should create two distinct models")
+
+			fired := map[string]struct{}{}
+			registry.SetReplicaRemovedHook(func(modelName, nodeID string, replicaIndex int) {
+				Expect(nodeID).To(Equal(node.ID))
+				Expect(replicaIndex).To(BeNumerically("<", 0))
+				fired[modelName] = struct{}{}
+			})
+
+			Expect(registry.MarkOffline(context.Background(), node.ID)).To(Succeed())
+
+			// Hooks fired for exactly the distinct models that existed.
+			Expect(fired).To(Equal(expectedModels),
+				"hooks must fire for exactly the set of models the transaction deleted")
+
+			// And the delete actually emptied the node_models rows for the node:
+			// no row survives that did not get a hook.
+			after, err := registry.GetNodeModels(context.Background(), node.ID)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(after).To(BeEmpty(), "no node_models row should survive the bulk delete")
+		})
+	})
+
 	Describe("ApplyAutoLabels", func() {
 		It("mirrors MaxReplicasPerModel as the node.replica-slots label", func() {
 			node := makeNode("auto-label-replicas", "10.0.0.220:50051", 16_000_000_000)
@@ -1024,6 +1421,71 @@ var _ = Describe("NodeRegistry", func() {
 			_, err := registry.FindNodeWithVRAM(context.Background(), 8_000_000_000)
 			Expect(err).To(HaveOccurred(),
 				"reserved capacity must remove a node from VRAM-aware candidates")
+		})
+	})
+
+	Describe("ModelLoadInfo persistence (Bug-1)", func() {
+		It("survives every NodeModel row being removed", func() {
+			ctx := context.Background()
+
+			// One node with one loaded replica + per-replica blob (the legacy path).
+			node := makeNode("li-1", "10.0.1.1:50051", 8_000_000_000)
+			Expect(registry.Register(ctx, node, true)).To(Succeed())
+			Expect(registry.SetNodeModel(ctx, node.ID, "load-info-model", 0, "loaded", node.Address, 0)).To(Succeed())
+			Expect(registry.SetNodeModelLoadInfo(ctx, node.ID, "load-info-model", 0, "llama-cpp", []byte("opts-v1"))).To(Succeed())
+
+			// Persist per-model via the new path (the dispatch hook does this).
+			Expect(registry.UpsertModelLoadInfo(ctx, "load-info-model", "llama-cpp", []byte("opts-v1"))).To(Succeed())
+
+			// Simulate worker death + MarkOffline reaping: every NodeModel row gone.
+			Expect(registry.RemoveAllNodeModelReplicas(ctx, node.ID, "load-info-model")).To(Succeed())
+
+			bt, blob, err := registry.GetModelLoadInfo(ctx, "load-info-model")
+			Expect(err).ToNot(HaveOccurred(),
+				"per-model load info must survive every NodeModel row going away")
+			Expect(bt).To(Equal("llama-cpp"))
+			Expect(blob).To(Equal([]byte("opts-v1")))
+		})
+
+		It("ON CONFLICT updates backend type and opts (last-write-wins)", func() {
+			ctx := context.Background()
+
+			Expect(registry.UpsertModelLoadInfo(ctx, "lww", "llama-cpp", []byte("v1"))).To(Succeed())
+			Expect(registry.UpsertModelLoadInfo(ctx, "lww", "vllm", []byte("v2"))).To(Succeed())
+
+			bt, blob, err := registry.GetModelLoadInfo(ctx, "lww")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(bt).To(Equal("vllm"))
+			Expect(blob).To(Equal([]byte("v2")))
+		})
+
+		It("falls back to legacy NodeModel blob when no per-model row exists", func() {
+			// Pre-fix rolling-upgrade path: a frontend that ran before the new
+			// table existed only wrote the per-replica blob. The new
+			// GetModelLoadInfo must still find it so an upgrade doesn't
+			// regress the reconciler for already-loaded models.
+			ctx := context.Background()
+
+			node := makeNode("li-legacy", "10.0.1.2:50051", 8_000_000_000)
+			Expect(registry.Register(ctx, node, true)).To(Succeed())
+			Expect(registry.SetNodeModel(ctx, node.ID, "legacy-model", 0, "loaded", node.Address, 0)).To(Succeed())
+			Expect(registry.SetNodeModelLoadInfo(ctx, node.ID, "legacy-model", 0, "llama-cpp", []byte("legacy-opts"))).To(Succeed())
+
+			bt, blob, err := registry.GetModelLoadInfo(ctx, "legacy-model")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(bt).To(Equal("llama-cpp"))
+			Expect(blob).To(Equal([]byte("legacy-opts")))
+		})
+
+		It("returns ErrRecordNotFound when neither source has the model", func() {
+			ctx := context.Background()
+			_, _, err := registry.GetModelLoadInfo(ctx, "never-loaded")
+			Expect(err).To(MatchError(gorm.ErrRecordNotFound))
+		})
+
+		It("rejects empty model names", func() {
+			err := registry.UpsertModelLoadInfo(context.Background(), "", "llama-cpp", []byte("x"))
+			Expect(err).To(HaveOccurred())
 		})
 	})
 })

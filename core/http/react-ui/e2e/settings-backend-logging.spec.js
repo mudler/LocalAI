@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test'
+import { test, expect } from './coverage-fixtures.js'
 
 test.describe('Settings - Backend Logging', () => {
   test.beforeEach(async ({ page }) => {

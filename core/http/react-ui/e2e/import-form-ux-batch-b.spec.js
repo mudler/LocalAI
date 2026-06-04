@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test'
+import { test, expect } from './coverage-fixtures.js'
 
 // Batch B — Simple / Power mode with quick switch. This suite exercises the
 // mode switch itself, the collapsible Options disclosure in Simple mode,

@@ -1,0 +1,175 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700;12..96,800&family=Archivo:wght@500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#F3E8D2; --paper2:#ECDFC2; --ink:#211C14; --ink-soft:#5A5142;
+    --rust:#B43A2C; --rust-deep:#8F2C20; --cold:#3F6E73; --hi:#E7D6AE; --dim:#A99F88;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{width:1600px;height:900px}
+  body{
+    background:var(--paper);color:var(--ink);font-family:"Archivo",sans-serif;
+    position:relative;overflow:hidden;
+    background-image:
+      linear-gradient(var(--paper2) 1px,transparent 1px),
+      linear-gradient(90deg,var(--paper2) 1px,transparent 1px);
+    background-size:40px 40px;
+  }
+  .frame{position:absolute;inset:26px;border:3px solid var(--ink);}
+  .wrap{position:absolute;inset:26px;padding:30px 56px 26px;display:flex;flex-direction:column}
+  header{display:flex;align-items:flex-end;justify-content:space-between;gap:30px}
+  .eyebrow{font-weight:700;letter-spacing:.22em;text-transform:uppercase;font-size:17px;color:var(--rust-deep)}
+  .eyebrow b{color:var(--ink)}
+  h1{font-family:"Bricolage Grotesque",sans-serif;font-weight:800;font-size:50px;line-height:.98;letter-spacing:-.015em;margin-top:6px}
+  h1 em{font-style:normal;color:var(--rust)}
+  .stamp{border:3px solid var(--ink);padding:10px 16px 8px;transform:rotate(3deg);text-align:center;background:var(--paper);box-shadow:6px 6px 0 var(--ink);flex:none}
+  .stamp .k{font-family:"Bricolage Grotesque";font-weight:800;font-size:21px;letter-spacing:.04em;line-height:1.05}
+  .stamp .s{font-weight:700;font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--ink-soft);margin-top:5px}
+  .stage{flex:1;margin-top:8px}
+  svg{width:100%;height:100%;overflow:visible}
+  footer{display:flex;align-items:center;justify-content:space-between;margin-top:6px;gap:24px}
+  .note{font-weight:600;font-size:18px;color:var(--ink-soft);line-height:1.3;max-width:1080px}
+  .note b{color:var(--ink)}
+  .url{font-family:"Bricolage Grotesque";font-weight:800;font-size:22px;color:var(--rust-deep);letter-spacing:.01em;flex:none}
+  .url span{color:var(--ink)}
+</style>
+</head>
+<body>
+  <div class="frame"></div>
+  <div class="wrap">
+    <header>
+      <div>
+        <div class="eyebrow">LocalAI <b>&middot;</b> Deployment</div>
+        <h1>TLS at the <em>edge</em></h1>
+      </div>
+      <div class="stamp">
+        <div class="k">X-FWD</div>
+        <div class="s">headers</div>
+      </div>
+    </header>
+    <div class="stage"><svg viewBox="0 0 1480 560" id="svg"></svg></div>
+    <footer>
+      <div class="note">Terminate TLS at the proxy; <b>forwarded headers let LocalAI emit correct https asset URLs.</b></div>
+      <div class="url">localai.io<span>/docs</span></div>
+    </footer>
+  </div>
+<script>
+const INK="#211C14", PAPER="#F3E8D2", PAPER2="#ECDFC2", HI="#E7D6AE", SOFT="#5A5142", RUST="#B43A2C", RUSTD="#8F2C20", COLD="#3F6E73", DIM="#A99F88";
+function el(t,a,x){const e=document.createElementNS("http://www.w3.org/2000/svg",t);for(const k in a)e.setAttribute(k,a[k]);if(x!=null)e.textContent=x;return e;}
+const svg=document.getElementById("svg");
+function shadowRect(x,y,w,h,fill,stroke,sw,dash){
+  svg.appendChild(el("rect",{x:x+7,y:y+7,width:w,height:h,fill:INK}));
+  svg.appendChild(el("rect",{x,y,width:w,height:h,fill,stroke:stroke||INK,"stroke-width":sw||3.5,"stroke-dasharray":dash||"none"}));
+}
+function txt(x,y,s,o){o=o||{};svg.appendChild(el("text",{x,y,"font-family":o.f||"Archivo","font-weight":o.w||700,"font-size":o.sz||15,"letter-spacing":o.ls||"0","text-anchor":o.a||"start",fill:o.fill||INK},s));}
+function arrow(x1,y1,x2,y2,color,dash){
+  const mx=(x1+x2)/2;
+  svg.appendChild(el("path",{d:`M ${x1} ${y1} C ${mx} ${y1}, ${mx} ${y2}, ${x2-11} ${y2}`,fill:"none",stroke:color,"stroke-width":3.5,"stroke-linecap":"round","stroke-dasharray":dash||"none"}));
+  const a=7;
+  svg.appendChild(el("path",{d:`M ${x2-11} ${y2} l -${a+4} -${a} M ${x2-11} ${y2} l -${a+4} ${a}`,fill:"none",stroke:color,"stroke-width":3.5,"stroke-linecap":"round"}));
+}
+
+// ===================================================================
+// Left-to-right topology: browser -> reverse proxy -> LocalAI
+// ===================================================================
+
+// vertical center for the connecting spine
+const MIDY = 250;
+
+// ---------- BROWSER (left) ----------
+const BX=30, BW=300, BH=150, BY=MIDY-BH/2;
+txt(BX+4,BY-22,"CLIENT",{w:700,sz:14,ls:".2em",fill:SOFT});
+shadowRect(BX,BY,BW,BH,PAPER2);
+// little browser chrome line
+svg.appendChild(el("line",{x1:BX,y1:BY+44,x2:BX+BW,y2:BY+44,stroke:INK,"stroke-width":2.5}));
+svg.appendChild(el("circle",{cx:BX+24,cy:BY+24,r:6,fill:COLD}));
+svg.appendChild(el("circle",{cx:BX+46,cy:BY+24,r:6,fill:DIM}));
+svg.appendChild(el("circle",{cx:BX+68,cy:BY+24,r:6,fill:DIM}));
+txt(BX+BW/2,BY+90,"Browser",{f:"Bricolage Grotesque",w:800,sz:30,a:"middle"});
+txt(BX+BW/2,BY+122,"requests https://host/...",{w:700,sz:15,a:"middle",fill:SOFT});
+
+// ---------- REVERSE PROXY (center) ----------
+const PX=540, PW=400, PH=300, PY=MIDY-PH/2;
+txt(PX+4,PY-22,"EDGE",{w:700,sz:14,ls:".2em",fill:SOFT});
+shadowRect(PX,PY,PW,PH,PAPER,INK,4);
+// rust title bar
+svg.appendChild(el("rect",{x:PX,y:PY,width:PW,height:60,fill:RUST}));
+svg.appendChild(el("line",{x1:PX,y1:PY+60,x2:PX+PW,y2:PY+60,stroke:INK,"stroke-width":4}));
+txt(PX+24,PY+39,"Reverse proxy",{f:"Bricolage Grotesque",w:800,sz:28,fill:PAPER});
+txt(PX+PW-24,PY+38,"nginx · caddy · traefik",{w:700,sz:13,ls:".04em",a:"end",fill:"#F1D9C8"});
+// TLS terminated banner
+const tlsY=PY+80;
+svg.appendChild(el("rect",{x:PX+24,y:tlsY,width:PW-48,height:50,fill:HI,stroke:INK,"stroke-width":2.5}));
+// lock glyph
+const lx=PX+44, ly=tlsY+25;
+svg.appendChild(el("rect",{x:lx-9,y:ly-4,width:18,height:15,fill:RUSTD}));
+svg.appendChild(el("path",{d:`M ${lx-6} ${ly-4} v -5 a 6 6 0 0 1 12 0 v 5`,fill:"none",stroke:RUSTD,"stroke-width":3}));
+txt(PX+68,tlsY+33,"TLS terminated here",{f:"Bricolage Grotesque",w:800,sz:21});
+// injected headers list
+const hY=tlsY+72;
+txt(PX+24,hY,"injects forwarded headers:",{w:700,sz:14,fill:SOFT});
+const hdrs=["X-Forwarded-Proto: https","X-Forwarded-Host","X-Forwarded-Prefix"];
+hdrs.forEach((h,i)=>{
+  const ry=hY+16+i*40;
+  svg.appendChild(el("rect",{x:PX+24,y:ry,width:PW-48,height:30,fill:PAPER2,stroke:INK,"stroke-width":2}));
+  txt(PX+38,ry+21,h,{f:"Bricolage Grotesque",w:700,sz:17});
+});
+
+// ---------- LOCALAI (right) ----------
+const LX=1150, LW=300, LH=300, LY=MIDY-LH/2;
+txt(LX+LW,LY-22,"ORIGIN",{w:700,sz:14,ls:".2em",a:"end",fill:SOFT});
+shadowRect(LX,LY,LW,LH,PAPER,INK,4);
+svg.appendChild(el("rect",{x:LX,y:LY,width:LW,height:60,fill:COLD}));
+svg.appendChild(el("line",{x1:LX,y1:LY+60,x2:LX+LW,y2:LY+60,stroke:INK,"stroke-width":4}));
+txt(LX+24,LY+39,"LocalAI",{f:"Bricolage Grotesque",w:800,sz:28,fill:PAPER});
+// BaseURL middleware box
+const mwY=LY+80;
+svg.appendChild(el("rect",{x:LX+24,y:mwY,width:LW-48,height:54,fill:HI,stroke:INK,"stroke-width":2.5}));
+txt(LX+40,mwY+24,"BaseURL middleware",{f:"Bricolage Grotesque",w:800,sz:19});
+txt(LX+40,mwY+44,"reads X-Forwarded-*",{w:700,sz:14,fill:SOFT});
+// output: https asset URLs
+const oY=mwY+74;
+txt(LX+24,oY,"emits asset URLs:",{w:700,sz:14,fill:SOFT});
+svg.appendChild(el("rect",{x:LX+24,y:oY+14,width:LW-48,height:44,fill:PAPER2,stroke:INK,"stroke-width":2.5}));
+txt(LX+40,oY+36,"https://host/...",{f:"Bricolage Grotesque",w:800,sz:20,fill:RUSTD});
+txt(LX+40,oY+54,"correct scheme · host · prefix",{w:700,sz:12,fill:SOFT});
+txt(LX+24,oY+86,"serves on plain HTTP",{w:700,sz:14,fill:SOFT});
+
+// ===================================================================
+// CONNECTORS
+// ===================================================================
+// browser -> proxy : HTTPS (solid rust, encrypted leg)
+arrow(BX+BW, MIDY, PX, MIDY, RUST);
+// leg label + lock
+const seg1mid=(BX+BW+PX)/2;
+svg.appendChild(el("rect",{x:seg1mid-58,y:MIDY-46,width:116,height:34,fill:PAPER,stroke:RUST,"stroke-width":2.5}));
+// small lock on label
+const slx=seg1mid-40, sly=MIDY-29;
+svg.appendChild(el("rect",{x:slx-6,y:sly-2,width:12,height:10,fill:RUST}));
+svg.appendChild(el("path",{d:`M ${slx-4} ${sly-2} v -3 a 4 4 0 0 1 8 0 v 3`,fill:"none",stroke:RUST,"stroke-width":2.5}));
+txt(seg1mid+8,MIDY-23,"HTTPS",{f:"Bricolage Grotesque",w:800,sz:18,a:"middle",fill:RUSTD});
+txt(seg1mid,MIDY+34,"encrypted",{w:700,sz:13,a:"middle",fill:SOFT});
+
+// proxy -> LocalAI : HTTP (dashed cold, plaintext internal leg)
+arrow(PX+PW, MIDY, LX, MIDY, COLD, "2 8");
+const seg2mid=(PX+PW+LX)/2;
+svg.appendChild(el("rect",{x:seg2mid-52,y:MIDY-46,width:104,height:34,fill:PAPER,stroke:COLD,"stroke-width":2.5}));
+txt(seg2mid,MIDY-23,"HTTP",{f:"Bricolage Grotesque",w:800,sz:18,a:"middle",fill:COLD});
+txt(seg2mid,MIDY+34,"internal · no TLS",{w:700,sz:13,a:"middle",fill:SOFT});
+
+// ---------- TLS boundary marker (vertical, at proxy right edge) ----------
+const BND=PX+PW+ (LX-(PX+PW))/2 - 0; // not used; boundary drawn at proxy edge below
+// boundary line just right of the proxy where TLS ends
+const bx=PX+PW+18;
+svg.appendChild(el("line",{x1:bx,y1:LY-6,x2:bx,y2:LY+LH+6,stroke:RUSTD,"stroke-width":3,"stroke-dasharray":"3 8"}));
+const lbW=150,lbH=30,lbx=bx-lbW/2,lby=LY+LH-6;
+svg.appendChild(el("rect",{x:lbx,y:lby,width:lbW,height:lbH,fill:PAPER,stroke:RUSTD,"stroke-width":2.5}));
+txt(bx,lby+21,"TLS ENDS HERE",{f:"Bricolage Grotesque",w:800,sz:14,a:"middle",ls:".03em",fill:RUSTD});
+</script>
+</body>
+</html>

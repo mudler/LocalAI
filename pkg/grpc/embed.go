@@ -3,6 +3,7 @@ package grpc
 import (
 	"context"
 	"io"
+	"sync"
 
 	pb "github.com/mudler/LocalAI/pkg/grpc/proto"
 	"google.golang.org/grpc"
@@ -132,6 +133,14 @@ func (e *embedBackend) Rerank(ctx context.Context, in *pb.RerankRequest, opts ..
 	return e.s.Rerank(ctx, in)
 }
 
+func (e *embedBackend) TokenClassify(ctx context.Context, in *pb.TokenClassifyRequest, opts ...grpc.CallOption) (*pb.TokenClassifyResponse, error) {
+	return e.s.TokenClassify(ctx, in)
+}
+
+func (e *embedBackend) Score(ctx context.Context, in *pb.ScoreRequest, opts ...grpc.CallOption) (*pb.ScoreResponse, error) {
+	return e.s.Score(ctx, in)
+}
+
 func (e *embedBackend) VAD(ctx context.Context, in *pb.VADRequest, opts ...grpc.CallOption) (*pb.VADResponse, error) {
 	return e.s.VAD(ctx, in)
 }
@@ -174,6 +183,27 @@ func (e *embedBackend) AudioTransformStream(ctx context.Context, opts ...grpc.Ca
 	}()
 
 	return &embedBackendAudioTransformStreamClient{
+		ctx:     ctx,
+		reqs:    reqs,
+		resps:   resps,
+		srvDone: srvDone,
+	}, nil
+}
+
+func (e *embedBackend) Forward(ctx context.Context, opts ...grpc.CallOption) (ForwardClient, error) {
+	reqs := make(chan *pb.ForwardRequest, 8)
+	resps := make(chan *pb.ForwardReply, 8)
+	srvDone := make(chan error, 1)
+
+	server := &embedBackendForwardStream{ctx: ctx, reqs: reqs, resps: resps}
+
+	go func() {
+		err := e.s.Forward(server)
+		close(resps)
+		srvDone <- err
+	}()
+
+	return &embedBackendForwardStreamClient{
 		ctx:     ctx,
 		reqs:    reqs,
 		resps:   resps,
@@ -601,3 +631,94 @@ func (e *embedBackendServerStream) SendMsg(m any) error {
 func (e *embedBackendServerStream) RecvMsg(m any) error {
 	return nil
 }
+
+var _ pb.Backend_ForwardServer = new(embedBackendForwardStream)
+var _ ForwardClient = new(embedBackendForwardStreamClient)
+
+// embedBackendForwardStream is the server-side handle for an in-process
+// Forward bidi stream. The hosted backend reads requests from `reqs`
+// (closed by the client when done sending) and writes replies to
+// `resps`.
+type embedBackendForwardStream struct {
+	ctx   context.Context
+	reqs  <-chan *pb.ForwardRequest
+	resps chan<- *pb.ForwardReply
+}
+
+func (e *embedBackendForwardStream) Send(resp *pb.ForwardReply) error {
+	select {
+	case e.resps <- resp:
+		return nil
+	case <-e.ctx.Done():
+		return e.ctx.Err()
+	}
+}
+
+func (e *embedBackendForwardStream) Recv() (*pb.ForwardRequest, error) {
+	select {
+	case req, ok := <-e.reqs:
+		if !ok {
+			return nil, io.EOF
+		}
+		return req, nil
+	case <-e.ctx.Done():
+		return nil, e.ctx.Err()
+	}
+}
+
+func (e *embedBackendForwardStream) SetHeader(md metadata.MD) error  { return nil }
+func (e *embedBackendForwardStream) SendHeader(md metadata.MD) error { return nil }
+func (e *embedBackendForwardStream) SetTrailer(md metadata.MD)       {}
+func (e *embedBackendForwardStream) Context() context.Context        { return e.ctx }
+func (e *embedBackendForwardStream) SendMsg(m any) error {
+	if x, ok := m.(*pb.ForwardReply); ok {
+		return e.Send(x)
+	}
+	return nil
+}
+func (e *embedBackendForwardStream) RecvMsg(m any) error { return nil }
+
+// embedBackendForwardStreamClient is the caller-facing side. Mirrors
+// the server-side stream over the same channels.
+type embedBackendForwardStreamClient struct {
+	ctx     context.Context
+	reqs    chan<- *pb.ForwardRequest
+	resps   <-chan *pb.ForwardReply
+	srvDone <-chan error
+	once    sync.Once
+}
+
+func (e *embedBackendForwardStreamClient) Send(req *pb.ForwardRequest) error {
+	select {
+	case e.reqs <- req:
+		return nil
+	case <-e.ctx.Done():
+		return e.ctx.Err()
+	}
+}
+
+func (e *embedBackendForwardStreamClient) Recv() (*pb.ForwardReply, error) {
+	select {
+	case resp, ok := <-e.resps:
+		if !ok {
+			select {
+			case err := <-e.srvDone:
+				if err != nil {
+					return nil, err
+				}
+			default:
+			}
+			return nil, io.EOF
+		}
+		return resp, nil
+	case <-e.ctx.Done():
+		return nil, e.ctx.Err()
+	}
+}
+
+func (e *embedBackendForwardStreamClient) CloseSend() error {
+	e.once.Do(func() { close(e.reqs) })
+	return nil
+}
+
+func (e *embedBackendForwardStreamClient) Context() context.Context { return e.ctx }

@@ -9,7 +9,7 @@ import (
 
 // ModelRouter is used by SmartRouter for routing decisions and model lifecycle.
 type ModelRouter interface {
-	FindAndLockNodeWithModel(ctx context.Context, modelName string, candidateNodeIDs []string) (*BackendNode, *NodeModel, error)
+	FindAndLockNodeWithModel(ctx context.Context, modelName string, candidateNodeIDs []string, pref *RoutePreference) (*BackendNode, *NodeModel, error)
 	DecrementInFlight(ctx context.Context, nodeID, modelName string, replicaIndex int) error
 	IncrementInFlight(ctx context.Context, nodeID, modelName string, replicaIndex int) error
 	RemoveNodeModel(ctx context.Context, nodeID, modelName string, replicaIndex int) error
@@ -17,6 +17,7 @@ type ModelRouter interface {
 	TouchNodeModel(ctx context.Context, nodeID, modelName string, replicaIndex int)
 	SetNodeModel(ctx context.Context, nodeID, modelName string, replicaIndex int, state, address string, initialInFlight int) error
 	SetNodeModelLoadInfo(ctx context.Context, nodeID, modelName string, replicaIndex int, backendType string, optsBlob []byte) error
+	UpsertModelLoadInfo(ctx context.Context, modelName, backendType string, optsBlob []byte) error
 	GetModelLoadInfo(ctx context.Context, modelName string) (backendType string, optsBlob []byte, err error)
 	NextFreeReplicaIndex(ctx context.Context, nodeID, modelName string, maxSlots int) (int, error)
 	CountReplicasOnNode(ctx context.Context, nodeID, modelName string) (int, error)
@@ -36,6 +37,7 @@ type ModelRouter interface {
 	FindLeastLoadedNodeFromSet(ctx context.Context, nodeIDs []string) (*BackendNode, error)
 	GetNodeLabels(ctx context.Context, nodeID string) ([]NodeLabel, error)
 	FindNodesWithModel(ctx context.Context, modelName string) ([]BackendNode, error)
+	LoadedReplicaStats(ctx context.Context, modelName string, candidateNodeIDs []string) ([]ReplicaCandidate, error)
 }
 
 // ConcurrencyConflictResolver returns the names of configured models that

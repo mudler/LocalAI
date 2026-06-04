@@ -27,6 +27,7 @@
 #include <stdlib.h>
 #include <regex>
 #include <errno.h>
+#include <inttypes.h>
 #include <signal.h>
 #include <unistd.h>
 #include <sys/wait.h>
@@ -376,6 +377,8 @@ int load_model(const char *model, char *model_path, char* options[], int threads
     const char *clip_g_path  = "";
     const char *t5xxl_path  = "";
     const char *vae_path  = "";
+    const char *audio_vae_path = "";
+    const char *embeddings_connectors_path = "";
     const char *scheduler_str = "";
     const char *sampler = "";
     const char *clip_vision_path = "";
@@ -430,6 +433,12 @@ int load_model(const char *model, char *model_path, char* options[], int threads
         }
         if (!strcmp(optname, "vae_path")) {
             vae_path = strdup(optval);
+        }
+        if (!strcmp(optname, "audio_vae_path")) {
+            audio_vae_path = strdup(optval);
+        }
+        if (!strcmp(optname, "embeddings_connectors_path")) {
+            embeddings_connectors_path = strdup(optval);
         }
         if (!strcmp(optname, "scheduler")) {
             scheduler_str = optval;
@@ -563,6 +572,8 @@ int load_model(const char *model, char *model_path, char* options[], int threads
     ctx_params.diffusion_model_path = diffusion_model_path;
     ctx_params.high_noise_diffusion_model_path = high_noise_diffusion_model_path;
     ctx_params.vae_path = vae_path;
+    ctx_params.audio_vae_path = audio_vae_path;
+    ctx_params.embeddings_connectors_path = embeddings_connectors_path;
     ctx_params.taesd_path = taesd_path;
     ctx_params.control_net_path = control_net_path;
     if (lora_dir && strlen(lora_dir) > 0) {
@@ -1065,9 +1076,71 @@ static uint8_t* load_and_resize_image(const char* path, int target_width, int ta
     return buf;
 }
 
+// Write sd.cpp's audio buffer to a temp WAV file (IEEE float, interleaved).
+// sd_audio_t.data is planar (all channel 0 samples, then channel 1, etc.) — we
+// interleave on the fly so ffmpeg's standard wav demuxer can read it directly.
+// Returns 0 on success and fills wav_path (must be at least 64 bytes).
+static int write_planar_float_wav(const sd_audio_t* a, char* wav_path, size_t wav_path_sz) {
+    if (!a || !a->data || a->sample_count == 0 || a->channels == 0 || a->sample_rate == 0) {
+        return -1;
+    }
+
+    snprintf(wav_path, wav_path_sz, "/tmp/gosd-audio-XXXXXX.wav");
+    int fd = mkstemps(wav_path, 4);
+    if (fd < 0) { perror("mkstemps wav"); return -1; }
+    FILE* f = fdopen(fd, "wb");
+    if (!f) { perror("fdopen wav"); close(fd); return -1; }
+
+    uint64_t frames = a->sample_count;
+    uint32_t channels = a->channels;
+    uint32_t sample_rate = a->sample_rate;
+    uint64_t total_samples64 = frames * (uint64_t)channels;
+    uint64_t data_bytes64 = total_samples64 * sizeof(float);
+    if (data_bytes64 > 0xFFFFFFFFull - 44) {
+        fprintf(stderr, "audio too large for 32-bit WAV (%" PRIu64 " bytes)\n", data_bytes64);
+        fclose(f);
+        unlink(wav_path);
+        return -1;
+    }
+    uint32_t data_bytes = (uint32_t)data_bytes64;
+    uint32_t riff_size = 36 + data_bytes;
+    uint16_t fmt_code = 3;                // WAVE_FORMAT_IEEE_FLOAT
+    uint16_t bits_per_sample = 32;
+    uint16_t block_align = (uint16_t)(channels * sizeof(float));
+    uint32_t byte_rate = sample_rate * block_align;
+    uint16_t ch16 = (uint16_t)channels;
+    uint32_t fmt_size = 16;
+
+    fwrite("RIFF", 1, 4, f);
+    fwrite(&riff_size, 4, 1, f);
+    fwrite("WAVEfmt ", 1, 8, f);
+    fwrite(&fmt_size, 4, 1, f);
+    fwrite(&fmt_code, 2, 1, f);
+    fwrite(&ch16, 2, 1, f);
+    fwrite(&sample_rate, 4, 1, f);
+    fwrite(&byte_rate, 4, 1, f);
+    fwrite(&block_align, 2, 1, f);
+    fwrite(&bits_per_sample, 2, 1, f);
+    fwrite("data", 1, 4, f);
+    fwrite(&data_bytes, 4, 1, f);
+
+    // Interleave planar [ch0_samples..., ch1_samples...] → [ch0_s0, ch1_s0, ...]
+    for (uint64_t s = 0; s < frames; s++) {
+        for (uint32_t c = 0; c < channels; c++) {
+            float v = a->data[(size_t)c * frames + s];
+            fwrite(&v, sizeof(float), 1, f);
+        }
+    }
+    fclose(f);
+    return 0;
+}
+
 // Pipe raw RGB/RGBA frames to ffmpeg stdin and let it produce an MP4 at dst.
-// Uses fork+execvp to avoid shell interpretation of dst.
-static int ffmpeg_mux_raw_to_mp4(sd_image_t* frames, int num_frames, int fps, const char* dst) {
+// Uses fork+execvp to avoid shell interpretation of dst. When `audio` is
+// non-null, the audio waveform is staged to a temp WAV and added as a second
+// ffmpeg input so the final MP4 contains both video and AAC audio.
+static int ffmpeg_mux_raw_to_mp4(sd_image_t* frames, int num_frames, int fps,
+                                  const sd_audio_t* audio, const char* dst) {
     if (num_frames <= 0 || !frames || !frames[0].data) {
         fprintf(stderr, "ffmpeg_mux: empty frames\n");
         return 1;
@@ -1082,38 +1155,87 @@ static int ffmpeg_mux_raw_to_mp4(sd_image_t* frames, int num_frames, int fps, co
     snprintf(size_str, sizeof(size_str), "%dx%d", width, height);
     snprintf(fps_str, sizeof(fps_str), "%d", fps);
 
+    // Optional audio: write a temp WAV file if the model produced audio.
+    char wav_path[64] = {0};
+    bool have_audio = false;
+    if (audio && audio->data && audio->sample_count > 0 && audio->channels > 0 && audio->sample_rate > 0) {
+        if (write_planar_float_wav(audio, wav_path, sizeof(wav_path)) == 0) {
+            have_audio = true;
+            fprintf(stderr, "ffmpeg_mux: audio %u Hz × %u ch × %" PRIu64 " frames → %s\n",
+                    audio->sample_rate, audio->channels, audio->sample_count, wav_path);
+        } else {
+            fprintf(stderr, "ffmpeg_mux: failed to stage audio; producing silent video\n");
+        }
+    }
+
     int pipefd[2];
-    if (pipe(pipefd) != 0) { perror("pipe"); return 1; }
+    if (pipe(pipefd) != 0) {
+        perror("pipe");
+        if (have_audio) unlink(wav_path);
+        return 1;
+    }
 
     pid_t pid = fork();
-    if (pid < 0) { perror("fork"); close(pipefd[0]); close(pipefd[1]); return 1; }
+    if (pid < 0) {
+        perror("fork");
+        close(pipefd[0]); close(pipefd[1]);
+        if (have_audio) unlink(wav_path);
+        return 1;
+    }
 
     if (pid == 0) {
         // child
         close(pipefd[1]);
         if (dup2(pipefd[0], STDIN_FILENO) < 0) { perror("dup2"); _exit(127); }
         close(pipefd[0]);
-        std::vector<char*> argv = {
-            const_cast<char*>("ffmpeg"),
-            const_cast<char*>("-y"),
-            const_cast<char*>("-hide_banner"),
-            const_cast<char*>("-loglevel"), const_cast<char*>("warning"),
-            const_cast<char*>("-f"), const_cast<char*>("rawvideo"),
-            const_cast<char*>("-pix_fmt"), const_cast<char*>(pix_fmt_in),
-            const_cast<char*>("-s"), size_str,
-            const_cast<char*>("-framerate"), fps_str,
-            const_cast<char*>("-i"), const_cast<char*>("-"),
-            const_cast<char*>("-c:v"), const_cast<char*>("libx264"),
-            const_cast<char*>("-pix_fmt"), const_cast<char*>("yuv420p"),
-            const_cast<char*>("-movflags"), const_cast<char*>("+faststart"),
-            // Force MP4 container. Distributed LocalAI hands us a staging
-            // path (e.g. /staging/localai-output-NNN.tmp) with a non-standard
-            // extension; relying on filename suffix makes ffmpeg bail with
-            // "Unable to choose an output format".
-            const_cast<char*>("-f"), const_cast<char*>("mp4"),
-            const_cast<char*>(dst),
-            nullptr
-        };
+        std::vector<char*> argv;
+        argv.push_back(const_cast<char*>("ffmpeg"));
+        argv.push_back(const_cast<char*>("-y"));
+        argv.push_back(const_cast<char*>("-hide_banner"));
+        argv.push_back(const_cast<char*>("-loglevel"));
+        argv.push_back(const_cast<char*>("warning"));
+        // Input 0: raw video from stdin
+        argv.push_back(const_cast<char*>("-f"));
+        argv.push_back(const_cast<char*>("rawvideo"));
+        argv.push_back(const_cast<char*>("-pix_fmt"));
+        argv.push_back(const_cast<char*>(pix_fmt_in));
+        argv.push_back(const_cast<char*>("-s"));
+        argv.push_back(size_str);
+        argv.push_back(const_cast<char*>("-framerate"));
+        argv.push_back(fps_str);
+        argv.push_back(const_cast<char*>("-i"));
+        argv.push_back(const_cast<char*>("-"));
+        // Input 1: optional audio WAV
+        if (have_audio) {
+            argv.push_back(const_cast<char*>("-i"));
+            argv.push_back(wav_path);
+            argv.push_back(const_cast<char*>("-map"));
+            argv.push_back(const_cast<char*>("0:v:0"));
+            argv.push_back(const_cast<char*>("-map"));
+            argv.push_back(const_cast<char*>("1:a:0"));
+            argv.push_back(const_cast<char*>("-c:a"));
+            argv.push_back(const_cast<char*>("aac"));
+            argv.push_back(const_cast<char*>("-b:a"));
+            argv.push_back(const_cast<char*>("192k"));
+            // -shortest so the final clip ends with the shorter of the two
+            // streams — guards against an audio buffer that overshoots the
+            // video duration (or vice versa) on certain LTX variants.
+            argv.push_back(const_cast<char*>("-shortest"));
+        }
+        argv.push_back(const_cast<char*>("-c:v"));
+        argv.push_back(const_cast<char*>("libx264"));
+        argv.push_back(const_cast<char*>("-pix_fmt"));
+        argv.push_back(const_cast<char*>("yuv420p"));
+        argv.push_back(const_cast<char*>("-movflags"));
+        argv.push_back(const_cast<char*>("+faststart"));
+        // Force MP4 container. Distributed LocalAI hands us a staging
+        // path (e.g. /staging/localai-output-NNN.tmp) with a non-standard
+        // extension; relying on filename suffix makes ffmpeg bail with
+        // "Unable to choose an output format".
+        argv.push_back(const_cast<char*>("-f"));
+        argv.push_back(const_cast<char*>("mp4"));
+        argv.push_back(const_cast<char*>(dst));
+        argv.push_back(nullptr);
         execvp(argv[0], argv.data());
         perror("execvp ffmpeg");
         _exit(127);
@@ -1138,6 +1260,7 @@ static int ffmpeg_mux_raw_to_mp4(sd_image_t* frames, int num_frames, int fps, co
                 close(pipefd[1]);
                 int status;
                 waitpid(pid, &status, 0);
+                if (have_audio) unlink(wav_path);
                 return 1;
             }
             p += n;
@@ -1148,8 +1271,13 @@ static int ffmpeg_mux_raw_to_mp4(sd_image_t* frames, int num_frames, int fps, co
 
     int status = 0;
     while (waitpid(pid, &status, 0) < 0) {
-        if (errno != EINTR) { perror("waitpid"); return 1; }
+        if (errno != EINTR) {
+            perror("waitpid");
+            if (have_audio) unlink(wav_path);
+            return 1;
+        }
     }
+    if (have_audio) unlink(wav_path);
     if (!WIFEXITED(status) || WEXITSTATUS(status) != 0) {
         fprintf(stderr, "ffmpeg exited with status %d\n", status);
         return 1;
@@ -1188,6 +1316,9 @@ int gen_video(sd_vid_gen_params_t *p, int steps, char *dst, float cfg_scale, int
     p->high_noise_sample_params.scheduler                = scheduler;
     p->high_noise_sample_params.flow_shift               = flow_shift;
 
+    // Pin output fps in params; upstream uses it for audio sync (and we also mux at this rate).
+    p->fps = fps;
+
     // Load init/end reference images if provided (resized to output dims).
     uint8_t* init_buf = nullptr;
     uint8_t* end_buf  = nullptr;
@@ -1206,11 +1337,14 @@ int gen_video(sd_vid_gen_params_t *p, int steps, char *dst, float cfg_scale, int
 
     // Generate
     int num_frames_out = 0;
-    sd_image_t* frames = generate_video(sd_c, p, &num_frames_out);
+    sd_image_t* frames = nullptr;
+    sd_audio_t* audio = nullptr;
+    bool ok = generate_video(sd_c, p, &frames, &num_frames_out, &audio);
     std::free(p);
 
-    if (!frames || num_frames_out == 0) {
+    if (!ok || !frames || num_frames_out == 0) {
         fprintf(stderr, "generate_video produced no frames\n");
+        if (audio) free_sd_audio(audio);
         if (init_buf) free(init_buf);
         if (end_buf) free(end_buf);
         return 1;
@@ -1218,12 +1352,13 @@ int gen_video(sd_vid_gen_params_t *p, int steps, char *dst, float cfg_scale, int
 
     fprintf(stderr, "Generated %d frames, muxing to %s via ffmpeg\n", num_frames_out, dst);
 
-    int rc = ffmpeg_mux_raw_to_mp4(frames, num_frames_out, fps, dst);
+    int rc = ffmpeg_mux_raw_to_mp4(frames, num_frames_out, fps, audio, dst);
 
     for (int i = 0; i < num_frames_out; i++) {
         if (frames[i].data) free(frames[i].data);
     }
     free(frames);
+    if (audio) free_sd_audio(audio);
     if (init_buf) free(init_buf);
     if (end_buf) free(end_buf);
 

@@ -315,11 +315,18 @@ func (m *MockBackend) PredictStream(in *pb.PredictOptions, stream pb.Backend_Pre
 
 	var toStream string
 	toolName := mockToolNameFromRequest(in)
-	if toolName != "" && !promptHasToolResults(in.Prompt) {
+	switch {
+	case toolName != "" && !promptHasToolResults(in.Prompt):
 		toStream = fmt.Sprintf(`{"name": "%s", "arguments": {"location": "San Francisco"}}`, toolName)
-	} else if toolName != "" {
+	case toolName != "":
 		toStream = "Based on the tool results, the weather in San Francisco is sunny, 72°F."
-	} else {
+	case strings.Contains(in.Prompt, "MOCK_LEAK_EMAIL"):
+		// PII streaming test fixture: emit a response containing an email
+		// address so the streaming PII filter has something to mask. The
+		// content is split character-by-character below, so the mask
+		// must hold across chunk boundaries.
+		toStream = "Sure — here it is: alice@example.com is the address."
+	default:
 		toStream = "This is a mocked streaming response."
 	}
 	for i, r := range toStream {

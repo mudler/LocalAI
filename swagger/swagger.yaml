@@ -6,6 +6,22 @@ definitions:
         type: string
       url:
         type: string
+      verification:
+        $ref: '#/definitions/config.GalleryVerification'
+    type: object
+  config.GalleryVerification:
+    properties:
+      identity:
+        type: string
+      identity_regex:
+        type: string
+      issuer:
+        type: string
+      issuer_regex:
+        type: string
+      not_before:
+        description: NotBefore is an RFC3339 timestamp. Empty disables the time check.
+        type: string
     type: object
   functions.Function:
     properties:
@@ -194,6 +210,27 @@ definitions:
           $ref: '#/definitions/gallery.NodeDriftInfo'
         type: array
     type: object
+  galleryop.NodeProgress:
+    properties:
+      current:
+        type: string
+      error:
+        type: string
+      file_name:
+        type: string
+      node_id:
+        type: string
+      node_name:
+        type: string
+      percentage:
+        type: number
+      phase:
+        type: string
+      status:
+        type: string
+      total:
+        type: string
+    type: object
   galleryop.OpStatus:
     properties:
       cancellable:
@@ -207,7 +244,6 @@ definitions:
         type: boolean
       downloaded_size:
         type: string
-      error: {}
       file_name:
         type: string
       file_size:
@@ -216,6 +252,16 @@ definitions:
         type: string
       message:
         type: string
+      nodes:
+        description: |-
+          Nodes is the per-node breakdown for a fanned-out backend install.
+          Populated by DistributedBackendManager (per-node terminal status)
+          and by the Phase 2 progress bridge (per-byte ticks). The
+          /api/operations handler surfaces this so the UI can render an
+          expandable per-node view of an in-flight install.
+        items:
+          $ref: '#/definitions/galleryop.NodeProgress'
+        type: array
       processed:
         type: boolean
       progress:
@@ -1179,20 +1225,6 @@ definitions:
       role:
         description: The message role
         type: string
-      string_audios:
-        items:
-          type: string
-        type: array
-      string_content:
-        type: string
-      string_images:
-        items:
-          type: string
-        type: array
-      string_videos:
-        items:
-          type: string
-        type: array
       tool_call_id:
         type: string
       tool_calls:
@@ -1589,6 +1621,14 @@ definitions:
           OpenAI API logprobs parameters
           logprobs: boolean - if true, returns log probabilities of each output token
           top_logprobs: integer 0-20 - number of most likely tokens to return at each token position
+      max_completion_tokens:
+        description: |-
+          MaxCompletionTokens is the modern alias for max_tokens
+          (OpenAI deprecated max_tokens; gpt-5 / o-series reject it).
+          Accepted on the wire so up-to-date clients can use the new
+          name; the request middleware collapses it into Maxtokens so
+          internal code reads exactly one field.
+        type: integer
       max_tokens:
         type: integer
       messages:
@@ -1825,6 +1865,105 @@ definitions:
           $ref: '#/definitions/schema.NodeData'
         type: array
     type: object
+  schema.PIIDecideRequest:
+    properties:
+      text:
+        description: Text is the user-visible content to inspect. Required.
+        type: string
+    type: object
+  schema.PIIDecideResponse:
+    properties:
+      findings:
+        description: |-
+          Findings is one entry per matched span — pattern id, byte
+          range, and audit-safe hash prefix (never the matched value).
+        items:
+          $ref: '#/definitions/schema.PIIFinding'
+        type: array
+      redacted_preview:
+        description: |-
+          RedactedPreview is the input with mask-action spans replaced
+          by their placeholders. Identical to Text when no findings or
+          when the strongest action is block/route_local (which don't
+          rewrite content).
+        type: string
+      suggested_action:
+        description: |-
+          SuggestedAction is the strongest action across all findings:
+          "block", "route_local", "mask", or "allow" (no findings).
+        type: string
+    type: object
+  schema.PIIFinding:
+    properties:
+      end:
+        type: integer
+      hash_prefix:
+        type: string
+      pattern:
+        type: string
+      start:
+        type: integer
+    type: object
+  schema.RouterDecideRequest:
+    properties:
+      input:
+        description: |-
+          Input is the user-visible prompt text to classify. Required.
+          Schema-shape extraction (chat-message concatenation, etc.) is
+          the caller's responsibility — matches the Probe contract used
+          by the in-band middleware.
+        type: string
+      router:
+        description: |-
+          Router is the name of the router model (a ModelConfig with a
+          `router:` block). Required.
+        type: string
+    type: object
+  schema.RouterDecideResponse:
+    properties:
+      cache_similarity:
+        description: |-
+          CacheSimilarity carries the cosine similarity of the cache hit
+          (0 when not cached).
+        type: number
+      cached:
+        description: |-
+          Cached is true when the decision came from the L2 embedding
+          cache rather than a fresh classifier run.
+        type: boolean
+      candidate:
+        description: |-
+          Candidate is the model that would be routed to. Empty when no
+          candidate covers Labels AND no fallback is configured.
+        type: string
+      classifier:
+        description: |-
+          Classifier is the classifier name that produced the decision
+          (e.g. "score").
+        type: string
+      fallback:
+        description: |-
+          Fallback is true when Candidate is the router's configured
+          fallback because no candidate covered Labels. Lets callers
+          distinguish "matched" from "fell back" without comparing names.
+        type: boolean
+      labels:
+        description: Labels is the set of active policy labels.
+        items:
+          type: string
+        type: array
+      latency_ms:
+        description: LatencyMs is the classifier's wall-clock cost.
+        type: integer
+      router:
+        description: Router echoes the requested router model.
+        type: string
+      score:
+        description: |-
+          Score is the top label's softmax probability (the
+          classifier-side confidence signal).
+        type: number
+    type: object
   schema.StreamOptions:
     properties:
       include_usage:
@@ -1857,11 +1996,25 @@ definitions:
       input:
         description: text input
         type: string
+      instructions:
+        description: |-
+          Instructions is a free-form, per-request style/voice description. It maps to
+          the OpenAI `instructions` field and is forwarded to the backend so expressive
+          TTS models (e.g. Qwen3-TTS CustomVoice/VoiceDesign) can vary tone or designed
+          voice per request instead of only via the static YAML option.
+        type: string
       language:
         description: (optional) language to use with TTS model
         type: string
       model:
         type: string
+      params:
+        additionalProperties:
+          type: string
+        description: |-
+          Params carries optional, backend-specific per-request generation parameters
+          (LocalAI extension, e.g. Chatterbox exaggeration/cfg_weight/temperature).
+        type: object
       response_format:
         description: (optional) output format
         type: string
@@ -2937,6 +3090,79 @@ paths:
       summary: Show the P2P token
       tags:
       - p2p
+  /api/pii/decide:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: decide params
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/schema.PIIDecideRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/schema.PIIDecideResponse'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Scan text for PII and return findings + suggested action (decision
+        oracle)
+      tags:
+      - pii
+  /api/router/decide:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: decide params
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/schema.RouterDecideRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/schema.RouterDecideResponse'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "503":
+          description: Service Unavailable
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Classify a prompt against a router model's policies (decision oracle)
+      tags:
+      - router
   /api/traces:
     get:
       description: Returns captured API exchange traces (request/response pairs) in

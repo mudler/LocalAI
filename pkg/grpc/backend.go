@@ -71,6 +71,10 @@ type Backend interface {
 
 	Rerank(ctx context.Context, in *pb.RerankRequest, opts ...grpc.CallOption) (*pb.RerankResult, error)
 
+	TokenClassify(ctx context.Context, in *pb.TokenClassifyRequest, opts ...grpc.CallOption) (*pb.TokenClassifyResponse, error)
+
+	Score(ctx context.Context, in *pb.ScoreRequest, opts ...grpc.CallOption) (*pb.ScoreResponse, error)
+
 	GetTokenMetrics(ctx context.Context, in *pb.MetricsRequest, opts ...grpc.CallOption) (*pb.MetricsResponse, error)
 
 	VAD(ctx context.Context, in *pb.VADRequest, opts ...grpc.CallOption) (*pb.VADResponse, error)
@@ -83,6 +87,13 @@ type Backend interface {
 	AudioTransform(ctx context.Context, in *pb.AudioTransformRequest, opts ...grpc.CallOption) (*pb.AudioTransformResult, error)
 	AudioTransformStream(ctx context.Context, opts ...grpc.CallOption) (AudioTransformStreamClient, error)
 	AudioToAudioStream(ctx context.Context, opts ...grpc.CallOption) (AudioToAudioStreamClient, error)
+
+	// Forward proxies a raw HTTP request to an upstream provider for
+	// passthrough-mode cloud-proxy backends. Caller streams a single
+	// ForwardRequest carrying path/method/headers/body, then closes
+	// send; backend streams back status/headers in the first reply
+	// and body chunks thereafter.
+	Forward(ctx context.Context, opts ...grpc.CallOption) (ForwardClient, error)
 
 	ModelMetadata(ctx context.Context, in *pb.ModelOptions, opts ...grpc.CallOption) (*pb.ModelMetadataResponse, error)
 

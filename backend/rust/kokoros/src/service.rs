@@ -375,6 +375,15 @@ impl Backend for KokorosService {
         Err(Status::unimplemented("Not supported"))
     }
 
+    type AudioToAudioStreamStream = ReceiverStream<Result<backend::AudioToAudioResponse, Status>>;
+
+    async fn audio_to_audio_stream(
+        &self,
+        _: Request<tonic::Streaming<backend::AudioToAudioRequest>>,
+    ) -> Result<Response<Self::AudioToAudioStreamStream>, Status> {
+        Err(Status::unimplemented("Not supported"))
+    }
+
     async fn sound_generation(
         &self,
         _: Request<backend::SoundGenerationRequest>,

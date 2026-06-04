@@ -95,7 +95,7 @@ func ResponsesEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, eval
 
 		// Add instructions as system message if provided
 		if input.Instructions != "" {
-			messages = append([]schema.Message{{Role: "system", StringContent: input.Instructions}}, messages...)
+			messages = append([]schema.Message{{Role: "system", Content: input.Instructions, StringContent: input.Instructions}}, messages...)
 		}
 
 		// Handle tools
@@ -299,7 +299,7 @@ func convertORInputToMessages(input any, cfg *config.ModelConfig) ([]schema.Mess
 	switch v := input.(type) {
 	case string:
 		// Simple string = user message
-		return []schema.Message{{Role: "user", StringContent: v}}, nil
+		return []schema.Message{{Role: "user", Content: v, StringContent: v}}, nil
 	case []any:
 		// Array of items
 		for _, itemRaw := range v {
@@ -309,6 +309,16 @@ func convertORInputToMessages(input any, cfg *config.ModelConfig) ([]schema.Mess
 			}
 
 			itemType, _ := itemMap["type"].(string)
+			// OpenAI SDK helpers (e.g. client.responses.create(input=[{"role":...,"content":...}]))
+			// send message items without a "type" discriminator. Treat a bare {role, content}
+			// object as type:"message" so the chat-completions and responses paths agree.
+			if itemType == "" {
+				if _, hasRole := itemMap["role"].(string); hasRole {
+					if _, hasContent := itemMap["content"]; hasContent {
+						itemType = "message"
+					}
+				}
+			}
 			switch itemType {
 			case "message":
 				msg, err := convertORMessageItem(itemMap, cfg)
@@ -1971,6 +1981,10 @@ func handleOpenResponsesStream(c echo.Context, responseID string, createdAt int6
 
 			// Source reasoning from: (1) ChatDeltas from C++ autoparser, (2) extractor's
 			// streaming state, (3) final extraction from the finetuned result.
+			// Issue #9985: when the autoparser delivered Content but no
+			// ReasoningContent, it was running in the "pure content" PEG fallback
+			// (non-jinja path) which leaves reasoning tags embedded in content.
+			// Fall back to the streaming Go-side extractor's split in that case.
 			if chatDeltaReasoning := functions.ReasoningFromChatDeltas(chatDeltas); chatDeltaReasoning != "" {
 				finalReasoning = chatDeltaReasoning
 				finalCleanedResult = functions.ContentFromChatDeltas(chatDeltas)

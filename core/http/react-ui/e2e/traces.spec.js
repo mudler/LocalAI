@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test'
+import { test, expect } from './coverage-fixtures.js'
 
 test.describe('Traces Settings', () => {
   test.beforeEach(async ({ page }) => {
@@ -52,9 +52,20 @@ test.describe('Traces Settings', () => {
     await page.locator('button', { hasText: 'Tracing is' }).click()
     await expect(page.locator('text=Enable Tracing')).toBeVisible()
 
-    const maxItemsInput = page.locator('input[type="number"]')
+    // The Tracing panel has two numeric inputs (Max Items and Max Body Bytes).
+    // Disambiguate by placeholder so adding a third field later doesn't break this.
+    const maxItemsInput = page.getByPlaceholder('100')
     await maxItemsInput.fill('500')
     await expect(maxItemsInput).toHaveValue('500')
+  })
+
+  test('set max body bytes value', async ({ page }) => {
+    await page.locator('button', { hasText: 'Tracing is' }).click()
+    await expect(page.locator('text=Enable Tracing')).toBeVisible()
+
+    const maxBodyBytesInput = page.getByPlaceholder('65536')
+    await maxBodyBytesInput.fill('16384')
+    await expect(maxBodyBytesInput).toHaveValue('16384')
   })
 
   test('save shows toast', async ({ page }) => {

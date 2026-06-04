@@ -19,6 +19,8 @@ import (
 	"golang.org/x/oauth2"
 	githubOAuth "golang.org/x/oauth2/github"
 	"gorm.io/gorm"
+
+	"github.com/mudler/LocalAI/pkg/httpclient"
 )
 
 // providerEntry holds the OAuth2/OIDC config for a single provider.
@@ -389,7 +391,7 @@ func fetchGitHubUserInfoAsOAuth(ctx context.Context, accessToken string) (*oauth
 }
 
 func fetchGitHubUserInfo(ctx context.Context, accessToken string) (*githubUserInfo, error) {
-	client := &http.Client{Timeout: 10 * time.Second}
+	client := httpclient.NewWithTimeout(10 * time.Second)
 
 	req, _ := http.NewRequestWithContext(ctx, "GET", "https://api.github.com/user", nil)
 	req.Header.Set("Authorization", "Bearer "+accessToken)
@@ -420,7 +422,7 @@ func fetchGitHubUserInfo(ctx context.Context, accessToken string) (*githubUserIn
 }
 
 func fetchGitHubPrimaryEmail(ctx context.Context, accessToken string) (string, error) {
-	client := &http.Client{Timeout: 10 * time.Second}
+	client := httpclient.NewWithTimeout(10 * time.Second)
 
 	req, _ := http.NewRequestWithContext(ctx, "GET", "https://api.github.com/user/emails", nil)
 	req.Header.Set("Authorization", "Bearer "+accessToken)
@@ -457,7 +459,6 @@ func fetchGitHubPrimaryEmail(ctx context.Context, accessToken string) (string, e
 
 	return "", fmt.Errorf("no verified email found")
 }
-
 
 func generateState() (string, error) {
 	b := make([]byte, 16)

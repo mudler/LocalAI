@@ -37,6 +37,22 @@ service Backend {
 
   rpc Rerank(RerankRequest) returns (RerankResult) {}
 
+  // TokenClassify runs a token-classification (NER) model on the
+  // supplied text and returns each detected entity span. Used by the
+  // PII redactor's optional NER tier — the regex tier still handles
+  // formatted hits cheaply, while this catches names, locations, and
+  // other unformatted PII that regex misses.
+  rpc TokenClassify(TokenClassifyRequest) returns (TokenClassifyResponse) {}
+
+  // Score evaluates the model's joint log-probability of each
+  // supplied candidate continuation given a shared prompt. The
+  // prompt's KV cache is computed once and reused across candidates.
+  // Used for routing-policy multi-label classification, reranking,
+  // calibrated confidence, and reward-model scoring — any task where
+  // the consumer wants the model's confidence in a pre-specified
+  // continuation rather than a generated one.
+  rpc Score(ScoreRequest) returns (ScoreResponse) {}
+
   rpc GetMetrics(MetricsRequest) returns (MetricsResponse);
 
   rpc VAD(VADRequest) returns (VADResponse) {}
@@ -68,6 +84,23 @@ service Backend {
   rpc QuantizationProgress(QuantizationProgressRequest) returns (stream QuantizationProgressUpdate) {}
   rpc StopQuantization(QuantizationStopRequest) returns (Result) {}
 
+  // Forward proxies a raw HTTP request to an upstream provider. The
+  // cloud-proxy backend implements this for passthrough-mode model
+  // configs: the client wire format is preserved end-to-end (no
+  // translation through internal proto), which means new provider
+  // fields work the day they ship. Translation-mode proxies use the
+  // standard Predict/PredictStream RPCs instead. Backends that don't
+  // support this return UNIMPLEMENTED.
+  //
+  // The request is bidirectionally streamed so large bodies can flow
+  // without buffering. In practice the first ForwardRequest carries
+  // path, method, headers, and the initial body chunk; subsequent
+  // messages append body chunks. The first ForwardReply carries the
+  // upstream status and response headers; subsequent messages stream
+  // body chunks (SSE frames or chunked transfer). Cancellation of the
+  // gRPC context closes the upstream connection.
+  rpc Forward(stream ForwardRequest) returns (stream ForwardReply) {}
+
 }
 
 // Define the empty request
@@ -79,6 +112,76 @@ message MetricsResponse {
   float tokens_per_second = 3;
   int32 tokens_generated = 4;
   int32 prompt_tokens_processed = 5;
+}
+
+// TokenClassifyRequest carries the text to classify plus an optional
+// score threshold. The transformers backend interprets threshold as
+// the minimum confidence to include in the response; 0 = include all.
+message TokenClassifyRequest {
+  string text = 1;
+  float threshold = 2;
+}
+
+// TokenClassifyEntity is one detected entity span. Byte offsets are
+// into the original UTF-8 text — start..end is a half-open range that
+// addresses the substring corresponding to entity_group.
+//
+// entity_group follows HuggingFace's aggregated-tag convention (e.g.
+// "PER", "LOC", "ORG", or a PII-specific label like "EMAIL" /
+// "SSN" depending on the model). The redactor's per-pattern action
+// map keys off this string.
+message TokenClassifyEntity {
+  string entity_group = 1;
+  int32 start = 2;
+  int32 end = 3;
+  float score = 4;
+  string text = 5;
+}
+
+message TokenClassifyResponse {
+  repeated TokenClassifyEntity entities = 1;
+}
+
+// ScoreRequest carries one shared prompt and one or more continuations
+// to score against it. The backend tokenises the prompt once and reuses
+// the resulting KV cache across all candidates in this request.
+message ScoreRequest {
+  string prompt = 1;
+  repeated string candidates = 2;
+  // Return per-token logprobs for each candidate when true. Default
+  // false to keep the wire response small; the joint log_prob field
+  // covers the common ranking case.
+  bool include_token_logprobs = 3;
+  // When true, the response also populates length_normalized_log_prob
+  // (joint log-prob divided by candidate token count). Useful when
+  // candidates differ in length and the consumer wants a per-token
+  // measure comparable across them (PMI-style scoring).
+  bool length_normalize = 4;
+}
+
+// CandidateScore is one row in the ScoreResponse, matching by index
+// the candidate in ScoreRequest.candidates.
+message CandidateScore {
+  // Sum of log P(token_i | prompt, candidate_token_<i) across the
+  // candidate's tokens. The primary ranking signal.
+  double log_prob = 1;
+  // log_prob / num_tokens — populated when length_normalize=true on
+  // the request.
+  double length_normalized_log_prob = 2;
+  // Per-token detail — populated when include_token_logprobs=true.
+  repeated TokenLogProb tokens = 3;
+  // Number of tokens the backend tokenised this candidate into, after
+  // any backend-specific normalisation (e.g. leading-space handling).
+  int32 num_tokens = 4;
+}
+
+message TokenLogProb {
+  string token = 1;
+  double log_prob = 2;
+}
+
+message ScoreResponse {
+  repeated CandidateScore candidates = 1;
 }
 
 message RerankRequest {
@@ -325,6 +428,25 @@ message ModelOptions {
   // applied verbatim to the backend's engine constructor (e.g. vLLM AsyncEngineArgs).
   // Unknown keys produce an error at LoadModel time.
   string EngineArgs = 73;
+
+  // Proxy carries the cloud-proxy backend's per-model configuration.
+  // Empty for non-proxy backends.
+  ProxyOptions Proxy = 74;
+}
+
+// ProxyOptions configures the cloud-proxy backend. UpstreamURL and
+// Mode are always meaningful; Provider only matters in translate mode.
+// The two api_key_* fields are mutually exclusive and resolved by the
+// backend at LoadModel — core forwards the references rather than the
+// plaintext key.
+message ProxyOptions {
+  string upstream_url = 1;
+  string mode = 2;
+  string provider = 3;
+  string api_key_env = 4;
+  string api_key_file = 5;
+  string upstream_model = 6;
+  int32 request_timeout_seconds = 7;
 }
 
 message Result {
@@ -415,6 +537,15 @@ message TTSRequest {
   string dst = 3;
   string voice = 4;
   optional string language = 5;
+  // instructions is a free-form, per-request style/voice description (maps to
+  // the OpenAI `instructions` field). Backends that support expressive synthesis
+  // (e.g. Qwen3-TTS CustomVoice/VoiceDesign) prefer this over the static YAML
+  // option when set; backends that don't simply ignore it.
+  optional string instructions = 6;
+  // params carries optional, backend-specific per-request generation parameters
+  // (e.g. Chatterbox exaggeration/cfg_weight/temperature). Values are strings and
+  // coerced by the backend; unset leaves the backend's configured defaults.
+  map<string, string> params = 7;
 }
 
 message VADRequest {
@@ -1000,5 +1131,34 @@ message QuantizationProgressUpdate {
 
 message QuantizationStopRequest {
   string job_id = 1;
+}
+
+// ForwardHeader is one HTTP header on the request or response. Headers
+// like Authorization are typically injected by the backend (from the
+// resolved API key) rather than passed through from the client.
+message ForwardHeader {
+  string name = 1;
+  string value = 2;
+}
+
+// ForwardRequest is a streamed HTTP request to the upstream. First
+// message carries path/method/headers; subsequent messages carry
+// body_chunk only. All fields except body_chunk are honoured on the
+// first message and ignored thereafter.
+message ForwardRequest {
+  string path = 1;                          // e.g. "/v1/chat/completions" — appended to the model's upstream_url
+  string method = 2;                        // usually "POST"
+  repeated ForwardHeader headers = 3;
+  bytes body_chunk = 4;
+}
+
+// ForwardReply is a streamed HTTP response from the upstream. First
+// message carries status/headers; subsequent messages carry body_chunk
+// only. SSE responses arrive as a sequence of body_chunk frames; the
+// caller is responsible for any parsing.
+message ForwardReply {
+  int32 status = 1;
+  repeated ForwardHeader headers = 2;
+  bytes body_chunk = 3;
 }
 

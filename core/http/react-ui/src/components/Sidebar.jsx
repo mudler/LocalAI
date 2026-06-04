@@ -6,6 +6,7 @@ import LanguageSwitcher from './LanguageSwitcher'
 import { useAuth } from '../context/AuthContext'
 import { useBranding } from '../contexts/BrandingContext'
 import { apiUrl } from '../utils/basePath'
+import { preloadRoute } from '../router'
 
 const COLLAPSED_KEY = 'localai_sidebar_collapsed'
 const SECTIONS_KEY = 'localai_sidebar_sections'
@@ -69,8 +70,9 @@ const sections = [
     id: 'system',
     titleKey: 'sections.system',
     items: [
-      { path: '/app/usage', icon: 'fas fa-chart-bar', labelKey: 'items.usage', authOnly: true },
+      { path: '/app/usage', icon: 'fas fa-chart-bar', labelKey: 'items.usage' },
       { path: '/app/users', icon: 'fas fa-users', labelKey: 'items.users', adminOnly: true, authOnly: true },
+      { path: '/app/middleware', icon: 'fas fa-shield-halved', labelKey: 'items.middleware', adminOnly: true },
       { path: '/app/backends', icon: 'fas fa-server', labelKey: 'items.backends', adminOnly: true },
       { path: '/app/traces', icon: 'fas fa-chart-line', labelKey: 'items.traces', adminOnly: true },
       { path: '/app/nodes', icon: 'fas fa-network-wired', labelKey: 'items.nodes', adminOnly: true, feature: 'distributed' },
@@ -84,6 +86,10 @@ const sections = [
 function NavItem({ item, onClose, collapsed }) {
   const { t } = useTranslation('nav')
   const label = t(item.labelKey)
+  // Warm the route's lazy chunk before the user clicks. Touch fires ~150ms
+  // before the synthetic click on mobile; mouseenter/focus cover desktop and
+  // keyboard. The underlying import() is memoised so multiple triggers are free.
+  const preload = () => preloadRoute(item.path)
   return (
     <NavLink
       to={item.path}
@@ -92,6 +98,9 @@ function NavItem({ item, onClose, collapsed }) {
         `nav-item ${isActive ? 'active' : ''}`
       }
       onClick={onClose}
+      onMouseEnter={preload}
+      onFocus={preload}
+      onTouchStart={preload}
       title={collapsed ? label : undefined}
     >
       <i className={`${item.icon} nav-icon`} />
@@ -295,6 +304,9 @@ export default function Sidebar({ isOpen, onClose }) {
               <button
                 className="sidebar-user-link"
                 onClick={() => { navigate('/app/account'); onClose?.() }}
+                onMouseEnter={() => preloadRoute('/app/account')}
+                onFocus={() => preloadRoute('/app/account')}
+                onTouchStart={() => preloadRoute('/app/account')}
                 title={t('accountSettings')}
               >
                 {user.avatarUrl ? (

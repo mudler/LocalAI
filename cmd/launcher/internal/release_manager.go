@@ -17,6 +17,7 @@ import (
 	"time"
 
 	"github.com/mudler/LocalAI/internal"
+	"github.com/mudler/LocalAI/pkg/httpclient"
 )
 
 // Release represents a LocalAI release
@@ -67,9 +68,7 @@ func NewReleaseManager() *ReleaseManager {
 		CurrentVersion: internal.PrintableVersion(),
 		ChecksumsPath:  checksumsPath,
 		MetadataPath:   metadataPath,
-		HTTPClient: &http.Client{
-			Timeout: 30 * time.Second,
-		},
+		HTTPClient:     httpclient.NewWithTimeout(30*time.Second, httpclient.WithFollowRedirects()),
 	}
 }
 

@@ -92,6 +92,30 @@ var instructionDefs = []instructionDef{
 		Tags:        []string{"branding"},
 		Intro:       "GET /api/branding is public so the login screen can render the configured logo before authentication. Text fields are saved through POST /api/settings; binary assets (logo, horizontal logo, favicon) use multipart upload at /api/branding/asset/{kind} and are served back from /branding/asset/{kind}.",
 	},
+	{
+		Name:        "usage-and-billing",
+		Description: "Per-user token usage and request counts, with optional cost tracking",
+		Tags:        []string{"usage"},
+		Intro:       "GET /api/usage returns the current user's token usage in time-bucketed form (day/week/month/all). In single-user no-auth mode the records are attributed to a synthetic local user with stable UUID, so this endpoint and the dashboard work without --auth. /api/usage/all is the cluster-wide view and requires admin (the local user is admin in single-user mode). UsageRecord fields include RequestedModel/ServedModel and PreFilter/PostFilterPromptTokens for routing- and PII-aware accounting.",
+	},
+	{
+		Name:        "pii-filtering",
+		Description: "Inspect and tune the regex PII filter applied to chat requests",
+		Tags:        []string{"pii"},
+		Intro:       "GET /api/pii/patterns lists the active pattern set with each one's action (mask, block, route_local). GET /api/pii/events returns recent redaction events filtered by correlation_id / user_id / pattern_id (admin or local-user only). POST /api/pii/test dry-runs the redactor against an admin-supplied string. POST /api/pii/decide is the programmatic decision oracle for external routers: send `{text}`, receive `{findings, suggested_action, redacted_preview}` without LocalAI mutating, recording, or acting on the call — caller composes the action with its own policy. Default patterns: email, phone, SSN, credit card (Luhn), IPv4, common API key prefixes (sk-, pk-, ghp_, github_pat_). PII is per-model: by default it is OFF for non-proxy backends and ON for backends starting with proxy-* (cloud passthroughs). Opt in with `pii: { enabled: true }` in a model's YAML; use `pii: { patterns: [{id, action}] }` to upgrade or downgrade individual actions for that model. Override global default actions via --pii-config pii.yaml; --disable-pii turns the filter off entirely.",
+	},
+	{
+		Name:        "middleware-admin",
+		Description: "Inspect and configure the routing-module middleware (PII filter and routing)",
+		Tags:        []string{"middleware", "pii", "router"},
+		Intro:       "GET /api/middleware/status is the single round-trip the /app/middleware admin page reads to render the current state: active PII patterns and their actions, every model's resolved enabled/override state, recent event count, and the active routing models with their classifier configurations. Admin-only (the synthetic local user is admin in no-auth mode). PUT /api/pii/patterns/:id changes a pattern's action in-process — TRANSIENT, lost on restart. To persist, edit --pii-config YAML. GET /api/router/decisions returns the routing decision log filtered by correlation_id / user_id / router_model. The same surface is exposed as MCP tools (`get_middleware_status`, `set_pii_pattern_action`, `get_router_decisions`) for agent-driven configuration.",
+	},
+	{
+		Name:        "intelligent-routing",
+		Description: "Per-model `router:` configuration that classifies requests and rewrites the served model",
+		Tags:        []string{"router"},
+		Intro:       "Add a `router:` block to a ModelConfig to turn it into a routing model. The block declares a classifier (today: `feature` — handcrafted rules over prompt length and code-fence presence), a list of candidates (label + downstream model + optional rule), and a fallback. When a client addresses the routing model, the RouteModel middleware invokes the classifier, picks a candidate, and rewrites input.Model — the standard model-resolution path then runs ACL, disabled-state, and per-model PII against the chosen target. Depth-1 invariant: candidates must NOT themselves carry a `router:` block; runtime check returns 500 on violation. Decisions are logged to GET /api/router/decisions and surfaced in the /app/middleware Routing tab. POST /api/router/decide is the programmatic decision-oracle: external routers (e.g. an organisation-wide router service) send `{router, input}` and receive the classifier's label set + candidate model WITHOUT LocalAI rewriting, forwarding, or recording the call. Shares the classifier cache with the in-band path so warm-up costs are paid once.",
+	},
 }
 
 // swaggerState holds parsed swagger spec data, initialised once.

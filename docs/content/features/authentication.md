@@ -253,10 +253,12 @@ User API keys inherit the creating user's role. Admin keys grant admin access; u
 | `GET` | `/api/auth/api-keys` | List user's API keys | Yes |
 | `DELETE` | `/api/auth/api-keys/:id` | Revoke API key | Yes |
 | `GET` | `/api/auth/usage` | User's own usage stats | Yes |
+| `GET` | `/api/auth/usage/sources` | User's own per-API-key / per-source breakdown | Yes |
 | `GET` | `/api/auth/admin/users` | List all users | Admin |
 | `PUT` | `/api/auth/admin/users/:id/role` | Change user role | Admin |
 | `DELETE` | `/api/auth/admin/users/:id` | Delete user | Admin |
 | `GET` | `/api/auth/admin/usage` | All users' usage stats | Admin |
+| `GET` | `/api/auth/admin/usage/sources` | All users' per-API-key / per-source breakdown | Admin |
 | `POST` | `/api/auth/admin/invites` | Create invite link | Admin |
 | `GET` | `/api/auth/admin/invites` | List all invites | Admin |
 | `DELETE` | `/api/auth/admin/invites/:id` | Revoke unused invite | Admin |
@@ -327,10 +329,79 @@ curl "http://localhost:8080/api/auth/admin/usage?period=month&user_id=<user-id>"
 ### Usage Dashboard
 
 The web UI Usage page provides:
-- **Period selector** — switch between day, week, month, and all-time views
-- **Summary cards** — total requests, prompt tokens, completion tokens, total tokens
-- **By Model table** — per-model breakdown with visual usage bars
-- **By User table** (admin only) — per-user breakdown across all models
+- **Period selector** - switch between day, week, month, and all-time views
+- **Summary cards** - total requests, prompt tokens, completion tokens, total tokens
+- **By Model table** - per-model breakdown with visual usage bars
+- **By User table** (admin only) - per-user breakdown across all models
+- **Sources tab** - per-API-key and per-source breakdown (described below)
+
+### Per-API-key Breakdown
+
+The **Sources** tab on the Usage page surfaces a third dimension of the same data: traffic broken down by API key and by request source. Three source classes are tracked:
+
+- **API key** - request authenticated with a named user API key (`Authorization: Bearer lai-...`, `x-api-key`, or `token` cookie). Each key shows up with its label (snapshotted at write time, so revoked keys still display the original name).
+- **Web UI** - request authenticated with a browser session cookie.
+- **Legacy** - request authenticated with an env-configured `LOCALAI_API_KEY`. Visible to admins only.
+
+The Sources tab is visible to every authenticated user. Non-admins see only their own keys plus their own Web UI traffic (legacy is filtered server-side). Admins see every key from every user.
+
+The tab is laid out as:
+
+- A **source mix ribbon** showing the percentage split across the three classes.
+- A **top-N + Other stacked time chart** (top 7 sources by total tokens; the rest roll up).
+- A **searchable, sortable table** of every key plus the Web UI and Legacy pseudo-rows. Click a row to filter the chart to that source.
+
+#### Endpoints
+
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| `GET` | `/api/auth/usage/sources` | Self | Caller's per-source breakdown. Excludes legacy. |
+| `GET` | `/api/auth/admin/usage/sources` | Admin | All users' per-source breakdown. Accepts `user_id` and `api_key_id` filters. Includes legacy. |
+
+Both endpoints accept the same `period` parameter (`day`, `week`, `month`, `all`) as `/api/auth/usage`.
+
+```bash
+# Your own per-source usage for the last week
+curl "http://localhost:8080/api/auth/usage/sources?period=week" \
+  -H "Authorization: Bearer <key>"
+
+# Admin: filter to a single API key across all users
+curl "http://localhost:8080/api/auth/admin/usage/sources?period=month&api_key_id=<key-id>" \
+  -H "Authorization: Bearer <admin-key>"
+```
+
+**Response shape:**
+
+```json
+{
+  "buckets": [
+    { "bucket": "2026-05-19", "source": "apikey",
+      "api_key_id": "uuid", "api_key_name": "ci-runner",
+      "total_tokens": 20000, "request_count": 142, "...": "..." },
+    { "bucket": "2026-05-19", "source": "web",
+      "total_tokens": 300, "request_count": 11, "...": "..." }
+  ],
+  "totals": {
+    "by_source": {
+      "apikey": { "tokens": 1234567, "requests": 8420 },
+      "web":    { "tokens":   92000, "requests":   211 }
+    },
+    "by_key": [
+      { "api_key_id": "uuid", "api_key_name": "ci-runner",
+        "tokens": 2100000, "requests": 8420,
+        "last_used": "2026-05-20T12:34:56Z" }
+    ],
+    "grand_total": { "tokens": 1334777, "requests": 8645 }
+  },
+  "truncated": false
+}
+```
+
+The `by_key` list is server-sorted by tokens descending and capped at 200 entries. When more keys would qualify, the response sets `"truncated": true` so the UI can show a notice.
+
+#### Migration of pre-feature data
+
+Usage rows recorded before this feature have no `source` column. On startup, `InitDB` backfills them as `legacy` when the synthetic `legacy-api-key` user_id was used, and `web` for everything else. The migration is idempotent; existing aggregations remain correct after the upgrade.
 
 ## Combining Auth Modes
 

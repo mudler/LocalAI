@@ -10,6 +10,8 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+
+	"github.com/mudler/LocalAI/pkg/httpclient"
 )
 
 // Model represents a model from the Hugging Face API
@@ -94,7 +96,7 @@ type Client struct {
 func NewClient() *Client {
 	return &Client{
 		baseURL: "https://huggingface.co/api/models",
-		client:  &http.Client{},
+		client:  httpclient.New(httpclient.WithFollowRedirects()),
 	}
 }
 

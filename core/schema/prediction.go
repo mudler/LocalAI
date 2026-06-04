@@ -98,7 +98,13 @@ type PredictionOptions struct {
 	MinP        *float64 `json:"min_p,omitempty" yaml:"min_p,omitempty"`
 	Temperature *float64 `json:"temperature,omitempty" yaml:"temperature,omitempty"`
 	Maxtokens   *int     `json:"max_tokens,omitempty" yaml:"max_tokens,omitempty"`
-	Echo        bool     `json:"echo,omitempty" yaml:"echo,omitempty"`
+	// MaxCompletionTokens is the modern alias for max_tokens
+	// (OpenAI deprecated max_tokens; gpt-5 / o-series reject it).
+	// Accepted on the wire so up-to-date clients can use the new
+	// name; the request middleware collapses it into Maxtokens so
+	// internal code reads exactly one field.
+	MaxCompletionTokens *int `json:"max_completion_tokens,omitempty" yaml:"-"`
+	Echo                bool `json:"echo,omitempty" yaml:"echo,omitempty"`
 
 	// Custom parameters - not present in the OpenAI API
 	Batch         int     `json:"batch,omitempty" yaml:"batch,omitempty"`

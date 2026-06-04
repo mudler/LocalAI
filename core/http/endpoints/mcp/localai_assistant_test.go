@@ -74,6 +74,34 @@ func (stubClient) GetBranding(_ context.Context) (*localaitools.Branding, error)
 func (stubClient) SetBranding(_ context.Context, _ localaitools.SetBrandingRequest) (*localaitools.Branding, error) {
 	return &localaitools.Branding{InstanceName: "LocalAI"}, nil
 }
+func (stubClient) GetUsageStats(_ context.Context, _ localaitools.UsageStatsQuery) (*localaitools.UsageStats, error) {
+	return &localaitools.UsageStats{Viewer: localaitools.UsageViewer{ID: "stub", Name: "stub"}, Period: "month"}, nil
+}
+func (stubClient) ListPIIPatterns(_ context.Context) ([]localaitools.PIIPattern, error) {
+	return nil, nil
+}
+func (stubClient) GetPIIEvents(_ context.Context, _ localaitools.PIIEventsQuery) ([]localaitools.PIIEvent, error) {
+	return nil, nil
+}
+func (stubClient) TestPIIRedaction(_ context.Context, req localaitools.PIIRedactTestRequest) (*localaitools.PIIRedactTestResult, error) {
+	return &localaitools.PIIRedactTestResult{Redacted: req.Text}, nil
+}
+func (stubClient) SetPIIPatternAction(_ context.Context, _ localaitools.PIIPatternActionUpdate) error {
+	return nil
+}
+func (stubClient) PersistPIIPatterns(_ context.Context) error { return nil }
+func (stubClient) GetMiddlewareStatus(_ context.Context) (*localaitools.MiddlewareStatus, error) {
+	return &localaitools.MiddlewareStatus{
+		PII: localaitools.MiddlewarePIIStatus{
+			EnabledGlobally: true,
+			Patterns:        []localaitools.PIIPattern{},
+			Models:          []localaitools.MiddlewarePIIModel{},
+		},
+	}, nil
+}
+func (stubClient) GetRouterDecisions(_ context.Context, _ localaitools.RouterDecisionsQuery) ([]localaitools.RouterDecision, error) {
+	return []localaitools.RouterDecision{}, nil
+}
 
 var _ = Describe("LocalAIAssistantHolder", func() {
 	var ctx context.Context

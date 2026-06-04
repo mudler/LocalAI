@@ -19,6 +19,7 @@ import (
 	"github.com/mudler/LocalAI/core/trace"
 
 	"github.com/mudler/LocalAI/core/gallery"
+	"github.com/mudler/LocalAI/pkg/distributedhdr"
 	"github.com/mudler/LocalAI/pkg/grpc/proto"
 	model "github.com/mudler/LocalAI/pkg/model"
 	"github.com/mudler/LocalAI/pkg/utils"
@@ -94,7 +95,23 @@ func ModelInference(ctx context.Context, s string, messages schema.Messages, ima
 		}
 	}
 
-	opts := ModelOptions(*c, o)
+	// Make the rendered prompt's prefix chain available to the distributed router
+	// for prefix-cache-aware node selection. No-op in single-process mode. The
+	// model id MUST match the id ModelOptions feeds to model.WithModelID, so both
+	// use the shared config.ModelConfig.ModelID() helper (Name with a fallback to
+	// Model) or the chain salt and the tracking key would diverge.
+	//
+	// s is empty for UseTokenizerTemplate models (the backend tokenizes the
+	// structured messages itself), so fall back to a prefix-stable serialization
+	// of the messages - otherwise prefix routing would silently degrade to
+	// round-robin for the bulk of modern chat models.
+	chainSource := s
+	if chainSource == "" {
+		chainSource = messagesPrefixSource(messages)
+	}
+	ctx = distributedhdr.MaybeWithPrefixChain(ctx, c.ModelID(), chainSource)
+
+	opts := ModelOptions(*c, o, model.WithContext(ctx))
 	inferenceModel, err := loader.Load(opts...)
 	if err != nil {
 		recordModelLoadFailure(o, c.Name, c.Backend, err, map[string]any{"model_file": modelFile})
@@ -305,7 +322,7 @@ func ModelInference(ctx context.Context, s string, messages schema.Messages, ima
 	}
 
 	if o.EnableTracing {
-		trace.InitBackendTracingIfEnabled(o.TracingMaxItems)
+		trace.InitBackendTracingIfEnabled(o.TracingMaxItems, o.TracingMaxBodyBytes)
 
 		traceData := map[string]any{
 			"chat_template":     c.TemplateConfig.Chat,
@@ -316,9 +333,13 @@ func ModelInference(ctx context.Context, s string, messages schema.Messages, ima
 			"audios_count":      len(audios),
 		}
 
+		// Cap the captured fields up front: agent-pool LLM calls embed the
+		// full augmented chat history in messages and the full reply in
+		// response, so without a per-field cap a single trace can dwarf the
+		// rest of the buffer. The cap matches the API-trace body cap.
 		if len(messages) > 0 {
 			if msgJSON, err := json.Marshal(messages); err == nil {
-				traceData["messages"] = string(msgJSON)
+				traceData["messages"] = trace.TruncateToBytes(string(msgJSON), o.TracingMaxBodyBytes)
 			}
 		}
 		if reasoningJSON, err := json.Marshal(c.ReasoningConfig); err == nil {
@@ -337,7 +358,7 @@ func ModelInference(ctx context.Context, s string, messages schema.Messages, ima
 			resp, err := originalFn()
 			duration := time.Since(startTime)
 
-			traceData["response"] = resp.Response
+			traceData["response"] = trace.TruncateToBytes(resp.Response, o.TracingMaxBodyBytes)
 			traceData["token_usage"] = map[string]any{
 				"prompt":     resp.Usage.Prompt,
 				"completion": resp.Usage.Completion,
@@ -359,10 +380,10 @@ func ModelInference(ctx context.Context, s string, messages schema.Messages, ima
 					toolCallCount += len(d.ToolCalls)
 				}
 				if len(contentParts) > 0 {
-					chatDeltasInfo["content"] = strings.Join(contentParts, "")
+					chatDeltasInfo["content"] = trace.TruncateToBytes(strings.Join(contentParts, ""), o.TracingMaxBodyBytes)
 				}
 				if len(reasoningParts) > 0 {
-					chatDeltasInfo["reasoning_content"] = strings.Join(reasoningParts, "")
+					chatDeltasInfo["reasoning_content"] = trace.TruncateToBytes(strings.Join(reasoningParts, ""), o.TracingMaxBodyBytes)
 				}
 				if toolCallCount > 0 {
 					chatDeltasInfo["tool_call_count"] = toolCallCount

@@ -11,6 +11,7 @@ The transcription endpoint allows to convert audio files to text. The endpoint s
 - **[whisper.cpp](https://github.com/ggerganov/whisper.cpp)**: A C++ library for audio transcription (default)
 - **moonshine**: Ultra-fast transcription engine optimized for low-end devices
 - **faster-whisper**: Fast Whisper implementation with CTranslate2
+- **[parakeet-cpp](https://github.com/mudler/parakeet.cpp)**: A C++/ggml port of NVIDIA NeMo Parakeet (FastConformer TDT/CTC/RNNT/hybrid). Runs quantized GGUFs on CPU or GPU, emits word-level timestamps, and supports cache-aware streaming (the `realtime_eou` model surfaces end-of-utterance events).
 - **llama-cpp**: Route transcription to any multimodal-audio GGUF model served by the `llama-cpp` backend (e.g. [Qwen3-ASR](https://huggingface.co/ggml-org/Qwen3-ASR-0.6B-GGUF), Voxtral, Qwen2-Audio). Under the hood the request is converted into a chat completion with the audio attached via the model's audio encoder — the same path the upstream llama.cpp server uses. Set `backend: llama-cpp` in the model YAML and point `mmproj` at the matching audio encoder.
 - **voxtral**: Voxtral-family models served by a dedicated backend
 
@@ -156,6 +157,51 @@ curl http://localhost:8080/v1/audio/transcriptions \
   -F file="@jfk.wav" \
   -F model="qwen3-asr"
 ```
+
+## Using the parakeet-cpp backend
+
+[parakeet.cpp](https://github.com/mudler/parakeet.cpp) is a C++/ggml port of NVIDIA NeMo Parakeet that matches the upstream PyTorch models on CPU. GGUF weights for every model and quant are published in a single repo, [`mudler/parakeet-cpp-gguf`](https://huggingface.co/mudler/parakeet-cpp-gguf). F16 is the recommended default, and Q4_K stays near-lossless on the small models. The easiest path is to import directly (the GGUFs auto-detect to this backend):
+
+```bash
+local-ai models import https://huggingface.co/mudler/parakeet-cpp-gguf/resolve/main/tdt_ctc-110m-f16.gguf
+```
+
+Or write a model YAML:
+
+```yaml
+name: parakeet-110m
+backend: parakeet-cpp
+parameters:
+  model: tdt_ctc-110m-f16.gguf
+```
+
+Then call `/v1/audio/transcriptions` as usual. Pass `timestamp_granularities[]=word` for per-word timings:
+
+```bash
+curl http://localhost:8080/v1/audio/transcriptions \
+  -H "Content-Type: multipart/form-data" \
+  -F file="@jfk.wav" \
+  -F model="parakeet-110m" \
+  -F "timestamp_granularities[]=word"
+```
+
+For real-time use, load a cache-aware streaming model (e.g. `realtime_eou_120m-v1-*.gguf`) and pass `-F stream=true`. Deltas are emitted as the audio is decoded, with end-of-utterance events closing each segment.
+
+### Dynamic batching
+
+The backend can coalesce concurrent transcription requests into a single batched engine call, which improves throughput on GPU when many requests arrive at once. Batching is **off by default** (`batch_max_size:1`, one request at a time); raise it to opt in. Two `options:` knobs control it:
+
+```yaml
+name: parakeet-110m
+backend: parakeet-cpp
+parameters:
+  model: tdt_ctc-110m-f16.gguf
+options:
+- batch_max_size:8      # max requests coalesced into one batch (default 1 = off)
+- batch_max_wait_ms:15  # how long to wait to fill a batch, in ms (default 15)
+```
+
+By default each request runs on its own. Raise `batch_max_size` (for example 4 to 16) to enable batching; it pays off on GPU under concurrent load, where coalescing the per-step decode GEMMs across requests is a large throughput win. Leave it at 1 on CPU and for low-concurrency setups, where batching only adds latency. Batching only affects concurrent unary requests; streaming sessions always run on their own.
 
 ## See also
 

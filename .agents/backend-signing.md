@@ -16,7 +16,8 @@ side (`pkg/oci/cosignverify` plus the gallery YAML).
   per-arch manifest before checking signatures.
 - **Storage:** Signatures are written as OCI 1.1 referrers
   (`--registry-referrers-mode=oci-1-1`) in the new Sigstore bundle format
-  (`--new-bundle-format`). No `:sha256-<hex>.sig` tag clutter.
+  (current cosign releases do this by default; no `--new-bundle-format`
+  flag). No `:sha256-<hex>.sig` tag clutter.
 - **Consumer:** `pkg/oci/cosignverify` discovers the bundle via the
   referrers API, hands it to `sigstore-go`, and verifies it against the
   policy declared in the gallery YAML (`Gallery.Verification`).
@@ -33,21 +34,26 @@ to sign. The job needs:
 
 - `permissions: { id-token: write, contents: read }` at the job level so
   the runner can exchange its GitHub OIDC token for a Fulcio cert.
-- `sigstore/cosign-installer@v3` step (cosign ≥ 2.2 for
-  `--new-bundle-format`).
+- `sigstore/cosign-installer@v3` step (current cosign releases already
+  default to the new bundle format).
 - After each `docker buildx imagetools create`, resolve the resulting
   list digest with `docker buildx imagetools inspect <tag> --format
   '{{.Manifest.Digest}}'` and sign:
 
 ```sh
 cosign sign --yes --recursive \
-  --new-bundle-format \
   --registry-referrers-mode=oci-1-1 \
   "${REGISTRY_REPO}@${DIGEST}"
 ```
 
 Sign by digest, never by tag — signing by tag binds the signature to
 whatever the tag points at *now*, and a subsequent tag push orphans it.
+
+`--registry-referrers-mode=oci-1-1` is still gated behind
+`COSIGN_EXPERIMENTAL=1` in cosign v2.4.x (set at the job env level in
+`backend_merge.yml`). Re-evaluate when bumping the pinned cosign release
+— newer versions are expected to graduate this flag and the env var can
+then be dropped.
 
 `backend_build_darwin.yml` builds and pushes single-arch darwin images
 that bypass the manifest-list merge. If/when those entries get a gallery

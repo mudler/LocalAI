@@ -253,6 +253,16 @@ func UpdateSettingsEndpoint(app *application.Application) echo.HandlerFunc {
 			}
 		}
 
+		if settings.MITMListen != nil {
+			if err := app.RestartMITM(); err != nil {
+				xlog.Error("Failed to restart MITM proxy", "error", err)
+				return c.JSON(http.StatusInternalServerError, schema.SettingsResponse{
+					Success: false,
+					Error:   "Settings saved but failed to restart MITM proxy: " + err.Error(),
+				})
+			}
+		}
+
 		// Restart P2P if P2P settings changed
 		p2pChanged := settings.P2PToken != nil || settings.P2PNetworkID != nil || settings.Federated != nil
 		if p2pChanged {

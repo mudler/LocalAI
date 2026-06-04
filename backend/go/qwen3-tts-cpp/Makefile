@@ -8,7 +8,7 @@ JOBS?=$(shell nproc --ignore=1)
 
 # qwen3-tts.cpp version
 QWEN3TTS_REPO?=https://github.com/predict-woo/qwen3-tts.cpp
-QWEN3TTS_CPP_VERSION?=7a762e2ad4bacc6fdda81d81bf10a09ffb546f29
+QWEN3TTS_CPP_VERSION?=136e5d36c17083da0321fd96512dc7b263f94a44
 SO_TARGET?=libgoqwen3ttscpp.so
 
 CMAKE_ARGS+=-DBUILD_SHARED_LIBS=OFF

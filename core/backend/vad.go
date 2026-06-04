@@ -14,7 +14,10 @@ func VAD(request *schema.VADRequest,
 	ml *model.ModelLoader,
 	appConfig *config.ApplicationConfig,
 	modelConfig config.ModelConfig) (*schema.VADResponse, error) {
-	opts := ModelOptions(modelConfig, appConfig)
+	// model.WithContext(ctx) overrides the app-context default set in
+	// ModelOptions so distributed routing decisions reach the request's
+	// X-LocalAI-Node holder via distributedhdr.Stamp.
+	opts := ModelOptions(modelConfig, appConfig, model.WithContext(ctx))
 	vadModel, err := ml.Load(opts...)
 	if err != nil {
 		recordModelLoadFailure(appConfig, modelConfig.Name, modelConfig.Backend, err, nil)

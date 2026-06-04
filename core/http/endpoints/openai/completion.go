@@ -9,10 +9,12 @@ import (
 	"github.com/labstack/echo/v4"
 	"github.com/mudler/LocalAI/core/backend"
 	"github.com/mudler/LocalAI/core/config"
+	"github.com/mudler/LocalAI/core/http/auth"
 	"github.com/mudler/LocalAI/core/http/middleware"
 
 	"github.com/google/uuid"
 	"github.com/mudler/LocalAI/core/schema"
+	"github.com/mudler/LocalAI/core/services/routing/pii"
 	"github.com/mudler/LocalAI/core/templates"
 	"github.com/mudler/LocalAI/pkg/functions"
 	"github.com/mudler/LocalAI/pkg/model"
@@ -25,7 +27,7 @@ import (
 // @Param request body schema.OpenAIRequest true "query params"
 // @Success 200 {object} schema.OpenAIResponse "Response"
 // @Router /v1/completions [post]
-func CompletionEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator *templates.Evaluator, appConfig *config.ApplicationConfig) echo.HandlerFunc {
+func CompletionEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator *templates.Evaluator, appConfig *config.ApplicationConfig, piiRedactor *pii.Redactor, piiEvents pii.EventStore) echo.HandlerFunc {
 	process := func(id string, s string, req *schema.OpenAIRequest, config *config.ModelConfig, loader *model.ModelLoader, responses chan schema.OpenAIResponse, extraUsage bool) error {
 		tokenCallback := func(s string, tokenUsage backend.TokenUsage) bool {
 			created := int(time.Now().Unix())
@@ -111,6 +113,31 @@ func CompletionEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, eva
 				return errors.New("cannot handle more than 1 `PromptStrings` when Streaming")
 			}
 
+			// Per-stream PII filter — same gating as chat. /v1/completions
+			// has no chat-message structure, so request-side PII isn't
+			// wired here, but the response-side filter still catches PII
+			// trained into the model. Filter is nil when this model has
+			// PII disabled.
+			var streamPIIFilter *pii.StreamFilter
+			if piiRedactor != nil && config.PIIIsEnabled() {
+				correlationID := id
+				userID := ""
+				if u := auth.GetUser(c); u != nil {
+					userID = u.ID
+				}
+				var overrides map[string]pii.Action
+				if raw := config.PIIPatternOverrides(); len(raw) > 0 {
+					overrides = make(map[string]pii.Action, len(raw))
+					for ovid, action := range raw {
+						switch pii.Action(action) {
+						case pii.ActionMask, pii.ActionBlock, pii.ActionRouteLocal:
+							overrides[ovid] = pii.Action(action)
+						}
+					}
+				}
+				streamPIIFilter = pii.NewStreamFilter(piiRedactor, overrides, piiEvents, correlationID, userID)
+			}
+
 			predInput := config.PromptStrings[0]
 
 			templatedInput, err := evaluator.EvaluateTemplateForPrompt(templates.CompletionPromptTemplate, *config, templates.PromptTemplateData{
@@ -143,12 +170,28 @@ func CompletionEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, eva
 					}
 					// Capture running cumulative usage for the optional trailer
 					// emitted after the final stop chunk when include_usage=true.
+					// Done before the PII filter so a fully-buffered chunk
+					// (which we drop from the wire) still contributes to the
+					// running total.
 					if ev.Usage != nil {
 						latestUsage = ev.Usage
 					}
 					// OpenAI streaming spec: intermediate chunks must NOT
 					// carry a `usage` field. Strip the tracking copy now.
 					ev.Usage = nil
+					// Run the per-chunk text through the streaming PII
+					// filter. The filter holds back a tail to handle
+					// pattern boundaries, so a Push may legitimately
+					// return "" — drop the chunk's text rather than
+					// emitting a 0-token delta. Choice.Text is the only
+					// content surface in /v1/completions chunks.
+					if streamPIIFilter != nil && ev.Choices[0].Text != "" {
+						filtered := streamPIIFilter.Push(ev.Choices[0].Text)
+						if filtered == "" {
+							continue
+						}
+						ev.Choices[0].Text = filtered
+					}
 					respData, err := json.Marshal(ev)
 					if err != nil {
 						xlog.Debug("Failed to marshal response", "error", err)
@@ -194,6 +237,25 @@ func CompletionEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, eva
 				}
 			}
 
+			// Flush any residual the streaming PII filter held back as
+			// part of its trailing pattern-window. Emit it as one final
+			// text-bearing chunk before the synthetic stop chunk so the
+			// completion body remains a contiguous text stream.
+			if streamPIIFilter != nil {
+				if residual := streamPIIFilter.Drain(); residual != "" {
+					residualResp := schema.OpenAIResponse{
+						ID:      id,
+						Created: created,
+						Model:   input.Model,
+						Choices: []schema.Choice{{Index: 0, Text: residual}},
+						Object:  "text_completion",
+					}
+					if data, err := json.Marshal(residualResp); err == nil {
+						_, _ = fmt.Fprintf(c.Response().Writer, "data: %s\n\n", string(data))
+					}
+				}
+			}
+
 			stopReason := FinishReasonStop
 			resp := &schema.OpenAIResponse{
 				ID:      id,
@@ -208,6 +270,14 @@ func CompletionEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, eva
 				Object: "text_completion",
 			}
 			respData, _ := json.Marshal(resp)
+
+			pt, ct := 0, 0
+			if latestUsage != nil {
+				pt = latestUsage.PromptTokens
+				ct = latestUsage.CompletionTokens
+			}
+			middleware.StampUsage(c, input.Model, pt, ct)
+
 			fmt.Fprintf(c.Response().Writer, "data: %s\n\n", respData)
 
 			// Trailing usage chunk per OpenAI spec: emit only when the caller
@@ -273,6 +343,8 @@ func CompletionEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, eva
 
 		jsonResult, _ := json.Marshal(resp)
 		xlog.Debug("Response", "response", string(jsonResult))
+
+		middleware.StampUsage(c, input.Model, totalTokenUsage.Prompt, totalTokenUsage.Completion)
 
 		// Return the prediction in the response body
 		return c.JSON(200, resp)

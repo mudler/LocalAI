@@ -3,6 +3,7 @@ package nodes
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"runtime"
 	"sync"
 	"time"
@@ -12,6 +13,7 @@ import (
 	. "github.com/onsi/gomega"
 	"gorm.io/gorm"
 
+	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/gallery"
 	"github.com/mudler/LocalAI/core/services/galleryop"
 	"github.com/mudler/LocalAI/core/services/messaging"
@@ -22,11 +24,35 @@ import (
 // (or error). Used so each fan-out request can simulate a different worker
 // outcome without spinning up real NATS.
 type scriptedMessagingClient struct {
-	mu             sync.Mutex
-	replies        map[string][]byte
-	errs           map[string]error
-	calls          []requestCall
-	matchedReplies map[string][]matchedReply
+	mu                         sync.Mutex
+	replies                    map[string][]byte
+	errs                       map[string]error
+	calls                      []requestCall
+	matchedReplies             map[string][]matchedReply
+	publishes                  []progressPublishCall
+	scheduledProgressPublishes []scheduledProgressPublish
+	subscribes                 []string
+}
+
+// progressPublishCall records a single Publish invocation. The progress
+// publisher tests assert on the sequence of BackendInstallProgressEvent
+// values written to a per-op subject, so we capture both subject and the
+// decoded event. Named to avoid clashing with the simpler `publishCall`
+// already defined in unloader_test.go (which stores raw JSON bytes for
+// non-progress assertions).
+type progressPublishCall struct {
+	Subject string
+	Event   messaging.BackendInstallProgressEvent
+}
+
+// scheduledProgressPublish queues a batch of BackendInstallProgressEvent
+// values to be delivered the next time Subscribe is called with the matching
+// subject. This lets master-side tests assert that the adapter installs its
+// handler BEFORE publishing the install request, by scripting events to be
+// delivered as soon as the subscription appears.
+type scheduledProgressPublish struct {
+	subject string
+	events  []messaging.BackendInstallProgressEvent
 }
 
 // matchedReply lets a test script a canned reply that only fires when the
@@ -98,10 +124,10 @@ func (s *scriptedMessagingClient) scriptReplyMatching(subject string, pred func(
 	})
 }
 
-func (s *scriptedMessagingClient) Request(subject string, data []byte, _ time.Duration) ([]byte, error) {
+func (s *scriptedMessagingClient) Request(subject string, data []byte, timeout time.Duration) ([]byte, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	s.calls = append(s.calls, requestCall{Subject: subject, Data: data})
+	s.calls = append(s.calls, requestCall{Subject: subject, Data: data, Timeout: timeout})
 
 	// Predicate-matched replies take precedence over flat scriptReply.
 	if matchers, ok := s.matchedReplies[subject]; ok {
@@ -135,8 +161,88 @@ func (s *scriptedMessagingClient) Request(subject string, data []byte, _ time.Du
 	return nil, &fakeNoRespondersErr{}
 }
 
-func (s *scriptedMessagingClient) Publish(_ string, _ any) error { return nil }
-func (s *scriptedMessagingClient) Subscribe(_ string, _ func([]byte)) (messaging.Subscription, error) {
+// Publish records each call so progress-publisher tests can assert on the
+// stream of events written to a subject. The real messaging.Client JSON
+// encodes the payload before sending, but our publisher hands a typed
+// struct directly, so we handle both shapes.
+func (s *scriptedMessagingClient) Publish(subject string, data any) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	switch ev := data.(type) {
+	case messaging.BackendInstallProgressEvent:
+		s.publishes = append(s.publishes, progressPublishCall{Subject: subject, Event: ev})
+	case []byte:
+		var e messaging.BackendInstallProgressEvent
+		_ = json.Unmarshal(ev, &e)
+		s.publishes = append(s.publishes, progressPublishCall{Subject: subject, Event: e})
+	}
+	return nil
+}
+
+// publishCalls returns every BackendInstallProgressEvent that was published
+// to `subject`, in order. Lets tests assert on debounce behavior without
+// depending on internal Publish timing.
+func (s *scriptedMessagingClient) publishCalls(subject string) []messaging.BackendInstallProgressEvent {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	out := make([]messaging.BackendInstallProgressEvent, 0)
+	for _, c := range s.publishes {
+		if c.Subject != subject {
+			continue
+		}
+		out = append(out, c.Event)
+	}
+	return out
+}
+
+// scheduleProgressPublish queues a set of BackendInstallProgressEvent values
+// to be delivered on the next Subscribe call matching the per-op progress
+// subject. A short delay before delivery gives the subscriber time to install
+// its message handler before the events arrive.
+func (s *scriptedMessagingClient) scheduleProgressPublish(nodeID, opID string, events []messaging.BackendInstallProgressEvent) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.scheduledProgressPublishes = append(s.scheduledProgressPublishes, scheduledProgressPublish{
+		subject: messaging.SubjectNodeBackendInstallProgress(nodeID, opID),
+		events:  events,
+	})
+}
+
+// subscribeCalls returns the subjects on which Subscribe was invoked.
+// Used to confirm the master skipped subscription when onProgress was nil.
+func (s *scriptedMessagingClient) subscribeCalls() []string {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	out := make([]string, len(s.subscribes))
+	copy(out, s.subscribes)
+	return out
+}
+
+func (s *scriptedMessagingClient) Subscribe(subject string, handler func([]byte)) (messaging.Subscription, error) {
+	s.mu.Lock()
+	s.subscribes = append(s.subscribes, subject)
+	matched := []scheduledProgressPublish{}
+	remaining := s.scheduledProgressPublishes[:0]
+	for _, sp := range s.scheduledProgressPublishes {
+		if sp.subject == subject {
+			matched = append(matched, sp)
+		} else {
+			remaining = append(remaining, sp)
+		}
+	}
+	s.scheduledProgressPublishes = remaining
+	s.mu.Unlock()
+
+	go func() {
+		time.Sleep(20 * time.Millisecond)
+		for _, sp := range matched {
+			for _, ev := range sp.events {
+				raw, _ := json.Marshal(ev)
+				handler(raw)
+			}
+		}
+	}()
+
 	return &fakeSubscription{}, nil
 }
 func (s *scriptedMessagingClient) QueueSubscribe(_ string, _ string, _ func([]byte)) (messaging.Subscription, error) {
@@ -151,8 +257,43 @@ func (s *scriptedMessagingClient) SubscribeReply(_ string, _ func([]byte, func([
 func (s *scriptedMessagingClient) IsConnected() bool { return true }
 func (s *scriptedMessagingClient) Close()            {}
 
+// recordingNodeCall captures a single UpdateNodeProgress invocation so
+// per-node OpStatus tests can assert on the sequence of writes the
+// DistributedBackendManager fans out into the sink.
+type recordingNodeCall struct {
+	OpID     string
+	NodeID   string
+	Progress galleryop.NodeProgress
+}
+
+// recordingProgressSink is a test-only nodeProgressSink that just records
+// every call. Used by the per-node OpStatus specs below to assert the
+// manager wrote the expected terminal and downloading entries.
+type recordingProgressSink struct {
+	mu    sync.Mutex
+	calls []recordingNodeCall
+}
+
+func (r *recordingProgressSink) UpdateNodeProgress(opID, nodeID string, np galleryop.NodeProgress) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.calls = append(r.calls, recordingNodeCall{OpID: opID, NodeID: nodeID, Progress: np})
+}
+
+func (r *recordingProgressSink) callsFor(opID, nodeID string) []galleryop.NodeProgress {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	out := []galleryop.NodeProgress{}
+	for _, c := range r.calls {
+		if c.OpID == opID && c.NodeID == nodeID {
+			out = append(out, c.Progress)
+		}
+	}
+	return out
+}
+
 // fakeNoRespondersErr is the unscripted-subject default. It matches
-// nats.ErrNoResponders by string only — used when a test forgets to script
+// nats.ErrNoResponders by string only - used when a test forgets to script
 // a node so the failure is loud but doesn't tickle errors.Is(...) sentinel
 // paths the test wasn't deliberately exercising. Tests that DO want the
 // real sentinel (e.g. to drive the manager's NoResponders fallback) call
@@ -204,7 +345,7 @@ var _ = Describe("DistributedBackendManager", func() {
 		Expect(err).ToNot(HaveOccurred())
 
 		mc = newScriptedMessagingClient()
-		adapter = NewRemoteUnloaderAdapter(nil, mc)
+		adapter = NewRemoteUnloaderAdapter(nil, mc, 3*time.Minute, 15*time.Minute)
 		mgr = &DistributedBackendManager{
 			local:    stubLocalBackendManager{},
 			adapter:  adapter,
@@ -309,6 +450,304 @@ var _ = Describe("DistributedBackendManager", func() {
 		Context("when there are no nodes registered at all", func() {
 			It("returns nil", func() {
 				Expect(mgr.InstallBackend(ctx, op("vllm-development"), nil)).To(Succeed())
+			})
+		})
+
+		Context("when op.TargetNodeID is set to a healthy node", func() {
+			It("installs only on that node, leaving the others untouched", func() {
+				target := registerHealthyBackend("worker-target", "10.0.0.1:50051")
+				other := registerHealthyBackend("worker-other", "10.0.0.2:50051")
+
+				mc.scriptReply(messaging.SubjectNodeBackendInstall(target.ID),
+					messaging.BackendInstallReply{Success: true, Address: "10.0.0.1:50100"})
+				// No reply scripted for `other`: if InstallBackend fans out
+				// to it, the fakeNoRespondersErr default would surface and
+				// the test would fail.
+
+				targetedOp := &galleryop.ManagementOp[gallery.GalleryBackend, any]{
+					GalleryElementName: "llama-cpp",
+					TargetNodeID:       target.ID,
+				}
+				Expect(mgr.InstallBackend(ctx, targetedOp, nil)).To(Succeed())
+
+				mc.mu.Lock()
+				defer mc.mu.Unlock()
+				Expect(mc.calls).To(HaveLen(1))
+				Expect(mc.calls[0].Subject).To(Equal(messaging.SubjectNodeBackendInstall(target.ID)))
+				Expect(mc.calls[0].Subject).ToNot(Equal(messaging.SubjectNodeBackendInstall(other.ID)))
+			})
+		})
+
+		Context("when op.TargetNodeID is set to a node that does not exist", func() {
+			It("returns nil without sending any NATS request", func() {
+				registerHealthyBackend("worker-a", "10.0.0.1:50051")
+
+				ghostOp := &galleryop.ManagementOp[gallery.GalleryBackend, any]{
+					GalleryElementName: "llama-cpp",
+					TargetNodeID:       "this-id-does-not-exist",
+				}
+				Expect(mgr.InstallBackend(ctx, ghostOp, nil)).To(Succeed())
+
+				mc.mu.Lock()
+				defer mc.mu.Unlock()
+				Expect(mc.calls).To(BeEmpty())
+			})
+		})
+
+		Context("when InstallBackend times out on a worker", func() {
+			It("returns galleryop.ErrWorkerStillInstalling and keeps the queue row with NextRetryAt pushed out", func() {
+				n := registerHealthyBackend("slow", "10.0.0.1:50051")
+
+				// Script a NATS timeout on the install subject. The adapter
+				// wraps this into galleryop.ErrWorkerStillInstalling, which
+				// the manager should treat as a soft failure.
+				mc.scriptErr(messaging.SubjectNodeBackendInstall(n.ID), nats.ErrTimeout)
+
+				err := mgr.InstallBackend(ctx, op("vllm"), nil)
+				Expect(err).To(HaveOccurred())
+				Expect(errors.Is(err, galleryop.ErrWorkerStillInstalling)).To(BeTrue(),
+					"expected wrapped ErrWorkerStillInstalling, got %v", err)
+
+				rows, err := registry.ListPendingBackendOps(ctx)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(rows).To(HaveLen(1))
+				Expect(rows[0].Backend).To(Equal("vllm"))
+				// The adapter is configured with a 3m install timeout in this
+				// suite (NewRemoteUnloaderAdapter above). NextRetryAt should
+				// be ~now+3m; a > now+2m bound is safe-but-tight enough to
+				// catch the buggy short default (30s exponential backoff).
+				Expect(rows[0].NextRetryAt).To(BeTemporally(">", time.Now().Add(2*time.Minute)),
+					"NextRetryAt should be pushed to ~now+installTimeout, not the short default")
+			})
+		})
+
+		Context("end-to-end: timeout then successful reconcile via backend.list", func() {
+			It("surfaces the install in ListBackends after the worker finishes", func() {
+				// Use the same node-registration helper the Task 5 test uses
+				// so the test fixture is identical to the prior context.
+				node := registerHealthyBackend("jetson", "10.0.0.2:50051")
+
+				// First install attempt: NATS times out. The adapter wraps
+				// this as galleryop.ErrWorkerStillInstalling and the manager
+				// keeps the pending_backend_ops row alive with NextRetryAt
+				// pushed out (asserted in the previous context).
+				mc.scriptErr(messaging.SubjectNodeBackendInstall(node.ID), nats.ErrTimeout)
+
+				err := mgr.InstallBackend(ctx, op("vllm"), nil)
+				Expect(err).To(HaveOccurred())
+				Expect(errors.Is(err, galleryop.ErrWorkerStillInstalling)).To(BeTrue(),
+					"expected wrapped ErrWorkerStillInstalling, got %v", err)
+
+				rows, listErr := registry.ListPendingBackendOps(ctx)
+				Expect(listErr).ToNot(HaveOccurred())
+				Expect(rows).To(HaveLen(1))
+
+				// The worker finished installing in the background. Script
+				// backend.list on the same scriptedMessagingClient so the
+				// manager's ListBackends fan-out reports the backend.
+				mc.scriptReply(messaging.SubjectNodeBackendList(node.ID), messaging.BackendListReply{
+					Backends: []messaging.NodeBackendInfo{{Name: "vllm"}},
+				})
+
+				backends, listErr := mgr.ListBackends()
+				Expect(listErr).ToNot(HaveOccurred())
+				Expect(backends).To(HaveKey("vllm"))
+				Expect(backends["vllm"].Nodes).To(HaveLen(1))
+				Expect(backends["vllm"].Nodes[0].NodeID).To(Equal(node.ID))
+
+				// Phase 1b shipped: ListBackends proactively clears install rows
+				// whose intent is now satisfied by backend.list confirmation. The
+				// operator UI clears immediately instead of waiting for the next
+				// reconciler tick after NextRetryAt.
+				rowsAfter, _ := registry.ListPendingBackendOps(ctx)
+				Expect(rowsAfter).To(BeEmpty(),
+					"install row should clear once backend.list confirms presence on the target node")
+			})
+		})
+
+		Context("ListBackends clears confirmed install rows", func() {
+			It("deletes the pending_backend_ops install row when the backend is reported installed on its target node", func() {
+				node := registerHealthyBackend("worker-a", "10.0.0.5:50051")
+
+				// Pre-stage: simulate an admin install that timed out at the NATS
+				// round-trip, leaving an install row in the queue.
+				mc.scriptErr(messaging.SubjectNodeBackendInstall(node.ID), nats.ErrTimeout)
+				err := mgr.InstallBackend(ctx, op("vllm"), nil)
+				Expect(err).To(HaveOccurred())
+				Expect(errors.Is(err, galleryop.ErrWorkerStillInstalling)).To(BeTrue())
+
+				rows, _ := registry.ListPendingBackendOps(ctx)
+				Expect(rows).To(HaveLen(1))
+
+				// Worker finishes installing in the background. backend.list now
+				// confirms presence; ListBackends should proactively clear the row.
+				mc.scriptReply(messaging.SubjectNodeBackendList(node.ID), messaging.BackendListReply{
+					Backends: []messaging.NodeBackendInfo{{Name: "vllm"}},
+				})
+
+				backends, listErr := mgr.ListBackends()
+				Expect(listErr).ToNot(HaveOccurred())
+				Expect(backends).To(HaveKey("vllm"))
+
+				rowsAfter, _ := registry.ListPendingBackendOps(ctx)
+				Expect(rowsAfter).To(BeEmpty(),
+					"ListBackends should clear install rows whose intent is now satisfied by backend.list")
+			})
+
+			It("does NOT clear an upgrade row even if the backend is reported installed", func() {
+				node := registerHealthyBackend("worker-b", "10.0.0.6:50051")
+
+				Expect(registry.UpsertPendingBackendOp(ctx, node.ID, "vllm", OpBackendUpgrade, []byte("[]"))).To(Succeed())
+
+				mc.scriptReply(messaging.SubjectNodeBackendList(node.ID), messaging.BackendListReply{
+					Backends: []messaging.NodeBackendInfo{{Name: "vllm"}},
+				})
+
+				_, listErr := mgr.ListBackends()
+				Expect(listErr).ToNot(HaveOccurred())
+
+				rowsAfter, _ := registry.ListPendingBackendOps(ctx)
+				Expect(rowsAfter).To(HaveLen(1), "upgrade rows must not be cleared by backend.list presence")
+			})
+		})
+
+		Context("InstallBackend streams progress events to the caller's progressCb", func() {
+			It("invokes progressCb once per worker-published progress event", func() {
+				node := registerHealthyBackend("worker-prog", "10.0.0.7:50051")
+
+				mc.scriptReply(messaging.SubjectNodeBackendInstall(node.ID), messaging.BackendInstallReply{Success: true, Address: "10.0.0.7:50051"})
+				mc.scheduleProgressPublish(node.ID, "op-prog-1", []messaging.BackendInstallProgressEvent{
+					{OpID: "op-prog-1", NodeID: node.ID, Backend: "vllm", FileName: "vllm.tar", Current: "100 MB", Total: "1 GB", Percentage: 10},
+					{OpID: "op-prog-1", NodeID: node.ID, Backend: "vllm", FileName: "vllm.tar", Current: "1 GB", Total: "1 GB", Percentage: 100},
+				})
+
+				type tick struct {
+					FileName, Current, Total string
+					Percentage               float64
+				}
+				var (
+					pcCalls []tick
+					mu      sync.Mutex
+				)
+				progressCb := func(file, current, total string, pct float64) {
+					mu.Lock()
+					defer mu.Unlock()
+					pcCalls = append(pcCalls, tick{file, current, total, pct})
+				}
+
+				opVal := op("vllm")
+				opVal.ID = "op-prog-1"
+				Expect(mgr.InstallBackend(ctx, opVal, progressCb)).To(Succeed())
+
+				Eventually(func() int {
+					mu.Lock()
+					defer mu.Unlock()
+					return len(pcCalls)
+				}, "1s").Should(Equal(2))
+				mu.Lock()
+				defer mu.Unlock()
+				// The adapter dispatches each progress event to its own goroutine
+				// (see unloader.go: `go onProgress(ev)`) so two events emitted back
+				// to back can land at the bridge in either order. Assert the set of
+				// percentages observed contains both ticks, rather than depending
+				// on goroutine scheduling for ordering.
+				pcts := []float64{pcCalls[0].Percentage, pcCalls[1].Percentage}
+				Expect(pcts).To(ConsistOf(10.0, 100.0))
+			})
+		})
+
+		Context("InstallBackend tolerates silent (pre-Phase-2) workers", func() {
+			It("completes successfully even when no progress events are ever published", func() {
+				node := registerHealthyBackend("worker-silent", "10.0.0.8:50051")
+				mc.scriptReply(messaging.SubjectNodeBackendInstall(node.ID), messaging.BackendInstallReply{Success: true, Address: "10.0.0.8:50051"})
+				// NO scheduleProgressPublish call - silent worker.
+
+				var ticks int
+				var mu sync.Mutex
+				progressCb := func(file, current, total string, pct float64) {
+					mu.Lock()
+					defer mu.Unlock()
+					ticks++
+				}
+
+				opVal := op("vllm")
+				opVal.ID = "op-silent-1"
+				Expect(mgr.InstallBackend(ctx, opVal, progressCb)).To(Succeed())
+
+				Consistently(func() int {
+					mu.Lock()
+					defer mu.Unlock()
+					return ticks
+				}, "200ms").Should(Equal(0))
+			})
+		})
+
+		Context("populates per-node OpStatus entries", func() {
+			var sink *recordingProgressSink
+
+			BeforeEach(func() {
+				// Reconstruct mgr with the recording sink so the new code
+				// path (per-node OpStatus writes) is exercised. The default
+				// mgr in the outer BeforeEach has progressSink=nil so the
+				// pre-existing specs keep verifying the no-sink behavior.
+				sink = &recordingProgressSink{}
+				appCfg := &config.ApplicationConfig{}
+				mgr = NewDistributedBackendManager(appCfg, nil, adapter, registry, sink)
+				// stubLocalBackendManager mirrors the production behaviour
+				// where the frontend node rarely has the backend installed
+				// locally - the NATS fan-out is what these specs verify.
+				mgr.local = stubLocalBackendManager{}
+			})
+
+			It("emits a success entry for each healthy node visited", func() {
+				node := registerHealthyBackend("worker-ok", "10.0.0.9:50051")
+				mc.scriptReply(messaging.SubjectNodeBackendInstall(node.ID),
+					messaging.BackendInstallReply{Success: true, Address: "10.0.0.9:50051"})
+
+				opVal := op("vllm")
+				opVal.ID = "op-node-success"
+				Expect(mgr.InstallBackend(ctx, opVal, nil)).To(Succeed())
+
+				calls := sink.callsFor("op-node-success", node.ID)
+				Expect(calls).ToNot(BeEmpty())
+				Expect(calls[len(calls)-1].Status).To(Equal(galleryop.NodeStatusSuccess))
+				Expect(calls[len(calls)-1].NodeName).To(Equal("worker-ok"))
+			})
+
+			It("emits a running_on_worker entry when NATS times out", func() {
+				node := registerHealthyBackend("worker-slow", "10.0.0.10:50051")
+				mc.scriptErr(messaging.SubjectNodeBackendInstall(node.ID), nats.ErrTimeout)
+
+				opVal := op("vllm")
+				opVal.ID = "op-node-slow"
+				// Soft failure: returns wrapped ErrWorkerStillInstalling.
+				_ = mgr.InstallBackend(ctx, opVal, nil)
+
+				calls := sink.callsFor("op-node-slow", node.ID)
+				Expect(calls).ToNot(BeEmpty())
+				Expect(calls[len(calls)-1].Status).To(Equal(galleryop.NodeStatusRunningOnWorker))
+			})
+
+			It("emits downloading entries from progress events", func() {
+				node := registerHealthyBackend("worker-dl", "10.0.0.11:50051")
+				mc.scriptReply(messaging.SubjectNodeBackendInstall(node.ID),
+					messaging.BackendInstallReply{Success: true})
+				mc.scheduleProgressPublish(node.ID, "op-node-dl", []messaging.BackendInstallProgressEvent{
+					{OpID: "op-node-dl", NodeID: node.ID, Backend: "vllm", FileName: "vllm.tar", Current: "1 GB", Total: "1 GB", Percentage: 100, Phase: messaging.PhaseDownloading},
+				})
+
+				opVal := op("vllm")
+				opVal.ID = "op-node-dl"
+				Expect(mgr.InstallBackend(ctx, opVal, nil)).To(Succeed())
+
+				Eventually(func() bool {
+					for _, np := range sink.callsFor("op-node-dl", node.ID) {
+						if np.Status == galleryop.NodeStatusDownloading && np.Percentage == 100.0 {
+							return true
+						}
+					}
+					return false
+				}, "1s").Should(BeTrue())
 			})
 		})
 	})

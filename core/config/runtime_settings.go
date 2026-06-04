@@ -38,6 +38,7 @@ type RuntimeSettings struct {
 	Debug                *bool `json:"debug,omitempty"`
 	EnableTracing        *bool `json:"enable_tracing,omitempty"`
 	TracingMaxItems      *int  `json:"tracing_max_items,omitempty"`
+	TracingMaxBodyBytes  *int  `json:"tracing_max_body_bytes,omitempty"` // Per-body cap in bytes; 0 disables the cap
 	EnableBackendLogging *bool `json:"enable_backend_logging,omitempty"`
 
 	// Security/CORS settings
@@ -89,4 +90,26 @@ type RuntimeSettings struct {
 	LogoFile           *string `json:"logo_file,omitempty"`
 	LogoHorizontalFile *string `json:"logo_horizontal_file,omitempty"`
 	FaviconFile        *string `json:"favicon_file,omitempty"`
+
+	// Cloud-proxy MITM listener. MITMCADir is intentionally NOT
+	// exposed at runtime — the CA dir is a startup-only path and
+	// changing it after the CA has been generated would orphan
+	// trusted clients.
+	MITMListen *string `json:"mitm_listen,omitempty"`
+
+	// PII pattern overrides — keyed by pattern id, applied to the live
+	// redactor at startup and persisted by POST /api/pii/patterns/persist.
+	// Distinguishes from --pii-config (which replaces the entire
+	// pattern set) by only carrying the per-id action/enabled deltas
+	// against the global default catalog.
+	PIIPatternOverrides *map[string]PIIPatternRuntimeOverride `json:"pii_pattern_overrides,omitempty"`
+}
+
+// PIIPatternRuntimeOverride captures the persistable deltas an admin
+// has applied to a single global PII pattern. Both fields are pointers
+// so an override that only flips Disabled doesn't have to also restate
+// Action (and vice versa).
+type PIIPatternRuntimeOverride struct {
+	Action   *string `json:"action,omitempty"`
+	Disabled *bool   `json:"disabled,omitempty"`
 }

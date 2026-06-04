@@ -26,6 +26,10 @@ go-bert
 LocalAI
 /local-ai
 /local-ai-launcher
+# Root-level build artifacts when running `go build ./...` against
+# Go backend packages whose main lives under backend/go/.
+/cloud-proxy
+/local-store
 # prevent above rules from omitting the helm chart
 !charts/*
 # prevent above rules from omitting the api/localai folder
@@ -66,9 +70,16 @@ docs/static/gallery.html
 # per-developer customization files for the development container
 .devcontainer/customization/*
 
+# Coverage profiles (the committed baseline is coverage-baseline.txt)
+/coverage/
+
 # React UI build artifacts (keep placeholder dist/index.html)
 core/http/react-ui/node_modules/
 core/http/react-ui/dist
+
+# React UI coverage (vite-plugin-istanbul + nyc, via `make test-ui-coverage`)
+core/http/react-ui/.nyc_output/
+core/http/react-ui/coverage/
 
 # Extracted backend binaries for container-based testing
 local-backends/
@@ -77,3 +88,6 @@ local-backends/
 tests/e2e-ui/ui-test-server
 core/http/react-ui/playwright-report/
 core/http/react-ui/test-results/
+
+# Local worktrees
+.worktrees/

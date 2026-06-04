@@ -68,6 +68,9 @@ func (s *server) Predict(ctx context.Context, in *pb.PredictOptions) (*pb.Reply,
 		s.llm.Lock()
 		defer s.llm.Unlock()
 	}
+	if rich, ok := s.llm.(AIModelRich); ok {
+		return rich.PredictRich(in)
+	}
 	result, err := s.llm.Predict(in)
 	return newReply(result), err
 }
@@ -271,8 +274,30 @@ func (s *server) PredictStream(in *pb.PredictOptions, stream pb.Backend_PredictS
 		s.llm.Lock()
 		defer s.llm.Unlock()
 	}
-	resultChan := make(chan string)
 
+	if rich, ok := s.llm.(AIModelRich); ok {
+		replyChan := make(chan *pb.Reply)
+		done := make(chan bool)
+		go func() {
+			for reply := range replyChan {
+				// Send errors here mean the client disconnected;
+				// drain the rest of the channel so the producer
+				// (PredictStreamRich) doesn't block on the next
+				// reply forever.
+				_ = stream.Send(reply)
+			}
+			done <- true
+		}()
+		// Server-side close: PredictStreamRich implementations send into
+		// the channel and return when finished; closing is the host's
+		// concern so impls don't have to remember `defer close(...)`.
+		err := rich.PredictStreamRich(in, replyChan)
+		close(replyChan)
+		<-done
+		return err
+	}
+
+	resultChan := make(chan string)
 	done := make(chan bool)
 	go func() {
 		for result := range resultChan {
@@ -535,6 +560,69 @@ func (s *server) AudioToAudioStream(stream pb.Backend_AudioToAudioStreamServer) 
 	}()
 
 	backendErr := s.llm.AudioToAudioStream(in, out)
+	sendErr := <-sendDone
+	recvErr := <-recvErrCh
+
+	if backendErr != nil {
+		return backendErr
+	}
+	if sendErr != nil {
+		return sendErr
+	}
+	return recvErr
+}
+
+// Forward is the bidi-stream handler for the cloud-proxy backend's
+// passthrough mode. Same recv→in / out→send goroutine idiom as
+// AudioTransformStream / AudioToAudioStream above. Buffer size 8 to
+// keep SSE token streams flowing — at 4, a half-RTT slow gRPC client
+// makes the body-read goroutine in the backend block on out<- after
+// every few token frames.
+func (s *server) Forward(stream pb.Backend_ForwardServer) error {
+	if s.llm.Locking() {
+		s.llm.Lock()
+		defer s.llm.Unlock()
+	}
+
+	in := make(chan *pb.ForwardRequest, 8)
+	out := make(chan *pb.ForwardReply, 8)
+
+	recvErrCh := make(chan error, 1)
+	go func() {
+		defer close(in)
+		for {
+			req, err := stream.Recv()
+			if err != nil {
+				if errors.Is(err, io.EOF) {
+					recvErrCh <- nil
+					return
+				}
+				recvErrCh <- err
+				return
+			}
+			select {
+			case in <- req:
+			case <-stream.Context().Done():
+				recvErrCh <- stream.Context().Err()
+				return
+			}
+		}
+	}()
+
+	sendDone := make(chan error, 1)
+	go func() {
+		for resp := range out {
+			if err := stream.Send(resp); err != nil {
+				sendDone <- err
+				for range out {
+				}
+				return
+			}
+		}
+		sendDone <- nil
+	}()
+
+	backendErr := s.llm.Forward(stream.Context(), in, out)
 	sendErr := <-sendDone
 	recvErr := <-recvErrCh
 

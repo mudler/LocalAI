@@ -32,7 +32,11 @@ export function useVramEstimate({ model, contextSize, gpuLayers }) {
         const data = await modelsApi.estimateVram(body, { signal: controller.signal })
 
         if (!controller.signal.aborted) {
-          setVramDisplay(data?.vramDisplay || null)
+          // The /api/models/vram-estimate response is the legacy EstimateResult
+          // shape (snake_case: size_bytes / vram_bytes / vram_display), not
+          // camelCase. Reading data.vramDisplay silently yielded undefined, so
+          // the estimate never rendered.
+          setVramDisplay(data?.vram_display || null)
           setLoading(false)
         }
       } catch {

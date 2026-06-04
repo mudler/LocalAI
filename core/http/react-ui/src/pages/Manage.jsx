@@ -19,6 +19,7 @@ import {
   CAP_CHAT, CAP_COMPLETION, CAP_IMAGE, CAP_VIDEO, CAP_TTS,
   CAP_TRANSCRIPT, CAP_SOUND_GENERATION, CAP_FACE_RECOGNITION,
   CAP_SPEAKER_RECOGNITION, CAP_EMBEDDINGS, CAP_RERANK,
+  CAP_VAD, CAP_SCORE,
 } from '../utils/capabilities'
 
 const TABS = [
@@ -41,6 +42,14 @@ const USE_CASES = [
   { cap: CAP_SPEAKER_RECOGNITION, label: 'Voice',      route: (id) => `/app/voice/${encodeURIComponent(id)}` },
   { cap: CAP_EMBEDDINGS,          label: 'Embeddings' },
   { cap: CAP_RERANK,              label: 'Rerank' },
+  // Display-only badges (no playground page): infrastructure
+  // capabilities the operator declares but doesn't directly drive
+  // from the UI. VAD feeds the transcribe pipeline; Score feeds
+  // the router classifier — both are wired through other model
+  // configs and need to be visible here so operators can confirm
+  // the underlying model declares the right known_usecases.
+  { cap: CAP_VAD,                 label: 'VAD' },
+  { cap: CAP_SCORE,               label: 'Score' },
 ]
 
 // Number of columns the expandable detail row spans, per tab. Kept as
@@ -634,8 +643,7 @@ export default function Manage() {
                               key={uc.cap}
                               href="#"
                               onClick={(e) => { e.preventDefault(); e.stopPropagation(); navigate(uc.route(model.id)) }}
-                              className="badge badge-info"
-                              style={{ textDecoration: 'none', cursor: 'pointer' }}
+                              className="badge badge-info badge-link"
                             >{uc.label}</a>
                           ) : (
                             <span key={uc.cap} className="badge">{uc.label}</span>
@@ -660,8 +668,7 @@ export default function Manage() {
                             { key: 'edit', icon: 'fa-pen-to-square', label: 'Edit configuration',
                               onClick: () => navigate(`/app/model-editor/${encodeURIComponent(model.id)}`) },
                             { key: 'logs', icon: 'fa-terminal', label: 'Backend logs',
-                              onClick: () => navigate(`/app/backend-logs/${encodeURIComponent(model.id)}`),
-                              hidden: distributedMode },
+                              onClick: () => navigate(`/app/backend-logs/${encodeURIComponent(model.id)}`) },
                             { divider: true },
                             { key: 'delete', icon: 'fa-trash', label: 'Delete model', danger: true,
                               onClick: () => handleDeleteModel(model.id) },
@@ -1038,8 +1045,7 @@ function ModelDetail({ model, enriched, matchedCaps, distributedMode, onNavigate
                   key={uc.cap}
                   href="#"
                   onClick={(e) => { e.preventDefault(); onNavigate(uc.route(model.id)) }}
-                  className="badge badge-info"
-                  style={{ textDecoration: 'none', cursor: 'pointer' }}
+                  className="badge badge-info badge-link"
                 >{uc.label}</a>
               ) : (
                 <span key={uc.cap} className="badge">{uc.label}</span>

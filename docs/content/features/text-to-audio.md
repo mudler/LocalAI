@@ -296,6 +296,28 @@ curl http://localhost:8080/tts -H "Content-Type: application/json" -d '{
    }' | aplay
 ```
 
+#### Language
+
+You can hint the synthesis language with the `language` request field:
+
+```
+curl http://localhost:8080/tts -H "Content-Type: application/json" -d '{
+     "model": "qwen-tts",
+     "input": "Bonjour le monde.",
+     "language": "fr"
+   }' | aplay
+```
+
+Supported languages: `en` (English), `zh` (Chinese), `ru` (Russian), `ja` (Japanese), `ko` (Korean), `de` (German), `fr` (French), `es` (Spanish), `it` (Italian), `pt` (Portuguese).
+
+The value is matched case-insensitively and accepts a few forms for convenience:
+
+- the two-letter code (`fr`, `FR`)
+- a locale/region form, whose region is ignored (`fr-FR`, `pt_BR`, `zh-Hans` → `fr`/`pt`/`zh`)
+- the English full name (`french`, `Portuguese`)
+
+If the field is omitted or the value isn't one of the supported languages, the backend defaults to English.
+
 #### Custom Voice Mode
 
 Qwen3-TTS supports predefined speakers. You can specify a speaker using the `voice` parameter:
@@ -334,6 +356,37 @@ Then use the model:
 curl http://localhost:8080/tts -H "Content-Type: application/json" -d '{         
      "model": "qwen-tts-design",
      "input":"Hello world, this is a test."
+   }' | aplay
+```
+
+#### Per-request instructions
+
+Instead of (or in addition to) the static YAML `instruct` option, you can pass an
+`instructions` string per request. It maps to the OpenAI
+[`instructions`](https://platform.openai.com/docs/api-reference/audio/createSpeech) field
+and takes precedence over the YAML option when set, falling back to it when empty. This lets
+a single model config serve a different emotion (CustomVoice) or a different designed voice
+(VoiceDesign) on every request - useful for roleplay/narration clients that need many voices:
+
+```
+curl http://localhost:8080/v1/audio/speech -H "Content-Type: application/json" -d '{
+     "model": "qwen-tts-design",
+     "input": "Hello world, this is a test.",
+     "instructions": "A calm, low-pitched elderly storyteller with a warm tone."
+   }' | aplay
+```
+
+Backends that do not support style/voice instructions simply ignore the field.
+
+You can also pass backend-specific generation parameters per request via the LocalAI
+`params` extension (a string-to-string map; values are coerced to the backend's expected
+types). For example, with the Chatterbox backend:
+
+```
+curl http://localhost:8080/v1/audio/speech -H "Content-Type: application/json" -d '{
+     "model": "chatterbox",
+     "input": "Hello world, this is a test.",
+     "params": { "exaggeration": "0.7", "cfg_weight": "0.3", "temperature": "0.8" }
    }' | aplay
 ```
 

@@ -40,6 +40,11 @@ jobs:
       id-token: write
     env:
       quay_username: ${{ secrets.quayUsername }}
+      # cosign v2.4.x still gates --registry-referrers-mode=oci-1-1 behind
+      # this flag. Without it, signing fails with:
+      #   invalid argument "oci-1-1" for "--registry-referrers-mode" flag:
+      #   in order to use mode "oci-1-1", you must set COSIGN_EXPERIMENTAL=1
+      COSIGN_EXPERIMENTAL: '1'
     steps:
       # Sparse checkout: the merge job needs `.github/scripts/` (for the
       # keepalive cleanup script) but none of the source tree.
@@ -66,7 +71,8 @@ jobs:
 
       # cosign signs each pushed manifest list with --recursive so the
       # index and every per-arch entry get an attached Sigstore bundle.
-      # 2.2+ is required for --new-bundle-format.
+      # Recent cosign releases always emit the new bundle format, so
+      # there's no extra CLI flag to opt into it.
       - name: Install cosign
         if: github.event_name != 'pull_request'
         uses: sigstore/cosign-installer@v3
@@ -153,7 +159,6 @@ jobs:
           # manifest before checking signatures need the per-arch
           # signatures, not just the list-level one.
           cosign sign --yes --recursive \
-            --new-bundle-format \
             --registry-referrers-mode=oci-1-1 \
             "quay.io/go-skynet/local-ai-backends@${digest}"
 
@@ -180,7 +185,6 @@ jobs:
           ' <<< "$DOCKER_METADATA_OUTPUT_JSON")
           digest=$(docker buildx imagetools inspect "$first_tag" --format '{{.Manifest.Digest}}')
           cosign sign --yes --recursive \
-            --new-bundle-format \
             --registry-referrers-mode=oci-1-1 \
             "localai/localai-backends@${digest}"
 

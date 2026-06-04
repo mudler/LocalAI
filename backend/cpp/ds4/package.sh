@@ -5,7 +5,8 @@ REPO_ROOT="${CURDIR}/../../.."
 
 mkdir -p "$CURDIR/package/lib"
 cp -avf "$CURDIR/grpc-server" "$CURDIR/package/"
-cp -rfv "$CURDIR/run.sh"     "$CURDIR/package/"
+cp -avf "$CURDIR/ds4-worker"  "$CURDIR/package/"
+cp -rfv "$CURDIR/run.sh"      "$CURDIR/package/"
 
 UNAME_S=$(uname -s)
 if [ "$UNAME_S" = "Darwin" ]; then

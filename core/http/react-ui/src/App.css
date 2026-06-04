@@ -649,6 +649,7 @@
   align-items: center;
   gap: var(--spacing-md);
   padding: var(--spacing-xs) 0;
+  flex-wrap: wrap;
 }
 
 .operation-info {
@@ -737,6 +738,110 @@
 }
 .operation-cancel:hover {
   color: var(--color-error);
+}
+
+/* Operations bar: per-node breakdown (multi-worker installs) */
+.operation-expand {
+  background: none;
+  border: none;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  padding: 0 var(--spacing-xs);
+  font-size: var(--text-xs);
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+.operation-expand:hover {
+  color: var(--color-text-primary);
+}
+.operation-expand-label {
+  font-size: var(--text-xs);
+}
+
+.operation-nodes-list {
+  list-style: none;
+  margin: var(--spacing-xs) 0 0;
+  padding: var(--spacing-xs) 0 0;
+  border-top: 1px solid var(--color-border-subtle);
+  flex-basis: 100%;
+  width: 100%;
+}
+.operation-node {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  padding: var(--spacing-xs) 0;
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
+  flex-wrap: wrap;
+}
+.operation-node-status {
+  padding: 2px 6px;
+  border-radius: var(--radius-md);
+  font-size: 0.65rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.025em;
+  white-space: nowrap;
+}
+.operation-node-status-success {
+  background: var(--color-success-light);
+  color: var(--color-success);
+}
+.operation-node-status-error {
+  background: var(--color-error-light);
+  color: var(--color-error);
+}
+.operation-node-status-queued {
+  background: var(--color-bg-tertiary);
+  color: var(--color-text-muted);
+}
+.operation-node-status-running_on_worker {
+  background: var(--color-warning-light);
+  color: var(--color-warning);
+}
+.operation-node-status-downloading {
+  background: var(--color-primary-light);
+  color: var(--color-primary);
+}
+.operation-node-name {
+  font-weight: 500;
+  color: var(--color-text-secondary);
+}
+.operation-node-file {
+  font-family: var(--font-mono);
+  color: var(--color-text-tertiary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 30ch;
+  white-space: nowrap;
+}
+.operation-node-bytes {
+  font-variant-numeric: tabular-nums;
+  color: var(--color-text-tertiary);
+}
+.operation-node-pct {
+  font-variant-numeric: tabular-nums;
+  color: var(--color-primary);
+  font-weight: 500;
+}
+.operation-node-error {
+  color: var(--color-error);
+}
+.operation-node-bar-container {
+  flex-basis: 100%;
+  height: 3px;
+  background: var(--color-surface-sunken);
+  border-radius: var(--radius-full);
+  overflow: hidden;
+  margin-top: 0.25rem;
+}
+.operation-node-bar {
+  height: 100%;
+  background: var(--color-primary);
+  border-radius: var(--radius-full);
+  transition: width var(--duration-slow, 0.3s) var(--ease-spring, ease);
 }
 
 /* Toast */
@@ -1740,6 +1845,24 @@ select.input {
 .badge-accent {
   background: var(--color-accent-light);
   color: var(--color-accent);
+}
+
+/* badge-link marks a badge that navigates somewhere (e.g. the use-case
+   chips that open a playground page). Signals clickability the bare
+   colour variant doesn't: pointer cursor, and a hover state that lifts
+   the background/text so links read as interactive while non-link
+   badges (Embeddings, VAD, Score, ...) stay flat. */
+.badge-link {
+  cursor: pointer;
+  text-decoration: none;
+  transition: background-color 0.12s ease, color 0.12s ease, box-shadow 0.12s ease;
+}
+.badge-link:hover,
+.badge-link:focus-visible {
+  background: var(--color-info);
+  color: var(--color-bg-primary);
+  box-shadow: 0 0 0 1px var(--color-info);
+  outline: none;
 }
 
 /* Horizontal row of badges used inside table cells — consistent spacing so
@@ -6859,6 +6982,88 @@ select.input {
   align-self: flex-end;
   font-size: var(--text-sm);
   color: var(--color-primary);
+}
+
+/* Spectrogram (AudioTransform spectral view) */
+.audio-spectrogram-pair {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--spacing-md);
+}
+@media (max-width: 720px) {
+  .audio-spectrogram-pair {
+    grid-template-columns: 1fr;
+  }
+}
+.audio-spectrogram {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-xs);
+  width: 100%;
+  min-width: 0;
+}
+.audio-spectrogram__label {
+  font-size: var(--text-sm);
+  color: var(--color-text-secondary);
+}
+.audio-spectrogram__canvas-wrap {
+  position: relative;
+  width: 100%;
+  background: var(--color-surface-sunken);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+.audio-spectrogram__canvas-wrap--empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.audio-spectrogram__hint {
+  color: var(--color-text-muted);
+  font-size: var(--text-sm);
+}
+.audio-spectrogram__loading {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-text-muted);
+  font-size: var(--text-sm);
+}
+.audio-spectrogram__error {
+  padding: var(--spacing-md);
+  color: var(--color-error);
+  font-size: var(--text-sm);
+}
+.audio-spectrogram__axis {
+  position: absolute;
+  left: 6px;
+  font-size: 10px;
+  color: var(--color-text-muted);
+  background: var(--color-bg-overlay);
+  padding: 0 4px;
+  border-radius: var(--radius-sm);
+  pointer-events: none;
+  font-variant-numeric: tabular-nums;
+}
+.audio-spectrogram__axis--top {
+  top: 4px;
+}
+.audio-spectrogram__axis--bottom {
+  bottom: 4px;
+}
+.audio-spectrogram__duration {
+  position: absolute;
+  right: 8px;
+  bottom: 6px;
+  font-size: 11px;
+  color: var(--color-text-muted);
+  font-variant-numeric: tabular-nums;
+  background: var(--color-bg-overlay);
+  padding: 1px 6px;
+  border-radius: var(--radius-sm);
 }
 
 /* Audio Transform Studio tab */

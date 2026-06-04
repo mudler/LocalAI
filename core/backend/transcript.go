@@ -41,11 +41,14 @@ func (r *TranscriptionRequest) toProto(threads uint32) *proto.TranscriptRequest 
 	}
 }
 
-func loadTranscriptionModel(ml *model.ModelLoader, modelConfig config.ModelConfig, appConfig *config.ApplicationConfig) (grpcPkg.Backend, error) {
+func loadTranscriptionModel(ctx context.Context, ml *model.ModelLoader, modelConfig config.ModelConfig, appConfig *config.ApplicationConfig) (grpcPkg.Backend, error) {
 	if modelConfig.Backend == "" {
 		modelConfig.Backend = model.WhisperBackend
 	}
-	opts := ModelOptions(modelConfig, appConfig)
+	// model.WithContext(ctx) overrides the app-context default set in
+	// ModelOptions so distributed routing decisions reach the request's
+	// X-LocalAI-Node holder via distributedhdr.Stamp.
+	opts := ModelOptions(modelConfig, appConfig, model.WithContext(ctx))
 	transcriptionModel, err := ml.Load(opts...)
 	if err != nil {
 		recordModelLoadFailure(appConfig, modelConfig.Name, modelConfig.Backend, err, nil)
@@ -68,7 +71,7 @@ func ModelTranscription(ctx context.Context, audio, language string, translate, 
 }
 
 func ModelTranscriptionWithOptions(ctx context.Context, req TranscriptionRequest, ml *model.ModelLoader, modelConfig config.ModelConfig, appConfig *config.ApplicationConfig) (*schema.TranscriptionResult, error) {
-	transcriptionModel, err := loadTranscriptionModel(ml, modelConfig, appConfig)
+	transcriptionModel, err := loadTranscriptionModel(ctx, ml, modelConfig, appConfig)
 	if err != nil {
 		return nil, err
 	}
@@ -76,10 +79,10 @@ func ModelTranscriptionWithOptions(ctx context.Context, req TranscriptionRequest
 	var startTime time.Time
 	var audioSnippet map[string]any
 	if appConfig.EnableTracing {
-		trace.InitBackendTracingIfEnabled(appConfig.TracingMaxItems)
+		trace.InitBackendTracingIfEnabled(appConfig.TracingMaxItems, appConfig.TracingMaxBodyBytes)
 		startTime = time.Now()
 		// Capture audio before the backend call — the backend may delete the file.
-		audioSnippet = trace.AudioSnippet(req.Audio)
+		audioSnippet = trace.AudioSnippet(req.Audio, appConfig.TracingMaxBodyBytes)
 	}
 
 	r, err := transcriptionModel.AudioTranscription(ctx, req.toProto(uint32(*modelConfig.Threads)))
@@ -150,7 +153,7 @@ type TranscriptionStreamChunk struct {
 // support real streaming should still emit one terminal event with Final set,
 // which the HTTP layer turns into a single delta + done SSE pair.
 func ModelTranscriptionStream(ctx context.Context, req TranscriptionRequest, ml *model.ModelLoader, modelConfig config.ModelConfig, appConfig *config.ApplicationConfig, onChunk func(TranscriptionStreamChunk)) error {
-	transcriptionModel, err := loadTranscriptionModel(ml, modelConfig, appConfig)
+	transcriptionModel, err := loadTranscriptionModel(ctx, ml, modelConfig, appConfig)
 	if err != nil {
 		return err
 	}

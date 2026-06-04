@@ -23,6 +23,7 @@
     "diarization": "Diarisierung",
     "embedding": "Embedding",
     "rerank": "Rerank",
+    "fitsGpu": "Passt in die GPU",
     "allBackends": "Alle Backends",
     "searchBackends": "Backends suchen..."
   },

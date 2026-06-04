@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test'
+import { test, expect } from './coverage-fixtures.js'
 
 // Mock /backends/known shape mirrors schema.KnownBackend. The suite covers
 // three concerns from Batch A: manual-pick badge (A1), inline ambiguity

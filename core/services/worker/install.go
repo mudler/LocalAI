@@ -7,13 +7,21 @@ import (
 	"os"
 	"path/filepath"
 	"sync"
+	"time"
 
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/gallery"
 	"github.com/mudler/LocalAI/core/services/galleryop"
 	"github.com/mudler/LocalAI/core/services/messaging"
+	"github.com/mudler/LocalAI/core/services/nodes"
 	"github.com/mudler/xlog"
 )
+
+// installProgressDebounce is the leading-edge window the worker uses when
+// streaming download progress to the master. 250ms caps wire chatter at
+// ~4 events/sec per in-flight install while still surfacing every
+// meaningful percentage jump.
+const installProgressDebounce = 250 * time.Millisecond
 
 // buildProcessKey is the supervisor's stable identifier for a backend gRPC
 // process. It includes the replica index so the same model can run multiple
@@ -100,6 +108,20 @@ func (s *backendSupervisor) installBackend(req messaging.BackendInstallRequest, 
 		}
 	}
 
+	// When the master tagged this install with an OpID, stream the
+	// gallery download progress back to it on the per-op NATS subject.
+	// Old masters that omit OpID stay on the silent path so they keep
+	// working without changes. The publisher releases its mutex before
+	// every Publish so a slow link never stalls the download loop, and
+	// the deferred Flush guarantees a terminal-percentage event reaches
+	// the master even when the install errors out.
+	var downloadCb func(file, current, total string, percentage float64)
+	if req.OpID != "" && s.nats != nil {
+		publisher := nodes.NewDebouncedInstallProgressPublisher(s.nats, s.nodeID, req.OpID, req.Backend, installProgressDebounce)
+		downloadCb = publisher.OnDownload
+		defer publisher.Flush()
+	}
+
 	// On upgrade, run the gallery install path even if the binary already
 	// exists on disk: findBackend would otherwise short-circuit and we'd
 	// restart the same stale binary. The force flag passed to
@@ -112,14 +134,14 @@ func (s *backendSupervisor) installBackend(req messaging.BackendInstallRequest, 
 		if req.URI != "" {
 			xlog.Info("Installing backend from external URI", "backend", req.Backend, "uri", req.URI, "force", force)
 			if err := galleryop.InstallExternalBackend(
-				context.Background(), galleries, s.systemState, s.ml, nil, req.URI, req.Name, req.Alias, s.cfg.RequireBackendIntegrity,
+				context.Background(), galleries, s.systemState, s.ml, downloadCb, req.URI, req.Name, req.Alias, s.cfg.RequireBackendIntegrity,
 			); err != nil {
 				return "", fmt.Errorf("installing backend from gallery: %w", err)
 			}
 		} else {
 			xlog.Info("Installing backend from gallery", "backend", req.Backend, "force", force)
 			if err := gallery.InstallBackendFromGallery(
-				context.Background(), galleries, s.systemState, s.ml, req.Backend, nil, force, s.cfg.RequireBackendIntegrity,
+				context.Background(), galleries, s.systemState, s.ml, req.Backend, downloadCb, force, s.cfg.RequireBackendIntegrity,
 			); err != nil {
 				return "", fmt.Errorf("installing backend from gallery: %w", err)
 			}

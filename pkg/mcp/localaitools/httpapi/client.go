@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"strings"
 	"time"
 
@@ -18,6 +19,7 @@ import (
 	"github.com/mudler/LocalAI/core/gallery"
 	"github.com/mudler/LocalAI/core/schema"
 	"github.com/mudler/LocalAI/core/services/modeladmin"
+	"github.com/mudler/LocalAI/pkg/httpclient"
 	localaitools "github.com/mudler/LocalAI/pkg/mcp/localaitools"
 	"github.com/mudler/LocalAI/pkg/vram"
 )
@@ -35,11 +37,9 @@ type Client struct {
 // New returns a Client targeting baseURL with an optional bearer token.
 func New(baseURL, apiKey string) *Client {
 	return &Client{
-		BaseURL: strings.TrimRight(baseURL, "/"),
-		APIKey:  apiKey,
-		HTTPClient: &http.Client{
-			Timeout: 60 * time.Second,
-		},
+		BaseURL:    strings.TrimRight(baseURL, "/"),
+		APIKey:     apiKey,
+		HTTPClient: httpclient.NewWithTimeout(60 * time.Second),
 	}
 }
 
@@ -106,7 +106,7 @@ func (c *Client) do(ctx context.Context, method, path string, body any, out any)
 	if err != nil {
 		return err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	respBody, _ := io.ReadAll(resp.Body)
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
@@ -290,7 +290,7 @@ func (c *Client) ImportModelURI(ctx context.Context, req localaitools.ImportMode
 	if err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	respBody, _ := io.ReadAll(resp.Body)
 
 	// 400 with `error: "ambiguous import"` is not a transport error — it's the
@@ -393,8 +393,8 @@ func (c *Client) UpgradeBackend(ctx context.Context, name string) (string, error
 
 func (c *Client) SystemInfo(ctx context.Context) (*localaitools.SystemInfo, error) {
 	var welcome struct {
-		Version           string   `json:"Version"`
-		LoadedModels      []any    `json:"LoadedModels"`
+		Version           string          `json:"Version"`
+		LoadedModels      []any           `json:"LoadedModels"`
 		InstalledBackends map[string]bool `json:"InstalledBackends"`
 	}
 	if err := c.do(ctx, http.MethodGet, routeWelcome, nil, &welcome); err != nil {
@@ -504,6 +504,188 @@ func (c *Client) SetBranding(ctx context.Context, req localaitools.SetBrandingRe
 		return nil, err
 	}
 	return c.GetBranding(ctx)
+}
+
+// ---- Usage / billing ----
+
+func (c *Client) GetUsageStats(ctx context.Context, q localaitools.UsageStatsQuery) (*localaitools.UsageStats, error) {
+	period := q.Period
+	if period == "" {
+		period = "month"
+	}
+	path := routeUsage
+	if q.All {
+		path = routeUsageAll
+	}
+	// Build query string. The /api/usage server expects these exact param
+	// names; any change there must update both sides.
+	qs := url.Values{}
+	qs.Set("period", period)
+	if q.UserID != "" && q.All {
+		qs.Set("user_id", q.UserID)
+	}
+	if enc := qs.Encode(); enc != "" {
+		path = path + "?" + enc
+	}
+
+	var raw struct {
+		Viewer struct {
+			ID   string `json:"id"`
+			Name string `json:"name"`
+			Role string `json:"role"`
+		} `json:"viewer"`
+		Totals struct {
+			PromptTokens     int64 `json:"prompt_tokens"`
+			CompletionTokens int64 `json:"completion_tokens"`
+			TotalTokens      int64 `json:"total_tokens"`
+			RequestCount     int64 `json:"request_count"`
+		} `json:"totals"`
+		Usage []struct {
+			Bucket           string `json:"bucket"`
+			Model            string `json:"model"`
+			UserID           string `json:"user_id"`
+			UserName         string `json:"user_name"`
+			PromptTokens     int64  `json:"prompt_tokens"`
+			CompletionTokens int64  `json:"completion_tokens"`
+			TotalTokens      int64  `json:"total_tokens"`
+			RequestCount     int64  `json:"request_count"`
+		} `json:"usage"`
+	}
+	if err := c.do(ctx, http.MethodGet, path, nil, &raw); err != nil {
+		return nil, err
+	}
+	out := &localaitools.UsageStats{
+		Viewer: localaitools.UsageViewer{ID: raw.Viewer.ID, Name: raw.Viewer.Name, Role: raw.Viewer.Role},
+		Period: period,
+		Totals: localaitools.UsageTotals{
+			PromptTokens:     raw.Totals.PromptTokens,
+			CompletionTokens: raw.Totals.CompletionTokens,
+			TotalTokens:      raw.Totals.TotalTokens,
+			RequestCount:     raw.Totals.RequestCount,
+		},
+		Buckets: make([]localaitools.UsageBucket, 0, len(raw.Usage)),
+	}
+	for _, b := range raw.Usage {
+		out.Buckets = append(out.Buckets, localaitools.UsageBucket{
+			Bucket:           b.Bucket,
+			Model:            b.Model,
+			UserID:           b.UserID,
+			UserName:         b.UserName,
+			PromptTokens:     b.PromptTokens,
+			CompletionTokens: b.CompletionTokens,
+			TotalTokens:      b.TotalTokens,
+			RequestCount:     b.RequestCount,
+		})
+	}
+	return out, nil
+}
+
+// ---- PII filter ----
+
+func (c *Client) ListPIIPatterns(ctx context.Context) ([]localaitools.PIIPattern, error) {
+	var raw struct {
+		Patterns []localaitools.PIIPattern `json:"patterns"`
+	}
+	if err := c.do(ctx, http.MethodGet, routePIIPatterns, nil, &raw); err != nil {
+		return nil, err
+	}
+	return raw.Patterns, nil
+}
+
+func (c *Client) GetPIIEvents(ctx context.Context, q localaitools.PIIEventsQuery) ([]localaitools.PIIEvent, error) {
+	qs := url.Values{}
+	if q.CorrelationID != "" {
+		qs.Set("correlation_id", q.CorrelationID)
+	}
+	if q.UserID != "" {
+		qs.Set("user_id", q.UserID)
+	}
+	if q.PatternID != "" {
+		qs.Set("pattern_id", q.PatternID)
+	}
+	// The MCP get_pii_events tool is PII-shaped; the events store is now
+	// shared with proxy events that have no pattern_id/action. Scope to
+	// kind=pii so the LLM-facing audit stays coherent.
+	qs.Set("kind", "pii")
+	if q.Limit > 0 {
+		qs.Set("limit", fmt.Sprintf("%d", q.Limit))
+	}
+	path := routePIIEvents
+	if enc := qs.Encode(); enc != "" {
+		path = path + "?" + enc
+	}
+
+	var raw struct {
+		Events []localaitools.PIIEvent `json:"events"`
+	}
+	if err := c.do(ctx, http.MethodGet, path, nil, &raw); err != nil {
+		return nil, err
+	}
+	return raw.Events, nil
+}
+
+func (c *Client) TestPIIRedaction(ctx context.Context, req localaitools.PIIRedactTestRequest) (*localaitools.PIIRedactTestResult, error) {
+	var out localaitools.PIIRedactTestResult
+	if err := c.do(ctx, http.MethodPost, routePIITest, map[string]string{"text": req.Text}, &out); err != nil {
+		return nil, err
+	}
+	return &out, nil
+}
+
+func (c *Client) SetPIIPatternAction(ctx context.Context, req localaitools.PIIPatternActionUpdate) error {
+	if req.ID == "" {
+		return fmt.Errorf("pattern id is required")
+	}
+	body := map[string]any{}
+	if req.Action != "" {
+		body["action"] = req.Action
+	}
+	if req.Disabled != nil {
+		body["disabled"] = *req.Disabled
+	}
+	if len(body) == 0 {
+		return fmt.Errorf("must specify action and/or disabled")
+	}
+	return c.do(ctx, http.MethodPut, routePIIPatternByID(req.ID), body, nil)
+}
+
+func (c *Client) PersistPIIPatterns(ctx context.Context) error {
+	return c.do(ctx, http.MethodPost, routePIIPatternsPersist, nil, nil)
+}
+
+func (c *Client) GetMiddlewareStatus(ctx context.Context) (*localaitools.MiddlewareStatus, error) {
+	var out localaitools.MiddlewareStatus
+	if err := c.do(ctx, http.MethodGet, routeMiddleware, nil, &out); err != nil {
+		return nil, err
+	}
+	return &out, nil
+}
+
+func (c *Client) GetRouterDecisions(ctx context.Context, q localaitools.RouterDecisionsQuery) ([]localaitools.RouterDecision, error) {
+	qs := url.Values{}
+	if q.CorrelationID != "" {
+		qs.Set("correlation_id", q.CorrelationID)
+	}
+	if q.UserID != "" {
+		qs.Set("user_id", q.UserID)
+	}
+	if q.RouterModel != "" {
+		qs.Set("router_model", q.RouterModel)
+	}
+	if q.Limit > 0 {
+		qs.Set("limit", fmt.Sprintf("%d", q.Limit))
+	}
+	path := routeRouterDecisions
+	if enc := qs.Encode(); enc != "" {
+		path = path + "?" + enc
+	}
+	var raw struct {
+		Decisions []localaitools.RouterDecision `json:"decisions"`
+	}
+	if err := c.do(ctx, http.MethodGet, path, nil, &raw); err != nil {
+		return nil, err
+	}
+	return raw.Decisions, nil
 }
 
 // ---- helpers ----

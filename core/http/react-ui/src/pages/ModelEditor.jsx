@@ -9,6 +9,7 @@ import LoadingSpinner from '../components/LoadingSpinner'
 import CodeEditor from '../components/CodeEditor'
 import FieldBrowser from '../components/FieldBrowser'
 import ConfigFieldRenderer from '../components/ConfigFieldRenderer'
+import { FormContextProvider } from '../contexts/FormContext'
 import TemplateSelector from '../components/TemplateSelector'
 import MODEL_TEMPLATES from '../utils/modelTemplates'
 
@@ -386,6 +387,7 @@ export default function ModelEditor() {
   if (metaError) return <div className="page page--medium"><div className="empty-state"><p className="empty-state-text">Failed to load config metadata: {metaError}</p></div></div>
 
   return (
+    <FormContextProvider formData={values}>
     <div className="page page--medium" style={{ padding: 0 }}>
       {/* Header */}
       <div style={{
@@ -642,5 +644,6 @@ export default function ModelEditor() {
         </>
       )}
     </div>
+    </FormContextProvider>
   )
 }

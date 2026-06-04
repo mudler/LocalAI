@@ -64,6 +64,16 @@ func SubjectGalleryProgress(opID string) string {
 	return subjectGalleryPrefix + sanitizeSubjectToken(opID) + ".progress"
 }
 
+// SubjectGalleryOpStart and SubjectGalleryOpEnd are broadcast subjects for the
+// in-memory OpCache lifecycle. Frontend replicas publish to these when an
+// admin admits a new install/delete (Start) and when an operation is
+// dismissed (End), so peer replicas can keep their OpCache in sync without
+// hitting PostgreSQL on every UI poll.
+const (
+	SubjectGalleryOpStart = "gallery.opcache.start"
+	SubjectGalleryOpEnd   = "gallery.opcache.end"
+)
+
 // Control Signals (Pub/Sub — targeted cancellation)
 const (
 	subjectJobCancelPrefix      = "jobs."
@@ -144,6 +154,12 @@ type BackendInstallRequest struct {
 	// worker still works (the master's install fallback path also uses this
 	// when backend.upgrade returns nats.ErrNoResponders).
 	Force bool `json:"force,omitempty"`
+	// OpID identifies the admin-side operation. When non-empty the worker
+	// publishes BackendInstallProgressEvent values to
+	// SubjectNodeBackendInstallProgress(nodeID, OpID) while the install is
+	// running, debounced to roughly 250ms. Empty means the caller is a
+	// reconciler-driven retry that does not need progress streamed.
+	OpID string `json:"op_id,omitempty"`
 }
 
 // BackendInstallReply is the response from a backend.install NATS request.
@@ -315,9 +331,59 @@ func SubjectNodeFilesListDir(nodeID string) string {
 // Cache Invalidation (Pub/Sub — broadcast to all instances)
 const (
 	SubjectCacheInvalidateSkills = "cache.invalidate.skills"
+	// SubjectCacheInvalidateModels is broadcast by the replica that completed
+	// a model install/delete. Peers subscribe and re-run
+	// ModelConfigLoader.LoadModelConfigsFromPath so a chat completion routed
+	// to a different replica can find the newly installed model.
+	SubjectCacheInvalidateModels = "cache.invalidate.models"
+	// SubjectCacheInvalidateBackends is broadcast after a backend
+	// install/upgrade/delete. Peers retrigger their UpgradeChecker so the
+	// 6-hour upgrade-available cache flips to fresh on every replica, not
+	// just the one that handled the request.
+	SubjectCacheInvalidateBackends = "cache.invalidate.backends"
 )
+
+// CacheInvalidateEvent is the payload for cache invalidation broadcasts.
+// Element names a specific model/backend when known; empty means "the whole
+// set was touched, do a full reload."
+type CacheInvalidateEvent struct {
+	Element string `json:"element,omitempty"`
+	Op      string `json:"op,omitempty"` // "install" | "delete" | "upgrade"
+}
 
 // SubjectCacheInvalidateCollection returns the NATS subject for collection cache invalidation.
 func SubjectCacheInvalidateCollection(name string) string {
 	return "cache.invalidate.collections." + sanitizeSubjectToken(name)
+}
+
+// Prefix-Cache Routing Sync (Pub/Sub - broadcast to all frontends)
+//
+// Frontends share prefix-cache observations so a request routed to any replica
+// benefits from the prefix-affinity another replica already learned. This
+// mirrors the OpCache live-sync pattern: plain NATS Core pub/sub, no JetStream.
+const (
+	SubjectPrefixCacheObserve    = "prefixcache.observe"
+	SubjectPrefixCacheInvalidate = "prefixcache.invalidate"
+)
+
+// PrefixCacheObserveEvent announces that the replica (NodeID, Replica) served a
+// request whose prefix chain ends at the given hashes for model. Chain is the
+// full shallow-to-deep hash chain so peers can insert the same path. Affinity is
+// per replica (a backend process with its own KV cache), not per node, so the
+// replica index is carried so peers attribute the observation to the same one.
+type PrefixCacheObserveEvent struct {
+	Model   string   `json:"model"`
+	Chain   []uint64 `json:"chain"`
+	NodeID  string   `json:"node_id"`
+	Replica int      `json:"replica"`
+}
+
+// PrefixCacheInvalidateEvent tells peers to drop entries for a replica. When
+// Replica >= 0 it targets the single replica (Model, NodeID, Replica). When
+// Replica < 0 it targets ALL replicas of (Model, NodeID), for example when a
+// whole node goes offline.
+type PrefixCacheInvalidateEvent struct {
+	Model   string `json:"model"`
+	NodeID  string `json:"node_id"`
+	Replica int    `json:"replica"`
 }

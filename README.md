@@ -31,12 +31,18 @@
 
 **LocalAI** is the open-source AI engine. Run any model - LLMs, vision, voice, image, video - on any hardware. No GPU required.
 
-- **Drop-in API compatibility** — OpenAI, Anthropic, ElevenLabs APIs
-- **36+ backends** — llama.cpp, vLLM, transformers, whisper, diffusers, MLX...
-- **Any hardware** — NVIDIA, AMD, Intel, Apple Silicon, Vulkan, or CPU-only
-- **Multi-user ready** — API key auth, user quotas, role-based access
-- **Built-in AI agents** — autonomous agents with tool use, RAG, MCP, and skills
-- **Privacy-first** — your data never leaves your infrastructure
+**A small core, not a bundle.** Each backend wraps a best-in-class engine (llama.cpp, vLLM, whisper.cpp, stable-diffusion, MLX...) in its own image, pulled only when a model needs it. You install nothing you don't use.
+
+- **Composable by design**: backends are separate and pulled on demand, so you install only what your model needs
+- **Open and extensible**: load any model, or build your own backend in any language against an open interface
+- **Drop-in API compatibility**: OpenAI, Anthropic, and ElevenLabs APIs across every backend
+- **Any model, any modality**: LLMs, vision, voice, image, and video behind one API
+- **Any hardware**: NVIDIA, AMD, Intel, Apple Silicon, Vulkan, or CPU-only
+- **Multi-user ready**: API key auth, user quotas, role-based access
+- **Built-in AI agents**: autonomous agents with tool use, RAG, MCP, and skills
+- **Privacy-first**: your data never leaves your infrastructure
+
+![A small LocalAI core with backends (llama.cpp, vLLM, MLX, whisper.cpp, stable-diffusion, kokoro, parakeet.cpp...) plugged in as separate on-demand images](docs/static/images/diagrams/composable-core.png)
 
 Created by [Ettore Di Giacinto](https://github.com/mudler) and maintained by the [LocalAI team](#team).
 
@@ -149,8 +155,10 @@ For more details, see the [Getting Started guide](https://localai.io/basics/gett
 
 ## Latest News
 
-- **April 2026**: [Voice recognition](https://github.com/mudler/LocalAI/pull/9500), [Face recognition, identification & liveness detection](https://github.com/mudler/LocalAI/pull/9480), [Ollama API compatibility](https://github.com/mudler/LocalAI/pull/9284), [Video generation in stable-diffusion.ggml](https://github.com/mudler/LocalAI/pull/9420), [Backend versioning with auto-upgrade](https://github.com/mudler/LocalAI/pull/9315), [Pin models & load-on-demand toggle](https://github.com/mudler/LocalAI/pull/9309), [Universal model importer](https://github.com/mudler/LocalAI/pull/9466), new backends: [sglang](https://github.com/mudler/LocalAI/pull/9359), [ik-llama-cpp](https://github.com/mudler/LocalAI/pull/9326), [TurboQuant](https://github.com/mudler/LocalAI/pull/9355), [sam.cpp](https://github.com/mudler/LocalAI/pull/9288), [Kokoros](https://github.com/mudler/LocalAI/pull/9212), [qwen3tts.cpp](https://github.com/mudler/LocalAI/pull/9316), [tinygrad multimodal](https://github.com/mudler/LocalAI/pull/9364)
-- **March 2026**: [Agent management](https://github.com/mudler/LocalAI/pull/8820), [New React UI](https://github.com/mudler/LocalAI/pull/8772), [WebRTC](https://github.com/mudler/LocalAI/pull/8790), [MLX-distributed via P2P and RDMA](https://github.com/mudler/LocalAI/pull/8801), [MCP Apps, MCP Client-side](https://github.com/mudler/LocalAI/pull/8947)
+- **May 2026**: **LocalAI 4.3.0** - `llama.cpp` [prompt cache on by default](https://github.com/mudler/LocalAI/pull/9925) (repeated system prompts collapse from minutes to seconds), [keyless cosign signing of backend OCI images](https://github.com/mudler/LocalAI/pull/9823), [per-API-key + per-user usage attribution](https://github.com/mudler/LocalAI/pull/9920), Distributed v3 with [per-request replica routing](https://github.com/mudler/LocalAI/pull/9968). [Release notes](https://github.com/mudler/LocalAI/releases/tag/v4.3.0)
+- **May 2026**: **LocalAI 4.2.0** - LocalAI sees and hears: [voice recognition](https://github.com/mudler/LocalAI/pull/9500), [face recognition + antispoofing liveness](https://github.com/mudler/LocalAI/pull/9480), speaker diarization. Plus [drop-in Ollama API](https://github.com/mudler/LocalAI/pull/9284), [video generation](https://github.com/mudler/LocalAI/pull/9420), redesigned UI with i18n + admin-configurable branding, vLLM at feature parity with llama.cpp, and 11 new backends. [Release notes](https://github.com/mudler/LocalAI/releases/tag/v4.2.0)
+- **April 2026**: **LocalAI 4.1.0** - LocalAI becomes a control tower: distributed cluster mode with VRAM-aware smart routing + autoscaling, multi-user platform with OIDC and API keys, per-user quotas with predictive analytics, in-UI fine-tuning with TRL (auto-export to GGUF), on-the-fly quantization backend, visual pipeline editor. [Release notes](https://github.com/mudler/LocalAI/releases/tag/v4.1.0)
+- **March 2026**: **LocalAI 4.0.0** - native agentic orchestration with the new [Agenthub](https://agenthub.localai.io) community hub, full React UI rewrite with Canvas mode, [MCP Apps + client-side](https://github.com/mudler/LocalAI/pull/8947) with tool streaming, [WebRTC realtime audio](https://github.com/mudler/LocalAI/pull/8790), [MLX-distributed](https://github.com/mudler/LocalAI/pull/8801). [Release notes](https://github.com/mudler/LocalAI/releases/tag/v4.0.0)
 - **February 2026**: [Realtime API for audio-to-audio with tool calling](https://github.com/mudler/LocalAI/pull/6245), [ACE-Step 1.5 support](https://github.com/mudler/LocalAI/pull/8396)
 - **January 2026**: **LocalAI 3.10.0** — Anthropic API support, Open Responses API, video & image generation (LTX-2), unified GPU backends, tool streaming, Moonshine, Pocket-TTS. [Release notes](https://github.com/mudler/LocalAI/releases/tag/v3.10.0)
 - **December 2025**: [Dynamic Memory Resource reclaimer](https://github.com/mudler/LocalAI/pull/7583), [Automatic multi-GPU model fitting (llama.cpp)](https://github.com/mudler/LocalAI/pull/7584), [Vibevoice backend](https://github.com/mudler/LocalAI/pull/7494)
@@ -236,10 +244,21 @@ A huge thank you to our generous sponsors who support this project covering CI e
   <a href="https://www.spectrocloud.com/" target="blank">
     <img height="200" src="https://github.com/user-attachments/assets/72eab1dd-8b93-4fc0-9ade-84db49f24962">
   </a>
+</p>
+
+<details>
+
+<summary>
+Past sponsors
+</summary>
+
+<p align="center">
   <a href="https://www.premai.io/" target="blank">
     <img height="200" src="https://github.com/mudler/LocalAI/assets/2420543/42e4ca83-661e-4f79-8e46-ae43689683d6"> <br>
   </a>
 </p>
+
+</details>
 
 ### Individual sponsors
 

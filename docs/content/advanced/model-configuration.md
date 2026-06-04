@@ -412,7 +412,10 @@ These load-time options control how the backend parses `<think>` reasoning block
 | `prefill_assistant` | bool | `true` | When `false`, the trailing assistant message is not pre-filled by the chat template. |
 
 {{% notice note %}}
-This is the load-time reasoning configuration. The orthogonal per-request `enable_thinking` chat-template kwarg (set via the YAML `reasoning.disable` field) toggles thinking on/off per call without restarting the model.
+This is the load-time reasoning configuration. The orthogonal per-request `enable_thinking` chat-template kwarg toggles thinking on/off per call without restarting the model. It can be driven either by the YAML `reasoning.disable` field (model default) or per request via the OpenAI `reasoning_effort` field on `/v1/chat/completions`:
+
+- `reasoning_effort: "none"` disables thinking for that request (`enable_thinking=false`) - useful to run a single reasoning model like Qwen3 for low-latency tasks while still enabling reasoning on other requests.
+- `reasoning_effort: "minimal" | "low" | "medium" | "high"` enables thinking, unless the model config explicitly set `reasoning.disable: true` (an operator's explicit disable wins and is never re-enabled by a request).
 {{% /notice %}}
 
 ### Multimodal Backend Options
@@ -444,11 +447,15 @@ These llama.cpp options are passed through the `options:` array.
 
 ### Prompt Caching
 
+The recommended way to enable prompt caching for the `llama-cpp` backend is the **server-side prompt cache** controlled by `cache_ram` / `kv_unified` / `cache_idle_slots` in the `options:` array (see [llama.cpp backend options]({{%relref "features/text-generation#server-side-prompt-cache-repeated-system-prompts" %}})). It's on by default since LocalAI v4.3 and is what gives repeated system prompts a near-zero prefill on the second call.
+
+The fields below come from upstream llama.cpp's **CLI completion tool** and are passed through to the gRPC backend for compatibility, but the gRPC server itself does not consume them: keep them empty unless you're targeting a non-llama-cpp backend that reads them.
+
 | Field | Type | Description |
 |-------|------|-------------|
-| `prompt_cache_path` | string | Path to store prompt cache (relative to models directory) |
-| `prompt_cache_all` | bool | Cache all prompts automatically |
-| `prompt_cache_ro` | bool | Read-only prompt cache |
+| `prompt_cache_path` | string | (legacy / unused by llama-cpp gRPC server) Path to a file-backed prompt cache for upstream's CLI completion tool. |
+| `prompt_cache_all` | bool | (legacy / unused by llama-cpp gRPC server) |
+| `prompt_cache_ro` | bool | (legacy / unused by llama-cpp gRPC server) |
 
 ### Text Processing
 

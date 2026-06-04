@@ -36,7 +36,7 @@ func ExtractArchive(archive, dst string) error {
 		OverwriteExisting:      true,
 		MkdirAll:               true,
 		ImplicitTopLevelFolder: false,
-		ContinueOnError:        true,
+		ContinueOnError:        false,
 	}
 
 	switch v := uaIface.(type) {

@@ -526,6 +526,42 @@ func (c *Client) Rerank(ctx context.Context, in *pb.RerankRequest, opts ...grpc.
 	return client.Rerank(ctx, in, opts...)
 }
 
+func (c *Client) TokenClassify(ctx context.Context, in *pb.TokenClassifyRequest, opts ...grpc.CallOption) (*pb.TokenClassifyResponse, error) {
+	if !c.parallel {
+		c.opMutex.Lock()
+		defer c.opMutex.Unlock()
+	}
+	c.setBusy(true)
+	defer c.setBusy(false)
+	c.wdMark()
+	defer c.wdUnMark()
+	conn, err := c.dial()
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = conn.Close() }()
+	client := pb.NewBackendClient(conn)
+	return client.TokenClassify(ctx, in, opts...)
+}
+
+func (c *Client) Score(ctx context.Context, in *pb.ScoreRequest, opts ...grpc.CallOption) (*pb.ScoreResponse, error) {
+	if !c.parallel {
+		c.opMutex.Lock()
+		defer c.opMutex.Unlock()
+	}
+	c.setBusy(true)
+	defer c.setBusy(false)
+	c.wdMark()
+	defer c.wdUnMark()
+	conn, err := c.dial()
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = conn.Close() }()
+	client := pb.NewBackendClient(conn)
+	return client.Score(ctx, in, opts...)
+}
+
 func (c *Client) GetTokenMetrics(ctx context.Context, in *pb.MetricsRequest, opts ...grpc.CallOption) (*pb.MetricsResponse, error) {
 	if !c.parallel {
 		c.opMutex.Lock()
@@ -740,6 +776,81 @@ func (c *Client) AudioTransform(ctx context.Context, in *pb.AudioTransformReques
 	defer func() { _ = conn.Close() }()
 	client := pb.NewBackendClient(conn)
 	return client.AudioTransform(ctx, in, opts...)
+}
+
+// ForwardClient is the duplex interface returned by (*Client).Forward.
+// First Send carries path/method/headers/body, subsequent Sends carry
+// body_chunk only. First Recv carries status/headers, subsequent Recvs
+// carry body_chunk. Caller closes via CloseSend when request is done;
+// stream ends when the upstream finishes and the server closes.
+type ForwardClient interface {
+	Send(*pb.ForwardRequest) error
+	Recv() (*pb.ForwardReply, error)
+	CloseSend() error
+	Context() context.Context
+}
+
+type forwardClient struct {
+	pb.Backend_ForwardClient
+	conn   *grpc.ClientConn
+	closer func()
+	once   sync.Once
+}
+
+// CloseSend signals end-of-requests to the server but keeps the
+// underlying connection open so the server can still send replies.
+// Connection cleanup happens when Recv returns a final error (EOF
+// or any other terminal status).
+func (s *forwardClient) CloseSend() error {
+	return s.Backend_ForwardClient.CloseSend()
+}
+
+// Recv wraps the embedded stream's Recv to fire the connection-level
+// closer once the stream ends. On EOF or any other error the
+// connection + operation-state cleanup runs exactly once.
+func (s *forwardClient) Recv() (*pb.ForwardReply, error) {
+	reply, err := s.Backend_ForwardClient.Recv()
+	if err != nil && s.closer != nil {
+		s.once.Do(s.closer)
+	}
+	return reply, err
+}
+
+func (c *Client) Forward(ctx context.Context, opts ...grpc.CallOption) (ForwardClient, error) {
+	if !c.parallel {
+		c.opMutex.Lock()
+	}
+	c.setBusy(true)
+	c.wdMark()
+
+	cleanup := func() {
+		c.wdUnMark()
+		c.setBusy(false)
+		if !c.parallel {
+			c.opMutex.Unlock()
+		}
+	}
+
+	conn, err := c.dial()
+	if err != nil {
+		cleanup()
+		return nil, err
+	}
+	client := pb.NewBackendClient(conn)
+	stream, err := client.Forward(ctx, opts...)
+	if err != nil {
+		_ = conn.Close()
+		cleanup()
+		return nil, err
+	}
+	return &forwardClient{
+		Backend_ForwardClient: stream,
+		conn:                  conn,
+		closer: func() {
+			_ = conn.Close()
+			cleanup()
+		},
+	}, nil
 }
 
 // AudioTransformStreamClient is the duplex interface returned by
