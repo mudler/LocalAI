@@ -528,8 +528,10 @@ func newModel(pipeline *config.Pipeline, cl *config.ModelConfigLoader, ml *model
 		return nil, fmt.Errorf("failed to validate config: %w", err)
 	}
 
-	// Let the pipeline set the LLM's reasoning effort (cfgLLM is a per-session copy).
+	// Let the pipeline set the LLM's reasoning effort and force thinking off
+	// (cfgLLM is a per-session copy). disable_thinking applies after the effort.
 	applyPipelineReasoning(cfgLLM, *pipeline)
+	applyPipelineThinking(cfgLLM, *pipeline)
 
 	cfgTTS, err := cl.LoadModelConfigFileByName(pipeline.TTS, ml.ModelPath)
 	if err != nil {
