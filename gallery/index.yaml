@@ -1,4 +1,55 @@
 ---
+- name: "gemma-4-12b-it"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/unsloth/gemma-4-12b-it-GGUF
+  description: |
+    Hugging Face |
+    GitHub |
+    Launch Blog |
+    Documentation
+
+    License: Apache 2.0 | Authors: Google DeepMind
+
+    > [!Note]
+    > This model card is for the Gemma 4 12B Unified model, which is part of the Gemma 4 family of open models. Built with the same multimodal functionality as Gemma 4 E2B and E4B (text, audio, image, and video inputs), it brings native audio and vision understanding directly to local environments without the need for separate encoders. This unified approach to multimodality makes the model encoder-free, offering a deployment size that is perfect for consumer devices and streamlined local execution.
+
+    Gemma is a family of open models built by Google DeepMind. Gemma 4 models are multimodal, handling text and image input (with audio supported on E2B, E4B, and 12B) and generating text output. This release includes open-weights models in both pre-trained and instruction-tuned variants. Gemma 4 features a context window of up to 256K tokens and maintains multilingual support in over 140 languages.
+
+    ...
+  license: "apache-2.0"
+  tags:
+    - llm
+    - gguf
+    - gemma
+  icon: https://ai.google.dev/gemma/images/gemma4_banner.png
+  overrides:
+    backend: llama-cpp
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+    mmproj: llama-cpp/mmproj/gemma-4-12b-it-GGUF/mmproj-F32.gguf
+    options:
+      - use_jinja:true
+    parameters:
+      min_p: 0
+      model: llama-cpp/models/gemma-4-12b-it-GGUF/gemma-4-12b-it-Q4_K_M.gguf
+      repeat_penalty: 1
+      temperature: 1
+      top_k: 64
+      top_p: 0.95
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/gemma-4-12b-it-GGUF/gemma-4-12b-it-Q4_K_M.gguf
+      sha256: b755a8cdd435e972c50958d04a6818d30bb8c5a03550b64ba5a7d1c4cd1dc18e
+      uri: https://huggingface.co/unsloth/gemma-4-12b-it-GGUF/resolve/main/gemma-4-12b-it-Q4_K_M.gguf
+    - filename: llama-cpp/mmproj/gemma-4-12b-it-GGUF/mmproj-F32.gguf
+      sha256: 3649ebe81ba3626552cc1ffe6cb7308c7df075d25b4f9ad6f89595d9166eb19f
+      uri: https://huggingface.co/unsloth/gemma-4-12b-it-GGUF/resolve/main/mmproj-F32.gguf
 - name: "step-3.7-flash"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
