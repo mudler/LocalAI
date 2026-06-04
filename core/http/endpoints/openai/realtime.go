@@ -1728,9 +1728,8 @@ func triggerResponseAtTurn(ctx context.Context, session *Session, conv *Conversa
 			// Synthesize and send the audio. With pipeline.streaming.tts enabled
 			// emitSpeech forwards a response.output_audio.delta per backend PCM
 			// chunk as it's produced; otherwise it sends the whole utterance as a
-			// single delta. The returned base64 audio is stored on the item below.
-			var err error
-			audioString, err = emitSpeech(ctx, t, session, responseID, item.Assistant.ID, finalSpeech)
+			// single delta. The returned PCM is stored (base64) on the item below.
+			pcmAudio, err := emitSpeech(ctx, t, session, responseID, item.Assistant.ID, finalSpeech)
 			if err != nil {
 				if ctx.Err() != nil {
 					xlog.Debug("TTS cancelled (barge-in)")
@@ -1740,6 +1739,9 @@ func triggerResponseAtTurn(ctx context.Context, session *Session, conv *Conversa
 				xlog.Error("TTS failed", "error", err)
 				sendError(t, "tts_error", fmt.Sprintf("TTS generation failed: %v", err), "", item.Assistant.ID)
 				return
+			}
+			if !isWebRTC {
+				audioString = base64.StdEncoding.EncodeToString(pcmAudio)
 			}
 
 			if !isWebRTC {

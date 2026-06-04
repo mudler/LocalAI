@@ -20,13 +20,12 @@ import (
 // those so a streamed reply can be split into several spoken segments that share
 // one response/item.
 //
-// It returns the base64-encoded audio (at the session output rate) accumulated
-// across all chunks, which the caller stores on the conversation item. For
-// WebRTC the audio goes over the RTP track instead, so the returned string is
-// empty.
-func emitSpeech(ctx context.Context, t Transport, session *Session, responseID, itemID, text string) (string, error) {
+// It returns the PCM audio (at the session output rate) accumulated across all
+// chunks, which the caller base64-encodes onto the conversation item. For WebRTC
+// the audio goes over the RTP track instead, so the returned slice is empty.
+func emitSpeech(ctx context.Context, t Transport, session *Session, responseID, itemID, text string) ([]byte, error) {
 	if text == "" {
-		return "", nil
+		return nil, nil
 	}
 
 	_, isWebRTC := t.(*WebRTCTransport)
@@ -70,31 +69,31 @@ func emitSpeech(ctx context.Context, t Transport, session *Session, responseID, 
 
 	if session.ModelConfig != nil && session.ModelConfig.Pipeline.StreamTTS() {
 		if err := session.ModelInterface.TTSStream(ctx, text, session.Voice, language, sendChunk); err != nil {
-			return "", err
+			return nil, err
 		}
-		return base64.StdEncoding.EncodeToString(wsAudio), nil
+		return wsAudio, nil
 	}
 
 	// Unary fallback: synthesize the whole utterance to a file, then emit once.
 	audioFilePath, res, err := session.ModelInterface.TTS(ctx, text, session.Voice, language)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 	if res != nil && !res.Success {
-		return "", fmt.Errorf("tts generation failed: %s", res.Message)
+		return nil, fmt.Errorf("tts generation failed: %s", res.Message)
 	}
 	defer func() { _ = os.Remove(audioFilePath) }()
 
 	audioBytes, err := os.ReadFile(audioFilePath)
 	if err != nil {
-		return "", fmt.Errorf("read tts audio: %w", err)
+		return nil, fmt.Errorf("read tts audio: %w", err)
 	}
 	pcm, sampleRate := laudio.ParseWAV(audioBytes)
 	if sampleRate == 0 {
 		sampleRate = session.OutputSampleRate
 	}
 	if err := sendChunk(pcm, sampleRate); err != nil {
-		return "", err
+		return nil, err
 	}
-	return base64.StdEncoding.EncodeToString(wsAudio), nil
+	return wsAudio, nil
 }
