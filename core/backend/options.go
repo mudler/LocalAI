@@ -106,19 +106,29 @@ func EffectiveContextSize(c config.ModelConfig) int {
 }
 
 // EffectiveBatchSize is the single-decode batch the backend will run with.
-// Score, embedding and rerank all process the whole input in one pass: score
-// decodes prompt+candidate (asserts n_tokens <= n_batch), and embedding/rerank
-// pool over the full sequence in one physical batch (n_ubatch). So the batch
-// is sized to the context — anything that fits the context fits one pass,
-// avoiding both the GGML_ASSERT crash and the "input is too large to process"
-// error. Explicit `batch:` always wins.
+// Score, embedding, rerank and token-classification (NER) all process the whole
+// input in one pass: score decodes prompt+candidate (asserts n_tokens <=
+// n_batch), embedding/rerank pool over the full sequence in one physical batch
+// (n_ubatch), and the NER encoder runs one forward per n_ubatch-sized window.
+// So the batch is sized to the context — anything that fits the context fits
+// one pass, avoiding both the GGML_ASSERT crash (n_outputs_max <=
+// cparams.n_outputs_max, where n_outputs_max defaults to n_batch) and the
+// "input is too large to process" error. Explicit `batch:` always wins.
 func EffectiveBatchSize(c config.ModelConfig) int {
 	if c.Batch != 0 {
 		return c.Batch
 	}
+	// token_classify is checked explicitly AND via the embeddings flag: a
+	// token-classification (NER) model sets embeddings:true but declares
+	// known_usecases:[token_classify], and that declaration is authoritative —
+	// it suppresses the embeddings usecase guess, so HasUsecases(FLAG_EMBEDDINGS)
+	// is false here. Any pooled encoder (embeddings:true) is single-pass
+	// regardless of how its usecases resolved, so key off the flag as a catch-all.
 	singlePass := c.HasUsecases(config.FLAG_SCORE) ||
 		c.HasUsecases(config.FLAG_EMBEDDINGS) ||
-		c.HasUsecases(config.FLAG_RERANK)
+		c.HasUsecases(config.FLAG_RERANK) ||
+		c.HasUsecases(config.FLAG_TOKEN_CLASSIFY) ||
+		(c.Embeddings != nil && *c.Embeddings)
 	if ctx := EffectiveContextSize(c); singlePass && ctx > DefaultBatchSize {
 		return ctx
 	}

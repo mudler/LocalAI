@@ -143,6 +143,34 @@ var _ = Describe("grpcModelOpts NBatch", func() {
 		Expect(opts.NBatch).To(BeEquivalentTo(4096))
 	})
 
+	It("sizes the batch to the context window for token-classification (NER) models", func() {
+		// The privacy-filter regression: a token_classify model sets
+		// embeddings:true but declares known_usecases:[token_classify], which
+		// is authoritative and suppresses the embeddings usecase guess — so
+		// HasUsecases(FLAG_EMBEDDINGS) is false. Without sizing the batch to
+		// the context the NER encoder loads at 512, shrinking the exact-pass
+		// window and tripping the GGML_ASSERT on longer inputs.
+		tokenClassify := config.FLAG_TOKEN_CLASSIFY
+		embeddings := true
+		cfg := config.ModelConfig{Threads: &threads, LLMConfig: config.LLMConfig{ContextSize: &ctx}, KnownUsecases: &tokenClassify}
+		cfg.Embeddings = &embeddings
+		opts := grpcModelOpts(cfg, "/tmp/models")
+		Expect(opts.NBatch).To(BeEquivalentTo(4096))
+	})
+
+	It("sizes the batch to the effective context for a token_classify model with no explicit context_size", func() {
+		// Mirrors the shipped gallery config (no batch, no context_size): the
+		// backend defaults n_ctx to 4096, so n_batch must follow.
+		tokenClassify := config.FLAG_TOKEN_CLASSIFY
+		embeddings := true
+		cfg := config.ModelConfig{Threads: &threads, KnownUsecases: &tokenClassify}
+		cfg.Embeddings = &embeddings
+		Expect(cfg.ContextSize).To(BeNil())
+		opts := grpcModelOpts(cfg, "/tmp/models")
+		Expect(opts.NBatch).To(BeEquivalentTo(4096))
+		Expect(opts.ContextSize).To(BeEquivalentTo(4096))
+	})
+
 	It("does not raise the batch when a score model's context is below the default", func() {
 		small := 256
 		cfg := config.ModelConfig{Threads: &threads, LLMConfig: config.LLMConfig{ContextSize: &small}, KnownUsecases: &scoreUsecase}
