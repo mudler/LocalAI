@@ -1260,27 +1260,15 @@ func commitUtterance(ctx context.Context, utt []byte, session *Session, conv *Co
 	// TODO: If we have a real any-to-any model then transcription is optional
 	var transcript string
 	if session.InputAudioTranscription != nil {
-		tr, err := session.ModelInterface.Transcribe(ctx, f.Name(), session.InputAudioTranscription.Language, false, false, session.InputAudioTranscription.Prompt)
+		// emitTranscription streams transcript deltas when
+		// pipeline.streaming.transcription is set, otherwise emits a single
+		// completed event; either way it returns the final transcript text.
+		var err error
+		transcript, err = emitTranscription(ctx, t, session, generateItemID(), f.Name())
 		if err != nil {
 			sendError(t, "transcription_failed", err.Error(), "", "event_TODO")
 			return
-		} else if tr == nil {
-			sendError(t, "transcription_failed", "trancribe result is nil", "", "event_TODO")
-			return
 		}
-
-		transcript = tr.Text
-		sendEvent(t, types.ConversationItemInputAudioTranscriptionCompletedEvent{
-			ServerEventBase: types.ServerEventBase{
-				EventID: "event_TODO",
-			},
-
-			ItemID: generateItemID(),
-			// ResponseID:   "resp_TODO", // Not needed for transcription completed event
-			// OutputIndex:  0,
-			ContentIndex: 0,
-			Transcript:   transcript,
-		})
 	} else {
 		sendNotImplemented(t, "any-to-any models")
 		return
