@@ -613,3 +613,52 @@ var _ = Describe("PII config accessors", func() {
 		Expect(cfg.PIIDetectionEntityActions()).To(HaveKeyWithValue("PASSWORD", "block"))
 	})
 })
+
+var _ = Describe("GGUF importer chat-default guard (reservedNonChatModel)", func() {
+	mk := func(flags ModelConfigUsecase) *ModelConfig {
+		return &ModelConfig{Backend: "llama-cpp", KnownUsecases: &flags}
+	}
+
+	It("treats declared score / token_classify models as reserved (no chat defaults)", func() {
+		Expect(reservedNonChatModel(mk(FLAG_SCORE))).To(BeTrue())
+		Expect(reservedNonChatModel(mk(FLAG_TOKEN_CLASSIFY))).To(BeTrue())
+		// embeddings declared alongside token_classify (the PII NER shape) is
+		// still reserved.
+		Expect(reservedNonChatModel(mk(FLAG_TOKEN_CLASSIFY | FLAG_EMBEDDINGS))).To(BeTrue())
+	})
+
+	It("does not reserve ordinary or undeclared models", func() {
+		Expect(reservedNonChatModel(mk(FLAG_CHAT))).To(BeFalse())
+		Expect(reservedNonChatModel(mk(FLAG_EMBEDDINGS))).To(BeFalse())
+		Expect(reservedNonChatModel(&ModelConfig{Backend: "llama-cpp"})).To(BeFalse())
+	})
+
+	It("keeps a token_classify GGUF config valid by withholding FLAG_CHAT", func() {
+		// Regression for the privacy-filter import: the GGUF importer appends
+		// FLAG_CHAT to a templateless model, which the next sync folds into
+		// KnownUsecases. For a reserved model that would produce
+		// token_classify+chat — rejected by Validate, so the config is silently
+		// skipped at load and the model disappears from every picker. The guard
+		// withholds FLAG_CHAT; assert both halves of that contract here.
+		reserved := []string{"token_classify"}
+		withChat := append(append([]string{}, reserved...), "FLAG_CHAT")
+
+		// What the importer would have produced WITHOUT the guard: invalid.
+		bad := &ModelConfig{Backend: "llama-cpp", KnownUsecaseStrings: withChat}
+		bad.syncKnownUsecasesFromString()
+		valid, err := bad.Validate()
+		Expect(valid).To(BeFalse())
+		Expect(err).To(HaveOccurred())
+		Expect(err.Error()).To(ContainSubstring("token_classify is incompatible"))
+
+		// With the guard (FLAG_CHAT withheld): the declaration survives and the
+		// config validates.
+		good := &ModelConfig{Backend: "llama-cpp", KnownUsecaseStrings: reserved}
+		good.syncKnownUsecasesFromString()
+		Expect(reservedNonChatModel(good)).To(BeTrue())
+		valid, err = good.Validate()
+		Expect(valid).To(BeTrue())
+		Expect(err).NotTo(HaveOccurred())
+		Expect(good.HasUsecases(FLAG_TOKEN_CLASSIFY)).To(BeTrue())
+	})
+})
