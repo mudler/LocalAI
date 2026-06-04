@@ -20,7 +20,15 @@ type fakeInFlightTracker struct {
 	mu           sync.Mutex
 	increments   int
 	decrements   int
+	removed      int
 	incrementErr error
+}
+
+func (f *fakeInFlightTracker) RemoveNodeModel(_ context.Context, _, _ string, _ int) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.removed++
+	return nil
 }
 
 func (f *fakeInFlightTracker) IncrementInFlight(_ context.Context, _, _ string, _ int) error {
@@ -293,6 +301,35 @@ var _ = Describe("InFlightTrackingClient", func() {
 
 			Expect(tracker.increments).To(Equal(1))
 			Expect(tracker.decrements).To(Equal(1))
+		})
+	})
+
+	Describe("stale model reload (self-heal)", func() {
+		It("removes the replica when the backend reports the model is not loaded", func() {
+			backend.predictErr = fmt.Errorf("parakeet-cpp: model not loaded")
+			_, err := client.Predict(context.Background(), &pb.PredictOptions{})
+			Expect(err).To(HaveOccurred())
+			Expect(tracker.removed).To(Equal(1))
+		})
+
+		It("keeps the replica on an unrelated error", func() {
+			backend.predictErr = fmt.Errorf("context deadline exceeded")
+			_, err := client.Predict(context.Background(), &pb.PredictOptions{})
+			Expect(err).To(HaveOccurred())
+			Expect(tracker.removed).To(Equal(0))
+		})
+
+		It("does not remove on success", func() {
+			_, err := client.Predict(context.Background(), &pb.PredictOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(tracker.removed).To(Equal(0))
+		})
+
+		It("self-heals on a streamed call too", func() {
+			backend.streamErr = fmt.Errorf("whisper: model not loaded")
+			err := client.PredictStream(context.Background(), &pb.PredictOptions{}, func(*pb.Reply) {})
+			Expect(err).To(HaveOccurred())
+			Expect(tracker.removed).To(Equal(1))
 		})
 	})
 })
