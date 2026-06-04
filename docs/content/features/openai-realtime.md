@@ -31,6 +31,41 @@ This configuration links the following components:
 
 Make sure all referenced models (`silero-vad-ggml`, `whisper-large-turbo`, `qwen3-4b`, `tts-1`) are also installed or defined in your LocalAI instance.
 
+### Streaming the pipeline
+
+By default each stage runs to completion before the next begins: the whole utterance is transcribed, the full LLM reply is generated, then it is synthesized. Each stage can instead be streamed incrementally, which lowers the time-to-first-audio of a turn:
+
+```yaml
+name: gpt-realtime
+pipeline:
+  vad: silero-vad-ggml
+  transcription: whisper-large-turbo
+  llm: qwen3-4b
+  tts: tts-1
+  streaming:
+    llm: true            # stream LLM tokens as transcript deltas
+    tts: true            # emit audio deltas per synthesized chunk
+    transcription: true  # stream transcript text deltas of the user's speech
+```
+
+- **streaming.tts**: emit a `response.output_audio.delta` per audio chunk the TTS backend produces, instead of one delta for the whole utterance.
+- **streaming.transcription**: stream `conversation.item.input_audio_transcription.delta` events as the transcript is produced (requires a transcription backend that supports streaming).
+- **streaming.llm**: stream the LLM reply token-by-token as `response.output_audio_transcript.delta` events and, when `streaming.tts` is also enabled, synthesize each completed sentence as soon as it is ready — overlapping generation, synthesis and playback. Streaming is used only for turns that cannot produce a tool call; turns with tools fall back to the buffered path so partial tool-call output is never spoken.
+
+All streaming flags are off by default, so existing pipelines are unaffected.
+
+### Disabling thinking
+
+For reasoning models, you can force the pipeline LLM's thinking off without editing the LLM model config:
+
+```yaml
+pipeline:
+  llm: qwen3-4b
+  disable_thinking: true   # maps to enable_thinking=false for the realtime LLM
+```
+
+This is applied only to the realtime session's copy of the LLM config, so it does not affect other users of the same model. Leave it unset to use the LLM model config's own reasoning settings.
+
 ## Transports
 
 The Realtime API supports two transports: **WebSocket** and **WebRTC**.
