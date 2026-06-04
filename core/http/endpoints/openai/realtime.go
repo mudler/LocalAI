@@ -235,6 +235,12 @@ type Model interface {
 	Transcribe(ctx context.Context, audio, language string, translate bool, diarize bool, prompt string) (*schema.TranscriptionResult, error)
 	Predict(ctx context.Context, messages schema.Messages, images, videos, audios []string, tokenCallback func(string, backend.TokenUsage) bool, tools []types.ToolUnion, toolChoice *types.ToolChoiceUnion, logprobs *int, topLogprobs *int, logitBias map[string]float64) (func() (backend.LLMResponse, error), error)
 	TTS(ctx context.Context, text, voice, language string) (string, *proto.Result, error)
+	// TTSStream synthesizes speech incrementally, invoking onAudio with raw PCM
+	// chunks (and the backend sample rate) as they are produced.
+	TTSStream(ctx context.Context, text, voice, language string, onAudio func(pcm []byte, sampleRate int) error) error
+	// TranscribeStream transcribes audio incrementally, invoking onDelta for each
+	// transcript text fragment and returning the final aggregated result.
+	TranscribeStream(ctx context.Context, audio, language string, translate, diarize bool, prompt string, onDelta func(text string)) (*schema.TranscriptionResult, error)
 	PredictConfig() *config.ModelConfig
 }
 
