@@ -96,4 +96,13 @@ type RuntimeSettings struct {
 	// changing it after the CA has been generated would orphan
 	// trusted clients.
 	MITMListen *string `json:"mitm_listen,omitempty"`
+
+	// PII filtering defaults. PIIDefaultDetectors are the token-classification
+	// detector models applied to any PII-enabled model that names no detectors
+	// of its own (so cloud-proxy/MITM redaction works without per-model config).
+	// PIIDefaultUsecases lists model usecases (e.g. "chat") that get PII
+	// filtering on by default. No omitempty: an empty array must round-trip so
+	// the operator can clear the defaults from the UI.
+	PIIDefaultDetectors *[]string `json:"pii_default_detectors"`
+	PIIDefaultUsecases  *[]string `json:"pii_default_usecases"`
 }

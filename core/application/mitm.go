@@ -103,11 +103,13 @@ func startMITMLocked(app *Application, options *config.ApplicationConfig) error 
 	detectorsByHost := map[string][]pii.NERConfig{}
 	for host, modelName := range ownership.Owners {
 		cfg, exists := app.backendLoader.GetModelConfig(modelName)
-		if !exists || !cfg.PIIIsEnabled() {
+		if !exists {
 			continue
 		}
-		detectors := cfg.PIIDetectors()
-		if len(detectors) == 0 {
+		// Resolve through the shared policy so cloud-proxy hosts inherit the
+		// instance-wide default detector when they name none of their own.
+		enabled, detectors := app.ResolvePIIPolicy(&cfg)
+		if !enabled || len(detectors) == 0 {
 			continue
 		}
 		cfgs := make([]pii.NERConfig, 0, len(detectors))

@@ -275,4 +275,34 @@ var _ = Describe("RequestMiddleware (NER)", func() {
 		Expect(w.Code).To(Equal(http.StatusOK))
 		Expect(body.Messages[0]).To(Equal("alice@example.com"), "nil redactor must be a no-op")
 	})
+
+	It("WithPolicyResolver enables a model the per-model config left off (global default)", func() {
+		st := store()
+		body := &fakeRequest{Messages: []string{"Hi I'm Alice today"}}
+		// The per-model config is disabled with no detectors; the policy
+		// resolver (instance-wide default) turns it on and supplies one.
+		mw := RequestMiddleware(&Redactor{}, st, fakeAdapter(), nil,
+			WithNERResolver(resolverFor(map[string]NERConfig{
+				"global-pf": nerCfg(ActionMask, NEREntity{Group: "PER", Start: 6, End: 11, Score: 0.95}),
+			})),
+			WithPolicyResolver(func(_ any) (bool, []string) { return true, []string{"global-pf"} }))
+		w, _ := serve(body, fakeModelPIIConfig{enabled: false}, mw, true)
+
+		Expect(w.Code).To(Equal(http.StatusOK), "body=%s", w.Body.String())
+		Expect(body.Messages[0]).To(ContainSubstring("[REDACTED:ner:PER]"))
+	})
+
+	It("WithPolicyResolver returning disabled short-circuits an otherwise-enabled model", func() {
+		st := store()
+		body := &fakeRequest{Messages: []string{"Hi I'm Alice today"}}
+		mw := RequestMiddleware(&Redactor{}, st, fakeAdapter(), nil,
+			WithNERResolver(resolverFor(map[string]NERConfig{
+				"pf": nerCfg(ActionMask, NEREntity{Group: "PER", Start: 6, End: 11, Score: 0.95}),
+			})),
+			WithPolicyResolver(func(_ any) (bool, []string) { return false, nil }))
+		w, _ := serve(body, fakeModelPIIConfig{enabled: true, detectors: []string{"pf"}}, mw, true)
+
+		Expect(w.Code).To(Equal(http.StatusOK))
+		Expect(body.Messages[0]).To(Equal("Hi I'm Alice today"), "resolver disabled => no redaction")
+	})
 })

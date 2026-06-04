@@ -59,7 +59,23 @@ type NERDetectorResolver func(modelName string) (NERConfig, bool)
 type Option func(*mwOptions)
 
 type mwOptions struct {
-	nerResolver NERDetectorResolver
+	nerResolver    NERDetectorResolver
+	policyResolver PolicyResolver
+}
+
+// PolicyResolver returns the effective (enabled, detectors) for the model
+// carried on the request context, layering instance-wide PII defaults over the
+// per-model config. Supplied by the application layer (which owns core/config),
+// keeping this package decoupled from it — the middleware passes the raw
+// context value through as `any`. When unset, the middleware falls back to the
+// duck-typed ModelPIIConfig (explicit per-model config only, no global default).
+type PolicyResolver func(modelCfg any) (enabled bool, detectors []string)
+
+// WithPolicyResolver overrides how the middleware decides enablement and the
+// detector list, so the instance-wide default detector / default-on usecases
+// apply. Without it the middleware reads ModelPIIConfig off the context.
+func WithPolicyResolver(r PolicyResolver) Option {
+	return func(o *mwOptions) { o.policyResolver = r }
 }
 
 // WithNERResolver enables the NER tier. When a request's model lists
@@ -122,11 +138,21 @@ func RequestMiddleware(redactor *Redactor, store EventStore, adapter Adapter, fa
 				return next(c)
 			}
 
-			// Per-model gating: redaction is opt-in per model. A missing
-			// ModelPIIConfig (non-chat routes, or middleware wired before
-			// SetModelAndConfig) or PIIIsEnabled()==false passes through.
-			cfg, ok := c.Get(ctxKeyModelConfig).(ModelPIIConfig)
-			if !ok || !cfg.PIIIsEnabled() {
+			// Per-model gating: redaction is opt-in per model. The policy
+			// resolver (when wired) layers instance-wide defaults over the
+			// per-model config; otherwise we read the per-model config
+			// directly. A missing config (non-chat routes, or middleware
+			// wired before SetModelAndConfig) or a not-enabled result passes
+			// through.
+			rawCfg := c.Get(ctxKeyModelConfig)
+			var enabled bool
+			var detectors []string
+			if o.policyResolver != nil {
+				enabled, detectors = o.policyResolver(rawCfg)
+			} else if cfg, ok := rawCfg.(ModelPIIConfig); ok {
+				enabled, detectors = cfg.PIIIsEnabled(), cfg.PIIDetectors()
+			}
+			if !enabled {
 				return next(c)
 			}
 
@@ -137,7 +163,6 @@ func RequestMiddleware(redactor *Redactor, store EventStore, adapter Adapter, fa
 
 			// A PII-enabled model with no detectors (or no resolver wired)
 			// has nothing to scan with — pass through.
-			detectors := cfg.PIIDetectors()
 			if len(detectors) == 0 || o.nerResolver == nil {
 				return next(c)
 			}

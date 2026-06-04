@@ -92,7 +92,7 @@ func RegisterOpenAIRoutes(app *echo.Echo,
 		// configs honour the routed target (e.g., a router fans out to
 		// claude-strict; that model's pii block applies, not the
 		// router model's).
-		pii.RequestMiddleware(application.PIIRedactor(), application.PIIEvents(), piiadapter.OpenAI(), application.FallbackUser(), pii.WithNERResolver(application.PIINERResolver())),
+		pii.RequestMiddleware(application.PIIRedactor(), application.PIIEvents(), piiadapter.OpenAI(), application.FallbackUser(), pii.WithNERResolver(application.PIINERResolver()), pii.WithPolicyResolver(application.PIIPolicyResolver())),
 	}
 	app.POST("/v1/chat/completions", chatHandler, chatMiddleware...)
 	app.POST("/chat/completions", chatHandler, chatMiddleware...)

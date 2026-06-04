@@ -280,6 +280,65 @@ func (a *Application) PIINERResolver() pii.NERDetectorResolver {
 	}
 }
 
+// ResolvePIIPolicy resolves the effective request-side PII policy for a
+// consuming model, layering the instance-wide defaults (PIIDefaultDetectors /
+// PIIDefaultUsecases, set via POST /api/settings) on top of the per-model
+// config. It is the single decision point shared by the chat middleware (via
+// WithPolicyResolver) and the MITM listener so both agree.
+//
+//   - enabled: an explicit pii.enabled on the model always wins (true OR
+//     false). Otherwise PII is on when the backend defaults it on (cloud-proxy)
+//     or the model declares a usecase in the global PIIDefaultUsecases set.
+//   - detectors: the model's own pii.detectors, or — when it lists none — the
+//     global PIIDefaultDetectors fallback. This is what makes cloud-proxy/MITM
+//     redaction work out of the box.
+//
+// appConfig is read live, so changes via the settings API take effect on the
+// next request without a restart.
+func (a *Application) ResolvePIIPolicy(cfg *config.ModelConfig) (enabled bool, detectors []string) {
+	if cfg == nil {
+		return false, nil
+	}
+	appCfg := a.ApplicationConfig()
+
+	if cfg.PII.Enabled != nil {
+		enabled = *cfg.PII.Enabled
+	} else {
+		enabled = cfg.PIIIsEnabled() // backend default (cloud-proxy)
+		if !enabled {
+			for _, uc := range appCfg.PIIDefaultUsecases {
+				if flags := config.GetUsecasesFromYAML([]string{uc}); flags != nil && cfg.HasUsecases(*flags) {
+					enabled = true
+					break
+				}
+			}
+		}
+	}
+	if !enabled {
+		return false, nil
+	}
+
+	detectors = cfg.PIIDetectors()
+	if len(detectors) == 0 {
+		detectors = append([]string(nil), appCfg.PIIDefaultDetectors...)
+	}
+	return enabled, detectors
+}
+
+// PIIPolicyResolver adapts ResolvePIIPolicy to pii.PolicyResolver for
+// pii.WithPolicyResolver. The middleware carries the resolved model config as
+// `any` (the MODEL_CONFIG context value, a *config.ModelConfig); this asserts
+// it back and applies the instance-wide defaults.
+func (a *Application) PIIPolicyResolver() pii.PolicyResolver {
+	return func(modelCfg any) (bool, []string) {
+		cfg, ok := modelCfg.(*config.ModelConfig)
+		if !ok {
+			return false, nil
+		}
+		return a.ResolvePIIPolicy(cfg)
+	}
+}
+
 // MITMCA returns the cloudproxy MITM proxy's CA, or nil when the
 // MITM listener is disabled.
 func (a *Application) MITMCA() *mitm.CA { return a.mitmCA.Load() }
