@@ -337,6 +337,37 @@ curl http://localhost:8080/tts -H "Content-Type: application/json" -d '{
    }' | aplay
 ```
 
+#### Per-request instructions
+
+Instead of (or in addition to) the static YAML `instruct` option, you can pass an
+`instructions` string per request. It maps to the OpenAI
+[`instructions`](https://platform.openai.com/docs/api-reference/audio/createSpeech) field
+and takes precedence over the YAML option when set, falling back to it when empty. This lets
+a single model config serve a different emotion (CustomVoice) or a different designed voice
+(VoiceDesign) on every request - useful for roleplay/narration clients that need many voices:
+
+```
+curl http://localhost:8080/v1/audio/speech -H "Content-Type: application/json" -d '{
+     "model": "qwen-tts-design",
+     "input": "Hello world, this is a test.",
+     "instructions": "A calm, low-pitched elderly storyteller with a warm tone."
+   }' | aplay
+```
+
+Backends that do not support style/voice instructions simply ignore the field.
+
+You can also pass backend-specific generation parameters per request via the LocalAI
+`params` extension (a string-to-string map; values are coerced to the backend's expected
+types). For example, with the Chatterbox backend:
+
+```
+curl http://localhost:8080/v1/audio/speech -H "Content-Type: application/json" -d '{
+     "model": "chatterbox",
+     "input": "Hello world, this is a test.",
+     "params": { "exaggeration": "0.7", "cfg_weight": "0.3", "temperature": "0.8" }
+   }' | aplay
+```
+
 #### Voice Clone Mode
 
 Voice Clone allows you to clone a voice from reference audio. Configure the model with an `AudioPath` and optional `ref_text`:

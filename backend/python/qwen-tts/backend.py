@@ -47,6 +47,26 @@ def is_int(s):
         return False
 
 
+def coerce_param_value(value):
+    """Coerce a string param value (from the TTSRequest.params map, which is
+    string-typed on the wire) into the most specific Python type the model
+    generation kwargs expect: bool, int, float, else the original string."""
+    if not isinstance(value, str):
+        return value
+    lowered = value.strip().lower()
+    if lowered in ("true", "false"):
+        return lowered == "true"
+    try:
+        return int(value)
+    except ValueError:
+        pass
+    try:
+        return float(value)
+    except ValueError:
+        pass
+    return value
+
+
 _ONE_DAY_IN_SECONDS = 60 * 60 * 24
 
 # If MAX_WORKERS are specified in the environment use it, otherwise default to 1
@@ -322,6 +342,19 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
 
         return backend_pb2.Result(message="Model loaded successfully", success=True)
 
+    def _effective_instruct(self, request):
+        """Resolve the instruction/style string for this request, preferring the
+        per-request TTSRequest.instructions value and falling back to the static
+        YAML `instruct` option. Empty string means "no instruction"."""
+        req_instruct = (
+            request.instructions
+            if hasattr(request, "instructions") and request.instructions
+            else ""
+        )
+        if req_instruct:
+            return req_instruct
+        return self.options.get("instruct", "") or ""
+
     def _detect_mode(self, request):
         """Detect which mode to use based on request parameters."""
         # Priority: VoiceClone > VoiceDesign > CustomVoice
@@ -338,8 +371,8 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
         if self.audio_path or self.voices:
             return "VoiceClone"
 
-        # VoiceDesign: instruct option is provided
-        if "instruct" in self.options and self.options["instruct"]:
+        # VoiceDesign: instruct provided per-request or via YAML option
+        if self._effective_instruct(request):
             return "VoiceDesign"
 
         # Default to CustomVoice
@@ -690,9 +723,19 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
             if do_sample is not None:
                 generation_kwargs["do_sample"] = do_sample
 
-            instruct = self.options.get("instruct", "")
+            # Prefer the per-request instruction (TTSRequest.instructions) over the
+            # static YAML `instruct` option. This lets clients set a different style
+            # (CustomVoice emotion) or designed voice (VoiceDesign) per request.
+            instruct = self._effective_instruct(request)
             if instruct is not None and instruct != "":
                 generation_kwargs["instruct"] = instruct
+
+            # Merge any per-request backend-specific params (TTSRequest.params).
+            # Values arrive as strings on the wire; coerce to int/float/bool so the
+            # model receives the types it expects. These override YAML-derived kwargs.
+            if hasattr(request, "params") and request.params:
+                for key, value in request.params.items():
+                    generation_kwargs[key] = coerce_param_value(value)
 
             # Generate audio based on mode
             if mode == "VoiceClone":

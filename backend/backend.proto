@@ -537,6 +537,15 @@ message TTSRequest {
   string dst = 3;
   string voice = 4;
   optional string language = 5;
+  // instructions is a free-form, per-request style/voice description (maps to
+  // the OpenAI `instructions` field). Backends that support expressive synthesis
+  // (e.g. Qwen3-TTS CustomVoice/VoiceDesign) prefer this over the static YAML
+  // option when set; backends that don't simply ignore it.
+  optional string instructions = 6;
+  // params carries optional, backend-specific per-request generation parameters
+  // (e.g. Chatterbox exaggeration/cfg_weight/temperature). Values are strings and
+  // coerced by the backend; unset leaves the backend's configured defaults.
+  map<string, string> params = 7;
 }
 
 message VADRequest {
