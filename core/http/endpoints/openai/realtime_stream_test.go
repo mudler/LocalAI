@@ -43,6 +43,32 @@ var _ = Describe("speechStreamer", func() {
 		Expect(audio).To(Equal([]byte{7, 7}))
 	})
 
+	It("strips leaked reasoning even when reasoning is disabled (disable_thinking safety net)", func() {
+		// disable_thinking maps to ReasoningConfig.DisableReasoning=true (it tells
+		// the backend enable_thinking=false). When the model ignores that and emits
+		// thinking anyway, the spoken stream must still not leak it: the streamer is
+		// the last line of defence and always strips reasoning from spoken content.
+		disable := true
+		session := &Session{
+			OutputSampleRate: 24000,
+			ModelInterface:   &fakeModel{},
+			ModelConfig:      &config.ModelConfig{}, // streaming.tts off
+		}
+		t := &fakeTransport{}
+		s := newSpeechStreamer(context.Background(), t, session, "resp1", "item1", "",
+			reasoning.Config{DisableReasoning: &disable})
+
+		s.onToken("<think>secret plan</think>")
+		s.onToken("The answer is 42.")
+		content, _, err := s.finish()
+
+		Expect(err).ToNot(HaveOccurred())
+		Expect(content).To(Equal("The answer is 42."))
+		Expect(content).ToNot(ContainSubstring("secret plan"))
+		// The text streamed to the client must not carry the reasoning either.
+		Expect(t.transcriptDeltaText()).ToNot(ContainSubstring("secret plan"))
+	})
+
 	It("does not synthesize audio when TTS streaming is disabled", func() {
 		m := &fakeModel{ttsStreamChunks: [][]byte{{7}}, ttsStreamRate: 24000}
 		session := &Session{

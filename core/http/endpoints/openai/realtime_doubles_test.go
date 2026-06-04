@@ -2,6 +2,7 @@ package openai
 
 import (
 	"context"
+	"strings"
 
 	"github.com/mudler/LocalAI/core/backend"
 	"github.com/mudler/LocalAI/core/config"
@@ -46,6 +47,18 @@ func (f *fakeTransport) countEvents(et types.ServerEventType) int {
 		}
 	}
 	return n
+}
+
+// transcriptDeltaText concatenates the Delta of every recorded transcript
+// delta event — i.e. the text streamed to the client as it is generated.
+func (f *fakeTransport) transcriptDeltaText() string {
+	var b strings.Builder
+	for _, e := range f.events {
+		if d, ok := e.(types.ResponseOutputAudioTranscriptDeltaEvent); ok {
+			b.WriteString(d.Delta)
+		}
+	}
+	return b.String()
 }
 
 // fakeModel is a configurable Model double. TTSStream replays ttsStreamChunks

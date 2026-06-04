@@ -35,6 +35,9 @@ type speechStreamer struct {
 }
 
 func newSpeechStreamer(ctx context.Context, t Transport, session *Session, responseID, itemID, thinkingStartToken string, reasoningCfg reasoning.Config) *speechStreamer {
+	// Spoken output must never contain reasoning, even when disable_thinking set
+	// DisableReasoning (which would otherwise turn the extractor's stripping off).
+	reasoningCfg = spokenReasoningConfig(reasoningCfg)
 	return &speechStreamer{
 		ctx:        ctx,
 		t:          t,
