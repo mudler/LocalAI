@@ -111,30 +111,25 @@
   icon: https://cdn-avatars.huggingface.co/v1/production/uploads/5fd5e18a90b6dc4633f6d292/QPiv8pt4JNxr0FdGnpFef.png
   urls:
     - https://huggingface.co/OpenMed/privacy-filter-multilingual
-    - https://huggingface.co/localai-org/privacy-filter-multilingual-GGUF
+    - https://huggingface.co/LocalAI-io/privacy-filter-multilingual-GGUF
   description: |
-    # privacy-filter-multilingual
+    A multilingual PII token-classification model: a fine-tune of
+    openai/privacy-filter by OpenMed. It labels every token with a BIOES tag
+    over 54 PII categories (217 classes) across 16 languages (ar, bn, de, en,
+    es, fr, hi, it, ja, ko, nl, pt, te, tr, vi, zh), spanning identity, contact,
+    address, financial, vehicle, digital, and crypto entities.
 
-    A multilingual PII **token-classification** model — a fine-tune of
-    [`openai/privacy-filter`](https://huggingface.co/openai/privacy-filter) by
-    [OpenMed](https://huggingface.co/OpenMed/privacy-filter-multilingual). It
-    labels every token with a BIOES tag over **54 PII categories (217 classes)**
-    across **16 languages** (ar, bn, de, en, es, fr, hi, it, ja, ko, nl, pt, te,
-    tr, vi, zh), spanning identity, contact, address, financial, vehicle,
-    digital, and crypto entities.
-
-    In LocalAI this is a **PII detector** for the NER redactor tier: set
-    `known_usecases: [token_classify]` (as below), and any model opts into
-    redaction by listing this one under `pii.detectors`. The detection policy
-    (which categories to mask vs block, the score threshold) lives on this
-    model's own `pii_detection` block — see the overrides below. It runs
-    locally with **no Python**, served by the vendored llama.cpp backend's
-    `TokenClassify` RPC (constrained BIOES Viterbi decode → UTF-8 byte-offset
-    entity spans).
+    In LocalAI this is a PII detector for the NER redactor tier: set
+    known_usecases to [token_classify] (as below), and any model opts into
+    redaction by listing this one under pii.detectors. The detection policy
+    (which categories to mask vs block, and the score threshold) lives on this
+    model's own pii_detection block - see the overrides below. It runs locally
+    with no Python, served by the vendored llama.cpp backend's TokenClassify
+    RPC (constrained BIOES Viterbi decode into UTF-8 byte-offset entity spans).
 
     Architecture: gpt-oss-style sparse MoE (8 layers, 128 experts top-4, ~50M
     active per token), bidirectional banded attention, o200k tokenizer; served
-    via the `openai-privacy-filter` architecture. F16, ~2.7 GB.
+    via the openai-privacy-filter architecture. F16, ~2.7 GB.
   license: apache-2.0
   tags:
     - token-classification
@@ -173,7 +168,7 @@
   files:
     - filename: llama-cpp/models/privacy-filter-multilingual/privacy-filter-multilingual-f16.gguf
       sha256: 01b76572f80b7d2ebee80a27cb9c3699c26b04cae1c402eee7664fc17a4b5ce6
-      uri: https://huggingface.co/localai-org/privacy-filter-multilingual-GGUF/resolve/main/privacy-filter-multilingual-f16.gguf
+      uri: https://huggingface.co/LocalAI-io/privacy-filter-multilingual-GGUF/resolve/main/privacy-filter-multilingual-f16.gguf
 - name: "lfm2.5-8b-a1b"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
