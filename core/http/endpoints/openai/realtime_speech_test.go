@@ -2,6 +2,7 @@ package openai
 
 import (
 	"context"
+	"encoding/base64"
 	"os"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -35,10 +36,12 @@ var _ = Describe("emitSpeech", func() {
 		}
 		t := &fakeTransport{}
 
-		err := emitSpeech(context.Background(), t, streamingSession(m), "resp1", "item1", "Hello there.")
+		audio, err := emitSpeech(context.Background(), t, streamingSession(m), "resp1", "item1", "Hello there.")
 
 		Expect(err).ToNot(HaveOccurred())
 		Expect(t.countEvents(types.ServerEventTypeResponseOutputAudioDelta)).To(Equal(3))
+		// The returned audio is the base64 of all chunks concatenated.
+		Expect(audio).To(Equal(base64.StdEncoding.EncodeToString([]byte{1, 2, 3, 4, 5, 6})))
 	})
 
 	It("sends a single output_audio.delta in unary mode", func() {
@@ -60,7 +63,7 @@ var _ = Describe("emitSpeech", func() {
 		}
 		t := &fakeTransport{}
 
-		err = emitSpeech(context.Background(), t, session, "resp1", "item1", "Hello there.")
+		_, err = emitSpeech(context.Background(), t, session, "resp1", "item1", "Hello there.")
 
 		Expect(err).ToNot(HaveOccurred())
 		Expect(t.countEvents(types.ServerEventTypeResponseOutputAudioDelta)).To(Equal(1))

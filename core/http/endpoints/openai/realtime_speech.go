@@ -19,12 +19,19 @@ import (
 // It deliberately does NOT emit transcript or audio-done events: the caller owns
 // those so a streamed reply can be split into several spoken segments that share
 // one response/item.
-func emitSpeech(ctx context.Context, t Transport, session *Session, responseID, itemID, text string) error {
+//
+// It returns the base64-encoded audio (at the session output rate) accumulated
+// across all chunks, which the caller stores on the conversation item. For
+// WebRTC the audio goes over the RTP track instead, so the returned string is
+// empty.
+func emitSpeech(ctx context.Context, t Transport, session *Session, responseID, itemID, text string) (string, error) {
 	if text == "" {
-		return nil
+		return "", nil
 	}
 
 	_, isWebRTC := t.(*WebRTCTransport)
+
+	var wsAudio []byte // PCM at the session output rate, accumulated for the item record
 
 	// sendChunk hands one PCM buffer to the transport: WebRTC consumes the raw
 	// PCM directly (it resamples internally); WebSocket gets base64 PCM at the
@@ -45,6 +52,7 @@ func emitSpeech(ctx context.Context, t Transport, session *Session, responseID, 
 			resampled := sound.ResampleInt16(samples, sampleRate, session.OutputSampleRate)
 			wsPCM = sound.Int16toBytesLE(resampled)
 		}
+		wsAudio = append(wsAudio, wsPCM...)
 		return t.SendEvent(types.ResponseOutputAudioDeltaEvent{
 			ServerEventBase: types.ServerEventBase{},
 			ResponseID:      responseID,
@@ -61,26 +69,32 @@ func emitSpeech(ctx context.Context, t Transport, session *Session, responseID, 
 	}
 
 	if session.ModelConfig != nil && session.ModelConfig.Pipeline.StreamTTS() {
-		return session.ModelInterface.TTSStream(ctx, text, session.Voice, language, sendChunk)
+		if err := session.ModelInterface.TTSStream(ctx, text, session.Voice, language, sendChunk); err != nil {
+			return "", err
+		}
+		return base64.StdEncoding.EncodeToString(wsAudio), nil
 	}
 
 	// Unary fallback: synthesize the whole utterance to a file, then emit once.
 	audioFilePath, res, err := session.ModelInterface.TTS(ctx, text, session.Voice, language)
 	if err != nil {
-		return err
+		return "", err
 	}
 	if res != nil && !res.Success {
-		return fmt.Errorf("tts generation failed: %s", res.Message)
+		return "", fmt.Errorf("tts generation failed: %s", res.Message)
 	}
 	defer func() { _ = os.Remove(audioFilePath) }()
 
 	audioBytes, err := os.ReadFile(audioFilePath)
 	if err != nil {
-		return fmt.Errorf("read tts audio: %w", err)
+		return "", fmt.Errorf("read tts audio: %w", err)
 	}
 	pcm, sampleRate := laudio.ParseWAV(audioBytes)
 	if sampleRate == 0 {
 		sampleRate = session.OutputSampleRate
 	}
-	return sendChunk(pcm, sampleRate)
+	if err := sendChunk(pcm, sampleRate); err != nil {
+		return "", err
+	}
+	return base64.StdEncoding.EncodeToString(wsAudio), nil
 }
