@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/mudler/LocalAI/pkg/grpc/base"
 	pb "github.com/mudler/LocalAI/pkg/grpc/proto"
@@ -19,6 +20,43 @@ var (
 type Qwen3TtsCpp struct {
 	base.SingleThread
 	threads int
+}
+
+// languageNameAliases maps common full language names to the canonical
+// two-letter code understood by the C++ language_to_id table.
+var languageNameAliases = map[string]string{
+	"english":    "en",
+	"russian":    "ru",
+	"chinese":    "zh",
+	"japanese":   "ja",
+	"korean":     "ko",
+	"german":     "de",
+	"french":     "fr",
+	"spanish":    "es",
+	"italian":    "it",
+	"portuguese": "pt",
+}
+
+// normalizeLanguage coerces a caller-supplied language into the canonical code
+// the model expects. It lowercases, trims, strips any region/locale suffix
+// (en-US, en_US, ja.JP -> en/ja), and resolves common full names (english -> en).
+// An empty input stays empty so the C++ side applies its English default; an
+// unrecognized value is returned normalized so C++ can log it and default.
+func normalizeLanguage(lang string) string {
+	lang = strings.ToLower(strings.TrimSpace(lang))
+	if lang == "" {
+		return ""
+	}
+
+	// Strip region/locale suffix: keep the segment before the first separator.
+	if i := strings.IndexAny(lang, "-_."); i >= 0 {
+		lang = lang[:i]
+	}
+
+	if code, ok := languageNameAliases[lang]; ok {
+		return code
+	}
+	return lang
 }
 
 func (q *Qwen3TtsCpp) Load(opts *pb.ModelOptions) error {
@@ -54,7 +92,7 @@ func (q *Qwen3TtsCpp) TTS(req *pb.TTSRequest) error {
 	dst := req.Dst
 	language := ""
 	if req.Language != nil {
-		language = *req.Language
+		language = normalizeLanguage(*req.Language)
 	}
 
 	// Synthesis parameters with sensible defaults
