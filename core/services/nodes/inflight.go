@@ -2,11 +2,11 @@ package nodes
 
 import (
 	"context"
-	"strings"
 	"sync"
 	"time"
 
 	"github.com/mudler/LocalAI/pkg/grpc"
+	"github.com/mudler/LocalAI/pkg/grpc/grpcerrors"
 	pb "github.com/mudler/LocalAI/pkg/grpc/proto"
 	"github.com/mudler/xlog"
 	ggrpc "google.golang.org/grpc"
@@ -72,7 +72,7 @@ func (c *InFlightTrackingClient) track(ctx context.Context) func() {
 // model stays unreachable until the controller restarts. The original error is
 // returned unchanged.
 func (c *InFlightTrackingClient) reconcile(err error) error {
-	if !isModelNotLoaded(err) {
+	if !grpcerrors.IsModelNotLoaded(err) {
 		return err
 	}
 	rmCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
@@ -85,12 +85,6 @@ func (c *InFlightTrackingClient) reconcile(err error) error {
 			"node", c.nodeID, "model", c.modelName, "replica", c.replicaIndex)
 	}
 	return err
-}
-
-// isModelNotLoaded reports whether err is a backend "model not loaded" response.
-// Backends phrase it as "<backend>: model not loaded", so match on the suffix.
-func isModelNotLoaded(err error) bool {
-	return err != nil && strings.Contains(strings.ToLower(err.Error()), "model not loaded")
 }
 
 // --- Tracked inference methods ---
