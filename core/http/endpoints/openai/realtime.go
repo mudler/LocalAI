@@ -1496,6 +1496,23 @@ func triggerResponseAtTurn(ctx context.Context, session *Session, conv *Conversa
 		},
 	})
 
+	// Streamed LLM path: when the pipeline opts into LLM streaming and the turn
+	// cannot produce a tool call (no tools), stream tokens straight to the client
+	// as transcript deltas and sentence-pipe them into TTS. Tool turns fall
+	// through to the buffered path below, since partial tool-call output can't be
+	// safely spoken mid-stream.
+	if config != nil && session.ModelConfig != nil && session.ModelConfig.Pipeline.StreamLLM() && len(tools) == 0 {
+		var respMods []types.Modality
+		if overrides != nil {
+			respMods = overrides.OutputModalities
+		}
+		if modalitiesContainAudio(resolveOutputModalities(session.OutputModalities, respMods)) {
+			if streamLLMResponse(ctx, session, conv, t, responseID, conversationHistory, images, config) {
+				return
+			}
+		}
+	}
+
 	predFunc, err := session.ModelInterface.Predict(ctx, conversationHistory, images, nil, nil, nil, tools, toolChoice, nil, nil, nil)
 	if err != nil {
 		sendError(t, "inference_failed", fmt.Sprintf("backend error: %v", err), "", "") // item.Assistant.ID is unknown here
