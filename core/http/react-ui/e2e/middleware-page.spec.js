@@ -153,6 +153,20 @@ test.describe('Middleware page — admin in no-auth mode', () => {
     await expect(chatToggle).toBeChecked()
   })
 
+  test('Filtering tab flags an enabled model with no detector as a no-op', async ({ page }) => {
+    await page.goto('/app/middleware')
+
+    // claude-sonnet is enabled by the cloud-proxy backend default but lists
+    // no detectors and there is no instance default detector — it scans
+    // nothing, so the row must warn rather than read as protected.
+    const noopRow = page.locator('tr').filter({ hasText: 'claude-sonnet' }).first()
+    await expect(noopRow).toContainText(/no-op/i)
+
+    // claude-strict has an explicit detector — it must NOT be flagged.
+    const okRow = page.locator('tr').filter({ hasText: 'claude-strict' }).first()
+    await expect(okRow).not.toContainText(/no-op/i)
+  })
+
   test('Routing tab renders configured routers and recent decisions', async ({ page }) => {
     await page.goto('/app/middleware')
     await page.getByRole('button', { name: /Routing/i }).click()

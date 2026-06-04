@@ -226,7 +226,17 @@ function FilteringTab({ status, addToast, onChanged }) {
                 <tr key={m.name}>
                   <td style={{ fontFamily: 'var(--font-mono)', fontSize: '0.8125rem' }}>{m.name}</td>
                   <td style={{ fontFamily: 'var(--font-mono)', fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>{m.backend || '—'}</td>
-                  <td>{enabledBadge(m.enabled)}</td>
+                  <td>
+                    {enabledBadge(m.enabled)}
+                    {m.enabled && (!m.detectors || m.detectors.length === 0) && (
+                      <span
+                        title="Enabled but no detector resolved — nothing is scanned. Set a default detector below or add pii.detectors to the model."
+                        style={{ marginLeft: 6, fontSize: '0.6875rem', fontWeight: 600, color: 'var(--color-warning)', whiteSpace: 'nowrap', cursor: 'help' }}
+                      >
+                        <i className="fas fa-triangle-exclamation" style={{ marginRight: 3 }} />no-op
+                      </span>
+                    )}
+                  </td>
                   <td style={{ fontSize: '0.6875rem', color: 'var(--color-text-muted)' }}>
                     {m.explicit ? 'YAML' : (m.default_for_backend ? 'backend default' : (m.default_for_usecase ? 'usecase default' : 'default off'))}
                   </td>
