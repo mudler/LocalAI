@@ -418,6 +418,26 @@ This is the load-time reasoning configuration. The orthogonal per-request `enabl
 - `reasoning_effort: "minimal" | "low" | "medium" | "high"` enables thinking, unless the model config explicitly set `reasoning.disable: true` (an operator's explicit disable wins and is never re-enabled by a request).
 {{% /notice %}}
 
+#### `reasoning_effort` as a chat-template kwarg
+
+`reasoning_effort` is also forwarded to the backend as a `chat_template_kwarg`, so models whose **jinja chat template** keys on it — e.g. gpt-oss (Harmony) or LFM2.5 — honor the **level**, not just the on/off `enable_thinking` flag. This matters for models that ignore `enable_thinking` entirely (LFM2.5 keeps emitting `<think>` for `enable_thinking=false`, but respects `reasoning_effort`).
+
+Set a per-model default in the config so every request inherits it (a per-request `reasoning_effort` still overrides):
+
+```yaml
+name: my-model
+reasoning_effort: none   # none | minimal | low | medium | high
+```
+
+For [realtime pipelines]({{%relref "docs/features/openai-realtime" %}}), set it on the pipeline so it applies to the pipeline's LLM without editing that model's own config:
+
+```yaml
+name: gpt-realtime
+pipeline:
+  llm: lfm2.5
+  reasoning_effort: none   # overrides the LLM model's own reasoning_effort
+```
+
 ### Multimodal Backend Options
 
 | Option | Type | Default | Description |

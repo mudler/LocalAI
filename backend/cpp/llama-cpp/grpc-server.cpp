@@ -1944,6 +1944,17 @@ public:
                     body_json["chat_template_kwargs"]["enable_thinking"] = (et_it->second == "true");
                 }
 
+                // Pass reasoning_effort via chat_template_kwargs too: the lever
+                // jinja templates like gpt-oss (Harmony) / LFM2.5 read, distinct
+                // from enable_thinking which those templates ignore.
+                auto re_it = metadata.find("reasoning_effort");
+                if (re_it != metadata.end() && !re_it->second.empty()) {
+                    if (!body_json.contains("chat_template_kwargs")) {
+                        body_json["chat_template_kwargs"] = json::object();
+                    }
+                    body_json["chat_template_kwargs"]["reasoning_effort"] = re_it->second;
+                }
+
                 // Debug: Print full body_json before template processing (includes messages, tools, tool_choice, etc.)
                 SRV_DBG("[CONVERSATION DEBUG] PredictStream: Full body_json before oaicompat_chat_params_parse:\n%s\n", body_json.dump(2).c_str());
 
@@ -2735,6 +2746,17 @@ public:
                         body_json["chat_template_kwargs"] = json::object();
                     }
                     body_json["chat_template_kwargs"]["enable_thinking"] = (predict_et_it->second == "true");
+                }
+
+                // Pass reasoning_effort via chat_template_kwargs too: the lever
+                // jinja templates like gpt-oss (Harmony) / LFM2.5 read, distinct
+                // from enable_thinking which those templates ignore.
+                auto predict_re_it = predict_metadata.find("reasoning_effort");
+                if (predict_re_it != predict_metadata.end() && !predict_re_it->second.empty()) {
+                    if (!body_json.contains("chat_template_kwargs")) {
+                        body_json["chat_template_kwargs"] = json::object();
+                    }
+                    body_json["chat_template_kwargs"]["reasoning_effort"] = predict_re_it->second;
                 }
 
                 // Debug: Print full body_json before template processing (includes messages, tools, tool_choice, etc.)

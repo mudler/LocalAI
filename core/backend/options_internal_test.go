@@ -75,3 +75,25 @@ var _ = Describe("gRPCPredictOpts enable_thinking metadata", func() {
 		Expect(opts.Metadata).ToNot(HaveKey("enable_thinking"))
 	})
 })
+
+// Guards forwarding the effective reasoning_effort into PredictOptions.Metadata,
+// where the backend passes it to the jinja chat template (chat_template_kwargs)
+// so models like gpt-oss / LFM2.5 honor it.
+var _ = Describe("gRPCPredictOpts reasoning_effort metadata", func() {
+	withEffort := func(effort string) config.ModelConfig {
+		cfg := config.ModelConfig{}
+		cfg.SetDefaults()
+		cfg.ReasoningEffort = effort
+		return cfg
+	}
+
+	It("forwards reasoning_effort when set", func() {
+		opts := gRPCPredictOpts(withEffort("none"), "/tmp/models")
+		Expect(opts.Metadata).To(HaveKeyWithValue("reasoning_effort", "none"))
+	})
+
+	It("omits reasoning_effort when empty", func() {
+		opts := gRPCPredictOpts(withEffort(""), "/tmp/models")
+		Expect(opts.Metadata).ToNot(HaveKey("reasoning_effort"))
+	})
+})

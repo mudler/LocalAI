@@ -44,10 +44,10 @@ type wrappedModel struct {
 	// deps in. nil-safe: with classifierRegistry == nil the per-turn
 	// routing block in Predict is skipped, preserving today's "one LLM
 	// for the whole session" behaviour.
-	routerDeps        *middleware.ClassifierDeps
-	routerStore       router.DecisionStore
-	routerSessionID   string
-	routerUserID      string
+	routerDeps      *middleware.ClassifierDeps
+	routerStore     router.DecisionStore
+	routerSessionID string
+	routerUserID    string
 }
 
 // anyToAnyModel represent a model which supports Any-to-Any operations
@@ -118,6 +118,11 @@ func (m *wrappedModel) Predict(ctx context.Context, messages schema.Messages, im
 			turnCfg = chosen
 		}
 	}
+
+	// Surface the resolved reasoning effort to the Go-side template path too
+	// (jinja models get it via backend metadata in gRPCPredictOpts; Go-templated
+	// models like gpt-oss read it from the template's .ReasoningEffort).
+	input.ReasoningEffort = turnCfg.ReasoningEffort
 
 	var predInput string
 	var funcs []functions.Function
@@ -448,6 +453,9 @@ func newModel(pipeline *config.Pipeline, cl *config.ModelConfigLoader, ml *model
 	if valid, _ := cfgLLM.Validate(); !valid {
 		return nil, fmt.Errorf("failed to validate config: %w", err)
 	}
+
+	// Let the pipeline set the LLM's reasoning effort (cfgLLM is a per-session copy).
+	applyPipelineReasoning(cfgLLM, *pipeline)
 
 	cfgTTS, err := cl.LoadModelConfigFileByName(pipeline.TTS, ml.ModelPath)
 	if err != nil {

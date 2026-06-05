@@ -128,6 +128,22 @@ func DefaultRegistry() map[string]FieldMetaOverride {
 			Advanced:    true,
 			Order:       21,
 		},
+		"reasoning_effort": {
+			Section:     "llm",
+			Label:       "Reasoning Effort",
+			Description: "Default reasoning effort, forwarded to the backend as the reasoning_effort chat_template_kwarg (jinja models like gpt-oss / LFM2.5 honor it). A per-request reasoning_effort overrides it. 'none' also turns thinking off.",
+			Component:   "select",
+			Options: []FieldOption{
+				{Value: "", Label: "Unset (model default)"},
+				{Value: "none", Label: "none (disable thinking)"},
+				{Value: "minimal", Label: "minimal"},
+				{Value: "low", Label: "low"},
+				{Value: "medium", Label: "medium"},
+				{Value: "high", Label: "high"},
+			},
+			Advanced: true,
+			Order:    22,
+		},
 		"cache_type_k": {
 			Section:     "llm",
 			Label:       "KV Cache Type (K)",
@@ -276,6 +292,21 @@ func DefaultRegistry() map[string]FieldMetaOverride {
 			Component:            "model-select",
 			AutocompleteProvider: ProviderModelsVAD,
 			Order:                63,
+		},
+		"pipeline.reasoning_effort": {
+			Section:     "pipeline",
+			Label:       "Reasoning Effort",
+			Description: "Reasoning effort for the pipeline's LLM, forwarded to the backend as the reasoning_effort chat_template_kwarg (jinja models like gpt-oss / LFM2.5 honor it). Overrides the LLM model's own reasoning_effort. 'none' also turns thinking off.",
+			Component:   "select",
+			Options: []FieldOption{
+				{Value: "", Label: "Default (model config)"},
+				{Value: "none", Label: "none (disable thinking)"},
+				{Value: "minimal", Label: "minimal"},
+				{Value: "low", Label: "low"},
+				{Value: "medium", Label: "medium"},
+				{Value: "high", Label: "high"},
+			},
+			Order: 64,
 		},
 
 		// --- Functions ---
