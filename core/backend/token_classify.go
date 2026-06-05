@@ -2,10 +2,10 @@ package backend
 
 import (
 	"context"
-	"fmt"
+	"time"
 
 	"github.com/mudler/LocalAI/core/config"
-	"github.com/mudler/LocalAI/pkg/grpc"
+	"github.com/mudler/LocalAI/core/trace"
 	pb "github.com/mudler/LocalAI/pkg/grpc/proto"
 	model "github.com/mudler/LocalAI/pkg/model"
 )
@@ -16,11 +16,11 @@ import (
 // half-open (addressing text[Start:End]) — the proto contract. Group is
 // the model's entity label (e.g. "private_person", "EMAIL").
 type TokenEntity struct {
-	Group string
-	Start int
-	End   int
-	Score float32
-	Text  string
+	Group string  `json:"group"`
+	Start int     `json:"start"`
+	End   int     `json:"end"`
+	Score float32 `json:"score"`
+	Text  string  `json:"text"`
 }
 
 // TokenClassifyOptions controls a single TokenClassify request.
@@ -68,9 +68,11 @@ func (m *modelTokenClassifier) TokenClassify(ctx context.Context, text string) (
 // bound to the loaded model so a caller can reuse it within a request
 // without re-resolving the backend.
 //
-// NOTE: unlike ModelScore this does not yet emit a Traces UI row — wire
-// a trace.BackendTrace (new trace type) here if/when NER calls should
-// show up alongside the requests they gate.
+// When tracing is enabled it records a BackendTraceTokenClassify row so the
+// detector's output — every entity's group, byte range, confidence and the
+// matched substring — shows in the Traces UI alongside the request it gated.
+// This is the technical view for debugging false positives (e.g. a phone
+// number scored as SSN); the persisted PIIEvent keeps only a hash.
 func ModelTokenClassify(text string, opts TokenClassifyOptions, loader *model.ModelLoader, modelConfig config.ModelConfig, appConfig *config.ApplicationConfig) (func(ctx context.Context) ([]TokenEntity, error), error) {
 	modelOpts := ModelOptions(modelConfig, appConfig)
 	inferenceModel, err := loader.Load(modelOpts...)
@@ -78,20 +80,50 @@ func ModelTokenClassify(text string, opts TokenClassifyOptions, loader *model.Mo
 		recordModelLoadFailure(appConfig, modelConfig.Name, modelConfig.Backend, err, nil)
 		return nil, err
 	}
-	b, ok := inferenceModel.(grpc.Backend)
-	if !ok {
-		return nil, fmt.Errorf("token classification not supported by backend %q", modelConfig.Backend)
-	}
 	return func(ctx context.Context) ([]TokenEntity, error) {
-		resp, err := b.TokenClassify(ctx, &pb.TokenClassifyRequest{
+		var startTime time.Time
+		if appConfig.EnableTracing {
+			trace.InitBackendTracingIfEnabled(appConfig.TracingMaxItems, appConfig.TracingMaxBodyBytes)
+			startTime = time.Now()
+		}
+		resp, err := inferenceModel.TokenClassify(ctx, &pb.TokenClassifyRequest{
 			Text:      text,
 			Threshold: opts.Threshold,
 		})
+		entities := tokenClassifyResponseToEntities(resp)
+		if appConfig.EnableTracing {
+			trace.RecordBackendTrace(tokenClassifyTrace(modelConfig, text, opts.Threshold, entities, startTime, err))
+		}
 		if err != nil {
 			return nil, err
 		}
-		return tokenClassifyResponseToEntities(resp), nil
+		return entities, nil
 	}, nil
+}
+
+// tokenClassifyTrace assembles the Traces-UI row for one NER call: the input
+// preview, the threshold, and every detected entity (group, byte range,
+// confidence, matched text). Split out from the closure so the Data assembly
+// is unit-testable without a live backend.
+func tokenClassifyTrace(modelConfig config.ModelConfig, text string, threshold float32, entities []TokenEntity, start time.Time, callErr error) trace.BackendTrace {
+	errStr := ""
+	if callErr != nil {
+		errStr = callErr.Error()
+	}
+	return trace.BackendTrace{
+		Timestamp: start,
+		Duration:  time.Since(start),
+		Type:      trace.BackendTraceTokenClassify,
+		ModelName: modelConfig.Name,
+		Backend:   modelConfig.Backend,
+		Summary:   trace.TruncateString(text, 200),
+		Error:     errStr,
+		Data: map[string]any{
+			"input_chars": len(text),
+			"threshold":   threshold,
+			"entities":    entities,
+		},
+	}
 }
 
 // tokenClassifyResponseToEntities converts the wire-format response into

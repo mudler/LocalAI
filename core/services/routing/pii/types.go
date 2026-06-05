@@ -64,9 +64,10 @@ const (
 type Span struct {
 	Start      int
 	End        int
-	Pattern    string // synthetic detector id, "ner:<GROUP>"
-	HashPrefix string // first 8 chars of sha256(matched value); audit-safe
-	Action     Action // the action that fired for this span (after merge)
+	Pattern    string  // synthetic detector id, "ner:<GROUP>"
+	HashPrefix string  // first 8 chars of sha256(matched value); audit-safe
+	Action     Action  // the action that fired for this span (after merge)
+	Score      float32 // detector confidence for the (winning) hit, 0..1
 }
 
 // Result is what Redact returns. Redacted is the input string after
@@ -131,7 +132,11 @@ type PIIEvent struct {
 	Length        int       `json:"length,omitempty"`
 	HashPrefix    string    `json:"hash_prefix,omitempty"`
 	Action        Action    `json:"action,omitempty"`
-	CreatedAt     time.Time `json:"created_at"`
+	// Score is the detector confidence (0..1) for an NER PII hit. Metadata
+	// only — never the matched value. Lets admins see how sure the model was
+	// about a (possibly false-positive) detection without re-running it.
+	Score     float32   `json:"score,omitempty"`
+	CreatedAt time.Time `json:"created_at"`
 
 	Host          string `json:"host,omitempty"`
 	Intercepted   *bool  `json:"intercepted,omitempty"`

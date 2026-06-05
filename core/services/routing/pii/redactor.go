@@ -6,6 +6,8 @@ import (
 	"encoding/hex"
 	"sort"
 	"strings"
+
+	"github.com/mudler/xlog"
 )
 
 // rawHit is one detection before overlap-merging. Lifted to file scope so
@@ -15,6 +17,7 @@ type rawHit struct {
 	action    Action
 	start     int
 	end       int
+	score     float32
 }
 
 // Redactor is a stateless handle for the PII subsystem. The regex tier
@@ -77,24 +80,42 @@ func collectNERHits(ctx context.Context, text string, cfg NERConfig) ([]rawHit, 
 	}
 	var hits []rawHit
 	for _, e := range entities {
+		// One DEBUG line per raw detection with the model's confidence, the
+		// byte range, the matched substring, and the policy decision. This is
+		// the lowest-level view of why a request was masked/blocked — e.g. a
+		// phone number scored as SSN — and answers "what was in that range and
+		// how sure was the model" without re-running the detector. DEBUG-gated
+		// because the matched value is sensitive.
 		if e.Score < cfg.MinScore {
+			xlog.Debug("pii/ner: detection dropped (below min score)",
+				"group", e.Group, "score", e.Score, "min_score", cfg.MinScore,
+				"start", e.Start, "end", e.End, "text", e.Text)
 			continue
 		}
 		action, ok := cfg.ResolveAction(e.Group)
 		if !ok {
+			xlog.Debug("pii/ner: detection ignored (no action for group)",
+				"group", e.Group, "score", e.Score,
+				"start", e.Start, "end", e.End, "text", e.Text)
 			continue
 		}
 		if e.Start < 0 || e.End <= e.Start || e.End > len(text) {
 			// Defensive: the backend should return byte offsets into the
 			// original text, but a misconfigured model could produce
 			// garbage. Skip rather than panic on slice OOB.
+			xlog.Warn("pii/ner: detection has out-of-range offsets; skipping",
+				"group", e.Group, "start", e.Start, "end", e.End, "text_len", len(text))
 			continue
 		}
+		xlog.Debug("pii/ner: detection accepted",
+			"group", e.Group, "score", e.Score, "action", action,
+			"start", e.Start, "end", e.End, "text", e.Text)
 		hits = append(hits, rawHit{
 			patternID: nerPatternID(e.Group),
 			action:    action,
 			start:     e.Start,
 			end:       e.End,
+			score:     e.Score,
 		})
 	}
 	return hits, nil
@@ -125,6 +146,7 @@ func mergeAndEmit(text string, hits []rawHit) Result {
 				if actionRank(h.action) > actionRank(last.action) {
 					last.action = h.action
 					last.patternID = h.patternID
+					last.score = h.score
 				}
 				if h.end > last.end {
 					last.end = h.end
@@ -147,6 +169,7 @@ func mergeAndEmit(text string, hits []rawHit) Result {
 			Pattern:    h.patternID,
 			HashPrefix: hashPrefix(matched),
 			Action:     h.action,
+			Score:      h.score,
 		}
 		res.Spans = append(res.Spans, span)
 

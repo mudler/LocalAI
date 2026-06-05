@@ -79,6 +79,7 @@ func (d *nerDetector) Detect(ctx context.Context, text string) ([]pii.NEREntity,
 			Start: e.Start,
 			End:   e.End,
 			Score: e.Score,
+			Text:  e.Text,
 		})
 	}
 	return out, nil

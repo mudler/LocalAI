@@ -229,6 +229,7 @@ func RequestMiddleware(redactor *Redactor, store EventStore, adapter Adapter, fa
 						Length:        span.End - span.Start,
 						HashPrefix:    span.HashPrefix,
 						Action:        span.Action,
+						Score:         span.Score,
 						CreatedAt:     time.Now().UTC(),
 					}
 					if firstEventID == "" {

@@ -28,6 +28,10 @@ type NEREntity struct {
 	Start int
 	End   int
 	Score float32
+	// Text is the matched substring as the detector saw it. Carried for
+	// debug logging only (the persisted PIIEvent never stores the raw
+	// value); the redactor re-slices the original text for masking.
+	Text string
 }
 
 // NERConfig configures the encoder tier for one redactor invocation.
