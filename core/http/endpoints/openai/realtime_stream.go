@@ -12,46 +12,36 @@ import (
 	"github.com/mudler/LocalAI/pkg/reasoning"
 )
 
-// speechStreamer consumes streamed LLM tokens and drives the realtime output:
-// it strips reasoning incrementally, emits a transcript text delta for each
-// content fragment, and — when the pipeline streams TTS — sentence-pipes the
-// content so each completed sentence is synthesized as soon as it's ready,
-// overlapping generation, synthesis and playback.
-//
-// It is used only for plain-content turns (no tools): tool-call output can't be
-// safely spoken mid-stream, so those turns keep the buffered path.
-type speechStreamer struct {
+// transcriptStreamer turns streamed LLM tokens into the assistant's spoken
+// transcript: it strips reasoning incrementally and sends one
+// response.output_audio_transcript.delta per content fragment. It does NOT
+// synthesize audio — the caller buffers the full message and synthesizes it
+// once (streaming the audio chunks when the TTS backend supports TTSStream),
+// which works uniformly for streaming and non-streaming TTS and for languages
+// without sentence or word boundaries.
+type transcriptStreamer struct {
 	ctx        context.Context
 	t          Transport
-	session    *Session
 	responseID string
 	itemID     string
-
-	extractor *reasoning.ReasoningExtractor
-	seg       streamSegmenter
-	audio     []byte
-	streamTTS bool
-	err       error
+	extractor  *reasoning.ReasoningExtractor
 }
 
-func newSpeechStreamer(ctx context.Context, t Transport, session *Session, responseID, itemID, thinkingStartToken string, reasoningCfg reasoning.Config) *speechStreamer {
-	// Spoken output must never contain reasoning, even when disable_thinking set
-	// DisableReasoning (which would otherwise turn the extractor's stripping off).
-	reasoningCfg = spokenReasoningConfig(reasoningCfg)
-	return &speechStreamer{
+func newTranscriptStreamer(ctx context.Context, t Transport, responseID, itemID, thinkingStartToken string, reasoningCfg reasoning.Config) *transcriptStreamer {
+	return &transcriptStreamer{
 		ctx:        ctx,
 		t:          t,
-		session:    session,
 		responseID: responseID,
 		itemID:     itemID,
-		extractor:  reasoning.NewReasoningExtractor(thinkingStartToken, reasoningCfg),
-		streamTTS:  session.ModelConfig != nil && session.ModelConfig.Pipeline.StreamTTS(),
+		extractor:  reasoning.NewReasoningExtractor(thinkingStartToken, spokenReasoningConfig(reasoningCfg)),
 	}
 }
 
-// onToken handles one streamed LLM token. It is shaped to be used directly as
-// the backend token callback's text sink.
-func (s *speechStreamer) onToken(token string) {
+// onToken handles one streamed unit of model output, sending a transcript delta
+// for the new content (reasoning stripped). For plain-content models the unit is
+// the raw text token; for autoparser tool turns the backend clears the text and
+// delivers content via ChatDeltas, so the caller passes that content here.
+func (s *transcriptStreamer) onToken(token string) {
 	_, content := s.extractor.ProcessToken(token)
 	if content == "" {
 		return
@@ -64,41 +54,20 @@ func (s *speechStreamer) onToken(token string) {
 		ContentIndex:    0,
 		Delta:           content,
 	})
-	if s.streamTTS {
-		for _, segment := range s.seg.Push(content) {
-			s.speak(segment)
-		}
-	}
 }
 
-func (s *speechStreamer) speak(text string) {
-	pcm, err := emitSpeech(s.ctx, s.t, s.session, s.responseID, s.itemID, text)
-	if err != nil {
-		if s.err == nil {
-			s.err = err
-		}
-		return
-	}
-	s.audio = append(s.audio, pcm...)
-}
-
-// finish flushes any buffered sentence to TTS and returns the full cleaned
-// content, the accumulated PCM audio, and the first error encountered (if any).
-func (s *speechStreamer) finish() (content string, audio []byte, err error) {
-	if s.streamTTS {
-		if rem := s.seg.Flush(); rem != "" {
-			s.speak(rem)
-		}
-	}
-	return s.extractor.CleanedContent(), s.audio, s.err
+// content returns the full transcript so far with reasoning stripped.
+func (s *transcriptStreamer) content() string {
+	return s.extractor.CleanedContent()
 }
 
 // streamLLMResponse drives a streamed, plain-content (no tools) realtime reply.
-// It announces the assistant item before tokens arrive, feeds the LLM token
-// callback through a speechStreamer (transcript deltas + sentence-piped TTS),
-// then emits the terminal events. It returns true when it has fully handled the
-// response so the caller can return; callers must only invoke it for turns with
-// no tools and an audio modality (see triggerResponseAtTurn).
+// It announces the assistant item before tokens arrive, streams transcript
+// deltas as the LLM generates, then synthesizes the whole buffered message once
+// (streaming the audio chunks when the TTS backend supports it, otherwise a
+// single unary delta) and emits the terminal events. It returns true when it has
+// fully handled the response so the caller can return; callers must only invoke
+// it for turns with no tools and an audio modality (see triggerResponseAtTurn).
 func streamLLMResponse(ctx context.Context, session *Session, conv *Conversation, t Transport, responseID string, history schema.Messages, images []string, llmCfg *config.ModelConfig) bool {
 	// Announce the assistant item up front so streamed deltas target a known item.
 	item := types.MessageItemUnion{
@@ -150,7 +119,7 @@ func streamLLMResponse(ctx context.Context, session *Session, conv *Conversation
 	}
 	thinkingStartToken := reasoning.DetectThinkingStartToken(template, &llmCfg.ReasoningConfig)
 
-	streamer := newSpeechStreamer(ctx, t, session, responseID, item.Assistant.ID, thinkingStartToken, llmCfg.ReasoningConfig)
+	streamer := newTranscriptStreamer(ctx, t, responseID, item.Assistant.ID, thinkingStartToken, llmCfg.ReasoningConfig)
 	cb := func(token string, _ backend.TokenUsage) bool {
 		if ctx.Err() != nil {
 			return false
@@ -177,8 +146,16 @@ func streamLLMResponse(ctx context.Context, session *Session, conv *Conversation
 		return true
 	}
 
-	content, audio, err := streamer.finish()
+	// Buffer the whole message, then synthesize it once. emitSpeech streams the
+	// audio chunks when the TTS backend supports TTSStream, otherwise it sends a
+	// single unary delta — no per-sentence segmentation either way.
+	content := streamer.content()
+	audio, err := emitSpeech(ctx, t, session, responseID, item.Assistant.ID, content)
 	if err != nil {
+		if ctx.Err() != nil {
+			cancel()
+			return true
+		}
 		sendError(t, "tts_error", fmt.Sprintf("TTS generation failed: %v", err), "", item.Assistant.ID)
 		return true
 	}

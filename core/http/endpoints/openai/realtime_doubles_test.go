@@ -74,6 +74,15 @@ type fakeModel struct {
 
 	transcribeDeltas []string
 	transcribeFinal  *schema.TranscriptionResult
+
+	// Predict streaming: predictTokens are replayed through the token callback
+	// (simulating streamed LLM output); predictResp/predictErr are returned by
+	// the deferred predict function. predictChunkDeltas, when set, are delivered
+	// per-token via TokenUsage.ChatDeltas to exercise the autoparser path.
+	predictTokens      []string
+	predictChunkDeltas [][]*proto.ChatDelta
+	predictResp        backend.LLMResponse
+	predictErr         error
 }
 
 func (m *fakeModel) VAD(context.Context, *schema.VADRequest) (*schema.VADResponse, error) {
@@ -84,8 +93,23 @@ func (m *fakeModel) Transcribe(context.Context, string, string, bool, bool, stri
 	return m.transcribeFinal, nil
 }
 
-func (m *fakeModel) Predict(context.Context, schema.Messages, []string, []string, []string, func(string, backend.TokenUsage) bool, []types.ToolUnion, *types.ToolChoiceUnion, *int, *int, map[string]float64) (func() (backend.LLMResponse, error), error) {
-	return nil, nil
+func (m *fakeModel) Predict(_ context.Context, _ schema.Messages, _, _, _ []string, cb func(string, backend.TokenUsage) bool, _ []types.ToolUnion, _ *types.ToolChoiceUnion, _, _ *int, _ map[string]float64) (func() (backend.LLMResponse, error), error) {
+	if m.predictErr != nil {
+		return nil, m.predictErr
+	}
+	return func() (backend.LLMResponse, error) {
+		for i, tok := range m.predictTokens {
+			if cb == nil {
+				continue
+			}
+			usage := backend.TokenUsage{}
+			if i < len(m.predictChunkDeltas) {
+				usage.ChatDeltas = m.predictChunkDeltas[i]
+			}
+			cb(tok, usage)
+		}
+		return m.predictResp, nil
+	}, nil
 }
 
 func (m *fakeModel) TTS(context.Context, string, string, string) (string, *proto.Result, error) {
