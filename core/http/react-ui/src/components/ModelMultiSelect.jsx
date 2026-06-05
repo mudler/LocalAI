@@ -46,13 +46,16 @@ export default function ModelMultiSelect({ value, onChange, capability, placehol
         </div>
       )}
 
+      {/* Size by width only. The container is a flex column, so a flex-basis
+          here would set the wrapper's HEIGHT — which the dropdown anchors to
+          (top: 100%), opening it far below the input. */}
       <SearchableModelSelect
         value=""
         onChange={add}
         commitOnly
         capability={capability}
         placeholder={placeholder || '+ Add detector model...'}
-        style={{ flex: '1 1 260px', minWidth: 220, maxWidth: 360 }}
+        style={{ width: '100%', maxWidth: 360 }}
       />
     </div>
   )

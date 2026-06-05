@@ -5,6 +5,7 @@ import { fromState } from '../utils/editorNav'
 import { settingsApi } from '../utils/api'
 import LoadingSpinner from '../components/LoadingSpinner'
 import ModelMultiSelect from '../components/ModelMultiSelect'
+import Toggle from '../components/Toggle'
 import { CAP_TOKEN_CLASSIFY } from '../utils/capabilities'
 
 // humanizeUsecase turns a FLAG_* capability string into a short label for the
@@ -341,8 +342,8 @@ function DefaultPIIPolicy({ pii, addToast, onChanged }) {
         ) : (
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--spacing-md)' }}>
             {coverable.map(uc => (
-              <label key={uc} style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: '0.8125rem', cursor: 'pointer' }}>
-                <input type="checkbox" checked={usecases.includes(uc)} onChange={() => toggleUsecase(uc)} />
+              <label key={uc} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: '0.8125rem', cursor: 'pointer' }}>
+                <Toggle checked={usecases.includes(uc)} onChange={() => toggleUsecase(uc)} />
                 {humanizeUsecase(uc)}
               </label>
             ))}
