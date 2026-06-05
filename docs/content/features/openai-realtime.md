@@ -48,9 +48,9 @@ pipeline:
     transcription: true  # stream transcript text deltas of the user's speech
 ```
 
-- **streaming.tts**: emit a `response.output_audio.delta` per audio chunk the TTS backend produces, instead of one delta for the whole utterance.
+- **streaming.tts**: emit a `response.output_audio.delta` per audio chunk the TTS backend produces (requires a backend that supports streaming synthesis), instead of one delta for the whole utterance. Falls back to a single unary delta otherwise.
 - **streaming.transcription**: stream `conversation.item.input_audio_transcription.delta` events as the transcript is produced (requires a transcription backend that supports streaming).
-- **streaming.llm**: stream the LLM reply token-by-token as `response.output_audio_transcript.delta` events and, when `streaming.tts` is also enabled, synthesize each completed sentence as soon as it is ready — overlapping generation, synthesis and playback. Streaming is used only for turns that cannot produce a tool call; turns with tools fall back to the buffered path so partial tool-call output is never spoken.
+- **streaming.llm**: stream the LLM reply token-by-token as `response.output_audio_transcript.delta` events. The full reply is buffered and synthesized once it is complete — streamed as audio chunks when `streaming.tts` is enabled (and the TTS backend supports it), otherwise as a single unary delta. Reasoning/thinking is always stripped from the spoken transcript. Tool calls are supported while streaming when the LLM uses its tokenizer template (`use_tokenizer_template: true`): the backend's autoparser then delivers content and tool calls separately, so the spoken transcript never leaks tool-call tokens. Grammar-based function calling keeps the buffered path.
 
 All streaming flags are off by default, so existing pipelines are unaffected.
 

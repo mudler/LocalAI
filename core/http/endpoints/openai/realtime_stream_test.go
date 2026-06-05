@@ -9,6 +9,7 @@ import (
 	"github.com/mudler/LocalAI/core/backend"
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/http/endpoints/openai/types"
+	"github.com/mudler/LocalAI/pkg/grpc/proto"
 	"github.com/mudler/LocalAI/pkg/reasoning"
 )
 
@@ -69,7 +70,7 @@ var _ = Describe("streamLLMResponse", func() {
 		t := &fakeTransport{}
 		llmCfg := &config.ModelConfig{}
 
-		handled := streamLLMResponse(context.Background(), session, conv, t, "resp1", nil, nil, llmCfg)
+		handled := streamLLMResponse(context.Background(), session, conv, t, "resp1", nil, nil, llmCfg, nil, nil, 0)
 
 		Expect(handled).To(BeTrue())
 		// One live transcript delta per streamed token.
@@ -78,5 +79,72 @@ var _ = Describe("streamLLMResponse", func() {
 		// emitSpeech replays the one TTS stream chunk.
 		Expect(t.countEvents(types.ServerEventTypeResponseOutputAudioDelta)).To(Equal(1))
 		Expect(t.transcriptDeltaText()).To(Equal("Hello world. How are you?"))
+	})
+
+	It("streams content deltas and emits tool-call items (autoparser tool turn)", func() {
+		on := true
+		// Autoparser path: reply.Message is empty; content + tool calls arrive via
+		// ChatDeltas. Chunk 1 carries content, chunk 2 carries the tool call.
+		contentDelta := []*proto.ChatDelta{{Content: "Let me check."}}
+		toolDelta := []*proto.ChatDelta{{ToolCalls: []*proto.ToolCallDelta{{Index: 0, Name: "get_weather", Arguments: `{"city":"Paris"}`}}}}
+		m := &fakeModel{
+			predictTokens:      []string{"", ""},
+			predictChunkDeltas: [][]*proto.ChatDelta{contentDelta, toolDelta},
+			predictResp:        backend.LLMResponse{ChatDeltas: append(append([]*proto.ChatDelta{}, contentDelta...), toolDelta...)},
+			ttsStreamChunks:    [][]byte{{9}},
+			ttsStreamRate:      24000,
+		}
+		session := &Session{
+			OutputSampleRate: 24000,
+			ModelInterface:   m,
+			ModelConfig: &config.ModelConfig{
+				Pipeline: config.Pipeline{Streaming: config.PipelineStreaming{LLM: &on, TTS: &on}},
+			},
+		}
+		conv := &Conversation{}
+		t := &fakeTransport{}
+		llmCfg := &config.ModelConfig{}
+		llmCfg.TemplateConfig.UseTokenizerTemplate = true
+
+		handled := streamLLMResponse(context.Background(), session, conv, t, "resp1", nil, nil, llmCfg, nil, nil, 0)
+
+		Expect(handled).To(BeTrue())
+		// The spoken content was streamed live.
+		Expect(t.transcriptDeltaText()).To(Equal("Let me check."))
+		// The tool call is emitted as a function_call item.
+		Expect(t.countEvents(types.ServerEventTypeResponseFunctionCallArgumentsDone)).To(Equal(1))
+		// Exactly one terminal response.done.
+		Expect(t.countEvents(types.ServerEventTypeResponseDone)).To(Equal(1))
+	})
+
+	It("emits only tool-call items for a content-less tool turn (no empty assistant item)", func() {
+		on := true
+		toolDelta := []*proto.ChatDelta{{ToolCalls: []*proto.ToolCallDelta{{Index: 0, Name: "get_weather", Arguments: `{"city":"Rome"}`}}}}
+		m := &fakeModel{
+			predictTokens:      []string{""},
+			predictChunkDeltas: [][]*proto.ChatDelta{toolDelta},
+			predictResp:        backend.LLMResponse{ChatDeltas: toolDelta},
+		}
+		session := &Session{
+			OutputSampleRate: 24000,
+			ModelInterface:   m,
+			ModelConfig: &config.ModelConfig{
+				Pipeline: config.Pipeline{Streaming: config.PipelineStreaming{LLM: &on, TTS: &on}},
+			},
+		}
+		conv := &Conversation{}
+		t := &fakeTransport{}
+		llmCfg := &config.ModelConfig{}
+		llmCfg.TemplateConfig.UseTokenizerTemplate = true
+
+		handled := streamLLMResponse(context.Background(), session, conv, t, "resp1", nil, nil, llmCfg, nil, nil, 0)
+
+		Expect(handled).To(BeTrue())
+		// No content → no transcript deltas and no spurious assistant content item.
+		Expect(t.transcriptDeltaText()).To(Equal(""))
+		Expect(t.countEvents(types.ServerEventTypeResponseOutputAudioTranscriptDelta)).To(Equal(0))
+		// The tool call is still emitted.
+		Expect(t.countEvents(types.ServerEventTypeResponseFunctionCallArgumentsDone)).To(Equal(1))
+		Expect(t.countEvents(types.ServerEventTypeResponseDone)).To(Equal(1))
 	})
 })

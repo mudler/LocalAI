@@ -1496,18 +1496,21 @@ func triggerResponseAtTurn(ctx context.Context, session *Session, conv *Conversa
 		},
 	})
 
-	// Streamed LLM path: when the pipeline opts into LLM streaming and the turn
-	// cannot produce a tool call (no tools), stream tokens straight to the client
-	// as transcript deltas and sentence-pipe them into TTS. Tool turns fall
-	// through to the buffered path below, since partial tool-call output can't be
-	// safely spoken mid-stream.
-	if config != nil && session.ModelConfig != nil && session.ModelConfig.Pipeline.StreamLLM() && len(tools) == 0 {
+	// Streamed LLM path: when the pipeline opts into LLM streaming, stream the
+	// transcript to the client as it is generated and synthesize the buffered
+	// message once. Tool turns are supported only when the model uses its
+	// tokenizer template: the C++ autoparser then delivers content and tool
+	// calls via ChatDeltas (clearing the text stream), so the spoken transcript
+	// never leaks tool-call tokens. Grammar-based function calling emits the
+	// call as JSON in the token stream, so those turns keep the buffered path.
+	if config != nil && session.ModelConfig != nil && session.ModelConfig.Pipeline.StreamLLM() {
+		canStream := len(tools) == 0 || config.TemplateConfig.UseTokenizerTemplate
 		var respMods []types.Modality
 		if overrides != nil {
 			respMods = overrides.OutputModalities
 		}
-		if modalitiesContainAudio(resolveOutputModalities(session.OutputModalities, respMods)) {
-			if streamLLMResponse(ctx, session, conv, t, responseID, conversationHistory, images, config) {
+		if canStream && modalitiesContainAudio(resolveOutputModalities(session.OutputModalities, respMods)) {
+			if streamLLMResponse(ctx, session, conv, t, responseID, conversationHistory, images, config, tools, toolChoice, toolTurn) {
 				return
 			}
 		}
@@ -1814,17 +1817,27 @@ func triggerResponseAtTurn(ctx context.Context, session *Session, conv *Conversa
 		})
 	}
 
-	// Handle Tool Calls. Two paths:
-	//   - LocalAI Assistant tools (session.AssistantExecutor.IsTool) run
-	//     server-side; we append both the call and its output to conv.Items
-	//     and re-trigger a follow-up response so the model can speak the
-	//     result. The client only sees observability events.
-	//   - All other tools follow the standard OpenAI flow: emit
-	//     function_call_arguments.done and wait for the client to send
-	//     conversation.item.create back.
-	xlog.Debug("About to handle tool calls", "finalToolCallsCount", len(finalToolCalls))
+	// Emit the parsed tool calls, the terminal response.done, and (for
+	// server-side assistant tools) the follow-up response. Shared with the
+	// streamed path so both finalize tool calls identically.
+	emitToolCallItems(ctx, session, conv, t, responseID, finalToolCalls, finalSpeech != "", toolTurn)
+}
+
+// emitToolCallItems emits the realtime function_call items for the parsed tool
+// calls, the terminal response.done, and — for server-side LocalAI Assistant
+// tools — re-triggers a follow-up response so the model can speak the result.
+// hasContent shifts the tool-call output index past the assistant content item
+// when the same turn also produced spoken/text content. Two tool paths:
+//   - LocalAI Assistant tools (session.AssistantExecutor.IsTool) run server-side;
+//     we append both the call and its output to conv.Items and re-trigger. The
+//     client only sees observability events.
+//   - All other tools follow the standard OpenAI flow: emit
+//     function_call_arguments.done and wait for the client to send
+//     conversation.item.create back.
+func emitToolCallItems(ctx context.Context, session *Session, conv *Conversation, t Transport, responseID string, toolCalls []functions.FuncCallResults, hasContent bool, toolTurn int) {
+	xlog.Debug("About to handle tool calls", "finalToolCallsCount", len(toolCalls))
 	executedAssistantTool := false
-	for i, tc := range finalToolCalls {
+	for i, tc := range toolCalls {
 		toolCallID := generateItemID()
 		callID := "call_" + generateUniqueID() // OpenAI uses call_xyz
 
@@ -1844,7 +1857,7 @@ func triggerResponseAtTurn(ctx context.Context, session *Session, conv *Conversa
 		conv.Lock.Unlock()
 
 		outputIndex := i
-		if finalSpeech != "" {
+		if hasContent {
 			outputIndex++
 		}
 

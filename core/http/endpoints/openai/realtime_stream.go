@@ -9,6 +9,7 @@ import (
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/http/endpoints/openai/types"
 	"github.com/mudler/LocalAI/core/schema"
+	"github.com/mudler/LocalAI/pkg/functions"
 	"github.com/mudler/LocalAI/pkg/reasoning"
 )
 
@@ -25,6 +26,12 @@ type transcriptStreamer struct {
 	responseID string
 	itemID     string
 	extractor  *reasoning.ReasoningExtractor
+
+	// announce, if set, is invoked once just before the first transcript delta.
+	// It lets the caller create the assistant item lazily, so a content-less
+	// tool-call turn never emits a spurious empty assistant item.
+	announce  func()
+	announced bool
 }
 
 func newTranscriptStreamer(ctx context.Context, t Transport, responseID, itemID, thinkingStartToken string, reasoningCfg reasoning.Config) *transcriptStreamer {
@@ -46,6 +53,12 @@ func (s *transcriptStreamer) onToken(token string) {
 	if content == "" {
 		return
 	}
+	if !s.announced {
+		s.announced = true
+		if s.announce != nil {
+			s.announce()
+		}
+	}
 	_ = s.t.SendEvent(types.ResponseOutputAudioTranscriptDeltaEvent{
 		ServerEventBase: types.ServerEventBase{},
 		ResponseID:      s.responseID,
@@ -61,50 +74,61 @@ func (s *transcriptStreamer) content() string {
 	return s.extractor.CleanedContent()
 }
 
-// streamLLMResponse drives a streamed, plain-content (no tools) realtime reply.
-// It announces the assistant item before tokens arrive, streams transcript
-// deltas as the LLM generates, then synthesizes the whole buffered message once
-// (streaming the audio chunks when the TTS backend supports it, otherwise a
-// single unary delta) and emits the terminal events. It returns true when it has
-// fully handled the response so the caller can return; callers must only invoke
-// it for turns with no tools and an audio modality (see triggerResponseAtTurn).
-func streamLLMResponse(ctx context.Context, session *Session, conv *Conversation, t Transport, responseID string, history schema.Messages, images []string, llmCfg *config.ModelConfig) bool {
-	// Announce the assistant item up front so streamed deltas target a known item.
+// streamLLMResponse drives a streamed realtime reply. It streams the assistant
+// transcript as the LLM generates, then synthesizes the whole buffered message
+// once (streaming the audio chunks when the TTS backend supports it, otherwise a
+// single unary delta). Tool calls parsed from the autoparser ChatDeltas are
+// emitted after the spoken content. The assistant content item is created lazily
+// on the first content delta, so a content-less tool-call turn emits only the
+// tool calls. It returns true when it has fully handled the response so the
+// caller can return; callers must only invoke it for an audio modality, and with
+// tools only when the model uses its tokenizer template (see triggerResponseAtTurn).
+func streamLLMResponse(ctx context.Context, session *Session, conv *Conversation, t Transport, responseID string, history schema.Messages, images []string, llmCfg *config.ModelConfig, tools []types.ToolUnion, toolChoice *types.ToolChoiceUnion, toolTurn int) bool {
+	itemID := generateItemID()
 	item := types.MessageItemUnion{
 		Assistant: &types.MessageItemAssistant{
-			ID:      generateItemID(),
+			ID:      itemID,
 			Status:  types.ItemStatusInProgress,
 			Content: []types.MessageContentOutput{{Type: types.MessageContentTypeOutputAudio}},
 		},
 	}
-	conv.Lock.Lock()
-	conv.Items = append(conv.Items, &item)
-	conv.Lock.Unlock()
 
-	sendEvent(t, types.ResponseOutputItemAddedEvent{
-		ServerEventBase: types.ServerEventBase{},
-		ResponseID:      responseID,
-		OutputIndex:     0,
-		Item:            item,
-	})
-	sendEvent(t, types.ResponseContentPartAddedEvent{
-		ServerEventBase: types.ServerEventBase{},
-		ResponseID:      responseID,
-		ItemID:          item.Assistant.ID,
-		OutputIndex:     0,
-		ContentIndex:    0,
-		Part:            item.Assistant.Content[0],
-	})
+	// announce creates the assistant content item lazily, just before the first
+	// transcript delta — a tool-only turn never produces content, so it stays out
+	// of the conversation and the client sees only the tool calls.
+	announced := false
+	announce := func() {
+		announced = true
+		conv.Lock.Lock()
+		conv.Items = append(conv.Items, &item)
+		conv.Lock.Unlock()
+		sendEvent(t, types.ResponseOutputItemAddedEvent{
+			ServerEventBase: types.ServerEventBase{},
+			ResponseID:      responseID,
+			OutputIndex:     0,
+			Item:            item,
+		})
+		sendEvent(t, types.ResponseContentPartAddedEvent{
+			ServerEventBase: types.ServerEventBase{},
+			ResponseID:      responseID,
+			ItemID:          itemID,
+			OutputIndex:     0,
+			ContentIndex:    0,
+			Part:            item.Assistant.Content[0],
+		})
+	}
 
 	cancel := func() {
-		conv.Lock.Lock()
-		for i := len(conv.Items) - 1; i >= 0; i-- {
-			if conv.Items[i].Assistant != nil && conv.Items[i].Assistant.ID == item.Assistant.ID {
-				conv.Items = append(conv.Items[:i], conv.Items[i+1:]...)
-				break
+		if announced {
+			conv.Lock.Lock()
+			for i := len(conv.Items) - 1; i >= 0; i-- {
+				if conv.Items[i].Assistant != nil && conv.Items[i].Assistant.ID == itemID {
+					conv.Items = append(conv.Items[:i], conv.Items[i+1:]...)
+					break
+				}
 			}
+			conv.Lock.Unlock()
 		}
-		conv.Lock.Unlock()
 		sendEvent(t, types.ResponseDoneEvent{
 			ServerEventBase: types.ServerEventBase{},
 			Response:        types.Response{ID: responseID, Object: "realtime.response", Status: types.ResponseStatusCancelled},
@@ -119,26 +143,36 @@ func streamLLMResponse(ctx context.Context, session *Session, conv *Conversation
 	}
 	thinkingStartToken := reasoning.DetectThinkingStartToken(template, &llmCfg.ReasoningConfig)
 
-	streamer := newTranscriptStreamer(ctx, t, responseID, item.Assistant.ID, thinkingStartToken, llmCfg.ReasoningConfig)
-	cb := func(token string, _ backend.TokenUsage) bool {
+	streamer := newTranscriptStreamer(ctx, t, responseID, itemID, thinkingStartToken, llmCfg.ReasoningConfig)
+	streamer.announce = announce
+	cb := func(token string, usage backend.TokenUsage) bool {
 		if ctx.Err() != nil {
 			return false
 		}
-		streamer.onToken(token)
+		// Plain-content models stream text via the token; autoparser tool turns
+		// clear the text and deliver content via ChatDeltas, so prefer the latter
+		// when present. Either way only content reaches the transcript — tool-call
+		// deltas are parsed from the final response below.
+		text := token
+		if len(usage.ChatDeltas) > 0 {
+			text = functions.ContentFromChatDeltas(usage.ChatDeltas)
+		}
+		streamer.onToken(text)
 		return true
 	}
 
-	predFunc, err := session.ModelInterface.Predict(ctx, history, images, nil, nil, cb, nil, nil, nil, nil, nil)
+	predFunc, err := session.ModelInterface.Predict(ctx, history, images, nil, nil, cb, tools, toolChoice, nil, nil, nil)
 	if err != nil {
-		sendError(t, "inference_failed", fmt.Sprintf("backend error: %v", err), "", item.Assistant.ID)
+		sendError(t, "inference_failed", fmt.Sprintf("backend error: %v", err), "", itemID)
 		return true
 	}
-	if _, err := predFunc(); err != nil {
+	pred, err := predFunc()
+	if err != nil {
 		if ctx.Err() != nil {
 			cancel()
 			return true
 		}
-		sendError(t, "prediction_failed", fmt.Sprintf("backend error: %v", err), "", item.Assistant.ID)
+		sendError(t, "prediction_failed", fmt.Sprintf("backend error: %v", err), "", itemID)
 		return true
 	}
 	if ctx.Err() != nil {
@@ -146,65 +180,74 @@ func streamLLMResponse(ctx context.Context, session *Session, conv *Conversation
 		return true
 	}
 
-	// Buffer the whole message, then synthesize it once. emitSpeech streams the
-	// audio chunks when the TTS backend supports TTSStream, otherwise it sends a
-	// single unary delta — no per-sentence segmentation either way.
 	content := streamer.content()
-	audio, err := emitSpeech(ctx, t, session, responseID, item.Assistant.ID, content)
-	if err != nil {
-		if ctx.Err() != nil {
-			cancel()
+	toolCalls := functions.ToolCallsFromChatDeltas(pred.ChatDeltas)
+
+	// Finalize the spoken content item only when the turn produced content. A
+	// tool-only turn skips this entirely (no empty assistant item).
+	if content != "" {
+		if !announced {
+			announce()
+		}
+		// Buffer the whole message, then synthesize it once. emitSpeech streams
+		// the audio chunks when the TTS backend supports TTSStream, otherwise it
+		// sends a single unary delta — no per-sentence segmentation either way.
+		audio, err := emitSpeech(ctx, t, session, responseID, itemID, content)
+		if err != nil {
+			if ctx.Err() != nil {
+				cancel()
+				return true
+			}
+			sendError(t, "tts_error", fmt.Sprintf("TTS generation failed: %v", err), "", itemID)
 			return true
 		}
-		sendError(t, "tts_error", fmt.Sprintf("TTS generation failed: %v", err), "", item.Assistant.ID)
-		return true
-	}
 
-	_, isWebRTC := t.(*WebRTCTransport)
+		_, isWebRTC := t.(*WebRTCTransport)
 
-	sendEvent(t, types.ResponseOutputAudioTranscriptDoneEvent{
-		ServerEventBase: types.ServerEventBase{},
-		ResponseID:      responseID,
-		ItemID:          item.Assistant.ID,
-		OutputIndex:     0,
-		ContentIndex:    0,
-		Transcript:      content,
-	})
-	if !isWebRTC {
-		sendEvent(t, types.ResponseOutputAudioDoneEvent{
+		sendEvent(t, types.ResponseOutputAudioTranscriptDoneEvent{
 			ServerEventBase: types.ServerEventBase{},
 			ResponseID:      responseID,
-			ItemID:          item.Assistant.ID,
+			ItemID:          itemID,
 			OutputIndex:     0,
 			ContentIndex:    0,
+			Transcript:      content,
+		})
+		if !isWebRTC {
+			sendEvent(t, types.ResponseOutputAudioDoneEvent{
+				ServerEventBase: types.ServerEventBase{},
+				ResponseID:      responseID,
+				ItemID:          itemID,
+				OutputIndex:     0,
+				ContentIndex:    0,
+			})
+		}
+
+		conv.Lock.Lock()
+		item.Assistant.Status = types.ItemStatusCompleted
+		item.Assistant.Content[0].Transcript = content
+		if !isWebRTC {
+			item.Assistant.Content[0].Audio = base64.StdEncoding.EncodeToString(audio)
+		}
+		conv.Lock.Unlock()
+
+		sendEvent(t, types.ResponseContentPartDoneEvent{
+			ServerEventBase: types.ServerEventBase{},
+			ResponseID:      responseID,
+			ItemID:          itemID,
+			OutputIndex:     0,
+			ContentIndex:    0,
+			Part:            item.Assistant.Content[0],
+		})
+		sendEvent(t, types.ResponseOutputItemDoneEvent{
+			ServerEventBase: types.ServerEventBase{},
+			ResponseID:      responseID,
+			OutputIndex:     0,
+			Item:            item,
 		})
 	}
 
-	conv.Lock.Lock()
-	item.Assistant.Status = types.ItemStatusCompleted
-	item.Assistant.Content[0].Transcript = content
-	if !isWebRTC {
-		item.Assistant.Content[0].Audio = base64.StdEncoding.EncodeToString(audio)
-	}
-	conv.Lock.Unlock()
-
-	sendEvent(t, types.ResponseContentPartDoneEvent{
-		ServerEventBase: types.ServerEventBase{},
-		ResponseID:      responseID,
-		ItemID:          item.Assistant.ID,
-		OutputIndex:     0,
-		ContentIndex:    0,
-		Part:            item.Assistant.Content[0],
-	})
-	sendEvent(t, types.ResponseOutputItemDoneEvent{
-		ServerEventBase: types.ServerEventBase{},
-		ResponseID:      responseID,
-		OutputIndex:     0,
-		Item:            item,
-	})
-	sendEvent(t, types.ResponseDoneEvent{
-		ServerEventBase: types.ServerEventBase{},
-		Response:        types.Response{ID: responseID, Object: "realtime.response", Status: types.ResponseStatusCompleted},
-	})
+	// Emit any tool calls, the terminal response.done, and (for server-side
+	// assistant tools) the follow-up turn — shared with the buffered path.
+	emitToolCallItems(ctx, session, conv, t, responseID, toolCalls, content != "", toolTurn)
 	return true
 }
