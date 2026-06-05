@@ -5,6 +5,7 @@ import (
 	"encoding/base64"
 	"fmt"
 	"os"
+	"path/filepath"
 
 	"github.com/mudler/LocalAI/core/http/endpoints/openai/types"
 	laudio "github.com/mudler/LocalAI/pkg/audio"
@@ -84,7 +85,9 @@ func emitSpeech(ctx context.Context, t Transport, session *Session, responseID, 
 	}
 	defer func() { _ = os.Remove(audioFilePath) }()
 
-	audioBytes, err := os.ReadFile(audioFilePath)
+	// filepath.Clean normalizes the backend-produced temp path before reading
+	// (also keeps gosec G304 quiet — the path is backend-controlled, not user input).
+	audioBytes, err := os.ReadFile(filepath.Clean(audioFilePath))
 	if err != nil {
 		return nil, fmt.Errorf("read tts audio: %w", err)
 	}
