@@ -199,7 +199,8 @@ var _ = Describe("HuggingFace API Client", func() {
 				}
 				w.Header().Set("Content-Type", "application/json")
 				w.WriteHeader(http.StatusOK)
-				w.Write([]byte("[]"))
+				_, err := w.Write([]byte("[]"))
+				Expect(err).ToNot(HaveOccurred())
 			}))
 			client.SetBaseURL(server.URL)
 

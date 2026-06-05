@@ -138,7 +138,9 @@ func (c *Client) SearchModels(params SearchParams) ([]Model, error) {
 		}
 
 		if resp.StatusCode != http.StatusOK {
-			resp.Body.Close()
+			if err := resp.Body.Close(); err != nil {
+				return nil, fmt.Errorf("failed to close response body: %w", err)
+			}
 			if c.isRetryableStatus(resp.StatusCode) && attempt < c.maxRetries {
 				c.sleepFn(c.retryDelay(resp, attempt))
 				continue
@@ -151,9 +153,12 @@ func (c *Client) SearchModels(params SearchParams) ([]Model, error) {
 
 		// Read the response body
 		body, err := io.ReadAll(resp.Body)
-		resp.Body.Close()
+		closeErr := resp.Body.Close()
 		if err != nil {
 			return nil, fmt.Errorf("failed to read response body: %w", err)
+		}
+		if closeErr != nil {
+			return nil, fmt.Errorf("failed to close response body: %w", closeErr)
 		}
 
 		// Parse the JSON response
