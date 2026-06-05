@@ -12,6 +12,8 @@ const MOCK_METADATA = {
     { path: 'cuda', yaml_key: 'cuda', go_type: 'bool', ui_type: 'bool', section: 'general', label: 'CUDA', description: 'Enable CUDA GPU acceleration', component: 'toggle', order: 30 },
     { path: 'parameters.temperature', yaml_key: 'temperature', go_type: '*float64', ui_type: 'float', section: 'parameters', label: 'Temperature', description: 'Sampling temperature', component: 'slider', min: 0, max: 2, step: 0.1, order: 0 },
     { path: 'parameters.top_p', yaml_key: 'top_p', go_type: '*float64', ui_type: 'float', section: 'parameters', label: 'Top P', description: 'Nucleus sampling threshold', component: 'slider', min: 0, max: 1, step: 0.05, order: 10 },
+    { path: 'pii_detection.builtins', yaml_key: 'builtins', go_type: '[]string', ui_type: '[]string', section: 'general', label: 'Built-in Secret Patterns', description: 'Built-in credential patterns', component: 'pii-builtins-select', options: [{ value: 'anthropic_api_key', label: 'anthropic_api_key — Anthropic API key' }, { value: 'github_token', label: 'github_token — GitHub token' }], order: 213 },
+    { path: 'pii_detection.patterns', yaml_key: 'patterns', go_type: '[]config.PIIPattern', ui_type: 'object', section: 'general', label: 'Custom Secret Patterns', description: 'Operator-defined restricted-regex patterns', component: 'pii-pattern-list', order: 214 },
   ],
 }
 
@@ -256,6 +258,33 @@ test.describe('Model Editor - Interactive Tab', () => {
     await page.evaluate(() => window.scrollTo(0, 200))
     await page.waitForTimeout(50)
     await expect(page.locator('nav').first()).toBeVisible()
+  })
+
+  test('built-in secret patterns render as a checklist from field options', async ({ page }) => {
+    const searchInput = page.locator('input[placeholder="Search fields to add..."]')
+    await searchInput.fill('Built-in Secret Patterns')
+    const dropdown = searchInput.locator('..').locator('..')
+    await dropdown.locator('div', { hasText: 'Built-in Secret Patterns' }).first().click()
+
+    // One checkbox per catalogue option; toggling one enables Save.
+    const anthropic = page.locator('label', { hasText: 'Anthropic API key' }).locator('input[type="checkbox"]')
+    await expect(anthropic).toHaveCount(1)
+    await anthropic.check()
+    await expect(anthropic).toBeChecked()
+  })
+
+  test('custom secret patterns render the pattern-list editor', async ({ page }) => {
+    const searchInput = page.locator('input[placeholder="Search fields to add..."]')
+    await searchInput.fill('Custom Secret Patterns')
+    const dropdown = searchInput.locator('..').locator('..')
+    await dropdown.locator('div', { hasText: 'Custom Secret Patterns' }).first().click()
+
+    // Empty state + an Add button; adding a row shows the name + match inputs.
+    const addBtn = page.locator('button', { hasText: 'Add pattern' })
+    await expect(addBtn).toBeVisible()
+    await addBtn.click()
+    await expect(page.locator('input[placeholder^="Name (group)"]')).toBeVisible()
+    await expect(page.locator('input[placeholder^="match,"]')).toBeVisible()
   })
 
 })

@@ -7,6 +7,7 @@ import AutocompleteInput from './AutocompleteInput'
 import CodeEditor from './CodeEditor'
 import StructuredCodeEditor from './StructuredCodeEditor'
 import EntityActionListEditor from './EntityActionListEditor'
+import PatternListEditor from './PatternListEditor'
 import ModelMultiSelect from './ModelMultiSelect'
 import RouterCandidatesEditor from './RouterCandidatesEditor'
 import RouterPoliciesEditor from './RouterPoliciesEditor'
@@ -426,6 +427,45 @@ export default function ConfigFieldRenderer({ field, value, onChange, onRemove, 
           </div>
         </div>
         <EntityActionListEditor value={value} onChange={handleChange} />
+      </div>
+    )
+  }
+
+  // PII built-in secret patterns — a checklist of named built-in patterns
+  // (pii_detection.builtins). value is an array of selected names.
+  if (component === 'pii-builtins-select') {
+    const selected = Array.isArray(value) ? value : []
+    const toggle = (name) => {
+      handleChange(selected.includes(name) ? selected.filter(n => n !== name) : [...selected, name])
+    }
+    return (
+      <div style={{ padding: 'var(--spacing-sm) 0', borderBottom: '1px solid var(--color-border-subtle)' }}>
+        <div style={{ marginBottom: 4 }}>
+          <div style={{ fontSize: '0.875rem', fontWeight: 500 }}><FieldLabel field={field} /></div>
+          <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', marginTop: 2 }}>{description}</div>
+        </div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+          {(field.options || []).map(opt => (
+            <label key={opt.value} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: '0.8125rem', cursor: 'pointer' }}>
+              <input type="checkbox" checked={selected.includes(opt.value)} onChange={() => toggle(opt.value)} />
+              {opt.label || opt.value}
+            </label>
+          ))}
+        </div>
+      </div>
+    )
+  }
+
+  // PII custom secret patterns — operator-defined restricted-regex rules
+  // (pii_detection.patterns). value is an array of {name, match, action, min_len}.
+  if (component === 'pii-pattern-list') {
+    return (
+      <div style={{ padding: 'var(--spacing-sm) 0', borderBottom: '1px solid var(--color-border-subtle)' }}>
+        <div style={{ marginBottom: 4 }}>
+          <div style={{ fontSize: '0.875rem', fontWeight: 500 }}><FieldLabel field={field} /></div>
+          <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', marginTop: 2 }}>{description}</div>
+        </div>
+        <PatternListEditor value={value} onChange={handleChange} />
       </div>
     )
   }
