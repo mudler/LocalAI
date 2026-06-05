@@ -78,6 +78,9 @@ type ModelLookup interface {
 type InFlightTracker interface {
 	IncrementInFlight(ctx context.Context, nodeID, modelName string, replicaIndex int) error
 	DecrementInFlight(ctx context.Context, nodeID, modelName string, replicaIndex int) error
+	// RemoveNodeModel drops a stale replica row so the next request reloads the
+	// model instead of routing back to a node where it is no longer loaded.
+	RemoveNodeModel(ctx context.Context, nodeID, modelName string, replicaIndex int) error
 }
 
 // NodeManager is used by HTTP endpoints for node registration and lifecycle.

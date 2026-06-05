@@ -15,6 +15,7 @@ import (
 
 	"github.com/go-audio/wav"
 	"github.com/mudler/LocalAI/pkg/grpc/base"
+	"github.com/mudler/LocalAI/pkg/grpc/grpcerrors"
 	pb "github.com/mudler/LocalAI/pkg/grpc/proto"
 	"github.com/mudler/LocalAI/pkg/utils"
 	"github.com/mudler/xlog"
@@ -230,7 +231,7 @@ func (p *ParakeetCpp) runBatch(reqs []*batchRequest) {
 // (L2).
 func (p *ParakeetCpp) AudioTranscription(ctx context.Context, opts *pb.TranscriptRequest) (pb.TranscriptResult, error) {
 	if p.ctxPtr == 0 {
-		return pb.TranscriptResult{}, errors.New("parakeet-cpp: model not loaded")
+		return pb.TranscriptResult{}, grpcerrors.ModelNotLoaded("parakeet-cpp")
 	}
 	if opts.Dst == "" {
 		return pb.TranscriptResult{}, errors.New("parakeet-cpp: TranscriptRequest.dst (audio path) is required")
@@ -351,7 +352,7 @@ func (p *ParakeetCpp) AudioTranscriptionStream(ctx context.Context, opts *pb.Tra
 	defer close(results)
 
 	if p.ctxPtr == 0 {
-		return errors.New("parakeet-cpp: model not loaded")
+		return grpcerrors.ModelNotLoaded("parakeet-cpp")
 	}
 	if opts.Dst == "" {
 		return errors.New("parakeet-cpp: TranscriptRequest.dst (audio path) is required")
