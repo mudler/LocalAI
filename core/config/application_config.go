@@ -64,13 +64,6 @@ type ApplicationConfig struct {
 	// POST /api/settings; read live by Application.ResolvePIIPolicy.
 	PIIDefaultDetectors []string
 
-	// PIIDefaultUsecases lists model usecases (e.g. "chat") that should have
-	// request-side PII filtering enabled by default, even when a model sets no
-	// pii.enabled. Lets an operator turn PII on for a whole class of models
-	// from the Middleware page rather than editing each config. Explicit
-	// pii.enabled on a model always wins.
-	PIIDefaultUsecases []string
-
 	// MITMCADir holds the persisted MITM proxy CA cert and private
 	// key. The CA is generated on first start; subsequent starts
 	// reload it so clients keep trusting the same root. The key
@@ -1083,7 +1076,6 @@ func (o *ApplicationConfig) ToRuntimeSettings() RuntimeSettings {
 	mitmListen := o.MITMListen
 
 	piiDefaultDetectors := append([]string(nil), o.PIIDefaultDetectors...)
-	piiDefaultUsecases := append([]string(nil), o.PIIDefaultUsecases...)
 
 	return RuntimeSettings{
 		WatchdogEnabled:           &watchdogEnabled,
@@ -1140,7 +1132,6 @@ func (o *ApplicationConfig) ToRuntimeSettings() RuntimeSettings {
 		FaviconFile:               &faviconFile,
 		MITMListen:                &mitmListen,
 		PIIDefaultDetectors:       &piiDefaultDetectors,
-		PIIDefaultUsecases:        &piiDefaultUsecases,
 	}
 }
 
@@ -1372,9 +1363,6 @@ func (o *ApplicationConfig) ApplyRuntimeSettings(settings *RuntimeSettings) (req
 
 	if settings.PIIDefaultDetectors != nil {
 		o.PIIDefaultDetectors = append([]string(nil), (*settings.PIIDefaultDetectors)...)
-	}
-	if settings.PIIDefaultUsecases != nil {
-		o.PIIDefaultUsecases = append([]string(nil), (*settings.PIIDefaultUsecases)...)
 	}
 
 	// Note: ApiKeys requires special handling (merging with startup keys) - handled in caller

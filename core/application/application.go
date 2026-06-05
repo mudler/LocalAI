@@ -281,14 +281,14 @@ func (a *Application) PIINERResolver() pii.NERDetectorResolver {
 }
 
 // ResolvePIIPolicy resolves the effective request-side PII policy for a
-// consuming model, layering the instance-wide defaults (PIIDefaultDetectors /
-// PIIDefaultUsecases, set via POST /api/settings) on top of the per-model
+// consuming model, layering the instance-wide default detector
+// (PIIDefaultDetectors, set via POST /api/settings) on top of the per-model
 // config. It is the single decision point shared by the chat middleware (via
 // WithPolicyResolver) and the MITM listener so both agree.
 //
 //   - enabled: an explicit pii.enabled on the model always wins (true OR
-//     false). Otherwise PII is on when the backend defaults it on (cloud-proxy)
-//     or the model declares a usecase in the global PIIDefaultUsecases set.
+//     false). Otherwise PII is on when the backend defaults it on — today
+//     that means cloud-proxy models, which cross the network to a third party.
 //   - detectors: the model's own pii.detectors, or — when it lists none — the
 //     global PIIDefaultDetectors fallback. This is what makes cloud-proxy/MITM
 //     redaction work out of the box.
@@ -305,14 +305,6 @@ func (a *Application) ResolvePIIPolicy(cfg *config.ModelConfig) (enabled bool, d
 		enabled = *cfg.PII.Enabled
 	} else {
 		enabled = cfg.PIIIsEnabled() // backend default (cloud-proxy)
-		if !enabled {
-			for _, uc := range appCfg.PIIDefaultUsecases {
-				if flags := config.GetUsecasesFromYAML([]string{uc}); flags != nil && cfg.HasUsecases(*flags) {
-					enabled = true
-					break
-				}
-			}
-		}
 	}
 	if !enabled {
 		return false, nil

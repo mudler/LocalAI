@@ -319,8 +319,8 @@ func buildPIIStatus(app *application.Application) map[string]any {
 		explicit := cfg.PII.Enabled != nil
 		ownDetectors := cfg.PIIDetectors()
 		// Resolve through the shared policy so the table reflects the EFFECTIVE
-		// state, including the instance-wide default detector / default-on
-		// usecases — what the request path actually does.
+		// state, including the instance-wide default detector — what the
+		// request path actually does.
 		enabled, detectors := app.ResolvePIIPolicy(&cfg)
 
 		entry := map[string]any{
@@ -329,11 +329,10 @@ func buildPIIStatus(app *application.Application) map[string]any {
 			"enabled":   enabled,
 			"detectors": detectors,
 			"explicit":  explicit,
-			// Why is this on? backend default (cloud-proxy) vs a global
-			// default-on usecase vs an explicit YAML toggle. Helps admins
-			// understand the resolved state without reading source.
+			// Why is this on? backend default (cloud-proxy) vs an explicit YAML
+			// toggle. Helps admins understand the resolved state without
+			// reading source.
 			"default_for_backend": !explicit && cfg.Backend == "cloud-proxy",
-			"default_for_usecase": !explicit && cfg.Backend != "cloud-proxy" && enabled,
 			// The detectors came from the global default, not this model's YAML.
 			"detectors_from_default": enabled && len(ownDetectors) == 0 && len(detectors) > 0,
 		}
@@ -353,8 +352,6 @@ func buildPIIStatus(app *application.Application) map[string]any {
 		"models":                       models,
 		"recent_event_count":           recentCount,
 		// Instance-wide default policy (the Default PII policy editor).
-		"default_detectors":  appCfg.PIIDefaultDetectors,
-		"default_usecases":   appCfg.PIIDefaultUsecases,
-		"coverable_usecases": config.PIICoverableUsecaseStrings(),
+		"default_detectors": appCfg.PIIDefaultDetectors,
 	}
 }

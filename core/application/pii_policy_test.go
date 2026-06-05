@@ -14,11 +14,8 @@ var _ = Describe("ResolvePIIPolicy", func() {
 		return &Application{applicationConfig: c}
 	}
 
-	It("lets an explicit pii.enabled=false win over every global default", func() {
-		app := mk(&config.ApplicationConfig{
-			PIIDefaultDetectors: []string{"pf"},
-			PIIDefaultUsecases:  []string{"FLAG_CHAT"},
-		})
+	It("lets an explicit pii.enabled=false win over the global default detector", func() {
+		app := mk(&config.ApplicationConfig{PIIDefaultDetectors: []string{"pf"}})
 		cfg := &config.ModelConfig{Backend: "cloud-proxy", KnownUsecases: &chat}
 		cfg.PII.Enabled = bp(false)
 		enabled, dets := app.ResolvePIIPolicy(cfg)
@@ -36,19 +33,8 @@ var _ = Describe("ResolvePIIPolicy", func() {
 		Expect(dets).To(Equal([]string{"pf"}))
 	})
 
-	It("enables a model whose usecase is in the global default-on set", func() {
-		app := mk(&config.ApplicationConfig{
-			PIIDefaultDetectors: []string{"pf"},
-			PIIDefaultUsecases:  []string{"FLAG_CHAT"},
-		})
-		cfg := &config.ModelConfig{Backend: "llama-cpp", KnownUsecases: &chat}
-		enabled, dets := app.ResolvePIIPolicy(cfg)
-		Expect(enabled).To(BeTrue())
-		Expect(dets).To(Equal([]string{"pf"}))
-	})
-
-	It("leaves a model disabled when its usecase is not in the default-on set", func() {
-		app := mk(&config.ApplicationConfig{PIIDefaultUsecases: []string{"FLAG_EMBEDDINGS"}})
+	It("leaves a non-cloud model off by default (no instance usecase default-on)", func() {
+		app := mk(&config.ApplicationConfig{PIIDefaultDetectors: []string{"pf"}})
 		cfg := &config.ModelConfig{Backend: "llama-cpp", KnownUsecases: &chat}
 		enabled, _ := app.ResolvePIIPolicy(cfg)
 		Expect(enabled).To(BeFalse())

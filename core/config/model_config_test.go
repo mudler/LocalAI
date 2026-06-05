@@ -698,9 +698,4 @@ var _ = Describe("PIIFilterApplies (Middleware admin list scoping)", func() {
 		Expect((&ModelConfig{Name: "vad", Backend: "silero-vad"}).PIIFilterApplies()).To(BeFalse())
 		Expect(withUsecases("whisper", FLAG_TRANSCRIPT).PIIFilterApplies()).To(BeFalse())
 	})
-
-	It("exposes the coverable usecases as canonical FLAG_ strings", func() {
-		// Drives the Default PII policy usecase selector; grows with coverage.
-		Expect(PIICoverableUsecaseStrings()).To(Equal([]string{"FLAG_CHAT", "FLAG_COMPLETION", "FLAG_EDIT", "FLAG_EMBEDDINGS"}))
-	})
 })

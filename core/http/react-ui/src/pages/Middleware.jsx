@@ -5,14 +5,7 @@ import { fromState } from '../utils/editorNav'
 import { settingsApi } from '../utils/api'
 import LoadingSpinner from '../components/LoadingSpinner'
 import ModelMultiSelect from '../components/ModelMultiSelect'
-import Toggle from '../components/Toggle'
 import { CAP_TOKEN_CLASSIFY } from '../utils/capabilities'
-
-// humanizeUsecase turns a FLAG_* capability string into a short label for the
-// default-on usecase checkboxes (e.g. "FLAG_CHAT" -> "chat").
-function humanizeUsecase(flag) {
-  return String(flag || '').replace(/^FLAG_/, '').toLowerCase().replace(/_/g, ' ')
-}
 
 // Middleware admin page. Three tabs:
 //   - Filtering: per-model resolved PII state + per-model detector list
@@ -239,7 +232,7 @@ function FilteringTab({ status, addToast, onChanged }) {
                     )}
                   </td>
                   <td style={{ fontSize: '0.6875rem', color: 'var(--color-text-muted)' }}>
-                    {m.explicit ? 'YAML' : (m.default_for_backend ? 'backend default' : (m.default_for_usecase ? 'usecase default' : 'default off'))}
+                    {m.explicit ? 'YAML' : (m.default_for_backend ? 'backend default' : 'default off')}
                   </td>
                   <td style={{ fontSize: '0.75rem', fontFamily: 'var(--font-mono)' }}>
                     {m.detectors && m.detectors.length > 0
@@ -274,39 +267,31 @@ function FilteringTab({ status, addToast, onChanged }) {
   )
 }
 
-// DefaultPIIPolicy edits the instance-wide PII defaults (RuntimeSettings,
-// saved via POST /api/settings): a fallback detector applied to any
-// PII-enabled model that names none of its own, and the set of model usecases
-// that get PII filtering on by default. Mirrors ProxyTab's read-from-status /
-// save-via-settingsApi / re-sync-when-not-dirty pattern.
+// DefaultPIIPolicy edits the instance-wide default detector (RuntimeSettings,
+// saved via POST /api/settings): a fallback applied to any PII-enabled model
+// that names none of its own — chiefly cloud-proxy / MITM models, which are
+// PII-enabled by default but carry no detector list. Mirrors ProxyTab's
+// read-from-status / save-via-settingsApi / re-sync-when-not-dirty pattern.
 function DefaultPIIPolicy({ pii, addToast, onChanged }) {
   const serverDetectors = useMemo(() => pii.default_detectors || [], [pii.default_detectors])
-  const serverUsecases = useMemo(() => pii.default_usecases || [], [pii.default_usecases])
-  const coverable = pii.coverable_usecases || []
 
   const [detectors, setDetectors] = useState(serverDetectors)
-  const [usecases, setUsecases] = useState(serverUsecases)
   const [saving, setSaving] = useState(false)
 
   const sameSet = (a, b) => a.length === b.length && [...a].sort().join('|') === [...b].sort().join('|')
-  const dirty = !sameSet(detectors, serverDetectors) || !sameSet(usecases, serverUsecases)
+  const dirty = !sameSet(detectors, serverDetectors)
 
   // Re-sync from the server only when the user has no pending edits to clobber.
   useEffect(() => {
     if (dirty) return
     setDetectors(serverDetectors)
-    setUsecases(serverUsecases)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [serverDetectors, serverUsecases])
-
-  const toggleUsecase = (uc) => {
-    setUsecases(prev => prev.includes(uc) ? prev.filter(x => x !== uc) : [...prev, uc])
-  }
+  }, [serverDetectors])
 
   const save = async () => {
     setSaving(true)
     try {
-      const body = await settingsApi.save({ pii_default_detectors: detectors, pii_default_usecases: usecases })
+      const body = await settingsApi.save({ pii_default_detectors: detectors })
       if (body && body.success === false) throw new Error(body.error || 'unknown error')
       addToast?.('Default PII policy updated', 'success')
       onChanged?.()
@@ -327,28 +312,12 @@ function DefaultPIIPolicy({ pii, addToast, onChanged }) {
         </button>
       </div>
       <div style={{ fontSize: '0.8125rem', color: 'var(--color-text-secondary)', marginBottom: 'var(--spacing-sm)' }}>
-        Applied to any model that doesn&rsquo;t set its own <code>pii</code> block. Cloud-proxy / MITM models are PII-enabled by default; pick a default detector here so their requests are actually scanned. Per-model config always overrides.
-      </div>
-
-      <div style={{ marginBottom: 'var(--spacing-md)' }}>
-        <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, marginBottom: 4 }}>Default detector model(s)</label>
-        <ModelMultiSelect value={detectors} onChange={setDetectors} capability={CAP_TOKEN_CLASSIFY} placeholder="Select default detector model..." />
+        Cloud-proxy / MITM models are PII-enabled by default; pick a default detector here so their requests are actually scanned. Applied to any PII-enabled model that names none of its own. Per-model config always overrides.
       </div>
 
       <div>
-        <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, marginBottom: 4 }}>Enable PII by default for these model types</label>
-        {coverable.length === 0 ? (
-          <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>No PII-coverable usecases.</div>
-        ) : (
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--spacing-md)' }}>
-            {coverable.map(uc => (
-              <label key={uc} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: '0.8125rem', cursor: 'pointer' }}>
-                <Toggle checked={usecases.includes(uc)} onChange={() => toggleUsecase(uc)} />
-                {humanizeUsecase(uc)}
-              </label>
-            ))}
-          </div>
-        )}
+        <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, marginBottom: 4 }}>Default detector model(s)</label>
+        <ModelMultiSelect value={detectors} onChange={setDetectors} capability={CAP_TOKEN_CLASSIFY} placeholder="Select default detector model..." />
       </div>
     </div>
   )

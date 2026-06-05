@@ -14,10 +14,8 @@ const MOCK_STATUS = {
       { name: 'claude-strict', backend: 'cloud-proxy', enabled: true, explicit: true, default_for_backend: true, detectors: ['privacy-filter-multilingual'] },
     ],
     recent_event_count: 2,
-    // Instance-wide default policy (Default PII policy editor).
+    // Instance-wide default detector (Default PII policy editor).
     default_detectors: ['global-ner-default'],
-    default_usecases: ['FLAG_CHAT'],
-    coverable_usecases: ['FLAG_CHAT'],
   },
   router: {
     configured: true,
@@ -143,14 +141,9 @@ test.describe('Middleware page — admin in no-auth mode', () => {
   test('Filtering tab shows the instance-wide Default PII policy editor', async ({ page }) => {
     await page.goto('/app/middleware')
 
-    // The default-policy card and its controls render.
+    // The default-policy card and its detector picker render.
     await expect(page.getByText('Default PII policy')).toBeVisible()
     await expect(page.getByText('Default detector model(s)')).toBeVisible()
-
-    // A coverable usecase is offered as a default-on checkbox, pre-checked
-    // from default_usecases: ['FLAG_CHAT'].
-    const chatToggle = page.getByRole('checkbox').first()
-    await expect(chatToggle).toBeChecked()
 
     // The configured default detector renders as a removable chip (not a
     // stack of input rows) with its own remove control.

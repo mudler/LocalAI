@@ -43,10 +43,10 @@ routing, `/api/pii/events` for redaction and block actions.
 
 PII redaction is **NER-based and runs request-side (input)**. It is
 **off by default**, flipping to **on for any `cloud-proxy` backend**
-because that traffic crosses the network to a third-party provider. An
-operator can also turn it on by default for whole classes of models, by
-usecase, from the admin page — see [Instance-wide defaults](#instance-wide-defaults).
-Explicit `pii.enabled` in a model's YAML always wins over either default.
+because that traffic crosses the network to a third-party provider. Pick a
+[default detector](#instance-wide-defaults) so those models are actually
+scanned. Explicit `pii.enabled` in a model's YAML always wins over the
+backend default.
 
 Filtering runs on every text-accepting endpoint that has an adapter wired:
 `/v1/chat/completions` and `/v1/messages` (chat), `/v1/completions`,
@@ -117,51 +117,43 @@ The same NER path runs on the [MITM proxy]({{< relref "mitm-proxy.md" >}})
 request body for intercepted hosts. Response/output redaction is out of
 scope for now.
 
-### Instance-wide defaults
+### Instance-wide default detector
 
-Two instance-wide settings let an operator apply PII without editing every
-model's YAML. Both are edited from the **Default PII policy** panel on the
-Middleware → Filtering page and persisted through `POST /api/settings`; they
-are read live, so a change takes effect on the next request without a
-restart.
+The **Default PII policy** panel on the Middleware → Filtering page sets an
+instance-wide default detector — one or more `token_classify` models applied
+to any PII-enabled model that names none of its own `pii.detectors`. It is
+persisted through `POST /api/settings` and read live, so a change takes effect
+on the next request without a restart.
 
-- **Default detector(s).** A `token_classify` detector applied to any
-  PII-enabled model that names none of its own `pii.detectors`. This is what
-  makes `cloud-proxy` / MITM redaction work out of the box: those backends
-  default to PII-enabled but ship no detector list, so without a default
-  detector the filter runs with nothing to scan. Set one here and cloud-proxy
-  traffic is scanned with no per-model config.
-- **Default-on usecases.** A set of model usecases (`chat`, `completion`,
-  `embeddings`, `edit` — exactly the [covered endpoints](#pii-filtering))
-  that get PII filtering on by default even when the model sets no
-  `pii.enabled`. Turn it on for `chat` and every chat model redacts without
-  touching its YAML.
+This is what makes `cloud-proxy` / MITM redaction work out of the box: those
+backends default to PII-enabled but ship no detector list, so without a
+default detector the filter runs with nothing to scan. Set one here and
+cloud-proxy traffic is scanned with no per-model config.
 
 Resolution precedence (the single decision point is `ResolvePIIPolicy`,
 shared by the chat middleware and the MITM listener so both agree):
 
 1. An explicit `pii.enabled` on the model wins — `true` or `false`.
-2. Otherwise PII is on if the backend defaults it on (`cloud-proxy`) **or**
-   the model declares a usecase in the default-on set.
+2. Otherwise PII is on if the backend defaults it on (`cloud-proxy`).
 3. Detectors are the model's own `pii.detectors`; if it lists none, the
    instance-wide default detector(s) are used.
 
-A model that resolves enabled but ends up with no detector at all (enabled
-by a backend/usecase default, no model detectors, and no instance default)
-scans nothing — set a default detector to close that gap.
+A model that resolves enabled but ends up with no detector at all (a
+cloud-proxy model with no model detectors and no instance default) scans
+nothing — set a default detector to close that gap.
 
 ### Admin page
 
 The `/app/middleware` page (admin role only) has four tabs — **Filtering**,
 **Routing**, **MITM Proxy** (see the [MITM doc]({{< relref "mitm-proxy.md" >}})),
 and **Events**. The Filtering tab has a **Default PII policy** editor (the
-instance-wide defaults above) and a per-model table listing only the models
-PII can actually apply to — chat / completion / embeddings / edit consumers
-and cloud-proxy models, not VAD/STT/image models or the detector models
-themselves. Each row reports the **effective** `enabled` state, the resolved
-detector(s) — with a *(default)* marker when they come from the instance-wide
-default rather than the model's YAML — why it is on (`YAML` / `backend
-default` / `usecase default`), and the recent event count. Detection *policy*
+instance-wide default detector above) and a per-model table listing only the
+models PII can actually apply to — chat / completion / embeddings / edit
+consumers and cloud-proxy models, not VAD/STT/image models or the detector
+models themselves. Each row reports the **effective** `enabled` state, the
+resolved detector(s) — with a *(default)* marker when they come from the
+instance-wide default rather than the model's YAML — why it is on (`YAML` /
+`backend default`), and the recent event count. Detection *policy*
 (entity→action, min score) is still edited on each detector model's config
 (Models → edit → PII), not globally.
 

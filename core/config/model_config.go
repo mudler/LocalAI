@@ -440,12 +440,10 @@ func (c *ModelConfig) PIIDetectors() []string {
 }
 
 // piiCoverableUsecases lists the model usecases whose serving API has a
-// request-side PII filter wired (a piiadapter + the pii middleware). It is
-// the single source of truth shared by the Middleware admin list
-// (PIIFilterApplies) and the global default-on usecase selector. Grow it as
-// adapters are added for new endpoints. cloud-proxy carries no usecase flag
-// but is always covered (via the MITM / proxy chat path), so PIIFilterApplies
-// handles it separately.
+// request-side PII filter wired (a piiadapter + the pii middleware). It scopes
+// the Middleware admin list (PIIFilterApplies). Grow it as adapters are added
+// for new endpoints. cloud-proxy carries no usecase flag but is always covered
+// (via the MITM / proxy chat path), so PIIFilterApplies handles it separately.
 var piiCoverableUsecases = []ModelConfigUsecase{FLAG_CHAT, FLAG_COMPLETION, FLAG_EDIT, FLAG_EMBEDDINGS}
 
 // PIIFilterApplies reports whether request-side PII filtering can apply to
@@ -461,24 +459,6 @@ func (c *ModelConfig) PIIFilterApplies() bool {
 		return true
 	}
 	return slices.ContainsFunc(piiCoverableUsecases, c.HasUsecases)
-}
-
-// PIICoverableUsecaseStrings returns the canonical FLAG_* names of the
-// usecases PII filtering covers, in piiCoverableUsecases order. The Middleware
-// "Default PII policy" editor offers exactly these as the default-on options,
-// so the UI selector grows automatically as coverage is added.
-func PIICoverableUsecaseStrings() []string {
-	names := GetAllModelConfigUsecases()
-	out := make([]string, 0, len(piiCoverableUsecases))
-	for _, flag := range piiCoverableUsecases {
-		for name, f := range names {
-			if f == flag {
-				out = append(out, name)
-				break
-			}
-		}
-	}
-	return out
 }
 
 // PIIDetectionMinScore returns the confidence floor this model applies
