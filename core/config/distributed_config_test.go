@@ -88,3 +88,66 @@ var _ = Describe("DistributedConfig.Validate negative-duration errors", func() {
 		Expect(c.Validate()).To(Succeed())
 	})
 })
+
+var _ = Describe("DistributedConfig.Validate registration auth", func() {
+	It("rejects an empty registration token when RequireAuth is set", func() {
+		c := config.DistributedConfig{
+			Enabled:                 true,
+			NatsURL:                 "nats://localhost:4222",
+			RegistrationRequireAuth: true,
+		}
+		err := c.Validate()
+		Expect(err).To(HaveOccurred())
+		Expect(err.Error()).To(ContainSubstring("LOCALAI_REGISTRATION_REQUIRE_AUTH"))
+		Expect(err.Error()).To(ContainSubstring("LOCALAI_REGISTRATION_TOKEN"))
+	})
+
+	It("accepts a set registration token when RequireAuth is set", func() {
+		c := config.DistributedConfig{
+			Enabled:                 true,
+			NatsURL:                 "nats://localhost:4222",
+			RegistrationToken:       "s3cret",
+			RegistrationRequireAuth: true,
+		}
+		Expect(c.Validate()).To(Succeed())
+	})
+
+	It("warns but succeeds with an empty token when RequireAuth is unset", func() {
+		c := config.DistributedConfig{
+			Enabled: true,
+			NatsURL: "nats://localhost:4222",
+		}
+		Expect(c.Validate()).To(Succeed())
+	})
+
+	It("rejects an empty token when the umbrella RequireAuth is set", func() {
+		c := config.DistributedConfig{
+			Enabled:     true,
+			NatsURL:     "nats://localhost:4222",
+			RequireAuth: true,
+			// Provide NATS creds so only the registration-token gap remains.
+			NatsServiceJWT:  "jwt",
+			NatsServiceSeed: "seed",
+			NatsAccountSeed: "acct",
+		}
+		err := c.Validate()
+		Expect(err).To(HaveOccurred())
+		Expect(err.Error()).To(ContainSubstring("LOCALAI_DISTRIBUTED_REQUIRE_AUTH"))
+		Expect(err.Error()).To(ContainSubstring("LOCALAI_REGISTRATION_TOKEN"))
+	})
+
+	It("the umbrella implies NATS auth is required", func() {
+		c := config.DistributedConfig{
+			Enabled:           true,
+			NatsURL:           "nats://localhost:4222",
+			RegistrationToken: "tok", // registration layer satisfied
+			RequireAuth:       true,  // umbrella → NATS creds now required
+		}
+		Expect(c.NatsAuthRequired()).To(BeTrue())
+		Expect(c.RegistrationAuthRequired()).To(BeTrue())
+		// Missing NATS service JWT/seed must now be fatal.
+		err := c.Validate()
+		Expect(err).To(HaveOccurred())
+		Expect(err.Error()).To(ContainSubstring("LOCALAI_NATS_REQUIRE_AUTH"))
+	})
+})

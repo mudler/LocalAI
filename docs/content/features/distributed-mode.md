@@ -64,6 +64,8 @@ The frontend is a standard LocalAI instance with distributed mode enabled. These
 | `--instance-id` | `LOCALAI_INSTANCE_ID` | auto UUID | Unique instance ID for this frontend |
 | `--nats-url` | `LOCALAI_NATS_URL` | *(required)* | NATS server URL (e.g., `nats://localhost:4222`) |
 | `--registration-token` | `LOCALAI_REGISTRATION_TOKEN` | *(empty)* | Token that workers must provide to register |
+| `--registration-require-auth` | `LOCALAI_REGISTRATION_REQUIRE_AUTH` | `false` | Fail startup when distributed mode is enabled but the registration token is empty (node endpoints and worker file-transfer would otherwise be unauthenticated) |
+| `--distributed-require-auth` | `LOCALAI_DISTRIBUTED_REQUIRE_AUTH` | `false` | **Umbrella switch.** Implies both `--nats-require-auth` and `--registration-require-auth` — one knob to lock down the NATS bus *and* the registration/file-transfer layer. Set this in production instead of the two granular flags. |
 | `--auto-approve-nodes` | `LOCALAI_AUTO_APPROVE_NODES` | `false` | Auto-approve new worker nodes (skip admin approval) |
 | `--auth` | `LOCALAI_AUTH` | `false` | **Must be `true`** for distributed mode |
 | `--auth-database-url` | `LOCALAI_AUTH_DATABASE_URL` | *(required)* | PostgreSQL connection URL |
@@ -131,6 +133,10 @@ When S3 is not configured, model files are transferred directly from the fronten
 
 For high-throughput or very large model files, S3 can be more efficient since it avoids streaming through the frontend.
 
+{{% alert icon="⚠️" color="warning" %}}
+The worker HTTP file transfer server is authenticated by `LOCALAI_REGISTRATION_TOKEN`. If the token is **empty**, the server **fails open** — anyone who can reach the port gets read/write access to the worker's models/staging/data directories (a remote model-poisoning / exfiltration vector). The worker logs a loud warning at startup in this case. Always set `LOCALAI_REGISTRATION_TOKEN` in distributed mode, and set `LOCALAI_DISTRIBUTED_REQUIRE_AUTH=true` (frontend **and** workers) to make a missing token *or* missing NATS credentials a hard startup error rather than a silent fail-open. Firewall the file-transfer port (gRPC base − 1) so only the frontend can reach it.
+{{% /alert %}}
+
 ### Watching Backend Installs
 
 While a worker downloads a backend, the admin **Operations Bar** at the top
@@ -176,6 +182,8 @@ local-ai worker \
 | `--register-to` | `LOCALAI_REGISTER_TO` | *(required)* | Frontend URL for self-registration |
 | `--node-name` | `LOCALAI_NODE_NAME` | hostname | Human-readable node name |
 | `--registration-token` | `LOCALAI_REGISTRATION_TOKEN` | *(empty)* | Token to authenticate with the frontend |
+| `--registration-require-auth` | `LOCALAI_REGISTRATION_REQUIRE_AUTH` | `false` | Refuse to start the HTTP file-transfer server when no registration token is set (it would otherwise fail open) |
+| `--distributed-require-auth` | `LOCALAI_DISTRIBUTED_REQUIRE_AUTH` | `false` | Umbrella switch implying both `--registration-require-auth` and `--nats-require-auth` |
 | `--heartbeat-interval` | `LOCALAI_HEARTBEAT_INTERVAL` | `10s` | Interval between heartbeat pings |
 | `--nats-url` | `LOCALAI_NATS_URL` | *(required)* | NATS URL for backend installation and file staging |
 | `--nats-jwt` | `LOCALAI_NATS_JWT` | *(empty)* | Optional override for the `nats_jwt` returned at registration |

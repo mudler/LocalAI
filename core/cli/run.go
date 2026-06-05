@@ -154,6 +154,8 @@ type RunCMD struct {
 	StorageAccessKey          string `env:"LOCALAI_STORAGE_ACCESS_KEY" help:"S3 access key ID" group:"distributed"`
 	StorageSecretKey          string `env:"LOCALAI_STORAGE_SECRET_KEY" help:"S3 secret access key" group:"distributed"`
 	RegistrationToken         string `env:"LOCALAI_REGISTRATION_TOKEN" help:"Token that backend nodes must provide to register (empty = no auth required)" group:"distributed"`
+	RegistrationRequireAuth   bool   `env:"LOCALAI_REGISTRATION_REQUIRE_AUTH" default:"false" help:"Fail startup when distributed mode is enabled but LOCALAI_REGISTRATION_TOKEN is empty (node endpoints and worker file-transfer server would otherwise be unauthenticated)" group:"distributed"`
+	DistributedRequireAuth    bool   `env:"LOCALAI_DISTRIBUTED_REQUIRE_AUTH" default:"false" help:"Umbrella switch: require BOTH NATS JWT credentials and a registration token when distributed mode is enabled (implies --nats-require-auth and --registration-require-auth)" group:"distributed"`
 	AutoApproveNodes          bool   `env:"LOCALAI_AUTO_APPROVE_NODES" default:"false" help:"Auto-approve new worker nodes (skip admin approval)" group:"distributed"`
 	DistributedPrefixCache    bool   `env:"LOCALAI_DISTRIBUTED_PREFIX_CACHE" default:"true" help:"Enable prefix-cache-aware routing in distributed mode (default true). When false, routing falls back to round-robin." group:"distributed"`
 	DistributedPrefixCacheTTL string `env:"LOCALAI_DISTRIBUTED_PREFIX_CACHE_TTL" help:"Idle-timeout for prefix-cache index entries; also drives the background eviction cadence (every TTL/2). Default 5m." group:"distributed"`
@@ -290,6 +292,12 @@ func (r *RunCMD) Run(ctx *cliContext.Context) error {
 	}
 	if r.RegistrationToken != "" {
 		opts = append(opts, config.WithRegistrationToken(r.RegistrationToken))
+	}
+	if r.RegistrationRequireAuth {
+		opts = append(opts, config.EnableRegistrationRequireAuth)
+	}
+	if r.DistributedRequireAuth {
+		opts = append(opts, config.EnableDistributedRequireAuth)
 	}
 	if r.NatsAccountSeed != "" {
 		opts = append(opts, config.WithNatsAccountSeed(r.NatsAccountSeed))

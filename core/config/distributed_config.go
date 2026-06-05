@@ -18,7 +18,19 @@ type DistributedConfig struct {
 	NatsURL           string // --nats-url / LOCALAI_NATS_URL
 	StorageURL        string // --storage-url / LOCALAI_STORAGE_URL (S3 endpoint)
 	RegistrationToken string // --registration-token / LOCALAI_REGISTRATION_TOKEN (required token for node registration)
-	AutoApproveNodes  bool   // --auto-approve-nodes / LOCALAI_AUTO_APPROVE_NODES (skip admin approval for new workers)
+	// RegistrationRequireAuth fails startup when distributed mode is enabled but
+	// RegistrationToken is empty. The default (false) keeps the historical
+	// fail-open behavior with a loud warning; production should set it so the
+	// node-register endpoints and the worker file-transfer server cannot run
+	// unauthenticated. Mirrors NatsRequireAuth for the NATS bus.
+	RegistrationRequireAuth bool // LOCALAI_REGISTRATION_REQUIRE_AUTH
+	// RequireAuth is the umbrella switch (LOCALAI_DISTRIBUTED_REQUIRE_AUTH) for
+	// distributed-mode auth: when true it implies BOTH NatsRequireAuth and
+	// RegistrationRequireAuth, so a single knob locks down the bus and the
+	// registration/file-transfer layer together. The granular flags remain
+	// available to enforce just one layer.
+	RequireAuth      bool // LOCALAI_DISTRIBUTED_REQUIRE_AUTH
+	AutoApproveNodes bool // --auto-approve-nodes / LOCALAI_AUTO_APPROVE_NODES (skip admin approval for new workers)
 
 	// NATS JWT auth (optional; see pkg/natsauth and docs/features/distributed-mode.md)
 	NatsAccountSeed  string        // LOCALAI_NATS_ACCOUNT_SEED — account signing seed to mint per-node worker JWTs
@@ -88,9 +100,15 @@ func (c DistributedConfig) Validate() error {
 		(c.StorageAccessKey == "" && c.StorageSecretKey != "") {
 		return fmt.Errorf("storage-access-key and storage-secret-key must both be set or both empty")
 	}
-	// Warn about missing registration token (not an error)
+	// The registration token guards both the node HTTP register/heartbeat
+	// endpoints and the worker file-transfer server (which fails open on an
+	// empty token). Enforce it when registration auth is required (the granular
+	// flag or the umbrella); otherwise warn.
 	if c.RegistrationToken == "" {
-		xlog.Warn("distributed mode running without registration token — node endpoints are unprotected")
+		if c.RegistrationAuthRequired() {
+			return fmt.Errorf("registration auth is required (LOCALAI_REGISTRATION_REQUIRE_AUTH or LOCALAI_DISTRIBUTED_REQUIRE_AUTH) but LOCALAI_REGISTRATION_TOKEN is empty")
+		}
+		xlog.Warn("distributed mode running without registration token — node endpoints and the worker file-transfer server are unprotected; set LOCALAI_REGISTRATION_TOKEN, or LOCALAI_DISTRIBUTED_REQUIRE_AUTH=true to fail closed")
 	}
 	if err := c.NatsAuthConfig().Validate(); err != nil {
 		return err
@@ -168,6 +186,30 @@ func WithNatsWorkerJWTTTL(d time.Duration) AppOption {
 
 var EnableNatsRequireAuth = func(o *ApplicationConfig) {
 	o.Distributed.NatsRequireAuth = true
+}
+
+// EnableRegistrationRequireAuth makes an empty registration token a hard error
+// in distributed mode (see DistributedConfig.RegistrationRequireAuth).
+var EnableRegistrationRequireAuth = func(o *ApplicationConfig) {
+	o.Distributed.RegistrationRequireAuth = true
+}
+
+// EnableDistributedRequireAuth is the umbrella switch implying both
+// NatsRequireAuth and RegistrationRequireAuth (see DistributedConfig.RequireAuth).
+var EnableDistributedRequireAuth = func(o *ApplicationConfig) {
+	o.Distributed.RequireAuth = true
+}
+
+// RegistrationAuthRequired reports whether an empty registration token must be
+// treated as a fatal misconfiguration — the granular flag or the umbrella.
+func (c DistributedConfig) RegistrationAuthRequired() bool {
+	return c.RegistrationRequireAuth || c.RequireAuth
+}
+
+// NatsAuthRequired reports whether NATS JWT credentials must be present — the
+// granular flag or the umbrella.
+func (c DistributedConfig) NatsAuthRequired() bool {
+	return c.NatsRequireAuth || c.RequireAuth
 }
 
 func WithNatsTLSCA(path string) AppOption {
@@ -316,7 +358,7 @@ func (c DistributedConfig) NatsAuthConfig() natsauth.Config {
 		ServiceUserJWT:  c.NatsServiceJWT,
 		ServiceUserSeed: c.NatsServiceSeed,
 		WorkerJWTTTL:    c.NatsWorkerJWTTTL,
-		RequireAuth:     c.NatsRequireAuth,
+		RequireAuth:     c.NatsAuthRequired(),
 	}
 }
 
