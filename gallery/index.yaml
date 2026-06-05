@@ -169,6 +169,48 @@
     - filename: llama-cpp/models/privacy-filter-multilingual/privacy-filter-multilingual-f16.gguf
       sha256: 01b76572f80b7d2ebee80a27cb9c3699c26b04cae1c402eee7664fc17a4b5ce6
       uri: https://huggingface.co/LocalAI-io/privacy-filter-multilingual-GGUF/resolve/main/privacy-filter-multilingual-f16.gguf
+- name: "secret-filter"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  description: |
+    A pattern-based PII detector for high-entropy, highly-regular secrets —
+    API keys, tokens, and private-key blocks — that the NER tier cannot catch
+    (it has no credential class, so it fragments a key and may leave the secret
+    part exposed). Detection is bounded restricted-regex compiled to RE2
+    (linear time, no backtracking); it runs entirely in-process with no model
+    download, no backend, and zero VRAM.
+
+    Install it, then reference it under another model's pii.detectors (or set it
+    as the instance-wide default detector on the Middleware page) to block leaks
+    of known credential formats out of the box. Add your own patterns under
+    pii_detection.patterns in a restricted regex subset (e.g. "tok-\\w{32,}");
+    each must carry a fixed literal anchor of at least 3 characters, so open-
+    ended shapes like email addresses are rejected and left to the NER tier.
+  license: apache-2.0
+  tags:
+    - pii
+    - privacy
+    - secrets
+    - pattern
+  overrides:
+    backend: pattern
+    known_usecases:
+      - token_classify
+    # Matched secrets are blocked by default (a leaked credential should not
+    # reach an upstream provider); downgrade individual groups to mask/allow
+    # via entity_actions if needed. Group names mirror the built-in catalogue.
+    pii_detection:
+      default_action: block
+      builtins:
+        - anthropic_api_key
+        - openai_api_key
+        - github_token
+        - github_pat
+        - aws_access_key
+        - google_api_key
+        - slack_token
+        - stripe_key
+        - jwt
+        - private_key_block
 - name: "lfm2.5-8b-a1b"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:

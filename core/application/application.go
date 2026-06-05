@@ -270,6 +270,24 @@ func (a *Application) PIINERResolver() pii.NERDetectorResolver {
 		if !ok {
 			return pii.NERConfig{}, false
 		}
+
+		// Pattern detectors match secrets with the restricted-regex tier
+		// in-process (no backend load). Build a pattern matcher instead of the
+		// gRPC token-classifier; on a compile error fail closed with an error
+		// detector so the request is blocked, not silently unscanned.
+		if cfg.IsPatternDetector() {
+			det, err := piidetector.NewPattern(cfg, a.ApplicationConfig())
+			if err != nil {
+				det = pii.NewErrNERDetector(err.Error())
+			}
+			return pii.NERConfigFromRaw(
+				det,
+				0, // patterns are deterministic — no confidence floor
+				cfg.PIIDetectionDefaultAction(),
+				patternEntityActions(cfg),
+			), true
+		}
+
 		det := piidetector.New(a.ModelLoader(), cfg, a.ApplicationConfig())
 		return pii.NERConfigFromRaw(
 			det,
@@ -278,6 +296,26 @@ func (a *Application) PIINERResolver() pii.NERDetectorResolver {
 			cfg.PIIDetectionEntityActions(),
 		), true
 	}
+}
+
+// patternEntityActions merges a pattern detector's per-pattern Action overrides
+// into its entity_actions map. A pattern reports matches under its Name, so a
+// per-pattern action is just an entity_actions[Name] entry; explicit
+// entity_actions still win if both are set.
+func patternEntityActions(cfg config.ModelConfig) map[string]string {
+	out := cfg.PIIDetectionEntityActions()
+	for _, p := range cfg.PIIDetection.Patterns {
+		if p.Action == "" || p.Name == "" {
+			continue
+		}
+		if out == nil {
+			out = map[string]string{}
+		}
+		if _, exists := out[p.Name]; !exists {
+			out[p.Name] = p.Action
+		}
+	}
+	return out
 }
 
 // ResolvePIIPolicy resolves the effective request-side PII policy for a

@@ -1,5 +1,19 @@
 package meta
 
+import "github.com/mudler/LocalAI/core/services/routing/piipattern"
+
+// builtinPatternOptions turns the piipattern built-in catalogue into select
+// options for the editor's built-in-patterns checklist, keeping the catalogue
+// the single source of truth.
+func builtinPatternOptions() []FieldOption {
+	cat := piipattern.BuiltinCatalogue()
+	out := make([]FieldOption, 0, len(cat))
+	for _, b := range cat {
+		out = append(out, FieldOption{Value: b.Name, Label: b.Name + " — " + b.Description})
+	}
+	return out
+}
+
 // DefaultRegistry returns enrichment overrides for the ~30 most commonly used
 // config fields. Fields not listed here still appear with auto-generated
 // labels and type-inferred components.
@@ -422,6 +436,21 @@ func DefaultRegistry() map[string]FieldMetaOverride {
 			Description: "Per-entity-group action policy for this detector model (e.g. PASSWORD → block, EMAIL → mask). Groups without an entry use the default action.",
 			Component:   "entity-action-list",
 			Order:       212,
+		},
+		"pii_detection.builtins": {
+			Section:     "pii",
+			Label:       "Built-in Secret Patterns",
+			Description: "Built-in regex patterns for common credentials (API keys, tokens, private keys). Turning any on makes this a pattern detector — it matches high-entropy secrets the NER tier can't, in-process with no model load.",
+			Component:   "pii-builtins-select",
+			Options:     builtinPatternOptions(),
+			Order:       213,
+		},
+		"pii_detection.patterns": {
+			Section:     "pii",
+			Label:       "Custom Secret Patterns",
+			Description: "Operator-defined patterns in a restricted regex subset (e.g. \"sk-prefix-\\w+\"). Each must contain a fixed literal anchor of ≥3 chars; open-ended shapes like emails are rejected (leave those to NER). Matches report under the pattern name as the entity group.",
+			Component:   "pii-pattern-list",
+			Order:       214,
 		},
 
 		// --- Cloud passthrough proxy ---

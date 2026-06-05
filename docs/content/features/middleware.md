@@ -90,6 +90,55 @@ but leaves the text unchanged. The entity-group names are whatever the model
 emits (the privacy-filter family uses uppercase names like `EMAIL`,
 `PASSWORD`, `CREDITCARD`).
 
+### Pattern detector tier
+
+NER is the wrong tool for high-entropy, highly-regular **secrets** — API keys,
+tokens, private-key blocks. A trained NER model has no "API key" class, so it
+fragments a key into the nearest categories it *does* know and can leave the
+secret part exposed. Those secrets are exactly what a regex catches cheaply.
+
+A **pattern detector** is a detector model (`backend: pattern`) that matches
+secrets with a **restricted regex subset** compiled to Go's RE2 engine —
+linear-time, no backtracking, no ReDoS. It runs entirely in-process: no model
+download, no backend, zero VRAM. Install the gallery's **`secret-filter`** for a
+ready-made set, or define your own:
+
+```yaml
+name: secret-filter
+backend: pattern
+known_usecases: [token_classify]        # so it appears in the detector picker
+pii_detection:
+  default_action: block                 # a leaked credential shouldn't leave
+  builtins:                             # built-in catalogue (enable by name)
+    - anthropic_api_key
+    - openai_api_key
+    - github_token
+    - aws_access_key
+    - private_key_block
+  patterns:                             # operator-defined, restricted subset
+    - name: INTERNAL_TOKEN
+      match: "tok-[A-Za-z0-9]{32,64}"
+      action: block                      # optional per-pattern override
+      min_len: 36                        # optional length floor
+```
+
+A match is reported under its group (built-in group name, or the pattern
+`name`), so `entity_actions` / `default_action` apply exactly as for NER.
+
+**The restricted grammar** (validated at load — an invalid pattern is rejected,
+not silently ignored):
+- Allowed: literals, character classes `[…]` and `\w \d \s`, alternation,
+  anchors `^ $ \b`, and quantifiers `? * + {m,n}`.
+- Rejected: `.` (any-char), capturing groups, and `{n,m}` bounds over 4096.
+- **Required anchor**: every pattern must contain a fixed literal run of at
+  least 3 characters (e.g. `sk-ant-`, `ghp_`, `AKIA`). This admits real key
+  shapes but rejects open-ended ones — an email or a bare `\w+` has no such
+  anchor and belongs to the [NER tier](#detector-models).
+
+Use both tiers together: reference an NER detector *and* a pattern detector in a
+model's `pii.detectors` (or as instance defaults); their hits union, and a
+`block` from either rejects the request.
+
 ### Consuming models
 
 Any model opts in by enabling PII and referencing one or more detectors —

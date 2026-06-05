@@ -699,3 +699,37 @@ var _ = Describe("PIIFilterApplies (Middleware admin list scoping)", func() {
 		Expect(withUsecases("whisper", FLAG_TRANSCRIPT).PIIFilterApplies()).To(BeFalse())
 	})
 })
+
+var _ = Describe("pattern detector config", func() {
+	patternCfg := func() *ModelConfig {
+		c := &ModelConfig{Name: "secret-filter", Backend: "pattern"}
+		c.PIIDetection.Builtins = []string{"anthropic_api_key"}
+		c.PIIDetection.Patterns = []PIIPattern{{Name: "INTERNAL", Match: `tok-[A-Za-z0-9]{20,}`}}
+		return c
+	}
+
+	It("IsPatternDetector keys off builtins/patterns", func() {
+		Expect(patternCfg().IsPatternDetector()).To(BeTrue())
+		Expect((&ModelConfig{Name: "ner", Backend: "llama-cpp"}).IsPatternDetector()).To(BeFalse())
+	})
+
+	It("Validate accepts a well-formed pattern detector (no model file needed)", func() {
+		ok, err := patternCfg().Validate()
+		Expect(err).NotTo(HaveOccurred())
+		Expect(ok).To(BeTrue())
+	})
+
+	It("Validate rejects an unknown built-in", func() {
+		c := &ModelConfig{Name: "x", Backend: "pattern"}
+		c.PIIDetection.Builtins = []string{"does_not_exist"}
+		_, err := c.Validate()
+		Expect(err).To(MatchError(ContainSubstring("unknown built-in")))
+	})
+
+	It("Validate rejects an unanchored custom pattern", func() {
+		c := &ModelConfig{Name: "x", Backend: "pattern"}
+		c.PIIDetection.Patterns = []PIIPattern{{Name: "EMAILish", Match: `[\w.]+@[\w.]+\.\w+`}}
+		_, err := c.Validate()
+		Expect(err).To(MatchError(ContainSubstring("pattern \"EMAILish\"")))
+	})
+})

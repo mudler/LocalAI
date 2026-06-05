@@ -10,6 +10,7 @@ import (
 	"text/template"
 
 	"github.com/mudler/LocalAI/core/schema"
+	"github.com/mudler/LocalAI/core/services/routing/piipattern"
 	"github.com/mudler/LocalAI/pkg/downloader"
 	"github.com/mudler/LocalAI/pkg/functions"
 	"github.com/mudler/LocalAI/pkg/reasoning"
@@ -415,6 +416,27 @@ type PIIDetectionConfig struct {
 	// This is where an operator says which PII to block vs mask vs
 	// allow-log.
 	EntityActions map[string]string `yaml:"entity_actions,omitempty" json:"entity_actions,omitempty"`
+
+	// Builtins names the built-in pattern groups this (pattern) detector
+	// enables, e.g. "anthropic_api_key", "github_token". Pattern detectors
+	// match high-entropy structured secrets the NER tier can't; see
+	// core/services/routing/piipattern.
+	Builtins []string `yaml:"builtins,omitempty" json:"builtins,omitempty"`
+	// Patterns lists operator-defined secret patterns in the restricted-regex
+	// subset (validated at load). Each match is reported under its Name as the
+	// entity group, so EntityActions/DefaultAction apply by Name.
+	Patterns []PIIPattern `yaml:"patterns,omitempty" json:"patterns,omitempty"`
+}
+
+// PIIPattern is one operator-defined pattern on a pattern detector model. Name
+// is the entity group reported for matches (and the EntityActions key). Match
+// is the restricted-regex source. Action optionally overrides DefaultAction for
+// this pattern. MinLen drops matches shorter than N bytes (0 = no floor).
+type PIIPattern struct {
+	Name   string `yaml:"name" json:"name"`
+	Match  string `yaml:"match" json:"match"`
+	Action string `yaml:"action,omitempty" json:"action,omitempty"`
+	MinLen int    `yaml:"min_len,omitempty" json:"min_len,omitempty"`
 }
 
 // PIIIsEnabled returns the resolved PII state for this model. Single
@@ -481,6 +503,15 @@ func (c *ModelConfig) PIIDetectionEntityActions() map[string]string {
 		out[k] = v
 	}
 	return out
+}
+
+// IsPatternDetector reports whether this detector model matches secrets with
+// regex patterns (built-in and/or operator-defined) rather than a neural NER
+// model. Such a model runs entirely in-process (no backend / GGUF / VRAM); the
+// PII resolver builds an in-process pattern matcher for it instead of loading a
+// gRPC token-classifier.
+func (c *ModelConfig) IsPatternDetector() bool {
+	return len(c.PIIDetection.Builtins) > 0 || len(c.PIIDetection.Patterns) > 0
 }
 
 // @Description MCP configuration
@@ -1068,6 +1099,26 @@ func (c *ModelConfig) Validate() (bool, error) {
 		return false, fmt.Errorf(
 			"known_usecases conflict on llama-cpp: token_classify is incompatible " +
 				"with chat/completion — split into separate model configs")
+	}
+
+	// Pattern detector: validate built-in names and that each operator-defined
+	// pattern is a well-formed, anchored, bounded restricted-regex. Reject at
+	// load so a bad pattern surfaces as a clear config error rather than a
+	// silent no-op (or a fail-closed block) at request time.
+	if c.IsPatternDetector() {
+		for _, name := range c.PIIDetection.Builtins {
+			if _, ok := piipattern.LookupBuiltin(name); !ok {
+				return false, fmt.Errorf("pii_detection: unknown built-in pattern %q", name)
+			}
+		}
+		for _, p := range c.PIIDetection.Patterns {
+			if p.Name == "" {
+				return false, fmt.Errorf("pii_detection: pattern is missing a name")
+			}
+			if err := piipattern.ValidatePattern(p.Match); err != nil {
+				return false, fmt.Errorf("pii_detection: pattern %q: %w", p.Name, err)
+			}
+		}
 	}
 
 	// router.score_normalization is consumed lazily by the score

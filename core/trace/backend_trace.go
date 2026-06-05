@@ -34,6 +34,7 @@ const (
 	BackendTraceModelLoad       BackendTraceType = "model_load"
 	BackendTraceScore           BackendTraceType = "score"
 	BackendTraceTokenClassify   BackendTraceType = "token_classify"
+	BackendTracePatternPII      BackendTraceType = "pattern_pii"
 	BackendTraceVectorStore     BackendTraceType = "vector_store"
 )
 
