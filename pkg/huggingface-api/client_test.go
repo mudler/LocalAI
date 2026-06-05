@@ -1,10 +1,12 @@
 package hfapi_test
 
 import (
+	"errors"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -183,6 +185,87 @@ var _ = Describe("HuggingFace API Client", func() {
 
 			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).To(ContainSubstring("failed to parse JSON response"))
+			Expect(models).To(BeNil())
+		})
+
+		It("should retry 429 responses and honor Retry-After", func() {
+			attempts := 0
+			server = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				attempts++
+				if attempts == 1 {
+					w.Header().Set("Retry-After", "1")
+					w.WriteHeader(http.StatusTooManyRequests)
+					return
+				}
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(http.StatusOK)
+				_, err := w.Write([]byte("[]"))
+				Expect(err).ToNot(HaveOccurred())
+			}))
+			client.SetBaseURL(server.URL)
+
+			params := hfapi.SearchParams{
+				Sort:      "lastModified",
+				Direction: -1,
+				Limit:     30,
+				Search:    "GGUF",
+			}
+
+			start := time.Now()
+			models, err := client.SearchModels(params)
+			elapsed := time.Since(start)
+
+			Expect(err).ToNot(HaveOccurred())
+			Expect(models).To(HaveLen(0))
+			Expect(attempts).To(Equal(2))
+			Expect(elapsed).To(BeNumerically(">=", 900*time.Millisecond))
+		})
+
+		It("should fail fast on non-retryable 4xx responses", func() {
+			attempts := 0
+			server = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				attempts++
+				w.WriteHeader(http.StatusBadRequest)
+			}))
+			client.SetBaseURL(server.URL)
+
+			params := hfapi.SearchParams{
+				Sort:      "lastModified",
+				Direction: -1,
+				Limit:     30,
+				Search:    "GGUF",
+			}
+
+			start := time.Now()
+			models, err := client.SearchModels(params)
+			elapsed := time.Since(start)
+
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("Status code: 400"))
+			Expect(models).To(BeNil())
+			Expect(attempts).To(Equal(1))
+			Expect(elapsed).To(BeNumerically("<", 500*time.Millisecond))
+		})
+
+		It("should return ErrRateLimited when 429 persists after retries", func() {
+			server = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				w.Header().Set("Retry-After", "1")
+				w.WriteHeader(http.StatusTooManyRequests)
+			}))
+			client.SetBaseURL(server.URL)
+
+			params := hfapi.SearchParams{
+				Sort:      "trendingScore",
+				Direction: -1,
+				Limit:     15,
+				Search:    "GGUF",
+			}
+
+			models, err := client.SearchModels(params)
+
+			Expect(err).To(HaveOccurred())
+			Expect(errors.Is(err, hfapi.ErrRateLimited)).To(BeTrue())
+			Expect(err.Error()).To(ContainSubstring("Status code: 429"))
 			Expect(models).To(BeNil())
 		})
 	})
