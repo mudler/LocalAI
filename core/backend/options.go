@@ -239,13 +239,13 @@ func grpcModelOpts(c config.ModelConfig, modelPath string) *pb.ModelOptions {
 
 	if c.Backend == "cloud-proxy" {
 		opts.Proxy = &pb.ProxyOptions{
-			UpstreamUrl:            c.Proxy.UpstreamURL,
-			Mode:                   c.Proxy.Mode,
-			Provider:               c.Proxy.Provider,
-			ApiKeyEnv:              c.Proxy.APIKeyEnv,
-			ApiKeyFile:             c.Proxy.APIKeyFile,
-			UpstreamModel:          c.Proxy.UpstreamModel,
-			RequestTimeoutSeconds:  int32(c.Proxy.RequestTimeoutSeconds),
+			UpstreamUrl:           c.Proxy.UpstreamURL,
+			Mode:                  c.Proxy.Mode,
+			Provider:              c.Proxy.Provider,
+			ApiKeyEnv:             c.Proxy.APIKeyEnv,
+			ApiKeyFile:            c.Proxy.APIKeyFile,
+			UpstreamModel:         c.Proxy.UpstreamModel,
+			RequestTimeoutSeconds: int32(c.Proxy.RequestTimeoutSeconds),
 		}
 	}
 
@@ -322,6 +322,12 @@ func gRPCPredictOpts(c config.ModelConfig, modelPath string) *pb.PredictOptions 
 		} else {
 			metadata["enable_thinking"] = "true"
 		}
+	}
+	// Forward the effective reasoning effort so the backend can pass it to the
+	// jinja chat template (chat_template_kwargs.reasoning_effort) — the lever
+	// models like gpt-oss / LFM2.5 actually read, distinct from enable_thinking.
+	if c.ReasoningEffort != "" {
+		metadata["reasoning_effort"] = c.ReasoningEffort
 	}
 	pbOpts.Metadata = metadata
 

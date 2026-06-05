@@ -63,6 +63,13 @@ type ModelConfig struct {
 	FunctionsConfig functions.FunctionsConfig `yaml:"function,omitempty" json:"function,omitempty"`
 	ReasoningConfig reasoning.Config          `yaml:"reasoning,omitempty" json:"reasoning,omitempty"`
 
+	// ReasoningEffort is the default reasoning effort (none|minimal|low|medium|high)
+	// for this model. A per-request reasoning_effort overrides it. It is forwarded
+	// to the backend as the reasoning_effort chat_template_kwarg (see
+	// gRPCPredictOpts), so jinja-templated models that key on it — e.g. gpt-oss
+	// (Harmony) or LFM2.5 — honor it; "none" also toggles enable_thinking off.
+	ReasoningEffort string `yaml:"reasoning_effort,omitempty" json:"reasoning_effort,omitempty"`
+
 	FeatureFlag FeatureFlag `yaml:"feature_flags,omitempty" json:"feature_flags,omitempty"` // Feature Flag registry. We move fast, and features may break on a per model/backend basis. Registry for (usually temporary) flags that indicate aborting something early.
 	// LLM configs (GPT4ALL, Llama.cpp, ...)
 	LLMConfig `yaml:",inline" json:",inline"`
@@ -487,6 +494,40 @@ type Pipeline struct {
 	LLM           string `yaml:"llm,omitempty" json:"llm,omitempty"`
 	Transcription string `yaml:"transcription,omitempty" json:"transcription,omitempty"`
 	VAD           string `yaml:"vad,omitempty" json:"vad,omitempty"`
+
+	// ReasoningEffort sets the reasoning effort (none|minimal|low|medium|high) for
+	// the pipeline's LLM without editing the LLM model config. Overrides the LLM's
+	// own reasoning_effort. Unset leaves the LLM model config in charge.
+	ReasoningEffort string `yaml:"reasoning_effort,omitempty" json:"reasoning_effort,omitempty"`
+}
+
+// ApplyReasoningEffort resolves the effective reasoning effort — a per-request
+// value (requestEffort) overrides the config's own ReasoningEffort default —
+// stores it on the config so gRPCPredictOpts forwards it to the backend as the
+// reasoning_effort chat_template_kwarg, and maps it onto the enable_thinking
+// toggle the backend also reads:
+//   - "none" always disables thinking.
+//   - any explicit level enables it, UNLESS the config already disabled reasoning
+//     (an operator's explicit disable wins over a request asking to think).
+//
+// An empty requestEffort keeps the config's own default. With no effort set
+// anywhere it is a no-op, leaving the model's reasoning settings untouched.
+func (c *ModelConfig) ApplyReasoningEffort(requestEffort string) {
+	effort := requestEffort
+	if effort == "" {
+		effort = c.ReasoningEffort
+	}
+	c.ReasoningEffort = effort
+	switch strings.ToLower(effort) {
+	case "none":
+		disable := true
+		c.ReasoningConfig.DisableReasoning = &disable
+	case "minimal", "low", "medium", "high":
+		if c.ReasoningConfig.DisableReasoning == nil || !*c.ReasoningConfig.DisableReasoning {
+			enable := false
+			c.ReasoningConfig.DisableReasoning = &enable
+		}
+	}
 }
 
 // @Description File configuration for model downloads
