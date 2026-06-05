@@ -1,16 +1,17 @@
 import SearchableModelSelect from './SearchableModelSelect'
 
-// Editor for a list of model names (value is []string), each chosen via a
-// capability-filtered SearchableModelSelect. Used for pii.detectors, where
-// every entry must be a token_classify model. Already-selected models are
-// excluded from the add picker so each appears at most once.
+// Editor for a list of model names (value is []string). Selected models render
+// as compact removable chips; a single capability-filtered, commit-only picker
+// adds new ones. Used for pii.detectors / the instance-wide default detector,
+// where every entry must be a token_classify model. Already-selected models are
+// guarded against so each appears at most once.
+//
+// The picker is commit-only on purpose: typing a partial query must never be
+// treated as a chosen model (otherwise each keystroke would add a bogus entry),
+// and selecting one input box per detector wastes vertical space.
 export default function ModelMultiSelect({ value, onChange, capability, placeholder }) {
   const items = Array.isArray(value) ? value : []
 
-  const update = (index, v) => {
-    if (!v) return
-    onChange(items.map((it, i) => (i === index ? v : it)))
-  }
   const remove = (index) => onChange(items.filter((_, i) => i !== index))
   const add = (v) => {
     if (!v || items.includes(v)) return
@@ -19,37 +20,39 @@ export default function ModelMultiSelect({ value, onChange, capability, placehol
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 6, width: '100%' }}>
-      {items.length === 0 && (
+      {items.length === 0 ? (
         <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>
           No detectors — PII is enabled but nothing scans requests. Add a token-classification
           (NER) model below; its <code>pii_detection</code> block supplies the policy.
         </div>
-      )}
-
-      {items.map((name, i) => (
-        <div key={i} style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-          <SearchableModelSelect
-            value={name || ''}
-            onChange={v => update(i, v)}
-            capability={capability}
-            placeholder={placeholder || 'Select detector model...'}
-            style={{ flex: '1 1 260px', minWidth: 220 }}
-          />
-          <button type="button" className="btn btn-secondary btn-sm"
-            onClick={() => remove(i)}
-            style={{ padding: '2px 8px', fontSize: '0.75rem' }}
-            aria-label="Remove detector">
-            <i className="fas fa-times" />
-          </button>
+      ) : (
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+          {items.map((name, i) => (
+            <span key={i} style={{
+              display: 'inline-flex', alignItems: 'center', gap: 6,
+              padding: '2px 4px 2px 10px', fontSize: '0.8125rem',
+              fontFamily: 'var(--font-mono)', background: 'var(--color-bg-tertiary)',
+              borderRadius: 'var(--radius-md)',
+            }}>
+              {name}
+              <button type="button" className="btn btn-secondary btn-sm"
+                onClick={() => remove(i)}
+                style={{ padding: '0 6px', fontSize: '0.75rem', lineHeight: 1.6 }}
+                aria-label={`Remove ${name}`}>
+                <i className="fas fa-times" />
+              </button>
+            </span>
+          ))}
         </div>
-      ))}
+      )}
 
       <SearchableModelSelect
         value=""
-        onChange={v => add(v)}
+        onChange={add}
+        commitOnly
         capability={capability}
-        placeholder="+ Add detector model..."
-        style={{ flex: '1 1 260px', minWidth: 220 }}
+        placeholder={placeholder || '+ Add detector model...'}
+        style={{ flex: '1 1 260px', minWidth: 220, maxWidth: 360 }}
       />
     </div>
   )

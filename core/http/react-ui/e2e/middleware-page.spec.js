@@ -15,7 +15,7 @@ const MOCK_STATUS = {
     ],
     recent_event_count: 2,
     // Instance-wide default policy (Default PII policy editor).
-    default_detectors: [],
+    default_detectors: ['global-ner-default'],
     default_usecases: ['FLAG_CHAT'],
     coverable_usecases: ['FLAG_CHAT'],
   },
@@ -151,6 +151,12 @@ test.describe('Middleware page — admin in no-auth mode', () => {
     // from default_usecases: ['FLAG_CHAT'].
     const chatToggle = page.getByRole('checkbox').first()
     await expect(chatToggle).toBeChecked()
+
+    // The configured default detector renders as a removable chip (not a
+    // stack of input rows) with its own remove control.
+    const chip = page.locator('span').filter({ hasText: 'global-ner-default' }).first()
+    await expect(chip).toBeVisible()
+    await expect(chip.getByRole('button', { name: /Remove global-ner-default/i })).toBeVisible()
   })
 
   test('Filtering tab flags an enabled model with no detector as a no-op', async ({ page }) => {
