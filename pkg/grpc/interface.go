@@ -17,6 +17,7 @@ type AIModel interface {
 	Free() error
 	Embeddings(*pb.PredictOptions) ([]float32, error)
 	GenerateImage(*pb.GenerateImageRequest) error
+	UpscaleImage(*pb.UpscaleImageRequest) error
 	GenerateVideo(*pb.GenerateVideoRequest) error
 	Generate3D(*pb.Generate3DRequest) error
 	Detect(*pb.DetectOptions) (pb.DetectResponse, error)
