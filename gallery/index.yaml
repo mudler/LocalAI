@@ -31887,6 +31887,41 @@
     - filename: parakeet-cpp/tdt_ctc-1.1b-f16.gguf
       uri: huggingface://mudler/parakeet-cpp-gguf/tdt_ctc-1.1b-f16.gguf
       sha256: cd53f64eefac2623a12f2f118ef50b56622dc3012f42c815c6adf0d08292f387
+- name: parakeet-cpp-nemotron-3.5-asr-streaming-0.6b
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/mudler/parakeet-cpp-gguf
+    - https://huggingface.co/nvidia/nemotron-3.5-asr-streaming-0.6b
+    - https://github.com/mudler/parakeet.cpp
+  description: |
+    Multilingual (40+ locales), prompt-conditioned, cache-aware streaming FastConformer RNN-T, 0.6B.
+    Q8_0 GGUF for the parakeet-cpp backend (C++/ggml port of NVIDIA NeMo). Byte-identical to NeMo at
+    WER 0 offline and streaming, about 2.5x faster than NeMo on CPU with no GPU. Select a language with
+    the request "language" field (for example en, de, es, ja-JP), or leave it empty for automatic
+    detection. License OpenMDW-1.1.
+  license: other
+  tags:
+    - parakeet
+    - parakeet-cpp
+    - nemotron
+    - asr
+    - speech-recognition
+    - stt
+    - multilingual
+    - streaming
+    - gguf
+    - ggml
+  overrides:
+    backend: parakeet-cpp
+    known_usecases:
+      - transcript
+    name: parakeet-cpp-nemotron-3.5-asr-streaming-0.6b
+    parameters:
+      model: parakeet-cpp/nemotron-3.5-asr-streaming-0.6b-q8_0.gguf
+  files:
+    - filename: parakeet-cpp/nemotron-3.5-asr-streaming-0.6b-q8_0.gguf
+      uri: huggingface://mudler/parakeet-cpp-gguf/nemotron-3.5-asr-streaming-0.6b-q8_0.gguf
+      sha256: ba2f13eccd4a5245be728f77e6149bd6a4fdcdd133ff2e08ac6005bcef7a99f1
 - name: parakeet-crispasr
   url: github:mudler/LocalAI/gallery/virtual.yaml@master
   urls:
