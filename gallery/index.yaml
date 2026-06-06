@@ -1,4 +1,59 @@
 ---
+- name: "minicpm5-1b"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/openbmb/MiniCPM5-1B-GGUF
+  description: |
+    MiniCPM Tech Report |
+    GitHub Repo |
+    UltraData |
+    MiniCPM Desk Pet |
+    Online Demo
+
+    English |
+    中文
+
+    ## Highlights
+
+    We are releasing **MiniCPM5-1B**, the first model in the **MiniCPM5** series. It is a dense 1B Transformer built for on-device, local deployment, and resource-constrained scenarios, reaching 1B-class open-source SOTA.
+
+    🏆 **1B-class open-source SOTA**: compared with strong open-source models in the same size class, MiniCPM5-1B reaches SOTA within this comparison set. Its advantage is most visible in agentic tool use, code generation, and difficult reasoning.
+
+    🧠 **Hybrid Reasoning**: built-in `` chat template, switch via `enable_thinking`. The same checkpoint serves as both a fast assistant and a deliberate reasoner.
+
+    🛠️ **Deployment / Fine-tuning Resources**: the MiniCPM GitHub repo provides single-page cookbooks and Agent Skills for major inference backends and fine-tuning frameworks.
+
+    🐱 **Desktop Pet**: a local-LLM desktop pet driven by MiniCPM5-1B.
+
+    ## Model List
+
+    Use this directory to choose the model format that matches your runtime:
+
+    ...
+  license: "apache-2.0"
+  tags:
+    - llm
+    - gguf
+    - llama
+  icon: https://raw.githubusercontent.com/OpenBMB/MiniCPM/main/assets/minicpm5/public_leaderboard_radar_en.png
+  overrides:
+    backend: llama-cpp
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/MiniCPM5-1B-GGUF/MiniCPM5-1B-Q4_K_M.gguf
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/MiniCPM5-1B-GGUF/MiniCPM5-1B-Q4_K_M.gguf
+      sha256: 81b64d05a23b17b34c475f42b3e72fbde62d4b92cc34541f7a8031d0752deafa
+      uri: https://huggingface.co/openbmb/MiniCPM5-1B-GGUF/resolve/main/MiniCPM5-1B-Q4_K_M.gguf
 - name: "gemma-4-12b-it-qat-q4_0"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
