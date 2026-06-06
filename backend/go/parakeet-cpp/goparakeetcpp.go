@@ -48,6 +48,13 @@ var (
 	// side reads them as const float*/const int*.
 	CppTranscribePcmBatchJSON func(ctx uintptr, samplesConcat []float32, nSamples []int32, nClips int32, sampleRate int32, decoder int32) uintptr
 
+	// CppTranscribePcmBatchJSONLang is the multilingual variant of the batched
+	// JSON entry point: identical, plus a trailing target_lang. "" (the model
+	// default, "auto") is passed for non-prompt models, which ignore it; an
+	// unknown locale on a prompt model returns 0 and sets last_error. Present
+	// only in newer libparakeet.so; nil falls back to CppTranscribePcmBatchJSON.
+	CppTranscribePcmBatchJSONLang func(ctx uintptr, samplesConcat []float32, nSamples []int32, nClips int32, sampleRate int32, decoder int32, targetLang string) uintptr
+
 	// Cache-aware streaming (RNN-T) entry points. stream_begin returns 0 for
 	// non-streaming models. feed/finalize return a malloc'd char* (uintptr,
 	// freed via CppFreeString); feed writes 1 to *eouOut on an <EOU>/<EOB>.
@@ -55,6 +62,11 @@ var (
 	CppStreamFeed     func(s uintptr, pcm []float32, nSamples int32, eouOut unsafe.Pointer) uintptr
 	CppStreamFinalize func(s uintptr) uintptr
 	CppStreamFree     func(s uintptr)
+
+	// CppStreamBeginLang is the multilingual variant of stream_begin: identical,
+	// plus a trailing target_lang ("" means the model default). Present only in
+	// newer libparakeet.so; nil falls back to CppStreamBegin.
+	CppStreamBeginLang func(ctx uintptr, targetLang string) uintptr
 )
 
 // streamChunkSamples is how much 16 kHz mono PCM we hand to stream_feed per
@@ -187,8 +199,19 @@ func (p *ParakeetCpp) runBatch(reqs []*batchRequest) {
 	if len(reqs) > 0 {
 		dec = reqs[0].decoder
 	}
+	// All requests in a batch share one language (the batcher coalesces only
+	// same-language requests), so any element's language describes the batch.
+	lang := ""
+	if len(reqs) > 0 {
+		lang = reqs[0].language
+	}
 	p.engineMu.Lock()
-	cstr := CppTranscribePcmBatchJSON(p.ctxPtr, concat, nSamples, int32(len(reqs)), 16000, dec)
+	var cstr uintptr
+	if CppTranscribePcmBatchJSONLang != nil {
+		cstr = CppTranscribePcmBatchJSONLang(p.ctxPtr, concat, nSamples, int32(len(reqs)), 16000, dec, lang)
+	} else {
+		cstr = CppTranscribePcmBatchJSON(p.ctxPtr, concat, nSamples, int32(len(reqs)), 16000, dec)
+	}
 	p.engineMu.Unlock()
 	if cstr == 0 {
 		err := fmt.Errorf("parakeet-cpp: batch transcribe failed: %s", CppLastError(p.ctxPtr))
@@ -226,8 +249,9 @@ func (p *ParakeetCpp) runBatch(reqs []*batchRequest) {
 // OpenAI API, whose default is segment-level); token ids always populate
 // Segment.Tokens.
 //
-// translate/diarize/prompt/temperature/language/threads are not applicable to
-// parakeet and are ignored; streaming is handled by AudioTranscriptionStream
+// translate/diarize/prompt/temperature/threads are not applicable to parakeet
+// and are ignored; language is honored on the batched + streaming paths (see
+// opts.GetLanguage() below); streaming is handled by AudioTranscriptionStream
 // (L2).
 func (p *ParakeetCpp) AudioTranscription(ctx context.Context, opts *pb.TranscriptRequest) (pb.TranscriptResult, error) {
 	if p.ctxPtr == 0 {
@@ -271,7 +295,7 @@ func (p *ParakeetCpp) AudioTranscription(ctx context.Context, opts *pb.Transcrip
 	}
 	rep := make(chan batchReply, 1)
 	select {
-	case p.bat.submit <- &batchRequest{pcm: pcm, decoder: 0, reply: rep}:
+	case p.bat.submit <- &batchRequest{pcm: pcm, decoder: 0, language: opts.GetLanguage(), reply: rep}:
 	case <-ctx.Done():
 		return pb.TranscriptResult{}, status.Error(codes.Canceled, "transcription cancelled")
 	}
@@ -361,7 +385,12 @@ func (p *ParakeetCpp) AudioTranscriptionStream(ctx context.Context, opts *pb.Tra
 		return status.Error(codes.Canceled, "transcription cancelled")
 	}
 
-	stream := CppStreamBegin(p.ctxPtr)
+	var stream uintptr
+	if CppStreamBeginLang != nil {
+		stream = CppStreamBeginLang(p.ctxPtr, opts.GetLanguage())
+	} else {
+		stream = CppStreamBegin(p.ctxPtr)
+	}
 	if stream == 0 {
 		// Not a cache-aware streaming model: run a normal offline
 		// transcription and emit it as one delta + a closing final result.
