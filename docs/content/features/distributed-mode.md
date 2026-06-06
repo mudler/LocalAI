@@ -133,9 +133,9 @@ When S3 is not configured, model files are transferred directly from the fronten
 
 For high-throughput or very large model files, S3 can be more efficient since it avoids streaming through the frontend.
 
-{{% alert icon="⚠️" color="warning" %}}
+{{% notice warning %}}
 The worker HTTP file transfer server is authenticated by `LOCALAI_REGISTRATION_TOKEN`. If the token is **empty**, the server **fails open** — anyone who can reach the port gets read/write access to the worker's models/staging/data directories (a remote model-poisoning / exfiltration vector). The worker logs a loud warning at startup in this case. Always set `LOCALAI_REGISTRATION_TOKEN` in distributed mode, and set `LOCALAI_DISTRIBUTED_REQUIRE_AUTH=true` (frontend **and** workers) to make a missing token *or* missing NATS credentials a hard startup error rather than a silent fail-open. Firewall the file-transfer port (gRPC base − 1) so only the frontend can reach it.
-{{% /alert %}}
+{{% /notice %}}
 
 ### Watching Backend Installs
 
