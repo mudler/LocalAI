@@ -17,10 +17,19 @@ import (
 	"github.com/mudler/LocalAI/pkg/httpclient"
 )
 
+// Metadata keys populated by localrecall for every stored chunk. The original
+// upload file name lives under file_name (used for display); source holds the
+// collection entry key ("<uuid>/<filename>") used to build the raw-file URL.
+const (
+	kbMetadataFileName = "file_name"
+	kbMetadataSource   = "source"
+)
+
 // KBSearchResult represents a search result from the knowledge base.
+// Field names mirror the collection search endpoint's JSON response.
 type KBSearchResult struct {
 	Content    string            `json:"content"`
-	Score      float64           `json:"score"`
+	ID         string            `json:"id"`
 	Similarity float64           `json:"similarity"`
 	Metadata   map[string]string `json:"metadata"`
 }
@@ -31,12 +40,32 @@ type kbSearchResponse struct {
 	Count   int              `json:"count"`
 }
 
-// KBAutoSearchPrompt queries the knowledge base with the user's message
-// and returns a system prompt block with relevant results.
+// KBCitation is a single source document that a KB search drew from. Citations
+// travel alongside the prompt as structured data so the consumer (and UI) can
+// render clickable source links, independent of what the model writes inline.
+type KBCitation struct {
+	// FileName is the original uploaded file name, for display (e.g. "report.pdf").
+	FileName string `json:"file_name"`
+	// EntryKey is the collection entry identifier ("<uuid>/<filename>"), used to
+	// build the raw-file URL and as the de-duplication key.
+	EntryKey string `json:"entry_key"`
+}
+
+// KBSearchContext is the result of an auto-search against the knowledge base:
+// the system-prompt block to feed the model, plus the de-duplicated list of
+// source documents the results were drawn from.
+type KBSearchContext struct {
+	Prompt    string       `json:"prompt"`
+	Citations []KBCitation `json:"citations"`
+}
+
+// KBAutoSearchPrompt queries the knowledge base with the user's message and
+// returns a KBSearchContext: a system prompt block with the relevant results
+// plus the de-duplicated source citations those results came from.
 // Uses LocalAI's collection search endpoint via the API.
-func KBAutoSearchPrompt(ctx context.Context, apiURL, apiKey, collection, query string, maxResults int, userID string) string {
+func KBAutoSearchPrompt(ctx context.Context, apiURL, apiKey, collection, query string, maxResults int, userID string) KBSearchContext {
 	if collection == "" || query == "" {
-		return ""
+		return KBSearchContext{}
 	}
 
 	if maxResults <= 0 {
@@ -56,7 +85,7 @@ func KBAutoSearchPrompt(ctx context.Context, apiURL, apiKey, collection, query s
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, searchURL, strings.NewReader(string(reqBody)))
 	if err != nil {
 		xlog.Warn("KB auto-search: failed to create request", "error", err)
-		return ""
+		return KBSearchContext{}
 	}
 	req.Header.Set("Content-Type", "application/json")
 	if apiKey != "" {
@@ -66,41 +95,70 @@ func KBAutoSearchPrompt(ctx context.Context, apiURL, apiKey, collection, query s
 	resp, err := httpclient.New().Do(req)
 	if err != nil {
 		xlog.Warn("KB auto-search: request failed", "error", err)
-		return ""
+		return KBSearchContext{}
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
 		xlog.Warn("KB auto-search: non-200 response", "status", resp.StatusCode, "body", string(body))
-		return ""
+		return KBSearchContext{}
 	}
 
 	var searchResp kbSearchResponse
 	if err := json.NewDecoder(resp.Body).Decode(&searchResp); err != nil {
 		xlog.Warn("KB auto-search: failed to decode response", "error", err)
-		return ""
+		return KBSearchContext{}
 	}
 
 	if len(searchResp.Results) == 0 {
-		return ""
+		return KBSearchContext{}
 	}
 
-	// Format results as a system prompt block (same format as LocalAGI)
+	// Build the system prompt block, labelling each chunk with its source file
+	// so the model can attribute inline, and collect the structured citations.
 	var sb strings.Builder
 	sb.WriteString("Given the user input you have the following in memory:\n")
-	for i, r := range searchResp.Results {
-		sb.WriteString(fmt.Sprintf("- %s", r.Content))
-		if len(r.Metadata) > 0 {
-			meta, _ := json.Marshal(r.Metadata)
-			sb.WriteString(fmt.Sprintf(" (%s)", string(meta)))
+
+	var citations []KBCitation
+	seen := make(map[string]struct{})
+
+	for _, r := range searchResp.Results {
+		fileName := r.Metadata[kbMetadataFileName]
+		source := r.Metadata[kbMetadataSource]
+
+		label := fileName
+		if label == "" {
+			label = "unknown"
 		}
-		if i < len(searchResp.Results)-1 {
-			sb.WriteString("\n")
+		sb.WriteString(fmt.Sprintf("[Source: %s]\n%s\n", label, r.Content))
+
+		// Citations are de-duplicated per source document: many chunks from the
+		// same file share one source key, so a file is listed only once. Skip
+		// results with no source key — they cannot be linked back to a document.
+		dedupKey := source
+		if dedupKey == "" {
+			dedupKey = fileName
 		}
+		if dedupKey == "" {
+			continue
+		}
+		if _, ok := seen[dedupKey]; ok {
+			continue
+		}
+		seen[dedupKey] = struct{}{}
+		citations = append(citations, KBCitation{
+			FileName: fileName,
+			EntryKey: source,
+		})
 	}
 
-	return sb.String()
+	sb.WriteString("When answering, cite sources using [Source: filename].")
+
+	return KBSearchContext{
+		Prompt:    sb.String(),
+		Citations: citations,
+	}
 }
 
 // KBSearchMemoryArgs defines the arguments for the search_memory tool.
@@ -121,10 +179,10 @@ func (t KBSearchMemoryTool) Run(args KBSearchMemoryArgs) (string, any, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 	result := KBAutoSearchPrompt(ctx, t.APIURL, t.APIKey, t.Collection, args.Query, t.MaxResults, t.UserID)
-	if result == "" {
+	if result.Prompt == "" {
 		return "No results found.", nil, nil
 	}
-	return result, nil, nil
+	return result.Prompt, nil, nil
 }
 
 // KBAddMemoryArgs defines the arguments for the add_memory tool.

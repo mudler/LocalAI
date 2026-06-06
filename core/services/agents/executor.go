@@ -168,10 +168,12 @@ func ExecuteChatWithLLM(ctx context.Context, llm cogito.LLM, cfg *AgentConfig, m
 	}
 
 	if cfg.EnableKnowledgeBase && (kbMode == KBModeAutoSearch || kbMode == KBModeBoth) {
-		kbResults := KBAutoSearchPrompt(ctx, effectiveURL, effectiveKey, cfg.Name, message, cfg.KnowledgeBaseResults, userID)
-		if kbResults != "" {
-			fragment = fragment.AddMessage(cogito.SystemMessageRole, kbResults)
+		kbResult := KBAutoSearchPrompt(ctx, effectiveURL, effectiveKey, cfg.Name, message, cfg.KnowledgeBaseResults, userID)
+		if kbResult.Prompt != "" {
+			fragment = fragment.AddMessage(cogito.SystemMessageRole, kbResult.Prompt)
 		}
+		// NOTE: kbResult.Citations is the structured source list. Appending it as
+		// a Sources block to the answer is person 2's work in this file.
 	}
 
 	// User message
