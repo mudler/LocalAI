@@ -386,6 +386,7 @@ int load_model(const char *model, char *model_path, char* options[], int threads
     const char *llm_vision_path = "";
     const char *diffusion_model_path = stableDiffusionModel;
     const char *high_noise_diffusion_model_path = "";
+    const char *uncond_diffusion_model_path = "";
     const char *taesd_path  = "";
     const char *control_net_path = "";
     const char *embedding_dir = "";
@@ -472,6 +473,7 @@ int load_model(const char *model, char *model_path, char* options[], int threads
         if (!strcmp(optname, "llm_vision_path")) llm_vision_path = strdup(optval);
         if (!strcmp(optname, "diffusion_model_path")) diffusion_model_path = strdup(optval);
         if (!strcmp(optname, "high_noise_diffusion_model_path")) high_noise_diffusion_model_path = strdup(optval);
+        if (!strcmp(optname, "uncond_diffusion_model_path")) uncond_diffusion_model_path = strdup(optval);
         if (!strcmp(optname, "taesd_path")) taesd_path = strdup(optval);
         if (!strcmp(optname, "control_net_path")) control_net_path = strdup(optval);
         if (!strcmp(optname, "embedding_dir")) {
@@ -571,6 +573,7 @@ int load_model(const char *model, char *model_path, char* options[], int threads
     ctx_params.llm_vision_path = llm_vision_path;
     ctx_params.diffusion_model_path = diffusion_model_path;
     ctx_params.high_noise_diffusion_model_path = high_noise_diffusion_model_path;
+    ctx_params.uncond_diffusion_model_path = uncond_diffusion_model_path;
     ctx_params.vae_path = vae_path;
     ctx_params.audio_vae_path = audio_vae_path;
     ctx_params.embeddings_connectors_path = embeddings_connectors_path;
