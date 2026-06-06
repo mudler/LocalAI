@@ -26165,6 +26165,106 @@
     - filename: ae.safetensors
       sha256: afc8e28272cd15db3919bacdb6918ce9c1ed22e96cb12c4d5ed0fba823529e38
       uri: https://huggingface.co/ChuckMcSneed/FLUX.1-dev/resolve/main/ae.safetensors
+- name: ideogram-4-iq4nl-ggml
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/ideogram-ai/ideogram-4-fp8
+    - https://huggingface.co/stduhpf/ideogram-4-gguf
+  description: |
+    Ideogram 4 is a text-to-image diffusion model known for state-of-the-art prompt adherence and exceptional, accurate text rendering inside images. It is driven by a Qwen3-VL-8B text encoder and performs real classifier-free guidance from a separate unconditional diffusion model.
+
+    This is the iQ4_NL (4-bit) quantization, a good balance of quality and footprint (~5.8GB diffusion + ~5.8GB unconditional). The bundle also pulls the Qwen3-VL-8B-Instruct text encoder and the FLUX.2 VAE. Quantized GGUF weights by stduhpf for use with stable-diffusion.cpp.
+  license: ideogram-non-commercial-model-agreement
+  tags:
+    - ideogram
+    - ideogram4
+    - text-to-image
+    - image-generation
+    - gguf
+    - quantized
+    - 8b
+    - diffusion
+  last_checked: "2026-06-06"
+  overrides:
+    backend: stablediffusion-ggml
+    step: 25
+    # Ideogram4 runs real classifier-free guidance from a separate
+    # unconditional diffusion model, so it needs a CFG scale > 1 (unlike the
+    # guidance-distilled Flux / Z-Image models). 7 matches the upstream
+    # stable-diffusion.cpp default used in the Ideogram4 example.
+    cfg_scale: 7
+    options:
+      - diffusion_model
+      - uncond_diffusion_model_path:ideogram4_unconditional-iQ4_NL.gguf
+      - llm_path:Qwen3-VL-8B-Instruct-Q4_K_M.gguf
+      - vae_path:flux2-vae.safetensors
+      - sampler:euler
+      - offload_params_to_cpu:true
+    parameters:
+      model: ideogram4-iQ4_NL.gguf
+  files:
+    - filename: ideogram4-iQ4_NL.gguf
+      sha256: 578502024f23e8e988e0cb297201f1ac88dddad5706726ad222d918727e0211d
+      uri: huggingface://stduhpf/ideogram-4-gguf/ideogram4-iQ4_NL.gguf
+    - filename: ideogram4_unconditional-iQ4_NL.gguf
+      sha256: 4140e58c6818dac8221fa590a6814246b5336bb23246fbbb96b9048e887f47cf
+      uri: huggingface://stduhpf/ideogram-4-gguf/ideogram4_unconditional-iQ4_NL.gguf
+    - filename: Qwen3-VL-8B-Instruct-Q4_K_M.gguf
+      sha256: 108e7ff92b78eefd3db4741885104acba514255c11b617d3c7b197a5f46efe89
+      uri: huggingface://unsloth/Qwen3-VL-8B-Instruct-GGUF/Qwen3-VL-8B-Instruct-Q4_K_M.gguf
+    - filename: flux2-vae.safetensors
+      sha256: 868fe7b343cc8f3a19dbcfcafbc3d5f888802be3f89bd81b65b3621a066ce8f3
+      uri: https://huggingface.co/Comfy-Org/Ideogram-4/resolve/main/vae/flux2-vae.safetensors
+- name: ideogram-4-q8_0-ggml
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/ideogram-ai/ideogram-4-fp8
+    - https://huggingface.co/stduhpf/ideogram-4-gguf
+  description: |
+    Ideogram 4 is a text-to-image diffusion model known for state-of-the-art prompt adherence and exceptional, accurate text rendering inside images. It is driven by a Qwen3-VL-8B text encoder and performs real classifier-free guidance from a separate unconditional diffusion model.
+
+    This is the Q8_0 (8-bit) quantization for highest quality (~10.1GB diffusion + ~10.1GB unconditional). The bundle also pulls the Qwen3-VL-8B-Instruct text encoder and the FLUX.2 VAE. Quantized GGUF weights by stduhpf for use with stable-diffusion.cpp.
+  license: ideogram-non-commercial-model-agreement
+  tags:
+    - ideogram
+    - ideogram4
+    - text-to-image
+    - image-generation
+    - gguf
+    - quantized
+    - 8b
+    - diffusion
+  last_checked: "2026-06-06"
+  overrides:
+    backend: stablediffusion-ggml
+    step: 25
+    # Ideogram4 runs real classifier-free guidance from a separate
+    # unconditional diffusion model, so it needs a CFG scale > 1 (unlike the
+    # guidance-distilled Flux / Z-Image models). 7 matches the upstream
+    # stable-diffusion.cpp default used in the Ideogram4 example.
+    cfg_scale: 7
+    options:
+      - diffusion_model
+      - uncond_diffusion_model_path:ideogram4_unconditional-Q8_0.gguf
+      - llm_path:Qwen3-VL-8B-Instruct-Q4_K_M.gguf
+      - vae_path:flux2-vae.safetensors
+      - sampler:euler
+      - offload_params_to_cpu:true
+    parameters:
+      model: ideogram4-Q8_0.gguf
+  files:
+    - filename: ideogram4-Q8_0.gguf
+      sha256: feb6cae997927ba0e339bf6ef64b14df9353064f60805d53f84c592643addcfd
+      uri: huggingface://stduhpf/ideogram-4-gguf/ideogram4-Q8_0.gguf
+    - filename: ideogram4_unconditional-Q8_0.gguf
+      sha256: 9261d1473d328aa7edbe1b3fa48a9b9bd2e19fe78439fe6a293af1016c63debd
+      uri: huggingface://stduhpf/ideogram-4-gguf/ideogram4_unconditional-Q8_0.gguf
+    - filename: Qwen3-VL-8B-Instruct-Q4_K_M.gguf
+      sha256: 108e7ff92b78eefd3db4741885104acba514255c11b617d3c7b197a5f46efe89
+      uri: huggingface://unsloth/Qwen3-VL-8B-Instruct-GGUF/Qwen3-VL-8B-Instruct-Q4_K_M.gguf
+    - filename: flux2-vae.safetensors
+      sha256: 868fe7b343cc8f3a19dbcfcafbc3d5f888802be3f89bd81b65b3621a066ce8f3
+      uri: https://huggingface.co/Comfy-Org/Ideogram-4/resolve/main/vae/flux2-vae.safetensors
 - name: whisper-1
   url: github:mudler/LocalAI/gallery/whisper-base.yaml@master
   urls:
