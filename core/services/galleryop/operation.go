@@ -408,29 +408,44 @@ func (m *OpCache) Exists(key string) bool {
 }
 
 func (m *OpCache) GetStatus() (map[string]string, map[string]string) {
-	processingModelsData := m.Map()
-
 	taskTypes := map[string]string{}
+	processingModelsData := map[string]string{}
 
-	for k, v := range processingModelsData {
+	// Iterate a snapshot (Keys() copies) and build a fresh result map. We must
+	// NOT delete from m.Map() during the range: Map() returns the live internal
+	// map by reference, so a bare delete here would be an unsynchronized write
+	// to a map four HTTP handlers read every ~1s — a concurrent-map-write crash.
+	// Collect evictions and apply them via the locked DeleteUUID after the loop.
+	var evict []string
+	for _, k := range m.status.Keys() {
+		v := m.status.Get(k)
+		if v == "" {
+			continue // raced with a concurrent Delete
+		}
 		status := m.galleryService.GetStatus(v)
 		// Terminal ops must not keep showing as "processing". Cleanup was
 		// previously only triggered by a client polling /api/backends/job/:uid,
 		// but the Manage-page Reinstall/Upgrade buttons never poll, so completed
 		// ops leaked into processingBackends forever and the card spun
 		// "reinstalling" indefinitely. Evict here on the list read (the UI always
-		// calls this). DeleteUUID broadcasts the eviction so peer replicas converge.
-		if status != nil && status.Processed {
-			m.DeleteUUID(v)
-			delete(processingModelsData, k)
+		// calls this). We only evict SUCCESS/cancelled terminals (Error == nil):
+		// failed ops are kept so /api/operations can surface the error and offer
+		// Dismiss. DeleteUUID broadcasts the eviction so peer replicas converge.
+		if status != nil && status.Processed && status.Error == nil {
+			evict = append(evict, v)
 			continue
 		}
+		processingModelsData[k] = v
 		taskTypes[k] = "Installation"
 		if status != nil && status.Deletion {
 			taskTypes[k] = "Deletion"
 		} else if status == nil {
 			taskTypes[k] = "Waiting"
 		}
+	}
+
+	for _, v := range evict {
+		m.DeleteUUID(v)
 	}
 
 	return processingModelsData, taskTypes

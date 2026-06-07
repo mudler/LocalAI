@@ -85,6 +85,32 @@ var _ = Describe("DeleteStalePendingBackendOps", func() {
 		Expect(pendingCountFor(drain)).To(Equal(int64(0)))
 	})
 
+	It("clears ops behind an unhealthy node with a stale heartbeat (never ages to offline)", func() {
+		// A node marked unhealthy on a NATS ErrNoResponders never transitions to
+		// offline, so its ops must be reaped via the same stale-heartbeat path.
+		sick := registerBackend("agx-orin-sick", "10.0.0.7:50051")
+		Expect(registry.UpsertPendingBackendOp(ctx, sick, "llama-cpp-development", OpBackendUpgrade, nil)).To(Succeed())
+		Expect(registry.MarkUnhealthy(ctx, sick)).To(Succeed())
+		setHeartbeat(sick, time.Now().Add(-1*time.Hour))
+
+		removed, err := registry.DeleteStalePendingBackendOps(ctx, 10*time.Minute)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(removed).To(Equal(int64(1)))
+		Expect(pendingCountFor(sick)).To(Equal(int64(0)))
+	})
+
+	It("keeps ops behind an unhealthy node that is still heartbeating (recovering)", func() {
+		recovering := registerBackend("agx-orin-flap", "10.0.0.8:50051")
+		Expect(registry.UpsertPendingBackendOp(ctx, recovering, "llama-cpp-development", OpBackendUpgrade, nil)).To(Succeed())
+		Expect(registry.MarkUnhealthy(ctx, recovering)).To(Succeed())
+		setHeartbeat(recovering, time.Now()) // fresh heartbeat → recovering
+
+		removed, err := registry.DeleteStalePendingBackendOps(ctx, 10*time.Minute)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(removed).To(Equal(int64(0)))
+		Expect(pendingCountFor(recovering)).To(Equal(int64(1)))
+	})
+
 	It("keeps ops behind a node that only just went offline (within grace)", func() {
 		blip := registerBackend("agx-orin", "10.0.0.4:50051")
 		Expect(registry.UpsertPendingBackendOp(ctx, blip, "parakeet-cpp-development", OpBackendInstall, nil)).To(Succeed())

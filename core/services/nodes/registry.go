@@ -1787,10 +1787,17 @@ func (r *NodeRegistry) DeletePendingBackendOp(ctx context.Context, id uint) erro
 // number of rows deleted.
 func (r *NodeRegistry) DeleteStalePendingBackendOps(ctx context.Context, grace time.Duration) (int64, error) {
 	cutoff := time.Now().Add(-grace)
+	// Draining nodes are cleared immediately (admin action; model rows already
+	// purged). Offline AND unhealthy nodes are cleared only once their heartbeat
+	// is older than the grace window: a node marked unhealthy on a NATS
+	// ErrNoResponders never transitions to offline (health.go skips re-marking
+	// it), so without including unhealthy here its ops would leak exactly like
+	// the offline case. A node with a fresh heartbeat (last_heartbeat > cutoff)
+	// is recovering and keeps its op for retry.
 	res := r.db.WithContext(ctx).
 		Where(`node_id IN (SELECT id FROM backend_nodes WHERE status = ?)
-			OR node_id IN (SELECT id FROM backend_nodes WHERE status = ? AND last_heartbeat <= ?)`,
-			StatusDraining, StatusOffline, cutoff).
+			OR node_id IN (SELECT id FROM backend_nodes WHERE status IN ? AND last_heartbeat <= ?)`,
+			StatusDraining, []string{StatusOffline, StatusUnhealthy}, cutoff).
 		Delete(&PendingBackendOp{})
 	if res.Error != nil {
 		return 0, fmt.Errorf("deleting stale pending backend ops: %w", res.Error)

@@ -43,12 +43,12 @@ var _ = Describe("OpCache.GetStatus eviction", func() {
 		Expect(cache.Exists("llama-cpp")).To(BeFalse())
 	})
 
-	It("evicts a failed op", func() {
+	It("keeps a failed op so the operations panel can surface the error and offer Dismiss", func() {
 		cache.SetBackend("piper", "uuid-2")
 		svc.UpdateStatus("uuid-2", &galleryop.OpStatus{Processed: true, Error: errors.New("boom")})
 		processing, _ := cache.GetStatus()
-		Expect(processing).NotTo(HaveKey("piper"))
-		Expect(cache.Exists("piper")).To(BeFalse())
+		Expect(processing).To(HaveKeyWithValue("piper", "uuid-2"))
+		Expect(cache.Exists("piper")).To(BeTrue())
 	})
 
 	It("evicts a cancelled op", func() {
@@ -63,5 +63,30 @@ var _ = Describe("OpCache.GetStatus eviction", func() {
 		processing, taskTypes := cache.GetStatus()
 		Expect(processing).To(HaveKeyWithValue("whisper", "uuid-4"))
 		Expect(taskTypes).To(HaveKeyWithValue("whisper", "Waiting"))
+	})
+
+	// Regression guard: GetStatus is called concurrently by four HTTP handlers
+	// (~1s poll). An earlier version evicted by deleting from m.Map() — which
+	// returns the live internal map by reference — causing a fatal
+	// "concurrent map writes" crash. Run under -race; must not panic or race.
+	It("is safe under concurrent GetStatus + Set/complete", func() {
+		done := make(chan struct{})
+		go func() {
+			defer GinkgoRecover()
+			for i := 0; i < 2000; i++ {
+				_, _ = cache.GetStatus()
+			}
+			close(done)
+		}()
+		for i := 0; i < 2000; i++ {
+			id := "uuid-c"
+			cache.SetBackend("concurrent-backend", id)
+			// Half the time mark it completed so GetStatus evicts it.
+			if i%2 == 0 {
+				svc.UpdateStatus(id, &galleryop.OpStatus{Processed: true, Progress: 100, Message: "completed"})
+			}
+			_, _ = cache.GetStatus()
+		}
+		<-done
 	})
 })
