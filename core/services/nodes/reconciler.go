@@ -230,10 +230,13 @@ func (rc *ReplicaReconciler) drainPendingBackendOps(ctx context.Context) {
 			// the same worker. Falls back to the legacy backend.install
 			// Force=true path on nats.ErrNoResponders for old workers that
 			// don't subscribe to backend.upgrade yet (rolling-update window).
-			reply, err := rc.adapter.UpgradeBackend(op.NodeID, op.Backend, string(op.Galleries), "", "", "", 0)
+			// Reconciler retries are background reconciliation with no live
+			// admin watching a progress bar, so opID/onProgress are empty —
+			// the adapter skips the progress subscription entirely.
+			reply, err := rc.adapter.UpgradeBackend(op.NodeID, op.Backend, string(op.Galleries), "", "", "", 0, "", nil)
 			if err != nil {
 				if errors.Is(err, nats.ErrNoResponders) {
-					instReply, instErr := rc.adapter.installWithForceFallback(op.NodeID, op.Backend, string(op.Galleries), "", "", "", 0)
+					instReply, instErr := rc.adapter.installWithForceFallback(op.NodeID, op.Backend, string(op.Galleries), "", "", "", 0, "", nil)
 					if instErr != nil {
 						applyErr = instErr
 					} else if !instReply.Success {

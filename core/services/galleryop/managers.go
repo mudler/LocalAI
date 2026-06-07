@@ -20,7 +20,7 @@ type BackendManager interface {
 	InstallBackend(ctx context.Context, op *ManagementOp[gallery.GalleryBackend, any], progressCb ProgressCallback) error
 	DeleteBackend(name string) error
 	ListBackends() (gallery.SystemBackends, error)
-	UpgradeBackend(ctx context.Context, name string, progressCb ProgressCallback) error
+	UpgradeBackend(ctx context.Context, opID, name string, progressCb ProgressCallback) error
 	CheckUpgrades(ctx context.Context) (map[string]gallery.UpgradeInfo, error)
 	// IsDistributed reports whether installs fan out across worker nodes.
 	// The HTTP layer uses this to refuse hardware-specific (non-meta) installs
