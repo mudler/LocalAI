@@ -189,6 +189,13 @@ func (rc *ReplicaReconciler) reconcileState(ctx context.Context) {
 // passed on nodes that are currently healthy. On success the row is deleted;
 // on failure attempts++ and next_retry_at moves out via exponential backoff.
 func (rc *ReplicaReconciler) drainPendingBackendOps(ctx context.Context) {
+	// Garbage-collect ops behind nodes that went offline/draining. These are
+	// invisible to ListDuePendingBackendOps (which filters status=healthy), so
+	// without this sweep they leak forever and keep the UI operation spinning.
+	if _, err := rc.registry.DeleteStalePendingBackendOps(ctx, stalePendingBackendOpGrace); err != nil {
+		xlog.Warn("Reconciler: failed to clear stale pending backend ops", "error", err)
+	}
+
 	ops, err := rc.registry.ListDuePendingBackendOps(ctx)
 	if err != nil {
 		xlog.Warn("Reconciler: failed to list pending backend ops", "error", err)
@@ -292,6 +299,13 @@ func (rc *ReplicaReconciler) drainPendingBackendOps(ctx context.Context) {
 // certainly structural (wrong node type, non-existent gallery entry) and no
 // amount of further retrying will help.
 const maxPendingBackendOpAttempts = 10
+
+// stalePendingBackendOpGrace is how long a node may be offline before its
+// pending backend ops are garbage-collected. Draining nodes are cleared
+// immediately regardless of this window (see DeleteStalePendingBackendOps).
+// ListDuePendingBackendOps never surfaces ops behind non-healthy nodes, so
+// without this sweep they would leak forever and keep the UI op spinning.
+const stalePendingBackendOpGrace = 15 * time.Minute
 
 // probeLoadedModels gRPC-health-checks model addresses that the DB says are
 // loaded. If a model's backend process is gone (OOM, crash, manual restart)
