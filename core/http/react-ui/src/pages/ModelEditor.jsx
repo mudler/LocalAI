@@ -30,13 +30,23 @@ const SECTION_COLORS = {
   mitm: 'var(--color-warning)', pii: 'var(--color-error)', other: 'var(--color-text-muted)',
 }
 
-function flattenConfig(obj, prefix = '') {
+// flattenConfig turns a parsed YAML config into a flat { 'a.b.c': value }
+// map keyed by the same dotted paths the field registry uses. leafPaths is
+// the set of registered schema leaf paths: recursion STOPS at any of them so
+// a map-typed field (e.g. pii_detection.entity_actions, a {GROUP: action}
+// object) is stored whole at its own path. Without this guard a map's value
+// was scattered into `pii_detection.entity_actions.SSN` etc. — paths that
+// match no registered field — so the editor rendered neither the field nor
+// its values, hiding per-entity policy like SSN→block from the operator.
+function flattenConfig(obj, leafPaths, prefix = '') {
   const result = {}
   if (!obj || typeof obj !== 'object') return result
   for (const [key, val] of Object.entries(obj)) {
     const path = prefix ? `${prefix}.${key}` : key
-    if (val !== null && typeof val === 'object' && !Array.isArray(val)) {
-      Object.assign(result, flattenConfig(val, path))
+    if (leafPaths && leafPaths.has(path)) {
+      result[path] = val
+    } else if (val !== null && typeof val === 'object' && !Array.isArray(val)) {
+      Object.assign(result, flattenConfig(val, leafPaths, path))
     } else {
       result[path] = val
     }
@@ -80,6 +90,16 @@ export default function ModelEditor() {
   const { addToast } = useOutletContext()
   const { sections, fields, loading: metaLoading, error: metaError } = useConfigMetadata()
 
+  // Registered schema leaf paths. flattenConfig stops recursing at these so
+  // map-typed fields (e.g. pii_detection.entity_actions) bind as a whole
+  // object to their registered editor instead of vanishing into sub-paths.
+  const leafPaths = useMemo(() => new Set(fields.map(f => f.path)), [fields])
+
+  // The parsed (not-yet-flattened) config loaded from the server. Flattening
+  // is deferred to a separate effect keyed on leafPaths so the schema metadata
+  // can arrive after the config without a fetch race re-clobbering values.
+  const [loadedConfig, setLoadedConfig] = useState(null)
+
   const isCreateMode = !name
   const [selectedTemplate, setSelectedTemplate] = useState(null)
 
@@ -121,7 +141,9 @@ export default function ModelEditor() {
     }
   }, [isCreateMode, searchParams, handleSelectTemplate])
 
-  // Load raw YAML config (edit mode only)
+  // Load raw YAML config (edit mode only). This only fetches + parses; the
+  // flatten-into-form-values step is the separate effect below so it can
+  // re-run when the schema metadata (leafPaths) resolves without re-fetching.
   useEffect(() => {
     if (!name) return
     modelsApi.getEditConfig(name)
@@ -129,25 +151,28 @@ export default function ModelEditor() {
         const raw = data?.config || ''
         setYamlText(raw)
         setSavedYamlText(raw)
-
-        // Parse YAML to get only the fields actually present in the file
         try {
-          const parsed = YAML.parse(raw)
-          const flat = flattenConfig(parsed || {})
-          const active = new Set(Object.keys(flat))
-          setValues(flat)
-          setInitialValues(structuredClone(flat))
-          setActiveFieldPaths(active)
+          setLoadedConfig(YAML.parse(raw) || {})
         } catch {
-          // If YAML parsing fails, start with empty state
-          setValues({})
-          setInitialValues({})
-          setActiveFieldPaths(new Set())
+          setLoadedConfig({})
         }
       })
       .catch(err => addToast(`Failed to load config: ${err.message}`, 'error'))
       .finally(() => setConfigLoading(false))
   }, [name, addToast])
+
+  // Flatten the loaded config into form values. Keyed on leafPaths so a late
+  // schema-metadata resolution re-flattens (keeping map fields whole) WITHOUT
+  // re-fetching — avoiding a two-fetch race that could clobber values. Only
+  // fires on (re)load: loadedConfig changes per model, leafPaths is stable
+  // once metadata is in, so this never stomps in-progress edits.
+  useEffect(() => {
+    if (loadedConfig === null) return
+    const flat = flattenConfig(loadedConfig, leafPaths)
+    setValues(flat)
+    setInitialValues(structuredClone(flat))
+    setActiveFieldPaths(new Set(Object.keys(flat)))
+  }, [loadedConfig, leafPaths])
 
   // Build field lookup
   const fieldsByPath = useMemo(() => {
@@ -323,7 +348,7 @@ export default function ModelEditor() {
         try {
           const parsed = YAML.parse(yamlText)
           parsedName = parsed?.name ?? null
-          const flat = flattenConfig(parsed || {})
+          const flat = flattenConfig(parsed || {}, leafPaths)
           setValues(flat)
           setInitialValues(structuredClone(flat))
           setActiveFieldPaths(new Set(Object.keys(flat)))

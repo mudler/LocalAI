@@ -14,6 +14,7 @@ const MOCK_METADATA = {
     { path: 'parameters.top_p', yaml_key: 'top_p', go_type: '*float64', ui_type: 'float', section: 'parameters', label: 'Top P', description: 'Nucleus sampling threshold', component: 'slider', min: 0, max: 1, step: 0.05, order: 10 },
     { path: 'pii_detection.builtins', yaml_key: 'builtins', go_type: '[]string', ui_type: '[]string', section: 'general', label: 'Built-in Secret Patterns', description: 'Built-in credential patterns', component: 'pii-builtins-select', options: [{ value: 'anthropic_api_key', label: 'anthropic_api_key — Anthropic API key' }, { value: 'github_token', label: 'github_token — GitHub token' }], order: 213 },
     { path: 'pii_detection.patterns', yaml_key: 'patterns', go_type: '[]config.PIIPattern', ui_type: 'object', section: 'general', label: 'Custom Secret Patterns', description: 'Operator-defined restricted-regex patterns', component: 'pii-pattern-list', order: 214 },
+    { path: 'pii_detection.entity_actions', yaml_key: 'entity_actions', go_type: 'map[string]string', ui_type: 'map', section: 'general', label: 'Detector Entity Actions', description: 'Per-entity-group action policy', component: 'entity-action-list', order: 212 },
   ],
 }
 
@@ -285,6 +286,47 @@ test.describe('Model Editor - Interactive Tab', () => {
     await addBtn.click()
     await expect(page.locator('input[placeholder^="Name (group)"]')).toBeVisible()
     await expect(page.locator('input[placeholder^="match,"]')).toBeVisible()
+  })
+
+  // Regression: a map-typed field (entity_actions) present in the loaded YAML
+  // must render WITH its values. flattenConfig used to recurse into the map,
+  // scattering it across pii_detection.entity_actions.<GROUP> paths that match
+  // no registered field, so the editor showed neither the field nor the
+  // per-entity policy (e.g. SSN -> block) the operator had configured.
+  test('entity_actions map field present in YAML renders with its values', async ({ page }) => {
+    // Override the edit endpoint for this test: YAML that carries a populated
+    // entity_actions map alongside a scalar sibling (default_action).
+    await page.route('**/api/models/edit/ner-model', (route) => {
+      route.fulfill({
+        contentType: 'application/json',
+        body: JSON.stringify({
+          name: 'ner-model',
+          config: [
+            'name: ner-model',
+            'backend: llama-cpp',
+            'pii_detection:',
+            '    default_action: mask',
+            '    entity_actions:',
+            '        SSN: block',
+            '        EMAIL: mask',
+            '',
+          ].join('\n'),
+        }),
+      })
+    })
+
+    await page.goto('/app/model-editor/ner-model')
+
+    // The entity-action-list editor is rendered (field label visible)…
+    await expect(page.getByText('Detector Entity Actions').first()).toBeVisible()
+    // …and bound to the existing map: one row per configured group, in order.
+    const groupInputs = page.locator('input[aria-label="Entity group"]')
+    await expect(groupInputs).toHaveCount(2)
+    await expect(groupInputs.nth(0)).toHaveValue('SSN')
+    await expect(groupInputs.nth(1)).toHaveValue('EMAIL')
+    // The action select shows the bound action label (block), proving the map
+    // values bound, not just an empty editor.
+    await expect(page.getByText(/block —/i).first()).toBeVisible()
   })
 
 })
