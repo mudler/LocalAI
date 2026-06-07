@@ -3,9 +3,32 @@ package config_test
 import (
 	. "github.com/mudler/LocalAI/core/config"
 
+	gguf "github.com/gpustack/gguf-parser-go"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
+
+// ggufWithArch fabricates a minimal in-memory GGUF carrying the given
+// `general.architecture` and a positive `<arch>.nextn_predict_layers` count,
+// so HasEmbeddedMTPHead can be exercised without a real model file.
+func ggufWithArch(arch string, nextn uint32) *gguf.GGUFFile {
+	return &gguf.GGUFFile{
+		Header: gguf.GGUFHeader{
+			MetadataKV: gguf.GGUFMetadataKVs{
+				{
+					Key:       "general.architecture",
+					ValueType: gguf.GGUFMetadataValueTypeString,
+					Value:     arch,
+				},
+				{
+					Key:       arch + ".nextn_predict_layers",
+					ValueType: gguf.GGUFMetadataValueTypeUint32,
+					Value:     nextn,
+				},
+			},
+		},
+	}
+}
 
 var _ = Describe("MTP auto-defaults", func() {
 	Context("MTPSpecOptions", func() {
@@ -79,6 +102,21 @@ var _ = Describe("MTP auto-defaults", func() {
 	Context("HasEmbeddedMTPHead", func() {
 		It("returns false on a nil GGUF file", func() {
 			n, ok := HasEmbeddedMTPHead(nil)
+			Expect(ok).To(BeFalse())
+			Expect(n).To(BeZero())
+		})
+
+		It("detects a same-GGUF embedded head (DeepSeek/Qwen style)", func() {
+			n, ok := HasEmbeddedMTPHead(ggufWithArch("qwen3moe", 1))
+			Expect(ok).To(BeTrue())
+			Expect(n).To(Equal(uint32(1)))
+		})
+
+		It("ignores a gemma4-assistant draft-only model", func() {
+			// The assistant GGUF carries nextn_predict_layers but is a separate
+			// draft model that requires a paired target (ctx_other); it cannot
+			// self-speculate, so it must not trigger the embedded-head defaults.
+			n, ok := HasEmbeddedMTPHead(ggufWithArch("gemma4-assistant", 48))
 			Expect(ok).To(BeFalse())
 			Expect(n).To(BeZero())
 		})
