@@ -652,12 +652,12 @@ func (r *RunCMD) Run(ctx *cliContext.Context) error {
 // waitForServerReady polls the given address until the HTTP server is
 // accepting connections or the context is cancelled.
 func waitForServerReady(address string, ctx context.Context) {
-	// Ensure the address has a host component for dialing.
-	// Echo accepts ":8080" but net.Dial needs a resolvable host.
 	host, port, err := net.SplitHostPort(address)
 	if err == nil && host == "" {
 		address = "127.0.0.1:" + port
 	}
+	ticker := time.NewTicker(250 * time.Millisecond)
+	defer ticker.Stop()
 
 	for {
 		select {
@@ -665,11 +665,17 @@ func waitForServerReady(address string, ctx context.Context) {
 			return
 		default:
 		}
+
 		conn, err := net.DialTimeout("tcp", address, 500*time.Millisecond)
 		if err == nil {
 			conn.Close()
 			return
 		}
-		time.Sleep(250 * time.Millisecond)
+
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+		}
 	}
 }

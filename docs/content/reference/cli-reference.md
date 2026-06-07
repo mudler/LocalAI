@@ -118,6 +118,21 @@ For more information on VRAM management, see [VRAM and Memory Management]({{%rel
 
 See [Authentication & Authorization]({{%relref "features/authentication" %}}) for full documentation.
 
+## Chat Flags
+
+Use `local-ai chat` to open an interactive terminal chat session against a running LocalAI server.
+
+| Parameter | Default | Description | Environment Variable |
+|-----------|---------|-------------|----------------------|
+| `--endpoint` | `http://127.0.0.1:8080` | LocalAI server endpoint. The `/v1` path is added automatically when omitted. | `$LOCALAI_CHAT_ENDPOINT` |
+| `--model` | | Model name to use. If omitted, LocalAI uses the only model returned by the server when exactly one is available. | |
+| `--api-key` | | API key to use when the LocalAI server requires authentication. | `$LOCALAI_API_KEY`, `$API_KEY` |
+
+- Inside the chat prompt:
+  - Use `/models` to list installed models.
+  - Use `/model <name>` to switch to a different model and clear the conversation.
+  - Use `/clear` to reset the current conversation.
+
 ## P2P Flags
 
 | Parameter | Default | Description | Environment Variable |
@@ -181,4 +196,3 @@ export LOCALAI_F16=true
 
 - See [Advanced Usage]({{%relref "advanced/advanced-usage" %}}) for configuration examples
 - See [VRAM and Memory Management]({{%relref "advanced/vram-management" %}}) for memory management options
-
