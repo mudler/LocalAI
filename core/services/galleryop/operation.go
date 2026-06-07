@@ -414,6 +414,17 @@ func (m *OpCache) GetStatus() (map[string]string, map[string]string) {
 
 	for k, v := range processingModelsData {
 		status := m.galleryService.GetStatus(v)
+		// Terminal ops must not keep showing as "processing". Cleanup was
+		// previously only triggered by a client polling /api/backends/job/:uid,
+		// but the Manage-page Reinstall/Upgrade buttons never poll, so completed
+		// ops leaked into processingBackends forever and the card spun
+		// "reinstalling" indefinitely. Evict here on the list read (the UI always
+		// calls this). DeleteUUID broadcasts the eviction so peer replicas converge.
+		if status != nil && status.Processed {
+			m.DeleteUUID(v)
+			delete(processingModelsData, k)
+			continue
+		}
 		taskTypes[k] = "Installation"
 		if status != nil && status.Deletion {
 			taskTypes[k] = "Deletion"
