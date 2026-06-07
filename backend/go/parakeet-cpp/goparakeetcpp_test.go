@@ -53,6 +53,10 @@ func ensureLibLoaded() {
 		purego.RegisterLibFunc(&CppStreamFeed, lib, "parakeet_capi_stream_feed")
 		purego.RegisterLibFunc(&CppStreamFinalize, lib, "parakeet_capi_stream_finalize")
 		purego.RegisterLibFunc(&CppStreamFree, lib, "parakeet_capi_stream_free")
+		if sym, err := purego.Dlsym(lib, "parakeet_capi_stream_feed_json"); err == nil && sym != 0 {
+			purego.RegisterLibFunc(&CppStreamFeedJSON, lib, "parakeet_capi_stream_feed_json")
+			purego.RegisterLibFunc(&CppStreamFinalizeJSON, lib, "parakeet_capi_stream_finalize_json")
+		}
 		purego.RegisterLibFunc(&CppFreeString, lib, "parakeet_capi_free_string")
 		purego.RegisterLibFunc(&CppLastError, lib, "parakeet_capi_last_error")
 	})
