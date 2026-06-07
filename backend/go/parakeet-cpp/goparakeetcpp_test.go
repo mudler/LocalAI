@@ -53,6 +53,10 @@ func ensureLibLoaded() {
 		purego.RegisterLibFunc(&CppStreamFeed, lib, "parakeet_capi_stream_feed")
 		purego.RegisterLibFunc(&CppStreamFinalize, lib, "parakeet_capi_stream_finalize")
 		purego.RegisterLibFunc(&CppStreamFree, lib, "parakeet_capi_stream_free")
+		if sym, err := purego.Dlsym(lib, "parakeet_capi_stream_feed_json"); err == nil && sym != 0 {
+			purego.RegisterLibFunc(&CppStreamFeedJSON, lib, "parakeet_capi_stream_feed_json")
+			purego.RegisterLibFunc(&CppStreamFinalizeJSON, lib, "parakeet_capi_stream_finalize_json")
+		}
 		purego.RegisterLibFunc(&CppFreeString, lib, "parakeet_capi_free_string")
 		purego.RegisterLibFunc(&CppLastError, lib, "parakeet_capi_last_error")
 	})
@@ -107,13 +111,22 @@ var _ = Describe("ParakeetCpp", func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(strings.TrimSpace(res.Text)).ToNot(BeEmpty(),
 				"expected non-empty transcript for %s", audioPath)
-			Expect(res.Segments).To(HaveLen(1),
-				"synthesises a single whole-clip segment")
-			Expect(res.Segments[0].Text).To(Equal(res.Text),
-				"single segment text must equal the top-level text")
-			// Default (no granularities) is segment-level: no per-word timings.
-			Expect(res.Segments[0].Words).To(BeEmpty(),
-				"word timings are opt-in via timestamp_granularities")
+			// NeMo-faithful segmentation: one or more punctuation-delimited
+			// segments, each with text and a monotonically-advancing time span.
+			Expect(res.Segments).ToNot(BeEmpty(), "expected at least one segment")
+			var prevEnd int64
+			for i, seg := range res.Segments {
+				Expect(strings.TrimSpace(seg.Text)).ToNot(BeEmpty(),
+					"segment %d must have text", i)
+				Expect(seg.End).To(BeNumerically(">=", seg.Start),
+					"segment %d end must not precede its start", i)
+				Expect(seg.Start).To(BeNumerically(">=", prevEnd),
+					"segments must be in time order")
+				prevEnd = seg.End
+				// Default (no granularities) is segment-level: no per-word timings.
+				Expect(seg.Words).To(BeEmpty(),
+					"word timings are opt-in via timestamp_granularities")
+			}
 		})
 
 		It("emits word-level timestamps when granularity=word", func() {
@@ -129,15 +142,28 @@ var _ = Describe("ParakeetCpp", func() {
 				TimestampGranularities: []string{"word"},
 			})
 			Expect(err).ToNot(HaveOccurred())
-			Expect(res.Segments).To(HaveLen(1))
-			seg := res.Segments[0]
-			Expect(seg.Words).ToNot(BeEmpty(),
-				"expected per-word timestamps with granularity=word")
-			// Monotonic, non-negative timings spanning the segment.
-			Expect(seg.Words[0].Start).To(BeNumerically(">=", int64(0)))
-			Expect(seg.End).To(BeNumerically(">=", seg.Start))
-			Expect(seg.Words[len(seg.Words)-1].End).To(Equal(seg.End),
-				"segment end tracks the last word")
+			Expect(res.Segments).ToNot(BeEmpty())
+			// With word granularity every segment carries its own words, and each
+			// segment's span tracks its first/last word; word starts advance
+			// monotonically across the whole transcript.
+			totalWords := 0
+			var prevStart int64 = -1
+			for i, seg := range res.Segments {
+				Expect(seg.Words).ToNot(BeEmpty(),
+					"segment %d must carry per-word timestamps with granularity=word", i)
+				Expect(seg.Start).To(Equal(seg.Words[0].Start),
+					"segment %d start tracks its first word", i)
+				Expect(seg.End).To(Equal(seg.Words[len(seg.Words)-1].End),
+					"segment %d end tracks its last word", i)
+				for _, w := range seg.Words {
+					Expect(w.End).To(BeNumerically(">=", w.Start))
+					Expect(w.Start).To(BeNumerically(">=", prevStart))
+					prevStart = w.Start
+					totalWords++
+				}
+			}
+			Expect(totalWords).To(BeNumerically(">", 0))
+			Expect(res.Segments[0].Words[0].Start).To(BeNumerically(">=", int64(0)))
 		})
 	})
 

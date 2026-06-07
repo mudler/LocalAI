@@ -187,6 +187,21 @@ curl http://localhost:8080/v1/audio/transcriptions \
 
 For real-time use, load a cache-aware streaming model (e.g. `realtime_eou_120m-v1-*.gguf`) and pass `-F stream=true`. Deltas are emitted as the audio is decoded, with end-of-utterance events closing each segment.
 
+### Segment timestamps
+
+Transcriptions are split into segments the same way NVIDIA NeMo does: a new segment starts after sentence-ending punctuation (`.`, `?`, `!`), and each segment carries `start`/`end` times. This is the default (NeMo's punctuation-only segmentation) and needs no configuration. While streaming, each end-of-utterance closes a segment, now with timestamps.
+
+You can additionally split on silence by setting `segment_gap_threshold` (NeMo's `segment_gap_threshold`, in **encoder frames**; off by default). When set, a gap between two words wider than the threshold also starts a new segment. The value is in frames to match NeMo exactly; the backend converts it to seconds using the model's frame stride (`frame_sec`, reported by the engine):
+
+```yaml
+name: parakeet-110m
+backend: parakeet-cpp
+parameters:
+  model: tdt_ctc-110m-f16.gguf
+options:
+- segment_gap_threshold:12   # split on silence > 12 encoder frames (default 0 = off, punctuation-only)
+```
+
 ### Dynamic batching
 
 The backend can coalesce concurrent transcription requests into a single batched engine call, which improves throughput on GPU when many requests arrive at once. Batching is **off by default** (`batch_max_size:1`, one request at a time); raise it to opt in. Two `options:` knobs control it:

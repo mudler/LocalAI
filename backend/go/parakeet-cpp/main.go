@@ -76,6 +76,14 @@ func main() {
 		purego.RegisterLibFunc(&CppStreamBeginLang, lib, "parakeet_capi_stream_begin_lang")
 	}
 
+	// Streaming JSON entry points (ABI v4): surface per-word timestamps on the
+	// streaming path. Same probe pattern; absent in older libparakeet.so, where
+	// the backend falls back to the text-only streaming feed.
+	if sym, err := purego.Dlsym(lib, "parakeet_capi_stream_feed_json"); err == nil && sym != 0 {
+		purego.RegisterLibFunc(&CppStreamFeedJSON, lib, "parakeet_capi_stream_feed_json")
+		purego.RegisterLibFunc(&CppStreamFinalizeJSON, lib, "parakeet_capi_stream_finalize_json")
+	}
+
 	fmt.Fprintf(os.Stderr, "[parakeet-cpp] ABI=%d\n", CppAbiVersion())
 
 	flag.Parse()

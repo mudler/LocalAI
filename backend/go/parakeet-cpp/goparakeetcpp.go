@@ -67,6 +67,13 @@ var (
 	// plus a trailing target_lang ("" means the model default). Present only in
 	// newer libparakeet.so; nil falls back to CppStreamBegin.
 	CppStreamBeginLang func(ctx uintptr, targetLang string) uintptr
+
+	// Streaming JSON variants (ABI v4): feed/finalize returning a malloc'd char*
+	// JSON document {text,eou,frame_sec,words} (uintptr, freed via CppFreeString)
+	// so streaming segments can carry per-word timestamps. Present only in newer
+	// libparakeet.so; nil falls back to the text-only CppStreamFeed/Finalize path.
+	CppStreamFeedJSON     func(s uintptr, pcm []float32, nSamples int32) uintptr
+	CppStreamFinalizeJSON func(s uintptr) uintptr
 )
 
 // streamChunkSamples is how much 16 kHz mono PCM we hand to stream_feed per
@@ -84,9 +91,26 @@ const streamChunkSamples = 16000
 //
 // "start"/"end"/"t" are seconds; "conf" is confidence in (0,1].
 type transcriptJSON struct {
-	Text   string            `json:"text"`
-	Words  []transcriptWord  `json:"words"`
-	Tokens []transcriptToken `json:"tokens"`
+	Text     string            `json:"text"`
+	FrameSec float64           `json:"frame_sec"`
+	Words    []transcriptWord  `json:"words"`
+	Tokens   []transcriptToken `json:"tokens"`
+}
+
+// streamFeedJSON mirrors the document returned by
+// parakeet_capi_stream_feed_json / parakeet_capi_stream_finalize_json (ABI v4):
+//
+//	{"text":"...","eou":0,"frame_sec":0.080000,
+//	 "words":[{"w":"...","start":0.480,"end":0.640,"conf":0.9100}, ...]}
+//
+// "text" is the newly-finalized text since the last call; "eou" is 1 when an
+// <EOU>/<EOB> fired this feed; "words" are the words finalized this call with
+// absolute (stream-relative) start/end seconds.
+type streamFeedJSON struct {
+	Text     string           `json:"text"`
+	Eou      int              `json:"eou"`
+	FrameSec float64          `json:"frame_sec"`
+	Words    []transcriptWord `json:"words"`
 }
 
 type transcriptWord struct {
@@ -115,6 +139,10 @@ type ParakeetCpp struct {
 	engineMu sync.Mutex // sole guard of the one C engine (dispatcher + streaming)
 	bat      *batcher
 	batStop  chan struct{}
+	// segmentGapFrames is NeMo's segment_gap_threshold in ENCODER FRAMES (model
+	// YAML option, default 0=off). When >0 it adds NeMo's silence-gap split on
+	// top of the punctuation split; converted to seconds via the JSON frame_sec.
+	segmentGapFrames int
 }
 
 // Load is the LocalAI gRPC entry point for LoadModel: it calls
@@ -144,6 +172,11 @@ func (p *ParakeetCpp) Load(opts *pb.ModelOptions) error {
 	if maxWaitMs < 0 {
 		maxWaitMs = 0
 	}
+
+	// NeMo's segment_gap_threshold (encoder frames, default 0=off). Off by
+	// default matches NeMo's default (punctuation-only segments); when set it
+	// additionally splits segments on inter-word silence (see transcriptResultFromDoc).
+	p.segmentGapFrames = optInt(opts, "segment_gap_threshold", 0)
 	if CppTranscribePcmBatchJSON != nil {
 		p.batStop = make(chan struct{})
 		p.bat = newBatcher(maxSize, time.Duration(maxWaitMs)*time.Millisecond, p.runBatch)
@@ -283,7 +316,7 @@ func (p *ParakeetCpp) AudioTranscription(ctx context.Context, opts *pb.Transcrip
 		if err := json.Unmarshal([]byte(raw), &doc); err != nil {
 			return pb.TranscriptResult{}, fmt.Errorf("parakeet-cpp: decode transcript json: %w", err)
 		}
-		return transcriptResultFromDoc(doc, opts), nil
+		return transcriptResultFromDoc(doc, opts, p.segmentGapFrames), nil
 	}
 
 	// Batched path: decode to PCM, submit to the batcher, wait for this request's
@@ -312,33 +345,168 @@ func (p *ParakeetCpp) AudioTranscription(ctx context.Context, opts *pb.Transcrip
 	if err := json.Unmarshal([]byte(res.json), &doc); err != nil {
 		return pb.TranscriptResult{}, fmt.Errorf("parakeet-cpp: decode transcript json: %w", err)
 	}
-	return transcriptResultFromDoc(doc, opts), nil
+	return transcriptResultFromDoc(doc, opts, p.segmentGapFrames), nil
 }
 
+// segmentSeparators is NeMo's default segment_seperators (sentence-ending
+// punctuation). Splitting on these matches NeMo's default segment timestamps.
+var segmentSeparators = []rune{'.', '?', '!'}
+
 // transcriptResultFromDoc maps a decoded transcriptJSON to a TranscriptResult,
-// synthesising a single whole-clip segment and attaching word timings only when
-// the caller requested word granularity. Shared by the batched and direct paths.
-func transcriptResultFromDoc(doc transcriptJSON, opts *pb.TranscriptRequest) pb.TranscriptResult {
+// grouping words into NeMo-faithful segments (see splitWordsIntoSegments). The
+// optional gapFrames (NeMo's segment_gap_threshold, in encoder FRAMES; 0=off)
+// additionally splits on inter-word silence; it is converted to a seconds gap
+// with the document's frame_sec. Per-segment word timings are attached only when
+// the caller requested word granularity; token ids populate each segment's
+// Tokens by time-window membership. Shared by the batched and direct paths.
+func transcriptResultFromDoc(doc transcriptJSON, opts *pb.TranscriptRequest, gapFrames int) pb.TranscriptResult {
 	text := strings.TrimSpace(doc.Text)
-	words := make([]*pb.TranscriptWord, 0, len(doc.Words))
-	for _, w := range doc.Words {
-		words = append(words, &pb.TranscriptWord{Start: secondsToNanos(w.Start), End: secondsToNanos(w.End), Text: w.W})
+
+	// Frame-unit gap threshold -> seconds (NeMo segment_gap_threshold). 0 = off.
+	gapSeconds := 0.0
+	if gapFrames > 0 {
+		if doc.FrameSec > 0 {
+			gapSeconds = float64(gapFrames) * doc.FrameSec
+		} else {
+			xlog.Warn("parakeet-cpp: segment_gap_threshold set but libparakeet.so " +
+				"did not report frame_sec; falling back to punctuation-only segments")
+		}
 	}
-	tokens := make([]int32, 0, len(doc.Tokens))
-	for _, t := range doc.Tokens {
-		tokens = append(tokens, t.ID)
+
+	groups := splitWordsIntoSegments(doc.Words, segmentSeparators, gapSeconds)
+	if len(groups) == 0 {
+		// No words (edge case): single whole-clip text segment.
+		return pb.TranscriptResult{
+			Text:     text,
+			Segments: []*pb.TranscriptSegment{{Id: 0, Text: text}},
+		}
 	}
-	var segStart, segEnd int64
-	if len(words) > 0 {
-		segStart = words[0].Start
-		segEnd = words[len(words)-1].End
+
+	wantWords := wordsRequested(opts.TimestampGranularities)
+	segments := make([]*pb.TranscriptSegment, 0, len(groups))
+	for id, group := range groups {
+		parts := make([]string, len(group))
+		for i, gw := range group {
+			parts[i] = gw.W
+		}
+		seg := &pb.TranscriptSegment{
+			Id:     int32(id),
+			Start:  secondsToNanos(group[0].Start),
+			End:    secondsToNanos(group[len(group)-1].End),
+			Text:   strings.TrimSpace(strings.Join(parts, " ")),
+			Tokens: tokensInWindow(doc.Tokens, group[0].Start, group[len(group)-1].End),
+		}
+		if wantWords {
+			ws := make([]*pb.TranscriptWord, len(group))
+			for i, gw := range group {
+				ws[i] = &pb.TranscriptWord{Start: secondsToNanos(gw.Start), End: secondsToNanos(gw.End), Text: gw.W}
+			}
+			seg.Words = ws
+		}
+		segments = append(segments, seg)
 	}
-	seg := &pb.TranscriptSegment{Id: 0, Start: segStart, End: segEnd, Text: text, Tokens: tokens}
-	if wordsRequested(opts.TimestampGranularities) {
-		seg.Words = words
-	}
-	return pb.TranscriptResult{Text: text, Segments: []*pb.TranscriptSegment{seg}}
+	return pb.TranscriptResult{Text: text, Segments: segments}
 }
+
+// splitWordsIntoSegments groups words into segments exactly as NeMo's
+// get_segment_offsets does (nemo/collections/asr/parts/utils/timestamp_utils.py).
+// Walking the words, it closes a segment when (1) the gap rule is enabled
+// (gapSeconds > 0) and the segment already has words and the gap from the
+// previous word's end to this word's start is >= gapSeconds - the current word
+// then STARTS a new segment - or, checked only when the gap rule did not apply
+// (NeMo's elif), (2) the word ends with (or is) a separator, which closes the
+// segment INCLUDING that word. Trailing words flush into a final segment.
+// gapSeconds <= 0 disables the gap rule, matching NeMo's default
+// segment_gap_threshold=None (punctuation-only segments).
+func splitWordsIntoSegments(words []transcriptWord, separators []rune, gapSeconds float64) [][]transcriptWord {
+	var segments [][]transcriptWord
+	var cur []transcriptWord
+	for i, word := range words {
+		gapActive := gapSeconds > 0 && len(cur) > 0
+		if gapActive && (word.Start-words[i-1].End) >= gapSeconds {
+			segments = append(segments, cur)
+			cur = []transcriptWord{word}
+			continue
+		}
+		if !gapActive && endsWithSeparator(word.W, separators) {
+			cur = append(cur, word)
+			segments = append(segments, cur)
+			cur = nil
+			continue
+		}
+		cur = append(cur, word)
+	}
+	if len(cur) > 0 {
+		segments = append(segments, cur)
+	}
+	return segments
+}
+
+// endsWithSeparator reports whether w's last rune is in separators (matching
+// NeMo's `word[-1] in delims or word in delims`).
+func endsWithSeparator(w string, separators []rune) bool {
+	r := []rune(strings.TrimSpace(w))
+	if len(r) == 0 {
+		return false
+	}
+	last := r[len(r)-1]
+	for _, s := range separators {
+		if last == s {
+			return true
+		}
+	}
+	return false
+}
+
+// tokensInWindow returns the ids of tokens whose timestamp t falls in
+// [start, end] (inclusive), assigning each token to the segment that spans its
+// time. The last segment's end is the last word end, so the final token is
+// included.
+func tokensInWindow(tokens []transcriptToken, start, end float64) []int32 {
+	var ids []int32
+	for _, t := range tokens {
+		if t.T >= start && t.T <= end {
+			ids = append(ids, t.ID)
+		}
+	}
+	return ids
+}
+
+// streamSegmenter accumulates streaming words into per-utterance segments. EOU
+// is the model's own utterance boundary; each closed segment takes its start/end
+// from its first/last accumulated word.
+type streamSegmenter struct {
+	segs   []*pb.TranscriptSegment
+	cur    []transcriptWord
+	nextID int32
+}
+
+func (s *streamSegmenter) add(doc streamFeedJSON) {
+	s.cur = append(s.cur, doc.Words...)
+	if doc.Eou != 0 {
+		s.flush()
+	}
+}
+
+func (s *streamSegmenter) flush() {
+	if len(s.cur) == 0 {
+		return
+	}
+	parts := make([]string, len(s.cur))
+	for i, w := range s.cur {
+		parts[i] = w.W
+	}
+	s.segs = append(s.segs, &pb.TranscriptSegment{
+		Id:    s.nextID,
+		Start: secondsToNanos(s.cur[0].Start),
+		End:   secondsToNanos(s.cur[len(s.cur)-1].End),
+		Text:  strings.TrimSpace(strings.Join(parts, " ")),
+	})
+	s.nextID++
+	s.cur = nil
+}
+
+func (s *streamSegmenter) segments() []*pb.TranscriptSegment { return s.segs }
 
 // wordsRequested reports whether the caller asked for word-level timestamps.
 // The OpenAI transcription API gates word timings behind
@@ -419,6 +587,14 @@ func (p *ParakeetCpp) AudioTranscriptionStream(ctx context.Context, opts *pb.Tra
 		return err
 	}
 
+	// ABI v4: when the streaming JSON entry points are present, drive them so the
+	// per-utterance segments carry per-word start/end timestamps. Falls through to
+	// the text-only loop below against an older libparakeet.so. Runs under the
+	// engineMu already held above.
+	if CppStreamFeedJSON != nil {
+		return p.streamJSON(ctx, stream, data, duration, results)
+	}
+
 	var (
 		full     strings.Builder
 		segText  strings.Builder
@@ -482,6 +658,71 @@ func (p *ParakeetCpp) AudioTranscriptionStream(ctx context.Context, opts *pb.Tra
 	flushSegment()
 
 	text := strings.TrimSpace(full.String())
+	if len(segments) == 0 && text != "" {
+		segments = append(segments, &pb.TranscriptSegment{Id: 0, Text: text})
+	}
+	results <- &pb.TranscriptStreamResponse{
+		FinalResult: &pb.TranscriptResult{
+			Text:     text,
+			Segments: segments,
+			Duration: duration,
+		},
+	}
+	return nil
+}
+
+// streamJSON drives the ABI v4 streaming JSON entry points: each feed/finalize
+// returns a {text,eou,frame_sec,words} document. The newly-finalized text is
+// emitted as a delta (unchanged streaming contract) while words are accumulated
+// into per-utterance segments (closed on EOU) so the closing FinalResult carries
+// timestamped segments. Runs under engineMu (already held by the caller).
+func (p *ParakeetCpp) streamJSON(ctx context.Context, stream uintptr, data []float32,
+	duration float32, results chan *pb.TranscriptStreamResponse) error {
+	var (
+		full strings.Builder
+		seg  streamSegmenter
+	)
+	// consume frees the malloc'd char* (a 0 return is an error), parses the JSON,
+	// emits the delta, and routes words through the segmenter.
+	consume := func(ret uintptr) error {
+		if ret == 0 {
+			msg := CppLastError(p.ctxPtr)
+			if msg == "" {
+				msg = "unknown error"
+			}
+			return fmt.Errorf("parakeet-cpp: stream feed/finalize failed: %s", msg)
+		}
+		raw := goStringFromCPtr(ret)
+		CppFreeString(ret)
+		var doc streamFeedJSON
+		if err := json.Unmarshal([]byte(raw), &doc); err != nil {
+			return fmt.Errorf("parakeet-cpp: decode stream json: %w", err)
+		}
+		if doc.Text != "" {
+			full.WriteString(doc.Text)
+			results <- &pb.TranscriptStreamResponse{Delta: doc.Text}
+		}
+		seg.add(doc)
+		return nil
+	}
+
+	for off := 0; off < len(data); off += streamChunkSamples {
+		if err := ctx.Err(); err != nil {
+			return status.Error(codes.Canceled, "transcription cancelled")
+		}
+		end := min(off+streamChunkSamples, len(data))
+		chunk := data[off:end]
+		if err := consume(CppStreamFeedJSON(stream, chunk, int32(len(chunk)))); err != nil {
+			return err
+		}
+	}
+	if err := consume(CppStreamFinalizeJSON(stream)); err != nil {
+		return err
+	}
+	seg.flush() // close any trailing utterance that never saw an EOU
+
+	text := strings.TrimSpace(full.String())
+	segments := seg.segments()
 	if len(segments) == 0 && text != "" {
 		segments = append(segments, &pb.TranscriptSegment{Id: 0, Text: text})
 	}
