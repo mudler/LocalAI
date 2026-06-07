@@ -30,6 +30,20 @@ var _ = Describe("RedactNER emission", func() {
 		Expect(res.Spans[0].HashPrefix).NotTo(BeEmpty(), "hash prefix must be set so audits can dedupe leaks")
 	})
 
+	It("labels pattern-detector hits with the pattern source, not ner", func() {
+		cfgs := []NERConfig{{
+			Detector:      &stubNERDetector{entities: []NEREntity{{Group: "ANTHROPIC_KEY", Start: 4, End: 24, Score: 1}}},
+			EntityActions: map[string]Action{"ANTHROPIC_KEY": ActionMask},
+			Source:        SourcePattern,
+		}}
+		res, err := RedactNER(ctx, "use sk-ant-aaaaaaaaaaaaaaaa now", cfgs)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(res.Redacted).To(ContainSubstring("[REDACTED:pattern:ANTHROPIC_KEY]"))
+		Expect(res.Redacted).NotTo(ContainSubstring("[REDACTED:ner:"))
+		Expect(res.Spans).To(HaveLen(1))
+		Expect(res.Spans[0].Pattern).To(Equal("pattern:ANTHROPIC_KEY"))
+	})
+
 	It("block leaves the matched span intact and sets Blocked", func() {
 		res, err := RedactNER(ctx, "token sk-abcdef here", oneShot("PASSWORD", ActionBlock, 6, 15))
 		Expect(err).NotTo(HaveOccurred())

@@ -36,7 +36,7 @@ func RegisterPIIRoutes(e *echo.Echo, app *application.Application) {
 	// @Produce json
 	// @Param correlation_id query string false "Correlation ID join key"
 	// @Param user_id query string false "User id"
-	// @Param pattern_id query string false "Detector group id (e.g. ner:EMAIL)"
+	// @Param pattern_id query string false "Detector group id (e.g. ner:EMAIL, pattern:ANTHROPIC_KEY)"
 	// @Param kind query string false "Event kind: pii | proxy_connect | proxy_traffic"
 	// @Param limit query int false "Max events" default(100)
 	// @Success 200 {object} map[string]interface{}

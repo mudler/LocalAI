@@ -111,7 +111,7 @@ func collectNERHits(ctx context.Context, text string, cfg NERConfig) ([]rawHit, 
 			"group", e.Group, "score", e.Score, "action", action,
 			"start", e.Start, "end", e.End, "text", e.Text)
 		hits = append(hits, rawHit{
-			patternID: nerPatternID(e.Group),
+			patternID: cfg.patternID(e.Group),
 			action:    action,
 			start:     e.Start,
 			end:       e.End,

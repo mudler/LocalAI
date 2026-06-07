@@ -60,7 +60,21 @@ type NERConfig struct {
 	// entities silently" — useful when the model returns a broad
 	// taxonomy but the admin only cares about a subset.
 	DefaultAction Action
+
+	// Source labels where this detector's hits come from. It becomes the
+	// PatternID prefix on events and the [REDACTED:<id>] mask, so neural NER
+	// detections (Source "ner") and deterministic pattern-matcher detections
+	// (Source "pattern") are told apart in the events log and to the model.
+	// Empty defaults to "ner" for backward compatibility.
+	Source string
 }
+
+// Detector source labels (the PatternID prefix). Kept short and stable —
+// they appear in the events log and the [REDACTED:...] mask.
+const (
+	SourceNER     = "ner"
+	SourcePattern = "pattern"
+)
 
 // ResolveAction returns the action configured for a detected entity
 // group, falling back to DefaultAction. Returns ("", false) when the
@@ -82,23 +96,32 @@ func (c NERConfig) ResolveAction(group string) (Action, bool) {
 // downgrades it). Unknown per-entity actions are dropped (and logged by
 // validActions). This is the single conversion point the application-layer
 // resolver uses, so the detector model's policy reaches the redactor in
-// exactly one shape.
-func NERConfigFromRaw(detector NERDetector, minScore float32, defaultAction string, entityActions map[string]string) NERConfig {
+// exactly one shape. source labels the detector kind (SourceNER /
+// SourcePattern) and becomes the PatternID prefix; empty defaults to
+// SourceNER.
+func NERConfigFromRaw(detector NERDetector, minScore float32, defaultAction string, entityActions map[string]string, source string) NERConfig {
+	if source == "" {
+		source = SourceNER
+	}
 	return NERConfig{
 		Detector:      detector,
 		MinScore:      minScore,
 		DefaultAction: validActionOr(defaultAction, ActionMask),
 		EntityActions: validActions(entityActions),
+		Source:        source,
 	}
 }
 
-// nerPatternID returns the synthetic pattern ID that audit rows carry
-// for NER hits. Prefixing with "ner:" keeps these distinguishable from
-// regex pattern IDs in the events tab and in filter queries; admins
-// can switch off a single entity type with the same Disabled-pattern
-// machinery used for regex.
-func nerPatternID(group string) string {
-	return "ner:" + group
+// patternID returns the synthetic pattern ID that audit rows and masks carry
+// for this detector's hits, e.g. "ner:EMAIL" or "pattern:ANTHROPIC_KEY". The
+// source prefix keeps neural and deterministic detections distinguishable in
+// the events tab and in pattern_id filter queries.
+func (c NERConfig) patternID(group string) string {
+	source := c.Source
+	if source == "" {
+		source = SourceNER
+	}
+	return source + ":" + group
 }
 
 // errNERDetector is a NERDetector that always returns the wrapped

@@ -64,7 +64,7 @@ const (
 type Span struct {
 	Start      int
 	End        int
-	Pattern    string  // synthetic detector id, "ner:<GROUP>"
+	Pattern    string  // synthetic detector id, "<source>:<GROUP>" (e.g. "ner:EMAIL", "pattern:ANTHROPIC_KEY")
 	HashPrefix string  // first 8 chars of sha256(matched value); audit-safe
 	Action     Action  // the action that fired for this span (after merge)
 	Score      float32 // detector confidence for the (winning) hit, 0..1

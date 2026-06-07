@@ -131,10 +131,12 @@ var _ = Describe("RedactNER", func() {
 var _ = Describe("NERConfigFromRaw", func() {
 	det := &stubNERDetector{}
 
-	It("defaults an empty default_action to mask", func() {
-		cfg := NERConfigFromRaw(det, 0.4, "", nil)
+	It("defaults an empty default_action to mask and an empty source to ner", func() {
+		cfg := NERConfigFromRaw(det, 0.4, "", nil, "")
 		Expect(cfg.DefaultAction).To(Equal(ActionMask))
 		Expect(cfg.MinScore).To(BeNumerically("~", 0.4, 1e-6))
+		Expect(cfg.Source).To(Equal(SourceNER))
+		Expect(cfg.patternID("EMAIL")).To(Equal("ner:EMAIL"))
 	})
 
 	It("passes through valid actions and drops invalid ones", func() {
@@ -142,11 +144,17 @@ var _ = Describe("NERConfigFromRaw", func() {
 			"PASSWORD": "block",
 			"EMAIL":    "mask",
 			"BOGUS":    "nonsense", // dropped
-		})
+		}, SourceNER)
 		Expect(cfg.DefaultAction).To(Equal(ActionBlock))
 		Expect(cfg.EntityActions).To(HaveKeyWithValue("PASSWORD", ActionBlock))
 		Expect(cfg.EntityActions).To(HaveKeyWithValue("EMAIL", ActionMask))
 		Expect(cfg.EntityActions).NotTo(HaveKey("BOGUS"))
+	})
+
+	It("prefixes pattern-detector hits with the pattern source", func() {
+		cfg := NERConfigFromRaw(det, 0, "mask", nil, SourcePattern)
+		Expect(cfg.Source).To(Equal(SourcePattern))
+		Expect(cfg.patternID("ANTHROPIC_KEY")).To(Equal("pattern:ANTHROPIC_KEY"))
 	})
 })
 

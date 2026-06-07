@@ -285,6 +285,7 @@ func (a *Application) PIINERResolver() pii.NERDetectorResolver {
 				0, // patterns are deterministic — no confidence floor
 				cfg.PIIDetectionDefaultAction(),
 				patternEntityActions(cfg),
+				pii.SourcePattern,
 			), true
 		}
 
@@ -294,6 +295,7 @@ func (a *Application) PIINERResolver() pii.NERDetectorResolver {
 			cfg.PIIDetectionMinScore(),
 			cfg.PIIDetectionDefaultAction(),
 			cfg.PIIDetectionEntityActions(),
+			pii.SourceNER,
 		), true
 	}
 }
