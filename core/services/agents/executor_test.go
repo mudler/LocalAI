@@ -2,6 +2,8 @@ package agents
 
 import (
 	"context"
+	"net/http"
+	"net/http/httptest"
 	"sync"
 	"sync/atomic"
 
@@ -71,6 +73,74 @@ var _ = DescribeTable("stripThinkingTags",
 	Entry("empty thinking block", "before<thinking></thinking>after", "beforeafter"),
 	Entry("multiline thinking block", "before<thinking>\nline1\nline2\n</thinking>after", "beforeafter"),
 	Entry("adjacent tag pairs", "<thinking>a</thinking><thinking>b</thinking>", ""),
+)
+
+var _ = DescribeTable("appendKBCitations",
+	func(response, collection, userID string, citations []KBCitation, want string) {
+		Expect(appendKBCitations(response, collection, userID, citations)).To(Equal(want))
+	},
+	Entry("leaves responses without citations unchanged",
+		"answer",
+		"agent",
+		"",
+		nil,
+		"answer",
+	),
+	Entry("leaves blank responses unchanged",
+		"",
+		"agent",
+		"",
+		[]KBCitation{{FileName: "source.pdf", EntryKey: "uuid/source.pdf"}},
+		"",
+	),
+	Entry("appends clickable source links",
+		"answer",
+		"my-agent",
+		"",
+		[]KBCitation{{FileName: "new feature.pdf", EntryKey: "uuid/new feature.pdf"}},
+		"answer\n\nSources:\n[1] [new feature.pdf](/api/agents/collections/my-agent/entries-raw/uuid/new%20feature.pdf)",
+	),
+	Entry("deduplicates citations by entry key",
+		"answer",
+		"agent",
+		"",
+		[]KBCitation{
+			{FileName: "first.pdf", EntryKey: "uuid/shared.pdf"},
+			{FileName: "second.pdf", EntryKey: "uuid/shared.pdf"},
+		},
+		"answer\n\nSources:\n[1] [first.pdf](/api/agents/collections/agent/entries-raw/uuid/shared.pdf)",
+	),
+	Entry("uses plain text when entry key is missing",
+		"answer",
+		"agent",
+		"",
+		[]KBCitation{{FileName: "source.pdf"}},
+		"answer\n\nSources:\n[1] source.pdf",
+	),
+	Entry("uses entry basename when filename is missing",
+		"answer",
+		"agent",
+		"",
+		[]KBCitation{{EntryKey: "uuid/source.pdf"}},
+		"answer\n\nSources:\n[1] [source.pdf](/api/agents/collections/agent/entries-raw/uuid/source.pdf)",
+	),
+	Entry("adds user id query when present",
+		"answer",
+		"agent",
+		"user 1",
+		[]KBCitation{{FileName: "source.pdf", EntryKey: "uuid/source.pdf"}},
+		"answer\n\nSources:\n[1] [source.pdf](/api/agents/collections/agent/entries-raw/uuid/source.pdf?user_id=user+1)",
+	),
+	Entry("escapes collection, path segments, and markdown link text",
+		"answer",
+		"agent one",
+		"",
+		[]KBCitation{{FileName: "source [draft].pdf", EntryKey: "uuid/source [draft].pdf"}},
+		`answer
+
+Sources:
+[1] [source \[draft\].pdf](/api/agents/collections/agent%20one/entries-raw/uuid/source%20%5Bdraft%5D.pdf)`,
+	),
 )
 
 var _ = Describe("ExecuteChatWithLLM", func() {
@@ -181,6 +251,53 @@ var _ = Describe("ExecuteChatWithLLM", func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(msgSender).To(Equal("agent"))
 			Expect(msgContent).To(Equal("agent reply"))
+		})
+	})
+
+	Context("knowledge base citations", func() {
+		It("appends KB sources to the returned response and callback message", func() {
+			mux := http.NewServeMux()
+			mux.HandleFunc("/api/agents/collections/kb-agent/search", func(w http.ResponseWriter, r *http.Request) {
+				Expect(r.URL.Query().Get("user_id")).To(Equal("user-1"))
+				w.Header().Set("Content-Type", "application/json")
+				_, _ = w.Write([]byte(`{
+					"results": [
+						{
+							"content": "KB content",
+							"id": "result-1",
+							"similarity": 0.99,
+							"metadata": {
+								"file_name": "new feature.pdf",
+								"source": "uuid/new feature.pdf"
+							}
+						}
+					],
+					"count": 1
+				}`))
+			})
+			server := httptest.NewServer(mux)
+			defer server.Close()
+
+			var msgContent string
+			cb.OnMessage = func(sender, content, messageID string) {
+				msgContent = content
+			}
+
+			llm := &mockLLM{response: "agent reply"}
+			cfg := &AgentConfig{
+				Name:                "kb-agent",
+				Model:               "test-model",
+				EnableKnowledgeBase: true,
+				KBMode:              KBModeAutoSearch,
+			}
+
+			result, err := ExecuteChatWithLLM(ctx, llm, cfg, "hello", cb, ExecuteChatOpts{
+				APIURL: server.URL,
+				UserID: "user-1",
+			})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(result).To(Equal("agent reply\n\nSources:\n[1] [new feature.pdf](/api/agents/collections/kb-agent/entries-raw/uuid/new%20feature.pdf?user_id=user-1)"))
+			Expect(msgContent).To(Equal(result))
 		})
 	})
 
