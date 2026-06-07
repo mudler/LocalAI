@@ -22,6 +22,7 @@ service Backend {
   rpc TTSStream(TTSRequest) returns (stream Reply) {}
   rpc SoundGeneration(SoundGenerationRequest) returns (Result) {}
   rpc TokenizeString(PredictOptions) returns (TokenizationResponse) {}
+  rpc Detokenize(DetokenizeRequest) returns (DetokenizeResponse) {}
   rpc Status(HealthMessage) returns (StatusResponse) {}
   rpc Detect(DetectOptions) returns (DetectResponse) {}
   rpc FaceVerify(FaceVerifyRequest) returns (FaceVerifyResponse) {}
@@ -620,6 +621,14 @@ message SoundGenerationRequest {
 message TokenizationResponse {
   int32 length = 1;
   repeated int32 tokens = 2;
+}
+
+message DetokenizeRequest {
+  repeated int32 tokens = 1;
+}
+
+message DetokenizeResponse {
+  string content = 1;
 }
 
 message MemoryUsageData {

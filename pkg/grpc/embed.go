@@ -109,6 +109,10 @@ func (e *embedBackend) TokenizeString(ctx context.Context, in *pb.PredictOptions
 	return e.s.TokenizeString(ctx, in)
 }
 
+func (e *embedBackend) Detokenize(ctx context.Context, in *pb.DetokenizeRequest, opts ...grpc.CallOption) (*pb.DetokenizeResponse, error) {
+	return e.s.Detokenize(ctx, in)
+}
+
 func (e *embedBackend) Status(ctx context.Context) (*pb.StatusResponse, error) {
 	return e.s.Status(ctx, &pb.HealthMessage{})
 }

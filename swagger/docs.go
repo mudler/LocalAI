@@ -2169,6 +2169,33 @@ const docTemplate = `{
                 }
             }
         },
+        "/v1/detokenize": {
+            "post": {
+                "tags": [
+                    "tokenize"
+                ],
+                "summary": "Detokenize the input.",
+                "parameters": [
+                    {
+                        "description": "Request",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/schema.DetokenizeRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Response",
+                        "schema": {
+                            "$ref": "#/definitions/schema.DetokenizeResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/v1/edits": {
             "post": {
                 "tags": [
@@ -3974,6 +4001,30 @@ const docTemplate = `{
                     "items": {
                         "$ref": "#/definitions/schema.Detection"
                     }
+                }
+            }
+        },
+        "schema.DetokenizeRequest": {
+            "type": "object",
+            "properties": {
+                "model": {
+                    "type": "string"
+                },
+                "tokens": {
+                    "description": "token IDs to convert back to text",
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                }
+            }
+        },
+        "schema.DetokenizeResponse": {
+            "type": "object",
+            "properties": {
+                "content": {
+                    "description": "detokenized text",
+                    "type": "string"
                 }
             }
         },

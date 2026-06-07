@@ -299,11 +299,12 @@ func RegisterLocalAIRoutes(router *echo.Echo,
 					"reload":       "/models/reload",
 				},
 				"ai_functions": map[string]string{
-					"tts":       "/tts",
-					"vad":       "/vad",
-					"video":     "/video",
-					"detection": "/v1/detection",
-					"tokenize":  "/v1/tokenize",
+					"tts":         "/tts",
+					"vad":         "/vad",
+					"video":       "/video",
+					"detection":   "/v1/detection",
+					"tokenize":    "/v1/tokenize",
+					"detokenize":  "/v1/detokenize",
 				},
 				"monitoring": monitoringRoutes,
 				"mcp": map[string]string{
@@ -371,6 +372,12 @@ func RegisterLocalAIRoutes(router *echo.Echo,
 		tokenizeHandler,
 		requestExtractor.BuildFilteredFirstAvailableDefaultModel(config.BuildUsecaseFilterFn(config.FLAG_TOKENIZE)),
 		requestExtractor.SetModelAndConfig(func() schema.LocalAIRequest { return new(schema.TokenizeRequest) }))
+
+	detokenizeHandler := localai.DetokenizeEndpoint(cl, ml, appConfig)
+	router.POST("/v1/detokenize",
+		detokenizeHandler,
+		requestExtractor.BuildFilteredFirstAvailableDefaultModel(config.BuildUsecaseFilterFn(config.FLAG_TOKENIZE)),
+		requestExtractor.SetModelAndConfig(func() schema.LocalAIRequest { return new(schema.DetokenizeRequest) }))
 
 	// MCP endpoint - supports both streaming and non-streaming modes
 	// Note: streaming mode is NOT compatible with the OpenAI apis. We have a set which streams more states.
