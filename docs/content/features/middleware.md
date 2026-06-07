@@ -168,11 +168,14 @@ scope for now.
 
 ### Instance-wide default detector
 
-The **Default PII policy** panel on the Middleware → Filtering page sets an
-instance-wide default detector — one or more `token_classify` models applied
-to any PII-enabled model that names none of its own `pii.detectors`. It is
-persisted through `POST /api/settings` and read live, so a change takes effect
-on the next request without a restart.
+The **Detector models** table on the Middleware → Filtering page lists every
+`token_classify` detector model (neural NER models and in-process pattern
+matchers alike) and exposes a per-row **Default** toggle. Toggling a detector
+on adds it to the instance-wide default detector set — one or more models
+applied to any PII-enabled model that names none of its own `pii.detectors`.
+It is persisted through `POST /api/settings` and read live, so a change takes
+effect on the next request without a restart. A default that names a model no
+longer loaded still appears (marked *not loaded*) so it can be toggled off.
 
 This is what makes `cloud-proxy` / MITM redaction work out of the box: those
 backends default to PII-enabled but ship no detector list, so without a
@@ -195,11 +198,16 @@ nothing — set a default detector to close that gap.
 
 The `/app/middleware` page (admin role only) has four tabs — **Filtering**,
 **Routing**, **MITM Proxy** (see the [MITM doc]({{< relref "mitm-proxy.md" >}})),
-and **Events**. The Filtering tab has a **Default PII policy** editor (the
-instance-wide default detector above) and a per-model table listing only the
-models PII can actually apply to — chat / completion / embeddings / edit
-consumers and cloud-proxy models, not VAD/STT/image models or the detector
-models themselves. Each row reports the **effective** `enabled` state, the
+and **Events**. The Filtering tab has a **Detector models** table (every
+`token_classify` filter model, with the per-row Default toggle above and an
+edit link to each detector's config, plus an *Add detector model* button) and
+a per-model table listing only the models PII can actually apply to — chat /
+completion / embeddings / edit consumers and cloud-proxy models, not
+VAD/STT/image models or the detector models themselves. Each row reports the
+**effective** `enabled` state as an inline **toggle** — flipping it writes an
+explicit `pii.enabled` to that model's YAML (a server-side deep-merge that
+preserves `pii.detectors` and every other field), so a cloud-proxy model shown
+on by backend default can be turned off, and vice-versa — plus the
 resolved detector(s) — with a *(default)* marker when they come from the
 instance-wide default rather than the model's YAML — why it is on (`YAML` /
 `backend default`), and the recent event count. Detection *policy*

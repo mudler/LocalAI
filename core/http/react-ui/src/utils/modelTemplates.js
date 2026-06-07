@@ -163,6 +163,23 @@ const MODEL_TEMPLATES = [
       'pii.detectors': [],
     },
   },
+  {
+    id: 'secret-filter',
+    label: 'Secret Pattern Detector',
+    icon: 'fa-key',
+    description: 'An in-process token_classify detector that flags high-entropy secrets (API keys, tokens) with bounded restricted-regex patterns — no backend, no GGUF, zero VRAM. Enable the built-in provider patterns below and/or add your own under PII Detection. Reference it from a model\'s pii.detectors, or toggle it on as a default detector on the Middleware page.',
+    fields: {
+      'name': 'secret-filter',
+      'backend': 'pattern',
+      'known_usecases': ['token_classify'],
+      'pii_detection.default_action': 'block',
+      'pii_detection.builtins': [
+        'anthropic_api_key', 'openai_api_key', 'github_token', 'github_pat',
+        'aws_access_key', 'google_api_key', 'slack_token', 'stripe_key',
+        'jwt', 'private_key_block',
+      ],
+    },
+  },
 ]
 
 export default MODEL_TEMPLATES

@@ -2,10 +2,9 @@ import { useState, useEffect, useCallback, useRef, useMemo, Fragment } from 'rea
 import { useOutletContext, Link, useNavigate, useLocation, useSearchParams } from 'react-router-dom'
 import { apiUrl } from '../utils/basePath'
 import { fromState } from '../utils/editorNav'
-import { settingsApi } from '../utils/api'
+import { settingsApi, modelsApi } from '../utils/api'
 import LoadingSpinner from '../components/LoadingSpinner'
-import ModelMultiSelect from '../components/ModelMultiSelect'
-import { CAP_TOKEN_CLASSIFY } from '../utils/capabilities'
+import Toggle from '../components/Toggle'
 
 // Middleware admin page. Three tabs:
 //   - Filtering: per-model resolved PII state + per-model detector list
@@ -174,6 +173,28 @@ export default function Middleware() {
 
 function FilteringTab({ status, addToast, onChanged }) {
   const location = useLocation()
+  // Rows mid-save, so just that model's toggle disables while the PATCH
+  // round-trips (and the 5s background poll re-syncs the resolved state).
+  const [piiBusy, setPiiBusy] = useState(() => new Set())
+
+  // Toggling the PII column writes an explicit pii.enabled to the model YAML
+  // via PATCH /api/models/config-json/:name (a deep-merge that preserves
+  // pii.detectors and every other field). This makes the resolved state
+  // explicit: a cloud-proxy model shown ON by backend default becomes
+  // pii.enabled:true; toggling it OFF writes pii.enabled:false.
+  const togglePII = async (name, on) => {
+    setPiiBusy(prev => new Set(prev).add(name))
+    try {
+      await modelsApi.patchConfig(name, { pii: { enabled: on } })
+      addToast?.(on ? `PII filtering enabled for ${name}` : `PII filtering disabled for ${name}`, 'success')
+      onChanged?.()
+    } catch (err) {
+      addToast?.(`Failed to update ${name}: ${err.message}`, 'error')
+    } finally {
+      setPiiBusy(prev => { const n = new Set(prev); n.delete(name); return n })
+    }
+  }
+
   if (!status?.pii) return null
   const pii = status.pii
 
@@ -192,15 +213,15 @@ function FilteringTab({ status, addToast, onChanged }) {
         </div>
       </div>
 
-      {/* Instance-wide default policy */}
-      <DefaultPIIPolicy pii={pii} addToast={addToast} onChanged={onChanged} />
+      {/* Detector models + instance-wide default policy (per-row toggle) */}
+      <DetectorModels pii={pii} addToast={addToast} onChanged={onChanged} />
 
       {/* Per-model resolved state */}
       <div className="card" style={{ padding: 'var(--spacing-md)' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 'var(--spacing-sm)' }}>
           <span style={{ fontSize: '0.875rem', fontWeight: 600 }}>Per-model state</span>
           <span style={{ fontSize: '0.6875rem', color: 'var(--color-text-muted)' }}>
-            Edit the model YAML to change these.
+            Toggle PII inline; edit a row for detectors and policy.
           </span>
         </div>
         <div className="table-container">
@@ -209,7 +230,7 @@ function FilteringTab({ status, addToast, onChanged }) {
               <tr>
                 <th>Model</th>
                 <th style={{ width: 120 }}>Backend</th>
-                <th style={{ width: 80 }}>PII</th>
+                <th style={{ width: 120 }}>PII</th>
                 <th style={{ width: 110 }}>Source</th>
                 <th>Detectors</th>
                 <th style={{ width: 80 }}>Edit</th>
@@ -221,15 +242,21 @@ function FilteringTab({ status, addToast, onChanged }) {
                   <td style={{ fontFamily: 'var(--font-mono)', fontSize: '0.8125rem' }}>{m.name}</td>
                   <td style={{ fontFamily: 'var(--font-mono)', fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>{m.backend || '—'}</td>
                   <td>
-                    {enabledBadge(m.enabled)}
-                    {m.enabled && (!m.detectors || m.detectors.length === 0) && (
-                      <span
-                        title="Enabled but no detector resolved — nothing is scanned. Set a default detector below or add pii.detectors to the model."
-                        style={{ marginLeft: 6, fontSize: '0.6875rem', fontWeight: 600, color: 'var(--color-warning)', whiteSpace: 'nowrap', cursor: 'help' }}
-                      >
-                        <i className="fas fa-triangle-exclamation" style={{ marginRight: 3 }} />no-op
-                      </span>
-                    )}
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                      <Toggle
+                        checked={!!m.enabled}
+                        disabled={piiBusy.has(m.name)}
+                        onChange={(v) => togglePII(m.name, v)}
+                      />
+                      {m.enabled && (!m.detectors || m.detectors.length === 0) && (
+                        <span
+                          title="Enabled but no detector resolved — nothing is scanned. Toggle a detector's Default on above, or add pii.detectors to the model."
+                          style={{ fontSize: '0.6875rem', fontWeight: 600, color: 'var(--color-warning)', whiteSpace: 'nowrap', cursor: 'help' }}
+                        >
+                          <i className="fas fa-triangle-exclamation" style={{ marginRight: 3 }} />no-op
+                        </span>
+                      )}
+                    </span>
                   </td>
                   <td style={{ fontSize: '0.6875rem', color: 'var(--color-text-muted)' }}>
                     {m.explicit ? 'YAML' : (m.default_for_backend ? 'backend default' : 'default off')}
@@ -267,57 +294,142 @@ function FilteringTab({ status, addToast, onChanged }) {
   )
 }
 
-// DefaultPIIPolicy edits the instance-wide default detector (RuntimeSettings,
-// saved via POST /api/settings): a fallback applied to any PII-enabled model
+// detectorTypeBadge labels a detector model by how it matches: a neural NER
+// token-classifier vs an in-process restricted-regex pattern matcher. `unknown`
+// is a default that names a model no longer loaded.
+function detectorTypeBadge(type) {
+  const map = {
+    ner: { label: 'NER', color: 'var(--color-primary)' },
+    pattern: { label: 'pattern', color: 'var(--color-data-2, var(--color-warning))' },
+    unknown: { label: 'not loaded', color: 'var(--color-text-muted)' },
+  }
+  const t = map[type] || map.unknown
+  return (
+    <span style={{
+      display: 'inline-block',
+      padding: '2px 8px',
+      fontSize: '0.6875rem',
+      fontWeight: 600,
+      borderRadius: 'var(--radius-sm)',
+      background: t.color,
+      color: 'white',
+      fontFamily: 'var(--font-mono)',
+      textTransform: 'uppercase',
+    }}>
+      {t.label}
+    </span>
+  )
+}
+
+// DetectorModels lists the token_classify "filter" models (NER + in-process
+// pattern matchers) and, via a per-row toggle, manages the instance-wide
+// default detector set (RuntimeSettings.pii_default_detectors, saved via POST
+// /api/settings). A detector toggled on is applied to any PII-enabled model
 // that names none of its own — chiefly cloud-proxy / MITM models, which are
-// PII-enabled by default but carry no detector list. Mirrors ProxyTab's
-// read-from-status / save-via-settingsApi / re-sync-when-not-dirty pattern.
-function DefaultPIIPolicy({ pii, addToast, onChanged }) {
-  const serverDetectors = useMemo(() => pii.default_detectors || [], [pii.default_detectors])
+// PII-enabled by default but carry no detector list. Per-model `pii.detectors`
+// always overrides. This replaces the old model-multiselect chooser: the table
+// shows every available detector, so admins toggle defaults instead of retyping
+// names, and link straight to each detector's config to edit its policy.
+function DetectorModels({ pii, addToast, onChanged }) {
+  const navigate = useNavigate()
+  const location = useLocation()
+  const rows = useMemo(() => pii.detector_models || [], [pii.detector_models])
+  // Names currently in the default set; the toggle adds/removes against this.
+  const defaults = useMemo(() => pii.default_detectors || [], [pii.default_detectors])
+  // Track which rows are mid-save to disable just that toggle (optimistic).
+  const [busy, setBusy] = useState(() => new Set())
 
-  const [detectors, setDetectors] = useState(serverDetectors)
-  const [saving, setSaving] = useState(false)
-
-  const sameSet = (a, b) => a.length === b.length && [...a].sort().join('|') === [...b].sort().join('|')
-  const dirty = !sameSet(detectors, serverDetectors)
-
-  // Re-sync from the server only when the user has no pending edits to clobber.
-  useEffect(() => {
-    if (dirty) return
-    setDetectors(serverDetectors)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [serverDetectors])
-
-  const save = async () => {
-    setSaving(true)
+  const toggleDefault = async (name, on) => {
+    const next = on
+      ? [...new Set([...defaults, name])]
+      : defaults.filter(d => d !== name)
+    setBusy(prev => new Set(prev).add(name))
     try {
-      const body = await settingsApi.save({ pii_default_detectors: detectors })
+      const body = await settingsApi.save({ pii_default_detectors: next })
       if (body && body.success === false) throw new Error(body.error || 'unknown error')
-      addToast?.('Default PII policy updated', 'success')
+      addToast?.(on ? `${name} added to default detectors` : `${name} removed from default detectors`, 'success')
       onChanged?.()
     } catch (err) {
       addToast?.(`Failed to save: ${err.message}`, 'error')
     } finally {
-      setSaving(false)
+      setBusy(prev => { const n = new Set(prev); n.delete(name); return n })
     }
   }
 
   return (
     <div className="card" style={{ padding: 'var(--spacing-md)', marginBottom: 'var(--spacing-md)' }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 'var(--spacing-sm)' }}>
-        <span style={{ fontSize: '0.875rem', fontWeight: 600 }}>Default PII policy</span>
-        <button className="btn btn-primary btn-sm" onClick={save} disabled={!dirty || saving}>
-          <i className={`fas ${saving ? 'fa-spinner fa-spin' : 'fa-floppy-disk'}`} style={{ marginRight: 4 }} />
-          Save
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 'var(--spacing-sm)', gap: 'var(--spacing-sm)', flexWrap: 'wrap' }}>
+        <span style={{ fontSize: '0.875rem', fontWeight: 600 }}>Detector models</span>
+        <button
+          className="btn btn-secondary btn-sm"
+          onClick={() => navigate('/app/model-editor?template=secret-filter', { state: fromState(location, 'Middleware') })}
+          title="Add a NER or pattern detector model"
+        >
+          <i className="fas fa-plus" /> Add detector model
         </button>
       </div>
       <div style={{ fontSize: '0.8125rem', color: 'var(--color-text-secondary)', marginBottom: 'var(--spacing-sm)' }}>
-        Cloud-proxy / MITM models are PII-enabled by default; pick a default detector here so their requests are actually scanned. Applied to any PII-enabled model that names none of its own. Per-model config always overrides.
+        These token_classify models do the scanning. Toggle <strong>Default</strong> on to apply a
+        detector to any PII-enabled model that names none of its own (chiefly cloud-proxy / MITM models).
+        Per-model <code>pii.detectors</code> always overrides. Edit a detector to change which entities it
+        flags and what action it takes.
       </div>
 
-      <div>
-        <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, marginBottom: 4 }}>Default detector model(s)</label>
-        <ModelMultiSelect value={detectors} onChange={setDetectors} capability={CAP_TOKEN_CLASSIFY} placeholder="Select default detector model..." />
+      <div className="table-container">
+        <table className="table">
+          <thead>
+            <tr>
+              <th>Detector model</th>
+              <th style={{ width: 110 }}>Type</th>
+              <th style={{ width: 120 }}>Backend</th>
+              <th style={{ width: 110 }}>Default</th>
+              <th style={{ width: 80 }}>Edit</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map(d => (
+              <tr key={d.name}>
+                <td style={{ fontFamily: 'var(--font-mono)', fontSize: '0.8125rem', fontWeight: 600 }}>
+                  {d.missing
+                    ? <span title="This default detector names a model that is not loaded.">{d.name}</span>
+                    : <Link to={`/app/model-editor/${encodeURIComponent(d.name)}`} state={fromState(location, 'Middleware')} title={`Edit ${d.name}.yaml`}>{d.name}</Link>}
+                </td>
+                <td>{detectorTypeBadge(d.type)}</td>
+                <td style={{ fontFamily: 'var(--font-mono)', fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>{d.backend || '—'}</td>
+                <td>
+                  <Toggle
+                    checked={!!d.default}
+                    disabled={busy.has(d.name)}
+                    onChange={(v) => toggleDefault(d.name, v)}
+                  />
+                </td>
+                <td>
+                  {d.missing ? (
+                    <span style={{ fontSize: '0.6875rem', color: 'var(--color-text-muted)' }}>—</span>
+                  ) : (
+                    <Link
+                      to={`/app/model-editor/${encodeURIComponent(d.name)}`}
+                      state={fromState(location, 'Middleware')}
+                      className="btn btn-secondary btn-sm"
+                      style={{ fontSize: '0.6875rem', padding: '2px 8px' }}
+                      title={`Edit ${d.name}.yaml`}
+                    >
+                      <i className="fas fa-pen-to-square" /> Edit
+                    </Link>
+                  )}
+                </td>
+              </tr>
+            ))}
+            {rows.length === 0 && (
+              <tr>
+                <td colSpan={5} style={{ textAlign: 'center', color: 'var(--color-text-muted)', padding: 'var(--spacing-md)' }}>
+                  No detector models loaded. Add one with the button above (a token_classify NER model
+                  or a built-in secret pattern model).
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
       </div>
     </div>
   )

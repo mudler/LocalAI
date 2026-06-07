@@ -339,6 +339,45 @@ func buildPIIStatus(app *application.Application) map[string]any {
 		models = append(models, entry)
 	}
 
+	// Detector models: the token_classify "filter" models themselves (NER and
+	// in-process pattern matchers), which PIIFilterApplies deliberately omits
+	// from the consumer list above. The Filtering tab renders these as a table
+	// with a per-row toggle marking membership in the instance-wide default
+	// detector set, so admins manage defaults without retyping model names.
+	defaultSet := map[string]bool{}
+	for _, d := range appCfg.PIIDefaultDetectors {
+		defaultSet[d] = true
+	}
+	detectorModels := []map[string]any{}
+	for _, cfg := range app.ModelConfigLoader().GetAllModelsConfigs() {
+		if !cfg.HasUsecases(config.FLAG_TOKEN_CLASSIFY) {
+			continue
+		}
+		typ := "ner"
+		if cfg.IsPatternDetector() {
+			typ = "pattern"
+		}
+		detectorModels = append(detectorModels, map[string]any{
+			"name":    cfg.Name,
+			"backend": cfg.Backend,
+			"type":    typ,
+			// Whether this detector is in the instance-wide default set.
+			"default": defaultSet[cfg.Name],
+		})
+		delete(defaultSet, cfg.Name)
+	}
+	// Surface any default detector that names a model that is no longer loaded
+	// (or lost the token_classify usecase) so the admin can still toggle it off.
+	for name := range defaultSet {
+		detectorModels = append(detectorModels, map[string]any{
+			"name":    name,
+			"backend": "",
+			"type":    "unknown",
+			"default": true,
+			"missing": true,
+		})
+	}
+
 	recentCount := 0
 	if app.PIIEvents() != nil {
 		if n, err := app.PIIEvents().Count(context.Background()); err == nil {
@@ -350,6 +389,7 @@ func buildPIIStatus(app *application.Application) map[string]any {
 		"enabled_globally":             true,
 		"default_enabled_for_backends": []string{"cloud-proxy"},
 		"models":                       models,
+		"detector_models":              detectorModels,
 		"recent_event_count":           recentCount,
 		// Instance-wide default policy (the Default PII policy editor).
 		"default_detectors": appCfg.PIIDefaultDetectors,
