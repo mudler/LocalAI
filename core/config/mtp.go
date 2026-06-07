@@ -30,17 +30,35 @@ func MTPSpecOptions() []string {
 	return out
 }
 
-// HasEmbeddedMTPHead reports whether the parsed GGUF declares a Multi-Token
-// Prediction head. Detection reads `<arch>.nextn_predict_layers`, which is
-// what `gguf_writer.add_nextn_predict_layers(n)` emits in upstream's
+// isDraftOnlyAssistantArch reports whether an architecture names a standalone
+// MTP *draft* model rather than a self-speculating trunk. Upstream's Gemma4 MTP
+// (ggml-org/llama.cpp#23398) registers the head as a separate `gemma4-assistant`
+// architecture whose GGUF still carries `nextn_predict_layers`, but which cannot
+// run alone: it requires a paired target context (`ctx_other`). Such archs must
+// not trigger the embedded-head self-speculation defaults. The `-assistant`
+// suffix is upstream's naming convention for these draft-only checkpoints.
+func isDraftOnlyAssistantArch(arch string) bool {
+	return strings.HasSuffix(arch, "-assistant")
+}
+
+// HasEmbeddedMTPHead reports whether the parsed GGUF declares a self-speculating
+// Multi-Token Prediction head. Detection reads `<arch>.nextn_predict_layers`,
+// which is what `gguf_writer.add_nextn_predict_layers(n)` emits in upstream's
 // `conversion/qwen.py` MTP mixin. A positive layer count means the head is
 // present in the same GGUF as the trunk.
+//
+// Draft-only assistant architectures (e.g. Gemma4's `gemma4-assistant`) carry
+// the same key but are separate draft checkpoints meant to be paired with a
+// target model, so they are deliberately excluded here.
 func HasEmbeddedMTPHead(f *gguf.GGUFFile) (uint32, bool) {
 	if f == nil {
 		return 0, false
 	}
 	arch := f.Architecture().Architecture
 	if arch == "" {
+		return 0, false
+	}
+	if isDraftOnlyAssistantArch(arch) {
 		return 0, false
 	}
 	v, ok := f.Header.MetadataKV.Get(arch + ".nextn_predict_layers")
