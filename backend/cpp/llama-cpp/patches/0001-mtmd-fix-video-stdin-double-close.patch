@@ -1,0 +1,30 @@
+From: Ettore Di Giacinto <mudler@localai.io>
+Subject: [PATCH] mtmd: fix double-close of ffmpeg/ffprobe stdin in video helper
+
+mtmd_helper_video::feed_stdin() obtains the subprocess stdin via
+subprocess_stdin(sp), which returns sp->stdin_file directly, then
+fclose()s that FILE. Closing the local copy leaves sp->stdin_file
+dangling (still non-NULL), so the subsequent subprocess_destroy()
+fclose()s the same FILE a second time. The resulting heap corruption
+aborts the process ("corrupted double-linked list" / "corrupted size
+vs. prev_size") - notably on the server's base64 input_video path,
+where every probe()/start_ffmpeg() feeds the buffer via stdin. The CLI
+--video file path is unaffected (it never spawns the stdin feeder).
+
+Clear sp->stdin_file after fclose so subprocess_destroy() skips it.
+
+--- a/tools/mtmd/mtmd-helper.cpp
++++ b/tools/mtmd/mtmd-helper.cpp
+@@ -642,7 +642,12 @@
+         LOG_DBG("%s: feeding %zu bytes to stdin\n", __func__, input_buf.size());
+         size_t written = fwrite(input_buf.data(), 1, input_buf.size(), f);
+         LOG_DBG("%s: wrote %zu bytes, closing stdin\n", __func__, written);
+         fclose(f);
++        // subprocess_stdin() returns sp->stdin_file directly; fclosing our local
++        // copy leaves the struct pointer dangling, so subprocess_destroy() would
++        // fclose() the same FILE again -> heap corruption. Null it so the later
++        // destroy skips stdin.
++        sp->stdin_file = nullptr;
+     }
+
+     bool probe(float fps_target_arg) {
