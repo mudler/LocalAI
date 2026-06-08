@@ -265,7 +265,7 @@ function UserMessageContent({ content, files }) {
         <div className="chat-message-files">
           {files.map((f, i) => (
             <span key={i} className="chat-file-inline">
-              <i className={`fas ${f.type === 'image' ? 'fa-image' : f.type === 'audio' ? 'fa-headphones' : 'fa-file'}`} />
+              <i className={`fas ${f.type === 'image' ? 'fa-image' : f.type === 'audio' ? 'fa-headphones' : f.type === 'video' ? 'fa-film' : 'fa-file'}`} />
               {f.name}
             </span>
           ))}
@@ -273,6 +273,9 @@ function UserMessageContent({ content, files }) {
       )}
       {Array.isArray(content) && content.filter(c => c.type === 'image_url').map((img, i) => (
         <img key={i} src={img.image_url.url} alt="attached" className="chat-inline-image" />
+      ))}
+      {Array.isArray(content) && content.filter(c => c.type === 'video_url').map((vid, i) => (
+        <video key={i} src={vid.video_url.url} controls className="chat-inline-video" />
       ))}
     </>
   )
@@ -711,7 +714,7 @@ export default function Chat() {
     for (const file of e.target.files) {
       const base64 = await fileToBase64(file)
       const entry = { name: file.name, type: file.type, base64 }
-      if (!file.type.startsWith('image/') && !file.type.startsWith('audio/')) {
+      if (!file.type.startsWith('image/') && !file.type.startsWith('audio/') && !file.type.startsWith('video/')) {
         entry.textContent = await file.text().catch(() => '')
       }
       newFiles.push(entry)
@@ -1244,7 +1247,7 @@ export default function Chat() {
           <div className="chat-files">
             {files.map((f, i) => (
               <span key={i} className="chat-file-badge">
-                <i className={`fas ${f.type?.startsWith('image/') ? 'fa-image' : f.type?.startsWith('audio/') ? 'fa-headphones' : 'fa-file'}`} />
+                <i className={`fas ${f.type?.startsWith('image/') ? 'fa-image' : f.type?.startsWith('audio/') ? 'fa-headphones' : f.type?.startsWith('video/') ? 'fa-film' : 'fa-file'}`} />
                 {f.name}
                 <button onClick={() => setFiles(prev => prev.filter((_, idx) => idx !== i))}>
                   <i className="fas fa-xmark" />
@@ -1343,7 +1346,7 @@ export default function Chat() {
               ref={fileInputRef}
               type="file"
               multiple
-              accept="image/*,audio/*,application/pdf,.txt,.md,.csv,.json"
+              accept="image/*,audio/*,video/*,application/pdf,.txt,.md,.csv,.json"
               style={{ display: 'none' }}
               onChange={handleFileChange}
             />
