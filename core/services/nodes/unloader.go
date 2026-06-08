@@ -35,7 +35,7 @@ type backendStopRequest struct {
 // backend.upgrade subject.
 type NodeCommandSender interface {
 	InstallBackend(nodeID, backendType, modelID, galleriesJSON, uri, name, alias string, replicaIndex int, opID string, onProgress func(messaging.BackendInstallProgressEvent)) (*messaging.BackendInstallReply, error)
-	UpgradeBackend(nodeID, backendType, galleriesJSON, uri, name, alias string, replicaIndex int) (*messaging.BackendUpgradeReply, error)
+	UpgradeBackend(nodeID, backendType, galleriesJSON, uri, name, alias string, replicaIndex int, opID string, onProgress func(messaging.BackendInstallProgressEvent)) (*messaging.BackendUpgradeReply, error)
 	DeleteBackend(nodeID, backendName string) (*messaging.BackendDeleteReply, error)
 	ListBackends(nodeID string) (*messaging.BackendListReply, error)
 	StopBackend(nodeID, backend string) error
@@ -127,38 +127,8 @@ func (a *RemoteUnloaderAdapter) InstallBackend(
 	xlog.Info("Sending NATS backend.install", "nodeID", nodeID, "backend", backendType, "modelID", modelID, "replica", replicaIndex, "opID", opID)
 
 	// Subscribe to the per-op progress subject BEFORE publishing the install
-	// request so we don't miss early events. When onProgress is nil OR opID
-	// is empty (the reconciler-driven retry path), skip subscription entirely:
-	// silent installs cost nothing extra.
-	var sub messaging.Subscription
-	if onProgress != nil && opID != "" {
-		progressSubject := messaging.SubjectNodeBackendInstallProgress(nodeID, opID)
-		s, subErr := a.nats.Subscribe(progressSubject, func(raw []byte) {
-			var ev messaging.BackendInstallProgressEvent
-			if err := json.Unmarshal(raw, &ev); err != nil {
-				xlog.Debug("malformed install progress event", "subject", progressSubject, "error", err)
-				return
-			}
-			// Goroutine guard: a slow onProgress callback must not stall
-			// the NATS reader thread.
-			//
-			// NOTE: events spawn one goroutine each, so ordering at the
-			// consumer is best-effort. In practice the worker debounces to
-			// ~250ms which is far larger than goroutine scheduling jitter,
-			// so reordering is rare. The worker's final Flush() event is
-			// intended to win as the terminal tick. A future hardening pass
-			// could add a Seq uint64 field to BackendInstallProgressEvent
-			// and drop stale-by-seq at the bridge if reordering becomes a
-			// real UX issue.
-			go onProgress(ev)
-		})
-		if subErr != nil {
-			xlog.Warn("Failed to subscribe to install progress subject; proceeding without progress streaming",
-				"subject", progressSubject, "error", subErr)
-		} else {
-			sub = s
-		}
-	}
+	// request so we don't miss early events.
+	sub := a.subscribeProgress(nodeID, opID, onProgress)
 
 	reply, err := messaging.RequestJSON[messaging.BackendInstallRequest, messaging.BackendInstallReply](a.nats, subject, messaging.BackendInstallRequest{
 		Backend:          backendType,
@@ -182,18 +152,58 @@ func (a *RemoteUnloaderAdapter) InstallBackend(
 	return reply, err
 }
 
+// subscribeProgress subscribes to the per-op backend-install progress subject
+// so the master can stream per-node download ticks while a worker installs or
+// upgrades. Returns nil (and subscribes to nothing) when onProgress is nil or
+// opID is empty — the reconciler-driven retry path and legacy callers stay
+// silent at no cost. Shared by InstallBackend, UpgradeBackend, and the legacy
+// force-install fallback: an upgrade is a force-reinstall, so it reuses the
+// install-progress subject rather than minting a new one (no new NATS
+// permission, no new rolling-update compat surface). Caller must Unsubscribe
+// the returned subscription after the request completes.
+func (a *RemoteUnloaderAdapter) subscribeProgress(nodeID, opID string, onProgress func(messaging.BackendInstallProgressEvent)) messaging.Subscription {
+	if onProgress == nil || opID == "" {
+		return nil
+	}
+	progressSubject := messaging.SubjectNodeBackendInstallProgress(nodeID, opID)
+	s, subErr := a.nats.Subscribe(progressSubject, func(raw []byte) {
+		var ev messaging.BackendInstallProgressEvent
+		if err := json.Unmarshal(raw, &ev); err != nil {
+			xlog.Debug("malformed backend progress event", "subject", progressSubject, "error", err)
+			return
+		}
+		// Goroutine guard: a slow onProgress callback must not stall the NATS
+		// reader thread. Events spawn one goroutine each, so ordering at the
+		// consumer is best-effort; the worker debounces to ~250ms which dwarfs
+		// goroutine scheduling jitter, and its final Flush() is the terminal tick.
+		go onProgress(ev)
+	})
+	if subErr != nil {
+		xlog.Warn("Failed to subscribe to backend progress subject; proceeding without progress streaming",
+			"subject", progressSubject, "error", subErr)
+		return nil
+	}
+	return s
+}
+
 // UpgradeBackend sends a backend.upgrade request-reply to a worker node.
 // The worker stops every live process for this backend, force-reinstalls
 // from the gallery (overwriting the on-disk artifact), and replies. The
 // next routine InstallBackend call spawns a fresh process with the new
 // binary - upgrade itself does not start a process.
 //
+// When opID is non-empty and onProgress is set, the master subscribes to the
+// per-op progress subject before firing the request so a long force-reinstall
+// streams per-node download ticks instead of blocking opaque at progress 0.
+//
 // Timeout: configured via DistributedConfig.BackendUpgradeTimeoutOrDefault
 // (default 15m). Real-world worst case observed: 8-10 minutes for large
 // CUDA-l4t backend images on Jetson over WiFi.
-func (a *RemoteUnloaderAdapter) UpgradeBackend(nodeID, backendType, galleriesJSON, uri, name, alias string, replicaIndex int) (*messaging.BackendUpgradeReply, error) {
+func (a *RemoteUnloaderAdapter) UpgradeBackend(nodeID, backendType, galleriesJSON, uri, name, alias string, replicaIndex int, opID string, onProgress func(messaging.BackendInstallProgressEvent)) (*messaging.BackendUpgradeReply, error) {
 	subject := messaging.SubjectNodeBackendUpgrade(nodeID)
-	xlog.Info("Sending NATS backend.upgrade", "nodeID", nodeID, "backend", backendType, "replica", replicaIndex)
+	xlog.Info("Sending NATS backend.upgrade", "nodeID", nodeID, "backend", backendType, "replica", replicaIndex, "opID", opID)
+
+	sub := a.subscribeProgress(nodeID, opID, onProgress)
 
 	reply, err := messaging.RequestJSON[messaging.BackendUpgradeRequest, messaging.BackendUpgradeReply](a.nats, subject, messaging.BackendUpgradeRequest{
 		Backend:          backendType,
@@ -202,7 +212,13 @@ func (a *RemoteUnloaderAdapter) UpgradeBackend(nodeID, backendType, galleriesJSO
 		Name:             name,
 		Alias:            alias,
 		ReplicaIndex:     int32(replicaIndex),
+		OpID:             opID,
 	}, a.upgradeTimeout)
+
+	if sub != nil {
+		_ = sub.Unsubscribe()
+	}
+
 	if err != nil && isNATSTimeout(err) {
 		return nil, fmt.Errorf("%w (subject=%s nodeID=%s backend=%s): %v",
 			galleryop.ErrWorkerStillInstalling, subject, nodeID, backendType, err)
@@ -216,9 +232,11 @@ func (a *RemoteUnloaderAdapter) UpgradeBackend(nodeID, backendType, galleriesJSO
 // doesn't subscribe to the new subject). It re-fires the legacy
 // backend.install with Force=true. Drop this once every worker is on
 // 2026-05-08 or newer.
-func (a *RemoteUnloaderAdapter) installWithForceFallback(nodeID, backendType, galleriesJSON, uri, name, alias string, replicaIndex int) (*messaging.BackendInstallReply, error) {
+func (a *RemoteUnloaderAdapter) installWithForceFallback(nodeID, backendType, galleriesJSON, uri, name, alias string, replicaIndex int, opID string, onProgress func(messaging.BackendInstallProgressEvent)) (*messaging.BackendInstallReply, error) {
 	subject := messaging.SubjectNodeBackendInstall(nodeID)
 	xlog.Warn("Falling back to legacy backend.install Force=true (old worker)", "nodeID", nodeID, "backend", backendType)
+
+	sub := a.subscribeProgress(nodeID, opID, onProgress)
 
 	reply, err := messaging.RequestJSON[messaging.BackendInstallRequest, messaging.BackendInstallReply](a.nats, subject, messaging.BackendInstallRequest{
 		Backend:          backendType,
@@ -228,7 +246,13 @@ func (a *RemoteUnloaderAdapter) installWithForceFallback(nodeID, backendType, ga
 		Alias:            alias,
 		ReplicaIndex:     int32(replicaIndex),
 		Force:            true,
+		OpID:             opID,
 	}, a.upgradeTimeout)
+
+	if sub != nil {
+		_ = sub.Unsubscribe()
+	}
+
 	if err != nil && isNATSTimeout(err) {
 		return nil, fmt.Errorf("%w (subject=%s nodeID=%s backend=%s): %v",
 			galleryop.ErrWorkerStillInstalling, subject, nodeID, backendType, err)

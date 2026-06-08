@@ -1776,6 +1776,38 @@ func (r *NodeRegistry) DeletePendingBackendOp(ctx context.Context, id uint) erro
 	return nil
 }
 
+// DeleteStalePendingBackendOps garbage-collects pending backend ops whose target
+// node can never drain them. ListDuePendingBackendOps only returns rows behind a
+// StatusHealthy node, so ops behind a node that went offline or draining are
+// otherwise never retried, aged out, or deleted — they leak forever and keep the
+// UI operation spinning. Draining nodes are cleared immediately (an explicit
+// admin action; their model rows are already purged). Offline nodes are cleared
+// only once their last heartbeat is older than `grace`, so a brief heartbeat blip
+// does not nuke an install that is still legitimately in flight. Returns the
+// number of rows deleted.
+func (r *NodeRegistry) DeleteStalePendingBackendOps(ctx context.Context, grace time.Duration) (int64, error) {
+	cutoff := time.Now().Add(-grace)
+	// Draining nodes are cleared immediately (admin action; model rows already
+	// purged). Offline AND unhealthy nodes are cleared only once their heartbeat
+	// is older than the grace window: a node marked unhealthy on a NATS
+	// ErrNoResponders never transitions to offline (health.go skips re-marking
+	// it), so without including unhealthy here its ops would leak exactly like
+	// the offline case. A node with a fresh heartbeat (last_heartbeat > cutoff)
+	// is recovering and keeps its op for retry.
+	res := r.db.WithContext(ctx).
+		Where(`node_id IN (SELECT id FROM backend_nodes WHERE status = ?)
+			OR node_id IN (SELECT id FROM backend_nodes WHERE status IN ? AND last_heartbeat <= ?)`,
+			StatusDraining, []string{StatusOffline, StatusUnhealthy}, cutoff).
+		Delete(&PendingBackendOp{})
+	if res.Error != nil {
+		return 0, fmt.Errorf("deleting stale pending backend ops: %w", res.Error)
+	}
+	if res.RowsAffected > 0 {
+		xlog.Info("Cleared pending backend ops behind non-healthy nodes", "deleted", res.RowsAffected)
+	}
+	return res.RowsAffected, nil
+}
+
 // RecordPendingBackendOpFailure bumps Attempts, captures the error, and
 // pushes NextRetryAt out with exponential backoff capped at 15 minutes.
 func (r *NodeRegistry) RecordPendingBackendOpFailure(ctx context.Context, id uint, errMsg string) error {

@@ -96,7 +96,10 @@ func (b *LocalBackendManager) ListBackends() (gallery.SystemBackends, error) {
 	return gallery.ListSystemBackends(b.systemState)
 }
 
-func (b *LocalBackendManager) UpgradeBackend(ctx context.Context, name string, progressCb ProgressCallback) error {
+// UpgradeBackend ignores opID: a single-node install reports progress through
+// the local progressCb already; opID only matters for distributed per-node
+// streaming (see DistributedBackendManager.UpgradeBackend).
+func (b *LocalBackendManager) UpgradeBackend(ctx context.Context, _ string, name string, progressCb ProgressCallback) error {
 	return gallery.UpgradeBackend(ctx, b.systemState, b.modelLoader, b.backendGalleries, name, progressCb, b.requireBackendIntegrity)
 }
 

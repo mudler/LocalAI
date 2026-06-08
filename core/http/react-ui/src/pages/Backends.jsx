@@ -506,7 +506,10 @@ export default function Backends() {
             <tbody>
               {backends.map((b, idx) => {
                 const op = getBackendOp(b)
-                const isProcessing = !!op
+                // A failed op is intentionally kept in the operations list so the
+                // OperationsBar can surface the error + Dismiss; it must NOT render
+                // as a perpetual "Installing..." spinner here (mirrors Models.jsx).
+                const isProcessing = !!op && !op.error
                 const isExpanded = expandedRow === idx
 
                 return (

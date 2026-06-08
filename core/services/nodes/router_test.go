@@ -365,7 +365,7 @@ func (f *fakeUnloader) InstallBackend(nodeID, backend, modelID, _, _, _, _ strin
 	return f.installReply, f.installErr
 }
 
-func (f *fakeUnloader) UpgradeBackend(nodeID, backend, _, _, _, _ string, replica int) (*messaging.BackendUpgradeReply, error) {
+func (f *fakeUnloader) UpgradeBackend(nodeID, backend, _, _, _, _ string, replica int, _ string, _ func(messaging.BackendInstallProgressEvent)) (*messaging.BackendUpgradeReply, error) {
 	f.mu.Lock()
 	f.upgradeCalls = append(f.upgradeCalls, upgradeCall{nodeID, backend, replica})
 	f.mu.Unlock()

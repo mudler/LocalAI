@@ -12,6 +12,7 @@ import ActionMenu from '../components/ActionMenu'
 import ResourceRow, { ChevronCell, IconCell, StopPropagationCell } from '../components/ResourceRow'
 import { useModels } from '../hooks/useModels'
 import { useGalleryEnrichment } from '../hooks/useGalleryEnrichment'
+import { useOperations } from '../hooks/useOperations'
 import { backendControlApi, modelsApi, backendsApi, systemApi, nodesApi } from '../utils/api'
 import { renderMarkdown } from '../utils/markdown'
 import { safeHref } from '../utils/url'
@@ -126,6 +127,7 @@ export default function Manage() {
   const [activeTab, setActiveTab] = useState(TABS.some(tab => tab.key === initialTab) ? initialTab : 'models')
   const { models, loading: modelsLoading, refetch: refetchModels } = useModels()
   const { enrichModel, enrichBackend } = useGalleryEnrichment()
+  const { operations } = useOperations()
   const [loadedModelIds, setLoadedModelIds] = useState(new Set())
   const [backends, setBackends] = useState([])
   const [backendsLoading, setBackendsLoading] = useState(true)
@@ -258,14 +260,19 @@ export default function Manage() {
     return `${m}m ago`
   })()
 
-  // Fetch available backend upgrades
+  // Refresh installed backends + available upgrades when the Backends tab opens
+  // AND whenever a backend operation settles (operations.length changes as a
+  // reinstall/upgrade completes and drops off the list). Without the op-settle
+  // refresh the installed-version cell and the "update available" badge stay
+  // stale after an upgrade until the user switches tabs - the op looks like it
+  // "did nothing". Mirrors the operations.length watch Backends.jsx uses.
   useEffect(() => {
-    if (activeTab === 'backends') {
-      backendsApi.checkUpgrades()
-        .then(data => setUpgrades(data || {}))
-        .catch(() => {})
-    }
-  }, [activeTab])
+    if (activeTab !== 'backends') return
+    fetchBackends()
+    backendsApi.checkUpgrades()
+      .then(data => setUpgrades(data || {}))
+      .catch(() => {})
+  }, [operations.length, activeTab, fetchBackends])
 
   const handleStopModel = (modelName) => {
     setConfirmDialog({

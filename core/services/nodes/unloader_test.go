@@ -282,7 +282,7 @@ var _ = Describe("RemoteUnloaderAdapter timeout configuration", func() {
 		mc.scriptReply(messaging.SubjectNodeBackendUpgrade("n1"), messaging.BackendUpgradeReply{Success: true})
 		adapter := NewRemoteUnloaderAdapter(nil, mc, 7*time.Minute, 11*time.Minute)
 
-		_, err := adapter.UpgradeBackend("n1", "llama-cpp", "[]", "", "", "", 0)
+		_, err := adapter.UpgradeBackend("n1", "llama-cpp", "[]", "", "", "", 0, "", nil)
 		Expect(err).ToNot(HaveOccurred())
 
 		Expect(mc.calls).To(HaveLen(1))
