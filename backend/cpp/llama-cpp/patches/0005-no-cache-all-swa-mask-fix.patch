@@ -1,23 +1,32 @@
+diff --git a/src/llama-graph.cpp b/src/llama-graph.cpp
+index f910528d2..4214b62a8 100644
 --- a/src/llama-graph.cpp
 +++ b/src/llama-graph.cpp
-@@ -463,16 +463,24 @@
+@@ -463,16 +463,32 @@ void llm_graph_input_attn_no_cache::set_input(const llama_ubatch * ubatch) {
          }
      };
  
-+    // The non-SWA (full) and SWA masks are separate graph inputs, but a
-+    // given model may consume only one of them: an encoder where *every*
-+    // layer is SWA (e.g. the openai-privacy-filter token classifier, whose
-+    // every layer uses a symmetric sliding window) never references the full
-+    // mask, so the graph allocator leaves self_kq_mask unallocated (null
-+    // buffer). Only fill a mask that actually got a buffer — filling an
-+    // unallocated input would write through a null data pointer.
-     GGML_ASSERT(self_kq_mask);
+-    GGML_ASSERT(self_kq_mask);
 -    GGML_ASSERT(ggml_backend_buffer_is_host(self_kq_mask->buffer));
 -    if (self_kq_mask->type == GGML_TYPE_F16) {
 -        fill_mask((ggml_fp16_t *) self_kq_mask->data, ggml_nelements(self_kq_mask), 0, LLAMA_SWA_TYPE_NONE);
 -    } else {
 -        fill_mask((float       *) self_kq_mask->data, ggml_nelements(self_kq_mask), 0, LLAMA_SWA_TYPE_NONE);
-+    if (self_kq_mask->buffer) {
++    // The full (non-SWA) and SWA masks are independent graph inputs, and a
++    // model consumes a mask only if it has a layer of that attention type. An
++    // input with no consumer is pruned by the graph allocator (null buffer):
++    // a fully-SWA encoder (every layer using a sliding window) references only
++    // the SWA mask, so the full mask is legitimately absent. Fill exactly the
++    // masks the model actually uses, decided by layer composition rather than
++    // buffer-nullness, and assert each used mask is properly allocated so a
++    // genuinely missing mask still fails loudly here instead of corrupting
++    // attention downstream.
++    const bool needs_full = !hparams.is_swa_all(); // >= 1 dense (non-SWA) layer
++    const bool needs_swa  =  hparams.is_swa_any(); // >= 1 SWA layer
++
++    if (needs_full) {
++        GGML_ASSERT(self_kq_mask);
++        GGML_ASSERT(self_kq_mask->buffer);
 +        GGML_ASSERT(ggml_backend_buffer_is_host(self_kq_mask->buffer));
 +        if (self_kq_mask->type == GGML_TYPE_F16) {
 +            fill_mask((ggml_fp16_t *) self_kq_mask->data, ggml_nelements(self_kq_mask), 0, LLAMA_SWA_TYPE_NONE);
@@ -27,8 +36,44 @@
      }
  
 -    if (hparams.swa_type != LLAMA_SWA_TYPE_NONE) {
--        GGML_ASSERT(self_kq_mask_swa);
-+    if (hparams.swa_type != LLAMA_SWA_TYPE_NONE && self_kq_mask_swa && self_kq_mask_swa->buffer) {
++    if (needs_swa) {
+         GGML_ASSERT(self_kq_mask_swa);
++        GGML_ASSERT(self_kq_mask_swa->buffer);
          GGML_ASSERT(ggml_backend_buffer_is_host(self_kq_mask_swa->buffer));
          if (self_kq_mask_swa->type == GGML_TYPE_F16) {
              fill_mask((ggml_fp16_t *) self_kq_mask_swa->data, ggml_nelements(self_kq_mask_swa), hparams.n_swa, hparams.swa_type);
+diff --git a/src/llama-hparams.cpp b/src/llama-hparams.cpp
+index 087afec55..087bbe53c 100644
+--- a/src/llama-hparams.cpp
++++ b/src/llama-hparams.cpp
+@@ -40,6 +40,16 @@ bool llama_hparams::is_swa_any() const {
+     return false;
+ }
+ 
++bool llama_hparams::is_swa_all() const {
++    for (uint32_t il = 0; il < n_layer; ++il) {
++        if (!is_swa_impl[il]) {
++            return false;
++        }
++    }
++
++    return true;
++}
++
+ uint32_t llama_hparams::n_head(uint32_t il) const {
+     if (il < n_layer) {
+         return n_head_arr[il];
+diff --git a/src/llama-hparams.h b/src/llama-hparams.h
+index e8ed4dd74..01c389cd4 100644
+--- a/src/llama-hparams.h
++++ b/src/llama-hparams.h
+@@ -270,6 +270,9 @@ struct llama_hparams {
+     // return true if one of the layers is SWA
+     bool is_swa_any() const;
+ 
++    // return true if all of the layers are SWA
++    bool is_swa_all() const;
++
+     bool is_swa(uint32_t il) const;
+ 
+     // TODO: implement

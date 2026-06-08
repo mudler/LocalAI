@@ -1,8 +1,8 @@
 diff --git a/src/llama-model.cpp b/src/llama-model.cpp
-index 3e236f8c1..465641b63 100644
+index bc7a83b15..02fedd965 100644
 --- a/src/llama-model.cpp
 +++ b/src/llama-model.cpp
-@@ -257,6 +257,8 @@ static llama_model * llama_model_mapping(llm_arch arch, const llama_model_params
+@@ -259,6 +259,8 @@ static llama_model * llama_model_mapping(llm_arch arch, const llama_model_params
              return new llama_model_smollm3(params);
          case LLM_ARCH_OPENAI_MOE:
              return new llama_model_openai_moe(params);
@@ -11,16 +11,17 @@ index 3e236f8c1..465641b63 100644
          case LLM_ARCH_FALCON_H1:
              return new llama_model_falcon_h1(params);
          case LLM_ARCH_LFM2:
-@@ -1794,7 +1796,7 @@ void llama_model::print_info() const {
-             LLAMA_LOG_INFO("%s: n_ff_shexp            = %d\n",     __func__, hparams.n_ff_shexp);
-         }
- 
--        if (arch == LLM_ARCH_QWEN3MOE || arch == LLM_ARCH_OPENAI_MOE || arch == LLM_ARCH_QWEN3VLMOE || arch == LLM_ARCH_RND1) {
-+        if (arch == LLM_ARCH_QWEN3MOE || arch == LLM_ARCH_OPENAI_MOE || arch == LLM_ARCH_QWEN3VLMOE || arch == LLM_ARCH_RND1 || arch == LLM_ARCH_OPENAI_PRIVACY_FILTER) {
+@@ -1821,7 +1823,8 @@ void llama_model::print_info() const {
+                 arch == LLM_ARCH_QWEN3MOE ||
+                 arch == LLM_ARCH_OPENAI_MOE ||
+                 arch == LLM_ARCH_QWEN3VLMOE ||
+-                arch == LLM_ARCH_RND1) {
++                arch == LLM_ARCH_RND1 ||
++                arch == LLM_ARCH_OPENAI_PRIVACY_FILTER) {
              LLAMA_LOG_INFO("%s: n_ff_exp              = %d\n",     __func__, hparams.n_ff_exp);
          }
  
-@@ -2315,6 +2317,10 @@ llama_rope_type llama_model_rope_type(const llama_model * model) {
+@@ -2351,6 +2354,10 @@ llama_rope_type llama_model_rope_type(const llama_model * model) {
          case LLM_ARCH_LLAMA_EMBED:
          case LLM_ARCH_MAINCODER:
          case LLM_ARCH_GLM_DSA:
@@ -32,10 +33,10 @@ index 3e236f8c1..465641b63 100644
  
          // the pairs of head values are offset by n_rot/2
 diff --git a/src/models/models.h b/src/models/models.h
-index 5251e2d82..ab78f4bdc 100644
+index 866e0d0be..84273bc95 100644
 --- a/src/models/models.h
 +++ b/src/models/models.h
-@@ -1591,6 +1591,22 @@ struct llama_model_openai_moe : public llama_model_base {
+@@ -1603,6 +1603,22 @@ struct llama_model_openai_moe : public llama_model_base {
  };
  
  
