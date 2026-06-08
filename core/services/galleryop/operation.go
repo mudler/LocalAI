@@ -428,10 +428,19 @@ func (m *OpCache) GetStatus() (map[string]string, map[string]string) {
 		// but the Manage-page Reinstall/Upgrade buttons never poll, so completed
 		// ops leaked into processingBackends forever and the card spun
 		// "reinstalling" indefinitely. Evict here on the list read (the UI always
-		// calls this). We only evict SUCCESS/cancelled terminals (Error == nil):
-		// failed ops are kept so /api/operations can surface the error and offer
-		// Dismiss. DeleteUUID broadcasts the eviction so peer replicas converge.
-		if status != nil && status.Processed && status.Error == nil {
+		// calls this). DeleteUUID broadcasts the eviction so peer replicas converge.
+		//
+		// We evict ONLY a clean success (progress 100 + "completed", matching the
+		// job-poll's historical delete condition) or a cancellation. Deliberately
+		// NOT evicted:
+		//   - failed ops (Error != nil): kept so /api/operations can surface the
+		//     error and offer Dismiss.
+		//   - the ErrWorkerStillInstalling soft-path (Processed=true, Error=nil,
+		//     progress != 100): the worker is still installing in the background
+		//     and the reconciler confirms the real outcome later — evicting it
+		//     would hide an install that may still fail.
+		if status != nil && status.Processed &&
+			((status.Progress == 100 && status.Message == "completed") || status.Cancelled) {
 			evict = append(evict, v)
 			continue
 		}

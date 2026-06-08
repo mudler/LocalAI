@@ -51,6 +51,21 @@ var _ = Describe("OpCache.GetStatus eviction", func() {
 		Expect(cache.Exists("piper")).To(BeTrue())
 	})
 
+	It("keeps the ErrWorkerStillInstalling soft-path op (worker still installing in background)", func() {
+		// Processed=true with no error but progress != 100 and a non-"completed"
+		// message: the worker timed out the NATS round-trip but is still installing.
+		// Evicting it would hide an install that may still fail; the reconciler
+		// confirms the real outcome later.
+		cache.SetBackend("vllm-development", "uuid-soft")
+		svc.UpdateStatus("uuid-soft", &galleryop.OpStatus{
+			Processed: true,
+			Message:   "backend vllm-development: worker still installing in background; reconciler will confirm completion",
+		})
+		processing, _ := cache.GetStatus()
+		Expect(processing).To(HaveKeyWithValue("vllm-development", "uuid-soft"))
+		Expect(cache.Exists("vllm-development")).To(BeTrue())
+	})
+
 	It("evicts a cancelled op", func() {
 		cache.SetBackend("vllm", "uuid-3")
 		svc.UpdateStatus("uuid-3", &galleryop.OpStatus{Processed: true, Cancelled: true, Message: "cancelled"})
