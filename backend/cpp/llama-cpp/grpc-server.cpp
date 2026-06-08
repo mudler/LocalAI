@@ -381,6 +381,15 @@ json parse_options(bool streaming, const backend::PredictOptions* predict, const
             });
     }
 
+    // for each video in the request, add the video data
+    for (int i = 0; i < predict->videos_size(); i++) {
+        data["video_data"].push_back(json
+            {
+                {"id", i},
+                {"data",    predict->videos(i)},
+            });
+    }
+
     data["stop"] = predict->stopprompts();
     // data["n_probs"] = predict->nprobs();
     //TODO: images,
@@ -1503,7 +1512,7 @@ public:
                     msg_json["role"] = msg.role();
 
                     bool is_last_user_msg = (i == last_user_msg_idx);
-                    bool has_images_or_audio = (request->images_size() > 0 || request->audios_size() > 0);
+                    bool has_images_or_audio = (request->images_size() > 0 || request->audios_size() > 0 || request->videos_size() > 0);
 
                     // Handle content - can be string, null, or array
                     // For multimodal content, we'll embed images/audio from separate fields
@@ -1554,6 +1563,16 @@ public:
                                     content_array.push_back(audio_chunk);
                                 }
                             }
+                            if (request->videos_size() > 0) {
+                                for (int j = 0; j < request->videos_size(); j++) {
+                                    json video_chunk;
+                                    video_chunk["type"] = "input_video";
+                                    json input_video;
+                                    input_video["data"] = request->videos(j);
+                                    video_chunk["input_video"] = input_video;
+                                    content_array.push_back(video_chunk);
+                                }
+                            }
                             msg_json["content"] = content_array;
                         } else {
                             // Use content as-is (already array or not last user message)
@@ -1586,6 +1605,16 @@ public:
                                 input_audio["format"] = "wav"; // default, could be made configurable
                                 audio_chunk["input_audio"] = input_audio;
                                 content_array.push_back(audio_chunk);
+                            }
+                        }
+                        if (request->videos_size() > 0) {
+                            for (int j = 0; j < request->videos_size(); j++) {
+                                json video_chunk;
+                                video_chunk["type"] = "input_video";
+                                json input_video;
+                                input_video["data"] = request->videos(j);
+                                video_chunk["input_video"] = input_video;
+                                content_array.push_back(video_chunk);
                             }
                         }
                         msg_json["content"] = content_array;
@@ -2039,6 +2068,16 @@ public:
                         files.push_back(decoded_data);
                     }
                 }
+
+                const auto &video_data = data.find("video_data");
+                if (video_data != data.end() && video_data->is_array())
+                {
+                    for (const auto &video : *video_data)
+                    {
+                        auto decoded_data = base64_decode(video["data"].get<std::string>());
+                        files.push_back(decoded_data);
+                    }
+                }
             }
 
             const bool has_mtmd = ctx_server.impl->mctx != nullptr;
@@ -2291,7 +2330,7 @@ public:
                     }
 
                     bool is_last_user_msg = (i == last_user_msg_idx);
-                    bool has_images_or_audio = (request->images_size() > 0 || request->audios_size() > 0);
+                    bool has_images_or_audio = (request->images_size() > 0 || request->audios_size() > 0 || request->videos_size() > 0);
 
                     // Handle content - can be string, null, or array
                     // For multimodal content, we'll embed images/audio from separate fields
@@ -2344,6 +2383,16 @@ public:
                                     content_array.push_back(audio_chunk);
                                 }
                             }
+                            if (request->videos_size() > 0) {
+                                for (int j = 0; j < request->videos_size(); j++) {
+                                    json video_chunk;
+                                    video_chunk["type"] = "input_video";
+                                    json input_video;
+                                    input_video["data"] = request->videos(j);
+                                    video_chunk["input_video"] = input_video;
+                                    content_array.push_back(video_chunk);
+                                }
+                            }
                             msg_json["content"] = content_array;
                         } else {
                             // Use content as-is (already array or not last user message)
@@ -2381,6 +2430,16 @@ public:
                                 input_audio["format"] = "wav"; // default, could be made configurable
                                 audio_chunk["input_audio"] = input_audio;
                                 content_array.push_back(audio_chunk);
+                            }
+                        }
+                        if (request->videos_size() > 0) {
+                            for (int j = 0; j < request->videos_size(); j++) {
+                                json video_chunk;
+                                video_chunk["type"] = "input_video";
+                                json input_video;
+                                input_video["data"] = request->videos(j);
+                                video_chunk["input_video"] = input_video;
+                                content_array.push_back(video_chunk);
                             }
                         }
                         msg_json["content"] = content_array;
@@ -2842,6 +2901,16 @@ public:
                     for (const auto &audio : *audio_data)
                     {
                         auto decoded_data = base64_decode(audio["data"].get<std::string>());
+                        files.push_back(decoded_data);
+                    }
+                }
+
+                const auto &video_data = data.find("video_data");
+                if (video_data != data.end() && video_data->is_array())
+                {
+                    for (const auto &video : *video_data)
+                    {
+                        auto decoded_data = base64_decode(video["data"].get<std::string>());
                         files.push_back(decoded_data);
                     }
                 }
