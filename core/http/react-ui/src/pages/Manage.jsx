@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
-import { useNavigate, useOutletContext, useSearchParams } from 'react-router-dom'
+import { useNavigate, useOutletContext, useSearchParams, useLocation } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
+import { fromState } from '../utils/editorNav'
 import ResourceMonitor from '../components/ResourceMonitor'
 import ConfirmDialog from '../components/ConfirmDialog'
 import NodeDistributionChip from '../components/NodeDistributionChip'
@@ -121,6 +122,7 @@ function formatBackendVersion(metadata) {
 export default function Manage() {
   const { addToast } = useOutletContext()
   const navigate = useNavigate()
+  const location = useLocation()
   const { t } = useTranslation('admin')
   const [searchParams, setSearchParams] = useSearchParams()
   const initialTab = searchParams.get('tab') || localStorage.getItem('manage-tab') || 'models'
@@ -673,7 +675,7 @@ export default function Manage() {
                               onClick: () => handleTogglePinned(model.id, model.pinned),
                               disabled: pinningModels.has(model.id) || !!model.disabled },
                             { key: 'edit', icon: 'fa-pen-to-square', label: 'Edit configuration',
-                              onClick: () => navigate(`/app/model-editor/${encodeURIComponent(model.id)}`) },
+                              onClick: () => navigate(`/app/model-editor/${encodeURIComponent(model.id)}`, { state: fromState(location, 'Manage') }) },
                             { key: 'logs', icon: 'fa-terminal', label: 'Backend logs',
                               onClick: () => navigate(`/app/backend-logs/${encodeURIComponent(model.id)}`) },
                             { divider: true },

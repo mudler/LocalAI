@@ -3,8 +3,10 @@ package router
 import (
 	"context"
 	"errors"
+	"fmt"
 	"sort"
 	"strings"
+	"unicode/utf8"
 
 	"github.com/mudler/LocalAI/core/backend"
 	. "github.com/onsi/ginkgo/v2"
@@ -333,5 +335,140 @@ Reply: {"route": "<name>"}`
 	It("Name returns the classifier identifier", func() {
 		c := NewScoreClassifier(testPolicies(), &stubScorer{}, ScoreClassifierOptions{})
 		Expect(c.Name()).To(Equal(ClassifierScore))
+	})
+})
+
+var _ = Describe("ScoreClassifier conversation trimming", func() {
+	wordCount := func(s string) (int, error) { return len(strings.Fields(s)), nil }
+	threeScores := []backend.CandidateScore{
+		{LogProb: -0.05, NumTokens: 3},
+		{LogProb: -3.0, NumTokens: 3},
+		{LogProb: -4.0, NumTokens: 3},
+	}
+
+	It("drops the oldest turns when the conversation exceeds the context budget", func() {
+		s := &stubScorer{results: threeScores}
+		c := NewScoreClassifier(testPolicies(), s, ScoreClassifierOptions{
+			TokenCounter:     wordCount,
+			MaxContextTokens: 10000,
+		})
+		Expect(c.probeTokenBudget()).To(BeNumerically(">", 0), "budget should be positive for a 10k context")
+
+		msgs := make([]string, 0, 200)
+		msgs = append(msgs, "OLDESTMARKER "+strings.Repeat("x ", 99)) // 100 words
+		for range 198 {
+			msgs = append(msgs, strings.Repeat("y ", 100))
+		}
+		msgs = append(msgs, "NEWESTMARKER "+strings.Repeat("z ", 99)) // 100 words; ~20k words total
+
+		_, err := c.Classify(context.Background(), Probe{Messages: msgs, Prompt: strings.Join(msgs, "\n")})
+		Expect(err).NotTo(HaveOccurred())
+		Expect(s.lastP).To(ContainSubstring("NEWESTMARKER"), "newest turn must survive the trim")
+		Expect(s.lastP).NotTo(ContainSubstring("OLDESTMARKER"), "oldest turn must be dropped")
+		Expect(len(strings.Fields(s.lastP))).To(BeNumerically("<", 20000), "must be trimmed, not the full transcript")
+	})
+
+	It("keeps the newest turn whole even when it alone exceeds the budget", func() {
+		s := &stubScorer{results: threeScores}
+		c := NewScoreClassifier(testPolicies(), s, ScoreClassifierOptions{
+			TokenCounter:     wordCount,
+			MaxContextTokens: 10000,
+		})
+		msgs := []string{
+			"OLDMARKER short",
+			"NEWESTMARKER " + strings.Repeat("z ", 12000), // far over budget
+		}
+		_, err := c.Classify(context.Background(), Probe{Messages: msgs})
+		Expect(err).NotTo(HaveOccurred())
+		Expect(s.lastP).To(ContainSubstring("NEWESTMARKER"))
+		Expect(s.lastP).NotTo(ContainSubstring("OLDMARKER"), "older turn drops once the newest fills the budget")
+	})
+
+	It("does not tokenize per message and bounds what it tokenizes for a long conversation", func() {
+		// Regression: the original trim tokenized one message at a time,
+		// newest-first, so a 500-turn conversation produced hundreds of
+		// tokenize RPCs. The render-once design must tokenize the candidates
+		// (budget setup) plus a small constant for the measurement/confirm
+		// passes — and the rune pre-trim must keep the tokenized prompt far
+		// smaller than the full transcript.
+		calls := 0
+		maxRunes := 0
+		counting := func(s string) (int, error) {
+			calls++
+			if r := utf8.RuneCountInString(s); r > maxRunes {
+				maxRunes = r
+			}
+			return len(strings.Fields(s)), nil
+		}
+		s := &stubScorer{results: threeScores}
+		c := NewScoreClassifier(testPolicies(), s, ScoreClassifierOptions{
+			TokenCounter:     counting,
+			MaxContextTokens: 4000,
+		})
+
+		msgs := make([]string, 500)
+		totalRunes := 0
+		for i := range msgs {
+			msgs[i] = fmt.Sprintf("msg%d %s", i, strings.Repeat("w ", 50))
+			totalRunes += utf8.RuneCountInString(msgs[i])
+		}
+
+		_, err := c.Classify(context.Background(), Probe{Messages: msgs})
+		Expect(err).NotTo(HaveOccurred())
+		Expect(s.lastP).To(ContainSubstring("msg499"), "newest turn must survive")
+		Expect(s.lastP).NotTo(ContainSubstring("msg0 "), "oldest turns must be dropped")
+		Expect(calls).To(BeNumerically("<", 20),
+			"tokenizer must not be called per message (got %d calls for 500 messages)", calls)
+		Expect(maxRunes).To(BeNumerically("<", totalRunes/2),
+			"rune pre-trim must keep the tokenized prompt well under the full transcript")
+	})
+
+	It("uses Probe.Prompt unchanged when no tokenizer is wired", func() {
+		s := &stubScorer{results: threeScores}
+		c := NewScoreClassifier(testPolicies(), s, ScoreClassifierOptions{})
+		Expect(c.probeTokenBudget()).To(Equal(0))
+
+		_, err := c.Classify(context.Background(), Probe{
+			Prompt:   "PROMPTONLYMARKER",
+			Messages: []string{"ignored-because-no-tokenizer"},
+		})
+		Expect(err).NotTo(HaveOccurred())
+		Expect(s.lastP).To(ContainSubstring("PROMPTONLYMARKER"))
+		Expect(s.lastP).NotTo(ContainSubstring("ignored-because-no-tokenizer"))
+	})
+
+	It("disables trimming (budget 0) when the tokenizer errors", func() {
+		s := &stubScorer{results: threeScores}
+		boom := func(string) (int, error) { return 0, errors.New("tokenizer down") }
+		c := NewScoreClassifier(testPolicies(), s, ScoreClassifierOptions{
+			TokenCounter:     boom,
+			MaxContextTokens: 10000,
+		})
+		Expect(c.probeTokenBudget()).To(Equal(0), "a tokenizer error must disable trimming, not panic")
+
+		_, err := c.Classify(context.Background(), Probe{Prompt: "FALLBACKMARKER", Messages: []string{"a", "b"}})
+		Expect(err).NotTo(HaveOccurred())
+		Expect(s.lastP).To(ContainSubstring("FALLBACKMARKER"))
+	})
+
+	It("retries the budget after a TRANSIENT tokenizer error instead of disabling permanently", func() {
+		// Regression: a sync.Once would memoize the first failure and never
+		// recompute. The first call (model still loading) errors; a later
+		// call must succeed and yield a real budget.
+		s := &stubScorer{results: threeScores}
+		calls := 0
+		flaky := func(text string) (int, error) {
+			calls++
+			if calls == 1 {
+				return 0, errors.New("model still loading")
+			}
+			return len(strings.Fields(text)), nil
+		}
+		c := NewScoreClassifier(testPolicies(), s, ScoreClassifierOptions{
+			TokenCounter:     flaky,
+			MaxContextTokens: 10000,
+		})
+		Expect(c.probeTokenBudget()).To(Equal(0), "first call: tokenizer error leaves budget uncomputed")
+		Expect(c.probeTokenBudget()).To(BeNumerically(">", 0), "retry: budget computes once the tokenizer recovers")
 	})
 })

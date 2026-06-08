@@ -16,7 +16,6 @@ import (
 	"golang.org/x/net/http2"
 
 	"github.com/mudler/LocalAI/core/schema"
-	"github.com/mudler/LocalAI/core/services/cloudproxy/ssewire"
 	"github.com/mudler/LocalAI/core/services/routing/pii"
 	"github.com/mudler/LocalAI/core/services/routing/piiadapter"
 	"github.com/mudler/LocalAI/pkg/httpclient"
@@ -24,8 +23,14 @@ import (
 
 // PIIHandlerOptions configures NewPIIHandler.
 type PIIHandlerOptions struct {
-	// Redactor is the regex PII redactor. nil disables redaction.
-	Redactor *pii.Redactor
+	// DetectorsByHost maps an intercepted host (lower-cased) to the NER
+	// detector configs that should scan request bodies bound for it. The
+	// configs are resolved at listener-start from each host's owning
+	// model's pii.detectors + the detector models' pii_detection policy
+	// (a model-config edit needs a MITM restart, as hosts already do). A
+	// host absent from the map (or with an empty slice) is forwarded
+	// unredacted. Detector errors at request time fail closed.
+	DetectorsByHost map[string][]pii.NERConfig
 
 	// EventStore receives PIIEvent rows. nil discards events.
 	EventStore pii.EventStore
@@ -42,13 +47,6 @@ type PIIHandlerOptions struct {
 	// upstream URL. Identity by default; tests inject a httptest
 	// listener address.
 	DialHost func(host string) string
-
-	// HostsWithPIIDisabled lists destination hosts whose request
-	// bodies should NOT run through the redactor. TLS termination,
-	// upstream forwarding, and audit events still happen — only the
-	// regex pass is bypassed. Useful for telemetry/probe endpoints
-	// whose bodies aren't PII-shaped.
-	HostsWithPIIDisabled []string
 }
 
 func NewPIIHandler(opts PIIHandlerOptions) InterceptHandler {
@@ -76,16 +74,9 @@ func NewPIIHandler(opts PIIHandlerOptions) InterceptHandler {
 		dialHost = func(h string) string { return h }
 	}
 
-	patternAction := map[string]pii.Action{}
-	if opts.Redactor != nil {
-		for _, p := range opts.Redactor.Patterns() {
-			patternAction[p.ID] = p.Action
-		}
-	}
-
-	piiDisabled := make(map[string]bool, len(opts.HostsWithPIIDisabled))
-	for _, h := range opts.HostsWithPIIDisabled {
-		piiDisabled[strings.ToLower(strings.TrimSpace(h))] = true
+	detectorsByHost := make(map[string][]pii.NERConfig, len(opts.DetectorsByHost))
+	for h, cfgs := range opts.DetectorsByHost {
+		detectorsByHost[strings.ToLower(strings.TrimSpace(h))] = cfgs
 	}
 
 	d := &piiDispatcher{
@@ -96,26 +87,22 @@ func NewPIIHandler(opts PIIHandlerOptions) InterceptHandler {
 		// API keys such as Anthropic's x-api-key, which Go does NOT
 		// strip on cross-host redirects — to an unvetted host. Surface
 		// it as an error (handled as a 502) instead.
-		client:        httpclient.New(httpclient.WithTransport(transport)),
-		redactor:      opts.Redactor,
-		store:         opts.EventStore,
-		patternAction: patternAction,
-		corrHeader:    corrHeader,
-		dialHost:      dialHost,
-		piiDisabled:   piiDisabled,
+		client:          httpclient.New(httpclient.WithTransport(transport)),
+		detectorsByHost: detectorsByHost,
+		store:           opts.EventStore,
+		corrHeader:      corrHeader,
+		dialHost:        dialHost,
 	}
 	return d.serve
 }
 
 type piiDispatcher struct {
-	client        *http.Client
-	redactor      *pii.Redactor
-	store         pii.EventStore
-	patternAction map[string]pii.Action
-	corrHeader    string
-	dialHost      func(host string) string
-	piiDisabled   map[string]bool
-	eventSeq      atomic.Uint64
+	client          *http.Client
+	detectorsByHost map[string][]pii.NERConfig
+	store           pii.EventStore
+	corrHeader      string
+	dialHost        func(host string) string
+	eventSeq        atomic.Uint64
 }
 
 func (d *piiDispatcher) serve(w http.ResponseWriter, r *http.Request, host string) {
@@ -144,11 +131,17 @@ func (d *piiDispatcher) serve(w http.ResponseWriter, r *http.Request, host strin
 	}
 
 	shape := classifyRequestShape(host, r.URL.Path)
-	if d.redactor != nil && shape != shapeUnknown && !d.piiDisabled[strings.ToLower(host)] {
-		redacted, blocked, err := d.redactRequest(body, shape, correlationID)
+	cfgs := d.detectorsByHost[strings.ToLower(host)]
+	if len(cfgs) > 0 && shape != shapeUnknown {
+		redacted, blocked, err := d.redactRequest(r.Context(), body, shape, cfgs, correlationID)
 		switch {
 		case err != nil:
-			xlog.Debug("mitm: redact request failed; forwarding unchanged", "host", host, "path", r.URL.Path, "error", err)
+			// Fail closed: a detector outage must not silently forward the
+			// request unredacted — the operator configured this host's
+			// model with detectors precisely to catch this PII.
+			xlog.Error("mitm: NER redaction failed; blocking request (fail-closed)", "host", host, "path", r.URL.Path, "error", err)
+			writePIIBlocked(w, correlationID)
+			return
 		case blocked:
 			writePIIBlocked(w, correlationID)
 			return
@@ -185,12 +178,10 @@ func (d *piiDispatcher) serve(w http.ResponseWriter, r *http.Request, host strin
 	}
 	w.WriteHeader(resp.StatusCode)
 
+	// Response/output redaction is out of scope for now — the MITM proxy
+	// only scans request bodies (input). SSE responses pass through
+	// unmodified.
 	contentType := resp.Header.Get("Content-Type")
-	if shape != shapeUnknown && d.redactor != nil && isSSE(contentType) {
-		d.streamWithPII(w, resp.Body, shape, correlationID)
-		return
-	}
-
 	if isSSE(contentType) {
 		flusher, _ := w.(http.Flusher)
 		buf := make([]byte, 32*1024)
@@ -232,7 +223,7 @@ func classifyRequestShape(host, path string) requestShape {
 	return shapeUnknown
 }
 
-func (d *piiDispatcher) redactRequest(body []byte, shape requestShape, correlationID string) ([]byte, bool, error) {
+func (d *piiDispatcher) redactRequest(ctx context.Context, body []byte, shape requestShape, cfgs []pii.NERConfig, correlationID string) ([]byte, bool, error) {
 	var parsed any
 	var adapter pii.Adapter
 	switch shape {
@@ -265,7 +256,10 @@ func (d *piiDispatcher) redactRequest(body []byte, shape requestShape, correlati
 		if st.Text == "" {
 			continue
 		}
-		res := d.redactor.RedactWithOverrides(st.Text, nil)
+		res, err := pii.RedactNER(ctx, st.Text, cfgs)
+		if err != nil {
+			return nil, false, fmt.Errorf("ner detect: %w", err)
+		}
 		if len(res.Spans) == 0 {
 			continue
 		}
@@ -301,55 +295,12 @@ func (d *piiDispatcher) recordEvents(spans []pii.Span, correlationID string) {
 			ByteOffset:    span.Start,
 			Length:        span.End - span.Start,
 			HashPrefix:    span.HashPrefix,
-			Action:        d.patternAction[span.Pattern],
+			Action:        span.Action,
 			CreatedAt:     time.Now(),
 		}
 		if err := d.store.Record(context.Background(), ev); err != nil {
 			xlog.Debug("mitm: failed to record pii event", "error", err, "pattern", span.Pattern)
 		}
-	}
-}
-
-func (d *piiDispatcher) streamWithPII(w http.ResponseWriter, src io.Reader, shape requestShape, correlationID string) {
-	flusher, _ := w.(http.Flusher)
-	filter := pii.NewStreamFilter(d.redactor, nil, d.store, correlationID, "")
-
-	provider := ssewire.OpenAI
-	if shape == shapeAnthropicMessages {
-		provider = ssewire.Anthropic
-	}
-
-	emit := func(s string) {
-		_, _ = w.Write([]byte(s))
-		if flusher != nil {
-			flusher.Flush()
-		}
-	}
-
-	scanner := ssewire.NewScanner(src)
-	for scanner.Scan() {
-		ev := scanner.Event()
-		if ssewire.IsTerminalMarker(ev.DataLine, provider) {
-			if residual := filter.Drain(); residual != "" {
-				emit(ssewire.SynthResidualEvent(provider, residual))
-			}
-			emit(ev.Raw)
-			continue
-		}
-		out := ev.Raw
-		if ev.DataLine != "" {
-			rewritten, drop := ssewire.RewritePayload(ev.DataLine, provider, filter)
-			if drop {
-				continue
-			}
-			if rewritten != ev.DataLine {
-				out = strings.Replace(ev.Raw, ev.DataLine, rewritten, 1)
-			}
-		}
-		emit(out)
-	}
-	if residual := filter.Drain(); residual != "" {
-		emit(ssewire.SynthResidualEvent(provider, residual))
 	}
 }
 

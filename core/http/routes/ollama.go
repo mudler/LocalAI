@@ -10,13 +10,15 @@ import (
 	"github.com/mudler/LocalAI/core/http/endpoints/ollama"
 	"github.com/mudler/LocalAI/core/http/middleware"
 	"github.com/mudler/LocalAI/core/schema"
+	"github.com/mudler/LocalAI/core/services/routing/pii"
+	"github.com/mudler/LocalAI/core/services/routing/piiadapter"
 	"github.com/mudler/LocalAI/pkg/distributedhdr"
 )
 
 func RegisterOllamaRoutes(app *echo.Echo,
 	re *middleware.RequestExtractor,
-	application *application.Application) {
-
+	application *application.Application,
+) {
 	traceMiddleware := middleware.TraceMiddleware(application)
 	usageMiddleware := middleware.UsageMiddleware(application.StatsRecorder(), application.FallbackUser())
 	nodeHeaderMiddleware := middleware.ExposeNodeHeader(application.ApplicationConfig())
@@ -35,6 +37,7 @@ func RegisterOllamaRoutes(app *echo.Echo,
 		re.BuildFilteredFirstAvailableDefaultModel(config.BuildUsecaseFilterFn(config.FLAG_CHAT)),
 		re.SetModelAndConfig(func() schema.LocalAIRequest { return new(schema.OllamaChatRequest) }),
 		setOllamaChatRequestContext(application.ApplicationConfig()),
+		pii.RequestMiddleware(application.PIIRedactor(), application.PIIEvents(), piiadapter.OllamaChat(), application.FallbackUser(), pii.WithNERResolver(application.PIINERResolver()), pii.WithPolicyResolver(application.PIIPolicyResolver())),
 	}
 	app.POST("/api/chat", chatHandler, chatMiddleware...)
 
@@ -52,6 +55,7 @@ func RegisterOllamaRoutes(app *echo.Echo,
 		re.BuildFilteredFirstAvailableDefaultModel(config.BuildUsecaseFilterFn(config.FLAG_CHAT)),
 		re.SetModelAndConfig(func() schema.LocalAIRequest { return new(schema.OllamaGenerateRequest) }),
 		setOllamaGenerateRequestContext(application.ApplicationConfig()),
+		pii.RequestMiddleware(application.PIIRedactor(), application.PIIEvents(), piiadapter.OllamaGenerate(), application.FallbackUser(), pii.WithNERResolver(application.PIINERResolver()), pii.WithPolicyResolver(application.PIIPolicyResolver())),
 	}
 	app.POST("/api/generate", generateHandler, generateMiddleware...)
 
@@ -67,6 +71,7 @@ func RegisterOllamaRoutes(app *echo.Echo,
 		traceMiddleware,
 		re.BuildFilteredFirstAvailableDefaultModel(config.BuildUsecaseFilterFn(config.FLAG_EMBEDDINGS)),
 		re.SetModelAndConfig(func() schema.LocalAIRequest { return new(schema.OllamaEmbedRequest) }),
+		pii.RequestMiddleware(application.PIIRedactor(), application.PIIEvents(), piiadapter.OllamaEmbed(), application.FallbackUser(), pii.WithNERResolver(application.PIINERResolver()), pii.WithPolicyResolver(application.PIIPolicyResolver())),
 	}
 	app.POST("/api/embed", embedHandler, embedMiddleware...)
 	app.POST("/api/embeddings", embedHandler, embedMiddleware...)

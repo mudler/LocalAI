@@ -377,13 +377,14 @@ func buildRealtimeRoutingContext(a *application.Application, sessionID string) *
 		return nil
 	}
 	deps := &middleware.ClassifierDeps{
-		Scorer:      a.Scorer,
-		Embedder:    a.Embedder,
-		VectorStore: a.VectorStore,
-		Reranker:    a.Reranker,
-		ModelLookup: a.ModelConfigLookup(),
-		Registry:    a.RouterClassifierRegistry(),
-		Evaluator:   a.TemplatesEvaluator(),
+		Scorer:       a.Scorer,
+		TokenCounter: a.TokenCounter,
+		Embedder:     a.Embedder,
+		VectorStore:  a.VectorStore,
+		Reranker:     a.Reranker,
+		ModelLookup:  a.ModelConfigLookup(),
+		Registry:     a.RouterClassifierRegistry(),
+		Evaluator:    a.TemplatesEvaluator(),
 	}
 	userID := ""
 	if u := a.FallbackUser(); u != nil {

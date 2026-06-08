@@ -22,8 +22,8 @@ import (
 
 func RegisterAnthropicRoutes(app *echo.Echo,
 	re *middleware.RequestExtractor,
-	application *application.Application) {
-
+	application *application.Application,
+) {
 	// Anthropic Messages API endpoint
 	var natsClient mcpTools.MCPNATSClient
 	if d := application.Distributed(); d != nil {
@@ -36,8 +36,6 @@ func RegisterAnthropicRoutes(app *echo.Echo,
 		application.TemplatesEvaluator(),
 		application.ApplicationConfig(),
 		natsClient,
-		application.PIIRedactor(),
-		application.PIIEvents(),
 	)
 
 	messagesMiddleware := []echo.MiddlewareFunc{
@@ -58,17 +56,18 @@ func RegisterAnthropicRoutes(app *echo.Echo,
 			middleware.AnthropicProbe,
 			router.SourceAnthropic,
 			middleware.ClassifierDeps{
-				Scorer:      application.Scorer,
-				Embedder:    application.Embedder,
-				VectorStore: application.VectorStore,
-				Reranker:    application.Reranker,
-				ModelLookup: application.ModelConfigLookup(),
-				Registry:    application.RouterClassifierRegistry(),
-				Evaluator:   application.TemplatesEvaluator(),
+				Scorer:       application.Scorer,
+				TokenCounter: application.TokenCounter,
+				Embedder:     application.Embedder,
+				VectorStore:  application.VectorStore,
+				Reranker:     application.Reranker,
+				ModelLookup:  application.ModelConfigLookup(),
+				Registry:     application.RouterClassifierRegistry(),
+				Evaluator:    application.TemplatesEvaluator(),
 			},
 		),
 		middleware.AdmissionControl(application.AdmissionLimiter(), application.PIIEvents()),
-		pii.RequestMiddleware(application.PIIRedactor(), application.PIIEvents(), piiadapter.Anthropic(), application.FallbackUser()),
+		pii.RequestMiddleware(application.PIIRedactor(), application.PIIEvents(), piiadapter.Anthropic(), application.FallbackUser(), pii.WithNERResolver(application.PIINERResolver()), pii.WithPolicyResolver(application.PIIPolicyResolver())),
 	}
 
 	// Main Anthropic endpoint

@@ -22,25 +22,31 @@ type stubClient struct{}
 func (stubClient) GallerySearch(_ context.Context, _ localaitools.GallerySearchQuery) ([]gallery.Metadata, error) {
 	return []gallery.Metadata{{Name: "stub", Gallery: config.Gallery{Name: "stub-gallery"}}}, nil
 }
+
 func (stubClient) ListInstalledModels(_ context.Context, _ localaitools.Capability) ([]localaitools.InstalledModel, error) {
 	return []localaitools.InstalledModel{{Name: "stub"}}, nil
 }
+
 func (stubClient) ListGalleries(_ context.Context) ([]config.Gallery, error) {
 	return []config.Gallery{{Name: "stub-gallery", URL: "http://example"}}, nil
 }
+
 func (stubClient) GetJobStatus(_ context.Context, _ string) (*localaitools.JobStatus, error) {
 	return &localaitools.JobStatus{ID: "stub", Processed: true}, nil
 }
+
 func (stubClient) GetModelConfig(_ context.Context, _ string) (*localaitools.ModelConfigView, error) {
 	return &localaitools.ModelConfigView{Name: "stub"}, nil
 }
+
 func (stubClient) InstallModel(_ context.Context, _ localaitools.InstallModelRequest) (string, error) {
 	return "stub-job", nil
 }
+
 func (stubClient) ImportModelURI(_ context.Context, _ localaitools.ImportModelURIRequest) (*localaitools.ImportModelURIResponse, error) {
 	return &localaitools.ImportModelURIResponse{JobID: "stub-import"}, nil
 }
-func (stubClient) DeleteModel(_ context.Context, _ string) error  { return nil }
+func (stubClient) DeleteModel(_ context.Context, _ string) error { return nil }
 func (stubClient) EditModelConfig(_ context.Context, _ string, _ map[string]any) error {
 	return nil
 }
@@ -48,57 +54,61 @@ func (stubClient) ReloadModels(_ context.Context) error { return nil }
 func (stubClient) ListBackends(_ context.Context) ([]localaitools.Backend, error) {
 	return []localaitools.Backend{{Name: "stub-backend", Installed: true}}, nil
 }
+
 func (stubClient) ListKnownBackends(_ context.Context) ([]schema.KnownBackend, error) {
 	return []schema.KnownBackend{}, nil
 }
+
 func (stubClient) InstallBackend(_ context.Context, _ localaitools.InstallBackendRequest) (string, error) {
 	return "stub-backend-job", nil
 }
+
 func (stubClient) UpgradeBackend(_ context.Context, _ string) (string, error) {
 	return "stub-upgrade-job", nil
 }
+
 func (stubClient) SystemInfo(_ context.Context) (*localaitools.SystemInfo, error) {
 	return &localaitools.SystemInfo{Version: "stub"}, nil
 }
+
 func (stubClient) ListNodes(_ context.Context) ([]localaitools.Node, error) {
 	return []localaitools.Node{}, nil
 }
+
 func (stubClient) VRAMEstimate(_ context.Context, _ localaitools.VRAMEstimateRequest) (*vram.EstimateResult, error) {
 	return &vram.EstimateResult{SizeDisplay: "stub"}, nil
 }
-func (stubClient) ToggleModelState(_ context.Context, _ string, _ modeladmin.Action) error  { return nil }
-func (stubClient) ToggleModelPinned(_ context.Context, _ string, _ modeladmin.Action) error { return nil }
+func (stubClient) ToggleModelState(_ context.Context, _ string, _ modeladmin.Action) error {
+	return nil
+}
+func (stubClient) ToggleModelPinned(_ context.Context, _ string, _ modeladmin.Action) error {
+	return nil
+}
 func (stubClient) GetBranding(_ context.Context) (*localaitools.Branding, error) {
 	return &localaitools.Branding{InstanceName: "LocalAI"}, nil
 }
+
 func (stubClient) SetBranding(_ context.Context, _ localaitools.SetBrandingRequest) (*localaitools.Branding, error) {
 	return &localaitools.Branding{InstanceName: "LocalAI"}, nil
 }
+
 func (stubClient) GetUsageStats(_ context.Context, _ localaitools.UsageStatsQuery) (*localaitools.UsageStats, error) {
 	return &localaitools.UsageStats{Viewer: localaitools.UsageViewer{ID: "stub", Name: "stub"}, Period: "month"}, nil
 }
-func (stubClient) ListPIIPatterns(_ context.Context) ([]localaitools.PIIPattern, error) {
-	return nil, nil
-}
+
 func (stubClient) GetPIIEvents(_ context.Context, _ localaitools.PIIEventsQuery) ([]localaitools.PIIEvent, error) {
 	return nil, nil
 }
-func (stubClient) TestPIIRedaction(_ context.Context, req localaitools.PIIRedactTestRequest) (*localaitools.PIIRedactTestResult, error) {
-	return &localaitools.PIIRedactTestResult{Redacted: req.Text}, nil
-}
-func (stubClient) SetPIIPatternAction(_ context.Context, _ localaitools.PIIPatternActionUpdate) error {
-	return nil
-}
-func (stubClient) PersistPIIPatterns(_ context.Context) error { return nil }
+
 func (stubClient) GetMiddlewareStatus(_ context.Context) (*localaitools.MiddlewareStatus, error) {
 	return &localaitools.MiddlewareStatus{
 		PII: localaitools.MiddlewarePIIStatus{
 			EnabledGlobally: true,
-			Patterns:        []localaitools.PIIPattern{},
 			Models:          []localaitools.MiddlewarePIIModel{},
 		},
 	}, nil
 }
+
 func (stubClient) GetRouterDecisions(_ context.Context, _ localaitools.RouterDecisionsQuery) ([]localaitools.RouterDecision, error) {
 	return []localaitools.RouterDecision{}, nil
 }

@@ -53,7 +53,6 @@ func New(opts ...config.AppOption) (*Application, error) {
 	caps, err := xsysinfo.CPUCapabilities()
 	if err == nil {
 		xlog.Debug("CPU capabilities", "capabilities", caps)
-
 	}
 	gpus, err := xsysinfo.GPUs()
 	if err == nil {
@@ -68,18 +67,18 @@ func New(opts ...config.AppOption) (*Application, error) {
 		return nil, fmt.Errorf("models path cannot be empty")
 	}
 
-	err = os.MkdirAll(options.SystemState.Model.ModelsPath, 0750)
+	err = os.MkdirAll(options.SystemState.Model.ModelsPath, 0o750)
 	if err != nil {
 		return nil, fmt.Errorf("unable to create ModelPath: %q", err)
 	}
 	if options.GeneratedContentDir != "" {
-		err := os.MkdirAll(options.GeneratedContentDir, 0750)
+		err := os.MkdirAll(options.GeneratedContentDir, 0o750)
 		if err != nil {
 			return nil, fmt.Errorf("unable to create ImageDir: %q", err)
 		}
 	}
 	if options.UploadDir != "" {
-		err := os.MkdirAll(options.UploadDir, 0750)
+		err := os.MkdirAll(options.UploadDir, 0o750)
 		if err != nil {
 			return nil, fmt.Errorf("unable to create UploadDir: %q", err)
 		}
@@ -87,7 +86,7 @@ func New(opts ...config.AppOption) (*Application, error) {
 
 	// Create and migrate data directory
 	if options.DataPath != "" {
-		if err := os.MkdirAll(options.DataPath, 0750); err != nil {
+		if err := os.MkdirAll(options.DataPath, 0o750); err != nil {
 			return nil, fmt.Errorf("unable to create DataPath: %q", err)
 		}
 		// Migrate data from DynamicConfigsDir to DataPath if needed
@@ -192,44 +191,14 @@ func New(opts ...config.AppOption) (*Application, error) {
 		xlog.Info("stats: disabled by --disable-stats")
 	}
 
-	// Wire the regex PII filter. Default-on: a single-user box gets
-	// the built-in pattern set the first time it starts, with email/
-	// phone/SSN/credit-card on mask and api_key_prefix on block. If
-	// the operator wants different actions, --pii-config points at a
-	// YAML file that overrides per-id; --disable-pii turns it off
-	// entirely.
-	if !options.DisablePII {
-		patterns, err := pii.LoadConfig(options.PIIConfigPath)
-		if err != nil {
-			return nil, fmt.Errorf("pii config: %w", err)
-		}
-		application.piiRedactor = pii.NewRedactor(patterns)
-		application.piiEvents = pii.NewMemoryEventStore(0)
-		// Apply persisted per-pattern overrides — admins toggling
-		// action/disabled via the UI and clicking "Save to disk" land
-		// here on the next start. Bad ids are warned and ignored so a
-		// stale entry doesn't block startup.
-		for id, ov := range options.PIIPatternOverrides {
-			if ov.Action != nil {
-				if err := application.piiRedactor.SetAction(id, pii.Action(*ov.Action)); err != nil {
-					xlog.Warn("pii: persisted override skipped", "pattern", id, "error", err)
-					continue
-				}
-			}
-			if ov.Disabled != nil {
-				if err := application.piiRedactor.SetDisabled(id, *ov.Disabled); err != nil {
-					xlog.Warn("pii: persisted disable skipped", "pattern", id, "error", err)
-				}
-			}
-		}
-		xlog.Info("pii: filter enabled",
-			"patterns", len(patterns),
-			"config_path", options.PIIConfigPath,
-			"persisted_overrides", len(options.PIIPatternOverrides),
-		)
-	} else {
-		xlog.Info("pii: disabled by --disable-pii")
-	}
+	// Wire the PII filter subsystem. The redactor is now a stateless
+	// handle — detection is driven by per-model NER detectors
+	// (pii.detectors → the detector model's pii_detection policy), run
+	// request-side by the chat middleware and the MITM input path. The
+	// regex tier was removed; redaction is opt-in per model via
+	// PIIIsEnabled(). The event store backs the /api/pii/events audit log.
+	application.piiRedactor = &pii.Redactor{}
+	application.piiEvents = pii.NewMemoryEventStore(0)
 
 	// Wire the routing decision log. Always-on when stats are enabled —
 	// the per-router admin page reads this as the live activity feed
@@ -462,11 +431,7 @@ func New(opts ...config.AppOption) (*Application, error) {
 	// traffic doesn't need a parallel config for MITM traffic.
 	// Runs after loadRuntimeSettingsFromFile so a listener configured
 	// via /api/settings is brought back up across restarts.
-	if options.MITMListen != "" {
-		if err := startMITMProxy(application, options); err != nil {
-			return nil, fmt.Errorf("mitm: startup: %w", err)
-		}
-	}
+	startMITMIfConfigured(application, options)
 
 	application.ModelLoader().SetBackendLoggingEnabled(options.EnableBackendLogging)
 
@@ -521,7 +486,7 @@ func startWatcher(options *config.ApplicationConfig) {
 	if _, err := os.Stat(options.DynamicConfigsDir); err != nil {
 		if os.IsNotExist(err) {
 			// We try to create the directory if it does not exist and was specified
-			if err := os.MkdirAll(options.DynamicConfigsDir, 0700); err != nil {
+			if err := os.MkdirAll(options.DynamicConfigsDir, 0o700); err != nil {
 				xlog.Error("failed creating DynamicConfigsDir", "error", err)
 			}
 		} else {
@@ -768,16 +733,6 @@ func loadRuntimeSettingsFromFile(options *config.ApplicationConfig) {
 		options.MITMListen = *settings.MITMListen
 	}
 
-	// PII pattern overrides — file is the only source; CLI flags don't
-	// reach into this map. Apply unconditionally when present; the
-	// redactor wiring below sees the result on first construction.
-	if settings.PIIPatternOverrides != nil {
-		options.PIIPatternOverrides = make(map[string]config.PIIPatternRuntimeOverride, len(*settings.PIIPatternOverrides))
-		for id, ov := range *settings.PIIPatternOverrides {
-			options.PIIPatternOverrides[id] = ov
-		}
-	}
-
 	// Backend upgrade flags
 	if settings.AutoUpgradeBackends != nil {
 		if !options.AutoUpgradeBackends {
@@ -928,7 +883,7 @@ func loadOrGenerateHMACSecret(path string) (string, error) {
 	}
 	secret := hex.EncodeToString(b)
 
-	if err := os.WriteFile(path, []byte(secret), 0600); err != nil {
+	if err := os.WriteFile(path, []byte(secret), 0o600); err != nil {
 		return "", fmt.Errorf("failed to persist HMAC secret: %w", err)
 	}
 

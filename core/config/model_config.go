@@ -10,6 +10,7 @@ import (
 	"text/template"
 
 	"github.com/mudler/LocalAI/core/schema"
+	"github.com/mudler/LocalAI/core/services/routing/piipattern"
 	"github.com/mudler/LocalAI/pkg/downloader"
 	"github.com/mudler/LocalAI/pkg/functions"
 	"github.com/mudler/LocalAI/pkg/reasoning"
@@ -23,7 +24,6 @@ const (
 
 // @Description TTS configuration
 type TTSConfig struct {
-
 	// Voice wav path or id
 	Voice string `yaml:"voice,omitempty" json:"voice,omitempty"`
 
@@ -103,13 +103,18 @@ type ModelConfig struct {
 	Options   []string `yaml:"options,omitempty" json:"options,omitempty"`
 	Overrides []string `yaml:"overrides,omitempty" json:"overrides,omitempty"`
 
-	MCP    MCPConfig       `yaml:"mcp,omitempty" json:"mcp,omitempty"`
-	Agent  AgentConfig     `yaml:"agent,omitempty" json:"agent,omitempty"`
-	PII    PIIConfig       `yaml:"pii,omitempty" json:"pii,omitempty"`
-	Router RouterConfig    `yaml:"router,omitempty" json:"router,omitempty"`
-	Proxy  ProxyConfig     `yaml:"proxy,omitempty" json:"proxy,omitempty"`
-	MITM   MITMModelConfig `yaml:"mitm,omitempty" json:"mitm,omitempty"`
-	Limits LimitsConfig    `yaml:"limits,omitempty" json:"limits,omitempty"`
+	MCP   MCPConfig   `yaml:"mcp,omitempty" json:"mcp,omitempty"`
+	Agent AgentConfig `yaml:"agent,omitempty" json:"agent,omitempty"`
+	PII   PIIConfig   `yaml:"pii,omitempty" json:"pii,omitempty"`
+	// PIIDetection is the detection policy when THIS model is used as a
+	// PII detector (a token_classify model named in another model's
+	// pii.detectors). Ignored on models that aren't referenced as
+	// detectors.
+	PIIDetection PIIDetectionConfig `yaml:"pii_detection,omitempty" json:"pii_detection,omitempty"`
+	Router       RouterConfig       `yaml:"router,omitempty" json:"router,omitempty"`
+	Proxy        ProxyConfig        `yaml:"proxy,omitempty" json:"proxy,omitempty"`
+	MITM         MITMModelConfig    `yaml:"mitm,omitempty" json:"mitm,omitempty"`
+	Limits       LimitsConfig       `yaml:"limits,omitempty" json:"limits,omitempty"`
 }
 
 // @Description Admission-control limits applied per request. The
@@ -384,18 +389,54 @@ type PIIConfig struct {
 	// the YAML key is distinguishable from explicit false.
 	Enabled *bool `yaml:"enabled,omitempty" json:"enabled,omitempty"`
 
-	// Patterns lets a model upgrade or downgrade individual pattern
-	// actions (mask | block | route_local) relative to the global
-	// defaults loaded from --pii-config / DefaultPatterns. Pattern IDs
-	// not listed inherit the global action. The regex itself stays
-	// global — only the action is settable per-model.
-	Patterns []PIIPatternOverride `yaml:"patterns,omitempty" json:"patterns,omitempty"`
+	// Detectors lists the token-classification (NER) models whose
+	// detections drive PII redaction for this model. The detection policy
+	// (min score, per-entity actions, default action) lives on each named
+	// detector model's own pii_detection block, not here — a consuming
+	// model just opts in by listing detectors. Multiple detectors union
+	// their hits; overlapping spans resolve to the strongest action.
+	Detectors []string `yaml:"detectors,omitempty" json:"detectors,omitempty"`
 }
 
-// @Description Per-model action override for a single PII pattern.
-type PIIPatternOverride struct {
-	ID     string `yaml:"id" json:"id"`
-	Action string `yaml:"action" json:"action"`
+// @Description Detection policy for a token-classification (NER) model
+// used as a PII detector. Lives on the detector model's own config so the
+// model is a self-describing policy unit: consuming models reference it by
+// name (via pii.detectors) and inherit this policy with no per-consumer
+// overrides.
+type PIIDetectionConfig struct {
+	// MinScore drops detections the model scores below this confidence
+	// before they are acted on. 0 keeps every detection.
+	MinScore float32 `yaml:"min_score,omitempty" json:"min_score,omitempty"`
+	// DefaultAction (mask | block | allow) applies to detected entity
+	// groups with no explicit EntityActions entry. Empty defaults to
+	// "mask" — the safe-by-default policy for a PII filter.
+	DefaultAction string `yaml:"default_action,omitempty" json:"default_action,omitempty"`
+	// EntityActions maps an entity group the model emits (e.g. "EMAIL",
+	// "PASSWORD") to an action, overriding DefaultAction for that group.
+	// This is where an operator says which PII to block vs mask vs
+	// allow-log.
+	EntityActions map[string]string `yaml:"entity_actions,omitempty" json:"entity_actions,omitempty"`
+
+	// Builtins names the built-in pattern groups this (pattern) detector
+	// enables, e.g. "anthropic_api_key", "github_token". Pattern detectors
+	// match high-entropy structured secrets the NER tier can't; see
+	// core/services/routing/piipattern.
+	Builtins []string `yaml:"builtins,omitempty" json:"builtins,omitempty"`
+	// Patterns lists operator-defined secret patterns in the restricted-regex
+	// subset (validated at load). Each match is reported under its Name as the
+	// entity group, so EntityActions/DefaultAction apply by Name.
+	Patterns []PIIPattern `yaml:"patterns,omitempty" json:"patterns,omitempty"`
+}
+
+// PIIPattern is one operator-defined pattern on a pattern detector model. Name
+// is the entity group reported for matches (and the EntityActions key). Match
+// is the restricted-regex source. Action optionally overrides DefaultAction for
+// this pattern. MinLen drops matches shorter than N bytes (0 = no floor).
+type PIIPattern struct {
+	Name   string `yaml:"name" json:"name"`
+	Match  string `yaml:"match" json:"match"`
+	Action string `yaml:"action,omitempty" json:"action,omitempty"`
+	MinLen int    `yaml:"min_len,omitempty" json:"min_len,omitempty"`
 }
 
 // PIIIsEnabled returns the resolved PII state for this model. Single
@@ -408,25 +449,69 @@ func (c *ModelConfig) PIIIsEnabled() bool {
 	return c.Backend == "cloud-proxy"
 }
 
-// PIIPatternOverrides returns the per-pattern action overrides as a map
-// keyed by pattern ID. The values are the raw action strings — the pii
-// package validates and converts them.
-//
-// Returned via the documented modelPIIConfig interface in
-// core/services/routing/pii/middleware.go without taking a config
-// dependency on this package.
-func (c *ModelConfig) PIIPatternOverrides() map[string]string {
-	if len(c.PII.Patterns) == 0 {
+// PIIDetectors returns the names of the token-classification models that
+// drive PII redaction for this (consuming) model. Read via the
+// ModelPIIConfig interface in core/services/routing/pii/middleware.go.
+func (c *ModelConfig) PIIDetectors() []string {
+	if len(c.PII.Detectors) == 0 {
 		return nil
 	}
-	out := make(map[string]string, len(c.PII.Patterns))
-	for _, p := range c.PII.Patterns {
-		if p.ID == "" {
-			continue
-		}
-		out[p.ID] = p.Action
+	out := make([]string, len(c.PII.Detectors))
+	copy(out, c.PII.Detectors)
+	return out
+}
+
+// piiCoverableUsecases lists the model usecases whose serving API has a
+// request-side PII filter wired (a piiadapter + the pii middleware). It scopes
+// the Middleware admin list (PIIFilterApplies). Grow it as adapters are added
+// for new endpoints. cloud-proxy carries no usecase flag but is always covered
+// (via the MITM / proxy chat path), so PIIFilterApplies handles it separately.
+var piiCoverableUsecases = []ModelConfigUsecase{FLAG_CHAT, FLAG_COMPLETION, FLAG_EDIT, FLAG_EMBEDDINGS}
+
+// PIIFilterApplies reports whether request-side PII filtering can apply to
+// this model at all — i.e. it is reachable through a text-accepting endpoint
+// that has a PII adapter wired. Used to scope the Middleware admin view so it
+// lists only models PII could protect, not every config (VAD, STT,
+// embedding-only, image, or the token_classify detector models themselves,
+// which are the filters rather than consumers). Detector/score models return
+// false naturally: HasUsecases short-circuits to false for any usecase a
+// declared score/token_classify model did not itself declare.
+func (c *ModelConfig) PIIFilterApplies() bool {
+	if c.Backend == "cloud-proxy" {
+		return true
+	}
+	return slices.ContainsFunc(piiCoverableUsecases, c.HasUsecases)
+}
+
+// PIIDetectionMinScore returns the confidence floor this model applies
+// when used as a PII detector.
+func (c *ModelConfig) PIIDetectionMinScore() float32 { return c.PIIDetection.MinScore }
+
+// PIIDetectionDefaultAction returns the raw default-action string applied
+// to detected entity groups without an explicit override. The pii package
+// validates it and applies the "mask" fallback.
+func (c *ModelConfig) PIIDetectionDefaultAction() string { return c.PIIDetection.DefaultAction }
+
+// PIIDetectionEntityActions returns the per-entity-group action policy as
+// a fresh map of raw action strings (validated by the pii package).
+func (c *ModelConfig) PIIDetectionEntityActions() map[string]string {
+	if len(c.PIIDetection.EntityActions) == 0 {
+		return nil
+	}
+	out := make(map[string]string, len(c.PIIDetection.EntityActions))
+	for k, v := range c.PIIDetection.EntityActions {
+		out[k] = v
 	}
 	return out
+}
+
+// IsPatternDetector reports whether this detector model matches secrets with
+// regex patterns (built-in and/or operator-defined) rather than a neural NER
+// model. Such a model runs entirely in-process (no backend / GGUF / VRAM); the
+// PII resolver builds an in-process pattern matcher for it instead of loading a
+// gRPC token-classifier.
+func (c *ModelConfig) IsPatternDetector() bool {
+	return len(c.PIIDetection.Builtins) > 0 || len(c.PIIDetection.Patterns) > 0
 }
 
 // @Description MCP configuration
@@ -472,8 +557,10 @@ func (c *MCPConfig) MCPConfigFromYAML() (MCPGenericConfig[MCPRemoteServers], MCP
 type MCPGenericConfig[T any] struct {
 	Servers T `yaml:"mcpServers,omitempty" json:"mcpServers,omitempty"`
 }
-type MCPRemoteServers map[string]MCPRemoteServer
-type MCPSTDIOServers map[string]MCPSTDIOServer
+type (
+	MCPRemoteServers map[string]MCPRemoteServer
+	MCPSTDIOServers  map[string]MCPSTDIOServer
+)
 
 // @Description MCP remote server configuration
 type MCPRemoteServer struct {
@@ -1001,6 +1088,39 @@ func (c *ModelConfig) Validate() (bool, error) {
 				"with chat/completion/embeddings — split into separate model configs")
 	}
 
+	// TokenClassify on llama-cpp likewise bypasses the slot loop (direct
+	// decode, see grpc-server.cpp on TokenClassify) and races concurrent
+	// generation. Unlike score it REQUIRES embeddings (TOKEN_CLS pooling),
+	// so the conflict is with generation only, not embeddings.
+	const tokenClassifyConflicts = FLAG_CHAT | FLAG_COMPLETION
+	if (c.Backend == "llama-cpp" || c.Backend == "llama") &&
+		c.HasUsecases(FLAG_TOKEN_CLASSIFY) && c.KnownUsecases != nil &&
+		*c.KnownUsecases&tokenClassifyConflicts != 0 {
+		return false, fmt.Errorf(
+			"known_usecases conflict on llama-cpp: token_classify is incompatible " +
+				"with chat/completion — split into separate model configs")
+	}
+
+	// Pattern detector: validate built-in names and that each operator-defined
+	// pattern is a well-formed, anchored, bounded restricted-regex. Reject at
+	// load so a bad pattern surfaces as a clear config error rather than a
+	// silent no-op (or a fail-closed block) at request time.
+	if c.IsPatternDetector() {
+		for _, name := range c.PIIDetection.Builtins {
+			if _, ok := piipattern.LookupBuiltin(name); !ok {
+				return false, fmt.Errorf("pii_detection: unknown built-in pattern %q", name)
+			}
+		}
+		for _, p := range c.PIIDetection.Patterns {
+			if p.Name == "" {
+				return false, fmt.Errorf("pii_detection: pattern is missing a name")
+			}
+			if err := piipattern.ValidatePattern(p.Match); err != nil {
+				return false, fmt.Errorf("pii_detection: pattern %q: %w", p.Name, err)
+			}
+		}
+	}
+
 	// router.score_normalization is consumed lazily by the score
 	// classifier at first-request time; without load-time validation
 	// a typo wouldn't surface until the first router request panicked
@@ -1113,6 +1233,17 @@ const (
 	// chat/completion/embeddings.
 	FLAG_SCORE ModelConfigUsecase = 0b10000000000000000000
 
+	// Marks a model as wired for the TokenClassify gRPC primitive (the
+	// openai-privacy-filter PII NER tier — per-token BIOES classification).
+	// Like FLAG_SCORE it must be declared explicitly via
+	// `known_usecases: [token_classify]`; there's no heuristic. On the
+	// llama-cpp backend TokenClassify bypasses the slot loop and races the
+	// llama_context (see grpc-server.cpp on TokenClassify), so Validate()
+	// refuses a llama-cpp config combining it with chat/completion. Unlike
+	// FLAG_SCORE, embeddings is NOT a conflict — TokenClassify REQUIRES
+	// TOKEN_CLS pooling, which is loaded via the embeddings flag.
+	FLAG_TOKEN_CLASSIFY ModelConfigUsecase = 0b100000000000000000000
+
 	// Common Subsets
 	FLAG_LLM ModelConfigUsecase = FLAG_CHAT | FLAG_COMPLETION | FLAG_EDIT
 )
@@ -1170,6 +1301,7 @@ func GetAllModelConfigUsecases() map[string]ModelConfigUsecase {
 		"FLAG_DIARIZATION":         FLAG_DIARIZATION,
 		"FLAG_REALTIME_AUDIO":      FLAG_REALTIME_AUDIO,
 		"FLAG_SCORE":               FLAG_SCORE,
+		"FLAG_TOKEN_CLASSIFY":      FLAG_TOKEN_CLASSIFY,
 	}
 }
 
@@ -1197,19 +1329,20 @@ func GetUsecasesFromYAML(input []string) *ModelConfigUsecase {
 // HasUsecases examines a ModelConfig and determines which endpoints have a chance of success.
 //
 // Declared known_usecases are normally additive — the guessing heuristic
-// still adds whatever it can infer from backend/templates. The one
-// exception is FLAG_SCORE: when the operator declared score, they
-// reserved the model for the router classifier. Letting GuessUsecases
-// paint chat/completion on top would surface it in chat pickers it was
-// deliberately kept out of, and (on llama-cpp) reintroduce the slot
-// contention the score/chat conflict check exists to prevent. So a
-// declared score list is authoritative.
+// still adds whatever it can infer from backend/templates. The exceptions
+// are FLAG_SCORE and FLAG_TOKEN_CLASSIFY: when the operator declared
+// either, they reserved the model for an internal direct-decode primitive
+// (the router classifier, or the PII NER tier). Letting GuessUsecases
+// paint chat/completion/embeddings on top would surface it in pickers it
+// was deliberately kept out of, and (on llama-cpp) reintroduce the slot
+// contention the conflict check exists to prevent. So a declared score or
+// token_classify list is authoritative.
 func (c *ModelConfig) HasUsecases(u ModelConfigUsecase) bool {
 	if c.KnownUsecases != nil {
 		if (u & *c.KnownUsecases) == u {
 			return true
 		}
-		if (*c.KnownUsecases & FLAG_SCORE) == FLAG_SCORE {
+		if (*c.KnownUsecases & (FLAG_SCORE | FLAG_TOKEN_CLASSIFY)) != 0 {
 			return false
 		}
 	}
@@ -1229,14 +1362,20 @@ func (c *ModelConfig) GuessUsecases(u ModelConfigUsecase) bool {
 	}
 
 	if (u & FLAG_CHAT) == FLAG_CHAT {
-		if c.TemplateConfig.Chat == "" && c.TemplateConfig.ChatMessage == "" && !c.TemplateConfig.UseTokenizerTemplate {
-			return false
-		}
-		if slices.Contains(nonTextGenBackends, c.Backend) {
-			return false
-		}
-		if c.Embeddings != nil && *c.Embeddings {
-			return false
+		// A router model is a chat dispatcher: it carries no chat
+		// template of its own (those live on the candidates it routes
+		// to) and is invoked through the chat endpoint, so the router
+		// block stands in for chat capability.
+		if !c.HasRouter() {
+			if c.TemplateConfig.Chat == "" && c.TemplateConfig.ChatMessage == "" && !c.TemplateConfig.UseTokenizerTemplate {
+				return false
+			}
+			if slices.Contains(nonTextGenBackends, c.Backend) {
+				return false
+			}
+			if c.Embeddings != nil && *c.Embeddings {
+				return false
+			}
 		}
 	}
 	if (u & FLAG_COMPLETION) == FLAG_COMPLETION {
@@ -1373,6 +1512,15 @@ func (c *ModelConfig) GuessUsecases(u ModelConfigUsecase) bool {
 		// (it reserves the model from generation traffic on llama-cpp),
 		// so HasUsecases(FLAG_SCORE) is true only when KnownUsecases
 		// declares it explicitly.
+		return false
+	}
+
+	if (u & FLAG_TOKEN_CLASSIFY) == FLAG_TOKEN_CLASSIFY {
+		// No heuristic: token-classification intent is a deliberate
+		// operator choice (it reserves the model from generation traffic
+		// on llama-cpp, and the model's TOKEN_CLS head isn't useful as
+		// general embeddings), so HasUsecases(FLAG_TOKEN_CLASSIFY) is true
+		// only when KnownUsecases declares it explicitly.
 		return false
 	}
 

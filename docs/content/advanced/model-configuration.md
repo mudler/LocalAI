@@ -808,6 +808,44 @@ known_usecases:
 
 Available flags: `chat`, `completion`, `edit`, `embeddings`, `rerank`, `image`, `transcript`, `tts`, `sound_generation`, `tokenize`, `vad`, `video`, `detection`, `llm` (combination of CHAT, COMPLETION, EDIT).
 
+`token_classify` marks a model as a token-classification (NER) provider for the PII filter (e.g. an `openai-privacy-filter` GGUF). Declare it explicitly together with `embeddings: true` (the classifier loads via TOKEN_CLS pooling). On the `llama-cpp` backend it must not be combined with `chat`/`completion` in the same config — `TokenClassify` bypasses the slot loop and would race generation, so the loader rejects that mix; split into separate model configs.
+
+## PII filtering
+
+PII redaction is NER-based and runs on the **request** (input) side. It has two halves:
+
+- **Detector models** are `token_classify` models that carry the detection *policy* in a top-level `pii_detection:` block. The policy is defined once, on the model itself:
+
+  ```yaml
+  name: privacy-filter-multilingual
+  backend: llama-cpp
+  embeddings: true
+  known_usecases:
+    - token_classify
+  pii_detection:
+    min_score: 0.5            # drop detections below this confidence
+    default_action: mask      # mask | block | allow — applied to any detected
+                              # group with no explicit entry (empty = mask)
+    entity_actions:           # which PII to block vs mask vs allow-log
+      PASSWORD: block
+      CREDITCARD: block
+      EMAIL: mask
+  ```
+
+- **Consuming models** opt in and reference one or more detectors by name — no per-consumer policy:
+
+  ```yaml
+  name: my-assistant
+  pii:
+    enabled: true             # default: off for local backends, on for cloud-proxy
+    detectors:
+      - privacy-filter-multilingual
+  ```
+
+Multiple detectors union their detections; overlapping spans resolve to the strongest action (`block` > `mask` > `allow`). A configured detector that can't be loaded fails the request closed (HTTP 503) rather than silently skipping the check. Detections are audited at `/api/pii/events` (hash-prefix only, never the raw value).
+
+> The earlier regex pattern tier (`pii.patterns`, the global pattern catalogue, `--pii-config`, and the `/api/pii/patterns` admin endpoints) has been removed, along with response/streaming-side redaction. Those keys now no-op with a startup warning; migrate to `pii.detectors` + a detector's `pii_detection` block.
+
 ## Complete Example
 
 Here's a comprehensive example combining many options:

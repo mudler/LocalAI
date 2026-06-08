@@ -1,0 +1,84 @@
+diff --git a/gguf-py/gguf/constants.py b/gguf-py/gguf/constants.py
+index 5a567e2d1..59f69ce5e 100644
+--- a/gguf-py/gguf/constants.py
++++ b/gguf-py/gguf/constants.py
+@@ -485,6 +485,7 @@ class MODEL_ARCH(IntEnum):
+     HUNYUAN_VL       = auto()
+     SMOLLM3          = auto()
+     GPT_OSS          = auto()
++    OPENAI_PRIVACY_FILTER = auto() # tracks upstream model_type "openai_privacy_filter"; shares the gpt-oss MoE body but is NOT a gpt-oss variant (interleaved/NORM rope, bidirectional, no LM head)
+     LFM2             = auto()
+     LFM2MOE          = auto()
+     DREAM            = auto()
+@@ -1005,6 +1006,7 @@ MODEL_ARCH_NAMES: dict[MODEL_ARCH, str] = {
+     MODEL_ARCH.HUNYUAN_VL:       "hunyuan_vl",
+     MODEL_ARCH.SMOLLM3:          "smollm3",
+     MODEL_ARCH.GPT_OSS:          "gpt-oss",
++    MODEL_ARCH.OPENAI_PRIVACY_FILTER: "openai-privacy-filter",
+     MODEL_ARCH.LFM2:             "lfm2",
+     MODEL_ARCH.LFM2MOE:          "lfm2moe",
+     MODEL_ARCH.DREAM:            "dream",
+@@ -3702,6 +3704,27 @@ MODEL_TENSORS: dict[MODEL_ARCH, list[MODEL_TENSOR]] = {
+         MODEL_TENSOR.FFN_DOWN_EXP,
+         MODEL_TENSOR.FFN_UP_EXP,
+     ],
++    MODEL_ARCH.OPENAI_PRIVACY_FILTER: [
++        # gpt-oss tensor set, minus the LM head (OUTPUT), plus the
++        # token-classification head (CLS_OUT -> "cls.output"). The encoder
++        # graph ends at output_norm and the TOKEN_CLS pooling attaches the
++        # score head per token (see patch 0001).
++        MODEL_TENSOR.TOKEN_EMBD,
++        MODEL_TENSOR.OUTPUT_NORM,
++        MODEL_TENSOR.ATTN_NORM,
++        MODEL_TENSOR.ATTN_POST_NORM,
++        MODEL_TENSOR.ATTN_Q,
++        MODEL_TENSOR.ATTN_K,
++        MODEL_TENSOR.ATTN_V,
++        MODEL_TENSOR.ATTN_OUT,
++        MODEL_TENSOR.ATTN_SINKS,
++        MODEL_TENSOR.ROPE_FREQS,
++        MODEL_TENSOR.FFN_GATE_INP,
++        MODEL_TENSOR.FFN_GATE_EXP,
++        MODEL_TENSOR.FFN_DOWN_EXP,
++        MODEL_TENSOR.FFN_UP_EXP,
++        MODEL_TENSOR.CLS_OUT,
++    ],
+     MODEL_ARCH.LFM2: [
+         MODEL_TENSOR.TOKEN_EMBD,
+         MODEL_TENSOR.TOKEN_EMBD_NORM,
+diff --git a/gguf-py/gguf/tensor_mapping.py b/gguf-py/gguf/tensor_mapping.py
+index 444f0f285..d3e5d1d89 100644
+--- a/gguf-py/gguf/tensor_mapping.py
++++ b/gguf-py/gguf/tensor_mapping.py
+@@ -1287,6 +1287,7 @@ class TensorNameMap:
+ 
+         MODEL_TENSOR.CLS_OUT: (
+             "classifier.out_proj", # roberta
++            "score",               # openai-privacy-filter (token-classification head)
+         ),
+ 
+         MODEL_TENSOR.CLS_NORM: (
+diff --git a/src/llama-arch.cpp b/src/llama-arch.cpp
+index b485ac02e..aaf166680 100644
+--- a/src/llama-arch.cpp
++++ b/src/llama-arch.cpp
+@@ -135,6 +135,7 @@ static const std::map<llm_arch, const char *> LLM_ARCH_NAMES = {
+     { LLM_ARCH_MAINCODER,        "maincoder"        },
+     { LLM_ARCH_KIMI_LINEAR,      "kimi-linear"      },
+     { LLM_ARCH_TALKIE,           "talkie"           },
++    { LLM_ARCH_OPENAI_PRIVACY_FILTER, "openai-privacy-filter" },
+     { LLM_ARCH_UNKNOWN,          "(unknown)"        },
+ };
+ 
+diff --git a/src/llama-arch.h b/src/llama-arch.h
+index b59043e40..edd6b2ad6 100644
+--- a/src/llama-arch.h
++++ b/src/llama-arch.h
+@@ -139,6 +139,7 @@ enum llm_arch {
+     LLM_ARCH_MAINCODER,
+     LLM_ARCH_KIMI_LINEAR,
+     LLM_ARCH_TALKIE,
++    LLM_ARCH_OPENAI_PRIVACY_FILTER,
+     LLM_ARCH_UNKNOWN,
+ };
+ 

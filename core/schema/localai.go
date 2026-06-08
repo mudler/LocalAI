@@ -499,7 +499,7 @@ type RouterDecideResponse struct {
 // inspects the text and returns findings + a suggested action; it
 // does NOT mutate the input, record an audit event, or rewrite any
 // downstream request. The caller composes the decision with its own
-// policy (mask, block, route to local-only backends, allow).
+// policy (mask, block, or allow).
 type PIIDecideRequest struct {
 	// Text is the user-visible content to inspect. Required.
 	Text string `json:"text"`
@@ -507,19 +507,20 @@ type PIIDecideRequest struct {
 
 // PIIDecideResponse carries the redactor's findings.
 // SuggestedAction is derived from the action ordering used by the
-// internal redactor (block > route_local > mask > allow) so callers
-// don't need to replicate that logic.
+// internal redactor (block > mask > allow) so callers don't need to
+// replicate that logic.
 type PIIDecideResponse struct {
 	// Findings is one entry per matched span — pattern id, byte
 	// range, and audit-safe hash prefix (never the matched value).
 	Findings []PIIFinding `json:"findings"`
 	// SuggestedAction is the strongest action across all findings:
-	// "block", "route_local", "mask", or "allow" (no findings).
+	// "block", "mask", or "allow" (no findings, or all findings
+	// resolved to the allow action).
 	SuggestedAction string `json:"suggested_action"`
 	// RedactedPreview is the input with mask-action spans replaced
 	// by their placeholders. Identical to Text when no findings or
-	// when the strongest action is block/route_local (which don't
-	// rewrite content).
+	// when the strongest action is block/allow (which don't rewrite
+	// content).
 	RedactedPreview string `json:"redacted_preview"`
 }
 

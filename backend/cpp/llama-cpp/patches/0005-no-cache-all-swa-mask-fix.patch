@@ -1,0 +1,34 @@
+--- a/src/llama-graph.cpp
++++ b/src/llama-graph.cpp
+@@ -463,16 +463,24 @@
+         }
+     };
+ 
++    // The non-SWA (full) and SWA masks are separate graph inputs, but a
++    // given model may consume only one of them: an encoder where *every*
++    // layer is SWA (e.g. the openai-privacy-filter token classifier, whose
++    // every layer uses a symmetric sliding window) never references the full
++    // mask, so the graph allocator leaves self_kq_mask unallocated (null
++    // buffer). Only fill a mask that actually got a buffer — filling an
++    // unallocated input would write through a null data pointer.
+     GGML_ASSERT(self_kq_mask);
+-    GGML_ASSERT(ggml_backend_buffer_is_host(self_kq_mask->buffer));
+-    if (self_kq_mask->type == GGML_TYPE_F16) {
+-        fill_mask((ggml_fp16_t *) self_kq_mask->data, ggml_nelements(self_kq_mask), 0, LLAMA_SWA_TYPE_NONE);
+-    } else {
+-        fill_mask((float       *) self_kq_mask->data, ggml_nelements(self_kq_mask), 0, LLAMA_SWA_TYPE_NONE);
++    if (self_kq_mask->buffer) {
++        GGML_ASSERT(ggml_backend_buffer_is_host(self_kq_mask->buffer));
++        if (self_kq_mask->type == GGML_TYPE_F16) {
++            fill_mask((ggml_fp16_t *) self_kq_mask->data, ggml_nelements(self_kq_mask), 0, LLAMA_SWA_TYPE_NONE);
++        } else {
++            fill_mask((float       *) self_kq_mask->data, ggml_nelements(self_kq_mask), 0, LLAMA_SWA_TYPE_NONE);
++        }
+     }
+ 
+-    if (hparams.swa_type != LLAMA_SWA_TYPE_NONE) {
+-        GGML_ASSERT(self_kq_mask_swa);
++    if (hparams.swa_type != LLAMA_SWA_TYPE_NONE && self_kq_mask_swa && self_kq_mask_swa->buffer) {
+         GGML_ASSERT(ggml_backend_buffer_is_host(self_kq_mask_swa->buffer));
+         if (self_kq_mask_swa->type == GGML_TYPE_F16) {
+             fill_mask((ggml_fp16_t *) self_kq_mask_swa->data, ggml_nelements(self_kq_mask_swa), hparams.n_swa, hparams.swa_type);

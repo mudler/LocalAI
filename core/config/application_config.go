@@ -48,25 +48,6 @@ type ApplicationConfig struct {
 	// touch disk or memory.
 	DisableStats bool
 
-	// PIIConfigPath points to an optional YAML file describing the PII
-	// pattern set. When empty, the routing/pii module's DefaultPatterns()
-	// (email, phone, SSN, credit card, IPv4, API key prefixes) are
-	// loaded with their default actions. Each entry overrides the
-	// matching default by ID:
-	//
-	//   patterns:
-	//     - id: email
-	//       action: route_local      # downgrade default mask -> route_local
-	//     - id: ssn
-	//       action: block            # upgrade default mask -> block
-	//
-	// Unknown ids are rejected with a clear error at startup.
-	PIIConfigPath string
-
-	// DisablePII turns the regex PII filter off entirely. Default
-	// (false) enables it on the OpenAI chat completions route.
-	DisablePII bool
-
 	// MITMListen is the address (host:port) the cloudproxy MITM
 	// listener binds on. Empty disables the MITM proxy entirely.
 	// Use case: redacting PII from Claude Code / Codex CLI traffic
@@ -75,18 +56,19 @@ type ApplicationConfig struct {
 	// LocalAI exposes at /api/middleware/proxy-ca.crt.
 	MITMListen string
 
+	// PIIDefaultDetectors lists token-classification (NER) detector model
+	// names applied to any PII-enabled model that does not name its own
+	// pii.detectors. This makes cloud-proxy / MITM redaction work out of the
+	// box (those default to PII-enabled but carry no detector list) and lets
+	// an operator set one detector for the whole instance. Set at runtime via
+	// POST /api/settings; read live by Application.ResolvePIIPolicy.
+	PIIDefaultDetectors []string
+
 	// MITMCADir holds the persisted MITM proxy CA cert and private
 	// key. The CA is generated on first start; subsequent starts
 	// reload it so clients keep trusting the same root. The key
 	// file is mode 0600.
 	MITMCADir string
-
-
-	// PIIPatternOverrides applies persisted per-id deltas (action,
-	// disabled) to the live redactor at startup. Loaded from
-	// runtime_settings.json and applied right after pii.NewRedactor.
-	// nil/empty leaves the YAML defaults in place.
-	PIIPatternOverrides map[string]PIIPatternRuntimeOverride
 
 	DisableWebUI                       bool
 	OllamaAPIRootEndpoint              bool
@@ -116,11 +98,11 @@ type ApplicationConfig struct {
 	// --require-backend-integrity / LOCALAI_REQUIRE_BACKEND_INTEGRITY.
 	RequireBackendIntegrity bool
 
-	SingleBackend           bool // Deprecated: use MaxActiveBackends = 1 instead
-	MaxActiveBackends       int  // Maximum number of active backends (0 = unlimited, 1 = single backend mode)
-	WatchDogIdle bool
-	WatchDogBusy bool
-	WatchDog     bool
+	SingleBackend     bool // Deprecated: use MaxActiveBackends = 1 instead
+	MaxActiveBackends int  // Maximum number of active backends (0 = unlimited, 1 = single backend mode)
+	WatchDogIdle      bool
+	WatchDogBusy      bool
+	WatchDog          bool
 
 	// Memory Reclaimer settings (works with GPU if available, otherwise RAM)
 	MemoryReclaimerEnabled   bool    // Enable memory threshold monitoring
@@ -583,6 +565,7 @@ func WithJSONStringPreload(configFile string) AppOption {
 		o.PreloadJSONModels = configFile
 	}
 }
+
 func WithConfigFile(configFile string) AppOption {
 	return func(o *ApplicationConfig) {
 		o.ConfigFile = configFile
@@ -671,21 +654,6 @@ func WithDisableStats(disable bool) AppOption {
 	}
 }
 
-// WithPIIConfigPath points the routing PII filter at a YAML config
-// file. CLI: --pii-config.
-func WithPIIConfigPath(path string) AppOption {
-	return func(o *ApplicationConfig) {
-		o.PIIConfigPath = path
-	}
-}
-
-// WithDisablePII turns the regex PII filter off. CLI: --disable-pii.
-func WithDisablePII(disable bool) AppOption {
-	return func(o *ApplicationConfig) {
-		o.DisablePII = disable
-	}
-}
-
 // WithMITMListen sets the address the cloudproxy MITM listener
 // binds on. Empty = disabled. CLI: --mitm-listen.
 func WithMITMListen(addr string) AppOption {
@@ -701,7 +669,6 @@ func WithMITMCADir(dir string) AppOption {
 		o.MITMCADir = dir
 	}
 }
-
 
 func WithDynamicConfigDir(dynamicConfigsDir string) AppOption {
 	return func(o *ApplicationConfig) {
@@ -1108,6 +1075,8 @@ func (o *ApplicationConfig) ToRuntimeSettings() RuntimeSettings {
 
 	mitmListen := o.MITMListen
 
+	piiDefaultDetectors := append([]string(nil), o.PIIDefaultDetectors...)
+
 	return RuntimeSettings{
 		WatchdogEnabled:           &watchdogEnabled,
 		WatchdogIdleEnabled:       &watchdogIdle,
@@ -1162,6 +1131,7 @@ func (o *ApplicationConfig) ToRuntimeSettings() RuntimeSettings {
 		LogoHorizontalFile:        &logoHorizontalFile,
 		FaviconFile:               &faviconFile,
 		MITMListen:                &mitmListen,
+		PIIDefaultDetectors:       &piiDefaultDetectors,
 	}
 }
 
@@ -1389,6 +1359,10 @@ func (o *ApplicationConfig) ApplyRuntimeSettings(settings *RuntimeSettings) (req
 
 	if settings.MITMListen != nil {
 		o.MITMListen = *settings.MITMListen
+	}
+
+	if settings.PIIDefaultDetectors != nil {
+		o.PIIDefaultDetectors = append([]string(nil), (*settings.PIIDefaultDetectors)...)
 	}
 
 	// Note: ApiKeys requires special handling (merging with startup keys) - handled in caller

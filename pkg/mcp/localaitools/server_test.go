@@ -91,13 +91,9 @@ var expectedFullCatalog = sortedStrings(
 	ToolListInstalledModels,
 	ToolListKnownBackends,
 	ToolListNodes,
-	ToolListPIIPatterns,
-	ToolPersistPIIPatterns,
 	ToolReloadModels,
 	ToolSetBranding,
-	ToolSetPIIPatternAction,
 	ToolSystemInfo,
-	ToolTestPIIRedaction,
 	ToolToggleModelPinned,
 	ToolToggleModelState,
 	ToolUpgradeBackend,
@@ -119,9 +115,7 @@ var expectedReadOnlyCatalog = sortedStrings(
 	ToolListInstalledModels,
 	ToolListKnownBackends,
 	ToolListNodes,
-	ToolListPIIPatterns,
 	ToolSystemInfo,
-	ToolTestPIIRedaction,
 	ToolVRAMEstimate,
 )
 

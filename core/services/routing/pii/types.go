@@ -11,13 +11,14 @@
 // drops in without changing call sites.
 //
 // Configuration model: each pattern has an Action (block | mask |
-// route_local). Actions are evaluated in this order:
+// allow). Actions are evaluated in this order:
 //   - block: short-circuits the request with an error (the middleware
 //     returns 400 to the client).
 //   - mask: replaces the matched span with ReplacementFor(pattern).
-//   - route_local: leaves the text alone but sets a context flag the
-//     router (subsystem 2) treats as "this request must stay on a local
-//     model" — never crosses the boundary to a cloud proxy backend.
+//   - allow: detect-and-log only — the span is left intact and a
+//     PIIEvent is still recorded, but the text passes through
+//     unchanged. Useful to downgrade a pattern's default while keeping
+//     it visible in the audit log.
 package pii
 
 import "time"
@@ -36,11 +37,13 @@ const (
 	// the matched value).
 	ActionBlock Action = "block"
 
-	// ActionRouteLocal leaves the text intact but flags the request so
-	// the content router will refuse to dispatch it to a cloud proxy
-	// backend. Useful when a deployment trusts local models with
-	// sensitive data but not external providers.
-	ActionRouteLocal Action = "route_local"
+	// ActionAllow detects and logs the match but leaves the text
+	// intact — no masking, no blocking. A PIIEvent is still recorded,
+	// so the detection is auditable and forms the basis for surfacing
+	// detected-PII labels to the router (a future router-model
+	// feature). Use it to downgrade a pattern's default action for a
+	// model while keeping the pattern visible.
+	ActionAllow Action = "allow"
 )
 
 // Direction tags whether a PIIEvent fired on input (request body before
@@ -59,10 +62,12 @@ const (
 // substring slicing; call sites that need to log it strip it via
 // HashPrefix.
 type Span struct {
-	Start     int
-	End       int
-	Pattern   string // matches Pattern.ID
-	HashPrefix string // first 8 chars of sha256(matched value); audit-safe
+	Start      int
+	End        int
+	Pattern    string  // synthetic detector id, "<source>:<GROUP>" (e.g. "ner:EMAIL", "pattern:ANTHROPIC_KEY")
+	HashPrefix string  // first 8 chars of sha256(matched value); audit-safe
+	Action     Action  // the action that fired for this span (after merge)
+	Score      float32 // detector confidence for the (winning) hit, 0..1
 }
 
 // Result is what Redact returns. Redacted is the input string after
@@ -74,38 +79,15 @@ type Span struct {
 // the call site must enforce this by returning a 400 / refusing to
 // dispatch.
 //
-// LocalOnly is true iff at least one matched pattern had
-// Action=route_local. The router middleware reads this and constrains
-// candidate selection.
+// Masked is true iff at least one matched span was replaced with a
+// placeholder (Action=mask). Spans with Action=allow are recorded but
+// leave Masked false. Lets callers (e.g. the decision oracle)
+// distinguish "matched and redacted" from "matched but passed through".
 type Result struct {
-	Redacted  string
-	Spans     []Span
-	Blocked   bool
-	LocalOnly bool
-}
-
-// Pattern is one configurable rule. Description is shown in the admin
-// UI alongside the pattern; the regex itself stays an implementation
-// detail (a leak-prone admin showing an SSN regex with a sample value
-// in the field is a risk we deliberately design around).
-type Pattern struct {
-	ID          string
-	Description string
-	Action      Action
-	// Disabled skips the pattern entirely when true — useful for
-	// admins who want to keep a regex around (visible in the UI) but
-	// turn it off without removing the YAML entry. Default-false so
-	// every existing pattern stays active without touching its config.
-	Disabled bool
-	// MaxMatchLength is the longest possible match in characters. The
-	// streaming filter (subsystem 3, follow-up commit) uses this to
-	// size its tail buffer. For regex patterns we compute it at
-	// compile time from the pattern's structure when possible, or set
-	// a conservative upper bound otherwise.
-	MaxMatchLength int
-
-	// internal — populated by Compile().
-	regex regexpMatcher
+	Redacted string
+	Spans    []Span
+	Blocked  bool
+	Masked   bool
 }
 
 // EventKind classifies a stored audit event. The store is shared by the
@@ -150,7 +132,11 @@ type PIIEvent struct {
 	Length        int       `json:"length,omitempty"`
 	HashPrefix    string    `json:"hash_prefix,omitempty"`
 	Action        Action    `json:"action,omitempty"`
-	CreatedAt     time.Time `json:"created_at"`
+	// Score is the detector confidence (0..1) for an NER PII hit. Metadata
+	// only — never the matched value. Lets admins see how sure the model was
+	// about a (possibly false-positive) detection without re-running it.
+	Score     float32   `json:"score,omitempty"`
+	CreatedAt time.Time `json:"created_at"`
 
 	Host          string `json:"host,omitempty"`
 	Intercepted   *bool  `json:"intercepted,omitempty"`

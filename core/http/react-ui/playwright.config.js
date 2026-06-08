@@ -4,6 +4,12 @@ export default defineConfig({
   testDir: './e2e',
   timeout: 30_000,
   retries: process.env.CI ? 2 : 0,
+  // TEMPORARY: cap parallelism. Playwright's default (cores/2) oversubscribes
+  // high-core dev machines and intermittently starves the page-teardown
+  // coverage harvest past the 30s test timeout (flaky "Tearing down page"
+  // failures, different specs each run). Capped at 8 pending a proper
+  // root-cause fix; override with PW_WORKERS.
+  workers: process.env.PW_WORKERS ? Number(process.env.PW_WORKERS) : 8,
   reporter: process.env.CI ? 'html' : 'list',
   use: {
     baseURL: 'http://127.0.0.1:8089',

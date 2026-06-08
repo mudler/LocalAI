@@ -1,0 +1,285 @@
+diff --git a/src/llama-model.cpp b/src/llama-model.cpp
+index 3e236f8c1..465641b63 100644
+--- a/src/llama-model.cpp
++++ b/src/llama-model.cpp
+@@ -257,6 +257,8 @@ static llama_model * llama_model_mapping(llm_arch arch, const llama_model_params
+             return new llama_model_smollm3(params);
+         case LLM_ARCH_OPENAI_MOE:
+             return new llama_model_openai_moe(params);
++        case LLM_ARCH_OPENAI_PRIVACY_FILTER:
++            return new llama_model_openai_privacy_filter(params);
+         case LLM_ARCH_FALCON_H1:
+             return new llama_model_falcon_h1(params);
+         case LLM_ARCH_LFM2:
+@@ -1794,7 +1796,7 @@ void llama_model::print_info() const {
+             LLAMA_LOG_INFO("%s: n_ff_shexp            = %d\n",     __func__, hparams.n_ff_shexp);
+         }
+ 
+-        if (arch == LLM_ARCH_QWEN3MOE || arch == LLM_ARCH_OPENAI_MOE || arch == LLM_ARCH_QWEN3VLMOE || arch == LLM_ARCH_RND1) {
++        if (arch == LLM_ARCH_QWEN3MOE || arch == LLM_ARCH_OPENAI_MOE || arch == LLM_ARCH_QWEN3VLMOE || arch == LLM_ARCH_RND1 || arch == LLM_ARCH_OPENAI_PRIVACY_FILTER) {
+             LLAMA_LOG_INFO("%s: n_ff_exp              = %d\n",     __func__, hparams.n_ff_exp);
+         }
+ 
+@@ -2315,6 +2317,10 @@ llama_rope_type llama_model_rope_type(const llama_model * model) {
+         case LLM_ARCH_LLAMA_EMBED:
+         case LLM_ARCH_MAINCODER:
+         case LLM_ARCH_GLM_DSA:
++        // openai-privacy-filter uses the interleaved (GPT-J) rope layout
++        // (_apply_rotary_emb pairs x[..., ::2]/x[..., 1::2]), unlike gpt-oss
++        // (OPENAI_MOE) which uses NEOX rotate-half. See patches/README.md.
++        case LLM_ARCH_OPENAI_PRIVACY_FILTER:
+             return LLAMA_ROPE_TYPE_NORM;
+ 
+         // the pairs of head values are offset by n_rot/2
+diff --git a/src/models/models.h b/src/models/models.h
+index 5251e2d82..ab78f4bdc 100644
+--- a/src/models/models.h
++++ b/src/models/models.h
+@@ -1591,6 +1591,22 @@ struct llama_model_openai_moe : public llama_model_base {
+ };
+ 
+ 
++// openai/privacy-filter token classifier: gpt-oss MoE body re-purposed as a
++// bidirectional NER encoder with a per-token classification head (see
++// src/models/openai-privacy-filter.cpp).
++struct llama_model_openai_privacy_filter : public llama_model_base {
++    llama_model_openai_privacy_filter(const struct llama_model_params & params) : llama_model_base(params) {}
++    void load_arch_hparams(llama_model_loader & ml) override;
++    void load_arch_tensors(llama_model_loader & ml) override;
++
++    struct graph : public llm_graph_context {
++        graph(const llama_model & model, const llm_graph_params & params);
++    };
++
++    std::unique_ptr<llm_graph_context> build_arch_graph(const llm_graph_params & params) const override;
++};
++
++
+ struct llama_model_falcon_h1 : public llama_model_base {
+     llama_model_falcon_h1(const struct llama_model_params & params) : llama_model_base(params) {}
+     void load_arch_hparams(llama_model_loader & ml) override;
+diff --git a/src/models/openai-privacy-filter.cpp b/src/models/openai-privacy-filter.cpp
+new file mode 100644
+index 000000000..9e40391db
+--- /dev/null
++++ b/src/models/openai-privacy-filter.cpp
+@@ -0,0 +1,219 @@
++#include "models.h"
++
++// openai/privacy-filter + OpenMed/privacy-filter-multilingual.
++//
++// A gpt-oss MoE *body* (8 layers, 14/2 heads, head_dim 64, d_model 640,
++// 128 experts top-4, o200k vocab, attention sinks, YaRN) re-purposed as a
++// BIDIRECTIONAL token classifier. The body is identical to llama_model_openai_moe;
++// the differences are all "this is an encoder with a per-token classification
++// head", not "the transformer block is different":
++//
++//   1. non-causal attention over a SYMMETRIC sliding-window band, no KV cache
++//      (build_attn_inp_no_cache instead of the kv_iswa input);
++//   2. every layer is windowed (uniform band) — no alternating dense layers;
++//   3. NO build_inp_out_ids() pruning: a token classifier needs a logit for
++//      every token, so we must not collapse to the last token;
++//   4. NO LM head. The graph stops at the per-token hidden states (res->t_embd);
++//      the framework then calls build_pooling(), which under pooling_type ==
++//      TOKEN_CLS applies model.cls_out (+cls_out_b) to each token to produce
++//      [n_cls_out, n_tokens] logits (carry-patch 0001).
++
++void llama_model_openai_privacy_filter::load_arch_hparams(llama_model_loader & ml) {
++    ml.get_key(LLM_KV_ATTENTION_LAYERNORM_RMS_EPS, hparams.f_norm_rms_eps);
++    ml.get_key(LLM_KV_EXPERT_FEED_FORWARD_LENGTH,  hparams.n_ff_exp);
++    ml.get_key(LLM_KV_ATTENTION_SLIDING_WINDOW,    hparams.n_swa);
++
++    // Bidirectional encoder.
++    hparams.causal_attn = false;
++
++    // The HF sliding_window is the window half-width (a token attends to
++    // ±sliding_window). LLAMA_SWA_TYPE_SYMMETRIC masks |p1 - p0| > n_swa/2,
++    // so n_swa = 2 * sliding_window reproduces that ±window.
++    hparams.swa_type = LLAMA_SWA_TYPE_SYMMETRIC;
++    hparams.n_swa    = 2 * hparams.n_swa;
++
++    // Uniform band: every layer is windowed (unlike gpt-oss's alternating
++    // dense/SWA pattern). set_swa_pattern(0) marks all layers SWA, so the
++    // no-cache attn path uses the symmetric mask on every layer.
++    hparams.set_swa_pattern(0);
++
++    // RoPE: the model uses YaRN with truncate=false, but ggml's rope_yarn
++    // floor()/ceil()s the interpolation-ramp boundaries, which mis-rotates Q/K
++    // in the transition band (softened attention, attenuated logits). We bake
++    // the exact HF inv_freq into per-dim rope_freqs (freq_factors) in the
++    // converter, and here disable ggml's YaRN ramp while keeping only the YaRN
++    // attention mscale. With ramp off, freq_factors fully define the per-dim
++    // frequencies; the kernel divides theta by them regardless of ext_factor.
++    const float yarn_factor = hparams.rope_freq_scale_train > 0.0f
++                                ? 1.0f / hparams.rope_freq_scale_train : 1.0f;
++    hparams.rope_attn_factor        = 1.0f + 0.1f * logf(yarn_factor);  // YaRN mscale (get_mscale, mscale=1)
++    hparams.rope_scaling_type_train = LLAMA_ROPE_SCALING_TYPE_NONE;     // no ramp; rope_freqs carry the scaling
++
++    // Every layer is SWA, so the graph reads the *_swa rope params. Base stays
++    // at the trained value; scale is 1.0 (all per-dim scaling lives in
++    // rope_freqs now, not in a global freq_scale).
++    hparams.rope_freq_base_train_swa  = hparams.rope_freq_base_train;
++    hparams.rope_freq_scale_train_swa = 1.0f;
++
++    // No dedicated size label — the privacy-filter configs are tiny
++    // (8 layers) and don't match any LLM_TYPE bucket.
++    type = LLM_TYPE_UNKNOWN;
++}
++
++void llama_model_openai_privacy_filter::load_arch_tensors(llama_model_loader &) {
++    LLAMA_LOAD_LOCALS;
++
++    const int64_t n_ff_exp = hparams.n_ff_exp;
++
++    tok_embd = create_tensor(tn(LLM_TENSOR_TOKEN_EMBD, "weight"), {n_embd, n_vocab}, 0);
++
++    output_norm = create_tensor(tn(LLM_TENSOR_OUTPUT_NORM, "weight"), {n_embd}, 0);
++
++    // Token-classification head (no LM head). The converter maps the HF
++    // `score.{weight,bias}` to `cls.output.*` (carry-patch 0002), and the
++    // arch's MODEL_TENSORS omits OUTPUT. n_cls_out is derived from the
++    // classifier label table during the generic hparams load.
++    cls_out   = create_tensor(tn(LLM_TENSOR_CLS_OUT, "weight"), {n_embd, hparams.n_cls_out}, 0);
++    cls_out_b = create_tensor(tn(LLM_TENSOR_CLS_OUT, "bias"),   {hparams.n_cls_out}, 0);
++
++    for (int i = 0; i < n_layer; ++i) {
++        auto & layer = layers[i];
++
++        layer.attn_norm      = create_tensor(tn(LLM_TENSOR_ATTN_NORM,      "weight", i), {n_embd}, 0);
++        layer.attn_post_norm = create_tensor(tn(LLM_TENSOR_ATTN_POST_NORM, "weight", i), {n_embd}, 0);
++
++        create_tensor_qkv(layer, i, n_embd, n_head * n_rot, n_head_kv * n_rot, n_head_kv * n_rot, 0);
++        layer.wo = create_tensor(tn(LLM_TENSOR_ATTN_OUT, "weight", i), {n_head * n_rot, n_embd}, 0);
++
++        layer.attn_sinks = create_tensor(tn(LLM_TENSOR_ATTN_SINKS, "weight", i), {n_head}, 0);
++
++        // Per-dim RoPE frequency factors (single shared "rope_freqs.weight";
++        // ROPE_FREQS has no per-layer name, so every layer resolves the same
++        // tensor). Carries the exact HF YaRN inv_freq; see load_arch_hparams.
++        layer.rope_freqs = create_tensor(tn(LLM_TENSOR_ROPE_FREQS, "weight", i), {n_rot/2}, TENSOR_NOT_REQUIRED | (i != 0 ? TENSOR_DUPLICATED : 0));
++
++        layer.ffn_gate_inp  = create_tensor(tn(LLM_TENSOR_FFN_GATE_INP,  "weight", i), {  n_embd, n_expert}, 0);
++        layer.ffn_gate_exps = create_tensor(tn(LLM_TENSOR_FFN_GATE_EXPS, "weight", i), {  n_embd, n_ff_exp, n_expert}, 0);
++        layer.ffn_down_exps = create_tensor(tn(LLM_TENSOR_FFN_DOWN_EXPS, "weight", i), {n_ff_exp,   n_embd, n_expert}, 0);
++        layer.ffn_up_exps   = create_tensor(tn(LLM_TENSOR_FFN_UP_EXPS,   "weight", i), {  n_embd, n_ff_exp, n_expert}, 0);
++
++        layer.wo_b = create_tensor(tn(LLM_TENSOR_ATTN_OUT, "bias", i), {n_embd}, 0);
++
++        layer.ffn_gate_inp_b  = create_tensor(tn(LLM_TENSOR_FFN_GATE_INP,  "bias", i), {n_expert}, 0);
++        layer.ffn_gate_exps_b = create_tensor(tn(LLM_TENSOR_FFN_GATE_EXPS, "bias", i), {n_ff_exp, n_expert}, 0);
++        layer.ffn_down_exps_b = create_tensor(tn(LLM_TENSOR_FFN_DOWN_EXPS, "bias", i), {  n_embd, n_expert}, 0);
++        layer.ffn_up_exps_b   = create_tensor(tn(LLM_TENSOR_FFN_UP_EXPS,   "bias", i), {n_ff_exp, n_expert}, 0);
++    }
++}
++
++std::unique_ptr<llm_graph_context> llama_model_openai_privacy_filter::build_arch_graph(const llm_graph_params & params) const {
++    return std::make_unique<graph>(*this, params);
++}
++
++llama_model_openai_privacy_filter::graph::graph(const llama_model & model, const llm_graph_params & params) : llm_graph_context(params) {
++    ggml_tensor * cur;
++    ggml_tensor * inpL;
++
++    inpL = build_inp_embd(model.tok_embd);
++
++    // inp_pos - contains the positions (used by RoPE)
++    ggml_tensor * inp_pos = build_inp_pos();
++
++    // Bidirectional encoder: no KV cache, non-causal. The symmetric
++    // sliding-window band is applied via the no-cache SWA mask, which
++    // build_attn_inp_no_cache() allocates because swa_type != NONE.
++    auto * inp_attn = build_attn_inp_no_cache();
++
++    // NOTE: deliberately no build_inp_out_ids() / ggml_get_rows() pruning —
++    // a token classifier produces a logit per token, so every position must
++    // survive to the classification head.
++
++    for (int il = 0; il < n_layer; ++il) {
++        const float freq_base_l  = model.get_rope_freq_base (cparams, il);
++        const float freq_scale_l = model.get_rope_freq_scale(cparams, il);
++
++        ggml_tensor * inpSA = inpL;
++
++        // Per-dim YaRN frequency factors (see load_arch_hparams): bypasses
++        // ggml's truncate=true ramp and reproduces the HF inv_freq exactly.
++        ggml_tensor * rope_factors = model.get_rope_factors(cparams, il);
++
++        // norm
++        cur = build_norm(inpL,
++                model.layers[il].attn_norm, nullptr,
++                LLM_NORM_RMS, il);
++        cb(cur, "attn_norm", il);
++
++        // self-attention
++        {
++            auto [Qcur, Kcur, Vcur] = build_qkv(model.layers[il], cur,
++                    n_rot, n_head, n_head_kv, il);
++
++            Qcur = ggml_rope_ext(
++                    ctx0, Qcur, inp_pos, rope_factors,
++                    n_rot, rope_type, n_ctx_orig, freq_base_l, freq_scale_l,
++                    ext_factor, attn_factor, beta_fast, beta_slow
++                    );
++
++            Kcur = ggml_rope_ext(
++                    ctx0, Kcur, inp_pos, rope_factors,
++                    n_rot, rope_type, n_ctx_orig, freq_base_l, freq_scale_l,
++                    ext_factor, attn_factor, beta_fast, beta_slow
++                    );
++
++            cb(Qcur, "Qcur", il);
++            cb(Kcur, "Kcur", il);
++            cb(Vcur, "Vcur", il);
++
++            cur = build_attn(inp_attn,
++                    model.layers[il].wo, model.layers[il].wo_b, model.layers[il].wo_s,
++                    Qcur, Kcur, Vcur, nullptr, model.layers[il].attn_sinks, nullptr, 1.0f/sqrtf(float(n_rot)), il);
++
++            cb(cur, "attn_out", il);
++        }
++
++        ggml_tensor * ffn_inp = ggml_add(ctx0, cur, inpSA);
++        cb(ffn_inp, "ffn_inp", il);
++
++        cur = build_norm(ffn_inp,
++                model.layers[il].attn_post_norm, nullptr,
++                LLM_NORM_RMS, il);
++        cb(cur, "attn_post_norm", il);
++
++        // MoE branch
++        cur = build_moe_ffn(cur,
++                model.layers[il].ffn_gate_inp,  model.layers[il].ffn_gate_inp_b,
++                model.layers[il].ffn_up_exps,   model.layers[il].ffn_up_exps_b,
++                model.layers[il].ffn_gate_exps, model.layers[il].ffn_gate_exps_b,
++                model.layers[il].ffn_down_exps, model.layers[il].ffn_down_exps_b,
++                nullptr,
++                n_expert, n_expert_used,
++                LLM_FFN_SWIGLU_OAI_MOE, false,
++                hparams.expert_weights_scale,
++                LLAMA_EXPERT_GATING_FUNC_TYPE_SOFTMAX_WEIGHT,
++                il);
++        cb(cur, "ffn_moe_out", il);
++
++        cur = ggml_add(ctx0, cur, ffn_inp);
++
++        cur = build_cvec(cur, il);
++        cb(cur, "l_out", il);
++
++        // input for next layer
++        inpL = cur;
++    }
++    cur = inpL;
++
++    cur = build_norm(cur,
++            model.output_norm, NULL,
++            LLM_NORM_RMS, -1);
++
++    cb(cur, "result_norm", -1);
++
++    // Stop at the per-token hidden states. The framework calls
++    // build_pooling() next; under pooling_type == TOKEN_CLS it applies
++    // model.cls_out (+cls_out_b) to every token (carry-patch 0001).
++    res->t_embd = cur;
++
++    ggml_build_forward_expand(gf, cur);
++}

@@ -1,5 +1,19 @@
 package meta
 
+import "github.com/mudler/LocalAI/core/services/routing/piipattern"
+
+// builtinPatternOptions turns the piipattern built-in catalogue into select
+// options for the editor's built-in-patterns checklist, keeping the catalogue
+// the single source of truth.
+func builtinPatternOptions() []FieldOption {
+	cat := piipattern.BuiltinCatalogue()
+	out := make([]FieldOption, 0, len(cat))
+	for _, b := range cat {
+		out = append(out, FieldOption{Value: b.Name, Label: b.Name + " — " + b.Description})
+	}
+	return out
+}
+
 // DefaultRegistry returns enrichment overrides for the ~30 most commonly used
 // config fields. Fields not listed here still appear with auto-generated
 // labels and type-inferred components.
@@ -226,6 +240,7 @@ func DefaultRegistry() map[string]FieldMetaOverride {
 			Label:       "Chat Template",
 			Description: "Go template for chat completion requests",
 			Component:   "code-editor",
+			Language:    "gotemplate",
 			Order:       40,
 		},
 		"template.chat_message": {
@@ -233,6 +248,7 @@ func DefaultRegistry() map[string]FieldMetaOverride {
 			Label:       "Chat Message Template",
 			Description: "Go template for individual chat messages",
 			Component:   "code-editor",
+			Language:    "gotemplate",
 			Order:       41,
 		},
 		"template.completion": {
@@ -240,13 +256,22 @@ func DefaultRegistry() map[string]FieldMetaOverride {
 			Label:       "Completion Template",
 			Description: "Go template for completion requests",
 			Component:   "code-editor",
+			Language:    "gotemplate",
 			Order:       42,
+		},
+		"template.function": {
+			Section:     "templates",
+			Label:       "Functions Template",
+			Description: "Go template applied when tools/functions are present in the request",
+			Component:   "code-editor",
+			Language:    "gotemplate",
+			Order:       43,
 		},
 		"template.use_tokenizer_template": {
 			Section:     "templates",
 			Label:       "Use Tokenizer Template",
 			Description: "Use the chat template from the model's tokenizer config",
-			Order:       43,
+			Order:       44,
 		},
 		// Router section template — kept in the templates UI section
 		// (rather than the router section under "other") so operators
@@ -257,7 +282,8 @@ func DefaultRegistry() map[string]FieldMetaOverride {
 			Label:       "Router Classifier System Prompt",
 			Description: "Go text/template (with sprig functions) for the routing system prompt the score classifier feeds to its classifier_model. Executed with `.Policies` ([]{Label, Description}). Empty falls back to the built-in Arch-Router-shaped prompt (route-listing block + JSON output schema). Override when the classifier model was trained on a different schema or you need the routing instructions in a different language. The candidate format scored against the model is fixed at `{\"route\": \"<label>\"}` — keep your override's output schema instruction matching that.",
 			Component:   "code-editor",
-			Order:       44,
+			Language:    "gotemplate",
+			Order:       45,
 		},
 
 		// --- Pipeline ---
@@ -365,18 +391,66 @@ func DefaultRegistry() map[string]FieldMetaOverride {
 
 		// --- PII filtering (per-model) ---
 		"pii.enabled": {
-			Section:     "other",
+			Section:     "pii",
 			Label:       "PII Filtering Enabled",
 			Description: "Enable PII redaction middleware for this model. Unset means use the default (off for local backends, on for proxy-* / cloud-hosted backends).",
 			Component:   "toggle",
 			Order:       200,
 		},
-		"pii.patterns": {
-			Section:     "other",
-			Label:       "PII Pattern Overrides",
-			Description: "Override the global default action for specific patterns on this model. Patterns not listed here inherit the global action (Settings → Middleware → Filtering).",
+		"pii.detectors": {
+			Section:              "pii",
+			Label:                "PII Detector Models",
+			Description:          "Token-classification (NER) models that scan this model's requests for PII. The detection policy (which entities, what action, min score) lives on each detector model's own PII Detection block. Multiple detectors union their hits.",
+			Component:            "model-multi-select",
+			AutocompleteProvider: "models:token_classify",
+			Order:                201,
+		},
+
+		// --- PII detection policy (on a token_classify detector model) ---
+		"pii_detection.min_score": {
+			Section:     "pii",
+			Label:       "Detector Min Score",
+			Description: "When this model is used as a PII detector, drop detections scored below this confidence before they are acted on. 0 keeps every detection.",
+			Component:   "slider",
+			Min:         f64(0),
+			Max:         f64(1),
+			Step:        f64(0.01),
+			Order:       210,
+		},
+		"pii_detection.default_action": {
+			Section:     "pii",
+			Label:       "Detector Default Action",
+			Description: "Action applied to detected entity groups with no explicit per-entity override. Defaults to mask — the safe-by-default policy for a PII filter.",
+			Component:   "select",
+			Options: []FieldOption{
+				{Value: "mask", Label: "mask (redact the span)"},
+				{Value: "block", Label: "block (reject the request)"},
+				{Value: "allow", Label: "allow (detect & log only)"},
+			},
+			Default: "mask",
+			Order:   211,
+		},
+		"pii_detection.entity_actions": {
+			Section:     "pii",
+			Label:       "Detector Entity Actions",
+			Description: "Per-entity-group action policy for this detector model (e.g. PASSWORD → block, EMAIL → mask). Groups without an entry use the default action.",
+			Component:   "entity-action-list",
+			Order:       212,
+		},
+		"pii_detection.builtins": {
+			Section:     "pii",
+			Label:       "Built-in Secret Patterns",
+			Description: "Built-in regex patterns for common credentials (API keys, tokens, private keys). Turning any on makes this a pattern detector — it matches high-entropy secrets the NER tier can't, in-process with no model load.",
+			Component:   "pii-builtins-select",
+			Options:     builtinPatternOptions(),
+			Order:       213,
+		},
+		"pii_detection.patterns": {
+			Section:     "pii",
+			Label:       "Custom Secret Patterns",
+			Description: "Operator-defined patterns in a restricted regex subset (e.g. \"sk-prefix-\\w+\"). Each must contain a fixed literal anchor of ≥3 chars; open-ended shapes like emails are rejected (leave those to NER). Matches report under the pattern name as the entity group.",
 			Component:   "pii-pattern-list",
-			Order:       201,
+			Order:       214,
 		},
 
 		// --- Cloud passthrough proxy ---
@@ -385,7 +459,7 @@ func DefaultRegistry() map[string]FieldMetaOverride {
 		// fails closed — the chat handler does NOT silently fall back
 		// to the local gRPC pipeline.
 		"proxy.mode": {
-			Section:     "other",
+			Section:     "proxy",
 			Label:       "Proxy Mode",
 			Description: "passthrough forwards the client's OpenAI body verbatim — point upstream_url at an OpenAI-compatible endpoint (incl. Anthropic's /v1/chat/completions compat layer). translate converts OpenAI ↔ Anthropic Messages so you can target a native API (/v1/messages); tool_calls and usage tokens survive the round-trip.",
 			Component:   "select",
@@ -397,7 +471,7 @@ func DefaultRegistry() map[string]FieldMetaOverride {
 			Order:   208,
 		},
 		"proxy.provider": {
-			Section:     "other",
+			Section:     "proxy",
 			Label:       "Proxy Provider",
 			Description: "Upstream API family. Drives auth header shape (Bearer vs x-api-key + anthropic-version) and, in translate mode, which request/response codec is used.",
 			Component:   "select",
@@ -409,28 +483,28 @@ func DefaultRegistry() map[string]FieldMetaOverride {
 			Order:   209,
 		},
 		"proxy.upstream_url": {
-			Section:     "other",
+			Section:     "proxy",
 			Label:       "Proxy Upstream URL",
 			Description: "Full POST endpoint of the upstream provider (e.g. https://api.openai.com/v1/chat/completions). Only used when Backend is cloud-proxy.",
 			Component:   "input",
 			Order:       210,
 		},
 		"proxy.api_key_env": {
-			Section:     "other",
+			Section:     "proxy",
 			Label:       "Proxy API Key Env Var",
 			Description: "Name of the environment variable holding the upstream API key. Reading from env keeps the secret out of the YAML and the admin UI.",
 			Component:   "input",
 			Order:       211,
 		},
 		"proxy.upstream_model": {
-			Section:     "other",
+			Section:     "proxy",
 			Label:       "Proxy Upstream Model",
 			Description: "Model name sent to the upstream. Leave empty to forward the client's model field unchanged. Useful when the LocalAI alias differs from the upstream's canonical name.",
 			Component:   "input",
 			Order:       212,
 		},
 		"proxy.request_timeout_seconds": {
-			Section:     "other",
+			Section:     "proxy",
 			Label:       "Proxy Request Timeout (seconds)",
 			Description: "Caps the upstream HTTP request duration. 0 disables the deadline; the request still ends when the client disconnects.",
 			Component:   "number",
@@ -445,7 +519,7 @@ func DefaultRegistry() map[string]FieldMetaOverride {
 		// A host claimed by two configs is a critical error — the
 		// listener refuses to start until resolved.
 		"mitm.hosts": {
-			Section:     "other",
+			Section:     "mitm",
 			Label:       "MITM Intercept Hosts",
 			Description: "Hostnames the cloudproxy MITM proxy terminates TLS for on behalf of this model config. PII filtering and pattern overrides flow from this model when the host is intercepted. Each host must be unique across all configs.",
 			Component:   "string-list",
@@ -460,7 +534,7 @@ func DefaultRegistry() map[string]FieldMetaOverride {
 		// the middleware admin page surfaces every model with a router
 		// block.
 		"router.classifier": {
-			Section:     "other",
+			Section:     "router",
 			Label:       "Classifier",
 			Description: "Picks a candidate by scoring every policy label against the prompt. Only \"score\" is shipped today; it asks the classifier_model to rank each label and reads off the softmax. Empty defaults to \"score\".",
 			Component:   "select",
@@ -470,15 +544,15 @@ func DefaultRegistry() map[string]FieldMetaOverride {
 			Order: 230,
 		},
 		"router.classifier_model": {
-			Section:              "other",
+			Section:              "router",
 			Label:                "Classifier Model",
 			Description:          "Loaded LocalAI model the score classifier asks to rank each policy label as a continuation. Must support the Score gRPC primitive (today: llama-cpp, vLLM) and use the ChatML template. Arch-Router-1.5B Q4_K_M is the canonical choice; any small ChatML instruct model also works at a higher activation_threshold.",
 			Component:            "model-select",
-			AutocompleteProvider: ProviderModelsChat,
+			AutocompleteProvider: ProviderModelsScore,
 			Order:                231,
 		},
 		"router.fallback": {
-			Section:              "other",
+			Section:              "router",
 			Label:                "Fallback Model",
 			Description:          "Model used when no candidate's labels cover the classifier's active label set, or when the classifier errors. Empty means router failures bubble up as HTTP 500 — fail-fast, not silent-bypass.",
 			Component:            "model-select",
@@ -486,7 +560,7 @@ func DefaultRegistry() map[string]FieldMetaOverride {
 			Order:                232,
 		},
 		"router.activation_threshold": {
-			Section:     "other",
+			Section:     "router",
 			Label:       "Activation Threshold",
 			Description: "Softmax-probability floor a policy must clear to join the active label set for a request. Higher → single-label dominant routes; lower → more multi-label activations. 0 picks the package default (0.15). On Arch-Router-1.5B a value around 0.40 keeps the dominant label clean without losing genuine compound activations.",
 			Component:   "slider",
@@ -496,7 +570,7 @@ func DefaultRegistry() map[string]FieldMetaOverride {
 			Order:       233,
 		},
 		"router.classifier_cache_size": {
-			Section:     "other",
+			Section:     "router",
 			Label:       "Classifier L1 Cache Size",
 			Description: "Bounded LRU keyed on (case-folded, whitespace-trimmed) prompt — amortises the classifier round-trip across verbatim repeats common in agent loops. 0 here means \"use the default\" (1024); the cache cannot be disabled from YAML.",
 			Component:   "number",
@@ -504,21 +578,21 @@ func DefaultRegistry() map[string]FieldMetaOverride {
 			Order:       234,
 		},
 		"router.policies": {
-			Section:     "other",
+			Section:     "router",
 			Label:       "Policies",
 			Description: "Label vocabulary the classifier scores over. Each policy has a label and a short natural-language description fed verbatim to the classifier model. Short action-oriented sentences work best (\"writing or debugging code\"; \"small talk\").",
 			Component:   "router-policies",
 			Order:       235,
 		},
 		"router.candidates": {
-			Section:     "other",
+			Section:     "router",
 			Label:       "Candidates",
 			Description: "Routing table: each entry binds a downstream model to a set of policy labels it can serve. Order matters — the middleware picks the FIRST candidate whose labels are a superset of the active set, so list candidates smallest → largest.",
 			Component:   "router-candidates",
 			Order:       236,
 		},
 		"router.score_normalization": {
-			Section:     "other",
+			Section:     "router",
 			Label:       "Score Normalization",
 			Description: "How the score classifier collapses per-candidate joint log-probs into the softmax input. \"raw\" (default) feeds joint log-prob as-is — on-distribution for Arch-Router (the route the model would actually emit if decoded freely). \"mean\" divides by candidate token count — fairer to long labels but off-distribution for models trained to emit fixed-format outputs.",
 			Component:   "select",
@@ -530,7 +604,7 @@ func DefaultRegistry() map[string]FieldMetaOverride {
 			Order: 240,
 		},
 		"router.embedding_cache.embedding_model": {
-			Section:              "other",
+			Section:              "router",
 			Label:                "L2 Cache: Embedding Model",
 			Description:          "Embedding model used by the L2 decision cache. Embeds incoming probes and looks them up in the per-router local-store collection. Empty disables the cache entirely. nomic-embed-text-v1.5 is the recommended default.",
 			Component:            "model-select",
@@ -538,7 +612,7 @@ func DefaultRegistry() map[string]FieldMetaOverride {
 			Order:                237,
 		},
 		"router.embedding_cache.similarity_threshold": {
-			Section:     "other",
+			Section:     "router",
 			Label:       "L2 Cache: Similarity Threshold",
 			Description: "Cosine-similarity floor a cache candidate must clear to count as a hit. 0 picks the package default (0.80). Re-tune per embedding model — the histogram on the Routing tab shows where the cosine distribution actually sits.",
 			Component:   "slider",
@@ -548,7 +622,7 @@ func DefaultRegistry() map[string]FieldMetaOverride {
 			Order:       238,
 		},
 		"router.embedding_cache.confidence_threshold": {
-			Section:     "other",
+			Section:     "router",
 			Label:       "L2 Cache: Confidence Threshold",
 			Description: "Minimum top-label probability a classifier decision must have to be inserted into the cache. 0 picks the package default (0.60). Uncertain decisions are skipped so they can't poison future paraphrases.",
 			Component:   "slider",
@@ -558,7 +632,7 @@ func DefaultRegistry() map[string]FieldMetaOverride {
 			Order:       239,
 		},
 		"router.embedding_cache.store_name": {
-			Section:     "other",
+			Section:     "router",
 			Label:       "L2 Cache: Store Name",
 			Description: "Optional override for the local-store collection used by this router's cache. Empty defaults to \"router-cache-<router-model-name>\". Two routers sharing a store_name share their cache (rare).",
 			Component:   "input",

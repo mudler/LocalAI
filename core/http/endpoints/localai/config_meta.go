@@ -124,6 +124,10 @@ func AutocompleteEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, a
 				filterFn = config.BuildUsecaseFilterFn(config.FLAG_VAD)
 			case config.UsecaseTranscript:
 				filterFn = config.BuildUsecaseFilterFn(config.FLAG_TRANSCRIPT)
+			case "score": // router classifier usecase (FLAG_SCORE); not in UsecaseInfoMap
+				filterFn = config.BuildUsecaseFilterFn(config.FLAG_SCORE)
+			case config.UsecaseTokenClassify: // PII NER detector usecase (FLAG_TOKEN_CLASSIFY)
+				filterFn = config.BuildUsecaseFilterFn(config.FLAG_TOKEN_CLASSIFY)
 			default:
 				filterFn = config.NoFilterFn
 			}

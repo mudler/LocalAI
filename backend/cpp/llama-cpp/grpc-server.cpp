@@ -38,6 +38,7 @@
 #include <cstdlib>
 #include <fstream>
 #include <iterator>
+#include <limits>
 #include <list>
 #include <map>
 #include <mutex>
@@ -1239,6 +1240,232 @@ static void params_parse(server_context& /*ctx_server*/, const backend::ModelOpt
         }
     }
 }
+
+
+// ============================================================================
+// Token-classification (NER) support for the openai-privacy-filter arch.
+//
+// The model emits BIOES-tagged per-token logits (217 classes for the
+// multilingual privacy filter: "O" plus {B,I,E,S}-<CATEGORY>). We decode the
+// most likely *valid* BIOES path with a constrained linear-chain Viterbi (the
+// model's 6 transition biases are all 0.0 in the shipped
+// viterbi_calibration.json, so only the structural BIOES constraints apply),
+// assemble spans, and map token spans to UTF-8 byte offsets in the source text.
+//
+// Receptive-field note: attention is a symmetric +/-sliding_window band PER
+// LAYER, so after n_layer layers a token's logits depend on its
+// +/-(n_layer * sliding_window) neighbourhood -- NOT +/-sliding_window. Windowed
+// inference for long inputs must therefore use a halo of n_layer*sliding_window
+// to stay bit-exact with a single forward (see TokenClassify below).
+// ============================================================================
+namespace pf_ner {
+
+// Per-layer attention half-window for openai-privacy-filter (config
+// sliding_window = 128). Only used to size the windowing halo for inputs that
+// exceed a single forward; short inputs (the common PII case) never window.
+static constexpr int PF_SLIDING_WINDOW = 128;
+
+enum bioes_tag { TAG_O = 0, TAG_B, TAG_I, TAG_E, TAG_S };
+
+struct label_info {
+    bioes_tag tag;
+    int       cat; // index into label_table::categories; -1 for O / unknown
+};
+
+// Parsed view of the model's classifier labels.
+struct label_table {
+    std::vector<label_info>  labels;     // size n_cls, indexed by class id
+    std::vector<std::string> categories; // distinct entity-group names
+    int                      o_label = 0;  // class id of the "O" (outside) label
+
+    // Per-category open-state class ids (B/I), used by the Viterbi inner loop.
+    struct open_ids { int b = -1; int i = -1; };
+    std::vector<open_ids> per_cat;
+
+    const std::string & category_name(int cat) const { return categories[cat]; }
+};
+
+// Split a "B-CATEGORY" label into its BIOES tag and category name. The model's
+// labels use a single '-' separator and category names contain none (verified
+// against the GGUF metadata).
+static label_table build_label_table(const llama_model * model) {
+    label_table t;
+    const uint32_t n = llama_model_n_cls_out(model);
+    t.labels.resize(n, { TAG_O, -1 });
+    std::map<std::string, int> cat_index;
+    bool found_o = false;
+    for (uint32_t i = 0; i < n; i++) {
+        const char * raw = llama_model_cls_label(model, i);
+        std::string s = raw ? raw : "";
+        if (s.empty() || s == "O") {
+            t.labels[i] = { TAG_O, -1 };
+            if (!found_o) { t.o_label = (int) i; found_o = true; }
+            continue;
+        }
+        bioes_tag tag;
+        switch (s[0]) {
+            case 'B': tag = TAG_B; break;
+            case 'I': tag = TAG_I; break;
+            case 'E': tag = TAG_E; break;
+            case 'S': tag = TAG_S; break;
+            default:  t.labels[i] = { TAG_O, -1 }; continue; // unknown -> treat as O
+        }
+        const size_t dash = s.find('-');
+        const std::string cat = (dash == std::string::npos) ? s : s.substr(dash + 1);
+        int ci;
+        auto it = cat_index.find(cat);
+        if (it == cat_index.end()) {
+            ci = (int) t.categories.size();
+            cat_index.emplace(cat, ci);
+            t.categories.push_back(cat);
+        } else {
+            ci = it->second;
+        }
+        t.labels[i] = { tag, ci };
+    }
+    t.per_cat.assign(t.categories.size(), {});
+    for (uint32_t i = 0; i < n; i++) {
+        const auto & li = t.labels[i];
+        if (li.cat < 0) continue;
+        if (li.tag == TAG_B) t.per_cat[li.cat].b = (int) i;
+        if (li.tag == TAG_I) t.per_cat[li.cat].i = (int) i;
+    }
+    return t;
+}
+
+static inline bool tag_is_closed(bioes_tag tg) { return tg == TAG_O || tg == TAG_E || tg == TAG_S; }
+
+// Constrained linear-chain Viterbi over BIOES. `emit` is row-major
+// [n_tok * n_cls] of per-token LOG-probabilities. Returns the best valid label
+// per token. Exploits the BIOES structure so each step is O(n_cls), not
+// O(n_cls^2): a fresh label (O/B/S) may only follow a closed state (O/E/S) and
+// can take the single best closed predecessor; a continuation (I/E of category
+// c) may only follow B-c or I-c. Falls back to per-token argmax only if no
+// valid path survives numerically (the all-O path always exists, so this is a
+// safety net).
+static std::vector<int> bioes_viterbi(const label_table & lt,
+                                      const std::vector<float> & emit,
+                                      int n_tok, int n_cls) {
+    const float NEG = -std::numeric_limits<float>::infinity();
+    std::vector<float> prev_dp(n_cls, NEG), dp(n_cls, NEG);
+    std::vector<int>   bp((size_t) n_tok * n_cls, -1);
+
+    // t == 0: a span may only start with O / B / S.
+    for (int j = 0; j < n_cls; j++) {
+        const bioes_tag tg = lt.labels[j].tag;
+        if (tg == TAG_O || tg == TAG_B || tg == TAG_S) prev_dp[j] = emit[j];
+    }
+
+    for (int t = 1; t < n_tok; t++) {
+        std::fill(dp.begin(), dp.end(), NEG);
+        const float * e = &emit[(size_t) t * n_cls];
+
+        // best closed predecessor (O/E/S) from the previous step
+        float best_closed = NEG; int best_closed_arg = -1;
+        for (int i = 0; i < n_cls; i++) {
+            if (prev_dp[i] == NEG) continue;
+            if (tag_is_closed(lt.labels[i].tag) && prev_dp[i] > best_closed) {
+                best_closed = prev_dp[i];
+                best_closed_arg = i;
+            }
+        }
+
+        for (int j = 0; j < n_cls; j++) {
+            const auto & lj = lt.labels[j];
+            float pred = NEG; int arg = -1;
+            if (lj.tag == TAG_O || lj.tag == TAG_B || lj.tag == TAG_S) {
+                pred = best_closed; arg = best_closed_arg; // fresh start
+            } else {
+                // I-c or E-c: predecessor must be B-c or I-c
+                const auto & oc = lt.per_cat[lj.cat];
+                if (oc.b >= 0 && prev_dp[oc.b] > pred) { pred = prev_dp[oc.b]; arg = oc.b; }
+                if (oc.i >= 0 && prev_dp[oc.i] > pred) { pred = prev_dp[oc.i]; arg = oc.i; }
+            }
+            if (arg >= 0 && pred != NEG) {
+                dp[j] = pred + e[j];
+                bp[(size_t) t * n_cls + j] = arg;
+            }
+        }
+        prev_dp.swap(dp);
+    }
+
+    // terminate only on a closed state (no dangling B/I span)
+    float best = NEG; int arg = -1;
+    for (int j = 0; j < n_cls; j++) {
+        if (prev_dp[j] == NEG) continue;
+        if (tag_is_closed(lt.labels[j].tag) && prev_dp[j] > best) { best = prev_dp[j]; arg = j; }
+    }
+
+    std::vector<int> path(n_tok, lt.o_label);
+    if (arg < 0) {
+        for (int t = 0; t < n_tok; t++) {
+            const float * e = &emit[(size_t) t * n_cls];
+            int a = 0; float m = e[0];
+            for (int j = 1; j < n_cls; j++) if (e[j] > m) { m = e[j]; a = j; }
+            path[t] = a;
+        }
+        return path;
+    }
+    int cur = arg;
+    for (int t = n_tok - 1; t >= 0; t--) {
+        path[t] = cur;
+        if (t > 0) cur = bp[(size_t) t * n_cls + cur];
+    }
+    return path;
+}
+
+// One assembled entity span over token indices [tok_begin, tok_end] inclusive.
+struct span {
+    int cat;
+    int tok_begin;
+    int tok_end;
+    float score; // mean per-token probability of the chosen labels
+};
+
+// Walk a (valid) BIOES label path into spans. Viterbi guarantees validity, so
+// B is always closed by a matching E and S stands alone.
+static std::vector<span> assemble_spans(const label_table & lt,
+                                        const std::vector<int> & path,
+                                        const std::vector<float> & emit,
+                                        int n_cls) {
+    std::vector<span> out;
+    int n_tok = (int) path.size();
+    int begin = -1, cat = -1;
+    double prob_sum = 0.0;
+    auto prob_at = [&](int t) {
+        return (double) std::exp(emit[(size_t) t * n_cls + path[t]]);
+    };
+    for (int t = 0; t < n_tok; t++) {
+        const auto & li = lt.labels[path[t]];
+        switch (li.tag) {
+            case TAG_S:
+                out.push_back({ li.cat, t, t, (float) prob_at(t) });
+                begin = -1;
+                break;
+            case TAG_B:
+                begin = t; cat = li.cat; prob_sum = prob_at(t);
+                break;
+            case TAG_I:
+                if (begin >= 0 && li.cat == cat) prob_sum += prob_at(t);
+                break;
+            case TAG_E:
+                if (begin >= 0 && li.cat == cat) {
+                    prob_sum += prob_at(t);
+                    const int len = t - begin + 1;
+                    out.push_back({ cat, begin, t, (float) (prob_sum / len) });
+                }
+                begin = -1;
+                break;
+            case TAG_O:
+            default:
+                begin = -1;
+                break;
+        }
+    }
+    return out;
+}
+
+} // namespace pf_ner
 
 
 // GRPC Server start
@@ -3403,6 +3630,186 @@ public:
         return grpc::Status::OK;
     }
 
+    // TokenClassify runs the openai-privacy-filter token classifier (a
+    // bidirectional MoE encoder with a per-token BIOES head) over the supplied
+    // text and returns the detected entity spans. It mirrors Score's
+    // direct-decode strategy (bypassing the slot/task queue) because it needs
+    // full control over batch construction, per-token logit readout, and
+    // overlapping-window stitching for long inputs.
+    //
+    // The model must be loaded with embeddings enabled and TOKEN_CLS pooling
+    // (the converter writes pooling_type = TOKEN_CLS into the GGUF, so a model
+    // YAML only needs `embeddings: true`). Pipeline:
+    //   tokenize (+offsets) -> windowed non-causal forward -> per-token
+    //   log_softmax -> constrained BIOES Viterbi -> spans -> byte offsets.
+    grpc::Status TokenClassify(ServerContext* context, const backend::TokenClassifyRequest* request, backend::TokenClassifyResponse* response) override {
+        auto auth = checkAuth(context);
+        if (!auth.ok()) return auth;
+        if (params_base.model.path.empty()) {
+            return grpc::Status(grpc::StatusCode::FAILED_PRECONDITION, "Model not loaded");
+        }
+
+        // Tripwire against the slot loop + serialise concurrent TokenClassify
+        // calls, exactly as Score does (see Score's class comment): we drive
+        // llama_decode directly, so we must not race the slot loop or another
+        // direct-decode RPC.
+        conflict_guard guard("TokenClassify", score_inflight, slot_loop_inflight, "slot_loop_inflight");
+        static std::mutex token_classify_mutex;
+        std::lock_guard<std::mutex> tc_lock(token_classify_mutex);
+
+        llama_context * lctx = ctx_server.get_llama_context();
+        if (lctx == nullptr) {
+            return grpc::Status(grpc::StatusCode::FAILED_PRECONDITION, "llama context unavailable (sleeping?)");
+        }
+        if (!params_base.embedding || llama_pooling_type(lctx) != LLAMA_POOLING_TYPE_TOKEN_CLS) {
+            return grpc::Status(grpc::StatusCode::UNIMPLEMENTED,
+                "This model does not support token classification. Load a TOKEN_CLS-pooling model (e.g. openai-privacy-filter) with `embeddings: true`");
+        }
+
+        const llama_model * model = ctx_server.impl->model_tgt;
+        const llama_vocab * vocab = ctx_server.impl->vocab;
+        const int n_cls = (int) llama_model_n_cls_out(model);
+        const int n_embd_out = llama_model_n_embd_out(model);
+        if (n_cls <= 0 || n_embd_out != n_cls) {
+            return grpc::Status(grpc::StatusCode::INTERNAL,
+                "TokenClassify: unexpected classifier output width (n_cls_out=" + std::to_string(n_cls) +
+                ", n_embd_out=" + std::to_string(n_embd_out) + ")");
+        }
+
+        const std::string & text = request->text();
+        if (text.empty()) {
+            return grpc::Status::OK; // no text -> no entities
+        }
+
+        // Tokenize once. add_special matches the verified llama-embedding parity
+        // path; rendering pieces with special=false makes any control tokens
+        // (e.g. an injected BOS) zero-width so they never fall inside a span and
+        // do not perturb byte offsets.
+        std::vector<llama_token> tokens = common_tokenize(vocab, text, /*add_special=*/true, /*parse_special=*/true);
+        const int n_tok = (int) tokens.size();
+        if (n_tok == 0) {
+            return grpc::Status::OK;
+        }
+
+        // Per-token UTF-8 byte offsets into `text`, by accumulating piece lengths.
+        // o200k is byte-level reversible, so piece concatenation reproduces the
+        // input bytes exactly; we validate and warn (best-effort) if it doesn't.
+        std::vector<int> tok_off(n_tok), tok_end(n_tok);
+        {
+            size_t running = 0;
+            for (int k = 0; k < n_tok; k++) {
+                std::string piece = common_token_to_piece(vocab, tokens[k], /*special=*/false);
+                tok_off[k] = (int) running;
+                running += piece.size();
+                tok_end[k] = (int) running;
+            }
+            if (running != text.size()) {
+                LOG_WRN("TokenClassify: detokenized length %zu != input length %zu; byte offsets may be approximate\n",
+                        running, text.size());
+            }
+        }
+
+        // Window geometry. A single forward is exact whenever the input fits one
+        // ubatch (the common short-PII case). For longer inputs we slide
+        // overlapping windows with a halo of n_layer*sliding_window so interior
+        // tokens see their full receptive field (see the namespace note).
+        const int W = std::min<int>((int) llama_n_ubatch(lctx), (int) llama_n_ctx(lctx));
+        const int halo = (int) llama_model_n_layer(model) * pf_ner::PF_SLIDING_WINDOW;
+        if (W <= 0) {
+            return grpc::Status(grpc::StatusCode::INTERNAL, "TokenClassify: invalid ubatch/context size");
+        }
+        if (n_tok > W && W <= 2 * halo) {
+            return grpc::Status(grpc::StatusCode::OUT_OF_RANGE,
+                "TokenClassify: input (" + std::to_string(n_tok) + " tokens) exceeds the single-forward window (" +
+                std::to_string(W) + ") and exact windowing needs nbatch > " + std::to_string(2 * halo) +
+                "; increase the model's nbatch/n_ctx");
+        }
+
+        std::vector<float> emit((size_t) n_tok * n_cls);
+        llama_batch batch = llama_batch_init(W, 0, 1);
+
+        // Decode one window [start, start+wlen) and write log-softmax rows for
+        // the interior global positions [start+lo, start+hi). Positions are
+        // window-local (0..wlen-1): RoPE is relative and the symmetric band uses
+        // |p1-p0|, so local positions are equivalent to absolute ones here.
+        auto run_window = [&](int start, int wlen, int lo, int hi) -> grpc::Status {
+            common_batch_clear(batch);
+            for (int j = 0; j < wlen; j++) {
+                common_batch_add(batch, tokens[start + j], j, { 0 }, /*logits=*/true);
+            }
+            llama_memory_clear(llama_get_memory(lctx), true);
+            int rc = llama_decode(lctx, batch);
+            if (rc < 0) {
+                return grpc::Status(grpc::StatusCode::INTERNAL,
+                    "TokenClassify: llama_decode failed (" + std::to_string(rc) + ")");
+            }
+            for (int li = lo; li < hi; li++) {
+                const float * row = llama_get_embeddings_ith(lctx, li);
+                if (row == nullptr) {
+                    return grpc::Status(grpc::StatusCode::INTERNAL,
+                        "TokenClassify: null embeddings at window position " + std::to_string(li));
+                }
+                // log_softmax over the n_cls logits (fp32, max-subtraction stable)
+                float maxv = row[0];
+                for (int c = 1; c < n_cls; c++) if (row[c] > maxv) maxv = row[c];
+                double sum = 0.0;
+                for (int c = 0; c < n_cls; c++) sum += std::exp((double) (row[c] - maxv));
+                const double logsum = std::log(sum);
+                float * dst = &emit[(size_t) (start + li) * n_cls];
+                for (int c = 0; c < n_cls; c++) {
+                    dst[c] = (float) ((double) (row[c] - maxv) - logsum);
+                }
+            }
+            return grpc::Status::OK;
+        };
+
+        grpc::Status st = grpc::Status::OK;
+        if (n_tok <= W) {
+            st = run_window(0, n_tok, 0, n_tok);
+        } else {
+            const int stride = W - 2 * halo;
+            for (int start = 0; start < n_tok; start += stride) {
+                const int wlen = std::min(W, n_tok - start);
+                const int lo = (start == 0) ? 0 : halo;
+                const int hi = (start + wlen >= n_tok) ? wlen : (wlen - halo);
+                st = run_window(start, wlen, lo, hi);
+                if (!st.ok()) break;
+                if (start + wlen >= n_tok) break;
+            }
+        }
+        llama_batch_free(batch);
+        if (!st.ok()) {
+            return st;
+        }
+
+        // Decode the BIOES path and assemble spans.
+        const pf_ner::label_table lt = pf_ner::build_label_table(model);
+        const std::vector<int>    path = pf_ner::bioes_viterbi(lt, emit, n_tok, n_cls);
+        const std::vector<pf_ner::span> spans = pf_ner::assemble_spans(lt, path, emit, n_cls);
+
+        const float threshold = request->threshold();
+        for (const auto & sp : spans) {
+            if (sp.score < threshold) continue;
+            int bstart = tok_off[sp.tok_begin];
+            int bend   = tok_end[sp.tok_end];
+            if (bstart < 0 || bend > (int) text.size() || bstart >= bend) continue;
+            // Trim leading/trailing ASCII whitespace: the o200k tokenizer folds a
+            // leading space into the token piece, so a span would otherwise read
+            // " John" instead of "John" — masking the trimmed form is cleaner.
+            while (bstart < bend && (unsigned char) text[bstart] <= ' ') bstart++;
+            while (bend > bstart && (unsigned char) text[bend - 1] <= ' ') bend--;
+            if (bstart >= bend) continue;
+            backend::TokenClassifyEntity * ent = response->add_entities();
+            ent->set_entity_group(lt.category_name(sp.cat));
+            ent->set_start(bstart);
+            ent->set_end(bend);
+            ent->set_score(sp.score);
+            ent->set_text(text.substr(bstart, (size_t) (bend - bstart)));
+        }
+
+        return grpc::Status::OK;
+    }
+
     grpc::Status TokenizeString(ServerContext* context, const backend::PredictOptions* request, backend::TokenizationResponse* response) override {
         auto auth = checkAuth(context);
         if (!auth.ok()) return auth;
@@ -3417,7 +3824,7 @@ public:
         if (body.count("prompt") != 0) {
             const bool add_special = json_value(body, "add_special", false);
 
-            llama_tokens tokens = tokenize_mixed(ctx_server.impl->vocab, body.at("content"), add_special, true);
+            llama_tokens tokens = tokenize_mixed(ctx_server.impl->vocab, body.at("prompt"), add_special, true);
 
 
             for (const auto& token : tokens) {

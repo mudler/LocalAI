@@ -1,0 +1,178 @@
+diff --git a/conversion/__init__.py b/conversion/__init__.py
+index 222005740..ab54e15a6 100644
+--- a/conversion/__init__.py
++++ b/conversion/__init__.py
+@@ -87,6 +87,7 @@ TEXT_MODEL_MAP: dict[str, str] = {
+     "GlmMoeDsaForCausalLM": "glm",
+     "GlmOcrForConditionalGeneration": "glm",
+     "GptOssForCausalLM": "gpt_oss",
++    "OpenAIPrivacyFilterForTokenClassification": "openai_privacy_filter",
+     "GraniteForCausalLM": "granite",
+     "GraniteMoeForCausalLM": "granite",
+     "GraniteMoeHybridForCausalLM": "granite",
+diff --git a/conversion/openai_privacy_filter.py b/conversion/openai_privacy_filter.py
+new file mode 100644
+index 000000000..c6e4cf2e3
+--- /dev/null
++++ b/conversion/openai_privacy_filter.py
+@@ -0,0 +1,160 @@
++from __future__ import annotations
++
++from typing import Iterable, TYPE_CHECKING
++
++if TYPE_CHECKING:
++    from torch import Tensor
++
++from .base import ModelBase, gguf
++from .gpt_oss import GptOssModel
++
++
++@ModelBase.register("OpenAIPrivacyFilterForTokenClassification")
++class OpenAIPrivacyFilterModel(GptOssModel):
++    # openai/privacy-filter + OpenMed/privacy-filter-multilingual: a gpt-oss MoE
++    # body (8 layers, 14/2 heads, head_dim 64, d_model 640, 128 experts top-4,
++    # o200k vocab, attn sinks, YaRN) re-purposed as a *bidirectional token
++    # classifier*. config.model_type == "openai_privacy_filter".
++    #
++    # We subclass the gpt-oss converter to reuse its vocab and tensor handling,
++    # and override only what differs:
++    #   1. expert gate_up split: CONCATENATED halves, not gpt-oss interleaving;
++    #   2. a token-classification head (score -> cls.output) + TOKEN_CLS pooling;
++    #   3. no LM head (the arch's MODEL_TENSORS omits OUTPUT).
++    # The body is bf16 dense (not MXFP4), so the gpt-oss dense paths are the ones
++    # that run; the MXFP4 repack code in the base is never exercised.
++    model_arch = gguf.MODEL_ARCH.OPENAI_PRIVACY_FILTER
++
++    def set_gguf_parameters(self):
++        # HF renamed rope_scaling -> rope_parameters for this arch. Alias it
++        # before super() so the base TextModel YaRN handling (which keys off
++        # "rope_scaling") still writes the rope KVs. The dict keys match what the
++        # base expects (rope_type=yarn, factor, beta_fast/slow,
++        # original_max_position_embeddings). Verify the rope KVs landed with
++        # gguf_dump as part of parity (patch 0004 / Task 5).
++        if "rope_scaling" not in self.hparams and "rope_parameters" in self.hparams:
++            self.hparams["rope_scaling"] = self.hparams["rope_parameters"]
++
++        # GptOssModel.set_gguf_parameters writes base text params +
++        # sliding_window + expert_feed_forward_length (= intermediate_size).
++        super().set_gguf_parameters()
++
++        # Token-classification head. PoolingType.TOKEN_CLS == 5 (patch 0001).
++        # The loader derives n_cls_out from the label count; n_embd_out must
++        # equal it (llama-context asserts n_embd_out() == n_cls_out under
++        # TOKEN_CLS), so we write both from the same ordered label list.
++        labels = self._ordered_labels()
++        self.gguf_writer.add_pooling_type(gguf.PoolingType.TOKEN_CLS)
++        self.gguf_writer.add_classifier_output_labels(labels)
++        self.gguf_writer.add_embedding_length_out(len(labels))
++
++    def generate_extra_tensors(self) -> Iterable[tuple[str, "Tensor"]]:
++        # Emit the gpt-oss base's extra tensors (MXFP4 repack; a no-op here since
++        # privacy-filter is dense bf16), then our per-dim RoPE frequency factors.
++        yield from super().generate_extra_tensors()
++
++        # YaRN with truncate=False. The model's rope_parameters set
++        # truncate=False, but ggml's rope_yarn corr_dims unconditionally
++        # floor()/ceil() the interpolation ramp boundaries. That rounding shifts
++        # the ramp in the transition band (here dims ~20-34), giving a per-dim
++        # frequency error up to ~21% that mis-rotates Q/K, softens attention
++        # (worse at higher positions), and attenuates the final logits. Instead
++        # of changing ggml's shared YaRN (which would perturb every other YaRN
++        # model), we bake the *exact* HF inv_freq into per-dim rope_freqs
++        # (freq_factors); the loader disables ggml's YaRN ramp for this arch and
++        # keeps only the YaRN attention mscale (see
++        # src/models/openai-privacy-filter.cpp and patches/README.md).
++        import math
++        import torch
++
++        rope = self.hparams.get("rope_parameters") or self.hparams.get("rope_scaling") or {}
++        if str(rope.get("rope_type", "")).lower() != "yarn":
++            return
++
++        dim       = int(self.hparams["head_dim"])
++        base      = float(rope.get("rope_theta", self.hparams.get("rope_theta", 10000.0)))
++        factor    = float(rope["factor"])
++        orig      = float(rope["original_max_position_embeddings"])
++        beta_fast = float(rope.get("beta_fast", 32.0))
++        beta_slow = float(rope.get("beta_slow", 1.0))
++        truncate  = bool(rope.get("truncate", True))
++
++        # HF transformers _compute_yarn_parameters (modeling_rope_utils).
++        def correction_dim(num_rotations: float) -> float:
++            return (dim * math.log(orig / (num_rotations * 2 * math.pi))) / (2 * math.log(base))
++
++        low, high = correction_dim(beta_fast), correction_dim(beta_slow)
++        if truncate:
++            low, high = math.floor(low), math.ceil(high)
++        low, high = max(low, 0.0), min(high, dim - 1)
++        if low == high:
++            high += 0.001
++
++        half      = dim // 2
++        pos_freqs = base ** (torch.arange(0, dim, 2, dtype=torch.float64) / dim)
++        extrap    = 1.0 / pos_freqs              # high-frequency dims: no scaling
++        interp    = 1.0 / (factor * pos_freqs)   # low-frequency dims: divide by factor
++        ramp      = torch.clamp((torch.arange(half, dtype=torch.float64) - low) / (high - low), 0.0, 1.0)
++        extrap_factor = 1.0 - ramp
++        inv_freq  = interp * (1.0 - extrap_factor) + extrap * extrap_factor
++
++        # ggml divides theta_base (= pos * extrap) by the freq factor, so the
++        # per-dim factor that reproduces inv_freq is extrap / inv_freq (1..factor).
++        freq_factors = (extrap / inv_freq).to(torch.float32)
++        yield (self.format_tensor_name(gguf.MODEL_TENSOR.ROPE_FREQS), freq_factors)
++
++    def _ordered_labels(self) -> list[str]:
++        # id2label is {"0": "O", "1": "B-ACCOUNTNAME", ...}; emit in index order
++        # so the GGUF label table row i lines up with score-head output row i.
++        # Keys arrive as int (config parsing coerces them) or str (raw JSON),
++        # so normalize to int before ordering.
++        # 217 labels (multilingual) / 33 (base english), BIOES-encoded.
++        id2label = {int(k): v for k, v in self.hparams["id2label"].items()}
++        return [id2label[i] for i in range(len(id2label))]
++
++    def modify_tensors(self, data_torch: "Tensor", name: str, bid: int | None) -> Iterable[tuple[str, "Tensor"]]:
++        # Experts: privacy-filter packs the fused gate_up projection as two
++        # CONCATENATED halves (gate = first intermediate_size columns, up = the
++        # rest) rather than gpt-oss's INTERLEAVED even/odd (::2 / 1::2). This is
++        # the single load-bearing divergence from the base converter: an
++        # interleaved split here would silently produce a numerically wrong
++        # model that still loads and runs.
++        #
++        # If per-layer parity vs the HF reference (Task 5) fails at the first
++        # expert FFN, the fix is to revert the two slicings below to the gpt-oss
++        # interleaving (data_torch[:, ::2, :] / [:, 1::2, :] and
++        # [..., ::2] / [..., 1::2]).
++        #
++        # privacy-filter is dense bf16, so we only handle the non-MXFP4 case
++        # (no _blocks/_scales tensors exist).
++        if "gate_up_proj" in name and "_blocks" not in name and "_scales" not in name:
++            inter = self.hparams["intermediate_size"]  # 640
++            if name.endswith("_bias"):
++                gate_b, up_b = data_torch[..., :inter], data_torch[..., inter:]
++                name_gate = name.replace("gate_up_proj_bias", "gate_proj.bias")
++                name_up   = name.replace("gate_up_proj_bias", "up_proj.bias")
++                # bypass GptOssModel.modify_tensors (interleaved) -> TextModel
++                yield from super(GptOssModel, self).modify_tensors(gate_b, name_gate, bid)
++                yield from super(GptOssModel, self).modify_tensors(up_b,   name_up,   bid)
++                return
++            # weight: HF stores [E, in, 2*inter]; transpose to [E, 2*inter, in]
++            # then split the output dim into the two contiguous halves.
++            data_torch = data_torch.transpose(-1, -2)
++            gate_w, up_w = data_torch[:, :inter, :], data_torch[:, inter:, :]
++            name_gate = name.replace("gate_up_proj", "gate_proj.weight")
++            name_up   = name.replace("gate_up_proj", "up_proj.weight")
++            yield from super(GptOssModel, self).modify_tensors(gate_w, name_gate, bid)
++            yield from super(GptOssModel, self).modify_tensors(up_w,   name_up,   bid)
++            return
++
++        # Everything else converts correctly via the base:
++        #  - down_proj (dense): GptOssModel.modify_tensors does the rename +
++        #    transpose;
++        #  - q/k/v/o (+biases), attn sinks, router (+bias), norms, embeddings:
++        #    GptOssModel / its filter_tensors handle these;
++        #  - score.{weight,bias}: fall through to TextModel.map_tensor_name,
++        #    which maps "score" -> cls.output via the tensor_mapping.py entry
++        #    added in patch 0002.
++        # We never emit an LM head: tie_word_embeddings is false and the arch's
++        # MODEL_TENSORS list omits MODEL_TENSOR.OUTPUT, so nothing expects one.
++        yield from super().modify_tensors(data_torch, name, bid)
