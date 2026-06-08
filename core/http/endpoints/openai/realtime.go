@@ -1579,7 +1579,7 @@ func triggerResponseAtTurn(ctx context.Context, session *Session, conv *Conversa
 		// ExtractReasoningWithConfig is a no-op when no tag pair matches,
 		// so it's safe to apply unconditionally in the no-reasoning branch.
 		if deltaReasoning == "" && deltaContent != "" {
-			deltaReasoning, deltaContent = reasoning.ExtractReasoningWithConfig(deltaContent, thinkingStartToken, config.ReasoningConfig)
+			deltaReasoning, deltaContent = reasoning.ExtractReasoningComplete(deltaContent, thinkingStartToken, config.ReasoningConfig)
 		}
 		reasoningText = deltaReasoning
 		responseWithoutReasoning = deltaContent
@@ -1587,7 +1587,7 @@ func triggerResponseAtTurn(ctx context.Context, session *Session, conv *Conversa
 		cleanedResponse = deltaContent
 		toolCalls = deltaToolCalls
 	} else {
-		reasoningText, responseWithoutReasoning = reasoning.ExtractReasoningWithConfig(rawResponse, thinkingStartToken, config.ReasoningConfig)
+		reasoningText, responseWithoutReasoning = reasoning.ExtractReasoningComplete(rawResponse, thinkingStartToken, config.ReasoningConfig)
 		textContent = functions.ParseTextContent(responseWithoutReasoning, config.FunctionsConfig)
 		cleanedResponse = functions.CleanupLLMResult(responseWithoutReasoning, config.FunctionsConfig)
 		toolCalls = functions.ParseFunctionCall(cleanedResponse, config.FunctionsConfig)

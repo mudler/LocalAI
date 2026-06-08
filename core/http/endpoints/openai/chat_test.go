@@ -186,6 +186,86 @@ var _ = Describe("applyAutoparserOverride", func() {
 			Expect(result).To(Equal(existing))
 		})
 	})
+
+	// Regression tests for the prefilled-thinking-token path (thinkingStartToken
+	// != ""). This is the configuration the gallery qwen3 family runs in: the
+	// chat template injects <think> into the prompt, so DetectThinkingStartToken
+	// returns "<think>" and the model's output begins *inside* a reasoning block
+	// — it emits a closing </think> but no opening tag.
+	//
+	// The defensive Go-side fallback prepends the start token so the standard
+	// extractor can pair it with the model's </think>. But on a *complete*
+	// response that contains NO closing tag (the model answered directly with no
+	// reasoning at all), prepending <think> manufactures an unclosed block that
+	// swallows the entire answer into reasoning, leaving content empty. That is
+	// the bug: short/direct answers (session names, JSON summaries) come back
+	// with an empty content field.
+	Context("autoparser delivered content with empty reasoning and a prefilled thinking token", func() {
+		const startToken = "<think>"
+
+		It("keeps a tag-less direct answer as content instead of swallowing it as reasoning", func() {
+			// Model answered directly: no <think>, no </think> anywhere.
+			chatDeltas := []*pb.ChatDelta{
+				{Content: "hello", ReasoningContent: ""},
+			}
+
+			result := applyAutoparserOverride(chatDeltas, startToken, reason.Config{}, nil)
+
+			Expect(result).To(HaveLen(1))
+			Expect(result[0].Message.Content).ToNot(BeNil())
+			Expect(*(result[0].Message.Content.(*string))).To(Equal("hello"),
+				"a complete answer with no closing reasoning tag must stay in content")
+			Expect(result[0].Message.Reasoning).To(BeNil(),
+				"no reasoning block was emitted, so Reasoning must not be set")
+		})
+
+		It("keeps a tag-less JSON answer as content (the summary case)", func() {
+			raw := `{"short":"Tests pass","long":"go test ./... succeeded."}`
+			chatDeltas := []*pb.ChatDelta{
+				{Content: raw, ReasoningContent: ""},
+			}
+
+			result := applyAutoparserOverride(chatDeltas, startToken, reason.Config{}, nil)
+
+			Expect(result).To(HaveLen(1))
+			Expect(*(result[0].Message.Content.(*string))).To(Equal(raw))
+			Expect(result[0].Message.Reasoning).To(BeNil())
+		})
+
+		It("still splits reasoning when the model emits the closing tag (prefill paired with </think>)", func() {
+			// The legitimate prefill case: <think> was in the prompt, so the
+			// output carries only the closing tag. The closing tag is the proof
+			// that a reasoning block exists, so extraction must run.
+			raw := "The user wants a greeting.\n</think>\n\nHello there!"
+			chatDeltas := []*pb.ChatDelta{
+				{Content: raw, ReasoningContent: ""},
+			}
+
+			result := applyAutoparserOverride(chatDeltas, startToken, reason.Config{}, nil)
+
+			Expect(result).To(HaveLen(1))
+			content := *(result[0].Message.Content.(*string))
+			Expect(content).To(ContainSubstring("Hello there!"))
+			Expect(content).ToNot(ContainSubstring("</think>"))
+			Expect(content).ToNot(ContainSubstring("The user wants a greeting"))
+			Expect(result[0].Message.Reasoning).ToNot(BeNil())
+			Expect(*result[0].Message.Reasoning).To(ContainSubstring("The user wants a greeting"))
+		})
+
+		It("still splits a fully-tagged <think>…</think> block with a prefill token set", func() {
+			raw := "<think>Reasoning here.</think>Final answer."
+			chatDeltas := []*pb.ChatDelta{
+				{Content: raw, ReasoningContent: ""},
+			}
+
+			result := applyAutoparserOverride(chatDeltas, startToken, reason.Config{}, nil)
+
+			Expect(result).To(HaveLen(1))
+			Expect(*(result[0].Message.Content.(*string))).To(Equal("Final answer."))
+			Expect(result[0].Message.Reasoning).ToNot(BeNil())
+			Expect(*result[0].Message.Reasoning).To(ContainSubstring("Reasoning here"))
+		})
+	})
 })
 
 var _ = Describe("mergeToolCallDeltas", func() {

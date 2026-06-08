@@ -89,6 +89,35 @@ func ExtractReasoningWithConfig(content, thinkingStartToken string, config Confi
 	return reasoning, cleanedContent
 }
 
+// ExtractReasoningComplete extracts reasoning from a COMPLETE (non-streaming)
+// model response. It behaves like ExtractReasoningWithConfig except that it only
+// honors a prefilled thinking start token when the response actually contains
+// the matching closing tag.
+//
+// Rationale: when a chat template injects the start token into the prompt (so
+// DetectThinkingStartToken returns e.g. "<think>"), the model's output begins
+// inside a reasoning block and carries only the closing tag. The defensive
+// fallback prepends the start token so the extractor can pair it with that
+// close tag. But on a COMPLETE response with no closing tag, the model answered
+// directly with no reasoning at all — prepending the start token would
+// manufacture an unclosed block that swallows the entire answer into reasoning,
+// leaving content empty (breaking short/direct answers such as session names or
+// JSON summaries). Genuine reasoning tags already present in the content still
+// extract, because dropping the synthetic prefill does not affect them.
+//
+// Streaming callers must keep using ExtractReasoningWithConfig: mid-stream an
+// as-yet-unclosed block is legitimate and its tokens should surface as
+// reasoning deltas as they arrive.
+func ExtractReasoningComplete(content, thinkingStartToken string, config Config) (reasoning string, cleanedContent string) {
+	startToken := thinkingStartToken
+	if startToken != "" {
+		if end := ClosingTokenForStart(startToken, &config); end == "" || !strings.Contains(content, end) {
+			startToken = ""
+		}
+	}
+	return ExtractReasoningWithConfig(content, startToken, config)
+}
+
 // PrependThinkingTokenIfNeeded prepends the thinking start token to content if it was
 // detected in the prompt. This allows the standard extraction logic to work correctly
 // for models where the thinking token is already in the prompt.
@@ -131,6 +160,48 @@ func PrependThinkingTokenIfNeeded(content string, startToken string) string {
 	return startToken + content
 }
 
+// defaultReasoningTagPairs are the built-in start/end reasoning tag pairs,
+// matching llama.cpp's chat-parser.cpp. Kept at package scope so that
+// ExtractReasoning and ClosingTokenForStart share a single source of truth.
+var defaultReasoningTagPairs = []TagPair{
+	{Start: "<|START_THINKING|>", End: "<|END_THINKING|>"},            // Command-R models
+	{Start: "<|inner_prefix|>", End: "<|inner_suffix|>"},              // Apertus models
+	{Start: "<seed:think>", End: "</seed:think>"},                     // Seed models
+	{Start: "<think>", End: "</think>"},                               // DeepSeek, Granite, ExaOne models
+	{Start: "<|think|>", End: "<|end|><|begin|>assistant<|content|>"}, // Solar Open models (complex end)
+	{Start: "<|channel>thought", End: "<channel|>"},                   // Gemma 4 models
+	{Start: "<thinking>", End: "</thinking>"},                         // General thinking tag
+	{Start: "[THINK]", End: "[/THINK]"},                               // Magistral models
+}
+
+// ClosingTokenForStart returns the closing reasoning tag that pairs with the
+// given start token, searching custom config TagPairs first then the built-in
+// defaults. Returns "" when startToken is empty or unrecognized.
+//
+// Used by the non-streaming autoparser fallback to decide whether a complete
+// response that began with a prefilled thinking token actually closed its
+// reasoning block: only then is synthesizing the start token (so the standard
+// extractor can pair it with the model's close tag) safe. A complete response
+// with no closing tag is a direct answer, not unclosed reasoning.
+func ClosingTokenForStart(startToken string, config *Config) string {
+	if startToken == "" {
+		return ""
+	}
+	if config != nil {
+		for _, pair := range config.TagPairs {
+			if pair.Start == startToken {
+				return pair.End
+			}
+		}
+	}
+	for _, pair := range defaultReasoningTagPairs {
+		if pair.Start == startToken {
+			return pair.End
+		}
+	}
+	return ""
+}
+
 // ExtractReasoning extracts reasoning content from thinking tags and returns
 // both the extracted reasoning and the cleaned content (with tags removed).
 // It handles <thinking>...</thinking> and <think>...</think> tags.
@@ -145,22 +216,7 @@ func ExtractReasoning(content string, config *Config) (reasoning string, cleaned
 	var cleanedParts []string
 	remaining := content
 
-	// Define default tag pairs to look for (matching llama.cpp's chat-parser.cpp)
-	defaultTagPairs := []struct {
-		start string
-		end   string
-	}{
-		{"<|START_THINKING|>", "<|END_THINKING|>"},            // Command-R models
-		{"<|inner_prefix|>", "<|inner_suffix|>"},              // Apertus models
-		{"<seed:think>", "</seed:think>"},                     // Seed models
-		{"<think>", "</think>"},                               // DeepSeek, Granite, ExaOne models
-		{"<|think|>", "<|end|><|begin|>assistant<|content|>"}, // Solar Open models (complex end)
-		{"<|channel>thought", "<channel|>"},                    // Gemma 4 models
-		{"<thinking>", "</thinking>"},                         // General thinking tag
-		{"[THINK]", "[/THINK]"},                               // Magistral models
-	}
-
-	// Merge custom tag pairs with default tag pairs (custom pairs first for priority)
+	// Merge custom tag pairs (highest priority) with the built-in defaults.
 	var tagPairs []struct {
 		start string
 		end   string
@@ -175,9 +231,11 @@ func ExtractReasoning(content string, config *Config) (reasoning string, cleaned
 			}
 		}
 	}
-	// Add default tag pairs
-	for _, pair := range defaultTagPairs {
-		tagPairs = append(tagPairs, pair)
+	for _, pair := range defaultReasoningTagPairs {
+		tagPairs = append(tagPairs, struct {
+			start string
+			end   string
+		}{pair.Start, pair.End})
 	}
 
 	// Track the last position we've processed
