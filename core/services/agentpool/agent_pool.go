@@ -466,10 +466,11 @@ func (s *AgentPoolService) Chat(name, message string) (string, error) {
 				s.collectAndCopyMetadata(metadata, chatUserID)
 			}
 
+			content := s.appendLocalAGIKBCitations(response.Response, name, message, response.State)
 			msg := map[string]any{
 				"id":        messageID + "-agent",
 				"sender":    "agent",
-				"content":   response.Response,
+				"content":   content,
 				"timestamp": time.Now().Format(time.RFC3339),
 			}
 			if len(metadata) > 0 {
@@ -487,6 +488,79 @@ func (s *AgentPoolService) Chat(name, message string) (string, error) {
 	}()
 
 	return messageID, nil
+}
+
+func (s *AgentPoolService) appendLocalAGIKBCitations(response, agentKey, message string, states []coreTypes.ActionState) string {
+	if strings.TrimSpace(response) == "" {
+		return response
+	}
+
+	userID, collection := splitAgentKey(agentKey)
+	cfg := s.localAGI.pool.GetConfig(agentKey)
+	if cfg == nil || !cfg.EnableKnowledgeBase {
+		return response
+	}
+
+	citations := kbCitationsFromActionStates(states)
+	if len(citations) == 0 && cfg.KBAutoSearch {
+		maxResults := cfg.KnowledgeBaseResults
+		if maxResults <= 0 {
+			maxResults = 5
+		}
+		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		defer cancel()
+		kbResult := agents.KBAutoSearchPrompt(ctx, s.apiURL, s.apiKey, collection, message, maxResults, userID)
+		citations = kbResult.Citations
+	}
+
+	return agents.AppendKBCitations(response, collection, userID, citations)
+}
+
+func splitAgentKey(agentKey string) (userID, name string) {
+	if uid, n, ok := strings.Cut(agentKey, ":"); ok {
+		return uid, n
+	}
+	return "", agentKey
+}
+
+func kbCitationsFromActionStates(states []coreTypes.ActionState) []agents.KBCitation {
+	var citations []agents.KBCitation
+	for _, state := range states {
+		citations = append(citations, kbCitationsFromMetadata(state.Metadata)...)
+	}
+	return citations
+}
+
+func kbCitationsFromMetadata(metadata map[string]any) []agents.KBCitation {
+	if len(metadata) == 0 {
+		return nil
+	}
+
+	fileName := metadata["file_name"]
+	source := metadata["source"]
+	if fileName == nil && source == nil {
+		return nil
+	}
+
+	citation := agents.KBCitation{
+		FileName: metadataString(fileName),
+		EntryKey: metadataString(source),
+	}
+	if citation.FileName == "" && citation.EntryKey == "" {
+		return nil
+	}
+	return []agents.KBCitation{citation}
+}
+
+func metadataString(value any) string {
+	switch v := value.(type) {
+	case string:
+		return v
+	case fmt.Stringer:
+		return v.String()
+	default:
+		return ""
+	}
 }
 
 // userOutputsDir returns the per-user outputs directory, creating it if needed.
