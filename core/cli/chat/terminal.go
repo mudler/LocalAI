@@ -12,11 +12,17 @@ func runTerminalChat(ctx context.Context, session *chatSession, in io.Reader, ou
 	scanner := bufio.NewScanner(in)
 	scanner.Buffer(make([]byte, 0, 64*1024), 4*1024*1024)
 
-	fmt.Fprintf(out, "LocalAI chat (%s)\n", session.CurrentModel())
-	fmt.Fprintln(out, "Type /exit to quit, /clear to reset the conversation, /models to list models.")
+	if err := writeChat(out, "LocalAI chat (%s)\n", session.CurrentModel()); err != nil {
+		return err
+	}
+	if err := writeChat(out, "Type /exit to quit, /clear to reset the conversation, /models to list models.\n"); err != nil {
+		return err
+	}
 
 	for {
-		fmt.Fprint(out, "\n> ")
+		if err := writeChat(out, "\n> "); err != nil {
+			return err
+		}
 		if !scanner.Scan() {
 			break
 		}
@@ -26,45 +32,62 @@ func runTerminalChat(ctx context.Context, session *chatSession, in io.Reader, ou
 		case "":
 			continue
 		case "/bye", "/exit", "/quit":
-			fmt.Fprintln(out, "bye")
-			return nil
+			return writeChat(out, "bye\n")
 		case "/clear":
 			session.Clear()
-			fmt.Fprintln(out, "conversation cleared")
+			if err := writeChat(out, "conversation cleared\n"); err != nil {
+				return err
+			}
 			continue
 		case "/models":
-			printChatModels(out, session.Models(), session.CurrentModel())
+			if err := printChatModels(out, session.Models(), session.CurrentModel()); err != nil {
+				return err
+			}
 			continue
 		}
 
 		if nextModel, ok := strings.CutPrefix(prompt, "/model "); ok {
 			nextModel = strings.TrimSpace(nextModel)
 			if nextModel == "" {
-				fmt.Fprintln(out, "usage: /model <name>")
+				if err := writeChat(out, "usage: /model <name>\n"); err != nil {
+					return err
+				}
 				continue
 			}
 			if err := session.SwitchModel(nextModel); err != nil {
-				fmt.Fprintln(out, err)
+				if writeErr := writeChat(out, "%s\n", err); writeErr != nil {
+					return writeErr
+				}
 				continue
 			}
-			fmt.Fprintf(out, "switched to %s; conversation cleared\n", session.CurrentModel())
+			if err := writeChat(out, "switched to %s; conversation cleared\n", session.CurrentModel()); err != nil {
+				return err
+			}
 			continue
 		}
 
-		fmt.Fprint(out, "assistant: ")
+		if err := writeChat(out, "assistant: "); err != nil {
+			return err
+		}
 		if err := session.Send(ctx, prompt, out); err != nil {
 			return err
 		}
-		fmt.Fprintln(out)
+		if err := writeChat(out, "\n"); err != nil {
+			return err
+		}
 	}
 
 	return scanner.Err()
 }
 
-func printChatModels(out io.Writer, models []string, current string) {
+func printChatModels(out io.Writer, models []string, current string) error {
 	if len(models) == 0 {
-		fmt.Fprintln(out, "no models installed")
-		return
+		return writeChat(out, "no models installed\n")
 	}
-	fmt.Fprint(out, formatChatModelList(models, current))
+	return writeChat(out, "%s", formatChatModelList(models, current))
+}
+
+func writeChat(out io.Writer, format string, args ...any) error {
+	_, err := fmt.Fprintf(out, format, args...)
+	return err
 }
