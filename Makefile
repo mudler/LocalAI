@@ -180,7 +180,7 @@ osx-signed: build
 
 ## Run
 run: ## run local-ai
-	CGO_LDFLAGS="$(CGO_LDFLAGS)" $(GOCMD) run ./
+	CGO_LDFLAGS="$(CGO_LDFLAGS)" $(GOCMD) run ./cmd/local-ai
 
 prepare-test: protogen-go build-mock-backend
 
