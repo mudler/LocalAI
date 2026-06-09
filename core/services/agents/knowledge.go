@@ -8,6 +8,7 @@ import (
 	"io"
 	"mime/multipart"
 	"net/http"
+	"net/url"
 	"strings"
 	"time"
 
@@ -59,6 +60,11 @@ type KBSearchContext struct {
 	Citations []KBCitation `json:"citations"`
 }
 
+// KBCitationCollector receives source citations found during KB searches.
+type KBCitationCollector interface {
+	AddKBCitations([]KBCitation)
+}
+
 // KBAutoSearchPrompt queries the knowledge base with the user's message and
 // returns a KBSearchContext: a system prompt block with the relevant results
 // plus the de-duplicated source citations those results came from.
@@ -72,10 +78,11 @@ func KBAutoSearchPrompt(ctx context.Context, apiURL, apiKey, collection, query s
 		maxResults = 5
 	}
 
-	// Call LocalAI's collection search API
-	searchURL := strings.TrimRight(apiURL, "/") + "/api/agents/collections/" + collection + "/search"
+	searchURL := strings.TrimRight(apiURL, "/") + "/api/agents/collections/" + url.PathEscape(collection) + "/search"
 	if userID != "" {
-		searchURL += "?user_id=" + userID
+		query := url.Values{}
+		query.Set("user_id", userID)
+		searchURL += "?" + query.Encode()
 	}
 	reqBody, _ := json.Marshal(map[string]any{
 		"query":       query,
@@ -168,11 +175,12 @@ type KBSearchMemoryArgs struct {
 
 // KBSearchMemoryTool implements the search_memory MCP tool.
 type KBSearchMemoryTool struct {
-	APIURL     string
-	APIKey     string
-	Collection string
-	MaxResults int
-	UserID     string
+	APIURL            string
+	APIKey            string
+	Collection        string
+	MaxResults        int
+	UserID            string
+	CitationCollector KBCitationCollector
 }
 
 func (t KBSearchMemoryTool) Run(args KBSearchMemoryArgs) (string, any, error) {
@@ -181,6 +189,9 @@ func (t KBSearchMemoryTool) Run(args KBSearchMemoryArgs) (string, any, error) {
 	result := KBAutoSearchPrompt(ctx, t.APIURL, t.APIKey, t.Collection, args.Query, t.MaxResults, t.UserID)
 	if result.Prompt == "" {
 		return "No results found.", nil, nil
+	}
+	if t.CitationCollector != nil {
+		t.CitationCollector.AddKBCitations(result.Citations)
 	}
 	return result.Prompt, nil, nil
 }
@@ -214,9 +225,11 @@ func (t KBAddMemoryTool) Run(args KBAddMemoryArgs) (string, any, error) {
 
 // KBStoreContent uploads text content to a collection via the multipart upload API.
 func KBStoreContent(ctx context.Context, apiURL, apiKey, collection, content, userID string) error {
-	uploadURL := strings.TrimRight(apiURL, "/") + "/api/agents/collections/" + collection + "/upload"
+	uploadURL := strings.TrimRight(apiURL, "/") + "/api/agents/collections/" + url.PathEscape(collection) + "/upload"
 	if userID != "" {
-		uploadURL += "?user_id=" + userID
+		query := url.Values{}
+		query.Set("user_id", userID)
+		uploadURL += "?" + query.Encode()
 	}
 
 	// Build multipart form with the text content as a file

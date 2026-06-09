@@ -5,7 +5,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"net/url"
 	"strings"
 	"time"
 
@@ -168,12 +167,12 @@ func ExecuteChatWithLLM(ctx context.Context, llm cogito.LLM, cfg *AgentConfig, m
 		}
 	}
 
-	var kbCitations []KBCitation
+	kbCitations := &kbCitationList{}
 	if cfg.EnableKnowledgeBase && (kbMode == KBModeAutoSearch || kbMode == KBModeBoth) {
 		kbResult := KBAutoSearchPrompt(ctx, effectiveURL, effectiveKey, cfg.Name, message, cfg.KnowledgeBaseResults, userID)
 		if kbResult.Prompt != "" {
 			fragment = fragment.AddMessage(cogito.SystemMessageRole, kbResult.Prompt)
-			kbCitations = kbResult.Citations
+			kbCitations.AddKBCitations(kbResult.Citations)
 		}
 	}
 
@@ -200,7 +199,7 @@ func ExecuteChatWithLLM(ctx context.Context, llm cogito.LLM, cfg *AgentConfig, m
 		}
 		cogitoOpts = append(cogitoOpts, cogito.WithTools(
 			cogito.NewToolDefinition(
-				KBSearchMemoryTool{APIURL: effectiveURL, APIKey: effectiveKey, Collection: cfg.Name, MaxResults: kbResults, UserID: userID},
+				KBSearchMemoryTool{APIURL: effectiveURL, APIKey: effectiveKey, Collection: cfg.Name, MaxResults: kbResults, UserID: userID, CitationCollector: kbCitations},
 				KBSearchMemoryArgs{},
 				"search_memory",
 				"Search the knowledge base for relevant information",
@@ -340,7 +339,7 @@ func ExecuteChatWithLLM(ctx context.Context, llm cogito.LLM, cfg *AgentConfig, m
 		response = stripThinkingTags(response)
 	}
 	responseForMemory := response
-	response = appendKBCitations(response, cfg.Name, userID, kbCitations)
+	response = AppendKBCitations(response, cfg.Name, userID, kbCitations.Citations())
 
 	// Save conversation to KB when long-term memory is enabled.
 	// Use a detached context: the parent ctx may be cancelled (e.g. in distributed
@@ -383,102 +382,6 @@ func isInternalCogitoTool(name string) bool {
 		return true
 	}
 	return false
-}
-
-func appendKBCitations(response, collection, userID string, citations []KBCitation) string {
-	if strings.TrimSpace(response) == "" || len(citations) == 0 {
-		return response
-	}
-
-	var lines []string
-	seen := make(map[string]struct{})
-	for _, citation := range citations {
-		key := strings.TrimSpace(citation.EntryKey)
-		if key == "" {
-			key = strings.TrimSpace(citation.FileName)
-		}
-		if key == "" {
-			continue
-		}
-		if _, ok := seen[key]; ok {
-			continue
-		}
-		seen[key] = struct{}{}
-
-		displayName := kbCitationDisplayName(citation)
-		if displayName == "" {
-			continue
-		}
-
-		sourceURL := kbCitationRawFileURL(collection, citation.EntryKey, userID)
-		number := len(lines) + 1
-		if sourceURL == "" {
-			lines = append(lines, fmt.Sprintf("[%d] %s", number, displayName))
-			continue
-		}
-		lines = append(lines, fmt.Sprintf("[%d] [%s](%s)", number, escapeMarkdownLinkText(displayName), sourceURL))
-	}
-
-	if len(lines) == 0 {
-		return response
-	}
-
-	var sb strings.Builder
-	sb.WriteString(strings.TrimRight(response, "\n"))
-	sb.WriteString("\n\nSources:\n")
-	for _, line := range lines {
-		sb.WriteString(line)
-		sb.WriteString("\n")
-	}
-	return strings.TrimRight(sb.String(), "\n")
-}
-
-func kbCitationDisplayName(citation KBCitation) string {
-	if fileName := strings.TrimSpace(citation.FileName); fileName != "" {
-		return fileName
-	}
-
-	segments := strings.Split(strings.Trim(strings.TrimSpace(citation.EntryKey), "/"), "/")
-	for i := len(segments) - 1; i >= 0; i-- {
-		if segment := strings.TrimSpace(segments[i]); segment != "" {
-			return segment
-		}
-	}
-	return ""
-}
-
-func kbCitationRawFileURL(collection, entryKey, userID string) string {
-	collection = strings.TrimSpace(collection)
-	entryKey = strings.Trim(strings.TrimSpace(entryKey), "/")
-	if collection == "" || entryKey == "" {
-		return ""
-	}
-
-	var escapedEntrySegments []string
-	for _, segment := range strings.Split(entryKey, "/") {
-		if segment == "" {
-			continue
-		}
-		escapedEntrySegments = append(escapedEntrySegments, url.PathEscape(segment))
-	}
-	if len(escapedEntrySegments) == 0 {
-		return ""
-	}
-
-	sourceURL := "/api/agents/collections/" + url.PathEscape(collection) + "/entries-raw/" + strings.Join(escapedEntrySegments, "/")
-	if userID != "" {
-		query := url.Values{}
-		query.Set("user_id", userID)
-		sourceURL += "?" + query.Encode()
-	}
-	return sourceURL
-}
-
-func escapeMarkdownLinkText(text string) string {
-	text = strings.ReplaceAll(text, `\`, `\\`)
-	text = strings.ReplaceAll(text, "[", `\[`)
-	text = strings.ReplaceAll(text, "]", `\]`)
-	return text
 }
 
 // stripThinkingTags removes <thinking>...</thinking> blocks from content.

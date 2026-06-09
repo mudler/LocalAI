@@ -38,6 +38,34 @@ func (m *mockLLM) CreateChatCompletion(ctx context.Context, req openai.ChatCompl
 	}, cogito.LLMUsage{}, nil
 }
 
+type toolCallingMockLLM struct {
+	createResponses []openai.ChatCompletionResponse
+	askResponse     string
+	callCount       atomic.Int32
+}
+
+func (m *toolCallingMockLLM) Ask(ctx context.Context, f cogito.Fragment) (cogito.Fragment, error) {
+	m.callCount.Add(1)
+	return f.AddMessage(cogito.AssistantMessageRole, m.askResponse), nil
+}
+
+func (m *toolCallingMockLLM) CreateChatCompletion(ctx context.Context, req openai.ChatCompletionRequest) (cogito.LLMReply, cogito.LLMUsage, error) {
+	idx := int(m.callCount.Add(1)) - 1
+	if idx >= len(m.createResponses) {
+		return cogito.LLMReply{
+			ChatCompletionResponse: openai.ChatCompletionResponse{
+				Choices: []openai.ChatCompletionChoice{{
+					Message: openai.ChatCompletionMessage{
+						Role:    "assistant",
+						Content: "No more tools needed.",
+					},
+				}},
+			},
+		}, cogito.LLMUsage{}, nil
+	}
+	return cogito.LLMReply{ChatCompletionResponse: m.createResponses[idx]}, cogito.LLMUsage{}, nil
+}
+
 // statusCollector records status callbacks in a thread-safe way.
 type statusCollector struct {
 	mu       sync.Mutex
@@ -77,7 +105,7 @@ var _ = DescribeTable("stripThinkingTags",
 
 var _ = DescribeTable("appendKBCitations",
 	func(response, collection, userID string, citations []KBCitation, want string) {
-		Expect(appendKBCitations(response, collection, userID, citations)).To(Equal(want))
+		Expect(AppendKBCitations(response, collection, userID, citations)).To(Equal(want))
 	},
 	Entry("leaves responses without citations unchanged",
 		"answer",
@@ -298,6 +326,103 @@ var _ = Describe("ExecuteChatWithLLM", func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(result).To(Equal("agent reply\n\nSources:\n[1] [new feature.pdf](/api/agents/collections/kb-agent/entries-raw/uuid/new%20feature.pdf?user_id=user-1)"))
 			Expect(msgContent).To(Equal(result))
+		})
+
+		It("collects citations from the search_memory tool", func() {
+			mux := http.NewServeMux()
+			mux.HandleFunc("/api/agents/collections/kb-agent/search", func(w http.ResponseWriter, r *http.Request) {
+				w.Header().Set("Content-Type", "application/json")
+				_, _ = w.Write([]byte(`{
+					"results": [
+						{
+							"content": "Tool KB content",
+							"id": "result-1",
+							"similarity": 0.99,
+							"metadata": {
+								"file_name": "tool source.pdf",
+								"source": "uuid/tool source.pdf"
+							}
+						}
+					],
+					"count": 1
+				}`))
+			})
+			server := httptest.NewServer(mux)
+			defer server.Close()
+
+			collector := &kbCitationList{}
+			tool := KBSearchMemoryTool{
+				APIURL:            server.URL,
+				Collection:        "kb-agent",
+				CitationCollector: collector,
+			}
+
+			result, _, err := tool.Run(KBSearchMemoryArgs{Query: "hello"})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(result).To(ContainSubstring("Tool KB content"))
+			Expect(collector.Citations()).To(Equal([]KBCitation{{FileName: "tool source.pdf", EntryKey: "uuid/tool source.pdf"}}))
+		})
+
+		It("appends KB sources found through tools-only search_memory calls", func() {
+			mux := http.NewServeMux()
+			mux.HandleFunc("/api/agents/collections/kb-agent/search", func(w http.ResponseWriter, r *http.Request) {
+				Expect(r.URL.Query().Get("user_id")).To(Equal("user-1"))
+				w.Header().Set("Content-Type", "application/json")
+				_, _ = w.Write([]byte(`{
+					"results": [
+						{
+							"content": "Tool KB content",
+							"id": "result-1",
+							"similarity": 0.99,
+							"metadata": {
+								"file_name": "tool source.pdf",
+								"source": "uuid/tool source.pdf"
+							}
+						}
+					],
+					"count": 1
+				}`))
+			})
+			server := httptest.NewServer(mux)
+			defer server.Close()
+
+			llm := &toolCallingMockLLM{
+				askResponse: "agent reply from tool context",
+				createResponses: []openai.ChatCompletionResponse{
+					{
+						Choices: []openai.ChatCompletionChoice{
+							{
+								Message: openai.ChatCompletionMessage{
+									Role: "assistant",
+									ToolCalls: []openai.ToolCall{
+										{
+											ID:   "call-1",
+											Type: openai.ToolTypeFunction,
+											Function: openai.FunctionCall{
+												Name:      "search_memory",
+												Arguments: `{"query":"hello"}`,
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			}
+			cfg := &AgentConfig{
+				Name:                "kb-agent",
+				Model:               "test-model",
+				EnableKnowledgeBase: true,
+				KBMode:              KBModeTools,
+			}
+
+			result, err := ExecuteChatWithLLM(ctx, llm, cfg, "hello", cb, ExecuteChatOpts{
+				APIURL: server.URL,
+				UserID: "user-1",
+			})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(result).To(Equal("agent reply from tool context\n\nSources:\n[1] [tool source.pdf](/api/agents/collections/kb-agent/entries-raw/uuid/tool%20source.pdf?user_id=user-1)"))
 		})
 	})
 
