@@ -50,7 +50,9 @@ func (c *localAIChatClient) StreamChat(ctx context.Context, model string, messag
 	if err != nil {
 		return "", friendlyChatError(err, model)
 	}
-	defer stream.Close()
+	defer func() {
+		_ = stream.Close()
+	}()
 
 	var answer strings.Builder
 	for {

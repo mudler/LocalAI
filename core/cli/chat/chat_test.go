@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -19,7 +20,7 @@ var _ = Describe("Run chat", func() {
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			if r.URL.Path == "/v1/models" {
 				w.Header().Set("Content-Type", "application/json")
-				fmt.Fprint(w, `{"object":"list","data":[{"id":"test-model","object":"model"}]}`)
+				writeResponse(w, `{"object":"list","data":[{"id":"test-model","object":"model"}]}`)
 				return
 			}
 
@@ -40,9 +41,9 @@ var _ = Describe("Run chat", func() {
 			Expect(body.Messages[0].Content).To(Equal("hello"))
 
 			w.Header().Set("Content-Type", "text/event-stream")
-			fmt.Fprint(w, "data: {\"choices\":[{\"index\":0,\"delta\":{\"content\":\"hi\"}}]}\n\n")
-			fmt.Fprint(w, "data: {\"choices\":[{\"index\":0,\"delta\":{\"content\":\"!\"}}]}\n\n")
-			fmt.Fprint(w, "data: [DONE]\n\n")
+			writeResponse(w, "data: {\"choices\":[{\"index\":0,\"delta\":{\"content\":\"hi\"}}]}\n\n")
+			writeResponse(w, "data: {\"choices\":[{\"index\":0,\"delta\":{\"content\":\"!\"}}]}\n\n")
+			writeResponse(w, "data: [DONE]\n\n")
 		}))
 		defer server.Close()
 
@@ -135,14 +136,14 @@ func chatTestServer(models []string, onChat func(model string)) *httptest.Server
 		switch r.URL.Path {
 		case "/v1/models":
 			w.Header().Set("Content-Type", "application/json")
-			fmt.Fprint(w, `{"object":"list","data":[`)
+			writeResponse(w, `{"object":"list","data":[`)
 			for i, model := range models {
 				if i > 0 {
-					fmt.Fprint(w, ",")
+					writeResponse(w, ",")
 				}
-				fmt.Fprintf(w, `{"id":%q,"object":"model"}`, model)
+				writeResponsef(w, `{"id":%q,"object":"model"}`, model)
 			}
-			fmt.Fprint(w, `]}`)
+			writeResponse(w, `]}`)
 		case "/v1/chat/completions":
 			var body struct {
 				Model string `json:"model"`
@@ -152,10 +153,20 @@ func chatTestServer(models []string, onChat func(model string)) *httptest.Server
 				onChat(body.Model)
 			}
 			w.Header().Set("Content-Type", "text/event-stream")
-			fmt.Fprint(w, "data: {\"choices\":[{\"index\":0,\"delta\":{\"content\":\"ok\"}}]}\n\n")
-			fmt.Fprint(w, "data: [DONE]\n\n")
+			writeResponse(w, "data: {\"choices\":[{\"index\":0,\"delta\":{\"content\":\"ok\"}}]}\n\n")
+			writeResponse(w, "data: [DONE]\n\n")
 		default:
 			w.WriteHeader(http.StatusNotFound)
 		}
 	}))
+}
+
+func writeResponse(w io.Writer, text string) {
+	_, err := fmt.Fprint(w, text)
+	Expect(err).ToNot(HaveOccurred())
+}
+
+func writeResponsef(w io.Writer, format string, args ...any) {
+	_, err := fmt.Fprintf(w, format, args...)
+	Expect(err).ToNot(HaveOccurred())
 }
