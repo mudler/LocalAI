@@ -103,7 +103,12 @@ func applyAutoparserOverride(
 	// blocks like "<think></think>" that some models emit when reasoning
 	// is disabled.
 	if deltaReasoning == "" && deltaContent != "" {
-		deltaReasoning, deltaContent = reason.ExtractReasoningWithConfig(deltaContent, thinkingStartToken, reasoningConfig)
+		// Complete-response extraction: only honor a prefilled <think> start
+		// token when deltaContent actually closes the reasoning block. Without
+		// it the model answered directly and the whole answer must stay in
+		// content rather than be swallowed as unclosed reasoning. See
+		// reason.ExtractReasoningComplete.
+		deltaReasoning, deltaContent = reason.ExtractReasoningComplete(deltaContent, thinkingStartToken, reasoningConfig)
 	}
 	xlog.Debug("[ChatDeltas] non-SSE no-tools: overriding result with C++ autoparser deltas",
 		"content_len", len(deltaContent), "reasoning_len", len(deltaReasoning))
