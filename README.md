@@ -149,6 +149,16 @@ local-ai run https://gist.githubusercontent.com/.../phi-2.yaml
 local-ai run oci://localai/phi-2:latest
 ```
 
+To test a running LocalAI server from the terminal, open an interactive chat session from another shell. Inside the prompt, `/models` lists installed models and `/model <name>` switches between them.
+
+```bash
+# Terminal 1
+local-ai run llama-3.2-1b-instruct:q4_k_m
+
+# Terminal 2
+local-ai chat --model llama-3.2-1b-instruct:q4_k_m
+```
+
 > **Automatic Backend Detection**: LocalAI automatically detects your GPU capabilities and downloads the appropriate backend. For advanced options, see [GPU Acceleration](https://localai.io/features/gpu-acceleration/).
 
 For more details, see the [Getting Started guide](https://localai.io/basics/getting_started/).
