@@ -48,7 +48,8 @@ func RealtimeCalls(application *application.Application) echo.HandlerFunc {
 			return c.JSON(http.StatusInternalServerError, map[string]string{"error": "codec registration failed"})
 		}
 
-		api := webrtc.NewAPI(webrtc.WithMediaEngine(m))
+		se := webRTCSettingEngine(application.ApplicationConfig())
+		api := webrtc.NewAPI(webrtc.WithMediaEngine(m), webrtc.WithSettingEngine(se))
 
 		pc, err := api.NewPeerConnection(webrtc.Configuration{})
 		if err != nil {

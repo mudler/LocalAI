@@ -74,6 +74,28 @@ EXTERNAL_GRPC_BACKENDS=opus:/path/to/backend/go/opus/opus
 
 The opus backend is loaded automatically when a WebRTC session starts. It does not require any model configuration file — just the backend binary.
 
+#### WebRTC behind Docker host networking or NAT
+
+By default pion gathers a host ICE candidate for every local interface. Under
+Docker **host networking** that includes bridge addresses (`docker0`/`veth`,
+`172.x`) that a remote browser cannot route to: the call typically connects on a
+good candidate and then drops a few seconds later when ICE consent checks fail on
+the unreachable ones. Two settings let you advertise only the reachable address:
+
+```bash
+# Advertise these IPs as the host ICE candidates (e.g. the host's LAN IP)
+LOCALAI_WEBRTC_NAT_1TO1_IPS=192.168.1.10
+
+# ...or restrict ICE gathering to specific interfaces
+LOCALAI_WEBRTC_ICE_INTERFACES=eth0
+```
+
+{{% notice tip %}}
+For a browser on another LAN machine talking to LocalAI in a host-networked
+container, set `LOCALAI_WEBRTC_NAT_1TO1_IPS` to the host's LAN IP. This is the
+most reliable fix for WebRTC connections that establish and then drop.
+{{% /notice %}}
+
 ## Protocol
 
 The API follows the OpenAI Realtime API protocol for handling sessions, audio buffers, and conversation items.

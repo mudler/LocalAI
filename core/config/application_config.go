@@ -12,10 +12,19 @@ import (
 )
 
 type ApplicationConfig struct {
-	Context                             context.Context
-	ConfigFile                          string
-	SystemState                         *system.SystemState
-	ExternalBackends                    []string
+	Context          context.Context
+	ConfigFile       string
+	SystemState      *system.SystemState
+	ExternalBackends []string
+
+	// WebRTCNAT1To1IPs, when set, are advertised as the host ICE candidates for
+	// /v1/realtime WebRTC instead of every local interface address. Needed when
+	// the routable address differs from what pion gathers — e.g. Docker host
+	// networking (where pion also offers unreachable bridge IPs) or NAT.
+	WebRTCNAT1To1IPs []string
+	// WebRTCICEInterfaces, when set, restricts ICE candidate gathering to these
+	// network interfaces (e.g. eth0), filtering out docker0/veth noise.
+	WebRTCICEInterfaces                 []string
 	UploadLimitMB, Threads, ContextSize int
 	F16                                 bool
 	Debug                               bool
@@ -81,7 +90,6 @@ type ApplicationConfig struct {
 	// file is mode 0600.
 	MITMCADir string
 
-
 	// PIIPatternOverrides applies persisted per-id deltas (action,
 	// disabled) to the live redactor at startup. Loaded from
 	// runtime_settings.json and applied right after pii.NewRedactor.
@@ -116,11 +124,11 @@ type ApplicationConfig struct {
 	// --require-backend-integrity / LOCALAI_REQUIRE_BACKEND_INTEGRITY.
 	RequireBackendIntegrity bool
 
-	SingleBackend           bool // Deprecated: use MaxActiveBackends = 1 instead
-	MaxActiveBackends       int  // Maximum number of active backends (0 = unlimited, 1 = single backend mode)
-	WatchDogIdle bool
-	WatchDogBusy bool
-	WatchDog     bool
+	SingleBackend     bool // Deprecated: use MaxActiveBackends = 1 instead
+	MaxActiveBackends int  // Maximum number of active backends (0 = unlimited, 1 = single backend mode)
+	WatchDogIdle      bool
+	WatchDogBusy      bool
+	WatchDog          bool
 
 	// Memory Reclaimer settings (works with GPU if available, otherwise RAM)
 	MemoryReclaimerEnabled   bool    // Enable memory threshold monitoring
@@ -308,6 +316,18 @@ func WithSystemState(state *system.SystemState) AppOption {
 func WithExternalBackends(backends ...string) AppOption {
 	return func(o *ApplicationConfig) {
 		o.ExternalBackends = backends
+	}
+}
+
+func WithWebRTCNAT1To1IPs(ips ...string) AppOption {
+	return func(o *ApplicationConfig) {
+		o.WebRTCNAT1To1IPs = ips
+	}
+}
+
+func WithWebRTCICEInterfaces(interfaces ...string) AppOption {
+	return func(o *ApplicationConfig) {
+		o.WebRTCICEInterfaces = interfaces
 	}
 }
 
@@ -701,7 +721,6 @@ func WithMITMCADir(dir string) AppOption {
 		o.MITMCADir = dir
 	}
 }
-
 
 func WithDynamicConfigDir(dynamicConfigsDir string) AppOption {
 	return func(o *ApplicationConfig) {
