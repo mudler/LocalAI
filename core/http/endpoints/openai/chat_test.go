@@ -265,6 +265,34 @@ var _ = Describe("applyAutoparserOverride", func() {
 			Expect(result[0].Message.Reasoning).ToNot(BeNil())
 			Expect(*result[0].Message.Reasoning).To(ContainSubstring("Reasoning here"))
 		})
+
+		// End-to-end regression for the real production failure: a request with
+		// enable_thinking=false against a <think>-capable model (qwen3 family).
+		//
+		// In non-thinking mode the model emits no reasoning block, so llama.cpp's
+		// autoparser correctly returns ChatDeltas with Content set and
+		// ReasoningContent EMPTY (verified against stock llama-server: the same
+		// model with chat_template_kwargs.enable_thinking=false returns
+		// reasoning_content=null and content="hello"). But thinkingStartToken is
+		// detected per-model from the enable_thinking=TRUE render
+		// (grpc-server renders with enable_thinking=true; DetectThinkingStartToken
+		// does not evaluate the jinja {% if enable_thinking %} conditional), so it
+		// is "<think>" even for this non-thinking request. The old code prepended
+		// it and swallowed the answer. This is the case that broke session
+		// summaries and auto-titles and was NOT covered before.
+		It("preserves content for a non-thinking-mode request (enable_thinking=false, empty reasoning_content)", func() {
+			// What llama.cpp's autoparser actually returns in non-thinking mode.
+			chatDeltas := []*pb.ChatDelta{
+				{Content: `{"short":"Go tests passed for internal/session"}`, ReasoningContent: ""},
+			}
+
+			result := applyAutoparserOverride(chatDeltas, startToken, reason.Config{}, nil)
+
+			Expect(result).To(HaveLen(1))
+			Expect(*(result[0].Message.Content.(*string))).To(Equal(`{"short":"Go tests passed for internal/session"}`),
+				"non-thinking-mode answers must reach the client intact, not be swallowed as reasoning")
+			Expect(result[0].Message.Reasoning).To(BeNil())
+		})
 	})
 })
 
