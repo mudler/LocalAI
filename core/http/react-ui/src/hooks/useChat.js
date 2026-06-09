@@ -216,6 +216,12 @@ export function useChat(initialModel = '') {
             audio_url: { url: `data:${file.type};base64,${file.base64}` },
           })
           userFiles.push({ name: file.name, type: 'audio' })
+        } else if (file.type?.startsWith('video/')) {
+          messageContent.push({
+            type: 'video_url',
+            video_url: { url: `data:${file.type};base64,${file.base64}` },
+          })
+          userFiles.push({ name: file.name, type: 'video' })
         } else {
 			// Text/PDF files - append to content
 			if (file.textContent) {

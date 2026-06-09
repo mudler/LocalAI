@@ -194,6 +194,14 @@ type BackendUpgradeRequest struct {
 	// but the field lets future per-replica metadata (e.g. progress reporting
 	// scoped to a slot) ride the same wire without a v3 type.
 	ReplicaIndex int32 `json:"replica_index,omitempty"`
+	// OpID identifies the admin-side operation. When non-empty the worker
+	// publishes BackendInstallProgressEvent values to
+	// SubjectNodeBackendInstallProgress(nodeID, OpID) while the force-reinstall
+	// runs, so the master can stream per-node progress for upgrades exactly as
+	// it already does for installs (an upgrade IS a force-reinstall, so the
+	// install-progress subject is reused rather than minting a new one — no new
+	// NATS permission or rolling-update compat surface). Empty on legacy callers.
+	OpID string `json:"op_id,omitempty"`
 }
 
 // BackendUpgradeReply mirrors BackendInstallReply minus Address — upgrade does

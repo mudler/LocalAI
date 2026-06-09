@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"sync"
+	"time"
 
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/gallery"
@@ -31,9 +32,9 @@ type GalleryService struct {
 	// natsClient is the wider MessagingClient (Publisher + subscribe methods)
 	// when wired by the distributed startup path; broadcastSubs holds the
 	// progress + cancel subscriptions opened by SubscribeBroadcasts.
-	natsClient     messaging.MessagingClient
-	galleryStore   *distributed.GalleryStore
-	broadcastSubs  []messaging.Subscription
+	natsClient    messaging.MessagingClient
+	galleryStore  *distributed.GalleryStore
+	broadcastSubs []messaging.Subscription
 
 	// OnBackendOpCompleted is fired after every successful install/upgrade/delete
 	// on the backend channel. The Application wires this to UpgradeChecker.TriggerCheck
@@ -274,6 +275,29 @@ func (g *GalleryService) GetAllStatus() map[string]*OpStatus {
 	return g.statuses
 }
 
+// ReapStaleOperations marks abandoned in-progress operations (pending/
+// downloading/processing) older than `age` as failed, so an op orphaned by a
+// replica that died mid-flight does not linger as "processing" forever. The
+// store's CleanStale runs once on startup; this exposes it for periodic
+// invocation (a post-startup orphan is otherwise not reaped until the next
+// restart). No-op when no gallery store is wired. Returns rows reaped.
+func (g *GalleryService) ReapStaleOperations(age time.Duration) (int64, error) {
+	g.Lock()
+	store := g.galleryStore
+	g.Unlock()
+	if store == nil {
+		return 0, nil
+	}
+	n, err := store.CleanStale(age)
+	if err != nil {
+		return 0, err
+	}
+	if n > 0 {
+		xlog.Info("Reaped stale gallery operations", "count", n)
+	}
+	return n, nil
+}
+
 // CancelOperation cancels an in-progress operation by its ID.
 //
 // In distributed mode the UI's cancel click may land on a different replica
@@ -295,6 +319,7 @@ func (g *GalleryService) CancelOperation(id string) error {
 	}
 
 	nc := g.natsClient
+	store := g.galleryStore
 
 	if !localExists && nc == nil {
 		g.Unlock()
@@ -314,6 +339,17 @@ func (g *GalleryService) CancelOperation(id string) error {
 		}
 	}
 	g.Unlock()
+
+	// Persist the terminal status so the cancel survives a restart. Without
+	// this the row stays in its active state and re-hydrates straight back into
+	// processingBackends on the next replica boot — the UI spins again on an op
+	// the admin already cancelled. The peer that broadcasts wins the write; a
+	// no-op when standalone (store nil).
+	if store != nil {
+		if err := store.Cancel(id); err != nil {
+			xlog.Warn("Failed to persist gallery operation cancellation", "op_id", id, "error", err)
+		}
+	}
 
 	// I/O and user-provided callback after Unlock — the cancel-wildcard
 	// subscriber loops back into applyCancel on this same replica, which

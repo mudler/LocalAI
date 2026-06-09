@@ -1,10 +1,10 @@
 # ds4 backend Makefile.
 #
-# Upstream pin lives below as DS4_VERSION?=477c0e82e2699b35a65fd0a1ed6fe66b41087dfe
+# Upstream pin lives below as DS4_VERSION?=c463029c205c2ec8d7ab6c0df4a3f52979091286
 # (.github/bump_deps.sh) can find and update it - matches the
 # llama-cpp / ik-llama-cpp / turboquant convention.
 
-DS4_VERSION?=477c0e82e2699b35a65fd0a1ed6fe66b41087dfe
+DS4_VERSION?=c463029c205c2ec8d7ab6c0df4a3f52979091286
 DS4_REPO?=https://github.com/antirez/ds4
 
 CURRENT_MAKEFILE_DIR := $(dir $(abspath $(lastword $(MAKEFILE_LIST))))
@@ -18,19 +18,20 @@ UNAME_S := $(shell uname -s)
 
 CMAKE_ARGS ?= -DCMAKE_BUILD_TYPE=Release
 
-# ds4_distributed.o is a GPU-agnostic translation unit that ds4.c/ds4_cpu.o now
-# reference (upstream split distributed inference into its own .c). The same
-# object is shared by every GPU mode, so it is appended unconditionally below.
+# ds4_distributed.o and ds4_ssd.o are GPU-agnostic translation units that
+# ds4.c/ds4_cpu.o now reference (upstream split distributed inference and the
+# SSD expert-cache into their own .c files). Both objects are shared by every
+# GPU mode, so they are appended unconditionally below.
 ifeq ($(BUILD_TYPE),cublas)
     CMAKE_ARGS += -DDS4_GPU=cuda
-    DS4_OBJ_TARGET := ds4.o ds4_cuda.o ds4_distributed.o
+    DS4_OBJ_TARGET := ds4.o ds4_cuda.o ds4_distributed.o ds4_ssd.o
 else ifeq ($(UNAME_S),Darwin)
     CMAKE_ARGS += -DDS4_GPU=metal
-    DS4_OBJ_TARGET := ds4.o ds4_metal.o ds4_distributed.o
+    DS4_OBJ_TARGET := ds4.o ds4_metal.o ds4_distributed.o ds4_ssd.o
 else
     # CPU reference path (Linux only - macOS CPU path is broken by VM bug per ds4 README).
     CMAKE_ARGS += -DDS4_GPU=cpu
-    DS4_OBJ_TARGET := ds4_cpu.o ds4_distributed.o
+    DS4_OBJ_TARGET := ds4_cpu.o ds4_distributed.o ds4_ssd.o
 endif
 
 ifneq ($(NATIVE),true)
@@ -55,11 +56,11 @@ ds4:
 # the right per-platform compile flags (Objective-C/Metal on Darwin, nvcc on Linux+CUDA).
 ds4/ds4.o: ds4
 ifeq ($(BUILD_TYPE),cublas)
-	+$(MAKE) -C ds4 ds4.o ds4_cuda.o ds4_distributed.o
+	+$(MAKE) -C ds4 ds4.o ds4_cuda.o ds4_distributed.o ds4_ssd.o
 else ifeq ($(UNAME_S),Darwin)
-	+$(MAKE) -C ds4 ds4.o ds4_metal.o ds4_distributed.o
+	+$(MAKE) -C ds4 ds4.o ds4_metal.o ds4_distributed.o ds4_ssd.o
 else
-	+$(MAKE) -C ds4 ds4_cpu.o ds4_distributed.o
+	+$(MAKE) -C ds4 ds4_cpu.o ds4_distributed.o ds4_ssd.o
 endif
 
 grpc-server: ds4/ds4.o

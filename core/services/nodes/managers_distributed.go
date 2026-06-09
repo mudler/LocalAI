@@ -533,7 +533,7 @@ func (d *DistributedBackendManager) InstallBackend(ctx context.Context, op *gall
 // backend.upgrade, we try the legacy backend.install Force=true path so a
 // new master + old worker still converges. Drop the fallback once every
 // worker in the fleet is on 2026-05-08 or newer.
-func (d *DistributedBackendManager) UpgradeBackend(ctx context.Context, name string, progressCb galleryop.ProgressCallback) error {
+func (d *DistributedBackendManager) UpgradeBackend(ctx context.Context, opID, name string, progressCb galleryop.ProgressCallback) error {
 	galleriesJSON, _ := json.Marshal(d.backendGalleries)
 
 	installed, err := d.ListBackends()
@@ -549,17 +549,39 @@ func (d *DistributedBackendManager) UpgradeBackend(ctx context.Context, name str
 		targetNodeIDs[n.NodeID] = true
 	}
 
-	// Empty opID: the caller (galleryop) doesn't thread an op ID into
-	// UpgradeBackend today, so we can't tag per-node sink writes with the
-	// right OpStatus key. Until the upgrade path takes a ManagementOp the
-	// way InstallBackend does, the sink stays no-op here.
-	result, err := d.enqueueAndDrainBackendOp(ctx, "", OpBackendUpgrade, name, galleriesJSON, targetNodeIDs, func(node BackendNode) error {
-		reply, err := d.adapter.UpgradeBackend(node.ID, name, string(galleriesJSON), "", "", "", 0)
+	result, err := d.enqueueAndDrainBackendOp(ctx, opID, OpBackendUpgrade, name, galleriesJSON, targetNodeIDs, func(node BackendNode) error {
+		// Per-node progress sink: fan each worker download tick into the legacy
+		// single-bar progressCb and the per-node OpStatus.Nodes view, exactly as
+		// InstallBackend does. Defined per-node so each closure captures its own
+		// node.Name. Without this an upgrade blocks opaque at progress 0 for the
+		// whole 15m round-trip (the original "reinstalling but nothing happens").
+		onProgress := func(ev messaging.BackendInstallProgressEvent) {
+			if progressCb != nil {
+				progressCb(ev.FileName, ev.Current, ev.Total, ev.Percentage)
+			}
+			if d.progressSink != nil && opID != "" {
+				d.progressSink.UpdateNodeProgress(opID, ev.NodeID, galleryop.NodeProgress{
+					NodeID:     ev.NodeID,
+					NodeName:   node.Name,
+					Status:     galleryop.NodeStatusDownloading,
+					FileName:   ev.FileName,
+					Current:    ev.Current,
+					Total:      ev.Total,
+					Percentage: ev.Percentage,
+					Phase:      ev.Phase,
+				})
+			}
+		}
+		var onProgressArg func(messaging.BackendInstallProgressEvent)
+		if progressCb != nil || d.progressSink != nil {
+			onProgressArg = onProgress
+		}
+		reply, err := d.adapter.UpgradeBackend(node.ID, name, string(galleriesJSON), "", "", "", 0, opID, onProgressArg)
 		if err != nil {
 			// Rolling-update fallback: an older worker doesn't know
 			// backend.upgrade. Try the legacy install-with-force path.
 			if errors.Is(err, nats.ErrNoResponders) {
-				instReply, instErr := d.adapter.installWithForceFallback(node.ID, name, string(galleriesJSON), "", "", "", 0)
+				instReply, instErr := d.adapter.installWithForceFallback(node.ID, name, string(galleriesJSON), "", "", "", 0, opID, onProgressArg)
 				if instErr != nil {
 					return instErr
 				}

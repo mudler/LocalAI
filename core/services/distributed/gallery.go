@@ -180,18 +180,21 @@ func (s *GalleryStore) Cancel(id string) error {
 	return s.UpdateStatus(id, "cancelled", "")
 }
 
-// CleanStale marks abandoned in-progress operations as failed.
-// Should be called on startup to recover from crashed instances that
-// left records in pending/downloading/processing state.
-func (s *GalleryStore) CleanStale(age time.Duration) error {
+// CleanStale marks abandoned in-progress operations as failed and returns the
+// number of rows reaped. Called on startup AND periodically to recover from
+// crashed/restarted instances that left records in pending/downloading/
+// processing state — an op orphaned after startup would otherwise linger
+// "processing" until the next restart.
+func (s *GalleryStore) CleanStale(age time.Duration) (int64, error) {
 	cutoff := time.Now().Add(-age)
-	return s.db.Model(&GalleryOperationRecord{}).
+	res := s.db.Model(&GalleryOperationRecord{}).
 		Where("updated_at < ? AND status IN ?", cutoff, activeStatuses).
 		Updates(map[string]any{
 			"status":     "failed",
-			"error":      "stale operation cleaned up on startup",
+			"error":      "stale operation reaped (abandoned by a crashed or restarted instance)",
 			"updated_at": time.Now(),
-		}).Error
+		})
+	return res.RowsAffected, res.Error
 }
 
 // CleanOld removes operations older than the given duration.
