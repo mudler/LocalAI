@@ -336,6 +336,13 @@ func DefaultRegistry() map[string]FieldMetaOverride {
 			Component:   "toggle",
 			Order:       68,
 		},
+		"pipeline.streaming.clause_chunking": {
+			Section:     "pipeline",
+			Label:       "Clause Chunking",
+			Description: "Split the streamed reply into speakable clauses and synthesize each as soon as it completes, instead of buffering the whole message before TTS — lower time-to-first-audio. Script-aware (handles CJK 。！？ and Thai/Lao spaces), so it does not whitespace-split. Requires Stream LLM; off buffers the whole message.",
+			Component:   "toggle",
+			Order:       69,
+		},
 
 		// --- Functions ---
 		"function.grammar.parallel_calls": {

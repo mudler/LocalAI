@@ -17,6 +17,24 @@ const STATUS_STYLES = {
   error:        { icon: 'fa-solid fa-circle', color: 'var(--color-error)', bg: 'var(--color-error-light)' },
 }
 
+// upsertAssistant merges a streamed transcript fragment into the assistant entry
+// identified by the server's item_id, or appends a new entry if none exists yet.
+// Keying by item_id (not a mutable index tracked across handler/updater
+// boundaries) makes streamed deltas idempotent and order-independent, so React's
+// batching of non-React data-channel events cannot produce a duplicate bubble.
+// mode 'append' adds to the running text; 'replace' sets the final transcript.
+function upsertAssistant(prev, itemId, text, mode) {
+  // Only assistant entries carry an id, and the streaming entry is almost
+  // always the newest — search from the tail so per-delta cost stays constant.
+  const i = prev.findLastIndex(e => e.id === itemId)
+  if (i === -1) {
+    return [...prev, { role: 'assistant', id: itemId, text }]
+  }
+  const next = [...prev]
+  next[i] = { ...next[i], text: mode === 'append' ? next[i].text + text : text }
+  return next
+}
+
 export default function Talk() {
   const { addToast } = useOutletContext()
   const navigate = useNavigate()
@@ -34,7 +52,10 @@ export default function Talk() {
 
   // Transcript
   const [transcript, setTranscript] = useState([])
-  const streamingRef = useRef(null) // tracks the index of the in-progress assistant message
+  // item_id of the assistant message currently streaming — used only to remove
+  // its partial bubble when a response is cancelled (barge-in). The transcript
+  // itself is keyed by item_id via upsertAssistant, not by this ref.
+  const inProgressIdRef = useRef(null)
 
   // Session settings
   const [instructions, setInstructions] = useState(
@@ -227,39 +248,21 @@ export default function Talk() {
         break
       case 'conversation.item.input_audio_transcription.completed':
         if (event.transcript) {
-          streamingRef.current = null
           setTranscript(prev => [...prev, { role: 'user', text: event.transcript }])
         }
         updateStatus('thinking', 'Generating response...')
         break
       case 'response.output_audio_transcript.delta':
         if (event.delta) {
-          setTranscript(prev => {
-            if (streamingRef.current !== null) {
-              const updated = [...prev]
-              updated[streamingRef.current] = {
-                ...updated[streamingRef.current],
-                text: updated[streamingRef.current].text + event.delta,
-              }
-              return updated
-            }
-            streamingRef.current = prev.length
-            return [...prev, { role: 'assistant', text: event.delta }]
-          })
+          inProgressIdRef.current = event.item_id
+          setTranscript(prev => upsertAssistant(prev, event.item_id, event.delta, 'append'))
         }
         break
       case 'response.output_audio_transcript.done':
         if (event.transcript) {
-          setTranscript(prev => {
-            if (streamingRef.current !== null) {
-              const updated = [...prev]
-              updated[streamingRef.current] = { ...updated[streamingRef.current], text: event.transcript }
-              return updated
-            }
-            return [...prev, { role: 'assistant', text: event.transcript }]
-          })
+          setTranscript(prev => upsertAssistant(prev, event.item_id, event.transcript, 'replace'))
         }
-        streamingRef.current = null
+        inProgressIdRef.current = null
         break
       case 'response.output_audio.delta':
         updateStatus('speaking', 'Speaking...')
@@ -281,7 +284,7 @@ export default function Talk() {
           // Pretty-print JSON for readability; fall back to raw string.
           try { preview = JSON.stringify(JSON.parse(preview), null, 2) } catch (_) { /* keep raw */ }
           setTranscript(prev => [...prev, { role: 'tool_result', text: preview }])
-          streamingRef.current = null  // tool result ends the current assistant text run
+          inProgressIdRef.current = null // tool result ends the current assistant text run
         }
         break
       }
@@ -290,9 +293,20 @@ export default function Talk() {
         // conversation.item.create + response.create when it's done.
         handleFunctionCall(event)
         break
-      case 'response.done':
+      case 'response.done': {
+        // A cancelled response (barge-in / interruption) leaves a partial,
+        // incrementally-streamed assistant bubble behind. The server discards
+        // the interrupted item from history; mirror that here (remove the
+        // in-progress assistant entry by item_id) so the regenerated reply
+        // doesn't show up as a second assistant message.
+        if (event.response?.status === 'cancelled' && inProgressIdRef.current) {
+          const id = inProgressIdRef.current
+          inProgressIdRef.current = null
+          setTranscript(prev => prev.filter(e => e.id !== id))
+        }
         updateStatus('listening', 'Listening...')
         break
+      }
       case 'error':
         hasErrorRef.current = true
         updateStatus('error', 'Error: ' + (event.error?.message || 'Unknown error'))
@@ -789,7 +803,7 @@ export default function Talk() {
               const iconColor = isToolCall || isToolResult ? 'var(--color-text-secondary)'
                               : isUser ? 'var(--color-primary)' : 'var(--color-accent)'
               return (
-                <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: 'var(--spacing-xs)' }}>
+                <div key={entry.id || i} style={{ display: 'flex', alignItems: 'flex-start', gap: 'var(--spacing-xs)' }}>
                   <i className={iconClass} style={{ color: iconColor, marginTop: 3, flexShrink: 0, fontSize: '0.75rem' }} />
                   <p style={{
                     margin: 0,

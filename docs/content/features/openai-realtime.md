@@ -43,14 +43,16 @@ pipeline:
   llm: qwen3-4b
   tts: tts-1
   streaming:
-    llm: true            # stream LLM tokens as transcript deltas
-    tts: true            # emit audio deltas per synthesized chunk
-    transcription: true  # stream transcript text deltas of the user's speech
+    llm: true             # stream LLM tokens as transcript deltas
+    tts: true             # emit audio deltas per synthesized chunk
+    transcription: true   # stream transcript text deltas of the user's speech
+    clause_chunking: true # synthesize each clause as soon as it completes
 ```
 
 - **streaming.tts**: emit a `response.output_audio.delta` per audio chunk the TTS backend produces (requires a backend that supports streaming synthesis), instead of one delta for the whole utterance. Falls back to a single unary delta otherwise.
 - **streaming.transcription**: stream `conversation.item.input_audio_transcription.delta` events as the transcript is produced (requires a transcription backend that supports streaming).
 - **streaming.llm**: stream the LLM reply token-by-token as `response.output_audio_transcript.delta` events. The full reply is buffered and synthesized once it is complete — streamed as audio chunks when `streaming.tts` is enabled (and the TTS backend supports it), otherwise as a single unary delta. Reasoning/thinking is always stripped from the spoken transcript. Tool calls are supported while streaming when the LLM uses its tokenizer template (`use_tokenizer_template: true`): the backend's autoparser then delivers content and tool calls separately, so the spoken transcript never leaks tool-call tokens. Grammar-based function calling keeps the buffered path.
+- **streaming.clause_chunking**: instead of buffering the whole reply before TTS, split it into speakable clauses and synthesize each as soon as it completes, lowering the time-to-first-audio. The splitter is script-aware: it uses Unicode sentence segmentation (so it handles CJK `。！？` with no whitespace), CJK clause punctuation (`，、；：`), and Thai/Lao spaces — it does **not** rely on whitespace sentence boundaries, so it works for languages such as Chinese, Japanese and Thai where the old per-sentence approach degraded to whole-message buffering. Requires `streaming.llm`; scripts that genuinely need a dictionary (e.g. Khmer, Burmese) simply stay buffered until a space or end-of-message. Off by default.
 
 All streaming flags are off by default, so existing pipelines are unaffected.
 

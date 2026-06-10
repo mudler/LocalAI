@@ -45,13 +45,15 @@ func newTranscriptStreamer(ctx context.Context, t Transport, responseID, itemID,
 }
 
 // onToken handles one streamed unit of model output, sending a transcript delta
-// for the new content (reasoning stripped). For plain-content models the unit is
-// the raw text token; for autoparser tool turns the backend clears the text and
-// delivers content via ChatDeltas, so the caller passes that content here.
-func (s *transcriptStreamer) onToken(token string) {
+// for the new content (reasoning stripped) and returning that content delta so
+// the caller can also feed it to the clause chunker. For plain-content models
+// the unit is the raw text token; for autoparser tool turns the backend clears
+// the text and delivers content via ChatDeltas, so the caller passes that
+// content here. Returns "" when the token produced no new spoken content.
+func (s *transcriptStreamer) onToken(token string) string {
 	_, content := s.extractor.ProcessToken(token)
 	if content == "" {
-		return
+		return ""
 	}
 	if !s.announced {
 		s.announced = true
@@ -67,6 +69,7 @@ func (s *transcriptStreamer) onToken(token string) {
 		ContentIndex:    0,
 		Delta:           content,
 	})
+	return content
 }
 
 // content returns the full transcript so far with reasoning stripped.
@@ -143,8 +146,52 @@ func streamLLMResponse(ctx context.Context, session *Session, conv *Conversation
 	}
 	thinkingStartToken := reasoning.DetectThinkingStartToken(template, &llmCfg.ReasoningConfig)
 
-	streamer := newTranscriptStreamer(ctx, t, responseID, itemID, thinkingStartToken, llmCfg.ReasoningConfig)
+	// The autoparser (tokenizer-template path) already delivers reasoning-free
+	// content. Prefilling the thinking start token here would re-tag that clean
+	// content as an unclosed reasoning block, leaving CleanedContent() empty —
+	// no spoken reply, no TTS. Disable the prefill; closed tag pairs are still
+	// stripped (PEG-fallback case, #9985).
+	reasoningCfg := llmCfg.ReasoningConfig
+	if llmCfg.TemplateConfig.UseTokenizerTemplate {
+		disablePrefill := true
+		reasoningCfg.DisableReasoningTagPrefill = &disablePrefill
+	}
+
+	streamer := newTranscriptStreamer(ctx, t, responseID, itemID, thinkingStartToken, reasoningCfg)
 	streamer.announce = announce
+
+	// Clause chunking (opt-in): synthesize each clause as soon as it completes
+	// instead of buffering the whole reply. streamedAudio accumulates the PCM
+	// across clauses for the conversation item record; ttsErr captures the first
+	// synthesis failure so the token callback can stop the prediction. emitSpeech
+	// runs synchronously here — the LLM keeps generating into the gRPC stream
+	// while a clause is synthesized, so audio still starts mid-generation.
+	var chunker *clauseChunker
+	if session.ModelConfig != nil && session.ModelConfig.Pipeline.ChunkClauses() {
+		chunker = newClauseChunker(defaultClauseMinRunes, defaultClauseMaxRunes)
+	}
+	var streamedAudio []byte
+	var ttsErr error
+	speakClause := func(clause string) error {
+		a, err := emitSpeech(ctx, t, session, responseID, itemID, clause)
+		if err != nil {
+			return err
+		}
+		streamedAudio = append(streamedAudio, a...)
+		return nil
+	}
+
+	// fail reports a mid-stream failure. A cancelled context means the client
+	// interrupted (barge-in), so roll the turn back instead of erroring.
+	fail := func(code, msg string, err error) bool {
+		if ctx.Err() != nil {
+			cancel()
+		} else {
+			sendError(t, code, fmt.Sprintf("%s: %v", msg, err), "", itemID)
+		}
+		return true
+	}
+
 	cb := func(token string, usage backend.TokenUsage) bool {
 		if ctx.Err() != nil {
 			return false
@@ -157,7 +204,14 @@ func streamLLMResponse(ctx context.Context, session *Session, conv *Conversation
 		if len(usage.ChatDeltas) > 0 {
 			text = functions.ContentFromChatDeltas(usage.ChatDeltas)
 		}
-		streamer.onToken(text)
+		delta := streamer.onToken(text)
+		if chunker != nil && delta != "" {
+			for _, clause := range chunker.push(delta) {
+				if ttsErr = speakClause(clause); ttsErr != nil {
+					return false // stop the prediction; reported after predFunc returns
+				}
+			}
+		}
 		return true
 	}
 
@@ -167,13 +221,13 @@ func streamLLMResponse(ctx context.Context, session *Session, conv *Conversation
 		return true
 	}
 	pred, err := predFunc()
+	// A clause synthesis failed mid-stream (the callback stopped the prediction);
+	// report it as a TTS error rather than a prediction error.
+	if ttsErr != nil {
+		return fail("tts_error", "TTS generation failed", ttsErr)
+	}
 	if err != nil {
-		if ctx.Err() != nil {
-			cancel()
-			return true
-		}
-		sendError(t, "prediction_failed", fmt.Sprintf("backend error: %v", err), "", itemID)
-		return true
+		return fail("prediction_failed", "backend error", err)
 	}
 	if ctx.Err() != nil {
 		cancel()
@@ -189,17 +243,25 @@ func streamLLMResponse(ctx context.Context, session *Session, conv *Conversation
 		if !announced {
 			announce()
 		}
-		// Buffer the whole message, then synthesize it once. emitSpeech streams
-		// the audio chunks when the TTS backend supports TTSStream, otherwise it
-		// sends a single unary delta — no per-sentence segmentation either way.
-		audio, err := emitSpeech(ctx, t, session, responseID, itemID, content)
-		if err != nil {
-			if ctx.Err() != nil {
-				cancel()
-				return true
+
+		// Synthesize the audio. With clause chunking the completed clauses were
+		// already spoken inside the token callback; flush the trailing clause(s)
+		// the segmenter was still holding. Otherwise buffer the whole message and
+		// synthesize it once. emitSpeech streams the audio chunks when the TTS
+		// backend supports TTSStream, otherwise it sends a single unary delta.
+		var audio []byte
+		if chunker != nil {
+			for _, clause := range chunker.flush() {
+				if ttsErr = speakClause(clause); ttsErr != nil {
+					break
+				}
 			}
-			sendError(t, "tts_error", fmt.Sprintf("TTS generation failed: %v", err), "", itemID)
-			return true
+			audio = streamedAudio
+		} else {
+			audio, ttsErr = emitSpeech(ctx, t, session, responseID, itemID, content)
+		}
+		if ttsErr != nil {
+			return fail("tts_error", "TTS generation failed", ttsErr)
 		}
 
 		_, isWebRTC := t.(*WebRTCTransport)

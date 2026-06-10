@@ -545,6 +545,12 @@ type PipelineStreaming struct {
 	LLM           *bool `yaml:"llm,omitempty" json:"llm,omitempty"`
 	TTS           *bool `yaml:"tts,omitempty" json:"tts,omitempty"`
 	Transcription *bool `yaml:"transcription,omitempty" json:"transcription,omitempty"`
+	// ClauseChunking splits the streamed LLM reply into speakable clauses and
+	// synthesizes each as soon as it completes, instead of buffering the whole
+	// message before TTS. Script-aware (CJK/Thai), so it does not rely on
+	// whitespace sentence boundaries. Requires LLM streaming; unset buffers the
+	// whole message (today's default).
+	ClauseChunking *bool `yaml:"clause_chunking,omitempty" json:"clause_chunking,omitempty"`
 }
 
 // StreamLLM reports whether LLM tokens should be streamed for this pipeline.
@@ -556,6 +562,12 @@ func (p Pipeline) StreamTTS() bool { return p.Streaming.TTS != nil && *p.Streami
 // StreamTranscription reports whether transcription text should be streamed.
 func (p Pipeline) StreamTranscription() bool {
 	return p.Streaming.Transcription != nil && *p.Streaming.Transcription
+}
+
+// ChunkClauses reports whether the streamed reply should be split into
+// script-aware clauses and synthesized incrementally rather than buffered whole.
+func (p Pipeline) ChunkClauses() bool {
+	return p.Streaming.ClauseChunking != nil && *p.Streaming.ClauseChunking
 }
 
 // ThinkingDisabled reports whether the pipeline forces the LLM's thinking off.

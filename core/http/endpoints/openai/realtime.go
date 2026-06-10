@@ -2,8 +2,10 @@ package openai
 
 import (
 	"context"
+	"crypto/rand"
 	"encoding/base64"
 	"encoding/binary"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"math"
@@ -1983,8 +1985,11 @@ func generateItemID() string {
 }
 
 func generateUniqueID() string {
-	// Generate a unique ID string
-	// For simplicity, use a counter or UUID
-	// Implement as needed
-	return "unique_id"
+	// 16 random bytes, hex-encoded. Must be collision-free: session, item,
+	// response and call IDs build on this, and the conversation tracks/removes
+	// items by ID (e.g. cancel() in realtime_stream.go, conversation.item.retrieve).
+	// A constant would make every ID alias and corrupt that bookkeeping.
+	var b [16]byte
+	_, _ = rand.Read(b[:])
+	return hex.EncodeToString(b[:])
 }

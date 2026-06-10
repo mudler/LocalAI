@@ -46,6 +46,38 @@ var _ = Describe("transcriptStreamer", func() {
 		Expect(s.content()).ToNot(ContainSubstring("secret plan"))
 		Expect(t.transcriptDeltaText()).ToNot(ContainSubstring("secret plan"))
 	})
+
+	It("does not swallow autoparser content when the template has a thinking start token (tokenizer-template path)", func() {
+		// Regression: with tag prefill on, the detected <think> token is
+		// prepended to the autoparser's already-clean content, swallowing the
+		// whole reply (empty transcript → no TTS). streamLLMResponse disables
+		// the prefill for the tokenizer-template path.
+		disablePrefill := true
+		t := &fakeTransport{}
+		s := newTranscriptStreamer(context.Background(), t, "resp1", "item1", "<think>",
+			reasoning.Config{DisableReasoningTagPrefill: &disablePrefill})
+
+		s.onToken("Hello")
+		s.onToken(" there.")
+
+		Expect(s.content()).To(Equal("Hello there."))
+		Expect(t.transcriptDeltaText()).To(Equal("Hello there."))
+	})
+
+	It("still strips embedded closed reasoning tags with prefill disabled (PEG-fallback safety, #9985)", func() {
+		// Disabling prefill must not stop stripping closed <think>…</think>
+		// pairs the PEG fallback can leave in autoparser content.
+		disablePrefill := true
+		t := &fakeTransport{}
+		s := newTranscriptStreamer(context.Background(), t, "resp1", "item1", "<think>",
+			reasoning.Config{DisableReasoningTagPrefill: &disablePrefill})
+
+		s.onToken("<think>secret</think>")
+		s.onToken("The answer is 42.")
+
+		Expect(s.content()).To(Equal("The answer is 42."))
+		Expect(t.transcriptDeltaText()).ToNot(ContainSubstring("secret"))
+	})
 })
 
 // streamLLMResponse drives a full streamed realtime turn: live transcript
@@ -79,6 +111,37 @@ var _ = Describe("streamLLMResponse", func() {
 		// emitSpeech replays the one TTS stream chunk.
 		Expect(t.countEvents(types.ServerEventTypeResponseOutputAudioDelta)).To(Equal(1))
 		Expect(t.transcriptDeltaText()).To(Equal("Hello world. How are you?"))
+	})
+
+	It("synthesizes each clause as it completes when clause chunking is enabled", func() {
+		on := true
+		m := &fakeModel{
+			predictTokens:   []string{"Hello world.", " How are you?"},
+			predictResp:     backend.LLMResponse{Response: "Hello world. How are you?"},
+			ttsStreamChunks: [][]byte{{9}},
+			ttsStreamRate:   24000,
+		}
+		session := &Session{
+			OutputSampleRate: 24000,
+			ModelInterface:   m,
+			ModelConfig: &config.ModelConfig{
+				Pipeline: config.Pipeline{Streaming: config.PipelineStreaming{LLM: &on, TTS: &on, ClauseChunking: &on}},
+			},
+		}
+		conv := &Conversation{}
+		t := &fakeTransport{}
+		llmCfg := &config.ModelConfig{}
+
+		handled := streamLLMResponse(context.Background(), session, conv, t, "resp1", nil, nil, llmCfg, nil, nil, 0)
+
+		Expect(handled).To(BeTrue())
+		// Two clauses ("Hello world." mid-stream, "How are you?" on flush) → two
+		// emitSpeech calls → two audio deltas, vs one for whole-message buffering.
+		Expect(t.countEvents(types.ServerEventTypeResponseOutputAudioDelta)).To(Equal(2))
+		// The full transcript still streams verbatim.
+		Expect(t.transcriptDeltaText()).To(Equal("Hello world. How are you?"))
+		// Exactly one terminal response.done.
+		Expect(t.countEvents(types.ServerEventTypeResponseDone)).To(Equal(1))
 	})
 
 	It("streams content deltas and emits tool-call items (autoparser tool turn)", func() {
