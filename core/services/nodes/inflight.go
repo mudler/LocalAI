@@ -157,3 +157,82 @@ func (c *InFlightTrackingClient) Rerank(ctx context.Context, in *pb.RerankReques
 	res, err := c.Backend.Rerank(ctx, in, opts...)
 	return res, c.reconcile(err)
 }
+
+func (c *InFlightTrackingClient) VAD(ctx context.Context, in *pb.VADRequest, opts ...ggrpc.CallOption) (*pb.VADResponse, error) {
+	defer c.track(ctx)()
+	res, err := c.Backend.VAD(ctx, in, opts...)
+	return res, c.reconcile(err)
+}
+
+func (c *InFlightTrackingClient) Diarize(ctx context.Context, in *pb.DiarizeRequest, opts ...ggrpc.CallOption) (*pb.DiarizeResponse, error) {
+	defer c.track(ctx)()
+	res, err := c.Backend.Diarize(ctx, in, opts...)
+	return res, c.reconcile(err)
+}
+
+func (c *InFlightTrackingClient) FaceVerify(ctx context.Context, in *pb.FaceVerifyRequest, opts ...ggrpc.CallOption) (*pb.FaceVerifyResponse, error) {
+	defer c.track(ctx)()
+	res, err := c.Backend.FaceVerify(ctx, in, opts...)
+	return res, c.reconcile(err)
+}
+
+func (c *InFlightTrackingClient) FaceAnalyze(ctx context.Context, in *pb.FaceAnalyzeRequest, opts ...ggrpc.CallOption) (*pb.FaceAnalyzeResponse, error) {
+	defer c.track(ctx)()
+	res, err := c.Backend.FaceAnalyze(ctx, in, opts...)
+	return res, c.reconcile(err)
+}
+
+func (c *InFlightTrackingClient) VoiceVerify(ctx context.Context, in *pb.VoiceVerifyRequest, opts ...ggrpc.CallOption) (*pb.VoiceVerifyResponse, error) {
+	defer c.track(ctx)()
+	res, err := c.Backend.VoiceVerify(ctx, in, opts...)
+	return res, c.reconcile(err)
+}
+
+func (c *InFlightTrackingClient) VoiceAnalyze(ctx context.Context, in *pb.VoiceAnalyzeRequest, opts ...ggrpc.CallOption) (*pb.VoiceAnalyzeResponse, error) {
+	defer c.track(ctx)()
+	res, err := c.Backend.VoiceAnalyze(ctx, in, opts...)
+	return res, c.reconcile(err)
+}
+
+func (c *InFlightTrackingClient) VoiceEmbed(ctx context.Context, in *pb.VoiceEmbedRequest, opts ...ggrpc.CallOption) (*pb.VoiceEmbedResponse, error) {
+	defer c.track(ctx)()
+	res, err := c.Backend.VoiceEmbed(ctx, in, opts...)
+	return res, c.reconcile(err)
+}
+
+func (c *InFlightTrackingClient) TokenClassify(ctx context.Context, in *pb.TokenClassifyRequest, opts ...ggrpc.CallOption) (*pb.TokenClassifyResponse, error) {
+	defer c.track(ctx)()
+	res, err := c.Backend.TokenClassify(ctx, in, opts...)
+	return res, c.reconcile(err)
+}
+
+func (c *InFlightTrackingClient) Score(ctx context.Context, in *pb.ScoreRequest, opts ...ggrpc.CallOption) (*pb.ScoreResponse, error) {
+	defer c.track(ctx)()
+	res, err := c.Backend.Score(ctx, in, opts...)
+	return res, c.reconcile(err)
+}
+
+func (c *InFlightTrackingClient) AudioEncode(ctx context.Context, in *pb.AudioEncodeRequest, opts ...ggrpc.CallOption) (*pb.AudioEncodeResult, error) {
+	defer c.track(ctx)()
+	res, err := c.Backend.AudioEncode(ctx, in, opts...)
+	return res, c.reconcile(err)
+}
+
+func (c *InFlightTrackingClient) AudioDecode(ctx context.Context, in *pb.AudioDecodeRequest, opts ...ggrpc.CallOption) (*pb.AudioDecodeResult, error) {
+	defer c.track(ctx)()
+	res, err := c.Backend.AudioDecode(ctx, in, opts...)
+	return res, c.reconcile(err)
+}
+
+func (c *InFlightTrackingClient) AudioTransform(ctx context.Context, in *pb.AudioTransformRequest, opts ...ggrpc.CallOption) (*pb.AudioTransformResult, error) {
+	defer c.track(ctx)()
+	res, err := c.Backend.AudioTransform(ctx, in, opts...)
+	return res, c.reconcile(err)
+}
+
+// AudioTransformStream, AudioToAudioStream and Forward are deliberately left as
+// embedded passthrough: they return a stream client and the inference spans the
+// stream's lifetime, not the constructor call. Wrapping the constructor with
+// track() would increment and immediately decrement (and fire onFirstComplete)
+// before any audio flows. Tracking those correctly needs the done() func tied to
+// stream close, which the current Backend interface doesn't surface here.
