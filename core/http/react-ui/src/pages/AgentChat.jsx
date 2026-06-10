@@ -139,7 +139,8 @@ export default function AgentChat() {
           id: nextId(),
           sender,
           content: data.content || data.message || '',
-          timestamp: data.timestamp ? Math.floor(data.timestamp / 1e6) : Date.now(),
+          // Backend sends Unix milliseconds (see core/services/agents events).
+          timestamp: data.timestamp || Date.now(),
         }
         if (data.metadata && Object.keys(data.metadata).length > 0) {
           msg.metadata = data.metadata
