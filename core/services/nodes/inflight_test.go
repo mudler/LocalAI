@@ -304,6 +304,105 @@ var _ = Describe("InFlightTrackingClient", func() {
 		})
 	})
 
+	Describe("non-LLM inference methods track in-flight", func() {
+		// silero-vad and friends only ever expose a single non-Predict method.
+		// If that method isn't wrapped, the load-time reservation released by
+		// onFirstComplete never fires and in-flight is stuck at 1 forever.
+		assertTracked := func(call func() error) {
+			var firstFired int
+			client.OnFirstComplete(func() { firstFired++ })
+			err := call()
+			Expect(err).ToNot(HaveOccurred())
+			Expect(tracker.increments).To(Equal(1), "method must increment in-flight")
+			Expect(tracker.decrements).To(Equal(1), "method must decrement in-flight")
+			Expect(firstFired).To(Equal(1), "method must release the load-time reservation")
+		}
+
+		It("VAD", func() {
+			assertTracked(func() error {
+				_, err := client.VAD(context.Background(), &pb.VADRequest{})
+				return err
+			})
+		})
+
+		It("Diarize", func() {
+			assertTracked(func() error {
+				_, err := client.Diarize(context.Background(), &pb.DiarizeRequest{})
+				return err
+			})
+		})
+
+		It("VoiceVerify", func() {
+			assertTracked(func() error {
+				_, err := client.VoiceVerify(context.Background(), &pb.VoiceVerifyRequest{})
+				return err
+			})
+		})
+
+		It("VoiceAnalyze", func() {
+			assertTracked(func() error {
+				_, err := client.VoiceAnalyze(context.Background(), &pb.VoiceAnalyzeRequest{})
+				return err
+			})
+		})
+
+		It("VoiceEmbed", func() {
+			assertTracked(func() error {
+				_, err := client.VoiceEmbed(context.Background(), &pb.VoiceEmbedRequest{})
+				return err
+			})
+		})
+
+		It("FaceVerify", func() {
+			assertTracked(func() error {
+				_, err := client.FaceVerify(context.Background(), &pb.FaceVerifyRequest{})
+				return err
+			})
+		})
+
+		It("FaceAnalyze", func() {
+			assertTracked(func() error {
+				_, err := client.FaceAnalyze(context.Background(), &pb.FaceAnalyzeRequest{})
+				return err
+			})
+		})
+
+		It("TokenClassify", func() {
+			assertTracked(func() error {
+				_, err := client.TokenClassify(context.Background(), &pb.TokenClassifyRequest{})
+				return err
+			})
+		})
+
+		It("Score", func() {
+			assertTracked(func() error {
+				_, err := client.Score(context.Background(), &pb.ScoreRequest{})
+				return err
+			})
+		})
+
+		It("AudioEncode", func() {
+			assertTracked(func() error {
+				_, err := client.AudioEncode(context.Background(), &pb.AudioEncodeRequest{})
+				return err
+			})
+		})
+
+		It("AudioDecode", func() {
+			assertTracked(func() error {
+				_, err := client.AudioDecode(context.Background(), &pb.AudioDecodeRequest{})
+				return err
+			})
+		})
+
+		It("AudioTransform", func() {
+			assertTracked(func() error {
+				_, err := client.AudioTransform(context.Background(), &pb.AudioTransformRequest{})
+				return err
+			})
+		})
+	})
+
 	Describe("stale model reload (self-heal)", func() {
 		It("removes the replica when the backend reports the model is not loaded", func() {
 			backend.predictErr = fmt.Errorf("parakeet-cpp: model not loaded")
