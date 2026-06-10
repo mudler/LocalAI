@@ -1,4 +1,58 @@
 ---
+- name: "gemma-4-31b-it-qat"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/unsloth/gemma-4-31B-it-qat-GGUF
+  description: |
+    Hugging Face |
+    GitHub |
+    Launch Blog |
+    Documentation
+
+    License: Apache 2.0 | Authors: Google DeepMind
+
+    > [!Note]
+    > This model card is for the new versions of the Gemma 4 family optimized with Quantization-Aware Training (QAT), which allows preserving similar quality to bfloat16 while dramatically reducing the memory requirements to load the model.
+    > Four versions of the QAT checkpoints are available:
+    > * **Unquantized QAT checkpoints** (Q4_0): Half-precision weights extracted from the QAT pipeline, ideal for custom downstream compilation and research. Available for Gemma 4 E2B, E4B, 12B, 26B A4B, and 31B, and their drafter models.
+    > * **GGUF** (Q4_0): Ready-to-deploy formats for broad ecosystem compatibility. Available for Gemma 4 E2B, E4B, 12B, 26B A4B, and 31B.
+    > * **Mobile-optimized** (wNa8o8): A custom schema engineered explicitly for mobile hardware efficiency. It features targeted 2-bit decoding layers, optimized KV caches, and static activations to maximize VRAM savings. Available for Gemma 4 E2B and E4B.
+    > * **Compressed Tensors** (w4a16): QAT checkpoints serialized in the compressed-tensors format for native, optimized inference with vLLM. Available for Gemma 4 E2B, E4B, 12B
+
+    ...
+  license: "apache-2.0"
+  tags:
+    - llm
+    - gguf
+    - gemma
+  icon: https://ai.google.dev/gemma/images/gemma4_banner.png
+  overrides:
+    backend: llama-cpp
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+    mmproj: llama-cpp/mmproj/gemma-4-31B-it-qat-GGUF/mmproj-F32.gguf
+    options:
+      - use_jinja:true
+    parameters:
+      min_p: 0
+      model: llama-cpp/models/gemma-4-31B-it-qat-GGUF/mtp-gemma-4-31B-it.gguf
+      repeat_penalty: 1
+      temperature: 1
+      top_k: 64
+      top_p: 0.95
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/gemma-4-31B-it-qat-GGUF/mtp-gemma-4-31B-it.gguf
+      sha256: b5c4e583fc5982439080114bbc1b7edaec361f9d4c9193d6bed606a3de401b62
+      uri: https://huggingface.co/unsloth/gemma-4-31B-it-qat-GGUF/resolve/main/mtp-gemma-4-31B-it.gguf
+    - filename: llama-cpp/mmproj/gemma-4-31B-it-qat-GGUF/mmproj-F32.gguf
+      sha256: 7a890d25bbc0a2ce70c3723ad57092d4a5ad98bb2115ed80561f990003c6e88a
+      uri: https://huggingface.co/unsloth/gemma-4-31B-it-qat-GGUF/resolve/main/mmproj-F32.gguf
 - name: "gemma-4-26b-a4b-it-qat"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
