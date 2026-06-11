@@ -112,13 +112,14 @@ carry that coverage.
 
 ## Build matrix
 
-`cpu-dllm` (amd64 + arm64), `cuda13-dllm` (amd64 + arm64), and
-`cuda13-nvidia-l4t-arm64-dllm` (Jetson / DGX Spark GB10), via
+`cpu-dllm` (amd64 + arm64), `cuda13-dllm` (amd64), and
+`cuda13-nvidia-l4t-arm64-dllm` (arm64 CUDA: Jetson / DGX Spark GB10), via
 `.github/backend-matrix.yml`. No darwin/Metal. CUDA builds forward
 `-DDLLM_CUDA=ON` (dllm.cpp gates ggml's CUDA behind its own flag - a bare
 `-DGGML_CUDA=ON` is overridden by the cache FORCE). `libdllm.so` is
-self-contained (ggml statically absorbed, PIC), so packaging only ships the
-one .so plus the usual ldd walk.
+self-contained (ggml statically absorbed, PIC), so `package.sh` only ships
+the binary, `run.sh` and that one .so (the parakeet-cpp-style stub layout;
+no ldd walk yet).
 
 ## Known limitations
 
