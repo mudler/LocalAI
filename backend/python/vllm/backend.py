@@ -150,9 +150,24 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
                 d["reasoning_content"] = msg.reasoning_content
             if msg.tool_calls:
                 try:
-                    d["tool_calls"] = json.loads(msg.tool_calls)
+                    tool_calls = json.loads(msg.tool_calls)
                 except json.JSONDecodeError:
                     pass
+                else:
+                    # OpenAI wire format carries function.arguments as a
+                    # JSON-encoded string, but chat templates (e.g. Qwen3)
+                    # iterate over it as a mapping. vLLM's own OpenAI server
+                    # parses arguments before applying the template, so do
+                    # the same here.
+                    if isinstance(tool_calls, list):
+                        for tc in tool_calls:
+                            func = tc.get("function") if isinstance(tc, dict) else None
+                            if isinstance(func, dict) and isinstance(func.get("arguments"), str):
+                                try:
+                                    func["arguments"] = json.loads(func["arguments"])
+                                except json.JSONDecodeError:
+                                    pass
+                    d["tool_calls"] = tool_calls
             result.append(d)
         return result
 
