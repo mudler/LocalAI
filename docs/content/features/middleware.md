@@ -365,10 +365,11 @@ ChatML instruct model works under those constraints, but expect flatter
 probability distributions which translate to a higher
 `activation_threshold` to keep noise out of the active label set.
 
-On llama-cpp, declare `known_usecases: [score]` on the classifier
-model — LocalAI rejects configs that combine `score` with
-`chat`/`completion`/`embeddings` there, because the Score RPC races
-the `llama_context` against slot-loop traffic.
+On llama-cpp, scoring rides the server's task queue alongside
+generation and embeddings, so the classifier may share a model config
+with `chat`/`completion`/`embeddings` — a dedicated scorer model is no
+longer required. Repeated calls with the same prompt also reuse the
+prompt's KV cache across candidates.
 
 ### The Colbert classifier
 

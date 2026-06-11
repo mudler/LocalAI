@@ -20,11 +20,12 @@ const (
 )
 
 // reservedNonChatModel reports whether the operator reserved this model for an
-// internal direct-decode primitive — the router score classifier or the PII
-// NER token_classify tier. Such a model has no chat template and must not be
+// internal primitive — the router score classifier or the PII NER
+// token_classify tier. Such a model has no chat template and must not be
 // given the generative-chat defaults the GGUF importer otherwise applies
-// (FLAG_CHAT, jinja templating); doing so trips the llama-cpp known_usecases
-// conflict check and makes the config invalid.
+// (FLAG_CHAT, jinja templating): surfacing it in chat pickers defeats the
+// reservation. Operators who do want a combined model declare both usecases
+// explicitly — the combination is valid.
 func reservedNonChatModel(cfg *ModelConfig) bool {
 	return cfg.KnownUsecases != nil &&
 		(*cfg.KnownUsecases&(FLAG_SCORE|FLAG_TOKEN_CLASSIFY)) != 0
@@ -87,13 +88,12 @@ func guessGGUFFromFile(cfg *ModelConfig, f *gguf.GGUFFile, defaultCtx int) {
 		cfg.Name = f.Metadata().Name
 	}
 
-	// A model the operator reserved for an internal direct-decode primitive
-	// (the router score classifier, or the PII NER token_classify tier) is not
-	// a chat model: it carries no chat template and must not be painted with
-	// the generative-chat defaults. In particular appending FLAG_CHAT here
-	// would fold chat into KnownUsecases on the next sync and trip the
-	// llama-cpp known_usecases conflict check in Validate(), making the config
-	// invalid so it is silently skipped at load. Respect the declaration.
+	// A model the operator reserved for an internal primitive (the router
+	// score classifier, or the PII NER token_classify tier) is not a chat
+	// model: it carries no chat template and must not be painted with the
+	// generative-chat defaults — appending FLAG_CHAT here would fold chat
+	// into KnownUsecases on the next sync and surface the model in every
+	// chat picker. Respect the declaration.
 	if !reservedNonChatModel(cfg) {
 		// Instruct to use template from llama.cpp
 		cfg.TemplateConfig.UseTokenizerTemplate = true

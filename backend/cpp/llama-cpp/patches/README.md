@@ -13,7 +13,12 @@ to a single pooled vector, and `llama_context::{encode,decode}` copy the
 resulting `[n_cls_out, n_tokens]` logits into the embeddings buffer
 (`llama_get_embeddings_ith(i)` then returns the `n_cls_out` logits for token
 `i`). The `--pooling token-cls` CLI flag and the `llama-embedding` example are
-taught to treat it as token-level (like `none`).
+taught to treat it as token-level (like `none`). In `tools/server`,
+`send_embedding` likewise treats TOKEN_CLS as token-level (per-token
+`llama_get_embeddings_ith` reads, no normalization) and the embeddings
+endpoint rejects it for OAI-compat response types — this is what lets
+embedding *tasks* return raw per-token classifier logits, which the
+grpc-server's TokenClassify RPC rides for slot-loop-scheduled NER.
 
 This is the substrate the `openai-privacy-filter` token-classifier arch needs
 (patches 0002/0003): the encoder graph ends at `result_norm` and lets the
@@ -24,8 +29,9 @@ framework attach the score head per token.
 ("llama: add BertForTokenClassification support"). We carry **only** the
 pooling-mechanism hunks (`include/llama.h`, `src/llama-graph.cpp`,
 `src/llama-context.cpp`, `common/arg.cpp`, `examples/embedding/embedding.cpp`,
-`gguf-py/gguf/constants.py`). We deliberately drop the PR's BERT/WPM-specific
-parts (the `convert_hf_to_gguf.py` BertModel changes — our converter is its own
+`gguf-py/gguf/constants.py`, and the PR's `tools/server/server-context.cpp`
+`token_level_pooling` hunks re-based to the pin's `slot.ctx_tgt` naming).
+We deliberately drop the PR's BERT/WPM-specific parts (the `convert_hf_to_gguf.py` BertModel changes — our converter is its own
 `conversion/openai_privacy_filter.py`; and the WPM `do_lower_case` tokenizer
 plumbing — privacy-filter uses o200k BPE, not WordPiece). The prerequisites the
 substrate assumes (`gguf_writer.add_embedding_length_out` /
@@ -55,7 +61,7 @@ model's `config.model_type == "openai_privacy_filter"`):
   `score.{weight,bias}` convert to `cls.output.{weight,bias}`.
 
 The loader/graph for the arch (`llama-model.cpp`, `src/models/…`) come in 0003.
-`patch -p1 --dry-run` clean atop 0001 against the current pin `5dcb71166`.
+`patch -p1 --dry-run` clean atop 0001 (see the version note at the bottom).
 
 ## 0003-convert-openai-privacy-filter.patch
 
@@ -149,7 +155,7 @@ rounding), including the e-mail BIOES span. Verified on the real
 `llama-embedding` binary (model-default TOKEN_CLS pooling — do **not** pass
 `--pooling none`, which overrides it). The two parity-gated assumptions —
 `n_swa = 2 * sliding_window` and 0003's gate_up packing — are both confirmed
-correct. All five patches apply, in order, against `5dcb71166`.
+correct.
 
 ## 0005-no-cache-all-swa-mask-fix.patch
 
@@ -182,12 +188,40 @@ apply in order with `patch -p1 --fuzz=0`, the tree compiles, and
 `llama-embedding` reproduces the HF reference (21/21 per-token argmax,
 full-logit cosine ≥ 0.9997 at F16).
 
+## 0006-server-task-type-score.patch
+
+**What:** adds `SERVER_TASK_TYPE_SCORE` to `tools/server` so teacher-forced
+log-prob scoring of a candidate continuation rides the slot scheduler like
+completions/embeddings/rerank, instead of requiring a dedicated locked
+`llama_context`. A score task carries `params.score_start` (the index of the
+first scored token); the batch builder flags positions `score_start-1 ..
+n-2` for logits output, a per-chunk `accumulate_score` harvests
+`log_softmax(logits)[next_token]` after **every** successful `llama_decode`
+(the context only retains the outputs of the most recent call, and a scored
+region can span multiple `n_batch` chunks — this also lifts the input cap to
+`n_ctx`), and `send_score` emits a `server_task_result_score` (sum + per-token
+log-probs) at `DONE_PROMPT`. Prompt-cache reuse is clamped to
+`score_start-1` so the position predicting the first scored token is always
+re-decoded; beyond that, cross-candidate prompt-KV reuse comes free from the
+slot prompt cache. Touches `server-task.{h,cpp}` and `server-context.cpp`
+only — no HTTP endpoint; LocalAI's grpc-server `Score` RPC is the consumer.
+
+**Provenance:** original (no upstream equivalent). Written upstream-shaped:
+an upstream PR would add a `POST /score` route on top.
+
+**Why:** the grpc-server's `Score` and `TokenClassify` RPCs previously drove
+`llama_decode` directly, serialized by mutexes plus a fatal tripwire against
+the slot loop, and LocalAI's config validation had to forbid combining
+`score`/`token_classify` with chat/completion on llama-cpp. With 0006 (and
+0001's server hunks for TOKEN_CLS), both RPCs post regular server tasks and
+those restrictions are gone.
+
 ---
 
 **Version note (applies to all patches here):** patches 0001–0003 were
-originally authored against `d6588daa8`; after LocalAI bumped `Makefile`
-`LLAMA_VERSION` to `5dcb71166686799f0d873eab7386234302d05ecf` (upstream
-#10128) all patches were regenerated and re-verified against that commit. All
-five apply in order with `patch -p1` (no fuzz, no rejected hunks) and the
-result compiles and reaches full HF parity. Re-run the apply check after any
-further `LLAMA_VERSION` bump.
+originally authored against `d6588daa8`, regenerated for `5dcb71166`, and
+re-synced after LocalAI bumped `Makefile` `LLAMA_VERSION` to
+`7c158fbb4aec1bdc9c81d6ca0e785139f4826fae`. All six patches apply in order
+with `patch -p1 --fuzz=0` (no rejected hunks, idempotent re-run) at that pin,
+and the patched tree compiles (`llama-server` and `grpc-server` targets).
+Re-run the apply check after any further `LLAMA_VERSION` bump.

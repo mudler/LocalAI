@@ -808,7 +808,7 @@ known_usecases:
 
 Available flags: `chat`, `completion`, `edit`, `embeddings`, `rerank`, `image`, `transcript`, `tts`, `sound_generation`, `tokenize`, `vad`, `video`, `detection`, `llm` (combination of CHAT, COMPLETION, EDIT).
 
-`token_classify` marks a model as a token-classification (NER) provider for the PII filter (e.g. an `openai-privacy-filter` GGUF). Declare it explicitly together with `embeddings: true` (the classifier loads via TOKEN_CLS pooling). On the `llama-cpp` backend it must not be combined with `chat`/`completion` in the same config — `TokenClassify` bypasses the slot loop and would race generation, so the loader rejects that mix; split into separate model configs.
+`token_classify` marks a model as a token-classification (NER) provider for the PII filter (e.g. an `openai-privacy-filter` GGUF). Declare it explicitly together with `embeddings: true` (the classifier loads via TOKEN_CLS pooling). On the `llama-cpp` backend classification rides the server's task queue, so it runs concurrently with other requests and may share a config with `chat`/`completion` usecases.
 
 ## PII filtering
 

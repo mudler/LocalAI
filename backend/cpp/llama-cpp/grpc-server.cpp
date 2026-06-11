@@ -123,40 +123,6 @@ static std::string base64_encode_bytes(const unsigned char* data, size_t len) {
 
 bool loaded_model; // TODO: add a mutex for this, but happens only once loading the model
 
-// Score bypasses the slot loop (see the comment on Score below) so it
-// must not run concurrently with any slot-loop RPC. These counters
-// are a defence-in-depth tripwire — ModelConfig.Validate already
-// rejects llama-cpp configs that mix score with chat/completion/
-// embeddings, so a healthy deployment never trips them. seq_cst is
-// load-bearing for the increment-then-check pattern below.
-static std::atomic<int> slot_loop_inflight{0};
-static std::atomic<int> score_inflight{0};
-
-// Increment-then-check, not check-then-increment: two simultaneous
-// racers both observe the other's increment and both abort cleanly.
-// Reversed, both could see zero and proceed.
-struct conflict_guard {
-    std::atomic<int>& self;
-    conflict_guard(const char* rpc, std::atomic<int>& self_, std::atomic<int>& other, const char* other_name)
-        : self(self_) {
-        self.fetch_add(1, std::memory_order_seq_cst);
-        int o = other.load(std::memory_order_seq_cst);
-        if (o > 0) {
-            fprintf(stderr,
-                "FATAL: %s called with %s=%d. The llama-cpp backend cannot "
-                "service Score and slot-loop RPCs concurrently — Score "
-                "bypasses the slot loop and races the llama_context. Bind "
-                "Score-using features to a model dedicated to scoring "
-                "(known_usecases: [score] with no chat/completion/embeddings).\n",
-                rpc, other_name, o);
-            std::abort();
-        }
-    }
-    ~conflict_guard() {
-        self.fetch_sub(1, std::memory_order_seq_cst);
-    }
-};
-
 static std::function<void(int)> shutdown_handler;
 static std::atomic_flag is_terminating = ATOMIC_FLAG_INIT;
 
@@ -1732,7 +1698,6 @@ public:
         if (params_base.model.path.empty()) {
             return grpc::Status(grpc::StatusCode::FAILED_PRECONDITION, "Model not loaded");
         }
-        conflict_guard guard("PredictStream", slot_loop_inflight, score_inflight, "score_inflight");
         json data = parse_options(true, request, params_base, ctx_server.get_llama_context());
 
 
@@ -2514,7 +2479,6 @@ public:
          if (params_base.model.path.empty()) {
              return grpc::Status(grpc::StatusCode::FAILED_PRECONDITION, "Model not loaded");
          }
-         conflict_guard guard("Predict", slot_loop_inflight, score_inflight, "score_inflight");
          json data = parse_options(true, request, params_base, ctx_server.get_llama_context());
 
         data["stream"] = false;
@@ -3284,7 +3248,6 @@ public:
         if (params_base.model.path.empty()) {
             return grpc::Status(grpc::StatusCode::FAILED_PRECONDITION, "Model not loaded");
         }
-        conflict_guard guard("Embedding", slot_loop_inflight, score_inflight, "score_inflight");
         json body = parse_options(false, request, params_base, ctx_server.get_llama_context());
 
         body["stream"] = false;
@@ -3392,7 +3355,6 @@ public:
             return grpc::Status(grpc::StatusCode::INVALID_ARGUMENT, "\"documents\" must be a non-empty string array");
         }
 
-        conflict_guard guard("Rerank", slot_loop_inflight, score_inflight, "score_inflight");
 
         // Create and queue the task
         auto rd = ctx_server.get_response_reader();
@@ -3469,37 +3431,14 @@ public:
     // Score returns the model's joint log-probability of each candidate
     // continuation given a shared prompt.
     //
-    // WHY bypass the slot/task queue: upstream server_context exposes
-    // get_llama_context as "main thread only" and the slot loop's
-    // update_slots() owns the context whenever a task is in flight.
-    // No public synchronization primitive is available — so Score is
-    // unsafe to call concurrently with active generation through this
-    // backend. In practice routing-classifier calls happen before the
-    // request is routed to a generation backend, so the model used
-    // for Score is typically idle. Concurrent Score calls are
-    // serialised by a local mutex; KV-cache state is isolated behind
-    // a dedicated sequence ID cleared between candidates.
-    //
-    // A patch to server-context.cpp that adds SERVER_TASK_TYPE_SCORE
-    // and routes scoring through the slot loop would be the correct
-    // long-term fix; tracked as a follow-up.
-    //
-    // Perf TODO (measured: ~450 ms warm for 3 candidates on Arch-
-    // Router-1.5B Q4_K_M + Intel SYCL): the current loop re-decodes
-    // `prompt + candidate` from scratch for every candidate, throwing
-    // away the prompt's KV cache between iterations. A smarter
-    // version would:
-    //   1. Decode just the prompt once into score_seq_id.
-    //   2. Snapshot/cp that sequence (llama_memory_seq_cp) into a
-    //      per-candidate sequence id.
-    //   3. For each candidate, decode only its tokens onto the copy
-    //      (continuing from the saved prompt state), read logits.
-    //   4. llama_memory_seq_rm the copy.
-    // Estimated speedup: 3-candidate calls 450 ms -> ~150-200 ms,
-    // 6-candidate calls 630 ms -> ~220 ms. Single source-file change,
-    // no proto / Go-side changes needed. Worth doing once routing is
-    // wired into the middleware and Score is on the hot path of every
-    // chat request.
+    // Each candidate becomes a SERVER_TASK_TYPE_SCORE task (carry-patch
+    // 0006) on the server task queue: the slot loop flags the candidate
+    // positions for logits output and harvests their log-probs after each
+    // decoded batch chunk, so scoring runs concurrently with generation
+    // and with other Score calls. Prompt-KV reuse across candidates comes
+    // from the slot prompt cache (LCP slot selection + get_common_prefix,
+    // clamped to score_start-1 by the patch), which retires the old
+    // re-decode-per-candidate perf TODO that lived here.
     grpc::Status Score(ServerContext* context, const backend::ScoreRequest* request, backend::ScoreResponse* response) override {
         auto auth = checkAuth(context);
         if (!auth.ok()) return auth;
@@ -3510,36 +3449,7 @@ public:
             return grpc::Status(grpc::StatusCode::INVALID_ARGUMENT, "candidates must be non-empty");
         }
 
-        // Tripwire against the slot loop. Acquired before score_mutex
-        // so it fires even when this Score is queued behind another.
-        conflict_guard guard("Score", score_inflight, slot_loop_inflight, "slot_loop_inflight");
-
-        // Serialise concurrent Score calls. The slot loop is still
-        // free to race with us — see the class comment above.
-        static std::mutex score_mutex;
-        std::lock_guard<std::mutex> score_lock(score_mutex);
-
-        llama_context * lctx = ctx_server.get_llama_context();
-        if (lctx == nullptr) {
-            return grpc::Status(grpc::StatusCode::FAILED_PRECONDITION, "llama context unavailable (sleeping?)");
-        }
         const llama_vocab * vocab = ctx_server.impl->vocab;
-        const int32_t n_vocab = llama_vocab_n_tokens(vocab);
-        const int32_t n_ctx = llama_n_ctx(lctx);
-        llama_memory_t mem = llama_get_memory(lctx);
-
-        // The KV-cache is sized to seq_to_stream.size() at load
-        // (typically equal to n_slots, often 1). Sequence IDs must
-        // be in [0, n_seq_max), so we can't pick a high-value
-        // "private" ID — we have to share with the slot. We clear
-        // the cache before AND after each candidate to keep
-        // scoring isolated from whatever state the slot held, and
-        // the static mutex above guarantees no other Score call is
-        // racing in the meantime. The slot loop is still free to
-        // race (see comment on this method) — Score must not run
-        // concurrently with generation through this backend.
-        const llama_seq_id score_seq_id = 0;
-        llama_memory_seq_rm(mem, score_seq_id, -1, -1);
 
         // Tokenize the shared prompt once with add_special=true so
         // BOS is prepended when the model requires it. parse_special
@@ -3547,6 +3457,13 @@ public:
         const std::string prompt = request->prompt();
         std::vector<llama_token> prompt_tokens = common_tokenize(vocab, prompt, /*add_special=*/true, /*parse_special=*/true);
         const int32_t prompt_len = (int32_t) prompt_tokens.size();
+
+        auto rd = ctx_server.get_response_reader();
+
+        // Maps task position -> candidate index: zero-length candidates get
+        // no task, and post_tasks() renumbers task.index sequentially.
+        std::vector<int> task_ci;
+        std::vector<server_task> tasks;
 
         for (int ci = 0; ci < request->candidates_size(); ci++) {
             const std::string & candidate_text = request->candidates(ci);
@@ -3581,91 +3498,52 @@ public:
                 return grpc::Status(grpc::StatusCode::INVALID_ARGUMENT,
                     "Score: prompt produced no leading tokens; need at least one (e.g. BOS) to predict candidate");
             }
-            if ((int32_t) full_tokens.size() > n_ctx) {
-                return grpc::Status(grpc::StatusCode::OUT_OF_RANGE,
-                    "Score: prompt+candidate exceeds context size (got " +
-                    std::to_string(full_tokens.size()) + ", n_ctx=" + std::to_string(n_ctx) + ")");
+            // One task per candidate. The slot loop enforces the context
+            // limit and reports errors through the response reader, so no
+            // n_ctx pre-check is needed here.
+            server_task task(SERVER_TASK_TYPE_SCORE);
+            task.id     = rd.queue_tasks.get_new_id();
+            task.index  = tasks.size();
+            task.tokens = server_tokens(full_tokens, false);
+            task.params.res_type    = TASK_RESPONSE_TYPE_NONE;
+            task.params.score_start = divergence;
+            task_ci.push_back(ci);
+            tasks.push_back(std::move(task));
+        }
+
+        if (tasks.empty()) {
+            // Every candidate tokenized to nothing — the response already
+            // carries their zero scores.
+            return grpc::Status::OK;
+        }
+
+        rd.post_tasks(std::move(tasks));
+
+        auto all_results = rd.wait_for_all([&context]() { return context->IsCancelled(); });
+
+        if (all_results.is_terminated) {
+            return grpc::Status(grpc::StatusCode::CANCELLED, "Request cancelled by client");
+        } else if (all_results.error) {
+            return grpc::Status(grpc::StatusCode::INTERNAL, all_results.error->to_json().value("message", "Error in receiving results"));
+        }
+
+        for (auto & result : all_results.results) {
+            auto * res = dynamic_cast<server_task_result_score*>(result.get());
+            GGML_ASSERT(res != nullptr);
+            GGML_ASSERT(res->index < task_ci.size());
+
+            backend::CandidateScore * cs = response->mutable_candidates(task_ci[res->index]);
+            cs->set_log_prob(res->log_prob);
+            if (request->length_normalize() && res->n_tokens > 0) {
+                cs->set_length_normalized_log_prob(res->log_prob / (double) res->n_tokens);
             }
-
-            // Build a batch covering the entire prompt+candidate. We
-            // need logits at (divergence-1) onward — those are the
-            // predictions for each candidate token.
-            llama_batch batch = llama_batch_init((int32_t) full_tokens.size(), 0, 1);
-            for (int32_t i = 0; i < (int32_t) full_tokens.size(); i++) {
-                batch.token[i]    = full_tokens[i];
-                batch.pos[i]      = i;
-                batch.n_seq_id[i] = 1;
-                batch.seq_id[i][0] = score_seq_id;
-                // logits[i] is "do we want the prediction *for the
-                // next token*, computed from this position?"
-                // We want predictions for candidate tokens at
-                // positions divergence .. full_tokens.size()-1, which
-                // come from logits at positions (divergence-1) ..
-                // (full_tokens.size()-2).
-                bool need_logit = (i >= divergence - 1) && (i < (int32_t) full_tokens.size() - 1);
-                batch.logits[i] = need_logit ? 1 : 0;
-            }
-            batch.n_tokens = (int32_t) full_tokens.size();
-
-            // Decode the batch. If decode fails (e.g. KV slot
-            // exhaustion), surface as INTERNAL — the caller will
-            // typically fall back to a sampling-based classifier.
-            int decode_err = llama_decode(lctx, batch);
-            if (decode_err != 0) {
-                llama_batch_free(batch);
-                llama_memory_seq_rm(mem, score_seq_id, -1, -1);
-                return grpc::Status(grpc::StatusCode::INTERNAL,
-                    "llama_decode failed during Score: " + std::to_string(decode_err));
-            }
-
-            // Sum log-probabilities of the actual candidate tokens.
-            double total_log_prob = 0.0;
-            for (int32_t k = 0; k < cand_len; k++) {
-                // The k-th candidate token sits at full_tokens index
-                // (divergence + k). Its predicting logit is at batch
-                // position (divergence + k - 1).
-                int32_t logit_pos = divergence + k - 1;
-                const float * logits = llama_get_logits_ith(lctx, logit_pos);
-                if (logits == nullptr) {
-                    llama_batch_free(batch);
-                    llama_memory_seq_rm(mem, score_seq_id, -1, -1);
-                    return grpc::Status(grpc::StatusCode::INTERNAL,
-                        "llama_get_logits_ith returned null at position " + std::to_string(logit_pos));
-                }
-                llama_token target_token = full_tokens[divergence + k];
-
-                // Compute log_softmax(logits)[target_token] with the
-                // max-subtraction stability trick.
-                float max_logit = logits[0];
-                for (int32_t v = 1; v < n_vocab; v++) {
-                    if (logits[v] > max_logit) max_logit = logits[v];
-                }
-                double sum_exp = 0.0;
-                for (int32_t v = 0; v < n_vocab; v++) {
-                    sum_exp += std::exp((double)(logits[v] - max_logit));
-                }
-                double token_log_prob = (double)(logits[target_token] - max_logit) - std::log(sum_exp);
-                total_log_prob += token_log_prob;
-
-                if (request->include_token_logprobs()) {
+            if (request->include_token_logprobs()) {
+                for (const auto & p : res->token_logprobs) {
                     backend::TokenLogProb * tlp = cs->add_tokens();
-                    std::string piece = common_token_to_piece(lctx, target_token);
-                    tlp->set_token(piece);
-                    tlp->set_log_prob(token_log_prob);
+                    tlp->set_token(common_token_to_piece(vocab, p.first, /*special=*/true));
+                    tlp->set_log_prob(p.second);
                 }
             }
-
-            cs->set_log_prob(total_log_prob);
-            if (request->length_normalize() && cand_len > 0) {
-                cs->set_length_normalized_log_prob(total_log_prob / (double) cand_len);
-            }
-
-            llama_batch_free(batch);
-            // Drop this candidate's KV-cache contribution so the next
-            // candidate starts from a clean state. Without this, the
-            // next decode would conflict at positions 0..N-1 for our
-            // sequence ID.
-            llama_memory_seq_rm(mem, score_seq_id, -1, -1);
         }
 
         return grpc::Status::OK;
@@ -3673,10 +3551,12 @@ public:
 
     // TokenClassify runs the openai-privacy-filter token classifier (a
     // bidirectional MoE encoder with a per-token BIOES head) over the supplied
-    // text and returns the detected entity spans. It mirrors Score's
-    // direct-decode strategy (bypassing the slot/task queue) because it needs
-    // full control over batch construction, per-token logit readout, and
-    // overlapping-window stitching for long inputs.
+    // text and returns the detected entity spans. Each window of the input
+    // rides the server task queue as a SERVER_TASK_TYPE_EMBEDDING task: with
+    // TOKEN_CLS pooling, send_embedding returns one raw n_cls logit row per
+    // token (carry-patch 0001, mirroring upstream PR #19725), so the slot
+    // loop owns every llama_decode and classification runs concurrently with
+    // other requests — windows can even run on parallel slots.
     //
     // The model must be loaded with embeddings enabled and TOKEN_CLS pooling
     // (the converter writes pooling_type = TOKEN_CLS into the GGUF, so a model
@@ -3690,14 +3570,9 @@ public:
             return grpc::Status(grpc::StatusCode::FAILED_PRECONDITION, "Model not loaded");
         }
 
-        // Tripwire against the slot loop + serialise concurrent TokenClassify
-        // calls, exactly as Score does (see Score's class comment): we drive
-        // llama_decode directly, so we must not race the slot loop or another
-        // direct-decode RPC.
-        conflict_guard guard("TokenClassify", score_inflight, slot_loop_inflight, "slot_loop_inflight");
-        static std::mutex token_classify_mutex;
-        std::lock_guard<std::mutex> tc_lock(token_classify_mutex);
-
+        // The context is only consulted for immutable post-load properties
+        // (pooling type, ubatch/ctx geometry) — all decoding happens on the
+        // slot loop via the task queue.
         llama_context * lctx = ctx_server.get_llama_context();
         if (lctx == nullptr) {
             return grpc::Status(grpc::StatusCode::FAILED_PRECONDITION, "llama context unavailable (sleeping?)");
@@ -3767,28 +3642,71 @@ public:
         }
 
         std::vector<float> emit((size_t) n_tok * n_cls);
-        llama_batch batch = llama_batch_init(W, 0, 1);
 
-        // Decode one window [start, start+wlen) and write log-softmax rows for
-        // the interior global positions [start+lo, start+hi). Positions are
-        // window-local (0..wlen-1): RoPE is relative and the symmetric band uses
-        // |p1-p0|, so local positions are equivalent to absolute ones here.
-        auto run_window = [&](int start, int wlen, int lo, int hi) -> grpc::Status {
-            common_batch_clear(batch);
-            for (int j = 0; j < wlen; j++) {
-                common_batch_add(batch, tokens[start + j], j, { 0 }, /*logits=*/true);
+        // Each window [start, start+wlen) becomes one embedding task whose
+        // result is one raw n_cls logit row per window token; only the
+        // interior rows [lo, hi) are stitched into the global emit matrix.
+        // Window-local positions are preserved by construction — embedding
+        // tasks are non-splittable and always start at position 0 — and RoPE
+        // is relative with a symmetric band (|p1-p0|), so local positions are
+        // equivalent to absolute ones here.
+        struct pf_window { int start, wlen, lo, hi; };
+        std::vector<pf_window> windows;
+        if (n_tok <= W) {
+            windows.push_back({0, n_tok, 0, n_tok});
+        } else {
+            const int stride = W - 2 * halo;
+            for (int start = 0; start < n_tok; start += stride) {
+                const int wlen = std::min(W, n_tok - start);
+                const int lo = (start == 0) ? 0 : halo;
+                const int hi = (start + wlen >= n_tok) ? wlen : (wlen - halo);
+                windows.push_back({start, wlen, lo, hi});
+                if (start + wlen >= n_tok) break;
             }
-            llama_memory_clear(llama_get_memory(lctx), true);
-            int rc = llama_decode(lctx, batch);
-            if (rc < 0) {
+        }
+
+        auto rd = ctx_server.get_response_reader();
+        {
+            std::vector<server_task> tasks;
+            tasks.reserve(windows.size());
+            for (size_t wi = 0; wi < windows.size(); wi++) {
+                const auto & w = windows[wi];
+                server_task task(SERVER_TASK_TYPE_EMBEDDING);
+                task.id     = rd.queue_tasks.get_new_id();
+                task.index  = wi;
+                task.tokens = server_tokens(llama_tokens(tokens.begin() + w.start, tokens.begin() + w.start + w.wlen), false);
+                task.params.res_type = TASK_RESPONSE_TYPE_NONE;
+                tasks.push_back(std::move(task));
+            }
+            rd.post_tasks(std::move(tasks));
+        }
+
+        auto all_results = rd.wait_for_all([&context]() { return context->IsCancelled(); });
+
+        if (all_results.is_terminated) {
+            return grpc::Status(grpc::StatusCode::CANCELLED, "Request cancelled by client");
+        } else if (all_results.error) {
+            return grpc::Status(grpc::StatusCode::INTERNAL, all_results.error->to_json().value("message", "Error in receiving results"));
+        }
+
+        for (auto & result : all_results.results) {
+            auto * res = dynamic_cast<server_task_result_embd*>(result.get());
+            GGML_ASSERT(res != nullptr);
+            GGML_ASSERT(res->index < windows.size());
+            const auto & w = windows[res->index];
+
+            if ((int) res->embedding.size() != w.wlen) {
                 return grpc::Status(grpc::StatusCode::INTERNAL,
-                    "TokenClassify: llama_decode failed (" + std::to_string(rc) + ")");
+                    "TokenClassify: expected " + std::to_string(w.wlen) +
+                    " token rows, got " + std::to_string(res->embedding.size()));
             }
-            for (int li = lo; li < hi; li++) {
-                const float * row = llama_get_embeddings_ith(lctx, li);
-                if (row == nullptr) {
+
+            for (int li = w.lo; li < w.hi; li++) {
+                const std::vector<float> & row = res->embedding[li];
+                if ((int) row.size() != n_cls) {
                     return grpc::Status(grpc::StatusCode::INTERNAL,
-                        "TokenClassify: null embeddings at window position " + std::to_string(li));
+                        "TokenClassify: expected " + std::to_string(n_cls) +
+                        " logits per token, got " + std::to_string(row.size()));
                 }
                 // log_softmax over the n_cls logits (fp32, max-subtraction stable)
                 float maxv = row[0];
@@ -3796,31 +3714,11 @@ public:
                 double sum = 0.0;
                 for (int c = 0; c < n_cls; c++) sum += std::exp((double) (row[c] - maxv));
                 const double logsum = std::log(sum);
-                float * dst = &emit[(size_t) (start + li) * n_cls];
+                float * dst = &emit[(size_t) (w.start + li) * n_cls];
                 for (int c = 0; c < n_cls; c++) {
                     dst[c] = (float) ((double) (row[c] - maxv) - logsum);
                 }
             }
-            return grpc::Status::OK;
-        };
-
-        grpc::Status st = grpc::Status::OK;
-        if (n_tok <= W) {
-            st = run_window(0, n_tok, 0, n_tok);
-        } else {
-            const int stride = W - 2 * halo;
-            for (int start = 0; start < n_tok; start += stride) {
-                const int wlen = std::min(W, n_tok - start);
-                const int lo = (start == 0) ? 0 : halo;
-                const int hi = (start + wlen >= n_tok) ? wlen : (wlen - halo);
-                st = run_window(start, wlen, lo, hi);
-                if (!st.ok()) break;
-                if (start + wlen >= n_tok) break;
-            }
-        }
-        llama_batch_free(batch);
-        if (!st.ok()) {
-            return st;
         }
 
         // Decode the BIOES path and assemble spans.
@@ -3857,7 +3755,6 @@ public:
         if (params_base.model.path.empty()) {
             return grpc::Status(grpc::StatusCode::FAILED_PRECONDITION, "Model not loaded");
         }
-        conflict_guard guard("TokenizeString", slot_loop_inflight, score_inflight, "score_inflight");
         json body = parse_options(false, request, params_base, ctx_server.get_llama_context());
         body["stream"] = false;
 
@@ -3879,7 +3776,6 @@ public:
 
     grpc::Status GetMetrics(ServerContext* /*context*/, const backend::MetricsRequest* /*request*/, backend::MetricsResponse* response) override {
 
-        conflict_guard guard("GetMetrics", slot_loop_inflight, score_inflight, "score_inflight");
 
 // request slots data using task queue
         auto rd = ctx_server.get_response_reader();

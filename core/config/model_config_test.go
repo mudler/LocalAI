@@ -72,20 +72,20 @@ parameters:
 			Expect(err).To(BeNil())
 			Expect(valid).To(BeTrue())
 
-			// llama-cpp configs can't mix the score usecase with
-			// chat/completion/embeddings — Score bypasses the slot
-			// loop and would race the llama_context. The check fires
-			// at load and save time; here we exercise it directly.
+			// Regression: llama-cpp configs may freely combine score and
+			// token_classify with chat/completion/embeddings — both ride
+			// the server task queue since carry-patch 0006 (they used to
+			// bypass the slot loop, which made the combinations unsafe and
+			// rejected here).
 			scoreFlag := FLAG_SCORE | FLAG_CHAT
-			conflicting := ModelConfig{
-				Name:          "router-but-also-chat",
+			combined := ModelConfig{
+				Name:          "router-and-chat",
 				Backend:       "llama-cpp",
 				KnownUsecases: &scoreFlag,
 			}
-			valid, err = conflicting.Validate()
-			Expect(valid).To(BeFalse())
-			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).To(ContainSubstring("score is incompatible"))
+			valid, err = combined.Validate()
+			Expect(valid).To(BeTrue())
+			Expect(err).NotTo(HaveOccurred())
 
 			scoreOnly := FLAG_SCORE
 			dedicated := ModelConfig{
@@ -97,32 +97,15 @@ parameters:
 			Expect(valid).To(BeTrue())
 			Expect(err).NotTo(HaveOccurred())
 
-			// The constraint is llama-cpp-specific; other backends
-			// may safely combine.
-			scoreAndChat := FLAG_SCORE | FLAG_CHAT
-			otherBackend := ModelConfig{
-				Name:          "vllm-router-and-chat",
-				Backend:       "vllm",
-				KnownUsecases: &scoreAndChat,
-			}
-			valid, err = otherBackend.Validate()
-			Expect(valid).To(BeTrue())
-			Expect(err).NotTo(HaveOccurred())
-
-			// token_classify on llama-cpp also bypasses the slot loop, so
-			// it can't mix with chat/completion — but unlike score it
-			// REQUIRES embeddings (TOKEN_CLS pooling), so embeddings is not
-			// a conflict.
 			tcAndChat := FLAG_TOKEN_CLASSIFY | FLAG_CHAT
-			tcConflicting := ModelConfig{
-				Name:          "ner-but-also-chat",
+			tcCombined := ModelConfig{
+				Name:          "ner-and-chat",
 				Backend:       "llama-cpp",
 				KnownUsecases: &tcAndChat,
 			}
-			valid, err = tcConflicting.Validate()
-			Expect(valid).To(BeFalse())
-			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).To(ContainSubstring("token_classify is incompatible"))
+			valid, err = tcCombined.Validate()
+			Expect(valid).To(BeTrue())
+			Expect(err).NotTo(HaveOccurred())
 
 			tcAndEmbeddings := FLAG_TOKEN_CLASSIFY | FLAG_EMBEDDINGS
 			tcWithEmbeddings := ModelConfig{
@@ -361,10 +344,10 @@ parameters:
 		// Declared `known_usecases: [score]` is authoritative — the
 		// guessing heuristic must NOT add chat on top, even though the
 		// inherited chatml template would otherwise satisfy the chat
-		// heuristic. Score means "this model is reserved for the
-		// router classifier"; surfacing it as a chat model defeats the
-		// reservation and reintroduces the slot contention the load-time
-		// score/chat conflict check exists to prevent.
+		// heuristic. A score-only declaration means "this model is
+		// reserved for the router classifier"; surfacing it as a chat
+		// model defeats the reservation. (Operators who do want both
+		// may declare both — the combination is supported.)
 		scoreReserved := FLAG_SCORE
 		j := ModelConfig{
 			Name:          "arch-router",
@@ -634,22 +617,22 @@ var _ = Describe("GGUF importer chat-default guard (reservedNonChatModel)", func
 	})
 
 	It("keeps a token_classify GGUF config valid by withholding FLAG_CHAT", func() {
-		// Regression for the privacy-filter import: the GGUF importer appends
-		// FLAG_CHAT to a templateless model, which the next sync folds into
-		// KnownUsecases. For a reserved model that would produce
-		// token_classify+chat — rejected by Validate, so the config is silently
-		// skipped at load and the model disappears from every picker. The guard
-		// withholds FLAG_CHAT; assert both halves of that contract here.
+		// The privacy-filter import shape: the GGUF importer appends FLAG_CHAT
+		// to a templateless model, which the next sync folds into
+		// KnownUsecases. token_classify+chat is a VALID combination now that
+		// classification rides the server task queue (carry-patch 0006), but
+		// the importer must still not paint a declared-reserved model as chat
+		// — that would surface it in every chat picker.
 		reserved := []string{"token_classify"}
 		withChat := append(append([]string{}, reserved...), "FLAG_CHAT")
 
-		// What the importer would have produced WITHOUT the guard: invalid.
-		bad := &ModelConfig{Backend: "llama-cpp", KnownUsecaseStrings: withChat}
-		bad.syncKnownUsecasesFromString()
-		valid, err := bad.Validate()
-		Expect(valid).To(BeFalse())
-		Expect(err).To(HaveOccurred())
-		Expect(err.Error()).To(ContainSubstring("token_classify is incompatible"))
+		// What the importer would produce WITHOUT the guard: valid (the old
+		// slot-loop conflict rejection is gone), just undesirable defaults.
+		combined := &ModelConfig{Backend: "llama-cpp", KnownUsecaseStrings: withChat}
+		combined.syncKnownUsecasesFromString()
+		valid, err := combined.Validate()
+		Expect(valid).To(BeTrue())
+		Expect(err).NotTo(HaveOccurred())
 
 		// With the guard (FLAG_CHAT withheld): the declaration survives and the
 		// config validates.

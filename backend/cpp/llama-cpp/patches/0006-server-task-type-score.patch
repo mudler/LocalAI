@@ -1,0 +1,287 @@
+diff --git a/tools/server/server-context.cpp b/tools/server/server-context.cpp
+index 4ea2ab2d7..592bcc6b2 100644
+--- a/tools/server/server-context.cpp
++++ b/tools/server/server-context.cpp
+@@ -47,7 +47,12 @@ static uint32_t server_n_outputs_max(const common_params & params) {
+ 
+     const uint32_t n_outputs_per_seq = 1 + common_speculative_n_max(&params.speculative);
+ 
+-    const uint64_t n_outputs = (uint64_t) params.n_parallel * n_outputs_per_seq;
++    // headroom for SERVER_TASK_TYPE_SCORE, which requests logits at multiple
++    // prompt positions per decode; update_slots bounds the score outputs per
++    // batch to this headroom (see n_score_out_budget)
++    const uint32_t n_outputs_score = 64;
++
++    const uint64_t n_outputs = (uint64_t) params.n_parallel * n_outputs_per_seq + n_outputs_score;
+ 
+     return std::max<uint32_t>(1, std::min<uint64_t>(n_batch, n_outputs));
+ }
+@@ -110,6 +115,10 @@ struct server_slot {
+ 
+     std::vector<completion_token_output> generated_token_probs;
+ 
++    // SERVER_TASK_TYPE_SCORE: (target token, log-prob) per scored token,
++    // accumulated across batch chunks (see accumulate_score)
++    std::vector<std::pair<llama_token, float>> score_logprobs;
++
+     bool has_next_token = true;
+     bool has_new_line   = false;
+     bool truncated      = false;
+@@ -215,6 +224,7 @@ struct server_slot {
+         }
+         generated_tokens.clear();
+         generated_token_probs.clear();
++        score_logprobs.clear();
+         json_schema = json();
+ 
+         // clear speculative decoding stats
+@@ -1952,6 +1962,75 @@ private:
+         queue_results.send(std::move(res));
+     }
+ 
++    // SERVER_TASK_TYPE_SCORE: harvest the log-probs of the scored tokens whose
++    // predicting positions were decoded in this batch view. Must be called after
++    // every successful llama_decode - the context only retains the outputs of
++    // the most recent call, and a scored region can span multiple batch chunks.
++    void accumulate_score(server_slot & slot, const llama_batch & batch) {
++        const int32_t n_prompt = slot.task->n_tokens();
++        const int32_t n_vocab  = llama_vocab_n_tokens(vocab);
++
++        for (int i = 0; i < batch.n_tokens; ++i) {
++            if (!batch.logits[i] || batch.seq_id[i][0] != slot.id) {
++                continue;
++            }
++
++            // score prompts are text-only, so the position is the token index
++            const int32_t idx = batch.pos[i];
++            if (idx + 1 < slot.task->params.score_start || idx + 1 >= n_prompt) {
++                // the final position is always flagged by the batch machinery,
++                // but its logits predict past the end of the prompt
++                continue;
++            }
++
++            const float * logits = llama_get_logits_ith(slot.ctx_tgt, i);
++            if (logits == nullptr) {
++                SLT_ERR(slot, "failed to get logits at batch index %d\n", i);
++                continue;
++            }
++
++            // log_softmax(logits)[target] with max-subtraction for stability
++            float max_logit = logits[0];
++            for (int32_t v = 1; v < n_vocab; ++v) {
++                max_logit = std::max(max_logit, logits[v]);
++            }
++            double sum_exp = 0.0;
++            for (int32_t v = 0; v < n_vocab; ++v) {
++                sum_exp += std::exp((double) (logits[v] - max_logit));
++            }
++
++            const llama_token target = slot.task->tokens[idx + 1];
++            const double      lp     = (double) (logits[target] - max_logit) - std::log(sum_exp);
++
++            slot.score_logprobs.emplace_back(target, (float) lp);
++        }
++    }
++
++    void send_score(server_slot & slot) {
++        auto res = std::make_unique<server_task_result_score>();
++        res->id       = slot.task->id;
++        res->index    = slot.task->index;
++        res->n_tokens = slot.task->n_tokens() - slot.task->params.score_start;
++
++        if ((int32_t) slot.score_logprobs.size() != res->n_tokens) {
++            SLT_ERR(slot, "score harvested %zu log-probs, expected %d\n", slot.score_logprobs.size(), res->n_tokens);
++            send_error(slot, "internal error: incomplete score harvest", ERROR_TYPE_SERVER);
++            return;
++        }
++
++        double sum = 0.0;
++        for (const auto & p : slot.score_logprobs) {
++            sum += p.second;
++        }
++
++        res->log_prob       = sum;
++        res->token_logprobs = std::move(slot.score_logprobs);
++
++        SLT_DBG(slot, "sending score result, log_prob = %f\n", res->log_prob);
++
++        queue_results.send(std::move(res));
++    }
++
+     //
+     // Functions to process the task
+     //
+@@ -2063,6 +2142,7 @@ private:
+             case SERVER_TASK_TYPE_INFILL:
+             case SERVER_TASK_TYPE_EMBEDDING:
+             case SERVER_TASK_TYPE_RERANK:
++            case SERVER_TASK_TYPE_SCORE:
+                 {
+                     // special case: if input is provided via CLI, tokenize it first
+                     // otherwise, no need to tokenize as it's already done inside the HTTP thread
+@@ -2602,6 +2682,15 @@ private:
+         float  alora_scale       = -1.0f;
+         size_t alora_disabled_id = 0;
+ 
++        // SCORE: bound the flagged prompt outputs per batch so each decode
++        // stays within cparams.n_outputs_max - everything else needs at most
++        // n_parallel*(1+draft) outputs (see server_n_outputs_max); a slot that
++        // exhausts the budget simply resumes in the next batch
++        const int32_t n_score_out_budget = std::max<int32_t>(1,
++            params_base.n_outputs_max -
++            params_base.n_parallel * (1 + (int32_t) common_speculative_n_max(&params_base.speculative)));
++        int32_t n_score_out = 0;
++
+         // next, batch any pending prompts without exceeding n_batch
+         if (params_base.cont_batching || batch.n_tokens == 0) {
+             for (auto & slot : slots) {
+@@ -2714,6 +2803,13 @@ private:
+                                     n_past = std::min(n_past, slot.alora_invocation_start - 1);
+                                 }
+ 
++                                // scoring needs logits from position score_start-1 onwards (each
++                                // predicts the next scored token), so never reuse cache at or
++                                // beyond it - a full-prefix hit would skip those outputs
++                                if (slot.task->type == SERVER_TASK_TYPE_SCORE) {
++                                    n_past = std::min(n_past, std::max(0, slot.task->params.score_start - 1));
++                                }
++
+                                 const auto n_cache_reuse = slot.task->params.n_cache_reuse;
+ 
+                                 const bool can_cache_reuse =
+@@ -3020,11 +3116,22 @@ private:
+                         // embedding requires all tokens in the batch to be output;
+                         // MTP also wants logits at every prompt position so the
+                         // streaming hook can mirror t_h_nextn into ctx_dft.
++                        // scoring needs outputs from score_start-1 onwards - each
++                        // such position's logits predict the next (scored) token.
++                        const bool need_out_score = slot.task->type == SERVER_TASK_TYPE_SCORE &&
++                            slot.prompt.n_tokens() + 1 >= slot.task->params.score_start;
++                        if (need_out_score && n_score_out >= n_score_out_budget) {
++                            break; // out of output budget for this batch - resume in the next one
++                        }
++                        if (need_out_score) {
++                            n_score_out++;
++                        }
++                        const bool need_out = slot.need_embd() || need_out_score;
+                         common_batch_add(batch,
+                             cur_tok,
+                             slot.prompt.tokens.pos_next(),
+                             { slot.id },
+-                            slot.need_embd());
++                            need_out);
+                         slot.prompt.tokens.push_back(cur_tok);
+ 
+                         slot.n_prompt_tokens_processed++;
+@@ -3297,6 +3404,14 @@ private:
+             // on successful decode, restore the original batch size
+             n_batch = llama_n_batch(ctx_tgt);
+ 
++            // harvest score logits from this batch view - the context only
++            // retains the outputs of the most recent decode (see accumulate_score)
++            for (auto & slot : slots) {
++                if (slot.is_processing() && slot.task && slot.task->type == SERVER_TASK_TYPE_SCORE) {
++                    accumulate_score(slot, batch_view);
++                }
++            }
++
+             // handle `n_cmpl > 1` tasks - when the main prompt is processed, activate all child tasks too
+             for (auto & slot : slots) {
+                 if (slot.state == SLOT_STATE_DONE_PROMPT && slot.task->is_parent()) {
+@@ -3348,6 +3463,14 @@ private:
+                         continue; // continue loop of slots
+                     }
+ 
++                    if (slot.task->type == SERVER_TASK_TYPE_SCORE) {
++                        // the scored logits were accumulated per batch chunk above
++                        send_score(slot);
++                        slot.release();
++                        slot.i_batch = -1;
++                        continue; // continue loop of slots
++                    }
++
+                     GGML_ASSERT(slot.task->need_sampling());
+ 
+                     // prompt evaluated for next-token prediction
+diff --git a/tools/server/server-task.cpp b/tools/server/server-task.cpp
+index 33de2e4d9..387dce8ff 100644
+--- a/tools/server/server-task.cpp
++++ b/tools/server/server-task.cpp
+@@ -1869,6 +1869,25 @@ json server_task_result_rerank::to_json() {
+     };
+ }
+ 
++//
++// server_task_result_score
++//
++json server_task_result_score::to_json() {
++    json tokens = json::array();
++    for (const auto & p : token_logprobs) {
++        tokens.push_back(json {
++            {"id",      p.first},
++            {"logprob", p.second},
++        });
++    }
++    return json {
++        {"index",         index},
++        {"log_prob",      log_prob},
++        {"tokens_scored", n_tokens},
++        {"tokens",        std::move(tokens)},
++    };
++}
++
+ //
+ // server_task_result_error
+ //
+diff --git a/tools/server/server-task.h b/tools/server/server-task.h
+index bdadcff76..272a8999b 100644
+--- a/tools/server/server-task.h
++++ b/tools/server/server-task.h
+@@ -17,6 +17,7 @@ enum server_task_type {
+     SERVER_TASK_TYPE_COMPLETION,
+     SERVER_TASK_TYPE_EMBEDDING,
+     SERVER_TASK_TYPE_RERANK,
++    SERVER_TASK_TYPE_SCORE,
+     SERVER_TASK_TYPE_INFILL,
+     SERVER_TASK_TYPE_CANCEL,
+     SERVER_TASK_TYPE_CONTROL,
+@@ -95,6 +96,11 @@ struct task_params {
+     // Embeddings
+     int32_t embd_normalize = 2; // (-1=none, 0=max absolute int16, 1=taxicab, 2=Euclidean/L2, >2=p-norm)
+ 
++    // Scoring (SERVER_TASK_TYPE_SCORE)
++    // index of the first scored token; logits are needed at positions
++    // score_start-1 .. n_tokens-2, each predicting the next token
++    int32_t score_start = 0;
++
+     json format_logit_bias(const std::vector<llama_logit_bias> & logit_bias) const;
+     json to_json(bool only_metrics = false) const;
+ };
+@@ -194,6 +200,7 @@ struct server_task {
+         switch (type) {
+             case SERVER_TASK_TYPE_COMPLETION:
+             case SERVER_TASK_TYPE_INFILL:
++            case SERVER_TASK_TYPE_SCORE:
+                 return true;
+             default:
+                 return false;
+@@ -494,6 +501,19 @@ struct server_task_result_rerank : server_task_result {
+     virtual json to_json() override;
+ };
+ 
++struct server_task_result_score : server_task_result {
++    // sum of the log-probabilities of the scored tokens
++    double log_prob = 0.0;
++
++    // number of scored tokens (n_tokens() - score_start)
++    int32_t n_tokens = 0;
++
++    // (target token, log-prob) per scored token, in token order
++    std::vector<std::pair<llama_token, float>> token_logprobs;
++
++    virtual json to_json() override;
++};
++
+ struct server_task_result_error : server_task_result {
+     error_type err_type = ERROR_TYPE_SERVER;
+     std::string err_msg;

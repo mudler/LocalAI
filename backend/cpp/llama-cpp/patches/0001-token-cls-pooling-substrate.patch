@@ -155,3 +155,54 @@ index e6ec3054d..afa2eb665 100644
          case LLAMA_POOLING_TYPE_MEAN:
              {
                  ggml_tensor * inp_mean = build_inp_mean();
+diff --git a/tools/server/server-context.cpp b/tools/server/server-context.cpp
+index ab0d59447..4ea2ab2d7 100644
+--- a/tools/server/server-context.cpp
++++ b/tools/server/server-context.cpp
+@@ -1884,13 +1884,16 @@ private:
+ 
+         std::vector<float> embd_res(n_embd_out, 0.0f);
+ 
++        const auto pooling_type = llama_pooling_type(slot.ctx_tgt);
++        const bool token_level_pooling = pooling_type == LLAMA_POOLING_TYPE_NONE || pooling_type == LLAMA_POOLING_TYPE_TOKEN_CLS;
++
+         for (int i = 0; i < batch.n_tokens; ++i) {
+             if (!batch.logits[i] || batch.seq_id[i][0] != slot.id) {
+                 continue;
+             }
+ 
+             const float * embd = nullptr;
+-            if (llama_pooling_type(slot.ctx_tgt) == LLAMA_POOLING_TYPE_NONE) {
++            if (token_level_pooling) {
+                 embd = llama_get_embeddings_ith(slot.ctx_tgt, i);
+             } else {
+                 embd = llama_get_embeddings_seq(slot.ctx_tgt, batch.seq_id[i][0]);
+@@ -1904,7 +1907,7 @@ private:
+             }
+ 
+             // normalize only when there is pooling
+-            if (llama_pooling_type(slot.ctx_tgt) != LLAMA_POOLING_TYPE_NONE) {
++            if (!token_level_pooling) {
+                 common_embd_normalize(embd, embd_res.data(), n_embd_out, slot.task->params.embd_normalize);
+                 res->embedding.push_back(embd_res);
+                 break;
+@@ -4842,6 +4845,10 @@ std::unique_ptr<server_res_generator> server_routes::handle_embeddings_impl(cons
+         res->error(format_error_response("Pooling type 'none' is not OAI compatible. Please use a different pooling type", ERROR_TYPE_INVALID_REQUEST));
+         return res;
+     }
++    if (res_type != TASK_RESPONSE_TYPE_NONE && meta->pooling_type == LLAMA_POOLING_TYPE_TOKEN_CLS) {
++        res->error(format_error_response("Pooling type 'token-cls' is not OAI compatible. Please use a different pooling type", ERROR_TYPE_INVALID_REQUEST));
++        return res;
++    }
+ 
+     const json body = json::parse(req.body);
+ 
+@@ -4880,7 +4887,7 @@ std::unique_ptr<server_res_generator> server_routes::handle_embeddings_impl(cons
+     int embd_normalize = params.embd_normalize;
+     if (body.count("embd_normalize") != 0) {
+         embd_normalize = body.at("embd_normalize");
+-        if (meta->pooling_type == LLAMA_POOLING_TYPE_NONE) {
++        if (meta->pooling_type == LLAMA_POOLING_TYPE_NONE || meta->pooling_type == LLAMA_POOLING_TYPE_TOKEN_CLS) {
+             SRV_DBG("embd_normalize is not supported by pooling type %d, ignoring it\n", meta->pooling_type);
+         }
+     }

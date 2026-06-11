@@ -1075,31 +1075,11 @@ func (c *ModelConfig) Validate() (bool, error) {
 			ProxyProviderOpenAI, ProxyProviderAnthropic)
 	}
 
-	// Score on llama-cpp bypasses the slot loop and races the
-	// llama_context against concurrent generation/embedding traffic
-	// (see backend/cpp/llama-cpp/grpc-server.cpp on Score). Reject the
-	// combination here so operators are forced to split the model.
-	const scoreConflicts = FLAG_CHAT | FLAG_COMPLETION | FLAG_EMBEDDINGS
-	if (c.Backend == "llama-cpp" || c.Backend == "llama") &&
-		c.HasUsecases(FLAG_SCORE) && c.KnownUsecases != nil &&
-		*c.KnownUsecases&scoreConflicts != 0 {
-		return false, fmt.Errorf(
-			"known_usecases conflict on llama-cpp: score is incompatible " +
-				"with chat/completion/embeddings — split into separate model configs")
-	}
-
-	// TokenClassify on llama-cpp likewise bypasses the slot loop (direct
-	// decode, see grpc-server.cpp on TokenClassify) and races concurrent
-	// generation. Unlike score it REQUIRES embeddings (TOKEN_CLS pooling),
-	// so the conflict is with generation only, not embeddings.
-	const tokenClassifyConflicts = FLAG_CHAT | FLAG_COMPLETION
-	if (c.Backend == "llama-cpp" || c.Backend == "llama") &&
-		c.HasUsecases(FLAG_TOKEN_CLASSIFY) && c.KnownUsecases != nil &&
-		*c.KnownUsecases&tokenClassifyConflicts != 0 {
-		return false, fmt.Errorf(
-			"known_usecases conflict on llama-cpp: token_classify is incompatible " +
-				"with chat/completion — split into separate model configs")
-	}
+	// Note: score and token_classify on llama-cpp used to bypass the slot
+	// loop (direct llama_decode) and therefore conflicted with concurrent
+	// chat/completion/embeddings usecases. Both now ride the server task
+	// queue (see backend/cpp/llama-cpp/grpc-server.cpp and carry-patch
+	// 0006), so a single model config may freely combine them.
 
 	// Pattern detector: validate built-in names and that each operator-defined
 	// pattern is a well-formed, anchored, bounded restricted-regex. Reject at
@@ -1227,21 +1207,18 @@ const (
 	// Marks a model as wired for the Score gRPC primitive (joint
 	// log-prob of candidate continuations under a shared prompt). Must
 	// be declared explicitly via `known_usecases: [score]` — there's
-	// no heuristic for it. On the llama-cpp backend, Score bypasses
-	// the slot loop and races the llama_context, so Validate() refuses
-	// to load a llama-cpp config that combines FLAG_SCORE with
-	// chat/completion/embeddings.
+	// no heuristic for it. On llama-cpp, scoring rides the server task
+	// queue (carry-patch 0006), so it may combine freely with
+	// chat/completion/embeddings in one config.
 	FLAG_SCORE ModelConfigUsecase = 0b10000000000000000000
 
 	// Marks a model as wired for the TokenClassify gRPC primitive (the
 	// openai-privacy-filter PII NER tier — per-token BIOES classification).
 	// Like FLAG_SCORE it must be declared explicitly via
-	// `known_usecases: [token_classify]`; there's no heuristic. On the
-	// llama-cpp backend TokenClassify bypasses the slot loop and races the
-	// llama_context (see grpc-server.cpp on TokenClassify), so Validate()
-	// refuses a llama-cpp config combining it with chat/completion. Unlike
-	// FLAG_SCORE, embeddings is NOT a conflict — TokenClassify REQUIRES
-	// TOKEN_CLS pooling, which is loaded via the embeddings flag.
+	// `known_usecases: [token_classify]`; there's no heuristic. Requires
+	// TOKEN_CLS pooling, which is loaded via the embeddings flag. On
+	// llama-cpp the classification windows ride the embedding task queue,
+	// so it may combine freely with other usecases.
 	FLAG_TOKEN_CLASSIFY ModelConfigUsecase = 0b100000000000000000000
 
 	// Common Subsets
