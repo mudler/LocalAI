@@ -676,8 +676,8 @@ This backend is **experimental**, and the engine does not yet have a prompt-KV p
 | Flavor | Hardware |
 |---|---|
 | `cpu-dllm` | CPU (amd64 + arm64) - functional but very slow on the 26B model; mainly useful for wiring tests |
-| `cuda13-dllm` | NVIDIA CUDA 13 (amd64 + arm64) |
-| `cuda13-nvidia-l4t-arm64-dllm` | NVIDIA L4T (Jetson / DGX Spark GB10) |
+| `cuda13-dllm` | NVIDIA CUDA 13 (amd64) |
+| `cuda13-nvidia-l4t-arm64-dllm` | NVIDIA L4T arm64 (Jetson / DGX Spark GB10) |
 
 macOS/Metal is not available yet.
 
