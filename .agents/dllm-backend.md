@@ -56,7 +56,7 @@ header comment has the full list):
 | PredictStreamRich | `dllm_capi_generate_stream`; per committed diffusion block → UTF-8 holdback → parser.Feed → one Reply per non-empty delta batch (channel closed by the CALLER, per `pkg/grpc/interface.go`) |
 | Predict / PredictStream | Legacy paths, delegate to the rich pair (legacy stream INVERTS channel ownership: the impl closes) |
 | TokenizeString | `dllm_capi_tokenize_json` (C side prepends BOS per `vocab.add_bos`) |
-| Cancel | `dllm_capi_cancel`; currently INERT in practice - the gRPC server does not hand the request/stream context to backends, so client disconnects never reach it (plumbing is future work) |
+| Cancel | `dllm_capi_cancel`, exposed as the `grpc.Cancellable` capability (`pkg/grpc/interface.go`): the gRPC server arms it via `context.AfterFunc` on the Predict/PredictStream context, so client disconnects/timeouts abort the in-flight generate - llama.cpp `IsCancelled()` parity for Go backends |
 
 `n_threads` and `ctx_len` are accepted-but-ignored by the engine at the
 current pin (the context bound comes from GGUF `n_ctx_train`); they are sent
@@ -102,8 +102,8 @@ output is NOT gemma4-parsed (plain content, like any non-autoparsing backend).
 | Layer | Gate | What |
 |---|---|---|
 | `backend/go/dllm/*_test.go` (renderer/parser/wiring) | none - run in plain `go test ./backend/go/dllm/...` | Ginkgo specs over a fake `generator` seam; canonical renderer fixtures from transformers' `test_modeling_diffusion_gemma.py`, parser tables from the vLLM gemma4 parsers |
-| `backend/go/dllm/dllm_test.go` C-ABI smoke | `DLLM_TEST_LIBRARY` + `DLLM_TEST_TINY_MODEL` (dllm.cpp's `tests/fixtures/tiny_with_vocab.gguf`); Skips when unset | Drives the real `libdllm.so`: ABI check, load, tokenize `[2,18]`, deterministic generate, cancel |
-| `tests/e2e-backends/dllm_test.go` | `BACKEND_TEST_DLLM=1` + `BACKEND_BINARY` (packaged run.sh) + `BACKEND_TEST_MODEL_FILE` (tiny fixture) | Templated chat round trip (Messages + UseTokenizerTemplate) over the real gRPC binary, non-streaming + streaming |
+| `backend/go/dllm/dllm_test.go` C-ABI smoke | `DLLM_TEST_LIBRARY` + `DLLM_TEST_TINY_MODEL` (dllm.cpp's `tests/fixtures/tiny_with_vocab.gguf`); Skips when unset | Drives the real `libdllm.so`: ABI check, load, tokenize `[2,18]`, deterministic generate, cancel (incl. mid-stream `Dllm.Cancel` aborting a deliberately slow `eb_max_steps:256` run in ~10ms) |
+| `tests/e2e-backends/dllm_test.go` | `BACKEND_TEST_DLLM=1` + `BACKEND_BINARY` (packaged run.sh) + `BACKEND_TEST_MODEL_FILE` (tiny fixture) | Templated chat round trip (Messages + UseTokenizerTemplate) over the real gRPC binary, non-streaming + streaming; plus client-context cancellation mid-stream (proves the `Cancellable` server plumbing end to end) |
 | Real-model e2e | `BACKEND_TEST_DLLM_REAL_MODEL_FILE` (26B BF16, ~50 GB) + `BACKEND_TEST_DLLM_REAL_GPU_LAYERS` | CUDA-13-class hardware only |
 
 Tool-call e2e is deliberately absent from the tiny-model spec: the fixture has
@@ -123,8 +123,11 @@ no ldd walk yet).
 
 ## Known limitations
 
-- **Cancel is unwired**: nothing calls `Dllm.Cancel` on client disconnect
-  until the gRPC server plumbs the request context through to backends.
+- **Cancel granularity**: the C-ABI cancel flag is per-ctx and resets on
+  every generate entry, so a Cancel racing a NEW generate can be lost, and
+  with requests queued on the worker it aborts whichever generate is
+  currently running (acceptable: the server de-registers the hook on normal
+  completion, one process serves one model).
 - **Throughput**: ~0.15 tok/s on the 26B at default settings (GB10) - every
   denoise step recomputes the full prompt+canvas. The upstream prefix-KV
   cache (dllm.cpp P3) is the fix; `kv_cache:on` errors until it lands
