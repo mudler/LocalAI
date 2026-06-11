@@ -275,8 +275,8 @@ func (d *Dllm) requestOptsJSON(opts *pb.PredictOptions) (string, error) {
 		// The engine rounds n_predict UP to a whole number of diffusion
 		// blocks (the canvas is denoised block-wise), so the completion may
 		// run slightly past the requested budget. Tokens==0 omits the key so
-		// the engine's GGUF-metadata default applies (the C-ABI documents
-		// per-key defaults; no hardcoded 256 like ds4's grpc-server).
+		// the C-ABI default of 256 applies (hardcoded in capi.cpp's
+		// parse_gen_opts, independent of canvas_length).
 		m["n_predict"] = n
 	}
 	if s := opts.GetSeed(); s > 0 {
