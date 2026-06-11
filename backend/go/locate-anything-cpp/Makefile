@@ -124,3 +124,11 @@ liblocateanythingcpp-custom: CMakeLists.txt
 	mv build-$(SO_TARGET)/liblocateanythingcpp.so ./$(SO_TARGET)
 
 all: locate-anything-cpp package
+
+# `test` is invoked by the top-level Makefile's `test-extra` target. It builds
+# the backend binary + the fallback shared library (needed for dlopen at
+# runtime), then runs test.sh which downloads the q8_0 GGUF + COCO image and
+# exercises the gRPC Load/Detect wire path via the Go smoke test in
+# main_test.go.
+test: locate-anything-cpp liblocateanythingcpp-fallback.so
+	bash test.sh
