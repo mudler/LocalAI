@@ -429,7 +429,7 @@ name: my-model
 reasoning_effort: none   # none | minimal | low | medium | high
 ```
 
-For [realtime pipelines]({{%relref "docs/features/openai-realtime" %}}), set it on the pipeline so it applies to the pipeline's LLM without editing that model's own config:
+For [realtime pipelines]({{%relref "features/openai-realtime" %}}), set it on the pipeline so it applies to the pipeline's LLM without editing that model's own config:
 
 ```yaml
 name: gpt-realtime
