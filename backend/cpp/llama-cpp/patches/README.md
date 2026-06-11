@@ -153,24 +153,34 @@ correct. All five patches apply, in order, against `5dcb71166`.
 
 ## 0005-no-cache-all-swa-mask-fix.patch
 
-**What:** a robustness fix to `llm_graph_input_attn_no_cache::set_input`
-(`src/llama-graph.cpp`). The no-cache attention input creates two mask
-tensors — the full (non-SWA) mask and, when `swa_type != NONE`, the SWA
-mask — but a model may consume only one. The openai-privacy-filter encoder
-makes **every** layer SWA (uniform symmetric window), so the full
-`self_kq_mask` is never referenced by the graph and the allocator leaves it
-unallocated (null buffer). The stock `set_input` unconditionally fills it,
-dereferencing a null `->data` and aborting at
-`GGML_ASSERT(ggml_backend_buffer_is_host(...))`. The fix only fills a mask
-that actually received a buffer (and guards the SWA branch symmetrically).
+**What:** a robustness fix to the no-cache attention input
+(`src/llama-graph.{cpp,h}`). The no-cache input creates two mask tensors —
+the full (non-SWA) mask and, when `swa_type != NONE`, the SWA mask — but a
+*graph* consumes a mask only if it builds a layer of that attention type,
+and the allocator prunes an unconsumed graph input (null buffer). The
+openai-privacy-filter encoder makes **every** layer SWA (uniform symmetric
+window), so the full `self_kq_mask` is never referenced and the stock
+unconditional fill in `set_input` writes through a null `->data` and aborts
+at `GGML_ASSERT(ggml_backend_buffer_is_host(...))`.
+
+The fix records the layer composition of the graph *while it is built*: the
+no-cache `build_attn` accumulates an `llm_swa_mix` (UNSET/NONE/SOME/ALL)
+state machine on the input object as each built layer selects its mask, and
+`set_input` then fills exactly the masks the current graph consumes — full
+iff `mix != ALL`, SWA iff `mix != NONE` — asserting that every filled mask
+exists and is host-allocated and that at least one `build_attn` ran
+(`mix != UNSET`). Deriving the predicate from recorded per-graph consumption
+(rather than model-global hparams, which can diverge from a graph's actual
+layer subset, or buffer-nullness, which would silently absorb allocation
+bugs) keeps failures loud: a mask the graph needs but didn't get still
+asserts here instead of corrupting attention downstream.
 
 This is a general fix — any all-SWA no-cache (encoder) model needs it — and
 is a candidate to upstream separately. Without it the model loads but
-aborts on first `decode`. Discovered via the CPU smoke test (it loads,
-tokenizes 12 tokens, then aborts in `set_input`); after the fix the model
-runs and produces `[n_cls_out, n_tokens]` logits. With the RoPE fixes in
-0003/0004 the per-token logits now match the HF reference exactly (12/12
-argmax, full-logit cosine = 1.0).
+aborts on first `decode`. Re-verified at pin `7c158fbb`: all five patches
+apply in order with `patch -p1 --fuzz=0`, the tree compiles, and
+`llama-embedding` reproduces the HF reference (21/21 per-token argmax,
+full-logit cosine ≥ 0.9997 at F16).
 
 ---
 
