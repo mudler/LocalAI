@@ -2,8 +2,10 @@ package openai
 
 import (
 	"context"
+	"crypto/rand"
 	"encoding/base64"
 	"encoding/binary"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"math"
@@ -235,6 +237,12 @@ type Model interface {
 	Transcribe(ctx context.Context, audio, language string, translate bool, diarize bool, prompt string) (*schema.TranscriptionResult, error)
 	Predict(ctx context.Context, messages schema.Messages, images, videos, audios []string, tokenCallback func(string, backend.TokenUsage) bool, tools []types.ToolUnion, toolChoice *types.ToolChoiceUnion, logprobs *int, topLogprobs *int, logitBias map[string]float64) (func() (backend.LLMResponse, error), error)
 	TTS(ctx context.Context, text, voice, language string) (string, *proto.Result, error)
+	// TTSStream synthesizes speech incrementally, invoking onAudio with raw PCM
+	// chunks (and the backend sample rate) as they are produced.
+	TTSStream(ctx context.Context, text, voice, language string, onAudio func(pcm []byte, sampleRate int) error) error
+	// TranscribeStream transcribes audio incrementally, invoking onDelta for each
+	// transcript text fragment and returning the final aggregated result.
+	TranscribeStream(ctx context.Context, audio, language string, translate, diarize bool, prompt string, onDelta func(text string)) (*schema.TranscriptionResult, error)
 	PredictConfig() *config.ModelConfig
 }
 
@@ -1254,27 +1262,15 @@ func commitUtterance(ctx context.Context, utt []byte, session *Session, conv *Co
 	// TODO: If we have a real any-to-any model then transcription is optional
 	var transcript string
 	if session.InputAudioTranscription != nil {
-		tr, err := session.ModelInterface.Transcribe(ctx, f.Name(), session.InputAudioTranscription.Language, false, false, session.InputAudioTranscription.Prompt)
+		// emitTranscription streams transcript deltas when
+		// pipeline.streaming.transcription is set, otherwise emits a single
+		// completed event; either way it returns the final transcript text.
+		var err error
+		transcript, err = emitTranscription(ctx, t, session, generateItemID(), f.Name())
 		if err != nil {
 			sendError(t, "transcription_failed", err.Error(), "", "event_TODO")
 			return
-		} else if tr == nil {
-			sendError(t, "transcription_failed", "trancribe result is nil", "", "event_TODO")
-			return
 		}
-
-		transcript = tr.Text
-		sendEvent(t, types.ConversationItemInputAudioTranscriptionCompletedEvent{
-			ServerEventBase: types.ServerEventBase{
-				EventID: "event_TODO",
-			},
-
-			ItemID: generateItemID(),
-			// ResponseID:   "resp_TODO", // Not needed for transcription completed event
-			// OutputIndex:  0,
-			ContentIndex: 0,
-			Transcript:   transcript,
-		})
 	} else {
 		sendNotImplemented(t, "any-to-any models")
 		return
@@ -1502,6 +1498,26 @@ func triggerResponseAtTurn(ctx context.Context, session *Session, conv *Conversa
 		},
 	})
 
+	// Streamed LLM path: when the pipeline opts into LLM streaming, stream the
+	// transcript to the client as it is generated and synthesize the buffered
+	// message once. Tool turns are supported only when the model uses its
+	// tokenizer template: the C++ autoparser then delivers content and tool
+	// calls via ChatDeltas (clearing the text stream), so the spoken transcript
+	// never leaks tool-call tokens. Grammar-based function calling emits the
+	// call as JSON in the token stream, so those turns keep the buffered path.
+	if config != nil && session.ModelConfig != nil && session.ModelConfig.Pipeline.StreamLLM() {
+		canStream := len(tools) == 0 || config.TemplateConfig.UseTokenizerTemplate
+		var respMods []types.Modality
+		if overrides != nil {
+			respMods = overrides.OutputModalities
+		}
+		if canStream && modalitiesContainAudio(resolveOutputModalities(session.OutputModalities, respMods)) {
+			if streamLLMResponse(ctx, session, conv, t, responseID, conversationHistory, images, config, tools, toolChoice, toolTurn) {
+				return
+			}
+		}
+	}
+
 	predFunc, err := session.ModelInterface.Predict(ctx, conversationHistory, images, nil, nil, nil, tools, toolChoice, nil, nil, nil)
 	if err != nil {
 		sendError(t, "inference_failed", fmt.Sprintf("backend error: %v", err), "", "") // item.Assistant.ID is unknown here
@@ -1579,7 +1595,7 @@ func triggerResponseAtTurn(ctx context.Context, session *Session, conv *Conversa
 		// ExtractReasoningWithConfig is a no-op when no tag pair matches,
 		// so it's safe to apply unconditionally in the no-reasoning branch.
 		if deltaReasoning == "" && deltaContent != "" {
-			deltaReasoning, deltaContent = reasoning.ExtractReasoningComplete(deltaContent, thinkingStartToken, config.ReasoningConfig)
+			deltaReasoning, deltaContent = reasoning.ExtractReasoningComplete(deltaContent, thinkingStartToken, spokenReasoningConfig(config.ReasoningConfig))
 		}
 		reasoningText = deltaReasoning
 		responseWithoutReasoning = deltaContent
@@ -1587,7 +1603,7 @@ func triggerResponseAtTurn(ctx context.Context, session *Session, conv *Conversa
 		cleanedResponse = deltaContent
 		toolCalls = deltaToolCalls
 	} else {
-		reasoningText, responseWithoutReasoning = reasoning.ExtractReasoningComplete(rawResponse, thinkingStartToken, config.ReasoningConfig)
+		reasoningText, responseWithoutReasoning = reasoning.ExtractReasoningComplete(rawResponse, thinkingStartToken, spokenReasoningConfig(config.ReasoningConfig))
 		textContent = functions.ParseTextContent(responseWithoutReasoning, config.FunctionsConfig)
 		cleanedResponse = functions.CleanupLLMResult(responseWithoutReasoning, config.FunctionsConfig)
 		toolCalls = functions.ParseFunctionCall(cleanedResponse, config.FunctionsConfig)
@@ -1713,64 +1729,7 @@ func triggerResponseAtTurn(ctx context.Context, session *Session, conv *Conversa
 				return
 			}
 
-			audioFilePath, res, err := session.ModelInterface.TTS(ctx, finalSpeech, session.Voice, session.InputAudioTranscription.Language)
-			if err != nil {
-				if ctx.Err() != nil {
-					xlog.Debug("TTS cancelled (barge-in)")
-					sendCancelledResponse()
-					return
-				}
-				xlog.Error("TTS failed", "error", err)
-				sendError(t, "tts_error", fmt.Sprintf("TTS generation failed: %v", err), "", item.Assistant.ID)
-				return
-			}
-			if !res.Success {
-				xlog.Error("TTS failed", "message", res.Message)
-				sendError(t, "tts_error", fmt.Sprintf("TTS generation failed: %s", res.Message), "", item.Assistant.ID)
-				return
-			}
-			defer func() { _ = os.Remove(audioFilePath) }()
-
-			audioBytes, err := os.ReadFile(audioFilePath)
-			if err != nil {
-				xlog.Error("failed to read TTS file", "error", err)
-				sendError(t, "tts_error", fmt.Sprintf("Failed to read TTS audio: %v", err), "", item.Assistant.ID)
-				return
-			}
-
-			// Parse WAV header to get raw PCM and the actual sample rate from the TTS backend.
-			pcmData, ttsSampleRate := laudio.ParseWAV(audioBytes)
-			if ttsSampleRate == 0 {
-				ttsSampleRate = localSampleRate
-			}
-			xlog.Debug("TTS audio parsed", "raw_bytes", len(audioBytes), "pcm_bytes", len(pcmData), "sample_rate", ttsSampleRate)
-
-			// SendAudio (WebRTC) passes PCM at the TTS sample rate directly to the
-			// Opus encoder, which resamples to 48kHz internally. This avoids a
-			// lossy intermediate resample through 16kHz.
-			// XXX: This is a noop in websocket mode; it's included in the JSON instead
-			if err := t.SendAudio(ctx, pcmData, ttsSampleRate); err != nil {
-				if ctx.Err() != nil {
-					xlog.Debug("Audio playback cancelled (barge-in)")
-					sendCancelledResponse()
-					return
-				}
-				xlog.Error("failed to send audio via transport", "error", err)
-			}
-
-			// For WebSocket clients, resample to the session's output rate and
-			// deliver audio as base64 in JSON events. WebRTC clients already
-			// received audio over the RTP track, so skip the base64 payload.
-			if !isWebRTC {
-				wsPCM := pcmData
-				if ttsSampleRate != session.OutputSampleRate {
-					samples := sound.BytesToInt16sLE(pcmData)
-					resampled := sound.ResampleInt16(samples, ttsSampleRate, session.OutputSampleRate)
-					wsPCM = sound.Int16toBytesLE(resampled)
-				}
-				audioString = base64.StdEncoding.EncodeToString(wsPCM)
-			}
-
+			// Transcript of the spoken reply (the audio's text).
 			sendEvent(t, types.ResponseOutputAudioTranscriptDeltaEvent{
 				ServerEventBase: types.ServerEventBase{},
 				ResponseID:      responseID,
@@ -1788,15 +1747,26 @@ func triggerResponseAtTurn(ctx context.Context, session *Session, conv *Conversa
 				Transcript:      finalSpeech,
 			})
 
+			// Synthesize and send the audio. With pipeline.streaming.tts enabled
+			// emitSpeech forwards a response.output_audio.delta per backend PCM
+			// chunk as it's produced; otherwise it sends the whole utterance as a
+			// single delta. The returned PCM is stored (base64) on the item below.
+			pcmAudio, err := emitSpeech(ctx, t, session, responseID, item.Assistant.ID, finalSpeech)
+			if err != nil {
+				if ctx.Err() != nil {
+					xlog.Debug("TTS cancelled (barge-in)")
+					sendCancelledResponse()
+					return
+				}
+				xlog.Error("TTS failed", "error", err)
+				sendError(t, "tts_error", fmt.Sprintf("TTS generation failed: %v", err), "", item.Assistant.ID)
+				return
+			}
 			if !isWebRTC {
-				sendEvent(t, types.ResponseOutputAudioDeltaEvent{
-					ServerEventBase: types.ServerEventBase{},
-					ResponseID:      responseID,
-					ItemID:          item.Assistant.ID,
-					OutputIndex:     0,
-					ContentIndex:    0,
-					Delta:           audioString,
-				})
+				audioString = base64.StdEncoding.EncodeToString(pcmAudio)
+			}
+
+			if !isWebRTC {
 				sendEvent(t, types.ResponseOutputAudioDoneEvent{
 					ServerEventBase: types.ServerEventBase{},
 					ResponseID:      responseID,
@@ -1849,17 +1819,27 @@ func triggerResponseAtTurn(ctx context.Context, session *Session, conv *Conversa
 		})
 	}
 
-	// Handle Tool Calls. Two paths:
-	//   - LocalAI Assistant tools (session.AssistantExecutor.IsTool) run
-	//     server-side; we append both the call and its output to conv.Items
-	//     and re-trigger a follow-up response so the model can speak the
-	//     result. The client only sees observability events.
-	//   - All other tools follow the standard OpenAI flow: emit
-	//     function_call_arguments.done and wait for the client to send
-	//     conversation.item.create back.
-	xlog.Debug("About to handle tool calls", "finalToolCallsCount", len(finalToolCalls))
+	// Emit the parsed tool calls, the terminal response.done, and (for
+	// server-side assistant tools) the follow-up response. Shared with the
+	// streamed path so both finalize tool calls identically.
+	emitToolCallItems(ctx, session, conv, t, responseID, finalToolCalls, finalSpeech != "", toolTurn)
+}
+
+// emitToolCallItems emits the realtime function_call items for the parsed tool
+// calls, the terminal response.done, and — for server-side LocalAI Assistant
+// tools — re-triggers a follow-up response so the model can speak the result.
+// hasContent shifts the tool-call output index past the assistant content item
+// when the same turn also produced spoken/text content. Two tool paths:
+//   - LocalAI Assistant tools (session.AssistantExecutor.IsTool) run server-side;
+//     we append both the call and its output to conv.Items and re-trigger. The
+//     client only sees observability events.
+//   - All other tools follow the standard OpenAI flow: emit
+//     function_call_arguments.done and wait for the client to send
+//     conversation.item.create back.
+func emitToolCallItems(ctx context.Context, session *Session, conv *Conversation, t Transport, responseID string, toolCalls []functions.FuncCallResults, hasContent bool, toolTurn int) {
+	xlog.Debug("About to handle tool calls", "finalToolCallsCount", len(toolCalls))
 	executedAssistantTool := false
-	for i, tc := range finalToolCalls {
+	for i, tc := range toolCalls {
 		toolCallID := generateItemID()
 		callID := "call_" + generateUniqueID() // OpenAI uses call_xyz
 
@@ -1879,7 +1859,7 @@ func triggerResponseAtTurn(ctx context.Context, session *Session, conv *Conversa
 		conv.Lock.Unlock()
 
 		outputIndex := i
-		if finalSpeech != "" {
+		if hasContent {
 			outputIndex++
 		}
 
@@ -2005,8 +1985,11 @@ func generateItemID() string {
 }
 
 func generateUniqueID() string {
-	// Generate a unique ID string
-	// For simplicity, use a counter or UUID
-	// Implement as needed
-	return "unique_id"
+	// 16 random bytes, hex-encoded. Must be collision-free: session, item,
+	// response and call IDs build on this, and the conversation tracks/removes
+	// items by ID (e.g. cancel() in realtime_stream.go, conversation.item.retrieve).
+	// A constant would make every ID alias and corrupt that bookkeeping.
+	var b [16]byte
+	_, _ = rand.Read(b[:])
+	return hex.EncodeToString(b[:])
 }
