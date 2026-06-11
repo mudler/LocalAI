@@ -708,6 +708,19 @@ include:
     cuda-minor-version: "8"
     platforms: 'linux/amd64'
     tag-latest: 'auto'
+    tag-suffix: '-gpu-nvidia-cuda-12-locate-anything-cpp'
+    runs-on: 'ubuntu-latest'
+    base-image: "ubuntu:24.04"
+    skip-drivers: 'false'
+    backend: "locate-anything-cpp"
+    dockerfile: "./backend/Dockerfile.golang"
+    context: "./"
+    ubuntu-version: '2404'
+  - build-type: 'cublas'
+    cuda-major-version: "12"
+    cuda-minor-version: "8"
+    platforms: 'linux/amd64'
+    tag-latest: 'auto'
     tag-suffix: '-gpu-nvidia-cuda-12-whisper'
     runs-on: 'ubuntu-latest'
     base-image: "ubuntu:24.04"
@@ -1546,6 +1559,19 @@ include:
   - build-type: 'cublas'
     cuda-major-version: "13"
     cuda-minor-version: "0"
+    platforms: 'linux/amd64'
+    tag-latest: 'auto'
+    tag-suffix: '-gpu-nvidia-cuda-13-locate-anything-cpp'
+    runs-on: 'ubuntu-latest'
+    base-image: "ubuntu:24.04"
+    skip-drivers: 'false'
+    backend: "locate-anything-cpp"
+    dockerfile: "./backend/Dockerfile.golang"
+    context: "./"
+    ubuntu-version: '2404'
+  - build-type: 'cublas'
+    cuda-major-version: "13"
+    cuda-minor-version: "0"
     platforms: 'linux/arm64'
     skip-drivers: 'false'
     tag-latest: 'auto'
@@ -1567,6 +1593,19 @@ include:
     ubuntu-version: '2404'
     runs-on: 'ubuntu-24.04-arm'
     backend: "rfdetr-cpp"
+    dockerfile: "./backend/Dockerfile.golang"
+    context: "./"
+  - build-type: 'cublas'
+    cuda-major-version: "13"
+    cuda-minor-version: "0"
+    platforms: 'linux/arm64'
+    skip-drivers: 'false'
+    tag-latest: 'auto'
+    tag-suffix: '-nvidia-l4t-cuda-13-arm64-locate-anything-cpp'
+    base-image: "ubuntu:24.04"
+    ubuntu-version: '2404'
+    runs-on: 'ubuntu-24.04-arm'
+    backend: "locate-anything-cpp"
     dockerfile: "./backend/Dockerfile.golang"
     context: "./"
   - build-type: 'cublas'
@@ -2806,6 +2845,74 @@ include:
     dockerfile: "./backend/Dockerfile.golang"
     context: "./"
     ubuntu-version: '2404'
+  # locate-anything-cpp
+  - build-type: ''
+    cuda-major-version: ""
+    cuda-minor-version: ""
+    platforms: 'linux/amd64'
+    tag-latest: 'auto'
+    tag-suffix: '-cpu-locate-anything-cpp'
+    runs-on: 'ubuntu-latest'
+    base-image: "ubuntu:24.04"
+    skip-drivers: 'false'
+    backend: "locate-anything-cpp"
+    dockerfile: "./backend/Dockerfile.golang"
+    context: "./"
+    ubuntu-version: '2404'
+  - build-type: 'sycl_f32'
+    cuda-major-version: ""
+    cuda-minor-version: ""
+    platforms: 'linux/amd64'
+    tag-latest: 'auto'
+    tag-suffix: '-gpu-intel-sycl-f32-locate-anything-cpp'
+    runs-on: 'ubuntu-latest'
+    base-image: "intel/oneapi-basekit:2025.3.0-0-devel-ubuntu24.04"
+    skip-drivers: 'false'
+    backend: "locate-anything-cpp"
+    dockerfile: "./backend/Dockerfile.golang"
+    context: "./"
+    ubuntu-version: '2404'
+  - build-type: 'sycl_f16'
+    cuda-major-version: ""
+    cuda-minor-version: ""
+    platforms: 'linux/amd64'
+    tag-latest: 'auto'
+    tag-suffix: '-gpu-intel-sycl-f16-locate-anything-cpp'
+    runs-on: 'ubuntu-latest'
+    base-image: "intel/oneapi-basekit:2025.3.0-0-devel-ubuntu24.04"
+    skip-drivers: 'false'
+    backend: "locate-anything-cpp"
+    dockerfile: "./backend/Dockerfile.golang"
+    context: "./"
+    ubuntu-version: '2404'
+  - build-type: 'vulkan'
+    cuda-major-version: ""
+    cuda-minor-version: ""
+    platforms: 'linux/amd64'
+    platform-tag: 'amd64'
+    tag-latest: 'auto'
+    tag-suffix: '-gpu-vulkan-locate-anything-cpp'
+    runs-on: 'ubuntu-latest'
+    base-image: "ubuntu:24.04"
+    skip-drivers: 'false'
+    backend: "locate-anything-cpp"
+    dockerfile: "./backend/Dockerfile.golang"
+    context: "./"
+    ubuntu-version: '2404'
+  - build-type: 'vulkan'
+    cuda-major-version: ""
+    cuda-minor-version: ""
+    platforms: 'linux/arm64'
+    platform-tag: 'arm64'
+    tag-latest: 'auto'
+    tag-suffix: '-gpu-vulkan-locate-anything-cpp'
+    runs-on: 'ubuntu-24.04-arm'
+    base-image: "ubuntu:24.04"
+    skip-drivers: 'false'
+    backend: "locate-anything-cpp"
+    dockerfile: "./backend/Dockerfile.golang"
+    context: "./"
+    ubuntu-version: '2404'
   - build-type: 'sycl_f32'
     cuda-major-version: ""
     cuda-minor-version: ""
@@ -2896,6 +3003,19 @@ include:
     base-image: "nvcr.io/nvidia/l4t-jetpack:r36.4.0"
     runs-on: 'ubuntu-24.04-arm'
     backend: "rfdetr-cpp"
+    dockerfile: "./backend/Dockerfile.golang"
+    context: "./"
+    ubuntu-version: '2204'
+  - build-type: 'cublas'
+    cuda-major-version: "12"
+    cuda-minor-version: "0"
+    platforms: 'linux/arm64'
+    skip-drivers: 'false'
+    tag-latest: 'auto'
+    tag-suffix: '-nvidia-l4t-arm64-locate-anything-cpp'
+    base-image: "nvcr.io/nvidia/l4t-jetpack:r36.4.0"
+    runs-on: 'ubuntu-24.04-arm'
+    backend: "locate-anything-cpp"
     dockerfile: "./backend/Dockerfile.golang"
     context: "./"
     ubuntu-version: '2204'
