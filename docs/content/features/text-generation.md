@@ -655,6 +655,123 @@ The `cache_type_k` / `cache_type_v` fields map to llama.cpp's `-ctk` / `-ctv` fl
 - [Tracked branch: `feature/turboquant-kv-cache`](https://github.com/TheTom/llama-cpp-turboquant/tree/feature/turboquant-kv-cache)
 
 
+### dllm (DiffusionGemma block-diffusion)
+
+[dllm.cpp](https://github.com/mudler/dllm.cpp) is a standalone C++/ggml engine for **DiffusionGemma** block-diffusion language models (GGUF weights). Instead of sampling one token at a time, generation works on fixed-size token **canvases** (256 tokens for the published model): each canvas is iteratively denoised with the Entropy-Bound (EB) sampler, committed as a whole block, and committed blocks feed back as prompt for the next canvas. LocalAI wraps the engine with a native Go backend (`dllm`) that also owns chat templating and output parsing: the model's thought channels and tool calls stream natively as `reasoning_content` and `tool_calls` deltas, with no jinja template involved.
+
+{{% notice note %}}
+
+This backend is **experimental**, and the engine does not yet have a prompt-KV prefix cache: every denoise step recomputes the full prompt+canvas forward pass, so throughput is low (~0.15 tok/s at default settings on a single GB10 GPU) and drops further as the context fills up. The prefix cache is the planned fix in upstream dllm.cpp.
+
+{{% /notice %}}
+
+#### Features
+
+- [📖 Text generation (GPT)]({{%relref "features/text-generation" %}})
+- [🔥 OpenAI functions]({{%relref "features/openai-functions" %}}) - tool calls are parsed natively by the backend (gemma4 `<|tool_call>` markers), not by LocalAI's grammar/regex fallback
+- Reasoning - opt-in thinking streams as `reasoning_content` (see below)
+
+#### Supported platforms
+
+| Flavor | Hardware |
+|---|---|
+| `cpu-dllm` | CPU (amd64 + arm64) - functional but very slow on the 26B model; mainly useful for wiring tests |
+| `cuda13-dllm` | NVIDIA CUDA 13 (amd64 + arm64) |
+| `cuda13-nvidia-l4t-arm64-dllm` | NVIDIA L4T (Jetson / DGX Spark GB10) |
+
+macOS/Metal is not available yet.
+
+#### Setup
+
+The easiest path is the model gallery; the entry installs the backend and the model together:
+
+```bash
+local-ai models install diffusiongemma-26b-a4b-it
+```
+
+Or configure it manually with a YAML file pointing at the GGUF (BF16 is the only published file the engine's validation is calibrated for; the model card flags quantized MoE exports as problematic):
+
+```yaml
+name: diffusiongemma
+backend: dllm
+parameters:
+  model: diffusiongemma-26B-A4B-it-BF16.gguf
+context_size: 4096
+stopwords:
+  - <turn|>
+# The backend parses tool calls natively; keep LocalAI's generated tool
+# grammar from overriding that pipeline.
+function:
+  grammar:
+    disable: true
+template:
+  use_tokenizer_template: true
+```
+
+`use_tokenizer_template: true` is what routes chat requests through the backend's native gemma4 renderer/parser (messages and tools in, `content`/`reasoning_content`/`tool_calls` out). Without it, your own prompt template output is passed to the engine verbatim and the raw model text comes back as plain content.
+
+#### Backend options
+
+Model-level generation options go in the `options:` array (format: `key:value`), like other backends:
+
+```yaml
+options:
+  - eb_max_steps:24
+  - kv_cache:auto
+```
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `blocks` | integer | unset | Generation budget in whole diffusion canvases (`blocks * canvas_length` tokens, 256 per canvas for the published model). Must be >= 1. When both `blocks` and a token budget are present, `blocks` wins. |
+| `kv_cache` | string | `auto` | One of `auto`, `off`, `on`. The engine has no KV cache yet, so `auto` and `off` are accepted no-ops; `kv_cache:on` fails the request until the prefix-KV cache lands upstream. |
+| `eb_max_steps` | integer | 48 | Maximum denoise steps per canvas. Blocks exit early once stable **and** confident, so this is a ceiling, not a fixed cost. Lower values are faster but can degrade quality. |
+| `eb_t_min` | float | 0.4 | Lower bound of the linear temperature schedule. |
+| `eb_t_max` | float | 0.8 | Upper bound of the linear temperature schedule: `t = t_min + (t_max - t_min) * cur_step/max_steps`, with `cur_step` counting down, so denoising anneals from `t_max` toward `t_min`. |
+| `eb_entropy_bound` | float | 0.1 | Per-step acceptance budget: canvas positions are sorted by entropy (ascending) and accepted while the cumulative entropy, minus the position's own, stays at or below the bound. Higher accepts more tokens per step (faster, riskier). |
+| `eb_stability_threshold` | integer | 1 | Consecutive identical argmax canvases required before a block counts as stable (`0` = always stable; at `1` the earliest exit is the 2nd identical step). |
+| `eb_confidence_threshold` | float | 0.005 | Mean-entropy ceiling for the "confident" half of the early-exit test; a block stops denoising only when it is both stable and below this. |
+
+Defaults for the `eb_*` knobs come from the GGUF's `diffusion.*` metadata when present, falling back to the engine defaults shown (DiffusionGemma's canonical values). The published `diffusiongemma-26B-A4B-it` GGUF carries only `diffusion.canvas_length`, so the fallbacks above are what you actually get.
+
+Per-request parameters: `max_tokens` maps to the engine's `n_predict` (omitted: engine default of 256), and a **positive** `seed` gives deterministic output (absent, zero or negative = a fresh random seed per call). Autoregressive sampling fields (`temperature`, `top_p`, `top_k`, ...) are **not used**: the EB sampler's own temperature schedule (`eb_t_min`/`eb_t_max`) replaces them.
+
+{{% notice note %}}
+
+**`max_tokens` rounds up to whole canvases.** The scheduler always commits whole canvases, so the token budget rounds **up** to `ceil(n_predict / canvas_length)` blocks and the completion may run slightly past the requested `max_tokens` (canonical DiffusionGemma behavior). Generation can still end earlier when the model emits an end-of-turn token, which finalizes the canvas.
+
+{{% /notice %}}
+
+#### Thinking
+
+DiffusionGemma's chat template makes thinking **opt-in** (the default render pre-closes an empty thought channel), so the backend defaults to thinking OFF - the opposite of most reasoning models. Enable it per request via the `metadata` field ([per-request override]({{%relref "advanced/model-configuration#per-request-override-via-metadata" %}})):
+
+```bash
+curl http://localhost:8080/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "diffusiongemma",
+    "messages": [{"role": "user", "content": "Explain quantum computing"}],
+    "metadata": {"enable_thinking": "true"}
+  }'
+```
+
+The model's thought channel then streams as `reasoning_content`, separate from the final `content`.
+
+#### Performance expectations
+
+Honest numbers from validation on a DGX Spark (GB10, CUDA 13, BF16 26B model, full GPU offload):
+
+- Engine load: ~33 s (50 GB of weights to GPU)
+- Forward pass: ~5.6 s per denoise step (256-token canvas); a block takes up to `eb_max_steps` steps but typically exits early (24/48 observed on a normal prompt, 4 steps on a trivial one)
+- End-to-end: ~0.15 tok/s at default settings, dominated by the per-step full recompute - this is the cost the upstream prefix-KV cache work targets
+
+On CPU the same forward step takes ~139 s (20 Grace cores): treat the CPU flavor as functional, not practical, for the 26B model.
+
+#### Reference
+
+- [dllm.cpp](https://github.com/mudler/dllm.cpp)
+- [unsloth/diffusiongemma-26B-A4B-it-GGUF](https://huggingface.co/unsloth/diffusiongemma-26B-A4B-it-GGUF)
+
 ### vLLM
 
 [vLLM](https://github.com/vllm-project/vllm) is a fast and easy-to-use library for LLM inference.
