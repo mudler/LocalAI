@@ -26,7 +26,10 @@ from vllm.engine.arg_utils import AsyncEngineArgs
 from vllm.engine.async_llm_engine import AsyncLLMEngine
 from vllm.sampling_params import SamplingParams
 from vllm.utils import random_uuid
-from vllm.transformers_utils.tokenizer import get_tokenizer
+try:
+    from vllm.tokenizers import get_tokenizer  # vLLM >= 0.22
+except ImportError:
+    from vllm.transformers_utils.tokenizer import get_tokenizer  # vLLM < 0.22
 from vllm.multimodal.utils import fetch_image
 from vllm.assets.video import VideoAsset
 import base64
