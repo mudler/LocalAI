@@ -670,6 +670,7 @@ This backend is **experimental**, and the engine does not yet have a prompt-KV p
 - [📖 Text generation (GPT)]({{%relref "features/text-generation" %}})
 - [🔥 OpenAI functions]({{%relref "features/openai-functions" %}}) - tool calls are parsed natively by the backend (gemma4 `<|tool_call>` markers), not by LocalAI's grammar/regex fallback
 - Reasoning - opt-in thinking streams as `reasoning_content` (see below)
+- Request cancellation - disconnecting the client (or a request timeout) aborts the in-flight generation server-side, so an abandoned slow run does not keep the GPU busy
 
 #### Supported platforms
 

@@ -63,11 +63,32 @@ func (s *server) LoadModel(ctx context.Context, in *pb.ModelOptions) (*pb.Result
 	return &pb.Result{Message: "Loading succeeded", Success: true}, nil
 }
 
+// cancelOnDone arms the optional Cancellable capability: when ctx is
+// cancelled (client disconnect/timeout) the backend's Cancel fires so it
+// can abort the in-flight generation - the Go-backend equivalent of the
+// llama.cpp C++ server polling context->IsCancelled() in its result loops.
+// Callers MUST defer the returned stop so a normally-completed request
+// de-registers the hook before returning; otherwise a later cancellation
+// of the same ctx would abort an unrelated in-flight generation.
+//
+// Arm it AFTER the Locking() block: for serialized backends a request
+// queued on the lock is not generating yet, and cancelling it must not
+// abort whichever request currently owns the backend.
+func (s *server) cancelOnDone(ctx context.Context) (stop func() bool) {
+	if c, ok := s.llm.(Cancellable); ok {
+		return context.AfterFunc(ctx, c.Cancel)
+	}
+	return func() bool { return false }
+}
+
 func (s *server) Predict(ctx context.Context, in *pb.PredictOptions) (*pb.Reply, error) {
 	if s.llm.Locking() {
 		s.llm.Lock()
 		defer s.llm.Unlock()
 	}
+	// One registration covers both the rich and the legacy branch below.
+	stop := s.cancelOnDone(ctx)
+	defer stop()
 	if rich, ok := s.llm.(AIModelRich); ok {
 		return rich.PredictRich(in)
 	}
@@ -274,6 +295,10 @@ func (s *server) PredictStream(in *pb.PredictOptions, stream pb.Backend_PredictS
 		s.llm.Lock()
 		defer s.llm.Unlock()
 	}
+
+	// One registration covers both the rich and the legacy branch below.
+	stop := s.cancelOnDone(stream.Context())
+	defer stop()
 
 	if rich, ok := s.llm.(AIModelRich); ok {
 		replyChan := make(chan *pb.Reply)

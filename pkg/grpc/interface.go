@@ -72,6 +72,19 @@ func newReply(s string) *pb.Reply {
 	return &pb.Reply{Message: []byte(s)}
 }
 
+// Cancellable is an optional capability: backends that can abort an
+// in-flight generation implement it. The server calls Cancel when the
+// request's gRPC context is cancelled (client disconnect/timeout),
+// giving Go backends the same semantics the llama.cpp C++ backend gets
+// from polling context->IsCancelled() in its result loops.
+//
+// Cancel may be invoked from an arbitrary goroutine while the
+// generation is running, so implementations must make it safe to call
+// concurrently with Predict/PredictStream (and their rich variants).
+type Cancellable interface {
+	Cancel()
+}
+
 // AIModelRich is an optional extension to AIModel for backends that
 // can produce a full *pb.Reply — including tool-call deltas and
 // usage tokens — rather than just a content string. The gRPC server

@@ -768,4 +768,40 @@ var _ = Describe("Dllm backend (real tiny model)", func() {
 		}
 		Expect(streamed).ToNot(BeEmpty())
 	})
+
+	It("aborts an in-flight generation promptly on Cancel", func() {
+		d := &Dllm{}
+		// eb_max_steps inflates the per-block denoise loop so the full run
+		// takes ~10s on the tiny fixture (vs ~40ms at engine defaults; 16
+		// blocks, first block after ~0.7s) - long enough that a prompt
+		// post-cancel return is distinguishable from the generation simply
+		// finishing.
+		Expect(d.Load(&pb.ModelOptions{
+			ModelFile: os.Getenv("DLLM_TEST_TINY_MODEL"),
+			Options:   []string{"eb_max_steps:256"},
+		})).To(Succeed())
+		DeferCleanup(func() { Expect(d.Free()).To(Succeed()) })
+
+		ch := make(chan *pb.Reply, 64)
+		errCh := make(chan error, 1)
+		go func() {
+			defer GinkgoRecover()
+			errCh <- d.PredictStreamRich(&pb.PredictOptions{Prompt: "hello", Tokens: 256, Seed: 7}, ch)
+		}()
+
+		// Cancel only once the first block proves the generate is in
+		// flight: the C side resets the cancel flag on generate entry, so
+		// an earlier Cancel would be swallowed (dllm_capi.h race note).
+		Eventually(ch, "60s").Should(Receive())
+		cancelAt := time.Now()
+		d.Cancel()
+
+		// Uncancelled, ~10s of generation remain; the cancelled call must
+		// come back in milliseconds (the flag is checked per denoise step).
+		var genErr error
+		Eventually(errCh, "5s").Should(Receive(&genErr))
+		latency := time.Since(cancelAt)
+		Expect(genErr).To(MatchError(ContainSubstring("cancelled")))
+		GinkgoWriter.Printf("dllm cancel: PredictStreamRich returned %v after Cancel\n", latency)
+	})
 })

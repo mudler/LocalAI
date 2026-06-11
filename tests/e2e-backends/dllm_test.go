@@ -61,8 +61,9 @@ import (
 // DeferCleanup the moment each resource exists, so a failure anywhere in
 // setup (port-wait timeout, dial error, LoadModel failure) still reaps the
 // spawned server - critical for the real-model spec, where a failed load
-// would otherwise leak a ~50GB process.
-func startDllmBackend(modelFile string, gpuLayers int32) pb.BackendClient {
+// would otherwise leak a ~50GB process. options are extra ModelOptions
+// "key:value" entries (eb_* sampler knobs etc.).
+func startDllmBackend(modelFile string, gpuLayers int32, options ...string) pb.BackendClient {
 	GinkgoHelper()
 
 	binary := os.Getenv("BACKEND_BINARY")
@@ -116,6 +117,7 @@ func startDllmBackend(modelFile string, gpuLayers int32) pb.BackendClient {
 		ContextSize: envInt32("BACKEND_TEST_CTX_SIZE", 512),
 		Threads:     envInt32("BACKEND_TEST_THREADS", 4),
 		NGPULayers:  gpuLayers,
+		Options:     options,
 	})
 	Expect(err).NotTo(HaveOccurred())
 	Expect(res.GetSuccess()).To(BeTrue(), "dllm LoadModel failed: %s", res.GetMessage())
@@ -198,6 +200,83 @@ var _ = Describe("dllm templated chat-completion (tiny model)", Ordered, func() 
 
 	It("streams a templated chat completion", func() {
 		assertDllmChatStream(client)
+	})
+})
+
+var _ = Describe("dllm request cancellation (tiny model)", Ordered, func() {
+	var client pb.BackendClient
+
+	BeforeAll(func() {
+		if os.Getenv("BACKEND_TEST_DLLM") != "1" {
+			Skip("dllm cancellation spec is opt-in; set BACKEND_TEST_DLLM=1 (plus BACKEND_BINARY and BACKEND_TEST_MODEL_FILE) to run it")
+		}
+		modelFile := os.Getenv("BACKEND_TEST_MODEL_FILE")
+		Expect(modelFile).NotTo(BeEmpty(),
+			"dllm cancellation spec requires BACKEND_TEST_MODEL_FILE (dllm.cpp's tests/fixtures/tiny_with_vocab.gguf)")
+		// eb_max_steps inflates the per-block denoise loop: a 256-token run
+		// takes ~10s on the tiny fixture (vs ~40ms at engine defaults), so a
+		// cancelled request is clearly distinguishable from one that simply
+		// finished. A dedicated backend process keeps the chat specs fast.
+		client = startDllmBackend(modelFile, 0, "eb_max_steps:256")
+	})
+
+	// This is the end-to-end proof of the Cancellable plumbing
+	// (pkg/grpc/server.go arming backend.Cancel via context.AfterFunc on
+	// the stream context): a client disconnect mid-stream must abort the
+	// server-side generation, not just orphan it.
+	It("aborts the in-flight generation when the client context is cancelled mid-stream", func() {
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+		// Raw-prompt mode, not the templated chat request: the templated
+		// render can hit an end-of-turn token after the first block and
+		// finish before the cancel lands, which would silently turn this
+		// into a no-op spec. The raw "hello" run is probed deterministic
+		// with seed 7: 16 blocks, the eb_max_steps cap hit on every one,
+		// ~10s total if left to finish.
+		req := &pb.PredictOptions{Prompt: "hello", Tokens: 256, Seed: 7}
+
+		stream, err := client.PredictStream(ctx, req)
+		Expect(err).NotTo(HaveOccurred())
+
+		// First chunk received = the generate is provably in flight (the C
+		// side resets the cancel flag on generate entry, so cancelling
+		// before it starts would be swallowed).
+		_, err = stream.Recv()
+		Expect(err).NotTo(HaveOccurred())
+		cancel()
+
+		// Client side: the stream must end promptly, not after the
+		// remaining ~9s of generation (the first chunk arrives after one
+		// ~0.7s block, so plenty of generation is provably outstanding).
+		recvDone := make(chan error, 1)
+		go func() {
+			defer GinkgoRecover()
+			for {
+				if _, rerr := stream.Recv(); rerr != nil {
+					recvDone <- rerr
+					return
+				}
+			}
+		}()
+		var rerr error
+		Eventually(recvDone, "5s").Should(Receive(&rerr))
+		Expect(rerr).NotTo(Equal(io.EOF), "stream completed normally despite the cancelled context")
+
+		// Server side: prove the generation actually aborted. dllm
+		// serializes every C call through one worker goroutine, so if the
+		// orphaned generation were still grinding, this follow-up would
+		// queue behind its remaining ~9s instead of completing in ~1s
+		// (16 tokens = one block at eb_max_steps:256).
+		followCtx, followCancel := context.WithTimeout(context.Background(), 2*time.Minute)
+		defer followCancel()
+		start := time.Now()
+		res, err := client.Predict(followCtx, dllmChatRequest())
+		elapsed := time.Since(start)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(string(res.GetMessage())).NotTo(BeEmpty())
+		Expect(elapsed).To(BeNumerically("<", 5*time.Second),
+			"follow-up request queued behind the cancelled generation - server-side Cancel did not reach the backend")
+		GinkgoWriter.Printf("dllm cancel e2e: follow-up completed in %v after mid-stream cancellation\n", elapsed)
 	})
 })
 

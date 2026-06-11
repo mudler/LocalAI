@@ -21,11 +21,17 @@ import (
 	"sync"
 	"unicode/utf8"
 
+	grpc "github.com/mudler/LocalAI/pkg/grpc"
 	"github.com/mudler/LocalAI/pkg/grpc/base"
 	"github.com/mudler/LocalAI/pkg/grpc/grpcerrors"
 	pb "github.com/mudler/LocalAI/pkg/grpc/proto"
 	"github.com/mudler/xlog"
 )
+
+// The gRPC server cancels in-flight generations on client disconnect only
+// for backends advertising the Cancellable capability; keep Dllm pinned to
+// it so a signature drift fails the build, not the disconnect path.
+var _ grpc.Cancellable = (*Dllm)(nil)
 
 // generator is the seam between the backend wiring and the dllm.cpp C-ABI:
 // the real implementation (capiGenerator) wraps the cGenerate/cTokenizeJSON
@@ -181,18 +187,29 @@ func (d *Dllm) Free() error {
 	return nil
 }
 
-// Cancel requests cancellation of the in-flight generate. It deliberately
-// bypasses the worker queue: dllm_capi_cancel is the one call the C-ABI
-// allows from any goroutine mid-generate (it only flips an atomic).
+// Cancel requests cancellation of the in-flight generate (the
+// grpc.Cancellable capability). The gRPC server arms it via
+// context.AfterFunc on the request/stream context, so a client
+// disconnect or timeout aborts the generation server-side - the same
+// semantics the llama.cpp C++ backend gets from polling IsCancelled().
+// It deliberately bypasses the worker queue: dllm_capi_cancel is the one
+// call the C-ABI allows from any goroutine mid-generate (it only flips
+// an atomic).
 //
-// LIMITATION: nothing invokes this on client disconnect today. The gRPC
-// server (pkg/grpc/server.go) does not hand the request/stream context to
-// Predict/PredictStreamRich, so a dropped HTTP client cannot reach the
-// backend until that plumbing exists; the method is here so future server
-// wiring (or an admin RPC) has something to call. Note dllm_capi.h's
-// cancel-reset race: each generate resets the flag on entry, so a caller
-// racing a new generate should re-issue Cancel.
+// Note dllm_capi.h's cancel-reset race: each generate resets the flag on
+// entry, so a Cancel racing a NEW generate on the same ctx can be lost
+// (and, with requests queued on the worker, it aborts whichever generate
+// is currently running). The single-flag granularity is acceptable here
+// because the server de-registers the hook on normal completion and one
+// backend process serves one model.
 func (d *Dllm) Cancel() {
+	// RLock so a server-side AfterFunc firing in the window between a
+	// request finishing and a model unload cannot touch a freed C ctx
+	// (Free holds the write lock while tearing gen down). cancel() is the
+	// one C call that is safe concurrently with an in-flight generate, so
+	// taking a read lock here cannot deadlock against request holders.
+	d.genMu.RLock()
+	defer d.genMu.RUnlock()
 	if d.gen != nil {
 		d.gen.cancel()
 	}
