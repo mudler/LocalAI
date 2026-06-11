@@ -13,8 +13,11 @@
     Honest expectations:
     * Experimental: both the model family and the dllm backend are young -
       expect rough edges.
-    * BF16 weights (~50 GB): CUDA-13-class hardware (DGX Spark / large-VRAM or
-      unified-memory machines) is recommended; CPU works but is slow.
+    * Q4_K_M weights (~17 GB): the memory-friendly default. Validated on
+      GB10 (quality holds: golden cosine 0.9862, coherent generation), but
+      note that on hardware with native BF16 tensor cores (GB10-class) the
+      BF16 file is ~5x FASTER per denoise step than K-quants - if ~50 GB
+      fits, fetch diffusiongemma-26B-A4B-it-BF16.gguf manually instead.
     * Throughput: every denoise step currently recomputes the full
       prompt+canvas - the prefix-KV cache that removes this lands with the
       dllm backend's P3 work - so long prompts cost proportionally more per
@@ -31,11 +34,36 @@
     - dllm
   overrides:
     parameters:
-      model: dllm/diffusiongemma-26B-A4B-it-BF16.gguf
+      model: dllm/diffusiongemma-26B-A4B-it-Q4_K_M.gguf
   files:
-    - filename: dllm/diffusiongemma-26B-A4B-it-BF16.gguf
-      sha256: b0ef5dbf246608953ee9945fb03c6056af9e2459799fb179651a20a8bbaa2921
-      uri: https://huggingface.co/unsloth/diffusiongemma-26B-A4B-it-GGUF/resolve/main/diffusiongemma-26B-A4B-it-BF16.gguf
+    - filename: dllm/diffusiongemma-26B-A4B-it-Q4_K_M.gguf
+      sha256: d2ca2c032ebfb23cf2d1794a3465e615c7545634d46b3c30652a26d8b07c4ad3
+      uri: https://huggingface.co/unsloth/diffusiongemma-26B-A4B-it-GGUF/resolve/main/diffusiongemma-26B-A4B-it-Q4_K_M.gguf
+- name: "diffusiongemma-26b-a4b-it-q8_0"
+  url: "github:mudler/LocalAI/gallery/diffusiongemma.yaml@master"
+  urls:
+    - https://huggingface.co/unsloth/diffusiongemma-26B-A4B-it-GGUF
+    - https://github.com/mudler/dllm.cpp
+  description: |
+    DiffusionGemma 26B A4B (instruction-tuned), Q8_0 quantization (~27 GB):
+    the higher-fidelity middle ground between Q4_K_M (~17 GB) and BF16
+    (~50 GB). Served by LocalAI's dllm backend (dllm.cpp); see the Q4_K_M
+    entry for the full notes on experimental status, throughput, and the
+    K-quant-vs-BF16 speed trade-off on BF16-native hardware.
+  license: apache-2.0
+  tags:
+    - llm
+    - gguf
+    - gemma
+    - diffusion
+    - dllm
+  overrides:
+    parameters:
+      model: dllm/diffusiongemma-26B-A4B-it-Q8_0.gguf
+  files:
+    - filename: dllm/diffusiongemma-26B-A4B-it-Q8_0.gguf
+      sha256: fa5180660b80d52aae94ed814a6183af303841d8bb425a27f13ea27400a7b430
+      uri: https://huggingface.co/unsloth/diffusiongemma-26B-A4B-it-GGUF/resolve/main/diffusiongemma-26B-A4B-it-Q8_0.gguf
 - name: "gemma-4-26b-a4b-it-qat"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
