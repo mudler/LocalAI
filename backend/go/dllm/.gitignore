@@ -1,0 +1,10 @@
+.cache/
+sources/
+build/
+package/
+dllm-grpc
+# build artifacts staged in-tree by the Makefile (cp from sources/) or
+# symlinked for local dev; the real sources live in dllm.cpp upstream.
+*.so
+*.so.*
+compile_commands.json
