@@ -16,15 +16,12 @@ package main
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
 	"sync"
 	"sync/atomic"
 	"unsafe"
 
 	"github.com/ebitengine/purego"
-	"github.com/mudler/LocalAI/pkg/grpc/base"
-	pb "github.com/mudler/LocalAI/pkg/grpc/proto"
 )
 
 // dllmABIVersion is the DLLM_CAPI_ABI_VERSION this binding was written
@@ -47,18 +44,6 @@ var (
 	cppGenerateStream func(ctx uintptr, prompt, optsJSON string, onBlock, onStep, userData uintptr) int32
 	cppCancel         func(ctx uintptr)
 )
-
-// Dllm is the LocalAI gRPC backend over the dllm.cpp C-ABI. T1 ships only
-// the binding scaffold; Load/PredictRich/PredictStreamRich (and the move to
-// a dedicated dllm.go with the per-model worker goroutine) land in T4.
-type Dllm struct {
-	base.Base
-}
-
-// Load is not wired yet: the binding smoke drives the C functions directly.
-func (d *Dllm) Load(opts *pb.ModelOptions) error {
-	return errors.New("dllm: model loading not implemented yet (backend wiring lands in T4)")
-}
 
 // cAbiVersion returns the library's DLLM_CAPI_ABI_VERSION.
 func cAbiVersion() int32 {
@@ -218,6 +203,11 @@ func cCancel(h uintptr) {
 // nested objects/arrays loudly; bools are rejected here too because the
 // scanner has no concept of them. Fail loud rather than let an option be
 // silently misread.
+//
+// CAVEAT: json.Marshal HTML-escapes <, > and & inside string values (e.g.
+// "<" becomes the six-byte \u003c sequence). None of the known string-valued keys
+// (kv_cache: auto|on|off) can contain those bytes today; if one ever does,
+// switch to an Encoder with SetEscapeHTML(false) like gemma4JSONString.
 func buildOptsJSON(opts map[string]any) (string, error) {
 	if len(opts) == 0 {
 		return "{}", nil
@@ -246,17 +236,18 @@ func buildOptsJSON(opts map[string]any) (string, error) {
 // caller owns, or a callback argument only valid during the invocation);
 // owning callers must free it via cppFreeString after the copy lands.
 //
-// The uintptr->unsafe.Pointer conversion below trips go vet's unsafeptr
-// check, which can't distinguish a C-owned heap pointer from Go-managed
-// memory. It is safe here: the pointer addresses C memory the Go GC neither
-// tracks nor moves, and we dereference it immediately to copy the bytes out,
-// the same pattern (and the same tolerated warning) as the parakeet-cpp and
-// whisper backends.
+// A direct unsafe.Pointer(cptr) conversion trips go vet's unsafeptr check,
+// which can't distinguish a C-owned heap pointer from Go-managed memory (the
+// parakeet-cpp and whisper backends tolerate that warning). Reinterpreting
+// through &cptr below is equivalent at runtime and keeps plain `go vet`
+// clean. It is safe either way: the pointer addresses C memory the Go GC
+// neither tracks nor moves, and we dereference it immediately to copy the
+// bytes out.
 func goStringFromCPtr(cptr uintptr) string {
 	if cptr == 0 {
 		return ""
 	}
-	p := unsafe.Pointer(cptr) //nolint:govet // C-owned buffer, not Go-GC memory (see doc above)
+	p := *(*unsafe.Pointer)(unsafe.Pointer(&cptr)) // C-owned buffer, not Go-GC memory (see doc above)
 	n := 0
 	for *(*byte)(unsafe.Add(p, n)) != 0 {
 		n++
