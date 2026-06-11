@@ -1,0 +1,27 @@
+config_file: |
+    backend: dllm
+    known_usecases:
+        - chat
+    parameters:
+        # Forwarded to the engine as ctx_len, but the engine at the current
+        # pin ignores it - the effective bound is the GGUF's trained context
+        # (n_ctx_train, 262144 for this model). Kept for forward-compatibility
+        # once the engine honors it. Note dllm generates by denoising whole
+        # 256-token canvases, and until the prefix-KV cache lands (dllm P3)
+        # EVERY denoise step recomputes the full prompt+canvas, so throughput
+        # drops roughly linearly with context occupancy.
+        context_size: 4096
+    stopwords:
+        - <turn|>
+    # Templating AND output parsing (content/thought channels, tool calls)
+    # are owned by the dllm backend's native gemma4 renderer/parser - NOT
+    # llama.cpp's jinja autoparser, so no use_jinja option here.
+    # Disabling LocalAI's grammar keeps its generated tool grammar from
+    # overriding the backend's native tool-call pipeline (same reasoning as
+    # qwen3.yaml / the ds4 importer).
+    function:
+        grammar:
+            disable: true
+    template:
+        use_tokenizer_template: true
+name: diffusiongemma
