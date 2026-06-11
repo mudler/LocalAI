@@ -14,6 +14,10 @@
 # That's what the gated C-ABI binding smoke uses (DLLM_TEST_LIBRARY). The
 # default target below does the proper clone-at-pin + cmake build so CI
 # doesn't need a side-checkout.
+#
+# NOTE: github.com/mudler/dllm.cpp is still private (publishing is planned);
+# until then the anonymous clone below fails. Use the symlink shortcut above
+# with a local checkout, or a git credential helper with access to the repo.
 
 DLLM_VERSION?=b22fcebebfb225131113188599a9ae542b2935d7
 DLLM_REPO?=https://github.com/mudler/dllm.cpp
