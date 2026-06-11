@@ -337,6 +337,35 @@
     nvidia-l4t-cuda-13: "cuda13-nvidia-l4t-arm64-rfdetr-cpp"
     intel: "intel-sycl-f32-rfdetr-cpp"
     vulkan: "vulkan-rfdetr-cpp"
+- &locateanything
+  name: "locate-anything"
+  alias: "locate-anything"
+  license: apache-2.0
+  description: |
+    Open-vocabulary object detection and visual grounding (NVIDIA
+    LocateAnything-3B) in C/C++ using GGML. Loads pre-built GGUF weights
+    and, given an image and a free-form text prompt, returns bounding
+    boxes, class labels, and confidence scores for the referred objects.
+  urls:
+    - https://github.com/mudler/locate-anything.cpp
+    - https://huggingface.co/nvidia/LocateAnything-3B
+  tags:
+    - object-detection
+    - visual-grounding
+    - open-vocabulary
+    - locate-anything
+    - gpu
+    - cpu
+  capabilities:
+    default: "cpu-locate-anything-cpp"
+    nvidia: "cuda12-locate-anything-cpp"
+    nvidia-cuda-12: "cuda12-locate-anything-cpp"
+    nvidia-cuda-13: "cuda13-locate-anything-cpp"
+    nvidia-l4t: "nvidia-l4t-arm64-locate-anything-cpp"
+    nvidia-l4t-cuda-12: "nvidia-l4t-arm64-locate-anything-cpp"
+    nvidia-l4t-cuda-13: "cuda13-nvidia-l4t-arm64-locate-anything-cpp"
+    intel: "intel-sycl-f32-locate-anything-cpp"
+    vulkan: "vulkan-locate-anything-cpp"
 - &vllm
   name: "vllm"
   license: apache-2.0
