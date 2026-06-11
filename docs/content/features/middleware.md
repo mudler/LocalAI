@@ -214,11 +214,58 @@ instance-wide default rather than the model's YAML — why it is on (`YAML` /
 (entity→action, min score) is still edited on each detector model's config
 (Models → edit → PII), not globally.
 
+### Analyze / redact API
+
+The same detection pipeline is also exposed as a standalone service, so a
+client can scan or sanitise a string **without** routing a full chat request
+through it (the inline path above). Two endpoints, both requiring a normal API
+key (the `pii_filter` feature — not admin):
+
+- `POST /api/pii/analyze` — detect only. Returns the matched entity spans
+  (`entity_type`, `source` `ner`|`pattern`, `start`/`end`, `score`, `action`)
+  and a `blocked` flag, **without modifying the text**.
+- `POST /api/pii/redact` — apply the configured policy. Returns `redacted_text`
+  (with masked spans replaced by `[REDACTED:<id>]`) and `masked`; when a `block`
+  action fires it returns `400` with `type: pii_blocked` and the offending
+  entities — never a redacted body.
+
+Both take the same request: `text` plus a detector selection — either explicit
+detector model names in `detectors`, or a consuming `model` whose **effective**
+policy is used: the model's own `pii.detectors`, else the
+[instance-wide default detectors](#instance-wide-default-detector), exactly as
+the inline filter resolves them. A `model` with PII disabled — or enabled but
+with no detector anywhere — is a `400`: the inline filter would scan nothing
+for it, and the API says so rather than implying a clean scan. The detection
+policy lives on the detector models exactly as for the inline filter. The raw
+matched value is never returned (an admin may pass `reveal: true` to include
+the audit `hash_prefix`).
+
+```bash
+# Redact with an explicit pattern/NER detector
+curl -sX POST http://localhost:8080/api/pii/redact \
+  -H 'Authorization: Bearer $API_KEY' -H 'Content-Type: application/json' \
+  -d '{"text":"reach me at jane@acme.io","detectors":["my-ner-model"]}'
+# => {"redacted_text":"reach me at [REDACTED:ner:EMAIL]","masked":true,...}
+
+# Analyze using a consuming model's configured detectors
+curl -sX POST http://localhost:8080/api/pii/analyze \
+  -H 'Authorization: Bearer $API_KEY' -H 'Content-Type: application/json' \
+  -d '{"text":"sk-ant-api03-…","model":"gpt-4"}'
+# => {"entities":[{"entity_type":"ANTHROPIC_KEY","source":"pattern",...,"action":"block"}],"blocked":true}
+```
+
+Calls are audited in the same event log, tagged with an `origin` of
+`pii_analyze` / `pii_redact` (the inline filter records `middleware`, the MITM
+proxy records `proxy`), so `GET /api/pii/events?origin=pii_redact` shows just
+the redact-API rows.
+
 ### REST surface
 
 | Method | Path | Auth | Purpose |
 |---|---|---|---|
-| GET | `/api/pii/events` | admin | Recent middleware events — PII redactions, MITM connect/traffic, admission denials. Filterable by `correlation_id`, `user_id`, `pattern_id` (e.g. `ner:EMAIL`), `kind`. |
+| POST | `/api/pii/analyze` | api key (`pii_filter`) | Detect PII in a string; returns entity spans, no mutation. |
+| POST | `/api/pii/redact` | api key (`pii_filter`) | Redact a string per policy; returns `redacted_text` or `400 pii_blocked`. |
+| GET | `/api/pii/events` | admin | Recent middleware events — PII redactions, MITM connect/traffic, admission denials. Filterable by `correlation_id`, `user_id`, `pattern_id` (e.g. `ner:EMAIL`), `kind`, `origin`. |
 | GET | `/api/middleware/status` | admin | Aggregated dashboard data: per-model PII state + detectors + router status + MITM status + admission status. One round-trip for the UI. |
 
 ### MCP tools

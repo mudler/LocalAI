@@ -56,6 +56,10 @@ const (
 	FeatureFaceRecognition    = "face_recognition"
 	FeatureVoiceRecognition   = "voice_recognition"
 	FeatureAudioTransform     = "audio_transform"
+	// FeaturePIIFilter gates the synchronous PII analyze/redact service
+	// (POST /api/pii/{analyze,redact}). Default ON like the other API
+	// features; the admin-only events log is gated separately in-handler.
+	FeaturePIIFilter = "pii_filter"
 )
 
 // AgentFeatures lists agent-related features (default OFF).
@@ -71,6 +75,7 @@ var APIFeatures = []string{
 	FeatureVAD, FeatureDetection, FeatureVideo, FeatureEmbeddings, FeatureSound,
 	FeatureRealtime, FeatureRerank, FeatureTokenize, FeatureMCP, FeatureStores,
 	FeatureFaceRecognition, FeatureVoiceRecognition, FeatureAudioTransform,
+	FeaturePIIFilter,
 }
 
 // AllFeatures lists all known features (used by UI and validation).

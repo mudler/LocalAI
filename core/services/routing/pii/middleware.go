@@ -221,6 +221,7 @@ func RequestMiddleware(redactor *Redactor, store EventStore, adapter Adapter, fa
 				for _, span := range res.Spans {
 					ev := PIIEvent{
 						ID:            newEventID(),
+						Origin:        OriginMiddleware,
 						CorrelationID: correlationID,
 						UserID:        userID,
 						Direction:     DirectionIn,
@@ -295,6 +296,7 @@ func blockNERUnavailable(c echo.Context, store EventStore, correlationID, userID
 	ev := PIIEvent{
 		ID:            newEventID(),
 		Kind:          KindPII,
+		Origin:        OriginMiddleware,
 		CorrelationID: correlationID,
 		UserID:        userID,
 		Direction:     DirectionIn,
@@ -361,3 +363,8 @@ func newEventID() string {
 	_, _ = rand.Read(b[:])
 	return "pii_" + hex.EncodeToString(b[:])
 }
+
+// NewEventID mints a fresh random event id in the package's standard shape.
+// Exported so callers outside this package (the analyze/redact API handlers)
+// record events with ids indistinguishable from the in-band middleware's.
+func NewEventID() string { return newEventID() }

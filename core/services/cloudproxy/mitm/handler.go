@@ -289,6 +289,7 @@ func (d *piiDispatcher) recordEvents(spans []pii.Span, correlationID string) {
 		ev := pii.PIIEvent{
 			ID:            fmt.Sprintf("mitm_%s_%d", correlationID, d.eventSeq.Add(1)),
 			Kind:          pii.KindPII,
+			Origin:        pii.OriginProxy,
 			CorrelationID: correlationID,
 			Direction:     pii.DirectionIn,
 			PatternID:     span.Pattern,

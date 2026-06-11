@@ -113,6 +113,20 @@ const (
 	KindAdmission EventKind = "admission"
 )
 
+// Origin labels which surface produced a redaction event, so the events
+// log distinguishes an inline chat redaction from a MITM-proxy one and
+// from an explicit /api/pii/{analyze,redact} call. It is set on PII
+// redaction events only (Kind KindPII); connection/admission events leave
+// it empty. An empty Origin on an older row reads as "unknown".
+type Origin = string
+
+const (
+	OriginMiddleware Origin = "middleware"  // in-band chat/completions PII middleware
+	OriginProxy      Origin = "proxy"       // cloud-proxy MITM input path
+	OriginAnalyzeAPI Origin = "pii_analyze" // POST /api/pii/analyze
+	OriginRedactAPI  Origin = "pii_redact"  // POST /api/pii/redact
+)
+
 // PIIEvent is the persisted record. The Hash field is the first 8 chars
 // of sha256(matched value) — enough to deduplicate "is this the same
 // thing as last time" without ever storing the value itself.
@@ -124,6 +138,7 @@ const (
 type PIIEvent struct {
 	ID            string    `json:"id"`
 	Kind          EventKind `json:"kind,omitempty"`
+	Origin        Origin    `json:"origin,omitempty"`
 	CorrelationID string    `json:"correlation_id,omitempty"`
 	UserID        string    `json:"user_id,omitempty"`
 	Direction     Direction `json:"direction,omitempty"`

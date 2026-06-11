@@ -7,6 +7,7 @@ import (
 	"github.com/labstack/echo/v4"
 	"github.com/mudler/LocalAI/core/application"
 	"github.com/mudler/LocalAI/core/http/auth"
+	"github.com/mudler/LocalAI/core/http/endpoints/localai"
 	"github.com/mudler/LocalAI/core/services/routing/pii"
 )
 
@@ -38,6 +39,7 @@ func RegisterPIIRoutes(e *echo.Echo, app *application.Application) {
 	// @Param user_id query string false "User id"
 	// @Param pattern_id query string false "Detector group id (e.g. ner:EMAIL, pattern:ANTHROPIC_KEY)"
 	// @Param kind query string false "Event kind: pii | proxy_connect | proxy_traffic"
+	// @Param origin query string false "Redaction origin: middleware | proxy | pii_analyze | pii_redact"
 	// @Param limit query int false "Max events" default(100)
 	// @Success 200 {object} map[string]interface{}
 	// @Router /api/pii/events [get]
@@ -62,6 +64,7 @@ func RegisterPIIRoutes(e *echo.Echo, app *application.Application) {
 			UserID:        c.QueryParam("user_id"),
 			PatternID:     c.QueryParam("pattern_id"),
 			Kind:          pii.EventKind(c.QueryParam("kind")),
+			Origin:        c.QueryParam("origin"),
 			Limit:         limit,
 		})
 		if err != nil {
@@ -69,4 +72,12 @@ func RegisterPIIRoutes(e *echo.Echo, app *application.Application) {
 		}
 		return c.JSON(http.StatusOK, map[string]any{"events": events})
 	})
+
+	// Synchronous redaction service: scan a string and either report the
+	// detected entities (analyze) or apply the policy (redact). Unlike the
+	// admin-only events log above, these are an inference-tier service gated
+	// by the pii_filter feature (any authenticated user), so a client can use
+	// LocalAI's PII engine without routing a full chat request through it.
+	e.POST("/api/pii/analyze", localai.PIIAnalyzeEndpoint(app))
+	e.POST("/api/pii/redact", localai.PIIRedactEndpoint(app))
 }
