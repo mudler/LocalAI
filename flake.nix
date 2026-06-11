@@ -18,12 +18,12 @@
       packages.${system}.default = pkgs.buildGoModule {
         pname = "localai";
         version = "custom";
-        
+
  	src = ./.;
         proxyVendor = true;
         vendorHash = "sha256-6f3adjGsoFXlUtXjBDHP4Mv9jKCOK3aeUXprm0EAVO8=";
 
-        nativeBuildInputs = with pkgs; [ 
+        nativeBuildInputs = with pkgs; [
           pkg-config cmake gcc protobuf go-protobuf protoc-gen-go protoc-gen-go-grpc
         ];
 
@@ -32,7 +32,7 @@
         };
 
         preBuild = ''
-          
+
           PROTO_SOURCE_DIR=$(find . -name "*.proto" -printf "%h" -quit)
           mkdir -p pkg/grpc/proto
           ${pkgs.protobuf}/bin/protoc \
@@ -43,11 +43,11 @@
             $PROTO_SOURCE_DIR/*.proto
 
           go mod edit -replace github.com/mudler/LocalAI/pkg/grpc/proto=./pkg/grpc/proto
-          
+
           mkdir -p core/config/gen_inference_defaults
           cp ${inference-defaults} core/config/gen_inference_defaults/inference_defaults.json
           sed -i '/go:generate/d' core/config/inference_defaults.go || true
-        
+
 	'';
 
         subPackages = [ "cmd/local-ai" ];
@@ -65,6 +65,7 @@
           gnumake
           pkg-config
           cmake
+          ccache
           protobuf
           go-protobuf
           protoc-gen-go
