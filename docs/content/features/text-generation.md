@@ -768,6 +768,8 @@ Honest numbers from validation on a DGX Spark (GB10, CUDA 13, BF16 26B model, fu
 
 On CPU the same forward step takes ~139 s (20 Grace cores): treat the CPU flavor as functional, not practical, for the 26B model.
 
+**Quantized models.** The Q4_K_M export (16.8 GB vs 50.5 GB BF16) was validated on the same GB10: it loads faster (~12.6 s vs ~32.7 s), quality held up in validation (golden-logits cosine 0.9862, coherent generation on the same prompt as the BF16 run, EB stopper exiting at 19/48 steps, ~0.49 tok/s on that run) - but a forward step takes ~27.5 s, about **5x slower than BF16** (~5.6 s/step) on this hardware. GB10-class GPUs run BF16 natively on tensor cores, while the K-quant MoE weights pay a dequantization cost on every denoise step. Choose Q4_K_M only when you are memory-bound; if BF16 fits, it is both faster and the file the engine's validation tolerances are calibrated for.
+
 #### Reference
 
 - [dllm.cpp](https://github.com/mudler/dllm.cpp)
