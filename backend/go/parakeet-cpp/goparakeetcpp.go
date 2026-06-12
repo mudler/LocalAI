@@ -98,17 +98,21 @@ type transcriptJSON struct {
 }
 
 // streamFeedJSON mirrors the document returned by
-// parakeet_capi_stream_feed_json / parakeet_capi_stream_finalize_json (ABI v4):
+// parakeet_capi_stream_feed_json / parakeet_capi_stream_finalize_json (ABI v5):
 //
-//	{"text":"...","eou":0,"frame_sec":0.080000,
+//	{"text":"...","eou":0,"eob":0,"frame_sec":0.080000,
 //	 "words":[{"w":"...","start":0.480,"end":0.640,"conf":0.9100}, ...]}
 //
 // "text" is the newly-finalized text since the last call; "eou" is 1 when an
-// <EOU>/<EOB> fired this feed; "words" are the words finalized this call with
-// absolute (stream-relative) start/end seconds.
+// <EOU> (end of utterance) fired this feed and "eob" is 1 when an <EOB>
+// (backchannel) fired. ABI v4 conflated the two into "eou"; v5 split them, so
+// we read both and treat either as an utterance boundary for segmentation.
+// "words" are the words finalized this call with absolute (stream-relative)
+// start/end seconds.
 type streamFeedJSON struct {
 	Text     string           `json:"text"`
 	Eou      int              `json:"eou"`
+	Eob      int              `json:"eob"`
 	FrameSec float64          `json:"frame_sec"`
 	Words    []transcriptWord `json:"words"`
 }
@@ -483,7 +487,10 @@ type streamSegmenter struct {
 
 func (s *streamSegmenter) add(doc streamFeedJSON) {
 	s.cur = append(s.cur, doc.Words...)
-	if doc.Eou != 0 {
+	// Close the segment on either turn signal: <EOU> (end of utterance) or
+	// <EOB> (backchannel). ABI v4 reported both via "eou"; v5 split them, so we
+	// OR them here to keep the v4 segmentation boundaries.
+	if doc.Eou != 0 || doc.Eob != 0 {
 		s.flush()
 	}
 }
@@ -671,11 +678,12 @@ func (p *ParakeetCpp) AudioTranscriptionStream(ctx context.Context, opts *pb.Tra
 	return nil
 }
 
-// streamJSON drives the ABI v4 streaming JSON entry points: each feed/finalize
-// returns a {text,eou,frame_sec,words} document. The newly-finalized text is
-// emitted as a delta (unchanged streaming contract) while words are accumulated
-// into per-utterance segments (closed on EOU) so the closing FinalResult carries
-// timestamped segments. Runs under engineMu (already held by the caller).
+// streamJSON drives the streaming JSON entry points (present since ABI v4): each
+// feed/finalize returns a {text,eou,eob,frame_sec,words} document. The
+// newly-finalized text is emitted as a delta (unchanged streaming contract)
+// while words are accumulated into per-utterance segments (closed on <EOU> or
+// <EOB>) so the closing FinalResult carries timestamped segments. Runs under
+// engineMu (already held by the caller).
 func (p *ParakeetCpp) streamJSON(ctx context.Context, stream uintptr, data []float32,
 	duration float32, results chan *pb.TranscriptStreamResponse) error {
 	var (
