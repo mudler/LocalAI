@@ -41,6 +41,11 @@ fi
 export LD_LIBRARY_PATH=$CURDIR/lib:$LD_LIBRARY_PATH
 export CRISPASR_LIBRARY=$LIBRARY
 
+# Point piper's espeak-ng phonemizer at the bundled voice data. The variable
+# names the directory CONTAINING espeak-ng-data (package.sh drops it next to
+# this script). Harmless when espeak-ng wasn't bundled.
+export CRISPASR_ESPEAK_DATA_PATH=$CURDIR
+
 # If there is a lib/ld.so, use it
 if [ -f $CURDIR/lib/ld.so ]; then
 	echo "Using lib/ld.so"

@@ -206,6 +206,16 @@ RUN if [ "${BACKEND}" = "opus" ]; then \
     apt-get clean && rm -rf /var/lib/apt/lists/*; \
 fi
 
+# CrispASR's piper TTS backend dlopens libespeak-ng at runtime to phonemize
+# non-English text (the MIT-clean path; English uses a built-in G2P). Install
+# the espeak-ng runtime + its libpcaudio/libsonic deps + voice data so
+# package.sh can bundle them into the FROM scratch image.
+RUN if [ "${BACKEND}" = "crispasr" ]; then \
+    apt-get update && apt-get install -y --no-install-recommends \
+        espeak-ng-data libespeak-ng1 libpcaudio0 libsonic0 && \
+    apt-get clean && rm -rf /var/lib/apt/lists/*; \
+fi
+
 COPY . /LocalAI
 
 RUN git config --global --add safe.directory /LocalAI

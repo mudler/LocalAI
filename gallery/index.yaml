@@ -33177,6 +33177,249 @@
     - filename: snac-24khz.gguf
       uri: huggingface://cstr/snac-24khz-GGUF/snac-24khz.gguf
       sha256: b4b044631df62ececa86ab080516b3e619cd8f93caabd5f6758c7eae14981bd8
+- name: piper-it_IT-riccardo-x_low-crispasr
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/rhasspy/piper-voices
+    - https://huggingface.co/LocalAI-Community/piper-voices-GGUF
+  icon: https://github.com/rhasspy/piper/raw/master/etc/logo.png
+  description: |
+    Piper (rhasspy VITS) Italian male voice "riccardo", x_low quality, synthesized through the CrispASR backend. Fast, lightweight (~10 MB) local neural TTS producing 16 kHz mono audio. Runs end-to-end on CPU.
+  tags:
+    - crispasr
+    - tts
+    - text-to-speech
+    - piper
+    - gguf
+  overrides:
+    backend: crispasr
+    known_usecases:
+      - tts
+    name: piper-it_IT-riccardo-x_low-crispasr
+    options:
+      - "backend:piper"
+    parameters:
+      model: piper-it_IT-riccardo-x_low-f16.gguf
+  files:
+    - filename: piper-it_IT-riccardo-x_low-f16.gguf
+      uri: huggingface://LocalAI-Community/piper-voices-GGUF/piper-it_IT-riccardo-x_low-f16.gguf
+      sha256: 9b904f5d75c324274093c9049f240579b255eb638d9cc8ac7c704c0e712ac312
+- name: piper-it_IT-paola-medium-crispasr
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/rhasspy/piper-voices
+    - https://huggingface.co/LocalAI-Community/piper-voices-GGUF
+  icon: https://github.com/rhasspy/piper/raw/master/etc/logo.png
+  description: |
+    Piper (rhasspy VITS) Italian female voice "paola", medium quality, synthesized through the CrispASR backend. Fast, lightweight (~31 MB) local neural TTS producing 22.05 kHz mono audio. Runs end-to-end on CPU.
+  tags:
+    - crispasr
+    - tts
+    - text-to-speech
+    - piper
+    - gguf
+  overrides:
+    backend: crispasr
+    known_usecases:
+      - tts
+    name: piper-it_IT-paola-medium-crispasr
+    options:
+      - "backend:piper"
+    parameters:
+      model: piper-it_IT-paola-medium-f16.gguf
+  files:
+    - filename: piper-it_IT-paola-medium-f16.gguf
+      uri: huggingface://LocalAI-Community/piper-voices-GGUF/piper-it_IT-paola-medium-f16.gguf
+      sha256: be5c51fca389af212595d88930d8c5198629293f4e078b564549f94b40261d5c
+- name: piper-en_US-lessac-medium-crispasr
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/rhasspy/piper-voices
+    - https://huggingface.co/LocalAI-Community/piper-voices-GGUF
+  icon: https://github.com/rhasspy/piper/raw/master/etc/logo.png
+  description: |
+    Piper (rhasspy VITS) American English voice "lessac", medium quality, synthesized through the CrispASR backend. Uses a built-in English G2P (no espeak-ng needed). Fast, lightweight (~31 MB) local neural TTS producing 22.05 kHz mono audio. Runs end-to-end on CPU.
+  tags:
+    - crispasr
+    - tts
+    - text-to-speech
+    - piper
+    - gguf
+  overrides:
+    backend: crispasr
+    known_usecases:
+      - tts
+    name: piper-en_US-lessac-medium-crispasr
+    options:
+      - "backend:piper"
+    parameters:
+      model: piper-en_US-lessac-medium-f16.gguf
+  files:
+    - filename: piper-en_US-lessac-medium-f16.gguf
+      uri: huggingface://LocalAI-Community/piper-voices-GGUF/piper-en_US-lessac-medium-f16.gguf
+      sha256: 31fda50337445ac5a48e6e304f8345590db95dfdc9890f3e3096f6dc728e7329
+- name: piper-en_GB-cori-medium-crispasr
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/rhasspy/piper-voices
+    - https://huggingface.co/LocalAI-Community/piper-voices-GGUF
+  icon: https://github.com/rhasspy/piper/raw/master/etc/logo.png
+  description: |
+    Piper (rhasspy VITS) British English female voice "cori", medium quality, synthesized through the CrispASR backend. Uses a built-in English G2P (no espeak-ng needed). Fast, lightweight (~31 MB) local neural TTS producing 22.05 kHz mono audio. Runs end-to-end on CPU.
+  tags:
+    - crispasr
+    - tts
+    - text-to-speech
+    - piper
+    - gguf
+  overrides:
+    backend: crispasr
+    known_usecases:
+      - tts
+    name: piper-en_GB-cori-medium-crispasr
+    options:
+      - "backend:piper"
+    parameters:
+      model: piper-en_GB-cori-medium-f16.gguf
+  files:
+    - filename: piper-en_GB-cori-medium-f16.gguf
+      uri: huggingface://LocalAI-Community/piper-voices-GGUF/piper-en_GB-cori-medium-f16.gguf
+      sha256: b432146300f4f6dc216653adfb92e7007b0d542efe567ae91f77ef01d6f252a4
+- name: piper-de_DE-thorsten-medium-crispasr
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/rhasspy/piper-voices
+    - https://huggingface.co/LocalAI-Community/piper-voices-GGUF
+  icon: https://github.com/rhasspy/piper/raw/master/etc/logo.png
+  description: |
+    Piper (rhasspy VITS) German male voice "thorsten", medium quality, synthesized through the CrispASR backend. Fast, lightweight (~31 MB) local neural TTS producing 22.05 kHz mono audio. Runs end-to-end on CPU.
+  tags:
+    - crispasr
+    - tts
+    - text-to-speech
+    - piper
+    - gguf
+  overrides:
+    backend: crispasr
+    known_usecases:
+      - tts
+    name: piper-de_DE-thorsten-medium-crispasr
+    options:
+      - "backend:piper"
+    parameters:
+      model: piper-de_DE-thorsten-medium-f16.gguf
+  files:
+    - filename: piper-de_DE-thorsten-medium-f16.gguf
+      uri: huggingface://LocalAI-Community/piper-voices-GGUF/piper-de_DE-thorsten-medium-f16.gguf
+      sha256: f4fd0cd694f1f6f0192b903ab2ef52bb1692204334526fd32ca9379a9e655f8b
+- name: piper-de_DE-kerstin-low-crispasr
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/rhasspy/piper-voices
+    - https://huggingface.co/LocalAI-Community/piper-voices-GGUF
+  icon: https://github.com/rhasspy/piper/raw/master/etc/logo.png
+  description: |
+    Piper (rhasspy VITS) German female voice "kerstin", low quality, synthesized through the CrispASR backend. Fast, lightweight (~31 MB) local neural TTS producing 16 kHz mono audio. Runs end-to-end on CPU.
+  tags:
+    - crispasr
+    - tts
+    - text-to-speech
+    - piper
+    - gguf
+  overrides:
+    backend: crispasr
+    known_usecases:
+      - tts
+    name: piper-de_DE-kerstin-low-crispasr
+    options:
+      - "backend:piper"
+    parameters:
+      model: piper-de_DE-kerstin-low-f16.gguf
+  files:
+    - filename: piper-de_DE-kerstin-low-f16.gguf
+      uri: huggingface://LocalAI-Community/piper-voices-GGUF/piper-de_DE-kerstin-low-f16.gguf
+      sha256: d1ceb8f5f6cc908887f33916054e58247e70955350178ae0118c422345e040a5
+- name: piper-de_DE-eva_k-x_low-crispasr
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/rhasspy/piper-voices
+    - https://huggingface.co/LocalAI-Community/piper-voices-GGUF
+  icon: https://github.com/rhasspy/piper/raw/master/etc/logo.png
+  description: |
+    Piper (rhasspy VITS) German female voice "eva_k", x_low quality, synthesized through the CrispASR backend. Fast, lightweight (~10 MB) local neural TTS producing 16 kHz mono audio. Runs end-to-end on CPU.
+  tags:
+    - crispasr
+    - tts
+    - text-to-speech
+    - piper
+    - gguf
+  overrides:
+    backend: crispasr
+    known_usecases:
+      - tts
+    name: piper-de_DE-eva_k-x_low-crispasr
+    options:
+      - "backend:piper"
+    parameters:
+      model: piper-de_DE-eva_k-x_low-f16.gguf
+  files:
+    - filename: piper-de_DE-eva_k-x_low-f16.gguf
+      uri: huggingface://LocalAI-Community/piper-voices-GGUF/piper-de_DE-eva_k-x_low-f16.gguf
+      sha256: c37839b7f88054c5c6e306bd4e91bbf7aa56d6267a0037c10c732dfcb67e769c
+- name: piper-de_DE-karlsson-low-crispasr
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/rhasspy/piper-voices
+    - https://huggingface.co/LocalAI-Community/piper-voices-GGUF
+  icon: https://github.com/rhasspy/piper/raw/master/etc/logo.png
+  description: |
+    Piper (rhasspy VITS) German male voice "karlsson", low quality, synthesized through the CrispASR backend. Fast, lightweight (~31 MB) local neural TTS producing 16 kHz mono audio. Runs end-to-end on CPU.
+  tags:
+    - crispasr
+    - tts
+    - text-to-speech
+    - piper
+    - gguf
+  overrides:
+    backend: crispasr
+    known_usecases:
+      - tts
+    name: piper-de_DE-karlsson-low-crispasr
+    options:
+      - "backend:piper"
+    parameters:
+      model: piper-de_DE-karlsson-low-f16.gguf
+  files:
+    - filename: piper-de_DE-karlsson-low-f16.gguf
+      uri: huggingface://LocalAI-Community/piper-voices-GGUF/piper-de_DE-karlsson-low-f16.gguf
+      sha256: 1832edb65f63a34b1345b07b598c081ee6e717e2daefd49162e16d9af29e391b
+- name: piper-de_DE-ramona-low-crispasr
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/rhasspy/piper-voices
+    - https://huggingface.co/LocalAI-Community/piper-voices-GGUF
+  icon: https://github.com/rhasspy/piper/raw/master/etc/logo.png
+  description: |
+    Piper (rhasspy VITS) German female voice "ramona", low quality, synthesized through the CrispASR backend. Fast, lightweight (~31 MB) local neural TTS producing 16 kHz mono audio. Runs end-to-end on CPU.
+  tags:
+    - crispasr
+    - tts
+    - text-to-speech
+    - piper
+    - gguf
+  overrides:
+    backend: crispasr
+    known_usecases:
+      - tts
+    name: piper-de_DE-ramona-low-crispasr
+    options:
+      - "backend:piper"
+    parameters:
+      model: piper-de_DE-ramona-low-f16.gguf
+  files:
+    - filename: piper-de_DE-ramona-low-f16.gguf
+      uri: huggingface://LocalAI-Community/piper-voices-GGUF/piper-de_DE-ramona-low-f16.gguf
+      sha256: c5f71091e58ebe59f8f4ad47d3b444659c4e8281e86d20e153955b895b5f6921
 - name: hubert-crispasr
   url: github:mudler/LocalAI/gallery/virtual.yaml@master
   urls:
