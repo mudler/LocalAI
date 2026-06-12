@@ -1163,11 +1163,11 @@
 - &opus
   name: "opus"
   alias: "opus"
-  uri: "quay.io/go-skynet/local-ai-backends:latest-cpu-opus"
+  capabilities:
+    default: "cpu-opus"
+    metal: "metal-opus"
   urls:
     - https://opus-codec.org/
-  mirrors:
-    - localai/localai-backends:latest-cpu-opus
   license: BSD-3-Clause
   description: |
     Opus audio codec backend for encoding and decoding audio.
@@ -1177,7 +1177,11 @@
     - opus
     - WebRTC
     - realtime
-    - CPU
+- !!merge <<: *opus
+  name: "opus-development"
+  capabilities:
+    default: "cpu-opus-development"
+    metal: "metal-opus-development"
 - &silero-vad
   name: "silero-vad"
   uri: "quay.io/go-skynet/local-ai-backends:latest-cpu-silero-vad"
@@ -1603,7 +1607,12 @@
   mirrors:
     - localai/localai-backends:master-metal-darwin-arm64-local-store
 - !!merge <<: *opus
-  name: "opus-development"
+  name: "cpu-opus"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-cpu-opus"
+  mirrors:
+    - localai/localai-backends:latest-cpu-opus
+- !!merge <<: *opus
+  name: "cpu-opus-development"
   uri: "quay.io/go-skynet/local-ai-backends:master-cpu-opus"
   mirrors:
     - localai/localai-backends:master-cpu-opus
