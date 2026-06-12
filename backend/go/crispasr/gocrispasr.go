@@ -11,6 +11,7 @@ import (
 
 	"github.com/go-audio/audio"
 	"github.com/go-audio/wav"
+	gguf "github.com/gpustack/gguf-parser-go"
 	"github.com/mudler/LocalAI/pkg/grpc/base"
 	pb "github.com/mudler/LocalAI/pkg/grpc/proto"
 	"github.com/mudler/LocalAI/pkg/utils"
@@ -37,6 +38,39 @@ var (
 
 type CrispASR struct {
 	base.SingleThread
+	// sampleRate is the output rate (Hz) of the loaded TTS engine's PCM, used to
+	// write a correct WAV header. Most CrispASR TTS backends emit 24 kHz, but
+	// piper returns its model's native rate (16 kHz for x_low/low voices,
+	// 22.05 kHz for medium/high), so it is read from the GGUF metadata at Load.
+	sampleRate int
+}
+
+// defaultTTSSampleRate is the output rate assumed for CrispASR TTS engines that
+// don't advertise one in GGUF metadata (vibevoice/orpheus/chatterbox/qwen3-tts
+// all emit 24 kHz). piper is the exception and carries piper.sample_rate.
+const defaultTTSSampleRate = 24000
+
+// piperSampleRate reads the piper.sample_rate metadata key from a GGUF model.
+// CrispASR's piper backend returns PCM at the model's native rate without
+// resampling, so the WAV header must match it. Returns ok=false for non-piper
+// models (key absent) or an unreadable file, letting the caller fall back to
+// defaultTTSSampleRate.
+func piperSampleRate(modelPath string) (int, bool) {
+	// Only scalar architecture keys are read, so skip the large array metadata
+	// (phoneme map) and mmap the header - same rationale as pkg/vram's reader.
+	f, err := gguf.ParseGGUFFile(modelPath, gguf.UseMMap(), gguf.SkipLargeMetadata())
+	if err != nil {
+		return 0, false
+	}
+	kv, ok := f.Header.MetadataKV.Get("piper.sample_rate")
+	if !ok || kv.ValueType != gguf.GGUFMetadataValueTypeUint32 {
+		return 0, false
+	}
+	rate := int(kv.ValueUint32())
+	if rate <= 0 {
+		return 0, false
+	}
+	return rate, true
 }
 
 // splitOption splits a "prefix:value" model option into its key and value,
@@ -101,6 +135,14 @@ func (w *CrispASR) Load(opts *pb.ModelOptions) error {
 
 	if ret := CppLoadModel(opts.ModelFile, int(opts.Threads), backendName); ret != 0 {
 		return fmt.Errorf("Failed to load CrispASR transcription model")
+	}
+
+	// Determine the TTS output sample rate for the WAV header. piper voices
+	// carry their native rate in GGUF metadata and CrispASR does not resample;
+	// every other engine emits the 24 kHz default.
+	w.sampleRate = defaultTTSSampleRate
+	if rate, ok := piperSampleRate(opts.ModelFile); ok {
+		w.sampleRate = rate
 	}
 
 	// Load the companion file (codec/tokenizer/s3gen) after the session is open.
@@ -390,7 +432,7 @@ func (w *CrispASR) synthesize(text string) ([]float32, error) {
 	}
 	defer CppTTSFree(ptr)
 	src := unsafe.Slice((*float32)(unsafe.Pointer(ptr)), int(n)) //nolint:govet // ptr addresses C-allocated PCM returned across the purego boundary; copied out immediately below, before tts_free.
-	out := make([]float32, int(n)) // copy out of C memory before free
+	out := make([]float32, int(n))                               // copy out of C memory before free
 	copy(out, src)
 	return out, nil
 }
@@ -417,7 +459,7 @@ func (w *CrispASR) TTS(req *pb.TTSRequest) error {
 	if err != nil {
 		return err
 	}
-	return writeWAV24k(req.Dst, pcm)
+	return writeWAV(req.Dst, pcm, w.sampleRate)
 }
 
 // TTSStream is the streaming counterpart to TTS. CrispASR has no progressive
@@ -447,7 +489,7 @@ func (w *CrispASR) TTSStream(req *pb.TTSRequest, results chan []byte) error {
 	}
 	defer func() { _ = os.Remove(dst) }()
 
-	if err := writeWAV24k(dst, pcm); err != nil {
+	if err := writeWAV(dst, pcm, w.sampleRate); err != nil {
 		return err
 	}
 
@@ -459,14 +501,14 @@ func (w *CrispASR) TTSStream(req *pb.TTSRequest, results chan []byte) error {
 	return nil
 }
 
-// writeWAV24k writes pcm as a 24000 Hz, mono, 16-bit PCM WAV at dst.
-func writeWAV24k(dst string, pcm []float32) error {
+// writeWAV writes pcm as a sampleRate Hz, mono, 16-bit PCM WAV at dst.
+func writeWAV(dst string, pcm []float32, sampleRate int) error {
 	f, err := os.Create(dst)
 	if err != nil {
 		return fmt.Errorf("crispasr: create %q: %w", dst, err)
 	}
 
-	enc := wav.NewEncoder(f, 24000, 16, 1, 1)
+	enc := wav.NewEncoder(f, sampleRate, 16, 1, 1)
 	ints := make([]int, len(pcm))
 	for i, s := range pcm {
 		if s > 1 {
@@ -477,7 +519,7 @@ func writeWAV24k(dst string, pcm []float32) error {
 		ints[i] = int(s * 32767)
 	}
 	buf := &audio.IntBuffer{
-		Format:         &audio.Format{NumChannels: 1, SampleRate: 24000},
+		Format:         &audio.Format{NumChannels: 1, SampleRate: sampleRate},
 		Data:           ints,
 		SourceBitDepth: 16,
 	}
