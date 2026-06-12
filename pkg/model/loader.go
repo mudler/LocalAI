@@ -207,6 +207,28 @@ var knownModelsNameSuffixToSkip []string = []string{
 	".tar.gz",
 }
 
+// HasKnownModelFileExtension reports whether name ends in a file extension that
+// LocalAI recognizes as a model weight or asset file (e.g. ".gguf",
+// ".safetensors", ".json"). It is used to tell a concrete file path such as
+// "local/model.gguf" apart from a HuggingFace-style repository ID like
+// "org/repo": only the former carries a recognized suffix. A version-style
+// suffix such as the ".0" in "stabilityai/stable-diffusion-xl-base-1.0" is not
+// in the list, so such repo IDs are correctly treated as non-files.
+func HasKnownModelFileExtension(name string) bool {
+	lower := strings.ToLower(name)
+	for _, suffix := range knownModelsNameSuffixToSkip {
+		// "." is a guard entry consumed by ListFilesInModelPath, not a real
+		// extension; skip it so it doesn't match every dotted name.
+		if suffix == "." {
+			continue
+		}
+		if strings.HasSuffix(lower, strings.ToLower(suffix)) {
+			return true
+		}
+	}
+	return false
+}
+
 const retryTimeout = time.Duration(2 * time.Minute)
 
 func (ml *ModelLoader) ListFilesInModelPath() ([]string, error) {
