@@ -124,4 +124,17 @@ var _ = Describe("streaming segment assembly", func() {
 		Expect(acc.segments()).To(HaveLen(1))
 		Expect(acc.segments()[0].Text).To(Equal("hi there"))
 	})
+
+	// ABI v5 split <EOB> (backchannel) out of the "eou" flag into its own "eob"
+	// field; a backchannel must still close the segment as it did in v4.
+	It("closes a segment on EOB (backchannel) too", func() {
+		acc := &streamSegmenter{}
+		acc.add(streamFeedJSON{Text: "uh huh", Eou: 0, Eob: 1, Words: []transcriptWord{
+			{W: "uh", Start: 0.0, End: 0.2}, {W: "huh", Start: 0.2, End: 0.5},
+		}})
+		segs := acc.segments()
+		Expect(segs).To(HaveLen(1))
+		Expect(segs[0].Text).To(Equal("uh huh"))
+		Expect(segs[0].End).To(Equal(secondsToNanos(0.5)))
+	})
 })
