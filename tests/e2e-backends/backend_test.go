@@ -66,6 +66,12 @@ import (
 //	BACKEND_TEST_IMAGE_STEPS Override the diffusion step count for the image spec
 //	                         (default: 4 — keeps CPU-only runs under a few minutes).
 //	BACKEND_TEST_PROMPT      Override the prompt used by predict/stream specs.
+//	BACKEND_TEST_SEED        Optional sampling seed (>0) passed to the predict
+//	                         and stream specs. Unset keeps backend-default
+//	                         randomness. Needed for random-weight fixture
+//	                         models (e.g. dllm's tiny_with_vocab.gguf) where
+//	                         unseeded sampling makes the output - and thus the
+//	                         spec outcome - nondeterministic.
 //	BACKEND_TEST_CTX_SIZE    Override the context size passed to LoadModel (default 512).
 //	BACKEND_TEST_THREADS     Override Threads passed to LoadModel (default 4).
 //	BACKEND_TEST_OPTIONS     Comma-separated Options[] entries passed to LoadModel,
@@ -419,6 +425,7 @@ var _ = Describe("Backend container", Ordered, func() {
 			Temperature: 0.1,
 			TopK:        40,
 			TopP:        0.9,
+			Seed:        envInt32("BACKEND_TEST_SEED", 0),
 		})
 		Expect(err).NotTo(HaveOccurred())
 		Expect(res.GetMessage()).NotTo(BeEmpty(), "Predict produced empty output")
@@ -438,6 +445,7 @@ var _ = Describe("Backend container", Ordered, func() {
 			Temperature: 0.1,
 			TopK:        40,
 			TopP:        0.9,
+			Seed:        envInt32("BACKEND_TEST_SEED", 0),
 		})
 		Expect(err).NotTo(HaveOccurred())
 

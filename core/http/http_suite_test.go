@@ -21,6 +21,20 @@ var (
 	mockBackendPath string
 )
 
+// testHTTPAddr is the listen address used by specs that start a full HTTP
+// server. Configurable so the suite can run on machines where the default
+// port is taken by an unrelated service (override: LOCALAI_TEST_HTTP_PORT).
+var testHTTPAddr = func() string {
+	port := os.Getenv("LOCALAI_TEST_HTTP_PORT")
+	if port == "" {
+		port = "9090"
+	}
+	return "127.0.0.1:" + port
+}()
+
+// testHTTPBase is the matching http://host:port prefix for client requests.
+var testHTTPBase = "http://" + testHTTPAddr
+
 // findMockBackendBinary locates the mock-backend binary built by
 // `make build-mock-backend`. Mirrors the lookup used by
 // tests/e2e/e2e_suite_test.go so both suites consume the same artifact.

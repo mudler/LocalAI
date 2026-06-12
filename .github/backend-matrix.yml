@@ -1611,6 +1611,19 @@ include:
   - build-type: 'cublas'
     cuda-major-version: "13"
     cuda-minor-version: "0"
+    platforms: 'linux/amd64'
+    tag-latest: 'auto'
+    tag-suffix: '-gpu-nvidia-cuda-13-dllm'
+    runs-on: 'ubuntu-latest'
+    base-image: "ubuntu:24.04"
+    skip-drivers: 'false'
+    backend: "dllm"
+    dockerfile: "./backend/Dockerfile.golang"
+    context: "./"
+    ubuntu-version: '2404'
+  - build-type: 'cublas'
+    cuda-major-version: "13"
+    cuda-minor-version: "0"
     platforms: 'linux/arm64'
     skip-drivers: 'false'
     tag-latest: 'auto'
@@ -1645,6 +1658,19 @@ include:
     ubuntu-version: '2404'
     runs-on: 'ubuntu-24.04-arm'
     backend: "parakeet-cpp"
+    dockerfile: "./backend/Dockerfile.golang"
+    context: "./"
+  - build-type: 'cublas'
+    cuda-major-version: "13"
+    cuda-minor-version: "0"
+    platforms: 'linux/arm64'
+    skip-drivers: 'false'
+    tag-latest: 'auto'
+    tag-suffix: '-nvidia-l4t-cuda-13-arm64-dllm'
+    base-image: "ubuntu:24.04"
+    ubuntu-version: '2404'
+    runs-on: 'ubuntu-24.04-arm'
+    backend: "dllm"
     dockerfile: "./backend/Dockerfile.golang"
     context: "./"
   - build-type: 'cublas'
@@ -3142,6 +3168,35 @@ include:
     base-image: "ubuntu:24.04"
     skip-drivers: 'false'
     backend: "parakeet-cpp"
+    dockerfile: "./backend/Dockerfile.golang"
+    context: "./"
+    ubuntu-version: '2404'
+  # dllm
+  - build-type: ''
+    cuda-major-version: ""
+    cuda-minor-version: ""
+    platforms: 'linux/amd64'
+    platform-tag: 'amd64'
+    tag-latest: 'auto'
+    tag-suffix: '-cpu-dllm'
+    runs-on: 'ubuntu-latest'
+    base-image: "ubuntu:24.04"
+    skip-drivers: 'false'
+    backend: "dllm"
+    dockerfile: "./backend/Dockerfile.golang"
+    context: "./"
+    ubuntu-version: '2404'
+  - build-type: ''
+    cuda-major-version: ""
+    cuda-minor-version: ""
+    platforms: 'linux/arm64'
+    platform-tag: 'arm64'
+    tag-latest: 'auto'
+    tag-suffix: '-cpu-dllm'
+    runs-on: 'ubuntu-24.04-arm'
+    base-image: "ubuntu:24.04"
+    skip-drivers: 'false'
+    backend: "dllm"
     dockerfile: "./backend/Dockerfile.golang"
     context: "./"
     ubuntu-version: '2404'

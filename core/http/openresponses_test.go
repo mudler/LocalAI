@@ -59,14 +59,14 @@ var _ = Describe("Open Responses API", func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			go func() {
-				if err := app.Start("127.0.0.1:9090"); err != nil && err != http.ErrServerClosed {
+				if err := app.Start(testHTTPAddr); err != nil && err != http.ErrServerClosed {
 					xlog.Error("server error", "error", err)
 				}
 			}()
 
 			// Wait for API to be ready
 			Eventually(func() error {
-				resp, err := http.Get("http://127.0.0.1:9090/healthz")
+				resp, err := http.Get(testHTTPBase + "/healthz")
 				if err != nil {
 					return err
 				}
@@ -95,7 +95,7 @@ var _ = Describe("Open Responses API", func() {
 				payload, err := json.Marshal(reqBody)
 				Expect(err).ToNot(HaveOccurred())
 
-				req, err := http.NewRequest("POST", "http://127.0.0.1:9090/v1/responses", bytes.NewBuffer(payload))
+				req, err := http.NewRequest("POST", testHTTPBase+"/v1/responses", bytes.NewBuffer(payload))
 				Expect(err).ToNot(HaveOccurred())
 				req.Header.Set("Content-Type", "application/json")
 				req.Header.Set("Authorization", bearerKey)
@@ -118,7 +118,7 @@ var _ = Describe("Open Responses API", func() {
 				payload, err := json.Marshal(reqBody)
 				Expect(err).ToNot(HaveOccurred())
 
-				req, err := http.NewRequest("POST", "http://127.0.0.1:9090/v1/responses", bytes.NewBuffer(payload))
+				req, err := http.NewRequest("POST", testHTTPBase+"/v1/responses", bytes.NewBuffer(payload))
 				Expect(err).ToNot(HaveOccurred())
 				req.Header.Set("Content-Type", "application/json")
 				req.Header.Set("Authorization", bearerKey)
@@ -143,7 +143,7 @@ var _ = Describe("Open Responses API", func() {
 				payload, err := json.Marshal(reqBody)
 				Expect(err).ToNot(HaveOccurred())
 
-				req, err := http.NewRequest("POST", "http://127.0.0.1:9090/v1/responses", bytes.NewBuffer(payload))
+				req, err := http.NewRequest("POST", testHTTPBase+"/v1/responses", bytes.NewBuffer(payload))
 				Expect(err).ToNot(HaveOccurred())
 				req.Header.Set("Content-Type", "application/json")
 				req.Header.Set("Authorization", bearerKey)
@@ -168,7 +168,7 @@ var _ = Describe("Open Responses API", func() {
 				payload, err := json.Marshal(reqBody)
 				Expect(err).ToNot(HaveOccurred())
 
-				req, err := http.NewRequest("POST", "http://127.0.0.1:9090/v1/responses", bytes.NewBuffer(payload))
+				req, err := http.NewRequest("POST", testHTTPBase+"/v1/responses", bytes.NewBuffer(payload))
 				Expect(err).ToNot(HaveOccurred())
 				req.Header.Set("Content-Type", "application/json")
 				req.Header.Set("Authorization", bearerKey)
@@ -196,7 +196,7 @@ var _ = Describe("Open Responses API", func() {
 				payload, err := json.Marshal(reqBody)
 				Expect(err).ToNot(HaveOccurred())
 
-				req, err := http.NewRequest("POST", "http://127.0.0.1:9090/v1/responses", bytes.NewBuffer(payload))
+				req, err := http.NewRequest("POST", testHTTPBase+"/v1/responses", bytes.NewBuffer(payload))
 				Expect(err).ToNot(HaveOccurred())
 				req.Header.Set("Content-Type", "application/json")
 				req.Header.Set("Authorization", bearerKey)
@@ -241,7 +241,7 @@ var _ = Describe("Open Responses API", func() {
 				payload, err := json.Marshal(reqBody)
 				Expect(err).ToNot(HaveOccurred())
 
-				req, err := http.NewRequest("POST", "http://127.0.0.1:9090/v1/responses", bytes.NewBuffer(payload))
+				req, err := http.NewRequest("POST", testHTTPBase+"/v1/responses", bytes.NewBuffer(payload))
 				Expect(err).ToNot(HaveOccurred())
 				req.Header.Set("Content-Type", "application/json")
 				req.Header.Set("Authorization", bearerKey)
@@ -269,7 +269,7 @@ var _ = Describe("Open Responses API", func() {
 				payload, err := json.Marshal(reqBody)
 				Expect(err).ToNot(HaveOccurred())
 
-				req, err := http.NewRequest("POST", "http://127.0.0.1:9090/v1/responses", bytes.NewBuffer(payload))
+				req, err := http.NewRequest("POST", testHTTPBase+"/v1/responses", bytes.NewBuffer(payload))
 				Expect(err).ToNot(HaveOccurred())
 				req.Header.Set("Content-Type", "application/json")
 				req.Header.Set("Authorization", bearerKey)
@@ -297,7 +297,7 @@ var _ = Describe("Open Responses API", func() {
 				payload, err := json.Marshal(reqBody)
 				Expect(err).ToNot(HaveOccurred())
 
-				req, err := http.NewRequest("POST", "http://127.0.0.1:9090/v1/responses", bytes.NewBuffer(payload))
+				req, err := http.NewRequest("POST", testHTTPBase+"/v1/responses", bytes.NewBuffer(payload))
 				Expect(err).ToNot(HaveOccurred())
 				req.Header.Set("Content-Type", "application/json")
 				req.Header.Set("Authorization", bearerKey)
@@ -328,7 +328,7 @@ var _ = Describe("Open Responses API", func() {
 				payload, err := json.Marshal(reqBody)
 				Expect(err).ToNot(HaveOccurred())
 
-				req, err := http.NewRequest("POST", "http://127.0.0.1:9090/v1/responses", bytes.NewBuffer(payload))
+				req, err := http.NewRequest("POST", testHTTPBase+"/v1/responses", bytes.NewBuffer(payload))
 				Expect(err).ToNot(HaveOccurred())
 				req.Header.Set("Content-Type", "application/json")
 				req.Header.Set("Authorization", bearerKey)
@@ -358,7 +358,7 @@ var _ = Describe("Open Responses API", func() {
 				payload, err := json.Marshal(reqBody)
 				Expect(err).ToNot(HaveOccurred())
 
-				req, err := http.NewRequest("POST", "http://127.0.0.1:9090/v1/responses", bytes.NewBuffer(payload))
+				req, err := http.NewRequest("POST", testHTTPBase+"/v1/responses", bytes.NewBuffer(payload))
 				Expect(err).ToNot(HaveOccurred())
 				req.Header.Set("Content-Type", "application/json")
 				req.Header.Set("Authorization", bearerKey)
@@ -386,7 +386,7 @@ var _ = Describe("Open Responses API", func() {
 				payload, err := json.Marshal(reqBody)
 				Expect(err).ToNot(HaveOccurred())
 
-				req, err := http.NewRequest("POST", "http://127.0.0.1:9090/v1/responses", bytes.NewBuffer(payload))
+				req, err := http.NewRequest("POST", testHTTPBase+"/v1/responses", bytes.NewBuffer(payload))
 				Expect(err).ToNot(HaveOccurred())
 				req.Header.Set("Content-Type", "application/json")
 				req.Header.Set("Authorization", bearerKey)
@@ -418,7 +418,7 @@ var _ = Describe("Open Responses API", func() {
 				payload, err := json.Marshal(reqBody)
 				Expect(err).ToNot(HaveOccurred())
 
-				req, err := http.NewRequest("POST", "http://127.0.0.1:9090/v1/responses", bytes.NewBuffer(payload))
+				req, err := http.NewRequest("POST", testHTTPBase+"/v1/responses", bytes.NewBuffer(payload))
 				Expect(err).ToNot(HaveOccurred())
 				req.Header.Set("Content-Type", "application/json")
 				req.Header.Set("Authorization", bearerKey)
@@ -454,7 +454,7 @@ var _ = Describe("Open Responses API", func() {
 				payload, err := json.Marshal(reqBody)
 				Expect(err).ToNot(HaveOccurred())
 
-				req, err := http.NewRequest("POST", "http://127.0.0.1:9090/v1/responses", bytes.NewBuffer(payload))
+				req, err := http.NewRequest("POST", testHTTPBase+"/v1/responses", bytes.NewBuffer(payload))
 				Expect(err).ToNot(HaveOccurred())
 				req.Header.Set("Content-Type", "application/json")
 				req.Header.Set("Authorization", bearerKey)
@@ -490,7 +490,7 @@ var _ = Describe("Open Responses API", func() {
 				payload, err := json.Marshal(reqBody)
 				Expect(err).ToNot(HaveOccurred())
 
-				req, err := http.NewRequest("POST", "http://127.0.0.1:9090/v1/responses", bytes.NewBuffer(payload))
+				req, err := http.NewRequest("POST", testHTTPBase+"/v1/responses", bytes.NewBuffer(payload))
 				Expect(err).ToNot(HaveOccurred())
 				req.Header.Set("Content-Type", "application/json")
 				req.Header.Set("Authorization", bearerKey)
@@ -539,7 +539,7 @@ var _ = Describe("Open Responses API", func() {
 				payload, err := json.Marshal(reqBody)
 				Expect(err).ToNot(HaveOccurred())
 
-				req, err := http.NewRequest("POST", "http://127.0.0.1:9090/v1/responses", bytes.NewBuffer(payload))
+				req, err := http.NewRequest("POST", testHTTPBase+"/v1/responses", bytes.NewBuffer(payload))
 				Expect(err).ToNot(HaveOccurred())
 				req.Header.Set("Content-Type", "application/json")
 				req.Header.Set("Authorization", bearerKey)
@@ -590,7 +590,7 @@ var _ = Describe("Open Responses API", func() {
 				payload, err := json.Marshal(reqBody)
 				Expect(err).ToNot(HaveOccurred())
 
-				req, err := http.NewRequest("POST", "http://127.0.0.1:9090/v1/responses", bytes.NewBuffer(payload))
+				req, err := http.NewRequest("POST", testHTTPBase+"/v1/responses", bytes.NewBuffer(payload))
 				Expect(err).ToNot(HaveOccurred())
 				req.Header.Set("Content-Type", "application/json")
 				req.Header.Set("Authorization", bearerKey)
@@ -624,7 +624,7 @@ var _ = Describe("Open Responses API", func() {
 				payload, err := json.Marshal(reqBody)
 				Expect(err).ToNot(HaveOccurred())
 
-				req, err := http.NewRequest("POST", "http://127.0.0.1:9090/v1/responses", bytes.NewBuffer(payload))
+				req, err := http.NewRequest("POST", testHTTPBase+"/v1/responses", bytes.NewBuffer(payload))
 				Expect(err).ToNot(HaveOccurred())
 				req.Header.Set("Content-Type", "application/json")
 				req.Header.Set("Authorization", bearerKey)
@@ -658,7 +658,7 @@ var _ = Describe("Open Responses API", func() {
 				payload, err := json.Marshal(reqBody)
 				Expect(err).ToNot(HaveOccurred())
 
-				req, err := http.NewRequest("POST", "http://127.0.0.1:9090/v1/responses", bytes.NewBuffer(payload))
+				req, err := http.NewRequest("POST", testHTTPBase+"/v1/responses", bytes.NewBuffer(payload))
 				Expect(err).ToNot(HaveOccurred())
 				req.Header.Set("Content-Type", "application/json")
 				req.Header.Set("Authorization", bearerKey)
@@ -680,7 +680,7 @@ var _ = Describe("Open Responses API", func() {
 				payload, err := json.Marshal(reqBody)
 				Expect(err).ToNot(HaveOccurred())
 
-				req, err := http.NewRequest("POST", "http://127.0.0.1:9090/v1/responses", bytes.NewBuffer(payload))
+				req, err := http.NewRequest("POST", testHTTPBase+"/v1/responses", bytes.NewBuffer(payload))
 				Expect(err).ToNot(HaveOccurred())
 				req.Header.Set("Content-Type", "application/json")
 				req.Header.Set("Authorization", bearerKey)
@@ -727,7 +727,7 @@ var _ = Describe("Open Responses API", func() {
 				payload, err := json.Marshal(reqBody)
 				Expect(err).ToNot(HaveOccurred())
 
-				req, err := http.NewRequest("POST", "http://127.0.0.1:9090/v1/responses", bytes.NewBuffer(payload))
+				req, err := http.NewRequest("POST", testHTTPBase+"/v1/responses", bytes.NewBuffer(payload))
 				Expect(err).ToNot(HaveOccurred())
 				req.Header.Set("Content-Type", "application/json")
 				req.Header.Set("Authorization", bearerKey)
@@ -756,7 +756,7 @@ var _ = Describe("Open Responses API", func() {
 				payload, err := json.Marshal(reqBody)
 				Expect(err).ToNot(HaveOccurred())
 
-				req, err := http.NewRequest("POST", "http://127.0.0.1:9090/v1/responses", bytes.NewBuffer(payload))
+				req, err := http.NewRequest("POST", testHTTPBase+"/v1/responses", bytes.NewBuffer(payload))
 				Expect(err).ToNot(HaveOccurred())
 				req.Header.Set("Content-Type", "application/json")
 				req.Header.Set("Authorization", bearerKey)
@@ -799,7 +799,7 @@ var _ = Describe("Open Responses API", func() {
 				payload, err := json.Marshal(reqBody)
 				Expect(err).ToNot(HaveOccurred())
 
-				req, err := http.NewRequest("POST", "http://127.0.0.1:9090/v1/responses", bytes.NewBuffer(payload))
+				req, err := http.NewRequest("POST", testHTTPBase+"/v1/responses", bytes.NewBuffer(payload))
 				Expect(err).ToNot(HaveOccurred())
 				req.Header.Set("Content-Type", "application/json")
 				req.Header.Set("Authorization", bearerKey)
@@ -835,7 +835,7 @@ var _ = Describe("Open Responses API", func() {
 				payload1, err := json.Marshal(reqBody1)
 				Expect(err).ToNot(HaveOccurred())
 
-				req1, err := http.NewRequest("POST", "http://127.0.0.1:9090/v1/responses", bytes.NewBuffer(payload1))
+				req1, err := http.NewRequest("POST", testHTTPBase+"/v1/responses", bytes.NewBuffer(payload1))
 				Expect(err).ToNot(HaveOccurred())
 				req1.Header.Set("Content-Type", "application/json")
 				req1.Header.Set("Authorization", bearerKey)
@@ -869,7 +869,7 @@ var _ = Describe("Open Responses API", func() {
 				payload2, err := json.Marshal(reqBody2)
 				Expect(err).ToNot(HaveOccurred())
 
-				req2, err := http.NewRequest("POST", "http://127.0.0.1:9090/v1/responses", bytes.NewBuffer(payload2))
+				req2, err := http.NewRequest("POST", testHTTPBase+"/v1/responses", bytes.NewBuffer(payload2))
 				Expect(err).ToNot(HaveOccurred())
 				req2.Header.Set("Content-Type", "application/json")
 				req2.Header.Set("Authorization", bearerKey)
@@ -897,7 +897,7 @@ var _ = Describe("Open Responses API", func() {
 				payload, err := json.Marshal(reqBody)
 				Expect(err).ToNot(HaveOccurred())
 
-				req, err := http.NewRequest("POST", "http://127.0.0.1:9090/v1/responses", bytes.NewBuffer(payload))
+				req, err := http.NewRequest("POST", testHTTPBase+"/v1/responses", bytes.NewBuffer(payload))
 				Expect(err).ToNot(HaveOccurred())
 				req.Header.Set("Content-Type", "application/json")
 				req.Header.Set("Authorization", bearerKey)
@@ -933,7 +933,7 @@ var _ = Describe("Open Responses API", func() {
 				payload1, err := json.Marshal(reqBody1)
 				Expect(err).ToNot(HaveOccurred())
 
-				req1, err := http.NewRequest("POST", "http://127.0.0.1:9090/v1/responses", bytes.NewBuffer(payload1))
+				req1, err := http.NewRequest("POST", testHTTPBase+"/v1/responses", bytes.NewBuffer(payload1))
 				Expect(err).ToNot(HaveOccurred())
 				req1.Header.Set("Content-Type", "application/json")
 				req1.Header.Set("Authorization", bearerKey)
@@ -983,7 +983,7 @@ var _ = Describe("Open Responses API", func() {
 				payload2, err := json.Marshal(reqBody2)
 				Expect(err).ToNot(HaveOccurred())
 
-				req2, err := http.NewRequest("POST", "http://127.0.0.1:9090/v1/responses", bytes.NewBuffer(payload2))
+				req2, err := http.NewRequest("POST", testHTTPBase+"/v1/responses", bytes.NewBuffer(payload2))
 				Expect(err).ToNot(HaveOccurred())
 				req2.Header.Set("Content-Type", "application/json")
 				req2.Header.Set("Authorization", bearerKey)
@@ -1009,7 +1009,7 @@ var _ = Describe("Open Responses API", func() {
 				payload, err := json.Marshal(reqBody)
 				Expect(err).ToNot(HaveOccurred())
 
-				req, err := http.NewRequest("POST", "http://127.0.0.1:9090/v1/responses", bytes.NewBuffer(payload))
+				req, err := http.NewRequest("POST", testHTTPBase+"/v1/responses", bytes.NewBuffer(payload))
 				Expect(err).ToNot(HaveOccurred())
 				req.Header.Set("Content-Type", "application/json")
 				req.Header.Set("Authorization", bearerKey)

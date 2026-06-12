@@ -1,5 +1,5 @@
 # Disable parallel execution for backend builds
-.NOTPARALLEL: backends/diffusers backends/llama-cpp backends/turboquant backends/outetts backends/piper backends/stablediffusion-ggml backends/whisper backends/crispasr backends/parakeet-cpp backends/faster-whisper backends/silero-vad backends/local-store backends/huggingface backends/rfdetr backends/rfdetr-cpp backends/insightface backends/speaker-recognition backends/kitten-tts backends/kokoro backends/chatterbox backends/llama-cpp-darwin backends/neutts build-darwin-python-backend build-darwin-go-backend backends/mlx backends/diffuser-darwin backends/mlx-vlm backends/mlx-audio backends/mlx-distributed backends/stablediffusion-ggml-darwin backends/vllm backends/vllm-omni backends/sglang backends/moonshine backends/pocket-tts backends/qwen-tts backends/faster-qwen3-tts backends/qwen-asr backends/nemo backends/voxcpm backends/whisperx backends/ace-step backends/acestep-cpp backends/fish-speech backends/voxtral backends/opus backends/trl backends/llama-cpp-quantization backends/kokoros backends/sam3-cpp backends/qwen3-tts-cpp backends/vibevoice-cpp backends/localvqe backends/tinygrad backends/sherpa-onnx backends/ds4 backends/ds4-darwin backends/liquid-audio
+.NOTPARALLEL: backends/diffusers backends/llama-cpp backends/turboquant backends/outetts backends/piper backends/stablediffusion-ggml backends/whisper backends/crispasr backends/parakeet-cpp backends/dllm backends/faster-whisper backends/silero-vad backends/local-store backends/huggingface backends/rfdetr backends/rfdetr-cpp backends/insightface backends/speaker-recognition backends/kitten-tts backends/kokoro backends/chatterbox backends/llama-cpp-darwin backends/neutts build-darwin-python-backend build-darwin-go-backend backends/mlx backends/diffuser-darwin backends/mlx-vlm backends/mlx-audio backends/mlx-distributed backends/stablediffusion-ggml-darwin backends/vllm backends/vllm-omni backends/sglang backends/moonshine backends/pocket-tts backends/qwen-tts backends/faster-qwen3-tts backends/qwen-asr backends/nemo backends/voxcpm backends/whisperx backends/ace-step backends/acestep-cpp backends/fish-speech backends/voxtral backends/opus backends/trl backends/llama-cpp-quantization backends/kokoros backends/sam3-cpp backends/qwen3-tts-cpp backends/vibevoice-cpp backends/localvqe backends/tinygrad backends/sherpa-onnx backends/ds4 backends/ds4-darwin backends/liquid-audio
 
 GOCMD=go
 GOTEST=$(GOCMD) test
@@ -1171,6 +1171,9 @@ BACKEND_STABLEDIFFUSION_GGML = stablediffusion-ggml|golang|.|--progress=plain|tr
 BACKEND_WHISPER = whisper|golang|.|false|true
 BACKEND_CRISPASR = crispasr|golang|.|false|true
 BACKEND_PARAKEET_CPP = parakeet-cpp|golang|.|false|true
+# dllm is mudler/dllm.cpp, the DiffusionGemma block-diffusion engine,
+# wrapped by the purego backend at backend/go/dllm.
+BACKEND_DLLM = dllm|golang|.|false|true
 BACKEND_VOXTRAL = voxtral|golang|.|false|true
 BACKEND_ACESTEP_CPP = acestep-cpp|golang|.|false|true
 BACKEND_QWEN3_TTS_CPP = qwen3-tts-cpp|golang|.|false|true
@@ -1260,6 +1263,7 @@ $(eval $(call generate-docker-build-target,$(BACKEND_STABLEDIFFUSION_GGML)))
 $(eval $(call generate-docker-build-target,$(BACKEND_WHISPER)))
 $(eval $(call generate-docker-build-target,$(BACKEND_CRISPASR)))
 $(eval $(call generate-docker-build-target,$(BACKEND_PARAKEET_CPP)))
+$(eval $(call generate-docker-build-target,$(BACKEND_DLLM)))
 $(eval $(call generate-docker-build-target,$(BACKEND_VOXTRAL)))
 $(eval $(call generate-docker-build-target,$(BACKEND_OPUS)))
 $(eval $(call generate-docker-build-target,$(BACKEND_RERANKERS)))

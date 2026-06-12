@@ -95,6 +95,29 @@
     nvidia-l4t-cuda-13: "cuda13-nvidia-l4t-arm64-ds4"
     metal: "metal-ds4"
     metal-darwin-arm64: "metal-ds4"
+- &dllm
+  name: "dllm"
+  alias: "dllm"
+  license: mit
+  description: |
+    mudler/dllm.cpp - DiffusionGemma block-diffusion LLM inference engine
+    (C++/ggml, GGUF weights). Decodes whole token canvases per diffusion
+    round instead of autoregressive sampling. Runs on CPU and NVIDIA CUDA 13
+    (including Jetson/GB10 L4T targets).
+  urls:
+    - https://github.com/mudler/dllm.cpp
+  tags:
+    - text-to-text
+    - LLM
+    - gguf
+    - diffusion
+    - CPU
+    - CUDA
+  capabilities:
+    default: "cpu-dllm"
+    nvidia: "cuda13-dllm"
+    nvidia-cuda-13: "cuda13-dllm"
+    nvidia-l4t-cuda-13: "cuda13-nvidia-l4t-arm64-dllm"
 - &whispercpp
   name: "whisper"
   alias: "whisper"
@@ -1272,6 +1295,13 @@
     nvidia-l4t-cuda-13: "cuda13-nvidia-l4t-arm64-ds4-development"
     metal: "metal-ds4-development"
     metal-darwin-arm64: "metal-ds4-development"
+- !!merge <<: *dllm
+  name: "dllm-development"
+  capabilities:
+    default: "cpu-dllm-development"
+    nvidia: "cuda13-dllm-development"
+    nvidia-cuda-13: "cuda13-dllm-development"
+    nvidia-l4t-cuda-13: "cuda13-nvidia-l4t-arm64-dllm-development"
 - !!merge <<: *stablediffusionggml
   name: "stablediffusion-ggml-development"
   capabilities:
@@ -1859,6 +1889,37 @@
   uri: "quay.io/go-skynet/local-ai-backends:master-metal-darwin-arm64-ds4"
   mirrors:
     - localai/localai-backends:master-metal-darwin-arm64-ds4
+## dllm
+- !!merge <<: *dllm
+  name: "cpu-dllm"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-cpu-dllm"
+  mirrors:
+    - localai/localai-backends:latest-cpu-dllm
+- !!merge <<: *dllm
+  name: "cpu-dllm-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-cpu-dllm"
+  mirrors:
+    - localai/localai-backends:master-cpu-dllm
+- !!merge <<: *dllm
+  name: "cuda13-dllm"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-nvidia-cuda-13-dllm"
+  mirrors:
+    - localai/localai-backends:latest-gpu-nvidia-cuda-13-dllm
+- !!merge <<: *dllm
+  name: "cuda13-dllm-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-nvidia-cuda-13-dllm"
+  mirrors:
+    - localai/localai-backends:master-gpu-nvidia-cuda-13-dllm
+- !!merge <<: *dllm
+  name: "cuda13-nvidia-l4t-arm64-dllm"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-nvidia-l4t-cuda-13-arm64-dllm"
+  mirrors:
+    - localai/localai-backends:latest-nvidia-l4t-cuda-13-arm64-dllm
+- !!merge <<: *dllm
+  name: "cuda13-nvidia-l4t-arm64-dllm-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-nvidia-l4t-cuda-13-arm64-dllm"
+  mirrors:
+    - localai/localai-backends:master-nvidia-l4t-cuda-13-arm64-dllm
 ## whisper
 - !!merge <<: *whispercpp
   name: "whisper-development"

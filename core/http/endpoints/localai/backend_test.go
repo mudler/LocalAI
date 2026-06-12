@@ -135,6 +135,7 @@ var _ = Describe("Backend Endpoints", func() {
 				Expect(entry.Modality).To(Equal(modality))
 			}
 
+			expectPrefOnly("dllm", "text")
 			expectPrefOnly("sglang", "text")
 			expectPrefOnly("tinygrad", "text")
 			expectPrefOnly("trl", "text")
