@@ -197,19 +197,26 @@ func RequestMiddleware(redactor *Redactor, store EventStore, adapter Adapter, fa
 			var blocked bool
 			var firstEventID string
 
-			for _, st := range texts {
-				if st.Text == "" {
-					continue
-				}
-				// Fail closed: a detector outage at request time must NOT
-				// silently serve the request. The NER tier was explicitly
-				// configured for this model, so the semantic check is part
-				// of the contract.
-				res, nerErr := RedactNER(c.Request().Context(), st.Text, cfgs)
-				if nerErr != nil {
-					xlog.Error("pii: NER detector failed; blocking request (fail-closed)", "error", nerErr)
-					return blockNERUnavailable(c, store, correlationID, userID)
-				}
+			// Scan the request as ONE document (messages joined) so the NER
+			// tier keeps conversational context — whether "4421" is a PIN is
+			// decided by the question in the previous message. The spans come
+			// back per message with local offsets for in-place rewriting.
+			segTexts := make([]string, len(texts))
+			for i, st := range texts {
+				segTexts[i] = st.Text
+			}
+			// Fail closed: a detector outage at request time must NOT
+			// silently serve the request. The NER tier was explicitly
+			// configured for this model, so the semantic check is part
+			// of the contract.
+			segResults, nerErr := RedactNERSegments(c.Request().Context(), segTexts, cfgs)
+			if nerErr != nil {
+				xlog.Error("pii: NER detector failed; blocking request (fail-closed)", "error", nerErr)
+				return blockNERUnavailable(c, store, correlationID, userID)
+			}
+
+			for i, res := range segResults {
+				st := texts[i]
 				if len(res.Spans) == 0 {
 					continue
 				}

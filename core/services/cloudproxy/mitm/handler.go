@@ -250,16 +250,21 @@ func (d *piiDispatcher) redactRequest(ctx context.Context, body []byte, shape re
 		return body, false, nil
 	}
 
+	// One scan over the joined messages so the NER tier keeps
+	// conversational context (see pii.RedactNERSegments); results map
+	// back per message with local offsets.
+	segTexts := make([]string, len(texts))
+	for i, st := range texts {
+		segTexts[i] = st.Text
+	}
+	results, err := pii.RedactNERSegments(ctx, segTexts, cfgs)
+	if err != nil {
+		return nil, false, fmt.Errorf("ner detect: %w", err)
+	}
+
 	updates := make([]pii.ScannedText, 0, len(texts))
 	blocked := false
-	for _, st := range texts {
-		if st.Text == "" {
-			continue
-		}
-		res, err := pii.RedactNER(ctx, st.Text, cfgs)
-		if err != nil {
-			return nil, false, fmt.Errorf("ner detect: %w", err)
-		}
+	for i, res := range results {
 		if len(res.Spans) == 0 {
 			continue
 		}
@@ -267,7 +272,7 @@ func (d *piiDispatcher) redactRequest(ctx context.Context, body []byte, shape re
 		if res.Blocked {
 			blocked = true
 		}
-		updates = append(updates, pii.ScannedText{Index: st.Index, Text: res.Redacted})
+		updates = append(updates, pii.ScannedText{Index: texts[i].Index, Text: res.Redacted})
 	}
 
 	if len(updates) > 0 {

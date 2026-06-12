@@ -65,6 +65,86 @@ func RedactNER(ctx context.Context, text string, cfgs []NERConfig) (Result, erro
 	return mergeAndEmit(text, hits), firstErr
 }
 
+// segmentSeparator joins per-message texts into the single document
+// RedactNERSegments scans. Two newlines read as a paragraph break to the
+// NER encoder — neutral, in-distribution context — and never carry PII
+// themselves, so a detected span landing on the separator can only be the
+// fringe of an entity that started in a real segment.
+const segmentSeparator = "\n\n"
+
+// RedactNERSegments scans texts as ONE concatenated document and maps the
+// detections back to one Result per input text. Scanning the segments
+// together is what gives the NER tier conversational context: whether
+// "jdoe_42" is a USERNAME or "4421" is a PIN is decided by the question
+// asked in the *previous* message, and a bidirectional encoder only sees
+// that context if both messages are in the same forward pass. (Measured on
+// privacy-filter-multilingual: "4421" alone detects nothing; preceded by
+// "What are the last four digits of your card?" it detects PIN at 0.726.)
+//
+// Span offsets in each Result are local to its text, so callers rewrite
+// fields in place exactly as with per-text RedactNER. A hit that crosses a
+// segment boundary is split and each fragment keeps the hit's action —
+// conservative, and only possible for an entity the model stretched across
+// the separator. Error semantics mirror RedactNER: best-effort results
+// plus the first detector error, so callers can fail closed.
+func RedactNERSegments(ctx context.Context, texts []string, cfgs []NERConfig) ([]Result, error) {
+	results := make([]Result, len(texts))
+	if len(texts) == 0 || len(cfgs) == 0 {
+		for i := range results {
+			results[i] = Result{Redacted: texts[i]}
+		}
+		return results, nil
+	}
+
+	var joined strings.Builder
+	starts := make([]int, len(texts))
+	ends := make([]int, len(texts))
+	for i, t := range texts {
+		if i > 0 {
+			joined.WriteString(segmentSeparator)
+		}
+		starts[i] = joined.Len()
+		joined.WriteString(t)
+		ends[i] = joined.Len()
+	}
+	doc := joined.String()
+
+	var hits []rawHit
+	var firstErr error
+	for _, cfg := range cfgs {
+		if cfg.Detector == nil {
+			continue
+		}
+		h, err := collectNERHits(ctx, doc, cfg)
+		if err != nil {
+			if firstErr == nil {
+				firstErr = err
+			}
+			continue
+		}
+		hits = append(hits, h...)
+	}
+
+	perSegment := make([][]rawHit, len(texts))
+	for _, h := range hits {
+		for i := range texts {
+			s := max(h.start, starts[i])
+			e := min(h.end, ends[i])
+			if s >= e {
+				continue
+			}
+			local := h
+			local.start = s - starts[i]
+			local.end = e - starts[i]
+			perSegment[i] = append(perSegment[i], local)
+		}
+	}
+	for i := range texts {
+		results[i] = mergeAndEmit(texts[i], perSegment[i])
+	}
+	return results, firstErr
+}
+
 // collectNERHits invokes the configured NERDetector and converts each
 // returned entity into a rawHit using the NERConfig's action map.
 // Entities below MinScore or with no resolved action are dropped — the

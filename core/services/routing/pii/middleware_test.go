@@ -305,4 +305,26 @@ var _ = Describe("RequestMiddleware (NER)", func() {
 		Expect(w.Code).To(Equal(http.StatusOK))
 		Expect(body.Messages[0]).To(Equal("Hi I'm Alice today"), "resolver disabled => no redaction")
 	})
+
+	It("scans all messages as one document so earlier-message context applies", func() {
+		st := store()
+		// The detector (pinAfterCard) only recognises "4421" when "card"
+		// appears earlier in the SAME text it is handed — so this only
+		// masks if the middleware joins the messages before scanning.
+		body := &fakeRequest{Messages: []string{
+			"What are the last four digits of your card?",
+			"it is 4421 ok",
+		}}
+		cfg := NERConfig{Detector: &funcNERDetector{fn: pinAfterCard}, DefaultAction: ActionMask}
+		mw := RequestMiddleware(&Redactor{}, st, fakeAdapter(), nil,
+			WithNERResolver(resolverFor(map[string]NERConfig{"pf": cfg})))
+		w, _ := serve(body, fakeModelPIIConfig{enabled: true, detectors: []string{"pf"}}, mw, true)
+
+		Expect(w.Code).To(Equal(http.StatusOK), "body=%s", w.Body.String())
+		Expect(body.Messages[0]).To(Equal("What are the last four digits of your card?"), "question untouched")
+		Expect(body.Messages[1]).To(Equal("it is [REDACTED:ner:PIN] ok"))
+		events, _ := st.List(context.Background(), ListQuery{Limit: 100})
+		Expect(events).To(HaveLen(1))
+		Expect(events[0].ByteOffset).To(Equal(6), "event offsets are message-local")
+	})
 })

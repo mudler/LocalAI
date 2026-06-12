@@ -56,6 +56,14 @@ request body. Image, audio (TTS/STT), video, rerank, and the realtime
 WebSocket are not filtered yet (different prompt-PII semantics; realtime is
 not HTTP middleware).
 
+A request's messages are scanned **as one document** (joined in order), so
+the NER detector keeps conversational context: whether `4421` is a PIN or
+`jdoe_42` is a username is usually decided by the question asked in the
+*previous* message, and a bidirectional encoder only sees that context when
+the messages share a forward pass. Detected spans are mapped back to the
+individual message they fall in, so redaction still rewrites each message
+field in place and events carry message-local offsets.
+
 > The earlier regex pattern tier (`pii.patterns`, the built-in pattern
 > catalogue, `--pii-config`, the `/api/pii/patterns|test|decide` endpoints)
 > and response/streaming-side redaction have been **removed**. Detection is
@@ -239,6 +247,12 @@ for it, and the API says so rather than implying a clean scan. The detection
 policy lives on the detector models exactly as for the inline filter. The raw
 matched value is never returned (an admin may pass `reveal: true` to include
 the audit `hash_prefix`).
+
+`text` is scanned as a single document. To reproduce the inline filter's
+conversation-context behaviour for multi-message content, join the messages
+with blank lines into one `text` — NER detection quality depends on that
+context (a bare `4421` is nothing; after "what are the last four digits of
+your card?" it is a PIN).
 
 ```bash
 # Redact with an explicit pattern/NER detector
