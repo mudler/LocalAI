@@ -1,0 +1,142 @@
+{
+  "title": "Impor Model Baru",
+  "subtitle": {
+    "simple": "Import model dari URI — deteksi otomatis memilih backend.",
+    "powerYaml": "Tulis konfigurasi YAML lengkap untuk model.",
+    "powerPrefs": "Preferensi impor tingkat lanjut."
+  },
+  "actions": {
+    "import": "Impor Model",
+    "importing": "Mengimpor...",
+    "create": "Buat",
+    "saving": "Menyimpan...",
+    "browseHF": "Jelajahi model di HF",
+    "addCustom": "Tambah Tersuai",
+    "copy": "Salin"
+  },
+  "form": {
+    "modelUri": "URI Model",
+    "uriPlaceholder": "huggingface://TheBloke/Llama-2-7B-Chat-GGUF atau https://example.com/model.gguf",
+    "uriHint": "Masukkan URI atau path ke file model yang ingin Anda impor",
+    "supportedFormats": "Format URI yang Didukung",
+    "options": "Opsi",
+    "preferences": "Preferensi (Opsional)",
+    "commonPreferences": "Preferensi Umum",
+    "customPreferences": "Preferensi Tersuai",
+    "customKeyValueHint": "Tambahkan pasangan key-value tersuai untuk konfigurasi tingkat lanjutan.",
+    "preferenceKey": "Key preferensi untuk baris {{index}}",
+    "preferenceValue": "Nilai preferensi untuk baris {{index}}",
+    "removePref": "Hapus preferensi ini",
+    "key": "Key",
+    "value": "Value",
+    "backend": "Backend",
+    "backendAuto": "Deteksi otomatis (berdasarkan URI)",
+    "backendLoading": "Memuat backend…",
+    "backendSearch": "Cari backend...",
+    "backendHint": "Paksa backend tertentu. Biarkan kosong untuk deteksi otomatis dari URI. Item yang ditandai \"pilih manual\" tidak dapat dideteksi otomatis — pilih sendiri jika Anda tahu apa yang dibutuhkan model.",
+    "backendErrorHint": "Tidak dapat memuat daftar backend — hanya menggunakan deteksi otomatis.",
+    "backendNotInstalled": "Backend ini belum terinstal. Proses impor akan mengunduhnya terlebih dahulu.",
+    "modelName": "Nama Model",
+    "modelNamePlaceholder": "Kosongkan untuk menggunakan nama file",
+    "modelNameHint": "Nama tersuai untuk model. Jika kosong, nama file akan digunakan.",
+    "description": "Deskripsi",
+    "descriptionPlaceholder": "Kosongkan untuk menggunakan deskripsi bawaan",
+    "descriptionHint": "Deskripsi tersuai untuk model.",
+    "quantizations": "Kuantisasi",
+    "quantizationsPlaceholder": "q4_k_m,q4_k_s,q3_k_m (dipisahkan koma)",
+    "quantizationsHint": "Kuantisasi pilihan (dipisahkan koma). Kosongkan untuk nilai bawaan (q4_k_m).",
+    "mmprojQuantizations": "Kuantisasi MMProj",
+    "mmprojQuantizationsPlaceholder": "fp16,fp32 (dipisahkan koma)",
+    "mmprojQuantizationsHint": "Kuantisasi MMProj pilihan. Kosongkan untuk nilai bawaan (fp16).",
+    "embeddings": "Embedding",
+    "embeddingsHint": "Aktifkan dukungan embedding untuk model ini.",
+    "modelType": "Tipe Model",
+    "modelTypePlaceholder": "AutoModelForCausalLM (untuk backend transformers)",
+    "modelTypeHint": "Tipe model untuk backend transformers. Contoh: AutoModelForCausalLM, SentenceTransformer, Mamba.",
+    "pipelineType": "Tipe Pipeline",
+    "pipelineTypeHint": "Tipe pipeline untuk backend diffusers.",
+    "schedulerType": "Tipe Scheduler",
+    "schedulerTypePlaceholder": "k_dpmpp_2m (optional)",
+    "schedulerTypeHint": "Tipe scheduler untuk backend diffusers. Contoh: k_dpmpp_2m, euler_a, ddim.",
+    "enableParameters": "Aktifkan parameter",
+    "enableParametersPlaceholder": "negative_prompt,num_inference_steps (dipisahkan koma)",
+    "enableParametersHint": "Parameter aktif untuk backend diffusers (dipisahkan koma).",
+    "cuda": "CUDA",
+    "cudaHint": "Aktifkan dukungan CUDA untuk akselerasi GPU.",
+    "yamlEditor": "Editor Konfigurasi YAML",
+    "manualPick": "pilih manual",
+    "manualPickTooltip": "Deteksi otomatis tidak akan merutekan ke backend ini. Pilih di sini jika Anda tahu bahwa ini yang Anda inginkan."
+  },
+  "modality": {
+    "text": "LLM Teks",
+    "asr": "Pengenalan suara",
+    "tts": "Text-to-speech",
+    "image": "Gambar / Video",
+    "embeddings": "Embedding",
+    "reranker": "Reranker",
+    "detection": "Deteksi object",
+    "vad": "Deteksi aktivitas suara",
+    "other": "Lainnya"
+  },
+  "powerTabs": {
+    "ariaLabel": "Tab mode tingkat lanjutan",
+    "preferences": "Preferensi",
+    "yaml": "YAML"
+  },
+  "switchDialog": {
+    "title": "Pertahankan preferensi tersuai Anda?",
+    "body": "Beralih ke mode Sederhana akan menyembunyikan preferensi selain backend, nama, dan deskripsi. Preferensi tersebut tetap akan dikirim saat mengimpor.",
+    "cancel": "Batal",
+    "discard": "Buang & beralih",
+    "keep": "Pertahankan & beralih"
+  },
+  "estimate": {
+    "title": "Estimasi kebutuhan",
+    "download": "Unduhan: {{size}}",
+    "vram": "VRAM: {{vram}}"
+  },
+  "toasts": {
+    "noUri": "Silahkan masukkan URI model",
+    "noYaml": "Silahkan masukkan konfigurasi YAML",
+    "started": "Impor dimulai! Melacak progress...",
+    "startedWithMeta": "Impor dimulai! Melacak progress... ({{meta}})",
+    "imported": "Model berhasil diimpor!",
+    "importedYaml": "Konfigurasi model berhasil diimpor!",
+    "importFailed": "Gagal mengimpor: {{message}}",
+    "startImportFailed": "Gagal memulai impor: {{message}}",
+    "backendsLoadFailed": "Tidak dapat memuat daftar backend — hanya menggunakan deteksi otomatis.",
+    "modalityClearedBackend": "Pilihan backend dikosongkan — tidak termasuk dalam grup {{label}}.",
+    "copied": "Disalin ke papan klip"
+  },
+  "uriFormats": {
+    "huggingface": {
+      "title": "HuggingFace",
+      "standard": "Format standar HuggingFace",
+      "short": "Format ringkas HuggingFace",
+      "fullUrl": "URL lengkap HuggingFace"
+    },
+    "http": {
+      "title": "URL HTTP/HTTPS",
+      "direct": "Unduh langsung dari URL HTTPS mana pun"
+    },
+    "local": {
+      "title": "File Lokal",
+      "filePath": "Path file lokal (absolut)",
+      "directYaml": "File konfigurasi YAML lokal langsung"
+    },
+    "oci": {
+      "title": "Registri OCI",
+      "registry": "Registri kontainer OCI",
+      "tarball": "File tarball OCI lokal"
+    },
+    "ollama": {
+      "title": "Ollama",
+      "model": "Format model Ollama"
+    },
+    "yaml": {
+      "title": "File Konfigurasi YAML",
+      "remote": "File konfigurasi YAML jarak jauh",
+      "local": "File konfigurasi YAML lokal"
+    }
+  }
+}

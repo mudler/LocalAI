@@ -1,5 +1,5 @@
 export default {
-  locales: ['en', 'it', 'es', 'de', 'zh-CN'],
+  locales: ['en', 'it', 'es', 'de', 'zh-CN', 'id'],
   defaultNamespace: 'common',
   output: 'public/locales/$LOCALE/$NAMESPACE.json',
   input: ['src/**/*.{js,jsx}'],
