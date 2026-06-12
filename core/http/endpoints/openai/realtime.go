@@ -990,8 +990,18 @@ func updateSession(session *Session, update *types.SessionUnion, cl *config.Mode
 	}
 
 	if rt.Audio != nil && rt.Audio.Input != nil && rt.Audio.Input.Transcription != nil {
-		session.InputAudioTranscription = rt.Audio.Input.Transcription
-		session.ModelConfig.Pipeline.Transcription = rt.Audio.Input.Transcription.Model
+		trUpd := rt.Audio.Input.Transcription
+		// A language-only update (e.g. a client forcing the STT language) carries
+		// an empty Model. Preserve the pipeline's configured transcription backend
+		// instead of blanking it — otherwise the next utterance transcribes against
+		// an empty model and the backend RPC fails with "unimplemented".
+		if trUpd.Model == "" && session.InputAudioTranscription != nil {
+			trUpd.Model = session.InputAudioTranscription.Model
+		}
+		session.InputAudioTranscription = trUpd
+		if trUpd.Model != "" {
+			session.ModelConfig.Pipeline.Transcription = trUpd.Model
+		}
 	}
 
 	if rt.Model != "" || (rt.Audio != nil && rt.Audio.Output != nil && rt.Audio.Output.Voice != "") || (rt.Audio != nil && rt.Audio.Input != nil && rt.Audio.Input.Transcription != nil) {
