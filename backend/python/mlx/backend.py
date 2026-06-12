@@ -407,6 +407,24 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
         if not request.Prompt and request.UseTokenizerTemplate and request.Messages:
             messages = messages_to_dicts(request.Messages)
 
+            # The mlx-lm tokenizer only carries a text-LM chat template. A
+            # vision-language checkpoint (e.g. gemma-4 E4B) loaded here has no
+            # usable template, so apply_chat_template silently passes the raw
+            # text through and the model just echoes/loops (issue #10269).
+            # Warn loudly so the misroute is visible; such models belong on the
+            # mlx-vlm backend.
+            chat_template = getattr(self.tokenizer, "chat_template", None)
+            if not chat_template:
+                underlying = getattr(self.tokenizer, "_tokenizer", None)
+                chat_template = getattr(underlying, "chat_template", None)
+            if not chat_template:
+                print(
+                    "WARNING: this model has no chat template; output may be "
+                    "degenerate. Vision-language models (e.g. gemma-4 E4B) must "
+                    "use the 'mlx-vlm' backend instead of 'mlx'.",
+                    file=sys.stderr,
+                )
+
             kwargs = {"tokenize": False, "add_generation_prompt": True}
             if request.Tools:
                 try:
