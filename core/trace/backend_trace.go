@@ -33,6 +33,7 @@ const (
 	BackendTraceAudioTransform  BackendTraceType = "audio_transform"
 	BackendTraceModelLoad       BackendTraceType = "model_load"
 	BackendTraceScore           BackendTraceType = "score"
+	BackendTraceVectorStore     BackendTraceType = "vector_store"
 )
 
 type BackendTrace struct {

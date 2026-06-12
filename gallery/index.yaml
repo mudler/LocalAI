@@ -24506,6 +24506,14 @@
     # concurrent generation traffic; see model_config.go validation).
     known_usecases:
       - score
+    # Scoring decodes the whole prompt+candidate in one llama_decode and reads
+    # a logit row per candidate token. The llama.cpp server caps the causal
+    # output rows at n_parallel, so the default (1) aborts with
+    # GGML_ASSERT(n_outputs_max <= cparams.n_outputs_max). Raise it to cover
+    # multi-token route labels; kv_unified (the grpc-server default) keeps the
+    # full context per sequence, so this does not split the KV cache.
+    options:
+      - parallel:64
     parameters:
       model: Arch-Router-1.5B.Q4_K_M.gguf
   files:
@@ -24517,6 +24525,9 @@
   overrides:
     known_usecases:
       - score
+    # See the q4 entry: lift the scoring output-row cap above the default 1.
+    options:
+      - parallel:64
     parameters:
       model: Arch-Router-1.5B.Q8_0.gguf
   files:

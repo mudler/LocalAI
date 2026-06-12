@@ -22,7 +22,7 @@ var _ = Describe("LoadConfig", func() {
   - id: email
     action: block
   - id: ssn
-    action: route_local
+    action: allow
 `)
 		Expect(os.WriteFile(path, body, 0o600)).To(Succeed())
 		patterns, err := LoadConfig(path)
@@ -33,7 +33,7 @@ var _ = Describe("LoadConfig", func() {
 			got[p.ID] = p.Action
 		}
 		Expect(got["email"]).To(Equal(ActionBlock))
-		Expect(got["ssn"]).To(Equal(ActionRouteLocal))
+		Expect(got["ssn"]).To(Equal(ActionAllow))
 		// Unmentioned patterns keep their default action.
 		Expect(got["credit_card"]).To(Equal(ActionMask), "credit_card default action lost")
 	})

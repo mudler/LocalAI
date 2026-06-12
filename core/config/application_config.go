@@ -65,7 +65,7 @@ type ApplicationConfig struct {
 	//
 	//   patterns:
 	//     - id: email
-	//       action: route_local      # downgrade default mask -> route_local
+	//       action: allow            # downgrade default mask -> allow (log only)
 	//     - id: ssn
 	//       action: block            # upgrade default mask -> block
 	//

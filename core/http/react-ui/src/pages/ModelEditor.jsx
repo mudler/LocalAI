@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react'
-import { useParams, useNavigate, useOutletContext, useSearchParams } from 'react-router-dom'
+import { useParams, useNavigate, useOutletContext, useSearchParams, useLocation } from 'react-router-dom'
 import YAML from 'yaml'
 import { modelsApi } from '../utils/api'
 import { apiUrl } from '../utils/basePath'
@@ -17,7 +17,8 @@ const SECTION_ICONS = {
   general: 'fa-cog', llm: 'fa-microchip', parameters: 'fa-sliders',
   templates: 'fa-file-code', functions: 'fa-wrench', reasoning: 'fa-brain',
   diffusers: 'fa-image', tts: 'fa-volume-up', pipeline: 'fa-code-branch',
-  grpc: 'fa-server', agent: 'fa-robot', mcp: 'fa-plug', other: 'fa-ellipsis-h',
+  grpc: 'fa-server', agent: 'fa-robot', mcp: 'fa-plug', router: 'fa-route', proxy: 'fa-cloud',
+  mitm: 'fa-user-secret', pii: 'fa-user-shield', other: 'fa-ellipsis-h',
 }
 
 const SECTION_COLORS = {
@@ -25,7 +26,8 @@ const SECTION_COLORS = {
   templates: 'var(--color-warning)', functions: 'var(--color-info, var(--color-primary))',
   reasoning: 'var(--color-accent)', diffusers: 'var(--color-warning)', tts: 'var(--color-success)',
   pipeline: 'var(--color-accent)', grpc: 'var(--color-text-muted)', agent: 'var(--color-primary)',
-  mcp: 'var(--color-accent)', other: 'var(--color-text-muted)',
+  mcp: 'var(--color-accent)', router: 'var(--color-accent)', proxy: 'var(--color-info, var(--color-primary))',
+  mitm: 'var(--color-warning)', pii: 'var(--color-error)', other: 'var(--color-text-muted)',
 }
 
 function flattenConfig(obj, prefix = '') {
@@ -71,6 +73,10 @@ export default function ModelEditor() {
   const { name } = useParams()
   const [searchParams] = useSearchParams()
   const navigate = useNavigate()
+  const location = useLocation()
+  // Where the Back button returns to. Set by whichever page linked here (see
+  // utils/editorNav); falls back to the historical defaults for direct visits.
+  const backState = location.state && location.state.from ? location.state : null
   const { addToast } = useOutletContext()
   const { sections, fields, loading: metaLoading, error: metaError } = useConfigMetadata()
 
@@ -89,7 +95,6 @@ export default function ModelEditor() {
   const [activeSection, setActiveSection] = useState(null)
   const [tabSwitchWarning, setTabSwitchWarning] = useState(false)
 
-  const contentRef = useRef(null)
   const sectionRefs = useRef({})
 
   const vramEstimate = useVramEstimate({
@@ -187,25 +192,29 @@ export default function ModelEditor() {
     }
   }, [activeSection, activeSections])
 
-  // Scroll tracking
+  // Scroll tracking — the editor used to have its own overflow:auto pane
+  // and listened to that container's scroll; the pane has been removed so
+  // small screens don't have the global footer always clipping into the
+  // form. Scrolling now happens at the window level, and the anchor for
+  // "which section is at the top" is a fixed viewport offset (the sticky
+  // sidebar sits roughly at the top of the editor area).
   useEffect(() => {
-    const container = contentRef.current
-    if (!container || tab !== 'interactive') return
+    if (tab !== 'interactive') return
     const onScroll = () => {
-      const containerTop = container.getBoundingClientRect().top
+      const anchorY = 80 // viewport px below which a section is "active"
       let closest = activeSections[0]?.id
       let closestDist = Infinity
       for (const s of activeSections) {
         const el = sectionRefs.current[s.id]
         if (el) {
-          const dist = Math.abs(el.getBoundingClientRect().top - containerTop - 8)
+          const dist = Math.abs(el.getBoundingClientRect().top - anchorY)
           if (dist < closestDist) { closestDist = dist; closest = s.id }
         }
       }
       if (closest) setActiveSection(closest)
     }
-    container.addEventListener('scroll', onScroll, { passive: true })
-    return () => container.removeEventListener('scroll', onScroll)
+    window.addEventListener('scroll', onScroll, { passive: true })
+    return () => window.removeEventListener('scroll', onScroll)
   }, [activeSections, configLoading, metaLoading, tab])
 
   const scrollTo = (id) => {
@@ -263,7 +272,9 @@ export default function ModelEditor() {
         if (!/^[a-zA-Z0-9_.-]+$/.test(modelName.trim())) { addToast('Invalid model name — use only letters, numbers, hyphens, underscores, and dots', 'error'); setSaving(false); return }
         await modelsApi.importConfig(JSON.stringify(config), 'application/json')
         addToast('Model created successfully', 'success')
-        navigate(`/app/model-editor/${encodeURIComponent(modelName.trim())}`)
+        // replace: the transient create URL shouldn't sit in history, so
+        // Back (browser or in-page) skips it and returns to the linking page.
+        navigate(`/app/model-editor/${encodeURIComponent(modelName.trim())}`, { replace: true, state: backState })
       } else {
         await modelsApi.patchConfig(name, config)
         setInitialValues(structuredClone(values))
@@ -293,9 +304,9 @@ export default function ModelEditor() {
         addToast('Model created successfully', 'success')
         try {
           const parsed = YAML.parse(yamlText)
-          if (parsed?.name) navigate(`/app/model-editor/${encodeURIComponent(parsed.name)}`)
-          else navigate('/app/manage')
-        } catch { navigate('/app/manage') }
+          if (parsed?.name) navigate(`/app/model-editor/${encodeURIComponent(parsed.name)}`, { replace: true, state: backState })
+          else navigate(backState ? backState.from : '/app/manage')
+        } catch { navigate(backState ? backState.from : '/app/manage') }
       } else {
         const response = await fetch(apiUrl(`/models/edit/${encodeURIComponent(name)}`), {
           method: 'POST',
@@ -323,7 +334,7 @@ export default function ModelEditor() {
         // editor URL points at a name that no longer exists on the backend.
         // Redirect so refreshes and subsequent saves hit the new name.
         if (parsedName && parsedName !== name) {
-          navigate(`/app/model-editor/${encodeURIComponent(parsedName)}`, { replace: true })
+          navigate(`/app/model-editor/${encodeURIComponent(parsedName)}`, { replace: true, state: backState })
         }
       }
     } catch (err) {
@@ -405,9 +416,14 @@ export default function ModelEditor() {
         <div style={{ display: 'flex', gap: 'var(--spacing-sm)' }}>
           <button className="btn btn-secondary" onClick={() => {
             if (isCreateMode && selectedTemplate) { setSelectedTemplate(null); setValues({}); setActiveFieldPaths(new Set()) }
+            else if (backState) navigate(backState.from)
             else navigate(isCreateMode ? '/app/models' : '/app/manage')
           }}>
-            <i className="fas fa-arrow-left" /> Back
+            <i className="fas fa-arrow-left" /> Back to {
+              isCreateMode && selectedTemplate ? 'Templates'
+                : backState ? backState.fromLabel
+                  : isCreateMode ? 'Models' : 'Manage'
+            }
           </button>
           {!showTemplateSelector && tab === 'interactive' && (
             <button className={`btn ${isDirty ? 'btn-primary' : 'btn-secondary'}`} onClick={handleInteractiveSave} disabled={saving || !isDirty}>
@@ -543,12 +559,15 @@ export default function ModelEditor() {
             />
           </div>
 
-          {/* Two-column layout */}
-          <div style={{ display: 'flex', gap: 0, minHeight: 'calc(100vh - 340px)' }}>
-            {/* Sidebar */}
+          {/* Two-column layout. Both columns flow at body-scroll height —
+              no inner overflow:auto here, so the global footer ends up
+              below the content (like every other page) instead of pinned
+              to the viewport bottom, eating editing space on short screens. */}
+          <div style={{ display: 'flex', gap: 0 }}>
+            {/* Sidebar — sticks to the top of the viewport as the body scrolls. */}
             <nav style={{
               width: 180, flexShrink: 0, padding: '0 var(--spacing-sm)',
-              position: 'sticky', top: 0, alignSelf: 'flex-start',
+              position: 'sticky', top: 'var(--spacing-md)', alignSelf: 'flex-start',
             }}>
               {activeSections.map(s => (
                 <button
@@ -584,10 +603,8 @@ export default function ModelEditor() {
 
             {/* Content */}
             <div
-              ref={contentRef}
               style={{
-                flex: 1, overflow: 'auto', padding: '0 var(--spacing-lg) var(--spacing-xl) var(--spacing-md)',
-                maxHeight: 'calc(100vh - 340px)',
+                flex: 1, padding: '0 var(--spacing-lg) var(--spacing-xl) var(--spacing-md)',
               }}
             >
               {activeSections.length === 0 && (

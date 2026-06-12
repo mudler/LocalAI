@@ -100,8 +100,13 @@ func ModelEmbedding(ctx context.Context, s string, tokens []int, loader *model.M
 		trace.InitBackendTracingIfEnabled(appConfig.TracingMaxItems, appConfig.TracingMaxBodyBytes)
 
 		traceData := map[string]any{
-			"input_text":         trace.TruncateString(s, 1000),
-			"input_tokens_count": len(tokens),
+			"input_text": trace.TruncateString(s, 1000),
+		}
+		// Only present for token-mode callers (pre-tokenized override);
+		// emitting "0" alongside input_text would read as "consumed zero
+		// tokens", which is wrong.
+		if len(tokens) > 0 {
+			traceData["input_tokens_count"] = len(tokens)
 		}
 
 		startTime := time.Now()

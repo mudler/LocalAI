@@ -50,7 +50,14 @@ var _ = Describe("Runtime capability-based backend selection", func() {
 		must(os.WriteFile(filepath.Join(cudaDir, "metadata.json"), b, 0o644))
 		must(os.WriteFile(filepath.Join(cudaDir, "run.sh"), []byte(""), 0o755))
 
-		// Default system: alias should point to CPU
+		// Default system: alias should point to CPU. Force the capability to
+		// "cpu" so this is hermetic on hosts that actually have a GPU: backend
+		// preference keys off getSystemCapabilities() (env → real nvidia-smi
+		// detection), not GPUVendor, so without this a GPU dev box reports
+		// "nvidia" and the cuda alias wins. The NVIDIA case below overrides it.
+		must(os.Setenv("LOCALAI_FORCE_META_BACKEND_CAPABILITY", "cpu"))
+		defer func() { _ = os.Unsetenv("LOCALAI_FORCE_META_BACKEND_CAPABILITY") }()
+
 		sysDefault, err := system.GetSystemState(
 			system.WithBackendPath(tempDir),
 		)

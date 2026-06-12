@@ -188,7 +188,7 @@ type UsageBucket struct {
 type PIIPattern struct {
 	ID             string `json:"id"`
 	Description    string `json:"description"`
-	Action         string `json:"action"` // mask | block | route_local
+	Action         string `json:"action"` // mask | block | allow
 	MaxMatchLength int    `json:"max_match_length"`
 }
 
@@ -222,12 +222,12 @@ type PIIRedactTestRequest struct {
 
 // PIIRedactTestResult is the output for test_pii_redaction. spans
 // describes where the redactor matched; redacted is the text after
-// applying mask actions; blocked / local_only flag stronger actions.
+// applying mask actions; blocked / masked flag what was done.
 type PIIRedactTestResult struct {
-	Redacted  string        `json:"redacted"`
-	Spans     []PIIEventSpan `json:"spans"`
-	Blocked   bool          `json:"blocked"`
-	LocalOnly bool          `json:"local_only"`
+	Redacted string         `json:"redacted"`
+	Spans    []PIIEventSpan `json:"spans"`
+	Blocked  bool           `json:"blocked"`
+	Masked   bool           `json:"masked"`
 }
 
 type PIIEventSpan struct {
@@ -243,7 +243,7 @@ type PIIEventSpan struct {
 // to runtime_settings.json so the next start re-applies them.
 type PIIPatternActionUpdate struct {
 	ID       string `json:"id" jsonschema:"Pattern id to mutate (e.g. email, ssn, credit_card, api_key_prefix)."`
-	Action   string `json:"action,omitempty" jsonschema:"New action: mask, block, or route_local. Optional — omit to leave the action unchanged."`
+	Action   string `json:"action,omitempty" jsonschema:"New action: mask, block, or allow. Optional — omit to leave the action unchanged."`
 	Disabled *bool  `json:"disabled,omitempty" jsonschema:"Set true to skip this pattern entirely; false to re-enable. Optional — omit to leave enabled-state unchanged."`
 }
 

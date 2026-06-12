@@ -9,7 +9,7 @@ import (
 func registerPIITools(s *mcp.Server, client LocalAIClient, _ Options) {
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        ToolListPIIPatterns,
-		Description: "List the active PII regex pattern set. Each entry shows the pattern id, description, and current action (mask, block, route_local). Read-only.",
+		Description: "List the active PII regex pattern set. Each entry shows the pattern id, description, and current action (mask, block, allow). Read-only.",
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, _ struct{}) (*mcp.CallToolResult, any, error) {
 		patterns, err := client.ListPIIPatterns(ctx)
 		if err != nil {

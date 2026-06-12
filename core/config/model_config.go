@@ -385,7 +385,7 @@ type PIIConfig struct {
 	Enabled *bool `yaml:"enabled,omitempty" json:"enabled,omitempty"`
 
 	// Patterns lets a model upgrade or downgrade individual pattern
-	// actions (mask | block | route_local) relative to the global
+	// actions (mask | block | allow) relative to the global
 	// defaults loaded from --pii-config / DefaultPatterns. Pattern IDs
 	// not listed inherit the global action. The regex itself stays
 	// global — only the action is settable per-model.
@@ -1274,14 +1274,20 @@ func (c *ModelConfig) GuessUsecases(u ModelConfigUsecase) bool {
 	}
 
 	if (u & FLAG_CHAT) == FLAG_CHAT {
-		if c.TemplateConfig.Chat == "" && c.TemplateConfig.ChatMessage == "" && !c.TemplateConfig.UseTokenizerTemplate {
-			return false
-		}
-		if slices.Contains(nonTextGenBackends, c.Backend) {
-			return false
-		}
-		if c.Embeddings != nil && *c.Embeddings {
-			return false
+		// A router model is a chat dispatcher: it carries no chat
+		// template of its own (those live on the candidates it routes
+		// to) and is invoked through the chat endpoint, so the router
+		// block stands in for chat capability.
+		if !c.HasRouter() {
+			if c.TemplateConfig.Chat == "" && c.TemplateConfig.ChatMessage == "" && !c.TemplateConfig.UseTokenizerTemplate {
+				return false
+			}
+			if slices.Contains(nonTextGenBackends, c.Backend) {
+				return false
+			}
+			if c.Embeddings != nil && *c.Embeddings {
+				return false
+			}
 		}
 	}
 	if (u & FLAG_COMPLETION) == FLAG_COMPLETION {

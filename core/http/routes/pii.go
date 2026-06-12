@@ -117,10 +117,10 @@ func RegisterPIIRoutes(e *echo.Echo, app *application.Application) {
 		}
 		res := app.PIIRedactor().Redact(body.Text)
 		return c.JSON(http.StatusOK, map[string]any{
-			"redacted":   res.Redacted,
-			"spans":      res.Spans,
-			"blocked":    res.Blocked,
-			"local_only": res.LocalOnly,
+			"redacted": res.Redacted,
+			"spans":    res.Spans,
+			"blocked":  res.Blocked,
+			"masked":   res.Masked,
 		})
 	})
 
@@ -142,12 +142,12 @@ func RegisterPIIRoutes(e *echo.Echo, app *application.Application) {
 
 	// PutPIIPatternActionEndpoint godoc
 	// @Summary Change a pattern's action in-process
-	// @Description Mutates the named pattern's action (mask|block|route_local). Transient — restored to YAML defaults on restart. Admin-only.
+	// @Description Mutates the named pattern's action (mask|block|allow). Transient — restored to YAML defaults on restart. Admin-only.
 	// @Tags pii
 	// @Accept json
 	// @Produce json
 	// @Param id path string true "Pattern id"
-	// @Param body body map[string]string true "JSON {\"action\":\"mask|block|route_local\"}"
+	// @Param body body map[string]string true "JSON {\"action\":\"mask|block|allow\"}"
 	// @Success 200 {object} map[string]interface{}
 	// @Router /api/pii/patterns/{id} [put]
 	e.PUT("/api/pii/patterns/:id", func(c echo.Context) error {

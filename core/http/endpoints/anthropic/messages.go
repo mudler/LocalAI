@@ -353,7 +353,7 @@ func handleAnthropicStream(c echo.Context, id string, input *schema.AnthropicReq
 			overrides = make(map[string]pii.Action, len(raw))
 			for ovid, action := range raw {
 				switch pii.Action(action) {
-				case pii.ActionMask, pii.ActionBlock, pii.ActionRouteLocal:
+				case pii.ActionMask, pii.ActionBlock, pii.ActionAllow:
 					overrides[ovid] = pii.Action(action)
 				}
 			}

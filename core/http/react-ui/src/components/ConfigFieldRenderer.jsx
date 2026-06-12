@@ -16,6 +16,7 @@ const PROVIDER_TO_CAPABILITY = {
   'models:tts': 'FLAG_TTS',
   'models:transcript': 'FLAG_TRANSCRIPT',
   'models:vad': 'FLAG_VAD',
+  'models:score': 'FLAG_SCORE',
 }
 
 function coerceValue(raw, uiType) {
@@ -325,7 +326,7 @@ export default function ConfigFieldRenderer({ field, value, onChange, onRemove, 
         </div>
         {isStructured
           ? <StructuredCodeEditor value={value} onChange={handleChange} minHeight="80px" />
-          : <CodeEditor value={value || ''} onChange={handleChange} minHeight="80px" />}
+          : <CodeEditor value={value || ''} onChange={handleChange} minHeight="80px" language={field.language} />}
       </div>
     )
   }

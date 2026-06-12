@@ -74,6 +74,7 @@ const TYPE_COLORS = {
   tokenize: { bg: 'var(--color-secondary-light)', color: 'var(--color-text-muted)' },
   detection: { bg: 'var(--color-info-light)', color: 'var(--color-data-8)' },
   model_load: { bg: 'var(--color-error-light)', color: 'var(--color-data-2)' },
+  vector_store: { bg: 'var(--color-accent-light)', color: 'var(--color-data-7)' },
 }
 
 function typeBadgeStyle(type) {

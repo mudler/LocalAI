@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
-import { useParams, useOutletContext, useNavigate } from 'react-router-dom'
+import { useParams, useOutletContext, useNavigate, useLocation } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
+import { fromState } from '../utils/editorNav'
 import { useChat } from '../hooks/useChat'
 import ModelSelector from '../components/ModelSelector'
 import { renderMarkdown, highlightAll } from '../utils/markdown'
@@ -285,6 +286,7 @@ export default function Chat() {
   const { model: urlModel } = useParams()
   const { addToast } = useOutletContext()
   const navigate = useNavigate()
+  const location = useLocation()
   const { t } = useTranslation('chat')
   const { isAdmin } = useAuth()
   const { operations } = useOperations()
@@ -904,7 +906,7 @@ export default function Chat() {
                   <button
                     type="button"
                     className="btn btn-secondary btn-sm"
-                    onClick={() => navigate(`/app/model-editor/${encodeURIComponent(activeChat.model)}`)}
+                    onClick={() => navigate(`/app/model-editor/${encodeURIComponent(activeChat.model)}`, { state: fromState(location, 'Chat') })}
                     title={t('header.editConfig')}
                   >
                     <i className="fas fa-pen-to-square" /> {t('header.editConfig')}

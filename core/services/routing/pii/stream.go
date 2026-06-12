@@ -27,8 +27,9 @@ import (
 // reject the request. We remap block → mask for redaction purposes
 // while still recording PIIEvent rows with action="block" so audits
 // surface the original intent ("the model would have leaked X here,
-// suppressed in flight"). route_local on the output side is a no-op
-// (the dispatch decision was already made on the request side).
+// suppressed in flight"). allow on the output side is a no-op — the
+// text is left intact, matching its request-side detect-and-log
+// behaviour.
 //
 // StreamFilter is NOT safe for concurrent use across goroutines; one
 // instance per response stream.

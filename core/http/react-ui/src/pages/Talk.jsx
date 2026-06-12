@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react'
-import { useOutletContext, useNavigate } from 'react-router-dom'
+import { useOutletContext, useNavigate, useLocation } from 'react-router-dom'
 import { realtimeApi } from '../utils/api'
+import { fromState } from '../utils/editorNav'
 import ModelSelector from '../components/ModelSelector'
 import ClientMCPDropdown from '../components/ClientMCPDropdown'
 import { useMCPClient } from '../hooks/useMCPClient'
@@ -38,6 +39,7 @@ function upsertAssistant(prev, itemId, text, mode) {
 export default function Talk() {
   const { addToast } = useOutletContext()
   const navigate = useNavigate()
+  const location = useLocation()
 
   // Pipeline models
   const [pipelineModels, setPipelineModels] = useState([])
@@ -644,7 +646,7 @@ export default function Talk() {
               disabled={isConnected}
               searchPlaceholder="Search pipeline models..."
             />
-            <button className="btn btn-secondary btn-sm" onClick={() => navigate('/app/model-editor?template=pipeline')}
+            <button className="btn btn-secondary btn-sm" onClick={() => navigate('/app/model-editor?template=pipeline', { state: fromState(location, 'Talk') })}
               style={{ marginTop: 'var(--spacing-xs)' }}>
               <i className="fas fa-plus" style={{ marginRight: 'var(--spacing-xs)' }} /> Create Pipeline Model
             </button>
@@ -724,7 +726,7 @@ export default function Talk() {
           )}
           {selectedModelInfo && !isConnected && (
             <div style={{ marginBottom: 'var(--spacing-md)' }}>
-              <button className="btn btn-secondary btn-sm" onClick={() => navigate(`/app/model-editor/${encodeURIComponent(selectedModel)}`)}>
+              <button className="btn btn-secondary btn-sm" onClick={() => navigate(`/app/model-editor/${encodeURIComponent(selectedModel)}`, { state: fromState(location, 'Talk') })}>
                 <i className="fas fa-pen-to-square" style={{ marginRight: 'var(--spacing-xs)' }} />
                 {selectedModelInfo.self_contained ? ' Edit Model Config' : ' Edit Pipeline'}
               </button>

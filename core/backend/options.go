@@ -87,11 +87,47 @@ func getSeed(c config.ModelConfig) int32 {
 	return seed
 }
 
-func grpcModelOpts(c config.ModelConfig, modelPath string) *pb.ModelOptions {
-	b := 512
-	if c.Batch != 0 {
-		b = c.Batch
+// DefaultContextSize and DefaultBatchSize are the backend's fallbacks when a
+// model config leaves them unset. Exported so callers that must respect the
+// effective decode window — notably the router's prompt trimmer — resolve the
+// same numbers grpcModelOpts does instead of guessing.
+const (
+	DefaultContextSize = 4096
+	DefaultBatchSize   = 512
+)
+
+// EffectiveContextSize is the context window the backend will run with: the
+// configured value, or DefaultContextSize when unset.
+func EffectiveContextSize(c config.ModelConfig) int {
+	if c.ContextSize != nil {
+		return *c.ContextSize
 	}
+	return DefaultContextSize
+}
+
+// EffectiveBatchSize is the single-decode batch the backend will run with.
+// Score, embedding and rerank all process the whole input in one pass: score
+// decodes prompt+candidate (asserts n_tokens <= n_batch), and embedding/rerank
+// pool over the full sequence in one physical batch (n_ubatch). So the batch
+// is sized to the context — anything that fits the context fits one pass,
+// avoiding both the GGML_ASSERT crash and the "input is too large to process"
+// error. Explicit `batch:` always wins.
+func EffectiveBatchSize(c config.ModelConfig) int {
+	if c.Batch != 0 {
+		return c.Batch
+	}
+	singlePass := c.HasUsecases(config.FLAG_SCORE) ||
+		c.HasUsecases(config.FLAG_EMBEDDINGS) ||
+		c.HasUsecases(config.FLAG_RERANK)
+	if ctx := EffectiveContextSize(c); singlePass && ctx > DefaultBatchSize {
+		return ctx
+	}
+	return DefaultBatchSize
+}
+
+func grpcModelOpts(c config.ModelConfig, modelPath string) *pb.ModelOptions {
+	ctxSize := EffectiveContextSize(c)
+	b := EffectiveBatchSize(c)
 
 	flashAttention := "auto"
 
@@ -132,11 +168,6 @@ func grpcModelOpts(c config.ModelConfig, modelPath string) *pb.ModelOptions {
 			mmap = false
 			xlog.Info("Auto-disabling mmap for Intel SYCL backend", "backend", c.Backend)
 		}
-	}
-
-	ctxSize := 4096
-	if c.ContextSize != nil {
-		ctxSize = *c.ContextSize
 	}
 
 	mmlock := false

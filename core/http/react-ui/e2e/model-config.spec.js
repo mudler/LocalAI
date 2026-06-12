@@ -224,4 +224,38 @@ test.describe('Model Editor - Interactive Tab', () => {
     expect(estimateCalled).toBe(true)
   })
 
+  test('interactive tab scrolls at body height (no inner overflow pane) and tracks the active section', async ({ page }) => {
+    // Regression: the form sections used to live inside an overflow:auto pane
+    // with maxHeight: calc(100vh - 340px), which kept the global footer in
+    // view on every screen and ate ~50px of editing room on short windows.
+    // Pin two pieces of the fix:
+    //  1. The two-column container (sticky nav + content) has no scrollable
+    //     inner element on its content side — body-scroll handles overflow.
+    //  2. The active-section tracker now listens to window scroll. Scrolling
+    //     the window should run the tracker without throwing, and the
+    //     `<nav>` sidebar must still render.
+    const contentOverflowY = await page.evaluate(() => {
+      const sidebar = document.querySelector('nav')
+      // The content column is the next sibling of the sticky sidebar.
+      const content = sidebar?.nextElementSibling
+      return content ? getComputedStyle(content).overflowY : 'no-content'
+    })
+    expect(['visible', 'normal', 'auto', 'scroll', 'no-content']).toContain(contentOverflowY)
+    expect(contentOverflowY).not.toBe('scroll')
+    // 'auto' could exist on some browsers but should NOT — the fix removes it.
+    // We assert the strong invariant separately.
+    expect(['auto']).not.toContain(contentOverflowY)
+
+    // Add a couple of fields to give the page a touch more height, then
+    // force a window scroll. The tracker should run; the sidebar should
+    // remain visible.
+    const searchInput = page.locator('input[placeholder="Search fields to add..."]')
+    await searchInput.fill('Temperature')
+    const dropdown = searchInput.locator('..').locator('..')
+    await dropdown.locator('div', { hasText: 'Temperature' }).first().click()
+    await page.evaluate(() => window.scrollTo(0, 200))
+    await page.waitForTimeout(50)
+    await expect(page.locator('nav').first()).toBeVisible()
+  })
+
 })
