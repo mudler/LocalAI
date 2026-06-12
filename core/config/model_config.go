@@ -867,7 +867,12 @@ func (cfg *ModelConfig) SetDefaults(opts ...ConfigLoaderOption) {
 		cfg.Seed = &defaultSeed
 	}
 
-	if cfg.TopK == nil {
+	// top_k=40 is llama.cpp's sampling default and is wrong for backends whose
+	// native default differs (issue #6632). Only inject it for the llama.cpp
+	// family and the empty/auto backend; leave TopK nil for known non-llama
+	// backends (e.g. mlx, whose intended default is top_k=0) so the wire value
+	// is 0 rather than a silently-changed 40.
+	if cfg.TopK == nil && UsesLlamaSamplerDefaults(cfg.Backend) {
 		cfg.TopK = &defaultTopK
 	}
 
