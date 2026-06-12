@@ -2,6 +2,7 @@ package e2ebackends_test
 
 import (
 	"context"
+	"encoding/base64"
 	"fmt"
 	"io"
 	"net"
@@ -38,6 +39,16 @@ import (
 //	                          package/run.sh from 'make -C backend/go/dllm package')
 //	BACKEND_TEST_MODEL_FILE   dllm.cpp's tests/fixtures/tiny_with_vocab.gguf
 //	                          (random weights + handcrafted 43-token gemma4 vocab)
+//
+// Tiny vision spec (same gating as the tiny-model spec, plus an image):
+//
+//	BACKEND_TEST_DLLM_IMAGE   a decodable image fixture (dllm.cpp's
+//	                          tests/fixtures/test_image_24x17.bmp); setting it
+//	                          enables the spec. BACKEND_TEST_MODEL_FILE must
+//	                          then point at tiny_vision_with_vocab.gguf (the
+//	                          tiny fixture WITH a vision tower) and the
+//	                          packaged libdllm.so must carry the multimodal
+//	                          C-ABI entry points (dllm.cpp >= the P4 surface).
 //
 // Real-model spec (the 26B BF16 GGUF, ~50 GB; CUDA-13-class hardware):
 //
@@ -277,6 +288,74 @@ var _ = Describe("dllm request cancellation (tiny model)", Ordered, func() {
 		Expect(elapsed).To(BeNumerically("<", 5*time.Second),
 			"follow-up request queued behind the cancelled generation - server-side Cancel did not reach the backend")
 		GinkgoWriter.Printf("dllm cancel e2e: follow-up completed in %v after mid-stream cancellation\n", elapsed)
+	})
+})
+
+var _ = Describe("dllm templated vision chat-completion (tiny vision model)", Ordered, func() {
+	var client pb.BackendClient
+	var imageB64 string
+
+	BeforeAll(func() {
+		if os.Getenv("BACKEND_TEST_DLLM") != "1" {
+			Skip("dllm vision spec is opt-in; set BACKEND_TEST_DLLM=1 (plus BACKEND_BINARY, BACKEND_TEST_MODEL_FILE and BACKEND_TEST_DLLM_IMAGE) to run it")
+		}
+		imagePath := os.Getenv("BACKEND_TEST_DLLM_IMAGE")
+		if imagePath == "" {
+			Skip("dllm vision spec requires BACKEND_TEST_DLLM_IMAGE (dllm.cpp's tests/fixtures/test_image_24x17.bmp)")
+		}
+		modelFile := os.Getenv("BACKEND_TEST_MODEL_FILE")
+		Expect(modelFile).NotTo(BeEmpty(),
+			"dllm vision spec requires BACKEND_TEST_MODEL_FILE (dllm.cpp's tests/fixtures/tiny_vision_with_vocab.gguf)")
+
+		// Deliver the image exactly as LocalAI core does: a raw base64
+		// payload in PredictOptions.Images (core decodes every image_url /
+		// image content part to plain base64 before it reaches the backend).
+		raw, err := os.ReadFile(imagePath)
+		Expect(err).NotTo(HaveOccurred())
+		imageB64 = base64.StdEncoding.EncodeToString(raw)
+
+		// eb_max_steps:4 keeps the prefill-heavy mm runs fast: the tiny
+		// vision tower still resizes every image to the full 280-soft-token
+		// patch budget (same trick as dllm.cpp's own mm tests).
+		client = startDllmBackend(modelFile, 0, "eb_max_steps:4")
+	})
+
+	It("answers a templated chat completion with an image attached", func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 20*time.Minute)
+		defer cancel()
+		req := dllmChatRequest()
+		req.Images = []string{imageB64}
+		res, err := client.Predict(ctx, req)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(string(res.GetMessage())).NotTo(BeEmpty(), "vision chat completion produced empty content")
+		Expect(res.GetChatDeltas()).NotTo(BeEmpty(), "vision chat completion produced no ChatDeltas")
+		GinkgoWriter.Printf("dllm vision chat: %q (deltas=%d)\n", string(res.GetMessage()), len(res.GetChatDeltas()))
+	})
+
+	It("streams a templated chat completion with an image attached", func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 20*time.Minute)
+		defer cancel()
+		req := dllmChatRequest()
+		req.Images = []string{imageB64}
+		stream, err := client.PredictStream(ctx, req)
+		Expect(err).NotTo(HaveOccurred())
+
+		var chunks int
+		var combined string
+		for {
+			msg, rerr := stream.Recv()
+			if rerr == io.EOF {
+				break
+			}
+			Expect(rerr).NotTo(HaveOccurred())
+			if len(msg.GetMessage()) > 0 {
+				chunks++
+				combined += string(msg.GetMessage())
+			}
+		}
+		Expect(chunks).To(BeNumerically(">=", 1), "no vision stream chunks received")
+		Expect(combined).NotTo(BeEmpty(), "streamed vision chat completion produced empty content")
+		GinkgoWriter.Printf("dllm vision chat stream: %d chunks, combined=%q\n", chunks, combined)
 	})
 })
 

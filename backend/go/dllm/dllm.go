@@ -42,6 +42,13 @@ type generator interface {
 	// generateStream invokes onBlock once per committed diffusion block, on
 	// the thread running the C call, before returning.
 	generateStream(prompt, optsJSON string, onBlock func(text string)) error
+	// generateMM / generateStreamMM are the multimodal counterparts:
+	// imagesJSON is a flat JSON array of data: base64 URIs and the prompt
+	// carries one mmImageMarker per entry (dllm_capi.h placeholder
+	// contract). Against an old text-only libdllm.so they fail with
+	// errMMUnsupported.
+	generateMM(prompt, imagesJSON, optsJSON string) (string, error)
+	generateStreamMM(prompt, imagesJSON, optsJSON string, onBlock func(text string)) error
 	tokenizeJSON(text string) (string, error)
 	// cancel is the ONE entry point safe to call concurrently with an
 	// in-flight generate on the same ctx (dllm_capi.h: it only flips an
@@ -64,6 +71,15 @@ func (g *capiGenerator) generateStream(prompt, optsJSON string, onBlock func(tex
 	// passed as nil for now: a future progress hook for the React UI can
 	// plumb it through without touching the C binding.
 	return cGenerateStream(g.h, prompt, optsJSON, onBlock, nil)
+}
+
+func (g *capiGenerator) generateMM(prompt, imagesJSON, optsJSON string) (string, error) {
+	return cGenerateMM(g.h, prompt, imagesJSON, optsJSON)
+}
+
+func (g *capiGenerator) generateStreamMM(prompt, imagesJSON, optsJSON string, onBlock func(text string)) error {
+	// on_step is nil for the same reason as generateStream.
+	return cGenerateStreamMM(g.h, prompt, imagesJSON, optsJSON, onBlock, nil)
 }
 
 func (g *capiGenerator) tokenizeJSON(text string) (string, error) {
@@ -267,18 +283,53 @@ func metadataEnableThinking(opts *pb.PredictOptions) bool {
 }
 
 // buildPrompt resolves the prompt for a request. With use_tokenizer_template
-// and raw messages the backend owns templating (RenderGemma4) and the output
-// is in the known gemma4 format, so parse=true. Without it the caller
-// templated the prompt themselves (LocalAI's Go templates + PEG fallback, or
-// a bare completion): the prompt passes through verbatim and the output is
-// NOT gemma4-parsed - it is emitted as plain content and the Go side's
-// extraction applies, as for any non-autoparsing backend.
+// and raw messages the backend owns templating (RenderGemma4, including the
+// mmImageMarker injection for opts.Images) and the output is in the known
+// gemma4 format, so parse=true. Without it the caller templated the prompt
+// themselves (LocalAI's Go templates + PEG fallback, or a bare completion):
+// the prompt passes through verbatim - for image requests it must already
+// carry one literal mmImageMarker per image (the engine enforces the 1:1
+// match) - and the output is NOT gemma4-parsed - it is emitted as plain
+// content and the Go side's extraction applies, as for any non-autoparsing
+// backend.
 func buildPrompt(opts *pb.PredictOptions) (prompt string, parse bool, err error) {
 	if opts.GetUseTokenizerTemplate() && len(opts.GetMessages()) > 0 {
-		prompt, err = RenderGemma4(opts.GetMessages(), opts.GetTools(), metadataEnableThinking(opts), true)
+		prompt, err = RenderGemma4(opts.GetMessages(), opts.GetTools(), len(opts.GetImages()), metadataEnableThinking(opts), true)
 		return prompt, true, err
 	}
 	return opts.GetPrompt(), false, nil
+}
+
+// imagesJSON renders opts.Images as the flat JSON array of data: URIs the mm
+// C-ABI expects, or "" when the request carries no images. The entries arrive
+// as RAW base64 payloads: LocalAI's OpenAI layer decodes every image_url /
+// image content part (URL download or data: URI) to plain base64 via
+// utils.GetContentURIAsBase64 (core/http/middleware/request.go) and core
+// flattens them into PredictOptions.Images (core/backend/llm.go). The
+// hardcoded image/jpeg mime mirrors the llama.cpp backend's re-wrapping
+// convention (grpc-server.cpp, "data:image/jpeg;base64," + images(i)); the
+// engine ignores the declared mime and sniffs the real format from the
+// decoded bytes (stb_image), so PNG/BMP payloads work through it too.
+func imagesJSON(images []string) (string, error) {
+	if len(images) == 0 {
+		return "", nil
+	}
+	uris := make([]string, len(images))
+	for i, img := range images {
+		// dllm_capi.h: array entries are read VERBATIM up to the closing
+		// quote, with NO escape handling. json.Marshal would escape these
+		// bytes and the C side would misparse the entry, so fail loud (they
+		// can never appear in genuine base64 anyway).
+		if strings.ContainsAny(img, "\"\\") {
+			return "", fmt.Errorf("dllm: image %d is not base64 (contains a quote or backslash; PredictOptions.Images entries must be raw base64 payloads)", i)
+		}
+		uris[i] = "data:image/jpeg;base64," + img
+	}
+	b, err := json.Marshal(uris)
+	if err != nil {
+		return "", fmt.Errorf("dllm: marshal images: %w", err)
+	}
+	return string(b), nil
 }
 
 // requestOptsJSON merges the model-level overrides with the request's
@@ -307,17 +358,27 @@ func (d *Dllm) requestOptsJSON(opts *pb.PredictOptions) (string, error) {
 
 // prepareRequest is the shared prologue of the rich methods: resolve the
 // prompt (and whether the output gets gemma4-parsed) and build the per-call
-// opts JSON.
-func (d *Dllm) prepareRequest(opts *pb.PredictOptions) (prompt string, parse bool, optsJSON string, err error) {
+// opts JSON plus the images JSON ("" for text-only requests, which routes
+// the call through the text generate entry points).
+func (d *Dllm) prepareRequest(opts *pb.PredictOptions) (prompt string, parse bool, optsJSON, imgJSON string, err error) {
+	// Fail loud on media the engine has no path for, instead of silently
+	// generating from a prompt that ignores them.
+	if len(opts.GetVideos()) > 0 || len(opts.GetAudios()) > 0 {
+		return "", false, "", "", errors.New("dllm: video/audio input is not supported (images only)")
+	}
 	prompt, parse, err = buildPrompt(opts)
 	if err != nil {
-		return "", false, "", err
+		return "", false, "", "", err
 	}
 	optsJSON, err = d.requestOptsJSON(opts)
 	if err != nil {
-		return "", false, "", err
+		return "", false, "", "", err
 	}
-	return prompt, parse, optsJSON, nil
+	imgJSON, err = imagesJSON(opts.GetImages())
+	if err != nil {
+		return "", false, "", "", err
+	}
+	return prompt, parse, optsJSON, imgJSON, nil
 }
 
 // sanitizeUTF8 makes s safe for a proto3 string field. Block-boundary
@@ -386,7 +447,7 @@ func (d *Dllm) PredictRich(opts *pb.PredictOptions) (*pb.Reply, error) {
 	if d.gen == nil {
 		return nil, grpcerrors.ModelNotLoaded("dllm")
 	}
-	prompt, parse, optsJSON, err := d.prepareRequest(opts)
+	prompt, parse, optsJSON, imgJSON, err := d.prepareRequest(opts)
 	if err != nil {
 		return nil, err
 	}
@@ -394,7 +455,11 @@ func (d *Dllm) PredictRich(opts *pb.PredictOptions) (*pb.Reply, error) {
 	var out string
 	var genErr error
 	d.submit(func() {
-		out, genErr = d.gen.generate(prompt, optsJSON)
+		if imgJSON != "" {
+			out, genErr = d.gen.generateMM(prompt, imgJSON, optsJSON)
+		} else {
+			out, genErr = d.gen.generate(prompt, optsJSON)
+		}
 	})
 	if genErr != nil {
 		return nil, genErr
@@ -429,7 +494,7 @@ func (d *Dllm) PredictStreamRich(opts *pb.PredictOptions, results chan<- *pb.Rep
 	if d.gen == nil {
 		return grpcerrors.ModelNotLoaded("dllm")
 	}
-	prompt, parse, optsJSON, err := d.prepareRequest(opts)
+	prompt, parse, optsJSON, imgJSON, err := d.prepareRequest(opts)
 	if err != nil {
 		return err
 	}
@@ -467,7 +532,11 @@ func (d *Dllm) PredictStreamRich(opts *pb.PredictOptions, results chan<- *pb.Rep
 
 	var genErr error
 	d.submit(func() {
-		genErr = d.gen.generateStream(prompt, optsJSON, onBlock)
+		if imgJSON != "" {
+			genErr = d.gen.generateStreamMM(prompt, imgJSON, optsJSON, onBlock)
+		} else {
+			genErr = d.gen.generateStream(prompt, optsJSON, onBlock)
+		}
 	})
 	if genErr != nil {
 		return genErr

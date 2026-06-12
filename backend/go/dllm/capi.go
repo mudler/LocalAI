@@ -16,6 +16,7 @@ package main
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"sync"
 	"sync/atomic"
@@ -44,6 +45,34 @@ var (
 	cppGenerateStream func(ctx uintptr, prompt, optsJSON string, onBlock, onStep, userData uintptr) int32
 	cppCancel         func(ctx uintptr)
 )
+
+// Optional multimodal entry points (dllm_capi.h's P4 surface). The ABI
+// version stays 1: presence is detected by PROBING the symbols with Dlsym at
+// boot (loadCAPI, mirroring the parakeet-cpp optional-symbol pattern). nil
+// means the loaded libdllm.so predates the mm surface; the wrappers below
+// then fail with errMMUnsupported instead of crashing on a nil call.
+var (
+	cppGenerateMM       func(ctx uintptr, prompt, imagesJSON, optsJSON string) uintptr
+	cppGenerateStreamMM func(ctx uintptr, prompt, imagesJSON, optsJSON string, onBlock, onStep, userData uintptr) int32
+)
+
+// mmImageMarker is the literal placeholder dllm_capi_generate_mm expands to
+// <boi> + soft-token placeholders + <eoi> (dllm_capi.h placeholder contract;
+// capi.cpp MM_MARKER). The prompt must carry exactly one marker per
+// images_json entry, in image order.
+const mmImageMarker = "<image>"
+
+// errMMUnsupported is returned for image-bearing requests against an old
+// text-only libdllm.so (the Dlsym probe found no mm symbols).
+var errMMUnsupported = errors.New(
+	"dllm: image input requires libdllm.so with the multimodal entry points (dllm_capi_generate_mm), but the loaded library predates them - rebuild/upgrade the dllm backend to use images")
+
+// cMMSupported reports whether the loaded libdllm.so carries the multimodal
+// generate pair. Both symbols ship together (same dllm.cpp commit), but the
+// guard requires both anyway so a half-present surface can never dispatch.
+func cMMSupported() bool {
+	return cppGenerateMM != nil && cppGenerateStreamMM != nil
+}
 
 // cAbiVersion returns the library's DLLM_CAPI_ABI_VERSION.
 func cAbiVersion() int32 {
@@ -108,6 +137,23 @@ func cGenerate(h uintptr, prompt, optsJSON string) (string, error) {
 	return out, nil
 }
 
+// cGenerateMM is cGenerate's multimodal counterpart. imagesJSON is the flat
+// JSON array of image entries (data: base64 URIs here; the C side also takes
+// file paths) and the prompt must carry one mmImageMarker per entry - the
+// engine enforces the 1:1 match and reports mismatches through last_error.
+func cGenerateMM(h uintptr, prompt, imagesJSON, optsJSON string) (string, error) {
+	if !cMMSupported() {
+		return "", errMMUnsupported
+	}
+	ret := cppGenerateMM(h, prompt, imagesJSON, optsJSON)
+	if ret == 0 {
+		return "", fmt.Errorf("dllm: generate_mm failed: %s", lastErrorOr(h, "unknown error"))
+	}
+	out := goStringFromCPtr(ret)
+	cppFreeString(ret)
+	return out, nil
+}
+
 // streamCallState carries the Go callbacks for one in-flight
 // cGenerateStream call; the registry key travels through C as user_data.
 // The map shape mirrors the whisper backend's streamCallStates: only one
@@ -158,11 +204,12 @@ func onStepTrampoline(step int32, totalSteps int32, canvasPreview uintptr, userD
 	}
 }
 
-// cGenerateStream runs a generation with per-committed-block (onBlock) and
-// per-denoising-step (onStep) callbacks; either may be nil. The callbacks
-// run on the C thread (see the trampoline docs). Returns an error carrying
-// last_error on failure; cancellation surfaces as the "cancelled" message.
-func cGenerateStream(h uintptr, prompt, optsJSON string, onBlock func(text string), onStep func(step, total int, preview string)) error {
+// withStreamCallbacks registers onBlock/onStep in the trampoline registry
+// for the duration of one streaming C call and invokes call with the C
+// function pointers (NULL for absent callbacks, so the C side skips the
+// per-block / per-step detokenize work entirely) plus the registry key to
+// pass as user_data. Shared by the text and multimodal stream wrappers.
+func withStreamCallbacks(onBlock func(text string), onStep func(step, total int, preview string), call func(blockPtr, stepPtr, userData uintptr) int32) int32 {
 	streamCbOnce.Do(func() {
 		blockCbPtr = purego.NewCallback(onBlockTrampoline)
 		stepCbPtr = purego.NewCallback(onStepTrampoline)
@@ -172,8 +219,6 @@ func cGenerateStream(h uintptr, prompt, optsJSON string, onBlock func(text strin
 	streamCallStates.Store(id, &streamCallState{onBlock: onBlock, onStep: onStep})
 	defer streamCallStates.Delete(id)
 
-	// Pass NULL for absent callbacks so the C side skips the per-block /
-	// per-step detokenize work entirely.
 	var blockPtr, stepPtr uintptr
 	if onBlock != nil {
 		blockPtr = blockCbPtr
@@ -181,9 +226,34 @@ func cGenerateStream(h uintptr, prompt, optsJSON string, onBlock func(text strin
 	if onStep != nil {
 		stepPtr = stepCbPtr
 	}
+	return call(blockPtr, stepPtr, uintptr(id))
+}
 
-	if rc := cppGenerateStream(h, prompt, optsJSON, blockPtr, stepPtr, uintptr(id)); rc != 0 {
+// cGenerateStream runs a generation with per-committed-block (onBlock) and
+// per-denoising-step (onStep) callbacks; either may be nil. The callbacks
+// run on the C thread (see the trampoline docs). Returns an error carrying
+// last_error on failure; cancellation surfaces as the "cancelled" message.
+func cGenerateStream(h uintptr, prompt, optsJSON string, onBlock func(text string), onStep func(step, total int, preview string)) error {
+	rc := withStreamCallbacks(onBlock, onStep, func(blockPtr, stepPtr, userData uintptr) int32 {
+		return cppGenerateStream(h, prompt, optsJSON, blockPtr, stepPtr, userData)
+	})
+	if rc != 0 {
 		return fmt.Errorf("dllm: generate_stream failed: %s", lastErrorOr(h, "unknown error"))
+	}
+	return nil
+}
+
+// cGenerateStreamMM is cGenerateStream's multimodal counterpart; see
+// cGenerateMM for the imagesJSON/marker contract.
+func cGenerateStreamMM(h uintptr, prompt, imagesJSON, optsJSON string, onBlock func(text string), onStep func(step, total int, preview string)) error {
+	if !cMMSupported() {
+		return errMMUnsupported
+	}
+	rc := withStreamCallbacks(onBlock, onStep, func(blockPtr, stepPtr, userData uintptr) int32 {
+		return cppGenerateStreamMM(h, prompt, imagesJSON, optsJSON, blockPtr, stepPtr, userData)
+	})
+	if rc != 0 {
+		return fmt.Errorf("dllm: generate_stream_mm failed: %s", lastErrorOr(h, "unknown error"))
 	}
 	return nil
 }

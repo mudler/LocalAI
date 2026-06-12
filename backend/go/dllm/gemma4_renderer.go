@@ -440,7 +440,26 @@ type gemma4ToolCall struct {
 //
 // enableThinking maps to the template's enable_thinking flag (ds4 convention:
 // Metadata["enable_thinking"]); addGenerationPrompt to add_generation_prompt.
-func RenderGemma4(msgs []*pb.Message, toolsJSON string, enableThinking bool, addGenerationPrompt bool) (string, error) {
+//
+// IMAGE NOTE (tpl L323-L342): the template's content-parts branch renders
+// one <|image|> token per image part, at the part's position. Through pb
+// that branch is unreachable: LocalAI's OpenAI layer flattens content parts
+// before the backend sees them - text parts are concatenated into
+// pb.Message.Content (core/schema/message.go ToProto) and image parts are
+// decoded to raw base64 in PredictOptions.Images (core/http/middleware/
+// request.go), losing per-message attribution and intra-message position.
+// The llama.cpp backend's convention for the same flattened delivery is to
+// attach ALL request images to the LAST user message, text first then
+// images (grpc-server.cpp, "Add text first" in the last-user-msg branch);
+// nImages mirrors that: one marker per image appended directly after the
+// last user message's text, in image order (the template emits parts
+// back-to-back with no separator either). The marker emitted is the ENGINE
+// splice marker mmImageMarker ("<image>", dllm_capi.h placeholder
+// contract), NOT the template's <|image|> text token: the engine expands
+// "<image>" to <boi> + soft-token placeholders + <eoi> and splices the
+// vision embeddings there, whereas a literal <|image|> would just tokenize
+// as text and leave a marker/image count mismatch.
+func RenderGemma4(msgs []*pb.Message, toolsJSON string, nImages int, enableThinking bool, addGenerationPrompt bool) (string, error) {
 	// Fail loud on roles the template does not know about. The jinja would
 	// happily render any role as a generic turn; we reject instead so typos
 	// surface at the API boundary rather than as silent bad prompts.
@@ -493,12 +512,19 @@ func RenderGemma4(msgs []*pb.Message, toolsJSON string, enableThinking bool, add
 		b.WriteString(gemma4TurnClose) // tpl L204
 	}
 
-	// Pre-scan: last user message index for the reasoning guard, tpl L207-L213.
+	// Pre-scan: last user message index for the reasoning guard, tpl L207-L213
+	// (also the image attachment point - see the IMAGE NOTE).
 	lastUserIdx := -1
 	for i, m := range loopMsgs {
 		if m.GetRole() == "user" {
 			lastUserIdx = i
 		}
+	}
+	if nImages > 0 && lastUserIdx == -1 {
+		// No user turn to attach the markers to: the engine would reject the
+		// markerless prompt anyway (marker/image count mismatch), so surface
+		// the bad request here with a usable message.
+		return "", fmt.Errorf("dllm: gemma4 renderer: %d image(s) provided but no user message to attach them to", nImages)
 	}
 
 	// Message loop, tpl L215-L354. role=tool messages are skipped here: they
@@ -588,12 +614,20 @@ func RenderGemma4(msgs []*pb.Message, toolsJSON string, enableThinking bool, add
 		// Captured content, tpl L316-L345. Model content gets thinking
 		// channels stripped (strip_thinking, tpl L148-L158); other roles are
 		// trimmed. pb content is a flattened string: the content-parts array
-		// branch (tpl L322-L342, incl. <|image|> markers) is unreachable.
+		// branch (tpl L322-L342) is unreachable through it - the image part
+		// of that branch is reconstructed below from PredictOptions.Images
+		// (see the IMAGE NOTE on RenderGemma4).
 		var content string
 		if role == "model" {
 			content = stripGemma4Thinking(m.GetContent())
 		} else {
 			content = strings.TrimSpace(m.GetContent())
+		}
+		if i == lastUserIdx && nImages > 0 {
+			// Markers are part of captured_content in the template (an
+			// image-only message still counts as has_content and closes its
+			// turn), so append before the hasContent computation.
+			content += strings.Repeat(mmImageMarker, nImages)
 		}
 		b.WriteString(content)
 		hasContent := strings.TrimSpace(content) != "" // tpl L346
