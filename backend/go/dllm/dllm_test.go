@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/base64"
 	"errors"
 	"os"
 	"runtime"
@@ -205,6 +206,9 @@ var _ = Describe("goStringFromCPtr", func() {
 type fakeGenCall struct {
 	prompt   string
 	optsJSON string
+	// imagesJSON is set only by the multimodal entry points; "" means the
+	// call went through the text path.
+	imagesJSON string
 }
 
 // fakeGen implements generator in-process. It records every call (prompt +
@@ -224,9 +228,13 @@ type fakeGen struct {
 }
 
 func (f *fakeGen) begin(prompt, optsJSON string) {
+	f.beginMM(prompt, "", optsJSON)
+}
+
+func (f *fakeGen) beginMM(prompt, imagesJSON, optsJSON string) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
-	f.calls = append(f.calls, fakeGenCall{prompt: prompt, optsJSON: optsJSON})
+	f.calls = append(f.calls, fakeGenCall{prompt: prompt, optsJSON: optsJSON, imagesJSON: imagesJSON})
 	f.inFlight++
 	if f.inFlight > f.maxInFlight {
 		f.maxInFlight = f.inFlight
@@ -256,6 +264,27 @@ func (f *fakeGen) generate(prompt, optsJSON string) (string, error) {
 
 func (f *fakeGen) generateStream(prompt, optsJSON string, onBlock func(text string)) error {
 	f.begin(prompt, optsJSON)
+	defer f.end()
+	if f.err != nil {
+		return f.err
+	}
+	for _, b := range f.blocks {
+		onBlock(b)
+	}
+	return nil
+}
+
+func (f *fakeGen) generateMM(prompt, imagesJSON, optsJSON string) (string, error) {
+	f.beginMM(prompt, imagesJSON, optsJSON)
+	defer f.end()
+	if f.delay > 0 {
+		time.Sleep(f.delay)
+	}
+	return f.out, f.err
+}
+
+func (f *fakeGen) generateStreamMM(prompt, imagesJSON, optsJSON string, onBlock func(text string)) error {
+	f.beginMM(prompt, imagesJSON, optsJSON)
 	defer f.end()
 	if f.err != nil {
 		return f.err
@@ -637,6 +666,164 @@ var _ = Describe("Dllm backend wiring", func() {
 		})
 	})
 
+	Describe("image input routing", func() {
+		// "QUJD" is base64("ABC"); core delivers raw base64 payloads in
+		// PredictOptions.Images (the data: prefix is stripped by the OpenAI
+		// layer), and the backend re-wraps them as data: URIs for the mm
+		// C-ABI.
+		const imgB64 = "QUJD"
+		const imgURI = "data:image/jpeg;base64," + imgB64
+
+		It("routes PredictRich through generateMM with data-URI images and a marker-bearing prompt", func() {
+			fake := &fakeGen{out: "a cat<turn|>"}
+			d := newTestDllm(fake, nil)
+
+			reply, err := d.PredictRich(&pb.PredictOptions{
+				UseTokenizerTemplate: true,
+				Messages:             []*pb.Message{{Role: "user", Content: "What is this?"}},
+				Images:               []string{imgB64},
+			})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(string(reply.GetMessage())).To(Equal("a cat"))
+
+			calls, _ := fake.snapshot()
+			Expect(calls).To(HaveLen(1))
+			Expect(calls[0].imagesJSON).To(MatchJSON(`["` + imgURI + `"]`))
+			// One engine marker per image, injected on the user turn by the
+			// renderer (the engine enforces the 1:1 marker/image match).
+			Expect(calls[0].prompt).To(Equal(
+				"<|turn>user\nWhat is this?<image><turn|>\n<|turn>model\n<|channel>thought\n<channel|>"))
+		})
+
+		It("routes PredictStreamRich through generateStreamMM with the same images JSON", func() {
+			fake := &fakeGen{blocks: []string{"a dog<turn|>"}}
+			d := newTestDllm(fake, nil)
+
+			ch := make(chan *pb.Reply, 16)
+			err := d.PredictStreamRich(&pb.PredictOptions{
+				UseTokenizerTemplate: true,
+				Messages:             []*pb.Message{{Role: "user", Content: "And this?"}},
+				Images:               []string{imgB64},
+			}, ch)
+			Expect(err).ToNot(HaveOccurred())
+
+			var content string
+			for _, r := range drainReplies(ch) {
+				content += string(r.GetMessage())
+			}
+			Expect(content).To(Equal("a dog"))
+
+			calls, _ := fake.snapshot()
+			Expect(calls).To(HaveLen(1))
+			Expect(calls[0].imagesJSON).To(MatchJSON(`["` + imgURI + `"]`))
+			Expect(calls[0].prompt).To(ContainSubstring("And this?<image><turn|>"))
+		})
+
+		It("keeps image order: one data-URI entry per image, one marker each", func() {
+			fake := &fakeGen{out: "x"}
+			d := newTestDllm(fake, nil)
+
+			_, err := d.PredictRich(&pb.PredictOptions{
+				UseTokenizerTemplate: true,
+				Messages:             []*pb.Message{{Role: "user", Content: "Compare."}},
+				Images:               []string{"QQ==", "Qg=="}, // base64("A"), base64("B")
+			})
+			Expect(err).ToNot(HaveOccurred())
+
+			calls, _ := fake.snapshot()
+			Expect(calls[0].imagesJSON).To(MatchJSON(
+				`["data:image/jpeg;base64,QQ==","data:image/jpeg;base64,Qg=="]`))
+			Expect(calls[0].prompt).To(ContainSubstring("Compare.<image><image><turn|>"))
+		})
+
+		It("keeps text-only requests on the text entry points (old libs stay usable)", func() {
+			fake := &fakeGen{out: "x"}
+			d := newTestDllm(fake, nil)
+
+			_, err := d.PredictRich(&pb.PredictOptions{
+				UseTokenizerTemplate: true,
+				Messages:             []*pb.Message{{Role: "user", Content: "hi"}},
+			})
+			Expect(err).ToNot(HaveOccurred())
+
+			calls, _ := fake.snapshot()
+			Expect(calls[0].imagesJSON).To(BeEmpty(), "text-only request must not dispatch to the mm entry points")
+			Expect(calls[0].prompt).ToNot(ContainSubstring(mmImageMarker))
+		})
+
+		It("routes raw-prompt (non-templated) image requests through generateMM verbatim", func() {
+			// Without use_tokenizer_template the caller owns marker placement;
+			// the backend must not inject anything, just forward the images.
+			fake := &fakeGen{out: "x"}
+			d := newTestDllm(fake, nil)
+
+			_, err := d.PredictRich(&pb.PredictOptions{
+				Prompt: "look: <image> here",
+				Images: []string{imgB64},
+			})
+			Expect(err).ToNot(HaveOccurred())
+
+			calls, _ := fake.snapshot()
+			Expect(calls[0].prompt).To(Equal("look: <image> here"))
+			Expect(calls[0].imagesJSON).To(MatchJSON(`["` + imgURI + `"]`))
+		})
+
+		It("rejects video and audio inputs loudly", func() {
+			fake := &fakeGen{out: "x"}
+			d := newTestDllm(fake, nil)
+
+			_, err := d.PredictRich(&pb.PredictOptions{Prompt: "p", Videos: []string{"vvv"}})
+			Expect(err).To(MatchError(ContainSubstring("not supported")))
+
+			ch := make(chan *pb.Reply, 1)
+			err = d.PredictStreamRich(&pb.PredictOptions{Prompt: "p", Audios: []string{"aaa"}}, ch)
+			Expect(err).To(MatchError(ContainSubstring("not supported")))
+
+			calls, _ := fake.snapshot()
+			Expect(calls).To(BeEmpty(), "unsupported media must be rejected before any generate call")
+		})
+
+		It("fails with a clear error against a libdllm.so without the mm entry points", func() {
+			// Simulate the old-library probe outcome regardless of whether the
+			// gated specs loaded a real (mm-capable) libdllm.so first.
+			oldGen, oldStream := cppGenerateMM, cppGenerateStreamMM
+			cppGenerateMM, cppGenerateStreamMM = nil, nil
+			DeferCleanup(func() { cppGenerateMM, cppGenerateStreamMM = oldGen, oldStream })
+
+			g := &capiGenerator{h: 0}
+			_, err := g.generateMM("p<image>", `["data:image/png;base64,QQ=="]`, "{}")
+			Expect(err).To(MatchError(errMMUnsupported))
+			err = g.generateStreamMM("p<image>", `["data:image/png;base64,QQ=="]`, "{}", func(string) {})
+			Expect(err).To(MatchError(errMMUnsupported))
+			// The message must tell the operator what to do, not just fail.
+			Expect(errMMUnsupported.Error()).To(ContainSubstring("rebuild/upgrade"))
+		})
+	})
+
+	Describe("imagesJSON", func() {
+		It("returns empty for no images (text-path sentinel)", func() {
+			out, err := imagesJSON(nil)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(out).To(BeEmpty())
+		})
+
+		It("wraps raw base64 payloads as data: URIs", func() {
+			out, err := imagesJSON([]string{"QQ==", "Qg=="})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(out).To(MatchJSON(`["data:image/jpeg;base64,QQ==","data:image/jpeg;base64,Qg=="]`))
+		})
+
+		It("rejects entries that cannot survive the C side's verbatim (no-escape) parser", func() {
+			// dllm_capi.h: entries are read verbatim up to the closing quote;
+			// a quote or backslash would be JSON-escaped here and misparsed
+			// there, so fail loud instead.
+			_, err := imagesJSON([]string{`with"quote`})
+			Expect(err).To(MatchError(ContainSubstring("not base64")))
+			_, err = imagesJSON([]string{`with\backslash`})
+			Expect(err).To(MatchError(ContainSubstring("not base64")))
+		})
+	})
+
 	Describe("legacy Predict/PredictStream adapters", func() {
 		It("Predict returns the aggregated content string", func() {
 			fake := &fakeGen{out: "plain text"}
@@ -803,5 +990,109 @@ var _ = Describe("Dllm backend (real tiny model)", func() {
 		latency := time.Since(cancelAt)
 		Expect(genErr).To(MatchError(ContainSubstring("cancelled")))
 		GinkgoWriter.Printf("dllm cancel: PredictStreamRich returned %v after Cancel\n", latency)
+	})
+})
+
+// ---------------------------------------------------------------------------
+// Gated multimodal round-trip against the real libdllm.so + the tiny VISION
+// GGUF fixture (dllm.cpp tests/fixtures/tiny_vision_with_vocab.gguf: random
+// weights, the same handcrafted vocab as tiny_with_vocab.gguf, plus a tiny
+// vision tower). Additional gates on top of the text suite:
+//
+//	DLLM_TEST_TINY_MODEL  must point at tiny_vision_with_vocab.gguf
+//	DLLM_TEST_IMAGE       a decodable image fixture
+//	                      (dllm.cpp tests/fixtures/test_image_24x17.bmp)
+// ---------------------------------------------------------------------------
+
+var _ = Describe("Dllm backend (real tiny vision model)", func() {
+	var imageB64 string
+
+	BeforeEach(func() {
+		if os.Getenv("DLLM_TEST_LIBRARY") == "" || os.Getenv("DLLM_TEST_TINY_MODEL") == "" || os.Getenv("DLLM_TEST_IMAGE") == "" {
+			Skip("set DLLM_TEST_LIBRARY, DLLM_TEST_TINY_MODEL (tiny_vision_with_vocab.gguf) and DLLM_TEST_IMAGE to run the vision round-trip")
+		}
+		ensureLibLoaded()
+		Expect(libLoadErr).ToNot(HaveOccurred())
+		Expect(cMMSupported()).To(BeTrue(), "this libdllm.so lacks the mm entry points; rebuild dllm.cpp")
+
+		// Deliver the image exactly as LocalAI core does: a raw base64
+		// payload in PredictOptions.Images (no data: prefix).
+		raw, err := os.ReadFile(os.Getenv("DLLM_TEST_IMAGE"))
+		Expect(err).ToNot(HaveOccurred())
+		imageB64 = base64.StdEncoding.EncodeToString(raw)
+	})
+
+	// loadVisionDllm loads the tiny vision fixture with eb_max_steps:4 (the
+	// tiny tower still resizes every image to the full 280-soft-token patch
+	// budget, so capping the denoise loop keeps the prefill-heavy mm runs
+	// fast - same trick as dllm.cpp's own test_capi_dlopen mm section).
+	loadVisionDllm := func() *Dllm {
+		d := &Dllm{}
+		Expect(d.Load(&pb.ModelOptions{
+			ModelFile: os.Getenv("DLLM_TEST_TINY_MODEL"),
+			Options:   []string{"eb_max_steps:4"},
+		})).To(Succeed())
+		DeferCleanup(func() { Expect(d.Free()).To(Succeed()) })
+		return d
+	}
+
+	It("answers a templated image request deterministically and streams it", func() {
+		d := loadVisionDllm()
+
+		req := func() *pb.PredictOptions {
+			return &pb.PredictOptions{
+				UseTokenizerTemplate: true,
+				Messages:             []*pb.Message{{Role: "user", Content: "hello"}},
+				Images:               []string{imageB64},
+				Tokens:               16,
+				Seed:                 7,
+			}
+		}
+
+		// Non-streaming, twice with the same seed: the full pipeline (data-URI
+		// decode -> BMP decode -> preprocess -> vision tower -> splice ->
+		// diffusion) must be deterministic.
+		reply1, err := d.PredictRich(req())
+		Expect(err).ToNot(HaveOccurred())
+		Expect(string(reply1.GetMessage())).ToNot(BeEmpty())
+		Expect(reply1.GetChatDeltas()).ToNot(BeEmpty())
+
+		reply2, err := d.PredictRich(req())
+		Expect(err).ToNot(HaveOccurred())
+		Expect(string(reply2.GetMessage())).To(Equal(string(reply1.GetMessage())))
+
+		// The image must CHANGE the generation: same prompt and seed without
+		// it goes through the text path and must diverge (soft embeddings
+		// shift every position after the splice).
+		textOnly := req()
+		textOnly.Images = nil
+		replyText, err := d.PredictRich(textOnly)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(string(replyText.GetMessage())).ToNot(Equal(string(reply1.GetMessage())))
+
+		// Streaming variant over the same request shape.
+		ch := make(chan *pb.Reply, 64)
+		Expect(d.PredictStreamRich(req(), ch)).To(Succeed())
+		replies := drainReplies(ch)
+		Expect(replies).ToNot(BeEmpty())
+		var streamed string
+		for _, r := range replies {
+			streamed += string(r.GetMessage())
+		}
+		Expect(streamed).ToNot(BeEmpty())
+	})
+
+	It("surfaces the engine's marker/image mismatch error", func() {
+		d := loadVisionDllm()
+
+		// Raw-prompt mode with an image but no marker: the engine must
+		// reject the 0-marker/1-image mismatch through last_error.
+		_, err := d.PredictRich(&pb.PredictOptions{
+			Prompt: "hello",
+			Images: []string{imageB64},
+			Tokens: 16,
+			Seed:   7,
+		})
+		Expect(err).To(MatchError(ContainSubstring("markers")))
 	})
 })

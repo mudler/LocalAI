@@ -45,8 +45,13 @@ const complexToolsJSON = `[{"type":"function","function":{"name":"complex_tool",
 const complexToolsBlock = `<|tool>declaration:complex_tool{description:<|"|>A complex tool.<|"|>,parameters:{properties:{matrix:{items:{items:{<|"|>type<|"|>:<|"|>number<|"|>},type:<|"|>ARRAY<|"|>},type:<|"|>ARRAY<|"|>},mode:{enum:[<|"|>a<|"|>,<|"|>b<|"|>],nullable:true,type:<|"|>STRING<|"|>},opts:{description:<|"|>Options.<|"|>,properties:{depth:{nullable:true,type:<|"|>INTEGER<|"|>}},required:[<|"|>depth<|"|>],type:<|"|>OBJECT<|"|>},tags:{description:<|"|>Tags.<|"|>,items:{type:<|"|>STRING<|"|>},type:<|"|>ARRAY<|"|>}},required:[<|"|>tags<|"|>,<|"|>opts<|"|>],type:<|"|>OBJECT<|"|>},response:{description:<|"|>The result.<|"|>,type:<|"|>OBJECT<|"|>}}<tool|>`
 
 type renderGemma4Case struct {
-	msgs               []*pb.Message
-	toolsJSON          string
+	msgs      []*pb.Message
+	toolsJSON string
+	// nImages mirrors len(PredictOptions.Images): the OpenAI layer strips
+	// image content parts out of the messages, so the renderer re-injects
+	// one engine marker per image on the last user message (see the IMAGE
+	// NOTE on RenderGemma4).
+	nImages            int
 	enableThinking     bool
 	noGenerationPrompt bool // inverted so the zero value is the common case
 	expected           string
@@ -55,7 +60,7 @@ type renderGemma4Case struct {
 var _ = Describe("RenderGemma4", func() {
 	DescribeTable("renders the canonical gemma4 prompt",
 		func(c renderGemma4Case) {
-			out, err := RenderGemma4(c.msgs, c.toolsJSON, c.enableThinking, !c.noGenerationPrompt)
+			out, err := RenderGemma4(c.msgs, c.toolsJSON, c.nImages, c.enableThinking, !c.noGenerationPrompt)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(out).To(Equal(c.expected))
 			// The C-ABI generate prepends BOS itself: a literal <bos>
@@ -273,13 +278,55 @@ var _ = Describe("RenderGemma4", func() {
 			noGenerationPrompt: true,
 			expected:           "<|turn>user\nhi<turn|>\n",
 		}),
+
+		// One engine marker per image, appended directly after the user
+		// text with no separator (tpl L323-L341 emits parts back-to-back;
+		// "<image>" is dllm_capi.h's splice marker, not the template's
+		// <|image|> text token - see the IMAGE NOTE on RenderGemma4).
+		Entry("one image appends one engine marker to the user message", renderGemma4Case{
+			msgs: []*pb.Message{
+				{Role: "user", Content: "What is in this picture?"},
+			},
+			nImages:  1,
+			expected: "<|turn>user\nWhat is in this picture?<image><turn|>\n<|turn>model\n<|channel>thought\n<channel|>",
+		}),
+
+		Entry("multiple images append markers in image order", renderGemma4Case{
+			msgs: []*pb.Message{
+				{Role: "user", Content: "Compare these."},
+			},
+			nImages:  3,
+			expected: "<|turn>user\nCompare these.<image><image><image><turn|>\n<|turn>model\n<|channel>thought\n<channel|>",
+		}),
+
+		// Flattened delivery loses per-message attribution, so all images
+		// attach to the LAST user message (llama.cpp grpc-server convention).
+		Entry("images attach to the last user message in multi-turn", renderGemma4Case{
+			msgs: []*pb.Message{
+				{Role: "user", Content: "hi"},
+				{Role: "assistant", Content: "hello"},
+				{Role: "user", Content: "and this?"},
+			},
+			nImages:  1,
+			expected: "<|turn>user\nhi<turn|>\n<|turn>model\nhello<turn|>\n<|turn>user\nand this?<image><turn|>\n<|turn>model\n<|channel>thought\n<channel|>",
+		}),
+
+		// tpl L346: the markers count as captured_content, so an image-only
+		// user message still has content and closes its turn normally.
+		Entry("image with empty user text still closes the turn", renderGemma4Case{
+			msgs: []*pb.Message{
+				{Role: "user", Content: ""},
+			},
+			nImages:  1,
+			expected: "<|turn>user\n<image><turn|>\n<|turn>model\n<|channel>thought\n<channel|>",
+		}),
 	)
 
 	Describe("error handling", func() {
 		It("fails loud on an unknown role", func() {
 			_, err := RenderGemma4([]*pb.Message{
 				{Role: "narrator", Content: "Meanwhile..."},
-			}, "", false, true)
+			}, "", 0, false, true)
 			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).To(ContainSubstring(`unknown role "narrator"`))
 		})
@@ -287,7 +334,7 @@ var _ = Describe("RenderGemma4", func() {
 		It("fails on invalid tools JSON", func() {
 			_, err := RenderGemma4([]*pb.Message{
 				{Role: "user", Content: "hi"},
-			}, "{not json", false, true)
+			}, "{not json", 0, false, true)
 			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).To(ContainSubstring("tools JSON"))
 		})
@@ -296,7 +343,7 @@ var _ = Describe("RenderGemma4", func() {
 			_, err := RenderGemma4([]*pb.Message{
 				{Role: "user", Content: "hi"},
 				{Role: "assistant", Content: "", ToolCalls: "{not json"},
-			}, "", false, true)
+			}, "", 0, false, true)
 			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).To(ContainSubstring("tool_calls JSON"))
 		})
@@ -307,7 +354,7 @@ var _ = Describe("RenderGemma4", func() {
 			_, err := RenderGemma4([]*pb.Message{
 				{Role: "user", Content: "hi"},
 				{Role: "tool", Content: `{"temp": 20}`, ToolCallId: "call_1"},
-			}, "", false, true)
+			}, "", 0, false, true)
 			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).To(ContainSubstring("orphan tool message 1"))
 		})
@@ -315,7 +362,7 @@ var _ = Describe("RenderGemma4", func() {
 		It("fails on trailing garbage after the tools JSON array", func() {
 			_, err := RenderGemma4([]*pb.Message{
 				{Role: "user", Content: "hi"},
-			}, "[] junk", false, true)
+			}, "[] junk", 0, false, true)
 			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).To(ContainSubstring("tools JSON"))
 		})
@@ -323,7 +370,7 @@ var _ = Describe("RenderGemma4", func() {
 		It("fails when the tools JSON is not an array", func() {
 			_, err := RenderGemma4([]*pb.Message{
 				{Role: "user", Content: "hi"},
-			}, `{"type":"function"}`, false, true)
+			}, `{"type":"function"}`, 0, false, true)
 			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).To(ContainSubstring("tools JSON is not an array"))
 		})
@@ -331,7 +378,7 @@ var _ = Describe("RenderGemma4", func() {
 		It("fails when a tools array element is not an object", func() {
 			_, err := RenderGemma4([]*pb.Message{
 				{Role: "user", Content: "hi"},
-			}, `[42]`, false, true)
+			}, `[42]`, 0, false, true)
 			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).To(ContainSubstring("tools[0] is not an object"))
 		})
@@ -339,9 +386,21 @@ var _ = Describe("RenderGemma4", func() {
 		It("rejects a nil message via the unknown-role check", func() {
 			// Pins current behavior: pb getters are nil-safe, so a nil message
 			// reads as role "" and trips the fail-loud unknown-role guard.
-			_, err := RenderGemma4([]*pb.Message{nil}, "", false, true)
+			_, err := RenderGemma4([]*pb.Message{nil}, "", 0, false, true)
 			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).To(ContainSubstring(`unknown role "" in message 0`))
+		})
+
+		It("fails loud on images with no user message to attach them to", func() {
+			// The engine would reject the markerless prompt anyway
+			// (marker/image count mismatch); the renderer surfaces the bad
+			// request with a usable message instead.
+			_, err := RenderGemma4([]*pb.Message{
+				{Role: "system", Content: "sys"},
+				{Role: "assistant", Content: "hi"},
+			}, "", 1, false, true)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("no user message"))
 		})
 	})
 })

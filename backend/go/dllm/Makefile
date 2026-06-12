@@ -19,7 +19,11 @@
 # until then the anonymous clone below fails. Use the symlink shortcut above
 # with a local checkout, or a git credential helper with access to the repo.
 
-DLLM_VERSION?=b22fcebebfb225131113188599a9ae542b2935d7
+# The pin below is the first commit carrying the multimodal C-ABI entry
+# points (dllm_capi_generate_mm / dllm_capi_generate_stream_mm) the
+# image-input path probes for; older libs still load, but image requests
+# then fail with "library predates the multimodal entry points".
+DLLM_VERSION?=e6dcf44cddd65845e3a0814a1c2282a5d90ee98a
 DLLM_REPO?=https://github.com/mudler/dllm.cpp
 
 GOCMD?=go

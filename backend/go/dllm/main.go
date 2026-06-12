@@ -2,8 +2,9 @@ package main
 
 // Started internally by LocalAI - one gRPC server per loaded model.
 //
-// Loads libdllm.so via purego and registers the 9-symbol flat C-ABI
-// declared in dllm.cpp's include/dllm_capi.h (ABI v1). The library name can
+// Loads libdllm.so via purego and registers the flat C-ABI declared in
+// dllm.cpp's include/dllm_capi.h (ABI v1): 9 mandatory symbols plus the
+// Dlsym-probed optional multimodal pair. The library name can
 // be overridden with DLLM_LIBRARY (mirrors the PARAKEET_LIBRARY /
 // WHISPER_LIBRARY convention in the sibling backends); the default looks
 // for the .so next to this binary (run.sh puts the package dir on
@@ -57,6 +58,18 @@ func loadCAPI(libName string) error {
 	for _, lf := range libFuncs {
 		purego.RegisterLibFunc(lf.FuncPtr, lib, lf.Name)
 	}
+
+	// Multimodal entry points (dllm_capi.h's P4 surface). Additive: the ABI
+	// version stays 1 and consumers detect the surface by probing the symbols
+	// (the parakeet-cpp optional-symbol pattern), so the backend still loads
+	// against an older text-only libdllm.so - image requests then fail with
+	// errMMUnsupported instead of a boot failure.
+	if sym, err := purego.Dlsym(lib, "dllm_capi_generate_mm"); err == nil && sym != 0 {
+		purego.RegisterLibFunc(&cppGenerateMM, lib, "dllm_capi_generate_mm")
+	}
+	if sym, err := purego.Dlsym(lib, "dllm_capi_generate_stream_mm"); err == nil && sym != 0 {
+		purego.RegisterLibFunc(&cppGenerateStreamMM, lib, "dllm_capi_generate_stream_mm")
+	}
 	return nil
 }
 
@@ -75,7 +88,7 @@ func main() {
 	if v := cAbiVersion(); v != dllmABIVersion {
 		panic(fmt.Errorf("dllm: libdllm.so ABI=%d, this backend speaks ABI=%d", v, dllmABIVersion))
 	}
-	fmt.Fprintf(os.Stderr, "[dllm] ABI=%d\n", cAbiVersion())
+	fmt.Fprintf(os.Stderr, "[dllm] ABI=%d multimodal=%t\n", cAbiVersion(), cMMSupported())
 
 	flag.Parse()
 
