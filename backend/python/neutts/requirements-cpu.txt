@@ -1,6 +1,7 @@
 --extra-index-url https://download.pytorch.org/whl/cpu
 accelerate
 torch==2.8.0
+torchaudio==2.8.0
 transformers==4.56.1
 librosa==0.11.0
 neucodec>=0.0.4
