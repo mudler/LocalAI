@@ -26,8 +26,16 @@ add_library(govibevoicecpp MODULE cpp/govibevoicecpp.cpp)
 # vv_capi_* symbols (purego dlopens them by name, nothing in our
 # translation unit references them). Force the static archive's
 # entire contents into the MODULE so dlsym finds vv_capi_load etc.
+#
+# Link the `vibevoice` TARGET (not a bare archive path) so CMake builds
+# libvibevoice.a first and tracks the dependency: the upstream project is added
+# with EXCLUDE_FROM_ALL, so without a target-level link there is no rule to
+# build it. Passing only $<TARGET_FILE:vibevoice> as a path on Apple left the
+# build with "No rule to make target 'vibevoice/libvibevoice.a'" (issue #10267).
+# force_load is then applied as a separate link option.
 if(APPLE)
-    target_link_libraries(govibevoicecpp PRIVATE -Wl,-force_load $<TARGET_FILE:vibevoice>)
+    target_link_libraries(govibevoicecpp PRIVATE vibevoice)
+    target_link_options(govibevoicecpp PRIVATE "-Wl,-force_load,$<TARGET_FILE:vibevoice>")
 elseif(MSVC)
     target_link_libraries(govibevoicecpp PRIVATE vibevoice)
     set_property(TARGET govibevoicecpp APPEND PROPERTY LINK_FLAGS "/WHOLEARCHIVE:vibevoice")
