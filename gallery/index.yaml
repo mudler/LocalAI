@@ -6685,6 +6685,37 @@
     - filename: rfdetr-nano-q8_0.gguf
       uri: huggingface://mudler/rfdetr-cpp-nano/rfdetr-nano-q8_0.gguf
       sha256: 940084c60a780f1a19a51458ae3a601454b3b843675fa0713ff43ae5bccc0d9b
+- name: locate-anything-3b
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://github.com/mudler/locate-anything.cpp
+    - https://huggingface.co/nvidia/LocateAnything-3B
+    - https://huggingface.co/mudler/locate-anything.cpp-gguf
+  description: |
+    NVIDIA LocateAnything-3B open-vocabulary object detection (visual grounding), served via the native
+    locate-anything.cpp backend (C++/ggml + purego, no Python). Describe what to find in a text prompt and
+    get labeled boxes back; separate multiple categories with </c>. Q8_0 is the recommended default:
+    box-identical to F16/F32, ~6.3GB, fastest CPU latency. Drop-in for the /v1/detection endpoint (pass the
+    prompt).
+  license: other
+  icon: https://avatars.githubusercontent.com/u/53104118?s=200&v=4
+  tags:
+    - object-detection
+    - open-vocabulary
+    - locate-anything
+    - native
+    - cpp
+    - cpu
+  overrides:
+    backend: locate-anything-cpp
+    known_usecases:
+      - detection
+    parameters:
+      model: locate-anything-q8_0.gguf
+  files:
+    - filename: locate-anything-q8_0.gguf
+      uri: huggingface://mudler/locate-anything.cpp-gguf/locate-anything-q8_0.gguf
+      sha256: 0909d8a1aba584b482d501baae032611d1559878be1b7f6606ba516687c5380d
 - name: rfdetr-cpp-base
   url: github:mudler/LocalAI/gallery/virtual.yaml@master
   urls:

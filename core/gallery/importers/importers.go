@@ -158,6 +158,11 @@ var defaultImporters = []Importer{
 	// RFDetrImporter must run before TransformersImporter — RF-DETR
 	// checkpoints may carry tokenizer-adjacent artefacts.
 	&RFDetrImporter{},
+	// LocateAnythingImporter (NVIDIA LocateAnything open-vocab detection,
+	// native C++/ggml port) must run before LlamaCPPImporter so its GGUF
+	// bundles aren't claimed by the generic .gguf importer; kept next to
+	// RFDetrImporter as both are detection models.
+	&LocateAnythingImporter{},
 	// Existing
 	// DS4Importer must precede LlamaCPPImporter - ds4 weights are GGUFs and
 	// would otherwise be claimed by the generic .gguf-handling llama-cpp
