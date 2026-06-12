@@ -18,7 +18,7 @@ import grpc
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'common'))
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'common'))
 from grpc_auth import get_auth_interceptors
-from python_utils import messages_to_dicts, parse_options
+from python_utils import messages_to_dicts, parse_options, resolve_model_path
 from mlx_utils import parse_tool_calls, split_reasoning
 
 from mlx_vlm import load, stream_generate
@@ -67,7 +67,11 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
             backend_pb2.Result: The load model result.
         """
         try:
-            print(f"Loading MLX-VLM model: {request.Model}", file=sys.stderr)
+            # Normalize the model reference: strip LocalAI's file:// LocalPrefix
+            # and prefer the resolved ModelFile so mlx_vlm.load() gets a plain
+            # repo id or filesystem path (it rejects file:// URIs).
+            model_path = resolve_model_path(request.Model, request.ModelFile)
+            print(f"Loading MLX-VLM model: {model_path}", file=sys.stderr)
             print(f"Request: {request}", file=sys.stderr)
 
             # Parse Options[] key:value strings into a typed dict
@@ -76,10 +80,10 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
 
             # Load model and processor using MLX-VLM
             # mlx-vlm load function returns (model, processor) instead of (model, tokenizer)
-            self.model, self.processor = load(request.Model)
+            self.model, self.processor = load(model_path)
 
             # Load model config for chat template support
-            self.config = load_config(request.Model)
+            self.config = load_config(model_path)
 
             # Auto-infer the tool parser from the chat template. mlx-vlm has
             # its own _infer_tool_parser that falls back to mlx-lm parsers.

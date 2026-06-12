@@ -28,7 +28,7 @@ import grpc
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'common'))
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'common'))
 from grpc_auth import get_auth_interceptors
-from python_utils import messages_to_dicts, parse_options as _shared_parse_options
+from python_utils import messages_to_dicts, parse_options as _shared_parse_options, resolve_model_path
 from mlx_utils import parse_tool_calls, split_reasoning
 
 
@@ -99,7 +99,11 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
             from mlx_lm import load
             from mlx_lm.models.cache import make_prompt_cache, can_trim_prompt_cache, trim_prompt_cache
 
-            print(f"[Rank 0] Loading model: {request.Model}", file=sys.stderr)
+            # Normalize the model reference: strip LocalAI's file:// LocalPrefix
+            # and prefer the resolved ModelFile so mlx_lm.load() gets a plain
+            # repo id or filesystem path (it rejects file:// URIs).
+            model_path = resolve_model_path(request.Model, request.ModelFile)
+            print(f"[Rank 0] Loading model: {model_path}", file=sys.stderr)
 
             self.options = parse_options(request.Options)
             print(f"Options: {self.options}", file=sys.stderr)
@@ -128,7 +132,7 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
                 )
                 self.coordinator = DistributedCoordinator(self.group)
                 self.coordinator.broadcast_command(CMD_LOAD_MODEL)
-                self.coordinator.broadcast_model_name(request.Model)
+                self.coordinator.broadcast_model_name(model_path)
             else:
                 print("[Rank 0] No hostfile configured, running single-node", file=sys.stderr)
 
@@ -144,9 +148,9 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
 
             if tokenizer_config:
                 print(f"Loading with tokenizer_config: {tokenizer_config}", file=sys.stderr)
-                self.model, self.tokenizer = load(request.Model, tokenizer_config=tokenizer_config)
+                self.model, self.tokenizer = load(model_path, tokenizer_config=tokenizer_config)
             else:
-                self.model, self.tokenizer = load(request.Model)
+                self.model, self.tokenizer = load(model_path)
 
             if self.group is not None:
                 from sharding import pipeline_auto_parallel
@@ -157,7 +161,7 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
                 from mlx_cache import ThreadSafeLRUPromptCache
                 max_cache_entries = self.options.get("max_cache_entries", 10)
                 self.max_kv_size = self.options.get("max_kv_size", None)
-                self.model_key = request.Model
+                self.model_key = model_path
                 self.lru_cache = ThreadSafeLRUPromptCache(
                     max_size=max_cache_entries,
                     can_trim_fn=can_trim_prompt_cache,
