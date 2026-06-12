@@ -39,7 +39,10 @@ endif
 # is overwritten back to OFF and the build silently falls back to CPU. Forward the
 # PARAKEET_GGML_* options instead. (openblas is not gated, so -DGGML_BLAS passes through.)
 ifeq ($(BUILD_TYPE),cublas)
-	CMAKE_ARGS+=-DPARAKEET_GGML_CUDA=ON
+	# GGML_CUDA_GRAPHS is OFF by ggml default; enabling it gives a small free
+	# speedup (~1% measured on GB10, never negative) by capturing/replaying the
+	# CUDA graph. Not gated by parakeet.cpp, so it passes straight through to ggml.
+	CMAKE_ARGS+=-DPARAKEET_GGML_CUDA=ON -DGGML_CUDA_GRAPHS=ON
 else ifeq ($(BUILD_TYPE),openblas)
 	CMAKE_ARGS+=-DGGML_BLAS=ON -DGGML_BLAS_VENDOR=OpenBLAS
 else ifeq ($(BUILD_TYPE),hipblas)
