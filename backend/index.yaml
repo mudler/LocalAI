@@ -1254,6 +1254,7 @@
     default: "cpu-sherpa-onnx"
     nvidia: "cuda12-sherpa-onnx"
     nvidia-cuda-12: "cuda12-sherpa-onnx"
+    metal: "metal-sherpa-onnx"
 - !!merge <<: *neutts
   name: "neutts-development"
   capabilities:
@@ -4716,12 +4717,14 @@
     default: "cpu-speaker-recognition"
     nvidia: "cuda12-speaker-recognition"
     nvidia-cuda-12: "cuda12-speaker-recognition"
+    metal: "metal-speaker-recognition"
 - !!merge <<: *speakerrecognition
   name: "speaker-recognition-development"
   capabilities:
     default: "cpu-speaker-recognition-development"
     nvidia: "cuda12-speaker-recognition-development"
     nvidia-cuda-12: "cuda12-speaker-recognition-development"
+    metal: "metal-speaker-recognition-development"
 - !!merge <<: *speakerrecognition
   name: "cpu-speaker-recognition"
   uri: "quay.io/go-skynet/local-ai-backends:latest-cpu-speaker-recognition"
@@ -4742,6 +4745,16 @@
   uri: "quay.io/go-skynet/local-ai-backends:master-gpu-nvidia-cuda-12-speaker-recognition"
   mirrors:
     - localai/localai-backends:master-gpu-nvidia-cuda-12-speaker-recognition
+- !!merge <<: *speakerrecognition
+  name: "metal-speaker-recognition"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-metal-darwin-arm64-speaker-recognition"
+  mirrors:
+    - localai/localai-backends:latest-metal-darwin-arm64-speaker-recognition
+- !!merge <<: *speakerrecognition
+  name: "metal-speaker-recognition-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-metal-darwin-arm64-speaker-recognition"
+  mirrors:
+    - localai/localai-backends:master-metal-darwin-arm64-speaker-recognition
 ## sherpa-onnx
 - !!merge <<: *sherpa-onnx
   name: "sherpa-onnx-development"
@@ -4749,6 +4762,7 @@
     default: "cpu-sherpa-onnx-development"
     nvidia: "cuda12-sherpa-onnx-development"
     nvidia-cuda-12: "cuda12-sherpa-onnx-development"
+    metal: "metal-sherpa-onnx-development"
 - !!merge <<: *sherpa-onnx
   name: "cpu-sherpa-onnx"
   uri: "quay.io/go-skynet/local-ai-backends:latest-cpu-sherpa-onnx"
@@ -4769,3 +4783,13 @@
   uri: "quay.io/go-skynet/local-ai-backends:master-gpu-nvidia-cuda-12-sherpa-onnx"
   mirrors:
     - localai/localai-backends:master-gpu-nvidia-cuda-12-sherpa-onnx
+- !!merge <<: *sherpa-onnx
+  name: "metal-sherpa-onnx"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-metal-darwin-arm64-sherpa-onnx"
+  mirrors:
+    - localai/localai-backends:latest-metal-darwin-arm64-sherpa-onnx
+- !!merge <<: *sherpa-onnx
+  name: "metal-sherpa-onnx-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-metal-darwin-arm64-sherpa-onnx"
+  mirrors:
+    - localai/localai-backends:master-metal-darwin-arm64-sherpa-onnx
