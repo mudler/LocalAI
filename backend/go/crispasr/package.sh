@@ -51,6 +51,32 @@ else
     exit 1
 fi
 
+# Bundle espeak-ng (+ its libpcaudio/libsonic runtime deps) and its voice data so
+# the piper TTS backend can phonemize non-English text. CrispASR dlopens
+# libespeak-ng.so.1 at runtime (the MIT-clean path); the dlopen succeeds loading
+# libespeak-ng but FAILS if libpcaudio/libsonic are absent, so all three .so are
+# required. run.sh points CRISPASR_ESPEAK_DATA_PATH at the bundled data dir.
+# Best-effort: only copied when present, so a local dev build without espeak-ng
+# installed still packages the rest (English voices keep working).
+ESPEAK_LIBDIR=""
+for d in /usr/lib/x86_64-linux-gnu /usr/lib/aarch64-linux-gnu; do
+    if [ -f "$d/libespeak-ng.so.1" ]; then
+        ESPEAK_LIBDIR="$d"
+        break
+    fi
+done
+if [ -n "$ESPEAK_LIBDIR" ]; then
+    echo "Bundling espeak-ng from $ESPEAK_LIBDIR ..."
+    cp -arfLv "$ESPEAK_LIBDIR/libespeak-ng.so.1" $CURDIR/package/lib/
+    cp -arfLv "$ESPEAK_LIBDIR/libpcaudio.so.0" $CURDIR/package/lib/
+    cp -arfLv "$ESPEAK_LIBDIR/libsonic.so.0" $CURDIR/package/lib/
+    if [ -d "$ESPEAK_LIBDIR/espeak-ng-data" ]; then
+        cp -arfLv "$ESPEAK_LIBDIR/espeak-ng-data" $CURDIR/package/
+    fi
+else
+    echo "espeak-ng not found; non-English piper voices will not phonemize"
+fi
+
 # Package GPU libraries based on BUILD_TYPE
 # The GPU library packaging script will detect BUILD_TYPE and copy appropriate GPU libraries
 GPU_LIB_SCRIPT="${REPO_ROOT}/scripts/build/package-gpu-libs.sh"
