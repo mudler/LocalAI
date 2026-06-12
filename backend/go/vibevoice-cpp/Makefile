@@ -94,26 +94,30 @@ purge:
 # Build all variants (Linux only)
 ifeq ($(UNAME_S),Linux)
 libgovibevoicecpp-avx.so: sources/vibevoice.cpp
+	$(MAKE) purge
 	$(info ${GREEN}I vibevoice-cpp build info:avx${RESET})
 	SO_TARGET=libgovibevoicecpp-avx.so CMAKE_ARGS="$(CMAKE_ARGS) -DGGML_AVX=on -DGGML_AVX2=off -DGGML_AVX512=off -DGGML_FMA=off -DGGML_F16C=off -DGGML_BMI2=off" $(MAKE) libgovibevoicecpp-custom
-	rm -rf build-libgovibevoicecpp-avx.so
+	rm -rfv build*
 
 libgovibevoicecpp-avx2.so: sources/vibevoice.cpp
+	$(MAKE) purge
 	$(info ${GREEN}I vibevoice-cpp build info:avx2${RESET})
 	SO_TARGET=libgovibevoicecpp-avx2.so CMAKE_ARGS="$(CMAKE_ARGS) -DGGML_AVX=on -DGGML_AVX2=on -DGGML_AVX512=off -DGGML_FMA=on -DGGML_F16C=on -DGGML_BMI2=on" $(MAKE) libgovibevoicecpp-custom
-	rm -rf build-libgovibevoicecpp-avx2.so
+	rm -rfv build*
 
 libgovibevoicecpp-avx512.so: sources/vibevoice.cpp
+	$(MAKE) purge
 	$(info ${GREEN}I vibevoice-cpp build info:avx512${RESET})
 	SO_TARGET=libgovibevoicecpp-avx512.so CMAKE_ARGS="$(CMAKE_ARGS) -DGGML_AVX=on -DGGML_AVX2=on -DGGML_AVX512=on -DGGML_FMA=on -DGGML_F16C=on -DGGML_BMI2=on" $(MAKE) libgovibevoicecpp-custom
-	rm -rf build-libgovibevoicecpp-avx512.so
+	rm -rfv build*
 endif
 
 # Build fallback variant (all platforms)
 libgovibevoicecpp-fallback.so: sources/vibevoice.cpp
+	$(MAKE) purge
 	$(info ${GREEN}I vibevoice-cpp build info:fallback${RESET})
 	SO_TARGET=libgovibevoicecpp-fallback.so CMAKE_ARGS="$(CMAKE_ARGS) -DGGML_AVX=off -DGGML_AVX2=off -DGGML_AVX512=off -DGGML_FMA=off -DGGML_F16C=off -DGGML_BMI2=off" $(MAKE) libgovibevoicecpp-custom
-	rm -rf build-libgovibevoicecpp-fallback.so
+	rm -rfv build*
 
 libgovibevoicecpp-custom: CMakeLists.txt cpp/govibevoicecpp.cpp cpp/govibevoicecpp.h
 	mkdir -p build-$(SO_TARGET) && \
