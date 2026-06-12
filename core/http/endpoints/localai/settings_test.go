@@ -108,4 +108,20 @@ var _ = Describe("Settings endpoints", func() {
 		_, err := os.Stat(filepath.Join(tmp, "runtime_settings.json"))
 		Expect(err).ToNot(HaveOccurred())
 	})
+
+	// Residual #9125: enabling the watchdog from a cold (off) state via the
+	// React master toggle must start the live watchdog immediately, without a
+	// restart. The toggle posts watchdog_idle_enabled/busy_enabled=true while
+	// the vestigial watchdog_enabled stays false (it was loaded false). The
+	// old handler keyed its stop decision off that raw watchdog_enabled=false
+	// and called StopWatchdog(), so the watchdog never started until restart.
+	It("starts the live watchdog on a cold enable even when watchdog_enabled=false", func() {
+		Expect(app.ModelLoader().GetWatchDog()).To(BeNil(), "precondition: watchdog should be off")
+
+		rec := post(`{"watchdog_enabled":false,"watchdog_idle_enabled":true,"watchdog_busy_enabled":true,"watchdog_idle_timeout":"15m","watchdog_busy_timeout":"5m","watchdog_interval":"1s"}`)
+		Expect(rec.Code).To(Equal(http.StatusOK))
+
+		Expect(app.ModelLoader().GetWatchDog()).ToNot(BeNil(),
+			"watchdog should be running after a cold enable, without waiting for a restart")
+	})
 })

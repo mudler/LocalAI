@@ -488,6 +488,16 @@ func (o *ApplicationConfig) GetEffectiveMaxActiveBackends() int {
 	return 0
 }
 
+// WatchdogShouldRun reports whether the live watchdog process should be
+// running for the current config. It mirrors the gating in
+// (*Application).startWatchdog so the /api/settings start/stop decision and
+// the startup path agree on a single source of truth: the watchdog runs when
+// idle/busy checks are enabled (WatchDog), when LRU eviction is active
+// (effective max active backends > 0), or when the memory reclaimer is on.
+func (o *ApplicationConfig) WatchdogShouldRun() bool {
+	return o.WatchDog || o.GetEffectiveMaxActiveBackends() > 0 || o.MemoryReclaimerEnabled
+}
+
 // WithForceEvictionWhenBusy sets whether to force eviction even when models have active API calls
 func WithForceEvictionWhenBusy(enabled bool) AppOption {
 	return func(o *ApplicationConfig) {
@@ -1198,17 +1208,21 @@ func (o *ApplicationConfig) ApplyRuntimeSettings(settings *RuntimeSettings) (req
 	}
 	if settings.WatchdogIdleEnabled != nil {
 		o.WatchDogIdle = *settings.WatchdogIdleEnabled
-		if o.WatchDogIdle {
-			o.WatchDog = true
-		}
 		requireRestart = true
 	}
 	if settings.WatchdogBusyEnabled != nil {
 		o.WatchDogBusy = *settings.WatchdogBusyEnabled
-		if o.WatchDogBusy {
-			o.WatchDog = true
-		}
 		requireRestart = true
+	}
+	// The React Settings "Enable Watchdog" master toggle manages only the
+	// idle/busy checks — watchdog_enabled is vestigial in that UI. Whenever
+	// either idle/busy field is present in the body, derive the run-state from
+	// idle||busy so a cold enable starts the watchdog and a full disable stops
+	// it, instead of trusting the stale watchdog_enabled the UI never updates.
+	// This mirrors the startup invariant in startup.go. An API client posting
+	// only watchdog_enabled (idle/busy absent) keeps its explicit value.
+	if settings.WatchdogIdleEnabled != nil || settings.WatchdogBusyEnabled != nil {
+		o.WatchDog = o.WatchDogIdle || o.WatchDogBusy
 	}
 	if settings.WatchdogIdleTimeout != nil {
 		if dur, err := time.ParseDuration(*settings.WatchdogIdleTimeout); err == nil {

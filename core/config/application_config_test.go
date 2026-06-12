@@ -223,6 +223,69 @@ var _ = Describe("ApplicationConfig RuntimeSettings Conversion", func() {
 			Expect(appConfig.WatchDogBusy).To(BeTrue())
 		})
 
+		// Residual #9125: the React Settings "Enable Watchdog" master toggle
+		// manages only watchdog_idle_enabled / watchdog_busy_enabled — it never
+		// touches the vestigial watchdog_enabled field. On a cold enable the
+		// body therefore carries watchdog_enabled=false alongside idle/busy=true.
+		// The derived run-state (WatchDog) must follow idle||busy so the live
+		// watchdog actually starts, not the stale watchdog_enabled=false.
+		It("should derive WatchDog from idle||busy on a cold enable even when watchdog_enabled=false", func() {
+			appConfig := &ApplicationConfig{WatchDog: false}
+
+			watchdogEnabled := false
+			watchdogIdle := true
+			watchdogBusy := true
+			rs := &RuntimeSettings{
+				WatchdogEnabled:     &watchdogEnabled,
+				WatchdogIdleEnabled: &watchdogIdle,
+				WatchdogBusyEnabled: &watchdogBusy,
+			}
+
+			appConfig.ApplyRuntimeSettings(rs)
+
+			Expect(appConfig.WatchDog).To(BeTrue())
+			Expect(appConfig.WatchdogShouldRun()).To(BeTrue())
+		})
+
+		// The disable direction: the master toggle off sends idle=false,
+		// busy=false, but watchdog_enabled may still be the stale true loaded
+		// before the change. WatchDog must follow idle||busy down to false so
+		// the live watchdog is stopped (it stays stopped unless LRU / memory
+		// reclaimer keep it alive, which is gated by WatchdogShouldRun).
+		It("should disable WatchDog when both idle and busy are turned off", func() {
+			appConfig := &ApplicationConfig{WatchDog: true, WatchDogIdle: true, WatchDogBusy: true}
+
+			watchdogEnabled := true
+			watchdogIdle := false
+			watchdogBusy := false
+			rs := &RuntimeSettings{
+				WatchdogEnabled:     &watchdogEnabled,
+				WatchdogIdleEnabled: &watchdogIdle,
+				WatchdogBusyEnabled: &watchdogBusy,
+			}
+
+			appConfig.ApplyRuntimeSettings(rs)
+
+			Expect(appConfig.WatchDog).To(BeFalse())
+			Expect(appConfig.WatchdogShouldRun()).To(BeFalse())
+		})
+
+		// Backward compatibility: an API client that posts only watchdog_enabled
+		// (idle/busy nil) keeps the explicit value — the idle/busy derivation
+		// only kicks in when those fields are actually present in the body.
+		It("should preserve explicit watchdog_enabled when idle/busy are absent", func() {
+			appConfig := &ApplicationConfig{WatchDog: false}
+
+			watchdogEnabled := true
+			rs := &RuntimeSettings{
+				WatchdogEnabled: &watchdogEnabled,
+			}
+
+			appConfig.ApplyRuntimeSettings(rs)
+
+			Expect(appConfig.WatchDog).To(BeTrue())
+		})
+
 		It("should handle MaxActiveBackends and update SingleBackend accordingly", func() {
 			appConfig := &ApplicationConfig{}
 
