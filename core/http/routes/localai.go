@@ -27,7 +27,8 @@ func RegisterLocalAIRoutes(router *echo.Echo,
 	app *application.Application,
 	adminMiddleware echo.MiddlewareFunc,
 	mcpJobsMw echo.MiddlewareFunc,
-	mcpMw echo.MiddlewareFunc) {
+	mcpMw echo.MiddlewareFunc,
+	chatHistoryMw echo.MiddlewareFunc) {
 
 	router.GET("/swagger/*", echoswagger.EchoWrapHandler(func(c *echoswagger.Config) {
 		c.URLs = []string{"doc.json"}
@@ -428,6 +429,19 @@ func RegisterLocalAIRoutes(router *echo.Echo,
 		router.DELETE("/api/agent/jobs/:id", localai.DeleteJobEndpoint(app), mcpJobsMw)
 
 		router.POST("/api/agent/tasks/:name/execute", localai.ExecuteTaskByNameEndpoint(app), mcpJobsMw)
+	}
+
+	// Chat history persistence (#9432). Skipped entirely when the WebUI is
+	// disabled — the store is nil in that case, and registering routes that
+	// would always return 503 only adds surface area.
+	if app != nil && app.ChatHistoryStore() != nil {
+		router.GET("/api/conversations", localai.ListConversationsEndpoint(app), chatHistoryMw)
+		router.POST("/api/conversations", localai.SaveConversationEndpoint(app), chatHistoryMw)
+		router.DELETE("/api/conversations", localai.DeleteAllConversationsEndpoint(app), chatHistoryMw)
+		router.PUT("/api/conversations/bulk", localai.BulkReplaceConversationsEndpoint(app), chatHistoryMw)
+		router.GET("/api/conversations/:id", localai.GetConversationEndpoint(app), chatHistoryMw)
+		router.PUT("/api/conversations/:id", localai.SaveConversationEndpoint(app), chatHistoryMw)
+		router.DELETE("/api/conversations/:id", localai.DeleteConversationEndpoint(app), chatHistoryMw)
 	}
 
 }

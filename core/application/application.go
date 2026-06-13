@@ -12,6 +12,7 @@ import (
 	"github.com/mudler/LocalAI/core/http/auth"
 	mcpTools "github.com/mudler/LocalAI/core/http/endpoints/mcp"
 	"github.com/mudler/LocalAI/core/services/agentpool"
+	"github.com/mudler/LocalAI/core/services/chathistory"
 	"github.com/mudler/LocalAI/core/services/facerecognition"
 	"github.com/mudler/LocalAI/core/services/galleryop"
 	"github.com/mudler/LocalAI/core/services/monitoring"
@@ -57,6 +58,7 @@ type Application struct {
 	agentPoolService   atomic.Pointer[agentpool.AgentPoolService]
 	faceRegistry       facerecognition.Registry
 	voiceRegistry      voicerecognition.Registry
+	chatHistoryStore   *chathistory.Store
 	authDB             *gorm.DB
 	metricsService     *monitoring.LocalAIMetricsService
 	statsRecorder      *billing.Recorder
@@ -203,6 +205,13 @@ func (a *Application) FaceRegistry() facerecognition.Registry {
 // their own vector space.
 func (a *Application) VoiceRegistry() voicerecognition.Registry {
 	return a.voiceRegistry
+}
+
+// ChatHistoryStore returns the server-side WebUI chat history store, or nil
+// when the feature is disabled (LOCALAI_DISABLE_WEBUI=true or persistence
+// path could not be resolved).
+func (a *Application) ChatHistoryStore() *chathistory.Store {
+	return a.chatHistoryStore
 }
 
 // AuthDB returns the auth database connection, or nil if auth is not enabled.
@@ -428,6 +437,21 @@ func (a *Application) start() error {
 	)
 
 	a.agentJobService = agentJobService
+
+	// Initialize chat history store for the WebUI (issue #9432). Reuses the
+	// shared auth database so per-user chat history sits alongside agent
+	// configs and jobs in one place — mudler's review on #9902 called out
+	// the file-based store as inconsistent with the rest of LocalAI's
+	// per-user state. When auth is disabled the store stays nil and the
+	// React UI falls back to localStorage.
+	if !a.applicationConfig.DisableWebUI && a.authDB != nil {
+		store, err := chathistory.New(a.authDB)
+		if err != nil {
+			xlog.Warn("Chat history persistence disabled: failed to initialise store", "error", err)
+		} else {
+			a.chatHistoryStore = store
+		}
+	}
 
 	return nil
 }
