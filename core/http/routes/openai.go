@@ -233,6 +233,11 @@ func RegisterOpenAIRoutes(app *echo.Echo,
 	app.POST("/v1/images/inpainting", inpaintingHandler, imageMiddleware...)
 	app.POST("/images/inpainting", inpaintingHandler, imageMiddleware...)
 
+	// upscale endpoint - reuse same middleware config as images
+	upscaleHandler := openai.UpscaleEndpoint(application.ModelConfigLoader(), application.ModelLoader(), application.ApplicationConfig())
+	app.POST("/v1/images/upscale", upscaleHandler, imageMiddleware...)
+	app.POST("/images/upscale", upscaleHandler, imageMiddleware...)
+
 	// List models
 	app.GET("/v1/models", openai.ListModelsEndpoint(application.ModelConfigLoader(), application.ModelLoader(), application.ApplicationConfig(), application.AuthDB()))
 	app.GET("/models", openai.ListModelsEndpoint(application.ModelConfigLoader(), application.ModelLoader(), application.ApplicationConfig(), application.AuthDB()))
