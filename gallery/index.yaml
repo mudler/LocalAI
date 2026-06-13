@@ -1,4 +1,48 @@
 ---
+- name: "dark-scarlett-v0.3-26b-a4b"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/ReadyArt/Dark-Scarlett-v0.3-26B-A4B-GGUF
+  description: |
+    Hugging Face |
+    GitHub |
+    Launch Blog |
+    Documentation
+
+    License: Apache 2.0 | Authors: Google DeepMind
+
+    Gemma is a family of open models built by Google DeepMind. Gemma 4 models are multimodal, handling text and image input (with audio supported on small models) and generating text output. This release includes open-weights models in both pre-trained and instruction-tuned variants. Gemma 4 features a context window of up to 256K tokens and maintains multilingual support in over 140 languages.
+
+    Featuring both Dense and Mixture-of-Experts (MoE) architectures, Gemma 4 is well-suited for tasks like text generation, coding, and reasoning. The models are available in four distinct sizes: **E2B**, **E4B**, **26B A4B**, and **31B**. Their diverse sizes make them deployable in environments ranging from high-end phones to laptops and servers, democratizing access to state-of-the-art AI.
+
+    Gemma 4 introduces key **capability and architectural advancements**:
+
+    * **Reasoning** – All models in the family are designed as highly capable reasoners, with configurable thinking modes.
+
+    ...
+  license: "apache-2.0"
+  tags:
+    - llm
+    - gguf
+  icon: https://ai.google.dev/gemma/images/gemma4_banner.png
+  overrides:
+    backend: llama-cpp
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/Dark-Scarlett-v0.3-26B-A4B-GGUF/Dark-Scarlett-v0.3-26B-A4B-Q4_K_M.gguf
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/Dark-Scarlett-v0.3-26B-A4B-GGUF/Dark-Scarlett-v0.3-26B-A4B-Q4_K_M.gguf
+      sha256: 88956c71d20444d3ebf890e4495afed3257c6be877d4e82f0c26ce58e79b340f
+      uri: https://huggingface.co/ReadyArt/Dark-Scarlett-v0.3-26B-A4B-GGUF/resolve/main/Dark-Scarlett-v0.3-26B-A4B-Q4_K_M.gguf
 - name: "qwopus3.6-27b-coder-mtp"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
