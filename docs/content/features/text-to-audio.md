@@ -258,6 +258,19 @@ curl http://localhost:8080/v1/audio/speech -H "Content-Type: application/json" -
    }' | aplay
 ```
 
+You can also pin a default cloned voice in the model config so callers do not have to pass it on every request. Both `tts.voice` and `tts.audio_path` are honored as the reference audio (a per-request `voice` overrides them); paths are resolved relative to the model directory:
+
+```yaml
+name: omnivoice-cpp
+backend: omnivoice-cpp
+parameters:
+  model: omnivoice-cpp/omnivoice-base-Q8_0.gguf
+tts:
+  audio_path: "voices/my_reference.wav"   # default cloning reference (or use tts.voice)
+options:
+  - "tokenizer:omnivoice-cpp/omnivoice-tokenizer-Q8_0.gguf"
+```
+
 #### Voice design
 
 Steer the synthesized voice with attribute keywords (gender, age, pitch, style, volume, emotion) by passing an `instructions` string per request:

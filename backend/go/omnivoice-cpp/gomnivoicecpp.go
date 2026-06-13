@@ -29,6 +29,9 @@ var (
 type OmnivoiceCpp struct {
 	base.SingleThread
 	opts loadOptions
+	// audioPath is the model-config reference voice (tts.audio_path), used as
+	// the default voice-cloning reference when a request does not set Voice.
+	audioPath string
 }
 
 func (o *OmnivoiceCpp) Load(opts *pb.ModelOptions) error {
@@ -55,6 +58,14 @@ func (o *OmnivoiceCpp) Load(opts *pb.ModelOptions) error {
 		return fmt.Errorf("omnivoice: no codec/tokenizer GGUF found; set option 'tokenizer:<file>'")
 	}
 	o.opts.codecPath = codec
+
+	// tts.audio_path (ModelOptions.AudioPath) is the config-level voice-cloning
+	// reference: a default reference WAV used when a request omits Voice.
+	// Resolved relative to the model directory like the codec.
+	o.audioPath = opts.AudioPath
+	if o.audioPath != "" && !filepath.IsAbs(o.audioPath) {
+		o.audioPath = filepath.Join(filepath.Dir(model), o.audioPath)
+	}
 
 	useFA := boolToInt(o.opts.useFA)
 	clamp := boolToInt(o.opts.clampFP16)
@@ -103,6 +114,17 @@ func (o *OmnivoiceCpp) refAudio(voice string) ([]float32, error) {
 	return readWAVAsFloat(v)
 }
 
+// refAudioFor resolves the cloning reference for a request: the per-request
+// Voice takes precedence, falling back to the model-config audio_path. Empty
+// result means no cloning (voice design via Instructions still applies).
+func (o *OmnivoiceCpp) refAudioFor(req *pb.TTSRequest) ([]float32, error) {
+	voice := strings.TrimSpace(req.Voice)
+	if voice == "" {
+		voice = o.audioPath
+	}
+	return o.refAudio(voice)
+}
+
 func reqParam(req *pb.TTSRequest, key string) string {
 	if req.Params == nil {
 		return ""
@@ -136,7 +158,7 @@ func (o *OmnivoiceCpp) TTS(req *pb.TTSRequest) error {
 	refText := reqParam(req, "ref_text")
 	seed := o.seedFor(req)
 
-	ref, err := o.refAudio(req.Voice)
+	ref, err := o.refAudioFor(req)
 	if err != nil {
 		return err
 	}
@@ -197,7 +219,7 @@ func (o *OmnivoiceCpp) TTSStream(req *pb.TTSRequest, results chan []byte) error 
 	refText := reqParam(req, "ref_text")
 	seed := o.seedFor(req)
 
-	ref, err := o.refAudio(req.Voice)
+	ref, err := o.refAudioFor(req)
 	if err != nil {
 		return err
 	}
