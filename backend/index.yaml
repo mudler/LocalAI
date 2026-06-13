@@ -789,6 +789,33 @@
     nvidia-l4t: "nvidia-l4t-arm64-qwen3-tts-cpp"
     nvidia-l4t-cuda-12: "nvidia-l4t-arm64-qwen3-tts-cpp"
     nvidia-l4t-cuda-13: "cuda13-nvidia-l4t-arm64-qwen3-tts-cpp"
+- &omnivoicecpp
+  name: "omnivoice-cpp"
+  description: |
+    OmniVoice C++ backend using GGML. Native text-to-speech with voice cloning
+    (reference audio + transcript) and voice design (attribute keywords: gender,
+    age, pitch, style, volume, emotion). 24kHz mono output, 646 languages.
+    Supports streaming synthesis.
+  urls:
+    - https://github.com/ServeurpersoCom/omnivoice.cpp
+  tags:
+    - text-to-speech
+    - tts
+    - voice-cloning
+    - voice-design
+  alias: "omnivoice-cpp"
+  capabilities:
+    default: "cpu-omnivoice-cpp"
+    nvidia: "cuda12-omnivoice-cpp"
+    nvidia-cuda-13: "cuda13-omnivoice-cpp"
+    nvidia-cuda-12: "cuda12-omnivoice-cpp"
+    intel: "intel-sycl-f16-omnivoice-cpp"
+    metal: "metal-omnivoice-cpp"
+    amd: "rocm-omnivoice-cpp"
+    vulkan: "vulkan-omnivoice-cpp"
+    nvidia-l4t: "nvidia-l4t-arm64-omnivoice-cpp"
+    nvidia-l4t-cuda-12: "nvidia-l4t-arm64-omnivoice-cpp"
+    nvidia-l4t-cuda-13: "cuda13-nvidia-l4t-arm64-omnivoice-cpp"
 - &vibevoicecpp
   name: "vibevoice-cpp"
   description: |
@@ -3473,6 +3500,107 @@
   uri: "quay.io/go-skynet/local-ai-backends:master-gpu-nvidia-cuda-13-qwen3-tts-cpp"
   mirrors:
     - localai/localai-backends:master-gpu-nvidia-cuda-13-qwen3-tts-cpp
+## omnivoice-cpp
+- !!merge <<: *omnivoicecpp
+  name: "nvidia-l4t-arm64-omnivoice-cpp"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-nvidia-l4t-arm64-omnivoice-cpp"
+  mirrors:
+    - localai/localai-backends:latest-nvidia-l4t-arm64-omnivoice-cpp
+- !!merge <<: *omnivoicecpp
+  name: "nvidia-l4t-arm64-omnivoice-cpp-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-nvidia-l4t-arm64-omnivoice-cpp"
+  mirrors:
+    - localai/localai-backends:master-nvidia-l4t-arm64-omnivoice-cpp
+- !!merge <<: *omnivoicecpp
+  name: "cuda13-nvidia-l4t-arm64-omnivoice-cpp"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-nvidia-l4t-cuda-13-arm64-omnivoice-cpp"
+  mirrors:
+    - localai/localai-backends:latest-nvidia-l4t-cuda-13-arm64-omnivoice-cpp
+- !!merge <<: *omnivoicecpp
+  name: "cuda13-nvidia-l4t-arm64-omnivoice-cpp-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-nvidia-l4t-cuda-13-arm64-omnivoice-cpp"
+  mirrors:
+    - localai/localai-backends:master-nvidia-l4t-cuda-13-arm64-omnivoice-cpp
+- !!merge <<: *omnivoicecpp
+  name: "cpu-omnivoice-cpp"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-cpu-omnivoice-cpp"
+  mirrors:
+    - localai/localai-backends:latest-cpu-omnivoice-cpp
+- !!merge <<: *omnivoicecpp
+  name: "metal-omnivoice-cpp"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-metal-darwin-arm64-omnivoice-cpp"
+  mirrors:
+    - localai/localai-backends:latest-metal-darwin-arm64-omnivoice-cpp
+- !!merge <<: *omnivoicecpp
+  name: "metal-omnivoice-cpp-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-metal-darwin-arm64-omnivoice-cpp"
+  mirrors:
+    - localai/localai-backends:master-metal-darwin-arm64-omnivoice-cpp
+- !!merge <<: *omnivoicecpp
+  name: "cpu-omnivoice-cpp-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-cpu-omnivoice-cpp"
+  mirrors:
+    - localai/localai-backends:master-cpu-omnivoice-cpp
+- !!merge <<: *omnivoicecpp
+  name: "cuda12-omnivoice-cpp"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-nvidia-cuda-12-omnivoice-cpp"
+  mirrors:
+    - localai/localai-backends:latest-gpu-nvidia-cuda-12-omnivoice-cpp
+- !!merge <<: *omnivoicecpp
+  name: "rocm-omnivoice-cpp"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-rocm-hipblas-omnivoice-cpp"
+  mirrors:
+    - localai/localai-backends:latest-gpu-rocm-hipblas-omnivoice-cpp
+- !!merge <<: *omnivoicecpp
+  name: "intel-sycl-f32-omnivoice-cpp"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-intel-sycl-f32-omnivoice-cpp"
+  mirrors:
+    - localai/localai-backends:latest-gpu-intel-sycl-f32-omnivoice-cpp
+- !!merge <<: *omnivoicecpp
+  name: "intel-sycl-f16-omnivoice-cpp"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-intel-sycl-f16-omnivoice-cpp"
+  mirrors:
+    - localai/localai-backends:latest-gpu-intel-sycl-f16-omnivoice-cpp
+- !!merge <<: *omnivoicecpp
+  name: "vulkan-omnivoice-cpp"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-vulkan-omnivoice-cpp"
+  mirrors:
+    - localai/localai-backends:latest-gpu-vulkan-omnivoice-cpp
+- !!merge <<: *omnivoicecpp
+  name: "vulkan-omnivoice-cpp-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-vulkan-omnivoice-cpp"
+  mirrors:
+    - localai/localai-backends:master-gpu-vulkan-omnivoice-cpp
+- !!merge <<: *omnivoicecpp
+  name: "cuda12-omnivoice-cpp-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-nvidia-cuda-12-omnivoice-cpp"
+  mirrors:
+    - localai/localai-backends:master-gpu-nvidia-cuda-12-omnivoice-cpp
+- !!merge <<: *omnivoicecpp
+  name: "rocm-omnivoice-cpp-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-rocm-hipblas-omnivoice-cpp"
+  mirrors:
+    - localai/localai-backends:master-gpu-rocm-hipblas-omnivoice-cpp
+- !!merge <<: *omnivoicecpp
+  name: "intel-sycl-f32-omnivoice-cpp-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-intel-sycl-f32-omnivoice-cpp"
+  mirrors:
+    - localai/localai-backends:master-gpu-intel-sycl-f32-omnivoice-cpp
+- !!merge <<: *omnivoicecpp
+  name: "intel-sycl-f16-omnivoice-cpp-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-intel-sycl-f16-omnivoice-cpp"
+  mirrors:
+    - localai/localai-backends:master-gpu-intel-sycl-f16-omnivoice-cpp
+- !!merge <<: *omnivoicecpp
+  name: "cuda13-omnivoice-cpp"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-nvidia-cuda-13-omnivoice-cpp"
+  mirrors:
+    - localai/localai-backends:latest-gpu-nvidia-cuda-13-omnivoice-cpp
+- !!merge <<: *omnivoicecpp
+  name: "cuda13-omnivoice-cpp-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-nvidia-cuda-13-omnivoice-cpp"
+  mirrors:
+    - localai/localai-backends:master-gpu-nvidia-cuda-13-omnivoice-cpp
 ## vibevoice-cpp
 - !!merge <<: *vibevoicecpp
   name: "nvidia-l4t-arm64-vibevoice-cpp"
