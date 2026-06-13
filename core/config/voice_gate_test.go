@@ -54,6 +54,9 @@ var _ = Describe("PipelineVoiceRecognition", func() {
 			Expect((PipelineVoiceRecognition{Model: "spk", Mode: VoiceGateModeIdentify, Threshold: 5}).Validate(true)).To(HaveOccurred())
 			Expect((PipelineVoiceRecognition{Model: "spk", Mode: VoiceGateModeIdentify, Threshold: -1}).Validate(true)).To(HaveOccurred())
 		})
+		It("rejects an empty model", func() {
+			Expect((PipelineVoiceRecognition{Mode: VoiceGateModeIdentify}).Validate(true)).To(HaveOccurred())
+		})
 	})
 
 	Describe("VoiceGateEnabled", func() {
@@ -62,6 +65,9 @@ var _ = Describe("PipelineVoiceRecognition", func() {
 		})
 		It("is true when a model is set", func() {
 			Expect((Pipeline{VoiceRecognition: &PipelineVoiceRecognition{Model: "spk"}}).VoiceGateEnabled()).To(BeTrue())
+		})
+		It("is true when the block is present even without a model (fails closed downstream)", func() {
+			Expect((Pipeline{VoiceRecognition: &PipelineVoiceRecognition{}}).VoiceGateEnabled()).To(BeTrue())
 		})
 	})
 })

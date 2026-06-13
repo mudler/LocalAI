@@ -630,9 +630,12 @@ type VoiceReference struct {
 	Audio string `yaml:"audio,omitempty" json:"audio,omitempty"`
 }
 
-// VoiceGateEnabled reports whether a voice-recognition gate is configured.
+// VoiceGateEnabled reports whether a voice-recognition gate is configured. The
+// mere presence of the block is the intent signal: a present-but-incomplete
+// block (e.g. missing model) must fail closed at construction, not be silently
+// skipped here.
 func (p Pipeline) VoiceGateEnabled() bool {
-	return p.VoiceRecognition != nil && p.VoiceRecognition.Model != ""
+	return p.VoiceRecognition != nil
 }
 
 // Normalize fills in defaults in place for omitted fields.
@@ -655,6 +658,9 @@ func (v *PipelineVoiceRecognition) Normalize() {
 // VoiceRegistry exists (required by identify mode). Empty When/OnReject/Mode are
 // treated as valid because Normalize defaults them.
 func (v PipelineVoiceRecognition) Validate(registryAvailable bool) error {
+	if v.Model == "" {
+		return fmt.Errorf("voice_recognition: model is required")
+	}
 	switch v.Mode {
 	case "", VoiceGateModeIdentify:
 		if !registryAvailable {
