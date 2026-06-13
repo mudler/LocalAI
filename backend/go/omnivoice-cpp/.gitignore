@@ -1,0 +1,14 @@
+# Fetched upstream sources
+sources/
+
+# CMake build directories
+build*/
+
+# Compiled shared libraries
+*.so
+
+# Compiled backend binary
+omnivoice-cpp
+
+# Packaging output
+package/
