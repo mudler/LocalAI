@@ -615,19 +615,48 @@ and overwrites the listed models (models not listed are left untouched).
 | `LOCALAI_MODEL_SCHEDULING` | Inline JSON list of scheduling entries |
 | `LOCALAI_MODEL_SCHEDULING_CONFIG` | Path to a YAML file with the same list |
 
-Entry fields: `model_name` (required), `node_selector` (label map),
-`min_replicas`, `max_replicas`, and `replicas: all` (one replica per matching
-node, tracked as nodes join/leave). `replicas: all` is mutually exclusive with
-`min_replicas`/`max_replicas`. `max_replicas: 0` means unbounded (up to cluster
-capacity).
+Entry fields: `model_name` (required), `node_selector` (a label map; **omit it to
+match every node**), and then **one of two replica modes** (they are mutually
+exclusive):
+
+- **`replicas: all`** - static spread: place exactly **one replica on every
+  matching node**, proactively, regardless of load, and keep it in sync as nodes
+  join and leave. Use this for "run model X everywhere (with this label)".
+- **`min_replicas` / `max_replicas`** - elastic auto-scaling: keep at least
+  `min_replicas` running, and burst **up to** `max_replicas` only when all
+  replicas are busy, scaling back down to the minimum when idle. `max_replicas: 0`
+  means **no upper bound** (grow to cluster capacity). To enable this mode you
+  must set `min_replicas >= 1` or `max_replicas >= 1` - an entry with only
+  `max_replicas: 0` (and no `replicas: all`) does nothing.
+
+Net effect at a glance:
+
+| Config | Behavior |
+|--------|----------|
+| `replicas: all` | One replica per matching node, placed immediately, tracks join/leave |
+| `min_replicas: 1, max_replicas: 0` | Always >=1, bursts to cluster capacity under load, back to 1 when idle |
+| `min_replicas: 2, max_replicas: 4` | Always >=2, bursts to at most 4 under load |
+
+`node_selector` constrains which nodes a model may use; with no selector the
+model may use **all** healthy nodes. So "spread model X across all nodes" is just
+`replicas: all` with no `node_selector`. `replicas: all` targets one replica per
+matching node; with the default per-node cap of one replica per model this lands
+exactly one on each node (see the note below about `LOCALAI_MAX_REPLICAS_PER_MODEL`).
 
 YAML example (`scheduling.yaml`):
 
 ```yaml
+# One replica on every GPU-labelled node (static spread, tracks join/leave):
 - model_name: gpt-oss
   node_selector:
     tier: gpu
   replicas: all
+
+# One replica on EVERY node in the cluster (no selector = all nodes):
+- model_name: embeddings
+  replicas: all
+
+# Elastic on CPU nodes: always >=1, burst to capacity under load, 0 = no cap:
 - model_name: whisper
   node_selector:
     tier: cpu
