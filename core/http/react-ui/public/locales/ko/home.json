@@ -1,0 +1,66 @@
+{
+  "cluster": {
+    "vram": "클러스터 VRAM",
+    "ram": "클러스터 RAM",
+    "nodesOnline": "노드 {{total}}개 중 {{healthy}}개 온라인"
+  },
+  "resourceGpu": "GPU",
+  "resourceRam": "RAM",
+  "assistant": {
+    "title": "채팅으로 LocalAI 관리",
+    "description": "LocalAI와 대화하여 모델을 설치하고, 백엔드를 전환하고, 구성을 편집하고, 상태를 확인하세요.",
+    "open": "어시스턴트 열기",
+    "tooltip": "채팅으로 LocalAI 관리"
+  },
+  "input": {
+    "placeholder": "메시지...",
+    "attachImage": "이미지 첨부",
+    "attachAudio": "오디오 첨부",
+    "attachFile": "파일 첨부",
+    "enterToSend": "Enter로 전송",
+    "selectModelFirst": "먼저 모델을 선택하세요",
+    "sendMessage": "메시지 보내기",
+    "selectModelToast": "먼저 모델을 선택해 주세요"
+  },
+  "quickLinks": {
+    "manageByChat": "채팅으로 관리",
+    "installedModels": "설치된 모델",
+    "browseGallery": "갤러리 둘러보기",
+    "importModel": "모델 가져오기",
+    "documentation": "문서"
+  },
+  "loadedModels": {
+    "count_one": "모델 {{count}}개 로드됨",
+    "count_other": "모델 {{count}}개 로드됨",
+    "stop": "모델 중지",
+    "stopAll": "모두 중지"
+  },
+  "stopDialog": {
+    "title": "모델 중지",
+    "message": "모델 {{model}}을(를) 중지하시겠습니까?",
+    "confirm": "{{model}} 중지",
+    "stopAllTitle": "모든 모델 중지",
+    "stopAllMessage": "로드된 모델 {{count}}개를 모두 중지하시겠습니까?",
+    "stopAllConfirm": "모두 중지",
+    "stoppedToast": "{{model}} 중지됨",
+    "allStoppedToast": "모든 모델이 중지되었습니다",
+    "stopFailed": "중지 실패: {{message}}"
+  },
+  "wizard": {
+    "getStarted": "{{name}} 시작하기",
+    "intro": "첫 모델을 설치하여 시작하세요. 갤러리를 둘러보거나 직접 가져올 수 있습니다.",
+    "steps": {
+      "step1Title": "모델 갤러리 둘러보기",
+      "step1Body": "엄선된 컬렉션에서 필요에 맞는 모델을 찾으세요.",
+      "step2Title": "모델 설치",
+      "step2Body": "설치를 클릭하면 자동으로 다운로드되고 구성됩니다.",
+      "step3Title": "채팅 시작",
+      "step3Body": "브라우저에서 바로 모델과 채팅하거나 API를 사용하세요."
+    },
+    "browseGallery": "모델 갤러리 둘러보기",
+    "importModel": "모델 가져오기",
+    "docs": "문서",
+    "noModelsTitle": "사용 가능한 모델 없음",
+    "noModelsBody": "아직 설치된 모델이 없습니다. 채팅을 시작할 수 있도록 관리자에게 모델 설정을 요청하세요."
+  }
+}
