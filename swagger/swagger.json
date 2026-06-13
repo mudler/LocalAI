@@ -5764,11 +5764,11 @@
                     }
                 },
                 "redacted_preview": {
-                    "description": "RedactedPreview is the input with mask-action spans replaced\nby their placeholders. Identical to Text when no findings or\nwhen the strongest action is block/route_local (which don't\nrewrite content).",
+                    "description": "RedactedPreview is the input with mask-action spans replaced\nby their placeholders. Identical to Text when no findings or\nwhen the strongest action is block/allow (which don't rewrite\ncontent).",
                     "type": "string"
                 },
                 "suggested_action": {
-                    "description": "SuggestedAction is the strongest action across all findings:\n\"block\", \"route_local\", \"mask\", or \"allow\" (no findings).",
+                    "description": "SuggestedAction is the strongest action across all findings:\n\"block\", \"mask\", or \"allow\" (no findings, or all findings\nresolved to the allow action).",
                     "type": "string"
                 }
             }
