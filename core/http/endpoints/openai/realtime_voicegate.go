@@ -14,8 +14,7 @@ type namedEmbedding struct {
 }
 
 // voiceGate decides whether a committed utterance's speaker is authorized to
-// drive the realtime pipeline. It is stateless about the session; when:first
-// state lives on the Session and is consulted via decide().
+// drive the realtime pipeline.
 type voiceGate struct {
 	cfg       config.PipelineVoiceRecognition // normalized
 	registry  voicerecognition.Registry       // identify mode (nil otherwise)
@@ -57,7 +56,7 @@ func (g *voiceGate) authorizeIdentify(ctx context.Context, wavPath string) (bool
 	}
 	m := matches[0]
 	if m.Distance > g.cfg.Threshold {
-		return false, m.Metadata.Name, "below threshold", nil
+		return false, m.Metadata.Name, "distance above threshold", nil
 	}
 	if !g.allowMatch(m.Metadata) {
 		return false, m.Metadata.Name, "speaker not in allow list", nil

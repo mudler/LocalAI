@@ -2,6 +2,7 @@ package openai
 
 import (
 	"context"
+	"errors"
 
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/services/voicerecognition"
@@ -75,15 +76,17 @@ var _ = Describe("voiceGate identify mode", func() {
 	It("denies a speaker not in the allow list", func() {
 		g := mkGate(config.VoiceRecognitionAllow{Names: []string{"alice"}},
 			[]voicerecognition.Match{{Distance: 0.1, Metadata: voicerecognition.Metadata{Name: "mallory"}}}, nil)
-		allowed, _, reason, _ := g.Authorize(context.Background(), "x.wav")
+		allowed, matched, reason, _ := g.Authorize(context.Background(), "x.wav")
 		Expect(allowed).To(BeFalse())
+		Expect(matched).To(Equal("mallory"))
 		Expect(reason).To(ContainSubstring("allow"))
 	})
 	It("denies a match above the threshold", func() {
 		g := mkGate(config.VoiceRecognitionAllow{},
 			[]voicerecognition.Match{{Distance: 0.9, Metadata: voicerecognition.Metadata{Name: "alice"}}}, nil)
-		allowed, _, _, _ := g.Authorize(context.Background(), "x.wav")
+		allowed, matched, _, _ := g.Authorize(context.Background(), "x.wav")
 		Expect(allowed).To(BeFalse())
+		Expect(matched).To(Equal("alice"))
 	})
 	It("denies when no registry match", func() {
 		g := mkGate(config.VoiceRecognitionAllow{}, nil, nil)
@@ -98,5 +101,19 @@ var _ = Describe("voiceGate identify mode", func() {
 		Expect(err).ToNot(HaveOccurred())
 		Expect(allowed).To(BeFalse())
 		Expect(reason).To(ContainSubstring("no speech"))
+	})
+	It("denies and surfaces the error when embedding fails", func() {
+		g := mkGate(config.VoiceRecognitionAllow{}, nil, errors.New("boom"))
+		allowed, _, reason, err := g.Authorize(context.Background(), "x.wav")
+		Expect(err).To(HaveOccurred())
+		Expect(allowed).To(BeFalse())
+		Expect(reason).To(ContainSubstring("embed"))
+	})
+	It("denies and surfaces the error when identify fails", func() {
+		g := mkGate(config.VoiceRecognitionAllow{}, nil, nil)
+		g.registry = &fakeRegistry{err: errors.New("boom")}
+		allowed, _, _, err := g.Authorize(context.Background(), "x.wav")
+		Expect(err).To(HaveOccurred())
+		Expect(allowed).To(BeFalse())
 	})
 })
