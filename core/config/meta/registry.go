@@ -379,7 +379,7 @@ func DefaultRegistry() map[string]FieldMetaOverride {
 			Label:       "Voice Gate Threshold",
 			Description: "Maximum cosine distance between the caller and an authorized speaker that still counts as a match. Lower is stricter. Default 0.25 is tuned for the ECAPA-TDNN encoder on VoxCeleb.",
 			Component:   "slider",
-			Min:         f64(0),
+			Min:         f64(0.01),
 			Max:         f64(2),
 			Step:        f64(0.01),
 			Order:       72,

@@ -682,6 +682,11 @@ func (v PipelineVoiceRecognition) Validate(registryAvailable bool) error {
 	default:
 		return fmt.Errorf("voice_recognition: unknown on_reject %q", v.OnReject)
 	}
+	// A zero threshold means "unset" (Normalize defaults it); only validate an
+	// explicitly-set value. Cosine distance ranges 0..2.
+	if v.Threshold != 0 && (v.Threshold < 0 || v.Threshold > 2) {
+		return fmt.Errorf("voice_recognition: threshold %v out of range (0..2)", v.Threshold)
+	}
 	return nil
 }
 

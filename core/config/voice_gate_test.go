@@ -46,6 +46,14 @@ var _ = Describe("PipelineVoiceRecognition", func() {
 			Expect((PipelineVoiceRecognition{Model: "spk", Mode: VoiceGateModeIdentify, When: "bogus"}).Validate(true)).To(HaveOccurred())
 			Expect((PipelineVoiceRecognition{Model: "spk", Mode: VoiceGateModeIdentify, OnReject: "bogus"}).Validate(true)).To(HaveOccurred())
 		})
+		It("accepts a zero (unset) threshold", func() {
+			v := PipelineVoiceRecognition{Model: "spk", Mode: VoiceGateModeIdentify, Threshold: 0}
+			Expect(v.Validate(true)).ToNot(HaveOccurred())
+		})
+		It("rejects an out-of-range threshold", func() {
+			Expect((PipelineVoiceRecognition{Model: "spk", Mode: VoiceGateModeIdentify, Threshold: 5}).Validate(true)).To(HaveOccurred())
+			Expect((PipelineVoiceRecognition{Model: "spk", Mode: VoiceGateModeIdentify, Threshold: -1}).Validate(true)).To(HaveOccurred())
+		})
 	})
 
 	Describe("VoiceGateEnabled", func() {
