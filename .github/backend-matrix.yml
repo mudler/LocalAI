@@ -4475,3 +4475,6 @@ includeDarwin:
   - backend: "speaker-recognition"
     tag-suffix: "-metal-darwin-arm64-speaker-recognition"
     build-type: "mps"
+  - backend: "ds4"
+    tag-suffix: "-metal-darwin-arm64-ds4"
+    lang: "go"

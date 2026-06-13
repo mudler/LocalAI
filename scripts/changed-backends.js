@@ -56,6 +56,11 @@ function inferBackendPathDarwin(item) {
   if (item.backend === "llama-cpp") {
     return `backend/cpp/llama-cpp/`;
   }
+  // ds4 is C++ too (built via `make backends/ds4-darwin`); the matrix entry
+  // carries lang=go for runner/toolchain selection, but the source is C++.
+  if (item.backend === "ds4") {
+    return `backend/cpp/ds4/`;
+  }
   if (!item.lang) {
     return `backend/python/${item.backend}/`;
   }
