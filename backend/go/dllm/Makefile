@@ -19,11 +19,15 @@
 # until then the anonymous clone below fails. Use the symlink shortcut above
 # with a local checkout, or a git credential helper with access to the repo.
 
-# The pin below is the first commit carrying the multimodal C-ABI entry
-# points (dllm_capi_generate_mm / dllm_capi_generate_stream_mm) the
-# image-input path probes for; older libs still load, but image requests
-# then fail with "library predates the multimodal entry points".
-DLLM_VERSION?=e6dcf44cddd65845e3a0814a1c2282a5d90ee98a
+# The pin below is the P5 performance-parity head (device-resident
+# self-conditioning, full-GPU placement at ngl >= n_layer, graph reuse,
+# device-side EB reductions: ~8x per-step on GB10, see dllm.cpp
+# docs/validation.md section 10). C-ABI unchanged (still version 1). It
+# also carries the multimodal entry points (dllm_capi_generate_mm /
+# dllm_capi_generate_stream_mm) the image-input path probes for; older
+# libs still load, but image requests then fail with "library predates
+# the multimodal entry points".
+DLLM_VERSION?=320b57756efc3460169b8ea9e8c782867198f2a5
 DLLM_REPO?=https://github.com/mudler/dllm.cpp
 
 GOCMD?=go
