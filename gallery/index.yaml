@@ -3304,38 +3304,267 @@
     - filename: vibevoice-cpp-asr/tokenizer.gguf
       sha256: 37dc3b722d5677e37e29a57df55aa05c485116eeb5459e57ff8dde616b4986f6
       uri: huggingface://mudler/vibevoice.cpp-models/tokenizer.gguf
-- name: qwen3-tts-cpp
+- &qwenttscpp_gallery
+  name: qwen3-tts-cpp
   url: github:mudler/LocalAI/gallery/virtual.yaml@master
   urls:
-    - https://huggingface.co/endo5501/qwen3-tts.cpp
-    - https://github.com/predict-woo/qwen3-tts.cpp
+    - https://huggingface.co/Serveurperso/Qwen3-TTS-GGUF
+    - https://github.com/ServeurpersoCom/qwentts.cpp
   description: |
-    Qwen3-TTS 0.6B (C++ / GGML) — native C++ text-to-speech from text input.
-    Generates 24kHz mono audio. Supports 10 languages (en, zh, ja, ko, de, fr, es, it, pt, ru).
-    Uses F16 GGUF models (~2 GB total).
-  license: apache-2.0
+    Qwen3-TTS 0.6B Base (C++ / GGML, qwentts.cpp). Native C++ text-to-speech with
+    streaming output and zero-shot voice cloning (set `voice` to a 24kHz reference
+    .wav). 24kHz mono, 11 languages with Mandarin dialects. Q8_0 (~0.95 GB talker).
+  license: mit
   icon: https://huggingface.co/avatars/c299494fd1e72375832499c75b3425d6.svg
   tags:
     - tts
     - text-to-speech
+    - voice-cloning
+    - streaming
     - qwen3-tts
     - qwen3-tts-cpp
     - gguf
-  last_checked: "2026-04-30"
+  last_checked: "2026-06-13"
   overrides:
     backend: qwen3-tts-cpp
     known_usecases:
       - tts
     name: qwen3-tts-cpp
     parameters:
-      model: qwen3-tts-cpp
+      model: qwen3-tts-cpp/qwen-talker-0.6b-base-Q8_0.gguf
   files:
-    - filename: qwen3-tts-cpp/qwen3-tts-0.6b-f16.gguf
-      sha256: 0b89770118463af8f2467d824a8de57d96df6a09f927a9769a3f7b7fffa7087d
-      uri: huggingface://endo5501/qwen3-tts.cpp/qwen3-tts-0.6b-f16.gguf
-    - filename: qwen3-tts-cpp/qwen3-tts-tokenizer-f16.gguf
-      sha256: d1ad9660bd99343f4851d5a4b17e31f65648feb3559f6ea062ae6575e5cd9d90
-      uri: huggingface://endo5501/qwen3-tts.cpp/qwen3-tts-tokenizer-f16.gguf
+    - filename: qwen3-tts-cpp/qwen-talker-0.6b-base-Q8_0.gguf
+      sha256: d54dbaf10591421fa764ed630d764efa717ae40cd959bd48c66d4eb1af226426
+      uri: huggingface://Serveurperso/Qwen3-TTS-GGUF/qwen-talker-0.6b-base-Q8_0.gguf
+    - filename: qwen3-tts-cpp/qwen-tokenizer-12hz-Q8_0.gguf
+      sha256: 1883beeed99348fc35e23dd225e9082f93f6f8c109330a33d935baa8acdbfd94
+      uri: huggingface://Serveurperso/Qwen3-TTS-GGUF/qwen-tokenizer-12hz-Q8_0.gguf
+- !!merge <<: *qwenttscpp_gallery
+  name: qwen3-tts-cpp-0.6b-base-q4
+  description: |
+    Qwen3-TTS 0.6B Base (C++ / GGML, qwentts.cpp), Q4_K_M (~0.6 GB talker).
+    Streaming + voice cloning, 24kHz mono, 11 languages.
+  overrides:
+    backend: qwen3-tts-cpp
+    known_usecases:
+      - tts
+    name: qwen3-tts-cpp-0.6b-base-q4
+    parameters:
+      model: qwen3-tts-cpp-0.6b-base-q4/qwen-talker-0.6b-base-Q4_K_M.gguf
+  files:
+    - filename: qwen3-tts-cpp-0.6b-base-q4/qwen-talker-0.6b-base-Q4_K_M.gguf
+      sha256: 4b468ec7b1f62b90ef4ca316c0aa57deadfd54b2cf9651703ea753cedaf04226
+      uri: huggingface://Serveurperso/Qwen3-TTS-GGUF/qwen-talker-0.6b-base-Q4_K_M.gguf
+    - filename: qwen3-tts-cpp-0.6b-base-q4/qwen-tokenizer-12hz-Q4_K_M.gguf
+      sha256: cf3788b4d50aaa665fb6e57c170396aae03a3555fea52d2b5d0cda902d658039
+      uri: huggingface://Serveurperso/Qwen3-TTS-GGUF/qwen-tokenizer-12hz-Q4_K_M.gguf
+- !!merge <<: *qwenttscpp_gallery
+  name: qwen3-tts-cpp-1.7b-base
+  description: |
+    Qwen3-TTS 1.7B Base (C++ / GGML, qwentts.cpp), Q8_0 (~2.0 GB talker).
+    Higher-quality streaming + voice cloning, 24kHz mono, 11 languages.
+  overrides:
+    backend: qwen3-tts-cpp
+    known_usecases:
+      - tts
+    name: qwen3-tts-cpp-1.7b-base
+    parameters:
+      model: qwen3-tts-cpp-1.7b-base/qwen-talker-1.7b-base-Q8_0.gguf
+  files:
+    - filename: qwen3-tts-cpp-1.7b-base/qwen-talker-1.7b-base-Q8_0.gguf
+      sha256: 4b9a33a236908dd9435a42f7a396e38038329d053b704342a6413c08544c4fda
+      uri: huggingface://Serveurperso/Qwen3-TTS-GGUF/qwen-talker-1.7b-base-Q8_0.gguf
+    - filename: qwen3-tts-cpp-1.7b-base/qwen-tokenizer-12hz-Q8_0.gguf
+      sha256: 1883beeed99348fc35e23dd225e9082f93f6f8c109330a33d935baa8acdbfd94
+      uri: huggingface://Serveurperso/Qwen3-TTS-GGUF/qwen-tokenizer-12hz-Q8_0.gguf
+- !!merge <<: *qwenttscpp_gallery
+  name: qwen3-tts-cpp-1.7b-base-q4
+  description: |
+    Qwen3-TTS 1.7B Base (C++ / GGML, qwentts.cpp), Q4_K_M (~1.2 GB talker).
+    Streaming + voice cloning, 24kHz mono, 11 languages.
+  overrides:
+    backend: qwen3-tts-cpp
+    known_usecases:
+      - tts
+    name: qwen3-tts-cpp-1.7b-base-q4
+    parameters:
+      model: qwen3-tts-cpp-1.7b-base-q4/qwen-talker-1.7b-base-Q4_K_M.gguf
+  files:
+    - filename: qwen3-tts-cpp-1.7b-base-q4/qwen-talker-1.7b-base-Q4_K_M.gguf
+      sha256: ea393ebaf2167ea23ce9fc18b093822851358a950d7075cd47ab4f6ce23e887d
+      uri: huggingface://Serveurperso/Qwen3-TTS-GGUF/qwen-talker-1.7b-base-Q4_K_M.gguf
+    - filename: qwen3-tts-cpp-1.7b-base-q4/qwen-tokenizer-12hz-Q4_K_M.gguf
+      sha256: cf3788b4d50aaa665fb6e57c170396aae03a3555fea52d2b5d0cda902d658039
+      uri: huggingface://Serveurperso/Qwen3-TTS-GGUF/qwen-tokenizer-12hz-Q4_K_M.gguf
+- !!merge <<: *qwenttscpp_gallery
+  name: qwen3-tts-cpp-customvoice
+  description: |
+    Qwen3-TTS 0.6B CustomVoice (C++ / GGML, qwentts.cpp), Q8_0. Named speakers
+    selected via the `voice` field: serena, vivian, uncle_fu, ryan, aiden,
+    ono_anna, sohee, eric (sichuan dialect), dylan (beijing dialect). Streaming,
+    24kHz mono, 11 languages.
+  tags:
+    - tts
+    - text-to-speech
+    - named-speakers
+    - streaming
+    - qwen3-tts
+    - qwen3-tts-cpp
+    - gguf
+  overrides:
+    backend: qwen3-tts-cpp
+    known_usecases:
+      - tts
+    name: qwen3-tts-cpp-customvoice
+    parameters:
+      model: qwen3-tts-cpp-customvoice/qwen-talker-0.6b-customvoice-Q8_0.gguf
+  files:
+    - filename: qwen3-tts-cpp-customvoice/qwen-talker-0.6b-customvoice-Q8_0.gguf
+      sha256: 4eb38675c736ed6ac72012846ac8d6ef80e5af8bc05726870f0b3a6569588519
+      uri: huggingface://Serveurperso/Qwen3-TTS-GGUF/qwen-talker-0.6b-customvoice-Q8_0.gguf
+    - filename: qwen3-tts-cpp-customvoice/qwen-tokenizer-12hz-Q8_0.gguf
+      sha256: 1883beeed99348fc35e23dd225e9082f93f6f8c109330a33d935baa8acdbfd94
+      uri: huggingface://Serveurperso/Qwen3-TTS-GGUF/qwen-tokenizer-12hz-Q8_0.gguf
+- !!merge <<: *qwenttscpp_gallery
+  name: qwen3-tts-cpp-customvoice-q4
+  description: |
+    Qwen3-TTS 0.6B CustomVoice (C++ / GGML, qwentts.cpp), Q4_K_M. Named speakers
+    via the `voice` field (serena, vivian, ryan, aiden, eric, dylan, ...).
+    Streaming, 24kHz mono, 11 languages.
+  tags:
+    - tts
+    - text-to-speech
+    - named-speakers
+    - streaming
+    - qwen3-tts
+    - qwen3-tts-cpp
+    - gguf
+  overrides:
+    backend: qwen3-tts-cpp
+    known_usecases:
+      - tts
+    name: qwen3-tts-cpp-customvoice-q4
+    parameters:
+      model: qwen3-tts-cpp-customvoice-q4/qwen-talker-0.6b-customvoice-Q4_K_M.gguf
+  files:
+    - filename: qwen3-tts-cpp-customvoice-q4/qwen-talker-0.6b-customvoice-Q4_K_M.gguf
+      sha256: b3a7e6613d80f8a703c06267fc1e94d48ce91932ab82ab6e31c50f4ca4868e1e
+      uri: huggingface://Serveurperso/Qwen3-TTS-GGUF/qwen-talker-0.6b-customvoice-Q4_K_M.gguf
+    - filename: qwen3-tts-cpp-customvoice-q4/qwen-tokenizer-12hz-Q4_K_M.gguf
+      sha256: cf3788b4d50aaa665fb6e57c170396aae03a3555fea52d2b5d0cda902d658039
+      uri: huggingface://Serveurperso/Qwen3-TTS-GGUF/qwen-tokenizer-12hz-Q4_K_M.gguf
+- !!merge <<: *qwenttscpp_gallery
+  name: qwen3-tts-cpp-1.7b-customvoice
+  description: |
+    Qwen3-TTS 1.7B CustomVoice (C++ / GGML, qwentts.cpp), Q8_0. Named speakers via
+    the `voice` field (serena, vivian, ryan, aiden, eric, dylan, ...). Streaming,
+    24kHz mono, 11 languages.
+  tags:
+    - tts
+    - text-to-speech
+    - named-speakers
+    - streaming
+    - qwen3-tts
+    - qwen3-tts-cpp
+    - gguf
+  overrides:
+    backend: qwen3-tts-cpp
+    known_usecases:
+      - tts
+    name: qwen3-tts-cpp-1.7b-customvoice
+    parameters:
+      model: qwen3-tts-cpp-1.7b-customvoice/qwen-talker-1.7b-customvoice-Q8_0.gguf
+  files:
+    - filename: qwen3-tts-cpp-1.7b-customvoice/qwen-talker-1.7b-customvoice-Q8_0.gguf
+      sha256: cab2cff67a0a557310febe558dc83076b28ed790e491867eb2751759f4cd89fa
+      uri: huggingface://Serveurperso/Qwen3-TTS-GGUF/qwen-talker-1.7b-customvoice-Q8_0.gguf
+    - filename: qwen3-tts-cpp-1.7b-customvoice/qwen-tokenizer-12hz-Q8_0.gguf
+      sha256: 1883beeed99348fc35e23dd225e9082f93f6f8c109330a33d935baa8acdbfd94
+      uri: huggingface://Serveurperso/Qwen3-TTS-GGUF/qwen-tokenizer-12hz-Q8_0.gguf
+- !!merge <<: *qwenttscpp_gallery
+  name: qwen3-tts-cpp-1.7b-customvoice-q4
+  description: |
+    Qwen3-TTS 1.7B CustomVoice (C++ / GGML, qwentts.cpp), Q4_K_M. Named speakers
+    via the `voice` field. Streaming, 24kHz mono, 11 languages.
+  tags:
+    - tts
+    - text-to-speech
+    - named-speakers
+    - streaming
+    - qwen3-tts
+    - qwen3-tts-cpp
+    - gguf
+  overrides:
+    backend: qwen3-tts-cpp
+    known_usecases:
+      - tts
+    name: qwen3-tts-cpp-1.7b-customvoice-q4
+    parameters:
+      model: qwen3-tts-cpp-1.7b-customvoice-q4/qwen-talker-1.7b-customvoice-Q4_K_M.gguf
+  files:
+    - filename: qwen3-tts-cpp-1.7b-customvoice-q4/qwen-talker-1.7b-customvoice-Q4_K_M.gguf
+      sha256: cc328834a631bc08bf9f43e62fa23f8a1383d9b429864ce6690cfb172077fc4a
+      uri: huggingface://Serveurperso/Qwen3-TTS-GGUF/qwen-talker-1.7b-customvoice-Q4_K_M.gguf
+    - filename: qwen3-tts-cpp-1.7b-customvoice-q4/qwen-tokenizer-12hz-Q4_K_M.gguf
+      sha256: cf3788b4d50aaa665fb6e57c170396aae03a3555fea52d2b5d0cda902d658039
+      uri: huggingface://Serveurperso/Qwen3-TTS-GGUF/qwen-tokenizer-12hz-Q4_K_M.gguf
+- !!merge <<: *qwenttscpp_gallery
+  name: qwen3-tts-cpp-1.7b-voicedesign
+  description: |
+    Qwen3-TTS 1.7B VoiceDesign (C++ / GGML, qwentts.cpp), Q8_0. Synthesises a
+    speaker from a free-text attribute instruction - REQUIRES the OpenAI
+    `instructions` field (e.g. "male, young adult, moderate pitch"); requests
+    without it are rejected. Streaming, 24kHz mono, 11 languages.
+  tags:
+    - tts
+    - text-to-speech
+    - voice-design
+    - streaming
+    - qwen3-tts
+    - qwen3-tts-cpp
+    - gguf
+  overrides:
+    backend: qwen3-tts-cpp
+    known_usecases:
+      - tts
+    name: qwen3-tts-cpp-1.7b-voicedesign
+    parameters:
+      model: qwen3-tts-cpp-1.7b-voicedesign/qwen-talker-1.7b-voicedesign-Q8_0.gguf
+  files:
+    - filename: qwen3-tts-cpp-1.7b-voicedesign/qwen-talker-1.7b-voicedesign-Q8_0.gguf
+      sha256: 575610ab1ddcca4dca6bd9a64bcd859d93bbad8764f9cab24e1dbc0c51f62276
+      uri: huggingface://Serveurperso/Qwen3-TTS-GGUF/qwen-talker-1.7b-voicedesign-Q8_0.gguf
+    - filename: qwen3-tts-cpp-1.7b-voicedesign/qwen-tokenizer-12hz-Q8_0.gguf
+      sha256: 1883beeed99348fc35e23dd225e9082f93f6f8c109330a33d935baa8acdbfd94
+      uri: huggingface://Serveurperso/Qwen3-TTS-GGUF/qwen-tokenizer-12hz-Q8_0.gguf
+- !!merge <<: *qwenttscpp_gallery
+  name: qwen3-tts-cpp-1.7b-voicedesign-q4
+  description: |
+    Qwen3-TTS 1.7B VoiceDesign (C++ / GGML, qwentts.cpp), Q4_K_M. Synthesises a
+    speaker from a free-text attribute instruction - REQUIRES the `instructions`
+    field. Streaming, 24kHz mono, 11 languages.
+  tags:
+    - tts
+    - text-to-speech
+    - voice-design
+    - streaming
+    - qwen3-tts
+    - qwen3-tts-cpp
+    - gguf
+  overrides:
+    backend: qwen3-tts-cpp
+    known_usecases:
+      - tts
+    name: qwen3-tts-cpp-1.7b-voicedesign-q4
+    parameters:
+      model: qwen3-tts-cpp-1.7b-voicedesign-q4/qwen-talker-1.7b-voicedesign-Q4_K_M.gguf
+  files:
+    - filename: qwen3-tts-cpp-1.7b-voicedesign-q4/qwen-talker-1.7b-voicedesign-Q4_K_M.gguf
+      sha256: 7605ed0cc5e72059f27468c27f70c070e05d1cc0c7b1c76bfb9cba717a59eee3
+      uri: huggingface://Serveurperso/Qwen3-TTS-GGUF/qwen-talker-1.7b-voicedesign-Q4_K_M.gguf
+    - filename: qwen3-tts-cpp-1.7b-voicedesign-q4/qwen-tokenizer-12hz-Q4_K_M.gguf
+      sha256: cf3788b4d50aaa665fb6e57c170396aae03a3555fea52d2b5d0cda902d658039
+      uri: huggingface://Serveurperso/Qwen3-TTS-GGUF/qwen-tokenizer-12hz-Q4_K_M.gguf
 - name: omnivoice-cpp
   url: github:mudler/LocalAI/gallery/virtual.yaml@master
   urls:
@@ -3402,39 +3631,6 @@
     - filename: omnivoice-cpp-hq/omnivoice-tokenizer-BF16.gguf
       sha256: c2179e4cf528b19fea22a5be94c34c083877bb5fc28ac0245d2b4299a262dcec
       uri: huggingface://Serveurperso/OmniVoice-GGUF/omnivoice-tokenizer-BF16.gguf
-- name: qwen3-tts-cpp-customvoice
-  url: github:mudler/LocalAI/gallery/virtual.yaml@master
-  urls:
-    - https://huggingface.co/endo5501/qwen3-tts.cpp
-    - https://github.com/predict-woo/qwen3-tts.cpp
-  description: |
-    Qwen3-TTS 0.6B Custom Voice (C++ / GGML) — text-to-speech with voice cloning support.
-    Generates 24kHz mono audio with optional reference audio for voice cloning via ECAPA-TDNN speaker embeddings.
-    Supports 10 languages (en, zh, ja, ko, de, fr, es, it, pt, ru).
-  license: apache-2.0
-  icon: https://huggingface.co/avatars/c299494fd1e72375832499c75b3425d6.svg
-  tags:
-    - tts
-    - text-to-speech
-    - voice-cloning
-    - qwen3-tts
-    - qwen3-tts-cpp
-    - gguf
-  last_checked: "2026-04-30"
-  overrides:
-    backend: qwen3-tts-cpp
-    known_usecases:
-      - tts
-    name: qwen3-tts-cpp-customvoice
-    parameters:
-      model: qwen3-tts-cpp-customvoice
-  files:
-    - filename: qwen3-tts-cpp-customvoice/qwen3-tts-0.6b-customvoice-f16.gguf
-      sha256: 40b985b71be0970d41eb042488766db556cf17290aa1cff631cabfa0bd3b0431
-      uri: huggingface://endo5501/qwen3-tts.cpp/qwen3-tts-0.6b-customvoice-f16.gguf
-    - filename: qwen3-tts-cpp-customvoice/qwen3-tts-tokenizer-f16.gguf
-      sha256: d1ad9660bd99343f4851d5a4b17e31f65648feb3559f6ea062ae6575e5cd9d90
-      uri: huggingface://endo5501/qwen3-tts.cpp/qwen3-tts-tokenizer-f16.gguf
 - name: qwen3-coder-next-mxfp4_moe
   url: github:mudler/LocalAI/gallery/virtual.yaml@master
   urls:
