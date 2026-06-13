@@ -705,7 +705,7 @@ export default function Talk() {
           )}
           {selectedModelInfo && !selectedModelInfo.self_contained && (
             <div style={{
-              display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 'var(--spacing-xs)',
+              display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: 'var(--spacing-xs)',
               marginBottom: 'var(--spacing-xs)', fontSize: '0.75rem',
             }}>
               {[
