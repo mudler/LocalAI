@@ -94,8 +94,12 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
             window_stride = preprocessor._cfg.get('window_stride', 0.01)
             subsampling_factor = getattr(self.model.encoder, 'subsampling_factor', 8)
             return window_stride * subsampling_factor
-        except Exception:
-            # Fallback: 80ms per frame (typical for parakeet-tdt)
+        except (AttributeError, KeyError, TypeError) as err:
+            print(
+                f"Warning: could not compute stride from model config ({err}), "
+                f"falling back to 0.08s/frame",
+                file=sys.stderr,
+            )
             return 0.08
 
     def _build_segments_with_words(self, hypothesis, stride, timestamp_granularities=None):
@@ -223,13 +227,24 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
             want_timestamps = bool(timestamp_granularities)
 
             if want_timestamps:
-                # Request timestamps from NeMo
-                results = self.model.transcribe([audio_path], timestamps=True, return_hypotheses=False)
+                # Request timestamps from NeMo.
+                # timestamps=True forces NeMo to return Hypothesis objects with
+                # the timestamp dict populated, so we omit return_hypotheses to
+                # let NeMo choose the correct return type.
+                results = self.model.transcribe([audio_path], timestamps=True)
 
                 if results and len(results) > 0:
                     hypotheses = results[0] if isinstance(results[0], list) else results
                     if hypotheses and len(hypotheses) > 0:
                         hypothesis = hypotheses[0]
+
+                        # Hypothesis object should have .timestamp populated
+                        if not hasattr(hypothesis, 'timestamp') or not isinstance(hypothesis.timestamp, dict):
+                            print(
+                                "Warning: timestamps were requested but NeMo did not return "
+                                "Hypothesis objects; falling back to untimestamped output",
+                                file=sys.stderr,
+                            )
 
                         # Extract text
                         if hasattr(hypothesis, 'text'):
