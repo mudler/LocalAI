@@ -139,7 +139,6 @@ type Session struct {
 	// gateMu guards the when:first verification state below.
 	gateMu        sync.Mutex
 	voiceVerified bool
-	voiceMatched  string
 
 	// Response cancellation: protects activeResponseCancel/activeResponseDone
 	responseMu           sync.Mutex
@@ -1309,7 +1308,7 @@ func commitUtterance(ctx context.Context, utt []byte, session *Session, conv *Co
 	}
 	var gateCh chan gateOutcome
 	runGate := false
-	if session.voiceGate != nil {
+	if session.voiceGate != nil && session.InputAudioTranscription != nil {
 		skip := false
 		if session.voiceGate.cfg.When == config.VoiceGateWhenFirst {
 			session.gateMu.Lock()
@@ -1336,10 +1335,17 @@ func commitUtterance(ctx context.Context, utt []byte, session *Session, conv *Co
 		var err error
 		transcript, err = emitTranscription(ctx, t, session, generateItemID(), f.Name())
 		if err != nil {
+			// Drain the gate goroutine before returning so its in-flight read of
+			// the temp WAV finishes before the deferred os.Remove fires.
+			if runGate {
+				<-gateCh
+			}
 			sendError(t, "transcription_failed", err.Error(), "", "event_TODO")
 			return
 		}
 	} else {
+		// The voice gate runs only on the transcription path above; if an
+		// any-to-any model path is added here, join the gate before responding.
 		sendNotImplemented(t, "any-to-any models")
 		return
 	}
@@ -1369,10 +1375,10 @@ func commitUtterance(ctx context.Context, utt []byte, session *Session, conv *Co
 			}
 			return
 		}
+		xlog.Debug("voice recognition gate authorized utterance", "speaker", out.matched)
 		if markVerified {
 			session.gateMu.Lock()
 			session.voiceVerified = true
-			session.voiceMatched = out.matched
 			session.gateMu.Unlock()
 		}
 	}
