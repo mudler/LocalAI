@@ -307,11 +307,19 @@ func gRPCPredictOpts(c config.ModelConfig, modelPath string) *pb.PredictOptions 
 		}
 	}
 
+	// TopK may be nil after SetDefaults for backends that don't use llama.cpp's
+	// top_k=40 default (issue #6632, e.g. mlx). proto3 int32 can't be unset, so
+	// send 0 — the value mlx actually wants (top-k disabled).
+	var topK int32
+	if c.TopK != nil {
+		topK = int32(*c.TopK)
+	}
+
 	pbOpts := &pb.PredictOptions{
 		Temperature:         float32(*c.Temperature),
 		TopP:                float32(*c.TopP),
 		NDraft:              c.NDraft,
-		TopK:                int32(*c.TopK),
+		TopK:                topK,
 		MinP:                float32(*c.MinP),
 		Tokens:              int32(*c.Maxtokens),
 		Threads:             int32(*c.Threads),
