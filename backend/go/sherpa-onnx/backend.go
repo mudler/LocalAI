@@ -62,7 +62,7 @@ var (
 	shimVadConfigSetDebug                    func(uintptr, int32)
 	shimCreateVad                            func(uintptr, float32) uintptr
 
-	// TTS (offline, VITS) config
+	// TTS (offline, VITS/Piper and Kokoro) config
 	shimTtsConfigNew                  func() uintptr
 	shimTtsConfigFree                 func(uintptr)
 	shimTtsConfigSetVitsModel         func(uintptr, string)
@@ -76,6 +76,14 @@ var (
 	shimTtsConfigSetDebug             func(uintptr, int32)
 	shimTtsConfigSetProvider          func(uintptr, string)
 	shimTtsConfigSetMaxNumSentences   func(uintptr, int32)
+	shimTtsConfigSetKokoroModel       func(uintptr, string)
+	shimTtsConfigSetKokoroVoices      func(uintptr, string)
+	shimTtsConfigSetKokoroTokens      func(uintptr, string)
+	shimTtsConfigSetKokoroDataDir     func(uintptr, string)
+	shimTtsConfigSetKokoroDictDir     func(uintptr, string)
+	shimTtsConfigSetKokoroLexicon     func(uintptr, string)
+	shimTtsConfigSetKokoroLang        func(uintptr, string)
+	shimTtsConfigSetKokoroLengthScale func(uintptr, float32)
 	shimCreateOfflineTts              func(uintptr) uintptr
 
 	// Offline recognizer config
@@ -101,37 +109,37 @@ var (
 	shimCreateOfflineRecognizer                  func(uintptr) uintptr
 
 	// Online recognizer config
-	shimOnlineRecogConfigNew                      func() uintptr
-	shimOnlineRecogConfigFree                     func(uintptr)
-	shimOnlineRecogConfigSetTransducerEncoder     func(uintptr, string)
-	shimOnlineRecogConfigSetTransducerDecoder     func(uintptr, string)
-	shimOnlineRecogConfigSetTransducerJoiner      func(uintptr, string)
-	shimOnlineRecogConfigSetTokens                func(uintptr, string)
-	shimOnlineRecogConfigSetNumThreads            func(uintptr, int32)
-	shimOnlineRecogConfigSetDebug                 func(uintptr, int32)
-	shimOnlineRecogConfigSetProvider              func(uintptr, string)
-	shimOnlineRecogConfigSetFeatSampleRate        func(uintptr, int32)
-	shimOnlineRecogConfigSetFeatFeatureDim        func(uintptr, int32)
-	shimOnlineRecogConfigSetDecodingMethod        func(uintptr, string)
-	shimOnlineRecogConfigSetEnableEndpoint        func(uintptr, int32)
+	shimOnlineRecogConfigNew                        func() uintptr
+	shimOnlineRecogConfigFree                       func(uintptr)
+	shimOnlineRecogConfigSetTransducerEncoder       func(uintptr, string)
+	shimOnlineRecogConfigSetTransducerDecoder       func(uintptr, string)
+	shimOnlineRecogConfigSetTransducerJoiner        func(uintptr, string)
+	shimOnlineRecogConfigSetTokens                  func(uintptr, string)
+	shimOnlineRecogConfigSetNumThreads              func(uintptr, int32)
+	shimOnlineRecogConfigSetDebug                   func(uintptr, int32)
+	shimOnlineRecogConfigSetProvider                func(uintptr, string)
+	shimOnlineRecogConfigSetFeatSampleRate          func(uintptr, int32)
+	shimOnlineRecogConfigSetFeatFeatureDim          func(uintptr, int32)
+	shimOnlineRecogConfigSetDecodingMethod          func(uintptr, string)
+	shimOnlineRecogConfigSetEnableEndpoint          func(uintptr, int32)
 	shimOnlineRecogConfigSetRule1MinTrailingSilence func(uintptr, float32)
 	shimOnlineRecogConfigSetRule2MinTrailingSilence func(uintptr, float32)
 	shimOnlineRecogConfigSetRule3MinUtteranceLength func(uintptr, float32)
-	shimCreateOnlineRecognizer                    func(uintptr) uintptr
+	shimCreateOnlineRecognizer                      func(uintptr) uintptr
 
 	// Result accessors. Pointer returns use unsafe.Pointer so Go's
 	// vet checker doesn't flag them — the returned memory is C-owned,
 	// not subject to Go GC motion.
-	shimWaveSampleRate            func(uintptr) int32
-	shimWaveNumSamples            func(uintptr) int32
-	shimWaveSamples               func(uintptr) unsafe.Pointer
-	shimOfflineResultText         func(uintptr) unsafe.Pointer
-	shimOnlineResultText          func(uintptr) unsafe.Pointer
-	shimGeneratedAudioSampleRate  func(uintptr) int32
-	shimGeneratedAudioN           func(uintptr) int32
-	shimGeneratedAudioSamples     func(uintptr) unsafe.Pointer
-	shimSpeechSegmentStart        func(uintptr) int32
-	shimSpeechSegmentN            func(uintptr) int32
+	shimWaveSampleRate           func(uintptr) int32
+	shimWaveNumSamples           func(uintptr) int32
+	shimWaveSamples              func(uintptr) unsafe.Pointer
+	shimOfflineResultText        func(uintptr) unsafe.Pointer
+	shimOnlineResultText         func(uintptr) unsafe.Pointer
+	shimGeneratedAudioSampleRate func(uintptr) int32
+	shimGeneratedAudioN          func(uintptr) int32
+	shimGeneratedAudioSamples    func(uintptr) unsafe.Pointer
+	shimSpeechSegmentStart       func(uintptr) int32
+	shimSpeechSegmentN           func(uintptr) int32
 
 	// TTS streaming callback trampoline
 	shimTtsGenerateWithCallback func(tts uintptr, text string, sid int32, speed float32, cb uintptr, ud uintptr) uintptr
@@ -161,13 +169,13 @@ var (
 // pointer returned by the shim or `unsafe.Pointer(&slice[0])` from Go.
 var (
 	// VAD
-	sherpaVadAcceptWaveform       func(vad uintptr, samples unsafe.Pointer, n int32)
-	sherpaVadReset                func(vad uintptr)
-	sherpaVadFlush                func(vad uintptr)
-	sherpaVadEmpty                func(vad uintptr) int32
-	sherpaVadFront                func(vad uintptr) uintptr
-	sherpaVadPop                  func(vad uintptr)
-	sherpaDestroySpeechSegment    func(seg uintptr)
+	sherpaVadAcceptWaveform    func(vad uintptr, samples unsafe.Pointer, n int32)
+	sherpaVadReset             func(vad uintptr)
+	sherpaVadFlush             func(vad uintptr)
+	sherpaVadEmpty             func(vad uintptr) int32
+	sherpaVadFront             func(vad uintptr) uintptr
+	sherpaVadPop               func(vad uintptr)
+	sherpaDestroySpeechSegment func(seg uintptr)
 
 	// Wave IO
 	sherpaReadWave  func(filename string) uintptr
@@ -175,11 +183,11 @@ var (
 	sherpaWriteWave func(samples unsafe.Pointer, n int32, sampleRate int32, filename string) int32
 
 	// Offline ASR
-	sherpaCreateOfflineStream           func(rec uintptr) uintptr
-	sherpaDestroyOfflineStream          func(stream uintptr)
-	sherpaAcceptWaveformOffline         func(stream uintptr, sr int32, samples unsafe.Pointer, n int32)
-	sherpaDecodeOfflineStream           func(rec uintptr, stream uintptr)
-	sherpaGetOfflineStreamResult        func(stream uintptr) uintptr
+	sherpaCreateOfflineStream            func(rec uintptr) uintptr
+	sherpaDestroyOfflineStream           func(stream uintptr)
+	sherpaAcceptWaveformOffline          func(stream uintptr, sr int32, samples unsafe.Pointer, n int32)
+	sherpaDecodeOfflineStream            func(rec uintptr, stream uintptr)
+	sherpaGetOfflineStreamResult         func(stream uintptr) uintptr
 	sherpaDestroyOfflineRecognizerResult func(result uintptr)
 
 	// Online ASR
@@ -195,21 +203,21 @@ var (
 	sherpaOnlineStreamInputFinished     func(stream uintptr)
 
 	// TTS
-	sherpaOfflineTtsGenerate             func(tts uintptr, text string, sid int32, speed float32) uintptr
+	sherpaOfflineTtsGenerate              func(tts uintptr, text string, sid int32, speed float32) uintptr
 	sherpaDestroyOfflineTtsGeneratedAudio func(audio uintptr)
-	sherpaOfflineTtsSampleRate           func(tts uintptr) int32
+	sherpaOfflineTtsSampleRate            func(tts uintptr) int32
 
 	// Offline speaker diarization. Result handle owns the segment-array
 	// pointer returned by ResultSortByStartTime; destroy the segment
 	// array first, then the result, then (at backend Free()) the diarizer.
-	sherpaDestroyOfflineSpeakerDiarization                 func(sd uintptr)
-	sherpaOfflineSpeakerDiarizationGetSampleRate           func(sd uintptr) int32
-	sherpaOfflineSpeakerDiarizationProcess                 func(sd uintptr, samples unsafe.Pointer, n int32) uintptr
-	sherpaOfflineSpeakerDiarizationResultGetNumSegments    func(result uintptr) int32
-	sherpaOfflineSpeakerDiarizationResultGetNumSpeakers    func(result uintptr) int32
-	sherpaOfflineSpeakerDiarizationResultSortByStartTime   func(result uintptr) uintptr
-	sherpaOfflineSpeakerDiarizationDestroySegment          func(segs uintptr)
-	sherpaDestroyOfflineSpeakerDiarizationResult           func(result uintptr)
+	sherpaDestroyOfflineSpeakerDiarization               func(sd uintptr)
+	sherpaOfflineSpeakerDiarizationGetSampleRate         func(sd uintptr) int32
+	sherpaOfflineSpeakerDiarizationProcess               func(sd uintptr, samples unsafe.Pointer, n int32) uintptr
+	sherpaOfflineSpeakerDiarizationResultGetNumSegments  func(result uintptr) int32
+	sherpaOfflineSpeakerDiarizationResultGetNumSpeakers  func(result uintptr) int32
+	sherpaOfflineSpeakerDiarizationResultSortByStartTime func(result uintptr) uintptr
+	sherpaOfflineSpeakerDiarizationDestroySegment        func(segs uintptr)
+	sherpaDestroyOfflineSpeakerDiarizationResult         func(result uintptr)
 )
 
 var (
@@ -278,6 +286,14 @@ func loadSherpaLibsOnce() error {
 		{&shimTtsConfigSetDebug, "sherpa_shim_tts_config_set_debug"},
 		{&shimTtsConfigSetProvider, "sherpa_shim_tts_config_set_provider"},
 		{&shimTtsConfigSetMaxNumSentences, "sherpa_shim_tts_config_set_max_num_sentences"},
+		{&shimTtsConfigSetKokoroModel, "sherpa_shim_tts_config_set_kokoro_model"},
+		{&shimTtsConfigSetKokoroVoices, "sherpa_shim_tts_config_set_kokoro_voices"},
+		{&shimTtsConfigSetKokoroTokens, "sherpa_shim_tts_config_set_kokoro_tokens"},
+		{&shimTtsConfigSetKokoroDataDir, "sherpa_shim_tts_config_set_kokoro_data_dir"},
+		{&shimTtsConfigSetKokoroDictDir, "sherpa_shim_tts_config_set_kokoro_dict_dir"},
+		{&shimTtsConfigSetKokoroLexicon, "sherpa_shim_tts_config_set_kokoro_lexicon"},
+		{&shimTtsConfigSetKokoroLang, "sherpa_shim_tts_config_set_kokoro_lang"},
+		{&shimTtsConfigSetKokoroLengthScale, "sherpa_shim_tts_config_set_kokoro_length_scale"},
 		{&shimCreateOfflineTts, "sherpa_shim_create_offline_tts"},
 
 		{&shimOfflineRecogConfigNew, "sherpa_shim_offline_recog_config_new"},
@@ -688,21 +704,14 @@ func (s *SherpaBackend) loadTTS(opts *pb.ModelOptions) error {
 	cfg := shimTtsConfigNew()
 	defer shimTtsConfigFree(cfg)
 
-	shimTtsConfigSetVitsModel(cfg, modelFile)
-
-	if tokensPath := filepath.Join(modelDir, "tokens.txt"); fileExists(tokensPath) {
-		shimTtsConfigSetVitsTokens(cfg, tokensPath)
+	// Kokoro models ship a voices style file alongside the ONNX, whereas
+	// VITS/Piper voices do not. That presence is what tells the two model
+	// families apart, since both arrive as a plain *.onnx in modelDir.
+	if isKokoroModel(modelDir) {
+		s.configureKokoroTTS(cfg, opts, modelFile, modelDir)
+	} else {
+		s.configureVitsTTS(cfg, opts, modelFile, modelDir)
 	}
-	if lexiconPath := filepath.Join(modelDir, "lexicon.txt"); fileExists(lexiconPath) {
-		shimTtsConfigSetVitsLexicon(cfg, lexiconPath)
-	}
-	if dataDir := filepath.Join(modelDir, "espeak-ng-data"); dirExists(dataDir) {
-		shimTtsConfigSetVitsDataDir(cfg, dataDir)
-	}
-
-	shimTtsConfigSetVitsNoiseScale(cfg, findOptionFloat(opts, optionTtsNoiseScale, 0.667))
-	shimTtsConfigSetVitsNoiseScaleW(cfg, findOptionFloat(opts, optionTtsNoiseScaleW, 0.8))
-	shimTtsConfigSetVitsLengthScale(cfg, findOptionFloat(opts, optionTtsLengthScale, 1.0))
 
 	threads := int32(1)
 	if opts.Threads != 0 {
@@ -721,6 +730,80 @@ func (s *SherpaBackend) loadTTS(opts *pb.ModelOptions) error {
 	}
 	s.tts = tts
 	return nil
+}
+
+// kokoroVoicesFile is the speaker-style bank that ships with Kokoro models and
+// is absent from VITS/Piper voices; its presence is how loadTTS tells them apart.
+const kokoroVoicesFile = "voices.bin"
+
+// isKokoroModel reports whether modelDir holds a Kokoro model (a voices file
+// next to the ONNX) rather than a VITS/Piper single-speaker model.
+func isKokoroModel(modelDir string) bool {
+	return fileExists(filepath.Join(modelDir, kokoroVoicesFile))
+}
+
+// configureVitsTTS wires a VITS/Piper single-speaker model into cfg: the ONNX
+// plus the optional tokens, lexicon and espeak-ng-data found beside it.
+func (s *SherpaBackend) configureVitsTTS(cfg uintptr, opts *pb.ModelOptions, modelFile, modelDir string) {
+	shimTtsConfigSetVitsModel(cfg, modelFile)
+
+	if tokensPath := filepath.Join(modelDir, "tokens.txt"); fileExists(tokensPath) {
+		shimTtsConfigSetVitsTokens(cfg, tokensPath)
+	}
+	if lexiconPath := filepath.Join(modelDir, "lexicon.txt"); fileExists(lexiconPath) {
+		shimTtsConfigSetVitsLexicon(cfg, lexiconPath)
+	}
+	if dataDir := filepath.Join(modelDir, "espeak-ng-data"); dirExists(dataDir) {
+		shimTtsConfigSetVitsDataDir(cfg, dataDir)
+	}
+
+	shimTtsConfigSetVitsNoiseScale(cfg, findOptionFloat(opts, optionTtsNoiseScale, 0.667))
+	shimTtsConfigSetVitsNoiseScaleW(cfg, findOptionFloat(opts, optionTtsNoiseScaleW, 0.8))
+	shimTtsConfigSetVitsLengthScale(cfg, findOptionFloat(opts, optionTtsLengthScale, 1.0))
+}
+
+// configureKokoroTTS wires a Kokoro model into cfg: the ONNX, its voices bank,
+// tokens, and the optional espeak-ng-data / jieba dict / lexicon assets the
+// multi-lingual packs ship. A language hint comes from the `language=` option.
+func (s *SherpaBackend) configureKokoroTTS(cfg uintptr, opts *pb.ModelOptions, modelFile, modelDir string) {
+	shimTtsConfigSetKokoroModel(cfg, modelFile)
+	shimTtsConfigSetKokoroVoices(cfg, filepath.Join(modelDir, kokoroVoicesFile))
+
+	if tokensPath := filepath.Join(modelDir, "tokens.txt"); fileExists(tokensPath) {
+		shimTtsConfigSetKokoroTokens(cfg, tokensPath)
+	}
+	if dataDir := filepath.Join(modelDir, "espeak-ng-data"); dirExists(dataDir) {
+		shimTtsConfigSetKokoroDataDir(cfg, dataDir)
+	}
+	if dictDir := filepath.Join(modelDir, "dict"); dirExists(dictDir) {
+		shimTtsConfigSetKokoroDictDir(cfg, dictDir)
+	}
+
+	// Multi-lingual Kokoro ships per-language lexicons; the C API takes them as
+	// a single comma-separated list. US and GB English overlap almost entirely,
+	// so pass only one (US preferred) to avoid tens of thousands of "duplicated
+	// word" warnings at load; non-English lexicons (e.g. zh) are additive.
+	var lexicons []string
+	addLexicon := func(name string) {
+		if p := filepath.Join(modelDir, name); fileExists(p) {
+			lexicons = append(lexicons, p)
+		}
+	}
+	if fileExists(filepath.Join(modelDir, "lexicon-us-en.txt")) {
+		addLexicon("lexicon-us-en.txt")
+	} else {
+		addLexicon("lexicon-gb-en.txt")
+	}
+	addLexicon("lexicon-zh.txt")
+	addLexicon("lexicon.txt")
+	if len(lexicons) > 0 {
+		shimTtsConfigSetKokoroLexicon(cfg, strings.Join(lexicons, ","))
+	}
+
+	if lang := findOptionValue(opts, optionLanguage, ""); lang != "" {
+		shimTtsConfigSetKokoroLang(cfg, lang)
+	}
+	shimTtsConfigSetKokoroLengthScale(cfg, findOptionFloat(opts, optionTtsLengthScale, 1.0))
 }
 
 func fileExists(p string) bool {
@@ -1252,7 +1335,7 @@ type ttsStreamState struct {
 var (
 	ttsStates      sync.Map // uint64 → *ttsStreamState
 	ttsNextID      atomic.Uint64
-	ttsCallbackPtr uintptr  // purego.NewCallback return; registered in loadSherpaLibs
+	ttsCallbackPtr uintptr // purego.NewCallback return; registered in loadSherpaLibs
 )
 
 // ttsStreamCallback is invoked by sherpa-onnx for each PCM chunk VITS
