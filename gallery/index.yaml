@@ -33420,6 +33420,1626 @@
     - filename: piper-de_DE-ramona-low-f16.gguf
       uri: huggingface://LocalAI-Community/piper-voices-GGUF/piper-de_DE-ramona-low-f16.gguf
       sha256: c5f71091e58ebe59f8f4ad47d3b444659c4e8281e86d20e153955b895b5f6921
+- name: piper-ar_JO-kareem-medium-crispasr
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/rhasspy/piper-voices
+    - https://huggingface.co/LocalAI-Community/piper-voices-GGUF
+  icon: https://github.com/rhasspy/piper/raw/master/etc/logo.png
+  description: |
+    Piper (rhasspy VITS) Arabic voice "kareem", medium quality, synthesized through the CrispASR backend. Lightweight local neural TTS producing 22.05 kHz mono audio. Runs end-to-end on CPU.
+  tags:
+    - crispasr
+    - tts
+    - text-to-speech
+    - piper
+    - gguf
+  overrides:
+    backend: crispasr
+    known_usecases:
+      - tts
+    name: piper-ar_JO-kareem-medium-crispasr
+    options:
+      - "backend:piper"
+    parameters:
+      model: piper-ar_JO-kareem-medium-f16.gguf
+  files:
+    - filename: piper-ar_JO-kareem-medium-f16.gguf
+      uri: huggingface://LocalAI-Community/piper-voices-GGUF/piper-ar_JO-kareem-medium-f16.gguf
+      sha256: adc53962373d068b9c5d187b50eed711c7d619d9492339ae1c40bec328f59b22
+- name: piper-bg_BG-dimitar-medium-crispasr
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/rhasspy/piper-voices
+    - https://huggingface.co/LocalAI-Community/piper-voices-GGUF
+  icon: https://github.com/rhasspy/piper/raw/master/etc/logo.png
+  description: |
+    Piper (rhasspy VITS) Bulgarian voice "dimitar", medium quality, synthesized through the CrispASR backend. Lightweight local neural TTS producing 22.05 kHz mono audio. Runs end-to-end on CPU.
+  tags:
+    - crispasr
+    - tts
+    - text-to-speech
+    - piper
+    - gguf
+  overrides:
+    backend: crispasr
+    known_usecases:
+      - tts
+    name: piper-bg_BG-dimitar-medium-crispasr
+    options:
+      - "backend:piper"
+    parameters:
+      model: piper-bg_BG-dimitar-medium-f16.gguf
+  files:
+    - filename: piper-bg_BG-dimitar-medium-f16.gguf
+      uri: huggingface://LocalAI-Community/piper-voices-GGUF/piper-bg_BG-dimitar-medium-f16.gguf
+      sha256: a8cfb6fb975a0b9a3e108bff3b0a5d9b5e021448bdc553b2275c6713c9e879ff
+- name: piper-ca_ES-upc_ona-medium-crispasr
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/rhasspy/piper-voices
+    - https://huggingface.co/LocalAI-Community/piper-voices-GGUF
+  icon: https://github.com/rhasspy/piper/raw/master/etc/logo.png
+  description: |
+    Piper (rhasspy VITS) Catalan voice "upc_ona", medium quality, synthesized through the CrispASR backend. Lightweight local neural TTS producing 22.05 kHz mono audio. Runs end-to-end on CPU.
+  tags:
+    - crispasr
+    - tts
+    - text-to-speech
+    - piper
+    - gguf
+  overrides:
+    backend: crispasr
+    known_usecases:
+      - tts
+    name: piper-ca_ES-upc_ona-medium-crispasr
+    options:
+      - "backend:piper"
+    parameters:
+      model: piper-ca_ES-upc_ona-medium-f16.gguf
+  files:
+    - filename: piper-ca_ES-upc_ona-medium-f16.gguf
+      uri: huggingface://LocalAI-Community/piper-voices-GGUF/piper-ca_ES-upc_ona-medium-f16.gguf
+      sha256: 3fb75d6e32ac9930d8178a651a1114c54a0f17289aa745bc21707a3e5032cf34
+- name: piper-ca_ES-upc_pau-x_low-crispasr
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/rhasspy/piper-voices
+    - https://huggingface.co/LocalAI-Community/piper-voices-GGUF
+  icon: https://github.com/rhasspy/piper/raw/master/etc/logo.png
+  description: |
+    Piper (rhasspy VITS) Catalan voice "upc_pau", x_low quality, synthesized through the CrispASR backend. Lightweight local neural TTS producing 16 kHz mono audio. Runs end-to-end on CPU.
+  tags:
+    - crispasr
+    - tts
+    - text-to-speech
+    - piper
+    - gguf
+  overrides:
+    backend: crispasr
+    known_usecases:
+      - tts
+    name: piper-ca_ES-upc_pau-x_low-crispasr
+    options:
+      - "backend:piper"
+    parameters:
+      model: piper-ca_ES-upc_pau-x_low-f16.gguf
+  files:
+    - filename: piper-ca_ES-upc_pau-x_low-f16.gguf
+      uri: huggingface://LocalAI-Community/piper-voices-GGUF/piper-ca_ES-upc_pau-x_low-f16.gguf
+      sha256: 94b0b1d5323c1e336c9f67a2cc3f9f308af81bfb443d08c26373a11b15085042
+- name: piper-cs_CZ-jirka-medium-crispasr
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/rhasspy/piper-voices
+    - https://huggingface.co/LocalAI-Community/piper-voices-GGUF
+  icon: https://github.com/rhasspy/piper/raw/master/etc/logo.png
+  description: |
+    Piper (rhasspy VITS) Czech voice "jirka", medium quality, synthesized through the CrispASR backend. Lightweight local neural TTS producing 22.05 kHz mono audio. Runs end-to-end on CPU.
+  tags:
+    - crispasr
+    - tts
+    - text-to-speech
+    - piper
+    - gguf
+  overrides:
+    backend: crispasr
+    known_usecases:
+      - tts
+    name: piper-cs_CZ-jirka-medium-crispasr
+    options:
+      - "backend:piper"
+    parameters:
+      model: piper-cs_CZ-jirka-medium-f16.gguf
+  files:
+    - filename: piper-cs_CZ-jirka-medium-f16.gguf
+      uri: huggingface://LocalAI-Community/piper-voices-GGUF/piper-cs_CZ-jirka-medium-f16.gguf
+      sha256: cd906ade3cfd17e326cf7e0944e2c977a69894497ed1e39e305923d615f1644b
+- name: piper-cy_GB-gwryw_gogleddol-medium-crispasr
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/rhasspy/piper-voices
+    - https://huggingface.co/LocalAI-Community/piper-voices-GGUF
+  icon: https://github.com/rhasspy/piper/raw/master/etc/logo.png
+  description: |
+    Piper (rhasspy VITS) Welsh voice "gwryw_gogleddol", medium quality, synthesized through the CrispASR backend. Lightweight local neural TTS producing 22.05 kHz mono audio. Runs end-to-end on CPU.
+  tags:
+    - crispasr
+    - tts
+    - text-to-speech
+    - piper
+    - gguf
+  overrides:
+    backend: crispasr
+    known_usecases:
+      - tts
+    name: piper-cy_GB-gwryw_gogleddol-medium-crispasr
+    options:
+      - "backend:piper"
+    parameters:
+      model: piper-cy_GB-gwryw_gogleddol-medium-f16.gguf
+  files:
+    - filename: piper-cy_GB-gwryw_gogleddol-medium-f16.gguf
+      uri: huggingface://LocalAI-Community/piper-voices-GGUF/piper-cy_GB-gwryw_gogleddol-medium-f16.gguf
+      sha256: b92151c1ed96470e606635606fb6f99cfb9575b7dbe868225bb65ea48c63b0ff
+- name: piper-da_DK-talesyntese-medium-crispasr
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/rhasspy/piper-voices
+    - https://huggingface.co/LocalAI-Community/piper-voices-GGUF
+  icon: https://github.com/rhasspy/piper/raw/master/etc/logo.png
+  description: |
+    Piper (rhasspy VITS) Danish voice "talesyntese", medium quality, synthesized through the CrispASR backend. Lightweight local neural TTS producing 22.05 kHz mono audio. Runs end-to-end on CPU.
+  tags:
+    - crispasr
+    - tts
+    - text-to-speech
+    - piper
+    - gguf
+  overrides:
+    backend: crispasr
+    known_usecases:
+      - tts
+    name: piper-da_DK-talesyntese-medium-crispasr
+    options:
+      - "backend:piper"
+    parameters:
+      model: piper-da_DK-talesyntese-medium-f16.gguf
+  files:
+    - filename: piper-da_DK-talesyntese-medium-f16.gguf
+      uri: huggingface://LocalAI-Community/piper-voices-GGUF/piper-da_DK-talesyntese-medium-f16.gguf
+      sha256: 6815e91fe410e36d7856e58ee11e4ef5df8d6ede4bd5871304220b870ff59123
+- name: piper-el_GR-rapunzelina-medium-crispasr
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/rhasspy/piper-voices
+    - https://huggingface.co/LocalAI-Community/piper-voices-GGUF
+  icon: https://github.com/rhasspy/piper/raw/master/etc/logo.png
+  description: |
+    Piper (rhasspy VITS) Greek voice "rapunzelina", medium quality, synthesized through the CrispASR backend. Lightweight local neural TTS producing 22.05 kHz mono audio. Runs end-to-end on CPU.
+  tags:
+    - crispasr
+    - tts
+    - text-to-speech
+    - piper
+    - gguf
+  overrides:
+    backend: crispasr
+    known_usecases:
+      - tts
+    name: piper-el_GR-rapunzelina-medium-crispasr
+    options:
+      - "backend:piper"
+    parameters:
+      model: piper-el_GR-rapunzelina-medium-f16.gguf
+  files:
+    - filename: piper-el_GR-rapunzelina-medium-f16.gguf
+      uri: huggingface://LocalAI-Community/piper-voices-GGUF/piper-el_GR-rapunzelina-medium-f16.gguf
+      sha256: 381e4c636758225df65441aad1643130a371e8fe102bb873ac379fe6c3a18a29
+- name: piper-es_ES-davefx-medium-crispasr
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/rhasspy/piper-voices
+    - https://huggingface.co/LocalAI-Community/piper-voices-GGUF
+  icon: https://github.com/rhasspy/piper/raw/master/etc/logo.png
+  description: |
+    Piper (rhasspy VITS) Spanish voice "davefx", medium quality, synthesized through the CrispASR backend. Lightweight local neural TTS producing 22.05 kHz mono audio. Runs end-to-end on CPU.
+  tags:
+    - crispasr
+    - tts
+    - text-to-speech
+    - piper
+    - gguf
+  overrides:
+    backend: crispasr
+    known_usecases:
+      - tts
+    name: piper-es_ES-davefx-medium-crispasr
+    options:
+      - "backend:piper"
+    parameters:
+      model: piper-es_ES-davefx-medium-f16.gguf
+  files:
+    - filename: piper-es_ES-davefx-medium-f16.gguf
+      uri: huggingface://LocalAI-Community/piper-voices-GGUF/piper-es_ES-davefx-medium-f16.gguf
+      sha256: 7f82c6e1a56c597b911f5b500de2dd51cc34dd125e095cf3c445caea6912cee2
+- name: piper-es_ES-mls_10246-low-crispasr
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/rhasspy/piper-voices
+    - https://huggingface.co/LocalAI-Community/piper-voices-GGUF
+  icon: https://github.com/rhasspy/piper/raw/master/etc/logo.png
+  description: |
+    Piper (rhasspy VITS) Spanish voice "mls_10246", low quality, synthesized through the CrispASR backend. Lightweight local neural TTS producing 16 kHz mono audio. Runs end-to-end on CPU.
+  tags:
+    - crispasr
+    - tts
+    - text-to-speech
+    - piper
+    - gguf
+  overrides:
+    backend: crispasr
+    known_usecases:
+      - tts
+    name: piper-es_ES-mls_10246-low-crispasr
+    options:
+      - "backend:piper"
+    parameters:
+      model: piper-es_ES-mls_10246-low-f16.gguf
+  files:
+    - filename: piper-es_ES-mls_10246-low-f16.gguf
+      uri: huggingface://LocalAI-Community/piper-voices-GGUF/piper-es_ES-mls_10246-low-f16.gguf
+      sha256: c6d697b5b3a9b0ef5c7d5db9f5601ed2cf19cce7543b0070c09736e1e188d56e
+- name: piper-es_MX-ald-medium-crispasr
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/rhasspy/piper-voices
+    - https://huggingface.co/LocalAI-Community/piper-voices-GGUF
+  icon: https://github.com/rhasspy/piper/raw/master/etc/logo.png
+  description: |
+    Piper (rhasspy VITS) Spanish voice "ald", medium quality, synthesized through the CrispASR backend. Lightweight local neural TTS producing 22.05 kHz mono audio. Runs end-to-end on CPU.
+  tags:
+    - crispasr
+    - tts
+    - text-to-speech
+    - piper
+    - gguf
+  overrides:
+    backend: crispasr
+    known_usecases:
+      - tts
+    name: piper-es_MX-ald-medium-crispasr
+    options:
+      - "backend:piper"
+    parameters:
+      model: piper-es_MX-ald-medium-f16.gguf
+  files:
+    - filename: piper-es_MX-ald-medium-f16.gguf
+      uri: huggingface://LocalAI-Community/piper-voices-GGUF/piper-es_MX-ald-medium-f16.gguf
+      sha256: 9aa09e58720af8780bbfbc81f63e1c34f0176f4aa68aed26f92bafee5c6ddc1f
+- name: piper-eu_ES-antton-medium-crispasr
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/rhasspy/piper-voices
+    - https://huggingface.co/LocalAI-Community/piper-voices-GGUF
+  icon: https://github.com/rhasspy/piper/raw/master/etc/logo.png
+  description: |
+    Piper (rhasspy VITS) Basque voice "antton", medium quality, synthesized through the CrispASR backend. Lightweight local neural TTS producing 22.05 kHz mono audio. Runs end-to-end on CPU.
+  tags:
+    - crispasr
+    - tts
+    - text-to-speech
+    - piper
+    - gguf
+  overrides:
+    backend: crispasr
+    known_usecases:
+      - tts
+    name: piper-eu_ES-antton-medium-crispasr
+    options:
+      - "backend:piper"
+    parameters:
+      model: piper-eu_ES-antton-medium-f16.gguf
+  files:
+    - filename: piper-eu_ES-antton-medium-f16.gguf
+      uri: huggingface://LocalAI-Community/piper-voices-GGUF/piper-eu_ES-antton-medium-f16.gguf
+      sha256: 2f1465553696428a37ee9631e3d548b4711da6d0cd7e59d6b145f2adfbf8d82b
+- name: piper-eu_ES-maider-medium-crispasr
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/rhasspy/piper-voices
+    - https://huggingface.co/LocalAI-Community/piper-voices-GGUF
+  icon: https://github.com/rhasspy/piper/raw/master/etc/logo.png
+  description: |
+    Piper (rhasspy VITS) Basque voice "maider", medium quality, synthesized through the CrispASR backend. Lightweight local neural TTS producing 22.05 kHz mono audio. Runs end-to-end on CPU.
+  tags:
+    - crispasr
+    - tts
+    - text-to-speech
+    - piper
+    - gguf
+  overrides:
+    backend: crispasr
+    known_usecases:
+      - tts
+    name: piper-eu_ES-maider-medium-crispasr
+    options:
+      - "backend:piper"
+    parameters:
+      model: piper-eu_ES-maider-medium-f16.gguf
+  files:
+    - filename: piper-eu_ES-maider-medium-f16.gguf
+      uri: huggingface://LocalAI-Community/piper-voices-GGUF/piper-eu_ES-maider-medium-f16.gguf
+      sha256: 580b71efaaace46f086614bb41b66058a17e59aa8feb6610251b288a29521366
+- name: piper-fa_IR-amir-medium-crispasr
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/rhasspy/piper-voices
+    - https://huggingface.co/LocalAI-Community/piper-voices-GGUF
+  icon: https://github.com/rhasspy/piper/raw/master/etc/logo.png
+  description: |
+    Piper (rhasspy VITS) Farsi voice "amir", medium quality, synthesized through the CrispASR backend. Lightweight local neural TTS producing 22.05 kHz mono audio. Runs end-to-end on CPU.
+  tags:
+    - crispasr
+    - tts
+    - text-to-speech
+    - piper
+    - gguf
+  overrides:
+    backend: crispasr
+    known_usecases:
+      - tts
+    name: piper-fa_IR-amir-medium-crispasr
+    options:
+      - "backend:piper"
+    parameters:
+      model: piper-fa_IR-amir-medium-f16.gguf
+  files:
+    - filename: piper-fa_IR-amir-medium-f16.gguf
+      uri: huggingface://LocalAI-Community/piper-voices-GGUF/piper-fa_IR-amir-medium-f16.gguf
+      sha256: 01b38cf4ec243cb993e979b01bf665324d62c1e0890ade245710d979421bb134
+- name: piper-fa_IR-ganji-medium-crispasr
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/rhasspy/piper-voices
+    - https://huggingface.co/LocalAI-Community/piper-voices-GGUF
+  icon: https://github.com/rhasspy/piper/raw/master/etc/logo.png
+  description: |
+    Piper (rhasspy VITS) Farsi voice "ganji", medium quality, synthesized through the CrispASR backend. Lightweight local neural TTS producing 22.05 kHz mono audio. Runs end-to-end on CPU.
+  tags:
+    - crispasr
+    - tts
+    - text-to-speech
+    - piper
+    - gguf
+  overrides:
+    backend: crispasr
+    known_usecases:
+      - tts
+    name: piper-fa_IR-ganji-medium-crispasr
+    options:
+      - "backend:piper"
+    parameters:
+      model: piper-fa_IR-ganji-medium-f16.gguf
+  files:
+    - filename: piper-fa_IR-ganji-medium-f16.gguf
+      uri: huggingface://LocalAI-Community/piper-voices-GGUF/piper-fa_IR-ganji-medium-f16.gguf
+      sha256: fe67d1addaa2a90b918581b70aa226246b7a389d8e0e5e8f53f4757c0d043475
+- name: piper-fi_FI-harri-medium-crispasr
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/rhasspy/piper-voices
+    - https://huggingface.co/LocalAI-Community/piper-voices-GGUF
+  icon: https://github.com/rhasspy/piper/raw/master/etc/logo.png
+  description: |
+    Piper (rhasspy VITS) Finnish voice "harri", medium quality, synthesized through the CrispASR backend. Lightweight local neural TTS producing 22.05 kHz mono audio. Runs end-to-end on CPU.
+  tags:
+    - crispasr
+    - tts
+    - text-to-speech
+    - piper
+    - gguf
+  overrides:
+    backend: crispasr
+    known_usecases:
+      - tts
+    name: piper-fi_FI-harri-medium-crispasr
+    options:
+      - "backend:piper"
+    parameters:
+      model: piper-fi_FI-harri-medium-f16.gguf
+  files:
+    - filename: piper-fi_FI-harri-medium-f16.gguf
+      uri: huggingface://LocalAI-Community/piper-voices-GGUF/piper-fi_FI-harri-medium-f16.gguf
+      sha256: ed9d7130992fbc424b9470530488873d1de2a327601aad87c8a8d1593abd15c4
+- name: piper-fr_FR-siwis-medium-crispasr
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/rhasspy/piper-voices
+    - https://huggingface.co/LocalAI-Community/piper-voices-GGUF
+  icon: https://github.com/rhasspy/piper/raw/master/etc/logo.png
+  description: |
+    Piper (rhasspy VITS) French voice "siwis", medium quality, synthesized through the CrispASR backend. Lightweight local neural TTS producing 22.05 kHz mono audio. Runs end-to-end on CPU.
+  tags:
+    - crispasr
+    - tts
+    - text-to-speech
+    - piper
+    - gguf
+  overrides:
+    backend: crispasr
+    known_usecases:
+      - tts
+    name: piper-fr_FR-siwis-medium-crispasr
+    options:
+      - "backend:piper"
+    parameters:
+      model: piper-fr_FR-siwis-medium-f16.gguf
+  files:
+    - filename: piper-fr_FR-siwis-medium-f16.gguf
+      uri: huggingface://LocalAI-Community/piper-voices-GGUF/piper-fr_FR-siwis-medium-f16.gguf
+      sha256: c036afda873e776833d494ba89326ac0719ebbd7cee9268d97104e536ff14890
+- name: piper-fr_FR-tom-medium-crispasr
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/rhasspy/piper-voices
+    - https://huggingface.co/LocalAI-Community/piper-voices-GGUF
+  icon: https://github.com/rhasspy/piper/raw/master/etc/logo.png
+  description: |
+    Piper (rhasspy VITS) French voice "tom", medium quality, synthesized through the CrispASR backend. Lightweight local neural TTS producing 44100 Hz mono audio. Runs end-to-end on CPU.
+  tags:
+    - crispasr
+    - tts
+    - text-to-speech
+    - piper
+    - gguf
+  overrides:
+    backend: crispasr
+    known_usecases:
+      - tts
+    name: piper-fr_FR-tom-medium-crispasr
+    options:
+      - "backend:piper"
+    parameters:
+      model: piper-fr_FR-tom-medium-f16.gguf
+  files:
+    - filename: piper-fr_FR-tom-medium-f16.gguf
+      uri: huggingface://LocalAI-Community/piper-voices-GGUF/piper-fr_FR-tom-medium-f16.gguf
+      sha256: e8de7183f25f524bc606dc66b260ac89fbb6bc0b39cdea43b8701f3d55690edd
+- name: piper-hi_IN-pratham-medium-crispasr
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/rhasspy/piper-voices
+    - https://huggingface.co/LocalAI-Community/piper-voices-GGUF
+  icon: https://github.com/rhasspy/piper/raw/master/etc/logo.png
+  description: |
+    Piper (rhasspy VITS) Hindi voice "pratham", medium quality, synthesized through the CrispASR backend. Lightweight local neural TTS producing 22.05 kHz mono audio. Runs end-to-end on CPU.
+  tags:
+    - crispasr
+    - tts
+    - text-to-speech
+    - piper
+    - gguf
+  overrides:
+    backend: crispasr
+    known_usecases:
+      - tts
+    name: piper-hi_IN-pratham-medium-crispasr
+    options:
+      - "backend:piper"
+    parameters:
+      model: piper-hi_IN-pratham-medium-f16.gguf
+  files:
+    - filename: piper-hi_IN-pratham-medium-f16.gguf
+      uri: huggingface://LocalAI-Community/piper-voices-GGUF/piper-hi_IN-pratham-medium-f16.gguf
+      sha256: 93c3e1ffdf9fa0c5f4daf252877c0484ed111ba2ed9b5ee707c6d7ca796571fe
+- name: piper-hi_IN-priyamvada-medium-crispasr
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/rhasspy/piper-voices
+    - https://huggingface.co/LocalAI-Community/piper-voices-GGUF
+  icon: https://github.com/rhasspy/piper/raw/master/etc/logo.png
+  description: |
+    Piper (rhasspy VITS) Hindi voice "priyamvada", medium quality, synthesized through the CrispASR backend. Lightweight local neural TTS producing 22.05 kHz mono audio. Runs end-to-end on CPU.
+  tags:
+    - crispasr
+    - tts
+    - text-to-speech
+    - piper
+    - gguf
+  overrides:
+    backend: crispasr
+    known_usecases:
+      - tts
+    name: piper-hi_IN-priyamvada-medium-crispasr
+    options:
+      - "backend:piper"
+    parameters:
+      model: piper-hi_IN-priyamvada-medium-f16.gguf
+  files:
+    - filename: piper-hi_IN-priyamvada-medium-f16.gguf
+      uri: huggingface://LocalAI-Community/piper-voices-GGUF/piper-hi_IN-priyamvada-medium-f16.gguf
+      sha256: d4cd190d26b9c97eae88bdf6672a9d2fbb6e226ae5045ddd3810fa62c09474cb
+- name: piper-hu_HU-anna-medium-crispasr
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/rhasspy/piper-voices
+    - https://huggingface.co/LocalAI-Community/piper-voices-GGUF
+  icon: https://github.com/rhasspy/piper/raw/master/etc/logo.png
+  description: |
+    Piper (rhasspy VITS) Hungarian voice "anna", medium quality, synthesized through the CrispASR backend. Lightweight local neural TTS producing 22.05 kHz mono audio. Runs end-to-end on CPU.
+  tags:
+    - crispasr
+    - tts
+    - text-to-speech
+    - piper
+    - gguf
+  overrides:
+    backend: crispasr
+    known_usecases:
+      - tts
+    name: piper-hu_HU-anna-medium-crispasr
+    options:
+      - "backend:piper"
+    parameters:
+      model: piper-hu_HU-anna-medium-f16.gguf
+  files:
+    - filename: piper-hu_HU-anna-medium-f16.gguf
+      uri: huggingface://LocalAI-Community/piper-voices-GGUF/piper-hu_HU-anna-medium-f16.gguf
+      sha256: c82378862f4316b453158f071b75d06f4566e24f4df37440147e893b19b67c89
+- name: piper-hu_HU-berta-medium-crispasr
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/rhasspy/piper-voices
+    - https://huggingface.co/LocalAI-Community/piper-voices-GGUF
+  icon: https://github.com/rhasspy/piper/raw/master/etc/logo.png
+  description: |
+    Piper (rhasspy VITS) Hungarian voice "berta", medium quality, synthesized through the CrispASR backend. Lightweight local neural TTS producing 22.05 kHz mono audio. Runs end-to-end on CPU.
+  tags:
+    - crispasr
+    - tts
+    - text-to-speech
+    - piper
+    - gguf
+  overrides:
+    backend: crispasr
+    known_usecases:
+      - tts
+    name: piper-hu_HU-berta-medium-crispasr
+    options:
+      - "backend:piper"
+    parameters:
+      model: piper-hu_HU-berta-medium-f16.gguf
+  files:
+    - filename: piper-hu_HU-berta-medium-f16.gguf
+      uri: huggingface://LocalAI-Community/piper-voices-GGUF/piper-hu_HU-berta-medium-f16.gguf
+      sha256: 10a5a8db95cb880effc4045a3b3fcabd889b75f91acb0824ddce9c95915a7a79
+- name: piper-id_ID-news_tts-medium-crispasr
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/rhasspy/piper-voices
+    - https://huggingface.co/LocalAI-Community/piper-voices-GGUF
+  icon: https://github.com/rhasspy/piper/raw/master/etc/logo.png
+  description: |
+    Piper (rhasspy VITS) Indonesian voice "news_tts", medium quality, synthesized through the CrispASR backend. Lightweight local neural TTS producing 22.05 kHz mono audio. Runs end-to-end on CPU.
+  tags:
+    - crispasr
+    - tts
+    - text-to-speech
+    - piper
+    - gguf
+  overrides:
+    backend: crispasr
+    known_usecases:
+      - tts
+    name: piper-id_ID-news_tts-medium-crispasr
+    options:
+      - "backend:piper"
+    parameters:
+      model: piper-id_ID-news_tts-medium-f16.gguf
+  files:
+    - filename: piper-id_ID-news_tts-medium-f16.gguf
+      uri: huggingface://LocalAI-Community/piper-voices-GGUF/piper-id_ID-news_tts-medium-f16.gguf
+      sha256: b6cb4b11db18b3750e1ee2a77ee3973aedcc2f4ac385299bae5020252f5b5c43
+- name: piper-is_IS-bui-medium-crispasr
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/rhasspy/piper-voices
+    - https://huggingface.co/LocalAI-Community/piper-voices-GGUF
+  icon: https://github.com/rhasspy/piper/raw/master/etc/logo.png
+  description: |
+    Piper (rhasspy VITS) Icelandic voice "bui", medium quality, synthesized through the CrispASR backend. Lightweight local neural TTS producing 22.05 kHz mono audio. Runs end-to-end on CPU.
+  tags:
+    - crispasr
+    - tts
+    - text-to-speech
+    - piper
+    - gguf
+  overrides:
+    backend: crispasr
+    known_usecases:
+      - tts
+    name: piper-is_IS-bui-medium-crispasr
+    options:
+      - "backend:piper"
+    parameters:
+      model: piper-is_IS-bui-medium-f16.gguf
+  files:
+    - filename: piper-is_IS-bui-medium-f16.gguf
+      uri: huggingface://LocalAI-Community/piper-voices-GGUF/piper-is_IS-bui-medium-f16.gguf
+      sha256: d8b20c123874780e52aac06fcd5a69dda39fac563ebd446050119c9c7f682966
+- name: piper-is_IS-salka-medium-crispasr
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/rhasspy/piper-voices
+    - https://huggingface.co/LocalAI-Community/piper-voices-GGUF
+  icon: https://github.com/rhasspy/piper/raw/master/etc/logo.png
+  description: |
+    Piper (rhasspy VITS) Icelandic voice "salka", medium quality, synthesized through the CrispASR backend. Lightweight local neural TTS producing 22.05 kHz mono audio. Runs end-to-end on CPU.
+  tags:
+    - crispasr
+    - tts
+    - text-to-speech
+    - piper
+    - gguf
+  overrides:
+    backend: crispasr
+    known_usecases:
+      - tts
+    name: piper-is_IS-salka-medium-crispasr
+    options:
+      - "backend:piper"
+    parameters:
+      model: piper-is_IS-salka-medium-f16.gguf
+  files:
+    - filename: piper-is_IS-salka-medium-f16.gguf
+      uri: huggingface://LocalAI-Community/piper-voices-GGUF/piper-is_IS-salka-medium-f16.gguf
+      sha256: 497fb45d8883d2c9a6b2ca40256761e45c5a2b7cf39e1206bb1a0d7583abc7f1
+- name: piper-ka_GE-natia-medium-crispasr
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/rhasspy/piper-voices
+    - https://huggingface.co/LocalAI-Community/piper-voices-GGUF
+  icon: https://github.com/rhasspy/piper/raw/master/etc/logo.png
+  description: |
+    Piper (rhasspy VITS) Georgian voice "natia", medium quality, synthesized through the CrispASR backend. Lightweight local neural TTS producing 22.05 kHz mono audio. Runs end-to-end on CPU.
+  tags:
+    - crispasr
+    - tts
+    - text-to-speech
+    - piper
+    - gguf
+  overrides:
+    backend: crispasr
+    known_usecases:
+      - tts
+    name: piper-ka_GE-natia-medium-crispasr
+    options:
+      - "backend:piper"
+    parameters:
+      model: piper-ka_GE-natia-medium-f16.gguf
+  files:
+    - filename: piper-ka_GE-natia-medium-f16.gguf
+      uri: huggingface://LocalAI-Community/piper-voices-GGUF/piper-ka_GE-natia-medium-f16.gguf
+      sha256: ad7df862cab79fd331bb67282afd17b9cd87b8daafeb02179e23386156639571
+- name: piper-kk_KZ-iseke-x_low-crispasr
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/rhasspy/piper-voices
+    - https://huggingface.co/LocalAI-Community/piper-voices-GGUF
+  icon: https://github.com/rhasspy/piper/raw/master/etc/logo.png
+  description: |
+    Piper (rhasspy VITS) Kazakh voice "iseke", x_low quality, synthesized through the CrispASR backend. Lightweight local neural TTS producing 16 kHz mono audio. Runs end-to-end on CPU.
+  tags:
+    - crispasr
+    - tts
+    - text-to-speech
+    - piper
+    - gguf
+  overrides:
+    backend: crispasr
+    known_usecases:
+      - tts
+    name: piper-kk_KZ-iseke-x_low-crispasr
+    options:
+      - "backend:piper"
+    parameters:
+      model: piper-kk_KZ-iseke-x_low-f16.gguf
+  files:
+    - filename: piper-kk_KZ-iseke-x_low-f16.gguf
+      uri: huggingface://LocalAI-Community/piper-voices-GGUF/piper-kk_KZ-iseke-x_low-f16.gguf
+      sha256: 4c3e908d38d5ad6273bc3e540ca09f25784397ac3666744e58c57242e50bb0be
+- name: piper-kk_KZ-raya-x_low-crispasr
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/rhasspy/piper-voices
+    - https://huggingface.co/LocalAI-Community/piper-voices-GGUF
+  icon: https://github.com/rhasspy/piper/raw/master/etc/logo.png
+  description: |
+    Piper (rhasspy VITS) Kazakh voice "raya", x_low quality, synthesized through the CrispASR backend. Lightweight local neural TTS producing 16 kHz mono audio. Runs end-to-end on CPU.
+  tags:
+    - crispasr
+    - tts
+    - text-to-speech
+    - piper
+    - gguf
+  overrides:
+    backend: crispasr
+    known_usecases:
+      - tts
+    name: piper-kk_KZ-raya-x_low-crispasr
+    options:
+      - "backend:piper"
+    parameters:
+      model: piper-kk_KZ-raya-x_low-f16.gguf
+  files:
+    - filename: piper-kk_KZ-raya-x_low-f16.gguf
+      uri: huggingface://LocalAI-Community/piper-voices-GGUF/piper-kk_KZ-raya-x_low-f16.gguf
+      sha256: d0233307b2868a61066e0ffdd26f4c307c1e596e78703224fe921944a57df525
+- name: piper-lb_LU-marylux-medium-crispasr
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/rhasspy/piper-voices
+    - https://huggingface.co/LocalAI-Community/piper-voices-GGUF
+  icon: https://github.com/rhasspy/piper/raw/master/etc/logo.png
+  description: |
+    Piper (rhasspy VITS) Luxembourgish voice "marylux", medium quality, synthesized through the CrispASR backend. Lightweight local neural TTS producing 22.05 kHz mono audio. Runs end-to-end on CPU.
+  tags:
+    - crispasr
+    - tts
+    - text-to-speech
+    - piper
+    - gguf
+  overrides:
+    backend: crispasr
+    known_usecases:
+      - tts
+    name: piper-lb_LU-marylux-medium-crispasr
+    options:
+      - "backend:piper"
+    parameters:
+      model: piper-lb_LU-marylux-medium-f16.gguf
+  files:
+    - filename: piper-lb_LU-marylux-medium-f16.gguf
+      uri: huggingface://LocalAI-Community/piper-voices-GGUF/piper-lb_LU-marylux-medium-f16.gguf
+      sha256: a53d5245de242f65d0eb60be3891c5e2c47c8219b1d12ab11b10ccbfff2748eb
+- name: piper-lv_LV-aivars-medium-crispasr
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/rhasspy/piper-voices
+    - https://huggingface.co/LocalAI-Community/piper-voices-GGUF
+  icon: https://github.com/rhasspy/piper/raw/master/etc/logo.png
+  description: |
+    Piper (rhasspy VITS) Latvian voice "aivars", medium quality, synthesized through the CrispASR backend. Lightweight local neural TTS producing 22.05 kHz mono audio. Runs end-to-end on CPU.
+  tags:
+    - crispasr
+    - tts
+    - text-to-speech
+    - piper
+    - gguf
+  overrides:
+    backend: crispasr
+    known_usecases:
+      - tts
+    name: piper-lv_LV-aivars-medium-crispasr
+    options:
+      - "backend:piper"
+    parameters:
+      model: piper-lv_LV-aivars-medium-f16.gguf
+  files:
+    - filename: piper-lv_LV-aivars-medium-f16.gguf
+      uri: huggingface://LocalAI-Community/piper-voices-GGUF/piper-lv_LV-aivars-medium-f16.gguf
+      sha256: 2dedd3e9cd2d5cead1bcb8a1fcddd6745dfd7b5f897b7e030c5d9fa739f0071a
+- name: piper-ml_IN-arjun-medium-crispasr
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/rhasspy/piper-voices
+    - https://huggingface.co/LocalAI-Community/piper-voices-GGUF
+  icon: https://github.com/rhasspy/piper/raw/master/etc/logo.png
+  description: |
+    Piper (rhasspy VITS) Malayalam voice "arjun", medium quality, synthesized through the CrispASR backend. Lightweight local neural TTS producing 22.05 kHz mono audio. Runs end-to-end on CPU.
+  tags:
+    - crispasr
+    - tts
+    - text-to-speech
+    - piper
+    - gguf
+  overrides:
+    backend: crispasr
+    known_usecases:
+      - tts
+    name: piper-ml_IN-arjun-medium-crispasr
+    options:
+      - "backend:piper"
+    parameters:
+      model: piper-ml_IN-arjun-medium-f16.gguf
+  files:
+    - filename: piper-ml_IN-arjun-medium-f16.gguf
+      uri: huggingface://LocalAI-Community/piper-voices-GGUF/piper-ml_IN-arjun-medium-f16.gguf
+      sha256: 1591ea3a0a39d118b270319b14765b9c080e390639b1b6448beeaacb42c3bbaa
+- name: piper-ml_IN-meera-medium-crispasr
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/rhasspy/piper-voices
+    - https://huggingface.co/LocalAI-Community/piper-voices-GGUF
+  icon: https://github.com/rhasspy/piper/raw/master/etc/logo.png
+  description: |
+    Piper (rhasspy VITS) Malayalam voice "meera", medium quality, synthesized through the CrispASR backend. Lightweight local neural TTS producing 22.05 kHz mono audio. Runs end-to-end on CPU.
+  tags:
+    - crispasr
+    - tts
+    - text-to-speech
+    - piper
+    - gguf
+  overrides:
+    backend: crispasr
+    known_usecases:
+      - tts
+    name: piper-ml_IN-meera-medium-crispasr
+    options:
+      - "backend:piper"
+    parameters:
+      model: piper-ml_IN-meera-medium-f16.gguf
+  files:
+    - filename: piper-ml_IN-meera-medium-f16.gguf
+      uri: huggingface://LocalAI-Community/piper-voices-GGUF/piper-ml_IN-meera-medium-f16.gguf
+      sha256: 7c02099799349aef2567080ccc3485a2a0f9557518820b5efd86fa7bb5173af2
+- name: piper-ne_NP-chitwan-medium-crispasr
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/rhasspy/piper-voices
+    - https://huggingface.co/LocalAI-Community/piper-voices-GGUF
+  icon: https://github.com/rhasspy/piper/raw/master/etc/logo.png
+  description: |
+    Piper (rhasspy VITS) Nepali voice "chitwan", medium quality, synthesized through the CrispASR backend. Lightweight local neural TTS producing 22.05 kHz mono audio. Runs end-to-end on CPU.
+  tags:
+    - crispasr
+    - tts
+    - text-to-speech
+    - piper
+    - gguf
+  overrides:
+    backend: crispasr
+    known_usecases:
+      - tts
+    name: piper-ne_NP-chitwan-medium-crispasr
+    options:
+      - "backend:piper"
+    parameters:
+      model: piper-ne_NP-chitwan-medium-f16.gguf
+  files:
+    - filename: piper-ne_NP-chitwan-medium-f16.gguf
+      uri: huggingface://LocalAI-Community/piper-voices-GGUF/piper-ne_NP-chitwan-medium-f16.gguf
+      sha256: 29e64a8f5d483d0dbc8981585f7fe9748a12520ae7251d00adcafdb4c4ab6794
+- name: piper-nl_BE-nathalie-medium-crispasr
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/rhasspy/piper-voices
+    - https://huggingface.co/LocalAI-Community/piper-voices-GGUF
+  icon: https://github.com/rhasspy/piper/raw/master/etc/logo.png
+  description: |
+    Piper (rhasspy VITS) Dutch voice "nathalie", medium quality, synthesized through the CrispASR backend. Lightweight local neural TTS producing 22.05 kHz mono audio. Runs end-to-end on CPU.
+  tags:
+    - crispasr
+    - tts
+    - text-to-speech
+    - piper
+    - gguf
+  overrides:
+    backend: crispasr
+    known_usecases:
+      - tts
+    name: piper-nl_BE-nathalie-medium-crispasr
+    options:
+      - "backend:piper"
+    parameters:
+      model: piper-nl_BE-nathalie-medium-f16.gguf
+  files:
+    - filename: piper-nl_BE-nathalie-medium-f16.gguf
+      uri: huggingface://LocalAI-Community/piper-voices-GGUF/piper-nl_BE-nathalie-medium-f16.gguf
+      sha256: 796cef7c7f5bcc53940f3aca492fa97949325a7e8bd4d6987e3a86769f1f6825
+- name: piper-nl_BE-rdh-medium-crispasr
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/rhasspy/piper-voices
+    - https://huggingface.co/LocalAI-Community/piper-voices-GGUF
+  icon: https://github.com/rhasspy/piper/raw/master/etc/logo.png
+  description: |
+    Piper (rhasspy VITS) Dutch voice "rdh", medium quality, synthesized through the CrispASR backend. Lightweight local neural TTS producing 22.05 kHz mono audio. Runs end-to-end on CPU.
+  tags:
+    - crispasr
+    - tts
+    - text-to-speech
+    - piper
+    - gguf
+  overrides:
+    backend: crispasr
+    known_usecases:
+      - tts
+    name: piper-nl_BE-rdh-medium-crispasr
+    options:
+      - "backend:piper"
+    parameters:
+      model: piper-nl_BE-rdh-medium-f16.gguf
+  files:
+    - filename: piper-nl_BE-rdh-medium-f16.gguf
+      uri: huggingface://LocalAI-Community/piper-voices-GGUF/piper-nl_BE-rdh-medium-f16.gguf
+      sha256: 786612d4c3ba8db568502c7ad859e9d258f743a052f3fec32d53b92c7a23b514
+- name: piper-nl_NL-alex-medium-crispasr
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/rhasspy/piper-voices
+    - https://huggingface.co/LocalAI-Community/piper-voices-GGUF
+  icon: https://github.com/rhasspy/piper/raw/master/etc/logo.png
+  description: |
+    Piper (rhasspy VITS) Dutch voice "alex", medium quality, synthesized through the CrispASR backend. Lightweight local neural TTS producing 22.05 kHz mono audio. Runs end-to-end on CPU.
+  tags:
+    - crispasr
+    - tts
+    - text-to-speech
+    - piper
+    - gguf
+  overrides:
+    backend: crispasr
+    known_usecases:
+      - tts
+    name: piper-nl_NL-alex-medium-crispasr
+    options:
+      - "backend:piper"
+    parameters:
+      model: piper-nl_NL-alex-medium-f16.gguf
+  files:
+    - filename: piper-nl_NL-alex-medium-f16.gguf
+      uri: huggingface://LocalAI-Community/piper-voices-GGUF/piper-nl_NL-alex-medium-f16.gguf
+      sha256: 92b1c3364391f3f943986b10d9fd657c55c1c6b70d781352034c940c6e14d3a4
+- name: piper-nl_NL-pim-medium-crispasr
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/rhasspy/piper-voices
+    - https://huggingface.co/LocalAI-Community/piper-voices-GGUF
+  icon: https://github.com/rhasspy/piper/raw/master/etc/logo.png
+  description: |
+    Piper (rhasspy VITS) Dutch voice "pim", medium quality, synthesized through the CrispASR backend. Lightweight local neural TTS producing 22.05 kHz mono audio. Runs end-to-end on CPU.
+  tags:
+    - crispasr
+    - tts
+    - text-to-speech
+    - piper
+    - gguf
+  overrides:
+    backend: crispasr
+    known_usecases:
+      - tts
+    name: piper-nl_NL-pim-medium-crispasr
+    options:
+      - "backend:piper"
+    parameters:
+      model: piper-nl_NL-pim-medium-f16.gguf
+  files:
+    - filename: piper-nl_NL-pim-medium-f16.gguf
+      uri: huggingface://LocalAI-Community/piper-voices-GGUF/piper-nl_NL-pim-medium-f16.gguf
+      sha256: 04c4ccae0d423d376ebb672257f05494db51ed1b29e943796295213613a7459f
+- name: piper-no_NO-talesyntese-medium-crispasr
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/rhasspy/piper-voices
+    - https://huggingface.co/LocalAI-Community/piper-voices-GGUF
+  icon: https://github.com/rhasspy/piper/raw/master/etc/logo.png
+  description: |
+    Piper (rhasspy VITS) Norwegian voice "talesyntese", medium quality, synthesized through the CrispASR backend. Lightweight local neural TTS producing 22.05 kHz mono audio. Runs end-to-end on CPU.
+  tags:
+    - crispasr
+    - tts
+    - text-to-speech
+    - piper
+    - gguf
+  overrides:
+    backend: crispasr
+    known_usecases:
+      - tts
+    name: piper-no_NO-talesyntese-medium-crispasr
+    options:
+      - "backend:piper"
+    parameters:
+      model: piper-no_NO-talesyntese-medium-f16.gguf
+  files:
+    - filename: piper-no_NO-talesyntese-medium-f16.gguf
+      uri: huggingface://LocalAI-Community/piper-voices-GGUF/piper-no_NO-talesyntese-medium-f16.gguf
+      sha256: d430b9770eda1b2b10fd6bf025026d56f5f24bc79c9cacdefc03674c132d1a3c
+- name: piper-pl_PL-darkman-medium-crispasr
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/rhasspy/piper-voices
+    - https://huggingface.co/LocalAI-Community/piper-voices-GGUF
+  icon: https://github.com/rhasspy/piper/raw/master/etc/logo.png
+  description: |
+    Piper (rhasspy VITS) Polish voice "darkman", medium quality, synthesized through the CrispASR backend. Lightweight local neural TTS producing 22.05 kHz mono audio. Runs end-to-end on CPU.
+  tags:
+    - crispasr
+    - tts
+    - text-to-speech
+    - piper
+    - gguf
+  overrides:
+    backend: crispasr
+    known_usecases:
+      - tts
+    name: piper-pl_PL-darkman-medium-crispasr
+    options:
+      - "backend:piper"
+    parameters:
+      model: piper-pl_PL-darkman-medium-f16.gguf
+  files:
+    - filename: piper-pl_PL-darkman-medium-f16.gguf
+      uri: huggingface://LocalAI-Community/piper-voices-GGUF/piper-pl_PL-darkman-medium-f16.gguf
+      sha256: cbfa504409937ab997f26a5463665cf3eb0cb20d0ebf06d68d49cf13a11148d8
+- name: piper-pl_PL-gosia-medium-crispasr
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/rhasspy/piper-voices
+    - https://huggingface.co/LocalAI-Community/piper-voices-GGUF
+  icon: https://github.com/rhasspy/piper/raw/master/etc/logo.png
+  description: |
+    Piper (rhasspy VITS) Polish voice "gosia", medium quality, synthesized through the CrispASR backend. Lightweight local neural TTS producing 22.05 kHz mono audio. Runs end-to-end on CPU.
+  tags:
+    - crispasr
+    - tts
+    - text-to-speech
+    - piper
+    - gguf
+  overrides:
+    backend: crispasr
+    known_usecases:
+      - tts
+    name: piper-pl_PL-gosia-medium-crispasr
+    options:
+      - "backend:piper"
+    parameters:
+      model: piper-pl_PL-gosia-medium-f16.gguf
+  files:
+    - filename: piper-pl_PL-gosia-medium-f16.gguf
+      uri: huggingface://LocalAI-Community/piper-voices-GGUF/piper-pl_PL-gosia-medium-f16.gguf
+      sha256: 1aead029d8363cd85810c6e37e75a692ee75c1a93fab98bacc8b433010962ef5
+- name: piper-pt_BR-cadu-medium-crispasr
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/rhasspy/piper-voices
+    - https://huggingface.co/LocalAI-Community/piper-voices-GGUF
+  icon: https://github.com/rhasspy/piper/raw/master/etc/logo.png
+  description: |
+    Piper (rhasspy VITS) Portuguese voice "cadu", medium quality, synthesized through the CrispASR backend. Lightweight local neural TTS producing 22.05 kHz mono audio. Runs end-to-end on CPU.
+  tags:
+    - crispasr
+    - tts
+    - text-to-speech
+    - piper
+    - gguf
+  overrides:
+    backend: crispasr
+    known_usecases:
+      - tts
+    name: piper-pt_BR-cadu-medium-crispasr
+    options:
+      - "backend:piper"
+    parameters:
+      model: piper-pt_BR-cadu-medium-f16.gguf
+  files:
+    - filename: piper-pt_BR-cadu-medium-f16.gguf
+      uri: huggingface://LocalAI-Community/piper-voices-GGUF/piper-pt_BR-cadu-medium-f16.gguf
+      sha256: 01f07cc4ce983d526b558d2b73aa95d1ff1f7abea8c746340162c5894b386701
+- name: piper-pt_BR-faber-medium-crispasr
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/rhasspy/piper-voices
+    - https://huggingface.co/LocalAI-Community/piper-voices-GGUF
+  icon: https://github.com/rhasspy/piper/raw/master/etc/logo.png
+  description: |
+    Piper (rhasspy VITS) Portuguese voice "faber", medium quality, synthesized through the CrispASR backend. Lightweight local neural TTS producing 22.05 kHz mono audio. Runs end-to-end on CPU.
+  tags:
+    - crispasr
+    - tts
+    - text-to-speech
+    - piper
+    - gguf
+  overrides:
+    backend: crispasr
+    known_usecases:
+      - tts
+    name: piper-pt_BR-faber-medium-crispasr
+    options:
+      - "backend:piper"
+    parameters:
+      model: piper-pt_BR-faber-medium-f16.gguf
+  files:
+    - filename: piper-pt_BR-faber-medium-f16.gguf
+      uri: huggingface://LocalAI-Community/piper-voices-GGUF/piper-pt_BR-faber-medium-f16.gguf
+      sha256: af391614240762eb63e865681e786753e83ba732dfb1213383adfab36d2d595b
+- name: piper-pt_PT-tugão-medium-crispasr
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/rhasspy/piper-voices
+    - https://huggingface.co/LocalAI-Community/piper-voices-GGUF
+  icon: https://github.com/rhasspy/piper/raw/master/etc/logo.png
+  description: |
+    Piper (rhasspy VITS) Portuguese voice "tugão", medium quality, synthesized through the CrispASR backend. Lightweight local neural TTS producing 22.05 kHz mono audio. Runs end-to-end on CPU.
+  tags:
+    - crispasr
+    - tts
+    - text-to-speech
+    - piper
+    - gguf
+  overrides:
+    backend: crispasr
+    known_usecases:
+      - tts
+    name: piper-pt_PT-tugão-medium-crispasr
+    options:
+      - "backend:piper"
+    parameters:
+      model: piper-pt_PT-tugão-medium-f16.gguf
+  files:
+    - filename: piper-pt_PT-tugão-medium-f16.gguf
+      uri: huggingface://LocalAI-Community/piper-voices-GGUF/piper-pt_PT-tugão-medium-f16.gguf
+      sha256: c3d25fb0eae8adb6cab977f0ee6668b2e721b5594f4c35ac1b945be9fae28aa1
+- name: piper-ro_RO-mihai-medium-crispasr
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/rhasspy/piper-voices
+    - https://huggingface.co/LocalAI-Community/piper-voices-GGUF
+  icon: https://github.com/rhasspy/piper/raw/master/etc/logo.png
+  description: |
+    Piper (rhasspy VITS) Romanian voice "mihai", medium quality, synthesized through the CrispASR backend. Lightweight local neural TTS producing 22.05 kHz mono audio. Runs end-to-end on CPU.
+  tags:
+    - crispasr
+    - tts
+    - text-to-speech
+    - piper
+    - gguf
+  overrides:
+    backend: crispasr
+    known_usecases:
+      - tts
+    name: piper-ro_RO-mihai-medium-crispasr
+    options:
+      - "backend:piper"
+    parameters:
+      model: piper-ro_RO-mihai-medium-f16.gguf
+  files:
+    - filename: piper-ro_RO-mihai-medium-f16.gguf
+      uri: huggingface://LocalAI-Community/piper-voices-GGUF/piper-ro_RO-mihai-medium-f16.gguf
+      sha256: 9cb8b29f7e8fca7e76a5c6be6932d9cb624c677312e8d114d05d54219ce2a3f3
+- name: piper-ru_RU-denis-medium-crispasr
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/rhasspy/piper-voices
+    - https://huggingface.co/LocalAI-Community/piper-voices-GGUF
+  icon: https://github.com/rhasspy/piper/raw/master/etc/logo.png
+  description: |
+    Piper (rhasspy VITS) Russian voice "denis", medium quality, synthesized through the CrispASR backend. Lightweight local neural TTS producing 22.05 kHz mono audio. Runs end-to-end on CPU.
+  tags:
+    - crispasr
+    - tts
+    - text-to-speech
+    - piper
+    - gguf
+  overrides:
+    backend: crispasr
+    known_usecases:
+      - tts
+    name: piper-ru_RU-denis-medium-crispasr
+    options:
+      - "backend:piper"
+    parameters:
+      model: piper-ru_RU-denis-medium-f16.gguf
+  files:
+    - filename: piper-ru_RU-denis-medium-f16.gguf
+      uri: huggingface://LocalAI-Community/piper-voices-GGUF/piper-ru_RU-denis-medium-f16.gguf
+      sha256: 97f6c7b3d456b8a505f00cc2dd4f163f9c846f9344fee97a5b49ccc321675317
+- name: piper-ru_RU-dmitri-medium-crispasr
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/rhasspy/piper-voices
+    - https://huggingface.co/LocalAI-Community/piper-voices-GGUF
+  icon: https://github.com/rhasspy/piper/raw/master/etc/logo.png
+  description: |
+    Piper (rhasspy VITS) Russian voice "dmitri", medium quality, synthesized through the CrispASR backend. Lightweight local neural TTS producing 22.05 kHz mono audio. Runs end-to-end on CPU.
+  tags:
+    - crispasr
+    - tts
+    - text-to-speech
+    - piper
+    - gguf
+  overrides:
+    backend: crispasr
+    known_usecases:
+      - tts
+    name: piper-ru_RU-dmitri-medium-crispasr
+    options:
+      - "backend:piper"
+    parameters:
+      model: piper-ru_RU-dmitri-medium-f16.gguf
+  files:
+    - filename: piper-ru_RU-dmitri-medium-f16.gguf
+      uri: huggingface://LocalAI-Community/piper-voices-GGUF/piper-ru_RU-dmitri-medium-f16.gguf
+      sha256: 03f93676f836d37f2236b888feb420b05b9b3e5ebda5c27276f933ed8544525c
+- name: piper-sk_SK-lili-medium-crispasr
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/rhasspy/piper-voices
+    - https://huggingface.co/LocalAI-Community/piper-voices-GGUF
+  icon: https://github.com/rhasspy/piper/raw/master/etc/logo.png
+  description: |
+    Piper (rhasspy VITS) Slovak voice "lili", medium quality, synthesized through the CrispASR backend. Lightweight local neural TTS producing 22.05 kHz mono audio. Runs end-to-end on CPU.
+  tags:
+    - crispasr
+    - tts
+    - text-to-speech
+    - piper
+    - gguf
+  overrides:
+    backend: crispasr
+    known_usecases:
+      - tts
+    name: piper-sk_SK-lili-medium-crispasr
+    options:
+      - "backend:piper"
+    parameters:
+      model: piper-sk_SK-lili-medium-f16.gguf
+  files:
+    - filename: piper-sk_SK-lili-medium-f16.gguf
+      uri: huggingface://LocalAI-Community/piper-voices-GGUF/piper-sk_SK-lili-medium-f16.gguf
+      sha256: 2ccbf6dd7a7d82cc4947f9a4538fcef9849bc0df692e60da2ca8098e5c3979f3
+- name: piper-sl_SI-artur-medium-crispasr
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/rhasspy/piper-voices
+    - https://huggingface.co/LocalAI-Community/piper-voices-GGUF
+  icon: https://github.com/rhasspy/piper/raw/master/etc/logo.png
+  description: |
+    Piper (rhasspy VITS) Slovenian voice "artur", medium quality, synthesized through the CrispASR backend. Lightweight local neural TTS producing 22.05 kHz mono audio. Runs end-to-end on CPU.
+  tags:
+    - crispasr
+    - tts
+    - text-to-speech
+    - piper
+    - gguf
+  overrides:
+    backend: crispasr
+    known_usecases:
+      - tts
+    name: piper-sl_SI-artur-medium-crispasr
+    options:
+      - "backend:piper"
+    parameters:
+      model: piper-sl_SI-artur-medium-f16.gguf
+  files:
+    - filename: piper-sl_SI-artur-medium-f16.gguf
+      uri: huggingface://LocalAI-Community/piper-voices-GGUF/piper-sl_SI-artur-medium-f16.gguf
+      sha256: 4716943afff1eac00cec3f837c3b3e279a93778e6eca590f9498fbbd2ab143b1
+- name: piper-sq_AL-edon-medium-crispasr
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/rhasspy/piper-voices
+    - https://huggingface.co/LocalAI-Community/piper-voices-GGUF
+  icon: https://github.com/rhasspy/piper/raw/master/etc/logo.png
+  description: |
+    Piper (rhasspy VITS) Albanian voice "edon", medium quality, synthesized through the CrispASR backend. Lightweight local neural TTS producing 22.05 kHz mono audio. Runs end-to-end on CPU.
+  tags:
+    - crispasr
+    - tts
+    - text-to-speech
+    - piper
+    - gguf
+  overrides:
+    backend: crispasr
+    known_usecases:
+      - tts
+    name: piper-sq_AL-edon-medium-crispasr
+    options:
+      - "backend:piper"
+    parameters:
+      model: piper-sq_AL-edon-medium-f16.gguf
+  files:
+    - filename: piper-sq_AL-edon-medium-f16.gguf
+      uri: huggingface://LocalAI-Community/piper-voices-GGUF/piper-sq_AL-edon-medium-f16.gguf
+      sha256: 3dc49d0a9f23248f8efbb3938a5851f6c180b7f6f8e53e02579487e9aecf2a08
+- name: piper-sv_SE-alma-medium-crispasr
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/rhasspy/piper-voices
+    - https://huggingface.co/LocalAI-Community/piper-voices-GGUF
+  icon: https://github.com/rhasspy/piper/raw/master/etc/logo.png
+  description: |
+    Piper (rhasspy VITS) Swedish voice "alma", medium quality, synthesized through the CrispASR backend. Lightweight local neural TTS producing 22.05 kHz mono audio. Runs end-to-end on CPU.
+  tags:
+    - crispasr
+    - tts
+    - text-to-speech
+    - piper
+    - gguf
+  overrides:
+    backend: crispasr
+    known_usecases:
+      - tts
+    name: piper-sv_SE-alma-medium-crispasr
+    options:
+      - "backend:piper"
+    parameters:
+      model: piper-sv_SE-alma-medium-f16.gguf
+  files:
+    - filename: piper-sv_SE-alma-medium-f16.gguf
+      uri: huggingface://LocalAI-Community/piper-voices-GGUF/piper-sv_SE-alma-medium-f16.gguf
+      sha256: f96b9bfe35693484bc87fb69b405b34ae52f6a7e9222a30cdc9a6cdce7e4d393
+- name: piper-sv_SE-lisa-medium-crispasr
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/rhasspy/piper-voices
+    - https://huggingface.co/LocalAI-Community/piper-voices-GGUF
+  icon: https://github.com/rhasspy/piper/raw/master/etc/logo.png
+  description: |
+    Piper (rhasspy VITS) Swedish voice "lisa", medium quality, synthesized through the CrispASR backend. Lightweight local neural TTS producing 22.05 kHz mono audio. Runs end-to-end on CPU.
+  tags:
+    - crispasr
+    - tts
+    - text-to-speech
+    - piper
+    - gguf
+  overrides:
+    backend: crispasr
+    known_usecases:
+      - tts
+    name: piper-sv_SE-lisa-medium-crispasr
+    options:
+      - "backend:piper"
+    parameters:
+      model: piper-sv_SE-lisa-medium-f16.gguf
+  files:
+    - filename: piper-sv_SE-lisa-medium-f16.gguf
+      uri: huggingface://LocalAI-Community/piper-voices-GGUF/piper-sv_SE-lisa-medium-f16.gguf
+      sha256: 3ee427200135507c61e543d7744bafec6e80eec8049d05fa38573113d6ac2cd2
+- name: piper-sw_CD-lanfrica-medium-crispasr
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/rhasspy/piper-voices
+    - https://huggingface.co/LocalAI-Community/piper-voices-GGUF
+  icon: https://github.com/rhasspy/piper/raw/master/etc/logo.png
+  description: |
+    Piper (rhasspy VITS) Swahili voice "lanfrica", medium quality, synthesized through the CrispASR backend. Lightweight local neural TTS producing 22.05 kHz mono audio. Runs end-to-end on CPU.
+  tags:
+    - crispasr
+    - tts
+    - text-to-speech
+    - piper
+    - gguf
+  overrides:
+    backend: crispasr
+    known_usecases:
+      - tts
+    name: piper-sw_CD-lanfrica-medium-crispasr
+    options:
+      - "backend:piper"
+    parameters:
+      model: piper-sw_CD-lanfrica-medium-f16.gguf
+  files:
+    - filename: piper-sw_CD-lanfrica-medium-f16.gguf
+      uri: huggingface://LocalAI-Community/piper-voices-GGUF/piper-sw_CD-lanfrica-medium-f16.gguf
+      sha256: 778103a9b579c635cab7b6d7db367b78630d121bc5105c3bb233b9626749db68
+- name: piper-te_IN-maya-medium-crispasr
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/rhasspy/piper-voices
+    - https://huggingface.co/LocalAI-Community/piper-voices-GGUF
+  icon: https://github.com/rhasspy/piper/raw/master/etc/logo.png
+  description: |
+    Piper (rhasspy VITS) Telugu voice "maya", medium quality, synthesized through the CrispASR backend. Lightweight local neural TTS producing 22.05 kHz mono audio. Runs end-to-end on CPU.
+  tags:
+    - crispasr
+    - tts
+    - text-to-speech
+    - piper
+    - gguf
+  overrides:
+    backend: crispasr
+    known_usecases:
+      - tts
+    name: piper-te_IN-maya-medium-crispasr
+    options:
+      - "backend:piper"
+    parameters:
+      model: piper-te_IN-maya-medium-f16.gguf
+  files:
+    - filename: piper-te_IN-maya-medium-f16.gguf
+      uri: huggingface://LocalAI-Community/piper-voices-GGUF/piper-te_IN-maya-medium-f16.gguf
+      sha256: 5274b3225c74a9ce30f0e17708909a47f8cec3e62c20bba3410ac0599a866e10
+- name: piper-te_IN-padmavathi-medium-crispasr
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/rhasspy/piper-voices
+    - https://huggingface.co/LocalAI-Community/piper-voices-GGUF
+  icon: https://github.com/rhasspy/piper/raw/master/etc/logo.png
+  description: |
+    Piper (rhasspy VITS) Telugu voice "padmavathi", medium quality, synthesized through the CrispASR backend. Lightweight local neural TTS producing 22.05 kHz mono audio. Runs end-to-end on CPU.
+  tags:
+    - crispasr
+    - tts
+    - text-to-speech
+    - piper
+    - gguf
+  overrides:
+    backend: crispasr
+    known_usecases:
+      - tts
+    name: piper-te_IN-padmavathi-medium-crispasr
+    options:
+      - "backend:piper"
+    parameters:
+      model: piper-te_IN-padmavathi-medium-f16.gguf
+  files:
+    - filename: piper-te_IN-padmavathi-medium-f16.gguf
+      uri: huggingface://LocalAI-Community/piper-voices-GGUF/piper-te_IN-padmavathi-medium-f16.gguf
+      sha256: a0f80ebcf96409aafd41a30c7d87ad55087b36bc4f5e7a2d3fbb1e80a813de3d
+- name: piper-tr_TR-dfki-medium-crispasr
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/rhasspy/piper-voices
+    - https://huggingface.co/LocalAI-Community/piper-voices-GGUF
+  icon: https://github.com/rhasspy/piper/raw/master/etc/logo.png
+  description: |
+    Piper (rhasspy VITS) Turkish voice "dfki", medium quality, synthesized through the CrispASR backend. Lightweight local neural TTS producing 22.05 kHz mono audio. Runs end-to-end on CPU.
+  tags:
+    - crispasr
+    - tts
+    - text-to-speech
+    - piper
+    - gguf
+  overrides:
+    backend: crispasr
+    known_usecases:
+      - tts
+    name: piper-tr_TR-dfki-medium-crispasr
+    options:
+      - "backend:piper"
+    parameters:
+      model: piper-tr_TR-dfki-medium-f16.gguf
+  files:
+    - filename: piper-tr_TR-dfki-medium-f16.gguf
+      uri: huggingface://LocalAI-Community/piper-voices-GGUF/piper-tr_TR-dfki-medium-f16.gguf
+      sha256: cd7bea9b27cc500292dcc57bd500624e993d1ea7bee639b128fa57fa9f269de6
+- name: piper-uk_UA-lada-x_low-crispasr
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/rhasspy/piper-voices
+    - https://huggingface.co/LocalAI-Community/piper-voices-GGUF
+  icon: https://github.com/rhasspy/piper/raw/master/etc/logo.png
+  description: |
+    Piper (rhasspy VITS) Ukrainian voice "lada", x_low quality, synthesized through the CrispASR backend. Lightweight local neural TTS producing 16 kHz mono audio. Runs end-to-end on CPU.
+  tags:
+    - crispasr
+    - tts
+    - text-to-speech
+    - piper
+    - gguf
+  overrides:
+    backend: crispasr
+    known_usecases:
+      - tts
+    name: piper-uk_UA-lada-x_low-crispasr
+    options:
+      - "backend:piper"
+    parameters:
+      model: piper-uk_UA-lada-x_low-f16.gguf
+  files:
+    - filename: piper-uk_UA-lada-x_low-f16.gguf
+      uri: huggingface://LocalAI-Community/piper-voices-GGUF/piper-uk_UA-lada-x_low-f16.gguf
+      sha256: 51b0f278cb1ee01aab8de4fe9359f222e1ba9bce5a1dbe1818470990c847fe82
+- name: piper-ur_PK-fasih-medium-crispasr
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/rhasspy/piper-voices
+    - https://huggingface.co/LocalAI-Community/piper-voices-GGUF
+  icon: https://github.com/rhasspy/piper/raw/master/etc/logo.png
+  description: |
+    Piper (rhasspy VITS) Urdu voice "fasih", medium quality, synthesized through the CrispASR backend. Lightweight local neural TTS producing 22.05 kHz mono audio. Runs end-to-end on CPU.
+  tags:
+    - crispasr
+    - tts
+    - text-to-speech
+    - piper
+    - gguf
+  overrides:
+    backend: crispasr
+    known_usecases:
+      - tts
+    name: piper-ur_PK-fasih-medium-crispasr
+    options:
+      - "backend:piper"
+    parameters:
+      model: piper-ur_PK-fasih-medium-f16.gguf
+  files:
+    - filename: piper-ur_PK-fasih-medium-f16.gguf
+      uri: huggingface://LocalAI-Community/piper-voices-GGUF/piper-ur_PK-fasih-medium-f16.gguf
+      sha256: b28668aaa4bc9017fa85886b3f110f9766fa880c280545f49bd5d71b5394a3d9
+- name: piper-vi_VN-vais1000-medium-crispasr
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/rhasspy/piper-voices
+    - https://huggingface.co/LocalAI-Community/piper-voices-GGUF
+  icon: https://github.com/rhasspy/piper/raw/master/etc/logo.png
+  description: |
+    Piper (rhasspy VITS) Vietnamese voice "vais1000", medium quality, synthesized through the CrispASR backend. Lightweight local neural TTS producing 22.05 kHz mono audio. Runs end-to-end on CPU.
+  tags:
+    - crispasr
+    - tts
+    - text-to-speech
+    - piper
+    - gguf
+  overrides:
+    backend: crispasr
+    known_usecases:
+      - tts
+    name: piper-vi_VN-vais1000-medium-crispasr
+    options:
+      - "backend:piper"
+    parameters:
+      model: piper-vi_VN-vais1000-medium-f16.gguf
+  files:
+    - filename: piper-vi_VN-vais1000-medium-f16.gguf
+      uri: huggingface://LocalAI-Community/piper-voices-GGUF/piper-vi_VN-vais1000-medium-f16.gguf
+      sha256: 3a710f0957a7100df59b18de5d19ddb5d378a5da491db1c79ad206f07760e04e
+- name: piper-vi_VN-25hours_single-low-crispasr
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/rhasspy/piper-voices
+    - https://huggingface.co/LocalAI-Community/piper-voices-GGUF
+  icon: https://github.com/rhasspy/piper/raw/master/etc/logo.png
+  description: |
+    Piper (rhasspy VITS) Vietnamese voice "25hours_single", low quality, synthesized through the CrispASR backend. Lightweight local neural TTS producing 16 kHz mono audio. Runs end-to-end on CPU.
+  tags:
+    - crispasr
+    - tts
+    - text-to-speech
+    - piper
+    - gguf
+  overrides:
+    backend: crispasr
+    known_usecases:
+      - tts
+    name: piper-vi_VN-25hours_single-low-crispasr
+    options:
+      - "backend:piper"
+    parameters:
+      model: piper-vi_VN-25hours_single-low-f16.gguf
+  files:
+    - filename: piper-vi_VN-25hours_single-low-f16.gguf
+      uri: huggingface://LocalAI-Community/piper-voices-GGUF/piper-vi_VN-25hours_single-low-f16.gguf
+      sha256: fb9713f775931b01ea173a88e6f193bc431aa4ca12e0562f3836d9ff99699354
+- name: piper-zh_CN-huayan-medium-crispasr
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/rhasspy/piper-voices
+    - https://huggingface.co/LocalAI-Community/piper-voices-GGUF
+  icon: https://github.com/rhasspy/piper/raw/master/etc/logo.png
+  description: |
+    Piper (rhasspy VITS) Chinese voice "huayan", medium quality, synthesized through the CrispASR backend. Lightweight local neural TTS producing 22.05 kHz mono audio. Runs end-to-end on CPU.
+  tags:
+    - crispasr
+    - tts
+    - text-to-speech
+    - piper
+    - gguf
+  overrides:
+    backend: crispasr
+    known_usecases:
+      - tts
+    name: piper-zh_CN-huayan-medium-crispasr
+    options:
+      - "backend:piper"
+    parameters:
+      model: piper-zh_CN-huayan-medium-f16.gguf
+  files:
+    - filename: piper-zh_CN-huayan-medium-f16.gguf
+      uri: huggingface://LocalAI-Community/piper-voices-GGUF/piper-zh_CN-huayan-medium-f16.gguf
+      sha256: fbd07c640401a6c421ff964fb32e0e3881df1fd9892c0956a9407ab6bbb71b6e
 - name: hubert-crispasr
   url: github:mudler/LocalAI/gallery/virtual.yaml@master
   urls:
