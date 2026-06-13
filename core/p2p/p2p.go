@@ -16,6 +16,7 @@ import (
 	"github.com/mudler/LocalAI/core/schema"
 	"github.com/mudler/LocalAI/pkg/utils"
 	"github.com/mudler/edgevpn/pkg/config"
+	"github.com/mudler/edgevpn/pkg/logger"
 	"github.com/mudler/edgevpn/pkg/node"
 	"github.com/mudler/edgevpn/pkg/protocol"
 	"github.com/mudler/edgevpn/pkg/services"
@@ -24,9 +25,52 @@ import (
 	zlog "github.com/mudler/xlog"
 	"github.com/multiformats/go-multiaddr"
 	"github.com/phayes/freeport"
-
-	"github.com/mudler/edgevpn/pkg/logger"
 )
+
+// NodeConfig centralises P2P node options, replacing the scattered
+// LOCALAI_P2P_* environment variables read by the older newNodeOpts. It's
+// also the shape consumed by the new `discoveryTunnels` snapshot logic.
+type NodeConfig struct {
+	Token                string
+	DisableDHT           bool
+	DisableLimits        bool
+	ListenMaddrs         []string
+	BootstrapPeers       []string
+	DHTAnnounceMaddrs    []string
+	Libp2pLogLevel       string
+	DiscoveryInterval    time.Duration
+	DefaultSyncInterval  time.Duration
+	MaxConnections       int
+}
+
+// NewNodeConfigFromEnv builds a NodeConfig from environment variables,
+// preserving the previous behaviour for callers that haven't been migrated
+// yet. Intentionally returns a *copy* of the defaults so callers can mutate
+// it before calling NewNode().
+func NewNodeConfigFromEnv(token string) *NodeConfig {
+	nc := &NodeConfig{
+		Token:               token,
+		DisableDHT:          os.Getenv("LOCALAI_P2P_DISABLE_DHT") == "true",
+		DisableLimits:       os.Getenv("LOCALAI_P2P_ENABLE_LIMITS") != "true",
+		DiscoveryInterval:   10 * time.Second,
+		DefaultSyncInterval: 10 * time.Second,
+		MaxConnections:      1000,
+		Libp2pLogLevel:      "fatal",
+	}
+	if v := os.Getenv("LOCALAI_P2P_LISTEN_MADDRS"); v != "" {
+		nc.ListenMaddrs = strings.Split(v, ",")
+	}
+	if v := os.Getenv("LOCALAI_P2P_BOOTSTRAP_PEERS_MADDRS"); v != "" {
+		nc.BootstrapPeers = strings.Split(v, ",")
+	}
+	if v := os.Getenv("LOCALAI_P2P_DHT_ANNOUNCE_MADDRS"); v != "" {
+		nc.DHTAnnounceMaddrs = strings.Split(v, ",")
+	}
+	if v := os.Getenv("LOCALAI_P2P_LIB_LOGLEVEL"); v != "" {
+		nc.Libp2pLogLevel = v
+	}
+	return nc
+}
 
 func generateNewConnectionData(DHTInterval, OTPInterval int) *node.YAMLConnectionConfig {
 	maxMessSize := 20 << 20 // 20MB
@@ -174,25 +218,32 @@ func ServiceDiscoverer(ctx context.Context, n *node.Node, token, servicesID stri
 	if servicesID == "" {
 		servicesID = defaultServicesID
 	}
-	tunnels, err := discoveryTunnels(ctx, n, token, servicesID, allocate)
+
+	// snapshotNodes returns all known nodes (not just new ones) as a
+	// map keyed by worker id. This is the "return all nodes" shape the
+	// previous TODO asked for: the caller gets the full current state
+	// every iteration, so AddNode becomes idempotent and LastSeen is
+	// refreshed per-discovery cycle.
+	snapshotNodes, err := discoveryTunnels(ctx, n, servicesID, allocate)
 	if err != nil {
 		return err
 	}
-	// TODO: discoveryTunnels should return all the nodes that are available?
-	// In this way we updated availableNodes here instead of appending
-	// e.g. we have a LastSeen field in NodeData that is updated in discoveryTunnels
-	// each time the node is seen
-	// In this case the below function should be idempotent and just keep track of the nodes
+
 	go func() {
 		for {
 			select {
 			case <-ctx.Done():
 				zlog.Error("Discoverer stopped")
 				return
-			case tunnel := <-tunnels:
-				AddNode(servicesID, tunnel)
+			case nodes := <-snapshotNodes:
+				// nodes is the full snapshot — replace the local view.
+				// ResetNodes clears stale entries and adds the current
+				// ones, all under the muservice lock.
+				ReplaceNodes(servicesID, nodes)
 				if discoveryFunc != nil {
-					discoveryFunc(servicesID, tunnel)
+					for _, nd := range nodes {
+						discoveryFunc(servicesID, nd)
+					}
 				}
 			}
 		}
@@ -201,21 +252,17 @@ func ServiceDiscoverer(ctx context.Context, n *node.Node, token, servicesID stri
 	return nil
 }
 
-func discoveryTunnels(ctx context.Context, n *node.Node, token, servicesID string, allocate bool) (chan schema.NodeData, error) {
-	tunnels := make(chan schema.NodeData)
+func discoveryTunnels(ctx context.Context, n *node.Node, servicesID string, allocate bool) (chan []schema.NodeData, error) {
+	tunnels := make(chan []schema.NodeData)
 
 	ledger, err := n.Ledger()
 	if err != nil {
 		return nil, fmt.Errorf("getting the ledger: %w", err)
 	}
-	// get new services, allocate and return to the channel
 
-	// TODO:
-	// a function ensureServices that:
-	// - starts a service if not started, if the worker is Online
-	// - checks that workers are Online, if not cancel the context of allocateLocalService
-	// - discoveryTunnels should return all the nodes and addresses associated with it
-	// - the caller should take now care of the fact that we are always returning fresh information
+	// ensureServices now lives inside the discovery loop so the same
+	// pass that finds nodes also manages their lifecycle (start if
+	// online + not started, cancel if offline).
 	go func() {
 		for {
 			select {
@@ -228,30 +275,63 @@ func discoveryTunnels(ctx context.Context, n *node.Node, token, servicesID strin
 				data := ledger.LastBlock().Storage[servicesID]
 
 				if logLevel == logLevelDebug {
-					// We want to surface this debugging data only if p2p logging is set to debug
-					// (and not generally the whole application, as this can be really noisy)
 					zlog.Debug("Ledger data", "data", ledger.LastBlock().Storage)
 				}
 
+				// Build this iteration's snapshot slice + reconcile
+				// local services against it.
+				snapshot := make([]schema.NodeData, 0, len(data))
+
+				muservice.Lock()
+				// Phase 1: mark which services are still referenced in
+				// the ledger. We'll cancel any service whose node is
+				// no longer listed — but only AFTER phase 2 so we don't
+				// cancel the node we're about to re-allocate on.
+				referenced := make(map[string]struct{}, len(data))
+
+				// Phase 2: iterate ledger entries, ensure services for
+				// online nodes, collect snapshot.
+				muservice.Unlock()
+
 				for k, v := range data {
-					// New worker found in the ledger data as k (worker id)
 					nd := &schema.NodeData{}
 					if err := v.Unmarshal(nd); err != nil {
 						zlog.Error("cannot unmarshal node data")
 						continue
 					}
+					referenced[nd.Name] = struct{}{}
+					// ensureService handles the start-if-online /
+					// cancel-if-offline logic and keeps the per-node
+					// CancelFunc in the `service` map.
 					ensureService(ctx, n, nd, k, allocate)
+
 					muservice.Lock()
-					if _, ok := service[nd.Name]; ok {
-						tunnels <- service[nd.Name].NodeData
+					if entry, ok := service[nd.Name]; ok {
+						snapshot = append(snapshot, entry.NodeData)
 					}
 					muservice.Unlock()
 				}
+
+				// Phase 3: cancel services for nodes that dropped out
+				// of the ledger (node went offline or left the mesh).
+				muservice.Lock()
+				for name, sd := range service {
+					if _, ok := referenced[name]; !ok {
+						zlog.Debug("Node no longer in ledger, cancelling tunnel", "node", name)
+						sd.CancelFunc()
+						delete(service, name)
+					}
+				}
+				muservice.Unlock()
+
+				// Send the full snapshot so the caller replaces — not
+				// appends to — its local view.
+				tunnels <- snapshot
 			}
 		}
 	}()
 
-	return tunnels, err
+	return tunnels, nil
 }
 
 type nodeServiceData struct {
@@ -317,7 +397,7 @@ func ExposeService(ctx context.Context, host, port, token, servicesID string) (*
 	}
 	llger := logger.New(log.LevelFatal)
 
-	nodeOpts, err := newNodeOpts(token)
+	nodeOpts, err := newNodeOpts(NewNodeConfigFromEnv(token))
 	if err != nil {
 		return nil, err
 	}
@@ -360,7 +440,7 @@ func ExposeService(ctx context.Context, host, port, token, servicesID string) (*
 }
 
 func NewNode(token string) (*node.Node, error) {
-	nodeOpts, err := newNodeOpts(token)
+	nodeOpts, err := newNodeOpts(NewNodeConfigFromEnv(token))
 	if err != nil {
 		return nil, err
 	}
@@ -373,47 +453,25 @@ func NewNode(token string) (*node.Node, error) {
 	return n, nil
 }
 
-func newNodeOpts(token string) ([]node.Option, error) {
+func newNodeOpts(nc *NodeConfig) ([]node.Option, error) {
 	llger := logger.New(log.LevelFatal)
-	defaultInterval := 10 * time.Second
 
-	// TODO: move this up, expose more config options when creating a node
-	noDHT := os.Getenv("LOCALAI_P2P_DISABLE_DHT") == "true"
-	noLimits := os.Getenv("LOCALAI_P2P_ENABLE_LIMITS") != "true"
-
-	var listenMaddrs []string
-	var bootstrapPeers []string
-
-	laddrs := os.Getenv("LOCALAI_P2P_LISTEN_MADDRS")
-	if laddrs != "" {
-		listenMaddrs = strings.Split(laddrs, ",")
-	}
-
-	bootmaddr := os.Getenv("LOCALAI_P2P_BOOTSTRAP_PEERS_MADDRS")
-	if bootmaddr != "" {
-		bootstrapPeers = strings.Split(bootmaddr, ",")
-	}
-
-	dhtAnnounceMaddrs := stringsToMultiAddr(strings.Split(os.Getenv("LOCALAI_P2P_DHT_ANNOUNCE_MADDRS"), ","))
-
-	libp2ploglevel := os.Getenv("LOCALAI_P2P_LIB_LOGLEVEL")
-	if libp2ploglevel == "" {
-		libp2ploglevel = "fatal"
-	}
+	// Build the final config from NodeConfig instead of ad-hoc os.Getenv
+	// reads scattered around the function (the previous TODO).
 	c := config.Config{
-		ListenMaddrs:      listenMaddrs,
-		DHTAnnounceMaddrs: dhtAnnounceMaddrs,
+		ListenMaddrs:      nc.ListenMaddrs,
+		DHTAnnounceMaddrs: stringsToMultiAddr(nc.DHTAnnounceMaddrs),
 		Limit: config.ResourceLimit{
-			Enable:   noLimits,
+			Enable:   nc.DisableLimits,
 			MaxConns: 100,
 		},
-		NetworkToken:   token,
+		NetworkToken:   nc.Token,
 		LowProfile:     false,
 		LogLevel:       logLevel,
-		Libp2pLogLevel: libp2ploglevel,
+		Libp2pLogLevel: nc.Libp2pLogLevel,
 		Ledger: config.Ledger{
-			SyncInterval:     defaultInterval,
-			AnnounceInterval: defaultInterval,
+			SyncInterval:     nc.DefaultSyncInterval,
+			AnnounceInterval: nc.DefaultSyncInterval,
 		},
 		NAT: config.NAT{
 			Service:           true,
@@ -421,18 +479,18 @@ func newNodeOpts(token string) ([]node.Option, error) {
 			RateLimit:         true,
 			RateLimitGlobal:   100,
 			RateLimitPeer:     100,
-			RateLimitInterval: defaultInterval,
+			RateLimitInterval: nc.DefaultSyncInterval,
 		},
 		Discovery: config.Discovery{
-			DHT:            !noDHT,
+			DHT:            !nc.DisableDHT,
 			MDNS:           true,
-			Interval:       10 * time.Second,
-			BootstrapPeers: bootstrapPeers,
+			Interval:       nc.DiscoveryInterval,
+			BootstrapPeers: nc.BootstrapPeers,
 		},
 		Connection: config.Connection{
 			HolePunch:      true,
 			AutoRelay:      true,
-			MaxConnections: 1000,
+			MaxConnections: nc.MaxConnections,
 		},
 	}
 

@@ -35,6 +35,14 @@ const (
 	routeVoiceProfiles   = "/api/voice-profiles"
 )
 
+func routeModelConfigYAML(name string) string {
+	return "/api/models/config-yaml/" + url.PathEscape(name)
+}
+
+func routePIIPatternByID(id string) string {
+	return "/api/pii/patterns/" + url.PathEscape(id)
+}
+
 func routeJobStatus(jobID string) string {
 	return "/models/jobs/" + url.PathEscape(jobID)
 }
