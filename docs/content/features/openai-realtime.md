@@ -137,6 +137,52 @@ most reliable fix for WebRTC connections that establish and then drop.
 
 The API follows the OpenAI Realtime API protocol for handling sessions, audio buffers, and conversation items.
 
+## Gating a realtime pipeline with voice recognition
+
+A pipeline realtime model can require speaker verification before it responds. Add a `voice_recognition` block under `pipeline`. When present, each committed utterance is verified against authorized speakers; unauthorized utterances are dropped before the LLM runs (no LLM call, no tool execution, no TTS). The session stays open.
+
+```yaml
+name: my-realtime
+pipeline:
+  vad: silero-vad
+  transcription: whisper
+  llm: qwen
+  tts: kokoro
+  voice_recognition:
+    model: speaker-recognition   # the speaker-recognition backend model
+    mode: identify               # "identify" (registry) or "verify" (references)
+    threshold: 0.25              # cosine distance; <= passes
+    when: every                  # "every" (default) or "first"
+    on_reject: drop_event        # "drop_event" (default) or "drop_silent"
+    anti_spoofing: false         # optional liveness check (verify mode)
+
+    # identify mode: authorized registry identities (multiple persons)
+    allow:
+      names: ["alice", "bob"]    # match registered speaker names
+      labels: ["family"]         # OR any identity carrying this label
+      # empty allow = any registered speaker within threshold passes
+
+    # verify mode: reference speakers (multiple persons)
+    references:
+      - name: alice
+        audio: /models/voices/alice.wav
+      - name: bob
+        audio: /models/voices/bob.wav
+```
+
+| Field | Meaning |
+|-------|---------|
+| `model` | Speaker-recognition backend model name. |
+| `mode` | `identify` matches against speakers registered via `/v1/voice/register`; `verify` matches against the `references` audios. |
+| `threshold` | Maximum cosine distance that still counts as a match (default ~0.25). |
+| `when` | `every` verifies each utterance; `first` verifies once then trusts the session. |
+| `on_reject` | `drop_event` drops and emits a `speaker_not_authorized` error event; `drop_silent` drops quietly. |
+| `anti_spoofing` | Verify mode only: runs the backend liveness check (slower). |
+| `allow.names` / `allow.labels` | identify mode: which registry identities are authorized. Empty = any registered speaker. |
+| `references` | verify mode: authorized reference speakers; the utterance passes if it matches any. |
+
+`identify` mode requires the voice registry (speakers registered through `/v1/voice/register`). `verify` mode needs no registry: reference audios are embedded once at model load.
+
 ## Examples
 
 - [Realtime voice assistant demo (Go)](https://github.com/localai-org/localai-realtime-demo): a minimal Go client for the Realtime (WebSocket) API with a full talk-back voice loop and an example tool call. Ships a `docker compose` setup that brings up a realtime-capable LocalAI for you.

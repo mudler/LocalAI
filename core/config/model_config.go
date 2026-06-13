@@ -509,6 +509,10 @@ type Pipeline struct {
 	// to enable_thinking=false backend metadata) without editing the underlying
 	// LLM model config. Unset leaves the LLM model config in charge.
 	DisableThinking *bool `yaml:"disable_thinking,omitempty" json:"disable_thinking,omitempty"`
+
+	// VoiceRecognition gates the pipeline behind speaker verification. Nil
+	// (block absent) means no gate, preserving existing behavior.
+	VoiceRecognition *PipelineVoiceRecognition `yaml:"voice_recognition,omitempty" json:"voice_recognition,omitempty"`
 }
 
 // ApplyReasoningEffort resolves the effective reasoning effort — a per-request
@@ -573,6 +577,123 @@ func (p Pipeline) ChunkClauses() bool {
 // ThinkingDisabled reports whether the pipeline forces the LLM's thinking off.
 func (p Pipeline) ThinkingDisabled() bool {
 	return p.DisableThinking != nil && *p.DisableThinking
+}
+
+// Voice-recognition gate enum values.
+const (
+	VoiceGateModeIdentify = "identify"
+	VoiceGateModeVerify   = "verify"
+	VoiceGateWhenEvery    = "every"
+	VoiceGateWhenFirst    = "first"
+	VoiceGateRejectEvent  = "drop_event"
+	VoiceGateRejectSilent = "drop_silent"
+
+	// defaultVoiceGateThreshold is the cosine-distance default tuned for the
+	// ECAPA-TDNN speaker encoder on VoxCeleb.
+	defaultVoiceGateThreshold = 0.25
+)
+
+// @Description PipelineVoiceRecognition gates a realtime pipeline behind speaker verification.
+type PipelineVoiceRecognition struct {
+	// Model is the speaker-recognition backend model name.
+	Model string `yaml:"model,omitempty" json:"model,omitempty"`
+	// Mode is "identify" (1:N against the voice registry) or "verify"
+	// (1:few against reference audios).
+	Mode string `yaml:"mode,omitempty" json:"mode,omitempty"`
+	// Threshold is the maximum cosine distance that still counts as a match.
+	Threshold float32 `yaml:"threshold,omitempty" json:"threshold,omitempty"`
+	// When is "every" (verify each utterance) or "first" (verify once, then
+	// trust the session).
+	When string `yaml:"when,omitempty" json:"when,omitempty"`
+	// OnReject is "drop_event" (drop + emit an error event) or "drop_silent"
+	// (drop quietly).
+	OnReject string `yaml:"on_reject,omitempty" json:"on_reject,omitempty"`
+	// AntiSpoofing enables the backend liveness check (verify mode only).
+	AntiSpoofing bool `yaml:"anti_spoofing,omitempty" json:"anti_spoofing,omitempty"`
+	// Allow filters which registry identities are authorized (identify mode).
+	Allow VoiceRecognitionAllow `yaml:"allow,omitempty" json:"allow,omitempty"`
+	// References are the authorized reference speakers (verify mode).
+	References []VoiceReference `yaml:"references,omitempty" json:"references,omitempty"`
+}
+
+// @Description VoiceRecognitionAllow filters authorized registry identities.
+type VoiceRecognitionAllow struct {
+	// Names matches registered Metadata.Name exactly.
+	Names []string `yaml:"names,omitempty" json:"names,omitempty"`
+	// Labels authorizes any identity carrying a matching label key.
+	Labels []string `yaml:"labels,omitempty" json:"labels,omitempty"`
+}
+
+// @Description VoiceReference is one authorized reference speaker for verify mode.
+type VoiceReference struct {
+	Name  string `yaml:"name,omitempty" json:"name,omitempty"`
+	Audio string `yaml:"audio,omitempty" json:"audio,omitempty"`
+}
+
+// VoiceGateEnabled reports whether a voice-recognition gate is configured. The
+// mere presence of the block is the intent signal: a present-but-incomplete
+// block (e.g. missing model) must fail closed at construction, not be silently
+// skipped here.
+func (p Pipeline) VoiceGateEnabled() bool {
+	return p.VoiceRecognition != nil
+}
+
+// Normalize fills in defaults in place for omitted fields.
+func (v *PipelineVoiceRecognition) Normalize() {
+	if v.Mode == "" {
+		v.Mode = VoiceGateModeIdentify
+	}
+	if v.When == "" {
+		v.When = VoiceGateWhenEvery
+	}
+	if v.OnReject == "" {
+		v.OnReject = VoiceGateRejectEvent
+	}
+	if v.Threshold == 0 {
+		v.Threshold = defaultVoiceGateThreshold
+	}
+}
+
+// Validate checks shape and enum values. registryAvailable indicates whether a
+// VoiceRegistry exists (required by identify mode). Empty When/OnReject/Mode are
+// treated as valid because Normalize defaults them.
+func (v PipelineVoiceRecognition) Validate(registryAvailable bool) error {
+	if v.Model == "" {
+		return fmt.Errorf("voice_recognition: model is required")
+	}
+	switch v.Mode {
+	case "", VoiceGateModeIdentify:
+		if !registryAvailable {
+			return fmt.Errorf("voice_recognition mode 'identify' requires a voice registry")
+		}
+	case VoiceGateModeVerify:
+		if len(v.References) == 0 {
+			return fmt.Errorf("voice_recognition mode 'verify' requires at least one reference")
+		}
+		for i, r := range v.References {
+			if r.Audio == "" {
+				return fmt.Errorf("voice_recognition reference %d (%q) is missing an audio path", i, r.Name)
+			}
+		}
+	default:
+		return fmt.Errorf("voice_recognition: unknown mode %q", v.Mode)
+	}
+	switch v.When {
+	case "", VoiceGateWhenEvery, VoiceGateWhenFirst:
+	default:
+		return fmt.Errorf("voice_recognition: unknown when %q", v.When)
+	}
+	switch v.OnReject {
+	case "", VoiceGateRejectEvent, VoiceGateRejectSilent:
+	default:
+		return fmt.Errorf("voice_recognition: unknown on_reject %q", v.OnReject)
+	}
+	// A zero threshold means "unset" (Normalize defaults it); only validate an
+	// explicitly-set value. Cosine distance ranges 0..2.
+	if v.Threshold != 0 && (v.Threshold < 0 || v.Threshold > 2) {
+		return fmt.Errorf("voice_recognition: threshold %v out of range (0..2)", v.Threshold)
+	}
+	return nil
 }
 
 // @Description File configuration for model downloads

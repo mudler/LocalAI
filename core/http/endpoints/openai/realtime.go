@@ -133,6 +133,13 @@ type Session struct {
 	// silently strip Manage Mode's tools.
 	AssistantTools []types.ToolUnion
 
+	// voiceGate is non-nil when pipeline.voice_recognition is configured. It
+	// authorizes each committed utterance's speaker before the LLM runs.
+	voiceGate *voiceGate
+	// gateMu guards the when:first verification state below.
+	gateMu        sync.Mutex
+	voiceVerified bool
+
 	// Response cancellation: protects activeResponseCancel/activeResponseDone
 	responseMu           sync.Mutex
 	activeResponseCancel context.CancelFunc
@@ -513,6 +520,23 @@ func runRealtimeSession(application *application.Application, t Transport, model
 		return
 	}
 	session.ModelInterface = m
+
+	if cfg.Pipeline.VoiceGateEnabled() {
+		gate, gerr := newVoiceGate(
+			*cfg.Pipeline.VoiceRecognition,
+			application.ModelConfigLoader(),
+			application.ModelLoader(),
+			application.ApplicationConfig(),
+			application.VoiceRegistry(),
+		)
+		if gerr != nil {
+			xlog.Error("failed to initialize voice recognition gate", "error", gerr)
+			sendError(t, "voice_gate_error", gerr.Error(), "", "")
+			return
+		}
+		session.voiceGate = gate
+		xlog.Info("realtime voice recognition gate enabled", "mode", gate.cfg.Mode, "when", gate.cfg.When)
+	}
 
 	// Store the session and notify the transport (for WebRTC audio track handling)
 	sessionLock.Lock()
@@ -1269,6 +1293,39 @@ func commitUtterance(ctx context.Context, utt []byte, session *Session, conv *Co
 
 	f.Sync()
 
+	// Start speaker verification concurrently with transcription. This is a
+	// latency optimization only: there is a hard join below before the LLM, so
+	// an unauthorized utterance never reaches generateResponse (no LLM, no
+	// tools, no TTS) regardless of how fast transcription finishes. A rejected
+	// turn wastes only transcription compute, which has no side effects. The
+	// transcript is still emitted to the same peer that sent the audio, which
+	// reveals nothing new to them.
+	type gateOutcome struct {
+		allowed bool
+		matched string
+		reason  string
+		err     error
+	}
+	var gateCh chan gateOutcome
+	runGate := false
+	if session.voiceGate != nil && session.InputAudioTranscription != nil {
+		skip := false
+		if session.voiceGate.cfg.When == config.VoiceGateWhenFirst {
+			session.gateMu.Lock()
+			skip = session.voiceVerified
+			session.gateMu.Unlock()
+		}
+		if !skip {
+			runGate = true
+			gateCh = make(chan gateOutcome, 1)
+			wavPath := f.Name()
+			go func() {
+				allowed, matched, reason, gerr := session.voiceGate.Authorize(ctx, wavPath)
+				gateCh <- gateOutcome{allowed: allowed, matched: matched, reason: reason, err: gerr}
+			}()
+		}
+	}
+
 	// TODO: If we have a real any-to-any model then transcription is optional
 	var transcript string
 	if session.InputAudioTranscription != nil {
@@ -1278,12 +1335,52 @@ func commitUtterance(ctx context.Context, utt []byte, session *Session, conv *Co
 		var err error
 		transcript, err = emitTranscription(ctx, t, session, generateItemID(), f.Name())
 		if err != nil {
+			// Drain the gate goroutine before returning so its in-flight read of
+			// the temp WAV finishes before the deferred os.Remove fires.
+			if runGate {
+				<-gateCh
+			}
 			sendError(t, "transcription_failed", err.Error(), "", "event_TODO")
 			return
 		}
 	} else {
+		// The voice gate runs only on the transcription path above; if an
+		// any-to-any model path is added here, join the gate before responding.
 		sendNotImplemented(t, "any-to-any models")
 		return
+	}
+
+	// Join on the gate before any side-effecting step.
+	if runGate {
+		out := <-gateCh
+		allowed := out.allowed
+		reason := out.reason
+		if out.err != nil {
+			// Fail closed: a gate that cannot decide must not let audio through.
+			xlog.Error("voice recognition gate error", "error", out.err)
+			allowed = false
+			reason = "verification error"
+		}
+		alreadyVerified := false
+		if session.voiceGate.cfg.When == config.VoiceGateWhenFirst {
+			session.gateMu.Lock()
+			alreadyVerified = session.voiceVerified
+			session.gateMu.Unlock()
+		}
+		proceed, markVerified := session.voiceGate.decide(alreadyVerified, allowed)
+		if !proceed {
+			xlog.Debug("voice recognition gate rejected utterance", "reason", reason)
+			if session.voiceGate.cfg.OnReject == config.VoiceGateRejectEvent {
+				sendError(t, "speaker_not_authorized", "speaker not authorized: "+reason, "", "event_TODO")
+			}
+			return
+		}
+		xlog.Debug("voice recognition gate authorized utterance", "speaker", out.matched)
+		if markVerified {
+			session.gateMu.Lock()
+			session.voiceVerified = true
+			session.gateMu.Unlock()
+		}
 	}
 
 	if !session.TranscriptionOnly {
