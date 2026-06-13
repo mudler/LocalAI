@@ -1,4 +1,46 @@
 ---
+- name: "serenity-26b-a4b"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/ReadyArt/Serenity-26B-A4B-GGUF
+  description: |
+    .mc-wrap{background:#0d1117;color:#c9d1d9;font-family:'Inter',sans-serif;max-width:920px;margin:0 auto;padding:24px;border-radius:16px;box-sizing:border-box}
+    .mc-wrap *{box-sizing:border-box}
+    .mc-wrap h1,.mc-wrap h2,.mc-wrap h3,.mc-wrap h4{color:#e6edf3;border:none}
+    .mc-wrap p{color:#c9d1d9}
+    .mc-wrap strong{color:#7ee8d0}
+    .mc-wrap a{color:#7ee8d0;text-decoration:none}
+    .mc-wrap ul{list-style:none;padding-left:0;margin:0}
+    .mc-wrap li{color:#c9d1d9;margin-bottom:8px;padding-left:4px}
+    .mc-wrap code{background:#161b22;color:#7ee8d0;padding:2px 8px;border-radius:4px;font-family:'JetBrains Mono',monospace;font-size:.88em;border:1px solid rgba(126,232,208,.15)}
+    .mc-hdr{text-align:center;padding:40px 32px;background:#0d1117;border:1px solid #21262d;border-radius:24px;margin-bottom:20px;position:relative;overflow:hidden}
+    .mc-hdr::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:linear-gradient(135deg,#7ee8d0,#a78bfa,#c4b5fd)}
+    .mc-name{font-family:'Space Grotesk',sans-serif;font-size:2.8em;font-weight:800;margin:0;letter-spacing:-.02em;background:linear-gradient(135deg,#7ee8d0,#a78bfa,#c4b5fd);-webkit-background-clip:text;-webkit-text-fill-color:transparent;backg
+
+    ...
+  license: "apache-2.0"
+  tags:
+    - llm
+    - gguf
+  icon: https://huggingface.co/avatars/55f24699e05af4295a9d16ddecd81f8a.svg
+  overrides:
+    backend: llama-cpp
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/Serenity-26B-A4B-GGUF/Serenity-26B-A4B-Q4_K_M.gguf
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/Serenity-26B-A4B-GGUF/Serenity-26B-A4B-Q4_K_M.gguf
+      sha256: b94645850e0e48c7888b70ede99f8ebeb31d7fce58cb20acbd20e11a06625de8
+      uri: https://huggingface.co/ReadyArt/Serenity-26B-A4B-GGUF/resolve/main/Serenity-26B-A4B-Q4_K_M.gguf
 - name: "melody1437-26b-a4b-v2.0"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
