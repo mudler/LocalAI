@@ -154,10 +154,15 @@ func (q *Qwen3TtsCpp) TTS(req *pb.TTSRequest) error {
 	ptr := CppTTS(req.Text, lang, instruct, speaker, refPtr, len(ref), refText,
 		s.seed, s.temperature, s.topK, s.topP, s.repPen, s.maxNew, unsafe.Pointer(&n))
 	runtimeKeepAlive(ref)
-	if ptr == 0 || n <= 0 {
+	if ptr == 0 {
 		return fmt.Errorf("qwen3-tts: synthesis failed")
 	}
+	// Register the free as soon as we own a non-null buffer, so the n<=0 guard
+	// below cannot leak it (defensive: the C contract returns NULL on failure).
 	defer CppPCMFree(ptr)
+	if n <= 0 {
+		return fmt.Errorf("qwen3-tts: synthesis produced no samples")
+	}
 	src := unsafe.Slice((*float32)(unsafe.Pointer(ptr)), int(n)) //nolint:govet // C-allocated PCM, copied out before free
 	out := make([]float32, int(n))
 	copy(out, src)
