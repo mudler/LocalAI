@@ -396,10 +396,10 @@ var BackendCapabilities = map[string]BackendCapability{
 		Description:      "Qwen TTS",
 	},
 	"qwen3-tts-cpp": {
-		GRPCMethods:      []GRPCMethod{MethodTTS},
+		GRPCMethods:      []GRPCMethod{MethodTTS, MethodTTSStream},
 		PossibleUsecases: []string{UsecaseTTS},
 		DefaultUsecases:  []string{UsecaseTTS},
-		Description:      "Qwen3 TTS C++ — text-to-speech, C++ backend",
+		Description:      "Qwen3 TTS C++ - text-to-speech with streaming, named speakers, voice design and cloning (qwentts.cpp / GGML)",
 	},
 	"faster-qwen3-tts": {
 		GRPCMethods:      []GRPCMethod{MethodTTS},
