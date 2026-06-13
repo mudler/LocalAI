@@ -852,6 +852,70 @@ func (m *MockBackend) ModelMetadata(ctx context.Context, in *pb.ModelOptions) (*
 	}, nil
 }
 
+// voiceEmbedFromWAV reads a 16-bit LE mono WAV and returns a 2-d speaker
+// embedding derived from the signed DC offset of the samples. A positive DC
+// bias maps to one orthogonal unit vector, a negative bias to the other, so
+// e2e tests can deterministically simulate two distinct "speakers" that
+// survive resampling (DC is sample-rate independent). Near-zero DC maps to a
+// neutral vector equidistant from both. Returns nil for unreadable audio.
+func voiceEmbedFromWAV(path string) []float32 {
+	data, err := os.ReadFile(path)
+	if err != nil || len(data) < 44 {
+		return nil
+	}
+	pcm := data[44:]
+	n := len(pcm) / 2
+	if n == 0 {
+		return nil
+	}
+	var sum float64
+	for i := 0; i < n; i++ {
+		s := int16(pcm[2*i]) | int16(pcm[2*i+1])<<8
+		sum += float64(s)
+	}
+	mean := sum / float64(n)
+	switch {
+	case mean > 500:
+		return []float32{1, 0}
+	case mean < -500:
+		return []float32{0, 1}
+	default:
+		return []float32{0.7071, 0.7071}
+	}
+}
+
+// VoiceEmbed returns a deterministic 2-d speaker embedding for the audio clip.
+// See voiceEmbedFromWAV for the (test-only) DC-offset discrimination scheme.
+func (m *MockBackend) VoiceEmbed(ctx context.Context, in *pb.VoiceEmbedRequest) (*pb.VoiceEmbedResponse, error) {
+	emb := voiceEmbedFromWAV(in.GetAudio())
+	xlog.Debug("VoiceEmbed called", "audio", in.GetAudio(), "embedding", emb)
+	if len(emb) == 0 {
+		return &pb.VoiceEmbedResponse{}, nil
+	}
+	return &pb.VoiceEmbedResponse{Embedding: emb, Model: "mock-speaker"}, nil
+}
+
+// VoiceVerify compares two clips by cosine distance over their mock embeddings.
+func (m *MockBackend) VoiceVerify(ctx context.Context, in *pb.VoiceVerifyRequest) (*pb.VoiceVerifyResponse, error) {
+	a := voiceEmbedFromWAV(in.GetAudio1())
+	b := voiceEmbedFromWAV(in.GetAudio2())
+	dist := float32(1)
+	if len(a) == 2 && len(b) == 2 {
+		dist = 1 - (a[0]*b[0] + a[1]*b[1]) // both unit vectors
+	}
+	threshold := in.GetThreshold()
+	if threshold == 0 {
+		threshold = 0.25
+	}
+	xlog.Debug("VoiceVerify called", "distance", dist, "threshold", threshold)
+	return &pb.VoiceVerifyResponse{
+		Verified:  dist <= threshold,
+		Distance:  dist,
+		Threshold: threshold,
+		Model:     "mock-speaker",
+	}, nil
+}
+
 func main() {
 	xlog.SetLogger(xlog.NewLogger(xlog.LogLevel(os.Getenv("LOCALAI_LOG_LEVEL")), os.Getenv("LOCALAI_LOG_FORMAT")))
 

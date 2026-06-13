@@ -236,6 +236,45 @@ var _ = BeforeSuite(func() {
 	Expect(err).ToNot(HaveOccurred())
 	Expect(os.WriteFile(filepath.Join(modelsPath, "realtime-pipeline.yaml"), pipelineData, 0644)).To(Succeed())
 
+	// Speaker-recognition model (mock-backend) + a voice-recognition-gated
+	// pipeline for the realtime gate e2e. The reference WAV carries a positive
+	// DC bias so the mock embeds it to one orthogonal "speaker"; the test then
+	// drives matching (authorized) and opposite-bias (unauthorized) audio.
+	speakerCfg := map[string]any{
+		"name":       "mock-speaker",
+		"backend":    "mock-backend",
+		"parameters": map[string]any{"model": "mock-speaker.bin"},
+	}
+	speakerData, err := yaml.Marshal(speakerCfg)
+	Expect(err).ToNot(HaveOccurred())
+	Expect(os.WriteFile(filepath.Join(modelsPath, "mock-speaker.yaml"), speakerData, 0644)).To(Succeed())
+
+	voiceRefPath := filepath.Join(modelsPath, "e2e-voice-ref.wav")
+	Expect(os.WriteFile(voiceRefPath, wavFromPCM(pcmWithDC(300, 16000, 1000, 8000), 16000), 0644)).To(Succeed())
+
+	gatedCfg := map[string]any{
+		"name": "realtime-pipeline-gated",
+		"pipeline": map[string]any{
+			"vad":           "mock-vad",
+			"transcription": "mock-stt",
+			"llm":           "mock-llm",
+			"tts":           "mock-tts",
+			"voice_recognition": map[string]any{
+				"model":     "mock-speaker",
+				"mode":      "verify",
+				"threshold": 0.25,
+				"when":      "every",
+				"on_reject": "drop_event",
+				"references": []map[string]any{
+					{"name": "e2e-speaker", "audio": voiceRefPath},
+				},
+			},
+		},
+	}
+	gatedData, err := yaml.Marshal(gatedCfg)
+	Expect(err).ToNot(HaveOccurred())
+	Expect(os.WriteFile(filepath.Join(modelsPath, "realtime-pipeline-gated.yaml"), gatedData, 0644)).To(Succeed())
+
 	// Router model setup: a score classifier (mock-backend Score) selects
 	// between two candidate chat models based on keyword matches against the
 	// candidate label fragments. Exercises the full RouteModel middleware path
