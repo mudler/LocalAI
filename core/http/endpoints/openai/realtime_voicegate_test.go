@@ -117,3 +117,71 @@ var _ = Describe("voiceGate identify mode", func() {
 		Expect(allowed).To(BeFalse())
 	})
 })
+
+var _ = Describe("voiceGate verify mode", func() {
+	It("allows when the utterance matches a reference embedding", func() {
+		g := &voiceGate{
+			cfg:       config.PipelineVoiceRecognition{Mode: config.VoiceGateModeVerify, Threshold: 0.25, When: config.VoiceGateWhenEvery, OnReject: config.VoiceGateRejectEvent},
+			refEmbeds: []namedEmbedding{{name: "alice", emb: []float32{1, 0, 0}}},
+			embedFn:   func(context.Context, string) ([]float32, error) { return []float32{1, 0, 0}, nil },
+		}
+		allowed, matched, _, err := g.Authorize(context.Background(), "x.wav")
+		Expect(err).ToNot(HaveOccurred())
+		Expect(allowed).To(BeTrue())
+		Expect(matched).To(Equal("alice"))
+	})
+	It("denies when no reference is within threshold", func() {
+		g := &voiceGate{
+			cfg:       config.PipelineVoiceRecognition{Mode: config.VoiceGateModeVerify, Threshold: 0.25, When: config.VoiceGateWhenEvery, OnReject: config.VoiceGateRejectEvent},
+			refEmbeds: []namedEmbedding{{name: "alice", emb: []float32{1, 0, 0}}},
+			embedFn:   func(context.Context, string) ([]float32, error) { return []float32{0, 1, 0}, nil },
+		}
+		allowed, _, reason, _ := g.Authorize(context.Background(), "x.wav")
+		Expect(allowed).To(BeFalse())
+		Expect(reason).To(ContainSubstring("reference"))
+	})
+	It("denies (no error) when no speech is detected", func() {
+		g := &voiceGate{
+			cfg:       config.PipelineVoiceRecognition{Mode: config.VoiceGateModeVerify, Threshold: 0.25, When: config.VoiceGateWhenEvery, OnReject: config.VoiceGateRejectEvent},
+			refEmbeds: []namedEmbedding{{name: "alice", emb: []float32{1, 0, 0}}},
+			embedFn:   func(context.Context, string) ([]float32, error) { return nil, nil },
+		}
+		allowed, _, reason, err := g.Authorize(context.Background(), "x.wav")
+		Expect(err).ToNot(HaveOccurred())
+		Expect(allowed).To(BeFalse())
+		Expect(reason).To(ContainSubstring("no speech"))
+	})
+	It("denies and surfaces the error when embedding fails", func() {
+		g := &voiceGate{
+			cfg:       config.PipelineVoiceRecognition{Mode: config.VoiceGateModeVerify, Threshold: 0.25, When: config.VoiceGateWhenEvery, OnReject: config.VoiceGateRejectEvent},
+			refEmbeds: []namedEmbedding{{name: "alice", emb: []float32{1, 0, 0}}},
+			embedFn:   func(context.Context, string) ([]float32, error) { return nil, errors.New("boom") },
+		}
+		allowed, _, _, err := g.Authorize(context.Background(), "x.wav")
+		Expect(err).To(HaveOccurred())
+		Expect(allowed).To(BeFalse())
+	})
+	It("uses verifyFn when anti-spoofing is enabled", func() {
+		called := false
+		g := &voiceGate{
+			cfg:       config.PipelineVoiceRecognition{Mode: config.VoiceGateModeVerify, Threshold: 0.25, AntiSpoofing: true, When: config.VoiceGateWhenEvery, OnReject: config.VoiceGateRejectEvent},
+			refAudios: []config.VoiceReference{{Name: "alice", Audio: "/alice.wav"}},
+			verifyFn:  func(context.Context, string, string) (bool, error) { called = true; return true, nil },
+		}
+		allowed, matched, _, err := g.Authorize(context.Background(), "x.wav")
+		Expect(err).ToNot(HaveOccurred())
+		Expect(called).To(BeTrue())
+		Expect(allowed).To(BeTrue())
+		Expect(matched).To(Equal("alice"))
+	})
+	It("denies and surfaces the error when verifyFn fails (anti-spoofing)", func() {
+		g := &voiceGate{
+			cfg:       config.PipelineVoiceRecognition{Mode: config.VoiceGateModeVerify, Threshold: 0.25, AntiSpoofing: true, When: config.VoiceGateWhenEvery, OnReject: config.VoiceGateRejectEvent},
+			refAudios: []config.VoiceReference{{Name: "alice", Audio: "/alice.wav"}},
+			verifyFn:  func(context.Context, string, string) (bool, error) { return false, errors.New("boom") },
+		}
+		allowed, _, _, err := g.Authorize(context.Background(), "x.wav")
+		Expect(err).To(HaveOccurred())
+		Expect(allowed).To(BeFalse())
+	})
+})

@@ -84,9 +84,33 @@ func (g *voiceGate) allowMatch(meta voicerecognition.Metadata) bool {
 	return false
 }
 
-// authorizeVerify is implemented in Task 4; stubbed so the package compiles.
 func (g *voiceGate) authorizeVerify(ctx context.Context, wavPath string) (bool, string, string, error) {
-	return false, "", "verify mode not yet implemented", nil
+	if g.cfg.AntiSpoofing {
+		for _, r := range g.refAudios {
+			ok, err := g.verifyFn(ctx, wavPath, r.Audio)
+			if err != nil {
+				return false, "", "verify failed", err
+			}
+			if ok {
+				return true, r.Name, "", nil
+			}
+		}
+		return false, "", "no reference matched", nil
+	}
+
+	emb, err := g.embedFn(ctx, wavPath)
+	if err != nil {
+		return false, "", "embed failed", err
+	}
+	if len(emb) == 0 {
+		return false, "", "no speech detected", nil
+	}
+	for _, r := range g.refEmbeds {
+		if cosineDistance(emb, r.emb) <= g.cfg.Threshold {
+			return true, r.name, "", nil
+		}
+	}
+	return false, "", "no reference matched", nil
 }
 
 // cosineDistance returns 1 - cosine_similarity, matching the voice registry's
