@@ -1,4 +1,50 @@
 ---
+- name: "diffusiongemma-26b-a4b-it"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/unsloth/diffusiongemma-26B-A4B-it-GGUF
+  description: |
+    Hugging Face |
+    GitHub |
+    Launch Blog |
+    Documentation
+
+    License: Apache 2.0 | Authors: Google DeepMind
+
+    DiffusionGemma is a generative model built by Google DeepMind. Based on the 26B A4B Mixture-of-Experts (MoE) Gemma 4 architecture, DiffusionGemma generates tokens using discrete diffusion. This open-weights model is multimodal, handling text, image, and video inputs to generate text output.
+
+    Built on a MoE foundation, DiffusionGemma is designed to improve generation speed (tokens per second) while remaining deployable across various hardware environments. DiffusionGemma builds upon the architectural and capability advancements of Gemma 4, introducing several core features:
+
+    ...
+  license: "apache-2.0"
+  tags:
+    - llm
+    - gguf
+    - gemma
+  icon: https://ai.google.dev/gemma/images/diffusiongemma_banner.png
+  overrides:
+    backend: llama-cpp
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+    options:
+      - use_jinja:true
+    parameters:
+      min_p: 0
+      model: llama-cpp/models/diffusiongemma-26B-A4B-it-GGUF/diffusiongemma-26B-A4B-it-Q4_K_M.gguf
+      repeat_penalty: 1
+      temperature: 1
+      top_k: 64
+      top_p: 0.95
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/diffusiongemma-26B-A4B-it-GGUF/diffusiongemma-26B-A4B-it-Q4_K_M.gguf
+      sha256: d2ca2c032ebfb23cf2d1794a3465e615c7545634d46b3c30652a26d8b07c4ad3
+      uri: https://huggingface.co/unsloth/diffusiongemma-26B-A4B-it-GGUF/resolve/main/diffusiongemma-26B-A4B-it-Q4_K_M.gguf
 - name: "serenity-26b-a4b"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
