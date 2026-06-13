@@ -6,9 +6,9 @@ GOCMD?=go
 GO_TAGS?=
 JOBS?=$(shell nproc --ignore=1)
 
-# qwen3-tts.cpp version
-QWEN3TTS_REPO?=https://github.com/predict-woo/qwen3-tts.cpp
-QWEN3TTS_CPP_VERSION?=136e5d36c17083da0321fd96512dc7b263f94a44
+# qwentts.cpp version
+QWEN3TTS_REPO?=https://github.com/ServeurpersoCom/qwentts.cpp
+QWEN3TTS_CPP_VERSION?=0bf4a18b22e8bb8718d95294e9f7f45c0d4270a4
 SO_TARGET?=libgoqwen3ttscpp.so
 
 CMAKE_ARGS+=-DBUILD_SHARED_LIBS=OFF
@@ -49,9 +49,9 @@ ifeq ($(BUILD_TYPE),sycl_f32)
 		-DCMAKE_CXX_COMPILER=icpx
 endif
 
-sources/qwen3-tts.cpp:
-	mkdir -p sources/qwen3-tts.cpp
-	cd sources/qwen3-tts.cpp && \
+sources/qwentts.cpp:
+	mkdir -p sources/qwentts.cpp
+	cd sources/qwentts.cpp && \
 	git init && \
 	git remote add origin $(QWEN3TTS_REPO) && \
 	git fetch origin && \
@@ -78,7 +78,7 @@ package: qwen3-tts-cpp
 build: package
 
 clean: purge
-	rm -rf libgoqwen3ttscpp*.so package sources/qwen3-tts.cpp qwen3-tts-cpp
+	rm -rf libgoqwen3ttscpp*.so package sources/qwentts.cpp qwen3-tts-cpp
 
 purge:
 	rm -rf build*
@@ -88,24 +88,24 @@ purge:
 
 # Build all variants (Linux only)
 ifeq ($(UNAME_S),Linux)
-libgoqwen3ttscpp-avx.so: sources/qwen3-tts.cpp
+libgoqwen3ttscpp-avx.so: sources/qwentts.cpp
 	$(info ${GREEN}I qwen3-tts-cpp build info:avx${RESET})
 	SO_TARGET=libgoqwen3ttscpp-avx.so CMAKE_ARGS="$(CMAKE_ARGS) -DGGML_AVX=on -DGGML_AVX2=off -DGGML_AVX512=off -DGGML_FMA=off -DGGML_F16C=off -DGGML_BMI2=off" $(MAKE) libgoqwen3ttscpp-custom
 	rm -rf build-libgoqwen3ttscpp-avx.so
 
-libgoqwen3ttscpp-avx2.so: sources/qwen3-tts.cpp
+libgoqwen3ttscpp-avx2.so: sources/qwentts.cpp
 	$(info ${GREEN}I qwen3-tts-cpp build info:avx2${RESET})
 	SO_TARGET=libgoqwen3ttscpp-avx2.so CMAKE_ARGS="$(CMAKE_ARGS) -DGGML_AVX=on -DGGML_AVX2=on -DGGML_AVX512=off -DGGML_FMA=on -DGGML_F16C=on -DGGML_BMI2=on" $(MAKE) libgoqwen3ttscpp-custom
 	rm -rf build-libgoqwen3ttscpp-avx2.so
 
-libgoqwen3ttscpp-avx512.so: sources/qwen3-tts.cpp
+libgoqwen3ttscpp-avx512.so: sources/qwentts.cpp
 	$(info ${GREEN}I qwen3-tts-cpp build info:avx512${RESET})
 	SO_TARGET=libgoqwen3ttscpp-avx512.so CMAKE_ARGS="$(CMAKE_ARGS) -DGGML_AVX=on -DGGML_AVX2=on -DGGML_AVX512=on -DGGML_FMA=on -DGGML_F16C=on -DGGML_BMI2=on" $(MAKE) libgoqwen3ttscpp-custom
 	rm -rf build-libgoqwen3ttscpp-avx512.so
 endif
 
 # Build fallback variant (all platforms)
-libgoqwen3ttscpp-fallback.so: sources/qwen3-tts.cpp
+libgoqwen3ttscpp-fallback.so: sources/qwentts.cpp
 	$(info ${GREEN}I qwen3-tts-cpp build info:fallback${RESET})
 	SO_TARGET=libgoqwen3ttscpp-fallback.so CMAKE_ARGS="$(CMAKE_ARGS) -DGGML_AVX=off -DGGML_AVX2=off -DGGML_AVX512=off -DGGML_FMA=off -DGGML_F16C=off -DGGML_BMI2=off" $(MAKE) libgoqwen3ttscpp-custom
 	rm -rf build-libgoqwen3ttscpp-fallback.so
