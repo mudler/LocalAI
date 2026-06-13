@@ -3336,6 +3336,72 @@
     - filename: qwen3-tts-cpp/qwen3-tts-tokenizer-f16.gguf
       sha256: d1ad9660bd99343f4851d5a4b17e31f65648feb3559f6ea062ae6575e5cd9d90
       uri: huggingface://endo5501/qwen3-tts.cpp/qwen3-tts-tokenizer-f16.gguf
+- name: omnivoice-cpp
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/Serveurperso/OmniVoice-GGUF
+    - https://github.com/ServeurpersoCom/omnivoice.cpp
+  description: |
+    OmniVoice (C++ / GGML) - native text-to-speech with voice cloning and voice
+    design. 24kHz mono output, 646 languages, streaming synthesis. Q8_0 GGUFs
+    (~945 MB total): 612M Qwen3 backbone + RVQ audio codec.
+  license: apache-2.0
+  tags:
+    - tts
+    - text-to-speech
+    - voice-cloning
+    - voice-design
+    - omnivoice
+    - gguf
+  overrides:
+    backend: omnivoice-cpp
+    known_usecases:
+      - tts
+    name: omnivoice-cpp
+    parameters:
+      model: omnivoice-cpp/omnivoice-base-Q8_0.gguf
+    options:
+      - "tokenizer:omnivoice-tokenizer-Q8_0.gguf"
+  files:
+    - filename: omnivoice-cpp/omnivoice-base-Q8_0.gguf
+      sha256: 2882d887921798aea13d45236556bdf8012842ab6f8cd2690943eead6289f298
+      uri: huggingface://Serveurperso/OmniVoice-GGUF/omnivoice-base-Q8_0.gguf
+    - filename: omnivoice-cpp/omnivoice-tokenizer-Q8_0.gguf
+      sha256: 75204fa566a8e30984e7a1066da6557184c9fd099c8f1bc0cb5b9415edfec255
+      uri: huggingface://Serveurperso/OmniVoice-GGUF/omnivoice-tokenizer-Q8_0.gguf
+- name: omnivoice-cpp-hq
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/Serveurperso/OmniVoice-GGUF
+    - https://github.com/ServeurpersoCom/omnivoice.cpp
+  description: |
+    OmniVoice (C++ / GGML), BF16 high-quality variant - text-to-speech with voice
+    cloning and voice design. 24kHz mono, 646 languages, streaming. BF16 GGUFs
+    (~1.6 GB total).
+  license: apache-2.0
+  tags:
+    - tts
+    - text-to-speech
+    - voice-cloning
+    - voice-design
+    - omnivoice
+    - gguf
+  overrides:
+    backend: omnivoice-cpp
+    known_usecases:
+      - tts
+    name: omnivoice-cpp-hq
+    parameters:
+      model: omnivoice-cpp-hq/omnivoice-base-BF16.gguf
+    options:
+      - "tokenizer:omnivoice-tokenizer-BF16.gguf"
+  files:
+    - filename: omnivoice-cpp-hq/omnivoice-base-BF16.gguf
+      sha256: c4d2e4e6506a88f9c9900621606470bca6a523c72819bf4a5e5dac80961075bf
+      uri: huggingface://Serveurperso/OmniVoice-GGUF/omnivoice-base-BF16.gguf
+    - filename: omnivoice-cpp-hq/omnivoice-tokenizer-BF16.gguf
+      sha256: c2179e4cf528b19fea22a5be94c34c083877bb5fc28ac0245d2b4299a262dcec
+      uri: huggingface://Serveurperso/OmniVoice-GGUF/omnivoice-tokenizer-BF16.gguf
 - name: qwen3-tts-cpp-customvoice
   url: github:mudler/LocalAI/gallery/virtual.yaml@master
   urls:

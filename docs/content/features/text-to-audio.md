@@ -226,6 +226,82 @@ curl http://localhost:8080/tts -H "Content-Type: application/json" -d '{
    }' | aplay
 ```
 
+### OmniVoice
+
+[OmniVoice](https://github.com/ServeurpersoCom/omnivoice.cpp) (`omnivoice-cpp` backend) is a native C++ / GGML text-to-speech engine. It supports voice cloning (from reference audio plus its transcript), voice design (steering the voice with attribute keywords such as gender, age, pitch, style, volume, and emotion), and streaming synthesis. Output is 24kHz mono audio and it covers 646 languages.
+
+#### Setup
+
+Install the `omnivoice-cpp` model in the Model gallery or run `local-ai run models install omnivoice-cpp`. A higher-quality BF16 variant is available as `omnivoice-cpp-hq` (the default `omnivoice-cpp` ships Q8_0 GGUFs).
+
+#### Usage
+
+Use the speech endpoint by specifying the omnivoice-cpp backend:
+
+```bash
+curl http://localhost:8080/v1/audio/speech -H "Content-Type: application/json" -d '{
+     "model": "omnivoice-cpp",
+     "input": "Hello world, this is a test."
+   }' | aplay
+```
+
+#### Voice cloning
+
+Pass a reference audio file via the `voice` parameter and its transcript via the `ref_text` generation parameter:
+
+```bash
+curl http://localhost:8080/v1/audio/speech -H "Content-Type: application/json" -d '{
+     "model": "omnivoice-cpp",
+     "input": "Hello world, this is a test.",
+     "voice": "path/to/reference_audio.wav",
+     "params": { "ref_text": "This is the transcript of the reference audio." }
+   }' | aplay
+```
+
+You can also pin a default cloned voice in the model config so callers do not have to pass it on every request. Both `tts.voice` and `tts.audio_path` are honored as the reference audio (a per-request `voice` overrides them); paths are resolved relative to the model directory:
+
+```yaml
+name: omnivoice-cpp
+backend: omnivoice-cpp
+parameters:
+  model: omnivoice-cpp/omnivoice-base-Q8_0.gguf
+tts:
+  audio_path: "voices/my_reference.wav"   # default cloning reference (or use tts.voice)
+options:
+  - "tokenizer:omnivoice-cpp/omnivoice-tokenizer-Q8_0.gguf"
+```
+
+#### Voice design
+
+Steer the synthesized voice with attribute keywords (gender, age, pitch, style, volume, emotion) by passing an `instructions` string per request:
+
+```bash
+curl http://localhost:8080/v1/audio/speech -H "Content-Type: application/json" -d '{
+     "model": "omnivoice-cpp",
+     "input": "Hello world, this is a test.",
+     "instructions": "female young high soft emotion:happy"
+   }' | aplay
+```
+
+#### Configuration
+
+The backend loads the base GGUF from `parameters.model` and its tokenizer from the `tokenizer:` option. A few optional generation knobs are available as `options`:
+
+```yaml
+name: omnivoice-cpp
+backend: omnivoice-cpp
+parameters:
+  model: omnivoice-cpp/omnivoice-base-Q8_0.gguf
+options:
+  - "tokenizer:omnivoice-cpp/omnivoice-tokenizer-Q8_0.gguf"
+  - "use_fa:true"      # enable flash attention
+  - "clamp_fp16:true"  # clamp activations for fp16 stability
+  - "seed:42"          # deterministic generation
+  - "denoise:true"     # denoise the generated audio
+```
+
+A per-request `seed` can also be supplied through the `params` map alongside `ref_text`.
+
 ### Pocket TTS
 
 [Pocket TTS](https://github.com/kyutai-labs/pocket-tts) is a lightweight text-to-speech model designed to run efficiently on CPUs. It supports voice cloning through HuggingFace voice URLs or local audio files.
