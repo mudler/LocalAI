@@ -689,7 +689,7 @@ function SchedulingForm({ onSave, onCancel }) {
   )
 }
 
-export default function Nodes() {
+export default function Nodes({ embedded = false }) {
   const { addToast } = useOutletContext()
   const navigate = useNavigate()
   const { t } = useTranslation('admin')
@@ -983,16 +983,18 @@ export default function Nodes() {
   const pending = filteredNodes.filter(n => n.status === 'pending').length
 
   return (
-    <div className="page page--wide">
-      <div className="page-header">
-        <h1 className="page-title">
-          <i className="fas fa-network-wired" style={{ marginRight: 'var(--spacing-sm)' }} />
-          {t('nodes.title')}
-        </h1>
-        <p className="page-subtitle">
-          {t('nodes.subtitle')}
-        </p>
-      </div>
+    <div className={embedded ? '' : 'page page--wide'}>
+      {!embedded && (
+        <div className="page-header">
+          <h1 className="page-title">
+            <i className="fas fa-network-wired" style={{ marginRight: 'var(--spacing-sm)' }} />
+            {t('nodes.title')}
+          </h1>
+          <p className="page-subtitle">
+            {t('nodes.subtitle')}
+          </p>
+        </div>
+      )}
 
       {/* Tabs */}
       <div className="tabs" style={{ marginBottom: 'var(--spacing-lg)' }}>

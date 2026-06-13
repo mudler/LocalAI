@@ -58,5 +58,21 @@
   "explorer": {
     "title": "Explorer",
     "subtitle": "Dateien und Konfiguration durchsuchen"
+  },
+  "cluster": {
+    "title": "Cluster",
+    "subtitle": "Verteilte und Peer-to-Peer-Knoten, die diese Instanz bedienen",
+    "empty": "Es ist kein verteiltes oder p2p-Clustering aktiviert. Starte LocalAI im verteilten oder föderierten/p2p-Modus, um hier Cluster-Knoten zu verwalten.",
+    "distributed": {
+      "title": "Verteilt (NATS)"
+    },
+    "swarm": {
+      "title": "Swarm (p2p)"
+    },
+    "summary": {
+      "nodes": "Verteilte Knoten",
+      "inFlight": "Laufende Anfragen",
+      "peers": "Swarm-Peers online"
+    }
   }
 }

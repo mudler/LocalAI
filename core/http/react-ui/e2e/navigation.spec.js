@@ -23,4 +23,11 @@ test.describe('Navigation', () => {
     await expect(page).toHaveURL(/\/app\/traces/)
     await expect(page.getByRole('heading', { name: 'Traces', exact: true })).toBeVisible()
   })
+
+  test('old cluster routes redirect to /app/cluster', async ({ page }) => {
+    await page.goto('/app/p2p')
+    await expect(page).toHaveURL(/\/app\/cluster$/)
+    await page.goto('/app/nodes')
+    await expect(page).toHaveURL(/\/app\/cluster$/)
+  })
 })

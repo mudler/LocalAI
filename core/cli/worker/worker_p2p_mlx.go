@@ -81,7 +81,7 @@ func (r *P2PMLX) Run(ctx *cliContext.Context) error {
 		}
 	}()
 
-	_, err = p2p.ExposeService(c, address, fmt.Sprint(port), r.Token, p2p.NetworkID(r.Peer2PeerNetworkID, p2p.MLXWorkerID))
+	_, err = p2p.ExposeService(c, address, fmt.Sprint(port), r.Token, p2p.NetworkID(r.Peer2PeerNetworkID, p2p.MLXWorkerID), nil)
 	if err != nil {
 		return err
 	}

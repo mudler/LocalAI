@@ -162,7 +162,7 @@ export default function NodeBackendLogs() {
           <h2 className="empty-state-title">No node/model selected</h2>
           <p className="empty-state-text">
             View backend logs from the{' '}
-            <Link to="/app/nodes" style={{ color: 'var(--color-primary)' }}>Nodes page</Link>.
+            <Link to="/app/cluster" style={{ color: 'var(--color-primary)' }}>Nodes page</Link>.
           </p>
         </div>
       </div>
@@ -220,7 +220,7 @@ export default function NodeBackendLogs() {
           </h1>
           <p className="page-subtitle" style={{ marginTop: 'var(--spacing-xs)' }}>
             Backend logs from node <strong>{nodeName || nodeId}</strong>
-            {' '}<Link to="/app/nodes" style={{ color: 'var(--color-primary)', fontSize: '0.8125rem' }}>(back to nodes)</Link>
+            {' '}<Link to="/app/cluster" style={{ color: 'var(--color-primary)', fontSize: '0.8125rem' }}>(back to nodes)</Link>
           </p>
         </div>
       </div>
