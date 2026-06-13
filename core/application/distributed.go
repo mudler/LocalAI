@@ -161,6 +161,21 @@ func initDistributed(cfg *config.ApplicationConfig, authDB *gorm.DB, configLoade
 	}
 	xlog.Info("Node registry initialized")
 
+	// Seed declarative per-model scheduling config (LOCALAI_MODEL_SCHEDULING /
+	// LOCALAI_MODEL_SCHEDULING_CONFIG). Authoritative: overwrites matching models
+	// on every boot. Runs before the reconciler starts so the first tick already
+	// sees the desired state. Models not listed are left untouched.
+	if cfg.Distributed.ModelSchedulingJSON != "" || cfg.Distributed.ModelSchedulingConfigPath != "" {
+		schedConfigs, err := nodes.ParseSchedulingSeed(cfg.Distributed.ModelSchedulingJSON, cfg.Distributed.ModelSchedulingConfigPath)
+		if err != nil {
+			return nil, fmt.Errorf("parsing declarative model scheduling config: %w", err)
+		}
+		if err := registry.SeedModelScheduling(context.Background(), schedConfigs); err != nil {
+			return nil, fmt.Errorf("seeding declarative model scheduling config: %w", err)
+		}
+		xlog.Info("Applied declarative model scheduling config", "models", len(schedConfigs))
+	}
+
 	// Collect SmartRouter option values; the router itself is created after all
 	// dependencies (including FileStager and Unloader) are ready.
 	var routerAuthToken string

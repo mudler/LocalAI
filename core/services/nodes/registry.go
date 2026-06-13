@@ -135,13 +135,18 @@ type NodeLabel struct {
 //   - Both → auto-scale on matching nodes
 //   - Neither → no-op (default behavior)
 //
-// Auto-scaling is enabled when MinReplicas > 0 or MaxReplicas > 0.
+// Auto-scaling is enabled when MinReplicas > 0, MaxReplicas > 0, or SpreadAll is set.
 type ModelSchedulingConfig struct {
 	ID           string `gorm:"primaryKey;size:36" json:"id"`
 	ModelName    string `gorm:"uniqueIndex;size:255" json:"model_name"`
 	NodeSelector string `gorm:"type:text" json:"node_selector,omitempty"` // JSON {"key":"value",...}
 	MinReplicas  int    `gorm:"default:0" json:"min_replicas"`
 	MaxReplicas  int    `gorm:"default:0" json:"max_replicas"`
+	// SpreadAll requests one replica on every node matching NodeSelector
+	// (every healthy backend node when the selector is empty), tracked as
+	// nodes join and leave. Mutually exclusive with MinReplicas/MaxReplicas.
+	// The reconciler turns this into a dynamic Min==Max target each tick.
+	SpreadAll bool `gorm:"column:spread_all;default:false" json:"spread_all,omitempty"`
 	// Prefix-cache-aware routing (epic #10063). RoutePolicy "" means inherit
 	// the cluster-wide default. Thresholds are per-model overrides; 0 means
 	// inherit the global default.
@@ -1392,12 +1397,26 @@ func (r *NodeRegistry) SetModelScheduling(ctx context.Context, config *ModelSche
 		Clauses(clause.OnConflict{
 			Columns: []clause.Column{{Name: "model_name"}},
 			DoUpdates: clause.AssignmentColumns([]string{
-				"node_selector", "min_replicas", "max_replicas",
+				"node_selector", "min_replicas", "max_replicas", "spread_all",
 				"route_policy", "balance_abs_threshold", "balance_rel_threshold", "min_prefix_match",
 				"updated_at",
 			}),
 		}).
 		Create(config).Error
+}
+
+// SeedModelScheduling authoritatively applies a batch of scheduling configs at
+// startup. Each config is upserted (full-replace on model_name), overwriting any
+// prior row for that model. Models not present in configs are left untouched.
+func (r *NodeRegistry) SeedModelScheduling(ctx context.Context, configs []ModelSchedulingConfig) error {
+	for i := range configs {
+		if err := r.SetModelScheduling(ctx, &configs[i]); err != nil {
+			return fmt.Errorf("seeding scheduling config for model %q: %w", configs[i].ModelName, err)
+		}
+		xlog.Info("Seeded model scheduling config", "model", configs[i].ModelName,
+			"spread_all", configs[i].SpreadAll, "min", configs[i].MinReplicas, "max", configs[i].MaxReplicas)
+	}
+	return nil
 }
 
 // GetModelScheduling returns the scheduling config for a model, or nil if none exists.
@@ -1423,7 +1442,7 @@ func (r *NodeRegistry) ListModelSchedulings(ctx context.Context) ([]ModelSchedul
 // ListAutoScalingConfigs returns scheduling configs where auto-scaling is enabled.
 func (r *NodeRegistry) ListAutoScalingConfigs(ctx context.Context) ([]ModelSchedulingConfig, error) {
 	var configs []ModelSchedulingConfig
-	err := r.db.WithContext(ctx).Where("min_replicas > 0 OR max_replicas > 0").Find(&configs).Error
+	err := r.db.WithContext(ctx).Where("min_replicas > 0 OR max_replicas > 0 OR spread_all = ?", true).Find(&configs).Error
 	return configs, err
 }
 

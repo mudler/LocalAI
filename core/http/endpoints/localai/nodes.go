@@ -937,12 +937,13 @@ func GetSchedulingEndpoint(registry *nodes.NodeRegistry) echo.HandlerFunc {
 // distinguishable from an explicit zero. On update, an omitted prefix-cache
 // field preserves the model's previously-configured value instead of resetting
 // it (see SetSchedulingEndpoint's PATCH-style merge). ModelName, NodeSelector,
-// MinReplicas and MaxReplicas keep their full-replace PUT semantics.
+// MinReplicas, MaxReplicas and SpreadAll keep their full-replace PUT semantics.
 type SetSchedulingRequest struct {
 	ModelName           string            `json:"model_name"`
 	NodeSelector        map[string]string `json:"node_selector,omitempty"`
 	MinReplicas         int               `json:"min_replicas"`
 	MaxReplicas         int               `json:"max_replicas"`
+	SpreadAll           bool              `json:"spread_all,omitempty"`
 	RoutePolicy         *string           `json:"route_policy,omitempty"`
 	BalanceAbsThreshold *int              `json:"balance_abs_threshold,omitempty"`
 	BalanceRelThreshold *float64          `json:"balance_rel_threshold,omitempty"`
@@ -958,6 +959,9 @@ type SetSchedulingRequest struct {
 func validateSchedulingRequest(req SetSchedulingRequest, routePolicy string, absThr int, relThr, minMatch float64) error {
 	if req.ModelName == "" {
 		return errors.New("model_name is required")
+	}
+	if req.SpreadAll && (req.MinReplicas != 0 || req.MaxReplicas != 0) {
+		return errors.New("spread_all and min_replicas/max_replicas are mutually exclusive")
 	}
 	if req.MinReplicas < 0 {
 		return errors.New("min_replicas must be >= 0")
@@ -1045,6 +1049,7 @@ func SetSchedulingEndpoint(registry *nodes.NodeRegistry) echo.HandlerFunc {
 			NodeSelector:        selectorJSON,
 			MinReplicas:         req.MinReplicas,
 			MaxReplicas:         req.MaxReplicas,
+			SpreadAll:           req.SpreadAll,
 			RoutePolicy:         routePolicy,
 			BalanceAbsThreshold: absThr,
 			BalanceRelThreshold: relThr,
