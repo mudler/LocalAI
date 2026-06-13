@@ -604,6 +604,62 @@ All fields are optional and composable:
 - Replicas only: auto-scale across all nodes
 - Both: auto-scale on matching nodes only
 
+### Declarative per-model scheduling (unattended installs)
+
+In distributed mode you can declare per-model scheduling at startup, instead of
+using the WebUI/API. Config is **authoritative**: it is re-applied on every boot
+and overwrites the listed models (models not listed are left untouched).
+
+| Variable | Description |
+|----------|-------------|
+| `LOCALAI_MODEL_SCHEDULING` | Inline JSON list of scheduling entries |
+| `LOCALAI_MODEL_SCHEDULING_CONFIG` | Path to a YAML file with the same list |
+
+Entry fields: `model_name` (required), `node_selector` (label map),
+`min_replicas`, `max_replicas`, and `replicas: all` (one replica per matching
+node, tracked as nodes join/leave). `replicas: all` is mutually exclusive with
+`min_replicas`/`max_replicas`. `max_replicas: 0` means unbounded (up to cluster
+capacity).
+
+YAML example (`scheduling.yaml`):
+
+```yaml
+- model_name: gpt-oss
+  node_selector:
+    tier: gpu
+  replicas: all
+- model_name: whisper
+  node_selector:
+    tier: cpu
+  min_replicas: 1
+  max_replicas: 0
+```
+
+```bash
+LOCALAI_DISTRIBUTED=true \
+LOCALAI_MODEL_SCHEDULING_CONFIG=/etc/localai/scheduling.yaml \
+local-ai run
+```
+
+Inline equivalent:
+
+```bash
+LOCALAI_MODEL_SCHEDULING='[{"model_name":"gpt-oss","node_selector":{"tier":"gpu"},"replicas":"all"}]'
+```
+
+Notes:
+
+- Because the config is authoritative, each listed model's **entire** scheduling
+  row is replaced on every boot, including the optional prefix-cache routing
+  overrides (`route_policy`, `balance_abs_threshold`, `balance_rel_threshold`,
+  `min_prefix_match`). For a model you manage via this config, set those fields
+  here too if you need non-default values; values set only through the API are
+  reset on the next restart. Models not listed in the config are never touched.
+- `replicas: all` places one replica per matching node by relying on the default
+  per-node cap of one replica per model. If you raise `LOCALAI_MAX_REPLICAS_PER_MODEL`
+  on a worker above 1, the target count can be met by stacking replicas on fewer
+  nodes rather than spreading one to each.
+
 ## Label Management API
 
 | Method | Path | Description |
