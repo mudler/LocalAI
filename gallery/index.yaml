@@ -2764,6 +2764,171 @@
     - filename: vits-ljs/lexicon.txt
       sha256: bdccfc6da71c45c48e2e0056fcf0aab760577c5f959f6c1b5eb3e3e916fd5a0e
       uri: https://huggingface.co/csukuangfj/vits-ljs/resolve/main/lexicon.txt
+- name: vits-piper-it_IT-paola-sherpa
+  url: github:mudler/LocalAI/gallery/sherpa-onnx-tts.yaml@master
+  urls:
+    - https://github.com/k2-fsa/sherpa-onnx
+    - https://huggingface.co/datasets/paolapersico1/Voice-Dataset-Italian
+  description: |
+    Italian (it_IT) single-speaker Piper VITS voice "paola" (medium quality, 22.05 kHz), served through the sherpa-onnx backend with native streaming TTS. Ships espeak-ng phonemization data, so it works for Italian out of the box.
+  license: other
+  icon: https://avatars.githubusercontent.com/u/75781706
+  tags:
+    - vits
+    - piper
+    - text-to-speech
+    - tts
+    - italian
+    - onnx
+    - sherpa-onnx
+    - single-speaker
+  last_checked: "2026-06-13"
+  overrides:
+    known_usecases:
+      - tts
+    parameters:
+      model: vits-piper-it_IT-paola-medium/it_IT-paola-medium.onnx
+  files:
+    - filename: vits-piper-it_IT-paola-medium.tar.bz2
+      sha256: 7541f75778afa164e44e34baaef63befad7698595df26a95ca944b63ef1a16b4
+      uri: https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/vits-piper-it_IT-paola-medium.tar.bz2
+- name: vits-piper-en_US-amy-sherpa
+  url: github:mudler/LocalAI/gallery/sherpa-onnx-tts.yaml@master
+  urls:
+    - https://github.com/k2-fsa/sherpa-onnx
+    - https://github.com/MycroftAI/mimic3-voices
+  description: |
+    English (en_US) single-speaker Piper VITS voice "amy" (medium quality, 22.05 kHz), served through the sherpa-onnx backend with native streaming TTS. Ships espeak-ng phonemization data.
+  license: other
+  icon: https://avatars.githubusercontent.com/u/75781706
+  tags:
+    - vits
+    - piper
+    - text-to-speech
+    - tts
+    - english
+    - onnx
+    - sherpa-onnx
+    - single-speaker
+  last_checked: "2026-06-13"
+  overrides:
+    known_usecases:
+      - tts
+    parameters:
+      model: vits-piper-en_US-amy-medium/en_US-amy-medium.onnx
+  files:
+    - filename: vits-piper-en_US-amy-medium.tar.bz2
+      sha256: 9a5d1fc497f85e8022b785bff5f8105203b1e33099ee6265203efc70b0cb0264
+      uri: https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/vits-piper-en_US-amy-medium.tar.bz2
+- name: vits-piper-es_ES-davefx-sherpa
+  url: github:mudler/LocalAI/gallery/sherpa-onnx-tts.yaml@master
+  urls:
+    - https://github.com/k2-fsa/sherpa-onnx
+  description: |
+    Spanish (es_ES) single-speaker Piper VITS voice "davefx" (medium quality, 22.05 kHz), served through the sherpa-onnx backend with native streaming TTS. Ships espeak-ng phonemization data.
+  license: cc0-1.0
+  icon: https://avatars.githubusercontent.com/u/75781706
+  tags:
+    - vits
+    - piper
+    - text-to-speech
+    - tts
+    - spanish
+    - onnx
+    - sherpa-onnx
+    - single-speaker
+  last_checked: "2026-06-13"
+  overrides:
+    known_usecases:
+      - tts
+    parameters:
+      model: vits-piper-es_ES-davefx-medium/es_ES-davefx-medium.onnx
+  files:
+    - filename: vits-piper-es_ES-davefx-medium.tar.bz2
+      sha256: a3f6beb54a9cb893279f72978a22f807a4d9fc9c7848157b524d5cc7b7f58b22
+      uri: https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/vits-piper-es_ES-davefx-medium.tar.bz2
+- name: vits-piper-fr_FR-siwis-sherpa
+  url: github:mudler/LocalAI/gallery/sherpa-onnx-tts.yaml@master
+  urls:
+    - https://github.com/k2-fsa/sherpa-onnx
+  description: |
+    French (fr_FR) single-speaker Piper VITS voice "siwis" (medium quality, 22.05 kHz), served through the sherpa-onnx backend with native streaming TTS. Ships espeak-ng phonemization data.
+  license: cc-by-4.0
+  icon: https://avatars.githubusercontent.com/u/75781706
+  tags:
+    - vits
+    - piper
+    - text-to-speech
+    - tts
+    - french
+    - onnx
+    - sherpa-onnx
+    - single-speaker
+  last_checked: "2026-06-13"
+  overrides:
+    known_usecases:
+      - tts
+    parameters:
+      model: vits-piper-fr_FR-siwis-medium/fr_FR-siwis-medium.onnx
+  files:
+    - filename: vits-piper-fr_FR-siwis-medium.tar.bz2
+      sha256: 375909aa30842b3a4efa10b1beb1d761af792960ae6873b4d53889f96c66195b
+      uri: https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/vits-piper-fr_FR-siwis-medium.tar.bz2
+- name: vits-piper-de_DE-thorsten-sherpa
+  url: github:mudler/LocalAI/gallery/sherpa-onnx-tts.yaml@master
+  urls:
+    - https://github.com/k2-fsa/sherpa-onnx
+  description: |
+    German (de_DE) single-speaker Piper VITS voice "thorsten" (medium quality, 22.05 kHz), served through the sherpa-onnx backend with native streaming TTS. Ships espeak-ng phonemization data.
+  license: cc0-1.0
+  icon: https://avatars.githubusercontent.com/u/75781706
+  tags:
+    - vits
+    - piper
+    - text-to-speech
+    - tts
+    - german
+    - onnx
+    - sherpa-onnx
+    - single-speaker
+  last_checked: "2026-06-13"
+  overrides:
+    known_usecases:
+      - tts
+    parameters:
+      model: vits-piper-de_DE-thorsten-medium/de_DE-thorsten-medium.onnx
+  files:
+    - filename: vits-piper-de_DE-thorsten-medium.tar.bz2
+      sha256: 50487d9c95fdf2191f31d2588569381063ba1591dcd4c7d4bdd30f12b2191714
+      uri: https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/vits-piper-de_DE-thorsten-medium.tar.bz2
+- name: kokoro-multi-lang-v1.0-sherpa
+  url: github:mudler/LocalAI/gallery/sherpa-onnx-tts.yaml@master
+  urls:
+    - https://github.com/k2-fsa/sherpa-onnx
+    - https://huggingface.co/hexgrad/Kokoro-82M
+  description: |
+    Kokoro multi-lingual TTS (v1.0, int8) served through the sherpa-onnx backend with native streaming TTS. A single model covers many languages and speakers (English, Italian, Spanish, French, German and more) via a built-in voices bank; espeak-ng data and per-language lexicons ship with it. Select a speaker with the `voice` parameter (numeric speaker id) and optionally pass `language=` to hint the language.
+  license: apache-2.0
+  icon: https://avatars.githubusercontent.com/u/75781706
+  tags:
+    - kokoro
+    - text-to-speech
+    - tts
+    - multilingual
+    - italian
+    - english
+    - onnx
+    - sherpa-onnx
+  last_checked: "2026-06-13"
+  overrides:
+    known_usecases:
+      - tts
+    parameters:
+      model: kokoro-int8-multi-lang-v1_0/model.int8.onnx
+  files:
+    - filename: kokoro-int8-multi-lang-v1_0.tar.bz2
+      sha256: 75654a84864be26f345f020f4070c2c019e96dd1b7f9bf6e2ffd59efac6aa5a3
+      uri: https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/kokoro-int8-multi-lang-v1_0.tar.bz2
 - name: voxcpm-1.5
   url: github:mudler/LocalAI/gallery/virtual.yaml@master
   urls:

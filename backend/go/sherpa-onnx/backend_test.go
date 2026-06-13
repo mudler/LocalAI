@@ -124,6 +124,20 @@ var _ = Describe("Sherpa-ONNX", func() {
 			Entry("empty", "", false),
 			Entry("other", "other", false),
 		)
+
+		It("isKokoroModel detects a voices file beside the ONNX", func() {
+			dir, err := os.MkdirTemp("", "sherpa-kokoro-*")
+			Expect(err).NotTo(HaveOccurred())
+			defer func() { _ = os.RemoveAll(dir) }()
+
+			// A bare VITS/Piper directory (ONNX only) is not Kokoro.
+			Expect(os.WriteFile(filepath.Join(dir, "model.onnx"), []byte("x"), 0o600)).To(Succeed())
+			Expect(isKokoroModel(dir)).To(BeFalse())
+
+			// Adding the Kokoro voices bank flips detection on.
+			Expect(os.WriteFile(filepath.Join(dir, kokoroVoicesFile), []byte("x"), 0o600)).To(Succeed())
+			Expect(isKokoroModel(dir)).To(BeTrue())
+		})
 	})
 
 	Context("option parsing", func() {
