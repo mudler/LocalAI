@@ -208,6 +208,25 @@ All agent endpoints are grouped under `/api/agents/`:
 | `GET` | `/api/agents/skills/export/*` | Export a skill |
 | `POST` | `/api/agents/skills/import` | Import a skill |
 
+### Git Skill Repositories
+
+Skills can be sourced from external git repositories that follow the [SKILL.md](https://agentskills.io) standard. LocalAI clones and syncs the repository, making all included skills available to agents.
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` | `/api/agents/git-repos` | List configured git repos |
+| `POST` | `/api/agents/git-repos` | Add a git repo |
+| `PUT` | `/api/agents/git-repos/:id` | Update a git repo |
+| `DELETE` | `/api/agents/git-repos/:id` | Delete a git repo |
+| `POST` | `/api/agents/git-repos/:id/sync` | Sync a git repo |
+| `POST` | `/api/agents/git-repos/:id/toggle` | Toggle a git repo |
+
+**Community skill repositories:**
+
+| Skill | Description | Repository |
+|-------|-------------|------------|
+| mmx-cli | Generate text, images, video, speech, and music via MiniMax AI | [MiniMax-AI/cli](https://github.com/MiniMax-AI/cli) |
+
 ### Collections (Knowledge Base)
 
 | Method | Path | Description |
