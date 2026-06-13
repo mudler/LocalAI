@@ -1,4 +1,69 @@
 ---
+- name: "melody1437-26b-a4b-v2.0"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/ReadyArt/Melody1437-26B-A4B-v2.0-GGUF
+  description: |
+    @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&family=Playfair+Display:ital,wght@0,400;0,700&family=Roboto+Mono:wght@400;500&display=swap');
+
+    body {
+    font-family: 'Poppins', sans-serif;
+    background: #1a1a2e;
+    background-image:
+    radial-gradient(circle at 50% 50%, rgba(76, 201, 240, 0.05) 0%, transparent 70%),
+    url('https://www.transparenttextures.com/patterns/cubes.png');
+    color: #e0e0e0;
+    margin: 0;
+    padding: 20px;
+    line-height: 1.6;
+    }
+
+    .container {
+    max-width: 900px;
+    margin: 0 auto;
+    background: rgba(26, 32, 44, 0.95);
+    border-radius: 8px;
+    padding: 40px;
+    box-shadow: 0 4px 30px rgba(0, 0, 0, 0.5), 0 0 0 1px #2a3b55;
+    border: 1px solid #2a3b55;
+    position: relative;
+    overflow: hidden;
+    backdrop-filter: blur(5px);
+    }
+
+    .header {
+    text-align: center;
+    margin-bottom: 30px;
+    position: relative;
+    z-index: 1;
+    border-bottom: 1px solid #2a3b55;
+    padding-bottom: 15px;
+    }
+
+    ...
+  license: "apache-2.0"
+  tags:
+    - llm
+    - gguf
+  icon: https://huggingface.co/avatars/55f24699e05af4295a9d16ddecd81f8a.svg
+  overrides:
+    backend: llama-cpp
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/Melody1437-26B-A4B-v2.0-GGUF/Melody1437-26B-A4B-v2.0-HB16-Q4_K_M.gguf
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/Melody1437-26B-A4B-v2.0-GGUF/Melody1437-26B-A4B-v2.0-HB16-Q4_K_M.gguf
+      sha256: b4e97afc63de8b4b60e594d1cc1d3d4f34b080d727f25da00fbdbbb94e0d1529
+      uri: https://huggingface.co/ReadyArt/Melody1437-26B-A4B-v2.0-GGUF/resolve/main/Melody1437-26B-A4B-v2.0-HB16-Q4_K_M.gguf
 - name: "dark-scarlett-v0.3-26b-a4b"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
