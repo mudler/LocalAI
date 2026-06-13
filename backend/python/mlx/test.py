@@ -12,7 +12,7 @@ import backend_pb2_grpc
 # Make the shared helpers importable so we can unit-test them without a
 # running gRPC server.
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'common'))
-from python_utils import messages_to_dicts, parse_options
+from python_utils import messages_to_dicts, parse_options, resolve_model_path
 from mlx_utils import parse_tool_calls, split_reasoning
 
 class TestBackendServicer(unittest.TestCase):
@@ -321,6 +321,42 @@ class TestSharedHelpers(unittest.TestCase):
         r, c = split_reasoning("just text", "<think>", "</think>")
         self.assertEqual(r, "")
         self.assertEqual(c, "just text")
+
+    def test_resolve_model_path_file_uri(self):
+        # file:// LocalPrefix (LocalAI import) is stripped to a plain path.
+        self.assertEqual(resolve_model_path("file:///a/b"), "/a/b")
+
+    def test_resolve_model_path_file_uri_percent_decoded(self):
+        # Percent-encoded characters (e.g. spaces) are decoded.
+        self.assertEqual(
+            resolve_model_path("file:///Users/me/My%20Models/Qwen3"),
+            "/Users/me/My Models/Qwen3",
+        )
+
+    def test_resolve_model_path_hf_repo_id_unchanged(self):
+        # Plain HuggingFace repo ids must pass through untouched.
+        self.assertEqual(
+            resolve_model_path("mlx-community/Qwen3-Coder-30B"),
+            "mlx-community/Qwen3-Coder-30B",
+        )
+
+    def test_resolve_model_path_local_path_unchanged(self):
+        # An already-local absolute path is left as-is.
+        self.assertEqual(resolve_model_path("/models/Qwen3"), "/models/Qwen3")
+
+    def test_resolve_model_path_prefers_model_file(self):
+        # The resolved ModelFile wins over Model when both are set.
+        self.assertEqual(
+            resolve_model_path("file:///ignored", "/resolved/local/path"),
+            "/resolved/local/path",
+        )
+
+    def test_resolve_model_path_model_file_file_uri(self):
+        # A ModelFile that is itself a file:// URI is also normalized.
+        self.assertEqual(
+            resolve_model_path("ignored", "file:///a/b"),
+            "/a/b",
+        )
 
     def test_parse_tool_calls_with_shim(self):
         tm = types.SimpleNamespace(
