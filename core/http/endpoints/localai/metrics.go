@@ -42,7 +42,7 @@ func LocalAIMetricsAPIMiddleware(metrics *monitoring.LocalAIMetricsService) echo
 			start := time.Now()
 			err := next(c)
 			elapsed := float64(time.Since(start)) / float64(time.Second)
-			cfg.metricsService.ObserveAPICall(method, path, elapsed)
+			cfg.metricsService.ObserveAPICall(c.Request().Context(), method, path, elapsed)
 			return err
 		}
 	}

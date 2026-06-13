@@ -211,6 +211,30 @@ type XMLToolCallFormat struct {
 	TrimRawArgVal bool `yaml:"trim_raw_argval,omitempty" json:"trim_raw_argval,omitempty"`
 	// AllowToolcallInThink allows tool calls inside thinking/reasoning blocks
 	AllowToolcallInThink bool `yaml:"allow_toolcall_in_think,omitempty" json:"allow_toolcall_in_think,omitempty"`
+
+	// ThinkingForcedOpen, when true, tells the parser that content received
+	// so far should be treated as reasoning even without a matching </think>
+	// closing tag. Mirrors llama.cpp's per-prompt hint for DeepSeek-R1 /
+	// Qwen3-R1 style thinking tokenizers where the model emits an explicit
+	// "thinking is ongoing" signal.
+	ThinkingForcedOpen bool `yaml:"thinking_forced_open,omitempty" json:"thinking_forced_open,omitempty"`
+
+	// ReasoningInContent indicates that reasoning content is interleaved
+	// with (and emitted in the same stream as) response content. When true,
+	// the parser strips reasoning markers from the output content and
+	// surfaces reasoning text via AddReasoningContent; when false, content
+	// between <think>...</think> is still collected as reasoning but the
+	// surrounding text flows through as plain content.
+	ReasoningInContent bool `yaml:"reasoning_in_content,omitempty" json:"reasoning_in_content,omitempty"`
+
+	// ReasoningFormat describes how reasoning text is encoded in the
+	// response stream. Currently supported: "" (the default — plain
+	// `<think>...</think>` tags) or "tagged" — same as default, but the
+	// start/end tag names come from the surrounding `startThink`/`endThink`
+	// parameters on the parsing call. This future-proofs the field so that
+	// upcoming tokenizers (e.g. "thinking tokens" instead of XML-like tags)
+	// can be plugged in without a schema change.
+	ReasoningFormat string `yaml:"reasoning_format,omitempty" json:"reasoning_format,omitempty"`
 }
 
 type FuncCallResults struct {

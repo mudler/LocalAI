@@ -486,39 +486,22 @@ func newModel(pipeline *config.Pipeline, cl *config.ModelConfigLoader, ml *model
 		return nil, fmt.Errorf("failed to validate config: %w", err)
 	}
 
-	// TODO: Do we always need a transcription model? It can be disabled. Note that any-to-any instruction following models don't transcribe as such, so if transcription is required it is a separate process
-	cfgSST, err := cl.LoadModelConfigFileByName(pipeline.Transcription, ml.ModelPath)
-	if err != nil {
-
-		return nil, fmt.Errorf("failed to load backend config: %w", err)
+	// Transcription (SST) is optional. If the pipeline doesn't specify one
+	// (pipeline.Transcription == "") or the LLM is already any-to-any, we
+	// skip loading a separate transcription config and Transcribe/TranscribeStream
+	// will fall back to erroring or the any-to-any backend.
+	var cfgSST *config.ModelConfig
+	if pipeline.Transcription != "" {
+		c, err := cl.LoadModelConfigFileByName(pipeline.Transcription, ml.ModelPath)
+		if err != nil {
+			return nil, fmt.Errorf("failed to load transcription config: %w", err)
+		}
+		if valid, _ := c.Validate(); !valid {
+			return nil, fmt.Errorf("failed to validate transcription config: %w", err)
+		}
+		cfgSST = c
 	}
 
-	if valid, _ := cfgSST.Validate(); !valid {
-		return nil, fmt.Errorf("failed to validate config: %w", err)
-	}
-
-	// TODO: Decide when we have a real any-to-any model
-	// if false {
-	//
-	// 	cfgAnyToAny, err := cl.LoadModelConfigFileByName(pipeline.LLM, ml.ModelPath)
-	// 	if err != nil {
-	//
-	// 		return nil, fmt.Errorf("failed to load backend config: %w", err)
-	// 	}
-	//
-	// 	if valid, _ := cfgAnyToAny.Validate(); !valid {
-	// 		return nil, fmt.Errorf("failed to validate config: %w", err)
-	// 	}
-	//
-	// 	return &anyToAnyModel{
-	// 		LLMConfig: cfgAnyToAny,
-	// 		VADConfig: cfgVAD,
-	// 	}, nil
-	// }
-
-	xlog.Debug("Loading a wrapped model")
-
-	// Otherwise we want to return a wrapped model, which is a "virtual" model that re-uses other models to perform operations
 	cfgLLM, err := cl.LoadModelConfigFileByName(pipeline.LLM, ml.ModelPath)
 	if err != nil {
 
@@ -529,11 +512,34 @@ func newModel(pipeline *config.Pipeline, cl *config.ModelConfigLoader, ml *model
 		return nil, fmt.Errorf("failed to validate config: %w", err)
 	}
 
+	// Any-to-any detection. If the LLM model declares FLAG_REALTIME_AUDIO
+	// (or one of the known any-to-any backends), skip the TTS + SST pipeline
+	// and route audio directly through the LLM.
+	isAnyToAny := false
+	if cfgLLM != nil {
+		isAnyToAny = cfgLLM.Backend == "liquid-audio" || cfgLLM.HasUsecases(config.FLAG_REALTIME_AUDIO)
+	}
+
 	// Let the pipeline set the LLM's reasoning effort and force thinking off
 	// (cfgLLM is a per-session copy). disable_thinking applies after the effort.
 	applyPipelineReasoning(cfgLLM, *pipeline)
 	applyPipelineThinking(cfgLLM, *pipeline)
 
+	if isAnyToAny {
+		xlog.Debug("Loading an any-to-any model (native AudioToAudioStream)")
+		return &anyToAnyModel{
+			LLMConfig: cfgLLM,
+			VADConfig: cfgVAD,
+
+			confLoader:  cl,
+			modelLoader: ml,
+			appConfig:   appConfig,
+		}, nil
+	}
+
+	xlog.Debug("Loading a wrapped model")
+
+	// Otherwise we want to return a wrapped model, which is a "virtual" model that re-uses other models to perform operations
 	cfgTTS, err := cl.LoadModelConfigFileByName(pipeline.TTS, ml.ModelPath)
 	if err != nil {
 

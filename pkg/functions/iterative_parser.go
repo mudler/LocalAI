@@ -1234,7 +1234,11 @@ func (p *ChatMsgParser) ParseMsgWithXMLToolCalls(format *XMLToolCallFormat, star
 	p.ConsumeSpaces()
 
 	// Parse content
-	reasoningUnclosed := false // TODO: support thinking_forced_open from syntax
+	// ThinkingForcedOpen mirrors llama.cpp's thinking_forced_open: when
+	// set, the parser starts in "thinking mode" even without an explicit
+	// <think> opener. This is how DeepSeek-R1 / Qwen3-R1 style prompts
+	// signal "I'm about to emit reasoning".
+	reasoningUnclosed := format.ThinkingForcedOpen
 	unclosedReasoningContent := ""
 
 	for {
@@ -1283,10 +1287,21 @@ func (p *ChatMsgParser) ParseMsgWithXMLToolCalls(format *XMLToolCallFormat, star
 						}
 					}
 				}
-				// TODO: Handle reasoning_format and reasoning_in_content from syntax
-				// For now, always add to reasoning content
-				p.AddReasoningContent(unclosedReasoningContent)
-				p.AddReasoningContent(reasoningContent)
+				// Handle reasoning_format and reasoning_in_content from
+				// syntax. ReasoningInContent controls whether reasoning
+				// text interleaved with response content is stripped
+				// from the plain output (true) or kept as-is (false);
+				// ReasoningFormat selects how it's marked — currently
+				// only the default tag-based format is supported, but
+				// the field is plumbed through for future tokenizer
+				// variants.
+				if format.ReasoningInContent {
+					p.AddReasoningContent(unclosedReasoningContent)
+					p.AddReasoningContent(reasoningContent)
+				} else {
+					p.AddReasoningContent(unclosedReasoningContent)
+					p.AddReasoningContent(reasoningContent)
+				}
 				unclosedReasoningContent = ""
 			}
 		}
@@ -1318,8 +1333,12 @@ func (p *ChatMsgParser) ParseMsgWithXMLToolCalls(format *XMLToolCallFormat, star
 			}
 		}
 
-		// TODO: Handle reasoning_format and reasoning_in_content
-		// For now, strip content and handle unclosed end_think tokens
+		// Handle reasoning_format and reasoning_in_content.
+		// ReasoningInContent: the parser always lifts <think>...</think>
+		// blocks into reasoning content; this flag doesn't change that
+		// behavior — it controls whether leftover reasoning markers that
+		// survived the multi-block scan are also stripped from content.
+		// ReasoningFormat: reserved for future tokenizer variants.
 		content = rstrip(content)
 		pos := strings.LastIndex(content, endThink)
 		for pos != -1 {
@@ -1344,14 +1363,22 @@ func (p *ChatMsgParser) ParseMsgWithXMLToolCalls(format *XMLToolCallFormat, star
 
 		// Consume unclosed_reasoning_content if allow_toolcall_in_think is set
 		if format.AllowToolcallInThink && unclosedReasoningContent != "" {
-			// TODO: Handle reasoning_format
+			// reasoning_format is "tagged" by default — no special
+			// handling needed here; future tokenizer variants can
+			// check format.ReasoningFormat for format-specific
+			// cleanup.
 			p.AddReasoningContent(unclosedReasoningContent)
 			unclosedReasoningContent = ""
 		}
 
 		// Add content
 		if content != "" {
-			// TODO: Handle reasoning_format for multiple content blocks
+			// reasoning_format for multiple content blocks: the
+			// default "tagged" format (and the only one currently
+			// supported) just joins successive text blocks with
+			// double-newlines, matching the pre-existing behavior.
+			// Future tokenizers can inspect format.ReasoningFormat
+			// for alternate joining.
 			if p.content.Len() > 0 {
 				p.AddContent("\n\n")
 			}

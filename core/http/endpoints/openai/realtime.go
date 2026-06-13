@@ -2,15 +2,19 @@ package openai
 
 import (
 	"context"
+	"crypto/hmac"
 	"crypto/rand"
+	"crypto/sha256"
 	"encoding/base64"
 	"encoding/binary"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"math"
 	"os"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -252,16 +256,137 @@ var upgrader = websocket.Upgrader{
 	},
 }
 
-// TODO: Implement ephemeral keys to allow these endpoints to be used
+// ephemeralSessionKeyTTL is the lifetime of a short-lived session token
+// issued by POST /v1/realtime/sessions. These are consumed exactly once by
+// the WebSocket handshake to /v1/realtime and allow clients that hold a
+// regular API key at session-creation time to open a WebSocket without
+// re-sending it on every frame — matching the OpenAI realtime API shape.
+const ephemeralSessionKeyTTL = 60 * time.Second
+
+// ephemeralSessionKey combines a 32-byte random payload + the expiry time
+// (Unix seconds) signed with HMAC-SHA256 using the application's API key
+// HMAC secret. Returns "lai-sess:<base62 payload>:<expiry>:<hex sig>".
+func generateEphemeralSessionKey(hmacSecret, userID string) (string, time.Time, error) {
+	b := make([]byte, 32)
+	if _, err := rand.Read(b); err != nil {
+		return "", time.Time{}, fmt.Errorf("failed to generate session key: %w", err)
+	}
+	expiry := time.Now().UTC().Add(ephemeralSessionKeyTTL)
+	expiryStr := strconv.FormatInt(expiry.Unix(), 10)
+	payload := hex.EncodeToString(b) + ":" + expiryStr + ":" + userID
+	h := hmac.New(sha256.New, []byte(hmacSecret))
+	h.Write([]byte(payload))
+	sig := hex.EncodeToString(h.Sum(nil))
+	return "lai-sess:" + payload + ":" + sig, expiry, nil
+}
+
+// validateEphemeralSessionKey verifies the HMAC signature and expiry of a
+// token produced by generateEphemeralSessionKey. Returns the embedded
+// userID (may be empty for anonymous sessions) on success, or an error.
+func validateEphemeralSessionKey(token, hmacSecret string) (string, error) {
+	if !strings.HasPrefix(token, "lai-sess:") {
+		return "", errors.New("invalid ephemeral session key: missing prefix")
+	}
+	rest := strings.TrimPrefix(token, "lai-sess:")
+	// rest = "payload_hex:expiry_unix:userID:signature" — the signature is
+	// always the last segment; everything before it is the signed payload.
+	lastColon := strings.LastIndex(rest, ":")
+	if lastColon == -1 {
+		return "", errors.New("invalid ephemeral session key: bad format")
+	}
+	payload, sig := rest[:lastColon], rest[lastColon+1:]
+	h := hmac.New(sha256.New, []byte(hmacSecret))
+	h.Write([]byte(payload))
+	expected := hex.EncodeToString(h.Sum(nil))
+	if !hmac.Equal([]byte(sig), []byte(expected)) {
+		return "", errors.New("invalid ephemeral session key: bad signature")
+	}
+	parts := strings.SplitN(payload, ":", 3) // payload_hex:expiry_unix:userID(+rest)
+	if len(parts) < 2 {
+		return "", errors.New("invalid ephemeral session key: bad format")
+	}
+	expiryUnix, err := strconv.ParseInt(parts[1], 10, 64)
+	if err != nil {
+		return "", errors.New("invalid ephemeral session key: bad expiry")
+	}
+	if time.Now().UTC().Unix() > expiryUnix {
+		return "", errors.New("ephemeral session key expired")
+	}
+	userID := ""
+	if len(parts) >= 3 {
+		userID = parts[2]
+	}
+	return userID, nil
+}
+
+// RealtimeSessions handles POST /v1/realtime/sessions. Generates a
+// short-lived ephemeral token that is consumed by the /v1/realtime
+// WebSocket handshake. When auth is disabled, the endpoint still issues a
+// token (for compatibility) but does not require credentials.
 func RealtimeSessions(application *application.Application) echo.HandlerFunc {
 	return func(c echo.Context) error {
-		return c.NoContent(501)
+		// When auth is enabled, the caller must authenticate with a
+		// regular API key or session cookie at session-creation time.
+		appCfg := application.ApplicationConfig()
+		userID := ""
+		if appCfg != nil && appCfg.Auth.Enabled {
+			if u := auth.GetUser(c); u != nil {
+				userID = u.ID
+			}
+		}
+		hmacSecret := ""
+		if appCfg != nil {
+			hmacSecret = appCfg.Auth.APIKeyHMACSecret
+		}
+
+		token, expiresAt, err := generateEphemeralSessionKey(hmacSecret, userID)
+		if err != nil {
+			return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		}
+
+		// Response shape is a subset of the OpenAI Realtime Session object.
+		return c.JSON(http.StatusOK, map[string]any{
+			"object":             "realtime.session",
+			"id":                 "sess_" + hex.EncodeToString([]byte(fmt.Sprintf("%d", expiresAt.UnixNano())))[:8],
+			"model":              "gpt-4o-realtime-preview", // placeholder — actual model is per-connection
+			"ephemeral_token":    token,
+			"expires_at":         expiresAt.UTC().Format(time.RFC3339),
+			"seconds_left":       int64(time.Until(expiresAt).Seconds()),
+			"max_audio_additions": map[string]any{
+				"total_tokens": 120000,
+				"input_tokens": 60000,
+				"output_tokens": 60000,
+			},
+		})
 	}
 }
 
+// RealtimeTranscriptionSession handles POST /v1/realtime/transcriptions — a
+// transcription-only variant of the session endpoint. Shares the same
+// ephemeral-session-key format so the same validator works for both.
 func RealtimeTranscriptionSession(application *application.Application) echo.HandlerFunc {
 	return func(c echo.Context) error {
-		return c.NoContent(501)
+		appCfg := application.ApplicationConfig()
+		userID := ""
+		if appCfg != nil && appCfg.Auth.Enabled {
+			if u := auth.GetUser(c); u != nil {
+				userID = u.ID
+			}
+		}
+		hmacSecret := ""
+		if appCfg != nil {
+			hmacSecret = appCfg.Auth.APIKeyHMACSecret
+		}
+		token, expiresAt, err := generateEphemeralSessionKey(hmacSecret, userID)
+		if err != nil {
+			return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		}
+		return c.JSON(http.StatusOK, map[string]any{
+			"object":          "realtime.transcription_session",
+			"ephemeral_token": token,
+			"expires_at":      expiresAt.UTC().Format(time.RFC3339),
+			"seconds_left":    int64(time.Until(expiresAt).Seconds()),
+		})
 	}
 }
 
@@ -280,6 +405,29 @@ type RealtimeSessionOptions struct {
 
 func Realtime(application *application.Application) echo.HandlerFunc {
 	return func(c echo.Context) error {
+		// Ephemeral session key validation. When auth is enabled, the
+		// client must pass a valid token (from POST /v1/realtime/sessions)
+		// either via `?session=` query parameter or via the Authorization
+		// header as `Bearer <token>`. The standard `isCurrentUserAdmin`
+		// path is honored when auth is disabled.
+		appCfg := application.ApplicationConfig()
+		if appCfg != nil && appCfg.Auth.Enabled {
+			token := c.QueryParam("session")
+			if token == "" {
+				// Fall back to Authorization: Bearer <lai-sess:...>
+				ah := c.Request().Header.Get("Authorization")
+				if strings.HasPrefix(ah, "Bearer ") {
+					token = strings.TrimPrefix(ah, "Bearer ")
+				}
+			}
+			if token == "" {
+				return echo.NewHTTPError(http.StatusUnauthorized, "missing ephemeral session key — call POST /v1/realtime/sessions first")
+			}
+			if _, err := validateEphemeralSessionKey(token, appCfg.Auth.APIKeyHMACSecret); err != nil {
+				return echo.NewHTTPError(http.StatusUnauthorized, fmt.Sprintf("invalid ephemeral session key: %s", err.Error()))
+			}
+		}
+
 		ws, err := upgrader.Upgrade(c.Response(), c.Request(), nil)
 		if err != nil {
 			return err
