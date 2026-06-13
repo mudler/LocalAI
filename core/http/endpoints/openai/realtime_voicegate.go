@@ -2,10 +2,13 @@ package openai
 
 import (
 	"context"
+	"fmt"
 	"math"
 
+	"github.com/mudler/LocalAI/core/backend"
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/services/voicerecognition"
+	"github.com/mudler/LocalAI/pkg/model"
 )
 
 type namedEmbedding struct {
@@ -24,6 +27,66 @@ type voiceGate struct {
 	// Seams for testing; set by newVoiceGate to call the real backend.
 	embedFn  func(ctx context.Context, wavPath string) ([]float32, error)
 	verifyFn func(ctx context.Context, uttWav, refWav string) (bool, error)
+}
+
+// newVoiceGate builds a gate from a pipeline's voice_recognition config. It
+// validates fail-fast (before loading the model), loads the recognition model
+// config, wires the real backend seams, and pre-embeds references for verify
+// mode so per-turn cost is one utterance embed plus cheap cosine comparisons.
+func newVoiceGate(
+	cfg config.PipelineVoiceRecognition,
+	cl *config.ModelConfigLoader,
+	ml *model.ModelLoader,
+	appConfig *config.ApplicationConfig,
+	registry voicerecognition.Registry,
+) (*voiceGate, error) {
+	cfg.Normalize()
+	if err := cfg.Validate(registry != nil); err != nil {
+		return nil, err
+	}
+
+	recCfg, err := cl.LoadModelConfigFileByName(cfg.Model, ml.ModelPath)
+	if err != nil {
+		return nil, fmt.Errorf("voice_recognition: failed to load model %q: %w", cfg.Model, err)
+	}
+	if valid, _ := recCfg.Validate(); !valid {
+		return nil, fmt.Errorf("voice_recognition: invalid model config %q", cfg.Model)
+	}
+
+	g := &voiceGate{
+		cfg:      cfg,
+		registry: registry,
+		embedFn: func(ctx context.Context, wavPath string) ([]float32, error) {
+			res, err := backend.VoiceEmbed(ctx, wavPath, ml, appConfig, *recCfg)
+			if err != nil {
+				return nil, err
+			}
+			return res.Embedding, nil
+		},
+		verifyFn: func(ctx context.Context, uttWav, refWav string) (bool, error) {
+			res, err := backend.VoiceVerify(ctx, uttWav, refWav, cfg.Threshold, true, ml, appConfig, *recCfg)
+			if err != nil {
+				return false, err
+			}
+			return res.Verified, nil
+		},
+	}
+
+	if cfg.Mode == config.VoiceGateModeVerify {
+		if cfg.AntiSpoofing {
+			g.refAudios = cfg.References
+		} else {
+			for _, r := range cfg.References {
+				emb, err := g.embedFn(context.Background(), r.Audio)
+				if err != nil {
+					return nil, fmt.Errorf("voice_recognition: failed to embed reference %q: %w", r.Name, err)
+				}
+				g.refEmbeds = append(g.refEmbeds, namedEmbedding{name: r.Name, emb: emb})
+			}
+		}
+	}
+
+	return g, nil
 }
 
 // Authorize embeds the utterance and decides allow/deny.

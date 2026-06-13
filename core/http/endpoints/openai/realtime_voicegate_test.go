@@ -186,6 +186,21 @@ var _ = Describe("voiceGate verify mode", func() {
 	})
 })
 
+var _ = Describe("newVoiceGate", func() {
+	It("fails fast when identify mode has no registry (before touching the loader)", func() {
+		cfg := config.PipelineVoiceRecognition{Model: "spk", Mode: config.VoiceGateModeIdentify}
+		g, err := newVoiceGate(cfg, nil, nil, nil, nil)
+		Expect(err).To(HaveOccurred())
+		Expect(g).To(BeNil())
+	})
+	It("fails fast when verify mode has no references", func() {
+		cfg := config.PipelineVoiceRecognition{Model: "spk", Mode: config.VoiceGateModeVerify}
+		g, err := newVoiceGate(cfg, nil, nil, nil, nil)
+		Expect(err).To(HaveOccurred())
+		Expect(g).To(BeNil())
+	})
+})
+
 var _ = Describe("voiceGate decide", func() {
 	gate := func(when string) *voiceGate {
 		return &voiceGate{cfg: config.PipelineVoiceRecognition{When: when}}
