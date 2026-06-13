@@ -506,6 +506,7 @@ function SchedulingForm({ onSave, onCancel }) {
   const isValid = () => {
     if (!modelName) return false
     if (mode === 'placement') return hasSelector
+    if (mode === 'spread') return true
     return minReplicas > 0 || maxReplicas > 0
   }
 
@@ -513,8 +514,9 @@ function SchedulingForm({ onSave, onCancel }) {
     onSave({
       model_name: modelName,
       node_selector: hasSelector ? selector : undefined,
-      min_replicas: mode === 'placement' ? 0 : minReplicas,
-      max_replicas: mode === 'placement' ? 0 : maxReplicas,
+      min_replicas: mode === 'autoscaling' ? minReplicas : 0,
+      max_replicas: mode === 'autoscaling' ? maxReplicas : 0,
+      spread_all: mode === 'spread',
       route_policy: routePolicy,
       balance_abs_threshold: balanceAbsThreshold,
       balance_rel_threshold: balanceRelThreshold,
@@ -542,10 +544,19 @@ function SchedulingForm({ onSave, onCancel }) {
         >
           <i className="fas fa-arrows-up-down" aria-hidden="true" /> Auto-scale
         </button>
+        <button
+          type="button" role="radio" aria-checked={mode === 'spread'}
+          className={`segmented__item${mode === 'spread' ? ' is-active' : ''}`}
+          onClick={() => setMode('spread')}
+        >
+          <i className="fas fa-network-wired" aria-hidden="true" /> Spread to all
+        </button>
       </div>
       <p style={{ fontSize: '0.8125rem', color: 'var(--color-text-muted)', margin: '0 0 var(--spacing-lg) 0' }}>
         {mode === 'placement'
           ? 'Restrict this model to specific nodes. Loaded on demand, evictable when idle.'
+          : mode === 'spread'
+          ? 'Run one replica on every node matching the selector (all healthy nodes when empty). Tracks nodes joining and leaving.'
           : 'Maintain a target replica count across the cluster. Min \u2265 1 protects from eviction.'}
       </p>
 
@@ -1563,10 +1574,11 @@ export default function Nodes() {
                 </tr></thead>
                 <tbody>
                   {schedulingConfigs.map(cfg => {
-                    const isAutoScaling = cfg.min_replicas > 0 || cfg.max_replicas > 0
+                    const isSpread = !!cfg.spread_all
+                    const isAutoScaling = !isSpread && (cfg.min_replicas > 0 || cfg.max_replicas > 0)
                     const hasSelector = !!cfg.node_selector
-                    const modeLabel = isAutoScaling ? 'Auto-scaling' : hasSelector ? 'Placement' : 'Inactive'
-                    const modeColor = isAutoScaling ? 'var(--color-success)' : hasSelector ? 'var(--color-primary)' : 'var(--color-text-muted)'
+                    const modeLabel = isSpread ? 'Spread' : isAutoScaling ? 'Auto-scaling' : hasSelector ? 'Placement' : 'Inactive'
+                    const modeColor = isSpread ? 'var(--color-warning)' : isAutoScaling ? 'var(--color-success)' : hasSelector ? 'var(--color-primary)' : 'var(--color-text-muted)'
                     // Cooldown: reconciler tripped the circuit breaker because cluster
                     // capacity is exhausted. Surface so the operator sees it instead
                     // of the model silently failing to scale.
@@ -1597,10 +1609,16 @@ export default function Nodes() {
                         })() : <span style={{ color: 'var(--color-text-muted)', fontSize: '0.8125rem' }}>Any node</span>}
                       </td>
                       <td style={{ fontFamily: 'var(--font-mono)' }}>
-                        {isAutoScaling ? cfg.min_replicas : '-'}
+                        {isSpread
+                          ? <span style={{
+                              display: 'inline-block', fontSize: '0.75rem', padding: '2px 8px', borderRadius: "var(--radius-sm)",
+                              background: 'var(--color-bg-tertiary)', border: '1px solid var(--color-warning)',
+                              color: 'var(--color-warning)', fontWeight: 600, fontFamily: 'var(--font-sans)',
+                            }}>Spread: all matching nodes</span>
+                          : isAutoScaling ? cfg.min_replicas : '-'}
                       </td>
                       <td style={{ fontFamily: 'var(--font-mono)' }}>
-                        {isAutoScaling ? (cfg.max_replicas || 'no limit') : '-'}
+                        {isSpread ? '-' : isAutoScaling ? (cfg.max_replicas || 'no limit') : '-'}
                       </td>
                       <td style={{ fontSize: '0.8125rem' }}>
                         {cfg.route_policy || 'default'}
