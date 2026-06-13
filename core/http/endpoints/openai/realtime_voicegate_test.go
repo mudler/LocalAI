@@ -185,3 +185,32 @@ var _ = Describe("voiceGate verify mode", func() {
 		Expect(allowed).To(BeFalse())
 	})
 })
+
+var _ = Describe("voiceGate decide", func() {
+	gate := func(when string) *voiceGate {
+		return &voiceGate{cfg: config.PipelineVoiceRecognition{When: when}}
+	}
+	It("every: proceeds iff allowed, never marks verified", func() {
+		proceed, mark := gate(config.VoiceGateWhenEvery).decide(false, true)
+		Expect(proceed).To(BeTrue())
+		Expect(mark).To(BeFalse())
+		proceed, mark = gate(config.VoiceGateWhenEvery).decide(false, false)
+		Expect(proceed).To(BeFalse())
+		Expect(mark).To(BeFalse())
+	})
+	It("first: marks verified on first allow", func() {
+		proceed, mark := gate(config.VoiceGateWhenFirst).decide(false, true)
+		Expect(proceed).To(BeTrue())
+		Expect(mark).To(BeTrue())
+	})
+	It("first: denies on first reject without marking", func() {
+		proceed, mark := gate(config.VoiceGateWhenFirst).decide(false, false)
+		Expect(proceed).To(BeFalse())
+		Expect(mark).To(BeFalse())
+	})
+	It("first: proceeds without re-check once already verified", func() {
+		proceed, mark := gate(config.VoiceGateWhenFirst).decide(true, false)
+		Expect(proceed).To(BeTrue())
+		Expect(mark).To(BeFalse())
+	})
+})

@@ -113,6 +113,22 @@ func (g *voiceGate) authorizeVerify(ctx context.Context, wavPath string) (bool, 
 	return false, "", "no reference matched", nil
 }
 
+// decide interprets an Authorize result against the gate's when-policy and the
+// session's prior verification state.
+//   proceed:      run the LLM response for this utterance.
+//   markVerified: record a successful first-utterance verification.
+// Note: when:first AND alreadyVerified is normally handled by the caller
+// skipping Authorize entirely; if it still reaches here, proceed is true.
+func (g *voiceGate) decide(alreadyVerified, allowed bool) (proceed, markVerified bool) {
+	if g.cfg.When == config.VoiceGateWhenFirst {
+		if alreadyVerified {
+			return true, false
+		}
+		return allowed, allowed
+	}
+	return allowed, false
+}
+
 // cosineDistance returns 1 - cosine_similarity, matching the voice registry's
 // distance convention (lower = closer). Returns 1 (treated as "no match") for
 // zero-length, mismatched, or zero-magnitude vectors.
