@@ -3502,6 +3502,20 @@
     - localai/localai-backends:master-gpu-nvidia-cuda-13-qwen3-tts-cpp
 ## omnivoice-cpp
 - !!merge <<: *omnivoicecpp
+  name: "omnivoice-cpp-development"
+  capabilities:
+    default: "cpu-omnivoice-cpp-development"
+    nvidia: "cuda12-omnivoice-cpp-development"
+    nvidia-cuda-13: "cuda13-omnivoice-cpp-development"
+    nvidia-cuda-12: "cuda12-omnivoice-cpp-development"
+    intel: "intel-sycl-f16-omnivoice-cpp-development"
+    metal: "metal-omnivoice-cpp-development"
+    amd: "rocm-omnivoice-cpp-development"
+    vulkan: "vulkan-omnivoice-cpp-development"
+    nvidia-l4t: "nvidia-l4t-arm64-omnivoice-cpp-development"
+    nvidia-l4t-cuda-12: "nvidia-l4t-arm64-omnivoice-cpp-development"
+    nvidia-l4t-cuda-13: "cuda13-nvidia-l4t-arm64-omnivoice-cpp-development"
+- !!merge <<: *omnivoicecpp
   name: "nvidia-l4t-arm64-omnivoice-cpp"
   uri: "quay.io/go-skynet/local-ai-backends:latest-nvidia-l4t-arm64-omnivoice-cpp"
   mirrors:
