@@ -12,3 +12,6 @@ omnivoice-cpp
 
 # Packaging output
 package/
+
+# Downloaded e2e models
+omnivoice-models/
