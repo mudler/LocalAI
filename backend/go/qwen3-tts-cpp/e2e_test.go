@@ -1,6 +1,7 @@
 package main
 
 import (
+	"math"
 	"os"
 	"strings"
 
@@ -70,5 +71,25 @@ var _ = Describe("qwen3-tts-cpp e2e", Label("e2e"), func() {
 		Expect(chunks).To(BeNumerically(">=", 2))
 		Expect(string(first[0:4])).To(Equal("RIFF"))
 		Expect(strings.HasPrefix(string(first[8:12]), "WAVE")).To(BeTrue())
+	})
+
+	It("clones a voice from the config audio_path reference", func() {
+		// 1s of 24kHz mono audio as a clone reference; the base model carries
+		// a speaker encoder, so audio_path drives x-vector voice cloning.
+		ref := GinkgoT().TempDir() + "/ref.wav"
+		samples := make([]float32, qwen3ttsSampleRate)
+		for i := range samples {
+			samples[i] = float32(0.05 * math.Sin(float64(i)*0.06))
+		}
+		Expect(writeWAV24k(ref, samples)).To(Succeed())
+
+		b := &Qwen3TtsCpp{opts: loadOptions{seed: 42, useFA: true}, audioPath: ref}
+		dst := GinkgoT().TempDir() + "/clone.wav"
+		lang := "english"
+		// Empty Voice -> the config audio_path is used as the clone reference.
+		Expect(b.TTS(ttsReq("Cloned voice test.", "", &lang, dst))).To(Succeed())
+		fi, err := os.Stat(dst)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(fi.Size()).To(BeNumerically(">", int64(44)))
 	})
 })
