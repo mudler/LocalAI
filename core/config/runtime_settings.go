@@ -28,6 +28,7 @@ type RuntimeSettings struct {
 
 	// Eviction settings
 	ForceEvictionWhenBusy    *bool   `json:"force_eviction_when_busy,omitempty"`    // Force eviction even when models have active API calls (default: false for safety)
+	SizeAwareEviction        *bool   `json:"size_aware_eviction,omitempty"`          // Evict largest models first rather than least-recently-used (default: false)
 	LRUEvictionMaxRetries    *int    `json:"lru_eviction_max_retries,omitempty"`    // Maximum number of retries when waiting for busy models to become idle (default: 30)
 	LRUEvictionRetryInterval *string `json:"lru_eviction_retry_interval,omitempty"` // Interval between retries when waiting for busy models (e.g., 1s, 2s) (default: 1s)
 

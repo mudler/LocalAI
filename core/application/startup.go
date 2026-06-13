@@ -664,6 +664,12 @@ func loadRuntimeSettingsFromFile(options *config.ApplicationConfig) {
 			options.ForceEvictionWhenBusy = *settings.ForceEvictionWhenBusy
 		}
 	}
+	if settings.SizeAwareEviction != nil {
+		// Only apply if current value is default (false), suggesting it wasn't set from env var
+		if !options.SizeAwareEviction {
+			options.SizeAwareEviction = *settings.SizeAwareEviction
+		}
+	}
 	if settings.LRUEvictionMaxRetries != nil {
 		// Only apply if current value is default (30), suggesting it wasn't set from env var
 		if options.LRUEvictionMaxRetries == 0 {
@@ -877,6 +883,7 @@ func initializeWatchdog(application *Application, options *config.ApplicationCon
 			model.WithLRULimit(lruLimit),
 			model.WithMemoryReclaimer(options.MemoryReclaimerEnabled, options.MemoryReclaimerThreshold),
 			model.WithForceEvictionWhenBusy(options.ForceEvictionWhenBusy),
+			model.WithSizeAwareEviction(options.SizeAwareEviction),
 		)
 		application.ModelLoader().SetWatchDog(wd)
 

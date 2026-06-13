@@ -136,6 +136,7 @@ type ApplicationConfig struct {
 
 	// Eviction settings
 	ForceEvictionWhenBusy    bool          // Force eviction even when models have active API calls (default: false for safety)
+	SizeAwareEviction        bool          // Evict largest models first rather than least-recently-used (default: false)
 	LRUEvictionMaxRetries    int           // Maximum number of retries when waiting for busy models to become idle (default: 30)
 	LRUEvictionRetryInterval time.Duration // Interval between retries when waiting for busy models (default: 1s)
 
@@ -492,6 +493,16 @@ func (o *ApplicationConfig) GetEffectiveMaxActiveBackends() int {
 func WithForceEvictionWhenBusy(enabled bool) AppOption {
 	return func(o *ApplicationConfig) {
 		o.ForceEvictionWhenBusy = enabled
+	}
+}
+
+// WithSizeAwareEviction enables size-aware eviction ordering.
+// When true, the watchdog evicts the largest loaded model first rather than the
+// least-recently-used one, keeping small utility models resident and maximizing
+// memory freed per eviction.
+func WithSizeAwareEviction(enabled bool) AppOption {
+	return func(o *ApplicationConfig) {
+		o.SizeAwareEviction = enabled
 	}
 }
 
@@ -1049,6 +1060,7 @@ func (o *ApplicationConfig) ToRuntimeSettings() RuntimeSettings {
 	memoryReclaimerEnabled := o.MemoryReclaimerEnabled
 	memoryReclaimerThreshold := o.MemoryReclaimerThreshold
 	forceEvictionWhenBusy := o.ForceEvictionWhenBusy
+	sizeAwareEviction := o.SizeAwareEviction
 	lruEvictionMaxRetries := o.LRUEvictionMaxRetries
 	threads := o.Threads
 	contextSize := o.ContextSize
@@ -1139,6 +1151,7 @@ func (o *ApplicationConfig) ToRuntimeSettings() RuntimeSettings {
 		MemoryReclaimerEnabled:    &memoryReclaimerEnabled,
 		MemoryReclaimerThreshold:  &memoryReclaimerThreshold,
 		ForceEvictionWhenBusy:     &forceEvictionWhenBusy,
+		SizeAwareEviction:         &sizeAwareEviction,
 		LRUEvictionMaxRetries:     &lruEvictionMaxRetries,
 		LRUEvictionRetryInterval:  &lruEvictionRetryInterval,
 		Threads:                   &threads,
@@ -1256,6 +1269,10 @@ func (o *ApplicationConfig) ApplyRuntimeSettings(settings *RuntimeSettings) (req
 	}
 	if settings.ForceEvictionWhenBusy != nil {
 		o.ForceEvictionWhenBusy = *settings.ForceEvictionWhenBusy
+		// This setting doesn't require restart, can be updated dynamically
+	}
+	if settings.SizeAwareEviction != nil {
+		o.SizeAwareEviction = *settings.SizeAwareEviction
 		// This setting doesn't require restart, can be updated dynamically
 	}
 	if settings.LRUEvictionMaxRetries != nil {
