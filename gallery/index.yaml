@@ -2792,6 +2792,90 @@
     - filename: vits-piper-it_IT-paola-medium.tar.bz2
       sha256: 7541f75778afa164e44e34baaef63befad7698595df26a95ca944b63ef1a16b4
       uri: https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/vits-piper-it_IT-paola-medium.tar.bz2
+- name: vits-piper-it_IT-dii-high-sherpa
+  url: github:mudler/LocalAI/gallery/sherpa-onnx-tts.yaml@master
+  urls:
+    - https://github.com/k2-fsa/sherpa-onnx
+    - https://huggingface.co/OpenVoiceOS/pipertts_it-IT_dii
+  description: |
+    Italian (it_IT) single-speaker Piper VITS voice "dii" (high quality, 22.05 kHz), served through the sherpa-onnx backend with native streaming TTS. Ships espeak-ng phonemization data. Non-commercial use only (CC BY-NC-SA 4.0).
+  license: cc-by-nc-sa-4.0
+  icon: https://avatars.githubusercontent.com/u/75781706
+  tags:
+    - vits
+    - piper
+    - text-to-speech
+    - tts
+    - italian
+    - onnx
+    - sherpa-onnx
+    - single-speaker
+  last_checked: "2026-06-14"
+  overrides:
+    known_usecases:
+      - tts
+    parameters:
+      model: vits-piper-it_IT-dii-high/it_IT-dii-high.onnx
+  files:
+    - filename: vits-piper-it_IT-dii-high.tar.bz2
+      sha256: fb5ff18ca81d1d35de064bfdb58d04d153d1dcf8523e1fa3429e231aea860c78
+      uri: https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/vits-piper-it_IT-dii-high.tar.bz2
+- name: vits-piper-it_IT-miro-high-sherpa
+  url: github:mudler/LocalAI/gallery/sherpa-onnx-tts.yaml@master
+  urls:
+    - https://github.com/k2-fsa/sherpa-onnx
+    - https://huggingface.co/OpenVoiceOS/pipertts_it-IT_miro
+  description: |
+    Italian (it_IT) single-speaker Piper VITS voice "miro" (high quality, 22.05 kHz), served through the sherpa-onnx backend with native streaming TTS. Ships espeak-ng phonemization data. Non-commercial use only (CC BY-NC-SA 4.0).
+  license: cc-by-nc-sa-4.0
+  icon: https://avatars.githubusercontent.com/u/75781706
+  tags:
+    - vits
+    - piper
+    - text-to-speech
+    - tts
+    - italian
+    - onnx
+    - sherpa-onnx
+    - single-speaker
+  last_checked: "2026-06-14"
+  overrides:
+    known_usecases:
+      - tts
+    parameters:
+      model: vits-piper-it_IT-miro-high/it_IT-miro-high.onnx
+  files:
+    - filename: vits-piper-it_IT-miro-high.tar.bz2
+      sha256: 4612a986f49680b571b8fe0b03f0b292b34c843178fd6e07826bf52de10157c4
+      uri: https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/vits-piper-it_IT-miro-high.tar.bz2
+- name: vits-piper-it_IT-riccardo-x_low-sherpa
+  url: github:mudler/LocalAI/gallery/sherpa-onnx-tts.yaml@master
+  urls:
+    - https://github.com/k2-fsa/sherpa-onnx
+    - https://www.caito.de/2019/01/03/the-m-ailabs-speech-dataset/
+  description: |
+    Italian (it_IT) single-speaker Piper VITS voice "riccardo" (x-low quality, 16 kHz), served through the sherpa-onnx backend with native streaming TTS. Ships espeak-ng phonemization data.
+  license: other
+  icon: https://avatars.githubusercontent.com/u/75781706
+  tags:
+    - vits
+    - piper
+    - text-to-speech
+    - tts
+    - italian
+    - onnx
+    - sherpa-onnx
+    - single-speaker
+  last_checked: "2026-06-14"
+  overrides:
+    known_usecases:
+      - tts
+    parameters:
+      model: vits-piper-it_IT-riccardo-x_low/it_IT-riccardo-x_low.onnx
+  files:
+    - filename: vits-piper-it_IT-riccardo-x_low.tar.bz2
+      sha256: 8ad0791558ae2b3e96054fc5756ae3ae2f6457fb1765bc01f43bbab85e0a7021
+      uri: https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/vits-piper-it_IT-riccardo-x_low.tar.bz2
 - name: vits-piper-en_US-amy-sherpa
   url: github:mudler/LocalAI/gallery/sherpa-onnx-tts.yaml@master
   urls:
@@ -2901,6 +2985,454 @@
     - filename: vits-piper-de_DE-thorsten-medium.tar.bz2
       sha256: 50487d9c95fdf2191f31d2588569381063ba1591dcd4c7d4bdd30f12b2191714
       uri: https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/vits-piper-de_DE-thorsten-medium.tar.bz2
+- name: vits-piper-en_GB-alan-low-sherpa
+  url: github:mudler/LocalAI/gallery/sherpa-onnx-tts.yaml@master
+  urls:
+    - https://github.com/k2-fsa/sherpa-onnx
+    - https://github.com/MycroftAI/mimic3-voices
+  description: |
+    English (en_GB) single-speaker Piper VITS voice "alan" (low quality, 16 kHz), served through the sherpa-onnx backend with native streaming TTS. Ships espeak-ng phonemization data.
+  license: other
+  icon: https://avatars.githubusercontent.com/u/75781706
+  tags:
+    - vits
+    - piper
+    - text-to-speech
+    - tts
+    - english
+    - onnx
+    - sherpa-onnx
+    - single-speaker
+  last_checked: "2026-06-14"
+  overrides:
+    known_usecases:
+      - tts
+    parameters:
+      model: vits-piper-en_GB-alan-low/en_GB-alan-low.onnx
+  files:
+    - filename: vits-piper-en_GB-alan-low.tar.bz2
+      sha256: 1308e730b7a12c3b64b669d65daa0138fcb83b1a086edee92fa9fa68cb0290dd
+      uri: https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/vits-piper-en_GB-alan-low.tar.bz2
+- name: vits-piper-en_GB-alan-medium-sherpa
+  url: github:mudler/LocalAI/gallery/sherpa-onnx-tts.yaml@master
+  urls:
+    - https://github.com/k2-fsa/sherpa-onnx
+    - https://github.com/MycroftAI/mimic3-voices
+  description: |
+    English (en_GB) single-speaker Piper VITS voice "alan" (medium quality, 22.05 kHz), served through the sherpa-onnx backend with native streaming TTS. Ships espeak-ng phonemization data.
+  license: other
+  icon: https://avatars.githubusercontent.com/u/75781706
+  tags:
+    - vits
+    - piper
+    - text-to-speech
+    - tts
+    - english
+    - onnx
+    - sherpa-onnx
+    - single-speaker
+  last_checked: "2026-06-14"
+  overrides:
+    known_usecases:
+      - tts
+    parameters:
+      model: vits-piper-en_GB-alan-medium/en_GB-alan-medium.onnx
+  files:
+    - filename: vits-piper-en_GB-alan-medium.tar.bz2
+      sha256: a48d4017da0f77668b27bed63fe6e04dd64c6397e1fadad4f460efb0ef7c9012
+      uri: https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/vits-piper-en_GB-alan-medium.tar.bz2
+- name: vits-piper-en_GB-alba-medium-sherpa
+  url: github:mudler/LocalAI/gallery/sherpa-onnx-tts.yaml@master
+  urls:
+    - https://github.com/k2-fsa/sherpa-onnx
+    - https://datashare.ed.ac.uk/handle/10283/3270
+  description: |
+    English (en_GB) single-speaker Piper VITS voice "alba" (medium quality, 22.05 kHz), served through the sherpa-onnx backend with native streaming TTS. Ships espeak-ng phonemization data.
+  license: cc-by-4.0
+  icon: https://avatars.githubusercontent.com/u/75781706
+  tags:
+    - vits
+    - piper
+    - text-to-speech
+    - tts
+    - english
+    - onnx
+    - sherpa-onnx
+    - single-speaker
+  last_checked: "2026-06-14"
+  overrides:
+    known_usecases:
+      - tts
+    parameters:
+      model: vits-piper-en_GB-alba-medium/en_GB-alba-medium.onnx
+  files:
+    - filename: vits-piper-en_GB-alba-medium.tar.bz2
+      sha256: fcd45962906933eec4431d3688f7d74aaac8713c87c6717f91fd3b23463aa1a1
+      uri: https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/vits-piper-en_GB-alba-medium.tar.bz2
+- name: vits-piper-en_GB-aru-medium-sherpa
+  url: github:mudler/LocalAI/gallery/sherpa-onnx-tts.yaml@master
+  urls:
+    - https://github.com/k2-fsa/sherpa-onnx
+    - https://www.liverpool.ac.uk/architecture/research/acoustics-research-unit/speech-corpus/
+  description: |
+    English (en_GB) multi-speaker (12 voices) Piper VITS voice "aru" (medium quality, 22.05 kHz), served through the sherpa-onnx backend with native streaming TTS. Ships espeak-ng phonemization data. Pick a speaker with the numeric voice/speaker id.
+  license: cc-by-4.0
+  icon: https://avatars.githubusercontent.com/u/75781706
+  tags:
+    - vits
+    - piper
+    - text-to-speech
+    - tts
+    - english
+    - onnx
+    - sherpa-onnx
+    - multi-speaker
+  last_checked: "2026-06-14"
+  overrides:
+    known_usecases:
+      - tts
+    parameters:
+      model: vits-piper-en_GB-aru-medium/en_GB-aru-medium.onnx
+  files:
+    - filename: vits-piper-en_GB-aru-medium.tar.bz2
+      sha256: 15b6e7a545d899167a688a054b95730ec8cdfd35d27d00bab1dc5234c4a451a0
+      uri: https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/vits-piper-en_GB-aru-medium.tar.bz2
+- name: vits-piper-en_GB-cori-high-sherpa
+  url: github:mudler/LocalAI/gallery/sherpa-onnx-tts.yaml@master
+  urls:
+    - https://github.com/k2-fsa/sherpa-onnx
+    - https://librivox.org
+  description: |
+    English (en_GB) single-speaker Piper VITS voice "cori" (high quality, 22.05 kHz), served through the sherpa-onnx backend with native streaming TTS. Ships espeak-ng phonemization data.
+  license: cc0-1.0
+  icon: https://avatars.githubusercontent.com/u/75781706
+  tags:
+    - vits
+    - piper
+    - text-to-speech
+    - tts
+    - english
+    - onnx
+    - sherpa-onnx
+    - single-speaker
+  last_checked: "2026-06-14"
+  overrides:
+    known_usecases:
+      - tts
+    parameters:
+      model: vits-piper-en_GB-cori-high/en_GB-cori-high.onnx
+  files:
+    - filename: vits-piper-en_GB-cori-high.tar.bz2
+      sha256: 42922f07738fcde2e49eed4e959635692f73b933de35a6b7c1010162ff566292
+      uri: https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/vits-piper-en_GB-cori-high.tar.bz2
+- name: vits-piper-en_GB-cori-medium-sherpa
+  url: github:mudler/LocalAI/gallery/sherpa-onnx-tts.yaml@master
+  urls:
+    - https://github.com/k2-fsa/sherpa-onnx
+    - https://librivox.org
+  description: |
+    English (en_GB) single-speaker Piper VITS voice "cori" (medium quality, 22.05 kHz), served through the sherpa-onnx backend with native streaming TTS. Ships espeak-ng phonemization data.
+  license: cc0-1.0
+  icon: https://avatars.githubusercontent.com/u/75781706
+  tags:
+    - vits
+    - piper
+    - text-to-speech
+    - tts
+    - english
+    - onnx
+    - sherpa-onnx
+    - single-speaker
+  last_checked: "2026-06-14"
+  overrides:
+    known_usecases:
+      - tts
+    parameters:
+      model: vits-piper-en_GB-cori-medium/en_GB-cori-medium.onnx
+  files:
+    - filename: vits-piper-en_GB-cori-medium.tar.bz2
+      sha256: 49c9a5361bbdd95d7ca9687c4de11e5908481f65e7c7c368960df79949fdac2b
+      uri: https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/vits-piper-en_GB-cori-medium.tar.bz2
+- name: vits-piper-en_GB-dii-high-sherpa
+  url: github:mudler/LocalAI/gallery/sherpa-onnx-tts.yaml@master
+  urls:
+    - https://github.com/k2-fsa/sherpa-onnx
+    - https://huggingface.co/OpenVoiceOS/pipertts_en-GB_dii
+  description: |
+    English (en_GB) single-speaker Piper VITS voice "dii" (high quality, 22.05 kHz), served through the sherpa-onnx backend with native streaming TTS. Ships espeak-ng phonemization data. Non-commercial use only (CC BY-NC-SA 4.0).
+  license: cc-by-nc-sa-4.0
+  icon: https://avatars.githubusercontent.com/u/75781706
+  tags:
+    - vits
+    - piper
+    - text-to-speech
+    - tts
+    - english
+    - onnx
+    - sherpa-onnx
+    - single-speaker
+  last_checked: "2026-06-14"
+  overrides:
+    known_usecases:
+      - tts
+    parameters:
+      model: vits-piper-en_GB-dii-high/en_GB-dii-high.onnx
+  files:
+    - filename: vits-piper-en_GB-dii-high.tar.bz2
+      sha256: 1cc07423996e0aadb19ac62a08c2f2760362dafb3b5598d2f301ca789edacf86
+      uri: https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/vits-piper-en_GB-dii-high.tar.bz2
+- name: vits-piper-en_GB-jenny_dioco-medium-sherpa
+  url: github:mudler/LocalAI/gallery/sherpa-onnx-tts.yaml@master
+  urls:
+    - https://github.com/k2-fsa/sherpa-onnx
+    - https://github.com/dioco-group/jenny-tts-dataset
+  description: |
+    English (en_GB) single-speaker Piper VITS voice "jenny_dioco" (medium quality, 22.05 kHz), served through the sherpa-onnx backend with native streaming TTS. Ships espeak-ng phonemization data.
+  license: other
+  icon: https://avatars.githubusercontent.com/u/75781706
+  tags:
+    - vits
+    - piper
+    - text-to-speech
+    - tts
+    - english
+    - onnx
+    - sherpa-onnx
+    - single-speaker
+  last_checked: "2026-06-14"
+  overrides:
+    known_usecases:
+      - tts
+    parameters:
+      model: vits-piper-en_GB-jenny_dioco-medium/en_GB-jenny_dioco-medium.onnx
+  files:
+    - filename: vits-piper-en_GB-jenny_dioco-medium.tar.bz2
+      sha256: a0888024569bafbefc05a4b48ddf8419d8dbbf3205f4af37cf7c6f1a87cc20c5
+      uri: https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/vits-piper-en_GB-jenny_dioco-medium.tar.bz2
+- name: vits-piper-en_GB-miro-high-sherpa
+  url: github:mudler/LocalAI/gallery/sherpa-onnx-tts.yaml@master
+  urls:
+    - https://github.com/k2-fsa/sherpa-onnx
+    - https://huggingface.co/OpenVoiceOS/pipertts_en-GB_miro
+  description: |
+    English (en_GB) single-speaker Piper VITS voice "miro" (high quality, 22.05 kHz), served through the sherpa-onnx backend with native streaming TTS. Ships espeak-ng phonemization data. Non-commercial use only (CC BY-NC-SA 4.0).
+  license: cc-by-nc-sa-4.0
+  icon: https://avatars.githubusercontent.com/u/75781706
+  tags:
+    - vits
+    - piper
+    - text-to-speech
+    - tts
+    - english
+    - onnx
+    - sherpa-onnx
+    - single-speaker
+  last_checked: "2026-06-14"
+  overrides:
+    known_usecases:
+      - tts
+    parameters:
+      model: vits-piper-en_GB-miro-high/en_GB-miro-high.onnx
+  files:
+    - filename: vits-piper-en_GB-miro-high.tar.bz2
+      sha256: c42907615e1a95bb69a85674f9d7979eeb2352c40fe86a0ae84d5479149c03d1
+      uri: https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/vits-piper-en_GB-miro-high.tar.bz2
+- name: vits-piper-en_GB-northern_english_male-medium-sherpa
+  url: github:mudler/LocalAI/gallery/sherpa-onnx-tts.yaml@master
+  urls:
+    - https://github.com/k2-fsa/sherpa-onnx
+    - http://www.openslr.org/83/
+  description: |
+    English (en_GB) single-speaker Piper VITS voice "northern_english_male" (medium quality, 22.05 kHz), served through the sherpa-onnx backend with native streaming TTS. Ships espeak-ng phonemization data.
+  license: cc-by-sa-4.0
+  icon: https://avatars.githubusercontent.com/u/75781706
+  tags:
+    - vits
+    - piper
+    - text-to-speech
+    - tts
+    - english
+    - onnx
+    - sherpa-onnx
+    - single-speaker
+  last_checked: "2026-06-14"
+  overrides:
+    known_usecases:
+      - tts
+    parameters:
+      model: vits-piper-en_GB-northern_english_male-medium/en_GB-northern_english_male-medium.onnx
+  files:
+    - filename: vits-piper-en_GB-northern_english_male-medium.tar.bz2
+      sha256: 2bb2c1e709f58c11f17c693b3b38f500e110e7f54f2651774ec48b8d41f12c55
+      uri: https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/vits-piper-en_GB-northern_english_male-medium.tar.bz2
+- name: vits-piper-en_GB-semaine-medium-sherpa
+  url: github:mudler/LocalAI/gallery/sherpa-onnx-tts.yaml@master
+  urls:
+    - https://github.com/k2-fsa/sherpa-onnx
+    - https://github.com/marytts/dfki-semaine-data
+  description: |
+    English (en_GB) multi-speaker (4 voices) Piper VITS voice "semaine" (medium quality, 22.05 kHz), served through the sherpa-onnx backend with native streaming TTS. Ships espeak-ng phonemization data. Pick a speaker with the numeric voice/speaker id. Non-commercial use only (CC BY-NC-SA 4.0).
+  license: cc-by-nc-sa-4.0
+  icon: https://avatars.githubusercontent.com/u/75781706
+  tags:
+    - vits
+    - piper
+    - text-to-speech
+    - tts
+    - english
+    - onnx
+    - sherpa-onnx
+    - multi-speaker
+  last_checked: "2026-06-14"
+  overrides:
+    known_usecases:
+      - tts
+    parameters:
+      model: vits-piper-en_GB-semaine-medium/en_GB-semaine-medium.onnx
+  files:
+    - filename: vits-piper-en_GB-semaine-medium.tar.bz2
+      sha256: b2a1e39062fce8f7fb14b7fa5fb93d89c58e3af2245270387f408099f5a2da9f
+      uri: https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/vits-piper-en_GB-semaine-medium.tar.bz2
+- name: vits-piper-en_GB-southern_english_female-low-sherpa
+  url: github:mudler/LocalAI/gallery/sherpa-onnx-tts.yaml@master
+  urls:
+    - https://github.com/k2-fsa/sherpa-onnx
+    - http://www.openslr.org/83/
+  description: |
+    English (en_GB) single-speaker Piper VITS voice "southern_english_female" (low quality, 16 kHz), served through the sherpa-onnx backend with native streaming TTS. Ships espeak-ng phonemization data.
+  license: cc-by-sa-4.0
+  icon: https://avatars.githubusercontent.com/u/75781706
+  tags:
+    - vits
+    - piper
+    - text-to-speech
+    - tts
+    - english
+    - onnx
+    - sherpa-onnx
+    - single-speaker
+  last_checked: "2026-06-14"
+  overrides:
+    known_usecases:
+      - tts
+    parameters:
+      model: vits-piper-en_GB-southern_english_female-low/en_GB-southern_english_female-low.onnx
+  files:
+    - filename: vits-piper-en_GB-southern_english_female-low.tar.bz2
+      sha256: 448e7723c66531c62004864382044b29703a2616699833ec7fe1205de9f549ce
+      uri: https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/vits-piper-en_GB-southern_english_female-low.tar.bz2
+- name: vits-piper-en_GB-southern_english_female-medium-sherpa
+  url: github:mudler/LocalAI/gallery/sherpa-onnx-tts.yaml@master
+  urls:
+    - https://github.com/k2-fsa/sherpa-onnx
+    - http://www.openslr.org/83/
+  description: |
+    English (en_GB) single-speaker Piper VITS voice "southern_english_female" (medium quality, 22.05 kHz), served through the sherpa-onnx backend with native streaming TTS. Ships espeak-ng phonemization data.
+  license: cc-by-sa-4.0
+  icon: https://avatars.githubusercontent.com/u/75781706
+  tags:
+    - vits
+    - piper
+    - text-to-speech
+    - tts
+    - english
+    - onnx
+    - sherpa-onnx
+    - single-speaker
+  last_checked: "2026-06-14"
+  overrides:
+    known_usecases:
+      - tts
+    parameters:
+      model: vits-piper-en_GB-southern_english_female-medium/en_GB-southern_english_female-medium.onnx
+  files:
+    - filename: vits-piper-en_GB-southern_english_female-medium.tar.bz2
+      sha256: cea2dcbe8a8e2a44a4bab6824e10dc38fcd5cf84458e8b3f3e5be1c5fb804512
+      uri: https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/vits-piper-en_GB-southern_english_female-medium.tar.bz2
+- name: vits-piper-en_GB-southern_english_male-medium-sherpa
+  url: github:mudler/LocalAI/gallery/sherpa-onnx-tts.yaml@master
+  urls:
+    - https://github.com/k2-fsa/sherpa-onnx
+    - http://www.openslr.org/83/
+  description: |
+    English (en_GB) single-speaker Piper VITS voice "southern_english_male" (medium quality, 22.05 kHz), served through the sherpa-onnx backend with native streaming TTS. Ships espeak-ng phonemization data.
+  license: cc-by-sa-4.0
+  icon: https://avatars.githubusercontent.com/u/75781706
+  tags:
+    - vits
+    - piper
+    - text-to-speech
+    - tts
+    - english
+    - onnx
+    - sherpa-onnx
+    - single-speaker
+  last_checked: "2026-06-14"
+  overrides:
+    known_usecases:
+      - tts
+    parameters:
+      model: vits-piper-en_GB-southern_english_male-medium/en_GB-southern_english_male-medium.onnx
+  files:
+    - filename: vits-piper-en_GB-southern_english_male-medium.tar.bz2
+      sha256: f5525a6fd9a2fc0ab930ea70da6e3bcf207922a9f701acb0324ba2f59e4ca9ba
+      uri: https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/vits-piper-en_GB-southern_english_male-medium.tar.bz2
+- name: vits-piper-en_GB-vctk-medium-sherpa
+  url: github:mudler/LocalAI/gallery/sherpa-onnx-tts.yaml@master
+  urls:
+    - https://github.com/k2-fsa/sherpa-onnx
+    - https://datashare.ed.ac.uk/handle/10283/3443
+  description: |
+    English (en_GB) multi-speaker (109 voices) Piper VITS voice "vctk" (medium quality, 22.05 kHz), served through the sherpa-onnx backend with native streaming TTS. Ships espeak-ng phonemization data. Pick a speaker with the numeric voice/speaker id.
+  license: cc-by-4.0
+  icon: https://avatars.githubusercontent.com/u/75781706
+  tags:
+    - vits
+    - piper
+    - text-to-speech
+    - tts
+    - english
+    - onnx
+    - sherpa-onnx
+    - multi-speaker
+  last_checked: "2026-06-14"
+  overrides:
+    known_usecases:
+      - tts
+    parameters:
+      model: vits-piper-en_GB-vctk-medium/en_GB-vctk-medium.onnx
+  files:
+    - filename: vits-piper-en_GB-vctk-medium.tar.bz2
+      sha256: abafd35bdab0a72a3c6b947228ae3cccdf3624db83313c77d1abb5cbc75e1f64
+      uri: https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/vits-piper-en_GB-vctk-medium.tar.bz2
+- name: vits-piper-en_GB-sweetbbak-amy-sherpa
+  url: github:mudler/LocalAI/gallery/sherpa-onnx-tts.yaml@master
+  urls:
+    - https://github.com/k2-fsa/sherpa-onnx
+    - https://github.com/sweetbbak/Neural-Amy-TTS
+  description: |
+    English (en_GB) single-speaker Piper VITS voice "sweetbbak-amy" (22.05 kHz), served through the sherpa-onnx backend with native streaming TTS. Ships espeak-ng phonemization data.
+  license: other
+  icon: https://avatars.githubusercontent.com/u/75781706
+  tags:
+    - vits
+    - piper
+    - text-to-speech
+    - tts
+    - english
+    - onnx
+    - sherpa-onnx
+    - single-speaker
+  last_checked: "2026-06-14"
+  overrides:
+    known_usecases:
+      - tts
+    parameters:
+      model: vits-piper-en_GB-sweetbbak-amy/en_GB-sweetbbak-amy.onnx
+  files:
+    - filename: vits-piper-en_GB-sweetbbak-amy.tar.bz2
+      sha256: cd56f8f50dad3119785409c1a6dc4f5558fb0833516503d0145eb7009a42e3ef
+      uri: https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/vits-piper-en_GB-sweetbbak-amy.tar.bz2
 - name: kokoro-multi-lang-v1.0-sherpa
   url: github:mudler/LocalAI/gallery/sherpa-onnx-tts.yaml@master
   urls:
