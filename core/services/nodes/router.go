@@ -908,6 +908,17 @@ func (r *SmartRouter) stageModelFiles(ctx context.Context, node *BackendNode, op
 		frontendModelsDir = filepath.Clean(strings.TrimSuffix(opts.ModelFile, opts.Model))
 	}
 
+	// Local model directory, captured before the ModelFile field is rewritten to
+	// its remote path below. Companion assets declared as option paths (e.g.
+	// sherpa-onnx's tokens.txt / espeak-ng-data) live beside the model, so option
+	// values are resolved relative to this dir as well as frontendModelsDir —
+	// letting a shared config declare them with bare names regardless of whether
+	// Model includes a subdirectory.
+	localModelDir := ""
+	if opts.ModelFile != "" {
+		localModelDir = filepath.Dir(opts.ModelFile)
+	}
+
 	// keyMapper generates storage keys namespaced under trackingKey, preserving
 	// subdirectory structure relative to frontendModelsDir. This ensures:
 	// 1. All files for a model land in one directory on the worker for clean deletion
@@ -1079,8 +1090,8 @@ func (r *SmartRouter) stageModelFiles(ctx context.Context, node *BackendNode, op
 
 	// Stage file paths referenced in generic Options (key:value pairs where values
 	// are file paths). Options stay as relative paths — backends resolve them via ModelPath.
-	r.stageGenericOptions(ctx, node, opts.Options, frontendModelsDir, keyMapper.Key)
-	r.stageGenericOptions(ctx, node, opts.Overrides, frontendModelsDir, keyMapper.Key)
+	r.stageGenericOptions(ctx, node, opts.Options, frontendModelsDir, localModelDir, keyMapper.Key)
+	r.stageGenericOptions(ctx, node, opts.Overrides, frontendModelsDir, localModelDir, keyMapper.Key)
 
 	return opts, nil
 }
@@ -1196,34 +1207,84 @@ func (r *SmartRouter) stageCompanionFiles(ctx context.Context, node *BackendNode
 }
 
 // stageGenericOptions iterates key:value option strings and stages any values
-// that resolve to existing files relative to the frontend models directory.
-// Option values are NOT rewritten — backends resolve them via ModelPath.
-// keyFn generates the namespaced storage key for each file path.
-func (r *SmartRouter) stageGenericOptions(ctx context.Context, node *BackendNode, options []string, frontendModelsDir string, keyFn func(string) string) {
+// that resolve to existing files relative to the frontend models directory or
+// the model's own directory. Option values are NOT rewritten — backends resolve
+// them via ModelPath. keyFn generates the namespaced storage key for each file.
+func (r *SmartRouter) stageGenericOptions(ctx context.Context, node *BackendNode, options []string, frontendModelsDir, modelDir string, keyFn func(string) string) {
 	for _, opt := range options {
 		optKey, val, ok := strings.Cut(opt, ":")
 		if !ok || val == "" {
 			continue
 		}
 
-		// Check if value is an existing file path (absolute or relative to frontend models dir)
-		absPath := val
-		if !filepath.IsAbs(val) && frontendModelsDir != "" {
-			absPath = filepath.Join(frontendModelsDir, val)
+		// Resolve the value to an existing path: absolute as-is, otherwise
+		// relative to frontendModelsDir first, then the model's own directory
+		// (where backends like sherpa-onnx keep companion assets such as
+		// tokens.txt and espeak-ng-data).
+		absPath, ok := resolveOptionPath(val, frontendModelsDir, modelDir)
+		if !ok {
+			continue
 		}
-		if _, err := os.Stat(absPath); os.IsNotExist(err) {
+		info, err := os.Stat(absPath)
+		if err != nil {
 			continue
 		}
 
-		// Stage the file to the worker using the namespaced key
+		// A directory option value (e.g. sherpa-onnx's espeak-ng-data) is staged
+		// file-by-file so the whole tree is recreated beside the model on the
+		// worker; a single file is staged directly. Values are never rewritten —
+		// backends resolve relative paths via ModelPath.
+		if err == nil && info.IsDir() {
+			r.stageOptionDir(ctx, node, absPath, keyFn)
+			xlog.Debug("Staged option directory", "option", optKey, "localPath", absPath)
+			continue
+		}
+
 		key := keyFn(absPath)
 		if _, err := r.fileStager.EnsureRemote(ctx, node.ID, absPath, key); err != nil {
 			xlog.Warn("Failed to stage option file, skipping", "option", opt, "path", absPath, "error", err)
 			continue
 		}
-		// Leave option value unchanged — backend resolves relative paths via ModelPath
 		xlog.Debug("Staged option file", "option", optKey, "localPath", absPath)
 	}
+}
+
+// resolveOptionPath finds an existing local path for an option value: an
+// absolute path as-is, otherwise relative to frontendModelsDir, then to the
+// model's own directory. Returns false when none exists.
+func resolveOptionPath(val, frontendModelsDir, modelDir string) (string, bool) {
+	if filepath.IsAbs(val) {
+		if _, err := os.Stat(val); err == nil {
+			return val, true
+		}
+		return "", false
+	}
+	for _, base := range []string{frontendModelsDir, modelDir} {
+		if base == "" {
+			continue
+		}
+		p := filepath.Join(base, val)
+		if _, err := os.Stat(p); err == nil {
+			return p, true
+		}
+	}
+	return "", false
+}
+
+// stageOptionDir stages every regular file under an option-declared directory
+// (e.g. sherpa-onnx's espeak-ng-data) using the structure-preserving key, so the
+// tree is recreated beside the model on the worker. Per-file errors are logged
+// and skipped; the option value itself is not rewritten.
+func (r *SmartRouter) stageOptionDir(ctx context.Context, node *BackendNode, dir string, keyFn func(string) string) {
+	_ = filepath.WalkDir(dir, func(path string, d fs.DirEntry, walkErr error) error {
+		if walkErr != nil || d.IsDir() {
+			return nil
+		}
+		if _, err := r.fileStager.EnsureRemote(ctx, node.ID, path, keyFn(path)); err != nil {
+			xlog.Warn("Failed to stage option directory file, skipping", "path", path, "error", err)
+		}
+		return nil
+	})
 }
 
 // probeHealth checks whether a backend process on the given node/addr is alive
