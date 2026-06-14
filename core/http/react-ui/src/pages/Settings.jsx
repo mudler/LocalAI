@@ -294,7 +294,7 @@ export default function Settings() {
             </h3>
             <div className="card">
               <SettingRow label="Enable Watchdog" description="Automatically monitor and manage backend processes">
-                <Toggle checked={settings.watchdog_idle_enabled || settings.watchdog_busy_enabled} onChange={(v) => { update('watchdog_idle_enabled', v); update('watchdog_busy_enabled', v) }} />
+                <Toggle checked={settings.watchdog_idle_enabled || settings.watchdog_busy_enabled} onChange={(v) => { update('watchdog_idle_enabled', v); update('watchdog_busy_enabled', v); update('watchdog_enabled', v) }} />
               </SettingRow>
               <SettingRow label="Enable Idle Check" description="Automatically stop backends that have been idle too long">
                 <Toggle checked={settings.watchdog_idle_enabled} onChange={(v) => update('watchdog_idle_enabled', v)} disabled={!watchdogEnabled} />
