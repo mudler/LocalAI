@@ -59,3 +59,19 @@ func AddNode(serviceID string, node schema.NodeData) {
 	}
 	nodes[serviceID][node.ID] = node
 }
+
+// ReplaceNodes replaces the local view of nodes for a serviceID with the
+// given snapshot. Used by the new discoveryTunnels to avoid accumulating
+// stale entries.
+func ReplaceNodes(serviceID string, nodesSlice []schema.NodeData) {
+	if serviceID == "" {
+		serviceID = defaultServicesID
+	}
+	mu.Lock()
+	defer mu.Unlock()
+	next := make(map[string]schema.NodeData, len(nodesSlice))
+	for _, nd := range nodesSlice {
+		next[nd.ID] = nd
+	}
+	nodes[serviceID] = next
+}

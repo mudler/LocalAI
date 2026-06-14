@@ -3,7 +3,6 @@ package monitoring
 import (
 	"context"
 
-	"github.com/mudler/xlog"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/exporters/prometheus"
@@ -17,12 +16,12 @@ type LocalAIMetricsService struct {
 	ApiTimeMetric metric.Float64Histogram
 }
 
-func (m *LocalAIMetricsService) ObserveAPICall(method string, path string, duration float64) {
+func (m *LocalAIMetricsService) ObserveAPICall(ctx context.Context, method string, path string, duration float64) {
 	opts := metric.WithAttributes(
 		attribute.String("method", method),
 		attribute.String("path", path),
 	)
-	m.ApiTimeMetric.Record(context.Background(), duration, opts)
+	m.ApiTimeMetric.Record(ctx, duration, opts)
 }
 
 // setupOTelSDK bootstraps the OpenTelemetry pipeline.
@@ -55,10 +54,10 @@ func NewLocalAIMetricsService() (*LocalAIMetricsService, error) {
 }
 
 func (lams LocalAIMetricsService) Shutdown() error {
-	// TODO: Not sure how to actually do this:
-	//// setupOTelSDK bootstraps the OpenTelemetry pipeline.
-	//// If it does not return an error, make sure to call shutdown for proper cleanup.
-
-	xlog.Warn("LocalAIMetricsService Shutdown called, but OTelSDK proper shutdown not yet implemented?")
-	return nil
+	// Shutdown flushes any pending telemetry held by the OTel MeterProvider
+	// and releases the Prometheus exporter. Without this call the process
+	// leaves counters and the reader in an inconsistent state on shutdown —
+	// which matters for short-lived CLI subcommands (e.g. `local-ai mcp-server`)
+	// and for tests that spin up a fresh service per case.
+	return lams.Provider.Shutdown(context.Background())
 }
