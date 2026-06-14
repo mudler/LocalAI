@@ -340,6 +340,17 @@ func defaultMaxHistoryItems(cfg *config.ModelConfig) int {
 	return 0
 }
 
+// resolveMaxHistoryItems honors an explicit pipeline.max_history_items when set,
+// otherwise falls back to the per-model-type default. This lets a composed
+// pipeline (VAD+STT+LLM+TTS) cap its history so a long-running session doesn't
+// grow until the LLM's context window fills.
+func resolveMaxHistoryItems(cfg *config.ModelConfig) int {
+	if cfg != nil && cfg.Pipeline.MaxHistoryItems != nil {
+		return *cfg.Pipeline.MaxHistoryItems
+	}
+	return defaultMaxHistoryItems(cfg)
+}
+
 // trimRealtimeItems returns the tail of items capped at maxItems (0 = no cap).
 // Walks backwards keeping function_call + function_call_output pairs together
 // so we never feed the LLM an orphaned tool result that references a call it
@@ -492,7 +503,7 @@ func runRealtimeSession(application *application.Application, t Transport, model
 		Conversations:    make(map[string]*Conversation),
 		InputSampleRate:  defaultRemoteSampleRate,
 		OutputSampleRate: defaultRemoteSampleRate,
-		MaxHistoryItems:  defaultMaxHistoryItems(cfg),
+		MaxHistoryItems:  resolveMaxHistoryItems(cfg),
 	}
 
 	// Create a default conversation

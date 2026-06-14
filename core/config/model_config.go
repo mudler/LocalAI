@@ -510,6 +510,13 @@ type Pipeline struct {
 	// LLM model config. Unset leaves the LLM model config in charge.
 	DisableThinking *bool `yaml:"disable_thinking,omitempty" json:"disable_thinking,omitempty"`
 
+	// MaxHistoryItems caps how many trailing conversation items are fed to the
+	// LLM each realtime turn (0 = unlimited, rely on the LLM's context window).
+	// Unset (nil) uses the per-model-type default. Set it on a composed pipeline
+	// (VAD+STT+LLM+TTS) so a long-running session doesn't grow until the LLM's
+	// context fills.
+	MaxHistoryItems *int `yaml:"max_history_items,omitempty" json:"max_history_items,omitempty"`
+
 	// VoiceRecognition gates the pipeline behind speaker verification. Nil
 	// (block absent) means no gate, preserving existing behavior.
 	VoiceRecognition *PipelineVoiceRecognition `yaml:"voice_recognition,omitempty" json:"voice_recognition,omitempty"`
