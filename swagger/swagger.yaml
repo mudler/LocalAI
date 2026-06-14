@@ -1884,13 +1884,14 @@ definitions:
         description: |-
           RedactedPreview is the input with mask-action spans replaced
           by their placeholders. Identical to Text when no findings or
-          when the strongest action is block/route_local (which don't
-          rewrite content).
+          when the strongest action is block/allow (which don't rewrite
+          content).
         type: string
       suggested_action:
         description: |-
           SuggestedAction is the strongest action across all findings:
-          "block", "route_local", "mask", or "allow" (no findings).
+          "block", "mask", or "allow" (no findings, or all findings
+          resolved to the allow action).
         type: string
     type: object
   schema.PIIFinding:
