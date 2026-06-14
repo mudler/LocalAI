@@ -37,10 +37,12 @@ func isPathAllowed(path string, allowedDirs []string) bool {
 }
 
 // subscribeFileStaging subscribes to NATS file staging subjects for this node.
-func (cfg *Config) subscribeFileStaging(natsClient messaging.MessagingClient, nodeID string) error {
+// ctx is used to cancel in-flight S3 operations on worker shutdown; the
+// individual Download/Upload calls below also derive from it so cancelled
+// workers release their HTTP connections promptly.
+func (cfg *Config) subscribeFileStaging(ctx context.Context, natsClient messaging.MessagingClient, nodeID string) error {
 	// Create FileManager with same S3 config as the frontend
-	// TODO: propagate a caller-provided context once Config carries one
-	s3Store, err := storage.NewS3Store(context.Background(), storage.S3Config{
+	s3Store, err := storage.NewS3Store(ctx, storage.S3Config{
 		Endpoint:        cfg.StorageURL,
 		Region:          cfg.StorageRegion,
 		Bucket:          cfg.StorageBucket,
@@ -68,7 +70,7 @@ func (cfg *Config) subscribeFileStaging(natsClient messaging.MessagingClient, no
 			return
 		}
 
-		localPath, err := fm.Download(context.Background(), req.Key)
+		localPath, err := fm.Download(ctx, req.Key)
 		if err != nil {
 			xlog.Error("File ensure failed", "key", req.Key, "error", err)
 			replyJSON(reply, map[string]string{"error": err.Error()})
@@ -99,7 +101,7 @@ func (cfg *Config) subscribeFileStaging(natsClient messaging.MessagingClient, no
 			return
 		}
 
-		if err := fm.Upload(context.Background(), req.Key, req.LocalPath); err != nil {
+		if err := fm.Upload(ctx, req.Key, req.LocalPath); err != nil {
 			xlog.Error("File stage failed", "path", req.LocalPath, "key", req.Key, "error", err)
 			replyJSON(reply, map[string]string{"error": err.Error()})
 			return

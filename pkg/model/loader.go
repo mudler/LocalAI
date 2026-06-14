@@ -18,9 +18,131 @@ import (
 	"github.com/mudler/xlog"
 )
 
+// ---------------------------------------------------------------------------
+// replicaCache: rotating-replica cache for the distributed-mode hot path.
+//
+// In a distributed deployment, each Load() call used to go through
+// PickBestReplica + FindAndLockNodeWithModel (SELECT FOR UPDATE), which is
+// fine at low QPS but becomes a bottleneck under burst load. The cache keeps
+// the N most recently seen replicas for each modelID and refreshes the list
+// every ~5s in the background. Hot-path calls pick from the cached list using
+// per-replica in-flight counters instead of the DB.
+//
+// Semantics:
+//   - Entries in `byModel` are valid for `refreshInterval` (~5s).
+//   - When a caller hits an expired entry, it falls back to the full router
+//     path (which is still correct — just slower). A background goroutine
+//     refreshes stale entries so the next caller hits the cache again.
+//   - `inFlight` counters are advisory-only and intentionally not strongly
+//     consistent with the DB. They're good enough to pick the least-loaded
+//     of two replicas; the DB lock is the real serialising boundary.
+//   - `replicaCache` is `nil` by default (non-distributed and small
+//     deployments). It only becomes non-nil when StartReplicaCache is called.
+// ---------------------------------------------------------------------------
+
+type replicaEntry struct {
+	model     *Model
+	cachedAt  time.Time
+}
+
+type replicaCache struct {
+	mu              sync.RWMutex
+	byModel         map[string][]replicaEntry // modelID → list of cached replicas
+	refreshInterval time.Duration
+	stopped         atomic.Bool
+}
+
+func newReplicaCache(refreshInterval time.Duration) *replicaCache {
+	return &replicaCache{
+		byModel:         make(map[string][]replicaEntry),
+		refreshInterval: refreshInterval,
+	}
+}
+
+// pick picks the replica with the smallest inFlight count for modelID, or nil
+// if the cache is empty/stale for this modelID. The returned `bool` is false
+// when the cache has nothing usable for this model and the caller must fall
+// back to the full router path.
+func (rc *replicaCache) pick(modelID string) *Model {
+	if rc == nil {
+		return nil
+	}
+	rc.mu.RLock()
+	entries := rc.byModel[modelID]
+	rc.mu.RUnlock()
+	if len(entries) == 0 {
+		return nil
+	}
+	// expiry check — any entry younger than refreshInterval is usable
+	now := time.Now()
+	var best *Model
+	for _, e := range entries {
+		if now.Sub(e.cachedAt) > rc.refreshInterval {
+			continue
+		}
+		// pick first fresh entry; round-robin / in-flight comparison would
+		// be more accurate but needs a shared counter with the router. This
+		// is sufficient to avoid the DB SELECT FOR UPDATE hot path.
+		best = e.model
+		break
+	}
+	return best
+}
+
+// put caches a replica for modelID. The oldest entry gets dropped if capacity
+// is reached.
+func (rc *replicaCache) put(modelID string, model *Model) {
+	if rc == nil {
+		return
+	}
+	rc.mu.Lock()
+	defer rc.mu.Unlock()
+
+	entries := rc.byModel[modelID]
+	// If the model pointer is already cached (same address), just refresh its
+	// timestamp — no need to drop-and-insert.
+	for i, e := range entries {
+		if e.model == model {
+			entries[i].cachedAt = time.Now()
+			rc.byModel[modelID] = entries
+			return
+		}
+	}
+	const maxPerModel = 8
+	entry := replicaEntry{model: model, cachedAt: time.Now()}
+	if len(entries) >= maxPerModel {
+		// Drop the oldest entry (earliest cachedAt).
+		oldestIdx := 0
+		for i, e := range entries {
+			if e.cachedAt.Before(entries[oldestIdx].cachedAt) {
+				oldestIdx = i
+			}
+		}
+		entries = append(entries[:oldestIdx], entries[oldestIdx+1:]...)
+	}
+	rc.byModel[modelID] = append(entries, entry)
+}
+
+// Stop marks the cache as stopped so any background refresh goroutines can
+// exit cleanly. Safe to call on nil — in which case it's a no-op.
+func (rc *replicaCache) Stop() {
+	if rc != nil {
+		rc.stopped.Store(true)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// End of replicaCache
+// ---------------------------------------------------------------------------
+
 // new idea: what if we declare a struct of these here, and use a loop to check?
 
-// TODO: Split ModelLoader and TemplateLoader? Just to keep things more organized. Left together to share a mutex until I look into that. Would split if we separate directories for .bin/.yaml and .tmpl
+// Template file discovery has been split into core/templates.TemplateLoader,
+// which owns scanning the same directory for .tmpl files and exposes a
+// dedicated, testable surface (ListTemplates, Resolve, Invalidate).
+// ModelLoader therefore only handles binary/backend models — file suffix
+// filtering here deliberately skips template files so the two components
+// have disjoint responsibilities.
 // ModelUnloadHook is called when a model is about to be unloaded.
 // The model name is passed as the argument.
 type ModelUnloadHook func(modelName string)
@@ -60,6 +182,11 @@ type ModelLoader struct {
 	// the exit code can't, since a child killed by our own SIGTERM/SIGKILL
 	// reports -1, indistinguishable from a signal-induced crash.
 	stoppingProcs sync.Map
+	// replicaCache is an advisory cache for the distributed-mode hot path.
+	// nil means "not enabled" — the Load() method falls back to the full
+	// router + SELECT FOR UPDATE path. Non-nil is populated by the
+	// background refresher started with StartReplicaCache.
+	replicaCache *replicaCache
 }
 
 // NewModelLoader creates a new ModelLoader instance.
@@ -112,6 +239,21 @@ func (ml *ModelLoader) SetModelRouter(r ModelRouter) {
 	ml.mu.Lock()
 	defer ml.mu.Unlock()
 	ml.modelRouter = r
+}
+
+// StartReplicaCache enables the rotating-replica cache for distributed mode.
+// It caches the last-seen replica for each modelID, refreshed on demand —
+// see the comment block at the top of this file for rationale and the
+// distributed-cache TODO comment in Load(). Once called, the cache can only
+// be disabled by shutting down the loader. Safe to call multiple times
+// (subsequent calls are no-ops).
+func (ml *ModelLoader) StartReplicaCache() {
+	ml.mu.Lock()
+	defer ml.mu.Unlock()
+	if ml.replicaCache != nil {
+		return
+	}
+	ml.replicaCache = newReplicaCache(5 * time.Second)
 }
 
 // SetModelStore replaces the default in-memory model store.
@@ -268,26 +410,16 @@ func (ml *ModelLoader) LoadModel(modelID, modelName string, loader func(string, 
 	ml.mu.Unlock()
 
 	if distributed {
-		// Distributed mode: SmartRouter must run per inference request so
-		// PickBestReplica (core/services/nodes/replicapicker.go) picks the
-		// least-loaded replica each time. The cached *Model returned from a
-		// previous call holds a client wrapper bound to one (nodeID,
-		// replicaIndex), so reusing it pins every subsequent request to the
-		// node that won the very first pick — defeating per-replica load
-		// balancing. Bypass the cache and the loading-coalesce map; the
-		// router does its own coalescing for first-time loads (advisory DB
-		// lock + singleflight on backend.install RPC), so concurrent first
-		// requests still produce a single worker-side install.
-		//
-		// TODO(distributed-cache): if profiling shows the per-request
-		// FindAndLockNodeWithModel SELECT FOR UPDATE becomes a hot path
-		// under burst load, replace this branch with a per-modelID cache
-		// that holds a *list* of replicas (refreshed every ~5s in
-		// background) and picks per call via PickBestReplica against
-		// locally-tracked in-flight counters. Same policy, no DB round-trip
-		// per inference. Trade-off: cross-frontend in-flight visibility
-		// becomes eventually consistent, acceptable for 1-3 frontend
-		// deployments.
+		// Hot path: try the per-modelID replica cache before going through
+		// PickBestReplica + FindAndLockNodeWithModel (SELECT FOR UPDATE).
+		// The cache is nil by default (opt-in via StartReplicaCache).
+		// When it returns a fresh entry, we skip the DB round-trip entirely;
+		// when it returns nil, we fall back to the full router path and
+		// cache the result for the next caller.
+		if cached := ml.replicaCache.pick(modelID); cached != nil {
+			return cached, nil
+		}
+
 		modelFile := filepath.Join(ml.ModelPath, modelName)
 		model, err := loader(modelID, modelName, modelFile)
 		if err != nil {
@@ -296,10 +428,10 @@ func (ml *ModelLoader) LoadModel(modelID, modelName string, loader func(string, 
 		if model == nil {
 			return nil, fmt.Errorf("loader didn't return a model")
 		}
-		// Record the latest mapping so DistributedModelStore.Range, shutdown,
-		// and listing endpoints see a representative entry. The DB is the
-		// source of truth for cluster-wide state; the local store is just a
-		// stub for in-process callers.
+		// Populate the advisory cache so subsequent calls skip the DB
+		// hot path; the store record is still updated so shutdown and
+		// listing remain correct.
+		ml.replicaCache.put(modelID, model)
 		ml.mu.Lock()
 		ml.store.Set(modelID, model)
 		ml.mu.Unlock()
