@@ -1,0 +1,79 @@
+{
+  "title": "Competenze",
+  "subtitle": "Gestisci le competenze degli agenti (istruzioni e risorse riutilizzabili)",
+  "unavailable": {
+    "subtitle": "Il servizio competenze non è disponibile o l'indice è in ricostruzione. Riprova tra un momento.",
+    "retry": "Riprova"
+  },
+  "actions": {
+    "newSkill": "Nuova competenza",
+    "createSkill": "Crea competenza",
+    "import": "Importa",
+    "importing": "Importazione...",
+    "gitRepos": "Repo Git",
+    "edit": "Modifica",
+    "delete": "Elimina",
+    "export": "Esporta",
+    "sync": "Sincronizza",
+    "addRepo": "Aggiungi repo",
+    "adding": "Aggiunta...",
+    "remove": "Rimuovi",
+    "enable": "Abilita",
+    "disable": "Disabilita"
+  },
+  "search": {
+    "placeholder": "Cerca competenze..."
+  },
+  "git": {
+    "title": "Repository Git",
+    "description": "Aggiungi repository Git da cui ottenere le competenze. Le competenze appariranno nella lista dopo la sincronizzazione.",
+    "urlPlaceholder": "https://github.com/user/repo o git@github.com:user/repo.git",
+    "noRepos": "Nessun repo Git configurato. Aggiungine uno sopra.",
+    "disabled": "Disabilitato",
+    "removeRepo": "Rimuovi repo"
+  },
+  "card": {
+    "noDescription": "Nessuna descrizione",
+    "readOnly": "Sola lettura",
+    "editTitle": "Modifica competenza",
+    "deleteTitle": "Elimina competenza",
+    "exportTitle": "Esporta come .tar.gz"
+  },
+  "empty": {
+    "title": "Nessuna competenza trovata",
+    "text": "Crea una competenza o importane una per iniziare.",
+    "noPersonal": "Non hai ancora competenze."
+  },
+  "sections": {
+    "yourSkills": "Le tue competenze",
+    "otherUsersSkills": "Competenze di altri utenti"
+  },
+  "deleteDialog": {
+    "title": "Elimina competenza",
+    "message": "Eliminare la competenza \"{{name}}\"? Questa azione non può essere annullata.",
+    "confirm": "Elimina"
+  },
+  "removeRepoDialog": {
+    "title": "Rimuovi repository Git",
+    "message": "Rimuovere questo repository Git? Le competenze al suo interno non saranno più disponibili.",
+    "confirm": "Rimuovi"
+  },
+  "toasts": {
+    "loadFailed": "Caricamento competenze fallito",
+    "deleted": "Competenza \"{{name}}\" eliminata",
+    "deleteFailed": "Eliminazione competenza fallita",
+    "exported": "Competenza \"{{name}}\" esportata",
+    "exportFailed": "Esportazione fallita",
+    "imported": "Competenza importata da \"{{file}}\"",
+    "importFailed": "Importazione fallita",
+    "loadReposFailed": "Caricamento repo Git fallito",
+    "repoAdded": "Repo Git aggiunto e in sincronizzazione",
+    "addRepoFailed": "Aggiunta repo fallita",
+    "synced": "Repo sincronizzato",
+    "syncFailed": "Sincronizzazione fallita",
+    "toggled": "Repo modificato",
+    "toggleFailed": "Modifica fallita",
+    "removed": "Repo rimosso",
+    "removeFailed": "Rimozione fallita"
+  }
+}

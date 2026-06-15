@@ -1,0 +1,1164 @@
+syntax = "proto3";
+
+option go_package = "github.com/go-skynet/LocalAI/pkg/grpc/proto";
+option java_multiple_files = true;
+option java_package = "io.skynet.localai.backend";
+option java_outer_classname = "LocalAIBackend";
+
+package backend;
+
+service Backend {
+  rpc Health(HealthMessage) returns (Reply) {}
+  rpc Free(HealthMessage) returns (Result) {}
+  rpc Predict(PredictOptions) returns (Reply) {}
+  rpc LoadModel(ModelOptions) returns (Result) {}
+  rpc PredictStream(PredictOptions) returns (stream Reply) {}
+  rpc Embedding(PredictOptions) returns (EmbeddingResult) {}
+  rpc GenerateImage(GenerateImageRequest) returns (Result) {}
+  rpc GenerateVideo(GenerateVideoRequest) returns (Result) {}
+  rpc AudioTranscription(TranscriptRequest) returns (TranscriptResult) {}
+  rpc AudioTranscriptionStream(TranscriptRequest) returns (stream TranscriptStreamResponse) {}
+  rpc TTS(TTSRequest) returns (Result) {}
+  rpc TTSStream(TTSRequest) returns (stream Reply) {}
+  rpc SoundGeneration(SoundGenerationRequest) returns (Result) {}
+  rpc TokenizeString(PredictOptions) returns (TokenizationResponse) {}
+  rpc Status(HealthMessage) returns (StatusResponse) {}
+  rpc Detect(DetectOptions) returns (DetectResponse) {}
+  rpc FaceVerify(FaceVerifyRequest) returns (FaceVerifyResponse) {}
+  rpc FaceAnalyze(FaceAnalyzeRequest) returns (FaceAnalyzeResponse) {}
+  rpc VoiceVerify(VoiceVerifyRequest) returns (VoiceVerifyResponse) {}
+  rpc VoiceAnalyze(VoiceAnalyzeRequest) returns (VoiceAnalyzeResponse) {}
+  rpc VoiceEmbed(VoiceEmbedRequest) returns (VoiceEmbedResponse) {}
+
+  rpc StoresSet(StoresSetOptions) returns (Result) {}
+  rpc StoresDelete(StoresDeleteOptions) returns (Result) {}
+  rpc StoresGet(StoresGetOptions) returns (StoresGetResult) {}
+  rpc StoresFind(StoresFindOptions) returns (StoresFindResult) {}
+
+  rpc Rerank(RerankRequest) returns (RerankResult) {}
+
+  // TokenClassify runs a token-classification (NER) model on the
+  // supplied text and returns each detected entity span. Used by the
+  // PII redactor's optional NER tier — the regex tier still handles
+  // formatted hits cheaply, while this catches names, locations, and
+  // other unformatted PII that regex misses.
+  rpc TokenClassify(TokenClassifyRequest) returns (TokenClassifyResponse) {}
+
+  // Score evaluates the model's joint log-probability of each
+  // supplied candidate continuation given a shared prompt. The
+  // prompt's KV cache is computed once and reused across candidates.
+  // Used for routing-policy multi-label classification, reranking,
+  // calibrated confidence, and reward-model scoring — any task where
+  // the consumer wants the model's confidence in a pre-specified
+  // continuation rather than a generated one.
+  rpc Score(ScoreRequest) returns (ScoreResponse) {}
+
+  rpc GetMetrics(MetricsRequest) returns (MetricsResponse);
+
+  rpc VAD(VADRequest) returns (VADResponse) {}
+
+  rpc Diarize(DiarizeRequest) returns (DiarizeResponse) {}
+
+  rpc AudioEncode(AudioEncodeRequest) returns (AudioEncodeResult) {}
+  rpc AudioDecode(AudioDecodeRequest) returns (AudioDecodeResult) {}
+
+  rpc AudioTransform(AudioTransformRequest) returns (AudioTransformResult) {}
+  rpc AudioTransformStream(stream AudioTransformFrameRequest) returns (stream AudioTransformFrameResponse) {}
+  // AudioToAudioStream is the bidirectional any-to-any S2S RPC. Backends
+  // that load a speech-to-speech model consume input audio frames and emit
+  // interleaved audio + transcript + tool-call deltas as typed events.
+  // Backends without S2S support return UNIMPLEMENTED.
+  rpc AudioToAudioStream(stream AudioToAudioRequest) returns (stream AudioToAudioResponse) {}
+
+  rpc ModelMetadata(ModelOptions) returns (ModelMetadataResponse) {}
+
+  // Fine-tuning RPCs
+  rpc StartFineTune(FineTuneRequest) returns (FineTuneJobResult) {}
+  rpc FineTuneProgress(FineTuneProgressRequest) returns (stream FineTuneProgressUpdate) {}
+  rpc StopFineTune(FineTuneStopRequest) returns (Result) {}
+  rpc ListCheckpoints(ListCheckpointsRequest) returns (ListCheckpointsResponse) {}
+  rpc ExportModel(ExportModelRequest) returns (Result) {}
+
+  // Quantization RPCs
+  rpc StartQuantization(QuantizationRequest) returns (QuantizationJobResult) {}
+  rpc QuantizationProgress(QuantizationProgressRequest) returns (stream QuantizationProgressUpdate) {}
+  rpc StopQuantization(QuantizationStopRequest) returns (Result) {}
+
+  // Forward proxies a raw HTTP request to an upstream provider. The
+  // cloud-proxy backend implements this for passthrough-mode model
+  // configs: the client wire format is preserved end-to-end (no
+  // translation through internal proto), which means new provider
+  // fields work the day they ship. Translation-mode proxies use the
+  // standard Predict/PredictStream RPCs instead. Backends that don't
+  // support this return UNIMPLEMENTED.
+  //
+  // The request is bidirectionally streamed so large bodies can flow
+  // without buffering. In practice the first ForwardRequest carries
+  // path, method, headers, and the initial body chunk; subsequent
+  // messages append body chunks. The first ForwardReply carries the
+  // upstream status and response headers; subsequent messages stream
+  // body chunks (SSE frames or chunked transfer). Cancellation of the
+  // gRPC context closes the upstream connection.
+  rpc Forward(stream ForwardRequest) returns (stream ForwardReply) {}
+
+}
+
+// Define the empty request
+message MetricsRequest {}
+
+message MetricsResponse {
+  int32 slot_id = 1;
+  string prompt_json_for_slot = 2;  // Stores the prompt as a JSON string.
+  float tokens_per_second = 3;
+  int32 tokens_generated = 4;
+  int32 prompt_tokens_processed = 5;
+}
+
+// TokenClassifyRequest carries the text to classify plus an optional
+// score threshold. The transformers backend interprets threshold as
+// the minimum confidence to include in the response; 0 = include all.
+message TokenClassifyRequest {
+  string text = 1;
+  float threshold = 2;
+}
+
+// TokenClassifyEntity is one detected entity span. Byte offsets are
+// into the original UTF-8 text — start..end is a half-open range that
+// addresses the substring corresponding to entity_group.
+//
+// entity_group follows HuggingFace's aggregated-tag convention (e.g.
+// "PER", "LOC", "ORG", or a PII-specific label like "EMAIL" /
+// "SSN" depending on the model). The redactor's per-pattern action
+// map keys off this string.
+message TokenClassifyEntity {
+  string entity_group = 1;
+  int32 start = 2;
+  int32 end = 3;
+  float score = 4;
+  string text = 5;
+}
+
+message TokenClassifyResponse {
+  repeated TokenClassifyEntity entities = 1;
+}
+
+// ScoreRequest carries one shared prompt and one or more continuations
+// to score against it. The backend tokenises the prompt once and reuses
+// the resulting KV cache across all candidates in this request.
+message ScoreRequest {
+  string prompt = 1;
+  repeated string candidates = 2;
+  // Return per-token logprobs for each candidate when true. Default
+  // false to keep the wire response small; the joint log_prob field
+  // covers the common ranking case.
+  bool include_token_logprobs = 3;
+  // When true, the response also populates length_normalized_log_prob
+  // (joint log-prob divided by candidate token count). Useful when
+  // candidates differ in length and the consumer wants a per-token
+  // measure comparable across them (PMI-style scoring).
+  bool length_normalize = 4;
+}
+
+// CandidateScore is one row in the ScoreResponse, matching by index
+// the candidate in ScoreRequest.candidates.
+message CandidateScore {
+  // Sum of log P(token_i | prompt, candidate_token_<i) across the
+  // candidate's tokens. The primary ranking signal.
+  double log_prob = 1;
+  // log_prob / num_tokens — populated when length_normalize=true on
+  // the request.
+  double length_normalized_log_prob = 2;
+  // Per-token detail — populated when include_token_logprobs=true.
+  repeated TokenLogProb tokens = 3;
+  // Number of tokens the backend tokenised this candidate into, after
+  // any backend-specific normalisation (e.g. leading-space handling).
+  int32 num_tokens = 4;
+}
+
+message TokenLogProb {
+  string token = 1;
+  double log_prob = 2;
+}
+
+message ScoreResponse {
+  repeated CandidateScore candidates = 1;
+}
+
+message RerankRequest {
+  string query = 1;
+  repeated string documents = 2;
+  int32 top_n = 3;
+}
+
+message RerankResult {
+  Usage usage = 1;
+  repeated DocumentResult results = 2;
+}
+
+message Usage {
+  int32 total_tokens = 1;
+  int32 prompt_tokens = 2;
+}
+
+message DocumentResult {
+  int32 index = 1;
+  string text = 2;
+  float relevance_score = 3;
+}
+
+message StoresKey {
+  repeated float Floats = 1;
+}
+
+message StoresValue {
+  bytes Bytes = 1;
+}
+
+message StoresSetOptions {
+  repeated StoresKey Keys = 1;
+  repeated StoresValue Values = 2;
+}
+
+message StoresDeleteOptions {
+  repeated StoresKey Keys = 1;
+}
+
+message StoresGetOptions {
+  repeated StoresKey Keys = 1;
+}
+
+message StoresGetResult {
+  repeated StoresKey Keys = 1;
+  repeated StoresValue Values = 2;
+}
+
+message StoresFindOptions {
+  StoresKey Key = 1;
+  int32 TopK = 2;
+}
+
+message StoresFindResult {
+  repeated StoresKey Keys = 1;
+  repeated StoresValue Values = 2;
+  repeated float Similarities = 3;
+}
+
+message HealthMessage {}
+
+// The request message containing the user's name.
+message PredictOptions {
+  string Prompt = 1;
+  int32 Seed = 2;
+  int32 Threads = 3;
+  int32 Tokens = 4;
+  int32 TopK = 5;
+  int32 Repeat = 6;
+  int32 Batch = 7;
+  int32 NKeep = 8;
+  float Temperature = 9;
+  float Penalty = 10;
+  bool F16KV = 11;
+  bool DebugMode = 12;
+  repeated string StopPrompts = 13;
+  bool IgnoreEOS = 14;
+  float TailFreeSamplingZ = 15;
+  float TypicalP = 16;
+  float FrequencyPenalty = 17;
+  float PresencePenalty = 18;
+  int32 Mirostat = 19;
+  float MirostatETA = 20;
+  float MirostatTAU = 21;
+  bool PenalizeNL = 22;
+  string LogitBias = 23;
+  bool MLock = 25;
+  bool MMap = 26;
+  bool PromptCacheAll = 27;
+  bool PromptCacheRO = 28;
+  string Grammar = 29;
+  string MainGPU = 30;
+  string TensorSplit = 31;
+  float TopP = 32;
+  string PromptCachePath = 33;
+  bool Debug = 34;
+  repeated int32 EmbeddingTokens = 35;
+  string Embeddings = 36;
+  float RopeFreqBase = 37;
+  float RopeFreqScale = 38;
+  float NegativePromptScale = 39;
+  string NegativePrompt = 40;
+  int32 NDraft = 41;
+  repeated string Images = 42;
+  bool UseTokenizerTemplate = 43;
+  repeated Message Messages = 44;
+  repeated string Videos = 45;
+  repeated string Audios = 46;
+  string CorrelationId = 47;
+  string Tools = 48;  // JSON array of available tools/functions for tool calling
+  string ToolChoice = 49;  // JSON string or object specifying tool choice behavior
+  int32 Logprobs = 50;  // Number of top logprobs to return (maps to OpenAI logprobs parameter)
+  int32 TopLogprobs = 51;  // Number of top logprobs to return per token (maps to OpenAI top_logprobs parameter)
+  map<string, string> Metadata = 52;  // Generic per-request metadata (e.g., enable_thinking)
+  float MinP = 53;  // Minimum probability sampling threshold (0.0 = disabled)
+}
+
+// ToolCallDelta represents an incremental tool call update from the C++ parser.
+// Used for both streaming (partial diffs) and non-streaming (final tool calls).
+message ToolCallDelta {
+  int32 index = 1;           // tool call index (0-based)
+  string id = 2;             // tool call ID (e.g., "call_abc123")
+  string name = 3;           // function name (set on first appearance)
+  string arguments = 4;      // arguments chunk (incremental in streaming, full in non-streaming)
+}
+
+// ChatDelta represents incremental content/reasoning/tool_call updates parsed by the C++ backend.
+message ChatDelta {
+  string content = 1;                       // content text delta
+  string reasoning_content = 2;             // reasoning/thinking text delta
+  repeated ToolCallDelta tool_calls = 3;    // tool call deltas
+}
+
+// The response message containing the result
+message Reply {
+  bytes message = 1;
+  int32 tokens = 2;
+  int32 prompt_tokens = 3;
+  double timing_prompt_processing = 4;
+  double timing_token_generation = 5;
+  bytes audio = 6;
+  bytes logprobs = 7;  // JSON-encoded logprobs data matching OpenAI format
+  repeated ChatDelta chat_deltas = 8;       // Parsed chat deltas from C++ autoparser (streaming + non-streaming)
+}
+
+message GrammarTrigger {
+  string word = 1;
+}
+
+message ModelOptions {
+  string Model = 1;
+  int32 ContextSize = 2;
+  int32 Seed = 3;
+  int32 NBatch = 4;
+  bool F16Memory = 5;
+  bool MLock = 6;
+  bool MMap = 7;
+  bool VocabOnly = 8;
+  bool LowVRAM = 9;
+  bool Embeddings = 10;
+  bool NUMA = 11;
+  int32 NGPULayers = 12;
+  string MainGPU = 13;
+  string TensorSplit = 14;
+  int32 Threads = 15;
+  float RopeFreqBase = 17;
+  float RopeFreqScale = 18;
+  float RMSNormEps = 19;
+  int32 NGQA = 20;
+  string ModelFile = 21;
+
+
+
+  // Diffusers
+  string PipelineType = 26;
+  string SchedulerType = 27;
+  bool CUDA = 28;
+  float CFGScale = 29;
+  bool IMG2IMG = 30;
+  string CLIPModel = 31;
+  string CLIPSubfolder = 32;
+  int32 CLIPSkip = 33;
+  string ControlNet = 48;
+
+  string Tokenizer = 34;
+
+  // LLM (llama.cpp)
+  string LoraBase = 35;
+  string LoraAdapter = 36;
+  float LoraScale = 42;
+
+  bool NoMulMatQ = 37;
+  string DraftModel = 39;
+
+  string AudioPath = 38;
+
+  // vllm
+  string Quantization = 40;
+  float  GPUMemoryUtilization = 50;
+  bool   TrustRemoteCode = 51;
+  bool   EnforceEager = 52;
+  int32  SwapSpace = 53;
+  int32  MaxModelLen = 54;
+  int32  TensorParallelSize = 55;
+  string LoadFormat = 58;
+  bool   DisableLogStatus = 66;
+  string DType = 67;
+  int32  LimitImagePerPrompt = 68;
+  int32  LimitVideoPerPrompt = 69;
+  int32  LimitAudioPerPrompt = 70;
+
+  string MMProj = 41;
+
+  string RopeScaling = 43;
+  float YarnExtFactor = 44;
+  float YarnAttnFactor = 45;
+  float YarnBetaFast = 46;
+  float YarnBetaSlow = 47;
+
+  string Type = 49;
+
+  string FlashAttention = 56;
+  bool NoKVOffload = 57;
+
+  string ModelPath = 59;
+
+  repeated string LoraAdapters = 60;
+  repeated float LoraScales = 61;
+
+  repeated string Options = 62;
+
+  string CacheTypeKey = 63;
+  string CacheTypeValue = 64;
+
+  repeated GrammarTrigger GrammarTriggers = 65;
+
+  bool Reranking = 71;
+
+  repeated string Overrides = 72;
+
+  // EngineArgs carries a JSON-encoded map of backend-native engine arguments
+  // applied verbatim to the backend's engine constructor (e.g. vLLM AsyncEngineArgs).
+  // Unknown keys produce an error at LoadModel time.
+  string EngineArgs = 73;
+
+  // Proxy carries the cloud-proxy backend's per-model configuration.
+  // Empty for non-proxy backends.
+  ProxyOptions Proxy = 74;
+}
+
+// ProxyOptions configures the cloud-proxy backend. UpstreamURL and
+// Mode are always meaningful; Provider only matters in translate mode.
+// The two api_key_* fields are mutually exclusive and resolved by the
+// backend at LoadModel — core forwards the references rather than the
+// plaintext key.
+message ProxyOptions {
+  string upstream_url = 1;
+  string mode = 2;
+  string provider = 3;
+  string api_key_env = 4;
+  string api_key_file = 5;
+  string upstream_model = 6;
+  int32 request_timeout_seconds = 7;
+}
+
+message Result {
+  string message = 1;
+  bool success = 2;
+}
+
+message EmbeddingResult {
+  repeated float embeddings = 1;
+}
+
+message TranscriptRequest {
+  string dst = 2;
+  string language = 3;
+  uint32 threads = 4;
+  bool translate = 5;
+  bool diarize = 6;
+  string prompt = 7;
+  float temperature = 8;
+  repeated string timestamp_granularities = 9;
+  bool stream = 10;
+}
+
+message TranscriptResult {
+  repeated TranscriptSegment segments = 1;
+  string text = 2;
+  string language = 3;
+  float duration = 4;
+}
+
+message TranscriptStreamResponse {
+  string delta = 1;
+  TranscriptResult final_result = 2;
+}
+
+message TranscriptWord {
+  int64 start = 1;
+  int64 end = 2;
+  string text = 3;
+}
+
+message TranscriptSegment {
+  int32 id = 1;
+  int64 start = 2;
+  int64 end = 3;
+  string text = 4;
+  repeated int32 tokens = 5;
+  string speaker = 6;
+  repeated TranscriptWord words = 7;
+}
+
+message GenerateImageRequest {
+  int32 height = 1;
+  int32 width = 2;
+  int32 step = 4;
+  int32 seed = 5;
+  string positive_prompt = 6;
+  string negative_prompt = 7;
+  string dst = 8;
+  string src = 9;
+
+  // Diffusers
+  string EnableParameters = 10;
+  int32 CLIPSkip = 11;
+
+  // Reference images for models that support them (e.g., Flux Kontext)
+  repeated string ref_images = 12;
+}
+
+message GenerateVideoRequest {
+  string prompt = 1;
+  string negative_prompt = 2;  // Negative prompt for video generation
+  string start_image = 3;  // Path or base64 encoded image for the start frame
+  string end_image = 4;    // Path or base64 encoded image for the end frame
+  int32 width = 5;
+  int32 height = 6;
+  int32 num_frames = 7;    // Number of frames to generate
+  int32 fps = 8;          // Frames per second
+  int32 seed = 9;
+  float cfg_scale = 10;    // Classifier-free guidance scale
+  int32 step = 11;         // Number of inference steps
+  string dst = 12;        // Output path for the generated video
+}
+
+message TTSRequest {
+  string text = 1;
+  string model = 2;
+  string dst = 3;
+  string voice = 4;
+  optional string language = 5;
+  // instructions is a free-form, per-request style/voice description (maps to
+  // the OpenAI `instructions` field). Backends that support expressive synthesis
+  // (e.g. Qwen3-TTS CustomVoice/VoiceDesign) prefer this over the static YAML
+  // option when set; backends that don't simply ignore it.
+  optional string instructions = 6;
+  // params carries optional, backend-specific per-request generation parameters
+  // (e.g. Chatterbox exaggeration/cfg_weight/temperature). Values are strings and
+  // coerced by the backend; unset leaves the backend's configured defaults.
+  map<string, string> params = 7;
+}
+
+message VADRequest {
+  repeated float audio = 1;
+}
+
+message VADSegment {
+  float start = 1;
+  float end = 2;
+}
+
+message VADResponse {
+  repeated VADSegment segments = 1;
+}
+
+// --- Speaker diarization messages ---
+//
+// Pure speaker diarization: "who spoke when". Returns time-stamped segments
+// labelled with cluster IDs (the same string for the same speaker across
+// segments). Some backends (e.g. vibevoice.cpp) produce diarization as a
+// by-product of ASR and may also fill in `text` per segment; backends with a
+// dedicated diarization pipeline (e.g. sherpa-onnx pyannote) leave `text`
+// empty and emit only the segmentation.
+
+message DiarizeRequest {
+  string dst = 1;                      // path to audio file (HTTP layer materialises uploads to a temp file)
+  uint32 threads = 2;
+  string language = 3;                 // optional; only meaningful for transcription-bundling backends
+  int32  num_speakers = 4;             // exact speaker count if known (>0 forces); 0 = auto
+  int32  min_speakers = 5;             // hint when auto-detecting; 0 = unset
+  int32  max_speakers = 6;             // hint when auto-detecting; 0 = unset
+  float  clustering_threshold = 7;     // distance threshold when num_speakers unknown; 0 = backend default
+  float  min_duration_on = 8;          // discard segments shorter than this (seconds); 0 = backend default
+  float  min_duration_off = 9;         // merge gaps shorter than this (seconds); 0 = backend default
+  bool   include_text = 10;            // when the backend can emit per-segment transcript for free, ask it to populate `text`
+}
+
+message DiarizeSegment {
+  int32  id = 1;
+  float  start = 2;                    // seconds
+  float  end = 3;                      // seconds
+  string speaker = 4;                  // backend-emitted speaker label (e.g. "0", "SPEAKER_00")
+  string text = 5;                     // optional per-segment transcript (empty unless include_text and supported)
+}
+
+message DiarizeResponse {
+  repeated DiarizeSegment segments = 1;
+  int32  num_speakers = 2;             // count of distinct speaker labels in `segments`
+  float  duration = 3;                 // total audio duration in seconds (0 if unknown)
+  string language = 4;                 // optional, when the backend bundles transcription
+}
+
+message SoundGenerationRequest {
+  string text = 1;
+  string model = 2;
+  string dst = 3;
+  optional float duration = 4;
+  optional float temperature = 5;
+  optional bool sample = 6;
+  optional string src = 7;
+  optional int32 src_divisor = 8;
+  optional bool think = 9;
+  optional string caption = 10;
+  optional string lyrics = 11;
+  optional int32 bpm = 12;
+  optional string keyscale = 13;
+  optional string language = 14;
+  optional string timesignature = 15;
+  optional bool instrumental = 17;
+}
+
+message TokenizationResponse {
+  int32 length = 1;
+  repeated int32 tokens = 2;
+}
+
+message MemoryUsageData {
+  uint64 total = 1;
+  map<string, uint64> breakdown = 2;
+}
+
+message StatusResponse {
+  enum State {
+    UNINITIALIZED = 0;
+    BUSY = 1;
+    READY = 2;
+    ERROR = -1;
+  }
+  State state = 1;
+  MemoryUsageData memory = 2;
+}
+
+message Message {
+  string role = 1;
+  string content = 2;
+  // Optional fields for OpenAI-compatible message format
+  string name = 3;                    // Tool name (for tool messages)
+  string tool_call_id = 4;            // Tool call ID (for tool messages)
+  string reasoning_content = 5;       // Reasoning content (for thinking models)
+  string tool_calls = 6;              // Tool calls as JSON string (for assistant messages with tool calls)
+}
+
+message DetectOptions {
+  string src = 1;
+  string prompt = 2;           // Text prompt (for SAM 3 PCS mode)
+  repeated float points = 3;   // Point coordinates as [x1, y1, label1, x2, y2, label2, ...] (label: 1=pos, 0=neg)
+  repeated float boxes = 4;    // Box coordinates as [x1, y1, x2, y2, ...]
+  float threshold = 5;         // Detection confidence threshold
+}
+
+message Detection {
+  float x = 1;
+  float y = 2;
+  float width = 3;
+  float height = 4;
+  float confidence = 5;
+  string class_name = 6;
+  bytes mask = 7;              // PNG-encoded binary segmentation mask
+}
+
+message DetectResponse {
+  repeated Detection Detections = 1;
+}
+
+// --- Face recognition messages ---
+
+message FacialArea {
+  float x = 1;
+  float y = 2;
+  float w = 3;
+  float h = 4;
+}
+
+message FaceVerifyRequest {
+  string img1 = 1;              // base64-encoded image
+  string img2 = 2;              // base64-encoded image
+  float  threshold = 3;         // cosine-distance threshold; 0 = use backend default
+  bool   anti_spoofing = 4;     // run MiniFASNet liveness on each image; failed liveness forces verified=false
+}
+
+message FaceVerifyResponse {
+  bool       verified = 1;
+  float      distance = 2;      // 1 - cosine_similarity
+  float      threshold = 3;
+  float      confidence = 4;    // 0-100
+  string     model = 5;         // e.g. "buffalo_l"
+  FacialArea img1_area = 6;
+  FacialArea img2_area = 7;
+  float      processing_time_ms = 8;
+  bool       img1_is_real = 9;          // anti-spoofing result when enabled
+  float      img1_antispoof_score = 10;
+  bool       img2_is_real = 11;
+  float      img2_antispoof_score = 12;
+}
+
+message FaceAnalyzeRequest {
+  string          img = 1;          // base64-encoded image
+  repeated string actions = 2;      // subset of ["age","gender","emotion","race"]; empty = all-supported
+  bool            anti_spoofing = 3;
+}
+
+message FaceAnalysis {
+  FacialArea         region = 1;
+  float              face_confidence = 2;
+  float              age = 3;
+  string             dominant_gender = 4;   // "Man" | "Woman"
+  map<string, float> gender = 5;
+  string             dominant_emotion = 6;  // reserved; empty in MVP
+  map<string, float> emotion = 7;
+  string             dominant_race = 8;     // not populated
+  map<string, float> race = 9;
+  bool               is_real = 10;          // anti-spoofing result when enabled
+  float              antispoof_score = 11;
+}
+
+message FaceAnalyzeResponse {
+  repeated FaceAnalysis faces = 1;
+}
+
+// --- Voice (speaker) recognition messages ---
+//
+// Analogous to the Face* messages above, but for speaker biometrics.
+// Audio fields accept a filesystem path (same convention as
+// TranscriptRequest.dst). The HTTP layer materialises base64 / URL /
+// data-URI inputs to a temp file before calling the gRPC backend.
+
+message VoiceVerifyRequest {
+  string audio1 = 1;            // path to first audio clip
+  string audio2 = 2;            // path to second audio clip
+  float  threshold = 3;         // cosine-distance threshold; 0 = use backend default
+  bool   anti_spoofing = 4;     // reserved for future AASIST bolt-on
+}
+
+message VoiceVerifyResponse {
+  bool   verified = 1;
+  float  distance = 2;          // 1 - cosine_similarity
+  float  threshold = 3;
+  float  confidence = 4;        // 0-100
+  string model = 5;             // e.g. "speechbrain/spkrec-ecapa-voxceleb"
+  float  processing_time_ms = 6;
+}
+
+message VoiceAnalyzeRequest {
+  string          audio = 1;        // path to audio clip
+  repeated string actions = 2;      // subset of ["age","gender","emotion"]; empty = all-supported
+}
+
+message VoiceAnalysis {
+  float              start = 1;          // segment start time in seconds (0 if single-utterance)
+  float              end = 2;            // segment end time in seconds
+  float              age = 3;
+  string             dominant_gender = 4;
+  map<string, float> gender = 5;
+  string             dominant_emotion = 6;
+  map<string, float> emotion = 7;
+}
+
+message VoiceAnalyzeResponse {
+  repeated VoiceAnalysis segments = 1;
+}
+
+message VoiceEmbedRequest {
+  string audio = 1;              // path to audio clip
+}
+
+message VoiceEmbedResponse {
+  repeated float embedding = 1;
+  string         model = 2;
+}
+
+message ToolFormatMarkers {
+  string format_type = 1;           // "json_native", "tag_with_json", "tag_with_tagged"
+
+  // Tool section markers
+  string section_start = 2;         // e.g., "<tool_call>", "[TOOL_CALLS]"
+  string section_end = 3;           // e.g., "</tool_call>"
+  string per_call_start = 4;        // e.g., "<|tool_call_begin|>"
+  string per_call_end = 5;          // e.g., "<|tool_call_end|>"
+
+  // Function name markers (TAG_WITH_JSON / TAG_WITH_TAGGED)
+  string func_name_prefix = 6;     // e.g., "<function="
+  string func_name_suffix = 7;     // e.g., ">"
+  string func_close = 8;           // e.g., "</function>"
+
+  // Argument markers (TAG_WITH_TAGGED)
+  string arg_name_prefix = 9;      // e.g., "<param="
+  string arg_name_suffix = 10;     // e.g., ">"
+  string arg_value_prefix = 11;
+  string arg_value_suffix = 12;    // e.g., "</param>"
+  string arg_separator = 13;       // e.g., "\n"
+
+  // JSON format fields (JSON_NATIVE)
+  string name_field = 14;          // e.g., "name"
+  string args_field = 15;          // e.g., "arguments"
+  string id_field = 16;            // e.g., "id"
+  bool fun_name_is_key = 17;
+  bool tools_array_wrapped = 18;
+  reserved 19;
+
+  // Reasoning markers
+  string reasoning_start = 20;     // e.g., "<think>"
+  string reasoning_end = 21;       // e.g., "</think>"
+
+  // Content markers
+  string content_start = 22;
+  string content_end = 23;
+
+  // Args wrapper markers
+  string args_start = 24;          // e.g., "<args>"
+  string args_end = 25;            // e.g., "</args>"
+
+  // JSON parameter ordering
+  string function_field = 26;      // e.g., "function" (wrapper key in JSON)
+  repeated string parameter_order = 27;
+
+  // Generated ID field (alternative field name for generated IDs)
+  string gen_id_field = 28;        // e.g., "call_id"
+
+  // Call ID markers (position and delimiters for tool call IDs)
+  string call_id_position = 29;    // "none", "pre_func_name", "between_func_and_args", "post_args"
+  string call_id_prefix = 30;      // e.g., "[CALL_ID]"
+  string call_id_suffix = 31;      // e.g., ""
+}
+
+message AudioEncodeRequest {
+  bytes pcm_data = 1;
+  int32 sample_rate = 2;
+  int32 channels = 3;
+  map<string, string> options = 4;
+}
+
+message AudioEncodeResult {
+  repeated bytes frames = 1;
+  int32 sample_rate = 2;
+  int32 samples_per_frame = 3;
+}
+
+message AudioDecodeRequest {
+  repeated bytes frames = 1;
+  map<string, string> options = 2;
+}
+
+message AudioDecodeResult {
+  bytes pcm_data = 1;
+  int32 sample_rate = 2;
+  int32 samples_per_frame = 3;
+}
+
+// Generic audio transform: an audio-in, audio-out operation, optionally
+// conditioned on a second reference signal. Concrete transforms include
+// AEC + noise suppression + dereverberation (LocalVQE), voice conversion
+// (reference = target speaker), pitch shifting, etc.
+message AudioTransformRequest {
+  string audio_path = 1;             // required, primary input file path
+  string reference_path = 2;         // optional auxiliary; empty => zero-fill
+  string dst = 3;                    // required, output file path
+  map<string, string> params = 4;    // backend-specific tuning
+}
+
+message AudioTransformResult {
+  string dst = 1;
+  int32  sample_rate = 2;
+  int32  samples = 3;
+  bool   reference_provided = 4;
+}
+
+// Bidirectional streaming audio transform. The first message MUST carry a
+// Config; subsequent messages carry Frames. A second Config mid-stream
+// resets streaming state before the next frame.
+message AudioTransformFrameRequest {
+  oneof payload {
+    AudioTransformStreamConfig config = 1;
+    AudioTransformFrame        frame  = 2;
+  }
+}
+
+message AudioTransformStreamConfig {
+  enum SampleFormat {
+    F32_LE = 0;
+    S16_LE = 1;
+  }
+  SampleFormat sample_format = 1;
+  int32 sample_rate = 2;             // 0 => backend default
+  int32 frame_samples = 3;           // 0 => backend default
+  map<string, string> params = 4;
+  bool reset = 5;                    // reset streaming state before next frame
+}
+
+message AudioTransformFrame {
+  bytes audio_pcm = 1;               // frame_samples samples in stream's format
+  bytes reference_pcm = 2;           // empty => zero-fill (silent reference)
+}
+
+message AudioTransformFrameResponse {
+  bytes pcm = 1;
+  int64 frame_index = 2;
+}
+
+// === AudioToAudioStream messages =========================================
+//
+// Bidirectional stream between the LocalAI core and an any-to-any audio
+// model. The client opens the stream with a Config payload, then alternates
+// Frame (input audio) and Control (turn boundaries, function-call results,
+// session updates) payloads. The server streams back typed events: audio
+// frames carry PCM in `pcm`; transcript / tool-call deltas carry JSON in
+// `meta`; the stream ends with a `response.done` (success) or `error` event.
+
+message AudioToAudioRequest {
+  oneof payload {
+    AudioToAudioConfig  config  = 1;
+    AudioToAudioFrame   frame   = 2;
+    AudioToAudioControl control = 3;
+  }
+}
+
+message AudioToAudioConfig {
+  // PCM format for client→server audio. 0 => backend default
+  // (16 kHz for the LFM2-Audio Conformer encoder).
+  int32 input_sample_rate = 1;
+  // Preferred server→client audio rate. 0 => backend default
+  // (24 kHz for the LFM2-Audio vocoder).
+  int32 output_sample_rate = 2;
+  // Optional system prompt override. Empty => backend chooses based on
+  // mode (e.g. "Respond with interleaved text and audio.").
+  string system_prompt = 3;
+  // Optional baked-voice id. Models that only ship a fixed set of
+  // voices (e.g. LFM2-Audio: us_male/us_female/uk_male/uk_female) match
+  // this against their voice table; an empty string keeps the default.
+  string voice = 4;
+  // JSON-encoded array of tool definitions in OpenAI Chat Completions
+  // format. Empty => no tools.
+  string tools = 5;
+  // Free-form sampling / decoding parameters (temperature, top_k,
+  // max_new_tokens, audio_top_k, etc).
+  map<string, string> params = 6;
+  // True => reset any session-scoped state before processing further
+  // frames on this stream. The first Config implicitly resets.
+  bool reset = 7;
+}
+
+message AudioToAudioFrame {
+  // Raw PCM s16le mono at config.input_sample_rate. Empty pcm + end_of_input
+  // is a valid "user finished speaking" marker without trailing audio.
+  bytes pcm = 1;
+  // Marks the last frame of a user turn. The backend may begin emitting
+  // a response immediately after seeing this.
+  bool end_of_input = 2;
+}
+
+message AudioToAudioControl {
+  // Free-form control event names. Initial set:
+  //   "input_audio_buffer.commit"     — user finished speaking
+  //   "response.cancel"               — abort in-flight generation
+  //   "conversation.item.create"      — inject a non-audio item (e.g.
+  //                                     function_call_output as JSON in
+  //                                     `payload`)
+  //   "session.update"                — re-configure mid-stream
+  string event = 1;
+  // Event-specific JSON payload.
+  bytes payload = 2;
+}
+
+message AudioToAudioResponse {
+  // Event identifies what this frame carries. Mirrors the OpenAI Realtime
+  // API server-event names where applicable. Initial set:
+  //   "response.audio.delta"
+  //   "response.audio_transcript.delta"
+  //   "response.function_call_arguments.delta"
+  //   "response.function_call_arguments.done"
+  //   "response.done"
+  //   "error"
+  string event = 1;
+  // Populated when event = response.audio.delta.
+  bytes pcm = 2;
+  // Populated alongside pcm to identify its rate. 0 => same as the
+  // session's negotiated output_sample_rate.
+  int32 sample_rate = 3;
+  // JSON payload for non-PCM events (transcript chunk, tool args, error
+  // body).
+  bytes meta = 4;
+  // Monotonic per-stream counter, useful for client reordering and
+  // debugging.
+  int64 sequence = 5;
+}
+
+message ModelMetadataResponse {
+  bool supports_thinking = 1;
+  string rendered_template = 2;  // The rendered chat template with enable_thinking=true (empty if not applicable)
+  ToolFormatMarkers tool_format = 3;  // Auto-detected tool format markers from differential template analysis
+  string media_marker = 4;  // Marker the backend expects in the prompt for each multimodal input (images/audio/video). Empty when the backend does not use a marker.
+}
+
+// Fine-tuning messages
+
+message FineTuneRequest {
+  // Model identification
+  string model = 1;                       // HF model name or local path
+  string training_type = 2;              // "lora", "loha", "lokr", "full" — what parameters to train
+  string training_method = 3;            // "sft", "dpo", "grpo", "rloo", "reward", "kto", "orpo", "network_training"
+
+  // Adapter config (universal across LoRA/LoHa/LoKr for LLM + diffusion)
+  int32 adapter_rank = 10;               // LoRA rank (r), default 16
+  int32 adapter_alpha = 11;              // scaling factor, default 16
+  float adapter_dropout = 12;            // default 0.0
+  repeated string target_modules = 13;   // layer names to adapt
+
+  // Universal training hyperparameters
+  float learning_rate = 20;              // default 2e-4
+  int32 num_epochs = 21;                 // default 3
+  int32 batch_size = 22;                 // default 2
+  int32 gradient_accumulation_steps = 23; // default 4
+  int32 warmup_steps = 24;              // default 5
+  int32 max_steps = 25;                 // 0 = use epochs
+  int32 save_steps = 26;               // 0 = only save final
+  float weight_decay = 27;             // default 0.01
+  bool gradient_checkpointing = 28;
+  string optimizer = 29;               // adamw_8bit, adamw, sgd, adafactor, prodigy
+  int32 seed = 30;                     // default 3407
+  string mixed_precision = 31;        // fp16, bf16, fp8, no
+
+  // Dataset
+  string dataset_source = 40;          // HF dataset ID, local file/dir path
+  string dataset_split = 41;           // train, test, etc.
+
+  // Output
+  string output_dir = 50;
+  string job_id = 51;                  // client-assigned or auto-generated
+
+  // Resume training from a checkpoint
+  string resume_from_checkpoint = 55;  // path to checkpoint dir to resume from
+
+  // Backend-specific AND method-specific extensibility
+  map<string, string> extra_options = 60;
+}
+
+message FineTuneJobResult {
+  string job_id = 1;
+  bool success = 2;
+  string message = 3;
+}
+
+message FineTuneProgressRequest {
+  string job_id = 1;
+}
+
+message FineTuneProgressUpdate {
+  string job_id = 1;
+  int32 current_step = 2;
+  int32 total_steps = 3;
+  float current_epoch = 4;
+  float total_epochs = 5;
+  float loss = 6;
+  float learning_rate = 7;
+  float grad_norm = 8;
+  float eval_loss = 9;
+  float eta_seconds = 10;
+  float progress_percent = 11;
+  string status = 12;                  // queued, caching, loading_model, loading_dataset, training, saving, completed, failed, stopped
+  string message = 13;
+  string checkpoint_path = 14;        // set when a checkpoint is saved
+  string sample_path = 15;           // set when a sample is generated (video/image backends)
+  map<string, float> extra_metrics = 16; // method-specific metrics
+}
+
+message FineTuneStopRequest {
+  string job_id = 1;
+  bool save_checkpoint = 2;
+}
+
+message ListCheckpointsRequest {
+  string output_dir = 1;
+}
+
+message ListCheckpointsResponse {
+  repeated CheckpointInfo checkpoints = 1;
+}
+
+message CheckpointInfo {
+  string path = 1;
+  int32 step = 2;
+  float epoch = 3;
+  float loss = 4;
+  string created_at = 5;
+}
+
+message ExportModelRequest {
+  string checkpoint_path = 1;
+  string output_path = 2;
+  string export_format = 3;           // lora, loha, lokr, merged_16bit, merged_4bit, gguf, diffusers
+  string quantization_method = 4;     // for GGUF: q4_k_m, q5_k_m, q8_0, f16, etc.
+  string model = 5;                   // base model name (for merge operations)
+  map<string, string> extra_options = 6;
+}
+
+// Quantization messages
+
+message QuantizationRequest {
+  string model = 1;                      // HF model name or local path
+  string quantization_type = 2;          // q4_k_m, q5_k_m, q8_0, f16, etc.
+  string output_dir = 3;                 // where to write output files
+  string job_id = 4;                     // client-assigned job ID
+  map<string, string> extra_options = 5; // hf_token, custom flags, etc.
+}
+
+message QuantizationJobResult {
+  string job_id = 1;
+  bool success = 2;
+  string message = 3;
+}
+
+message QuantizationProgressRequest {
+  string job_id = 1;
+}
+
+message QuantizationProgressUpdate {
+  string job_id = 1;
+  float progress_percent = 2;
+  string status = 3;                     // queued, downloading, converting, quantizing, completed, failed, stopped
+  string message = 4;
+  string output_file = 5;               // set when completed — path to the output GGUF file
+  map<string, float> extra_metrics = 6;  // e.g. file_size_mb, compression_ratio
+}
+
+message QuantizationStopRequest {
+  string job_id = 1;
+}
+
+// ForwardHeader is one HTTP header on the request or response. Headers
+// like Authorization are typically injected by the backend (from the
+// resolved API key) rather than passed through from the client.
+message ForwardHeader {
+  string name = 1;
+  string value = 2;
+}
+
+// ForwardRequest is a streamed HTTP request to the upstream. First
+// message carries path/method/headers; subsequent messages carry
+// body_chunk only. All fields except body_chunk are honoured on the
+// first message and ignored thereafter.
+message ForwardRequest {
+  string path = 1;                          // e.g. "/v1/chat/completions" — appended to the model's upstream_url
+  string method = 2;                        // usually "POST"
+  repeated ForwardHeader headers = 3;
+  bytes body_chunk = 4;
+}
+
+// ForwardReply is a streamed HTTP response from the upstream. First
+// message carries status/headers; subsequent messages carry body_chunk
+// only. SSE responses arrive as a sequence of body_chunk frames; the
+// caller is responsible for any parsing.
+message ForwardReply {
+  int32 status = 1;
+  repeated ForwardHeader headers = 2;
+  bytes body_chunk = 3;
+}
+

@@ -1,0 +1,115 @@
+package config
+
+// RuntimeSettings represents runtime configuration that can be changed dynamically.
+// This struct is used for:
+// - API responses (GET /api/settings)
+// - API requests (POST /api/settings)
+// - Persisting to runtime_settings.json
+// - Loading from runtime_settings.json on startup
+//
+// All fields are pointers to distinguish between "not set" and "set to zero/false value".
+type RuntimeSettings struct {
+	// Watchdog settings
+	WatchdogEnabled     *bool   `json:"watchdog_enabled,omitempty"`
+	WatchdogIdleEnabled *bool   `json:"watchdog_idle_enabled,omitempty"`
+	WatchdogBusyEnabled *bool   `json:"watchdog_busy_enabled,omitempty"`
+	WatchdogIdleTimeout *string `json:"watchdog_idle_timeout,omitempty"`
+	WatchdogBusyTimeout *string `json:"watchdog_busy_timeout,omitempty"`
+	WatchdogInterval    *string `json:"watchdog_interval,omitempty"` // Interval between watchdog checks (e.g., 2s, 30s)
+
+	// Backend management
+	SingleBackend           *bool `json:"single_backend,omitempty"`      // Deprecated: use MaxActiveBackends = 1 instead
+	MaxActiveBackends       *int  `json:"max_active_backends,omitempty"` // Maximum number of active backends (0 = unlimited, 1 = single backend mode)
+	AutoUpgradeBackends       *bool `json:"auto_upgrade_backends,omitempty"`       // Automatically upgrade backends when new versions are detected
+	PreferDevelopmentBackends *bool `json:"prefer_development_backends,omitempty"` // Prefer development backend versions by default in UI
+	// Memory Reclaimer settings (works with GPU if available, otherwise RAM)
+	MemoryReclaimerEnabled   *bool    `json:"memory_reclaimer_enabled,omitempty"`   // Enable memory threshold monitoring
+	MemoryReclaimerThreshold *float64 `json:"memory_reclaimer_threshold,omitempty"` // Threshold 0.0-1.0 (e.g., 0.95 = 95%)
+
+	// Eviction settings
+	ForceEvictionWhenBusy    *bool   `json:"force_eviction_when_busy,omitempty"`    // Force eviction even when models have active API calls (default: false for safety)
+	LRUEvictionMaxRetries    *int    `json:"lru_eviction_max_retries,omitempty"`    // Maximum number of retries when waiting for busy models to become idle (default: 30)
+	LRUEvictionRetryInterval *string `json:"lru_eviction_retry_interval,omitempty"` // Interval between retries when waiting for busy models (e.g., 1s, 2s) (default: 1s)
+
+	// Performance settings
+	Threads              *int  `json:"threads,omitempty"`
+	ContextSize          *int  `json:"context_size,omitempty"`
+	F16                  *bool `json:"f16,omitempty"`
+	Debug                *bool `json:"debug,omitempty"`
+	EnableTracing        *bool `json:"enable_tracing,omitempty"`
+	TracingMaxItems      *int  `json:"tracing_max_items,omitempty"`
+	TracingMaxBodyBytes  *int  `json:"tracing_max_body_bytes,omitempty"` // Per-body cap in bytes; 0 disables the cap
+	EnableBackendLogging *bool `json:"enable_backend_logging,omitempty"`
+
+	// Security/CORS settings
+	CORS             *bool   `json:"cors,omitempty"`
+	CSRF             *bool   `json:"csrf,omitempty"`
+	CORSAllowOrigins *string `json:"cors_allow_origins,omitempty"`
+
+	// P2P settings
+	P2PToken     *string `json:"p2p_token,omitempty"`
+	P2PNetworkID *string `json:"p2p_network_id,omitempty"`
+	Federated    *bool   `json:"federated,omitempty"`
+
+	// Gallery settings
+	Galleries                *[]Gallery `json:"galleries,omitempty"`
+	BackendGalleries         *[]Gallery `json:"backend_galleries,omitempty"`
+	AutoloadGalleries        *bool      `json:"autoload_galleries,omitempty"`
+	AutoloadBackendGalleries *bool      `json:"autoload_backend_galleries,omitempty"`
+
+	// API keys - No omitempty as we need to save empty arrays to clear keys
+	ApiKeys *[]string `json:"api_keys"`
+
+	// Agent settings
+	AgentJobRetentionDays *int `json:"agent_job_retention_days,omitempty"`
+
+	// Open Responses settings
+	OpenResponsesStoreTTL *string `json:"open_responses_store_ttl,omitempty"` // TTL for stored responses (e.g., "1h", "30m", "0" = no expiration)
+
+	// Agent Pool settings
+	AgentPoolEnabled          *bool   `json:"agent_pool_enabled,omitempty"`
+	AgentPoolDefaultModel     *string `json:"agent_pool_default_model,omitempty"`
+	AgentPoolEmbeddingModel   *string `json:"agent_pool_embedding_model,omitempty"`
+	AgentPoolMaxChunkingSize  *int    `json:"agent_pool_max_chunking_size,omitempty"`
+	AgentPoolChunkOverlap     *int    `json:"agent_pool_chunk_overlap,omitempty"`
+	AgentPoolEnableLogs       *bool   `json:"agent_pool_enable_logs,omitempty"`
+	AgentPoolCollectionDBPath *string `json:"agent_pool_collection_db_path,omitempty"`
+	AgentPoolVectorEngine     *string `json:"agent_pool_vector_engine,omitempty"` // chromem | postgres
+	AgentPoolDatabaseURL      *string `json:"agent_pool_database_url,omitempty"`  // PostgreSQL DSN when vector engine is postgres
+	AgentPoolAgentHubURL      *string `json:"agent_pool_agent_hub_url,omitempty"` // override the agenthub.localai.io endpoint
+
+	// LocalAI Assistant settings — read live by the chat handler at request
+	// entry, so flipping the toggle takes effect on the next request.
+	LocalAIAssistantEnabled *bool `json:"localai_assistant_enabled,omitempty"` // negation of DisableLocalAIAssistant for UI clarity
+
+	// Branding / whitelabeling. Text fields are user-facing; *File fields hold
+	// just the basename of an uploaded asset under {DynamicConfigsDir}/branding/.
+	// All optional — empty values fall back to bundled LocalAI defaults.
+	InstanceName       *string `json:"instance_name,omitempty"`
+	InstanceTagline    *string `json:"instance_tagline,omitempty"`
+	LogoFile           *string `json:"logo_file,omitempty"`
+	LogoHorizontalFile *string `json:"logo_horizontal_file,omitempty"`
+	FaviconFile        *string `json:"favicon_file,omitempty"`
+
+	// Cloud-proxy MITM listener. MITMCADir is intentionally NOT
+	// exposed at runtime — the CA dir is a startup-only path and
+	// changing it after the CA has been generated would orphan
+	// trusted clients.
+	MITMListen *string `json:"mitm_listen,omitempty"`
+
+	// PII pattern overrides — keyed by pattern id, applied to the live
+	// redactor at startup and persisted by POST /api/pii/patterns/persist.
+	// Distinguishes from --pii-config (which replaces the entire
+	// pattern set) by only carrying the per-id action/enabled deltas
+	// against the global default catalog.
+	PIIPatternOverrides *map[string]PIIPatternRuntimeOverride `json:"pii_pattern_overrides,omitempty"`
+}
+
+// PIIPatternRuntimeOverride captures the persistable deltas an admin
+// has applied to a single global PII pattern. Both fields are pointers
+// so an override that only flips Disabled doesn't have to also restate
+// Action (and vice versa).
+type PIIPatternRuntimeOverride struct {
+	Action   *string `json:"action,omitempty"`
+	Disabled *bool   `json:"disabled,omitempty"`
+}

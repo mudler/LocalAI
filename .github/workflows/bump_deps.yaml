@@ -1,0 +1,144 @@
+name: Bump Backend dependencies
+on:
+  schedule:
+    - cron: 0 20 * * *
+  workflow_dispatch:
+jobs:
+  bump-backends:
+    if: github.repository == 'mudler/LocalAI'
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - repository: "ggml-org/llama.cpp"
+            variable: "LLAMA_VERSION"
+            branch: "master"
+            file: "backend/cpp/llama-cpp/Makefile"
+          - repository: "ikawrakow/ik_llama.cpp"
+            variable: "IK_LLAMA_VERSION"
+            branch: "main"
+            file: "backend/cpp/ik-llama-cpp/Makefile"
+          - repository: "TheTom/llama-cpp-turboquant"
+            variable: "TURBOQUANT_VERSION"
+            branch: "feature/turboquant-kv-cache"
+            file: "backend/cpp/turboquant/Makefile"
+          - repository: "antirez/ds4"
+            variable: "DS4_VERSION"
+            branch: "main"
+            file: "backend/cpp/ds4/Makefile"
+          - repository: "ggml-org/whisper.cpp"
+            variable: "WHISPER_CPP_VERSION"
+            branch: "master"
+            file: "backend/go/whisper/Makefile"
+          - repository: "CrispStrobe/CrispASR"
+            variable: "CRISPASR_VERSION"
+            branch: "main"
+            file: "backend/go/crispasr/Makefile"
+          - repository: "mudler/parakeet.cpp"
+            variable: "PARAKEET_VERSION"
+            branch: "master"
+            file: "backend/go/parakeet-cpp/Makefile"
+          - repository: "leejet/stable-diffusion.cpp"
+            variable: "STABLEDIFFUSION_GGML_VERSION"
+            branch: "master"
+            file: "backend/go/stablediffusion-ggml/Makefile"
+          - repository: "mudler/go-piper"
+            variable: "PIPER_VERSION"
+            branch: "master"
+            file: "backend/go/piper/Makefile"
+          - repository: "antirez/voxtral.c"
+            variable: "VOXTRAL_VERSION"
+            branch: "main"
+            file: "backend/go/voxtral/Makefile"
+          - repository: "ace-step/acestep.cpp"
+            variable: "ACESTEP_CPP_VERSION"
+            branch: "master"
+            file: "backend/go/acestep-cpp/Makefile"
+          - repository: "PABannier/sam3.cpp"
+            variable: "SAM3_VERSION"
+            branch: "main"
+            file: "backend/go/sam3-cpp/Makefile"
+          - repository: "mudler/rf-detr.cpp"
+            variable: "RFDETR_VERSION"
+            branch: "main"
+            file: "backend/go/rfdetr-cpp/Makefile"
+          - repository: "mudler/locate-anything.cpp"
+            variable: "LOCATEANYTHING_VERSION"
+            branch: "master"
+            file: "backend/go/locate-anything-cpp/Makefile"
+          - repository: "predict-woo/qwen3-tts.cpp"
+            variable: "QWEN3TTS_CPP_VERSION"
+            branch: "main"
+            file: "backend/go/qwen3-tts-cpp/Makefile"
+          - repository: "ServeurpersoCom/omnivoice.cpp"
+            variable: "OMNIVOICE_VERSION"
+            branch: "master"
+            file: "backend/go/omnivoice-cpp/Makefile"
+          - repository: "localai-org/vibevoice.cpp"
+            variable: "VIBEVOICE_CPP_VERSION"
+            branch: "master"
+            file: "backend/go/vibevoice-cpp/Makefile"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - name: Bump dependencies 🔧
+        id: bump
+        run: |
+          bash .github/bump_deps.sh ${{ matrix.repository }} ${{ matrix.branch }} ${{ matrix.variable }} ${{ matrix.file }}
+          {
+            echo 'message<<EOF'
+            cat "${{ matrix.variable }}_message.txt"
+            echo EOF
+          } >> "$GITHUB_OUTPUT"
+          {
+            echo 'commit<<EOF'
+            cat "${{ matrix.variable }}_commit.txt"
+            echo EOF
+          } >> "$GITHUB_OUTPUT"
+          rm -rfv ${{ matrix.variable }}_message.txt
+          rm -rfv ${{ matrix.variable }}_commit.txt
+      - name: Create Pull Request
+        uses: peter-evans/create-pull-request@v8
+        with:
+          token: ${{ secrets.UPDATE_BOT_TOKEN }}
+          push-to-fork: ci-forks/LocalAI
+          commit-message: ':arrow_up: Update ${{ matrix.repository }}'
+          title: 'chore: :arrow_up: Update ${{ matrix.repository }} to `${{ steps.bump.outputs.commit }}`'
+          branch: "update/${{ matrix.variable }}"
+          body: ${{ steps.bump.outputs.message }}
+          signoff: true
+
+  bump-vllm-wheel:
+    # vLLM's cu130 wheel comes from a per-tag index URL (no /latest/ alias),
+    # so the cublas13 requirements file pins both a URL segment and a version
+    # constraint. bump_deps.sh handles git-sha-in-Makefile only — this job
+    # rewrites both values atomically when a new vLLM stable tag ships.
+    if: github.repository == 'mudler/LocalAI'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - name: Bump vLLM cu130 wheel pin 🔧
+        id: bump
+        run: |
+          bash .github/bump_vllm_wheel.sh vllm-project/vllm backend/python/vllm/requirements-cublas13-after.txt VLLM_VERSION
+          {
+            echo 'message<<EOF'
+            cat "VLLM_VERSION_message.txt"
+            echo EOF
+          } >> "$GITHUB_OUTPUT"
+          {
+            echo 'commit<<EOF'
+            cat "VLLM_VERSION_commit.txt"
+            echo EOF
+          } >> "$GITHUB_OUTPUT"
+          rm -rfv VLLM_VERSION_message.txt VLLM_VERSION_commit.txt
+      - name: Create Pull Request
+        uses: peter-evans/create-pull-request@v8
+        with:
+          token: ${{ secrets.UPDATE_BOT_TOKEN }}
+          push-to-fork: ci-forks/LocalAI
+          commit-message: ':arrow_up: Update vllm-project/vllm cu130 wheel'
+          title: 'chore: :arrow_up: Update vllm-project/vllm cu130 wheel to `${{ steps.bump.outputs.commit }}`'
+          branch: "update/VLLM_VERSION"
+          body: ${{ steps.bump.outputs.message }}
+          signoff: true

@@ -1,0 +1,65 @@
+name: 'Free disk space on hosted runners'
+description: |
+  Aggressively clean GitHub-hosted ubuntu-latest runners to reclaim ~6-10 GB
+  of working space before docker buildx steps. Combines jlumbroso/free-disk-space
+  with explicit apt purges of large packages we never use (dotnet, ghc, mono,
+  android, jdk, ...).
+
+  No-op on self-hosted runners; pass mode=skip to force-disable.
+
+inputs:
+  mode:
+    description: 'hosted (default — clean) or skip (no-op)'
+    required: false
+    default: 'hosted'
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Free Disk Space (Ubuntu)
+      if: inputs.mode == 'hosted' && runner.environment == 'github-hosted'
+      uses: jlumbroso/free-disk-space@main
+      with:
+        tool-cache: true
+        android: true
+        dotnet: true
+        haskell: true
+        large-packages: true
+        docker-images: true
+        swap-storage: true
+
+    - name: Release space from worker
+      if: inputs.mode == 'hosted' && runner.environment == 'github-hosted'
+      shell: bash
+      run: |
+        echo "Listing top largest packages"
+        pkgs=$(dpkg-query -Wf '${Installed-Size}\t${Package}\t${Status}\n' | awk '$NF == "installed"{print $1 "\t" $2}' | sort -nr)
+        head -n 30 <<< "${pkgs}"
+        df -h
+        sudo apt-get remove -y '^llvm-.*|^libllvm.*' || true
+        sudo apt-get remove --auto-remove android-sdk-platform-tools snapd || true
+        sudo apt-get purge --auto-remove android-sdk-platform-tools snapd || true
+        sudo rm -rf /usr/local/lib/android
+        sudo apt-get remove -y '^dotnet-.*|^aspnetcore-.*' || true
+        sudo rm -rf /usr/share/dotnet
+        sudo apt-get remove -y '^mono-.*' || true
+        sudo apt-get remove -y '^ghc-.*' || true
+        sudo apt-get remove -y '.*jdk.*|.*jre.*' || true
+        sudo apt-get remove -y 'php.*' || true
+        sudo apt-get remove -y hhvm powershell firefox monodoc-manual msbuild || true
+        sudo apt-get remove -y '^google-.*' || true
+        sudo apt-get remove -y azure-cli || true
+        sudo apt-get remove -y '^mongo.*-.*|^postgresql-.*|^mysql-.*|^mssql-.*' || true
+        sudo apt-get remove -y '^gfortran-.*' || true
+        sudo apt-get remove -y microsoft-edge-stable || true
+        sudo apt-get remove -y firefox || true
+        sudo apt-get remove -y powershell || true
+        sudo apt-get remove -y r-base-core || true
+        sudo apt-get autoremove -y
+        sudo apt-get clean
+        sudo rm -rfv build || true
+        sudo rm -rf /usr/share/dotnet || true
+        sudo rm -rf /opt/ghc || true
+        sudo rm -rf "/usr/local/share/boost" || true
+        sudo rm -rf "$AGENT_TOOLSDIRECTORY" || true
+        df -h

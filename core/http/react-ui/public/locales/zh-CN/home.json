@@ -1,0 +1,66 @@
+{
+  "cluster": {
+    "vram": "集群 VRAM",
+    "ram": "集群 RAM",
+    "nodesOnline": "{{healthy}}/{{total}} 节点在线"
+  },
+  "resourceGpu": "GPU",
+  "resourceRam": "RAM",
+  "assistant": {
+    "title": "通过聊天管理 LocalAI",
+    "description": "通过与 LocalAI 对话来安装模型、切换后端、编辑配置和查看状态。",
+    "open": "打开助手",
+    "tooltip": "通过聊天管理 LocalAI"
+  },
+  "input": {
+    "placeholder": "消息...",
+    "attachImage": "附加图片",
+    "attachAudio": "附加音频",
+    "attachFile": "附加文件",
+    "enterToSend": "按回车发送",
+    "selectModelFirst": "请先选择一个模型",
+    "sendMessage": "发送消息",
+    "selectModelToast": "请先选择一个模型"
+  },
+  "quickLinks": {
+    "manageByChat": "通过聊天管理",
+    "installedModels": "已安装的模型",
+    "browseGallery": "浏览模型库",
+    "importModel": "导入模型",
+    "documentation": "文档"
+  },
+  "loadedModels": {
+    "count_one": "已加载 {{count}} 个模型",
+    "count_other": "已加载 {{count}} 个模型",
+    "stop": "停止模型",
+    "stopAll": "全部停止"
+  },
+  "stopDialog": {
+    "title": "停止模型",
+    "message": "停止模型 {{model}}？",
+    "confirm": "停止 {{model}}",
+    "stopAllTitle": "停止所有模型",
+    "stopAllMessage": "停止所有 {{count}} 个已加载的模型？",
+    "stopAllConfirm": "全部停止",
+    "stoppedToast": "已停止 {{model}}",
+    "allStoppedToast": "所有模型已停止",
+    "stopFailed": "停止失败：{{message}}"
+  },
+  "wizard": {
+    "getStarted": "开始使用 {{name}}",
+    "intro": "安装您的第一个模型即可开始。浏览模型库或导入您自己的模型。",
+    "steps": {
+      "step1Title": "浏览模型库",
+      "step1Body": "从我们精选的集合中找到适合您需求的模型。",
+      "step2Title": "安装模型",
+      "step2Body": "点击安装即可自动下载并配置。",
+      "step3Title": "开始聊天",
+      "step3Body": "直接在浏览器中与模型聊天，或使用 API。"
+    },
+    "browseGallery": "浏览模型库",
+    "importModel": "导入模型",
+    "docs": "文档",
+    "noModelsTitle": "暂无可用模型",
+    "noModelsBody": "尚未安装模型。请联系您的管理员设置模型，以便开始聊天。"
+  }
+}

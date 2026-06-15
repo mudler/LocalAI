@@ -1,0 +1,754 @@
+/* ─── Shared auth page styles (Login, Users, Account) ─── */
+
+/* ─── Status / role badges ─── */
+.status-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: var(--radius-sm, 4px);
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.status-badge-success {
+  background: var(--color-success, #22c55e)22;
+  color: var(--color-success, #22c55e);
+}
+
+.status-badge-danger {
+  background: var(--color-danger, #ef4444)22;
+  color: var(--color-danger, #ef4444);
+}
+
+.status-badge-warning {
+  background: var(--color-warning, #eab308)22;
+  color: var(--color-warning, #eab308);
+}
+
+.role-badge {
+  font-size: 0.6875rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 1px 6px;
+  border-radius: var(--radius-sm);
+}
+
+.role-badge-admin {
+  background: var(--color-accent-light);
+  color: var(--color-accent);
+}
+
+.role-badge-user {
+  background: var(--color-primary-light);
+  color: var(--color-primary);
+}
+
+.provider-tag {
+  font-size: 0.6875rem;
+  color: var(--color-text-muted);
+  padding: 1px 6px;
+  border-radius: var(--radius-sm);
+  background: var(--color-bg-primary);
+}
+
+/* ─── Tab bar ─── */
+.auth-tab-bar {
+  display: flex;
+  gap: var(--spacing-xs);
+  border-bottom: 1px solid var(--color-border);
+  margin-bottom: var(--spacing-md);
+}
+
+.auth-tab-bar--flush {
+  gap: 0;
+  border-bottom-color: var(--color-border-default);
+  margin-bottom: var(--spacing-lg);
+}
+
+.auth-tab {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+  padding: var(--spacing-sm) var(--spacing-md);
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 0.8125rem;
+  font-weight: 400;
+  color: var(--color-text-secondary);
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  transition: color 150ms, border-color 150ms, font-weight 150ms;
+}
+
+.auth-tab:hover {
+  color: var(--color-text-primary);
+}
+
+.auth-tab.active {
+  font-weight: 600;
+  color: var(--color-primary);
+  border-bottom-color: var(--color-primary);
+}
+
+.auth-tab-icon {
+  font-size: 0.75rem;
+}
+
+.auth-tab--pill {
+  border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+}
+
+/* ─── Toolbar (search + buttons row) ─── */
+.auth-toolbar {
+  display: flex;
+  gap: var(--spacing-sm);
+  margin-bottom: var(--spacing-md);
+  align-items: center;
+}
+
+/* ─── Search field with icon ─── */
+.search-field {
+  position: relative;
+  flex: 1;
+  max-width: 360px;
+}
+
+.search-field-icon {
+  position: absolute;
+  left: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--color-text-secondary);
+  font-size: 0.8rem;
+  pointer-events: none;
+}
+
+.search-field .input {
+  padding-left: 32px;
+}
+
+/* ─── Centered loading ─── */
+.auth-loading {
+  display: flex;
+  justify-content: center;
+  padding: var(--spacing-xl);
+}
+
+/* ─── User row (avatar + name) ─── */
+.user-identity {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+}
+
+.user-avatar {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  object-fit: cover;
+}
+
+.user-avatar--lg {
+  width: 44px;
+  height: 44px;
+}
+
+.user-avatar-placeholder {
+  font-size: 1.5rem;
+  color: var(--color-text-secondary);
+  flex-shrink: 0;
+}
+
+.user-avatar-placeholder--lg {
+  font-size: 1.75rem;
+}
+
+.user-name {
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+
+.user-email {
+  font-size: 0.8125rem;
+  font-family: var(--font-mono);
+}
+
+/* ─── Table cells ─── */
+.cell-sm {
+  font-size: 0.8125rem;
+}
+
+.cell-muted {
+  font-size: 0.8125rem;
+  color: var(--color-text-secondary);
+}
+
+.cell-actions {
+  width: 140px;
+}
+
+.cell-actions--sm {
+  width: 120px;
+}
+
+/* ─── Inline action group ─── */
+.action-group {
+  display: flex;
+  gap: var(--spacing-xs);
+}
+
+/* ─── Monospace / code text ─── */
+.mono-text {
+  font-family: var(--font-mono);
+  color: var(--color-text-secondary);
+}
+
+.mono-text--truncate {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ─── Permission summary button ─── */
+.perm-summary-btn {
+  font-size: 0.7rem;
+  padding: 2px 8px;
+}
+
+.perm-summary-btn i {
+  margin-right: 4px;
+}
+
+.perm-summary-text {
+  font-size: 0.75rem;
+  color: var(--color-text-secondary);
+  font-style: italic;
+}
+
+/* ─── Permissions modal ─── */
+.perm-modal-body {
+  padding: var(--spacing-lg);
+}
+
+.perm-modal-header {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  padding-bottom: var(--spacing-md);
+  margin-bottom: var(--spacing-md);
+  border-bottom: 1px solid var(--color-border-subtle);
+}
+
+.perm-modal-header h3 {
+  margin: 0;
+  font-size: 1.1rem;
+  color: var(--color-text-primary);
+}
+
+.perm-modal-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+}
+
+.perm-section {
+  margin-bottom: var(--spacing-sm);
+  padding: 0;
+  background: none;
+  border: none;
+  border-radius: 0;
+}
+
+.perm-section + .perm-section {
+  padding-top: var(--spacing-sm);
+  border-top: 1px solid var(--color-border-subtle);
+}
+
+.perm-section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--spacing-sm);
+}
+
+.perm-section-title {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.perm-section-title i {
+  margin-right: var(--spacing-xs);
+  font-size: 0.7rem;
+}
+
+.perm-grid {
+  display: flex;
+  gap: var(--spacing-xs);
+  flex-wrap: wrap;
+}
+
+.perm-btn-all-none {
+  font-size: 0.6875rem;
+  padding: 2px 8px;
+}
+
+.perm-btn-feature {
+  font-size: 0.8rem;
+  padding: 5px 12px;
+}
+
+.perm-toggle-label {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  font-size: 0.8rem;
+  cursor: pointer;
+  color: var(--color-text-primary);
+}
+
+.perm-hint {
+  font-size: 0.8rem;
+  color: var(--color-text-secondary);
+  margin: 0;
+  font-style: italic;
+}
+
+.perm-empty {
+  font-size: 0.8rem;
+  color: var(--color-text-secondary);
+  padding: var(--spacing-xs);
+}
+
+.perm-modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--spacing-sm);
+  padding: var(--spacing-md) var(--spacing-lg);
+  margin: 0 calc(-1 * var(--spacing-lg));
+  margin-bottom: calc(-1 * var(--spacing-lg));
+  border-top: 1px solid var(--color-border-subtle);
+  background: var(--color-bg-secondary);
+  position: sticky;
+  bottom: 0;
+}
+
+/* ─── Invite link cell ─── */
+.invite-cell {
+  font-size: 0.8rem;
+  max-width: 320px;
+}
+
+.invite-link-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.invite-link-text {
+  font-family: var(--font-mono);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+  color: var(--color-text-secondary);
+}
+
+.invite-copy-btn {
+  font-size: 0.7rem;
+  padding: 2px 6px;
+  flex-shrink: 0;
+}
+
+/* ─── Account page ─── */
+.account-page {
+  max-width: 800px;
+}
+
+.account-user-header {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-md);
+  margin-bottom: var(--spacing-lg);
+  padding: var(--spacing-md);
+  background: var(--color-bg-tertiary);
+  border-radius: var(--radius-md);
+}
+
+.account-avatar-frame {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: var(--color-primary-light);
+  border: 2px solid var(--color-primary-border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  overflow: hidden;
+}
+
+.account-avatar-icon {
+  font-size: 1.125rem;
+  color: var(--color-primary);
+}
+
+.account-user-meta {
+  min-width: 0;
+}
+
+.account-user-email {
+  font-size: 0.8125rem;
+  color: var(--color-text-secondary);
+  margin-bottom: 2px;
+}
+
+.account-user-badges {
+  display: flex;
+  gap: var(--spacing-xs);
+  align-items: center;
+}
+
+.account-input-row {
+  display: flex;
+  gap: var(--spacing-sm);
+  align-items: center;
+}
+
+.account-input-sm {
+  width: 240px;
+}
+
+.account-input-xs {
+  width: 200px;
+}
+
+.account-avatar-preview {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 1px solid var(--color-border-default);
+  flex-shrink: 0;
+}
+
+.form-actions {
+  margin-top: var(--spacing-md);
+  display: flex;
+  justify-content: flex-end;
+}
+
+/* ─── Empty state icon block ─── */
+.empty-icon-block {
+  text-align: center;
+  padding: var(--spacing-xl);
+}
+
+.empty-icon-block i {
+  font-size: 1.5rem;
+  color: var(--color-text-muted);
+  margin-bottom: var(--spacing-sm);
+  display: block;
+}
+
+.empty-icon-block-text {
+  font-size: 0.875rem;
+  color: var(--color-text-secondary);
+}
+
+/* ─── API key list ─── */
+.apikey-row {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  padding: var(--spacing-sm) 0;
+}
+
+.apikey-row:not(:last-child) {
+  border-bottom: 1px solid var(--color-border-subtle);
+}
+
+.apikey-icon {
+  font-size: 0.6875rem;
+  color: var(--color-text-muted);
+  width: 16px;
+  text-align: center;
+}
+
+.apikey-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.apikey-name {
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--color-text-primary);
+}
+
+.apikey-details {
+  font-size: 0.6875rem;
+  color: var(--color-text-muted);
+  font-family: var(--font-mono);
+}
+
+.apikey-revoke-btn {
+  color: var(--color-error);
+  padding: 2px 6px;
+}
+
+.apikey-revoke-btn i {
+  font-size: 0.6875rem;
+}
+
+/* ─── New key banner ─── */
+.new-key-banner {
+  padding: var(--spacing-sm) var(--spacing-md);
+  border: 1px solid var(--color-warning-border);
+  border-radius: var(--radius-md);
+  background: var(--color-warning-light);
+  margin-bottom: var(--spacing-md);
+}
+
+.new-key-banner-header {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+  margin-bottom: var(--spacing-xs);
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--color-warning);
+}
+
+.new-key-banner-body {
+  display: flex;
+  gap: var(--spacing-sm);
+  align-items: center;
+}
+
+.new-key-value {
+  flex: 1;
+  padding: var(--spacing-xs) var(--spacing-sm);
+  background: var(--color-bg-primary);
+  border-radius: var(--radius-sm);
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  word-break: break-all;
+  color: var(--color-text-primary);
+}
+
+/* ─── Login page ─── */
+.login-btn-full {
+  width: 100%;
+  justify-content: center;
+  text-decoration: none;
+}
+
+/* ─── Modal (backdrop + panel) ─── */
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--color-modal-backdrop);
+  backdrop-filter: blur(4px);
+  animation: fadeIn var(--duration-normal) var(--ease-spring);
+}
+
+.modal-panel {
+  background: var(--color-bg-secondary);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-lg);
+  width: 90%;
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+  overflow: auto;
+  box-shadow: var(--shadow-md);
+  animation: popIn var(--duration-slow) var(--ease-spring);
+}
+
+/* ─── Model list in permissions modal ─── */
+.model-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--spacing-xs);
+}
+
+.model-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.8rem;
+  padding: 4px 8px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  background: var(--color-bg-tertiary);
+  border: 1px solid var(--color-border-subtle);
+  transition: border-color 150ms;
+}
+
+.model-item input[type="checkbox"] {
+  display: none;
+}
+
+.model-item-checked {
+  border-color: var(--color-primary);
+  background: var(--color-primary-light, rgba(59,130,246,0.08));
+}
+
+.model-item-check {
+  width: 14px;
+  height: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.6rem;
+  color: var(--color-primary);
+}
+
+.model-item-name {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+}
+
+/* ─── Quota section ─── */
+.quota-empty {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  padding: var(--spacing-sm) 0;
+  font-size: 0.8rem;
+  color: var(--color-text-secondary);
+  font-style: italic;
+}
+
+.quota-empty-icon {
+  font-size: 0.9rem;
+  color: var(--color-text-muted);
+}
+
+.quota-rules-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-sm);
+}
+
+.quota-card {
+  background: var(--color-bg-tertiary);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-md);
+  padding: var(--spacing-sm) var(--spacing-md);
+}
+
+.quota-card-header {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+  margin-bottom: var(--spacing-sm);
+}
+
+.quota-card-fields {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--spacing-sm);
+}
+
+.quota-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.quota-field-label {
+  font-size: 0.6875rem;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.quota-input {
+  width: 100%;
+  padding: 5px 8px;
+  font-size: 0.8rem;
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-sm);
+  background: var(--color-bg-secondary);
+  color: var(--color-text-primary);
+  box-sizing: border-box;
+}
+
+.quota-input:focus {
+  outline: none;
+  border-color: var(--color-primary);
+}
+
+.quota-select {
+  padding: 5px 8px;
+  font-size: 0.8rem;
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-sm);
+  background: var(--color-bg-secondary);
+  color: var(--color-text-primary);
+}
+
+.quota-select--model {
+  flex: 1;
+  min-width: 0;
+}
+
+.quota-select:focus {
+  outline: none;
+  border-color: var(--color-primary);
+}
+
+.quota-remove-btn {
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
+/* ─── Quota usage progress ─── */
+.quota-usage {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+  margin-top: 2px;
+}
+
+.quota-progress {
+  flex: 1;
+  height: 4px;
+  background: var(--color-border-subtle);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.quota-progress-fill {
+  height: 100%;
+  background: var(--color-primary);
+  border-radius: 2px;
+  transition: width 300ms ease-out;
+}
+
+.quota-progress-fill--warning {
+  background: var(--color-warning, #eab308);
+}
+
+.quota-progress-fill--danger {
+  background: var(--color-danger, #ef4444);
+}
+
+.quota-usage-label {
+  font-size: 0.6875rem;
+  color: var(--color-text-secondary);
+  white-space: nowrap;
+  font-family: var(--font-mono);
+  flex-shrink: 0;
+}

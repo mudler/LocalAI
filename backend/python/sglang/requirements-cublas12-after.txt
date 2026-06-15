@@ -1,0 +1,4 @@
+# Bump this pin deliberately — sglang releases weekly and API surfaces
+# (FunctionCallParser, ReasoningParser) move between releases.
+# 0.5.11 is the floor for Gemma 4 support (PR sgl-project/sglang#21952).
+sglang[all]>=0.5.11

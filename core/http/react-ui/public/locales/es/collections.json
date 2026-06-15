@@ -1,0 +1,43 @@
+{
+  "title": "Base de conocimiento",
+  "subtitle": "Administra colecciones de documentos para el RAG de los agentes",
+  "newPlaceholder": "Nombre de la nueva colección...",
+  "actions": {
+    "create": "Crear",
+    "creating": "Creando...",
+    "details": "Detalles",
+    "reset": "Restablecer",
+    "delete": "Eliminar",
+    "viewDetails": "Ver detalles",
+    "resetCollection": "Restablecer colección",
+    "deleteCollection": "Eliminar colección"
+  },
+  "sections": {
+    "yourCollections": "Tus colecciones",
+    "otherUsersCollections": "Colecciones de otros usuarios"
+  },
+  "empty": {
+    "title": "Aún no hay colecciones",
+    "text": "Las colecciones te permiten organizar documentos en bases de conocimiento que los agentes pueden buscar usando RAG (Retrieval-Augmented Generation). Crea una colección arriba para empezar.",
+    "noPersonal": "Aún no tienes colecciones."
+  },
+  "deleteDialog": {
+    "title": "Eliminar colección",
+    "message": "¿Eliminar la colección \"{{name}}\"? Esto eliminará todas las entradas y no se puede deshacer.",
+    "confirm": "Eliminar"
+  },
+  "resetDialog": {
+    "title": "Restablecer colección",
+    "message": "¿Restablecer la colección \"{{name}}\"? Esto eliminará todas las entradas pero mantendrá la colección.",
+    "confirm": "Restablecer"
+  },
+  "toasts": {
+    "loadFailed": "Error al cargar colecciones: {{message}}",
+    "created": "Colección \"{{name}}\" creada",
+    "createFailed": "Error al crear colección: {{message}}",
+    "deleted": "Colección \"{{name}}\" eliminada",
+    "deleteFailed": "Error al eliminar colección: {{message}}",
+    "reset": "Colección \"{{name}}\" restablecida",
+    "resetFailed": "Error al restablecer colección: {{message}}"
+  }
+}

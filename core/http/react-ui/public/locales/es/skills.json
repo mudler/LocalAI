@@ -1,0 +1,79 @@
+{
+  "title": "Habilidades",
+  "subtitle": "Administra las habilidades de los agentes (instrucciones y recursos reutilizables)",
+  "unavailable": {
+    "subtitle": "El servicio de habilidades no está disponible o el índice se está reconstruyendo. Inténtalo de nuevo en un momento.",
+    "retry": "Reintentar"
+  },
+  "actions": {
+    "newSkill": "Nueva habilidad",
+    "createSkill": "Crear habilidad",
+    "import": "Importar",
+    "importing": "Importando...",
+    "gitRepos": "Repos Git",
+    "edit": "Editar",
+    "delete": "Eliminar",
+    "export": "Exportar",
+    "sync": "Sincronizar",
+    "addRepo": "Añadir repo",
+    "adding": "Añadiendo...",
+    "remove": "Quitar",
+    "enable": "Habilitar",
+    "disable": "Deshabilitar"
+  },
+  "search": {
+    "placeholder": "Buscar habilidades..."
+  },
+  "git": {
+    "title": "Repositorios Git",
+    "description": "Añade repositorios Git de los que obtener habilidades. Las habilidades aparecerán en la lista después de sincronizar.",
+    "urlPlaceholder": "https://github.com/user/repo o git@github.com:user/repo.git",
+    "noRepos": "No hay repos Git configurados. Añade uno arriba.",
+    "disabled": "Deshabilitado",
+    "removeRepo": "Quitar repo"
+  },
+  "card": {
+    "noDescription": "Sin descripción",
+    "readOnly": "Solo lectura",
+    "editTitle": "Editar habilidad",
+    "deleteTitle": "Eliminar habilidad",
+    "exportTitle": "Exportar como .tar.gz"
+  },
+  "empty": {
+    "title": "No se encontraron habilidades",
+    "text": "Crea una habilidad o importa una para empezar.",
+    "noPersonal": "Aún no tienes habilidades."
+  },
+  "sections": {
+    "yourSkills": "Tus habilidades",
+    "otherUsersSkills": "Habilidades de otros usuarios"
+  },
+  "deleteDialog": {
+    "title": "Eliminar habilidad",
+    "message": "¿Eliminar la habilidad \"{{name}}\"? Esta acción no se puede deshacer.",
+    "confirm": "Eliminar"
+  },
+  "removeRepoDialog": {
+    "title": "Quitar repositorio Git",
+    "message": "¿Quitar este repositorio Git? Las habilidades de él ya no estarán disponibles.",
+    "confirm": "Quitar"
+  },
+  "toasts": {
+    "loadFailed": "Error al cargar habilidades",
+    "deleted": "Habilidad \"{{name}}\" eliminada",
+    "deleteFailed": "Error al eliminar habilidad",
+    "exported": "Habilidad \"{{name}}\" exportada",
+    "exportFailed": "Error al exportar",
+    "imported": "Habilidad importada desde \"{{file}}\"",
+    "importFailed": "Error al importar",
+    "loadReposFailed": "Error al cargar repos Git",
+    "repoAdded": "Repo Git añadido y sincronizando",
+    "addRepoFailed": "Error al añadir repo",
+    "synced": "Repo sincronizado",
+    "syncFailed": "Error al sincronizar",
+    "toggled": "Repo actualizado",
+    "toggleFailed": "Error al actualizar",
+    "removed": "Repo eliminado",
+    "removeFailed": "Error al eliminar"
+  }
+}

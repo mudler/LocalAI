@@ -1,0 +1,142 @@
+{
+  "title": "导入新模型",
+  "subtitle": {
+    "simple": "从 URI 导入模型 — 自动检测会选择后端。",
+    "powerYaml": "编写完整的模型 YAML 配置。",
+    "powerPrefs": "细粒度的导入偏好设置。"
+  },
+  "actions": {
+    "import": "导入模型",
+    "importing": "导入中...",
+    "create": "创建",
+    "saving": "保存中...",
+    "browseHF": "在 HF 上浏览模型",
+    "addCustom": "添加自定义",
+    "copy": "复制"
+  },
+  "form": {
+    "modelUri": "模型 URI",
+    "uriPlaceholder": "huggingface://TheBloke/Llama-2-7B-Chat-GGUF 或 https://example.com/model.gguf",
+    "uriHint": "输入要导入的模型文件的 URI 或路径",
+    "supportedFormats": "支持的 URI 格式",
+    "options": "选项",
+    "preferences": "偏好设置（可选）",
+    "commonPreferences": "常用偏好",
+    "customPreferences": "自定义偏好",
+    "customKeyValueHint": "添加自定义键值对以进行高级配置。",
+    "preferenceKey": "第 {{index}} 行的偏好键",
+    "preferenceValue": "第 {{index}} 行的偏好值",
+    "removePref": "移除此偏好",
+    "key": "键",
+    "value": "值",
+    "backend": "后端",
+    "backendAuto": "自动检测（基于 URI）",
+    "backendLoading": "正在加载后端…",
+    "backendSearch": "搜索后端...",
+    "backendHint": "强制指定一个后端。留空可从 URI 自动检测。标记为 \"manual pick\" 的项目无法自动检测 — 如果您知道模型需要什么，请自行选择。",
+    "backendErrorHint": "无法加载后端列表 — 仅使用自动检测。",
+    "backendNotInstalled": "此后端尚未安装。提交导入将先下载它。",
+    "modelName": "模型名称",
+    "modelNamePlaceholder": "留空以使用文件名",
+    "modelNameHint": "模型的自定义名称。若为空，将使用文件名。",
+    "description": "描述",
+    "descriptionPlaceholder": "留空以使用默认描述",
+    "descriptionHint": "模型的自定义描述。",
+    "quantizations": "量化",
+    "quantizationsPlaceholder": "q4_k_m,q4_k_s,q3_k_m（逗号分隔）",
+    "quantizationsHint": "首选量化（逗号分隔）。留空使用默认值（q4_k_m）。",
+    "mmprojQuantizations": "MMProj 量化",
+    "mmprojQuantizationsPlaceholder": "fp16,fp32（逗号分隔）",
+    "mmprojQuantizationsHint": "首选 MMProj 量化。留空使用默认值（fp16）。",
+    "embeddings": "嵌入",
+    "embeddingsHint": "为此模型启用嵌入支持。",
+    "modelType": "模型类型",
+    "modelTypePlaceholder": "AutoModelForCausalLM（用于 transformers 后端）",
+    "modelTypeHint": "transformers 后端的模型类型。例如：AutoModelForCausalLM、SentenceTransformer、Mamba。",
+    "pipelineType": "管道类型",
+    "pipelineTypeHint": "diffusers 后端的管道类型。",
+    "schedulerType": "调度器类型",
+    "schedulerTypePlaceholder": "k_dpmpp_2m（可选）",
+    "schedulerTypeHint": "diffusers 后端的调度器类型。例如：k_dpmpp_2m、euler_a、ddim。",
+    "enableParameters": "启用的参数",
+    "enableParametersPlaceholder": "negative_prompt,num_inference_steps（逗号分隔）",
+    "enableParametersHint": "diffusers 后端启用的参数（逗号分隔）。",
+    "cuda": "CUDA",
+    "cudaHint": "启用 CUDA 支持以进行 GPU 加速。",
+    "yamlEditor": "YAML 配置编辑器",
+    "manualPick": "手动选择",
+    "manualPickTooltip": "自动检测不会路由到此后端。如果您知道这就是您想要的，请在此处选择。"
+  },
+  "modality": {
+    "text": "文本 LLM",
+    "asr": "语音识别",
+    "tts": "文字转语音",
+    "image": "图像 / 视频",
+    "embeddings": "嵌入",
+    "reranker": "重排器",
+    "detection": "对象检测",
+    "vad": "语音活动检测",
+    "other": "其他"
+  },
+  "powerTabs": {
+    "ariaLabel": "高级模式标签",
+    "preferences": "偏好",
+    "yaml": "YAML"
+  },
+  "switchDialog": {
+    "title": "保留您的自定义偏好？",
+    "body": "切换到简单模式会隐藏除后端、名称和描述之外的偏好设置。它们仍会在您导入时被发送。",
+    "cancel": "取消",
+    "discard": "放弃并切换",
+    "keep": "保留并切换"
+  },
+  "estimate": {
+    "title": "估计需求",
+    "download": "下载：{{size}}",
+    "vram": "VRAM：{{vram}}"
+  },
+  "toasts": {
+    "noUri": "请输入模型 URI",
+    "noYaml": "请输入 YAML 配置",
+    "started": "导入已开始！正在跟踪进度...",
+    "startedWithMeta": "导入已开始！正在跟踪进度...（{{meta}}）",
+    "imported": "模型导入成功！",
+    "importedYaml": "模型配置导入成功！",
+    "importFailed": "导入失败：{{message}}",
+    "startImportFailed": "开始导入失败：{{message}}",
+    "backendsLoadFailed": "无法加载后端列表 — 仅使用自动检测",
+    "modalityClearedBackend": "已清除后端选择 — 它不在 {{label}} 组中。",
+    "copied": "已复制到剪贴板"
+  },
+  "uriFormats": {
+    "huggingface": {
+      "title": "HuggingFace",
+      "standard": "标准 HuggingFace 格式",
+      "short": "简短的 HuggingFace 格式",
+      "fullUrl": "完整的 HuggingFace URL"
+    },
+    "http": {
+      "title": "HTTP/HTTPS URL",
+      "direct": "从任何 HTTPS URL 直接下载"
+    },
+    "local": {
+      "title": "本地文件",
+      "filePath": "本地文件路径（绝对路径）",
+      "directYaml": "直接的本地 YAML 配置文件"
+    },
+    "oci": {
+      "title": "OCI 注册表",
+      "registry": "OCI 容器注册表",
+      "tarball": "本地 OCI tarball 文件"
+    },
+    "ollama": {
+      "title": "Ollama",
+      "model": "Ollama 模型格式"
+    },
+    "yaml": {
+      "title": "YAML 配置文件",
+      "remote": "远程 YAML 配置文件",
+      "local": "本地 YAML 配置文件"
+    }
+  }
+}

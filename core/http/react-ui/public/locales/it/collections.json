@@ -1,0 +1,43 @@
+{
+  "title": "Base di conoscenza",
+  "subtitle": "Gestisci raccolte di documenti per il RAG degli agenti",
+  "newPlaceholder": "Nome della nuova raccolta...",
+  "actions": {
+    "create": "Crea",
+    "creating": "Creazione...",
+    "details": "Dettagli",
+    "reset": "Reimposta",
+    "delete": "Elimina",
+    "viewDetails": "Visualizza dettagli",
+    "resetCollection": "Reimposta raccolta",
+    "deleteCollection": "Elimina raccolta"
+  },
+  "sections": {
+    "yourCollections": "Le tue raccolte",
+    "otherUsersCollections": "Raccolte di altri utenti"
+  },
+  "empty": {
+    "title": "Nessuna raccolta ancora",
+    "text": "Le raccolte ti permettono di organizzare i documenti in basi di conoscenza che gli agenti possono consultare con RAG (Retrieval-Augmented Generation). Crea una raccolta sopra per iniziare.",
+    "noPersonal": "Non hai ancora raccolte."
+  },
+  "deleteDialog": {
+    "title": "Elimina raccolta",
+    "message": "Eliminare la raccolta \"{{name}}\"? Verranno rimosse tutte le voci e l'azione non può essere annullata.",
+    "confirm": "Elimina"
+  },
+  "resetDialog": {
+    "title": "Reimposta raccolta",
+    "message": "Reimpostare la raccolta \"{{name}}\"? Verranno rimosse tutte le voci ma la raccolta verrà mantenuta.",
+    "confirm": "Reimposta"
+  },
+  "toasts": {
+    "loadFailed": "Caricamento raccolte fallito: {{message}}",
+    "created": "Raccolta \"{{name}}\" creata",
+    "createFailed": "Creazione raccolta fallita: {{message}}",
+    "deleted": "Raccolta \"{{name}}\" eliminata",
+    "deleteFailed": "Eliminazione raccolta fallita: {{message}}",
+    "reset": "Raccolta \"{{name}}\" reimpostata",
+    "resetFailed": "Reimpostazione raccolta fallita: {{message}}"
+  }
+}

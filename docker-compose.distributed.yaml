@@ -1,0 +1,217 @@
+# Docker Compose for LocalAI Distributed Mode
+#
+# Starts a full distributed stack: PostgreSQL, NATS, a LocalAI frontend,
+# and one llama-cpp backend node.
+#
+# Model files are transferred from the frontend to backend nodes via HTTP
+# — no shared volumes needed between frontend and backends.
+#
+# Usage:
+#   docker compose -f docker-compose.distributed.yaml up
+#
+# See docs: https://localai.io/features/distributed-mode/
+
+services:
+  # --- Infrastructure ---
+
+  postgres:
+    image: quay.io/mudler/localrecall:v0.5.5-postgresql  # PostgreSQL with pgvector
+    environment:
+      POSTGRES_DB: localai
+      POSTGRES_USER: localai
+      POSTGRES_PASSWORD: localai
+    volumes:
+      - postgres_data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U localai"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  nats:
+    image: nats:2-alpine
+    ports:
+      - "4222:4222"   # Client connections
+      - "8222:8222"   # HTTP monitoring (optional, useful for debugging)
+    command: ["--js", "-m", "8222"]  # Enable JetStream + monitoring
+
+  # --- LocalAI Frontend ---
+  # Stateless API server that routes requests to backend nodes.
+  # Add more replicas behind a load balancer for HA.
+
+  localai:
+    # image: localai/localai:latest-cpu
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        - IMAGE_TYPE=core
+        - BASE_IMAGE=ubuntu:24.04
+    ports:
+      - "8080:8080"
+    environment:
+      # Distributed mode
+      LOCALAI_DISTRIBUTED: "true"
+      LOCALAI_NATS_URL: "nats://nats:4222"
+      LOCALAI_AGENT_POOL_EMBEDDING_MODEL: "granite-embedding-107m-multilingual"
+      LOCALAI_AGENT_POOL_VECTOR_ENGINE: "postgres"
+      LOCALAI_AGENT_POOL_DATABASE_URL: "postgresql://localai:localai@postgres:5432/localai?sslmode=disable"
+      LOCALAI_REGISTRATION_TOKEN: "changeme"  # Change this in production!
+      # Auth (required for distributed mode — must use PostgreSQL)
+      LOCALAI_AUTH: "true"
+      LOCALAI_AUTH_DATABASE_URL: "postgresql://localai:localai@postgres:5432/localai?sslmode=disable"
+      # Force pure-Go DNS resolver. The default cgo resolver follows the
+      # container's nsswitch.conf and ends up forwarding to host
+      # systemd-resolved (127.0.0.53), which isn't reachable from inside
+      # the container — failing every postgres/nats hostname lookup at
+      # boot. The pure-Go path reads /etc/resolv.conf directly and uses
+      # Docker's embedded DNS at 127.0.0.11.
+      GODEBUG: "netdns=go"
+      # Paths
+      MODELS_PATH: /models
+    volumes:
+      - frontend_models:/models
+      - frontend_data:/data
+    depends_on:
+      postgres:
+        condition: service_healthy
+      nats:
+        condition: service_started
+
+  # --- Worker Node ---
+  # A generic worker that self-registers with the frontend.
+  # The same LocalAI image is used — no separate image needed.
+  # The SmartRouter dynamically tells workers which backend to install via NATS.
+  #
+  # Model files are transferred from the frontend via HTTP file staging.
+  # The worker has its own independent models volume.
+
+  worker-1:
+    # image: localai/localai:latest-cpu
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        - IMAGE_TYPE=core
+        - BASE_IMAGE=ubuntu:24.04
+    command:
+      - worker
+    # The image's default HEALTHCHECK targets the server's /readyz on 8080.
+    # Workers don't run the OpenAI API server — their HTTP file transfer
+    # server runs on the gRPC base port - 1 (50050 here) and exposes /readyz.
+    # Override the env var so the inherited HEALTHCHECK probes the right port.
+    environment:
+      HEALTHCHECK_ENDPOINT: "http://localhost:50050/readyz"
+      LOCALAI_SERVE_ADDR: "0.0.0.0:50051"
+      LOCALAI_ADVERTISE_ADDR: "worker-1:50051"
+      LOCALAI_ADVERTISE_HTTP_ADDR: "worker-1:50050"
+      DEBUG: "true"
+      LOCALAI_REGISTER_TO: "http://localai:8080"
+      LOCALAI_NODE_NAME: "worker-1"
+      LOCALAI_REGISTRATION_TOKEN: "changeme"  # Must match frontend token
+      LOCALAI_HEARTBEAT_INTERVAL: "10s"
+      LOCALAI_NATS_URL: "nats://nats:4222"
+      GODEBUG: "netdns=go"  # See note in localai service
+      MODELS_PATH: /models
+    volumes:
+      - worker_1_models:/models
+    depends_on:
+      localai:
+        condition: service_started
+      nats:
+        condition: service_started
+
+    # --- GPU Support (NVIDIA) ---
+    # Uncomment the following and change the image to a CUDA variant
+    # (e.g., localai/localai:latest-gpu-nvidia-cuda-12) to enable GPU.
+    #
+    # NVIDIA_DRIVER_CAPABILITIES must include `utility` so nvidia-smi / NVML
+    # are available inside the container; without it the worker cannot report
+    # free VRAM and the Nodes page will show 0 free / total used.
+    # `init: true` avoids zombie-reap races that make nvidia-smi flaky.
+    #
+    # init: true
+    # environment:
+    #   NVIDIA_DRIVER_CAPABILITIES: "compute,utility"
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - driver: nvidia.com/gpu
+    #           count: all
+    #           capabilities: [gpu, utility]
+
+  # --- Shared Volume Mode (optional) ---
+  # If all services run on the same Docker host, you can skip gRPC file transfer
+  # by sharing a single models volume. Replace the volumes above with:
+  #
+  #   localai:
+  #     volumes:
+  #       - shared_models:/models
+  #       - frontend_data:/data
+  #
+  #   backend-llama-cpp:
+  #     volumes:
+  #       - shared_models:/models
+  #
+  # Then add to the volumes section:
+  #   shared_models:
+  #
+  # With shared volumes, model files are already available on the backend —
+  # gRPC file staging becomes a no-op (paths match).
+
+  # --- Adding More Workers ---
+  # Copy the worker-1 service above and change:
+  #   - Service name (e.g., worker-2)
+  #   - LOCALAI_NODE_NAME (must be unique)
+  #   - LOCALAI_ADVERTISE_ADDR (must match service name)
+  #
+  # Workers are generic — no backend type needed. The SmartRouter
+  # will dynamically install the required backend via NATS when
+  # a model request arrives.
+
+  # --- Agent Worker ---
+  # Dedicated process for agent chat execution.
+  # Receives chat jobs from NATS, runs cogito LLM calls via the LocalAI API,
+  # and publishes results back via NATS for SSE delivery.
+  # No database access needed — config and skills are sent in the NATS payload.
+
+  agent-worker-1:
+    # image: localai/localai:latest-cpu
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        - IMAGE_TYPE=core
+        - BASE_IMAGE=ubuntu:24.04
+    # Install Docker CLI and start agent-worker.
+    # The Docker socket is mounted from the host so that MCP stdio servers
+    # using "docker run" commands can spawn containers on the host Docker.
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        apt-get update -qq && apt-get install -y -qq docker.io >/dev/null 2>&1
+        exec /entrypoint.sh agent-worker
+    # The agent worker is NATS-only — no HTTP server to probe. Disable the
+    # image's inherited HEALTHCHECK so the container doesn't show unhealthy.
+    healthcheck:
+      disable: true
+    environment:
+      LOCALAI_NATS_URL: "nats://nats:4222"
+      LOCALAI_REGISTER_TO: "http://localai:8080"
+      LOCALAI_NODE_NAME: "agent-worker-1"
+      LOCALAI_REGISTRATION_TOKEN: "changeme"  # Must match frontend token
+      GODEBUG: "netdns=go"  # See note in localai service
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    depends_on:
+      localai:
+        condition: service_started
+      nats:
+        condition: service_started
+
+volumes:
+  postgres_data:
+  frontend_models:
+  frontend_data:
+  worker_1_models:

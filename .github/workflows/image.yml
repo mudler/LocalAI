@@ -1,0 +1,315 @@
+---
+  name: 'build container images'
+  
+  on:
+    push:
+      branches:
+        - master
+      tags:
+        - '*'
+  
+  concurrency:
+    group: ci-${{ github.event.pull_request.number || github.sha }}-${{ github.repository }}
+    cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+  
+  jobs:
+    hipblas-jobs:
+      if: github.repository == 'mudler/LocalAI'
+      uses: ./.github/workflows/image_build.yml
+      with:
+        tag-latest: ${{ matrix.tag-latest }}
+        tag-suffix: ${{ matrix.tag-suffix }}
+        build-type: ${{ matrix.build-type }}
+        cuda-major-version: ${{ matrix.cuda-major-version }}
+        cuda-minor-version: ${{ matrix.cuda-minor-version }}
+        platforms: ${{ matrix.platforms }}
+        runs-on: ${{ matrix.runs-on }}
+        base-image: ${{ matrix.base-image }}
+        makeflags: ${{ matrix.makeflags }}
+        ubuntu-version: ${{ matrix.ubuntu-version }}
+        ubuntu-codename: ${{ matrix.ubuntu-codename }}
+      secrets:
+        dockerUsername: ${{ secrets.DOCKERHUB_USERNAME }}
+        dockerPassword: ${{ secrets.DOCKERHUB_PASSWORD }}
+        quayUsername: ${{ secrets.LOCALAI_REGISTRY_USERNAME }}
+        quayPassword: ${{ secrets.LOCALAI_REGISTRY_PASSWORD }}
+      strategy:
+        matrix:
+          include:
+            - build-type: 'hipblas'
+              platforms: 'linux/amd64'
+              tag-latest: 'auto'
+              tag-suffix: '-gpu-hipblas'
+              base-image: "rocm/dev-ubuntu-24.04:7.2.1"
+              runs-on: 'ubuntu-latest'
+              makeflags: "--jobs=3 --output-sync=target"
+              ubuntu-version: '2404'
+              ubuntu-codename: 'noble'
+
+    core-image-build:
+      if: github.repository == 'mudler/LocalAI'
+      uses: ./.github/workflows/image_build.yml
+      with:
+        tag-latest: ${{ matrix.tag-latest }}
+        tag-suffix: ${{ matrix.tag-suffix }}
+        build-type: ${{ matrix.build-type }}
+        cuda-major-version: ${{ matrix.cuda-major-version }}
+        cuda-minor-version: ${{ matrix.cuda-minor-version }}
+        platforms: ${{ matrix.platforms }}
+        platform-tag: ${{ matrix.platform-tag || '' }}
+        runs-on: ${{ matrix.runs-on }}
+        base-image: ${{ matrix.base-image }}
+        makeflags: ${{ matrix.makeflags }}
+        skip-drivers: ${{ matrix.skip-drivers }}
+        ubuntu-version: ${{ matrix.ubuntu-version }}
+        ubuntu-codename: ${{ matrix.ubuntu-codename }}
+      secrets:
+        dockerUsername: ${{ secrets.DOCKERHUB_USERNAME }}
+        dockerPassword: ${{ secrets.DOCKERHUB_PASSWORD }}
+        quayUsername: ${{ secrets.LOCALAI_REGISTRY_USERNAME }}
+        quayPassword: ${{ secrets.LOCALAI_REGISTRY_PASSWORD }}
+      strategy:
+        #max-parallel: ${{ github.event_name != 'pull_request' && 2 || 4 }}
+        matrix:
+          include:
+            - build-type: ''
+              platforms: 'linux/amd64'
+              platform-tag: 'amd64'
+              tag-latest: 'auto'
+              tag-suffix: ''
+              base-image: "ubuntu:24.04"
+              runs-on: 'ubuntu-latest'
+              makeflags: "--jobs=4 --output-sync=target"
+              skip-drivers: 'false'
+              ubuntu-version: '2404'
+              ubuntu-codename: 'noble'
+            - build-type: ''
+              platforms: 'linux/arm64'
+              platform-tag: 'arm64'
+              tag-latest: 'auto'
+              tag-suffix: ''
+              base-image: "ubuntu:24.04"
+              runs-on: 'ubuntu-24.04-arm'
+              makeflags: "--jobs=4 --output-sync=target"
+              skip-drivers: 'false'
+              ubuntu-version: '2404'
+              ubuntu-codename: 'noble'
+            - build-type: 'cublas'
+              cuda-major-version: "12"
+              cuda-minor-version: "8"
+              platforms: 'linux/amd64'
+              tag-latest: 'auto'
+              tag-suffix: '-gpu-nvidia-cuda-12'
+              runs-on: 'ubuntu-latest'
+              base-image: "ubuntu:24.04"
+              skip-drivers: 'false'
+              makeflags: "--jobs=4 --output-sync=target"
+              ubuntu-version: '2404'
+              ubuntu-codename: 'noble'
+            - build-type: 'cublas'
+              cuda-major-version: "13"
+              cuda-minor-version: "0"
+              platforms: 'linux/amd64'
+              tag-latest: 'auto'
+              tag-suffix: '-gpu-nvidia-cuda-13'
+              runs-on: 'ubuntu-latest'
+              base-image: "ubuntu:22.04"
+              skip-drivers: 'false'
+              makeflags: "--jobs=4 --output-sync=target"
+              ubuntu-version: '2404'
+              ubuntu-codename: 'noble'
+            - build-type: 'vulkan'
+              platforms: 'linux/amd64'
+              platform-tag: 'amd64'
+              tag-latest: 'auto'
+              tag-suffix: '-gpu-vulkan'
+              runs-on: 'ubuntu-latest'
+              base-image: "ubuntu:24.04"
+              skip-drivers: 'false'
+              makeflags: "--jobs=4 --output-sync=target"
+              ubuntu-version: '2404'
+              ubuntu-codename: 'noble'
+            - build-type: 'vulkan'
+              platforms: 'linux/arm64'
+              platform-tag: 'arm64'
+              tag-latest: 'auto'
+              tag-suffix: '-gpu-vulkan'
+              runs-on: 'ubuntu-24.04-arm'
+              base-image: "ubuntu:24.04"
+              skip-drivers: 'false'
+              makeflags: "--jobs=4 --output-sync=target"
+              ubuntu-version: '2404'
+              ubuntu-codename: 'noble'
+            - build-type: 'intel'
+              platforms: 'linux/amd64'
+              tag-latest: 'auto'
+              base-image: "intel/oneapi-basekit:2025.3.2-0-devel-ubuntu24.04"
+              tag-suffix: '-gpu-intel'
+              runs-on: 'ubuntu-latest'
+              makeflags: "--jobs=3 --output-sync=target"
+              ubuntu-version: '2404'
+              ubuntu-codename: 'noble'
+
+    core-image-merge:
+      # !cancelled(): without it, GHA's default `needs:` cascade skips the
+      # merge whenever any matrix cell of the parent build fails or is
+      # cancelled. Same fix as backend.yml's merge jobs — we still want to
+      # publish the manifest list for tag-suffixes whose legs all succeeded.
+      if: ${{ !cancelled() && github.repository == 'mudler/LocalAI' }}
+      needs: core-image-build
+      uses: ./.github/workflows/image_merge.yml
+      with:
+        tag-latest: 'auto'
+        tag-suffix: ''
+      secrets:
+        dockerUsername: ${{ secrets.DOCKERHUB_USERNAME }}
+        dockerPassword: ${{ secrets.DOCKERHUB_PASSWORD }}
+        quayUsername: ${{ secrets.LOCALAI_REGISTRY_USERNAME }}
+        quayPassword: ${{ secrets.LOCALAI_REGISTRY_PASSWORD }}
+
+    gpu-vulkan-image-merge:
+      if: ${{ !cancelled() && github.repository == 'mudler/LocalAI' }}
+      needs: core-image-build
+      uses: ./.github/workflows/image_merge.yml
+      with:
+        tag-latest: 'auto'
+        tag-suffix: '-gpu-vulkan'
+      secrets:
+        dockerUsername: ${{ secrets.DOCKERHUB_USERNAME }}
+        dockerPassword: ${{ secrets.DOCKERHUB_PASSWORD }}
+        quayUsername: ${{ secrets.LOCALAI_REGISTRY_USERNAME }}
+        quayPassword: ${{ secrets.LOCALAI_REGISTRY_PASSWORD }}
+
+    # Single-arch server-image merges. Same conceptual fix as the backend
+    # singletons in PR #9781: image_build.yml pushes by canonical digest
+    # only, so without a downstream merge step there's no tag for consumers
+    # (no :latest-gpu-nvidia-cuda-12, no :v<X>-gpu-nvidia-cuda-12, etc.).
+    # Each merge job needs only its parent build matrix and is filtered by
+    # tag-suffix in image_merge.yml's artifact-download pattern.
+    gpu-nvidia-cuda-12-image-merge:
+      if: ${{ !cancelled() && github.repository == 'mudler/LocalAI' }}
+      needs: core-image-build
+      uses: ./.github/workflows/image_merge.yml
+      with:
+        tag-latest: 'auto'
+        tag-suffix: '-gpu-nvidia-cuda-12'
+      secrets:
+        dockerUsername: ${{ secrets.DOCKERHUB_USERNAME }}
+        dockerPassword: ${{ secrets.DOCKERHUB_PASSWORD }}
+        quayUsername: ${{ secrets.LOCALAI_REGISTRY_USERNAME }}
+        quayPassword: ${{ secrets.LOCALAI_REGISTRY_PASSWORD }}
+
+    gpu-nvidia-cuda-13-image-merge:
+      if: ${{ !cancelled() && github.repository == 'mudler/LocalAI' }}
+      needs: core-image-build
+      uses: ./.github/workflows/image_merge.yml
+      with:
+        tag-latest: 'auto'
+        tag-suffix: '-gpu-nvidia-cuda-13'
+      secrets:
+        dockerUsername: ${{ secrets.DOCKERHUB_USERNAME }}
+        dockerPassword: ${{ secrets.DOCKERHUB_PASSWORD }}
+        quayUsername: ${{ secrets.LOCALAI_REGISTRY_USERNAME }}
+        quayPassword: ${{ secrets.LOCALAI_REGISTRY_PASSWORD }}
+
+    gpu-intel-image-merge:
+      if: ${{ !cancelled() && github.repository == 'mudler/LocalAI' }}
+      needs: core-image-build
+      uses: ./.github/workflows/image_merge.yml
+      with:
+        tag-latest: 'auto'
+        tag-suffix: '-gpu-intel'
+      secrets:
+        dockerUsername: ${{ secrets.DOCKERHUB_USERNAME }}
+        dockerPassword: ${{ secrets.DOCKERHUB_PASSWORD }}
+        quayUsername: ${{ secrets.LOCALAI_REGISTRY_USERNAME }}
+        quayPassword: ${{ secrets.LOCALAI_REGISTRY_PASSWORD }}
+
+    gpu-hipblas-image-merge:
+      if: ${{ !cancelled() && github.repository == 'mudler/LocalAI' }}
+      needs: hipblas-jobs
+      uses: ./.github/workflows/image_merge.yml
+      with:
+        tag-latest: 'auto'
+        tag-suffix: '-gpu-hipblas'
+      secrets:
+        dockerUsername: ${{ secrets.DOCKERHUB_USERNAME }}
+        dockerPassword: ${{ secrets.DOCKERHUB_PASSWORD }}
+        quayUsername: ${{ secrets.LOCALAI_REGISTRY_USERNAME }}
+        quayPassword: ${{ secrets.LOCALAI_REGISTRY_PASSWORD }}
+
+    nvidia-l4t-arm64-image-merge:
+      if: ${{ !cancelled() && github.repository == 'mudler/LocalAI' }}
+      needs: gh-runner
+      uses: ./.github/workflows/image_merge.yml
+      with:
+        tag-latest: 'auto'
+        tag-suffix: '-nvidia-l4t-arm64'
+      secrets:
+        dockerUsername: ${{ secrets.DOCKERHUB_USERNAME }}
+        dockerPassword: ${{ secrets.DOCKERHUB_PASSWORD }}
+        quayUsername: ${{ secrets.LOCALAI_REGISTRY_USERNAME }}
+        quayPassword: ${{ secrets.LOCALAI_REGISTRY_PASSWORD }}
+
+    nvidia-l4t-arm64-cuda-13-image-merge:
+      if: ${{ !cancelled() && github.repository == 'mudler/LocalAI' }}
+      needs: gh-runner
+      uses: ./.github/workflows/image_merge.yml
+      with:
+        tag-latest: 'auto'
+        tag-suffix: '-nvidia-l4t-arm64-cuda-13'
+      secrets:
+        dockerUsername: ${{ secrets.DOCKERHUB_USERNAME }}
+        dockerPassword: ${{ secrets.DOCKERHUB_PASSWORD }}
+        quayUsername: ${{ secrets.LOCALAI_REGISTRY_USERNAME }}
+        quayPassword: ${{ secrets.LOCALAI_REGISTRY_PASSWORD }}
+
+    gh-runner:
+      if: github.repository == 'mudler/LocalAI'
+      uses: ./.github/workflows/image_build.yml
+      with:
+        tag-latest: ${{ matrix.tag-latest }}
+        tag-suffix: ${{ matrix.tag-suffix }}
+        build-type: ${{ matrix.build-type }}
+        cuda-major-version: ${{ matrix.cuda-major-version }}
+        cuda-minor-version: ${{ matrix.cuda-minor-version }}
+        platforms: ${{ matrix.platforms }}
+        runs-on: ${{ matrix.runs-on }}
+        base-image: ${{ matrix.base-image }}
+        makeflags: ${{ matrix.makeflags }}
+        skip-drivers: ${{ matrix.skip-drivers }}
+        ubuntu-version: ${{ matrix.ubuntu-version }}
+        ubuntu-codename: ${{ matrix.ubuntu-codename }}
+      secrets:
+        dockerUsername: ${{ secrets.DOCKERHUB_USERNAME }}
+        dockerPassword: ${{ secrets.DOCKERHUB_PASSWORD }}
+        quayUsername: ${{ secrets.LOCALAI_REGISTRY_USERNAME }}
+        quayPassword: ${{ secrets.LOCALAI_REGISTRY_PASSWORD }}
+      strategy:
+        matrix:
+          include:
+            - build-type: 'cublas'
+              cuda-major-version: "12"
+              cuda-minor-version: "0"
+              platforms: 'linux/arm64'
+              tag-latest: 'auto'
+              tag-suffix: '-nvidia-l4t-arm64'
+              base-image: "nvcr.io/nvidia/l4t-jetpack:r36.4.0"
+              runs-on: 'ubuntu-24.04-arm'
+              makeflags: "--jobs=4 --output-sync=target"
+              skip-drivers: 'true'
+              ubuntu-version: "2204"
+              ubuntu-codename: 'jammy'
+            - build-type: 'cublas'
+              cuda-major-version: "13"
+              cuda-minor-version: "0"
+              platforms: 'linux/arm64'
+              tag-latest: 'auto'
+              tag-suffix: '-nvidia-l4t-arm64-cuda-13'
+              base-image: "ubuntu:24.04"
+              runs-on: 'ubuntu-24.04-arm'
+              makeflags: "--jobs=4 --output-sync=target"
+              skip-drivers: 'false'
+              ubuntu-version: '2404'
+              ubuntu-codename: 'noble'
+  

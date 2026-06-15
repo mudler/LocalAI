@@ -1,0 +1,98 @@
+# syntax=docker/dockerfile:1.7
+#
+# Pre-built builder base image for LocalAI's C++ backends.
+#
+# This Dockerfile is the source of truth for the
+# `quay.io/go-skynet/ci-cache:base-grpc-*` images that
+# `.github/workflows/base-images.yml` builds and pushes. The output of a
+# build is a fully-prepped builder layer containing:
+#
+#   - apt build deps (build-essential, ccache, git, make, pkg-config,
+#     libcurl4-openssl-dev, libssl-dev, curl, unzip, wget, ca-certificates)
+#   - cmake (apt or, when CMAKE_FROM_SOURCE=true, compiled from
+#     ${CMAKE_VERSION})
+#   - protoc v27.1 at /usr/local/bin/protoc
+#   - gRPC ${GRPC_VERSION} compiled and installed at /opt/grpc
+#   - Conditional CUDA toolkit (BUILD_TYPE=cublas|l4t, SKIP_DRIVERS=false)
+#     including the cuda-13 + arm64 cudss/nvpl special case
+#   - Conditional ROCm/HIP build deps (BUILD_TYPE=hipblas)
+#   - Conditional Vulkan SDK 1.4.335.0 (BUILD_TYPE=vulkan)
+#
+# Variants built by the workflow (matrix in base-images.yml):
+#
+#   base-grpc-amd64                 ubuntu:24.04, CPU-only
+#   base-grpc-arm64                 ubuntu:24.04, CPU-only
+#   base-grpc-cuda-12-amd64         ubuntu:24.04 + CUDA 12.8
+#   base-grpc-cuda-13-amd64         ubuntu:22.04 + CUDA 13.0
+#   base-grpc-cuda-13-arm64         ubuntu:24.04 + CUDA 13.0 (sbsa)
+#   base-grpc-l4t-cuda-12-arm64     ubuntu:22.04 + CUDA 12.x (legacy JetPack)
+#   base-grpc-rocm-amd64            rocm/dev-ubuntu-24.04:7.2.1 + hipblas
+#   base-grpc-vulkan-amd64          ubuntu:24.04 + Vulkan SDK 1.4.335
+#   base-grpc-vulkan-arm64          ubuntu:24.04 + Vulkan SDK ARM 1.4.335
+#   base-grpc-intel-amd64           intel/oneapi-basekit:2025.3.2 (sycl)
+#
+# This is a SINGLE-stage Dockerfile by design: the final image IS the
+# builder base. The intermediate gRPC compile happens inside this same
+# stage so consumer Dockerfiles in PR 2 can simply
+# `FROM quay.io/go-skynet/ci-cache:base-grpc-<variant>` without needing a
+# COPY --from=grpc step. /opt/grpc is the canonical install prefix and
+# downstream builds will add it to CMAKE_PREFIX_PATH (or copy to
+# /usr/local) the same way Dockerfile.llama-cpp does today.
+#
+# Install logic lives in .docker/install-base-deps.sh, which is also
+# bind-mounted by the variant Dockerfiles' builder-fromsource stage.
+# This guarantees bit-equivalence between the prebuilt CI base and the
+# from-source local-dev path — both invoke the same script with the
+# same env inputs.
+
+ARG BASE_IMAGE=ubuntu:24.04
+
+FROM ${BASE_IMAGE}
+
+ARG BASE_IMAGE=ubuntu:24.04
+ARG BUILD_TYPE=""
+ARG CUDA_MAJOR_VERSION=""
+ARG CUDA_MINOR_VERSION=""
+ARG CMAKE_FROM_SOURCE=false
+# CUDA Toolkit 13.x compatibility: CMake 3.31.9+ fixes toolchain
+# detection / arch table issues.
+ARG CMAKE_VERSION=3.31.10
+ARG GRPC_VERSION=v1.65.0
+ARG GRPC_MAKEFLAGS="-j4 -Otarget"
+ARG SKIP_DRIVERS=false
+ARG TARGETARCH
+ARG UBUNTU_VERSION=2404
+ARG APT_MIRROR=""
+ARG APT_PORTS_MIRROR=""
+ARG AMDGPU_TARGETS=""
+
+ENV BUILD_TYPE=${BUILD_TYPE} \
+    CUDA_MAJOR_VERSION=${CUDA_MAJOR_VERSION} \
+    CUDA_MINOR_VERSION=${CUDA_MINOR_VERSION} \
+    CMAKE_FROM_SOURCE=${CMAKE_FROM_SOURCE} \
+    CMAKE_VERSION=${CMAKE_VERSION} \
+    GRPC_VERSION=${GRPC_VERSION} \
+    GRPC_MAKEFLAGS=${GRPC_MAKEFLAGS} \
+    SKIP_DRIVERS=${SKIP_DRIVERS} \
+    TARGETARCH=${TARGETARCH} \
+    UBUNTU_VERSION=${UBUNTU_VERSION} \
+    APT_MIRROR=${APT_MIRROR} \
+    APT_PORTS_MIRROR=${APT_PORTS_MIRROR} \
+    AMDGPU_TARGETS=${AMDGPU_TARGETS} \
+    MAKEFLAGS=${GRPC_MAKEFLAGS} \
+    DEBIAN_FRONTEND=noninteractive
+
+# CUDA on PATH (no-op when CUDA isn't installed)
+ENV PATH=/usr/local/cuda/bin:${PATH}
+# HipBLAS / ROCm on PATH (no-op when ROCm isn't installed)
+ENV PATH=/opt/rocm/bin:${PATH}
+
+WORKDIR /build
+
+# Single RUN that delegates to .docker/install-base-deps.sh — the same
+# script the variant Dockerfiles' builder-fromsource stage runs.
+RUN --mount=type=bind,source=.docker/install-base-deps.sh,target=/usr/local/sbin/install-base-deps \
+    --mount=type=bind,source=.docker/apt-mirror.sh,target=/usr/local/sbin/apt-mirror \
+    bash /usr/local/sbin/install-base-deps
+
+WORKDIR /

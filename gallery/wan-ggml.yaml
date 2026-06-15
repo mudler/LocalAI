@@ -1,0 +1,14 @@
+---
+name: "wan-ggml"
+
+config_file: |
+    backend: stablediffusion-ggml
+    step: 20
+    cfg_scale: 6.0
+    options:
+    - "diffusion_model"
+    - "vae_decode_only:false"
+    - "sampler:euler"
+    - "flow_shift:3.0"
+    - "t5xxl_path:umt5-xxl-encoder-Q8_0.gguf"
+    - "vae_path:wan_2.1_vae.safetensors"

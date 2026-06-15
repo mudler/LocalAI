@@ -1,0 +1,69 @@
+<nav class="bg-[var(--color-bg-secondary)] border-b border-[var(--color-border-subtle)]" style="position: sticky; top: 0; z-index: 40;">
+    <div class="container mx-auto px-4 py-2.5">
+        <div class="flex items-center justify-between">
+            <div class="flex items-center">
+                <a href="./" class="flex items-center group">
+                    <img src="static/logo_horizontal.png"
+                         alt="LocalAI Logo"
+                         class="h-8 rounded-lg border border-[var(--color-border-subtle)] transition-all duration-200 group-hover:border-[var(--color-primary-border)]">
+                </a>
+            </div>
+
+            <!-- Menu button for small screens -->
+            <div class="lg:hidden">
+                <button id="menu-toggle" class="text-[var(--color-text-secondary)] hover:text-[var(--color-primary)] p-2 rounded-lg transition-colors hover:bg-[var(--color-bg-primary)]">
+                    <i class="fas fa-bars"></i>
+                </button>
+            </div>
+
+            <!-- Navigation links -->
+            <div class="hidden lg:flex lg:items-center lg:gap-1">
+                <a href="./" class="text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] px-3 py-1.5 rounded-lg text-sm transition-colors hover:bg-[var(--color-bg-primary)] flex items-center gap-2">
+                    <i class="fas fa-home text-[var(--color-primary)] text-xs"></i>Home
+                </a>
+                <a href="https://localai.io" target="_blank" class="text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] px-3 py-1.5 rounded-lg text-sm transition-colors hover:bg-[var(--color-bg-primary)] flex items-center gap-2 group">
+                    <i class="fas fa-book-reader text-[var(--color-primary)] text-xs"></i>Docs
+                    <i class="fas fa-external-link-alt text-[10px] opacity-50 group-hover:opacity-100 transition-opacity"></i>
+                </a>
+                <a href="https://models.localai.io/" class="text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] px-3 py-1.5 rounded-lg text-sm transition-colors hover:bg-[var(--color-bg-primary)] flex items-center gap-2">
+                    <i class="fas fa-brain text-[var(--color-primary)] text-xs"></i>Models
+                </a>
+            </div>
+        </div>
+
+        <!-- Collapsible menu for small screens -->
+        <div class="hidden lg:hidden" id="mobile-menu">
+            <div class="pt-2 pb-1 space-y-0.5 border-t border-[var(--color-border-subtle)] mt-2">
+                <a href="./" class="block text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-bg-primary)] px-3 py-2 rounded-lg text-sm transition-colors flex items-center gap-2">
+                    <i class="fas fa-home text-[var(--color-primary)] text-xs w-4 text-center"></i>Home
+                </a>
+                <a href="https://localai.io" target="_blank" class="block text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-bg-primary)] px-3 py-2 rounded-lg text-sm transition-colors flex items-center gap-2">
+                    <i class="fas fa-book-reader text-[var(--color-primary)] text-xs w-4 text-center"></i>Docs
+                    <i class="fas fa-external-link-alt text-[10px] opacity-50"></i>
+                </a>
+                <a href="https://models.localai.io/" class="block text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-bg-primary)] px-3 py-2 rounded-lg text-sm transition-colors flex items-center gap-2">
+                    <i class="fas fa-brain text-[var(--color-primary)] text-xs w-4 text-center"></i>Models
+                </a>
+            </div>
+        </div>
+    </div>
+</nav>
+
+<script>
+    document.getElementById('menu-toggle').addEventListener('click', function () {
+        var mobileMenu = document.getElementById('mobile-menu');
+        if (mobileMenu.classList.contains('hidden')) {
+            mobileMenu.classList.remove('hidden');
+            setTimeout(function() {
+                mobileMenu.classList.add('opacity-100');
+                mobileMenu.classList.remove('opacity-0');
+            }, 10);
+        } else {
+            mobileMenu.classList.add('opacity-0');
+            mobileMenu.classList.remove('opacity-100');
+            setTimeout(function() {
+                mobileMenu.classList.add('hidden');
+            }, 300);
+        }
+    });
+</script>

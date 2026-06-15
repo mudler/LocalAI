@@ -1,0 +1,123 @@
+---
+name: 'tests'
+
+on:
+  pull_request:
+  push:
+    branches:
+      - master
+    tags:
+      - '*'
+
+concurrency:
+  group: ci-tests-${{ github.event.pull_request.number || github.sha }}-${{ github.repository }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  tests-linux:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        go-version: ['1.26.x']
+    steps:
+      - name: Clone
+        uses: actions/checkout@v6
+        with:
+          submodules: true
+      - name: Free disk space
+        uses: ./.github/actions/free-disk-space
+      - name: Setup Go ${{ matrix.go-version }}
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ matrix.go-version }}
+          cache: false
+      # You can test your matrix by printing the current Go version
+      - name: Display Go version
+        run: go version
+      - name: Proto Dependencies
+        run: |
+          # Install protoc
+          curl -L -s https://github.com/protocolbuffers/protobuf/releases/download/v26.1/protoc-26.1-linux-x86_64.zip -o protoc.zip && \
+          unzip -j -d /usr/local/bin protoc.zip bin/protoc && \
+          rm protoc.zip
+          go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.34.2
+          go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@1958fcbe2ca8bd93af633f11e97d44e567e945af
+          PATH="$PATH:$HOME/go/bin" make protogen-go
+      - name: Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install curl ffmpeg libopus-dev
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '22'
+      - name: Build React UI
+        run: make react-ui
+      # Runs the core suite with coverage and fails if total coverage dropped
+      # below the committed baseline (coverage-baseline.txt). The gate is
+      # strict — any decrease fails. Raise the baseline with
+      # `make test-coverage-baseline` and commit it when coverage rises.
+      - name: Test (with coverage gate)
+        run: |
+          PATH="$PATH:/root/go/bin" make --jobs 5 --output-sync=target test-coverage-check
+      - name: Upload coverage report
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-linux
+          path: |
+            coverage/coverage.out
+            coverage/coverage.html
+          if-no-files-found: ignore
+      - name: Setup tmate session if tests fail
+        if: ${{ failure() }}
+        uses: mxschmitt/action-tmate@v3.23
+        with:
+          detached: true
+          connect-timeout-seconds: 180
+          limit-access-to-actor: true
+
+  tests-apple:
+    runs-on: macos-latest
+    strategy:
+      matrix:
+        go-version: ['1.26.x']
+    steps:
+      - name: Clone
+        uses: actions/checkout@v6
+        with:
+          submodules: true
+      - name: Setup Go ${{ matrix.go-version }}
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ matrix.go-version }}
+          cache: false
+      # You can test your matrix by printing the current Go version
+      - name: Display Go version
+        run: go version
+      - name: Dependencies
+        run: |
+          brew install protobuf grpc make protoc-gen-go protoc-gen-go-grpc libomp llvm opus ffmpeg
+          pip install --user --no-cache-dir grpcio-tools grpcio
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '22'
+      - name: Build React UI
+        run: make react-ui
+      - name: Test
+        run: |
+          export C_INCLUDE_PATH=/usr/local/include
+          export CPLUS_INCLUDE_PATH=/usr/local/include
+          export CC=/opt/homebrew/opt/llvm/bin/clang
+          # Used to run the newer GNUMake version from brew that supports --output-sync
+          export PATH="/opt/homebrew/opt/make/libexec/gnubin:$PATH"
+          PATH="$PATH:$HOME/go/bin" make protogen-go
+          PATH="$PATH:$HOME/go/bin" BUILD_TYPE="GITHUB_CI_HAS_BROKEN_METAL" CMAKE_ARGS="-DGGML_F16C=OFF -DGGML_AVX512=OFF -DGGML_AVX2=OFF -DGGML_FMA=OFF" make --jobs 4 --output-sync=target test
+      - name: Setup tmate session if tests fail
+        if: ${{ failure() }}
+        uses: mxschmitt/action-tmate@v3.23
+        with:
+          detached: true
+          connect-timeout-seconds: 180
+          limit-access-to-actor: true

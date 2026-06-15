@@ -1,0 +1,19 @@
+--extra-index-url https://download.pytorch.org/whl/cu130
+torch
+torchaudio
+transformers
+numpy>=1.24.0,<1.26.0
+# chatterbox-tts itself is installed with --no-deps in install.sh.
+# These are its real runtime deps, mirroring upstream's pyproject.toml
+# minus russian-text-stresser (whose ancient pins break the resolver).
+omegaconf==2.3.0
+resampy==0.4.3
+librosa
+s3tokenizer
+diffusers
+resemble-perth==1.0.1
+conformer
+safetensors
+spacy-pkuseg
+pykakasi==2.3.0
+accelerate

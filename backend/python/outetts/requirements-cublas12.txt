@@ -1,0 +1,7 @@
+torch==2.7.1
+accelerate
+llvmlite==0.43.0
+numba==0.60.0
+bitsandbytes
+protobuf==6.33.5
+outetts

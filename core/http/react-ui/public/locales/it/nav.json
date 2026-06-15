@@ -1,0 +1,53 @@
+{
+  "appName": "LocalAI",
+  "openMenu": "Apri menu",
+  "closeMenu": "Chiudi menu",
+  "primaryNavigation": "Navigazione principale",
+  "switchToLightMode": "Passa al tema chiaro",
+  "switchToDarkMode": "Passa al tema scuro",
+  "expandSidebar": "Espandi barra laterale",
+  "collapseSidebar": "Comprimi barra laterale",
+  "changeLanguage": "Cambia lingua",
+  "logout": "Esci",
+  "accountSettings": "Impostazioni account",
+  "account": "Account",
+  "accountFor": "Account: {{name}}",
+  "sections": {
+    "tools": "Strumenti",
+    "enhance": "Migliora",
+    "biometrics": "Biometria",
+    "agents": "Agenti",
+    "system": "Sistema"
+  },
+  "items": {
+    "home": "Home",
+    "installModels": "Installa modelli",
+    "chat": "Chat",
+    "studio": "Studio",
+    "talk": "Conversazione",
+    "fineTune": "Fine-Tuning (Sperimentale)",
+    "quantize": "Quantizzazione (Sperimentale)",
+    "audioTransform": "Trasforma audio",
+    "faceRecognition": "Riconoscimento volti",
+    "voiceRecognition": "Riconoscimento vocale",
+    "agents": "Agenti",
+    "skills": "Competenze",
+    "memory": "Memoria",
+    "mcpJobs": "Job MCP CI",
+    "usage": "Utilizzo",
+    "users": "Utenti",
+    "backends": "Backend",
+    "traces": "Tracce",
+    "nodes": "Nodi",
+    "swarm": "Swarm",
+    "system": "Sistema",
+    "settings": "Impostazioni",
+    "api": "API"
+  },
+  "footer": {
+    "github": "GitHub",
+    "documentation": "Documentazione",
+    "author": "Autore",
+    "copyright": "© 2023-{{year}} {{author}}"
+  }
+}

@@ -1,0 +1,26 @@
+---
+name: "vicuna-chat"
+
+description: |
+     Vicuna chat
+
+license: "LLaMA"
+
+config_file: |
+    backend: llama-cpp
+    context_size: 4096
+    roles:
+      user: "User: "
+      system: "System: "
+      assistant: "Assistant: "
+    f16: true
+    stopwords:
+    - <|end|>
+    - <|endoftext|>
+    - <eos>
+    template:
+      completion: |
+        Complete the following sentence: {{.Input}}
+      chat: |
+          {{.Input}}
+          ASSISTANT:

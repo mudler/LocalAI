@@ -1,0 +1,13 @@
+---
+name: "dreamshaper"
+
+config_file: |
+  backend: diffusers
+  step: 25
+  f16: true
+
+  diffusers:
+    pipeline_type: StableDiffusionPipeline
+    cuda: true
+    enable_parameters: "negative_prompt,num_inference_steps"
+    scheduler_type: "k_dpmpp_2m"

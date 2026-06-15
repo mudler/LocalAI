@@ -1,0 +1,27 @@
+---
+name: "sherpa-onnx-asr"
+
+config_file: |
+  backend: sherpa-onnx
+  type: asr
+  options:
+    # Feature extraction. Most shipped sherpa-onnx ASR models expect
+    # 16 kHz / 80-dim log-mel; derivatives trained at other rates
+    # should override these.
+    - asr.sample_rate=16000
+    - asr.feature_dim=80
+    - asr.decoding_method=greedy_search
+    # Whisper-family defaults (ignored by non-whisper models).
+    - asr.whisper.task=transcribe
+    - asr.whisper.tail_paddings=-1
+    # SenseVoice-family: inverse text normalization is off in upstream
+    # sherpa but on here — we want formatted transcription output
+    # ("100" not "one hundred"). Set to 0 for raw tokens.
+    - asr.sense_voice.use_itn=1
+    # Online (streaming zipformer) ASR. Endpoint detection is upstream-
+    # off but on here — streaming consumers need segment boundaries.
+    - online.enable_endpoint=1
+    - online.rule1_min_trailing_silence=2.4
+    - online.rule2_min_trailing_silence=1.2
+    - online.rule3_min_utterance_length=20.0
+    - online.chunk_samples=1600

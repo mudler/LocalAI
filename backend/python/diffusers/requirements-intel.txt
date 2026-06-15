@@ -1,0 +1,20 @@
+--extra-index-url https://download.pytorch.org/whl/xpu
+torch
+torchvision
+optimum[openvino]
+setuptools
+git+https://github.com/huggingface/diffusers
+opencv-python
+transformers
+accelerate
+git+https://github.com/xhinker/sd_embed
+peft
+sentencepiece
+optimum-quanto
+ftfy
+# TODO: re-add compel once it supports transformers >= 5.
+# Tracking: https://github.com/damian0815/compel/pull/129
+#           https://github.com/damian0815/compel/issues/128
+# compel currently pins transformers~=4.25, which forced pip into multi-hour
+# resolver backtracking storms in CI. backend.py imports it lazily and gates
+# the COMPEL=1 env var on the import succeeding, so dropping it here is safe.

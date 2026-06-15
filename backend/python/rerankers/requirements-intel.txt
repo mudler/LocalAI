@@ -1,0 +1,7 @@
+--extra-index-url https://download.pytorch.org/whl/xpu
+transformers
+accelerate
+torch
+rerankers[transformers]
+optimum[openvino]
+setuptools

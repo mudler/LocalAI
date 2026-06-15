@@ -1,0 +1,24 @@
+// Capability flags — must match the FLAG_* strings from core/config/model_config.go
+// Server feature keys (returned by GET /api/features), kept as constants so
+// callers don't sprinkle string literals across the UI.
+export const FEATURE_LOCALAI_ASSISTANT = 'localai_assistant'
+
+export const CAP_CHAT = 'FLAG_CHAT'
+export const CAP_COMPLETION = 'FLAG_COMPLETION'
+export const CAP_EDIT = 'FLAG_EDIT'
+export const CAP_EMBEDDINGS = 'FLAG_EMBEDDINGS'
+export const CAP_RERANK = 'FLAG_RERANK'
+export const CAP_IMAGE = 'FLAG_IMAGE'
+export const CAP_TRANSCRIPT = 'FLAG_TRANSCRIPT'
+export const CAP_TTS = 'FLAG_TTS'
+export const CAP_SOUND_GENERATION = 'FLAG_SOUND_GENERATION'
+export const CAP_TOKENIZE = 'FLAG_TOKENIZE'
+export const CAP_VAD = 'FLAG_VAD'
+export const CAP_DIARIZATION = 'FLAG_DIARIZATION'
+export const CAP_VIDEO = 'FLAG_VIDEO'
+export const CAP_DETECTION = 'FLAG_DETECTION'
+export const CAP_FACE_RECOGNITION = 'FLAG_FACE_RECOGNITION'
+export const CAP_SPEAKER_RECOGNITION = 'FLAG_SPEAKER_RECOGNITION'
+export const CAP_AUDIO_TRANSFORM = 'FLAG_AUDIO_TRANSFORM'
+export const CAP_REALTIME_AUDIO = 'FLAG_REALTIME_AUDIO'
+export const CAP_SCORE = 'FLAG_SCORE'

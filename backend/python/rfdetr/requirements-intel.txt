@@ -1,0 +1,11 @@
+--extra-index-url https://download.pytorch.org/whl/xpu
+torch
+torchvision
+optimum[openvino]
+setuptools
+rfdetr
+inference
+opencv-python
+accelerate
+peft
+optimum-quanto

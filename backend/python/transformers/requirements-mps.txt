@@ -1,0 +1,10 @@
+torch==2.7.1
+llvmlite==0.43.0
+numba==0.60.0
+accelerate
+transformers>=5.9.0
+bitsandbytes
+sentence-transformers==5.5.1
+diffusers
+soundfile
+protobuf==7.35.0

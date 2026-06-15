@@ -1,0 +1,117 @@
+{
+  "activity": {
+    "thought": "생각",
+    "tool": "도구",
+    "result": "결과",
+    "toolResult": "{{name}} 결과",
+    "thinking": "생각 중..."
+  },
+  "header": {
+    "manageModeTooltip": "이 채팅은 LocalAI와 대화하여 모델을 설치하고, 구성을 편집하고, 백엔드를 관리할 수 있습니다.",
+    "modelInfo": "모델 정보",
+    "chatSettings": "채팅 설정",
+    "modelInfoTitle": "모델 정보: {{model}}",
+    "editConfig": "구성 편집",
+    "close": "닫기"
+  },
+  "modelInfo": {
+    "backend": "백엔드",
+    "modelFile": "모델 파일",
+    "contextSize": "컨텍스트 크기",
+    "threads": "스레드",
+    "mcp": "MCP",
+    "configured": "구성됨",
+    "chatTemplate": "채팅 템플릿",
+    "yes": "예",
+    "gpuLayers": "GPU 레이어"
+  },
+  "context": {
+    "label": "컨텍스트: {{percent}}%",
+    "labelWithTokens": "컨텍스트: {{percent}}% ({{tokens}} 토큰)"
+  },
+  "settings": {
+    "title": "채팅 설정",
+    "manageMode": "관리 모드",
+    "manageModeDesc": "이 채팅이 LocalAI와 대화하여 모델을 설치하고, 백엔드를 전환하고, 구성을 편집할 수 있게 합니다.",
+    "systemPrompt": "시스템 프롬프트",
+    "systemPromptPlaceholder": "당신은 도움이 되는 어시스턴트입니다...",
+    "temperature": "Temperature",
+    "topP": "Top P",
+    "topK": "Top K",
+    "contextSize": "컨텍스트 크기",
+    "contextSizePlaceholder": "2048",
+    "clearHistory": "채팅 기록 지우기"
+  },
+  "empty": {
+    "manageTitle": "채팅으로 LocalAI 관리",
+    "manageText": "모델 설치, 백엔드 전환, 구성 편집 또는 상태 확인을 요청하세요. 어시스턴트가 작업을 요약하고 변경하기 전에 확인을 기다립니다.",
+    "startTitle": "대화 시작",
+    "readyText": "{{model}}와(과) 채팅할 준비가 되었습니다",
+    "selectModelText": "시작하려면 위에서 모델을 선택하세요",
+    "suggestionsManage": [
+      "무엇이 설치되어 있나요?",
+      "채팅 모델 설치하기",
+      "시스템 상태 보기",
+      "백엔드 업데이트하기"
+    ],
+    "suggestionsChat": [
+      "이게 어떻게 작동하는지 설명해 줘",
+      "코드 작성을 도와줘",
+      "문서를 요약해 줘",
+      "아이디어를 브레인스토밍해 줘"
+    ],
+    "recent": "최근",
+    "noMessages": "아직 메시지가 없습니다",
+    "hintEnter": "Enter로 전송",
+    "hintShiftEnter": "Shift+Enter로 줄바꿈",
+    "hintAttach": "파일 첨부"
+  },
+  "errors": {
+    "viewTraces": "자세한 내용은 트레이스를 확인하세요"
+  },
+  "actions": {
+    "copy": "복사",
+    "regenerate": "다시 생성"
+  },
+  "streaming": {
+    "transferring": "모델 전송 중...",
+    "transferringTo": "{{node}}(으)로 모델 전송 중..."
+  },
+  "tokens": {
+    "perSec": "{{count}} tok/s",
+    "peak": "최고: {{count}} tok/s",
+    "usage": "{{prompt}}p + {{completion}}c = {{total}}"
+  },
+  "input": {
+    "placeholder": "메시지...",
+    "attachFile": "파일 첨부",
+    "stopGenerating": "생성 중지",
+    "canvasTitle": "캔버스 — 코드 블록과 미디어를 사이드 패널로 추출해 미리보기, 복사, 다운로드할 수 있습니다",
+    "canvasLabel": "캔버스",
+    "openCanvas": "캔버스 패널 열기"
+  },
+  "deleteAllDialog": {
+    "title": "모든 채팅 삭제",
+    "message": "모든 채팅을 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.",
+    "confirm": "모두 삭제"
+  },
+  "toasts": {
+    "selectModel": "모델을 선택해 주세요",
+    "copied": "클립보드에 복사되었습니다",
+    "copyFailed": "클립보드에 복사할 수 없습니다"
+  },
+  "menu": {
+    "trigger": "채팅",
+    "triggerTitle": "대화 (Ctrl/Cmd+K)",
+    "search": "대화 검색...",
+    "clearSearch": "검색 지우기",
+    "noMatch": "검색과 일치하는 대화가 없습니다",
+    "noConversations": "아직 대화가 없습니다",
+    "rename": "이름 변경",
+    "exportMarkdown": "Markdown으로 내보내기",
+    "deleteChat": "채팅 삭제",
+    "newChat": "새 채팅",
+    "clearAll": "모두 지우기",
+    "deleteAllTitle": "모든 대화 삭제"
+  }
+}

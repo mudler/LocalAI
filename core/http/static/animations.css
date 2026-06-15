@@ -1,0 +1,247 @@
+/* LocalAI Animation System */
+/* Purposeful animations with performance optimization */
+
+/* Animation Keyframes */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fadeInDown {
+  from {
+    opacity: 0;
+    transform: translateY(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes cardReveal {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes slideInRight {
+  from {
+    opacity: 0;
+    transform: translateX(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes slideInLeft {
+  from {
+    opacity: 0;
+    transform: translateX(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+@keyframes glow {
+  0%, 100% {
+    box-shadow: 0 0 8px rgba(56, 189, 248, 0.15);
+  }
+  50% {
+    box-shadow: 0 0 12px rgba(56, 189, 248, 0.25);
+  }
+}
+
+@keyframes scaleIn {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* P2P/Network Specific Animations */
+@keyframes rotateCircleNodes {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+@keyframes shakeFlask {
+  0%, 10% { transform: rotate(0deg); }
+  20% { transform: rotate(-10deg); }
+  30% { transform: rotate(10deg); }
+  40% { transform: rotate(-8deg); }
+  50% { transform: rotate(8deg); }
+  60% { transform: rotate(-5deg); }
+  70% { transform: rotate(5deg); }
+  80% { transform: rotate(-2deg); }
+  90% { transform: rotate(2deg); }
+  100% { transform: rotate(0deg); }
+}
+
+@keyframes nodeGlow {
+  0% { left: -100%; }
+  50% { left: 100%; }
+  100% { left: 100%; }
+}
+
+/* Animation Utility Classes */
+.fade-in {
+  animation: fadeIn var(--duration-fast) var(--ease-out);
+}
+
+/* Transition Utility Classes */
+.transition-default {
+  transition: all var(--duration-fast) var(--ease-default);
+}
+
+.transition-color {
+  transition: color var(--duration-fast) var(--ease-default);
+}
+
+.transition-background {
+  transition: background-color var(--duration-fast) var(--ease-default);
+}
+
+.fade-in-up {
+  animation: fadeInUp var(--duration-normal) var(--ease-out) backwards;
+}
+
+.fade-in-down {
+  animation: fadeInDown var(--duration-normal) var(--ease-out) backwards;
+}
+
+.slide-in-right {
+  animation: slideInRight var(--duration-normal) var(--ease-out) backwards;
+}
+
+.slide-in-left {
+  animation: slideInLeft var(--duration-normal) var(--ease-out) backwards;
+}
+
+.scale-in {
+  animation: scaleIn var(--duration-normal) var(--ease-out) backwards;
+}
+
+/* Staggered Card Animations */
+.card-animate {
+  animation: cardReveal var(--duration-normal) var(--ease-out) backwards;
+}
+
+.card-animate:nth-child(1) { animation-delay: 0ms; }
+.card-animate:nth-child(2) { animation-delay: 50ms; }
+.card-animate:nth-child(3) { animation-delay: 100ms; }
+.card-animate:nth-child(4) { animation-delay: 150ms; }
+.card-animate:nth-child(5) { animation-delay: 200ms; }
+.card-animate:nth-child(6) { animation-delay: 250ms; }
+.card-animate:nth-child(7) { animation-delay: 300ms; }
+.card-animate:nth-child(8) { animation-delay: 350ms; }
+.card-animate:nth-child(9) { animation-delay: 400ms; }
+.card-animate:nth-child(10) { animation-delay: 450ms; }
+.card-animate:nth-child(11) { animation-delay: 500ms; }
+.card-animate:nth-child(12) { animation-delay: 550ms; }
+
+/* Hero Text Animation */
+.hero-title {
+  animation: fadeInUp var(--duration-normal) var(--ease-out) backwards;
+  animation-delay: 50ms;
+}
+
+.hero-subtitle {
+  animation: fadeInUp var(--duration-normal) var(--ease-out) backwards;
+  animation-delay: 100ms;
+}
+
+/* Navigation Animation */
+.nav-fade-in {
+  animation: fadeIn var(--duration-normal) var(--ease-out) backwards;
+  animation-delay: 0ms;
+}
+
+/* Loading States - Minimal */
+.pulse-animation {
+  animation: pulse 1.5s var(--ease-in-out) infinite;
+}
+
+.glow-animation {
+  animation: glow 1.5s var(--ease-in-out) infinite;
+}
+
+/* Reduced Motion Support */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+  
+  .card-animate,
+  .fade-in-up,
+  .fade-in-down,
+  .slide-in-right,
+  .slide-in-left,
+  .scale-in,
+  .hero-title,
+  .hero-subtitle {
+    animation: none !important;
+  }
+}
+
+/* Performance Optimization */
+.card-animate,
+.fade-in-up,
+.fade-in-down,
+.slide-in-right,
+.slide-in-left,
+.scale-in {
+  will-change: transform, opacity;
+}
+
+/* After animation completes, remove will-change */
+.card-animate.animation-complete,
+.fade-in-up.animation-complete,
+.fade-in-down.animation-complete,
+.slide-in-right.animation-complete,
+.slide-in-left.animation-complete,
+.scale-in.animation-complete {
+  will-change: auto;
+}
+

@@ -1,0 +1,9 @@
+--extra-index-url https://download.pytorch.org/whl/xpu
+torch
+torchaudio
+optimum[openvino]
+setuptools
+transformers==4.48.3
+accelerate
+kokoro
+soundfile

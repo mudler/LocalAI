@@ -1,0 +1,154 @@
+{
+  "studio": {
+    "tabs": {
+      "images": "Bilder",
+      "video": "Video",
+      "tts": "TTS",
+      "sound": "Audio"
+    }
+  },
+  "image": {
+    "title": "Bildgenerierung",
+    "labels": {
+      "model": "Modell",
+      "prompt": "Prompt",
+      "promptPlaceholder": "Beschreiben Sie das Bild, das Sie generieren möchten...",
+      "negativePrompt": "Negativer Prompt",
+      "negativePromptPlaceholder": "Was vermieden werden soll...",
+      "size": "Größe",
+      "count": "Anzahl (1-4)",
+      "advanced": "Erweiterte Einstellungen",
+      "imageInputs": "Bildeingaben",
+      "steps": "Schritte",
+      "stepsPlaceholder": "20",
+      "seed": "Seed",
+      "seedPlaceholder": "Zufällig",
+      "sourceImage": "Ausgangsbild (img2img)",
+      "refImages": "Referenzbilder",
+      "refImagesAdded_one": "{{count}} Bild hinzugefügt",
+      "refImagesAdded_other": "{{count}} Bilder hinzugefügt"
+    },
+    "actions": {
+      "generate": "Generieren",
+      "generating": "Generieren..."
+    },
+    "empty": "Generierte Bilder erscheinen hier",
+    "toasts": {
+      "noPrompt": "Bitte einen Prompt eingeben",
+      "noModel": "Bitte ein Modell auswählen",
+      "noResults": "Keine Bilder generiert"
+    }
+  },
+  "video": {
+    "title": "Videogenerierung",
+    "labels": {
+      "model": "Modell",
+      "prompt": "Prompt",
+      "promptPlaceholder": "Beschreiben Sie das Video, das Sie generieren möchten...",
+      "duration": "Dauer (s)",
+      "fps": "FPS",
+      "size": "Größe",
+      "advanced": "Erweiterte Einstellungen",
+      "seed": "Seed",
+      "seedPlaceholder": "Zufällig"
+    },
+    "actions": {
+      "generate": "Video generieren",
+      "generating": "Generieren..."
+    },
+    "empty": "Generierte Videos erscheinen hier",
+    "toasts": {
+      "noPrompt": "Bitte einen Prompt eingeben",
+      "noModel": "Bitte ein Modell auswählen",
+      "noResults": "Keine Videos generiert"
+    }
+  },
+  "tts": {
+    "title": "Text zu Sprache",
+    "labels": {
+      "model": "Modell",
+      "voice": "Stimme",
+      "voicePlaceholder": "Optionale Stimm-ID",
+      "input": "Text",
+      "inputPlaceholder": "Text zum Synthetisieren eingeben..."
+    },
+    "actions": {
+      "generate": "Audio generieren",
+      "generating": "Generieren..."
+    },
+    "empty": "Generiertes Audio erscheint hier",
+    "toasts": {
+      "noText": "Bitte Text eingeben",
+      "noModel": "Bitte ein Modell auswählen",
+      "generateFailed": "Generierung fehlgeschlagen"
+    }
+  },
+  "sound": {
+    "title": "Audiogenerierung",
+    "labels": {
+      "model": "Modell",
+      "prompt": "Prompt",
+      "promptPlaceholder": "Beschreiben Sie den Klang, den Sie generieren möchten...",
+      "duration": "Dauer (s)",
+      "language": "Sprache",
+      "vocalLanguage": "Vokalsprache",
+      "lyrics": "Liedtext (optional)",
+      "lyricsPlaceholder": "Liedtext für Vokalgenerierung",
+      "advanced": "Erweiterte Einstellungen",
+      "seed": "Seed",
+      "seedPlaceholder": "Zufällig"
+    },
+    "actions": {
+      "generate": "Generieren",
+      "generating": "Generieren..."
+    },
+    "empty": "Generiertes Audio erscheint hier",
+    "toasts": {
+      "noPrompt": "Bitte einen Prompt eingeben",
+      "noModel": "Bitte ein Modell auswählen",
+      "generateFailed": "Generierung fehlgeschlagen"
+    }
+  },
+  "talk": {
+    "title": "Sprechen",
+    "subtitle": "Sprachunterhaltung in Echtzeit",
+    "actions": {
+      "start": "Sitzung starten",
+      "stop": "Sitzung beenden",
+      "connecting": "Verbinden...",
+      "muted": "Stumm",
+      "mute": "Stummschalten",
+      "unmute": "Stumm aufheben"
+    },
+    "labels": {
+      "model": "Modell",
+      "voice": "Stimme",
+      "voicePlaceholder": "alloy",
+      "language": "Sprache",
+      "languagePlaceholder": "de",
+      "instructions": "Anweisungen",
+      "instructionsPlaceholder": "Persönlichkeit des Assistenten festlegen..."
+    },
+    "status": {
+      "idle": "Inaktiv",
+      "connecting": "Verbinden...",
+      "listening": "Höre zu...",
+      "speaking": "Spricht...",
+      "ended": "Sitzung beendet"
+    },
+    "toasts": {
+      "noModel": "Wählen Sie zuerst ein Modell",
+      "connectFailed": "Verbindung fehlgeschlagen: {{message}}"
+    }
+  },
+  "history": {
+    "title": "Verlauf",
+    "empty": "Noch kein Verlauf",
+    "deleteEntry": "Eintrag löschen",
+    "clear": "Verlauf löschen",
+    "clearTitle": "Gesamten Verlauf löschen",
+    "clearMessage": "Alle Verlaufseinträge entfernen? Diese Aktion kann nicht rückgängig gemacht werden.",
+    "clearConfirm": "Löschen",
+    "cleared": "Verlauf gelöscht"
+  }
+}

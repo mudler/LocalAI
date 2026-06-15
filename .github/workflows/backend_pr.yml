@@ -1,0 +1,151 @@
+name: 'build backend container images (PR-filtered)'
+
+on:
+  pull_request:
+
+concurrency:
+  group: ci-backends-pr-${{ github.event.pull_request.number || github.sha }}-${{ github.repository }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  generate-matrix:
+    runs-on: ubuntu-latest
+    outputs:
+      matrix-singlearch: ${{ steps.set-matrix.outputs['matrix-singlearch'] }}
+      matrix-multiarch: ${{ steps.set-matrix.outputs['matrix-multiarch'] }}
+      matrix-darwin: ${{ steps.set-matrix.outputs['matrix-darwin'] }}
+      merge-matrix-multiarch: ${{ steps.set-matrix.outputs['merge-matrix-multiarch'] }}
+      merge-matrix-singlearch: ${{ steps.set-matrix.outputs['merge-matrix-singlearch'] }}
+      has-backends-singlearch: ${{ steps.set-matrix.outputs['has-backends-singlearch'] }}
+      has-backends-multiarch: ${{ steps.set-matrix.outputs['has-backends-multiarch'] }}
+      has-backends-darwin: ${{ steps.set-matrix.outputs['has-backends-darwin'] }}
+      has-merges-multiarch: ${{ steps.set-matrix.outputs['has-merges-multiarch'] }}
+      has-merges-singlearch: ${{ steps.set-matrix.outputs['has-merges-singlearch'] }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+
+      - name: Install dependencies
+        run: |
+          bun add js-yaml
+          bun add @octokit/core
+
+      # filters the matrix in backend.yml; splits into single-arch and
+      # multi-arch groups so backend-merge-jobs can `needs:` only the latter
+      # (matches backend.yml's structure).
+      - name: Filter matrix for changed backends
+        id: set-matrix
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_EVENT_PATH: ${{ github.event_path }}
+        run: bun run scripts/changed-backends.js
+
+  backend-jobs-multiarch:
+    needs: generate-matrix
+    uses: ./.github/workflows/backend_build.yml
+    if: needs.generate-matrix.outputs['has-backends-multiarch'] == 'true'
+    with:
+      tag-latest: ${{ matrix.tag-latest }}
+      tag-suffix: ${{ matrix.tag-suffix }}
+      build-type: ${{ matrix.build-type }}
+      cuda-major-version: ${{ matrix.cuda-major-version }}
+      cuda-minor-version: ${{ matrix.cuda-minor-version }}
+      platforms: ${{ matrix.platforms }}
+      platform-tag: ${{ matrix.platform-tag || '' }}
+      runs-on: ${{ matrix.runs-on }}
+      builder-base-image: ${{ matrix.builder-base-image || '' }}
+      base-image: ${{ matrix.base-image }}
+      backend: ${{ matrix.backend }}
+      dockerfile: ${{ matrix.dockerfile }}
+      skip-drivers: ${{ matrix.skip-drivers }}
+      context: ${{ matrix.context }}
+      ubuntu-version: ${{ matrix.ubuntu-version }}
+      amdgpu-targets: ${{ matrix.amdgpu-targets || 'gfx908,gfx90a,gfx942,gfx950,gfx1030,gfx1100,gfx1101,gfx1102,gfx1151,gfx1200,gfx1201' }}
+    secrets:
+      quayUsername: ${{ secrets.LOCALAI_REGISTRY_USERNAME }}
+      quayPassword: ${{ secrets.LOCALAI_REGISTRY_PASSWORD }}
+    strategy:
+      fail-fast: true
+      max-parallel: 8
+      matrix: ${{ fromJson(needs.generate-matrix.outputs['matrix-multiarch']) }}
+  backend-jobs-singlearch:
+    needs: generate-matrix
+    uses: ./.github/workflows/backend_build.yml
+    if: needs.generate-matrix.outputs['has-backends-singlearch'] == 'true'
+    with:
+      tag-latest: ${{ matrix.tag-latest }}
+      tag-suffix: ${{ matrix.tag-suffix }}
+      build-type: ${{ matrix.build-type }}
+      cuda-major-version: ${{ matrix.cuda-major-version }}
+      cuda-minor-version: ${{ matrix.cuda-minor-version }}
+      platforms: ${{ matrix.platforms }}
+      platform-tag: ${{ matrix.platform-tag || '' }}
+      runs-on: ${{ matrix.runs-on }}
+      builder-base-image: ${{ matrix.builder-base-image || '' }}
+      base-image: ${{ matrix.base-image }}
+      backend: ${{ matrix.backend }}
+      dockerfile: ${{ matrix.dockerfile }}
+      skip-drivers: ${{ matrix.skip-drivers }}
+      context: ${{ matrix.context }}
+      ubuntu-version: ${{ matrix.ubuntu-version }}
+      amdgpu-targets: ${{ matrix.amdgpu-targets || 'gfx908,gfx90a,gfx942,gfx950,gfx1030,gfx1100,gfx1101,gfx1102,gfx1151,gfx1200,gfx1201' }}
+    secrets:
+      quayUsername: ${{ secrets.LOCALAI_REGISTRY_USERNAME }}
+      quayPassword: ${{ secrets.LOCALAI_REGISTRY_PASSWORD }}
+    strategy:
+      fail-fast: true
+      max-parallel: 8
+      matrix: ${{ fromJson(needs.generate-matrix.outputs['matrix-singlearch']) }}
+  backend-merge-jobs-multiarch:
+    needs: [generate-matrix, backend-jobs-multiarch]
+    # backend_merge.yml's push-side steps are all gated on
+    # github.event_name != 'pull_request', so on a PR the merge job would
+    # do nothing. Skip it entirely to avoid spinning up an empty runner.
+    # !cancelled() lets the merge run even when a few build legs fail —
+    # see the matching note in backend.yml.
+    if: ${{ !cancelled() && github.event_name != 'pull_request' && needs.generate-matrix.outputs['has-merges-multiarch'] == 'true' }}
+    uses: ./.github/workflows/backend_merge.yml
+    with:
+      tag-latest: ${{ matrix.tag-latest }}
+      tag-suffix: ${{ matrix.tag-suffix }}
+    secrets:
+      quayUsername: ${{ secrets.LOCALAI_REGISTRY_USERNAME }}
+      quayPassword: ${{ secrets.LOCALAI_REGISTRY_PASSWORD }}
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJson(needs.generate-matrix.outputs['merge-matrix-multiarch']) }}
+
+  backend-merge-jobs-singlearch:
+    needs: [generate-matrix, backend-jobs-singlearch]
+    if: ${{ !cancelled() && github.event_name != 'pull_request' && needs.generate-matrix.outputs['has-merges-singlearch'] == 'true' }}
+    uses: ./.github/workflows/backend_merge.yml
+    with:
+      tag-latest: ${{ matrix.tag-latest }}
+      tag-suffix: ${{ matrix.tag-suffix }}
+    secrets:
+      quayUsername: ${{ secrets.LOCALAI_REGISTRY_USERNAME }}
+      quayPassword: ${{ secrets.LOCALAI_REGISTRY_PASSWORD }}
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJson(needs.generate-matrix.outputs['merge-matrix-singlearch']) }}
+  backend-jobs-darwin:
+    needs: generate-matrix
+    uses: ./.github/workflows/backend_build_darwin.yml
+    if: needs.generate-matrix.outputs.has-backends-darwin == 'true'
+    with:
+      backend: ${{ matrix.backend }}
+      build-type: ${{ matrix.build-type }}
+      go-version: "1.25.x"
+      tag-suffix: ${{ matrix.tag-suffix }}
+      lang: ${{ matrix.lang || 'python' }}
+      use-pip: ${{ matrix.backend == 'diffusers' }}
+      runs-on: "macos-latest"
+    secrets:
+      quayUsername: ${{ secrets.LOCALAI_REGISTRY_USERNAME }}
+      quayPassword: ${{ secrets.LOCALAI_REGISTRY_PASSWORD }}
+    strategy:
+      fail-fast: true
+      matrix: ${{ fromJson(needs.generate-matrix.outputs.matrix-darwin) }}

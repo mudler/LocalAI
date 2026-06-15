@@ -1,0 +1,62 @@
+{
+  "manage": {
+    "title": "Sistema",
+    "subtitle": "Gestisci modelli e backend installati"
+  },
+  "settings": {
+    "title": "Impostazioni",
+    "subtitle": "Configura le impostazioni runtime di LocalAI",
+    "saved": "Impostazioni salvate con successo",
+    "saveFailed": "Salvataggio fallito: {{message}}",
+    "loadFailed": "Caricamento impostazioni fallito: {{message}}",
+    "sections": {
+      "branding": "Branding",
+      "watchdog": "Watchdog",
+      "memory": "Memoria",
+      "backends": "Backend",
+      "performance": "Prestazioni",
+      "tracing": "Tracing",
+      "api": "API e CORS",
+      "p2p": "P2P",
+      "galleries": "Gallerie",
+      "apikeys": "Chiavi API",
+      "agents": "Job degli agenti",
+      "agentpool": "Pool agenti",
+      "assistant": "LocalAI Assistant",
+      "responses": "Risposte"
+    }
+  },
+  "backends": {
+    "title": "Gestione backend",
+    "subtitle": "Scopri e installa backend AI per i tuoi modelli"
+  },
+  "backendLogs": {
+    "title": "Log dei backend",
+    "subtitle": "Visualizza i log dei backend in esecuzione",
+    "empty": "Nessun log disponibile"
+  },
+  "traces": {
+    "title": "Tracce",
+    "subtitle": "Visualizza richieste API, risposte e operazioni dei backend registrate"
+  },
+  "nodes": {
+    "title": "Nodi distribuiti",
+    "subtitle": "Gestisci i nodi worker dei backend e degli agenti"
+  },
+  "p2p": {
+    "title": "Calcolo AI distribuito",
+    "subtitle": "Scala i tuoi carichi di lavoro AI su più dispositivi con la distribuzione peer-to-peer"
+  },
+  "users": {
+    "title": "Utenti",
+    "subtitle": "Gestisci utenti registrati, ruoli e inviti"
+  },
+  "usage": {
+    "title": "Utilizzo",
+    "subtitle": "Statistiche di utilizzo dei token API"
+  },
+  "explorer": {
+    "title": "Esplora risorse",
+    "subtitle": "Sfoglia file e configurazioni"
+  }
+}

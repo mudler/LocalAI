@@ -1,0 +1,2 @@
+mlx-lm
+mlx[cpu]

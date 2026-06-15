@@ -1,0 +1,15 @@
+grpcio==1.80.0
+protobuf==6.33.5
+certifi
+setuptools
+numpy>=2.0.0
+tinygrad>=0.12.0
+tokenizers>=0.21.0
+huggingface_hub
+jinja2>=3.1.0
+tiktoken
+sentencepiece
+safetensors
+Pillow
+librosa
+soundfile

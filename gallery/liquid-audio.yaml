@@ -1,0 +1,40 @@
+---
+name: "liquid-audio"
+
+description: |
+  LiquidAI LFM2 / LFM2.5 Audio models served by the Python `liquid-audio` backend.
+  Supports four roles via the `mode:` option:
+    - chat       text-only chat completion (generate_sequential, no audio)
+    - asr        speech-to-text (Perform ASR. system prompt)
+    - tts        text-to-speech in 4 baked voices (us_male/us_female/uk_male/uk_female)
+    - s2s        interleaved speech-to-speech (the realtime any-to-any path)
+
+license: "LFM Open License v1.0"
+
+urls:
+  - https://huggingface.co/LiquidAI/LFM2.5-Audio-1.5B
+  - https://github.com/Liquid4All/liquid-audio
+
+config_file: |
+  backend: liquid-audio
+  context_size: 32768
+  f16: true
+  mmap: true
+  # realtime_audio surfaces the model on the Talk page; chat/tts/transcript
+  # let it also serve the standalone /v1/chat/completions, /v1/audio/speech,
+  # and /v1/audio/transcriptions endpoints (backend implements all three).
+  known_usecases:
+    - realtime_audio
+    - chat
+    - tts
+    - transcript
+    - vad
+  parameters:
+    model: LiquidAI/LFM2.5-Audio-1.5B
+  # Special tokens emitted in the text track during interleaved generation.
+  # Included so a future client-side parser can spot them; the LFM2 tool-call
+  # format itself is auto-detected by the upstream llama.cpp parser when the
+  # model loads under that backend.
+  stopwords:
+    - <|im_end|>
+    - <|endoftext|>

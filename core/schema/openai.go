@@ -1,0 +1,253 @@
+package schema
+
+import (
+	"context"
+	"encoding/json"
+
+	functions "github.com/mudler/LocalAI/pkg/functions"
+)
+
+// APIError provides error information returned by the OpenAI API.
+type APIError struct {
+	Code    any     `json:"code,omitempty"`
+	Message string  `json:"message"`
+	Param   *string `json:"param,omitempty"`
+	Type    string  `json:"type"`
+}
+
+type ErrorResponse struct {
+	Error *APIError `json:"error,omitempty"`
+}
+
+type InputTokensDetails struct {
+	TextTokens  int `json:"text_tokens"`
+	ImageTokens int `json:"image_tokens"`
+}
+
+type OpenAIUsage struct {
+	PromptTokens     int `json:"prompt_tokens"`
+	CompletionTokens int `json:"completion_tokens"`
+	TotalTokens      int `json:"total_tokens"`
+	// Fields for image generation API compatibility
+	InputTokens        int                 `json:"input_tokens,omitempty"`
+	OutputTokens       int                 `json:"output_tokens,omitempty"`
+	InputTokensDetails *InputTokensDetails `json:"input_tokens_details,omitempty"`
+	// Extra timing data, disabled by default as is't not a part of OpenAI specification
+	TimingPromptProcessing float64 `json:"timing_prompt_processing,omitempty"`
+	TimingTokenGeneration  float64 `json:"timing_token_generation,omitempty"`
+}
+
+type Item struct {
+	Embedding       []float32 `json:"-"`
+	EmbeddingBase64 string    `json:"-"`
+	Index           int       `json:"index"`
+	Object          string    `json:"object,omitempty"`
+
+	// Images
+	URL     string `json:"url,omitempty"`
+	B64JSON string `json:"b64_json,omitempty"`
+}
+
+// MarshalJSON serialises Item so that the "embedding" field is either a float array
+// or a base64 string depending on which field is populated.  This satisfies the
+// OpenAI API encoding_format contract: the Node.js SDK (v4+) sends
+// encoding_format=base64 by default and expects a base64 string back.
+func (item Item) MarshalJSON() ([]byte, error) {
+	type itemFields struct {
+		Embedding any    `json:"embedding,omitempty"`
+		Index     int    `json:"index"`
+		Object    string `json:"object,omitempty"`
+		URL       string `json:"url,omitempty"`
+		B64JSON   string `json:"b64_json,omitempty"`
+	}
+	f := itemFields{
+		Index:   item.Index,
+		Object:  item.Object,
+		URL:     item.URL,
+		B64JSON: item.B64JSON,
+	}
+	if item.EmbeddingBase64 != "" {
+		f.Embedding = item.EmbeddingBase64
+	} else {
+		f.Embedding = item.Embedding
+	}
+	return json.Marshal(f)
+}
+
+type OpenAIResponse struct {
+	Created int      `json:"created,omitempty"`
+	Object  string   `json:"object,omitempty"`
+	ID      string   `json:"id,omitempty"`
+	Model   string   `json:"model,omitempty"`
+	Choices []Choice `json:"choices,omitempty"`
+	Data    []Item   `json:"data,omitempty"`
+
+	// Usage is intentionally a pointer with omitempty: per the OpenAI
+	// chat-completion streaming spec, intermediate chunks must not carry
+	// a `usage` field. Marshalling a value-typed usage would emit
+	// `"usage":{"prompt_tokens":0,...}` on every chunk and break
+	// OpenAI-SDK consumers that filter on a truthy `result.usage`
+	// (continuedev/continue, Kilo Code, Roo Code, etc.).
+	Usage *OpenAIUsage `json:"usage,omitempty"`
+}
+
+// StreamOptions mirrors OpenAI's `stream_options` request field. The only
+// member currently honored is IncludeUsage; when true, the streaming
+// chat-completion response emits a trailing chunk with `choices:[]` and a
+// populated `usage` object.
+type StreamOptions struct {
+	IncludeUsage bool `json:"include_usage,omitempty" yaml:"include_usage,omitempty"`
+}
+
+type Choice struct {
+	Index        int       `json:"index"`
+	FinishReason *string   `json:"finish_reason"`
+	Message      *Message  `json:"message,omitempty"`
+	Delta        *Message  `json:"delta,omitempty"`
+	Text         string    `json:"text,omitempty"`
+	Logprobs     *Logprobs `json:"logprobs,omitempty"`
+}
+
+type Logprobs struct {
+	Content []LogprobContent `json:"content,omitempty"`
+}
+
+type LogprobContent struct {
+	ID          int32            `json:"id"`
+	Token       string           `json:"token"`
+	Bytes       []int            `json:"bytes,omitempty"`
+	Logprob     float64          `json:"logprob"`
+	TopLogprobs []LogprobContent `json:"top_logprobs,omitempty"`
+}
+
+type Content struct {
+	Type       string     `json:"type" yaml:"type"`
+	Text       string     `json:"text" yaml:"text"`
+	ImageURL   ContentURL `json:"image_url" yaml:"image_url"`
+	AudioURL   ContentURL `json:"audio_url" yaml:"audio_url"`
+	VideoURL   ContentURL `json:"video_url" yaml:"video_url"`
+	InputAudio InputAudio `json:"input_audio" yaml:"input_audio"`
+}
+
+type ContentURL struct {
+	URL string `json:"url" yaml:"url"`
+}
+
+type InputAudio struct {
+	// Format identifies the audio format, e.g. 'wav'.
+	Format string `json:"format" yaml:"format"`
+	// Data holds the base64-encoded audio data.
+	Data string `json:"data" yaml:"data"`
+}
+
+type OpenAIModel struct {
+	ID     string `json:"id"`
+	Object string `json:"object"`
+}
+
+type ImageGenerationResponseFormat string
+
+type ChatCompletionResponseFormatType string
+
+type TranscriptionResponseFormatType string
+
+const (
+	TranscriptionResponseFormatText        = TranscriptionResponseFormatType("txt")
+	TranscriptionResponseFormatSrt         = TranscriptionResponseFormatType("srt")
+	TranscriptionResponseFormatVtt         = TranscriptionResponseFormatType("vtt")
+	TranscriptionResponseFormatLrc         = TranscriptionResponseFormatType("lrc")
+	TranscriptionResponseFormatJson        = TranscriptionResponseFormatType("json")
+	TranscriptionResponseFormatJsonVerbose = TranscriptionResponseFormatType("verbose_json")
+)
+
+type ChatCompletionResponseFormat struct {
+	Type ChatCompletionResponseFormatType `json:"type,omitempty"`
+}
+
+type JsonSchemaRequest struct {
+	Type       string     `json:"type"`
+	JsonSchema JsonSchema `json:"json_schema"`
+}
+
+type JsonSchema struct {
+	Name   string         `json:"name"`
+	Strict bool           `json:"strict"`
+	Schema functions.Item `json:"schema"`
+}
+
+type OpenAIRequest struct {
+	PredictionOptions
+
+	Context context.Context    `json:"-"`
+	Cancel  context.CancelFunc `json:"-"`
+
+	// OpenAIRequest is a union over chat / completion / embedding /
+	// edit / image / whisper endpoints. Most fields apply to only one
+	// endpoint family — they MUST be omitempty so the re-marshal path
+	// in cloud-proxy passthrough doesn't ship whisper's `file:""` or
+	// embedding's `input:null` to an upstream chat endpoint, which
+	// strict providers (OpenAI) reject as unknown parameters.
+
+	// whisper
+	File string `json:"file,omitempty" validate:"required"`
+	// Multiple input images for img2img or inpainting
+	Files []string `json:"files,omitempty"`
+	// Reference images for models that support them (e.g., Flux Kontext)
+	RefImages []string `json:"ref_images,omitempty"`
+	//whisper/image
+	ResponseFormat any `json:"response_format,omitempty"`
+	// image
+	Size string `json:"size,omitempty"`
+	// Prompt is read only by completion/image API calls
+	Prompt any `json:"prompt,omitempty" yaml:"prompt"`
+
+	// Edit endpoint
+	Instruction string `json:"instruction,omitempty" yaml:"instruction"`
+	Input       any    `json:"input,omitempty" yaml:"input"`
+
+	Stop any `json:"stop,omitempty" yaml:"stop"`
+
+	// Messages is read only by chat/completion API calls
+	Messages []Message `json:"messages,omitempty" yaml:"messages"`
+
+	// A list of available functions to call
+	Functions    functions.Functions `json:"functions,omitempty" yaml:"functions"`
+	FunctionCall any                 `json:"function_call,omitempty" yaml:"function_call"` // might be a string or an object
+
+	Tools       []functions.Tool `json:"tools,omitempty" yaml:"tools"`
+	ToolsChoice any              `json:"tool_choice,omitempty" yaml:"tool_choice"`
+
+	Stream bool `json:"stream,omitempty"`
+
+	// StreamOptions opts into OpenAI streaming extensions, e.g. include_usage.
+	StreamOptions *StreamOptions `json:"stream_options,omitempty" yaml:"stream_options,omitempty"`
+
+	// Image (not supported by OpenAI)
+	Quality string `json:"quality,omitempty"`
+	Step    int    `json:"step,omitempty"`
+
+	// LocalAI-specific request fields below. They carry server-side
+	// routing/templating hints and are NOT part of the OpenAI surface
+	// — leaking them upstream as zero values trips strict providers
+	// (e.g. OpenAI 400s with "Unknown parameter: 'backend'."), so
+	// they must use omitempty to disappear from re-marshaled bodies
+	// in the cloud-proxy passthrough path.
+
+	// A grammar to constrain the LLM output
+	Grammar string `json:"grammar,omitempty" yaml:"grammar"`
+
+	JSONFunctionGrammarObject *functions.JSONFunctionStructure `json:"grammar_json_functions,omitempty" yaml:"grammar_json_functions"`
+
+	Backend string `json:"backend,omitempty" yaml:"backend"`
+
+	ModelBaseName string `json:"model_base_name,omitempty" yaml:"model_base_name"`
+
+	ReasoningEffort string `json:"reasoning_effort,omitempty" yaml:"reasoning_effort"`
+
+	Metadata map[string]string `json:"metadata,omitempty" yaml:"metadata"`
+}
+
+type ModelsDataResponse struct {
+	Object string        `json:"object"`
+	Data   []OpenAIModel `json:"data"`
+}

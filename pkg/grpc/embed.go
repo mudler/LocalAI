@@ -1,0 +1,724 @@
+package grpc
+
+import (
+	"context"
+	"io"
+	"sync"
+
+	pb "github.com/mudler/LocalAI/pkg/grpc/proto"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/metadata"
+)
+
+var _ Backend = new(embedBackend)
+var _ pb.Backend_PredictStreamServer = new(embedBackendServerStream)
+
+type embedBackend struct {
+	s *server
+}
+
+func (e *embedBackend) IsBusy() bool {
+	return e.s.llm.Busy()
+}
+
+func (e *embedBackend) HealthCheck(ctx context.Context) (bool, error) {
+	return true, nil
+}
+
+func (e *embedBackend) Embeddings(ctx context.Context, in *pb.PredictOptions, opts ...grpc.CallOption) (*pb.EmbeddingResult, error) {
+	return e.s.Embedding(ctx, in)
+}
+
+func (e *embedBackend) Predict(ctx context.Context, in *pb.PredictOptions, opts ...grpc.CallOption) (*pb.Reply, error) {
+	return e.s.Predict(ctx, in)
+}
+
+func (e *embedBackend) LoadModel(ctx context.Context, in *pb.ModelOptions, opts ...grpc.CallOption) (*pb.Result, error) {
+	return e.s.LoadModel(ctx, in)
+}
+
+func (e *embedBackend) PredictStream(ctx context.Context, in *pb.PredictOptions, f func(reply *pb.Reply), opts ...grpc.CallOption) error {
+	bs := &embedBackendServerStream{
+		ctx: ctx,
+		fn:  f,
+	}
+	return e.s.PredictStream(in, bs)
+}
+
+func (e *embedBackend) GenerateImage(ctx context.Context, in *pb.GenerateImageRequest, opts ...grpc.CallOption) (*pb.Result, error) {
+	return e.s.GenerateImage(ctx, in)
+}
+
+func (e *embedBackend) GenerateVideo(ctx context.Context, in *pb.GenerateVideoRequest, opts ...grpc.CallOption) (*pb.Result, error) {
+	return e.s.GenerateVideo(ctx, in)
+}
+
+func (e *embedBackend) TTS(ctx context.Context, in *pb.TTSRequest, opts ...grpc.CallOption) (*pb.Result, error) {
+	return e.s.TTS(ctx, in)
+}
+
+func (e *embedBackend) TTSStream(ctx context.Context, in *pb.TTSRequest, f func(reply *pb.Reply), opts ...grpc.CallOption) error {
+	bs := &embedBackendServerStream{
+		ctx: ctx,
+		fn:  f,
+	}
+	return e.s.TTSStream(in, bs)
+}
+
+func (e *embedBackend) SoundGeneration(ctx context.Context, in *pb.SoundGenerationRequest, opts ...grpc.CallOption) (*pb.Result, error) {
+	return e.s.SoundGeneration(ctx, in)
+}
+
+func (e *embedBackend) Detect(ctx context.Context, in *pb.DetectOptions, opts ...grpc.CallOption) (*pb.DetectResponse, error) {
+	return e.s.Detect(ctx, in)
+}
+
+func (e *embedBackend) FaceVerify(ctx context.Context, in *pb.FaceVerifyRequest, opts ...grpc.CallOption) (*pb.FaceVerifyResponse, error) {
+	return e.s.FaceVerify(ctx, in)
+}
+
+func (e *embedBackend) FaceAnalyze(ctx context.Context, in *pb.FaceAnalyzeRequest, opts ...grpc.CallOption) (*pb.FaceAnalyzeResponse, error) {
+	return e.s.FaceAnalyze(ctx, in)
+}
+
+func (e *embedBackend) VoiceVerify(ctx context.Context, in *pb.VoiceVerifyRequest, opts ...grpc.CallOption) (*pb.VoiceVerifyResponse, error) {
+	return e.s.VoiceVerify(ctx, in)
+}
+
+func (e *embedBackend) VoiceAnalyze(ctx context.Context, in *pb.VoiceAnalyzeRequest, opts ...grpc.CallOption) (*pb.VoiceAnalyzeResponse, error) {
+	return e.s.VoiceAnalyze(ctx, in)
+}
+
+func (e *embedBackend) VoiceEmbed(ctx context.Context, in *pb.VoiceEmbedRequest, opts ...grpc.CallOption) (*pb.VoiceEmbedResponse, error) {
+	return e.s.VoiceEmbed(ctx, in)
+}
+
+func (e *embedBackend) AudioTranscription(ctx context.Context, in *pb.TranscriptRequest, opts ...grpc.CallOption) (*pb.TranscriptResult, error) {
+	return e.s.AudioTranscription(ctx, in)
+}
+
+func (e *embedBackend) AudioTranscriptionStream(ctx context.Context, in *pb.TranscriptRequest, f func(chunk *pb.TranscriptStreamResponse), opts ...grpc.CallOption) error {
+	bs := &embedBackendAudioTranscriptionStream{
+		ctx: ctx,
+		fn:  f,
+	}
+	return e.s.AudioTranscriptionStream(in, bs)
+}
+
+func (e *embedBackend) TokenizeString(ctx context.Context, in *pb.PredictOptions, opts ...grpc.CallOption) (*pb.TokenizationResponse, error) {
+	return e.s.TokenizeString(ctx, in)
+}
+
+func (e *embedBackend) Status(ctx context.Context) (*pb.StatusResponse, error) {
+	return e.s.Status(ctx, &pb.HealthMessage{})
+}
+
+func (e *embedBackend) StoresSet(ctx context.Context, in *pb.StoresSetOptions, opts ...grpc.CallOption) (*pb.Result, error) {
+	return e.s.StoresSet(ctx, in)
+}
+
+func (e *embedBackend) StoresDelete(ctx context.Context, in *pb.StoresDeleteOptions, opts ...grpc.CallOption) (*pb.Result, error) {
+	return e.s.StoresDelete(ctx, in)
+}
+
+func (e *embedBackend) StoresGet(ctx context.Context, in *pb.StoresGetOptions, opts ...grpc.CallOption) (*pb.StoresGetResult, error) {
+	return e.s.StoresGet(ctx, in)
+}
+
+func (e *embedBackend) StoresFind(ctx context.Context, in *pb.StoresFindOptions, opts ...grpc.CallOption) (*pb.StoresFindResult, error) {
+	return e.s.StoresFind(ctx, in)
+}
+
+func (e *embedBackend) Rerank(ctx context.Context, in *pb.RerankRequest, opts ...grpc.CallOption) (*pb.RerankResult, error) {
+	return e.s.Rerank(ctx, in)
+}
+
+func (e *embedBackend) TokenClassify(ctx context.Context, in *pb.TokenClassifyRequest, opts ...grpc.CallOption) (*pb.TokenClassifyResponse, error) {
+	return e.s.TokenClassify(ctx, in)
+}
+
+func (e *embedBackend) Score(ctx context.Context, in *pb.ScoreRequest, opts ...grpc.CallOption) (*pb.ScoreResponse, error) {
+	return e.s.Score(ctx, in)
+}
+
+func (e *embedBackend) VAD(ctx context.Context, in *pb.VADRequest, opts ...grpc.CallOption) (*pb.VADResponse, error) {
+	return e.s.VAD(ctx, in)
+}
+
+func (e *embedBackend) Diarize(ctx context.Context, in *pb.DiarizeRequest, opts ...grpc.CallOption) (*pb.DiarizeResponse, error) {
+	return e.s.Diarize(ctx, in)
+}
+
+func (e *embedBackend) AudioEncode(ctx context.Context, in *pb.AudioEncodeRequest, opts ...grpc.CallOption) (*pb.AudioEncodeResult, error) {
+	return e.s.AudioEncode(ctx, in)
+}
+
+func (e *embedBackend) AudioDecode(ctx context.Context, in *pb.AudioDecodeRequest, opts ...grpc.CallOption) (*pb.AudioDecodeResult, error) {
+	return e.s.AudioDecode(ctx, in)
+}
+
+func (e *embedBackend) AudioTransform(ctx context.Context, in *pb.AudioTransformRequest, opts ...grpc.CallOption) (*pb.AudioTransformResult, error) {
+	return e.s.AudioTransform(ctx, in)
+}
+
+func (e *embedBackend) AudioTransformStream(ctx context.Context, opts ...grpc.CallOption) (AudioTransformStreamClient, error) {
+	// In-process bidi stream is two channels paired with two facades:
+	// the server side reads requests / writes responses; the client side
+	// is its mirror.
+	reqs := make(chan *pb.AudioTransformFrameRequest, 4)
+	resps := make(chan *pb.AudioTransformFrameResponse, 4)
+	srvDone := make(chan error, 1)
+
+	server := &embedBackendAudioTransformStream{
+		ctx:   ctx,
+		reqs:  reqs,
+		resps: resps,
+	}
+
+	go func() {
+		err := e.s.AudioTransformStream(server)
+		// Backend has finished — no more responses will arrive.
+		close(resps)
+		srvDone <- err
+	}()
+
+	return &embedBackendAudioTransformStreamClient{
+		ctx:     ctx,
+		reqs:    reqs,
+		resps:   resps,
+		srvDone: srvDone,
+	}, nil
+}
+
+func (e *embedBackend) Forward(ctx context.Context, opts ...grpc.CallOption) (ForwardClient, error) {
+	reqs := make(chan *pb.ForwardRequest, 8)
+	resps := make(chan *pb.ForwardReply, 8)
+	srvDone := make(chan error, 1)
+
+	server := &embedBackendForwardStream{ctx: ctx, reqs: reqs, resps: resps}
+
+	go func() {
+		err := e.s.Forward(server)
+		close(resps)
+		srvDone <- err
+	}()
+
+	return &embedBackendForwardStreamClient{
+		ctx:     ctx,
+		reqs:    reqs,
+		resps:   resps,
+		srvDone: srvDone,
+	}, nil
+}
+
+func (e *embedBackend) AudioToAudioStream(ctx context.Context, opts ...grpc.CallOption) (AudioToAudioStreamClient, error) {
+	reqs := make(chan *pb.AudioToAudioRequest, 8)
+	resps := make(chan *pb.AudioToAudioResponse, 8)
+	srvDone := make(chan error, 1)
+
+	server := &embedBackendAudioToAudioStream{
+		ctx:   ctx,
+		reqs:  reqs,
+		resps: resps,
+	}
+
+	go func() {
+		err := e.s.AudioToAudioStream(server)
+		close(resps)
+		srvDone <- err
+	}()
+
+	return &embedBackendAudioToAudioStreamClient{
+		ctx:     ctx,
+		reqs:    reqs,
+		resps:   resps,
+		srvDone: srvDone,
+	}, nil
+}
+
+func (e *embedBackend) ModelMetadata(ctx context.Context, in *pb.ModelOptions, opts ...grpc.CallOption) (*pb.ModelMetadataResponse, error) {
+	return e.s.ModelMetadata(ctx, in)
+}
+
+func (e *embedBackend) GetTokenMetrics(ctx context.Context, in *pb.MetricsRequest, opts ...grpc.CallOption) (*pb.MetricsResponse, error) {
+	return e.s.GetMetrics(ctx, in)
+}
+
+func (e *embedBackend) StartFineTune(ctx context.Context, in *pb.FineTuneRequest, opts ...grpc.CallOption) (*pb.FineTuneJobResult, error) {
+	return e.s.StartFineTune(ctx, in)
+}
+
+func (e *embedBackend) FineTuneProgress(ctx context.Context, in *pb.FineTuneProgressRequest, f func(update *pb.FineTuneProgressUpdate), opts ...grpc.CallOption) error {
+	bs := &embedBackendFineTuneProgressStream{
+		ctx: ctx,
+		fn:  f,
+	}
+	return e.s.FineTuneProgress(in, bs)
+}
+
+func (e *embedBackend) StopFineTune(ctx context.Context, in *pb.FineTuneStopRequest, opts ...grpc.CallOption) (*pb.Result, error) {
+	return e.s.StopFineTune(ctx, in)
+}
+
+func (e *embedBackend) ListCheckpoints(ctx context.Context, in *pb.ListCheckpointsRequest, opts ...grpc.CallOption) (*pb.ListCheckpointsResponse, error) {
+	return e.s.ListCheckpoints(ctx, in)
+}
+
+func (e *embedBackend) ExportModel(ctx context.Context, in *pb.ExportModelRequest, opts ...grpc.CallOption) (*pb.Result, error) {
+	return e.s.ExportModel(ctx, in)
+}
+
+func (e *embedBackend) StartQuantization(ctx context.Context, in *pb.QuantizationRequest, opts ...grpc.CallOption) (*pb.QuantizationJobResult, error) {
+	return e.s.StartQuantization(ctx, in)
+}
+
+func (e *embedBackend) QuantizationProgress(ctx context.Context, in *pb.QuantizationProgressRequest, f func(update *pb.QuantizationProgressUpdate), opts ...grpc.CallOption) error {
+	bs := &embedBackendQuantizationProgressStream{
+		ctx: ctx,
+		fn:  f,
+	}
+	return e.s.QuantizationProgress(in, bs)
+}
+
+func (e *embedBackend) StopQuantization(ctx context.Context, in *pb.QuantizationStopRequest, opts ...grpc.CallOption) (*pb.Result, error) {
+	return e.s.StopQuantization(ctx, in)
+}
+
+func (e *embedBackend) Free(ctx context.Context) error {
+	_, err := e.s.Free(ctx, &pb.HealthMessage{})
+	return err
+}
+
+var _ pb.Backend_AudioTransformStreamServer = new(embedBackendAudioTransformStream)
+var _ AudioTransformStreamClient = new(embedBackendAudioTransformStreamClient)
+var _ pb.Backend_AudioToAudioStreamServer = new(embedBackendAudioToAudioStream)
+var _ AudioToAudioStreamClient = new(embedBackendAudioToAudioStreamClient)
+
+// embedBackendAudioTransformStream is the server side of an in-process bidi
+// stream. The hosted server reads requests from `reqs` (closed by client when
+// done sending) and writes responses to `resps`.
+type embedBackendAudioTransformStream struct {
+	ctx   context.Context
+	reqs  <-chan *pb.AudioTransformFrameRequest
+	resps chan<- *pb.AudioTransformFrameResponse
+}
+
+func (e *embedBackendAudioTransformStream) Send(resp *pb.AudioTransformFrameResponse) error {
+	select {
+	case e.resps <- resp:
+		return nil
+	case <-e.ctx.Done():
+		return e.ctx.Err()
+	}
+}
+
+func (e *embedBackendAudioTransformStream) Recv() (*pb.AudioTransformFrameRequest, error) {
+	select {
+	case req, ok := <-e.reqs:
+		if !ok {
+			return nil, io.EOF
+		}
+		return req, nil
+	case <-e.ctx.Done():
+		return nil, e.ctx.Err()
+	}
+}
+
+func (e *embedBackendAudioTransformStream) SetHeader(md metadata.MD) error  { return nil }
+func (e *embedBackendAudioTransformStream) SendHeader(md metadata.MD) error { return nil }
+func (e *embedBackendAudioTransformStream) SetTrailer(md metadata.MD)       {}
+func (e *embedBackendAudioTransformStream) Context() context.Context        { return e.ctx }
+func (e *embedBackendAudioTransformStream) SendMsg(m any) error {
+	if x, ok := m.(*pb.AudioTransformFrameResponse); ok {
+		return e.Send(x)
+	}
+	return nil
+}
+func (e *embedBackendAudioTransformStream) RecvMsg(m any) error {
+	// gRPC bidi streaming uses Recv() directly; RecvMsg is unused on this path.
+	return nil
+}
+
+// embedBackendAudioTransformStreamClient is the caller-facing side. It
+// mirrors the server-side stream over the same channels.
+type embedBackendAudioTransformStreamClient struct {
+	ctx       context.Context
+	reqs      chan<- *pb.AudioTransformFrameRequest
+	resps     <-chan *pb.AudioTransformFrameResponse
+	srvDone   <-chan error
+	closeOnce bool
+}
+
+func (e *embedBackendAudioTransformStreamClient) Send(req *pb.AudioTransformFrameRequest) error {
+	select {
+	case e.reqs <- req:
+		return nil
+	case <-e.ctx.Done():
+		return e.ctx.Err()
+	}
+}
+
+func (e *embedBackendAudioTransformStreamClient) Recv() (*pb.AudioTransformFrameResponse, error) {
+	select {
+	case resp, ok := <-e.resps:
+		if !ok {
+			// Server-side finished. Surface its terminal error if any.
+			select {
+			case err := <-e.srvDone:
+				if err != nil {
+					return nil, err
+				}
+			default:
+			}
+			return nil, io.EOF
+		}
+		return resp, nil
+	case <-e.ctx.Done():
+		return nil, e.ctx.Err()
+	}
+}
+
+func (e *embedBackendAudioTransformStreamClient) CloseSend() error {
+	if e.closeOnce {
+		return nil
+	}
+	e.closeOnce = true
+	close(e.reqs)
+	return nil
+}
+
+func (e *embedBackendAudioTransformStreamClient) Context() context.Context { return e.ctx }
+
+// embedBackendAudioToAudioStream is the in-process server-side handle for
+// the bidirectional any-to-any audio RPC. Mirrors embedBackendAudioTransform
+// Stream — the hosted server reads requests from `reqs` (closed by client
+// when done sending) and writes responses to `resps`.
+type embedBackendAudioToAudioStream struct {
+	ctx   context.Context
+	reqs  <-chan *pb.AudioToAudioRequest
+	resps chan<- *pb.AudioToAudioResponse
+}
+
+func (e *embedBackendAudioToAudioStream) Send(resp *pb.AudioToAudioResponse) error {
+	select {
+	case e.resps <- resp:
+		return nil
+	case <-e.ctx.Done():
+		return e.ctx.Err()
+	}
+}
+
+func (e *embedBackendAudioToAudioStream) Recv() (*pb.AudioToAudioRequest, error) {
+	select {
+	case req, ok := <-e.reqs:
+		if !ok {
+			return nil, io.EOF
+		}
+		return req, nil
+	case <-e.ctx.Done():
+		return nil, e.ctx.Err()
+	}
+}
+
+func (e *embedBackendAudioToAudioStream) SetHeader(md metadata.MD) error  { return nil }
+func (e *embedBackendAudioToAudioStream) SendHeader(md metadata.MD) error { return nil }
+func (e *embedBackendAudioToAudioStream) SetTrailer(md metadata.MD)       {}
+func (e *embedBackendAudioToAudioStream) Context() context.Context        { return e.ctx }
+func (e *embedBackendAudioToAudioStream) SendMsg(m any) error {
+	if x, ok := m.(*pb.AudioToAudioResponse); ok {
+		return e.Send(x)
+	}
+	return nil
+}
+func (e *embedBackendAudioToAudioStream) RecvMsg(m any) error { return nil }
+
+type embedBackendAudioToAudioStreamClient struct {
+	ctx       context.Context
+	reqs      chan<- *pb.AudioToAudioRequest
+	resps     <-chan *pb.AudioToAudioResponse
+	srvDone   <-chan error
+	closeOnce bool
+}
+
+func (e *embedBackendAudioToAudioStreamClient) Send(req *pb.AudioToAudioRequest) error {
+	select {
+	case e.reqs <- req:
+		return nil
+	case <-e.ctx.Done():
+		return e.ctx.Err()
+	}
+}
+
+func (e *embedBackendAudioToAudioStreamClient) Recv() (*pb.AudioToAudioResponse, error) {
+	select {
+	case resp, ok := <-e.resps:
+		if !ok {
+			// Server goroutine writes to srvDone immediately after closing
+			// resps; block (cap with ctx) so we don't race past a real error.
+			select {
+			case err := <-e.srvDone:
+				if err != nil {
+					return nil, err
+				}
+			case <-e.ctx.Done():
+				return nil, e.ctx.Err()
+			}
+			return nil, io.EOF
+		}
+		return resp, nil
+	case <-e.ctx.Done():
+		return nil, e.ctx.Err()
+	}
+}
+
+func (e *embedBackendAudioToAudioStreamClient) CloseSend() error {
+	if e.closeOnce {
+		return nil
+	}
+	e.closeOnce = true
+	close(e.reqs)
+	return nil
+}
+
+func (e *embedBackendAudioToAudioStreamClient) Context() context.Context { return e.ctx }
+
+var _ pb.Backend_AudioTranscriptionStreamServer = new(embedBackendAudioTranscriptionStream)
+
+type embedBackendAudioTranscriptionStream struct {
+	ctx context.Context
+	fn  func(chunk *pb.TranscriptStreamResponse)
+}
+
+func (e *embedBackendAudioTranscriptionStream) Send(chunk *pb.TranscriptStreamResponse) error {
+	e.fn(chunk)
+	return nil
+}
+
+func (e *embedBackendAudioTranscriptionStream) SetHeader(md metadata.MD) error {
+	return nil
+}
+
+func (e *embedBackendAudioTranscriptionStream) SendHeader(md metadata.MD) error {
+	return nil
+}
+
+func (e *embedBackendAudioTranscriptionStream) SetTrailer(md metadata.MD) {
+}
+
+func (e *embedBackendAudioTranscriptionStream) Context() context.Context {
+	return e.ctx
+}
+
+func (e *embedBackendAudioTranscriptionStream) SendMsg(m any) error {
+	if x, ok := m.(*pb.TranscriptStreamResponse); ok {
+		return e.Send(x)
+	}
+	return nil
+}
+
+func (e *embedBackendAudioTranscriptionStream) RecvMsg(m any) error {
+	return nil
+}
+
+var _ pb.Backend_FineTuneProgressServer = new(embedBackendFineTuneProgressStream)
+
+type embedBackendFineTuneProgressStream struct {
+	ctx context.Context
+	fn  func(update *pb.FineTuneProgressUpdate)
+}
+
+func (e *embedBackendFineTuneProgressStream) Send(update *pb.FineTuneProgressUpdate) error {
+	e.fn(update)
+	return nil
+}
+
+func (e *embedBackendFineTuneProgressStream) SetHeader(md metadata.MD) error {
+	return nil
+}
+
+func (e *embedBackendFineTuneProgressStream) SendHeader(md metadata.MD) error {
+	return nil
+}
+
+func (e *embedBackendFineTuneProgressStream) SetTrailer(md metadata.MD) {
+}
+
+func (e *embedBackendFineTuneProgressStream) Context() context.Context {
+	return e.ctx
+}
+
+func (e *embedBackendFineTuneProgressStream) SendMsg(m any) error {
+	if x, ok := m.(*pb.FineTuneProgressUpdate); ok {
+		return e.Send(x)
+	}
+	return nil
+}
+
+func (e *embedBackendFineTuneProgressStream) RecvMsg(m any) error {
+	return nil
+}
+
+var _ pb.Backend_QuantizationProgressServer = new(embedBackendQuantizationProgressStream)
+
+type embedBackendQuantizationProgressStream struct {
+	ctx context.Context
+	fn  func(update *pb.QuantizationProgressUpdate)
+}
+
+func (e *embedBackendQuantizationProgressStream) Send(update *pb.QuantizationProgressUpdate) error {
+	e.fn(update)
+	return nil
+}
+
+func (e *embedBackendQuantizationProgressStream) SetHeader(md metadata.MD) error {
+	return nil
+}
+
+func (e *embedBackendQuantizationProgressStream) SendHeader(md metadata.MD) error {
+	return nil
+}
+
+func (e *embedBackendQuantizationProgressStream) SetTrailer(md metadata.MD) {
+}
+
+func (e *embedBackendQuantizationProgressStream) Context() context.Context {
+	return e.ctx
+}
+
+func (e *embedBackendQuantizationProgressStream) SendMsg(m any) error {
+	if x, ok := m.(*pb.QuantizationProgressUpdate); ok {
+		return e.Send(x)
+	}
+	return nil
+}
+
+func (e *embedBackendQuantizationProgressStream) RecvMsg(m any) error {
+	return nil
+}
+
+type embedBackendServerStream struct {
+	ctx context.Context
+	fn  func(reply *pb.Reply)
+}
+
+func (e *embedBackendServerStream) Send(reply *pb.Reply) error {
+	e.fn(reply)
+	return nil
+}
+
+func (e *embedBackendServerStream) SetHeader(md metadata.MD) error {
+	return nil
+}
+
+func (e *embedBackendServerStream) SendHeader(md metadata.MD) error {
+	return nil
+}
+
+func (e *embedBackendServerStream) SetTrailer(md metadata.MD) {
+}
+
+func (e *embedBackendServerStream) Context() context.Context {
+	return e.ctx
+}
+
+func (e *embedBackendServerStream) SendMsg(m any) error {
+	if x, ok := m.(*pb.Reply); ok {
+		return e.Send(x)
+	}
+	return nil
+}
+
+func (e *embedBackendServerStream) RecvMsg(m any) error {
+	return nil
+}
+
+var _ pb.Backend_ForwardServer = new(embedBackendForwardStream)
+var _ ForwardClient = new(embedBackendForwardStreamClient)
+
+// embedBackendForwardStream is the server-side handle for an in-process
+// Forward bidi stream. The hosted backend reads requests from `reqs`
+// (closed by the client when done sending) and writes replies to
+// `resps`.
+type embedBackendForwardStream struct {
+	ctx   context.Context
+	reqs  <-chan *pb.ForwardRequest
+	resps chan<- *pb.ForwardReply
+}
+
+func (e *embedBackendForwardStream) Send(resp *pb.ForwardReply) error {
+	select {
+	case e.resps <- resp:
+		return nil
+	case <-e.ctx.Done():
+		return e.ctx.Err()
+	}
+}
+
+func (e *embedBackendForwardStream) Recv() (*pb.ForwardRequest, error) {
+	select {
+	case req, ok := <-e.reqs:
+		if !ok {
+			return nil, io.EOF
+		}
+		return req, nil
+	case <-e.ctx.Done():
+		return nil, e.ctx.Err()
+	}
+}
+
+func (e *embedBackendForwardStream) SetHeader(md metadata.MD) error  { return nil }
+func (e *embedBackendForwardStream) SendHeader(md metadata.MD) error { return nil }
+func (e *embedBackendForwardStream) SetTrailer(md metadata.MD)       {}
+func (e *embedBackendForwardStream) Context() context.Context        { return e.ctx }
+func (e *embedBackendForwardStream) SendMsg(m any) error {
+	if x, ok := m.(*pb.ForwardReply); ok {
+		return e.Send(x)
+	}
+	return nil
+}
+func (e *embedBackendForwardStream) RecvMsg(m any) error { return nil }
+
+// embedBackendForwardStreamClient is the caller-facing side. Mirrors
+// the server-side stream over the same channels.
+type embedBackendForwardStreamClient struct {
+	ctx     context.Context
+	reqs    chan<- *pb.ForwardRequest
+	resps   <-chan *pb.ForwardReply
+	srvDone <-chan error
+	once    sync.Once
+}
+
+func (e *embedBackendForwardStreamClient) Send(req *pb.ForwardRequest) error {
+	select {
+	case e.reqs <- req:
+		return nil
+	case <-e.ctx.Done():
+		return e.ctx.Err()
+	}
+}
+
+func (e *embedBackendForwardStreamClient) Recv() (*pb.ForwardReply, error) {
+	select {
+	case resp, ok := <-e.resps:
+		if !ok {
+			select {
+			case err := <-e.srvDone:
+				if err != nil {
+					return nil, err
+				}
+			default:
+			}
+			return nil, io.EOF
+		}
+		return resp, nil
+	case <-e.ctx.Done():
+		return nil, e.ctx.Err()
+	}
+}
+
+func (e *embedBackendForwardStreamClient) CloseSend() error {
+	e.once.Do(func() { close(e.reqs) })
+	return nil
+}
+
+func (e *embedBackendForwardStreamClient) Context() context.Context { return e.ctx }
