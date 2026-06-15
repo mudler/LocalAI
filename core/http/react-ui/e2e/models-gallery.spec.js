@@ -178,7 +178,7 @@ test.describe("Models Gallery - Backend Features", () => {
 });
 
 const BACKEND_USECASES_MOCK = {
-  "llama-cpp": ["chat", "embeddings", "vision"],
+  "llama-cpp": ["chat", "embeddings", "vision", "token_classify"],
   whisper: ["transcript"],
   stablediffusion: ["image"],
 };
@@ -285,13 +285,15 @@ test.describe("Models Gallery - Multi-select Filters", () => {
     await expect(sttBtn).toBeDisabled();
     await expect(imageBtn).toBeDisabled();
 
-    // Chat, Embeddings, Vision should remain enabled
+    // Chat, Embeddings, Vision, NER should remain enabled
     const chatBtn = page.locator(".filter-btn", { hasText: "Chat" });
     const embBtn = page.locator(".filter-btn", { hasText: "Embeddings" });
     const visBtn = page.locator(".filter-btn", { hasText: "Vision" });
+    const nerBtn = page.locator(".filter-btn", { hasText: "NER" });
     await expect(chatBtn).toBeEnabled();
     await expect(embBtn).toBeEnabled();
     await expect(visBtn).toBeEnabled();
+    await expect(nerBtn).toBeEnabled();
   });
 
   test("backend clears incompatible filters", async ({ page }) => {

@@ -1950,45 +1950,75 @@ definitions:
           $ref: '#/definitions/schema.NodeData'
         type: array
     type: object
-  schema.PIIDecideRequest:
+  schema.PIIAnalyzeRequest:
     properties:
-      text:
-        description: Text is the user-visible content to inspect. Required.
-        type: string
-    type: object
-  schema.PIIDecideResponse:
-    properties:
-      findings:
+      detectors:
         description: |-
-          Findings is one entry per matched span — pattern id, byte
-          range, and audit-safe hash prefix (never the matched value).
+          Detectors names the detector models to run (NER and/or pattern). Takes
+          precedence over Model.
         items:
-          $ref: '#/definitions/schema.PIIFinding'
+          type: string
         type: array
-      redacted_preview:
+      model:
         description: |-
-          RedactedPreview is the input with mask-action spans replaced
-          by their placeholders. Identical to Text when no findings or
-          when the strongest action is block/allow (which don't rewrite
-          content).
+          Model is a consuming model whose effective PII policy (own
+          pii.detectors, else the instance default detectors; PII must be
+          enabled) is used when Detectors is empty.
         type: string
-      suggested_action:
+      reveal:
         description: |-
-          SuggestedAction is the strongest action across all findings:
-          "block", "mask", or "allow" (no findings, or all findings
-          resolved to the allow action).
+          Reveal includes the per-entity hash_prefix in the response. Honoured
+          only for admin callers; ignored otherwise. The raw matched value is
+          never returned regardless.
+        type: boolean
+      text:
+        description: |-
+          Text is the string to scan. Bounded only by the server's global HTTP
+          body limit.
         type: string
     type: object
-  schema.PIIFinding:
+  schema.PIIAnalyzeResponse:
     properties:
+      blocked:
+        type: boolean
+      correlation_id:
+        type: string
+      entities:
+        items:
+          $ref: '#/definitions/schema.PIIEntity'
+        type: array
+    type: object
+  schema.PIIEntity:
+    properties:
+      action:
+        type: string
       end:
         type: integer
+      entity_type:
+        type: string
       hash_prefix:
         type: string
-      pattern:
+      score:
+        type: number
+      source:
         type: string
       start:
         type: integer
+    type: object
+  schema.PIIRedactResponse:
+    properties:
+      blocked:
+        type: boolean
+      correlation_id:
+        type: string
+      entities:
+        items:
+          $ref: '#/definitions/schema.PIIEntity'
+        type: array
+      masked:
+        type: boolean
+      redacted_text:
+        type: string
     type: object
   schema.RouterDecideRequest:
     properties:
@@ -3176,32 +3206,54 @@ paths:
       summary: Show the P2P token
       tags:
       - p2p
-  /api/pii/decide:
+  /api/pii/analyze:
     post:
-      consumes:
-      - application/json
+      description: 'Runs the configured PII detectors (NER and/or pattern tiers) over
+        the supplied text and returns the matched entity spans with the policy action
+        that would fire. Detection only — the text is not modified and no block is
+        enforced. Select detectors explicitly via `detectors`, or pass a consuming
+        `model` to use its effective policy: the model''s own `pii.detectors`, else
+        the instance-wide `pii_default_detectors`. A model with PII disabled, or enabled
+        with nothing to scan with, is a 400. The raw matched value is never returned;
+        admins may set `reveal:true` for the audit hash prefix.'
       parameters:
-      - description: decide params
+      - description: text + detector selection
         in: body
         name: request
         required: true
         schema:
-          $ref: '#/definitions/schema.PIIDecideRequest'
-      produces:
-      - application/json
+          $ref: '#/definitions/schema.PIIAnalyzeRequest'
       responses:
         "200":
-          description: OK
+          description: Detected entities
           schema:
-            $ref: '#/definitions/schema.PIIDecideResponse'
-        "400":
-          description: Bad Request
+            $ref: '#/definitions/schema.PIIAnalyzeResponse'
+      summary: Detect PII entities in a string (no mutation).
+      tags:
+      - pii
+  /api/pii/redact:
+    post:
+      description: 'Runs the configured PII detectors over the text and applies each
+        detector model''s policy: masked spans are replaced with `[REDACTED:<id>]`,
+        allow spans pass through, and a single block action causes a 400 (type `pii_blocked`)
+        carrying the offending entities — the text is never returned in that case.
+        Select detectors via `detectors`, or a consuming `model`''s effective policy
+        (its own `pii.detectors`, else the instance-wide `pii_default_detectors`;
+        PII must be enabled on the model). Records audit events (origin `pii_redact`)
+        visible at /api/pii/events.'
+      parameters:
+      - description: text + detector selection
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/schema.PIIAnalyzeRequest'
+      responses:
+        "200":
+          description: Redacted text + entities
           schema:
-            additionalProperties:
-              type: string
-            type: object
-      summary: Scan text for PII and return findings + suggested action (decision
-        oracle)
+            $ref: '#/definitions/schema.PIIRedactResponse'
+      summary: Redact PII in a string by applying the configured policy.
       tags:
       - pii
   /api/router/decide:

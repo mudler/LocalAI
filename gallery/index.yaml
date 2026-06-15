@@ -796,6 +796,112 @@
     - filename: llama-cpp/mmproj/Step-3.7-Flash-GGUF/mmproj-F32.gguf
       sha256: 2fab13dcd32e4b3dc4410297df80f4d82627308e725dedac802940ceca7dff13
       uri: https://huggingface.co/unsloth/Step-3.7-Flash-GGUF/resolve/main/mmproj-F32.gguf
+- name: "privacy-filter-multilingual"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  icon: https://cdn-avatars.huggingface.co/v1/production/uploads/5fd5e18a90b6dc4633f6d292/QPiv8pt4JNxr0FdGnpFef.png
+  urls:
+    - https://huggingface.co/OpenMed/privacy-filter-multilingual
+    - https://huggingface.co/LocalAI-io/privacy-filter-multilingual-GGUF
+  description: |
+    A multilingual PII token-classification model: a fine-tune of
+    openai/privacy-filter by OpenMed. It labels every token with a BIOES tag
+    over 54 PII categories (217 classes) across 16 languages (ar, bn, de, en,
+    es, fr, hi, it, ja, ko, nl, pt, te, tr, vi, zh), spanning identity, contact,
+    address, financial, vehicle, digital, and crypto entities.
+
+    In LocalAI this is a PII detector for the NER redactor tier: set
+    known_usecases to [token_classify] (as below), and any model opts into
+    redaction by listing this one under pii.detectors. The detection policy
+    (which categories to mask vs block, and the score threshold) lives on this
+    model's own pii_detection block - see the overrides below. It runs locally
+    with no Python, served by the standalone privacy-filter backend's
+    TokenClassify RPC (constrained BIOES Viterbi decode into UTF-8 byte-offset
+    entity spans).
+
+    Architecture: gpt-oss-style sparse MoE (8 layers, 128 experts top-4, ~50M
+    active per token), bidirectional banded attention, o200k tokenizer; served
+    via the openai-privacy-filter architecture. F16, ~2.7 GB.
+  license: apache-2.0
+  tags:
+    - token-classification
+    - ner
+    - pii
+    - privacy
+    - multilingual
+    - gguf
+  overrides:
+    backend: privacy-filter
+    embeddings: true
+    known_usecases:
+      - token_classify
+    parameters:
+      model: privacy-filter/models/privacy-filter-multilingual/privacy-filter-multilingual-f16.gguf
+    # Detection policy used when another model references this one via
+    # pii.detectors. Default-mask everything the model flags; block the
+    # credential/financial-secret/crypto categories. Keys are the model's
+    # own entity-group names (uppercase, no separators); anything not
+    # listed falls through to default_action: mask.
+    pii_detection:
+      min_score: 0.5
+      default_action: mask
+      entity_actions:
+        PASSWORD: block
+        PIN: block
+        CVV: block
+        CREDITCARD: block
+        IBAN: block
+        BIC: block
+        BANKACCOUNT: block
+        SSN: block
+        BITCOINADDRESS: block
+        ETHEREUMADDRESS: block
+        LITECOINADDRESS: block
+  files:
+    - filename: privacy-filter/models/privacy-filter-multilingual/privacy-filter-multilingual-f16.gguf
+      sha256: 01b76572f80b7d2ebee80a27cb9c3699c26b04cae1c402eee7664fc17a4b5ce6
+      uri: https://huggingface.co/LocalAI-io/privacy-filter-multilingual-GGUF/resolve/main/privacy-filter-multilingual-f16.gguf
+- name: "secret-filter"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  description: |
+    A pattern-based PII detector for high-entropy, highly-regular secrets —
+    API keys, tokens, and private-key blocks — that the NER tier cannot catch
+    (it has no credential class, so it fragments a key and may leave the secret
+    part exposed). Detection is bounded restricted-regex compiled to RE2
+    (linear time, no backtracking); it runs entirely in-process with no model
+    download, no backend, and zero VRAM.
+
+    Install it, then reference it under another model's pii.detectors (or set it
+    as the instance-wide default detector on the Middleware page) to block leaks
+    of known credential formats out of the box. Add your own patterns under
+    pii_detection.patterns in a restricted regex subset (e.g. "tok-\\w{32,}");
+    each must carry a fixed literal anchor of at least 3 characters, so open-
+    ended shapes like email addresses are rejected and left to the NER tier.
+  license: apache-2.0
+  tags:
+    - pii
+    - privacy
+    - secrets
+    - pattern
+  overrides:
+    backend: pattern
+    known_usecases:
+      - token_classify
+    # Matched secrets are blocked by default (a leaked credential should not
+    # reach an upstream provider); downgrade individual groups to mask/allow
+    # via entity_actions if needed. Group names mirror the built-in catalogue.
+    pii_detection:
+      default_action: block
+      builtins:
+        - anthropic_api_key
+        - openai_api_key
+        - github_token
+        - github_pat
+        - aws_access_key
+        - google_api_key
+        - slack_token
+        - stripe_key
+        - jwt
+        - private_key_block
 - name: "lfm2.5-8b-a1b"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:

@@ -34,6 +34,8 @@ const (
 	BackendTraceAudioTransform  BackendTraceType = "audio_transform"
 	BackendTraceModelLoad       BackendTraceType = "model_load"
 	BackendTraceScore           BackendTraceType = "score"
+	BackendTraceTokenClassify   BackendTraceType = "token_classify"
+	BackendTracePatternPII      BackendTraceType = "pattern_pii"
 	BackendTraceVectorStore     BackendTraceType = "vector_store"
 )
 
@@ -59,10 +61,12 @@ type BackendTrace struct {
 // runaway buffer when a caller streams MB-scale payloads.
 const MaxTraceBodyBytes = 1 << 20
 
-var backendTraceBuffer *circularbuffer.Queue[*BackendTrace]
-var backendMu sync.Mutex
-var backendLogChan = make(chan *BackendTrace, 100)
-var backendInitOnce sync.Once
+var (
+	backendTraceBuffer *circularbuffer.Queue[*BackendTrace]
+	backendMu          sync.Mutex
+	backendLogChan     = make(chan *BackendTrace, 100)
+	backendInitOnce    sync.Once
+)
 
 // backendMaxBodyBytes caps each captured string value in a BackendTrace.Data
 // field to keep the /api/backend-traces JSON small enough for the admin UI to

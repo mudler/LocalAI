@@ -12,14 +12,15 @@ import (
 	"github.com/mudler/LocalAI/core/http/auth"
 	mcpTools "github.com/mudler/LocalAI/core/http/endpoints/mcp"
 	"github.com/mudler/LocalAI/core/services/agentpool"
+	"github.com/mudler/LocalAI/core/services/cloudproxy/mitm"
 	"github.com/mudler/LocalAI/core/services/facerecognition"
 	"github.com/mudler/LocalAI/core/services/galleryop"
 	"github.com/mudler/LocalAI/core/services/monitoring"
 	"github.com/mudler/LocalAI/core/services/nodes"
 	"github.com/mudler/LocalAI/core/services/routing/admission"
 	"github.com/mudler/LocalAI/core/services/routing/billing"
-	"github.com/mudler/LocalAI/core/services/cloudproxy/mitm"
 	"github.com/mudler/LocalAI/core/services/routing/pii"
+	"github.com/mudler/LocalAI/core/services/routing/piidetector"
 	"github.com/mudler/LocalAI/core/services/routing/router"
 	"github.com/mudler/LocalAI/core/services/voicerecognition"
 	"github.com/mudler/LocalAI/core/templates"
@@ -71,15 +72,15 @@ type Application struct {
 	// 1-to-1 host↔model invariant the dispatcher relies on. Read by
 	// /api/middleware/status so the admin UI can surface the cause.
 	mitmHostConflicts atomic.Pointer[map[string][]string]
-	routerDecisions    router.DecisionStore
-	routerRegistry     *router.Registry
-	admissionLimiter   *admission.Limiter
-	watchdogMutex      sync.Mutex
-	watchdogStop       chan bool
-	p2pMutex           sync.Mutex
-	p2pCtx             context.Context
-	p2pCancel          context.CancelFunc
-	agentJobMutex      sync.Mutex
+	routerDecisions   router.DecisionStore
+	routerRegistry    *router.Registry
+	admissionLimiter  *admission.Limiter
+	watchdogMutex     sync.Mutex
+	watchdogStop      chan bool
+	p2pMutex          sync.Mutex
+	p2pCtx            context.Context
+	p2pCancel         context.CancelFunc
+	agentJobMutex     sync.Mutex
 
 	// Distributed mode services (nil when not in distributed mode)
 	distributed *DistributedServices
@@ -252,6 +253,122 @@ func (a *Application) PIIRedactor() *pii.Redactor {
 // against it.
 func (a *Application) PIIEvents() pii.EventStore {
 	return a.piiEvents
+}
+
+// PIINERResolver returns the resolver the chat PII middleware uses to
+// turn a configured detector model name into a ready-to-use NERConfig:
+// a token-classifier bound over the shared model loader (lazy — the
+// model loads on first Detect) plus the detection policy read from that
+// model's own pii_detection block. Unknown names resolve to (zero,
+// false) so the middleware fails closed. Pass it via pii.WithNERResolver.
+func (a *Application) PIINERResolver() pii.NERDetectorResolver {
+	return func(modelName string) (pii.NERConfig, bool) {
+		if modelName == "" {
+			return pii.NERConfig{}, false
+		}
+		cfg, ok := a.ModelConfigLoader().GetModelConfig(modelName)
+		if !ok {
+			return pii.NERConfig{}, false
+		}
+
+		// Pattern detectors match secrets with the restricted-regex tier
+		// in-process (no backend load). Build a pattern matcher instead of the
+		// gRPC token-classifier; on a compile error fail closed with an error
+		// detector so the request is blocked, not silently unscanned.
+		if cfg.IsPatternDetector() {
+			det, err := piidetector.NewPattern(cfg, a.ApplicationConfig())
+			if err != nil {
+				det = pii.NewErrNERDetector(err.Error())
+			}
+			return pii.NERConfigFromRaw(
+				det,
+				0, // patterns are deterministic — no confidence floor
+				cfg.PIIDetectionDefaultAction(),
+				patternEntityActions(cfg),
+				pii.SourcePattern,
+			), true
+		}
+
+		det := piidetector.New(a.ModelLoader(), cfg, a.ApplicationConfig())
+		return pii.NERConfigFromRaw(
+			det,
+			cfg.PIIDetectionMinScore(),
+			cfg.PIIDetectionDefaultAction(),
+			cfg.PIIDetectionEntityActions(),
+			pii.SourceNER,
+		), true
+	}
+}
+
+// patternEntityActions merges a pattern detector's per-pattern Action overrides
+// into its entity_actions map. A pattern reports matches under its Name, so a
+// per-pattern action is just an entity_actions[Name] entry; explicit
+// entity_actions still win if both are set.
+func patternEntityActions(cfg config.ModelConfig) map[string]string {
+	out := cfg.PIIDetectionEntityActions()
+	for _, p := range cfg.PIIDetection.Patterns {
+		if p.Action == "" || p.Name == "" {
+			continue
+		}
+		if out == nil {
+			out = map[string]string{}
+		}
+		if _, exists := out[p.Name]; !exists {
+			out[p.Name] = p.Action
+		}
+	}
+	return out
+}
+
+// ResolvePIIPolicy resolves the effective request-side PII policy for a
+// consuming model, layering the instance-wide default detector
+// (PIIDefaultDetectors, set via POST /api/settings) on top of the per-model
+// config. It is the single decision point shared by the chat middleware (via
+// WithPolicyResolver) and the MITM listener so both agree.
+//
+//   - enabled: an explicit pii.enabled on the model always wins (true OR
+//     false). Otherwise PII is on when the backend defaults it on — today
+//     that means cloud-proxy models, which cross the network to a third party.
+//   - detectors: the model's own pii.detectors, or — when it lists none — the
+//     global PIIDefaultDetectors fallback. This is what makes cloud-proxy/MITM
+//     redaction work out of the box.
+//
+// appConfig is read live, so changes via the settings API take effect on the
+// next request without a restart.
+func (a *Application) ResolvePIIPolicy(cfg *config.ModelConfig) (enabled bool, detectors []string) {
+	if cfg == nil {
+		return false, nil
+	}
+	appCfg := a.ApplicationConfig()
+
+	if cfg.PII.Enabled != nil {
+		enabled = *cfg.PII.Enabled
+	} else {
+		enabled = cfg.PIIIsEnabled() // backend default (cloud-proxy)
+	}
+	if !enabled {
+		return false, nil
+	}
+
+	detectors = cfg.PIIDetectors()
+	if len(detectors) == 0 {
+		detectors = append([]string(nil), appCfg.PIIDefaultDetectors...)
+	}
+	return enabled, detectors
+}
+
+// PIIPolicyResolver adapts ResolvePIIPolicy to pii.PolicyResolver for
+// pii.WithPolicyResolver. The middleware carries the resolved model config as
+// `any` (the MODEL_CONFIG context value, a *config.ModelConfig); this asserts
+// it back and applies the instance-wide defaults.
+func (a *Application) PIIPolicyResolver() pii.PolicyResolver {
+	return func(modelCfg any) (bool, []string) {
+		cfg, ok := modelCfg.(*config.ModelConfig)
+		if !ok {
+			return false, nil
+		}
+		return a.ResolvePIIPolicy(cfg)
+	}
 }
 
 // MITMCA returns the cloudproxy MITM proxy's CA, or nil when the

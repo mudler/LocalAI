@@ -458,6 +458,27 @@ var _ = BeforeSuite(func() {
 					"upstream_url": cpOpenAIUpstream.URL() + "/v1/chat/completions",
 					"api_key_env":  "CLOUD_PROXY_E2E_OPENAI_KEY",
 				},
+				// Wire the in-process pattern detector so the streaming PII
+				// filter has something to redact in translate mode. The NER
+				// tier needs the privacy-filter model (unavailable in this
+				// hermetic suite); the pattern tier runs in-process with no
+				// backend load, so it's what exercises the streaming plumbing.
+				"pii": map[string]any{
+					"detectors": []string{"e2e-secret-filter"},
+				},
+			},
+			{
+				// In-process pattern detector: backend "pattern" is resolved by
+				// the PII NER resolver directly from this config (no backend is
+				// ever loaded). It matches high-entropy anchored secrets;
+				// cp-translate-openai references it above via pii.detectors.
+				"name":           "e2e-secret-filter",
+				"backend":        "pattern",
+				"known_usecases": []string{"token_classify"},
+				"pii_detection": map[string]any{
+					"default_action": "block",
+					"builtins":       []string{"anthropic_api_key", "openai_api_key"},
+				},
 			},
 			{
 				"name":    "cp-translate-anthropic",

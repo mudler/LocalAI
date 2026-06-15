@@ -45,10 +45,7 @@ type fakeClient struct {
 	getBranding         func() (*Branding, error)
 	setBranding         func(SetBrandingRequest) (*Branding, error)
 	getUsageStats       func(UsageStatsQuery) (*UsageStats, error)
-	listPIIPatterns     func() ([]PIIPattern, error)
 	getPIIEvents        func(PIIEventsQuery) ([]PIIEvent, error)
-	testPIIRedaction    func(PIIRedactTestRequest) (*PIIRedactTestResult, error)
-	setPIIPatternAction func(PIIPatternActionUpdate) error
 	getMiddlewareStatus func() (*MiddlewareStatus, error)
 	getRouterDecisions  func(RouterDecisionsQuery) ([]RouterDecision, error)
 }
@@ -253,41 +250,12 @@ func (f *fakeClient) GetUsageStats(_ context.Context, q UsageStatsQuery) (*Usage
 	}, nil
 }
 
-func (f *fakeClient) ListPIIPatterns(_ context.Context) ([]PIIPattern, error) {
-	f.record("ListPIIPatterns", nil)
-	if f.listPIIPatterns != nil {
-		return f.listPIIPatterns()
-	}
-	return []PIIPattern{}, nil
-}
-
 func (f *fakeClient) GetPIIEvents(_ context.Context, q PIIEventsQuery) ([]PIIEvent, error) {
 	f.record("GetPIIEvents", q)
 	if f.getPIIEvents != nil {
 		return f.getPIIEvents(q)
 	}
 	return []PIIEvent{}, nil
-}
-
-func (f *fakeClient) TestPIIRedaction(_ context.Context, req PIIRedactTestRequest) (*PIIRedactTestResult, error) {
-	f.record("TestPIIRedaction", req)
-	if f.testPIIRedaction != nil {
-		return f.testPIIRedaction(req)
-	}
-	return &PIIRedactTestResult{Redacted: req.Text}, nil
-}
-
-func (f *fakeClient) SetPIIPatternAction(_ context.Context, req PIIPatternActionUpdate) error {
-	f.record("SetPIIPatternAction", req)
-	if f.setPIIPatternAction != nil {
-		return f.setPIIPatternAction(req)
-	}
-	return nil
-}
-
-func (f *fakeClient) PersistPIIPatterns(_ context.Context) error {
-	f.record("PersistPIIPatterns", nil)
-	return nil
 }
 
 func (f *fakeClient) GetRouterDecisions(_ context.Context, q RouterDecisionsQuery) ([]RouterDecision, error) {
@@ -306,10 +274,8 @@ func (f *fakeClient) GetMiddlewareStatus(_ context.Context) (*MiddlewareStatus, 
 	return &MiddlewareStatus{
 		PII: MiddlewarePIIStatus{
 			EnabledGlobally: true,
-			Patterns:        []PIIPattern{},
 			Models:          []MiddlewarePIIModel{},
 		},
 		Router: MiddlewareRouterStatus{Configured: false, Models: []string{}},
 	}, nil
 }
-

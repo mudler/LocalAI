@@ -27,7 +27,10 @@ type ListQuery struct {
 	UserID        string
 	PatternID     string
 	Kind          EventKind
-	Limit         int
+	// Origin scopes the search to redaction events from one surface
+	// (middleware | proxy | pii_analyze | pii_redact); empty matches any.
+	Origin Origin
+	Limit  int
 }
 
 // NewMemoryEventStore returns an in-memory ring-buffer event store.
@@ -89,6 +92,9 @@ func (s *memoryEventStore) List(_ context.Context, q ListQuery) ([]PIIEvent, err
 			return false
 		}
 		if q.Kind != "" && e.ResolvedKind() != q.Kind {
+			return false
+		}
+		if q.Origin != "" && e.Origin != q.Origin {
 			return false
 		}
 		out = append(out, e)

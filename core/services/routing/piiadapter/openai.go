@@ -6,6 +6,8 @@
 package piiadapter
 
 import (
+	"strings"
+
 	"github.com/mudler/LocalAI/core/schema"
 	"github.com/mudler/LocalAI/core/services/routing/pii"
 )
@@ -74,17 +76,35 @@ func OpenAI() pii.Adapter {
 				}
 				msg := &req.Messages[msgIdx]
 				if blockIdx < 0 {
-					// Whole-string content.
+					// Whole-string content. Write BOTH the serializable
+					// Content and the StringContent staging buffer: the
+					// rendered-template path (evaluator.TemplateMessages,
+					// taken whenever use_tokenizer_template is off — e.g.
+					// cloud-proxy translate and Go-templated chat models)
+					// reads StringContent, not Content. Masking only Content
+					// would leave the original in StringContent and leak it
+					// to the backend/upstream.
 					msg.Content = u.Text
+					msg.StringContent = u.Text
 					continue
 				}
 				blocks, ok := msg.Content.([]any)
 				if !ok || blockIdx >= len(blocks) {
 					continue
 				}
-				if blockMap, ok := blocks[blockIdx].(map[string]any); ok {
-					blockMap["text"] = u.Text
+				blockMap, ok := blocks[blockIdx].(map[string]any)
+				if !ok {
+					continue
 				}
+				// Keep the StringContent projection in sync. For multimodal
+				// messages StringContent is the text blocks flattened with
+				// media markers injected (see middleware/request.go), so we
+				// can't just overwrite it — replace this block's original text
+				// run in place, preserving the markers around it.
+				if orig, ok := blockMap["text"].(string); ok && orig != "" && msg.StringContent != "" {
+					msg.StringContent = strings.Replace(msg.StringContent, orig, u.Text, 1)
+				}
+				blockMap["text"] = u.Text
 			}
 		},
 	}

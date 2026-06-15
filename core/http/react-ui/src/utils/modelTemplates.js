@@ -146,22 +146,38 @@ const MODEL_TEMPLATES = [
     id: 'mitm',
     label: 'MITM Intercept',
     icon: 'fa-shield-halved',
-    description: 'Bind a hostname to this config for the cloudproxy MITM listener. PII filtering and pattern overrides flow from this config when the host is intercepted.',
+    description: 'Bind a hostname to this config for the cloudproxy MITM listener. PII filtering (the NER detectors listed here) is applied to intercepted request bodies for the host.',
     // The mitm- name prefix is a convention, not a contract — the
     // dispatcher looks up by host, not name. Prefixing keeps the
     // config out of the way of callable model names so a chat client
     // accidentally requesting "anthropic" doesn't hit a backendless
     // intercept config.
     //
-    // pii.patterns is pre-seeded with an empty list so the override
-    // editor is visible by default — admins typically want to tighten
-    // a couple of pattern actions when intercepting a cloud provider.
-    // An empty list serializes out and the redactor ignores it.
+    // pii.detectors is pre-seeded empty so the detector picker is visible
+    // by default — admins point it at a token_classify model whose
+    // pii_detection block defines the policy.
     fields: {
       'name': 'mitm-anthropic',
       'mitm.hosts': ['api.anthropic.com'],
       'pii.enabled': true,
-      'pii.patterns': [],
+      'pii.detectors': [],
+    },
+  },
+  {
+    id: 'secret-filter',
+    label: 'Secret Pattern Detector',
+    icon: 'fa-key',
+    description: 'An in-process token_classify detector that flags high-entropy secrets (API keys, tokens) with bounded restricted-regex patterns — no backend, no GGUF, zero VRAM. Enable the built-in provider patterns below and/or add your own under PII Detection. Reference it from a model\'s pii.detectors, or toggle it on as a default detector on the Middleware page.',
+    fields: {
+      'name': 'secret-filter',
+      'backend': 'pattern',
+      'known_usecases': ['token_classify'],
+      'pii_detection.default_action': 'block',
+      'pii_detection.builtins': [
+        'anthropic_api_key', 'openai_api_key', 'github_token', 'github_pat',
+        'aws_access_key', 'google_api_key', 'slack_token', 'stripe_key',
+        'jwt', 'private_key_block',
+      ],
     },
   },
 ]

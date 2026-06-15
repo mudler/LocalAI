@@ -3,12 +3,12 @@ package pii
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 
 	"github.com/labstack/echo/v4"
-	"github.com/mudler/LocalAI/core/http/auth"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -56,21 +56,15 @@ func setRequestOnContext(req *fakeRequest) echo.MiddlewareFunc {
 }
 
 // fakeModelPIIConfig satisfies the duck-typed ModelPIIConfig interface
-// the middleware expects on the echo context. The real implementation
-// lives on *config.ModelConfig; using a fake here keeps these tests
-// out of the core/config import graph.
+// the middleware expects on the echo context (PIIIsEnabled + PIIDetectors).
 type fakeModelPIIConfig struct {
 	enabled   bool
-	overrides map[string]string
+	detectors []string
 }
 
-func (f fakeModelPIIConfig) PIIIsEnabled() bool                     { return f.enabled }
-func (f fakeModelPIIConfig) PIIPatternOverrides() map[string]string { return f.overrides }
+func (f fakeModelPIIConfig) PIIIsEnabled() bool     { return f.enabled }
+func (f fakeModelPIIConfig) PIIDetectors() []string { return f.detectors }
 
-// withModelConfig wires a ModelPIIConfig onto the context so the
-// middleware's per-model gate doesn't fail-closed during tests. Pass
-// enabled=true for the default test path; explicit-false tests should
-// use the gating spec further down instead.
 func withModelConfig(cfg fakeModelPIIConfig) echo.MiddlewareFunc {
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
 		return func(c echo.Context) error {
@@ -80,230 +74,257 @@ func withModelConfig(cfg fakeModelPIIConfig) echo.MiddlewareFunc {
 	}
 }
 
-func newTestRedactor(ids ...string) *Redactor {
-	patterns, err := Compile(pick(DefaultPatterns(), ids))
-	ExpectWithOffset(1, err).NotTo(HaveOccurred(), "compile")
-	return NewRedactor(patterns)
+// resolverFor returns a NERDetectorResolver that maps each named model to
+// the supplied NERConfig. Names absent from the map resolve to (zero,
+// false) so the middleware fails closed — mirroring an unresolvable model.
+func resolverFor(byName map[string]NERConfig) NERDetectorResolver {
+	return func(name string) (NERConfig, bool) {
+		cfg, ok := byName[name]
+		return cfg, ok
+	}
 }
 
-var _ = Describe("RequestMiddleware", func() {
-	It("masks email", func() {
-		red := newTestRedactor("email")
-		store := NewMemoryEventStore(0)
-		defer func() { _ = store.Close() }()
-		user := &auth.User{ID: "user-1", Name: "alice"}
+func serve(body *fakeRequest, cfg fakeModelPIIConfig, mw echo.MiddlewareFunc, withConfig bool) (*httptest.ResponseRecorder, *bool) {
+	called := new(bool)
+	e := echo.New()
+	chain := []echo.MiddlewareFunc{setRequestOnContext(body)}
+	if withConfig {
+		chain = append(chain, withModelConfig(cfg))
+	}
+	chain = append(chain, mw)
+	e.POST("/chat", func(c echo.Context) error {
+		*called = true
+		return c.JSON(http.StatusOK, map[string]string{"ok": "yes"})
+	}, chain...)
+	req := httptest.NewRequest(http.MethodPost, "/chat", strings.NewReader(`{}`))
+	w := httptest.NewRecorder()
+	e.ServeHTTP(w, req)
+	return w, called
+}
 
-		body := &fakeRequest{Messages: []string{"contact me at alice@example.com"}}
-		mw := RequestMiddleware(red, store, fakeAdapter(), nil)
+func nerCfg(action Action, entities ...NEREntity) NERConfig {
+	return NERConfig{
+		Detector:      &stubNERDetector{entities: entities},
+		DefaultAction: action,
+	}
+}
 
-		e := echo.New()
-		e.POST("/chat", func(c echo.Context) error {
-			return c.JSON(http.StatusOK, map[string]string{"ok": "yes"})
-		}, setRequestOnContext(body), withModelConfig(fakeModelPIIConfig{enabled: true}), mw, func(next echo.HandlerFunc) echo.HandlerFunc {
-			// Inject the user as if upstream auth ran.
-			return func(c echo.Context) error {
-				c.Set("auth_user", user)
-				return next(c)
-			}
-		})
+var _ = Describe("RequestMiddleware (NER)", func() {
+	store := func() EventStore { return NewMemoryEventStore(0) }
 
-		req := httptest.NewRequest(http.MethodPost, "/chat", strings.NewReader(`{}`))
-		w := httptest.NewRecorder()
-		e.ServeHTTP(w, req)
+	It("masks a detected entity end-to-end", func() {
+		st := store()
+		body := &fakeRequest{Messages: []string{"Hi I'm Alice today"}}
+		mw := RequestMiddleware(&Redactor{}, st, fakeAdapter(), nil,
+			WithNERResolver(resolverFor(map[string]NERConfig{
+				"privacy-filter": nerCfg(ActionMask, NEREntity{Group: "PER", Start: 6, End: 11, Score: 0.95}),
+			})))
+		w, _ := serve(body, fakeModelPIIConfig{enabled: true, detectors: []string{"privacy-filter"}}, mw, true)
 
 		Expect(w.Code).To(Equal(http.StatusOK), "body=%s", w.Body.String())
-		Expect(body.Messages[0]).NotTo(ContainSubstring("alice@example.com"), "request body should be redacted in place")
-		Expect(body.Messages[0]).To(ContainSubstring("[REDACTED:email]"))
-
-		events, err := store.List(context.Background(), ListQuery{Limit: 100})
-		Expect(err).NotTo(HaveOccurred(), "list events")
+		Expect(body.Messages[0]).To(ContainSubstring("[REDACTED:ner:PER]"))
+		events, _ := st.List(context.Background(), ListQuery{Limit: 100})
 		Expect(events).To(HaveLen(1))
-		Expect(events[0].PatternID).To(Equal("email"))
+		Expect(events[0].PatternID).To(Equal("ner:PER"))
 		Expect(events[0].Direction).To(Equal(DirectionIn))
 	})
 
-	It("blocks api key", func() {
-		red := newTestRedactor("api_key_prefix")
-		store := NewMemoryEventStore(0)
-		defer func() { _ = store.Close() }()
+	It("blocks (400) when a detected entity's action is block", func() {
+		st := store()
+		body := &fakeRequest{Messages: []string{"my password is hunter2 ok"}}
+		cfg := NERConfig{
+			Detector:      &stubNERDetector{entities: []NEREntity{{Group: "PASSWORD", Start: 15, End: 22, Score: 0.99}}},
+			EntityActions: map[string]Action{"PASSWORD": ActionBlock},
+		}
+		mw := RequestMiddleware(&Redactor{}, st, fakeAdapter(), nil,
+			WithNERResolver(resolverFor(map[string]NERConfig{"pf": cfg})))
+		w, called := serve(body, fakeModelPIIConfig{enabled: true, detectors: []string{"pf"}}, mw, true)
 
-		body := &fakeRequest{Messages: []string{"my key is sk-abcdefghijklmnopqrstuvwxyz0123456789"}}
-		mw := RequestMiddleware(red, store, fakeAdapter(), nil)
-
-		e := echo.New()
-		handlerCalled := false
-		e.POST("/chat", func(c echo.Context) error {
-			handlerCalled = true
-			return c.JSON(http.StatusOK, map[string]string{"ok": "yes"})
-		}, setRequestOnContext(body), withModelConfig(fakeModelPIIConfig{enabled: true}), mw)
-
-		req := httptest.NewRequest(http.MethodPost, "/chat", strings.NewReader(`{}`))
-		w := httptest.NewRecorder()
-		e.ServeHTTP(w, req)
-
-		Expect(w.Code).To(Equal(http.StatusBadRequest), "expected 400 on block; body=%s", w.Body.String())
-		Expect(handlerCalled).To(BeFalse(), "handler must not run when request is blocked")
-		// Ensure the matched value never appears in the response body.
-		Expect(w.Body.String()).NotTo(ContainSubstring("abcdefghijklmnopqrstuvwxyz0123456789"), "blocked response leaks the matched value")
-
+		Expect(w.Code).To(Equal(http.StatusBadRequest), "body=%s", w.Body.String())
+		Expect(*called).To(BeFalse(), "handler must not run when blocked")
 		var resp map[string]any
 		Expect(json.Unmarshal(w.Body.Bytes(), &resp)).To(Succeed())
-		errBlock, ok := resp["error"].(map[string]any)
-		Expect(ok).To(BeTrue())
+		errBlock, _ := resp["error"].(map[string]any)
 		Expect(errBlock["type"]).To(Equal("pii_blocked"))
 	})
 
-	It("allow leaves text intact but still records an event", func() {
-		patterns, _ := Compile([]Pattern{{
-			ID: "email", Description: "Email", Action: ActionAllow, MaxMatchLength: 254,
-		}})
-		red := NewRedactor(patterns)
-		store := NewMemoryEventStore(0)
-		defer func() { _ = store.Close() }()
-
+	It("allow leaves text intact but records an event", func() {
+		st := store()
 		body := &fakeRequest{Messages: []string{"hi at alice@example.com"}}
-		mw := RequestMiddleware(red, store, fakeAdapter(), nil)
-
-		e := echo.New()
-		e.POST("/chat", func(c echo.Context) error {
-			return c.JSON(http.StatusOK, map[string]string{"ok": "yes"})
-		}, setRequestOnContext(body), withModelConfig(fakeModelPIIConfig{enabled: true}), mw)
-
-		req := httptest.NewRequest(http.MethodPost, "/chat", strings.NewReader(`{}`))
-		w := httptest.NewRecorder()
-		e.ServeHTTP(w, req)
+		cfg := NERConfig{
+			Detector:      &stubNERDetector{entities: []NEREntity{{Group: "EMAIL", Start: 6, End: 23, Score: 0.9}}},
+			EntityActions: map[string]Action{"EMAIL": ActionAllow},
+		}
+		mw := RequestMiddleware(&Redactor{}, st, fakeAdapter(), nil,
+			WithNERResolver(resolverFor(map[string]NERConfig{"pf": cfg})))
+		w, _ := serve(body, fakeModelPIIConfig{enabled: true, detectors: []string{"pf"}}, mw, true)
 
 		Expect(w.Code).To(Equal(http.StatusOK))
-		// allow does NOT mutate the body — the model still sees the email.
-		Expect(body.Messages[0]).To(ContainSubstring("alice@example.com"), "allow should leave text intact")
-		// ...but the detection is still recorded for audit.
-		events, _ := store.List(context.Background(), ListQuery{Limit: 100})
-		Expect(events).To(HaveLen(1), "allow should still record a PIIEvent")
+		Expect(body.Messages[0]).To(ContainSubstring("alice@example.com"))
+		events, _ := st.List(context.Background(), ListQuery{Limit: 100})
+		Expect(events).To(HaveLen(1))
 		Expect(events[0].Action).To(Equal(ActionAllow))
 	})
 
-	It("no match passes through", func() {
-		red := newTestRedactor()
-		store := NewMemoryEventStore(0)
-		defer func() { _ = store.Close() }()
-
+	It("passes through on no match", func() {
+		st := store()
 		body := &fakeRequest{Messages: []string{"perfectly innocent text"}}
-		mw := RequestMiddleware(red, store, fakeAdapter(), nil)
-
-		e := echo.New()
-		e.POST("/chat", func(c echo.Context) error {
-			return c.JSON(http.StatusOK, map[string]string{"ok": "yes"})
-		}, setRequestOnContext(body), withModelConfig(fakeModelPIIConfig{enabled: true}), mw)
-
-		req := httptest.NewRequest(http.MethodPost, "/chat", strings.NewReader(`{}`))
-		w := httptest.NewRecorder()
-		e.ServeHTTP(w, req)
+		mw := RequestMiddleware(&Redactor{}, st, fakeAdapter(), nil,
+			WithNERResolver(resolverFor(map[string]NERConfig{"pf": nerCfg(ActionMask)})))
+		w, _ := serve(body, fakeModelPIIConfig{enabled: true, detectors: []string{"pf"}}, mw, true)
 
 		Expect(w.Code).To(Equal(http.StatusOK))
-		Expect(body.Messages[0]).To(Equal("perfectly innocent text"), "body should be untouched")
-		events, _ := store.List(context.Background(), ListQuery{Limit: 100})
-		Expect(events).To(BeEmpty(), "expected 0 events on no-match input")
+		Expect(body.Messages[0]).To(Equal("perfectly innocent text"))
+		events, _ := st.List(context.Background(), ListQuery{Limit: 100})
+		Expect(events).To(BeEmpty())
 	})
 
-	It("skips when model config disabled", func() {
-		// Per-model gating is the new contract: a model with PIIIsEnabled
-		// returning false must bypass redaction entirely, even if the
-		// global redactor has matching patterns.
-		red := newTestRedactor("email")
-		store := NewMemoryEventStore(0)
-		defer func() { _ = store.Close() }()
-
-		body := &fakeRequest{Messages: []string{"contact alice@example.com"}}
-		mw := RequestMiddleware(red, store, fakeAdapter(), nil)
-
-		e := echo.New()
-		e.POST("/chat", func(c echo.Context) error {
-			return c.JSON(http.StatusOK, map[string]string{"ok": "yes"})
-		}, setRequestOnContext(body), withModelConfig(fakeModelPIIConfig{enabled: false}), mw)
-
-		req := httptest.NewRequest(http.MethodPost, "/chat", strings.NewReader(`{}`))
-		w := httptest.NewRecorder()
-		e.ServeHTTP(w, req)
+	It("skips when the model has PII disabled", func() {
+		st := store()
+		body := &fakeRequest{Messages: []string{"Hi I'm Alice"}}
+		mw := RequestMiddleware(&Redactor{}, st, fakeAdapter(), nil,
+			WithNERResolver(resolverFor(map[string]NERConfig{
+				"pf": nerCfg(ActionMask, NEREntity{Group: "PER", Start: 6, End: 11, Score: 0.95}),
+			})))
+		w, _ := serve(body, fakeModelPIIConfig{enabled: false, detectors: []string{"pf"}}, mw, true)
 
 		Expect(w.Code).To(Equal(http.StatusOK))
-		Expect(body.Messages[0]).To(ContainSubstring("alice@example.com"), "disabled model must not redact")
-		events, _ := store.List(context.Background(), ListQuery{Limit: 100})
-		Expect(events).To(BeEmpty(), "disabled model must produce no events")
+		Expect(body.Messages[0]).To(Equal("Hi I'm Alice"), "disabled model must not redact")
 	})
 
-	It("fails closed without model config", func() {
-		// Routes that wire the middleware before SetModelAndConfig, or
-		// non-chat routes lacking a model, hit this path. The contract
-		// is fail-closed: pass through without redaction so a missing
-		// model can't accidentally leak through global defaults.
-		red := newTestRedactor("email")
-		store := NewMemoryEventStore(0)
-		defer func() { _ = store.Close() }()
-
-		body := &fakeRequest{Messages: []string{"contact alice@example.com"}}
-		mw := RequestMiddleware(red, store, fakeAdapter(), nil)
-
-		e := echo.New()
-		// Note: no withModelConfig in the chain.
-		e.POST("/chat", func(c echo.Context) error {
-			return c.JSON(http.StatusOK, map[string]string{"ok": "yes"})
-		}, setRequestOnContext(body), mw)
-
-		req := httptest.NewRequest(http.MethodPost, "/chat", strings.NewReader(`{}`))
-		w := httptest.NewRecorder()
-		e.ServeHTTP(w, req)
+	It("passes through when the model lists no detectors", func() {
+		st := store()
+		body := &fakeRequest{Messages: []string{"Hi I'm Alice"}}
+		mw := RequestMiddleware(&Redactor{}, st, fakeAdapter(), nil,
+			WithNERResolver(resolverFor(map[string]NERConfig{})))
+		w, _ := serve(body, fakeModelPIIConfig{enabled: true}, mw, true)
 
 		Expect(w.Code).To(Equal(http.StatusOK))
-		Expect(body.Messages[0]).To(ContainSubstring("alice@example.com"), "missing ModelPIIConfig should fail-closed (no redaction)")
+		Expect(body.Messages[0]).To(Equal("Hi I'm Alice"))
 	})
 
-	It("applies per-model override", func() {
-		// email defaults to mask. A per-model override upgrades it to
-		// block. The middleware short-circuits with 400, the request
-		// body is never touched, and the events log records action=block.
-		red := newTestRedactor("email")
-		store := NewMemoryEventStore(0)
-		defer func() { _ = store.Close() }()
+	It("fails closed without a model config", func() {
+		st := store()
+		body := &fakeRequest{Messages: []string{"Hi I'm Alice"}}
+		mw := RequestMiddleware(&Redactor{}, st, fakeAdapter(), nil,
+			WithNERResolver(resolverFor(map[string]NERConfig{
+				"pf": nerCfg(ActionMask, NEREntity{Group: "PER", Start: 6, End: 11, Score: 0.95}),
+			})))
+		w, _ := serve(body, fakeModelPIIConfig{}, mw, false) // no model config on context
 
+		Expect(w.Code).To(Equal(http.StatusOK))
+		Expect(body.Messages[0]).To(Equal("Hi I'm Alice"), "missing ModelPIIConfig should pass through")
+	})
+
+	It("unions multiple detectors", func() {
+		st := store()
+		body := &fakeRequest{Messages: []string{"Alice at acme"}}
+		mw := RequestMiddleware(&Redactor{}, st, fakeAdapter(), nil,
+			WithNERResolver(resolverFor(map[string]NERConfig{
+				"names": nerCfg(ActionMask, NEREntity{Group: "PER", Start: 0, End: 5, Score: 0.9}),
+				"orgs":  nerCfg(ActionMask, NEREntity{Group: "ORG", Start: 9, End: 13, Score: 0.9}),
+			})))
+		w, _ := serve(body, fakeModelPIIConfig{enabled: true, detectors: []string{"names", "orgs"}}, mw, true)
+
+		Expect(w.Code).To(Equal(http.StatusOK))
+		Expect(body.Messages[0]).To(ContainSubstring("[REDACTED:ner:PER]"))
+		Expect(body.Messages[0]).To(ContainSubstring("[REDACTED:ner:ORG]"))
+		events, _ := st.List(context.Background(), ListQuery{Limit: 100})
+		Expect(events).To(HaveLen(2))
+	})
+
+	It("fails closed (503) when a detector errors", func() {
+		st := store()
 		body := &fakeRequest{Messages: []string{"contact alice@example.com"}}
-		mw := RequestMiddleware(red, store, fakeAdapter(), nil)
+		cfg := NERConfig{Detector: &stubNERDetector{err: errors.New("backend offline")}, DefaultAction: ActionMask}
+		mw := RequestMiddleware(&Redactor{}, st, fakeAdapter(), nil,
+			WithNERResolver(resolverFor(map[string]NERConfig{"pf": cfg})))
+		w, called := serve(body, fakeModelPIIConfig{enabled: true, detectors: []string{"pf"}}, mw, true)
 
-		e := echo.New()
-		handlerCalled := false
-		e.POST("/chat", func(c echo.Context) error {
-			handlerCalled = true
-			return c.JSON(http.StatusOK, map[string]string{"ok": "yes"})
-		}, setRequestOnContext(body),
-			withModelConfig(fakeModelPIIConfig{
-				enabled:   true,
-				overrides: map[string]string{"email": "block"},
-			}), mw)
-
-		req := httptest.NewRequest(http.MethodPost, "/chat", strings.NewReader(`{}`))
-		w := httptest.NewRecorder()
-		e.ServeHTTP(w, req)
-
-		Expect(w.Code).To(Equal(http.StatusBadRequest), "expected 400 from override-block; body=%s", w.Body.String())
-		Expect(handlerCalled).To(BeFalse(), "handler must not run when override blocks")
-		events, _ := store.List(context.Background(), ListQuery{Limit: 100})
+		Expect(w.Code).To(Equal(http.StatusServiceUnavailable), "body=%s", w.Body.String())
+		Expect(*called).To(BeFalse())
+		Expect(body.Messages[0]).To(ContainSubstring("alice@example.com"), "request body must be untouched on a fail-closed block")
+		var resp map[string]any
+		Expect(json.Unmarshal(w.Body.Bytes(), &resp)).To(Succeed())
+		errBlock, _ := resp["error"].(map[string]any)
+		Expect(errBlock["type"]).To(Equal("pii_ner_unavailable"))
+		events, _ := st.List(context.Background(), ListQuery{Limit: 100})
 		Expect(events).To(HaveLen(1))
-		Expect(events[0].Action).To(Equal(ActionBlock), "event must record the resolved (override) action")
+		Expect(events[0].PatternID).To(Equal(nerUnavailablePattern))
+	})
+
+	It("fails closed (503) when a configured detector can't be resolved", func() {
+		st := store()
+		body := &fakeRequest{Messages: []string{"contact alice@example.com"}}
+		mw := RequestMiddleware(&Redactor{}, st, fakeAdapter(), nil,
+			WithNERResolver(resolverFor(map[string]NERConfig{}))) // "missing" not present
+		w, called := serve(body, fakeModelPIIConfig{enabled: true, detectors: []string{"missing"}}, mw, true)
+
+		Expect(w.Code).To(Equal(http.StatusServiceUnavailable))
+		Expect(*called).To(BeFalse())
+		events, _ := st.List(context.Background(), ListQuery{Limit: 100})
+		Expect(events).To(HaveLen(1))
+		Expect(events[0].PatternID).To(Equal(nerUnavailablePattern))
 	})
 
 	It("nil redactor is passthrough", func() {
 		body := &fakeRequest{Messages: []string{"alice@example.com"}}
 		mw := RequestMiddleware(nil, nil, fakeAdapter(), nil)
-
-		e := echo.New()
-		e.POST("/chat", func(c echo.Context) error {
-			return c.JSON(http.StatusOK, map[string]string{"ok": "yes"})
-		}, setRequestOnContext(body), withModelConfig(fakeModelPIIConfig{enabled: true}), mw)
-
-		req := httptest.NewRequest(http.MethodPost, "/chat", strings.NewReader(`{}`))
-		w := httptest.NewRecorder()
-		e.ServeHTTP(w, req)
+		w, _ := serve(body, fakeModelPIIConfig{enabled: true, detectors: []string{"pf"}}, mw, true)
 
 		Expect(w.Code).To(Equal(http.StatusOK))
 		Expect(body.Messages[0]).To(Equal("alice@example.com"), "nil redactor must be a no-op")
+	})
+
+	It("WithPolicyResolver enables a model the per-model config left off (global default)", func() {
+		st := store()
+		body := &fakeRequest{Messages: []string{"Hi I'm Alice today"}}
+		// The per-model config is disabled with no detectors; the policy
+		// resolver (instance-wide default) turns it on and supplies one.
+		mw := RequestMiddleware(&Redactor{}, st, fakeAdapter(), nil,
+			WithNERResolver(resolverFor(map[string]NERConfig{
+				"global-pf": nerCfg(ActionMask, NEREntity{Group: "PER", Start: 6, End: 11, Score: 0.95}),
+			})),
+			WithPolicyResolver(func(_ any) (bool, []string) { return true, []string{"global-pf"} }))
+		w, _ := serve(body, fakeModelPIIConfig{enabled: false}, mw, true)
+
+		Expect(w.Code).To(Equal(http.StatusOK), "body=%s", w.Body.String())
+		Expect(body.Messages[0]).To(ContainSubstring("[REDACTED:ner:PER]"))
+	})
+
+	It("WithPolicyResolver returning disabled short-circuits an otherwise-enabled model", func() {
+		st := store()
+		body := &fakeRequest{Messages: []string{"Hi I'm Alice today"}}
+		mw := RequestMiddleware(&Redactor{}, st, fakeAdapter(), nil,
+			WithNERResolver(resolverFor(map[string]NERConfig{
+				"pf": nerCfg(ActionMask, NEREntity{Group: "PER", Start: 6, End: 11, Score: 0.95}),
+			})),
+			WithPolicyResolver(func(_ any) (bool, []string) { return false, nil }))
+		w, _ := serve(body, fakeModelPIIConfig{enabled: true, detectors: []string{"pf"}}, mw, true)
+
+		Expect(w.Code).To(Equal(http.StatusOK))
+		Expect(body.Messages[0]).To(Equal("Hi I'm Alice today"), "resolver disabled => no redaction")
+	})
+
+	It("scans all messages as one document so earlier-message context applies", func() {
+		st := store()
+		// The detector (pinAfterCard) only recognises "4421" when "card"
+		// appears earlier in the SAME text it is handed — so this only
+		// masks if the middleware joins the messages before scanning.
+		body := &fakeRequest{Messages: []string{
+			"What are the last four digits of your card?",
+			"it is 4421 ok",
+		}}
+		cfg := NERConfig{Detector: &funcNERDetector{fn: pinAfterCard}, DefaultAction: ActionMask}
+		mw := RequestMiddleware(&Redactor{}, st, fakeAdapter(), nil,
+			WithNERResolver(resolverFor(map[string]NERConfig{"pf": cfg})))
+		w, _ := serve(body, fakeModelPIIConfig{enabled: true, detectors: []string{"pf"}}, mw, true)
+
+		Expect(w.Code).To(Equal(http.StatusOK), "body=%s", w.Body.String())
+		Expect(body.Messages[0]).To(Equal("What are the last four digits of your card?"), "question untouched")
+		Expect(body.Messages[1]).To(Equal("it is [REDACTED:ner:PIN] ok"))
+		events, _ := st.List(context.Background(), ListQuery{Limit: 100})
+		Expect(events).To(HaveLen(1))
+		Expect(events[0].ByteOffset).To(Equal(6), "event offsets are message-local")
 	})
 })

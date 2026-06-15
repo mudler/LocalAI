@@ -6,12 +6,13 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 
-	"dario.cat/mergo"
 	"gopkg.in/yaml.v3"
 
 	"github.com/mudler/LocalAI/core/config"
+	"github.com/mudler/LocalAI/core/config/meta"
 	"github.com/mudler/LocalAI/core/gallery"
 	"github.com/mudler/LocalAI/pkg/model"
 	"github.com/mudler/LocalAI/pkg/utils"
@@ -114,9 +115,7 @@ func (s *ConfigService) PatchConfig(_ context.Context, name string, patch map[st
 	if existingMap == nil {
 		existingMap = map[string]any{}
 	}
-	if err := mergo.Merge(&existingMap, patch, mergo.WithOverride); err != nil {
-		return nil, fmt.Errorf("merge configs: %w", err)
-	}
+	patchMerge(existingMap, patch, mapLeafFieldPaths(), "")
 	yamlData, err := yaml.Marshal(existingMap)
 	if err != nil {
 		return nil, fmt.Errorf("marshal merged YAML: %w", err)
@@ -140,6 +139,55 @@ func (s *ConfigService) PatchConfig(_ context.Context, name string, patch map[st
 	// Preload is best-effort — a failure here doesn't undo the patch.
 	_ = s.Loader.Preload(s.modelsPath())
 	return &updated, nil
+}
+
+// mapLeafFieldPaths returns the set of dotted config paths whose schema type is
+// a map that the editor edits as one complete value (e.g.
+// pii_detection.entity_actions, roles, engine_args). A PATCH must REPLACE these
+// wholesale rather than union them: the deep-merge only adds and overrides
+// keys, so a map entry the admin deleted in the editor would otherwise silently
+// survive. Derived from the config schema so it stays correct as map fields are
+// added. (UIType comes from reflection, independent of any registry override.)
+func mapLeafFieldPaths() map[string]struct{} {
+	md := meta.BuildConfigMetadata(reflect.TypeFor[config.ModelConfig]())
+	out := make(map[string]struct{})
+	for _, f := range md.Fields {
+		if f.UIType == "map" {
+			out[f.Path] = struct{}{}
+		}
+	}
+	return out
+}
+
+// patchMerge deep-merges src into dst with the same shape as the previous
+// mergo.WithOverride behaviour — scalars and slices replace; nested
+// struct-maps (e.g. pii_detection, parameters) recurse so unknown sibling keys
+// the editor doesn't model survive — EXCEPT that any path in mapLeaves is
+// replaced wholesale, and removed when the patch sets it empty, so deletions
+// inside a map field persist to disk.
+func patchMerge(dst, src map[string]any, mapLeaves map[string]struct{}, prefix string) {
+	for k, sv := range src {
+		path := k
+		if prefix != "" {
+			path = prefix + "." + k
+		}
+		if _, isLeaf := mapLeaves[path]; isLeaf {
+			if m, ok := sv.(map[string]any); ok && len(m) == 0 {
+				delete(dst, k) // emptied map field -> drop it from the YAML
+			} else {
+				dst[k] = sv
+			}
+			continue
+		}
+		// Recurse into struct-like nesting so dst-only sibling keys survive.
+		if sm, ok := sv.(map[string]any); ok {
+			if dm, ok2 := dst[k].(map[string]any); ok2 {
+				patchMerge(dm, sm, mapLeaves, path)
+				continue
+			}
+		}
+		dst[k] = sv
+	}
 }
 
 // EditYAML replaces the YAML for an installed model, with optional rename

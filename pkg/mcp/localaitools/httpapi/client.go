@@ -582,16 +582,6 @@ func (c *Client) GetUsageStats(ctx context.Context, q localaitools.UsageStatsQue
 
 // ---- PII filter ----
 
-func (c *Client) ListPIIPatterns(ctx context.Context) ([]localaitools.PIIPattern, error) {
-	var raw struct {
-		Patterns []localaitools.PIIPattern `json:"patterns"`
-	}
-	if err := c.do(ctx, http.MethodGet, routePIIPatterns, nil, &raw); err != nil {
-		return nil, err
-	}
-	return raw.Patterns, nil
-}
-
 func (c *Client) GetPIIEvents(ctx context.Context, q localaitools.PIIEventsQuery) ([]localaitools.PIIEvent, error) {
 	qs := url.Values{}
 	if q.CorrelationID != "" {
@@ -622,35 +612,6 @@ func (c *Client) GetPIIEvents(ctx context.Context, q localaitools.PIIEventsQuery
 		return nil, err
 	}
 	return raw.Events, nil
-}
-
-func (c *Client) TestPIIRedaction(ctx context.Context, req localaitools.PIIRedactTestRequest) (*localaitools.PIIRedactTestResult, error) {
-	var out localaitools.PIIRedactTestResult
-	if err := c.do(ctx, http.MethodPost, routePIITest, map[string]string{"text": req.Text}, &out); err != nil {
-		return nil, err
-	}
-	return &out, nil
-}
-
-func (c *Client) SetPIIPatternAction(ctx context.Context, req localaitools.PIIPatternActionUpdate) error {
-	if req.ID == "" {
-		return fmt.Errorf("pattern id is required")
-	}
-	body := map[string]any{}
-	if req.Action != "" {
-		body["action"] = req.Action
-	}
-	if req.Disabled != nil {
-		body["disabled"] = *req.Disabled
-	}
-	if len(body) == 0 {
-		return fmt.Errorf("must specify action and/or disabled")
-	}
-	return c.do(ctx, http.MethodPut, routePIIPatternByID(req.ID), body, nil)
-}
-
-func (c *Client) PersistPIIPatterns(ctx context.Context) error {
-	return c.do(ctx, http.MethodPost, routePIIPatternsPersist, nil, nil)
 }
 
 func (c *Client) GetMiddlewareStatus(ctx context.Context) (*localaitools.MiddlewareStatus, error) {

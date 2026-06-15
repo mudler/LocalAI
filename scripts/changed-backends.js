@@ -40,6 +40,9 @@ function inferBackendPath(item) {
     // via a thin wrapper Makefile. Changes to either dir should retrigger it.
     return `backend/cpp/turboquant/`;
   }
+  if (item.dockerfile.endsWith("privacy-filter")) {
+    return `backend/cpp/privacy-filter/`;
+  }
   if (item.dockerfile.endsWith("ds4")) {
     return `backend/cpp/ds4/`;
   }

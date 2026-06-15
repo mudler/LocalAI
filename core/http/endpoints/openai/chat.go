@@ -14,7 +14,6 @@ import (
 	"github.com/mudler/LocalAI/core/http/middleware"
 	"github.com/mudler/LocalAI/core/schema"
 	"github.com/mudler/LocalAI/core/services/cloudproxy"
-	"github.com/mudler/LocalAI/core/services/routing/pii"
 	"github.com/mudler/LocalAI/pkg/functions"
 	reason "github.com/mudler/LocalAI/pkg/reasoning"
 
@@ -130,7 +129,7 @@ func applyAutoparserOverride(
 // @Param request body schema.OpenAIRequest true "query params"
 // @Success 200 {object} schema.OpenAIResponse "Response"
 // @Router /v1/chat/completions [post]
-func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator *templates.Evaluator, startupOptions *config.ApplicationConfig, natsClient mcpTools.MCPNATSClient, assistantHolder *mcpTools.LocalAIAssistantHolder, piiRedactor *pii.Redactor, piiEvents pii.EventStore) echo.HandlerFunc {
+func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator *templates.Evaluator, startupOptions *config.ApplicationConfig, natsClient mcpTools.MCPNATSClient, assistantHolder *mcpTools.LocalAIAssistantHolder) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		var textContentToReturn string
 		id := uuid.New().String()
@@ -152,11 +151,11 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 
 		// Cloud-proxy bail. Bypasses the local pipeline (templating,
 		// MCP injection, gRPC backend) and forwards via the cloud-
-		// proxy backend, which does the outbound HTTP. The streaming
-		// PII filter still runs because its input is per-token text
-		// extracted from the wire envelope, not the envelope itself.
+		// proxy backend, which does the outbound HTTP. Request-side PII
+		// redaction already ran in the middleware; the response is
+		// forwarded unmodified.
 		if config.IsCloudProxyBackendPassthrough() {
-			return forwardCloudProxyOpenAIViaBackend(c, config, input, piiRedactor, piiEvents, ml, startupOptions)
+			return forwardCloudProxyOpenAIViaBackend(c, config, input, ml, startupOptions)
 		}
 
 		funcs := input.Functions
@@ -327,7 +326,8 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 						"message": map[string]any{
 							"type":        "string",
 							"description": "The message to reply the user with",
-						}},
+						},
+					},
 				},
 			}
 
@@ -392,14 +392,6 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 			c.Response().Header().Set("Cache-Control", "no-cache")
 			c.Response().Header().Set("Connection", "keep-alive")
 			c.Response().Header().Set("X-Correlation-ID", id)
-
-			// Per-stream PII filter: when the resolved model has PII
-			// enabled, wrap the response content so values spanning
-			// chunk boundaries still get masked. Shared with the
-			// cloud-proxy bail below via cloudproxy.BuildStreamFilter
-			// so both paths apply the same per-model gate and override
-			// rules.
-			streamPIIFilter := cloudproxy.BuildStreamFilter(c, config, true, piiRedactor, piiEvents, id)
 
 			mcpStreamMaxIterations := 10
 			if config.Agent.MaxIterations > 0 {
@@ -475,30 +467,6 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 						// substrings.
 						if (hasMCPToolsStream || config.FunctionsConfig.AutomaticToolParsingFallback) && haveContent {
 							collectedContent += rawContent
-						}
-						// Stream-side PII filter: feed the content delta
-						// through the buffered-emit filter. The filter
-						// holds back a tail to handle pattern boundaries
-						// across chunks, so a Push may legitimately
-						// return "" — drop the chunk in that case rather
-						// than emitting an empty Delta to the wire.
-						if streamPIIFilter != nil && haveContent {
-							filtered := streamPIIFilter.Push(rawContent)
-							if filtered == "" {
-								// Fully buffered — skip this chunk's
-								// content. Still emit non-content chunks
-								// (role, tool_calls). When this delta is
-								// content-only and we buffer it, drop the
-								// whole event to avoid a vestigial
-								// {"delta":{}} on the wire.
-								if ev.Choices[0].Delta.Role == "" && len(ev.Choices[0].Delta.ToolCalls) == 0 && ev.Choices[0].Delta.Reasoning == nil {
-									continue
-								}
-								// Mixed delta — strip content, keep the rest.
-								ev.Choices[0].Delta.Content = nil
-							} else {
-								ev.Choices[0].Delta.Content = filtered
-							}
 						}
 						respData, err := json.Marshal(ev)
 						if err != nil {
@@ -644,31 +612,6 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 					}
 				}
 
-				// Drain the per-stream PII filter before the stop chunk
-				// so any text held back by the buffered-emit invariant
-				// reaches the client as a regular content delta. We
-				// emit it as a chunk WITHOUT a finish_reason so the
-				// next "stop" chunk still terminates the stream.
-				if streamPIIFilter != nil {
-					residual := streamPIIFilter.Drain()
-					if residual != "" {
-						drainResp := &schema.OpenAIResponse{
-							ID:      id,
-							Created: created,
-							Model:   input.Model,
-							Choices: []schema.Choice{{
-								Delta: &schema.Message{Content: residual},
-								Index: 0,
-							}},
-							Object: "chat.completion.chunk",
-						}
-						if drainBytes, err := json.Marshal(drainResp); err == nil {
-							_, _ = fmt.Fprintf(c.Response().Writer, "data: %s\n\n", drainBytes)
-							c.Response().Flush()
-						}
-					}
-				}
-
 				// No MCP tools to execute, send final stop message
 				finishReason := FinishReasonStop
 				if toolsCalled && len(input.Tools) > 0 {
@@ -689,7 +632,8 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 							FinishReason: &finishReason,
 							Index:        0,
 							Delta:        &schema.Message{},
-						}},
+						},
+					},
 					Object: "chat.completion.chunk",
 				}
 				respData, _ := json.Marshal(resp)
@@ -1075,7 +1019,6 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 }
 
 func handleQuestion(config *config.ModelConfig, funcResults []functions.FuncCallResults, result, prompt string) (string, error) {
-
 	if len(funcResults) == 0 && result != "" {
 		xlog.Debug("nothing function results but we had a message from the LLM")
 
@@ -1111,19 +1054,16 @@ func handleQuestion(config *config.ModelConfig, funcResults []functions.FuncCall
 	return "", nil
 }
 
-// forwardCloudProxyOpenAIViaBackend marshals the OpenAI request,
-// constructs the streaming PII filter (when this model has PII
-// enabled), and hands off to the cloud-proxy gRPC backend which does
-// the outbound HTTP. The chat endpoint owns the body+filter
-// construction because it's the only place the request lands as a
-// parsed *schema.OpenAIRequest.
-func forwardCloudProxyOpenAIViaBackend(c echo.Context, cfg *config.ModelConfig, input *schema.OpenAIRequest, piiRedactor *pii.Redactor, piiEvents pii.EventStore, ml *model.ModelLoader, appConfig *config.ApplicationConfig) error {
+// forwardCloudProxyOpenAIViaBackend marshals the OpenAI request and
+// hands off to the cloud-proxy gRPC backend which does the outbound
+// HTTP. The chat endpoint owns the body construction because it's the
+// only place the request lands as a parsed *schema.OpenAIRequest.
+// Request-side PII redaction already ran in the middleware; the
+// response is forwarded unmodified.
+func forwardCloudProxyOpenAIViaBackend(c echo.Context, cfg *config.ModelConfig, input *schema.OpenAIRequest, ml *model.ModelLoader, appConfig *config.ApplicationConfig) error {
 	body, err := json.Marshal(input)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusBadRequest, "cloudproxy: marshal request: "+err.Error())
 	}
-
-	correlationID := c.Response().Header().Get("X-Correlation-ID")
-	streamFilter := cloudproxy.BuildStreamFilter(c, cfg, input.Stream, piiRedactor, piiEvents, correlationID)
-	return cloudproxy.ForwardViaBackend(c, cfg, body, streamFilter, ml, appConfig)
+	return cloudproxy.ForwardViaBackend(c, cfg, body, ml, appConfig)
 }

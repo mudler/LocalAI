@@ -1,5 +1,19 @@
 package meta
 
+import "github.com/mudler/LocalAI/core/services/routing/piipattern"
+
+// builtinPatternOptions turns the piipattern built-in catalogue into select
+// options for the editor's built-in-patterns checklist, keeping the catalogue
+// the single source of truth.
+func builtinPatternOptions() []FieldOption {
+	cat := piipattern.BuiltinCatalogue()
+	out := make([]FieldOption, 0, len(cat))
+	for _, b := range cat {
+		out = append(out, FieldOption{Value: b.Name, Label: b.Name + " — " + b.Description})
+	}
+	return out
+}
+
 // DefaultRegistry returns enrichment overrides for the ~30 most commonly used
 // config fields. Fields not listed here still appear with auto-generated
 // labels and type-inferred components.
@@ -504,12 +518,60 @@ func DefaultRegistry() map[string]FieldMetaOverride {
 			Component:   "toggle",
 			Order:       200,
 		},
-		"pii.patterns": {
+		"pii.detectors": {
+			Section:              "pii",
+			Label:                "PII Detector Models",
+			Description:          "Token-classification (NER) models that scan this model's requests for PII. The detection policy (which entities, what action, min score) lives on each detector model's own PII Detection block. Multiple detectors union their hits.",
+			Component:            "model-multi-select",
+			AutocompleteProvider: "models:token_classify",
+			Order:                201,
+		},
+
+		// --- PII detection policy (on a token_classify detector model) ---
+		"pii_detection.min_score": {
 			Section:     "pii",
-			Label:       "PII Pattern Overrides",
-			Description: "Override the global default action for specific patterns on this model. Patterns not listed here inherit the global action (Settings → Middleware → Filtering).",
+			Label:       "Detector Min Score",
+			Description: "When this model is used as a PII detector, drop detections scored below this confidence before they are acted on. 0 keeps every detection.",
+			Component:   "slider",
+			Min:         f64(0),
+			Max:         f64(1),
+			Step:        f64(0.01),
+			Order:       210,
+		},
+		"pii_detection.default_action": {
+			Section:     "pii",
+			Label:       "Detector Default Action",
+			Description: "Action applied to detected entity groups with no explicit per-entity override. Defaults to mask — the safe-by-default policy for a PII filter.",
+			Component:   "select",
+			Options: []FieldOption{
+				{Value: "mask", Label: "mask (redact the span)"},
+				{Value: "block", Label: "block (reject the request)"},
+				{Value: "allow", Label: "allow (detect & log only)"},
+			},
+			Default: "mask",
+			Order:   211,
+		},
+		"pii_detection.entity_actions": {
+			Section:     "pii",
+			Label:       "Detector Entity Actions",
+			Description: "Per-entity-group action policy for this detector model (e.g. PASSWORD → block, EMAIL → mask). Groups without an entry use the default action.",
+			Component:   "entity-action-list",
+			Order:       212,
+		},
+		"pii_detection.builtins": {
+			Section:     "pii",
+			Label:       "Built-in Secret Patterns",
+			Description: "Built-in regex patterns for common credentials (API keys, tokens, private keys). Turning any on makes this a pattern detector — it matches high-entropy secrets the NER tier can't, in-process with no model load.",
+			Component:   "pii-builtins-select",
+			Options:     builtinPatternOptions(),
+			Order:       213,
+		},
+		"pii_detection.patterns": {
+			Section:     "pii",
+			Label:       "Custom Secret Patterns",
+			Description: "Operator-defined patterns in a restricted regex subset (e.g. \"sk-prefix-\\w+\"). Each must contain a fixed literal anchor of ≥3 chars; open-ended shapes like emails are rejected (leave those to NER). Matches report under the pattern name as the entity group.",
 			Component:   "pii-pattern-list",
-			Order:       201,
+			Order:       214,
 		},
 
 		// --- Cloud passthrough proxy ---

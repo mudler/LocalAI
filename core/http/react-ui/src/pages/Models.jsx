@@ -36,6 +36,7 @@ const FILTERS = [
   { key: 'rerank', labelKey: 'filters.rerank', icon: 'fa-sort' },
   { key: 'detection', labelKey: 'filters.detection', icon: 'fa-bullseye' },
   { key: 'vad', labelKey: 'filters.vad', icon: 'fa-wave-square' },
+  { key: 'token_classify', labelKey: 'filters.ner', icon: 'fa-tags' },
 ]
 
 export default function Models() {

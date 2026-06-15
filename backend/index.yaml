@@ -999,6 +999,42 @@
     nvidia-l4t: "vulkan-localvqe"
     nvidia-l4t-cuda-12: "vulkan-localvqe"
     nvidia-l4t-cuda-13: "vulkan-localvqe"
+- &privacyfilter
+  name: "privacy-filter"
+  alias: "privacy-filter"
+  icon: https://cdn-avatars.huggingface.co/v1/production/uploads/5fd5e18a90b6dc4633f6d292/QPiv8pt4JNxr0FdGnpFef.png
+  description: |
+    Standalone GGML engine (privacy-filter.cpp) for the OpenMed privacy-filter
+    PII/NER token-classification model family. It runs the openai-privacy-filter
+    architecture (a gpt-oss-style sparse-MoE bidirectional token classifier) on
+    stock upstream GGML — no llama.cpp coupling and no Python — and serves the
+    TokenClassify RPC (constrained BIOES Viterbi decode into UTF-8 byte-offset
+    entity spans) used by LocalAI's NER PII redaction tier.
+  urls:
+    - https://github.com/localai-org/privacy-filter.cpp
+  tags:
+    - token-classification
+    - ner
+    - pii
+    - privacy
+    - CPU
+    - GPU
+  license: apache-2.0
+  # Builds: CPU (amd64+arm64 manifest), Vulkan (amd64) and CUDA 13 (amd64).
+  # Only a host that actually reports CUDA 13 gets the CUDA image (it bundles
+  # the CUDA 13 runtime and needs a recent driver); every other GPU — including
+  # NVIDIA without a CUDA-13 toolkit, AMD and Intel — routes to the Vulkan
+  # image, which only needs a Vulkan ICD. Everything else (incl. arm64/Jetson,
+  # where Vulkan/CUDA images are a future add) falls back to the CPU build,
+  # already fast for this ~50M-active-param model.
+  capabilities:
+    default: "cpu-privacy-filter"
+    nvidia: "vulkan-privacy-filter"
+    nvidia-cuda-12: "vulkan-privacy-filter"
+    nvidia-cuda-13: "cuda13-privacy-filter"
+    amd: "vulkan-privacy-filter"
+    intel: "vulkan-privacy-filter"
+    vulkan: "vulkan-privacy-filter"
 - &faster-whisper
   icon: https://avatars.githubusercontent.com/u/1520500?s=200&v=4
   description: |
@@ -2703,6 +2739,37 @@
   uri: "quay.io/go-skynet/local-ai-backends:master-gpu-nvidia-cuda-13-stablediffusion-ggml"
   mirrors:
     - localai/localai-backends:master-gpu-nvidia-cuda-13-stablediffusion-ggml
+## privacy-filter
+- !!merge <<: *privacyfilter
+  name: "cpu-privacy-filter"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-cpu-privacy-filter"
+  mirrors:
+    - localai/localai-backends:latest-cpu-privacy-filter
+- !!merge <<: *privacyfilter
+  name: "cpu-privacy-filter-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-cpu-privacy-filter"
+  mirrors:
+    - localai/localai-backends:master-cpu-privacy-filter
+- !!merge <<: *privacyfilter
+  name: "vulkan-privacy-filter"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-vulkan-privacy-filter"
+  mirrors:
+    - localai/localai-backends:latest-gpu-vulkan-privacy-filter
+- !!merge <<: *privacyfilter
+  name: "vulkan-privacy-filter-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-vulkan-privacy-filter"
+  mirrors:
+    - localai/localai-backends:master-gpu-vulkan-privacy-filter
+- !!merge <<: *privacyfilter
+  name: "cuda13-privacy-filter"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-nvidia-cuda-13-privacy-filter"
+  mirrors:
+    - localai/localai-backends:latest-gpu-nvidia-cuda-13-privacy-filter
+- !!merge <<: *privacyfilter
+  name: "cuda13-privacy-filter-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-nvidia-cuda-13-privacy-filter"
+  mirrors:
+    - localai/localai-backends:master-gpu-nvidia-cuda-13-privacy-filter
 # vllm
 - !!merge <<: *vllm
   name: "vllm-development"
