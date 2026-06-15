@@ -868,7 +868,7 @@ func LoadTextToSpeech(onnxDir string, useGPU bool, cfg Config) (*TextToSpeech, e
 	if useGPU {
 		return nil, fmt.Errorf("GPU mode is not supported yet")
 	}
-	fmt.Println("Using CPU for inference\n")
+	fmt.Println("Using CPU for inference") // LocalAI: drop redundant newline (vet)
 
 	// Load models
 	dpPath := filepath.Join(onnxDir, "duration_predictor.onnx")
