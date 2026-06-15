@@ -62,7 +62,10 @@ func (s *SupertonicBackend) Load(opts *pb.ModelOptions) error {
 	}
 	s.cfg = cfg
 
-	tts, err := LoadTextToSpeech(modelDir, false, cfg)
+	// onnxProvider is "cpu" for the CPU build; the CUDA build sets it to
+	// "cuda" via -ldflags. Upstream LoadTextToSpeech still errors on GPU
+	// until the CUDA phase wires the execution provider.
+	tts, err := LoadTextToSpeech(modelDir, onnxProvider == "cuda", cfg)
 	if err != nil {
 		return fmt.Errorf("loading supertonic models from %s: %w", modelDir, err)
 	}
