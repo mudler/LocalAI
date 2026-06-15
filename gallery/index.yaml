@@ -1,4 +1,137 @@
 ---
+- name: "kimi-k2.7-code"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/unsloth/Kimi-K2.7-Code-GGUF
+  description: |
+    ## 1. Model Introduction
+
+    Kimi K2.7 Code is a coding-focused agentic model built upon Kimi K2.6. With substantial improvements on real-world long-horizon coding tasks, it strengthens end-to-end task completion across complex software engineering workflows while improving token efficiency, reducing thinking-token usage by approximately 30% compared with Kimi K2.6.
+
+    ## 2. Model Summary
+
+    ## 3. Evaluation Results
+
+    Benchmark
+    Kimi K2.6
+    Kimi K2.7 Code
+    GPT-5.5
+    Claude Opus 4.8
+
+    Coding
+
+    Kimi Code Bench v2
+    50.9
+    62.0
+    69.0
+    67.4
+
+    Program Bench
+    48.3
+    53.6
+    69.1
+    63.8
+
+    MLS Bench Lite
+    26.7
+    35.1
+    35.5
+    42.8
+
+    Agentic
+
+    Kimi Claw 24/7 Bench
+    42.9
+    46.9
+    52.8
+    50.4
+
+    MCP Atlas
+    69.4
+    76.0
+    79.4
+    81.3
+
+    MCP Mark Verified
+    72.8
+    81.1
+    92.9
+    76.4
+
+    Footnotes
+
+    ...
+  license: "other"
+  tags:
+    - llm
+    - gguf
+  icon: https://huggingface.co/moonshotai/Kimi-K2.7-Code/resolve/main/figures/kimi-logo.png
+  overrides:
+    backend: llama-cpp
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+    mmproj: llama-cpp/mmproj/Kimi-K2.7-Code-GGUF/mmproj-F32.gguf
+    options:
+      - use_jinja:true
+    parameters:
+      min_p: 0.01
+      model: llama-cpp/models/Kimi-K2.7-Code-GGUF/Kimi-K2.7-Code-UD-Q8_K_XL-00001-of-00014.gguf
+      repeat_penalty: 1
+      temperature: 0.6
+      top_k: -1
+      top_p: 0.95
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/Kimi-K2.7-Code-GGUF/Kimi-K2.7-Code-UD-Q8_K_XL-00001-of-00014.gguf
+      sha256: 65f0aca336f876902323a90e2aff32cac76d071b2cdd818c6a8d78be8fc2c680
+      uri: https://huggingface.co/unsloth/Kimi-K2.7-Code-GGUF/resolve/main/UD-Q8_K_XL/Kimi-K2.7-Code-UD-Q8_K_XL-00001-of-00014.gguf
+    - filename: llama-cpp/models/Kimi-K2.7-Code-GGUF/Kimi-K2.7-Code-UD-Q8_K_XL-00002-of-00014.gguf
+      sha256: 40f4416c130827a11502778891f4ef95b2144db90f51d63aa3548d0952a39683
+      uri: https://huggingface.co/unsloth/Kimi-K2.7-Code-GGUF/resolve/main/UD-Q8_K_XL/Kimi-K2.7-Code-UD-Q8_K_XL-00002-of-00014.gguf
+    - filename: llama-cpp/models/Kimi-K2.7-Code-GGUF/Kimi-K2.7-Code-UD-Q8_K_XL-00003-of-00014.gguf
+      sha256: ba2ba0b5168784ace7c752ecadfc3631279b2bb023824cb0fe9e2dab3dd28f22
+      uri: https://huggingface.co/unsloth/Kimi-K2.7-Code-GGUF/resolve/main/UD-Q8_K_XL/Kimi-K2.7-Code-UD-Q8_K_XL-00003-of-00014.gguf
+    - filename: llama-cpp/models/Kimi-K2.7-Code-GGUF/Kimi-K2.7-Code-UD-Q8_K_XL-00004-of-00014.gguf
+      sha256: 10298a6c98b13ef49be286fefbea8663e16473fb69bbeabe153bc80c60ae116e
+      uri: https://huggingface.co/unsloth/Kimi-K2.7-Code-GGUF/resolve/main/UD-Q8_K_XL/Kimi-K2.7-Code-UD-Q8_K_XL-00004-of-00014.gguf
+    - filename: llama-cpp/models/Kimi-K2.7-Code-GGUF/Kimi-K2.7-Code-UD-Q8_K_XL-00005-of-00014.gguf
+      sha256: 8e9e4c8e35d34fc4fef6bfb65a715ad7defbd196970d833c1df6924d701c88b3
+      uri: https://huggingface.co/unsloth/Kimi-K2.7-Code-GGUF/resolve/main/UD-Q8_K_XL/Kimi-K2.7-Code-UD-Q8_K_XL-00005-of-00014.gguf
+    - filename: llama-cpp/models/Kimi-K2.7-Code-GGUF/Kimi-K2.7-Code-UD-Q8_K_XL-00006-of-00014.gguf
+      sha256: ccff6e7f299742f82cf6f51a871e3eb3167511efaee967477cc8387f54d16442
+      uri: https://huggingface.co/unsloth/Kimi-K2.7-Code-GGUF/resolve/main/UD-Q8_K_XL/Kimi-K2.7-Code-UD-Q8_K_XL-00006-of-00014.gguf
+    - filename: llama-cpp/models/Kimi-K2.7-Code-GGUF/Kimi-K2.7-Code-UD-Q8_K_XL-00007-of-00014.gguf
+      sha256: 1a3b639633a2d22f71156a9f643ded2329cdd969cc21177b644b5741bac1af8e
+      uri: https://huggingface.co/unsloth/Kimi-K2.7-Code-GGUF/resolve/main/UD-Q8_K_XL/Kimi-K2.7-Code-UD-Q8_K_XL-00007-of-00014.gguf
+    - filename: llama-cpp/models/Kimi-K2.7-Code-GGUF/Kimi-K2.7-Code-UD-Q8_K_XL-00008-of-00014.gguf
+      sha256: bde28f682a1eab973538b2102007d952f37a13c1f7d55e2ed99177445ddc4282
+      uri: https://huggingface.co/unsloth/Kimi-K2.7-Code-GGUF/resolve/main/UD-Q8_K_XL/Kimi-K2.7-Code-UD-Q8_K_XL-00008-of-00014.gguf
+    - filename: llama-cpp/models/Kimi-K2.7-Code-GGUF/Kimi-K2.7-Code-UD-Q8_K_XL-00009-of-00014.gguf
+      sha256: b6a23a95b61e100f7593fa75e2363966323fa767b7e4fdf45d963b59e8fdc69f
+      uri: https://huggingface.co/unsloth/Kimi-K2.7-Code-GGUF/resolve/main/UD-Q8_K_XL/Kimi-K2.7-Code-UD-Q8_K_XL-00009-of-00014.gguf
+    - filename: llama-cpp/models/Kimi-K2.7-Code-GGUF/Kimi-K2.7-Code-UD-Q8_K_XL-00010-of-00014.gguf
+      sha256: fb10231c2e6d76921d40f22690f4aa08a8090c708edeaf7e581abafc24d3b25c
+      uri: https://huggingface.co/unsloth/Kimi-K2.7-Code-GGUF/resolve/main/UD-Q8_K_XL/Kimi-K2.7-Code-UD-Q8_K_XL-00010-of-00014.gguf
+    - filename: llama-cpp/models/Kimi-K2.7-Code-GGUF/Kimi-K2.7-Code-UD-Q8_K_XL-00011-of-00014.gguf
+      sha256: d2290be7ed1a22ac1f9f8a4813389689e075ce2ab8abc3aaaa1157a3cb1462d8
+      uri: https://huggingface.co/unsloth/Kimi-K2.7-Code-GGUF/resolve/main/UD-Q8_K_XL/Kimi-K2.7-Code-UD-Q8_K_XL-00011-of-00014.gguf
+    - filename: llama-cpp/models/Kimi-K2.7-Code-GGUF/Kimi-K2.7-Code-UD-Q8_K_XL-00012-of-00014.gguf
+      sha256: ce0d028314aa3fc783082dbca097e1055d69686a17ab8306574e2949568f26a5
+      uri: https://huggingface.co/unsloth/Kimi-K2.7-Code-GGUF/resolve/main/UD-Q8_K_XL/Kimi-K2.7-Code-UD-Q8_K_XL-00012-of-00014.gguf
+    - filename: llama-cpp/models/Kimi-K2.7-Code-GGUF/Kimi-K2.7-Code-UD-Q8_K_XL-00013-of-00014.gguf
+      sha256: 217864ce63a1d130ab39dcb0996b6097e1aa78eb896e38efaefdbbac3a00b7ec
+      uri: https://huggingface.co/unsloth/Kimi-K2.7-Code-GGUF/resolve/main/UD-Q8_K_XL/Kimi-K2.7-Code-UD-Q8_K_XL-00013-of-00014.gguf
+    - filename: llama-cpp/models/Kimi-K2.7-Code-GGUF/Kimi-K2.7-Code-UD-Q8_K_XL-00014-of-00014.gguf
+      sha256: eb7582ad7066c5eaa01bde95acb00b4ad9cd7b07cd50a6cf5c9ee427258bc9dd
+      uri: https://huggingface.co/unsloth/Kimi-K2.7-Code-GGUF/resolve/main/UD-Q8_K_XL/Kimi-K2.7-Code-UD-Q8_K_XL-00014-of-00014.gguf
+    - filename: llama-cpp/mmproj/Kimi-K2.7-Code-GGUF/mmproj-F32.gguf
+      sha256: b2cc50c8c13fe70fc4968a83332f31e9007ea09ebb9ae91d46a4e4cd2a3053cd
+      uri: https://huggingface.co/unsloth/Kimi-K2.7-Code-GGUF/resolve/main/mmproj-F32.gguf
 - name: "gemma-4-12b-coder-fable5-composer2.5-v1"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
