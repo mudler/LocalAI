@@ -11,16 +11,30 @@ import (
 )
 
 var _ = Describe("voiceStylePath", func() {
-	s := &SupertonicBackend{modelDir: "/models/st"}
+	s := &SupertonicBackend{modelDir: "/models/st/onnx", voicesDir: "/models/st/voice_styles"}
 
-	It("resolves a bare name under voice_styles/", func() {
-		Expect(s.voiceStylePath("M1")).To(Equal(filepath.Join("/models/st", "voice_styles", "M1.json")))
+	It("resolves a bare name under the resolved voicesDir", func() {
+		Expect(s.voiceStylePath("M1")).To(Equal(filepath.Join("/models/st/voice_styles", "M1.json")))
 	})
 	It("keeps an explicit .json suffix", func() {
-		Expect(s.voiceStylePath("M1.json")).To(Equal(filepath.Join("/models/st", "voice_styles", "M1.json")))
+		Expect(s.voiceStylePath("M1.json")).To(Equal(filepath.Join("/models/st/voice_styles", "M1.json")))
 	})
 	It("honors absolute paths", func() {
 		Expect(s.voiceStylePath("/abs/v.json")).To(Equal("/abs/v.json"))
+	})
+})
+
+var _ = Describe("resolveVoicesDir", func() {
+	It("prefers voice_styles under modelDir", func() {
+		dir := GinkgoT().TempDir()
+		Expect(os.MkdirAll(filepath.Join(dir, "voice_styles"), 0o755)).To(Succeed())
+		Expect(resolveVoicesDir(dir)).To(Equal(filepath.Join(dir, "voice_styles")))
+	})
+	It("falls back to the sibling voice_styles next to an onnx subdir", func() {
+		root := GinkgoT().TempDir()
+		Expect(os.MkdirAll(filepath.Join(root, "voice_styles"), 0o755)).To(Succeed())
+		Expect(os.MkdirAll(filepath.Join(root, "onnx"), 0o755)).To(Succeed())
+		Expect(resolveVoicesDir(filepath.Join(root, "onnx"))).To(Equal(filepath.Join(root, "voice_styles")))
 	})
 })
 
@@ -61,7 +75,7 @@ var _ = Describe("end-to-end synthesis", Ordered, func() {
 
 	It("synthesizes a wav file", func() {
 		b := &SupertonicBackend{}
-		Expect(b.Load(&pb.ModelOptions{ModelFile: modelDir})).To(Succeed())
+		Expect(b.Load(&pb.ModelOptions{ModelFile: modelDir, Options: []string{"supertonic.default_voice=F1"}})).To(Succeed())
 		dst := filepath.Join(GinkgoT().TempDir(), "out.wav")
 		lang := "en"
 		Expect(b.TTS(&pb.TTSRequest{Text: "Hello from LocalAI.", Dst: dst, Language: &lang})).To(Succeed())

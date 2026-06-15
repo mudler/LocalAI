@@ -40,6 +40,7 @@ type SupertonicBackend struct {
 	tts          *TextToSpeech
 	cfg          Config
 	modelDir     string
+	voicesDir    string
 	defaultVoice string
 	defaultLang  string
 	steps        int
@@ -56,6 +57,7 @@ func (s *SupertonicBackend) Load(opts *pb.ModelOptions) error {
 		return err
 	}
 	s.modelDir = modelDir
+	s.voicesDir = resolveVoicesDir(modelDir)
 
 	cfg, err := LoadCfgs(modelDir)
 	if err != nil {
@@ -145,6 +147,9 @@ func (s *SupertonicBackend) synthesize(req *pb.TTSRequest) ([]float32, int, erro
 	sr := s.tts.SampleRate
 	// Call returns concatenated audio; trim to the reported duration.
 	wavLen := int(float32(sr) * dur)
+	if wavLen < 0 {
+		wavLen = 0
+	}
 	if wavLen > len(wav) {
 		wavLen = len(wav)
 	}
@@ -193,20 +198,36 @@ func (s *SupertonicBackend) loadStyle(name string) (*Style, error) {
 	return st, nil
 }
 
-// voiceStylePath maps a voice name to a JSON path. Absolute paths and
-// explicit .json names are honored; bare names resolve under
-// <modelDir>/voice_styles/<name>.json.
+// voiceStylePath maps a voice name to a JSON path. Absolute paths are honored;
+// names containing a separator resolve under modelDir; bare names resolve under
+// the resolved voicesDir (see resolveVoicesDir).
 func (s *SupertonicBackend) voiceStylePath(name string) string {
-	if filepath.IsAbs(name) {
-		return name
-	}
 	if !strings.HasSuffix(name, ".json") {
 		name += ".json"
+	}
+	if filepath.IsAbs(name) {
+		return name
 	}
 	if strings.ContainsRune(name, filepath.Separator) {
 		return filepath.Join(s.modelDir, name)
 	}
-	return filepath.Join(s.modelDir, "voice_styles", name)
+	return filepath.Join(s.voicesDir, name)
+}
+
+// resolveVoicesDir locates the voice_styles directory. The HF model layout
+// puts the ONNX files in an onnx/ subdir with voice_styles/ as its sibling,
+// so check modelDir/voice_styles first, then the parent's voice_styles.
+func resolveVoicesDir(modelDir string) string {
+	candidates := []string{
+		filepath.Join(modelDir, "voice_styles"),
+		filepath.Join(filepath.Dir(modelDir), "voice_styles"),
+	}
+	for _, c := range candidates {
+		if info, err := os.Stat(c); err == nil && info.IsDir() {
+			return c
+		}
+	}
+	return candidates[0]
 }
 
 // resolveModelDir accepts either a directory (used as-is) or a file (its
