@@ -145,6 +145,7 @@ var _ = Describe("Backend Endpoints", func() {
 			expectPrefOnly("qwen-tts", "tts")
 			expectPrefOnly("qwen3-tts-cpp", "tts")
 			expectPrefOnly("faster-qwen3-tts", "tts")
+			expectPrefOnly("supertonic", "tts")
 			expectPrefOnly("sam3-cpp", "detection")
 		})
 
