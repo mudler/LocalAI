@@ -89,5 +89,11 @@
     "loadFailed": "Failed to load models: {{message}}",
     "installFailed": "Failed to install: {{message}}",
     "deleteFailed": "Failed to delete: {{message}}"
+  },
+  "selector": {
+    "loading": "Loading models...",
+    "selectModel": "Select model...",
+    "searchPlaceholder": "Search models...",
+    "noModels": "No models available"
   }
 }
