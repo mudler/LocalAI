@@ -279,3 +279,77 @@ class TestBackendServicer(unittest.TestCase):
             self.fail("Embedding service failed")
         finally:
             self.tearDown()
+
+    def test_streaming_tool_parser_buffering(self):
+        """
+        When a tool parser is active and the request carries tools, streaming
+        must NOT emit the model's raw tool-call markup as content, and must NOT
+        duplicate the buffered content. Exercises _predict(streaming=True) with a
+        mocked engine + tool parser (no server / GPU).
+        """
+        import sys, os, asyncio
+        from types import SimpleNamespace
+        sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+        from backend import BackendServicer
+
+        def make_generate(chunks):
+            async def gen(*a, **k):
+                for t in chunks:
+                    yield SimpleNamespace(
+                        outputs=[SimpleNamespace(text=t, token_ids=[1], logprobs=None)],
+                        prompt_token_ids=[0],
+                    )
+            return lambda *a, **k: gen()
+
+        def parser_cls(called, content, calls):
+            class _P:
+                def __init__(self, tokenizer, tools=None):
+                    pass
+                def extract_tool_calls(self, c, request=None):
+                    return SimpleNamespace(tools_called=called, content=content, tool_calls=calls)
+            return _P
+
+        def collect(servicer, req):
+            async def run():
+                return [r async for r in servicer._predict(req, None, streaming=True)]
+            return asyncio.run(run())
+
+        def contents(replies):
+            return [cd.content for r in replies for cd in r.chat_deltas if cd.content]
+
+        tools_json = '[{"type":"function","function":{"name":"calc"}}]'
+
+        # Case 1: model emits a tool call -> no raw markup as content, tool_call present.
+        s = BackendServicer()
+        s.reasoning_parser_cls = None
+        s.tokenizer = None
+        s.llm = SimpleNamespace(generate=make_generate([
+            '<tool_call>\n{"name": "calc"',
+            '<tool_call>\n{"name": "calc", "arguments": {"x": 1}}\n</tool_call>',
+        ]))
+        call = SimpleNamespace(id="call_1", function=SimpleNamespace(name="calc", arguments='{"x": 1}'))
+        s.tool_parser_cls = parser_cls(True, "", [call])
+        req = backend_pb2.PredictOptions(Prompt="x", Tools=tools_json)
+        replies = collect(s, req)
+        self.assertFalse(
+            any("<tool_call" in c or "<function" in c for c in contents(replies)),
+            "raw tool-call markup leaked as streamed content",
+        )
+        names = [tc.name for r in replies for cd in r.chat_deltas for tc in cd.tool_calls]
+        self.assertIn("calc", names, "structured tool_call was not emitted")
+
+        # Case 2: tools offered but model answers in plain text -> content once.
+        s2 = BackendServicer()
+        s2.reasoning_parser_cls = None
+        s2.tokenizer = None
+        s2.llm = SimpleNamespace(generate=make_generate([
+            "The capital ",
+            "The capital of France is Paris.",
+        ]))
+        s2.tool_parser_cls = parser_cls(False, "", [])
+        req2 = backend_pb2.PredictOptions(Prompt="x", Tools=tools_json)
+        joined = "".join(contents(collect(s2, req2)))
+        self.assertEqual(
+            joined.count("The capital of France is Paris."), 1,
+            f"buffered content was duplicated: {joined!r}",
+        )

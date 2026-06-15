@@ -597,12 +597,18 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
         # Stream the results
         generated_text = ""
         last_output = None
+        # When a tool parser is active for a tool-enabled request, the model's
+        # raw tool-call markup (e.g. <tool_call>...) must not be streamed as
+        # delta.content — clients would otherwise see the unparsed syntax. Buffer
+        # the text; the final chat_delta below carries the parsed tool_calls (or
+        # the cleaned content), which the Go side converts to SSE deltas.
+        has_tool_parser = bool(self.tool_parser_cls and request.Tools)
         try:
             async for request_output in outputs:
                 iteration_text = request_output.outputs[0].text
                 last_output = request_output
 
-                if streaming:
+                if streaming and not has_tool_parser:
                     # Remove text already sent as vllm concatenates the text from previous yields
                     delta_iteration_text = iteration_text.removeprefix(generated_text)
                     # Send the partial result
