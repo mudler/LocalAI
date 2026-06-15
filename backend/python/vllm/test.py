@@ -437,3 +437,159 @@ class TestBackendServicer(unittest.TestCase):
             assembled, "Paris is the capital of France.",
             f"Content wrong or duplicated: {assembled!r}",
         )
+    @unittest.expectedFailure
+    def test_streaming_tool_parser_marker_split_across_chunks(self):
+        """
+        Case 4 (TDD — Option B state machine, marker spans chunk boundary):
+
+        vLLM may yield "Some text <tool_" in one iteration and
+        "call>\\n{...}\\n</tool_call>" in the next. The state machine must hold
+        the incomplete prefix ("<tool_") in an uncertainty buffer rather than
+        streaming it, since it could be the start of a marker. Once the full
+        marker is confirmed in the next chunk, buffering activates.
+
+        Expected:
+        - "Some text " streams through as intermediate content.
+        - "<tool_" does NOT appear in any streamed intermediate content.
+        - Final chunk carries the parsed tool_call (name "calc").
+        """
+        import sys, os, asyncio
+        from types import SimpleNamespace
+        sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+        from backend import BackendServicer
+
+        def make_generate(chunks):
+            async def gen(*a, **k):
+                for t in chunks:
+                    yield SimpleNamespace(
+                        outputs=[SimpleNamespace(text=t, token_ids=[1], logprobs=None)],
+                        prompt_token_ids=[0],
+                    )
+            return lambda *a, **k: gen()
+
+        call = SimpleNamespace(
+            id="call_1",
+            function=SimpleNamespace(name="calc", arguments='{"x": 1}'),
+        )
+
+        class StateMachineParser:
+            def __init__(self, tokenizer, tools=None):
+                pass
+
+            def extract_tool_calls(self, c, request=None):
+                return SimpleNamespace(tools_called=True, content="", tool_calls=[call])
+
+        def collect(servicer, req):
+            async def run():
+                return [r async for r in servicer._predict(req, None, streaming=True)]
+            return asyncio.run(run())
+
+        # Marker "<tool_call>" is split: first chunk ends with "<tool_",
+        # second chunk starts with "call>..."
+        full_tool = '<tool_call>\n{"name": "calc", "arguments": {"x": 1}}\n</tool_call>'
+        s = BackendServicer()
+        s.reasoning_parser_cls = None
+        s.tokenizer = None
+        s.llm = SimpleNamespace(generate=make_generate([
+            "Some text <tool_",
+            "Some text " + full_tool,
+        ]))
+        s.tool_parser_cls = StateMachineParser
+
+        tools_json = '[{"type":"function","function":{"name":"calc"}}]'
+        req = backend_pb2.PredictOptions(Prompt="x", Tools=tools_json)
+        replies = collect(s, req)
+
+        intermediate_content = [
+            cd.content
+            for r in replies[:-1]
+            for cd in r.chat_deltas
+            if cd.content
+        ]
+
+        # "Some text " must have streamed through before the marker was seen
+        self.assertTrue(
+            any("Some text" in c for c in intermediate_content),
+            "Content before the marker was not streamed progressively.",
+        )
+
+        # The marker prefix "<tool_" must never appear as streamed content
+        self.assertFalse(
+            any("<tool_" in c for c in intermediate_content),
+            "Incomplete marker prefix was streamed before it was confirmed.",
+        )
+
+        # Final chunk must carry the parsed tool_call
+        names = [tc.name for r in replies for cd in r.chat_deltas for tc in cd.tool_calls]
+        self.assertIn("calc", names, "Structured tool_call not present in final chunk.")
+
+    @unittest.expectedFailure
+    def test_streaming_tool_parser_false_positive_marker(self):
+        """
+        Case 5 (TDD — Option B state machine, false-positive marker prefix):
+
+        The model writes text that starts like a tool-call marker but is not one,
+        e.g. "Let me use a <tool" followed by "box> to help." The state machine
+        must flush the uncertainty buffer as content once the prefix is disconfirmed.
+
+        Expected:
+        - All text streams through as content (no tool call).
+        - Assembled content equals the full sentence exactly once (no duplication).
+        - No tool_calls in the final reply.
+        """
+        import sys, os, asyncio
+        from types import SimpleNamespace
+        sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+        from backend import BackendServicer
+
+        def make_generate(chunks):
+            async def gen(*a, **k):
+                for t in chunks:
+                    yield SimpleNamespace(
+                        outputs=[SimpleNamespace(text=t, token_ids=[1], logprobs=None)],
+                        prompt_token_ids=[0],
+                    )
+            return lambda *a, **k: gen()
+
+        class StateMachineParser:
+            def __init__(self, tokenizer, tools=None):
+                pass
+
+            def extract_tool_calls(self, c, request=None):
+                return SimpleNamespace(tools_called=False, content=c, tool_calls=[])
+
+        def collect(servicer, req):
+            async def run():
+                return [r async for r in servicer._predict(req, None, streaming=True)]
+            return asyncio.run(run())
+
+        # "<tool" looks like the start of "<tool_call>" but completes as "<toolbox>"
+        full_text = "Let me use a <toolbox> to help."
+        s = BackendServicer()
+        s.reasoning_parser_cls = None
+        s.tokenizer = None
+        s.llm = SimpleNamespace(generate=make_generate([
+            "Let me use a <tool",
+            full_text,
+        ]))
+        s.tool_parser_cls = StateMachineParser
+
+        tools_json = '[{"type":"function","function":{"name":"calc"}}]'
+        req = backend_pb2.PredictOptions(Prompt="x", Tools=tools_json)
+        replies = collect(s, req)
+
+        # Full text must be assembled exactly once (uncertainty buffer flushed correctly)
+        assembled = "".join(
+            cd.content for r in replies for cd in r.chat_deltas if cd.content
+        )
+        self.assertEqual(
+            assembled, full_text,
+            f"False-positive marker mangled or duplicated the content: {assembled!r}",
+        )
+
+        # No tool_calls must be present
+        tool_calls = [tc for r in replies for cd in r.chat_deltas for tc in cd.tool_calls]
+        self.assertEqual(
+            len(tool_calls), 0,
+            "Tool call emitted for plain-text response with false-positive marker.",
+        )
