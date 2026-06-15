@@ -280,316 +280,259 @@ class TestBackendServicer(unittest.TestCase):
         finally:
             self.tearDown()
 
-    def test_streaming_tool_parser_buffering(self):
-        """
-        When a tool parser is active and the request carries tools, streaming
-        must NOT emit the model's raw tool-call markup as content, and must NOT
-        duplicate the buffered content. Exercises _predict(streaming=True) with a
-        mocked engine + tool parser (no server / GPU).
-        """
-        import sys, os, asyncio
+
+class TestStreamingToolParser(unittest.TestCase):
+    """
+    Server-less unit tests for the streaming + tool-parser machinery in
+    BackendServicer._predict. These tests instantiate BackendServicer
+    directly and mock the vLLM engine + tool parser, so they do not need
+    a GPU, a model, or a running gRPC server. Kept in a separate class to
+    avoid the parent setUp() which spawns a subprocess.
+
+    Covers #582 (follow-up to #10346):
+      1. Markup-leak prevention with a non-streaming parser (buffer fallback)
+      2. No content duplication on the plain-text path with the buffer fallback
+      3. Native streaming progressive plain-text emission
+      4. Native streaming structured tool_call, no markup leak
+      5. Parser exception → graceful fallback to buffer, still no markup
+      6. No-tool-parser regression: unchanged per-delta content stream
+    """
+
+    @staticmethod
+    def _make_generate(chunks):
+        """Build a fake vLLM engine.generate that yields cumulative chunks."""
         from types import SimpleNamespace
+        async def gen(*a, **k):
+            for i, t in enumerate(chunks):
+                yield SimpleNamespace(
+                    outputs=[SimpleNamespace(
+                        text=t,
+                        token_ids=list(range(i + 1)),
+                        logprobs=None,
+                    )],
+                    prompt_token_ids=[0],
+                )
+        return lambda *a, **k: gen()
+
+    @staticmethod
+    def _collect(servicer, req):
+        import asyncio
+        async def run():
+            return [r async for r in servicer._predict(req, None, streaming=True)]
+        return asyncio.run(run())
+
+    def _new_servicer(self):
+        import sys, os
         sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
         from backend import BackendServicer
+        s = BackendServicer()
+        s.reasoning_parser_cls = None
+        s.tool_parser_cls = None
+        s.tokenizer = None
+        return s
 
-        def make_generate(chunks):
-            async def gen(*a, **k):
-                for t in chunks:
-                    yield SimpleNamespace(
-                        outputs=[SimpleNamespace(text=t, token_ids=[1], logprobs=None)],
-                        prompt_token_ids=[0],
-                    )
-            return lambda *a, **k: gen()
+    # ── Case 1+2: parser without streaming method → buffer fallback ──
+    def test_buffer_path_no_markup_no_duplication(self):
+        from types import SimpleNamespace
 
-        def parser_cls(called, content, calls):
+        def parser_cls(called, content_text, calls):
             class _P:
                 def __init__(self, tokenizer, tools=None):
                     pass
+                # NOTE: NO extract_tool_calls_streaming → takes the buffer path
                 def extract_tool_calls(self, c, request=None):
-                    return SimpleNamespace(tools_called=called, content=content, tool_calls=calls)
+                    return SimpleNamespace(
+                        tools_called=called, content=content_text, tool_calls=calls,
+                    )
             return _P
 
-        def collect(servicer, req):
-            async def run():
-                return [r async for r in servicer._predict(req, None, streaming=True)]
-            return asyncio.run(run())
+        tools_json = '[{"type":"function","function":{"name":"calc","parameters":{}}}]'
 
-        def contents(replies):
-            return [cd.content for r in replies for cd in r.chat_deltas if cd.content]
-
-        tools_json = '[{"type":"function","function":{"name":"calc"}}]'
-
-        # Case 1: model emits a tool call -> no raw markup as content, tool_call present.
-        s = BackendServicer()
-        s.reasoning_parser_cls = None
-        s.tokenizer = None
-        s.llm = SimpleNamespace(generate=make_generate([
+        # Tool-call case: no raw markup in any delta.content
+        s = self._new_servicer()
+        s.llm = SimpleNamespace(generate=self._make_generate([
             '<tool_call>\n{"name": "calc"',
             '<tool_call>\n{"name": "calc", "arguments": {"x": 1}}\n</tool_call>',
         ]))
-        call = SimpleNamespace(id="call_1", function=SimpleNamespace(name="calc", arguments='{"x": 1}'))
+        call = SimpleNamespace(id="call_1",
+                               function=SimpleNamespace(name="calc", arguments='{"x": 1}'))
         s.tool_parser_cls = parser_cls(True, "", [call])
         req = backend_pb2.PredictOptions(Prompt="x", Tools=tools_json)
-        replies = collect(s, req)
+        replies = self._collect(s, req)
+        contents = [cd.content for r in replies for cd in r.chat_deltas if cd.content]
         self.assertFalse(
-            any("<tool_call" in c or "<function" in c for c in contents(replies)),
-            "raw tool-call markup leaked as streamed content",
+            any("<tool_call" in c for c in contents),
+            f"markup leaked: {contents!r}",
         )
         names = [tc.name for r in replies for cd in r.chat_deltas for tc in cd.tool_calls]
-        self.assertIn("calc", names, "structured tool_call was not emitted")
+        self.assertIn("calc", names, "tool_call missing from final chunk")
 
-        # Case 2: tools offered but model answers in plain text -> content once.
-        s2 = BackendServicer()
-        s2.reasoning_parser_cls = None
-        s2.tokenizer = None
-        s2.llm = SimpleNamespace(generate=make_generate([
+        # Plain-text-with-tools case: full content delivered exactly once
+        s2 = self._new_servicer()
+        s2.llm = SimpleNamespace(generate=self._make_generate([
             "The capital ",
             "The capital of France is Paris.",
         ]))
         s2.tool_parser_cls = parser_cls(False, "", [])
         req2 = backend_pb2.PredictOptions(Prompt="x", Tools=tools_json)
-        joined = "".join(contents(collect(s2, req2)))
+        joined = "".join(
+            cd.content for r in self._collect(s2, req2)
+            for cd in r.chat_deltas if cd.content
+        )
         self.assertEqual(
             joined.count("The capital of France is Paris."), 1,
-            f"buffered content was duplicated: {joined!r}",
+            f"buffered content duplicated: {joined!r}",
         )
-    @unittest.expectedFailure
-    def test_streaming_tool_parser_progressive_plain_text(self):
-        """
-        Case 3 (TDD — currently fails, defines acceptance criterion for follow-up, see #582):
 
-        When a tool parser is active but the model returns plain text (no tool call),
-        and the parser implements extract_tool_calls_streaming, tokens should be emitted
-        progressively — not held until the final chunk.
-
-        Proposed interface:
-            extract_tool_calls_streaming(delta: str, request=None)
-            -> SimpleNamespace(is_tool_call_token=bool, content=str)
-
-        Fails on current code because has_tool_parser=True suppresses all intermediate
-        deltas. Will pass after Option A or B from the follow-up (Issue #582).
-        """
-        import sys, os, asyncio
+    # ── Case 3: native streaming, progressive plain text ──
+    def test_native_streaming_progressive_plain_text(self):
         from types import SimpleNamespace
-        sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-        from backend import BackendServicer
 
-        def make_generate(chunks):
-            async def gen(*a, **k):
-                for t in chunks:
-                    yield SimpleNamespace(
-                        outputs=[SimpleNamespace(text=t, token_ids=[1], logprobs=None)],
-                        prompt_token_ids=[0],
-                    )
-            return lambda *a, **k: gen()
+        class _DeltaMsg:
+            def __init__(self, content=None, reasoning=None, tool_calls=None):
+                self.content = content
+                self.reasoning = reasoning
+                self.tool_calls = tool_calls or []
 
-        class StreamingAwareParser:
+        class StreamingParser:
             def __init__(self, tokenizer, tools=None):
                 pass
-
             def extract_tool_calls(self, c, request=None):
-                return SimpleNamespace(tools_called=False, content=c, tool_calls=[])
+                # Should NOT be called when native streaming runs successfully.
+                raise AssertionError("extract_tool_calls invoked on native-streaming path")
+            def extract_tool_calls_streaming(
+                self, previous_text, current_text, delta_text,
+                previous_token_ids, current_token_ids, delta_token_ids, request,
+            ):
+                if not delta_text:
+                    return None
+                return _DeltaMsg(content=delta_text)
 
-            def extract_tool_calls_streaming(self, delta, request=None):
-                # Plain-text delta — not tool-call markup, pass through as content.
-                return SimpleNamespace(is_tool_call_token=False, content=delta)
-
-        def collect(servicer, req):
-            async def run():
-                return [r async for r in servicer._predict(req, None, streaming=True)]
-            return asyncio.run(run())
-
-        # vLLM yields cumulative text per iteration
-        s = BackendServicer()
-        s.reasoning_parser_cls = None
-        s.tokenizer = None
-        s.llm = SimpleNamespace(generate=make_generate([
+        s = self._new_servicer()
+        s.llm = SimpleNamespace(generate=self._make_generate([
             "Paris ",
             "Paris is ",
             "Paris is the capital of France.",
         ]))
-        s.tool_parser_cls = StreamingAwareParser
+        s.tool_parser_cls = StreamingParser
+        req = backend_pb2.PredictOptions(
+            Prompt="x",
+            Tools='[{"type":"function","function":{"name":"calc","parameters":{}}}]',
+        )
+        replies = self._collect(s, req)
 
-        tools_json = '[{"type":"function","function":{"name":"calc"}}]'
-        req = backend_pb2.PredictOptions(Prompt="x", Tools=tools_json)
-        replies = collect(s, req)
-
-        # Key assertion: intermediate replies (before the final chunk) must carry content.
-        # Currently fails because has_tool_parser=True suppresses all intermediate deltas.
         intermediate_content = [
-            cd.content
-            for r in replies[:-1]
-            for cd in r.chat_deltas
-            if cd.content
+            cd.content for r in replies[:-1] for cd in r.chat_deltas if cd.content
         ]
         self.assertTrue(
             len(intermediate_content) > 0,
-            "Plain-text response not streamed progressively — "
-            "all content arrived in the final chunk. "
-            "Fix: use extract_tool_calls_streaming when available (Option A).",
+            "Plain-text response not streamed progressively (native streaming inactive?)",
         )
-
-        # No duplication: assembled content equals the full text exactly once.
         assembled = "".join(
             cd.content for r in replies for cd in r.chat_deltas if cd.content
         )
         self.assertEqual(
             assembled, "Paris is the capital of France.",
-            f"Content wrong or duplicated: {assembled!r}",
+            f"Assembled content wrong: {assembled!r}",
         )
-    @unittest.expectedFailure
-    def test_streaming_tool_parser_marker_split_across_chunks(self):
-        """
-        Case 4 (TDD — Option B state machine, marker spans chunk boundary):
 
-        vLLM may yield "Some text <tool_" in one iteration and
-        "call>\\n{...}\\n</tool_call>" in the next. The state machine must hold
-        the incomplete prefix ("<tool_") in an uncertainty buffer rather than
-        streaming it, since it could be the start of a marker. Once the full
-        marker is confirmed in the next chunk, buffering activates.
-
-        Expected:
-        - "Some text " streams through as intermediate content.
-        - "<tool_" does NOT appear in any streamed intermediate content.
-        - Final chunk carries the parsed tool_call (name "calc").
-        """
-        import sys, os, asyncio
+    # ── Case 4: native streaming, structured tool_call, no markup ──
+    def test_native_streaming_tool_call_no_markup_leak(self):
         from types import SimpleNamespace
-        sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-        from backend import BackendServicer
 
-        def make_generate(chunks):
-            async def gen(*a, **k):
-                for t in chunks:
-                    yield SimpleNamespace(
-                        outputs=[SimpleNamespace(text=t, token_ids=[1], logprobs=None)],
-                        prompt_token_ids=[0],
-                    )
-            return lambda *a, **k: gen()
+        class _DeltaMsg:
+            def __init__(self, content=None, reasoning=None, tool_calls=None):
+                self.content = content
+                self.reasoning = reasoning
+                self.tool_calls = tool_calls or []
 
-        call = SimpleNamespace(
-            id="call_1",
-            function=SimpleNamespace(name="calc", arguments='{"x": 1}'),
+        class _ToolCallStreamer:
+            def __init__(self, tokenizer, tools=None):
+                self._emitted = False
+            def extract_tool_calls(self, c, request=None):
+                raise AssertionError("extract_tool_calls invoked on native-streaming path")
+            def extract_tool_calls_streaming(
+                self, previous_text, current_text, delta_text,
+                previous_token_ids, current_token_ids, delta_token_ids, request,
+            ):
+                if "</tool_call>" in current_text and not self._emitted:
+                    self._emitted = True
+                    fn = SimpleNamespace(name="calc", arguments='{"x": 1}')
+                    tc = SimpleNamespace(id="call_1", type="function", index=0, function=fn)
+                    return _DeltaMsg(tool_calls=[tc])
+                return None
+
+        s = self._new_servicer()
+        s.llm = SimpleNamespace(generate=self._make_generate([
+            '<tool_call>\n',
+            '<tool_call>\n{"name": "calc"',
+            '<tool_call>\n{"name": "calc", "arguments": {"x": 1}}\n</tool_call>',
+        ]))
+        s.tool_parser_cls = _ToolCallStreamer
+        req = backend_pb2.PredictOptions(
+            Prompt="x",
+            Tools='[{"type":"function","function":{"name":"calc","parameters":{}}}]',
         )
+        replies = self._collect(s, req)
 
-        class StateMachineParser:
+        contents = [cd.content for r in replies for cd in r.chat_deltas if cd.content]
+        self.assertFalse(
+            any("<tool_call" in c or "</tool_call>" in c for c in contents),
+            f"markup leaked as content: {contents!r}",
+        )
+        names = [tc.name for r in replies for cd in r.chat_deltas for tc in cd.tool_calls if tc.name]
+        args  = [tc.arguments for r in replies for cd in r.chat_deltas for tc in cd.tool_calls if tc.arguments]
+        self.assertIn("calc", names, f"tool_call name missing; got {names!r}")
+        self.assertIn('{"x": 1}', args, f"tool_call args missing; got {args!r}")
+
+    # ── Case 5: parser exception → fallback to buffer, no leak ──
+    def test_native_streaming_parser_exception_falls_back_to_buffer(self):
+        from types import SimpleNamespace
+        call = SimpleNamespace(id="call_1",
+                               function=SimpleNamespace(name="calc", arguments='{"x": 1}'))
+
+        class _BrokenStreamer:
             def __init__(self, tokenizer, tools=None):
                 pass
-
             def extract_tool_calls(self, c, request=None):
                 return SimpleNamespace(tools_called=True, content="", tool_calls=[call])
+            def extract_tool_calls_streaming(self, *a, **kw):
+                raise RuntimeError("simulated parser bug")
 
-        def collect(servicer, req):
-            async def run():
-                return [r async for r in servicer._predict(req, None, streaming=True)]
-            return asyncio.run(run())
-
-        # Marker "<tool_call>" is split: first chunk ends with "<tool_",
-        # second chunk starts with "call>..."
-        full_tool = '<tool_call>\n{"name": "calc", "arguments": {"x": 1}}\n</tool_call>'
-        s = BackendServicer()
-        s.reasoning_parser_cls = None
-        s.tokenizer = None
-        s.llm = SimpleNamespace(generate=make_generate([
-            "Some text <tool_",
-            "Some text " + full_tool,
+        s = self._new_servicer()
+        s.llm = SimpleNamespace(generate=self._make_generate([
+            '<tool_call>\n{"name": "calc"',
+            '<tool_call>\n{"name": "calc", "arguments": {"x": 1}}\n</tool_call>',
         ]))
-        s.tool_parser_cls = StateMachineParser
-
-        tools_json = '[{"type":"function","function":{"name":"calc"}}]'
-        req = backend_pb2.PredictOptions(Prompt="x", Tools=tools_json)
-        replies = collect(s, req)
-
-        intermediate_content = [
-            cd.content
-            for r in replies[:-1]
-            for cd in r.chat_deltas
-            if cd.content
-        ]
-
-        # "Some text " must have streamed through before the marker was seen
-        self.assertTrue(
-            any("Some text" in c for c in intermediate_content),
-            "Content before the marker was not streamed progressively.",
+        s.tool_parser_cls = _BrokenStreamer
+        req = backend_pb2.PredictOptions(
+            Prompt="x",
+            Tools='[{"type":"function","function":{"name":"calc","parameters":{}}}]',
         )
+        replies = self._collect(s, req)
 
-        # The marker prefix "<tool_" must never appear as streamed content
+        contents = [cd.content for r in replies for cd in r.chat_deltas if cd.content]
         self.assertFalse(
-            any("<tool_" in c for c in intermediate_content),
-            "Incomplete marker prefix was streamed before it was confirmed.",
+            any("<tool_call" in c for c in contents),
+            f"markup leaked after parser exception: {contents!r}",
         )
-
-        # Final chunk must carry the parsed tool_call
         names = [tc.name for r in replies for cd in r.chat_deltas for tc in cd.tool_calls]
-        self.assertIn("calc", names, "Structured tool_call not present in final chunk.")
+        self.assertIn("calc", names, "tool_call missing from final chunk after fallback")
 
-    @unittest.expectedFailure
-    def test_streaming_tool_parser_false_positive_marker(self):
-        """
-        Case 5 (TDD — Option B state machine, false-positive marker prefix):
-
-        The model writes text that starts like a tool-call marker but is not one,
-        e.g. "Let me use a <tool" followed by "box> to help." The state machine
-        must flush the uncertainty buffer as content once the prefix is disconfirmed.
-
-        Expected:
-        - All text streams through as content (no tool call).
-        - Assembled content equals the full sentence exactly once (no duplication).
-        - No tool_calls in the final reply.
-        """
-        import sys, os, asyncio
+    # ── Case 6: no tool parser → unchanged per-delta content stream ──
+    def test_no_tool_parser_unchanged_per_delta_stream(self):
         from types import SimpleNamespace
-        sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-        from backend import BackendServicer
-
-        def make_generate(chunks):
-            async def gen(*a, **k):
-                for t in chunks:
-                    yield SimpleNamespace(
-                        outputs=[SimpleNamespace(text=t, token_ids=[1], logprobs=None)],
-                        prompt_token_ids=[0],
-                    )
-            return lambda *a, **k: gen()
-
-        class StateMachineParser:
-            def __init__(self, tokenizer, tools=None):
-                pass
-
-            def extract_tool_calls(self, c, request=None):
-                return SimpleNamespace(tools_called=False, content=c, tool_calls=[])
-
-        def collect(servicer, req):
-            async def run():
-                return [r async for r in servicer._predict(req, None, streaming=True)]
-            return asyncio.run(run())
-
-        # "<tool" looks like the start of "<tool_call>" but completes as "<toolbox>"
-        full_text = "Let me use a <toolbox> to help."
-        s = BackendServicer()
-        s.reasoning_parser_cls = None
-        s.tokenizer = None
-        s.llm = SimpleNamespace(generate=make_generate([
-            "Let me use a <tool",
-            full_text,
+        s = self._new_servicer()  # tool_parser_cls already None
+        s.llm = SimpleNamespace(generate=self._make_generate([
+            "Hello ", "Hello world", "Hello world!",
         ]))
-        s.tool_parser_cls = StateMachineParser
+        req = backend_pb2.PredictOptions(Prompt="x", Tools="")
+        replies = self._collect(s, req)
 
-        tools_json = '[{"type":"function","function":{"name":"calc"}}]'
-        req = backend_pb2.PredictOptions(Prompt="x", Tools=tools_json)
-        replies = collect(s, req)
-
-        # Full text must be assembled exactly once (uncertainty buffer flushed correctly)
-        assembled = "".join(
-            cd.content for r in replies for cd in r.chat_deltas if cd.content
-        )
+        intermediate = [
+            cd.content for r in replies[:-1] for cd in r.chat_deltas if cd.content
+        ]
         self.assertEqual(
-            assembled, full_text,
-            f"False-positive marker mangled or duplicated the content: {assembled!r}",
-        )
-
-        # No tool_calls must be present
-        tool_calls = [tc for r in replies for cd in r.chat_deltas for tc in cd.tool_calls]
-        self.assertEqual(
-            len(tool_calls), 0,
-            "Tool call emitted for plain-text response with false-positive marker.",
+            intermediate, ["Hello ", "world", "!"],
+            f"plain streaming changed; got {intermediate!r}",
         )
