@@ -353,3 +353,87 @@ class TestBackendServicer(unittest.TestCase):
             joined.count("The capital of France is Paris."), 1,
             f"buffered content was duplicated: {joined!r}",
         )
+    @unittest.expectedFailure
+    def test_streaming_tool_parser_progressive_plain_text(self):
+        """
+        Case 3 (TDD — currently fails, defines acceptance criterion for follow-up, see #582):
+
+        When a tool parser is active but the model returns plain text (no tool call),
+        and the parser implements extract_tool_calls_streaming, tokens should be emitted
+        progressively — not held until the final chunk.
+
+        Proposed interface:
+            extract_tool_calls_streaming(delta: str, request=None)
+            -> SimpleNamespace(is_tool_call_token=bool, content=str)
+
+        Fails on current code because has_tool_parser=True suppresses all intermediate
+        deltas. Will pass after Option A or B from the follow-up (Issue #582).
+        """
+        import sys, os, asyncio
+        from types import SimpleNamespace
+        sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+        from backend import BackendServicer
+
+        def make_generate(chunks):
+            async def gen(*a, **k):
+                for t in chunks:
+                    yield SimpleNamespace(
+                        outputs=[SimpleNamespace(text=t, token_ids=[1], logprobs=None)],
+                        prompt_token_ids=[0],
+                    )
+            return lambda *a, **k: gen()
+
+        class StreamingAwareParser:
+            def __init__(self, tokenizer, tools=None):
+                pass
+
+            def extract_tool_calls(self, c, request=None):
+                return SimpleNamespace(tools_called=False, content=c, tool_calls=[])
+
+            def extract_tool_calls_streaming(self, delta, request=None):
+                # Plain-text delta — not tool-call markup, pass through as content.
+                return SimpleNamespace(is_tool_call_token=False, content=delta)
+
+        def collect(servicer, req):
+            async def run():
+                return [r async for r in servicer._predict(req, None, streaming=True)]
+            return asyncio.run(run())
+
+        # vLLM yields cumulative text per iteration
+        s = BackendServicer()
+        s.reasoning_parser_cls = None
+        s.tokenizer = None
+        s.llm = SimpleNamespace(generate=make_generate([
+            "Paris ",
+            "Paris is ",
+            "Paris is the capital of France.",
+        ]))
+        s.tool_parser_cls = StreamingAwareParser
+
+        tools_json = '[{"type":"function","function":{"name":"calc"}}]'
+        req = backend_pb2.PredictOptions(Prompt="x", Tools=tools_json)
+        replies = collect(s, req)
+
+        # Key assertion: intermediate replies (before the final chunk) must carry content.
+        # Currently fails because has_tool_parser=True suppresses all intermediate deltas.
+        intermediate_content = [
+            cd.content
+            for r in replies[:-1]
+            for cd in r.chat_deltas
+            if cd.content
+        ]
+        self.assertTrue(
+            len(intermediate_content) > 0,
+            "Plain-text response not streamed progressively — "
+            "all content arrived in the final chunk. "
+            "Fix: use extract_tool_calls_streaming when available (Option A).",
+        )
+
+        # No duplication: assembled content equals the full text exactly once.
+        assembled = "".join(
+            cd.content for r in replies for cd in r.chat_deltas if cd.content
+        )
+        self.assertEqual(
+            assembled, "Paris is the capital of France.",
+            f"Content wrong or duplicated: {assembled!r}",
+        )
