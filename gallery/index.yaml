@@ -1,4 +1,74 @@
 ---
+- name: "minimax-m3"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/unsloth/MiniMax-M3-GGUF
+  description: |
+    MiniMax-M3 is a native multimodal model with 1M context. It has ~428B parameters and ~23B activated parameters.
+
+    **Highlights:**
+      - **Native Multimodality:** M3 undergoes mixed-modality training from the very first step, enabling deeper semantic fusion across text, image, and video.
+      - **Context Scaling via Sparse Attention:** M3 introduces MiniMax Sparse Attention (MSA) to improve long context efficiency. M3 delivers 9× prefill and 15× decode speedups compared to M2 at 1M context, reducing per-token compute to 1/20.
+      - **Coding & Cowork Capability:** M3 achieves frontier-level performance across long-horizon agentic benchmarks, excelling in both coding and cowork.
+
+    ## MiniMax Sparse Attention (MSA)
+
+    M3 is powered by **MiniMax Sparse Attention (MSA)**, a high-performance sparse attention operator designed for million-token contexts. Compared with GQA, MSA dramatically reduces the attention compute and memory footprint while preserving model quality.
+
+    > 📄 Read the technical report: arXiv:2606.13392 · Hugging Face Papers
+
+    ## How to Use
+
+      - MiniMax Agent
+      - MiniMax API
+
+    ...
+  license: "other"
+  tags:
+    - llm
+    - gguf
+    - multimodal
+  overrides:
+    backend: llama-cpp
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+    options:
+      - use_jinja:true
+    parameters:
+      min_p: 0.01
+      model: llama-cpp/models/MiniMax-M3-GGUF/MiniMax-M3-UD-Q4_K_M-00001-of-00007.gguf
+      repeat_penalty: 1
+      temperature: 1
+      top_k: 40
+      top_p: 0.95
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/MiniMax-M3-GGUF/MiniMax-M3-UD-Q4_K_M-00001-of-00007.gguf
+      sha256: e8e16c72310bd397e88e3ae5dc12d68dba4bf4d10e74825f91a9558e88f622a7
+      uri: https://huggingface.co/unsloth/MiniMax-M3-GGUF/resolve/main/UD-Q4_K_M/MiniMax-M3-UD-Q4_K_M-00001-of-00007.gguf
+    - filename: llama-cpp/models/MiniMax-M3-GGUF/MiniMax-M3-UD-Q4_K_M-00002-of-00007.gguf
+      sha256: b12d8b535a0c780fe8e8997848f605b80d8116bf213754b7a0d6b6148a231d7b
+      uri: https://huggingface.co/unsloth/MiniMax-M3-GGUF/resolve/main/UD-Q4_K_M/MiniMax-M3-UD-Q4_K_M-00002-of-00007.gguf
+    - filename: llama-cpp/models/MiniMax-M3-GGUF/MiniMax-M3-UD-Q4_K_M-00003-of-00007.gguf
+      sha256: 5df24493ea4bac7f20fcef4d6eb9df38a4274046d9e84f6c4d2a393f022aaa6c
+      uri: https://huggingface.co/unsloth/MiniMax-M3-GGUF/resolve/main/UD-Q4_K_M/MiniMax-M3-UD-Q4_K_M-00003-of-00007.gguf
+    - filename: llama-cpp/models/MiniMax-M3-GGUF/MiniMax-M3-UD-Q4_K_M-00004-of-00007.gguf
+      sha256: 6ac1e2a497109869f57467cafda8d1493e2098c60e0912795fbd6a57eb51b35c
+      uri: https://huggingface.co/unsloth/MiniMax-M3-GGUF/resolve/main/UD-Q4_K_M/MiniMax-M3-UD-Q4_K_M-00004-of-00007.gguf
+    - filename: llama-cpp/models/MiniMax-M3-GGUF/MiniMax-M3-UD-Q4_K_M-00005-of-00007.gguf
+      sha256: a82fc7c3cee19dbe040ee9135d5b1b2d54d79441b6acfc1e956512af452d6b83
+      uri: https://huggingface.co/unsloth/MiniMax-M3-GGUF/resolve/main/UD-Q4_K_M/MiniMax-M3-UD-Q4_K_M-00005-of-00007.gguf
+    - filename: llama-cpp/models/MiniMax-M3-GGUF/MiniMax-M3-UD-Q4_K_M-00006-of-00007.gguf
+      sha256: 8a37df7f6bd59723846b58cd63f891da493340dbb9ec2bbf57e5f36ec617cd75
+      uri: https://huggingface.co/unsloth/MiniMax-M3-GGUF/resolve/main/UD-Q4_K_M/MiniMax-M3-UD-Q4_K_M-00006-of-00007.gguf
+    - filename: llama-cpp/models/MiniMax-M3-GGUF/MiniMax-M3-UD-Q4_K_M-00007-of-00007.gguf
+      sha256: b4e372acd5acbf57ad26891a088226ec90b5650a908925f01ae82848d45ca9c3
+      uri: https://huggingface.co/unsloth/MiniMax-M3-GGUF/resolve/main/UD-Q4_K_M/MiniMax-M3-UD-Q4_K_M-00007-of-00007.gguf
 - name: "gemma-4-12b-coder-fable5-composer2.5-v1"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
