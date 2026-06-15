@@ -1,6 +1,7 @@
 {
   "title": "Install Models",
   "subtitle": "Browse and install AI models from the gallery",
+  "models": "Models",
   "stats": {
     "available": "Available",
     "installed": "Installed"

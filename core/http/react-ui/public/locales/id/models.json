@@ -1,6 +1,7 @@
 {
   "title": "Instal Model",
   "subtitle": "Telusuri dan instal model AI dari galeri",
+  "models": "Model",
   "stats": {
     "available": "Tersedia",
     "installed": "Terinstal"

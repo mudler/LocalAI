@@ -288,7 +288,7 @@ export default function Models() {
               </a>
             </div>
           </div>
-          <button className="btn btn-primary btn-sm" onClick={() => navigate('/app/model-editor', { state: fromState(location, 'Models') })}>
+          <button className="btn btn-primary btn-sm" onClick={() => navigate('/app/model-editor', { state: fromState(location, t('models')) })}>
             <i className="fas fa-plus" /> {t('actions.addModel')}
           </button>
           <button className="btn btn-secondary btn-sm" onClick={() => navigate('/app/import-model')}>
