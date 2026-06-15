@@ -19,7 +19,7 @@ func main() {
 	if err := InitializeONNXRuntime(); err != nil {
 		panic(err)
 	}
-	defer ort.DestroyEnvironment()
+	defer func() { _ = ort.DestroyEnvironment() }()
 
 	if err := grpc.StartServer(*addr, &SupertonicBackend{}); err != nil {
 		panic(err)
