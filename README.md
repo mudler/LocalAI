@@ -29,6 +29,18 @@
 <a href="https://trendshift.io/repositories/5539" target="_blank"><img src="https://trendshift.io/api/badge/repositories/5539" alt="mudler%2FLocalAI | Trendshift" style="width: 250px; height: 55px;" width="250" height="55"/></a>
 </p>
 
+<!-- Keep these links, translations synced daily. -->
+<p align="center">
+<a href="https://zdoc.app/de/mudler/LocalAI">Deutsch</a> |
+<a href="https://zdoc.app/es/mudler/LocalAI">Español</a> |
+<a href="https://zdoc.app/fr/mudler/LocalAI">français</a> |
+<a href="https://zdoc.app/ja/mudler/LocalAI">日本語</a> |
+<a href="https://zdoc.app/ko/mudler/LocalAI">한국어</a> |
+<a href="https://zdoc.app/pt/mudler/LocalAI">Português</a> |
+<a href="https://zdoc.app/ru/mudler/LocalAI">Русский</a> |
+<a href="https://zdoc.app/zh/mudler/LocalAI">中文</a>
+</p>
+
 **LocalAI** is the open-source AI engine. Run any model - LLMs, vision, voice, image, video - on any hardware. No GPU required.
 
 **A small core, not a bundle.** Each backend wraps a best-in-class engine (llama.cpp, vLLM, whisper.cpp, stable-diffusion, MLX...) in its own image, pulled only when a model needs it. You install nothing you don't use.
