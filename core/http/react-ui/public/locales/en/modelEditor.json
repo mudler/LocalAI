@@ -1,0 +1,38 @@
+{
+    "title": {
+        "add": "Add Model",
+        "edit": "Model Editor"
+    },
+    "subtitle": {
+        "chooseModelType": "Choose a model type to get started",
+        "newModel": "New model"
+    },
+    "actions": {
+        "backTo": "Back to {{page}}",
+        "system": "System",
+        "templates": "Templates",
+        "createModel": "Create Model",
+        "saveChanges": "Save Changes",
+        "saving": "Saving...",
+        "saved": "Saved",
+        "switchWarning": "Save or discard changes before switching tabs.",
+        "discardAndSwitch": "Discard & Switch"
+    },
+    "tabs": {
+        "interactive": "Interactive",
+        "yaml": "YAML",
+        "yamlDescription": "Edit the YAML directly. The model name must be set in the YAML for create to work."
+    },
+    "forms": {
+        "modelName": {
+            "label": "Model Name",
+            "placeholder": "my-model-name",
+            "hint": "Use letters, numbers, hyphens, underscores, and dots only."
+        },
+        "empty": {
+            "nav": "Use the search bar above to add fields",
+            "title": "No fields configured",
+            "text": "Use the search bar above to find and add configuration fields."
+        }
+    }
+}

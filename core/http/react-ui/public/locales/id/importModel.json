@@ -1,7 +1,7 @@
 {
   "title": "Impor Model Baru",
   "subtitle": {
-    "simple": "Import model dari URI — deteksi otomatis memilih backend.",
+    "simple": "Impor model dari URI — deteksi otomatis memilih backend.",
     "powerYaml": "Tulis konfigurasi YAML lengkap untuk model.",
     "powerPrefs": "Preferensi impor tingkat lanjut."
   },

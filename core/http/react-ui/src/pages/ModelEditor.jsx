@@ -12,6 +12,7 @@ import ConfigFieldRenderer from '../components/ConfigFieldRenderer'
 import { FormContextProvider } from '../contexts/FormContext'
 import TemplateSelector from '../components/TemplateSelector'
 import MODEL_TEMPLATES from '../utils/modelTemplates'
+import { useTranslation } from 'react-i18next'
 
 const SECTION_ICONS = {
   general: 'fa-cog', llm: 'fa-microchip', parameters: 'fa-sliders',
@@ -70,6 +71,7 @@ function defaultForType(uiType) {
 }
 
 export default function ModelEditor() {
+  const { t } = useTranslation('modelEditor')
   const { name } = useParams()
   const [searchParams] = useSearchParams()
   const navigate = useNavigate()
@@ -397,6 +399,10 @@ export default function ModelEditor() {
   if (loading) return <div className="page page--medium" style={{ display: 'flex', justifyContent: 'center', padding: 'var(--spacing-xl)' }}><LoadingSpinner size="lg" /></div>
   if (metaError) return <div className="page page--medium"><div className="empty-state"><p className="empty-state-text">Failed to load config metadata: {metaError}</p></div></div>
 
+  const backPage = isCreateMode && selectedTemplate ? t('actions.templates')
+    : backState ? backState.fromLabel
+    : isCreateMode ? t('actions.models') : t('actions.system')
+
   return (
     <FormContextProvider formData={values}>
     <div className="page page--medium" style={{ padding: 0 }}>
@@ -406,10 +412,10 @@ export default function ModelEditor() {
         padding: 'var(--spacing-lg) var(--spacing-lg) var(--spacing-md)',
       }}>
         <div>
-          <h1 className="page-title">{isCreateMode ? 'Add Model' : 'Model Editor'}</h1>
+          <h1 className="page-title">{isCreateMode ? t('title.add') : t('title.edit')}</h1>
           <p className="page-subtitle">
             {isCreateMode
-              ? (showTemplateSelector ? 'Choose a model type to get started' : `New model${selectedTemplate ? ` — ${selectedTemplate.label}` : ''}`)
+              ? (showTemplateSelector ? t('subtitle.chooseModelType') : `${t('subtitle.newModel')}${selectedTemplate ? ` — ${selectedTemplate.label}` : ''}`)
               : decodeURIComponent(name)}
           </p>
         </div>
@@ -419,20 +425,16 @@ export default function ModelEditor() {
             else if (backState) navigate(backState.from)
             else navigate(isCreateMode ? '/app/models' : '/app/manage')
           }}>
-            <i className="fas fa-arrow-left" /> Back to {
-              isCreateMode && selectedTemplate ? 'Templates'
-                : backState ? backState.fromLabel
-                  : isCreateMode ? 'Models' : 'Manage'
-            }
+            <i className="fas fa-arrow-left" /> {t('actions.backTo', {page: backPage})}
           </button>
           {!showTemplateSelector && tab === 'interactive' && (
             <button className={`btn ${isDirty ? 'btn-primary' : 'btn-secondary'}`} onClick={handleInteractiveSave} disabled={saving || !isDirty}>
-              {saving ? <><LoadingSpinner size="sm" /> Saving...</> : <><i className="fas fa-save" /> {isCreateMode ? 'Create Model' : (isDirty ? 'Save Changes' : 'Saved')}</>}
+              {saving ? <><LoadingSpinner size="sm" /> {t('actions.saving')}</> : <><i className="fas fa-save" /> {isCreateMode ? t('actions.createModel') : (isDirty ? t('actions.saveChanges') : t('actions.saved'))}</>}
             </button>
           )}
           {!showTemplateSelector && tab === 'yaml' && (
             <button className={`btn ${isDirty ? 'btn-primary' : 'btn-secondary'}`} onClick={handleYamlSave} disabled={saving || !isDirty}>
-              {saving ? <><LoadingSpinner size="sm" /> Saving...</> : <><i className="fas fa-save" /> {isCreateMode ? 'Create Model' : (isDirty ? 'Save Changes' : 'Saved')}</>}
+              {saving ? <><LoadingSpinner size="sm" /> {t('actions.saving')}</> : <><i className="fas fa-save" /> {isCreateMode ? t('actions.createModel') : (isDirty ? t('actions.saveChanges') : t('actions.saved'))}</>}
             </button>
           )}
         </div>
@@ -448,17 +450,17 @@ export default function ModelEditor() {
             display: 'flex', gap: 0, padding: '0 var(--spacing-lg)',
             borderBottom: '1px solid var(--color-border)',
           }}>
-            {['interactive', 'yaml'].map(t => {
-              const active = tab === t
+            {['interactive', 'yaml'].map(tb => {
+              const active = tab === tb
               const blocked = !active && isDirty
               return (
                 <button
-                  key={t}
+                  key={tb}
                   onClick={() => {
                     if (active) return
                     if (blocked) { setTabSwitchWarning(true); return }
                     setTabSwitchWarning(false)
-                    setTab(t)
+                    setTab(tb)
                   }}
                   style={{
                     padding: 'var(--spacing-sm) var(--spacing-md)', border: 'none',
@@ -471,8 +473,8 @@ export default function ModelEditor() {
                     transition: 'all 150ms',
                   }}
                 >
-                  <i className={`fas ${t === 'interactive' ? 'fa-sliders' : 'fa-code'}`} style={{ marginRight: 6 }} />
-                  {t === 'interactive' ? 'Interactive' : 'YAML'}
+                  <i className={`fas ${tb === 'interactive' ? 'fa-sliders' : 'fa-code'}`} style={{ marginRight: 6 }} />
+                  {tb === 'interactive' ? t('tabs.interactive') : t('tabs.yaml')}
                 </button>
               )
             })}
@@ -485,7 +487,7 @@ export default function ModelEditor() {
               background: 'var(--color-warning-light, rgba(245, 158, 11, 0.08))',
             }}>
               <i className="fas fa-exclamation-triangle" />
-              <span>Save or discard changes before switching tabs.</span>
+              <span>{t('actions.switchWarning')}</span>
               <button
                 className="btn btn-secondary"
                 style={{ marginLeft: 'auto', padding: '2px 10px', fontSize: '0.75rem' }}
@@ -500,7 +502,7 @@ export default function ModelEditor() {
                   setTab(tab === 'yaml' ? 'interactive' : 'yaml')
                 }}
               >
-                Discard &amp; Switch
+                {t('actions.discardAndSwitch')}
               </button>
             </div>
           )}
@@ -512,7 +514,7 @@ export default function ModelEditor() {
         <div style={{ padding: '0 var(--spacing-lg) var(--spacing-lg)' }}>
           {isCreateMode && (
             <p style={{ fontSize: '0.8125rem', color: 'var(--color-text-secondary)', marginBottom: 'var(--spacing-sm)' }}>
-              Edit the YAML directly. The model name must be set in the YAML for create to work.
+              {t('tabs.yamlDescription')}
             </p>
           )}
           <CodeEditor
@@ -533,18 +535,18 @@ export default function ModelEditor() {
               <div className="card" style={{ padding: 'var(--spacing-md)' }}>
                 <label className="form-label" style={{ fontWeight: 600 }}>
                   <i className="fas fa-tag" style={{ marginRight: '6px', color: 'var(--color-primary)' }} />
-                  Model Name
+                  {t('forms.modelName.label')}
                 </label>
                 <input
                   className="input"
                   type="text"
                   value={values['name'] || ''}
                   onChange={e => handleFieldChange('name', e.target.value)}
-                  placeholder="my-model-name"
+                  placeholder={t('forms.modelName.placeholder')}
                   style={{ maxWidth: 400 }}
                 />
                 <p style={{ marginTop: 'var(--spacing-xs)', fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>
-                  Use letters, numbers, hyphens, underscores, and dots only.
+                  {t('forms.modelName.hint')}
                 </p>
               </div>
             </div>
@@ -596,7 +598,7 @@ export default function ModelEditor() {
               ))}
               {activeSections.length === 0 && (
                 <div style={{ padding: '12px', fontSize: '0.8125rem', color: 'var(--color-text-muted)' }}>
-                  Use the search bar above to add fields
+                  {t('forms.empty.nav')}
                 </div>
               )}
             </nav>
@@ -610,9 +612,9 @@ export default function ModelEditor() {
               {activeSections.length === 0 && (
                 <div className="card" style={{ padding: 'var(--spacing-xl)', textAlign: 'center' }}>
                   <i className="fas fa-sliders" style={{ fontSize: '2rem', color: 'var(--color-text-muted)', marginBottom: 'var(--spacing-md)' }} />
-                  <h3 style={{ marginBottom: 'var(--spacing-sm)' }}>No fields configured</h3>
+                  <h3 style={{ marginBottom: 'var(--spacing-sm)' }}>{t('forms.empty.title')}</h3>
                   <p style={{ color: 'var(--color-text-secondary)', fontSize: '0.875rem' }}>
-                    Use the search bar above to find and add configuration fields.
+                    {t('forms.empty.text')}
                   </p>
                 </div>
               )}
