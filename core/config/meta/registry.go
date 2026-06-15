@@ -434,6 +434,13 @@ func DefaultRegistry() map[string]FieldMetaOverride {
 			Component:   "json-editor",
 			Order:       78,
 		},
+		"pipeline.max_history_items": {
+			Section:     "pipeline",
+			Label:       "Max History Items",
+			Description: "Cap how many trailing conversation items are fed to the LLM each realtime turn (0 = unlimited, rely on the LLM's context window). Set it on a composed pipeline (VAD+STT+LLM+TTS) so a long-running session doesn't grow until the context fills. Unset uses the per-model-type default.",
+			Component:   "number",
+			Order:       79,
+		},
 
 		// --- Functions ---
 		"function.grammar.parallel_calls": {
