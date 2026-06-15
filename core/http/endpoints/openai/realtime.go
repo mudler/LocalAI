@@ -1378,8 +1378,19 @@ func handleVAD(session *Session, conv *Conversation, t Transport, done chan stru
 					ItemID: generateItemID(),
 				})
 
+				// Trim prefix silence exceeding PrefixPaddingMs.
+				// segments[0].Start is the speech onset in seconds; audio
+				// before it is silence that we cap at the configured padding.
+				if td := session.TurnDetection; td != nil && td.ServerVad != nil && td.ServerVad.PrefixPaddingMs > 0 {
+					prefixSec := float64(segments[0].Start)
+					padSec := float64(td.ServerVad.PrefixPaddingMs) / 1000.0
+					if trimSamples := int((prefixSec - padSec) * localSampleRate); trimSamples > 0 {
+						if trimSamples < len(aints) {
+							aints = aints[trimSamples:]
+						}
+					}
+				}
 				abytes := sound.Int16toBytesLE(aints)
-				// TODO: Remove prefix silence that is is over TurnDetectionParams.PrefixPaddingMs
 				respCtx, respDone := session.startResponse(vadContext)
 				go func() {
 					defer close(respDone)
