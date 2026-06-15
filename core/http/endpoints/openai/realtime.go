@@ -20,6 +20,7 @@ import (
 
 	"net/http"
 
+	"github.com/google/uuid"
 	"github.com/go-audio/audio"
 	"github.com/gorilla/websocket"
 	"github.com/labstack/echo/v4"
@@ -680,7 +681,7 @@ func runRealtimeSession(application *application.Application, t Transport, model
 
 	sendEvent(t, types.SessionCreatedEvent{
 		ServerEventBase: types.ServerEventBase{
-			EventID: "event_TODO",
+			EventID: uuid.New().String(),
 		},
 		Session: session.ToServer(),
 	})
@@ -769,7 +770,7 @@ func runRealtimeSession(application *application.Application, t Transport, model
 
 				sendEvent(t, types.SessionUpdatedEvent{
 					ServerEventBase: types.ServerEventBase{
-						EventID: "event_TODO",
+						EventID: uuid.New().String(),
 					},
 					Session: session.ToServer(),
 				})
@@ -795,7 +796,7 @@ func runRealtimeSession(application *application.Application, t Transport, model
 
 				sendEvent(t, types.SessionUpdatedEvent{
 					ServerEventBase: types.ServerEventBase{
-						EventID: "event_TODO",
+						EventID: uuid.New().String(),
 					},
 					Session: session.ToServer(),
 				})
@@ -895,13 +896,13 @@ func runRealtimeSession(application *application.Application, t Transport, model
 			})
 
 		case types.ConversationItemDeleteEvent:
-			sendError(t, "not_implemented", "Deleting items not implemented", "", "event_TODO")
+			sendError(t, "not_implemented", "Deleting items not implemented", "", uuid.New().String())
 
 		case types.ConversationItemRetrieveEvent:
 			xlog.Debug("recv", "message", string(msg))
 
 			if e.ItemID == "" {
-				sendError(t, "invalid_item_id", "Need item_id, but none specified", "", "event_TODO")
+				sendError(t, "invalid_item_id", "Need item_id, but none specified", "", uuid.New().String())
 				continue
 			}
 
@@ -931,7 +932,7 @@ func runRealtimeSession(application *application.Application, t Transport, model
 
 			sendEvent(t, types.ConversationItemRetrievedEvent{
 				ServerEventBase: types.ServerEventBase{
-					EventID: "event_TODO",
+					EventID: uuid.New().String(),
 				},
 				Item: retrievedItem,
 			})
@@ -1027,7 +1028,7 @@ func sendError(t Transport, code, message, param, eventID string) {
 }
 
 func sendNotImplemented(t Transport, message string) {
-	sendError(t, "not_implemented", message, "", "event_TODO")
+	sendError(t, "not_implemented", message, "", uuid.New().String())
 }
 
 // sendTestTone generates a 1-second 440 Hz sine wave and sends it through
@@ -1343,7 +1344,7 @@ func handleVAD(session *Session, conv *Conversation, t Transport, done chan stru
 
 				sendEvent(t, types.InputAudioBufferSpeechStartedEvent{
 					ServerEventBase: types.ServerEventBase{
-						EventID: "event_TODO",
+						EventID: uuid.New().String(),
 					},
 					AudioStartMs: time.Since(startTime).Milliseconds(),
 				})
@@ -1364,7 +1365,7 @@ func handleVAD(session *Session, conv *Conversation, t Transport, done chan stru
 
 				sendEvent(t, types.InputAudioBufferSpeechStoppedEvent{
 					ServerEventBase: types.ServerEventBase{
-						EventID: "event_TODO",
+						EventID: uuid.New().String(),
 					},
 					AudioEndMs: time.Since(startTime).Milliseconds(),
 				})
@@ -1372,7 +1373,7 @@ func handleVAD(session *Session, conv *Conversation, t Transport, done chan stru
 
 				sendEvent(t, types.InputAudioBufferCommittedEvent{
 					ServerEventBase: types.ServerEventBase{
-						EventID: "event_TODO",
+						EventID: uuid.New().String(),
 					},
 					ItemID:         generateItemID(),
 					PreviousItemID: "TODO",
@@ -1426,7 +1427,7 @@ func commitUtterance(ctx context.Context, utt []byte, session *Session, conv *Co
 		var err error
 		transcript, err = emitTranscription(ctx, t, session, generateItemID(), f.Name())
 		if err != nil {
-			sendError(t, "transcription_failed", err.Error(), "", "event_TODO")
+			sendError(t, "transcription_failed", err.Error(), "", uuid.New().String())
 			return
 		}
 	} else {

@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/google/uuid"
 	"github.com/mudler/LocalAI/core/http/endpoints/openai/types"
 )
 
@@ -19,7 +20,7 @@ func emitTranscription(ctx context.Context, t Transport, session *Session, itemI
 	if session.ModelConfig != nil && session.ModelConfig.Pipeline.StreamTranscription() {
 		final, err := session.ModelInterface.TranscribeStream(ctx, audioPath, cfg.Language, false, false, cfg.Prompt, func(delta string) {
 			_ = t.SendEvent(types.ConversationItemInputAudioTranscriptionDeltaEvent{
-				ServerEventBase: types.ServerEventBase{EventID: "event_TODO"},
+				ServerEventBase: types.ServerEventBase{EventID: uuid.New().String()},
 				ItemID:          itemID,
 				ContentIndex:    0,
 				Delta:           delta,
@@ -33,7 +34,7 @@ func emitTranscription(ctx context.Context, t Transport, session *Session, itemI
 			transcript = final.Text
 		}
 		if err := t.SendEvent(types.ConversationItemInputAudioTranscriptionCompletedEvent{
-			ServerEventBase: types.ServerEventBase{EventID: "event_TODO"},
+			ServerEventBase: types.ServerEventBase{EventID: uuid.New().String()},
 			ItemID:          itemID,
 			ContentIndex:    0,
 			Transcript:      transcript,
@@ -52,7 +53,7 @@ func emitTranscription(ctx context.Context, t Transport, session *Session, itemI
 		return "", fmt.Errorf("transcribe result is nil")
 	}
 	if err := t.SendEvent(types.ConversationItemInputAudioTranscriptionCompletedEvent{
-		ServerEventBase: types.ServerEventBase{EventID: "event_TODO"},
+		ServerEventBase: types.ServerEventBase{EventID: uuid.New().String()},
 		ItemID:          itemID,
 		ContentIndex:    0,
 		Transcript:      tr.Text,

@@ -189,6 +189,10 @@ func RegisterLocalAIRoutes(router *echo.Echo,
 
 	if !appConfig.DisableMetrics {
 		router.GET("/metrics", localai.LocalAIMetricsEndpoint(), adminMiddleware)
+		router.POST("/v1/tokenMetrics",
+			localai.TokenMetricsEndpoint(cl, ml, appConfig),
+			requestExtractor.BuildFilteredFirstAvailableDefaultModel(config.BuildUsecaseFilterFn(0)),
+			requestExtractor.SetModelAndConfig(func() schema.LocalAIRequest { return new(schema.TokenMetricsRequest) }))
 	}
 
 	videoHandler := localai.VideoEndpoint(cl, ml, appConfig)
@@ -198,13 +202,15 @@ func RegisterLocalAIRoutes(router *echo.Echo,
 		requestExtractor.SetModelAndConfig(func() schema.LocalAIRequest { return new(schema.VideoRequest) }))
 
 	// Backend Statistics Module
-	// TODO: Should these use standard middlewares? Refactor later, they are extremely simple.
+	backendMonitorMiddleware := []echo.MiddlewareFunc{
+		middleware.TraceMiddleware(app),
+	}
 	backendMonitorService := monitoring.NewBackendMonitorService(ml, cl, appConfig) // Split out for now
-	router.GET("/backend/monitor", localai.BackendMonitorEndpoint(backendMonitorService), adminMiddleware)
-	router.POST("/backend/shutdown", localai.BackendShutdownEndpoint(backendMonitorService), adminMiddleware)
+	router.GET("/backend/monitor", localai.BackendMonitorEndpoint(backendMonitorService), append(backendMonitorMiddleware, adminMiddleware)...)
+	router.POST("/backend/shutdown", localai.BackendShutdownEndpoint(backendMonitorService), append(backendMonitorMiddleware, adminMiddleware)...)
 	// The v1/* urls are exactly the same as above - makes local e2e testing easier if they are registered.
-	router.GET("/v1/backend/monitor", localai.BackendMonitorEndpoint(backendMonitorService), adminMiddleware)
-	router.POST("/v1/backend/shutdown", localai.BackendShutdownEndpoint(backendMonitorService), adminMiddleware)
+	router.GET("/v1/backend/monitor", localai.BackendMonitorEndpoint(backendMonitorService), append(backendMonitorMiddleware, adminMiddleware)...)
+	router.POST("/v1/backend/shutdown", localai.BackendShutdownEndpoint(backendMonitorService), append(backendMonitorMiddleware, adminMiddleware)...)
 
 	// Traces and backend logs (monitoring)
 	router.GET("/api/traces", localai.GetAPITracesEndpoint(), adminMiddleware)

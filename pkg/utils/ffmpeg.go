@@ -98,7 +98,6 @@ func AudioResample(src string, sampleRate int) (string, error) {
 }
 
 // AudioConvert converts generated wav file from tts to other output formats.
-// TODO: handle pcm to have 100% parity of supported format from OpenAI
 func AudioConvert(src string, format string) (string, error) {
 	extension := ""
 	// compute file extension from format, default to wav
@@ -107,6 +106,16 @@ func AudioConvert(src string, format string) (string, error) {
 		extension = ".ogg"
 	case "mp3", "aac", "flac":
 		extension = fmt.Sprintf(".%s", format)
+	case "pcm":
+		// Raw PCM is 16-bit signed little-endian at 24kHz (OpenAI default).
+		// Strip the WAV container and output raw pcm bytes.
+		dst := strings.Replace(src, ".wav", ".pcm", -1)
+		commandArgs := []string{"-y", "-i", src, "-f", "s16le", "-acodec", "pcm_s16le", "-ar", "24000", "-ac", "1", dst}
+		out, err := ffmpegCommand(commandArgs)
+		if err != nil {
+			return "", fmt.Errorf("error: %w out: %s", err, out)
+		}
+		return dst, nil
 	default:
 		extension = ".wav"
 	}

@@ -163,24 +163,102 @@ func (c *Client) GallerySearch(ctx context.Context, q localaitools.GallerySearch
 }
 
 func (c *Client) ListInstalledModels(ctx context.Context, capability localaitools.Capability) ([]localaitools.InstalledModel, error) {
-	_ = capability // Capability filtering is unavailable over the welcome HTTP shape today; see TODO below.
-	// /v1/models is the OpenAI-compat shape; we use the LocalAI welcome JSON
-	// for richer info.
 	var welcome struct {
 		ModelsConfig []struct {
-			Name    string `json:"name"`
-			Backend string `json:"backend"`
+			Name     string `json:"name"`
+			Backend  string `json:"backend"`
+			Pinned   bool   `json:"pinned,omitempty"`
+			Disabled bool   `json:"disabled,omitempty"`
 		} `json:"ModelsConfig"`
 	}
 	if err := c.do(ctx, http.MethodGet, routeWelcome, nil, &welcome); err != nil {
 		return nil, err
 	}
-	// Capability filtering is unavailable over HTTP without a dedicated endpoint
-	// — for now we return everything and let the LLM filter from the names. A
-	// follow-up should add a /api/models?capability=chat endpoint.
+
+	// Map Capability constants to the FLAG_* string stored in the model config's
+	// known_usecases field. The config JSON is the raw YAML view, so we check
+	// for the FLAG-prefixed strings directly.
+	var targetFlag string
+	switch capability {
+	case localaitools.CapabilityAny:
+		targetFlag = ""
+	case localaitools.CapabilityChat:
+		targetFlag = "FLAG_CHAT"
+	case localaitools.CapabilityCompletion:
+		targetFlag = "FLAG_COMPLETION"
+	case localaitools.CapabilityEmbeddings:
+		targetFlag = "FLAG_EMBEDDINGS"
+	case localaitools.CapabilityImage:
+		targetFlag = "FLAG_IMAGE"
+	case localaitools.CapabilityTTS:
+		targetFlag = "FLAG_TTS"
+	case localaitools.CapabilityTranscript:
+		targetFlag = "FLAG_TRANSCRIPT"
+	case localaitools.CapabilityRerank:
+		targetFlag = "FLAG_RERANK"
+	case localaitools.CapabilityVAD:
+		targetFlag = "FLAG_VAD"
+	}
+
 	out := make([]localaitools.InstalledModel, 0, len(welcome.ModelsConfig))
 	for _, m := range welcome.ModelsConfig {
-		out = append(out, localaitools.InstalledModel{Name: m.Name, Backend: m.Backend})
+		// If a specific capability is requested, fetch the model config and
+		// check its known_usecases field.
+		if targetFlag != "" {
+			var cfg struct {
+				JSON map[string]any `json:"json"`
+			}
+			if err := c.do(ctx, http.MethodGet, routeModelConfigJSON(m.Name), nil, &cfg); err != nil {
+				// Config not found or other error — skip this model.
+				continue
+			}
+			// Check known_usecases for the target flag.
+			raw, ok := cfg.JSON["known_usecases"]
+			if !ok {
+				continue
+			}
+			// known_usecases may be []any (from map[string]any unmarshal).
+			var found bool
+			if list, ok := raw.([]any); ok {
+				for _, v := range list {
+					if s, ok := v.(string); ok && s == targetFlag {
+						found = true
+						break
+					}
+				}
+			} else if s, ok := raw.(string); ok && s == targetFlag {
+				found = true
+			}
+			if !found {
+				continue
+			}
+		}
+
+		// Collect capabilities from the config for the response.
+		var caps []string
+		var cfg struct {
+			JSON map[string]any `json:"json"`
+		}
+		if err := c.do(ctx, http.MethodGet, routeModelConfigJSON(m.Name), nil, &cfg); err == nil {
+			if raw, ok := cfg.JSON["known_usecases"]; ok {
+				if list, ok := raw.([]any); ok {
+					for _, v := range list {
+						if s, ok := v.(string); ok {
+							label := strings.TrimPrefix(s, "FLAG_")
+							caps = append(caps, strings.ToLower(label))
+						}
+					}
+				}
+			}
+		}
+
+		out = append(out, localaitools.InstalledModel{
+			Name:         m.Name,
+			Backend:      m.Backend,
+			Capabilities: caps,
+			Pinned:       m.Pinned,
+			Disabled:     m.Disabled,
+		})
 	}
 	return out, nil
 }
