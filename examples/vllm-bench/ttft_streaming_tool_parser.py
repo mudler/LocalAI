@@ -2,15 +2,14 @@
 """
 TTFT benchmark for the vLLM backend's streaming + tool-parser path.
 
-Measures time-to-first-token (TTFT) for two scenarios against a running
-LocalAI instance with a vLLM-backed chat model:
+Three scenarios:
+  1. tool_call        — request mentions a tool; model is expected to call it
+  2. plain_text_short — request offers a tool but explicitly asks for ~3 sentences
+  3. plain_text_long  — same as above but asks for ~8 paragraphs (1500 tokens)
 
-  1. tool_call  — request mentions a tool; model is expected to call it
-  2. plain_text — request offers a tool but explicitly asks for prose
-
-Useful to validate the difference between:
-  - the buffer-all path  (#10346):       plain_text TTFT ≈ total response time
-  - the native-streaming path (this PR): plain_text TTFT ≈ true first-token time
+The long scenario shows the dramatic difference between buffering and
+streaming most clearly: with buffer-all, the client sees nothing for
+20+ seconds; with native streaming, the first token arrives in <100 ms.
 
 Usage:
   python ttft_streaming_tool_parser.py \\
@@ -45,11 +44,20 @@ SCENARIOS = [
         "max_tokens": 80,
     },
     {
-        "label": "plain_text",
+        "label": "plain_text_short",
         "messages": [{"role": "user",
                       "content": "Explain in 3 short sentences what a hash table is. "
                                  "Do NOT call any tool."}],
         "max_tokens": 200,
+    },
+    {
+        "label": "plain_text_long",
+        "messages": [{"role": "user",
+                      "content": "Write a thorough 8-paragraph explanation of how "
+                                 "Python's GIL works, including history, current "
+                                 "state, no-GIL build, and alternatives. Be "
+                                 "detailed. Do NOT call any tool."}],
+        "max_tokens": 1500,
     },
 ]
 
@@ -125,7 +133,7 @@ def main():
                    help="LocalAI base URL (default: %(default)s)")
     p.add_argument("--model", default="coder", help="Model name (default: %(default)s)")
     p.add_argument("--runs", type=int, default=3, help="Repetitions per scenario (default: %(default)s)")
-    p.add_argument("--timeout", type=int, default=120, help="Per-request timeout in seconds")
+    p.add_argument("--timeout", type=int, default=180, help="Per-request timeout in seconds")
     p.add_argument("--label", default="run",
                    help="Tag for the JSON output file (default: %(default)s)")
     args = p.parse_args()

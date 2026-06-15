@@ -15,14 +15,20 @@ non-streaming — the client received nothing until the model finished.
 With native parser-side streaming (`parser.extract_tool_calls_streaming`,
 implemented by every concrete vLLM 0.23+ tool parser), each delta can be
 classified per-token: emit as content, emit as a structured tool_call, or
-suppress. This benchmark shows the difference.
+suppress.
 
-## Two scenarios
+## Three scenarios
 
 | Scenario | Request | Expected outcome |
 |---|---|---|
-| `tool_call` | "What is the weather in Paris? Please use the tool." | Model calls `get_weather`. `delta.tool_calls` chunks; no content leak. |
-| `plain_text` | "Explain in 3 short sentences what a hash table is. Do NOT call any tool." | Model writes prose. With the streaming parser, content streams progressively; without it, the entire response arrives in one chunk. |
+| `tool_call`         | "What is the weather in Paris? Please use the tool." | Model calls `get_weather`. `delta.tool_calls` chunks; no content leak. |
+| `plain_text_short`  | "Explain in 3 short sentences what a hash table is. Do NOT call any tool." | Model writes ~3 sentences. |
+| `plain_text_long`   | "Write a thorough 8-paragraph explanation of how Python's GIL works…" | Model writes ~1500 tokens of prose. |
+
+The **long scenario** is where the streaming/buffering difference is most
+dramatic: with the buffer-all path, the client sees nothing for 20+ seconds
+and then everything at once; with native streaming, the first token arrives
+in <100ms and the response flows progressively.
 
 ## What the script reports
 
@@ -30,10 +36,14 @@ For each scenario, across N runs:
 
 - `ttf_content_s` — time until the first `delta.content` chunk
 - `ttf_tool_s` — time until the first `delta.tool_calls` chunk
-- `n_content_chunks` — total number of distinct content deltas (1 = bundled, >1 = streamed)
+- `n_content_chunks` — total content deltas (1 = bundled, >>1 = streamed)
 - `n_tool_chunks` — total tool_call deltas
 - `total_s` — total wall-clock until `[DONE]`
 - `finish_reason` — `tool_calls` / `stop` / `length`
+
+The big tell is **`n_content_chunks` vs `total_s` ratio**:
+- Buffer-all: `n_content_chunks` ≈ 1, `ttf_content_s` ≈ `total_s` (one chunk at end)
+- Streaming: `n_content_chunks` ≈ token count, `ttf_content_s` ≈ first-token latency
 
 ## Usage
 
