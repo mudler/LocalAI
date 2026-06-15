@@ -42,6 +42,11 @@ func main() {
 		{&CapiDepthPath, "da_capi_depth_path"},
 		{&CapiFreeFloats, "da_capi_free_floats"},
 		{&CapiPosePath, "da_capi_pose_path"},
+		{&CapiDepthDense, "da_capi_depth_dense"},
+		{&CapiPoints, "da_capi_points"},
+		{&CapiFreeBytes, "da_capi_free_bytes"},
+		{&CapiExportGlb, "da_capi_export_glb"},
+		{&CapiExportColmap, "da_capi_export_colmap"},
 	}
 
 	for _, lf := range libFuncs {

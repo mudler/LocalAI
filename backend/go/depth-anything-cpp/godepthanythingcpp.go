@@ -49,6 +49,26 @@ var (
 	CapiFreeFloats func(p *float32)
 	// da_capi_pose_path(ctx, image_path, out_ext[12], out_intr[9]) -> 0 ok, -1 err
 	CapiPosePath func(handle uintptr, imagePath string, outExt *float32, outIntr *float32) int32
+	// da_capi_depth_dense(ctx, image_path, out_h*, out_w*, out_depth**, out_conf**,
+	//   out_sky**, out_ext[12], out_intr[9], out_is_metric*) -> 0 ok, -1 err.
+	// Each non-NULL out_depth/out_conf/out_sky receives a malloc'd float[H*W] (free
+	// via da_capi_free_floats); buffers the model doesn't produce are set NULL.
+	CapiDepthDense func(handle uintptr, imagePath string,
+		outH, outW *int32,
+		outDepth, outConf, outSky **float32,
+		outExt, outIntr *float32,
+		outIsMetric *int32) int32
+	// da_capi_points(ctx, image_path, conf_thresh, out_n*, out_xyz**, out_rgb**) ->
+	//   0 ok, -1 err. *out_xyz = malloc'd float[3*N] (free via da_capi_free_floats),
+	//   *out_rgb = malloc'd uint8[3*N] (free via da_capi_free_bytes).
+	CapiPoints func(handle uintptr, imagePath string, confThresh float32,
+		outN *int32, outXyz **float32, outRgb **byte) int32
+	// da_capi_free_bytes(unsigned char* p)
+	CapiFreeBytes func(p *byte)
+	// da_capi_export_glb(ctx, image_path, out_glb) -> 0 ok, -1 err
+	CapiExportGlb func(handle uintptr, imagePath string, outGlb string) int32
+	// da_capi_export_colmap(ctx, image_path, out_dir, binary) -> 0 ok, -1 err
+	CapiExportColmap func(handle uintptr, imagePath string, outDir string, binary int32) int32
 )
 
 type DepthAnythingCpp struct {
@@ -166,6 +186,188 @@ func (r *DepthAnythingCpp) GenerateImage(req *pb.GenerateImageRequest) error {
 		return err
 	}
 	return writeDepthPNG(req.GetDst(), depth, h, w)
+}
+
+// Depth is the typed Depth RPC. It runs the Depth Anything 3 pipeline on the
+// request's src image and fills a DepthResponse honoring the include_* flags and
+// exports: per-pixel metric depth + confidence (DualDPT) or depth + sky (mono),
+// camera extrinsics/intrinsics, an optional back-projected 3D point cloud and
+// glb/COLMAP exports. The src may be a filesystem path or a base64 payload.
+func (r *DepthAnythingCpp) Depth(in *pb.DepthRequest) (pb.DepthResponse, error) {
+	// Accumulate into locals and return a single composite literal at the end:
+	// returning a named pb.DepthResponse value would copy its embedded mutex
+	// (go vet copylocks).
+	if r.handle == 0 {
+		return pb.DepthResponse{}, fmt.Errorf("depth-anything-cpp: model not loaded")
+	}
+	if in.GetSrc() == "" {
+		return pb.DepthResponse{}, fmt.Errorf("depth-anything-cpp: Depth requires src")
+	}
+
+	imgPath, cleanup, err := materializeImage(in.GetSrc())
+	if err != nil {
+		return pb.DepthResponse{}, fmt.Errorf("depth-anything-cpp: %w", err)
+	}
+	defer cleanup()
+
+	// Dense per-pixel output + pose. Pass buffer pointers only for the
+	// requested maps so the native side can skip unrequested work; ext/intr
+	// must always point at 12/9 floats per the C ABI.
+	var (
+		h, w, isMetric      int32
+		depthPtr, confPtr   *float32
+		skyPtr              *float32
+		ext                 [12]float32
+		intr                [9]float32
+		pDepth, pConf, pSky **float32
+	)
+	if in.GetIncludeDepth() {
+		pDepth = &depthPtr
+	}
+	if in.GetIncludeConfidence() {
+		pConf = &confPtr
+	}
+	if in.GetIncludeSky() {
+		pSky = &skyPtr
+	}
+
+	rc := CapiDepthDense(r.handle, imgPath, &h, &w, pDepth, pConf, pSky, &ext[0], &intr[0], &isMetric)
+	if rc != 0 {
+		return pb.DepthResponse{}, fmt.Errorf("depth-anything-cpp: da_capi_depth_dense failed (rc=%d): %s", rc, r.lastError())
+	}
+
+	n := int(h) * int(w)
+	var (
+		depth, conf, sky      []float32
+		extrinsics, intrinsic []float32
+		numPoints             int32
+		points                []float32
+		pointColors           []byte
+		exportPaths           []string
+	)
+
+	if depthPtr != nil {
+		depth = copyFloats(depthPtr, n)
+		CapiFreeFloats(depthPtr)
+	}
+	if confPtr != nil {
+		conf = copyFloats(confPtr, n)
+		CapiFreeFloats(confPtr)
+	}
+	if skyPtr != nil {
+		sky = copyFloats(skyPtr, n)
+		CapiFreeFloats(skyPtr)
+	}
+	if in.GetIncludePose() {
+		extrinsics = append([]float32(nil), ext[:]...)
+		intrinsic = append([]float32(nil), intr[:]...)
+	}
+
+	// 3D point cloud (DualDPT / pose-capable models only).
+	if in.GetIncludePoints() {
+		var (
+			np     int32
+			xyzPtr *float32
+			rgbPtr *byte
+		)
+		if rc := CapiPoints(r.handle, imgPath, in.GetPointsConfThresh(), &np, &xyzPtr, &rgbPtr); rc != 0 {
+			return pb.DepthResponse{}, fmt.Errorf("depth-anything-cpp: da_capi_points failed (rc=%d): %s", rc, r.lastError())
+		}
+		numPoints = np
+		if xyzPtr != nil {
+			points = copyFloats(xyzPtr, int(np)*3)
+			CapiFreeFloats(xyzPtr)
+		}
+		if rgbPtr != nil {
+			pointColors = copyBytes(rgbPtr, int(np)*3)
+			CapiFreeBytes(rgbPtr)
+		}
+	}
+
+	// Exports (glb / colmap). They are written under in.Dst (a directory); a
+	// temp dir is used when Dst is empty.
+	if len(in.GetExports()) > 0 {
+		exportPaths, err = r.runExports(imgPath, in.GetDst(), in.GetExports())
+		if err != nil {
+			return pb.DepthResponse{}, err
+		}
+	}
+
+	return pb.DepthResponse{
+		Width:       w,
+		Height:      h,
+		Depth:       depth,
+		Confidence:  conf,
+		Sky:         sky,
+		Extrinsics:  extrinsics,
+		Intrinsics:  intrinsic,
+		NumPoints:   numPoints,
+		Points:      points,
+		PointColors: pointColors,
+		ExportPaths: exportPaths,
+		IsMetric:    isMetric != 0,
+	}, nil
+}
+
+// runExports writes the requested exports for imgPath into dstDir and returns
+// the written paths. Supported exports: "glb", "colmap".
+func (r *DepthAnythingCpp) runExports(imgPath, dstDir string, exports []string) ([]string, error) {
+	if dstDir == "" {
+		tmp, err := os.MkdirTemp("", "depth-anything-export-*")
+		if err != nil {
+			return nil, fmt.Errorf("depth-anything-cpp: mkdir export dir: %w", err)
+		}
+		dstDir = tmp
+	} else if err := os.MkdirAll(dstDir, 0o755); err != nil {
+		return nil, fmt.Errorf("depth-anything-cpp: mkdir %s: %w", dstDir, err)
+	}
+
+	var paths []string
+	for _, exp := range exports {
+		switch exp {
+		case "glb":
+			out := filepath.Join(dstDir, "pointcloud.glb")
+			if rc := CapiExportGlb(r.handle, imgPath, out); rc != 0 {
+				return nil, fmt.Errorf("depth-anything-cpp: da_capi_export_glb failed (rc=%d): %s", rc, r.lastError())
+			}
+			paths = append(paths, out)
+		case "colmap":
+			out := filepath.Join(dstDir, "colmap")
+			if err := os.MkdirAll(out, 0o755); err != nil {
+				return nil, fmt.Errorf("depth-anything-cpp: mkdir %s: %w", out, err)
+			}
+			if rc := CapiExportColmap(r.handle, imgPath, out, 1); rc != 0 {
+				return nil, fmt.Errorf("depth-anything-cpp: da_capi_export_colmap failed (rc=%d): %s", rc, r.lastError())
+			}
+			paths = append(paths, out)
+		default:
+			return nil, fmt.Errorf("depth-anything-cpp: unknown export %q (want glb|colmap)", exp)
+		}
+	}
+	return paths, nil
+}
+
+// copyFloats copies n float32 values from a C heap pointer into a fresh Go
+// slice so the C buffer can be freed afterwards.
+func copyFloats(p *float32, n int) []float32 {
+	if p == nil || n <= 0 {
+		return nil
+	}
+	src := unsafe.Slice(p, n)
+	out := make([]float32, n)
+	copy(out, src)
+	return out
+}
+
+// copyBytes copies n bytes from a C heap pointer into a fresh Go slice.
+func copyBytes(p *byte, n int) []byte {
+	if p == nil || n <= 0 {
+		return nil
+	}
+	src := unsafe.Slice(p, n)
+	out := make([]byte, n)
+	copy(out, src)
+	return out
 }
 
 // runDepthPose runs depth estimation then pose recovery on an image file. It

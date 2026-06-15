@@ -19,6 +19,7 @@ type AIModel interface {
 	GenerateImage(*pb.GenerateImageRequest) error
 	GenerateVideo(*pb.GenerateVideoRequest) error
 	Detect(*pb.DetectOptions) (pb.DetectResponse, error)
+	Depth(*pb.DepthRequest) (pb.DepthResponse, error)
 	FaceVerify(*pb.FaceVerifyRequest) (pb.FaceVerifyResponse, error)
 	FaceAnalyze(*pb.FaceAnalyzeRequest) (pb.FaceAnalyzeResponse, error)
 	VoiceVerify(*pb.VoiceVerifyRequest) (pb.VoiceVerifyResponse, error)

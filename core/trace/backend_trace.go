@@ -25,6 +25,7 @@ const (
 	BackendTraceRerank          BackendTraceType = "rerank"
 	BackendTraceTokenize        BackendTraceType = "tokenize"
 	BackendTraceDetection       BackendTraceType = "detection"
+	BackendTraceDepth           BackendTraceType = "depth"
 	BackendTraceFaceVerify      BackendTraceType = "face_verify"
 	BackendTraceFaceAnalyze     BackendTraceType = "face_analyze"
 	BackendTraceVoiceVerify     BackendTraceType = "voice_verify"
