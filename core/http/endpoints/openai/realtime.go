@@ -46,7 +46,7 @@ import (
 )
 
 const (
-	// XXX: Presently it seems all ASR/VAD backends use 16Khz. If a backend uses 24Khz then it will likely still work, but have reduced performance
+	// All current ASR/VAD backends use 16kHz; a 24kHz backend would still work but with reduced performance
 	localSampleRate         = 16000
 	defaultRemoteSampleRate = 24000
 	// Maximum audio buffer size in bytes (100MB) to prevent memory exhaustion
@@ -231,6 +231,37 @@ func (c *Conversation) ToServer() types.Conversation {
 		ID:     c.ID,
 		Object: "realtime.conversation",
 	}
+}
+
+func messageItemID(item *types.MessageItemUnion) string {
+	if item == nil {
+		return ""
+	}
+	if item.System != nil {
+		return item.System.ID
+	}
+	if item.User != nil {
+		return item.User.ID
+	}
+	if item.Assistant != nil {
+		return item.Assistant.ID
+	}
+	if item.FunctionCall != nil {
+		return item.FunctionCall.ID
+	}
+	if item.FunctionCallOutput != nil {
+		return item.FunctionCallOutput.ID
+	}
+	return ""
+}
+
+func (c *Conversation) LastItemID() string {
+	c.Lock.Lock()
+	defer c.Lock.Unlock()
+	if len(c.Items) == 0 {
+		return ""
+	}
+	return messageItemID(c.Items[len(c.Items)-1])
 }
 
 // Map to store sessions (in-memory)
@@ -1376,7 +1407,7 @@ func handleVAD(session *Session, conv *Conversation, t Transport, done chan stru
 						EventID: uuid.New().String(),
 					},
 					ItemID:         generateItemID(),
-					PreviousItemID: "TODO",
+					PreviousItemID: conv.LastItemID(),
 				})
 
 				abytes := sound.Int16toBytesLE(aints)

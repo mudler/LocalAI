@@ -743,7 +743,7 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 				// Detect if thinking token is already in prompt or template
 				var template string
 				if config.TemplateConfig.UseTokenizerTemplate {
-					template = config.GetModelTemplate() // TODO: this should be the parsed jinja template. But for now this is the best we can do.
+					template = config.GetModelTemplate() // Uses raw template text; parsed jinja would be a future improvement
 				} else {
 					template = predInput
 				}

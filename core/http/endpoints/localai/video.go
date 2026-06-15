@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"net/http"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -182,14 +183,8 @@ func VideoEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, appConfi
 		}
 		outputFile.Close()
 
-		// TODO: use mime type to determine the extension
-		output := outputFile.Name() + ".mp4"
-
-		// Rename the temporary file
-		err = os.Rename(outputFile.Name(), output)
-		if err != nil {
-			return err
-		}
+		// Backend writes to a path without extension; we detect format afterward
+		rawOutput := outputFile.Name()
 
 		baseURL := middleware.BaseURL(c)
 
@@ -210,7 +205,7 @@ func VideoEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, appConfi
 			input.NegativePrompt,
 			src,
 			endSrc,
-			output,
+			rawOutput,
 			input.NumFrames,
 			input.FPS,
 			input.Seed,
@@ -225,6 +220,15 @@ func VideoEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, appConfi
 		}
 		if err := fn(); err != nil {
 			return err
+		}
+
+		// Determine extension from content type and rename
+		output := rawOutput
+		ext := videoExtFromContentType(rawOutput)
+		if filepath.Ext(rawOutput) == "" && ext != "" {
+			if err := os.Rename(rawOutput, rawOutput+ext); err == nil {
+				output = rawOutput + ext
+			}
 		}
 
 		item := &schema.Item{}
@@ -258,4 +262,33 @@ func VideoEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, appConfi
 		// Return the prediction in the response body
 		return c.JSON(200, resp)
 	}
+}
+
+func videoExtFromContentType(path string) string {
+	f, err := os.Open(path)
+	if err != nil {
+		return ".mp4"
+	}
+	defer f.Close()
+
+	head := make([]byte, 512)
+	n, err := f.Read(head)
+	if err != nil && err != io.EOF {
+		return ".mp4"
+	}
+
+	ct := http.DetectContentType(head[:n])
+	switch ct {
+	case "video/mp4":
+		return ".mp4"
+	case "video/webm":
+		return ".webm"
+	case "video/quicktime":
+		return ".mov"
+	case "video/x-matroska":
+		return ".mkv"
+	case "image/gif":
+		return ".gif"
+	}
+	return ".mp4"
 }
