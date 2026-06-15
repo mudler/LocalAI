@@ -20,11 +20,12 @@ import (
 var onnxProvider = "cpu"
 
 // Per-model generation defaults, overridable via ModelOptions.Options:
-//   supertonic.steps=<int>          denoising steps (quality), default 8
-//   supertonic.speed=<float>        speech rate, default 1.05
-//   supertonic.silence=<float>      inter-chunk silence seconds, default 0.3
-//   supertonic.default_voice=<name> voice-style used when request omits voice
-//   supertonic.default_lang=<lang>  language tag used when request omits it
+//
+//	supertonic.steps=<int>          denoising steps (quality), default 8
+//	supertonic.speed=<float>        speech rate, default 1.05
+//	supertonic.silence=<float>      inter-chunk silence seconds, default 0.3
+//	supertonic.default_voice=<name> voice-style used when request omits voice
+//	supertonic.default_lang=<lang>  language tag used when request omits it
 const (
 	optionSteps        = "supertonic.steps="
 	optionSpeed        = "supertonic.speed="
