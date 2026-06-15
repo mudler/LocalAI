@@ -1368,6 +1368,20 @@
     nvidia: "cuda12-sherpa-onnx"
     nvidia-cuda-12: "cuda12-sherpa-onnx"
     metal: "metal-sherpa-onnx"
+- &supertonic
+  name: "supertonic"
+  alias: "supertonic"
+  urls:
+    - https://github.com/supertone-inc/supertonic
+  description: |
+    Supertonic backend: lightning-fast, on-device multilingual text-to-speech via ONNX Runtime.
+    Runs Supertone's flow-matching TTS model (Supertone/supertonic-3), 44.1kHz output, 31 languages,
+    multiple preset voice styles. No espeak-ng dependency.
+  tags:
+    - text-to-speech
+    - TTS
+  capabilities:
+    default: "cpu-supertonic"
 - !!merge <<: *neutts
   name: "neutts-development"
   capabilities:
@@ -5132,3 +5146,18 @@
   uri: "quay.io/go-skynet/local-ai-backends:master-metal-darwin-arm64-sherpa-onnx"
   mirrors:
     - localai/localai-backends:master-metal-darwin-arm64-sherpa-onnx
+## supertonic
+- !!merge <<: *supertonic
+  name: "supertonic-development"
+  capabilities:
+    default: "cpu-supertonic-development"
+- !!merge <<: *supertonic
+  name: "cpu-supertonic"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-cpu-supertonic"
+  mirrors:
+    - localai/localai-backends:latest-cpu-supertonic
+- !!merge <<: *supertonic
+  name: "cpu-supertonic-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-cpu-supertonic"
+  mirrors:
+    - localai/localai-backends:master-cpu-supertonic
