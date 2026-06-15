@@ -155,7 +155,7 @@ func (e *Evaluator) TemplateMessages(input schema.OpenAIRequest, messages []sche
 			} else {
 				if templatedChatMessage == "" {
 					xlog.Warn("template produced blank output, skipping", "template", config.TemplateConfig.ChatMessage, "message", chatMessageData)
-					continue // TODO: This continue is here intentionally to skip over the line `mess = append(mess, content)` below, and to prevent the sprintf
+					continue // Empty template output — skip adding this message to the list
 				}
 				xlog.Debug("templated message for chat", "message", templatedChatMessage)
 				content = templatedChatMessage
