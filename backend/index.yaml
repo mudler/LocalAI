@@ -458,6 +458,126 @@
   uri: "quay.io/go-skynet/local-ai-backends:master-gpu-vulkan-locate-anything-cpp"
   mirrors:
     - localai/localai-backends:master-gpu-vulkan-locate-anything-cpp
+- &depthanything
+  name: "depth-anything"
+  alias: "depth-anything"
+  license: apache-2.0
+  description: |
+    Depth Anything 3 monocular metric depth + camera pose estimation in C/C++
+    using GGML. Loads pre-built GGUF weights and, given an image, returns a
+    dense depth map plus the recovered camera extrinsics (3x4) and intrinsics
+    (3x3). No Python at inference (purego, cgo-less).
+  urls:
+    - https://github.com/mudler/depth-anything.cpp
+    - https://huggingface.co/depth-anything/Depth-Anything-V3
+  tags:
+    - depth-estimation
+    - camera-pose
+    - depth-anything
+    - gpu
+    - cpu
+  capabilities:
+    default: "cpu-depth-anything-cpp"
+    nvidia: "cuda12-depth-anything-cpp"
+    nvidia-cuda-12: "cuda12-depth-anything-cpp"
+    nvidia-cuda-13: "cuda13-depth-anything-cpp"
+    nvidia-l4t: "nvidia-l4t-arm64-depth-anything-cpp"
+    nvidia-l4t-cuda-12: "nvidia-l4t-arm64-depth-anything-cpp"
+    nvidia-l4t-cuda-13: "cuda13-nvidia-l4t-arm64-depth-anything-cpp"
+    intel: "intel-sycl-f32-depth-anything-cpp"
+    vulkan: "vulkan-depth-anything-cpp"
+- !!merge <<: *depthanything
+  name: "depth-anything-development"
+  capabilities:
+    default: "cpu-depth-anything-cpp-development"
+    nvidia: "cuda12-depth-anything-cpp-development"
+    nvidia-cuda-12: "cuda12-depth-anything-cpp-development"
+    nvidia-cuda-13: "cuda13-depth-anything-cpp-development"
+    nvidia-l4t: "nvidia-l4t-arm64-depth-anything-cpp-development"
+    nvidia-l4t-cuda-12: "nvidia-l4t-arm64-depth-anything-cpp-development"
+    nvidia-l4t-cuda-13: "cuda13-nvidia-l4t-arm64-depth-anything-cpp-development"
+    intel: "intel-sycl-f32-depth-anything-cpp-development"
+    vulkan: "vulkan-depth-anything-cpp-development"
+- !!merge <<: *depthanything
+  name: "cpu-depth-anything-cpp"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-cpu-depth-anything-cpp"
+  mirrors:
+    - localai/localai-backends:latest-cpu-depth-anything-cpp
+- !!merge <<: *depthanything
+  name: "cpu-depth-anything-cpp-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-cpu-depth-anything-cpp"
+  mirrors:
+    - localai/localai-backends:master-cpu-depth-anything-cpp
+- !!merge <<: *depthanything
+  name: "cuda12-depth-anything-cpp"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-nvidia-cuda-12-depth-anything-cpp"
+  mirrors:
+    - localai/localai-backends:latest-gpu-nvidia-cuda-12-depth-anything-cpp
+- !!merge <<: *depthanything
+  name: "cuda12-depth-anything-cpp-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-nvidia-cuda-12-depth-anything-cpp"
+  mirrors:
+    - localai/localai-backends:master-gpu-nvidia-cuda-12-depth-anything-cpp
+- !!merge <<: *depthanything
+  name: "cuda13-depth-anything-cpp"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-nvidia-cuda-13-depth-anything-cpp"
+  mirrors:
+    - localai/localai-backends:latest-gpu-nvidia-cuda-13-depth-anything-cpp
+- !!merge <<: *depthanything
+  name: "cuda13-depth-anything-cpp-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-nvidia-cuda-13-depth-anything-cpp"
+  mirrors:
+    - localai/localai-backends:master-gpu-nvidia-cuda-13-depth-anything-cpp
+- !!merge <<: *depthanything
+  name: "nvidia-l4t-arm64-depth-anything-cpp"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-nvidia-l4t-arm64-depth-anything-cpp"
+  mirrors:
+    - localai/localai-backends:latest-nvidia-l4t-arm64-depth-anything-cpp
+- !!merge <<: *depthanything
+  name: "nvidia-l4t-arm64-depth-anything-cpp-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-nvidia-l4t-arm64-depth-anything-cpp"
+  mirrors:
+    - localai/localai-backends:master-nvidia-l4t-arm64-depth-anything-cpp
+- !!merge <<: *depthanything
+  name: "cuda13-nvidia-l4t-arm64-depth-anything-cpp"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-nvidia-l4t-cuda-13-arm64-depth-anything-cpp"
+  mirrors:
+    - localai/localai-backends:latest-nvidia-l4t-cuda-13-arm64-depth-anything-cpp
+- !!merge <<: *depthanything
+  name: "cuda13-nvidia-l4t-arm64-depth-anything-cpp-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-nvidia-l4t-cuda-13-arm64-depth-anything-cpp"
+  mirrors:
+    - localai/localai-backends:master-nvidia-l4t-cuda-13-arm64-depth-anything-cpp
+- !!merge <<: *depthanything
+  name: "intel-sycl-f32-depth-anything-cpp"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-intel-sycl-f32-depth-anything-cpp"
+  mirrors:
+    - localai/localai-backends:latest-gpu-intel-sycl-f32-depth-anything-cpp
+- !!merge <<: *depthanything
+  name: "intel-sycl-f32-depth-anything-cpp-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-intel-sycl-f32-depth-anything-cpp"
+  mirrors:
+    - localai/localai-backends:master-gpu-intel-sycl-f32-depth-anything-cpp
+- !!merge <<: *depthanything
+  name: "intel-sycl-f16-depth-anything-cpp"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-intel-sycl-f16-depth-anything-cpp"
+  mirrors:
+    - localai/localai-backends:latest-gpu-intel-sycl-f16-depth-anything-cpp
+- !!merge <<: *depthanything
+  name: "intel-sycl-f16-depth-anything-cpp-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-intel-sycl-f16-depth-anything-cpp"
+  mirrors:
+    - localai/localai-backends:master-gpu-intel-sycl-f16-depth-anything-cpp
+- !!merge <<: *depthanything
+  name: "vulkan-depth-anything-cpp"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-vulkan-depth-anything-cpp"
+  mirrors:
+    - localai/localai-backends:latest-gpu-vulkan-depth-anything-cpp
+- !!merge <<: *depthanything
+  name: "vulkan-depth-anything-cpp-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-vulkan-depth-anything-cpp"
+  mirrors:
+    - localai/localai-backends:master-gpu-vulkan-depth-anything-cpp
 - &vllm
   name: "vllm"
   license: apache-2.0
