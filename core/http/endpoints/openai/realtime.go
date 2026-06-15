@@ -1375,8 +1375,7 @@ func handleVAD(session *Session, conv *Conversation, t Transport, done chan stru
 					ServerEventBase: types.ServerEventBase{
 						EventID: uuid.New().String(),
 					},
-					ItemID:         generateItemID(),
-					PreviousItemID: "TODO",
+					ItemID: generateItemID(),
 				})
 
 				abytes := sound.Int16toBytesLE(aints)
