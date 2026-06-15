@@ -89,8 +89,7 @@ func AddNetwork(db *explorer.Database) echo.HandlerFunc {
 			return c.JSON(http.StatusBadRequest, map[string]any{"error": "Description is required"})
 		}
 
-		// TODO: check if token is valid, otherwise reject
-		// try to decode the token from base64
+		// Validate token by decoding from base64
 		_, err := base64.StdEncoding.DecodeString(request.Token)
 		if err != nil {
 			return c.JSON(http.StatusBadRequest, map[string]any{"error": "Invalid token"})

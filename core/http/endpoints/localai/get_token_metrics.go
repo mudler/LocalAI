@@ -11,8 +11,6 @@ import (
 	"github.com/mudler/LocalAI/pkg/model"
 )
 
-// TODO: This is not yet in use. Needs middleware rework, since it is not referenced.
-
 // TokenMetricsEndpoint is an endpoint to get TokensProcessed Per Second for Active SlotID
 //
 //	@Summary	Get TokenMetrics for Active Slot.
