@@ -57,8 +57,16 @@ type LauncherUI struct {
 
 // NewLauncherUI creates a new UI instance
 func NewLauncherUI() *LauncherUI {
+	// Truncate the status text with an ellipsis. Status messages can carry a
+	// download error containing a long, unbreakable URL/path; without this the
+	// label demands the full single-line width and stretches the window (and
+	// the progress bar) arbitrarily wide. The full error is still shown in the
+	// error dialog.
+	statusLabel := widget.NewLabel("Initializing...")
+	statusLabel.Truncation = fyne.TextTruncateEllipsis
+
 	return &LauncherUI{
-		statusLabel:       widget.NewLabel("Initializing..."),
+		statusLabel:       statusLabel,
 		versionLabel:      widget.NewLabel("Version: Unknown"),
 		startStopButton:   widget.NewButton("Start LocalAI", nil),
 		webUIButton:       widget.NewButton("Open WebUI", nil),
@@ -602,8 +610,11 @@ func (ui *LauncherUI) showDownloadProgress(version, title string) {
 		progressBar := widget.NewProgressBar()
 		progressBar.SetValue(0)
 
-		// Status label
+		// Status label. Truncate with an ellipsis so a long "Download failed:
+		// <url>" message can't stretch the window (and progress bar) to fit the
+		// whole error on one line; the full error is shown in the dialog below.
 		statusLabel := widget.NewLabel("Preparing download...")
+		statusLabel.Truncation = fyne.TextTruncateEllipsis
 
 		// Release notes button
 		releaseNotesButton := widget.NewButton("View Release Notes", func() {
