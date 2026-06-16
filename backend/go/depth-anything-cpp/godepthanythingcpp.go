@@ -318,7 +318,7 @@ func (r *DepthAnythingCpp) runExports(imgPath, dstDir string, exports []string) 
 			return nil, fmt.Errorf("depth-anything-cpp: mkdir export dir: %w", err)
 		}
 		dstDir = tmp
-	} else if err := os.MkdirAll(dstDir, 0o755); err != nil {
+	} else if err := os.MkdirAll(dstDir, 0o750); err != nil {
 		return nil, fmt.Errorf("depth-anything-cpp: mkdir %s: %w", dstDir, err)
 	}
 
@@ -333,7 +333,7 @@ func (r *DepthAnythingCpp) runExports(imgPath, dstDir string, exports []string) 
 			paths = append(paths, out)
 		case "colmap":
 			out := filepath.Join(dstDir, "colmap")
-			if err := os.MkdirAll(out, 0o755); err != nil {
+			if err := os.MkdirAll(out, 0o750); err != nil {
 				return nil, fmt.Errorf("depth-anything-cpp: mkdir %s: %w", out, err)
 			}
 			if rc := CapiExportColmap(r.handle, imgPath, out, 1); rc != 0 {
@@ -481,7 +481,10 @@ func writeDepthPNG(dst string, depth []float32, h, w int) error {
 			img.Pix[y*img.Stride+x] = uint8(n * 255)
 		}
 	}
-	f, err := os.Create(dst)
+	// dst is the gRPC-provided output path chosen by the LocalAI core (the
+	// intended write destination for the rendered depth map), not
+	// attacker-controlled input, so the variable path is expected here.
+	f, err := os.Create(dst) // #nosec G304
 	if err != nil {
 		return err
 	}
