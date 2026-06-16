@@ -183,6 +183,19 @@ var _ = Describe("gRPCPredictOpts chat_template_kwargs metadata", func() {
 		Expect(blob).To(HaveKeyWithValue("preserve_thinking", true))
 	})
 
+	It("serialises reasoning_effort into the blob as a JSON string", func() {
+		cfg := baseCfg()
+		cfg.ReasoningEffort = "high"
+		opts := gRPCPredictOpts(cfg, "/tmp/models")
+		Expect(opts.Metadata).To(HaveKey("chat_template_kwargs"))
+		var blob map[string]any
+		Expect(json.Unmarshal([]byte(opts.Metadata["chat_template_kwargs"]), &blob)).To(Succeed())
+		// reasoning_effort must remain a string in the blob (jinja templates that
+		// key on the level read a string), unlike enable_thinking which is a bool.
+		Expect(blob["reasoning_effort"]).To(BeAssignableToTypeOf(""))
+		Expect(blob).To(HaveKeyWithValue("reasoning_effort", "high"))
+	})
+
 	It("lets client request metadata override the server-derived enable_thinking key", func() {
 		cfg := baseCfg()
 		disable := true
