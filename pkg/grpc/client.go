@@ -647,7 +647,7 @@ func (c *Client) Depth(ctx context.Context, in *pb.DepthRequest, opts ...grpc.Ca
 	if err != nil {
 		return nil, err
 	}
-	defer conn.Close()
+	defer func() { _ = conn.Close() }()
 	client := pb.NewBackendClient(conn)
 	return client.Depth(ctx, in, opts...)
 }
