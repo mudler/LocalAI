@@ -391,8 +391,17 @@ int load_model(const char *model, char *model_path, char* options[], int threads
     const char *control_net_path = "";
     const char *embedding_dir = "";
     const char *photo_maker_path = "";
+    const char *pulid_weights_path = "";
     const char *tensor_type_rules = "";
     char *lora_dir = model_path;
+
+    // Upstream backend/parameter placement specs (see docs/.../stablediffusion).
+    // Empty means "leave at upstream default" (nullptr).
+    const char *backend_arg = "";
+    const char *params_backend_arg = "";
+    const char *rpc_servers_arg = "";
+    const char *max_vram_arg = "";
+    bool stream_layers = false;
 
     int n_threads = threads;
     enum sd_type_t wtype = SD_TYPE_COUNT;
@@ -417,7 +426,9 @@ int load_model(const char *model, char *model_path, char* options[], int threads
     // If options is not NULL, parse options
     for (int i = 0; options[i] != NULL; i++) {
         const char *optname = strtok(options[i], ":");
-        const char *optval = strtok(NULL, ":");
+        // Take everything after the first ':' as the value so values may
+        // themselves contain colons (e.g. rpc_servers host:port lists).
+        const char *optval = strtok(NULL, "");
         if (optval == NULL) {
             optval = "true";
         }
@@ -489,7 +500,17 @@ int load_model(const char *model, char *model_path, char* options[], int threads
             }
         }
         if (!strcmp(optname, "photo_maker_path")) photo_maker_path = strdup(optval);
+        if (!strcmp(optname, "pulid_weights_path")) pulid_weights_path = strdup(optval);
         if (!strcmp(optname, "tensor_type_rules")) tensor_type_rules = strdup(optval);
+
+        // Backend / parameter placement specs (see prepare_backend_assignments
+        // in the upstream CLI). These compose with the legacy keep_*_on_cpu /
+        // offload_params_to_cpu booleans below.
+        if (!strcmp(optname, "backend")) backend_arg = strdup(optval);
+        if (!strcmp(optname, "params_backend")) params_backend_arg = strdup(optval);
+        if (!strcmp(optname, "rpc_servers")) rpc_servers_arg = strdup(optval);
+        if (!strcmp(optname, "max_vram")) max_vram_arg = strdup(optval);
+        if (!strcmp(optname, "stream_layers")) stream_layers = (strcmp(optval, "true") == 0 || strcmp(optval, "1") == 0);
 
         // vae_decode_only is still accepted for backwards compatibility with
         // existing gallery configs, but upstream dropped the option (the model
@@ -592,6 +613,7 @@ int load_model(const char *model, char *model_path, char* options[], int threads
     ctx_params.embeddings = embedding_vec.empty() ? NULL : embedding_vec.data();
     ctx_params.embedding_count = static_cast<uint32_t>(embedding_vec.size());
     ctx_params.photo_maker_path = photo_maker_path;
+    if (strlen(pulid_weights_path) > 0) ctx_params.pulid_weights_path = pulid_weights_path;
     ctx_params.tensor_type_rules = tensor_type_rules;
     ctx_params.n_threads = n_threads;
     ctx_params.rng_type = rng_type;
@@ -599,13 +621,14 @@ int load_model(const char *model, char *model_path, char* options[], int threads
     if (sampler_rng_type != RNG_TYPE_COUNT) ctx_params.sampler_rng_type = sampler_rng_type;
     if (prediction != PREDICTION_COUNT) ctx_params.prediction = prediction;
     if (lora_apply_mode != LORA_APPLY_MODE_COUNT) ctx_params.lora_apply_mode = lora_apply_mode;
-    // Upstream replaced the boolean CPU-offload knobs (offload_params_to_cpu,
-    // keep_clip_on_cpu, keep_vae_on_cpu, keep_control_net_on_cpu) with backend
-    // assignment specs. Translate the legacy options we still accept from
-    // gallery configs into those specs, mirroring prepare_backend_assignments()
-    // in the upstream CLI. These strings must outlive new_sd_ctx() below.
-    std::string backend_spec;
-    std::string params_backend_spec;
+    // Backend / parameter placement specs. Upstream replaced the boolean
+    // CPU-offload knobs (offload_params_to_cpu, keep_clip_on_cpu, keep_vae_on_cpu,
+    // keep_control_net_on_cpu) with these specs. Seed from the explicit
+    // backend/params_backend options, then prepend the legacy boolean-derived
+    // assignments, mirroring prepare_backend_assignments() in the upstream CLI.
+    // These strings must outlive new_sd_ctx() below.
+    std::string backend_spec = backend_arg;
+    std::string params_backend_spec = params_backend_arg;
     auto prepend_spec = [](std::string& spec, const char* assignment) {
         spec = spec.empty() ? std::string(assignment) : std::string(assignment) + "," + spec;
     };
@@ -615,6 +638,12 @@ int load_model(const char *model, char *model_path, char* options[], int threads
     if (keep_control_net_on_cpu) prepend_spec(backend_spec, "controlnet=cpu");
     if (!backend_spec.empty()) ctx_params.backend = backend_spec.c_str();
     if (!params_backend_spec.empty()) ctx_params.params_backend = params_backend_spec.c_str();
+    if (strlen(rpc_servers_arg) > 0) ctx_params.rpc_servers = rpc_servers_arg;
+    // max_vram: GiB budget or per-backend spec for graph-cut segmented param
+    // offload ("0" = disabled, "-1" = auto). stream_layers only has effect when
+    // max_vram is set.
+    if (strlen(max_vram_arg) > 0) ctx_params.max_vram = max_vram_arg;
+    ctx_params.stream_layers = stream_layers;
     ctx_params.diffusion_flash_attn = diffusion_flash_attn;
     ctx_params.tae_preview_only = tae_preview_only;
     ctx_params.diffusion_conv_direct = diffusion_conv_direct;
