@@ -9,7 +9,7 @@ JOBS?=$(shell nproc --ignore=1)
 # depth-anything.cpp. Pin to a specific commit for a stable build; a squash
 # merge upstream can orphan a branch, so the native version is pinned by SHA.
 DEPTHANYTHING_REPO?=https://github.com/mudler/depth-anything.cpp.git
-DEPTHANYTHING_VERSION?=61ede2a6f1402aab3875729126830b61561db6ae
+DEPTHANYTHING_VERSION?=e0b6814d2f58261216da69d63326f1f2d75d4435
 
 ifeq ($(NATIVE),false)
 	CMAKE_ARGS+=-DGGML_NATIVE=OFF
