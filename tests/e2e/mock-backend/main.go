@@ -109,6 +109,23 @@ func (m *MockBackend) Predict(ctx context.Context, in *pb.PredictOptions) (*pb.R
 		}, nil
 	}
 
+	// ECHO_PREDICT_METADATA lets tests assert exactly what the REST layer
+	// forwarded to the backend as gRPC PredictOptions.Metadata (e.g. the
+	// chat_template_kwargs blob and the standalone enable_thinking/reasoning_effort
+	// keys). The reply carries a JSON snapshot of in.Metadata so an HTTP-level
+	// test can pin the request -> gRPC mapping without a new RPC.
+	if strings.Contains(in.Prompt, "ECHO_PREDICT_METADATA") {
+		payload, err := json.Marshal(in.Metadata)
+		if err != nil {
+			return nil, fmt.Errorf("mock backend echo metadata error: %w", err)
+		}
+		return &pb.Reply{
+			Message:      payload,
+			Tokens:       int32(len(in.Metadata)),
+			PromptTokens: 1,
+		}, nil
+	}
+
 	// ECHO_SERVED_MODEL returns the loaded model file path so router e2e
 	// tests can verify which candidate actually served the request without
 	// adding a new RPC. The router fans out to a single backend process per
