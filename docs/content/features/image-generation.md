@@ -103,9 +103,9 @@ options:
 - "keep_clip_on_cpu:true"
 ```
 
-{{% alert note %}}
+{{% notice note %}}
 `vae_decode_only` is still accepted for backwards compatibility but is now a no-op: upstream removed the flag and the model decides automatically.
-{{% /alert %}}
+{{% /notice %}}
 
 #### Distributed inference (RPC workers)
 
