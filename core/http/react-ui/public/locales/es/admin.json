@@ -58,5 +58,21 @@
   "explorer": {
     "title": "Explorador",
     "subtitle": "Explora archivos y configuración"
+  },
+  "cluster": {
+    "title": "Clúster",
+    "subtitle": "Nodos distribuidos y entre pares que sirven a esta instancia",
+    "empty": "No hay clustering distribuido ni p2p habilitado. Inicia LocalAI en modo distribuido o federado/p2p para gestionar aquí los nodos del clúster.",
+    "distributed": {
+      "title": "Distribuido (NATS)"
+    },
+    "swarm": {
+      "title": "Swarm (p2p)"
+    },
+    "summary": {
+      "nodes": "Nodos distribuidos",
+      "inFlight": "Solicitudes en curso",
+      "peers": "Pares de Swarm en línea"
+    }
   }
 }

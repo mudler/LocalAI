@@ -58,5 +58,21 @@
   "explorer": {
     "title": "资源浏览器",
     "subtitle": "浏览文件和配置"
+  },
+  "cluster": {
+    "title": "集群",
+    "subtitle": "为此实例提供服务的分布式和点对点节点",
+    "empty": "未启用分布式或 p2p 集群。请以分布式或联邦/p2p 模式启动 LocalAI，以便在此管理集群节点。",
+    "distributed": {
+      "title": "分布式 (NATS)"
+    },
+    "swarm": {
+      "title": "Swarm (p2p)"
+    },
+    "summary": {
+      "nodes": "分布式节点",
+      "inFlight": "进行中的请求",
+      "peers": "在线 Swarm 节点"
+    }
   }
 }

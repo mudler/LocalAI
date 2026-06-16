@@ -81,7 +81,7 @@ async function mockDistributedNodes(page, { onDelete } = {}) {
 }
 
 async function expandNodeAndWaitForBackends(page) {
-  await page.goto('/app/nodes')
+  await page.goto('/app/cluster')
   // Click the row to expand it. The chevron toggle and the row both work,
   // but clicking the name cell is the most user-like.
   await page.getByText(NODE_NAME).first().click()

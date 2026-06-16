@@ -339,7 +339,7 @@ function DistributedBackendLogsResolver({ modelId, fromTimestamp }) {
           <h2 className="empty-state-title">Model not loaded on any worker</h2>
           <p className="empty-state-text">
             <span style={{ fontFamily: 'var(--font-mono)' }}>{modelId}</span> isn't currently loaded on any node in the cluster.
-            Check the <Link to="/app/nodes" style={{ color: 'var(--color-primary)' }}>Nodes page</Link> to see which models are running where.
+            Check the <Link to="/app/cluster" style={{ color: 'var(--color-primary)' }}>Nodes page</Link> to see which models are running where.
           </p>
         </div>
       </div>

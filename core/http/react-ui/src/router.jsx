@@ -45,7 +45,7 @@ const Talk = page('talk', () => import('./pages/Talk'))
 const Backends = page('backends', () => import('./pages/Backends'))
 const Settings = page('settings', () => import('./pages/Settings'))
 const Traces = page('traces', () => import('./pages/Traces'))
-const P2P = page('p2p', () => import('./pages/P2P'))
+const Cluster = page('cluster', () => import('./pages/Cluster'))
 const Agents = page('agents', () => import('./pages/Agents'))
 const AgentCreate = page(null, () => import('./pages/AgentCreate'))
 const AgentChat = page(null, () => import('./pages/AgentChat'))
@@ -68,7 +68,6 @@ const Quantize = page('quantize', () => import('./pages/Quantize'))
 const Studio = page('studio', () => import('./pages/Studio'))
 const FaceRecognition = page('face', () => import('./pages/FaceRecognition'))
 const VoiceRecognition = page('voice', () => import('./pages/VoiceRecognition'))
-const Nodes = page('nodes', () => import('./pages/Nodes'))
 const NodeBackendLogs = page(null, () => import('./pages/NodeBackendLogs'))
 const NotFound = page(null, () => import('./pages/NotFound'))
 const Usage = page('usage', () => import('./pages/Usage'))
@@ -120,8 +119,9 @@ const appChildren = [
   { path: 'settings', element: <Admin><Settings /></Admin> },
   { path: 'traces', element: <Admin><Traces /></Admin> },
   { path: 'backend-logs/:modelId', element: <Admin><BackendLogs /></Admin> },
-  { path: 'p2p', element: <Admin><P2P /></Admin> },
-  { path: 'nodes', element: <Admin><Nodes /></Admin> },
+  { path: 'cluster', element: <Admin><Cluster /></Admin> },
+  { path: 'p2p',     element: <Navigate to="/app/cluster" replace /> },
+  { path: 'nodes',   element: <Navigate to="/app/cluster" replace /> },
   { path: 'node-backend-logs/:nodeId/:modelId', element: <Admin><NodeBackendLogs /></Admin> },
   { path: 'agents', element: <Feature feature="agents"><Agents /></Feature> },
   { path: 'agents/new', element: <Feature feature="agents"><AgentCreate /></Feature> },

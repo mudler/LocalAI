@@ -40,6 +40,7 @@
     "traces": "Traces",
     "nodes": "Knoten",
     "swarm": "Swarm",
+    "cluster": "Cluster",
     "system": "System",
     "settings": "Einstellungen",
     "api": "API"

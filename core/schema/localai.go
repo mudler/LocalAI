@@ -129,18 +129,38 @@ type StoresFindResponse struct {
 	Similarities []float32   `json:"similarities" yaml:"similarities"`
 }
 
+// NodeOnlineWindow is how long after its last announce a node still counts as
+// online. Nodes re-announce into the edgevpn ledger every 20s (see core/p2p
+// ExposeService), so 40s tolerates a single missed announce.
+const NodeOnlineWindow = 40 * time.Second
+
 type NodeData struct {
 	Name          string
 	ID            string
 	TunnelAddress string
 	ServiceID     string
 	LastSeen      time.Time
+	// AvailableVRAM is the node's free GPU VRAM in bytes at its last announce,
+	// gossiped so federation selection can prefer peers with more headroom.
+	// Zero for CPU-only nodes and for peers on an older version that does not
+	// publish it; the routing policy treats zero as the lowest VRAM tier.
+	AvailableVRAM uint64
+	// Models is the set of model names this peer currently serves, gossiped so
+	// the federation proxy can route a request only to peers that have the
+	// requested model. Empty means "unknown" (an older peer, or one that has
+	// not loaded any model yet) and is treated as eligible for any model so a
+	// mixed-version swarm is not starved.
+	Models []string
 }
 
 func (d NodeData) IsOnline() bool {
-	now := time.Now()
-	// if the node was seen in the last 40 seconds, it's online
-	return now.Sub(d.LastSeen) < 40*time.Second
+	return d.IsOnlineAt(time.Now())
+}
+
+// IsOnlineAt reports whether the node counts as online relative to now. It is
+// split from IsOnline so selection logic can be exercised with a fixed clock.
+func (d NodeData) IsOnlineAt(now time.Time) bool {
+	return now.Sub(d.LastSeen) < NodeOnlineWindow
 }
 
 type P2PNodesResponse struct {

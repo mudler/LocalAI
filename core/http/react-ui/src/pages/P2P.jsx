@@ -102,7 +102,7 @@ function StepNumber({ n, bg, color }) {
   )
 }
 
-export default function P2P() {
+export default function P2P({ embedded = false }) {
   const { addToast } = useOutletContext()
   const { t } = useTranslation('admin')
   const [workers, setWorkers] = useState([])
@@ -172,7 +172,7 @@ export default function P2P() {
 
   if (loading) {
     return (
-      <div className="page page--narrow" style={{ display: 'flex', justifyContent: 'center', padding: 'var(--spacing-xl)' }}>
+      <div className={embedded ? '' : 'page page--narrow'} style={{ display: 'flex', justifyContent: 'center', padding: 'var(--spacing-xl)' }}>
         <LoadingSpinner size="lg" />
       </div>
     )
@@ -181,7 +181,7 @@ export default function P2P() {
   // ── P2P Disabled ──
   if (!enabled) {
     return (
-      <div className="page page--narrow">
+      <div className={embedded ? '' : 'page page--narrow'}>
         <div style={{ textAlign: 'center', padding: 'var(--spacing-xl) 0' }}>
           <i className="fas fa-network-wired" style={{ fontSize: '3rem', color: 'var(--color-primary)', marginBottom: 'var(--spacing-md)' }} />
           <h1 style={{ fontSize: '1.5rem', fontWeight: 600, marginBottom: 'var(--spacing-sm)' }}>
@@ -294,21 +294,23 @@ export default function P2P() {
   const mlxTotal = stats.mlx_workers?.total ?? 0
 
   return (
-    <div className="page page--narrow">
-      <div className="page-header">
-        <h1 className="page-title">
-          <i className="fas fa-circle-nodes" style={{ marginRight: 'var(--spacing-sm)' }} />
-          {t('p2p.title')}
-        </h1>
-        <p className="page-subtitle">
-          {t('p2p.subtitle')}
-          {' '}
-          <a href="https://localai.io/features/distribute/" target="_blank" rel="noopener noreferrer"
-            style={{ color: 'var(--color-primary)' }}>
-            <i className="fas fa-circle-info" />
-          </a>
-        </p>
-      </div>
+    <div className={embedded ? '' : 'page page--narrow'}>
+      {!embedded && (
+        <div className="page-header">
+          <h1 className="page-title">
+            <i className="fas fa-circle-nodes" style={{ marginRight: 'var(--spacing-sm)' }} />
+            {t('p2p.title')}
+          </h1>
+          <p className="page-subtitle">
+            {t('p2p.subtitle')}
+            {' '}
+            <a href="https://localai.io/features/distribute/" target="_blank" rel="noopener noreferrer"
+              style={{ color: 'var(--color-primary)' }}>
+              <i className="fas fa-circle-info" />
+            </a>
+          </p>
+        </div>
+      )}
 
       {/* Network Token */}
       <div style={{
