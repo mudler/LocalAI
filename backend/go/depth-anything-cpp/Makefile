@@ -8,9 +8,11 @@ JOBS?=$(shell nproc --ignore=1)
 
 # depth-anything.cpp. Pin to a specific commit for a stable build; a squash
 # merge upstream can orphan a branch, so the native version is pinned by SHA.
-# The SHA is kept alive by the v0.1.2 tag on the upstream repo.
+# This SHA adds the nested two-file metric C-API (abi_version 4,
+# da_capi_load_nested) required by the depth-anything-3-nested gallery model;
+# tag it (e.g. v0.1.3) upstream to keep the SHA alive.
 DEPTHANYTHING_REPO?=https://github.com/mudler/depth-anything.cpp.git
-DEPTHANYTHING_VERSION?=442eea4f73e83ca9d9bc8e026b966cffa678ffc4
+DEPTHANYTHING_VERSION?=cce5edc395fd1843806093d7ccc0c8b0d0b97b72
 
 ifeq ($(NATIVE),false)
 	CMAKE_ARGS+=-DGGML_NATIVE=OFF

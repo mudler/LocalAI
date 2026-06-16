@@ -37,6 +37,7 @@ func main() {
 
 	libFuncs := []LibFuncs{
 		{&CapiLoad, "da_capi_load"},
+		{&CapiLoadNested, "da_capi_load_nested"},
 		{&CapiFree, "da_capi_free"},
 		{&CapiLastError, "da_capi_last_error"},
 		{&CapiDepthPath, "da_capi_depth_path"},
