@@ -368,6 +368,25 @@ func gRPCPredictOpts(c config.ModelConfig, modelPath string) *pb.PredictOptions 
 	if c.ReasoningEffort != "" {
 		metadata["reasoning_effort"] = c.ReasoningEffort
 	}
+	// Client request metadata overrides the server-derived reasoning levers and
+	// reaches every backend through these standalone string keys (Python backends
+	// read them directly). The reserved blob key is server-owned and skipped.
+	for k, v := range c.RequestMetadata {
+		if k == "chat_template_kwargs" {
+			continue
+		}
+		metadata[k] = v
+	}
+	// Build the generic chat_template_kwargs blob (model config map + coerced
+	// metadata) for llama.cpp and write it LAST so a client cannot clobber it.
+	if blob := c.ResolveChatTemplateKwargs(metadata); len(blob) > 0 {
+		b, err := json.Marshal(blob)
+		if err != nil {
+			xlog.Warn("failed to marshal chat_template_kwargs", "error", err)
+		} else {
+			metadata["chat_template_kwargs"] = string(b)
+		}
+	}
 	pbOpts.Metadata = metadata
 
 	// Logprobs and TopLogprobs are set by the caller if provided
