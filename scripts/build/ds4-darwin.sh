@@ -41,12 +41,17 @@ done
 echo "Bundled libraries:"
 ls -la build/darwin/lib
 
-# Build an OCI tar that local-ai backends install can consume.
-# scripts/build/oci-pack.sh is the existing helper used by llama-cpp-darwin
-# - if your tree doesn't have it, write one (5 lines: tar + manifest.json).
-if [ -f scripts/build/oci-pack.sh ]; then
-    bash scripts/build/oci-pack.sh build/darwin backend-images/ds4.tar "$IMAGE_NAME"
-else
-    # Fallback: simple tar - local-ai accepts a flat tar in dev environments.
-    tar -C build/darwin -cvf backend-images/ds4.tar .
-fi
+# Build an OCI image tar (with manifest.json) that `local-ai backends install`
+# can consume - mirrors llama-cpp-darwin.sh. The previously referenced
+# scripts/build/oci-pack.sh helper was never added to the tree, so the
+# plain-tar fallback produced a manifest-less tarball the installer rejects
+# with "file manifest.json not found in tar".
+PLATFORMARCH="${PLATFORMARCH:-darwin/arm64}"
+
+./local-ai util create-oci-image \
+        build/darwin/. \
+        --output ./backend-images/ds4.tar \
+        --image-name "$IMAGE_NAME" \
+        --platform "$PLATFORMARCH"
+
+rm -rf build/darwin
