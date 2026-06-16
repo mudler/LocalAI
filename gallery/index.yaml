@@ -8178,6 +8178,38 @@
     - filename: depth-anything-metric-large-f32.gguf
       uri: huggingface://mudler/depth-anything.cpp-gguf/depth-anything-metric-large-f32.gguf
       sha256: "d10b7450c2238244b2d72e2749537a1876255180149cd630a18bc1619c9286be"
+
+- !!merge <<: *depth-anything-3-base
+  name: depth-anything-3-nested
+  description: |
+    Depth Anything 3 (nested giant+large), f32 — the recommended metric model. A
+    two-branch pipeline: the anyview GIANT (vitg) branch and a metric ViT-L branch
+    are run and aligned to recover true metric-scale depth (meters) + scaled camera
+    pose from a single image. Downloads both branches (~6 GB total); GPU strongly
+    recommended. Predict returns metric depth stats + pose (is_metric=true).
+  tags:
+    - depth-estimation
+    - camera-pose
+    - metric-depth
+    - depth-anything
+    - native
+    - cpp
+    - gpu
+  overrides:
+    backend: depth-anything
+    # The metric (ViT-L) branch is loaded alongside the anyview model via the
+    # metric_model option; both files are fetched below.
+    options:
+      - "metric_model:depth-anything-nested-metric.gguf"
+    parameters:
+      model: depth-anything-nested-anyview.gguf
+  files:
+    - filename: depth-anything-nested-anyview.gguf
+      uri: huggingface://mudler/depth-anything.cpp-gguf/depth-anything-nested-anyview.gguf
+      sha256: "2a4cb4382aa8c4159fff10dfffa121f3c7a574551c4ff4ad130f235d5442f9ce"
+    - filename: depth-anything-nested-metric.gguf
+      uri: huggingface://mudler/depth-anything.cpp-gguf/depth-anything-nested-metric.gguf
+      sha256: "b54ed50cbc0b0c14fae1f8edd0fea8bd1cac0850485fd6e7eb2422c7a19e570e"
 - name: rfdetr-cpp-base
   url: github:mudler/LocalAI/gallery/virtual.yaml@master
   urls:

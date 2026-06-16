@@ -24,6 +24,7 @@ import (
 	"math"
 	"os"
 	"path/filepath"
+	"strings"
 	"unsafe"
 
 	"github.com/mudler/LocalAI/pkg/grpc/base"
@@ -36,6 +37,10 @@ import (
 var (
 	// da_capi_load(const char* gguf_path, int n_threads) -> da_ctx* (0 = fail)
 	CapiLoad func(gguf string, nThreads int32) uintptr
+	// da_capi_load_nested(const char* anyview_gguf, const char* metric_gguf,
+	//   int n_threads) -> da_ctx* (0 = fail). The returned ctx serves the nested
+	//   metric model: depth/pose calls produce final metric-scale depth + scaled pose.
+	CapiLoadNested func(anyview string, metric string, nThreads int32) uintptr
 	// da_capi_free(da_ctx* ctx) — safe on a 0 handle.
 	CapiFree func(handle uintptr)
 	// da_capi_last_error(da_ctx* ctx) -> const char* (owned by ctx, "" if none).
@@ -87,16 +92,23 @@ func (r *DepthAnythingCpp) Load(opts *pb.ModelOptions) error {
 		return fmt.Errorf("depth-anything-cpp: ModelFile is empty")
 	}
 
-	var modelPath string
-	if filepath.IsAbs(modelFile) {
-		modelPath = modelFile
-	} else {
-		modelPath = filepath.Join(opts.ModelPath, modelFile)
+	resolve := func(name string) string {
+		if filepath.IsAbs(name) {
+			return name
+		}
+		return filepath.Join(opts.ModelPath, name)
 	}
+	modelPath := resolve(modelFile)
 
 	if _, err := os.Stat(modelPath); err != nil {
 		return fmt.Errorf("depth-anything-cpp: model file not found: %s: %w", modelPath, err)
 	}
+
+	// Nested metric models are a two-file pair: the main model is the anyview
+	// (GIANT) branch and the metric (ViT-L + DPT/sky) branch is named via a
+	// "metric_model:<filename>" entry in opts.Options. When present we load both
+	// branches so the engine runs the nested metric alignment.
+	metricFile := optionValue(opts.Options, "metric_model")
 
 	threads := opts.Threads
 	if threads <= 0 {
@@ -109,17 +121,45 @@ func (r *DepthAnythingCpp) Load(opts *pb.ModelOptions) error {
 		r.handle = 0
 	}
 
-	h := CapiLoad(modelPath, threads)
-	if h == 0 {
-		// da_capi_last_error needs a ctx; on a failed load we have none (it
-		// returns "" for a null ctx), so the text is best-effort.
-		if msg := CapiLastError(0); msg != "" {
-			return fmt.Errorf("depth-anything-cpp: da_capi_load failed for %s: %s", modelPath, msg)
+	var h uintptr
+	if metricFile != "" {
+		metricPath := resolve(metricFile)
+		if _, err := os.Stat(metricPath); err != nil {
+			return fmt.Errorf("depth-anything-cpp: metric_model file not found: %s: %w", metricPath, err)
 		}
-		return fmt.Errorf("depth-anything-cpp: da_capi_load failed for %s", modelPath)
+		h = CapiLoadNested(modelPath, metricPath, threads)
+		if h == 0 {
+			if msg := CapiLastError(0); msg != "" {
+				return fmt.Errorf("depth-anything-cpp: da_capi_load_nested failed for %s + %s: %s", modelPath, metricPath, msg)
+			}
+			return fmt.Errorf("depth-anything-cpp: da_capi_load_nested failed for %s + %s", modelPath, metricPath)
+		}
+	} else {
+		h = CapiLoad(modelPath, threads)
+		if h == 0 {
+			// da_capi_last_error needs a ctx; on a failed load we have none (it
+			// returns "" for a null ctx), so the text is best-effort.
+			if msg := CapiLastError(0); msg != "" {
+				return fmt.Errorf("depth-anything-cpp: da_capi_load failed for %s: %s", modelPath, msg)
+			}
+			return fmt.Errorf("depth-anything-cpp: da_capi_load failed for %s", modelPath)
+		}
 	}
 	r.handle = h
 	return nil
+}
+
+// optionValue returns the value of the first "key:value" entry in opts whose key
+// matches (case-sensitive), or "" if absent. Mirrors how other LocalAI backends
+// read ModelOptions.Options.
+func optionValue(opts []string, key string) string {
+	prefix := key + ":"
+	for _, o := range opts {
+		if strings.HasPrefix(o, prefix) {
+			return strings.TrimSpace(o[len(prefix):])
+		}
+	}
+	return ""
 }
 
 // depthResult is the JSON payload returned by Predict.
@@ -373,6 +413,10 @@ func copyBytes(p *byte, n int) []byte {
 // runDepthPose runs depth estimation then pose recovery on an image file. It
 // returns the row-major depth map (length h*w), its dimensions, the 3x4
 // extrinsics (12 floats) and 3x3 intrinsics (9 floats).
+// runDepthPose returns depth + camera pose via two C-API calls (depth then pose).
+// For a nested metric model both calls run the full two-branch pipeline, so this
+// path infers twice; the typed Depth RPC (single da_capi_depth_dense call) is the
+// efficient path for nested models.
 func (r *DepthAnythingCpp) runDepthPose(imagePath string) (depth []float32, h, w int, ext [12]float32, intr [9]float32, err error) {
 	if r.handle == 0 {
 		err = fmt.Errorf("depth-anything-cpp: model not loaded")
