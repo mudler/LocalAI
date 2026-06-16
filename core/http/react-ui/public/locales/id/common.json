@@ -86,7 +86,8 @@
     "type": "Tipe",
     "value": "Nilai",
     "search": "Cari...",
-    "selectPlaceholder": "Pilih opsi..."
+    "selectPlaceholder": "Pilih opsi...",
+    "noMatch": "Tidak ada yang cocok"
   },
   "time": {
     "now": "baru saja",

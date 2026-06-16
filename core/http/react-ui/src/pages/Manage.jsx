@@ -675,7 +675,7 @@ export default function Manage() {
                               onClick: () => handleTogglePinned(model.id, model.pinned),
                               disabled: pinningModels.has(model.id) || !!model.disabled },
                             { key: 'edit', icon: 'fa-pen-to-square', label: 'Edit configuration',
-                              onClick: () => navigate(`/app/model-editor/${encodeURIComponent(model.id)}`, { state: fromState(location, 'Manage') }) },
+                              onClick: () => navigate(`/app/model-editor/${encodeURIComponent(model.id)}`, { state: fromState(location, t('manage.title')) }) },
                             { key: 'logs', icon: 'fa-terminal', label: 'Backend logs',
                               onClick: () => navigate(`/app/backend-logs/${encodeURIComponent(model.id)}`) },
                             { divider: true },
