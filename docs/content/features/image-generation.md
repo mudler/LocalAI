@@ -107,6 +107,27 @@ options:
 `vae_decode_only` is still accepted for backwards compatibility but is now a no-op: upstream removed the flag and the model decides automatically.
 {{% /alert %}}
 
+#### Distributed inference (RPC workers)
+
+The `stablediffusion-ggml` backend can offload computation to remote `ggml` RPC workers, sharding a model that does not fit on a single machine. It reuses the **same backend-agnostic `rpc-server` workers as the llama.cpp backend**, so one worker pool can serve both.
+
+**Manual:** point the model at running workers with the `rpc_servers` option:
+
+```yaml
+options:
+- "rpc_servers:192.168.1.10:50052,192.168.1.11:50052"
+```
+
+Start a worker on each remote machine the same way you would for llama.cpp:
+
+```bash
+local-ai worker llama-cpp-rpc --llama-cpp-args="--host 0.0.0.0 --port 50052"
+```
+
+**Automatic (peer-to-peer):** when LocalAI runs in [p2p worker mode]({{%relref "features/distributed_inferencing" %}}), discovered workers are published in the `LLAMACPP_GRPC_SERVERS` environment variable. The image-generation backend reads that variable automatically (when `rpc_servers` is not set), so the same `local-ai worker p2p-llama-cpp-rpc` workers used for text generation also accelerate image generation - no per-model configuration needed.
+
+By default the RPC devices join the pool and participate in placement; combine with the `backend` / `params_backend` options above to pin specific components to them (e.g. `backend:diffusion=rpc0`).
+
 
 ### Diffusers
 

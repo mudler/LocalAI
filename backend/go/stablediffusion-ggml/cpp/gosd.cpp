@@ -638,7 +638,18 @@ int load_model(const char *model, char *model_path, char* options[], int threads
     if (keep_control_net_on_cpu) prepend_spec(backend_spec, "controlnet=cpu");
     if (!backend_spec.empty()) ctx_params.backend = backend_spec.c_str();
     if (!params_backend_spec.empty()) ctx_params.params_backend = params_backend_spec.c_str();
-    if (strlen(rpc_servers_arg) > 0) ctx_params.rpc_servers = rpc_servers_arg;
+    // RPC servers: prefer the explicit option, otherwise fall back to the
+    // LLAMACPP_GRPC_SERVERS env var. LocalAI's p2p worker mode populates that
+    // var with discovered ggml rpc-server workers (shared with the llama.cpp
+    // backend), so distributed image generation works with no extra config.
+    if (strlen(rpc_servers_arg) > 0) {
+        ctx_params.rpc_servers = rpc_servers_arg;
+    } else {
+        const char* env_rpc_servers = std::getenv("LLAMACPP_GRPC_SERVERS");
+        if (env_rpc_servers != NULL && strlen(env_rpc_servers) > 0) {
+            ctx_params.rpc_servers = env_rpc_servers;
+        }
+    }
     // max_vram: GiB budget or per-backend spec for graph-cut segmented param
     // offload ("0" = disabled, "-1" = auto). stream_layers only has effect when
     // max_vram is set.
