@@ -163,6 +163,12 @@ var defaultImporters = []Importer{
 	// bundles aren't claimed by the generic .gguf importer; kept next to
 	// RFDetrImporter as both are detection models.
 	&LocateAnythingImporter{},
+	// DepthAnythingImporter (ByteDance Depth Anything 3 metric depth + camera
+	// pose, native C++/ggml port) must run before LlamaCPPImporter so its GGUF
+	// bundles aren't claimed by the generic .gguf importer; matches only the
+	// depth-anything-<size>-<quant>.gguf naming, so it cannot claim arbitrary
+	// GGUFs.
+	&DepthAnythingImporter{},
 	// Existing
 	// DS4Importer must precede LlamaCPPImporter - ds4 weights are GGUFs and
 	// would otherwise be claimed by the generic .gguf-handling llama-cpp

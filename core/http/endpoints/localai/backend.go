@@ -41,8 +41,6 @@ var knownPrefOnlyBackends = []schema.KnownBackend{
 	{Name: "supertonic", Modality: "tts", AutoDetect: false, Description: "Supertonic multilingual ONNX TTS (preference-only)"},
 	// Detection
 	{Name: "sam3-cpp", Modality: "detection", AutoDetect: false, Description: "SAM3 C++ object detection (preference-only)"},
-	// Depth estimation
-	{Name: "depth-anything", Modality: "depth", AutoDetect: false, Description: "Depth Anything 3 C++ metric depth + camera pose (preference-only)"},
 	// Audio transform (audio-in / audio-out, optional reference signal)
 	{Name: "localvqe", Modality: "audio-transform", AutoDetect: false, Description: "LocalVQE C++ joint AEC + noise suppression + dereverberation (preference-only)"},
 }
