@@ -64,6 +64,7 @@ var UsecaseOptions = []FieldOption{
 	{Value: "image", Label: "Image"},
 	{Value: "vision", Label: "Vision"},
 	{Value: "detection", Label: "Detection"},
+	{Value: "depth", Label: "Depth"},
 	{Value: "face_recognition", Label: "Face Recognition"},
 	{Value: "transcript", Label: "Transcript"},
 	{Value: "diarization", Label: "Diarization"},

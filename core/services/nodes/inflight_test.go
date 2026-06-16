@@ -100,6 +100,10 @@ func (f *fakeGRPCBackend) Detect(_ context.Context, _ *pb.DetectOptions, _ ...gg
 	return &pb.DetectResponse{}, nil
 }
 
+func (f *fakeGRPCBackend) Depth(_ context.Context, _ *pb.DepthRequest, _ ...ggrpc.CallOption) (*pb.DepthResponse, error) {
+	return &pb.DepthResponse{}, nil
+}
+
 func (f *fakeGRPCBackend) FaceVerify(_ context.Context, _ *pb.FaceVerifyRequest, _ ...ggrpc.CallOption) (*pb.FaceVerifyResponse, error) {
 	return &pb.FaceVerifyResponse{}, nil
 }

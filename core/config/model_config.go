@@ -1342,6 +1342,10 @@ const (
 	// chat/completion/embeddings.
 	FLAG_SCORE ModelConfigUsecase = 0b10000000000000000000
 
+	// Marks a model as wired for the Depth gRPC primitive (per-pixel
+	// metric depth + camera pose + 3D point cloud via Depth Anything 3).
+	FLAG_DEPTH ModelConfigUsecase = 0b100000000000000000000
+
 	// Common Subsets
 	FLAG_LLM ModelConfigUsecase = FLAG_CHAT | FLAG_COMPLETION | FLAG_EDIT
 )
@@ -1399,6 +1403,7 @@ func GetAllModelConfigUsecases() map[string]ModelConfigUsecase {
 		"FLAG_DIARIZATION":         FLAG_DIARIZATION,
 		"FLAG_REALTIME_AUDIO":      FLAG_REALTIME_AUDIO,
 		"FLAG_SCORE":               FLAG_SCORE,
+		"FLAG_DEPTH":               FLAG_DEPTH,
 	}
 }
 
@@ -1538,6 +1543,13 @@ func (c *ModelConfig) GuessUsecases(u ModelConfigUsecase) bool {
 	if (u & FLAG_DETECTION) == FLAG_DETECTION {
 		detectionBackends := []string{"rfdetr", "sam3-cpp", "insightface"}
 		if !slices.Contains(detectionBackends, c.Backend) {
+			return false
+		}
+	}
+
+	if (u & FLAG_DEPTH) == FLAG_DEPTH {
+		depthBackends := []string{"depth-anything"}
+		if !slices.Contains(depthBackends, c.Backend) {
 			return false
 		}
 	}

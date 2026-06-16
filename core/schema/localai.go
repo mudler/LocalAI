@@ -181,6 +181,40 @@ type Detection struct {
 	Mask       string  `json:"mask,omitempty"` // base64-encoded PNG segmentation mask
 }
 
+// DepthRequest is the request body for the /v1/depth endpoint. It exposes the
+// full Depth Anything 3 output surface; the include_* flags and exports let a
+// caller ask for less work (e.g. depth only, or depth+pose without the point
+// cloud).
+type DepthRequest struct {
+	BasicModelRequest
+	Image             string   `json:"image"`                        // URL or base64-encoded image to analyze
+	Dst               string   `json:"dst,omitempty"`                // optional output directory for exports (glb/colmap)
+	IncludeDepth      bool     `json:"include_depth,omitempty"`      // return the per-pixel depth map
+	IncludeConfidence bool     `json:"include_confidence,omitempty"` // return the per-pixel confidence map (DualDPT)
+	IncludePose       bool     `json:"include_pose,omitempty"`       // return camera extrinsics/intrinsics (DualDPT)
+	IncludeSky        bool     `json:"include_sky,omitempty"`        // return the per-pixel sky map (mono models)
+	IncludePoints     bool     `json:"include_points,omitempty"`     // back-project to a 3D point cloud (DualDPT)
+	PointsConfThresh  float32  `json:"points_conf_thresh,omitempty"` // keep points with confidence >= this threshold
+	Exports           []string `json:"exports,omitempty"`            // requested exports: "glb", "colmap"
+}
+
+// DepthResponse is the JSON response for the /v1/depth endpoint, mirroring the
+// DepthResponse proto.
+type DepthResponse struct {
+	Width       int32     `json:"width"`
+	Height      int32     `json:"height"`
+	Depth       []float32 `json:"depth,omitempty"`        // width*height row-major metric depth
+	Confidence  []float32 `json:"confidence,omitempty"`   // width*height row-major confidence (DualDPT)
+	Sky         []float32 `json:"sky,omitempty"`          // width*height row-major sky map (mono)
+	Extrinsics  []float32 `json:"extrinsics,omitempty"`   // 12 floats, 3x4 row-major (world-to-camera)
+	Intrinsics  []float32 `json:"intrinsics,omitempty"`   // 9 floats, 3x3 row-major
+	NumPoints   int32     `json:"num_points,omitempty"`   // number of 3D points
+	Points      []float32 `json:"points,omitempty"`       // num_points*3 xyz, world space
+	PointColors string    `json:"point_colors,omitempty"` // base64-encoded num_points*3 uint8 rgb
+	ExportPaths []string  `json:"export_paths,omitempty"` // paths written for the requested exports
+	IsMetric    bool      `json:"is_metric"`              // depth is in metric units
+}
+
 // ─── Face recognition ──────────────────────────────────────────────
 //
 // FacialArea describes a bounding box for a detected face.

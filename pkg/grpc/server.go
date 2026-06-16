@@ -156,6 +156,18 @@ func (s *server) Detect(ctx context.Context, in *pb.DetectOptions) (*pb.DetectRe
 	return &res, nil
 }
 
+func (s *server) Depth(ctx context.Context, in *pb.DepthRequest) (*pb.DepthResponse, error) {
+	if s.llm.Locking() {
+		s.llm.Lock()
+		defer s.llm.Unlock()
+	}
+	res, err := s.llm.Depth(in)
+	if err != nil {
+		return nil, err
+	}
+	return &res, nil
+}
+
 func (s *server) FaceVerify(ctx context.Context, in *pb.FaceVerifyRequest) (*pb.FaceVerifyResponse, error) {
 	if s.llm.Locking() {
 		s.llm.Lock()

@@ -21,6 +21,7 @@ const (
 	UsecaseSoundGeneration = "sound_generation"
 	UsecaseRerank          = "rerank"
 	UsecaseDetection       = "detection"
+	UsecaseDepth           = "depth"
 	UsecaseVAD             = "vad"
 	UsecaseAudioTransform      = "audio_transform"
 	UsecaseDiarization         = "diarization"
@@ -44,6 +45,7 @@ const (
 	MethodSoundGeneration    GRPCMethod = "SoundGeneration"
 	MethodTokenizeString     GRPCMethod = "TokenizeString"
 	MethodDetect             GRPCMethod = "Detect"
+	MethodDepth              GRPCMethod = "Depth"
 	MethodRerank             GRPCMethod = "Rerank"
 	MethodVAD                GRPCMethod = "VAD"
 	MethodAudioTransform     GRPCMethod = "AudioTransform"
@@ -140,6 +142,11 @@ var UsecaseInfoMap = map[string]UsecaseInfo{
 		Flag:        FLAG_DETECTION,
 		GRPCMethod:  MethodDetect,
 		Description: "Object detection via the Detect RPC with bounding boxes.",
+	},
+	UsecaseDepth: {
+		Flag:        FLAG_DEPTH,
+		GRPCMethod:  MethodDepth,
+		Description: "Per-pixel metric depth, camera pose and 3D point cloud via the Depth RPC (Depth Anything 3).",
 	},
 	UsecaseVAD: {
 		Flag:        FLAG_VAD,
@@ -487,6 +494,13 @@ var BackendCapabilities = map[string]BackendCapability{
 		PossibleUsecases: []string{UsecaseDetection},
 		DefaultUsecases:  []string{UsecaseDetection},
 		Description:      "RF-DETR C++ object detection",
+	},
+	"depth-anything": {
+		GRPCMethods:      []GRPCMethod{MethodDepth, MethodPredict, MethodGenerateImage},
+		PossibleUsecases: []string{UsecaseDepth},
+		DefaultUsecases:  []string{UsecaseDepth},
+		AcceptsImages:    true,
+		Description:      "Depth Anything 3 C++ — per-pixel metric depth, camera pose and 3D point cloud",
 	},
 
 	// --- Face and speaker recognition backends ---

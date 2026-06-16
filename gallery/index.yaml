@@ -8018,6 +8018,150 @@
     - filename: locate-anything-q8_0.gguf
       uri: huggingface://mudler/locate-anything.cpp-gguf/locate-anything-q8_0.gguf
       sha256: 0909d8a1aba584b482d501baae032611d1559878be1b7f6606ba516687c5380d
+- &depth-anything-3-base
+  name: depth-anything-3-base
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://github.com/mudler/depth-anything.cpp
+    - https://huggingface.co/depth-anything/Depth-Anything-V3
+    - https://huggingface.co/mudler/depth-anything.cpp-gguf
+  description: |
+    Depth Anything 3 (base) monocular metric depth + camera pose, served via the
+    native depth-anything.cpp backend (C++/ggml + purego, no Python at inference).
+    Given an image it returns a dense depth map plus the recovered camera
+    extrinsics (3x4) and intrinsics (3x3). Use GenerateImage (src -> normalized
+    depth PNG at dst) or Predict (JSON depth stats + pose). q4_k is the
+    recommended CPU default.
+  license: apache-2.0
+  icon: https://avatars.githubusercontent.com/u/53104118?s=200&v=4
+  tags:
+    - depth-estimation
+    - camera-pose
+    - depth-anything
+    - native
+    - cpp
+    - cpu
+  overrides:
+    backend: depth-anything
+    parameters:
+      model: depth-anything-base-q4_k.gguf
+  files:
+    - filename: depth-anything-base-q4_k.gguf
+      uri: huggingface://mudler/depth-anything.cpp-gguf/depth-anything-base-q4_k.gguf
+      sha256: "43cd45d00f9024f4319f4beabd73155db5132e4b575bc52eff4131262c9d78f1"
+
+- !!merge <<: *depth-anything-3-base
+  name: depth-anything-3-base-q8_0
+  description: |
+    Depth Anything 3 (base), q8_0 — near-lossless 8-bit quant (~149 MB). Same
+    depth + camera pose output as the q4_k default at higher fidelity.
+  overrides:
+    backend: depth-anything
+    parameters:
+      model: depth-anything-base-q8_0.gguf
+  files:
+    - filename: depth-anything-base-q8_0.gguf
+      uri: huggingface://mudler/depth-anything.cpp-gguf/depth-anything-base-q8_0.gguf
+      sha256: "71b1c953113657f9a4fbef43ab6a16fe7a6f87b36da113a184f13c4a564968a0"
+
+- !!merge <<: *depth-anything-3-base
+  name: depth-anything-3-base-f16
+  description: |
+    Depth Anything 3 (base), f16 — half precision (~233 MB), no measurable
+    accuracy loss vs f32. Depth + camera pose.
+  overrides:
+    backend: depth-anything
+    parameters:
+      model: depth-anything-base-f16.gguf
+  files:
+    - filename: depth-anything-base-f16.gguf
+      uri: huggingface://mudler/depth-anything.cpp-gguf/depth-anything-base-f16.gguf
+      sha256: "2975419c99702ca646d5b7120c53e35c9fee158f0a803577241d16957f75624b"
+
+- !!merge <<: *depth-anything-3-base
+  name: depth-anything-3-base-f32
+  description: |
+    Depth Anything 3 (base), f32 — maximum fidelity (~412 MB). Reference-parity
+    depth + camera pose.
+  overrides:
+    backend: depth-anything
+    parameters:
+      model: depth-anything-base-f32.gguf
+  files:
+    - filename: depth-anything-base-f32.gguf
+      uri: huggingface://mudler/depth-anything.cpp-gguf/depth-anything-base-f32.gguf
+      sha256: "1b13b166e8a8b4f2c862f42d36edb2f9aab995a18cc527a52b9f160b99c6b8da"
+
+- !!merge <<: *depth-anything-3-base
+  name: depth-anything-3-giant
+  description: |
+    Depth Anything 3 (giant / vitg), f32 — the large backbone (~4.9 GB) for
+    maximum quality depth + camera pose. GPU recommended.
+  tags:
+    - depth-estimation
+    - camera-pose
+    - depth-anything
+    - native
+    - cpp
+    - gpu
+  overrides:
+    backend: depth-anything
+    parameters:
+      model: depth-anything-giant-f32.gguf
+  files:
+    - filename: depth-anything-giant-f32.gguf
+      uri: huggingface://mudler/depth-anything.cpp-gguf/depth-anything-giant-f32.gguf
+      sha256: "392edf64626be6a985487beb39c8d54cdc14f7feb2b53323742c96b71e7e7181"
+
+- !!merge <<: *depth-anything-3-base
+  name: depth-anything-3-small
+  description: |
+    Depth Anything 3 (small / vits), f32 — the smallest backbone (~131 MB) for
+    fast CPU depth + camera pose. Same output as base at lower latency.
+  overrides:
+    backend: depth-anything
+    parameters:
+      model: depth-anything-small-f32.gguf
+  files:
+    - filename: depth-anything-small-f32.gguf
+      uri: huggingface://mudler/depth-anything.cpp-gguf/depth-anything-small-f32.gguf
+      sha256: "eab5597e01dedde1a20c038590ae8c887b85ec35b882581138c08308e92c41e5"
+
+- !!merge <<: *depth-anything-3-base
+  name: depth-anything-3-large
+  description: |
+    Depth Anything 3 (large / vitl), f32 (~1.6 GB) — higher quality depth +
+    camera pose than base. GPU recommended for interactive use.
+  tags:
+    - depth-estimation
+    - camera-pose
+    - depth-anything
+    - native
+    - cpp
+    - gpu
+  overrides:
+    backend: depth-anything
+    parameters:
+      model: depth-anything-large-f32.gguf
+  files:
+    - filename: depth-anything-large-f32.gguf
+      uri: huggingface://mudler/depth-anything.cpp-gguf/depth-anything-large-f32.gguf
+      sha256: "a79eb3e19e8ec49f4daac484fb5fb67e15baac61518d229cf819e40c87080906"
+
+- !!merge <<: *depth-anything-3-base
+  name: depth-anything-3-mono-large
+  description: |
+    Depth Anything 3 (monocular large / vitl), f32 (~1.3 GB) — single-image
+    monocular depth + a sky mask (no camera pose). DPT single-head variant; use
+    GenerateImage (src -> normalized depth PNG) or Predict (JSON depth stats).
+  overrides:
+    backend: depth-anything
+    parameters:
+      model: depth-anything-mono-large-f32.gguf
+  files:
+    - filename: depth-anything-mono-large-f32.gguf
+      uri: huggingface://mudler/depth-anything.cpp-gguf/depth-anything-mono-large-f32.gguf
+      sha256: "291b1a554af907c3f79986ee225da8933be5f7a31d73c81d06784cda284535de"
 - name: rfdetr-cpp-base
   url: github:mudler/LocalAI/gallery/virtual.yaml@master
   urls:

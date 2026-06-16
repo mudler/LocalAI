@@ -152,6 +152,12 @@ func (c *InFlightTrackingClient) Detect(ctx context.Context, in *pb.DetectOption
 	return res, c.reconcile(err)
 }
 
+func (c *InFlightTrackingClient) Depth(ctx context.Context, in *pb.DepthRequest, opts ...ggrpc.CallOption) (*pb.DepthResponse, error) {
+	defer c.track(ctx)()
+	res, err := c.Backend.Depth(ctx, in, opts...)
+	return res, c.reconcile(err)
+}
+
 func (c *InFlightTrackingClient) Rerank(ctx context.Context, in *pb.RerankRequest, opts ...ggrpc.CallOption) (*pb.RerankResult, error) {
 	defer c.track(ctx)()
 	res, err := c.Backend.Rerank(ctx, in, opts...)
