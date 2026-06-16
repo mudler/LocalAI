@@ -8,9 +8,9 @@ JOBS?=$(shell nproc --ignore=1)
 
 # depth-anything.cpp. Pin to a specific commit for a stable build; a squash
 # merge upstream can orphan a branch, so the native version is pinned by SHA.
-# The SHA is kept alive by the v0.1.1 tag on the upstream repo.
+# The SHA is kept alive by the v0.1.2 tag on the upstream repo.
 DEPTHANYTHING_REPO?=https://github.com/mudler/depth-anything.cpp.git
-DEPTHANYTHING_VERSION?=2d42897c2d2a6adeac70416a87ca1efd3ca2f7a7
+DEPTHANYTHING_VERSION?=442eea4f73e83ca9d9bc8e026b966cffa678ffc4
 
 ifeq ($(NATIVE),false)
 	CMAKE_ARGS+=-DGGML_NATIVE=OFF
