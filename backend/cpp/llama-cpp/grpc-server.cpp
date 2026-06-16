@@ -1922,25 +1922,27 @@ public:
                     body_json["min_p"] = data["min_p"];
                 }
 
-                // Pass enable_thinking via chat_template_kwargs (where oaicompat_chat_params_parse reads it)
+                // Forward the chat_template_kwargs the Go layer resolved (model config
+                // chat_template_kwargs + per-request metadata: enable_thinking,
+                // reasoning_effort, preserve_thinking, ...). One generic merge replaces
+                // the previous per-key handling - new template levers need no C++ change.
+                // oaicompat_chat_params_parse reads these from body_json.
                 const auto& metadata = request->metadata();
-                auto et_it = metadata.find("enable_thinking");
-                if (et_it != metadata.end()) {
-                    if (!body_json.contains("chat_template_kwargs")) {
-                        body_json["chat_template_kwargs"] = json::object();
+                auto ctk_it = metadata.find("chat_template_kwargs");
+                if (ctk_it != metadata.end() && !ctk_it->second.empty()) {
+                    try {
+                        json ctk = json::parse(ctk_it->second);
+                        if (ctk.is_object()) {
+                            if (!body_json.contains("chat_template_kwargs")) {
+                                body_json["chat_template_kwargs"] = json::object();
+                            }
+                            for (auto& el : ctk.items()) {
+                                body_json["chat_template_kwargs"][el.key()] = el.value();
+                            }
+                        }
+                    } catch (const std::exception & e) {
+                        SRV_WRN("failed to parse chat_template_kwargs metadata: %s\n", e.what());
                     }
-                    body_json["chat_template_kwargs"]["enable_thinking"] = (et_it->second == "true");
-                }
-
-                // Pass reasoning_effort via chat_template_kwargs too: the lever
-                // jinja templates like gpt-oss (Harmony) / LFM2.5 read, distinct
-                // from enable_thinking which those templates ignore.
-                auto re_it = metadata.find("reasoning_effort");
-                if (re_it != metadata.end() && !re_it->second.empty()) {
-                    if (!body_json.contains("chat_template_kwargs")) {
-                        body_json["chat_template_kwargs"] = json::object();
-                    }
-                    body_json["chat_template_kwargs"]["reasoning_effort"] = re_it->second;
                 }
 
                 // Debug: Print full body_json before template processing (includes messages, tools, tool_choice, etc.)
@@ -2756,25 +2758,26 @@ public:
                     body_json["min_p"] = data["min_p"];
                 }
 
-                // Pass enable_thinking via chat_template_kwargs (where oaicompat_chat_params_parse reads it)
+                // Forward the chat_template_kwargs the Go layer resolved (model config
+                // chat_template_kwargs + per-request metadata: enable_thinking,
+                // reasoning_effort, preserve_thinking, ...). One generic merge replaces
+                // the previous per-key handling - new template levers need no C++ change.
                 const auto& predict_metadata = request->metadata();
-                auto predict_et_it = predict_metadata.find("enable_thinking");
-                if (predict_et_it != predict_metadata.end()) {
-                    if (!body_json.contains("chat_template_kwargs")) {
-                        body_json["chat_template_kwargs"] = json::object();
+                auto predict_ctk_it = predict_metadata.find("chat_template_kwargs");
+                if (predict_ctk_it != predict_metadata.end() && !predict_ctk_it->second.empty()) {
+                    try {
+                        json ctk = json::parse(predict_ctk_it->second);
+                        if (ctk.is_object()) {
+                            if (!body_json.contains("chat_template_kwargs")) {
+                                body_json["chat_template_kwargs"] = json::object();
+                            }
+                            for (auto& el : ctk.items()) {
+                                body_json["chat_template_kwargs"][el.key()] = el.value();
+                            }
+                        }
+                    } catch (const std::exception & e) {
+                        SRV_WRN("failed to parse chat_template_kwargs metadata: %s\n", e.what());
                     }
-                    body_json["chat_template_kwargs"]["enable_thinking"] = (predict_et_it->second == "true");
-                }
-
-                // Pass reasoning_effort via chat_template_kwargs too: the lever
-                // jinja templates like gpt-oss (Harmony) / LFM2.5 read, distinct
-                // from enable_thinking which those templates ignore.
-                auto predict_re_it = predict_metadata.find("reasoning_effort");
-                if (predict_re_it != predict_metadata.end() && !predict_re_it->second.empty()) {
-                    if (!body_json.contains("chat_template_kwargs")) {
-                        body_json["chat_template_kwargs"] = json::object();
-                    }
-                    body_json["chat_template_kwargs"]["reasoning_effort"] = predict_re_it->second;
                 }
 
                 // Debug: Print full body_json before template processing (includes messages, tools, tool_choice, etc.)
