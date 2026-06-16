@@ -635,8 +635,11 @@ func (l *Launcher) showDownloadProgress(version, title string) {
 		progressBar := widget.NewProgressBar()
 		progressBar.SetValue(0)
 
-		// Status label
+		// Status label. Truncate with an ellipsis so a long "Download failed:
+		// <url>" message can't stretch the window (and progress bar) to fit the
+		// whole error on one line; the full error is shown in the dialog below.
 		statusLabel := widget.NewLabel("Preparing download...")
+		statusLabel.Truncation = fyne.TextTruncateEllipsis
 
 		// Release notes button
 		releaseNotesButton := widget.NewButton("View Release Notes", func() {
