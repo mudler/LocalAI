@@ -731,3 +731,60 @@ var _ = Describe("SetModelAndConfig reasoning_effort parsing (chat completions)"
 		Expect(*(*captured2).ReasoningConfig.DisableReasoning).To(BeFalse())
 	})
 })
+
+var _ = Describe("SetModelAndConfig metadata passthrough (chat completions)", func() {
+	var modelDir string
+
+	BeforeEach(func() {
+		var err error
+		modelDir, err = os.MkdirTemp("", "localai-test-models-*")
+		Expect(err).ToNot(HaveOccurred())
+	})
+	AfterEach(func() { _ = os.RemoveAll(modelDir) })
+
+	buildApp := func() (*echo.Echo, **config.ModelConfig) {
+		Expect(os.WriteFile(filepath.Join(modelDir, "test-model.yaml"),
+			[]byte("name: test-model\nbackend: llama\n"), 0644)).To(Succeed())
+		ss := &system.SystemState{Model: system.Model{ModelsPath: modelDir}}
+		appConfig := config.NewApplicationConfig()
+		appConfig.SystemState = ss
+		mcl := config.NewModelConfigLoader(modelDir)
+		ml := model.NewModelLoader(ss)
+		re := NewRequestExtractor(mcl, ml, appConfig)
+
+		captured := new(*config.ModelConfig)
+		app := echo.New()
+		app.POST("/v1/chat/completions",
+			func(c echo.Context) error {
+				if cfg, ok := c.Get(CONTEXT_LOCALS_KEY_MODEL_CONFIG).(*config.ModelConfig); ok {
+					*captured = cfg
+				}
+				return c.String(http.StatusOK, "ok")
+			},
+			re.SetModelAndConfig(func() schema.LocalAIRequest { return new(schema.OpenAIRequest) }),
+			func(next echo.HandlerFunc) echo.HandlerFunc {
+				return func(c echo.Context) error {
+					if err := re.SetOpenAIRequest(c); err != nil {
+						return err
+					}
+					return next(c)
+				}
+			},
+		)
+		return app, captured
+	}
+
+	It("stamps request metadata onto the config", func() {
+		app, captured := buildApp()
+		body := `{"model":"test-model","messages":[{"role":"user","content":"hi"}],` +
+			`"metadata":{"preserve_thinking":"true"}}`
+		req := httptest.NewRequest(http.MethodPost, "/v1/chat/completions", strings.NewReader(body))
+		req.Header.Set("Content-Type", "application/json")
+		rec := httptest.NewRecorder()
+		app.ServeHTTP(rec, req)
+
+		Expect(rec.Code).To(Equal(http.StatusOK))
+		Expect(*captured).ToNot(BeNil())
+		Expect((*captured).RequestMetadata).To(HaveKeyWithValue("preserve_thinking", "true"))
+	})
+})

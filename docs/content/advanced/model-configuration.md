@@ -438,6 +438,36 @@ pipeline:
   reasoning_effort: none   # overrides the LLM model's own reasoning_effort
 ```
 
+#### Custom `chat_template_kwargs`
+
+Some jinja chat templates expose extra variables beyond `enable_thinking` /
+`reasoning_effort` (for example Qwen3's `preserve_thinking`). Set arbitrary key/values in
+the model config and they are forwarded to the backend's `chat_template_kwargs` as-is, so
+you don't need a dedicated server option per template variable:
+
+```yaml
+name: qwen3
+chat_template_kwargs:
+  preserve_thinking: true
+```
+
+You can also override (or add) any of these per request through the OpenAI `metadata`
+field on `/v1/chat/completions`. Values are strings; `"true"` / `"false"` are coerced to
+booleans, anything else is passed through as a string:
+
+```json
+{
+  "model": "qwen3",
+  "messages": [{"role": "user", "content": "hi"}],
+  "metadata": { "preserve_thinking": "true", "enable_thinking": "false" }
+}
+```
+
+Per-request `metadata` overrides the model config defaults and the reasoning-config levers,
+and (for `enable_thinking` / `reasoning_effort`) takes effect across every backend that
+reads them, not just llama.cpp. Typed (non-boolean) values are only supported through the
+model YAML `chat_template_kwargs`, where YAML preserves the type.
+
 ### Multimodal Backend Options
 
 | Option | Type | Default | Description |

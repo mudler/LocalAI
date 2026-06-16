@@ -161,3 +161,67 @@ var _ = Describe("grpcModelOpts NBatch", func() {
 		Expect(opts.ContextSize).To(BeEquivalentTo(4096), "n_batch must match the effective n_ctx the backend receives")
 	})
 })
+
+// Guards the generic chat_template_kwargs forwarding: the model config map plus any
+// per-request metadata overrides are merged, coerced, and serialised into the
+// backend metadata blob that llama.cpp reads. Client metadata also overrides the
+// server-derived standalone enable_thinking key (cross-backend consistency).
+var _ = Describe("gRPCPredictOpts chat_template_kwargs metadata", func() {
+	baseCfg := func() config.ModelConfig {
+		cfg := config.ModelConfig{}
+		cfg.SetDefaults()
+		return cfg
+	}
+
+	It("serialises the config map into the chat_template_kwargs blob", func() {
+		cfg := baseCfg()
+		cfg.ChatTemplateKwargs = map[string]any{"preserve_thinking": true}
+		opts := gRPCPredictOpts(cfg, "/tmp/models")
+		Expect(opts.Metadata).To(HaveKey("chat_template_kwargs"))
+		var blob map[string]any
+		Expect(json.Unmarshal([]byte(opts.Metadata["chat_template_kwargs"]), &blob)).To(Succeed())
+		Expect(blob).To(HaveKeyWithValue("preserve_thinking", true))
+	})
+
+	It("serialises reasoning_effort into the blob as a JSON string", func() {
+		cfg := baseCfg()
+		cfg.ReasoningEffort = "high"
+		opts := gRPCPredictOpts(cfg, "/tmp/models")
+		Expect(opts.Metadata).To(HaveKey("chat_template_kwargs"))
+		var blob map[string]any
+		Expect(json.Unmarshal([]byte(opts.Metadata["chat_template_kwargs"]), &blob)).To(Succeed())
+		// reasoning_effort must remain a string in the blob (jinja templates that
+		// key on the level read a string), unlike enable_thinking which is a bool.
+		Expect(blob["reasoning_effort"]).To(BeAssignableToTypeOf(""))
+		Expect(blob).To(HaveKeyWithValue("reasoning_effort", "high"))
+	})
+
+	It("lets client request metadata override the server-derived enable_thinking key", func() {
+		cfg := baseCfg()
+		disable := true
+		cfg.ReasoningConfig = reasoning.Config{DisableReasoning: &disable} // server: enable_thinking=false
+		cfg.RequestMetadata = map[string]string{"enable_thinking": "true"} // client overrides
+		opts := gRPCPredictOpts(cfg, "/tmp/models")
+		// standalone key (Python backends) reflects the client override
+		Expect(opts.Metadata).To(HaveKeyWithValue("enable_thinking", "true"))
+		// blob (llama.cpp) reflects it too, as a real bool
+		var blob map[string]any
+		Expect(json.Unmarshal([]byte(opts.Metadata["chat_template_kwargs"]), &blob)).To(Succeed())
+		Expect(blob).To(HaveKeyWithValue("enable_thinking", true))
+	})
+
+	It("does not let a client clobber the blob via a chat_template_kwargs metadata key", func() {
+		cfg := baseCfg()
+		cfg.ChatTemplateKwargs = map[string]any{"preserve_thinking": true}
+		cfg.RequestMetadata = map[string]string{"chat_template_kwargs": "{\"preserve_thinking\": false}"}
+		opts := gRPCPredictOpts(cfg, "/tmp/models")
+		var blob map[string]any
+		Expect(json.Unmarshal([]byte(opts.Metadata["chat_template_kwargs"]), &blob)).To(Succeed())
+		Expect(blob).To(HaveKeyWithValue("preserve_thinking", true))
+	})
+
+	It("omits the blob when there is nothing to forward", func() {
+		opts := gRPCPredictOpts(baseCfg(), "/tmp/models")
+		Expect(opts.Metadata).ToNot(HaveKey("chat_template_kwargs"))
+	})
+})

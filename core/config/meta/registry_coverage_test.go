@@ -112,6 +112,7 @@ var grandfatheredUnregistered = []string{
 	"agent.max_attempts",
 	"agent.max_iterations",
 	"cfg_scale",
+	"chat_template_kwargs",
 	"concurrency_groups",
 	"cutstrings",
 	"debug",

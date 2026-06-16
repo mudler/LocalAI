@@ -318,6 +318,13 @@ func mergeOpenAIRequestAndModelConfig(config *config.ModelConfig, input *schema.
 	// (an operator's explicit disable wins over a request asking to think).
 	config.ApplyReasoningEffort(input.ReasoningEffort)
 
+	// Forward the client's request metadata so chat-template kwargs set per-request
+	// (enable_thinking, reasoning_effort, preserve_thinking, ...) reach the backend
+	// and override the model's reasoning-config defaults. See gRPCPredictOpts.
+	if len(input.Metadata) > 0 {
+		config.RequestMetadata = input.Metadata
+	}
+
 	// Collapse the modern max_completion_tokens alias into the
 	// legacy Maxtokens field so downstream code reads exactly one.
 	// MaxCompletionTokens wins on conflict — it's the canonical
