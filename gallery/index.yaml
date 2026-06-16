@@ -1,4 +1,59 @@
 ---
+- name: "north-mini-code-1.0"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/unsloth/North-Mini-Code-1.0-GGUF
+  description: |
+    # **Model Card for North Mini Code**
+
+    ## **Model Summary**
+
+    North Mini Code is an open weights research release of a 30B-A3B parameter model optimized for code generation, agentic software engineering, and terminal tasks.
+
+    Developed by: Cohere and Cohere Labs
+
+    * Point of Contact: **Cohere Labs**
+    * License: Apache 2.0
+    * Model: North Mini Code
+    * Model Size: 30B total; 3B active
+    * Context length: 256K & 64K max output
+
+    For more details about this model, please check out our blog post.
+
+    **Try North Mini Code**
+
+    You can try out North Mini Code before downloading the weights in OpenCode and our hosted Hugging Face Space.
+
+    **Evaluation**
+
+    Benchmarking Methodology [CLICK TO EXPAND]
+
+    ...
+  license: "apache-2.0"
+  tags:
+    - llm
+    - gguf
+    - code
+    - chat
+  icon: https://cdn-uploads.huggingface.co/production/uploads/62668f725fb8d521d94d8451/xR7kZ3X9RKEZrbgD6hpG1.png
+  overrides:
+    backend: llama-cpp
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/North-Mini-Code-1.0-GGUF/North-Mini-Code-1.0-UD-Q4_K_M.gguf
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/North-Mini-Code-1.0-GGUF/North-Mini-Code-1.0-UD-Q4_K_M.gguf
+      sha256: d59f4cb3abec1bd3e5e185b99cdd811e3be3402cbc2bab8223081a460d5724bf
+      uri: https://huggingface.co/unsloth/North-Mini-Code-1.0-GGUF/resolve/main/North-Mini-Code-1.0-UD-Q4_K_M.gguf
 - name: "gemma-4-12b-coder-fable5-composer2.5-v1"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
