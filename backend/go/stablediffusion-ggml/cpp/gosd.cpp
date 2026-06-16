@@ -394,7 +394,6 @@ int load_model(const char *model, char *model_path, char* options[], int threads
     const char *tensor_type_rules = "";
     char *lora_dir = model_path;
 
-    bool vae_decode_only = true;
     int n_threads = threads;
     enum sd_type_t wtype = SD_TYPE_COUNT;
     enum rng_type_t rng_type = CUDA_RNG;
@@ -492,7 +491,9 @@ int load_model(const char *model, char *model_path, char* options[], int threads
         if (!strcmp(optname, "photo_maker_path")) photo_maker_path = strdup(optval);
         if (!strcmp(optname, "tensor_type_rules")) tensor_type_rules = strdup(optval);
 
-        if (!strcmp(optname, "vae_decode_only")) vae_decode_only = (strcmp(optval, "true") == 0 || strcmp(optval, "1") == 0);
+        // vae_decode_only is still accepted for backwards compatibility with
+        // existing gallery configs, but upstream dropped the option (the model
+        // now decides), so it is parsed and ignored.
         if (!strcmp(optname, "offload_params_to_cpu")) offload_params_to_cpu = (strcmp(optval, "true") == 0 || strcmp(optval, "1") == 0);
         if (!strcmp(optname, "keep_clip_on_cpu")) keep_clip_on_cpu = (strcmp(optval, "true") == 0 || strcmp(optval, "1") == 0);
         if (!strcmp(optname, "keep_control_net_on_cpu")) keep_control_net_on_cpu = (strcmp(optval, "true") == 0 || strcmp(optval, "1") == 0);
@@ -592,19 +593,28 @@ int load_model(const char *model, char *model_path, char* options[], int threads
     ctx_params.embedding_count = static_cast<uint32_t>(embedding_vec.size());
     ctx_params.photo_maker_path = photo_maker_path;
     ctx_params.tensor_type_rules = tensor_type_rules;
-    ctx_params.vae_decode_only = vae_decode_only;
-    // XXX: Setting to true causes a segfault on the second run
-    ctx_params.free_params_immediately = false;
     ctx_params.n_threads = n_threads;
     ctx_params.rng_type = rng_type;
-    ctx_params.keep_clip_on_cpu = keep_clip_on_cpu;
     if (wtype != SD_TYPE_COUNT) ctx_params.wtype = wtype;
     if (sampler_rng_type != RNG_TYPE_COUNT) ctx_params.sampler_rng_type = sampler_rng_type;
     if (prediction != PREDICTION_COUNT) ctx_params.prediction = prediction;
     if (lora_apply_mode != LORA_APPLY_MODE_COUNT) ctx_params.lora_apply_mode = lora_apply_mode;
-    ctx_params.offload_params_to_cpu = offload_params_to_cpu;
-    ctx_params.keep_control_net_on_cpu = keep_control_net_on_cpu;
-    ctx_params.keep_vae_on_cpu = keep_vae_on_cpu;
+    // Upstream replaced the boolean CPU-offload knobs (offload_params_to_cpu,
+    // keep_clip_on_cpu, keep_vae_on_cpu, keep_control_net_on_cpu) with backend
+    // assignment specs. Translate the legacy options we still accept from
+    // gallery configs into those specs, mirroring prepare_backend_assignments()
+    // in the upstream CLI. These strings must outlive new_sd_ctx() below.
+    std::string backend_spec;
+    std::string params_backend_spec;
+    auto prepend_spec = [](std::string& spec, const char* assignment) {
+        spec = spec.empty() ? std::string(assignment) : std::string(assignment) + "," + spec;
+    };
+    if (offload_params_to_cpu) prepend_spec(params_backend_spec, "*=cpu");
+    if (keep_clip_on_cpu) prepend_spec(backend_spec, "te=cpu");
+    if (keep_vae_on_cpu) prepend_spec(backend_spec, "vae=cpu");
+    if (keep_control_net_on_cpu) prepend_spec(backend_spec, "controlnet=cpu");
+    if (!backend_spec.empty()) ctx_params.backend = backend_spec.c_str();
+    if (!params_backend_spec.empty()) ctx_params.params_backend = params_backend_spec.c_str();
     ctx_params.diffusion_flash_attn = diffusion_flash_attn;
     ctx_params.tae_preview_only = tae_preview_only;
     ctx_params.diffusion_conv_direct = diffusion_conv_direct;
