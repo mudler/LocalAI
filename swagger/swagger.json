@@ -2139,6 +2139,33 @@
                 }
             }
         },
+        "/v1/depth": {
+            "post": {
+                "tags": [
+                    "depth"
+                ],
+                "summary": "Estimates per-pixel depth (and optionally pose/points) from an image.",
+                "parameters": [
+                    {
+                        "description": "query params",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/schema.DepthRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Response",
+                        "schema": {
+                            "$ref": "#/definitions/schema.DepthResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/v1/detection": {
             "post": {
                 "tags": [
@@ -3899,6 +3926,125 @@
                 },
                 "text": {
                     "type": "string"
+                }
+            }
+        },
+        "schema.DepthRequest": {
+            "type": "object",
+            "properties": {
+                "dst": {
+                    "description": "optional output directory for exports (glb/colmap)",
+                    "type": "string"
+                },
+                "exports": {
+                    "description": "requested exports: \"glb\", \"colmap\"",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "image": {
+                    "description": "URL or base64-encoded image to analyze",
+                    "type": "string"
+                },
+                "include_confidence": {
+                    "description": "return the per-pixel confidence map (DualDPT)",
+                    "type": "boolean"
+                },
+                "include_depth": {
+                    "description": "return the per-pixel depth map",
+                    "type": "boolean"
+                },
+                "include_points": {
+                    "description": "back-project to a 3D point cloud (DualDPT)",
+                    "type": "boolean"
+                },
+                "include_pose": {
+                    "description": "return camera extrinsics/intrinsics (DualDPT)",
+                    "type": "boolean"
+                },
+                "include_sky": {
+                    "description": "return the per-pixel sky map (mono models)",
+                    "type": "boolean"
+                },
+                "model": {
+                    "type": "string"
+                },
+                "points_conf_thresh": {
+                    "description": "keep points with confidence \u003e= this threshold",
+                    "type": "number"
+                }
+            }
+        },
+        "schema.DepthResponse": {
+            "type": "object",
+            "properties": {
+                "confidence": {
+                    "description": "width*height row-major confidence (DualDPT)",
+                    "type": "array",
+                    "items": {
+                        "type": "number"
+                    }
+                },
+                "depth": {
+                    "description": "width*height row-major metric depth",
+                    "type": "array",
+                    "items": {
+                        "type": "number"
+                    }
+                },
+                "export_paths": {
+                    "description": "paths written for the requested exports",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "extrinsics": {
+                    "description": "12 floats, 3x4 row-major (world-to-camera)",
+                    "type": "array",
+                    "items": {
+                        "type": "number"
+                    }
+                },
+                "height": {
+                    "type": "integer"
+                },
+                "intrinsics": {
+                    "description": "9 floats, 3x3 row-major",
+                    "type": "array",
+                    "items": {
+                        "type": "number"
+                    }
+                },
+                "is_metric": {
+                    "description": "depth is in metric units",
+                    "type": "boolean"
+                },
+                "num_points": {
+                    "description": "number of 3D points",
+                    "type": "integer"
+                },
+                "point_colors": {
+                    "description": "base64-encoded num_points*3 uint8 rgb",
+                    "type": "string"
+                },
+                "points": {
+                    "description": "num_points*3 xyz, world space",
+                    "type": "array",
+                    "items": {
+                        "type": "number"
+                    }
+                },
+                "sky": {
+                    "description": "width*height row-major sky map (mono)",
+                    "type": "array",
+                    "items": {
+                        "type": "number"
+                    }
+                },
+                "width": {
+                    "type": "integer"
                 }
             }
         },
