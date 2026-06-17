@@ -208,7 +208,7 @@ func Run(ctx *cliContext.Context, cfg *Config) error {
 
 	// Subscribe to file staging NATS subjects if S3 is configured
 	if cfg.StorageURL != "" {
-		if err := cfg.subscribeFileStaging(natsClient, nodeID); err != nil {
+		if err := cfg.subscribeFileStaging(shutdownCtx, natsClient, nodeID); err != nil {
 			xlog.Error("Failed to subscribe to file staging subjects", "error", err)
 		}
 	}

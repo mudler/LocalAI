@@ -34,6 +34,10 @@ const (
 	routeRouterDecisions    = "/api/router/decisions"
 )
 
+func routeModelConfigYAML(name string) string {
+	return "/api/models/config-yaml/" + url.PathEscape(name)
+}
+
 func routePIIPatternByID(id string) string {
 	return "/api/pii/patterns/" + url.PathEscape(id)
 }

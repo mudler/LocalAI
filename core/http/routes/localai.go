@@ -92,6 +92,10 @@ func RegisterLocalAIRoutes(router *echo.Echo,
 		router.POST("/models/reload", localai.ReloadModelsEndpoint(cl, appConfig), adminMiddleware)
 	}
 
+	// JSON read-back of an installed model's YAML config (used by the
+	// standalone MCP server so it can call get_model_config over REST).
+	router.GET("/api/models/config-yaml/:name", localai.GetConfigEndpoint(cl, appConfig), adminMiddleware)
+
 	detectionHandler := localai.DetectionEndpoint(cl, ml, appConfig)
 	router.POST("/v1/detection",
 		detectionHandler,
