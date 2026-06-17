@@ -12,10 +12,19 @@ import (
 )
 
 type ApplicationConfig struct {
-	Context                             context.Context
-	ConfigFile                          string
-	SystemState                         *system.SystemState
-	ExternalBackends                    []string
+	Context          context.Context
+	ConfigFile       string
+	SystemState      *system.SystemState
+	ExternalBackends []string
+
+	// WebRTCNAT1To1IPs, when set, are advertised as the host ICE candidates for
+	// /v1/realtime WebRTC instead of every local interface address. Needed when
+	// the routable address differs from what pion gathers — e.g. Docker host
+	// networking (where pion also offers unreachable bridge IPs) or NAT.
+	WebRTCNAT1To1IPs []string
+	// WebRTCICEInterfaces, when set, restricts ICE candidate gathering to these
+	// network interfaces (e.g. eth0), filtering out docker0/veth noise.
+	WebRTCICEInterfaces                 []string
 	UploadLimitMB, Threads, ContextSize int
 	F16                                 bool
 	Debug                               bool
@@ -56,7 +65,7 @@ type ApplicationConfig struct {
 	//
 	//   patterns:
 	//     - id: email
-	//       action: route_local      # downgrade default mask -> route_local
+	//       action: allow            # downgrade default mask -> allow (log only)
 	//     - id: ssn
 	//       action: block            # upgrade default mask -> block
 	//
@@ -80,7 +89,6 @@ type ApplicationConfig struct {
 	// reload it so clients keep trusting the same root. The key
 	// file is mode 0600.
 	MITMCADir string
-
 
 	// PIIPatternOverrides applies persisted per-id deltas (action,
 	// disabled) to the live redactor at startup. Loaded from
@@ -116,11 +124,11 @@ type ApplicationConfig struct {
 	// --require-backend-integrity / LOCALAI_REQUIRE_BACKEND_INTEGRITY.
 	RequireBackendIntegrity bool
 
-	SingleBackend           bool // Deprecated: use MaxActiveBackends = 1 instead
-	MaxActiveBackends       int  // Maximum number of active backends (0 = unlimited, 1 = single backend mode)
-	WatchDogIdle bool
-	WatchDogBusy bool
-	WatchDog     bool
+	SingleBackend     bool // Deprecated: use MaxActiveBackends = 1 instead
+	MaxActiveBackends int  // Maximum number of active backends (0 = unlimited, 1 = single backend mode)
+	WatchDogIdle      bool
+	WatchDogBusy      bool
+	WatchDog          bool
 
 	// Memory Reclaimer settings (works with GPU if available, otherwise RAM)
 	MemoryReclaimerEnabled   bool    // Enable memory threshold monitoring
@@ -311,6 +319,18 @@ func WithExternalBackends(backends ...string) AppOption {
 	}
 }
 
+func WithWebRTCNAT1To1IPs(ips ...string) AppOption {
+	return func(o *ApplicationConfig) {
+		o.WebRTCNAT1To1IPs = ips
+	}
+}
+
+func WithWebRTCICEInterfaces(interfaces ...string) AppOption {
+	return func(o *ApplicationConfig) {
+		o.WebRTCICEInterfaces = interfaces
+	}
+}
+
 func WithMachineTag(tag string) AppOption {
 	return func(o *ApplicationConfig) {
 		o.MachineTag = tag
@@ -466,6 +486,16 @@ func (o *ApplicationConfig) GetEffectiveMaxActiveBackends() int {
 		return 1
 	}
 	return 0
+}
+
+// WatchdogShouldRun reports whether the live watchdog process should be
+// running for the current config. It mirrors the gating in
+// (*Application).startWatchdog so the /api/settings start/stop decision and
+// the startup path agree on a single source of truth: the watchdog runs when
+// idle/busy checks are enabled (WatchDog), when LRU eviction is active
+// (effective max active backends > 0), or when the memory reclaimer is on.
+func (o *ApplicationConfig) WatchdogShouldRun() bool {
+	return o.WatchDog || o.GetEffectiveMaxActiveBackends() > 0 || o.MemoryReclaimerEnabled
 }
 
 // WithForceEvictionWhenBusy sets whether to force eviction even when models have active API calls
@@ -701,7 +731,6 @@ func WithMITMCADir(dir string) AppOption {
 		o.MITMCADir = dir
 	}
 }
-
 
 func WithDynamicConfigDir(dynamicConfigsDir string) AppOption {
 	return func(o *ApplicationConfig) {
@@ -1179,17 +1208,21 @@ func (o *ApplicationConfig) ApplyRuntimeSettings(settings *RuntimeSettings) (req
 	}
 	if settings.WatchdogIdleEnabled != nil {
 		o.WatchDogIdle = *settings.WatchdogIdleEnabled
-		if o.WatchDogIdle {
-			o.WatchDog = true
-		}
 		requireRestart = true
 	}
 	if settings.WatchdogBusyEnabled != nil {
 		o.WatchDogBusy = *settings.WatchdogBusyEnabled
-		if o.WatchDogBusy {
-			o.WatchDog = true
-		}
 		requireRestart = true
+	}
+	// The React Settings "Enable Watchdog" master toggle manages only the
+	// idle/busy checks — watchdog_enabled is vestigial in that UI. Whenever
+	// either idle/busy field is present in the body, derive the run-state from
+	// idle||busy so a cold enable starts the watchdog and a full disable stops
+	// it, instead of trusting the stale watchdog_enabled the UI never updates.
+	// This mirrors the startup invariant in startup.go. An API client posting
+	// only watchdog_enabled (idle/busy absent) keeps its explicit value.
+	if settings.WatchdogIdleEnabled != nil || settings.WatchdogBusyEnabled != nil {
+		o.WatchDog = o.WatchDogIdle || o.WatchDogBusy
 	}
 	if settings.WatchdogIdleTimeout != nil {
 		if dur, err := time.ParseDuration(*settings.WatchdogIdleTimeout); err == nil {

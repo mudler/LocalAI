@@ -337,6 +337,247 @@
     nvidia-l4t-cuda-13: "cuda13-nvidia-l4t-arm64-rfdetr-cpp"
     intel: "intel-sycl-f32-rfdetr-cpp"
     vulkan: "vulkan-rfdetr-cpp"
+- &locateanything
+  name: "locate-anything"
+  alias: "locate-anything"
+  license: apache-2.0
+  description: |
+    Open-vocabulary object detection and visual grounding (NVIDIA
+    LocateAnything-3B) in C/C++ using GGML. Loads pre-built GGUF weights
+    and, given an image and a free-form text prompt, returns bounding
+    boxes, class labels, and confidence scores for the referred objects.
+  urls:
+    - https://github.com/mudler/locate-anything.cpp
+    - https://huggingface.co/nvidia/LocateAnything-3B
+  tags:
+    - object-detection
+    - visual-grounding
+    - open-vocabulary
+    - locate-anything
+    - gpu
+    - cpu
+  capabilities:
+    default: "cpu-locate-anything-cpp"
+    nvidia: "cuda12-locate-anything-cpp"
+    nvidia-cuda-12: "cuda12-locate-anything-cpp"
+    nvidia-cuda-13: "cuda13-locate-anything-cpp"
+    nvidia-l4t: "nvidia-l4t-arm64-locate-anything-cpp"
+    nvidia-l4t-cuda-12: "nvidia-l4t-arm64-locate-anything-cpp"
+    nvidia-l4t-cuda-13: "cuda13-nvidia-l4t-arm64-locate-anything-cpp"
+    intel: "intel-sycl-f32-locate-anything-cpp"
+    vulkan: "vulkan-locate-anything-cpp"
+- !!merge <<: *locateanything
+  name: "locate-anything-development"
+  capabilities:
+    default: "cpu-locate-anything-cpp-development"
+    nvidia: "cuda12-locate-anything-cpp-development"
+    nvidia-cuda-12: "cuda12-locate-anything-cpp-development"
+    nvidia-cuda-13: "cuda13-locate-anything-cpp-development"
+    nvidia-l4t: "nvidia-l4t-arm64-locate-anything-cpp-development"
+    nvidia-l4t-cuda-12: "nvidia-l4t-arm64-locate-anything-cpp-development"
+    nvidia-l4t-cuda-13: "cuda13-nvidia-l4t-arm64-locate-anything-cpp-development"
+    intel: "intel-sycl-f32-locate-anything-cpp-development"
+    vulkan: "vulkan-locate-anything-cpp-development"
+- !!merge <<: *locateanything
+  name: "cpu-locate-anything-cpp"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-cpu-locate-anything-cpp"
+  mirrors:
+    - localai/localai-backends:latest-cpu-locate-anything-cpp
+- !!merge <<: *locateanything
+  name: "cpu-locate-anything-cpp-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-cpu-locate-anything-cpp"
+  mirrors:
+    - localai/localai-backends:master-cpu-locate-anything-cpp
+- !!merge <<: *locateanything
+  name: "cuda12-locate-anything-cpp"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-nvidia-cuda-12-locate-anything-cpp"
+  mirrors:
+    - localai/localai-backends:latest-gpu-nvidia-cuda-12-locate-anything-cpp
+- !!merge <<: *locateanything
+  name: "cuda12-locate-anything-cpp-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-nvidia-cuda-12-locate-anything-cpp"
+  mirrors:
+    - localai/localai-backends:master-gpu-nvidia-cuda-12-locate-anything-cpp
+- !!merge <<: *locateanything
+  name: "cuda13-locate-anything-cpp"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-nvidia-cuda-13-locate-anything-cpp"
+  mirrors:
+    - localai/localai-backends:latest-gpu-nvidia-cuda-13-locate-anything-cpp
+- !!merge <<: *locateanything
+  name: "cuda13-locate-anything-cpp-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-nvidia-cuda-13-locate-anything-cpp"
+  mirrors:
+    - localai/localai-backends:master-gpu-nvidia-cuda-13-locate-anything-cpp
+- !!merge <<: *locateanything
+  name: "nvidia-l4t-arm64-locate-anything-cpp"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-nvidia-l4t-arm64-locate-anything-cpp"
+  mirrors:
+    - localai/localai-backends:latest-nvidia-l4t-arm64-locate-anything-cpp
+- !!merge <<: *locateanything
+  name: "nvidia-l4t-arm64-locate-anything-cpp-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-nvidia-l4t-arm64-locate-anything-cpp"
+  mirrors:
+    - localai/localai-backends:master-nvidia-l4t-arm64-locate-anything-cpp
+- !!merge <<: *locateanything
+  name: "cuda13-nvidia-l4t-arm64-locate-anything-cpp"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-nvidia-l4t-cuda-13-arm64-locate-anything-cpp"
+  mirrors:
+    - localai/localai-backends:latest-nvidia-l4t-cuda-13-arm64-locate-anything-cpp
+- !!merge <<: *locateanything
+  name: "cuda13-nvidia-l4t-arm64-locate-anything-cpp-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-nvidia-l4t-cuda-13-arm64-locate-anything-cpp"
+  mirrors:
+    - localai/localai-backends:master-nvidia-l4t-cuda-13-arm64-locate-anything-cpp
+- !!merge <<: *locateanything
+  name: "intel-sycl-f32-locate-anything-cpp"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-intel-sycl-f32-locate-anything-cpp"
+  mirrors:
+    - localai/localai-backends:latest-gpu-intel-sycl-f32-locate-anything-cpp
+- !!merge <<: *locateanything
+  name: "intel-sycl-f32-locate-anything-cpp-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-intel-sycl-f32-locate-anything-cpp"
+  mirrors:
+    - localai/localai-backends:master-gpu-intel-sycl-f32-locate-anything-cpp
+- !!merge <<: *locateanything
+  name: "intel-sycl-f16-locate-anything-cpp"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-intel-sycl-f16-locate-anything-cpp"
+  mirrors:
+    - localai/localai-backends:latest-gpu-intel-sycl-f16-locate-anything-cpp
+- !!merge <<: *locateanything
+  name: "intel-sycl-f16-locate-anything-cpp-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-intel-sycl-f16-locate-anything-cpp"
+  mirrors:
+    - localai/localai-backends:master-gpu-intel-sycl-f16-locate-anything-cpp
+- !!merge <<: *locateanything
+  name: "vulkan-locate-anything-cpp"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-vulkan-locate-anything-cpp"
+  mirrors:
+    - localai/localai-backends:latest-gpu-vulkan-locate-anything-cpp
+- !!merge <<: *locateanything
+  name: "vulkan-locate-anything-cpp-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-vulkan-locate-anything-cpp"
+  mirrors:
+    - localai/localai-backends:master-gpu-vulkan-locate-anything-cpp
+- &depthanything
+  name: "depth-anything"
+  alias: "depth-anything"
+  license: apache-2.0
+  description: |
+    Depth Anything 3 monocular metric depth + camera pose estimation in C/C++
+    using GGML. Loads pre-built GGUF weights and, given an image, returns a
+    dense depth map plus the recovered camera extrinsics (3x4) and intrinsics
+    (3x3). No Python at inference (purego, cgo-less).
+  urls:
+    - https://github.com/mudler/depth-anything.cpp
+    - https://huggingface.co/depth-anything/Depth-Anything-V3
+  tags:
+    - depth-estimation
+    - camera-pose
+    - depth-anything
+    - gpu
+    - cpu
+  capabilities:
+    default: "cpu-depth-anything-cpp"
+    nvidia: "cuda12-depth-anything-cpp"
+    nvidia-cuda-12: "cuda12-depth-anything-cpp"
+    nvidia-cuda-13: "cuda13-depth-anything-cpp"
+    nvidia-l4t: "nvidia-l4t-arm64-depth-anything-cpp"
+    nvidia-l4t-cuda-12: "nvidia-l4t-arm64-depth-anything-cpp"
+    nvidia-l4t-cuda-13: "cuda13-nvidia-l4t-arm64-depth-anything-cpp"
+    intel: "intel-sycl-f32-depth-anything-cpp"
+    vulkan: "vulkan-depth-anything-cpp"
+- !!merge <<: *depthanything
+  name: "depth-anything-development"
+  capabilities:
+    default: "cpu-depth-anything-cpp-development"
+    nvidia: "cuda12-depth-anything-cpp-development"
+    nvidia-cuda-12: "cuda12-depth-anything-cpp-development"
+    nvidia-cuda-13: "cuda13-depth-anything-cpp-development"
+    nvidia-l4t: "nvidia-l4t-arm64-depth-anything-cpp-development"
+    nvidia-l4t-cuda-12: "nvidia-l4t-arm64-depth-anything-cpp-development"
+    nvidia-l4t-cuda-13: "cuda13-nvidia-l4t-arm64-depth-anything-cpp-development"
+    intel: "intel-sycl-f32-depth-anything-cpp-development"
+    vulkan: "vulkan-depth-anything-cpp-development"
+- !!merge <<: *depthanything
+  name: "cpu-depth-anything-cpp"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-cpu-depth-anything-cpp"
+  mirrors:
+    - localai/localai-backends:latest-cpu-depth-anything-cpp
+- !!merge <<: *depthanything
+  name: "cpu-depth-anything-cpp-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-cpu-depth-anything-cpp"
+  mirrors:
+    - localai/localai-backends:master-cpu-depth-anything-cpp
+- !!merge <<: *depthanything
+  name: "cuda12-depth-anything-cpp"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-nvidia-cuda-12-depth-anything-cpp"
+  mirrors:
+    - localai/localai-backends:latest-gpu-nvidia-cuda-12-depth-anything-cpp
+- !!merge <<: *depthanything
+  name: "cuda12-depth-anything-cpp-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-nvidia-cuda-12-depth-anything-cpp"
+  mirrors:
+    - localai/localai-backends:master-gpu-nvidia-cuda-12-depth-anything-cpp
+- !!merge <<: *depthanything
+  name: "cuda13-depth-anything-cpp"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-nvidia-cuda-13-depth-anything-cpp"
+  mirrors:
+    - localai/localai-backends:latest-gpu-nvidia-cuda-13-depth-anything-cpp
+- !!merge <<: *depthanything
+  name: "cuda13-depth-anything-cpp-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-nvidia-cuda-13-depth-anything-cpp"
+  mirrors:
+    - localai/localai-backends:master-gpu-nvidia-cuda-13-depth-anything-cpp
+- !!merge <<: *depthanything
+  name: "nvidia-l4t-arm64-depth-anything-cpp"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-nvidia-l4t-arm64-depth-anything-cpp"
+  mirrors:
+    - localai/localai-backends:latest-nvidia-l4t-arm64-depth-anything-cpp
+- !!merge <<: *depthanything
+  name: "nvidia-l4t-arm64-depth-anything-cpp-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-nvidia-l4t-arm64-depth-anything-cpp"
+  mirrors:
+    - localai/localai-backends:master-nvidia-l4t-arm64-depth-anything-cpp
+- !!merge <<: *depthanything
+  name: "cuda13-nvidia-l4t-arm64-depth-anything-cpp"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-nvidia-l4t-cuda-13-arm64-depth-anything-cpp"
+  mirrors:
+    - localai/localai-backends:latest-nvidia-l4t-cuda-13-arm64-depth-anything-cpp
+- !!merge <<: *depthanything
+  name: "cuda13-nvidia-l4t-arm64-depth-anything-cpp-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-nvidia-l4t-cuda-13-arm64-depth-anything-cpp"
+  mirrors:
+    - localai/localai-backends:master-nvidia-l4t-cuda-13-arm64-depth-anything-cpp
+- !!merge <<: *depthanything
+  name: "intel-sycl-f32-depth-anything-cpp"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-intel-sycl-f32-depth-anything-cpp"
+  mirrors:
+    - localai/localai-backends:latest-gpu-intel-sycl-f32-depth-anything-cpp
+- !!merge <<: *depthanything
+  name: "intel-sycl-f32-depth-anything-cpp-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-intel-sycl-f32-depth-anything-cpp"
+  mirrors:
+    - localai/localai-backends:master-gpu-intel-sycl-f32-depth-anything-cpp
+- !!merge <<: *depthanything
+  name: "intel-sycl-f16-depth-anything-cpp"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-intel-sycl-f16-depth-anything-cpp"
+  mirrors:
+    - localai/localai-backends:latest-gpu-intel-sycl-f16-depth-anything-cpp
+- !!merge <<: *depthanything
+  name: "intel-sycl-f16-depth-anything-cpp-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-intel-sycl-f16-depth-anything-cpp"
+  mirrors:
+    - localai/localai-backends:master-gpu-intel-sycl-f16-depth-anything-cpp
+- !!merge <<: *depthanything
+  name: "vulkan-depth-anything-cpp"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-vulkan-depth-anything-cpp"
+  mirrors:
+    - localai/localai-backends:latest-gpu-vulkan-depth-anything-cpp
+- !!merge <<: *depthanything
+  name: "vulkan-depth-anything-cpp-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-vulkan-depth-anything-cpp"
+  mirrors:
+    - localai/localai-backends:master-gpu-vulkan-depth-anything-cpp
 - &vllm
   name: "vllm"
   license: apache-2.0
@@ -426,12 +667,9 @@
     nvidia-l4t-cuda-13: "cuda13-nvidia-l4t-arm64-vllm-omni"
 - &mlx
   name: "mlx"
-  uri: "quay.io/go-skynet/local-ai-backends:latest-metal-darwin-arm64-mlx"
   icon: https://avatars.githubusercontent.com/u/102832242?s=200&v=4
   urls:
     - https://github.com/ml-explore/mlx-lm
-  mirrors:
-    - localai/localai-backends:latest-metal-darwin-arm64-mlx
   license: MIT
   description: |
       Run LLMs with MLX
@@ -450,12 +688,9 @@
     nvidia-l4t-cuda-13: "cuda13-nvidia-l4t-arm64-mlx"
 - &mlx-vlm
   name: "mlx-vlm"
-  uri: "quay.io/go-skynet/local-ai-backends:latest-metal-darwin-arm64-mlx-vlm"
   icon: https://avatars.githubusercontent.com/u/102832242?s=200&v=4
   urls:
     - https://github.com/Blaizzy/mlx-vlm
-  mirrors:
-    - localai/localai-backends:latest-metal-darwin-arm64-mlx-vlm
   license: MIT
   description: |
       Run Vision-Language Models with MLX
@@ -476,12 +711,9 @@
     nvidia-l4t-cuda-13: "cuda13-nvidia-l4t-arm64-mlx-vlm"
 - &mlx-audio
   name: "mlx-audio"
-  uri: "quay.io/go-skynet/local-ai-backends:latest-metal-darwin-arm64-mlx-audio"
   icon: https://avatars.githubusercontent.com/u/102832242?s=200&v=4
   urls:
     - https://github.com/Blaizzy/mlx-audio
-  mirrors:
-    - localai/localai-backends:latest-metal-darwin-arm64-mlx-audio
   license: MIT
   description: |
       Run Audio Models with MLX
@@ -502,12 +734,9 @@
     nvidia-l4t-cuda-13: "cuda13-nvidia-l4t-arm64-mlx-audio"
 - &mlx-distributed
   name: "mlx-distributed"
-  uri: "quay.io/go-skynet/local-ai-backends:latest-metal-darwin-arm64-mlx-distributed"
   icon: https://avatars.githubusercontent.com/u/102832242?s=200&v=4
   urls:
     - https://github.com/ml-explore/mlx-lm
-  mirrors:
-    - localai/localai-backends:latest-metal-darwin-arm64-mlx-distributed
   license: MIT
   description: |
       Run distributed LLM inference with MLX across multiple Apple Silicon Macs
@@ -603,7 +832,7 @@
     default: "cpu-diffusers"
     nvidia-cuda-13: "cuda13-diffusers"
     nvidia-cuda-12: "cuda12-diffusers"
-    nvidia-l4t-cuda-12: "nvidia-l4t-arm64-diffusers"
+    nvidia-l4t-cuda-12: "nvidia-l4t-diffusers"
     nvidia-l4t-cuda-13: "cuda13-nvidia-l4t-arm64-diffusers"
 - &ace-step
   name: "ace-step"
@@ -659,14 +888,17 @@
 - &qwen3ttscpp
   name: "qwen3-tts-cpp"
   description: |
-    Qwen3-TTS C++ backend using GGML. Native C++ text-to-speech with voice cloning support.
-    Generates 24kHz mono audio from text with optional reference audio for voice cloning via ECAPA-TDNN speaker embeddings.
+    Qwen3-TTS C++ backend using GGML (qwentts.cpp). Native C++ text-to-speech
+    with streaming output, named speakers, voice design, and zero-shot voice
+    cloning. 24kHz mono, 11 languages with Mandarin dialects. 0.6B and 1.7B
+    models in Q8_0 / Q4_K_M.
   urls:
-    - https://github.com/predict-woo/qwen3-tts.cpp
+    - https://github.com/ServeurpersoCom/qwentts.cpp
   tags:
     - text-to-speech
     - tts
     - voice-cloning
+    - streaming
   alias: "qwen3-tts-cpp"
   capabilities:
     default: "cpu-qwen3-tts-cpp"
@@ -680,6 +912,33 @@
     nvidia-l4t: "nvidia-l4t-arm64-qwen3-tts-cpp"
     nvidia-l4t-cuda-12: "nvidia-l4t-arm64-qwen3-tts-cpp"
     nvidia-l4t-cuda-13: "cuda13-nvidia-l4t-arm64-qwen3-tts-cpp"
+- &omnivoicecpp
+  name: "omnivoice-cpp"
+  description: |
+    OmniVoice C++ backend using GGML. Native text-to-speech with voice cloning
+    (reference audio + transcript) and voice design (attribute keywords: gender,
+    age, pitch, style, volume, emotion). 24kHz mono output, 646 languages.
+    Supports streaming synthesis.
+  urls:
+    - https://github.com/ServeurpersoCom/omnivoice.cpp
+  tags:
+    - text-to-speech
+    - tts
+    - voice-cloning
+    - voice-design
+  alias: "omnivoice-cpp"
+  capabilities:
+    default: "cpu-omnivoice-cpp"
+    nvidia: "cuda12-omnivoice-cpp"
+    nvidia-cuda-13: "cuda13-omnivoice-cpp"
+    nvidia-cuda-12: "cuda12-omnivoice-cpp"
+    intel: "intel-sycl-f16-omnivoice-cpp"
+    metal: "metal-omnivoice-cpp"
+    amd: "rocm-omnivoice-cpp"
+    vulkan: "vulkan-omnivoice-cpp"
+    nvidia-l4t: "nvidia-l4t-arm64-omnivoice-cpp"
+    nvidia-l4t-cuda-12: "nvidia-l4t-arm64-omnivoice-cpp"
+    nvidia-l4t-cuda-13: "cuda13-nvidia-l4t-arm64-omnivoice-cpp"
 - &vibevoicecpp
   name: "vibevoice-cpp"
   description: |
@@ -825,7 +1084,7 @@
     metal: "metal-kokoro"
     nvidia-cuda-13: "cuda13-kokoro"
     nvidia-cuda-12: "cuda12-kokoro"
-    nvidia-l4t-cuda-12: "nvidia-l4t-arm64-kokoro"
+    nvidia-l4t-cuda-12: "nvidia-l4t-kokoro"
 - &kokoros
   icon: https://avatars.githubusercontent.com/u/166769057?v=4
   description: |
@@ -868,7 +1127,6 @@
     intel: "intel-coqui"
     amd: "rocm-coqui"
     metal: "metal-coqui"
-    nvidia-cuda-13: "cuda13-coqui"
     nvidia-cuda-12: "cuda12-coqui"
   icon: https://avatars.githubusercontent.com/u/1338804?s=200&v=4
 - &outetts
@@ -1118,27 +1376,27 @@
   icon: https://avatars.githubusercontent.com/u/151010778?s=200&v=4
 - &piper
   name: "piper"
-  uri: "quay.io/go-skynet/local-ai-backends:latest-piper"
   icon: https://github.com/OHF-Voice/piper1-gpl/raw/main/etc/logo.png
   urls:
     - https://github.com/rhasspy/piper
     - https://github.com/mudler/go-piper
-  mirrors:
-    - localai/localai-backends:latest-piper
   license: MIT
   description: |
      A fast, local neural text to speech system
   tags:
     - text-to-speech
     - TTS
+  capabilities:
+    default: "cpu-piper"
+    metal: "metal-piper"
 - &opus
   name: "opus"
   alias: "opus"
-  uri: "quay.io/go-skynet/local-ai-backends:latest-cpu-opus"
+  capabilities:
+    default: "cpu-opus"
+    metal: "metal-opus"
   urls:
     - https://opus-codec.org/
-  mirrors:
-    - localai/localai-backends:latest-cpu-opus
   license: BSD-3-Clause
   description: |
     Opus audio codec backend for encoding and decoding audio.
@@ -1148,15 +1406,19 @@
     - opus
     - WebRTC
     - realtime
-    - CPU
+- !!merge <<: *opus
+  name: "opus-development"
+  capabilities:
+    default: "cpu-opus-development"
+    metal: "metal-opus-development"
 - &silero-vad
   name: "silero-vad"
-  uri: "quay.io/go-skynet/local-ai-backends:latest-cpu-silero-vad"
   icon: https://user-images.githubusercontent.com/12515440/89997349-b3523080-dc94-11ea-9906-ca2e8bc50535.png
   urls:
     - https://github.com/snakers4/silero-vad
-  mirrors:
-    - localai/localai-backends:latest-cpu-silero-vad
+  capabilities:
+    default: "cpu-silero-vad"
+    metal: "metal-silero-vad"
   description: |
     Silero VAD: pre-trained enterprise-grade Voice Activity Detector.
     Silero VAD is a voice activity detection model that can be used to detect whether a given audio contains speech or not.
@@ -1167,9 +1429,6 @@
     - CPU
 - &local-store
   name: "local-store"
-  uri: "quay.io/go-skynet/local-ai-backends:latest-cpu-local-store"
-  mirrors:
-    - localai/localai-backends:latest-cpu-local-store
   urls:
     - https://github.com/mudler/LocalAI
   description: |
@@ -1180,6 +1439,9 @@
     - open-source
     - CPU
   license: MIT
+  capabilities:
+    default: "cpu-local-store"
+    metal: "metal-local-store"
 - &avian
   name: "avian"
   uri: "quay.io/go-skynet/local-ai-backends:latest-avian"
@@ -1201,9 +1463,6 @@
   license: proprietary
 - &kitten-tts
   name: "kitten-tts"
-  uri: "quay.io/go-skynet/local-ai-backends:latest-kitten-tts"
-  mirrors:
-    - localai/localai-backends:latest-kitten-tts
   urls:
     - https://github.com/KittenML/KittenTTS
   description: |
@@ -1212,6 +1471,9 @@
     - text-to-speech
     - TTS
   license: apache-2.0
+  capabilities:
+    default: "cpu-kitten-tts"
+    metal: "metal-kitten-tts"
 - &neutts
   name: "neutts"
   urls:
@@ -1244,6 +1506,21 @@
     default: "cpu-sherpa-onnx"
     nvidia: "cuda12-sherpa-onnx"
     nvidia-cuda-12: "cuda12-sherpa-onnx"
+    metal: "metal-sherpa-onnx"
+- &supertonic
+  name: "supertonic"
+  alias: "supertonic"
+  urls:
+    - https://github.com/supertone-inc/supertonic
+  description: |
+    Supertonic backend: lightning-fast, on-device multilingual text-to-speech via ONNX Runtime.
+    Runs Supertone's flow-matching TTS model (Supertone/supertonic-3), 44.1kHz output, 31 languages,
+    multiple preset voice styles. No espeak-ng dependency.
+  tags:
+    - text-to-speech
+    - TTS
+  capabilities:
+    default: "cpu-supertonic"
 - !!merge <<: *neutts
   name: "neutts-development"
   capabilities:
@@ -1336,25 +1613,89 @@
   mirrors:
     - localai/localai-backends:master-gpu-rocm-hipblas-neutts
 - !!merge <<: *mlx
-  name: "mlx-development"
+  name: "metal-mlx"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-metal-darwin-arm64-mlx"
+  mirrors:
+    - localai/localai-backends:latest-metal-darwin-arm64-mlx
+- !!merge <<: *mlx
+  name: "metal-mlx-development"
   uri: "quay.io/go-skynet/local-ai-backends:master-metal-darwin-arm64-mlx"
   mirrors:
     - localai/localai-backends:master-metal-darwin-arm64-mlx
+- !!merge <<: *mlx
+  name: "mlx-development"
+  capabilities:
+    default: "cpu-mlx-development"
+    nvidia: "cuda12-mlx-development"
+    metal: "metal-mlx-development"
+    nvidia-cuda-12: "cuda12-mlx-development"
+    nvidia-cuda-13: "cuda13-mlx-development"
+    nvidia-l4t: "nvidia-l4t-mlx-development"
+    nvidia-l4t-cuda-12: "nvidia-l4t-mlx-development"
+    nvidia-l4t-cuda-13: "cuda13-nvidia-l4t-arm64-mlx-development"
 - !!merge <<: *mlx-vlm
-  name: "mlx-vlm-development"
+  name: "metal-mlx-vlm"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-metal-darwin-arm64-mlx-vlm"
+  mirrors:
+    - localai/localai-backends:latest-metal-darwin-arm64-mlx-vlm
+- !!merge <<: *mlx-vlm
+  name: "metal-mlx-vlm-development"
   uri: "quay.io/go-skynet/local-ai-backends:master-metal-darwin-arm64-mlx-vlm"
   mirrors:
     - localai/localai-backends:master-metal-darwin-arm64-mlx-vlm
+- !!merge <<: *mlx-vlm
+  name: "mlx-vlm-development"
+  capabilities:
+    default: "cpu-mlx-vlm-development"
+    nvidia: "cuda12-mlx-vlm-development"
+    metal: "metal-mlx-vlm-development"
+    nvidia-cuda-12: "cuda12-mlx-vlm-development"
+    nvidia-cuda-13: "cuda13-mlx-vlm-development"
+    nvidia-l4t: "nvidia-l4t-mlx-vlm-development"
+    nvidia-l4t-cuda-12: "nvidia-l4t-mlx-vlm-development"
+    nvidia-l4t-cuda-13: "cuda13-nvidia-l4t-arm64-mlx-vlm-development"
 - !!merge <<: *mlx-audio
-  name: "mlx-audio-development"
+  name: "metal-mlx-audio"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-metal-darwin-arm64-mlx-audio"
+  mirrors:
+    - localai/localai-backends:latest-metal-darwin-arm64-mlx-audio
+- !!merge <<: *mlx-audio
+  name: "metal-mlx-audio-development"
   uri: "quay.io/go-skynet/local-ai-backends:master-metal-darwin-arm64-mlx-audio"
   mirrors:
     - localai/localai-backends:master-metal-darwin-arm64-mlx-audio
+- !!merge <<: *mlx-audio
+  name: "mlx-audio-development"
+  capabilities:
+    default: "cpu-mlx-audio-development"
+    nvidia: "cuda12-mlx-audio-development"
+    metal: "metal-mlx-audio-development"
+    nvidia-cuda-12: "cuda12-mlx-audio-development"
+    nvidia-cuda-13: "cuda13-mlx-audio-development"
+    nvidia-l4t: "nvidia-l4t-mlx-audio-development"
+    nvidia-l4t-cuda-12: "nvidia-l4t-mlx-audio-development"
+    nvidia-l4t-cuda-13: "cuda13-nvidia-l4t-arm64-mlx-audio-development"
 - !!merge <<: *mlx-distributed
-  name: "mlx-distributed-development"
+  name: "metal-mlx-distributed"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-metal-darwin-arm64-mlx-distributed"
+  mirrors:
+    - localai/localai-backends:latest-metal-darwin-arm64-mlx-distributed
+- !!merge <<: *mlx-distributed
+  name: "metal-mlx-distributed-development"
   uri: "quay.io/go-skynet/local-ai-backends:master-metal-darwin-arm64-mlx-distributed"
   mirrors:
     - localai/localai-backends:master-metal-darwin-arm64-mlx-distributed
+- !!merge <<: *mlx-distributed
+  name: "mlx-distributed-development"
+  capabilities:
+    default: "cpu-mlx-distributed-development"
+    nvidia: "cuda12-mlx-distributed-development"
+    metal: "metal-mlx-distributed-development"
+    nvidia-cuda-12: "cuda12-mlx-distributed-development"
+    nvidia-cuda-13: "cuda13-mlx-distributed-development"
+    nvidia-l4t: "nvidia-l4t-mlx-distributed-development"
+    nvidia-l4t-cuda-12: "nvidia-l4t-mlx-distributed-development"
+    nvidia-l4t-cuda-13: "cuda13-nvidia-l4t-arm64-mlx-distributed-development"
 ## mlx
 - !!merge <<: *mlx
   name: "cpu-mlx"
@@ -1560,10 +1901,20 @@
   mirrors:
     - localai/localai-backends:master-nvidia-l4t-cuda-13-arm64-mlx-distributed
 - !!merge <<: *kitten-tts
-  name: "kitten-tts-development"
+  name: "cpu-kitten-tts"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-kitten-tts"
+  mirrors:
+    - localai/localai-backends:latest-kitten-tts
+- !!merge <<: *kitten-tts
+  name: "cpu-kitten-tts-development"
   uri: "quay.io/go-skynet/local-ai-backends:master-kitten-tts"
   mirrors:
     - localai/localai-backends:master-kitten-tts
+- !!merge <<: *kitten-tts
+  name: "kitten-tts-development"
+  capabilities:
+    default: "cpu-kitten-tts-development"
+    metal: "metal-kitten-tts-development"
 - !!merge <<: *kitten-tts
   name: "metal-kitten-tts"
   uri: "quay.io/go-skynet/local-ai-backends:latest-metal-darwin-arm64-kitten-tts"
@@ -1575,10 +1926,23 @@
   mirrors:
     - localai/localai-backends:master-metal-darwin-arm64-kitten-tts
 - !!merge <<: *local-store
-  name: "local-store-development"
+  name: "cpu-local-store"
+  alias: "local-store"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-cpu-local-store"
+  mirrors:
+    - localai/localai-backends:latest-cpu-local-store
+- !!merge <<: *local-store
+  name: "cpu-local-store-development"
+  alias: "local-store"
   uri: "quay.io/go-skynet/local-ai-backends:master-cpu-local-store"
   mirrors:
     - localai/localai-backends:master-cpu-local-store
+- !!merge <<: *local-store
+  name: "local-store-development"
+  alias: "local-store"
+  capabilities:
+    default: "cpu-local-store-development"
+    metal: "metal-local-store-development"
 - !!merge <<: *local-store
   name: "metal-local-store"
   uri: "quay.io/go-skynet/local-ai-backends:latest-metal-darwin-arm64-local-store"
@@ -1586,11 +1950,17 @@
     - localai/localai-backends:latest-metal-darwin-arm64-local-store
 - !!merge <<: *local-store
   name: "metal-local-store-development"
+  alias: "local-store"
   uri: "quay.io/go-skynet/local-ai-backends:master-metal-darwin-arm64-local-store"
   mirrors:
     - localai/localai-backends:master-metal-darwin-arm64-local-store
 - !!merge <<: *opus
-  name: "opus-development"
+  name: "cpu-opus"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-cpu-opus"
+  mirrors:
+    - localai/localai-backends:latest-cpu-opus
+- !!merge <<: *opus
+  name: "cpu-opus-development"
   uri: "quay.io/go-skynet/local-ai-backends:master-cpu-opus"
   mirrors:
     - localai/localai-backends:master-cpu-opus
@@ -1605,10 +1975,20 @@
   mirrors:
     - localai/localai-backends:master-metal-darwin-arm64-opus
 - !!merge <<: *silero-vad
-  name: "silero-vad-development"
+  name: "cpu-silero-vad"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-cpu-silero-vad"
+  mirrors:
+    - localai/localai-backends:latest-cpu-silero-vad
+- !!merge <<: *silero-vad
+  name: "cpu-silero-vad-development"
   uri: "quay.io/go-skynet/local-ai-backends:master-cpu-silero-vad"
   mirrors:
     - localai/localai-backends:master-cpu-silero-vad
+- !!merge <<: *silero-vad
+  name: "silero-vad-development"
+  capabilities:
+    default: "cpu-silero-vad-development"
+    metal: "metal-silero-vad-development"
 - !!merge <<: *silero-vad
   name: "metal-silero-vad"
   uri: "quay.io/go-skynet/local-ai-backends:latest-metal-darwin-arm64-silero-vad"
@@ -1620,10 +2000,20 @@
   mirrors:
     - localai/localai-backends:master-metal-darwin-arm64-silero-vad
 - !!merge <<: *piper
-  name: "piper-development"
+  name: "cpu-piper"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-piper"
+  mirrors:
+    - localai/localai-backends:latest-piper
+- !!merge <<: *piper
+  name: "cpu-piper-development"
   uri: "quay.io/go-skynet/local-ai-backends:master-piper"
   mirrors:
     - localai/localai-backends:master-piper
+- !!merge <<: *piper
+  name: "piper-development"
+  capabilities:
+    default: "cpu-piper-development"
+    metal: "metal-piper-development"
 - !!merge <<: *piper
   name: "metal-piper"
   uri: "quay.io/go-skynet/local-ai-backends:latest-metal-darwin-arm64-piper"
@@ -3266,6 +3656,121 @@
   uri: "quay.io/go-skynet/local-ai-backends:master-gpu-nvidia-cuda-13-qwen3-tts-cpp"
   mirrors:
     - localai/localai-backends:master-gpu-nvidia-cuda-13-qwen3-tts-cpp
+## omnivoice-cpp
+- !!merge <<: *omnivoicecpp
+  name: "omnivoice-cpp-development"
+  capabilities:
+    default: "cpu-omnivoice-cpp-development"
+    nvidia: "cuda12-omnivoice-cpp-development"
+    nvidia-cuda-13: "cuda13-omnivoice-cpp-development"
+    nvidia-cuda-12: "cuda12-omnivoice-cpp-development"
+    intel: "intel-sycl-f16-omnivoice-cpp-development"
+    metal: "metal-omnivoice-cpp-development"
+    amd: "rocm-omnivoice-cpp-development"
+    vulkan: "vulkan-omnivoice-cpp-development"
+    nvidia-l4t: "nvidia-l4t-arm64-omnivoice-cpp-development"
+    nvidia-l4t-cuda-12: "nvidia-l4t-arm64-omnivoice-cpp-development"
+    nvidia-l4t-cuda-13: "cuda13-nvidia-l4t-arm64-omnivoice-cpp-development"
+- !!merge <<: *omnivoicecpp
+  name: "nvidia-l4t-arm64-omnivoice-cpp"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-nvidia-l4t-arm64-omnivoice-cpp"
+  mirrors:
+    - localai/localai-backends:latest-nvidia-l4t-arm64-omnivoice-cpp
+- !!merge <<: *omnivoicecpp
+  name: "nvidia-l4t-arm64-omnivoice-cpp-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-nvidia-l4t-arm64-omnivoice-cpp"
+  mirrors:
+    - localai/localai-backends:master-nvidia-l4t-arm64-omnivoice-cpp
+- !!merge <<: *omnivoicecpp
+  name: "cuda13-nvidia-l4t-arm64-omnivoice-cpp"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-nvidia-l4t-cuda-13-arm64-omnivoice-cpp"
+  mirrors:
+    - localai/localai-backends:latest-nvidia-l4t-cuda-13-arm64-omnivoice-cpp
+- !!merge <<: *omnivoicecpp
+  name: "cuda13-nvidia-l4t-arm64-omnivoice-cpp-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-nvidia-l4t-cuda-13-arm64-omnivoice-cpp"
+  mirrors:
+    - localai/localai-backends:master-nvidia-l4t-cuda-13-arm64-omnivoice-cpp
+- !!merge <<: *omnivoicecpp
+  name: "cpu-omnivoice-cpp"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-cpu-omnivoice-cpp"
+  mirrors:
+    - localai/localai-backends:latest-cpu-omnivoice-cpp
+- !!merge <<: *omnivoicecpp
+  name: "metal-omnivoice-cpp"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-metal-darwin-arm64-omnivoice-cpp"
+  mirrors:
+    - localai/localai-backends:latest-metal-darwin-arm64-omnivoice-cpp
+- !!merge <<: *omnivoicecpp
+  name: "metal-omnivoice-cpp-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-metal-darwin-arm64-omnivoice-cpp"
+  mirrors:
+    - localai/localai-backends:master-metal-darwin-arm64-omnivoice-cpp
+- !!merge <<: *omnivoicecpp
+  name: "cpu-omnivoice-cpp-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-cpu-omnivoice-cpp"
+  mirrors:
+    - localai/localai-backends:master-cpu-omnivoice-cpp
+- !!merge <<: *omnivoicecpp
+  name: "cuda12-omnivoice-cpp"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-nvidia-cuda-12-omnivoice-cpp"
+  mirrors:
+    - localai/localai-backends:latest-gpu-nvidia-cuda-12-omnivoice-cpp
+- !!merge <<: *omnivoicecpp
+  name: "rocm-omnivoice-cpp"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-rocm-hipblas-omnivoice-cpp"
+  mirrors:
+    - localai/localai-backends:latest-gpu-rocm-hipblas-omnivoice-cpp
+- !!merge <<: *omnivoicecpp
+  name: "intel-sycl-f32-omnivoice-cpp"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-intel-sycl-f32-omnivoice-cpp"
+  mirrors:
+    - localai/localai-backends:latest-gpu-intel-sycl-f32-omnivoice-cpp
+- !!merge <<: *omnivoicecpp
+  name: "intel-sycl-f16-omnivoice-cpp"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-intel-sycl-f16-omnivoice-cpp"
+  mirrors:
+    - localai/localai-backends:latest-gpu-intel-sycl-f16-omnivoice-cpp
+- !!merge <<: *omnivoicecpp
+  name: "vulkan-omnivoice-cpp"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-vulkan-omnivoice-cpp"
+  mirrors:
+    - localai/localai-backends:latest-gpu-vulkan-omnivoice-cpp
+- !!merge <<: *omnivoicecpp
+  name: "vulkan-omnivoice-cpp-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-vulkan-omnivoice-cpp"
+  mirrors:
+    - localai/localai-backends:master-gpu-vulkan-omnivoice-cpp
+- !!merge <<: *omnivoicecpp
+  name: "cuda12-omnivoice-cpp-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-nvidia-cuda-12-omnivoice-cpp"
+  mirrors:
+    - localai/localai-backends:master-gpu-nvidia-cuda-12-omnivoice-cpp
+- !!merge <<: *omnivoicecpp
+  name: "rocm-omnivoice-cpp-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-rocm-hipblas-omnivoice-cpp"
+  mirrors:
+    - localai/localai-backends:master-gpu-rocm-hipblas-omnivoice-cpp
+- !!merge <<: *omnivoicecpp
+  name: "intel-sycl-f32-omnivoice-cpp-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-intel-sycl-f32-omnivoice-cpp"
+  mirrors:
+    - localai/localai-backends:master-gpu-intel-sycl-f32-omnivoice-cpp
+- !!merge <<: *omnivoicecpp
+  name: "intel-sycl-f16-omnivoice-cpp-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-intel-sycl-f16-omnivoice-cpp"
+  mirrors:
+    - localai/localai-backends:master-gpu-intel-sycl-f16-omnivoice-cpp
+- !!merge <<: *omnivoicecpp
+  name: "cuda13-omnivoice-cpp"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-nvidia-cuda-13-omnivoice-cpp"
+  mirrors:
+    - localai/localai-backends:latest-gpu-nvidia-cuda-13-omnivoice-cpp
+- !!merge <<: *omnivoicecpp
+  name: "cuda13-omnivoice-cpp-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-nvidia-cuda-13-omnivoice-cpp"
+  mirrors:
+    - localai/localai-backends:master-gpu-nvidia-cuda-13-omnivoice-cpp
 ## vibevoice-cpp
 - !!merge <<: *vibevoicecpp
   name: "nvidia-l4t-arm64-vibevoice-cpp"
@@ -4617,24 +5122,24 @@
     - localai/localai-backends:master-cpu-trl
 - !!merge <<: *trl
   name: "cuda12-trl"
-  uri: "quay.io/go-skynet/local-ai-backends:latest-cublas-cuda12-trl"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-nvidia-cuda-12-trl"
   mirrors:
-    - localai/localai-backends:latest-cublas-cuda12-trl
+    - localai/localai-backends:latest-gpu-nvidia-cuda-12-trl
 - !!merge <<: *trl
   name: "cuda12-trl-development"
-  uri: "quay.io/go-skynet/local-ai-backends:master-cublas-cuda12-trl"
+  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-nvidia-cuda-12-trl"
   mirrors:
-    - localai/localai-backends:master-cublas-cuda12-trl
+    - localai/localai-backends:master-gpu-nvidia-cuda-12-trl
 - !!merge <<: *trl
   name: "cuda13-trl"
-  uri: "quay.io/go-skynet/local-ai-backends:latest-cublas-cuda13-trl"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-nvidia-cuda-13-trl"
   mirrors:
-    - localai/localai-backends:latest-cublas-cuda13-trl
+    - localai/localai-backends:latest-gpu-nvidia-cuda-13-trl
 - !!merge <<: *trl
   name: "cuda13-trl-development"
-  uri: "quay.io/go-skynet/local-ai-backends:master-cublas-cuda13-trl"
+  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-nvidia-cuda-13-trl"
   mirrors:
-    - localai/localai-backends:master-cublas-cuda13-trl
+    - localai/localai-backends:master-gpu-nvidia-cuda-13-trl
 ## llama.cpp quantization backend
 - &llama-cpp-quantization
   name: "llama-cpp-quantization"
@@ -4725,12 +5230,14 @@
     default: "cpu-speaker-recognition"
     nvidia: "cuda12-speaker-recognition"
     nvidia-cuda-12: "cuda12-speaker-recognition"
+    metal: "metal-speaker-recognition"
 - !!merge <<: *speakerrecognition
   name: "speaker-recognition-development"
   capabilities:
     default: "cpu-speaker-recognition-development"
     nvidia: "cuda12-speaker-recognition-development"
     nvidia-cuda-12: "cuda12-speaker-recognition-development"
+    metal: "metal-speaker-recognition-development"
 - !!merge <<: *speakerrecognition
   name: "cpu-speaker-recognition"
   uri: "quay.io/go-skynet/local-ai-backends:latest-cpu-speaker-recognition"
@@ -4751,6 +5258,16 @@
   uri: "quay.io/go-skynet/local-ai-backends:master-gpu-nvidia-cuda-12-speaker-recognition"
   mirrors:
     - localai/localai-backends:master-gpu-nvidia-cuda-12-speaker-recognition
+- !!merge <<: *speakerrecognition
+  name: "metal-speaker-recognition"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-metal-darwin-arm64-speaker-recognition"
+  mirrors:
+    - localai/localai-backends:latest-metal-darwin-arm64-speaker-recognition
+- !!merge <<: *speakerrecognition
+  name: "metal-speaker-recognition-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-metal-darwin-arm64-speaker-recognition"
+  mirrors:
+    - localai/localai-backends:master-metal-darwin-arm64-speaker-recognition
 ## sherpa-onnx
 - !!merge <<: *sherpa-onnx
   name: "sherpa-onnx-development"
@@ -4758,6 +5275,7 @@
     default: "cpu-sherpa-onnx-development"
     nvidia: "cuda12-sherpa-onnx-development"
     nvidia-cuda-12: "cuda12-sherpa-onnx-development"
+    metal: "metal-sherpa-onnx-development"
 - !!merge <<: *sherpa-onnx
   name: "cpu-sherpa-onnx"
   uri: "quay.io/go-skynet/local-ai-backends:latest-cpu-sherpa-onnx"
@@ -4778,3 +5296,28 @@
   uri: "quay.io/go-skynet/local-ai-backends:master-gpu-nvidia-cuda-12-sherpa-onnx"
   mirrors:
     - localai/localai-backends:master-gpu-nvidia-cuda-12-sherpa-onnx
+- !!merge <<: *sherpa-onnx
+  name: "metal-sherpa-onnx"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-metal-darwin-arm64-sherpa-onnx"
+  mirrors:
+    - localai/localai-backends:latest-metal-darwin-arm64-sherpa-onnx
+- !!merge <<: *sherpa-onnx
+  name: "metal-sherpa-onnx-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-metal-darwin-arm64-sherpa-onnx"
+  mirrors:
+    - localai/localai-backends:master-metal-darwin-arm64-sherpa-onnx
+## supertonic
+- !!merge <<: *supertonic
+  name: "supertonic-development"
+  capabilities:
+    default: "cpu-supertonic-development"
+- !!merge <<: *supertonic
+  name: "cpu-supertonic"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-cpu-supertonic"
+  mirrors:
+    - localai/localai-backends:latest-cpu-supertonic
+- !!merge <<: *supertonic
+  name: "cpu-supertonic-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-cpu-supertonic"
+  mirrors:
+    - localai/localai-backends:master-cpu-supertonic

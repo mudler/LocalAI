@@ -21,6 +21,7 @@ const (
 	UsecaseSoundGeneration = "sound_generation"
 	UsecaseRerank          = "rerank"
 	UsecaseDetection       = "detection"
+	UsecaseDepth           = "depth"
 	UsecaseVAD             = "vad"
 	UsecaseAudioTransform      = "audio_transform"
 	UsecaseDiarization         = "diarization"
@@ -44,6 +45,7 @@ const (
 	MethodSoundGeneration    GRPCMethod = "SoundGeneration"
 	MethodTokenizeString     GRPCMethod = "TokenizeString"
 	MethodDetect             GRPCMethod = "Detect"
+	MethodDepth              GRPCMethod = "Depth"
 	MethodRerank             GRPCMethod = "Rerank"
 	MethodVAD                GRPCMethod = "VAD"
 	MethodAudioTransform     GRPCMethod = "AudioTransform"
@@ -140,6 +142,11 @@ var UsecaseInfoMap = map[string]UsecaseInfo{
 		Flag:        FLAG_DETECTION,
 		GRPCMethod:  MethodDetect,
 		Description: "Object detection via the Detect RPC with bounding boxes.",
+	},
+	UsecaseDepth: {
+		Flag:        FLAG_DEPTH,
+		GRPCMethod:  MethodDepth,
+		Description: "Per-pixel metric depth, camera pose and 3D point cloud via the Depth RPC (Depth Anything 3).",
 	},
 	UsecaseVAD: {
 		Flag:        FLAG_VAD,
@@ -396,10 +403,10 @@ var BackendCapabilities = map[string]BackendCapability{
 		Description:      "Qwen TTS",
 	},
 	"qwen3-tts-cpp": {
-		GRPCMethods:      []GRPCMethod{MethodTTS},
+		GRPCMethods:      []GRPCMethod{MethodTTS, MethodTTSStream},
 		PossibleUsecases: []string{UsecaseTTS},
 		DefaultUsecases:  []string{UsecaseTTS},
-		Description:      "Qwen3 TTS C++ — text-to-speech, C++ backend",
+		Description:      "Qwen3 TTS C++ - text-to-speech with streaming, named speakers, voice design and cloning (qwentts.cpp / GGML)",
 	},
 	"faster-qwen3-tts": {
 		GRPCMethods:      []GRPCMethod{MethodTTS},
@@ -488,6 +495,13 @@ var BackendCapabilities = map[string]BackendCapability{
 		DefaultUsecases:  []string{UsecaseDetection},
 		Description:      "RF-DETR C++ object detection",
 	},
+	"depth-anything": {
+		GRPCMethods:      []GRPCMethod{MethodDepth, MethodPredict, MethodGenerateImage},
+		PossibleUsecases: []string{UsecaseDepth},
+		DefaultUsecases:  []string{UsecaseDepth},
+		AcceptsImages:    true,
+		Description:      "Depth Anything 3 C++ — per-pixel metric depth, camera pose and 3D point cloud",
+	},
 
 	// --- Face and speaker recognition backends ---
 	"insightface": {
@@ -515,6 +529,33 @@ var BackendCapabilities = map[string]BackendCapability{
 // used in gallery entries (e.g., "llama.cpp" → "llama-cpp").
 func NormalizeBackendName(backend string) string {
 	return strings.ReplaceAll(backend, ".", "-")
+}
+
+// nonLlamaSamplerBackends lists backends whose native sampler defaults differ
+// from llama.cpp's, so LocalAI must NOT inject llama.cpp's top_k=40 default for
+// them (issue #6632). mlx_lm's intended default is top_k=0 (disabled) and mlx
+// does not remap 0->40, so shipping 40 silently changes sampling for clients
+// that omit top_k. Leaving TopK nil lets the wire value default to 0.
+//
+// This is intentionally a small allow-list of KNOWN non-llama backends: empty
+// and unknown backends fall through to the llama.cpp default to preserve the
+// GGUF auto-detect path's behavior.
+var nonLlamaSamplerBackends = map[string]struct{}{
+	"mlx":             {},
+	"mlx-vlm":         {},
+	"mlx-distributed": {},
+}
+
+// UsesLlamaSamplerDefaults reports whether a backend should receive llama.cpp's
+// sampler defaults (e.g. top_k=40). Empty/unknown backends return true so the
+// GGUF auto-detect path (which resolves to llama.cpp) keeps today's behavior;
+// only the known non-llama backends in nonLlamaSamplerBackends return false.
+func UsesLlamaSamplerDefaults(backend string) bool {
+	if backend == "" {
+		return true
+	}
+	_, isNonLlama := nonLlamaSamplerBackends[NormalizeBackendName(backend)]
+	return !isNonLlama
 }
 
 // GetBackendCapability returns the capability info for a backend, or nil if unknown.

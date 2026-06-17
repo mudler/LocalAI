@@ -310,24 +310,19 @@ func mergeOpenAIRequestAndModelConfig(config *config.ModelConfig, input *schema.
 		config.Temperature = input.Temperature
 	}
 
-	// Map the per-request reasoning_effort onto the reasoning toggle the
-	// backend reads (enable_thinking metadata, set in gRPCPredictOpts).
-	// "none" disables thinking for this request - the use case from #10072,
-	// running a single Qwen3-style model and turning reasoning off per
-	// request. Any explicit effort level enables thinking, UNLESS the model
-	// config explicitly disabled it (DisableReasoning==true wins): an
-	// operator who deliberately turned reasoning off should not be overridden
-	// by a request. A value of "none" always disables, since that never
-	// conflicts with a config that also disables.
-	switch strings.ToLower(input.ReasoningEffort) {
-	case "none":
-		disable := true
-		config.ReasoningConfig.DisableReasoning = &disable
-	case "minimal", "low", "medium", "high":
-		if config.ReasoningConfig.DisableReasoning == nil || !*config.ReasoningConfig.DisableReasoning {
-			enable := false
-			config.ReasoningConfig.DisableReasoning = &enable
-		}
+	// Resolve the effective reasoning effort (request overrides the model config
+	// default), store it so gRPCPredictOpts forwards it to the backend as the
+	// reasoning_effort chat_template_kwarg (what gpt-oss / LFM2.5 read), and map
+	// it onto the enable_thinking toggle. "none" disables thinking (the #10072
+	// use case); a level enables it unless the config already disabled reasoning
+	// (an operator's explicit disable wins over a request asking to think).
+	config.ApplyReasoningEffort(input.ReasoningEffort)
+
+	// Forward the client's request metadata so chat-template kwargs set per-request
+	// (enable_thinking, reasoning_effort, preserve_thinking, ...) reach the backend
+	// and override the model's reasoning-config defaults. See gRPCPredictOpts.
+	if len(input.Metadata) > 0 {
+		config.RequestMetadata = input.Metadata
 	}
 
 	// Collapse the modern max_completion_tokens alias into the

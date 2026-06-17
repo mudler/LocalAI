@@ -82,6 +82,10 @@ func (llm *Base) Detect(*pb.DetectOptions) (pb.DetectResponse, error) {
 	return pb.DetectResponse{}, fmt.Errorf("unimplemented")
 }
 
+func (llm *Base) Depth(*pb.DepthRequest) (pb.DepthResponse, error) {
+	return pb.DepthResponse{}, fmt.Errorf("unimplemented")
+}
+
 func (llm *Base) FaceVerify(*pb.FaceVerifyRequest) (pb.FaceVerifyResponse, error) {
 	return pb.FaceVerifyResponse{}, fmt.Errorf("unimplemented")
 }

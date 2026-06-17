@@ -135,13 +135,18 @@ type NodeLabel struct {
 //   - Both → auto-scale on matching nodes
 //   - Neither → no-op (default behavior)
 //
-// Auto-scaling is enabled when MinReplicas > 0 or MaxReplicas > 0.
+// Auto-scaling is enabled when MinReplicas > 0, MaxReplicas > 0, or SpreadAll is set.
 type ModelSchedulingConfig struct {
 	ID           string `gorm:"primaryKey;size:36" json:"id"`
 	ModelName    string `gorm:"uniqueIndex;size:255" json:"model_name"`
 	NodeSelector string `gorm:"type:text" json:"node_selector,omitempty"` // JSON {"key":"value",...}
 	MinReplicas  int    `gorm:"default:0" json:"min_replicas"`
 	MaxReplicas  int    `gorm:"default:0" json:"max_replicas"`
+	// SpreadAll requests one replica on every node matching NodeSelector
+	// (every healthy backend node when the selector is empty), tracked as
+	// nodes join and leave. Mutually exclusive with MinReplicas/MaxReplicas.
+	// The reconciler turns this into a dynamic Min==Max target each tick.
+	SpreadAll bool `gorm:"column:spread_all;default:false" json:"spread_all,omitempty"`
 	// Prefix-cache-aware routing (epic #10063). RoutePolicy "" means inherit
 	// the cluster-wide default. Thresholds are per-model overrides; 0 means
 	// inherit the global default.
@@ -1392,12 +1397,26 @@ func (r *NodeRegistry) SetModelScheduling(ctx context.Context, config *ModelSche
 		Clauses(clause.OnConflict{
 			Columns: []clause.Column{{Name: "model_name"}},
 			DoUpdates: clause.AssignmentColumns([]string{
-				"node_selector", "min_replicas", "max_replicas",
+				"node_selector", "min_replicas", "max_replicas", "spread_all",
 				"route_policy", "balance_abs_threshold", "balance_rel_threshold", "min_prefix_match",
 				"updated_at",
 			}),
 		}).
 		Create(config).Error
+}
+
+// SeedModelScheduling authoritatively applies a batch of scheduling configs at
+// startup. Each config is upserted (full-replace on model_name), overwriting any
+// prior row for that model. Models not present in configs are left untouched.
+func (r *NodeRegistry) SeedModelScheduling(ctx context.Context, configs []ModelSchedulingConfig) error {
+	for i := range configs {
+		if err := r.SetModelScheduling(ctx, &configs[i]); err != nil {
+			return fmt.Errorf("seeding scheduling config for model %q: %w", configs[i].ModelName, err)
+		}
+		xlog.Info("Seeded model scheduling config", "model", configs[i].ModelName,
+			"spread_all", configs[i].SpreadAll, "min", configs[i].MinReplicas, "max", configs[i].MaxReplicas)
+	}
+	return nil
 }
 
 // GetModelScheduling returns the scheduling config for a model, or nil if none exists.
@@ -1423,7 +1442,7 @@ func (r *NodeRegistry) ListModelSchedulings(ctx context.Context) ([]ModelSchedul
 // ListAutoScalingConfigs returns scheduling configs where auto-scaling is enabled.
 func (r *NodeRegistry) ListAutoScalingConfigs(ctx context.Context) ([]ModelSchedulingConfig, error) {
 	var configs []ModelSchedulingConfig
-	err := r.db.WithContext(ctx).Where("min_replicas > 0 OR max_replicas > 0").Find(&configs).Error
+	err := r.db.WithContext(ctx).Where("min_replicas > 0 OR max_replicas > 0 OR spread_all = ?", true).Find(&configs).Error
 	return configs, err
 }
 
@@ -1774,6 +1793,38 @@ func (r *NodeRegistry) DeletePendingBackendOp(ctx context.Context, id uint) erro
 		return fmt.Errorf("deleting pending backend op %d: %w", id, err)
 	}
 	return nil
+}
+
+// DeleteStalePendingBackendOps garbage-collects pending backend ops whose target
+// node can never drain them. ListDuePendingBackendOps only returns rows behind a
+// StatusHealthy node, so ops behind a node that went offline or draining are
+// otherwise never retried, aged out, or deleted — they leak forever and keep the
+// UI operation spinning. Draining nodes are cleared immediately (an explicit
+// admin action; their model rows are already purged). Offline nodes are cleared
+// only once their last heartbeat is older than `grace`, so a brief heartbeat blip
+// does not nuke an install that is still legitimately in flight. Returns the
+// number of rows deleted.
+func (r *NodeRegistry) DeleteStalePendingBackendOps(ctx context.Context, grace time.Duration) (int64, error) {
+	cutoff := time.Now().Add(-grace)
+	// Draining nodes are cleared immediately (admin action; model rows already
+	// purged). Offline AND unhealthy nodes are cleared only once their heartbeat
+	// is older than the grace window: a node marked unhealthy on a NATS
+	// ErrNoResponders never transitions to offline (health.go skips re-marking
+	// it), so without including unhealthy here its ops would leak exactly like
+	// the offline case. A node with a fresh heartbeat (last_heartbeat > cutoff)
+	// is recovering and keeps its op for retry.
+	res := r.db.WithContext(ctx).
+		Where(`node_id IN (SELECT id FROM backend_nodes WHERE status = ?)
+			OR node_id IN (SELECT id FROM backend_nodes WHERE status IN ? AND last_heartbeat <= ?)`,
+			StatusDraining, []string{StatusOffline, StatusUnhealthy}, cutoff).
+		Delete(&PendingBackendOp{})
+	if res.Error != nil {
+		return 0, fmt.Errorf("deleting stale pending backend ops: %w", res.Error)
+	}
+	if res.RowsAffected > 0 {
+		xlog.Info("Cleared pending backend ops behind non-healthy nodes", "deleted", res.RowsAffected)
+	}
+	return res.RowsAffected, nil
 }
 
 // RecordPendingBackendOpFailure bumps Attempts, captures the error, and

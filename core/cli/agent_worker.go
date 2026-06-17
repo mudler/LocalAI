@@ -57,12 +57,21 @@ type AgentWorkerCMD struct {
 	NatsServiceJWT  string `env:"LOCALAI_NATS_SERVICE_JWT" help:"Fallback NATS service JWT when registration does not mint agent JWT" group:"distributed"`
 	NatsServiceSeed string `env:"LOCALAI_NATS_SERVICE_SEED" help:"Fallback NATS service seed paired with LOCALAI_NATS_SERVICE_JWT" group:"distributed"`
 	NatsRequireAuth bool   `env:"LOCALAI_NATS_REQUIRE_AUTH" default:"false" help:"Require NATS JWT+seed to connect" group:"distributed"`
-	NatsTLSCA       string `env:"LOCALAI_NATS_TLS_CA" type:"existingfile" help:"PEM file for NATS server CA (private PKI)" group:"distributed"`
-	NatsTLSCert     string `env:"LOCALAI_NATS_TLS_CERT" type:"existingfile" help:"Client certificate for NATS mTLS" group:"distributed"`
-	NatsTLSKey      string `env:"LOCALAI_NATS_TLS_KEY" type:"existingfile" help:"Client private key for NATS mTLS" group:"distributed"`
+	// DistributedRequireAuth is the umbrella switch; for the agent worker (which
+	// has no file-transfer server) it implies NATS auth is required.
+	DistributedRequireAuth bool   `env:"LOCALAI_DISTRIBUTED_REQUIRE_AUTH" default:"false" help:"Umbrella switch implying --nats-require-auth (agent workers have no file-transfer server)" group:"distributed"`
+	NatsTLSCA              string `env:"LOCALAI_NATS_TLS_CA" type:"existingfile" help:"PEM file for NATS server CA (private PKI)" group:"distributed"`
+	NatsTLSCert            string `env:"LOCALAI_NATS_TLS_CERT" type:"existingfile" help:"Client certificate for NATS mTLS" group:"distributed"`
+	NatsTLSKey             string `env:"LOCALAI_NATS_TLS_KEY" type:"existingfile" help:"Client private key for NATS mTLS" group:"distributed"`
 
 	// Timeouts
 	MCPCIJobTimeout string `env:"LOCALAI_MCP_CI_JOB_TIMEOUT" default:"10m" help:"Timeout for MCP CI job execution" group:"distributed"`
+}
+
+// natsAuthRequired reports whether NATS JWT credentials must be present — the
+// granular flag or the umbrella (LOCALAI_DISTRIBUTED_REQUIRE_AUTH).
+func (cmd *AgentWorkerCMD) natsAuthRequired() bool {
+	return cmd.NatsRequireAuth || cmd.DistributedRequireAuth
 }
 
 func (cmd *AgentWorkerCMD) Run(ctx *cliContext.Context) error {
@@ -102,7 +111,7 @@ func (cmd *AgentWorkerCMD) Run(ctx *cliContext.Context) error {
 		func(ctx context.Context) (*workerregistry.RegisterResponse, error) {
 			return regClient.RegisterFull(ctx, registrationBody)
 		},
-		cmd.NatsRequireAuth && cmd.NatsJWT == "" && cmd.NatsServiceJWT == "",
+		cmd.natsAuthRequired() && cmd.NatsJWT == "" && cmd.NatsServiceJWT == "",
 	)
 	res, err := credMgr.Acquire(shutdownCtx)
 	if err != nil {
@@ -149,7 +158,7 @@ func (cmd *AgentWorkerCMD) Run(ctx *cliContext.Context) error {
 			return fmt.Errorf("LOCALAI_NATS_SERVICE_JWT and LOCALAI_NATS_SERVICE_SEED must be set together")
 		}
 		natsOpts = append(natsOpts, messaging.WithUserJWT(cmd.NatsServiceJWT, cmd.NatsServiceSeed))
-	case cmd.NatsRequireAuth:
+	case cmd.natsAuthRequired():
 		return fmt.Errorf("NATS JWT+seed required: enable frontend minting or set LOCALAI_NATS_* env vars")
 	}
 	if natsTLS.Enabled() {

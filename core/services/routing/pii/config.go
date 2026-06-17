@@ -53,7 +53,7 @@ func LoadConfig(path string) ([]Pattern, error) {
 			continue
 		}
 		switch p.Action {
-		case ActionMask, ActionBlock, ActionRouteLocal:
+		case ActionMask, ActionBlock, ActionAllow:
 			overrides[p.ID] = p.Action
 		default:
 			return nil, fmt.Errorf("pii: invalid action %q for pattern %q", p.Action, p.ID)

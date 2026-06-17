@@ -418,6 +418,56 @@ This is the load-time reasoning configuration. The orthogonal per-request `enabl
 - `reasoning_effort: "minimal" | "low" | "medium" | "high"` enables thinking, unless the model config explicitly set `reasoning.disable: true` (an operator's explicit disable wins and is never re-enabled by a request).
 {{% /notice %}}
 
+#### `reasoning_effort` as a chat-template kwarg
+
+`reasoning_effort` is also forwarded to the backend as a `chat_template_kwarg`, so models whose **jinja chat template** keys on it — e.g. gpt-oss (Harmony) or LFM2.5 — honor the **level**, not just the on/off `enable_thinking` flag. This matters for models that ignore `enable_thinking` entirely (LFM2.5 keeps emitting `<think>` for `enable_thinking=false`, but respects `reasoning_effort`).
+
+Set a per-model default in the config so every request inherits it (a per-request `reasoning_effort` still overrides):
+
+```yaml
+name: my-model
+reasoning_effort: none   # none | minimal | low | medium | high
+```
+
+For [realtime pipelines]({{%relref "features/openai-realtime" %}}), set it on the pipeline so it applies to the pipeline's LLM without editing that model's own config:
+
+```yaml
+name: gpt-realtime
+pipeline:
+  llm: lfm2.5
+  reasoning_effort: none   # overrides the LLM model's own reasoning_effort
+```
+
+#### Custom `chat_template_kwargs`
+
+Some jinja chat templates expose extra variables beyond `enable_thinking` /
+`reasoning_effort` (for example Qwen3's `preserve_thinking`). Set arbitrary key/values in
+the model config and they are forwarded to the backend's `chat_template_kwargs` as-is, so
+you don't need a dedicated server option per template variable:
+
+```yaml
+name: qwen3
+chat_template_kwargs:
+  preserve_thinking: true
+```
+
+You can also override (or add) any of these per request through the OpenAI `metadata`
+field on `/v1/chat/completions`. Values are strings; `"true"` / `"false"` are coerced to
+booleans, anything else is passed through as a string:
+
+```json
+{
+  "model": "qwen3",
+  "messages": [{"role": "user", "content": "hi"}],
+  "metadata": { "preserve_thinking": "true", "enable_thinking": "false" }
+}
+```
+
+Per-request `metadata` overrides the model config defaults and the reasoning-config levers,
+and (for `enable_thinking` / `reasoning_effort`) takes effect across every backend that
+reads them, not just llama.cpp. Typed (non-boolean) values are only supported through the
+model YAML `chat_template_kwargs`, where YAML preserves the type.
+
 ### Multimodal Backend Options
 
 | Option | Type | Default | Description |

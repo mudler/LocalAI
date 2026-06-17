@@ -57,6 +57,7 @@ LocalAI will attempt to automatically load models which are not explicitly confi
 | [VoxCPM](https://github.com/ModelBest/VoxCPM) | Expressive end-to-end TTS | CPU, CUDA 12/13, ROCm, Intel, Metal |
 | [Kitten TTS](https://github.com/KittenML/KittenTTS) | Kitten TTS model | CPU, Metal |
 | [MLX-Audio](https://github.com/Blaizzy/mlx-audio) | Audio models on Apple Silicon | Metal, CPU, CUDA 12/13, Jetson L4T |
+| [OmniVoice](https://github.com/ServeurpersoCom/omnivoice.cpp) | Native C++/GGML TTS with voice cloning, voice design, and streaming | CPU, CUDA 12/13, ROCm, Intel, Metal, Vulkan, Jetson L4T |
 
 ## Music Generation
 

@@ -8,7 +8,7 @@ import CanvasPanel from '../components/CanvasPanel'
 import ResourceCards from '../components/ResourceCards'
 import ConfirmDialog from '../components/ConfirmDialog'
 import { useAgentChat } from '../hooks/useAgentChat'
-import { relativeTime } from '../utils/format'
+import { relativeTime, normalizeTimestampMs } from '../utils/format'
 import { copyToClipboard } from '../utils/clipboard'
 
 function getLastMessagePreview(conv) {
@@ -139,7 +139,9 @@ export default function AgentChat() {
           id: nextId(),
           sender,
           content: data.content || data.message || '',
-          timestamp: data.timestamp ? Math.floor(data.timestamp / 1e6) : Date.now(),
+          // Backend timestamp encoding varies by deploy mode (RFC3339 string,
+          // Unix ms, or Unix ns); normalize to JS milliseconds.
+          timestamp: normalizeTimestampMs(data.timestamp),
         }
         if (data.metadata && Object.keys(data.metadata).length > 0) {
           msg.metadata = data.metadata

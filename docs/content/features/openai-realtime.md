@@ -31,6 +31,43 @@ This configuration links the following components:
 
 Make sure all referenced models (`silero-vad-ggml`, `whisper-large-turbo`, `qwen3-4b`, `tts-1`) are also installed or defined in your LocalAI instance.
 
+### Streaming the pipeline
+
+By default each stage runs to completion before the next begins: the whole utterance is transcribed, the full LLM reply is generated, then it is synthesized. Each stage can instead be streamed incrementally, which lowers the time-to-first-audio of a turn:
+
+```yaml
+name: gpt-realtime
+pipeline:
+  vad: silero-vad-ggml
+  transcription: whisper-large-turbo
+  llm: qwen3-4b
+  tts: tts-1
+  streaming:
+    llm: true             # stream LLM tokens as transcript deltas
+    tts: true             # emit audio deltas per synthesized chunk
+    transcription: true   # stream transcript text deltas of the user's speech
+    clause_chunking: true # synthesize each clause as soon as it completes
+```
+
+- **streaming.tts**: emit a `response.output_audio.delta` per audio chunk the TTS backend produces (requires a backend that supports streaming synthesis), instead of one delta for the whole utterance. Falls back to a single unary delta otherwise.
+- **streaming.transcription**: stream `conversation.item.input_audio_transcription.delta` events as the transcript is produced (requires a transcription backend that supports streaming).
+- **streaming.llm**: stream the LLM reply token-by-token as `response.output_audio_transcript.delta` events. The full reply is buffered and synthesized once it is complete — streamed as audio chunks when `streaming.tts` is enabled (and the TTS backend supports it), otherwise as a single unary delta. Reasoning/thinking is always stripped from the spoken transcript. Tool calls are supported while streaming when the LLM uses its tokenizer template (`use_tokenizer_template: true`): the backend's autoparser then delivers content and tool calls separately, so the spoken transcript never leaks tool-call tokens. Grammar-based function calling keeps the buffered path.
+- **streaming.clause_chunking**: instead of buffering the whole reply before TTS, split it into speakable clauses and synthesize each as soon as it completes, lowering the time-to-first-audio. The splitter is script-aware: it uses Unicode sentence segmentation (so it handles CJK `。！？` with no whitespace), CJK clause punctuation (`，、；：`), and Thai/Lao spaces — it does **not** rely on whitespace sentence boundaries, so it works for languages such as Chinese, Japanese and Thai where the old per-sentence approach degraded to whole-message buffering. Requires `streaming.llm`; scripts that genuinely need a dictionary (e.g. Khmer, Burmese) simply stay buffered until a space or end-of-message. Off by default.
+
+All streaming flags are off by default, so existing pipelines are unaffected.
+
+### Disabling thinking
+
+For reasoning models, you can force the pipeline LLM's thinking off without editing the LLM model config:
+
+```yaml
+pipeline:
+  llm: qwen3-4b
+  disable_thinking: true   # maps to enable_thinking=false for the realtime LLM
+```
+
+This is applied only to the realtime session's copy of the LLM config, so it does not affect other users of the same model. Leave it unset to use the LLM model config's own reasoning settings.
+
 ## Transports
 
 The Realtime API supports two transports: **WebSocket** and **WebRTC**.
@@ -74,6 +111,79 @@ EXTERNAL_GRPC_BACKENDS=opus:/path/to/backend/go/opus/opus
 
 The opus backend is loaded automatically when a WebRTC session starts. It does not require any model configuration file — just the backend binary.
 
+#### WebRTC behind Docker host networking or NAT
+
+By default pion gathers a host ICE candidate for every local interface. Under
+Docker **host networking** that includes bridge addresses (`docker0`/`veth`,
+`172.x`) that a remote browser cannot route to: the call typically connects on a
+good candidate and then drops a few seconds later when ICE consent checks fail on
+the unreachable ones. Two settings let you advertise only the reachable address:
+
+```bash
+# Advertise these IPs as the host ICE candidates (e.g. the host's LAN IP)
+LOCALAI_WEBRTC_NAT_1TO1_IPS=192.168.1.10
+
+# ...or restrict ICE gathering to specific interfaces
+LOCALAI_WEBRTC_ICE_INTERFACES=eth0
+```
+
+{{% notice tip %}}
+For a browser on another LAN machine talking to LocalAI in a host-networked
+container, set `LOCALAI_WEBRTC_NAT_1TO1_IPS` to the host's LAN IP. This is the
+most reliable fix for WebRTC connections that establish and then drop.
+{{% /notice %}}
+
 ## Protocol
 
 The API follows the OpenAI Realtime API protocol for handling sessions, audio buffers, and conversation items.
+
+## Gating a realtime pipeline with voice recognition
+
+A pipeline realtime model can require speaker verification before it responds. Add a `voice_recognition` block under `pipeline`. When present, each committed utterance is verified against authorized speakers; unauthorized utterances are dropped before the LLM runs (no LLM call, no tool execution, no TTS). The session stays open.
+
+```yaml
+name: my-realtime
+pipeline:
+  vad: silero-vad
+  transcription: whisper
+  llm: qwen
+  tts: kokoro
+  voice_recognition:
+    model: speaker-recognition   # the speaker-recognition backend model
+    mode: identify               # "identify" (registry) or "verify" (references)
+    threshold: 0.25              # cosine distance; <= passes
+    when: every                  # "every" (default) or "first"
+    on_reject: drop_event        # "drop_event" (default) or "drop_silent"
+    anti_spoofing: false         # optional liveness check (verify mode)
+
+    # identify mode: authorized registry identities (multiple persons)
+    allow:
+      names: ["alice", "bob"]    # match registered speaker names
+      labels: ["family"]         # OR any identity carrying this label
+      # empty allow = any registered speaker within threshold passes
+
+    # verify mode: reference speakers (multiple persons)
+    references:
+      - name: alice
+        audio: /models/voices/alice.wav
+      - name: bob
+        audio: /models/voices/bob.wav
+```
+
+| Field | Meaning |
+|-------|---------|
+| `model` | Speaker-recognition backend model name. |
+| `mode` | `identify` matches against speakers registered via `/v1/voice/register`; `verify` matches against the `references` audios. |
+| `threshold` | Maximum cosine distance that still counts as a match (default ~0.25). |
+| `when` | `every` verifies each utterance; `first` verifies once then trusts the session. |
+| `on_reject` | `drop_event` drops and emits a `speaker_not_authorized` error event; `drop_silent` drops quietly. |
+| `anti_spoofing` | Verify mode only: runs the backend liveness check (slower). |
+| `allow.names` / `allow.labels` | identify mode: which registry identities are authorized. Empty = any registered speaker. |
+| `references` | verify mode: authorized reference speakers; the utterance passes if it matches any. |
+
+`identify` mode requires the voice registry (speakers registered through `/v1/voice/register`). `verify` mode needs no registry: reference audios are embedded once at model load.
+
+## Examples
+
+- [Realtime voice assistant demo (Go)](https://github.com/localai-org/localai-realtime-demo): a minimal Go client for the Realtime (WebSocket) API with a full talk-back voice loop and an example tool call. Ships a `docker compose` setup that brings up a realtime-capable LocalAI for you.
+- [Realtime voice assistant example (Python)](https://github.com/mudler/LocalAI-examples/tree/main/realtime): thin-client architecture (Silero VAD on the client, heavy lifting on LocalAI), suited to running the client on a Raspberry Pi.

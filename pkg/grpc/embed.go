@@ -73,6 +73,10 @@ func (e *embedBackend) Detect(ctx context.Context, in *pb.DetectOptions, opts ..
 	return e.s.Detect(ctx, in)
 }
 
+func (e *embedBackend) Depth(ctx context.Context, in *pb.DepthRequest, opts ...grpc.CallOption) (*pb.DepthResponse, error) {
+	return e.s.Depth(ctx, in)
+}
+
 func (e *embedBackend) FaceVerify(ctx context.Context, in *pb.FaceVerifyRequest, opts ...grpc.CallOption) (*pb.FaceVerifyResponse, error) {
 	return e.s.FaceVerify(ctx, in)
 }

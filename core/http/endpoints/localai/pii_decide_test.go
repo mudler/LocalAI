@@ -16,8 +16,8 @@ import (
 
 // PIIDecideEndpoint exposes the redactor as a decision oracle. These
 // specs pin the validation surface and the suggested_action mapping
-// across all four actions (allow/mask/route_local/block). The redactor
-// itself is covered in core/services/routing/pii/redactor_test.go.
+// across the three actions (allow/mask/block). The redactor itself is
+// covered in core/services/routing/pii/redactor_test.go.
 
 var _ = Describe("PIIDecideEndpoint", func() {
 	var redactor *pii.Redactor
@@ -68,16 +68,17 @@ var _ = Describe("PIIDecideEndpoint", func() {
 		Expect(len(body.Findings)).To(BeNumerically(">=", 1))
 	})
 
-	It("returns route_local when an override sets that action", func() {
-		// Promote the email pattern to route_local for this test —
-		// exercises the route_local branch of suggestedAction without
-		// needing a custom pattern set.
-		Expect(redactor.SetAction("email", pii.ActionRouteLocal)).To(Succeed())
+	It("returns allow when a matched pattern's action is allow", func() {
+		// Downgrade the email pattern to allow for this test —
+		// exercises the allow branch of suggestedAction: a match is
+		// found, but the strongest action is allow so the suggestion
+		// is "allow" and the text is left intact.
+		Expect(redactor.SetAction("email", pii.ActionAllow)).To(Succeed())
 		rec, body := invokePIIDecide(redactor, `{"text":"contact alice@example.com"}`)
 		Expect(rec.Code).To(Equal(http.StatusOK))
-		Expect(body.SuggestedAction).To(Equal("route_local"))
-		// route_local leaves the original text intact — caller decides
-		// whether to forward it to a local-only backend.
+		Expect(body.SuggestedAction).To(Equal("allow"))
+		Expect(body.Findings).To(HaveLen(1), "allow still reports the finding")
+		// allow leaves the original text intact.
 		Expect(body.RedactedPreview).To(ContainSubstring("alice@example.com"))
 	})
 

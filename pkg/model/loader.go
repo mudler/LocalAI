@@ -193,8 +193,7 @@ var knownModelsNameSuffixToSkip []string = []string{
 	".pt",
 	".onnx",
 	".md",
-	".MD",
-	".DS_Store",
+	".ds_store",
 	".",
 	".safetensors",
 	".bin",
@@ -203,6 +202,7 @@ var knownModelsNameSuffixToSkip []string = []string{
 	".ckpt",
 	".zip",
 	".tag",
+	".bak",
 	".partial",
 	".tar.gz",
 }
@@ -225,11 +225,17 @@ FILE:
 			}
 		}
 
-		// Skip templates, YAML, .keep, .json, and .DS_Store files
+		// Skip templates, YAML, .keep, .json, .DS_Store, and other non-model files.
+		// Use case-insensitive matching so e.g. CACHEDIR.TAG is caught by ".tag".
+		lowerName := strings.ToLower(file.Name())
 		for _, skip := range knownModelsNameSuffixToSkip {
-			if strings.HasSuffix(file.Name(), skip) {
+			if strings.HasSuffix(lowerName, skip) {
 				continue FILE
 			}
+		}
+		// Skip backup files created by LocalAI or huggingface_hub (e.g. model.yaml.bak-pre-gpumem072).
+		if strings.Contains(lowerName, ".bak") {
+			continue FILE
 		}
 
 		// Skip directories

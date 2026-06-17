@@ -1,0 +1,55 @@
+{
+  "title": "Agen",
+  "subtitle": "Kelola agen AI otonom",
+  "actions": {
+    "agentHub": "Pusat Agen",
+    "import": "Impor",
+    "createAgent": "Buat Agen",
+    "edit": "Edit",
+    "chat": "Obrolan",
+    "export": "Ekspor",
+    "delete": "Hapus",
+    "pause": "Jeda",
+    "resume": "Lanjutkan"
+  },
+  "table": {
+    "name": "Nama",
+    "status": "Status",
+    "events": "Event",
+    "actions": "Aksi",
+    "eventsTooltip": "{{count}} event - Klik untuk melihat"
+  },
+  "search": {
+    "placeholder": "Cari agen...",
+    "summary_one": "{{shown}} dari {{total}} agen",
+    "summary_other": "{{shown}} dari {{total}} agen"
+  },
+  "empty": {
+    "noConfigured": "Belum ada agen yang dikonfigurasi",
+    "noConfiguredText": "Buat agen untuk memulai alur kerja AI otonom.",
+    "browseHub": "Tidak tahu harus mulai dari mana? Jelajahi <1>Pusat Agen</1> untuk menemukan konfigurasi agen siap pakai yang bisa Anda impor.",
+    "noMatching": "Tidak ada agen yang cocok",
+    "noMatchingText": "Tidak ada agen yang cocok dengan \"{{query}}\""
+  },
+  "sections": {
+    "yourAgents": "Agent Anda",
+    "otherUsersAgents": "Agent Pengguna Lain"
+  },
+  "deleteDialog": {
+    "title": "Hapus Agen",
+    "message": "Hapus agen \"{{name}}\"? Tindakan ini tidak dapat dibatalkan.",
+    "confirm": "Hapus"
+  },
+  "toasts": {
+    "loadFailed": "Gagal memuat agen: {{message}}",
+    "deleted": "Agen \"{{name}}\" berhasil dihapus",
+    "deleteFailed": "Gagal menghapus agen: {{message}}",
+    "paused": "Agen \"{{name}}\" dijeda",
+    "resumed": "Agen \"{{name}}\" dilanjutkan",
+    "pauseFailed": "Gagal menjeda agen: {{message}}",
+    "resumeFailed": "Gagal melanjutkan agen: {{message}}",
+    "exported": "Agen \"{{name}}\" berhasil diekspor",
+    "exportFailed": "Gagal mengekspor agen: {{message}}",
+    "parseFailed": "Gagal melakukan parse file agen: {{message}}"
+  }
+}

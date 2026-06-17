@@ -98,6 +98,12 @@ func RegisterLocalAIRoutes(router *echo.Echo,
 		requestExtractor.BuildFilteredFirstAvailableDefaultModel(config.BuildUsecaseFilterFn(config.FLAG_DETECTION)),
 		requestExtractor.SetModelAndConfig(func() schema.LocalAIRequest { return new(schema.DetectionRequest) }))
 
+	depthHandler := localai.DepthEndpoint(cl, ml, appConfig)
+	router.POST("/v1/depth",
+		depthHandler,
+		requestExtractor.BuildFilteredFirstAvailableDefaultModel(config.BuildUsecaseFilterFn(config.FLAG_DEPTH)),
+		requestExtractor.SetModelAndConfig(func() schema.LocalAIRequest { return new(schema.DepthRequest) }))
+
 	// Face recognition endpoints
 	faceMw := []echo.MiddlewareFunc{
 		requestExtractor.BuildFilteredFirstAvailableDefaultModel(config.BuildUsecaseFilterFn(config.FLAG_FACE_RECOGNITION)),

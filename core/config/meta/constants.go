@@ -8,6 +8,7 @@ const (
 	ProviderModelsTTS        = "models:tts"
 	ProviderModelsTranscript = "models:transcript"
 	ProviderModelsVAD        = "models:vad"
+	ProviderModelsScore      = "models:score"
 )
 
 // Static option lists embedded directly in field metadata.
@@ -63,6 +64,7 @@ var UsecaseOptions = []FieldOption{
 	{Value: "image", Label: "Image"},
 	{Value: "vision", Label: "Vision"},
 	{Value: "detection", Label: "Detection"},
+	{Value: "depth", Label: "Depth"},
 	{Value: "face_recognition", Label: "Face Recognition"},
 	{Value: "transcript", Label: "Transcript"},
 	{Value: "diarization", Label: "Diarization"},

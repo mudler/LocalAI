@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef, useMemo, Fragment } from 'react'
-import { useOutletContext, Link, useNavigate } from 'react-router-dom'
+import { useOutletContext, Link, useNavigate, useLocation, useSearchParams } from 'react-router-dom'
 import { apiUrl } from '../utils/basePath'
+import { fromState } from '../utils/editorNav'
 import { settingsApi } from '../utils/api'
 import LoadingSpinner from '../components/LoadingSpinner'
 
@@ -26,13 +27,13 @@ const TABS = [
   { id: 'events', label: 'Events', icon: 'fa-list-ul' },
 ]
 
-const ACTIONS = ['mask', 'block', 'route_local']
+const ACTIONS = ['mask', 'block', 'allow']
 
 function actionBadge(action) {
   const colors = {
     mask: 'var(--color-primary)',
     block: 'var(--color-error)',
-    route_local: 'var(--color-warning)',
+    allow: 'var(--color-warning)',
   }
   return (
     <span style={{
@@ -75,8 +76,19 @@ export default function Middleware() {
   const [events, setEvents] = useState([])
   const [decisions, setDecisions] = useState([])
   const [loading, setLoading] = useState(true)
-  const [activeTab, setActiveTab] = useState('filtering')
+  // The active tab lives in the URL (?tab=) so deep links and the model-editor
+  // Back button (which captures location.search) return to the same tab; a
+  // localStorage fallback restores it on a bare visit. Mirrors the Manage page.
+  const [searchParams, setSearchParams] = useSearchParams()
+  const initialTab = searchParams.get('tab') || localStorage.getItem('middleware-tab') || 'filtering'
+  const [activeTab, setActiveTab] = useState(TABS.some(t => t.id === initialTab) ? initialTab : 'filtering')
   const [pendingPattern, setPendingPattern] = useState(null) // id while a PUT is in flight
+
+  const selectTab = (id) => {
+    setActiveTab(id)
+    localStorage.setItem('middleware-tab', id)
+    setSearchParams({ tab: id })
+  }
 
   // silent=true on background polls: skips the loading spinner and
   // suppresses toast spam if the server is briefly unreachable.
@@ -178,7 +190,7 @@ export default function Middleware() {
           <button
             key={tab.id}
             className={`btn btn-sm ${activeTab === tab.id ? 'btn-primary' : 'btn-secondary'}`}
-            onClick={() => setActiveTab(tab.id)}
+            onClick={() => selectTab(tab.id)}
           >
             <i className={`fas ${tab.icon}`} style={{ marginRight: 4 }} />
             {tab.label}
@@ -215,6 +227,7 @@ export default function Middleware() {
 }
 
 function FilteringTab({ status, pendingPattern, onSetAction, onSetDisabled, onPersist, persisting }) {
+  const location = useLocation()
   if (!status?.pii) return null
   const pii = status.pii
 
@@ -353,6 +366,7 @@ function FilteringTab({ status, pendingPattern, onSetAction, onSetDisabled, onPe
                   <td>
                     <Link
                       to={`/app/model-editor/${encodeURIComponent(m.name)}`}
+                      state={fromState(location, 'Middleware')}
                       className="btn btn-secondary btn-sm"
                       style={{ fontSize: '0.6875rem', padding: '2px 8px' }}
                       title={`Edit ${m.name}.yaml`}
@@ -485,6 +499,7 @@ function DecisionDetail({ d }) {
 
 function RoutingTab({ status, decisions }) {
   const navigate = useNavigate()
+  const location = useLocation()
   const router = status?.router || { configured: false }
   const [expanded, setExpanded] = useState(() => new Set())
 
@@ -519,7 +534,7 @@ function RoutingTab({ status, decisions }) {
         <button
           className="btn btn-primary"
           style={{ marginTop: 'var(--spacing-md)' }}
-          onClick={() => navigate('/app/model-editor?template=router')}
+          onClick={() => navigate('/app/model-editor?template=router', { state: fromState(location, 'Middleware') })}
         >
           <i className="fas fa-plus" /> Create routing model
         </button>
@@ -539,7 +554,7 @@ function RoutingTab({ status, decisions }) {
             </span>
             <button
               className="btn btn-secondary btn-sm"
-              onClick={() => navigate('/app/model-editor?template=router')}
+              onClick={() => navigate('/app/model-editor?template=router', { state: fromState(location, 'Middleware') })}
               title="Open the model editor with the Routing Model template pre-selected"
             >
               <i className="fas fa-plus" /> Add routing model
@@ -560,7 +575,9 @@ function RoutingTab({ status, decisions }) {
             <tbody>
               {router.models.map(m => (
                 <tr key={m.name}>
-                  <td style={{ fontFamily: 'var(--font-mono)', fontSize: '0.8125rem', fontWeight: 600 }}>{m.name}</td>
+                  <td style={{ fontFamily: 'var(--font-mono)', fontSize: '0.8125rem', fontWeight: 600 }}>
+                    <Link to={`/app/model-editor/${encodeURIComponent(m.name)}`} state={fromState(location, 'Middleware')} title="Edit this router model's config">{m.name}</Link>
+                  </td>
                   <td style={{ fontFamily: 'var(--font-mono)', fontSize: '0.75rem' }}>{m.classifier}</td>
                   <td style={{ fontSize: '0.75rem' }}>
                     {(m.candidates || []).map((c, i) => (
@@ -657,6 +674,7 @@ function RoutingTab({ status, decisions }) {
 
 function ProxyTab({ status, addToast, onChanged }) {
   const navigate = useNavigate()
+  const location = useLocation()
   const mitm = status?.mitm
   const serverListen = mitm?.configured_addr || ''
 
@@ -722,7 +740,7 @@ function ProxyTab({ status, addToast, onChanged }) {
                 <code style={{ fontFamily: 'var(--font-mono)' }}>{h}</code>
                 {' claimed by: '}
                 {(conflicts[h] || []).map(name => (
-                  <Link key={name} to={`/app/model-editor/${encodeURIComponent(name)}`} style={{ marginRight: 6, fontFamily: 'var(--font-mono)' }}>
+                  <Link key={name} to={`/app/model-editor/${encodeURIComponent(name)}`} state={fromState(location, 'Middleware')} style={{ marginRight: 6, fontFamily: 'var(--font-mono)' }}>
                     {name}
                   </Link>
                 ))}
@@ -754,7 +772,7 @@ function ProxyTab({ status, addToast, onChanged }) {
             <ul style={{ margin: 0, paddingLeft: 20, fontFamily: 'var(--font-mono)' }}>
               {ownerEntries.map(([host, name]) => (
                 <li key={host}>
-                  {host} → <Link to={`/app/model-editor/${encodeURIComponent(name)}`}>{name}</Link>
+                  {host} → <Link to={`/app/model-editor/${encodeURIComponent(name)}`} state={fromState(location, 'Middleware')}>{name}</Link>
                 </li>
               ))}
             </ul>
@@ -784,7 +802,7 @@ function ProxyTab({ status, addToast, onChanged }) {
           <h2 style={{ fontSize: '1rem', fontWeight: 600, margin: 0 }}>MITM Models</h2>
           <button
             className="btn btn-secondary btn-sm"
-            onClick={() => navigate('/app/model-editor?template=mitm')}
+            onClick={() => navigate('/app/model-editor?template=mitm', { state: fromState(location, 'Middleware') })}
             title="Open the model editor with the MITM Intercept template pre-selected"
           >
             <i className="fas fa-plus" /> Add MITM model
@@ -815,6 +833,7 @@ function ProxyTab({ status, addToast, onChanged }) {
                   <td>
                     <Link
                       to={`/app/model-editor/${encodeURIComponent(m.name)}`}
+                      state={fromState(location, 'Middleware')}
                       className="btn btn-secondary btn-sm"
                       style={{ fontSize: '0.6875rem', padding: '2px 8px' }}
                     >

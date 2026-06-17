@@ -47,13 +47,13 @@ func registerMiddlewareTools(s *mcp.Server, client LocalAIClient, opts Options) 
 
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        ToolSetPIIPatternAction,
-		Description: "Change a PII pattern's action (mask|block|route_local) and/or disabled state in-process. TRANSIENT: the mutation is lost on restart unless followed by persist_pii_patterns. Admin-required.",
+		Description: "Change a PII pattern's action (mask|block|allow) and/or disabled state in-process. TRANSIENT: the mutation is lost on restart unless followed by persist_pii_patterns. Admin-required.",
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, args PIIPatternActionUpdate) (*mcp.CallToolResult, any, error) {
 		if args.ID == "" {
 			return errorResultf("id is required"), nil, nil
 		}
 		if args.Action == "" && args.Disabled == nil {
-			return errorResultf("at least one of action (mask, block, route_local) or disabled must be set"), nil, nil
+			return errorResultf("at least one of action (mask, block, allow) or disabled must be set"), nil, nil
 		}
 		if err := client.SetPIIPatternAction(ctx, args); err != nil {
 			return errorResult(err), nil, nil

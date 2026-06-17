@@ -24,6 +24,7 @@ service Backend {
   rpc TokenizeString(PredictOptions) returns (TokenizationResponse) {}
   rpc Status(HealthMessage) returns (StatusResponse) {}
   rpc Detect(DetectOptions) returns (DetectResponse) {}
+  rpc Depth(DepthRequest) returns (DepthResponse) {}
   rpc FaceVerify(FaceVerifyRequest) returns (FaceVerifyResponse) {}
   rpc FaceAnalyze(FaceAnalyzeRequest) returns (FaceAnalyzeResponse) {}
   rpc VoiceVerify(VoiceVerifyRequest) returns (VoiceVerifyResponse) {}
@@ -668,6 +669,35 @@ message Detection {
 
 message DetectResponse {
   repeated Detection Detections = 1;
+}
+
+// --- Depth estimation messages (Depth Anything 3) ---
+
+message DepthRequest {
+  string src = 1;                  // input image (filesystem path or base64-encoded payload)
+  string dst = 2;                  // optional output directory for exports (glb/colmap)
+  bool include_depth = 3;          // return the per-pixel metric depth map
+  bool include_confidence = 4;     // return the per-pixel confidence map (DualDPT)
+  bool include_pose = 5;           // return camera extrinsics/intrinsics (DualDPT)
+  bool include_sky = 6;            // return the per-pixel sky map (mono models)
+  bool include_points = 7;         // back-project to a 3D point cloud (DualDPT)
+  float points_conf_thresh = 8;    // keep points with confidence >= this threshold
+  repeated string exports = 9;     // requested exports: "glb", "colmap"
+}
+
+message DepthResponse {
+  int32 width = 1;                 // processed depth-map width
+  int32 height = 2;                // processed depth-map height
+  repeated float depth = 3;        // width*height row-major metric depth
+  repeated float confidence = 4;   // width*height row-major confidence (DualDPT)
+  repeated float sky = 5;          // width*height row-major sky map (mono)
+  repeated float extrinsics = 6;   // 12 floats, 3x4 row-major (world-to-camera)
+  repeated float intrinsics = 7;   // 9 floats, 3x3 row-major
+  int32 num_points = 8;            // number of 3D points
+  repeated float points = 9;       // num_points*3 xyz, world space
+  bytes point_colors = 10;         // num_points*3 uint8 rgb
+  repeated string export_paths = 11; // paths written for the requested exports
+  bool is_metric = 12;             // depth is in metric units
 }
 
 // --- Face recognition messages ---

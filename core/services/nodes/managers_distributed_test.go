@@ -317,7 +317,7 @@ func (stubLocalBackendManager) DeleteBackend(_ string) error { return gallery.Er
 func (stubLocalBackendManager) ListBackends() (gallery.SystemBackends, error) {
 	return gallery.SystemBackends{}, nil
 }
-func (stubLocalBackendManager) UpgradeBackend(_ context.Context, _ string, _ galleryop.ProgressCallback) error {
+func (stubLocalBackendManager) UpgradeBackend(_ context.Context, _ string, _ string, _ galleryop.ProgressCallback) error {
 	return nil
 }
 func (stubLocalBackendManager) CheckUpgrades(_ context.Context) (map[string]gallery.UpgradeInfo, error) {
@@ -782,7 +782,7 @@ var _ = Describe("DistributedBackendManager", func() {
 				mc.scriptReply(messaging.SubjectNodeBackendUpgrade(n2.ID),
 					messaging.BackendUpgradeReply{Success: false, Error: "registry unauthorized"})
 
-				err := mgr.UpgradeBackend(ctx, "vllm-development", nil)
+				err := mgr.UpgradeBackend(ctx, "", "vllm-development", nil)
 				Expect(err).To(HaveOccurred())
 				Expect(err.Error()).To(ContainSubstring("worker-a"))
 				Expect(err.Error()).To(ContainSubstring("image manifest not found"))
@@ -797,7 +797,7 @@ var _ = Describe("DistributedBackendManager", func() {
 				scriptInstalled("vllm-development", n1.ID)
 				mc.scriptReply(messaging.SubjectNodeBackendUpgrade(n1.ID),
 					messaging.BackendUpgradeReply{Success: true})
-				Expect(mgr.UpgradeBackend(ctx, "vllm-development", nil)).To(Succeed())
+				Expect(mgr.UpgradeBackend(ctx, "", "vllm-development", nil)).To(Succeed())
 			})
 		})
 
@@ -819,7 +819,7 @@ var _ = Describe("DistributedBackendManager", func() {
 				// if the manager attempts it, the scripted-client default returns
 				// fakeNoRespondersErr and the assertion below fails loudly.
 
-				Expect(mgr.UpgradeBackend(ctx, "cpu-insightface-development", nil)).To(Succeed())
+				Expect(mgr.UpgradeBackend(ctx, "", "cpu-insightface-development", nil)).To(Succeed())
 
 				mc.mu.Lock()
 				defer mc.mu.Unlock()
@@ -835,7 +835,7 @@ var _ = Describe("DistributedBackendManager", func() {
 				n1 := registerHealthyBackend("worker-a", "10.0.0.1:50051")
 				scriptNoBackends(n1.ID)
 
-				err := mgr.UpgradeBackend(ctx, "vllm-development", nil)
+				err := mgr.UpgradeBackend(ctx, "", "vllm-development", nil)
 				Expect(err).To(HaveOccurred())
 				Expect(err.Error()).To(ContainSubstring("not installed on any node"))
 
@@ -865,7 +865,7 @@ var _ = Describe("DistributedBackendManager", func() {
 					func(req messaging.BackendInstallRequest) bool { return req.Force },
 					messaging.BackendInstallReply{Success: true, Address: "10.0.0.1:50100"})
 
-				Expect(mgr.UpgradeBackend(ctx, "vllm-development", nil)).To(Succeed())
+				Expect(mgr.UpgradeBackend(ctx, "", "vllm-development", nil)).To(Succeed())
 			})
 
 			It("returns the upgrade error when it is not ErrNoResponders", func() {
@@ -875,7 +875,7 @@ var _ = Describe("DistributedBackendManager", func() {
 				mc.scriptReply(messaging.SubjectNodeBackendUpgrade(n.ID),
 					messaging.BackendUpgradeReply{Success: false, Error: "disk full"})
 
-				err := mgr.UpgradeBackend(ctx, "vllm-development", nil)
+				err := mgr.UpgradeBackend(ctx, "", "vllm-development", nil)
 				Expect(err).To(HaveOccurred())
 				Expect(err.Error()).To(ContainSubstring("disk full"))
 			})

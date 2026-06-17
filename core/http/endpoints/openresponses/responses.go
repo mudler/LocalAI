@@ -1356,7 +1356,7 @@ func handleOpenResponsesNonStream(c echo.Context, responseID string, createdAt i
 	thinkingStartToken := reason.DetectThinkingStartToken(template, &cfg.ReasoningConfig)
 
 	// Extract reasoning from result before cleaning
-	reasoningContent, cleanedResult := reason.ExtractReasoningWithConfig(result, thinkingStartToken, cfg.ReasoningConfig)
+	reasoningContent, cleanedResult := reason.ExtractReasoningComplete(result, thinkingStartToken, cfg.ReasoningConfig)
 
 	// Parse tool calls if using functions
 	var outputItems []schema.ORItemField
@@ -1996,7 +1996,7 @@ func handleOpenResponsesStream(c echo.Context, responseID string, createdAt int6
 				finalCleanedResult = extractor.CleanedContent()
 			}
 			if finalReasoning == "" && finalCleanedResult == "" {
-				finalReasoning, finalCleanedResult = reason.ExtractReasoningWithConfig(result, thinkingStartToken, cfg.ReasoningConfig)
+				finalReasoning, finalCleanedResult = reason.ExtractReasoningComplete(result, thinkingStartToken, cfg.ReasoningConfig)
 			}
 
 			// Close reasoning item if it exists and wasn't closed yet
@@ -2493,7 +2493,7 @@ func handleOpenResponsesStream(c echo.Context, responseID string, createdAt int6
 		finalCleanedResult = extractor.CleanedContent()
 	}
 	if finalReasoning == "" && finalCleanedResult == "" {
-		finalReasoning, finalCleanedResult = reason.ExtractReasoningWithConfig(result, thinkingStartToken, cfg.ReasoningConfig)
+		finalReasoning, finalCleanedResult = reason.ExtractReasoningComplete(result, thinkingStartToken, cfg.ReasoningConfig)
 	}
 
 	// Close reasoning item if it exists and wasn't closed yet

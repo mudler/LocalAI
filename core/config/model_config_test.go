@@ -283,6 +283,18 @@ parameters:
 		Expect(e.HasUsecases(FLAG_CHAT)).To(BeFalse())
 		Expect(e.HasUsecases(FLAG_EMBEDDINGS)).To(BeTrue())
 
+		// Router models are chat dispatchers: no chat template of their
+		// own, but invoked through the chat endpoint, so they default to
+		// chat-capable.
+		r := ModelConfig{
+			Name: "r",
+			Router: RouterConfig{
+				Candidates: []RouterCandidate{{Model: "downstream", Labels: []string{"general"}}},
+			},
+		}
+		Expect(r.HasUsecases(FLAG_ANY)).To(BeTrue())
+		Expect(r.HasUsecases(FLAG_CHAT)).To(BeTrue())
+
 		f := ModelConfig{
 			Name:    "f",
 			Backend: "piper",
@@ -515,6 +527,74 @@ concurrency_groups:
 
 			Expect(cfg.FunctionsConfig.GrammarConfig.NoGrammar).To(BeFalse(),
 				"models that template in Go still rely on the Go-generated grammar")
+		})
+	})
+
+	// The default top_k=40 is llama.cpp's sampling default and is WRONG for
+	// backends whose native default differs. mlx_lm's intended default is
+	// top_k=0 (disabled) and mlx does not remap 0->40, so injecting 40 silently
+	// changes sampling for mlx clients that omit top_k (issue #6632). Gate the
+	// injection on backend family: keep 40 for the llama.cpp family and for the
+	// empty/auto backend (the GGUF auto-detect path resolves to llama.cpp), but
+	// leave TopK nil for the mlx family so the wire value is 0.
+	Context("TopK default is backend-gated (issue #6632)", func() {
+		It("injects top_k=40 for the llama.cpp backend", func() {
+			cfg := &ModelConfig{}
+			cfg.Backend = "llama-cpp"
+
+			cfg.SetDefaults()
+
+			Expect(cfg.TopK).NotTo(BeNil(), "llama.cpp must keep its top_k=40 default")
+			Expect(*cfg.TopK).To(Equal(40))
+		})
+
+		It("injects top_k=40 for the empty/auto backend (GGUF auto-detect)", func() {
+			cfg := &ModelConfig{}
+
+			cfg.SetDefaults()
+
+			Expect(cfg.TopK).NotTo(BeNil(), "empty backend resolves to llama.cpp; default unchanged")
+			Expect(*cfg.TopK).To(Equal(40))
+		})
+
+		It("leaves TopK nil for the mlx backend", func() {
+			cfg := &ModelConfig{}
+			cfg.Backend = "mlx"
+
+			cfg.SetDefaults()
+
+			Expect(cfg.TopK).To(BeNil(),
+				"mlx_lm's intended default is top_k=0 (disabled); LocalAI must not inject 40")
+		})
+
+		It("leaves TopK nil for the mlx-vlm backend", func() {
+			cfg := &ModelConfig{}
+			cfg.Backend = "mlx-vlm"
+
+			cfg.SetDefaults()
+
+			Expect(cfg.TopK).To(BeNil())
+		})
+
+		It("leaves TopK nil for the mlx-distributed backend", func() {
+			cfg := &ModelConfig{}
+			cfg.Backend = "mlx-distributed"
+
+			cfg.SetDefaults()
+
+			Expect(cfg.TopK).To(BeNil())
+		})
+
+		It("respects an explicit top_k even for the mlx backend", func() {
+			explicit := 7
+			cfg := &ModelConfig{}
+			cfg.Backend = "mlx"
+			cfg.TopK = &explicit
+
+			cfg.SetDefaults()
+
+			Expect(cfg.TopK).NotTo(BeNil())
+			Expect(*cfg.TopK).To(Equal(7))
 		})
 	})
 })

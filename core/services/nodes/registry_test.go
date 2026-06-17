@@ -1489,3 +1489,59 @@ var _ = Describe("NodeRegistry", func() {
 		})
 	})
 })
+
+var _ = Describe("ModelScheduling spread + seeding", func() {
+	var (
+		db       *gorm.DB
+		registry *NodeRegistry
+	)
+
+	BeforeEach(func() {
+		if runtime.GOOS == "darwin" {
+			Skip("testcontainers requires Docker, not available on macOS CI")
+		}
+		db = testutil.SetupTestDB()
+		var err error
+		registry, err = NewNodeRegistry(db)
+		Expect(err).ToNot(HaveOccurred())
+	})
+
+	It("persists and round-trips SpreadAll", func() {
+		Expect(registry.SetModelScheduling(context.Background(), &ModelSchedulingConfig{
+			ModelName: "m", SpreadAll: true,
+		})).To(Succeed())
+		got, err := registry.GetModelScheduling(context.Background(), "m")
+		Expect(err).ToNot(HaveOccurred())
+		Expect(got.SpreadAll).To(BeTrue())
+	})
+
+	It("includes SpreadAll configs in ListAutoScalingConfigs", func() {
+		Expect(registry.SetModelScheduling(context.Background(), &ModelSchedulingConfig{
+			ModelName: "m", SpreadAll: true,
+		})).To(Succeed())
+		configs, err := registry.ListAutoScalingConfigs(context.Background())
+		Expect(err).ToNot(HaveOccurred())
+		Expect(configs).To(HaveLen(1))
+		Expect(configs[0].ModelName).To(Equal("m"))
+	})
+
+	It("seeds configs with authoritative upsert", func() {
+		Expect(registry.SetModelScheduling(context.Background(), &ModelSchedulingConfig{
+			ModelName: "m", MinReplicas: 9,
+		})).To(Succeed())
+
+		err := registry.SeedModelScheduling(context.Background(), []ModelSchedulingConfig{
+			{ModelName: "m", MinReplicas: 1, MaxReplicas: 2},
+			{ModelName: "n", SpreadAll: true},
+		})
+		Expect(err).ToNot(HaveOccurred())
+
+		m, _ := registry.GetModelScheduling(context.Background(), "m")
+		Expect(m.MinReplicas).To(Equal(1))
+		Expect(m.MaxReplicas).To(Equal(2))
+		Expect(m.SpreadAll).To(BeFalse())
+
+		n, _ := registry.GetModelScheduling(context.Background(), "n")
+		Expect(n.SpreadAll).To(BeTrue())
+	})
+})

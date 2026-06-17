@@ -221,9 +221,18 @@ func UpdateSettingsEndpoint(app *application.Application) echo.HandlerFunc {
 		// Check if agent job retention changed
 		agentJobChanged := settings.AgentJobRetentionDays != nil
 
-		// Restart watchdog if settings changed
+		// Restart watchdog if settings changed.
+		//
+		// The live start/stop decision derives from the post-apply config
+		// (WatchdogShouldRun) rather than the raw watchdog_enabled request
+		// field: the React master toggle only ever writes the idle/busy flags,
+		// so keying off watchdog_enabled left the live watchdog stopped on a
+		// cold enable until the next restart (#9125). WatchdogShouldRun mirrors
+		// the gating in startWatchdog, so a cold enable starts it immediately
+		// and a full disable (both checks off, no LRU / memory reclaimer) stops
+		// it.
 		if watchdogChanged {
-			if settings.WatchdogEnabled != nil && !*settings.WatchdogEnabled {
+			if !appConfig.WatchdogShouldRun() {
 				if err := app.StopWatchdog(); err != nil {
 					xlog.Error("Failed to stop watchdog", "error", err)
 					return c.JSON(http.StatusInternalServerError, schema.SettingsResponse{

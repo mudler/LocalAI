@@ -63,6 +63,26 @@ type ModelConfig struct {
 	FunctionsConfig functions.FunctionsConfig `yaml:"function,omitempty" json:"function,omitempty"`
 	ReasoningConfig reasoning.Config          `yaml:"reasoning,omitempty" json:"reasoning,omitempty"`
 
+	// ReasoningEffort is the default reasoning effort (none|minimal|low|medium|high)
+	// for this model. A per-request reasoning_effort overrides it. It is forwarded
+	// to the backend as the reasoning_effort chat_template_kwarg (see
+	// gRPCPredictOpts), so jinja-templated models that key on it — e.g. gpt-oss
+	// (Harmony) or LFM2.5 — honor it; "none" also toggles enable_thinking off.
+	ReasoningEffort string `yaml:"reasoning_effort,omitempty" json:"reasoning_effort,omitempty"`
+
+	// ChatTemplateKwargs are arbitrary key/values forwarded to the backend's jinja
+	// chat template via chat_template_kwargs (e.g. preserve_thinking: true). The
+	// server-derived reasoning levers (enable_thinking / reasoning_effort) and any
+	// per-request metadata overrides layer on top. See gRPCPredictOpts.
+	ChatTemplateKwargs map[string]any `yaml:"chat_template_kwargs,omitempty" json:"chat_template_kwargs,omitempty"`
+
+	// RequestMetadata holds the raw client request `metadata` map for the current
+	// request. The request middleware stamps it; gRPCPredictOpts merges it into the
+	// backend gRPC metadata (overriding the server-derived enable_thinking /
+	// reasoning_effort) and folds it, coerced, into the chat_template_kwargs blob.
+	// Never persisted to YAML.
+	RequestMetadata map[string]string `yaml:"-" json:"-"`
+
 	FeatureFlag FeatureFlag `yaml:"feature_flags,omitempty" json:"feature_flags,omitempty"` // Feature Flag registry. We move fast, and features may break on a per model/backend basis. Registry for (usually temporary) flags that indicate aborting something early.
 	// LLM configs (GPT4ALL, Llama.cpp, ...)
 	LLMConfig `yaml:",inline" json:",inline"`
@@ -378,7 +398,7 @@ type PIIConfig struct {
 	Enabled *bool `yaml:"enabled,omitempty" json:"enabled,omitempty"`
 
 	// Patterns lets a model upgrade or downgrade individual pattern
-	// actions (mask | block | route_local) relative to the global
+	// actions (mask | block | allow) relative to the global
 	// defaults loaded from --pii-config / DefaultPatterns. Pattern IDs
 	// not listed inherit the global action. The regex itself stays
 	// global — only the action is settable per-model.
@@ -487,6 +507,251 @@ type Pipeline struct {
 	LLM           string `yaml:"llm,omitempty" json:"llm,omitempty"`
 	Transcription string `yaml:"transcription,omitempty" json:"transcription,omitempty"`
 	VAD           string `yaml:"vad,omitempty" json:"vad,omitempty"`
+
+	// ReasoningEffort sets the reasoning effort (none|minimal|low|medium|high) for
+	// the pipeline's LLM without editing the LLM model config. Overrides the LLM's
+	// own reasoning_effort. Unset leaves the LLM model config in charge.
+	ReasoningEffort string `yaml:"reasoning_effort,omitempty" json:"reasoning_effort,omitempty"`
+
+	// Streaming opts each pipeline stage into incremental delivery (LLM tokens,
+	// TTS audio chunks, transcription text). Unset stages keep the blocking
+	// unary path, so existing configs are unaffected.
+	Streaming PipelineStreaming `yaml:"streaming,omitempty" json:"streaming,omitempty"`
+
+	// DisableThinking suppresses reasoning/thinking for the pipeline LLM (maps
+	// to enable_thinking=false backend metadata) without editing the underlying
+	// LLM model config. Unset leaves the LLM model config in charge.
+	DisableThinking *bool `yaml:"disable_thinking,omitempty" json:"disable_thinking,omitempty"`
+
+	// MaxHistoryItems caps how many trailing conversation items are fed to the
+	// LLM each realtime turn (0 = unlimited, rely on the LLM's context window).
+	// Unset (nil) uses the per-model-type default. Set it on a composed pipeline
+	// (VAD+STT+LLM+TTS) so a long-running session doesn't grow until the LLM's
+	// context fills.
+	MaxHistoryItems *int `yaml:"max_history_items,omitempty" json:"max_history_items,omitempty"`
+
+	// VoiceRecognition gates the pipeline behind speaker verification. Nil
+	// (block absent) means no gate, preserving existing behavior.
+	VoiceRecognition *PipelineVoiceRecognition `yaml:"voice_recognition,omitempty" json:"voice_recognition,omitempty"`
+}
+
+// ApplyReasoningEffort resolves the effective reasoning effort — a per-request
+// value (requestEffort) overrides the config's own ReasoningEffort default —
+// stores it on the config so gRPCPredictOpts forwards it to the backend as the
+// reasoning_effort chat_template_kwarg, and maps it onto the enable_thinking
+// toggle the backend also reads:
+//   - "none" always disables thinking.
+//   - any explicit level enables it, UNLESS the config already disabled reasoning
+//     (an operator's explicit disable wins over a request asking to think).
+//
+// An empty requestEffort keeps the config's own default. With no effort set
+// anywhere it is a no-op, leaving the model's reasoning settings untouched.
+func (c *ModelConfig) ApplyReasoningEffort(requestEffort string) {
+	effort := requestEffort
+	if effort == "" {
+		effort = c.ReasoningEffort
+	}
+	c.ReasoningEffort = effort
+	switch strings.ToLower(effort) {
+	case "none":
+		disable := true
+		c.ReasoningConfig.DisableReasoning = &disable
+	case "minimal", "low", "medium", "high":
+		if c.ReasoningConfig.DisableReasoning == nil || !*c.ReasoningConfig.DisableReasoning {
+			enable := false
+			c.ReasoningConfig.DisableReasoning = &enable
+		}
+	}
+}
+
+// coerceChatTemplateKwarg coerces a request-metadata string value for use as a
+// jinja chat_template_kwarg. "true"/"false" become real booleans (so a jinja
+// `{% if preserve_thinking %}` reads false correctly, since any non-empty string
+// is truthy); everything else stays a string. Numeric/typed per-request values are
+// out of scope - set those in the model YAML chat_template_kwargs (YAML keeps the type).
+func coerceChatTemplateKwarg(v string) any {
+	switch v {
+	case "true":
+		return true
+	case "false":
+		return false
+	default:
+		return v
+	}
+}
+
+// ResolveChatTemplateKwargs builds the final chat_template_kwargs map forwarded to
+// the backend, layered: the model config map (base) < the coerced backend metadata
+// (server reasoning levers + client request overrides). `meta` is the already-merged
+// backend metadata string map. The reserved "chat_template_kwargs" key is skipped so
+// a client cannot smuggle a nested blob. Returns nil when there is nothing to forward.
+func (c *ModelConfig) ResolveChatTemplateKwargs(meta map[string]string) map[string]any {
+	out := map[string]any{}
+	for k, v := range c.ChatTemplateKwargs {
+		out[k] = v
+	}
+	for k, v := range meta {
+		if k == "chat_template_kwargs" {
+			continue
+		}
+		out[k] = coerceChatTemplateKwarg(v)
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	return out
+}
+
+// @Description PipelineStreaming toggles incremental delivery per realtime stage.
+type PipelineStreaming struct {
+	LLM           *bool `yaml:"llm,omitempty" json:"llm,omitempty"`
+	TTS           *bool `yaml:"tts,omitempty" json:"tts,omitempty"`
+	Transcription *bool `yaml:"transcription,omitempty" json:"transcription,omitempty"`
+	// ClauseChunking splits the streamed LLM reply into speakable clauses and
+	// synthesizes each as soon as it completes, instead of buffering the whole
+	// message before TTS. Script-aware (CJK/Thai), so it does not rely on
+	// whitespace sentence boundaries. Requires LLM streaming; unset buffers the
+	// whole message (today's default).
+	ClauseChunking *bool `yaml:"clause_chunking,omitempty" json:"clause_chunking,omitempty"`
+}
+
+// StreamLLM reports whether LLM tokens should be streamed for this pipeline.
+func (p Pipeline) StreamLLM() bool { return p.Streaming.LLM != nil && *p.Streaming.LLM }
+
+// StreamTTS reports whether TTS audio should be streamed for this pipeline.
+func (p Pipeline) StreamTTS() bool { return p.Streaming.TTS != nil && *p.Streaming.TTS }
+
+// StreamTranscription reports whether transcription text should be streamed.
+func (p Pipeline) StreamTranscription() bool {
+	return p.Streaming.Transcription != nil && *p.Streaming.Transcription
+}
+
+// ChunkClauses reports whether the streamed reply should be split into
+// script-aware clauses and synthesized incrementally rather than buffered whole.
+func (p Pipeline) ChunkClauses() bool {
+	return p.Streaming.ClauseChunking != nil && *p.Streaming.ClauseChunking
+}
+
+// ThinkingDisabled reports whether the pipeline forces the LLM's thinking off.
+func (p Pipeline) ThinkingDisabled() bool {
+	return p.DisableThinking != nil && *p.DisableThinking
+}
+
+// Voice-recognition gate enum values.
+const (
+	VoiceGateModeIdentify = "identify"
+	VoiceGateModeVerify   = "verify"
+	VoiceGateWhenEvery    = "every"
+	VoiceGateWhenFirst    = "first"
+	VoiceGateRejectEvent  = "drop_event"
+	VoiceGateRejectSilent = "drop_silent"
+
+	// defaultVoiceGateThreshold is the cosine-distance default tuned for the
+	// ECAPA-TDNN speaker encoder on VoxCeleb.
+	defaultVoiceGateThreshold = 0.25
+)
+
+// @Description PipelineVoiceRecognition gates a realtime pipeline behind speaker verification.
+type PipelineVoiceRecognition struct {
+	// Model is the speaker-recognition backend model name.
+	Model string `yaml:"model,omitempty" json:"model,omitempty"`
+	// Mode is "identify" (1:N against the voice registry) or "verify"
+	// (1:few against reference audios).
+	Mode string `yaml:"mode,omitempty" json:"mode,omitempty"`
+	// Threshold is the maximum cosine distance that still counts as a match.
+	Threshold float32 `yaml:"threshold,omitempty" json:"threshold,omitempty"`
+	// When is "every" (verify each utterance) or "first" (verify once, then
+	// trust the session).
+	When string `yaml:"when,omitempty" json:"when,omitempty"`
+	// OnReject is "drop_event" (drop + emit an error event) or "drop_silent"
+	// (drop quietly).
+	OnReject string `yaml:"on_reject,omitempty" json:"on_reject,omitempty"`
+	// AntiSpoofing enables the backend liveness check (verify mode only).
+	AntiSpoofing bool `yaml:"anti_spoofing,omitempty" json:"anti_spoofing,omitempty"`
+	// Allow filters which registry identities are authorized (identify mode).
+	Allow VoiceRecognitionAllow `yaml:"allow,omitempty" json:"allow,omitempty"`
+	// References are the authorized reference speakers (verify mode).
+	References []VoiceReference `yaml:"references,omitempty" json:"references,omitempty"`
+}
+
+// @Description VoiceRecognitionAllow filters authorized registry identities.
+type VoiceRecognitionAllow struct {
+	// Names matches registered Metadata.Name exactly.
+	Names []string `yaml:"names,omitempty" json:"names,omitempty"`
+	// Labels authorizes any identity carrying a matching label key.
+	Labels []string `yaml:"labels,omitempty" json:"labels,omitempty"`
+}
+
+// @Description VoiceReference is one authorized reference speaker for verify mode.
+type VoiceReference struct {
+	Name  string `yaml:"name,omitempty" json:"name,omitempty"`
+	Audio string `yaml:"audio,omitempty" json:"audio,omitempty"`
+}
+
+// VoiceGateEnabled reports whether a voice-recognition gate is configured. The
+// mere presence of the block is the intent signal: a present-but-incomplete
+// block (e.g. missing model) must fail closed at construction, not be silently
+// skipped here.
+func (p Pipeline) VoiceGateEnabled() bool {
+	return p.VoiceRecognition != nil
+}
+
+// Normalize fills in defaults in place for omitted fields.
+func (v *PipelineVoiceRecognition) Normalize() {
+	if v.Mode == "" {
+		v.Mode = VoiceGateModeIdentify
+	}
+	if v.When == "" {
+		v.When = VoiceGateWhenEvery
+	}
+	if v.OnReject == "" {
+		v.OnReject = VoiceGateRejectEvent
+	}
+	if v.Threshold == 0 {
+		v.Threshold = defaultVoiceGateThreshold
+	}
+}
+
+// Validate checks shape and enum values. registryAvailable indicates whether a
+// VoiceRegistry exists (required by identify mode). Empty When/OnReject/Mode are
+// treated as valid because Normalize defaults them.
+func (v PipelineVoiceRecognition) Validate(registryAvailable bool) error {
+	if v.Model == "" {
+		return fmt.Errorf("voice_recognition: model is required")
+	}
+	switch v.Mode {
+	case "", VoiceGateModeIdentify:
+		if !registryAvailable {
+			return fmt.Errorf("voice_recognition mode 'identify' requires a voice registry")
+		}
+	case VoiceGateModeVerify:
+		if len(v.References) == 0 {
+			return fmt.Errorf("voice_recognition mode 'verify' requires at least one reference")
+		}
+		for i, r := range v.References {
+			if r.Audio == "" {
+				return fmt.Errorf("voice_recognition reference %d (%q) is missing an audio path", i, r.Name)
+			}
+		}
+	default:
+		return fmt.Errorf("voice_recognition: unknown mode %q", v.Mode)
+	}
+	switch v.When {
+	case "", VoiceGateWhenEvery, VoiceGateWhenFirst:
+	default:
+		return fmt.Errorf("voice_recognition: unknown when %q", v.When)
+	}
+	switch v.OnReject {
+	case "", VoiceGateRejectEvent, VoiceGateRejectSilent:
+	default:
+		return fmt.Errorf("voice_recognition: unknown on_reject %q", v.OnReject)
+	}
+	// A zero threshold means "unset" (Normalize defaults it); only validate an
+	// explicitly-set value. Cosine distance ranges 0..2.
+	if v.Threshold != 0 && (v.Threshold < 0 || v.Threshold > 2) {
+		return fmt.Errorf("voice_recognition: threshold %v out of range (0..2)", v.Threshold)
+	}
+	return nil
 }
 
 // @Description File configuration for model downloads
@@ -781,7 +1046,12 @@ func (cfg *ModelConfig) SetDefaults(opts ...ConfigLoaderOption) {
 		cfg.Seed = &defaultSeed
 	}
 
-	if cfg.TopK == nil {
+	// top_k=40 is llama.cpp's sampling default and is wrong for backends whose
+	// native default differs (issue #6632). Only inject it for the llama.cpp
+	// family and the empty/auto backend; leave TopK nil for known non-llama
+	// backends (e.g. mlx, whose intended default is top_k=0) so the wire value
+	// is 0 rather than a silently-changed 40.
+	if cfg.TopK == nil && UsesLlamaSamplerDefaults(cfg.Backend) {
 		cfg.TopK = &defaultTopK
 	}
 
@@ -1072,6 +1342,10 @@ const (
 	// chat/completion/embeddings.
 	FLAG_SCORE ModelConfigUsecase = 0b10000000000000000000
 
+	// Marks a model as wired for the Depth gRPC primitive (per-pixel
+	// metric depth + camera pose + 3D point cloud via Depth Anything 3).
+	FLAG_DEPTH ModelConfigUsecase = 0b100000000000000000000
+
 	// Common Subsets
 	FLAG_LLM ModelConfigUsecase = FLAG_CHAT | FLAG_COMPLETION | FLAG_EDIT
 )
@@ -1129,6 +1403,7 @@ func GetAllModelConfigUsecases() map[string]ModelConfigUsecase {
 		"FLAG_DIARIZATION":         FLAG_DIARIZATION,
 		"FLAG_REALTIME_AUDIO":      FLAG_REALTIME_AUDIO,
 		"FLAG_SCORE":               FLAG_SCORE,
+		"FLAG_DEPTH":               FLAG_DEPTH,
 	}
 }
 
@@ -1188,14 +1463,20 @@ func (c *ModelConfig) GuessUsecases(u ModelConfigUsecase) bool {
 	}
 
 	if (u & FLAG_CHAT) == FLAG_CHAT {
-		if c.TemplateConfig.Chat == "" && c.TemplateConfig.ChatMessage == "" && !c.TemplateConfig.UseTokenizerTemplate {
-			return false
-		}
-		if slices.Contains(nonTextGenBackends, c.Backend) {
-			return false
-		}
-		if c.Embeddings != nil && *c.Embeddings {
-			return false
+		// A router model is a chat dispatcher: it carries no chat
+		// template of its own (those live on the candidates it routes
+		// to) and is invoked through the chat endpoint, so the router
+		// block stands in for chat capability.
+		if !c.HasRouter() {
+			if c.TemplateConfig.Chat == "" && c.TemplateConfig.ChatMessage == "" && !c.TemplateConfig.UseTokenizerTemplate {
+				return false
+			}
+			if slices.Contains(nonTextGenBackends, c.Backend) {
+				return false
+			}
+			if c.Embeddings != nil && *c.Embeddings {
+				return false
+			}
 		}
 	}
 	if (u & FLAG_COMPLETION) == FLAG_COMPLETION {
@@ -1262,6 +1543,13 @@ func (c *ModelConfig) GuessUsecases(u ModelConfigUsecase) bool {
 	if (u & FLAG_DETECTION) == FLAG_DETECTION {
 		detectionBackends := []string{"rfdetr", "sam3-cpp", "insightface"}
 		if !slices.Contains(detectionBackends, c.Backend) {
+			return false
+		}
+	}
+
+	if (u & FLAG_DEPTH) == FLAG_DEPTH {
+		depthBackends := []string{"depth-anything"}
+		if !slices.Contains(depthBackends, c.Backend) {
 			return false
 		}
 	}

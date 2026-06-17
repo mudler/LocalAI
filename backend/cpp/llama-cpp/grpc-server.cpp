@@ -381,6 +381,15 @@ json parse_options(bool streaming, const backend::PredictOptions* predict, const
             });
     }
 
+    // for each video in the request, add the video data
+    for (int i = 0; i < predict->videos_size(); i++) {
+        data["video_data"].push_back(json
+            {
+                {"id", i},
+                {"data",    predict->videos(i)},
+            });
+    }
+
     data["stop"] = predict->stopprompts();
     // data["n_probs"] = predict->nprobs();
     //TODO: images,
@@ -482,23 +491,13 @@ static void params_parse(server_context& /*ctx_server*/, const backend::ModelOpt
     if (!request->draftmodel().empty()) {
         params.speculative.draft.mparams.path = request->draftmodel();
         // Default to draft type if a draft model is set but no explicit type.
-        // Upstream (post ggml-org/llama.cpp#22838) made the speculative type a
-        // vector; the turboquant fork still uses the legacy scalar. The
-        // LOCALAI_LEGACY_LLAMA_CPP_SPEC macro is injected by
-        // backend/cpp/turboquant/patch-grpc-server.sh for fork builds only.
-        // Upstream renamed COMMON_SPECULATIVE_TYPE_DRAFT -> ..._DRAFT_SIMPLE
-        // in ggml-org/llama.cpp#22964; the fork still uses the old name.
-#ifdef LOCALAI_LEGACY_LLAMA_CPP_SPEC
-        if (params.speculative.type == COMMON_SPECULATIVE_TYPE_NONE) {
-            params.speculative.type = COMMON_SPECULATIVE_TYPE_DRAFT;
-        }
-#else
+        // Upstream made the speculative type a vector (ggml-org/llama.cpp#22838)
+        // and renamed COMMON_SPECULATIVE_TYPE_DRAFT -> ..._DRAFT_SIMPLE (#22964).
         const bool no_spec_type = params.speculative.types.empty() ||
             (params.speculative.types.size() == 1 && params.speculative.types[0] == COMMON_SPECULATIVE_TYPE_NONE);
         if (no_spec_type) {
             params.speculative.types = { COMMON_SPECULATIVE_TYPE_DRAFT_SIMPLE };
         }
-#endif
     }
 
     //  params.model_alias ??
@@ -574,9 +573,10 @@ static void params_parse(server_context& /*ctx_server*/, const backend::ModelOpt
     // tokens (0 disables the minimum). Match upstream's default (256). This
     // field was renamed from `checkpoint_every_nt` in llama.cpp; the semantics
     // also shifted from a fixed cadence to a minimum spacing. The turboquant
-    // fork branched before the field existed, so skip it on the legacy path
-    // (LOCALAI_LEGACY_LLAMA_CPP_SPEC is injected by patch-grpc-server.sh).
-#ifndef LOCALAI_LEGACY_LLAMA_CPP_SPEC
+    // fork still lacks common_params::checkpoint_min_step, so skip it there
+    // (LOCALAI_TURBOQUANT_NO_CHECKPOINT_MIN_STEP is injected by
+    // backend/cpp/turboquant/patch-grpc-server.sh).
+#ifndef LOCALAI_TURBOQUANT_NO_CHECKPOINT_MIN_STEP
     params.checkpoint_min_step = 256;
 #endif
 
@@ -752,7 +752,7 @@ static void params_parse(server_context& /*ctx_server*/, const backend::ModelOpt
                 params.cache_idle_slots = false;
             }
 
-#ifndef LOCALAI_LEGACY_LLAMA_CPP_SPEC
+#ifndef LOCALAI_TURBOQUANT_NO_CHECKPOINT_MIN_STEP
         // --- minimum context-checkpoint spacing (upstream -cms / --checkpoint-min-step) ---
         // 0 disables the minimum-spacing gate. Old option names (`checkpoint_every_nt`,
         // `checkpoint_every_n_tokens`) are kept as aliases for backward compatibility
@@ -906,17 +906,6 @@ static void params_parse(server_context& /*ctx_server*/, const backend::ModelOpt
 
         // Speculative decoding options
         } else if (!strcmp(optname, "spec_type") || !strcmp(optname, "speculative_type")) {
-#ifdef LOCALAI_LEGACY_LLAMA_CPP_SPEC
-            // Fork only knows a single scalar `type`. Take the first comma-
-            // separated value and assign it via the singular helper.
-            std::string first = optval_str;
-            const auto comma = first.find(',');
-            if (comma != std::string::npos) first = first.substr(0, comma);
-            auto type = common_speculative_type_from_name(first);
-            if (type != COMMON_SPECULATIVE_TYPE_COUNT) {
-                params.speculative.type = type;
-            }
-#else
             // Upstream switched to a vector of types (comma-separated for multi-type
             // chaining via common_speculative_types_from_names). We keep accepting a
             // single value here, but also tolerate comma-separated lists.
@@ -945,7 +934,6 @@ static void params_parse(server_context& /*ctx_server*/, const backend::ModelOpt
             if (!parsed.empty()) {
                 params.speculative.types = parsed;
             }
-#endif
         } else if (!strcmp(optname, "spec_n_max") || !strcmp(optname, "draft_max")) {
             if (optval != NULL) {
                 try { params.speculative.draft.n_max = std::stoi(optval_str); } catch (...) {}
@@ -983,21 +971,6 @@ static void params_parse(server_context& /*ctx_server*/, const backend::ModelOpt
             // shares the target context size. Accept the option for backward
             // compatibility but silently ignore it.
 
-// Everything below relies on struct shape introduced in ggml-org/llama.cpp#22838
-// (parallel drafting): `ngram_mod`, `ngram_map_k`, `ngram_map_k4v`,
-// `ngram_cache`, and the `draft.{cache_type_*, cpuparams*, tensor_buft_overrides}`
-// fields. The turboquant fork branched before that, so its build defines
-// LOCALAI_LEGACY_LLAMA_CPP_SPEC via patch-grpc-server.sh and these option
-// keys become unrecognized (silently dropped, like any unknown opt) for it.
-//
-// The `#ifdef LOCALAI_LEGACY_LLAMA_CPP_SPEC` / `#else` split below sits at the
-// closing-brace position of the `draft_ctx_size` branch on purpose: in the
-// legacy build the chain ends here (the brace closes draft_ctx_size), and in
-// the modern build the chain continues with `} else if (...)` instead, so the
-// brace count stays balanced under both branches of the preprocessor.
-#ifdef LOCALAI_LEGACY_LLAMA_CPP_SPEC
-        }
-#else
         // --- ngram_mod family (upstream --spec-ngram-mod-*) ---
         } else if (!strcmp(optname, "spec_ngram_mod_n_min")) {
             if (optval != NULL) {
@@ -1127,7 +1100,6 @@ static void params_parse(server_context& /*ctx_server*/, const backend::ModelOpt
             }
             if (!cur.empty()) flush(cur);
         }
-#endif // LOCALAI_LEGACY_LLAMA_CPP_SPEC — closes the `else`/`#ifdef` opened at draft_ctx_size
     }
 
     // Set params.n_parallel from environment variable if not set via options (fallback)
@@ -1177,15 +1149,11 @@ static void params_parse(server_context& /*ctx_server*/, const backend::ModelOpt
             params.tensor_buft_overrides.push_back({nullptr, nullptr});
         }
     }
-    // The draft tensor_buft_overrides are only populated under the modern
-    // (post-#22838) layout, whose population code is itself gated by
-    // LOCALAI_LEGACY_LLAMA_CPP_SPEC above. The turboquant fork lacks
-    // common_params_speculative::draft entirely, so skip the sentinel there too.
-#ifndef LOCALAI_LEGACY_LLAMA_CPP_SPEC
+    // Terminate the draft tensor_buft_overrides list with a sentinel, mirroring
+    // the main-model handling above.
     if (!params.speculative.draft.tensor_buft_overrides.empty()) {
         params.speculative.draft.tensor_buft_overrides.push_back({nullptr, nullptr});
     }
-#endif
 
     // TODO: Add yarn
 
@@ -1544,7 +1512,7 @@ public:
                     msg_json["role"] = msg.role();
 
                     bool is_last_user_msg = (i == last_user_msg_idx);
-                    bool has_images_or_audio = (request->images_size() > 0 || request->audios_size() > 0);
+                    bool has_images_or_audio = (request->images_size() > 0 || request->audios_size() > 0 || request->videos_size() > 0);
 
                     // Handle content - can be string, null, or array
                     // For multimodal content, we'll embed images/audio from separate fields
@@ -1595,6 +1563,16 @@ public:
                                     content_array.push_back(audio_chunk);
                                 }
                             }
+                            if (request->videos_size() > 0) {
+                                for (int j = 0; j < request->videos_size(); j++) {
+                                    json video_chunk;
+                                    video_chunk["type"] = "input_video";
+                                    json input_video;
+                                    input_video["data"] = request->videos(j);
+                                    video_chunk["input_video"] = input_video;
+                                    content_array.push_back(video_chunk);
+                                }
+                            }
                             msg_json["content"] = content_array;
                         } else {
                             // Use content as-is (already array or not last user message)
@@ -1627,6 +1605,16 @@ public:
                                 input_audio["format"] = "wav"; // default, could be made configurable
                                 audio_chunk["input_audio"] = input_audio;
                                 content_array.push_back(audio_chunk);
+                            }
+                        }
+                        if (request->videos_size() > 0) {
+                            for (int j = 0; j < request->videos_size(); j++) {
+                                json video_chunk;
+                                video_chunk["type"] = "input_video";
+                                json input_video;
+                                input_video["data"] = request->videos(j);
+                                video_chunk["input_video"] = input_video;
+                                content_array.push_back(video_chunk);
                             }
                         }
                         msg_json["content"] = content_array;
@@ -1934,14 +1922,27 @@ public:
                     body_json["min_p"] = data["min_p"];
                 }
 
-                // Pass enable_thinking via chat_template_kwargs (where oaicompat_chat_params_parse reads it)
+                // Forward the chat_template_kwargs the Go layer resolved (model config
+                // chat_template_kwargs + per-request metadata: enable_thinking,
+                // reasoning_effort, preserve_thinking, ...). One generic merge replaces
+                // the previous per-key handling - new template levers need no C++ change.
+                // oaicompat_chat_params_parse reads these from body_json.
                 const auto& metadata = request->metadata();
-                auto et_it = metadata.find("enable_thinking");
-                if (et_it != metadata.end()) {
-                    if (!body_json.contains("chat_template_kwargs")) {
-                        body_json["chat_template_kwargs"] = json::object();
+                auto ctk_it = metadata.find("chat_template_kwargs");
+                if (ctk_it != metadata.end() && !ctk_it->second.empty()) {
+                    try {
+                        json ctk = json::parse(ctk_it->second);
+                        if (ctk.is_object()) {
+                            if (!body_json.contains("chat_template_kwargs")) {
+                                body_json["chat_template_kwargs"] = json::object();
+                            }
+                            for (auto& el : ctk.items()) {
+                                body_json["chat_template_kwargs"][el.key()] = el.value();
+                            }
+                        }
+                    } catch (const std::exception & e) {
+                        SRV_WRN("failed to parse chat_template_kwargs metadata: %s\n", e.what());
                     }
-                    body_json["chat_template_kwargs"]["enable_thinking"] = (et_it->second == "true");
                 }
 
                 // Debug: Print full body_json before template processing (includes messages, tools, tool_choice, etc.)
@@ -2066,6 +2067,16 @@ public:
                     for (const auto &audio : *audio_data)
                     {
                         auto decoded_data = base64_decode(audio["data"].get<std::string>());
+                        files.push_back(decoded_data);
+                    }
+                }
+
+                const auto &video_data = data.find("video_data");
+                if (video_data != data.end() && video_data->is_array())
+                {
+                    for (const auto &video : *video_data)
+                    {
+                        auto decoded_data = base64_decode(video["data"].get<std::string>());
                         files.push_back(decoded_data);
                     }
                 }
@@ -2321,7 +2332,7 @@ public:
                     }
 
                     bool is_last_user_msg = (i == last_user_msg_idx);
-                    bool has_images_or_audio = (request->images_size() > 0 || request->audios_size() > 0);
+                    bool has_images_or_audio = (request->images_size() > 0 || request->audios_size() > 0 || request->videos_size() > 0);
 
                     // Handle content - can be string, null, or array
                     // For multimodal content, we'll embed images/audio from separate fields
@@ -2374,6 +2385,16 @@ public:
                                     content_array.push_back(audio_chunk);
                                 }
                             }
+                            if (request->videos_size() > 0) {
+                                for (int j = 0; j < request->videos_size(); j++) {
+                                    json video_chunk;
+                                    video_chunk["type"] = "input_video";
+                                    json input_video;
+                                    input_video["data"] = request->videos(j);
+                                    video_chunk["input_video"] = input_video;
+                                    content_array.push_back(video_chunk);
+                                }
+                            }
                             msg_json["content"] = content_array;
                         } else {
                             // Use content as-is (already array or not last user message)
@@ -2411,6 +2432,16 @@ public:
                                 input_audio["format"] = "wav"; // default, could be made configurable
                                 audio_chunk["input_audio"] = input_audio;
                                 content_array.push_back(audio_chunk);
+                            }
+                        }
+                        if (request->videos_size() > 0) {
+                            for (int j = 0; j < request->videos_size(); j++) {
+                                json video_chunk;
+                                video_chunk["type"] = "input_video";
+                                json input_video;
+                                input_video["data"] = request->videos(j);
+                                video_chunk["input_video"] = input_video;
+                                content_array.push_back(video_chunk);
                             }
                         }
                         msg_json["content"] = content_array;
@@ -2727,14 +2758,26 @@ public:
                     body_json["min_p"] = data["min_p"];
                 }
 
-                // Pass enable_thinking via chat_template_kwargs (where oaicompat_chat_params_parse reads it)
+                // Forward the chat_template_kwargs the Go layer resolved (model config
+                // chat_template_kwargs + per-request metadata: enable_thinking,
+                // reasoning_effort, preserve_thinking, ...). One generic merge replaces
+                // the previous per-key handling - new template levers need no C++ change.
                 const auto& predict_metadata = request->metadata();
-                auto predict_et_it = predict_metadata.find("enable_thinking");
-                if (predict_et_it != predict_metadata.end()) {
-                    if (!body_json.contains("chat_template_kwargs")) {
-                        body_json["chat_template_kwargs"] = json::object();
+                auto predict_ctk_it = predict_metadata.find("chat_template_kwargs");
+                if (predict_ctk_it != predict_metadata.end() && !predict_ctk_it->second.empty()) {
+                    try {
+                        json ctk = json::parse(predict_ctk_it->second);
+                        if (ctk.is_object()) {
+                            if (!body_json.contains("chat_template_kwargs")) {
+                                body_json["chat_template_kwargs"] = json::object();
+                            }
+                            for (auto& el : ctk.items()) {
+                                body_json["chat_template_kwargs"][el.key()] = el.value();
+                            }
+                        }
+                    } catch (const std::exception & e) {
+                        SRV_WRN("failed to parse chat_template_kwargs metadata: %s\n", e.what());
                     }
-                    body_json["chat_template_kwargs"]["enable_thinking"] = (predict_et_it->second == "true");
                 }
 
                 // Debug: Print full body_json before template processing (includes messages, tools, tool_choice, etc.)
@@ -2861,6 +2904,16 @@ public:
                     for (const auto &audio : *audio_data)
                     {
                         auto decoded_data = base64_decode(audio["data"].get<std::string>());
+                        files.push_back(decoded_data);
+                    }
+                }
+
+                const auto &video_data = data.find("video_data");
+                if (video_data != data.end() && video_data->is_array())
+                {
+                    for (const auto &video : *video_data)
+                    {
+                        auto decoded_data = base64_decode(video["data"].get<std::string>());
                         files.push_back(decoded_data);
                     }
                 }
@@ -3436,7 +3489,7 @@ public:
         if (body.count("prompt") != 0) {
             const bool add_special = json_value(body, "add_special", false);
 
-            llama_tokens tokens = tokenize_mixed(ctx_server.impl->vocab, body.at("content"), add_special, true);
+            llama_tokens tokens = tokenize_mixed(ctx_server.impl->vocab, body.at("prompt"), add_special, true);
 
 
             for (const auto& token : tokens) {

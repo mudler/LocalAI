@@ -634,6 +634,24 @@ func (c *Client) Detect(ctx context.Context, in *pb.DetectOptions, opts ...grpc.
 	return client.Detect(ctx, in, opts...)
 }
 
+func (c *Client) Depth(ctx context.Context, in *pb.DepthRequest, opts ...grpc.CallOption) (*pb.DepthResponse, error) {
+	if !c.parallel {
+		c.opMutex.Lock()
+		defer c.opMutex.Unlock()
+	}
+	c.setBusy(true)
+	defer c.setBusy(false)
+	c.wdMark()
+	defer c.wdUnMark()
+	conn, err := c.dial()
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = conn.Close() }()
+	client := pb.NewBackendClient(conn)
+	return client.Depth(ctx, in, opts...)
+}
+
 func (c *Client) FaceVerify(ctx context.Context, in *pb.FaceVerifyRequest, opts ...grpc.CallOption) (*pb.FaceVerifyResponse, error) {
 	if !c.parallel {
 		c.opMutex.Lock()

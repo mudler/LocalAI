@@ -38,7 +38,7 @@ func BuildStreamFilter(c echo.Context, cfg *config.ModelConfig, isStream bool, p
 		overrides = make(map[string]pii.Action, len(raw))
 		for ovid, action := range raw {
 			switch pii.Action(action) {
-			case pii.ActionMask, pii.ActionBlock, pii.ActionRouteLocal:
+			case pii.ActionMask, pii.ActionBlock, pii.ActionAllow:
 				overrides[ovid] = pii.Action(action)
 			}
 		}

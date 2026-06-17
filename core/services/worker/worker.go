@@ -30,6 +30,14 @@ import (
 func Run(ctx *cliContext.Context, cfg *Config) error {
 	xlog.Info("Starting worker", "advertise", cfg.advertiseAddr(), "basePort", cfg.effectiveBasePort())
 
+	// Fail fast (before prefetch/registration/NATS) when enforcement is on but no
+	// registration token is set: the worker's HTTP file-transfer server fails
+	// open on an empty token (see nodes.checkBearerToken), so refuse to start
+	// rather than register and then die mid-boot.
+	if cfg.RegistrationAuthRequired() && cfg.RegistrationToken == "" {
+		return fmt.Errorf("registration auth is required (LOCALAI_REGISTRATION_REQUIRE_AUTH or LOCALAI_DISTRIBUTED_REQUIRE_AUTH) but LOCALAI_REGISTRATION_TOKEN is empty — refusing to start an unauthenticated file-transfer server")
+	}
+
 	systemState, err := system.GetSystemState(
 		system.WithModelPath(cfg.ModelsPath),
 		system.WithBackendPath(cfg.BackendsPath),
@@ -92,14 +100,14 @@ func Run(ctx *cliContext.Context, cfg *Config) error {
 		}
 		nodeID = nid
 		connectNats = func() (*messaging.Client, error) {
-			return connectNATS(cfg.NatsURL, cfg.NatsJWT, cfg.NatsUserSeed, "", "", cfg.NatsRequireAuth, natsTLS)
+			return connectNATS(cfg.NatsURL, cfg.NatsJWT, cfg.NatsUserSeed, "", "", cfg.NatsAuthRequired(), natsTLS)
 		}
 	} else {
 		credMgr := workerregistry.NewNATSCredentialManager(
 			func(ctx context.Context) (*workerregistry.RegisterResponse, error) {
 				return regClient.RegisterFull(ctx, registrationBody)
 			},
-			cfg.NatsRequireAuth,
+			cfg.NatsAuthRequired(),
 		)
 		res, regErr := credMgr.Acquire(shutdownCtx)
 		if regErr != nil {
@@ -134,7 +142,8 @@ func Run(ctx *cliContext.Context, cfg *Config) error {
 	}
 	heartbeatInterval = cmp.Or(heartbeatInterval, 10*time.Second)
 
-	// Start HTTP file transfer server
+	// Start HTTP file transfer server. (Empty-token enforcement is handled at
+	// the top of Run so the worker fails before registering.)
 	httpAddr := cfg.resolveHTTPAddr()
 	stagingDir := filepath.Join(cfg.ModelsPath, "..", "staging")
 	dataDir := filepath.Join(cfg.ModelsPath, "..", "data")

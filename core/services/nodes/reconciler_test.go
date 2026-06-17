@@ -34,6 +34,13 @@ func (f *fakeScheduler) ScheduleAndLoadModel(_ context.Context, modelName string
 	return f.scheduleNode, f.scheduleErr
 }
 
+func mustGetSched(r *NodeRegistry, model string) ModelSchedulingConfig {
+	cfg, err := r.GetModelScheduling(context.Background(), model)
+	Expect(err).ToNot(HaveOccurred())
+	Expect(cfg).ToNot(BeNil())
+	return *cfg
+}
+
 var _ = Describe("ReplicaReconciler", func() {
 	var (
 		db       *gorm.DB
@@ -77,6 +84,45 @@ var _ = Describe("ReplicaReconciler", func() {
 		}
 		Expect(registry.SetModelScheduling(context.Background(), cfg)).To(Succeed())
 	}
+
+	Context("spread_all mode", func() {
+		It("targets one replica per matching node (empty selector = all nodes)", func() {
+			n1 := registerNode("s1", "10.1.0.1:50051")
+			registerNode("s2", "10.1.0.2:50051")
+			// spread config, no selector -> all healthy backend nodes (2)
+			Expect(registry.SetModelScheduling(context.Background(), &ModelSchedulingConfig{
+				ModelName: "spread-model", SpreadAll: true,
+			})).To(Succeed())
+
+			scheduler := &fakeScheduler{scheduleNode: n1}
+			reconciler := NewReplicaReconciler(ReplicaReconcilerOptions{
+				Registry:  registry,
+				Scheduler: scheduler,
+			})
+
+			reconciler.reconcileModel(context.Background(), mustGetSched(registry, "spread-model"))
+
+			// With current==0 and a target of 2, the MinReplicas floor path
+			// schedules up to cluster capacity (2 nodes).
+			Expect(len(scheduler.scheduleCalls)).To(Equal(2))
+		})
+
+		It("is a no-op when no nodes match", func() {
+			Expect(registry.SetModelScheduling(context.Background(), &ModelSchedulingConfig{
+				ModelName: "spread-model", SpreadAll: true,
+				NodeSelector: `{"tier":"nope"}`,
+			})).To(Succeed())
+
+			scheduler := &fakeScheduler{}
+			reconciler := NewReplicaReconciler(ReplicaReconcilerOptions{
+				Registry:  registry,
+				Scheduler: scheduler,
+			})
+
+			reconciler.reconcileModel(context.Background(), mustGetSched(registry, "spread-model"))
+			Expect(scheduler.scheduleCalls).To(BeEmpty())
+		})
+	})
 
 	Context("model below min_replicas", func() {
 		It("scales up to min_replicas", func() {

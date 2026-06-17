@@ -236,6 +236,104 @@ var _ = BeforeSuite(func() {
 	Expect(err).ToNot(HaveOccurred())
 	Expect(os.WriteFile(filepath.Join(modelsPath, "realtime-pipeline.yaml"), pipelineData, 0644)).To(Succeed())
 
+	// Speaker-recognition model (mock-backend) + a voice-recognition-gated
+	// pipeline for the realtime gate e2e. The reference WAV carries a positive
+	// DC bias so the mock embeds it to one orthogonal "speaker"; the test then
+	// drives matching (authorized) and opposite-bias (unauthorized) audio.
+	speakerCfg := map[string]any{
+		"name":       "mock-speaker",
+		"backend":    "mock-backend",
+		"parameters": map[string]any{"model": "mock-speaker.bin"},
+	}
+	speakerData, err := yaml.Marshal(speakerCfg)
+	Expect(err).ToNot(HaveOccurred())
+	Expect(os.WriteFile(filepath.Join(modelsPath, "mock-speaker.yaml"), speakerData, 0644)).To(Succeed())
+
+	voiceRefPath := filepath.Join(modelsPath, "e2e-voice-ref.wav")
+	Expect(os.WriteFile(voiceRefPath, wavFromPCM(pcmWithDC(300, 16000, 1000, 8000), 16000), 0644)).To(Succeed())
+
+	gatedCfg := map[string]any{
+		"name": "realtime-pipeline-gated",
+		"pipeline": map[string]any{
+			"vad":           "mock-vad",
+			"transcription": "mock-stt",
+			"llm":           "mock-llm",
+			"tts":           "mock-tts",
+			"voice_recognition": map[string]any{
+				"model":     "mock-speaker",
+				"mode":      "verify",
+				"threshold": 0.25,
+				"when":      "every",
+				"on_reject": "drop_event",
+				"references": []map[string]any{
+					{"name": "e2e-speaker", "audio": voiceRefPath},
+				},
+			},
+		},
+	}
+	gatedData, err := yaml.Marshal(gatedCfg)
+	Expect(err).ToNot(HaveOccurred())
+	Expect(os.WriteFile(filepath.Join(modelsPath, "realtime-pipeline-gated.yaml"), gatedData, 0644)).To(Succeed())
+
+	// Router model setup: a score classifier (mock-backend Score) selects
+	// between two candidate chat models based on keyword matches against the
+	// candidate label fragments. Exercises the full RouteModel middleware path
+	// — probe extraction, ScoreClassifier.fitMessages (with the classifier's
+	// real TokenizeString and ContextSize wired), Score RPC, and fanout to
+	// the chosen candidate. The classifier MUST carry a chat template, since
+	// buildClassifier now rejects routers whose classifier model has none.
+	chatMLTpl := map[string]any{
+		"chat":         "{{.Input -}}\n<|im_start|>assistant\n",
+		"chat_message": "<|im_start|>{{ .RoleName }}\n{{ if .Content }}{{ .Content }}{{ end }}<|im_end|>",
+	}
+	classifierCfg := map[string]any{
+		"name":           "mock-classifier",
+		"backend":        "mock-backend",
+		"known_usecases": []string{"score"},
+		"context_size":   4096,
+		"stopwords":      []string{"<|im_end|>"},
+		"parameters":     map[string]any{"model": "mock-classifier.bin"},
+		"template":       chatMLTpl,
+	}
+	classifierData, err := yaml.Marshal(classifierCfg)
+	Expect(err).ToNot(HaveOccurred())
+	Expect(os.WriteFile(filepath.Join(modelsPath, "mock-classifier.yaml"), classifierData, 0644)).To(Succeed())
+
+	for _, name := range []string{"mock-cand-casual", "mock-cand-code"} {
+		candCfg := map[string]any{
+			"name":           name,
+			"backend":        "mock-backend",
+			"known_usecases": []string{"chat"},
+			"parameters":     map[string]any{"model": name + ".bin"},
+		}
+		candData, err := yaml.Marshal(candCfg)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(os.WriteFile(filepath.Join(modelsPath, name+".yaml"), candData, 0644)).To(Succeed())
+	}
+
+	routerCfg := map[string]any{
+		"name":           "smart-router",
+		"known_usecases": []string{"chat"},
+		"router": map[string]any{
+			"classifier":           "score",
+			"classifier_model":     "mock-classifier",
+			"activation_threshold": 0.40,
+			"fallback":             "mock-cand-casual",
+			"policies": []map[string]any{
+				{"label": "casual-chat", "description": "small talk and general conversation"},
+				{"label": "code-generation", "description": "writing or debugging code"},
+				{"label": "math-reasoning", "description": "arithmetic and word problems"},
+			},
+			"candidates": []map[string]any{
+				{"model": "mock-cand-casual", "labels": []string{"casual-chat"}},
+				{"model": "mock-cand-code", "labels": []string{"code-generation", "math-reasoning"}},
+			},
+		},
+	}
+	routerData, err := yaml.Marshal(routerCfg)
+	Expect(err).ToNot(HaveOccurred())
+	Expect(os.WriteFile(filepath.Join(modelsPath, "smart-router.yaml"), routerData, 0644)).To(Succeed())
+
 	// If REALTIME_TEST_MODEL=realtime-test-pipeline, auto-create a pipeline
 	// config from the REALTIME_VAD/STT/LLM/TTS env vars so real-model tests
 	// can run without the user having to write a YAML file manually.

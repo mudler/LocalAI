@@ -8,9 +8,15 @@ JOBS?=$(shell nproc --ignore=1)
 
 # stablediffusion.cpp (ggml)
 STABLEDIFFUSION_GGML_REPO?=https://github.com/leejet/stable-diffusion.cpp
-STABLEDIFFUSION_GGML_VERSION?=1f9ee88e09c258053fa59d5e05e23dfb10fa0b13
+STABLEDIFFUSION_GGML_VERSION?=7f0e728b7d42f2490dfa5dd9539082d904f2f6b2
 
 CMAKE_ARGS+=-DGGML_MAX_NAME=128
+
+# Enable the ggml RPC backend so generation can be sharded across remote
+# rpc-server workers (the same backend-agnostic ggml rpc-server used by the
+# llama.cpp backend). Servers are selected via the `rpc_servers` option or the
+# LLAMACPP_GRPC_SERVERS env var (populated automatically in p2p worker mode).
+CMAKE_ARGS+=-DSD_RPC=ON
 
 ifeq ($(NATIVE),false)
 	CMAKE_ARGS+=-DGGML_NATIVE=OFF

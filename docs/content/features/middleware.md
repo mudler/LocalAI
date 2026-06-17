@@ -47,7 +47,7 @@ in a model's YAML always wins over the backend default.
 ### Pattern catalog
 
 The built-in regex tier ships six patterns. Each has a default action
-(`mask`, `block`, or `route_local`) and a length cap that prevents
+(`mask`, `block`, or `allow`) and a length cap that prevents
 pathological inputs from blowing up scanning time:
 
 | ID | Description | Default action | Max length |
@@ -61,9 +61,11 @@ pathological inputs from blowing up scanning time:
 
 `mask` rewrites the match to `[REDACTED:<id>]` in the request body before
 forwarding. `block` returns HTTP 400 with `error.type=pii_blocked` to the
-client without forwarding. `route_local` is reserved for the routing
-integration (see below) and falls back to `mask` when no local route is
-available.
+client without forwarding. `allow` detects and logs the match (a PIIEvent
+is still recorded) but leaves the text unchanged — use it to downgrade a
+pattern's default for a model while keeping it visible in the audit log.
+It is also the foundation for surfacing detected-PII labels to the router,
+a planned router-model feature.
 
 ### Per-model configuration
 
@@ -82,8 +84,7 @@ pii:
 ```yaml
 # Cloud-bound model — defaults to enabled because backend is cloud-proxy.
 # Tighten api_key_prefix from the global default and downgrade email to
-# route_local so emails route to a local model rather than leaving the
-# network.
+# allow so emails are logged but pass through unchanged.
 name: claude-strict
 backend: cloud-proxy
 proxy:
@@ -96,7 +97,7 @@ pii:
     - id: api_key_prefix
       action: block        # already the default, made explicit for audit
     - id: email
-      action: route_local
+      action: allow
 ```
 
 The regex itself stays global — only the action is settable per-model.
@@ -154,7 +155,7 @@ and **Events**. The Filtering tab shows:
 | GET | `/api/pii/patterns` | any | Live pattern list with current actions. Used by the UI catalogue. |
 | POST | `/api/pii/test` | any | Dry-run the redactor on `{"text":"..."}`. Returns hits and the would-be-rewritten body. Does not write to the event log. |
 | GET | `/api/pii/events` | admin | Recent middleware events — PII redactions, MITM connect/traffic, admission denials. Filterable by `correlation_id`, `user_id`, `pattern_id`, `kind`. |
-| PUT | `/api/pii/patterns/:id` | admin | Update a pattern in-process. Body accepts `{"action":"mask"\|"block"\|"route_local"}` and/or `{"disabled":true\|false}`. Transient — reverts on restart unless persisted. |
+| PUT | `/api/pii/patterns/:id` | admin | Update a pattern in-process. Body accepts `{"action":"mask"\|"block"\|"allow"}` and/or `{"disabled":true\|false}`. Transient — reverts on restart unless persisted. |
 | POST | `/api/pii/patterns/persist` | admin | Snapshot the live per-pattern (action, disabled) state into `runtime_settings.json`. |
 | GET | `/api/middleware/status` | admin | Aggregated dashboard data: patterns + per-model resolved state + router status + MITM status + admission status. One round-trip for the UI. |
 

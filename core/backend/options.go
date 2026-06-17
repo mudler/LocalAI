@@ -87,11 +87,47 @@ func getSeed(c config.ModelConfig) int32 {
 	return seed
 }
 
-func grpcModelOpts(c config.ModelConfig, modelPath string) *pb.ModelOptions {
-	b := 512
-	if c.Batch != 0 {
-		b = c.Batch
+// DefaultContextSize and DefaultBatchSize are the backend's fallbacks when a
+// model config leaves them unset. Exported so callers that must respect the
+// effective decode window — notably the router's prompt trimmer — resolve the
+// same numbers grpcModelOpts does instead of guessing.
+const (
+	DefaultContextSize = 4096
+	DefaultBatchSize   = 512
+)
+
+// EffectiveContextSize is the context window the backend will run with: the
+// configured value, or DefaultContextSize when unset.
+func EffectiveContextSize(c config.ModelConfig) int {
+	if c.ContextSize != nil {
+		return *c.ContextSize
 	}
+	return DefaultContextSize
+}
+
+// EffectiveBatchSize is the single-decode batch the backend will run with.
+// Score, embedding and rerank all process the whole input in one pass: score
+// decodes prompt+candidate (asserts n_tokens <= n_batch), and embedding/rerank
+// pool over the full sequence in one physical batch (n_ubatch). So the batch
+// is sized to the context — anything that fits the context fits one pass,
+// avoiding both the GGML_ASSERT crash and the "input is too large to process"
+// error. Explicit `batch:` always wins.
+func EffectiveBatchSize(c config.ModelConfig) int {
+	if c.Batch != 0 {
+		return c.Batch
+	}
+	singlePass := c.HasUsecases(config.FLAG_SCORE) ||
+		c.HasUsecases(config.FLAG_EMBEDDINGS) ||
+		c.HasUsecases(config.FLAG_RERANK)
+	if ctx := EffectiveContextSize(c); singlePass && ctx > DefaultBatchSize {
+		return ctx
+	}
+	return DefaultBatchSize
+}
+
+func grpcModelOpts(c config.ModelConfig, modelPath string) *pb.ModelOptions {
+	ctxSize := EffectiveContextSize(c)
+	b := EffectiveBatchSize(c)
 
 	flashAttention := "auto"
 
@@ -132,11 +168,6 @@ func grpcModelOpts(c config.ModelConfig, modelPath string) *pb.ModelOptions {
 			mmap = false
 			xlog.Info("Auto-disabling mmap for Intel SYCL backend", "backend", c.Backend)
 		}
-	}
-
-	ctxSize := 4096
-	if c.ContextSize != nil {
-		ctxSize = *c.ContextSize
 	}
 
 	mmlock := false
@@ -239,13 +270,13 @@ func grpcModelOpts(c config.ModelConfig, modelPath string) *pb.ModelOptions {
 
 	if c.Backend == "cloud-proxy" {
 		opts.Proxy = &pb.ProxyOptions{
-			UpstreamUrl:            c.Proxy.UpstreamURL,
-			Mode:                   c.Proxy.Mode,
-			Provider:               c.Proxy.Provider,
-			ApiKeyEnv:              c.Proxy.APIKeyEnv,
-			ApiKeyFile:             c.Proxy.APIKeyFile,
-			UpstreamModel:          c.Proxy.UpstreamModel,
-			RequestTimeoutSeconds:  int32(c.Proxy.RequestTimeoutSeconds),
+			UpstreamUrl:           c.Proxy.UpstreamURL,
+			Mode:                  c.Proxy.Mode,
+			Provider:              c.Proxy.Provider,
+			ApiKeyEnv:             c.Proxy.APIKeyEnv,
+			ApiKeyFile:            c.Proxy.APIKeyFile,
+			UpstreamModel:         c.Proxy.UpstreamModel,
+			RequestTimeoutSeconds: int32(c.Proxy.RequestTimeoutSeconds),
 		}
 	}
 
@@ -276,11 +307,19 @@ func gRPCPredictOpts(c config.ModelConfig, modelPath string) *pb.PredictOptions 
 		}
 	}
 
+	// TopK may be nil after SetDefaults for backends that don't use llama.cpp's
+	// top_k=40 default (issue #6632, e.g. mlx). proto3 int32 can't be unset, so
+	// send 0 — the value mlx actually wants (top-k disabled).
+	var topK int32
+	if c.TopK != nil {
+		topK = int32(*c.TopK)
+	}
+
 	pbOpts := &pb.PredictOptions{
 		Temperature:         float32(*c.Temperature),
 		TopP:                float32(*c.TopP),
 		NDraft:              c.NDraft,
-		TopK:                int32(*c.TopK),
+		TopK:                topK,
 		MinP:                float32(*c.MinP),
 		Tokens:              int32(*c.Maxtokens),
 		Threads:             int32(*c.Threads),
@@ -321,6 +360,31 @@ func gRPCPredictOpts(c config.ModelConfig, modelPath string) *pb.PredictOptions 
 			metadata["enable_thinking"] = "false"
 		} else {
 			metadata["enable_thinking"] = "true"
+		}
+	}
+	// Forward the effective reasoning effort so the backend can pass it to the
+	// jinja chat template (chat_template_kwargs.reasoning_effort) — the lever
+	// models like gpt-oss / LFM2.5 actually read, distinct from enable_thinking.
+	if c.ReasoningEffort != "" {
+		metadata["reasoning_effort"] = c.ReasoningEffort
+	}
+	// Client request metadata overrides the server-derived reasoning levers and
+	// reaches every backend through these standalone string keys (Python backends
+	// read them directly). The reserved blob key is server-owned and skipped.
+	for k, v := range c.RequestMetadata {
+		if k == "chat_template_kwargs" {
+			continue
+		}
+		metadata[k] = v
+	}
+	// Build the generic chat_template_kwargs blob (model config map + coerced
+	// metadata) for llama.cpp and write it LAST so a client cannot clobber it.
+	if blob := c.ResolveChatTemplateKwargs(metadata); len(blob) > 0 {
+		b, err := json.Marshal(blob)
+		if err != nil {
+			xlog.Warn("failed to marshal chat_template_kwargs", "error", err)
+		} else {
+			metadata["chat_template_kwargs"] = string(b)
 		}
 	}
 	pbOpts.Metadata = metadata

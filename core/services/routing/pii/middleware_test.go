@@ -153,9 +153,9 @@ var _ = Describe("RequestMiddleware", func() {
 		Expect(errBlock["type"]).To(Equal("pii_blocked"))
 	})
 
-	It("route_local sets context flag", func() {
+	It("allow leaves text intact but still records an event", func() {
 		patterns, _ := Compile([]Pattern{{
-			ID: "email", Description: "Email", Action: ActionRouteLocal, MaxMatchLength: 254,
+			ID: "email", Description: "Email", Action: ActionAllow, MaxMatchLength: 254,
 		}})
 		red := NewRedactor(patterns)
 		store := NewMemoryEventStore(0)
@@ -165,10 +165,7 @@ var _ = Describe("RequestMiddleware", func() {
 		mw := RequestMiddleware(red, store, fakeAdapter(), nil)
 
 		e := echo.New()
-		var observedLocalOnly bool
 		e.POST("/chat", func(c echo.Context) error {
-			v, _ := c.Get(ctxKeyLocalOnly).(bool)
-			observedLocalOnly = v
 			return c.JSON(http.StatusOK, map[string]string{"ok": "yes"})
 		}, setRequestOnContext(body), withModelConfig(fakeModelPIIConfig{enabled: true}), mw)
 
@@ -177,9 +174,12 @@ var _ = Describe("RequestMiddleware", func() {
 		e.ServeHTTP(w, req)
 
 		Expect(w.Code).To(Equal(http.StatusOK))
-		Expect(observedLocalOnly).To(BeTrue(), "ctxKeyLocalOnly should be true on route_local match")
-		// route_local does NOT mutate the body — the model still sees the email.
-		Expect(body.Messages[0]).To(ContainSubstring("alice@example.com"), "route_local should leave text intact")
+		// allow does NOT mutate the body — the model still sees the email.
+		Expect(body.Messages[0]).To(ContainSubstring("alice@example.com"), "allow should leave text intact")
+		// ...but the detection is still recorded for audit.
+		events, _ := store.List(context.Background(), ListQuery{Limit: 100})
+		Expect(events).To(HaveLen(1), "allow should still record a PIIEvent")
+		Expect(events[0].Action).To(Equal(ActionAllow))
 	})
 
 	It("no match passes through", func() {

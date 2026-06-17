@@ -25,6 +25,7 @@ const (
 	BackendTraceRerank          BackendTraceType = "rerank"
 	BackendTraceTokenize        BackendTraceType = "tokenize"
 	BackendTraceDetection       BackendTraceType = "detection"
+	BackendTraceDepth           BackendTraceType = "depth"
 	BackendTraceFaceVerify      BackendTraceType = "face_verify"
 	BackendTraceFaceAnalyze     BackendTraceType = "face_analyze"
 	BackendTraceVoiceVerify     BackendTraceType = "voice_verify"
@@ -33,6 +34,7 @@ const (
 	BackendTraceAudioTransform  BackendTraceType = "audio_transform"
 	BackendTraceModelLoad       BackendTraceType = "model_load"
 	BackendTraceScore           BackendTraceType = "score"
+	BackendTraceVectorStore     BackendTraceType = "vector_store"
 )
 
 type BackendTrace struct {

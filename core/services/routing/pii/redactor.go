@@ -65,8 +65,8 @@ func (r *Redactor) Patterns() []Pattern {
 // older snapshot don't race on the per-element Action string (Go
 // strings are not atomic two-word values).
 func (r *Redactor) SetAction(id string, action Action) error {
-	if action != ActionMask && action != ActionBlock && action != ActionRouteLocal {
-		return fmt.Errorf("unknown action %q (must be mask, block, or route_local)", action)
+	if action != ActionMask && action != ActionBlock && action != ActionAllow {
+		return fmt.Errorf("unknown action %q (must be mask, block, or allow)", action)
 	}
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -114,8 +114,9 @@ func (r *Redactor) Redact(text string) Result {
 // and applies the resolved Action:
 //   - block: sets Result.Blocked, leaves text intact (caller decides
 //     whether to surface the redacted form).
-//   - mask: replaces the span with maskFor(pattern.ID).
-//   - route_local: sets Result.LocalOnly, leaves text intact.
+//   - mask: replaces the span with maskFor(pattern.ID), sets Result.Masked.
+//   - allow: leaves text intact and sets no flag (the span is still
+//     recorded so the match is auditable).
 //
 // Spans are returned in the original input's coordinate system so the
 // PIIEvent record can be written without re-running the scan.
@@ -254,7 +255,7 @@ func mergeAndEmit(text string, hits []rawHit) Result {
 	// Sort and deduplicate overlapping hits — when two patterns claim
 	// the same span (e.g., a credit-card-shaped value also scans as
 	// digits, or NER tags a span the regex also caught), keep the one
-	// with the strongest action. Order: block > route_local > mask.
+	// with the strongest action. Order: block > mask > allow.
 	sort.Slice(hits, func(i, j int) bool {
 		if hits[i].start != hits[j].start {
 			return hits[i].start < hits[j].start
@@ -298,10 +299,11 @@ func mergeAndEmit(text string, hits []rawHit) Result {
 		case ActionBlock:
 			res.Blocked = true
 			out.WriteString(matched)
-		case ActionRouteLocal:
-			res.LocalOnly = true
+		case ActionAllow:
+			// Detect-and-log only: leave the matched text in place.
 			out.WriteString(matched)
 		default:
+			res.Masked = true
 			out.WriteString(maskFor(h.patternID))
 		}
 		cursor = h.end
@@ -333,9 +335,9 @@ func actionRank(a Action) int {
 	switch a {
 	case ActionBlock:
 		return 3
-	case ActionRouteLocal:
-		return 2
 	case ActionMask:
+		return 2
+	case ActionAllow:
 		return 1
 	}
 	return 0

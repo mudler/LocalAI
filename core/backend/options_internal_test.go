@@ -75,3 +75,153 @@ var _ = Describe("gRPCPredictOpts enable_thinking metadata", func() {
 		Expect(opts.Metadata).ToNot(HaveKey("enable_thinking"))
 	})
 })
+
+// Guards forwarding the effective reasoning_effort into PredictOptions.Metadata,
+// where the backend passes it to the jinja chat template (chat_template_kwargs)
+// so models like gpt-oss / LFM2.5 honor it.
+var _ = Describe("gRPCPredictOpts reasoning_effort metadata", func() {
+	withEffort := func(effort string) config.ModelConfig {
+		cfg := config.ModelConfig{}
+		cfg.SetDefaults()
+		cfg.ReasoningEffort = effort
+		return cfg
+	}
+
+	It("forwards reasoning_effort when set", func() {
+		opts := gRPCPredictOpts(withEffort("none"), "/tmp/models")
+		Expect(opts.Metadata).To(HaveKeyWithValue("reasoning_effort", "none"))
+	})
+
+	It("omits reasoning_effort when empty", func() {
+		opts := gRPCPredictOpts(withEffort(""), "/tmp/models")
+		Expect(opts.Metadata).ToNot(HaveKey("reasoning_effort"))
+	})
+})
+
+var _ = Describe("grpcModelOpts NBatch", func() {
+	scoreUsecase := config.FLAG_SCORE
+	threads := 1
+	ctx := 4096
+
+	It("defaults to 512 for an ordinary model", func() {
+		cfg := config.ModelConfig{Threads: &threads, LLMConfig: config.LLMConfig{ContextSize: &ctx}}
+		opts := grpcModelOpts(cfg, "/tmp/models")
+		Expect(opts.NBatch).To(BeEquivalentTo(512))
+	})
+
+	It("sizes the batch to the context window for score models", func() {
+		// Score models decode the whole prompt+candidate in one
+		// llama_decode; n_batch must cover it or the backend aborts.
+		cfg := config.ModelConfig{Threads: &threads, LLMConfig: config.LLMConfig{ContextSize: &ctx}, KnownUsecases: &scoreUsecase}
+		opts := grpcModelOpts(cfg, "/tmp/models")
+		Expect(opts.NBatch).To(BeEquivalentTo(4096))
+	})
+
+	It("keeps an explicit batch over the score default", func() {
+		cfg := config.ModelConfig{Threads: &threads, LLMConfig: config.LLMConfig{ContextSize: &ctx}, KnownUsecases: &scoreUsecase}
+		cfg.Batch = 1024
+		opts := grpcModelOpts(cfg, "/tmp/models")
+		Expect(opts.NBatch).To(BeEquivalentTo(1024))
+	})
+
+	It("sizes the batch to the context window for embedding models", func() {
+		// Embedding/rerank pool over the whole sequence in one physical batch
+		// (n_ubatch); without this the input is capped at the 512 default and
+		// the backend returns "input is too large to process".
+		embeddings := true
+		cfg := config.ModelConfig{Threads: &threads, LLMConfig: config.LLMConfig{ContextSize: &ctx}}
+		cfg.Embeddings = &embeddings
+		opts := grpcModelOpts(cfg, "/tmp/models")
+		Expect(opts.NBatch).To(BeEquivalentTo(4096))
+	})
+
+	It("sizes the batch to the context window for rerank models", func() {
+		reranking := true
+		cfg := config.ModelConfig{Threads: &threads, LLMConfig: config.LLMConfig{ContextSize: &ctx}}
+		cfg.Reranking = &reranking
+		opts := grpcModelOpts(cfg, "/tmp/models")
+		Expect(opts.NBatch).To(BeEquivalentTo(4096))
+	})
+
+	It("does not raise the batch when a score model's context is below the default", func() {
+		small := 256
+		cfg := config.ModelConfig{Threads: &threads, LLMConfig: config.LLMConfig{ContextSize: &small}, KnownUsecases: &scoreUsecase}
+		opts := grpcModelOpts(cfg, "/tmp/models")
+		Expect(opts.NBatch).To(BeEquivalentTo(512))
+	})
+
+	It("sizes the batch to the effective 4096 default for a score model with no explicit context_size", func() {
+		// The crash case: the backend defaults n_ctx to 4096, so n_batch must
+		// follow even when context_size is unset — otherwise n_batch stays 512
+		// against a 4096 window and the score decode hits the GGML_ASSERT.
+		cfg := config.ModelConfig{Threads: &threads, KnownUsecases: &scoreUsecase}
+		Expect(cfg.ContextSize).To(BeNil())
+		opts := grpcModelOpts(cfg, "/tmp/models")
+		Expect(opts.NBatch).To(BeEquivalentTo(4096))
+		Expect(opts.ContextSize).To(BeEquivalentTo(4096), "n_batch must match the effective n_ctx the backend receives")
+	})
+})
+
+// Guards the generic chat_template_kwargs forwarding: the model config map plus any
+// per-request metadata overrides are merged, coerced, and serialised into the
+// backend metadata blob that llama.cpp reads. Client metadata also overrides the
+// server-derived standalone enable_thinking key (cross-backend consistency).
+var _ = Describe("gRPCPredictOpts chat_template_kwargs metadata", func() {
+	baseCfg := func() config.ModelConfig {
+		cfg := config.ModelConfig{}
+		cfg.SetDefaults()
+		return cfg
+	}
+
+	It("serialises the config map into the chat_template_kwargs blob", func() {
+		cfg := baseCfg()
+		cfg.ChatTemplateKwargs = map[string]any{"preserve_thinking": true}
+		opts := gRPCPredictOpts(cfg, "/tmp/models")
+		Expect(opts.Metadata).To(HaveKey("chat_template_kwargs"))
+		var blob map[string]any
+		Expect(json.Unmarshal([]byte(opts.Metadata["chat_template_kwargs"]), &blob)).To(Succeed())
+		Expect(blob).To(HaveKeyWithValue("preserve_thinking", true))
+	})
+
+	It("serialises reasoning_effort into the blob as a JSON string", func() {
+		cfg := baseCfg()
+		cfg.ReasoningEffort = "high"
+		opts := gRPCPredictOpts(cfg, "/tmp/models")
+		Expect(opts.Metadata).To(HaveKey("chat_template_kwargs"))
+		var blob map[string]any
+		Expect(json.Unmarshal([]byte(opts.Metadata["chat_template_kwargs"]), &blob)).To(Succeed())
+		// reasoning_effort must remain a string in the blob (jinja templates that
+		// key on the level read a string), unlike enable_thinking which is a bool.
+		Expect(blob["reasoning_effort"]).To(BeAssignableToTypeOf(""))
+		Expect(blob).To(HaveKeyWithValue("reasoning_effort", "high"))
+	})
+
+	It("lets client request metadata override the server-derived enable_thinking key", func() {
+		cfg := baseCfg()
+		disable := true
+		cfg.ReasoningConfig = reasoning.Config{DisableReasoning: &disable} // server: enable_thinking=false
+		cfg.RequestMetadata = map[string]string{"enable_thinking": "true"} // client overrides
+		opts := gRPCPredictOpts(cfg, "/tmp/models")
+		// standalone key (Python backends) reflects the client override
+		Expect(opts.Metadata).To(HaveKeyWithValue("enable_thinking", "true"))
+		// blob (llama.cpp) reflects it too, as a real bool
+		var blob map[string]any
+		Expect(json.Unmarshal([]byte(opts.Metadata["chat_template_kwargs"]), &blob)).To(Succeed())
+		Expect(blob).To(HaveKeyWithValue("enable_thinking", true))
+	})
+
+	It("does not let a client clobber the blob via a chat_template_kwargs metadata key", func() {
+		cfg := baseCfg()
+		cfg.ChatTemplateKwargs = map[string]any{"preserve_thinking": true}
+		cfg.RequestMetadata = map[string]string{"chat_template_kwargs": "{\"preserve_thinking\": false}"}
+		opts := gRPCPredictOpts(cfg, "/tmp/models")
+		var blob map[string]any
+		Expect(json.Unmarshal([]byte(opts.Metadata["chat_template_kwargs"]), &blob)).To(Succeed())
+		Expect(blob).To(HaveKeyWithValue("preserve_thinking", true))
+	})
+
+	It("omits the blob when there is nothing to forward", func() {
+		opts := gRPCPredictOpts(baseCfg(), "/tmp/models")
+		Expect(opts.Metadata).ToNot(HaveKey("chat_template_kwargs"))
+	})
+})

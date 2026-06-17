@@ -61,6 +61,17 @@ func StartFileTransferServerWithListener(lis net.Listener, stagingDir, modelsDir
 		return nil, fmt.Errorf("creating staging dir %s: %w", stagingDir, err)
 	}
 
+	// An empty token makes checkBearerToken fail open: every /v1/files,
+	// /v1/files-list and /v1/backend-logs request is served unauthenticated,
+	// granting read/write to the staging/models/data directories to anyone who
+	// can reach this port. Surface that loudly — the worker process does not
+	// run DistributedConfig.Validate(), so this is the only signal an operator
+	// gets. Set LOCALAI_REGISTRATION_TOKEN (and LOCALAI_REGISTRATION_REQUIRE_AUTH
+	// to fail closed) to protect it.
+	if token == "" {
+		xlog.Warn("HTTP file transfer server starting WITHOUT a registration token — read/write to models/staging/data is unauthenticated for anyone who can reach this port; set LOCALAI_REGISTRATION_TOKEN")
+	}
+
 	mux := http.NewServeMux()
 
 	// PUT /v1/files/{key} — upload file

@@ -30,6 +30,8 @@ type RunCMD struct {
 	ModelArgs []string `arg:"" optional:"" name:"models" help:"Model configuration URLs to load"`
 
 	ExternalBackends             []string      `env:"LOCALAI_EXTERNAL_BACKENDS,EXTERNAL_BACKENDS" help:"A list of external backends to load from gallery on boot" group:"backends"`
+	WebRTCNAT1To1IPs             []string      `env:"LOCALAI_WEBRTC_NAT_1TO1_IPS,WEBRTC_NAT_1TO1_IPS" help:"IPs advertised as the host ICE candidates for /v1/realtime WebRTC instead of every local interface. Set to the reachable host/LAN IP when running under Docker host networking or NAT, where pion otherwise offers unreachable bridge addresses and the connection drops after ICE consent checks fail." group:"api"`
+	WebRTCICEInterfaces          []string      `env:"LOCALAI_WEBRTC_ICE_INTERFACES,WEBRTC_ICE_INTERFACES" help:"Restrict /v1/realtime WebRTC ICE candidate gathering to these network interfaces (e.g. eth0), filtering out docker0/veth noise." group:"api"`
 	BackendsPath                 string        `env:"LOCALAI_BACKENDS_PATH,BACKENDS_PATH" type:"path" default:"${basepath}/backends" help:"Path containing backends used for inferencing" group:"backends"`
 	BackendsSystemPath           string        `env:"LOCALAI_BACKENDS_SYSTEM_PATH,BACKEND_SYSTEM_PATH" type:"path" default:"/var/lib/local-ai/backends" help:"Path containing system backends used for inferencing" group:"backends"`
 	ModelsPath                   string        `env:"LOCALAI_MODELS_PATH,MODELS_PATH" type:"path" default:"${basepath}/models" help:"Path containing models used for inferencing" group:"storage"`
@@ -154,6 +156,8 @@ type RunCMD struct {
 	StorageAccessKey          string `env:"LOCALAI_STORAGE_ACCESS_KEY" help:"S3 access key ID" group:"distributed"`
 	StorageSecretKey          string `env:"LOCALAI_STORAGE_SECRET_KEY" help:"S3 secret access key" group:"distributed"`
 	RegistrationToken         string `env:"LOCALAI_REGISTRATION_TOKEN" help:"Token that backend nodes must provide to register (empty = no auth required)" group:"distributed"`
+	RegistrationRequireAuth   bool   `env:"LOCALAI_REGISTRATION_REQUIRE_AUTH" default:"false" help:"Fail startup when distributed mode is enabled but LOCALAI_REGISTRATION_TOKEN is empty (node endpoints and worker file-transfer server would otherwise be unauthenticated)" group:"distributed"`
+	DistributedRequireAuth    bool   `env:"LOCALAI_DISTRIBUTED_REQUIRE_AUTH" default:"false" help:"Umbrella switch: require BOTH NATS JWT credentials and a registration token when distributed mode is enabled (implies --nats-require-auth and --registration-require-auth)" group:"distributed"`
 	AutoApproveNodes          bool   `env:"LOCALAI_AUTO_APPROVE_NODES" default:"false" help:"Auto-approve new worker nodes (skip admin approval)" group:"distributed"`
 	DistributedPrefixCache    bool   `env:"LOCALAI_DISTRIBUTED_PREFIX_CACHE" default:"true" help:"Enable prefix-cache-aware routing in distributed mode (default true). When false, routing falls back to round-robin." group:"distributed"`
 	DistributedPrefixCacheTTL string `env:"LOCALAI_DISTRIBUTED_PREFIX_CACHE_TTL" help:"Idle-timeout for prefix-cache index entries; also drives the background eviction cadence (every TTL/2). Default 5m." group:"distributed"`
@@ -168,6 +172,8 @@ type RunCMD struct {
 	NatsTLSCert               string `env:"LOCALAI_NATS_TLS_CERT" type:"existingfile" help:"Client certificate for NATS mTLS" group:"distributed"`
 	NatsTLSKey                string `env:"LOCALAI_NATS_TLS_KEY" type:"existingfile" help:"Client private key for NATS mTLS" group:"distributed"`
 	ExposeNodeHeader          bool   `env:"LOCALAI_EXPOSE_NODE_HEADER" default:"false" help:"Set the X-LocalAI-Node response header on inference responses (OpenAI chat/completions/embeddings, Anthropic /v1/messages, Ollama /api/chat,/api/generate,/api/embed) with the ID of the worker that served the request. Disabled by default: the node ID reveals internal topology and should not be exposed on a public endpoint. Best-effort: under heavy concurrency the header may reflect a recent routing decision rather than this exact request's." group:"distributed"`
+	ModelScheduling           string `env:"LOCALAI_MODEL_SCHEDULING" help:"Declarative per-model scheduling config applied at startup (inline JSON list of {model_name,node_selector,min_replicas,max_replicas,replicas:\"all\"}). Authoritative: overwrites matching models on every boot. Distributed mode only." group:"distributed"`
+	ModelSchedulingConfig     string `env:"LOCALAI_MODEL_SCHEDULING_CONFIG" help:"Path to a YAML file with the same per-model scheduling list as LOCALAI_MODEL_SCHEDULING. Distributed mode only." group:"distributed"`
 
 	Version bool
 
@@ -223,6 +229,8 @@ func (r *RunCMD) Run(ctx *cliContext.Context) error {
 		config.WithApiKeys(r.APIKeys),
 		config.WithModelsURL(append(r.Models, r.ModelArgs...)...),
 		config.WithExternalBackends(r.ExternalBackends...),
+		config.WithWebRTCNAT1To1IPs(r.WebRTCNAT1To1IPs...),
+		config.WithWebRTCICEInterfaces(r.WebRTCICEInterfaces...),
 		config.WithOpaqueErrors(r.OpaqueErrors),
 		config.WithEnforcedPredownloadScans(!r.DisablePredownloadScan),
 		config.WithSubtleKeyComparison(r.UseSubtleKeyComparison),
@@ -291,6 +299,12 @@ func (r *RunCMD) Run(ctx *cliContext.Context) error {
 	if r.RegistrationToken != "" {
 		opts = append(opts, config.WithRegistrationToken(r.RegistrationToken))
 	}
+	if r.RegistrationRequireAuth {
+		opts = append(opts, config.EnableRegistrationRequireAuth)
+	}
+	if r.DistributedRequireAuth {
+		opts = append(opts, config.EnableDistributedRequireAuth)
+	}
 	if r.NatsAccountSeed != "" {
 		opts = append(opts, config.WithNatsAccountSeed(r.NatsAccountSeed))
 	}
@@ -334,6 +348,15 @@ func (r *RunCMD) Run(ctx *cliContext.Context) error {
 	}
 	if r.ExposeNodeHeader {
 		opts = append(opts, config.WithExposeNodeHeader(true))
+	}
+	if r.ModelScheduling != "" {
+		opts = append(opts, config.WithModelSchedulingJSON(r.ModelScheduling))
+	}
+	if r.ModelSchedulingConfig != "" {
+		opts = append(opts, config.WithModelSchedulingConfigPath(r.ModelSchedulingConfig))
+	}
+	if !r.Distributed && (r.ModelScheduling != "" || r.ModelSchedulingConfig != "") {
+		xlog.Warn("LOCALAI_MODEL_SCHEDULING / LOCALAI_MODEL_SCHEDULING_CONFIG is set but distributed mode is disabled (LOCALAI_DISTRIBUTED=false) - ignoring")
 	}
 
 	if r.DisableMetricsEndpoint {
@@ -644,12 +667,12 @@ func (r *RunCMD) Run(ctx *cliContext.Context) error {
 // waitForServerReady polls the given address until the HTTP server is
 // accepting connections or the context is cancelled.
 func waitForServerReady(address string, ctx context.Context) {
-	// Ensure the address has a host component for dialing.
-	// Echo accepts ":8080" but net.Dial needs a resolvable host.
 	host, port, err := net.SplitHostPort(address)
 	if err == nil && host == "" {
 		address = "127.0.0.1:" + port
 	}
+	ticker := time.NewTicker(250 * time.Millisecond)
+	defer ticker.Stop()
 
 	for {
 		select {
@@ -657,11 +680,17 @@ func waitForServerReady(address string, ctx context.Context) {
 			return
 		default:
 		}
+
 		conn, err := net.DialTimeout("tcp", address, 500*time.Millisecond)
 		if err == nil {
 			conn.Close()
 			return
 		}
-		time.Sleep(250 * time.Millisecond)
+
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+		}
 	}
 }

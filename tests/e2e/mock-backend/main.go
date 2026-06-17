@@ -109,6 +109,40 @@ func (m *MockBackend) Predict(ctx context.Context, in *pb.PredictOptions) (*pb.R
 		}, nil
 	}
 
+	// ECHO_PREDICT_METADATA lets tests assert exactly what the REST layer
+	// forwarded to the backend as gRPC PredictOptions.Metadata (e.g. the
+	// chat_template_kwargs blob and the standalone enable_thinking/reasoning_effort
+	// keys). The reply carries a JSON snapshot of in.Metadata so an HTTP-level
+	// test can pin the request -> gRPC mapping without a new RPC.
+	if strings.Contains(in.Prompt, "ECHO_PREDICT_METADATA") {
+		payload, err := json.Marshal(in.Metadata)
+		if err != nil {
+			return nil, fmt.Errorf("mock backend echo metadata error: %w", err)
+		}
+		return &pb.Reply{
+			Message:      payload,
+			Tokens:       int32(len(in.Metadata)),
+			PromptTokens: 1,
+		}, nil
+	}
+
+	// ECHO_SERVED_MODEL returns the loaded model file path so router e2e
+	// tests can verify which candidate actually served the request without
+	// adding a new RPC. The router fans out to a single backend process per
+	// candidate, so lastLoadParams.Model is unique per candidate.
+	if strings.Contains(in.Prompt, "ECHO_SERVED_MODEL") {
+		opts := snapshotLoadParams()
+		modelID := ""
+		if opts != nil {
+			modelID = opts.Model
+		}
+		return &pb.Reply{
+			Message:      []byte("SERVED_MODEL=" + modelID),
+			Tokens:       2,
+			PromptTokens: 1,
+		}, nil
+	}
+
 	// Simulate C++ autoparser: tool call via ChatDeltas, empty message
 	if strings.Contains(in.Prompt, "AUTOPARSER_TOOL_CALL") {
 		toolName := mockToolNameFromRequest(in)
@@ -171,7 +205,7 @@ func (m *MockBackend) Predict(ctx context.Context, in *pb.PredictOptions) (*pb.R
 	// Simulate multiple tool calls in a single response (Go-side JSON parser path).
 	if strings.Contains(in.Prompt, "MULTI_TOOL_CALL") {
 		return &pb.Reply{
-			Message:      []byte(`{"name": "get_weather", "arguments": {"location": "Rome"}}
+			Message: []byte(`{"name": "get_weather", "arguments": {"location": "Rome"}}
 {"name": "get_weather", "arguments": {"location": "Paris"}}`),
 			Tokens:       30,
 			PromptTokens: 10,
@@ -540,13 +574,89 @@ func (m *MockBackend) AudioTranscription(ctx context.Context, in *pb.TranscriptR
 }
 
 func (m *MockBackend) TokenizeString(ctx context.Context, in *pb.PredictOptions) (*pb.TokenizationResponse, error) {
-	xlog.Debug("TokenizeString called", "prompt", in.Prompt)
-	// Return mock token IDs
-	tokens := []int32{101, 2023, 2003, 1037, 3231, 1012}
+	xlog.Debug("TokenizeString called", "prompt_len", len(in.Prompt))
+	// Approximate BPE: ~4 chars/token, minimum 1. Realistic enough for the
+	// router's fitMessages to exercise the budget/rune-pretrim path with
+	// recognisable counts that scale with input size.
+	n := max((len(in.Prompt)+3)/4, 1)
+	tokens := make([]int32, n)
+	for i := range tokens {
+		tokens[i] = int32(i + 1)
+	}
 	return &pb.TokenizationResponse{
-		Length: int32(len(tokens)),
+		Length: int32(n),
 		Tokens: tokens,
 	}, nil
+}
+
+// Score implements deterministic marker-driven ranking for router e2e
+// tests. The Score RPC receives the full rendered routing prompt (system
+// prompt + chat envelope + user turn), and the system prompt by construction
+// lists every policy label — so any keyword-against-prompt heuristic would
+// match every candidate. Instead we look for an explicit `ROUTE_HINT=<label>`
+// marker, which only appears when a test deliberately places one in a user
+// message. The candidate whose extracted label equals the hint gets a large
+// log-prob boost; all others stay at the base. With no hint, every candidate
+// scores equally, softmax is uniform, and (with a sensible activation
+// threshold) the router falls back.
+func (m *MockBackend) Score(ctx context.Context, in *pb.ScoreRequest) (*pb.ScoreResponse, error) {
+	xlog.Debug("Score called", "candidates", len(in.Candidates))
+	hint := extractRouteHint(in.Prompt)
+	out := &pb.ScoreResponse{Candidates: make([]*pb.CandidateScore, len(in.Candidates))}
+	for i, c := range in.Candidates {
+		label := extractRouteLabel(c)
+		// Base -5 (softmax ≈ 0.003), hint match +5 → 0 (softmax ≈ 0.99).
+		logProb := -5.0
+		if hint != "" && label == hint {
+			logProb = 0.0
+		}
+		// num_tokens matches TokenizeString's heuristic so per-token mean
+		// log-prob consumers see consistent values.
+		nTok := max((len(c)+3)/4, 1)
+		out.Candidates[i] = &pb.CandidateScore{
+			LogProb:                 logProb,
+			NumTokens:               int32(nTok),
+			LengthNormalizedLogProb: logProb / float64(nTok),
+		}
+	}
+	return out, nil
+}
+
+// extractRouteHint returns the label after the LAST occurrence of
+// `ROUTE_HINT=` in the prompt, terminated by whitespace or end-of-string.
+// Using the last occurrence makes the marker stable across long
+// conversations: the *newest* user message's hint wins, mirroring how the
+// router's fitMessages keeps the newest turn whole.
+func extractRouteHint(prompt string) string {
+	const key = "ROUTE_HINT="
+	i := strings.LastIndex(prompt, key)
+	if i < 0 {
+		return ""
+	}
+	rest := prompt[i+len(key):]
+	end := strings.IndexAny(rest, " \t\r\n<")
+	if end < 0 {
+		return rest
+	}
+	return rest[:end]
+}
+
+// extractRouteLabel returns the label inside `{"route": "<label>"}`. Returns
+// "" on any shape it doesn't recognise — the caller treats that as a no-match.
+func extractRouteLabel(candidate string) string {
+	_, rest, ok := strings.Cut(candidate, `"route"`)
+	if !ok {
+		return ""
+	}
+	_, rest, ok = strings.Cut(rest, `"`)
+	if !ok {
+		return ""
+	}
+	label, _, ok := strings.Cut(rest, `"`)
+	if !ok {
+		return ""
+	}
+	return label
 }
 
 func (m *MockBackend) Status(ctx context.Context, in *pb.HealthMessage) (*pb.StatusResponse, error) {
@@ -756,6 +866,70 @@ func (m *MockBackend) ModelMetadata(ctx context.Context, in *pb.ModelOptions) (*
 	return &pb.ModelMetadataResponse{
 		SupportsThinking: false,
 		RenderedTemplate: "",
+	}, nil
+}
+
+// voiceEmbedFromWAV reads a 16-bit LE mono WAV and returns a 2-d speaker
+// embedding derived from the signed DC offset of the samples. A positive DC
+// bias maps to one orthogonal unit vector, a negative bias to the other, so
+// e2e tests can deterministically simulate two distinct "speakers" that
+// survive resampling (DC is sample-rate independent). Near-zero DC maps to a
+// neutral vector equidistant from both. Returns nil for unreadable audio.
+func voiceEmbedFromWAV(path string) []float32 {
+	data, err := os.ReadFile(path)
+	if err != nil || len(data) < 44 {
+		return nil
+	}
+	pcm := data[44:]
+	n := len(pcm) / 2
+	if n == 0 {
+		return nil
+	}
+	var sum float64
+	for i := 0; i < n; i++ {
+		s := int16(pcm[2*i]) | int16(pcm[2*i+1])<<8
+		sum += float64(s)
+	}
+	mean := sum / float64(n)
+	switch {
+	case mean > 500:
+		return []float32{1, 0}
+	case mean < -500:
+		return []float32{0, 1}
+	default:
+		return []float32{0.7071, 0.7071}
+	}
+}
+
+// VoiceEmbed returns a deterministic 2-d speaker embedding for the audio clip.
+// See voiceEmbedFromWAV for the (test-only) DC-offset discrimination scheme.
+func (m *MockBackend) VoiceEmbed(ctx context.Context, in *pb.VoiceEmbedRequest) (*pb.VoiceEmbedResponse, error) {
+	emb := voiceEmbedFromWAV(in.GetAudio())
+	xlog.Debug("VoiceEmbed called", "audio", in.GetAudio(), "embedding", emb)
+	if len(emb) == 0 {
+		return &pb.VoiceEmbedResponse{}, nil
+	}
+	return &pb.VoiceEmbedResponse{Embedding: emb, Model: "mock-speaker"}, nil
+}
+
+// VoiceVerify compares two clips by cosine distance over their mock embeddings.
+func (m *MockBackend) VoiceVerify(ctx context.Context, in *pb.VoiceVerifyRequest) (*pb.VoiceVerifyResponse, error) {
+	a := voiceEmbedFromWAV(in.GetAudio1())
+	b := voiceEmbedFromWAV(in.GetAudio2())
+	dist := float32(1)
+	if len(a) == 2 && len(b) == 2 {
+		dist = 1 - (a[0]*b[0] + a[1]*b[1]) // both unit vectors
+	}
+	threshold := in.GetThreshold()
+	if threshold == 0 {
+		threshold = 0.25
+	}
+	xlog.Debug("VoiceVerify called", "distance", dist, "threshold", threshold)
+	return &pb.VoiceVerifyResponse{
+		Verified:  dist <= threshold,
+		Distance:  dist,
+		Threshold: threshold,
+		Model:     "mock-speaker",
 	}, nil
 }
 

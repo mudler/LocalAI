@@ -23,9 +23,9 @@ import (
 	"github.com/mudler/LocalAI/core/services/routing/pii"
 	"github.com/mudler/LocalAI/core/services/routing/router"
 	"github.com/mudler/LocalAI/core/services/storage"
-	"github.com/mudler/LocalAI/pkg/signals"
 	coreStartup "github.com/mudler/LocalAI/core/startup"
 	"github.com/mudler/LocalAI/internal"
+	"github.com/mudler/LocalAI/pkg/signals"
 	"github.com/mudler/LocalAI/pkg/vram"
 
 	"github.com/mudler/LocalAI/pkg/model"
@@ -308,10 +308,31 @@ func New(opts ...config.AppOption) (*Application, error) {
 			application.galleryService.SetNATSClient(distSvc.Nats)
 			if distSvc.DistStores != nil && distSvc.DistStores.Gallery != nil {
 				// Clean up stale in-progress operations from previous crashed instances
-				if err := distSvc.DistStores.Gallery.CleanStale(30 * time.Minute); err != nil {
+				if _, err := distSvc.DistStores.Gallery.CleanStale(30 * time.Minute); err != nil {
 					xlog.Warn("Failed to clean stale gallery operations", "error", err)
 				}
 				application.galleryService.SetGalleryStore(distSvc.DistStores.Gallery)
+
+				// Reap stale ops periodically, not just at boot: an op orphaned by
+				// a replica that died mid-install (its foreground handler goroutine
+				// gone) would otherwise linger "processing" in the UI until the next
+				// restart. 30m matches the install/upgrade ceiling so a genuinely
+				// slow op is never reaped out from under itself.
+				gsvc := application.galleryService
+				go func() {
+					ticker := time.NewTicker(15 * time.Minute)
+					defer ticker.Stop()
+					for {
+						select {
+						case <-options.Context.Done():
+							return
+						case <-ticker.C:
+							if _, err := gsvc.ReapStaleOperations(30 * time.Minute); err != nil {
+								xlog.Warn("Failed to reap stale gallery operations", "error", err)
+							}
+						}
+					}
+				}()
 			}
 			// Hydrate from the store first so the wildcard subscriber finds an
 			// already-populated statuses map for any operations still in flight
@@ -441,11 +462,7 @@ func New(opts ...config.AppOption) (*Application, error) {
 	// traffic doesn't need a parallel config for MITM traffic.
 	// Runs after loadRuntimeSettingsFromFile so a listener configured
 	// via /api/settings is brought back up across restarts.
-	if options.MITMListen != "" {
-		if err := startMITMProxy(application, options); err != nil {
-			return nil, fmt.Errorf("mitm: startup: %w", err)
-		}
-	}
+	startMITMIfConfigured(application, options)
 
 	application.ModelLoader().SetBackendLoggingEnabled(options.EnableBackendLogging)
 

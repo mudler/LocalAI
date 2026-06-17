@@ -86,7 +86,8 @@
     "type": "Type",
     "value": "Value",
     "search": "Search...",
-    "selectPlaceholder": "Select an option..."
+    "selectPlaceholder": "Select an option...",
+    "noMatch": "No matches"
   },
   "time": {
     "now": "now",

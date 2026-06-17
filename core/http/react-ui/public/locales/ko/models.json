@@ -1,0 +1,93 @@
+{
+  "title": "모델 설치",
+  "subtitle": "갤러리에서 AI 모델을 둘러보고 설치합니다",
+  "stats": {
+    "available": "사용 가능",
+    "installed": "설치됨"
+  },
+  "actions": {
+    "addModel": "모델 추가",
+    "importModel": "모델 가져오기",
+    "install": "설치",
+    "reinstall": "재설치",
+    "delete": "삭제"
+  },
+  "filters": {
+    "all": "전체",
+    "llm": "채팅",
+    "image": "이미지",
+    "video": "비디오",
+    "multimodal": "멀티모달",
+    "vision": "비전",
+    "tts": "TTS",
+    "stt": "STT",
+    "diarization": "화자 분리",
+    "soundGen": "사운드",
+    "audioTransform": "오디오 FX",
+    "realtimeAudio": "실시간 오디오",
+    "embedding": "임베딩",
+    "rerank": "리랭크",
+    "detection": "감지",
+    "vad": "VAD",
+    "fitsGpu": "GPU에 적합",
+    "allBackends": "모든 백엔드",
+    "searchBackends": "백엔드 검색..."
+  },
+  "search": {
+    "placeholder": "모델 검색...",
+    "clearFilters": "필터 지우기"
+  },
+  "table": {
+    "modelName": "모델 이름",
+    "description": "설명",
+    "backend": "백엔드",
+    "sizeVram": "크기 / VRAM",
+    "status": "상태",
+    "actions": "작업",
+    "size": "크기: {{size}}",
+    "vram": "VRAM: {{vram}}",
+    "fits": "적합",
+    "mayNotFit": "맞지 않을 수 있음",
+    "trustRemoteCode": "원격 코드 신뢰",
+    "installing": "설치 중",
+    "installingPct": "설치 중 · {{percent}}%",
+    "installed": "설치됨",
+    "notInstalled": "설치되지 않음"
+  },
+  "detail": {
+    "description": "설명",
+    "gallery": "갤러리",
+    "backend": "백엔드",
+    "size": "크기",
+    "vram": "VRAM",
+    "license": "라이선스",
+    "tags": "태그",
+    "links": "링크",
+    "warning": "경고",
+    "files": "파일",
+    "fitsGpu": "GPU에 적합",
+    "mayNotFitGpu": "GPU에 맞지 않을 수 있음",
+    "requiresTrustRemoteCode": "원격 코드 신뢰 필요",
+    "fileCount_one": "파일 {{count}}개",
+    "fileCount_other": "파일 {{count}}개",
+    "filename": "파일 이름",
+    "uri": "URI",
+    "sha256": "SHA256"
+  },
+  "empty": {
+    "title": "모델을 찾을 수 없습니다",
+    "withFilters": "현재 검색 또는 필터와 일치하는 모델이 없습니다.",
+    "noFilters": "모델 갤러리가 비어 있습니다."
+  },
+  "deleteDialog": {
+    "title": "모델 삭제",
+    "message": "모델 {{model}}을(를) 삭제하시겠습니까?",
+    "confirm": "{{model}} 삭제",
+    "deletingToast": "{{model}} 삭제 중..."
+  },
+  "errors": {
+    "loadFailed": "모델을 불러오지 못했습니다: {{message}}",
+    "installFailed": "설치 실패: {{message}}",
+    "deleteFailed": "삭제 실패: {{message}}"
+  }
+}
