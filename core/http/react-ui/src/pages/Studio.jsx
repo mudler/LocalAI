@@ -37,7 +37,10 @@ export default function Studio() {
     setSearchParams({ tab: key }, { replace: true })
   }
 
-  const ActiveComponent = TAB_COMPONENTS[activeTab] || ImageGen
+  const ActiveComponent =
+    (activeTab === 'transform' && !hasFeature('audio_transform'))
+      ? ImageGen
+      : (TAB_COMPONENTS[activeTab] || ImageGen)
 
   return (
     <div>
