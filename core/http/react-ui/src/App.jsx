@@ -8,6 +8,7 @@ import { systemApi } from './utils/api'
 import { useTheme } from './contexts/ThemeContext'
 import { useBranding } from './contexts/BrandingContext'
 import { useAuth } from './context/AuthContext'
+import RouteFallback from './components/RouteFallback'
 
 const COLLAPSED_KEY = 'localai_sidebar_collapsed'
 
@@ -125,9 +126,10 @@ export default function App() {
             {/* Per-route Suspense catches React.lazy chunk loads (router.jsx)
                 here, inside the App layout. Without it, suspension would bubble
                 up to main.jsx's outer boundary and unmount the sidebar/header
-                on every navigation. fallback={null} keeps the shell stable; the
-                page-content area briefly blanks while the chunk arrives. */}
-            <Suspense fallback={null}>
+                on every navigation. RouteFallback shows a delayed loader so the
+                content area isn't blank while a chunk arrives (console pages get
+                their own boundary in ConsoleLayout so the rail stays put). */}
+            <Suspense fallback={<RouteFallback />}>
               <Outlet context={{ addToast }} />
             </Suspense>
           </div>

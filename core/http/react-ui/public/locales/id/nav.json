@@ -62,5 +62,9 @@
     "documentation": "Dokumentasi",
     "author": "Penulis",
     "copyright": "© 2023-{{year}} {{author}}"
+  },
+  "console": {
+    "automation": "Otomasi",
+    "training": "Pelatihan"
   }
 }

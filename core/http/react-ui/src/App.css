@@ -341,6 +341,28 @@
   transition: opacity 150ms ease;
 }
 
+/* Sidebar nav polish: inset, rounded "pill" items give the nav a lighter,
+   more intentional rhythm than full-bleed bars. Scoped to .sidebar-nav so the
+   shared .nav-item class (reused by the admin console rail) keeps its own
+   treatment. */
+.sidebar-nav .nav-item {
+  margin: 1px var(--spacing-sm);
+  padding-left: var(--spacing-sm);
+  padding-right: var(--spacing-sm);
+  border-radius: var(--radius-lg);
+}
+.sidebar-nav .nav-item.active {
+  background: var(--color-primary-light);
+  color: var(--color-primary);
+  box-shadow: none;
+}
+.sidebar-nav .nav-item.active .nav-icon { color: var(--color-primary); }
+/* Align tier labels with the inset item text (item margin + icon padding). */
+.sidebar-nav .sidebar-section-title {
+  padding-left: var(--spacing-md);
+  padding-right: var(--spacing-md);
+}
+
 .nav-external {
   font-size: 0.55rem;
   margin-left: auto;
@@ -7857,9 +7879,94 @@ select.input {
 }
 
 /* Admin console layout (pathless route) - structural only */
-.admin-console { display: flex; gap: 1.5rem; align-items: flex-start; }
-.admin-console-rail { flex: 0 0 200px; display: flex; flex-direction: column; gap: 0.75rem; }
-.admin-console-group { display: flex; flex-direction: column; gap: 0.125rem; }
-.admin-console-group-title { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.08em; opacity: 0.6; padding: 0.25rem 0.5rem; }
-.admin-console-body { flex: 1 1 auto; min-width: 0; }
-@media (max-width: 768px) { .admin-console { flex-direction: column; } .admin-console-rail { flex-basis: auto; width: 100%; } }
+/* Lazy-route loading fallback. Delayed ~150ms so fast chunk loads don't flash. */
+.route-fallback {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-height: 40vh;
+  opacity: 0;
+  animation: route-fallback-in var(--duration-normal) var(--ease-out, ease-out) 150ms forwards;
+}
+@keyframes route-fallback-in { to { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) {
+  .route-fallback { opacity: 1; animation: none; }
+}
+
+/* Console layout: a secondary rail panel (Build, Operate) beside the page body. */
+.console-layout {
+  display: flex;
+  gap: var(--spacing-lg);
+  align-items: flex-start;
+  padding: var(--spacing-md);
+}
+.console-rail {
+  flex: 0 0 220px;
+  position: sticky;
+  top: var(--spacing-md);
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-xs);
+  padding: var(--spacing-sm);
+  background: var(--color-bg-secondary);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-subtle);
+}
+/* Entrance only when entering the console (not on item-to-item sub-nav). */
+.console-rail.console-rail--enter {
+  animation: console-rail-in var(--duration-normal) var(--ease-out, ease-out) both;
+}
+@keyframes console-rail-in {
+  from { opacity: 0; transform: translateX(-8px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+.console-rail-header {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  padding: var(--spacing-sm) var(--spacing-sm) var(--spacing-xs);
+  font-size: var(--text-sm);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+}
+.console-rail-header i { color: var(--color-primary); font-size: 0.9rem; }
+.console-group { display: flex; flex-direction: column; gap: 1px; }
+.console-group + .console-group {
+  margin-top: var(--spacing-xs);
+  padding-top: var(--spacing-xs);
+  border-top: 1px solid var(--color-border-divider);
+}
+.console-group-title {
+  font-size: var(--text-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-tertiary);
+  padding: var(--spacing-xs) var(--spacing-sm);
+}
+.console-rail .nav-item {
+  margin: 0;
+  padding: 7px var(--spacing-sm);
+  border-radius: var(--radius-md);
+  font-size: var(--text-sm);
+  transition: color var(--duration-fast) var(--ease-out, ease-out),
+              background var(--duration-fast) var(--ease-out, ease-out),
+              transform var(--duration-fast) var(--ease-out, ease-out);
+}
+.console-rail .nav-item:hover:not(.active) { transform: translateX(2px); }
+.console-rail .nav-item.active { box-shadow: none; }
+.console-rail .nav-item.active .nav-icon { color: var(--color-primary); }
+.console-body {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+@media (max-width: 768px) {
+  .console-layout { flex-direction: column; padding: var(--spacing-sm); }
+  .console-rail { position: static; flex-basis: auto; width: 100%; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .console-rail.console-rail--enter { animation: none; }
+  .console-rail .nav-item:hover:not(.active) { transform: none; }
+}

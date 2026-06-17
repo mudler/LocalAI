@@ -76,7 +76,8 @@ const Users = page('users', () => import('./pages/Users'))
 const Middleware = page('middleware', () => import('./pages/Middleware'))
 const Account = page('account', () => import('./pages/Account'))
 
-import AdminConsoleLayout from './components/AdminConsole/AdminConsoleLayout'
+import ConsoleLayout from './components/console/ConsoleLayout'
+import { buildConsole, operateConsole } from './components/console/consoleConfig'
 
 function BrowseRedirect() {
   const { '*': splat } = useParams()
@@ -108,15 +109,43 @@ const appChildren = [
   { path: 'transform/:model', element: <Feature feature="audio_transform"><AudioTransform /></Feature> },
   { path: 'studio', element: <Studio /> },
   { path: 'talk', element: <Talk /> },
-  { path: 'face', element: <Feature feature="face_recognition"><FaceRecognition /></Feature> },
-  { path: 'face/:model', element: <Feature feature="face_recognition"><FaceRecognition /></Feature> },
-  { path: 'voice', element: <Feature feature="voice_recognition"><VoiceRecognition /></Feature> },
-  { path: 'voice/:model', element: <Feature feature="voice_recognition"><VoiceRecognition /></Feature> },
   { path: 'account', element: <Account /> },
+
+  // Build console — Automation, Training, and Recognition groups share one rail.
+  // Only the section landing pages live under the rail; deep create/edit/chat
+  // flows below render full-width.
   {
-    element: <AdminConsoleLayout />,
+    element: <ConsoleLayout config={buildConsole} />,
     children: [
-      { path: 'models', element: <Admin><Models /></Admin> },
+      { path: 'agents', element: <Feature feature="agents"><Agents /></Feature> },
+      { path: 'skills', element: <Feature feature="skills"><Skills /></Feature> },
+      { path: 'collections', element: <Feature feature="collections"><Collections /></Feature> },
+      { path: 'agent-jobs', element: <Feature feature="mcp_jobs"><AgentJobs /></Feature> },
+      { path: 'fine-tune', element: <Feature feature="fine_tuning"><FineTune /></Feature> },
+      { path: 'quantize', element: <Feature feature="quantization"><Quantize /></Feature> },
+      { path: 'face', element: <Feature feature="face_recognition"><FaceRecognition /></Feature> },
+      { path: 'face/:model', element: <Feature feature="face_recognition"><FaceRecognition /></Feature> },
+      { path: 'voice', element: <Feature feature="voice_recognition"><VoiceRecognition /></Feature> },
+      { path: 'voice/:model', element: <Feature feature="voice_recognition"><VoiceRecognition /></Feature> },
+    ],
+  },
+  // Build deep flows — full-width, no rail.
+  { path: 'agents/new', element: <Feature feature="agents"><AgentCreate /></Feature> },
+  { path: 'agents/:name/edit', element: <Feature feature="agents"><AgentCreate /></Feature> },
+  { path: 'agents/:name/chat', element: <Feature feature="agents"><AgentChat /></Feature> },
+  { path: 'agents/:name/status', element: <Feature feature="agents"><AgentStatus /></Feature> },
+  { path: 'collections/:name', element: <Feature feature="collections"><CollectionDetails /></Feature> },
+  { path: 'skills/new', element: <Feature feature="skills"><SkillEdit /></Feature> },
+  { path: 'skills/edit/:name', element: <Feature feature="skills"><SkillEdit /></Feature> },
+  { path: 'agent-jobs/tasks/new', element: <Feature feature="mcp_jobs"><AgentTaskDetails /></Feature> },
+  { path: 'agent-jobs/tasks/:id', element: <Feature feature="mcp_jobs"><AgentTaskDetails /></Feature> },
+  { path: 'agent-jobs/tasks/:id/edit', element: <Feature feature="mcp_jobs"><AgentTaskDetails /></Feature> },
+  { path: 'agent-jobs/jobs/:id', element: <Feature feature="mcp_jobs"><AgentJobDetails /></Feature> },
+
+  // Operate console (admin).
+  {
+    element: <ConsoleLayout config={operateConsole} />,
+    children: [
       { path: 'backends', element: <Admin><Backends /></Admin> },
       { path: 'settings', element: <Admin><Settings /></Admin> },
       { path: 'traces', element: <Admin><Traces /></Admin> },
@@ -130,23 +159,9 @@ const appChildren = [
       { path: 'manage', element: <Admin><Manage /></Admin> },
     ],
   },
-  { path: 'agents', element: <Feature feature="agents"><Agents /></Feature> },
-  { path: 'agents/new', element: <Feature feature="agents"><AgentCreate /></Feature> },
-  { path: 'agents/:name/edit', element: <Feature feature="agents"><AgentCreate /></Feature> },
-  { path: 'agents/:name/chat', element: <Feature feature="agents"><AgentChat /></Feature> },
-  { path: 'agents/:name/status', element: <Feature feature="agents"><AgentStatus /></Feature> },
-  { path: 'collections', element: <Feature feature="collections"><Collections /></Feature> },
-  { path: 'collections/:name', element: <Feature feature="collections"><CollectionDetails /></Feature> },
-  { path: 'skills', element: <Feature feature="skills"><Skills /></Feature> },
-  { path: 'skills/new', element: <Feature feature="skills"><SkillEdit /></Feature> },
-  { path: 'skills/edit/:name', element: <Feature feature="skills"><SkillEdit /></Feature> },
-  { path: 'agent-jobs', element: <Feature feature="mcp_jobs"><AgentJobs /></Feature> },
-  { path: 'agent-jobs/tasks/new', element: <Feature feature="mcp_jobs"><AgentTaskDetails /></Feature> },
-  { path: 'agent-jobs/tasks/:id', element: <Feature feature="mcp_jobs"><AgentTaskDetails /></Feature> },
-  { path: 'agent-jobs/tasks/:id/edit', element: <Feature feature="mcp_jobs"><AgentTaskDetails /></Feature> },
-  { path: 'agent-jobs/jobs/:id', element: <Feature feature="mcp_jobs"><AgentJobDetails /></Feature> },
-  { path: 'fine-tune', element: <Feature feature="fine_tuning"><FineTune /></Feature> },
-  { path: 'quantize', element: <Feature feature="quantization"><Quantize /></Feature> },
+
+  // Models management (Install Models) — top-level destination, full-width.
+  { path: 'models', element: <Admin><Models /></Admin> },
   { path: 'model-editor', element: <Admin><ModelEditor /></Admin> },
   { path: 'model-editor/:name', element: <Admin><ModelEditor /></Admin> },
   { path: 'import-model', element: <Admin><ImportModel /></Admin> },

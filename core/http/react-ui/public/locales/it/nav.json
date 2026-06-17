@@ -61,5 +61,9 @@
     "documentation": "Documentazione",
     "author": "Autore",
     "copyright": "© 2023-{{year}} {{author}}"
+  },
+  "console": {
+    "automation": "Automazione",
+    "training": "Addestramento"
   }
 }

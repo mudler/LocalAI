@@ -61,5 +61,9 @@
     "documentation": "文档",
     "author": "作者",
     "copyright": "© 2023-{{year}} {{author}}"
+  },
+  "console": {
+    "automation": "自动化",
+    "training": "训练"
   }
 }

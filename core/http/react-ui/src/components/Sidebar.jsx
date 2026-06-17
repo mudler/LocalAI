@@ -7,24 +7,19 @@ import { useAuth } from '../context/AuthContext'
 import { useBranding } from '../contexts/BrandingContext'
 import { apiUrl } from '../utils/basePath'
 import { preloadRoute } from '../router'
+import { consoles, firstVisiblePath, consolePaths } from './console/consoleConfig'
 
 const COLLAPSED_KEY = 'localai_sidebar_collapsed'
 const SECTIONS_KEY = 'localai_sidebar_sections'
 
 const topItems = [
   { path: '/app', icon: 'fas fa-home', labelKey: 'items.home' },
+  { path: '/app/models', icon: 'fas fa-download', labelKey: 'items.installModels', adminOnly: true },
 ]
 
-// Single entry into the admin console (Task 3). Lands on the console's default
-// page and stays visually active for any admin route via `adminPaths` below.
-const operateItem = { path: '/app/models', icon: 'fas fa-sliders', labelKey: 'sections.operate', adminOnly: true }
-
-const adminPaths = [
-  '/app/models', '/app/backends', '/app/nodes', '/app/p2p', '/app/usage',
-  '/app/traces', '/app/users', '/app/middleware', '/app/manage', '/app/settings',
-  '/app/backend-logs', '/app/node-backend-logs',
-]
-
+// Create stays inline (frequent, one-click creative destinations). The Build
+// and Operate tiers are single entries that open a secondary console rail —
+// their items live in console/consoleConfig.js (shared with ConsoleLayout).
 const sections = [
   {
     id: 'create',
@@ -33,39 +28,6 @@ const sections = [
       { path: '/app/chat', icon: 'fas fa-comments', labelKey: 'items.chat' },
       { path: '/app/studio', icon: 'fas fa-palette', labelKey: 'items.studio' },
       { path: '/app/talk', icon: 'fas fa-phone', labelKey: 'items.talk' },
-    ],
-  },
-  {
-    id: 'recognition',
-    titleKey: 'sections.recognition',
-    featureMap: {
-      '/app/face': 'face_recognition',
-      '/app/voice': 'voice_recognition',
-    },
-    items: [
-      { path: '/app/face', icon: 'fas fa-face-smile', labelKey: 'items.faces', feature: 'face_recognition' },
-      { path: '/app/voice', icon: 'fas fa-microphone-lines', labelKey: 'items.voices', feature: 'voice_recognition' },
-    ],
-  },
-  {
-    id: 'build',
-    titleKey: 'sections.build',
-    // featureMap entries are capability-gated via hasFeature(); items NOT listed
-    // here fall back to the isAdmin check in getVisibleSectionItems — this keeps
-    // Fine-tune/Quantize admin-gated exactly as the old `tools` section did.
-    featureMap: {
-      '/app/agents': 'agents',
-      '/app/skills': 'skills',
-      '/app/collections': 'collections',
-      '/app/agent-jobs': 'mcp_jobs',
-    },
-    items: [
-      { path: '/app/agents', icon: 'fas fa-robot', labelKey: 'items.agents', requiresAgentPool: true },
-      { path: '/app/skills', icon: 'fas fa-wand-magic-sparkles', labelKey: 'items.skills', requiresAgentPool: true },
-      { path: '/app/collections', icon: 'fas fa-database', labelKey: 'items.memory', requiresAgentPool: true },
-      { path: '/app/agent-jobs', icon: 'fas fa-tasks', labelKey: 'items.jobs', feature: 'mcp', requiresAgentPool: true },
-      { path: '/app/fine-tune', icon: 'fas fa-graduation-cap', labelKey: 'items.fineTune', feature: 'fine_tuning' },
-      { path: '/app/quantize', icon: 'fas fa-compress', labelKey: 'items.quantize', feature: 'quantization' },
     ],
   },
 ]
@@ -193,32 +155,11 @@ export default function Sidebar({ isOpen, onClose }) {
   }
 
   const visibleTopItems = topItems.filter(filterItem)
+  // Shared shape for the console gating helpers (consoleConfig.js).
+  const auth = { isAdmin, authEnabled, hasFeature, features }
 
-  const getVisibleSectionItems = (section) => {
-    return section.items.filter(item => {
-      if (!filterItem(item)) return false
-      // The old `agents` section hid Agents/Skills/Collections/Jobs together when
-      // the agent pool was disabled. /api/features never emits skills/collections/
-      // mcp_jobs keys, so per-item flags can't reproduce that; gate them all on
-      // the global `agents` flag here.
-      if (item.requiresAgentPool && features.agents === false) return false
-      if (section.featureMap) {
-        const featureName = section.featureMap[item.path]
-        // Items absent from featureMap behave like items in a no-featureMap
-        // section: gated solely by filterItem (their feature flags). This keeps
-        // Fine-tune/Quantize visible to non-admins holding the capability, as in
-        // the old `tools` section.
-        if (!featureName) return true
-        // Respect the global capability flag from /api/features (e.g. the agents
-        // pool being disabled) in addition to the per-user hasFeature() check.
-        // This keeps the old `agents` section's global gate intact now that those
-        // items live in the `build` tier alongside ungated tools.
-        if (features[featureName] === false) return false
-        return hasFeature(featureName)
-      }
-      return true
-    })
-  }
+  // Inline sections (Create) carry no gating; a plain filterItem pass suffices.
+  const getVisibleSectionItems = (section) => section.items.filter(filterItem)
 
   return (
     <>
@@ -286,24 +227,30 @@ export default function Sidebar({ isOpen, onClose }) {
             )
           })}
 
-          {isAdmin && (
-            <div className="sidebar-section">
-              <NavLink
-                to={operateItem.path}
-                className={() =>
-                  `nav-item ${adminPaths.some(p => location.pathname.startsWith(p)) ? 'active' : ''}`
-                }
-                onClick={onClose}
-                onMouseEnter={() => preloadRoute(operateItem.path)}
-                onFocus={() => preloadRoute(operateItem.path)}
-                onTouchStart={() => preloadRoute(operateItem.path)}
-                title={collapsed ? t(operateItem.labelKey) : undefined}
-              >
-                <i className={`${operateItem.icon} nav-icon`} />
-                <span className="nav-label">{t(operateItem.labelKey)}</span>
-              </NavLink>
-            </div>
-          )}
+          {/* Console tiers (Build, Operate): a single entry that opens a
+              secondary rail. Hidden when the viewer can see none of its items. */}
+          {consoles.map(config => {
+            const target = firstVisiblePath(config, auth)
+            if (!target) return null
+            const active = consolePaths(config).some(p => location.pathname.startsWith(p))
+            const label = t(config.titleKey)
+            return (
+              <div key={config.id} className="sidebar-section">
+                <NavLink
+                  to={target}
+                  className={() => `nav-item ${active ? 'active' : ''}`}
+                  onClick={onClose}
+                  onMouseEnter={() => preloadRoute(target)}
+                  onFocus={() => preloadRoute(target)}
+                  onTouchStart={() => preloadRoute(target)}
+                  title={collapsed ? label : undefined}
+                >
+                  <i className={`${config.icon} nav-icon`} />
+                  <span className="nav-label">{label}</span>
+                </NavLink>
+              </div>
+            )
+          })}
         </nav>
 
         {/* Footer */}

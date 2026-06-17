@@ -12,30 +12,45 @@ test.describe('Navigation', () => {
     await expect(page.locator('.home-page')).toBeVisible()
   })
 
-  test('sidebar shows the three intent tiers', async ({ page }) => {
+  test('top menu exposes Home and Install Models', async ({ page }) => {
     await page.goto('/app')
-    for (const title of ['Create', 'Recognition', 'Build']) {
-      await expect(page.locator('.sidebar-section-title', { hasText: title })).toBeVisible()
-    }
+    await expect(page.locator('.sidebar-nav a.nav-item[href="/app"]')).toBeVisible()
+    await expect(page.locator('.sidebar-nav a.nav-item[href="/app/models"]')).toBeVisible()
   })
 
-  test('Recognition tier exposes Faces and Voices', async ({ page }) => {
+  test('Create stays an inline tier with Chat, Studio and Talk', async ({ page }) => {
     await page.goto('/app')
-    await expect(page.locator('a.nav-item[href="/app/face"]')).toBeVisible()
-    await expect(page.locator('a.nav-item[href="/app/voice"]')).toBeVisible()
+    await expect(page.locator('.sidebar-section-title', { hasText: 'Create' })).toBeVisible()
+    await expect(page.locator('.sidebar-nav a.nav-item[href="/app/chat"]')).toBeVisible()
+    await expect(page.locator('.sidebar-nav a.nav-item[href="/app/studio"]')).toBeVisible()
+    await expect(page.locator('.sidebar-nav a.nav-item[href="/app/talk"]')).toBeVisible()
   })
 
-  test('Build tier keeps Fine-tune and Quantize as distinct items', async ({ page }) => {
+  test('Build is a single entry that opens the Build console', async ({ page }) => {
     await page.goto('/app')
-    await expect(page.locator('a.nav-item[href="/app/fine-tune"]')).toBeVisible()
-    await expect(page.locator('a.nav-item[href="/app/quantize"]')).toBeVisible()
+    const build = page.locator('.sidebar-nav a.nav-item', { hasText: 'Build' })
+    await expect(build).toBeVisible()
+    await build.click()
+    await expect(page.locator('.console-rail .console-rail-header', { hasText: 'Build' })).toBeVisible()
   })
 
-  test('Operate is a single entry pointing at the admin console default', async ({ page }) => {
+  test('Operate is a single entry that opens the admin console', async ({ page }) => {
     await page.goto('/app')
-    const operate = page.locator('a.nav-item[href="/app/models"]')
+    const operate = page.locator('.sidebar-nav a.nav-item', { hasText: 'Operate' })
     await expect(operate).toBeVisible()
     await operate.click()
-    await expect(page).toHaveURL(/\/app\/models/)
+    await expect(page.locator('.console-rail .console-rail-header', { hasText: 'Operate' })).toBeVisible()
+  })
+
+  test('Build console groups Automation, Training and Recognition', async ({ page }) => {
+    await page.goto('/app/agents')
+    const rail = page.locator('.console-rail')
+    await expect(rail).toBeVisible()
+    for (const group of ['Automation', 'Training', 'Recognition']) {
+      await expect(rail.locator('.console-group-title', { hasText: group })).toBeVisible()
+    }
+    // Recognition (Faces/Voices) and Training (Fine-tune/Quantize) live here now.
+    await expect(rail.locator('a.nav-item[href="/app/fine-tune"]')).toBeVisible()
+    await expect(rail.locator('a.nav-item[href="/app/face"]')).toBeVisible()
   })
 })
