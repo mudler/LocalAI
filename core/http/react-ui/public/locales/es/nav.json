@@ -13,11 +13,10 @@
   "account": "Cuenta",
   "accountFor": "Cuenta: {{name}}",
   "sections": {
-    "tools": "Herramientas",
-    "enhance": "Mejorar",
-    "biometrics": "Biometría",
-    "agents": "Agentes",
-    "system": "Sistema"
+    "create": "Crear",
+    "recognition": "Reconocimiento",
+    "build": "Construir",
+    "operate": "Operar"
   },
   "items": {
     "home": "Inicio",
@@ -27,6 +26,12 @@
     "talk": "Hablar",
     "fineTune": "Ajuste fino (Experimental)",
     "quantize": "Cuantización (Experimental)",
+    "faces": "Rostros",
+    "voices": "Voces",
+    "jobs": "Trabajos",
+    "operate": "Administración",
+    "security": "Seguridad",
+    "host": "Host",
     "audioTransform": "Transformar audio",
     "faceRecognition": "Reconocimiento facial",
     "voiceRecognition": "Reconocimiento de voz",

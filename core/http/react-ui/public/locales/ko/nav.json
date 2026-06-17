@@ -13,11 +13,10 @@
   "account": "계정",
   "accountFor": "계정: {{name}}",
   "sections": {
-    "tools": "도구",
-    "enhance": "향상",
-    "biometrics": "생체 인식",
-    "agents": "에이전트",
-    "system": "시스템"
+    "create": "만들기",
+    "recognition": "인식",
+    "build": "구축",
+    "operate": "운영"
   },
   "items": {
     "home": "홈",
@@ -27,6 +26,12 @@
     "talk": "대화",
     "fineTune": "파인튜닝 (실험적)",
     "quantize": "양자화 (실험적)",
+    "faces": "얼굴",
+    "voices": "음성",
+    "jobs": "작업",
+    "operate": "관리",
+    "security": "보안",
+    "host": "호스트",
     "audioTransform": "오디오 변환",
     "faceRecognition": "얼굴 인식",
     "voiceRecognition": "음성 인식",
