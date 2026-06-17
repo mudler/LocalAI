@@ -594,6 +594,91 @@ definitions:
       text:
         type: string
     type: object
+  schema.DepthRequest:
+    properties:
+      dst:
+        description: optional output directory for exports (glb/colmap)
+        type: string
+      exports:
+        description: 'requested exports: "glb", "colmap"'
+        items:
+          type: string
+        type: array
+      image:
+        description: URL or base64-encoded image to analyze
+        type: string
+      include_confidence:
+        description: return the per-pixel confidence map (DualDPT)
+        type: boolean
+      include_depth:
+        description: return the per-pixel depth map
+        type: boolean
+      include_points:
+        description: back-project to a 3D point cloud (DualDPT)
+        type: boolean
+      include_pose:
+        description: return camera extrinsics/intrinsics (DualDPT)
+        type: boolean
+      include_sky:
+        description: return the per-pixel sky map (mono models)
+        type: boolean
+      model:
+        type: string
+      points_conf_thresh:
+        description: keep points with confidence >= this threshold
+        type: number
+    type: object
+  schema.DepthResponse:
+    properties:
+      confidence:
+        description: width*height row-major confidence (DualDPT)
+        items:
+          type: number
+        type: array
+      depth:
+        description: width*height row-major metric depth
+        items:
+          type: number
+        type: array
+      export_paths:
+        description: paths written for the requested exports
+        items:
+          type: string
+        type: array
+      extrinsics:
+        description: 12 floats, 3x4 row-major (world-to-camera)
+        items:
+          type: number
+        type: array
+      height:
+        type: integer
+      intrinsics:
+        description: 9 floats, 3x3 row-major
+        items:
+          type: number
+        type: array
+      is_metric:
+        description: depth is in metric units
+        type: boolean
+      num_points:
+        description: number of 3D points
+        type: integer
+      point_colors:
+        description: base64-encoded num_points*3 uint8 rgb
+        type: string
+      points:
+        description: num_points*3 xyz, world space
+        items:
+          type: number
+        type: array
+      sky:
+        description: width*height row-major sky map (mono)
+        items:
+          type: number
+        type: array
+      width:
+        type: integer
+    type: object
   schema.Detection:
     properties:
       class_name:
@@ -3769,6 +3854,23 @@ paths:
       summary: Generate completions for a given prompt and model.
       tags:
       - inference
+  /v1/depth:
+    post:
+      parameters:
+      - description: query params
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/schema.DepthRequest'
+      responses:
+        "200":
+          description: Response
+          schema:
+            $ref: '#/definitions/schema.DepthResponse'
+      summary: Estimates per-pixel depth (and optionally pose/points) from an image.
+      tags:
+      - depth
   /v1/detection:
     post:
       parameters:
