@@ -46,8 +46,8 @@
       use_tokenizer_template: true
   files:
     - filename: llama-cpp/models/gemma-4-12B-coder-fable5-composer2.5-v1-GGUF/gemma4-coding-Q4_K_M.gguf
-      sha256: 4011bb86572a587783a553b54927314a2ed8395befa59db202ee775d183cd751
       uri: https://huggingface.co/yuxinlu1/gemma-4-12B-coder-fable5-composer2.5-v1-GGUF/resolve/main/gemma4-coding-Q4_K_M.gguf
+      sha256: 1fe90b72e105d7bc71650aa59883edece3e84751af489075217a7ae717b1fe8d
 - name: "serenity-26b-a4b"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
@@ -203,35 +203,7 @@
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
     - https://huggingface.co/Jackrong/Qwopus3.6-27B-Coder-MTP-GGUF
-  description: |
-    🪐 Qwopus3.6-27B-v2
-    SFT Release
-
-    Reasoning-Enhanced Dense Language Model Fine-Tuned on Qwen3.6-27B
-
-    🧬 Trace Inversion & Negentropy
-    🧠 27B Parameters
-    🔥 3-Stage Curriculum SFT
-    🛠️ Vision & Tool-use Support
-
-    💡 What is Qwopus3.6-27B-v2?
-    🪐 Qwopus3.6-27B-v2 is a reasoning-enhanced dense language model built on top of Qwen3.6-27B. By leveraging a multi-stage curriculum learning pipeline and augmented with Trace Inversion datasets (claude-opus-4.6/4.7-traceInversion), it reverse-engineers the compressed "Reasoning Bubbles" of commercial LLMs into structured, step-by-step synthetic reasoning traces, successfully eliminating logical shortcuts and knowledge fractures.
-
-    🧩 Structured Reasoning
-    Injects reconstructed deep CoT chains to eliminate logical shortcuts via Trace Inversion.
-
-    🪶 Style Consistency
-    Enforces strict constraints on the format and convergence of &lt;think&gt; tags.
-
-    🔁 Distillation Alignment
-    Ensures high-quality cross-source SFT data alignment to narrow the capacity gap.
-
-    ⚡ RL Scalability
-    Sets up a stable formatting pipeline optimized for downstream Reinforcement Learning (RL).
-
-    ## 💡 1. Base Model, Training Library & Cooperation
-
-    ...
+  description: "\U0001FA90 Qwopus3.6-27B-v2\nSFT Release\n\nReasoning-Enhanced Dense Language Model Fine-Tuned on Qwen3.6-27B\n\n\U0001F9EC Trace Inversion & Negentropy\n\U0001F9E0 27B Parameters\n\U0001F525 3-Stage Curriculum SFT\n\U0001F6E0️ Vision & Tool-use Support\n\n\U0001F4A1 What is Qwopus3.6-27B-v2?\n\U0001FA90 Qwopus3.6-27B-v2 is a reasoning-enhanced dense language model built on top of Qwen3.6-27B. By leveraging a multi-stage curriculum learning pipeline and augmented with Trace Inversion datasets (claude-opus-4.6/4.7-traceInversion), it reverse-engineers the compressed \"Reasoning Bubbles\" of commercial LLMs into structured, step-by-step synthetic reasoning traces, successfully eliminating logical shortcuts and knowledge fractures.\n\n\U0001F9E9 Structured Reasoning\nInjects reconstructed deep CoT chains to eliminate logical shortcuts via Trace Inversion.\n\n\U0001FAB6 Style Consistency\nEnforces strict constraints on the format and convergence of &lt;think&gt; tags.\n\n\U0001F501 Distillation Alignment\nEnsures high-quality cross-source SFT data alignment to narrow the capacity gap.\n\n⚡ RL Scalability\nSets up a stable formatting pipeline optimized for downstream Reinforcement Learning (RL).\n\n## \U0001F4A1 1. Base Model, Training Library & Cooperation\n\n...\n"
   license: "apache-2.0"
   tags:
     - llm
@@ -8049,7 +8021,6 @@
     - filename: depth-anything-base-q4_k.gguf
       uri: huggingface://mudler/depth-anything.cpp-gguf/depth-anything-base-q4_k.gguf
       sha256: "43cd45d00f9024f4319f4beabd73155db5132e4b575bc52eff4131262c9d78f1"
-
 - !!merge <<: *depth-anything-3-base
   name: depth-anything-3-base-q8_0
   description: |
@@ -8063,7 +8034,6 @@
     - filename: depth-anything-base-q8_0.gguf
       uri: huggingface://mudler/depth-anything.cpp-gguf/depth-anything-base-q8_0.gguf
       sha256: "71b1c953113657f9a4fbef43ab6a16fe7a6f87b36da113a184f13c4a564968a0"
-
 - !!merge <<: *depth-anything-3-base
   name: depth-anything-3-base-f16
   description: |
@@ -8077,7 +8047,6 @@
     - filename: depth-anything-base-f16.gguf
       uri: huggingface://mudler/depth-anything.cpp-gguf/depth-anything-base-f16.gguf
       sha256: "2975419c99702ca646d5b7120c53e35c9fee158f0a803577241d16957f75624b"
-
 - !!merge <<: *depth-anything-3-base
   name: depth-anything-3-base-f32
   description: |
@@ -8091,7 +8060,6 @@
     - filename: depth-anything-base-f32.gguf
       uri: huggingface://mudler/depth-anything.cpp-gguf/depth-anything-base-f32.gguf
       sha256: "1b13b166e8a8b4f2c862f42d36edb2f9aab995a18cc527a52b9f160b99c6b8da"
-
 - !!merge <<: *depth-anything-3-base
   name: depth-anything-3-giant
   description: |
@@ -8112,7 +8080,6 @@
     - filename: depth-anything-giant-f32.gguf
       uri: huggingface://mudler/depth-anything.cpp-gguf/depth-anything-giant-f32.gguf
       sha256: "392edf64626be6a985487beb39c8d54cdc14f7feb2b53323742c96b71e7e7181"
-
 - !!merge <<: *depth-anything-3-base
   name: depth-anything-3-small
   description: |
@@ -8126,7 +8093,6 @@
     - filename: depth-anything-small-f32.gguf
       uri: huggingface://mudler/depth-anything.cpp-gguf/depth-anything-small-f32.gguf
       sha256: "eab5597e01dedde1a20c038590ae8c887b85ec35b882581138c08308e92c41e5"
-
 - !!merge <<: *depth-anything-3-base
   name: depth-anything-3-large
   description: |
@@ -8147,7 +8113,6 @@
     - filename: depth-anything-large-f32.gguf
       uri: huggingface://mudler/depth-anything.cpp-gguf/depth-anything-large-f32.gguf
       sha256: "a79eb3e19e8ec49f4daac484fb5fb67e15baac61518d229cf819e40c87080906"
-
 - !!merge <<: *depth-anything-3-base
   name: depth-anything-3-mono-large
   description: |
@@ -8162,7 +8127,6 @@
     - filename: depth-anything-mono-large-f32.gguf
       uri: huggingface://mudler/depth-anything.cpp-gguf/depth-anything-mono-large-f32.gguf
       sha256: "291b1a554af907c3f79986ee225da8933be5f7a31d73c81d06784cda284535de"
-
 - !!merge <<: *depth-anything-3-base
   name: depth-anything-3-metric-large
   description: |
@@ -8178,7 +8142,6 @@
     - filename: depth-anything-metric-large-f32.gguf
       uri: huggingface://mudler/depth-anything.cpp-gguf/depth-anything-metric-large-f32.gguf
       sha256: "d10b7450c2238244b2d72e2749537a1876255180149cd630a18bc1619c9286be"
-
 - !!merge <<: *depth-anything-3-base
   name: depth-anything-3-nested
   description: |
