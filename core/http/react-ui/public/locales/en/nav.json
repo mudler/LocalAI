@@ -13,11 +13,10 @@
   "account": "Account",
   "accountFor": "Account: {{name}}",
   "sections": {
-    "tools": "Tools",
-    "enhance": "Enhance",
-    "biometrics": "Biometrics",
-    "agents": "Agents",
-    "system": "System"
+    "create": "Create",
+    "recognition": "Recognition",
+    "build": "Build",
+    "operate": "Operate"
   },
   "items": {
     "home": "Home",
@@ -25,8 +24,14 @@
     "chat": "Chat",
     "studio": "Studio",
     "talk": "Talk",
-    "fineTune": "Fine-Tune (Experimental)",
-    "quantize": "Quantize (Experimental)",
+    "fineTune": "Fine-Tune",
+    "quantize": "Quantize",
+    "faces": "Faces",
+    "voices": "Voices",
+    "jobs": "Jobs",
+    "operate": "Admin",
+    "security": "Security",
+    "host": "Host",
     "audioTransform": "Audio Transform",
     "faceRecognition": "Face Recognition",
     "voiceRecognition": "Voice Recognition",

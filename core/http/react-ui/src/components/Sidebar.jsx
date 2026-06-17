@@ -13,46 +13,46 @@ const SECTIONS_KEY = 'localai_sidebar_sections'
 
 const topItems = [
   { path: '/app', icon: 'fas fa-home', labelKey: 'items.home' },
-  { path: '/app/models', icon: 'fas fa-download', labelKey: 'items.installModels', adminOnly: true },
-  { path: '/app/chat', icon: 'fas fa-comments', labelKey: 'items.chat' },
-  { path: '/app/studio', icon: 'fas fa-palette', labelKey: 'items.studio' },
-  { path: '/app/talk', icon: 'fas fa-phone', labelKey: 'items.talk' },
+]
+
+// Single entry into the admin console (Task 3). Lands on the console's default
+// page and stays visually active for any admin route via `adminPaths` below.
+const operateItem = { path: '/app/models', icon: 'fas fa-sliders', labelKey: 'sections.operate', adminOnly: true }
+
+const adminPaths = [
+  '/app/models', '/app/backends', '/app/nodes', '/app/p2p', '/app/usage',
+  '/app/traces', '/app/users', '/app/middleware', '/app/manage', '/app/settings',
+  '/app/backend-logs', '/app/node-backend-logs',
 ]
 
 const sections = [
   {
-    id: 'tools',
-    titleKey: 'sections.tools',
+    id: 'create',
+    titleKey: 'sections.create',
     items: [
-      { path: '/app/fine-tune', icon: 'fas fa-graduation-cap', labelKey: 'items.fineTune', feature: 'fine_tuning' },
-      { path: '/app/quantize', icon: 'fas fa-compress', labelKey: 'items.quantize', feature: 'quantization' },
+      { path: '/app/chat', icon: 'fas fa-comments', labelKey: 'items.chat' },
+      { path: '/app/studio', icon: 'fas fa-palette', labelKey: 'items.studio' },
+      { path: '/app/talk', icon: 'fas fa-phone', labelKey: 'items.talk' },
     ],
   },
   {
-    id: 'enhance',
-    titleKey: 'sections.enhance',
-    featureMap: {
-      '/app/transform': 'audio_transform',
-    },
-    items: [
-      { path: '/app/transform', icon: 'fas fa-wave-square', labelKey: 'items.audioTransform', feature: 'audio_transform' },
-    ],
-  },
-  {
-    id: 'biometrics',
-    titleKey: 'sections.biometrics',
+    id: 'recognition',
+    titleKey: 'sections.recognition',
     featureMap: {
       '/app/face': 'face_recognition',
       '/app/voice': 'voice_recognition',
     },
     items: [
-      { path: '/app/face', icon: 'fas fa-face-smile', labelKey: 'items.faceRecognition', feature: 'face_recognition' },
-      { path: '/app/voice', icon: 'fas fa-microphone-lines', labelKey: 'items.voiceRecognition', feature: 'voice_recognition' },
+      { path: '/app/face', icon: 'fas fa-face-smile', labelKey: 'items.faces', feature: 'face_recognition' },
+      { path: '/app/voice', icon: 'fas fa-microphone-lines', labelKey: 'items.voices', feature: 'voice_recognition' },
     ],
   },
   {
-    id: 'agents',
-    titleKey: 'sections.agents',
+    id: 'build',
+    titleKey: 'sections.build',
+    // featureMap entries are capability-gated via hasFeature(); items NOT listed
+    // here fall back to the isAdmin check in getVisibleSectionItems — this keeps
+    // Fine-tune/Quantize admin-gated exactly as the old `tools` section did.
     featureMap: {
       '/app/agents': 'agents',
       '/app/skills': 'skills',
@@ -63,22 +63,9 @@ const sections = [
       { path: '/app/agents', icon: 'fas fa-robot', labelKey: 'items.agents' },
       { path: '/app/skills', icon: 'fas fa-wand-magic-sparkles', labelKey: 'items.skills' },
       { path: '/app/collections', icon: 'fas fa-database', labelKey: 'items.memory' },
-      { path: '/app/agent-jobs', icon: 'fas fa-tasks', labelKey: 'items.mcpJobs', feature: 'mcp' },
-    ],
-  },
-  {
-    id: 'system',
-    titleKey: 'sections.system',
-    items: [
-      { path: '/app/usage', icon: 'fas fa-chart-bar', labelKey: 'items.usage' },
-      { path: '/app/users', icon: 'fas fa-users', labelKey: 'items.users', adminOnly: true, authOnly: true },
-      { path: '/app/middleware', icon: 'fas fa-shield-halved', labelKey: 'items.middleware', adminOnly: true },
-      { path: '/app/backends', icon: 'fas fa-server', labelKey: 'items.backends', adminOnly: true },
-      { path: '/app/traces', icon: 'fas fa-chart-line', labelKey: 'items.traces', adminOnly: true },
-      { path: '/app/nodes', icon: 'fas fa-network-wired', labelKey: 'items.nodes', adminOnly: true, feature: 'distributed' },
-      { path: '/app/p2p', icon: 'fas fa-circle-nodes', labelKey: 'items.swarm', adminOnly: true },
-      { path: '/app/manage', icon: 'fas fa-desktop', labelKey: 'items.system', adminOnly: true },
-      { path: '/app/settings', icon: 'fas fa-cog', labelKey: 'items.settings', adminOnly: true },
+      { path: '/app/agent-jobs', icon: 'fas fa-tasks', labelKey: 'items.jobs', feature: 'mcp' },
+      { path: '/app/fine-tune', icon: 'fas fa-graduation-cap', labelKey: 'items.fineTune', feature: 'fine_tuning' },
+      { path: '/app/quantize', icon: 'fas fa-compress', labelKey: 'items.quantize', feature: 'quantization' },
     ],
   },
 ]
@@ -110,11 +97,15 @@ function NavItem({ item, onClose, collapsed }) {
 }
 
 function loadSectionState() {
+  // Tiers render expanded by default (the redesign favours showing the few
+  // intent groups up front); users can still collapse any tier and the choice
+  // is persisted. Stored values override the defaults so a saved collapse wins.
+  const defaults = Object.fromEntries(sections.map(s => [s.id, true]))
   try {
     const stored = localStorage.getItem(SECTIONS_KEY)
-    return stored ? JSON.parse(stored) : {}
+    return stored ? { ...defaults, ...JSON.parse(stored) } : defaults
   } catch (_) {
-    return {}
+    return defaults
   }
 }
 
@@ -208,7 +199,13 @@ export default function Sidebar({ isOpen, onClose }) {
       if (!filterItem(item)) return false
       if (section.featureMap) {
         const featureName = section.featureMap[item.path]
-        return featureName ? hasFeature(featureName) : isAdmin
+        if (!featureName) return isAdmin
+        // Respect the global capability flag from /api/features (e.g. the agents
+        // pool being disabled) in addition to the per-user hasFeature() check.
+        // This keeps the old `agents` section's global gate intact now that those
+        // items live in the `build` tier alongside ungated tools.
+        if (features[featureName] === false) return false
+        return hasFeature(featureName)
       }
       return true
     })
@@ -252,9 +249,6 @@ export default function Sidebar({ isOpen, onClose }) {
 
           {/* Collapsible sections */}
           {sections.map(section => {
-            // For agents section, check global feature flag
-            if (section.id === 'agents' && features.agents === false) return null
-
             const visibleItems = getVisibleSectionItems(section)
             if (visibleItems.length === 0) return null
 
@@ -274,19 +268,6 @@ export default function Sidebar({ isOpen, onClose }) {
                 </button>
                 {showItems && (
                   <div className="sidebar-section-items">
-                    {section.id === 'system' && (
-                      <a
-                        href={apiUrl('/swagger/index.html')}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="nav-item"
-                        title={collapsed ? t('items.api') : undefined}
-                      >
-                        <i className="fas fa-code nav-icon" />
-                        <span className="nav-label">{t('items.api')}</span>
-                        <i className="fas fa-external-link-alt nav-external" />
-                      </a>
-                    )}
                     {visibleItems.map(item => (
                       <NavItem key={item.path} item={item} onClose={onClose} collapsed={collapsed} />
                     ))}
@@ -295,6 +276,25 @@ export default function Sidebar({ isOpen, onClose }) {
               </div>
             )
           })}
+
+          {isAdmin && (
+            <div className="sidebar-section">
+              <NavLink
+                to={operateItem.path}
+                className={() =>
+                  `nav-item ${adminPaths.some(p => location.pathname.startsWith(p)) ? 'active' : ''}`
+                }
+                onClick={onClose}
+                onMouseEnter={() => preloadRoute(operateItem.path)}
+                onFocus={() => preloadRoute(operateItem.path)}
+                onTouchStart={() => preloadRoute(operateItem.path)}
+                title={collapsed ? t(operateItem.labelKey) : undefined}
+              >
+                <i className={`${operateItem.icon} nav-icon`} />
+                <span className="nav-label">{t(operateItem.labelKey)}</span>
+              </NavLink>
+            </div>
+          )}
         </nav>
 
         {/* Footer */}

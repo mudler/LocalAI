@@ -6,21 +6,36 @@ test.describe('Navigation', () => {
     await expect(page).toHaveURL(/\/app/)
   })
 
-  test('/app shows home page with LocalAI title', async ({ page }) => {
+  test('/app shows the home page', async ({ page }) => {
     await page.goto('/app')
     await expect(page.locator('.sidebar')).toBeVisible()
     await expect(page.locator('.home-page')).toBeVisible()
   })
 
-  test('sidebar traces link navigates to /app/traces', async ({ page }) => {
+  test('sidebar shows the three intent tiers', async ({ page }) => {
     await page.goto('/app')
-    // Expand the "System" collapsible section so the traces link is visible
-    const systemSection = page.locator('button.sidebar-section-toggle', { hasText: 'System' })
-    await systemSection.click()
-    const tracesLink = page.locator('a.nav-item[href="/app/traces"]')
-    await expect(tracesLink).toBeVisible()
-    await tracesLink.click()
-    await expect(page).toHaveURL(/\/app\/traces/)
-    await expect(page.getByRole('heading', { name: 'Traces', exact: true })).toBeVisible()
+    for (const title of ['Create', 'Recognition', 'Build']) {
+      await expect(page.locator('.sidebar-section-title', { hasText: title })).toBeVisible()
+    }
+  })
+
+  test('Recognition tier exposes Faces and Voices', async ({ page }) => {
+    await page.goto('/app')
+    await expect(page.locator('a.nav-item[href="/app/face"]')).toBeVisible()
+    await expect(page.locator('a.nav-item[href="/app/voice"]')).toBeVisible()
+  })
+
+  test('Build tier keeps Fine-tune and Quantize as distinct items', async ({ page }) => {
+    await page.goto('/app')
+    await expect(page.locator('a.nav-item[href="/app/fine-tune"]')).toBeVisible()
+    await expect(page.locator('a.nav-item[href="/app/quantize"]')).toBeVisible()
+  })
+
+  test('Operate is a single entry pointing at the admin console default', async ({ page }) => {
+    await page.goto('/app')
+    const operate = page.locator('a.nav-item[href="/app/models"]')
+    await expect(operate).toBeVisible()
+    await operate.click()
+    await expect(page).toHaveURL(/\/app\/models/)
   })
 })
