@@ -44,6 +44,39 @@ maps to `DS4_THINK_HIGH`. We pass the chosen mode to `ds4_chat_append_assistant_
 via `ModelOptions.Options[] = "kv_cache_dir:/some/path"`. Format is **our own** -
 NOT bit-compatible with ds4-server's KVC files (interop is a follow-up plan).
 
+## Engine options (LoadModel)
+
+`LoadModel` maps `ModelOptions.Options[]` (`"key:value"`, from model-YAML
+`options:`) onto `ds4_engine_options` through a **declarative table**
+(`kEngineOptSpecs` + `apply_engine_option` in `grpc-server.cpp`). The struct is
+plain C with no reflection, so the field set is enumerated once in the table;
+adding a future engine knob is a one-line table row, not a new branch. Unknown
+keys are ignored (back-compat). A bare flag (`ssd_streaming` with no value)
+means `true`. Path-type values (`mtp_path`, `expert_profile_path`,
+`directional_steering_file`) resolve **relative to the model directory**, so a
+gallery entry can reference a companion file it downloaded by bare filename;
+absolute values pass through. `ds4_role` / `ds4_layers` / `ds4_listen` /
+`ds4_route_timeout` / `kv_cache_dir` keep their dedicated handling (validation
++ coordinator wiring) and are not in the table.
+
+Wired keys: `mtp_path`, `mtp_draft`, `mtp_margin`, `prefill_chunk`,
+`power_percent`, `warm_weights`, `quality`, `ssd_streaming`,
+`ssd_streaming_cold`, `ssd_streaming_preload_experts`,
+`ssd_streaming_cache_experts` (count or `NGB`, sets both experts+bytes via
+`ds4_parse_streaming_cache_experts_arg`), `simulate_used_memory` (`NGB` via
+`ds4_parse_gib_arg`), `expert_profile_path`, `directional_steering_file`,
+`directional_steering_attn`, `directional_steering_ffn`.
+
+## SSD streaming (running models larger than RAM)
+
+ds4's **SSD streaming** keeps non-routed weights resident and streams routed MoE
+experts from the GGUF on cache misses, turning "does it fit in RAM" into a speed
+spectrum. **Metal (Darwin) only** - it is a no-op on CUDA/CPU. Enable with
+`options: ["ssd_streaming"]`; size the routed-expert cache with
+`ssd_streaming_cache_experts:NGB` (omit for ds4's automatic 80%-of-working-set
+budget). Gallery entries built on this: `deepseek-v4-flash-q4-ssd` (153 GB Flash
+on a 128 GB Mac) and `deepseek-v4-pro-q2-ssd` (433 GB Pro, experimental).
+
 ## Build matrix
 
 | Build | Where | Notes |

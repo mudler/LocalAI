@@ -33642,6 +33642,112 @@
     - filename: ds4flash.gguf
       sha256: 31598c67c8b8744d3bcebcd19aa62253c6dc43cef3b8adf9f593656c9e86fd8c
       uri: huggingface://antirez/deepseek-v4-gguf/DeepSeek-V4-Flash-IQ2XXS-w2Q2K-AProjQ8-SExpQ8-OutQ8-chat-v2.gguf
+- name: deepseek-v4-flash-q2-q4
+  description: |
+    DeepSeek V4 Flash (mixed q2/q4 GGUF, ~91 GB) - only loadable via the ds4 backend.
+    The last 6 expert layers are kept at Q4_K (the rest IQ2XXS), trading a little
+    extra memory for higher quality than the pure-q2 build while still fitting in
+    RAM on a 128 GB machine. imatrix-tuned. Metal (Darwin) or CUDA (Linux).
+    See https://github.com/antirez/ds4 for details.
+  urls:
+    - https://huggingface.co/antirez/deepseek-v4-gguf
+  tags:
+    - deepseek
+    - ds4
+    - gguf
+    - llm
+    - chat
+  overrides:
+    backend: ds4
+    parameters:
+      model: ds4flash.gguf
+  files:
+    - filename: ds4flash.gguf
+      sha256: edabc92af63ad8b139f00087fbfc10a4072f37b7597f4fd9ad1dfa6f83002396
+      uri: huggingface://antirez/deepseek-v4-gguf/DeepSeek-V4-Flash-Layers37-42Q4KExperts-OtherExpertLayersIQ2XXSGateUp-Q2KDown-AProjQ8-SExpQ8-OutQ8-chat-v2-imatrix-fixed.gguf
+- name: deepseek-v4-flash-q4-ssd
+  description: |
+    DeepSeek V4 Flash (full 4-bit experts GGUF, ~153 GB) - only loadable via the
+    ds4 backend, with SSD streaming enabled so it runs on a 128 GB machine even
+    though the weights do not fit in RAM: routed MoE experts stream from the GGUF
+    on SSD while the non-routed weights stay resident. SSD streaming is Metal
+    (Darwin) only; generation speed depends on SSD speed and the expert cache.
+    Tune the routed-expert cache with the 'ssd_streaming_cache_experts:NGB'
+    option (default: automatic budget). See https://github.com/antirez/ds4.
+  urls:
+    - https://huggingface.co/antirez/deepseek-v4-gguf
+  tags:
+    - deepseek
+    - ds4
+    - gguf
+    - llm
+    - chat
+  overrides:
+    backend: ds4
+    options:
+      - ssd_streaming
+    parameters:
+      model: ds4flash.gguf
+  files:
+    - filename: ds4flash.gguf
+      sha256: 39e5de72ac544fdd5ffaf83ec28e36aaf3341b145235488e67d59400bbb3af55
+      uri: huggingface://antirez/deepseek-v4-gguf/DeepSeek-V4-Flash-Q4KExperts-F16HC-F16Compressor-F16Indexer-Q8Attn-Q8Shared-Q8Out-chat-v2.gguf
+- name: deepseek-v4-flash-q2-mtp
+  description: |
+    DeepSeek V4 Flash (IQ2XXS GGUF, ~81 GB) paired with the optional MTP
+    speculative-decoding weights (~3.5 GB) for a slight speedup. Only loadable
+    via the ds4 backend; requires >=128 GB RAM. MTP helps only with greedy
+    decoding (temperature 0), so the override pins temperature to 0. Metal
+    (Darwin) or CUDA (Linux). See https://github.com/antirez/ds4 for details.
+  urls:
+    - https://huggingface.co/antirez/deepseek-v4-gguf
+  tags:
+    - deepseek
+    - ds4
+    - gguf
+    - llm
+    - chat
+  overrides:
+    backend: ds4
+    options:
+      - mtp_path:ds4flash-mtp.gguf
+      - mtp_draft:2
+    parameters:
+      model: ds4flash.gguf
+      temperature: 0
+  files:
+    - filename: ds4flash.gguf
+      sha256: 31598c67c8b8744d3bcebcd19aa62253c6dc43cef3b8adf9f593656c9e86fd8c
+      uri: huggingface://antirez/deepseek-v4-gguf/DeepSeek-V4-Flash-IQ2XXS-w2Q2K-AProjQ8-SExpQ8-OutQ8-chat-v2.gguf
+    - filename: ds4flash-mtp.gguf
+      sha256: afd481ee689dce9037f70f39085fcdae5a5b096d521cdad43b19fa52bf8f4083
+      uri: huggingface://antirez/deepseek-v4-gguf/DeepSeek-V4-Flash-MTP-Q4K-Q8_0-F32.gguf
+- name: deepseek-v4-pro-q2-ssd
+  description: |
+    DeepSeek V4 Pro (IQ2XXS GGUF, ~433 GB, imatrix-tuned) - only loadable via the
+    ds4 backend, with SSD streaming so the Pro-class model can be run on a 128 GB
+    machine. This is experimental and slow: it needs ~433 GB of free SSD plus
+    enough RAM for the resident weights, KV cache, and routed-expert cache, and
+    is best used with thinking off for inspection or occasional work. SSD
+    streaming is Metal (Darwin) only. See https://github.com/antirez/ds4.
+  urls:
+    - https://huggingface.co/antirez/deepseek-v4-gguf
+  tags:
+    - deepseek
+    - ds4
+    - gguf
+    - llm
+    - chat
+  overrides:
+    backend: ds4
+    options:
+      - ssd_streaming
+    parameters:
+      model: ds4pro.gguf
+  files:
+    - filename: ds4pro.gguf
+      sha256: a0314d9c0e16122cd60071079124a2d17185d317c55a8f95ecb3ed3506278a96
+      uri: huggingface://antirez/deepseek-v4-gguf/DeepSeek-V4-Pro-IQ2XXS-w2Q2K-AProjQ8-SExpQ8-OutQ8-Instruct-imatrix.gguf
 - name: parakeet-cpp-tdt_ctc-110m
   url: github:mudler/LocalAI/gallery/virtual.yaml@master
   urls:
