@@ -73,7 +73,7 @@ export const operateConsole = {
       titleKey: 'operate.access',
       items: [
         { path: '/app/users', icon: 'fas fa-users', labelKey: 'items.users', adminOnly: true, authOnly: true },
-        { path: '/app/middleware', icon: 'fas fa-shield-halved', labelKey: 'items.security', adminOnly: true },
+        { path: '/app/middleware', icon: 'fas fa-shield-halved', labelKey: 'items.middleware', adminOnly: true },
       ],
     },
     {

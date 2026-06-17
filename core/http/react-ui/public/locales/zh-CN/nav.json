@@ -37,7 +37,6 @@
     "voices": "声音",
     "jobs": "任务",
     "operate": "管理",
-    "security": "安全",
     "host": "主机",
     "audioTransform": "音频变换",
     "faceRecognition": "人脸识别",
@@ -54,7 +53,8 @@
     "swarm": "Swarm",
     "system": "系统",
     "settings": "设置",
-    "api": "API"
+    "api": "API",
+    "middleware": "Middleware"
   },
   "footer": {
     "github": "GitHub",
