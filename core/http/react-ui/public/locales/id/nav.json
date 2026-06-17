@@ -18,6 +18,13 @@
     "build": "Bangun",
     "operate": "Operasikan"
   },
+  "operate": {
+    "inference": "Inference",
+    "cluster": "Cluster",
+    "observability": "Observability",
+    "access": "Access",
+    "system": "System"
+  },
   "items": {
     "home": "Beranda",
     "installModels": "Instal Model",

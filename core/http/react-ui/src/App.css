@@ -7855,3 +7855,11 @@ select.input {
     transition-duration: 0.01ms !important;
   }
 }
+
+/* Admin console layout (pathless route) - structural only */
+.admin-console { display: flex; gap: 1.5rem; align-items: flex-start; }
+.admin-console-rail { flex: 0 0 200px; display: flex; flex-direction: column; gap: 0.75rem; }
+.admin-console-group { display: flex; flex-direction: column; gap: 0.125rem; }
+.admin-console-group-title { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.08em; opacity: 0.6; padding: 0.25rem 0.5rem; }
+.admin-console-body { flex: 1 1 auto; min-width: 0; }
+@media (max-width: 768px) { .admin-console { flex-direction: column; } .admin-console-rail { flex-basis: auto; width: 100%; } }

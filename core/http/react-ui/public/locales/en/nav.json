@@ -18,6 +18,13 @@
     "build": "Build",
     "operate": "Operate"
   },
+  "operate": {
+    "inference": "Inference",
+    "cluster": "Cluster",
+    "observability": "Observability",
+    "access": "Access",
+    "system": "System"
+  },
   "items": {
     "home": "Home",
     "installModels": "Install Models",

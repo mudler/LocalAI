@@ -76,6 +76,8 @@ const Users = page('users', () => import('./pages/Users'))
 const Middleware = page('middleware', () => import('./pages/Middleware'))
 const Account = page('account', () => import('./pages/Account'))
 
+import AdminConsoleLayout from './components/AdminConsole/AdminConsoleLayout'
+
 function BrowseRedirect() {
   const { '*': splat } = useParams()
   return <Navigate to={`/app/${splat || ''}`} replace />
@@ -92,7 +94,6 @@ function Feature({ feature, children }) {
 
 const appChildren = [
   { index: true, element: <Home /> },
-  { path: 'models', element: <Admin><Models /></Admin> },
   { path: 'chat', element: <Chat /> },
   { path: 'chat/:model', element: <Chat /> },
   { path: 'image', element: <ImageGen /> },
@@ -111,18 +112,24 @@ const appChildren = [
   { path: 'face/:model', element: <Feature feature="face_recognition"><FaceRecognition /></Feature> },
   { path: 'voice', element: <Feature feature="voice_recognition"><VoiceRecognition /></Feature> },
   { path: 'voice/:model', element: <Feature feature="voice_recognition"><VoiceRecognition /></Feature> },
-  { path: 'usage', element: <Usage /> },
   { path: 'account', element: <Account /> },
-  { path: 'users', element: <RequireAuthEnabled><Admin><Users /></Admin></RequireAuthEnabled> },
-  { path: 'middleware', element: <Admin><Middleware /></Admin> },
-  { path: 'manage', element: <Admin><Manage /></Admin> },
-  { path: 'backends', element: <Admin><Backends /></Admin> },
-  { path: 'settings', element: <Admin><Settings /></Admin> },
-  { path: 'traces', element: <Admin><Traces /></Admin> },
-  { path: 'backend-logs/:modelId', element: <Admin><BackendLogs /></Admin> },
-  { path: 'p2p', element: <Admin><P2P /></Admin> },
-  { path: 'nodes', element: <Admin><Nodes /></Admin> },
-  { path: 'node-backend-logs/:nodeId/:modelId', element: <Admin><NodeBackendLogs /></Admin> },
+  {
+    element: <AdminConsoleLayout />,
+    children: [
+      { path: 'models', element: <Admin><Models /></Admin> },
+      { path: 'backends', element: <Admin><Backends /></Admin> },
+      { path: 'settings', element: <Admin><Settings /></Admin> },
+      { path: 'traces', element: <Admin><Traces /></Admin> },
+      { path: 'backend-logs/:modelId', element: <Admin><BackendLogs /></Admin> },
+      { path: 'p2p', element: <Admin><P2P /></Admin> },
+      { path: 'nodes', element: <Admin><Nodes /></Admin> },
+      { path: 'node-backend-logs/:nodeId/:modelId', element: <Admin><NodeBackendLogs /></Admin> },
+      { path: 'usage', element: <Usage /> },
+      { path: 'users', element: <RequireAuthEnabled><Admin><Users /></Admin></RequireAuthEnabled> },
+      { path: 'middleware', element: <Admin><Middleware /></Admin> },
+      { path: 'manage', element: <Admin><Manage /></Admin> },
+    ],
+  },
   { path: 'agents', element: <Feature feature="agents"><Agents /></Feature> },
   { path: 'agents/new', element: <Feature feature="agents"><AgentCreate /></Feature> },
   { path: 'agents/:name/edit', element: <Feature feature="agents"><AgentCreate /></Feature> },

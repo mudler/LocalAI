@@ -18,6 +18,13 @@
     "build": "构建",
     "operate": "运维"
   },
+  "operate": {
+    "inference": "Inference",
+    "cluster": "Cluster",
+    "observability": "Observability",
+    "access": "Access",
+    "system": "System"
+  },
   "items": {
     "home": "首页",
     "installModels": "安装模型",

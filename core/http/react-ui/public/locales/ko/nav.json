@@ -18,6 +18,13 @@
     "build": "구축",
     "operate": "운영"
   },
+  "operate": {
+    "inference": "Inference",
+    "cluster": "Cluster",
+    "observability": "Observability",
+    "access": "Access",
+    "system": "System"
+  },
   "items": {
     "home": "홈",
     "installModels": "모델 설치",
