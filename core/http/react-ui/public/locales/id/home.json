@@ -62,5 +62,14 @@
     "docs": "Dokumentasi",
     "noModelsTitle": "Tidak Ada Model yang Tersedia",
     "noModelsBody": "Belum ada model yang terinstal. Hubungi administrator Anda untuk menyiapkan model agar Anda dapat mulai mengobrol."
+  },
+  "connect": {
+    "title": "Satu endpoint, semua API",
+    "subtitle": "LocalAI menyediakan API miliknya sendiri yang lengkap — pembuatan gambar & video, depth, deteksi objek, reranking, audio, pengenalan wajah & suara, serta suara realtime melalui WebRTC dan WebSocket. Di atas itu, lapisan kompatibilitas drop-in membuat aplikasi apa pun yang dibuat untuk OpenAI, Anthropic, Ollama, atau OpenAI Responses bekerja tanpa perubahan.",
+    "nativeTitle": "API native",
+    "compatTitle": "Kompatibilitas drop-in",
+    "apiReference": "Referensi API lengkap",
+    "copy": "Salin",
+    "copied": "Disalin"
   }
 }

@@ -6016,6 +6016,113 @@ select.input {
   justify-content: center;
 }
 
+/* ──────────────────── Home: drop-in endpoint / API compatibility ──────────────────── */
+
+.home-connect {
+  max-width: 760px;
+  margin: var(--spacing-xl) auto 0;
+  padding: var(--spacing-lg);
+}
+.home-connect-head {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--spacing-md);
+}
+.home-connect-icon {
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  border-radius: var(--radius-lg);
+  background: var(--color-primary-light);
+  color: var(--color-primary);
+}
+.home-connect-title {
+  margin: 0;
+  font-size: var(--text-lg);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+}
+.home-connect-sub {
+  margin: 2px 0 0;
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+  line-height: 1.5;
+}
+.home-connect-url {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  margin-top: var(--spacing-md);
+  padding: var(--spacing-sm) var(--spacing-sm) var(--spacing-sm) var(--spacing-md);
+  background: var(--color-surface-sunken);
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-lg);
+}
+.home-connect-url code {
+  flex: 1;
+  min-width: 0;
+  overflow-x: auto;
+  white-space: nowrap;
+  font-size: var(--text-sm);
+  color: var(--color-primary);
+  background: none;
+  padding: 0;
+}
+.home-connect-url .btn { flex-shrink: 0; display: inline-flex; align-items: center; gap: 6px; }
+.home-connect-block { margin-top: var(--spacing-md); }
+.home-connect-block-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--spacing-sm);
+  margin-bottom: var(--spacing-sm);
+}
+.home-connect-block-title {
+  font-size: var(--text-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-tertiary);
+}
+.home-connect-apis {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: var(--spacing-sm);
+}
+.home-connect-api {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--spacing-sm);
+  padding: var(--spacing-sm) var(--spacing-md);
+  background: var(--color-bg-tertiary);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-md);
+}
+.home-connect-api-name { font-weight: var(--font-weight-medium); color: var(--color-text-secondary); }
+.home-connect-api-path { font-size: var(--text-xs); color: var(--color-text-muted); background: none; padding: 0; }
+.home-connect-docs {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+  font-size: var(--text-sm);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-primary);
+  text-decoration: none;
+}
+.home-connect-docs:hover { color: var(--color-primary-hover); }
+.home-connect-docs i { font-size: 0.75rem; transition: transform var(--duration-fast) var(--ease-out, ease-out); }
+.home-connect-docs:hover i { transform: translateX(3px); }
+@media (max-width: 560px) {
+  .home-connect-apis { grid-template-columns: 1fr; }
+}
+
 /* ──────────────────── Biometrics (face + voice recognition) ──────────────────── */
 
 .biometrics-page {

@@ -13,6 +13,11 @@ import { isConsoleItemVisible } from './consoleConfig'
 // (from outside), not when switching items within it — otherwise it flashes.
 let lastConsoleId = null
 
+// /api/features rarely changes; cache it across remounts so the rail renders
+// the correct (gated) item set immediately instead of flashing the wrong set
+// while a fresh fetch resolves on every sub-navigation.
+let featuresCache = {}
+
 // Generic secondary-rail layout shared by the Build and Operate consoles.
 // Driven entirely by a config from consoleConfig.js, so the rail, its gating,
 // and the sidebar entry that opens it stay in sync. Mounted as a PATHLESS
@@ -44,7 +49,7 @@ function RailItem({ item, label }) {
 export default function ConsoleLayout({ config }) {
   const { t } = useTranslation('nav')
   const { isAdmin, authEnabled, hasFeature } = useAuth()
-  const [features, setFeatures] = useState({})
+  const [features, setFeatures] = useState(featuresCache)
   const location = useLocation()
   // Forward the App-level outlet context (e.g. addToast) — a nested bare
   // <Outlet/> would otherwise shadow it with undefined and crash pages.
@@ -57,7 +62,10 @@ export default function ConsoleLayout({ config }) {
   })
 
   useEffect(() => {
-    fetch(apiUrl('/api/features')).then(r => r.json()).then(setFeatures).catch(() => {})
+    fetch(apiUrl('/api/features'))
+      .then(r => r.json())
+      .then(f => { featuresCache = f; setFeatures(f) })
+      .catch(() => {})
   }, [])
 
   const auth = { isAdmin, authEnabled, hasFeature, features }
