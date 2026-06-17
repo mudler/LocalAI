@@ -127,9 +127,12 @@ export default function Talk() {
       .finally(() => setModelsLoading(false))
   }, [])
 
-  // Auto-scroll transcript
+  // Auto-scroll the transcript's own overflow container. scrollIntoView bubbles
+  // to every scrollable ancestor (incl. the window), which yanked the whole
+  // page down to the transcript box on mount; scoping to the box avoids it.
   useEffect(() => {
-    transcriptEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+    const box = transcriptEndRef.current?.parentElement
+    box?.scrollTo({ top: box.scrollHeight, behavior: 'smooth' })
   }, [transcript])
 
   // Mirror Chat.jsx: connect / disconnect client MCP servers as the user toggles them.
