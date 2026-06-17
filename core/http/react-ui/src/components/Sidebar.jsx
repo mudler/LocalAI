@@ -60,10 +60,10 @@ const sections = [
       '/app/agent-jobs': 'mcp_jobs',
     },
     items: [
-      { path: '/app/agents', icon: 'fas fa-robot', labelKey: 'items.agents' },
-      { path: '/app/skills', icon: 'fas fa-wand-magic-sparkles', labelKey: 'items.skills' },
-      { path: '/app/collections', icon: 'fas fa-database', labelKey: 'items.memory' },
-      { path: '/app/agent-jobs', icon: 'fas fa-tasks', labelKey: 'items.jobs', feature: 'mcp' },
+      { path: '/app/agents', icon: 'fas fa-robot', labelKey: 'items.agents', requiresAgentPool: true },
+      { path: '/app/skills', icon: 'fas fa-wand-magic-sparkles', labelKey: 'items.skills', requiresAgentPool: true },
+      { path: '/app/collections', icon: 'fas fa-database', labelKey: 'items.memory', requiresAgentPool: true },
+      { path: '/app/agent-jobs', icon: 'fas fa-tasks', labelKey: 'items.jobs', feature: 'mcp', requiresAgentPool: true },
       { path: '/app/fine-tune', icon: 'fas fa-graduation-cap', labelKey: 'items.fineTune', feature: 'fine_tuning' },
       { path: '/app/quantize', icon: 'fas fa-compress', labelKey: 'items.quantize', feature: 'quantization' },
     ],
@@ -197,9 +197,18 @@ export default function Sidebar({ isOpen, onClose }) {
   const getVisibleSectionItems = (section) => {
     return section.items.filter(item => {
       if (!filterItem(item)) return false
+      // The old `agents` section hid Agents/Skills/Collections/Jobs together when
+      // the agent pool was disabled. /api/features never emits skills/collections/
+      // mcp_jobs keys, so per-item flags can't reproduce that; gate them all on
+      // the global `agents` flag here.
+      if (item.requiresAgentPool && features.agents === false) return false
       if (section.featureMap) {
         const featureName = section.featureMap[item.path]
-        if (!featureName) return isAdmin
+        // Items absent from featureMap behave like items in a no-featureMap
+        // section: gated solely by filterItem (their feature flags). This keeps
+        // Fine-tune/Quantize visible to non-admins holding the capability, as in
+        // the old `tools` section.
+        if (!featureName) return true
         // Respect the global capability flag from /api/features (e.g. the agents
         // pool being disabled) in addition to the per-user hasFeature() check.
         // This keeps the old `agents` section's global gate intact now that those
