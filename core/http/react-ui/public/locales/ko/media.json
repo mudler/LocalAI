@@ -4,7 +4,8 @@
       "images": "이미지",
       "video": "비디오",
       "tts": "TTS",
-      "sound": "사운드"
+      "sound": "사운드",
+      "transform": "Transform"
     }
   },
   "image": {

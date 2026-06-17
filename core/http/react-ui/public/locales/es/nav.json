@@ -13,11 +13,17 @@
   "account": "Cuenta",
   "accountFor": "Cuenta: {{name}}",
   "sections": {
-    "tools": "Herramientas",
-    "enhance": "Mejorar",
-    "biometrics": "Biometría",
-    "agents": "Agentes",
-    "system": "Sistema"
+    "create": "Crear",
+    "recognition": "Reconocimiento",
+    "build": "Construir",
+    "operate": "Operar"
+  },
+  "operate": {
+    "inference": "Inference",
+    "cluster": "Cluster",
+    "observability": "Observability",
+    "access": "Access",
+    "system": "System"
   },
   "items": {
     "home": "Inicio",
@@ -27,6 +33,11 @@
     "talk": "Hablar",
     "fineTune": "Ajuste fino (Experimental)",
     "quantize": "Cuantización (Experimental)",
+    "faces": "Rostros",
+    "voices": "Voces",
+    "jobs": "Trabajos",
+    "operate": "Administración",
+    "host": "Host",
     "audioTransform": "Transformar audio",
     "faceRecognition": "Reconocimiento facial",
     "voiceRecognition": "Reconocimiento de voz",
@@ -42,12 +53,17 @@
     "swarm": "Swarm",
     "system": "Sistema",
     "settings": "Configuración",
-    "api": "API"
+    "api": "API",
+    "middleware": "Middleware"
   },
   "footer": {
     "github": "GitHub",
     "documentation": "Documentación",
     "author": "Autor",
     "copyright": "© 2023-{{year}} {{author}}"
+  },
+  "console": {
+    "automation": "Automatización",
+    "training": "Entrenamiento"
   }
 }

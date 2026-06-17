@@ -4,7 +4,8 @@
       "images": "Gambar",
       "video": "Video",
       "tts": "TTS",
-      "sound": "Suara"
+      "sound": "Suara",
+      "transform": "Transform"
     }
   },
   "image": {

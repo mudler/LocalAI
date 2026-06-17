@@ -62,5 +62,14 @@
     "docs": "文档",
     "noModelsTitle": "暂无可用模型",
     "noModelsBody": "尚未安装模型。请联系您的管理员设置模型，以便开始聊天。"
+  },
+  "connect": {
+    "title": "一个端点，所有 API",
+    "subtitle": "LocalAI 提供自己的完整 API——图像与视频生成、深度、目标检测、重排序、音频、人脸与声音识别，以及通过 WebRTC 和 WebSocket 的实时语音。在此之上，即插即用的兼容层让任何为 OpenAI、Anthropic、Ollama 或 OpenAI Responses 构建的应用无需改动即可使用。",
+    "nativeTitle": "原生 API",
+    "compatTitle": "即插即用兼容",
+    "apiReference": "完整 API 参考",
+    "copy": "复制",
+    "copied": "已复制"
   }
 }

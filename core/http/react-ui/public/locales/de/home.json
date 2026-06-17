@@ -62,5 +62,14 @@
     "docs": "Dokumentation",
     "noModelsTitle": "Keine Modelle verfügbar",
     "noModelsBody": "Es sind noch keine Modelle installiert. Bitten Sie Ihren Administrator, Modelle einzurichten, damit Sie mit dem Chatten beginnen können."
+  },
+  "connect": {
+    "title": "Ein Endpunkt, jede API",
+    "subtitle": "LocalAI bietet eine eigene, vollständige API — Bild- und Videoerzeugung, Tiefe, Objekterkennung, Reranking, Audio, Gesichts- und Spracherkennung sowie Echtzeit-Sprache über WebRTC und WebSocket. Darüber hinaus sorgt eine Drop-in-Kompatibilitätsschicht dafür, dass jede für OpenAI, Anthropic, Ollama oder OpenAI Responses gebaute App unverändert funktioniert.",
+    "nativeTitle": "Native API",
+    "compatTitle": "Drop-in-Kompatibilität",
+    "apiReference": "Vollständige API-Referenz",
+    "copy": "Kopieren",
+    "copied": "Kopiert"
   }
 }

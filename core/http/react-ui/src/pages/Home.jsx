@@ -8,6 +8,7 @@ import ModelSelector from '../components/ModelSelector'
 import { CAP_CHAT } from '../utils/capabilities'
 import UnifiedMCPDropdown from '../components/UnifiedMCPDropdown'
 import ConfirmDialog from '../components/ConfirmDialog'
+import HomeConnect from '../components/HomeConnect'
 import { useResources } from '../hooks/useResources'
 import { fileToBase64, backendControlApi, systemApi, modelsApi, mcpApi, nodesApi } from '../utils/api'
 import { API_CONFIG } from '../utils/config'
@@ -561,6 +562,8 @@ export default function Home() {
           </div>
         </div>
       )}
+
+      <HomeConnect />
 
       <ConfirmDialog
         open={!!confirmDialog}

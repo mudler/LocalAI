@@ -341,6 +341,28 @@
   transition: opacity 150ms ease;
 }
 
+/* Sidebar nav polish: inset, rounded "pill" items give the nav a lighter,
+   more intentional rhythm than full-bleed bars. Scoped to .sidebar-nav so the
+   shared .nav-item class (reused by the admin console rail) keeps its own
+   treatment. */
+.sidebar-nav .nav-item {
+  margin: 1px var(--spacing-sm);
+  padding-left: var(--spacing-sm);
+  padding-right: var(--spacing-sm);
+  border-radius: var(--radius-lg);
+}
+.sidebar-nav .nav-item.active {
+  background: var(--color-primary-light);
+  color: var(--color-primary);
+  box-shadow: none;
+}
+.sidebar-nav .nav-item.active .nav-icon { color: var(--color-primary); }
+/* Align tier labels with the inset item text (item margin + icon padding). */
+.sidebar-nav .sidebar-section-title {
+  padding-left: var(--spacing-md);
+  padding-right: var(--spacing-md);
+}
+
 .nav-external {
   font-size: 0.55rem;
   margin-left: auto;
@@ -5994,6 +6016,113 @@ select.input {
   justify-content: center;
 }
 
+/* ──────────────────── Home: drop-in endpoint / API compatibility ──────────────────── */
+
+.home-connect {
+  max-width: 760px;
+  margin: var(--spacing-xl) auto 0;
+  padding: var(--spacing-lg);
+}
+.home-connect-head {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--spacing-md);
+}
+.home-connect-icon {
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  border-radius: var(--radius-lg);
+  background: var(--color-primary-light);
+  color: var(--color-primary);
+}
+.home-connect-title {
+  margin: 0;
+  font-size: var(--text-lg);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+}
+.home-connect-sub {
+  margin: 2px 0 0;
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+  line-height: 1.5;
+}
+.home-connect-url {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  margin-top: var(--spacing-md);
+  padding: var(--spacing-sm) var(--spacing-sm) var(--spacing-sm) var(--spacing-md);
+  background: var(--color-surface-sunken);
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-lg);
+}
+.home-connect-url code {
+  flex: 1;
+  min-width: 0;
+  overflow-x: auto;
+  white-space: nowrap;
+  font-size: var(--text-sm);
+  color: var(--color-primary);
+  background: none;
+  padding: 0;
+}
+.home-connect-url .btn { flex-shrink: 0; display: inline-flex; align-items: center; gap: 6px; }
+.home-connect-block { margin-top: var(--spacing-md); }
+.home-connect-block-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--spacing-sm);
+  margin-bottom: var(--spacing-sm);
+}
+.home-connect-block-title {
+  font-size: var(--text-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-tertiary);
+}
+.home-connect-apis {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: var(--spacing-sm);
+}
+.home-connect-api {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--spacing-sm);
+  padding: var(--spacing-sm) var(--spacing-md);
+  background: var(--color-bg-tertiary);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-md);
+}
+.home-connect-api-name { font-weight: var(--font-weight-medium); color: var(--color-text-secondary); }
+.home-connect-api-path { font-size: var(--text-xs); color: var(--color-text-muted); background: none; padding: 0; }
+.home-connect-docs {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+  font-size: var(--text-sm);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-primary);
+  text-decoration: none;
+}
+.home-connect-docs:hover { color: var(--color-primary-hover); }
+.home-connect-docs i { font-size: 0.75rem; transition: transform var(--duration-fast) var(--ease-out, ease-out); }
+.home-connect-docs:hover i { transform: translateX(3px); }
+@media (max-width: 560px) {
+  .home-connect-apis { grid-template-columns: 1fr; }
+}
+
 /* ──────────────────── Biometrics (face + voice recognition) ──────────────────── */
 
 .biometrics-page {
@@ -7854,4 +7983,97 @@ select.input {
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
   }
+}
+
+/* Admin console layout (pathless route) - structural only */
+/* Lazy-route loading fallback. Delayed ~150ms so fast chunk loads don't flash. */
+.route-fallback {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-height: 40vh;
+  opacity: 0;
+  animation: route-fallback-in var(--duration-normal) var(--ease-out, ease-out) 150ms forwards;
+}
+@keyframes route-fallback-in { to { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) {
+  .route-fallback { opacity: 1; animation: none; }
+}
+
+/* Console layout: a secondary rail panel (Build, Operate) beside the page body. */
+.console-layout {
+  display: flex;
+  gap: var(--spacing-lg);
+  align-items: flex-start;
+  padding: var(--spacing-md);
+}
+.console-rail {
+  flex: 0 0 220px;
+  position: sticky;
+  top: var(--spacing-md);
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-xs);
+  padding: var(--spacing-sm);
+  background: var(--color-bg-secondary);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-subtle);
+}
+/* Entrance only when entering the console (not on item-to-item sub-nav). */
+.console-rail.console-rail--enter {
+  animation: console-rail-in var(--duration-normal) var(--ease-out, ease-out) both;
+}
+@keyframes console-rail-in {
+  from { opacity: 0; transform: translateX(-8px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+.console-rail-header {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  padding: var(--spacing-sm) var(--spacing-sm) var(--spacing-xs);
+  font-size: var(--text-sm);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+}
+.console-rail-header i { color: var(--color-primary); font-size: 0.9rem; }
+.console-group { display: flex; flex-direction: column; gap: 1px; }
+.console-group + .console-group {
+  margin-top: var(--spacing-xs);
+  padding-top: var(--spacing-xs);
+  border-top: 1px solid var(--color-border-divider);
+}
+.console-group-title {
+  font-size: var(--text-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-tertiary);
+  padding: var(--spacing-xs) var(--spacing-sm);
+}
+.console-rail .nav-item {
+  margin: 0;
+  padding: 7px var(--spacing-sm);
+  border-radius: var(--radius-md);
+  font-size: var(--text-sm);
+  transition: color var(--duration-fast) var(--ease-out, ease-out),
+              background var(--duration-fast) var(--ease-out, ease-out),
+              transform var(--duration-fast) var(--ease-out, ease-out);
+}
+.console-rail .nav-item:hover:not(.active) { transform: translateX(2px); }
+.console-rail .nav-item.active { box-shadow: none; }
+.console-rail .nav-item.active .nav-icon { color: var(--color-primary); }
+.console-body {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+@media (max-width: 768px) {
+  .console-layout { flex-direction: column; padding: var(--spacing-sm); }
+  .console-rail { position: static; flex-basis: auto; width: 100%; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .console-rail.console-rail--enter { animation: none; }
+  .console-rail .nav-item:hover:not(.active) { transform: none; }
 }
