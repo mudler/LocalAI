@@ -130,12 +130,14 @@ export default function Sidebar({ isOpen, onClose }) {
   }, [location.pathname])
 
   const toggleCollapse = () => {
-    setCollapsed(prev => {
-      const next = !prev
-      try { localStorage.setItem(COLLAPSED_KEY, String(next)) } catch (_) { /* ignore */ }
-      window.dispatchEvent(new CustomEvent('sidebar-collapse', { detail: { collapsed: next } }))
-      return next
-    })
+    // Side effects (persist + broadcast) live in the handler body, never inside
+    // the setState updater: StrictMode double-invokes updaters in dev, and the
+    // synchronous sidebar-collapse dispatch re-entered setState from the
+    // listeners mid-update, so the toggle silently no-op'd in dev builds.
+    const next = !collapsed
+    try { localStorage.setItem(COLLAPSED_KEY, String(next)) } catch (_) { /* ignore */ }
+    setCollapsed(next)
+    window.dispatchEvent(new CustomEvent('sidebar-collapse', { detail: { collapsed: next } }))
   }
 
   const toggleSection = (id) => {
