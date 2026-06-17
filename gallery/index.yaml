@@ -1,4 +1,69 @@
 ---
+- name: "qwopus3.6-27b-coder"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/Jackrong/Qwopus3.6-27B-Coder-GGUF
+  description: |
+    🪐 Qwopus3.6-27B-v2
+    SFT Release
+
+    Reasoning-Enhanced Dense Language Model Fine-Tuned on Qwen3.6-27B
+
+    🧬 Trace Inversion & Negentropy
+    🧠 27B Parameters
+    🔥 3-Stage Curriculum SFT
+    🛠️ Vision & Tool-use Support
+
+    💡 What is Qwopus3.6-27B-v2?
+    🪐 Qwopus3.6-27B-v2 is a reasoning-enhanced dense language model built on top of Qwen3.6-27B. By leveraging a multi-stage curriculum learning pipeline and augmented with Trace Inversion datasets (claude-opus-4.6/4.7-traceInversion), it reverse-engineers the compressed "Reasoning Bubbles" of commercial LLMs into structured, step-by-step synthetic reasoning traces, successfully eliminating logical shortcuts and knowledge fractures.
+
+    🧩 Structured Reasoning
+    Injects reconstructed deep CoT chains to eliminate logical shortcuts via Trace Inversion.
+
+    🪶 Style Consistency
+    Enforces strict constraints on the format and convergence of &lt;think&gt; tags.
+
+    🔁 Distillation Alignment
+    Ensures high-quality cross-source SFT data alignment to narrow the capacity gap.
+
+    ⚡ RL Scalability
+    Sets up a stable formatting pipeline optimized for downstream Reinforcement Learning (RL).
+
+    ## 💡 1. Base Model, Training Library & Cooperation
+
+    ...
+  license: "apache-2.0"
+  tags:
+    - llm
+    - gguf
+    - vision
+    - multimodal
+    - reasoning
+  overrides:
+    backend: llama-cpp
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+    mmproj: llama-cpp/mmproj/Qwopus3.6-27B-Coder-GGUF/mmproj-F32.gguf
+    options:
+      - use_jinja:true
+      - spec_type:draft-mtp
+      - spec_n_max:6
+      - spec_p_min:0.75
+    parameters:
+      model: llama-cpp/models/Qwopus3.6-27B-Coder-GGUF/Qwopus3.6-27B-Coder-Q4_K_M.gguf
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/Qwopus3.6-27B-Coder-GGUF/Qwopus3.6-27B-Coder-Q4_K_M.gguf
+      sha256: 3f0e5d4c24d8bcd41e4d46cc5f9b0d67eab89e45f3f1e85d5d6dd08d50d3eb80
+      uri: https://huggingface.co/Jackrong/Qwopus3.6-27B-Coder-GGUF/resolve/main/Qwopus3.6-27B-Coder-Q4_K_M.gguf
+    - filename: llama-cpp/mmproj/Qwopus3.6-27B-Coder-GGUF/mmproj-F32.gguf
+      sha256: 32f7ea0600c07272547da401d460f8abbd980f3a57b69d6df87be0e2505e0b9c
+      uri: https://huggingface.co/Jackrong/Qwopus3.6-27B-Coder-GGUF/resolve/main/mmproj-F32.gguf
 - name: "gemma-4-12b-coder-fable5-composer2.5-v1"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
