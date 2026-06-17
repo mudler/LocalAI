@@ -4,7 +4,8 @@
       "images": "Images",
       "video": "Video",
       "tts": "TTS",
-      "sound": "Sound"
+      "sound": "Sound",
+      "transform": "Transform"
     }
   },
   "image": {
