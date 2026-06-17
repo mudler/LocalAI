@@ -30,7 +30,7 @@ var toolToHTTPRoute = map[string]string{
 	ToolListInstalledModels: "GET / (welcome JSON, ModelsConfig field)",
 	ToolListGalleries:       "GET /models/galleries",
 	ToolGetJobStatus:        "GET /models/jobs/:uuid",
-	ToolGetModelConfig:      "(none) — no JSON-only REST yet; httpapi.Client returns a documented stub",
+	ToolGetModelConfig:      "GET /api/models/config-yaml/:name",
 	ToolListBackends:        "GET /backends",
 	ToolListKnownBackends:   "GET /backends/known",
 	ToolSystemInfo:          "GET / (welcome JSON)",
