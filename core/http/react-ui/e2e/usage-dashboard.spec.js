@@ -74,11 +74,14 @@ test.describe('Usage page — single-user no-auth mode', () => {
   })
 
   test('Usage entry is visible in sidebar without auth', async ({ page }) => {
+    // Usage no longer lives in the flat sidebar; it's an admin-console rail
+    // entry under Observability. In no-auth (single-user) mode isAdmin is
+    // true, so the console renders and the Usage rail link is reachable.
+    await page.goto('/app/usage')
+    await expect(page.locator('.admin-console-rail a.nav-item[href="/app/usage"]')).toBeVisible()
+    // The single sidebar admin entry ("Operate") links to /app/models.
     await page.goto('/app')
-    const systemSection = page.locator('button.sidebar-section-toggle', { hasText: 'System' })
-    await systemSection.click()
-    const usageLink = page.locator('a.nav-item[href="/app/usage"]')
-    await expect(usageLink).toBeVisible()
+    await expect(page.locator('a.nav-item[href="/app/models"]')).toBeVisible()
   })
 
   test('navigating to /app/usage renders the dashboard with local-user data', async ({ page }) => {

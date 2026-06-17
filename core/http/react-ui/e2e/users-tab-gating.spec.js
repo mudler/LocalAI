@@ -29,12 +29,11 @@ test.describe('Users tab — single-user no-auth mode', () => {
   })
 
   test('sidebar does not list Users entry', async ({ page }) => {
-    await page.goto('/app')
-    const systemSection = page.locator('button.sidebar-section-toggle', { hasText: 'System' })
-    await systemSection.click()
-    // The Users page link uses /app/users; if Sidebar's authOnly gate
-    // regresses (or someone removes the flag), this assertion fails.
-    const usersLink = page.locator('a.nav-item[href="/app/users"]')
+    // Users now lives in the admin-console rail (authOnly gate). With auth
+    // off the rail must not list it. /app/models is the console default and
+    // is reachable because no-auth ⇒ isAdmin.
+    await page.goto('/app/models')
+    const usersLink = page.locator('.admin-console-rail a.nav-item[href="/app/users"]')
     await expect(usersLink).toHaveCount(0)
   })
 
@@ -65,10 +64,9 @@ test.describe('Users tab — auth on', () => {
   })
 
   test('sidebar lists Users entry when auth is on', async ({ page }) => {
-    await page.goto('/app')
-    const systemSection = page.locator('button.sidebar-section-toggle', { hasText: 'System' })
-    await systemSection.click()
-    const usersLink = page.locator('a.nav-item[href="/app/users"]')
+    // With auth on and an admin viewer the console rail lists Users.
+    await page.goto('/app/models')
+    const usersLink = page.locator('.admin-console-rail a.nav-item[href="/app/users"]')
     await expect(usersLink).toBeVisible()
   })
 })
