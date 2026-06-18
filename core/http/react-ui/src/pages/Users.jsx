@@ -6,6 +6,7 @@ import { adminUsersApi, adminInvitesApi } from '../utils/api'
 import LoadingSpinner from '../components/LoadingSpinner'
 import Modal from '../components/Modal'
 import ConfirmDialog from '../components/ConfirmDialog'
+import Toggle from '../components/Toggle'
 import './auth.css'
 
 function RoleBadge({ role }) {
@@ -289,14 +290,10 @@ function PermissionsModal({ user, featureMeta, availableModels, onClose, onSave,
           </div>
           <div style={{ marginBottom: 'var(--spacing-sm)' }}>
             <label className="perm-toggle-label">
-              <label className="toggle" style={{ flexShrink: 0 }}>
-                <input
-                  type="checkbox"
-                  checked={allowedModels.enabled}
-                  onChange={() => setAllowedModels(prev => ({ ...prev, enabled: !prev.enabled }))}
-                />
-                <span className="toggle-slider" />
-              </label>
+              <Toggle
+                checked={allowedModels.enabled}
+                onChange={next => setAllowedModels(prev => ({ ...prev, enabled: next }))}
+              />
               Restrict to specific models
             </label>
           </div>

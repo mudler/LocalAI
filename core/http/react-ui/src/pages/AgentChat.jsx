@@ -556,7 +556,7 @@ export default function AgentChat() {
           <label className="canvas-mode-toggle" title="Extract code blocks and media into a side panel for preview, copy, and download">
             <i className="fas fa-columns" />
             <span className="canvas-mode-label">Canvas</span>
-            <span className="toggle">
+            <span className={`toggle${canvasMode ? ' toggle--on' : ''}`}>
               <input
                 type="checkbox"
                 checked={canvasMode}
@@ -565,7 +565,9 @@ export default function AgentChat() {
                   if (!e.target.checked) setCanvasOpen(false)
                 }}
               />
-              <span className="toggle-slider" />
+              <span className="toggle__track">
+                <span className="toggle__thumb" />
+              </span>
             </span>
           </label>
           {canvasMode && artifacts.length > 0 && !canvasOpen && (

@@ -2031,7 +2031,7 @@ select.input {
 .stat-card:hover {
   transform: translateY(-1px);
   box-shadow: var(--shadow-sm);
-  border-color: var(--color-border);
+  border-color: var(--color-border-strong);
 }
 
 .stat-card__body {
@@ -2399,52 +2399,6 @@ select.input {
 
 .table tr:hover td {
   background: var(--color-surface-hover);
-}
-
-/* Toggle switch */
-.toggle {
-  position: relative;
-  display: inline-block;
-  width: 36px;
-  height: 20px;
-}
-
-.toggle input {
-  opacity: 0;
-  width: 0;
-  height: 0;
-}
-
-.toggle-slider {
-  position: absolute;
-  cursor: pointer;
-  inset: 0;
-  background: var(--color-toggle-off, #CBD5E1);
-  border-radius: var(--radius-full);
-  transition: background var(--duration-fast);
-}
-
-.toggle-slider::before {
-  content: '';
-  position: absolute;
-  height: 14px;
-  width: 14px;
-  left: 2px;
-  bottom: 2px;
-  background: white;
-  border-radius: 50%;
-  transition: transform var(--duration-fast);
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
-}
-
-.toggle input:checked + .toggle-slider {
-  background: var(--color-primary);
-  border-color: var(--color-primary);
-}
-
-.toggle input:checked + .toggle-slider::before {
-  transform: translateX(16px);
-  background: white;
 }
 
 /* Model checkbox list */

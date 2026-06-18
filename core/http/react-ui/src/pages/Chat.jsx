@@ -7,6 +7,7 @@ import ModelSelector from '../components/ModelSelector'
 import { renderMarkdown, highlightAll } from '../utils/markdown'
 import { extractCodeArtifacts, renderMarkdownWithArtifacts } from '../utils/artifacts'
 import CanvasPanel from '../components/CanvasPanel'
+import Toggle from '../components/Toggle'
 import { fileToBase64, modelsApi, mcpApi } from '../utils/api'
 import { CAP_CHAT } from '../utils/capabilities'
 import { useMCPClient } from '../hooks/useMCPClient'
@@ -966,14 +967,10 @@ export default function Chat() {
                     {t('settings.manageModeDesc')}
                   </span>
                 </div>
-                <label className="toggle">
-                  <input
-                    type="checkbox"
-                    checked={!!activeChat.localaiAssistant}
-                    onChange={(e) => updateChatSettings(activeChat.id, { localaiAssistant: e.target.checked })}
-                  />
-                  <span className="toggle-slider" />
-                </label>
+                <Toggle
+                  checked={!!activeChat.localaiAssistant}
+                  onChange={(next) => updateChatSettings(activeChat.id, { localaiAssistant: next })}
+                />
               </div>
             )}
             <div className="form-group">
