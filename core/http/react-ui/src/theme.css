@@ -112,6 +112,7 @@
   --spacing-xl: 2rem;
   --spacing-2xl: 3rem;
   --spacing-3xl: 4rem;
+  --space-section: clamp(2rem, 1.2rem + 3vw, 3.5rem);
 
   /* Radii — sharp, editorial */
   --radius-sm: 3px;
