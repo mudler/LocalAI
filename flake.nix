@@ -4,13 +4,9 @@
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
-    inference-defaults = {
-      url = "https://raw.githubusercontent.com/unslothai/unsloth/main/studio/backend/assets/configs/inference_defaults.json";
-      flake = false;
-    };
   };
 
-  outputs = { self, nixpkgs, inference-defaults }:
+  outputs = { self, nixpkgs }:
     let
       system = "x86_64-linux";
       pkgs = nixpkgs.legacyPackages.${system};
@@ -44,8 +40,6 @@
 
           go mod edit -replace github.com/mudler/LocalAI/pkg/grpc/proto=./pkg/grpc/proto
 
-          mkdir -p core/config/gen_inference_defaults
-          cp ${inference-defaults} core/config/gen_inference_defaults/inference_defaults.json
           sed -i '/go:generate/d' core/config/inference_defaults.go || true
 
 	'';
