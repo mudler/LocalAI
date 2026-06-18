@@ -17,7 +17,7 @@
 
  	src = ./.;
         proxyVendor = true;
-        vendorHash = "sha256-6f3adjGsoFXlUtXjBDHP4Mv9jKCOK3aeUXprm0EAVO8=";
+        vendorHash = "sha256-z3lxQS8mXFuJzvYamejwapwVEmLpeAoiO3ksUKb4I3Q=";
 
         nativeBuildInputs = with pkgs; [
           pkg-config cmake gcc protobuf go-protobuf protoc-gen-go protoc-gen-go-grpc
