@@ -10,6 +10,20 @@
     let
       system = "x86_64-linux";
       pkgs = nixpkgs.legacyPackages.${system};
+      reactUi = pkgs.buildNpmPackage {
+        pname = "localai-react-ui";
+        version = "custom";
+        src = ./core/http/react-ui;
+        npmDepsHash = "sha256-G+bc1SajltRt4ZfkKNN1h6kFSmD0pCOR8MqRE6cKDLM=";
+        npmBuildScript = "build";
+
+        installPhase = ''
+          runHook preInstall
+          mkdir -p $out
+          cp -r dist $out/
+          runHook postInstall
+        '';
+      };
     in {
       packages.${system}.default = pkgs.buildGoModule {
         pname = "localai";
@@ -39,6 +53,9 @@
             $PROTO_SOURCE_DIR/*.proto
 
           go mod edit -replace github.com/mudler/LocalAI/pkg/grpc/proto=./pkg/grpc/proto
+
+          mkdir -p core/http/react-ui
+          cp -r ${reactUi}/dist core/http/react-ui/dist
 
           sed -i '/go:generate/d' core/config/inference_defaults.go || true
 
