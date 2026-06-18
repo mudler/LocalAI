@@ -4764,6 +4764,24 @@ select.input {
   border-radius: var(--radius-full);
   font-size: 0.75rem;
   color: var(--color-text-secondary);
+  max-width: 220px;
+}
+/* Image attachments preview as a thumbnail instead of a bare icon. */
+.chat-file-badge--image {
+  padding: 3px 8px 3px 3px;
+  border-radius: var(--radius-lg);
+}
+.chat-file-thumb {
+  width: 28px;
+  height: 28px;
+  border-radius: var(--radius-sm);
+  object-fit: cover;
+  flex-shrink: 0;
+}
+.chat-file-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .chat-file-badge button {

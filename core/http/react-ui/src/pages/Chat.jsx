@@ -1257,15 +1257,22 @@ export default function Chat() {
         {/* File badges */}
         {files.length > 0 && (
           <div className="chat-files">
-            {files.map((f, i) => (
-              <span key={i} className="chat-file-badge">
-                <i className={`fas ${f.type?.startsWith('image/') ? 'fa-image' : f.type?.startsWith('audio/') ? 'fa-headphones' : f.type?.startsWith('video/') ? 'fa-film' : 'fa-file'}`} />
-                {f.name}
-                <button onClick={() => setFiles(prev => prev.filter((_, idx) => idx !== i))}>
-                  <i className="fas fa-xmark" />
-                </button>
-              </span>
-            ))}
+            {files.map((f, i) => {
+              const isImage = f.type?.startsWith('image/') && f.base64
+              return (
+                <span key={i} className={`chat-file-badge${isImage ? ' chat-file-badge--image' : ''}`}>
+                  {isImage ? (
+                    <img src={`data:${f.type};base64,${f.base64}`} alt={f.name} className="chat-file-thumb" />
+                  ) : (
+                    <i className={`fas ${f.type?.startsWith('audio/') ? 'fa-headphones' : f.type?.startsWith('video/') ? 'fa-film' : 'fa-file'}`} />
+                  )}
+                  <span className="chat-file-name">{f.name}</span>
+                  <button onClick={() => setFiles(prev => prev.filter((_, idx) => idx !== i))} aria-label={`Remove ${f.name}`}>
+                    <i className="fas fa-xmark" />
+                  </button>
+                </span>
+              )
+            })}
           </div>
         )}
 
