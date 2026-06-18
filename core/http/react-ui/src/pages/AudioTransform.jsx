@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useParams, useOutletContext } from 'react-router-dom'
 import ModelSelector from '../components/ModelSelector'
+import PageHeader from '../components/PageHeader'
 import { CAP_AUDIO_TRANSFORM } from '../utils/capabilities'
 import LoadingSpinner from '../components/LoadingSpinner'
 import ErrorWithTraceLink from '../components/ErrorWithTraceLink'
@@ -166,9 +167,7 @@ export default function AudioTransform() {
   return (
     <div className="media-layout">
       <div className="media-controls">
-        <div className="page-header">
-          <h1 className="page-title"><i className="fas fa-wave-square" /> Audio Transform</h1>
-        </div>
+        <PageHeader title={<><i className="fas fa-wave-square" /> Audio Transform</>} />
 
         <form onSubmit={handleProcess}>
           <div className="form-group">

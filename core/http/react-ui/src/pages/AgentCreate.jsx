@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from 'react'
 import { useParams, useNavigate, useLocation, useOutletContext, useSearchParams } from 'react-router-dom'
 import { agentsApi, skillsApi } from '../utils/api'
 import SearchableModelSelect from '../components/SearchableModelSelect'
+import PageHeader from '../components/PageHeader'
 import { CAP_CHAT, CAP_TRANSCRIPT, CAP_TTS } from '../utils/capabilities'
 import Toggle from '../components/Toggle'
 import SettingRow from '../components/SettingRow'
@@ -930,12 +931,14 @@ export default function AgentCreate() {
         }
       `}</style>
 
-      <div className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <h1 className="page-title">{isEdit ? `Edit Agent: ${name}` : importedConfig ? 'Import Agent' : 'Create Agent'}</h1>
-        <button className="btn btn-secondary btn-sm" onClick={() => navigate('/app/agents')}>
-          <i className="fas fa-arrow-left" /> Back
-        </button>
-      </div>
+      <PageHeader
+        title={isEdit ? `Edit Agent: ${name}` : importedConfig ? 'Import Agent' : 'Create Agent'}
+        actions={
+          <button className="btn btn-secondary btn-sm" onClick={() => navigate('/app/agents')}>
+            <i className="fas fa-arrow-left" /> Back
+          </button>
+        }
+      />
 
       <form onSubmit={handleSubmit} noValidate>
         <div className="agent-form-container">

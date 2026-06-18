@@ -3,6 +3,7 @@ import { useNavigate, useOutletContext } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { modelsApi, backendsApi } from '../utils/api'
 import LoadingSpinner from '../components/LoadingSpinner'
+import PageHeader from '../components/PageHeader'
 import CodeEditor from '../components/CodeEditor'
 import SearchableSelect from '../components/SearchableSelect'
 import AmbiguityAlert from '../components/AmbiguityAlert'
@@ -798,24 +799,24 @@ export default function ImportModel() {
 
   return (
     <div className="page page--narrow">
-      <div className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 'var(--spacing-sm)' }}>
-        <div>
-          <h1 className="page-title">{t('title')}</h1>
-          <p className="page-subtitle">{subtitle}</p>
-        </div>
-        <div style={{ display: 'flex', gap: 'var(--spacing-sm)', flexWrap: 'wrap', alignItems: 'center' }}>
-          <SimplePowerSwitch value={mode} onChange={requestModeSwitch} disabled={isSubmitting} />
-          {isPowerYaml ? (
-            <button className="btn btn-primary" onClick={handleAdvancedImport} disabled={isSubmitting}>
-              {isSubmitting ? <><LoadingSpinner size="sm" /> {t('actions.saving')}</> : <><i className="fas fa-save" aria-hidden="true" /> {t('actions.create')}</>}
-            </button>
-          ) : (
-            <button className="btn btn-primary" onClick={() => handleSimpleImport()} disabled={isSubmitting || !importUri.trim()}>
-              {isSubmitting ? <><LoadingSpinner size="sm" /> {t('actions.importing')}</> : <><i className="fas fa-upload" aria-hidden="true" /> {t('actions.import')}</>}
-            </button>
-          )}
-        </div>
-      </div>
+      <PageHeader
+        title={t('title')}
+        supporting={subtitle}
+        actions={
+          <div style={{ display: 'flex', gap: 'var(--spacing-sm)', flexWrap: 'wrap', alignItems: 'center' }}>
+            <SimplePowerSwitch value={mode} onChange={requestModeSwitch} disabled={isSubmitting} />
+            {isPowerYaml ? (
+              <button className="btn btn-primary" onClick={handleAdvancedImport} disabled={isSubmitting}>
+                {isSubmitting ? <><LoadingSpinner size="sm" /> {t('actions.saving')}</> : <><i className="fas fa-save" aria-hidden="true" /> {t('actions.create')}</>}
+              </button>
+            ) : (
+              <button className="btn btn-primary" onClick={() => handleSimpleImport()} disabled={isSubmitting || !importUri.trim()}>
+                {isSubmitting ? <><LoadingSpinner size="sm" /> {t('actions.importing')}</> : <><i className="fas fa-upload" aria-hidden="true" /> {t('actions.import')}</>}
+              </button>
+            )}
+          </div>
+        }
+      />
 
       {/* Estimate banner */}
       {!isPowerYaml && estimate && (

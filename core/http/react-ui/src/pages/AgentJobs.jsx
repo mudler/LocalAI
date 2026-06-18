@@ -6,6 +6,7 @@ import { useModels } from '../hooks/useModels'
 import { useAuth } from '../context/AuthContext'
 import { useUserMap } from '../hooks/useUserMap'
 import LoadingSpinner from '../components/LoadingSpinner'
+import PageHeader from '../components/PageHeader'
 import { fileToBase64 } from '../utils/api'
 import Modal from '../components/Modal'
 import UserGroupSection from '../components/UserGroupSection'
@@ -216,10 +217,7 @@ export default function AgentJobs() {
   if (!loading && models.length === 0) {
     return (
       <div className="page page--wide">
-        <div className="page-header">
-          <h1 className="page-title">Agent Jobs</h1>
-          <p className="page-subtitle">Manage agent tasks and automated workflows</p>
-        </div>
+        <PageHeader title="Agent Jobs" supporting="Manage agent tasks and automated workflows" />
         <div className="card" style={{ textAlign: 'center', padding: 'var(--spacing-xl)' }}>
           <i className="fas fa-exclamation-triangle" style={{ fontSize: '3rem', color: 'var(--color-warning)', marginBottom: 'var(--spacing-md)' }} />
           <h2 style={{ marginBottom: 'var(--spacing-sm)' }}>No Models Installed</h2>
@@ -243,10 +241,7 @@ export default function AgentJobs() {
   if (!loading && models.length > 0 && !hasMCPModels && tasks.length === 0) {
     return (
       <div className="page page--wide">
-        <div className="page-header">
-          <h1 className="page-title">Agent Jobs</h1>
-          <p className="page-subtitle">Manage agent tasks and automated workflows</p>
-        </div>
+        <PageHeader title="Agent Jobs" supporting="Manage agent tasks and automated workflows" />
         <div className="card" style={{ textAlign: 'center', padding: 'var(--spacing-xl)' }}>
           <i className="fas fa-plug" style={{ fontSize: '3rem', color: 'var(--color-primary)', marginBottom: 'var(--spacing-md)' }} />
           <h2 style={{ marginBottom: 'var(--spacing-sm)' }}>MCP Not Configured</h2>
@@ -276,15 +271,15 @@ export default function AgentJobs() {
 
   return (
     <div className="page page--wide">
-      <div className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <div>
-          <h1 className="page-title">Agent Jobs</h1>
-          <p className="page-subtitle">Manage agent tasks and automated workflows</p>
-        </div>
-        <button className="btn btn-primary" onClick={() => navigate('/app/agent-jobs/tasks/new')}>
-          <i className="fas fa-plus" /> New Task
-        </button>
-      </div>
+      <PageHeader
+        title="Agent Jobs"
+        supporting="Manage agent tasks and automated workflows"
+        actions={
+          <button className="btn btn-primary" onClick={() => navigate('/app/agent-jobs/tasks/new')}>
+            <i className="fas fa-plus" /> New Task
+          </button>
+        }
+      />
 
       <div className="tabs">
         <button className={`tab ${activeTab === 'tasks' ? 'tab-active' : ''}`} onClick={() => setActiveTab('tasks')}>
