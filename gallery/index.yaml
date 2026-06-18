@@ -34784,10 +34784,10 @@
   files:
     - filename: chatterbox-t3-q8_0.gguf
       uri: huggingface://cstr/chatterbox-GGUF/chatterbox-t3-q8_0.gguf
-      sha256: 7b2da930c27df7e43d17a077bb58433b1bc33474ad66d781f715a7125f65d075
+      sha256: d87e51da512ad54af66e587e5d5cf83762c407198cc284f825ea220062b9a67e
     - filename: chatterbox-s3gen-q8_0.gguf
       uri: huggingface://cstr/chatterbox-GGUF/chatterbox-s3gen-q8_0.gguf
-      sha256: 6bbb93b892deeea73330cf773218e776e4bd0cf6ba71f60ef4dba72c922d0b3b
+      sha256: 329cd9e3bdb273deae2a81754caeb67d3fe84e41bd308e98e35532645c9c4920
 - name: qwen3-tts-customvoice-crispasr
   url: github:mudler/LocalAI/gallery/virtual.yaml@master
   urls:
