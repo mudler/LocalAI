@@ -119,6 +119,7 @@
   /* Typography — Geist Variable + Geist Mono Variable */
   --font-sans: "Geist", "Geist Variable", -apple-system, BlinkMacSystemFont, "Segoe UI", ui-sans-serif, system-ui, sans-serif;
   --font-mono: "Geist Mono", "Geist Mono Variable", ui-monospace, "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace;
+  --font-serif: "Fraunces Variable", "Fraunces", Georgia, "Times New Roman", serif;
 
   --text-xs: 0.6875rem;
   --text-sm: 0.8125rem;
