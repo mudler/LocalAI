@@ -5057,6 +5057,21 @@ select.input {
 }
 .gen-progress__time { color: var(--color-text-muted); }
 
+/* Talk voice visualizer: status-tinted frequency bars. */
+.voice-viz {
+  display: block;
+  width: 100%;
+  height: 88px;
+  margin-bottom: var(--spacing-md);
+  --viz-color: var(--color-text-muted);
+  transition: opacity var(--duration-normal) var(--ease-default);
+}
+.voice-viz--disconnected { --viz-color: var(--color-text-disabled); opacity: 0.55; }
+.voice-viz--connected { --viz-color: var(--color-primary); }
+.voice-viz--listening { --viz-color: var(--color-success); }
+.voice-viz--speaking { --viz-color: var(--color-accent); }
+.voice-viz--error { --viz-color: var(--color-error); }
+
 /* Media generation history */
 .media-history {
   margin-top: var(--spacing-md);

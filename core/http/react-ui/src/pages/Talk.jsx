@@ -3,6 +3,7 @@ import { useOutletContext, useNavigate, useLocation } from 'react-router-dom'
 import { realtimeApi } from '../utils/api'
 import { fromState } from '../utils/editorNav'
 import ModelSelector from '../components/ModelSelector'
+import VoiceVisualizer from '../components/VoiceVisualizer'
 import ClientMCPDropdown from '../components/ClientMCPDropdown'
 import { useMCPClient } from '../hooks/useMCPClient'
 import { loadClientMCPServers } from '../utils/mcpClientStorage'
@@ -598,6 +599,9 @@ export default function Talk() {
         </div>
 
         <div className="card" style={{ padding: 'var(--spacing-lg)', marginBottom: 'var(--spacing-md)' }}>
+          {/* Voice visualizer (hero) */}
+          <VoiceVisualizer audioRef={audioRef} micStreamRef={localStreamRef} status={status} active={isConnected} />
+
           {/* Connection status */}
           <div style={{
             display: 'flex', alignItems: 'center', gap: 'var(--spacing-sm)',
