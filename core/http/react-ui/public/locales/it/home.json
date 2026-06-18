@@ -6,6 +6,19 @@
   },
   "resourceGpu": "GPU",
   "resourceRam": "RAM",
+  "greeting": {
+    "morning": "Buongiorno",
+    "afternoon": "Buon pomeriggio",
+    "evening": "Buonasera",
+    "night": "Al lavoro fino a tardi"
+  },
+  "statusLine": {
+    "modelsLoaded_one": "{{count}} modello caricato",
+    "modelsLoaded_other": "{{count}} modelli caricati",
+    "noModelsLoaded": "Nessun modello caricato",
+    "nodes_one": "{{count}} nodo",
+    "nodes_other": "{{count}} nodi"
+  },
   "assistant": {
     "title": "Gestisci LocalAI chattando",
     "description": "Installa modelli, cambia backend, modifica configurazioni e controlla lo stato parlando con LocalAI.",

@@ -5619,16 +5619,41 @@ select.input {
 
 /* Home page */
 .home-page {
-  flex: 1;
   display: flex;
   flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  max-width: 52rem;
+  gap: var(--space-section);
+  max-width: var(--page-max-medium);
   margin: 0 auto;
-  padding: var(--spacing-2xl) var(--spacing-xl);
+  padding: var(--space-section) var(--spacing-lg);
   width: 100%;
+}
+.home-header {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--spacing-lg);
+  flex-wrap: wrap;
+}
+.home-eyebrow {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: var(--color-eyebrow);
+}
+.home-greeting {
+  font-family: var(--font-serif);
+  font-size: clamp(2rem, 1.4rem + 3vw, var(--text-4xl));
+  font-weight: 440;
+  letter-spacing: -0.02em;
+  line-height: 1.05;
+  margin: var(--spacing-xs) 0 0;
+}
+.home-status-line {
+  display: flex;
+  align-items: center;
   gap: var(--spacing-md);
+  flex-wrap: wrap;
 }
 .home-hero {
   text-align: center;

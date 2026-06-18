@@ -12,12 +12,9 @@ import HomeConnect from '../components/HomeConnect'
 import { useResources } from '../hooks/useResources'
 import { fileToBase64, backendControlApi, systemApi, modelsApi, mcpApi, nodesApi } from '../utils/api'
 import { API_CONFIG } from '../utils/config'
-
-function formatBytes(bytes) {
-  if (!bytes || bytes === 0) return null
-  const gb = bytes / (1024 * 1024 * 1024)
-  return gb >= 1 ? `${gb.toFixed(1)} GB` : `${(bytes / (1024 * 1024)).toFixed(0)} MB`
-}
+import { greetingKey } from '../utils/greeting'
+import StatusPill from '../components/StatusPill'
+import { staggerStyle } from '../hooks/useStagger'
 
 export default function Home() {
   const navigate = useNavigate()
@@ -287,62 +284,39 @@ export default function Home() {
   const hasModels = modelsLoading || configuredModels.length > 0
   const loadedCount = loadedModels.length
 
-  // Resource display
+  // Resource display - folded into the editorial status line.
   const resType = resources?.type
   const usagePct = resources?.aggregate?.usage_percent ?? resources?.ram?.usage_percent ?? 0
-  const pctColor = usagePct > 90 ? 'var(--color-error)' : usagePct > 70 ? 'var(--color-warning)' : 'var(--color-success)'
-
-  // Cluster resource display (distributed mode)
-  const clusterUsagePct = clusterData?.totalMem > 0 ? ((clusterData.usedMem / clusterData.totalMem) * 100) : 0
-  const clusterPctColor = clusterUsagePct > 90 ? 'var(--color-error)' : clusterUsagePct > 70 ? 'var(--color-warning)' : 'var(--color-success)'
 
   return (
     <div className="home-page">
       {hasModels ? (
         <>
-          {/* Hero with logo */}
-          <div className="home-hero">
-            <img src={apiUrl(branding.logoUrl)} alt={branding.instanceName} className="home-logo" />
-          </div>
-
-          {/* Resource monitor - prominent placement */}
-          {distributedMode && clusterData && clusterData.totalMem > 0 ? (
-            <div className="home-resource-bar">
-              <div className="home-resource-bar-header">
-                <i className={`fas ${clusterData.isGPU ? 'fa-microchip' : 'fa-memory'}`} />
-                <span className="home-resource-label">{clusterData.isGPU ? t('cluster.vram') : t('cluster.ram')}</span>
-                <span className="home-resource-pct" style={{ color: clusterPctColor }}>
-                  {formatBytes(clusterData.usedMem)} / {formatBytes(clusterData.totalMem)}
-                </span>
-              </div>
-              <div className="home-resource-track">
-                <div
-                  className="home-resource-fill"
-                  style={{ width: `${clusterUsagePct}%`, background: clusterPctColor }}
-                />
-              </div>
-              <div className="home-cluster-status">
-                <span className="home-cluster-dot" style={clusterData.healthyCount === 0 ? { background: 'var(--color-error)' } : undefined} />
-                <span>{t('cluster.nodesOnline', { healthy: clusterData.healthyCount, total: clusterData.totalCount })}</span>
-              </div>
+          {/* Editorial header */}
+          <header className="home-header reveal-stagger">
+            <div style={staggerStyle(0)}>
+              <span className="home-eyebrow">{branding.instanceName}</span>
+              <h1 className="home-greeting">{t(`greeting.${greetingKey()}`)}</h1>
             </div>
-          ) : !distributedMode && resources ? (
-            <div className="home-resource-bar">
-              <div className="home-resource-bar-header">
-                <i className={`fas ${resType === 'gpu' ? 'fa-microchip' : 'fa-memory'}`} />
-                <span className="home-resource-label">{resType === 'gpu' ? t('resourceGpu') : t('resourceRam')}</span>
-                <span className="home-resource-pct" style={{ color: pctColor }}>
-                  {usagePct.toFixed(0)}%
-                </span>
-              </div>
-              <div className="home-resource-track">
-                <div
-                  className="home-resource-fill"
-                  style={{ width: `${usagePct}%`, background: pctColor }}
+            <div className="home-status-line" style={staggerStyle(1)}>
+              <StatusPill
+                status={loadedCount > 0 ? 'healthy' : 'idle'}
+                label={loadedCount > 0 ? t('statusLine.modelsLoaded', { count: loadedCount }) : t('statusLine.noModelsLoaded')}
+              />
+              {distributedMode && clusterData && (
+                <StatusPill
+                  status={clusterData.healthyCount > 0 ? 'healthy' : 'error'}
+                  label={t('statusLine.nodes', { count: clusterData.totalCount })}
                 />
-              </div>
+              )}
+              {!distributedMode && resources && (
+                <span className="status-pill">
+                  <i className={`fas ${resType === 'gpu' ? 'fa-microchip' : 'fa-memory'}`} aria-hidden="true" />
+                  {(resType === 'gpu' ? t('resourceGpu') : t('resourceRam'))} {usagePct.toFixed(0)}%
+                </span>
+              )}
             </div>
-          ) : null}
+          </header>
 
           {/* LocalAI Assistant — prominent CTA on first run. Once the
               admin has used it, the big card collapses to a small entry in
