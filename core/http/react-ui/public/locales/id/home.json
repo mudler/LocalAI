@@ -43,6 +43,7 @@
     "documentation": "Dokumentasi"
   },
   "loadedModels": {
+    "heading": "Model aktif",
     "count_one": "{{count}} model dimuat",
     "count_other": "{{count}} model dimuat",
     "stop": "Hentikan model",

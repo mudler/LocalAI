@@ -5959,33 +5959,21 @@ select.input {
   transform: translateY(-1px);
   box-shadow: var(--shadow-sm);
 }
+/* Quiet variant: a deliberately understated link (e.g. Documentation) so the
+   quick-links row keeps a single clear primary action. */
+.home-link-btn--quiet { opacity: 0.8; }
 
 /* Home loaded models */
-.home-loaded-models {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--spacing-sm);
-  padding: var(--spacing-sm) var(--spacing-md);
-  background: var(--color-surface-raised);
-  border: 1px solid var(--color-border-subtle);
-  border-radius: var(--radius-lg);
-  font-size: var(--text-xs);
-  color: var(--color-text-secondary);
+.home-loaded {
   width: 100%;
-  box-shadow: var(--shadow-subtle);
-}
-.home-loaded-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: var(--radius-full);
-  background: var(--color-success);
-}
-.home-loaded-text {
-  font-weight: var(--font-weight-medium);
-  color: var(--color-text-primary);
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-sm);
 }
 .home-loaded-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
   display: flex;
   flex-wrap: wrap;
   gap: var(--spacing-xs);
@@ -5994,12 +5982,11 @@ select.input {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 3px 10px;
+  padding: 3px 6px 3px 10px;
   background: var(--color-surface-sunken);
   border: 1px solid var(--color-border-divider);
   border-radius: var(--radius-full);
   font-size: var(--text-xs);
-  font-family: var(--font-mono);
 }
 .home-loaded-item button {
   background: none;
@@ -6007,18 +5994,16 @@ select.input {
   color: var(--color-error);
   cursor: pointer;
   padding: 0;
+  line-height: 1;
   font-size: 0.625rem;
 }
+.home-loaded-empty {
+  color: var(--color-text-secondary);
+  font-size: var(--text-sm);
+  margin: 0;
+}
 .home-stop-all {
-  margin-left: auto;
-  background: none;
-  border: 1px solid var(--color-error);
-  color: var(--color-error);
-  padding: 2px 8px;
-  border-radius: var(--radius-full);
-  font-size: 0.75rem;
-  cursor: pointer;
-  font-family: inherit;
+  align-self: flex-start;
 }
 
 /* Home wizard (no models) */

@@ -14,6 +14,9 @@ import { fileToBase64, backendControlApi, systemApi, modelsApi, mcpApi, nodesApi
 import { API_CONFIG } from '../utils/config'
 import { greetingKey } from '../utils/greeting'
 import StatusPill from '../components/StatusPill'
+import Skeleton from '../components/Skeleton'
+import SectionHeading from '../components/SectionHeading'
+import EmptyState from '../components/EmptyState'
 import { staggerStyle } from '../hooks/useStagger'
 
 export default function Home() {
@@ -437,53 +440,64 @@ export default function Home() {
                     <i className="fas fa-user-shield" /> {t('quickLinks.manageByChat')}
                   </button>
                 )}
-                <button className="home-link-btn" onClick={() => navigate('/app/manage')}>
-                  <i className="fas fa-desktop" /> {t('quickLinks.installedModels')}
+                <button className="btn btn-primary" onClick={() => navigate('/app/models')}>
+                  <i className="fas fa-download" aria-hidden="true" /> {t('quickLinks.browseGallery')}
                 </button>
-                <button className="home-link-btn" onClick={() => navigate('/app/models')}>
-                  <i className="fas fa-download" /> {t('quickLinks.browseGallery')}
+                <button className="home-link-btn" onClick={() => navigate('/app/manage')}>
+                  <i className="fas fa-desktop" aria-hidden="true" /> {t('quickLinks.installedModels')}
                 </button>
                 <button className="home-link-btn" onClick={() => navigate('/app/import-model')}>
-                  <i className="fas fa-upload" /> {t('quickLinks.importModel')}
+                  <i className="fas fa-upload" aria-hidden="true" /> {t('quickLinks.importModel')}
                 </button>
               </>
             )}
-            <a className="home-link-btn" href="https://localai.io" target="_blank" rel="noopener noreferrer">
-              <i className="fas fa-book" /> {t('quickLinks.documentation')}
+            <a className="home-link-btn home-link-btn--quiet" href="https://localai.io" target="_blank" rel="noopener noreferrer">
+              <i className="fas fa-book" aria-hidden="true" /> {t('quickLinks.documentation')}
             </a>
           </div>
 
           {/* Loaded models status */}
-          {loadedCount > 0 && (
-            <div className="home-loaded-models">
-              <span className="home-loaded-dot" />
-              <span className="home-loaded-text">{t('loadedModels.count', { count: loadedCount })}</span>
-              <div className="home-loaded-list">
-                {[...loadedModels].sort((a, b) => a.id.localeCompare(b.id)).map(m => (
-                  <span key={m.id} className="home-loaded-item">
-                    {m.id}
-                    <button onClick={() => handleStopModel(m.id)} title={t('loadedModels.stop')}>
-                      <i className="fas fa-times" />
-                    </button>
-                  </span>
-                ))}
-              </div>
-              {loadedCount > 1 && (
-                <button className="home-stop-all" onClick={handleStopAll}>
-                  {t('loadedModels.stopAll')}
-                </button>
-              )}
-            </div>
-          )}
+          <section className="home-loaded">
+            <SectionHeading>{t('loadedModels.heading')}</SectionHeading>
+            {modelsLoading ? (
+              <Skeleton variant="line" count={2} />
+            ) : loadedCount > 0 ? (
+              <>
+                <ul className="home-loaded-list reveal-stagger">
+                  {[...loadedModels].sort((a, b) => a.id.localeCompare(b.id)).map((m, i) => (
+                    <li key={m.id} className="home-loaded-item" style={staggerStyle(i)}>
+                      <StatusPill status="healthy" label={m.id} />
+                      <button
+                        type="button"
+                        onClick={() => handleStopModel(m.id)}
+                        title={t('loadedModels.stop')}
+                        aria-label={t('loadedModels.stop')}
+                      >
+                        <i className="fas fa-times" aria-hidden="true" />
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+                {loadedCount > 1 && (
+                  <button className="btn btn-secondary btn-sm home-stop-all" onClick={handleStopAll}>
+                    {t('loadedModels.stopAll')}
+                  </button>
+                )}
+              </>
+            ) : (
+              <p className="home-loaded-empty">{t('statusLine.noModelsLoaded')}</p>
+            )}
+          </section>
         </>
       ) : isAdmin ? (
         /* No models installed - compact getting started */
         <div className="home-wizard">
-          <div className="home-wizard-hero">
-            <img src={apiUrl(branding.logoUrl)} alt={branding.instanceName} className="home-logo" />
-            <h1>{t('wizard.getStarted', { name: branding.instanceName })}</h1>
-            <p>{t('wizard.intro')}</p>
-          </div>
+          <EmptyState
+            eyebrow={branding.instanceName}
+            icon="fa-rocket"
+            title={t('wizard.getStarted', { name: branding.instanceName })}
+            body={t('wizard.intro')}
+          />
 
           <div className="home-wizard-steps card">
             <div className="home-wizard-step">

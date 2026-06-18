@@ -43,6 +43,7 @@
     "documentation": "Documentazione"
   },
   "loadedModels": {
+    "heading": "Modelli attivi",
     "count_one": "{{count}} modello caricato",
     "count_other": "{{count}} modelli caricati",
     "stop": "Ferma modello",

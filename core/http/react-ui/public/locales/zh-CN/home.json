@@ -43,6 +43,7 @@
     "documentation": "文档"
   },
   "loadedModels": {
+    "heading": "活动模型",
     "count_one": "已加载 {{count}} 个模型",
     "count_other": "已加载 {{count}} 个模型",
     "stop": "停止模型",
