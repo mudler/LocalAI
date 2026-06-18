@@ -5338,6 +5338,16 @@ select.input {
   .canvas-resize-handle { display: none; }
   .canvas-panel { width: 100% !important; max-width: none !important; }
 }
+.canvas-header-actions { display: inline-flex; gap: var(--spacing-xs); }
+/* Fullscreen: the canvas covers the viewport. */
+.canvas-panel--fullscreen {
+  position: fixed;
+  inset: 0;
+  width: 100% !important;
+  max-width: none !important;
+  z-index: 60;
+  border-left: none;
+}
 .canvas-panel-header {
   display: flex;
   align-items: center;

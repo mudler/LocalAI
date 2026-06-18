@@ -16,6 +16,7 @@ export default function CanvasPanel({ artifacts, selectedId, onSelect, onClose }
   const [width, setWidth] = useState(() => {
     try { const v = localStorage.getItem(WIDTH_KEY); return v ? Number(v) : null } catch { return null }
   })
+  const [fullscreen, setFullscreen] = useState(false)
   const codeRef = useRef(null)
   const panelRef = useRef(null)
 
@@ -149,33 +150,65 @@ export default function CanvasPanel({ artifacts, selectedId, onSelect, onClose }
   }
 
   return (
-    <div className="canvas-panel" ref={panelRef} style={width ? { width: `${width}px`, maxWidth: 'none' } : undefined}>
-      <div
-        className="canvas-resize-handle"
-        onMouseDown={startResize}
-        onDoubleClick={resetWidth}
-        role="separator"
-        aria-orientation="vertical"
-        aria-label="Resize canvas (double-click to reset)"
-        title="Drag to resize, double-click to reset"
-      />
+    <div
+      className={`canvas-panel${fullscreen ? ' canvas-panel--fullscreen' : ''}`}
+      ref={panelRef}
+      style={!fullscreen && width ? { width: `${width}px`, maxWidth: 'none' } : undefined}
+    >
+      {!fullscreen && (
+        <div
+          className="canvas-resize-handle"
+          onMouseDown={startResize}
+          onDoubleClick={resetWidth}
+          role="separator"
+          aria-orientation="vertical"
+          aria-label="Resize canvas (double-click to reset)"
+          title="Drag to resize, double-click to reset"
+        />
+      )}
       <div className="canvas-panel-header">
         <span className="canvas-panel-title">{current.title || 'Artifact'}</span>
-        <button className="btn btn-secondary btn-sm" onClick={onClose} title="Close canvas">
-          <i className="fas fa-times" />
-        </button>
+        <div className="canvas-header-actions">
+          <button
+            className="btn btn-secondary btn-sm"
+            onClick={() => setFullscreen(f => !f)}
+            title={fullscreen ? 'Exit fullscreen' : 'Fullscreen'}
+            aria-label={fullscreen ? 'Exit fullscreen' : 'Fullscreen'}
+          >
+            <i className={`fas ${fullscreen ? 'fa-compress' : 'fa-expand'}`} aria-hidden="true" />
+          </button>
+          <button className="btn btn-secondary btn-sm" onClick={onClose} title="Close canvas" aria-label="Close canvas">
+            <i className="fas fa-times" aria-hidden="true" />
+          </button>
+        </div>
       </div>
 
       {artifacts.length > 1 && (
-        <div className="canvas-panel-tabs">
+        <div
+          className="canvas-panel-tabs"
+          role="tablist"
+          aria-label="Artifacts"
+          onKeyDown={(e) => {
+            if (e.key !== 'ArrowRight' && e.key !== 'ArrowLeft') return
+            e.preventDefault()
+            const idx = artifacts.findIndex(a => a.id === current.id)
+            const n = e.key === 'ArrowRight'
+              ? (idx + 1) % artifacts.length
+              : (idx - 1 + artifacts.length) % artifacts.length
+            onSelect(artifacts[n].id)
+          }}
+        >
           {artifacts.map(a => (
             <button
               key={a.id}
+              role="tab"
+              aria-selected={a.id === current.id}
+              tabIndex={a.id === current.id ? 0 : -1}
               className={`canvas-panel-tab${a.id === (current?.id) ? ' active' : ''}`}
               onClick={() => onSelect(a.id)}
               title={a.title}
             >
-              <i className={`fas ${getArtifactIcon(a.type, a.language)}`} />
+              <i className={`fas ${getArtifactIcon(a.type, a.language)}`} aria-hidden="true" />
               <span>{a.title}</span>
             </button>
           ))}
