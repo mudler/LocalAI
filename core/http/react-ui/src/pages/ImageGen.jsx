@@ -8,6 +8,7 @@ import LoadingSpinner from '../components/LoadingSpinner'
 import ErrorWithTraceLink from '../components/ErrorWithTraceLink'
 import MediaHistory from '../components/MediaHistory'
 import Lightbox from '../components/Lightbox'
+import GenerationProgress from '../components/GenerationProgress'
 import { imageApi, fileToBase64 } from '../utils/api'
 import { useMediaHistory } from '../hooks/useMediaHistory'
 
@@ -155,7 +156,7 @@ export default function ImageGen() {
       <div className="media-preview">
         <div className="media-result">
           {loading ? (
-            <LoadingSpinner size="lg" />
+            <GenerationProgress count={count} label={t('image.actions.generating')} />
           ) : error ? (
             <ErrorWithTraceLink message={error} />
           ) : displayImages.length > 0 ? (

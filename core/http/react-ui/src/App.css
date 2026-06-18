@@ -5024,6 +5024,39 @@ select.input {
 .lightbox__nav--prev { left: var(--spacing-lg); }
 .lightbox__nav--next { right: var(--spacing-lg); }
 
+/* Generation progress: shimmer placeholder tiles + elapsed time. */
+.gen-progress {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--spacing-lg);
+  width: 100%;
+}
+.gen-progress__tiles {
+  display: grid;
+  gap: var(--spacing-sm);
+  width: 100%;
+  max-width: 520px;
+}
+.gen-progress__tiles--n1 { grid-template-columns: 1fr; }
+.gen-progress__tiles--n2,
+.gen-progress__tiles--n3,
+.gen-progress__tiles--n4 { grid-template-columns: repeat(2, 1fr); }
+.gen-progress__tile {
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  height: auto;
+  border-radius: var(--radius-md);
+}
+.gen-progress__status {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  color: var(--color-text-secondary);
+  font-size: var(--text-sm);
+}
+.gen-progress__time { color: var(--color-text-muted); }
+
 /* Media generation history */
 .media-history {
   margin-top: var(--spacing-md);
