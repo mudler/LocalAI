@@ -1,8 +1,9 @@
 // Package cloudproxy stitches the cloud-proxy gRPC backend to the
-// HTTP edge: model rewrite, body shaping, and SSE-aware PII filtering
-// on the response. The outbound HTTP request itself lives inside the
-// cloud-proxy backend binary (backend/go/cloud-proxy), not here — this
-// package is the core-side glue.
+// HTTP edge: model rewrite and body shaping. The outbound HTTP request
+// itself lives inside the cloud-proxy backend binary
+// (backend/go/cloud-proxy), not here — this package is the core-side
+// glue. PII redaction runs request-side (the NER middleware + MITM
+// input path); response/output is forwarded unmodified.
 package cloudproxy
 
 import (
@@ -10,11 +11,8 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"strings"
 
 	"github.com/labstack/echo/v4"
-	"github.com/mudler/LocalAI/core/services/cloudproxy/ssewire"
-	"github.com/mudler/LocalAI/core/services/routing/pii"
 	"github.com/mudler/xlog"
 )
 
@@ -61,65 +59,30 @@ func forwardBuffered(c echo.Context, statusCode int, contentType string, body io
 	return err
 }
 
-// forwardStream applies SSE-aware PII rewriting as the response flows
-// to the client. provider selects the dialect (openai vs anthropic);
-// it comes from cfg.Proxy.Provider on the cloud-proxy backend.
-func forwardStream(c echo.Context, body io.Reader, provider string, filter *pii.StreamFilter) error {
+// forwardStream relays the upstream SSE response to the client,
+// flushing per read so events arrive in real time. Response/output PII
+// redaction is out of scope for now, so the stream is forwarded
+// unmodified.
+func forwardStream(c echo.Context, body io.Reader) error {
 	c.Response().Header().Set("Content-Type", "text/event-stream")
 	c.Response().Header().Set("Cache-Control", "no-cache")
 	c.Response().Header().Set("Connection", "keep-alive")
 	c.Response().WriteHeader(http.StatusOK)
 
-	emit := func(line string) error {
-		_, err := fmt.Fprint(c.Response().Writer, line)
-		if err != nil {
-			return err
-		}
-		c.Response().Flush()
-		return nil
-	}
-
-	flushResidual := func() {
-		if filter == nil {
-			return
-		}
-		residual := filter.Drain()
-		if residual == "" {
-			return
-		}
-		if line := ssewire.SynthResidualEvent(ssewire.Provider(provider), residual); line != "" {
-			_ = emit(line)
-		}
-	}
-
-	prov := ssewire.Provider(provider)
-	scanner := ssewire.NewScanner(body)
-	for scanner.Scan() {
-		ev := scanner.Event()
-		if ssewire.IsTerminalMarker(ev.DataLine, prov) {
-			flushResidual()
-			_ = emit(ev.Raw)
-			continue
-		}
-		out := ev.Raw
-		if filter != nil && ev.DataLine != "" {
-			rewritten, drop := ssewire.RewritePayload(ev.DataLine, prov, filter)
-			if drop {
-				continue
+	buf := make([]byte, 32*1024)
+	for {
+		n, rErr := body.Read(buf)
+		if n > 0 {
+			if _, wErr := c.Response().Writer.Write(buf[:n]); wErr != nil {
+				return nil
 			}
-			if rewritten != ev.DataLine {
-				// strings.Replace with n=1 touches only the data line,
-				// preserving any "event:"/"id:" preamble.
-				out = strings.Replace(ev.Raw, ev.DataLine, rewritten, 1)
-			}
+			c.Response().Flush()
 		}
-		if err := emit(out); err != nil {
+		if rErr != nil {
+			if rErr != io.EOF {
+				xlog.Debug("cloudproxy: stream read error", "error", rErr)
+			}
 			return nil
 		}
 	}
-	if err := scanner.Err(); err != nil && err != io.EOF {
-		xlog.Debug("cloudproxy: stream read error", "error", err)
-	}
-	flushResidual()
-	return nil
 }

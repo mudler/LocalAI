@@ -18,12 +18,12 @@
       packages.${system}.default = pkgs.buildGoModule {
         pname = "localai";
         version = "custom";
-        
+
  	src = ./.;
         proxyVendor = true;
         vendorHash = "sha256-6f3adjGsoFXlUtXjBDHP4Mv9jKCOK3aeUXprm0EAVO8=";
 
-        nativeBuildInputs = with pkgs; [ 
+        nativeBuildInputs = with pkgs; [
           pkg-config cmake gcc protobuf go-protobuf protoc-gen-go protoc-gen-go-grpc
         ];
 
@@ -32,7 +32,7 @@
         };
 
         preBuild = ''
-          
+
           PROTO_SOURCE_DIR=$(find . -name "*.proto" -printf "%h" -quit)
           mkdir -p pkg/grpc/proto
           ${pkgs.protobuf}/bin/protoc \
@@ -43,11 +43,11 @@
             $PROTO_SOURCE_DIR/*.proto
 
           go mod edit -replace github.com/mudler/LocalAI/pkg/grpc/proto=./pkg/grpc/proto
-          
+
           mkdir -p core/config/gen_inference_defaults
           cp ${inference-defaults} core/config/gen_inference_defaults/inference_defaults.json
           sed -i '/go:generate/d' core/config/inference_defaults.go || true
-        
+
 	'';
 
         subPackages = [ "cmd/local-ai" ];
@@ -65,10 +65,42 @@
           gnumake
           pkg-config
           cmake
+          ccache
           protobuf
           go-protobuf
           protoc-gen-go
           protoc-gen-go-grpc
+
+          # C++ gRPC + protobuf for the vendored llama.cpp backend
+          # (backend/cpp/llama-cpp `make grpc-server`). The CMake build does
+          # find_package(gRPC)/find_package(Protobuf); without grpc here the
+          # shell exposes protobuf alone and the build fails to locate gRPC
+          # (or links a stale, version-skewed grpc from the store). nixpkgs
+          # builds `grpc` against this same `protobuf`, so the pair is
+          # self-consistent. Docker (backend/Dockerfile.base-grpc-builder)
+          # compiles gRPC v1.65.0 / protoc v27.1 from source; nixpkgs here is
+          # newer (grpc 1.80 / protobuf 34) but wire- and ABI-consistent
+          # within the backend. Pin protobuf_27 + a grpc override if exact
+          # Docker version parity is ever required.
+          grpc
+
+          # Vulkan toolchain for the GGML Vulkan backends (e.g.
+          # backend/cpp/privacy-filter BUILD_TYPE=vulkan, llama-cpp,
+          # stablediffusion-ggml). ggml's find_package(Vulkan) needs the
+          # headers + loader and shells out to glslc (from shaderc) to compile
+          # shaders. Docker images install the LunarG SDK 1.4.335.0 instead
+          # (backend/Dockerfile.{golang,python}); nixpkgs is newer but the
+          # SPIR-V output is portable.
+          vulkan-headers
+          vulkan-loader
+          vulkan-tools  # vulkaninfo, to sanity-check the ICD/driver
+          shaderc       # glslc
+          # ggml-vulkan #include <spirv/unified1/spirv.hpp>. nixpkgs splits the
+          # header into its own output whose include dir the SPIRV-Headers CMake
+          # target doesn't propagate, so a local vulkan build also needs
+          # -DCMAKE_CXX_FLAGS=-I${pkgs.spirv-headers}/include. (The Docker SDK
+          # install lands these in /usr/include, so it isn't needed there.)
+          spirv-headers
 
           # React UI build (core/http/react-ui — `make react-ui`)
           nodejs

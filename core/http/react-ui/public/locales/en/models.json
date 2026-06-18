@@ -30,6 +30,7 @@
     "rerank": "Rerank",
     "detection": "Detection",
     "vad": "VAD",
+    "ner": "NER",
     "fitsGpu": "Fits in GPU",
     "allBackends": "All Backends",
     "searchBackends": "Search backends..."

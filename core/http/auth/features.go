@@ -123,6 +123,10 @@ var RouteFeatureRegistry = []RouteFeature{
 	{"GET", "/api/fine-tuning/jobs/:id/download", FeatureFineTuning},
 	{"POST", "/api/fine-tuning/datasets", FeatureFineTuning},
 
+	// PII analyze/redact service (the events log stays admin-gated in-handler)
+	{"POST", "/api/pii/analyze", FeaturePIIFilter},
+	{"POST", "/api/pii/redact", FeaturePIIFilter},
+
 	// Quantization
 	{"POST", "/api/quantization/jobs", FeatureQuantization},
 	{"GET", "/api/quantization/jobs", FeatureQuantization},
@@ -181,5 +185,6 @@ func APIFeatureMetas() []FeatureMeta {
 		{FeatureFaceRecognition, "Face Recognition", true},
 		{FeatureVoiceRecognition, "Voice Recognition", true},
 		{FeatureAudioTransform, "Audio Transform", true},
+		{FeaturePIIFilter, "PII Analyze / Redact", true},
 	}
 }

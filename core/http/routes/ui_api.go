@@ -56,6 +56,7 @@ var usecaseFilters = map[string]config.ModelConfigUsecase{
 	config.UsecaseAudioTransform:  config.FLAG_AUDIO_TRANSFORM,
 	config.UsecaseDiarization:     config.FLAG_DIARIZATION,
 	config.UsecaseRealtimeAudio:   config.FLAG_REALTIME_AUDIO,
+	config.UsecaseTokenClassify:   config.FLAG_TOKEN_CLASSIFY,
 }
 
 // extractHFRepo tries to find a HuggingFace repo ID from model overrides or URLs.

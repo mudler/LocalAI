@@ -2670,6 +2670,78 @@ include:
     dockerfile: "./backend/Dockerfile.ds4"
     context: "./"
     ubuntu-version: '2404'
+  # privacy-filter: PII/NER token classifier (per-arch native -> manifest merge).
+  # Every variant builds FROM a prebuilt quay.io/go-skynet/ci-cache:base-grpc-*
+  # image (gRPC + cmake + protoc + conditional CUDA/Vulkan already installed),
+  # exactly like llama-cpp — no toolchain is installed in Dockerfile.privacy-filter.
+  # builder-base-image makes the workflow use the Dockerfile's builder-prebuilt
+  # stage; without it (local builds) the builder-fromsource stage runs the same
+  # .docker/install-base-deps.sh.
+  - build-type: ''
+    cuda-major-version: ""
+    cuda-minor-version: ""
+    platforms: 'linux/amd64'
+    platform-tag: 'amd64'
+    tag-latest: 'auto'
+    tag-suffix: '-cpu-privacy-filter'
+    builder-base-image: 'quay.io/go-skynet/ci-cache:base-grpc-amd64'
+    runs-on: 'ubuntu-latest'
+    base-image: "ubuntu:24.04"
+    skip-drivers: 'true'
+    backend: "privacy-filter"
+    dockerfile: "./backend/Dockerfile.privacy-filter"
+    context: "./"
+    ubuntu-version: '2404'
+  - build-type: ''
+    cuda-major-version: ""
+    cuda-minor-version: ""
+    platforms: 'linux/arm64'
+    platform-tag: 'arm64'
+    tag-latest: 'auto'
+    tag-suffix: '-cpu-privacy-filter'
+    builder-base-image: 'quay.io/go-skynet/ci-cache:base-grpc-arm64'
+    runs-on: 'ubuntu-24.04-arm'
+    base-image: "ubuntu:24.04"
+    skip-drivers: 'true'
+    backend: "privacy-filter"
+    dockerfile: "./backend/Dockerfile.privacy-filter"
+    context: "./"
+    ubuntu-version: '2404'
+  # Vulkan: base-grpc-vulkan-amd64 carries the SDK. arm64 vulkan is a one-line
+  # add once amd64 is proven in CI.
+  - build-type: 'vulkan'
+    cuda-major-version: ""
+    cuda-minor-version: ""
+    platforms: 'linux/amd64'
+    platform-tag: 'amd64'
+    tag-latest: 'auto'
+    tag-suffix: '-gpu-vulkan-privacy-filter'
+    builder-base-image: 'quay.io/go-skynet/ci-cache:base-grpc-vulkan-amd64'
+    runs-on: 'ubuntu-latest'
+    base-image: "ubuntu:24.04"
+    skip-drivers: 'false'
+    backend: "privacy-filter"
+    dockerfile: "./backend/Dockerfile.privacy-filter"
+    context: "./"
+    ubuntu-version: '2404'
+  # CUDA: base-grpc-cuda-13-amd64 carries the toolkit; BUILD_TYPE=cublas ->
+  # -DPF_CUDA=ON. cuda-12 and arm64/l4t are one-line adds once cuda-13 amd64 is
+  # proven in CI.
+  - build-type: 'cublas'
+    cuda-major-version: "13"
+    cuda-minor-version: "0"
+    platforms: 'linux/amd64'
+    platform-tag: 'amd64'
+    tag-latest: 'auto'
+    tag-suffix: '-gpu-nvidia-cuda-13-privacy-filter'
+    builder-base-image: 'quay.io/go-skynet/ci-cache:base-grpc-cuda-13-amd64'
+    runs-on: 'ubuntu-latest'
+    base-image: "ubuntu:24.04"
+    skip-drivers: 'true'
+    backend: "privacy-filter"
+    dockerfile: "./backend/Dockerfile.privacy-filter"
+    context: "./"
+    ubuntu-version: '2404'
   - build-type: ''
     cuda-major-version: ""
     cuda-minor-version: ""

@@ -8,26 +8,27 @@ import (
 // Usecase name constants — the canonical string values used in gallery entries,
 // model configs (known_usecases), and UsecaseInfoMap keys.
 const (
-	UsecaseChat            = "chat"
-	UsecaseCompletion      = "completion"
-	UsecaseEdit            = "edit"
-	UsecaseVision          = "vision"
-	UsecaseEmbeddings      = "embeddings"
-	UsecaseTokenize        = "tokenize"
-	UsecaseImage           = "image"
-	UsecaseVideo           = "video"
-	UsecaseTranscript      = "transcript"
-	UsecaseTTS             = "tts"
-	UsecaseSoundGeneration = "sound_generation"
-	UsecaseRerank          = "rerank"
-	UsecaseDetection       = "detection"
-	UsecaseDepth           = "depth"
-	UsecaseVAD             = "vad"
-	UsecaseAudioTransform      = "audio_transform"
-	UsecaseDiarization         = "diarization"
-	UsecaseRealtimeAudio       = "realtime_audio"
-	UsecaseFaceRecognition     = "face_recognition"
-	UsecaseSpeakerRecognition  = "speaker_recognition"
+	UsecaseChat               = "chat"
+	UsecaseCompletion         = "completion"
+	UsecaseEdit               = "edit"
+	UsecaseVision             = "vision"
+	UsecaseEmbeddings         = "embeddings"
+	UsecaseTokenize           = "tokenize"
+	UsecaseImage              = "image"
+	UsecaseVideo              = "video"
+	UsecaseTranscript         = "transcript"
+	UsecaseTTS                = "tts"
+	UsecaseSoundGeneration    = "sound_generation"
+	UsecaseRerank             = "rerank"
+	UsecaseDetection          = "detection"
+	UsecaseDepth              = "depth"
+	UsecaseVAD                = "vad"
+	UsecaseAudioTransform     = "audio_transform"
+	UsecaseDiarization        = "diarization"
+	UsecaseRealtimeAudio      = "realtime_audio"
+	UsecaseFaceRecognition    = "face_recognition"
+	UsecaseSpeakerRecognition = "speaker_recognition"
+	UsecaseTokenClassify      = "token_classify"
 )
 
 // GRPCMethod identifies a Backend service RPC from backend.proto.
@@ -56,6 +57,7 @@ const (
 	MethodVoiceVerify        GRPCMethod = "VoiceVerify"
 	MethodVoiceEmbed         GRPCMethod = "VoiceEmbed"
 	MethodVoiceAnalyze       GRPCMethod = "VoiceAnalyze"
+	MethodTokenClassify      GRPCMethod = "TokenClassify"
 )
 
 // UsecaseInfo describes a single known_usecase value and how it maps
@@ -178,6 +180,11 @@ var UsecaseInfoMap = map[string]UsecaseInfo{
 		GRPCMethod:  MethodVoiceVerify,
 		Description: "Speaker recognition — verify identity, embed and analyze voice via VoiceVerify, VoiceEmbed and VoiceAnalyze RPCs.",
 	},
+	UsecaseTokenClassify: {
+		Flag:        FLAG_TOKEN_CLASSIFY,
+		GRPCMethod:  MethodTokenClassify,
+		Description: "Per-token classification (NER) via the TokenClassify RPC — the PII detector tier. Declared explicitly via known_usecases; never auto-guessed, since the token-classification head is not useful as general generation or embeddings.",
+	},
 }
 
 // BackendCapability describes which gRPC methods and usecases a backend supports.
@@ -213,6 +220,17 @@ var BackendCapabilities = map[string]BackendCapability{
 		DefaultUsecases:  []string{UsecaseChat},
 		AcceptsImages:    true, // requires mmproj
 		Description:      "llama.cpp GGUF models — LLM inference with optional vision via mmproj",
+	},
+	// privacy-filter is the standalone GGML engine (backend/cpp/privacy-filter,
+	// wrapping privacy-filter.cpp) for the openai-privacy-filter PII/NER token
+	// classifier — the dedicated TokenClassify path that replaces the
+	// patched-llama.cpp route. Never auto-guessed; declared explicitly via
+	// known_usecases: [token_classify].
+	"privacy-filter": {
+		GRPCMethods:      []GRPCMethod{MethodTokenClassify},
+		PossibleUsecases: []string{UsecaseTokenClassify},
+		DefaultUsecases:  []string{UsecaseTokenClassify},
+		Description:      "privacy-filter.cpp — standalone GGML backend for openai-privacy-filter PII/NER token classification",
 	},
 	"vllm": {
 		GRPCMethods:      []GRPCMethod{MethodPredict, MethodPredictStream, MethodEmbedding},

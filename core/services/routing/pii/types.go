@@ -62,10 +62,12 @@ const (
 // substring slicing; call sites that need to log it strip it via
 // HashPrefix.
 type Span struct {
-	Start     int
-	End       int
-	Pattern   string // matches Pattern.ID
-	HashPrefix string // first 8 chars of sha256(matched value); audit-safe
+	Start      int
+	End        int
+	Pattern    string  // synthetic detector id, "<source>:<GROUP>" (e.g. "ner:EMAIL", "pattern:ANTHROPIC_KEY")
+	HashPrefix string  // first 8 chars of sha256(matched value); audit-safe
+	Action     Action  // the action that fired for this span (after merge)
+	Score      float32 // detector confidence for the (winning) hit, 0..1
 }
 
 // Result is what Redact returns. Redacted is the input string after
@@ -86,30 +88,6 @@ type Result struct {
 	Spans    []Span
 	Blocked  bool
 	Masked   bool
-}
-
-// Pattern is one configurable rule. Description is shown in the admin
-// UI alongside the pattern; the regex itself stays an implementation
-// detail (a leak-prone admin showing an SSN regex with a sample value
-// in the field is a risk we deliberately design around).
-type Pattern struct {
-	ID          string
-	Description string
-	Action      Action
-	// Disabled skips the pattern entirely when true — useful for
-	// admins who want to keep a regex around (visible in the UI) but
-	// turn it off without removing the YAML entry. Default-false so
-	// every existing pattern stays active without touching its config.
-	Disabled bool
-	// MaxMatchLength is the longest possible match in characters. The
-	// streaming filter (subsystem 3, follow-up commit) uses this to
-	// size its tail buffer. For regex patterns we compute it at
-	// compile time from the pattern's structure when possible, or set
-	// a conservative upper bound otherwise.
-	MaxMatchLength int
-
-	// internal — populated by Compile().
-	regex regexpMatcher
 }
 
 // EventKind classifies a stored audit event. The store is shared by the
@@ -135,6 +113,20 @@ const (
 	KindAdmission EventKind = "admission"
 )
 
+// Origin labels which surface produced a redaction event, so the events
+// log distinguishes an inline chat redaction from a MITM-proxy one and
+// from an explicit /api/pii/{analyze,redact} call. It is set on PII
+// redaction events only (Kind KindPII); connection/admission events leave
+// it empty. An empty Origin on an older row reads as "unknown".
+type Origin = string
+
+const (
+	OriginMiddleware Origin = "middleware"  // in-band chat/completions PII middleware
+	OriginProxy      Origin = "proxy"       // cloud-proxy MITM input path
+	OriginAnalyzeAPI Origin = "pii_analyze" // POST /api/pii/analyze
+	OriginRedactAPI  Origin = "pii_redact"  // POST /api/pii/redact
+)
+
 // PIIEvent is the persisted record. The Hash field is the first 8 chars
 // of sha256(matched value) — enough to deduplicate "is this the same
 // thing as last time" without ever storing the value itself.
@@ -146,6 +138,7 @@ const (
 type PIIEvent struct {
 	ID            string    `json:"id"`
 	Kind          EventKind `json:"kind,omitempty"`
+	Origin        Origin    `json:"origin,omitempty"`
 	CorrelationID string    `json:"correlation_id,omitempty"`
 	UserID        string    `json:"user_id,omitempty"`
 	Direction     Direction `json:"direction,omitempty"`
@@ -154,7 +147,11 @@ type PIIEvent struct {
 	Length        int       `json:"length,omitempty"`
 	HashPrefix    string    `json:"hash_prefix,omitempty"`
 	Action        Action    `json:"action,omitempty"`
-	CreatedAt     time.Time `json:"created_at"`
+	// Score is the detector confidence (0..1) for an NER PII hit. Metadata
+	// only — never the matched value. Lets admins see how sure the model was
+	// about a (possibly false-positive) detection without re-running it.
+	Score     float32   `json:"score,omitempty"`
+	CreatedAt time.Time `json:"created_at"`
 
 	Host          string `json:"host,omitempty"`
 	Intercepted   *bool  `json:"intercepted,omitempty"`

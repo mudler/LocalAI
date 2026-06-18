@@ -225,36 +225,31 @@ var _ = Describe("Cloud-proxy backend E2E", func() {
 	})
 
 	Context("Translate mode + PII filter", func() {
-		It("applies the streaming PII filter to translate-mode content", func() {
-			// Default PII config redacts email addresses. Split the
-			// email across two SSE deltas so the filter has to buffer
-			// the partial match — proves the streaming filter is wired
-			// up in translate mode, not just passthrough.
+		It("blocks request-side secrets before they reach the upstream", func() {
+			// Our NER/pattern PII tier is request-side by design: it scans
+			// inbound content, not upstream responses. cp-translate-openai
+			// wires the in-process pattern detector (e2e-secret-filter, block
+			// action), so a leaked secret in the user's message must trip the
+			// request-side filter and the request must be rejected before the
+			// cloud-proxy ever forwards it to the provider.
+			var upstreamHit bool
 			cpOpenAIUpstream.SetScript(func([]byte) (int, string, string) {
-				return emailLeakOpenAIStreamingScript()
+				upstreamHit = true
+				return 200, `{"id":"x","choices":[{"index":0,"message":{"role":"assistant","content":"ok"},"finish_reason":"stop"}],"usage":{"prompt_tokens":1,"completion_tokens":1,"total_tokens":2}}`, "application/json"
 			})
 
 			cp := openai.NewClient(option.WithBaseURL(apiURL))
-			stream := cp.Chat.Completions.NewStreaming(context.TODO(), openai.ChatCompletionNewParams{
+			_, err := cp.Chat.Completions.New(context.TODO(), openai.ChatCompletionNewParams{
 				Model: "cp-translate-openai",
 				Messages: []openai.ChatCompletionMessageParamUnion{
-					openai.UserMessage("share contact info"),
+					openai.UserMessage("my key is " + leakedAnthropicKey + " please keep it"),
 				},
 			})
-
-			var assembled strings.Builder
-			for stream.Next() {
-				for _, ch := range stream.Current().Choices {
-					assembled.WriteString(ch.Delta.Content)
-				}
-			}
-			Expect(stream.Err()).NotTo(HaveOccurred())
-			out := assembled.String()
-			// If PII is wired up, the email is redacted before reaching
-			// the client. If not, "alice@example.com" leaks through.
-			// This is the lock-in test for gap #3.
-			Expect(out).NotTo(ContainSubstring("alice@example.com"),
-				"email leaked through translate-mode stream — PII filter not applied")
+			// Lock-in: request-side PII fires in translate mode, the request is
+			// rejected by content policy, and the secret never leaves the box.
+			Expect(err).To(HaveOccurred(), "request carrying a leaked secret must be rejected")
+			Expect(err.Error()).To(ContainSubstring("pii_blocked"))
+			Expect(upstreamHit).To(BeFalse(), "blocked request must not reach the upstream provider")
 		})
 	})
 })
