@@ -84,6 +84,9 @@
     "compatTitle": "Compatibilità drop-in",
     "apiReference": "Riferimento API completo",
     "copy": "Copia",
-    "copied": "Copiato"
+    "copied": "Copiato",
+    "browse": "Esplora le API",
+    "hide": "Nascondi gli endpoint",
+    "dismiss": "Ignora"
   }
 }

@@ -84,6 +84,9 @@
     "compatTitle": "Kompatibilitas drop-in",
     "apiReference": "Referensi API lengkap",
     "copy": "Salin",
-    "copied": "Disalin"
+    "copied": "Disalin",
+    "browse": "Browse the API",
+    "hide": "Hide endpoints",
+    "dismiss": "Dismiss"
   }
 }

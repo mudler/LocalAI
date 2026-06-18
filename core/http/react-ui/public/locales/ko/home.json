@@ -84,6 +84,9 @@
     "compatTitle": "드롭인 호환성",
     "apiReference": "전체 API 레퍼런스",
     "copy": "복사",
-    "copied": "복사됨"
+    "copied": "복사됨",
+    "browse": "Browse the API",
+    "hide": "Hide endpoints",
+    "dismiss": "Dismiss"
   }
 }

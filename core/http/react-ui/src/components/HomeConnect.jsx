@@ -27,6 +27,14 @@ const COMPAT = [
 export default function HomeConnect() {
   const { t } = useTranslation('home')
   const [copied, setCopied] = useState(false)
+  // Endpoint catalog is collapsed by default so Home stays uncluttered; the
+  // base URL stays visible and the full list is one click away (discoverable).
+  const [showEndpoints, setShowEndpoints] = useState(false)
+  // Dismissable: hiding the card unmounts it entirely so the vertical space is
+  // recovered, and the choice is remembered across visits.
+  const [dismissed, setDismissed] = useState(() => {
+    try { return localStorage.getItem('localai_home_connect_dismissed') === '1' } catch { return false }
+  })
 
   // Absolute base for this instance, honouring any sub-path mount.
   const base = new URL(apiUrl('/'), window.location.origin).href.replace(/\/$/, '')
@@ -39,6 +47,13 @@ export default function HomeConnect() {
     } catch (_) { /* clipboard blocked — the URL is selectable anyway */ }
   }
 
+  const dismiss = () => {
+    try { localStorage.setItem('localai_home_connect_dismissed', '1') } catch { /* ignore */ }
+    setDismissed(true)
+  }
+
+  if (dismissed) return null
+
   return (
     <section className="home-connect card" aria-labelledby="home-connect-title">
       <div className="home-connect-head">
@@ -47,6 +62,9 @@ export default function HomeConnect() {
           <h2 id="home-connect-title" className="home-connect-title">{t('connect.title')}</h2>
           <p className="home-connect-sub">{t('connect.subtitle')}</p>
         </div>
+        <button type="button" className="home-connect-dismiss" onClick={dismiss} aria-label={t('connect.dismiss')} title={t('connect.dismiss')}>
+          <i className="fas fa-times" aria-hidden="true" />
+        </button>
       </div>
 
       <div className="home-connect-url">
@@ -57,6 +75,19 @@ export default function HomeConnect() {
         </button>
       </div>
 
+      <button
+        type="button"
+        className="home-connect-toggle"
+        aria-expanded={showEndpoints}
+        aria-controls="home-connect-endpoints"
+        onClick={() => setShowEndpoints(v => !v)}
+      >
+        <i className={`fas fa-chevron-${showEndpoints ? 'up' : 'down'}`} aria-hidden="true" />
+        <span>{showEndpoints ? t('connect.hide') : t('connect.browse')}</span>
+      </button>
+
+      {showEndpoints && (
+      <div id="home-connect-endpoints" className="home-connect-endpoints">
       <div className="home-connect-block">
         <div className="home-connect-block-head">
           <span className="home-connect-block-title">{t('connect.nativeTitle')}</span>
@@ -87,6 +118,8 @@ export default function HomeConnect() {
           ))}
         </ul>
       </div>
+      </div>
+      )}
     </section>
   )
 }

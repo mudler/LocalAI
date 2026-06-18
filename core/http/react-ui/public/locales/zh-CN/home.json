@@ -84,6 +84,9 @@
     "compatTitle": "即插即用兼容",
     "apiReference": "完整 API 参考",
     "copy": "复制",
-    "copied": "已复制"
+    "copied": "已复制",
+    "browse": "Browse the API",
+    "hide": "Hide endpoints",
+    "dismiss": "Dismiss"
   }
 }

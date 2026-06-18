@@ -5618,6 +5618,8 @@ select.input {
 .home-page {
   display: flex;
   flex-direction: column;
+  flex: 1;
+  justify-content: center;
   gap: var(--space-section);
   max-width: var(--page-max-medium);
   margin: 0 auto;
@@ -6121,6 +6123,39 @@ select.input {
   padding: 0;
 }
 .home-connect-url .btn { flex-shrink: 0; display: inline-flex; align-items: center; gap: 6px; }
+.home-connect-dismiss {
+  margin-left: auto;
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  background: none;
+  border: none;
+  border-radius: var(--radius-md);
+  color: var(--color-text-muted);
+  cursor: pointer;
+  transition: background var(--duration-fast) var(--ease-default), color var(--duration-fast) var(--ease-default);
+}
+.home-connect-dismiss:hover { background: var(--color-surface-hover); color: var(--color-text-primary); }
+.home-connect-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+  margin-top: var(--spacing-md);
+  padding: var(--spacing-xs) 0;
+  background: none;
+  border: none;
+  color: var(--color-primary);
+  font: inherit;
+  font-size: var(--text-sm);
+  font-weight: var(--font-weight-medium);
+  cursor: pointer;
+}
+.home-connect-toggle:hover { color: var(--color-primary-hover); }
+.home-connect-toggle i { font-size: 0.7em; }
+.home-connect-endpoints { margin-top: var(--spacing-sm); }
 .home-connect-block { margin-top: var(--spacing-md); }
 .home-connect-block-head {
   display: flex;
