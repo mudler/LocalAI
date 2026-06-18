@@ -352,9 +352,10 @@
   border-radius: var(--radius-lg);
 }
 .sidebar-nav .nav-item.active {
-  background: var(--color-primary-light);
-  color: var(--color-primary);
-  box-shadow: none;
+  background: var(--color-surface-hover);
+  color: var(--color-text-primary);
+  font-weight: var(--font-weight-medium);
+  box-shadow: inset 3px 0 0 var(--color-nav-rail);
 }
 .sidebar-nav .nav-item.active .nav-icon { color: var(--color-primary); }
 /* Align tier labels with the inset item text (item margin + icon padding). */
@@ -1624,6 +1625,13 @@
   border-radius: var(--radius-sm);
 }
 
+/* Solid outline fallback so the focus ring stays AA-visible (>=3:1) on every
+   interactive element, including those that clip or override box-shadow. */
+:focus-visible {
+  outline: 2px solid var(--color-focus-ring);
+  outline-offset: 2px;
+}
+
 .btn-primary {
   background: var(--color-primary);
   color: var(--color-primary-text);
@@ -2390,7 +2398,7 @@ select.input {
 }
 
 .table tr:hover td {
-  background: var(--color-primary-light);
+  background: var(--color-surface-hover);
 }
 
 /* Toggle switch */
