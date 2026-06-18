@@ -1118,12 +1118,24 @@
 }
 
 .page-title {
-  font-size: var(--text-2xl);
-  font-weight: var(--font-weight-semibold);
-  letter-spacing: -0.015em;
+  font-family: var(--font-serif);
+  font-size: clamp(1.5rem, 1.15rem + 1.4vw, var(--text-3xl));
+  font-weight: 480;
+  letter-spacing: -0.018em;
   line-height: var(--leading-tight);
   margin-bottom: var(--spacing-xs);
   color: var(--color-text-primary);
+}
+
+/* Mid hierarchy tier — between page title and the xs uppercase group labels */
+.section-heading {
+  font-family: var(--font-sans);
+  font-size: var(--text-lg);
+  font-weight: var(--font-weight-medium);
+  letter-spacing: -0.005em;
+  line-height: var(--leading-snug);
+  color: var(--color-text-primary);
+  margin: 0;
 }
 
 .page-subtitle {
