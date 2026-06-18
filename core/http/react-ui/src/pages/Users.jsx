@@ -797,6 +797,33 @@ export default function Users() {
     return (u.name || '').toLowerCase().includes(q) || (u.email || '').toLowerCase().includes(q)
   })
 
+  const [sort, setSort] = useState({ key: null, dir: 'asc' })
+  const USER_SORT = {
+    name: (a, b) => (a.name || '').localeCompare(b.name || ''),
+    email: (a, b) => (a.email || '').localeCompare(b.email || ''),
+    provider: (a, b) => (a.provider || '').localeCompare(b.provider || ''),
+    role: (a, b) => (a.role || '').localeCompare(b.role || ''),
+    status: (a, b) => (a.status || '').localeCompare(b.status || ''),
+    created: (a, b) => new Date(a.createdAt || 0) - new Date(b.createdAt || 0),
+  }
+  const sortedUsers = sort.key
+    ? [...filtered].sort((a, b) => sort.dir === 'asc' ? USER_SORT[sort.key](a, b) : USER_SORT[sort.key](b, a))
+    : filtered
+  const toggleSort = (key) => setSort(s => s.key === key ? { key, dir: s.dir === 'asc' ? 'desc' : 'asc' } : { key, dir: 'asc' })
+  const sortableTh = (key, label, className) => (
+    <th
+      className={className}
+      role="button"
+      tabIndex={0}
+      aria-sort={sort.key === key ? (sort.dir === 'asc' ? 'ascending' : 'descending') : 'none'}
+      onClick={() => toggleSort(key)}
+      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleSort(key) } }}
+      style={{ cursor: 'pointer', userSelect: 'none' }}
+    >
+      {label}{sort.key === key && <i className={`fas fa-caret-${sort.dir === 'asc' ? 'up' : 'down'}`} style={{ marginLeft: 4, opacity: 0.7 }} aria-hidden="true" />}
+    </th>
+  )
+
   const handlePermissionSave = (userId, newPerms, newModels, newQuotas) => {
     setUsers(prev => prev.map(u => u.id === userId ? { ...u, permissions: newPerms, allowed_models: newModels, quotas: newQuotas } : u))
   }
@@ -858,18 +885,18 @@ export default function Users() {
               <table className="table">
                 <thead>
                   <tr>
-                    <th>User</th>
-                    <th>Email</th>
-                    <th>Provider</th>
-                    <th>Role</th>
+                    {sortableTh('name', 'User')}
+                    {sortableTh('email', 'Email')}
+                    {sortableTh('provider', 'Provider')}
+                    {sortableTh('role', 'Role')}
                     <th>Permissions</th>
-                    <th>Status</th>
-                    <th>Created</th>
+                    {sortableTh('status', 'Status')}
+                    {sortableTh('created', 'Created')}
                     <th className="cell-actions">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {filtered.map(u => (
+                  {sortedUsers.map(u => (
                     <tr key={u.id}>
                       <td>
                         <div className="user-identity">
