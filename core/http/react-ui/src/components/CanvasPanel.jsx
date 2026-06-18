@@ -1,28 +1,63 @@
 import { useState, useEffect, useRef } from 'react'
 import { renderMarkdown } from '../utils/markdown'
-import { getArtifactIcon } from '../utils/artifacts'
+import { getArtifactIcon, extensionForLanguage } from '../utils/artifacts'
 import { safeHref } from '../utils/url'
 import { copyToClipboard } from '../utils/clipboard'
 import DOMPurify from 'dompurify'
 import hljs from '../utils/hljs'
 
+const WIDTH_KEY = 'localai_canvas_width'
+const MIME_BY_EXT = { html: 'text/html', svg: 'image/svg+xml', json: 'application/json', css: 'text/css' }
+
 export default function CanvasPanel({ artifacts, selectedId, onSelect, onClose }) {
   const [showPreview, setShowPreview] = useState(true)
   const [copySuccess, setCopySuccess] = useState(false)
+  // Persisted drag-to-resize width (px). null = use the CSS default (45%).
+  const [width, setWidth] = useState(() => {
+    try { const v = localStorage.getItem(WIDTH_KEY); return v ? Number(v) : null } catch { return null }
+  })
   const codeRef = useRef(null)
+  const panelRef = useRef(null)
 
   const current = artifacts.find(a => a.id === selectedId) || artifacts[0]
-  if (!current) return null
+  const hasPreview = !!current && current.type === 'code' && ['html', 'svg', 'md', 'markdown'].includes(current.language)
 
-  const hasPreview = current.type === 'code' && ['html', 'svg', 'md', 'markdown'].includes(current.language)
-
+  // All hooks must run unconditionally (no early return above them).
   useEffect(() => {
-    if (codeRef.current && !showPreview && current.type === 'code') {
+    if (codeRef.current && !showPreview && current?.type === 'code') {
       codeRef.current.querySelectorAll('pre code').forEach(block => {
         hljs.highlightElement(block)
       })
     }
   }, [current, showPreview])
+
+  // Drag the left edge to resize; clamp to a sane range; persist on release.
+  const startResize = (e) => {
+    e.preventDefault()
+    const startX = e.clientX
+    const startW = panelRef.current?.offsetWidth || 0
+    const maxW = Math.round(window.innerWidth * 0.75)
+    const onMove = (ev) => {
+      const next = Math.min(Math.max(startW + (startX - ev.clientX), 360), maxW)
+      setWidth(next)
+    }
+    const onUp = () => {
+      window.removeEventListener('mousemove', onMove)
+      window.removeEventListener('mouseup', onUp)
+      document.body.style.userSelect = ''
+      try { localStorage.setItem(WIDTH_KEY, String(panelRef.current?.offsetWidth || '')) } catch { /* ignore */ }
+    }
+    document.body.style.userSelect = 'none'
+    window.addEventListener('mousemove', onMove)
+    window.addEventListener('mouseup', onUp)
+  }
+
+  const resetWidth = () => {
+    setWidth(null)
+    try { localStorage.removeItem(WIDTH_KEY) } catch { /* ignore */ }
+  }
+
+  if (!current) return null
 
   const handleCopy = async () => {
     const text = current.code || current.url || ''
@@ -35,11 +70,15 @@ export default function CanvasPanel({ artifacts, selectedId, onSelect, onClose }
 
   const handleDownload = () => {
     if (current.type === 'code') {
-      const blob = new Blob([current.code], { type: 'text/plain' })
+      const ext = extensionForLanguage(current.language)
+      const blob = new Blob([current.code], { type: MIME_BY_EXT[ext] || 'text/plain' })
       const url = URL.createObjectURL(blob)
       const a = document.createElement('a')
       a.href = url
-      a.download = current.title || 'download.txt'
+      // Keep a title that already has an extension; otherwise slugify + add ext.
+      a.download = current.title && /\.[a-z0-9]+$/i.test(current.title)
+        ? current.title
+        : `${(current.title || 'artifact').replace(/[^\w.-]+/g, '-').replace(/^-+|-+$/g, '') || 'artifact'}.${ext}`
       a.click()
       URL.revokeObjectURL(url)
     } else if (current.url) {
@@ -110,7 +149,16 @@ export default function CanvasPanel({ artifacts, selectedId, onSelect, onClose }
   }
 
   return (
-    <div className="canvas-panel">
+    <div className="canvas-panel" ref={panelRef} style={width ? { width: `${width}px`, maxWidth: 'none' } : undefined}>
+      <div
+        className="canvas-resize-handle"
+        onMouseDown={startResize}
+        onDoubleClick={resetWidth}
+        role="separator"
+        aria-orientation="vertical"
+        aria-label="Resize canvas (double-click to reset)"
+        title="Drag to resize, double-click to reset"
+      />
       <div className="canvas-panel-header">
         <span className="canvas-panel-title">{current.title || 'Artifact'}</span>
         <button className="btn btn-secondary btn-sm" onClick={onClose} title="Close canvas">

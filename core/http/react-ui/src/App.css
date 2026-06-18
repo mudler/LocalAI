@@ -5219,14 +5219,41 @@ select.input {
 
 /* Canvas panel */
 .canvas-panel {
+  position: relative;
   width: 45%;
   max-width: 720px;
-  flex-shrink: 1;
+  flex-shrink: 0;
   border-left: 1px solid var(--color-border-subtle);
   display: flex;
   flex-direction: column;
   background: var(--color-bg-primary);
   overflow: hidden;
+  animation: canvasSlideIn var(--duration-reveal) var(--ease-reveal) both;
+}
+@keyframes canvasSlideIn {
+  from { opacity: 0; transform: translateX(24px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+/* Drag-to-resize handle on the panel's left edge. */
+.canvas-resize-handle {
+  position: absolute;
+  top: 0;
+  left: -3px;
+  width: 7px;
+  height: 100%;
+  cursor: col-resize;
+  z-index: 2;
+  background: transparent;
+  transition: background var(--duration-fast) var(--ease-default);
+}
+.canvas-resize-handle:hover,
+.canvas-resize-handle:active {
+  background: var(--color-primary-light);
+}
+/* On narrow screens the canvas takes the full width; no edge-drag resize. */
+@media (max-width: 1024px) {
+  .canvas-resize-handle { display: none; }
+  .canvas-panel { width: 100% !important; max-width: none !important; }
 }
 .canvas-panel-header {
   display: flex;
