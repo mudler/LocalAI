@@ -3185,6 +3185,49 @@ select.input {
   font-size: 0.8125rem;
 }
 
+/* Code block with a header (language + copy), injected by enhanceCodeBlocks. */
+.code-block {
+  margin: var(--spacing-sm) 0;
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  background: var(--color-bg-primary);
+}
+.code-block__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 2px var(--spacing-sm);
+  background: var(--color-surface-sunken);
+  border-bottom: 1px solid var(--color-border-subtle);
+}
+.code-block__lang {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--color-text-muted);
+}
+.code-block .code-copy-btn {
+  background: none;
+  border: none;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  padding: 4px 6px;
+  border-radius: var(--radius-sm);
+  font-size: var(--text-sm);
+  transition: color var(--duration-fast) var(--ease-default),
+              background var(--duration-fast) var(--ease-default);
+}
+.code-block .code-copy-btn:hover { color: var(--color-text-primary); background: var(--color-bg-hover); }
+.code-block .code-copy-btn--ok { color: var(--color-success); }
+/* Inner pre sits flush inside the framed block. */
+.code-block pre {
+  margin: 0 !important;
+  border: none !important;
+  border-radius: 0 !important;
+}
+
 .chat-message-user .chat-message-content pre {
   background: var(--color-surface-sunken);
   border-color: var(--color-border-subtle);

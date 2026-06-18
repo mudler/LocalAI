@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next'
 import { fromState } from '../utils/editorNav'
 import { useChat } from '../hooks/useChat'
 import ModelSelector from '../components/ModelSelector'
-import { renderMarkdown, highlightAll } from '../utils/markdown'
+import { renderMarkdown, highlightAll, enhanceCodeBlocks } from '../utils/markdown'
 import { extractCodeArtifacts, renderMarkdownWithArtifacts } from '../utils/artifacts'
 import CanvasPanel from '../components/CanvasPanel'
 import Toggle from '../components/Toggle'
@@ -658,12 +658,25 @@ export default function Chat() {
     return () => window.removeEventListener('keydown', onKey)
   }, [focusActive])
 
-  // Highlight code blocks
+  // Highlight code blocks + add per-block copy buttons. A MutationObserver on
+  // the messages container is more reliable than render-keyed effects: it fires
+  // for loaded/switched chats AND for streaming token updates, regardless of
+  // render timing. The observer is disconnected while we mutate so our own
+  // highlight/enhance edits don't retrigger it.
   useEffect(() => {
-    if (messagesRef.current) {
-      highlightAll(messagesRef.current)
+    const el = messagesRef.current
+    if (!el) return
+    let obs
+    const run = () => {
+      obs?.disconnect()
+      highlightAll(el)
+      enhanceCodeBlocks(el)
+      obs?.observe(el, { childList: true, subtree: true })
     }
-  }, [activeChat?.history, streamingContent])
+    obs = new MutationObserver(run)
+    run()
+    return () => obs.disconnect()
+  }, [activeChat?.id])
 
   // Auto-grow textarea
   const autoGrowTextarea = useCallback(() => {
