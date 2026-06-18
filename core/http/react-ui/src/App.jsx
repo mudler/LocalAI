@@ -75,6 +75,14 @@ export default function App() {
     }
   }, [sidebarOpen])
 
+  // Reset scroll to the top on every route change. The default (non-chat)
+  // layout uses the document as its scroll container, so without this a new
+  // page opens at the previous page's scroll position - navigating the console
+  // rail from a scrolled page would land mid-view instead of at the top.
+  useEffect(() => {
+    window.scrollTo(0, 0)
+  }, [location.pathname])
+
   const layoutClasses = [
     'app-layout',
     isChatRoute ? 'app-layout-chat' : '',
