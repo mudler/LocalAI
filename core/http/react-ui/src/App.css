@@ -2431,9 +2431,11 @@ select.input {
    instead of a sideways scroll. Labels come from data-label (mirrored from the
    <thead> by the ResponsiveTable component). */
 @media (max-width: 640px) {
-  .table--responsive { border: none; }
-  .table--responsive thead { display: none; }
-  .table--responsive tbody tr {
+  /* Direct-child selectors only: a nested table inside a cell renders normally.
+     min-width override defeats any inline min-width set for the desktop layout. */
+  .table--responsive { border: none; min-width: 0 !important; }
+  .table--responsive > thead { display: none; }
+  .table--responsive > tbody > tr {
     display: block;
     border: 1px solid var(--color-border-subtle);
     border-radius: var(--radius-md);
@@ -2441,7 +2443,7 @@ select.input {
     margin: var(--spacing-sm);
     padding: var(--spacing-xs) var(--spacing-sm);
   }
-  .table--responsive tbody td {
+  .table--responsive > tbody > tr > td {
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -2450,7 +2452,7 @@ select.input {
     padding: var(--spacing-xs) 0;
     text-align: right;
   }
-  .table--responsive tbody td[data-label]::before {
+  .table--responsive > tbody > tr > td[data-label]::before {
     content: attr(data-label);
     font-weight: var(--font-weight-semibold);
     color: var(--color-text-muted);

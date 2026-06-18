@@ -12,6 +12,7 @@ import PageHeader from '../components/PageHeader'
 import ConfirmDialog from '../components/ConfirmDialog'
 import GalleryLoader from '../components/GalleryLoader'
 import Toggle from '../components/Toggle'
+import ResponsiveTable from '../components/ResponsiveTable'
 import React from 'react'
 
 
@@ -389,9 +390,7 @@ export default function Models() {
           )}
         </div>
       ) : (
-        <div className="table-container" style={{ background: 'var(--color-bg-secondary)', borderRadius: 'var(--radius-lg)', overflow: 'hidden' }}>
-          <div style={{ overflowX: 'auto' }}>
-            <table className="table" style={{ minWidth: '800px' }}>
+        <ResponsiveTable containerStyle={{ background: 'var(--color-bg-secondary)', borderRadius: 'var(--radius-lg)', overflow: 'hidden' }} style={{ minWidth: '800px' }}>
               <thead>
                 <tr>
                   <th style={{ width: '30px' }}></th>
@@ -575,9 +574,7 @@ export default function Models() {
                   )
                 })}
               </tbody>
-            </table>
-          </div>
-        </div>
+        </ResponsiveTable>
       )}
 
       {/* Pagination */}

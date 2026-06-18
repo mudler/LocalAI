@@ -9,6 +9,7 @@ import ActionMenu from '../components/ActionMenu'
 import SearchableModelSelect from '../components/SearchableModelSelect'
 import ImageSelector, { useImageSelector, dockerImage, dockerFlags } from '../components/ImageSelector'
 import StatCard from '../components/StatCard'
+import ResponsiveTable from '../components/ResponsiveTable'
 
 function timeAgo(dateString) {
   if (!dateString) return 'never'
@@ -1086,8 +1087,7 @@ export default function Nodes() {
 
       {/* Node table */}
       {filteredNodes.length > 0 && (
-        <div className="table-container">
-          <table className="table">
+        <ResponsiveTable>
             <thead>
               <tr>
                 <th>Name</th>
@@ -1533,8 +1533,7 @@ export default function Nodes() {
                 )
               })}
             </tbody>
-          </table>
-        </div>
+        </ResponsiveTable>
       )}
       </>}
 
@@ -1560,8 +1559,7 @@ export default function Nodes() {
               No scheduling rules configured. Add a rule to control how models are placed on nodes.
             </p>
           ) : schedulingConfigs.length > 0 && (
-            <div className="table-container">
-              <table className="table">
+            <ResponsiveTable>
                 <thead><tr>
                   <th>Model</th>
                   <th>Mode</th>
@@ -1667,8 +1665,7 @@ export default function Nodes() {
                     )
                   })}
                 </tbody>
-              </table>
-            </div>
+            </ResponsiveTable>
           )}
         </div>
       )}

@@ -5,6 +5,7 @@ import { tracesApi, settingsApi } from '../utils/api'
 import { formatTimestamp } from '../utils/format'
 import LoadingSpinner from '../components/LoadingSpinner'
 import PageHeader from '../components/PageHeader'
+import ResponsiveTable from '../components/ResponsiveTable'
 import Toggle from '../components/Toggle'
 import SettingRow from '../components/SettingRow'
 import WaveformPlayer from '../components/audio/WaveformPlayer'
@@ -572,8 +573,7 @@ export default function Traces() {
           </p>
         </div>
       ) : activeTab === 'api' ? (
-        <div className="table-container">
-          <table className="table">
+        <ResponsiveTable>
             <thead>
               <tr>
                 <th style={{ width: '30px' }}></th>
@@ -607,11 +607,9 @@ export default function Traces() {
                 </React.Fragment>
               ))}
             </tbody>
-          </table>
-        </div>
+        </ResponsiveTable>
       ) : (
-        <div className="table-container">
-          <table className="table">
+        <ResponsiveTable>
             <thead>
               <tr>
                 <th style={{ width: '30px' }}></th>
@@ -651,8 +649,7 @@ export default function Traces() {
                 </React.Fragment>
               ))}
             </tbody>
-          </table>
-        </div>
+        </ResponsiveTable>
       )}
     </div>
   )
