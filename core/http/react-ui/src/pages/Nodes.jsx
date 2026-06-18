@@ -3,6 +3,7 @@ import { useOutletContext, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { nodesApi } from '../utils/api'
 import LoadingSpinner from '../components/LoadingSpinner'
+import PageHeader from '../components/PageHeader'
 import ConfirmDialog from '../components/ConfirmDialog'
 import ActionMenu from '../components/ActionMenu'
 import SearchableModelSelect from '../components/SearchableModelSelect'
@@ -995,15 +996,15 @@ export default function Nodes() {
 
   return (
     <div className="page page--wide">
-      <div className="page-header">
-        <h1 className="page-title">
-          <i className="fas fa-network-wired" style={{ marginRight: 'var(--spacing-sm)' }} />
-          {t('nodes.title')}
-        </h1>
-        <p className="page-subtitle">
-          {t('nodes.subtitle')}
-        </p>
-      </div>
+      <PageHeader
+        title={
+          <>
+            <i className="fas fa-network-wired" style={{ marginRight: 'var(--spacing-sm)' }} />
+            {t('nodes.title')}
+          </>
+        }
+        supporting={t('nodes.subtitle')}
+      />
 
       {/* Tabs */}
       <div className="tabs" style={{ marginBottom: 'var(--spacing-lg)' }}>

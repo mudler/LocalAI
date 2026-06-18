@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next'
 import { useAuth } from '../context/AuthContext'
 import { adminUsersApi, adminInvitesApi } from '../utils/api'
 import LoadingSpinner from '../components/LoadingSpinner'
+import PageHeader from '../components/PageHeader'
 import Modal from '../components/Modal'
 import ConfirmDialog from '../components/ConfirmDialog'
 import Toggle from '../components/Toggle'
@@ -804,10 +805,7 @@ export default function Users() {
 
   return (
     <div className="page page--wide">
-      <div className="page-header">
-        <h1 className="page-title">{t('users.title')}</h1>
-        <p className="page-subtitle">{t('users.subtitle')}</p>
-      </div>
+      <PageHeader title={t('users.title')} supporting={t('users.subtitle')} />
 
       {/* Tab bar */}
       <div className="auth-tab-bar">

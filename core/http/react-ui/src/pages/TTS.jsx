@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useParams, useOutletContext } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import ModelSelector from '../components/ModelSelector'
+import PageHeader from '../components/PageHeader'
 import { CAP_TTS } from '../utils/capabilities'
 import LoadingSpinner from '../components/LoadingSpinner'
 import ErrorWithTraceLink from '../components/ErrorWithTraceLink'
@@ -49,9 +50,7 @@ export default function TTS() {
   return (
     <div className="media-layout">
       <div className="media-controls">
-        <div className="page-header">
-          <h1 className="page-title"><i className="fas fa-headphones" /> {t('tts.title')}</h1>
-        </div>
+        <PageHeader title={<><i className="fas fa-headphones" /> {t('tts.title')}</>} />
 
         <form onSubmit={handleGenerate}>
           <div className="form-group">

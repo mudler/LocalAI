@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useParams, useOutletContext } from 'react-router-dom'
 import ModelSelector from '../components/ModelSelector'
+import PageHeader from '../components/PageHeader'
 import { CAP_SOUND_GENERATION } from '../utils/capabilities'
 import LoadingSpinner from '../components/LoadingSpinner'
 import ErrorWithTraceLink from '../components/ErrorWithTraceLink'
@@ -77,9 +78,7 @@ export default function Sound() {
   return (
     <div className="media-layout">
       <div className="media-controls">
-        <div className="page-header">
-          <h1 className="page-title"><i className="fas fa-music" /> Sound Generation</h1>
-        </div>
+        <PageHeader title={<><i className="fas fa-music" /> Sound Generation</>} />
 
         <form onSubmit={handleGenerate}>
           <div className="form-group">

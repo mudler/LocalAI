@@ -5,6 +5,7 @@ import { fromState } from '../utils/editorNav'
 import { settingsApi, modelsApi } from '../utils/api'
 import LoadingSpinner from '../components/LoadingSpinner'
 import Toggle from '../components/Toggle'
+import PageHeader from '../components/PageHeader'
 
 // Middleware admin page. Three tabs:
 //   - Filtering: per-model resolved PII state + per-model detector list
@@ -129,12 +130,10 @@ export default function Middleware() {
 
   return (
     <div className="page page--wide">
-      <div className="page-header" style={{ marginBottom: 'var(--spacing-sm)' }}>
-        <h1 className="page-title">Middleware</h1>
-        <p className="page-subtitle">
-          Inspect and configure routing-module middleware: PII filtering and intelligent routing.
-        </p>
-      </div>
+      <PageHeader
+        title="Middleware"
+        supporting="Inspect and configure routing-module middleware: PII filtering and intelligent routing."
+      />
 
       {/* Tab bar */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-xs)', marginBottom: 'var(--spacing-md)', flexWrap: 'wrap' }}>
