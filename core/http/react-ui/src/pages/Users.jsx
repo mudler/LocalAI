@@ -5,6 +5,7 @@ import { useAuth } from '../context/AuthContext'
 import { adminUsersApi, adminInvitesApi } from '../utils/api'
 import LoadingSpinner from '../components/LoadingSpinner'
 import PageHeader from '../components/PageHeader'
+import ResponsiveTable from '../components/ResponsiveTable'
 import Modal from '../components/Modal'
 import ConfirmDialog from '../components/ConfirmDialog'
 import Toggle from '../components/Toggle'
@@ -570,8 +571,7 @@ function InvitesTab({ addToast }) {
           <p className="empty-state-text">Generate an invite link to let someone register.</p>
         </div>
       ) : (
-        <div className="table-container">
-          <table className="table">
+        <ResponsiveTable>
             <thead>
               <tr>
                 <th>Invite Link</th>
@@ -638,8 +638,7 @@ function InvitesTab({ addToast }) {
                 </tr>
               ))}
             </tbody>
-          </table>
-        </div>
+        </ResponsiveTable>
       )}
       <ConfirmDialog
         open={!!confirmDialog}
@@ -881,8 +880,7 @@ export default function Users() {
               <p className="empty-state-text">{search ? 'Try a different search term.' : 'No registered users found.'}</p>
             </div>
           ) : (
-            <div className="table-container">
-              <table className="table">
+            <ResponsiveTable>
                 <thead>
                   <tr>
                     {sortableTh('name', 'User')}
@@ -970,8 +968,7 @@ export default function Users() {
                     </tr>
                   ))}
                 </tbody>
-              </table>
-            </div>
+            </ResponsiveTable>
           )}
         </>
       )}
