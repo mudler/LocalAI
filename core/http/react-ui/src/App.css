@@ -3090,6 +3090,28 @@ select.input {
 }
 .chat-messages::-webkit-scrollbar { width: 6px; }
 .chat-messages::-webkit-scrollbar-track { background: transparent; }
+
+/* Floating "jump to latest" pill, shown when scrolled away from the bottom. */
+.chat-jump-latest {
+  position: sticky;
+  bottom: 12px;
+  align-self: center;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+  padding: var(--spacing-xs) var(--spacing-md);
+  background: var(--color-surface-raised);
+  color: var(--color-text-primary);
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-full);
+  box-shadow: var(--shadow-md);
+  font-size: var(--text-sm);
+  font-weight: var(--font-weight-medium);
+  cursor: pointer;
+  z-index: 5;
+  animation: pageReveal var(--duration-fast) var(--ease-default) both;
+}
+.chat-jump-latest:hover { border-color: var(--color-primary-border); color: var(--color-primary); }
 .chat-messages::-webkit-scrollbar-thumb {
   background: var(--color-border-subtle);
   border-radius: 3px;

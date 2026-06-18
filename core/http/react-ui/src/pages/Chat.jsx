@@ -336,6 +336,7 @@ export default function Chat() {
   const messagesRef = useRef(null)
   const textareaRef = useRef(null)
   const stickToBottomRef = useRef(true)
+  const [scrolledUp, setScrolledUp] = useState(false)
   const chatsMenuRef = useRef(null)
 
   // Focus mode: once a conversation has at least one message we slim the
@@ -601,6 +602,7 @@ export default function Chat() {
     const onScroll = () => {
       const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight
       stickToBottomRef.current = distanceFromBottom < 80
+      setScrolledUp(distanceFromBottom > 160)
     }
     el.addEventListener('scroll', onScroll, { passive: true })
     return () => el.removeEventListener('scroll', onScroll)
@@ -616,6 +618,7 @@ export default function Chat() {
   // user's focus-mode override — each chat starts fresh.
   useEffect(() => {
     stickToBottomRef.current = true
+    setScrolledUp(false)
     messagesEndRef.current?.scrollIntoView({ behavior: 'auto' })
     setFocusOverride(false)
   }, [activeChat?.id])
@@ -1235,6 +1238,19 @@ export default function Chat() {
             </div>
           )}
           <div ref={messagesEndRef} />
+          {scrolledUp && (
+            <button
+              type="button"
+              className="chat-jump-latest"
+              onClick={() => {
+                stickToBottomRef.current = true
+                setScrolledUp(false)
+                messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+              }}
+            >
+              <i className="fas fa-arrow-down" aria-hidden="true" /> {t('actions.jumpToLatest')}
+            </button>
+          )}
         </div>
 
         {/* Token info bar */}

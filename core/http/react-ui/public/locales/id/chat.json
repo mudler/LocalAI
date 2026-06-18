@@ -71,7 +71,8 @@
   },
   "actions": {
     "copy": "Salin",
-    "regenerate": "Hasilkan ulang"
+    "regenerate": "Hasilkan ulang",
+    "jumpToLatest": "Jump to latest"
   },
   "streaming": {
     "transferring": "Mentransfer model...",
