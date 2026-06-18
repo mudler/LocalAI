@@ -1,12 +1,14 @@
 import { test, expect } from './coverage-fixtures.js'
 
 test.describe('Home editorial redesign', () => {
-  test('renders the serif greeting header', async ({ page }) => {
+  test('renders the editorial greeting header in the sans display font', async ({ page }) => {
     await page.goto('/app')
     const greeting = page.locator('.home-greeting')
     await expect(greeting).toBeVisible({ timeout: 15_000 })
     const family = await greeting.evaluate(el => getComputedStyle(el).fontFamily)
-    expect(family.toLowerCase()).toContain('fraunces')
+    // Refined-grotesk direction: the greeting uses Geist (no serif).
+    expect(family.toLowerCase()).toContain('geist')
+    expect(family.toLowerCase()).not.toContain('fraunces')
   })
 
   test('quick links expose a single primary action', async ({ page }) => {
