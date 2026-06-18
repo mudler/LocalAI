@@ -975,6 +975,26 @@
 .spinner-md .spinner-ring { width: 24px; height: 24px; }
 .spinner-lg .spinner-ring { width: 40px; height: 40px; }
 
+/* Skeleton shimmer placeholders */
+.skeleton {
+  display: block;
+  border-radius: var(--radius-sm);
+  background: linear-gradient(
+    100deg,
+    var(--color-surface-sunken) 30%,
+    var(--color-surface-hover) 50%,
+    var(--color-surface-sunken) 70%
+  );
+  background-size: 200% 100%;
+  animation: skeletonShimmer 1.4s ease-in-out infinite;
+}
+.skeleton--line { height: 0.85em; margin: 0.35em 0; width: 100%; }
+.skeleton--block { height: 100%; width: 100%; border-radius: var(--radius-md); }
+@keyframes skeletonShimmer {
+  from { background-position: 200% 0; }
+  to   { background-position: -200% 0; }
+}
+
 /* Model selector */
 .model-selector {
   background: var(--color-bg-tertiary);
