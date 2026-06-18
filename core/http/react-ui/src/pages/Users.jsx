@@ -4,8 +4,10 @@ import { useTranslation } from 'react-i18next'
 import { useAuth } from '../context/AuthContext'
 import { adminUsersApi, adminInvitesApi } from '../utils/api'
 import LoadingSpinner from '../components/LoadingSpinner'
+import PageHeader from '../components/PageHeader'
 import Modal from '../components/Modal'
 import ConfirmDialog from '../components/ConfirmDialog'
+import Toggle from '../components/Toggle'
 import './auth.css'
 
 function RoleBadge({ role }) {
@@ -289,14 +291,10 @@ function PermissionsModal({ user, featureMeta, availableModels, onClose, onSave,
           </div>
           <div style={{ marginBottom: 'var(--spacing-sm)' }}>
             <label className="perm-toggle-label">
-              <label className="toggle" style={{ flexShrink: 0 }}>
-                <input
-                  type="checkbox"
-                  checked={allowedModels.enabled}
-                  onChange={() => setAllowedModels(prev => ({ ...prev, enabled: !prev.enabled }))}
-                />
-                <span className="toggle-slider" />
-              </label>
+              <Toggle
+                checked={allowedModels.enabled}
+                onChange={next => setAllowedModels(prev => ({ ...prev, enabled: next }))}
+              />
               Restrict to specific models
             </label>
           </div>
@@ -807,10 +805,7 @@ export default function Users() {
 
   return (
     <div className="page page--wide">
-      <div className="page-header">
-        <h1 className="page-title">{t('users.title')}</h1>
-        <p className="page-subtitle">{t('users.subtitle')}</p>
-      </div>
+      <PageHeader title={t('users.title')} supporting={t('users.subtitle')} />
 
       {/* Tab bar */}
       <div className="auth-tab-bar">

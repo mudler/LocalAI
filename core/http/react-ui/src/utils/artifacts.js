@@ -100,6 +100,18 @@ function guessTitle(lang, index) {
   return index > 0 && extMap[lang] ? base.replace('.', `-${index}.`) : base
 }
 
+const LANG_EXT = {
+  html: 'html', javascript: 'js', js: 'js', typescript: 'ts', ts: 'ts',
+  jsx: 'jsx', tsx: 'tsx', python: 'py', py: 'py', css: 'css', svg: 'svg',
+  json: 'json', yaml: 'yaml', yml: 'yaml', go: 'go', rust: 'rs', java: 'java',
+  markdown: 'md', md: 'md', bash: 'sh', sh: 'sh', sql: 'sql',
+}
+
+// File extension for a code artifact's language, for download filenames.
+export function extensionForLanguage(lang) {
+  return LANG_EXT[(lang || '').toLowerCase()] || 'txt'
+}
+
 export function getArtifactIcon(type, language) {
   if (type === 'image') return 'fa-image'
   if (type === 'pdf') return 'fa-file-pdf'

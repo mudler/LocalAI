@@ -30,6 +30,7 @@
       "refImagesAdded_other": "已添加 {{count}} 张图像"
     },
     "actions": {
+      "view": "View",
       "generate": "生成",
       "generating": "生成中..."
     },

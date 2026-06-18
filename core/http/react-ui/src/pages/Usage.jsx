@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next'
 import { useAuth } from '../context/AuthContext'
 import { apiUrl } from '../utils/basePath'
 import LoadingSpinner from '../components/LoadingSpinner'
+import PageHeader from '../components/PageHeader'
 import SourcesTab from './Usage/SourcesTab'
 
 const PERIODS = [
@@ -707,10 +708,7 @@ export default function Usage() {
 
   return (
     <div className="page page--wide">
-      <div className="page-header" style={{ marginBottom: 'var(--spacing-sm)' }}>
-        <h1 className="page-title">{t('usage.title')}</h1>
-        <p className="page-subtitle">{t('usage.subtitle')}</p>
-      </div>
+      <PageHeader title={t('usage.title')} supporting={t('usage.subtitle')} />
 
       {/* Period selector + tabs */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-xs)', marginBottom: 'var(--spacing-md)', flexWrap: 'wrap' }}>

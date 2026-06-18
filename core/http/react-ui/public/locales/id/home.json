@@ -6,6 +6,19 @@
   },
   "resourceGpu": "GPU",
   "resourceRam": "RAM",
+  "greeting": {
+    "morning": "Good morning",
+    "afternoon": "Good afternoon",
+    "evening": "Good evening",
+    "night": "Working late"
+  },
+  "statusLine": {
+    "modelsLoaded_one": "{{count}} model loaded",
+    "modelsLoaded_other": "{{count}} models loaded",
+    "noModelsLoaded": "No models loaded",
+    "nodes_one": "{{count}} node",
+    "nodes_other": "{{count}} nodes"
+  },
   "assistant": {
     "title": "Kelola LocalAI melalui obrolan",
     "description": "Instal model, ganti backend, edit konfigurasi dan periksa status dengan berbicara pada LocalAI.",
@@ -30,6 +43,7 @@
     "documentation": "Dokumentasi"
   },
   "loadedModels": {
+    "heading": "Model aktif",
     "count_one": "{{count}} model dimuat",
     "count_other": "{{count}} model dimuat",
     "stop": "Hentikan model",
@@ -70,6 +84,9 @@
     "compatTitle": "Kompatibilitas drop-in",
     "apiReference": "Referensi API lengkap",
     "copy": "Salin",
-    "copied": "Disalin"
+    "copied": "Disalin",
+    "browse": "Browse the API",
+    "hide": "Hide endpoints",
+    "dismiss": "Dismiss"
   }
 }

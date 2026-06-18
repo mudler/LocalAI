@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { useParams, useOutletContext, useSearchParams } from 'react-router-dom'
 import { agentCollectionsApi } from '../utils/api'
 import ConfirmDialog from '../components/ConfirmDialog'
+import PageHeader from '../components/PageHeader'
 
 export default function CollectionDetails() {
   const { name } = useParams()
@@ -292,10 +293,7 @@ export default function CollectionDetails() {
         }
       `}</style>
 
-      <div className="page-header">
-        <h1 className="page-title">{name}</h1>
-        <p className="page-subtitle">Collection details and management</p>
-      </div>
+      <PageHeader title={name} supporting="Collection details and management" />
 
       <div className="tabs">
         <button className={`tab ${activeTab === 'entries' ? 'tab-active' : ''}`} onClick={() => setActiveTab('entries')}>

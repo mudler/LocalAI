@@ -6,6 +6,19 @@
   },
   "resourceGpu": "GPU",
   "resourceRam": "RAM",
+  "greeting": {
+    "morning": "Good morning",
+    "afternoon": "Good afternoon",
+    "evening": "Good evening",
+    "night": "Working late"
+  },
+  "statusLine": {
+    "modelsLoaded_one": "{{count}} model loaded",
+    "modelsLoaded_other": "{{count}} models loaded",
+    "noModelsLoaded": "No models loaded",
+    "nodes_one": "{{count}} node",
+    "nodes_other": "{{count}} nodes"
+  },
   "assistant": {
     "title": "LocalAI per Chat verwalten",
     "description": "Modelle installieren, Backends wechseln, Konfigurationen bearbeiten und Status prüfen — durch Gespräche mit LocalAI.",
@@ -30,6 +43,7 @@
     "documentation": "Dokumentation"
   },
   "loadedModels": {
+    "heading": "Aktive Modelle",
     "count_one": "{{count}} Modell geladen",
     "count_other": "{{count}} Modelle geladen",
     "stop": "Modell stoppen",
@@ -70,6 +84,9 @@
     "compatTitle": "Drop-in-Kompatibilität",
     "apiReference": "Vollständige API-Referenz",
     "copy": "Kopieren",
-    "copied": "Kopiert"
+    "copied": "Kopiert",
+    "browse": "Browse the API",
+    "hide": "Hide endpoints",
+    "dismiss": "Dismiss"
   }
 }

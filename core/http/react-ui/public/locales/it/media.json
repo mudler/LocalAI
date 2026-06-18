@@ -30,6 +30,7 @@
       "refImagesAdded_other": "{{count}} immagini aggiunte"
     },
     "actions": {
+      "view": "Visualizza",
       "generate": "Genera",
       "generating": "Generazione..."
     },

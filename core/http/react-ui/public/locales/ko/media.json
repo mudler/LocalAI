@@ -30,6 +30,7 @@
       "refImagesAdded_other": "이미지 {{count}}개 추가됨"
     },
     "actions": {
+      "view": "View",
       "generate": "생성",
       "generating": "생성 중..."
     },

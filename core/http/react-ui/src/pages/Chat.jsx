@@ -4,9 +4,10 @@ import { useTranslation } from 'react-i18next'
 import { fromState } from '../utils/editorNav'
 import { useChat } from '../hooks/useChat'
 import ModelSelector from '../components/ModelSelector'
-import { renderMarkdown, highlightAll } from '../utils/markdown'
+import { renderMarkdown, highlightAll, enhanceCodeBlocks } from '../utils/markdown'
 import { extractCodeArtifacts, renderMarkdownWithArtifacts } from '../utils/artifacts'
 import CanvasPanel from '../components/CanvasPanel'
+import Toggle from '../components/Toggle'
 import { fileToBase64, modelsApi, mcpApi } from '../utils/api'
 import { CAP_CHAT } from '../utils/capabilities'
 import { useMCPClient } from '../hooks/useMCPClient'
@@ -335,6 +336,7 @@ export default function Chat() {
   const messagesRef = useRef(null)
   const textareaRef = useRef(null)
   const stickToBottomRef = useRef(true)
+  const [scrolledUp, setScrolledUp] = useState(false)
   const chatsMenuRef = useRef(null)
 
   // Focus mode: once a conversation has at least one message we slim the
@@ -600,6 +602,7 @@ export default function Chat() {
     const onScroll = () => {
       const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight
       stickToBottomRef.current = distanceFromBottom < 80
+      setScrolledUp(distanceFromBottom > 160)
     }
     el.addEventListener('scroll', onScroll, { passive: true })
     return () => el.removeEventListener('scroll', onScroll)
@@ -615,6 +618,7 @@ export default function Chat() {
   // user's focus-mode override — each chat starts fresh.
   useEffect(() => {
     stickToBottomRef.current = true
+    setScrolledUp(false)
     messagesEndRef.current?.scrollIntoView({ behavior: 'auto' })
     setFocusOverride(false)
   }, [activeChat?.id])
@@ -657,12 +661,25 @@ export default function Chat() {
     return () => window.removeEventListener('keydown', onKey)
   }, [focusActive])
 
-  // Highlight code blocks
+  // Highlight code blocks + add per-block copy buttons. A MutationObserver on
+  // the messages container is more reliable than render-keyed effects: it fires
+  // for loaded/switched chats AND for streaming token updates, regardless of
+  // render timing. The observer is disconnected while we mutate so our own
+  // highlight/enhance edits don't retrigger it.
   useEffect(() => {
-    if (messagesRef.current) {
-      highlightAll(messagesRef.current)
+    const el = messagesRef.current
+    if (!el) return
+    let obs
+    const run = () => {
+      obs?.disconnect()
+      highlightAll(el)
+      enhanceCodeBlocks(el)
+      obs?.observe(el, { childList: true, subtree: true })
     }
-  }, [activeChat?.history, streamingContent])
+    obs = new MutationObserver(run)
+    run()
+    return () => obs.disconnect()
+  }, [activeChat?.id])
 
   // Auto-grow textarea
   const autoGrowTextarea = useCallback(() => {
@@ -966,14 +983,10 @@ export default function Chat() {
                     {t('settings.manageModeDesc')}
                   </span>
                 </div>
-                <label className="toggle">
-                  <input
-                    type="checkbox"
-                    checked={!!activeChat.localaiAssistant}
-                    onChange={(e) => updateChatSettings(activeChat.id, { localaiAssistant: e.target.checked })}
-                  />
-                  <span className="toggle-slider" />
-                </label>
+                <Toggle
+                  checked={!!activeChat.localaiAssistant}
+                  onChange={(next) => updateChatSettings(activeChat.id, { localaiAssistant: next })}
+                />
               </div>
             )}
             <div className="form-group">
@@ -1225,6 +1238,19 @@ export default function Chat() {
             </div>
           )}
           <div ref={messagesEndRef} />
+          {scrolledUp && (
+            <button
+              type="button"
+              className="chat-jump-latest"
+              onClick={() => {
+                stickToBottomRef.current = true
+                setScrolledUp(false)
+                messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+              }}
+            >
+              <i className="fas fa-arrow-down" aria-hidden="true" /> {t('actions.jumpToLatest')}
+            </button>
+          )}
         </div>
 
         {/* Token info bar */}
@@ -1247,15 +1273,22 @@ export default function Chat() {
         {/* File badges */}
         {files.length > 0 && (
           <div className="chat-files">
-            {files.map((f, i) => (
-              <span key={i} className="chat-file-badge">
-                <i className={`fas ${f.type?.startsWith('image/') ? 'fa-image' : f.type?.startsWith('audio/') ? 'fa-headphones' : f.type?.startsWith('video/') ? 'fa-film' : 'fa-file'}`} />
-                {f.name}
-                <button onClick={() => setFiles(prev => prev.filter((_, idx) => idx !== i))}>
-                  <i className="fas fa-xmark" />
-                </button>
-              </span>
-            ))}
+            {files.map((f, i) => {
+              const isImage = f.type?.startsWith('image/') && f.base64
+              return (
+                <span key={i} className={`chat-file-badge${isImage ? ' chat-file-badge--image' : ''}`}>
+                  {isImage ? (
+                    <img src={`data:${f.type};base64,${f.base64}`} alt={f.name} className="chat-file-thumb" />
+                  ) : (
+                    <i className={`fas ${f.type?.startsWith('audio/') ? 'fa-headphones' : f.type?.startsWith('video/') ? 'fa-film' : 'fa-file'}`} />
+                  )}
+                  <span className="chat-file-name">{f.name}</span>
+                  <button onClick={() => setFiles(prev => prev.filter((_, idx) => idx !== i))} aria-label={`Remove ${f.name}`}>
+                    <i className="fas fa-xmark" />
+                  </button>
+                </span>
+              )
+            })}
           </div>
         )}
 

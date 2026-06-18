@@ -6,6 +6,19 @@
   },
   "resourceGpu": "GPU",
   "resourceRam": "RAM",
+  "greeting": {
+    "morning": "Good morning",
+    "afternoon": "Good afternoon",
+    "evening": "Good evening",
+    "night": "Working late"
+  },
+  "statusLine": {
+    "modelsLoaded_one": "{{count}} model loaded",
+    "modelsLoaded_other": "{{count}} models loaded",
+    "noModelsLoaded": "No models loaded",
+    "nodes_one": "{{count}} node",
+    "nodes_other": "{{count}} nodes"
+  },
   "assistant": {
     "title": "Manage LocalAI by chatting",
     "description": "Install models, switch backends, edit configs and check status by talking to LocalAI.",
@@ -30,6 +43,7 @@
     "documentation": "Documentation"
   },
   "loadedModels": {
+    "heading": "Active models",
     "count_one": "{{count}} model loaded",
     "count_other": "{{count}} models loaded",
     "stop": "Stop model",
@@ -70,6 +84,9 @@
     "compatTitle": "Drop-in compatibility",
     "apiReference": "Full API reference",
     "copy": "Copy",
-    "copied": "Copied"
+    "copied": "Copied",
+    "browse": "Browse the API",
+    "hide": "Hide endpoints",
+    "dismiss": "Dismiss"
   }
 }

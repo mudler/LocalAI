@@ -30,6 +30,7 @@
       "refImagesAdded_other": "{{count}} Bilder hinzugefügt"
     },
     "actions": {
+      "view": "View",
       "generate": "Generieren",
       "generating": "Generieren..."
     },

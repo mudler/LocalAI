@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next'
 import { tracesApi, settingsApi } from '../utils/api'
 import { formatTimestamp } from '../utils/format'
 import LoadingSpinner from '../components/LoadingSpinner'
+import PageHeader from '../components/PageHeader'
 import Toggle from '../components/Toggle'
 import SettingRow from '../components/SettingRow'
 import WaveformPlayer from '../components/audio/WaveformPlayer'
@@ -407,10 +408,7 @@ export default function Traces() {
 
   return (
     <div className="page page--wide">
-      <div className="page-header">
-        <h1 className="page-title">{t('traces.title')}</h1>
-        <p className="page-subtitle">{t('traces.subtitle')}</p>
-      </div>
+      <PageHeader title={t('traces.title')} supporting={t('traces.subtitle')} />
 
       <div className="tabs">
         <button className={`tab ${activeTab === 'api' ? 'tab-active' : ''}`} onClick={() => setActiveTab('api')}>

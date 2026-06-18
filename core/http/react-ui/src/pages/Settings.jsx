@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next'
 import { settingsApi, resourcesApi, brandingApi } from '../utils/api'
 import { useBranding } from '../contexts/BrandingContext'
 import LoadingSpinner from '../components/LoadingSpinner'
+import PageHeader from '../components/PageHeader'
 import SearchableModelSelect from '../components/SearchableModelSelect'
 import { CAP_CHAT } from '../utils/capabilities'
 import Toggle from '../components/Toggle'
@@ -159,17 +160,16 @@ export default function Settings() {
   return (
     <div className="page page--medium" style={{ padding: 0 }}>
       {/* Header */}
-      <div style={{
-        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        padding: 'var(--spacing-lg) var(--spacing-lg) var(--spacing-md)',
-      }}>
-        <div>
-          <h1 className="page-title">{t('settings.title')}</h1>
-          <p className="page-subtitle">{t('settings.subtitle')}</p>
-        </div>
-        <button className={`btn ${isDirty ? 'btn-primary' : 'btn-secondary'}`} onClick={handleSave} disabled={saving || !isDirty}>
-          {saving ? <><LoadingSpinner size="sm" /> Saving...</> : <><i className="fas fa-save" /> {isDirty ? 'Save Changes' : 'Saved'}</>}
-        </button>
+      <div style={{ padding: 'var(--spacing-lg) var(--spacing-lg) 0' }}>
+        <PageHeader
+          title={t('settings.title')}
+          supporting={t('settings.subtitle')}
+          actions={
+            <button className={`btn ${isDirty ? 'btn-primary' : 'btn-secondary'}`} onClick={handleSave} disabled={saving || !isDirty}>
+              {saving ? <><LoadingSpinner size="sm" /> Saving...</> : <><i className="fas fa-save" /> {isDirty ? 'Save Changes' : 'Saved'}</>}
+            </button>
+          }
+        />
       </div>
 
       {/* Two-column layout */}

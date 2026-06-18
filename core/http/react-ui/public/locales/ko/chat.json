@@ -71,7 +71,8 @@
   },
   "actions": {
     "copy": "복사",
-    "regenerate": "다시 생성"
+    "regenerate": "다시 생성",
+    "jumpToLatest": "Jump to latest"
   },
   "streaming": {
     "transferring": "모델 전송 중...",

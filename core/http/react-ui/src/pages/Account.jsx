@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next'
 import { useAuth } from '../context/AuthContext'
 import { apiKeysApi, profileApi } from '../utils/api'
 import LoadingSpinner from '../components/LoadingSpinner'
+import PageHeader from '../components/PageHeader'
 import SettingRow from '../components/SettingRow'
 import ConfirmDialog from '../components/ConfirmDialog'
 import './auth.css'
@@ -452,10 +453,7 @@ export default function Account() {
   return (
     <div className="page page--narrow account-page">
       {/* Header */}
-      <div className="page-header">
-        <h1 className="page-title">{t('account.title')}</h1>
-        <p className="page-subtitle">{t('account.subtitle')}</p>
-      </div>
+      <PageHeader title={t('account.title')} supporting={t('account.subtitle')} />
 
       {/* Tab bar */}
       <div className="auth-tab-bar auth-tab-bar--flush">

@@ -3,6 +3,7 @@ import { useNavigate, useOutletContext, useSearchParams, useLocation } from 'rea
 import { useTranslation } from 'react-i18next'
 import { fromState } from '../utils/editorNav'
 import ResourceMonitor from '../components/ResourceMonitor'
+import PageHeader from '../components/PageHeader'
 import ConfirmDialog from '../components/ConfirmDialog'
 import NodeDistributionChip from '../components/NodeDistributionChip'
 import FilterBar from '../components/FilterBar'
@@ -448,10 +449,7 @@ export default function Manage() {
 
   return (
     <div className="page page--wide">
-      <div className="page-header">
-        <h1 className="page-title">{t('manage.title')}</h1>
-        <p className="page-subtitle">{t('manage.subtitle')}</p>
-      </div>
+      <PageHeader title={t('manage.title')} supporting={t('manage.subtitle')} />
 
       {/* Resource Monitor */}
       <ResourceMonitor />
