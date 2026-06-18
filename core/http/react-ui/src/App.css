@@ -8120,3 +8120,17 @@ select.input {
   .console-rail.console-rail--enter { animation: none; }
   .console-rail .nav-item:hover:not(.active) { transform: none; }
 }
+
+.status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+  font-size: var(--text-sm);
+  color: var(--color-text-secondary);
+}
+.status-pill__dot { width: 7px; height: 7px; border-radius: var(--radius-full); background: var(--color-text-muted); flex-shrink: 0; }
+.status-pill--success .status-pill__dot { background: var(--color-success); }
+.status-pill--warning .status-pill__dot { background: var(--color-warning); }
+.status-pill--error   .status-pill__dot { background: var(--color-error); }
+.status-pill--info    .status-pill__dot { background: var(--color-info); }
+.status-pill--muted   .status-pill__dot { background: var(--color-text-muted); }
