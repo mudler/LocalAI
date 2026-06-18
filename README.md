@@ -236,6 +236,7 @@ Most backends wrap a best-in-class upstream engine. A handful of them are native
 | [rf-detr.cpp](https://github.com/mudler/rf-detr.cpp) | Native RF-DETR object detection and instance segmentation |
 | [locate-anything.cpp](https://github.com/mudler/locate-anything.cpp) | Open-vocabulary object detection and visual grounding (LocateAnything-3B) |
 | [depth-anything.cpp](https://github.com/mudler/depth-anything.cpp) | Depth Anything 3 monocular metric depth + camera pose estimation |
+| [privacy-filter.cpp](https://github.com/localai-org/privacy-filter.cpp) | Standalone GGML PII/NER token-classification engine powering LocalAI's PII redaction tier |
 | [LocalVQE](https://github.com/localai-org/LocalVQE) | Joint acoustic echo cancellation, noise suppression, and dereverberation |
 | [local-store](https://github.com/mudler/LocalAI) | Local-first vector database for embeddings (shipped in-tree) |
 
