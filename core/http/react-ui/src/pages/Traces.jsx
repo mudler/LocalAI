@@ -5,6 +5,7 @@ import { tracesApi, settingsApi } from '../utils/api'
 import { formatTimestamp } from '../utils/format'
 import LoadingSpinner from '../components/LoadingSpinner'
 import PageHeader from '../components/PageHeader'
+import ResponsiveTable from '../components/ResponsiveTable'
 import Toggle from '../components/Toggle'
 import SettingRow from '../components/SettingRow'
 import WaveformPlayer from '../components/audio/WaveformPlayer'
@@ -317,7 +318,35 @@ export default function Traces() {
   const [backendCount, setBackendCount] = useState(0)
   const [loading, setLoading] = useState(true)
   const [expandedRow, setExpandedRow] = useState(null)
+  const [sort, setSort] = useState({ key: null, dir: 'asc' })
   const [tracingEnabled, setTracingEnabled] = useState(null)
+
+  const TRACE_SORT = {
+    method: (a, b) => (a.request?.method || '').localeCompare(b.request?.method || ''),
+    path: (a, b) => (a.request?.path || '').localeCompare(b.request?.path || ''),
+    status: (a, b) => (a.response?.status || 0) - (b.response?.status || 0),
+    type: (a, b) => (a.type || '').localeCompare(b.type || ''),
+    time: (a, b) => new Date(a.timestamp || 0) - new Date(b.timestamp || 0),
+    model: (a, b) => (a.model_name || '').localeCompare(b.model_name || ''),
+    duration: (a, b) => (a.duration || 0) - (b.duration || 0),
+  }
+  const toggleSort = (key) => {
+    setExpandedRow(null)
+    setSort(s => s.key === key ? { key, dir: s.dir === 'asc' ? 'desc' : 'asc' } : { key, dir: 'asc' })
+  }
+  const sortableTh = (key, label, props = {}) => (
+    <th
+      {...props}
+      role="button"
+      tabIndex={0}
+      aria-sort={sort.key === key ? (sort.dir === 'asc' ? 'ascending' : 'descending') : 'none'}
+      onClick={() => toggleSort(key)}
+      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleSort(key) } }}
+      style={{ cursor: 'pointer', userSelect: 'none', ...(props.style || {}) }}
+    >
+      {label}{sort.key === key && <i className={`fas fa-caret-${sort.dir === 'asc' ? 'up' : 'down'}`} style={{ marginLeft: 4, opacity: 0.7 }} aria-hidden="true" />}
+    </th>
+  )
   const [backendLoggingEnabled, setBackendLoggingEnabled] = useState(null)
   const [settings, setSettings] = useState(null)
   const [settingsExpanded, setSettingsExpanded] = useState(false)
@@ -405,6 +434,13 @@ export default function Traces() {
     a.click()
     URL.revokeObjectURL(url)
   }
+
+  // Reset sort + expansion when switching trace tabs (columns differ).
+  useEffect(() => { setSort({ key: null, dir: 'asc' }); setExpandedRow(null) }, [activeTab])
+
+  const sortedTraces = sort.key && TRACE_SORT[sort.key]
+    ? [...traces].sort((a, b) => sort.dir === 'asc' ? TRACE_SORT[sort.key](a, b) : TRACE_SORT[sort.key](b, a))
+    : traces
 
   return (
     <div className="page page--wide">
@@ -537,19 +573,18 @@ export default function Traces() {
           </p>
         </div>
       ) : activeTab === 'api' ? (
-        <div className="table-container">
-          <table className="table">
+        <ResponsiveTable>
             <thead>
               <tr>
                 <th style={{ width: '30px' }}></th>
-                <th>Method</th>
-                <th>Path</th>
-                <th>Status</th>
+                {sortableTh('method', 'Method')}
+                {sortableTh('path', 'Path')}
+                {sortableTh('status', 'Status')}
                 <th style={{ width: '40px' }}>Result</th>
               </tr>
             </thead>
             <tbody>
-              {traces.map((trace, i) => (
+              {sortedTraces.map((trace, i) => (
                 <React.Fragment key={i}>
                   <tr onClick={() => setExpandedRow(expandedRow === i ? null : i)} style={{ cursor: 'pointer' }}>
                     <td><i className={`fas fa-chevron-${expandedRow === i ? 'down' : 'right'}`} style={{ fontSize: '0.7rem' }} /></td>
@@ -572,24 +607,22 @@ export default function Traces() {
                 </React.Fragment>
               ))}
             </tbody>
-          </table>
-        </div>
+        </ResponsiveTable>
       ) : (
-        <div className="table-container">
-          <table className="table">
+        <ResponsiveTable>
             <thead>
               <tr>
                 <th style={{ width: '30px' }}></th>
-                <th>Type</th>
-                <th>Time</th>
-                <th>Model</th>
+                {sortableTh('type', 'Type')}
+                {sortableTh('time', 'Time')}
+                {sortableTh('model', 'Model')}
                 <th>Summary</th>
-                <th>Duration</th>
+                {sortableTh('duration', 'Duration')}
                 <th style={{ width: '40px' }}>Status</th>
               </tr>
             </thead>
             <tbody>
-              {traces.map((trace, i) => (
+              {sortedTraces.map((trace, i) => (
                 <React.Fragment key={i}>
                   <tr onClick={() => setExpandedRow(expandedRow === i ? null : i)} style={{ cursor: 'pointer' }}>
                     <td><i className={`fas fa-chevron-${expandedRow === i ? 'down' : 'right'}`} style={{ fontSize: '0.7rem' }} /></td>
@@ -616,8 +649,7 @@ export default function Traces() {
                 </React.Fragment>
               ))}
             </tbody>
-          </table>
-        </div>
+        </ResponsiveTable>
       )}
     </div>
   )

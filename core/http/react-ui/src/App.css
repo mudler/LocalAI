@@ -2427,6 +2427,40 @@ select.input {
   border-radius: var(--radius-lg);
 }
 
+/* ResponsiveTable: stack dense tables into label/value cards on narrow screens
+   instead of a sideways scroll. Labels come from data-label (mirrored from the
+   <thead> by the ResponsiveTable component). */
+@media (max-width: 640px) {
+  /* Direct-child selectors only: a nested table inside a cell renders normally.
+     min-width override defeats any inline min-width set for the desktop layout. */
+  .table--responsive { border: none; min-width: 0 !important; }
+  .table--responsive > thead { display: none; }
+  .table--responsive > tbody > tr {
+    display: block;
+    border: 1px solid var(--color-border-subtle);
+    border-radius: var(--radius-md);
+    background: var(--color-surface-raised);
+    margin: var(--spacing-sm);
+    padding: var(--spacing-xs) var(--spacing-sm);
+  }
+  .table--responsive > tbody > tr > td {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--spacing-md);
+    border: none;
+    padding: var(--spacing-xs) 0;
+    text-align: right;
+  }
+  .table--responsive > tbody > tr > td[data-label]::before {
+    content: attr(data-label);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-text-muted);
+    text-align: left;
+    margin-right: auto;
+  }
+}
+
 .table {
   width: 100%;
   border-collapse: collapse;

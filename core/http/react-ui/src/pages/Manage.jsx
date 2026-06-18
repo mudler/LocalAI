@@ -12,6 +12,7 @@ import ManageSummary from '../components/ManageSummary'
 import MetaBadgeRow from '../components/MetaBadgeRow'
 import ActionMenu from '../components/ActionMenu'
 import ResourceRow, { ChevronCell, IconCell, StopPropagationCell } from '../components/ResourceRow'
+import ResponsiveTable from '../components/ResponsiveTable'
 import { useModels } from '../hooks/useModels'
 import { useGalleryEnrichment } from '../hooks/useGalleryEnrichment'
 import { useOperations } from '../hooks/useOperations'
@@ -560,8 +561,7 @@ export default function Manage() {
             <button className="btn btn-ghost btn-sm" onClick={() => { setModelsSearch(''); setModelsFilter('all') }}>Clear filters</button>
           </div>
         ) : (
-          <div className="table-container">
-            <table className="table">
+          <ResponsiveTable>
               <thead>
                 <tr>
                   <th style={{ width: 30 }}></th>
@@ -686,8 +686,7 @@ export default function Manage() {
                   )
                 })}
               </tbody>
-            </table>
-          </div>
+          </ResponsiveTable>
         )}
       </div>
         )
@@ -855,8 +854,7 @@ export default function Manage() {
           return (
           <>
             {filterBar}
-            <div className="table-container">
-            <table className="table">
+            <ResponsiveTable>
               <thead>
                 <tr>
                   <th style={{ width: 30 }}></th>
@@ -987,8 +985,7 @@ export default function Manage() {
                   )
                 })}
               </tbody>
-            </table>
-            </div>
+            </ResponsiveTable>
           </>
           )
         })()}
