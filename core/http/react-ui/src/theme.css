@@ -65,7 +65,6 @@
   --color-modal-backdrop: rgba(8, 11, 17, 0.68);
 
   --color-focus-ring: rgba(136, 192, 208, 0.7);  /* was 0.34 - AA-visible */
-  --color-nav-rail: var(--color-primary);
   --color-eyebrow: #d8b48c;  /* muted Nord-aurora brass for editorial eyebrows */
 
   /* Data viz — full aurora + frost palette */
@@ -124,7 +123,6 @@
   /* Typography — Geist Variable + Geist Mono Variable */
   --font-sans: "Geist", "Geist Variable", -apple-system, BlinkMacSystemFont, "Segoe UI", ui-sans-serif, system-ui, sans-serif;
   --font-mono: "Geist Mono", "Geist Mono Variable", ui-monospace, "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace;
-  --font-serif: "Fraunces Variable", "Fraunces", Georgia, "Times New Roman", serif;
 
   --text-xs: 0.6875rem;
   --text-sm: 0.8125rem;
@@ -225,7 +223,6 @@
   --color-modal-backdrop: rgba(46, 52, 64, 0.38);
 
   --color-focus-ring: rgba(94, 129, 172, 0.6);  /* was 0.34 */
-  --color-nav-rail: var(--color-primary);
   --color-eyebrow: #9a6b3f;  /* darker brass for contrast on snow storm */
 
   /* Data viz — muted aurora for light mode */

@@ -352,10 +352,10 @@
   border-radius: var(--radius-lg);
 }
 .sidebar-nav .nav-item.active {
-  background: var(--color-surface-hover);
-  color: var(--color-text-primary);
+  background: var(--color-primary-light);
+  color: var(--color-primary);
   font-weight: var(--font-weight-medium);
-  box-shadow: inset 3px 0 0 var(--color-nav-rail);
+  box-shadow: none;
 }
 .sidebar-nav .nav-item.active .nav-icon { color: var(--color-primary); }
 /* Align tier labels with the inset item text (item margin + icon padding). */
@@ -1139,9 +1139,9 @@
 }
 
 .page-title {
-  font-family: var(--font-serif);
+  font-family: var(--font-sans);
   font-size: clamp(1.5rem, 1.15rem + 1.4vw, var(--text-3xl));
-  font-weight: 480;
+  font-weight: var(--font-weight-semibold);
   letter-spacing: -0.018em;
   line-height: var(--leading-tight);
   margin-bottom: var(--spacing-xs);
@@ -2808,9 +2808,9 @@ select.input {
 }
 
 .empty-state-title {
-  font-family: var(--font-serif);
+  font-family: var(--font-sans);
   font-size: clamp(1.5rem, 3vw, var(--text-3xl));
-  font-weight: 480;
+  font-weight: var(--font-weight-semibold);
   letter-spacing: -0.02em;
   color: var(--color-text-primary);
   margin: 0;
@@ -5639,9 +5639,9 @@ select.input {
   color: var(--color-eyebrow);
 }
 .home-greeting {
-  font-family: var(--font-serif);
+  font-family: var(--font-sans);
   font-size: clamp(2rem, 1.4rem + 3vw, var(--text-4xl));
-  font-weight: 440;
+  font-weight: var(--font-weight-semibold);
   letter-spacing: -0.02em;
   line-height: 1.05;
   margin: var(--spacing-xs) 0 0;
