@@ -1,8 +1,9 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useRef } from 'react'
 import { useParams, useNavigate, useLocation, useOutletContext, useSearchParams } from 'react-router-dom'
 import { agentsApi, skillsApi } from '../utils/api'
 import SearchableModelSelect from '../components/SearchableModelSelect'
 import PageHeader from '../components/PageHeader'
+import UnsavedChangesGuard from '../components/UnsavedChangesGuard'
 import { CAP_CHAT, CAP_TRANSCRIPT, CAP_TTS } from '../utils/capabilities'
 import Toggle from '../components/Toggle'
 import SettingRow from '../components/SettingRow'
@@ -296,6 +297,8 @@ export default function AgentCreate() {
   const [activeSection, setActiveSection] = useState('BasicInfo')
   const [meta, setMeta] = useState(null)
   const [form, setForm] = useState({})
+  // Snapshot of the form as first loaded, for the unsaved-changes guard.
+  const initialFormRef = useRef(null)
   const [connectors, setConnectors] = useState([])
   const [actions, setActions] = useState([])
   const [filters, setFilters] = useState([])
@@ -374,6 +377,7 @@ export default function AgentCreate() {
           if (Array.isArray(sourceConfig.selected_skills)) setSelectedSkills(sourceConfig.selected_skills)
         }
 
+        initialFormRef.current = initialForm
         setForm(initialForm)
       } catch (err) {
         addToast(`Failed to load configuration: ${err.message}`, 'error')
@@ -819,8 +823,12 @@ export default function AgentCreate() {
     )
   }
 
+  const dirty = initialFormRef.current != null &&
+    JSON.stringify(form) !== JSON.stringify(initialFormRef.current)
+
   return (
     <div className="page page--narrow">
+      <UnsavedChangesGuard when={dirty && !saving} />
       <style>{`
         .agent-form-container {
           display: flex;

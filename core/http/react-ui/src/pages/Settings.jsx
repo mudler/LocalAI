@@ -5,6 +5,7 @@ import { settingsApi, resourcesApi, brandingApi } from '../utils/api'
 import { useBranding } from '../contexts/BrandingContext'
 import LoadingSpinner from '../components/LoadingSpinner'
 import PageHeader from '../components/PageHeader'
+import UnsavedChangesGuard from '../components/UnsavedChangesGuard'
 import SearchableModelSelect from '../components/SearchableModelSelect'
 import { CAP_CHAT } from '../utils/capabilities'
 import Toggle from '../components/Toggle'
@@ -159,6 +160,7 @@ export default function Settings() {
 
   return (
     <div className="page page--medium" style={{ padding: 0 }}>
+      <UnsavedChangesGuard when={isDirty} />
       {/* Header */}
       <div style={{ padding: 'var(--spacing-lg) var(--spacing-lg) 0' }}>
         <PageHeader
