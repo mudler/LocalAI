@@ -14,11 +14,12 @@ import '@fontsource-variable/fraunces'
 import './index.css'
 import './theme.css'
 import './App.css'
+import LoadingSpinner from './components/LoadingSpinner'
 
 function BootFallback() {
   return (
-    <div className="app-boot-spinner" role="status" aria-label="Loading">
-      <div className="app-boot-spinner-dot" />
+    <div className="app-boot-spinner">
+      <LoadingSpinner size="boot" />
     </div>
   )
 }
