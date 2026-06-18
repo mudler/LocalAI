@@ -1668,18 +1668,15 @@
   box-shadow: 0 0 0 3px var(--color-focus-ring);
 }
 
-/* Global focus ring — any interactive that isn't a .btn */
+/* Global focus ring - any interactive that isn't a .btn. This box-shadow ring
+   is the single focus technique app-wide (it covers .btn plus the :where(...)
+   list below). The strengthened --color-focus-ring keeps it WCAG-AA visible
+   (>=3:1), so no separate solid-outline rule is needed; a bare :focus-visible
+   outline here would double-ring every element. */
 :where(a, button, input, select, textarea, [tabindex]:not([tabindex="-1"])):focus-visible {
   outline: none;
   box-shadow: 0 0 0 3px var(--color-focus-ring);
   border-radius: var(--radius-sm);
-}
-
-/* Solid outline fallback so the focus ring stays AA-visible (>=3:1) on every
-   interactive element, including those that clip or override box-shadow. */
-:focus-visible {
-  outline: 2px solid var(--color-focus-ring);
-  outline-offset: 2px;
 }
 
 .btn-primary {

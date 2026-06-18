@@ -93,6 +93,9 @@ a:hover {
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
     animation-duration: 0.01ms !important;
+    /* Neutralize per-child stagger delays (e.g. .reveal-stagger) so content
+       does not sit at the hidden "from" keyframe before snapping in. */
+    animation-delay: 0s !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;

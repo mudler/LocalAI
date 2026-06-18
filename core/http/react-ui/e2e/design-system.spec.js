@@ -26,3 +26,19 @@ test.describe('Editorial design system', () => {
     expect(name).toBe('pageReveal')
   })
 })
+
+test.describe('reduced motion', () => {
+  test('stagger animation-delay is neutralized under reduced motion', async ({ page }) => {
+    // Emulate prefers-reduced-motion explicitly. (The fixture-option form
+    // test.use({ reducedMotion }) does not propagate through our extended
+    // coverage `page` fixture, so set it on the page directly.)
+    await page.emulateMedia({ reducedMotion: 'reduce' })
+    await page.goto('/app') // Home renders .reveal-stagger children
+    // .home-status-line is staggerStyle(1) -> 60ms delay without the fix.
+    const child = page.locator('.home-status-line').first()
+    await expect(child).toBeVisible({ timeout: 15_000 })
+    const delay = await child.evaluate(el => getComputedStyle(el).animationDelay)
+    // Under reduced motion the per-child delay must be ~0 (not 60ms+).
+    expect(parseFloat(delay)).toBeLessThan(0.05)
+  })
+})
