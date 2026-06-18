@@ -4941,6 +4941,89 @@ select.input {
   width: 100%;
 }
 
+/* Clickable result thumbnail (opens the lightbox). */
+.media-result-thumb {
+  position: relative;
+  display: block;
+  padding: 0;
+  border: none;
+  background: none;
+  cursor: zoom-in;
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+.media-result-thumb img {
+  display: block;
+  width: 100%;
+  border-radius: var(--radius-md);
+}
+.media-result-thumb__zoom {
+  position: absolute;
+  top: var(--spacing-xs);
+  right: var(--spacing-xs);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: var(--radius-sm);
+  background: var(--color-bg-overlay);
+  color: var(--color-text-primary);
+  font-size: var(--text-xs);
+  opacity: 0;
+  transition: opacity var(--duration-fast) var(--ease-default);
+}
+.media-result-thumb:hover .media-result-thumb__zoom,
+.media-result-thumb:focus-visible .media-result-thumb__zoom { opacity: 1; }
+
+/* Fullscreen image lightbox. */
+.lightbox {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--spacing-xl);
+  background: var(--color-modal-backdrop);
+  animation: fadeIn var(--duration-fast) var(--ease-default);
+}
+.lightbox__img {
+  max-width: 92vw;
+  max-height: 88vh;
+  object-fit: contain;
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-lg);
+}
+.lightbox__toolbar {
+  position: absolute;
+  top: var(--spacing-md);
+  right: var(--spacing-md);
+  display: inline-flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+}
+.lightbox__count { color: var(--color-text-secondary); font-size: var(--text-sm); margin-right: var(--spacing-xs); }
+.lightbox__nav {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-full);
+  background: var(--color-surface-raised);
+  color: var(--color-text-primary);
+  cursor: pointer;
+  box-shadow: var(--shadow-md);
+}
+.lightbox__nav:hover { border-color: var(--color-primary-border); color: var(--color-primary); }
+.lightbox__nav--prev { left: var(--spacing-lg); }
+.lightbox__nav--next { right: var(--spacing-lg); }
+
 /* Media generation history */
 .media-history {
   margin-top: var(--spacing-md);
