@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { fineTuneApi } from '../utils/api'
 import LoadingSpinner from '../components/LoadingSpinner'
 import PageHeader from '../components/PageHeader'
+import UnsavedChangesGuard from '../components/UnsavedChangesGuard'
 
 const TRAINING_METHODS = ['sft', 'dpo', 'grpo', 'rloo', 'reward', 'kto', 'orpo']
 const TRAINING_TYPES = ['lora', 'loha', 'lokr', 'full']
@@ -705,6 +706,8 @@ export default function FineTune() {
   const [error, setError] = useState('')
   const [backends, setBackends] = useState([])
   const [exportCheckpoint, setExportCheckpoint] = useState(null)
+  // Baseline of the assembled config for the unsaved-changes guard.
+  const initialConfigRef = useRef(null)
 
   // Form state
   const [model, setModel] = useState('')
@@ -845,6 +848,8 @@ export default function FineTune() {
       const resp = await fineTuneApi.startJob(req)
       setShowForm(false)
       setResumeFromCheckpoint('')
+      // Job submitted: rebaseline so leaving the page no longer warns.
+      initialConfigRef.current = JSON.stringify(getFormConfig())
       await loadJobs()
 
       const newJob = { ...req, id: resp.id, status: 'queued', created_at: new Date().toISOString() }
@@ -1057,8 +1062,13 @@ export default function FineTune() {
     setExportCheckpoint(checkpoint)
   }
 
+  // Lazy-init the baseline on first render; dirty when the open form diverges.
+  if (initialConfigRef.current === null) initialConfigRef.current = JSON.stringify(getFormConfig())
+  const dirty = JSON.stringify(getFormConfig()) !== initialConfigRef.current
+
   return (
     <div className="page page--wide">
+      <UnsavedChangesGuard when={dirty && showForm && !loading} />
       <PageHeader
         title={<>Fine-Tuning <span className="badge badge-warning" style={{ fontSize: '0.45em', verticalAlign: 'middle' }}>Experimental</span></>}
         supporting="Create and manage fine-tuning jobs"
