@@ -413,7 +413,7 @@ function UsageTimeChart({ data, predictedData, period }) {
         <span style={{ fontSize: '0.875rem', fontWeight: 600, color: 'var(--color-text-primary)' }}>Tokens over time</span>
         <div style={{ display: 'flex', gap: 'var(--spacing-md)', fontSize: '0.6875rem', color: 'var(--color-text-muted)' }}>
           <span><span style={{ display: 'inline-block', width: 8, height: 8, borderRadius: "var(--radius-sm)", background: 'var(--color-primary)', marginRight: 4, verticalAlign: 'middle' }} />Prompt</span>
-          <span><span style={{ display: 'inline-block', width: 8, height: 8, borderRadius: "var(--radius-sm)", background: 'var(--color-primary)', opacity: 0.35, marginRight: 4, verticalAlign: 'middle' }} />Completion</span>
+          <span><span style={{ display: 'inline-block', width: 8, height: 8, borderRadius: "var(--radius-sm)", background: 'var(--color-data-3)', marginRight: 4, verticalAlign: 'middle' }} />Completion</span>
           {predictedData && predictedData.length > 0 && (
             <span>
               <span style={{
@@ -472,7 +472,7 @@ function UsageTimeChart({ data, predictedData, period }) {
                   {/* Prompt tokens (bottom) */}
                   <rect x={x} y={chartH - promptH - compH} width={barWidth} height={promptH} fill="var(--color-primary)" rx={2} />
                   {/* Completion tokens (top) */}
-                  <rect x={x} y={chartH - compH} width={barWidth} height={compH} fill="var(--color-primary)" opacity={0.35} rx={2} />
+                  <rect x={x} y={chartH - compH} width={barWidth} height={compH} fill="var(--color-data-3)" rx={2} />
                 </g>
               )
             })}
@@ -571,7 +571,7 @@ function UsageTimeChart({ data, predictedData, period }) {
               {formatBucket(tooltip.data.bucket, period)}
             </div>
             <div><span style={{ color: 'var(--color-primary)' }}>Prompt:</span> {tooltip.predicted ? '~' : ''}{tooltip.data.prompt_tokens.toLocaleString()}</div>
-            <div><span style={{ color: 'var(--color-text-secondary)' }}>Completion:</span> {tooltip.predicted ? '~' : ''}{tooltip.data.completion_tokens.toLocaleString()}</div>
+            <div><span style={{ color: 'var(--color-data-3)' }}>Completion:</span> {tooltip.predicted ? '~' : ''}{tooltip.data.completion_tokens.toLocaleString()}</div>
             <div style={{ color: 'var(--color-text-muted)', borderTop: '1px solid var(--color-border)', marginTop: 2, paddingTop: 2 }}>
               {tooltip.predicted ? '~' : ''}{tooltip.data.request_count} requests
             </div>
@@ -596,7 +596,7 @@ function ModelDistChart({ rows }) {
         <span style={{ fontSize: '0.875rem', fontWeight: 600, color: 'var(--color-text-primary)' }}>Token distribution by model</span>
         <div style={{ display: 'flex', gap: 'var(--spacing-md)', fontSize: '0.6875rem', color: 'var(--color-text-muted)' }}>
           <span><span style={{ display: 'inline-block', width: 8, height: 8, borderRadius: "var(--radius-sm)", background: 'var(--color-primary)', marginRight: 4, verticalAlign: 'middle' }} />Prompt</span>
-          <span><span style={{ display: 'inline-block', width: 8, height: 8, borderRadius: "var(--radius-sm)", background: 'var(--color-primary)', opacity: 0.35, marginRight: 4, verticalAlign: 'middle' }} />Completion</span>
+          <span><span style={{ display: 'inline-block', width: 8, height: 8, borderRadius: "var(--radius-sm)", background: 'var(--color-data-3)', marginRight: 4, verticalAlign: 'middle' }} />Completion</span>
         </div>
       </div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: gap }}>
@@ -613,7 +613,7 @@ function ModelDistChart({ rows }) {
               </div>
               <div style={{ flex: 1, height: barH, background: 'var(--color-bg-primary)', borderRadius: "var(--radius-sm)", overflow: 'hidden', display: 'flex' }}>
                 <div style={{ width: `${promptPct}%`, height: '100%', background: 'var(--color-primary)', transition: 'width 0.3s ease' }} />
-                <div style={{ width: `${compPct}%`, height: '100%', background: 'var(--color-primary)', opacity: 0.35, transition: 'width 0.3s ease' }} />
+                <div style={{ width: `${compPct}%`, height: '100%', background: 'var(--color-data-3)', transition: 'width 0.3s ease' }} />
               </div>
               <div style={{
                 minWidth: 60, textAlign: 'right', fontSize: '0.75rem', fontFamily: 'var(--font-mono)',
