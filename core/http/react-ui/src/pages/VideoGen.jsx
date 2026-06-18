@@ -5,6 +5,7 @@ import ModelSelector from '../components/ModelSelector'
 import PageHeader from '../components/PageHeader'
 import { CAP_VIDEO } from '../utils/capabilities'
 import LoadingSpinner from '../components/LoadingSpinner'
+import GenerationProgress from '../components/GenerationProgress'
 import ErrorWithTraceLink from '../components/ErrorWithTraceLink'
 import MediaHistory from '../components/MediaHistory'
 import { videoApi, fileToBase64 } from '../utils/api'
@@ -146,7 +147,7 @@ export default function VideoGen() {
       <div className="media-preview">
         <div className="media-result">
           {loading ? (
-            <LoadingSpinner size="lg" />
+            <GenerationProgress label={t('video.actions.generating')} />
           ) : error ? (
             <ErrorWithTraceLink message={error} />
           ) : selectedEntry ? (

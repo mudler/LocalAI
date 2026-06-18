@@ -5,6 +5,7 @@ import ModelSelector from '../components/ModelSelector'
 import PageHeader from '../components/PageHeader'
 import { CAP_TTS } from '../utils/capabilities'
 import LoadingSpinner from '../components/LoadingSpinner'
+import GenerationProgress from '../components/GenerationProgress'
 import ErrorWithTraceLink from '../components/ErrorWithTraceLink'
 import MediaHistory from '../components/MediaHistory'
 import WaveformPlayer from '../components/audio/WaveformPlayer'
@@ -77,7 +78,7 @@ export default function TTS() {
       <div className="media-preview">
         <div className="media-result">
           {loading ? (
-            <LoadingSpinner size="lg" />
+            <GenerationProgress label={t('tts.actions.generating')} />
           ) : error ? (
             <ErrorWithTraceLink message={error} />
           ) : selectedEntry ? (
