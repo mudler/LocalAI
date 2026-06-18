@@ -2761,10 +2761,10 @@ select.input {
 }
 
 .empty-state-title {
-  font-family: var(--font-mono);
+  font-family: var(--font-serif);
   font-size: clamp(1.5rem, 3vw, var(--text-3xl));
-  font-weight: var(--font-weight-regular);
-  letter-spacing: -0.03em;
+  font-weight: 480;
+  letter-spacing: -0.02em;
   color: var(--color-text-primary);
   margin: 0;
   line-height: 1.15;
@@ -2795,6 +2795,13 @@ select.input {
   width: 24px;
   height: 1px;
   background: var(--color-border-strong);
+}
+
+.empty-state__actions {
+  display: flex;
+  gap: var(--spacing-sm);
+  flex-wrap: wrap;
+  margin-top: var(--spacing-xs);
 }
 
 /* Animations */
