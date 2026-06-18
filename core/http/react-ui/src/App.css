@@ -552,11 +552,21 @@
   border-radius: var(--radius-md);
   cursor: pointer;
   font-size: 0.875rem;
-  transition: all var(--duration-fast) var(--ease-default);
+  transition: color var(--duration-fast) var(--ease-default),
+              border-color var(--duration-fast) var(--ease-default),
+              background var(--duration-fast) var(--ease-default);
 }
 .theme-toggle:hover {
   color: var(--color-primary);
   border-color: var(--color-primary-border);
+}
+.theme-toggle__icon {
+  display: inline-block;
+  animation: themeIconIn var(--duration-normal) var(--ease-default);
+}
+@keyframes themeIconIn {
+  from { opacity: 0; transform: rotate(-90deg) scale(0.7); }
+  to   { opacity: 1; transform: rotate(0) scale(1); }
 }
 
 /* Language switcher */
