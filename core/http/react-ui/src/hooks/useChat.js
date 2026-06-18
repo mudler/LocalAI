@@ -1,7 +1,8 @@
-import { useState, useCallback, useRef } from 'react'
+import { useState, useCallback, useRef, useEffect } from 'react'
 import { API_CONFIG } from '../utils/config'
 import { apiUrl } from '../utils/basePath'
 import { useDebouncedEffect } from './useDebounce'
+import { chatHistoryApi } from '../utils/api'
 
 const thinkingTagRegex = /<thinking>([\s\S]*?)<\/thinking>|<think>([\s\S]*?)<\/think>|<\|channel>thought([\s\S]*?)<channel\|>/g
 const openThinkTagRegex = /<thinking>|<think>|<\|channel>thought/
@@ -50,26 +51,33 @@ function loadChats() {
   return null
 }
 
+// serializeChat strips React-only state (streaming flags, transient UI bits)
+// before persistence. Used by both localStorage and the server.
+function serializeChat(chat) {
+  return {
+    id: chat.id,
+    name: chat.name,
+    model: chat.model,
+    history: chat.history,
+    systemPrompt: chat.systemPrompt,
+    mcpMode: chat.mcpMode,
+    mcpServers: chat.mcpServers,
+    mcpResources: chat.mcpResources,
+    clientMCPServers: chat.clientMCPServers,
+    temperature: chat.temperature,
+    topP: chat.topP,
+    topK: chat.topK,
+    tokenUsage: chat.tokenUsage,
+    contextSize: chat.contextSize,
+    createdAt: chat.createdAt,
+    updatedAt: chat.updatedAt,
+  }
+}
+
 function saveChats(chats, activeChatId) {
   try {
     const data = {
-      chats: chats.map(chat => ({
-        id: chat.id,
-        name: chat.name,
-        model: chat.model,
-        history: chat.history,
-        systemPrompt: chat.systemPrompt,
-        mcpMode: chat.mcpMode,
-        mcpServers: chat.mcpServers,
-        clientMCPServers: chat.clientMCPServers,
-        temperature: chat.temperature,
-        topP: chat.topP,
-        topK: chat.topK,
-        tokenUsage: chat.tokenUsage,
-        contextSize: chat.contextSize,
-        createdAt: chat.createdAt,
-        updatedAt: chat.updatedAt,
-      })),
+      chats: chats.map(serializeChat),
       activeChatId,
       lastSaved: Date.now(),
     }
@@ -79,6 +87,20 @@ function saveChats(chats, activeChatId) {
       console.warn('localStorage quota exceeded')
     }
   }
+}
+
+// mergeRemoteAndLocal reconciles server conversations with the in-memory list.
+// Server wins for any conversation that exists on both sides — the React
+// state may have been hydrated from a stale localStorage cache on this tab.
+// Conversations that exist only locally are preserved so unsaved drafts
+// survive the first server roundtrip; they'll be pushed up on the next debounce.
+function mergeRemoteAndLocal(remote, local) {
+  const byId = new Map()
+  for (const c of remote) byId.set(c.id, c)
+  for (const c of local) {
+    if (!byId.has(c.id)) byId.set(c.id, c)
+  }
+  return Array.from(byId.values()).sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0))
 }
 
 function createNewChat(model = '', systemPrompt = '', mcpMode = false) {
@@ -132,7 +154,58 @@ export function useChat(initialModel = '') {
 
   const activeChat = chats.find(c => c.id === activeChatId) || chats[0]
 
-  useDebouncedEffect(() => saveChats(chats, activeChatId), [chats, activeChatId])
+  // Server-side persistence (#9432). serverEnabledRef is null while we are
+  // still probing, true once a successful list arrives, false on any error
+  // (feature disabled, auth denied, network down). serializedSentRef caches
+  // the JSON last pushed per chat so we skip no-op writes on every render.
+  const serverEnabledRef = useRef(null)
+  const serializedSentRef = useRef(new Map())
+  const bootstrappedRef = useRef(false)
+
+  useEffect(() => {
+    let cancelled = false
+    chatHistoryApi.list()
+      .then(resp => {
+        if (cancelled) return
+        serverEnabledRef.current = true
+        const remote = Array.isArray(resp?.conversations) ? resp.conversations : []
+        if (remote.length > 0) {
+          setChats(prev => mergeRemoteAndLocal(remote, prev))
+        } else {
+          // Empty server, populated local cache: migrate so the user keeps
+          // their previous history after enabling persistence.
+          const localOnly = chats.filter(c => c.history && c.history.length > 0)
+          if (localOnly.length > 0) {
+            chatHistoryApi.bulkReplace(localOnly.map(serializeChat)).catch(() => {})
+          }
+        }
+      })
+      .catch(() => {
+        if (!cancelled) serverEnabledRef.current = false
+      })
+      .finally(() => {
+        if (!cancelled) bootstrappedRef.current = true
+      })
+    return () => { cancelled = true }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  useDebouncedEffect(() => {
+    saveChats(chats, activeChatId)
+    if (serverEnabledRef.current === true) {
+      for (const chat of chats) {
+        const serialized = serializeChat(chat)
+        const json = JSON.stringify(serialized)
+        if (serializedSentRef.current.get(chat.id) === json) continue
+        serializedSentRef.current.set(chat.id, json)
+        chatHistoryApi.save(serialized).catch(() => {
+          // Keep localStorage as the authoritative copy on transient
+          // server failures; we'll retry on the next change.
+          serializedSentRef.current.delete(chat.id)
+        })
+      }
+    }
+  }, [chats, activeChatId])
 
   const addChat = useCallback((model = '', systemPrompt = '', mcpMode = false) => {
     const chat = createNewChat(model, systemPrompt, mcpMode)
@@ -159,6 +232,10 @@ export function useChat(initialModel = '') {
       }
       return filtered
     })
+    serializedSentRef.current.delete(chatId)
+    if (serverEnabledRef.current === true) {
+      chatHistoryApi.delete(chatId).catch(() => {})
+    }
   }, [activeChatId])
 
   const deleteAllChats = useCallback(() => {
@@ -170,6 +247,10 @@ export function useChat(initialModel = '') {
     setStreamingToolCalls([])
     setTokensPerSecond(null)
     setMaxTokensPerSecond(null)
+    serializedSentRef.current.clear()
+    if (serverEnabledRef.current === true) {
+      chatHistoryApi.deleteAll().catch(() => {})
+    }
   }, [activeChat?.model])
 
   const renameChat = useCallback((chatId, name) => {
