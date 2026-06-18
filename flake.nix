@@ -24,8 +24,7 @@
           runHook postInstall
         '';
       };
-    in {
-      packages.${system}.default = pkgs.buildGoModule {
+      localai-unwrapped = pkgs.buildGoModule {
         pname = "localai";
         version = "custom";
 
@@ -67,6 +66,21 @@
         postInstall = ''
           [ -f $out/bin/local-ai ] && mv $out/bin/local-ai $out/bin/localai
         '';
+      };
+    in {
+      packages.${system} = {
+        localai-unwrapped = localai-unwrapped;
+
+        default = pkgs.buildFHSEnv {
+          name = "localai";
+          targetPkgs = pkgs: with pkgs; [
+            localai-unwrapped
+            bash
+            coreutils
+            gnugrep
+          ];
+          runScript = "${localai-unwrapped}/bin/localai";
+        };
       };
 
       devShells.${system}.default = pkgs.mkShell {
