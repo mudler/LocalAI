@@ -2900,12 +2900,24 @@ select.input {
 
 /* Page route transitions */
 .page-transition {
-  animation: fadeIn 200ms ease;
+  animation: pageReveal var(--duration-reveal) var(--ease-reveal) both;
   display: flex;
   flex-direction: column;
   flex: 1;
   min-height: 0;
   min-width: 0;
+}
+
+@keyframes pageReveal {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* Orchestrated child stagger - opt-in via .reveal-stagger on a container.
+   Each direct child reveals with an incremental delay driven by --reveal-index. */
+.reveal-stagger > * {
+  animation: pageReveal var(--duration-reveal) var(--ease-reveal) both;
+  animation-delay: calc(var(--reveal-index, 0) * 60ms);
 }
 
 /* Chat-specific styles */

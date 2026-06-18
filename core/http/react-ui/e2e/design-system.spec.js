@@ -17,4 +17,12 @@ test.describe('Editorial design system', () => {
     const shadow = await active.evaluate(el => getComputedStyle(el).boxShadow)
     expect(shadow).not.toBe('none')
   })
+
+  test('page reveal animation is defined on .page-transition', async ({ page }) => {
+    await page.goto('/app/settings')
+    const pt = page.locator('.page-transition').first()
+    await expect(pt).toBeVisible({ timeout: 15_000 })
+    const name = await pt.evaluate(el => getComputedStyle(el).animationName)
+    expect(name).toBe('pageReveal')
+  })
 })

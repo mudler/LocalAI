@@ -101,6 +101,8 @@
   --duration-slow: 260ms;
   --ease-default: cubic-bezier(0.22, 1, 0.36, 1);
   --ease-spring:  cubic-bezier(0.22, 1, 0.36, 1);
+  --duration-reveal: 420ms;
+  --ease-reveal: cubic-bezier(0.16, 1, 0.3, 1);  /* ease-out-expo-ish */
 
   /* Spacing */
   --spacing-xs: 0.25rem;
