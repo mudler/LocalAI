@@ -194,5 +194,46 @@ test that (correctly) showed no benefit.
 
 ---
 
+## Implementation plan A — Lever 3: FP4 MoE GEMM to vLLM parity
+
+Goal: lift batched MoE prefill from ~3.65k t/s (B=32) toward vLLM's ~99k. Root cause (profiled):
+`mul_mat_q<MXFP4>` runs at ~22 effective TFLOP/s — warp-level `mma.sync`, not Blackwell tcgen05.
+Cheap knobs are exhausted (ubatch saturates at 2048; `GGML_CUDA_FORCE_CUBLAS` is a no-op 3419↔3423;
+tile width already full at mmq_x=128). So parity needs kernel work, done iteratively on the DGX
+(`~/llama.cpp-pr24423`, editable + rebuildable; diffs captured as `patches/`).
+
+Phases (each: hypothesis → edit `ggml/src/ggml-cuda/` → `cmake --build build --target llama-bench` →
+`llama-bench` MXFP4 pp/concurrency → record):
+1. **Cheap kernel tweaks (low confidence, fast).** nwarps (occupancy), `mmq_y` tile, stream-k on/off,
+   FP4 load-tile path. Measure each. Likely small (<1.3x) — these don't change the warp-MMA ceiling.
+2. **Fuse activation quant** (`quantize_mmq_mxfp4`, 8%) into the permute/gather. Removes a kernel +
+   a global round-trip. Tractable, ~1.1x.
+3. **The real lever — tcgen05 / CUTLASS FP4 grouped GEMM.** Replace the per-expert MMQ scheduler with a
+   CUTLASS 3.x collective-mainloop grouped GEMM (sm_120a, `e2m1` block-scaled, tcgen05 tensor-memory MMA),
+   one problem over all experts with per-group offsets, fused act-quant. This is what vLLM/FlashInfer use.
+   Multi-week; the honest path to parity. Prefer **upstream ggml** (issue drafted) over a private patch.
+4. **Full-model low precision.** Quantize dense layers (qkv/o_proj/lm_head, the 10% Q8) to FP4/FP8 too so
+   the whole prefill runs on FP4 tensor cores, not int8-MMQ.
+Exit per phase: measured t/s recorded here; stop a phase when it's a dead end (recorded as such).
+Matching vLLM realistically requires phase 3; phases 1–2 are the warm-up + de-risking.
+
+## Implementation plan B — Complete paged attention (the pivot)
+
+CPU foundation done (P0–P3, `README.md`): vLLM-parity block manager + ggml write/gather + attention
+numerics + placement Gate 0 (token-identical in-model). Remaining = make it deliver the multi-tenant wins.
+Phases:
+1. **On-demand shared-block pool** — replace `find_slot` ring buffer (`llama-kv-cache.cpp:818`) with
+   `PagedKVManager` block allocation; KV tensor = `[n_embd, block_size*num_blocks]` shared pool. Win:
+   fit more concurrent seqs before OOM. Test: max concurrent seqs at fixed budget vs contiguous.
+2. **Gather-read** (`get_k/get_v` `:1145/1165` → `ggml_get_rows` into scratch) + `build_attn_paged` branch
+   in `llama-graph.cpp`. Numerically proven on CPU (7.5e-08). Gate 0: token-identical multi-seq.
+3. **Continuous batching / scheduler** — admit/evict at block granularity in the server slot path. The
+   real concurrency win on mixed-length traffic (where the placement prototype showed nothing).
+4. **Automatic prefix sharing** — block-hash dedup (`PagedKVManager::{compute_block_hashes,get_computed_blocks}`
+   already implemented + tested). Cross-tenant shared system prompts reuse physical blocks.
+Then benchmark in paging's real regimes — **memory-pressured** + **mixed-length continuous batching** — on
+the MXFP4 (fair-quant) footing. Note: GB10's 119 GB unified memory means win-1 needs genuine pressure
+(long/many seqs) to show; the win is capacity + scheduling, not per-token speed.
+
 ## Honest scope note
 Levers 3–5 and the complete paged implementation are each substantial (weeks of expert CUDA/systems work). This doc tracks what is **measured** vs **designed** vs **not-yet-built**, and never claims a number that wasn't run on the box.
