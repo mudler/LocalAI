@@ -1,0 +1,91 @@
+diff --git a/ggml/src/ggml-cuda/fp4-grouped-moe.cu b/ggml/src/ggml-cuda/fp4-grouped-moe.cu
+new file mode 100644
+index 0000000..5f5a782
+--- /dev/null
++++ b/ggml/src/ggml-cuda/fp4-grouped-moe.cu
+@@ -0,0 +1,46 @@
++#include "fp4-grouped-moe.cuh"
++
++#include <cstdlib>
++#include <cstdio>
++
++// SCAFFOLD for the FP4 grouped-GEMM MoE kernel (Lever 3).
++//
++// Why: on GB10 (sm_121) the MoE matmul runs mul_mat_q<MXFP4> - a warp-level mma.sync grouped MMQ -
++// at ~22 effective TFLOP/s, ~27x behind vLLM prefill, and it also dominates decode at concurrency
++// (54.6% of GPU time at B=64). It is the single bottleneck to vLLM parity in BOTH phases; paged
++// attention cannot touch it (proven by profiling). The fix is a CUTLASS-3.x collective-mainloop
++// grouped GEMM over all experts, block-scaled e2m1 operands via tcgen05 tensor-memory MMA.
++//
++// This file is the integration seam. It is currently a no-op that always falls back to MMQ, so the
++// default build is byte-identical. The kernel is filled in over the phases in the design doc.
++
++static bool fp4_grouped_enabled() {
++    static const bool en = (std::getenv("GGML_CUDA_FP4_GROUPED") != nullptr);
++    return en;
++}
++
++bool ggml_cuda_fp4_grouped_moe(
++        ggml_backend_cuda_context & ctx,
++        const ggml_tensor * src0,
++        const ggml_tensor * src1,
++        const ggml_tensor * ids,
++        ggml_tensor       * dst) {
++    GGML_UNUSED(ctx); GGML_UNUSED(src1); GGML_UNUSED(ids); GGML_UNUSED(dst);
++
++    if (!fp4_grouped_enabled()) {
++        return false; // default: existing MMQ path
++    }
++    if (src0->type != GGML_TYPE_MXFP4 && src0->type != GGML_TYPE_NVFP4) {
++        return false;
++    }
++
++    // TODO(kernel - see kernel design doc): CUTLASS 3.x GemmGrouped, sm_120a, block-scaled e2m1,
++    // tcgen05 MMA; per-expert problem offsets from `ids`; fused activation quant; numerical parity
++    // vs mul_mat_q<MXFP4> before enabling by default.
++    static bool warned = false;
++    if (!warned) {
++        warned = true;
++        fprintf(stderr, "[fp4-grouped] GGML_CUDA_FP4_GROUPED set, kernel not yet implemented - using MMQ\n");
++    }
++    return false; // scaffold: fall back until the kernel lands
++}
+diff --git a/ggml/src/ggml-cuda/fp4-grouped-moe.cuh b/ggml/src/ggml-cuda/fp4-grouped-moe.cuh
+new file mode 100644
+index 0000000..29e1b5a
+--- /dev/null
++++ b/ggml/src/ggml-cuda/fp4-grouped-moe.cuh
+@@ -0,0 +1,13 @@
++#pragma once
++
++#include "common.cuh"
++
++// Entry point for the tcgen05/CUTLASS block-scaled FP4 (MXFP4/NVFP4) grouped-GEMM MoE kernel for
++// Blackwell consumer GPUs (sm_120/121). Returns true if it handled the op; false to fall back to
++// the existing warp-mma MMQ path. Gated behind GGML_CUDA_FP4_GROUPED until correct + faster.
++bool ggml_cuda_fp4_grouped_moe(
++        ggml_backend_cuda_context & ctx,
++        const ggml_tensor * src0,   // expert weights, MXFP4/NVFP4 [n_embd, n_ff, n_expert]
++        const ggml_tensor * src1,   // activations, F32 [n_embd, n_tokens, ...]
++        const ggml_tensor * ids,    // expert routing, I32
++        ggml_tensor       * dst);   // F32 output
+diff --git a/ggml/src/ggml-cuda/ggml-cuda.cu b/ggml/src/ggml-cuda/ggml-cuda.cu
+index 8ea462a..104d131 100644
+--- a/ggml/src/ggml-cuda/ggml-cuda.cu
++++ b/ggml/src/ggml-cuda/ggml-cuda.cu
+@@ -30,6 +30,7 @@
+ #include "ggml-cuda/im2col.cuh"
+ #include "ggml-cuda/mmf.cuh"
+ #include "ggml-cuda/mmq.cuh"
++#include "ggml-cuda/fp4-grouped-moe.cuh"
+ #include "ggml-cuda/mmvf.cuh"
+ #include "ggml-cuda/mmvq.cuh"
+ #include "ggml-cuda/norm.cuh"
+@@ -2701,6 +2702,7 @@ static void ggml_cuda_mul_mat_id(ggml_backend_cuda_context & ctx, ggml_tensor *
+         }
+ 
+         if (ggml_cuda_should_use_mmq(src0->type, cc, ne12, /*n_experts=*/ne02)) {
++            if (ggml_cuda_fp4_grouped_moe(ctx, src0, src1, ids, dst)) { return; }
+             ggml_cuda_mul_mat_q(ctx, src0, src1, ids, dst);
+             return;
+         }
