@@ -1,4 +1,96 @@
 ---
+- name: "glm-5.2"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/unsloth/GLM-5.2-GGUF
+  description: |
+    # GLM-5.2
+
+    👋 Join our WeChat or Discord community.
+
+    📖 Check out the GLM-5.2 blog and GLM-5 Technical report.
+
+    📍 Use GLM-5.2 API services on Z.ai API Platform.
+
+    🔜 Try GLM-5.2 here.
+
+    [Paper]
+    [GitHub]
+
+    ## Introduction
+
+    We're introducing GLM-5.2, our latest flagship model for long-horizon tasks. It marks a substantial leap in long-horizon task capability over its predecessor GLM-5.1 and, for the first time, delivers that capability on a **solid 1M-token context**. GLM-5.2's new capabilities include:
+      - **Solid 1M Context:** A solid 1M-token context that stably sustains long-horizon work
+      - **Advanced Coding with Flexible Effort**: Stronger coding capabilities with multiple thinking effort levels to balance performance and latency
+      - **Improved Architecture**: We propose IndexShare, which reuses the same indexer across every four sparse attention layers, reducing per-token FLOPs by 2.9× at a 1M context length. We also improve GLM-5.2’s MTP layer for speculative decoding, increasing the acceptance length by up to 20%
+      - **Pure Open**: An MIT open-source license — no regional limits, technical access without borders
+
+    ## Benchmark
+
+    ## Serve GLM-5.2 Locally
+
+    ...
+  license: "mit"
+  tags:
+    - llm
+    - gguf
+  icon: https://raw.githubusercontent.com/zai-org/GLM-5/refs/heads/main/resources/bench_52.png
+  overrides:
+    backend: llama-cpp
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+    options:
+      - use_jinja:true
+      - spec_type:draft-mtp
+      - spec_n_max:6
+      - spec_p_min:0.75
+    parameters:
+      min_p: 0.01
+      model: llama-cpp/models/GLM-5.2-GGUF/GLM-5.2-UD-Q4_K_M-00001-of-00011.gguf
+      repeat_penalty: 1
+      temperature: 1
+      top_k: -1
+      top_p: 0.95
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/GLM-5.2-GGUF/GLM-5.2-UD-Q4_K_M-00001-of-00011.gguf
+      sha256: 3256ac8c290273f0965ff39e93a8bcd07dc99bcd23e923bd4b7306ef39061038
+      uri: https://huggingface.co/unsloth/GLM-5.2-GGUF/resolve/main/UD-Q4_K_M/GLM-5.2-UD-Q4_K_M-00001-of-00011.gguf
+    - filename: llama-cpp/models/GLM-5.2-GGUF/GLM-5.2-UD-Q4_K_M-00002-of-00011.gguf
+      sha256: 1020105e78d862988a6cabb3a78eafa75f29666ab8a5fd10de1b9b8c8a6bc5e8
+      uri: https://huggingface.co/unsloth/GLM-5.2-GGUF/resolve/main/UD-Q4_K_M/GLM-5.2-UD-Q4_K_M-00002-of-00011.gguf
+    - filename: llama-cpp/models/GLM-5.2-GGUF/GLM-5.2-UD-Q4_K_M-00003-of-00011.gguf
+      sha256: 0b36f406e120759290894ea4960d5086f9b362a8c8f9c7fcaad24b4471172efb
+      uri: https://huggingface.co/unsloth/GLM-5.2-GGUF/resolve/main/UD-Q4_K_M/GLM-5.2-UD-Q4_K_M-00003-of-00011.gguf
+    - filename: llama-cpp/models/GLM-5.2-GGUF/GLM-5.2-UD-Q4_K_M-00004-of-00011.gguf
+      sha256: 04b19199f52ba29e7f9966b15df3fbc2d1e5c56cd6343c405076be7174d49d32
+      uri: https://huggingface.co/unsloth/GLM-5.2-GGUF/resolve/main/UD-Q4_K_M/GLM-5.2-UD-Q4_K_M-00004-of-00011.gguf
+    - filename: llama-cpp/models/GLM-5.2-GGUF/GLM-5.2-UD-Q4_K_M-00005-of-00011.gguf
+      sha256: 5cb76d724ee16e80c1cb6aba29aacd76161e7a6f147079be3447501c06d95f2c
+      uri: https://huggingface.co/unsloth/GLM-5.2-GGUF/resolve/main/UD-Q4_K_M/GLM-5.2-UD-Q4_K_M-00005-of-00011.gguf
+    - filename: llama-cpp/models/GLM-5.2-GGUF/GLM-5.2-UD-Q4_K_M-00006-of-00011.gguf
+      sha256: ec2c65255c834b686f066e350bc5b8d8a7020cd1133f0ee9e819d2fb5d3afad0
+      uri: https://huggingface.co/unsloth/GLM-5.2-GGUF/resolve/main/UD-Q4_K_M/GLM-5.2-UD-Q4_K_M-00006-of-00011.gguf
+    - filename: llama-cpp/models/GLM-5.2-GGUF/GLM-5.2-UD-Q4_K_M-00007-of-00011.gguf
+      sha256: 53c8328852ca0b6791a9a9243bcc56157305adca8526a646054389845e7445a9
+      uri: https://huggingface.co/unsloth/GLM-5.2-GGUF/resolve/main/UD-Q4_K_M/GLM-5.2-UD-Q4_K_M-00007-of-00011.gguf
+    - filename: llama-cpp/models/GLM-5.2-GGUF/GLM-5.2-UD-Q4_K_M-00008-of-00011.gguf
+      sha256: 9a23bfb21c5f6fcc94b0329c108ec1ef3fdbd815c57eeb0bf105d26861d7271e
+      uri: https://huggingface.co/unsloth/GLM-5.2-GGUF/resolve/main/UD-Q4_K_M/GLM-5.2-UD-Q4_K_M-00008-of-00011.gguf
+    - filename: llama-cpp/models/GLM-5.2-GGUF/GLM-5.2-UD-Q4_K_M-00009-of-00011.gguf
+      sha256: 71088054fb1a09a4f38e2ee8a726526790660a4f77ead817f75cb7a484bdb0b8
+      uri: https://huggingface.co/unsloth/GLM-5.2-GGUF/resolve/main/UD-Q4_K_M/GLM-5.2-UD-Q4_K_M-00009-of-00011.gguf
+    - filename: llama-cpp/models/GLM-5.2-GGUF/GLM-5.2-UD-Q4_K_M-00010-of-00011.gguf
+      sha256: 848db99658faf24971df23638281305a15bdc187cbcaed968952ed9e9c835b50
+      uri: https://huggingface.co/unsloth/GLM-5.2-GGUF/resolve/main/UD-Q4_K_M/GLM-5.2-UD-Q4_K_M-00010-of-00011.gguf
+    - filename: llama-cpp/models/GLM-5.2-GGUF/GLM-5.2-UD-Q4_K_M-00011-of-00011.gguf
+      sha256: 629e23bce250fb500d9a190de7249c2882af524aacc112ce507a871ed5bebf90
+      uri: https://huggingface.co/unsloth/GLM-5.2-GGUF/resolve/main/UD-Q4_K_M/GLM-5.2-UD-Q4_K_M-00011-of-00011.gguf
 - name: "qwen3.6-27b-mtp-pi-tune"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
