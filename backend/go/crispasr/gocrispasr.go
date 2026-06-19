@@ -34,6 +34,18 @@ var (
 	CppTTSFree         func(ptr uintptr)
 	CppTTSSetVoice     func(name string) int
 	CppTTSSetVoiceFile func(path string, refText string) int
+
+	// Word-level timestamp accessors (session-based, per-segment)
+	CppGetWordCount func(segI int) int
+	CppGetWordText  func(segI int, wordI int) string
+	CppGetWordT0    func(segI int, wordI int) int64
+	CppGetWordT1    func(segI int, wordI int) int64
+
+	// Parakeet-specific word accessors (global, no segment index)
+	CppGetParakeetWordCount func() int
+	CppGetParakeetWordText  func(wordI int) string
+	CppGetParakeetWordT0    func(wordI int) int64
+	CppGetParakeetWordT1    func(wordI int) int64
 )
 
 type CrispASR struct {
@@ -290,10 +302,36 @@ func (w *CrispASR) AudioTranscription(ctx context.Context, opts *pb.TranscriptRe
 		// IDs, so Tokens is left empty.
 		txt := strings.ToValidUTF8(strings.Clone(CppGetSegmentText(i)), "�")
 
+		// Populate word-level timestamps. Try session-based functions first
+		// (per-segment); fall back to parakeet-specific functions (global word
+		// list with no segment index — only populated on the first segment to
+		// avoid duplication).
+		words := []*pb.TranscriptWord{}
+		wordCount := CppGetWordCount(i)
+		if wordCount == 0 && i == 0 {
+			wordCount = CppGetParakeetWordCount()
+			for j := 0; j < wordCount; j++ {
+				words = append(words, &pb.TranscriptWord{
+					Start: CppGetParakeetWordT0(j) * (10000000),
+					End:   CppGetParakeetWordT1(j) * (10000000),
+					Text:  strings.ToValidUTF8(strings.Clone(CppGetParakeetWordText(j)), "�"),
+				})
+			}
+		} else {
+			for j := 0; j < wordCount; j++ {
+				words = append(words, &pb.TranscriptWord{
+					Start: CppGetWordT0(i, j) * (10000000),
+					End:   CppGetWordT1(i, j) * (10000000),
+					Text:  strings.ToValidUTF8(strings.Clone(CppGetWordText(i, j)), "�"),
+				})
+			}
+		}
+
 		segment := &pb.TranscriptSegment{
 			Id:    int32(i),
 			Text:  txt,
 			Start: s, End: t,
+			Words: words,
 		}
 
 		segments = append(segments, segment)
