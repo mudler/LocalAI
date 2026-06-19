@@ -243,6 +243,14 @@ func (s *server) AudioTranscription(ctx context.Context, in *pb.TranscriptReques
 		for _, t := range s.Tokens {
 			tks = append(tks, int32(t))
 		}
+		words := make([]*pb.TranscriptWord, 0, len(s.Words))
+		for _, w := range s.Words {
+			words = append(words, &pb.TranscriptWord{
+				Start: int64(w.Start),
+				End:   int64(w.End),
+				Text:  w.Text,
+			})
+		}
 		tresult.Segments = append(tresult.Segments,
 			&pb.TranscriptSegment{
 				Text:    s.Text,
@@ -251,6 +259,7 @@ func (s *server) AudioTranscription(ctx context.Context, in *pb.TranscriptReques
 				End:     int64(s.End),
 				Tokens:  tks,
 				Speaker: s.Speaker,
+				Words:   words,
 			})
 	}
 
