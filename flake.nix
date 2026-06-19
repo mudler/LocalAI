@@ -14,7 +14,10 @@
         pname = "localai-react-ui";
         version = "custom";
         src = ./core/http/react-ui;
-        npmDepsHash = "sha256-G+bc1SajltRt4ZfkKNN1h6kFSmD0pCOR8MqRE6cKDLM=";
+        npmDeps = pkgs.importNpmLock {
+          npmRoot = ./core/http/react-ui;
+        };
+        npmConfigHook = pkgs.importNpmLock.npmConfigHook;
         npmBuildScript = "build";
 
         installPhase = ''
