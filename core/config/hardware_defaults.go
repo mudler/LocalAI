@@ -70,10 +70,11 @@ func IsManagedPhysicalBatch(n int) bool {
 	return n == DefaultPhysicalBatch || n == BlackwellPhysicalBatch
 }
 
-// LocalGPU builds a GPU descriptor from local detection. Used by SetDefaults on
-// a single host; the distributed router builds the descriptor from the selected
-// node's reported info instead.
-func LocalGPU() GPU {
+// localGPU builds a GPU descriptor from local detection, used by SetDefaults on
+// a single host (the distributed router builds it from the selected node's
+// reported info instead). It is a package var so tests can inject a
+// deterministic device — detection does a live nvidia-smi call.
+var localGPU = func() GPU {
 	vendor, _ := xsysinfo.DetectGPUVendor()
 	return GPU{
 		Vendor:            vendor,
