@@ -19,14 +19,17 @@ GGML_SRC   ?= ../../llama-cpp-fallback-build/llama.cpp/ggml
 GGML_BUILD ?= /tmp/ggml-build
 GGML_LIBDIR = $(GGML_BUILD)/src
 
-tests/test_ggml_paged_rw: tests/test_ggml_paged_rw.cpp paged_kv_manager.cpp paged_kv_manager.h
+GGML_TESTS = test_ggml_paged_rw test_ggml_paged_attn
+GGML_BINS  = $(addprefix tests/,$(GGML_TESTS))
+
+tests/test_ggml_%: tests/test_ggml_%.cpp paged_kv_manager.cpp paged_kv_manager.h
 	$(CXX) $(CXXFLAGS) -I$(GGML_SRC)/include -o $@ $< paged_kv_manager.cpp \
 		-L$(GGML_LIBDIR) -lggml -lggml-base -lggml-cpu -Wl,-rpath,$(GGML_LIBDIR)
 
-ggml-check: tests/test_ggml_paged_rw
-	@echo "== tests/test_ggml_paged_rw =="; ./tests/test_ggml_paged_rw
+ggml-check: $(GGML_BINS)
+	@for t in $(GGML_BINS); do echo "== $$t =="; ./$$t || exit 1; done
 
 clean:
-	rm -f $(BINS) tests/test_ggml_paged_rw
+	rm -f $(BINS) $(GGML_BINS)
 
 .PHONY: all check ggml-check clean
