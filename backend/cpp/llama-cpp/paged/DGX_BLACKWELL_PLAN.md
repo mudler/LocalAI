@@ -206,6 +206,10 @@ Phases (each: hypothesis → edit `ggml/src/ggml-cuda/` → `cmake --build build
 `llama-bench` MXFP4 pp/concurrency → record):
 1. **Cheap kernel tweaks (low confidence, fast).** nwarps (occupancy), `mmq_y` tile, stream-k on/off,
    FP4 load-tile path. Measure each. Likely small (<1.3x) — these don't change the warp-MMA ceiling.
+   - **Result (nwarps):** DEAD END. `nwarps` is locked by `static_assert(nwarps*tile_C::I == mmq_y)`
+     (mmq.cuh:3234) → nwarps=8 for mmq_y=128. Can't raise occupancy without co-scaling mmq_y to 256
+     (nwarps=16), which blows Blackwell shared-memory limits. The MMQ constants are tightly coupled;
+     it is not freely tunable. Confirms parity needs the kernel rewrite (phase 3), not knobs.
 2. **Fuse activation quant** (`quantize_mmq_mxfp4`, 8%) into the permute/gather. Removes a kernel +
    a global round-trip. Tractable, ~1.1x.
 3. **The real lever — tcgen05 / CUTLASS FP4 grouped GEMM.** Replace the per-expert MMQ scheduler with a
