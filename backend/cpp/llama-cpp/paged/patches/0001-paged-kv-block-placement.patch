@@ -1,0 +1,59 @@
+diff --git a/src/llama-kv-cache.cpp b/src/llama-kv-cache.cpp
+index a49a055a6..d95102bbd 100644
+--- a/src/llama-kv-cache.cpp
++++ b/src/llama-kv-cache.cpp
+@@ -11,6 +11,8 @@
+ #include <cstring>
+ #include <limits>
+ #include <map>
++#include <numeric>
++#include <cstdlib>
+ #include <stdexcept>
+ 
+ static bool ggml_is_power_of_2(int n) {
+@@ -931,6 +933,45 @@ llama_kv_cache::slot_info llama_kv_cache::find_slot(const llama_ubatch & ubatch,
+             return { };
+         }
+ 
++        // [paged, experimental] Place this sequence's tokens at permuted,
++        // non-contiguous fixed-size BLOCK positions instead of a contiguous run.
++        // This validates that attention is invariant to physical KV placement -
++        // the correctness premise of paged attention. Enabled via LLAMA_KV_PAGED.
++        // Single-sequence scope (uses get_used() as the logical base); falls back
++        // to the normal allocator if the permuted cells aren't available.
++        static const bool paged_mode = (std::getenv("LLAMA_KV_PAGED") != nullptr);
++        if (paged_mode) {
++            const uint32_t bs   = 16;                 // block size (tokens/block)
++            const uint32_t nblk = cells.size() / bs;  // blocks in this stream's pool
++            if (nblk >= 2) {
++                // stride coprime to nblk => block-index permutation is a bijection
++                uint32_t k = 1;
++                for (uint32_t cand = (nblk / 2) | 1u; cand < nblk; cand += 2) {
++                    if (std::gcd(cand, nblk) == 1u) { k = cand; break; }
++                }
++                const uint32_t base = cells.get_used();
++                bool ok = true;
++                for (uint32_t i = 0; i < n_tokens; ++i) {
++                    const uint32_t L    = base + i;
++                    const uint32_t b    = L / bs;
++                    const uint32_t off  = L % bs;
++                    if (b >= nblk) { ok = false; break; }
++                    const uint32_t phys = ((b * k) % nblk) * bs + off; // permuted block
++                    if (phys >= cells.size() || !cells.is_empty(phys)) { ok = false; break; }
++                    res.idxs[s].push_back(phys);
++                }
++                if (ok && res.idxs[s].size() == n_tokens) {
++                    if (std::getenv("LLAMA_KV_PAGED_DEBUG")) {
++                        fprintf(stderr, "[paged] seq placed %u tok at cells:", n_tokens);
++                        for (uint32_t z = 0; z < res.idxs[s].size() && z < 24; ++z) fprintf(stderr, " %u", res.idxs[s][z]);
++                        fprintf(stderr, " (k=%u nblk=%u base=%u)\n", k, nblk, base);
++                    }
++                    continue; // paged placement succeeded for this sequence
++                }
++                res.idxs[s].clear(); // fall back to the normal allocator
++            }
++        }
++
+         uint32_t n_tested = 0;
+ 
+         // for continuous slots, we test that all tokens in the ubatch fit, starting from the current head

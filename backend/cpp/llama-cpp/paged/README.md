@@ -16,12 +16,28 @@ Plan:   `docs/superpowers/plans/2026-06-19-paged-attention-llamacpp.md`
 | P1 | ggml paged write/gather mechanism (`set_rows` by slot_mapping → `get_rows` gather) | ✅ verified — `make ggml-check`, non-contiguous blocks `[2,1,5]` round-trip + isolation |
 | P2 (core) | attention over gathered paged KV matches independent host reference | ✅ verified — max abs err **7.5e-08** |
 | P3 (partial) | capacity & prefix-sharing wins | ✅ measured — `make bench`: **9.2×** more concurrent seqs, **11.3×** less KV memory |
-| **P2/P3 (in-model)** | **`build_attn_paged` in llama-graph.cpp + Gate 0 (token-identical generation) + win-2 throughput** | ⛔ **NOT DONE** — large in-tree effort |
+| **P3 (in-model placement)** | **paged, non-contiguous block KV placement in the real model** | ✅ **Gate 0 PASSED** — Qwen3-0.6B token-identical (`patches/0001-paged-kv-block-placement.patch`) |
+| P4 (in-model compute) | gather-read (`build_attn_paged`, read only a seq's blocks) + win-2 throughput + multi-seq | ⛔ remaining |
 
-The design's central risk — *does gather-to-scratch produce correct attention?* — is
-**retired**: paged, non-contiguous KV through the existing ggml attention ops is
-bit-accurate. What remains is wiring that into the model's graph and proving
-token-identical generation on a real GGUF, then measuring tok/s vs concurrency.
+The design's central risk — *does paged (non-contiguous) KV produce correct attention?* —
+is **retired at two levels**: (1) at the ggml-op level (P2, 7.5e-08 vs reference) and
+(2) **in a real model** (P3): with KV physically scattered across permuted, non-contiguous
+blocks (cells `0-15, 144-159, 32-47, …`), Qwen3-0.6B greedy generation is **token-for-token
+identical** to the contiguous cache. Reproduce:
+
+```sh
+# from backend/cpp/llama-cpp-fallback-build/llama.cpp (patch applied, CPU build)
+B=build-cpu/bin/llama-simple; M=<Qwen3-0.6B.Q4_K_M.gguf>; P="...long prompt..."
+"$B" -m "$M" -n 40 "$P"                         > base.txt
+LLAMA_KV_PAGED=1 "$B" -m "$M" -n 40 "$P"        > paged.txt
+diff base.txt paged.txt && echo TOKEN-IDENTICAL
+# LLAMA_KV_PAGED_DEBUG=1 prints the permuted physical cells per step
+```
+
+This proves the **storage/placement** layer of paged attention in-model. What remains (P4)
+is the **compute** optimization that yields the throughput win: a gather-read that attends
+only a sequence's own blocks (instead of scanning `[0,n_kv)` with a mask), plus the
+multi-sequence driver to measure tok/s vs concurrency. The patch is single-sequence scope.
 
 ## Build & test
 
