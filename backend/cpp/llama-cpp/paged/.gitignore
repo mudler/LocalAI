@@ -1,0 +1,4 @@
+tests/test_free_block_queue
+tests/test_block_pool
+tests/test_paged_kv_manager
+tests/test_prefix_cache
