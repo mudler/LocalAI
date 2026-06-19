@@ -105,7 +105,20 @@ MXFP4's *only* real edge is **prefill (+41% over Q4_K_M)** via Blackwell FP4 ten
 **"4-bit quant + ubatch=2048" captures most of the win portably**; MXFP4 is a Blackwell-only prefill extra.
 
 ### Lever 3 — Fused FP4/FP8 MoE grouped GEMM (+ activation-quant fusion)
-Status: **DESIGNED, not built** (multi-week kernel R&D). This is the single biggest remaining prefill win.
+Status: **DESIGNED + PROFILED, not built** (multi-week kernel R&D). The single biggest remaining prefill win.
+
+**Decisive measurements:**
+- Prefill does NOT scale with bigger single prompts (attention O(N²) confounds): MXFP4 pp2048=3295, pp8192=1524,
+  pp16384=2051. So the plateau is not a batch-size fix.
+- Real gap is batched many-sequence prefill: B=32 llama 3651 vs vLLM 99398 = **27×**. llama.cpp MoE prefill runs
+  at only **~22 effective TFLOP/s** on the GB10 — far below the GPU. Large headroom.
+- **nsys (MXFP4 pp2048):** `mul_mat_q<type39>` (MoE FP4 GEMM) = **37.2%**, `quantize_mmq_mxfp4` (act-quant) = 8.0%,
+  `mul_mat_q<type8>` (dense/attn, still Q8) = 10.1%, flash_attn = 8.8%. The native FP4 MMA *is* engaged — the
+  inefficiency is the **per-expert thin-tile MMQ scheduler** + **un-fused activation quant**.
+
+**Target (precise):** the ~45% in `mmq.cu`'s grouped MoE path (`ggml_cuda_mul_mat_q` + `ids`, `mmid.cu`). Replace
+the per-expert thin-tile scheduler with a CUTLASS-style grouped GEMM (full tiles regardless of tokens/expert) and
+fuse `quantize_mmq_mxfp4` into the permute/gather. Dense Q8 matmuls (10%) are the separate Lever-4 (FP8) target.
 Problem (measured): the prefill ceiling is the MoE expert GEMM. Today `ggml_cuda_mul_mat_q` with `ids`
 (`mmq.cu:127`) launches one grouped MMQ over a 3D grid (z = expert), but each expert's tile is thin
 (~tokens/expert columns) so int8/FP4 tensor cores run underfilled; throughput is memory-bound on weight
