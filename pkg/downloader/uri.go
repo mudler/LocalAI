@@ -594,10 +594,12 @@ func (uri URI) DownloadFileWithContext(ctx context.Context, filePath, sha string
 		// Start the request
 		resp, err := downloadClient.Do(req)
 		if err != nil {
-			// Check if error is due to context cancellation
+			// On cancellation keep the .partial file: the next attempt resumes
+			// via a Range request instead of restarting from zero. Frontend
+			// restarts (deploys, OOM) cancel in-flight downloads, and large
+			// GGUFs take long enough that deleting progress means they never
+			// finish.
 			if errors.Is(err, context.Canceled) {
-				// Clean up partial file on cancellation
-				removePartialFile(tmpFilePath)
 				return err
 			}
 			return fmt.Errorf("failed to download file %q: %v", filePath, err)
@@ -608,6 +610,13 @@ func (uri URI) DownloadFileWithContext(ctx context.Context, filePath, sha string
 			return fmt.Errorf("failed to download url %q, invalid status code %d", url, resp.StatusCode)
 		}
 		source = resp.Body
+		// Guard against a silently-stalled stream: a dropped TCP connection
+		// that never sends FIN/RST would otherwise block the body Read (and
+		// thus the whole install) forever. The watchdog aborts after a window
+		// of zero progress; the .partial is kept for a later resume.
+		if DownloadStallTimeout > 0 {
+			source = newIdleTimeoutReader(resp.Body, DownloadStallTimeout)
+		}
 		contentLength = resp.ContentLength
 	}
 	defer source.Close()
@@ -640,19 +649,18 @@ func (uri URI) DownloadFileWithContext(ctx context.Context, filePath, sha string
 
 	_, err = xio.Copy(ctx, io.MultiWriter(outFile, progress), source)
 	if err != nil {
-		// Check if error is due to context cancellation
+		// Keep the .partial on cancellation so the next attempt resumes. A
+		// stall-guard abort is a plain error (not context.Canceled) and also
+		// falls through here, likewise preserving the partial for resume.
 		if errors.Is(err, context.Canceled) {
-			// Clean up partial file on cancellation
-			removePartialFile(tmpFilePath)
 			return err
 		}
 		return fmt.Errorf("failed to write file %q: %v", filePath, err)
 	}
 
-	// Check for cancellation before finalizing
+	// Check for cancellation before finalizing. Keep the .partial for resume.
 	select {
 	case <-ctx.Done():
-		removePartialFile(tmpFilePath)
 		return ctx.Err()
 	default:
 	}
