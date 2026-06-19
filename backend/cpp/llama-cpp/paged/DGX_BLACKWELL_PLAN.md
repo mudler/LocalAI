@@ -212,6 +212,16 @@ Phases (each: hypothesis → edit `ggml/src/ggml-cuda/` → `cmake --build build
      it is not freely tunable. Confirms parity needs the kernel rewrite (phase 3), not knobs.
 2. **Fuse activation quant** (`quantize_mmq_mxfp4`, 8%) into the permute/gather. Removes a kernel +
    a global round-trip. Tractable, ~1.1x.
+   - **Result:** NOT AVAILABLE as a cheap patch. `quantize_mmq_fp4_cuda` (mmq.cu:200) *already* takes
+     `ids_src1` — the gather is already fused into the quant. The only remaining fusion is quantize-on-load
+     *inside* the GEMM hot loop (intricate, ~8% ceiling, risky). ORippler's #24481 fuses the decode (MMVQ)
+     post-scale and intends a "BS>1" (prefill) follow-up — unwritten. Marginal; skip.
+
+**Upstream survey (2026-06):** there is NO tcgen05/CUTLASS grouped-GEMM MoE kernel in ggml — not merged,
+not in-flight, not a draft (Discussion #18369 is talk, no PR; #18250 closed not-planned). CUTLASS is not a
+dependency (the profile's `cutlass_80_tensorop` is cuBLAS-internal). No fork has a portable MoE kernel
+(croll83/llama.cpp-dgx is GatedDeltaNet-focused). Maintainer signal (woachk on #17906): "the path forward
+is to wait for cuTile C++." So **nothing to cherry-pick; phase 3 is genuinely from-scratch.**
 3. **The real lever — tcgen05 / CUTLASS FP4 grouped GEMM.** Replace the per-expert MMQ scheduler with a
    CUTLASS 3.x collective-mainloop grouped GEMM (sm_120a, `e2m1` block-scaled, tcgen05 tensor-memory MMA),
    one problem over all experts with per-group offsets, fused act-quant. This is what vLLM/FlashInfer use.
