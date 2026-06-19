@@ -25,6 +25,7 @@ import (
 	"github.com/mudler/LocalAI/core/services/storage"
 	coreStartup "github.com/mudler/LocalAI/core/startup"
 	"github.com/mudler/LocalAI/internal"
+	"github.com/mudler/LocalAI/pkg/downloader"
 	"github.com/mudler/LocalAI/pkg/signals"
 	"github.com/mudler/LocalAI/pkg/vram"
 
@@ -70,6 +71,16 @@ func New(opts ...config.AppOption) (*Application, error) {
 	err = os.MkdirAll(options.SystemState.Model.ModelsPath, 0o750)
 	if err != nil {
 		return nil, fmt.Errorf("unable to create ModelPath: %q", err)
+	}
+
+	// Reap *.partial downloads abandoned by a previous run (killed mid-transfer
+	// by an OOM/restart, or stalled before cleanup could run). The 24h window
+	// is well beyond any legitimate in-flight download, so this never trims an
+	// active transfer; it just stops dead partials accumulating on the volume.
+	if removed, cErr := downloader.CleanupStalePartialFiles(options.SystemState.Model.ModelsPath, 24*time.Hour); cErr != nil {
+		xlog.Warn("Failed to reap stale partial downloads", "error", cErr)
+	} else if removed > 0 {
+		xlog.Info("Reaped stale partial downloads", "count", removed)
 	}
 	if options.GeneratedContentDir != "" {
 		err := os.MkdirAll(options.GeneratedContentDir, 0o750)
