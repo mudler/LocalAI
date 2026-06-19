@@ -38,9 +38,9 @@ var UnifiedMemoryDevices = []string{
 
 // GPUMemoryInfo contains real-time GPU memory usage information
 type GPUMemoryInfo struct {
-	Index        int     `json:"index"`
-	Name         string  `json:"name"`
-	Vendor       string  `json:"vendor"`
+	Index  int    `json:"index"`
+	Name   string `json:"name"`
+	Vendor string `json:"vendor"`
 	// BDF is the canonical PCI bus address (dddd:bb:dd.f) when known.
 	// Populated by detection paths that can attribute the device to a
 	// PCI location (clinfo, future amdgpu/nvidia paths); empty for
@@ -305,6 +305,84 @@ func GetGPUAggregateInfo() GPUAggregateInfo {
 	}
 
 	return aggregate
+}
+
+var (
+	computeCapOnce   sync.Once
+	computeCapResult string
+)
+
+// NVIDIAComputeCapability returns the highest NVIDIA GPU compute capability on
+// this host as a "major.minor" string (e.g. "12.1" for GB10 / DGX Spark), or ""
+// when nvidia-smi is unavailable or reports none. Detected once and cached.
+//
+// This runs where the GPU actually is. In distributed mode it is reported by
+// each worker on registration so the router can make per-node decisions rather
+// than guessing from the (possibly GPU-less) frontend host.
+func NVIDIAComputeCapability() string {
+	computeCapOnce.Do(func() {
+		computeCapResult = detectNVIDIAComputeCapability()
+	})
+	return computeCapResult
+}
+
+func detectNVIDIAComputeCapability() string {
+	if _, err := exec.LookPath("nvidia-smi"); err != nil {
+		return ""
+	}
+
+	cmd := exec.Command("nvidia-smi", "--query-gpu=compute_cap", "--format=csv,noheader")
+
+	var stdout, stderr bytes.Buffer
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+
+	if err := cmd.Run(); err != nil {
+		xlog.Debug("nvidia-smi compute_cap query failed", "error", err, "stderr", stderr.String())
+		return ""
+	}
+
+	best := ""
+	bestMajor, bestMinor := -1, -1
+	for _, line := range strings.Split(strings.TrimSpace(stdout.String()), "\n") {
+		line = strings.TrimSpace(line)
+		if line == "" {
+			continue
+		}
+		maj, min := parseComputeCap(line)
+		if maj < 0 {
+			continue
+		}
+		if maj > bestMajor || (maj == bestMajor && min > bestMinor) {
+			bestMajor, bestMinor, best = maj, min, line
+		}
+	}
+	if best != "" {
+		xlog.Debug("NVIDIA compute capability detected", "compute_cap", best)
+	}
+	return best
+}
+
+// parseComputeCap splits a "major.minor" compute-capability string into its
+// integer parts. Returns (-1, -1) if it can't be parsed.
+func parseComputeCap(cc string) (int, int) {
+	cc = strings.TrimSpace(cc)
+	if cc == "" {
+		return -1, -1
+	}
+	majStr, minStr := cc, "0"
+	if dot := strings.IndexByte(cc, '.'); dot >= 0 {
+		majStr, minStr = cc[:dot], cc[dot+1:]
+	}
+	maj, err := strconv.Atoi(strings.TrimSpace(majStr))
+	if err != nil {
+		return -1, -1
+	}
+	min, err := strconv.Atoi(strings.TrimSpace(minStr))
+	if err != nil {
+		min = 0
+	}
+	return maj, min
 }
 
 // getNVIDIAGPUMemory queries NVIDIA GPUs using nvidia-smi
@@ -866,12 +944,12 @@ func getVulkanGPUMemory() []GPUMemoryInfo {
 }
 
 type vulkanGPUTextInfo struct {
-	index        int
-	name         string
-	deviceType   string
-	totalVRAM    uint64
-	budgetVRAM   uint64
-	usageVRAM    uint64
+	index      int
+	name       string
+	deviceType string
+	totalVRAM  uint64
+	budgetVRAM uint64
+	usageVRAM  uint64
 }
 
 func parseVulkanGPUMemoryText(r io.Reader) []GPUMemoryInfo {
@@ -909,7 +987,7 @@ func parseVulkanGPUMemoryText(r io.Reader) []GPUMemoryInfo {
 		} else if current.usageVRAM != 0 && current.budgetVRAM == 0 {
 			current.budgetVRAM = current.totalVRAM - current.usageVRAM
 		} else if current.usageVRAM == 0 && current.budgetVRAM == 0 {
-			current.usageVRAM  = 0
+			current.usageVRAM = 0
 			current.budgetVRAM = current.totalVRAM
 		}
 
