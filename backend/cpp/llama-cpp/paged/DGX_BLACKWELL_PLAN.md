@@ -85,9 +85,24 @@ Concurrency (decode-phase aggregate `S_TG`, ub2048), MXFP4 vs Q8 vs vLLM-FP8:
 **Lever-1 verdict:** MXFP4 is a large, free win — decode +50–66% over Q8, prefill plateau +66% (2200→3650). MXFP4 decode **wins at B=1, near-parity at B=8** vs vLLM; only falls behind at high concurrency. **Prefill still plateaus (~3650)** — the MoE prefill GEMM doesn't scale with batch (no fused grouped GEMM; ubatch-limited). That plateau is the real remaining structural gap → Levers 2–3. Quality caveat unchanged (MXFP4 4-bit vs vLLM FP8 8-bit; quality not yet evaluated).
 
 ### Lever 2 — `n_ubatch` / `n_batch` tuning (standalone)
-Status: **DONE**
+Status: **DONE + SHIPPED (auto-default implemented)**
 MXFP4 pp4096 vs ubatch: ub512=2994, **ub2048=3316**, ub4096=2820(noisy), ub8192=3180.
-**Verdict:** prefill saturates at ub=2048; larger ubatch gives nothing. The ~3300–3650 ceiling is the **MoE GEMM kernel**, not batch size. → No more free config wins; the rest is kernel work (Levers 3–5). Recommendation: ship `n_ubatch=2048` as the LocalAI default for MoE prefill on Blackwell.
+**Verdict:** prefill saturates at ub=2048; larger ubatch gives nothing. The ~3300–3650 ceiling is the **MoE GEMM kernel**, not batch size. → No more free config wins; the rest is kernel work (Levers 3–5).
+**Implemented:** `core/backend/hardware_defaults.go` — `EffectiveBatchSize` now defaults the physical batch
+(n_batch→n_ubatch alias) to **2048 on Blackwell** (`xsysinfo.IsNVIDIABlackwell`, cc≥12 / sm_120/121) when the
+config leaves `batch:` unset; explicit `batch:` always wins. Detection is a shared Go helper; placed at the
+common ModelOptions builder so it covers the C++ llama.cpp backend too. Tests: `hardware_defaults_internal_test.go`.
+
+### Lever 1b — Standard Q4 vs MXFP4 (what's actually MXFP4-specific)
+**Q4_K_M** (17.3 GiB) vs **MXFP4** (15.9 GiB), ub2048:
+| metric | Q4_K_M | MXFP4 | Q8 |
+|---|---|---|---|
+| decode tg128 | **93.5** | 86.4 | 62.2 |
+| prefill pp512 | 2164 | **3061** | 2215 |
+| prefill pp2048 | 2953 | **3441** | ~2200 |
+**Verdict:** the **decode win is just "4-bit"** — plain Q4_K_M matches/beats MXFP4 on decode (both memory-bound).
+MXFP4's *only* real edge is **prefill (+41% over Q4_K_M)** via Blackwell FP4 tensor cores. So for shipping,
+**"4-bit quant + ubatch=2048" captures most of the win portably**; MXFP4 is a Blackwell-only prefill extra.
 
 ### Lever 3 — Fused FP4/FP8 MoE grouped GEMM (+ activation-quant fusion)
 Status: **DESIGNED, not built** (multi-week kernel R&D). This is the single biggest remaining prefill win.

@@ -38,9 +38,9 @@ var UnifiedMemoryDevices = []string{
 
 // GPUMemoryInfo contains real-time GPU memory usage information
 type GPUMemoryInfo struct {
-	Index        int     `json:"index"`
-	Name         string  `json:"name"`
-	Vendor       string  `json:"vendor"`
+	Index  int    `json:"index"`
+	Name   string `json:"name"`
+	Vendor string `json:"vendor"`
 	// BDF is the canonical PCI bus address (dddd:bb:dd.f) when known.
 	// Populated by detection paths that can attribute the device to a
 	// PCI location (clinfo, future amdgpu/nvidia paths); empty for
@@ -305,6 +305,61 @@ func GetGPUAggregateInfo() GPUAggregateInfo {
 	}
 
 	return aggregate
+}
+
+var (
+	blackwellOnce   sync.Once
+	blackwellResult bool
+)
+
+// IsNVIDIABlackwell reports whether an NVIDIA Blackwell-class consumer GPU is
+// present, i.e. compute capability 12.x (sm_120 RTX 50-series, sm_121 GB10 /
+// DGX Spark). The result is detected once via nvidia-smi and cached.
+//
+// Note: datacenter Blackwell (B100/B200/GB200, sm_100 / cc 10.0) reports a
+// different compute capability and is intentionally NOT matched here — this
+// targets the sm_12x family where we measured the larger-physical-batch MoE
+// prefill win. Returns false when nvidia-smi is unavailable or reports no 12.x
+// device.
+func IsNVIDIABlackwell() bool {
+	blackwellOnce.Do(func() {
+		blackwellResult = detectNVIDIABlackwell()
+	})
+	return blackwellResult
+}
+
+func detectNVIDIABlackwell() bool {
+	if _, err := exec.LookPath("nvidia-smi"); err != nil {
+		return false
+	}
+
+	cmd := exec.Command("nvidia-smi", "--query-gpu=compute_cap", "--format=csv,noheader")
+
+	var stdout, stderr bytes.Buffer
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+
+	if err := cmd.Run(); err != nil {
+		xlog.Debug("nvidia-smi compute_cap query failed", "error", err, "stderr", stderr.String())
+		return false
+	}
+
+	for _, line := range strings.Split(strings.TrimSpace(stdout.String()), "\n") {
+		line = strings.TrimSpace(line)
+		if line == "" {
+			continue
+		}
+		// compute_cap looks like "12.1"; match major version >= 12 (sm_12x).
+		major := line
+		if dot := strings.IndexByte(line, '.'); dot >= 0 {
+			major = line[:dot]
+		}
+		if m, err := strconv.Atoi(major); err == nil && m >= 12 {
+			xlog.Debug("NVIDIA Blackwell-class GPU detected", "compute_cap", line)
+			return true
+		}
+	}
+	return false
 }
 
 // getNVIDIAGPUMemory queries NVIDIA GPUs using nvidia-smi
@@ -866,12 +921,12 @@ func getVulkanGPUMemory() []GPUMemoryInfo {
 }
 
 type vulkanGPUTextInfo struct {
-	index        int
-	name         string
-	deviceType   string
-	totalVRAM    uint64
-	budgetVRAM   uint64
-	usageVRAM    uint64
+	index      int
+	name       string
+	deviceType string
+	totalVRAM  uint64
+	budgetVRAM uint64
+	usageVRAM  uint64
 }
 
 func parseVulkanGPUMemoryText(r io.Reader) []GPUMemoryInfo {
@@ -909,7 +964,7 @@ func parseVulkanGPUMemoryText(r io.Reader) []GPUMemoryInfo {
 		} else if current.usageVRAM != 0 && current.budgetVRAM == 0 {
 			current.budgetVRAM = current.totalVRAM - current.usageVRAM
 		} else if current.usageVRAM == 0 && current.budgetVRAM == 0 {
-			current.usageVRAM  = 0
+			current.usageVRAM = 0
 			current.budgetVRAM = current.totalVRAM
 		}
 
