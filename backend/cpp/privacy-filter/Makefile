@@ -8,7 +8,7 @@
 # Local development: point at a working checkout instead of cloning, e.g.
 #   make PRIVACY_FILTER_SRC=$HOME/c/privacy-filter.cpp grpc-server
 
-PRIVACY_FILTER_VERSION?=646342f7a59c6b7d195185eac60bad762e572f1d
+PRIVACY_FILTER_VERSION?=98f52c5ef2250f207cc6b9a6aef05393a120cb7c
 PRIVACY_FILTER_REPO?=https://github.com/localai-org/privacy-filter.cpp
 PRIVACY_FILTER_SRC?=
 
