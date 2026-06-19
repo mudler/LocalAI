@@ -12,6 +12,12 @@ tests/%: tests/%.cpp paged_kv_manager.cpp paged_kv_manager.h
 check: all
 	@for t in $(BINS); do echo "== $$t =="; ./$$t || exit 1; done
 
+paged-bench: paged-bench.cpp paged_kv_manager.cpp paged_kv_manager.h
+	$(CXX) $(CXXFLAGS) -o $@ paged-bench.cpp paged_kv_manager.cpp
+
+bench: paged-bench
+	./paged-bench
+
 # --- Optional ggml integration test (Phase 1: paged write/gather mechanism) ---
 # Requires a built ggml. Override these to point at your checkout / build:
 #   make ggml-check GGML_SRC=<llama.cpp>/ggml GGML_BUILD=<ggml-build>
@@ -30,6 +36,6 @@ ggml-check: $(GGML_BINS)
 	@for t in $(GGML_BINS); do echo "== $$t =="; ./$$t || exit 1; done
 
 clean:
-	rm -f $(BINS) $(GGML_BINS)
+	rm -f $(BINS) $(GGML_BINS) paged-bench
 
 .PHONY: all check ggml-check clean

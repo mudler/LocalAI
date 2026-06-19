@@ -4,3 +4,4 @@ tests/test_paged_kv_manager
 tests/test_prefix_cache
 tests/test_ggml_paged_rw
 tests/test_ggml_paged_attn
+paged-bench
