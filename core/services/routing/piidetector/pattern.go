@@ -39,8 +39,9 @@ type patternDetector struct {
 // When tracing is enabled it records a pattern_pii BackendTrace so the matches
 // (group, byte range, text) show in the Traces UI alongside NER detections.
 func (d *patternDetector) Detect(_ context.Context, text string) ([]pii.NEREntity, error) {
+	tracing := d.appConfig != nil && d.appConfig.EnableTracing
 	var start time.Time
-	if d.appConfig != nil && d.appConfig.EnableTracing {
+	if tracing {
 		trace.InitBackendTracingIfEnabled(d.appConfig.TracingMaxItems, d.appConfig.TracingMaxBodyBytes)
 		start = time.Now()
 	}
@@ -50,12 +51,12 @@ func (d *patternDetector) Detect(_ context.Context, text string) ([]pii.NEREntit
 	var traceEnts []backend.TokenEntity
 	for _, mt := range matches {
 		out = append(out, pii.NEREntity{Group: mt.Group, Start: mt.Start, End: mt.End, Score: 1.0, Text: mt.Text})
-		if d.appConfig != nil && d.appConfig.EnableTracing {
+		if tracing {
 			traceEnts = append(traceEnts, backend.TokenEntity{Group: mt.Group, Start: mt.Start, End: mt.End, Score: 1.0, Text: mt.Text})
 		}
 	}
 
-	if d.appConfig != nil && d.appConfig.EnableTracing {
+	if tracing {
 		trace.RecordBackendTrace(patternPIITrace(d.modelName, text, traceEnts, start))
 	}
 	return out, nil

@@ -288,6 +288,21 @@ test.describe('Model Editor - Interactive Tab', () => {
     await expect(page.locator('input[placeholder^="match,"]')).toBeVisible()
   })
 
+  test('pattern min_len clamps a directly-typed negative to 0', async ({ page }) => {
+    const searchInput = page.locator('input[placeholder="Search fields to add..."]')
+    await searchInput.fill('Custom Secret Patterns')
+    const dropdown = searchInput.locator('..').locator('..')
+    await dropdown.locator('div', { hasText: 'Custom Secret Patterns' }).first().click()
+
+    await page.locator('button', { hasText: 'Add pattern' }).click()
+    // The number input's min={0} only limits the spinner arrows, not keyboard
+    // entry; the editor must sanitise a typed negative so a meaningless
+    // negative length floor never reaches the saved config.
+    const minLen = page.locator('input[aria-label="Minimum length"]')
+    await minLen.fill('-5')
+    await expect(minLen).toHaveValue('0')
+  })
+
   // Regression: a map-typed field (entity_actions) present in the loaded YAML
   // must render WITH its values. flattenConfig used to recurse into the map,
   // scattering it across pii_detection.entity_actions.<GROUP> paths that match
@@ -327,6 +342,39 @@ test.describe('Model Editor - Interactive Tab', () => {
     // The action select shows the bound action label (block), proving the map
     // values bound, not just an empty editor.
     await expect(page.getByText(/block —/i).first()).toBeVisible()
+  })
+
+  // A map cannot hold two values for one key, so renaming a row to an existing
+  // group must collapse to a single row (Object.fromEntries, last write wins)
+  // rather than rendering two conflicting rows that silently lose one on save.
+  test('entity_actions collapses a duplicate group to a single row', async ({ page }) => {
+    await page.route('**/api/models/edit/ner-model', (route) => {
+      route.fulfill({
+        contentType: 'application/json',
+        body: JSON.stringify({
+          name: 'ner-model',
+          config: [
+            'name: ner-model',
+            'backend: llama-cpp',
+            'pii_detection:',
+            '    entity_actions:',
+            '        SSN: block',
+            '        EMAIL: mask',
+            '',
+          ].join('\n'),
+        }),
+      })
+    })
+
+    await page.goto('/app/model-editor/ner-model')
+
+    const groupInputs = page.locator('input[aria-label="Entity group"]')
+    await expect(groupInputs).toHaveCount(2)
+
+    // Rename the EMAIL row to duplicate SSN; the editor collapses to one SSN row.
+    await groupInputs.nth(1).fill('SSN')
+    await expect(groupInputs).toHaveCount(1)
+    await expect(groupInputs.nth(0)).toHaveValue('SSN')
   })
 
 })

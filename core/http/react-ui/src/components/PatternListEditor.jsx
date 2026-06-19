@@ -74,7 +74,18 @@ export default function PatternListEditor({ value, onChange }) {
             min={0}
             value={r.min_len || 0}
             title="Minimum match length (0 = no floor)"
-            onChange={e => update(i, { min_len: parseInt(e.target.value, 10) || 0 })}
+            // min={0} only constrains the spinner, not keyboard entry. Clamp a
+            // typed negative to 0 (a negative floor is meaningless and would
+            // disable the length filter). When we clamp, force the DOM value
+            // too: the resulting 0->0 state change is a no-op, so React's
+            // controlled input would otherwise keep displaying the rejected
+            // "-5" even though the saved value is 0.
+            onChange={e => {
+              const parsed = parseInt(e.target.value, 10)
+              const n = Math.max(0, parsed || 0)
+              if (parsed < 0) e.target.value = String(n)
+              update(i, { min_len: n })
+            }}
             style={{ width: 80, fontSize: '0.8125rem' }}
             aria-label="Minimum length"
           />

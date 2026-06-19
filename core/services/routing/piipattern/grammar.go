@@ -28,10 +28,16 @@ const (
 	// credential shape, small enough that the compiled program stays tiny.
 	MaxPatternLen = 256
 	// MaxQuantifier caps an explicit {n,m} upper bound. RE2 expands a bounded
-	// repeat into that many copies, so an uncapped {0,1000000} would blow up
-	// the compiled program's memory. Unbounded {n,} (no upper) is a loop, not
-	// an expansion, and is allowed.
-	MaxQuantifier = 4096
+	// repeat into that many copies, so a large bound inflates the compiled
+	// program. Go's regexp/syntax independently rejects any bound above 1000
+	// at Parse time, so this cap MUST stay strictly below 1000 to be a live
+	// guard rather than dead code shadowed by the parser: a bound in
+	// (MaxQuantifier, 1000] reaches walk and is rejected here with an
+	// actionable error, while >1000 is caught earlier by Parse. 512 is far
+	// larger than any real credential token yet keeps the guard meaningful and
+	// is defence in depth should the stdlib cap ever rise. Unbounded {n,} (no
+	// upper) is a loop, not an expansion, and is allowed.
+	MaxQuantifier = 512
 	// MaxAlternation caps the arms of a single `a|b|c` alternation.
 	MaxAlternation = 64
 	// MaxAST bounds recursion depth so a pathologically nested pattern can't
