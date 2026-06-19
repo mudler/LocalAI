@@ -93,6 +93,29 @@ var _ = Describe("Download cancellation", func() {
 		Expect(info.Size()).To(BeNumerically("<", int64(len(data))))
 	})
 
+	It("discards the .partial when the cancellation cause is ErrUserCancelled", func() {
+		data := make([]byte, 8192)
+		_, err := rand.Read(data)
+		Expect(err).ToNot(HaveOccurred())
+		server := streamingRangeServer(data)
+		defer server.Close()
+
+		// A deliberate user abort: cancel WITH the ErrUserCancelled cause. The
+		// half-finished download should not linger on disk.
+		ctx, cancel := context.WithCancelCause(context.Background())
+		go func() {
+			time.Sleep(150 * time.Millisecond)
+			cancel(ErrUserCancelled)
+		}()
+
+		err = URI(server.URL).DownloadFileWithContext(ctx, filePath, "", 1, 1, func(s1, s2, s3 string, f float64) {})
+		Expect(err).To(HaveOccurred())
+		Expect(errors.Is(err, context.Canceled)).To(BeTrue())
+
+		Expect(filePath + ".partial").ToNot(BeAnExistingFile(),
+			"a deliberate user cancel must not leave a dangling .partial behind")
+	})
+
 	It("resumes from the preserved .partial after a cancellation and completes", func() {
 		data := make([]byte, 8192)
 		_, err := rand.Read(data)
