@@ -67,7 +67,7 @@ sources/CrispASR:
 	# it, so ${CMAKE_SOURCE_DIR} is THIS backend dir and the talk-llama sources
 	# aren't found. Rewrite to ${PROJECT_SOURCE_DIR} (the crispasr project root),
 	# which is correct both standalone and as a subproject. Idempotent.
-	sed -i 's#\$${CMAKE_SOURCE_DIR}/examples/talk-llama#\$${PROJECT_SOURCE_DIR}/examples/talk-llama#' sources/CrispASR/src/CMakeLists.txt
+	sed -i.bak 's#\$${CMAKE_SOURCE_DIR}/examples/talk-llama#\$${PROJECT_SOURCE_DIR}/examples/talk-llama#' sources/CrispASR/src/CMakeLists.txt && rm -f sources/CrispASR/src/CMakeLists.txt.bak
 
 # Detect OS
 UNAME_S := $(shell uname -s)

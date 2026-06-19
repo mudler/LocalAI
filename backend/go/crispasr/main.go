@@ -44,6 +44,14 @@ func main() {
 		{&CppTTSFree, "tts_free"},
 		{&CppTTSSetVoice, "tts_set_voice"},
 		{&CppTTSSetVoiceFile, "tts_set_voice_file"},
+		{&CppGetWordCount, "get_word_count"},
+		{&CppGetWordText, "get_word_text"},
+		{&CppGetWordT0, "get_word_t0"},
+		{&CppGetWordT1, "get_word_t1"},
+		{&CppGetParakeetWordCount, "get_parakeet_word_count"},
+		{&CppGetParakeetWordText, "get_parakeet_word_text"},
+		{&CppGetParakeetWordT0, "get_parakeet_word_t0"},
+		{&CppGetParakeetWordT1, "get_parakeet_word_t1"},
 	}
 
 	for _, lf := range libFuncs {

@@ -20,4 +20,18 @@ float *tts_synthesize(const char *text, int *out_n_samples); // 24kHz mono float
 void tts_free(float *pcm);
 int tts_set_voice(const char *name); // best-effort speaker selection; 0 ok
 int tts_set_voice_file(const char *path, const char *ref_text); // load voice pack (.gguf) or zero-shot clone (.wav + ref_text)
+
+// --- word-level timestamp accessors ---
+// Session-based (works for whisper-like backends)
+void *get_result(void);
+int get_word_count(int seg_i);
+const char *get_word_text(int seg_i, int word_i);
+int64_t get_word_t0(int seg_i, int word_i);
+int64_t get_word_t1(int seg_i, int word_i);
+
+// Parakeet-specific (global word list, no segment index)
+int get_parakeet_word_count(void);
+const char *get_parakeet_word_text(int word_i);
+int64_t get_parakeet_word_t0(int word_i);
+int64_t get_parakeet_word_t1(int word_i);
 }
