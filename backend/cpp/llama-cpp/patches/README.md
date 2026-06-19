@@ -53,6 +53,18 @@ All variants (avx/avx2/avx512/cuda/…) copy the patched `llama.cpp/` tree, so t
 
 ## Status
 
-0001 in progress. The CPU foundation (the block manager + ggml write/gather + attention numerics) is
-already built and verified under `../paged/` (`paged_kv_manager.*`, tests, `README.md`); these patches
-vendor it into the llama.cpp tree and wire it in-model phase by phase.
+- **0001 vendor manager — DONE.** Applies clean to the pin; builds into `libllama`.
+- **0002 block placement — DONE + VERIFIED.** Built `llama-simple` at the pin; greedy generation is
+  **token-identical** stock vs `LLAMA_KV_PAGED=1` (Qwen3-0.6B), paged branch confirmed firing.
+- **0003 gather-read — NEXT.** The intricate `build_attn` graph surgery; the real engine compute. Multi-session.
+- 0004–0006 follow.
+
+### Honest parity note (important)
+
+This series delivers the paged-attention **engine** (capacity + scheduling + prefix sharing). It does **not**
+by itself reach vLLM throughput parity, because the measured prefill bottleneck is the **FP4 MoE GEMM kernel**
+(Lever 3: `mul_mat_q<MXFP4>` ~22 TFLOP/s, ~27× behind vLLM) — a *per-token compute* gap that paging does not
+touch. Paged attention closes the **concurrency/memory** gap (more sequences, prefix reuse); the prefill/throughput
+gap additionally needs the tcgen05/CUTLASS grouped-GEMM (deferred, upstream-grade, no shortcut — see
+`../paged/UPSTREAM_GGML_ISSUE.md` and `DGX_BLACKWELL_PLAN.md`). So full vLLM parity = this series **AND** the
+kernel; neither alone suffices.
