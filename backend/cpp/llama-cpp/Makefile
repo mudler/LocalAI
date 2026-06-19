@@ -137,7 +137,12 @@ llama.cpp:
 	git remote add origin $(LLAMA_REPO)  && \
 	git fetch --all --tags && \
 	git checkout -b build $(LLAMA_VERSION) && \
-	git submodule update --init --recursive --depth 1 --single-branch
+	git submodule update --init --recursive --depth 1 --single-branch && \
+	for p in $(CURRENT_MAKEFILE_DIR)patches/0*.patch; do \
+		[ -e "$$p" ] || continue; \
+		echo "applying llama.cpp patch: $$p"; \
+		git apply --verbose "$$p" || { echo "patch failed: $$p"; exit 1; }; \
+	done
 
 llama.cpp/tools/grpc-server: llama.cpp
 	mkdir -p llama.cpp/tools/grpc-server
