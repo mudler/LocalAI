@@ -33,7 +33,11 @@ func CleanupStalePartialFiles(root string, olderThan time.Duration) (int, error)
 	}
 
 	cutoff := time.Now().Add(-olderThan)
-	removed := 0
+
+	// Collect candidates during the walk and delete them afterwards rather than
+	// mutating the tree from inside the WalkDir callback (avoids the symlink
+	// TOCTOU class flagged by gosec G122, and never removes an entry mid-walk).
+	var stale []string
 	err := filepath.WalkDir(root, func(path string, d fs.DirEntry, walkErr error) error {
 		if walkErr != nil {
 			return nil // skip unreadable subtree, keep going
@@ -45,13 +49,21 @@ func CleanupStalePartialFiles(root string, olderThan time.Duration) (int, error)
 		if err != nil || info.ModTime().After(cutoff) {
 			return nil
 		}
+		stale = append(stale, path)
+		return nil
+	})
+	if err != nil {
+		return 0, err
+	}
+
+	removed := 0
+	for _, path := range stale {
 		if err := os.Remove(path); err != nil {
 			xlog.Warn("failed to remove stale partial download", "file", path, "error", err)
-			return nil
+			continue
 		}
 		removed++
 		xlog.Info("removed stale partial download", "file", path)
-		return nil
-	})
-	return removed, err
+	}
+	return removed, nil
 }
