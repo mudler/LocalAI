@@ -9,6 +9,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"os"
+	"path/filepath"
 
 	"github.com/google/uuid"
 	"github.com/mudler/LocalAI/core/config"
@@ -25,7 +27,9 @@ import (
 	localaitools "github.com/mudler/LocalAI/pkg/mcp/localaitools"
 	"github.com/mudler/LocalAI/pkg/model"
 	"github.com/mudler/LocalAI/pkg/system"
+	"github.com/mudler/LocalAI/pkg/utils"
 	"github.com/mudler/LocalAI/pkg/vram"
+	"gopkg.in/yaml.v3"
 )
 
 // Client implements localaitools.LocalAIClient by calling LocalAI services
@@ -296,6 +300,78 @@ func (c *Client) ReloadModels(_ context.Context) error {
 		return errors.New("system state not available")
 	}
 	return c.ConfigLoader.LoadModelConfigsFromPath(c.SystemState.Model.ModelsPath)
+}
+
+// ---- Model aliases ----
+
+// SetAlias is swap-first to match the httpapi client: PatchConfig swaps an
+// existing alias's target (validating it and preserving other fields) and
+// returns ErrNotFound when the config doesn't exist yet, which is the signal
+// to create it. createAlias mirrors the create path of ImportModelEndpoint.
+func (c *Client) SetAlias(ctx context.Context, name, target string) error {
+	if name == "" {
+		return errors.New("name is required")
+	}
+	if target == "" {
+		return errors.New("target is required")
+	}
+	_, err := c.modelAdmin.PatchConfig(ctx, name, map[string]any{"alias": target})
+	if err == nil {
+		return nil
+	}
+	if !errors.Is(err, modeladmin.ErrNotFound) {
+		return err
+	}
+	return c.createAlias(name, target)
+}
+
+// createAlias writes a fresh `{name, alias}` config to disk and reloads,
+// mirroring localai.ImportModelEndpoint's create path: validate, validate the
+// alias target, verify the path is trusted, write, reload, best-effort preload.
+func (c *Client) createAlias(name, target string) error {
+	if c.SystemState == nil {
+		return errors.New("system state not available")
+	}
+	cfg := config.ModelConfig{Name: name, Alias: target}
+	if valid, vErr := cfg.Validate(); !valid {
+		if vErr != nil {
+			return vErr
+		}
+		return errors.New("invalid alias configuration")
+	}
+	if err := c.ConfigLoader.ValidateAliasTarget(&cfg); err != nil {
+		return err
+	}
+	modelsPath := c.SystemState.Model.ModelsPath
+	if err := utils.VerifyPath(name+".yaml", modelsPath); err != nil {
+		return fmt.Errorf("model path not trusted: %w", err)
+	}
+	// Marshal only the user-provided fields (not the full struct with Go
+	// zero values), matching what the import endpoint persists for an alias.
+	yamlData, err := yaml.Marshal(map[string]any{"name": name, "alias": target})
+	if err != nil {
+		return fmt.Errorf("marshal alias config: %w", err)
+	}
+	if err := os.WriteFile(filepath.Join(modelsPath, name+".yaml"), yamlData, 0644); err != nil {
+		return fmt.Errorf("write alias config: %w", err)
+	}
+	if err := c.ConfigLoader.LoadModelConfigsFromPath(modelsPath, c.AppConfig.ToConfigLoaderOptions()...); err != nil {
+		return fmt.Errorf("reload configs: %w", err)
+	}
+	// Preload is best-effort — a failure here doesn't undo the create.
+	_ = c.ConfigLoader.Preload(modelsPath)
+	return nil
+}
+
+func (c *Client) ListAliases(_ context.Context) ([]localaitools.AliasInfo, error) {
+	// Mirror localai.ListAliasesEndpoint: every config whose Alias is set.
+	out := []localaitools.AliasInfo{}
+	for _, cfg := range c.ConfigLoader.GetAllModelsConfigs() {
+		if cfg.IsAlias() {
+			out = append(out, localaitools.AliasInfo{Name: cfg.Name, Target: cfg.Alias})
+		}
+	}
+	return out, nil
 }
 
 // ---- Backends ----

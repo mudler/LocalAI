@@ -88,10 +88,12 @@ var expectedFullCatalog = sortedStrings(
 	ToolInstallModel,
 	ToolListBackends,
 	ToolListGalleries,
+	ToolListAliases,
 	ToolListInstalledModels,
 	ToolListKnownBackends,
 	ToolListNodes,
 	ToolReloadModels,
+	ToolSetAlias,
 	ToolSetBranding,
 	ToolSystemInfo,
 	ToolToggleModelPinned,
@@ -110,6 +112,7 @@ var expectedReadOnlyCatalog = sortedStrings(
 	ToolGetPIIEvents,
 	ToolGetRouterDecisions,
 	ToolGetUsageStats,
+	ToolListAliases,
 	ToolListBackends,
 	ToolListGalleries,
 	ToolListInstalledModels,
@@ -165,6 +168,8 @@ var _ = Describe("Tool dispatch", func() {
 		{ToolReloadModels, struct{}{}, "ReloadModels"},
 		{ToolToggleModelState, map[string]any{"name": "foo", "action": "enable"}, "ToggleModelState"},
 		{ToolToggleModelPinned, map[string]any{"name": "foo", "action": "pin"}, "ToggleModelPinned"},
+		{ToolSetAlias, map[string]any{"name": "gpt-4", "target": "real"}, "SetAlias"},
+		{ToolListAliases, struct{}{}, "ListAliases"},
 	}
 
 	for _, c := range cases {

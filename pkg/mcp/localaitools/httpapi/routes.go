@@ -16,6 +16,8 @@ const (
 	routeModelsAvail     = "/models/available"
 	routeModelsGall      = "/models/galleries"
 	routeModelsImport    = "/models/import-uri"
+	routeModelImport     = "/models/import"
+	routeAliases         = "/api/aliases"
 	routeModelsReload    = "/models/reload"
 	routeBackends        = "/backends"
 	routeBackendsKnown   = "/backends/known"
