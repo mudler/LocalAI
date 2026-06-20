@@ -352,7 +352,9 @@ func (c *Client) createAlias(name, target string) error {
 	if err != nil {
 		return fmt.Errorf("marshal alias config: %w", err)
 	}
-	if err := os.WriteFile(filepath.Join(modelsPath, name+".yaml"), yamlData, 0644); err != nil {
+	// 0600: the LocalAI process is the sole reader/writer of model configs,
+	// and a tighter mode keeps the gosec G306 scan clean for this new write.
+	if err := os.WriteFile(filepath.Join(modelsPath, name+".yaml"), yamlData, 0600); err != nil {
 		return fmt.Errorf("write alias config: %w", err)
 	}
 	if err := c.ConfigLoader.LoadModelConfigsFromPath(modelsPath, c.AppConfig.ToConfigLoaderOptions()...); err != nil {
