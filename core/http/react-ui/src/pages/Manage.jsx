@@ -133,6 +133,10 @@ export default function Manage() {
   const { enrichModel, enrichBackend } = useGalleryEnrichment()
   const { operations } = useOperations()
   const [loadedModelIds, setLoadedModelIds] = useState(new Set())
+  // Map of alias name -> target. The capabilities endpoint that feeds the row
+  // list doesn't carry the alias field, so we fetch it once and look rows up by
+  // name to render the read-only "alias -> target" badge.
+  const [aliasTargets, setAliasTargets] = useState({})
   const [backends, setBackends] = useState([])
   const [backendsLoading, setBackendsLoading] = useState(true)
   const [reloading, setReloading] = useState(false)
@@ -228,12 +232,24 @@ export default function Manage() {
     }
   }, [])
 
+  const fetchAliases = useCallback(async () => {
+    try {
+      const data = await modelsApi.listAliases()
+      const map = {}
+      for (const a of Array.isArray(data) ? data : []) map[a.name] = a.target
+      setAliasTargets(map)
+    } catch {
+      setAliasTargets({})
+    }
+  }, [])
+
   useEffect(() => {
     fetchLoadedModels()
     fetchBackends()
+    fetchAliases()
     // Detect distributed mode (nodes API returns 503 when not enabled)
     nodesApi.list().then(() => setDistributedMode(true)).catch(() => {})
-  }, [fetchLoadedModels, fetchBackends])
+  }, [fetchLoadedModels, fetchBackends, fetchAliases])
 
   // Auto-refresh the Models tab every 10s in distributed mode so ghost models
   // (loaded on a worker but absent from this frontend's in-memory cache)
@@ -634,6 +650,11 @@ export default function Manage() {
                           {model.pinned && (
                             <span className="badge badge-warning" title="Pinned — won't be idle-unloaded">
                               <i className="fas fa-thumbtack" /> Pinned
+                            </span>
+                          )}
+                          {aliasTargets[model.id] && (
+                            <span className="badge badge-info" title={`Alias -> ${aliasTargets[model.id]}`}>
+                              <i className="fas fa-arrow-right-arrow-left" /> alias -&gt; {aliasTargets[model.id]}
                             </span>
                           )}
                         </div>
