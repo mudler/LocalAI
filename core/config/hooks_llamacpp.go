@@ -34,7 +34,7 @@ func llamaCppDefaults(cfg *ModelConfig, modelPath string) {
 	// Default context size if not set, regardless of whether GGUF parsing succeeds
 	defer func() {
 		if cfg.ContextSize == nil {
-			ctx := defaultContextSize
+			ctx := GGUFFallbackContextSize
 			cfg.ContextSize = &ctx
 		}
 	}()
