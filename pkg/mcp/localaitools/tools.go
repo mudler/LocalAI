@@ -36,6 +36,11 @@ const (
 	ToolToggleModelState  = "toggle_model_state"
 	ToolToggleModelPinned = "toggle_model_pinned"
 	ToolSetBranding       = "set_branding"
+	ToolSetAlias          = "set_alias"
+
+	// ToolListAliases is read-only but lives here so the alias tools stay
+	// grouped; the catalog tests assert its read-only placement.
+	ToolListAliases = "list_aliases"
 )
 
 // DefaultServerName is the MCP Implementation.Name surfaced when

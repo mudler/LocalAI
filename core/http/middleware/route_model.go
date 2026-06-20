@@ -189,7 +189,12 @@ func RouteModel(loader *config.ModelConfigLoader, appConfig *config.ApplicationC
 			}
 
 			c.Set(CONTEXT_LOCALS_KEY_MODEL_CONFIG, result.ChosenConfig)
-			c.Set(ContextKeyRequestedModel, result.RouterModel)
+			// Preserve an upstream requested model (e.g. an alias that points
+			// at this router model) so accounting keeps the name the client
+			// actually sent. Served always reflects the final candidate.
+			if c.Get(ContextKeyRequestedModel) == nil {
+				c.Set(ContextKeyRequestedModel, result.RouterModel)
+			}
 			c.Set(ContextKeyServedModel, result.ChosenModel)
 
 			if store != nil {

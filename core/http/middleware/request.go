@@ -167,6 +167,27 @@ func (re *RequestExtractor) SetModelAndConfig(initializer func() schema.LocalAIR
 				}
 			}
 
+			// Resolve a model alias to its target before the disabled check and
+			// before storing MODEL_CONFIG, so every modality (chat, embeddings,
+			// tts, image, ...) inherits redirection. The response keeps echoing
+			// the alias name (input.ModelName is left unchanged); usage accounting
+			// records requested=alias / served=target.
+			if cfg != nil && cfg.IsAlias() {
+				resolved, _, aliasErr := re.modelConfigLoader.ResolveAlias(cfg)
+				if aliasErr != nil {
+					return c.JSON(http.StatusBadRequest, schema.ErrorResponse{
+						Error: &schema.APIError{
+							Message: aliasErr.Error(),
+							Code:    http.StatusBadRequest,
+							Type:    "invalid_request_error",
+						},
+					})
+				}
+				c.Set(ContextKeyRequestedModel, modelName)
+				c.Set(ContextKeyServedModel, resolved.Name)
+				cfg = resolved
+			}
+
 			// Check if the model is disabled
 			if cfg != nil && cfg.IsDisabled() {
 				return c.JSON(http.StatusForbidden, schema.ErrorResponse{

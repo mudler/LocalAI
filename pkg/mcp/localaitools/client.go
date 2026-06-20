@@ -38,6 +38,14 @@ type LocalAIClient interface {
 	ReloadModels(ctx context.Context) error
 	ImportModelURI(ctx context.Context, req ImportModelURIRequest) (*ImportModelURIResponse, error)
 
+	// ---- Model aliases ----
+	// SetAlias creates the alias `name` pointing at `target`, or swaps an
+	// existing alias's target. The server validates that `target` is an
+	// existing, non-alias, enabled model. Deletion reuses DeleteModel.
+	SetAlias(ctx context.Context, name, target string) error
+	// ListAliases returns every configured alias and its target.
+	ListAliases(ctx context.Context) ([]AliasInfo, error)
+
 	// ---- Backends ----
 	// ListBackends returns installed backends. The shape stays a thin
 	// localaitools.Backend rather than gallery.SystemBackend because the

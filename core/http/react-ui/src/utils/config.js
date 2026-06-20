@@ -95,6 +95,7 @@ export const API_CONFIG = {
 
     modelsList: '/v1/models',
     modelsCapabilities: '/api/models/capabilities',
+    modelsAliases: '/api/aliases',
 
     // Realtime / WebRTC
     realtimeCalls: '/v1/realtime/calls',

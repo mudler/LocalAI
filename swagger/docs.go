@@ -500,6 +500,25 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/aliases": {
+            "get": {
+                "tags": [
+                    "models"
+                ],
+                "summary": "List model aliases",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/localai.AliasInfo"
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/api/backend-logs": {
             "get": {
                 "description": "Returns a sorted list of model IDs that have captured backend process output",
@@ -3483,6 +3502,17 @@ const docTemplate = `{
                     "items": {
                         "type": "string"
                     }
+                }
+            }
+        },
+        "localai.AliasInfo": {
+            "type": "object",
+            "properties": {
+                "name": {
+                    "type": "string"
+                },
+                "target": {
+                    "type": "string"
                 }
             }
         },
