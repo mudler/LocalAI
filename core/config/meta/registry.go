@@ -286,6 +286,15 @@ func DefaultRegistry() map[string]FieldMetaOverride {
 			Order:       45,
 		},
 
+		// --- Alias ---
+		"alias": {
+			Section:     "alias",
+			Label:       "Alias target",
+			Description: "Redirect all traffic for this model to another configured model. When set, every other field on this config is ignored and requests are served by the target model.",
+			Component:   "model-select",
+			Order:       0,
+		},
+
 		// --- Pipeline ---
 		"pipeline.llm": {
 			Section:              "pipeline",
