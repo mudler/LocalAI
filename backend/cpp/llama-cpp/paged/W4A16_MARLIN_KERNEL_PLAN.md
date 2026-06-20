@@ -21,11 +21,17 @@ and **Stream-K** partitioning. Sources: IST-DASLab/marlin, arXiv 2408.11743, vLL
 
 ## Phases (each ends with: numerical parity vs MMQ + a prefill benchmark)
 
-### P0 — Harness + baseline (do first)
-- Add a `test-backend-ops` MUL_MAT case for Q4_K/Q4_0 at prefill shapes (M=512/2048) — gives a numerical
-  reference and a microbench. Confirm baseline ~46 TFLOP/s.
-- Model-level gate: token-identical greedy generation (Qwen3) before/after, like the paged Gate 0.
-- Deliverable: a red/green parity check the kernel must pass at every phase.
+### P0 — Harness + baseline — DONE
+- **Correctness gate (GREEN):** `test-backend-ops test -o MUL_MAT -b CUDA0` → **1103/1103 passed** (CUDA vs CPU
+  reference, covers Q4_0/Q4_K at the real FFN shapes m=4096,k=14336,n=1..512). This is *the* parity check the
+  W4A16 kernel must keep green at every phase — it tests the CUDA MUL_MAT path the kernel will hook. The
+  `not supported` lines are `type_b=f16` combos (irrelevant; prefill uses f32 activations).
+- **Perf baseline:** `llama-bench` dense Q4_K prefill = **~750 t/s (pp512 718 / pp2048 750) ≈ 46 TFLOP/s ≈ 21%
+  of the 213 BF16 ceiling**. The kernel must beat this toward ~3,300. (`test-backend-ops perf -o MUL_MAT` gives
+  per-shape GFLOPS too; build it once with the harness.)
+- **Harness script:** `~/p0harness.sh` on the DGX (build test-backend-ops + correctness + perf). Reusable each
+  phase: `test-backend-ops test -o MUL_MAT -b CUDA0` must stay 1103/1103; `llama-bench` must climb from 750.
+- test-backend-ops needed `-DLLAMA_BUILD_TESTS=ON`; now built in `~/llama.cpp-pr24423/build`.
 
 ### P1 — Dispatch seam (no behavior change)
 - New `ggml/src/ggml-cuda/marlin-w4a16.cu` + a gated hook in `ggml_cuda_mul_mat` (dense, non-ids path),
