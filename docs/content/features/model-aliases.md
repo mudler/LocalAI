@@ -60,14 +60,18 @@ The LocalAI Assistant (and the MCP server) expose the same operations as tools:
 `set_alias`, `list_aliases`, and `delete_model`.
 
 {{% notice note %}}
-**Pointing at an existing real model converts it into an alias.** If you run
-`set_alias` (or `PATCH /api/models/config-json/:name`) against a name that is
-already a real, non-alias model, that model is turned into an alias of the
-target. The operation is non-destructive (no data is deleted), but the model
-stops serving with its own backend and starts redirecting to the target.
+**You cannot turn an existing real model into an alias.** If you run `set_alias`
+(or `PATCH /api/models/config-json/:name`) against a name that is already a real,
+non-alias model, the request is **rejected**. An alias is a pure redirect, so it
+must not carry a `backend` or `parameters.model`; a real model does, and merging
+an `alias` onto it produces an invalid config that validation refuses with
+`alias config ... must not set backend or parameters.model`. This is intentional:
+it stops a stray `set_alias` call from clobbering a model that is serving.
 
-If you want to keep the original model serving as-is, point a **new** name at
-the target instead of reusing an existing model's name.
+To add an alias, point a **new** name at the target instead of reusing an
+existing model's name. Re-pointing an **existing alias** at a different target
+is fully supported and is the live-swap path: the alias config has no backend of
+its own, so swapping its target stays a valid pure redirect.
 {{% /notice %}}
 
 ## Limits

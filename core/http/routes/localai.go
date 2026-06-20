@@ -306,6 +306,7 @@ func RegisterLocalAIRoutes(router *echo.Echo,
 					"edit":         "/models/edit/:name",
 					"import":       "/models/import",
 					"reload":       "/models/reload",
+					"list_aliases": "/api/aliases",
 				},
 				"ai_functions": map[string]string{
 					"tts":       "/tts",
