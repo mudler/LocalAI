@@ -358,7 +358,7 @@ func (c *Client) createAlias(name, target string) error {
 	if err := c.ConfigLoader.LoadModelConfigsFromPath(modelsPath, c.AppConfig.ToConfigLoaderOptions()...); err != nil {
 		return fmt.Errorf("reload configs: %w", err)
 	}
-	// Preload is best-effort — a failure here doesn't undo the create.
+	// Preload is best-effort - a failure here doesn't undo the create.
 	_ = c.ConfigLoader.Preload(modelsPath)
 	return nil
 }

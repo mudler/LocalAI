@@ -366,7 +366,7 @@ func (c *Client) SetAlias(ctx context.Context, name, target string) error {
 }
 
 func (c *Client) ListAliases(ctx context.Context) ([]localaitools.AliasInfo, error) {
-	// /api/aliases returns []{name,target} directly — pass it through.
+	// /api/aliases returns []{name,target} directly - pass it through.
 	var out []localaitools.AliasInfo
 	if err := c.do(ctx, http.MethodGet, routeAliases, nil, &out); err != nil {
 		return nil, err
