@@ -111,19 +111,9 @@ func EnsureParallelOption(opts []string, gpu GPU) []string {
 }
 
 // hasParallelOption reports whether the model already sets parallel/n_parallel
-// (backend options are "name:value" strings) so we never override an explicit value.
+// so we never override an explicit value (helper shared with serving_defaults.go).
 func hasParallelOption(opts []string) bool {
-	for _, o := range opts {
-		name := o
-		if i := strings.IndexByte(o, ':'); i >= 0 {
-			name = o[:i]
-		}
-		switch strings.TrimSpace(strings.ToLower(name)) {
-		case "parallel", "n_parallel":
-			return true
-		}
-	}
-	return false
+	return backendOptionSet(opts, "parallel", "n_parallel")
 }
 
 // localGPU builds a GPU descriptor from local detection, used by SetDefaults on

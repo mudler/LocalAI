@@ -1116,6 +1116,10 @@ func (cfg *ModelConfig) SetDefaults(opts ...ConfigLoaderOption) {
 	// heuristics for the selected node's GPU before loading. Explicit config wins.
 	ApplyHardwareDefaults(cfg, localGPU())
 
+	// Apply serving-policy defaults (device-independent): cross-request prefix
+	// caching. Propagates to distributed nodes via the model options.
+	ApplyServingDefaults(cfg)
+
 	// https://github.com/ggerganov/llama.cpp/blob/75cd4c77292034ecec587ecb401366f57338f7c0/common/sampling.h#L22
 	defaultTopP := 0.95
 	defaultTopK := 40
