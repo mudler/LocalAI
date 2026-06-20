@@ -70,10 +70,56 @@ and **Stream-K** partitioning. Sources: IST-DASLab/marlin, arXiv 2408.11743, vLL
   re-dequantized per n-tile, no pipeline) - this is the correctness checkpoint; P3 brings the speedup. The real
   Q4_K model matmul path engages the kernel without error.
 
-### P3 — The Marlin pipeline (the speedup)
-- `cp.async` double/triple-buffered global→shared; offline weight reshuffle (a one-time repack of the Q4
-  tensor into the mma+pipeline layout — likely a load-time transform or a new tensor variant); register-
-  resident activation tiles; Stream-K split for the prefill M. Target: ≥150 TFLOP/s (≥~2,300 t/s), then ~213.
+### P3 — The Marlin pipeline (the speedup) — STEP 1 LANDED; STEPS 3-4 DEFERRED
+Goal: `cp.async` double/triple-buffered global->shared; offline weight reshuffle (a one-time repack of the Q4
+tensor into the mma+pipeline layout); register-resident activation tiles; Stream-K split for the prefill M.
+Target: >=150 TFLOP/s (>=~2,300 t/s), then ~213. **MMQ baseline to beat: 47.1 TFLOPS (q4_K n=512) / pp512 718.**
+
+**Kernel structure now (committed):** block-tiled multi-warp GEMM. `blockDim=(32, WM*WN)` so `threadIdx.x` is the
+warp lane (required by `mma.cuh` get_i/get_j) and `threadIdx.y` is the warp index; the original 1-warp P2
+launch put 128 threads on `threadIdx.x` and exploded `get_j` into an out-of-bounds shared read (found via
+compute-sanitizer). `WM*WN` warps compute a `BM(=WM*FM*16) x BN(=WN*FN*8)` output tile; each warp owns an
+`FM x FN` grid of m16n8k16 mma fragments accumulated in F32. Per k-step (16-deep): all warps cooperatively
+dequant the `BM x 16` Q4 weight strip + load the `BN x 16` f32->bf16 activation strip into a single small
+shared buffer (~4 KB), one `__syncthreads`, then `load_generic` fragments + `FM*FN` mmas. Shipping config
+`WM=2,WN=2,FM=2,FN=4` -> `BM=64, BN=64`, 4 warps. M/N tails zero-padded in-kernel; still gated to contiguous
+2D Q4_0/Q4_K f32 prefill, else falls back to MMQ.
+
+**Per-step results (q4_K n=512 via `test-backend-ops perf`; pp512/pp2048 via llama-bench Qwen3-32B-Q4_K_M):**
+
+| step | q4_K n=512 | q4_0 n=512 | pp512 | pp2048 | vs MMQ 47 / 718 | notes |
+|---|---|---|---|---|---|---|
+| P2 (1 warp/tile) | ~2 TFLOPS | - | 31.75 | - | 0.04x | correctness checkpoint |
+| **Step 1: block tiling** | **6.6-8.8 TFLOPS** | 7.5-9.9 | **118-142** | 122-156 | **~0.15-0.19x** | ~3.5-4.4x over P2; the banked win |
+| Step 2: dequant reuse | (folded into step 1) | | | | | see below |
+| Step 3: pipeline | regressed/neutral | | | | | reverted, see below |
+| Step 4: reshuffle + Stream-K | deferred | | | | | not started |
+
+Parity gate **1103/1103** at every step, flag set and unset (byte-identical when unset).
+
+**What landed / what was tried (honest):**
+- **Step 1 (block tiling) - LANDED.** The bulk of the realised win (P2 ~2 -> ~7-9 TFLOPS). This is the
+  committed kernel.
+- **Step 2 (dequant reuse across N) - no extra gain, root-caused.** A tile sweep (BM/BN from 64 to 128, 4-16
+  warps) held flat at 8.6-8.8 TFLOPS: enlarging BN to amortize the weight dequant did **not** help. Decisive
+  diagnostic: q4_0 (trivial dequant) and q4_K (heavy 6-bit superblock dequant) run **within ~12%** of each
+  other, so **dequant compute is not the limiter** - the shared-load / mma-feed throughput (and occupancy-hidden
+  global latency) is. Larger BN already reuses the strip across the block; cross-block reuse needs step 4.
+- **Step 3 (software pipeline) - tried, reverted.** (a) A double-buffered (`NBUF=2`) KSTAGE=64 stage loader
+  (dequant stage s+1 into the spare shared buffer while the mma of stage s runs) collapsed occupancy via 32 KB
+  shared and dropped q4_K n=512 to **2.7 TFLOPS**. (b) Swapping `load_generic` for `ldmatrix` was **neutral**
+  (~6.6 vs ~6.7 TFLOPS measured in the same thermal window) because the unswizzled row-major shared layout makes
+  `ldmatrix.x4` bank-conflict. Both reverted; step 1 (small shared, high occupancy) is strictly better on this
+  GB10. **Methodology note:** the box thermally throttles under sustained perf+bench runs (identical step-1 code
+  measured 8.83 TFLOPS cold vs 6.65 hot), so only same-session A/Bs are trustworthy - earlier cross-run deltas
+  were partly thermal.
+- **Step 4 (offline weight reshuffle + Stream-K) - DEFERRED, and now known to be the real unlock.** The
+  evidence above says the path to >=150 TFLOPS is *not* bigger tiles or a naive cp.async pipeline but the full
+  Marlin machinery: an **XOR-swizzled shared layout** (so `ldmatrix` is conflict-free), a **one-time offline
+  repack** of the Q4 tensor into that mma+pipeline layout (a load-time transform keyed off the tensor data
+  pointer; ~M*K/2 bytes prepacked buffer, same size as the q4 weights) so dequant becomes cheap conflict-free
+  bit-extraction and the per-(m,n)-block re-dequant disappears, a **tuned cp.async multi-stage** sized to keep
+  occupancy, and **Stream-K** over M. That is the remaining multi-week core.
 
 ### P4 — Tune
 - Tile (mmq_x/y analogues), warps, pipeline depth, occupancy. We have nsys (throughput) but **not ncu** on the
