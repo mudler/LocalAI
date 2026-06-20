@@ -48,6 +48,34 @@ MoE-kernel-bound. vLLM's concurrency advantage is its MoE/attention *kernels*, n
 These are real wins on *memory-pressured* and *shared-prefix* workloads — but they are not tok/s parity, and
 batched-bench (fresh, non-fragmented, no shared prefix) won't show them.
 
+## DENSE model parity (Qwen3-32B) — does the kernel gap exist for dense too? YES.
+
+The MoE work above is about the grouped MoE GEMM. Dense models use a different (non-grouped) matmul path,
+so we benchmarked a dense 32B head-to-head. vLLM `RedHatAI/Qwen3-32B-NVFP4` (full NVFP4) **hangs on this
+GB10 / vLLM 0.23.0 stack** (deadlocks right after weight-load, 0–3% GPU, no error, both eager + CUDA-graph),
+so we used the **W4A16** variant (`Qwen3-32B-NVFP4A16`, 4-bit weights / FP16 activations, FlashInfer marlin
+kernel) vs llama.cpp `Qwen3-32B-Q4_K_M` (4-bit weights / int8-MMQ compute). Both 4-bit weights — a fair
+weight-quant comparison; the difference is the compute kernel.
+
+| B | llama Q4_K_M PP | vLLM W4A16 PP | PP gap | llama decode | vLLM decode | TG gap |
+|---|---|---|---|---|---|---|
+| 1 | 708 | 5367 | 7.6× | 10.2 | 11.7 | ~parity |
+| 8 | 761 | 14941 | 20× | 58 | 92 | 1.6× |
+| 32 | 763 | 21952 | 29× | 205 | 330 | 1.6× |
+| 64 | 765 | 24444 | 32× | 253 | 569 | 2.2× |
+
+**Findings:**
+1. **Dense prefill has the SAME (larger) kernel gap.** llama dense prefill plateaus at ~765 t/s regardless of
+   B; vLLM scales to 24.4k (32×). llama's dense matmul is int8-MMQ; vLLM uses an FP4 (marlin/cutlass) GEMM.
+   And this is a *lower bound* — full NVFP4 (W4A4) would be faster still (it hung, so we couldn't measure it).
+2. **Decode is ~parity at B=1** (10.2 vs 11.7 — both weight-bandwidth-bound reading 4-bit weights), and the
+   gap grows with batch (compute starts to matter → the kernel gap reappears: 2.2× at B=64).
+3. **Scope decision (the reason for this benchmark): the Lever-3 kernel track must also deliver a NON-grouped
+   block-scaled FP4 GEMM for dense**, not only the MoE grouped GEMM. The dense GEMM is the simpler of the two
+   (a plain CUTLASS dense GEMM), so it's a good first kernel to land — and it benefits every dense model.
+4. **Aside:** full NVFP4 (W4A4) is currently unusable for dense on this vLLM/GB10 build — worth revisiting
+   on a newer vLLM, and a point in llama.cpp's favor (its 4-bit dense path at least *runs*).
+
 ## So, honestly, where parity stands
 
 - **Decode single-stream: already at/above parity** (B=1: 83 vs 48).
