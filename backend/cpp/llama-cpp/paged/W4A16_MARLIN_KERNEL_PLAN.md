@@ -42,10 +42,13 @@ and **Stream-K** partitioning. Sources: IST-DASLab/marlin, arXiv 2408.11743, vLL
   phase: `test-backend-ops test -o MUL_MAT -b CUDA0` must stay 1103/1103; the q4_K n=512 perf must climb from 47.
 - test-backend-ops needed `-DLLAMA_BUILD_TESTS=ON`; now built in `~/llama.cpp-pr24423/build`.
 
-### P1 — Dispatch seam (no behavior change)
-- New `ggml/src/ggml-cuda/marlin-w4a16.cu` + a gated hook in `ggml_cuda_mul_mat` (dense, non-ids path),
-  behind `GGML_CUDA_W4A16` + sm_120/121 + type∈{Q4_0,Q4_K}. Initially returns false → falls back to MMQ.
-  (Mirror of the `fp4-grouped-moe.cu` scaffold seam.) Builds byte-identical by default.
+### P1 — Dispatch seam (no behavior change) — DONE
+- `marlin-w4a16.{cuh,cu}` + a gated hook in `ggml_cuda_mul_mat` (dense, non-ids path), behind
+  `GGML_CUDA_W4A16` + sm_120/121 (`cc >= GGML_CUDA_CC_BLACKWELL`) + type∈{Q4_0,Q4_K} + f32 activations.
+  Returns false → falls back to MMQ. Source + apply instructions: `kernel/w4a16/` (`HOOK.md`).
+- **Verified on GB10:** clean build; `test-backend-ops MUL_MAT` = **1103/1103** (byte-identical default);
+  `llama-bench` dense Q4 pp512 unchanged (717.77 default / 718.26 with flag); `GGML_CUDA_W4A16=1` reaches the
+  seam (stderr `[w4a16] ... P1 seam - using MMQ`) and falls back. The empty frame P2/P3 fills.
 
 ### P2 — Correctness-first kernel (slow OK)
 - Dequant Q4→BF16 (reuse ggml's `dequantize_block_q4_K`) into shared mem, naive `mma.sync m16n8k16` BF16
