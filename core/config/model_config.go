@@ -37,6 +37,12 @@ type ModelConfig struct {
 	schema.PredictionOptions `yaml:"parameters,omitempty" json:"parameters,omitempty"`
 	Name                     string `yaml:"name,omitempty" json:"name,omitempty"`
 
+	// Alias, when set, makes this config a pure redirect: every request for
+	// Name is served by the model named here. All other fields are ignored.
+	// The target must be an existing, non-alias model (enforced at load and
+	// at create/swap time). See docs/content for Model Aliases.
+	Alias string `yaml:"alias,omitempty" json:"alias,omitempty"`
+
 	F16                 *bool               `yaml:"f16,omitempty" json:"f16,omitempty"`
 	Threads             *int                `yaml:"threads,omitempty" json:"threads,omitempty"`
 	Debug               *bool               `yaml:"debug,omitempty" json:"debug,omitempty"`
@@ -390,6 +396,10 @@ type RouterCandidate struct {
 func (c *ModelConfig) HasRouter() bool {
 	return len(c.Router.Candidates) > 0
 }
+
+// IsAlias reports whether this config is a pure redirect to another model.
+// Value receiver so it is callable on non-addressable config values too.
+func (c ModelConfig) IsAlias() bool { return c.Alias != "" }
 
 // @Description PII filtering configuration. PII redaction is per-model so
 // that local models don't pay the latency or behaviour change of regex
@@ -1243,6 +1253,22 @@ func (cfg *ModelConfig) SetDefaults(opts ...ConfigLoaderOption) {
 }
 
 func (c *ModelConfig) Validate() (bool, error) {
+	// An alias is a pure redirect: validate only its own shape here. Target
+	// existence and the no-chain rule need the full config set, so the loader
+	// (load-time) and the create/swap endpoints enforce those.
+	if c.IsAlias() {
+		if c.Name == "" {
+			return false, fmt.Errorf("alias config requires a name")
+		}
+		if c.Alias == c.Name {
+			return false, fmt.Errorf("alias %q cannot point to itself", c.Name)
+		}
+		if c.Backend != "" || c.Model != "" {
+			return false, fmt.Errorf("alias config %q must not set backend or parameters.model: an alias is a pure redirect", c.Name)
+		}
+		return true, nil
+	}
+
 	downloadedFileNames := []string{}
 	for _, f := range c.DownloadFiles {
 		downloadedFileNames = append(downloadedFileNames, f.Filename)
