@@ -54,5 +54,6 @@ So the kernel track is **two kernels, not one**:
 - **(b) MoE grouped FP4 GEMM** — the scaffold above (`ggml_cuda_fp4_grouped_moe`), per-expert offsets.
 
 Both share the same block-scaled `e2m1` collective; (a) is (b) with one group. Suggested order: build (a),
-prove the FP4 collective + parity harness, then generalize to (b). (Aside: full NVFP4/W4A4 currently *hangs*
-on vLLM 0.23.0 / GB10 for dense — only W4A16 ran — so the measured gap is a lower bound.)
+prove the FP4 collective + parity harness, then generalize to (b). (Aside: full W4A4 NVFP4 doesn't run on
+GB10 today — FlashInfer ships no FP4 cubins for sm_121, so the dense `mm_fp4` kernel hangs/returns zeros; the
+W4A16 Marlin path is the fast, correct one and is the fair comparison. See `BENCHMARKS.md` for the root cause.)

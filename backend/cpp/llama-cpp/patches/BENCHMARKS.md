@@ -51,11 +51,13 @@ batched-bench (fresh, non-fragmented, no shared prefix) won't show them.
 ## DENSE model parity (Qwen3-32B) — does the kernel gap exist for dense too? YES.
 
 The MoE work above is about the grouped MoE GEMM. Dense models use a different (non-grouped) matmul path,
-so we benchmarked a dense 32B head-to-head. vLLM `RedHatAI/Qwen3-32B-NVFP4` (full NVFP4) **hangs on this
-GB10 / vLLM 0.23.0 stack** (deadlocks right after weight-load, 0–3% GPU, no error, both eager + CUDA-graph),
-so we used the **W4A16** variant (`Qwen3-32B-NVFP4A16`, 4-bit weights / FP16 activations, FlashInfer marlin
-kernel) vs llama.cpp `Qwen3-32B-Q4_K_M` (4-bit weights / int8-MMQ compute). Both 4-bit weights — a fair
-weight-quant comparison; the difference is the compute kernel.
+so we benchmarked a dense 32B head-to-head.
+
+**Headline comparison — vLLM NVFP4 W4A16 vs llama.cpp Q4_K_M.** This is the *correct apples-to-apples on
+DGX Spark*: both are **4-bit weights / 16-bit activations** (same quant class). vLLM = `Qwen3-32B-NVFP4A16`
+(FlashInfer Marlin W4A16 kernel); llama.cpp = `Qwen3-32B-Q4_K_M` (int8-MMQ compute). The only difference is
+the compute kernel — which is exactly what we're measuring. (Full **W4A4** NVFP4 does not run on GB10 today;
+root cause below — and it would *not* be a fair comparison even if it did, since Q4_K_M is also weight-only-4-bit.)
 
 | B | llama Q4_K_M PP | vLLM W4A16 PP | PP gap | llama decode | vLLM decode | TG gap |
 |---|---|---|---|---|---|---|
@@ -66,8 +68,9 @@ weight-quant comparison; the difference is the compute kernel.
 
 **Findings:**
 1. **Dense prefill has the SAME (larger) kernel gap.** llama dense prefill plateaus at ~765 t/s regardless of
-   B; vLLM scales to 24.4k (32×). llama's dense matmul is int8-MMQ; vLLM uses an FP4 (marlin/cutlass) GEMM.
-   And this is a *lower bound* — full NVFP4 (W4A4) would be faster still (it hung, so we couldn't measure it).
+   B; vLLM scales to 24.4k (32×). Both read 4-bit weights — the gap is the compute kernel: vLLM's FP4 Marlin
+   tensor-core GEMM vs llama's int8-MMQ. (Note: on consumer Blackwell, W4A16 Marlin is also reported *faster*
+   than the experimental W4A4 path, so W4A16 isn't a handicapped stand-in — it's the fast path.)
 2. **Decode is ~parity at B=1** (10.2 vs 11.7 — both weight-bandwidth-bound reading 4-bit weights), and the
    gap grows with batch (compute starts to matter → the kernel gap reappears: 2.2× at B=64).
 3. **Scope decision (the reason for this benchmark): the Lever-3 kernel track must also deliver a NON-grouped
@@ -77,8 +80,19 @@ weight-quant comparison; the difference is the compute kernel.
      dequant→cuBLAS-BF16 doesn't engage / isn't faster than int8-MMQ on GB10. With ubatch (saturates) and
      nwarps (static_assert) already ruled out for MoE, **every config/flag lever is now exhausted** for both
      model classes. Parity is strictly the FP4 tensor-core kernel.
-4. **Aside:** full NVFP4 (W4A4) is currently unusable for dense on this vLLM/GB10 build — worth revisiting
-   on a newer vLLM, and a point in llama.cpp's favor (its 4-bit dense path at least *runs*).
+4. **Why full W4A4 NVFP4 hangs on GB10 (root cause, researched).** This is a *known consumer-Blackwell
+   limitation, not a misconfiguration*. **FlashInfer ships no FP4 cubins for sm_120/sm_121** — its precompiled
+   kernels are all datacenter `Sm100a/Sm103a` (B200/B300). So on GB10 the dense `mm_fp4` W4A4 GEMM has no
+   working kernel: the optimized path is gated off for sm_121 (heuristic checks `minor==0`; 12.1 fails), the
+   CUTLASS dense FP4 fallback is documented to silently return **all-zeros**, and TRT-LLM errors at capability
+   120. Our exact symptom — loads weights, then stalls at the first profiling forward pass with
+   `enable_flashinfer_autotune=True` at 0–3% GPU — is the **FlashInfer FP4 autotuner/JIT spinning on an arch
+   with no FP4 cubins** (matches vllm #30163/#26381, flashinfer #2577/#3294). The "NVFP4 on DGX Spark" story
+   everyone cites is about *quantization + memory footprint + W4A16/MoE*, **not dense W4A4 inference**, which
+   isn't validated on sm_121 yet (where people patched it working, it was slower than W4A16 anyway).
+   **Therefore W4A16 vs Q4_K_M above is the right, reproducible apples-to-apples** for DGX Spark today.
+   Optional W4A4 retry (verify output isn't zeros first): `VLLM_SKIP_FLASHINFER_AUTOTUNE=1` +
+   `VLLM_NVFP4_GEMM_BACKEND=cutlass` + `--enforce-eager`, or NVIDIA's `vllm/vllm-openai:cu130-nightly` container.
 
 ## So, honestly, where parity stands
 
