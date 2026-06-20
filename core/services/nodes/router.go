@@ -150,14 +150,17 @@ func applyNodeHardwareDefaults(opts *pb.ModelOptions, node *BackendNode) {
 	if opts == nil || node == nil {
 		return
 	}
-	if !config.IsManagedPhysicalBatch(int(opts.NBatch)) {
-		return
-	}
-	opts.NBatch = int32(config.PhysicalBatch(config.GPU{
+	gpu := config.GPU{
 		Vendor:            node.GPUVendor,
 		ComputeCapability: node.GPUComputeCapability,
 		VRAM:              node.TotalVRAM,
-	}))
+	}
+	if config.IsManagedPhysicalBatch(int(opts.NBatch)) {
+		opts.NBatch = int32(config.PhysicalBatch(gpu))
+	}
+	// Default concurrent serving for the selected node (the frontend that built
+	// the options may have no GPU). Only adds when no parallel option is set.
+	opts.Options = config.EnsureParallelOption(opts.Options, gpu)
 }
 
 // scheduleAndLoad is the shared core for loading a model on a new node.

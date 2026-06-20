@@ -56,4 +56,42 @@ var _ = Describe("Hardware-driven config defaults", func() {
 			Expect(func() { ApplyHardwareDefaults(nil, GPU{ComputeCapability: "12.1"}) }).ToNot(Panic())
 		})
 	})
+
+	const gib = uint64(1) << 30
+
+	DescribeTable("DefaultParallelSlots (by VRAM)",
+		func(vramGiB uint64, want int) {
+			Expect(DefaultParallelSlots(GPU{VRAM: vramGiB * gib})).To(Equal(want))
+		},
+		Entry("GB10 119 GiB", uint64(119), 8),
+		Entry("48 GiB", uint64(48), 8),
+		Entry("24 GiB", uint64(24), 4),
+		Entry("8 GiB", uint64(8), 4),
+		Entry("6 GiB", uint64(6), 2),
+		Entry("2 GiB", uint64(2), 1),
+		Entry("unknown 0", uint64(0), 1),
+	)
+
+	Describe("ApplyHardwareDefaults parallel slots", func() {
+		It("adds a VRAM-scaled parallel option on a capable GPU", func() {
+			cfg := &ModelConfig{}
+			ApplyHardwareDefaults(cfg, GPU{ComputeCapability: "12.1", VRAM: 119 * gib})
+			Expect(cfg.Options).To(ContainElement("parallel:8"))
+		})
+		It("scales the slot count down with VRAM", func() {
+			cfg := &ModelConfig{}
+			ApplyHardwareDefaults(cfg, GPU{VRAM: 24 * gib})
+			Expect(cfg.Options).To(ContainElement("parallel:4"))
+		})
+		It("adds no parallel option on small/unknown VRAM", func() {
+			cfg := &ModelConfig{}
+			ApplyHardwareDefaults(cfg, GPU{VRAM: 2 * gib})
+			Expect(cfg.Options).ToNot(ContainElement(ContainSubstring("parallel")))
+		})
+		It("never overrides an explicit parallel option", func() {
+			cfg := &ModelConfig{Options: []string{"parallel:2"}}
+			ApplyHardwareDefaults(cfg, GPU{VRAM: 119 * gib})
+			Expect(cfg.Options).To(Equal([]string{"parallel:2"}))
+		})
+	})
 })

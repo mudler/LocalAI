@@ -27,6 +27,19 @@ var _ = Describe("applyNodeHardwareDefaults", func() {
 		Expect(opts.NBatch).To(BeEquivalentTo(int32(1024)))
 	})
 
+	It("adds a VRAM-scaled parallel option for the selected node", func() {
+		// frontend may have had no GPU (no parallel option); the node has a big GPU
+		opts := &pb.ModelOptions{NBatch: config.DefaultPhysicalBatch}
+		applyNodeHardwareDefaults(opts, &BackendNode{GPUComputeCapability: "12.1", TotalVRAM: 119 << 30})
+		Expect(opts.Options).To(ContainElement("parallel:8"))
+	})
+
+	It("never overrides an explicit parallel option on the node path", func() {
+		opts := &pb.ModelOptions{NBatch: config.DefaultPhysicalBatch, Options: []string{"parallel:2"}}
+		applyNodeHardwareDefaults(opts, &BackendNode{GPUComputeCapability: "12.1", TotalVRAM: 119 << 30})
+		Expect(opts.Options).To(Equal([]string{"parallel:2"}))
+	})
+
 	It("no-ops on nil inputs", func() {
 		Expect(func() { applyNodeHardwareDefaults(nil, nil) }).ToNot(Panic())
 	})
