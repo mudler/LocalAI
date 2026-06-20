@@ -281,6 +281,13 @@ definitions:
           type: string
         type: array
     type: object
+  localai.AliasInfo:
+    properties:
+      name:
+        type: string
+      target:
+        type: string
+    type: object
   localai.BrandingResponse:
     properties:
       favicon_url:
@@ -2780,6 +2787,18 @@ paths:
       summary: Execute an agent task by name
       tags:
       - agent-jobs
+  /api/aliases:
+    get:
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/localai.AliasInfo'
+            type: array
+      summary: List model aliases
+      tags:
+      - models
   /api/backend-logs:
     get:
       description: Returns a sorted list of model IDs that have captured backend process
