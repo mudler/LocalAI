@@ -42,11 +42,17 @@ This is the integration seam. The kernel fills the stub.
 - Risk: needs ncu-driven iteration on the GB10; this is multi-week, expert-CUDA. No upstream base to fork
   (exhaustive search confirmed). Net-new value upstream.
 
-## DENSE follow-up (TODO #28 — important, do before committing to MoE-only)
+## DENSE scope — RESOLVED (TODO #28, benchmarked): dense needs an FP4 GEMM too
 
-This kernel is **grouped** (MoE). **Dense** models (e.g. Qwen3 ~27B) use the non-grouped FP4 GEMM path — a
-different kernel. Before assuming the kernel work is MoE-only, benchmark **Qwen3-27B dense: vLLM NVFP4 vs
-llama.cpp Q4_K_M** (prefill+decode, GB10). If dense shows the same large gap → the kernel track must also
-deliver a non-grouped block-scaled FP4 GEMM (a CUTLASS dense GEMM, simpler than grouped). If dense is already
-competitive (single-stream dense was only ~10% of MoE-model time) → MoE-grouped is the priority and dense can
-ride the existing MMQ/cuBLAS path. This decides the kernel scope.
+Benchmarked Qwen3-32B dense, vLLM W4A16 vs llama.cpp Q4_K_M (`BENCHMARKS.md`). **Dense prefill is 7.6–32×
+behind** (llama int8-MMQ plateaus ~765 t/s; vLLM FP4 scales to 24.4k); decode ~parity at B=1, 2.2× at B=64.
+So the kernel track is **two kernels, not one**:
+
+- **(a) Dense FP4 GEMM** — a plain non-grouped CUTLASS/tcgen05 block-scaled FP4 GEMM. **Simpler than grouped;
+  land this FIRST** — it's the easier first kernel, benefits every dense model, and de-risks the FP4 collective
+  before the grouped variant. Hook: the non-MoE `ggml_cuda_mul_mat_q` (no `ids`) path.
+- **(b) MoE grouped FP4 GEMM** — the scaffold above (`ggml_cuda_fp4_grouped_moe`), per-expert offsets.
+
+Both share the same block-scaled `e2m1` collective; (a) is (b) with one group. Suggested order: build (a),
+prove the FP4 collective + parity harness, then generalize to (b). (Aside: full NVFP4/W4A4 currently *hangs*
+on vLLM 0.23.0 / GB10 for dense — only W4A16 ran — so the measured gap is a lower bound.)
