@@ -12,6 +12,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/services/advisorylock"
 	"github.com/mudler/LocalAI/core/services/nodes/prefixcache"
 	"github.com/mudler/LocalAI/pkg/distributedhdr"
@@ -138,6 +139,30 @@ type scheduleLoadResult struct {
 	ReplicaIndex int
 }
 
+// applyNodeHardwareDefaults tunes node-agnostic ModelOptions to the GPU of the
+// node that was actually selected to run the model, reusing the same hardware
+// heuristics as single-host config loading (core/config). On Blackwell it
+// raises the physical batch; on non-Blackwell it resets a hardware-default that
+// an upstream host (the GPU-less frontend in distributed mode) guessed higher.
+// Only values the heuristics themselves manage are touched, so an explicit user
+// batch (e.g. 1024) is never overridden.
+func applyNodeHardwareDefaults(opts *pb.ModelOptions, node *BackendNode) {
+	if opts == nil || node == nil {
+		return
+	}
+	gpu := config.GPU{
+		Vendor:            node.GPUVendor,
+		ComputeCapability: node.GPUComputeCapability,
+		VRAM:              node.TotalVRAM,
+	}
+	if config.IsManagedPhysicalBatch(int(opts.NBatch)) {
+		opts.NBatch = int32(config.PhysicalBatch(gpu))
+	}
+	// Default concurrent serving for the selected node (the frontend that built
+	// the options may have no GPU). Only adds when no parallel option is set.
+	opts.Options = config.EnsureParallelOption(opts.Options, gpu)
+}
+
 // scheduleAndLoad is the shared core for loading a model on a new node.
 // Used by both Route() (for first-time loads) and ScheduleAndLoadModel() (for reconciler scale-ups).
 //
@@ -152,6 +177,11 @@ func (r *SmartRouter) scheduleAndLoad(ctx context.Context, backendType, tracking
 	if err != nil {
 		return nil, fmt.Errorf("no available nodes: %w", err)
 	}
+
+	// Tune node-agnostic options to the SELECTED node's GPU. Only now do we know
+	// which node (and its compute capability) will run the model — the frontend
+	// that built modelOpts may have no GPU at all in distributed mode.
+	applyNodeHardwareDefaults(modelOpts, node)
 
 	// Pre-stage model files via FileStager before loading
 	loadOpts := modelOpts

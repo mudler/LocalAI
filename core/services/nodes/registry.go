@@ -36,6 +36,11 @@ type BackendNode struct {
 	TotalRAM     uint64 `gorm:"column:total_ram" json:"total_ram"`           // Total system RAM in bytes (fallback when no GPU)
 	AvailableRAM uint64 `gorm:"column:available_ram" json:"available_ram"`   // Available system RAM in bytes
 	GPUVendor    string `gorm:"column:gpu_vendor;size:32" json:"gpu_vendor"` // nvidia, amd, intel, vulkan, unknown
+	// GPUComputeCapability is the worker GPU's compute capability as
+	// "major.minor" (e.g. "12.1" for GB10 / DGX Spark). Reported by the worker
+	// on registration; used by the router to pick per-arch options (e.g. a
+	// larger physical batch on Blackwell). Empty when unknown / non-NVIDIA.
+	GPUComputeCapability string `gorm:"column:gpu_compute_capability;size:16" json:"gpu_compute_capability"`
 	// MaxReplicasPerModel caps how many replicas of any one model can run on
 	// this node concurrently. Default 1 preserves the historical "one
 	// (node, model)" assumption; set higher (via worker --max-replicas-per-model)
@@ -69,6 +74,7 @@ const (
 	ColReservedVRAM        = "reserved_vram"
 	ColAvailableRAM        = "available_ram"
 	ColGPUVendor           = "gpu_vendor"
+	ColGPUComputeCap       = "gpu_compute_capability"
 	ColLastHeartbeat       = "last_heartbeat"
 	ColMaxReplicasPerModel = "max_replicas_per_model"
 )

@@ -1111,6 +1111,11 @@ func (cfg *ModelConfig) SetDefaults(opts ...ConfigLoaderOption) {
 	// This ensures gallery-installed and runtime-loaded models get optimal parameters.
 	ApplyInferenceDefaults(cfg, cfg.Name, cfg.Model)
 
+	// Apply hardware-driven defaults (e.g. a larger physical batch on Blackwell).
+	// Uses the local GPU here; in distributed mode the router re-applies the same
+	// heuristics for the selected node's GPU before loading. Explicit config wins.
+	ApplyHardwareDefaults(cfg, localGPU())
+
 	// https://github.com/ggerganov/llama.cpp/blob/75cd4c77292034ecec587ecb401366f57338f7c0/common/sampling.h#L22
 	defaultTopP := 0.95
 	defaultTopK := 40
