@@ -37,7 +37,7 @@ type GPU struct {
 // Physical batch (n_batch / n_ubatch) defaults.
 const (
 	// DefaultPhysicalBatch is the conservative default when no hardware-specific
-	// tuning applies. Matches backend.DefaultBatchSize.
+	// tuning applies. core/backend.DefaultBatchSize references this (single source).
 	DefaultPhysicalBatch = 512
 	// BlackwellPhysicalBatch is the default on NVIDIA Blackwell consumer GPUs
 	// (sm_12x: sm_120 RTX 50-series, sm_121 GB10 / DGX Spark). A larger physical

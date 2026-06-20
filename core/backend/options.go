@@ -90,10 +90,11 @@ func getSeed(c config.ModelConfig) int32 {
 // DefaultContextSize and DefaultBatchSize are the backend's fallbacks when a
 // model config leaves them unset. Exported so callers that must respect the
 // effective decode window — notably the router's prompt trimmer — resolve the
-// same numbers grpcModelOpts does instead of guessing.
+// same numbers grpcModelOpts does instead of guessing. The values are owned by
+// core/config (single source of truth shared with the config default tiers).
 const (
-	DefaultContextSize = 4096
-	DefaultBatchSize   = 512
+	DefaultContextSize = config.DefaultContextSize
+	DefaultBatchSize   = config.DefaultPhysicalBatch
 )
 
 // EffectiveContextSize is the context window the backend will run with: the
@@ -129,7 +130,7 @@ func grpcModelOpts(c config.ModelConfig, modelPath string) *pb.ModelOptions {
 	ctxSize := EffectiveContextSize(c)
 	b := EffectiveBatchSize(c)
 
-	flashAttention := "auto"
+	flashAttention := config.DefaultFlashAttention
 
 	if c.FlashAttention != nil {
 		flashAttention = *c.FlashAttention
@@ -175,7 +176,7 @@ func grpcModelOpts(c config.ModelConfig, modelPath string) *pb.ModelOptions {
 		mmlock = *c.MMlock
 	}
 
-	nGPULayers := 9999999
+	nGPULayers := config.DefaultNGPULayers
 	if c.NGPULayers != nil {
 		nGPULayers = *c.NGPULayers
 	}
