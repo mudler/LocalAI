@@ -240,6 +240,8 @@ Most backends wrap a best-in-class upstream engine. A handful of them are native
 | [LocalVQE](https://github.com/localai-org/LocalVQE) | Joint acoustic echo cancellation, noise suppression, and dereverberation |
 | [local-store](https://github.com/mudler/LocalAI) | Local-first vector database for embeddings (shipped in-tree) |
 
+We also maintain [apex-quant](https://github.com/localai-org/apex-quant), a per-tensor, per-layer quantization recipe for Mixture-of-Experts models that exploits their structural sparsity to produce GGUFs matching or beating Q8_0 quality - and they run out of the box on stock llama.cpp.
+
 ## Resources
 
 - [Documentation](https://localai.io/)
