@@ -18,6 +18,18 @@
 #if __has_include("server-chat.cpp")
 #include "server-chat.cpp"
 #endif
+// server-schema.cpp exists only in llama.cpp after the upstream refactor that
+// extracted the JSON request-schema evaluation (previously the static
+// server_task::params_from_json_cmpl) into server_schema::eval_llama_cmpl_schema.
+// server-context.cpp and grpc-server.cpp both call into it, so its definitions
+// must be part of this translation unit or the link fails. __has_include keeps
+// the source compatible with older pins/forks (e.g. llama-cpp-turboquant) that
+// predate the split and still expose params_from_json_cmpl (see the guarded
+// call sites below).
+#if __has_include("server-schema.cpp")
+#define LOCALAI_HAS_SERVER_SCHEMA 1
+#include "server-schema.cpp"
+#endif
 #include "server-context.cpp"
 
 // LocalAI
@@ -2102,7 +2114,11 @@ public:
                 task.index = i;
 
                 task.tokens    = std::move(inputs[i]);
+#ifdef LOCALAI_HAS_SERVER_SCHEMA
+                task.params           = server_schema::eval_llama_cmpl_schema(
+#else
                 task.params           = server_task::params_from_json_cmpl(
+#endif
                         ctx_server.impl->vocab,
                         params_base,
                         ctx_server.get_meta().slot_n_ctx,
@@ -2116,7 +2132,7 @@ public:
                 // cannot detect tool calls or separate reasoning from content.
                 task.params.res_type                 = TASK_RESPONSE_TYPE_OAI_CHAT;
                 task.params.oaicompat_cmpl_id         = completion_id;
-                // oaicompat_model is already populated by params_from_json_cmpl
+                // oaicompat_model is already populated by eval_llama_cmpl_schema
 
                 tasks.push_back(std::move(task));
             }
@@ -2940,7 +2956,11 @@ public:
                 task.index = i;
 
                 task.tokens    = std::move(inputs[i]);
+#ifdef LOCALAI_HAS_SERVER_SCHEMA
+                task.params           = server_schema::eval_llama_cmpl_schema(
+#else
                 task.params           = server_task::params_from_json_cmpl(
+#endif
                         ctx_server.impl->vocab,
                         params_base,
                         ctx_server.get_meta().slot_n_ctx,
@@ -2952,7 +2972,7 @@ public:
                 // reasoning, tool calls, and content are classified into ChatDeltas.
                 task.params.res_type                 = TASK_RESPONSE_TYPE_OAI_CHAT;
                 task.params.oaicompat_cmpl_id         = completion_id;
-                // oaicompat_model is already populated by params_from_json_cmpl
+                // oaicompat_model is already populated by eval_llama_cmpl_schema
 
                 tasks.push_back(std::move(task));
             }
