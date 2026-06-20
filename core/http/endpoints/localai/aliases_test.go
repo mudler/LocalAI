@@ -22,7 +22,7 @@ var _ = Describe("ListAliasesEndpoint", func() {
 		Expect(err).ToNot(HaveOccurred())
 	})
 	AfterEach(func() {
-		os.RemoveAll(tempDir)
+		_ = os.RemoveAll(tempDir)
 	})
 
 	It("returns only alias configs as name/target pairs", func() {
