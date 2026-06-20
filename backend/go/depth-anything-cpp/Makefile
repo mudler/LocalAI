@@ -8,11 +8,13 @@ JOBS?=$(shell nproc --ignore=1)
 
 # depth-anything.cpp. Pin to a specific commit for a stable build; a squash
 # merge upstream can orphan a branch, so the native version is pinned by SHA.
-# This SHA adds the nested two-file metric C-API (abi_version 4,
-# da_capi_load_nested) required by the depth-anything-3-nested gallery model;
-# tag it (e.g. v0.1.3) upstream to keep the SHA alive.
+# This SHA adds the Depth Anything V2 engine + C-API routing (depth-only,
+# relative + metric) on top of the nested two-file metric C-API (abi_version 4,
+# da_capi_load_nested) required by the depth-anything-3-nested gallery model.
+# It is kept alive by the upstream tag da2-support (survives a squash-merge);
+# repoint to the master merge commit once mudler/depth-anything.cpp PR #1 lands.
 DEPTHANYTHING_REPO?=https://github.com/mudler/depth-anything.cpp.git
-DEPTHANYTHING_VERSION?=cce5edc395fd1843806093d7ccc0c8b0d0b97b72
+DEPTHANYTHING_VERSION?=e3dec57f13a52366bbc4f279ef44804915960a6b
 
 ifeq ($(NATIVE),false)
 	CMAKE_ARGS+=-DGGML_NATIVE=OFF
