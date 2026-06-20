@@ -50,10 +50,25 @@ and **Stream-K** partitioning. Sources: IST-DASLab/marlin, arXiv 2408.11743, vLL
   `llama-bench` dense Q4 pp512 unchanged (717.77 default / 718.26 with flag); `GGML_CUDA_W4A16=1` reaches the
   seam (stderr `[w4a16] ... P1 seam - using MMQ`) and falls back. The empty frame P2/P3 fills.
 
-### P2 — Correctness-first kernel (slow OK)
-- Dequant Q4→BF16 (reuse ggml's `dequantize_block_q4_K`) into shared mem, naive `mma.sync m16n8k16` BF16
-  accumulate, small tiles. Goal: **bit-parity vs MMQ** (within fp tol) on the toy + the real model. Establishes
-  the data plumbing + the harness pass. Not expected to beat MMQ yet.
+### P2 — Correctness-first kernel (slow OK) — DONE
+- **Kernel:** `marlin-w4a16.cu` replaces the P1 TODO with a real W4A16 GEMM. In-kernel dequant Q4→BF16 into
+  shared mem, `mma.sync.aligned.m16n8k16.row.col.f32.bf16.bf16.f32` via ggml's `mma.cuh` tile abstractions
+  (`tile<16,8,nv_bfloat162>` A, `tile<8,8,nv_bfloat162>` B, `tile<16,8,float>` C), F32 accumulate, F32 write.
+  One warp per 16(M)x8(N) output tile, K looped in steps of 16. Both src0 (weights, row m) and src1 (acts,
+  row n) are row-major `[row][k]`, so A and B load symmetrically via `load_generic`; the mma does the dot over k.
+- **Types handled:** Q4_0 and Q4_K. Q4_0 dequant `w=d*(q-8)` inline; Q4_K via the superblock decode mirrored
+  from `convert.cu` (`get_scale_min_k4`, 8x32 sub-blocks, `d*q-m`).
+- **Shape classes handled:** contiguous 2D GEMM (the prefill path), `ne2==ne3==1`, f32 activations, K%16==0
+  (always true: Q4_0 K%32, Q4_K K%256). **Falls back to MMQ (returns false)** for batched (bs!=[1,1]),
+  broadcast (nr!=[1,1]), permuted / non-contiguous (per!=[0,1,2,3]), and any non-f32 activation (e.g. f16) -
+  keeps the gate green. M / N boundaries are zero-padded in-kernel (handles M not %16, N not %8).
+- **Parity (the gate):** `GGML_CUDA_W4A16=1 test-backend-ops test -o MUL_MAT -b CUDA0` = **1103/1103 passed**
+  (the Q4_0/Q4_K f32 contiguous shapes run the kernel and match the CPU reference; batched/permuted/f16 fall
+  back). Default (flag-unset) build still **1103/1103** (byte-identical, seam returns false).
+- **Model sanity / P2 perf:** `GGML_CUDA_W4A16=1 llama-bench -m Qwen3-32B-Q4_K_M.gguf -ngl 99 -p 512 -n 16
+  -ub 2048` runs clean: **pp512 = 31.75 t/s**, tg16 = 6.28 t/s. Slow as expected (naive 1-warp/tile, weights
+  re-dequantized per n-tile, no pipeline) - this is the correctness checkpoint; P3 brings the speedup. The real
+  Q4_K model matmul path engages the kernel without error.
 
 ### P3 — The Marlin pipeline (the speedup)
 - `cp.async` double/triple-buffered global→shared; offline weight reshuffle (a one-time repack of the Q4
