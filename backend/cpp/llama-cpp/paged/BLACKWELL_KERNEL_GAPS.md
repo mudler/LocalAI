@@ -101,3 +101,5 @@ GB10 peaks (measured): forums.developer.nvidia.com/t/351993, /360142, /373618. M
 arxiv 2408.11743, developers.redhat.com Marlin/Machete. MMQ untuned: llama.cpp docs/build.md, discussions/16578,
 DandinPower/llama.cpp_bench. FP4 landing/sm121: llama.cpp PR #17906/#20644, issues #19662/#18331. Roofline:
 vllm.ai/blog/2026-06-01-vllm-dgx-spark, lmsys.org DGX Spark.
+
+> **Correction (measured):** the earlier `GGML_CUDA_FORCE_CUBLAS` env test was a no-op because it's a *compile-time* `#ifdef`, not a runtime flag — cuBLAS never engaged. A real rebuild with `-DGGML_CUDA_FORCE_CUBLAS=ON` shows cuBLAS is **slower** than MMQ for dense Q4 (pp2048 690 vs 750) and runs an **Ampere `cutlass_80_tensorop` FP16 kernel** — cuBLAS-13.0 has no sm_121-tuned GEMM and falls back to sm_80. So *both* MMQ and cuBLAS sit at ~46 TFLOP/s (~21% of the 213 BF16 peak); there is **no library shortcut** to the ceiling on GB10 — a hand-tuned sm_120a kernel (Marlin-style) is required.
