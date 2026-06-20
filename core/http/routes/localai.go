@@ -80,6 +80,9 @@ func RegisterLocalAIRoutes(router *echo.Echo,
 		// Custom model edit endpoint
 		router.POST("/models/edit/:name", localai.EditModelEndpoint(cl, ml, appConfig), adminMiddleware)
 
+		// List model aliases endpoint
+		router.GET("/api/aliases", localai.ListAliasesEndpoint(cl), adminMiddleware)
+
 		// Toggle model enable/disable endpoint
 		router.PUT("/models/toggle-state/:name/:action", localai.ToggleStateModelEndpoint(cl, ml, appConfig), adminMiddleware)
 
