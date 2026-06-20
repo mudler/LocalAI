@@ -29,8 +29,17 @@ and **Stream-K** partitioning. Sources: IST-DASLab/marlin, arXiv 2408.11743, vLL
 - **Perf baseline:** `llama-bench` dense Q4_K prefill = **~750 t/s (pp512 718 / pp2048 750) ≈ 46 TFLOP/s ≈ 21%
   of the 213 BF16 ceiling**. The kernel must beat this toward ~3,300. (`test-backend-ops perf -o MUL_MAT` gives
   per-shape GFLOPS too; build it once with the harness.)
+- **Op-level baseline (the canonical kernel target), `test-backend-ops perf -o MUL_MAT`, m=4096 k=14336 (FFN):**
+  | n (tokens) | q4_0 | q4_K | regime |
+  |---|---|---|---|
+  | 1 | 817 GFLOPS | 761 GFLOPS | decode / mat-vec (memory-bound) |
+  | 8 | 5.77 TFLOPS | 4.11 TFLOPS | small-batch |
+  | **512** | **49.5 TFLOPS** | **47.1 TFLOPS** | **prefill GEMM — ~22% of the 213 ceiling** |
+
+  So the prefill GEMM target: lift q4_K n=512 from **47 → toward ~213 TFLOPS** (~4.5×). This per-shape number
+  is cleaner than end-to-end for kernel iteration.
 - **Harness script:** `~/p0harness.sh` on the DGX (build test-backend-ops + correctness + perf). Reusable each
-  phase: `test-backend-ops test -o MUL_MAT -b CUDA0` must stay 1103/1103; `llama-bench` must climb from 750.
+  phase: `test-backend-ops test -o MUL_MAT -b CUDA0` must stay 1103/1103; the q4_K n=512 perf must climb from 47.
 - test-backend-ops needed `-DLLAMA_BUILD_TESTS=ON`; now built in `~/llama.cpp-pr24423/build`.
 
 ### P1 — Dispatch seam (no behavior change)
