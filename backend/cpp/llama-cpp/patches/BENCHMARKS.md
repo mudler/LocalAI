@@ -73,6 +73,10 @@ weight-quant comparison; the difference is the compute kernel.
 3. **Scope decision (the reason for this benchmark): the Lever-3 kernel track must also deliver a NON-grouped
    block-scaled FP4 GEMM for dense**, not only the MoE grouped GEMM. The dense GEMM is the simpler of the two
    (a plain CUTLASS dense GEMM), so it's a good first kernel to land — and it benefits every dense model.
+   - **No cheap lever:** `GGML_CUDA_FORCE_CUBLAS` is a **no-op for dense too** (Q4_K pp512: 720.8 vs 721.8) —
+     dequant→cuBLAS-BF16 doesn't engage / isn't faster than int8-MMQ on GB10. With ubatch (saturates) and
+     nwarps (static_assert) already ruled out for MoE, **every config/flag lever is now exhausted** for both
+     model classes. Parity is strictly the FP4 tensor-core kernel.
 4. **Aside:** full NVFP4 (W4A4) is currently unusable for dense on this vLLM/GB10 build — worth revisiting
    on a newer vLLM, and a point in llama.cpp's favor (its 4-bit dense path at least *runs*).
 
