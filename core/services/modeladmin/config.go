@@ -130,6 +130,9 @@ func (s *ConfigService) PatchConfig(_ context.Context, name string, patch map[st
 		}
 		return nil, ErrInvalidConfig
 	}
+	if err := s.Loader.ValidateAliasTarget(&updated); err != nil {
+		return nil, fmt.Errorf("%w: %v", ErrInvalidConfig, err)
+	}
 	if err := writeFileAtomic(configPath, yamlData, 0644); err != nil {
 		return nil, fmt.Errorf("write config file: %w", err)
 	}
@@ -214,6 +217,9 @@ func (s *ConfigService) EditYAML(_ context.Context, name string, body []byte, ml
 	}
 	if valid, _ := req.Validate(); !valid {
 		return nil, ErrInvalidConfig
+	}
+	if err := s.Loader.ValidateAliasTarget(&req); err != nil {
+		return nil, fmt.Errorf("%w: %v", ErrInvalidConfig, err)
 	}
 
 	configPath := existing.GetModelConfigFile()
