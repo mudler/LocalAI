@@ -72,12 +72,29 @@ ceiling, duplicates work the FP4-MMA path already does, and FP4 on sm_121 is a *
 problem. The `fp4-grouped-moe.cu` scaffold/hook stays as a useful dispatch seam, but the kernel behind it
 should be one of (1)/(2)/(3), not a greenfield CUTLASS collective.
 
-## 6. Cheap experiment worth running next
+## 6. Cheap experiment — RESULT: MXFP4 dense = free 1.44×, but not parity (kernel still untuned)
 
-Quantize a **dense** model to **MXFP4/NVFP4** and benchmark prefill: does the existing FP4-MMA path lift dense
-from ~765 (Q4_K int8-MMQ) toward the FP4 ceiling, as it does for MoE (3441)? If yes, **dense parity may be a
-quantization choice + the existing kernel**, no new kernel — modulo the sm_121 build/miscompile fixes (3).
-(Needs an F16 source or a lossy Q4_K→MXFP4 requant for a speed-only test.)
+Requantized Qwen3-32B dense → MXFP4 (forced attn+ffn to mxfp4 via `--tensor-type`, `--allow-requantize`,
+speed-only test) and benched prefill:
+
+| quant | kernel | pp512 | pp2048 | vs Q4_K |
+|---|---|---|---|---|
+| Q4_K_M | int8-MMQ | 765 | 763 | 1.0× |
+| **MXFP4** | **FP4-MMA** | **1099** | **1153** | **1.44×** |
+
+**Findings:**
+- **MXFP4 dense is a real, free 1.44× over Q4_K** — just a requantize, the existing FP4-MMA path engages for
+  dense weights on GB10. Worth shipping as a **Blackwell dense-quant recommendation** in the gallery (no kernel).
+- **But it is NOT parity.** 1153 t/s = **~17% of the FP4 ceiling (~6,600)** / ~35% of the BF16 ceiling. So the
+  **FP4-MMA kernel is itself untuned** (consistent with the MoE measurement, ~5% of FP4 peak). MXFP4 moves dense
+  from the int8 path (765) onto the FP4 path (1153), but the FP4 kernel leaves ~4–6× on the table.
+- **So the kernel work is confirmed and now precise: tune the FP4-MMA kernel** (it's the highest-value, since it
+  serves both dense-MXFP4 and MoE, and FP4 is the only path that can *beat* vLLM). Strategy item (3) — fix +
+  tune the existing FP4-MMA on sm_121 — is the priority; a Marlin-style W4A16 BF16 kernel (2) is the alternative
+  to *match* on the BF16 ceiling if FP4 tuning stalls.
+
+Conclusion: the cheap test did NOT collapse the kernel problem (the kernels are untuned, not just the quant), but
+it (a) gives a free 1.44× to ship now, and (b) sharpens the target to **tuning the FP4-MMA kernel**.
 
 ## Sources
 GB10 peaks (measured): forums.developer.nvidia.com/t/351993, /360142, /373618. Marlin: github.com/IST-DASLab/marlin,
