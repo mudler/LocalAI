@@ -38,24 +38,25 @@ const (
 	FeatureQuantization = "quantization"
 
 	// API features (default ON for new users)
-	FeatureChat               = "chat"
-	FeatureImages             = "images"
-	FeatureAudioSpeech        = "audio_speech"
-	FeatureAudioTranscription = "audio_transcription"
-	FeatureAudioDiarization   = "audio_diarization"
-	FeatureVAD                = "vad"
-	FeatureDetection          = "detection"
-	FeatureVideo              = "video"
-	FeatureEmbeddings         = "embeddings"
-	FeatureSound              = "sound"
-	FeatureRealtime           = "realtime"
-	FeatureRerank             = "rerank"
-	FeatureTokenize           = "tokenize"
-	FeatureMCP                = "mcp"
-	FeatureStores             = "stores"
-	FeatureFaceRecognition    = "face_recognition"
-	FeatureVoiceRecognition   = "voice_recognition"
-	FeatureAudioTransform     = "audio_transform"
+	FeatureChat                = "chat"
+	FeatureImages              = "images"
+	FeatureAudioSpeech         = "audio_speech"
+	FeatureAudioTranscription  = "audio_transcription"
+	FeatureAudioDiarization    = "audio_diarization"
+	FeatureAudioClassification = "audio_classification"
+	FeatureVAD                 = "vad"
+	FeatureDetection           = "detection"
+	FeatureVideo               = "video"
+	FeatureEmbeddings          = "embeddings"
+	FeatureSound               = "sound"
+	FeatureRealtime            = "realtime"
+	FeatureRerank              = "rerank"
+	FeatureTokenize            = "tokenize"
+	FeatureMCP                 = "mcp"
+	FeatureStores              = "stores"
+	FeatureFaceRecognition     = "face_recognition"
+	FeatureVoiceRecognition    = "voice_recognition"
+	FeatureAudioTransform      = "audio_transform"
 	// FeaturePIIFilter gates the synchronous PII analyze/redact service
 	// (POST /api/pii/{analyze,redact}). Default ON like the other API
 	// features; the admin-only events log is gated separately in-handler.
@@ -71,7 +72,7 @@ var GeneralFeatures = []string{FeatureFineTuning, FeatureQuantization}
 // APIFeatures lists API endpoint features (default ON).
 var APIFeatures = []string{
 	FeatureChat, FeatureImages, FeatureAudioSpeech, FeatureAudioTranscription,
-	FeatureAudioDiarization,
+	FeatureAudioDiarization, FeatureAudioClassification,
 	FeatureVAD, FeatureDetection, FeatureVideo, FeatureEmbeddings, FeatureSound,
 	FeatureRealtime, FeatureRerank, FeatureTokenize, FeatureMCP, FeatureStores,
 	FeatureFaceRecognition, FeatureVoiceRecognition, FeatureAudioTransform,

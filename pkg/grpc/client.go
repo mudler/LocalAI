@@ -616,6 +616,24 @@ func (c *Client) Diarize(ctx context.Context, in *pb.DiarizeRequest, opts ...grp
 	return client.Diarize(ctx, in, opts...)
 }
 
+func (c *Client) SoundDetection(ctx context.Context, in *pb.SoundDetectionRequest, opts ...grpc.CallOption) (*pb.SoundDetectionResponse, error) {
+	if !c.parallel {
+		c.opMutex.Lock()
+		defer c.opMutex.Unlock()
+	}
+	c.setBusy(true)
+	defer c.setBusy(false)
+	c.wdMark()
+	defer c.wdUnMark()
+	conn, err := c.dial()
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = conn.Close() }()
+	client := pb.NewBackendClient(conn)
+	return client.SoundDetection(ctx, in, opts...)
+}
+
 func (c *Client) Detect(ctx context.Context, in *pb.DetectOptions, opts ...grpc.CallOption) (*pb.DetectResponse, error) {
 	if !c.parallel {
 		c.opMutex.Lock()

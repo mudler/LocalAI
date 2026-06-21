@@ -604,6 +604,20 @@ type Pipeline struct {
 	LLM           string `yaml:"llm,omitempty" json:"llm,omitempty"`
 	Transcription string `yaml:"transcription,omitempty" json:"transcription,omitempty"`
 	VAD           string `yaml:"vad,omitempty" json:"vad,omitempty"`
+	// SoundDetection names a sound-event-classification model (e.g. ced). When
+	// set, each VAD-committed realtime utterance is also run through it and the
+	// scored AudioSet tags are emitted as a conversation.item.sound_detection
+	// server event, alongside (and independent of) transcription.
+	SoundDetection string `yaml:"sound_detection,omitempty" json:"sound_detection,omitempty"`
+
+	// SoundDetectionWindowMs / SoundDetectionHopMs enable server-side windowing
+	// for a sound-detection-only realtime session: instead of the client
+	// committing audio buffers, the server classifies the last WindowMs of
+	// streamed audio every HopMs and emits a sound_detection event per hop. Both
+	// must be > 0 to activate; otherwise the session stays client-driven (the
+	// client commits windows via input_audio_buffer.commit).
+	SoundDetectionWindowMs int `yaml:"sound_detection_window_ms,omitempty" json:"sound_detection_window_ms,omitempty"`
+	SoundDetectionHopMs    int `yaml:"sound_detection_hop_ms,omitempty" json:"sound_detection_hop_ms,omitempty"`
 
 	// ReasoningEffort sets the reasoning effort (none|minimal|low|medium|high) for
 	// the pipeline's LLM without editing the LLM model config. Overrides the LLM's
@@ -1452,6 +1466,11 @@ const (
 	// so it may combine freely with other usecases.
 	FLAG_TOKEN_CLASSIFY ModelConfigUsecase = 0b1000000000000000000000
 
+	// Marks a model as wired for the SoundDetection gRPC primitive
+	// (audio tagging / sound-event classification — scored AudioSet
+	// labels via the SoundDetection RPC, e.g. ced).
+	FLAG_SOUND_CLASSIFICATION ModelConfigUsecase = 0b10000000000000000000000
+
 	// Common Subsets
 	FLAG_LLM ModelConfigUsecase = FLAG_CHAT | FLAG_COMPLETION | FLAG_EDIT
 )
@@ -1460,12 +1479,12 @@ const (
 // Flags within the same group are NOT orthogonal (e.g., chat and completion are
 // both text/language). A model is multimodal when its usecases span 2+ groups.
 var ModalityGroups = []ModelConfigUsecase{
-	FLAG_CHAT | FLAG_COMPLETION | FLAG_EDIT,                // text/language
-	FLAG_VISION | FLAG_DETECTION,                           // visual understanding
-	FLAG_TRANSCRIPT | FLAG_REALTIME_AUDIO,                  // speech input — realtime_audio is any-to-any, so it counts here too
-	FLAG_TTS | FLAG_SOUND_GENERATION | FLAG_REALTIME_AUDIO, // audio output — and here, so a lone realtime_audio flag still reads as multimodal
-	FLAG_AUDIO_TRANSFORM,                                   // audio in/out transforms
-	FLAG_IMAGE | FLAG_VIDEO,                                // visual generation
+	FLAG_CHAT | FLAG_COMPLETION | FLAG_EDIT,                           // text/language
+	FLAG_VISION | FLAG_DETECTION,                                      // visual understanding
+	FLAG_TRANSCRIPT | FLAG_REALTIME_AUDIO | FLAG_SOUND_CLASSIFICATION, // audio input — realtime_audio is any-to-any, so it counts here too
+	FLAG_TTS | FLAG_SOUND_GENERATION | FLAG_REALTIME_AUDIO,            // audio output — and here, so a lone realtime_audio flag still reads as multimodal
+	FLAG_AUDIO_TRANSFORM,                                              // audio in/out transforms
+	FLAG_IMAGE | FLAG_VIDEO,                                           // visual generation
 }
 
 // IsMultimodal returns true if the given usecases span two or more orthogonal
@@ -1488,29 +1507,30 @@ func GetAllModelConfigUsecases() map[string]ModelConfigUsecase {
 	return map[string]ModelConfigUsecase{
 		// Note: FLAG_ANY is intentionally excluded from this map
 		// because it's 0 and would always match in HasUsecases checks
-		"FLAG_CHAT":                FLAG_CHAT,
-		"FLAG_COMPLETION":          FLAG_COMPLETION,
-		"FLAG_EDIT":                FLAG_EDIT,
-		"FLAG_EMBEDDINGS":          FLAG_EMBEDDINGS,
-		"FLAG_RERANK":              FLAG_RERANK,
-		"FLAG_IMAGE":               FLAG_IMAGE,
-		"FLAG_TRANSCRIPT":          FLAG_TRANSCRIPT,
-		"FLAG_TTS":                 FLAG_TTS,
-		"FLAG_SOUND_GENERATION":    FLAG_SOUND_GENERATION,
-		"FLAG_TOKENIZE":            FLAG_TOKENIZE,
-		"FLAG_VAD":                 FLAG_VAD,
-		"FLAG_LLM":                 FLAG_LLM,
-		"FLAG_VIDEO":               FLAG_VIDEO,
-		"FLAG_DETECTION":           FLAG_DETECTION,
-		"FLAG_VISION":              FLAG_VISION,
-		"FLAG_FACE_RECOGNITION":    FLAG_FACE_RECOGNITION,
-		"FLAG_SPEAKER_RECOGNITION": FLAG_SPEAKER_RECOGNITION,
-		"FLAG_AUDIO_TRANSFORM":     FLAG_AUDIO_TRANSFORM,
-		"FLAG_DIARIZATION":         FLAG_DIARIZATION,
-		"FLAG_REALTIME_AUDIO":      FLAG_REALTIME_AUDIO,
-		"FLAG_SCORE":               FLAG_SCORE,
-		"FLAG_DEPTH":               FLAG_DEPTH,
-		"FLAG_TOKEN_CLASSIFY":      FLAG_TOKEN_CLASSIFY,
+		"FLAG_CHAT":                 FLAG_CHAT,
+		"FLAG_COMPLETION":           FLAG_COMPLETION,
+		"FLAG_EDIT":                 FLAG_EDIT,
+		"FLAG_EMBEDDINGS":           FLAG_EMBEDDINGS,
+		"FLAG_RERANK":               FLAG_RERANK,
+		"FLAG_IMAGE":                FLAG_IMAGE,
+		"FLAG_TRANSCRIPT":           FLAG_TRANSCRIPT,
+		"FLAG_TTS":                  FLAG_TTS,
+		"FLAG_SOUND_GENERATION":     FLAG_SOUND_GENERATION,
+		"FLAG_TOKENIZE":             FLAG_TOKENIZE,
+		"FLAG_VAD":                  FLAG_VAD,
+		"FLAG_LLM":                  FLAG_LLM,
+		"FLAG_VIDEO":                FLAG_VIDEO,
+		"FLAG_DETECTION":            FLAG_DETECTION,
+		"FLAG_VISION":               FLAG_VISION,
+		"FLAG_FACE_RECOGNITION":     FLAG_FACE_RECOGNITION,
+		"FLAG_SPEAKER_RECOGNITION":  FLAG_SPEAKER_RECOGNITION,
+		"FLAG_AUDIO_TRANSFORM":      FLAG_AUDIO_TRANSFORM,
+		"FLAG_DIARIZATION":          FLAG_DIARIZATION,
+		"FLAG_SOUND_CLASSIFICATION": FLAG_SOUND_CLASSIFICATION,
+		"FLAG_REALTIME_AUDIO":       FLAG_REALTIME_AUDIO,
+		"FLAG_SCORE":                FLAG_SCORE,
+		"FLAG_DEPTH":                FLAG_DEPTH,
+		"FLAG_TOKEN_CLASSIFY":       FLAG_TOKEN_CLASSIFY,
 	}
 }
 
@@ -1709,6 +1729,16 @@ func (c *ModelConfig) GuessUsecases(u ModelConfigUsecase) bool {
 		// embeddings + clustering. Both surface as a Diarize gRPC.
 		diarizationBackends := []string{"vibevoice-cpp", "sherpa-onnx"}
 		if !slices.Contains(diarizationBackends, c.Backend) {
+			return false
+		}
+	}
+
+	if (u & FLAG_SOUND_CLASSIFICATION) == FLAG_SOUND_CLASSIFICATION {
+		// ced is a sound-event tagger (AudioSet labels) surfaced via the
+		// SoundDetection gRPC. Models without an explicit known_usecases
+		// still surface when they run on one of these backends.
+		soundClassificationBackends := []string{"ced"}
+		if !slices.Contains(soundClassificationBackends, c.Backend) {
 			return false
 		}
 	}

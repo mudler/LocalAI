@@ -231,6 +231,7 @@ Most backends wrap a best-in-class upstream engine. A handful of them are native
 | Backend | What it does |
 |---------|-------------|
 | [parakeet.cpp](https://github.com/mudler/parakeet.cpp) | C++/GGML port of NVIDIA NeMo Parakeet ASR (tdt/ctc/rnnt/hybrid), with cache-aware streaming transcription |
+| [ced.cpp](https://github.com/mudler/ced.cpp) | C++/GGML port of the CED audio-tagging models: sound-event classification (527-class AudioSet) over REST and the realtime API for live recognition |
 | [voxtral.c](https://github.com/mudler/voxtral.c) | Voxtral Realtime 4B speech-to-text in pure C |
 | [vibevoice.cpp](https://github.com/mudler/vibevoice.cpp) | Native port of Microsoft VibeVoice for TTS (voice cloning) and long-form ASR with speaker diarization |
 | [rf-detr.cpp](https://github.com/mudler/rf-detr.cpp) | Native RF-DETR object detection and instance segmentation |
