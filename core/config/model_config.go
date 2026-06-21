@@ -769,6 +769,13 @@ type PipelineVoiceRecognition struct {
 	Allow VoiceRecognitionAllow `yaml:"allow,omitempty" json:"allow,omitempty"`
 	// References are the authorized reference speakers (verify mode).
 	References []VoiceReference `yaml:"references,omitempty" json:"references,omitempty"`
+	// Enforce controls the authorization gate. A nil value or true rejects
+	// unauthorized speakers (the historical behavior). false resolves the
+	// speaker's identity for surfacing/personalization but never drops a turn.
+	Enforce *bool `yaml:"enforce,omitempty" json:"enforce,omitempty"`
+	// Identity surfaces the recognized speaker to the client and the LLM. It is
+	// independent of Enforce: identity can be surfaced without gating.
+	Identity *VoiceIdentityConfig `yaml:"identity,omitempty" json:"identity,omitempty"`
 }
 
 // @Description VoiceRecognitionAllow filters authorized registry identities.
@@ -785,12 +792,53 @@ type VoiceReference struct {
 	Audio string `yaml:"audio,omitempty" json:"audio,omitempty"`
 }
 
+// @Description VoiceIdentityConfig surfaces the recognized speaker to the realtime
+// client and the LLM. When set, identity is resolved on every turn even if the
+// gate's When is "first" (the gate still authorizes only once).
+type VoiceIdentityConfig struct {
+	// Announce emits a conversation.item.speaker event to the client.
+	Announce bool `yaml:"announce,omitempty" json:"announce,omitempty"`
+	// AnnounceUnknown also emits the event when there is no confident match.
+	AnnounceUnknown bool `yaml:"announce_unknown,omitempty" json:"announce_unknown,omitempty"`
+	// Personalize informs the LLM who is speaking.
+	Personalize bool `yaml:"personalize,omitempty" json:"personalize,omitempty"`
+	// InjectName sets the per-message name field on each user turn.
+	InjectName bool `yaml:"inject_name,omitempty" json:"inject_name,omitempty"`
+	// InjectSystemNote maintains a "current speaker" note in the system message.
+	InjectSystemNote bool `yaml:"inject_system_note,omitempty" json:"inject_system_note,omitempty"`
+	// NoteUnknown adds a "the current speaker is unknown" note (enables the model
+	// to ask who it is talking to).
+	NoteUnknown bool `yaml:"note_unknown,omitempty" json:"note_unknown,omitempty"`
+}
+
 // VoiceGateEnabled reports whether a voice-recognition gate is configured. The
 // mere presence of the block is the intent signal: a present-but-incomplete
 // block (e.g. missing model) must fail closed at construction, not be silently
 // skipped here.
 func (p Pipeline) VoiceGateEnabled() bool {
 	return p.VoiceRecognition != nil
+}
+
+// EnforceGate reports whether the gate rejects unauthorized speakers. A nil
+// Enforce means "enforce" so existing configs keep gating.
+func (p PipelineVoiceRecognition) EnforceGate() bool {
+	return p.Enforce == nil || *p.Enforce
+}
+
+// IdentityEnabled reports whether the speaker's identity must be resolved for
+// surfacing or personalization.
+func (p PipelineVoiceRecognition) IdentityEnabled() bool {
+	return p.Identity != nil && (p.Identity.Announce || p.Identity.Personalize)
+}
+
+// AnnounceEnabled reports whether to emit the conversation.item.speaker event.
+func (p PipelineVoiceRecognition) AnnounceEnabled() bool {
+	return p.Identity != nil && p.Identity.Announce
+}
+
+// PersonalizeEnabled reports whether to inform the LLM of the speaker.
+func (p PipelineVoiceRecognition) PersonalizeEnabled() bool {
+	return p.Identity != nil && p.Identity.Personalize
 }
 
 // Normalize fills in defaults in place for omitted fields.
