@@ -194,3 +194,22 @@ GGML_CUDA_DISABLE_GRAPHS=1 ...same...        # graphs off
 # GPU active (graphs off): nsys profile -t cuda --delay=6 --duration=8 ...
 #   nsys stats --report cuda_gpu_kern_sum  -> sum/0.516 ~= 7.72s of 8s = ~96%
 ```
+
+## UPDATE: NVFP4 closes most of the decode gap (no Marlin-for-K-quants needed)
+
+The diagnosis above said the lever is "a more bandwidth-efficient int4 decode GEMM"
+and feared a multi-day Marlin-for-K-quants kernel. But the FP4-MMA path is already
+that kernel. Measured (npl=128, cold A/B, npp=16 ntg=128):
+
+| quant | decode S_TG (t/s) | vs Q4_K | vs vLLM 667 |
+|---|---|---|---|
+| Q4_K_M | 547 (548/546) | - | 82% |
+| **NVFP4** | **619 (617/622)** | **+13%** | **93%** |
+
+NVFP4's `mul_mat_q<NVFP4>` runs closer to the GB10 bandwidth floor at the thin n=128
+decode shape than Q4_K's int8-MMQ (which ran ~2.1x above it). So shipping the model
+as NVFP4 closes the decode gap from ~22% to ~7% AND wins prefill (1209 vs Q4 767 /
+vLLM 800). Net on GB10: llama.cpp+NVFP4 is ahead on prefill (1.5x) and within ~7% on
+decode. The remaining ~7% would be incremental FP4-MMA decode-kernel tuning, NOT a
+from-scratch Marlin kernel - a much smaller, optional effort. NVFP4 is the answer to
+both the prefill and the decode gap.
