@@ -103,16 +103,21 @@ type Session struct {
 	SoundDetectionEnabled   bool
 	SoundDetectionTopK      int
 	SoundDetectionThreshold float32
-	Tools                   []types.ToolUnion
-	ToolChoice              *types.ToolChoiceUnion
-	Conversations           map[string]*Conversation
-	InputAudioBuffer        []byte
-	AudioBufferLock         sync.Mutex
-	OpusFrames              [][]byte
-	OpusFramesLock          sync.Mutex
-	Instructions            string
-	DefaultConversationID   string
-	ModelInterface          Model
+	// SoundDetectionWindowMs / SoundDetectionHopMs, when both > 0, enable
+	// server-side windowing for a sound-only session: the server classifies the
+	// last WindowMs of streamed audio every HopMs (no client commits needed).
+	SoundDetectionWindowMs int
+	SoundDetectionHopMs    int
+	Tools                  []types.ToolUnion
+	ToolChoice             *types.ToolChoiceUnion
+	Conversations          map[string]*Conversation
+	InputAudioBuffer       []byte
+	AudioBufferLock        sync.Mutex
+	OpusFrames             [][]byte
+	OpusFramesLock         sync.Mutex
+	Instructions           string
+	DefaultConversationID  string
+	ModelInterface         Model
 	// The pipeline model config or the config for an any-to-any model
 	ModelConfig      *config.ModelConfig
 	InputSampleRate  int
@@ -532,6 +537,8 @@ func runRealtimeSession(application *application.Application, t Transport, model
 		SoundDetectionEnabled:   cfg.Pipeline.SoundDetection != "",
 		SoundDetectionTopK:      defaultSoundDetectionTopK,
 		SoundDetectionThreshold: 0,
+		SoundDetectionWindowMs:  cfg.Pipeline.SoundDetectionWindowMs,
+		SoundDetectionHopMs:     cfg.Pipeline.SoundDetectionHopMs,
 	}
 
 	// Create a default conversation
@@ -642,6 +649,20 @@ func runRealtimeSession(application *application.Application, t Transport, model
 	}
 
 	toggleVAD()
+
+	// Server-side sound-detection windowing (option B): for a sound-only session
+	// with window/hop configured, the server classifies the last window of
+	// streamed audio on a timer, so the client only has to stream (no commits).
+	// This runs independent of VAD (sound events are not speech).
+	var soundWindowDone chan struct{}
+	if soundOnly && session.SoundDetectionWindowMs > 0 && session.SoundDetectionHopMs > 0 {
+		soundWindowDone = make(chan struct{})
+		wg.Go(func() {
+			handleSoundWindow(session, t, soundWindowDone)
+		})
+		xlog.Debug("Starting server-side sound-detection windowing",
+			"window_ms", session.SoundDetectionWindowMs, "hop_ms", session.SoundDetectionHopMs)
+	}
 
 	for {
 		msg, err = t.ReadEvent()
@@ -917,6 +938,10 @@ func runRealtimeSession(application *application.Application, t Transport, model
 	// Signal any running VAD goroutine to exit.
 	if vadServerStarted {
 		close(done)
+	}
+	// Stop the server-side sound-detection windowing goroutine (if running).
+	if soundWindowDone != nil {
+		close(soundWindowDone)
 	}
 	wg.Wait()
 
@@ -1478,6 +1503,86 @@ func commitUtterance(ctx context.Context, utt []byte, session *Session, conv *Co
 	if session.InputAudioTranscription != nil && !session.TranscriptionOnly {
 		generateResponse(ctx, session, utt, transcript, speaker, conv, t)
 	}
+}
+
+// handleSoundWindow runs server-side windowed sound-event detection (option B):
+// every HopMs it classifies the last WindowMs of streamed audio and emits a
+// sound_detection event, so a sound-only client only has to stream audio (no
+// input_audio_buffer.commit). It keeps the input buffer trimmed to one window
+// so a long stream stays bounded. Runs until done is closed. This is
+// independent of VAD: sound events are not speech.
+func handleSoundWindow(session *Session, t Transport, done chan struct{}) {
+	ticker := time.NewTicker(time.Duration(session.SoundDetectionHopMs) * time.Millisecond)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-done:
+			return
+		case <-ticker.C:
+			classifySoundWindow(session, t)
+		}
+	}
+}
+
+// classifySoundWindow is one windowing tick: it snapshots the most recent
+// WindowMs of buffered audio (trimming the buffer so a long stream stays
+// bounded) and, when there is enough, classifies it and emits a sound_detection
+// event. Extracted from handleSoundWindow so it can be driven synchronously in
+// tests.
+func classifySoundWindow(session *Session, t Transport) {
+	const bytesPerSample = 2 // 16-bit mono PCM
+	sr := session.InputSampleRate
+	windowBytes := session.SoundDetectionWindowMs * sr / 1000 * bytesPerSample
+	minBytes := sr / 100 * bytesPerSample // ~10ms before classifying
+
+	session.AudioBufferLock.Lock()
+	// Keep only the most recent window so a long stream stays bounded.
+	if windowBytes > 0 && len(session.InputAudioBuffer) > windowBytes {
+		trimmed := make([]byte, windowBytes)
+		copy(trimmed, session.InputAudioBuffer[len(session.InputAudioBuffer)-windowBytes:])
+		session.InputAudioBuffer = trimmed
+	}
+	window := make([]byte, len(session.InputAudioBuffer))
+	copy(window, session.InputAudioBuffer)
+	session.AudioBufferLock.Unlock()
+
+	if len(window) < minBytes {
+		return // not enough audio buffered yet
+	}
+	path, err := writeWindowWAV(window, sr)
+	if err != nil {
+		xlog.Error("sound window: failed to write wav", "error", err)
+		return
+	}
+	if sderr := emitSoundDetection(context.Background(), t, session, generateItemID(), path); sderr != nil {
+		xlog.Error("sound window: detection failed", "error", sderr)
+	}
+	if rerr := os.Remove(path); rerr != nil {
+		xlog.Debug("sound window: temp cleanup failed", "error", rerr)
+	}
+}
+
+// writeWindowWAV writes mono 16-bit PCM to a temp WAV at the given sample rate
+// (the ced classifier reads the declared rate and resamples). Returns the path;
+// the caller removes it.
+func writeWindowWAV(pcm []byte, sampleRate int) (string, error) {
+	f, err := os.CreateTemp("", "realtime-sound-window-*.wav")
+	if err != nil {
+		return "", err
+	}
+	defer func() { _ = f.Close() }()
+	hdr := laudio.NewWAVHeaderWithRate(uint32(len(pcm)), uint32(sampleRate))
+	if err := hdr.Write(f); err != nil {
+		_ = os.Remove(f.Name())
+		return "", err
+	}
+	if _, err := f.Write(pcm); err != nil {
+		_ = os.Remove(f.Name())
+		return "", err
+	}
+	_ = f.Sync()
+	return f.Name(), nil
 }
 
 func runVAD(ctx context.Context, session *Session, adata []int16) ([]schema.VADSegment, error) {

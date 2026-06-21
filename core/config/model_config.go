@@ -610,6 +610,15 @@ type Pipeline struct {
 	// server event, alongside (and independent of) transcription.
 	SoundDetection string `yaml:"sound_detection,omitempty" json:"sound_detection,omitempty"`
 
+	// SoundDetectionWindowMs / SoundDetectionHopMs enable server-side windowing
+	// for a sound-detection-only realtime session: instead of the client
+	// committing audio buffers, the server classifies the last WindowMs of
+	// streamed audio every HopMs and emits a sound_detection event per hop. Both
+	// must be > 0 to activate; otherwise the session stays client-driven (the
+	// client commits windows via input_audio_buffer.commit).
+	SoundDetectionWindowMs int `yaml:"sound_detection_window_ms,omitempty" json:"sound_detection_window_ms,omitempty"`
+	SoundDetectionHopMs    int `yaml:"sound_detection_hop_ms,omitempty" json:"sound_detection_hop_ms,omitempty"`
+
 	// ReasoningEffort sets the reasoning effort (none|minimal|low|medium|high) for
 	// the pipeline's LLM without editing the LLM model config. Overrides the LLM's
 	// own reasoning_effort. Unset leaves the LLM model config in charge.
