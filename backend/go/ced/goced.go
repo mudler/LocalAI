@@ -41,7 +41,7 @@ func cstr(p uintptr) string {
 	defer CppFreeString(p)
 	var b []byte
 	for i := 0; ; i++ {
-		ch := *(*byte)(unsafe.Pointer(p + uintptr(i)))
+		ch := *(*byte)(unsafe.Pointer(p + uintptr(i))) //nolint:govet // #nosec G103 -- C-owned NUL-terminated string from libced (not Go-GC memory)
 		if ch == 0 {
 			break
 		}

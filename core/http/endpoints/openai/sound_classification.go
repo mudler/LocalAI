@@ -65,7 +65,7 @@ func SoundClassificationEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLo
 		defer func() { _ = os.RemoveAll(dir) }()
 
 		dst := filepath.Join(dir, path.Base(file.Filename))
-		dstFile, err := os.Create(dst)
+		dstFile, err := os.Create(dst) // #nosec G304 -- dst is a server-created temp dir joined with path.Base of the upload name (no traversal)
 		if err != nil {
 			return err
 		}
