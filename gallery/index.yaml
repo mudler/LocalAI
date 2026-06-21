@@ -1,4 +1,52 @@
 ---
+- name: "qwopus3.6-27b-coder-mtp-nvfp4"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/michaelw9999/Qwopus3.6-27B-Coder-MTP-NVFP4-GGUF
+  description: |
+    🪐 Qwopus-3.6-27B-Coder
+    Coder SFT Release
+
+    Agentic Coding &amp; Tool-Use Reasoning Model Fine-Tuned on Qwopus3.6-27B-v2
+
+    🧬 Trace Inversion & Negentropy
+    🧠 27B Dense Model
+    ⚡ Agentic Coding
+    🛠️ Tool Calling & Agent
+    🏆 SWE-bench Verified: 67.0% (off-thinking)
+
+    💡 What is Qwopus-3.6-27B-Coder?
+    🪐 Qwopus-3.6-27B-Coder is a reasoning-enhanced agentic coding model built on top of Qwopus3.6-27B-v2. It inherits the powerful reasoning foundation of the v2 base — which achieved 87.43% MMLU-Pro (300ex) and 75.25% SWE-bench Verified — and further specializes it for agentic code generation, structured tool calling, debugging, and instruction-following in developer workflows. The model is designed to excel at repository-level coding tasks, multi-turn tool orchestration, and complex logical reasoning under realistic agent environments.
+
+    🧩 Agentic Coding
+    Optimized for repository-level coding, debugging, patch generation, and structured multi-step development workflows.
+
+    🛠️ Tool Calling
+    Learns from real agent trajectories with tool definitions, tool calls, and environment feedback for robust multi-turn execution.
+
+    ...
+  tags:
+    - llm
+    - gguf
+  icon: https://cdn-uploads.huggingface.co/production/uploads/66309bd090589b7c65950665/sGQKmrMc6L6guMoaB5_Y2.png
+  overrides:
+    backend: llama-cpp
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/Qwopus3.6-27B-Coder-MTP-NVFP4-GGUF/Qwopus3.6-27B-Coder-MTP-NVFP4-TURBO.gguf
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/Qwopus3.6-27B-Coder-MTP-NVFP4-GGUF/Qwopus3.6-27B-Coder-MTP-NVFP4-TURBO.gguf
+      sha256: 1c163f0e1f29485d432b466b9e5e0593ea9b10c5a62cf3eb71b77fcfe41db46c
+      uri: https://huggingface.co/michaelw9999/Qwopus3.6-27B-Coder-MTP-NVFP4-GGUF/resolve/main/Qwopus3.6-27B-Coder-MTP-NVFP4-TURBO.gguf
 - name: "qwen3.6-27b-nvfp4-mtp"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
