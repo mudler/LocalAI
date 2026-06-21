@@ -604,6 +604,11 @@ type Pipeline struct {
 	LLM           string `yaml:"llm,omitempty" json:"llm,omitempty"`
 	Transcription string `yaml:"transcription,omitempty" json:"transcription,omitempty"`
 	VAD           string `yaml:"vad,omitempty" json:"vad,omitempty"`
+	// SoundDetection names a sound-event-classification model (e.g. ced). When
+	// set, each VAD-committed realtime utterance is also run through it and the
+	// scored AudioSet tags are emitted as a conversation.item.sound_detection
+	// server event, alongside (and independent of) transcription.
+	SoundDetection string `yaml:"sound_detection,omitempty" json:"sound_detection,omitempty"`
 
 	// ReasoningEffort sets the reasoning effort (none|minimal|low|medium|high) for
 	// the pipeline's LLM without editing the LLM model config. Overrides the LLM's

@@ -75,6 +75,11 @@ type fakeModel struct {
 	transcribeDeltas []string
 	transcribeFinal  *schema.TranscriptionResult
 
+	// soundDetectionResult/soundDetectionErr drive the SoundDetection double so
+	// the sound-event path can be exercised deterministically.
+	soundDetectionResult *schema.SoundClassificationResult
+	soundDetectionErr    error
+
 	// Predict streaming: predictTokens are replayed through the token callback
 	// (simulating streamed LLM output); predictResp/predictErr are returned by
 	// the deferred predict function. predictChunkDeltas, when set, are delivered
@@ -93,6 +98,13 @@ func (m *fakeModel) VAD(context.Context, *schema.VADRequest) (*schema.VADRespons
 
 func (m *fakeModel) Transcribe(context.Context, string, string, bool, bool, string) (*schema.TranscriptionResult, error) {
 	return m.transcribeFinal, nil
+}
+
+func (m *fakeModel) SoundDetection(context.Context, string, int, float32) (*schema.SoundClassificationResult, error) {
+	if m.soundDetectionErr != nil {
+		return nil, m.soundDetectionErr
+	}
+	return m.soundDetectionResult, nil
 }
 
 func (m *fakeModel) Predict(_ context.Context, msgs schema.Messages, _, _, _ []string, cb func(string, backend.TokenUsage) bool, _ []types.ToolUnion, _ *types.ToolChoiceUnion, _, _ *int, _ map[string]float64) (func() (backend.LLMResponse, error), error) {

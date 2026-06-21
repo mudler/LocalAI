@@ -93,6 +93,16 @@ type Session struct {
 	Voice                   string
 	TurnDetection           *types.TurnDetectionUnion // "server_vad", "semantic_vad" or "none"
 	InputAudioTranscription *types.AudioTranscription
+
+	// SoundDetectionEnabled is set when pipeline.sound_detection names a
+	// sound-event-classification model. When true, each committed utterance is
+	// also run through ModelInterface.SoundDetection and the scored tags are
+	// emitted as a conversation.item.sound_detection event. SoundDetectionTopK
+	// and SoundDetectionThreshold are the knobs passed to that call (defaults:
+	// top_k=5, threshold=0).
+	SoundDetectionEnabled   bool
+	SoundDetectionTopK      int
+	SoundDetectionThreshold float32
 	Tools                   []types.ToolUnion
 	ToolChoice              *types.ToolChoiceUnion
 	Conversations           map[string]*Conversation
@@ -250,6 +260,10 @@ type Model interface {
 	// TranscribeStream transcribes audio incrementally, invoking onDelta for each
 	// transcript text fragment and returning the final aggregated result.
 	TranscribeStream(ctx context.Context, audio, language string, translate, diarize bool, prompt string, onDelta func(text string)) (*schema.TranscriptionResult, error)
+	// SoundDetection classifies a committed audio window into scored AudioSet
+	// sound-event tags. topK caps the number of returned tags (0 = backend
+	// default), threshold drops tags below the given score (0 = keep all).
+	SoundDetection(ctx context.Context, audio string, topK int, threshold float32) (*schema.SoundClassificationResult, error)
 	PredictConfig() *config.ModelConfig
 }
 
@@ -500,10 +514,13 @@ func runRealtimeSession(application *application.Application, t Transport, model
 		InputAudioTranscription: &types.AudioTranscription{
 			Model: sttModel,
 		},
-		Conversations:    make(map[string]*Conversation),
-		InputSampleRate:  defaultRemoteSampleRate,
-		OutputSampleRate: defaultRemoteSampleRate,
-		MaxHistoryItems:  resolveMaxHistoryItems(cfg),
+		Conversations:           make(map[string]*Conversation),
+		InputSampleRate:         defaultRemoteSampleRate,
+		OutputSampleRate:        defaultRemoteSampleRate,
+		MaxHistoryItems:         resolveMaxHistoryItems(cfg),
+		SoundDetectionEnabled:   cfg.Pipeline.SoundDetection != "",
+		SoundDetectionTopK:      defaultSoundDetectionTopK,
+		SoundDetectionThreshold: 0,
 	}
 
 	// Create a default conversation
@@ -971,6 +988,10 @@ func updateTransSession(session *Session, update *types.SessionUnion, cl *config
 
 		session.ModelInterface = m
 		session.ModelConfig = cfg
+		session.SoundDetectionEnabled = cfg.Pipeline.SoundDetection != ""
+		if session.SoundDetectionTopK <= 0 {
+			session.SoundDetectionTopK = defaultSoundDetectionTopK
+		}
 	}
 
 	if trUpd != nil {
@@ -1363,6 +1384,15 @@ func commitUtterance(ctx context.Context, utt []byte, session *Session, conv *Co
 		// any-to-any model path is added here, join the gate before responding.
 		sendNotImplemented(t, "any-to-any models")
 		return
+	}
+
+	// Sound-event detection is additive to transcription: classify the same
+	// committed window and emit its scored AudioSet tags as a separate event.
+	// A failure here is logged but must never abort the turn.
+	if session.SoundDetectionEnabled {
+		if sderr := emitSoundDetection(ctx, t, session, generateItemID(), f.Name()); sderr != nil {
+			xlog.Error("sound detection failed", "error", sderr)
+		}
 	}
 
 	// Join on the resolution before any side-effecting step.
