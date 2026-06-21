@@ -1,4 +1,49 @@
 ---
+- name: "qwopus3.6-27b-v2-mtp-nvfp4"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/michaelw9999/Qwopus3.6-27B-v2-MTP-NVFP4-GGUF
+  description: |
+    🪐 Qwopus3.6-27B-v2-MTP
+    MTP Release
+
+    Multi-Token Prediction reasoning model fine-tuned from Qwen3.6-27B
+
+    🧬 Trace Inversion & Negentropy
+    🧠 27B Parameters
+    ⚡ Speculative Decoding
+    🛠️ Coding / DevOps / Math
+
+    💡 What is Qwopus3.6-27B-v2-MTP?
+    🪐 Qwopus3.6-27B-v2-MTP is a speed-oriented reasoning release built on top of Qwen3.6-27B. It keeps the Qwopus line's focus on reconstructed reasoning traces, coding discipline, DevOps procedures, and mathematical derivations, while adding Multi-Token Prediction for faster generation. The goal is simple: preserve the depth and structure of a 27B reasoning model while making real interactive use noticeably faster.
+
+    ⚡ MTP DecodingAuxiliary future-token prediction improves throughput on long reasoning, code, math, and strict-format prompts.
+    🧩 Structured ReasoningInherits the Qwopus training recipe built around reconstructed step-by-step reasoning trajectories.
+    🧪 GB10 TestedValidated on a 30-question local benchmark across Logic, Coding, DevOps, Math, and Edge tasks.
+    🚀 Practical SpeedDesigned for workflows where strong answers matter, but waiting several extra minutes per task does not.
+
+    ...
+  tags:
+    - llm
+    - gguf
+  overrides:
+    backend: llama-cpp
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/Qwopus3.6-27B-v2-MTP-NVFP4-GGUF/Qwopus3.6-27B-v2-MTP-NVFP4-GGUF.gguf
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/Qwopus3.6-27B-v2-MTP-NVFP4-GGUF/Qwopus3.6-27B-v2-MTP-NVFP4-GGUF.gguf
+      sha256: 2a0a36fd10374c2a85356121c7c315bda725c7eaca0b3ae14838567629c6924a
+      uri: https://huggingface.co/michaelw9999/Qwopus3.6-27B-v2-MTP-NVFP4-GGUF/resolve/main/Qwopus3.6-27B-v2-MTP-NVFP4-GGUF.gguf
 - name: "qwopus3.6-27b-coder-mtp-nvfp4"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
