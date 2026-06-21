@@ -84,13 +84,13 @@ func (bms *BackendMonitorService) SampleLocalBackendProcess(model string) (*sche
 	}, nil
 }
 
-func (bms BackendMonitorService) CheckAndSample(modelName string) (*proto.StatusResponse, error) {
+func (bms BackendMonitorService) CheckAndSample(ctx context.Context, modelName string) (*proto.StatusResponse, error) {
 	modelAddr := bms.modelLoader.CheckIsLoaded(modelName)
 	if modelAddr == nil {
 		return nil, fmt.Errorf("backend %s is not currently loaded", modelName)
 	}
 
-	status, rpcErr := modelAddr.GRPC(false, nil).Status(context.TODO())
+	status, rpcErr := modelAddr.GRPC(false, nil).Status(ctx)
 	if rpcErr != nil {
 		xlog.Warn("backend experienced an error retrieving status info", "backend", modelName, "error", rpcErr)
 		val, slbErr := bms.SampleLocalBackendProcess(modelName)

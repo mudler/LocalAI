@@ -28,7 +28,7 @@ func BackendMonitorEndpoint(bm *monitoring.BackendMonitorService) echo.HandlerFu
 			return echo.NewHTTPError(400, "model query parameter is required")
 		}
 
-		resp, err := bm.CheckAndSample(model)
+		resp, err := bm.CheckAndSample(c.Request().Context(), model)
 		if err != nil {
 			return err
 		}
