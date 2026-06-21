@@ -145,6 +145,36 @@ func AutocompleteEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, a
 	}
 }
 
+// GetConfigEndpoint returns the YAML + JSON view for an installed model.
+// Used by the MCP httpapi.Client for get_model_config, and by the React
+// model editor when it wants a clean disk-read view (not the in-memory
+// loader copy which has SetDefaults applied).
+// @Summary Read a model configuration from disk
+// @Description Returns the raw YAML and parsed JSON view of an installed model's config file
+// @Tags config
+// @Produce json
+// @Param name path string true "Model name"
+// @Success 200 {object} map[string]any "{name, yaml, json}"
+// @Router /api/models/config-yaml/{name} [get]
+func GetConfigEndpoint(cl *config.ModelConfigLoader, appConfig *config.ApplicationConfig) echo.HandlerFunc {
+	svc := modeladmin.NewConfigService(cl, appConfig)
+	return func(c echo.Context) error {
+		modelName := c.Param("name")
+		if decoded, err := url.PathUnescape(modelName); err == nil {
+			modelName = decoded
+		}
+		view, err := svc.GetConfig(c.Request().Context(), modelName)
+		if err != nil {
+			return c.JSON(httpStatusForModelAdminError(err), map[string]any{"error": err.Error()})
+		}
+		return c.JSON(http.StatusOK, map[string]any{
+			"name": view.Name,
+			"yaml": view.YAML,
+			"json": view.JSON,
+		})
+	}
+}
+
 // PatchConfigEndpoint handles PATCH requests to partially update a model config
 // using nested JSON merge.
 // @Summary Partially update a model configuration
