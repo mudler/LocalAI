@@ -239,7 +239,7 @@ bool ggml_cuda_w4a16_mul_mat(
     cudaStream_t stream = ctx.stream();
 
     // Block tile config: WM*WN warps compute BM(=WM*FM*16) x BN(=WN*FN*8).
-    constexpr int WM = 4, WN = 2, FM = 2, FN = 4; // BM=128, BN=64, 8 warps
+    constexpr int WM = 4, WN = 4, FM = 2, FN = 4; // BM=128, BN=128, 16 warps
     constexpr int BM = WM*FM*16;
     constexpr int BN = WN*FN*8;
     const dim3 grid((unsigned)((M + BM - 1) / BM), (unsigned)((N + BN - 1) / BN), 1);
