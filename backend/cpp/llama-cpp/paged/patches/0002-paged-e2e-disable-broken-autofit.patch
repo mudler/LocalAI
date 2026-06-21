@@ -1,0 +1,12 @@
+diff --git a/tests/test-paged-kv-e2e.cpp b/tests/test-paged-kv-e2e.cpp
+index 5a352e3..06ead50 100644
+--- a/tests/test-paged-kv-e2e.cpp
++++ b/tests/test-paged-kv-e2e.cpp
+@@ -115,6 +115,7 @@ static path_result run_paged(const std::string & model_path) {
+     params.sampling.temp = 0.0f;  // greedy
+     params.warmup        = false;
+     params.kv_paged      = true;
++    params.fit_params    = false;  // honor explicit n_gpu_blocks; GB10 dev_memory over-reports free VRAM
+     params.n_gpu_blocks  = 64;
+     params.n_cpu_blocks  = 16;
+     params.n_sequences   = 1;
