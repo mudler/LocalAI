@@ -1311,28 +1311,32 @@ func commitUtterance(ctx context.Context, utt []byte, session *Session, conv *Co
 	// turn wastes only transcription compute, which has no side effects. The
 	// transcript is still emitted to the same peer that sent the audio, which
 	// reveals nothing new to them.
-	type gateOutcome struct {
-		allowed bool
-		matched string
-		reason  string
-		err     error
+	// Resolve the speaker when the gate must authorize this turn, or when identity
+	// surfacing/personalization needs a fresh identity. Identity resolution
+	// ignores the when:first short-circuit (that only skips re-authorization).
+	type resolveOutcome struct {
+		res resolution
+		err error
 	}
-	var gateCh chan gateOutcome
-	runGate := false
+	var resolveCh chan resolveOutcome
+	runResolve := false
 	if session.voiceGate != nil && session.InputAudioTranscription != nil {
-		skip := false
-		if session.voiceGate.cfg.When == config.VoiceGateWhenFirst {
+		enforce := session.voiceGate.cfg.EnforceGate()
+		gateNeedsAuth := enforce
+		if enforce && session.voiceGate.cfg.When == config.VoiceGateWhenFirst {
 			session.gateMu.Lock()
-			skip = session.voiceVerified
+			if session.voiceVerified {
+				gateNeedsAuth = false
+			}
 			session.gateMu.Unlock()
 		}
-		if !skip {
-			runGate = true
-			gateCh = make(chan gateOutcome, 1)
+		if gateNeedsAuth || session.voiceGate.cfg.IdentityEnabled() {
+			runResolve = true
+			resolveCh = make(chan resolveOutcome, 1)
 			wavPath := f.Name()
 			go func() {
-				allowed, matched, reason, gerr := session.voiceGate.Authorize(ctx, wavPath)
-				gateCh <- gateOutcome{allowed: allowed, matched: matched, reason: reason, err: gerr}
+				r, rerr := session.voiceGate.Resolve(ctx, wavPath)
+				resolveCh <- resolveOutcome{res: r, err: rerr}
 			}()
 		}
 	}
@@ -1348,8 +1352,8 @@ func commitUtterance(ctx context.Context, utt []byte, session *Session, conv *Co
 		if err != nil {
 			// Drain the gate goroutine before returning so its in-flight read of
 			// the temp WAV finishes before the deferred os.Remove fires.
-			if runGate {
-				<-gateCh
+			if runResolve {
+				<-resolveCh
 			}
 			sendError(t, "transcription_failed", err.Error(), "", "event_TODO")
 			return
@@ -1361,41 +1365,58 @@ func commitUtterance(ctx context.Context, utt []byte, session *Session, conv *Co
 		return
 	}
 
-	// Join on the gate before any side-effecting step.
-	if runGate {
-		out := <-gateCh
-		allowed := out.allowed
-		reason := out.reason
+	// Join on the resolution before any side-effecting step.
+	var speaker *types.Speaker
+	if runResolve {
+		out := <-resolveCh
+		enforce := session.voiceGate.cfg.EnforceGate()
+
 		if out.err != nil {
-			// Fail closed: a gate that cannot decide must not let audio through.
-			xlog.Error("voice recognition gate error", "error", out.err)
-			allowed = false
-			reason = "verification error"
-		}
-		alreadyVerified := false
-		if session.voiceGate.cfg.When == config.VoiceGateWhenFirst {
-			session.gateMu.Lock()
-			alreadyVerified = session.voiceVerified
-			session.gateMu.Unlock()
-		}
-		proceed, markVerified := session.voiceGate.decide(alreadyVerified, allowed)
-		if !proceed {
-			xlog.Debug("voice recognition gate rejected utterance", "reason", reason)
-			if session.voiceGate.cfg.OnReject == config.VoiceGateRejectEvent {
-				sendError(t, "speaker_not_authorized", "speaker not authorized: "+reason, "", "event_TODO")
+			if enforce {
+				// Fail closed: a gate that cannot decide must not let audio through.
+				xlog.Error("voice recognition gate error", "error", out.err)
+				if session.voiceGate.cfg.OnReject == config.VoiceGateRejectEvent {
+					sendError(t, "speaker_not_authorized", "speaker not authorized: verification error", "", "event_TODO")
+				}
+				return
 			}
-			return
+			// Non-enforcing: degrade to an unknown speaker and continue.
+			xlog.Warn("voice identity resolve failed; continuing as unknown speaker", "error", out.err)
+		} else {
+			s := out.res.speaker
+			speaker = &s
 		}
-		xlog.Debug("voice recognition gate authorized utterance", "speaker", out.matched)
-		if markVerified {
-			session.gateMu.Lock()
-			session.voiceVerified = true
-			session.gateMu.Unlock()
+
+		if enforce {
+			alreadyVerified := false
+			if session.voiceGate.cfg.When == config.VoiceGateWhenFirst {
+				session.gateMu.Lock()
+				alreadyVerified = session.voiceVerified
+				session.gateMu.Unlock()
+			}
+			allowed, reason := false, "verification error"
+			if out.err == nil {
+				allowed, reason = session.voiceGate.authorize(out.res)
+			}
+			proceed, markVerified := session.voiceGate.decide(alreadyVerified, allowed)
+			if !proceed {
+				xlog.Debug("voice recognition gate rejected utterance", "reason", reason)
+				if session.voiceGate.cfg.OnReject == config.VoiceGateRejectEvent {
+					sendError(t, "speaker_not_authorized", "speaker not authorized: "+reason, "", "event_TODO")
+				}
+				return
+			}
+			if markVerified {
+				session.gateMu.Lock()
+				session.voiceVerified = true
+				session.gateMu.Unlock()
+			}
+			xlog.Debug("voice recognition gate authorized utterance", "speaker", out.res.speaker.Name)
 		}
 	}
 
 	if !session.TranscriptionOnly {
-		generateResponse(ctx, session, utt, transcript, conv, t)
+		generateResponse(ctx, session, utt, transcript, speaker, conv, t)
 	}
 }
 
@@ -1419,15 +1440,28 @@ func runVAD(ctx context.Context, session *Session, adata []int16) ([]schema.VADS
 	return resp.Segments, nil
 }
 
+// speakerNote renders the system-prompt note for the current speaker. Returns
+// an empty string when there is no name and unknown notes are disabled.
+func speakerNote(s *types.Speaker, noteUnknown bool) string {
+	if s != nil && s.Matched && s.Name != "" {
+		return "The current speaker is " + s.Name + "."
+	}
+	if noteUnknown {
+		return "The current speaker is unknown."
+	}
+	return ""
+}
+
 // Function to generate a response based on the conversation
-func generateResponse(ctx context.Context, session *Session, utt []byte, transcript string, conv *Conversation, t Transport) {
+func generateResponse(ctx context.Context, session *Session, utt []byte, transcript string, speaker *types.Speaker, conv *Conversation, t Transport) {
 	xlog.Debug("Generating realtime response...")
 
 	// Create user message item
 	item := types.MessageItemUnion{
 		User: &types.MessageItemUser{
-			ID:     generateItemID(),
-			Status: types.ItemStatusCompleted,
+			ID:      generateItemID(),
+			Status:  types.ItemStatusCompleted,
+			Speaker: speaker,
 			Content: []types.MessageContentInput{
 				{
 					Type:       types.MessageContentTypeInputAudio,
@@ -1444,6 +1478,17 @@ func generateResponse(ctx context.Context, session *Session, utt []byte, transcr
 	sendEvent(t, types.ConversationItemAddedEvent{
 		Item: item,
 	})
+
+	// Surface the recognized speaker to the client. Skip the event for an
+	// unidentified speaker unless announce_unknown is set.
+	if speaker != nil && session.voiceGate != nil && session.voiceGate.cfg.AnnounceEnabled() {
+		if speaker.Matched || session.voiceGate.cfg.Identity.AnnounceUnknown {
+			sendEvent(t, types.ConversationItemSpeakerEvent{
+				ItemID:  item.User.ID,
+				Speaker: *speaker,
+			})
+		}
+	}
 
 	triggerResponse(ctx, session, conv, t, nil)
 }
@@ -1508,12 +1553,19 @@ func triggerResponseAtTurn(ctx context.Context, session *Session, conv *Conversa
 	})
 
 	imgIndex := 0
+	var lastUserSpeaker *types.Speaker
+	personalize := session.voiceGate != nil && session.voiceGate.cfg.PersonalizeEnabled()
 	conv.Lock.Lock()
 	items := trimRealtimeItems(conv.Items, session.MaxHistoryItems)
 	for _, item := range items {
 		if item.User != nil {
 			msg := schema.Message{
 				Role: string(types.MessageRoleUser),
+			}
+			lastUserSpeaker = item.User.Speaker
+			if personalize && session.voiceGate.cfg.Identity.InjectName &&
+				item.User.Speaker != nil && item.User.Speaker.Matched && item.User.Speaker.Name != "" {
+				msg.Name = item.User.Speaker.Name
 			}
 			textContent := ""
 			nrOfImgsInMessage := 0
@@ -1600,6 +1652,13 @@ func triggerResponseAtTurn(ctx context.Context, session *Session, conv *Conversa
 		}
 	}
 	conv.Lock.Unlock()
+
+	if personalize && session.voiceGate.cfg.Identity.InjectSystemNote {
+		if note := speakerNote(lastUserSpeaker, session.voiceGate.cfg.Identity.NoteUnknown); note != "" {
+			conversationHistory[0].StringContent += "\n\n" + note
+			conversationHistory[0].Content = conversationHistory[0].StringContent
+		}
+	}
 
 	var images []string
 	for _, m := range conversationHistory {
