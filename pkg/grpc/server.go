@@ -435,6 +435,14 @@ func (s *server) Diarize(ctx context.Context, in *pb.DiarizeRequest) (*pb.Diariz
 	return &res, nil
 }
 
+func (s *server) SoundDetection(ctx context.Context, in *pb.SoundDetectionRequest) (*pb.SoundDetectionResponse, error) {
+	if s.llm.Locking() {
+		s.llm.Lock()
+		defer s.llm.Unlock()
+	}
+	return s.llm.SoundDetection(ctx, in)
+}
+
 func (s *server) AudioEncode(ctx context.Context, in *pb.AudioEncodeRequest) (*pb.AudioEncodeResult, error) {
 	if s.llm.Locking() {
 		s.llm.Lock()

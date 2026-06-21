@@ -23,6 +23,7 @@
     "tts": "TTS",
     "stt": "STT",
     "diarization": "Diarization",
+    "soundClassification": "Sound Tagging",
     "soundGen": "Sound",
     "audioTransform": "Audio FX",
     "realtimeAudio": "Realtime Audio",

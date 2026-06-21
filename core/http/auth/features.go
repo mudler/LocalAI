@@ -48,6 +48,10 @@ var RouteFeatureRegistry = []RouteFeature{
 	{"POST", "/v1/audio/diarization", FeatureAudioDiarization},
 	{"POST", "/audio/diarization", FeatureAudioDiarization},
 
+	// Audio classification (sound-event tagging)
+	{"POST", "/v1/audio/classification", FeatureAudioClassification},
+	{"POST", "/audio/classification", FeatureAudioClassification},
+
 	// Audio speech / TTS
 	{"POST", "/v1/audio/speech", FeatureAudioSpeech},
 	{"POST", "/audio/speech", FeatureAudioSpeech},
@@ -172,6 +176,7 @@ func APIFeatureMetas() []FeatureMeta {
 		{FeatureAudioSpeech, "Audio Speech / TTS", true},
 		{FeatureAudioTranscription, "Audio Transcription", true},
 		{FeatureAudioDiarization, "Audio Diarization", true},
+		{FeatureAudioClassification, "Audio Classification", true},
 		{FeatureVAD, "Voice Activity Detection", true},
 		{FeatureDetection, "Detection", true},
 		{FeatureVideo, "Video Generation", true},
