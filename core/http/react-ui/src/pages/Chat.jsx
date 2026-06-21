@@ -720,6 +720,27 @@ export default function Chat() {
     e.target.value = ''
   }, [])
 
+  const handlePaste = useCallback(async (e) => {
+    const items = e.clipboardData?.items
+    if (!items) return
+    const images = Array.from(items)
+      .filter(item => item.kind === 'file' && item.type.startsWith('image/'))
+      .map(item => item.getAsFile())
+      .filter(Boolean)
+    if (images.length === 0) return
+    // A pasted image attaches as a file rather than inserting into the text.
+    e.preventDefault()
+    // Clipboard images arrive unnamed or as a generic "image.png"; give each
+    // a unique, typed name so multiple pastes don't collide.
+    const newFiles = await Promise.all(images.map(async (file, i) => {
+      const name = (file.name && file.name !== 'image.png')
+        ? file.name
+        : `pasted-image-${i + 1}.${(file.type.split('/')[1] || 'png').replace('+xml', '')}`
+      return { name, type: file.type, base64: await fileToBase64(file) }
+    }))
+    setFiles(prev => [...prev, ...newFiles])
+  }, [])
+
   const handleSend = useCallback(async () => {
     const msg = input.trim()
     if (!msg && files.length === 0) return
@@ -1353,6 +1374,7 @@ export default function Chat() {
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={handleKeyDown}
+              onPaste={handlePaste}
               placeholder={t('input.placeholder')}
               rows={1}
               disabled={isStreaming}
