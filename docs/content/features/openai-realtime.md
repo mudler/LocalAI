@@ -232,11 +232,11 @@ When `identity.announce` is enabled, the server emits a `conversation.item.speak
 {
   "type": "conversation.item.speaker",
   "item_id": "item_abc",
-  "speaker": { "name": "Jeremy", "id": "spk_1", "confidence": 92.0, "distance": 0.1, "matched": true }
+  "speaker": { "name": "Jeremy", "id": "spk_1", "labels": { "role": "owner" }, "confidence": 92.0, "distance": 0.1, "matched": true }
 }
 ```
 
-`confidence` is a 0-100 score, `distance` is the cosine distance, and `matched` is `true` when a confident match was found. The `name` and `id` fields are omitted when empty. By default the event is emitted only on a match; set `identity.announce_unknown: true` to also emit it (with `matched: false`) when no speaker is identified.
+`confidence` is a 0-100 score, `distance` is the cosine distance, and `matched` is `true` when a confident match was found. `labels` carries any labels attached to the registered speaker (identify mode); it is omitted when the speaker has none. The `name` and `id` fields are omitted when empty. By default the event is emitted only on a match; set `identity.announce_unknown: true` to also emit it (with `matched: false`) when no speaker is identified.
 
 This event is a LocalAI extension to the OpenAI Realtime API and is server-emitted only. Standard OpenAI Realtime clients ignore event types they do not recognize, so enabling it is non-breaking.
 

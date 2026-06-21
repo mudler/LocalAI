@@ -147,6 +147,7 @@ func (g *voiceGate) resolveIdentify(ctx context.Context, wavPath string) (resolu
 		speaker: types.Speaker{
 			Name:       m.Metadata.Name,
 			ID:         m.Metadata.ID,
+			Labels:     m.Metadata.Labels,
 			Distance:   m.Distance,
 			Confidence: confidence(m.Distance, g.cfg.Threshold),
 			Matched:    matched,

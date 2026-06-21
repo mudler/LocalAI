@@ -34,6 +34,7 @@ var _ = Describe("voiceGate.Resolve + authorize", func() {
 		Expect(r.speaker.Matched).To(BeTrue())
 		Expect(r.speaker.Confidence).To(BeNumerically(">", 0))
 		Expect(r.speaker.Confidence).To(BeNumerically("<=", 100))
+		Expect(r.speaker.Labels).To(HaveKeyWithValue("family", "yes"))
 	})
 
 	It("marks a candidate above the threshold as not matched", func() {
