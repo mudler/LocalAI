@@ -413,7 +413,7 @@ func prepareRealtimeConfig(cfg *config.ModelConfig) (errCode, errMsg string, ok 
 		return "", "", true
 	}
 
-	if cfg.Pipeline.VAD == "" && cfg.Pipeline.Transcription == "" && cfg.Pipeline.TTS == "" && cfg.Pipeline.LLM == "" {
+	if cfg.Pipeline.VAD == "" && cfg.Pipeline.Transcription == "" && cfg.Pipeline.TTS == "" && cfg.Pipeline.LLM == "" && cfg.Pipeline.SoundDetection == "" {
 		return "invalid_model", "Model is not a pipeline model", false
 	}
 	return "", "", true
@@ -483,6 +483,26 @@ func runRealtimeSession(application *application.Application, t Transport, model
 
 	sttModel := cfg.Pipeline.Transcription
 
+	// A sound-detection-only pipeline (sound_detection set, no transcription/LLM)
+	// activates on sounds, not speech, so it runs WITHOUT the voice VAD: the
+	// session defaults to turn_detection none and the client drives windowing via
+	// input_audio_buffer.commit. There is no transcription stage in that case.
+	soundOnly := cfg.Pipeline.SoundDetection != "" && cfg.Pipeline.Transcription == "" && cfg.Pipeline.LLM == ""
+
+	turnDetection := &types.TurnDetectionUnion{
+		ServerVad: &types.ServerVad{
+			Threshold:         0.5,
+			PrefixPaddingMs:   300,
+			SilenceDurationMs: 500,
+			CreateResponse:    true,
+		},
+	}
+	inputAudioTranscription := &types.AudioTranscription{Model: sttModel}
+	if soundOnly {
+		turnDetection = nil           // turn_detection none: no VAD
+		inputAudioTranscription = nil // no transcription stage
+	}
+
 	// Compose the system prompt: prepend the assistant prompt when we have
 	// one (it teaches the model the safety rules and tool recipes), then the
 	// session's default voice instructions. Order matches chat.go's
@@ -494,26 +514,17 @@ func runRealtimeSession(application *application.Application, t Transport, model
 
 	sessionID := generateSessionID()
 	session := &Session{
-		ID:                sessionID,
-		TranscriptionOnly: false,
-		Model:             model,
-		Voice:             cfg.TTSConfig.Voice,
-		Instructions:      instructions,
-		ModelConfig:       cfg,
-		Tools:             assistantTools,
-		AssistantTools:    assistantTools,
-		AssistantExecutor: assistantExecutor,
-		TurnDetection: &types.TurnDetectionUnion{
-			ServerVad: &types.ServerVad{
-				Threshold:         0.5,
-				PrefixPaddingMs:   300,
-				SilenceDurationMs: 500,
-				CreateResponse:    true,
-			},
-		},
-		InputAudioTranscription: &types.AudioTranscription{
-			Model: sttModel,
-		},
+		ID:                      sessionID,
+		TranscriptionOnly:       false,
+		Model:                   model,
+		Voice:                   cfg.TTSConfig.Voice,
+		Instructions:            instructions,
+		ModelConfig:             cfg,
+		Tools:                   assistantTools,
+		AssistantTools:          assistantTools,
+		AssistantExecutor:       assistantExecutor,
+		TurnDetection:           turnDetection,
+		InputAudioTranscription: inputAudioTranscription,
 		Conversations:           make(map[string]*Conversation),
 		InputSampleRate:         defaultRemoteSampleRate,
 		OutputSampleRate:        defaultRemoteSampleRate,
@@ -534,14 +545,24 @@ func runRealtimeSession(application *application.Application, t Transport, model
 	session.Conversations[conversationID] = conversation
 	session.DefaultConversationID = conversationID
 
-	m, err := newModel(
-		&cfg.Pipeline,
-		application.ModelConfigLoader(),
-		application.ModelLoader(),
-		application.ApplicationConfig(),
-		evaluator,
-		buildRealtimeRoutingContext(application, sessionID),
-	)
+	var m Model
+	if soundOnly {
+		m, err = newSoundDetectionOnlyModel(
+			&cfg.Pipeline,
+			application.ModelConfigLoader(),
+			application.ModelLoader(),
+			application.ApplicationConfig(),
+		)
+	} else {
+		m, err = newModel(
+			&cfg.Pipeline,
+			application.ModelConfigLoader(),
+			application.ModelLoader(),
+			application.ApplicationConfig(),
+			evaluator,
+			buildRealtimeRoutingContext(application, sessionID),
+		)
+	}
 	if err != nil {
 		xlog.Error("failed to load model", "error", err)
 		sendError(t, "model_load_error", "Failed to load model", "", "")
@@ -1364,7 +1385,8 @@ func commitUtterance(ctx context.Context, utt []byte, session *Session, conv *Co
 
 	// TODO: If we have a real any-to-any model then transcription is optional
 	var transcript string
-	if session.InputAudioTranscription != nil {
+	switch {
+	case session.InputAudioTranscription != nil:
 		// emitTranscription streams transcript deltas when
 		// pipeline.streaming.transcription is set, otherwise emits a single
 		// completed event; either way it returns the final transcript text.
@@ -1379,7 +1401,12 @@ func commitUtterance(ctx context.Context, utt []byte, session *Session, conv *Co
 			sendError(t, "transcription_failed", err.Error(), "", "event_TODO")
 			return
 		}
-	} else {
+	case session.SoundDetectionEnabled:
+		// Sound-detection-only session: no transcription and no LLM. The
+		// sound-detection emit below carries the result; there is no any-to-any
+		// path to fall into. Windowing is client-driven (turn_detection none +
+		// input_audio_buffer.commit), so this is not voice-gated.
+	default:
 		// The voice gate runs only on the transcription path above; if an
 		// any-to-any model path is added here, join the gate before responding.
 		sendNotImplemented(t, "any-to-any models")
@@ -1445,7 +1472,10 @@ func commitUtterance(ctx context.Context, utt []byte, session *Session, conv *Co
 		}
 	}
 
-	if !session.TranscriptionOnly {
+	// Generate an LLM response only when there is a transcript to feed it. A
+	// sound-detection-only session (no transcription) has no LLM stage, so it
+	// stops here after emitting the sound-detection event.
+	if session.InputAudioTranscription != nil && !session.TranscriptionOnly {
 		generateResponse(ctx, session, utt, transcript, speaker, conv, t)
 	}
 }

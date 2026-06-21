@@ -479,6 +479,27 @@ func newTranscriptionOnlyModel(pipeline *config.Pipeline, cl *config.ModelConfig
 	}, cfgSST, nil
 }
 
+// newSoundDetectionOnlyModel builds a realtime model that only does sound-event
+// classification: no VAD, transcription, LLM or TTS stages are loaded. Used for
+// a sound-detection-only realtime session, which activates on sounds (not
+// speech) and is driven by client-side windowing (turn_detection none +
+// input_audio_buffer.commit) rather than the voice VAD loop.
+func newSoundDetectionOnlyModel(pipeline *config.Pipeline, cl *config.ModelConfigLoader, ml *model.ModelLoader, appConfig *config.ApplicationConfig) (Model, error) {
+	cfgSound, err := loadSoundDetectionConfig(pipeline, cl, ml)
+	if err != nil {
+		return nil, err
+	}
+	if cfgSound == nil {
+		return nil, fmt.Errorf("a sound-only realtime session requires pipeline.sound_detection")
+	}
+	return &transcriptOnlyModel{
+		SoundDetectionConfig: cfgSound,
+		confLoader:           cl,
+		modelLoader:          ml,
+		appConfig:            appConfig,
+	}, nil
+}
+
 // RealtimeRoutingContext is the bundle of routing dependencies the
 // realtime pipeline needs to consult router.Resolve per turn. nil-safe:
 // passing nil skips routing entirely and preserves the historical "one
