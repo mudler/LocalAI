@@ -131,6 +131,10 @@ local-ai run ollama://gemma:2b
 local-ai run oci://localai/phi-2:latest
 ```
 
+{{% notice note %}}
+When pulling models from Ollama or OCI registries, LocalAI identifies itself with a `LocalAI/<version>` `User-Agent` header so registry operators can attribute usage to LocalAI.
+{{% /notice %}}
+
 ### Run Models via URI
 
 To run models via URI, specify a URI to a model file or a configuration file when starting LocalAI. Valid syntax includes:

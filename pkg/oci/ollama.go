@@ -47,6 +47,7 @@ func OllamaModelManifest(image string) (*Manifest, error) {
 		return nil, err
 	}
 	req.Header.Set("Accept", "application/vnd.docker.distribution.manifest.v2+json")
+	req.Header.Set("User-Agent", UserAgent())
 	client := httpclient.New(httpclient.WithFollowRedirects())
 	resp, err := client.Do(req)
 	if err != nil {
