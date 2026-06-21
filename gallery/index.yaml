@@ -2874,7 +2874,7 @@
 - name: ced-base-f16
   url: github:mudler/LocalAI/gallery/ced.yaml@master
   urls:
-    - https://huggingface.co/mudler/ced-base-gguf
+    - https://huggingface.co/mudler/ced-gguf
     - https://huggingface.co/mispeech/ced-base
   description: |
     CED (Consistent Ensemble Distillation, Xiaomi) is a sound-event classifier that tags everyday sounds (baby cry, footsteps, glass breaking, alarms, dog bark, ...) into the 527-class AudioSet ontology. This is the f16 GGUF for the ced backend (a standalone C++/ggml port). Recommended default: fastest on CPU and near-lossless. Use POST /v1/audio/classification, or the realtime websocket API for live recognition.
@@ -2893,11 +2893,11 @@
   files:
     - filename: ced-base-f16.gguf
       sha256: 5c058d9f7b737167195fa54eae4a2ae17658ac2c0a8073f7f116ba006b2ab32c
-      uri: https://huggingface.co/mudler/ced-base-gguf/resolve/main/ced-base-f16.gguf
+      uri: https://huggingface.co/mudler/ced-gguf/resolve/main/ced-base-f16.gguf
 - name: ced-base-q8
   url: github:mudler/LocalAI/gallery/ced.yaml@master
   urls:
-    - https://huggingface.co/mudler/ced-base-gguf
+    - https://huggingface.co/mudler/ced-gguf
     - https://huggingface.co/mispeech/ced-base
   description: |
     CED (Consistent Ensemble Distillation, Xiaomi) sound-event classifier over the 527-class AudioSet ontology (baby cry, footsteps, glass breaking, alarms, dog bark, ...). This is the q8_0 GGUF for the ced backend: smallest footprint (~88 MB, ~6.5x less memory than the PyTorch reference) and near-lossless (identical top-5 tags). Use POST /v1/audio/classification, or the realtime websocket API for live recognition.
@@ -2916,11 +2916,11 @@
   files:
     - filename: ced-base-q8_0.gguf
       sha256: bd34a7710169f0047fea17267965d211f967828ab25ba6fb9d3768481393f6e2
-      uri: https://huggingface.co/mudler/ced-base-gguf/resolve/main/ced-base-q8_0.gguf
+      uri: https://huggingface.co/mudler/ced-gguf/resolve/main/ced-base-q8_0.gguf
 - name: ced-tiny-f16
   url: github:mudler/LocalAI/gallery/ced.yaml@master
   urls:
-    - https://huggingface.co/mudler/ced-tiny-gguf
+    - https://huggingface.co/mudler/ced-gguf
     - https://huggingface.co/mispeech/ced-tiny
   description: |
     CED-tiny (5.5M params, Pi-class / edge) sound-event classifier over the 527-class AudioSet ontology (baby cry, footsteps, glass breaking, alarms, dog bark, ...). f16 GGUF for the ced backend (recommended (fastest on CPU)). Use POST /v1/audio/classification, or the realtime websocket API for live recognition.
@@ -2939,11 +2939,11 @@
   files:
     - filename: ced-tiny-f16.gguf
       sha256: af8b81c67bae50bfca4ea83dbba77b3bae4fa6180d36c17d6877f7700aeeb77b
-      uri: https://huggingface.co/mudler/ced-tiny-gguf/resolve/main/ced-tiny-f16.gguf
+      uri: https://huggingface.co/mudler/ced-gguf/resolve/main/ced-tiny-f16.gguf
 - name: ced-tiny-q8
   url: github:mudler/LocalAI/gallery/ced.yaml@master
   urls:
-    - https://huggingface.co/mudler/ced-tiny-gguf
+    - https://huggingface.co/mudler/ced-gguf
     - https://huggingface.co/mispeech/ced-tiny
   description: |
     CED-tiny (5.5M params, Pi-class / edge) sound-event classifier over the 527-class AudioSet ontology (baby cry, footsteps, glass breaking, alarms, dog bark, ...). q8_0 GGUF for the ced backend (smallest footprint, near-lossless). Use POST /v1/audio/classification, or the realtime websocket API for live recognition.
@@ -2962,11 +2962,11 @@
   files:
     - filename: ced-tiny-q8_0.gguf
       sha256: 48bee4e2fc3cc85d7806e03471db24e77fda6c2a2e81ffe9ef67caebaf2bd674
-      uri: https://huggingface.co/mudler/ced-tiny-gguf/resolve/main/ced-tiny-q8_0.gguf
+      uri: https://huggingface.co/mudler/ced-gguf/resolve/main/ced-tiny-q8_0.gguf
 - name: ced-mini-f16
   url: github:mudler/LocalAI/gallery/ced.yaml@master
   urls:
-    - https://huggingface.co/mudler/ced-mini-gguf
+    - https://huggingface.co/mudler/ced-gguf
     - https://huggingface.co/mispeech/ced-mini
   description: |
     CED-mini (9.6M params, low-power) sound-event classifier over the 527-class AudioSet ontology (baby cry, footsteps, glass breaking, alarms, dog bark, ...). f16 GGUF for the ced backend (recommended (fastest on CPU)). Use POST /v1/audio/classification, or the realtime websocket API for live recognition.
@@ -2985,11 +2985,11 @@
   files:
     - filename: ced-mini-f16.gguf
       sha256: 3c6a8936c77312f07a9ecb7b4bbbcb1f93ad137920ca6656bae9306571fb0c03
-      uri: https://huggingface.co/mudler/ced-mini-gguf/resolve/main/ced-mini-f16.gguf
+      uri: https://huggingface.co/mudler/ced-gguf/resolve/main/ced-mini-f16.gguf
 - name: ced-mini-q8
   url: github:mudler/LocalAI/gallery/ced.yaml@master
   urls:
-    - https://huggingface.co/mudler/ced-mini-gguf
+    - https://huggingface.co/mudler/ced-gguf
     - https://huggingface.co/mispeech/ced-mini
   description: |
     CED-mini (9.6M params, low-power) sound-event classifier over the 527-class AudioSet ontology (baby cry, footsteps, glass breaking, alarms, dog bark, ...). q8_0 GGUF for the ced backend (smallest footprint, near-lossless). Use POST /v1/audio/classification, or the realtime websocket API for live recognition.
@@ -3008,11 +3008,11 @@
   files:
     - filename: ced-mini-q8_0.gguf
       sha256: 7062cef9ca31459f339ce24a5914f3b65bde76ffd9ca4fc924a040327ff292bd
-      uri: https://huggingface.co/mudler/ced-mini-gguf/resolve/main/ced-mini-q8_0.gguf
+      uri: https://huggingface.co/mudler/ced-gguf/resolve/main/ced-mini-q8_0.gguf
 - name: ced-small-f16
   url: github:mudler/LocalAI/gallery/ced.yaml@master
   urls:
-    - https://huggingface.co/mudler/ced-small-gguf
+    - https://huggingface.co/mudler/ced-gguf
     - https://huggingface.co/mispeech/ced-small
   description: |
     CED-small (22M params, balanced size/accuracy) sound-event classifier over the 527-class AudioSet ontology (baby cry, footsteps, glass breaking, alarms, dog bark, ...). f16 GGUF for the ced backend (recommended (fastest on CPU)). Use POST /v1/audio/classification, or the realtime websocket API for live recognition.
@@ -3031,11 +3031,11 @@
   files:
     - filename: ced-small-f16.gguf
       sha256: c391ed8697a1b08d7c1a463e4940a5c3a2f670e0544ab0d8ee23b544583602a8
-      uri: https://huggingface.co/mudler/ced-small-gguf/resolve/main/ced-small-f16.gguf
+      uri: https://huggingface.co/mudler/ced-gguf/resolve/main/ced-small-f16.gguf
 - name: ced-small-q8
   url: github:mudler/LocalAI/gallery/ced.yaml@master
   urls:
-    - https://huggingface.co/mudler/ced-small-gguf
+    - https://huggingface.co/mudler/ced-gguf
     - https://huggingface.co/mispeech/ced-small
   description: |
     CED-small (22M params, balanced size/accuracy) sound-event classifier over the 527-class AudioSet ontology (baby cry, footsteps, glass breaking, alarms, dog bark, ...). q8_0 GGUF for the ced backend (smallest footprint, near-lossless). Use POST /v1/audio/classification, or the realtime websocket API for live recognition.
@@ -3054,7 +3054,7 @@
   files:
     - filename: ced-small-q8_0.gguf
       sha256: 888275fe43491cf832fb7b8125eccba34d1120745166f40cc12e93b79dea8efe
-      uri: https://huggingface.co/mudler/ced-small-gguf/resolve/main/ced-small-q8_0.gguf
+      uri: https://huggingface.co/mudler/ced-gguf/resolve/main/ced-small-q8_0.gguf
 - name: omnilingual-0.3b-ctc-q8-sherpa
   url: github:mudler/LocalAI/gallery/sherpa-onnx-asr.yaml@master
   urls:
