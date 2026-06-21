@@ -178,6 +178,37 @@
     nvidia-cuda-12: "cuda12-parakeet-cpp"
     nvidia-l4t-cuda-12: "nvidia-l4t-arm64-parakeet-cpp"
     nvidia-l4t-cuda-13: "cuda13-nvidia-l4t-arm64-parakeet-cpp"
+- &ced
+  name: "ced"
+  alias: "ced"
+  license: mit
+  icon: https://avatars.githubusercontent.com/u/95302084
+  description: |
+    CED sound-event classification / audio tagging (527-class AudioSet).
+    ced.cpp is a C++/ggml port that performs audio tagging over the AudioSet
+    taxonomy, exposed through the SoundDetection gRPC rpc and the
+    /v1/audio/classification REST endpoint. It runs on CPU, NVIDIA CUDA,
+    AMD ROCm/HIP, Intel SYCL, Vulkan and NVIDIA Jetson (L4T) targets.
+  urls:
+    - https://github.com/mudler/ced.cpp
+  tags:
+    - audio-classification
+    - CPU
+    - GPU
+    - CUDA
+    - HIP
+  capabilities:
+    default: "cpu-ced"
+    nvidia: "cuda12-ced"
+    intel: "intel-sycl-f16-ced"
+    metal: "metal-ced"
+    amd: "rocm-ced"
+    vulkan: "vulkan-ced"
+    nvidia-l4t: "nvidia-l4t-arm64-ced"
+    nvidia-cuda-13: "cuda13-ced"
+    nvidia-cuda-12: "cuda12-ced"
+    nvidia-l4t-cuda-12: "nvidia-l4t-arm64-ced"
+    nvidia-l4t-cuda-13: "cuda13-nvidia-l4t-arm64-ced"
 - &voxtral
   name: "voxtral"
   alias: "voxtral"
@@ -2650,6 +2681,124 @@
   uri: "quay.io/go-skynet/local-ai-backends:master-gpu-nvidia-cuda-13-parakeet-cpp"
   mirrors:
     - localai/localai-backends:master-gpu-nvidia-cuda-13-parakeet-cpp
+## ced
+# TODO(ced): add ced-base GGUF model gallery entry (gallery/index.yaml) once the
+# weights are published to HuggingFace. This block only registers the backend
+# images; the model entry is intentionally deferred.
+- !!merge <<: *ced
+  name: "ced-development"
+  capabilities:
+    default: "cpu-ced-development"
+    nvidia: "cuda12-ced-development"
+    intel: "intel-sycl-f16-ced-development"
+    metal: "metal-ced-development"
+    amd: "rocm-ced-development"
+    vulkan: "vulkan-ced-development"
+    nvidia-l4t: "nvidia-l4t-arm64-ced-development"
+    nvidia-cuda-13: "cuda13-ced-development"
+    nvidia-cuda-12: "cuda12-ced-development"
+    nvidia-l4t-cuda-12: "nvidia-l4t-arm64-ced-development"
+    nvidia-l4t-cuda-13: "cuda13-nvidia-l4t-arm64-ced-development"
+- !!merge <<: *ced
+  name: "nvidia-l4t-arm64-ced"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-nvidia-l4t-arm64-ced"
+  mirrors:
+    - localai/localai-backends:latest-nvidia-l4t-arm64-ced
+- !!merge <<: *ced
+  name: "nvidia-l4t-arm64-ced-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-nvidia-l4t-arm64-ced"
+  mirrors:
+    - localai/localai-backends:master-nvidia-l4t-arm64-ced
+- !!merge <<: *ced
+  name: "cuda13-nvidia-l4t-arm64-ced"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-nvidia-l4t-cuda-13-arm64-ced"
+  mirrors:
+    - localai/localai-backends:latest-nvidia-l4t-cuda-13-arm64-ced
+- !!merge <<: *ced
+  name: "cuda13-nvidia-l4t-arm64-ced-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-nvidia-l4t-cuda-13-arm64-ced"
+  mirrors:
+    - localai/localai-backends:master-nvidia-l4t-cuda-13-arm64-ced
+- !!merge <<: *ced
+  name: "cpu-ced"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-cpu-ced"
+  mirrors:
+    - localai/localai-backends:latest-cpu-ced
+- !!merge <<: *ced
+  name: "cpu-ced-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-cpu-ced"
+  mirrors:
+    - localai/localai-backends:master-cpu-ced
+- !!merge <<: *ced
+  name: "metal-ced"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-metal-darwin-arm64-ced"
+  mirrors:
+    - localai/localai-backends:latest-metal-darwin-arm64-ced
+- !!merge <<: *ced
+  name: "metal-ced-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-metal-darwin-arm64-ced"
+  mirrors:
+    - localai/localai-backends:master-metal-darwin-arm64-ced
+- !!merge <<: *ced
+  name: "cuda12-ced"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-nvidia-cuda-12-ced"
+  mirrors:
+    - localai/localai-backends:latest-gpu-nvidia-cuda-12-ced
+- !!merge <<: *ced
+  name: "cuda12-ced-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-nvidia-cuda-12-ced"
+  mirrors:
+    - localai/localai-backends:master-gpu-nvidia-cuda-12-ced
+- !!merge <<: *ced
+  name: "rocm-ced"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-rocm-hipblas-ced"
+  mirrors:
+    - localai/localai-backends:latest-gpu-rocm-hipblas-ced
+- !!merge <<: *ced
+  name: "rocm-ced-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-rocm-hipblas-ced"
+  mirrors:
+    - localai/localai-backends:master-gpu-rocm-hipblas-ced
+- !!merge <<: *ced
+  name: "intel-sycl-f32-ced"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-intel-sycl-f32-ced"
+  mirrors:
+    - localai/localai-backends:latest-gpu-intel-sycl-f32-ced
+- !!merge <<: *ced
+  name: "intel-sycl-f32-ced-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-intel-sycl-f32-ced"
+  mirrors:
+    - localai/localai-backends:master-gpu-intel-sycl-f32-ced
+- !!merge <<: *ced
+  name: "intel-sycl-f16-ced"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-intel-sycl-f16-ced"
+  mirrors:
+    - localai/localai-backends:latest-gpu-intel-sycl-f16-ced
+- !!merge <<: *ced
+  name: "intel-sycl-f16-ced-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-intel-sycl-f16-ced"
+  mirrors:
+    - localai/localai-backends:master-gpu-intel-sycl-f16-ced
+- !!merge <<: *ced
+  name: "vulkan-ced"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-vulkan-ced"
+  mirrors:
+    - localai/localai-backends:latest-gpu-vulkan-ced
+- !!merge <<: *ced
+  name: "vulkan-ced-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-vulkan-ced"
+  mirrors:
+    - localai/localai-backends:master-gpu-vulkan-ced
+- !!merge <<: *ced
+  name: "cuda13-ced"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-nvidia-cuda-13-ced"
+  mirrors:
+    - localai/localai-backends:latest-gpu-nvidia-cuda-13-ced
+- !!merge <<: *ced
+  name: "cuda13-ced-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-nvidia-cuda-13-ced"
+  mirrors:
+    - localai/localai-backends:master-gpu-nvidia-cuda-13-ced
 ## stablediffusion-ggml
 - !!merge <<: *stablediffusionggml
   name: "cpu-stablediffusion-ggml"

@@ -2087,6 +2087,24 @@ definitions:
           classifier-side confidence signal).
         type: number
     type: object
+  schema.SoundClassification:
+    properties:
+      index:
+        type: integer
+      label:
+        type: string
+      score:
+        type: number
+    type: object
+  schema.SoundClassificationResult:
+    properties:
+      detections:
+        items:
+          $ref: '#/definitions/schema.SoundClassification'
+        type: array
+      model:
+        type: string
+    type: object
   schema.StreamOptions:
     properties:
       include_usage:
@@ -3768,6 +3786,37 @@ paths:
           schema:
             type: string
       summary: Generates audio from the input text.
+      tags:
+      - audio
+  /v1/audio/classification:
+    post:
+      consumes:
+      - multipart/form-data
+      parameters:
+      - description: model
+        in: formData
+        name: model
+        required: true
+        type: string
+      - description: audio file
+        in: formData
+        name: file
+        required: true
+        type: file
+      - description: number of top tags to return (0 = backend default)
+        in: formData
+        name: top_k
+        type: integer
+      - description: drop tags scoring below this value
+        in: formData
+        name: threshold
+        type: number
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/schema.SoundClassificationResult'
+      summary: Classify sound events in audio (audio tagging).
       tags:
       - audio
   /v1/audio/diarization:
