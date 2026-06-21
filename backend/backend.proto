@@ -24,6 +24,9 @@ service Backend {
   rpc TokenizeString(PredictOptions) returns (TokenizationResponse) {}
   rpc Status(HealthMessage) returns (StatusResponse) {}
   rpc Detect(DetectOptions) returns (DetectResponse) {}
+  // SoundDetection runs an audio-tagging / sound-event-classification model
+  // (e.g. CED over the AudioSet ontology) on a clip and returns scored labels.
+  rpc SoundDetection(SoundDetectionRequest) returns (SoundDetectionResponse) {}
   rpc Depth(DepthRequest) returns (DepthResponse) {}
   rpc FaceVerify(FaceVerifyRequest) returns (FaceVerifyResponse) {}
   rpc FaceAnalyze(FaceAnalyzeRequest) returns (FaceAnalyzeResponse) {}
@@ -669,6 +672,24 @@ message Detection {
 
 message DetectResponse {
   repeated Detection Detections = 1;
+}
+
+// --- Sound-event classification / audio tagging messages (CED) ---
+
+message SoundDetectionRequest {
+  string src = 1;       // audio file path (LocalAI writes the upload to disk)
+  int32 top_k = 2;      // number of top tags to return (0 = all classes)
+  float threshold = 3;  // optional: drop tags scoring below this
+}
+
+message SoundClass {
+  string label = 1;     // AudioSet class name, e.g. "Baby cry, infant cry"
+  float score = 2;      // per-class probability (multi-label, independent)
+  int32 index = 3;      // class index in the model ontology
+}
+
+message SoundDetectionResponse {
+  repeated SoundClass detections = 1;  // score-descending
 }
 
 // --- Depth estimation messages (Depth Anything 3) ---
