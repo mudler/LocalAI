@@ -37,17 +37,47 @@ on GB10 → W4A4 hangs → forced W4A16 Marlin fallback. **Nothing to port; vLLM
 - **Continuous batching** (`v1/core/sched/scheduler.py`): per-step admit/evict. **llama.cpp: YES** (`n_parallel`,
   rudimentary — we enabled VRAM-scaled slots in #10411).
 
+## Sizing the scheduler gap — MEASURED (llama.cpp aggregate, the surprise)
+
+`llama-batched-bench` Qwen3-32B-Q4_K_M, npp=128 ntg=128, npl scaling (DGX):
+
+| npl | S_PP (agg prefill) | **S_TG (agg decode)** | vLLM decode | llama % of vLLM |
+|---|---|---|---|---|
+| 1 | 628 | 10.2 | 11.8 | 86% |
+| 8 | 773 | 59.8 | - | - |
+| 32 | 763 | **235** | **328** | **72%** |
+| 64 | 761 | **391** | **569** | **69%** |
+| 128 | 762 | **540** | **667** | **81%** |
+
+**The "30x gap" headline is wrong for realistic concurrency.** llama.cpp's continuous batching already
+captures **~70-81% of vLLM's aggregate decode** at npl<=128, with a near-identical multiplier (10.2 -> 540 =
+**53x**, vs vLLM's 56x). And it is still climbing linearly at 128 (not plateaued). Combined with llama.cpp being
+*ahead* single-stream (MXFP4 1153 > vLLM 800), **llama.cpp is already broadly competitive with vLLM on GB10 at
+self-hosted concurrency.**
+
+Two real findings remain:
+1. **Aggregate prefill is flat ~760** regardless of npl - but that is the **GB10 compute roofline** (vLLM single-
+   stream is ~800; neither can prefill faster aggregate, it is compute-bound). So prefill is **not a throughput
+   gap**; chunked prefill is a **latency/TTFT** win (stop a long prefill stalling the decode batch), not a
+   throughput one.
+2. **vLLM's ~24k headline lives at thousands-of-sequences concurrency**, which **paged KV** unlocks (block KV,
+   no fragmentation). llama.cpp's contiguous KV caps how far npl can scale before memory/fragmentation bite. So
+   paged KV is the **high-concurrency (datacenter) lever**, not a moderate-concurrency one.
+
 ## Recommendation
 
 **Pivot to the scheduler; treat the GEMM kernel as good-enough / roofline-blocked on GB10.**
-1. **Ship the MXFP4-dense win now** — 1153 t/s single-stream beats vLLM's 800; a Blackwell dense-quant
-   recommendation (requantize, no kernel work). Already documented in `BLACKWELL_KERNEL_GAPS.md` §6.
-2. **Size the gap first:** measure llama.cpp aggregate decode at `n_parallel` = 32/64/128 vs vLLM's 328/569/667.
-   This tells us how much of the 56× the existing continuous batching already captures, and how much paged KV +
-   chunked prefill would add.
-3. **Then the two missing scheduler features**, in ROI order from the measurement: **chunked prefill** (keep
-   decode batches saturated, avoid prefill stalls) and **paged KV** (sustain large concurrent batches without
-   fragmentation — the contested upstream PR #22569 / the vendored patches in `patches/`).
+Now that the gap is measured, ROI-ordered:
+1. **Ship the MXFP4-dense win** — 1153 t/s single-stream beats vLLM's 800; a Blackwell dense-quant
+   recommendation (requantize, no kernel work). Already documented in `BLACKWELL_KERNEL_GAPS.md` §6. Cheapest.
+2. **Chunked prefill** — the tractable scheduler win: interleave prefill chunks with decode so a long prompt
+   doesn't stall the decode batch. Payoff is **latency/TTFT under mixed load** (and steadier decode batches),
+   not aggregate prefill throughput (that's GB10-compute-capped at ~760-800 for both engines). A grpc-server
+   scheduler change; no KV-layout rewrite.
+3. **Paged KV** — the **high-concurrency (thousands-of-seqs) lever** that unlocks vLLM's 24k regime. Heavy
+   (block KV manager; contested upstream PR #22569 / vendored `patches/`). Worth it only if datacenter-scale
+   concurrency is a target; at self-hosted concurrency (npl<=128) llama.cpp is already ~75-80% of vLLM.
 
-Kernel tracks (W4A16 P3b at 178 t/s; FP4-MMA tuning) are **banked, not resumed** — they cannot move the
-throughput needle on GB10 because the bottleneck is not the GEMM.
+**Reframed expectation:** llama.cpp on GB10 is NOT 30x behind vLLM. It is ahead single-stream (MXFP4) and
+~70-81% of vLLM aggregate at npl<=128. The genuine differentiator vLLM still has is **scaling to very high
+concurrency via paged KV**. Kernel tracks (W4A16 178 t/s; FP4-MMA) stay **banked** - not the lever.
