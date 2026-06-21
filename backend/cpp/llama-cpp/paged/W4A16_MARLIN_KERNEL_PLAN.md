@@ -1,5 +1,17 @@
 # W4A16 Marlin-style GEMM for ggml-cuda on Blackwell (sm_120/121) — implementation plan
 
+> **STOPPED (2026-06-21): the kernel is NOT the lever — validated by a code-grounded vLLM analysis.**
+> Measured on the DGX: vLLM's single-stream W4A16 prefill on GB10 = **~800 t/s (~52 TFLOPS), statistically TIED
+> with llama.cpp MMQ (718/47)** — and vLLM uses the *exact* XOR-swizzle + 4-stage cp.async Marlin we proved
+> collapses GB10 occupancy (vLLM even warns at load that Marlin "may degrade performance for compute-heavy
+> workloads"). There is no kernel trick to port. Moreover llama.cpp's **MXFP4 path (1153 t/s) already BEATS
+> vLLM single-stream (800)** — vLLM has no FP4 cubins on sm_121 and falls back to slower W4A16 Marlin, so
+> llama.cpp is *ahead* on the kernel. **vLLM's entire 24k headline is the aggregate decode multiplier (~56×)
+> from paged KV + chunked prefill + continuous batching — a SCHEDULER win.** llama.cpp lacks paged KV +
+> chunked prefill. **Effort pivots to the scheduler** (see the paged-attention work). This kernel work is
+> banked + resumable (178 t/s, P0/P1/P2/P3/P3b committed) but is not the throughput lever on GB10. Detail:
+> `VLLM_DECOMPOSITION.md`.
+
 The committed multi-week kernel. Goal: get 4-bit-weight dense matmul to the GB10 **BF16 ceiling (~213
 TFLOP/s ≈ ~3,300 t/s prefill on Qwen3-32B)**, ~4.3× over today's 765. This is the *match-vLLM* path; vLLM's
 own GB10 dense throughput runs on W4A16 Marlin (its FP4 path is broken on sm_121).
