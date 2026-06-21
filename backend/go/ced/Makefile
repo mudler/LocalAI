@@ -9,7 +9,7 @@
 #   ln -sf /path/to/ced.cpp/include/ced_capi.h .
 #   go build -o ced-grpc .
 
-CED_VERSION?=99c6ed3bce37d3ee6b23b98f2b2581c606ee3f6e
+CED_VERSION?=c04ac14b7992d00584d9e812c9bb6268598a6ce7
 CED_REPO?=https://github.com/mudler/ced.cpp
 
 GOCMD?=go
