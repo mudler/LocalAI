@@ -152,3 +152,58 @@ var _ = Describe("realtime voice gate integration (commitUtterance)", func() {
 		Expect(tr2.countEvents(types.ServerEventTypeResponseDone)).To(BeNumerically(">=", 1))
 	})
 })
+
+var _ = Describe("realtime speaker surfacing (commitUtterance)", func() {
+	utt := make([]byte, 32)
+
+	It("emits conversation.item.speaker for a confident match when announce is on", func() {
+		session, _ := itSession(itGate("alice", "alice", []float32{1, 0, 0}, nil,
+			config.VoiceGateWhenEvery, config.VoiceGateRejectEvent))
+		session.voiceGate.cfg.Identity = &config.VoiceIdentityConfig{Announce: true}
+		tr := &fakeTransport{}
+
+		commitUtterance(context.Background(), utt, session, &Conversation{}, tr)
+
+		Expect(tr.countEvents(types.ServerEventTypeConversationItemSpeaker)).To(Equal(1))
+	})
+
+	It("does not emit the speaker event for an unknown speaker unless announce_unknown is set", func() {
+		// match distance above threshold => not matched
+		gate := &voiceGate{
+			cfg: config.PipelineVoiceRecognition{
+				Mode: config.VoiceGateModeIdentify, Threshold: 0.25,
+				When: config.VoiceGateWhenEvery, OnReject: config.VoiceGateRejectEvent,
+				Enforce:  boolPtr(false),
+				Identity: &config.VoiceIdentityConfig{Announce: true},
+			},
+			registry: &fakeRegistry{matches: []voicerecognition.Match{
+				{Distance: 0.9, Metadata: voicerecognition.Metadata{Name: "alice"}},
+			}},
+			embedFn: func(context.Context, string) ([]float32, error) { return []float32{1, 0, 0}, nil },
+		}
+		session, _ := itSession(gate)
+		tr := &fakeTransport{}
+
+		commitUtterance(context.Background(), utt, session, &Conversation{}, tr)
+		Expect(tr.countEvents(types.ServerEventTypeConversationItemSpeaker)).To(Equal(0))
+
+		gate.cfg.Identity.AnnounceUnknown = true
+		tr2 := &fakeTransport{}
+		commitUtterance(context.Background(), utt, session, &Conversation{}, tr2)
+		Expect(tr2.countEvents(types.ServerEventTypeConversationItemSpeaker)).To(Equal(1))
+	})
+
+	It("never drops a turn when enforce is false even for a disallowed speaker", func() {
+		session, _ := itSession(itGate("bob", "alice", []float32{1, 0, 0}, nil,
+			config.VoiceGateWhenEvery, config.VoiceGateRejectEvent))
+		session.voiceGate.cfg.Enforce = boolPtr(false)
+		tr := &fakeTransport{}
+
+		commitUtterance(context.Background(), utt, session, &Conversation{}, tr)
+
+		Expect(hasSpeakerNotAuthorized(tr)).To(BeFalse())
+		Expect(tr.countEvents(types.ServerEventTypeResponseDone)).To(BeNumerically(">=", 1))
+	})
+})
+
+func boolPtr(b bool) *bool { return &b }
