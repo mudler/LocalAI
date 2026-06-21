@@ -90,7 +90,7 @@ func estimateModelSizeBytes(c config.ModelConfig, modelsPath string) int64 {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	result, err := vram.EstimateModel(ctx, input)
+	result, err := vram.EstimateModelMultiContext(ctx, input, nil)
 	if err != nil || result.SizeBytes == 0 {
 		return 0
 	}
