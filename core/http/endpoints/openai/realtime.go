@@ -1440,6 +1440,18 @@ func runVAD(ctx context.Context, session *Session, adata []int16) ([]schema.VADS
 	return resp.Segments, nil
 }
 
+// speakerNote renders the system-prompt note for the current speaker. Returns
+// an empty string when there is no name and unknown notes are disabled.
+func speakerNote(s *types.Speaker, noteUnknown bool) string {
+	if s != nil && s.Matched && s.Name != "" {
+		return "The current speaker is " + s.Name + "."
+	}
+	if noteUnknown {
+		return "The current speaker is unknown."
+	}
+	return ""
+}
+
 // Function to generate a response based on the conversation
 func generateResponse(ctx context.Context, session *Session, utt []byte, transcript string, speaker *types.Speaker, conv *Conversation, t Transport) {
 	xlog.Debug("Generating realtime response...")
@@ -1541,12 +1553,19 @@ func triggerResponseAtTurn(ctx context.Context, session *Session, conv *Conversa
 	})
 
 	imgIndex := 0
+	var lastUserSpeaker *types.Speaker
+	personalize := session.voiceGate != nil && session.voiceGate.cfg.PersonalizeEnabled()
 	conv.Lock.Lock()
 	items := trimRealtimeItems(conv.Items, session.MaxHistoryItems)
 	for _, item := range items {
 		if item.User != nil {
 			msg := schema.Message{
 				Role: string(types.MessageRoleUser),
+			}
+			lastUserSpeaker = item.User.Speaker
+			if personalize && session.voiceGate.cfg.Identity.InjectName &&
+				item.User.Speaker != nil && item.User.Speaker.Matched && item.User.Speaker.Name != "" {
+				msg.Name = item.User.Speaker.Name
 			}
 			textContent := ""
 			nrOfImgsInMessage := 0
@@ -1633,6 +1652,13 @@ func triggerResponseAtTurn(ctx context.Context, session *Session, conv *Conversa
 		}
 	}
 	conv.Lock.Unlock()
+
+	if personalize && session.voiceGate.cfg.Identity.InjectSystemNote {
+		if note := speakerNote(lastUserSpeaker, session.voiceGate.cfg.Identity.NoteUnknown); note != "" {
+			conversationHistory[0].StringContent += "\n\n" + note
+			conversationHistory[0].Content = conversationHistory[0].StringContent
+		}
+	}
 
 	var images []string
 	for _, m := range conversationHistory {

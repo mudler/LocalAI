@@ -206,4 +206,65 @@ var _ = Describe("realtime speaker surfacing (commitUtterance)", func() {
 	})
 })
 
+var _ = Describe("realtime speaker personalization (triggerResponseAtTurn)", func() {
+	utt := make([]byte, 32)
+
+	findRole := func(msgs schema.Messages, role string) *schema.Message {
+		for i := range msgs {
+			if msgs[i].Role == role {
+				return &msgs[i]
+			}
+		}
+		return nil
+	}
+
+	It("sets the user message name and a current-speaker system note", func() {
+		session, m := itSession(itGate("alice", "alice", []float32{1, 0, 0}, nil,
+			config.VoiceGateWhenEvery, config.VoiceGateRejectEvent))
+		session.voiceGate.cfg.Identity = &config.VoiceIdentityConfig{
+			Personalize: true, InjectName: true, InjectSystemNote: true,
+		}
+		session.Instructions = "You are helpful."
+		tr := &fakeTransport{}
+
+		commitUtterance(context.Background(), utt, session, &Conversation{}, tr)
+
+		user := findRole(m.lastMessages, "user")
+		Expect(user).ToNot(BeNil())
+		Expect(user.Name).To(Equal("alice"))
+		sys := findRole(m.lastMessages, "system")
+		Expect(sys).ToNot(BeNil())
+		Expect(sys.StringContent).To(ContainSubstring("The current speaker is alice."))
+	})
+
+	It("omits the unknown note unless note_unknown is set", func() {
+		base := func() (*Session, *fakeModel) {
+			gate := &voiceGate{
+				cfg: config.PipelineVoiceRecognition{
+					Mode: config.VoiceGateModeIdentify, Threshold: 0.25,
+					When: config.VoiceGateWhenEvery, OnReject: config.VoiceGateRejectEvent,
+					Enforce:  boolPtr(false),
+					Identity: &config.VoiceIdentityConfig{Personalize: true, InjectSystemNote: true},
+				},
+				registry: &fakeRegistry{matches: []voicerecognition.Match{
+					{Distance: 0.9, Metadata: voicerecognition.Metadata{Name: "alice"}},
+				}},
+				embedFn: func(context.Context, string) ([]float32, error) { return []float32{1, 0, 0}, nil },
+			}
+			s, m := itSession(gate)
+			s.Instructions = "You are helpful."
+			return s, m
+		}
+
+		s1, m1 := base()
+		commitUtterance(context.Background(), utt, s1, &Conversation{}, &fakeTransport{})
+		Expect(findRole(m1.lastMessages, "system").StringContent).ToNot(ContainSubstring("unknown"))
+
+		s2, m2 := base()
+		s2.voiceGate.cfg.Identity.NoteUnknown = true
+		commitUtterance(context.Background(), utt, s2, &Conversation{}, &fakeTransport{})
+		Expect(findRole(m2.lastMessages, "system").StringContent).To(ContainSubstring("The current speaker is unknown."))
+	})
+})
+
 func boolPtr(b bool) *bool { return &b }
