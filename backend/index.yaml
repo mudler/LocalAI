@@ -2682,9 +2682,6 @@
   mirrors:
     - localai/localai-backends:master-gpu-nvidia-cuda-13-parakeet-cpp
 ## ced
-# TODO(ced): add ced-base GGUF model gallery entry (gallery/index.yaml) once the
-# weights are published to HuggingFace. This block only registers the backend
-# images; the model entry is intentionally deferred.
 - !!merge <<: *ced
   name: "ced-development"
   capabilities:

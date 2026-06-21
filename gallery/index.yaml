@@ -2871,6 +2871,52 @@
       - transcript
     parameters:
       model: tiny
+- name: ced-base-f16
+  url: github:mudler/LocalAI/gallery/ced.yaml@master
+  urls:
+    - https://huggingface.co/mudler/ced-base-gguf
+    - https://huggingface.co/mispeech/ced-base
+  description: |
+    CED (Consistent Ensemble Distillation, Xiaomi) is a sound-event classifier that tags everyday sounds (baby cry, footsteps, glass breaking, alarms, dog bark, ...) into the 527-class AudioSet ontology. This is the f16 GGUF for the ced backend (a standalone C++/ggml port). Recommended default: fastest on CPU and near-lossless. Use POST /v1/audio/classification, or the realtime websocket API for live recognition.
+  license: apache-2.0
+  tags:
+    - audio-classification
+    - sound-event-detection
+    - audio-tagging
+    - audioset
+    - ced
+    - gguf
+    - f16
+  overrides:
+    parameters:
+      model: ced-base-f16.gguf
+  files:
+    - filename: ced-base-f16.gguf
+      sha256: 5c058d9f7b737167195fa54eae4a2ae17658ac2c0a8073f7f116ba006b2ab32c
+      uri: https://huggingface.co/mudler/ced-base-gguf/resolve/main/ced-base-f16.gguf
+- name: ced-base-q8
+  url: github:mudler/LocalAI/gallery/ced.yaml@master
+  urls:
+    - https://huggingface.co/mudler/ced-base-gguf
+    - https://huggingface.co/mispeech/ced-base
+  description: |
+    CED (Consistent Ensemble Distillation, Xiaomi) sound-event classifier over the 527-class AudioSet ontology (baby cry, footsteps, glass breaking, alarms, dog bark, ...). This is the q8_0 GGUF for the ced backend: smallest footprint (~88 MB, ~6.5x less memory than the PyTorch reference) and near-lossless (identical top-5 tags). Use POST /v1/audio/classification, or the realtime websocket API for live recognition.
+  license: apache-2.0
+  tags:
+    - audio-classification
+    - sound-event-detection
+    - audio-tagging
+    - audioset
+    - ced
+    - gguf
+    - q8
+  overrides:
+    parameters:
+      model: ced-base-q8_0.gguf
+  files:
+    - filename: ced-base-q8_0.gguf
+      sha256: bd34a7710169f0047fea17267965d211f967828ab25ba6fb9d3768481393f6e2
+      uri: https://huggingface.co/mudler/ced-base-gguf/resolve/main/ced-base-q8_0.gguf
 - name: omnilingual-0.3b-ctc-q8-sherpa
   url: github:mudler/LocalAI/gallery/sherpa-onnx-asr.yaml@master
   urls:
