@@ -224,6 +224,28 @@ func (w *CrispASR) VAD(req *pb.VADRequest) (pb.VADResponse, error) {
 	}, nil
 }
 
+// isValidWord reports whether a TranscriptWord contains recognisable speech
+// content. The parakeet-specific word accessors can return stale initialisation
+// data (model name, binary blobs) when a segment has no real speech. A word is
+// considered valid only when:
+//   - the text is non-empty after trimming,
+//   - it contains no U+FFFD replacement characters (from binary data scrubbing),
+//   - both timestamps are non-negative,
+//   - the word has positive duration (end > start).
+func isValidWord(w *pb.TranscriptWord) bool {
+	txt := strings.TrimSpace(w.Text)
+	if txt == "" {
+		return false
+	}
+	if strings.ContainsRune(txt, '\uFFFD') {
+		return false
+	}
+	if w.Start < 0 || w.End < 0 || w.End <= w.Start {
+		return false
+	}
+	return true
+}
+
 func (w *CrispASR) AudioTranscription(ctx context.Context, opts *pb.TranscriptRequest) (pb.TranscriptResult, error) {
 	if err := ctx.Err(); err != nil {
 		return pb.TranscriptResult{}, status.Error(codes.Canceled, "transcription cancelled")
@@ -311,20 +333,33 @@ func (w *CrispASR) AudioTranscription(ctx context.Context, opts *pb.TranscriptRe
 		if wordCount == 0 && i == 0 {
 			wordCount = CppGetParakeetWordCount()
 			for j := 0; j < wordCount; j++ {
-				words = append(words, &pb.TranscriptWord{
+				w := &pb.TranscriptWord{
 					Start: CppGetParakeetWordT0(j) * (10000000),
 					End:   CppGetParakeetWordT1(j) * (10000000),
 					Text:  strings.ToValidUTF8(strings.Clone(CppGetParakeetWordText(j)), "�"),
-				})
+				}
+				if isValidWord(w) {
+					words = append(words, w)
+				}
 			}
 		} else {
 			for j := 0; j < wordCount; j++ {
-				words = append(words, &pb.TranscriptWord{
+				w := &pb.TranscriptWord{
 					Start: CppGetWordT0(i, j) * (10000000),
 					End:   CppGetWordT1(i, j) * (10000000),
 					Text:  strings.ToValidUTF8(strings.Clone(CppGetWordText(i, j)), "�"),
-				})
+				}
+				if isValidWord(w) {
+					words = append(words, w)
+				}
 			}
+		}
+
+		// Skip empty segments with no recognisable content (e.g. trailing
+		// silence segments that parakeet emits with stale init data).
+		trimmed := strings.TrimSpace(txt)
+		if trimmed == "" && len(words) == 0 {
+			continue
 		}
 
 		segment := &pb.TranscriptSegment{
@@ -336,7 +371,7 @@ func (w *CrispASR) AudioTranscription(ctx context.Context, opts *pb.TranscriptRe
 
 		segments = append(segments, segment)
 
-		text += " " + strings.TrimSpace(txt)
+		text += " " + trimmed
 	}
 
 	return pb.TranscriptResult{
@@ -428,13 +463,20 @@ func (w *CrispASR) AudioTranscriptionStream(ctx context.Context, opts *pb.Transc
 		s := CppGetSegmentStart(i) * 10000000
 		t := CppGetSegmentEnd(i) * 10000000
 		txt := strings.ToValidUTF8(strings.Clone(CppGetSegmentText(i)), "�")
+
+		// Skip empty segments (e.g. trailing silence that parakeet emits
+		// with stale init data).
+		trimmed := strings.TrimSpace(txt)
+		if trimmed == "" && s == t {
+			continue
+		}
+
 		segments = append(segments, &pb.TranscriptSegment{
 			Id:    int32(i),
 			Text:  txt,
 			Start: s, End: t,
 		})
 
-		trimmed := strings.TrimSpace(txt)
 		if trimmed == "" {
 			continue
 		}

@@ -159,6 +159,12 @@ func (ml *ModelLoader) grpcModel(backend string, o *Options) func(string, string
 			return nil, fmt.Errorf("could not load model (no success): %s", res.Message)
 		}
 
+		// Register size for size-aware eviction using the caller-supplied estimate
+		// (computed via pkg/vram, which handles multi-file and non-GGUF models).
+		if ml.wd != nil && o.modelSizeBytes > 0 {
+			ml.wd.RegisterModelSize(modelID, o.modelSizeBytes)
+		}
+
 		return client, nil
 	}
 }
