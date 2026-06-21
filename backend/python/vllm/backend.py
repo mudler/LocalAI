@@ -48,8 +48,10 @@ try:
 except ImportError:
     HAS_REASONING_PARSERS = False
 
+# vLLM >= 0.23 renamed GuidedDecodingParams -> StructuredOutputsParams and the
+# SamplingParams field guided_decoding -> structured_outputs.
 try:
-    from vllm.sampling_params import GuidedDecodingParams
+    from vllm.sampling_params import StructuredOutputsParams
     HAS_GUIDED_DECODING = True
 except ImportError:
     HAS_GUIDED_DECODING = False
@@ -536,13 +538,13 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
                 if value not in (None, 0, [], False):
                     setattr(sampling_params, param_field, value)
 
-        # Guided decoding: use Grammar field to pass JSON schema or BNF
+        # Structured-output decoding: use Grammar field to pass JSON schema or BNF
         if HAS_GUIDED_DECODING and request.Grammar:
             try:
                 json.loads(request.Grammar)  # valid JSON = JSON schema
-                sampling_params.guided_decoding = GuidedDecodingParams(json=request.Grammar)
+                sampling_params.structured_outputs = StructuredOutputsParams(json=request.Grammar)
             except json.JSONDecodeError:
-                sampling_params.guided_decoding = GuidedDecodingParams(grammar=request.Grammar)
+                sampling_params.structured_outputs = StructuredOutputsParams(grammar=request.Grammar)
 
         # Extract image paths and process images
         prompt = request.Prompt
