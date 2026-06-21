@@ -20,6 +20,9 @@ const (
 	ServerEventTypeConversationItemInputAudioTranscriptionFailed    ServerEventType = "conversation.item.input_audio_transcription.failed"
 	ServerEventTypeConversationItemTruncated                        ServerEventType = "conversation.item.truncated"
 	ServerEventTypeConversationItemDeleted                          ServerEventType = "conversation.item.deleted"
+	// ServerEventTypeConversationItemSpeaker is a LocalAI extension: it reports
+	// the recognized speaker for a user audio item. OpenAI clients ignore it.
+	ServerEventTypeConversationItemSpeaker ServerEventType = "conversation.item.speaker"
 	ServerEventTypeInputAudioBufferCommitted                        ServerEventType = "input_audio_buffer.committed"
 	ServerEventTypeInputAudioBufferCleared                          ServerEventType = "input_audio_buffer.cleared"
 	ServerEventTypeInputAudioBufferSpeechStarted                    ServerEventType = "input_audio_buffer.speech_started"
@@ -324,6 +327,33 @@ func (m ConversationItemAddedEvent) ServerEventType() ServerEventType {
 
 func (m ConversationItemAddedEvent) MarshalJSON() ([]byte, error) {
 	type typeAlias ConversationItemAddedEvent
+	type typeWrapper struct {
+		typeAlias
+		Type ServerEventType `json:"type"`
+	}
+	shadow := typeWrapper{
+		typeAlias: typeAlias(m),
+		Type:      m.ServerEventType(),
+	}
+	return json.Marshal(shadow)
+}
+
+// ConversationItemSpeakerEvent reports the recognized speaker for a user audio
+// item. LocalAI extension; not part of the OpenAI Realtime API.
+type ConversationItemSpeakerEvent struct {
+	ServerEventBase
+	// ItemID is the conversation item this speaker belongs to.
+	ItemID string `json:"item_id"`
+	// Speaker is the recognized identity.
+	Speaker Speaker `json:"speaker"`
+}
+
+func (m ConversationItemSpeakerEvent) ServerEventType() ServerEventType {
+	return ServerEventTypeConversationItemSpeaker
+}
+
+func (m ConversationItemSpeakerEvent) MarshalJSON() ([]byte, error) {
+	type typeAlias ConversationItemSpeakerEvent
 	type typeWrapper struct {
 		typeAlias
 		Type ServerEventType `json:"type"`
