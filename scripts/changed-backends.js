@@ -1,5 +1,5 @@
 import fs from "fs";
-import yaml from "js-yaml";
+import * as yaml from "js-yaml";
 import { Octokit } from "@octokit/core";
 
 // Matrix data lives in a small data-only YAML so both backend.yml (master push)
