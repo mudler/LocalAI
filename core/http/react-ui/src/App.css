@@ -8471,3 +8471,32 @@ select.input {
 .status-pill--error   .status-pill__dot { background: var(--color-error); }
 .status-pill--info    .status-pill__dot { background: var(--color-info); }
 .status-pill--muted   .status-pill__dot { background: var(--color-text-muted); }
+
+/* Nodes: cluster pulse + attention callout (replaces the stat-card strip) */
+.cluster-pulse {
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+  margin: 0 0 var(--spacing-lg);
+}
+.cluster-pulse__strong { color: var(--color-text-primary); font-weight: 600; }
+
+.attention-callout {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--spacing-md);
+  padding: var(--spacing-sm) var(--spacing-md);
+  border-radius: var(--radius-md);
+  margin-bottom: var(--spacing-lg);
+  font-size: var(--text-sm);
+}
+.attention-callout--warn {
+  background: var(--color-warning-light);
+  border: 1px solid var(--color-warning-border);
+  color: var(--color-text-primary);
+}
+.attention-callout--error {
+  background: var(--color-error-light);
+  border: 1px solid var(--color-error-border);
+  color: var(--color-text-primary);
+}

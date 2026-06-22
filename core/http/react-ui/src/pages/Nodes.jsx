@@ -8,7 +8,9 @@ import ConfirmDialog from '../components/ConfirmDialog'
 import ActionMenu from '../components/ActionMenu'
 import ImageSelector, { useImageSelector, dockerImage, dockerFlags } from '../components/ImageSelector'
 import KeyValueChips from '../components/nodes/KeyValueChips'
-import StatCard from '../components/StatCard'
+import ClusterPulse from '../components/nodes/ClusterPulse'
+import AttentionCallout from '../components/nodes/AttentionCallout'
+import { statusConfig, modelStateConfig, formatVRAM } from '../components/nodes/nodeStatus'
 import ResponsiveTable from '../components/ResponsiveTable'
 
 function timeAgo(dateString) {
@@ -22,12 +24,6 @@ function timeAgo(dateString) {
   if (hours < 24) return `${hours}h ago`
   const days = Math.floor(hours / 24)
   return `${days}d ago`
-}
-
-function formatVRAM(bytes) {
-  if (!bytes || bytes === 0) return null
-  const gb = bytes / (1024 * 1024 * 1024)
-  return gb >= 1 ? `${gb.toFixed(1)} GB` : `${(bytes / (1024 * 1024)).toFixed(0)} MB`
 }
 
 /**
@@ -231,22 +227,6 @@ function gpuVendorLabel(vendor) {
     vulkan: 'Vulkan',
   }
   return labels[vendor] || null
-}
-
-const statusConfig = {
-  healthy: { color: 'var(--color-success)', label: 'Healthy' },
-  unhealthy: { color: 'var(--color-error)', label: 'Unhealthy' },
-  offline: { color: 'var(--color-error)', label: 'Offline' },
-  registering: { color: 'var(--color-primary)', label: 'Registering' },
-  draining: { color: 'var(--color-warning)', label: 'Draining' },
-  pending: { color: 'var(--color-warning)', label: 'Pending Approval' },
-}
-
-const modelStateConfig = {
-  loaded: { bg: 'var(--color-success-light)', color: 'var(--color-success)', border: 'var(--color-success-border)' },
-  loading: { bg: 'var(--color-primary-light)', color: 'var(--color-primary)', border: 'var(--color-primary-border)' },
-  unloading: { bg: 'var(--color-warning-light)', color: 'var(--color-warning)', border: 'var(--color-warning-border)' },
-  idle: { bg: 'var(--color-bg-tertiary)', color: 'var(--color-text-muted)', border: 'var(--color-border-subtle)' },
 }
 
 function StepNumber({ n, bg, color }) {
@@ -621,13 +601,6 @@ export default function Nodes() {
   const agentNodes = nodesList.filter(n => n.node_type === 'agent')
   const filteredNodes = activeTab === 'agent' ? agentNodes : backendNodes
 
-  // Compute stats for current tab
-  const total = filteredNodes.length
-  const healthy = filteredNodes.filter(n => n.status === 'healthy').length
-  const unhealthy = filteredNodes.filter(n => n.status === 'unhealthy' || n.status === 'offline').length
-  const draining = filteredNodes.filter(n => n.status === 'draining').length
-  const pending = filteredNodes.filter(n => n.status === 'pending').length
-
   return (
     <div className="page page--wide">
       <PageHeader
@@ -639,6 +612,9 @@ export default function Nodes() {
         }
         supporting={t('nodes.subtitle')}
       />
+
+      <ClusterPulse nodes={nodesList} />
+      <AttentionCallout nodes={nodesList} onApprove={handleApprove} />
 
       {/* Tabs */}
       <div className="tabs" style={{ marginBottom: 'var(--spacing-lg)' }}>
@@ -656,41 +632,6 @@ export default function Nodes() {
           <i className="fas fa-robot" style={{ marginRight: 6 }} />
           Agent Workers ({agentNodes.length})
         </button>
-      </div>
-
-      {/* Stat cards */}
-      <div className="stat-grid">
-        <StatCard icon={activeTab === 'agent' ? 'fas fa-robot' : 'fas fa-server'}
-          label={`Total ${activeTab === 'agent' ? 'Agent' : 'Backend'} Workers`} value={total} />
-        <StatCard icon="fas fa-check-circle" label="Healthy" value={healthy}
-          accentVar={healthy > 0 ? '--color-success' : undefined} />
-        <StatCard icon="fas fa-exclamation-circle" label="Unhealthy" value={unhealthy}
-          accentVar={unhealthy > 0 ? '--color-error' : undefined} />
-        <StatCard icon="fas fa-hourglass-half" label="Draining" value={draining}
-          accentVar={draining > 0 ? '--color-warning' : undefined} />
-        {pending > 0 && (
-          <StatCard icon="fas fa-clock" label="Pending" value={pending} accentVar="--color-warning" />
-        )}
-        {activeTab === 'backend' && (() => {
-          const clusterTotalVRAM = backendNodes.reduce((sum, n) => sum + (n.total_vram || 0), 0)
-          const clusterUsedVRAM = backendNodes.reduce((sum, n) => {
-            if (n.total_vram && n.available_vram != null) return sum + (n.total_vram - n.available_vram)
-            return sum
-          }, 0)
-          const totalModelsLoaded = backendNodes.reduce((sum, n) => sum + (n.model_count || 0), 0)
-          const totalInFlight = backendNodes.reduce((sum, n) => sum + (n.in_flight_count || 0), 0)
-          return (
-            <>
-              {clusterTotalVRAM > 0 && (
-                <StatCard icon="fas fa-microchip" label="Cluster VRAM"
-                  value={`${formatVRAM(clusterUsedVRAM) || '0'} / ${formatVRAM(clusterTotalVRAM)}`} />
-              )}
-              <StatCard icon="fas fa-cube" label="Models Loaded" value={totalModelsLoaded} />
-              <StatCard icon="fas fa-exchange-alt" label="In-Flight Requests" value={totalInFlight}
-                accentVar={totalInFlight > 0 ? '--color-primary' : undefined} />
-            </>
-          )
-        })()}
       </div>
 
       {/* Worker tips */}
