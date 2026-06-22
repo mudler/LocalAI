@@ -43,6 +43,10 @@
     "title": "分布式节点",
     "subtitle": "管理后端和智能体工作节点"
   },
+  "scheduling": {
+    "title": "调度",
+    "subtitle": "集群中的模型放置和副本规则"
+  },
   "p2p": {
     "title": "分布式 AI 计算",
     "subtitle": "通过点对点分发将您的 AI 工作负载扩展到多个设备"

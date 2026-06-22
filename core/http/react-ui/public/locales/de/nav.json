@@ -50,6 +50,7 @@
     "backends": "Backends",
     "traces": "Traces",
     "nodes": "Knoten",
+    "scheduling": "Planung",
     "swarm": "Swarm",
     "system": "System",
     "settings": "Einstellungen",

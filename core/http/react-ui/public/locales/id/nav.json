@@ -51,6 +51,7 @@
     "backends": "Backend",
     "traces": "Trace",
     "nodes": "Node",
+    "scheduling": "Penjadwalan",
     "swarm": "Swarm",
     "system": "Sistem",
     "settings": "Pengaturan",

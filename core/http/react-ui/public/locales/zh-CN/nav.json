@@ -50,6 +50,7 @@
     "backends": "后端",
     "traces": "追踪",
     "nodes": "节点",
+    "scheduling": "调度",
     "swarm": "Swarm",
     "system": "系统",
     "settings": "设置",

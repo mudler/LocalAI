@@ -385,6 +385,23 @@ func GetNodeModelsEndpoint(registry *nodes.NodeRegistry) echo.HandlerFunc {
 	}
 }
 
+// ListAllNodeModelsEndpoint returns all loaded models across all healthy nodes.
+// @Summary List all loaded models cluster-wide
+// @Tags Nodes
+// @Success 200 {array} nodes.NodeModel
+// @Router /api/nodes/models [get]
+func ListAllNodeModelsEndpoint(registry *nodes.NodeRegistry) echo.HandlerFunc {
+	return func(c echo.Context) error {
+		ctx := c.Request().Context()
+		models, err := registry.ListAllLoadedModels(ctx)
+		if err != nil {
+			xlog.Error("Failed to list all node models", "error", err)
+			return c.JSON(http.StatusInternalServerError, nodeError(http.StatusInternalServerError, "failed to list node models"))
+		}
+		return c.JSON(http.StatusOK, models)
+	}
+}
+
 // DrainNodeEndpoint sets a node to draining status (no new requests).
 func DrainNodeEndpoint(registry *nodes.NodeRegistry) echo.HandlerFunc {
 	return func(c echo.Context) error {
