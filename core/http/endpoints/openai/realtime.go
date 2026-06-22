@@ -141,6 +141,12 @@ type Session struct {
 	SummaryModel      string
 	MaxSummaryTokens  int
 
+	// summarizerFactory lazily builds the model used for compaction summaries
+	// when summary_model is configured; nil means reuse the pipeline LLM.
+	summarizerFactory func() (Model, error)
+	summarizerOnce    sync.Once
+	summarizerCached  Model
+
 	// AssistantExecutor is non-nil when the session opted into the in-process
 	// LocalAI Assistant tool surface. Tool calls whose name matches this
 	// executor's catalog are run inproc and their output is fed back to the
@@ -558,9 +564,7 @@ func runRealtimeSession(application *application.Application, t Transport, model
 	// Create a default conversation
 	conversationID := generateConversationID()
 	conversation := &Conversation{
-		ID: conversationID,
-		// TODO: We need to truncate the conversation items when a new item is added and we have run out of space. There are multiple places where items
-		//       can be added so we could use a datastructure here that enforces truncation upon addition
+		ID:    conversationID,
 		Items: []*types.MessageItemUnion{},
 	}
 	session.Conversations[conversationID] = conversation
@@ -590,6 +594,18 @@ func runRealtimeSession(application *application.Application, t Transport, model
 		return
 	}
 	session.ModelInterface = m
+
+	if session.SummaryModel != "" {
+		summaryModelName := session.SummaryModel
+		sid := sessionID
+		session.summarizerFactory = func() (Model, error) {
+			summaryCfg, lerr := application.ModelConfigLoader().LoadModelConfigFileByNameDefaultOptions(summaryModelName, application.ApplicationConfig())
+			if lerr != nil {
+				return nil, fmt.Errorf("load summary model config %q: %w", summaryModelName, lerr)
+			}
+			return newModel(&summaryCfg.Pipeline, application.ModelConfigLoader(), application.ModelLoader(), application.ApplicationConfig(), evaluator, buildRealtimeRoutingContext(application, sid))
+		}
+	}
 
 	if cfg.Pipeline.VoiceGateEnabled() {
 		gate, gerr := newVoiceGate(
@@ -1707,6 +1723,9 @@ const maxAssistantToolTurns = 10
 
 func triggerResponse(ctx context.Context, session *Session, conv *Conversation, t Transport, overrides *types.ResponseCreateParams) {
 	triggerResponseAtTurn(ctx, session, conv, t, overrides, 0)
+	// Fold aged-out turns into the rolling memory off the critical path; the
+	// next turn reaps the smaller buffer.
+	session.maybeCompact(conv, session.summarizerModel())
 }
 
 func triggerResponseAtTurn(ctx context.Context, session *Session, conv *Conversation, t Transport, overrides *types.ResponseCreateParams, toolTurn int) {

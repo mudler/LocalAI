@@ -281,6 +281,23 @@ func (s *Session) compact(conv *Conversation, model Model) {
 	xlog.Debug("realtime compaction: evicted items into memory", "evicted", len(overflow), "remaining", len(conv.Items))
 }
 
+// summarizerModel resolves the model used to produce compaction summaries.
+// Without a configured summary_model (or factory) it reuses the pipeline LLM.
+func (s *Session) summarizerModel() Model {
+	if s.SummaryModel == "" || s.summarizerFactory == nil {
+		return s.ModelInterface
+	}
+	s.summarizerOnce.Do(func() {
+		m, err := s.summarizerFactory()
+		if err != nil {
+			xlog.Warn("realtime compaction: summary_model load failed, falling back to pipeline LLM", "model", s.SummaryModel, "error", err)
+			m = s.ModelInterface
+		}
+		s.summarizerCached = m
+	})
+	return s.summarizerCached
+}
+
 // maybeCompact schedules a background compaction when the live buffer has grown
 // past the trigger and none is already running. Returns immediately.
 func (s *Session) maybeCompact(conv *Conversation, model Model) {

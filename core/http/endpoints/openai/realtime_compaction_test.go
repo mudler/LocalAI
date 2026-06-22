@@ -256,6 +256,32 @@ var _ = Describe("prefixMatches", func() {
 	})
 })
 
+var _ = Describe("summarizerModel", func() {
+	It("returns the pipeline model when no summary_model is set", func() {
+		m := &fakeModel{}
+		s := &Session{ModelInterface: m}
+		Expect(s.summarizerModel()).To(Equal(m))
+	})
+
+	It("uses the factory (once) when summary_model is set", func() {
+		pipeline := &fakeModel{}
+		small := &fakeModel{}
+		calls := 0
+		s := &Session{ModelInterface: pipeline, SummaryModel: "tiny",
+			summarizerFactory: func() (Model, error) { calls++; return small, nil }}
+		Expect(s.summarizerModel()).To(Equal(small))
+		Expect(s.summarizerModel()).To(Equal(small))
+		Expect(calls).To(Equal(1))
+	})
+
+	It("falls back to the pipeline model when the factory errors", func() {
+		pipeline := &fakeModel{}
+		s := &Session{ModelInterface: pipeline, SummaryModel: "tiny",
+			summarizerFactory: func() (Model, error) { return nil, errors.New("nope") }}
+		Expect(s.summarizerModel()).To(Equal(pipeline))
+	})
+})
+
 var _ = Describe("itemID", func() {
 	It("returns the id for each variant and empty for nil", func() {
 		Expect(itemID(nil)).To(Equal(""))
