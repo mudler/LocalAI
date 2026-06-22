@@ -2,12 +2,23 @@
 
 ## Patches
 
-## Apply patches from the `patches` directory
+## Apply patches: the base `patches/` series, then the gated `patches/paged/`
+## series (default on; LLAMA_PAGED=off skips it). Runs before `set -e` so a
+## re-apply on rebuild is tolerated. Only *.patch files are applied (docs/dirs
+## like patches/paged/ and *.md are skipped).
 if [ -d "patches" ]; then
-    for patch in $(ls patches); do
+    for patch in patches/*.patch; do
+        [ -e "$patch" ] || continue
         echo "Applying patch $patch"
-        patch -d llama.cpp/ -p1 < patches/$patch
-    done 
+        patch -d llama.cpp/ -p1 < "$patch"
+    done
+    if [ "${LLAMA_PAGED:-on}" != "off" ] && [ -d "patches/paged" ]; then
+        for patch in patches/paged/*.patch; do
+            [ -e "$patch" ] || continue
+            echo "Applying paged patch $patch"
+            patch -d llama.cpp/ -p1 < "$patch"
+        done
+    fi
 fi
 
 set -e

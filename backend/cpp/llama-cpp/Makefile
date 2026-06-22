@@ -1,6 +1,14 @@
 
 LLAMA_VERSION?=f3e182816421c648188b5eab269853bf1531d950
 LLAMA_REPO?=https://github.com/ggerganov/llama.cpp
+# LLAMA_PAGED controls whether the vendored paged-attention patch series
+# (patches/paged/) is applied on top of the pinned llama.cpp. Default on; set
+# LLAMA_PAGED=off to build a clean-against-upstream backend (e.g. to unblock a
+# dep-bump if an upstream change breaks a paged hook - the paged carry is then
+# fixed independently). Runtime behaviour stays gated by the LLAMA_KV_PAGED env
+# regardless, so an LLAMA_PAGED=on build is byte-identical to stock until that
+# env is set.
+LLAMA_PAGED?=on
 
 CMAKE_ARGS?=
 BUILD_TYPE?=
@@ -142,14 +150,23 @@ llama.cpp:
 		[ -e "$$p" ] || continue; \
 		echo "applying llama.cpp patch: $$p"; \
 		git apply --verbose "$$p" || { echo "patch failed: $$p"; exit 1; }; \
-	done
+	done && \
+	if [ "$(LLAMA_PAGED)" = "off" ]; then \
+		echo "LLAMA_PAGED=off: skipping paged-attention patch series"; \
+	else \
+		for p in $(CURRENT_MAKEFILE_DIR)patches/paged/0*.patch; do \
+			[ -e "$$p" ] || continue; \
+			echo "applying llama.cpp PAGED patch: $$p"; \
+			git apply --verbose "$$p" || { echo "paged patch failed: $$p"; exit 1; }; \
+		done; \
+	fi
 
 llama.cpp/tools/grpc-server: llama.cpp
 	mkdir -p llama.cpp/tools/grpc-server
-	bash prepare.sh
+	LLAMA_PAGED=$(LLAMA_PAGED) bash prepare.sh
 
 rebuild:
-	bash prepare.sh
+	LLAMA_PAGED=$(LLAMA_PAGED) bash prepare.sh
 	rm -rf grpc-server
 	$(MAKE) grpc-server
 
