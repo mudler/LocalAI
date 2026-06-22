@@ -732,6 +732,40 @@ static void params_parse(server_context& /*ctx_server*/, const backend::ModelOpt
             } else if (optval_str == "false" || optval_str == "0" || optval_str == "no" || optval_str == "off" || optval_str == "disabled") {
                 params.kv_unified = false;
             }
+        // --- paged KV cache (experimental, off by default) ---
+        // Enables the on-demand paged KV-cache engine (vendored PagedKVManager
+        // + paged placement/gather/alloc seams). The engine is gated inside
+        // llama.cpp by the LLAMA_KV_PAGED env var, evaluated once at first use;
+        // here we expose it as a per-server model option instead of forcing the
+        // operator to export a process-wide env. When enabled we set the env
+        // BEFORE the model/context is created (later in this handler), so the
+        // engine latches on. When the option is absent we touch nothing, so an
+        // externally exported LLAMA_KV_PAGED still works as an escape hatch.
+        // Note: the engine's env check is process-wide and latches on first
+        // use, so enabling it for one model enables it for the worker process;
+        // LocalAI runs one model per llama.cpp worker, so this maps cleanly to
+        // per-server configuration. `kv_paged_debug` turns on the per-slot
+        // [paged-alloc]/free trace (LLAMA_KV_PAGED_DEBUG).
+        //
+        // The continuous-batching serving loop (update_slots) drives paged KV
+        // transparently through the existing kv-cache seams: each slot's
+        // sequence allocates paged blocks on arrival (find_slot placement) and
+        // returns them on slot release (the seq_rm free seam). This is
+        // token-identical to stock under both the unified and per-sequence
+        // caches. The per-slot allocate/free capacity benefit, however, only
+        // materialises with a per-sequence cache, since paged block ownership
+        // is keyed by stream and the unified cache collapses every slot onto a
+        // single stream. Operators who want that benefit should pair this with
+        // `kv_unified:false`; we do NOT flip kv_unified here, to keep the
+        // default serving behaviour (and the idle-slot prompt cache) unchanged.
+        } else if (!strcmp(optname, "kv_paged") || !strcmp(optname, "paged_kv") || !strcmp(optname, "paged_attention")) {
+            if (optval_str == "true" || optval_str == "1" || optval_str == "yes" || optval_str == "on" || optval_str == "enabled") {
+                setenv("LLAMA_KV_PAGED", "1", 1);
+            }
+        } else if (!strcmp(optname, "kv_paged_debug") || !strcmp(optname, "paged_kv_debug")) {
+            if (optval_str == "true" || optval_str == "1" || optval_str == "yes" || optval_str == "on" || optval_str == "enabled") {
+                setenv("LLAMA_KV_PAGED_DEBUG", "1", 1);
+            }
         } else if (!strcmp(optname, "n_ctx_checkpoints") || !strcmp(optname, "ctx_checkpoints")) {
             if (optval != NULL) {
                 try {
