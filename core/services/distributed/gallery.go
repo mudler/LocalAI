@@ -79,21 +79,29 @@ func (s *GalleryStore) Create(op *GalleryOperationRecord) error {
 	}).Create(op).Error
 }
 
-// UpdateProgress updates progress for an operation.
-func (s *GalleryStore) UpdateProgress(id string, progress float64, message, downloadedSize string) error {
+// UpdateProgress updates progress for an operation. The cancellable flag is
+// persisted on every tick so a replica that restarts mid-install rehydrates the
+// op as still cancellable — otherwise the column keeps its Create-time zero
+// value (false), the UI hides the cancel button, and the orphaned op can only
+// be dismissed by waiting for the 30-minute stale reaper.
+func (s *GalleryStore) UpdateProgress(id string, progress float64, message, downloadedSize string, cancellable bool) error {
 	return s.db.Model(&GalleryOperationRecord{}).Where("id = ?", id).Updates(map[string]any{
 		"progress":             progress,
 		"message":              message,
 		"downloaded_file_size": downloadedSize,
+		"cancellable":          cancellable,
 		"updated_at":           time.Now(),
 	}).Error
 }
 
-// UpdateStatus updates the status of an operation.
+// UpdateStatus updates the status of an operation. A terminal status is never
+// cancellable, so the flag is cleared here to keep the persisted row consistent
+// with what the UI should offer.
 func (s *GalleryStore) UpdateStatus(id, status, errMsg string) error {
 	updates := map[string]any{
-		"status":     status,
-		"updated_at": time.Now(),
+		"status":      status,
+		"cancellable": false,
+		"updated_at":  time.Now(),
 	}
 	if errMsg != "" {
 		updates["error"] = errMsg
