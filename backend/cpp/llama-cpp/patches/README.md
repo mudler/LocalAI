@@ -56,7 +56,19 @@ All variants (avx/avx2/avx512/cuda/…) copy the patched `llama.cpp/` tree, so t
 - **0001 vendor manager — DONE.** Applies clean to the pin; builds into `libllama`.
 - **0002 block placement — DONE + VERIFIED.** Built `llama-simple` at the pin; greedy generation is
   **token-identical** stock vs `LLAMA_KV_PAGED=1` (Qwen3-0.6B), paged branch confirmed firing.
-- **0003 gather-read — NEXT.** The intricate `build_attn` graph surgery; the real engine compute. Multi-session.
+- **0003 gather-read — DONE + VERIFIED (Gate 0 green).** Implemented in the **additive** form
+  (`ADDITIVE_DESIGN.md`): all logic in new `src/paged-attn.{h,cpp}` (a `llm_graph_input_i` gather-index
+  subclass + the K/V/mask gather), hooked by **one** line in `build_attn` + **two** thin accessors on
+  `llama_kv_cache_context` + 1 CMake line (216 insertions; no edit to `llm_graph_input_attn_kv` or
+  `llama-graph.h`). Greedy generation is **token-identical** stock vs `LLAMA_KV_PAGED=1` (Qwen3-0.6B,
+  **9/9** across 3 prompts × {32,96,128} tokens), with `n_gather=71 < n_kv=256` confirming real
+  compaction. Patch: `0003-paged-gather-read-env-LLAMA_KV_PAGED.patch`.
+  - **Key correctness finding:** `get_gather_idxs` must emit cells **sorted by token position**. The CPU
+    flash-attn online softmax reduces cells in physical-array order and is FP-order-sensitive, so 0002's
+    scattered placement *alone* (full-window read, no gather) diverges from stock once a sequence crosses
+    the first 16-cell block. The position-sorted gather reproduces stock's exact reduction order -> bit-
+    identical, not merely mathematically equivalent. So 0002 is the placement substrate; **0003 is what
+    makes paged placement token-identical under flash-attn.**
 - 0004–0006 follow.
 
 ### Honest parity note (important)
