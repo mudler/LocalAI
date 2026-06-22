@@ -861,21 +861,7 @@ func runRealtimeSession(application *application.Application, t Transport, model
 			conversation.Lock.Lock()
 			var retrievedItem types.MessageItemUnion
 			for _, item := range conversation.Items {
-				// We need to check ID in the union
-				var id string
-				if item.System != nil {
-					id = item.System.ID
-				} else if item.User != nil {
-					id = item.User.ID
-				} else if item.Assistant != nil {
-					id = item.Assistant.ID
-				} else if item.FunctionCall != nil {
-					id = item.FunctionCall.ID
-				} else if item.FunctionCallOutput != nil {
-					id = item.FunctionCallOutput.ID
-				}
-
-				if id == e.ItemID {
+				if itemID(item) == e.ItemID {
 					retrievedItem = *item
 					break
 				}
