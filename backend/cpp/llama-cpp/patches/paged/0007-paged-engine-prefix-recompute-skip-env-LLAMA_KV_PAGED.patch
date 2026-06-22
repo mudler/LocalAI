@@ -1,0 +1,531 @@
+From da20c1c0571e84bc76202d915d4bb82892a3392b Mon Sep 17 00:00:00 2001
+From: Ettore Di Giacinto <mudler@localai.io>
+Date: Mon, 22 Jun 2026 12:46:28 +0200
+Subject: [PATCH] paged engine prefix recompute-skip (env LLAMA_KV_PAGED) -
+ patch 0007
+
+Wire the host-side cross-request prefix cache (patch 0006) into the engine so a
+new sequence physically SHARES the cached prefix blocks and skips recomputing the
+shared prefix - the actual compute win that 0006 (which only proved the host-side
+machinery + realised reuse via the stock seq_cp) did not yet deliver from the
+paged path itself.
+
+Mechanism (all gated behind LLAMA_KV_PAGED; default off, stock byte-identical):
+
+  * paged-alloc reworked from a per-stream, request-0, destroyed-on-free manager
+    into ONE persistent caching PagedKVManager per (kv-cache, stream) whose
+    requests are keyed by the real llama_seq_id. free(seq) now releases exactly
+    one sequence, so ref-counted shared blocks survive while another sharer holds
+    them. New seams: share_prefix (place_with_prefix -> shared prefix tokens),
+    slot, commit (publish a sequence into the content cache), ref-counted release,
+    plus ref/num-free introspection.
+
+  * Two gated llama_kv_cache methods (the core seq-membership handling 0007 needs):
+    paged_prefix_share() reuses the longest cached content prefix for a sequence
+    and marks the shared physical cells as belonging to it (cells.seq_add) so the
+    engine's attention mask includes the already-computed prefix KV; the caller
+    then decodes ONLY the divergent suffix. paged_prefix_commit() publishes a
+    sequence's full blocks for later reuse.
+
+  * find_slot's paged branch anchors placement on each sequence's own logical base
+    (ubatch.pos) and keys the manager request by seq_id, so an independently-freed
+    sequence and a shared prefix coexist in one unified pool. seq_rm/clear free
+    per-sequence (ref-counted) instead of nuking the whole stream.
+
+  * paged-prefix-api: a thin gated shim so a caller holding only the public
+    llama.h can reach the seam and the introspection without the internal headers.
+
+Core existing-file touch: src/llama-kv-cache.{cpp,h}, +71 -3. Everything else is
+additive vendored units. Verified on Qwen3-0.6B-Q8_0 (CPU, unified cache): a
+sequence B sharing A's prefix decodes greedy tokens byte-identical to B from
+scratch with the prefill computing ONLY the suffix (32 prefix tokens skipped) at
+a block boundary AND mid-block; the shared block carries ref_cnt 2 while both
+hold it, drops to 1 when one sharer is removed (survivor intact, re-shareable, no
+use-after-free) and returns to the pool only when all sharers are freed. The
+0004 serving gate (unified and non-unified) stays byte-identical stock vs paged.
+
+Assisted-by: Claude:opus-4.8 [Claude Code]
+Signed-off-by: Ettore Di Giacinto <mudler@localai.io>
+---
+ src/CMakeLists.txt       |   1 +
+ src/llama-kv-cache.cpp   |  66 +++++++++++++++++++++++--
+ src/llama-kv-cache.h     |   8 +++
+ src/paged-alloc.cpp      | 104 ++++++++++++++++++++++++++++++---------
+ src/paged-alloc.h        |  69 +++++++++++++++++++-------
+ src/paged-prefix-api.cpp |  48 ++++++++++++++++++
+ src/paged-prefix-api.h   |  27 ++++++++++
+ 7 files changed, 280 insertions(+), 43 deletions(-)
+ create mode 100644 src/paged-prefix-api.cpp
+ create mode 100644 src/paged-prefix-api.h
+
+diff --git a/src/CMakeLists.txt b/src/CMakeLists.txt
+index 4d9d7d1..432f42d 100644
+--- a/src/CMakeLists.txt
++++ b/src/CMakeLists.txt
+@@ -27,6 +27,7 @@ add_library(llama
+             paged-kv-manager.cpp
+             paged-attn.cpp
+             paged-alloc.cpp
++            paged-prefix-api.cpp
+             llama-kv-cache-dsa.cpp
+             llama-memory.cpp
+             llama-memory-hybrid.cpp
+diff --git a/src/llama-kv-cache.cpp b/src/llama-kv-cache.cpp
+index 1125d9a..7510ff9 100644
+--- a/src/llama-kv-cache.cpp
++++ b/src/llama-kv-cache.cpp
+@@ -419,7 +419,7 @@ bool llama_kv_cache::seq_rm(llama_seq_id seq_id, llama_pos p0, llama_pos p1) {
+     // removed (sequence end), so they return to the pool for reuse.
+     if (paged_alloc::active() && p0 == 0 && p1 == std::numeric_limits<llama_pos>::max()) {
+         if (seq_id >= 0) {
+-            paged_alloc::release(this, (int) seq_to_stream[seq_id]);
++            paged_alloc::release(this, (int) seq_to_stream[seq_id], (int) seq_id);
+         } else {
+             paged_alloc::release_all(this);
+         }
+@@ -1056,10 +1056,15 @@ llama_kv_cache::slot_info llama_kv_cache::find_slot(const llama_ubatch & ubatch,
+             const uint32_t bs   = 16;                 // block size (tokens/block)
+             const uint32_t nblk = cells.size() / bs;  // this stream's block budget
+             if (nblk >= 2) {
+-                const uint32_t base = cells.get_used();
++                // [paged 0007] Anchor placement on this sequence's own logical
++                // base position (ubatch.pos), not the shared used-count, and key
++                // the manager request by the real seq_id. slot(seq,pos) is then
++                // stable per sequence, so an independently-freed (ref-counted)
++                // sequence and a shared prefix can coexist in one unified pool.
++                const uint32_t base = (uint32_t) ubatch.pos[s*n_tokens];
+                 const int      strm = (int) seq_to_stream[seq_id];
+                 std::vector<uint32_t> placed;
+-                if (paged_alloc::place(this, strm, base, n_tokens, bs, nblk, placed)) {
++                if (paged_alloc::place(this, strm, (int) seq_id, base, n_tokens, bs, nblk, placed)) {
+                     bool ok = (placed.size() == n_tokens);
+                     for (uint32_t i = 0; ok && i < n_tokens; ++i) {
+                         if (placed[i] >= cells.size() || !cells.is_empty(placed[i])) {
+@@ -1165,6 +1170,61 @@ llama_kv_cache::slot_info llama_kv_cache::find_slot(const llama_ubatch & ubatch,
+     return res;
+ }
+ 
++// [paged 0007] Cross-request prefix recompute-skip.
++//
++// Reuse a cached content prefix for seq_id: share_prefix() splices the longest
++// matching cached physical blocks into seq_id (ref_cnt++) and reserves fresh
++// blocks for the divergent suffix. We then mark the shared physical cells as
++// belonging to seq_id - those cells already hold the owner's computed KV at the
++// matching logical positions, so the caller decodes ONLY the suffix and the
++// prefix is never recomputed. Returns the number of shared prefix tokens.
++// Gated behind LLAMA_KV_PAGED; a no-op (returns 0) otherwise.
++int32_t llama_kv_cache::paged_prefix_share(llama_seq_id seq_id, const std::vector<llama_token> & tokens) {
++    if (!paged_alloc::active() || tokens.empty()) {
++        return 0;
++    }
++    const uint32_t bs   = 16;
++    const uint32_t strm = (uint32_t) seq_to_stream[seq_id];
++    auto & cells = v_cells[strm];
++    const uint32_t nblk = cells.size() / bs;
++    if (nblk < 2) {
++        return 0;
++    }
++
++    std::vector<int> toks(tokens.begin(), tokens.end());
++    const size_t kshare = paged_alloc::share_prefix(this, (int) strm, (int) seq_id, toks, bs, nblk);
++
++    for (size_t p = 0; p < kshare; ++p) {
++        const int64_t cell = paged_alloc::slot(this, (int) strm, (int) seq_id, (int) p);
++        if (cell < 0 || (uint32_t) cell >= cells.size() ||
++            cells.is_empty((uint32_t) cell) ||
++            cells.pos_get((uint32_t) cell) != (llama_pos) p) {
++            // Owner cell missing / repurposed: cannot safely share. Roll the
++            // sequence back so the caller recomputes the whole prompt.
++            paged_alloc::release(this, (int) strm, (int) seq_id);
++            return 0;
++        }
++        if (!cells.seq_has((uint32_t) cell, seq_id)) {
++            cells.seq_add((uint32_t) cell, seq_id);
++        }
++    }
++    return (int32_t) kshare;
++}
++
++// [paged 0007] Publish a sequence's full blocks into the content cache so a
++// later paged_prefix_share() can reuse them. Call after the sequence KV is
++// computed (its prefill decode has run).
++void llama_kv_cache::paged_prefix_commit(llama_seq_id seq_id, const std::vector<llama_token> & tokens) {
++    if (!paged_alloc::active() || tokens.empty()) {
++        return;
++    }
++    const uint32_t bs   = 16;
++    const uint32_t strm = (uint32_t) seq_to_stream[seq_id];
++    const uint32_t nblk = v_cells[strm].size() / bs;
++    std::vector<int> toks(tokens.begin(), tokens.end());
++    paged_alloc::commit(this, (int) strm, (int) seq_id, toks, bs, nblk);
++}
++
+ void llama_kv_cache::apply_ubatch(const slot_info & sinfo, const llama_ubatch & ubatch) {
+     // TODO: refactor [TAG_KV_CACHE_SHARE_CELLS]
+     if (other) {
+diff --git a/src/llama-kv-cache.h b/src/llama-kv-cache.h
+index 494c0fb..f374ac6 100644
+--- a/src/llama-kv-cache.h
++++ b/src/llama-kv-cache.h
+@@ -199,6 +199,14 @@ public:
+     // emplace the ubatch context into slot: [sinfo.idxs[0...ubatch.n_tokens - 1]]
+     void apply_ubatch(const slot_info & sinfo, const llama_ubatch & ubatch);
+ 
++    // [paged 0007] Cross-request prefix recompute-skip (experimental, gated by
++    // env LLAMA_KV_PAGED). paged_prefix_share() reuses a cached content prefix
++    // for seq_id and returns the number of shared prefix tokens (the caller
++    // decodes only the suffix); paged_prefix_commit() publishes a sequence into
++    // the content cache for later reuse. No-ops when LLAMA_KV_PAGED is unset.
++    int32_t paged_prefix_share (llama_seq_id seq_id, const std::vector<llama_token> & tokens);
++    void    paged_prefix_commit(llama_seq_id seq_id, const std::vector<llama_token> & tokens);
++
+     //
+     // input API
+     //
+diff --git a/src/paged-alloc.cpp b/src/paged-alloc.cpp
+index 1d13f9c..c1027fb 100644
+--- a/src/paged-alloc.cpp
++++ b/src/paged-alloc.cpp
+@@ -23,9 +23,13 @@ namespace {
+ 
+ using key_t = std::pair<const void *, int>;
+ 
+-// One PagedKVManager per (kv-cache, stream): each stream owns a separate
+-// physical pool of cells.size() cells, so a manager's block ids map directly to
+-// cell ranges within that stream's pool. The internal request id is always 0.
++// One persistent PagedKVManager per (kv-cache, stream): each stream owns a
++// separate physical pool of cells.size() cells, so a manager's block ids map
++// directly to cell ranges within that stream's pool. Requests inside a manager
++// are keyed by the real llama_seq_id (NOT a fixed 0), so free(seq) releases one
++// sequence and shared blocks survive at ref>0 - this is what makes ref-counted
++// cross-request prefix sharing (0007) possible. Caching is enabled so commit()
++// can publish blocks and share_prefix() can hit them.
+ std::map<key_t, std::unique_ptr<paged::PagedKVManager>> g_managers;
+ 
+ paged::PagedKVManager * get_mgr(const void * cache, int stream,
+@@ -33,18 +37,21 @@ paged::PagedKVManager * get_mgr(const void * cache, int stream,
+     const key_t k{cache, stream};
+     auto it = g_managers.find(k);
+     if (it == g_managers.end()) {
+-        // enable_caching=false: prefix caching is a later patch; 0004 exercises
+-        // only on-demand allocate / free.
+         auto mgr = std::make_unique<paged::PagedKVManager>(
+-            (int32_t) pool_blocks, (int) block_size, /*enable_caching=*/false);
++            (int32_t) pool_blocks, (int) block_size, /*enable_caching=*/true);
+         it = g_managers.emplace(k, std::move(mgr)).first;
+     }
+     return it->second.get();
+ }
+ 
++paged::PagedKVManager * find_mgr(const void * cache, int stream) {
++    auto it = g_managers.find({cache, stream});
++    return it == g_managers.end() ? nullptr : it->second.get();
++}
++
+ } // namespace
+ 
+-bool place(const void * cache, int stream, uint32_t base, uint32_t n_tokens,
++bool place(const void * cache, int stream, int seq, uint32_t base, uint32_t n_tokens,
+            uint32_t block_size, uint32_t pool_blocks,
+            std::vector<uint32_t> & out) {
+     if (n_tokens == 0) {
+@@ -53,43 +60,79 @@ bool place(const void * cache, int stream, uint32_t base, uint32_t n_tokens,
+ 
+     paged::PagedKVManager * mgr = get_mgr(cache, stream, pool_blocks, block_size);
+ 
+-    const size_t before = mgr->block_table(0).size();
++    const size_t before = mgr->block_table(seq).size();
+ 
+-    // Grow the request to cover the highest logical position. The manager pops
+-    // free blocks only for the boundaries actually crossed - that is the on-
+-    // demand behavior; an already-covered range adds nothing.
+-    if (!mgr->allocate(0, (size_t) base + n_tokens)) {
++    // Grow this sequence's request to cover its highest logical position. The
++    // manager pops free blocks only for boundaries actually crossed; if
++    // share_prefix() already reserved these blocks, this is a no-op.
++    if (!mgr->allocate(seq, (size_t) base + n_tokens)) {
+         return false; // pool exhausted -> caller falls back to the stock path
+     }
+ 
+     out.reserve(out.size() + n_tokens);
+     for (uint32_t i = 0; i < n_tokens; ++i) {
+-        const int64_t s = mgr->slot(0, (int) (base + i));
++        const int64_t s = mgr->slot(seq, (int) (base + i));
+         out.push_back((uint32_t) s);
+     }
+ 
+     if (debug()) {
+-        const size_t after = mgr->block_table(0).size();
++        const size_t after = mgr->block_table(seq).size();
+         if (after != before) {
+             fprintf(stderr,
+-                    "[paged-alloc] cache=%p stream=%d grew %zu->%zu blocks "
++                    "[paged-alloc] cache=%p stream=%d seq=%d grew %zu->%zu blocks "
+                     "(budget=%u; base=%u +%u tok)\n",
+-                    cache, stream, before, after, pool_blocks, base, n_tokens);
++                    cache, stream, seq, before, after, pool_blocks, base, n_tokens);
+         }
+     }
+ 
+     return true;
+ }
+ 
+-void release(const void * cache, int stream) {
+-    auto it = g_managers.find({cache, stream});
+-    if (it == g_managers.end()) {
++size_t share_prefix(const void * cache, int stream, int seq,
++                    const std::vector<int> & tokens,
++                    uint32_t block_size, uint32_t pool_blocks) {
++    paged::PagedKVManager * mgr = get_mgr(cache, stream, pool_blocks, block_size);
++    const size_t shared_blocks = mgr->place_with_prefix(seq, tokens);
++    const size_t shared_tokens = shared_blocks * (size_t) block_size;
++    if (debug() && shared_blocks > 0) {
++        fprintf(stderr,
++                "[paged-alloc] cache=%p stream=%d seq=%d shares %zu prefix blocks "
++                "(%zu tokens) - prefix NOT recomputed\n",
++                cache, stream, seq, shared_blocks, shared_tokens);
++    }
++    return shared_tokens;
++}
++
++int64_t slot(const void * cache, int stream, int seq, int pos) {
++    paged::PagedKVManager * mgr = find_mgr(cache, stream);
++    if (!mgr) {
++        return -1;
++    }
++    if ((size_t) (pos / mgr->block_size()) >= mgr->num_blocks(seq)) {
++        return -1;
++    }
++    return mgr->slot(seq, pos);
++}
++
++void commit(const void * cache, int stream, int seq,
++            const std::vector<int> & tokens, uint32_t block_size, uint32_t pool_blocks) {
++    paged::PagedKVManager * mgr = get_mgr(cache, stream, pool_blocks, block_size);
++    mgr->cache_blocks(seq, mgr->compute_block_hashes(tokens), tokens.size());
++    if (debug()) {
++        fprintf(stderr, "[paged-alloc] cache=%p stream=%d seq=%d committed %zu tokens\n",
++                cache, stream, seq, tokens.size());
++    }
++}
++
++void release(const void * cache, int stream, int seq) {
++    paged::PagedKVManager * mgr = find_mgr(cache, stream);
++    if (!mgr) {
+         return;
+     }
+-    it->second->free(0);
+-    g_managers.erase(it);
++    mgr->free(seq); // ref-counted: shared blocks survive while another seq holds them
+     if (debug()) {
+-        fprintf(stderr, "[paged-alloc] released cache=%p stream=%d\n", cache, stream);
++        fprintf(stderr, "[paged-alloc] released cache=%p stream=%d seq=%d (free=%zu)\n",
++                cache, stream, seq, mgr->num_free_blocks());
+     }
+ }
+ 
+@@ -103,4 +146,21 @@ void release_all(const void * cache) {
+     }
+ }
+ 
++int ref_cnt_at(const void * cache, int stream, int seq, int pos, uint32_t block_size) {
++    paged::PagedKVManager * mgr = find_mgr(cache, stream);
++    if (!mgr) {
++        return -1;
++    }
++    const size_t bi = (size_t) pos / block_size;
++    if (bi >= mgr->num_blocks(seq)) {
++        return -1;
++    }
++    return mgr->block_ref_cnt_at(seq, bi);
++}
++
++size_t num_free(const void * cache, int stream) {
++    paged::PagedKVManager * mgr = find_mgr(cache, stream);
++    return mgr ? mgr->num_free_blocks() : 0;
++}
++
+ } // namespace paged_alloc
+diff --git a/src/paged-alloc.h b/src/paged-alloc.h
+index bf66665..88dedef 100644
+--- a/src/paged-alloc.h
++++ b/src/paged-alloc.h
+@@ -1,17 +1,27 @@
+ #pragma once
+-// On-demand paged KV block allocation (patch 0004, experimental).
++// On-demand paged KV block allocation + cross-request prefix reuse
++// (patches 0004 + 0007, experimental).
+ //
+-// Backs the paged placement in llama_kv_cache::find_slot (patch 0002) with the
+-// vendored host-side PagedKVManager (patch 0001). Instead of mapping a
+-// sequence's logical positions onto a fixed full-pool permutation, blocks are
+-// popped from a free pool ON DEMAND as the sequence crosses block boundaries,
+-// and returned to the pool on sequence end. This is where the paged memory-
+-// capacity benefit begins: a short sequence holds only a few blocks, not the
+-// whole reserved window.
++// Backs the paged placement in llama_kv_cache::find_slot with the vendored
++// host-side PagedKVManager (patch 0001). Two responsibilities:
+ //
+-// Gated behind env LLAMA_KV_PAGED; a no-op when unset. All state lives in this
+-// unit (a static registry keyed by kv-cache + stream), so the core kv-cache
+-// struct stays untouched - find_slot only gains a gated call.
++//   * On-demand allocation (0004): a sequence's logical positions are mapped to
++//     physical cells block-by-block, popped from a free pool only as the
++//     sequence grows and returned on sequence end.
++//
++//   * Cross-request prefix reuse (0007): before a new sequence's suffix is
++//     decoded, share_prefix() reuses the cached physical blocks of a matching
++//     content prefix (ref_cnt++), so the engine shares the already-computed KV
++//     cells and the caller decodes ONLY the divergent suffix - the prefix is not
++//     recomputed. commit() publishes a sequence's full blocks into the content
++//     cache so later sequences can hit them. Freeing is ref-counted: a shared
++//     block returns to the pool only when every sharer has been released.
++//
++// One persistent PagedKVManager per (kv-cache, stream); requests inside it are
++// keyed by the real llama_seq_id, so free(seq) releases exactly one sequence and
++// shared blocks survive at ref>0. All state lives in this unit (a static
++// registry), so the core kv-cache struct stays untouched - find_slot gains only
++// gated calls. Gated behind env LLAMA_KV_PAGED; a no-op when unset.
+ 
+ #include <cstdint>
+ #include <vector>
+@@ -21,19 +31,42 @@ namespace paged_alloc {
+ // true iff env LLAMA_KV_PAGED is set (evaluated once).
+ bool active();
+ 
+-// Place n_tokens logical positions [base, base+n_tokens) of one stream on
+-// demand, appending their physical cell indices to `out`. pool_blocks =
+-// cells.size()/block_size is this stream's block budget. Returns false (leaving
++// Place n_tokens logical positions [base, base+n_tokens) of (cache,stream,seq)
++// on demand, appending their physical cell indices to `out`. pool_blocks =
++// cells.size()/block_size is the stream's block budget. Returns false (leaving
+ // `out` unchanged) on pool exhaustion, so the caller falls back to the stock
+ // allocator. The caller still validates each returned cell is empty.
+-bool place(const void * cache, int stream, uint32_t base, uint32_t n_tokens,
++bool place(const void * cache, int stream, int seq, uint32_t base, uint32_t n_tokens,
+            uint32_t block_size, uint32_t pool_blocks,
+            std::vector<uint32_t> & out);
+ 
+-// Return a stream's blocks to the pool (sequence end).
+-void release(const void * cache, int stream);
++// [0007] Reuse the longest cached content prefix of `tokens` for (cache,stream,
++// seq): splice the shared physical blocks into seq (ref_cnt++) and reserve fresh
++// blocks for the divergent suffix. Returns the number of shared PREFIX TOKENS
++// (block-aligned); the caller marks those cells for seq and decodes only the
++// suffix. 0 if nothing matched or on pool exhaustion (sequence rolled back).
++size_t share_prefix(const void * cache, int stream, int seq,
++                    const std::vector<int> & tokens,
++                    uint32_t block_size, uint32_t pool_blocks);
++
++// [0007] Physical cell backing logical position `pos` of (cache,stream,seq), or
++// -1 if seq is unknown. Used to map a shared prefix position to its cell.
++int64_t slot(const void * cache, int stream, int seq, int pos);
+ 
+-// Return every stream's blocks for a kv-cache (clear() / teardown).
++// [0007] Publish seq's full (block-aligned) blocks into the content cache so a
++// later share_prefix() can reuse them. Call after the sequence's KV is computed.
++void commit(const void * cache, int stream, int seq,
++            const std::vector<int> & tokens, uint32_t block_size, uint32_t pool_blocks);
++
++// Return one sequence's blocks to the pool (ref-counted; sequence end).
++void release(const void * cache, int stream, int seq);
++
++// Drop every manager for a kv-cache (clear() / teardown).
+ void release_all(const void * cache);
+ 
++// Introspection for the prefix-share gate (debug/tests). ref_cnt_at returns the
++// ref count of the block backing logical position `pos`, or -1 if unknown.
++int    ref_cnt_at(const void * cache, int stream, int seq, int pos, uint32_t block_size);
++size_t num_free(const void * cache, int stream);
++
+ } // namespace paged_alloc
+diff --git a/src/paged-prefix-api.cpp b/src/paged-prefix-api.cpp
+new file mode 100644
+index 0000000..8573cd2
+--- /dev/null
++++ b/src/paged-prefix-api.cpp
+@@ -0,0 +1,48 @@
++#include "paged-prefix-api.h"
++#include "paged-alloc.h"
++#include "llama-kv-cache.h"
++
++#include <vector>
++
++namespace paged_prefix_api {
++
++static llama_kv_cache * kv_of(llama_context * ctx) {
++    // The driver targets a plain unified KV-cache model; dynamic_cast yields null
++    // for wrapped caches (iSWA / hybrid), where cross-request cell sharing does
++    // not apply, so the shim degrades to a safe no-op.
++    return dynamic_cast<llama_kv_cache *>(llama_get_memory(ctx));
++}
++
++int32_t share(llama_context * ctx, llama_seq_id seq, const llama_token * tokens, int n) {
++    llama_kv_cache * kv = kv_of(ctx);
++    if (!kv || n <= 0) {
++        return 0;
++    }
++    return kv->paged_prefix_share(seq, std::vector<llama_token>(tokens, tokens + n));
++}
++
++void commit(llama_context * ctx, llama_seq_id seq, const llama_token * tokens, int n) {
++    llama_kv_cache * kv = kv_of(ctx);
++    if (!kv || n <= 0) {
++        return;
++    }
++    kv->paged_prefix_commit(seq, std::vector<llama_token>(tokens, tokens + n));
++}
++
++int ref_at(llama_context * ctx, llama_seq_id seq, int pos) {
++    llama_kv_cache * kv = kv_of(ctx);
++    if (!kv) {
++        return -1;
++    }
++    return paged_alloc::ref_cnt_at((const void *) kv, /*stream=*/0, (int) seq, pos, /*block_size=*/16);
++}
++
++long num_free(llama_context * ctx) {
++    llama_kv_cache * kv = kv_of(ctx);
++    if (!kv) {
++        return 0;
++    }
++    return (long) paged_alloc::num_free((const void *) kv, /*stream=*/0);
++}
++
++} // namespace paged_prefix_api
+diff --git a/src/paged-prefix-api.h b/src/paged-prefix-api.h
+new file mode 100644
+index 0000000..78a3864
+--- /dev/null
++++ b/src/paged-prefix-api.h
+@@ -0,0 +1,27 @@
++#pragma once
++// Thin test/diagnostic shim over the paged cross-request prefix engine seam
++// (patch 0007). Lets a driver that only includes the public llama.h reach the
++// gated llama_kv_cache::paged_prefix_* methods and the paged-alloc introspection
++// without pulling in the internal kv-cache headers. All entry points are no-ops
++// (return 0) unless env LLAMA_KV_PAGED is set. Experimental; not a stable API.
++
++#include "llama.h"
++
++namespace paged_prefix_api {
++
++// Reuse the longest cached content prefix of [tokens, tokens+n) for `seq` and
++// return the number of shared prefix tokens (the caller decodes only the
++// suffix). 0 if nothing was shared.
++int32_t share(llama_context * ctx, llama_seq_id seq, const llama_token * tokens, int n);
++
++// Publish `seq`'s full blocks into the content cache (call after its KV is computed).
++void commit(llama_context * ctx, llama_seq_id seq, const llama_token * tokens, int n);
++
++// Ref count of the paged block backing logical position `pos` of `seq` (unified
++// stream 0), or -1 if unknown.
++int ref_at(llama_context * ctx, llama_seq_id seq, int pos);
++
++// Number of free blocks in the unified stream-0 pool, or 0 if no manager.
++long num_free(llama_context * ctx);
++
++} // namespace paged_prefix_api
+-- 
+2.43.0
+
