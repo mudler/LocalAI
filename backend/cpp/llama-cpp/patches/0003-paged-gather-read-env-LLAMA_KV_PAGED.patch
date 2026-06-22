@@ -1,16 +1,21 @@
-From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From c1de00f4cc1eb0dd25993880bb4c8562be1937d4 Mon Sep 17 00:00:00 2001
 From: Ettore Di Giacinto <mudler@localai.io>
 Date: Mon, 22 Jun 2026 10:24:22 +0200
 Subject: [PATCH] paged gather-read (env LLAMA_KV_PAGED) - patch 0003
 
+Gather K, V and the kq_mask down to each sequence stream's non-empty cells
+before build_attn_mha. Position-sorted per stream so the flash-attn online
+softmax reduction order matches stock byte-for-byte. Multi-stream: one index
+column per stream over k->ne[3], padded to the max non-empty count with a
+masked (empty) cell. Gated behind LLAMA_KV_PAGED; no-op when unset.
 ---
  src/CMakeLists.txt     |   1 +
- src/llama-graph.cpp    |   9 +++-
- src/llama-kv-cache.cpp |  51 ++++++++++++++++++++
- src/llama-kv-cache.h   |  10 ++++
- src/paged-attn.cpp     | 106 +++++++++++++++++++++++++++++++++++++++++
- src/paged-attn.h       |  40 ++++++++++++++++
- 6 files changed, 216 insertions(+), 1 deletion(-)
+ src/llama-graph.cpp    |   9 ++-
+ src/llama-kv-cache.cpp |  74 ++++++++++++++++++++++++
+ src/llama-kv-cache.h   |  11 ++++
+ src/paged-attn.cpp     | 128 +++++++++++++++++++++++++++++++++++++++++
+ src/paged-attn.h       |  40 +++++++++++++
+ 6 files changed, 262 insertions(+), 1 deletion(-)
  create mode 100644 src/paged-attn.cpp
  create mode 100644 src/paged-attn.h
 
@@ -54,7 +59,7 @@ index 68c9e60..b59d2a5 100644
  
      if (inp->self_v_rot) {
 diff --git a/src/llama-kv-cache.cpp b/src/llama-kv-cache.cpp
-index 999e2ae..2306013 100644
+index 999e2ae..30d02d7 100644
 --- a/src/llama-kv-cache.cpp
 +++ b/src/llama-kv-cache.cpp
 @@ -1,4 +1,6 @@
@@ -64,7 +69,7 @@ index 999e2ae..2306013 100644
  
  #include "llama-impl.h"
  #include "llama-io.h"
-@@ -1329,6 +1331,47 @@ ggml_tensor * llama_kv_cache::get_v(ggml_context * ctx, int32_t il, uint32_t n_k
+@@ -1329,6 +1331,70 @@ ggml_tensor * llama_kv_cache::get_v(ggml_context * ctx, int32_t il, uint32_t n_k
              ggml_row_size(v->type, kv_size*n_embd_v_gqa)*sinfo.s0);
  }
  
@@ -73,46 +78,69 @@ index 999e2ae..2306013 100644
 +// the sequence's scattered block cells; gathering K/V/mask by this index list
 +// compacts the attention read while preserving every unmasked (token,cell) pair.
 +uint32_t llama_kv_cache::get_n_gather(uint32_t n_kv, const slot_info & sinfo) const {
-+    GGML_ASSERT(sinfo.n_stream() == 1);
-+    const auto & cells = v_cells[sinfo.strm[0]];
-+    const uint32_t n = std::min<uint32_t>(n_kv, cells.size());
-+    uint32_t cnt = 0;
-+    for (uint32_t i = 0; i < n; ++i) {
-+        if (!cells.is_empty(i)) {
-+            ++cnt;
++    // Multi-stream: the gathered K/V/mask tensors are rectangular [.., n_gather,
++    // n_stream], so n_gather is the MAX non-empty count across the batch streams.
++    // Streams with fewer cells are padded (see get_gather_idxs) with a masked
++    // (empty) cell index, which contributes exp(-inf)=0 and is thus a no-op.
++    // K is laid out over physical streams [s0, s1]; index v_cells the same way.
++    const uint32_t ns = sinfo.s1 - sinfo.s0 + 1;
++    uint32_t mx = 0;
++    for (uint32_t j = 0; j < ns; ++j) {
++        const auto & cells = v_cells[sinfo.s0 + j];
++        const uint32_t n = std::min<uint32_t>(n_kv, cells.size());
++        uint32_t cnt = 0;
++        for (uint32_t i = 0; i < n; ++i) {
++            if (!cells.is_empty(i)) {
++                ++cnt;
++            }
 +        }
++        mx = std::max(mx, cnt);
 +    }
-+    return cnt;
++    return mx;
 +}
 +
 +void llama_kv_cache::get_gather_idxs(int32_t * dst, uint32_t n_kv, const slot_info & sinfo) const {
-+    GGML_ASSERT(sinfo.n_stream() == 1);
-+    const auto & cells = v_cells[sinfo.strm[0]];
-+    const uint32_t n = std::min<uint32_t>(n_kv, cells.size());
-+    // Collect the non-empty cells, then order them by token POSITION (not by
-+    // physical cell index). The attention reduction (flash-attn online softmax,
-+    // and the non-flash soft_max) runs over cells in array order and is
-+    // order-sensitive in floating point. Stock (contiguous) placement happens
-+    // to store cells in position order, so emitting the gathered indices in
-+    // position order reproduces stock's exact reduction order - making the
-+    // paged read bit-identical, not merely mathematically equivalent.
-+    std::vector<std::pair<llama_pos, int32_t>> pc;
-+    pc.reserve(n);
-+    for (uint32_t i = 0; i < n; ++i) {
-+        if (!cells.is_empty(i)) {
-+            pc.emplace_back(cells.pos_get(i), (int32_t) i);
++    const uint32_t ns       = sinfo.s1 - sinfo.s0 + 1;
++    const uint32_t n_gather = get_n_gather(n_kv, sinfo);
++    // dst is [n_gather, n_stream] (ne0 = n_gather): column s at dst[s*n_gather..].
++    for (uint32_t j = 0; j < ns; ++j) {
++        const auto & cells = v_cells[sinfo.s0 + j];
++        const uint32_t n = std::min<uint32_t>(n_kv, cells.size());
++        // Collect the non-empty cells, then order them by token POSITION (not by
++        // physical cell index). The attention reduction (flash-attn online
++        // softmax, and the non-flash soft_max) runs over cells in array order and
++        // is order-sensitive in floating point. Stock (contiguous) placement
++        // happens to store cells in position order, so emitting the gathered
++        // indices in position order reproduces stock's exact reduction order -
++        // making the paged read bit-identical, not merely math-equivalent.
++        std::vector<std::pair<llama_pos, int32_t>> pc;
++        pc.reserve(n);
++        int32_t pad = -1;
++        for (uint32_t i = 0; i < n; ++i) {
++            if (!cells.is_empty(i)) {
++                pc.emplace_back(cells.pos_get(i), (int32_t) i);
++            } else if (pad < 0) {
++                pad = (int32_t) i; // first empty cell: its mask is -inf -> safe pad
++            }
 +        }
-+    }
-+    std::sort(pc.begin(), pc.end());
-+    for (size_t j = 0; j < pc.size(); ++j) {
-+        dst[j] = pc[j].second;
++        std::sort(pc.begin(), pc.end());
++        int32_t * col = dst + (size_t) j * n_gather;
++        for (size_t k = 0; k < pc.size(); ++k) {
++            col[k] = pc[k].second;
++        }
++        // Pad the tail to n_gather with a masked (empty) cell so the rectangular
++        // gather drops to zero contribution for streams shorter than the max.
++        const int32_t padv = (pad >= 0) ? pad : (pc.empty() ? 0 : pc.back().second);
++        for (uint32_t k = (uint32_t) pc.size(); k < n_gather; ++k) {
++            col[k] = padv;
++        }
 +    }
 +}
 +
  ggml_tensor * llama_kv_cache::cpy_k(ggml_context * ctx, ggml_tensor * k_cur, ggml_tensor * k_idxs, int32_t il, const slot_info & sinfo) const {
      GGML_UNUSED(sinfo);
  
-@@ -2620,6 +2663,14 @@ ggml_tensor * llama_kv_cache_context::get_v(ggml_context * ctx, int32_t il) cons
+@@ -2620,6 +2686,14 @@ ggml_tensor * llama_kv_cache_context::get_v(ggml_context * ctx, int32_t il) cons
      return kv->get_v(ctx, il, n_kv, sinfos[i_cur]);
  }
  
@@ -128,22 +156,23 @@ index 999e2ae..2306013 100644
      return kv->cpy_k(ctx, k_cur, k_idxs, il, sinfos[i_cur]);
  }
 diff --git a/src/llama-kv-cache.h b/src/llama-kv-cache.h
-index 3d68f98..1b81617 100644
+index 3d68f98..494c0fb 100644
 --- a/src/llama-kv-cache.h
 +++ b/src/llama-kv-cache.h
-@@ -171,6 +171,11 @@ public:
+@@ -171,6 +171,12 @@ public:
      ggml_tensor * get_k(ggml_context * ctx, int32_t il, uint32_t n_kv, const slot_info & sinfo) const;
      ggml_tensor * get_v(ggml_context * ctx, int32_t il, uint32_t n_kv, const slot_info & sinfo) const;
  
-+    // [paged 0003] count / list the non-empty cells in [0, n_kv) for the
-+    //   single stream of sinfo (ascending). Used by paged-attn gather-read.
++    // [paged 0003] count / list the non-empty cells in [0, n_kv) per stream of
++    //   sinfo (position-sorted, padded across streams). Used by paged-attn
++    //   gather-read. get_n_gather returns the max count across streams.
 +    uint32_t get_n_gather(uint32_t n_kv, const slot_info & sinfo) const;
 +    void     get_gather_idxs(int32_t * dst, uint32_t n_kv, const slot_info & sinfo) const;
 +
      // store k_cur and v_cur in the cache based on the provided head location
      ggml_tensor * cpy_k(ggml_context * ctx, ggml_tensor * k_cur, ggml_tensor * k_idxs, int32_t il, const slot_info & sinfo) const;
      ggml_tensor * cpy_v(ggml_context * ctx, ggml_tensor * v_cur, ggml_tensor * v_idxs, int32_t il, const slot_info & sinfo) const;
-@@ -368,6 +373,11 @@ public:
+@@ -368,6 +374,11 @@ public:
      ggml_tensor * get_k(ggml_context * ctx, int32_t il) const;
      ggml_tensor * get_v(ggml_context * ctx, int32_t il) const;
  
@@ -157,10 +186,10 @@ index 3d68f98..1b81617 100644
      //   - k_cur  [n_embd_head_k, n_head_k, n_tokens]
 diff --git a/src/paged-attn.cpp b/src/paged-attn.cpp
 new file mode 100644
-index 0000000..4bbf244
+index 0000000..ade75e8
 --- /dev/null
 +++ b/src/paged-attn.cpp
-@@ -0,0 +1,106 @@
+@@ -0,0 +1,128 @@
 +#include "paged-attn.h"
 +
 +#include "llama-graph.h"
@@ -170,6 +199,7 @@ index 0000000..4bbf244
 +#include "ggml-backend.h"
 +
 +#include <cstdlib>
++#include <cstdio>
 +
 +namespace paged_attn {
 +
@@ -178,12 +208,18 @@ index 0000000..4bbf244
 +    return a;
 +}
 +
++static bool debug() {
++    static const bool d = (std::getenv("LLAMA_KV_PAGED_DEBUG") != nullptr);
++    return d;
++}
++
 +namespace {
 +
-+// Graph input that, at set_input time, fills an I32 [n_gather] tensor with the
-+// current sequence's non-empty cell indices (ascending) by delegating to the
-+// kv-cache context. Private to this unit; default can_reuse()==false keeps the
-+// graph from being reused across decodes (n_gather grows every step).
++// Graph input that, at set_input time, fills an I32 [n_gather, n_stream] tensor
++// with each stream's non-empty cell indices (position-sorted, padded with a
++// masked/empty cell) by delegating to the kv-cache context. Private to this
++// unit; default can_reuse()==false keeps the graph from being reused across
++// decodes (n_gather grows every step).
 +class input_gather_idxs : public llm_graph_input_i {
 +public:
 +    input_gather_idxs(const llama_kv_cache_context * mctx, ggml_tensor * idxs)
@@ -215,8 +251,12 @@ index 0000000..4bbf244
 +    ggml_tensor * V = *v;
 +    ggml_tensor * M = *kq_mask;
 +
-+    // First cut: single stream only (multi-stream is a follow-up).
-+    GGML_ASSERT(K->ne[3] == 1);
++    // Number of streams (sequences) in the unified batch. K is laid out
++    // [d, h, n_kv, n_stream] and the mask is [n_kv, n_tps, 1, n_stream]; the
++    // gather is per-stream (one index column per stream), so a single
++    // ggml_get_rows over the stream axis handles 1..N streams uniformly.
++    const int64_t n_stream = K->ne[3];
++    GGML_ASSERT(M->ne[3] == n_stream);
 +
 +    const int64_t n_gather = (int64_t) mctx->get_n_gather();
 +    if (n_gather <= 0) {
@@ -225,40 +265,51 @@ index 0000000..4bbf244
 +        return;
 +    }
 +
-+    // Index tensor, filled at set_input from the cache's non-empty cells.
-+    ggml_tensor * idx = ggml_new_tensor_1d(ctx0, GGML_TYPE_I32, n_gather);
++    if (debug()) {
++        static int64_t once = 0;
++        if (once++ < 2) {
++            fprintf(stderr, "[paged-attn] gather n_stream=%lld n_kv=%lld n_gather=%lld\n",
++                    (long long) n_stream, (long long) K->ne[2], (long long) n_gather);
++        }
++    }
++
++    // Per-stream index tensor [n_gather, n_stream], filled at set_input from
++    // each stream's non-empty cells. ggml_get_rows broadcasts along ne[1]==
++    // n_stream, so column s gathers from stream s of the source.
++    ggml_tensor * idx = ggml_new_tensor_2d(ctx0, GGML_TYPE_I32, n_gather, n_stream);
 +    ggml_set_input(idx);
 +    res->add_input(llm_graph_input_ptr(new input_gather_idxs(mctx, idx)));
 +
 +    // --- gather K: collapse (head_dim, n_head) so cells become the row axis ---
 +    {
-+        ggml_tensor * t = ggml_cont(ctx0, K);                                  // [d, h, n_kv, 1]
-+        t = ggml_reshape_3d(ctx0, t, K->ne[0]*K->ne[1], K->ne[2], 1);          // [d*h, n_kv, 1]
-+        t = ggml_get_rows(ctx0, t, idx);                                       // [d*h, n_gather, 1]
-+        *k = ggml_reshape_4d(ctx0, t, K->ne[0], K->ne[1], n_gather, 1);        // [d, h, n_gather, 1]
++        ggml_tensor * t = ggml_cont(ctx0, K);                                          // [d, h, n_kv, ns]
++        t = ggml_reshape_3d(ctx0, t, K->ne[0]*K->ne[1], K->ne[2], n_stream);           // [d*h, n_kv, ns]
++        t = ggml_get_rows(ctx0, t, idx);                                               // [d*h, n_gather, ns]
++        *k = ggml_reshape_4d(ctx0, t, K->ne[0], K->ne[1], n_gather, n_stream);         // [d, h, n_gather, ns]
 +    }
 +
 +    // --- gather V ---
-+    // Normalize to a non-transposed [d, h, n_kv, 1] view first, so the gathered
++    // Normalize to a non-transposed [d, h, n_kv, ns] view first, so the gathered
 +    // result is contiguous and build_attn_mha sees a consistent v_trans==false.
 +    {
 +        const bool v_trans = V->nb[1] > V->nb[2];
 +        ggml_tensor * vsrc = v_trans
-+            ? ggml_permute(ctx0, V, 2, 1, 0, 3)   // [n_kv, h, d, 1] -> [d, h, n_kv, 1]
-+            : V;                                  // already [d, h, n_kv, 1]
-+        ggml_tensor * t = ggml_cont(ctx0, vsrc);                               // [d, h, n_kv, 1]
-+        t = ggml_reshape_3d(ctx0, t, vsrc->ne[0]*vsrc->ne[1], vsrc->ne[2], 1); // [d*h, n_kv, 1]
-+        t = ggml_get_rows(ctx0, t, idx);                                       // [d*h, n_gather, 1]
-+        *v = ggml_reshape_4d(ctx0, t, vsrc->ne[0], vsrc->ne[1], n_gather, 1);  // [d, h, n_gather, 1]
++            ? ggml_permute(ctx0, V, 2, 1, 0, 3)   // [n_kv, h, d, ns] -> [d, h, n_kv, ns]
++            : V;                                  // already [d, h, n_kv, ns]
++        ggml_tensor * t = ggml_cont(ctx0, vsrc);                                       // [d, h, n_kv, ns]
++        t = ggml_reshape_3d(ctx0, t, vsrc->ne[0]*vsrc->ne[1], vsrc->ne[2], n_stream);  // [d*h, n_kv, ns]
++        t = ggml_get_rows(ctx0, t, idx);                                               // [d*h, n_gather, ns]
++        *v = ggml_reshape_4d(ctx0, t, vsrc->ne[0], vsrc->ne[1], n_gather, n_stream);   // [d, h, n_gather, ns]
 +    }
 +
-+    // --- gather mask (cells are ne0): transpose, gather, transpose back ---
++    // --- gather mask (cells are ne0): transpose so cells become the row axis,
++    //     gather per stream, transpose back ---
 +    {
-+        ggml_tensor * m = ggml_reshape_2d(ctx0, M, M->ne[0], M->ne[1]);        // [n_kv, n_tps]
-+        m = ggml_cont(ctx0, ggml_transpose(ctx0, m));                          // [n_tps, n_kv]
-+        m = ggml_get_rows(ctx0, m, idx);                                       // [n_tps, n_gather] (F32)
-+        m = ggml_cont(ctx0, ggml_transpose(ctx0, m));                          // [n_gather, n_tps]
-+        m = ggml_reshape_4d(ctx0, m, n_gather, M->ne[1], 1, 1);
++        ggml_tensor * m = ggml_reshape_3d(ctx0, M, M->ne[0], M->ne[1], n_stream);      // [n_kv, n_tps, ns]
++        m = ggml_cont(ctx0, ggml_transpose(ctx0, m));                                  // [n_tps, n_kv, ns]
++        m = ggml_get_rows(ctx0, m, idx);                                               // [n_tps, n_gather, ns] (F32)
++        m = ggml_cont(ctx0, ggml_transpose(ctx0, m));                                  // [n_gather, n_tps, ns]
++        m = ggml_reshape_4d(ctx0, m, n_gather, M->ne[1], 1, n_stream);
 +        if (M->type != m->type) {
 +            m = ggml_cast(ctx0, m, M->type);   // flash-attn requires an F16 mask
 +        }
