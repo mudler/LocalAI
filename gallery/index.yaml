@@ -8488,8 +8488,8 @@
     parameters:
       model: face-detect-buffalo-l.gguf
   files:
-    # TODO publish: fill sha256 after upload to mudler/face-detect-gguf
     - filename: face-detect-buffalo-l.gguf
+      sha256: 3f67e5f35601f1d60493feecaf9f0a7dbc9dc8cbb8d26e2da41985a680bf4fd0
       uri: https://huggingface.co/mudler/face-detect-gguf/resolve/main/buffalo_l.gguf
 - name: face-detect-buffalo-m
   url: github:mudler/LocalAI/gallery/virtual.yaml@master
@@ -8527,8 +8527,8 @@
     parameters:
       model: face-detect-buffalo-m.gguf
   files:
-    # TODO publish: fill sha256 after upload to mudler/face-detect-gguf
     - filename: face-detect-buffalo-m.gguf
+      sha256: 34929a3c7242471bd4dbd3cbcd134c43bc69ae07eb8587c76e753542b06b0468
       uri: https://huggingface.co/mudler/face-detect-gguf/resolve/main/buffalo_m.gguf
 - name: face-detect-buffalo-s
   url: github:mudler/LocalAI/gallery/virtual.yaml@master
@@ -8565,8 +8565,8 @@
     parameters:
       model: face-detect-buffalo-s.gguf
   files:
-    # TODO publish: fill sha256 after upload to mudler/face-detect-gguf
     - filename: face-detect-buffalo-s.gguf
+      sha256: c7c391aa102f7312b4e257106873abb247bc33ac9897de2c3c04cd9039e608a2
       uri: https://huggingface.co/mudler/face-detect-gguf/resolve/main/buffalo_s.gguf
 - name: face-detect-yunet-sface
   url: github:mudler/LocalAI/gallery/virtual.yaml@master
@@ -8603,8 +8603,8 @@
     parameters:
       model: face-detect-yunet-sface.gguf
   files:
-    # TODO publish: fill sha256 after upload to mudler/face-detect-gguf
     - filename: face-detect-yunet-sface.gguf
+      sha256: 9ce78d4ba0ae9d5e8c91a0e145d511558d1d90f5d9c1f4131cca9bb4bce60902
       uri: https://huggingface.co/mudler/face-detect-gguf/resolve/main/yunet-sface.gguf
 - name: speechbrain-ecapa-tdnn
   url: github:mudler/LocalAI/gallery/virtual.yaml@master
@@ -8710,8 +8710,8 @@
     parameters:
       model: voice-detect-ecapa-tdnn-voxceleb.gguf
   files:
-    # TODO publish: fill sha256 after upload to mudler/voice-detect-gguf
     - filename: voice-detect-ecapa-tdnn-voxceleb.gguf
+      sha256: 68046a1fdfb7843f460962db4739fbd381cc5c3ab93d1505e75e2f4c0dc19b8f
       uri: https://huggingface.co/mudler/voice-detect-gguf/resolve/main/ecapa-tdnn-voxceleb.gguf
 - name: voice-detect-wespeaker-resnet34
   url: github:mudler/LocalAI/gallery/virtual.yaml@master
@@ -8746,8 +8746,8 @@
     parameters:
       model: voice-detect-wespeaker-resnet34.gguf
   files:
-    # TODO publish: fill sha256 after upload to mudler/voice-detect-gguf
     - filename: voice-detect-wespeaker-resnet34.gguf
+      sha256: 72040372494eafec299836bc1977cfc13c603cb486674ed59b0f4c03758d29da
       uri: https://huggingface.co/mudler/voice-detect-gguf/resolve/main/wespeaker-resnet34-voxceleb.gguf
 - name: voice-detect-eres2net
   url: github:mudler/LocalAI/gallery/virtual.yaml@master
@@ -8780,9 +8780,9 @@
     parameters:
       model: voice-detect-eres2net.gguf
   files:
-    # TODO publish: fill sha256 after upload to mudler/voice-detect-gguf
     - filename: voice-detect-eres2net.gguf
-      uri: https://huggingface.co/mudler/voice-detect-gguf/resolve/main/eres2net-voxceleb.gguf
+      sha256: d39f53c7a4d39734740a86a07521b9a819ee8ea56c1a9436eba611ab733a3d06
+      uri: https://huggingface.co/mudler/voice-detect-gguf/resolve/main/eres2net-base-zh-cn.gguf
 - name: voice-detect-campplus
   url: github:mudler/LocalAI/gallery/virtual.yaml@master
   urls:
@@ -8815,9 +8815,9 @@
     parameters:
       model: voice-detect-campplus.gguf
   files:
-    # TODO publish: fill sha256 after upload to mudler/voice-detect-gguf
     - filename: voice-detect-campplus.gguf
-      uri: https://huggingface.co/mudler/voice-detect-gguf/resolve/main/campplus-voxceleb.gguf
+      sha256: a6e34c6d230cff26e37b71a2df0907fde1de425654e28d9d5cacca32e02a13d3
+      uri: https://huggingface.co/mudler/voice-detect-gguf/resolve/main/campplus-zh-cn.gguf
 - name: voice-detect-emotion-wav2vec2
   url: github:mudler/LocalAI/gallery/virtual.yaml@master
   urls:
@@ -8849,9 +8849,9 @@
     parameters:
       model: voice-detect-emotion-wav2vec2.gguf
   files:
-    # TODO publish: fill sha256 after upload to mudler/voice-detect-gguf
     - filename: voice-detect-emotion-wav2vec2.gguf
-      uri: https://huggingface.co/mudler/voice-detect-gguf/resolve/main/emotion-wav2vec2-msp.gguf
+      sha256: 9e9793e4f77a27f4ae068bcb29c2b6fe2f74881799e2cfea0f8e436ad3765e50
+      uri: https://huggingface.co/mudler/voice-detect-gguf/resolve/main/emotion-wav2vec2-superb-er.gguf
 - name: rfdetr-base
   url: github:mudler/LocalAI/gallery/virtual.yaml@master
   urls:
