@@ -12,6 +12,7 @@ import (
 	"os"
 	"strconv"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"net/http"
@@ -134,6 +135,18 @@ type Session struct {
 	// pairs are kept together so we never feed an orphaned tool result.
 	MaxHistoryItems int
 
+	// Compaction settings resolved from pipeline.compaction (see resolveCompaction).
+	CompactionEnabled bool
+	CompactionTrigger int
+	SummaryModel      string
+	MaxSummaryTokens  int
+
+	// summarizerFactory lazily builds the model used for compaction summaries
+	// when summary_model is configured; nil means reuse the pipeline LLM.
+	summarizerFactory func() (Model, error)
+	summarizerOnce    sync.Once
+	summarizerCached  Model
+
 	// AssistantExecutor is non-nil when the session opted into the in-process
 	// LocalAI Assistant tool surface. Tool calls whose name matches this
 	// executor's catalog are run inproc and their output is fed back to the
@@ -241,6 +254,12 @@ type Conversation struct {
 	ID    string
 	Items []*types.MessageItemUnion
 	Lock  sync.Mutex
+	// Memory is the rolling summary of items already evicted by compaction. It
+	// is kept out of Items (so trimRealtimeItems never drops it) and rendered
+	// as a system message right after the session instructions.
+	Memory string
+	// compacting ensures at most one background compaction runs per conversation.
+	compacting atomic.Bool
 }
 
 func (c *Conversation) ToServer() types.Conversation {
@@ -540,13 +559,12 @@ func runRealtimeSession(application *application.Application, t Transport, model
 		SoundDetectionWindowMs:  cfg.Pipeline.SoundDetectionWindowMs,
 		SoundDetectionHopMs:     cfg.Pipeline.SoundDetectionHopMs,
 	}
+	session.CompactionEnabled, session.CompactionTrigger, session.MaxSummaryTokens, session.SummaryModel = resolveCompaction(cfg, session.MaxHistoryItems)
 
 	// Create a default conversation
 	conversationID := generateConversationID()
 	conversation := &Conversation{
-		ID: conversationID,
-		// TODO: We need to truncate the conversation items when a new item is added and we have run out of space. There are multiple places where items
-		//       can be added so we could use a datastructure here that enforces truncation upon addition
+		ID:    conversationID,
 		Items: []*types.MessageItemUnion{},
 	}
 	session.Conversations[conversationID] = conversation
@@ -576,6 +594,18 @@ func runRealtimeSession(application *application.Application, t Transport, model
 		return
 	}
 	session.ModelInterface = m
+
+	if session.SummaryModel != "" {
+		summaryModelName := session.SummaryModel
+		sid := sessionID
+		session.summarizerFactory = func() (Model, error) {
+			summaryCfg, lerr := application.ModelConfigLoader().LoadModelConfigFileByNameDefaultOptions(summaryModelName, application.ApplicationConfig())
+			if lerr != nil {
+				return nil, fmt.Errorf("load summary model config %q: %w", summaryModelName, lerr)
+			}
+			return newModel(&summaryCfg.Pipeline, application.ModelConfigLoader(), application.ModelLoader(), application.ApplicationConfig(), evaluator, buildRealtimeRoutingContext(application, sid))
+		}
+	}
 
 	if cfg.Pipeline.VoiceGateEnabled() {
 		gate, gerr := newVoiceGate(
@@ -807,6 +837,15 @@ func runRealtimeSession(application *application.Application, t Transport, model
 				commitUtterance(respCtx, allAudio, session, conversation, t)
 			}()
 
+		case types.InputAudioBufferClearEvent:
+			xlog.Debug("recv", "message", string(msg))
+			// Discard a partially-captured utterance so the client can restart
+			// input cleanly without the stale buffer leaking into the next commit.
+			clearInputAudio(session)
+			sendEvent(t, types.InputAudioBufferClearedEvent{
+				ServerEventBase: types.ServerEventBase{EventID: e.EventID},
+			})
+
 		case types.ConversationItemCreateEvent:
 			xlog.Debug("recv", "message", string(msg))
 			// Add the item to the conversation
@@ -841,7 +880,39 @@ func runRealtimeSession(application *application.Application, t Transport, model
 			})
 
 		case types.ConversationItemDeleteEvent:
-			sendError(t, "not_implemented", "Deleting items not implemented", "", "event_TODO")
+			xlog.Debug("recv", "message", string(msg))
+			if e.ItemID == "" {
+				sendError(t, "invalid_item_id", "Need item_id, but none specified", "", "event_TODO")
+				continue
+			}
+			conversation.Lock.Lock()
+			updated, ok := deleteItem(conversation.Items, e.ItemID)
+			conversation.Items = updated
+			conversation.Lock.Unlock()
+			if !ok {
+				sendError(t, "invalid_item_id", "Item to delete not found", "", "event_TODO")
+				continue
+			}
+			sendEvent(t, types.ConversationItemDeletedEvent{
+				ServerEventBase: types.ServerEventBase{EventID: e.EventID},
+				ItemID:          e.ItemID,
+			})
+
+		case types.ConversationItemTruncateEvent:
+			xlog.Debug("recv", "message", string(msg))
+			conversation.Lock.Lock()
+			ok := truncateAssistantText(conversation.Items, e.ItemID, e.ContentIndex)
+			conversation.Lock.Unlock()
+			if !ok {
+				sendError(t, "invalid_item_id", "Item to truncate not found", "", "event_TODO")
+				continue
+			}
+			sendEvent(t, types.ConversationItemTruncatedEvent{
+				ServerEventBase: types.ServerEventBase{EventID: e.EventID},
+				ItemID:          e.ItemID,
+				ContentIndex:    e.ContentIndex,
+				AudioEndMs:      e.AudioEndMs,
+			})
 
 		case types.ConversationItemRetrieveEvent:
 			xlog.Debug("recv", "message", string(msg))
@@ -854,21 +925,7 @@ func runRealtimeSession(application *application.Application, t Transport, model
 			conversation.Lock.Lock()
 			var retrievedItem types.MessageItemUnion
 			for _, item := range conversation.Items {
-				// We need to check ID in the union
-				var id string
-				if item.System != nil {
-					id = item.System.ID
-				} else if item.User != nil {
-					id = item.User.ID
-				} else if item.Assistant != nil {
-					id = item.Assistant.ID
-				} else if item.FunctionCall != nil {
-					id = item.FunctionCall.ID
-				} else if item.FunctionCallOutput != nil {
-					id = item.FunctionCallOutput.ID
-				}
-
-				if id == e.ItemID {
+				if itemID(item) == e.ItemID {
 					retrievedItem = *item
 					break
 				}
@@ -1666,6 +1723,9 @@ const maxAssistantToolTurns = 10
 
 func triggerResponse(ctx context.Context, session *Session, conv *Conversation, t Transport, overrides *types.ResponseCreateParams) {
 	triggerResponseAtTurn(ctx, session, conv, t, overrides, 0)
+	// Fold aged-out turns into the rolling memory off the critical path; the
+	// next turn reaps the smaller buffer.
+	session.maybeCompact(conv)
 }
 
 func triggerResponseAtTurn(ctx context.Context, session *Session, conv *Conversation, t Transport, overrides *types.ResponseCreateParams, toolTurn int) {
@@ -1721,6 +1781,7 @@ func triggerResponseAtTurn(ctx context.Context, session *Session, conv *Conversa
 	var lastUserSpeaker *types.Speaker
 	personalize := session.voiceGate != nil && session.voiceGate.cfg.PersonalizeEnabled()
 	conv.Lock.Lock()
+	conversationHistory = withMemory(conversationHistory, conv.Memory)
 	items := trimRealtimeItems(conv.Items, session.MaxHistoryItems)
 	for _, item := range items {
 		if item.User != nil {

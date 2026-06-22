@@ -641,9 +641,30 @@ type Pipeline struct {
 	// context fills.
 	MaxHistoryItems *int `yaml:"max_history_items,omitempty" json:"max_history_items,omitempty"`
 
+	// Compaction folds conversation items that age out of the live window
+	// (max_history_items) into a rolling summary instead of dropping them, so
+	// long realtime sessions stay cheap without losing earlier context. Nil
+	// (block absent) means disabled, preserving existing behavior.
+	Compaction *PipelineCompaction `yaml:"compaction,omitempty" json:"compaction,omitempty"`
+
 	// VoiceRecognition gates the pipeline behind speaker verification. Nil
 	// (block absent) means no gate, preserving existing behavior.
 	VoiceRecognition *PipelineVoiceRecognition `yaml:"voice_recognition,omitempty" json:"voice_recognition,omitempty"`
+}
+
+// PipelineCompaction configures summarize-then-drop for a realtime pipeline.
+type PipelineCompaction struct {
+	// Enabled turns summarize-then-drop on. Default false.
+	Enabled bool `yaml:"enabled,omitempty" json:"enabled,omitempty"`
+	// TriggerItems is the high-water mark: once live items exceed it, overflow
+	// above max_history_items is summarized and evicted. Must exceed
+	// max_history_items; clamped up if not. Default: 2x max_history_items.
+	TriggerItems int `yaml:"trigger_items,omitempty" json:"trigger_items,omitempty"`
+	// SummaryModel optionally names a smaller/cheaper model for the summary
+	// call. Empty uses the pipeline's own LLM.
+	SummaryModel string `yaml:"summary_model,omitempty" json:"summary_model,omitempty"`
+	// MaxSummaryTokens advises the summary length (fed to the prompt). Default 512.
+	MaxSummaryTokens int `yaml:"max_summary_tokens,omitempty" json:"max_summary_tokens,omitempty"`
 }
 
 // ApplyReasoningEffort resolves the effective reasoning effort — a per-request
