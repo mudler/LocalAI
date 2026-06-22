@@ -6,6 +6,7 @@ import (
 
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/http/endpoints/openai/types"
+	"github.com/mudler/LocalAI/core/schema"
 )
 
 var _ = Describe("resolveCompaction", func() {
@@ -129,6 +130,54 @@ var _ = Describe("compactionCut", func() {
 		// pull the cut right so the whole pair stays in the kept tail.
 		items := []*types.MessageItemUnion{user("1"), call("c"), out("c"), user("4")}
 		Expect(compactionCut(items, 2)).To(Equal(1))
+	})
+})
+
+var _ = Describe("withMemory", func() {
+	It("inserts a memory system message when memory is non-empty", func() {
+		base := schema.Messages{{Role: "system", StringContent: "instructions"}}
+		out := withMemory(base, "user is Bob; wants pizza")
+		Expect(len(out)).To(Equal(2))
+		Expect(out[1].Role).To(Equal("system"))
+		Expect(out[1].StringContent).To(ContainSubstring("user is Bob"))
+		Expect(out[1].StringContent).To(ContainSubstring("Summary of earlier conversation"))
+	})
+
+	It("is a no-op when memory is empty", func() {
+		base := schema.Messages{{Role: "system", StringContent: "instructions"}}
+		Expect(withMemory(base, "")).To(HaveLen(1))
+	})
+})
+
+var _ = Describe("renderItemsTranscript", func() {
+	It("renders user and assistant text turns", func() {
+		items := []*types.MessageItemUnion{
+			{User: &types.MessageItemUser{Content: []types.MessageContentInput{{Type: types.MessageContentTypeInputText, Text: "hi"}}}},
+			{Assistant: &types.MessageItemAssistant{Content: []types.MessageContentOutput{{Type: types.MessageContentTypeText, Text: "hello"}}}},
+		}
+		out := renderItemsTranscript(items)
+		Expect(out).To(ContainSubstring("user: hi"))
+		Expect(out).To(ContainSubstring("assistant: hello"))
+	})
+
+	// Realtime assistant *audio* turns store the spoken words in .Transcript, not
+	// .Text, so the transcript builder must emit .Transcript too or spoken turns
+	// would be dropped from the summary.
+	It("renders an assistant audio turn from its transcript", func() {
+		items := []*types.MessageItemUnion{
+			{Assistant: &types.MessageItemAssistant{Content: []types.MessageContentOutput{{Type: types.MessageContentTypeAudio, Transcript: "spoken words"}}}},
+		}
+		Expect(renderItemsTranscript(items)).To(ContainSubstring("assistant: spoken words"))
+	})
+})
+
+var _ = Describe("buildSummaryMessages", func() {
+	It("includes prior memory and the new transcript", func() {
+		msgs := buildSummaryMessages("prior facts", "user: hi", 512)
+		Expect(len(msgs)).To(Equal(2))
+		Expect(msgs[0].Role).To(Equal("system"))
+		Expect(msgs[1].StringContent).To(ContainSubstring("prior facts"))
+		Expect(msgs[1].StringContent).To(ContainSubstring("user: hi"))
 	})
 })
 

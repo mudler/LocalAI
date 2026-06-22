@@ -1762,6 +1762,7 @@ func triggerResponseAtTurn(ctx context.Context, session *Session, conv *Conversa
 	var lastUserSpeaker *types.Speaker
 	personalize := session.voiceGate != nil && session.voiceGate.cfg.PersonalizeEnabled()
 	conv.Lock.Lock()
+	conversationHistory = withMemory(conversationHistory, conv.Memory)
 	items := trimRealtimeItems(conv.Items, session.MaxHistoryItems)
 	for _, item := range items {
 		if item.User != nil {

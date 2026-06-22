@@ -1,13 +1,94 @@
 package openai
 
 import (
+	"fmt"
+	"strings"
+
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/http/endpoints/openai/types"
+	"github.com/mudler/LocalAI/core/schema"
 )
 
 const (
 	defaultMaxSummaryTokens = 512
+	memoryPrefix            = "Summary of earlier conversation:\n"
 )
+
+// withMemory inserts the rolling summary as a system message after the existing
+// (instructions) history. No-op when memory is empty.
+func withMemory(history schema.Messages, memory string) schema.Messages {
+	if memory == "" {
+		return history
+	}
+	content := memoryPrefix + memory
+	return append(history, schema.Message{
+		Role:          string(types.MessageRoleSystem),
+		StringContent: content,
+		Content:       content,
+	})
+}
+
+// renderItemsTranscript renders conversation items as a plain "role: text"
+// transcript for summarization. Non-text items (bare tool calls) are labelled
+// so the summarizer keeps track of actions taken.
+func renderItemsTranscript(items []*types.MessageItemUnion) string {
+	var b strings.Builder
+	for _, item := range items {
+		switch {
+		case item.User != nil:
+			b.WriteString("user: ")
+			for _, c := range item.User.Content {
+				if c.Text != "" {
+					b.WriteString(c.Text)
+				}
+				if c.Transcript != "" {
+					b.WriteString(c.Transcript)
+				}
+			}
+			b.WriteString("\n")
+		case item.Assistant != nil:
+			b.WriteString("assistant: ")
+			// Realtime assistant *audio* turns store the spoken words in
+			// .Transcript (not .Text), so emit both or spoken turns are dropped.
+			for _, c := range item.Assistant.Content {
+				if c.Text != "" {
+					b.WriteString(c.Text)
+				}
+				if c.Transcript != "" {
+					b.WriteString(c.Transcript)
+				}
+			}
+			b.WriteString("\n")
+		case item.FunctionCall != nil:
+			b.WriteString(fmt.Sprintf("assistant called tool %s(%s)\n", item.FunctionCall.Name, item.FunctionCall.Arguments))
+		case item.FunctionCallOutput != nil:
+			b.WriteString(fmt.Sprintf("tool result: %s\n", item.FunctionCallOutput.Output))
+		}
+	}
+	return strings.TrimSpace(b.String())
+}
+
+// buildSummaryMessages builds the chat messages for the summarizer LLM: a system
+// instruction plus prior memory and the new transcript to fold in. maxTokens is
+// advisory (fed to the prompt; not hard-enforced in v1).
+func buildSummaryMessages(priorMemory, transcript string, maxTokens int) schema.Messages {
+	system := fmt.Sprintf("You maintain a running memory of a live voice conversation. "+
+		"Merge the prior memory with the new exchanges into an updated memory. "+
+		"Keep names, decisions, facts, preferences, and open threads. Be concise "+
+		"(under ~%d tokens). Output only the updated memory, with no reasoning or tags.", maxTokens)
+	var user strings.Builder
+	if priorMemory != "" {
+		user.WriteString("Prior memory:\n")
+		user.WriteString(priorMemory)
+		user.WriteString("\n\n")
+	}
+	user.WriteString("New exchanges to fold in:\n")
+	user.WriteString(transcript)
+	return schema.Messages{
+		{Role: string(types.MessageRoleSystem), StringContent: system, Content: system},
+		{Role: string(types.MessageRoleUser), StringContent: user.String(), Content: user.String()},
+	}
+}
 
 // clearInputAudio resets the session's pending input audio buffer (the raw
 // PCM and any buffered Opus frames). Used by the input_audio_buffer.clear
