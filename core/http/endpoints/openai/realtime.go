@@ -134,6 +134,12 @@ type Session struct {
 	// pairs are kept together so we never feed an orphaned tool result.
 	MaxHistoryItems int
 
+	// Compaction settings resolved from pipeline.compaction (see resolveCompaction).
+	CompactionEnabled bool
+	CompactionTrigger int
+	SummaryModel      string
+	MaxSummaryTokens  int
+
 	// AssistantExecutor is non-nil when the session opted into the in-process
 	// LocalAI Assistant tool surface. Tool calls whose name matches this
 	// executor's catalog are run inproc and their output is fed back to the
@@ -540,6 +546,7 @@ func runRealtimeSession(application *application.Application, t Transport, model
 		SoundDetectionWindowMs:  cfg.Pipeline.SoundDetectionWindowMs,
 		SoundDetectionHopMs:     cfg.Pipeline.SoundDetectionHopMs,
 	}
+	session.CompactionEnabled, session.CompactionTrigger, session.MaxSummaryTokens, session.SummaryModel = resolveCompaction(cfg, session.MaxHistoryItems)
 
 	// Create a default conversation
 	conversationID := generateConversationID()
