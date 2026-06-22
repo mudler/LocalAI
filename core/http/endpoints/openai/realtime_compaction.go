@@ -52,6 +52,24 @@ func deleteItem(items []*types.MessageItemUnion, id string) ([]*types.MessageIte
 	return items, false
 }
 
+// truncateAssistantText clears the text of the assistant item's content part at
+// contentIndex. Minimal truncate: used to discard an interrupted/barge-in
+// response tail. Both .Text and .Transcript are cleared because realtime audio
+// turns store the spoken words in .Transcript (clearing only .Text would no-op).
+func truncateAssistantText(items []*types.MessageItemUnion, id string, contentIndex int) bool {
+	for _, item := range items {
+		if itemID(item) != id || item.Assistant == nil {
+			continue
+		}
+		if contentIndex >= 0 && contentIndex < len(item.Assistant.Content) {
+			item.Assistant.Content[contentIndex].Text = ""
+			item.Assistant.Content[contentIndex].Transcript = ""
+		}
+		return true
+	}
+	return false
+}
+
 // resolveCompaction reads the pipeline.compaction block, applying defaults and
 // the trigger>max_history invariant. maxHistory is the already-resolved live
 // window size. Returns enabled=false (and zero values) when compaction is off.

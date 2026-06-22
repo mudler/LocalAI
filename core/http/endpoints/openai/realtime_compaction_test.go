@@ -71,6 +71,34 @@ var _ = Describe("clearInputAudio", func() {
 	})
 })
 
+var _ = Describe("truncateAssistantText", func() {
+	It("clears the text of the assistant content part at the index", func() {
+		items := []*types.MessageItemUnion{{Assistant: &types.MessageItemAssistant{
+			ID:      "a1",
+			Content: []types.MessageContentOutput{{Type: types.MessageContentTypeText, Text: "hello world"}},
+		}}}
+		ok := truncateAssistantText(items, "a1", 0)
+		Expect(ok).To(BeTrue())
+		Expect(items[0].Assistant.Content[0].Text).To(Equal(""))
+	})
+
+	// Realtime assistant *audio* turns store the spoken words in .Transcript, not
+	// .Text, so a barge-in truncate must clear .Transcript too or it would no-op.
+	It("clears the transcript of an assistant audio content part", func() {
+		items := []*types.MessageItemUnion{{Assistant: &types.MessageItemAssistant{
+			ID:      "a1",
+			Content: []types.MessageContentOutput{{Type: types.MessageContentTypeAudio, Transcript: "hello world"}},
+		}}}
+		ok := truncateAssistantText(items, "a1", 0)
+		Expect(ok).To(BeTrue())
+		Expect(items[0].Assistant.Content[0].Transcript).To(Equal(""))
+	})
+
+	It("returns false for an unknown id", func() {
+		Expect(truncateAssistantText(nil, "nope", 0)).To(BeFalse())
+	})
+})
+
 var _ = Describe("itemID", func() {
 	It("returns the id for each variant and empty for nil", func() {
 		Expect(itemID(nil)).To(Equal(""))

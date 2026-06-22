@@ -875,6 +875,22 @@ func runRealtimeSession(application *application.Application, t Transport, model
 				ItemID:          e.ItemID,
 			})
 
+		case types.ConversationItemTruncateEvent:
+			xlog.Debug("recv", "message", string(msg))
+			conversation.Lock.Lock()
+			ok := truncateAssistantText(conversation.Items, e.ItemID, e.ContentIndex)
+			conversation.Lock.Unlock()
+			if !ok {
+				sendError(t, "invalid_item_id", "Item to truncate not found", "", "event_TODO")
+				continue
+			}
+			sendEvent(t, types.ConversationItemTruncatedEvent{
+				ServerEventBase: types.ServerEventBase{EventID: e.EventID},
+				ItemID:          e.ItemID,
+				ContentIndex:    e.ContentIndex,
+				AudioEndMs:      e.AudioEndMs,
+			})
+
 		case types.ConversationItemRetrieveEvent:
 			xlog.Debug("recv", "message", string(msg))
 
