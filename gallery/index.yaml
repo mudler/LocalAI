@@ -8574,6 +8574,85 @@
     - filename: face-detect-buffalo-s.gguf
       sha256: 7490b1efbc8746b188a5aef0adf5e3d1a2dc9607abd474018893f95571999969
       uri: https://huggingface.co/mudler/face-detect-gguf/resolve/main/buffalo_s.gguf
+- name: face-detect-buffalo-sc
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://github.com/mudler/face-detect.cpp
+    - https://github.com/deepinsight/insightface
+  description: |
+    Face recognition with insightface's `buffalo_sc` pack (SCRFD-500M
+    detector + a small ArcFace embedder), converted to a C++/ggml GGUF
+    for the `face-detect` backend. This is the smallest insightface
+    pack: the lightest option for low-resource and edge deployments.
+
+    The architecture (`facedetect.arch`) is read from the GGUF metadata,
+    so this entry alone selects the buffalo_sc engine. If this GGUF
+    embeds the MiniFASNet anti-spoof ensemble, it is available via the
+    FaceVerify `anti_spoof` request flag. NON-COMMERCIAL RESEARCH USE
+    ONLY.
+  license: insightface-non-commercial
+  icon: https://avatars.githubusercontent.com/u/53104118?s=200&v=4
+  tags:
+    - face-recognition
+    - face-verification
+    - face-embedding
+    - research-only
+    - edge
+    - cpu
+  last_checked: "2026-06-22"
+  overrides:
+    backend: face-detect
+    known_usecases:
+      - face_recognition
+      - detection
+      - embeddings
+    options:
+      - verify_threshold:0.35
+    parameters:
+      model: face-detect-buffalo-sc.gguf
+  files:
+    - filename: face-detect-buffalo-sc.gguf
+      sha256: f754c0e32d5efbbc53d7efca13be2807676bf5db20a8594ef96b32afa2c482b1
+      uri: https://huggingface.co/mudler/face-detect-gguf/resolve/main/buffalo_sc.gguf
+- name: face-detect-antelopev2
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://github.com/mudler/face-detect.cpp
+    - https://github.com/deepinsight/insightface
+  description: |
+    Face recognition with insightface's `antelopev2` pack (SCRFD-10G
+    detector + ArcFace glint360k R100, 512-d embedder), converted to a
+    C++/ggml GGUF for the `face-detect` backend. The higher-accuracy
+    insightface pack: heavier, but the best fit when recognition
+    quality matters more than speed.
+
+    The architecture (`facedetect.arch`) is read from the GGUF metadata,
+    so this entry alone selects the antelopev2 engine. If this GGUF
+    embeds the MiniFASNet anti-spoof ensemble, it is available via the
+    FaceVerify `anti_spoof` request flag. NON-COMMERCIAL RESEARCH USE
+    ONLY.
+  license: insightface-non-commercial
+  icon: https://avatars.githubusercontent.com/u/53104118?s=200&v=4
+  tags:
+    - face-recognition
+    - face-verification
+    - face-embedding
+    - research-only
+  last_checked: "2026-06-22"
+  overrides:
+    backend: face-detect
+    known_usecases:
+      - face_recognition
+      - detection
+      - embeddings
+    options:
+      - verify_threshold:0.35
+    parameters:
+      model: face-detect-antelopev2.gguf
+  files:
+    - filename: face-detect-antelopev2.gguf
+      sha256: 245e657e51754fbf075dd43d80a80a2d14a60c2fc42a3220f63eef17a315e96c
+      uri: https://huggingface.co/mudler/face-detect-gguf/resolve/main/antelopev2.gguf
 - name: face-detect-yunet-sface
   url: github:mudler/LocalAI/gallery/virtual.yaml@master
   urls:
