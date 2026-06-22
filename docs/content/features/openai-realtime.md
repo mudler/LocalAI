@@ -68,6 +68,33 @@ pipeline:
 
 This is applied only to the realtime session's copy of the LLM config, so it does not affect other users of the same model. Leave it unset to use the LLM model config's own reasoning settings.
 
+### Conversation compaction (long sessions on CPU)
+
+By default a realtime session feeds only the last `max_history_items` turns to the LLM; older turns are dropped and forgotten. On CPU, long calls also grow expensive as the prompt fills with verbatim history. Enable `compaction` to instead fold older turns into a rolling summary, so long calls stay cheap without losing earlier context.
+
+Compaction works with two numbers:
+
+- **`max_history_items`** is the *live window* — the recent turns kept verbatim in the prompt.
+- **`compaction.trigger_items`** is the *high-water mark* — let the buffer grow to here, then summarize the overflow (everything above `max_history_items`) into a rolling memory and evict it. It must be greater than `max_history_items`; if it is not, it is clamped up.
+
+The gap between the two controls how often summarization runs: a summary call fires roughly every `(trigger_items - max_history_items)` turns (here, about every 6 turns).
+
+```yaml
+pipeline:
+  max_history_items: 6        # live window — recent turns kept verbatim
+  compaction:
+    enabled: true
+    trigger_items: 12         # summarize overflow back down to max_history_items
+    summary_model: ""         # optional: a small model for the summary (CPU); default = pipeline LLM
+    max_summary_tokens: 512
+```
+
+{{% notice tip %}}
+On CPU, set `summary_model` to a small, fast model so compaction never competes with the conversation LLM for compute. Left empty, the pipeline's own LLM produces the summary.
+{{% /notice %}}
+
+Clients can also manage history directly via the now-supported `conversation.item.delete`, `conversation.item.truncate`, and `input_audio_buffer.clear` realtime events.
+
 ## Transports
 
 The Realtime API supports two transports: **WebSocket** and **WebRTC**.
