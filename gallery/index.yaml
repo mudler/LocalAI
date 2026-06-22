@@ -8465,8 +8465,10 @@
     the GGUF metadata, so installing this entry is all that is needed to
     select buffalo_l. Drives the Embedding / Detect / FaceVerify /
     FaceAnalyze gRPC rpcs and the /v1/face/{verify,analyze,embed,detect}
-    REST endpoints. NON-COMMERCIAL RESEARCH USE ONLY: for commercial use
-    see `face-detect-yunet-sface`.
+    REST endpoints. This GGUF also embeds the MiniFASNet anti-spoof
+    ensemble, available via the FaceVerify `anti_spoof` request flag.
+    NON-COMMERCIAL RESEARCH USE ONLY: for commercial use see
+    `face-detect-yunet-sface`.
   license: insightface-non-commercial
   icon: https://avatars.githubusercontent.com/u/53104118?s=200&v=4
   tags:
@@ -8489,7 +8491,7 @@
       model: face-detect-buffalo-l.gguf
   files:
     - filename: face-detect-buffalo-l.gguf
-      sha256: 3f67e5f35601f1d60493feecaf9f0a7dbc9dc8cbb8d26e2da41985a680bf4fd0
+      sha256: 6ed070f6e569beeed542ddd5603bcbc9eb8ea57f728f7d8013d6a90b2b952116
       uri: https://huggingface.co/mudler/face-detect-gguf/resolve/main/buffalo_l.gguf
 - name: face-detect-buffalo-m
   url: github:mudler/LocalAI/gallery/virtual.yaml@master
@@ -8504,8 +8506,10 @@
     hardware.
 
     The architecture (`facedetect.arch`) is read from the GGUF metadata,
-    so this entry alone selects the buffalo_m engine. NON-COMMERCIAL
-    RESEARCH USE ONLY.
+    so this entry alone selects the buffalo_m engine. This GGUF also
+    embeds the MiniFASNet anti-spoof ensemble, available via the
+    FaceVerify `anti_spoof` request flag. NON-COMMERCIAL RESEARCH USE
+    ONLY.
   license: insightface-non-commercial
   icon: https://avatars.githubusercontent.com/u/53104118?s=200&v=4
   tags:
@@ -8528,7 +8532,7 @@
       model: face-detect-buffalo-m.gguf
   files:
     - filename: face-detect-buffalo-m.gguf
-      sha256: 34929a3c7242471bd4dbd3cbcd134c43bc69ae07eb8587c76e753542b06b0468
+      sha256: 0f7527eeb97b88719bf7e11e43ab8af6f05999357d767f8dde53db3c586c1c3f
       uri: https://huggingface.co/mudler/face-detect-gguf/resolve/main/buffalo_m.gguf
 - name: face-detect-buffalo-s
   url: github:mudler/LocalAI/gallery/virtual.yaml@master
@@ -8542,8 +8546,10 @@
     mid-range and edge deployments.
 
     The architecture (`facedetect.arch`) is read from the GGUF metadata,
-    so this entry alone selects the buffalo_s engine. NON-COMMERCIAL
-    RESEARCH USE ONLY.
+    so this entry alone selects the buffalo_s engine. This GGUF also
+    embeds the MiniFASNet anti-spoof ensemble, available via the
+    FaceVerify `anti_spoof` request flag. NON-COMMERCIAL RESEARCH USE
+    ONLY.
   license: insightface-non-commercial
   icon: https://avatars.githubusercontent.com/u/53104118?s=200&v=4
   tags:
@@ -8566,7 +8572,7 @@
       model: face-detect-buffalo-s.gguf
   files:
     - filename: face-detect-buffalo-s.gguf
-      sha256: c7c391aa102f7312b4e257106873abb247bc33ac9897de2c3c04cd9039e608a2
+      sha256: 7490b1efbc8746b188a5aef0adf5e3d1a2dc9607abd474018893f95571999969
       uri: https://huggingface.co/mudler/face-detect-gguf/resolve/main/buffalo_s.gguf
 - name: face-detect-yunet-sface
   url: github:mudler/LocalAI/gallery/virtual.yaml@master
@@ -8852,6 +8858,40 @@
     - filename: voice-detect-emotion-wav2vec2.gguf
       sha256: 9e9793e4f77a27f4ae068bcb29c2b6fe2f74881799e2cfea0f8e436ad3765e50
       uri: https://huggingface.co/mudler/voice-detect-gguf/resolve/main/emotion-wav2vec2-superb-er.gguf
+- name: voice-detect-age-gender-wav2vec2
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/audeering/wav2vec2-large-robust-24-ft-age-gender
+    - https://github.com/mudler/voice-detect.cpp
+  description: |
+    wav2vec2-large-robust age + gender analysis head
+    (audeering/wav2vec2-large-robust-24-ft-age-gender), converted to a
+    C++/ggml GGUF for the `voice-detect` backend. Drives the VoiceAnalyze
+    gRPC rpc and the /v1/voice/analyze REST endpoint, returning a
+    continuous age estimate plus gender class scores for a single
+    utterance. CC-BY-NC-SA-4.0 - research / non-commercial use only.
+
+    The analysis architecture (`voicedetect.arch`) is read from the
+    GGUF metadata, so this entry alone selects the wav2vec2 analyze head.
+  license: cc-by-nc-sa-4.0
+  icon: https://avatars.githubusercontent.com/u/95302084
+  tags:
+    - voice-recognition
+    - voice-analysis
+    - research-only
+    - cpu
+    - gpu
+  last_checked: "2026-06-22"
+  overrides:
+    backend: voice-detect
+    known_usecases:
+      - speaker_recognition
+    parameters:
+      model: voice-detect-age-gender-wav2vec2.gguf
+  files:
+    - filename: voice-detect-age-gender-wav2vec2.gguf
+      sha256: d92486b3f1ea7baf6a90f1026b7b8e9848b3a8332bccfb01cc8889eed7069064
+      uri: https://huggingface.co/mudler/voice-detect-gguf/resolve/main/age-gender-wav2vec2-audeering.gguf
 - name: rfdetr-base
   url: github:mudler/LocalAI/gallery/virtual.yaml@master
   urls:
