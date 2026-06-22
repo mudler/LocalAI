@@ -359,8 +359,21 @@ func (r *SmartRouter) Route(ctx context.Context, modelID, modelName, backendType
 		}
 	}
 
-	// Step 2: Model not loaded — schedule loading with distributed lock to prevent duplicates
-	loadModel := func() (*RouteResult, error) {
+	// Step 2: Model not loaded — schedule loading with distributed lock to prevent duplicates.
+	//
+	// Detach the cold-load from the caller's context. Staging a model can
+	// transfer multiple GB to a worker, which takes far longer than any client
+	// keeps its HTTP request open — a browser refresh, an ingress/LB idle
+	// timeout, or a round-robined retry landing on another replica all cancel
+	// the request context. If staging were bound to it, the multi-GB upload
+	// aborts with "context canceled" mid-transfer and large models can never
+	// finish staging (the model-load outage). WithoutCancel keeps the request's
+	// values (prefix chain, etc.) but drops its cancellation/deadline. Each
+	// long step still has its own bound (the file stager's resume budget,
+	// LoadModel's 5m timeout), and the per-model advisory lock below de-dupes
+	// concurrent loaders across replicas.
+	loadCtx := context.WithoutCancel(ctx)
+	loadModel := func(ctx context.Context) (*RouteResult, error) {
 		// Re-check after acquiring lock — another request may have loaded it
 		node, nm, err := r.registry.FindAndLockNodeWithModel(ctx, trackingKey, candidateNodeIDs, pref)
 		if err == nil && node != nil {
@@ -433,9 +446,9 @@ func (r *SmartRouter) Route(ctx context.Context, modelID, modelName, backendType
 	if r.db != nil {
 		lockKey := advisorylock.KeyFromString("model-load:" + trackingKey)
 		var result *RouteResult
-		lockErr := advisorylock.WithLockCtx(ctx, r.db, lockKey, func() error {
+		lockErr := advisorylock.WithLockCtx(loadCtx, r.db, lockKey, func() error {
 			var err error
-			result, err = loadModel()
+			result, err = loadModel(loadCtx)
 			return err
 		})
 		if lockErr != nil {
@@ -444,7 +457,7 @@ func (r *SmartRouter) Route(ctx context.Context, modelID, modelName, backendType
 		return result, nil
 	}
 	// No DB (non-distributed) — proceed without lock
-	return loadModel()
+	return loadModel(loadCtx)
 }
 
 // parseSelectorJSON decodes a JSON node selector string into a map.
