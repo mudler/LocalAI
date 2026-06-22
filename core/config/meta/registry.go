@@ -537,6 +537,36 @@ func DefaultRegistry() map[string]FieldMetaOverride {
 			Component:   "number",
 			Order:       79,
 		},
+		"pipeline.compaction.enabled": {
+			Section:     "pipeline",
+			Label:       "Compaction Enabled",
+			Description: "Fold conversation items that age out of the live window (Max History Items) into a rolling summary instead of dropping them, so long realtime sessions stay cheap without losing earlier context. Off by default.",
+			Component:   "toggle",
+			Order:       80,
+		},
+		"pipeline.compaction.trigger_items": {
+			Section:     "pipeline",
+			Label:       "Compaction Trigger Items",
+			Description: "High-water mark: once the live conversation exceeds this many items, the overflow above Max History Items is summarized and evicted. Must be greater than Max History Items; defaults to twice it. The gap controls how often summarization runs.",
+			Component:   "number",
+			Order:       81,
+		},
+		"pipeline.compaction.summary_model": {
+			Section:     "pipeline",
+			Label:       "Compaction Summary Model",
+			Description: "Optional smaller/cheaper model used to produce the rolling summary. Empty reuses the pipeline's own LLM. On CPU, a tiny model here keeps compaction from competing with the conversation LLM.",
+			Component:   "input",
+			Advanced:    true,
+			Order:       82,
+		},
+		"pipeline.compaction.max_summary_tokens": {
+			Section:     "pipeline",
+			Label:       "Compaction Max Summary Tokens",
+			Description: "Advisory cap on the rolling summary length (fed to the summarizer prompt). Defaults to 512.",
+			Component:   "number",
+			Advanced:    true,
+			Order:       83,
+		},
 
 		// --- Functions ---
 		"function.grammar.parallel_calls": {
