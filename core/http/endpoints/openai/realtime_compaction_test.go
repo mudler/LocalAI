@@ -219,6 +219,20 @@ var _ = Describe("compact", func() {
 		Expect(len(conv.Items)).To(Equal(3))
 	})
 
+	It("strips leaked reasoning tags from the summary via the shared extractor", func() {
+		conv := &Conversation{Items: []*types.MessageItemUnion{
+			user("1", "a"), user("2", "b"), user("3", "c"), user("4", "d"),
+			user("5", "e"), user("6", "f"), user("7", "g"), user("8", "h"),
+		}}
+		s := &Session{CompactionEnabled: true, CompactionTrigger: 7, MaxHistoryItems: 4, MaxSummaryTokens: 512}
+		m := &fakeModel{predictResp: backend.LLMResponse{Response: "<think>planning the summary</think>CLEAN SUMMARY"}}
+
+		s.compact(conv, m)
+
+		Expect(conv.Memory).To(Equal("CLEAN SUMMARY"))
+		Expect(conv.Memory).ToNot(ContainSubstring("planning"))
+	})
+
 	It("does nothing when items are at or below the trigger", func() {
 		conv := &Conversation{Items: []*types.MessageItemUnion{user("1", "a")}}
 		s := &Session{CompactionEnabled: true, CompactionTrigger: 7, MaxHistoryItems: 4}

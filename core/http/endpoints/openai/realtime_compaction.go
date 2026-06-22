@@ -3,13 +3,13 @@ package openai
 import (
 	"context"
 	"fmt"
-	"regexp"
 	"strings"
 	"time"
 
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/http/endpoints/openai/types"
 	"github.com/mudler/LocalAI/core/schema"
+	"github.com/mudler/LocalAI/pkg/reasoning"
 	"github.com/mudler/xlog"
 )
 
@@ -20,9 +20,6 @@ const (
 	// compacting flag (and thus block all further compaction) forever.
 	compactionTimeout = 60 * time.Second
 )
-
-// thinkTagRe matches a <think>…</think> span (dotall so it spans newlines).
-var thinkTagRe = regexp.MustCompile(`(?s)<think>.*?</think>`)
 
 // withMemory inserts the rolling summary as a system message after the existing
 // (instructions) history. No-op when memory is empty.
@@ -206,11 +203,6 @@ func resolveCompaction(cfg *config.ModelConfig, maxHistory int) (enabled bool, t
 	return true, trigger, maxSummaryTokens, c.SummaryModel
 }
 
-// stripThinkTags removes any leaked <think>…</think> spans from a summary.
-func stripThinkTags(s string) string {
-	return strings.TrimSpace(thinkTagRe.ReplaceAllString(s, ""))
-}
-
 // prefixMatches reports whether items begins with the same ids, in order, as
 // snapshot — i.e. the overflow we summarized is still at the head (no concurrent
 // client delete reshuffled it).
@@ -263,7 +255,14 @@ func (s *Session) compact(conv *Conversation, model Model) {
 		xlog.Warn("realtime compaction: summarizer inference failed", "error", err)
 		return
 	}
-	summary := stripThinkTags(pred.Response)
+	// Strip any leaked reasoning/thinking spans using the same extractor the
+	// rest of the realtime path uses, rather than a bespoke regex.
+	rcfg := reasoning.Config{}
+	if mc := model.PredictConfig(); mc != nil {
+		rcfg = spokenReasoningConfig(mc.ReasoningConfig)
+	}
+	_, summary := reasoning.ExtractReasoningComplete(pred.Response, "", rcfg)
+	summary = strings.TrimSpace(summary)
 	if summary == "" {
 		xlog.Warn("realtime compaction: empty summary, skipping eviction")
 		return
