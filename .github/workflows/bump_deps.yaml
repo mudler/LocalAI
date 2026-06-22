@@ -92,7 +92,7 @@ jobs:
             file: "backend/go/vibevoice-cpp/Makefile"
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - name: Bump dependencies 🔧
         id: bump
         run: |
@@ -128,7 +128,7 @@ jobs:
     if: github.repository == 'mudler/LocalAI'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - name: Bump vLLM cu130 wheel pin 🔧
         id: bump
         run: |

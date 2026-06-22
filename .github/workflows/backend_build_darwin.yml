@@ -57,7 +57,7 @@ jobs:
       HOMEBREW_NO_ANALYTICS: '1'
     steps:
       - name: Clone
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           submodules: true
 
