@@ -71,7 +71,7 @@ jobs:
           if-no-files-found: ignore
       - name: Setup tmate session if tests fail
         if: ${{ failure() }}
-        uses: mxschmitt/action-tmate@v3.23
+        uses: mxschmitt/action-tmate@v3.24
         with:
           detached: true
           connect-timeout-seconds: 180
@@ -116,7 +116,7 @@ jobs:
           PATH="$PATH:$HOME/go/bin" BUILD_TYPE="GITHUB_CI_HAS_BROKEN_METAL" CMAKE_ARGS="-DGGML_F16C=OFF -DGGML_AVX512=OFF -DGGML_AVX2=OFF -DGGML_FMA=OFF" make --jobs 4 --output-sync=target test
       - name: Setup tmate session if tests fail
         if: ${{ failure() }}
-        uses: mxschmitt/action-tmate@v3.23
+        uses: mxschmitt/action-tmate@v3.24
         with:
           detached: true
           connect-timeout-seconds: 180

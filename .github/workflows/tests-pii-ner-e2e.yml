@@ -90,7 +90,7 @@ jobs:
         run: PATH="$PATH:$HOME/go/bin" make test-extra-backend-privacy-filter
       - name: Setup tmate session if tests fail
         if: ${{ failure() }}
-        uses: mxschmitt/action-tmate@v3.23
+        uses: mxschmitt/action-tmate@v3.24
         with:
           detached: true
           connect-timeout-seconds: 180
