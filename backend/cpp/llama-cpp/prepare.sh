@@ -3,21 +3,28 @@
 ## Patches
 
 ## Apply patches: the base `patches/` series, then the gated `patches/paged/`
-## series (default on; LLAMA_PAGED=off skips it). Runs before `set -e` so a
-## re-apply on rebuild is tolerated. Only *.patch files are applied (docs/dirs
-## like patches/paged/ and *.md are skipped).
+## series (default on; LLAMA_PAGED=off skips it). Only *.patch files are applied
+## (docs/dirs like patches/paged/ and *.md are skipped). The Makefile `llama.cpp`
+## target already `git apply`s these at checkout, so each apply is guarded by a
+## sentinel and skipped when already present - re-applying git-format patches with
+## `patch` fuzzily duplicates hunks (redefinition errors). This block only does
+## real work if prepare.sh is run against an unpatched checkout.
 if [ -d "patches" ]; then
     for patch in patches/*.patch; do
         [ -e "$patch" ] || continue
         echo "Applying patch $patch"
-        patch -d llama.cpp/ -p1 < "$patch"
+        patch -d llama.cpp/ -p1 -N -r - < "$patch" || true
     done
     if [ "${LLAMA_PAGED:-on}" != "off" ] && [ -d "patches/paged" ]; then
-        for patch in patches/paged/*.patch; do
-            [ -e "$patch" ] || continue
-            echo "Applying paged patch $patch"
-            patch -d llama.cpp/ -p1 < "$patch"
-        done
+        if [ -f llama.cpp/src/paged-kv-manager.cpp ]; then
+            echo "paged-attention patch series already applied (sentinel present) - skipping re-apply"
+        else
+            for patch in patches/paged/*.patch; do
+                [ -e "$patch" ] || continue
+                echo "Applying paged patch $patch"
+                patch -d llama.cpp/ -p1 -N -r - < "$patch" || true
+            done
+        fi
     fi
 fi
 
