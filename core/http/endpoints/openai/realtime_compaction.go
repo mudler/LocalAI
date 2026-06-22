@@ -300,8 +300,8 @@ func (s *Session) summarizerModel() Model {
 
 // maybeCompact schedules a background compaction when the live buffer has grown
 // past the trigger and none is already running. Returns immediately.
-func (s *Session) maybeCompact(conv *Conversation, model Model) {
-	if !s.CompactionEnabled || model == nil {
+func (s *Session) maybeCompact(conv *Conversation) {
+	if !s.CompactionEnabled {
 		return
 	}
 	conv.Lock.Lock()
@@ -315,6 +315,13 @@ func (s *Session) maybeCompact(conv *Conversation, model Model) {
 	}
 	go func() {
 		defer conv.compacting.Store(false)
+		// Resolve (and, for a configured summary_model, lazily load) the
+		// summarizer only when a compaction actually runs, off the response
+		// path — so the model load never blocks a user turn.
+		model := s.summarizerModel()
+		if model == nil {
+			return
+		}
 		s.compact(conv, model)
 	}()
 }

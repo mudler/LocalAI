@@ -1725,7 +1725,7 @@ func triggerResponse(ctx context.Context, session *Session, conv *Conversation, 
 	triggerResponseAtTurn(ctx, session, conv, t, overrides, 0)
 	// Fold aged-out turns into the rolling memory off the critical path; the
 	// next turn reaps the smaller buffer.
-	session.maybeCompact(conv, session.summarizerModel())
+	session.maybeCompact(conv)
 }
 
 func triggerResponseAtTurn(ctx context.Context, session *Session, conv *Conversation, t Transport, overrides *types.ResponseCreateParams, toolTurn int) {
