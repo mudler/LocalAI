@@ -3,7 +3,7 @@ import { useState } from 'react'
 /**
  * Controlled chip-builder for { key: value } maps. Replaces the prior
  * comma-separated-string Node Selector input AND the bespoke Labels editor
- * in the node drawer — both were rendering the same chip pattern with
+ * in the node drawer - both were rendering the same chip pattern with
  * subtly different markup.
  *
  * Fully controlled: parent owns the map and decides what onAdd/onRemove
@@ -12,12 +12,12 @@ import { useState } from 'react'
  * row.
  *
  * Props:
- *   pairs       — current map of key → value
- *   onAdd(k,v)  — called when the user adds a pair (parent handles dedup
+ *   pairs       - current map of key -> value
+ *   onAdd(k,v)  - called when the user adds a pair (parent handles dedup
  *                 and persistence side effects)
- *   onRemove(k) — called when a chip's × is clicked
- *   placeholderKey, placeholderValue — input hints
- *   ariaLabel   — accessible name for the section
+ *   onRemove(k) - called when a chip's × is clicked
+ *   placeholderKey, placeholderValue - input hints
+ *   ariaLabel   - accessible name for the section
  */
 export default function KeyValueChips({ pairs, onAdd, onRemove, placeholderKey = 'key', placeholderValue = 'value', ariaLabel }) {
   const [k, setK] = useState('')

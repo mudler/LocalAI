@@ -6,7 +6,7 @@ import LoadingSpinner from '../LoadingSpinner'
  * Inline editor for a node's per-model replica capacity.
  *
  * UX intent: discoverable affordance (pencil icon) that opens an inline
- * input — never a modal for a single field. Source-of-truth note is shown
+ * input - never a modal for a single field. Source-of-truth note is shown
  * inline so operators understand a worker re-registration will overwrite
  * their override; surfacing this in a tooltip would hide too important a
  * caveat.
