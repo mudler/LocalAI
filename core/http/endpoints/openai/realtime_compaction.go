@@ -77,8 +77,11 @@ func truncateAssistantText(items []*types.MessageItemUnion, id string, contentIn
 // across the boundary (the whole pair lands in the kept tail). Returns 0 when
 // there is nothing to cut.
 func compactionCut(items []*types.MessageItemUnion, keep int) int {
-	if keep < 0 {
-		keep = 0
+	// keep <= 0 means no live-window cap (the "unlimited history" sentinel, as
+	// in trimRealtimeItems): there is nothing to evict, so cut nothing. This
+	// also avoids indexing items[len(items)] in the pair-safety loop below.
+	if keep <= 0 {
+		return 0
 	}
 	cut := len(items) - keep
 	if cut <= 0 {

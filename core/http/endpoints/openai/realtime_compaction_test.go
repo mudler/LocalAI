@@ -113,6 +113,11 @@ var _ = Describe("compactionCut", func() {
 		Expect(compactionCut([]*types.MessageItemUnion{user("1")}, 2)).To(Equal(0))
 	})
 
+	It("returns 0 (cuts nothing) when keep is 0 — the unlimited-window sentinel", func() {
+		items := []*types.MessageItemUnion{user("1"), user("2"), user("3")}
+		Expect(compactionCut(items, 0)).To(Equal(0))
+	})
+
 	It("moves the boundary so a call/output pair is not split", func() {
 		// keep=2 -> naive cut=2, but items[2] is the output of items[1]'s call;
 		// pull the cut right so the whole pair stays in the kept tail.
