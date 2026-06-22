@@ -44,6 +44,8 @@ else ifeq ($(BUILD_TYPE),hipblas)
 	CMAKE_ARGS+=-DVOICEDETECT_GGML_HIP=ON
 else ifeq ($(BUILD_TYPE),vulkan)
 	CMAKE_ARGS+=-DVOICEDETECT_GGML_VULKAN=ON
+else ifeq ($(BUILD_TYPE),metal)
+	CMAKE_ARGS+=-DVOICEDETECT_GGML_METAL=ON
 endif
 
 .PHONY: voice-detect-grpc package build clean purge test all

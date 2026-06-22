@@ -8481,6 +8481,8 @@
     backend: face-detect
     known_usecases:
       - face_recognition
+      - detection
+      - embeddings
     options:
       - verify_threshold:0.35
     parameters:
@@ -8518,6 +8520,8 @@
     backend: face-detect
     known_usecases:
       - face_recognition
+      - detection
+      - embeddings
     options:
       - verify_threshold:0.35
     parameters:
@@ -8554,6 +8558,8 @@
     backend: face-detect
     known_usecases:
       - face_recognition
+      - detection
+      - embeddings
     options:
       - verify_threshold:0.35
     parameters:
@@ -8590,6 +8596,8 @@
     backend: face-detect
     known_usecases:
       - face_recognition
+      - detection
+      - embeddings
     options:
       - verify_threshold:0.363
     parameters:
