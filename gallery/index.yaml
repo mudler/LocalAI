@@ -1252,6 +1252,98 @@
     - filename: privacy-filter/models/privacy-filter-multilingual/privacy-filter-multilingual-f16.gguf
       sha256: 01b76572f80b7d2ebee80a27cb9c3699c26b04cae1c402eee7664fc17a4b5ce6
       uri: https://huggingface.co/LocalAI-io/privacy-filter-multilingual-GGUF/resolve/main/privacy-filter-multilingual-f16.gguf
+- name: "privacy-filter-nemotron"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  icon: https://cdn-avatars.huggingface.co/v1/production/uploads/5fd5e18a90b6dc4633f6d292/QPiv8pt4JNxr0FdGnpFef.png
+  urls:
+    - https://huggingface.co/OpenMed/privacy-filter-nemotron
+    - https://huggingface.co/LocalAI-io/privacy-filter-nemotron-GGUF
+  description: |
+    A fine-grained English PII token-classification model: a fine-tune of
+    openai/privacy-filter by OpenMed on NVIDIA's Nemotron-PII dataset. It labels
+    every token with a BIOES tag over 55 PII categories (221 classes), trading
+    the multilingual sibling's language breadth for category depth - identity,
+    contact, address, dates, government IDs, financial, healthcare, enterprise,
+    vehicle and digital entities (including api_key, ipv4/ipv6 and mac_address).
+    For multilingual text prefer privacy-filter-multilingual instead.
+
+    In LocalAI this is a PII detector for the NER redactor tier: set
+    known_usecases to [token_classify] (as below), and any model opts into
+    redaction by listing this one under pii.detectors. The detection policy
+    (which categories to mask vs block, and the score threshold) lives on this
+    model's own pii_detection block - see the overrides below. It runs locally
+    with no Python, served by the standalone privacy-filter backend's
+    TokenClassify RPC (constrained BIOES Viterbi decode into UTF-8 byte-offset
+    entity spans).
+
+    Architecture: gpt-oss-style sparse MoE (8 layers, d_model 640, 128 experts
+    top-4, ~1.5B total / ~50M active per token), bidirectional banded attention,
+    o200k tokenizer and a 221-way token-classification head; served via the
+    openai-privacy-filter architecture. F16, ~2.8 GB. (A smaller Q8_0 quant
+    exists on the GGUF repo for RAM-constrained use - validate it on your own
+    data, since for PII a single dropped span is a leak.)
+  license: apache-2.0
+  tags:
+    - token-classification
+    - ner
+    - pii
+    - privacy
+    - nemotron
+    - gguf
+  overrides:
+    backend: privacy-filter
+    embeddings: true
+    known_usecases:
+      - token_classify
+    parameters:
+      model: privacy-filter/models/privacy-filter-nemotron/privacy-filter-nemotron-f16.gguf
+    pii_detection:
+      min_score: 0.5
+      default_action: mask
+  files:
+    - filename: privacy-filter/models/privacy-filter-nemotron/privacy-filter-nemotron-f16.gguf
+      sha256: 70dfe91ff220ff04594168a83e296dcc2054449cde77f98d0e782edbb6a31f5a
+      uri: https://huggingface.co/LocalAI-io/privacy-filter-nemotron-GGUF/resolve/main/privacy-filter-nemotron-f16.gguf
+- name: "privacy-filter-nemotron-q8"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  icon: https://cdn-avatars.huggingface.co/v1/production/uploads/5fd5e18a90b6dc4633f6d292/QPiv8pt4JNxr0FdGnpFef.png
+  urls:
+    - https://huggingface.co/OpenMed/privacy-filter-nemotron
+    - https://huggingface.co/LocalAI-io/privacy-filter-nemotron-GGUF
+  description: |
+    Q8_0 quant of privacy-filter-nemotron (~1.64 GB, vs ~2.8 GB for F16) for
+    RAM-constrained / edge use (e.g. a 4 GB Raspberry Pi 5). The MoE expert
+    weights are stored 8-bit; attention, embeddings and the classifier head
+    stay F16. Same model, policy and runtime as the F16 entry - see
+    privacy-filter-nemotron for the full description.
+
+    Prefer the F16 entry when you can afford it: it is the reference artifact.
+    On a mixed-PII document the publisher measured q8 matching F16 on 99.93% of
+    token labels with an identical span set at threshold 0.5 - but one token
+    flipped, and for PII a single dropped span is a leak. Treat q8 as a
+    deliberate size/speed tradeoff and validate it on your own data.
+  license: apache-2.0
+  tags:
+    - token-classification
+    - ner
+    - pii
+    - privacy
+    - nemotron
+    - gguf
+  overrides:
+    backend: privacy-filter
+    embeddings: true
+    known_usecases:
+      - token_classify
+    parameters:
+      model: privacy-filter/models/privacy-filter-nemotron/privacy-filter-nemotron-q8.gguf
+    pii_detection:
+      min_score: 0.5
+      default_action: mask
+  files:
+    - filename: privacy-filter/models/privacy-filter-nemotron/privacy-filter-nemotron-q8.gguf
+      sha256: 2ec11c154e572a2686f4d77e861b7f74e6917e09638fe9bd27156d48bd99e21a
+      uri: https://huggingface.co/LocalAI-io/privacy-filter-nemotron-GGUF/resolve/main/privacy-filter-nemotron-q8.gguf
 - name: "secret-filter"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   description: |

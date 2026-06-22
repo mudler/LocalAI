@@ -690,6 +690,16 @@ test-extra-backend-llama-cpp-transcription: docker-build-llama-cpp
 	BACKEND_TEST_CTX_SIZE=2048 \
 	$(MAKE) test-extra-backend
 
+## privacy-filter: the PII/NER token-classification backend. Exercises the
+## TokenClassify RPC and asserts byte-correct, UTF-8-aligned span offsets
+## against the openai-privacy-filter multilingual GGUF (CPU-runnable, ~50M
+## active params). This is the live-backend coverage for the PII NER tier.
+test-extra-backend-privacy-filter: docker-build-privacy-filter
+	BACKEND_IMAGE=local-ai-backend:privacy-filter \
+	BACKEND_TEST_MODEL_URL=https://huggingface.co/LocalAI-io/privacy-filter-multilingual-GGUF/resolve/main/privacy-filter-multilingual-f16.gguf \
+	BACKEND_TEST_CAPS=health,load,token_classify \
+	$(MAKE) test-extra-backend
+
 ## vllm is resolved from a HuggingFace model id (no file download) and
 ## exercises Predict + streaming + tool-call extraction via the hermes parser.
 ## Requires a host CPU with the SIMD instructions the prebuilt vllm CPU

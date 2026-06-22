@@ -44,7 +44,7 @@ func applyAnyText(v any, elem int, text string) any {
 	if elem < 0 {
 		return text
 	}
-	if arr, ok := v.([]any); ok && elem >= 0 && elem < len(arr) {
+	if arr, ok := v.([]any); ok && elem < len(arr) {
 		arr[elem] = text
 	}
 	return v

@@ -341,11 +341,9 @@ func (a *Application) ResolvePIIPolicy(cfg *config.ModelConfig) (enabled bool, d
 	}
 	appCfg := a.ApplicationConfig()
 
-	if cfg.PII.Enabled != nil {
-		enabled = *cfg.PII.Enabled
-	} else {
-		enabled = cfg.PIIIsEnabled() // backend default (cloud-proxy)
-	}
+	// PIIIsEnabled already encodes "explicit pii.enabled wins, else backend
+	// default (cloud-proxy)" — the single source of that rule.
+	enabled = cfg.PIIIsEnabled()
 	if !enabled {
 		return false, nil
 	}
@@ -354,7 +352,7 @@ func (a *Application) ResolvePIIPolicy(cfg *config.ModelConfig) (enabled bool, d
 	if len(detectors) == 0 {
 		detectors = append([]string(nil), appCfg.PIIDefaultDetectors...)
 	}
-	return enabled, detectors
+	return true, detectors // enabled is necessarily true past the !enabled guard
 }
 
 // PIIPolicyResolver adapts ResolvePIIPolicy to pii.PolicyResolver for

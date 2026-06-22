@@ -47,6 +47,15 @@ var (
 	// cloud-proxy model YAMLs can point at their URLs at startup time.
 	cpOpenAIUpstream    *fakeOpenAIUpstreamServer
 	cpAnthropicUpstream *fakeAnthropicUpstreamServer
+
+	// Live PII NER tier. Set only when PII_NER_MODEL_GGUF points at a
+	// privacy-filter GGUF and the privacy-filter backend is discoverable
+	// (REALTIME_BACKENDS_PATH). Empty => the NER specs Skip, exactly like the
+	// cloud-proxy specs Skip without their binary. This is what the hermetic
+	// suite cannot do (e2e_suite_test.go comment at the cp-translate detector):
+	// run the real GGUF NER tier instead of only the in-process pattern tier.
+	piiNERModel      string
+	piiNERBlockModel string
 )
 
 var _ = BeforeSuite(func() {
@@ -533,6 +542,40 @@ var _ = BeforeSuite(func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(os.WriteFile(filepath.Join(modelsPath, cfg["name"].(string)+".yaml"), data, 0644)).To(Succeed())
 		}
+	}
+
+	// Live PII NER tier. When PII_NER_MODEL_GGUF points at a downloaded
+	// privacy-filter GGUF, register two detector models that drive the real
+	// gRPC TokenClassify path on the privacy-filter backend (discovered via
+	// REALTIME_BACKENDS_PATH). Two models so we can exercise both policy
+	// outcomes against the same weights: mask (redact) and block (reject).
+	// NOTE: no pii_detection.builtins/patterns here — that would flip the
+	// detector to the in-process regex tier instead of the GGUF NER tier.
+	if gguf := os.Getenv("PII_NER_MODEL_GGUF"); gguf != "" {
+		piiNERModel = "privacy-filter-ner"
+		piiNERBlockModel = "privacy-filter-ner-block"
+		nerModelConfig := func(name, defaultAction string) map[string]any {
+			return map[string]any{
+				"name":           name,
+				"backend":        "privacy-filter",
+				"embeddings":     true, // required: TOKEN_CLS pooling loads via the embeddings flag
+				"known_usecases": []string{"token_classify"},
+				"parameters":     map[string]any{"model": gguf},
+				"pii_detection": map[string]any{
+					"min_score":      0.5,
+					"default_action": defaultAction,
+				},
+			}
+		}
+		for _, cfg := range []map[string]any{
+			nerModelConfig(piiNERModel, "mask"),
+			nerModelConfig(piiNERBlockModel, "block"),
+		} {
+			data, err := yaml.Marshal(cfg)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(os.WriteFile(filepath.Join(modelsPath, cfg["name"].(string)+".yaml"), data, 0644)).To(Succeed())
+		}
+		xlog.Info("wired live PII NER models", "gguf", gguf, "models", []string{piiNERModel, piiNERBlockModel})
 	}
 
 	systemState, err := system.GetSystemState(systemOpts...)
