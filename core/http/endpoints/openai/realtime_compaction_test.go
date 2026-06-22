@@ -1,9 +1,12 @@
 package openai
 
 import (
+	"errors"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
+	"github.com/mudler/LocalAI/core/backend"
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/http/endpoints/openai/types"
 	"github.com/mudler/LocalAI/core/schema"
@@ -178,6 +181,50 @@ var _ = Describe("buildSummaryMessages", func() {
 		Expect(msgs[0].Role).To(Equal("system"))
 		Expect(msgs[1].StringContent).To(ContainSubstring("prior facts"))
 		Expect(msgs[1].StringContent).To(ContainSubstring("user: hi"))
+	})
+})
+
+var _ = Describe("compact", func() {
+	user := func(id, text string) *types.MessageItemUnion {
+		return &types.MessageItemUnion{User: &types.MessageItemUser{ID: id,
+			Content: []types.MessageContentInput{{Type: types.MessageContentTypeInputText, Text: text}}}}
+	}
+
+	It("summarizes overflow into Memory and evicts it, keeping the live tail", func() {
+		conv := &Conversation{Items: []*types.MessageItemUnion{
+			user("1", "a"), user("2", "b"), user("3", "c"), user("4", "d"),
+			user("5", "e"), user("6", "f"), user("7", "g"), user("8", "h"),
+		}}
+		s := &Session{CompactionEnabled: true, CompactionTrigger: 7, MaxHistoryItems: 4, MaxSummaryTokens: 512}
+		m := &fakeModel{predictResp: backend.LLMResponse{Response: "ROLLED UP"}}
+
+		s.compact(conv, m)
+
+		Expect(conv.Memory).To(Equal("ROLLED UP"))
+		Expect(len(conv.Items)).To(Equal(4))
+		Expect(itemID(conv.Items[0])).To(Equal("5"))
+		// The summarizer saw the evicted turns.
+		Expect(m.lastMessages[1].StringContent).To(ContainSubstring("a"))
+	})
+
+	It("leaves Items and Memory untouched when the summarizer errors", func() {
+		items := []*types.MessageItemUnion{user("1", "a"), user("2", "b"), user("3", "c")}
+		conv := &Conversation{Items: items}
+		s := &Session{CompactionEnabled: true, CompactionTrigger: 2, MaxHistoryItems: 1, MaxSummaryTokens: 512}
+		m := &fakeModel{predictErr: errors.New("boom")}
+
+		s.compact(conv, m)
+
+		Expect(conv.Memory).To(Equal(""))
+		Expect(len(conv.Items)).To(Equal(3))
+	})
+
+	It("does nothing when items are at or below the trigger", func() {
+		conv := &Conversation{Items: []*types.MessageItemUnion{user("1", "a")}}
+		s := &Session{CompactionEnabled: true, CompactionTrigger: 7, MaxHistoryItems: 4}
+		s.compact(conv, &fakeModel{predictResp: backend.LLMResponse{Response: "x"}})
+		Expect(conv.Memory).To(Equal(""))
+		Expect(len(conv.Items)).To(Equal(1))
 	})
 })
 

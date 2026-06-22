@@ -1,18 +1,28 @@
 package openai
 
 import (
+	"context"
 	"fmt"
+	"regexp"
 	"strings"
+	"time"
 
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/http/endpoints/openai/types"
 	"github.com/mudler/LocalAI/core/schema"
+	"github.com/mudler/xlog"
 )
 
 const (
 	defaultMaxSummaryTokens = 512
 	memoryPrefix            = "Summary of earlier conversation:\n"
+	// compactionTimeout bounds the summarizer call so a stuck model can't pin the
+	// compacting flag (and thus block all further compaction) forever.
+	compactionTimeout = 60 * time.Second
 )
+
+// thinkTagRe matches a <think>…</think> span (dotall so it spans newlines).
+var thinkTagRe = regexp.MustCompile(`(?s)<think>.*?</think>`)
 
 // withMemory inserts the rolling summary as a system message after the existing
 // (instructions) history. No-op when memory is empty.
@@ -194,4 +204,100 @@ func resolveCompaction(cfg *config.ModelConfig, maxHistory int) (enabled bool, t
 		maxSummaryTokens = defaultMaxSummaryTokens
 	}
 	return true, trigger, maxSummaryTokens, c.SummaryModel
+}
+
+// stripThinkTags removes any leaked <think>…</think> spans from a summary.
+func stripThinkTags(s string) string {
+	return strings.TrimSpace(thinkTagRe.ReplaceAllString(s, ""))
+}
+
+// prefixMatches reports whether items begins with the same ids, in order, as
+// snapshot — i.e. the overflow we summarized is still at the head (no concurrent
+// client delete reshuffled it).
+func prefixMatches(items, snapshot []*types.MessageItemUnion) bool {
+	if len(items) < len(snapshot) {
+		return false
+	}
+	for i := range snapshot {
+		if itemID(items[i]) != itemID(snapshot[i]) {
+			return false
+		}
+	}
+	return true
+}
+
+// compact folds overflow items into conv.Memory and evicts them. It never holds
+// conv.Lock across the summarizer call: snapshot under lock, summarize unlocked,
+// commit under lock (re-validating the head is unchanged). On any error it
+// leaves the conversation untouched — items are never dropped without a summary.
+func (s *Session) compact(conv *Conversation, model Model) {
+	if model == nil {
+		return
+	}
+	// Snapshot.
+	conv.Lock.Lock()
+	if len(conv.Items) <= s.CompactionTrigger {
+		conv.Lock.Unlock()
+		return
+	}
+	cut := compactionCut(conv.Items, s.MaxHistoryItems)
+	if cut <= 0 {
+		conv.Lock.Unlock()
+		return
+	}
+	overflow := append([]*types.MessageItemUnion(nil), conv.Items[:cut]...)
+	prior := conv.Memory
+	conv.Lock.Unlock()
+
+	// Summarize (unlocked).
+	msgs := buildSummaryMessages(prior, renderItemsTranscript(overflow), s.MaxSummaryTokens)
+	ctx, cancel := context.WithTimeout(context.Background(), compactionTimeout)
+	defer cancel()
+	predFunc, err := model.Predict(ctx, msgs, nil, nil, nil, nil, nil, nil, nil, nil, nil)
+	if err != nil {
+		xlog.Warn("realtime compaction: summarizer predict failed", "error", err)
+		return
+	}
+	pred, err := predFunc()
+	if err != nil {
+		xlog.Warn("realtime compaction: summarizer inference failed", "error", err)
+		return
+	}
+	summary := stripThinkTags(pred.Response)
+	if summary == "" {
+		xlog.Warn("realtime compaction: empty summary, skipping eviction")
+		return
+	}
+
+	// Commit.
+	conv.Lock.Lock()
+	defer conv.Lock.Unlock()
+	if !prefixMatches(conv.Items, overflow) {
+		xlog.Debug("realtime compaction: head changed during summary, skipping")
+		return
+	}
+	conv.Memory = summary
+	conv.Items = conv.Items[len(overflow):]
+	xlog.Debug("realtime compaction: evicted items into memory", "evicted", len(overflow), "remaining", len(conv.Items))
+}
+
+// maybeCompact schedules a background compaction when the live buffer has grown
+// past the trigger and none is already running. Returns immediately.
+func (s *Session) maybeCompact(conv *Conversation, model Model) {
+	if !s.CompactionEnabled || model == nil {
+		return
+	}
+	conv.Lock.Lock()
+	over := len(conv.Items) > s.CompactionTrigger
+	conv.Lock.Unlock()
+	if !over {
+		return
+	}
+	if !conv.compacting.CompareAndSwap(false, true) {
+		return
+	}
+	go func() {
+		defer conv.compacting.Store(false)
+		s.compact(conv, model)
+	}()
 }
