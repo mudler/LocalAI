@@ -8527,7 +8527,7 @@
     Speaker (voice) recognition with SpeechBrain's ECAPA-TDNN trained
     on VoxCeleb, ported to C++/ggml and shipped as a single GGUF for the
     `voice-detect` backend. 192-d L2-normalised embeddings, ~1.9% Equal
-    Error Rate on VoxCeleb1-O. APACHE 2.0 — commercial-safe.
+    Error Rate on VoxCeleb1-O. APACHE 2.0 - commercial-safe.
 
     No Python / torch runtime: voice-detect.cpp reads the embedding
     architecture (`voicedetect.arch`) directly from the GGUF metadata,
@@ -8671,7 +8671,7 @@
     model, converted to a C++/ggml GGUF for the `voice-detect` backend.
     Drives the VoiceAnalyze gRPC rpc and the /v1/voice/analyze REST
     endpoint, returning a continuous age estimate plus gender and
-    emotion class scores for a single utterance. CC-BY-NC-SA-4.0 —
+    emotion class scores for a single utterance. CC-BY-NC-SA-4.0 -
     research / non-commercial use only.
 
     The analysis architecture (`voicedetect.arch`) is read from the
