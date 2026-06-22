@@ -13,7 +13,6 @@ import { useResources } from '../hooks/useResources'
 import { fileToBase64, backendControlApi, systemApi, modelsApi, mcpApi, nodesApi } from '../utils/api'
 import { API_CONFIG } from '../utils/config'
 import { greetingKey } from '../utils/greeting'
-import { launchAssistantChat } from '../utils/launchAssistantChat'
 import StatusPill from '../components/StatusPill'
 import Skeleton from '../components/Skeleton'
 import SectionHeading from '../components/SectionHeading'
@@ -229,8 +228,16 @@ export default function Home() {
   // requiring an initial message or model selection. Useful when an admin
   // wants to start the assistant from a cold home page.
   const openAssistantChat = useCallback(() => {
-    launchAssistantChat(navigate, selectedModel)
+    const chatData = {
+      model: selectedModel || '',
+      mcpMode: false,
+      localaiAssistant: true,
+      newChat: true,
+    }
+    localStorage.setItem('localai_index_chat_data', JSON.stringify(chatData))
+    try { localStorage.setItem('localai_assistant_used', '1') } catch { /* ignore */ }
     setAssistantUsed(true)
+    navigate('/app/chat')
   }, [navigate, selectedModel])
 
   const handleSubmit = (e) => {

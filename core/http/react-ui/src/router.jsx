@@ -6,7 +6,6 @@ import RequireAdmin from './components/RequireAdmin'
 import RequireAuth from './components/RequireAuth'
 import RequireAuthEnabled from './components/RequireAuthEnabled'
 import RequireFeature from './components/RequireFeature'
-import HomeRoute from './components/HomeRoute'
 
 // Pages are code-split: each becomes its own chunk loaded on demand, so a route
 // no longer drags every other page (and its heavy deps — CodeMirror, the MCP
@@ -33,7 +32,7 @@ export function preloadRoute(path) {
   preloaders[m[1] ?? '']?.().catch(() => { /* network blip — real click will retry */ })
 }
 
-page('', () => import('./pages/Home'))
+const Home = page('', () => import('./pages/Home'))
 const Chat = page('chat', () => import('./pages/Chat'))
 const Models = page('models', () => import('./pages/Models'))
 const Manage = page('manage', () => import('./pages/Manage'))
@@ -97,7 +96,7 @@ function Feature({ feature, children }) {
 }
 
 const appChildren = [
-  { index: true, element: <HomeRoute /> },
+  { index: true, element: <Home /> },
   { path: 'chat', element: <Chat /> },
   { path: 'chat/:model', element: <Chat /> },
   { path: 'image', element: <ImageGen /> },
