@@ -51,6 +51,7 @@
     "backends": "Backends",
     "traces": "Traces",
     "nodes": "Nodes",
+    "scheduling": "Scheduling",
     "swarm": "Swarm",
     "system": "System",
     "settings": "Settings",

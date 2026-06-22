@@ -43,6 +43,10 @@
     "title": "Nodi distribuiti",
     "subtitle": "Gestisci i nodi worker dei backend e degli agenti"
   },
+  "scheduling": {
+    "title": "Pianificazione",
+    "subtitle": "Regole di posizionamento dei modelli e delle repliche nel cluster"
+  },
   "p2p": {
     "title": "Calcolo AI distribuito",
     "subtitle": "Scala i tuoi carichi di lavoro AI su più dispositivi con la distribuzione peer-to-peer"

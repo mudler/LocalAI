@@ -69,6 +69,7 @@ const Studio = page('studio', () => import('./pages/Studio'))
 const FaceRecognition = page('face', () => import('./pages/FaceRecognition'))
 const VoiceRecognition = page('voice', () => import('./pages/VoiceRecognition'))
 const Nodes = page('nodes', () => import('./pages/Nodes'))
+const Scheduling = page('scheduling', () => import('./pages/Scheduling'))
 const NodeBackendLogs = page(null, () => import('./pages/NodeBackendLogs'))
 const NotFound = page(null, () => import('./pages/NotFound'))
 const Usage = page('usage', () => import('./pages/Usage'))
@@ -152,6 +153,7 @@ const appChildren = [
       { path: 'backend-logs/:modelId', element: <Admin><BackendLogs /></Admin> },
       { path: 'p2p', element: <Admin><P2P /></Admin> },
       { path: 'nodes', element: <Admin><Nodes /></Admin> },
+      { path: 'scheduling', element: <Admin><Scheduling /></Admin> },
       { path: 'node-backend-logs/:nodeId/:modelId', element: <Admin><NodeBackendLogs /></Admin> },
       { path: 'usage', element: <Usage /> },
       { path: 'users', element: <RequireAuthEnabled><Admin><Users /></Admin></RequireAuthEnabled> },

@@ -21,6 +21,7 @@ const PAGES = [
   ['/app/backends', 'Backends'],
   ['/app/settings', 'Settings'],
   ['/app/nodes', 'Nodes'],
+  ['/app/scheduling', 'Scheduling'],
   ['/app/face', 'Face recognition'],
   ['/app/voice', 'Voice recognition'],
   ['/app/fine-tune', 'Fine-tuning'],

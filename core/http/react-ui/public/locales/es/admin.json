@@ -43,6 +43,10 @@
     "title": "Nodos distribuidos",
     "subtitle": "Administra nodos worker de backends y agentes"
   },
+  "scheduling": {
+    "title": "Planificación",
+    "subtitle": "Reglas de ubicación de modelos y réplicas en el clúster"
+  },
   "p2p": {
     "title": "Computación de IA distribuida",
     "subtitle": "Escala tus cargas de trabajo de IA en múltiples dispositivos con distribución peer-to-peer"
