@@ -1,4 +1,50 @@
 ---
+- name: "qwythos-9b-claude-mythos-5-1m"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/empero-ai/Qwythos-9B-Claude-Mythos-5-1M-GGUF
+  description: |
+    # Qwythos-9B
+
+    **Developed by Empero**
+
+    **Qwythos-9B** is a full-parameter reasoning model built on top of a **deeply uncensored Qwen3.5-9B base** and post-trained on **over 500 million tokens** of high-quality Claude Mythos and Claude Fable traces, with chain-of-thought generated in-house by Empero AI's internal tool **rethink**.
+
+    The result is a compact, fast, **dramatically more capable** 9B reasoning model. Headline capabilities:
+
+    ...
+  license: "apache-2.0"
+  tags:
+    - llm
+    - gguf
+    - vision
+    - multimodal
+    - reasoning
+  overrides:
+    backend: llama-cpp
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+    mmproj: llama-cpp/mmproj/Qwythos-9B-Claude-Mythos-5-1M-GGUF/mmproj-Qwythos-9B-Claude-Mythos-5-1M-f16.gguf
+    options:
+      - use_jinja:true
+      - spec_type:draft-mtp
+      - spec_n_max:6
+      - spec_p_min:0.75
+    parameters:
+      model: llama-cpp/models/Qwythos-9B-Claude-Mythos-5-1M-GGUF/Qwythos-9B-Claude-Mythos-5-1M-MTP-Q4_K_M.gguf
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/Qwythos-9B-Claude-Mythos-5-1M-GGUF/Qwythos-9B-Claude-Mythos-5-1M-MTP-Q4_K_M.gguf
+      sha256: 24ee22e0f5d9f0d3d615809607f365c728d9b0c3f3fb6eb19d8bd83a1c2933d8
+      uri: https://huggingface.co/empero-ai/Qwythos-9B-Claude-Mythos-5-1M-GGUF/resolve/main/Qwythos-9B-Claude-Mythos-5-1M-MTP-Q4_K_M.gguf
+    - filename: llama-cpp/mmproj/Qwythos-9B-Claude-Mythos-5-1M-GGUF/mmproj-Qwythos-9B-Claude-Mythos-5-1M-f16.gguf
+      sha256: f70dc3509053962b0d0d3ee8a7eacebf5d60aa560cad78254ae8698516ae029f
+      uri: https://huggingface.co/empero-ai/Qwythos-9B-Claude-Mythos-5-1M-GGUF/resolve/main/mmproj-Qwythos-9B-Claude-Mythos-5-1M-f16.gguf
 - name: "glm-5.2"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
