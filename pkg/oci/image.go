@@ -176,6 +176,7 @@ func GetImage(targetImage, targetPlatform string, auth *registrytypes.AuthConfig
 	opts := []remote.Option{
 		remote.WithTransport(tr),
 		remote.WithPlatform(*platform),
+		remote.WithUserAgent(UserAgent()),
 	}
 	if auth != nil {
 		opts = append(opts, remote.WithAuth(staticAuth{auth}))
@@ -223,6 +224,7 @@ func GetImageDigest(targetImage, targetPlatform string, auth *registrytypes.Auth
 	opts := []remote.Option{
 		remote.WithTransport(tr),
 		remote.WithPlatform(*platform),
+		remote.WithUserAgent(UserAgent()),
 	}
 	if auth != nil {
 		opts = append(opts, remote.WithAuth(staticAuth{auth}))
