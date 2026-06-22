@@ -144,6 +144,7 @@ export const API_CONFIG = {
     nodeLabelKey: (id, key) => `/api/nodes/${id}/labels/${key}`,
     nodeMaxReplicasPerModel: (id) => `/api/nodes/${id}/max-replicas-per-model`,
     nodesScheduling: '/api/nodes/scheduling',
+    nodesModels: '/api/nodes/models',
     nodesSchedulingModel: (model) => `/api/nodes/scheduling/${encodeURIComponent(model)}`,
   },
 }
