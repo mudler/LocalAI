@@ -52,3 +52,27 @@ test.describe('Adaptive sidebar', () => {
       .getByText('Nodes', { exact: false })).toHaveCount(0)
   })
 })
+
+test.describe('Top navbar', () => {
+  test('admin sees the mode pill and settings cog', async ({ page }) => {
+    await stubFeatures(page, { distributed: true })
+    await stubNoP2P(page)
+    await page.goto('/app/chat')
+    await expect(page.locator('.top-navbar__mode')).toBeVisible({ timeout: 15_000 })
+    await expect(page.locator('.top-navbar__icon[aria-label]')).not.toHaveCount(0)
+  })
+
+  test('admin-via-chat jump shows when localai_assistant is enabled', async ({ page }) => {
+    await stubFeatures(page, { distributed: false, localai_assistant: true })
+    await stubNoP2P(page)
+    await page.goto('/app/chat')
+    await expect(page.locator('.top-navbar__assistant')).toBeVisible({ timeout: 15_000 })
+  })
+
+  test('admin-via-chat jump hidden when localai_assistant is off', async ({ page }) => {
+    await stubFeatures(page, { distributed: false, localai_assistant: false })
+    await stubNoP2P(page)
+    await page.goto('/app/chat')
+    await expect(page.locator('.top-navbar__assistant')).toHaveCount(0)
+  })
+})
