@@ -8509,7 +8509,7 @@ select.input {
   border-radius: var(--radius-lg);
 }
 .node-panel__main { padding: var(--spacing-md) var(--spacing-lg); cursor: pointer; }
-.node-panel__main:hover { border-color: var(--color-border); }
+.node-panel:hover { border-color: var(--color-border); }
 .node-panel__head { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--spacing-md); }
 .node-panel__id { display: flex; align-items: center; gap: var(--spacing-sm); flex-wrap: wrap; }
 .node-panel__name { font-weight: 600; }
@@ -8521,5 +8521,6 @@ select.input {
   padding: 2px 8px; border-radius: var(--radius-sm); border: 1px solid;
 }
 .model-chip__dot { width: 6px; height: 6px; border-radius: 50%; }
+.model-chip__state { opacity: 0.85; font-style: normal; }
 .node-filter { margin-bottom: var(--spacing-lg); }
 .node-detail__metrics { display: flex; gap: var(--spacing-xl); margin: var(--spacing-md) 0 var(--spacing-lg); flex-wrap: wrap; }
