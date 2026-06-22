@@ -4,7 +4,6 @@ import { RouterProvider } from 'react-router-dom'
 import { ThemeProvider } from './contexts/ThemeContext'
 import { BrandingProvider } from './contexts/BrandingContext'
 import { AuthProvider } from './context/AuthContext'
-import { DeploymentProvider } from './contexts/DeploymentContext'
 import { OperationsProvider } from './contexts/OperationsContext'
 import { router } from './router'
 import './i18n'
@@ -33,11 +32,9 @@ createRoot(document.getElementById('root')).render(
       <ThemeProvider>
         <BrandingProvider>
           <AuthProvider>
-            <DeploymentProvider>
-              <OperationsProvider>
-                <RouterProvider router={router} />
-              </OperationsProvider>
-            </DeploymentProvider>
+            <OperationsProvider>
+              <RouterProvider router={router} />
+            </OperationsProvider>
           </AuthProvider>
         </BrandingProvider>
       </ThemeProvider>

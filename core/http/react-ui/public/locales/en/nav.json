@@ -12,16 +12,6 @@
   "accountSettings": "Account settings",
   "account": "Account",
   "accountFor": "Account: {{name}}",
-  "topbar": {
-    "label": "Top bar",
-    "modeDistributed": "Distributed",
-    "modeSwarm": "Swarm",
-    "modeSingle": "Single-node",
-    "pickModel": "Models",
-    "adminViaChat": "Admin via chat",
-    "tokensToday": "Tokens today",
-    "usageDetail": "View usage detail"
-  },
   "sections": {
     "create": "Create",
     "recognition": "Recognition",
