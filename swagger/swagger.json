@@ -1018,6 +1018,25 @@
                 }
             }
         },
+        "/api/nodes/models": {
+            "get": {
+                "tags": [
+                    "Nodes"
+                ],
+                "summary": "List all loaded models cluster-wide",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/nodes.NodeModel"
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/api/nodes/{id}/max-replicas-per-model": {
             "put": {
                 "tags": [
@@ -3747,6 +3766,52 @@
                     "type": "integer"
                 },
                 "vram_display": {
+                    "type": "string"
+                }
+            }
+        },
+        "nodes.NodeModel": {
+            "type": "object",
+            "properties": {
+                "address": {
+                    "description": "gRPC address for this replica's backend process",
+                    "type": "string"
+                },
+                "backend_type": {
+                    "description": "e.g. \"llama-cpp\"; used by reconciler to replicate loads",
+                    "type": "string"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "in_flight": {
+                    "description": "number of active requests on this replica",
+                    "type": "integer"
+                },
+                "last_used": {
+                    "type": "string"
+                },
+                "loading_by": {
+                    "description": "frontend ID that triggered loading",
+                    "type": "string"
+                },
+                "model_name": {
+                    "type": "string"
+                },
+                "node_id": {
+                    "type": "string"
+                },
+                "replica_index": {
+                    "type": "integer"
+                },
+                "state": {
+                    "description": "loading, loaded, unloading, idle",
+                    "type": "string"
+                },
+                "updated_at": {
                     "type": "string"
                 }
             }
