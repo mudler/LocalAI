@@ -32,13 +32,3 @@ export function timeAgo(dateString) {
   const days = Math.floor(hours / 24)
   return `${days}d ago`
 }
-
-export function gpuVendorLabel(vendor) {
-  const labels = {
-    nvidia: 'NVIDIA',
-    amd: 'AMD',
-    intel: 'Intel',
-    vulkan: 'Vulkan',
-  }
-  return labels[vendor] || null
-}
