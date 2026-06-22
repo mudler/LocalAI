@@ -8522,3 +8522,4 @@ select.input {
 }
 .model-chip__dot { width: 6px; height: 6px; border-radius: 50%; }
 .node-filter { margin-bottom: var(--spacing-lg); }
+.node-detail__metrics { display: flex; gap: var(--spacing-xl); margin: var(--spacing-md) 0 var(--spacing-lg); flex-wrap: wrap; }

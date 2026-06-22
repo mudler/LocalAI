@@ -19,3 +19,26 @@ export function formatVRAM(bytes) {
   const gb = bytes / (1024 * 1024 * 1024)
   return gb >= 1 ? `${gb.toFixed(1)} GB` : `${(bytes / (1024 * 1024)).toFixed(0)} MB`
 }
+
+export function timeAgo(dateString) {
+  if (!dateString) return 'never'
+  const seconds = Math.floor((Date.now() - new Date(dateString).getTime()) / 1000)
+  if (seconds < 0) return 'just now'
+  if (seconds < 60) return `${seconds}s ago`
+  const minutes = Math.floor(seconds / 60)
+  if (minutes < 60) return `${minutes}m ago`
+  const hours = Math.floor(minutes / 60)
+  if (hours < 24) return `${hours}h ago`
+  const days = Math.floor(hours / 24)
+  return `${days}d ago`
+}
+
+export function gpuVendorLabel(vendor) {
+  const labels = {
+    nvidia: 'NVIDIA',
+    amd: 'AMD',
+    intel: 'Intel',
+    vulkan: 'Vulkan',
+  }
+  return labels[vendor] || null
+}
