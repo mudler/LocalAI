@@ -542,6 +542,12 @@ var BackendCapabilities = map[string]BackendCapability{
 		DefaultUsecases:  []string{UsecaseSpeakerRecognition},
 		Description:      "Speaker recognition — voice identity verification and analysis",
 	},
+	"voice-detect": {
+		GRPCMethods:      []GRPCMethod{MethodVoiceVerify, MethodVoiceEmbed, MethodVoiceAnalyze},
+		PossibleUsecases: []string{UsecaseSpeakerRecognition},
+		DefaultUsecases:  []string{UsecaseSpeakerRecognition},
+		Description:      "voice-detect.cpp — C++/ggml speaker embedding, verification and voice analysis (age/gender/emotion)",
+	},
 	"silero-vad": {
 		GRPCMethods:      []GRPCMethod{MethodVAD},
 		PossibleUsecases: []string{UsecaseVAD},
