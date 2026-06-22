@@ -1,19 +1,12 @@
 package openai
 
 import (
-	"testing"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/http/endpoints/openai/types"
 )
-
-func TestRealtimeCompaction(t *testing.T) {
-	RegisterFailHandler(Fail)
-	RunSpecs(t, "Realtime Compaction Suite")
-}
 
 var _ = Describe("resolveCompaction", func() {
 	It("disables when the block is absent", func() {
