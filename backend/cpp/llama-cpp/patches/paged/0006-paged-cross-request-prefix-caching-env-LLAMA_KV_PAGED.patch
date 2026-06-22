@@ -1,0 +1,143 @@
+From 141029beec609e87f24f6f6bba3ec842d7037862 Mon Sep 17 00:00:00 2001
+From: Ettore Di Giacinto <mudler@localai.io>
+Date: Mon, 22 Jun 2026 12:13:44 +0200
+Subject: [PATCH] paged cross-request prefix caching (env LLAMA_KV_PAGED) -
+ patch 0006
+
+Add host-side cross-request prefix sharing to the vendored PagedKVManager
+(patches 0001-0004): on placement, hash a new sequence prefix blocks, reuse the
+matching cached physical blocks (ref_cnt++) for the shared prefix and allocate
+fresh blocks only for the divergent suffix. A shared block is freed only at
+ref 0; copy-on-write privatises a still-shared (ref>1) block before a divergent
+write so co-owners stay byte-correct. All logic lives in the vendored
+src/paged-kv-manager unit (place_with_prefix / cow_block / ref-counting); the
+core kv-cache files are untouched. Default off; gated behind LLAMA_KV_PAGED.
+
+Wiring the physical-cell reuse into find_slot so the engine itself skips
+recompute needs core seq-membership changes and is left to a later patch.
+
+Assisted-by: Claude:opus-4.8 [Claude Code]
+Signed-off-by: Ettore Di Giacinto <mudler@localai.io>
+---
+ src/paged-kv-manager.cpp | 65 ++++++++++++++++++++++++++++++++++++++++
+ src/paged-kv-manager.h   | 23 ++++++++++++++
+ 2 files changed, 88 insertions(+)
+
+diff --git a/src/paged-kv-manager.cpp b/src/paged-kv-manager.cpp
+index ca0dcd8..4c6ee4c 100644
+--- a/src/paged-kv-manager.cpp
++++ b/src/paged-kv-manager.cpp
+@@ -293,4 +293,69 @@ void PagedKVManager::cache_blocks(int seq_id, const std::vector<uint64_t>& block
+     pool_.cache_full_blocks(req, /*num_cached=*/0, n_full, block_hashes);
+ }
+ 
++// ---------------------------------------------------------------------------
++// Cross-request prefix caching + copy-on-write  (patch 0006)
++// ---------------------------------------------------------------------------
++
++size_t PagedKVManager::place_with_prefix(int seq_id, const std::vector<int>& token_ids) {
++    auto& req = req_to_blocks_[seq_id];
++
++    // Longest cached prefix: hash the full blocks and stop at the first miss.
++    // A block hash transitively encodes its whole prefix (FNV chaining), so the
++    // first miss bounds the reusable prefix (vLLM find_longest_cache_hit).
++    const std::vector<uint64_t> hashes = compute_block_hashes(token_ids);
++    std::vector<KVCacheBlock*> hits;
++    for (uint64_t bh : hashes) {
++        KVCacheBlock* cb = pool_.get_cached_block(bh);
++        if (!cb) break;
++        hits.push_back(cb);
++    }
++
++    // Reuse: ++ref_cnt (pulling warm blocks back out of the free list) then
++    // splice the shared physical blocks into this sequence's block table.
++    pool_.touch(hits);
++    req.insert(req.end(), hits.begin(), hits.end());
++
++    // Allocate fresh blocks only for the divergent suffix.
++    const size_t need = cdiv(token_ids.size(), block_size_);
++    if (need > req.size()) {
++        const size_t add = need - req.size();
++        if (add > pool_.get_num_free_blocks()) {
++            // OOM: roll the sequence back (un-touch the shared prefix so no ref
++            // leaks) and report no placement; the caller falls back to stock.
++            std::vector<KVCacheBlock*> ordered(req.rbegin(), req.rend());
++            pool_.free_blocks(ordered);
++            req.clear();
++            return 0;
++        }
++        auto nb = pool_.get_new_blocks(add);
++        req.insert(req.end(), nb.begin(), nb.end());
++    }
++    return hits.size();
++}
++
++std::pair<int32_t, int32_t> PagedKVManager::cow_block(int seq_id, size_t bi) {
++    auto& req = req_to_blocks_.at(seq_id);
++    KVCacheBlock* old = req.at(bi);
++    if (old->ref_cnt <= 1) {
++        return { old->block_id, old->block_id }; // already private - no copy
++    }
++    // Private copy for this sequence. get_new_blocks sets the fresh block's
++    // ref_cnt to 1; free_blocks decrements the shared block, which stays >0 so
++    // it is NOT returned to the pool and the other owners are left untouched.
++    KVCacheBlock* fresh = pool_.get_new_blocks(1).front();
++    pool_.free_blocks({ old });
++    req[bi] = fresh;
++    return { old->block_id, fresh->block_id };
++}
++
++int PagedKVManager::block_ref_cnt_at(int seq_id, size_t bi) const {
++    return req_to_blocks_.at(seq_id).at(bi)->ref_cnt;
++}
++
++size_t PagedKVManager::num_blocks(int seq_id) const {
++    auto it = req_to_blocks_.find(seq_id);
++    return it == req_to_blocks_.end() ? 0 : it->second.size();
++}
++
+ } // namespace paged
+diff --git a/src/paged-kv-manager.h b/src/paged-kv-manager.h
+index 740280a..34decbc 100644
+--- a/src/paged-kv-manager.h
++++ b/src/paged-kv-manager.h
+@@ -14,6 +14,7 @@
+ #include <vector>
+ #include <unordered_map>
+ #include <map>
++#include <utility>
+ 
+ namespace paged {
+ 
+@@ -99,6 +100,28 @@ public:
+     size_t get_computed_blocks(const std::vector<uint64_t>& block_hashes); // returns num cached tokens
+     void cache_blocks(int seq_id, const std::vector<uint64_t>& block_hashes, size_t num_tokens);
+ 
++    // Cross-request prefix caching + copy-on-write (patch 0006).
++    //
++    // Splice the longest cached prefix of token_ids into seq_id (reuse the
++    // shared physical blocks, ref_cnt++ so a block frees only at ref 0) and
++    // allocate fresh blocks only for the divergent suffix. Returns the number of
++    // shared (reused) blocks; the caller skips recomputing those tokens. On pool
++    // exhaustion the sequence is rolled back (no ref leak) and 0 is returned.
++    size_t place_with_prefix(int seq_id, const std::vector<int>& token_ids);
++
++    // Copy-on-write the block at logical index bi of seq_id. If that block is
++    // shared (ref_cnt>1), allocate a fresh private block, drop this seq's ref on
++    // the shared one (other owners keep it, content untouched) and install the
++    // fresh block at bi. Returns {old_block_id, new_block_id}; new==old when the
++    // block was already private (ref_cnt<=1) and no copy is needed. The caller
++    // copies the physical cell contents old_block_id -> new_block_id.
++    std::pair<int32_t, int32_t> cow_block(int seq_id, size_t bi);
++
++    // Introspection for the prefix-share gate (debug/tests).
++    int    block_ref_cnt_at(int seq_id, size_t bi) const;
++    size_t num_blocks(int seq_id) const;
++    size_t num_free_blocks() const { return pool_.get_num_free_blocks(); }
++
+ protected:
+     int block_size_;
+     BlockPool pool_;
+-- 
+2.43.0
+
