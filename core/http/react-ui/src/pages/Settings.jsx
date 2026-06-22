@@ -316,6 +316,9 @@ export default function Settings() {
               <SettingRow label="Force Eviction When Busy" description="Allow model eviction even during active API calls">
                 <Toggle checked={settings.force_eviction_when_busy} onChange={(v) => update('force_eviction_when_busy', v)} />
               </SettingRow>
+              <SettingRow label="Size-Aware Eviction" description="Evict the largest loaded model first instead of the least-recently-used one">
+                <Toggle checked={settings.size_aware_eviction} onChange={(v) => update('size_aware_eviction', v)} />
+              </SettingRow>
               <SettingRow label="LRU Eviction Max Retries" description="Maximum retries waiting for busy models before eviction">
                 <input className="input" type="number" style={{ width: 120 }} value={settings.lru_eviction_max_retries ?? ''} onChange={(e) => update('lru_eviction_max_retries', parseInt(e.target.value) || 0)} placeholder="30" />
               </SettingRow>

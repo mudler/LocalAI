@@ -198,6 +198,27 @@ docker-build-backends: ... docker-build-<backend-name>
 - If the backend is in `backend/python/<backend-name>/` but uses `.` as context in the workflow file, use `.` context
 - Check similar backends to determine the correct context
 
+## Documenting the backend (README + docs)
+
+A backend is not "added" until it is discoverable. Update the user-facing docs:
+
+- **`docs/content/features/backends.md`** - add the backend to the right
+  category in the "LocalAI supports various types of backends" list (and add a
+  new category if it introduces a new modality, e.g. sound classification).
+- If the backend introduces a **new API surface** (a new endpoint or a realtime
+  capability), document it under `docs/content/` where its area lives (audio,
+  vision, etc.) and follow the api-endpoints checklist in
+  [api-endpoints-and-auth.md](api-endpoints-and-auth.md).
+
+**If the backend is a native C/C++/GGML engine created and maintained by the
+LocalAI team** (a from-scratch port like `parakeet.cpp`, `ced.cpp`,
+`vibevoice.cpp`, `rf-detr.cpp`, not a wrapper around a third-party runtime), it
+ALSO belongs in the top-level **`README.md`** table under "native C/C++/GGML
+engines ... developed and maintained by the LocalAI project itself". Add a row
+linking the upstream engine repo with a one-line description. This is the
+project's showcase of its own engines; a new in-house backend that is missing
+from it is a documentation bug.
+
 ## 5. Verification Checklist
 
 After adding a new backend, verify:
@@ -211,6 +232,8 @@ After adding a new backend, verify:
 - [ ] No YAML syntax errors (check with linter)
 - [ ] No Makefile syntax errors (check with linter)
 - [ ] Follows the same pattern as similar backends (e.g., if it's a transcription backend, follow `faster-whisper` pattern)
+- [ ] Documented: added to the category list in `docs/content/features/backends.md` (and any new endpoint/realtime capability documented under `docs/content/`)
+- [ ] If it is an in-house native C/C++/GGML engine, added to the maintained-engines table in the top-level `README.md`
 
 ## Bundling runtime shared libraries (`package.sh`)
 

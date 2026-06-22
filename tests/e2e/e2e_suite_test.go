@@ -275,6 +275,40 @@ var _ = BeforeSuite(func() {
 	Expect(err).ToNot(HaveOccurred())
 	Expect(os.WriteFile(filepath.Join(modelsPath, "realtime-pipeline-gated.yaml"), gatedData, 0644)).To(Succeed())
 
+	// Identity-surfacing pipeline: the same speaker backend, but enforce:false
+	// (never drop a turn) plus an identity block so the server emits the
+	// conversation.item.speaker event and personalizes the LLM turn. Used by the
+	// speaker-identity e2e specs.
+	identityCfg := map[string]any{
+		"name": "realtime-pipeline-identity",
+		"pipeline": map[string]any{
+			"vad":           "mock-vad",
+			"transcription": "mock-stt",
+			"llm":           "mock-llm",
+			"tts":           "mock-tts",
+			"voice_recognition": map[string]any{
+				"model":     "mock-speaker",
+				"mode":      "verify",
+				"threshold": 0.25,
+				"when":      "every",
+				"enforce":   false,
+				"references": []map[string]any{
+					{"name": "e2e-speaker", "audio": voiceRefPath},
+				},
+				"identity": map[string]any{
+					"announce":           true,
+					"announce_unknown":   true,
+					"personalize":        true,
+					"inject_name":        true,
+					"inject_system_note": true,
+				},
+			},
+		},
+	}
+	identityData, err := yaml.Marshal(identityCfg)
+	Expect(err).ToNot(HaveOccurred())
+	Expect(os.WriteFile(filepath.Join(modelsPath, "realtime-pipeline-identity.yaml"), identityData, 0644)).To(Succeed())
+
 	// Router model setup: a score classifier (mock-backend Score) selects
 	// between two candidate chat models based on keyword matches against the
 	// candidate label fragments. Exercises the full RouteModel middleware path

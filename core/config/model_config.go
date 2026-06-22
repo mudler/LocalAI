@@ -604,6 +604,20 @@ type Pipeline struct {
 	LLM           string `yaml:"llm,omitempty" json:"llm,omitempty"`
 	Transcription string `yaml:"transcription,omitempty" json:"transcription,omitempty"`
 	VAD           string `yaml:"vad,omitempty" json:"vad,omitempty"`
+	// SoundDetection names a sound-event-classification model (e.g. ced). When
+	// set, each VAD-committed realtime utterance is also run through it and the
+	// scored AudioSet tags are emitted as a conversation.item.sound_detection
+	// server event, alongside (and independent of) transcription.
+	SoundDetection string `yaml:"sound_detection,omitempty" json:"sound_detection,omitempty"`
+
+	// SoundDetectionWindowMs / SoundDetectionHopMs enable server-side windowing
+	// for a sound-detection-only realtime session: instead of the client
+	// committing audio buffers, the server classifies the last WindowMs of
+	// streamed audio every HopMs and emits a sound_detection event per hop. Both
+	// must be > 0 to activate; otherwise the session stays client-driven (the
+	// client commits windows via input_audio_buffer.commit).
+	SoundDetectionWindowMs int `yaml:"sound_detection_window_ms,omitempty" json:"sound_detection_window_ms,omitempty"`
+	SoundDetectionHopMs    int `yaml:"sound_detection_hop_ms,omitempty" json:"sound_detection_hop_ms,omitempty"`
 
 	// ReasoningEffort sets the reasoning effort (none|minimal|low|medium|high) for
 	// the pipeline's LLM without editing the LLM model config. Overrides the LLM's
@@ -769,6 +783,13 @@ type PipelineVoiceRecognition struct {
 	Allow VoiceRecognitionAllow `yaml:"allow,omitempty" json:"allow,omitempty"`
 	// References are the authorized reference speakers (verify mode).
 	References []VoiceReference `yaml:"references,omitempty" json:"references,omitempty"`
+	// Enforce controls the authorization gate. A nil value or true rejects
+	// unauthorized speakers (the historical behavior). false resolves the
+	// speaker's identity for surfacing/personalization but never drops a turn.
+	Enforce *bool `yaml:"enforce,omitempty" json:"enforce,omitempty"`
+	// Identity surfaces the recognized speaker to the client and the LLM. It is
+	// independent of Enforce: identity can be surfaced without gating.
+	Identity *VoiceIdentityConfig `yaml:"identity,omitempty" json:"identity,omitempty"`
 }
 
 // @Description VoiceRecognitionAllow filters authorized registry identities.
@@ -785,12 +806,53 @@ type VoiceReference struct {
 	Audio string `yaml:"audio,omitempty" json:"audio,omitempty"`
 }
 
+// @Description VoiceIdentityConfig surfaces the recognized speaker to the realtime
+// client and the LLM. When set, identity is resolved on every turn even if the
+// gate's When is "first" (the gate still authorizes only once).
+type VoiceIdentityConfig struct {
+	// Announce emits a conversation.item.speaker event to the client.
+	Announce bool `yaml:"announce,omitempty" json:"announce,omitempty"`
+	// AnnounceUnknown also emits the event when there is no confident match.
+	AnnounceUnknown bool `yaml:"announce_unknown,omitempty" json:"announce_unknown,omitempty"`
+	// Personalize informs the LLM who is speaking.
+	Personalize bool `yaml:"personalize,omitempty" json:"personalize,omitempty"`
+	// InjectName sets the per-message name field on each user turn.
+	InjectName bool `yaml:"inject_name,omitempty" json:"inject_name,omitempty"`
+	// InjectSystemNote maintains a "current speaker" note in the system message.
+	InjectSystemNote bool `yaml:"inject_system_note,omitempty" json:"inject_system_note,omitempty"`
+	// NoteUnknown adds a "the current speaker is unknown" note (enables the model
+	// to ask who it is talking to).
+	NoteUnknown bool `yaml:"note_unknown,omitempty" json:"note_unknown,omitempty"`
+}
+
 // VoiceGateEnabled reports whether a voice-recognition gate is configured. The
 // mere presence of the block is the intent signal: a present-but-incomplete
 // block (e.g. missing model) must fail closed at construction, not be silently
 // skipped here.
 func (p Pipeline) VoiceGateEnabled() bool {
 	return p.VoiceRecognition != nil
+}
+
+// EnforceGate reports whether the gate rejects unauthorized speakers. A nil
+// Enforce means "enforce" so existing configs keep gating.
+func (p PipelineVoiceRecognition) EnforceGate() bool {
+	return p.Enforce == nil || *p.Enforce
+}
+
+// IdentityEnabled reports whether the speaker's identity must be resolved for
+// surfacing or personalization.
+func (p PipelineVoiceRecognition) IdentityEnabled() bool {
+	return p.Identity != nil && (p.Identity.Announce || p.Identity.Personalize)
+}
+
+// AnnounceEnabled reports whether to emit the conversation.item.speaker event.
+func (p PipelineVoiceRecognition) AnnounceEnabled() bool {
+	return p.Identity != nil && p.Identity.Announce
+}
+
+// PersonalizeEnabled reports whether to inform the LLM of the speaker.
+func (p PipelineVoiceRecognition) PersonalizeEnabled() bool {
+	return p.Identity != nil && p.Identity.Personalize
 }
 
 // Normalize fills in defaults in place for omitted fields.
@@ -1404,6 +1466,11 @@ const (
 	// so it may combine freely with other usecases.
 	FLAG_TOKEN_CLASSIFY ModelConfigUsecase = 0b1000000000000000000000
 
+	// Marks a model as wired for the SoundDetection gRPC primitive
+	// (audio tagging / sound-event classification — scored AudioSet
+	// labels via the SoundDetection RPC, e.g. ced).
+	FLAG_SOUND_CLASSIFICATION ModelConfigUsecase = 0b10000000000000000000000
+
 	// Common Subsets
 	FLAG_LLM ModelConfigUsecase = FLAG_CHAT | FLAG_COMPLETION | FLAG_EDIT
 )
@@ -1412,12 +1479,12 @@ const (
 // Flags within the same group are NOT orthogonal (e.g., chat and completion are
 // both text/language). A model is multimodal when its usecases span 2+ groups.
 var ModalityGroups = []ModelConfigUsecase{
-	FLAG_CHAT | FLAG_COMPLETION | FLAG_EDIT,                // text/language
-	FLAG_VISION | FLAG_DETECTION,                           // visual understanding
-	FLAG_TRANSCRIPT | FLAG_REALTIME_AUDIO,                  // speech input — realtime_audio is any-to-any, so it counts here too
-	FLAG_TTS | FLAG_SOUND_GENERATION | FLAG_REALTIME_AUDIO, // audio output — and here, so a lone realtime_audio flag still reads as multimodal
-	FLAG_AUDIO_TRANSFORM,                                   // audio in/out transforms
-	FLAG_IMAGE | FLAG_VIDEO,                                // visual generation
+	FLAG_CHAT | FLAG_COMPLETION | FLAG_EDIT,                           // text/language
+	FLAG_VISION | FLAG_DETECTION,                                      // visual understanding
+	FLAG_TRANSCRIPT | FLAG_REALTIME_AUDIO | FLAG_SOUND_CLASSIFICATION, // audio input — realtime_audio is any-to-any, so it counts here too
+	FLAG_TTS | FLAG_SOUND_GENERATION | FLAG_REALTIME_AUDIO,            // audio output — and here, so a lone realtime_audio flag still reads as multimodal
+	FLAG_AUDIO_TRANSFORM,                                              // audio in/out transforms
+	FLAG_IMAGE | FLAG_VIDEO,                                           // visual generation
 }
 
 // IsMultimodal returns true if the given usecases span two or more orthogonal
@@ -1440,29 +1507,30 @@ func GetAllModelConfigUsecases() map[string]ModelConfigUsecase {
 	return map[string]ModelConfigUsecase{
 		// Note: FLAG_ANY is intentionally excluded from this map
 		// because it's 0 and would always match in HasUsecases checks
-		"FLAG_CHAT":                FLAG_CHAT,
-		"FLAG_COMPLETION":          FLAG_COMPLETION,
-		"FLAG_EDIT":                FLAG_EDIT,
-		"FLAG_EMBEDDINGS":          FLAG_EMBEDDINGS,
-		"FLAG_RERANK":              FLAG_RERANK,
-		"FLAG_IMAGE":               FLAG_IMAGE,
-		"FLAG_TRANSCRIPT":          FLAG_TRANSCRIPT,
-		"FLAG_TTS":                 FLAG_TTS,
-		"FLAG_SOUND_GENERATION":    FLAG_SOUND_GENERATION,
-		"FLAG_TOKENIZE":            FLAG_TOKENIZE,
-		"FLAG_VAD":                 FLAG_VAD,
-		"FLAG_LLM":                 FLAG_LLM,
-		"FLAG_VIDEO":               FLAG_VIDEO,
-		"FLAG_DETECTION":           FLAG_DETECTION,
-		"FLAG_VISION":              FLAG_VISION,
-		"FLAG_FACE_RECOGNITION":    FLAG_FACE_RECOGNITION,
-		"FLAG_SPEAKER_RECOGNITION": FLAG_SPEAKER_RECOGNITION,
-		"FLAG_AUDIO_TRANSFORM":     FLAG_AUDIO_TRANSFORM,
-		"FLAG_DIARIZATION":         FLAG_DIARIZATION,
-		"FLAG_REALTIME_AUDIO":      FLAG_REALTIME_AUDIO,
-		"FLAG_SCORE":               FLAG_SCORE,
-		"FLAG_DEPTH":               FLAG_DEPTH,
-		"FLAG_TOKEN_CLASSIFY":      FLAG_TOKEN_CLASSIFY,
+		"FLAG_CHAT":                 FLAG_CHAT,
+		"FLAG_COMPLETION":           FLAG_COMPLETION,
+		"FLAG_EDIT":                 FLAG_EDIT,
+		"FLAG_EMBEDDINGS":           FLAG_EMBEDDINGS,
+		"FLAG_RERANK":               FLAG_RERANK,
+		"FLAG_IMAGE":                FLAG_IMAGE,
+		"FLAG_TRANSCRIPT":           FLAG_TRANSCRIPT,
+		"FLAG_TTS":                  FLAG_TTS,
+		"FLAG_SOUND_GENERATION":     FLAG_SOUND_GENERATION,
+		"FLAG_TOKENIZE":             FLAG_TOKENIZE,
+		"FLAG_VAD":                  FLAG_VAD,
+		"FLAG_LLM":                  FLAG_LLM,
+		"FLAG_VIDEO":                FLAG_VIDEO,
+		"FLAG_DETECTION":            FLAG_DETECTION,
+		"FLAG_VISION":               FLAG_VISION,
+		"FLAG_FACE_RECOGNITION":     FLAG_FACE_RECOGNITION,
+		"FLAG_SPEAKER_RECOGNITION":  FLAG_SPEAKER_RECOGNITION,
+		"FLAG_AUDIO_TRANSFORM":      FLAG_AUDIO_TRANSFORM,
+		"FLAG_DIARIZATION":          FLAG_DIARIZATION,
+		"FLAG_SOUND_CLASSIFICATION": FLAG_SOUND_CLASSIFICATION,
+		"FLAG_REALTIME_AUDIO":       FLAG_REALTIME_AUDIO,
+		"FLAG_SCORE":                FLAG_SCORE,
+		"FLAG_DEPTH":                FLAG_DEPTH,
+		"FLAG_TOKEN_CLASSIFY":       FLAG_TOKEN_CLASSIFY,
 	}
 }
 
@@ -1661,6 +1729,16 @@ func (c *ModelConfig) GuessUsecases(u ModelConfigUsecase) bool {
 		// embeddings + clustering. Both surface as a Diarize gRPC.
 		diarizationBackends := []string{"vibevoice-cpp", "sherpa-onnx"}
 		if !slices.Contains(diarizationBackends, c.Backend) {
+			return false
+		}
+	}
+
+	if (u & FLAG_SOUND_CLASSIFICATION) == FLAG_SOUND_CLASSIFICATION {
+		// ced is a sound-event tagger (AudioSet labels) surfaced via the
+		// SoundDetection gRPC. Models without an explicit known_usecases
+		// still surface when they run on one of these backends.
+		soundClassificationBackends := []string{"ced"}
+		if !slices.Contains(soundClassificationBackends, c.Backend) {
 			return false
 		}
 	}

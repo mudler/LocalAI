@@ -41,6 +41,7 @@ type AIModel interface {
 
 	VAD(*pb.VADRequest) (pb.VADResponse, error)
 	Diarize(*pb.DiarizeRequest) (pb.DiarizeResponse, error)
+	SoundDetection(context.Context, *pb.SoundDetectionRequest) (*pb.SoundDetectionResponse, error)
 
 	AudioEncode(*pb.AudioEncodeRequest) (*pb.AudioEncodeResult, error)
 	AudioDecode(*pb.AudioDecodeRequest) (*pb.AudioDecodeResult, error)

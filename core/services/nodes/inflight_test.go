@@ -99,6 +99,9 @@ func (f *fakeGRPCBackend) SoundGeneration(_ context.Context, _ *pb.SoundGenerati
 func (f *fakeGRPCBackend) Detect(_ context.Context, _ *pb.DetectOptions, _ ...ggrpc.CallOption) (*pb.DetectResponse, error) {
 	return &pb.DetectResponse{}, nil
 }
+func (f *fakeGRPCBackend) SoundDetection(_ context.Context, _ *pb.SoundDetectionRequest, _ ...ggrpc.CallOption) (*pb.SoundDetectionResponse, error) {
+	return &pb.SoundDetectionResponse{}, nil
+}
 
 func (f *fakeGRPCBackend) Depth(_ context.Context, _ *pb.DepthRequest, _ ...ggrpc.CallOption) (*pb.DepthResponse, error) {
 	return &pb.DepthResponse{}, nil

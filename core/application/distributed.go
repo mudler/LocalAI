@@ -357,6 +357,15 @@ func initDistributed(cfg *config.ApplicationConfig, authDB *gorm.DB, configLoade
 		Pressure:         pressure,
 	})
 
+	// Wire staging-progress broadcasting so file-staging shows up on every
+	// replica, not just the one performing the transfer. Without this, a
+	// /api/operations poll that round-robins onto a peer sees no staging row and
+	// the progress flickers. The origin publishes; peers mirror via the wildcard.
+	router.StagingTracker().SetPublisher(natsClient)
+	if _, err := router.StagingTracker().SubscribeBroadcasts(natsClient); err != nil {
+		xlog.Warn("Failed to subscribe to staging progress broadcasts", "error", err)
+	}
+
 	// Create ReplicaReconciler for auto-scaling model replicas. Adapter +
 	// RegistrationToken feed the state-reconciliation passes: pending op
 	// drain uses the adapter, and model health probes use the token to auth

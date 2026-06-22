@@ -8,27 +8,28 @@ import (
 // Usecase name constants — the canonical string values used in gallery entries,
 // model configs (known_usecases), and UsecaseInfoMap keys.
 const (
-	UsecaseChat               = "chat"
-	UsecaseCompletion         = "completion"
-	UsecaseEdit               = "edit"
-	UsecaseVision             = "vision"
-	UsecaseEmbeddings         = "embeddings"
-	UsecaseTokenize           = "tokenize"
-	UsecaseImage              = "image"
-	UsecaseVideo              = "video"
-	UsecaseTranscript         = "transcript"
-	UsecaseTTS                = "tts"
-	UsecaseSoundGeneration    = "sound_generation"
-	UsecaseRerank             = "rerank"
-	UsecaseDetection          = "detection"
-	UsecaseDepth              = "depth"
-	UsecaseVAD                = "vad"
-	UsecaseAudioTransform     = "audio_transform"
-	UsecaseDiarization        = "diarization"
-	UsecaseRealtimeAudio      = "realtime_audio"
-	UsecaseFaceRecognition    = "face_recognition"
-	UsecaseSpeakerRecognition = "speaker_recognition"
-	UsecaseTokenClassify      = "token_classify"
+	UsecaseChat                = "chat"
+	UsecaseCompletion          = "completion"
+	UsecaseEdit                = "edit"
+	UsecaseVision              = "vision"
+	UsecaseEmbeddings          = "embeddings"
+	UsecaseTokenize            = "tokenize"
+	UsecaseImage               = "image"
+	UsecaseVideo               = "video"
+	UsecaseTranscript          = "transcript"
+	UsecaseTTS                 = "tts"
+	UsecaseSoundGeneration     = "sound_generation"
+	UsecaseRerank              = "rerank"
+	UsecaseDetection           = "detection"
+	UsecaseDepth               = "depth"
+	UsecaseVAD                 = "vad"
+	UsecaseAudioTransform      = "audio_transform"
+	UsecaseDiarization         = "diarization"
+	UsecaseSoundClassification = "sound_classification"
+	UsecaseRealtimeAudio       = "realtime_audio"
+	UsecaseFaceRecognition     = "face_recognition"
+	UsecaseSpeakerRecognition  = "speaker_recognition"
+	UsecaseTokenClassify       = "token_classify"
 )
 
 // GRPCMethod identifies a Backend service RPC from backend.proto.
@@ -51,6 +52,7 @@ const (
 	MethodVAD                GRPCMethod = "VAD"
 	MethodAudioTransform     GRPCMethod = "AudioTransform"
 	MethodDiarize            GRPCMethod = "Diarize"
+	MethodSoundDetection     GRPCMethod = "SoundDetection"
 	MethodAudioToAudioStream GRPCMethod = "AudioToAudioStream"
 	MethodFaceVerify         GRPCMethod = "FaceVerify"
 	MethodFaceAnalyze        GRPCMethod = "FaceAnalyze"
@@ -164,6 +166,11 @@ var UsecaseInfoMap = map[string]UsecaseInfo{
 		Flag:        FLAG_DIARIZATION,
 		GRPCMethod:  MethodDiarize,
 		Description: "Speaker diarization (who-spoke-when, per-speaker segments) via the Diarize RPC.",
+	},
+	UsecaseSoundClassification: {
+		Flag:        FLAG_SOUND_CLASSIFICATION,
+		GRPCMethod:  MethodSoundDetection,
+		Description: "Sound-event classification / audio tagging (scored AudioSet labels like baby cry, glass breaking, alarms) via the SoundDetection RPC.",
 	},
 	UsecaseRealtimeAudio: {
 		Flag:        FLAG_REALTIME_AUDIO,

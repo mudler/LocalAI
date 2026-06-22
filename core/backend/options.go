@@ -1,6 +1,7 @@
 package backend
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"math/rand/v2"
@@ -12,7 +13,9 @@ import (
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/trace"
 	pb "github.com/mudler/LocalAI/pkg/grpc/proto"
+	"github.com/mudler/LocalAI/pkg/downloader"
 	"github.com/mudler/LocalAI/pkg/model"
+	"github.com/mudler/LocalAI/pkg/vram"
 	"github.com/mudler/xlog"
 )
 
@@ -31,6 +34,67 @@ func recordModelLoadFailure(appConfig *config.ApplicationConfig, modelName, back
 		Error:     err.Error(),
 		Data:      data,
 	})
+}
+
+// estimateModelSizeBytes uses the unified EstimateModel entry point to compute
+// the total weight-file size for a model config.  It collects all weight files
+// from DownloadFiles, Model, and MMProj, and also extracts the HuggingFace
+// repo ID so EstimateModel can fall back to the HF API when local file
+// metadata is unavailable (e.g. not-yet-downloaded models).
+func estimateModelSizeBytes(c config.ModelConfig, modelsPath string) int64 {
+	seen := make(map[string]bool)
+	input := vram.ModelEstimateInput{}
+
+	addFile := func(uri string) {
+		if !vram.IsWeightFile(uri) {
+			return
+		}
+		resolved := uri
+		if !strings.Contains(uri, "://") {
+			resolved = "file://" + filepath.Join(modelsPath, uri)
+		}
+		if seen[resolved] {
+			return
+		}
+		seen[resolved] = true
+		input.Files = append(input.Files, vram.FileInput{URI: resolved})
+	}
+
+	// tryHFRepo resolves any huggingface:// or hf:// URI to an HTTPS URL and
+	// then extracts the org/model repo ID for use as the HF fallback path.
+	tryHFRepo := func(uri string) {
+		if input.HFRepo != "" {
+			return
+		}
+		resolved := downloader.URI(uri).ResolveURL()
+		if repoID, ok := vram.ExtractHFRepoID(resolved); ok {
+			input.HFRepo = repoID
+		}
+	}
+
+	for _, f := range c.DownloadFiles {
+		uriStr := string(f.URI)
+		addFile(uriStr)
+		tryHFRepo(uriStr)
+	}
+	addFile(c.Model)
+	tryHFRepo(c.Model)
+	if c.MMProj != "" {
+		addFile(c.MMProj)
+	}
+
+	if len(input.Files) == 0 && input.HFRepo == "" {
+		return 0
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	result, err := vram.EstimateModelMultiContext(ctx, input, nil)
+	if err != nil || result.SizeBytes == 0 {
+		return 0
+	}
+	return int64(result.SizeBytes)
 }
 
 func ModelOptions(c config.ModelConfig, so *config.ApplicationConfig, opts ...model.Option) []model.Option {
@@ -68,6 +132,10 @@ func ModelOptions(c config.ModelConfig, so *config.ApplicationConfig, opts ...mo
 
 	for k, v := range so.ExternalGRPCBackends {
 		defOpts = append(defOpts, model.WithExternalBackend(k, v))
+	}
+
+	if sizeBytes := estimateModelSizeBytes(c, so.SystemState.Model.ModelsPath); sizeBytes > 0 {
+		defOpts = append(defOpts, model.WithModelSizeBytes(sizeBytes))
 	}
 
 	return append(defOpts, opts...)

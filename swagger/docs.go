@@ -1939,6 +1939,53 @@ const docTemplate = `{
                 }
             }
         },
+        "/v1/audio/classification": {
+            "post": {
+                "consumes": [
+                    "multipart/form-data"
+                ],
+                "tags": [
+                    "audio"
+                ],
+                "summary": "Classify sound events in audio (audio tagging).",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "model",
+                        "name": "model",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "file",
+                        "description": "audio file",
+                        "name": "file",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "number of top tags to return (0 = backend default)",
+                        "name": "top_k",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "number",
+                        "description": "drop tags scoring below this value",
+                        "name": "threshold",
+                        "in": "formData"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/schema.SoundClassificationResult"
+                        }
+                    }
+                }
+            }
+        },
         "/v1/audio/diarization": {
             "post": {
                 "consumes": [
@@ -6132,6 +6179,34 @@ const docTemplate = `{
                 "score": {
                     "description": "Score is the top label's softmax probability (the\nclassifier-side confidence signal).",
                     "type": "number"
+                }
+            }
+        },
+        "schema.SoundClassification": {
+            "type": "object",
+            "properties": {
+                "index": {
+                    "type": "integer"
+                },
+                "label": {
+                    "type": "string"
+                },
+                "score": {
+                    "type": "number"
+                }
+            }
+        },
+        "schema.SoundClassificationResult": {
+            "type": "object",
+            "properties": {
+                "detections": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.SoundClassification"
+                    }
+                },
+                "model": {
+                    "type": "string"
                 }
             }
         },

@@ -110,6 +110,10 @@ func (llm *Base) Diarize(*pb.DiarizeRequest) (pb.DiarizeResponse, error) {
 	return pb.DiarizeResponse{}, fmt.Errorf("unimplemented")
 }
 
+func (llm *Base) SoundDetection(context.Context, *pb.SoundDetectionRequest) (*pb.SoundDetectionResponse, error) {
+	return nil, fmt.Errorf("unimplemented")
+}
+
 func (llm *Base) TokenizeString(opts *pb.PredictOptions) (pb.TokenizationResponse, error) {
 	return pb.TokenizationResponse{}, fmt.Errorf("unimplemented")
 }

@@ -93,16 +93,31 @@ type Session struct {
 	Voice                   string
 	TurnDetection           *types.TurnDetectionUnion // "server_vad", "semantic_vad" or "none"
 	InputAudioTranscription *types.AudioTranscription
-	Tools                   []types.ToolUnion
-	ToolChoice              *types.ToolChoiceUnion
-	Conversations           map[string]*Conversation
-	InputAudioBuffer        []byte
-	AudioBufferLock         sync.Mutex
-	OpusFrames              [][]byte
-	OpusFramesLock          sync.Mutex
-	Instructions            string
-	DefaultConversationID   string
-	ModelInterface          Model
+
+	// SoundDetectionEnabled is set when pipeline.sound_detection names a
+	// sound-event-classification model. When true, each committed utterance is
+	// also run through ModelInterface.SoundDetection and the scored tags are
+	// emitted as a conversation.item.sound_detection event. SoundDetectionTopK
+	// and SoundDetectionThreshold are the knobs passed to that call (defaults:
+	// top_k=5, threshold=0).
+	SoundDetectionEnabled   bool
+	SoundDetectionTopK      int
+	SoundDetectionThreshold float32
+	// SoundDetectionWindowMs / SoundDetectionHopMs, when both > 0, enable
+	// server-side windowing for a sound-only session: the server classifies the
+	// last WindowMs of streamed audio every HopMs (no client commits needed).
+	SoundDetectionWindowMs int
+	SoundDetectionHopMs    int
+	Tools                  []types.ToolUnion
+	ToolChoice             *types.ToolChoiceUnion
+	Conversations          map[string]*Conversation
+	InputAudioBuffer       []byte
+	AudioBufferLock        sync.Mutex
+	OpusFrames             [][]byte
+	OpusFramesLock         sync.Mutex
+	Instructions           string
+	DefaultConversationID  string
+	ModelInterface         Model
 	// The pipeline model config or the config for an any-to-any model
 	ModelConfig      *config.ModelConfig
 	InputSampleRate  int
@@ -250,6 +265,10 @@ type Model interface {
 	// TranscribeStream transcribes audio incrementally, invoking onDelta for each
 	// transcript text fragment and returning the final aggregated result.
 	TranscribeStream(ctx context.Context, audio, language string, translate, diarize bool, prompt string, onDelta func(text string)) (*schema.TranscriptionResult, error)
+	// SoundDetection classifies a committed audio window into scored AudioSet
+	// sound-event tags. topK caps the number of returned tags (0 = backend
+	// default), threshold drops tags below the given score (0 = keep all).
+	SoundDetection(ctx context.Context, audio string, topK int, threshold float32) (*schema.SoundClassificationResult, error)
 	PredictConfig() *config.ModelConfig
 }
 
@@ -399,7 +418,7 @@ func prepareRealtimeConfig(cfg *config.ModelConfig) (errCode, errMsg string, ok 
 		return "", "", true
 	}
 
-	if cfg.Pipeline.VAD == "" && cfg.Pipeline.Transcription == "" && cfg.Pipeline.TTS == "" && cfg.Pipeline.LLM == "" {
+	if cfg.Pipeline.VAD == "" && cfg.Pipeline.Transcription == "" && cfg.Pipeline.TTS == "" && cfg.Pipeline.LLM == "" && cfg.Pipeline.SoundDetection == "" {
 		return "invalid_model", "Model is not a pipeline model", false
 	}
 	return "", "", true
@@ -469,6 +488,26 @@ func runRealtimeSession(application *application.Application, t Transport, model
 
 	sttModel := cfg.Pipeline.Transcription
 
+	// A sound-detection-only pipeline (sound_detection set, no transcription/LLM)
+	// activates on sounds, not speech, so it runs WITHOUT the voice VAD: the
+	// session defaults to turn_detection none and the client drives windowing via
+	// input_audio_buffer.commit. There is no transcription stage in that case.
+	soundOnly := cfg.Pipeline.SoundDetection != "" && cfg.Pipeline.Transcription == "" && cfg.Pipeline.LLM == ""
+
+	turnDetection := &types.TurnDetectionUnion{
+		ServerVad: &types.ServerVad{
+			Threshold:         0.5,
+			PrefixPaddingMs:   300,
+			SilenceDurationMs: 500,
+			CreateResponse:    true,
+		},
+	}
+	inputAudioTranscription := &types.AudioTranscription{Model: sttModel}
+	if soundOnly {
+		turnDetection = nil           // turn_detection none: no VAD
+		inputAudioTranscription = nil // no transcription stage
+	}
+
 	// Compose the system prompt: prepend the assistant prompt when we have
 	// one (it teaches the model the safety rules and tool recipes), then the
 	// session's default voice instructions. Order matches chat.go's
@@ -480,30 +519,26 @@ func runRealtimeSession(application *application.Application, t Transport, model
 
 	sessionID := generateSessionID()
 	session := &Session{
-		ID:                sessionID,
-		TranscriptionOnly: false,
-		Model:             model,
-		Voice:             cfg.TTSConfig.Voice,
-		Instructions:      instructions,
-		ModelConfig:       cfg,
-		Tools:             assistantTools,
-		AssistantTools:    assistantTools,
-		AssistantExecutor: assistantExecutor,
-		TurnDetection: &types.TurnDetectionUnion{
-			ServerVad: &types.ServerVad{
-				Threshold:         0.5,
-				PrefixPaddingMs:   300,
-				SilenceDurationMs: 500,
-				CreateResponse:    true,
-			},
-		},
-		InputAudioTranscription: &types.AudioTranscription{
-			Model: sttModel,
-		},
-		Conversations:    make(map[string]*Conversation),
-		InputSampleRate:  defaultRemoteSampleRate,
-		OutputSampleRate: defaultRemoteSampleRate,
-		MaxHistoryItems:  resolveMaxHistoryItems(cfg),
+		ID:                      sessionID,
+		TranscriptionOnly:       false,
+		Model:                   model,
+		Voice:                   cfg.TTSConfig.Voice,
+		Instructions:            instructions,
+		ModelConfig:             cfg,
+		Tools:                   assistantTools,
+		AssistantTools:          assistantTools,
+		AssistantExecutor:       assistantExecutor,
+		TurnDetection:           turnDetection,
+		InputAudioTranscription: inputAudioTranscription,
+		Conversations:           make(map[string]*Conversation),
+		InputSampleRate:         defaultRemoteSampleRate,
+		OutputSampleRate:        defaultRemoteSampleRate,
+		MaxHistoryItems:         resolveMaxHistoryItems(cfg),
+		SoundDetectionEnabled:   cfg.Pipeline.SoundDetection != "",
+		SoundDetectionTopK:      defaultSoundDetectionTopK,
+		SoundDetectionThreshold: 0,
+		SoundDetectionWindowMs:  cfg.Pipeline.SoundDetectionWindowMs,
+		SoundDetectionHopMs:     cfg.Pipeline.SoundDetectionHopMs,
 	}
 
 	// Create a default conversation
@@ -517,14 +552,24 @@ func runRealtimeSession(application *application.Application, t Transport, model
 	session.Conversations[conversationID] = conversation
 	session.DefaultConversationID = conversationID
 
-	m, err := newModel(
-		&cfg.Pipeline,
-		application.ModelConfigLoader(),
-		application.ModelLoader(),
-		application.ApplicationConfig(),
-		evaluator,
-		buildRealtimeRoutingContext(application, sessionID),
-	)
+	var m Model
+	if soundOnly {
+		m, err = newSoundDetectionOnlyModel(
+			&cfg.Pipeline,
+			application.ModelConfigLoader(),
+			application.ModelLoader(),
+			application.ApplicationConfig(),
+		)
+	} else {
+		m, err = newModel(
+			&cfg.Pipeline,
+			application.ModelConfigLoader(),
+			application.ModelLoader(),
+			application.ApplicationConfig(),
+			evaluator,
+			buildRealtimeRoutingContext(application, sessionID),
+		)
+	}
 	if err != nil {
 		xlog.Error("failed to load model", "error", err)
 		sendError(t, "model_load_error", "Failed to load model", "", "")
@@ -604,6 +649,20 @@ func runRealtimeSession(application *application.Application, t Transport, model
 	}
 
 	toggleVAD()
+
+	// Server-side sound-detection windowing (option B): for a sound-only session
+	// with window/hop configured, the server classifies the last window of
+	// streamed audio on a timer, so the client only has to stream (no commits).
+	// This runs independent of VAD (sound events are not speech).
+	var soundWindowDone chan struct{}
+	if soundOnly && session.SoundDetectionWindowMs > 0 && session.SoundDetectionHopMs > 0 {
+		soundWindowDone = make(chan struct{})
+		wg.Go(func() {
+			handleSoundWindow(session, t, soundWindowDone)
+		})
+		xlog.Debug("Starting server-side sound-detection windowing",
+			"window_ms", session.SoundDetectionWindowMs, "hop_ms", session.SoundDetectionHopMs)
+	}
 
 	for {
 		msg, err = t.ReadEvent()
@@ -880,6 +939,10 @@ func runRealtimeSession(application *application.Application, t Transport, model
 	if vadServerStarted {
 		close(done)
 	}
+	// Stop the server-side sound-detection windowing goroutine (if running).
+	if soundWindowDone != nil {
+		close(soundWindowDone)
+	}
 	wg.Wait()
 
 	// Remove the session from the sessions map
@@ -971,6 +1034,10 @@ func updateTransSession(session *Session, update *types.SessionUnion, cl *config
 
 		session.ModelInterface = m
 		session.ModelConfig = cfg
+		session.SoundDetectionEnabled = cfg.Pipeline.SoundDetection != ""
+		if session.SoundDetectionTopK <= 0 {
+			session.SoundDetectionTopK = defaultSoundDetectionTopK
+		}
 	}
 
 	if trUpd != nil {
@@ -1311,35 +1378,40 @@ func commitUtterance(ctx context.Context, utt []byte, session *Session, conv *Co
 	// turn wastes only transcription compute, which has no side effects. The
 	// transcript is still emitted to the same peer that sent the audio, which
 	// reveals nothing new to them.
-	type gateOutcome struct {
-		allowed bool
-		matched string
-		reason  string
-		err     error
+	// Resolve the speaker when the gate must authorize this turn, or when identity
+	// surfacing/personalization needs a fresh identity. Identity resolution
+	// ignores the when:first short-circuit (that only skips re-authorization).
+	type resolveOutcome struct {
+		res resolution
+		err error
 	}
-	var gateCh chan gateOutcome
-	runGate := false
+	var resolveCh chan resolveOutcome
+	runResolve := false
 	if session.voiceGate != nil && session.InputAudioTranscription != nil {
-		skip := false
-		if session.voiceGate.cfg.When == config.VoiceGateWhenFirst {
+		enforce := session.voiceGate.cfg.EnforceGate()
+		gateNeedsAuth := enforce
+		if enforce && session.voiceGate.cfg.When == config.VoiceGateWhenFirst {
 			session.gateMu.Lock()
-			skip = session.voiceVerified
+			if session.voiceVerified {
+				gateNeedsAuth = false
+			}
 			session.gateMu.Unlock()
 		}
-		if !skip {
-			runGate = true
-			gateCh = make(chan gateOutcome, 1)
+		if gateNeedsAuth || session.voiceGate.cfg.IdentityEnabled() {
+			runResolve = true
+			resolveCh = make(chan resolveOutcome, 1)
 			wavPath := f.Name()
 			go func() {
-				allowed, matched, reason, gerr := session.voiceGate.Authorize(ctx, wavPath)
-				gateCh <- gateOutcome{allowed: allowed, matched: matched, reason: reason, err: gerr}
+				r, rerr := session.voiceGate.Resolve(ctx, wavPath)
+				resolveCh <- resolveOutcome{res: r, err: rerr}
 			}()
 		}
 	}
 
 	// TODO: If we have a real any-to-any model then transcription is optional
 	var transcript string
-	if session.InputAudioTranscription != nil {
+	switch {
+	case session.InputAudioTranscription != nil:
 		// emitTranscription streams transcript deltas when
 		// pipeline.streaming.transcription is set, otherwise emits a single
 		// completed event; either way it returns the final transcript text.
@@ -1348,55 +1420,169 @@ func commitUtterance(ctx context.Context, utt []byte, session *Session, conv *Co
 		if err != nil {
 			// Drain the gate goroutine before returning so its in-flight read of
 			// the temp WAV finishes before the deferred os.Remove fires.
-			if runGate {
-				<-gateCh
+			if runResolve {
+				<-resolveCh
 			}
 			sendError(t, "transcription_failed", err.Error(), "", "event_TODO")
 			return
 		}
-	} else {
+	case session.SoundDetectionEnabled:
+		// Sound-detection-only session: no transcription and no LLM. The
+		// sound-detection emit below carries the result; there is no any-to-any
+		// path to fall into. Windowing is client-driven (turn_detection none +
+		// input_audio_buffer.commit), so this is not voice-gated.
+	default:
 		// The voice gate runs only on the transcription path above; if an
 		// any-to-any model path is added here, join the gate before responding.
 		sendNotImplemented(t, "any-to-any models")
 		return
 	}
 
-	// Join on the gate before any side-effecting step.
-	if runGate {
-		out := <-gateCh
-		allowed := out.allowed
-		reason := out.reason
-		if out.err != nil {
-			// Fail closed: a gate that cannot decide must not let audio through.
-			xlog.Error("voice recognition gate error", "error", out.err)
-			allowed = false
-			reason = "verification error"
-		}
-		alreadyVerified := false
-		if session.voiceGate.cfg.When == config.VoiceGateWhenFirst {
-			session.gateMu.Lock()
-			alreadyVerified = session.voiceVerified
-			session.gateMu.Unlock()
-		}
-		proceed, markVerified := session.voiceGate.decide(alreadyVerified, allowed)
-		if !proceed {
-			xlog.Debug("voice recognition gate rejected utterance", "reason", reason)
-			if session.voiceGate.cfg.OnReject == config.VoiceGateRejectEvent {
-				sendError(t, "speaker_not_authorized", "speaker not authorized: "+reason, "", "event_TODO")
-			}
-			return
-		}
-		xlog.Debug("voice recognition gate authorized utterance", "speaker", out.matched)
-		if markVerified {
-			session.gateMu.Lock()
-			session.voiceVerified = true
-			session.gateMu.Unlock()
+	// Sound-event detection is additive to transcription: classify the same
+	// committed window and emit its scored AudioSet tags as a separate event.
+	// A failure here is logged but must never abort the turn.
+	if session.SoundDetectionEnabled {
+		if sderr := emitSoundDetection(ctx, t, session, generateItemID(), f.Name()); sderr != nil {
+			xlog.Error("sound detection failed", "error", sderr)
 		}
 	}
 
-	if !session.TranscriptionOnly {
-		generateResponse(ctx, session, utt, transcript, conv, t)
+	// Join on the resolution before any side-effecting step.
+	var speaker *types.Speaker
+	if runResolve {
+		out := <-resolveCh
+		enforce := session.voiceGate.cfg.EnforceGate()
+
+		if out.err != nil {
+			if enforce {
+				// Fail closed: a gate that cannot decide must not let audio through.
+				xlog.Error("voice recognition gate error", "error", out.err)
+				if session.voiceGate.cfg.OnReject == config.VoiceGateRejectEvent {
+					sendError(t, "speaker_not_authorized", "speaker not authorized: verification error", "", "event_TODO")
+				}
+				return
+			}
+			// Non-enforcing: degrade to an unknown speaker and continue.
+			xlog.Warn("voice identity resolve failed; continuing as unknown speaker", "error", out.err)
+		} else {
+			s := out.res.speaker
+			speaker = &s
+		}
+
+		if enforce {
+			alreadyVerified := false
+			if session.voiceGate.cfg.When == config.VoiceGateWhenFirst {
+				session.gateMu.Lock()
+				alreadyVerified = session.voiceVerified
+				session.gateMu.Unlock()
+			}
+			allowed, reason := false, "verification error"
+			if out.err == nil {
+				allowed, reason = session.voiceGate.authorize(out.res)
+			}
+			proceed, markVerified := session.voiceGate.decide(alreadyVerified, allowed)
+			if !proceed {
+				xlog.Debug("voice recognition gate rejected utterance", "reason", reason)
+				if session.voiceGate.cfg.OnReject == config.VoiceGateRejectEvent {
+					sendError(t, "speaker_not_authorized", "speaker not authorized: "+reason, "", "event_TODO")
+				}
+				return
+			}
+			if markVerified {
+				session.gateMu.Lock()
+				session.voiceVerified = true
+				session.gateMu.Unlock()
+			}
+			xlog.Debug("voice recognition gate authorized utterance", "speaker", out.res.speaker.Name)
+		}
 	}
+
+	// Generate an LLM response only when there is a transcript to feed it. A
+	// sound-detection-only session (no transcription) has no LLM stage, so it
+	// stops here after emitting the sound-detection event.
+	if session.InputAudioTranscription != nil && !session.TranscriptionOnly {
+		generateResponse(ctx, session, utt, transcript, speaker, conv, t)
+	}
+}
+
+// handleSoundWindow runs server-side windowed sound-event detection (option B):
+// every HopMs it classifies the last WindowMs of streamed audio and emits a
+// sound_detection event, so a sound-only client only has to stream audio (no
+// input_audio_buffer.commit). It keeps the input buffer trimmed to one window
+// so a long stream stays bounded. Runs until done is closed. This is
+// independent of VAD: sound events are not speech.
+func handleSoundWindow(session *Session, t Transport, done chan struct{}) {
+	ticker := time.NewTicker(time.Duration(session.SoundDetectionHopMs) * time.Millisecond)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-done:
+			return
+		case <-ticker.C:
+			classifySoundWindow(session, t)
+		}
+	}
+}
+
+// classifySoundWindow is one windowing tick: it snapshots the most recent
+// WindowMs of buffered audio (trimming the buffer so a long stream stays
+// bounded) and, when there is enough, classifies it and emits a sound_detection
+// event. Extracted from handleSoundWindow so it can be driven synchronously in
+// tests.
+func classifySoundWindow(session *Session, t Transport) {
+	const bytesPerSample = 2 // 16-bit mono PCM
+	sr := session.InputSampleRate
+	windowBytes := session.SoundDetectionWindowMs * sr / 1000 * bytesPerSample
+	minBytes := sr / 100 * bytesPerSample // ~10ms before classifying
+
+	session.AudioBufferLock.Lock()
+	// Keep only the most recent window so a long stream stays bounded.
+	if windowBytes > 0 && len(session.InputAudioBuffer) > windowBytes {
+		trimmed := make([]byte, windowBytes)
+		copy(trimmed, session.InputAudioBuffer[len(session.InputAudioBuffer)-windowBytes:])
+		session.InputAudioBuffer = trimmed
+	}
+	window := make([]byte, len(session.InputAudioBuffer))
+	copy(window, session.InputAudioBuffer)
+	session.AudioBufferLock.Unlock()
+
+	if len(window) < minBytes {
+		return // not enough audio buffered yet
+	}
+	path, err := writeWindowWAV(window, sr)
+	if err != nil {
+		xlog.Error("sound window: failed to write wav", "error", err)
+		return
+	}
+	if sderr := emitSoundDetection(context.Background(), t, session, generateItemID(), path); sderr != nil {
+		xlog.Error("sound window: detection failed", "error", sderr)
+	}
+	if rerr := os.Remove(path); rerr != nil {
+		xlog.Debug("sound window: temp cleanup failed", "error", rerr)
+	}
+}
+
+// writeWindowWAV writes mono 16-bit PCM to a temp WAV at the given sample rate
+// (the ced classifier reads the declared rate and resamples). Returns the path;
+// the caller removes it.
+func writeWindowWAV(pcm []byte, sampleRate int) (string, error) {
+	f, err := os.CreateTemp("", "realtime-sound-window-*.wav")
+	if err != nil {
+		return "", err
+	}
+	defer func() { _ = f.Close() }()
+	hdr := laudio.NewWAVHeaderWithRate(uint32(len(pcm)), uint32(sampleRate))
+	if err := hdr.Write(f); err != nil {
+		_ = os.Remove(f.Name())
+		return "", err
+	}
+	if _, err := f.Write(pcm); err != nil {
+		_ = os.Remove(f.Name())
+		return "", err
+	}
+	_ = f.Sync()
+	return f.Name(), nil
 }
 
 func runVAD(ctx context.Context, session *Session, adata []int16) ([]schema.VADSegment, error) {
@@ -1419,15 +1605,28 @@ func runVAD(ctx context.Context, session *Session, adata []int16) ([]schema.VADS
 	return resp.Segments, nil
 }
 
+// speakerNote renders the system-prompt note for the current speaker. Returns
+// an empty string when there is no name and unknown notes are disabled.
+func speakerNote(s *types.Speaker, noteUnknown bool) string {
+	if s != nil && s.Matched && s.Name != "" {
+		return "The current speaker is " + s.Name + "."
+	}
+	if noteUnknown {
+		return "The current speaker is unknown."
+	}
+	return ""
+}
+
 // Function to generate a response based on the conversation
-func generateResponse(ctx context.Context, session *Session, utt []byte, transcript string, conv *Conversation, t Transport) {
+func generateResponse(ctx context.Context, session *Session, utt []byte, transcript string, speaker *types.Speaker, conv *Conversation, t Transport) {
 	xlog.Debug("Generating realtime response...")
 
 	// Create user message item
 	item := types.MessageItemUnion{
 		User: &types.MessageItemUser{
-			ID:     generateItemID(),
-			Status: types.ItemStatusCompleted,
+			ID:      generateItemID(),
+			Status:  types.ItemStatusCompleted,
+			Speaker: speaker,
 			Content: []types.MessageContentInput{
 				{
 					Type:       types.MessageContentTypeInputAudio,
@@ -1444,6 +1643,17 @@ func generateResponse(ctx context.Context, session *Session, utt []byte, transcr
 	sendEvent(t, types.ConversationItemAddedEvent{
 		Item: item,
 	})
+
+	// Surface the recognized speaker to the client. Skip the event for an
+	// unidentified speaker unless announce_unknown is set.
+	if speaker != nil && session.voiceGate != nil && session.voiceGate.cfg.AnnounceEnabled() {
+		if speaker.Matched || session.voiceGate.cfg.Identity.AnnounceUnknown {
+			sendEvent(t, types.ConversationItemSpeakerEvent{
+				ItemID:  item.User.ID,
+				Speaker: *speaker,
+			})
+		}
+	}
 
 	triggerResponse(ctx, session, conv, t, nil)
 }
@@ -1508,12 +1718,19 @@ func triggerResponseAtTurn(ctx context.Context, session *Session, conv *Conversa
 	})
 
 	imgIndex := 0
+	var lastUserSpeaker *types.Speaker
+	personalize := session.voiceGate != nil && session.voiceGate.cfg.PersonalizeEnabled()
 	conv.Lock.Lock()
 	items := trimRealtimeItems(conv.Items, session.MaxHistoryItems)
 	for _, item := range items {
 		if item.User != nil {
 			msg := schema.Message{
 				Role: string(types.MessageRoleUser),
+			}
+			lastUserSpeaker = item.User.Speaker
+			if personalize && session.voiceGate.cfg.Identity.InjectName &&
+				item.User.Speaker != nil && item.User.Speaker.Matched && item.User.Speaker.Name != "" {
+				msg.Name = item.User.Speaker.Name
 			}
 			textContent := ""
 			nrOfImgsInMessage := 0
@@ -1600,6 +1817,13 @@ func triggerResponseAtTurn(ctx context.Context, session *Session, conv *Conversa
 		}
 	}
 	conv.Lock.Unlock()
+
+	if personalize && session.voiceGate.cfg.Identity.InjectSystemNote {
+		if note := speakerNote(lastUserSpeaker, session.voiceGate.cfg.Identity.NoteUnknown); note != "" {
+			conversationHistory[0].StringContent += "\n\n" + note
+			conversationHistory[0].Content = conversationHistory[0].StringContent
+		}
+	}
 
 	var images []string
 	for _, m := range conversationHistory {

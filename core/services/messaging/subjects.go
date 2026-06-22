@@ -64,6 +64,22 @@ func SubjectGalleryProgress(opID string) string {
 	return subjectGalleryPrefix + sanitizeSubjectToken(opID) + ".progress"
 }
 
+// SubjectStagingProgress returns the NATS subject a frontend replica publishes
+// file-staging progress on. Staging progress is otherwise per-process state
+// (the SmartRouter's in-memory StagingTracker), so without this broadcast a
+// /api/operations poll that round-robins onto a replica that did not originate
+// the staging op sees nothing - the progress row flickers in multi-replica
+// deployments. Peers subscribe to the wildcard and merge.
+func SubjectStagingProgress(modelID string) string {
+	return subjectStagingPrefix + sanitizeSubjectToken(modelID) + ".progress"
+}
+
+const subjectStagingPrefix = "staging."
+
+// SubjectStagingProgressWildcard matches every replica's staging-progress
+// broadcasts so a peer can mirror staging ops it did not originate.
+const SubjectStagingProgressWildcard = "staging.*.progress"
+
 // SubjectGalleryOpStart and SubjectGalleryOpEnd are broadcast subjects for the
 // in-memory OpCache lifecycle. Frontend replicas publish to these when an
 // admin admits a new install/delete (Start) and when an operation is

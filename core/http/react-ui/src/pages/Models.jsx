@@ -31,6 +31,7 @@ const FILTERS = [
   { key: 'tts', labelKey: 'filters.tts', icon: 'fa-microphone' },
   { key: 'transcript', labelKey: 'filters.stt', icon: 'fa-headphones' },
   { key: 'diarization', labelKey: 'filters.diarization', icon: 'fa-users' },
+  { key: 'sound_classification', labelKey: 'filters.soundClassification', icon: 'fa-ear-listen' },
   { key: 'sound_generation', labelKey: 'filters.soundGen', icon: 'fa-music' },
   { key: 'audio_transform', labelKey: 'filters.audioTransform', icon: 'fa-sliders' },
   { key: 'realtime_audio', labelKey: 'filters.realtimeAudio', icon: 'fa-tower-broadcast' },
