@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext'
 import { useDeployment } from '../contexts/DeploymentContext'
 import { useTheme } from '../contexts/ThemeContext'
 import { launchAssistantChat } from '../utils/launchAssistantChat'
+import TokenUsageMeter from './navbar/TokenUsageMeter'
 
 // Desktop top bar. Complementary to the mobile-only header in App.jsx: this is
 // hidden on small screens (see .top-navbar CSS) and shows deployment/admin
@@ -55,7 +56,7 @@ export default function TopNavbar() {
             <i className="fas fa-user-shield" aria-hidden="true" /> {t('topbar.adminViaChat')}
           </button>
         )}
-        {/* Token meter slot - implemented in Task 6. */}
+        {isAdmin && <TokenUsageMeter />}
         {isAdmin && (
           <button
             type="button"

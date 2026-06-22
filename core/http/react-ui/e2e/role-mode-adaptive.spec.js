@@ -76,3 +76,25 @@ test.describe('Top navbar', () => {
     await expect(page.locator('.top-navbar__assistant')).toHaveCount(0)
   })
 })
+
+test.describe('Token usage meter', () => {
+  test('renders when admin usage has data', async ({ page }) => {
+    await stubFeatures(page, { distributed: false })
+    await stubNoP2P(page)
+    await page.route('**/api/auth/admin/usage**', route =>
+      route.fulfill({ contentType: 'application/json',
+        body: JSON.stringify({ buckets: [{ total_tokens: 1234 }] }) }))
+    await page.goto('/app/chat')
+    await expect(page.locator('.top-navbar__meter')).toBeVisible({ timeout: 15_000 })
+  })
+
+  test('hidden when admin usage is empty (graceful degrade)', async ({ page }) => {
+    await stubFeatures(page, { distributed: false })
+    await stubNoP2P(page)
+    await page.route('**/api/auth/admin/usage**', route =>
+      route.fulfill({ contentType: 'application/json', body: JSON.stringify({ buckets: [] }) }))
+    await page.goto('/app/chat')
+    await expect(page.locator('.top-navbar')).toBeVisible({ timeout: 15_000 })
+    await expect(page.locator('.top-navbar__meter')).toHaveCount(0)
+  })
+})

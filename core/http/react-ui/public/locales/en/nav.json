@@ -18,7 +18,9 @@
     "modeSwarm": "Swarm",
     "modeSingle": "Single-node",
     "pickModel": "Models",
-    "adminViaChat": "Admin via chat"
+    "adminViaChat": "Admin via chat",
+    "tokensToday": "Tokens today",
+    "usageDetail": "View usage detail"
   },
   "sections": {
     "create": "Create",
