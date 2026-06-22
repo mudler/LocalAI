@@ -39,6 +39,29 @@ var _ = Describe("resolveCompaction", func() {
 	})
 })
 
+var _ = Describe("deleteItem", func() {
+	mk := func(ids ...string) []*types.MessageItemUnion {
+		out := make([]*types.MessageItemUnion, len(ids))
+		for i, id := range ids {
+			out[i] = &types.MessageItemUnion{User: &types.MessageItemUser{ID: id}}
+		}
+		return out
+	}
+
+	It("removes the item with the given id", func() {
+		items, ok := deleteItem(mk("a", "b", "c"), "b")
+		Expect(ok).To(BeTrue())
+		Expect(len(items)).To(Equal(2))
+		Expect(itemID(items[0])).To(Equal("a"))
+		Expect(itemID(items[1])).To(Equal("c"))
+	})
+
+	It("reports not found for an unknown id", func() {
+		_, ok := deleteItem(mk("a"), "zzz")
+		Expect(ok).To(BeFalse())
+	})
+})
+
 var _ = Describe("itemID", func() {
 	It("returns the id for each variant and empty for nil", func() {
 		Expect(itemID(nil)).To(Equal(""))

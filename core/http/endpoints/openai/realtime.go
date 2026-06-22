@@ -848,7 +848,23 @@ func runRealtimeSession(application *application.Application, t Transport, model
 			})
 
 		case types.ConversationItemDeleteEvent:
-			sendError(t, "not_implemented", "Deleting items not implemented", "", "event_TODO")
+			xlog.Debug("recv", "message", string(msg))
+			if e.ItemID == "" {
+				sendError(t, "invalid_item_id", "Need item_id, but none specified", "", "event_TODO")
+				continue
+			}
+			conversation.Lock.Lock()
+			updated, ok := deleteItem(conversation.Items, e.ItemID)
+			conversation.Items = updated
+			conversation.Lock.Unlock()
+			if !ok {
+				sendError(t, "invalid_item_id", "Item to delete not found", "", "event_TODO")
+				continue
+			}
+			sendEvent(t, types.ConversationItemDeletedEvent{
+				ServerEventBase: types.ServerEventBase{EventID: e.EventID},
+				ItemID:          e.ItemID,
+			})
 
 		case types.ConversationItemRetrieveEvent:
 			xlog.Debug("recv", "message", string(msg))

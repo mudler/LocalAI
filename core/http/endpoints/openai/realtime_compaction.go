@@ -29,6 +29,17 @@ func itemID(item *types.MessageItemUnion) string {
 	}
 }
 
+// deleteItem removes the item with id from items, returning the new slice and
+// whether it was found.
+func deleteItem(items []*types.MessageItemUnion, id string) ([]*types.MessageItemUnion, bool) {
+	for i, item := range items {
+		if itemID(item) == id {
+			return append(items[:i:i], items[i+1:]...), true
+		}
+	}
+	return items, false
+}
+
 // resolveCompaction reads the pipeline.compaction block, applying defaults and
 // the trigger>max_history invariant. maxHistory is the already-resolved live
 // window size. Returns enabled=false (and zero values) when compaction is off.
