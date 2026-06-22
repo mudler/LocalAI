@@ -1,233 +1,15 @@
-import { useState, useEffect, useCallback, Fragment } from 'react'
-import { useOutletContext, useNavigate } from 'react-router-dom'
+import { useState, useEffect, useCallback, useMemo } from 'react'
+import { useOutletContext } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { nodesApi } from '../utils/api'
 import LoadingSpinner from '../components/LoadingSpinner'
 import PageHeader from '../components/PageHeader'
 import ConfirmDialog from '../components/ConfirmDialog'
-import ActionMenu from '../components/ActionMenu'
 import ImageSelector, { useImageSelector, dockerImage, dockerFlags } from '../components/ImageSelector'
-import KeyValueChips from '../components/nodes/KeyValueChips'
 import ClusterPulse from '../components/nodes/ClusterPulse'
 import AttentionCallout from '../components/nodes/AttentionCallout'
-import { statusConfig, modelStateConfig, formatVRAM } from '../components/nodes/nodeStatus'
-import ResponsiveTable from '../components/ResponsiveTable'
+import NodePanel from '../components/nodes/NodePanel'
 
-function timeAgo(dateString) {
-  if (!dateString) return 'never'
-  const seconds = Math.floor((Date.now() - new Date(dateString).getTime()) / 1000)
-  if (seconds < 0) return 'just now'
-  if (seconds < 60) return `${seconds}s ago`
-  const minutes = Math.floor(seconds / 60)
-  if (minutes < 60) return `${minutes}m ago`
-  const hours = Math.floor(minutes / 60)
-  if (hours < 24) return `${hours}h ago`
-  const days = Math.floor(hours / 24)
-  return `${days}d ago`
-}
-
-/**
- * Inline editor for a node's per-model replica capacity.
- *
- * UX intent: discoverable affordance (pencil icon) that opens an inline
- * input — never a modal for a single field. Source-of-truth note is shown
- * inline so operators understand a worker re-registration will overwrite
- * their override; surfacing this in a tooltip would hide too important a
- * caveat.
- *
- * `confirmShrink` is a hook the parent provides so the page can render its
- * own confirm dialog (it has access to all nodes and can phrase the message
- * with full context).
- */
-function CapacityEditor({ node, loadedModelCounts, onUpdate, confirmShrink, addToast }) {
-  const current = node.max_replicas_per_model || 1
-  const isOverride = !!node.max_replicas_per_model_manually_set
-  const [editing, setEditing] = useState(false)
-  const [draft, setDraft] = useState(String(current))
-  const [saving, setSaving] = useState(false)
-  const [resetting, setResetting] = useState(false)
-
-  // Reset draft when current value changes (server response, etc.)
-  useEffect(() => {
-    if (!editing) setDraft(String(current))
-  }, [current, editing])
-
-  const cancel = useCallback(() => {
-    setEditing(false)
-    setDraft(String(current))
-  }, [current])
-
-  const save = useCallback(async () => {
-    const value = parseInt(draft, 10)
-    if (!Number.isFinite(value) || value < 1) {
-      addToast('Replica capacity must be 1 or higher', 'error')
-      return
-    }
-    if (value === current) {
-      setEditing(false)
-      return
-    }
-    // Reducing the cap below current loaded replicas: confirm so the operator
-    // sees the consequence (running replicas keep going until idle eviction).
-    const maxLoadedAcrossModels = Math.max(0, ...Object.values(loadedModelCounts || {}))
-    if (value < maxLoadedAcrossModels) {
-      const proceed = await confirmShrink({ node, newValue: value, currentLoaded: maxLoadedAcrossModels })
-      if (!proceed) return
-    }
-    setSaving(true)
-    try {
-      await nodesApi.updateMaxReplicasPerModel(node.id, value)
-      addToast(`Replica capacity set to ${value} on ${node.name}`, 'success')
-      setEditing(false)
-      onUpdate?.(value)
-    } catch (err) {
-      addToast(`Could not change replica capacity: ${err.message || err}`, 'error')
-    } finally {
-      setSaving(false)
-    }
-  }, [draft, current, node, loadedModelCounts, confirmShrink, onUpdate, addToast])
-
-  const onKeyDown = (e) => {
-    if (e.key === 'Enter') { e.preventDefault(); save() }
-    else if (e.key === 'Escape') { e.preventDefault(); cancel() }
-  }
-
-  const reset = useCallback(async () => {
-    setResetting(true)
-    try {
-      await nodesApi.resetMaxReplicasPerModel(node.id)
-      addToast(`Override cleared on ${node.name}; worker flag will apply on next re-registration`, 'success')
-      onUpdate?.(null)
-    } catch (err) {
-      addToast(`Could not reset override: ${err.message || err}`, 'error')
-    } finally {
-      setResetting(false)
-    }
-  }, [node, onUpdate, addToast])
-
-  return (
-    <div style={{
-      display: 'flex', alignItems: 'flex-start', gap: 'var(--spacing-md)',
-    }}>
-      <i className="fas fa-layer-group" style={{ color: 'var(--color-text-muted)', marginTop: 3 }} aria-hidden="true" />
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-sm)', flexWrap: 'wrap' }}>
-          <label
-            htmlFor={`capacity-${node.id}`}
-            style={{ fontSize: '0.8125rem', fontWeight: 600, color: 'var(--color-text-primary)' }}
-          >
-            Max replicas per model
-          </label>
-          {editing ? (
-            <>
-              <input
-                id={`capacity-${node.id}`}
-                type="number"
-                min={1}
-                value={draft}
-                disabled={saving}
-                onChange={(e) => setDraft(e.target.value)}
-                onKeyDown={onKeyDown}
-                autoFocus
-                aria-describedby={`capacity-hint-${node.id}`}
-                style={{
-                  width: 72, padding: '4px 8px', borderRadius: 'var(--radius-sm)',
-                  border: '1px solid var(--color-border)', background: 'var(--color-bg-primary)',
-                  fontFamily: 'var(--font-mono)', fontSize: '0.8125rem',
-                  color: 'var(--color-text-primary)',
-                }}
-              />
-              <button
-                className="btn btn-primary btn-sm"
-                onClick={save}
-                disabled={saving}
-                style={{ minHeight: 32 }}
-                aria-label="Save replica capacity"
-              >
-                {saving ? <LoadingSpinner size="xs" /> : <><i className="fas fa-check" /> Save</>}
-              </button>
-              <button
-                className="btn btn-secondary btn-sm"
-                onClick={cancel}
-                disabled={saving}
-                style={{ minHeight: 32 }}
-                aria-label="Cancel"
-              >
-                Cancel
-              </button>
-            </>
-          ) : (
-            <>
-              <span
-                className="cell-mono"
-                style={{ fontSize: '0.8125rem', color: 'var(--color-text-secondary)' }}
-              >
-                {current}
-              </span>
-              {isOverride && (
-                <span
-                  title="This value was set from the UI. It will persist across worker restarts until you click Reset."
-                  style={{
-                    display: 'inline-block', fontSize: '0.6875rem', padding: '1px 6px',
-                    borderRadius: 'var(--radius-sm)', fontWeight: 500,
-                    background: 'var(--color-bg-primary)',
-                    border: '1px solid var(--color-warning, #d97706)',
-                    color: 'var(--color-warning, #d97706)',
-                  }}
-                >
-                  override
-                </span>
-              )}
-              <button
-                onClick={() => setEditing(true)}
-                aria-label={`Edit replica capacity (currently ${current})`}
-                title="Change replica capacity for this node"
-                style={{
-                  display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-                  minWidth: 32, minHeight: 32, padding: 4, borderRadius: 'var(--radius-sm)',
-                  border: '1px solid var(--color-border-subtle)',
-                  background: 'transparent', color: 'var(--color-text-muted)', cursor: 'pointer',
-                }}
-              >
-                <i className="fas fa-pencil-alt" />
-              </button>
-              {isOverride && (
-                <button
-                  onClick={reset}
-                  disabled={resetting}
-                  aria-label="Clear admin override and let the worker flag apply"
-                  title="Clear override; the worker's --max-replicas-per-model flag will apply on the next re-registration"
-                  className="btn btn-secondary btn-sm"
-                  style={{ minHeight: 32 }}
-                >
-                  {resetting ? <LoadingSpinner size="xs" /> : <><i className="fas fa-undo" /> Reset</>}
-                </button>
-              )}
-            </>
-          )}
-        </div>
-        <div
-          id={`capacity-hint-${node.id}`}
-          style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', marginTop: 4, lineHeight: 1.4 }}
-        >
-          {isOverride
-            ? <>Set from here. <strong>Reset</strong> to use the worker's default.</>
-            : <>Saved values stick across worker restarts.</>}
-        </div>
-      </div>
-    </div>
-  )
-}
-
-function gpuVendorLabel(vendor) {
-  const labels = {
-    nvidia: 'NVIDIA',
-    amd: 'AMD',
-    intel: 'Intel',
-    vulkan: 'Vulkan',
-  }
-  return labels[vendor] || null
-}
 
 function StepNumber({ n, bg, color }) {
   return (
@@ -327,28 +109,14 @@ function WorkerHintCard({ addToast, activeTab, hasWorkers }) {
 
 export default function Nodes() {
   const { addToast } = useOutletContext()
-  const navigate = useNavigate()
   const { t } = useTranslation('admin')
   const [nodesList, setNodesList] = useState([])
+  const [allModels, setAllModels] = useState([])
   const [loading, setLoading] = useState(true)
   const [enabled, setEnabled] = useState(true)
-  const [expandedNodeId, setExpandedNodeId] = useState(null)
-  const [nodeModels, setNodeModels] = useState({})
-  const [nodeBackends, setNodeBackends] = useState({})
   const [confirmDelete, setConfirmDelete] = useState(null)
-  const [confirmUnload, setConfirmUnload] = useState(null)
-  const [confirmDeleteBackend, setConfirmDeleteBackend] = useState(null)
-  // Capacity-shrink confirm uses a Promise resolver so the editor can `await`
-  // the user's choice. Pattern matches the rest of the page where confirms
-  // open a ConfirmDialog and the action proceeds in onConfirm.
-  const [confirmShrinkState, setConfirmShrinkState] = useState(null)
-  const confirmShrink = useCallback(({ node, newValue, currentLoaded }) => {
-    return new Promise((resolve) => {
-      setConfirmShrinkState({ node, newValue, currentLoaded, resolve })
-    })
-  }, [])
   const [showTips, setShowTips] = useState(false)
-  const [activeTab, setActiveTab] = useState('backend') // 'backend' or 'agent'
+  const [activeTab, setActiveTab] = useState('all') // 'all' | 'backend' | 'agent'
 
   const fetchNodes = useCallback(async () => {
     try {
@@ -364,63 +132,32 @@ export default function Nodes() {
     }
   }, [])
 
+  // Roster model fetch: drives the inline model chips on each backend panel
+  // without an expand click. Grouped by node below.
+  const fetchAllModels = useCallback(async () => {
+    try {
+      const d = await nodesApi.allModels()
+      setAllModels(Array.isArray(d) ? d : [])
+    } catch {
+      setAllModels([])
+    }
+  }, [])
+
   useEffect(() => {
     fetchNodes()
-    const interval = setInterval(fetchNodes, 5000)
+    fetchAllModels()
+    const interval = setInterval(() => {
+      fetchNodes()
+      fetchAllModels()
+    }, 5000)
     return () => clearInterval(interval)
-  }, [fetchNodes])
+  }, [fetchNodes, fetchAllModels])
 
-  const fetchModels = useCallback(async (nodeId) => {
-    try {
-      const data = await nodesApi.getModels(nodeId)
-      setNodeModels(prev => ({ ...prev, [nodeId]: Array.isArray(data) ? data : [] }))
-    } catch {
-      setNodeModels(prev => ({ ...prev, [nodeId]: [] }))
-    }
-  }, [])
-
-  const fetchBackends = useCallback(async (nodeId) => {
-    try {
-      const data = await nodesApi.getBackends(nodeId)
-      setNodeBackends(prev => ({ ...prev, [nodeId]: Array.isArray(data) ? data : [] }))
-    } catch {
-      setNodeBackends(prev => ({ ...prev, [nodeId]: [] }))
-    }
-  }, [])
-
-  const toggleExpand = (nodeId) => {
-    if (expandedNodeId === nodeId) {
-      setExpandedNodeId(null)
-    } else {
-      setExpandedNodeId(nodeId)
-      if (!nodeModels[nodeId]) {
-        fetchModels(nodeId)
-      }
-      if (!nodeBackends[nodeId]) {
-        fetchBackends(nodeId)
-      }
-    }
-  }
-
-  const handleUpgradeBackend = async (nodeId, backendName) => {
-    try {
-      await nodesApi.installBackend(nodeId, backendName)
-      addToast(`Backend "${backendName}" upgraded`, 'success')
-      fetchBackends(nodeId)
-    } catch (err) {
-      addToast(`Failed to upgrade backend: ${err.message}`, 'error')
-    }
-  }
-
-  const handleDeleteBackendOnNode = async (nodeId, backendName) => {
-    try {
-      await nodesApi.deleteBackend(nodeId, backendName)
-      addToast(`Backend "${backendName}" deleted`, 'success')
-      fetchBackends(nodeId)
-    } catch (err) {
-      addToast(`Failed to delete backend: ${err.message}`, 'error')
-    }
-  }
+  const modelsByNode = useMemo(() => {
+    const m = {}
+    for (const x of allModels) (m[x.node_id] ||= []).push(x)
+    return m
+  }, [allModels])
 
   const handleDrain = async (nodeId) => {
     try {
@@ -452,42 +189,11 @@ export default function Nodes() {
     }
   }
 
-  const handleUnloadModel = async (nodeId, modelName) => {
-    try {
-      await nodesApi.unloadModel(nodeId, modelName)
-      addToast(`Model "${modelName}" unloaded`, 'success')
-      fetchModels(nodeId)
-    } catch (err) {
-      addToast(`Failed to unload model: ${err.message}`, 'error')
-    }
-  }
-
-  const handleAddLabel = async (nodeId, key, value) => {
-    try {
-      await nodesApi.mergeLabels(nodeId, { [key]: value })
-      addToast(`Label "${key}=${value}" added`, 'success')
-      fetchNodes()
-    } catch (err) {
-      addToast(`Failed to add label: ${err.message}`, 'error')
-    }
-  }
-
-  const handleDeleteLabel = async (nodeId, key) => {
-    try {
-      await nodesApi.deleteLabel(nodeId, key)
-      addToast(`Label "${key}" removed`, 'success')
-      fetchNodes()
-    } catch (err) {
-      addToast(`Failed to remove label: ${err.message}`, 'error')
-    }
-  }
-
   const handleDelete = async (nodeId) => {
     try {
       await nodesApi.delete(nodeId)
       addToast('Node removed', 'success')
       setConfirmDelete(null)
-      if (expandedNodeId === nodeId) setExpandedNodeId(null)
       fetchNodes()
     } catch (err) {
       addToast(`Failed to remove node: ${err.message}`, 'error')
@@ -599,7 +305,8 @@ export default function Nodes() {
   // Split nodes by type
   const backendNodes = nodesList.filter(n => !n.node_type || n.node_type === 'backend')
   const agentNodes = nodesList.filter(n => n.node_type === 'agent')
-  const filteredNodes = activeTab === 'agent' ? agentNodes : backendNodes
+  const filteredNodes = activeTab === 'all' ? nodesList
+    : activeTab === 'agent' ? agentNodes : backendNodes
 
   return (
     <div className="page page--wide">
@@ -616,22 +323,13 @@ export default function Nodes() {
       <ClusterPulse nodes={nodesList} />
       <AttentionCallout nodes={nodesList} onApprove={handleApprove} />
 
-      {/* Tabs */}
-      <div className="tabs" style={{ marginBottom: 'var(--spacing-lg)' }}>
-        <button
-          onClick={() => setActiveTab('backend')}
-          className={`tab ${activeTab === 'backend' ? 'tab-active' : ''}`}
-        >
-          <i className="fas fa-server" style={{ marginRight: 6 }} />
-          Backend Workers ({backendNodes.length})
-        </button>
-        <button
-          onClick={() => setActiveTab('agent')}
-          className={`tab ${activeTab === 'agent' ? 'tab-active' : ''}`}
-        >
-          <i className="fas fa-robot" style={{ marginRight: 6 }} />
-          Agent Workers ({agentNodes.length})
-        </button>
+      {/* Node-type filter */}
+      <div role="radiogroup" aria-label="Node type" className="segmented node-filter">
+        {[['all', 'All'], ['backend', 'Backend'], ['agent', 'Agent']].map(([key, label]) => (
+          <button key={key} type="button" role="radio" aria-checked={activeTab === key}
+            className={`segmented__item${activeTab === key ? ' is-active' : ''}`}
+            onClick={() => setActiveTab(key)}>{label}</button>
+        ))}
       </div>
 
       {/* Worker tips */}
@@ -651,455 +349,14 @@ export default function Nodes() {
         </>
       )}
 
-      {/* Node table */}
       {filteredNodes.length > 0 && (
-        <ResponsiveTable>
-            <thead>
-              <tr>
-                <th>Name</th>
-                <th>Status</th>
-                <th>GPU / VRAM</th>
-                <th>Last Heartbeat</th>
-                <th style={{ textAlign: 'right' }}>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredNodes.map(node => {
-                const status = statusConfig[node.status] || statusConfig.unhealthy
-                const isExpanded = expandedNodeId === node.id
-                const models = nodeModels[node.id]
-                const backends = nodeBackends[node.id]
-                const vendorLabel = gpuVendorLabel(node.gpu_vendor)
-                const totalVRAMStr = formatVRAM(node.total_vram)
-                const availVRAMStr = formatVRAM(node.available_vram)
-                const usedVRAM = node.total_vram && node.available_vram != null
-                  ? node.total_vram - node.available_vram
-                  : null
-                const usedVRAMStr = usedVRAM != null ? formatVRAM(usedVRAM) : null
-
-                // RAM fallback for CPU-only workers
-                const hasGPU = node.total_vram > 0
-                const totalRAMStr = formatVRAM(node.total_ram)
-                const usedRAM = node.total_ram && node.available_ram != null
-                  ? node.total_ram - node.available_ram
-                  : null
-                const usedRAMStr = usedRAM != null ? formatVRAM(usedRAM) : null
-
-                const canExpand = activeTab !== 'agent'
-                return (
-                  <Fragment key={node.id}>
-                    <tr
-                      onClick={canExpand ? () => toggleExpand(node.id) : undefined}
-                      style={{ cursor: canExpand ? 'pointer' : 'default' }}
-                    >
-                      <td>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-sm)' }}>
-                          {canExpand && (
-                            <span className={`row-chevron${isExpanded ? ' is-expanded' : ''}`} aria-hidden="true">
-                              <i className="fas fa-chevron-right" />
-                            </span>
-                          )}
-                          <i className="fas fa-server" style={{ color: 'var(--color-text-muted)', fontSize: 'var(--text-sm)' }} />
-                          <div>
-                            <div style={{ fontWeight: 600, fontSize: 'var(--text-sm)' }}>
-                              {node.name}
-                              {node.node_type !== 'agent' && (() => {
-                                // Slot count only applies to backend workers — agents don't
-                                // load models. Always render for backend nodes so operators
-                                // discover the field; muted (border-only) at the default of 1,
-                                // accented when > 1 so fat nodes stand out at a glance.
-                                const slots = node.max_replicas_per_model || 1
-                                const isMulti = slots > 1
-                                return (
-                                  <span
-                                    className="cell-mono"
-                                    title={isMulti
-                                      ? `Up to ${slots} replicas of any one model can run on this node`
-                                      : 'Single replica per model (default). Click the row to expand and change.'}
-                                    style={{
-                                      marginLeft: 8, padding: '1px 6px', borderRadius: 'var(--radius-sm)',
-                                      background: isMulti ? 'var(--color-bg-tertiary)' : 'transparent',
-                                      border: `1px solid ${isMulti ? 'var(--color-border)' : 'var(--color-border-subtle)'}`,
-                                      fontSize: '0.6875rem', fontWeight: 500,
-                                      color: isMulti ? 'var(--color-text-secondary)' : 'var(--color-text-muted)',
-                                    }}
-                                  >
-                                    <i className="fas fa-layer-group" style={{ marginRight: 4 }} />
-                                    {slots}× slots
-                                  </span>
-                                )
-                              })()}
-                            </div>
-                            <div className="cell-mono cell-muted">
-                              {node.address}
-                            </div>
-                            {node.labels && Object.keys(node.labels).length > 0 && (() => {
-                              // node.replica-slots is already shown structurally by the
-                              // slot badge above; surfacing it again as a label is noise.
-                              const visible = Object.entries(node.labels).filter(([k]) => k !== 'node.replica-slots')
-                              if (visible.length === 0) return null
-                              return (
-                              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 3, marginTop: 3 }}>
-                                {visible.slice(0, 5).map(([k, v]) => (
-                                  <span key={k} className="cell-mono" style={{
-                                    padding: '1px 5px', borderRadius: "var(--radius-sm)",
-                                    background: 'var(--color-bg-tertiary)',
-                                    border: '1px solid var(--color-border-subtle)',
-                                  }}>{k}={v}</span>
-                                ))}
-                                {visible.length > 5 && (
-                                  <span className="cell-muted">
-                                    +{visible.length - 5} more
-                                  </span>
-                                )}
-                              </div>
-                              )
-                            })()}
-                          </div>
-                        </div>
-                      </td>
-                      <td>
-                        <span className="node-status" style={{ color: status.color }}>
-                          <span className="node-status__dot" style={{ background: status.color }} />
-                          {status.label}
-                        </span>
-                      </td>
-                      <td>
-                        {hasGPU && totalVRAMStr ? (
-                          <div style={{ fontSize: '0.8125rem', fontFamily: 'var(--font-mono)' }}>
-                            {vendorLabel && (
-                              <span style={{ color: 'var(--color-text-secondary)', marginRight: 4 }}>{vendorLabel}</span>
-                            )}
-                            <span style={{ color: 'var(--color-text-muted)' }}>
-                              {usedVRAMStr || '0'} / {totalVRAMStr}
-                            </span>
-                            {/* In-tick soft reservation: deducted at scheduling time, reset by the worker's next heartbeat. */}
-                            {node.reserved_vram > 0 && (
-                              <span
-                                title={`${formatVRAM(node.reserved_vram)} reserved by in-flight scheduling decisions; resets on next heartbeat`}
-                                style={{ color: 'var(--color-warning, #d97706)', marginLeft: 6 }}
-                              >
-                                +{formatVRAM(node.reserved_vram)} reserved
-                              </span>
-                            )}
-                          </div>
-                        ) : totalRAMStr ? (
-                          <div style={{ fontSize: '0.8125rem', fontFamily: 'var(--font-mono)' }}>
-                            <span style={{ color: 'var(--color-text-secondary)', marginRight: 4 }}>CPU</span>
-                            <span style={{ color: 'var(--color-text-muted)' }}>
-                              {usedRAMStr || '0'} / {totalRAMStr} RAM
-                            </span>
-                          </div>
-                        ) : (
-                          <span style={{ fontSize: '0.8125rem', color: 'var(--color-text-muted)' }}>-</span>
-                        )}
-                      </td>
-                      <td>
-                        <span style={{ fontSize: '0.8125rem', fontFamily: 'var(--font-mono)', color: 'var(--color-text-secondary)' }}>
-                          {timeAgo(node.last_heartbeat)}
-                        </span>
-                      </td>
-                      <td style={{ textAlign: 'right' }}>
-                        <div className="row-actions" onClick={e => e.stopPropagation()}>
-                          {/* Approve stays as a prominent primary button — it's
-                              a stateful admission gate, not a routine action,
-                              and matches how /manage surfaces install-time
-                              decisions outside the kebab menu. */}
-                          {node.status === 'pending' && (
-                            <button
-                              className="btn btn-primary btn-sm"
-                              onClick={() => handleApprove(node.id)}
-                            >
-                              <i className="fas fa-check" /> Approve
-                            </button>
-                          )}
-                          <ActionMenu
-                            ariaLabel={`Actions for ${node.name}`}
-                            triggerLabel={`Actions for ${node.name}`}
-                            items={[
-                              { key: 'resume', icon: 'fa-play', label: 'Resume',
-                                onClick: () => handleResume(node.id),
-                                hidden: node.status !== 'draining' },
-                              { key: 'drain', icon: 'fa-pause', label: 'Drain',
-                                onClick: () => handleDrain(node.id),
-                                hidden: node.status === 'draining' || node.status === 'pending' },
-                              { divider: true, hidden: node.status === 'pending' },
-                              { key: 'remove', icon: 'fa-trash', label: 'Remove from cluster',
-                                onClick: () => setConfirmDelete(node), danger: true },
-                            ]}
-                          />
-                        </div>
-                      </td>
-                    </tr>
-                    {isExpanded && canExpand && (
-                      <tr>
-                        <td colSpan={5} style={{ padding: 0, background: 'var(--color-bg-secondary)' }}>
-                          <div style={{ padding: 'var(--spacing-md) var(--spacing-lg)' }}>
-                            {/* The at-a-glance: what's running here? Empty
-                                state is a single thin line so an empty node
-                                doesn't render a giant placeholder box; the
-                                row's slot badge already conveys the
-                                node-level state. */}
-                            {!models ? (
-                              <LoadingSpinner size="sm" />
-                            ) : models.length === 0 ? (
-                              <p style={{ fontSize: '0.8125rem', color: 'var(--color-text-muted)', margin: '0 0 var(--spacing-md) 0' }}>
-                                <i className="fas fa-cube" style={{ marginRight: 6, opacity: 0.6 }} aria-hidden="true" />
-                                No models loaded yet — they'll appear here when scheduled to this node.
-                              </p>
-                            ) : (
-                              <table className="table" style={{ margin: 0 }}>
-                                <thead>
-                                  <tr>
-                                    <th>Model</th>
-                                    <th>State</th>
-                                    <th>In-Flight</th>
-                                    <th style={{ width: 40 }}>Logs</th>
-                                    <th style={{ textAlign: 'right' }}>Actions</th>
-                                  </tr>
-                                </thead>
-                                <tbody>
-                                  {(() => {
-                                    // Pre-compute per-model replica counts so the disambiguation
-                                    // pill only renders when this node actually hosts >1 replica
-                                    // of the same model. Single-replica deployments stay clean.
-                                    const replicaCounts = {}
-                                    models.forEach(m => { replicaCounts[m.model_name] = (replicaCounts[m.model_name] || 0) + 1 })
-                                    return models.map(m => {
-                                      const stCfg = modelStateConfig[m.state] || modelStateConfig.idle
-                                      const showReplica = (replicaCounts[m.model_name] || 0) > 1
-                                      // Per-replica process key — what the worker stores logs under and what the
-                                      // store's GetLines/Subscribe match on for replica-scoped filtering.
-                                      const processKey = `${m.model_name}#${m.replica_index ?? 0}`
-                                      return (
-                                      <tr key={m.id || `${m.model_name}#${m.replica_index ?? 0}`}>
-                                        <td style={{ fontFamily: 'var(--font-mono)', fontSize: '0.8125rem' }}>
-                                          {m.model_name}
-                                          {showReplica && (
-                                            <span
-                                              className="cell-mono"
-                                              aria-label={`replica ${m.replica_index ?? 0}`}
-                                              title={`Replica ${m.replica_index ?? 0} on this node`}
-                                              style={{
-                                                marginLeft: 8, padding: '1px 6px', borderRadius: 'var(--radius-sm)',
-                                                background: 'var(--color-bg-tertiary)',
-                                                border: '1px solid var(--color-border-subtle)',
-                                                fontSize: '0.6875rem', fontWeight: 500,
-                                                color: 'var(--color-text-secondary)',
-                                              }}
-                                            >
-                                              rep {m.replica_index ?? 0}
-                                            </span>
-                                          )}
-                                        </td>
-                                        <td>
-                                          <span style={{
-                                            display: 'inline-block', padding: '2px 8px', borderRadius: 'var(--radius-sm)',
-                                            fontSize: '0.75rem', fontWeight: 500,
-                                            background: stCfg.bg, color: stCfg.color, border: `1px solid ${stCfg.border}`,
-                                          }}>
-                                            {m.state}
-                                          </span>
-                                        </td>
-                                        <td style={{ fontFamily: 'var(--font-mono)', fontSize: '0.8125rem' }}>
-                                          {m.in_flight ?? 0}
-                                        </td>
-                                        <td>
-                                          <a
-                                            href="#"
-                                            onClick={(e) => {
-                                              e.preventDefault()
-                                              // Send the replica-scoped process key (modelName#replicaIndex).
-                                              // The worker's BackendLogStore returns only this replica's lines
-                                              // when given the full key; a future "merged" toggle in the logs
-                                              // page can navigate to the bare modelName URL to use aggregation.
-                                              navigate(`/app/node-backend-logs/${node.id}/${encodeURIComponent(processKey)}`)
-                                            }}
-                                            style={{ fontSize: '0.75rem', color: 'var(--color-primary)' }}
-                                            title={showReplica ? `View backend logs for replica ${m.replica_index ?? 0}` : 'View backend logs'}
-                                          >
-                                            <i className="fas fa-terminal" />
-                                          </a>
-                                        </td>
-                                        <td style={{ textAlign: 'right' }}>
-                                          <button
-                                            className="btn btn-danger btn-sm"
-                                            title={m.in_flight > 0 ? 'Unload model (has in-flight requests)' : 'Unload model'}
-                                            onClick={(e) => {
-                                              e.stopPropagation()
-                                              setConfirmUnload({
-                                                nodeId: node.id,
-                                                nodeName: node.name,
-                                                modelName: m.model_name,
-                                                inFlight: m.in_flight ?? 0,
-                                              })
-                                            }}
-                                          >
-                                            <i className="fas fa-stop" />
-                                          </button>
-                                        </td>
-                                      </tr>
-                                    )
-                                  })
-                                  })()}
-                                </tbody>
-                              </table>
-                            )}
-
-                            {/* Manage drawer: collapses three rarely-touched
-                                config zones (capacity, backends, labels)
-                                behind one disclosure so routine inspections
-                                stay focused on what's loaded above. Each
-                                zone gets a small eyebrow label instead of an
-                                h4 to avoid creating parallel hierarchies
-                                inside the disclosed area. */}
-                            <details className="node-manage" style={{ marginTop: 'var(--spacing-md)' }} onClick={e => e.stopPropagation()}>
-                              <summary style={{
-                                cursor: 'pointer', listStyle: 'none',
-                                fontSize: '0.8125rem', fontWeight: 600,
-                                color: 'var(--color-text-secondary)',
-                                padding: 'var(--spacing-xs) 0',
-                                display: 'inline-flex', alignItems: 'center', gap: 'var(--spacing-xs)',
-                              }}>
-                                <i className="fas fa-chevron-right node-manage__chevron" aria-hidden="true" />
-                                <i className="fas fa-sliders" aria-hidden="true" />
-                                Manage
-                              </summary>
-                              <div style={{ paddingTop: 'var(--spacing-md)', display: 'flex', flexDirection: 'column', gap: 'var(--spacing-lg)' }}>
-                                {/* Capacity */}
-                                <div>
-                                  <div className="drawer-eyebrow">Capacity</div>
-                                  <CapacityEditor
-                                    node={node}
-                                    loadedModelCounts={(() => {
-                                      // {modelName: replicaCount} so confirm-shrink
-                                      // can warn if reducing the cap below the actual
-                                      // count of any single model on this node.
-                                      const counts = {}
-                                      ;(models || []).forEach(m => {
-                                        if (m.state === 'loaded') counts[m.model_name] = (counts[m.model_name] || 0) + 1
-                                      })
-                                      return counts
-                                    })()}
-                                    confirmShrink={confirmShrink}
-                                    addToast={addToast}
-                                    onUpdate={() => fetchNodes()}
-                                  />
-                                </div>
-
-                                {/* Backends */}
-                                <div>
-                                  <div style={{
-                                    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                                    marginBottom: 'var(--spacing-sm)',
-                                  }}>
-                                    <div className="drawer-eyebrow" style={{ margin: 0 }}>Backends</div>
-                                    <button
-                                      type="button"
-                                      className="btn btn-secondary btn-sm"
-                                      onClick={(e) => {
-                                        e.stopPropagation()
-                                        // Hand off to the gallery in target-node mode.
-                                        // The Backends page reads ?target=<id> and
-                                        // scopes its install action to this node —
-                                        // one gallery, two scopes, no duplicate UI.
-                                        navigate(`/app/backends?target=${encodeURIComponent(node.id)}`)
-                                      }}
-                                      title={`Install a backend on ${node.name}`}
-                                    >
-                                      <i className="fas fa-plus" /> Add backend
-                                    </button>
-                                  </div>
-                                  {!backends ? (
-                                    <LoadingSpinner size="sm" />
-                                  ) : backends.length === 0 ? (
-                                    <p style={{ fontSize: '0.8125rem', color: 'var(--color-text-muted)', margin: 0 }}>
-                                      None installed. <a href="#" style={{ color: 'var(--color-primary)' }} onClick={(e) => { e.preventDefault(); e.stopPropagation(); navigate(`/app/backends?target=${encodeURIComponent(node.id)}`) }}>Install one from the gallery</a> to schedule models here.
-                                    </p>
-                                  ) : (
-                                    <table className="table" style={{ margin: 0 }}>
-                                      <thead>
-                                        <tr>
-                                          <th>Name</th>
-                                          <th>Type</th>
-                                          <th>Installed At</th>
-                                          <th style={{ textAlign: 'right' }}>Actions</th>
-                                        </tr>
-                                      </thead>
-                                      <tbody>
-                                        {backends.map(b => (
-                                          <tr key={b.name}>
-                                            <td style={{ fontFamily: 'var(--font-mono)', fontSize: '0.8125rem' }}>
-                                              {b.name}
-                                            </td>
-                                            <td>
-                                              <span style={{
-                                                display: 'inline-block', padding: '2px 8px', borderRadius: 'var(--radius-sm)',
-                                                fontSize: '0.75rem', fontWeight: 500,
-                                                background: b.is_system ? 'var(--color-bg-tertiary)' : 'var(--color-primary-light)',
-                                                color: b.is_system ? 'var(--color-text-muted)' : 'var(--color-primary)',
-                                                border: `1px solid ${b.is_system ? 'var(--color-border-subtle)' : 'var(--color-primary-border)'}`,
-                                              }}>
-                                                {b.is_system ? 'system' : 'gallery'}
-                                              </span>
-                                            </td>
-                                            <td style={{ fontSize: '0.8125rem', color: 'var(--color-text-muted)' }}>
-                                              {b.installed_at ? timeAgo(b.installed_at) : '-'}
-                                            </td>
-                                            <td style={{ textAlign: 'right' }}>
-                                              {!b.is_system && (
-                                                <div style={{ display: 'inline-flex', gap: 'var(--spacing-xs)' }}>
-                                                  <button
-                                                    className="btn btn-secondary btn-sm"
-                                                    onClick={() => handleUpgradeBackend(node.id, b.name)}
-                                                    title="Upgrade backend on this node"
-                                                  >
-                                                    <i className="fas fa-arrow-up" />
-                                                  </button>
-                                                  <button
-                                                    className="btn btn-danger-ghost btn-sm"
-                                                    onClick={() => setConfirmDeleteBackend({ nodeId: node.id, nodeName: node.name, backend: b.name })}
-                                                    title="Delete backend from this node"
-                                                  >
-                                                    <i className="fas fa-trash" />
-                                                  </button>
-                                                </div>
-                                              )}
-                                            </td>
-                                          </tr>
-                                        ))}
-                                      </tbody>
-                                    </table>
-                                  )}
-                                </div>
-
-                                {/* Labels — same chip-builder as the scheduling
-                                    form, but onAdd/onRemove fire API calls
-                                    instead of mutating form state. node.replica-slots
-                                    is filtered out so the Capacity editor stays
-                                    the single source of truth for that label. */}
-                                <div>
-                                  <div className="drawer-eyebrow">Labels</div>
-                                  <KeyValueChips
-                                    pairs={node.labels ? Object.fromEntries(Object.entries(node.labels).filter(([k]) => k !== 'node.replica-slots')) : {}}
-                                    onAdd={(k, v) => handleAddLabel(node.id, k, v)}
-                                    onRemove={(k) => handleDeleteLabel(node.id, k)}
-                                    placeholderKey="key"
-                                    placeholderValue="value"
-                                    ariaLabel={`Labels for ${node.name}`}
-                                  />
-                                </div>
-                              </div>
-                            </details>
-                          </div>
-                        </td>
-                      </tr>
-                    )}
-                  </Fragment>
-                )
-              })}
-            </tbody>
-        </ResponsiveTable>
+        <div className="node-roster">
+          {filteredNodes.map(node => (
+            <NodePanel key={node.id} node={node} models={modelsByNode[node.id] || []}
+              onApprove={handleApprove} onDrain={handleDrain} onResume={handleResume}
+              onRemove={(n) => setConfirmDelete(n)} />
+          ))}
+        </div>
       )}
 
       <ConfirmDialog
@@ -1112,60 +369,6 @@ export default function Nodes() {
         onCancel={() => setConfirmDelete(null)}
       />
 
-      <ConfirmDialog
-        open={!!confirmDeleteBackend}
-        title="Delete Backend"
-        message={confirmDeleteBackend ? `Delete "${confirmDeleteBackend.backend}" from ${confirmDeleteBackend.nodeName}? This removes the backend files from this node only.` : ''}
-        confirmLabel="Delete"
-        danger
-        onConfirm={() => {
-          if (confirmDeleteBackend) {
-            handleDeleteBackendOnNode(confirmDeleteBackend.nodeId, confirmDeleteBackend.backend)
-          }
-          setConfirmDeleteBackend(null)
-        }}
-        onCancel={() => setConfirmDeleteBackend(null)}
-      />
-
-      <ConfirmDialog
-        open={!!confirmUnload}
-        title="Unload Model"
-        message={
-          confirmUnload
-            ? confirmUnload.inFlight > 0
-              ? `"${confirmUnload.modelName}" on ${confirmUnload.nodeName} currently has ${confirmUnload.inFlight} in-flight request(s). Unloading will interrupt them. Continue?`
-              : `Unload "${confirmUnload.modelName}" from ${confirmUnload.nodeName}?`
-            : ''
-        }
-        confirmLabel="Unload"
-        danger={confirmUnload?.inFlight > 0}
-        onConfirm={() => {
-          if (confirmUnload) {
-            handleUnloadModel(confirmUnload.nodeId, confirmUnload.modelName)
-          }
-          setConfirmUnload(null)
-        }}
-        onCancel={() => setConfirmUnload(null)}
-      />
-
-      <ConfirmDialog
-        open={!!confirmShrinkState}
-        title="Reduce replica capacity"
-        message={
-          confirmShrinkState
-            ? `${confirmShrinkState.node.name} currently has ${confirmShrinkState.currentLoaded} replica(s) of at least one model loaded. Reducing the cap to ${confirmShrinkState.newValue} won't evict anything immediately — running replicas keep going, but the reconciler will trim down on the next idle window. Continue?`
-            : ''
-        }
-        confirmLabel="Reduce"
-        onConfirm={() => {
-          confirmShrinkState?.resolve(true)
-          setConfirmShrinkState(null)
-        }}
-        onCancel={() => {
-          confirmShrinkState?.resolve(false)
-          setConfirmShrinkState(null)
-        }}
-      />
     </div>
   )
 }

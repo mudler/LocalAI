@@ -24,3 +24,24 @@ test.describe('Nodes roster header', () => {
     await expect(page.locator('.attention-callout')).toContainText('approval', { timeout: 15_000 })
   })
 })
+
+test.describe('Nodes roster panels', () => {
+  test('shows model chips without clicking and filters by type', async ({ page }) => {
+    await page.route('**/api/nodes', r => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([
+      { id: 'n1', name: 'alpha', node_type: 'backend', address: '10.0.0.1:50051', status: 'healthy' },
+      { id: 'a1', name: 'agent-1', node_type: 'agent', address: '10.0.0.9:50051', status: 'healthy' },
+    ]) }))
+    await page.route('**/api/nodes/models', r => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([
+      { node_id: 'n1', model_name: 'llama-3.3', state: 'loaded', in_flight: 2, replica_index: 0 },
+    ]) }))
+    await page.route('**/api/nodes/scheduling', r => r.fulfill({ status: 200, contentType: 'application/json', body: '[]' }))
+
+    await page.goto('/app/nodes')
+    // model chip visible without any expand click
+    await expect(page.locator('.node-panel').filter({ hasText: 'alpha' }).getByText('llama-3.3')).toBeVisible({ timeout: 15_000 })
+    // segmented filter: Agent shows the agent node, hides the backend node
+    await page.getByRole('radio', { name: /Agent/ }).click()
+    await expect(page.getByText('agent-1')).toBeVisible()
+    await expect(page.getByText('alpha')).toHaveCount(0)
+  })
+})

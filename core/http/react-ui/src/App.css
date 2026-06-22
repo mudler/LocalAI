@@ -8500,3 +8500,25 @@ select.input {
   border: 1px solid var(--color-error-border);
   color: var(--color-text-primary);
 }
+
+/* Node roster panels (Nodes page) */
+.node-roster { display: flex; flex-direction: column; gap: var(--spacing-sm); }
+.node-panel {
+  background: var(--color-bg-secondary);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-lg);
+}
+.node-panel__main { padding: var(--spacing-md) var(--spacing-lg); cursor: pointer; }
+.node-panel__main:hover { border-color: var(--color-border); }
+.node-panel__head { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--spacing-md); }
+.node-panel__id { display: flex; align-items: center; gap: var(--spacing-sm); flex-wrap: wrap; }
+.node-panel__name { font-weight: 600; }
+.node-panel__meta { display: flex; gap: var(--spacing-lg); margin-top: var(--spacing-sm); color: var(--color-text-muted); font-size: var(--text-xs); }
+.node-panel__models { display: flex; flex-wrap: wrap; gap: 6px; margin-top: var(--spacing-sm); }
+.model-chip {
+  display: inline-flex; align-items: center; gap: 5px;
+  font-family: var(--font-mono); font-size: 0.6875rem;
+  padding: 2px 8px; border-radius: var(--radius-sm); border: 1px solid;
+}
+.model-chip__dot { width: 6px; height: 6px; border-radius: 50%; }
+.node-filter { margin-bottom: var(--spacing-lg); }
