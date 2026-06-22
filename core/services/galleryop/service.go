@@ -167,7 +167,7 @@ func (g *GalleryService) UpdateStatus(s string, op *OpStatus) {
 				xlog.Warn("Failed to persist gallery operation status", "op_id", s, "error", err)
 			}
 		} else {
-			if err := store.UpdateProgress(s, op.Progress, op.Message, op.DownloadedFileSize); err != nil {
+			if err := store.UpdateProgress(s, op.Progress, op.Message, op.DownloadedFileSize, op.Cancellable); err != nil {
 				xlog.Warn("Failed to persist gallery operation progress", "op_id", s, "error", err)
 			}
 		}
@@ -467,6 +467,7 @@ func (g *GalleryService) Start(c context.Context, cl *config.ModelConfigLoader, 
 						GalleryElementName: op.GalleryElementName,
 						OpType:             "backend_install",
 						Status:             "pending",
+						Cancellable:        true,
 					})
 				}
 				err := g.backendHandler(&op, systemState)
@@ -499,6 +500,8 @@ func (g *GalleryService) Start(c context.Context, cl *config.ModelConfigLoader, 
 						GalleryElementName: op.GalleryElementName,
 						OpType:             opType,
 						Status:             "pending",
+						// A delete is not cancellable; an install is.
+						Cancellable: !op.Delete,
 					})
 				}
 				err := g.modelHandler(&op, cl, systemState)
