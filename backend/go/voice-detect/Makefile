@@ -1,6 +1,6 @@
 # voice-detect backend Makefile.
 #
-# Upstream pin lives below as VOICEDETECT_VERSION?=45122ec... (.github/bump_deps.sh
+# Upstream pin lives below as VOICEDETECT_VERSION?=d2839ca... (.github/bump_deps.sh
 # can find and update it - matches the parakeet.cpp / whisper.cpp / ds4 convention).
 #
 # Local dev shortcut: if you already have an out-of-tree voice-detect.cpp build,
@@ -13,7 +13,7 @@
 # The default target below does the proper clone-at-pin + cmake build so CI does
 # not need a side-checkout.
 
-VOICEDETECT_VERSION?=45122ec2cf6e4463b07a6f07bf3b94f3574159e3
+VOICEDETECT_VERSION?=d2839ca0f24118d8f30ab9fbf53bd9d9fcfca978
 VOICEDETECT_REPO?=https://github.com/mudler/voice-detect.cpp
 
 GOCMD?=go
