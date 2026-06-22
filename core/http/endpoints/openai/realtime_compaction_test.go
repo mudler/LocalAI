@@ -228,6 +228,34 @@ var _ = Describe("compact", func() {
 	})
 })
 
+var _ = Describe("prefixMatches", func() {
+	user := func(id string) *types.MessageItemUnion {
+		return &types.MessageItemUnion{User: &types.MessageItemUser{ID: id}}
+	}
+
+	It("matches when items begins with the snapshot ids in order", func() {
+		items := []*types.MessageItemUnion{user("1"), user("2"), user("3")}
+		snap := []*types.MessageItemUnion{user("1"), user("2")}
+		Expect(prefixMatches(items, snap)).To(BeTrue())
+	})
+
+	It("matches an empty snapshot", func() {
+		Expect(prefixMatches([]*types.MessageItemUnion{user("1")}, nil)).To(BeTrue())
+	})
+
+	It("fails when items is shorter than the snapshot (a concurrent delete shrank the head)", func() {
+		items := []*types.MessageItemUnion{user("1")}
+		snap := []*types.MessageItemUnion{user("1"), user("2")}
+		Expect(prefixMatches(items, snap)).To(BeFalse())
+	})
+
+	It("fails when the head ids differ (a concurrent delete reordered the head)", func() {
+		items := []*types.MessageItemUnion{user("2"), user("3")}
+		snap := []*types.MessageItemUnion{user("1"), user("2")}
+		Expect(prefixMatches(items, snap)).To(BeFalse())
+	})
+})
+
 var _ = Describe("itemID", func() {
 	It("returns the id for each variant and empty for nil", func() {
 		Expect(itemID(nil)).To(Equal(""))
