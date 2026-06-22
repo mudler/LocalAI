@@ -5,9 +5,11 @@ import ThemeToggle from './ThemeToggle'
 import LanguageSwitcher from './LanguageSwitcher'
 import { useAuth } from '../context/AuthContext'
 import { useBranding } from '../contexts/BrandingContext'
+import { useDeployment } from '../contexts/DeploymentContext'
 import { apiUrl } from '../utils/basePath'
 import { preloadRoute } from '../router'
 import { consoles, firstVisiblePath, consolePaths } from './console/consoleConfig'
+import { clusterPinItems, shouldCollapseCreate } from '../utils/sidebarPolicy'
 
 const COLLAPSED_KEY = 'localai_sidebar_collapsed'
 const SECTIONS_KEY = 'localai_sidebar_sections'
@@ -58,11 +60,13 @@ function NavItem({ item, onClose, collapsed }) {
   )
 }
 
-function loadSectionState() {
-  // Tiers render expanded by default (the redesign favours showing the few
-  // intent groups up front); users can still collapse any tier and the choice
-  // is persisted. Stored values override the defaults so a saved collapse wins.
+function loadSectionState(collapseCreate = false) {
+  // Tiers render expanded by default; users can collapse any tier and the
+  // choice persists (stored values override defaults). In cluster cells we
+  // start Create collapsed so the pinned cluster group leads - but only when
+  // the user has not already expressed a preference.
   const defaults = Object.fromEntries(sections.map(s => [s.id, true]))
+  if (collapseCreate) defaults.create = false
   try {
     const stored = localStorage.getItem(SECTIONS_KEY)
     return stored ? { ...defaults, ...JSON.parse(stored) } : defaults
@@ -77,20 +81,34 @@ function saveSectionState(state) {
 
 export default function Sidebar({ isOpen, onClose }) {
   const { t } = useTranslation('nav')
-  const [features, setFeatures] = useState({})
+  const { isAdmin, authEnabled, user, logout, hasFeature } = useAuth()
+  // Deployment shape (server features + p2p) drives the adaptive sidebar; the
+  // shared context replaces the sidebar's own /api/features fetch so the
+  // landing resolver, navbar, and this policy agree on one snapshot.
+  const deployment = useDeployment()
+  const features = deployment.features
+  // Shared shape for the console gating helpers (consoleConfig.js); in scope for
+  // both the pinned cluster group and the console-tier rendering below.
+  const auth = { isAdmin, authEnabled, hasFeature, features }
+  const collapseCreate = shouldCollapseCreate(auth, deployment)
   const [collapsed, setCollapsed] = useState(() => {
     try { return localStorage.getItem(COLLAPSED_KEY) === 'true' } catch (_) { return false }
   })
   const [openSections, setOpenSections] = useState(loadSectionState)
-  const { isAdmin, authEnabled, user, logout, hasFeature } = useAuth()
   const branding = useBranding()
   const navigate = useNavigate()
   const location = useLocation()
   const closeBtnRef = useRef(null)
 
+  // Apply the cluster-cell Create-collapse default once, only when the user has
+  // no stored section preference (so we never override an explicit choice).
   useEffect(() => {
-    fetch(apiUrl('/api/features')).then(r => r.json()).then(setFeatures).catch(() => {})
-  }, [])
+    if (deployment.loading) return
+    let hasStored = false
+    try { hasStored = !!localStorage.getItem(SECTIONS_KEY) } catch { hasStored = false }
+    if (hasStored || !collapseCreate) return
+    setOpenSections(prev => (prev.create === false ? prev : { ...prev, create: false }))
+  }, [deployment.loading, collapseCreate])
 
   // Stay in sync with external collapse dispatches (e.g. the chat
   // page's focus mode). The collapse-toggle button still owns the
@@ -157,8 +175,6 @@ export default function Sidebar({ isOpen, onClose }) {
   }
 
   const visibleTopItems = topItems.filter(filterItem)
-  // Shared shape for the console gating helpers (consoleConfig.js).
-  const auth = { isAdmin, authEnabled, hasFeature, features }
 
   // Inline sections (Create) carry no gating; a plain filterItem pass suffices.
   const getVisibleSectionItems = (section) => section.items.filter(filterItem)
@@ -198,6 +214,28 @@ export default function Sidebar({ isOpen, onClose }) {
               <NavItem key={item.path} item={item} onClose={onClose} collapsed={collapsed} />
             ))}
           </div>
+
+          {/* Pinned Cluster quick-access (admin + distributed/p2p). Same gate
+              as the Operate rail; surfaced at the top for cluster operators. */}
+          {(() => {
+            const pinned = clusterPinItems(auth, deployment)
+            if (pinned.length === 0) return null
+            return (
+              <div className="sidebar-section">
+                <div className="sidebar-section-title">{t('operate.cluster')}</div>
+                <div className="sidebar-section-items">
+                  {pinned.map(item => (
+                    <NavItem
+                      key={item.path}
+                      item={{ path: item.path, icon: item.icon, labelKey: item.labelKey }}
+                      onClose={onClose}
+                      collapsed={collapsed}
+                    />
+                  ))}
+                </div>
+              </div>
+            )
+          })()}
 
           {/* Collapsible sections */}
           {sections.map(section => {

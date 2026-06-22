@@ -9,11 +9,6 @@ function stubFeatures(page, features) {
     route.fulfill({ contentType: 'application/json', body: JSON.stringify(features) }))
 }
 
-function stubAuth(page, status) {
-  return page.route('**/api/auth/status', route =>
-    route.fulfill({ contentType: 'application/json', body: JSON.stringify(status) }))
-}
-
 function stubNoP2P(page) {
   // P2P token endpoint returns empty -> p2pEnabled=false.
   return page.route('**/api/p2p/token', route =>
@@ -35,5 +30,25 @@ test.describe('Adaptive landing (HomeRoute)', () => {
     await page.goto('/app')
     await expect(page).toHaveURL(/\/app$/)
     await expect(page.locator('.home-greeting')).toBeVisible({ timeout: 15_000 })
+  })
+})
+
+test.describe('Adaptive sidebar', () => {
+  test('distributed pins the Cluster group with Nodes at the top', async ({ page }) => {
+    await stubFeatures(page, { distributed: true })
+    await stubNoP2P(page)
+    await page.goto('/app/chat') // any in-app page so the sidebar is mounted
+    const pinned = page.locator('.sidebar-nav .sidebar-section-items').first()
+    await expect(pinned.getByText('Nodes', { exact: false })).toBeVisible({ timeout: 15_000 })
+  })
+
+  test('single-node does not pin a Cluster group', async ({ page }) => {
+    await stubFeatures(page, { distributed: false })
+    await stubNoP2P(page)
+    await page.goto('/app/chat')
+    // Nodes is reachable only via the Operate rail, not pinned at the top.
+    await expect(page.locator('.sidebar-nav')).toBeVisible({ timeout: 15_000 })
+    await expect(page.locator('.sidebar-nav .sidebar-section-items').first()
+      .getByText('Nodes', { exact: false })).toHaveCount(0)
   })
 })
