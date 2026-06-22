@@ -70,6 +70,26 @@ func truncateAssistantText(items []*types.MessageItemUnion, id string, contentIn
 	return false
 }
 
+// compactionCut returns the index splitting items into overflow (items[:cut],
+// to be summarized+evicted) and the kept live tail (items[cut:]), keeping the
+// last `keep` items. It mirrors trimRealtimeItems' pair-safety: the cut is
+// pulled left so a function_call and its function_call_output are never split
+// across the boundary (the whole pair lands in the kept tail). Returns 0 when
+// there is nothing to cut.
+func compactionCut(items []*types.MessageItemUnion, keep int) int {
+	if keep < 0 {
+		keep = 0
+	}
+	cut := len(items) - keep
+	if cut <= 0 {
+		return 0
+	}
+	for cut > 0 && items[cut] != nil && items[cut].FunctionCallOutput != nil {
+		cut--
+	}
+	return cut
+}
+
 // resolveCompaction reads the pipeline.compaction block, applying defaults and
 // the trigger>max_history invariant. maxHistory is the already-resolved live
 // window size. Returns enabled=false (and zero values) when compaction is off.

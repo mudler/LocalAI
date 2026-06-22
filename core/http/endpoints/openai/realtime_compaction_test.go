@@ -99,6 +99,28 @@ var _ = Describe("truncateAssistantText", func() {
 	})
 })
 
+var _ = Describe("compactionCut", func() {
+	user := func(id string) *types.MessageItemUnion { return &types.MessageItemUnion{User: &types.MessageItemUser{ID: id}} }
+	call := func(id string) *types.MessageItemUnion { return &types.MessageItemUnion{FunctionCall: &types.MessageItemFunctionCall{ID: id}} }
+	out := func(id string) *types.MessageItemUnion { return &types.MessageItemUnion{FunctionCallOutput: &types.MessageItemFunctionCallOutput{ID: id}} }
+
+	It("cuts exactly len-keep when no pairs straddle the boundary", func() {
+		items := []*types.MessageItemUnion{user("1"), user("2"), user("3"), user("4")}
+		Expect(compactionCut(items, 2)).To(Equal(2))
+	})
+
+	It("returns 0 when nothing to cut", func() {
+		Expect(compactionCut([]*types.MessageItemUnion{user("1")}, 2)).To(Equal(0))
+	})
+
+	It("moves the boundary so a call/output pair is not split", func() {
+		// keep=2 -> naive cut=2, but items[2] is the output of items[1]'s call;
+		// pull the cut right so the whole pair stays in the kept tail.
+		items := []*types.MessageItemUnion{user("1"), call("c"), out("c"), user("4")}
+		Expect(compactionCut(items, 2)).To(Equal(1))
+	})
+})
+
 var _ = Describe("itemID", func() {
 	It("returns the id for each variant and empty for nil", func() {
 		Expect(itemID(nil)).To(Equal(""))

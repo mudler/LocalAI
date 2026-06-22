@@ -12,6 +12,7 @@ import (
 	"os"
 	"strconv"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"net/http"
@@ -247,6 +248,12 @@ type Conversation struct {
 	ID    string
 	Items []*types.MessageItemUnion
 	Lock  sync.Mutex
+	// Memory is the rolling summary of items already evicted by compaction. It
+	// is kept out of Items (so trimRealtimeItems never drops it) and rendered
+	// as a system message right after the session instructions.
+	Memory string
+	// compacting ensures at most one background compaction runs per conversation.
+	compacting atomic.Bool
 }
 
 func (c *Conversation) ToServer() types.Conversation {
