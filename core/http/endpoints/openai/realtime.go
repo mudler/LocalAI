@@ -814,6 +814,15 @@ func runRealtimeSession(application *application.Application, t Transport, model
 				commitUtterance(respCtx, allAudio, session, conversation, t)
 			}()
 
+		case types.InputAudioBufferClearEvent:
+			xlog.Debug("recv", "message", string(msg))
+			// Discard a partially-captured utterance so the client can restart
+			// input cleanly without the stale buffer leaking into the next commit.
+			clearInputAudio(session)
+			sendEvent(t, types.InputAudioBufferClearedEvent{
+				ServerEventBase: types.ServerEventBase{EventID: e.EventID},
+			})
+
 		case types.ConversationItemCreateEvent:
 			xlog.Debug("recv", "message", string(msg))
 			// Add the item to the conversation

@@ -9,6 +9,18 @@ const (
 	defaultMaxSummaryTokens = 512
 )
 
+// clearInputAudio resets the session's pending input audio buffer (the raw
+// PCM and any buffered Opus frames). Used by the input_audio_buffer.clear
+// realtime event so a client can discard a partially-captured utterance.
+func clearInputAudio(s *Session) {
+	s.AudioBufferLock.Lock()
+	s.InputAudioBuffer = nil
+	s.AudioBufferLock.Unlock()
+	s.OpusFramesLock.Lock()
+	s.OpusFrames = nil
+	s.OpusFramesLock.Unlock()
+}
+
 // itemID extracts the id from any MessageItemUnion variant ("" if none).
 func itemID(item *types.MessageItemUnion) string {
 	switch {

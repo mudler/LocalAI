@@ -62,6 +62,15 @@ var _ = Describe("deleteItem", func() {
 	})
 })
 
+var _ = Describe("clearInputAudio", func() {
+	It("resets the pending PCM and buffered Opus frames", func() {
+		s := &Session{InputAudioBuffer: []byte{1, 2, 3}, OpusFrames: [][]byte{{9}}}
+		clearInputAudio(s)
+		Expect(s.InputAudioBuffer).To(BeNil())
+		Expect(s.OpusFrames).To(BeNil())
+	})
+})
+
 var _ = Describe("itemID", func() {
 	It("returns the id for each variant and empty for nil", func() {
 		Expect(itemID(nil)).To(Equal(""))
