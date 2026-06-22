@@ -541,58 +541,73 @@ export default function Chat() {
     updateChatSettings(activeChat.id, { clientMCPServers: next })
   }, [activeChat, updateChatSettings])
 
-  // Load initial message from home page
+  // Load initial message / assistant launch from the Home page or the navbar
+  // quick-jump. Factored into a callback so both the mount-time reader and the
+  // navbar re-trigger event below consume the same payload through one path.
   const homeDataProcessed = useRef(false)
-  useEffect(() => {
-    if (homeDataProcessed.current) return
+  const consumeHomeChatData = useCallback(() => {
     const stored = localStorage.getItem('localai_index_chat_data')
-    if (stored) {
-      homeDataProcessed.current = true
-      try {
-        const data = JSON.parse(stored)
-        localStorage.removeItem('localai_index_chat_data')
+    if (!stored) return
+    try {
+      const data = JSON.parse(stored)
+      localStorage.removeItem('localai_index_chat_data')
 
-        // Two entry shapes from Home:
-        //   - "compose-and-send": data.message present → open new chat,
-        //     prefill the composer, click submit.
-        //   - "open-assistant": no message, just data.localaiAssistant → open
-        //     a fresh chat already in admin mode so the wizard can fire.
-        const hasMessage = !!data.message
-        const wantsAssistant = !!data.localaiAssistant
+      // Two entry shapes from Home:
+      //   - "compose-and-send": data.message present → open new chat,
+      //     prefill the composer, click submit.
+      //   - "open-assistant": no message, just data.localaiAssistant → open
+      //     a fresh chat already in admin mode so the wizard can fire.
+      const hasMessage = !!data.message
+      const wantsAssistant = !!data.localaiAssistant
 
-        if (hasMessage || wantsAssistant) {
-          let targetChat = activeChat
-          if (data.newChat) {
-            targetChat = addChat(data.model || '', '', data.mcpMode || false)
-          } else {
-            if (data.model && activeChat) {
-              updateChatSettings(activeChat.id, { model: data.model })
-            }
-            if (data.mcpMode && activeChat) {
-              updateChatSettings(activeChat.id, { mcpMode: true })
-            }
+      if (hasMessage || wantsAssistant) {
+        let targetChat = activeChat
+        if (data.newChat) {
+          targetChat = addChat(data.model || '', '', data.mcpMode || false)
+        } else {
+          if (data.model && activeChat) {
+            updateChatSettings(activeChat.id, { model: data.model })
           }
-          if (data.mcpServers?.length > 0 && targetChat) {
-            updateChatSettings(targetChat.id, { mcpServers: data.mcpServers })
-          }
-          if (data.clientMCPServers?.length > 0 && targetChat) {
-            updateChatSettings(targetChat.id, { clientMCPServers: data.clientMCPServers })
-          }
-          if (wantsAssistant && targetChat) {
-            updateChatSettings(targetChat.id, { localaiAssistant: true })
-          }
-          if (hasMessage) {
-            setInput(data.message)
-            if (data.files) setFiles(data.files)
-            setTimeout(() => {
-              const submitBtn = document.getElementById('chat-submit-btn')
-              submitBtn?.click()
-            }, 100)
+          if (data.mcpMode && activeChat) {
+            updateChatSettings(activeChat.id, { mcpMode: true })
           }
         }
-      } catch (_e) { /* ignore */ }
-    }
-  }, [])
+        if (data.mcpServers?.length > 0 && targetChat) {
+          updateChatSettings(targetChat.id, { mcpServers: data.mcpServers })
+        }
+        if (data.clientMCPServers?.length > 0 && targetChat) {
+          updateChatSettings(targetChat.id, { clientMCPServers: data.clientMCPServers })
+        }
+        if (wantsAssistant && targetChat) {
+          updateChatSettings(targetChat.id, { localaiAssistant: true })
+        }
+        if (hasMessage) {
+          setInput(data.message)
+          if (data.files) setFiles(data.files)
+          setTimeout(() => {
+            const submitBtn = document.getElementById('chat-submit-btn')
+            submitBtn?.click()
+          }, 100)
+        }
+      }
+    } catch (_e) { /* ignore */ }
+  }, [activeChat, addChat, updateChatSettings])
+
+  useEffect(() => {
+    if (homeDataProcessed.current) return
+    homeDataProcessed.current = true
+    consumeHomeChatData()
+  }, [consumeHomeChatData])
+
+  // Admins can re-trigger the assistant jump from the navbar while already on
+  // the chat page; navigate('/app/chat') does not remount Chat, so the
+  // mount-time reader above never fires. The launcher dispatches this event
+  // after writing the payload so we re-consume it and open a fresh assistant.
+  useEffect(() => {
+    const onOpenAssistant = () => consumeHomeChatData()
+    window.addEventListener('localai-open-assistant', onOpenAssistant)
+    return () => window.removeEventListener('localai-open-assistant', onOpenAssistant)
+  }, [consumeHomeChatData])
 
   // Track whether the user is pinned to the bottom. If they scroll up
   // while a response is streaming, stop forcing them back down.
