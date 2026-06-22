@@ -8,6 +8,7 @@ import (
 	"math"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 	"unsafe"
@@ -64,6 +65,20 @@ func (f *FaceDetect) Load(opts *pb.ModelOptions) error {
 	f.opts = parseOptions(opts.Options)
 	if f.opts.modelName == "" {
 		f.opts.modelName = filepath.Base(model)
+	}
+
+	// Propagate LocalAI's per-model thread budget to the engine. LocalAI spawns
+	// one backend process per model and serves requests concurrently, so the
+	// engine's own min(hardware_concurrency, 8) default can oversubscribe cores.
+	// FACEDETECT_THREADS is read by the engine at backend construction, so it
+	// must be set before the capi load. A non-positive Threads means "unset":
+	// leave the env alone so the engine keeps its sane default.
+	threads := opts.Threads
+	if threads > 0 {
+		if err := os.Setenv("FACEDETECT_THREADS", strconv.Itoa(int(threads))); err != nil {
+			return fmt.Errorf("face-detect: set FACEDETECT_THREADS: %w", err)
+		}
+		xlog.Info("face-detect: applying LocalAI thread budget", "threads", threads)
 	}
 
 	xlog.Info("face-detect: loading model", "model", model,

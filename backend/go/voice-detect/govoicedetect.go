@@ -5,7 +5,9 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 	"unsafe"
@@ -61,6 +63,20 @@ func (v *VoiceDetect) Load(opts *pb.ModelOptions) error {
 	v.opts = parseOptions(opts.Options)
 	if v.opts.modelName == "" {
 		v.opts.modelName = filepath.Base(model)
+	}
+
+	// Propagate LocalAI's per-model thread budget to the engine. LocalAI spawns
+	// one backend process per model and serves requests concurrently, so the
+	// engine's own min(hardware_concurrency, 8) default can oversubscribe cores.
+	// VOICEDETECT_THREADS is read by the engine at backend construction, so it
+	// must be set before the capi load. A non-positive Threads means "unset":
+	// leave the env alone so the engine keeps its sane default.
+	threads := opts.Threads
+	if threads > 0 {
+		if err := os.Setenv("VOICEDETECT_THREADS", strconv.Itoa(int(threads))); err != nil {
+			return fmt.Errorf("voice-detect: set VOICEDETECT_THREADS: %w", err)
+		}
+		xlog.Info("voice-detect: applying LocalAI thread budget", "threads", threads)
 	}
 
 	xlog.Info("voice-detect: loading model", "model", model,
