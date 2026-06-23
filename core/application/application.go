@@ -103,6 +103,11 @@ func newApplication(appConfig *config.ApplicationConfig) *Application {
 		mcpTools.CloseMCPSessions(modelName)
 	})
 
+	// Record a model_load backend trace for every real backend load, so the
+	// Traces UI shows which backend runtime served each model and how long
+	// the load took. Load failures are traced by the modality wrappers.
+	ml.SetLoadObserver(corebackend.ModelLoadTraceObserver(appConfig))
+
 	app := &Application{
 		backendLoader:      config.NewModelConfigLoader(appConfig.SystemState.Model.ModelsPath),
 		modelLoader:        ml,

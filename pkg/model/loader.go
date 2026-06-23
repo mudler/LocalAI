@@ -39,6 +39,27 @@ type RemoteModelUnloader interface {
 type ModelRouter func(ctx context.Context, backend, modelID, modelName, modelFile string,
 	opts *pb.ModelOptions, parallel bool) (*Model, error)
 
+// BackendLoadEvent describes one actual backend load attempt: a backend
+// process spawn (or remote-address attach) followed by its LoadModel RPC.
+// Cache hits and loads coalesced onto another goroutine's in-flight attempt
+// never produce an event, so observers see real loads only. Distributed-mode
+// routing is excluded too: there grpcModel runs per inference request and the
+// worker node owns the actual load.
+type BackendLoadEvent struct {
+	ModelID   string
+	ModelName string
+	// Backend is the alias-resolved backend string (e.g. "parakeet-cpp").
+	Backend string
+	// BackendURI is the resolved runtime serving the load: the installed
+	// backend's launcher path (which names the variant directory) or a
+	// remote gRPC address. This is what identifies WHICH build served the
+	// model — a stale installed backend is invisible in the model config
+	// but obvious here.
+	BackendURI string
+	Duration   time.Duration
+	Err        error
+}
+
 type ModelLoader struct {
 	ModelPath                string
 	mu                       sync.Mutex
@@ -49,6 +70,7 @@ type ModelLoader struct {
 	lruEvictionMaxRetries    int           // Maximum number of retries when waiting for busy models
 	lruEvictionRetryInterval time.Duration // Interval between retries when waiting for busy models
 	onUnloadHooks            []ModelUnloadHook
+	loadObserver             func(BackendLoadEvent)
 	remoteUnloader           RemoteModelUnloader
 	modelRouter              ModelRouter // distributed mode: route to remote node
 	backendLogs              *BackendLogStore
@@ -96,6 +118,23 @@ func (ml *ModelLoader) SetWatchDog(wd *WatchDog) {
 	ml.mu.Lock()
 	defer ml.mu.Unlock()
 	ml.wd = wd
+}
+
+// SetLoadObserver registers a callback fired after every actual backend load
+// attempt, successful or not. See BackendLoadEvent for what counts as one.
+func (ml *ModelLoader) SetLoadObserver(obs func(BackendLoadEvent)) {
+	ml.mu.Lock()
+	defer ml.mu.Unlock()
+	ml.loadObserver = obs
+}
+
+func (ml *ModelLoader) notifyLoadObserver(ev BackendLoadEvent) {
+	ml.mu.Lock()
+	obs := ml.loadObserver
+	ml.mu.Unlock()
+	if obs != nil {
+		obs(ev)
+	}
 }
 
 // SetRemoteUnloader sets the handler for unloading models on remote nodes.

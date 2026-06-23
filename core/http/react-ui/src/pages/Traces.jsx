@@ -86,8 +86,40 @@ function typeBadgeStyle(type) {
   return { background: c.bg, color: c.color, padding: '2px 8px', borderRadius: 'var(--radius-sm)', fontSize: '0.75rem', fontWeight: 500 }
 }
 
+// useWavObjectURL — decode a base64 WAV payload into a blob: object URL for
+// the waveform player. A data: URL would render in <audio> (media-src allows
+// data:) but the peaks renderer fetch()es the src and the CSP's connect-src
+// only allows blob:, so playback broke with a CSP violation. Decoding to a
+// Blob also tolerates payloads that aren't valid base64 — e.g. the
+// "<truncated: N bytes>" marker older servers stamped into oversized fields —
+// by yielding null instead of a broken player.
+function useWavObjectURL(b64) {
+  const [url, setUrl] = useState(null)
+  useEffect(() => {
+    if (!b64) {
+      setUrl(null)
+      return undefined
+    }
+    let objectUrl = null
+    try {
+      const bin = atob(b64)
+      const bytes = new Uint8Array(bin.length)
+      for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i)
+      objectUrl = URL.createObjectURL(new Blob([bytes], { type: 'audio/wav' }))
+      setUrl(objectUrl)
+    } catch {
+      setUrl(null)
+    }
+    return () => {
+      if (objectUrl) URL.revokeObjectURL(objectUrl)
+    }
+  }, [b64])
+  return url
+}
+
 // Audio player + metrics for transcription traces
 function AudioSnippet({ data }) {
+  const audioUrl = useWavObjectURL(data?.audio_wav_base64)
   if (!data?.audio_wav_base64) return null
   const metrics = [
     { label: 'Duration', value: data.audio_duration_s + 's' },
@@ -104,7 +136,11 @@ function AudioSnippet({ data }) {
         <i className="fas fa-headphones" style={{ color: 'var(--color-primary)' }} /> Audio Snippet
       </h4>
       <div style={{ background: 'var(--color-bg-primary)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-md)', padding: 'var(--spacing-sm)' }}>
-        <WaveformPlayer src={`data:audio/wav;base64,${data.audio_wav_base64}`} height={64} />
+        {audioUrl
+          ? <WaveformPlayer src={audioUrl} height={64} />
+          : <div data-testid="audio-snippet-unavailable" style={{ fontSize: '0.75rem', color: 'var(--color-text-secondary)', padding: 'var(--spacing-xs)' }}>
+              <i className="fas fa-triangle-exclamation" /> Audio clip not playable — it was truncated when recorded (raise Max Body Bytes in the tracing settings).
+            </div>}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(120px, 1fr))', gap: 'var(--spacing-xs)', fontSize: '0.75rem', marginTop: 'var(--spacing-sm)' }}>
           {metrics.map(m => (
             <div key={m.label} style={{ background: 'var(--color-bg-secondary)', borderRadius: 'var(--radius-sm)', padding: 'var(--spacing-xs)' }}>

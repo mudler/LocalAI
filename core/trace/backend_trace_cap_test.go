@@ -28,8 +28,9 @@ const (
 
 var _ = Describe("RecordBackendTrace Data capping", func() {
 	BeforeEach(func() {
-		// Init is sync.Once so the first test wins; subsequent tests just
-		// clear the buffer. The cap value below has to match the first call.
+		// The ring buffer is allocated once (sync.Once) but the body cap
+		// follows the latest call, so each spec re-establishes smallCap here
+		// regardless of what a previous spec set.
 		trace.InitBackendTracingIfEnabled(64, smallCap)
 		trace.ClearBackendTraces()
 	})
@@ -130,6 +131,30 @@ var _ = Describe("RecordBackendTrace Data capping", func() {
 		Eventually(trace.GetBackendTraces).Should(HaveLen(1))
 		got := trace.GetBackendTraces()[0]
 		Expect(got.Data["messages"]).To(Equal(preTruncated))
+	})
+
+	It("applies a runtime-raised cap without a restart", func() {
+		// tracing_max_body_bytes is runtime-mutable via the settings API.
+		// Producers like AudioSnippet read the live value, so the recorder
+		// must too — under the old first-call-wins behaviour a raised cap
+		// kept truncating audio_wav_base64 payloads the producer had already
+		// let through, corrupting them into "<truncated: N bytes>" markers.
+		oversizedForOldCap := strings.Repeat("w", smallCap*4)
+
+		trace.InitBackendTracingIfEnabled(64, smallCap*8) // simulate the settings raise
+		trace.RecordBackendTrace(trace.BackendTrace{
+			Timestamp: time.Now(),
+			Type:      trace.BackendTraceTranscription,
+			ModelName: "m",
+			Data: map[string]any{
+				"audio_wav_base64": oversizedForOldCap,
+			},
+		})
+
+		Eventually(trace.GetBackendTraces).Should(HaveLen(1))
+		got := trace.GetBackendTraces()[0]
+		Expect(got.Data["audio_wav_base64"]).To(Equal(oversizedForOldCap),
+			"a payload under the raised cap must survive intact")
 	})
 })
 

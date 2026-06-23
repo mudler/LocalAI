@@ -33,3 +33,27 @@ func IsModelNotLoaded(err error) bool {
 	}
 	return strings.Contains(strings.ToLower(err.Error()), "model not loaded")
 }
+
+// LiveTranscriptionUnsupported returns the canonical error a backend returns
+// when it (or the loaded model) cannot serve the bidirectional
+// AudioTranscriptionLive RPC. It carries codes.Unimplemented deliberately:
+// that is also what gRPC itself returns for backends whose stubs predate the
+// RPC, so callers get one uniform "degrade to non-live transcription" signal.
+// (codes.FailedPrecondition is not used here — IsModelNotLoaded claims it.)
+func LiveTranscriptionUnsupported(backend, reason string) error {
+	return status.Errorf(codes.Unimplemented, "%s: live transcription unsupported: %s", backend, reason)
+}
+
+// IsLiveTranscriptionUnsupported reports whether err signals that live
+// transcription is not available for this backend/model. It prefers the typed
+// gRPC status code (Unimplemented) and falls back to the message for paths
+// that lose the status (e.g. errors wrapped across non-gRPC boundaries).
+func IsLiveTranscriptionUnsupported(err error) bool {
+	if err == nil {
+		return false
+	}
+	if status.Code(err) == codes.Unimplemented {
+		return true
+	}
+	return strings.Contains(strings.ToLower(err.Error()), "unimplemented")
+}

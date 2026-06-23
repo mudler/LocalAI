@@ -18,6 +18,18 @@ service Backend {
   rpc GenerateVideo(GenerateVideoRequest) returns (Result) {}
   rpc AudioTranscription(TranscriptRequest) returns (TranscriptResult) {}
   rpc AudioTranscriptionStream(TranscriptRequest) returns (stream TranscriptStreamResponse) {}
+  // AudioTranscriptionLive is the bidirectional live-microphone ASR RPC. The
+  // first message MUST carry a Config; subsequent messages carry Audio frames
+  // (mono float PCM at config.sample_rate, 16 kHz default). After a
+  // successful open the backend replies with a single ready ack
+  // (TranscriptLiveResponse{ready:true}); backends or models without
+  // cache-aware streaming support return UNIMPLEMENTED instead. Newly
+  // finalized text streams back as deltas; eou=true marks the model's
+  // end-of-utterance token. One stream spans many utterances (the decoder
+  // resets itself after each EOU). Closing the send side finalizes: the
+  // backend flushes the decoder tail and emits a terminal message carrying
+  // final_result. A second Config mid-stream resets the decode session.
+  rpc AudioTranscriptionLive(stream TranscriptLiveRequest) returns (stream TranscriptLiveResponse) {}
   rpc TTS(TTSRequest) returns (Result) {}
   rpc TTSStream(TTSRequest) returns (stream Reply) {}
   rpc SoundGeneration(SoundGenerationRequest) returns (Result) {}
@@ -479,11 +491,43 @@ message TranscriptResult {
   string text = 2;
   string language = 3;
   float duration = 4;
+  // True when the decode ended on the model's end-of-utterance special token
+  // (<EOU>/<EOB>, emitted by cache-aware streaming models such as
+  // parakeet_realtime_eou_120m-v1). The marker itself is stripped from text.
+  bool eou = 5;
 }
 
 message TranscriptStreamResponse {
   string delta = 1;
   TranscriptResult final_result = 2;
+}
+
+// === AudioTranscriptionLive messages =====================================
+
+message TranscriptLiveRequest {
+  oneof payload {
+    TranscriptLiveConfig config = 1;
+    TranscriptLiveAudio  audio  = 2;
+  }
+}
+
+message TranscriptLiveConfig {
+  string language = 1;             // "" => model default
+  int32 sample_rate = 2;           // 0 => 16000; backends may reject others
+  map<string, string> params = 3;  // backend-specific tuning
+}
+
+message TranscriptLiveAudio {
+  repeated float pcm = 1;          // mono PCM in [-1,1] at config.sample_rate
+}
+
+message TranscriptLiveResponse {
+  bool ready = 1;                       // open ack: sent once, before any delta
+  string delta = 2;                     // newly-finalized text since previous response
+  bool eou = 3;                         // <EOU> fired during this feed (the user yielded the turn)
+  repeated TranscriptWord words = 4;    // words finalized by this feed (stream-relative ns)
+  TranscriptResult final_result = 5;    // terminal message only, after the send side closes
+  bool eob = 6;                         // <EOB> fired: a backchannel ("uh-huh") ended — NOT a turn boundary
 }
 
 message TranscriptWord {

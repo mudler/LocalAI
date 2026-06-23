@@ -56,6 +56,41 @@ pipeline:
 
 All streaming flags are off by default, so existing pipelines are unaffected.
 
+### Turn detection
+
+Turn detection decides when the user has finished speaking and the pipeline should respond. Two modes are supported, matching the OpenAI session schema:
+
+- **`server_vad`** (default): silence-based. The VAD model watches the audio and the turn commits after `silence_duration_ms` (default 500 ms) of silence. Simple and model-agnostic, but a fixed silence window must trade interrupting mid-sentence pauses against sluggish responses.
+- **`semantic_vad`**: model-driven. The transcription model itself signals end-of-utterance and the silence window becomes dynamic: short right after the model emits its end-of-utterance token, much longer when it does not — so pausing to think no longer gets cut off, while finished sentences get a fast response.
+
+`semantic_vad` requires a transcription model that emits an end-of-utterance token over a cache-aware streaming decode — currently `parakeet-cpp-realtime_eou_120m-v1` (the model is trained to distinguish "paused, expecting a reply" from "paused mid-thought"). The realtime pipeline feeds it the microphone audio live while the user speaks. With any other transcription backend the session degrades gracefully to silence-only detection using the eagerness timeout below (a warning is logged once). The model also emits a distinct end-of-backchannel token (`<EOB>`) for short acknowledgments like "uh-huh": those are transcribed but never treated as the user yielding the turn.
+
+Sessions can opt in via `session.update` (`turn_detection: {"type": "semantic_vad", "eagerness": "medium"}`), or the pipeline can set a server-side default so clients need no changes:
+
+```yaml
+name: gpt-realtime
+pipeline:
+  vad: silero-vad-ggml
+  transcription: parakeet-cpp-realtime_eou_120m-v1
+  llm: qwen3-4b
+  tts: tts-1
+  turn_detection:
+    type: semantic_vad   # default for sessions on this model (server_vad if unset)
+    eagerness: medium    # low | medium | high | auto (auto == medium)
+    retranscribe: false  # see below
+```
+
+A client `session.update` still overrides `type` and `eagerness` per session.
+
+**Eagerness** sets the fallback silence window used when no end-of-utterance token was seen (the model missed it, or the user genuinely trails off): `low` waits 8 s, `medium`/`auto` 4 s, `high` 2 s — the same max-timeout semantics OpenAI documents. After the token is seen, the turn commits on the next VAD tick (~300 ms).
+
+**Live captions**: while the user speaks, `semantic_vad` streams `conversation.item.input_audio_transcription.delta` events under the item id the commit will later reuse, so clients can render the words as they are recognized. The `completed` event at commit carries the authoritative transcript and replaces the partial text (with `retranscribe: true` it may differ from the captions); a turn discarded before commit emits `conversation.item.input_audio_transcription.failed` so clients can retract its captions.
+
+**`retranscribe`** (server-side only, semantic_vad only) cross-checks the streaming decode against a batch decode at commit time:
+
+- `false` (default): the transcript accumulated from the live stream is used as-is — the model runs once per utterance and the LLM starts immediately at commit.
+- `true`: the committed audio is re-transcribed offline. If the batch decode also ends with the end-of-utterance token the turn proceeds (using the batch transcript); if it does **not**, the commit is cancelled and the session keeps listening — treating the streaming token as a false positive. Both transcripts are compared and logged, which makes this mode a useful diagnostic for how well the streaming and batch decodes align, at the cost of one extra decode per turn.
+
 ### Disabling thinking
 
 For reasoning models, you can force the pipeline LLM's thinking off without editing the LLM model config:

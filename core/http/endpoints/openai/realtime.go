@@ -288,6 +288,12 @@ type Model interface {
 	// sound-event tags. topK caps the number of returned tags (0 = backend
 	// default), threshold drops tags below the given score (0 = keep all).
 	SoundDetection(ctx context.Context, audio string, topK int, threshold float32) (*schema.SoundClassificationResult, error)
+	// TranscribeLive opens a live (bidirectional) transcription session on the
+	// pipeline's transcription backend, used by semantic_vad turn detection;
+	// onEvent fires from a background goroutine for every delta/EOU/final
+	// event. Backends without live support fail with an error satisfying
+	// grpcerrors.IsLiveTranscriptionUnsupported.
+	TranscribeLive(ctx context.Context, language string, onEvent func(backend.LiveTranscriptionEvent)) (backend.LiveTranscriptionSession, error)
 	PredictConfig() *config.ModelConfig
 }
 
@@ -513,14 +519,10 @@ func runRealtimeSession(application *application.Application, t Transport, model
 	// input_audio_buffer.commit. There is no transcription stage in that case.
 	soundOnly := cfg.Pipeline.SoundDetection != "" && cfg.Pipeline.Transcription == "" && cfg.Pipeline.LLM == ""
 
-	turnDetection := &types.TurnDetectionUnion{
-		ServerVad: &types.ServerVad{
-			Threshold:         0.5,
-			PrefixPaddingMs:   300,
-			SilenceDurationMs: 500,
-			CreateResponse:    true,
-		},
-	}
+	// defaultTurnDetection seeds server_vad by default, or semantic_vad when the
+	// pipeline opts in (turn_detection.type: semantic_vad); clients can still
+	// override per session via session.update.
+	turnDetection := defaultTurnDetection(cfg)
 	inputAudioTranscription := &types.AudioTranscription{Model: sttModel}
 	if soundOnly {
 		turnDetection = nil           // turn_detection none: no VAD
@@ -655,7 +657,7 @@ func runRealtimeSession(application *application.Application, t Transport, model
 
 	vadServerStarted := false
 	toggleVAD := func() {
-		if session.TurnDetection != nil && session.TurnDetection.ServerVad != nil && !vadServerStarted {
+		if turnDetectionActive(session.TurnDetection) && !vadServerStarted {
 			xlog.Debug("Starting VAD goroutine...")
 			done = make(chan struct{})
 			wg.Go(func() {
@@ -663,7 +665,7 @@ func runRealtimeSession(application *application.Application, t Transport, model
 				handleVAD(session, conversation, t, done)
 			})
 			vadServerStarted = true
-		} else if (session.TurnDetection == nil || session.TurnDetection.ServerVad == nil) && vadServerStarted {
+		} else if !turnDetectionActive(session.TurnDetection) && vadServerStarted {
 			xlog.Debug("Stopping VAD goroutine...")
 			close(done)
 			vadServerStarted = false
@@ -811,11 +813,11 @@ func runRealtimeSession(application *application.Application, t Transport, model
 			xlog.Debug("recv", "message", string(msg))
 
 			sessionLock.Lock()
-			isServerVAD := session.TurnDetection != nil && session.TurnDetection.ServerVad != nil
+			autoTurnDetection := turnDetectionActive(session.TurnDetection)
 			sessionLock.Unlock()
 
 			// TODO: At the least need to check locking and timer state in the VAD Go routine before allowing this
-			if isServerVAD {
+			if autoTurnDetection {
 				sendNotImplemented(t, "input_audio_buffer.commit in conjunction with VAD")
 				continue
 			}
@@ -1285,8 +1287,38 @@ func decodeOpusLoop(session *Session, opusBackend grpc.Backend, done chan struct
 	}
 }
 
+// noSpeechHoldbackSec is how much of the tail of an inspected, segment-free
+// buffer survives the periodic no-speech clear. It must cover the VAD's
+// onset-detection latency: a word can already be underway in the newest part
+// of the window without silero having crossed its threshold yet, and clearing
+// it cuts the start of the utterance the next tick will detect.
+const noSpeechHoldbackSec = 0.5
+
+// dropInspectedPrefix removes the head of the audio buffer that a VAD tick
+// inspected (the first inspected bytes), keeping the newest holdbackBytes of
+// that window plus everything appended while the tick ran — audio the VAD
+// never saw. When something is dropped the result is a fresh copy, never a
+// sub-slice, so later appends can't scribble on memory shared with the old
+// backing array; when nothing is dropped buf is returned unchanged.
+func dropInspectedPrefix(buf []byte, inspected, holdbackBytes int) []byte {
+	cut := inspected - holdbackBytes
+	if cut <= 0 {
+		return buf
+	}
+	if cut > len(buf) {
+		cut = len(buf)
+	}
+	return append([]byte(nil), buf[cut:]...)
+}
+
 // handleVAD is a goroutine that listens for audio data from the client,
-// runs VAD on the audio data, and commits utterances to the conversation
+// runs VAD on the audio data, and commits utterances to the conversation.
+//
+// With turn_detection.type == "semantic_vad" (sv != nil below) the silero
+// loop is augmented by a live transcription stream: the buffer's new audio
+// is fed to the transcription model every tick and its end-of-utterance
+// token switches the commit threshold between a short post-EOU window and
+// the long eagerness fallback. The server_vad path is untouched.
 func handleVAD(session *Session, conv *Conversation, t Transport, done chan struct{}) {
 	vadContext, cancel := context.WithCancel(context.Background())
 	go func() {
@@ -1299,6 +1331,9 @@ func handleVAD(session *Session, conv *Conversation, t Transport, done chan stru
 		silenceThreshold = float64(session.TurnDetection.ServerVad.SilenceDurationMs) / 1000
 	}
 
+	lts := newLiveTurnState(session, t)
+	defer lts.discardTurn()
+
 	speechStarted := false
 	startTime := time.Now()
 
@@ -1310,6 +1345,23 @@ func handleVAD(session *Session, conv *Conversation, t Transport, done chan stru
 		case <-done:
 			return
 		case <-ticker.C:
+			// Semantic mode is re-read each tick: session.update can switch
+			// turn-detection modes (and the retranscribe gate) mid-session.
+			sessionLock.Lock()
+			var sv *types.RealtimeSessionSemanticVad
+			if session.TurnDetection != nil {
+				sv = session.TurnDetection.SemanticVad
+			}
+			retranscribe := sv != nil && session.ModelConfig != nil &&
+				session.ModelConfig.Pipeline.TurnDetectionRetranscribe()
+			sessionLock.Unlock()
+
+			// session.update switched semantic -> server mid-turn: drop the
+			// orphaned live stream.
+			if sv == nil && lts.open() {
+				lts.discardTurn()
+			}
+
 			session.AudioBufferLock.Lock()
 			allAudio := make([]byte, len(session.InputAudioBuffer))
 			copy(allAudio, session.InputAudioBuffer)
@@ -1323,6 +1375,13 @@ func handleVAD(session *Session, conv *Conversation, t Transport, done chan stru
 			// Resample from InputSampleRate to 16kHz
 			aints = sound.ResampleInt16(aints, session.InputSampleRate, localSampleRate)
 
+			audioLength := float64(len(aints)) / localSampleRate
+
+			if sv != nil && lts.open() {
+				lts.feedNewAudio(aints)
+				lts.drainEvents(audioLength)
+			}
+
 			segments, err := runVAD(vadContext, session, aints)
 			if err != nil {
 				if err.Error() == "unexpected speech end" {
@@ -1334,17 +1393,34 @@ func handleVAD(session *Session, conv *Conversation, t Transport, done chan stru
 				continue
 			}
 
-			audioLength := float64(len(aints)) / localSampleRate
-
-			// TODO: When resetting the buffer we should retain a small postfix
+			// NOTE: the no-speech clear and the min-buffer gate above stay on
+			// the short silenceThreshold even in semantic mode — the eagerness
+			// fallback applies only to the end-of-speech commit decision, or a
+			// low eagerness would delay speech_started/barge-in by seconds.
 			if len(segments) == 0 && audioLength > silenceThreshold {
+				// "No segments" is not "no speech": silero (threshold 0.5)
+				// crosses up to a few hundred ms into a soft word onset, so
+				// the newest audio in the inspected window may be the start
+				// of a word the next tick will recognize — and more audio
+				// arrived while this tick ran. Keep both; drop only the
+				// older, confirmed-silent head, or utterance onsets get cut.
+				holdback := int(noSpeechHoldbackSec*float64(session.InputSampleRate)) * 2
 				session.AudioBufferLock.Lock()
-				session.InputAudioBuffer = nil
+				session.InputAudioBuffer = dropInspectedPrefix(session.InputAudioBuffer, len(allAudio), holdback)
 				session.AudioBufferLock.Unlock()
 
+				if sv != nil {
+					lts.discardTurn()
+				}
 				continue
 			} else if len(segments) == 0 {
 				continue
+			}
+
+			// Speech began: start the turn's live stream and feed it the
+			// buffered prefix (including this tick's audio).
+			if sv != nil && !lts.open() && lts.openTurn(vadContext) {
+				lts.feedNewAudio(aints)
 			}
 
 			if !speechStarted {
@@ -1361,16 +1437,70 @@ func handleVAD(session *Session, conv *Conversation, t Transport, done chan stru
 				speechStarted = true
 			}
 
+			if sv != nil {
+				// Drain again: events produced by THIS tick's feed have
+				// usually arrived by the time runVAD returns, and leaving
+				// them for the next tick adds 300ms to every EOU-triggered
+				// commit.
+				lts.drainEvents(audioLength)
+			}
+
 			// Segment still in progress when audio ended
 			segEndTime := segments[len(segments)-1].End
 			if segEndTime == 0 {
 				continue
 			}
 
-			if float32(audioLength)-segEndTime > float32(silenceThreshold) {
+			threshold := silenceThreshold
+			eouPending := false
+			if sv != nil {
+				eouPending = lts.eouPending(segments)
+				threshold = lts.thresholdSec(eouPending, sv)
+			}
+
+			if float32(audioLength)-segEndTime > float32(threshold) {
+				if sv != nil {
+					trigger, eouLag := lts.commitTrigger(eouPending, float64(segEndTime))
+					xlog.Info("semantic_vad: committing turn",
+						"trigger", trigger,
+						"speech_end_s", segEndTime,
+						"eou_lag_s", eouLag,
+						"silence_s", audioLength-float64(segEndTime),
+						"audio_s", audioLength)
+				}
+				// Retranscribe gate (semantic mode, EOU-triggered commits
+				// only): cross-check the streamed EOU with an offline decode
+				// of the buffered turn before committing. Runs synchronously
+				// on the tick — the engine would serialize a concurrent feed
+				// against it anyway. Timeout-triggered commits skip the gate.
+				var gated *schema.TranscriptionResult
+				if retranscribe && eouPending {
+					batch, gerr := transcribeUtterance(vadContext, sound.Int16toBytesLE(aints), session)
+					switch {
+					case gerr != nil:
+						xlog.Warn("semantic_vad: retranscribe gate failed; committing via the file path", "error", gerr)
+					case !batch.Eou:
+						xlog.Info("semantic_vad: batch decode did not confirm the streamed EOU; continuing to listen",
+							"streamed", lts.previewText(), "batch", batch.Text)
+						// The batch decode rejected the streamed EOU as a false
+						// positive: consume the recorded EOU so the next tick
+						// falls back to the eagerness window instead of
+						// re-triggering on the same token.
+						lts.eouAtSec = 0
+						continue
+					default:
+						xlog.Info("semantic_vad: batch decode confirmed the streamed EOU",
+							"streamed", lts.previewText(), "batch", batch.Text)
+						gated = batch
+					}
+				}
+
 				xlog.Debug("Detected end of speech segment")
 				session.AudioBufferLock.Lock()
-				session.InputAudioBuffer = nil
+				// Keep audio appended while this tick ran — it belongs to
+				// the next turn (in any mode: nil-ing it dropped the onset
+				// of an utterance started right after a commit).
+				session.InputAudioBuffer = dropInspectedPrefix(session.InputAudioBuffer, len(allAudio), 0)
 				session.AudioBufferLock.Unlock()
 
 				sendEvent(t, types.InputAudioBufferSpeechStoppedEvent{
@@ -1381,20 +1511,39 @@ func handleVAD(session *Session, conv *Conversation, t Transport, done chan stru
 				})
 				speechStarted = false
 
+				// The committed item id must match the id the live caption
+				// deltas were streamed under, so the client's completed
+				// event replaces the partial text instead of duplicating it.
+				turnItemID := lts.itemID
+				if turnItemID == "" {
+					turnItemID = generateItemID()
+				}
+
 				sendEvent(t, types.InputAudioBufferCommittedEvent{
 					ServerEventBase: types.ServerEventBase{
 						EventID: "event_TODO",
 					},
-					ItemID:         generateItemID(),
+					ItemID:         turnItemID,
 					PreviousItemID: "TODO",
 				})
+
+				// Finalize the turn's live stream (flushes the decode tail).
+				// In retranscribe mode the batch decode is the authoritative
+				// transcript, so the streamed one is dropped.
+				var live *liveUtterance
+				if sv != nil {
+					ut := lts.finishTurn(audioLength)
+					if !retranscribe {
+						live = ut
+					}
+				}
 
 				abytes := sound.Int16toBytesLE(aints)
 				// TODO: Remove prefix silence that is is over TurnDetectionParams.PrefixPaddingMs
 				respCtx, respDone := session.startResponse(vadContext)
 				go func() {
 					defer close(respDone)
-					commitUtterance(respCtx, abytes, session, conv, t)
+					commitUtteranceWithTranscript(respCtx, abytes, live, gated, turnItemID, session, conv, t)
 				}()
 			}
 		}
@@ -1402,6 +1551,19 @@ func handleVAD(session *Session, conv *Conversation, t Transport, done chan stru
 }
 
 func commitUtterance(ctx context.Context, utt []byte, session *Session, conv *Conversation, t Transport) {
+	commitUtteranceWithTranscript(ctx, utt, nil, nil, "", session, conv, t)
+}
+
+// commitUtteranceWithTranscript commits one user turn. live carries the
+// transcript semantic_vad's live stream already produced (its caption deltas
+// were streamed to the client during the turn, so only the completed event
+// is emitted here); gated carries the retranscribe gate's batch decode (the
+// authoritative transcript in that mode). With neither — server_vad, manual
+// commits, semantic degrade, or a live stream that heard nothing — the audio
+// is written to a temp WAV and transcribed via the file path as before.
+// itemID is the turn's conversation item id ("" mints a fresh one); it must
+// match the id any live deltas were sent under.
+func commitUtteranceWithTranscript(ctx context.Context, utt []byte, live *liveUtterance, gated *schema.TranscriptionResult, itemID string, session *Session, conv *Conversation, t Transport) {
 	if len(utt) == 0 {
 		return
 	}
@@ -1466,14 +1628,37 @@ func commitUtterance(ctx context.Context, utt []byte, session *Session, conv *Co
 	}
 
 	// TODO: If we have a real any-to-any model then transcription is optional
+
+	// The turn's live captions (semantic_vad) already streamed under this
+	// itemID; the completed event below reuses it so the client replaces the
+	// partial text. server_vad / manual commits arrive with no itemID, so mint
+	// one here.
+	if itemID == "" {
+		itemID = generateItemID()
+	}
+
 	var transcript string
 	switch {
+	case gated != nil:
+		// semantic_vad retranscribe gate: the batch decode is authoritative.
+		transcript = gated.Text
+		if err := emitPrecomputedTranscription(t, itemID, nil, transcript); err != nil {
+			sendError(t, "transcription_failed", err.Error(), "", "event_TODO")
+			return
+		}
+	case live != nil && live.Text != "":
+		// The caption deltas already streamed during the turn under this
+		// itemID; the completed event replaces the partial text client-side.
+		transcript = live.Text
+		if err := emitPrecomputedTranscription(t, itemID, nil, transcript); err != nil {
+			sendError(t, "transcription_failed", err.Error(), "", "event_TODO")
+			return
+		}
 	case session.InputAudioTranscription != nil:
 		// emitTranscription streams transcript deltas when
 		// pipeline.streaming.transcription is set, otherwise emits a single
 		// completed event; either way it returns the final transcript text.
-		var err error
-		transcript, err = emitTranscription(ctx, t, session, generateItemID(), f.Name())
+		transcript, err = emitTranscription(ctx, t, session, itemID, f.Name())
 		if err != nil {
 			// Drain the gate goroutine before returning so its in-flight read of
 			// the temp WAV finishes before the deferred os.Remove fires.
@@ -1640,6 +1825,56 @@ func writeWindowWAV(pcm []byte, sampleRate int) (string, error) {
 	}
 	_ = f.Sync()
 	return f.Name(), nil
+}
+
+// writeUtteranceWAV persists raw 16 kHz mono PCM to a temp WAV for the
+// file-based transcription paths. The caller must invoke cleanup.
+func writeUtteranceWAV(utt []byte) (string, func(), error) {
+	f, err := os.CreateTemp("", "realtime-audio-chunk-*.wav")
+	if err != nil {
+		return "", nil, err
+	}
+	cleanup := func() {
+		_ = f.Close()
+		_ = os.Remove(f.Name())
+	}
+	xlog.Debug("Writing to file", "file", f.Name())
+
+	hdr := laudio.NewWAVHeader(uint32(len(utt)))
+	if err := hdr.Write(f); err != nil {
+		cleanup()
+		return "", nil, err
+	}
+	if _, err := f.Write(utt); err != nil {
+		cleanup()
+		return "", nil, err
+	}
+	_ = f.Sync()
+	return f.Name(), cleanup, nil
+}
+
+// transcribeUtterance runs one offline (unary) decode of the buffered turn —
+// the semantic_vad retranscribe gate. The result's Eou flag reports whether
+// the batch decode also ended on the end-of-utterance token.
+func transcribeUtterance(ctx context.Context, utt []byte, session *Session) (*schema.TranscriptionResult, error) {
+	path, cleanup, err := writeUtteranceWAV(utt)
+	if err != nil {
+		return nil, err
+	}
+	defer cleanup()
+
+	language, prompt := "", ""
+	if cfg := session.InputAudioTranscription; cfg != nil {
+		language, prompt = cfg.Language, cfg.Prompt
+	}
+	tr, err := session.ModelInterface.Transcribe(ctx, path, language, false, false, prompt)
+	if err != nil {
+		return nil, err
+	}
+	if tr == nil {
+		return nil, fmt.Errorf("transcribe result is nil")
+	}
+	return tr, nil
 }
 
 func runVAD(ctx context.Context, session *Session, adata []int16) ([]schema.VADSegment, error) {

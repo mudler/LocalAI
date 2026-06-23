@@ -19,22 +19,29 @@ const STATUS_STYLES = {
   error:        { icon: 'fa-solid fa-circle', color: 'var(--color-error)', bg: 'var(--color-error-light)' },
 }
 
-// upsertAssistant merges a streamed transcript fragment into the assistant entry
-// identified by the server's item_id, or appends a new entry if none exists yet.
-// Keying by item_id (not a mutable index tracked across handler/updater
-// boundaries) makes streamed deltas idempotent and order-independent, so React's
-// batching of non-React data-channel events cannot produce a duplicate bubble.
-// mode 'append' adds to the running text; 'replace' sets the final transcript.
-function upsertAssistant(prev, itemId, text, mode) {
-  // Only assistant entries carry an id, and the streaming entry is almost
-  // always the newest — search from the tail so per-delta cost stays constant.
+// upsertEntry merges a streamed transcript fragment into the entry identified
+// by the server's item_id, or appends a new entry (with the given role) if
+// none exists yet. Keying by item_id (not a mutable index tracked across
+// handler/updater boundaries) makes streamed deltas idempotent and
+// order-independent, so React's batching of non-React data-channel events
+// cannot produce a duplicate bubble. mode 'append' adds to the running text;
+// 'replace' sets the final transcript — the server sends a completed event
+// whose authoritative text supersedes any live captions (e.g. the
+// semantic_vad retranscribe gate's batch decode).
+function upsertEntry(prev, itemId, role, text, mode) {
+  // The streaming entry is almost always the newest — search from the tail
+  // so per-delta cost stays constant.
   const i = prev.findLastIndex(e => e.id === itemId)
   if (i === -1) {
-    return [...prev, { role: 'assistant', id: itemId, text }]
+    return [...prev, { role, id: itemId, text }]
   }
   const next = [...prev]
   next[i] = { ...next[i], text: mode === 'append' ? next[i].text + text : text }
   return next
+}
+
+function upsertAssistant(prev, itemId, text, mode) {
+  return upsertEntry(prev, itemId, 'assistant', text, mode)
 }
 
 export default function Talk() {
@@ -252,11 +259,32 @@ export default function Talk() {
       case 'input_audio_buffer.speech_stopped':
         updateStatus('thinking', 'Processing...')
         break
+      case 'conversation.item.input_audio_transcription.delta':
+        // Live captions: semantic_vad streams the user's words while they
+        // are still speaking, keyed by the item id the commit will reuse.
+        if (event.delta && event.item_id) {
+          setTranscript(prev => upsertEntry(prev, event.item_id, 'user', event.delta, 'append'))
+        }
+        break
       case 'conversation.item.input_audio_transcription.completed':
         if (event.transcript) {
-          setTranscript(prev => [...prev, { role: 'user', text: event.transcript }])
+          if (event.item_id) {
+            // Replaces any live captions with the authoritative transcript
+            // (which may differ, e.g. the retranscribe gate's batch decode);
+            // creates the entry when there were none (server_vad).
+            setTranscript(prev => upsertEntry(prev, event.item_id, 'user', event.transcript, 'replace'))
+          } else {
+            setTranscript(prev => [...prev, { role: 'user', text: event.transcript }])
+          }
         }
         updateStatus('thinking', 'Generating response...')
+        break
+      case 'conversation.item.input_audio_transcription.failed':
+        // The turn was discarded after captions were shown (e.g. the buffer
+        // was cleared as silence) — retract the partial entry.
+        if (event.item_id) {
+          setTranscript(prev => prev.filter(e => e.id !== event.item_id))
+        }
         break
       case 'response.output_audio_transcript.delta':
         if (event.delta) {
@@ -712,7 +740,7 @@ export default function Talk() {
           )}
           {selectedModelInfo && !selectedModelInfo.self_contained && (
             <div style={{
-              display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: 'var(--spacing-xs)',
+              display: 'flex', flexDirection: 'column', gap: 'var(--spacing-xs)',
               marginBottom: 'var(--spacing-xs)', fontSize: '0.75rem',
             }}>
               {[
@@ -724,9 +752,12 @@ export default function Talk() {
                 <div key={item.label} style={{
                   background: 'var(--color-bg-secondary)', borderRadius: 'var(--radius-sm)',
                   padding: 'var(--spacing-xs)', border: '1px solid var(--color-border)',
+                  display: 'flex', alignItems: 'baseline', gap: 'var(--spacing-sm)',
                 }}>
-                  <div style={{ color: 'var(--color-text-secondary)', marginBottom: 2 }}>{item.label}</div>
-                  <div style={{ fontFamily: 'var(--font-mono)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.value}</div>
+                  <div style={{ color: 'var(--color-text-secondary)', whiteSpace: 'nowrap' }}>{item.label}</div>
+                  {/* full width for the value; wrap rather than overflow when the
+                      model name is long (minWidth:0 lets the flex item shrink) */}
+                  <div style={{ fontFamily: 'var(--font-mono)', minWidth: 0, marginLeft: 'auto', textAlign: 'right', overflowWrap: 'anywhere' }}>{item.value || '—'}</div>
                 </div>
               ))}
             </div>
