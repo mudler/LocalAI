@@ -1,4 +1,54 @@
 ---
+- name: "lfm2.5-1.2b-instruct"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/LiquidAI/LFM2.5-1.2B-Instruct-GGUF
+  description: |
+    Try LFM • Docs • LEAP • Discord
+
+    # LFM2.5-1.2B-Instruct
+
+    LFM2.5 is a new family of hybrid models designed for **on-device deployment**. It builds on the LFM2 architecture with extended pre-training and reinforcement learning.
+
+      - **Best-in-class performance**: A 1.2B model rivaling much larger models, bringing high-quality AI to your pocket.
+      - **Fast edge inference**: 239 tok/s decode on AMD CPU, 82 tok/s on mobile NPU. Runs under 1GB of memory with day-one support for llama.cpp, MLX, and vLLM.
+      - **Scaled training**: Extended pre-training from 10T to 28T tokens and large-scale multi-stage reinforcement learning.
+
+    Find more information about LFM2.5 in our blog post.
+
+    ## 🗒️ Model Details
+
+    LFM2.5-1.2B-Instruct is a general-purpose text-only model with the following features:
+
+    ...
+  license: "other"
+  tags:
+    - llm
+    - gguf
+  icon: https://cdn-uploads.huggingface.co/production/uploads/61b8e2ba285851687028d395/dxnYF2fuLpulismtFSGFi.png
+  overrides:
+    backend: llama-cpp
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+    options:
+      - use_jinja:true
+    parameters:
+      min_p: 0.15
+      model: llama-cpp/models/LFM2.5-1.2B-Instruct-GGUF/LFM2.5-1.2B-Instruct-Q4_K_M.gguf
+      repeat_penalty: 1.05
+      temperature: 0.1
+      top_k: 50
+      top_p: 0.1
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/LFM2.5-1.2B-Instruct-GGUF/LFM2.5-1.2B-Instruct-Q4_K_M.gguf
+      sha256: b1b3de114215d9507409a662a501a631095a479a419584e8a2ded6304b19b4f5
+      uri: https://huggingface.co/LiquidAI/LFM2.5-1.2B-Instruct-GGUF/resolve/main/LFM2.5-1.2B-Instruct-Q4_K_M.gguf
 - name: "qwopus3.6-27b-coder-compat-mtp"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
