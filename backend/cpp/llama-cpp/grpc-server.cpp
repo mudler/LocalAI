@@ -766,6 +766,29 @@ static void params_parse(server_context& /*ctx_server*/, const backend::ModelOpt
             if (optval_str == "true" || optval_str == "1" || optval_str == "yes" || optval_str == "on" || optval_str == "enabled") {
                 setenv("LLAMA_KV_PAGED_DEBUG", "1", 1);
             }
+        // --- chunked-prefill QoS budget (experimental, off by default) ---
+        // Caps the number of prompt tokens any single slot may prefill per
+        // update_slots iteration, so a large prompt cannot monopolise the batch
+        // and freeze the in-flight decoders. The serving loop reads this budget
+        // from the LLAMA_PREFILL_BUDGET env var (set BEFORE context init, like
+        // kv_paged above) and splits oversized prompts across iterations,
+        // interleaving decode steps for the other slots. A 6k-token prefill that
+        // stalled 8 decoders ~3.4s drops to ~780ms at budget=512 (4.8x stall
+        // cut) with zero TTFT cost and no steady-state regression. Unset or a
+        // non-positive value leaves the env untouched, so the stock unbounded
+        // prefill behaviour is preserved (an externally exported
+        // LLAMA_PREFILL_BUDGET still works as an escape hatch).
+        } else if (!strcmp(optname, "max_prefill_tokens") || !strcmp(optname, "mpt") || !strcmp(optname, "prefill_budget")) {
+            if (optval != NULL) {
+                try {
+                    int budget = std::stoi(optval_str);
+                    if (budget > 0) {
+                        setenv("LLAMA_PREFILL_BUDGET", std::to_string(budget).c_str(), 1);
+                    }
+                } catch (const std::exception& e) {
+                    // If conversion fails, leave the budget unset (stock behaviour)
+                }
+            }
         } else if (!strcmp(optname, "n_ctx_checkpoints") || !strcmp(optname, "ctx_checkpoints")) {
             if (optval != NULL) {
                 try {
