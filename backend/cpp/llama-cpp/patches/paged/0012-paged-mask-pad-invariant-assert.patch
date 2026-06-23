@@ -1,0 +1,50 @@
+From 6e3e976e2b11adb05519f31dd5aad0c204678f5c Mon Sep 17 00:00:00 2001
+From: Ettore Di Giacinto <mudler@localai.io>
+Date: Tue, 23 Jun 2026 11:12:05 +0200
+Subject: [PATCH] feat(paged): assert mask-pad invariant for the paged tile
+ route (patch 0012)
+
+The now-default paged decode route (GQA-grouped fattn-tile kernel) does not
+leak past-end KV rows only because the compacted mask/block-table length is
+padded to a whole number of flash-attn KV tiles: n_view = GGML_PAD(n_gather,
+256), and the tile (nbatch_fa = 64 for head_dim 128) divides 256, so the last
+tile sits entirely inside the -inf pad window. That invariant was implicit.
+
+Add a defensive GGML_ASSERT(n_view % 64 == 0) right after the pad/clamp so a
+future change to the pad (e.g. < 256) or the tile (> 256) that broke the
+whole-tile property cannot silently reintroduce the leak. Additive only, no
+behaviour change.
+
+Verified: build-cpu compiles, and the paged CPU byte gate (LLAMA_KV_PAGED off
+vs on, Qwen3-0.6B-Q8_0, greedy, -ngl 0) stays byte-identical while the assert
+stays silent (n_view remains a whole number of tiles across all decode steps).
+
+Assisted-by: Claude:opus-4.8 [Claude Code]
+Signed-off-by: Ettore Di Giacinto <mudler@localai.io>
+---
+ src/paged-attn.cpp | 9 +++++++++
+ 1 file changed, 9 insertions(+)
+
+diff --git a/src/paged-attn.cpp b/src/paged-attn.cpp
+index 8eebeaa..fed8ca9 100644
+--- a/src/paged-attn.cpp
++++ b/src/paged-attn.cpp
+@@ -201,6 +201,15 @@ bool in_kernel_decode(ggml_context * ctx0,
+         n_view = K->ne[2];
+     }
+ 
++    // The flash-attn KV tile is 64 rows wide (nbatch_fa for head_dim 128). n_view must be
++    // a whole number of such tiles so the in-kernel decode never reads past the gathered
++    // rows: the trailing pad cells [n_gather, n_view) are all -inf, so any tile straddling
++    // the boundary still contributes zero. This holds today only because the pad (256) is a
++    // multiple of the tile; a future pad < 256 (or nbatch_fa > 256) that broke it would
++    // silently reintroduce a past-end KV leak, so assert it rather than trust it.
++    // pad must be a multiple of the flash-attn KV tile so the last tile is fully inside the -inf pad
++    GGML_ASSERT(n_view % 64 == 0);
++
+     ggml_tensor * idx = ggml_new_tensor_2d(ctx0, GGML_TYPE_I32, n_view, n_stream);
+     ggml_set_input(idx);
+     res->add_input(llm_graph_input_ptr(new input_block_table(mctx, idx, (uint32_t) n_view)));
+-- 
+2.43.0
+
