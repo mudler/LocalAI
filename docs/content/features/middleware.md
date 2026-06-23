@@ -185,6 +185,13 @@ It is persisted through `POST /api/settings` and read live, so a change takes
 effect on the next request without a restart. A default that names a model no
 longer loaded still appears (marked *not loaded*) so it can be toggled off.
 
+The default set can also be supplied out-of-band with the
+`LOCALAI_PII_DEFAULT_DETECTORS` environment variable (comma-separated model
+names, e.g. `privacy-filter-nemotron,secret-filter`). When set it takes
+precedence over the value persisted via the UI (env > file), which is the
+right behaviour for immutable container deployments that pin filtering policy
+at boot rather than via the admin UI.
+
 This is what makes `cloud-proxy` / MITM redaction work out of the box: those
 backends default to PII-enabled but ship no detector list, so without a
 default detector the filter runs with nothing to scan. Set one here and

@@ -271,7 +271,14 @@ func UpdateSettingsEndpoint(app *application.Application) echo.HandlerFunc {
 			}
 		}
 
-		if settings.MITMListen != nil {
+		// Rebuild the MITM listener when its address OR the instance-wide
+		// default detectors change. The per-host detector map is resolved once
+		// at listener start (startMITMLocked → ResolvePIIPolicy), so a
+		// default-detector change is otherwise invisible to cloud-proxy traffic
+		// until the next restart — an admin toggling a default detector would
+		// see no redaction. RestartMITM is a no-op when the listener is
+		// disabled (empty address).
+		if settings.MITMListen != nil || settings.PIIDefaultDetectors != nil {
 			if err := app.RestartMITM(); err != nil {
 				xlog.Error("Failed to restart MITM proxy", "error", err)
 				return c.JSON(http.StatusInternalServerError, schema.SettingsResponse{

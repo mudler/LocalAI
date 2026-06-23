@@ -181,6 +181,8 @@ type RunCMD struct {
 	// Cloud-proxy MITM listener (off by default).
 	MITMListen string `env:"LOCALAI_MITM_LISTEN" help:"Address (host:port) for the cloudproxy MITM listener. Empty = disabled. Clients set HTTPS_PROXY=http://<this>:<port>. Intercept hosts are declared per-model via the model YAML mitm.hosts: block; create one from the Add Model UI." group:"middleware"`
 	MITMCADir  string `env:"LOCALAI_MITM_CA_DIR" type:"path" help:"Directory holding the MITM proxy CA cert + key. Defaults to <data-path>/mitm-ca." group:"middleware"`
+
+	PIIDefaultDetectors []string `env:"LOCALAI_PII_DEFAULT_DETECTORS" help:"Instance-wide default PII/secret detector model names applied to any PII-enabled model (chiefly cloud-proxy / MITM models) that names no pii.detectors of its own. Comma-separated, e.g. privacy-filter-nemotron,secret-filter. Takes precedence over the value persisted via the Middleware UI." group:"middleware"`
 }
 
 func (r *RunCMD) Run(ctx *cliContext.Context) error {
@@ -243,6 +245,7 @@ func (r *RunCMD) Run(ctx *cliContext.Context) error {
 		config.WithAPIAddress(r.Address),
 		config.WithMITMListen(r.MITMListen),
 		config.WithMITMCADir(r.MITMCADir),
+		config.WithPIIDefaultDetectors(r.PIIDefaultDetectors),
 		config.WithAgentJobRetentionDays(r.AgentJobRetentionDays),
 		config.WithLlamaCPPTunnelCallback(func(tunnels []string) {
 			tunnelEnvVar := strings.Join(tunnels, ",")
