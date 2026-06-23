@@ -106,3 +106,63 @@ batching efficiency at high concurrency** - the runtime/scheduler lever (the sma
 regime). The kernel itself is at parity (npl8). Next step: a fair re-run with the prefill budget
 on, plus decode-batch tuning, to get llama's true high-concurrency numbers before concluding the
 absolute gap.
+
+---
+
+## Fair re-run (max_prefill_tokens on)
+
+The prior tables ran llama-server **without** the QoS prefill budget (patch 0013). This section
+re-runs the same A/B with `LLAMA_PREFILL_BUDGET` set, sweeping the per-step prompt-token cap over
+**256 / 512 / 1024**. Everything else is byte-identical to the prior run: dev-tree llama-server
+(branch paged, HEAD `151343b`), `-c 131072 --parallel 128 -b 2048 -ub 512 -ngl 99 -fa on`,
+`LLAMA_KV_PAGED=1`, same workload (512-token unique prompt, `max_tokens=256`, `temperature=0`,
+`ignore_eos`), same harness (`h2h_moe_sweep.sh` -> `h2h_cli.py`). vLLM numbers are unchanged
+(carried over from the committed dense table, not re-run).
+
+### DENSE Qwen3.6-27B - budget sweep (decode agg tok/s | TTFT mean ms | peak GB)
+
+| npl | metric | stock (no budget) | budget 256 | budget 512 | budget 1024 | vLLM |
+|----:|--------|------------------:|-----------:|-----------:|------------:|-----:|
+| 8   | decode agg | 63.8  | 63.5   | 63.8   | 63.5   | 64.3  |
+| 8   | TTFT ms    | 2029  | 4255   | 3756   | 2653   | 2593  |
+| 32  | decode agg | 108.9 | 105.7  | 107.7  | 108.8  | 189.8 |
+| 32  | TTFT ms    | 13212 | 23114  | 18934  | 13912  | 7477  |
+| 64  | decode agg | 126.2 | 132.0  | 131.2  | 118.2  | 284.2 |
+| 64  | TTFT ms    | 53818 | 109455 | 74272  | 92450  | 12942 |
+| 128 | decode agg | 134.6 | **161.2** | 146.9 | 128.3 | 390.7 |
+| 128 | TTFT ms    | 491195| **305423**| 543448| 424058| 24806 |
+
+Peak host GB is budget-independent (on-demand paged KV grows with concurrency): ~51.5 (npl8) ->
+~61.5 (npl32) -> ~74.7 (npl64) -> ~93.5 (npl128) for every budget, vs vLLM's flat ~112.1.
+
+### Best budget = 256 (only the saturated npl128 regime benefits)
+
+At the fully-saturated point (npl128), **budget 256 is the clear winner on both axes**:
+
+- **decode_agg: 134.6 -> 161.2 tok/s (+19.8%)** vs the starved stock run.
+- **TTFT mean: 491.2 s -> 305.4 s (-37.8%, -186 s)** vs stock.
+- llama decode as % of vLLM at npl128: **34.5% -> 41.3%**. TTFT still ~12x vLLM's 24.8 s.
+
+Larger budgets help less at npl128 (512 -> 146.9 tok/s; 1024 -> 128.3, i.e. ~stock) because a
+looser cap lets a long prefill grab a bigger slice per step and re-introduce decode jitter. So
+the tightest cap (256) protects in-flight decode the most when the box is saturated.
+
+### Honest caveat: this bursty workload is the worst case for TTFT
+
+At npl 8 / 32 / 64 the budget **raised** TTFT (e.g. npl8 2029 -> 4255 ms at budget 256) and left
+decode_agg roughly flat. Reason: the harness fires all N requests simultaneously, so at t=0 there
+is **no in-flight decode to protect** - capping prefill purely defers first tokens. The budget
+only pays off once enough slots are decoding that an unbounded prefill would starve them, which on
+this box happens only at npl128. Budget 1024 tracks stock closely at light load (npl8 TTFT 2653 ~
+stock 2029) because a 512-token prompt fits in one <=1024 step. In a steadier (staggered) arrival
+pattern the budget would protect decode jitter without the burst-TTFT penalty; that regime is not
+exercised here.
+
+### Bottom line (dense)
+
+The prefill budget is a **real but narrow** lever on this workload: at maximum saturation
+(npl128) budget=256 lifts decode_agg ~20% and cuts TTFT ~38% vs the starved run, moving llama
+from 34.5% to 41.3% of vLLM decode. It does **not** close the gap - vLLM still decodes ~2.4x
+faster and keeps TTFT ~12x lower at npl128, and scales monotonically where llama plateaus. At
+light/moderate concurrency the budget is net-negative for TTFT in this all-at-once workload, so it
+should be applied selectively (high-concurrency serving), not as an unconditional default.
