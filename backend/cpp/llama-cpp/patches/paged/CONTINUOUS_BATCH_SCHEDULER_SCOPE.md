@@ -373,3 +373,127 @@ scheduler.patch` (next free slot after 0015) and the LocalAI option lands in `gr
 beside `max_prefill_tokens`. Commit with `git commit -s`, trailer
 `Assisted-by: Claude:opus-4.8 [Claude Code]`, no `Co-Authored-By`, no em-dashes. Do not push
 (human pushes).
+
+---
+
+## Review / risk (adversarial, source-verified)
+
+Skeptical staff review against the actual source at HEAD `151343b` (server-context.cpp,
+llama-batch.cpp, llama-kv-cache.cpp, paged-*.cpp), grpc-server.cpp in this worktree, and the
+committed `QWEN36_NVFP4_BENCH.md` plus the vLLM H2H serve logs/scripts on the box.
+
+### Verdict: the scope is SOUND. GO on P0 -> P1, CONDITIONAL P2, separate-track P3.
+
+The central de-risking claims check out against the code, and the load-bearing honesty (decode
+residual is a kernel ceiling, not a scheduler defect) is correct and now further corroborated.
+Two calibration fixes are required before P1 (below), neither changes the go decision.
+
+### (1) Tractability - CONFIRMED bounded; zero libllama changes. What enables/blocks it, concretely:
+
+- **Enables (already-exercised path, not new surface).** A mixed prefill+decode ubatch with
+  per-seq different `n_past` is the *existing* behaviour. `llama_batch` carries per-token `pos`
+  and `seq_id` (`common_batch_add(batch, tok, pos_next(), {slot.id}, ...)`); `llama_kv_cache` +
+  `paged_alloc::place()` place each `(seq, pos)` independently; `llama_kv_cache::init_batch`
+  (line 742) already splits the mixed batch into ubatches. **The server emits exactly this mixed
+  decode+prefill batch today** - patch 0013 ships it and produces coherent output - so the new
+  scheduler changes only the *count* of prefill tokens, never the batch *structure*. There is no
+  `llama_decode`/ubatch/KV rewrite in scope.
+- **Blocks: nothing in libllama.** The only constraints are pre-existing and orthogonal to the
+  target workload: (i) `can_batch_with` (same task type + equal LoRA per batch); (ii)
+  `split_equal(sequential=true)` errors on *coupled* sequences (shared-prompt parallel sampling),
+  forcing `-kvu`. Neither is introduced by this change.
+- **Correction to fold in:** the scope's [C] and the pseudocode imply contiguous `split_simple`
+  chunking. The real serving/benchmark config (`--parallel 128`, `kv_unified` default = `false`
+  -> `n_stream = n_seq_max = 128`) takes the **`split_equal(n_ubatch, sequential=true)`** path
+  (llama-kv-cache.cpp:742), which balances per-sequence rather than slicing contiguously. This
+  does not break anything (0013 already hits it) but it means the actual scheduled object is a
+  split_equal ubatch set; P0 must characterize that ubatch shape (not assume contiguous 512-chunks)
+  and the determinism band is over split_equal groupings. Lock the split path (unified vs not) in
+  the A/B so the byte-identical-to-0013 gate is meaningful. grpc seam [E] verified at
+  grpc-server.cpp:761-786 (`kv_paged`, `max_prefill_tokens`/`mpt`); new `mbt`/`prefill_cap` knobs
+  hang off it identically.
+
+### (2) Does it close the gap - the 2.4x is NOT CUDA graphs, and the TTFT root is quantified.
+
+- **CUDA graphs ruled out (verified).** Both NVFP4 H2H vLLM servers ran `--enforce-eager`
+  (`h2h_dense_vllm.sh`, `h2h_moe_serve_vllm.sh`; engine logs show `enforce_eager=True`,
+  `cudagraph_mode=NONE`, `CompilationMode.NONE`). So the npl128 2.4x decode gap is a genuine
+  **eager-mode kernel + per-step host-overhead** gap (ggml graph rebuild/realloc + ~1k kernel
+  launches per step on the weak Grace cores, paged-KV gather, MoE expert gather). The scheduler
+  cannot touch it; the staggered all-128-decoding 157.4 tok/s ceiling is solid. Scope is right to
+  refuse the 391/811 number. (CUDA graphs are a future *both-sides* lever, not the current cause.)
+- **The TTFT gap has a measured root the scope under-uses: prefill_tps collapse.** From the bench,
+  llama `prefill_tps` falls 1117 -> 752 -> 465 -> **125** (dense, npl 8/32/64/128) while vLLM holds
+  **flat ~1420** (MoE: 2813 -> 657 vs vLLM flat ~4263). That collapse - not a separate "scheduling
+  quality" abstraction - is the direct cause of the 491 s / 85 s TTFT, and it is exactly what the
+  dynamic `T - D` budget attacks: when decode load `D` is low (early in a burst) the leftover
+  `T - D` lets prefill take ~`n_batch` per step, and because llama's *larger per-step chunk*
+  compensates for its ~2.4x slower steps, a `T = 2048` budget can sustain prefill_tps at or above
+  vLLM's ~1420 during the drain. **So burst-TTFT parity is mechanically plausible, not just
+  "toward"** - the static budget-256 throttles prefill to 256/step (hence its weak 305 s) where the
+  dynamic budget would not. This strengthens P1's case beyond what the doc claims.
+- **Mandatory calibration fix:** that TTFT win **couples to a decode-ITL knob**. Spending the full
+  `T - D` on prefill during the drain makes those steps full `T`-token (mixed) computes, so
+  co-batched decoders get 1 token per slow step (ITL spike) *during the drain* - precisely vLLM's
+  tradeoff, navigated by `T`. The 157/333 ceiling is the **post-drain steady state**, not the
+  drain phase. Therefore the scope must **co-report drain-phase decode-ITL alongside TTFT** and
+  treat `T` as the published trade knob; reporting TTFT alone would hide the cost and reporting
+  decode_agg alone would hide the win (it is averaged across drain + steady state, which is why it
+  "barely moves"). Soften "P1+P2 reach 25 s / 8 s": the defensible claim is *staggered/realistic
+  arrival ~2 s, and all-at-once burst approaching vLLM with a tunable decode-ITL cost*.
+
+### (3) Correctness - paged orthogonality confirmed at source; the real risks are config, not code.
+
+- **Paged-KV is the same `llama_kv_cache` class** with `paged_alloc::` hooks inside the existing
+  find_slot/placement (llama-kv-cache.cpp:1043-1083), driven by per-slot `(seq, pos)` - which this
+  change does not touch. `init_batch`/split is paged-agnostic. The scope's "orthogonal" claim is
+  verified, not asserted. Keep the hard `LLAMA_KV_PAGED=1` vs `=0` identical-decisions gate.
+- **Determinism**: the FA grouping nondeterminism is over **split_equal** ubatches in the real
+  config; the `T = n_batch` A/B-must-be-byte-identical-to-0013 gate is the right oracle and is
+  sound (default-off path is untouched).
+- **Low-concurrency regression**: gated to byte-identical when knobs unset; the only live vector is
+  a **mis-tuned `T`** spiking ITL at low npl (the scope already flags `T` defaults). Config hygiene,
+  not a code risk. Add a guard/floor so `T` cannot be set below `n_ubatch`.
+
+### (4) Smaller higher-ROI step - yes, and the scope already contains it (P1).
+
+The minimal high-ROI change is **P1 alone**: replace the static read (server-context.cpp:2737-2747)
+with `prefill_budget_step = max(floor, T - batch.n_tokens)` computed after the decode-fill at line
+2719, and bound the Phase-2 loops by `T` / that budget (3188, 3320, 3326). That is a handful of
+line edits at named seams, default-off, and it captures the self-tuning + the bulk of the TTFT win.
+The even-smaller validation spike: a one-line `n_prefill_budget = max(floor, T - batch.n_tokens)`
+to confirm the prefill_tps/TTFT mechanism before writing the full P1. **P2** (round-robin +
+`prefill_cap_per_slot` + checkpoint-aware admission) is genuinely higher-effort and lower-marginal
+(it buys TTFT *spread*/tail and burst robustness, not the median); **gate P2 on P1's measured
+burst-TTFT-spread and drain-ITL**, do not commit to it up front. There is no smaller step that also
+fixes the static budget's npl-dependence - tuning 0013's constant cannot (256 is net-negative at
+npl8 and costs MoE TTFT), so P1 is the floor.
+
+### Realistic effort / payoff and sequencing
+
+- **P0** ~0.5-1 wk (harness largely exists in `~/bench/`): add drain-phase decode-ITL to the metric
+  set, lock the split path, isolate checkpoints (`n_ctx_checkpoints=0`). Gate only.
+- **P1** ~2-4 days: small diff + the A/B-vs-0013 byte-identical gate + the npl/dense/MoE sweep.
+  Payoff: self-tuning hold of 161/333 with no hand-picked constant; burst-TTFT 3-10x better than
+  0013 (plausibly approaching vLLM on the burst, parity on staggered), at a published `T`-tunable
+  decode-ITL cost. **This is the high-ROI core and the clean supersession of 0013.**
+- **P2** ~1-2 wk, conditional: fairness/admission + checkpoint-cost-awareness + tuning. Payoff: TTFT
+  tail/spread + no admission collapse under sustained load. Worth it only if P1 metrics show a
+  residual spread/robustness problem.
+- **P3** separate track, high effort: the *only* path to 391/811 is the eager-kernel + per-step
+  host-overhead residual. Highest-value probe is a **CUDA-graph capture of the steady-state
+  pure-decode step** - but note this works *independent of the scheduler* (the all-128-decoding
+  step is already fixed-shape today); the scheduler neither blocks nor specially enables it, so do
+  not credit graphs to the scheduler. The scope's "uniform decode step is a precondition" is a mild
+  over-claim; correct it to "graphs apply to the pure-decode steady state, which the scheduler does
+  not change."
+
+### Bottom line
+
+GO. The work is correctly localized to `update_slots()` batch-formation policy, requires no
+libllama changes (the mixed per-seq batch is the existing, shipping path), and supersedes 0013
+cleanly. The honest ceiling is real and well-stated; the two fixes are (a) co-report drain-phase
+decode-ITL with TTFT and stop selling/charging the decode_agg number, and (b) acknowledge the
+`split_equal`/`n_stream=128` path in the determinism and ubatch-shape analysis. Sequence
+P0 -> P1, measure, then decide P2; keep P3 (kernel/CUDA-graph) on its own track as the sole owner
+of the 2.4x throughput residual.
