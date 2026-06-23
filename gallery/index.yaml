@@ -3,28 +3,7 @@
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
     - https://huggingface.co/Jackrong/Qwopus3.6-27B-Coder-Compat-MTP-GGUF
-  description: |
-    🪐 Qwopus-3.6-27B-Coder
-    Coder SFT Release
-
-    Agentic Coding &amp; Tool-Use Reasoning Model Fine-Tuned on Qwopus3.6-27B-v2
-
-    🧬 Trace Inversion & Negentropy
-    🧠 27B Dense Model
-    ⚡ Agentic Coding
-    🛠️ Tool Calling & Agent
-    🏆 SWE-bench Verified: 67.0% (off-thinking)
-
-    💡 What is Qwopus-3.6-27B-Coder?
-    🪐 Qwopus-3.6-27B-Coder is a reasoning-enhanced agentic coding model built on top of Qwopus3.6-27B-v2. It inherits the powerful reasoning foundation of the v2 base — which achieved 87.43% MMLU-Pro and 75.25% SWE-bench Verified — and further specializes it for agentic code generation, structured tool calling, debugging, and instruction-following in developer workflows. The model is designed to excel at repository-level coding tasks, multi-turn tool orchestration, and complex logical reasoning under realistic agent environments.
-
-    🧩 Agentic Coding
-    Optimized for repository-level coding, debugging, patch generation, and structured multi-step development workflows.
-
-    🛠️ Tool Calling
-    Learns from real agent trajectories with tool definitions, tool calls, and environment feedback for robust multi-turn execution.
-
-    ...
+  description: "\U0001FA90 Qwopus-3.6-27B-Coder\nCoder SFT Release\n\nAgentic Coding &amp; Tool-Use Reasoning Model Fine-Tuned on Qwopus3.6-27B-v2\n\n\U0001F9EC Trace Inversion & Negentropy\n\U0001F9E0 27B Dense Model\n⚡ Agentic Coding\n\U0001F6E0️ Tool Calling & Agent\n\U0001F3C6 SWE-bench Verified: 67.0% (off-thinking)\n\n\U0001F4A1 What is Qwopus-3.6-27B-Coder?\n\U0001FA90 Qwopus-3.6-27B-Coder is a reasoning-enhanced agentic coding model built on top of Qwopus3.6-27B-v2. It inherits the powerful reasoning foundation of the v2 base — which achieved 87.43% MMLU-Pro and 75.25% SWE-bench Verified — and further specializes it for agentic code generation, structured tool calling, debugging, and instruction-following in developer workflows. The model is designed to excel at repository-level coding tasks, multi-turn tool orchestration, and complex logical reasoning under realistic agent environments.\n\n\U0001F9E9 Agentic Coding\nOptimized for repository-level coding, debugging, patch generation, and structured multi-step development workflows.\n\n\U0001F6E0️ Tool Calling\nLearns from real agent trajectories with tool definitions, tool calls, and environment feedback for robust multi-turn execution.\n\n...\n"
   license: "apache-2.0"
   tags:
     - llm
@@ -241,33 +220,7 @@
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
     - https://huggingface.co/unsloth/GLM-5.2-GGUF
-  description: |
-    # GLM-5.2
-
-    👋 Join our WeChat or Discord community.
-
-    📖 Check out the GLM-5.2 blog and GLM-5 Technical report.
-
-    📍 Use GLM-5.2 API services on Z.ai API Platform.
-
-    🔜 Try GLM-5.2 here.
-
-    [Paper]
-    [GitHub]
-
-    ## Introduction
-
-    We're introducing GLM-5.2, our latest flagship model for long-horizon tasks. It marks a substantial leap in long-horizon task capability over its predecessor GLM-5.1 and, for the first time, delivers that capability on a **solid 1M-token context**. GLM-5.2's new capabilities include:
-      - **Solid 1M Context:** A solid 1M-token context that stably sustains long-horizon work
-      - **Advanced Coding with Flexible Effort**: Stronger coding capabilities with multiple thinking effort levels to balance performance and latency
-      - **Improved Architecture**: We propose IndexShare, which reuses the same indexer across every four sparse attention layers, reducing per-token FLOPs by 2.9× at a 1M context length. We also improve GLM-5.2’s MTP layer for speculative decoding, increasing the acceptance length by up to 20%
-      - **Pure Open**: An MIT open-source license — no regional limits, technical access without borders
-
-    ## Benchmark
-
-    ## Serve GLM-5.2 Locally
-
-    ...
+  description: "# GLM-5.2\n\n\U0001F44B Join our WeChat or Discord community.\n\n\U0001F4D6 Check out the GLM-5.2 blog and GLM-5 Technical report.\n\n\U0001F4CD Use GLM-5.2 API services on Z.ai API Platform.\n\n\U0001F51C Try GLM-5.2 here.\n\n[Paper]\n[GitHub]\n\n## Introduction\n\nWe're introducing GLM-5.2, our latest flagship model for long-horizon tasks. It marks a substantial leap in long-horizon task capability over its predecessor GLM-5.1 and, for the first time, delivers that capability on a **solid 1M-token context**. GLM-5.2's new capabilities include:\n  - **Solid 1M Context:** A solid 1M-token context that stably sustains long-horizon work\n  - **Advanced Coding with Flexible Effort**: Stronger coding capabilities with multiple thinking effort levels to balance performance and latency\n  - **Improved Architecture**: We propose IndexShare, which reuses the same indexer across every four sparse attention layers, reducing per-token FLOPs by 2.9× at a 1M context length. We also improve GLM-5.2’s MTP layer for speculative decoding, increasing the acceptance length by up to 20%\n  - **Pure Open**: An MIT open-source license — no regional limits, technical access without borders\n\n## Benchmark\n\n## Serve GLM-5.2 Locally\n\n...\n"
   license: "mit"
   tags:
     - llm
@@ -390,26 +343,7 @@
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
     - https://huggingface.co/michaelw9999/Qwopus3.6-27B-v2-MTP-NVFP4-GGUF
-  description: |
-    🪐 Qwopus3.6-27B-v2-MTP
-    MTP Release
-
-    Multi-Token Prediction reasoning model fine-tuned from Qwen3.6-27B
-
-    🧬 Trace Inversion & Negentropy
-    🧠 27B Parameters
-    ⚡ Speculative Decoding
-    🛠️ Coding / DevOps / Math
-
-    💡 What is Qwopus3.6-27B-v2-MTP?
-    🪐 Qwopus3.6-27B-v2-MTP is a speed-oriented reasoning release built on top of Qwen3.6-27B. It keeps the Qwopus line's focus on reconstructed reasoning traces, coding discipline, DevOps procedures, and mathematical derivations, while adding Multi-Token Prediction for faster generation. The goal is simple: preserve the depth and structure of a 27B reasoning model while making real interactive use noticeably faster.
-
-    ⚡ MTP DecodingAuxiliary future-token prediction improves throughput on long reasoning, code, math, and strict-format prompts.
-    🧩 Structured ReasoningInherits the Qwopus training recipe built around reconstructed step-by-step reasoning trajectories.
-    🧪 GB10 TestedValidated on a 30-question local benchmark across Logic, Coding, DevOps, Math, and Edge tasks.
-    🚀 Practical SpeedDesigned for workflows where strong answers matter, but waiting several extra minutes per task does not.
-
-    ...
+  description: "\U0001FA90 Qwopus3.6-27B-v2-MTP\nMTP Release\n\nMulti-Token Prediction reasoning model fine-tuned from Qwen3.6-27B\n\n\U0001F9EC Trace Inversion & Negentropy\n\U0001F9E0 27B Parameters\n⚡ Speculative Decoding\n\U0001F6E0️ Coding / DevOps / Math\n\n\U0001F4A1 What is Qwopus3.6-27B-v2-MTP?\n\U0001FA90 Qwopus3.6-27B-v2-MTP is a speed-oriented reasoning release built on top of Qwen3.6-27B. It keeps the Qwopus line's focus on reconstructed reasoning traces, coding discipline, DevOps procedures, and mathematical derivations, while adding Multi-Token Prediction for faster generation. The goal is simple: preserve the depth and structure of a 27B reasoning model while making real interactive use noticeably faster.\n\n⚡ MTP DecodingAuxiliary future-token prediction improves throughput on long reasoning, code, math, and strict-format prompts.\n\U0001F9E9 Structured ReasoningInherits the Qwopus training recipe built around reconstructed step-by-step reasoning trajectories.\n\U0001F9EA GB10 TestedValidated on a 30-question local benchmark across Logic, Coding, DevOps, Math, and Edge tasks.\n\U0001F680 Practical SpeedDesigned for workflows where strong answers matter, but waiting several extra minutes per task does not.\n\n...\n"
   tags:
     - llm
     - gguf
@@ -435,28 +369,7 @@
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
     - https://huggingface.co/michaelw9999/Qwopus3.6-27B-Coder-MTP-NVFP4-GGUF
-  description: |
-    🪐 Qwopus-3.6-27B-Coder
-    Coder SFT Release
-
-    Agentic Coding &amp; Tool-Use Reasoning Model Fine-Tuned on Qwopus3.6-27B-v2
-
-    🧬 Trace Inversion & Negentropy
-    🧠 27B Dense Model
-    ⚡ Agentic Coding
-    🛠️ Tool Calling & Agent
-    🏆 SWE-bench Verified: 67.0% (off-thinking)
-
-    💡 What is Qwopus-3.6-27B-Coder?
-    🪐 Qwopus-3.6-27B-Coder is a reasoning-enhanced agentic coding model built on top of Qwopus3.6-27B-v2. It inherits the powerful reasoning foundation of the v2 base — which achieved 87.43% MMLU-Pro (300ex) and 75.25% SWE-bench Verified — and further specializes it for agentic code generation, structured tool calling, debugging, and instruction-following in developer workflows. The model is designed to excel at repository-level coding tasks, multi-turn tool orchestration, and complex logical reasoning under realistic agent environments.
-
-    🧩 Agentic Coding
-    Optimized for repository-level coding, debugging, patch generation, and structured multi-step development workflows.
-
-    🛠️ Tool Calling
-    Learns from real agent trajectories with tool definitions, tool calls, and environment feedback for robust multi-turn execution.
-
-    ...
+  description: "\U0001FA90 Qwopus-3.6-27B-Coder\nCoder SFT Release\n\nAgentic Coding &amp; Tool-Use Reasoning Model Fine-Tuned on Qwopus3.6-27B-v2\n\n\U0001F9EC Trace Inversion & Negentropy\n\U0001F9E0 27B Dense Model\n⚡ Agentic Coding\n\U0001F6E0️ Tool Calling & Agent\n\U0001F3C6 SWE-bench Verified: 67.0% (off-thinking)\n\n\U0001F4A1 What is Qwopus-3.6-27B-Coder?\n\U0001FA90 Qwopus-3.6-27B-Coder is a reasoning-enhanced agentic coding model built on top of Qwopus3.6-27B-v2. It inherits the powerful reasoning foundation of the v2 base — which achieved 87.43% MMLU-Pro (300ex) and 75.25% SWE-bench Verified — and further specializes it for agentic code generation, structured tool calling, debugging, and instruction-following in developer workflows. The model is designed to excel at repository-level coding tasks, multi-turn tool orchestration, and complex logical reasoning under realistic agent environments.\n\n\U0001F9E9 Agentic Coding\nOptimized for repository-level coding, debugging, patch generation, and structured multi-step development workflows.\n\n\U0001F6E0️ Tool Calling\nLearns from real agent trajectories with tool definitions, tool calls, and environment feedback for robust multi-turn execution.\n\n...\n"
   tags:
     - llm
     - gguf
@@ -1676,8 +1589,8 @@
       use_tokenizer_template: true
   files:
     - filename: llama-cpp/models/Qwopus3.6-27B-v2-MTP-GGUF/Qwopus3.6-27B-v2-MTP-Q4_K_M.gguf
-      sha256: 818d68223be4d8518dac0b3b5604dde633cbbcbae1f491d842a3e26711c6606d
       uri: https://huggingface.co/Jackrong/Qwopus3.6-27B-v2-MTP-GGUF/resolve/main/Qwopus3.6-27B-v2-MTP-Q4_K_M.gguf
+      sha256: 31cf5fc2406a0c7aaebcc26d440bf0df94e215d0589d5205bf319649c052b50a
 - name: "qwen3.6-40b-claude-4.6-opus-deckard-heretic-uncensored-thinking-neo-code-di-imatrix-max"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
