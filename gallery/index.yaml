@@ -1,4 +1,63 @@
 ---
+- name: "qwopus3.6-27b-coder-compat-mtp"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/Jackrong/Qwopus3.6-27B-Coder-Compat-MTP-GGUF
+  description: |
+    🪐 Qwopus-3.6-27B-Coder
+    Coder SFT Release
+
+    Agentic Coding &amp; Tool-Use Reasoning Model Fine-Tuned on Qwopus3.6-27B-v2
+
+    🧬 Trace Inversion & Negentropy
+    🧠 27B Dense Model
+    ⚡ Agentic Coding
+    🛠️ Tool Calling & Agent
+    🏆 SWE-bench Verified: 67.0% (off-thinking)
+
+    💡 What is Qwopus-3.6-27B-Coder?
+    🪐 Qwopus-3.6-27B-Coder is a reasoning-enhanced agentic coding model built on top of Qwopus3.6-27B-v2. It inherits the powerful reasoning foundation of the v2 base — which achieved 87.43% MMLU-Pro and 75.25% SWE-bench Verified — and further specializes it for agentic code generation, structured tool calling, debugging, and instruction-following in developer workflows. The model is designed to excel at repository-level coding tasks, multi-turn tool orchestration, and complex logical reasoning under realistic agent environments.
+
+    🧩 Agentic Coding
+    Optimized for repository-level coding, debugging, patch generation, and structured multi-step development workflows.
+
+    🛠️ Tool Calling
+    Learns from real agent trajectories with tool definitions, tool calls, and environment feedback for robust multi-turn execution.
+
+    ...
+  license: "apache-2.0"
+  tags:
+    - llm
+    - gguf
+    - vision
+    - multimodal
+    - reasoning
+  icon: https://cdn-uploads.huggingface.co/production/uploads/66309bd090589b7c65950665/sGQKmrMc6L6guMoaB5_Y2.png
+  overrides:
+    backend: llama-cpp
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+    mmproj: llama-cpp/mmproj/Qwopus3.6-27B-Coder-Compat-MTP-GGUF/mmproj-F32.gguf
+    options:
+      - use_jinja:true
+      - spec_type:draft-mtp
+      - spec_n_max:6
+      - spec_p_min:0.75
+    parameters:
+      model: llama-cpp/models/Qwopus3.6-27B-Coder-Compat-MTP-GGUF/Qwopus3.6-27B-Coder-Compat-MTP-Q4_K_M.gguf
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/Qwopus3.6-27B-Coder-Compat-MTP-GGUF/Qwopus3.6-27B-Coder-Compat-MTP-Q4_K_M.gguf
+      sha256: f893632170124da60e159b7bcc9d91e1cda3014b2c6b8ad9c6cde38a1fcd2f6f
+      uri: https://huggingface.co/Jackrong/Qwopus3.6-27B-Coder-Compat-MTP-GGUF/resolve/main/Qwopus3.6-27B-Coder-Compat-MTP-Q4_K_M.gguf
+    - filename: llama-cpp/mmproj/Qwopus3.6-27B-Coder-Compat-MTP-GGUF/mmproj-F32.gguf
+      sha256: 32f7ea0600c07272547da401d460f8abbd980f3a57b69d6df87be0e2505e0b9c
+      uri: https://huggingface.co/Jackrong/Qwopus3.6-27B-Coder-Compat-MTP-GGUF/resolve/main/mmproj-F32.gguf
 - name: "kimi-k2.7-code"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
