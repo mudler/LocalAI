@@ -1,4 +1,17 @@
 name: "Security Scan"
+# Grant the workflow the minimal permissions it needs. The CodeQL upload step
+# requires "security-events: write" (or at least read) which the default token
+# does not have for runs triggered from public forks. By explicitly requesting
+# the permission we ensure the workflow can run when executed in the upstream
+# repository (where the token has the required scope).
+permissions:
+  # read access to the repository contents
+  contents: read
+  # needed for the CodeQL SARIF upload action
+  security-events: write
+  # actions and checks are read‑only for this workflow
+  actions: read
+  checks: read
 
 # Run workflow each time code is pushed to your repository and on a schedule.
 # The scheduled workflow runs every at 00:00 on Sunday UTC time.
@@ -9,6 +22,8 @@ on:
 
 jobs:
   tests:
+    # Run only in the upstream repository to avoid permission issues on forks.
+    if: ${{ github.repository == 'mudler/LocalAI' }}
     runs-on: ubuntu-latest
     env:
       GO111MODULE: on
