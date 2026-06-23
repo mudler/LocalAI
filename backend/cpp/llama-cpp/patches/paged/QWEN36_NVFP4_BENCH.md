@@ -166,3 +166,64 @@ from 34.5% to 41.3% of vLLM decode. It does **not** close the gap - vLLM still d
 faster and keeps TTFT ~12x lower at npl128, and scales monotonically where llama plateaus. At
 light/moderate concurrency the budget is net-negative for TTFT in this all-at-once workload, so it
 should be applied selectively (high-concurrency serving), not as an unconditional default.
+
+## MoE 35B-A3B fair re-run (max_prefill_tokens on)
+
+Same build (HEAD 151343b, P0+P1 patch 0015), same flags (`-c 131072 --parallel 128 -b 2048
+-ub 512 -ngl 99 -fa on`, `LLAMA_KV_PAGED=1`), same all-at-once harness (512-tok unique prompt,
+gen 256, temp 0, ignore_eos). Swept the dense winner budget 256 plus neighbor 512.
+
+### Primary table - budget 256 (decode_agg tok/s | TTFT mean ms | peak host GB)
+
+| npl | stock (no budget) | budget 256 (best) | budget 512 | vLLM |
+|----:|------------------:|------------------:|-----------:|-----:|
+| 8   | 170.2 / 855   / -    | 169.3 / 1655  / 38.95 | 172.1 / 1488  / 38.82 | 202.0 / 799  |
+| 32  | 235.4 / 4970  / -    | 239.0 / 9034  / 42.93 | 234.7 / 7260  / 42.72 | 462.0 / 2308 |
+| 64  | 271.7 / 7205  / -    | 277.0 / 16249 / 51.96 | 274.5 / 13660 / 52.53 | 624.5 / 4072 |
+| 128 | 292.2 / 84800 / -    | **333.5 / 98106 / 61.42** | 300.8 / 92470 / 61.45 | 811.1 / 7980 |
+
+Peak host GB (paged KV, budget-independent): ~38.9 (npl8) -> ~42.8 (npl32) -> ~52 (npl64) ->
+~61.4 (npl128). Far below the dense run (94 GB @npl128) - only ~3B params are active, so the KV
+plus activations footprint stays light even fully saturated.
+
+### MoE inverts the dense story: the budget buys decode, NOT TTFT
+
+Unlike the dense 27B (where the stock run was prefill-starved to 491 s TTFT @npl128 and the budget
+cut it 38%), the MoE stock run was **never prefill-starved**: 3B active params make prefill cheap,
+so stock TTFT @npl128 was already only 84.8 s. Capping prefill therefore cannot rescue TTFT - it
+can only **defer first tokens to free decode steps**. Result at npl128 with budget 256:
+
+- **decode_agg: 292.2 -> 333.5 tok/s (+14.1%)** vs the starved stock run.
+- **TTFT mean: 84.8 s -> 98.1 s (+15.7%, WORSE)** - the budget costs latency here.
+- llama decode as % of vLLM @npl128: **36.0% -> 41.1%**. TTFT now ~12.3x vLLM's 7.98 s.
+
+Budget 512 is the milder trade (decode +3.0% to 300.8, TTFT +9.0% to 92.5 s @npl128). Budget 256
+maximizes decode throughput; 512 if you want to bleed less TTFT. At npl 8/32/64 both budgets are
+net-negative or flat on decode and clearly raise TTFT (e.g. npl64 7.2 s -> 16.2 s @b256), the same
+all-at-once burst artifact seen in the dense run.
+
+### Does the ~3B-active decode scale better now? Yes - the plateau is gone
+
+The headline win is the **decode scaling curve**, not any single point:
+
+| npl step | stock decode_agg | budget-256 decode_agg |
+|---------:|-----------------:|----------------------:|
+| 8 -> 32  | 170 -> 235 (+38%) | 169 -> 239 (+41%) |
+| 32 -> 64 | 235 -> 272 (+16%) | 239 -> 277 (+16%) |
+| 64 -> 128| 272 -> 292 (**+7.4%**, plateauing) | 277 -> 333.5 (**+20.4%**, still climbing) |
+
+Stock MoE decode **plateaus** at saturation (+7.4% over the last doubling) because unbounded
+prefills keep stealing steps from the many ready decode slots. Budget 256 removes that ceiling -
+decode keeps climbing +20% into npl128, so more of the 128 slots actually decode concurrently.
+This is the cleanest evidence that patch 0013 protects in-flight decode once enough slots are live.
+
+### Bottom line (MoE)
+
+For the A3B MoE the prefill budget is a **decode-throughput lever, paid for in TTFT** - the mirror
+image of the dense case. Budget 256 lifts decode_agg +14% @npl128 and, more importantly, restores
+monotonic decode scaling (kills the stock plateau), moving llama from 36.0% to 41.1% of vLLM
+decode - the same ~41% ceiling the dense run hit. It does **not** close the gap: vLLM still decodes
+~2.4x faster (811 vs 333.5) and holds TTFT ~12x lower (8.0 s vs 98.1 s) @npl128, and scales
+monotonically and steeply where llama only partially recovers. Net: apply the budget to saturated
+MoE serving when decode throughput is the objective and some extra TTFT is acceptable; for
+latency-sensitive MoE serving leave it off (stock TTFT was already not the bottleneck here).
