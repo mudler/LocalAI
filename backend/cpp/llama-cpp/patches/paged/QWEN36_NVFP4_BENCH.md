@@ -227,3 +227,105 @@ decode - the same ~41% ceiling the dense run hit. It does **not** close the gap:
 monotonically and steeply where llama only partially recovers. Net: apply the budget to saturated
 MoE serving when decode throughput is the objective and some extra TTFT is acceptable; for
 latency-sensitive MoE serving leave it off (stock TTFT was already not the bottleneck here).
+
+---
+
+## Fair re-run verdict
+
+This is the synthesis after patch 0013 (`max_prefill_tokens` / `LLAMA_PREFILL_BUDGET`) was turned
+on for both models. It answers three questions: how much of the apparent gap was prefill
+starvation, what genuine gap to vLLM remains after that artifact is removed, and where that leaves
+the "par-or-beat vLLM" goal.
+
+### 1. How much did patch 0013 close the gap?
+
+The original (stock) tables blamed two things on llama: an exploding TTFT and a flat decode curve
+at high concurrency. The budget re-run shows these were **two different problems with two
+different root causes**, and only one was prefill starvation.
+
+**Dense 27B - was genuinely prefill-starved.** Dense prefill is expensive (full 28B weights per
+token), so 128 simultaneous 512-token prefills truly starved both first-tokens and decode. Budget
+256 @npl128:
+
+| metric @npl128 | stock | budget 256 | vLLM | what closed |
+|----------------|------:|-----------:|-----:|-------------|
+| TTFT mean | 491.2 s | **305.4 s** (-37.8%) | 24.8 s | starvation real; -186 s recovered |
+| decode_agg | 134.6 | **161.2** (+19.8%) | 390.7 | freed slots now decode |
+| llama as % of vLLM decode | 34.5% | **41.3%** | 100% | +6.8 pts |
+
+Dense llama-as-%-of-vLLM after the fix, npl 8/32/64/128: **99 / 56 / 46 / 41** (was 99/57/44/34).
+The fix moved only the saturated tail; npl 8/32 were never starved and are unchanged.
+
+**MoE 35B-A3B - was NOT prefill-starved (the inversion).** Only ~3B active params, so prefill was
+already cheap and stock TTFT @npl128 was 84.8 s, not dense's 491 s. There was no starvation to
+rescue, so the budget could not cut TTFT - it instead converted deferred prefill into decode
+steps. Budget 256 @npl128:
+
+| metric @npl128 | stock | budget 256 | vLLM | direction |
+|----------------|------:|-----------:|-----:|-----------|
+| TTFT mean | 84.8 s | 98.1 s (+15.7%, WORSE) | 7.98 s | budget costs latency here |
+| decode_agg | 292.2 | **333.5** (+14.1%) | 811.1 | plateau removed |
+| llama as % of vLLM decode | 36.0% | **41.1%** | 100% | +5.1 pts |
+
+MoE llama-as-%-of-vLLM after the fix, npl 8/32/64/128: **84 / 52 / 44 / 41** (was 84/51/44/36).
+The decisive MoE finding is the scaling curve, not the point: stock decode plateaued over the last
+doubling (64->128 = +7.4%); budget 256 restored monotonic scaling (+20.4%), proving the stock flat
+curve was unbounded prefill stealing steps from ready decode slots, not a kernel ceiling.
+
+**Combined takeaway.** Both models converge to the **same ~41% of vLLM decode at npl128** after the
+fix. That convergence is the signal: once prefill starvation is removed, dense and a 12x-cheaper-
+prefill MoE land on the identical ceiling, which means the remaining gap is **not** about prefill
+at all - it is the decode scheduler.
+
+### 2. The honest remaining gap to vLLM
+
+After patch 0013, the residual gap is the **continuous-batched-decode efficiency** lever, and it is
+real, not an artifact:
+
+- vLLM still decodes **~2.4x faster** at npl128 on both models (390.7 vs 161.2 dense; 811.1 vs
+  333.5 MoE).
+- vLLM holds TTFT **~12x lower** at npl128 (24.8 vs 30.5 s dense; 8.0 vs 98.1 s MoE) - and does so
+  while decoding faster, i.e. no latency/throughput trade.
+- **vLLM scales monotonically and steeply** (dense 64->391, MoE 202->811 across npl 8->128); llama,
+  even with the budget, only **partially** recovers its scaling (dense 64->161, MoE 170->334).
+
+The mechanism: vLLM's scheduler interleaves prefill and decode at token granularity (chunked
+prefill + paged continuous batching) every step, keeping the GPU saturated with a near-optimal mix.
+Patch 0013 is a coarser tool - a static per-step prefill **cap** - which protects in-flight decode
+but does not actively schedule the prefill/decode mix, and on the bursty all-at-once harness it
+defers first tokens (the TTFT penalty at npl 8/32/64, and the MoE TTFT regression @npl128). The gap
+that remains is the **quality of the step-by-step batching decision**, not raw kernel speed: at
+npl8 the kernels are at parity (dense 99%, MoE 84%), so the per-token math is competitive - what
+vLLM does better is keeping more sequences productively in-flight every step as concurrency rises.
+
+### 3. Where this leaves "par-or-beat vLLM", and the last lever
+
+**Where llama is competitive today (NVFP4, GB10):**
+
+- **Low concurrency (npl<=8): at parity.** Dense 99%, MoE 84% of vLLM decode, comparable TTFT.
+  For single-user / few-stream local serving - LocalAI's dominant mode - llama.cpp is already
+  there on matched NVFP4.
+- **Memory efficiency: llama wins outright at every concurrency.** On-demand paged KV (dense
+  52->94 GB, MoE 39->61 GB) vs vLLM's flat ~112 GB pre-reservation. On a 128 GB unified box this is
+  the difference between multi-tenant headroom and OOM - a genuine product advantage, not a
+  consolation.
+
+**Where llama is not competitive:** high-concurrency decode throughput (npl>=32), where vLLM is
+~2-2.4x ahead and the budget only narrows it to ~41%.
+
+**The last lever** is therefore *not* another prefill knob (0013 has extracted what a static cap
+can give) and *not* the kernel (at parity @npl8). It is **token-granular continuous-batch
+scheduling**: actively interleaving chunked prefill with decode every step rather than capping
+prefill, so all live slots decode while new prefills trickle in - exactly what closes vLLM's
+monotonic-scaling advantage. A staggered (non-burst) arrival pattern would also let 0013 protect
+decode jitter without the burst-TTFT penalty seen here, narrowing the practical gap for real
+serving traffic that does not arrive all-at-once.
+
+### Bottom line
+
+Patch 0013 is validated and worth shipping as a **selective, high-concurrency QoS lever**: it
+recovers dense TTFT 38% and lifts saturated decode +14-20%, converging both models to ~41% of
+vLLM. But it is honestly **not a gap-closer**. The "par-or-beat vLLM" goal is **met at low
+concurrency and on memory efficiency, and not met at high-concurrency decode throughput.** The
+remaining ~2.4x is a continuous-batched-decode scheduling gap, not a prefill-starvation or kernel
+gap - and that is the next (harder) lever, distinct from anything 0013 can touch.
