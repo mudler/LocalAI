@@ -1,0 +1,137 @@
+From 17d97cb74e3e8c93751afd33f5c183e57056fde9 Mon Sep 17 00:00:00 2001
+From: Ettore Di Giacinto <mudler@localai.io>
+Date: Tue, 23 Jun 2026 11:52:45 +0200
+Subject: [PATCH] feat(paged): decoupled per-step prefill-token budget (patch
+ 0013)
+
+llama-server already co-batches decode with chunked prefill: update_slots()
+appends every generating slot's sampled token first, then fills the rest of the
+n_batch budget with prompt tokens, deferring the overflow to the next step. But
+the prefill chunk size is hard-wired to n_batch (default 2048): one slot's
+~2048-token prefill chunk lands in a single compute-heavy step, and every decode
+co-batched into that step sees a multi-second inter-token-latency (ITL) spike.
+Lowering n_batch shrinks the chunk but also caps decode-concurrency width and
+prefill throughput, because they are coupled.
+
+Add LLAMA_PREFILL_BUDGET: a per-step prefill-token budget decoupled from n_batch
+(the analogue of vLLM's --max-num-batched-tokens / long_prefill_token_threshold).
+The prompt-fill loop and the outer slot loop now also stop once this many prompt
+tokens have been added in the current update_slots() step, so a long prefill is
+split across more steps that each still advance in-flight decode. Default (env
+unset or <= 0) = disabled, so stock behaviour is byte-identical. Orthogonal to
+LLAMA_KV_PAGED: this is a pure scheduler knob and works with paged off.
+
+Measured on GB10 (sm_121), dense Qwen3-32B-NVFP4, paged build, 8 steady decode
+streams with one 6000-token prefill injected mid-stream; same binary, only
+LLAMA_PREFILL_BUDGET differs:
+
+  metric                        stock(off)  budget=256   budget=512
+  worst decode freeze (ms)         3380      482 (7.0x)   778 (4.3x)
+  median decode ITL in window      2264      411 (5.5x)   689
+  decode_stall (ms)                3285      387 (8.5x)   684 (4.8x)
+  decode steps during prefill        38      201 (5.3x)   108
+  injected-req TTFT (ms)           8493     10172 (+20%)  8432 (~0%)
+  steady-state baseline ITL          94        95          94
+
+This is a LATENCY/fairness lever, not an aggregate-throughput lever: it flattens
+the decode ITL spike a long prefill inflicts on co-batched decoders (8.5x smaller
+worst freeze and 5.3x more decode progress during the prefill at budget=256), in
+exchange for a modest TTFT rise on the long request (the classic chunked-prefill
+trade-off; budget=512 buys 4.8x with ~no TTFT cost). Steady aggregate decode is
+unchanged: it is bandwidth/weight-capped on GB10 (the NVFP4 weight-read floor),
+which the scheduler cannot lift.
+
+Correctness (same model, greedy temp 0, fa on):
+- budget unset or >= n_batch: byte-identical to stock (the added break never
+  fires before the existing n_batch break; the off-path is a no-op by
+  construction).
+- short prompt (<= budget): byte-identical to stock.
+- the knob is exactly equivalent to stock's native -b chunking: budget=512 ==
+  stock -b512 and budget=256 == stock -b256, both BYTE-IDENTICAL, while keeping
+  n_batch=2048 for decode width.
+- on a prompt larger than the budget the chunked greedy output diverges from the
+  single n_batch chunk only by intrinsic flash-attn chunk-size FP grouping: PURE
+  stock -b256 diverges from stock -b2048 the same way with the patch inactive,
+  and the output stays coherent and answers correctly.
+
+Productisation (LocalAI): surface as a model options knob (max_prefill_tokens /
+mpt) parsed in grpc-server.cpp, default 0 = disabled, per CHUNKED_PREFILL_PLAN
+Phase B; the vendored update_slots() hunk here is that plan's scheduler patch and
+stays disjoint from the paged allocation hunks.
+
+Assisted-by: Claude:opus-4.8 [Claude Code]
+Signed-off-by: Ettore Di Giacinto <mudler@localai.io>
+---
+ tools/server/server-context.cpp | 35 ++++++++++++++++++++++++++++++++-
+ 1 file changed, 34 insertions(+), 1 deletion(-)
+
+diff --git a/tools/server/server-context.cpp b/tools/server/server-context.cpp
+index 04c6361..5d83b30 100644
+--- a/tools/server/server-context.cpp
++++ b/tools/server/server-context.cpp
+@@ -2723,6 +2723,29 @@ private:
+         int32_t n_batch  = llama_n_batch(ctx_tgt);
+         int32_t n_ubatch = llama_n_ubatch(ctx_tgt);
+ 
++        // PAGED serving lever (patch 0013): decoupled per-step prefill-token budget.
++        // Analogue of vLLM's --max-num-batched-tokens. Stock llama-server caps the prompt
++        // tokens ingested per update_slots() step at n_batch only; with cont_batching the
++        // sampled decode tokens of every generating slot are appended FIRST, then prompt
++        // tokens fill the batch up to n_batch. A long prompt therefore grabs an ~n_batch
++        // chunk in a SINGLE compute-heavy step, spiking the inter-token latency of every
++        // co-batched decoder (head-of-line jitter). LLAMA_PREFILL_BUDGET caps the prompt
++        // tokens added per step independently of n_batch, splitting a long prefill across
++        // more steps so in-flight decode keeps advancing smoothly. Default (env unset or
++        // <=0) = disabled => stock behavior is byte-identical. Orthogonal to LLAMA_KV_PAGED
++        // (this is a pure scheduler knob; works with paged off).
++        int32_t n_prefill_budget = 0; // 0 = disabled (stock n_batch-only chunking)
++        {
++            const char * env_pb = getenv("LLAMA_PREFILL_BUDGET");
++            if (env_pb) {
++                const int v = atoi(env_pb);
++                if (v > 0) {
++                    n_prefill_budget = std::min(n_batch, std::max(1, v));
++                }
++            }
++        }
++        int32_t n_prompt_budgeted = 0; // prompt tokens added to the batch this step (across slots)
++
+         float  alora_scale       = -1.0f;
+         size_t alora_disabled_id = 0;
+ 
+@@ -3159,7 +3182,10 @@ private:
+                     const bool n_before_user_known = n_before_user > 0;
+ 
+                     // add prompt tokens for processing in the current batch
+-                    while (slot.prompt.n_tokens() < slot.task->n_tokens() && batch.n_tokens < n_batch) {
++                    // (patch 0013) also stop once the per-step prefill budget is spent, so a long
++                    // prompt is split across more steps and leaves batch room for co-batched decode
++                    while (slot.prompt.n_tokens() < slot.task->n_tokens() && batch.n_tokens < n_batch &&
++                           (n_prefill_budget == 0 || n_prompt_budgeted < n_prefill_budget)) {
+                         // get next token to process
+                         llama_token cur_tok = input_tokens[slot.prompt.n_tokens()];
+                         if (cur_tok == LLAMA_TOKEN_NULL) {
+@@ -3185,6 +3211,7 @@ private:
+                         slot.prompt.tokens.push_back(cur_tok);
+ 
+                         slot.n_prompt_tokens_processed++;
++                        n_prompt_budgeted++; // (patch 0013) count toward the per-step prefill budget
+ 
+                         // stop the prompt batch exactly before the latest user input, so a checkpoint
+                         // can be created after the previous messages
+@@ -3293,6 +3320,12 @@ private:
+                 if (batch.n_tokens >= n_batch) {
+                     break;
+                 }
++
++                // (patch 0013) stop adding prompts once the per-step prefill budget is spent,
++                // leaving the remaining batch capacity for co-batched decode of other slots
++                if (n_prefill_budget > 0 && n_prompt_budgeted >= n_prefill_budget) {
++                    break;
++                }
+             }
+         }
+ 
+-- 
+2.43.0
+
