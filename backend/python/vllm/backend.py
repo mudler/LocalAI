@@ -457,9 +457,14 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
                     except Exception:
                         pass
 
-                if last_output is None or not getattr(last_output, "prompt_logprobs", None):
-                    context.set_code(grpc.StatusCode.INTERNAL)
-                    context.set_details("vLLM did not return prompt_logprobs")
+                _pl = getattr(last_output, "prompt_logprobs", None) if last_output is not None else None
+                # Some engines accept the prompt_logprobs request but return a
+                # list of all-None entries instead of computing them (observed
+                # with vllm-metal's MLX backend on macOS). Treat that as
+                # unsupported rather than silently scoring every candidate as 0.
+                if not _pl or all(e is None for e in _pl):
+                    context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+                    context.set_details("This backend did not return prompt_logprobs; scoring is unsupported on this engine (e.g. vllm-metal / MLX on macOS).")
                     return backend_pb2.ScoreResponse()
 
                 prompt_logprobs = last_output.prompt_logprobs
