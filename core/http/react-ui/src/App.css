@@ -6363,6 +6363,59 @@ select.input {
   justify-content: center;
 }
 
+/* ──────────────────── Home: hardware-aware starter models ──────────────────── */
+
+.home-starters {
+  margin: var(--spacing-lg) 0;
+  padding: var(--spacing-lg);
+}
+.home-starters-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--spacing-md);
+}
+.home-starters-head strong {
+  font-size: 0.9375rem;
+}
+.home-starters-tier {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+}
+.home-starters-sub {
+  margin: var(--spacing-xs) 0 var(--spacing-md);
+  font-size: 0.8125rem;
+  color: var(--color-text-secondary);
+}
+.home-starters-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-xs);
+}
+.home-starters-item {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-md);
+  padding: var(--spacing-xs) 0;
+}
+.home-starters-name {
+  font-weight: 500;
+  font-size: 0.875rem;
+  word-break: break-all;
+}
+.home-starters-size {
+  margin-left: auto;
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+  white-space: nowrap;
+}
+
 /* ──────────────────── Home: drop-in endpoint / API compatibility ──────────────────── */
 
 .home-connect {

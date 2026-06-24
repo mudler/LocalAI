@@ -86,6 +86,7 @@
   "input": {
     "placeholder": "Message...",
     "attachFile": "Attach file",
+    "send": "Send message",
     "stopGenerating": "Stop generating",
     "canvasTitle": "Canvas — extract code blocks and media into a side panel for preview, copy, and download",
     "canvasLabel": "Canvas",
