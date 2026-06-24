@@ -1,79 +1,47 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { modelsApi } from '../utils/api'
-import { useResources } from '../hooks/useResources'
+import { useRecommendedModels } from '../hooks/useRecommendedModels'
 
-// Curated, hardware-tiered starter models for the empty-state onboarding. Names
-// are real gallery entries (gallery/index.yaml); we intersect them against the
-// live gallery at render time so a custom/trimmed gallery degrades gracefully
-// (unmatched entries simply don't render).
-//
-// The guiding rule the maintainer asked for: CPU-only machines should be
-// steered to genuinely small models (1-4B, Q4) that stay responsive without a
-// GPU. GPU tiers scale the suggestion up with available VRAM.
-const SMALL = [
-  { name: 'llama-3.2-1b-instruct:q4_k_m', size: '~0.8 GB' },
-  { name: 'llama-3.2-3b-instruct:q4_k_m', size: '~2 GB' },
-  { name: 'qwen3-1.7b', size: '~1.4 GB' },
-  { name: 'gemma-3-1b-it', size: '~0.8 GB' },
-]
-const MID = [
-  { name: 'qwen3-4b', size: '~2.5 GB' },
-  { name: 'gemma-3-4b-it', size: '~3 GB' },
-  { name: 'llama-3.2-3b-instruct:q4_k_m', size: '~2 GB' },
-]
-const LARGE = [
-  { name: 'meta-llama-3.1-8b-instruct', size: '~5 GB' },
-  { name: 'qwen3-4b', size: '~2.5 GB' },
-  { name: 'mistral-7b-instruct-v0.3', size: '~4 GB' },
-]
-
-const GB = 1024 * 1024 * 1024
-
-// Pick a tier from detected hardware. total_memory is GPU VRAM in bytes (0 when
-// CPU-only). Thresholds are deliberately conservative so a suggestion that
-// "fits" really does.
-function pickTier(resources) {
-  const isGpu = resources?.type === 'gpu'
-  const vram = resources?.aggregate?.total_memory || 0
-  if (!isGpu || vram <= 0) return { id: 'cpu', list: SMALL }
-  if (vram < 8 * GB) return { id: 'gpu-small', list: MID }
-  return { id: 'gpu-large', list: LARGE }
+// Static fallback used only when the live gallery / estimates can't be reached
+// (offline, trimmed gallery). The hook is the primary, data-driven path; these
+// are real gallery names kept as a safety net so onboarding never shows nothing.
+const FALLBACK = {
+  cpu: [
+    { name: 'gemma-4-e2b-it', size: '~1.5 GB' },
+    { name: 'lfm2.5-1.2b-instruct', size: '~0.8 GB' },
+    { name: 'gemma-4-e4b-it', size: '~3 GB' },
+    { name: 'lfm2-1.2b', size: '~0.8 GB' },
+  ],
+  'gpu-small': [
+    { name: 'gemma-4-e4b-it', size: '~3 GB' },
+    { name: 'lfm2.5-8b-a1b', size: '~5 GB' },
+    { name: 'gemma-4-12b-it-qat-q4_0', size: '~7 GB' },
+  ],
+  'gpu-large': [
+    { name: 'qwen3.6-27b', size: '~16 GB' },
+    { name: 'qwen3.6-35b-a3b', size: '~20 GB' },
+    { name: 'gemma-4-26b-a4b-it', size: '~16 GB' },
+    { name: 'gemma-4-31b-it', size: '~18 GB' },
+  ],
 }
 
 export default function StarterModels({ addToast, onInstallStarted }) {
   const { t } = useTranslation('home')
-  const { resources } = useResources()
-  const [available, setAvailable] = useState(null) // Set of gallery names, or null while loading
+  const { recommended, tier, loading } = useRecommendedModels({ count: 4 })
   const [installing, setInstalling] = useState(() => new Set())
 
-  const tier = useMemo(() => pickTier(resources), [resources])
-  const candidates = tier.list
+  // While the hardware probe + gallery query are in flight, render nothing
+  // rather than flashing fallback content that may be replaced a moment later.
+  if (loading) return null
 
-  // Verify candidates exist in the live gallery. One search per name (the tier
-  // has at most a handful) keeps this resilient to gallery customization.
-  useEffect(() => {
-    let cancelled = false
-    const names = [...new Set(candidates.map(c => c.name))]
-    Promise.all(names.map(name =>
-      modelsApi.list({ search: name, page: 1 })
-        .then(data => (data?.models || []).some(m => (m.name || m.id) === name) ? name : null)
-        .catch(() => null)
-    )).then(found => {
-      if (cancelled) return
-      const hits = found.filter(Boolean)
-      // If verification yielded nothing (e.g. gallery unreachable), fall back to
-      // showing the curated list rather than an empty widget.
-      setAvailable(hits.length > 0 ? new Set(hits) : null)
-    })
-    return () => { cancelled = true }
-  }, [candidates])
+  // Prefer live recommendations; fall back to the static list only when the
+  // gallery yielded nothing.
+  const items = (recommended && recommended.length > 0)
+    ? recommended.map(r => ({ name: r.name, size: r.sizeDisplay }))
+    : (FALLBACK[tier.id] || FALLBACK.cpu)
 
-  const visible = available === null
-    ? candidates
-    : candidates.filter(c => available.has(c.name))
-
-  if (visible.length === 0) return null
+  if (items.length === 0) return null
 
   const install = async (name) => {
     setInstalling(prev => new Set(prev).add(name))
@@ -104,12 +72,12 @@ export default function StarterModels({ addToast, onInstallStarted }) {
         {tier.id === 'cpu' ? t('starters.cpuNote') : t('starters.gpuNote')}
       </p>
       <ul className="home-starters-list">
-        {visible.map(c => {
+        {items.map(c => {
           const busy = installing.has(c.name)
           return (
             <li key={c.name} className="home-starters-item">
               <span className="home-starters-name">{c.name}</span>
-              <span className="home-starters-size">{c.size}</span>
+              {c.size && <span className="home-starters-size">{c.size}</span>}
               <button
                 type="button"
                 className="btn btn-primary btn-sm"
