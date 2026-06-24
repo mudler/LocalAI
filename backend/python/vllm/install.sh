@@ -135,19 +135,14 @@ if [ "$(uname -s)" = "Darwin" ]; then
         popd
     popd
 
-    # 2) Install the prebuilt vllm-metal wheel from the PINNED release
-    #    (${VLLM_METAL_VERSION}). It pulls mlx / mlx-metal as deps and registers
-    #    the `metal` platform plugin that backend.py resolves to at engine-init
-    #    time. Pinning the tag (vs releases/latest) keeps the wheel and the vLLM
-    #    source build above reproducible and coupled; .github/bump_vllm_metal.sh
-    #    advances both together.
-    _metal_wheel_url=$(curl -fsSL "https://api.github.com/repos/vllm-project/vllm-metal/releases/tags/${VLLM_METAL_VERSION}" \
-        | grep -oE '"browser_download_url"[[:space:]]*:[[:space:]]*"[^"]+\.whl"' \
-        | head -n1 | sed -E 's/.*"(https[^"]+)".*/\1/')
-    if [ -z "${_metal_wheel_url}" ]; then
-        echo "ERROR: could not resolve a vllm-metal wheel URL for release ${VLLM_METAL_VERSION}" >&2
-        exit 1
-    fi
+    # 2) Install the prebuilt vllm-metal wheel for the PINNED release. It pulls
+    #    mlx / mlx-metal as deps and registers the `metal` platform plugin that
+    #    backend.py resolves to at engine-init time. Build the release-asset URL
+    #    deterministically (tag + the cp312/arm64 wheel name) rather than querying
+    #    api.github.com, whose unauthenticated rate limit (60/hr per IP) 403s on
+    #    shared CI runners. The wheel version is the tag without its leading 'v'.
+    _metal_wheel="vllm_metal-${VLLM_METAL_VERSION#v}-cp312-cp312-macosx_11_0_arm64.whl"
+    _metal_wheel_url="https://github.com/vllm-project/vllm-metal/releases/download/${VLLM_METAL_VERSION}/${_metal_wheel}"
     echo "Installing vllm-metal wheel: ${_metal_wheel_url}"
     uv pip install "${_metal_wheel_url}"
 
