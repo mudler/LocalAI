@@ -77,7 +77,7 @@ ifeq ($(UNAME_S),Linux)
 	VARIANT_TARGETS = libdepthanythingcpp-avx.so libdepthanythingcpp-avx2.so libdepthanythingcpp-avx512.so libdepthanythingcpp-fallback.so
 else
 	# On non-Linux (e.g., Darwin), build only fallback variant
-	VARIANT_TARGETS = libdepthanythingcpp-fallback.so
+	VARIANT_TARGETS = libdepthanythingcpp-fallback.dylib
 endif
 
 depth-anything-cpp: main.go godepthanythingcpp.go $(VARIANT_TARGETS)
@@ -89,7 +89,7 @@ package: depth-anything-cpp
 build: package
 
 clean: purge
-	rm -rf libdepthanythingcpp*.so depth-anything-cpp package sources
+	rm -rf libdepthanythingcpp*.so libdepthanythingcpp*.dylib depth-anything-cpp package sources
 
 purge:
 	rm -rf build*
@@ -116,11 +116,19 @@ libdepthanythingcpp-avx512.so: sources/depth-anything.cpp
 endif
 
 # Build fallback variant (all platforms)
+ifeq ($(UNAME_S),Darwin)
+libdepthanythingcpp-fallback.dylib: sources/depth-anything.cpp
+	rm -rfv build-$@
+	$(info ${GREEN}I depth-anything-cpp build info:fallback${RESET})
+	SO_TARGET=$@ CMAKE_ARGS="$(CMAKE_ARGS) -DGGML_AVX=off -DGGML_AVX2=off -DGGML_AVX512=off -DGGML_FMA=off -DGGML_F16C=off -DGGML_BMI2=off" $(MAKE) libdepthanythingcpp-custom
+	rm -rfv build-$@
+else
 libdepthanythingcpp-fallback.so: sources/depth-anything.cpp
 	rm -rfv build-$@
 	$(info ${GREEN}I depth-anything-cpp build info:fallback${RESET})
 	SO_TARGET=$@ CMAKE_ARGS="$(CMAKE_ARGS) -DGGML_AVX=off -DGGML_AVX2=off -DGGML_AVX512=off -DGGML_FMA=off -DGGML_F16C=off -DGGML_BMI2=off" $(MAKE) libdepthanythingcpp-custom
 	rm -rfv build-$@
+endif
 
 libdepthanythingcpp-custom: CMakeLists.txt
 	mkdir -p build-$(SO_TARGET) && \
@@ -128,7 +136,8 @@ libdepthanythingcpp-custom: CMakeLists.txt
 	cmake .. $(CMAKE_ARGS) && \
 	cmake --build . --config Release -j$(JOBS) && \
 	cd .. && \
-	mv build-$(SO_TARGET)/libdepthanything.so ./$(SO_TARGET)
+	(mv build-$(SO_TARGET)/libdepthanything.so ./$(SO_TARGET) 2>/dev/null || \
+	 mv build-$(SO_TARGET)/libdepthanything.dylib ./$(SO_TARGET) 2>/dev/null)
 
 all: depth-anything-cpp package
 

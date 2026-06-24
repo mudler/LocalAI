@@ -12,7 +12,8 @@ REPO_ROOT="${CURDIR}/../../.."
 mkdir -p $CURDIR/package/lib
 
 cp -avf $CURDIR/vibevoice-cpp $CURDIR/package/
-cp -fv $CURDIR/libgovibevoicecpp-*.so $CURDIR/package/
+cp -fv $CURDIR/libgovibevoicecpp-*.so $CURDIR/package/ 2>/dev/null || true
+cp -fv $CURDIR/libgovibevoicecpp-*.dylib $CURDIR/package/ 2>/dev/null || true
 cp -fv $CURDIR/run.sh $CURDIR/package/
 
 # Detect architecture and copy appropriate libraries

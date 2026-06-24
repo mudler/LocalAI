@@ -70,8 +70,8 @@ UNAME_S := $(shell uname -s)
 ifeq ($(UNAME_S),Linux)
 	VARIANT_TARGETS = libgovibevoicecpp-avx.so libgovibevoicecpp-avx2.so libgovibevoicecpp-avx512.so libgovibevoicecpp-fallback.so
 else
-	# On non-Linux (e.g., Darwin), build only fallback variant
-	VARIANT_TARGETS = libgovibevoicecpp-fallback.so
+	# On non-Linux (e.g., Darwin), build only fallback variant (as a dylib)
+	VARIANT_TARGETS = libgovibevoicecpp-fallback.dylib
 endif
 
 vibevoice-cpp: main.go govibevoicecpp.go $(VARIANT_TARGETS)
@@ -83,7 +83,7 @@ package: vibevoice-cpp
 build: package
 
 clean: purge
-	rm -rf libgovibevoicecpp*.so package sources/vibevoice.cpp vibevoice-cpp
+	rm -rf libgovibevoicecpp*.so libgovibevoicecpp*.dylib package sources/vibevoice.cpp vibevoice-cpp
 
 purge:
 	rm -rf build*
@@ -119,13 +119,21 @@ libgovibevoicecpp-fallback.so: sources/vibevoice.cpp
 	SO_TARGET=libgovibevoicecpp-fallback.so CMAKE_ARGS="$(CMAKE_ARGS) -DGGML_AVX=off -DGGML_AVX2=off -DGGML_AVX512=off -DGGML_FMA=off -DGGML_F16C=off -DGGML_BMI2=off" $(MAKE) libgovibevoicecpp-custom
 	rm -rfv build*
 
+# Build fallback variant as a dylib (Darwin)
+libgovibevoicecpp-fallback.dylib: sources/vibevoice.cpp
+	$(MAKE) purge
+	$(info ${GREEN}I vibevoice-cpp build info:fallback (dylib)${RESET})
+	SO_TARGET=libgovibevoicecpp-fallback.dylib CMAKE_ARGS="$(CMAKE_ARGS) -DGGML_AVX=off -DGGML_AVX2=off -DGGML_AVX512=off -DGGML_FMA=off -DGGML_F16C=off -DGGML_BMI2=off" $(MAKE) libgovibevoicecpp-custom
+	rm -rfv build*
+
 libgovibevoicecpp-custom: CMakeLists.txt cpp/govibevoicecpp.cpp cpp/govibevoicecpp.h
 	mkdir -p build-$(SO_TARGET) && \
 	cd build-$(SO_TARGET) && \
 	cmake .. $(CMAKE_ARGS) && \
 	cmake --build . --config Release -j$(JOBS) --target govibevoicecpp && \
 	cd .. && \
-	mv build-$(SO_TARGET)/libgovibevoicecpp.so ./$(SO_TARGET)
+	(mv build-$(SO_TARGET)/libgovibevoicecpp.so ./$(SO_TARGET) 2>/dev/null || \
+	 mv build-$(SO_TARGET)/libgovibevoicecpp.dylib ./$(SO_TARGET) 2>/dev/null)
 
 test: vibevoice-cpp
 	@echo "Running vibevoice-cpp tests..."

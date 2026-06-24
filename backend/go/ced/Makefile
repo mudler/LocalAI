@@ -57,6 +57,7 @@ libced.so: sources/ced.cpp
 	cmake -B sources/ced.cpp/build-shared -S sources/ced.cpp $(CMAKE_ARGS)
 	cmake --build sources/ced.cpp/build-shared --config Release -j$(JOBS)
 	cp -fv sources/ced.cpp/build-shared/libced.so* ./ 2>/dev/null || true
+	cp -fv sources/ced.cpp/build-shared/libced.dylib ./ 2>/dev/null || true
 	cp -fv sources/ced.cpp/include/ced_capi.h ./
 
 ced-grpc: libced.so main.go goced.go
