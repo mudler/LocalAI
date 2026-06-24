@@ -23,6 +23,11 @@ if [ "${BUILD_TYPE}" = "hipblas" ]; then
   # ROCm: single fallback CPU build (GPU does the compute).
   make turboquant-fallback
 else
+  # arm64: the CPU_ALL_VARIANTS armv9.2 SME variants need gcc-14 (gcc-13 rejects +sme).
+  if [ "${TARGETARCH}" = "arm64" ]; then
+    apt-get update -qq && apt-get install -y -qq gcc-14 g++-14
+    export CC=gcc-14 CXX=g++-14
+  fi
   # x86 and arm64: one ggml CPU_ALL_VARIANTS build replaces the per-microarch binaries.
   make turboquant-cpu-all
 fi
