@@ -789,6 +789,40 @@ static void params_parse(server_context& /*ctx_server*/, const backend::ModelOpt
                     // If conversion fails, leave the budget unset (stock behaviour)
                 }
             }
+        // --- dynamic decode-first prefill budget (patch 0016, continuous-batch P1) ---
+        // Supersedes max_prefill_tokens (the static patch-0013 cap) with the dynamic
+        // T - D budget read by update_slots(): a single total per-step token budget T
+        // (max_batch_tokens / mbt, the vLLM max_num_batched_tokens analogue) of which
+        // decode claims its live load D first and prefill gets the leftover, plus an
+        // optional per-slot prompt-chunk cap (prefill_cap, the long_prefill_token_
+        // threshold analogue). Both are set BEFORE context init, like kv_paged /
+        // max_prefill_tokens above. Unset leaves the env untouched, so the engine stays
+        // byte-identical to stock (an externally exported LLAMA_MAX_BATCH_TOKENS /
+        // LLAMA_PREFILL_CAP still works as an escape hatch). When max_batch_tokens is set
+        // it takes precedence over max_prefill_tokens: the engine honours the legacy
+        // LLAMA_PREFILL_BUDGET only when the dynamic knob is unset.
+        } else if (!strcmp(optname, "max_batch_tokens") || !strcmp(optname, "mbt")) {
+            if (optval != NULL) {
+                try {
+                    int mbt = std::stoi(optval_str);
+                    if (mbt > 0) {
+                        setenv("LLAMA_MAX_BATCH_TOKENS", std::to_string(mbt).c_str(), 1);
+                    }
+                } catch (const std::exception& e) {
+                    // If conversion fails, leave the budget unset (stock behaviour)
+                }
+            }
+        } else if (!strcmp(optname, "prefill_cap")) {
+            if (optval != NULL) {
+                try {
+                    int cap = std::stoi(optval_str);
+                    if (cap > 0) {
+                        setenv("LLAMA_PREFILL_CAP", std::to_string(cap).c_str(), 1);
+                    }
+                } catch (const std::exception& e) {
+                    // If conversion fails, leave the per-slot cap unset (engine default)
+                }
+            }
         } else if (!strcmp(optname, "n_ctx_checkpoints") || !strcmp(optname, "ctx_checkpoints")) {
             if (optval != NULL) {
                 try {
