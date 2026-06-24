@@ -55,6 +55,14 @@ func BasePathPrefix(c echo.Context) string {
 // The returned URL is guaranteed to end with `/`.
 // The method should be used in conjunction with the StripPathPrefix middleware.
 func BaseURL(c echo.Context) string {
+	// An explicit external base URL (LOCALAI_BASE_URL) is authoritative for
+	// the origin. The proxy-derived path prefix is still appended so a
+	// reverse-proxy mount point keeps working. Trailing slashes are
+	// normalized via BasePathPrefix, which always starts and ends with "/".
+	if ext, ok := c.Get("_external_base_url").(string); ok && ext != "" {
+		return strings.TrimRight(ext, "/") + BasePathPrefix(c)
+	}
+
 	fwdProto, fwdHost := parseForwarded(c.Request().Header.Get("Forwarded"))
 
 	scheme := "http"
