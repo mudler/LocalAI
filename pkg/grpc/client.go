@@ -234,6 +234,24 @@ func (c *Client) GenerateImage(ctx context.Context, in *pb.GenerateImageRequest,
 	return client.GenerateImage(ctx, in, opts...)
 }
 
+func (c *Client) UpscaleImage(ctx context.Context, in *pb.UpscaleImageRequest, opts ...grpc.CallOption) (*pb.Result, error) {
+	if !c.parallel {
+		c.opMutex.Lock()
+		defer c.opMutex.Unlock()
+	}
+	c.setBusy(true)
+	defer c.setBusy(false)
+	c.wdMark()
+	defer c.wdUnMark()
+	conn, err := c.dial()
+	if err != nil {
+		return nil, err
+	}
+	defer conn.Close()
+	client := pb.NewBackendClient(conn)
+	return client.UpscaleImage(ctx, in, opts...)
+}
+
 func (c *Client) GenerateVideo(ctx context.Context, in *pb.GenerateVideoRequest, opts ...grpc.CallOption) (*pb.Result, error) {
 	if !c.parallel {
 		c.opMutex.Lock()

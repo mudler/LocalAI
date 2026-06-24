@@ -15,6 +15,7 @@ service Backend {
   rpc PredictStream(PredictOptions) returns (stream Reply) {}
   rpc Embedding(PredictOptions) returns (EmbeddingResult) {}
   rpc GenerateImage(GenerateImageRequest) returns (Result) {}
+  rpc UpscaleImage(UpscaleImageRequest) returns (Result) {}
   rpc GenerateVideo(GenerateVideoRequest) returns (Result) {}
   rpc AudioTranscription(TranscriptRequest) returns (TranscriptResult) {}
   rpc AudioTranscriptionStream(TranscriptRequest) returns (stream TranscriptStreamResponse) {}
@@ -518,6 +519,12 @@ message GenerateImageRequest {
 
   // Reference images for models that support them (e.g., Flux Kontext)
   repeated string ref_images = 12;
+}
+
+message UpscaleImageRequest {
+  string src = 1;   // input image path
+  string dst = 2;   // output image path
+  int32  scale = 3; // upscale factor (e.g. 2 or 4)
 }
 
 message GenerateVideoRequest {
