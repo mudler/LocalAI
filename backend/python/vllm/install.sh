@@ -98,11 +98,15 @@ if [ "$(uname -s)" = "Darwin" ]; then
     # intel branch below relies on.
     pip install uv
 
-    # VERSION COUPLING (read before bumping vLLM!): vllm-metal pins this exact
-    # vLLM version and builds against its source tarball. It equals LocalAI's
-    # current vllm pin (see requirements-cublas13-after.txt: vllm==0.23.0). A
-    # vLLM bump on Linux MUST be coordinated with a vllm-metal release that
-    # supports the new version, or darwin builds will break.
+    # vllm-metal version pins -- AUTO-BUMPED by .github/bump_vllm_metal.sh, which
+    # tracks vllm-project/vllm-metal releases (NOT vllm/vllm latest). VLLM_METAL_VERSION
+    # is the vllm-metal release tag (its prebuilt wheel); VLLM_VERSION is the vLLM
+    # source version that release builds against (vllm-metal declares it as vllm_v=).
+    # They move in lockstep, so darwin can lag the Linux vllm pin
+    # (requirements-cublas13-after.txt, bumped independently against vllm/vllm) until
+    # vllm-metal supports a newer vLLM. Keep both as plain double-quoted assignments
+    # each on their own line so the bumper's sed can rewrite them.
+    VLLM_METAL_VERSION="v0.3.0.dev20260622062346"
     VLLM_VERSION="0.23.0"
 
     _vllm_src=$(mktemp -d)
@@ -122,14 +126,17 @@ if [ "$(uname -s)" = "Darwin" ]; then
         popd
     popd
 
-    # 2) Install the prebuilt vllm-metal wheel from its latest GitHub release.
-    #    It pulls mlx / mlx-metal as deps and registers the `metal` platform
-    #    plugin that backend.py resolves to at engine-init time.
-    _metal_wheel_url=$(curl -fsSL https://api.github.com/repos/vllm-project/vllm-metal/releases/latest \
+    # 2) Install the prebuilt vllm-metal wheel from the PINNED release
+    #    (${VLLM_METAL_VERSION}). It pulls mlx / mlx-metal as deps and registers
+    #    the `metal` platform plugin that backend.py resolves to at engine-init
+    #    time. Pinning the tag (vs releases/latest) keeps the wheel and the vLLM
+    #    source build above reproducible and coupled; .github/bump_vllm_metal.sh
+    #    advances both together.
+    _metal_wheel_url=$(curl -fsSL "https://api.github.com/repos/vllm-project/vllm-metal/releases/tags/${VLLM_METAL_VERSION}" \
         | grep -oE '"browser_download_url"[[:space:]]*:[[:space:]]*"[^"]+\.whl"' \
         | head -n1 | sed -E 's/.*"(https[^"]+)".*/\1/')
     if [ -z "${_metal_wheel_url}" ]; then
-        echo "ERROR: could not resolve a vllm-metal wheel URL from the latest GitHub release" >&2
+        echo "ERROR: could not resolve a vllm-metal wheel URL for release ${VLLM_METAL_VERSION}" >&2
         exit 1
     fi
     echo "Installing vllm-metal wheel: ${_metal_wheel_url}"
