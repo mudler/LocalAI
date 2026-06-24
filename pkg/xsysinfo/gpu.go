@@ -129,6 +129,61 @@ func TotalAvailableVRAM() (uint64, error) {
 	return 0, nil
 }
 
+// MinPerGPUVRAM returns the total VRAM of the SMALLEST GPU on the host (in
+// bytes), or 0 when no per-device VRAM is known. Unlike TotalAvailableVRAM
+// (which sums across devices) this reports a single device's ceiling, which is
+// the right figure for decisions about what must fit on one card: the compute
+// buffer (sized by n_ubatch) and the parallel-slot tier. Summing a multi-GPU
+// host's VRAM over-provisions those into a per-device OOM (issue #10485).
+//
+// Unified-memory devices (GB10, Apple) report system RAM as their single
+// device's VRAM, so they are unaffected.
+func MinPerGPUVRAM() (uint64, error) {
+	// Prefer per-device binary detection (nvidia-smi/rocm-smi report true
+	// per-card VRAM); ghw's per-card memory can reflect NUMA node RAM on some
+	// hosts, which is why TotalAvailableVRAM treats it as a sum.
+	if infos := GetGPUMemoryUsage(); len(infos) > 0 {
+		if v := minNonZeroVRAM(infos); v > 0 {
+			return v, nil
+		}
+	}
+
+	// Fallback: ghw per-card memory, taking the minimum non-zero card.
+	if gpus, err := GPUs(); err == nil {
+		var min uint64
+		for _, gpu := range gpus {
+			if gpu == nil || gpu.Node == nil || gpu.Node.Memory == nil {
+				continue
+			}
+			if b := gpu.Node.Memory.TotalUsableBytes; b > 0 {
+				if u := uint64(b); min == 0 || u < min {
+					min = u
+				}
+			}
+		}
+		if min > 0 {
+			return min, nil
+		}
+	}
+
+	return 0, nil
+}
+
+// minNonZeroVRAM returns the smallest non-zero TotalVRAM across the given GPUs,
+// or 0 when none report VRAM.
+func minNonZeroVRAM(infos []GPUMemoryInfo) uint64 {
+	var min uint64
+	for _, g := range infos {
+		if g.TotalVRAM == 0 {
+			continue
+		}
+		if min == 0 || g.TotalVRAM < min {
+			min = g.TotalVRAM
+		}
+	}
+	return min
+}
+
 func HasGPU(vendor string) bool {
 	gpus, err := GPUs()
 	if err != nil {

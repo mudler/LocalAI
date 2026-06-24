@@ -156,7 +156,10 @@ func applyNodeHardwareDefaults(opts *pb.ModelOptions, node *BackendNode) {
 		VRAM:              node.TotalVRAM,
 	}
 	if config.IsManagedPhysicalBatch(int(opts.NBatch)) {
-		opts.NBatch = int32(config.PhysicalBatch(gpu))
+		// Gate the raised batch on the selected node's per-device VRAM at this
+		// model's context, so a large context can't overflow the node's compute
+		// buffer (issue #10485). node.TotalVRAM is the node's reported ceiling.
+		opts.NBatch = int32(config.PhysicalBatchForContext(gpu, int(opts.ContextSize)))
 	}
 	// Default concurrent serving for the selected node (the frontend that built
 	// the options may have no GPU). Only adds when no parallel option is set.

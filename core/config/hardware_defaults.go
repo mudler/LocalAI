@@ -54,10 +54,63 @@ func (g GPU) IsNVIDIABlackwell() bool {
 	return maj >= 12
 }
 
+// Compute-buffer headroom guard for the raised physical batch.
+//
+// Raising n_ubatch grows the CUDA *compute buffer* (the scratch for the forward
+// graph), which is allocated PER DEVICE — it does not benefit from a second GPU
+// the way weights or KV (which are split across devices) do. The buffer scales
+// ~linearly with n_ubatch * n_ctx, so a large context turns the GB10-tuned
+// ub2048 into multi-GiB of extra scratch that must fit on a SINGLE card. On a
+// 16 GiB consumer Blackwell with a 200k context that overflows (issue #10485),
+// even though the GB10 it was measured on (128 GiB unified memory) had room.
+//
+// These constants size a conservative guard: only raise the batch when the
+// extra scratch fits the per-device VRAM ceiling.
+const (
+	// computeBufferBytesPerCell approximates the CUDA compute-buffer cost of one
+	// (n_ubatch * n_ctx) cell. Derived from an observed allocation (ub2048 *
+	// ctx204800 ~= 4.5 GiB => ~11 B/cell) and rounded up to 16 for margin, since
+	// the real cost also grows with model width (heads / embedding dim) which we
+	// don't know at config time.
+	computeBufferBytesPerCell = 16
+	// blackwellBatchHeadroomDivisor caps the extra compute buffer from raising the
+	// physical batch at VRAM/divisor. /4 keeps the bulk of a device for weights +
+	// KV, which already dominate VRAM use.
+	blackwellBatchHeadroomDivisor = 4
+)
+
 // PhysicalBatch returns the canonical physical batch (n_batch/n_ubatch) for the
-// given hardware, used when the model config leaves batch unset.
+// given hardware class, ignoring context/VRAM headroom. Use
+// PhysicalBatchForContext when a model context and per-device VRAM are known
+// (the load paths) so the raised batch can't overflow a single device.
 func PhysicalBatch(g GPU) int {
 	if g.IsNVIDIABlackwell() {
+		return BlackwellPhysicalBatch
+	}
+	return DefaultPhysicalBatch
+}
+
+// PhysicalBatchForContext is PhysicalBatch gated on per-device VRAM headroom for
+// the given context: it only raises the batch above the conservative default
+// when the extra compute buffer (which is allocated on a single device and grows
+// with n_ubatch * n_ctx) fits within blackwellBatchHeadroomDivisor of the GPU's
+// VRAM. g.VRAM must be the PER-DEVICE ceiling (the smallest device on a
+// multi-GPU host), not the summed total — the compute buffer can't be split.
+//
+// VRAM 0 (unknown) stays conservative rather than risk a per-device OOM; the
+// GB10 / unified-memory path reports system RAM, so it still clears the guard.
+func PhysicalBatchForContext(g GPU, ctx int) int {
+	if !g.IsNVIDIABlackwell() {
+		return DefaultPhysicalBatch
+	}
+	if ctx <= 0 {
+		ctx = DefaultContextSize
+	}
+	if g.VRAM == 0 {
+		return DefaultPhysicalBatch
+	}
+	extra := uint64(ctx) * uint64(BlackwellPhysicalBatch-DefaultPhysicalBatch) * computeBufferBytesPerCell
+	if extra <= g.VRAM/blackwellBatchHeadroomDivisor {
 		return BlackwellPhysicalBatch
 	}
 	return DefaultPhysicalBatch
@@ -122,7 +175,12 @@ func hasParallelOption(opts []string) bool {
 // deterministic device — detection does a live nvidia-smi call.
 var localGPU = func() GPU {
 	vendor, _ := xsysinfo.DetectGPUVendor()
-	vram, _ := xsysinfo.TotalAvailableVRAM()
+	// Use the SMALLEST device's VRAM, not the summed total: the parallel-slot
+	// tier and the batch headroom guard both reason about what fits on a single
+	// card, and per-device compute buffers can't be split across GPUs. Summing
+	// two 16 GiB cards into "32 GiB" is what over-provisioned multi-GPU hosts
+	// into OOM (issue #10485).
+	vram, _ := xsysinfo.MinPerGPUVRAM()
 	return GPU{
 		Vendor:            vendor,
 		ComputeCapability: xsysinfo.NVIDIAComputeCapability(),
@@ -137,10 +195,20 @@ func ApplyHardwareDefaults(cfg *ModelConfig, gpu GPU) {
 	if cfg == nil {
 		return
 	}
-	if cfg.Batch == 0 && gpu.IsNVIDIABlackwell() {
-		cfg.Batch = BlackwellPhysicalBatch
-		xlog.Debug("[hardware_defaults] Blackwell GPU: defaulting physical batch",
-			"batch", cfg.Batch, "compute_cap", gpu.ComputeCapability)
+	// Raise the physical batch on Blackwell only when the resulting compute
+	// buffer fits the per-device VRAM at THIS model's context. Leaving Batch at 0
+	// (rather than writing the default 512) preserves the downstream single-pass
+	// sizing in core/backend.EffectiveBatchSize for embedding/score/rerank.
+	if cfg.Batch == 0 {
+		ctx := DefaultContextSize
+		if cfg.ContextSize != nil {
+			ctx = *cfg.ContextSize
+		}
+		if PhysicalBatchForContext(gpu, ctx) == BlackwellPhysicalBatch {
+			cfg.Batch = BlackwellPhysicalBatch
+			xlog.Debug("[hardware_defaults] Blackwell GPU: defaulting physical batch",
+				"batch", cfg.Batch, "compute_cap", gpu.ComputeCapability, "context", ctx, "vram_gib", gpu.VRAM>>30)
+		}
 	}
 
 	// Enable concurrent serving by default on a capable GPU: without this the
