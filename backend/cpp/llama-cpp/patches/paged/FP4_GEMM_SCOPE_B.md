@@ -360,3 +360,173 @@ demonstrated GB10 FP4-efficiency envelope (~17–21%)**, with **no margin**, gat
 kill-gate. **MoE parity is not reachable from the GEMM alone** (ceiling ~76% of 811), because its floor
 sits in the hardest grouped-GEMM regime and ~24% of its step is non-GEMM. **Verdict: GO for dense
 (conditional, B+A), PARTIAL for MoE.**
+
+---
+
+## 9. Adversarial review (skeptical staff CUDA engineer, post-W4A16): the parity go / no-go
+
+Reviewer stance: I lived through the W4A16 GB10 effort that plateaued at ~9-15 TFLOP/s (~21% of the
+BF16 ceiling) after multi-week work and was STOPPED at the occupancy wall. I read this scope and the
+grounding (`QWEN36_NVFP4_BENCH`, `VLLM_DECODE_GROUNDING`, `GDN_DECODE_VERIFY`, `DECODE_GAP_STUDY`,
+`BLACKWELL_KERNEL_GAPS`, `W4A16_MARLIN_KERNEL_PLAN`) and stress-tested the verdict against them. Net:
+the plan is **directionally right and tractably scoped**, the kernel-approach decision (tune, do not
+rewrite) is correct, but the **"GO for dense, TRUE PARITY 96-103%" headline outruns its own caveats**.
+The honest landing is **dense ~80-90% (parity is the optimistic tail), MoE ~55-65% (parity not
+reachable from B)**. The decision to commit to B is nonetheless sound, for a reason the doc under-sells
+(low regret), and there is **one technical gap (TMA) and one sequencing error (A last) that must be
+fixed**.
+
+### 9.1 Is this the W4A16 wall again? No - and the batch-scaling signature proves why
+
+The decisive evidence the doc has but does not fully exploit is the **npl-sweep** (`QWEN36_NVFP4_BENCH`):
+dense llama-as-%-of-vLLM = **99 / 56 / 46 / 41** at npl 8 / 32 / 64 / 128. At **npl8 the kernels are at
+parity** (99%); the gap **opens monotonically as M grows**. Decompose this:
+
+- At M=8 the dense GEMM is weight-read-bound at the floor (~88 ms, same as batch-1). llama == vLLM there,
+  so **llama's FP4-MMA kernel demonstrably HITS the weight-read floor at small M.** This is the existence
+  proof the W4A16 path never had: it is a *working, floor-reaching* FP4-MMA kernel, not a greenfield
+  build stuck at 1/4 of MMQ.
+- At M=128 vLLM's GEMM **stays at ~88 ms** (flat: it amortizes the one weight read over 128 tokens and
+  hides the MMA behind the load), while **llama's balloons to 471 ms** (5.4x). llama **falls off the
+  floor** as M grows; vLLM **holds it**.
+
+So the problem is **not** "build a fast 4-bit GEMM from scratch on an occupancy-hostile part" (the dead
+W4A16 problem). It is **"keep a working FP4-MMA kernel on the bandwidth floor as the M-tile grows from 8
+to 128"** - a tune of a working path. **Verdict: this is NOT the W4A16 wall** (different regime, working
+path, dual existence proof at M=8 and from vLLM at M=128). **But it shares W4A16's one binding
+constraint:** holding the floor as M grows requires hiding LPDDR5x weight-load latency at the larger
+tile, which is the same occupancy / latency-hiding game GB10 historically loses. The doc is right that
+it is a different and more tractable regime; it under-states that the *binding risk is identical*.
+
+### 9.2 Why is vLLM 2.4x faster if both share 273 GB/s? Compute-side scheduling, and the gap is ~82% (not 100%) GEMM
+
+The load-bearing question, settled by 9.1: at M=128 the gap is **not** that vLLM beats the shared
+bandwidth floor - it is that **llama falls off the floor into self-inflicted compute/occupancy-bound
+territory while vLLM stays on it.** The lever is therefore latency-hiding at the M=128 tile
+(compute-side scheduling: occupancy, prefetch, tile shape), with the 273 GB/s weight-read floor as the
+hard target both engines share. This confirms the doc's roofline and its central claim that the kernel,
+not the hardware, is the limiter.
+
+**But the doc's "the entire 2.42x dense gap is the GEMM" is an ~82% truth, not a 100% one.** Decompose
+the dense step (numbers from the doc's own inputs):
+
+```
+llama step @npl128            795 ms   (decode_agg 161)
+vLLM step  @npl128            328 ms   (decode_agg 391)
+total gap                     467 ms
+
+llama GEMM                    471 ms
+vLLM GEMM (at the floor)      ~66-88 ms   (66 @273 GB/s spec, 88 @216 GB/s achieved)
+=> GEMM gap                   383-405 ms  = 82-87% of the 467 ms total gap
+=> non-GEMM gap                62-84 ms   = 13-18% of the total gap
+```
+
+So **B alone (GEMM -> floor) caps near ~80-84%** (step 412-390 ms = 311-328 t/s), **not parity.** Parity
+needs the non-GEMM 62-84 ms too: ~65 ms of it is track A's act-quant bucket, the residual ~0-19 ms is
+elementwise + host outside both A and B. This is the crux of the sequencing answer (9.6): **B is
+necessary but on its own lands ~80%; it is track A that tips dense over the parity line, not B.** The
+parity story is *entirely* contingent on A, which the P3 framing buries.
+
+### 9.3 The sharpest risk the doc misses: vLLM's existence proof uses the technique the doc forbids (TMA)
+
+vLLM holds the M=128 floor with **cutlass SM120 = TMA + a warp-specialized deep async producer/consumer
+pipeline** (Research 1). That deep pipeline is **exactly what the doc forbids on GB10** (rule 4.5: "do
+not add deep cp.async stages ... they collapsed W4A16"). So **B's chosen GB10-friendly route (`mmq_y`-down
+occupancy + a shallow 2-stage prefetch) is a different bet from the one that produced the existence
+proof.** Reaching the same floor by a friendlier route is plausible but **unproven**, and if the
+occupancy-only route plateaus short of the floor, B underperforms its target with no fallback in scope.
+
+The doc conflates two different things under "deep pipeline":
+- **manual `cp.async` + XOR-swizzle** - register/shared-hungry, **collapsed W4A16 occupancy on GB10**
+  (correctly banned).
+- **TMA (tensor-memory-accelerator) bulk async copy** - a single descriptor drives the copy, **far lower
+  register/occupancy cost**, and it is precisely how cutlass gets pipeline depth **without** the
+  occupancy hit (Research 1 says this explicitly). TMA is available on sm_120/121.
+
+**Recommendation (binding):** B must put a **TMA-driven weight feed in scope as a first-class P2 option**,
+not categorically forbid pipeline depth. The occupancy-only route is the right *first* experiment
+(cheapest, respects the W4A16 lesson), but if P2 plateaus below the floor, **TMA is the demonstrated way
+to get depth without the occupancy collapse** and is what the vLLM existence proof actually uses.
+Declaring the floor "unreachable" without trying TMA would repeat the W4A16 mistake in reverse:
+abandoning the path that works because the *manual* version of it failed.
+
+### 9.4 Tractability: bounded tune, confirmed - with the TMA caveat
+
+The proposed changes are genuinely **bounded and build-ready**, not a greenfield kernel:
+- **MoE arm = DEMONSTRATED tractable.** Patch 0015 already auto-caps `mmq_x` per-expert and is committed
+  and measured. Tightening to 8-16 + block-pad is the same lever, lower risk. This is real, banked
+  evidence that the "tune `mul_mat_q`" approach works on this exact kernel family.
+- **Dense arm = plausibly bounded.** `mmq_y`-down is a warp/fragment remap that touches the
+  `nwarps x tile_C::I == mmq_y` static_assert coupling, so it is a contained *kernel* edit (not a pure
+  host switch, as the doc itself notes). The host-only P1 knobs are zero-risk. The **prefetch piece is
+  where the residual occupancy risk lives** - and per 9.3, TMA belongs here.
+- **Rejecting (B) cutlass-rewrite and (C) BF16-Marlin-descent is correct.** Cutlass grouped FP4 is broken
+  on sm_121 (the reason vLLM itself falls to Marlin for MoE); BF16 Marlin concedes GB10's 2x FP4 edge.
+
+**Verdict: tractable, not greenfield.** The MoE arm is proven; the dense arm is a contained edit with a
+real but bounded occupancy risk, gated by the P2 kill-gate. The one scope gap is TMA (9.3).
+
+### 9.5 Honest expected outcome (the numbers I would defend)
+
+| | B alone | B + A (median) | B + A (optimistic, spec BW) | parity? |
+|---|---:|---:|---:|---|
+| **DENSE** (target 391) | ~80-84% (311-328 t/s) | **~92-95% (360-372 t/s)** | ~101% (394 t/s) | **optimistic tail only** |
+| **MoE** (target 811) | ~53-61% (431-498 t/s) | **~70-76% (570-618 t/s)** | 76% (618 t/s, CEILING) | **no** |
+
+Reconciliation with the doc: the doc's B+A = "96-103%" uses the **spec-BW (66 ms floor)** end. At the
+**achieved 216 GB/s (88 ms floor)** the same arithmetic gives **~94%**, and that still assumes B hits the
+floor. So the honest dense median is **~92-95%, with TRUE PARITY as the upside, not the expectation**,
+contingent on a conjunction of three things: (a) P2 clears the occupancy kill-gate to the floor, (b) the
+GB10-friendly *or* TMA feed actually reaches the cutlass floor (9.3), and (c) track A lands. Three ANDs =
+tail, not median.
+
+**The low-regret point the doc under-sells (and the real reason to commit):** even the *kill-gate-tripped*
+outcome is a large win. At the doc's own 15%-FP4-eff kill threshold (GEMM ~110 ms), B+A still lands
+**~89%** (step 369 ms); at a merely-partial occupancy win (eff 3% -> 5%, GEMM ~276 ms) B+A still lands
+**~61%**. Since the M=8 parity proof guarantees the floor is reachable in principle and patch 0015 proves
+the tune works, **getting *some* improvement at M=128 is high-probability; the only open question is how
+close to the floor.** So the outcome distribution is heavily positive (very likely 60-90%, possibly
+parity) with a bounded downside - B is **low-regret**, which matters more for the go decision than whether
+the parity tail hits.
+
+### 9.6 Sequencing vs track A: land A FIRST (the doc has this backwards)
+
+The doc runs A as a parallel track merging at **P3 (last)**. That is backwards for de-risking, for three
+reasons:
+1. **A defines B's interface.** B's "prequantized-MMQ consumer" consumes A's fused `block_fp4_mmq`
+   producer (the frozen struct in 4.4). Building B against a not-yet-landed producer means B's consumer
+   seam is speculative until P3.
+2. **A defines B's baseline and the kill-gate threshold.** A alone (act-fuse, folding the 65 ms /8.2%
+   bucket, plus any of the elementwise/host it captures) plausibly moves dense **41% -> ~50-55%** before
+   B touches a kernel. B's *true residual is the GEMM after A removed the act round-trip*, not the raw
+   59%. Running B's P2 against the stock 41% baseline mis-sizes the required GEMM speedup and the
+   <15%-eff kill-gate.
+3. **A is lower-risk and independently shippable.** It is the safe win; it should not wait behind the
+   risky kernel tune.
+
+**Recommendation:** land A (tasks 38-41) first, **re-measure** the decode_agg and the GEMM share
+post-A, **then** run B's P2 and recompute the kill-gate against the post-A number. This makes the
+make-or-break decision cheaper, better-informed, and bankable-either-way.
+
+### 9.7 Verdict (go / no-go)
+
+- **DENSE: CONDITIONAL GO - commit to B, but scope and message it as "close most of the GEMM gap"
+  (expected ~80-90%, parity the upside), NOT "true parity."** Justified because: the approach is
+  bounded/tractable (9.4), it is a working-path tune with a dual existence proof (9.1), and the outcome
+  is low-regret (9.5) - even a tripped kill-gate roughly doubles today's 41%. Conditions: (i) **land A
+  first** (9.6); (ii) **gate hard at P2** (eff < 15% -> stop chasing parity, but keep the partial win);
+  (iii) **put TMA in scope** as the floor-reaching fallback before declaring the floor unreachable (9.3).
+
+- **MoE: NO-GO for parity from B (confirmed).** The doc's ~76% ceiling is honest, arguably optimistic
+  (it assumes the ragged M~4/expert grouped GEMM hits its 80 ms floor, the hardest regime, where vLLM
+  ships purpose-built Marlin). Realistic B+A landing **~70-76%**, B alone ~55-61%. Still worth doing -
+  the `mmq_x`-down / block-pad work is cheap and partly landed (patch 0015) - but it must be sold as a
+  **1.7-1.85x win, not parity**; MoE parity is a **B-plus-non-GEMM** program (elementwise fusion, host
+  CUDA-graph, GDN bf16 state).
+
+- **One line for the parent:** GB10 can plausibly reach **dense** decode parity with vLLM only at the
+  **top of its FP4 envelope and only as B + A together** (B alone caps ~80%; A is what tips it over),
+  and **cannot** reach **MoE** parity from the GEMM track alone (ceiling ~76%). **Commit to B** as a
+  high-value, low-regret, bounded GEMM-gap-closing tune (honest expected landing **dense ~80-90%, MoE
+  ~55-65%**), **sequence track A first**, **gate at P2**, and **add a TMA weight-feed option** so the
+  occupancy-only route is not the only shot at the floor that vLLM's TMA pipeline demonstrably reaches.
