@@ -82,6 +82,7 @@
     "tier": {
       "cpu": "CPU-only",
       "gpu-small": "GPU",
+      "gpu-mid": "GPU",
       "gpu-large": "GPU"
     },
     "cpuNote": "No GPU detected — these small models stay responsive on CPU.",

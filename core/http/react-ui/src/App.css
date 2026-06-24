@@ -6409,6 +6409,9 @@ select.input {
   font-size: 0.875rem;
   word-break: break-all;
 }
+.home-starters-badge {
+  font-size: 0.625rem;
+}
 .home-starters-size {
   margin-left: auto;
   font-size: 0.75rem;

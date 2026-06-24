@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { modelsApi } from '../utils/api'
-import { useRecommendedModels } from '../hooks/useRecommendedModels'
+import { useRecommendedModels, isNvfp4Name } from '../hooks/useRecommendedModels'
 
 const DISMISS_KEY = 'localai_rec_models_dismissed'
 
@@ -61,6 +61,7 @@ export default function RecommendedModels({ addToast }) {
             <div key={m.name} className="rec-models-item">
               <div className="rec-models-item-name">{m.name}</div>
               <div className="rec-models-item-meta">
+                {isNvfp4Name(m.name) && <span className="badge badge-info">NVFP4</span>}
                 {m.sizeDisplay && <span>{m.sizeDisplay}</span>}
                 {isGpu && m.vramDisplay && (
                   <span className="rec-models-item-fit"><i className="fas fa-microchip" aria-hidden="true" /> {m.vramDisplay}</span>

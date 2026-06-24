@@ -16,28 +16,44 @@ import { useResources } from './useResources'
 const GB = 1024 * 1024 * 1024
 const DEFAULT_CTX = 4096
 
+// NVFP4 is a Blackwell/NVIDIA-specific 4-bit format — only worth suggesting on
+// NVIDIA hardware, and to be filtered out elsewhere.
+export const isNvfp4Name = (name) => /nvfp4/i.test(name || '')
+
+export function hasNvidiaGpu(resources) {
+  return Array.isArray(resources?.gpus) &&
+    resources.gpus.some(g => (g?.vendor || '').toLowerCase() === 'nvidia')
+}
+
 export function recommendTier(resources) {
   const isGpu = resources?.type === 'gpu'
   const vram = resources?.aggregate?.total_memory || 0
   if (!isGpu || vram <= 0) return { id: 'cpu', vram: 0 }
   if (vram < 8 * GB) return { id: 'gpu-small', vram }
+  if (vram < 24 * GB) return { id: 'gpu-mid', vram }
   return { id: 'gpu-large', vram }
 }
 
-function rank(candidates, tier, count) {
-  const withSize = candidates.filter(c => c.sizeBytes != null)
+function rank(candidates, tier, count, isNvidia) {
+  // NVFP4 only runs on NVIDIA (Blackwell) — drop it everywhere else, and prefer
+  // it on NVIDIA boxes where it's the fastest path.
+  const pool = candidates.filter(c => c.sizeBytes != null && (isNvidia || !isNvfp4Name(c.name)))
   if (tier.id === 'cpu') {
     // No GPU: smallest models stay responsive on CPU.
-    return [...withSize].sort((a, b) => a.sizeBytes - b.sizeBytes).slice(0, count)
+    return [...pool].sort((a, b) => a.sizeBytes - b.sizeBytes).slice(0, count)
   }
   const limit = tier.vram * 0.95
-  const fits = withSize.filter(c => c.vramBytes != null && c.vramBytes <= limit)
-  if (fits.length > 0) {
-    // Largest model that still fits VRAM is the best quality/speed trade.
-    return [...fits].sort((a, b) => b.sizeBytes - a.sizeBytes).slice(0, count)
+  const fits = pool.filter(c => c.vramBytes != null && c.vramBytes <= limit)
+  const base = fits.length > 0 ? fits : pool // tiny GPU where nothing fits → fall through to smallest
+  const byPreference = (a, b) => {
+    // On NVIDIA, surface NVFP4 first; then largest-that-fits (best quality).
+    if (isNvidia) {
+      const an = isNvfp4Name(a.name), bn = isNvfp4Name(b.name)
+      if (an !== bn) return an ? -1 : 1
+    }
+    return fits.length > 0 ? b.sizeBytes - a.sizeBytes : a.sizeBytes - b.sizeBytes
   }
-  // Tiny GPU where nothing in the pool fits — offer the smallest instead.
-  return [...withSize].sort((a, b) => a.sizeBytes - b.sizeBytes).slice(0, count)
+  return [...base].sort(byPreference).slice(0, count)
 }
 
 export function useRecommendedModels({ count = 4, candidatePool = 10 } = {}) {
@@ -47,6 +63,7 @@ export function useRecommendedModels({ count = 4, candidatePool = 10 } = {}) {
 
   const resReady = resources !== null
   const tier = recommendTier(resources)
+  const isNvidia = hasNvidiaGpu(resources)
 
   useEffect(() => {
     if (!resReady) return
@@ -76,7 +93,7 @@ export function useRecommendedModels({ count = 4, candidatePool = 10 } = {}) {
           }
         }))
         if (cancelled) return
-        setRecommended(rank(estimated, tier, count))
+        setRecommended(rank(estimated, tier, count, isNvidia))
       } catch (e) {
         if (cancelled) return
         setError(e.message)
@@ -84,8 +101,8 @@ export function useRecommendedModels({ count = 4, candidatePool = 10 } = {}) {
       }
     })()
     return () => { cancelled = true }
-    // tier.id / tier.vram are primitives, so resource polling doesn't re-run this.
-  }, [resReady, tier.id, tier.vram, count, candidatePool])
+    // tier.id / tier.vram / isNvidia are primitives, so resource polling doesn't re-run this.
+  }, [resReady, tier.id, tier.vram, isNvidia, count, candidatePool])
 
-  return { recommended, tier, error, loading: recommended === null }
+  return { recommended, tier, isNvidia, error, loading: recommended === null }
 }
