@@ -295,3 +295,53 @@ attention. `patches/paged/0018` stays free. Evidence on the DGX:
 `~/bench/a2_decompose/decode_decomp.txt` (per-kernel table + reproducing SQL in
 its header), `~/bench/a2_decompose/SUMMARY.txt`, and the Phase-1 reps
 `~/bench/a2_nsys/paged_off_npl128.sqlite` / `paged_on_npl128_node.sqlite`.
+
+# A.2 final synthesis - the four-point verdict
+
+All numbers measured on the DGX (GB10, sm_121, q36-27b-nvfp4 dense, fusion OFF,
+`decode_agg` = `S_TG t/s`), npl 128 unless noted.
+
+**1. CUDA-graph lever size (measured, not guessed).** +0.13% (4-cell, stock
+ON-vs-OFF) to +0.78% (fresh paged re-check) at npl 128; +1.1% to +1.4% at npl 32.
+All inside run-to-run noise. The earlier grounding GUESSED ~10-20% from a
+94.6%-busy reading; direct measurement puts the steady decode at 99.4-99.5% busy,
+so the real graph ceiling is < 1%, not 10-20%. The guess was wrong because the
+busy-fraction it rested on was under-read (a graphs-ON nsys trace under-counts
+GPU-busy unless `--cuda-graph-trace=node` is set - trap #2).
+
+**2. Was "paged decode runs eager" fixed, and what is the decode_agg win?**
+There was nothing to fix: the premise was false. At the benchmarked context the
+DEFAULT in-kernel paged decode already captures and replays graphs, with a
+256-token reset cadence identical to stock non-paged (10 complete / 8 reset over
+~320 steps, resets clustered only at the 256/512 token boundaries). "graphs
+reused=0" was a uid fast-path false negative, not eager execution (trap #1). The
+only genuinely-eager path is the `LLAMA_KV_PAGED_GATHER=1` fallback (unpadded
+index grows every step), which is not the default decode. Because graphs were
+already engaged, the decode_agg win from "enabling" them is ~0 (+0.1% to +0.8%).
+Graphs DID collapse within-step launch idle (0.37% -> 0.11%, ~80k -> ~15k
+launches/run), but the GPU stays 99.4-99.5% busy, so throughput is unchanged.
+
+**3. New llama %-of-vLLM @npl128.** Unchanged by A.2: 146-148.6 t/s vs vLLM 391 =
+**37.3-38.0%**. Graphs ON vs OFF both land here (146.03 / 144.90 in the fresh
+re-check; 148.41 / 148.21 in the 4-cell). A.2 did not move the percentage.
+
+**4. Honest verdict - did A.2 move toward parity; residual + next lever.** No.
+A.2 closed zero of the 2.6x gap, and it provably cannot on this model: paged /
+full attention is ~0.4% of decode (16 full-attention layers vs 48 gated-DeltaNet
+layers, a 3:1 hybrid SSM), so no graph / block-table / gather change to the paged
+path can move decode_agg. The residual gap is structural and lives elsewhere:
+~67% of decode is gated-DeltaNet / SSM state plumbing (23.4% recurrence + 21.9%
+get_rows state gather + 18.9% D2D recurrent-state copy of ~230 MB per SSM layer
+per step, ~18 GB/step), and ~28% is FP4 matmul (already shown secondary by Track
+B: a 26%-faster GEMM left decode_agg flat). The within-step launch loop is solved
+(graphs) and the between-step host loop is a 0.24% second-order floor hidden under
+GPU compute - neither is the residual.
+
+The next lever is NOT in this track. It is the ggml qwen35 gated-DeltaNet decode:
+(1) eliminate the per-layer recurrent-state D2D copy (in-place / double-buffer
+write-back), and (2) fuse the get_rows gather into the recurrent kernel - mirroring
+vLLM's `fused_recurrent_gated_delta_rule`, which keeps the state in place and
+fuses the gather. Measured ceiling on this rep: remove the copy -> ~146 to ~180
+t/s; remove copy + gather -> ~146 to ~247 t/s (within ~1.6x of vLLM with FP4 GEMM
+still untouched). That work is orthogonal to paged attention; `patches/paged/0018`
+stays free.
