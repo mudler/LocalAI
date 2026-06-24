@@ -3,24 +3,7 @@
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
     - https://huggingface.co/LiquidAI/LFM2.5-1.2B-Instruct-GGUF
-  description: |
-    Try LFM • Docs • LEAP • Discord
-
-    # LFM2.5-1.2B-Instruct
-
-    LFM2.5 is a new family of hybrid models designed for **on-device deployment**. It builds on the LFM2 architecture with extended pre-training and reinforcement learning.
-
-      - **Best-in-class performance**: A 1.2B model rivaling much larger models, bringing high-quality AI to your pocket.
-      - **Fast edge inference**: 239 tok/s decode on AMD CPU, 82 tok/s on mobile NPU. Runs under 1GB of memory with day-one support for llama.cpp, MLX, and vLLM.
-      - **Scaled training**: Extended pre-training from 10T to 28T tokens and large-scale multi-stage reinforcement learning.
-
-    Find more information about LFM2.5 in our blog post.
-
-    ## 🗒️ Model Details
-
-    LFM2.5-1.2B-Instruct is a general-purpose text-only model with the following features:
-
-    ...
+  description: "Try LFM • Docs • LEAP • Discord\n\n# LFM2.5-1.2B-Instruct\n\nLFM2.5 is a new family of hybrid models designed for **on-device deployment**. It builds on the LFM2 architecture with extended pre-training and reinforcement learning.\n\n  - **Best-in-class performance**: A 1.2B model rivaling much larger models, bringing high-quality AI to your pocket.\n  - **Fast edge inference**: 239 tok/s decode on AMD CPU, 82 tok/s on mobile NPU. Runs under 1GB of memory with day-one support for llama.cpp, MLX, and vLLM.\n  - **Scaled training**: Extended pre-training from 10T to 28T tokens and large-scale multi-stage reinforcement learning.\n\nFind more information about LFM2.5 in our blog post.\n\n## \U0001F5D2️ Model Details\n\nLFM2.5-1.2B-Instruct is a general-purpose text-only model with the following features:\n\n...\n"
   license: "other"
   tags:
     - llm
@@ -842,8 +825,8 @@
       use_tokenizer_template: true
   files:
     - filename: llama-cpp/models/Qwopus3.6-27B-Coder-MTP-GGUF/Qwopus3.6-27B-Coder-MTP-Q4_K_M.gguf
-      sha256: b2898667ed7b2388f0ab7691393833ae777f247492bbe62fdb4b2bd3e3cf3f79
       uri: https://huggingface.co/Jackrong/Qwopus3.6-27B-Coder-MTP-GGUF/resolve/main/Qwopus3.6-27B-Coder-MTP-Q4_K_M.gguf
+      sha256: b2b9180093496da2e00439e3fa23227c591355901bfa579bc6897bbc01b755ef
     - filename: llama-cpp/mmproj/Qwopus3.6-27B-Coder-MTP-GGUF/mmproj-F32.gguf
       sha256: 32f7ea0600c07272547da401d460f8abbd980f3a57b69d6df87be0e2505e0b9c
       uri: https://huggingface.co/Jackrong/Qwopus3.6-27B-Coder-MTP-GGUF/resolve/main/mmproj-F32.gguf

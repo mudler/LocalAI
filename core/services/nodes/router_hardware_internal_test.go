@@ -8,10 +8,17 @@ import (
 )
 
 var _ = Describe("applyNodeHardwareDefaults", func() {
-	It("raises a managed default batch on a Blackwell node", func() {
-		opts := &pb.ModelOptions{NBatch: config.DefaultPhysicalBatch}
-		applyNodeHardwareDefaults(opts, &BackendNode{GPUComputeCapability: "12.1"})
+	It("raises a managed default batch on a Blackwell node with headroom", func() {
+		opts := &pb.ModelOptions{NBatch: config.DefaultPhysicalBatch, ContextSize: 8192}
+		applyNodeHardwareDefaults(opts, &BackendNode{GPUComputeCapability: "12.1", TotalVRAM: 119 << 30})
 		Expect(opts.NBatch).To(BeEquivalentTo(config.BlackwellPhysicalBatch))
+	})
+
+	It("keeps the default batch when a large context would overflow the node", func() {
+		// Regression guard for issue #10485 on the distributed path.
+		opts := &pb.ModelOptions{NBatch: config.DefaultPhysicalBatch, ContextSize: 204800}
+		applyNodeHardwareDefaults(opts, &BackendNode{GPUComputeCapability: "12.0", TotalVRAM: 16 << 30})
+		Expect(opts.NBatch).To(BeEquivalentTo(config.DefaultPhysicalBatch))
 	})
 
 	It("resets a Blackwell guess on a non-Blackwell node", func() {

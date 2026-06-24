@@ -16,6 +16,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"runtime"
 	"strings"
 	"time"
 	"unicode"
@@ -943,7 +944,13 @@ func InitializeONNXRuntime() error {
 			}
 		}
 		if libPath == "" {
-			libPath = "/usr/local/lib/libonnxruntime.so"
+			// LocalAI: default to the platform-native shared library
+			// extension when nothing else is found (dyld vs ld.so).
+			if runtime.GOOS == "darwin" {
+				libPath = "/usr/local/lib/libonnxruntime.dylib"
+			} else {
+				libPath = "/usr/local/lib/libonnxruntime.so"
+			}
 		}
 	}
 	ort.SetSharedLibraryPath(libPath)
