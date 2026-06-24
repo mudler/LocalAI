@@ -7,6 +7,8 @@ import (
 )
 
 var _ = Describe("Hardware-driven config defaults", func() {
+	const gib = uint64(1) << 30
+
 	DescribeTable("GPU.IsNVIDIABlackwell (sm_12x consumer family)",
 		func(cc string, want bool) {
 			Expect(GPU{ComputeCapability: cc}.IsNVIDIABlackwell()).To(Equal(want))
@@ -35,29 +37,60 @@ var _ = Describe("Hardware-driven config defaults", func() {
 		})
 	})
 
+	Describe("PhysicalBatchForContext (per-device VRAM headroom)", func() {
+		It("raises the batch when the compute buffer fits the device", func() {
+			// 16 GiB Blackwell with a small context: the extra scratch is tiny.
+			Expect(PhysicalBatchForContext(GPU{ComputeCapability: "12.0", VRAM: 16 * gib}, 8192)).
+				To(Equal(BlackwellPhysicalBatch))
+		})
+		It("keeps the default batch when a large context would overflow one device", func() {
+			// The issue #10485 case: 16 GiB consumer Blackwell, ~200k context.
+			Expect(PhysicalBatchForContext(GPU{ComputeCapability: "12.0", VRAM: 16 * gib}, 204800)).
+				To(Equal(DefaultPhysicalBatch))
+		})
+		It("still raises the batch on a large unified-memory device (GB10)", func() {
+			// GB10 reports system RAM (~119 GiB) as its single device's VRAM.
+			Expect(PhysicalBatchForContext(GPU{ComputeCapability: "12.1", VRAM: 119 * gib}, 204800)).
+				To(Equal(BlackwellPhysicalBatch))
+		})
+		It("stays conservative when VRAM is unknown", func() {
+			Expect(PhysicalBatchForContext(GPU{ComputeCapability: "12.1"}, 8192)).
+				To(Equal(DefaultPhysicalBatch))
+		})
+		It("never raises the batch on non-Blackwell", func() {
+			Expect(PhysicalBatchForContext(GPU{ComputeCapability: "9.0", VRAM: 80 * gib}, 8192)).
+				To(Equal(DefaultPhysicalBatch))
+		})
+	})
+
 	Describe("ApplyHardwareDefaults", func() {
-		It("raises an unset batch to 2048 on Blackwell", func() {
+		It("raises an unset batch to 2048 on Blackwell with headroom", func() {
 			cfg := &ModelConfig{}
-			ApplyHardwareDefaults(cfg, GPU{ComputeCapability: "12.1"})
+			ApplyHardwareDefaults(cfg, GPU{ComputeCapability: "12.1", VRAM: 119 * gib})
 			Expect(cfg.Batch).To(Equal(BlackwellPhysicalBatch))
+		})
+		It("leaves batch unset when a large context would overflow one device", func() {
+			// Regression guard for issue #10485: 16 GiB card + ~200k context.
+			ctx := 204800
+			cfg := &ModelConfig{LLMConfig: LLMConfig{ContextSize: &ctx}}
+			ApplyHardwareDefaults(cfg, GPU{ComputeCapability: "12.0", VRAM: 16 * gib})
+			Expect(cfg.Batch).To(Equal(0))
 		})
 		It("leaves batch unset on non-Blackwell", func() {
 			cfg := &ModelConfig{}
-			ApplyHardwareDefaults(cfg, GPU{ComputeCapability: "9.0"})
+			ApplyHardwareDefaults(cfg, GPU{ComputeCapability: "9.0", VRAM: 119 * gib})
 			Expect(cfg.Batch).To(Equal(0))
 		})
 		It("never overrides an explicit batch", func() {
 			cfg := &ModelConfig{}
 			cfg.Batch = 1024
-			ApplyHardwareDefaults(cfg, GPU{ComputeCapability: "12.1"})
+			ApplyHardwareDefaults(cfg, GPU{ComputeCapability: "12.1", VRAM: 119 * gib})
 			Expect(cfg.Batch).To(Equal(1024))
 		})
 		It("no-ops on nil", func() {
 			Expect(func() { ApplyHardwareDefaults(nil, GPU{ComputeCapability: "12.1"}) }).ToNot(Panic())
 		})
 	})
-
-	const gib = uint64(1) << 30
 
 	DescribeTable("DefaultParallelSlots (by VRAM)",
 		func(vramGiB uint64, want int) {
