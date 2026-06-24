@@ -1204,11 +1204,6 @@ func (cfg *ModelConfig) SetDefaults(opts ...ConfigLoaderOption) {
 	// This ensures gallery-installed and runtime-loaded models get optimal parameters.
 	ApplyInferenceDefaults(cfg, cfg.Name, cfg.Model)
 
-	// Apply hardware-driven defaults (e.g. a larger physical batch on Blackwell).
-	// Uses the local GPU here; in distributed mode the router re-applies the same
-	// heuristics for the selected node's GPU before loading. Explicit config wins.
-	ApplyHardwareDefaults(cfg, localGPU())
-
 	// Apply serving-policy defaults (device-independent): cross-request prefix
 	// caching. Propagates to distributed nodes via the model options.
 	ApplyServingDefaults(cfg)
@@ -1247,6 +1242,16 @@ func (cfg *ModelConfig) SetDefaults(opts ...ConfigLoaderOption) {
 		cfg.ContextSize = &ctx
 	}
 	runBackendHooks(cfg, lo.modelPath)
+
+	// Apply hardware-driven defaults (e.g. a larger physical batch on Blackwell)
+	// LAST, after the context size is fully resolved (explicit config, LoadOptions,
+	// then the GGUF guess inside runBackendHooks): the Blackwell batch guard sizes
+	// the per-device compute buffer against this model's context, so it must see
+	// the final value, not a pre-guess nil. Uses the local GPU here; in distributed
+	// mode the router re-applies the same heuristics for the selected node's GPU
+	// before loading. Explicit config always wins.
+	ApplyHardwareDefaults(cfg, localGPU())
+
 	cfg.syncKnownUsecasesFromString()
 }
 

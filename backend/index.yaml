@@ -1285,6 +1285,7 @@
     nvidia-cuda-13: "cuda13-liquid-audio"
     nvidia-cuda-12: "cuda12-liquid-audio"
     nvidia-l4t-cuda-13: "cuda13-nvidia-l4t-arm64-liquid-audio"
+    metal: "metal-liquid-audio"
   icon: https://cdn-avatars.huggingface.co/v1/production/uploads/61b8e2ba285851687028d395/7_6D7rWrLxp2hb6OHSV1p.png
 - &qwen-tts
   urls:
@@ -1570,6 +1571,7 @@
     - TTS
   capabilities:
     default: "cpu-supertonic"
+    metal: "metal-supertonic"
 - !!merge <<: *neutts
   name: "neutts-development"
   capabilities:
@@ -4624,6 +4626,7 @@
     nvidia-cuda-13: "cuda13-liquid-audio-development"
     nvidia-cuda-12: "cuda12-liquid-audio-development"
     nvidia-l4t-cuda-13: "cuda13-nvidia-l4t-arm64-liquid-audio-development"
+    metal: "metal-liquid-audio-development"
 - !!merge <<: *liquid-audio
   name: "cpu-liquid-audio"
   uri: "quay.io/go-skynet/local-ai-backends:latest-cpu-liquid-audio"
@@ -4634,6 +4637,16 @@
   uri: "quay.io/go-skynet/local-ai-backends:master-cpu-liquid-audio"
   mirrors:
     - localai/localai-backends:master-cpu-liquid-audio
+- !!merge <<: *liquid-audio
+  name: "metal-liquid-audio"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-metal-darwin-arm64-liquid-audio"
+  mirrors:
+    - localai/localai-backends:latest-metal-darwin-arm64-liquid-audio
+- !!merge <<: *liquid-audio
+  name: "metal-liquid-audio-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-metal-darwin-arm64-liquid-audio"
+  mirrors:
+    - localai/localai-backends:master-metal-darwin-arm64-liquid-audio
 - !!merge <<: *liquid-audio
   name: "cuda12-liquid-audio"
   uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-nvidia-cuda-12-liquid-audio"
@@ -5496,6 +5509,7 @@
   name: "supertonic-development"
   capabilities:
     default: "cpu-supertonic-development"
+    metal: "metal-supertonic-development"
 - !!merge <<: *supertonic
   name: "cpu-supertonic"
   uri: "quay.io/go-skynet/local-ai-backends:latest-cpu-supertonic"
@@ -5506,3 +5520,13 @@
   uri: "quay.io/go-skynet/local-ai-backends:master-cpu-supertonic"
   mirrors:
     - localai/localai-backends:master-cpu-supertonic
+- !!merge <<: *supertonic
+  name: "metal-supertonic"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-metal-darwin-arm64-supertonic"
+  mirrors:
+    - localai/localai-backends:latest-metal-darwin-arm64-supertonic
+- !!merge <<: *supertonic
+  name: "metal-supertonic-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-metal-darwin-arm64-supertonic"
+  mirrors:
+    - localai/localai-backends:master-metal-darwin-arm64-supertonic
