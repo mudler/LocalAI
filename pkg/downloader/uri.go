@@ -342,6 +342,13 @@ func (s URI) ResolveURL() string {
 // so the next run resumes via Range instead of restarting from zero.
 var ErrUserCancelled = errors.New("download cancelled by user")
 
+// ErrUserPaused is returned when the download is paused by the user. Unlike
+// ErrUserCancelled, the .partial file is preserved so a subsequent Resume
+// call can continue from where it left off via Range. Callers should check
+// for this error with errors.Is and treat it as a transient suspension, not a
+// terminal failure.
+var ErrUserPaused = errors.New("download paused by user")
+
 func removePartialFile(tmpFilePath string) error {
 	xlog.Debug("Removing temporary file", "file", tmpFilePath)
 	if err := os.Remove(tmpFilePath); err != nil && !errors.Is(err, os.ErrNotExist) {
@@ -349,7 +356,22 @@ func removePartialFile(tmpFilePath string) error {
 		xlog.Warn("failed to remove temporary download file", "error", err1)
 		return err1
 	}
+	// Also clean up the sidecar metadata file if present.
+	RemovePartialSidecar(tmpFilePath)
 	return nil
+}
+
+// writePartialSidecarMetadata writes the .partial.json sidecar next to a
+// paused download. The model_id is extracted from ctx (set by the gallery
+// layer); if absent the sidecar carries "unknown".
+func writePartialSidecarMetadata(ctx context.Context, tmpFilePath, url string) {
+	modelID, _ := ctx.Value(ctxKeyModelID).(string)
+	if modelID == "" {
+		modelID = "unknown"
+	}
+	if err := WritePartialSidecar(tmpFilePath, url, modelID); err != nil {
+		xlog.Warn("Failed to write download sidecar", "file", tmpFilePath+".json", "error", err)
+	}
 }
 
 func calculateHashForPartialFile(file *os.File) (hash.Hash, error) {
@@ -613,8 +635,13 @@ func (uri URI) DownloadFileWithContext(ctx context.Context, filePath, sha string
 			// take long enough that deleting progress means they never finish —
 			// but discard it on a deliberate user abort (ErrUserCancelled).
 			if ctx.Err() != nil {
-				if errors.Is(context.Cause(ctx), ErrUserCancelled) {
+				cause := context.Cause(ctx)
+				if errors.Is(cause, ErrUserCancelled) {
 					_ = removePartialFile(tmpFilePath)
+				}
+				if errors.Is(cause, ErrUserPaused) {
+					writePartialSidecarMetadata(ctx, tmpFilePath, url)
+					return ErrUserPaused
 				}
 				return ctx.Err()
 			}
@@ -634,6 +661,11 @@ func (uri URI) DownloadFileWithContext(ctx context.Context, filePath, sha string
 			source = newIdleTimeoutReader(resp.Body, DownloadStallTimeout)
 		}
 		contentLength = resp.ContentLength
+	}
+	// Wrap with a rate limiter if one is attached to the context. The limiter
+	// is shared and dynamically adjustable, so reads honour the latest rate.
+	if rl, ok := ctx.Value(ctxKeyRateLimiter).(*DynamicRateLimiter); ok {
+		source = newRateLimitedReader(source, rl)
 	}
 	defer source.Close()
 
@@ -671,8 +703,13 @@ func (uri URI) DownloadFileWithContext(ctx context.Context, filePath, sha string
 		// it. A stall-guard abort leaves ctx uncancelled, so it falls through
 		// to the error path below and likewise preserves the partial.
 		if ctx.Err() != nil {
-			if errors.Is(context.Cause(ctx), ErrUserCancelled) {
+			cause := context.Cause(ctx)
+			if errors.Is(cause, ErrUserCancelled) {
 				_ = removePartialFile(tmpFilePath)
+			}
+			if errors.Is(cause, ErrUserPaused) {
+				writePartialSidecarMetadata(ctx, tmpFilePath, url)
+				return ErrUserPaused
 			}
 			return ctx.Err()
 		}
@@ -683,8 +720,13 @@ func (uri URI) DownloadFileWithContext(ctx context.Context, filePath, sha string
 	// unless the user deliberately aborted.
 	select {
 	case <-ctx.Done():
-		if errors.Is(context.Cause(ctx), ErrUserCancelled) {
+		cause := context.Cause(ctx)
+		if errors.Is(cause, ErrUserCancelled) {
 			_ = removePartialFile(tmpFilePath)
+		}
+		if errors.Is(cause, ErrUserPaused) {
+			writePartialSidecarMetadata(ctx, tmpFilePath, url)
+			return ErrUserPaused
 		}
 		return ctx.Err()
 	default:
@@ -713,6 +755,8 @@ func (uri URI) DownloadFileWithContext(ctx context.Context, filePath, sha string
 	if err != nil {
 		return fmt.Errorf("failed to rename temporary file %s -> %s: %v", tmpFilePath, filePath, err)
 	}
+	// Download succeeded — the .partial is gone, so the sidecar is stale.
+	RemovePartialSidecar(tmpFilePath)
 
 	xlog.Info("File downloaded and verified", "file", filePath)
 	if utils.IsArchive(filePath) {
