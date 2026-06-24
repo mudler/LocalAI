@@ -1,0 +1,16 @@
+---
+name: "cajal"
+
+config_file: |
+  backend: llama-cpp
+  context_size: 32768
+  known_usecases:
+    - chat
+    - completion
+  function:
+    grammar:
+      disable: true
+  options:
+    - use_jinja:true
+  template:
+    use_tokenizer_template: true
