@@ -227,4 +227,46 @@ var _ = Describe("BaseURL", func() {
 			Expect(actualURL).To(Equal("http://example.com/"))
 		})
 	})
+
+	Context("parseForwarded helper", func() {
+		It("parses unquoted proto and host", func() {
+			proto, host := parseForwarded("for=192.0.2.1;proto=https;host=h.example")
+			Expect(proto).To(Equal("https"))
+			Expect(host).To(Equal("h.example"))
+		})
+
+		It("strips quotes around values", func() {
+			proto, host := parseForwarded(`proto="https";host="h.example"`)
+			Expect(proto).To(Equal("https"))
+			Expect(host).To(Equal("h.example"))
+		})
+
+		It("uses only the first element of a multi-element header", func() {
+			proto, host := parseForwarded("proto=https;host=first.example, proto=http;host=second.example")
+			Expect(proto).To(Equal("https"))
+			Expect(host).To(Equal("first.example"))
+		})
+
+		It("returns empty strings for an empty header", func() {
+			proto, host := parseForwarded("")
+			Expect(proto).To(BeEmpty())
+			Expect(host).To(BeEmpty())
+		})
+
+		It("skips directives without a value", func() {
+			proto, host := parseForwarded("proto;host=h.example")
+			Expect(proto).To(BeEmpty())
+			Expect(host).To(Equal("h.example"))
+		})
+	})
+
+	Context("firstToken helper", func() {
+		It("returns the whole trimmed string when there is no comma", func() {
+			Expect(firstToken("  https  ")).To(Equal("https"))
+		})
+
+		It("returns the first trimmed token when there is a comma", func() {
+			Expect(firstToken("https , http")).To(Equal("https"))
+		})
+	})
 })
