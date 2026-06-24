@@ -24,10 +24,9 @@ if [ "${TARGETARCH}" = "arm64" ] || [ "${BUILD_TYPE}" = "hipblas" ]; then
   make llama-cpp-rpc-server
 else
   cd /LocalAI/backend/cpp/llama-cpp
-  make llama-cpp-avx
-  make llama-cpp-avx2
-  make llama-cpp-avx512
-  make llama-cpp-fallback
+  # x86: single build with ggml CPU_ALL_VARIANTS replaces the avx/avx2/avx512/fallback
+  # set. ggml selects the right libggml-cpu-*.so at runtime by probing host CPU features.
+  make llama-cpp-cpu-all
   make llama-cpp-grpc
   make llama-cpp-rpc-server
 fi

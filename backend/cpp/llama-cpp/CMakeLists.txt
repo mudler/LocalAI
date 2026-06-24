@@ -50,8 +50,13 @@ add_custom_command(
         "${hw_proto}"
       DEPENDS "${hw_proto}")
 
-# hw_grpc_proto
-add_library(hw_grpc_proto
+# hw_grpc_proto: force STATIC. Under the CPU_ALL_VARIANTS build BUILD_SHARED_LIBS=ON
+# (ggml/llama become shared), which would otherwise make this glue library a DSO. As a
+# DSO it references the hidden-visibility symbols in the static libprotobuf.a, which the
+# linker cannot satisfy ("hidden symbol ... in libprotobuf.a is referenced by DSO").
+# Keeping it STATIC links protobuf/gRPC directly into the grpc-server executable while
+# only ggml/llama stay shared. No effect on the static variants (already BUILD_SHARED_LIBS=OFF).
+add_library(hw_grpc_proto STATIC
   ${hw_grpc_srcs}
   ${hw_grpc_hdrs}
   ${hw_proto_srcs}
