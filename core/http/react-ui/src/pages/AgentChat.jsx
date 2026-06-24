@@ -765,8 +765,10 @@ export default function AgentChat() {
             className="chat-send-btn"
             onClick={handleSend}
             disabled={processing || !input.trim()}
+            aria-label="Send message"
+            title="Send message"
           >
-            <i className="fas fa-paper-plane" />
+            <i className="fas fa-paper-plane" aria-hidden="true" />
           </button>
         </div>
       </div>

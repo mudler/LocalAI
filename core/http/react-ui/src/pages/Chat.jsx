@@ -1427,8 +1427,10 @@ export default function Chat() {
                 className="chat-send-btn"
                 onClick={handleSend}
                 disabled={!input.trim() && files.length === 0}
+                aria-label={t('input.send')}
+                title={t('input.send')}
               >
-                <i className="fas fa-paper-plane" />
+                <i className="fas fa-paper-plane" aria-hidden="true" />
               </button>
             )}
           </div>
