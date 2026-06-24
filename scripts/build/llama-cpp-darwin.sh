@@ -24,17 +24,19 @@ cp -rf backend/cpp/llama-cpp/llama-cpp-cpu-all build/darwin/
 cp -rf backend/cpp/llama-cpp/llama-cpp-grpc build/darwin/
 cp -rf backend/cpp/llama-cpp/llama-cpp-rpc-server build/darwin/
 
-# Distribute the shared ggml/llama dylibs from the CPU_ALL_VARIANTS build. Unlike the old
-# fully-static fallback build, these are real dylibs with @rpath install names, so the
-# otool loop below (which only copies deps that exist on disk) will not pick them up.
-#  - the per-microarch libggml-cpu-*.dylib go in the package ROOT, next to the binary,
-#    because on darwin run.sh execs the binary directly (no bundled ld.so) and ggml
-#    discovers CPU backends by scanning the executable's own directory.
-#  - everything else (libggml-base/libggml/libllama/libmtmd/libggml-metal/...) goes in
-#    lib/, resolved at load time via the DYLD_LIBRARY_PATH=lib that run.sh exports.
+# Distribute the shared ggml/llama libraries from the CPU_ALL_VARIANTS build. Unlike the
+# old fully-static fallback build, these have @rpath install names, so the otool loop below
+# (which only copies deps that exist on disk) will not pick them up. The split is by suffix:
+#  - ggml emits its loadable backends (per-microarch CPU variants, metal, blas) with a .so
+#    suffix EVEN ON DARWIN. These go in the package ROOT next to the binary, because darwin
+#    run.sh execs the binary directly (no bundled ld.so) so ggml's executable-directory
+#    scan looks there.
+#  - the core libraries (libggml-base/libggml/libllama/libllama-common/libmtmd) use the
+#    platform .dylib suffix and are NEEDED deps; they go in lib/, resolved at load time via
+#    the DYLD_LIBRARY_PATH=lib that run.sh exports. -a preserves the version symlinks.
 SHLIBS=backend/cpp/llama-cpp/ggml-shared-libs
-cp -rfv $SHLIBS/libggml-cpu-*.dylib build/darwin/
-find $SHLIBS -name '*.dylib' ! -name 'libggml-cpu-*.dylib' -exec cp -rfv {} build/darwin/lib/ \;
+cp -a $SHLIBS/*.so build/darwin/
+cp -a $SHLIBS/*.dylib build/darwin/lib/
 
 # Set default additional libs only for Darwin on M chips (arm64)
 if [[ "$(uname -s)" == "Darwin" && "$(uname -m)" == "arm64" ]]; then
