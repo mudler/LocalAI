@@ -1,6 +1,6 @@
 # face-detect backend Makefile.
 #
-# Upstream pin lives below as FACEDETECT_VERSION?=0a4799a... (.github/bump_deps.sh
+# Upstream pin lives below as FACEDETECT_VERSION?=6107a24... (.github/bump_deps.sh
 # can find and update it - matches the voice-detect / parakeet.cpp / whisper.cpp
 # convention).
 #
@@ -14,7 +14,7 @@
 # The default target below does the proper clone-at-pin + cmake build so CI does
 # not need a side-checkout.
 
-FACEDETECT_VERSION?=0a4799a8a1febf666487e708160dba0c363d2af2
+FACEDETECT_VERSION?=6107a2414fdaccc9ce8650b762f9436d20541cbe
 FACEDETECT_REPO?=https://github.com/mudler/face-detect.cpp
 
 GOCMD?=go
