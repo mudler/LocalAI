@@ -135,4 +135,49 @@ var _ = Describe("BaseURL", func() {
 			Entry("missing leading slash", "evil"),
 		)
 	})
+
+	Context("scheme detection hardening", func() {
+		It("treats comma-separated X-Forwarded-Proto as https when first token is https", func() {
+			app := echo.New()
+			actualURL := ""
+			app.GET("/x", func(c echo.Context) error {
+				actualURL = BaseURL(c)
+				return nil
+			})
+			req := httptest.NewRequest("GET", "/x", nil)
+			req.Header.Set("X-Forwarded-Proto", "https,http")
+			rec := httptest.NewRecorder()
+			app.ServeHTTP(rec, req)
+			Expect(actualURL).To(Equal("https://example.com/"))
+		})
+
+		It("derives https from the RFC 7239 Forwarded proto directive", func() {
+			app := echo.New()
+			actualURL := ""
+			app.GET("/x", func(c echo.Context) error {
+				actualURL = BaseURL(c)
+				return nil
+			})
+			req := httptest.NewRequest("GET", "/x", nil)
+			req.Header.Set("Forwarded", "for=192.0.2.1;proto=https;host=proxy.example")
+			rec := httptest.NewRecorder()
+			app.ServeHTTP(rec, req)
+			Expect(actualURL).To(Equal("https://proxy.example/"))
+		})
+
+		It("prefers X-Forwarded-Host over the Forwarded host directive", func() {
+			app := echo.New()
+			actualURL := ""
+			app.GET("/x", func(c echo.Context) error {
+				actualURL = BaseURL(c)
+				return nil
+			})
+			req := httptest.NewRequest("GET", "/x", nil)
+			req.Header.Set("X-Forwarded-Host", "xfh.example")
+			req.Header.Set("Forwarded", "host=fwd.example;proto=https")
+			rec := httptest.NewRecorder()
+			app.ServeHTTP(rec, req)
+			Expect(actualURL).To(Equal("https://xfh.example/"))
+		})
+	})
 })

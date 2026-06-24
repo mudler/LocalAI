@@ -55,17 +55,62 @@ func BasePathPrefix(c echo.Context) string {
 // The returned URL is guaranteed to end with `/`.
 // The method should be used in conjunction with the StripPathPrefix middleware.
 func BaseURL(c echo.Context) string {
+	fwdProto, fwdHost := parseForwarded(c.Request().Header.Get("Forwarded"))
+
 	scheme := "http"
-	if c.Request().Header.Get("X-Forwarded-Proto") == "https" {
+	switch {
+	case c.Request().TLS != nil:
 		scheme = "https"
-	} else if c.Request().TLS != nil {
+	case strings.EqualFold(firstToken(c.Request().Header.Get("X-Forwarded-Proto")), "https"):
+		scheme = "https"
+	case strings.EqualFold(fwdProto, "https"):
 		scheme = "https"
 	}
 
 	host := c.Request().Host
 	if forwardedHost := c.Request().Header.Get("X-Forwarded-Host"); forwardedHost != "" {
 		host = forwardedHost
+	} else if fwdHost != "" {
+		host = fwdHost
 	}
 
 	return scheme + "://" + host + BasePathPrefix(c)
+}
+
+// firstToken returns the first comma-separated token of v, trimmed of spaces.
+// Reverse-proxy chains can emit X-Forwarded-Proto as "https,http"; only the
+// first hop (closest to the client) is meaningful for scheme detection.
+func firstToken(v string) string {
+	if i := strings.IndexByte(v, ','); i >= 0 {
+		v = v[:i]
+	}
+	return strings.TrimSpace(v)
+}
+
+// parseForwarded extracts the proto and host directives from the first element
+// of an RFC 7239 Forwarded header (e.g. `for=x;proto=https;host=h, for=y`).
+// Values may be quoted. Returns empty strings when absent or malformed so the
+// caller can fall through to other signals.
+func parseForwarded(header string) (proto, host string) {
+	if header == "" {
+		return "", ""
+	}
+	// Only the first element (closest proxy to the client) matters here.
+	if i := strings.IndexByte(header, ','); i >= 0 {
+		header = header[:i]
+	}
+	for _, directive := range strings.Split(header, ";") {
+		key, value, ok := strings.Cut(strings.TrimSpace(directive), "=")
+		if !ok {
+			continue
+		}
+		value = strings.Trim(strings.TrimSpace(value), `"`)
+		switch strings.ToLower(strings.TrimSpace(key)) {
+		case "proto":
+			proto = value
+		case "host":
+			host = value
+		}
+	}
+	return proto, host
 }
