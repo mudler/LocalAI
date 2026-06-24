@@ -432,7 +432,7 @@ func loadSoundDetectionConfig(pipeline *config.Pipeline, cl *config.ModelConfigL
 	if pipeline.SoundDetection == "" {
 		return nil, nil
 	}
-	cfg, err := cl.LoadModelConfigFileByName(pipeline.SoundDetection, ml.ModelPath)
+	cfg, err := loadPipelineSubModel(cl, pipeline.SoundDetection, ml.ModelPath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to load sound detection config: %w", err)
 	}
@@ -443,7 +443,7 @@ func loadSoundDetectionConfig(pipeline *config.Pipeline, cl *config.ModelConfigL
 }
 
 func newTranscriptionOnlyModel(pipeline *config.Pipeline, cl *config.ModelConfigLoader, ml *model.ModelLoader, appConfig *config.ApplicationConfig) (Model, *config.ModelConfig, error) {
-	cfgVAD, err := cl.LoadModelConfigFileByName(pipeline.VAD, ml.ModelPath)
+	cfgVAD, err := loadPipelineSubModel(cl, pipeline.VAD, ml.ModelPath)
 	if err != nil {
 
 		return nil, nil, fmt.Errorf("failed to load backend config: %w", err)
@@ -453,7 +453,7 @@ func newTranscriptionOnlyModel(pipeline *config.Pipeline, cl *config.ModelConfig
 		return nil, nil, fmt.Errorf("failed to validate config: %w", err)
 	}
 
-	cfgSST, err := cl.LoadModelConfigFileByName(pipeline.Transcription, ml.ModelPath)
+	cfgSST, err := loadPipelineSubModel(cl, pipeline.Transcription, ml.ModelPath)
 	if err != nil {
 
 		return nil, nil, fmt.Errorf("failed to load backend config: %w", err)
@@ -542,11 +542,30 @@ func buildRealtimeRoutingContext(a *application.Application, sessionID string) *
 	}
 }
 
+// loadPipelineSubModel loads a pipeline sub-model config by name and follows a
+// single alias hop, so a pipeline that references an alias (e.g. `llm: default`)
+// gets the alias target's full config (Backend, Model, ...) rather than the
+// alias stub with an empty Backend. Without this the alias survives unresolved
+// into model loading and fails downstream — notably in distributed mode with
+// "backend name is empty". Mirrors the top-level alias resolution in
+// core/http/middleware/request.go.
+func loadPipelineSubModel(cl *config.ModelConfigLoader, name, modelPath string) (*config.ModelConfig, error) {
+	cfg, err := cl.LoadModelConfigFileByName(name, modelPath)
+	if err != nil {
+		return nil, err
+	}
+	resolved, _, err := cl.ResolveAlias(cfg)
+	if err != nil {
+		return nil, err
+	}
+	return resolved, nil
+}
+
 // returns and loads either a wrapped model or a model that support audio-to-audio
 func newModel(pipeline *config.Pipeline, cl *config.ModelConfigLoader, ml *model.ModelLoader, appConfig *config.ApplicationConfig, evaluator *templates.Evaluator, routing *RealtimeRoutingContext) (Model, error) {
 	xlog.Debug("Creating new model pipeline model", "pipeline", pipeline)
 
-	cfgVAD, err := cl.LoadModelConfigFileByName(pipeline.VAD, ml.ModelPath)
+	cfgVAD, err := loadPipelineSubModel(cl, pipeline.VAD, ml.ModelPath)
 	if err != nil {
 
 		return nil, fmt.Errorf("failed to load backend config: %w", err)
@@ -557,7 +576,7 @@ func newModel(pipeline *config.Pipeline, cl *config.ModelConfigLoader, ml *model
 	}
 
 	// TODO: Do we always need a transcription model? It can be disabled. Note that any-to-any instruction following models don't transcribe as such, so if transcription is required it is a separate process
-	cfgSST, err := cl.LoadModelConfigFileByName(pipeline.Transcription, ml.ModelPath)
+	cfgSST, err := loadPipelineSubModel(cl, pipeline.Transcription, ml.ModelPath)
 	if err != nil {
 
 		return nil, fmt.Errorf("failed to load backend config: %w", err)
@@ -589,7 +608,7 @@ func newModel(pipeline *config.Pipeline, cl *config.ModelConfigLoader, ml *model
 	xlog.Debug("Loading a wrapped model")
 
 	// Otherwise we want to return a wrapped model, which is a "virtual" model that re-uses other models to perform operations
-	cfgLLM, err := cl.LoadModelConfigFileByName(pipeline.LLM, ml.ModelPath)
+	cfgLLM, err := loadPipelineSubModel(cl, pipeline.LLM, ml.ModelPath)
 	if err != nil {
 
 		return nil, fmt.Errorf("failed to load backend config: %w", err)
@@ -604,7 +623,7 @@ func newModel(pipeline *config.Pipeline, cl *config.ModelConfigLoader, ml *model
 	applyPipelineReasoning(cfgLLM, *pipeline)
 	applyPipelineThinking(cfgLLM, *pipeline)
 
-	cfgTTS, err := cl.LoadModelConfigFileByName(pipeline.TTS, ml.ModelPath)
+	cfgTTS, err := loadPipelineSubModel(cl, pipeline.TTS, ml.ModelPath)
 	if err != nil {
 
 		return nil, fmt.Errorf("failed to load backend config: %w", err)
