@@ -524,8 +524,9 @@ Notes:
 - **Power-user territory:** an invalid flag or value is rejected by the upstream
   parser exactly as it would be by `llama-server`, which can fail model loading.
   Prefer the named options above when one exists.
-- `--help`, `--usage`, and `--completion*` are ignored (they would terminate the
-  backend process).
+- Flags that would terminate the process (such as `--help`, `--usage`,
+  `--version`, `--license`, `--list-devices`, `--cache-list`, and
+  `--completion*`) are ignored.
 
 ### Prompt Caching
 

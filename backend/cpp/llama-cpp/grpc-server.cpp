@@ -1149,6 +1149,9 @@ static void params_parse(server_context& /*ctx_server*/, const backend::ModelOpt
             // These flags make upstream's parser exit() (printing usage /
             // completion), which would kill the backend process. Skip them.
             if (flag == "-h" || flag == "--help" || flag == "--usage" ||
+                flag == "--version" || flag == "--license" ||
+                flag == "--list-devices" || flag == "-cl" ||
+                flag == "--cache-list" ||
                 flag.rfind("--completion", 0) == 0) {
                 fprintf(stderr,
                     "[llama-cpp] ignoring passthrough flag that would exit: %s\n",
@@ -1195,27 +1198,6 @@ static void params_parse(server_context& /*ctx_server*/, const backend::ModelOpt
         for (int i = 0; i < request->overrides_size(); i++) {
             string_parse_kv_override(request->overrides(i).c_str(), params.kv_overrides);
         }
-    }
-
-    if (!params.kv_overrides.empty()) {
-        params.kv_overrides.emplace_back();
-        params.kv_overrides.back().key[0] = 0;
-    }
-
-    // tensor_buft_overrides sentinel termination (mirrors upstream common/arg.cpp).
-    // Real entries are pushed during option parsing; here we pad/terminate so the
-    // model loader sees back().pattern == nullptr (GGML_ASSERT at common.cpp:1543)
-    // and so llama_params_fit has the placeholder slots it requires.
-    {
-        const size_t ntbo = llama_max_tensor_buft_overrides();
-        while (params.tensor_buft_overrides.size() < ntbo) {
-            params.tensor_buft_overrides.push_back({nullptr, nullptr});
-        }
-    }
-    // Terminate the draft tensor_buft_overrides list with a sentinel, mirroring
-    // the main-model handling above.
-    if (!params.speculative.draft.tensor_buft_overrides.empty()) {
-        params.speculative.draft.tensor_buft_overrides.push_back({nullptr, nullptr});
     }
 
     // TODO: Add yarn
@@ -1342,6 +1324,36 @@ static void params_parse(server_context& /*ctx_server*/, const backend::ModelOpt
         if (params.n_parallel == -1) {
             params.n_parallel = saved_n_parallel;
         }
+    }
+
+    // Terminate/pad the override vectors only after BOTH the named-option loop
+    // and the generic passthrough (common_params_parse above) have pushed their
+    // real entries, so back() is the null sentinel the model loader asserts on.
+    // Running these before the passthrough let a passthrough flag (--cpu-moe,
+    // --override-tensor, --override-kv, ...) append a real entry after the
+    // sentinel: a GGML_ASSERT crash for tensor_buft_overrides, a silent drop for
+    // kv_overrides. Double-termination is harmless (the while is a no-op if the
+    // passthrough parse already padded; an extra trailing null is ignored).
+
+    if (!params.kv_overrides.empty()) {
+        params.kv_overrides.emplace_back();
+        params.kv_overrides.back().key[0] = 0;
+    }
+
+    // tensor_buft_overrides sentinel termination (mirrors upstream common/arg.cpp).
+    // Real entries are pushed during option parsing; here we pad/terminate so the
+    // model loader sees back().pattern == nullptr (GGML_ASSERT at common.cpp:1543)
+    // and so llama_params_fit has the placeholder slots it requires.
+    {
+        const size_t ntbo = llama_max_tensor_buft_overrides();
+        while (params.tensor_buft_overrides.size() < ntbo) {
+            params.tensor_buft_overrides.push_back({nullptr, nullptr});
+        }
+    }
+    // Terminate the draft tensor_buft_overrides list with a sentinel, mirroring
+    // the main-model handling above.
+    if (!params.speculative.draft.tensor_buft_overrides.empty()) {
+        params.speculative.draft.tensor_buft_overrides.push_back({nullptr, nullptr});
     }
 }
 
