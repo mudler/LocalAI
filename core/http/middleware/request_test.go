@@ -140,6 +140,40 @@ var _ = Describe("SetModelAndConfig middleware", func() {
 		})
 	})
 
+	Context("when the model name is a file path to a weight that does not exist", func() {
+		// A name like "local/model.gguf" is the parameters.model weight path, not a
+		// HuggingFace org/repo ID. The slash must not exempt it from the existence
+		// check, otherwise a wrong name silently falls through to the gallery
+		// autoloader and triggers a surprising download (issue #10162).
+		It("returns 404 instead of passing through", func() {
+			rec := postJSON(app, "/v1/chat/completions",
+				`{"model":"local/missing-model.gguf","messages":[{"role":"user","content":"hi"}]}`)
+
+			Expect(rec.Code).To(Equal(http.StatusNotFound))
+
+			var resp schema.ErrorResponse
+			Expect(json.Unmarshal(rec.Body.Bytes(), &resp)).To(Succeed())
+			Expect(resp.Error).ToNot(BeNil())
+			Expect(resp.Error.Message).To(ContainSubstring("local/missing-model.gguf"))
+			Expect(resp.Error.Message).To(ContainSubstring("not found"))
+		})
+	})
+
+	Context("when the model name is a file path to a weight that exists on disk", func() {
+		// The same path, but the loose weight file is actually present in a
+		// subdirectory of the models path: the request must pass through so users
+		// can address a raw weight file by its relative path.
+		It("passes through to the handler", func() {
+			Expect(os.MkdirAll(filepath.Join(modelDir, "local"), 0755)).To(Succeed())
+			Expect(os.WriteFile(filepath.Join(modelDir, "local", "present-model.gguf"), []byte("weights"), 0644)).To(Succeed())
+
+			rec := postJSON(app, "/v1/chat/completions",
+				`{"model":"local/present-model.gguf","messages":[{"role":"user","content":"hi"}]}`)
+
+			Expect(rec.Code).To(Equal(http.StatusOK))
+		})
+	})
+
 	Context("when no model is specified", func() {
 		It("passes through without checking", func() {
 			rec := postJSON(app, "/v1/chat/completions",
