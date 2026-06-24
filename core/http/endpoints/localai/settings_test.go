@@ -146,6 +146,24 @@ var _ = Describe("Settings endpoints", func() {
 		Expect(*ondisk.PIIDefaultDetectors).To(Equal([]string{"det-a"}))
 	})
 
+	// The MITM listener resolves its per-host PII detectors once at start
+	// (startMITMLocked → ResolvePIIPolicy), and the handler used to restart it
+	// only when mitm_listen changed. So an admin toggling a default detector
+	// (the Middleware detector table POSTs only pii_default_detectors) left
+	// cloud-proxy traffic unredacted until the next reboot. A
+	// pii_default_detectors change must now rebuild the listener.
+	It("rebuilds the MITM listener when only pii_default_detectors changes", func() {
+		rec := post(`{"mitm_listen":"127.0.0.1:0"}`)
+		Expect(rec.Code).To(Equal(http.StatusOK), rec.Body.String())
+		srv1 := app.MITMServer()
+		Expect(srv1).ToNot(BeNil(), "listener should be running after mitm_listen is set")
+
+		rec = post(`{"pii_default_detectors":["det-a"]}`)
+		Expect(rec.Code).To(Equal(http.StatusOK), rec.Body.String())
+		Expect(app.MITMServer()).ToNot(BeIdenticalTo(srv1),
+			"a default-detector change must restart the listener so it picks up the new detectors")
+	})
+
 	// Residual #9125: enabling the watchdog from a cold (off) state via the
 	// React master toggle must start the live watchdog immediately, without a
 	// restart. The toggle posts watchdog_idle_enabled/busy_enabled=true while

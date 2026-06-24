@@ -712,6 +712,18 @@ func WithMITMCADir(dir string) AppOption {
 	}
 }
 
+// WithPIIDefaultDetectors sets the instance-wide default PII/secret detector
+// model names applied to any PII-enabled model (chiefly cloud-proxy / MITM
+// models) that names no pii.detectors of its own. CLI/env:
+// LOCALAI_PII_DEFAULT_DETECTORS. Empty leaves the value to
+// runtime_settings.json / the Middleware UI; a non-empty value takes
+// precedence over the file (env > file).
+func WithPIIDefaultDetectors(detectors []string) AppOption {
+	return func(o *ApplicationConfig) {
+		o.PIIDefaultDetectors = detectors
+	}
+}
+
 func WithDynamicConfigDir(dynamicConfigsDir string) AppOption {
 	return func(o *ApplicationConfig) {
 		o.DynamicConfigsDir = dynamicConfigsDir

@@ -750,6 +750,20 @@ func loadRuntimeSettingsFromFile(options *config.ApplicationConfig) {
 		options.MITMListen = *settings.MITMListen
 	}
 
+	// Instance-wide default PII detectors. LOCALAI_PII_DEFAULT_DETECTORS (via
+	// WithPIIDefaultDetectors) wins when set; otherwise the file is the source
+	// — apply it only when the env/CLI left the value empty, mirroring the
+	// "env > file" precedence used for the other fields. This must land before
+	// startMITMIfConfigured (called right after this loader): the cloud-proxy
+	// listener resolves each intercept host's detectors once at start via
+	// ResolvePIIPolicy, and a MITM model that names no detectors of its own
+	// falls back to these defaults. Without it the listener (and request-side
+	// default redaction) starts with an empty detector set and forwards
+	// traffic unredacted even though pii_default_detectors is on disk.
+	if settings.PIIDefaultDetectors != nil && len(options.PIIDefaultDetectors) == 0 {
+		options.PIIDefaultDetectors = append([]string(nil), (*settings.PIIDefaultDetectors)...)
+	}
+
 	// Backend upgrade flags
 	if settings.AutoUpgradeBackends != nil {
 		if !options.AutoUpgradeBackends {
