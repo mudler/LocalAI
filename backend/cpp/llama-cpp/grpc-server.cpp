@@ -1080,6 +1080,31 @@ static void params_parse(server_context& /*ctx_server*/, const backend::ModelOpt
                 } catch (...) {}
             }
 
+        // --- main model MoE on CPU (upstream --cpu-moe / --n-cpu-moe) ---
+        } else if (!strcmp(optname, "cpu_moe")) {
+            // Bool-style flag: keep all MoE expert weights on CPU.
+            const bool enable = (optval == NULL) ||
+                optval_str == "true" || optval_str == "1" || optval_str == "yes" ||
+                optval_str == "on" || optval_str == "enabled";
+            if (enable) {
+                params.tensor_buft_overrides.push_back(llm_ffn_exps_cpu_override());
+            }
+        } else if (!strcmp(optname, "n_cpu_moe")) {
+            if (optval != NULL) {
+                try {
+                    int n = std::stoi(optval_str);
+                    if (n < 0) n = 0;
+                    // Keep override-name storage alive for the lifetime of the
+                    // params struct (mirrors upstream arg.cpp's function-local static).
+                    static std::list<std::string> buft_overrides_main;
+                    for (int i = 0; i < n; ++i) {
+                        buft_overrides_main.push_back(llm_ffn_exps_block_regex(i));
+                        params.tensor_buft_overrides.push_back(
+                            {buft_overrides_main.back().c_str(), ggml_backend_cpu_buffer_type()});
+                    }
+                } catch (...) {}
+            }
+
         // --- draft model tensor buffer overrides (upstream --spec-draft-override-tensor) ---
         } else if (!strcmp(optname, "draft_override_tensor") || !strcmp(optname, "spec_draft_override_tensor")) {
             // Format: <tensor regex>=<buffer type>,<tensor regex>=<buffer type>,...
