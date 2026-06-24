@@ -645,6 +645,7 @@
     nvidia-cuda-13: "cuda13-vllm"
     nvidia-l4t-cuda-13: "cuda13-nvidia-l4t-arm64-vllm"
     cpu: "cpu-vllm"
+    metal: "metal-vllm"
 - &sglang
   name: "sglang"
   license: apache-2.0
@@ -2927,6 +2928,17 @@
     nvidia-cuda-13: "cuda13-vllm-development"
     nvidia-l4t-cuda-13: "cuda13-nvidia-l4t-arm64-vllm-development"
     cpu: "cpu-vllm-development"
+    metal: "metal-vllm-development"
+- !!merge <<: *vllm
+  name: "metal-vllm"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-metal-darwin-arm64-vllm"
+  mirrors:
+    - localai/localai-backends:latest-metal-darwin-arm64-vllm
+- !!merge <<: *vllm
+  name: "metal-vllm-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-metal-darwin-arm64-vllm"
+  mirrors:
+    - localai/localai-backends:master-metal-darwin-arm64-vllm
 - !!merge <<: *vllm
   name: "cuda12-vllm"
   uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-nvidia-cuda-12-vllm"

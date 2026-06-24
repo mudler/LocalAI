@@ -4974,6 +4974,13 @@ includeDarwin:
   - backend: "kitten-tts"
     tag-suffix: "-metal-darwin-arm64-kitten-tts"
     build-type: "mps"
+  # vLLM on Apple Silicon via vllm-metal (MLX). The install is custom
+  # (backend/python/vllm/install.sh has a darwin branch); lang stays python so
+  # backend_build_darwin.yml drives it through build-darwin-python-backend ->
+  # scripts/build/python-darwin.sh, which runs the backend's install.sh.
+  - backend: "vllm"
+    tag-suffix: "-metal-darwin-arm64-vllm"
+    build-type: "mps"
   - backend: "piper"
     tag-suffix: "-metal-darwin-arm64-piper"
     build-type: "metal"

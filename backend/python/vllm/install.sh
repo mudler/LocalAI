@@ -43,6 +43,24 @@ if [ "x${BUILD_PROFILE}" == "xcublas13" ]; then
     EXTRA_PIP_INSTALL_FLAGS+=" --index-strategy=unsafe-best-match"
 fi
 
+# Apple Silicon (Metal/MLX) via vllm-metal.
+# vllm-metal (github.com/vllm-project/vllm-metal) brings vLLM to macOS on Apple
+# Silicon: it registers through vLLM's platform-plugin entry point
+# (metal -> vllm_metal:register), MetalPlatform activates, and the vLLM v1
+# AsyncLLM engine runs on the GPU through MLX. LocalAI's backend.py is UNCHANGED
+# on darwin — AsyncEngineArgs(...) -> AsyncLLMEngine.from_engine_args transparently
+# resolves to the MLX engine (proven on a real M4 / macOS 26.5 against Qwen3-0.6B).
+#
+# vllm-metal REQUIRES Python 3.12, so force the portable CPython before the venv
+# is created (ensureVenv reads PYTHON_VERSION/PYTHON_PATCH/PY_STANDALONE_TAG).
+# The patch + standalone tag mirror the l4t13 cp312 pin — a known-good
+# python-build-standalone release that also ships an aarch64-apple-darwin asset.
+if [ "$(uname -s)" = "Darwin" ]; then
+    PYTHON_VERSION="3.12"
+    PYTHON_PATCH="12"
+    PY_STANDALONE_TAG="20251120"
+fi
+
 # JetPack 7 / L4T arm64 vllm + torch wheels come straight from PyPI now
 # (torch 2.11+ ships aarch64 + cu130 manylinux wheels and vllm 0.20+ ships
 # an aarch64 wheel pinned to that torch). They're cp312-only, so bump the
@@ -57,11 +75,76 @@ if [ "x${BUILD_PROFILE}" == "xl4t13" ]; then
     PY_STANDALONE_TAG="20251120"
 fi
 
+# ===================== Apple Silicon (Metal/MLX) =====================
+# Reproduce vllm-metal's upstream installer
+# (curl -fsSL https://raw.githubusercontent.com/vllm-project/vllm-metal/main/install.sh)
+# but INTO LocalAI's managed venv (ensureVenv) instead of a throwaway
+# ~/.venv-vllm-metal, so the backend integrates with LocalAI's venv lifecycle
+# (portable CPython, _makeVenvPortable relocation, runtime activation). The
+# normal CUDA/CPU installRequirements is skipped on darwin — there is no
+# macOS/arm64 vLLM wheel on PyPI; vLLM is built from source and the MLX engine
+# is layered on by the vllm-metal wheel.
+if [ "$(uname -s)" = "Darwin" ]; then
+    # Create/activate the portable 3.12 venv. On darwin USE_PIP=true and
+    # PORTABLE_PYTHON=true (set by scripts/build/python-darwin.sh), so this is a
+    # `python -m venv` based, relocatable venv.
+    ensureVenv
+
+    # vllm-metal's installer drives everything through `uv`: building vLLM from
+    # the CPU requirements needs `--index-strategy unsafe-best-match` (mixes the
+    # pytorch CPU channel with PyPI), a flag plain pip does not have. The darwin
+    # venv is pip-based, so bootstrap uv into it. uv honours $VIRTUAL_ENV (set by
+    # libbackend's _activateVenv) and installs into THIS venv — same pattern the
+    # intel branch below relies on.
+    pip install uv
+
+    # VERSION COUPLING (read before bumping vLLM!): vllm-metal pins this exact
+    # vLLM version and builds against its source tarball. It equals LocalAI's
+    # current vllm pin (see requirements-cublas13-after.txt: vllm==0.23.0). A
+    # vLLM bump on Linux MUST be coordinated with a vllm-metal release that
+    # supports the new version, or darwin builds will break.
+    VLLM_VERSION="0.23.0"
+
+    _vllm_src=$(mktemp -d)
+    trap 'rm -rf "${_vllm_src}"' EXIT
+    pushd "${_vllm_src}"
+        # 1) Build vLLM ${VLLM_VERSION} from the release source tarball against
+        #    the CPU requirements. vllm-metal layers its MLX platform plugin on
+        #    top of this exact build.
+        curl -fsSL -o "vllm-${VLLM_VERSION}.tar.gz" \
+            "https://github.com/vllm-project/vllm/releases/download/v${VLLM_VERSION}/vllm-${VLLM_VERSION}.tar.gz"
+        tar -xzf "vllm-${VLLM_VERSION}.tar.gz"
+        pushd "vllm-${VLLM_VERSION}"
+            uv pip install -r requirements/cpu.txt --index-strategy unsafe-best-match
+            # -Wno-parentheses: clang on macOS treats one of vLLM's C++ warnings
+            # as an error without it (matches the upstream installer's CXXFLAGS).
+            CXXFLAGS="-Wno-parentheses" uv pip install .
+        popd
+    popd
+
+    # 2) Install the prebuilt vllm-metal wheel from its latest GitHub release.
+    #    It pulls mlx / mlx-metal as deps and registers the `metal` platform
+    #    plugin that backend.py resolves to at engine-init time.
+    _metal_wheel_url=$(curl -fsSL https://api.github.com/repos/vllm-project/vllm-metal/releases/latest \
+        | grep -oE '"browser_download_url"[[:space:]]*:[[:space:]]*"[^"]+\.whl"' \
+        | head -n1 | sed -E 's/.*"(https[^"]+)".*/\1/')
+    if [ -z "${_metal_wheel_url}" ]; then
+        echo "ERROR: could not resolve a vllm-metal wheel URL from the latest GitHub release" >&2
+        exit 1
+    fi
+    echo "Installing vllm-metal wheel: ${_metal_wheel_url}"
+    uv pip install "${_metal_wheel_url}"
+
+    # Generate the gRPC stubs (backend_pb2*). installRequirements normally does
+    # this via runProtogen at the end; we skipped installRequirements on darwin,
+    # so call it explicitly here.
+    runProtogen
+
 # Intel XPU has no upstream-published vllm wheels, so we always build vllm
 # from source against torch-xpu and replace the default triton with
 # triton-xpu (matching torch 2.11). Mirrors the upstream procedure:
 # https://github.com/vllm-project/vllm/blob/main/docs/getting_started/installation/gpu.xpu.inc.md
-if [ "x${BUILD_TYPE}" == "xintel" ]; then
+elif [ "x${BUILD_TYPE}" == "xintel" ]; then
     # Hide requirements-intel-after.txt so installRequirements doesn't
     # try `pip install vllm` (would either fail or grab a non-XPU wheel).
     _intel_after="${backend_dir}/requirements-intel-after.txt"
