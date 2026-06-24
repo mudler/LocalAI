@@ -175,3 +175,123 @@ second-order floor, not the present bottleneck.
 No code patch in Phase 1 (graphs are not the lever, so there is no paged
 graph-capture patch to land). Evidence: `~/bench/a2_4cell_v2/`, `~/bench/a2_probe`,
 `~/bench/a2_probe2`, `~/bench/a2_nsys/*.nsys-rep` on the DGX.
+
+# Phase 2 - the real decode lever, located (per-kernel decomposition)
+
+Phase 1 ended on "decode is GPU-compute-bound; the 2.6x gap to vLLM lives in the
+per-step GPU kernel work (FP4 GEMM + attention at batch 128)." Phase 2 measured
+that per-step GPU work directly - per kernel and per memcpy, on the Phase-1 nsys
+`.sqlite` reps - and the "FP4 GEMM + attention" attribution does not survive the
+measurement. Two corrections, then the lever.
+
+The conditional Phase 2 fix (make the paged decode graph-capturable) is moot:
+Phase 1 already showed the default paged decode captures, and the fresh re-check
+below reconfirms the graph win is noise. Neither Phase 2 branch (within-step graph
+fix / between-step host loop) is the lever; the lever is a third thing, measured
+here.
+
+## Fresh re-confirmation: graphs are not the lever
+
+Independent run (npl128, ntg32, paged, fusion off), not reusing Phase 1's table:
+
+| paged decode  | S_TG t/s | vs vLLM 391 |
+|---------------|----------|-------------|
+| graphs ON     | 146.03   | 37.3%       |
+| graphs OFF    | 144.90   | 37.1%       |
+
++0.78%, within noise - same verdict as Phase 1's 4-cell. The ON nsys rep is also
+99.5% busy with the same ~3267 ms of memcpy as OFF: graphs capture the memcpy
+nodes too, so they cannot remove either the copies or the compute.
+
+## Correction 1: the model is a hybrid SSM, not a plain transformer
+
+`q36-27b-nvfp4.gguf` has `general.architecture = qwen35` with
+`qwen35.ssm.{conv_kernel,state_size,group_count,time_step_rank,inner_size}`. The
+decode-window kernel cadence (per step, ~19.8 steps in the window) is 48
+`gated_delta_net_cuda` + 48 `ssm_conv_f32` vs 16 `flash_attn_tile`, i.e. **48
+gated-DeltaNet linear-attention layers : 16 full-attention layers** (a 3:1
+hybrid, Qwen3-Next family). Paged attention only touches the 16 full-attention
+layers.
+
+## Correction 2: the 99.4% "busy" is ~19% D2D memcpy, not compute
+
+Interval-union sweep over the steady decode window (last 17 s of the npl128/ntg24
+OFF rep; single CUDA stream; running-max-end so it is overlap-correct):
+
+| activity set           | GPU busy | idle  |
+|------------------------|----------|-------|
+| kernels only           | 80.2%    | 19.8% |
+| kernels + memcpy (all) | 99.4%    | 0.6%  |
+
+The 969 inter-kernel gaps (>=1 ms, ~48/step) that drop kernels-only to 80% are
+filled by **D2D memcpy: 1584 copies/run (~80/step), ~230 MB each, ~2 ms each,
+356 GB moved in 17 s**. At batch 128 a ~230 MB block is the gated-DeltaNet
+recurrent state; these are the per-SSM-layer state copies. (HtoD copies = the
+paged block-table/index upload: 731/run but only 3 ms total, negligible; DtoH
+47 ms.) Phase 1's `cuda_gpu_trace`-based 99.4% counted these memcpys as "busy"
+and lumped them into "GPU kernel compute" - they are memory movement, and they
+are addressable.
+
+## Decode GPU-time decomposition (% of kernel+memcpy busy)
+
+OFF/eager rep, steady window. `/step` = instances per decode step.
+
+| share | activity                          | /step | role                          |
+|-------|-----------------------------------|-------|-------------------------------|
+| 23.4% | gated_delta_net_cuda              | 48    | linear-attn recurrence        |
+| 21.9% | k_get_rows_float                  | 97    | SSM state / conv-state gather |
+| 18.9% | MEMCPY DtoD                       | 80    | SSM recurrent-state copy      |
+| 15.5% | mul_mat_vec_q (nvfp4, ncols=1)    | 48    | FP4 GEMV                      |
+| 10.4% | mul_mat_q (nvfp4)                 | 352   | FP4 GEMM                      |
+|  1.9% | quantize_mmq_nvfp4                | 448   | act requant for MMQ           |
+|  1.0% | concat_cont                       | 48    | SSM state glue                |
+|  0.8% | ssm_conv_f32                      | 48    | SSM short conv                |
+|  0.7% | unary_gated_op silu               | 112   | SSM gating                    |
+|  0.4% | flash_attn_tile/_ext              | 16    | FULL attention (paged)        |
+
+Grouped:
+- gated-DeltaNet / SSM machinery (recurrence + get_rows gather + DtoD state copy
+  + conv + gating glue): **~67% of decode**.
+- FP4 matmul (GEMV + GEMM + requant + stream-k fixup): **~28%**.
+- Full attention - everything paged attention optimizes: **~0.4%**.
+
+## Verdict and scope of the real lever
+
+1. CUDA graphs: not the lever (Phase 1, re-confirmed: +0.78%, noise). They capture
+   the memcpy too, so they cannot touch the copies or the compute.
+2. Host loop: not the lever (true host idle in the union is 0.24%, ~41 ms/17 s).
+3. FP4 GEMM: secondary, ~28%. Consistent with Track B P2a (making the FP4 GEMM 26%
+   faster left decode_agg flat) - it was never the long pole.
+4. Paged / full attention: ~0.4% of decode. **No paged-attention change (graphs,
+   block-table stabilization, gather rewrite) can move decode_agg on this model**
+   - it optimizes under half a percent of the step. This is the structural reason
+   A.2, and the paged-decode track generally, cannot close the vLLM gap on
+   q36-27b: the model barely uses the path being optimized.
+
+The throughput lever is the ggml **qwen35 gated-DeltaNet decode**. Per SSM layer
+per step it re-materializes and D2D-copies the full recurrent state (~230 MB at
+batch 128; ~80 copies/step, ~18 GB/step) and feeds the recurrence through ~2
+`get_rows` gathers, so ~61% of decode (state copy + state gather + recurrence) is
+SSM state plumbing. vLLM's gated-DeltaNet decode (the flash-linear-attention
+`fused_recurrent_gated_delta_rule` path) keeps the state in place and fuses the
+gather into the scan, avoiding both the per-layer D2D copy and the gathers.
+
+Next-step scope (the real lever, to be done in the ggml/llama qwen35 SSM path -
+not paged-attn, not a graph capture, not a block-table tweak):
+1. Eliminate the per-layer recurrent-state D2D copy: update the state tensor
+   in place (or double-buffer / write-back), so the recurrence consumes and
+   produces the persistent state without a full-state copy each layer each step.
+2. Fuse the `get_rows` state / conv-state gather into the recurrent kernel.
+
+Ceiling from this rep (upper bound; assumes the work is fully removed, not just
+overlapped):
+- remove the DtoD state copy: reclaim 18.9% -> ~146 to ~180 t/s.
+- remove copy + gather: reclaim ~41% -> ~146 to ~247 t/s, which puts llama within
+  ~1.6x of vLLM 391 with the FP4 GEMM still untouched.
+
+No code patch in Phase 2 either: the lever is a gated-DeltaNet decode rewrite in
+the SSM path, too large for this measurement pass and orthogonal to paged
+attention. `patches/paged/0018` stays free. Evidence on the DGX:
+`~/bench/a2_decompose/decode_decomp.txt` (per-kernel table + reproducing SQL in
+its header), `~/bench/a2_decompose/SUMMARY.txt`, and the Phase-1 reps
+`~/bench/a2_nsys/paged_off_npl128.sqlite` / `paged_on_npl128_node.sqlite`.
