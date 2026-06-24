@@ -218,6 +218,12 @@ func (c *InFlightTrackingClient) Score(ctx context.Context, in *pb.ScoreRequest,
 	return res, c.reconcile(err)
 }
 
+func (c *InFlightTrackingClient) SoundDetection(ctx context.Context, in *pb.SoundDetectionRequest, opts ...ggrpc.CallOption) (*pb.SoundDetectionResponse, error) {
+	defer c.track(ctx)()
+	res, err := c.Backend.SoundDetection(ctx, in, opts...)
+	return res, c.reconcile(err)
+}
+
 func (c *InFlightTrackingClient) AudioEncode(ctx context.Context, in *pb.AudioEncodeRequest, opts ...ggrpc.CallOption) (*pb.AudioEncodeResult, error) {
 	defer c.track(ctx)()
 	res, err := c.Backend.AudioEncode(ctx, in, opts...)

@@ -408,6 +408,13 @@ var _ = Describe("InFlightTrackingClient", func() {
 				return err
 			})
 		})
+
+		It("SoundDetection", func() {
+			assertTracked(func() error {
+				_, err := client.SoundDetection(context.Background(), &pb.SoundDetectionRequest{})
+				return err
+			})
+		})
 	})
 
 	Describe("stale model reload (self-heal)", func() {
