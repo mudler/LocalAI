@@ -24,6 +24,10 @@ JOBS?=$(shell nproc 2>/dev/null || sysctl -n hw.ncpu 2>/dev/null || echo 4)
 BUILD_TYPE?=
 NATIVE?=false
 
+# Resolve the target arch. The backend matrix / Docker build pass TARGETARCH
+# (amd64|arm64); fall back to uname -m (aarch64|x86_64) for a local build.
+RECON_ARCH?=$(or $(TARGETARCH),$(shell uname -m))
+
 # Build ggml + the vendored libjpeg-turbo statically into libfacedetect.so (PIC)
 # so the shared lib is self-contained: dlopen needs no libggml*.so alongside it,
 # only system libs (libstdc++/libgomp/libc) the runtime image already provides.
@@ -41,6 +45,15 @@ endif
 # options instead. (openblas is not gated, so -DGGML_BLAS passes through.)
 ifeq ($(BUILD_TYPE),cublas)
 	CMAKE_ARGS+=-DFACEDETECT_GGML_CUDA=ON
+	# Opt-in cuDNN implicit-GEMM conv path (kills im2col on GPU, SCRFD 2.3x
+	# vs torch-cuDNN parity). Only the arm64 + CUDA 13 image (GB10/Jetson/L4T)
+	# ships libcudnn9 + the -dev headers, so gate cuDNN to that variant.
+	# x86 CUDA images carry no cuDNN -> enabling it there is a link failure.
+	ifeq ($(CUDA_MAJOR_VERSION),13)
+	ifneq (,$(filter arm64 aarch64,$(RECON_ARCH)))
+		CMAKE_ARGS+=-DFACEDETECT_GGML_CUDNN=ON
+	endif
+	endif
 else ifeq ($(BUILD_TYPE),openblas)
 	CMAKE_ARGS+=-DGGML_BLAS=ON -DGGML_BLAS_VENDOR=OpenBLAS
 else ifeq ($(BUILD_TYPE),hipblas)
