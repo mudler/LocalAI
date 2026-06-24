@@ -13,6 +13,7 @@ import ConfirmDialog from '../components/ConfirmDialog'
 import GalleryLoader from '../components/GalleryLoader'
 import Toggle from '../components/Toggle'
 import ResponsiveTable from '../components/ResponsiveTable'
+import RecommendedModels from '../components/RecommendedModels'
 import React from 'react'
 
 
@@ -300,6 +301,8 @@ export default function Models() {
           </div>
         }
       />
+
+      <RecommendedModels addToast={addToast} />
 
       {/* Search */}
       <div className="search-bar" style={{ marginBottom: 'var(--spacing-md)' }}>
