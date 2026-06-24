@@ -16,12 +16,15 @@ mkdir -p "$CURDIR/package/lib"
 cp -avf "$CURDIR/parakeet-cpp-grpc" "$CURDIR/package/"
 cp -avf "$CURDIR/run.sh" "$CURDIR/package/"
 
-# libparakeet.so + any soname symlinks (libparakeet.so.X[.Y]). purego.Dlopen
-# resolves it via LD_LIBRARY_PATH, which run.sh points at lib/.
-cp -avf "$CURDIR"/libparakeet.so* "$CURDIR/package/lib/" 2>/dev/null || {
-	echo "ERROR: libparakeet.so not found in $CURDIR, run 'make' first" >&2
+# libparakeet shared lib + any soname symlinks. On Linux this is
+# libparakeet.so[.X.Y]; on macOS it is libparakeet.dylib. purego.Dlopen
+# resolves it via the *_LIBRARY_PATH that run.sh points at lib/.
+cp -avf "$CURDIR"/libparakeet.so* "$CURDIR/package/lib/" 2>/dev/null || true
+cp -avf "$CURDIR"/libparakeet.dylib "$CURDIR/package/lib/" 2>/dev/null || true
+if ! ls "$CURDIR"/package/lib/libparakeet.* >/dev/null 2>&1; then
+	echo "ERROR: libparakeet shared library not found in $CURDIR, run 'make' first" >&2
 	exit 1
-}
+fi
 
 # Detect architecture and copy the core runtime libs libparakeet.so links
 # against, plus the matching dynamic loader as lib/ld.so.
@@ -48,7 +51,7 @@ elif [ -f "/lib/ld-linux-aarch64.so.1" ]; then
     cp -arfLv /lib/aarch64-linux-gnu/librt.so.1 "$CURDIR/package/lib/librt.so.1"
     cp -arfLv /lib/aarch64-linux-gnu/libpthread.so.0 "$CURDIR/package/lib/libpthread.so.0"
 elif [ "$(uname -s)" = "Darwin" ]; then
-    echo "Detected Darwin"
+    echo "Detected Darwin — system frameworks linked dynamically, no bundled libs needed"
 else
     echo "Error: Could not detect architecture"
     exit 1
