@@ -98,16 +98,25 @@ if [ "$(uname -s)" = "Darwin" ]; then
     # intel branch below relies on.
     pip install uv
 
-    # vllm-metal version pins -- AUTO-BUMPED by .github/bump_vllm_metal.sh, which
-    # tracks vllm-project/vllm-metal releases (NOT vllm/vllm latest). VLLM_METAL_VERSION
-    # is the vllm-metal release tag (its prebuilt wheel); VLLM_VERSION is the vLLM
-    # source version that release builds against (vllm-metal declares it as vllm_v=).
-    # They move in lockstep, so darwin can lag the Linux vllm pin
-    # (requirements-cublas13-after.txt, bumped independently against vllm/vllm) until
-    # vllm-metal supports a newer vLLM. Keep both as plain double-quoted assignments
-    # each on their own line so the bumper's sed can rewrite them.
+    # The ONLY darwin version pin -- AUTO-BUMPED by .github/bump_vllm_metal.sh,
+    # which tracks vllm-project/vllm-metal releases (NOT vllm/vllm latest). Keep
+    # it as a plain double-quoted assignment on its own line so the bumper's sed
+    # can rewrite it. Darwin therefore follows vllm-metal and can lag the Linux
+    # vllm pin (requirements-cublas13-after.txt, bumped independently against
+    # vllm/vllm) until vllm-metal supports a newer vLLM.
     VLLM_METAL_VERSION="v0.3.0.dev20260622062346"
-    VLLM_VERSION="0.23.0"
+
+    # The coupled vLLM source version is whatever this vllm-metal release builds
+    # against -- it declares it in its own installer as `vllm_v=`. Derive it from
+    # the PINNED tag rather than hardcoding a second value that could drift. The
+    # tag is immutable, so this stays reproducible across rebuilds.
+    VLLM_VERSION=$(curl -fsSL "https://raw.githubusercontent.com/vllm-project/vllm-metal/${VLLM_METAL_VERSION}/install.sh" \
+        | grep -oE 'vllm_v="[0-9]+\.[0-9]+\.[0-9]+"' | head -n1 | cut -d'"' -f2)
+    if [ -z "${VLLM_VERSION}" ]; then
+        echo "ERROR: could not derive the vLLM version from vllm-metal ${VLLM_METAL_VERSION}" >&2
+        exit 1
+    fi
+    echo "vllm-metal ${VLLM_METAL_VERSION} builds against vLLM ${VLLM_VERSION}"
 
     _vllm_src=$(mktemp -d)
     trap 'rm -rf "${_vllm_src}"' EXIT

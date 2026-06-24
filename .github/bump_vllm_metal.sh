@@ -1,13 +1,11 @@
 #!/bin/bash
-# Bump the vllm-metal pins in the vLLM backend's darwin (Apple Silicon) install
-# path. The macOS/Metal build (backend/python/vllm/install.sh, Darwin branch)
-# installs vllm-metal, which is version-locked to a specific vLLM source release.
-# Two values must move together:
-#   VLLM_METAL_VERSION -> the vllm-metal GitHub release tag (its prebuilt wheel)
-#   VLLM_VERSION       -> the vLLM source version that release builds against
-# vllm-metal declares the latter in its OWN install.sh as `vllm_v="X.Y.Z"`. This
-# script reads both from vllm-metal's latest release and rewrites them atomically
-# -- mirroring bump_vllm_wheel.sh, which does the same for the Linux cu130 wheel.
+# Bump the single vllm-metal pin (VLLM_METAL_VERSION) in the vLLM backend's
+# darwin (Apple Silicon) install path. The macOS/Metal build
+# (backend/python/vllm/install.sh, Darwin branch) installs vllm-metal, which is
+# version-locked to a specific vLLM source release. install.sh derives that vLLM
+# version at build time from vllm-metal's own installer (`vllm_v=`) at the pinned
+# tag, so there is only ONE value to bump here -- mirroring bump_vllm_wheel.sh,
+# which bumps the Linux cu130 wheel pin.
 #
 # This deliberately tracks vllm-project/vllm-metal, NOT vllm-project/vllm: the
 # darwin build can only use the exact vLLM version vllm-metal supports, so it may
@@ -42,11 +40,11 @@ set +e
 CURRENT_TAG=$(grep -oE 'VLLM_METAL_VERSION="[^"]*"' "$FILE" | head -1 | cut -d'"' -f2)
 set -e
 
-# Rewrite both pins. peter-evans/create-pull-request opens no PR on a clean tree,
-# so a no-op rewrite (already current) is safe.
+# Rewrite the single pin. install.sh derives VLLM_VERSION from this tag at build
+# time, so there is nothing else to touch. peter-evans/create-pull-request opens
+# no PR on a clean tree, so a no-op rewrite (already current) is safe.
 sed -i "$FILE" \
-    -e "s|VLLM_METAL_VERSION=\"[^\"]*\"|VLLM_METAL_VERSION=\"$LATEST_TAG\"|" \
-    -e "s|VLLM_VERSION=\"[^\"]*\"|VLLM_VERSION=\"$NEW_VLLM_VERSION\"|"
+    -e "s|VLLM_METAL_VERSION=\"[^\"]*\"|VLLM_METAL_VERSION=\"$LATEST_TAG\"|"
 
 if [ -z "$CURRENT_TAG" ]; then
     echo "Could not find VLLM_METAL_VERSION=\"...\" in $FILE." >&2
