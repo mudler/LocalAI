@@ -149,7 +149,7 @@ llama-cpp-cpu-all: llama.cpp
 	$(MAKE) SHARED_LIBS=ON EXTRA_CMAKE_ARGS="-DGGML_BACKEND_DL=ON -DGGML_CPU_ALL_VARIANTS=ON" TARGET="--target grpc-server --target ggml" VARIANT="llama-cpp-cpu-all-build" build-llama-cpp-grpc-server
 	cp -rfv $(CURRENT_MAKEFILE_DIR)/../llama-cpp-cpu-all-build/grpc-server llama-cpp-cpu-all
 	rm -rf ggml-shared-libs && mkdir -p ggml-shared-libs
-	find $(CURRENT_MAKEFILE_DIR)/../llama-cpp-cpu-all-build/llama.cpp/build -name '*.so*' -exec cp -av {} ggml-shared-libs/ \;
+	find $(CURRENT_MAKEFILE_DIR)/../llama-cpp-cpu-all-build/llama.cpp/build \( -name '*.so*' -o -name '*.dylib' \) -exec cp -av {} ggml-shared-libs/ \;
 	@echo "Collected ggml shared backends:" && ls -la ggml-shared-libs/
 
 llama-cpp-grpc: llama.cpp

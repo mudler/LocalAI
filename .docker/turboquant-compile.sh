@@ -19,17 +19,14 @@ fi
 
 cd /LocalAI/backend/cpp/turboquant
 
-if [ "${TARGETARCH}" = "arm64" ] || [ "${BUILD_TYPE}" = "hipblas" ]; then
+if [ "${BUILD_TYPE}" = "hipblas" ]; then
+  # ROCm: single fallback CPU build (GPU does the compute).
   make turboquant-fallback
-  make turboquant-grpc
-  make turboquant-rpc-server
 else
-  make turboquant-avx
-  make turboquant-avx2
-  make turboquant-avx512
-  make turboquant-fallback
-  make turboquant-grpc
-  make turboquant-rpc-server
+  # x86 and arm64: one ggml CPU_ALL_VARIANTS build replaces the per-microarch binaries.
+  make turboquant-cpu-all
 fi
+make turboquant-grpc
+make turboquant-rpc-server
 
 ccache -s || true
