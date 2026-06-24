@@ -32,6 +32,10 @@ elif [ -f "/lib/ld-linux-aarch64.so.1" ]; then
     cp -arfLv /lib/aarch64-linux-gnu/libdl.so.2 $CURDIR/package/lib/libdl.so.2
     cp -arfLv /lib/aarch64-linux-gnu/librt.so.1 $CURDIR/package/lib/librt.so.1
     cp -arfLv /lib/aarch64-linux-gnu/libpthread.so.0 $CURDIR/package/lib/libpthread.so.0
+elif [ $(uname -s) = "Darwin" ]; then
+    # macOS: dyld resolves the bundled .dylib via DYLD_LIBRARY_PATH (set in
+    # run.sh); there is no ld.so loader nor glibc to bundle.
+    echo "Detected Darwin"
 else
     echo "Error: Could not detect architecture"
     exit 1

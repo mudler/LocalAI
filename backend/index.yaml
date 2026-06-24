@@ -1569,6 +1569,7 @@
     - TTS
   capabilities:
     default: "cpu-supertonic"
+    metal: "metal-supertonic"
 - !!merge <<: *neutts
   name: "neutts-development"
   capabilities:
@@ -5484,6 +5485,7 @@
   name: "supertonic-development"
   capabilities:
     default: "cpu-supertonic-development"
+    metal: "metal-supertonic-development"
 - !!merge <<: *supertonic
   name: "cpu-supertonic"
   uri: "quay.io/go-skynet/local-ai-backends:latest-cpu-supertonic"
@@ -5494,3 +5496,13 @@
   uri: "quay.io/go-skynet/local-ai-backends:master-cpu-supertonic"
   mirrors:
     - localai/localai-backends:master-cpu-supertonic
+- !!merge <<: *supertonic
+  name: "metal-supertonic"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-metal-darwin-arm64-supertonic"
+  mirrors:
+    - localai/localai-backends:latest-metal-darwin-arm64-supertonic
+- !!merge <<: *supertonic
+  name: "metal-supertonic-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-metal-darwin-arm64-supertonic"
+  mirrors:
+    - localai/localai-backends:master-metal-darwin-arm64-supertonic
