@@ -1,0 +1,79 @@
+{
+  "title": "技能",
+  "subtitle": "管理智能体技能（可重用的指令和资源）",
+  "unavailable": {
+    "subtitle": "技能服务不可用或索引正在重建。请稍后再试。",
+    "retry": "重试"
+  },
+  "actions": {
+    "newSkill": "新技能",
+    "createSkill": "创建技能",
+    "import": "导入",
+    "importing": "正在导入...",
+    "gitRepos": "Git 仓库",
+    "edit": "编辑",
+    "delete": "删除",
+    "export": "导出",
+    "sync": "同步",
+    "addRepo": "添加仓库",
+    "adding": "添加中...",
+    "remove": "移除",
+    "enable": "启用",
+    "disable": "禁用"
+  },
+  "search": {
+    "placeholder": "搜索技能..."
+  },
+  "git": {
+    "title": "Git 仓库",
+    "description": "添加 Git 仓库以拉取技能。同步后技能将出现在列表中。",
+    "urlPlaceholder": "https://github.com/user/repo 或 git@github.com:user/repo.git",
+    "noRepos": "未配置 Git 仓库。请在上方添加。",
+    "disabled": "已禁用",
+    "removeRepo": "移除仓库"
+  },
+  "card": {
+    "noDescription": "无描述",
+    "readOnly": "只读",
+    "editTitle": "编辑技能",
+    "deleteTitle": "删除技能",
+    "exportTitle": "导出为 .tar.gz"
+  },
+  "empty": {
+    "title": "未找到技能",
+    "text": "创建或导入一个技能以开始。",
+    "noPersonal": "您还没有任何技能。"
+  },
+  "sections": {
+    "yourSkills": "您的技能",
+    "otherUsersSkills": "其他用户的技能"
+  },
+  "deleteDialog": {
+    "title": "删除技能",
+    "message": "删除技能 \"{{name}}\"？此操作无法撤销。",
+    "confirm": "删除"
+  },
+  "removeRepoDialog": {
+    "title": "移除 Git 仓库",
+    "message": "移除此 Git 仓库？其中的技能将不再可用。",
+    "confirm": "移除"
+  },
+  "toasts": {
+    "loadFailed": "加载技能失败",
+    "deleted": "技能 \"{{name}}\" 已删除",
+    "deleteFailed": "删除技能失败",
+    "exported": "技能 \"{{name}}\" 已导出",
+    "exportFailed": "导出失败",
+    "imported": "已从 \"{{file}}\" 导入技能",
+    "importFailed": "导入失败",
+    "loadReposFailed": "加载 Git 仓库失败",
+    "repoAdded": "Git 仓库已添加并正在同步",
+    "addRepoFailed": "添加仓库失败",
+    "synced": "仓库已同步",
+    "syncFailed": "同步失败",
+    "toggled": "仓库已切换",
+    "toggleFailed": "切换失败",
+    "removed": "仓库已移除",
+    "removeFailed": "移除失败"
+  }
+}

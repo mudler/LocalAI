@@ -1,0 +1,13 @@
+grpcio==1.71.0
+protobuf
+certifi
+packaging==24.1
+soundfile
+setuptools
+six
+scipy
+numpy
+# fish-speech is installed editable with --no-build-isolation, so the build
+# backends of its transitive deps must already be in the venv. One of them
+# builds a Rust extension and needs setuptools-rust present at metadata time.
+setuptools-rust

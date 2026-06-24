@@ -1,0 +1,241 @@
+---
+name: 'build container images (reusable)'
+
+on:
+  workflow_call:
+    inputs:
+      base-image:
+        description: 'Base image'
+        required: true
+        type: string
+      build-type:
+        description: 'Build type'
+        default: ''
+        type: string
+      cuda-major-version:
+        description: 'CUDA major version'
+        default: "12"
+        type: string
+      cuda-minor-version:
+        description: 'CUDA minor version'
+        default: "9"
+        type: string
+      platforms:
+        description: 'Platforms'
+        default: ''
+        type: string
+      platform-tag:
+        description: |
+          Short tag identifying the platform leg, e.g. "amd64" or "arm64".
+          Used to scope the per-arch registry cache and the digest artifact name.
+          Optional during the migration; will be flipped to required: true once
+          every caller passes an explicit value.
+        required: false
+        default: ''
+        type: string
+      tag-latest:
+        description: 'Tag latest'
+        default: ''
+        type: string
+      tag-suffix:
+        description: 'Tag suffix'
+        default: ''
+        type: string
+      skip-drivers:
+        description: 'Skip drivers by default'
+        default: 'false'
+        type: string
+      runs-on:
+        description: 'Runs on'
+        required: true
+        default: ''
+        type: string
+      makeflags:
+        description: 'Make Flags'
+        required: false
+        default: '--jobs=4 --output-sync=target'
+        type: string
+      ubuntu-version:
+        description: 'Ubuntu version'
+        required: false
+        default: '2204'
+        type: string
+      ubuntu-codename:
+        description: 'Ubuntu codename'
+        required: false
+        default: 'noble'
+        type: string
+    secrets:
+      dockerUsername:
+        required: true
+      dockerPassword:
+        required: true
+      quayUsername:
+        required: true
+      quayPassword:
+        required: true
+jobs:
+  reusable_image-build:
+    runs-on: ${{ inputs.runs-on }}
+    steps:
+
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Configure apt mirror on runner
+        id: apt_mirror
+        uses: ./.github/actions/configure-apt-mirror
+
+      - name: Free disk space
+        uses: ./.github/actions/free-disk-space
+        with:
+          mode: ${{ inputs.runs-on == 'ubuntu-latest' && 'hosted' || 'skip' }}
+
+      - name: Set up build disk
+        uses: ./.github/actions/setup-build-disk
+
+      - name: Docker meta
+        id: meta
+        if: github.event_name != 'pull_request'
+        uses: docker/metadata-action@v6
+        with:
+          images: |
+            quay.io/go-skynet/local-ai
+            localai/localai
+          tags: |
+            type=ref,event=branch
+            type=semver,pattern={{raw}}
+            type=sha
+            type=raw,value={{branch}}-{{date 'X'}}-{{sha}},enable={{is_default_branch}}
+          flavor: |
+            latest=${{ inputs.tag-latest }}
+            suffix=${{ inputs.tag-suffix }},onlatest=true
+      - name: Docker meta for PR
+        id: meta_pull_request
+        if: github.event_name == 'pull_request'
+        uses: docker/metadata-action@v6
+        with:
+          images: |
+            quay.io/go-skynet/ci-tests
+          tags: |
+            type=ref,event=branch,suffix=localai${{ github.event.number }}-${{ inputs.build-type }}-${{ inputs.cuda-major-version }}-${{ inputs.cuda-minor-version }}
+            type=semver,pattern={{raw}},suffix=localai${{ github.event.number }}-${{ inputs.build-type }}-${{ inputs.cuda-major-version }}-${{ inputs.cuda-minor-version }}
+            type=sha,suffix=localai${{ github.event.number }}-${{ inputs.build-type }}-${{ inputs.cuda-major-version }}-${{ inputs.cuda-minor-version }}
+          flavor: |
+            latest=${{ inputs.tag-latest }}
+            suffix=${{ inputs.tag-suffix }}
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@master
+        with:
+          platforms: all
+
+      - name: Set up Docker Buildx
+        id: buildx
+        uses: docker/setup-buildx-action@master
+
+      - name: Login to DockerHub
+        if: github.event_name != 'pull_request'
+        uses: docker/login-action@v4
+        with:
+          username: ${{ secrets.dockerUsername }}
+          password: ${{ secrets.dockerPassword }}
+
+      - name: Login to DockerHub
+        if: github.event_name != 'pull_request'
+        uses: docker/login-action@v4
+        with:
+          registry: quay.io
+          username: ${{ secrets.quayUsername }}
+          password: ${{ secrets.quayPassword }}
+
+      - name: Build and push by digest
+        id: build
+        uses: docker/build-push-action@v7
+        if: github.event_name != 'pull_request'
+        with:
+          builder: ${{ steps.buildx.outputs.name }}
+          build-args: |
+            BUILD_TYPE=${{ inputs.build-type }}
+            CUDA_MAJOR_VERSION=${{ inputs.cuda-major-version }}
+            CUDA_MINOR_VERSION=${{ inputs.cuda-minor-version }}
+            BASE_IMAGE=${{ inputs.base-image }}
+            MAKEFLAGS=${{ inputs.makeflags }}
+            SKIP_DRIVERS=${{ inputs.skip-drivers }}
+            UBUNTU_VERSION=${{ inputs.ubuntu-version }}
+            UBUNTU_CODENAME=${{ inputs.ubuntu-codename }}
+            APT_MIRROR=${{ steps.apt_mirror.outputs.effective-mirror }}
+            APT_PORTS_MIRROR=${{ steps.apt_mirror.outputs.effective-ports-mirror }}
+          context: .
+          file: ./Dockerfile
+          cache-from: type=registry,ref=quay.io/go-skynet/ci-cache:cache-localai${{ inputs.tag-suffix }}-${{ inputs.platform-tag }}
+          cache-to: type=registry,ref=quay.io/go-skynet/ci-cache:cache-localai${{ inputs.tag-suffix }}-${{ inputs.platform-tag }},mode=max,ignore-error=true
+          platforms: ${{ inputs.platforms }}
+          outputs: |
+            type=image,name=quay.io/go-skynet/local-ai,push-by-digest=true,name-canonical=true,push=true
+            type=image,name=localai/localai,push-by-digest=true,name-canonical=true,push=true
+          # See backend_build.yml for the rationale — provenance=mode=max
+          # diverges the manifest-list digest per registry, breaking the
+          # downstream imagetools create lookup.
+          provenance: false
+          labels: ${{ steps.meta.outputs.labels }}
+
+      - name: Export digest
+        if: github.event_name != 'pull_request'
+        run: |
+          mkdir -p /tmp/digests
+          digest="${{ steps.build.outputs.digest }}"
+          touch "/tmp/digests/${digest#sha256:}"
+
+      # See .github/scripts/anchor-digest-in-cache.sh for why this is needed
+      # and how it interacts with image_merge.yml's cleanup step. Mirrors the
+      # same anchor in backend_build.yml — quay's per-repo manifest GC reaps
+      # untagged manifests in local-ai before the merge runs.
+      - name: Anchor digest in ci-cache so quay GC won't reap before merge
+        if: github.event_name != 'pull_request'
+        env:
+          TAG_SUFFIX: ${{ inputs.tag-suffix == '' && '-core' || inputs.tag-suffix }}
+          PLATFORM_TAG: ${{ inputs.platform-tag || 'single' }}
+          DIGEST: ${{ steps.build.outputs.digest }}
+          SOURCE_IMAGE: quay.io/go-skynet/local-ai
+        run: .github/scripts/anchor-digest-in-cache.sh
+
+      - name: Upload digest artifact
+        if: github.event_name != 'pull_request'
+        uses: actions/upload-artifact@v7
+        with:
+          # `--` separator + 'single' placeholder for empty platform-tag —
+          # same pattern as backend_build.yml. Prevents prefix collisions
+          # in the merge-side glob (e.g. -nvidia-l4t-arm64 is a prefix of
+          # -nvidia-l4t-arm64-cuda-13).
+          name: digests-localai${{ inputs.tag-suffix == '' && '-core' || inputs.tag-suffix }}--${{ inputs.platform-tag || 'single' }}
+          path: /tmp/digests/*
+          if-no-files-found: error
+          retention-days: 1
+### Start testing image
+      - name: Build and push
+        uses: docker/build-push-action@v7
+        if: github.event_name == 'pull_request'
+        with:
+          builder: ${{ steps.buildx.outputs.name }}
+          build-args: |
+            BUILD_TYPE=${{ inputs.build-type }}
+            CUDA_MAJOR_VERSION=${{ inputs.cuda-major-version }}
+            CUDA_MINOR_VERSION=${{ inputs.cuda-minor-version }}
+            BASE_IMAGE=${{ inputs.base-image }}
+            MAKEFLAGS=${{ inputs.makeflags }}
+            SKIP_DRIVERS=${{ inputs.skip-drivers }}
+            UBUNTU_VERSION=${{ inputs.ubuntu-version }}
+            UBUNTU_CODENAME=${{ inputs.ubuntu-codename }}
+            APT_MIRROR=${{ steps.apt_mirror.outputs.effective-mirror }}
+            APT_PORTS_MIRROR=${{ steps.apt_mirror.outputs.effective-ports-mirror }}
+          context: .
+          file: ./Dockerfile
+          cache-from: type=registry,ref=quay.io/go-skynet/ci-cache:cache-localai${{ inputs.tag-suffix }}-${{ inputs.platform-tag }}
+          platforms: ${{ inputs.platforms }}
+          #push: true
+          tags: ${{ steps.meta_pull_request.outputs.tags }}
+          labels: ${{ steps.meta_pull_request.outputs.labels }}
+## End testing image
+      - name: job summary
+        run: |
+          echo "Built image: ${{ steps.meta.outputs.labels }}" >> $GITHUB_STEP_SUMMARY

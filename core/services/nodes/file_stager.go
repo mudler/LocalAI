@@ -1,0 +1,92 @@
+package nodes
+
+import (
+	"context"
+	"fmt"
+	"path"
+	"strings"
+)
+
+// FileStager abstracts file transfer between frontend and backend nodes
+// in distributed mode. Two implementations exist:
+//
+//  1. S3NATSFileStager (primary): Both sides have FileManager with same S3.
+//     Frontend uploads to S3, sends NATS request-reply to backend to download locally.
+//
+//  2. HTTPFileStager (fallback): Frontend pushes/pulls files directly over
+//     HTTP to a small file transfer server on the backend node (no S3 needed).
+type FileStager interface {
+	// EnsureRemote ensures a local file is available on the remote node.
+	// Returns the remote-local path.
+	EnsureRemote(ctx context.Context, nodeID, localPath, key string) (string, error)
+
+	// FetchRemote retrieves a file from the remote node to a local path.
+	FetchRemote(ctx context.Context, nodeID, remotePath, localDst string) error
+
+	// FetchRemoteByKey retrieves a file from the remote node using an explicit
+	// storage key (e.g. "data/quantization/...") instead of deriving it from the path.
+	FetchRemoteByKey(ctx context.Context, nodeID, key, localDst string) error
+
+	// AllocRemoteTemp allocates a temp file on the remote node.
+	// Returns the remote-local path.
+	AllocRemoteTemp(ctx context.Context, nodeID string) (string, error)
+
+	// StageRemoteToStore uploads a remote file to shared storage.
+	StageRemoteToStore(ctx context.Context, nodeID, remotePath, key string) error
+
+	// ReleaseRemote removes one ephemeral key from the remote node.
+	ReleaseRemote(ctx context.Context, nodeID, key string) error
+
+	// ListRemoteDir returns relative file paths within a directory on the remote node.
+	// keyPrefix is a storage-style key prefix (e.g. "models/mymodel").
+	ListRemoteDir(ctx context.Context, nodeID, keyPrefix string) ([]string, error)
+}
+
+// RequestFileReleaser removes all ephemeral keys staged for one inference in
+// one transport operation. FileStagingClient falls back to ReleaseRemote for
+// stagers that do not implement this optional rolling-upgrade extension.
+type RequestFileReleaser interface {
+	ReleaseRemoteRequest(ctx context.Context, nodeID, requestID string, keys []string) error
+}
+
+func validateEphemeralRequestRelease(requestID string, keys []string) error {
+	if err := validateEphemeralRequestID(requestID); err != nil {
+		return err
+	}
+	if len(keys) == 0 {
+		return fmt.Errorf("release batch must contain at least one key")
+	}
+	for _, key := range keys {
+		if err := validateEphemeralReleaseKey(key); err != nil {
+			return err
+		}
+		parts := strings.Split(key, "/")
+		if parts[2] != requestID {
+			return fmt.Errorf("release batch mixes request IDs %q and %q", requestID, parts[2])
+		}
+	}
+	return nil
+}
+
+func validateEphemeralRequestID(requestID string) error {
+	if requestID == "" || strings.ContainsAny(requestID, "/\\") || path.Clean(requestID) != requestID || requestID == "." || requestID == ".." {
+		return fmt.Errorf("invalid ephemeral request ID %q", requestID)
+	}
+	return nil
+}
+
+func validateEphemeralReleaseKey(key string) error {
+	if strings.Contains(key, "\\") || path.Clean(key) != key {
+		return fmt.Errorf("invalid ephemeral key %q", key)
+	}
+	parts := strings.Split(key, "/")
+	if len(parts) != 4 || parts[0] != "ephemeral" {
+		return fmt.Errorf("release key %q must identify one file below ephemeral/", key)
+	}
+	for _, part := range parts[1:] {
+		if part == "" || part == "." || part == ".." {
+			return fmt.Errorf("invalid ephemeral key %q", key)
+		}
+	}
+	return nil
+}

@@ -1,0 +1,165 @@
+package nodes
+
+import (
+	"context"
+	"time"
+
+	"github.com/mudler/LocalAI/core/services/messaging"
+	grpc "github.com/mudler/LocalAI/pkg/grpc"
+)
+
+type ExactModelStopper interface {
+	StopModelReplica(ctx context.Context, nodeID string, replica NodeModel, force bool) (messaging.ModelStopReply, error)
+}
+
+type ModelCleanupRegistry interface {
+	ClaimModelCleanupRetries(ctx context.Context, now, leaseUntil time.Time, limit int) ([]NodeModel, error)
+	RecordModelCleanupFailure(ctx context.Context, nodeID, modelName string, replicaIndex int, cleanupErr string, nextRetry time.Time) error
+	RemoveClaimedModelCleanup(ctx context.Context, replica NodeModel) (bool, error)
+}
+
+// ModelRouter is used by SmartRouter for routing decisions and model lifecycle.
+type ModelRouter interface {
+	FindAndLockNodeWithModel(ctx context.Context, modelName string, candidateNodeIDs []string, pref *RoutePreference) (*BackendNode, *NodeModel, error)
+	DecrementInFlight(ctx context.Context, nodeID, modelName string, replicaIndex int) error
+	IncrementInFlight(ctx context.Context, nodeID, modelName string, replicaIndex int) error
+	RemoveNodeModel(ctx context.Context, nodeID, modelName string, replicaIndex int) error
+	RemoveAllNodeModelReplicas(ctx context.Context, nodeID, modelName string) error
+	TouchNodeModel(ctx context.Context, nodeID, modelName string, replicaIndex int)
+	SetNodeModel(ctx context.Context, nodeID, modelName string, replicaIndex int, state, address string, initialInFlight int) error
+	SetNodeModelRevision(ctx context.Context, nodeID, modelName string, replicaIndex int, state, address string, initialInFlight int, revision, effectiveOptionsHash string) error
+	SetNodeModelLoadInfo(ctx context.Context, nodeID, modelName string, replicaIndex int, backendType string, optsBlob []byte) error
+	SetNodeModelLoadInfoRevision(ctx context.Context, nodeID, modelName string, replicaIndex int, backendType, revision string, optsBlob []byte) error
+	UpsertModelLoadInfo(ctx context.Context, modelName, backendType string, optsBlob []byte) error
+	UpsertModelLoadInfoRevision(ctx context.Context, modelName, backendType, revision string, optsBlob []byte) error
+	GetModelLoadInfo(ctx context.Context, modelName string) (backendType string, optsBlob []byte, err error)
+	GetModelLoadInfoRevision(ctx context.Context, modelName string) (backendType, revision string, optsBlob []byte, err error)
+	AdvanceModelConfigRevision(ctx context.Context, modelName, revision string) ([]NodeModel, error)
+	EstablishModelConfigRevision(ctx context.Context, modelName, revision string) error
+	GetModelConfigRevision(ctx context.Context, modelName string) (string, error)
+	GetNodeModel(ctx context.Context, nodeID, modelName string, replicaIndex int) (*NodeModel, error)
+	RecordModelCleanupFailure(ctx context.Context, nodeID, modelName string, replicaIndex int, cleanupErr string, nextRetry time.Time) error
+	ListModelCleanupRetries(ctx context.Context, now time.Time, limit int) ([]NodeModel, error)
+	NextFreeReplicaIndex(ctx context.Context, nodeID, modelName string, maxSlots int) (int, error)
+	CountReplicasOnNode(ctx context.Context, nodeID, modelName string) (int, error)
+	FindNodeWithVRAM(ctx context.Context, minBytes uint64) (*BackendNode, error)
+	FindIdleNode(ctx context.Context) (*BackendNode, error)
+	FindLeastLoadedNode(ctx context.Context) (*BackendNode, error)
+	FindGlobalLRUModelWithZeroInFlight(ctx context.Context) (*NodeModel, error)
+	FindLRUModel(ctx context.Context, nodeID string, excludeModels []string) (*NodeModel, error)
+	Get(ctx context.Context, nodeID string) (*BackendNode, error)
+	GetModelScheduling(ctx context.Context, modelName string) (*ModelSchedulingConfig, error)
+	GetGoverningScheduling(ctx context.Context, modelName string) (*ModelSchedulingConfig, error)
+	FindNodesBySelector(ctx context.Context, selector map[string]string) ([]BackendNode, error)
+	FindNodesWithFreeSlot(ctx context.Context, modelName string, candidateNodeIDs []string) ([]BackendNode, error)
+	NarrowByDiskHeadroom(ctx context.Context, candidateNodeIDs []string, required uint64) ([]string, error)
+	ReserveVRAM(ctx context.Context, nodeID string, bytes uint64) error
+	ReleaseVRAM(ctx context.Context, nodeID string, bytes uint64) error
+	FindNodeWithVRAMFromSet(ctx context.Context, minBytes uint64, nodeIDs []string) (*BackendNode, error)
+	FindIdleNodeFromSet(ctx context.Context, nodeIDs []string) (*BackendNode, error)
+	FindLeastLoadedNodeFromSet(ctx context.Context, nodeIDs []string) (*BackendNode, error)
+	GetNodeLabels(ctx context.Context, nodeID string) ([]NodeLabel, error)
+	FindNodesWithModel(ctx context.Context, modelName string) ([]BackendNode, error)
+	LoadedReplicaStats(ctx context.Context, modelName string, candidateNodeIDs []string) ([]ReplicaCandidate, error)
+	MarkUnhealthy(ctx context.Context, nodeID string) error
+	LoadJobStore
+}
+
+// LoadJobStore is the durable cold-load job record SmartRouter uses to
+// de-duplicate concurrent loaders across replicas without holding the per-model
+// advisory lock for the whole load. See ModelLoadJob.
+type LoadJobStore interface {
+	ClaimLoadJob(ctx context.Context, trackingKey, owner string) (*ModelLoadJob, bool, error)
+	GetLoadJob(ctx context.Context, trackingKey string) (*ModelLoadJob, error)
+	UpdateLoadJob(ctx context.Context, trackingKey string, u LoadJobUpdate) error
+	FailLoadJob(ctx context.Context, trackingKey, msg string) error
+	DeleteLoadJob(ctx context.Context, trackingKey string) error
+}
+
+// ConcurrencyConflictResolver returns the names of configured models that
+// share at least one concurrency group with the given model. It is satisfied
+// by *config.ModelConfigLoader and lets the SmartRouter make group-aware
+// placement decisions without importing the config package's full surface.
+type ConcurrencyConflictResolver interface {
+	GetModelsConflictingWith(modelName string) []string
+}
+
+// PinnedModelResolver reports which configured models are pinned. Satisfied
+// by *config.ModelConfigLoader. The router's eviction paths and the
+// reconciler's idle scale-down exclude these models so `pinned: true` holds
+// cluster-wide, not just against the per-node watchdog (#11101). Deliberate
+// teardown (admin unload, model delete, node drain) intentionally bypasses it.
+type PinnedModelResolver interface {
+	GetPinnedModelNames() []string
+}
+
+// NodeHealthStore is used by HealthMonitor for node status management.
+type NodeHealthStore interface {
+	List(ctx context.Context) ([]BackendNode, error)
+	GetNodeModels(ctx context.Context, nodeID string) ([]NodeModel, error)
+	MarkOffline(ctx context.Context, nodeID string) error
+	MarkUnhealthy(ctx context.Context, nodeID string) error
+	MarkHealthy(ctx context.Context, nodeID string) error
+	Heartbeat(ctx context.Context, nodeID string, update *HeartbeatUpdate) error
+	FindStaleNodes(ctx context.Context, threshold time.Duration) ([]BackendNode, error)
+	RemoveNodeModel(ctx context.Context, nodeID, modelName string, replicaIndex int) error
+}
+
+// ModelLocator is used by RemoteUnloaderAdapter for model discovery.
+type ModelLocator interface {
+	FindNodesWithModel(ctx context.Context, modelName string) ([]BackendNode, error)
+	RemoveNodeModel(ctx context.Context, nodeID, modelName string, replicaIndex int) error
+	RemoveAllNodeModelReplicas(ctx context.Context, nodeID, modelName string) error
+}
+
+// ModelLookup is used by DistributedModelStore for model existence queries.
+type ModelLookup interface {
+	FindNodeForModel(ctx context.Context, modelName string) (*BackendNode, bool)
+	ListAllLoadedModels(ctx context.Context) ([]NodeModel, error)
+	Get(ctx context.Context, nodeID string) (*BackendNode, error)
+}
+
+// InFlightTracker is used by InFlightTrackingClient for request counting.
+type InFlightTracker interface {
+	IncrementInFlight(ctx context.Context, nodeID, modelName string, replicaIndex int) error
+	DecrementInFlight(ctx context.Context, nodeID, modelName string, replicaIndex int) error
+	// RemoveNodeModel drops a stale replica row so the next request reloads the
+	// model instead of routing back to a node where it is no longer loaded.
+	RemoveNodeModel(ctx context.Context, nodeID, modelName string, replicaIndex int) error
+}
+
+// NodeManager is used by HTTP endpoints for node registration and lifecycle.
+type NodeManager interface {
+	Register(ctx context.Context, node *BackendNode, autoApprove bool) error
+	Get(ctx context.Context, nodeID string) (*BackendNode, error)
+	GetByName(ctx context.Context, name string) (*BackendNode, error)
+	List(ctx context.Context) ([]BackendNode, error)
+	Deregister(ctx context.Context, nodeID string) error
+	ApproveNode(ctx context.Context, nodeID string) error
+	MarkOffline(ctx context.Context, nodeID string) error
+	MarkDraining(ctx context.Context, nodeID string) error
+	MarkHealthy(ctx context.Context, nodeID string) error
+	Heartbeat(ctx context.Context, nodeID string, update *HeartbeatUpdate) error
+	GetNodeModels(ctx context.Context, nodeID string) ([]NodeModel, error)
+	UpdateAuthRefs(ctx context.Context, nodeID, authUserID, apiKeyID string) error
+	RemoveNodeModel(ctx context.Context, nodeID, modelName string, replicaIndex int) error
+	RemoveAllNodeModelReplicas(ctx context.Context, nodeID, modelName string) error
+}
+
+// BackendClientFactory creates gRPC backend clients.
+type BackendClientFactory interface {
+	NewClient(address string, parallel bool) grpc.Backend
+}
+
+// tokenClientFactory is the default BackendClientFactory that creates gRPC
+// clients with an optional bearer token for distributed auth.
+type tokenClientFactory struct {
+	token string
+}
+
+func (f *tokenClientFactory) NewClient(address string, parallel bool) grpc.Backend {
+	if f.token != "" {
+		return grpc.NewClientWithToken(address, parallel, nil, false, f.token)
+	}
+	return grpc.NewClient(address, parallel, nil, false)
+}

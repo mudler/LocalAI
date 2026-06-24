@@ -1,0 +1,11 @@
+.cache/
+sources/
+build/
+package/
+parakeet-cpp-grpc
+# build artifacts staged in-tree by the Makefile (cp from sources/) or
+# symlinked for local dev; the real sources live in parakeet.cpp upstream.
+*.so
+*.so.*
+parakeet_capi.h
+compile_commands.json

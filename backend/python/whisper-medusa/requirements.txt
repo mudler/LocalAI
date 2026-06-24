@@ -1,0 +1,5 @@
+grpcio==1.71.0
+protobuf
+grpcio-tools
+transformers==4.49.0
+git+https://github.com/aiola-lab/whisper-medusa.git@19819c37ab15db6e68826e406614a2c86fbb946e

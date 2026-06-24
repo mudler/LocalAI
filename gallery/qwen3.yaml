@@ -1,0 +1,29 @@
+config_file: |
+    backend: llama-cpp
+    known_usecases:
+        - chat
+    parameters:
+        context_size: 8192
+        f16: true
+        mmap: true
+    stopwords:
+        - <|im_end|>
+        - <dummy32000>
+        - </s>
+        - <|endoftext|>
+    # Delegate templating to llama.cpp's jinja runtime so the C++ autoparser
+    # can classify <think>…</think> blocks into reasoning_content natively
+    # (issue #9985). Without use_jinja the autoparser falls back to a
+    # "pure content" PEG parser that leaks reasoning tags into content.
+    options:
+        - use_jinja:true
+    # With use_tokenizer_template the backend (llama.cpp) owns tool-call
+    # grammar generation and parsing too. Disabling LocalAI's own grammar lets
+    # llama.cpp's native name-first tool pipeline run; otherwise the generated
+    # grammar overrides it and the tool-call JSON leaks into content (#10052).
+    function:
+        grammar:
+            disable: true
+    template:
+        use_tokenizer_template: true
+name: qwen3

@@ -1,0 +1,286 @@
+ 
++++
+disableToc = false
+title = "Try it out"
+weight = 4
+url = '/basics/try/'
+icon = "rocket_launch"
++++
+
+Once LocalAI is installed, you can start it (either by using docker, or the cli, or the systemd service).
+
+By default the LocalAI WebUI should be accessible from http://localhost:8080. You can also use 3rd party projects to interact with LocalAI as you would use OpenAI (see also [Integrations]({{%relref "integrations" %}}) ). 
+
+After installation, install new models by navigating the model gallery, or by using the `local-ai` CLI. 
+
+{{% notice tip %}}
+To install models with the WebUI, see the [Models section]({{%relref "features/model-gallery" %}}).
+With the CLI you can list the models with `local-ai models list` and install them with `local-ai models install <model-name>`.
+
+You can also [run models manually]({{%relref "getting-started/models" %}}) by copying files into the `models` directory.
+ {{% /notice %}}
+
+You can test chat models from the CLI without keeping a separate `curl` command around:
+
+```bash
+# Terminal 1
+local-ai run
+
+# Terminal 2
+local-ai chat --model qwen3-4b
+```
+
+`local-ai chat` connects to a running LocalAI server and opens the built-in terminal agent. It is more than a chat prompt: it can read your files and run commands on your machine, so the first time it wants to do something that changes state it stops and asks you to approve the call. Reads and searches run without asking. Press `Esc` or `Ctrl+C` to end the session. `Esc` is a key of the full-screen interface: in the plain `--cli` mode, leave with `Ctrl+C`, `Ctrl+D`, or by typing `exit`.
+
+Use `/models` to list installed models, `/model <name>` to switch models while keeping the conversation, and `/compact` to summarize the history so far when the context fills up. The full picture is on the [Terminal agent]({{% relref "features/terminal-agent" %}}) page.
+
+If the server exposes exactly one model, LocalAI uses that model automatically:
+
+```bash
+# Terminal 1
+local-ai run qwen3-4b
+
+# Terminal 2
+local-ai chat
+```
+
+When more than one model is configured, the agent asks you to pick one and remembers your answer, or you can pass `--model` with the installed model name. Use `--endpoint` to connect to a non-default server, for example `local-ai chat --endpoint http://127.0.0.1:8081 --model qwen3-4b`.
+
+You can also test out the API endpoints using `curl`. A few examples are listed below.
+
+{{% notice note %}}
+Each example assumes you have already installed the model it names. The chat and function-calling examples below use `qwen3-4b` (install it from the Models page or with `local-ai run qwen3-4b`). The other examples name a model for the task they show (`gpt-4-vision-preview` for vision, `tts-1` for text to speech, `whisper-1` for transcription, `text-embedding-ada-002` for embeddings); replace each with the name of a model you have installed for that task.
+{{% /notice %}}
+
+### Text Generation
+
+Creates a model response for the given chat conversation. [OpenAI documentation](https://platform.openai.com/docs/api-reference/chat/create).
+
+<details>
+
+```bash
+curl http://localhost:8080/v1/chat/completions \
+      -H "Content-Type: application/json" \
+      -d '{ "model": "qwen3-4b", "messages": [{"role": "user", "content": "How are you doing?", "temperature": 0.1}] }' 
+```
+
+</details>
+
+### GPT Vision
+
+Understand images.
+
+<details>
+
+```bash
+curl http://localhost:8080/v1/chat/completions \
+    -H "Content-Type: application/json" \
+    -d '{ 
+        "model": "gpt-4-vision-preview", 
+        "messages": [
+          {
+            "role": "user", "content": [
+              {"type":"text", "text": "What is in the image?"},
+              {
+                "type": "image_url", 
+                "image_url": {
+                  "url": "https://upload.wikimedia.org/wikipedia/commons/thumb/d/dd/Gfp-wisconsin-madison-the-nature-boardwalk.jpg/2560px-Gfp-wisconsin-madison-the-nature-boardwalk.jpg" 
+                }
+              }
+            ], 
+          "temperature": 0.9
+          }
+        ]
+      }' 
+```
+
+</details>
+
+### Function calling
+
+Call functions
+
+<details>
+
+```bash
+curl http://localhost:8080/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "qwen3-4b",
+    "messages": [
+      {
+        "role": "user",
+        "content": "What is the weather like in Boston?"
+      }
+    ],
+    "tools": [
+      {
+        "type": "function",
+        "function": {
+          "name": "get_current_weather",
+          "description": "Get the current weather in a given location",
+          "parameters": {
+            "type": "object",
+            "properties": {
+              "location": {
+                "type": "string",
+                "description": "The city and state, e.g. San Francisco, CA"
+              },
+              "unit": {
+                "type": "string",
+                "enum": ["celsius", "fahrenheit"]
+              }
+            },
+            "required": ["location"]
+          }
+        }
+      }
+    ],
+    "tool_choice": "auto"
+  }'
+```
+
+</details>
+
+### Anthropic Messages API
+
+LocalAI supports the Anthropic Messages API for Claude-compatible models. [Anthropic documentation](https://docs.anthropic.com/claude/reference/messages_post).
+
+<details>
+
+```bash
+curl http://localhost:8080/v1/messages \
+  -H "Content-Type: application/json" \
+  -H "anthropic-version: 2023-06-01" \
+  -d '{
+    "model": "gpt-4",
+    "max_tokens": 1024,
+    "messages": [
+      {"role": "user", "content": "How are you doing?"}
+    ],
+    "temperature": 0.7
+  }'
+```
+
+</details>
+
+### Open Responses API
+
+LocalAI supports the Open Responses API specification with support for background processing, streaming, and advanced features. [Open Responses documentation](https://www.openresponses.org/specification).
+
+<details>
+
+```bash
+curl http://localhost:8080/v1/responses \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "gpt-4",
+    "input": "Say this is a test!",
+    "max_output_tokens": 1024,
+    "temperature": 0.7
+  }'
+```
+
+For background processing:
+
+```bash
+curl http://localhost:8080/v1/responses \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "gpt-4",
+    "input": "Generate a long story",
+    "max_output_tokens": 4096,
+    "background": true
+  }'
+```
+
+Then retrieve the response:
+
+```bash
+curl http://localhost:8080/v1/responses/<response_id>
+```
+
+</details>
+
+### Image Generation
+
+Creates an image given a prompt. [OpenAI documentation](https://platform.openai.com/docs/api-reference/images/create).
+
+<details>
+
+```bash
+curl http://localhost:8080/v1/images/generations \
+      -H "Content-Type: application/json" -d '{
+          "prompt": "A cute baby sea otter",
+          "size": "256x256"
+        }'
+```
+
+</details>
+
+### Text to speech
+
+
+Generates audio from the input text. [OpenAI documentation](https://platform.openai.com/docs/api-reference/audio/createSpeech).
+
+<details>
+
+```bash
+curl http://localhost:8080/v1/audio/speech \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "tts-1",
+    "input": "The quick brown fox jumped over the lazy dog.",
+    "voice": "alloy"
+  }' \
+  --output speech.mp3
+```
+
+</details>
+
+
+### Audio Transcription
+
+Transcribes audio into the input language. [OpenAI Documentation](https://platform.openai.com/docs/api-reference/audio/createTranscription).
+
+<details>
+
+Download first a sample to transcribe:
+
+```bash
+wget --quiet --show-progress -O gb1.ogg https://upload.wikimedia.org/wikipedia/commons/1/1f/George_W_Bush_Columbia_FINAL.ogg 
+```
+
+Send the example audio file to the transcriptions endpoint :
+```bash
+curl http://localhost:8080/v1/audio/transcriptions \
+    -H "Content-Type: multipart/form-data" \
+    -F file="@$PWD/gb1.ogg" -F model="whisper-1"
+```
+
+</details>
+
+### Embeddings Generation
+
+Get a vector representation of a given input that can be easily consumed by machine learning models and algorithms. [OpenAI Embeddings](https://platform.openai.com/docs/api-reference/embeddings).
+
+<details>
+
+```bash
+curl http://localhost:8080/embeddings \
+    -X POST -H "Content-Type: application/json" \
+    -d '{ 
+        "input": "Your text string goes here", 
+        "model": "text-embedding-ada-002"
+      }'
+```
+
+</details>
+
+{{% notice tip %}}
+
+Don't use the model file as `model` in the request unless you want to handle the prompt template for yourself.
+
+Use the installed model's own name as the `model` value, the same way you would pass a model name to OpenAI. For instance `qwen3-4b` for chat, or `gpt-4-vision-preview` for a vision model you have installed under that name.
+
+ {{% /notice %}}

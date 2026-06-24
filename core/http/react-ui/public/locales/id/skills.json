@@ -1,0 +1,79 @@
+{
+  "title": "Skill",
+  "subtitle": "Kelola skill agen (instruksi dan sumber daya yang dapat digunakan kembali)",
+  "unavailable": {
+    "subtitle": "Layanan Skill tidak tersedia atau indeks sedang dibangun ulang. Coba beberapa saat lagi.",
+    "retry": "Coba lagi"
+  },
+  "actions": {
+    "newSkill": "Skill baru",
+    "createSkill": "Buat skill",
+    "import": "Impor",
+    "importing": "Mengimpor...",
+    "gitRepos": "Repo Git",
+    "edit": "Edit",
+    "delete": "Hapus",
+    "export": "Ekspor",
+    "sync": "Sinkronisasi",
+    "addRepo": "Tambah repo",
+    "adding": "Menambahkan...",
+    "remove": "Hapus",
+    "enable": "Aktifkan",
+    "disable": "Nonaktifkan"
+  },
+  "search": {
+    "placeholder": "Cari skill..."
+  },
+  "git": {
+    "title": "Repositori git",
+    "description": "Tambah repositori Git untuk mengambil skill. Skill akan muncul di daftar setelah sinkronisasi.",
+    "urlPlaceholder": "https://github.com/user/repo atau git@github.com:user/repo.git",
+    "noRepos": "Tidak ada repositori Git yang dikonfigurasi. Tambahkan satu di atas.",
+    "disabled": "Dinonaktifkan",
+    "removeRepo": "Hapus repo"
+  },
+  "card": {
+    "noDescription": "Tidak ada deskripsi",
+    "readOnly": "Hanya baca",
+    "editTitle": "Edit skill",
+    "deleteTitle": "Hapus skill",
+    "exportTitle": "Ekspor sebagai .tar.gz"
+  },
+  "empty": {
+    "title": "Tidak ada skill yang ditemukan",
+    "text": "Buat atau impor skill untuk memulai.",
+    "noPersonal": "Anda belum memiliki skill."
+  },
+  "sections": {
+    "yourSkills": "Skill Anda",
+    "otherUsersSkills": "Skill Pengguna Lain"
+  },
+  "deleteDialog": {
+    "title": "Hapus Skill",
+    "message": "Hapus skill \"{{name}}\"? Tindakan ini tidak dapat dibatalkan.",
+    "confirm": "Hapus"
+  },
+  "removeRepoDialog": {
+    "title": "Hapus Repositori Git",
+    "message": "Hapus repositori Git ini? Skill dari repo ini tidak akan tersedia lagi.",
+    "confirm": "Hapus"
+  },
+  "toasts": {
+    "loadFailed": "Gagal memuat skill",
+    "deleted": "Skill \"{{name}}\" berhasil dihapus",
+    "deleteFailed": "Gagal menghapus skill",
+    "exported": "Skill \"{{name}}\" berhasil diekspor",
+    "exportFailed": "Gagal mengekspor",
+    "imported": "Skill berhasil diimpor dari \"{{file}}\" ",
+    "importFailed": "Gagal mengimpor",
+    "loadReposFailed": "Gagal memuat repositori Git",
+    "repoAdded": "Repo Git berhasil ditambahkan dan sedang sinkronisasi",
+    "addRepoFailed": "Gagal menambahkan repo",
+    "synced": "Repo berhasil disinkronisasi",
+    "syncFailed": "Gagal sinkronisasi",
+    "toggled": "Berhasil mengubah status repo",
+    "toggleFailed": "Gagal mengubah status repo",
+    "removed": "Repo berhasil dihapus",
+    "removeFailed": "Gagal menghapus repo"
+  }
+}

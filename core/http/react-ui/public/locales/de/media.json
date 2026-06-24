@@ -1,0 +1,195 @@
+{
+  "studio": {
+    "tabs": {
+      "images": "Bilder",
+      "video": "Video",
+      "tts": "TTS",
+      "sound": "Audio",
+      "transform": "Transform",
+      "overview": "Overview"
+    },
+    "overview": {
+      "eyebrow": "{{ready}} of {{total}} modalities ready",
+      "title": "Studio",
+      "subtitle": "Generate images, video, 3D, speech and sound with the models on this machine.",
+      "canMake": "What you can make",
+      "running": "Running now",
+      "recent": "Recent outputs",
+      "noModel": "No model installed",
+      "install": "Install a model",
+      "ready": "Ready",
+      "seconds": "{{seconds}}s",
+      "describe": {
+        "images": "Text to image, image to image, reference images",
+        "video": "Text to video and image to video",
+        "threed": "Image to mesh reconstruction",
+        "tts": "Text to speech using your voice library",
+        "sound": "Music and sound effects from a prompt",
+        "transform": "Separation, enhancement and voice conversion"
+      }
+    },
+    "groups": {
+      "create": "Create",
+      "voice": "Voice",
+      "transform": "Transform"
+    }
+  },
+  "image": {
+    "title": "Bildgenerierung",
+    "labels": {
+      "model": "Modell",
+      "prompt": "Prompt",
+      "promptPlaceholder": "Beschreiben Sie das Bild, das Sie generieren möchten...",
+      "negativePrompt": "Negativer Prompt",
+      "negativePromptPlaceholder": "Was vermieden werden soll...",
+      "size": "Größe",
+      "count": "Anzahl (1-4)",
+      "advanced": "Erweiterte Einstellungen",
+      "imageInputs": "Bildeingaben",
+      "steps": "Schritte",
+      "stepsPlaceholder": "20",
+      "seed": "Seed",
+      "seedPlaceholder": "Zufällig",
+      "sourceImage": "Ausgangsbild (img2img)",
+      "refImages": "Referenzbilder",
+      "refImagesAdded_one": "{{count}} Bild hinzugefügt",
+      "refImagesAdded_other": "{{count}} Bilder hinzugefügt"
+    },
+    "actions": {
+      "view": "View",
+      "generate": "Generieren",
+      "generating": "Generieren..."
+    },
+    "empty": "Generierte Bilder erscheinen hier",
+    "toasts": {
+      "noPrompt": "Bitte einen Prompt eingeben",
+      "noModel": "Bitte ein Modell auswählen",
+      "noResults": "Keine Bilder generiert"
+    }
+  },
+  "video": {
+    "title": "Videogenerierung",
+    "labels": {
+      "model": "Modell",
+      "prompt": "Prompt",
+      "promptPlaceholder": "Beschreiben Sie das Video, das Sie generieren möchten...",
+      "duration": "Dauer (s)",
+      "fps": "FPS",
+      "size": "Größe",
+      "advanced": "Erweiterte Einstellungen",
+      "seed": "Seed",
+      "seedPlaceholder": "Zufällig",
+      "frames": "Frames",
+      "referenceMedia": "Referenzmedien",
+      "startImage": "Startbild",
+      "endImage": "Endbild",
+      "avatarAudio": "Avatar-Audio"
+    },
+    "actions": {
+      "generate": "Video generieren",
+      "generating": "Generieren..."
+    },
+    "empty": "Generierte Videos erscheinen hier",
+    "toasts": {
+      "noPrompt": "Bitte einen Prompt eingeben",
+      "noModel": "Bitte ein Modell auswählen",
+      "noResults": "Keine Videos generiert"
+    }
+  },
+  "tts": {
+    "title": "Text zu Sprache",
+    "labels": {
+      "model": "Modell",
+      "voice": "Stimme",
+      "voicePlaceholder": "Optionale Stimm-ID",
+      "input": "Text",
+      "inputPlaceholder": "Text zum Synthetisieren eingeben...",
+      "instructions": "Anweisungen",
+      "instructionsPlaceholder": "Zum Beispiel: Langsam und warmherzig sprechen",
+      "instructionsHint": "Optionale Hinweise zur Sprechweise. Die Unterstützung hängt vom Backend ab."
+    },
+    "actions": {
+      "generate": "Audio generieren",
+      "generating": "Generieren..."
+    },
+    "empty": "Generiertes Audio erscheint hier",
+    "toasts": {
+      "noText": "Bitte Text eingeben",
+      "noModel": "Bitte ein Modell auswählen",
+      "generateFailed": "Generierung fehlgeschlagen"
+    }
+  },
+  "sound": {
+    "title": "Audiogenerierung",
+    "labels": {
+      "model": "Modell",
+      "prompt": "Prompt",
+      "promptPlaceholder": "Beschreiben Sie den Klang, den Sie generieren möchten...",
+      "duration": "Dauer (s)",
+      "language": "Sprache",
+      "vocalLanguage": "Vokalsprache",
+      "lyrics": "Liedtext (optional)",
+      "lyricsPlaceholder": "Liedtext für Vokalgenerierung",
+      "advanced": "Erweiterte Einstellungen",
+      "seed": "Seed",
+      "seedPlaceholder": "Zufällig"
+    },
+    "actions": {
+      "generate": "Generieren",
+      "generating": "Generieren..."
+    },
+    "empty": "Generiertes Audio erscheint hier",
+    "toasts": {
+      "noPrompt": "Bitte einen Prompt eingeben",
+      "noModel": "Bitte ein Modell auswählen",
+      "generateFailed": "Generierung fehlgeschlagen"
+    }
+  },
+  "talk": {
+    "title": "Sprechen",
+    "subtitle": "Sprachunterhaltung in Echtzeit",
+    "actions": {
+      "start": "Sitzung starten",
+      "stop": "Sitzung beenden",
+      "connecting": "Verbinden...",
+      "muted": "Stumm",
+      "mute": "Stummschalten",
+      "unmute": "Stumm aufheben"
+    },
+    "labels": {
+      "model": "Modell",
+      "voice": "Stimme",
+      "voicePlaceholder": "alloy",
+      "language": "Sprache",
+      "languagePlaceholder": "de",
+      "instructions": "Anweisungen",
+      "instructionsPlaceholder": "Persönlichkeit des Assistenten festlegen..."
+    },
+    "status": {
+      "idle": "Inaktiv",
+      "connecting": "Verbinden...",
+      "listening": "Höre zu...",
+      "speaking": "Spricht...",
+      "ended": "Sitzung beendet"
+    },
+    "toasts": {
+      "noModel": "Wählen Sie zuerst ein Modell",
+      "connectFailed": "Verbindung fehlgeschlagen: {{message}}"
+    }
+  },
+  "history": {
+    "title": "Verlauf",
+    "empty": "Noch kein Verlauf",
+    "deleteEntry": "Eintrag löschen",
+    "clear": "Verlauf löschen",
+    "clearTitle": "Gesamten Verlauf löschen",
+    "clearMessage": "Alle Verlaufseinträge entfernen? Diese Aktion kann nicht rückgängig gemacht werden.",
+    "clearConfirm": "Löschen",
+    "cleared": "Verlauf gelöscht"
+  },
+  "request": {
+    "heading": "Request",
+    "copyCurl": "Copy as curl",
+    "copied": "Copied"
+  }
+}

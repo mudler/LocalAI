@@ -1,0 +1,23 @@
+{{ define "main" }}
+<main id="top">
+  <section class="navy">
+    <div class="shell">
+      <div class="bars" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
+      <p class="kicker">Tagged</p>
+      <h2 class="mt1">{{ .Title }}</h2>
+      <p class="lede mt2">{{ len .Pages }} post{{ if ne (len .Pages) 1 }}s{{ end }} tagged {{ .Title }}.</p>
+      <div class="cards">
+        {{ range .Pages.ByDate.Reverse }}
+        <a class="cd" href="{{ .RelPermalink }}">
+          <p class="cd__k">{{ with .Params.category }}{{ . }}{{ else }}Post{{ end }}</p>
+          <h3>{{ .Title }}</h3>
+          <p>{{ .Params.summary | default .Summary }}</p>
+          <span class="cd__go">Read the post &#8594;</span>
+        </a>
+        {{ end }}
+      </div>
+      <p class="mt3"><a class="btn btn--o" href="{{ "blog/" | relURL }}">All posts &#8594;</a></p>
+    </div>
+  </section>
+</main>
+{{ end }}

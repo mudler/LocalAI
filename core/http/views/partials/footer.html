@@ -1,0 +1,37 @@
+<footer class="bg-[var(--color-bg-secondary)] border-t border-[var(--color-border-subtle)] py-6 mt-auto">
+  <div class="container mx-auto px-6">
+    <div class="flex flex-col items-center justify-center space-y-3">
+      {{ if .Version }}
+      <span class="text-xs text-[var(--color-text-secondary)]">
+        LocalAI <span class="text-[var(--color-primary)] font-medium">{{.Version}}</span>
+      </span>
+      {{ end }}
+
+      <div class="flex flex-wrap justify-center gap-x-5 gap-y-2">
+        <a href="https://github.com/mudler/LocalAI" 
+           class="group flex items-center text-xs text-[var(--color-text-secondary)] hover:text-[var(--color-primary)] transition-colors"
+           target="_blank">
+          <i class="fab fa-github mr-1.5 text-sm"></i>
+          <span>GitHub</span>
+        </a>
+        <a href="https://localai.io" 
+           class="group flex items-center text-xs text-[var(--color-text-secondary)] hover:text-[var(--color-primary)] transition-colors"
+           target="_blank">
+          <i class="fas fa-book mr-1.5 text-sm"></i>
+          <span>Documentation</span>
+        </a>
+        <a href="https://mudler.pm" 
+           class="group flex items-center text-xs text-[var(--color-text-secondary)] hover:text-[var(--color-primary)] transition-colors"
+           target="_blank">
+          <i class="fas fa-user mr-1.5 text-sm"></i>
+          <span>Author</span>
+        </a>
+      </div>
+
+      <div class="text-xs text-[var(--color-text-muted)]">
+        <span>© 2023-2025 <a href="https://mudler.pm" class="text-[var(--color-text-secondary)] hover:text-[var(--color-primary)] transition-colors" target="_blank">Ettore Di Giacinto</a></span>
+      </div>
+    </div>
+  </div>
+  <script src="static/assets/tw-elements.js"></script>
+</footer>

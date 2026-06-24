@@ -1,0 +1,4 @@
+FROM SCRATCH
+
+COPY src /
+COPY run.sh /

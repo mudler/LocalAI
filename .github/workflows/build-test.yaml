@@ -1,0 +1,101 @@
+name: Build test
+
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+    # GoReleaser and the darwin launcher take no gallery, docs or markdown
+    # input, so a diff confined to these paths cannot change either binary.
+    # The darwin job matters here: macOS is the scarcest runner class.
+    #
+    # backend/{cpp,go,python}/**: GoReleaser builds ./cmd/local-ai and the
+    # launcher builds ./cmd/launcher; neither compiles a backend. The
+    # before-hooks still matter, but their input is backend/backend.proto
+    # (protogen-go) and go.mod/go.sum (go mod tidy), none of which live under
+    # these prefixes, so a change to any of those still triggers a full run.
+    # See .agents/ci-caching.md.
+    paths-ignore:
+      - 'gallery/**'
+      - 'docs/**'
+      - 'examples/**'
+      - '**/*.md'
+      - 'backend/cpp/**'
+      - 'backend/go/**'
+      - 'backend/python/**'
+
+# Supersede an in-flight run when a PR gets a new push. Keyed on the PR number
+# so every push to the same PR shares a group; on a master push the key falls
+# back to github.sha (unique per commit) and cancel-in-progress is false, so
+# master runs never cancel each other -- each commit is built on its own.
+concurrency:
+  group: ci-build-test-${{ github.event.pull_request.number || github.sha }}-${{ github.repository }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  build-test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: 1.25
+      # A PR builds only the host target. The three-platform cross-compile
+      # (linux/amd64, linux/arm64, darwin/arm64) is the bulk of this job's
+      # ~6.6min median and no PR consumes the resulting binaries. The
+      # before-hooks (protogen-go, react-ui, go mod tidy) run either way, so the
+      # "is the release build broken" signal is unchanged. master and tags still
+      # build everything.
+      - name: Run GoReleaser
+        run: |
+          make ${{ github.event_name == 'pull_request' && 'dev-dist-single' || 'dev-dist' }}
+  launcher-build-darwin:
+    runs-on: macos-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: 1.25
+      - name: Build launcher for macOS ARM64
+        run: |
+          make build-launcher-darwin
+          ls -liah dist
+      - name: Upload macOS launcher artifacts
+        uses: actions/upload-artifact@v7
+        with:
+          name: launcher-macos
+          path: dist/
+          retention-days: 30
+      
+  launcher-build-linux:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - name: Configure apt mirror on runner
+        uses: ./.github/actions/configure-apt-mirror
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: 1.25
+      - name: Build launcher for Linux
+        run: |
+          sudo apt-get update
+          sudo apt-get install golang gcc libgl1-mesa-dev xorg-dev libxkbcommon-dev
+          make build-launcher-linux
+      - name: Upload Linux launcher artifacts
+        uses: actions/upload-artifact@v7
+        with:
+          name: launcher-linux
+          path: local-ai-launcher-linux.tar.xz
+          retention-days: 30

@@ -1,0 +1,20 @@
+config_file: |
+    backend: llama-cpp
+    context_size: 2046
+    f16: true
+    known_usecases:
+        - chat
+    roles:
+        assistant: "\nAnswer: "
+        system: "\nSystem: "
+        user: "\nQuestion: "
+    stopwords:
+        - 'Question:'
+        - <|endoftext|>
+    template:
+        chat: |
+            {{.Input}}
+            Answer:
+        completion: |
+            Complete the following sentence: {{.Input}}
+name: moondream2

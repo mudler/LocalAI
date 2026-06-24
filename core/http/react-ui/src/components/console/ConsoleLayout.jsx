@@ -1,0 +1,161 @@
+import { useState, useEffect, Suspense } from 'react'
+import { NavLink, Outlet, useOutletContext, useLocation } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
+import { useAuth } from '../../context/AuthContext'
+import { apiUrl } from '../../utils/basePath'
+import { preloadRoute } from '../../router'
+import RouteFallback from '../RouteFallback'
+import { isConsoleItemVisible } from './consoleConfig'
+import { OperateSummaryProvider, useOperateSummary } from '../../contexts/OperateSummaryContext'
+
+// The App wraps the outlet in key={pathname}, so this layout remounts on every
+// sub-navigation. Tracking the last-entered console id across mounts lets us
+// play the rail's entrance animation only when actually entering a console
+// (from outside), not when switching items within it — otherwise it flashes.
+let lastConsoleId = null
+
+// /api/features rarely changes; cache it across remounts so the rail renders
+// the correct (gated) item set immediately instead of flashing the wrong set
+// while a fresh fetch resolves on every sub-navigation.
+let featuresCache = {}
+const CONSOLE_RAIL_COLLAPSED_KEY = 'localai_console_rail_collapsed'
+
+// Generic secondary-rail layout shared by the Build and Operate consoles.
+// Driven entirely by a config from consoleConfig.js, so the rail, its gating,
+// and the sidebar entry that opens it stay in sync. Mounted as a PATHLESS
+// route in router.jsx — wrapped pages keep their existing flat URLs.
+
+function RailItem({ item, label, collapsed }) {
+  // Null outside Operate, where no provider is mounted — the rail then renders
+  // exactly as it did before signals existed.
+  const summary = useOperateSummary()
+  const signal = item.signal ? summary?.signals?.[item.signal] : null
+
+  if (item.external) {
+    return (
+      <a className="nav-item" href={apiUrl(item.href)} target="_blank" rel="noopener noreferrer" aria-label={collapsed ? label : undefined} title={collapsed ? label : undefined}>
+        <i className={`${item.icon} nav-icon`} />
+        <span className="nav-label">{label}</span>
+        <i className="fas fa-external-link-alt nav-external" />
+      </a>
+    )
+  }
+  return (
+    <NavLink
+      to={item.path}
+      className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}
+      onMouseEnter={() => preloadRoute(item.path)}
+      onFocus={() => preloadRoute(item.path)}
+      aria-label={collapsed ? label : undefined}
+      title={collapsed ? label : undefined}
+    >
+      <i className={`${item.icon} nav-icon`} />
+      <span className="nav-label">{label}</span>
+      {/* Ambient, and hidden from assistive tech: it changes under the reader
+          and is never the only place a fact appears. The overview states the
+          same things in prose, where they can be read deliberately. */}
+      {signal != null && <span className="nav-signal" aria-hidden="true">{signal}</span>}
+    </NavLink>
+  )
+}
+
+function ConsoleLayoutInner({ config }) {
+  const { t } = useTranslation('nav')
+  const { isAdmin, authEnabled, hasFeature } = useAuth()
+  const [features, setFeatures] = useState(featuresCache)
+  const [railOpen, setRailOpen] = useState(false)
+  const [railCollapsed, setRailCollapsed] = useState(() => {
+    try { return localStorage.getItem(CONSOLE_RAIL_COLLAPSED_KEY) === 'true' } catch (_) { return false }
+  })
+  const location = useLocation()
+  // Forward the App-level outlet context (e.g. addToast) — a nested bare
+  // <Outlet/> would otherwise shadow it with undefined and crash pages.
+  const outletContext = useOutletContext()
+  // True only when entering this console fresh; false on item-to-item nav.
+  const [entering] = useState(() => {
+    const fresh = lastConsoleId !== config.id
+    lastConsoleId = config.id
+    return fresh
+  })
+
+  useEffect(() => {
+    fetch(apiUrl('/api/features'))
+      .then(r => r.json())
+      .then(f => { featuresCache = f; setFeatures(f) })
+      .catch(() => {})
+  }, [])
+
+  const auth = { isAdmin, authEnabled, hasFeature, features }
+
+  const toggleRailCollapsed = () => {
+    const next = !railCollapsed
+    try { localStorage.setItem(CONSOLE_RAIL_COLLAPSED_KEY, String(next)) } catch (_) { /* ignore */ }
+    setRailCollapsed(next)
+  }
+
+  return (
+    <div className="console-layout">
+      <nav className={`console-rail${entering ? ' console-rail--enter' : ''}${railOpen ? ' console-rail--open' : ''}${railCollapsed ? ' console-rail--collapsed' : ''}`} aria-label={t(config.titleKey)}>
+        <div className="console-rail-header">
+          <span className="console-rail-header__title">
+            <i className={config.icon} aria-hidden="true" />
+            <span>{t(config.titleKey)}</span>
+          </span>
+          <button
+            type="button"
+            className="console-rail-toggle"
+            aria-expanded={railOpen}
+            aria-controls={`console-rail-groups-${config.id}`}
+            aria-label={t(railOpen ? 'console.collapseNavigation' : 'console.expandNavigation', { section: t(config.titleKey) })}
+            onClick={() => setRailOpen(open => !open)}
+          >
+            <i className={`fas fa-chevron-${railOpen ? 'up' : 'down'}`} aria-hidden="true" />
+          </button>
+          <button
+            type="button"
+            className="console-rail-collapse"
+            aria-pressed={railCollapsed}
+            aria-label={t(railCollapsed ? 'console.expandNavigation' : 'console.collapseNavigation', { section: t(config.titleKey) })}
+            title={t(railCollapsed ? 'console.expandNavigation' : 'console.collapseNavigation', { section: t(config.titleKey) })}
+            onClick={toggleRailCollapsed}
+          >
+            <i className={`fas fa-chevron-${railCollapsed ? 'right' : 'left'}`} aria-hidden="true" />
+          </button>
+        </div>
+        <div id={`console-rail-groups-${config.id}`} className="console-rail-groups">
+          {config.groups.map((group, gi) => {
+            const items = group.items.filter(item => isConsoleItemVisible(item, auth))
+            if (items.length === 0) return null
+            return (
+              <div key={group.titleKey || gi} className="console-group">
+                {group.titleKey && <div className="console-group-title">{t(group.titleKey)}</div>}
+                {items.map(item => (
+                  <RailItem key={item.path || item.href} item={item} label={t(item.labelKey)} collapsed={railCollapsed} />
+                ))}
+              </div>
+            )
+          })}
+        </div>
+      </nav>
+      <div className="console-body" key={location.pathname}>
+        {/* Own Suspense so a lazy page shows the loader in the body while the
+            rail stays put (instead of bubbling to App's boundary). */}
+        <Suspense fallback={<RouteFallback />}>
+          <Outlet context={outletContext} />
+        </Suspense>
+      </div>
+    </div>
+  )
+}
+
+// The summary provider wraps the Operate console and nothing else. That is the
+// whole of "poll only while the user is in Operate": elsewhere the provider is
+// not mounted, so no timer exists to gate. Build gets the plain layout.
+export default function ConsoleLayout({ config }) {
+  if (config.id !== 'operate') return <ConsoleLayoutInner config={config} />
+  return (
+    <OperateSummaryProvider>
+      <ConsoleLayoutInner config={config} />
+    </OperateSummaryProvider>
+  )
+}

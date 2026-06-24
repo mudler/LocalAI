@@ -1,0 +1,9 @@
+# JetPack 7 / L4T arm64 + CUDA 13. Since PyTorch 2.11 (April 2026), PyPI ships
+# aarch64 + cu130 manylinux wheels for torch/torchvision/torchaudio directly,
+# so we no longer need a custom --extra-index-url for the L4T mirror.
+# https://pytorch.org/blog/vllm-and-pytorch-work-together-to-improve-the-developer-experience-on-aarch64/
+accelerate
+torch
+torchvision
+torchaudio
+transformers

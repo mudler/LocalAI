@@ -1,0 +1,37 @@
+#!/bin/bash
+set -e
+
+backend_dir=$(dirname $0)
+if [ -d $backend_dir/common ]; then
+    source $backend_dir/common/libbackend.sh
+else
+    source $backend_dir/../common/libbackend.sh
+fi
+
+# This is here because the Intel pip index is broken and returns 200 status codes for every package name, it just doesn't return any package links.
+# This makes uv think that the package exists in the Intel pip index, and by default it stops looking at other pip indexes once it finds a match.
+# We need uv to continue falling through to the pypi default index to find optimum[openvino] in the pypi index
+# the --upgrade actually allows us to *downgrade* torch to the version provided in the Intel pip index
+if [ "x${BUILD_PROFILE}" == "xintel" ]; then
+    EXTRA_PIP_INSTALL_FLAGS+=" --upgrade --index-strategy=unsafe-first-match"
+fi
+EXTRA_PIP_INSTALL_FLAGS+=" --no-build-isolation"
+
+if [ "x${BUILD_PROFILE}" == "xl4t12" ]; then
+    USE_PIP=true
+fi
+
+
+installRequirements
+
+# chatterbox-tts upstream pulls `russian-text-stresser` (unpinned git URL) which
+# transitively pins spacy==3.6.* and other ancient packages. That cascade forces
+# pip to backtrack through Jinja2/MarkupSafe/omegaconf/ruamel.yaml into Python-2-era
+# sdists that no longer build. We install chatterbox-tts itself with --no-deps and
+# list its real runtime deps in requirements-*.txt instead.
+echo "Installing chatterbox-tts with --no-deps"
+if [ "x${USE_PIP}" == "xtrue" ]; then
+    pip install ${EXTRA_PIP_INSTALL_FLAGS:-} --no-deps "chatterbox-tts@git+https://git@github.com/mudler/chatterbox.git@faster"
+else
+    uv pip install ${EXTRA_PIP_INSTALL_FLAGS:-} --no-deps "chatterbox-tts@git+https://git@github.com/mudler/chatterbox.git@faster"
+fi

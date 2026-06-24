@@ -1,0 +1,283 @@
+/* LocalAI Theme — the localai.io palette.
+   Retempered from Nord to match the website: the ground goes deeper, the
+   accent from frost cyan to a saturated action blue, and success from sage to
+   mint, which doubles as the "local / resident / live" signal. Amber is spent
+   sparingly, on the one thing asking for a decision.
+   Source of truth: docs/static/css/localai-home.css. Variable names preserved,
+   so every consumer moves together. */
+:root,
+[data-theme="dark"] {
+  /* Surfaces — deep blue-black, beyond polar night */
+  --color-bg-primary: #0d1117;          /* page — the site's ground */
+  --color-bg-secondary: #131a23;        /* sidebar, headers, cards */
+  --color-bg-tertiary: #192330;         /* wells / sunken rows */
+  --color-bg-overlay: rgba(13, 17, 23, 0.92);
+  --color-bg-hover: #192330;
+
+  --color-surface-raised: #131a23;
+  --color-surface-sunken: #080b0f;
+  --color-surface-hover: #192330;
+  --color-surface-elevated: #223046;
+
+  /* Primary — action blue. Anything that routes or commits.
+     Dark enough to carry white label text, which frost cyan was not. */
+  --color-primary: #4f8cff;
+  --color-primary-hover: #70a2ff;
+  --color-primary-active: #3d78e8;
+  --color-primary-text: #0d1117;        /* 5.88:1 on the blue; white would be 3.22:1 */
+  --color-primary-light: rgba(79, 140, 255, 0.14);
+  --color-primary-border: rgba(79, 140, 255, 0.34);
+
+  /* Text selection */
+  --color-selection-bg: rgba(79, 140, 255, 0.38);
+
+  --color-secondary: #8aa6cc;
+  --color-secondary-hover: #9db6d8;
+  --color-secondary-light: rgba(138, 166, 204, 0.12);
+
+  /* Accent alias — action blue is the brand accent */
+  --color-accent: #4f8cff;
+  --color-accent-hover: #70a2ff;
+  --color-accent-light: rgba(79, 140, 255, 0.14);
+  --color-accent-border: rgba(79, 140, 255, 0.34);
+
+  /* Text — snow storm scale */
+  --color-text-primary: #edf4fc;         /* a hair cooler, to sit with blue */
+  --color-text-secondary: #d3dee9;
+  --color-text-muted: #9aabc0;
+  --color-text-tertiary: #8595aa;        /* dimmer than muted, still WCAG AA on the new ground — metadata */
+  --color-text-disabled: #67748a;
+  --color-text-inverse: #0d1117;
+
+  /* Borders — cool blue-gray */
+  /* The site's dividers are an opaque hairline rather than alpha over a
+     varying surface, which reads crisper wherever surfaces stack. */
+  --color-border-subtle: #1c2837;
+  --color-border-default: #29384a;
+  --color-border-strong: #3a4c63;
+  --color-border-divider: #18222f;
+  --color-border-primary: rgba(79, 140, 255, 0.45);
+  --color-border-focus: rgba(79, 140, 255, 0.45);
+
+  /* Status — aurora */
+  /* Mint also carries "local / resident / live", which is the same state
+     often enough that a second token would mostly duplicate this one. */
+  --color-success: #56d6a4;
+  --color-success-light: rgba(86, 214, 164, 0.14);
+  --color-success-border: rgba(86, 214, 164, 0.32);
+  --color-warning: #f1b95d;              /* the evidence accent, spent sparingly */
+  --color-warning-light: rgba(241, 185, 93, 0.14);
+  --color-warning-border: rgba(241, 185, 93, 0.32);
+  --color-error: #c96f78;                /* 5.02:1 on raised surfaces; #bf616a was 4.28 */
+  --color-error-light: rgba(201, 111, 120, 0.14);
+  --color-error-border: rgba(201, 111, 120, 0.32);
+  --color-info: #7aa7e8;
+  --color-info-light: rgba(122, 167, 232, 0.14);
+  --color-info-border: rgba(122, 167, 232, 0.32);
+
+  --color-modal-backdrop: rgba(8, 11, 17, 0.68);
+
+  --color-focus-ring: rgba(79, 140, 255, 0.7);
+  --color-eyebrow: #56d6a4;  /* mint, matching the site's uppercase micro-labels */
+
+  /* Data viz — full aurora + frost palette */
+  --color-data-1: #4f8cff;   /* action blue */
+  --color-data-2: #c96f78;   /* red */
+  --color-data-3: #b48ead;   /* purple */
+  --color-data-4: #f1b95d;   /* amber */
+  --color-data-5: #56d6a4;   /* mint */
+  --color-data-6: #d08770;   /* orange */
+  --color-data-7: #7aa7e8;   /* soft blue */
+  --color-data-8: #8fbcbb;   /* teal */
+
+  /* Log streams — tuned to Nord aurora */
+  --color-log-stdout: #d3dee9;
+  --color-log-stderr: #c96f78;
+  --color-log-info: #4f8cff;
+  --color-log-warn: #f1b95d;
+
+  /* Shadows — cool, deeper */
+  --shadow-subtle: 0 1px 2px rgba(0, 0, 0, 0.5);
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.5), 0 4px 14px rgba(0, 0, 0, 0.45);
+  --shadow-md: 0 2px 8px rgba(0, 0, 0, 0.55), 0 20px 48px rgba(0, 0, 0, 0.65);
+  --shadow-lg: 0 2px 8px rgba(0, 0, 0, 0.6), 0 28px 64px rgba(0, 0, 0, 0.7);
+  --shadow-glow: var(--shadow-md);
+  --shadow-sidebar: 1px 0 0 #1c2837;
+
+  --shadow-inset-top: inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  --shadow-inset-hi:  inset 0 1px 0 rgba(255, 255, 255, 0.18);
+
+  /* Motion */
+  --duration-fast: 120ms;
+  --duration-normal: 180ms;
+  --duration-slow: 260ms;
+  --ease-default: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-spring:  cubic-bezier(0.22, 1, 0.36, 1);
+  --duration-reveal: 420ms;
+  --ease-reveal: cubic-bezier(0.16, 1, 0.3, 1);  /* ease-out-expo-ish */
+
+  /* Spacing */
+  --spacing-xs: 0.25rem;
+  --spacing-sm: 0.5rem;
+  --spacing-md: 1rem;
+  --spacing-lg: 1.5rem;
+  --spacing-xl: 2rem;
+  --spacing-2xl: 3rem;
+  --spacing-3xl: 4rem;
+  --space-section: clamp(2rem, 1.2rem + 3vw, 3.5rem);
+
+  /* Radii — sharp, editorial */
+  --radius-sm: 3px;
+  --radius-md: 5px;
+  --radius-lg: 8px;
+  --radius-xl: 10px;
+  --radius-full: 9999px;
+
+  /* Typography — Geist Variable + Geist Mono Variable */
+  --font-sans: "Geist", "Geist Variable", -apple-system, BlinkMacSystemFont, "Segoe UI", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "Geist Mono", "Geist Mono Variable", ui-monospace, "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace;
+
+  --text-xs: 0.6875rem;
+  --text-sm: 0.8125rem;
+  --text-base: 0.875rem;
+  --text-lg: 1rem;
+  --text-xl: 1.25rem;
+  --text-2xl: 1.625rem;
+  --text-3xl: 2rem;
+  --text-4xl: 2.5rem;
+
+  --font-weight-regular: 400;
+  --font-weight-medium: 500;
+  --font-weight-semibold: 600;
+  --font-weight-bold: 700;
+
+  --leading-tight: 1.2;
+  --leading-snug: 1.4;
+  --leading-normal: 1.55;
+  --leading-relaxed: 1.7;
+
+  --sidebar-width: 200px;
+  --sidebar-width-collapsed: 52px;
+  --color-toggle-off: #2f3644;
+  --color-toggle-on: var(--color-primary);
+
+  /* Page-width archetypes — applied via .page / .page--narrow /
+     .page--medium / .page--wide. Default is wide-enough for ops/data
+     tables; medium suits two-column app pages (sticky nav + form);
+     narrow caps reading width. */
+  --page-max-narrow: 760px;
+  --page-max-medium: 1080px;
+  --page-max-default: 1600px;
+  --page-max-wide: none;
+
+  /* Responsive breakpoints — kept here so JS can read them via getComputedStyle. */
+  --bp-mobile: 640px;
+  --bp-tablet: 1024px;
+}
+
+/* The site ships one theme and never had to answer this, so the light palette
+   is derived rather than inverted: the three roles keep their meaning and take
+   values that clear 4.5:1 on paper, where the dark-mode blue and mint sit near
+   2:1. Ground is a cool paper rather than white. */
+[data-theme="light"] {
+  --color-bg-primary: #f7f9fc;
+  --color-bg-secondary: #ffffff;
+  --color-bg-tertiary: #eef2f8;
+  --color-bg-overlay: rgba(247, 249, 252, 0.92);
+  --color-bg-hover: #eef2f8;
+
+  --color-surface-raised: #ffffff;
+  --color-surface-sunken: #e7edf5;
+  --color-surface-hover: #e2e9f3;
+  --color-surface-elevated: #dde5f0;
+
+  /* Primary — the site's blue darkened until it carries white text on paper */
+  --color-primary: #2f62d8;
+  --color-primary-hover: #2753bd;
+  --color-primary-active: #1f459e;
+  --color-primary-text: #ffffff;
+  --color-primary-light: rgba(47, 98, 216, 0.12);
+  --color-primary-border: rgba(47, 98, 216, 0.34);
+
+  /* Text selection */
+  --color-selection-bg: rgba(47, 98, 216, 0.25);
+
+  --color-secondary: #4a5769;
+  --color-secondary-hover: #3a4553;
+  --color-secondary-light: rgba(74, 87, 105, 0.1);
+
+  --color-accent: #2f62d8;
+  --color-accent-hover: #2753bd;
+  --color-accent-light: rgba(47, 98, 216, 0.12);
+  --color-accent-border: rgba(47, 98, 216, 0.32);
+
+  --color-text-primary: #0d1117;
+  --color-text-secondary: #2b3648;
+  --color-text-muted: #55647a;
+  --color-text-tertiary: #55647a;        /* matches muted — lighter would fail contrast on paper */
+  --color-text-disabled: #97a3b4;
+  --color-text-inverse: #ffffff;
+
+  --color-border-subtle: #e3e9f1;
+  --color-border-default: #d3dbe6;
+  --color-border-strong: #b3bfd0;
+  --color-border-divider: #e9eef5;
+  --color-border-primary: rgba(47, 98, 216, 0.45);
+  --color-border-focus: rgba(47, 98, 216, 0.45);
+
+  /* Mint and amber darkened to clear 4.5:1 on paper. Same roles, new values. */
+  --color-success: #0a734f;              /* 5.56:1 on paper; #0d8b60 was only 4.08 */
+  --color-success-light: rgba(10, 115, 79, 0.12);
+  --color-success-border: rgba(10, 115, 79, 0.3);
+  --color-warning: #8a5d0b;
+  --color-warning-light: rgba(138, 93, 11, 0.12);
+  --color-warning-border: rgba(138, 93, 11, 0.3);
+  --color-error: #a13e47;
+  --color-error-light: rgba(161, 62, 71, 0.1);
+  --color-error-border: rgba(161, 62, 71, 0.3);
+  --color-info: #2f62d8;
+  --color-info-light: rgba(47, 98, 216, 0.12);
+  --color-info-border: rgba(47, 98, 216, 0.3);
+
+  --color-modal-backdrop: rgba(13, 17, 23, 0.38);
+
+  --color-focus-ring: rgba(47, 98, 216, 0.6);
+  --color-eyebrow: #0a734f;  /* mint, darkened until it clears AA on paper */
+
+  /* Data viz — darkened for light mode */
+  --color-data-1: #2f62d8;
+  --color-data-2: #a13e47;
+  --color-data-3: #8b5a92;
+  --color-data-4: #8a5d0b;
+  --color-data-5: #0a734f;
+  --color-data-6: #b8684f;
+  --color-data-7: #4c6d92;
+  --color-data-8: #5a9090;
+
+  --color-log-stdout: #2e3440;
+  --color-log-stderr: #a13e47;
+  --color-log-info: #2f62d8;
+  --color-log-warn: #b08334;
+
+  /* Soft cool shadows */
+  --shadow-subtle: 0 1px 2px rgba(46, 52, 64, 0.05);
+  --shadow-sm: 0 1px 2px rgba(46, 52, 64, 0.07), 0 4px 14px rgba(46, 52, 64, 0.07);
+  --shadow-md: 0 2px 8px rgba(46, 52, 64, 0.1), 0 20px 48px rgba(46, 52, 64, 0.12);
+  --shadow-lg: 0 4px 12px rgba(46, 52, 64, 0.14), 0 28px 64px rgba(46, 52, 64, 0.16);
+  --shadow-sidebar: 1px 0 0 rgba(46, 52, 64, 0.06);
+
+  --shadow-inset-top: inset 0 1px 0 rgba(255, 255, 255, 0.7);
+  --shadow-inset-hi:  inset 0 1px 0 rgba(255, 255, 255, 0.8);
+
+  --color-toggle-off: #c3cad6;
+  --color-toggle-on: var(--color-primary);
+
+  /* Page-width archetypes — see :root block for usage. */
+  --page-max-narrow: 760px;
+  --page-max-medium: 1080px;
+  --page-max-default: 1600px;
+  --page-max-wide: none;
+
+  --bp-mobile: 640px;
+  --bp-tablet: 1024px;
+}

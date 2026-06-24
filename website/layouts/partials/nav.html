@@ -1,0 +1,19 @@
+{{- $home := .Site.Home.RelPermalink -}}
+<header class="top">
+  <a class="brand" href="{{ $home }}"><img src="{{ "img/logo-mark.png" | relURL }}" alt=""> <span>LocalAI</span></a>
+  <nav>
+    {{/* Anchors resolve against the home page so the nav still works from
+         /engines/ and /blog/, not only from the landing page. */}}
+    <a href="{{ $home }}#localai">LocalAI</a>
+    <a href="{{ $home }}#senses">Senses</a>
+    <a href="{{ $home }}#made">Made with it</a>
+    <a href="{{ "engines/" | relURL }}">Engines</a>
+    <a href="{{ $home }}#apex">APEX</a>
+    <a href="{{ "blog/" | relURL }}">Blog</a>
+    <a href="{{ .Site.Params.docsURL }}">Docs</a>
+  </nav>
+  <div class="topright">
+    <a class="pill" href="{{ .Site.Params.github }}">&#9733; {{ lang.FormatNumberCustom 0 .Site.Data.stats.stars }}</a>
+    <a class="go-btn" href="{{ $home }}#start">Install</a>
+  </div>
+</header>

@@ -1,0 +1,7 @@
+sources/
+build/
+package/
+liblocalvqe.so*
+libggml*.so*
+localvqe
+.localvqe-build.stamp

@@ -1,0 +1,75 @@
+#!/bin/bash
+set -e
+
+EXTRA_PIP_INSTALL_FLAGS="--no-build-isolation"
+
+backend_dir=$(dirname $0)
+if [ -d $backend_dir/common ]; then
+    source $backend_dir/common/libbackend.sh
+else
+    source $backend_dir/../common/libbackend.sh
+fi
+
+# fish-speech uses pyrootutils which requires a .project-root marker
+touch "${backend_dir}/.project-root"
+
+# On darwin arm64 the transitive `tokenizers` dep compiles its Rust extension
+# from source (Linux uses prebuilt manylinux wheels, so it never compiles
+# there). The pinned tokenizers crate that fish-speech's stack resolves to
+# contains a `&T` -> `&mut T` cast that trips the now-deny-by-default
+# `invalid_reference_casting` lint in the macOS runner's newer Rust toolchain,
+# breaking the build (seen in the v4.5.5 release CI fish-speech darwin/metal
+# job). Allow that lint so the unchanged third-party crate compiles as before.
+# Append rather than clobber any pre-existing RUSTFLAGS; harmless on Linux
+# where no Rust compile happens.
+export RUSTFLAGS="${RUSTFLAGS:-} -A invalid_reference_casting"
+
+installRequirements
+
+# Clone fish-speech source (the pip package doesn't include inference modules)
+FISH_SPEECH_DIR="${EDIR}/fish-speech-src"
+FISH_SPEECH_REPO="https://github.com/fishaudio/fish-speech.git"
+FISH_SPEECH_BRANCH="main"
+
+if [ ! -d "${FISH_SPEECH_DIR}" ]; then
+    echo "Cloning fish-speech source..."
+    git clone --depth 1 --branch "${FISH_SPEECH_BRANCH}" "${FISH_SPEECH_REPO}" "${FISH_SPEECH_DIR}"
+else
+    echo "Updating fish-speech source..."
+    cd "${FISH_SPEECH_DIR}" && git pull && cd -
+fi
+
+# Keep the platform-specific PyTorch installed above. Upstream pins the generic
+# PyPI torch wheel, which replaces ROCm builds with a CUDA wheel during the
+# editable install. pyaudio is only used by the upstream playback client.
+bash "${backend_dir}/prepare-source.sh" "${BUILD_TYPE:-}" "${FISH_SPEECH_DIR}/pyproject.toml"
+
+# CUDA 13 has no torch 2.8 wheels, so fish-speech's exact upstream pin would
+# make pip select the CPU-only aarch64 wheel from PyPI. Prepare the cloned tree
+# before resolving it, and use soundfile for reference audio because torchcodec
+# does not publish Linux aarch64 wheels.
+python3 "${backend_dir}/prepare_upstream.py" "${FISH_SPEECH_DIR}" \
+    --cuda-major "${CUDA_MAJOR_VERSION:-}"
+
+# Install fish-speech deps from source (without the package itself since we use PYTHONPATH)
+ensureVenv
+if [ "x${USE_PIP}" == "xtrue" ]; then
+    pip install ${EXTRA_PIP_INSTALL_FLAGS:-} -e "${FISH_SPEECH_DIR}"
+else
+    uv pip install ${EXTRA_PIP_INSTALL_FLAGS:-} -e "${FISH_SPEECH_DIR}"
+fi
+
+# fish-speech transitive deps (wandb, tensorboard) may downgrade protobuf to 3.x
+# but our generated backend_pb2.py requires protobuf 5+
+ensureVenv
+if [ "x${USE_PIP}" == "xtrue" ]; then
+    pip install "protobuf>=5.29.0"
+else
+    uv pip install "protobuf>=5.29.0"
+fi
+
+# Regenerate the stubs against the protobuf runtime settled on just above. The
+# pin exists because transitive deps drag protobuf down; generating before that
+# pin is applied is what stamps a gencode the runtime then rejects.
+# See mudler/LocalAI#10718.
+runProtogen

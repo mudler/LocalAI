@@ -1,0 +1,2242 @@
+<!--
+
+Part of this page is based on the OpenAI Chatbot example by David Härer:
+https://github.com/david-haerer/chatapi
+
+MIT License Copyright (c) 2023 David Härer
+            Copyright (c) 2024-2025 Ettore Di Giacinto
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+-->
+<!doctype html>
+<html lang="en">
+  {{template "views/partials/head" .}}
+  <script src="static/assets/pdf.min.js"></script>
+  <script>
+    // Initialize PDF.js worker
+    pdfjsLib.GlobalWorkerOptions.workerSrc = 'static/assets/pdf.worker.min.js';
+  </script>
+  <script>
+    // Initialize Alpine store - must run before Alpine processes DOM
+    // Get context size from template
+    var __chatContextSize = null;
+    {{ if .ContextSize }}
+    __chatContextSize = {{ .ContextSize }};
+    {{ end }}
+
+    // Store gallery configs for header icon display and model info modal
+    window.__galleryConfigs = {};
+    {{ $allGalleryConfigs:=.GalleryConfig }}
+    {{ range $modelName, $galleryConfig := $allGalleryConfigs }}
+    window.__galleryConfigs["{{$modelName}}"] = {};
+    {{ if $galleryConfig.Icon }}
+    window.__galleryConfigs["{{$modelName}}"].Icon = "{{$galleryConfig.Icon}}";
+    {{ end }}
+    {{ if $galleryConfig.Description }}
+    window.__galleryConfigs["{{$modelName}}"].Description = {{ printf "%q" $galleryConfig.Description }};
+    {{ end }}
+    {{ if $galleryConfig.URLs }}
+    window.__galleryConfigs["{{$modelName}}"].URLs = [
+      {{ range $idx, $url := $galleryConfig.URLs }}
+      {{ if $idx }},{{ end }}{{ printf "%q" $url }}
+      {{ end }}
+    ];
+    {{ end }}
+    {{ end }}
+
+    // Function to initialize store
+    function __initChatStore() {
+      if (!window.Alpine) return;
+      
+      // Check for MCP mode from localStorage (set by index page) or URL parameter
+      // Note: We don't clear localStorage here - chat.js will handle that after reading all data
+      let initialMcpMode = false;
+      
+      // First check URL parameter
+      const urlParams = new URLSearchParams(window.location.search);
+      if (urlParams.get('mcp') === 'true') {
+        initialMcpMode = true;
+      }
+      
+      // Then check localStorage (URL param takes precedence)
+      if (!initialMcpMode) {
+        try {
+          const chatData = localStorage.getItem('localai_index_chat_data');
+          if (chatData) {
+            const parsed = JSON.parse(chatData);
+            if (parsed.mcpMode === true) {
+              initialMcpMode = true;
+            }
+          }
+        } catch (e) {
+          console.error('Error reading MCP mode from localStorage:', e);
+        }
+      }
+      
+      if (Alpine.store("chat")) {
+        // Store already initialized, just update context size if needed
+        const activeChat = Alpine.store("chat").activeChat();
+        if (activeChat && __chatContextSize !== null) {
+          activeChat.contextSize = __chatContextSize;
+        }
+        return;
+      }
+
+      // Generate unique chat ID
+      function generateChatId() {
+        return "chat_" + Date.now() + "_" + Math.random().toString(36).substr(2, 9);
+      }
+
+      // Get current model from URL or input
+      function getCurrentModel() {
+        const modelInput = document.getElementById("chat-model");
+        return modelInput ? modelInput.value : "";
+      }
+
+      Alpine.store("chat", {
+        chats: [],
+        activeChatId: null,
+        chatIdCounter: 0,
+        languages: [undefined],
+        activeRequestIds: [], // Track chat IDs with active requests for UI reactivity
+        
+        // Helper to get active chat
+        activeChat() {
+          if (!this.activeChatId) return null;
+          return this.chats.find(c => c.id === this.activeChatId) || null;
+        },
+        
+        // Helper to get chat by ID
+        getChat(chatId) {
+          return this.chats.find(c => c.id === chatId) || null;
+        },
+        
+        // Create a new chat
+        createChat(model, systemPrompt, mcpMode) {
+          const chatId = generateChatId();
+          const now = Date.now();
+          const chat = {
+            id: chatId,
+            name: "New Chat",
+            model: model || getCurrentModel() || "",
+            history: [],
+            systemPrompt: systemPrompt || "",
+            mcpMode: mcpMode || false,
+            temperature: null, // null means use default
+            topP: null, // null means use default
+            topK: null, // null means use default
+            tokenUsage: {
+              promptTokens: 0,
+              completionTokens: 0,
+              totalTokens: 0,
+              currentRequest: null
+            },
+            contextSize: __chatContextSize,
+            createdAt: now,
+            updatedAt: now
+          };
+          this.chats.push(chat);
+          this.activeChatId = chatId;
+          return chat;
+        },
+        
+        // Switch to a different chat
+        switchChat(chatId) {
+          if (this.chats.find(c => c.id === chatId)) {
+            this.activeChatId = chatId;
+            // Update context size if needed
+            const chat = this.activeChat();
+            if (chat && __chatContextSize !== null) {
+              chat.contextSize = __chatContextSize;
+            }
+            return true;
+          }
+          return false;
+        },
+        
+        // Delete a chat
+        deleteChat(chatId) {
+          const index = this.chats.findIndex(c => c.id === chatId);
+          if (index === -1) return false;
+          
+          this.chats.splice(index, 1);
+          
+          // If deleted chat was active, switch to another or create new
+          if (this.activeChatId === chatId) {
+            if (this.chats.length > 0) {
+              this.activeChatId = this.chats[0].id;
+            } else {
+              // Create a new default chat
+              this.createChat();
+            }
+          }
+          return true;
+        },
+        
+        // Update chat name
+        updateChatName(chatId, name) {
+          const chat = this.getChat(chatId);
+          if (chat) {
+            chat.name = name || "New Chat";
+            chat.updatedAt = Date.now();
+            return true;
+          }
+          return false;
+        },
+        
+        clear() {
+          const chat = this.activeChat();
+          if (chat) {
+            chat.history.length = 0;
+            chat.tokenUsage = {
+              promptTokens: 0,
+              completionTokens: 0,
+              totalTokens: 0,
+              currentRequest: null
+            };
+            chat.updatedAt = Date.now();
+          }
+        },
+        
+        updateTokenUsage(usage, targetChatId = null) {
+          // If targetChatId is provided, update that chat, otherwise use active chat
+          // This ensures token usage updates go to the chat that initiated the request
+          const chat = targetChatId ? this.getChat(targetChatId) : this.activeChat();
+          if (!chat) return;
+          
+          // Usage values in streaming responses are cumulative totals for the current request
+          // We track session totals separately and only update when we see new (higher) values
+          if (usage) {
+            const currentRequest = chat.tokenUsage.currentRequest || {
+              promptTokens: 0,
+              completionTokens: 0,
+              totalTokens: 0
+            };
+            
+            // Check if this is a new/updated usage (values increased)
+            const isNewUsage = 
+              (usage.prompt_tokens !== undefined && usage.prompt_tokens > currentRequest.promptTokens) ||
+              (usage.completion_tokens !== undefined && usage.completion_tokens > currentRequest.completionTokens) ||
+              (usage.total_tokens !== undefined && usage.total_tokens > currentRequest.totalTokens);
+            
+            if (isNewUsage) {
+              // Update session totals: subtract old request usage, add new
+              chat.tokenUsage.promptTokens = chat.tokenUsage.promptTokens - currentRequest.promptTokens + (usage.prompt_tokens || 0);
+              chat.tokenUsage.completionTokens = chat.tokenUsage.completionTokens - currentRequest.completionTokens + (usage.completion_tokens || 0);
+              chat.tokenUsage.totalTokens = chat.tokenUsage.totalTokens - currentRequest.totalTokens + (usage.total_tokens || 0);
+              
+              // Store current request usage
+              chat.tokenUsage.currentRequest = {
+                promptTokens: usage.prompt_tokens || 0,
+                completionTokens: usage.completion_tokens || 0,
+                totalTokens: usage.total_tokens || 0
+              };
+              chat.updatedAt = Date.now();
+            }
+          }
+        },
+        
+        getRemainingTokens() {
+          const chat = this.activeChat();
+          if (!chat || !chat.contextSize) return null;
+          return Math.max(0, chat.contextSize - chat.tokenUsage.totalTokens);
+        },
+        
+        getContextUsagePercent() {
+          const chat = this.activeChat();
+          if (!chat || !chat.contextSize) return null;
+          return Math.min(100, (chat.tokenUsage.totalTokens / chat.contextSize) * 100);
+        },
+        
+        // Check if a chat has an active request (for UI indicators)
+        hasActiveRequest(chatId) {
+          if (!chatId) return false;
+          // Use reactive array for Alpine.js reactivity
+          return this.activeRequestIds.includes(chatId);
+        },
+        
+        // Update active request tracking (called from chat.js)
+        updateActiveRequestTracking(chatId, isActive) {
+          if (isActive) {
+            if (!this.activeRequestIds.includes(chatId)) {
+              this.activeRequestIds.push(chatId);
+            }
+          } else {
+            const index = this.activeRequestIds.indexOf(chatId);
+            if (index > -1) {
+              this.activeRequestIds.splice(index, 1);
+            }
+          }
+        },
+        
+        add(role, content, image, audio, targetChatId = null, model = null) {
+          // If targetChatId is provided, add to that chat, otherwise use active chat
+          // This allows streaming to continue to the correct chat even if user switches
+          const chat = targetChatId ? this.getChat(targetChatId) : this.activeChat();
+          if (!chat) return;
+          
+          // Determine model for this message:
+          // - If model is explicitly provided, use it (for assistant messages with specific model)
+          // - For user messages, use the current chat's model
+          // - For other messages (thinking, tool_call, etc.), inherit from previous message or use chat model
+          let messageModel = model;
+          if (!messageModel) {
+            if (role === "user") {
+              // User messages always use the current chat's model
+              messageModel = chat.model || "";
+            } else if (role === "assistant") {
+              // Assistant messages use the chat's model (should be set when request is made)
+              messageModel = chat.model || "";
+            } else {
+              // For thinking, tool_call, etc., try to inherit from last assistant message, or use chat model
+              const lastAssistant = chat.history.slice().reverse().find(m => m.role === "assistant");
+              messageModel = lastAssistant?.model || chat.model || "";
+            }
+          }
+          
+          const N = chat.history.length - 1;
+          // For thinking, reasoning, tool_call, and tool_result messages, always create a new message
+          if (role === "thinking" || role === "reasoning" || role === "tool_call" || role === "tool_result") {
+            let c = "";
+            if (role === "tool_call" || role === "tool_result") {
+              // For tool calls and results, try to parse as JSON and format nicely
+              try {
+                const parsed = typeof content === 'string' ? JSON.parse(content) : content;
+                // Format JSON with proper indentation
+                const formatted = JSON.stringify(parsed, null, 2);
+                c = DOMPurify.sanitize('<pre><code class="language-json">' + formatted + '</code></pre>');
+              } catch (e) {
+                // If not JSON, treat as markdown
+                const lines = content.split("\n");
+                lines.forEach((line) => {
+                  c += DOMPurify.sanitize(marked.parse(line));
+                });
+              }
+            } else {
+              // For thinking and reasoning, format as markdown
+              const lines = content.split("\n");
+              lines.forEach((line) => {
+                c += DOMPurify.sanitize(marked.parse(line));
+              });
+            }
+            // Set expanded state: thinking and reasoning are expanded by default in non-MCP mode, collapsed in MCP mode
+            // tool_call and tool_result are always collapsed by default
+            const isMCPMode = chat.mcpMode || false;
+            const shouldExpand = ((role === "thinking" || role === "reasoning") && !isMCPMode) || false;
+            chat.history.push({ role, content, html: c, image, audio, expanded: shouldExpand, model: messageModel });
+            
+            // Auto-name chat from first user message
+            if (role === "user" && chat.name === "New Chat" && content.trim()) {
+              const name = content.trim().substring(0, 50);
+              chat.name = name.length < content.trim().length ? name + "..." : name;
+            }
+          }
+          // For other messages, merge if same role
+          else if (chat.history.length && chat.history[N].role === role) {
+            chat.history[N].content += content;
+            chat.history[N].html = DOMPurify.sanitize(
+              marked.parse(chat.history[N].content)
+            );
+            // Merge new images and audio with existing ones
+            if (image && image.length > 0) {
+              chat.history[N].image = [...(chat.history[N].image || []), ...image];
+            }
+            if (audio && audio.length > 0) {
+              chat.history[N].audio = [...(chat.history[N].audio || []), ...audio];
+            }
+            // Preserve model if merging (don't overwrite)
+            if (!chat.history[N].model && messageModel) {
+              chat.history[N].model = messageModel;
+            }
+          } else {
+            let c = "";
+            const lines = content.split("\n");
+            lines.forEach((line) => {
+              c += DOMPurify.sanitize(marked.parse(line));
+            });
+            chat.history.push({ 
+              role, 
+              content, 
+              html: c, 
+              image: image || [], 
+              audio: audio || [],
+              model: messageModel
+            });
+            
+            // Auto-name chat from first user message
+            if (role === "user" && chat.name === "New Chat" && content.trim()) {
+              const name = content.trim().substring(0, 50);
+              chat.name = name.length < content.trim().length ? name + "..." : name;
+            }
+          }
+          
+          chat.updatedAt = Date.now();
+          
+          // Auto-save after adding message
+          if (typeof autoSaveChats === 'function') {
+            autoSaveChats();
+          }
+          
+          // Scroll to bottom consistently for all messages (use #chat as it's the scrollable container)
+          setTimeout(() => {
+            const chatContainer = document.getElementById('chat');
+            if (chatContainer) {
+              chatContainer.scrollTo({
+                top: chatContainer.scrollHeight,
+                behavior: 'smooth'
+              });
+            }
+            // Also scroll thinking box if it's a thinking/reasoning message
+            if (role === "thinking" || role === "reasoning") {
+              if (typeof window.scrollThinkingBoxToBottom === 'function') {
+                window.scrollThinkingBoxToBottom();
+              }
+            }
+          }, 100);
+          const parser = new DOMParser();
+          const html = parser.parseFromString(
+            chat.history[chat.history.length - 1].html,
+            "text/html"
+          );
+          const code = html.querySelectorAll("pre code");
+          if (!code.length) return;
+          code.forEach((el) => {
+            const language = el.className.split("language-")[1];
+            if (this.languages.includes(language)) return;
+            const script = document.createElement("script");
+            script.src = `https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.8.0/build/languages/${language}.min.js`;
+            script.onload = () => {
+              // Re-highlight after language script loads
+              if (window.hljs) {
+                const container = document.getElementById('messages');
+                if (container) {
+                  container.querySelectorAll('pre code.language-json').forEach(block => {
+                    window.hljs.highlightElement(block);
+                  });
+                }
+              }
+            };
+            document.head.appendChild(script);
+            this.languages.push(language);
+          });
+          // Highlight code blocks immediately if hljs is available
+          if (window.hljs) {
+            setTimeout(() => {
+              const container = document.getElementById('messages');
+              if (container) {
+                container.querySelectorAll('pre code.language-json').forEach(block => {
+                  if (!block.classList.contains('hljs')) {
+                    window.hljs.highlightElement(block);
+                  }
+                });
+              }
+            }, 100);
+          }
+        },
+        
+        messages() {
+          const chat = this.activeChat();
+          if (!chat) return [];
+          return chat.history.map((message) => ({
+            role: message.role,
+            content: message.content,
+            image: message.image,
+            audio: message.audio,
+          }));
+        },
+        
+        // Getter for active chat history to ensure reactivity
+        get activeHistory() {
+          const chat = this.activeChat();
+          return chat ? chat.history : [];
+        },
+      });
+    }
+
+    // Register listener immediately (before Alpine loads)
+    document.addEventListener("alpine:init", __initChatStore);
+    
+    // Also try immediately in case Alpine is already loaded
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', function() {
+        if (window.Alpine) __initChatStore();
+      });
+    } else {
+      // DOM already loaded, try immediately
+      if (window.Alpine) __initChatStore();
+    }
+    
+    // Function to update model and context size when model selector changes
+    window.updateModelAndContextSize = function(selectElement) {
+      if (!window.Alpine || !Alpine.store("chat")) {
+        // Fallback: navigate to new model URL
+        window.location = selectElement.value;
+        return;
+      }
+      
+      const chatStore = Alpine.store("chat");
+      const activeChat = chatStore.activeChat();
+      
+      if (!activeChat) {
+        window.location = selectElement.value;
+        return;
+      }
+      
+      // Get the selected option
+      const selectedOption = selectElement.options[selectElement.selectedIndex];
+      const modelName = selectElement.value.replace('chat/', '');
+      
+      // Update model name
+      activeChat.model = modelName;
+      activeChat.updatedAt = Date.now();
+      
+      // Update model info modal with new model
+      if (window.updateModelInfoModal) {
+        window.updateModelInfoModal(modelName);
+      }
+      
+      // Get context size from data attribute
+      let contextSize = null;
+      if (selectedOption.dataset.contextSize) {
+        contextSize = parseInt(selectedOption.dataset.contextSize);
+        if (!isNaN(contextSize)) {
+          activeChat.contextSize = contextSize;
+        } else {
+          activeChat.contextSize = null;
+        }
+      } else {
+        // No context size available, set to null
+        activeChat.contextSize = null;
+      }
+      
+      // Check MCP availability from data attribute
+      const hasMCP = selectedOption.getAttribute('data-has-mcp') === 'true';
+      if (!hasMCP) {
+        // If model doesn't support MCP, disable MCP mode
+        activeChat.mcpMode = false;
+      }
+      // Note: We don't enable MCP mode automatically, user must toggle it
+      
+      // Update the hidden input for consistency
+      const contextSizeInput = document.getElementById("chat-model");
+      if (contextSizeInput) {
+        contextSizeInput.value = modelName;
+        if (contextSize) {
+          contextSizeInput.setAttribute('data-context-size', contextSize);
+        } else {
+          contextSizeInput.removeAttribute('data-context-size');
+        }
+        if (hasMCP) {
+          contextSizeInput.setAttribute('data-has-mcp', 'true');
+        } else {
+          contextSizeInput.setAttribute('data-has-mcp', 'false');
+        }
+      }
+      
+      // Update model selector to reflect the change (ensure it stays in sync)
+      // Note: We don't dispatch a change event here to avoid infinite loop
+      // The selector is already updated via user interaction or programmatic change
+      const modelSelector = document.getElementById('modelSelector');
+      if (modelSelector) {
+        // Find and select the option matching the model
+        const optionValue = 'chat/' + modelName;
+        for (let i = 0; i < modelSelector.options.length; i++) {
+          if (modelSelector.options[i].value === optionValue) {
+            // Only update if it's different to avoid unnecessary updates
+            if (modelSelector.selectedIndex !== i) {
+              modelSelector.selectedIndex = i;
+            }
+            break;
+          }
+        }
+        // Don't dispatch change event here - it would cause infinite recursion
+        // The selector is already in sync with the model
+      }
+      
+      // Trigger MCP availability check in Alpine component
+      // The MCP toggle component will reactively check the data-has-mcp attribute
+      
+      // Save to storage
+      if (typeof autoSaveChats === 'function') {
+        autoSaveChats();
+      }
+      
+      // Update UI - this will refresh the statistics display
+      if (typeof updateUIForActiveChat === 'function') {
+        updateUIForActiveChat();
+      }
+    }
+  </script>
+  <script defer src="static/chat.js"></script>
+  {{ $allGalleryConfigs:=.GalleryConfig }}
+  {{ $model:=.Model}}
+  <body class="bg-[var(--color-bg-primary)] text-[var(--color-text-primary)]" x-data="{ settingsPanelOpen: true, showClearAlert: false, isMobile: false }" x-init="isMobile = window.innerWidth < 1024; if (isMobile) settingsPanelOpen = false; window.addEventListener('resize', () => { isMobile = window.innerWidth < 1024 })">
+    <div class="app-layout chat-layout">
+      {{template "views/partials/navbar" .}}
+      
+      <main class="main-content chat-layout">
+        <div class="main-content-inner chat-layout h-full flex flex-col">
+
+    <!-- Main container with settings panel -->
+    <div class="flex flex-1 min-h-0 relative">
+      <!-- Backdrop for mobile when settings panel is open (click to close) -->
+      <div x-show="settingsPanelOpen && isMobile" x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0" x-transition:enter-end="opacity-100" x-transition:leave="transition ease-in duration-150" x-transition:leave-start="opacity-100" x-transition:leave-end="opacity-0" @click="settingsPanelOpen = false" class="fixed inset-0 bg-black/50 z-20" aria-hidden="true"></div>
+      <!-- Chat Settings Panel (right side): overlay on mobile (w-full), sidebar on desktop (md:w-56) -->
+      <div
+        class="chat-settings-panel bg-[var(--color-bg-secondary)] fixed top-0 right-0 bottom-0 w-full md:w-56 transform transition-transform duration-300 ease-in-out z-30 border-l border-[var(--color-border-subtle)] overflow-y-auto"
+        :class="settingsPanelOpen ? 'translate-x-0' : 'translate-x-full'">
+
+        <div class="p-3 flex justify-between items-center border-b border-[var(--color-border-subtle)]">
+          <div class="flex items-center gap-2">
+            <h2 class="text-sm font-semibold text-[var(--color-text-primary)]">Chat Settings</h2>
+            <a
+              href="https://localai.io/features/text-generation/"
+              target="_blank"
+              class="text-[var(--color-text-secondary)] hover:text-[var(--color-primary)] transition-colors text-xs"
+              title="Documentation">
+              <i class="fas fa-book"></i>
+            </a>
+          </div>
+          <button
+            @click="settingsPanelOpen = false"
+            class="text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] focus:outline-none text-xs"
+            title="Hide settings">
+            <i class="fa-solid fa-chevron-right"></i>
+          </button>
+        </div>
+
+        <!-- Sidebar content -->
+        <div class="p-3 space-y-3">
+          <!-- Model selection - Compact -->
+          <div class="space-y-1.5">
+            <div class="flex items-center justify-between gap-2">
+              <label class="text-xs font-medium text-[var(--color-text-secondary)] uppercase tracking-wide flex-shrink-0">Model</label>
+              <div class="flex items-center gap-1 flex-shrink-0">
+                <!-- Info button - reactive to active chat model -->
+                <template x-if="$store.chat.activeChat() && $store.chat.activeChat().model && window.__galleryConfigs && window.__galleryConfigs[$store.chat.activeChat().model]">
+                  <button 
+                    data-twe-ripple-init 
+                    data-twe-ripple-color="light" 
+                    class="text-[var(--color-text-secondary)] hover:text-[var(--color-primary)] transition-colors text-xs p-1 rounded hover:bg-[var(--color-bg-primary)]" 
+                    data-modal-target="model-info-modal" 
+                    data-modal-toggle="model-info-modal"
+                    :data-model-name="$store.chat.activeChat().model"
+                    @click="if (window.updateModelInfoModal) { window.updateModelInfoModal($store.chat.activeChat().model, true); }"
+                    title="Model Information">
+                    <i class="fas fa-info-circle"></i>
+                  </button>
+                </template>
+                <!-- Fallback info button for initial model from server -->
+                <template x-if="(!$store.chat.activeChat() || !$store.chat.activeChat().model) && window.__galleryConfigs && window.__galleryConfigs['{{$model}}']">
+                  <button 
+                    data-twe-ripple-init 
+                    data-twe-ripple-color="light" 
+                    class="text-[var(--color-text-secondary)] hover:text-[var(--color-primary)] transition-colors text-xs p-1 rounded hover:bg-[var(--color-bg-primary)]" 
+                    data-modal-target="model-info-modal" 
+                    data-modal-toggle="model-info-modal"
+                    data-model-name="{{$model}}"
+                    @click="if (window.updateModelInfoModal) { window.updateModelInfoModal('{{$model}}', true); }"
+                    title="Model Information">
+                    <i class="fas fa-info-circle"></i>
+                  </button>
+                </template>
+                <!-- Edit button - reactive to active chat model -->
+                <template x-if="$store.chat.activeChat() && $store.chat.activeChat().model">
+                  <a :href="'/models/edit/' + $store.chat.activeChat().model" 
+                     class="text-[var(--color-text-secondary)] hover:text-[var(--color-warning)] transition-colors text-xs p-1 rounded hover:bg-[var(--color-bg-primary)]" 
+                     title="Edit Model Configuration">
+                    <i class="fas fa-edit"></i>
+                  </a>
+                </template>
+                <!-- Fallback edit button for initial model from server -->
+                <template x-if="!$store.chat.activeChat() || !$store.chat.activeChat().model">
+                  {{ if $model }}
+                  <a href="/models/edit/{{$model}}" 
+                     class="text-[var(--color-text-secondary)] hover:text-[var(--color-warning)] transition-colors text-xs p-1 rounded hover:bg-[var(--color-bg-primary)]" 
+                     title="Edit Model Configuration">
+                    <i class="fas fa-edit"></i>
+                  </a>
+                  {{ end }}
+                </template>
+              </div>
+            </div>
+            <select
+              id="modelSelector"
+              class="input w-full p-1.5 text-xs"
+              onchange="updateModelAndContextSize(this);"
+            >
+              <option value="" disabled class="text-[var(--color-text-secondary)]">Select a model</option>
+
+              {{ range .ModelsConfig }}
+                {{ $cfg := . }}
+                {{ $hasMCP := or (ne $cfg.MCP.Servers "") (ne $cfg.MCP.Stdio "") }}
+                {{ range .KnownUsecaseStrings }}
+                  {{ if eq . "FLAG_CHAT" }}
+                    <option
+                      value="chat/{{$cfg.Name}}"
+                      {{ if eq $cfg.Name $model }} selected {{end}}
+                      {{ if $cfg.LLMConfig.ContextSize }}data-context-size="{{$cfg.LLMConfig.ContextSize}}"{{ end }}
+                      data-has-mcp="{{if $hasMCP}}true{{else}}false{{end}}"
+                      class="bg-[var(--color-bg-primary)] text-[var(--color-text-primary)]"
+                    >
+                      {{$cfg.Name}}
+                    </option>
+                  {{ end }}
+                {{ end }}
+              {{ end }}
+              {{ range .ModelsWithoutConfig }}
+                <option
+                  value="chat/{{.}}"
+                  {{ if eq . $model }} selected {{ end }}
+                  class="bg-[var(--color-bg-primary)] text-[var(--color-text-primary)]"
+                >
+                  {{.}}
+                </option>
+              {{end}}
+            </select>
+          </div>
+
+          <!-- Chat List -->
+          <div class="space-y-2" x-data="{ 
+            editingChatId: null, 
+            editingName: '', 
+            searchQuery: '',
+            filteredChats() {
+              let chats = $store.chat.chats;
+              
+              // Sort chats with stable ordering to prevent flickering during parallel streaming
+              chats = [...chats].sort((a, b) => {
+                const aActive = $store.chat.hasActiveRequest(a.id);
+                const bActive = $store.chat.hasActiveRequest(b.id);
+                
+                // Prioritize active chats at the top
+                if (aActive && !bActive) return -1;
+                if (!aActive && bActive) return 1;
+                
+                // For active chats, use createdAt to maintain stable order (prevent flickering)
+                // This ensures active chats don't reorder among themselves as they update
+                if (aActive && bActive) {
+                  const createdA = a.createdAt || 0;
+                  const createdB = b.createdAt || 0;
+                  return createdB - createdA; // Newer active chats first, but stable
+                }
+                
+                // For inactive chats, sort by updatedAt (most recent first)
+                const timeA = a.updatedAt || a.createdAt || 0;
+                const timeB = b.updatedAt || b.createdAt || 0;
+                if (timeB !== timeA) {
+                  return timeB - timeA;
+                }
+                
+                // Tiebreaker: use createdAt
+                const createdA = a.createdAt || 0;
+                const createdB = b.createdAt || 0;
+                return createdB - createdA;
+              });
+              
+              if (!this.searchQuery || !this.searchQuery.trim()) {
+                return chats;
+              }
+              
+              const query = this.searchQuery.toLowerCase().trim();
+              return chats.filter(chat => {
+                // Search in chat name
+                const nameMatch = (chat.name || 'New Chat').toLowerCase().includes(query);
+                
+                // Search in message content
+                const contentMatch = chat.history && chat.history.some(message => {
+                  if (message.content) {
+                    let contentText = '';
+                    if (typeof message.content === 'string') {
+                      // Remove HTML tags for searching
+                      const tempDiv = document.createElement('div');
+                      tempDiv.innerHTML = message.content;
+                      contentText = (tempDiv.textContent || tempDiv.innerText || '').toLowerCase();
+                    } else if (Array.isArray(message.content)) {
+                      // Handle array content (multimodal)
+                      contentText = message.content
+                        .filter(item => item.type === 'text' && item.text)
+                        .map(item => item.text)
+                        .join(' ')
+                        .toLowerCase();
+                    }
+                    return contentText.includes(query);
+                  }
+                  return false;
+                });
+                
+                return nameMatch || contentMatch;
+              });
+            }
+          }">
+            <div class="flex items-center justify-between">
+              <h2 class="text-xs font-semibold text-[var(--color-text-secondary)] uppercase tracking-wide">Chats</h2>
+              <div class="flex items-center gap-1">
+                <button
+                  @click="createNewChat()"
+                  class="text-[var(--color-primary)] hover:text-[var(--color-accent)] transition-colors text-xs p-1"
+                  title="New Chat">
+                  <i class="fa-solid fa-plus"></i>
+                </button>
+                <button
+                  @click="if (confirm('Delete all chats? This cannot be undone.')) { bulkDeleteChats({deleteAll: true}); }"
+                  class="text-[var(--color-text-secondary)] hover:text-[var(--color-error)] transition-colors text-xs p-1"
+                  title="Delete all chats"
+                  x-show="$store.chat.chats.length > 0">
+                  <i class="fa-solid fa-trash"></i>
+                </button>
+              </div>
+            </div>
+            
+            <!-- Search Input -->
+            <div class="relative">
+              <input
+                type="text"
+                x-model="searchQuery"
+                placeholder="Search conversations..."
+                class="w-full bg-[var(--color-bg-primary)] text-[var(--color-text-primary)] border border-[var(--color-bg-secondary)] focus:border-[var(--color-primary-border)] focus:ring-1 focus:ring-[var(--color-primary)]/50 rounded py-1.5 pr-2 text-xs placeholder-[var(--color-text-secondary)]"
+                style="padding-left: 2rem !important;"
+              />
+              <i class="fa-solid fa-search absolute left-2.5 top-1/2 transform -translate-y-1/2 text-[var(--color-text-secondary)] text-xs pointer-events-none z-10"></i>
+              <button
+                x-show="searchQuery.length > 0"
+                @click="searchQuery = ''"
+                class="absolute right-2 top-1/2 transform -translate-y-1/2 text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] text-xs"
+                title="Clear search">
+                <i class="fa-solid fa-times"></i>
+              </button>
+            </div>
+            
+            <!-- Chat List -->
+            <div class="max-h-80 overflow-y-auto space-y-1 border border-[var(--color-bg-secondary)] rounded p-1.5">
+              <template x-for="chat in filteredChats()" :key="chat.id">
+                <div
+                  class="flex items-center justify-between p-1.5 rounded hover:bg-[var(--color-bg-secondary)] transition-colors cursor-pointer group"
+                  :class="{ 'bg-[var(--color-primary)]/20 border border-[var(--color-primary-border)]/40': $store.chat.activeChatId === chat.id }"
+                  @click="if (editingChatId !== chat.id) switchChat(chat.id)"
+                >
+                  <div class="flex-1 min-w-0">
+                    <template x-if="editingChatId === chat.id">
+                      <input
+                        type="text"
+                        x-model="editingName"
+                        @blur="updateChatName(chat.id, editingName); editingChatId = null"
+                        @keydown.enter="updateChatName(chat.id, editingName); editingChatId = null"
+                        @keydown.escape="editingChatId = null"
+                        class="w-full bg-[var(--color-bg-primary)] text-[var(--color-text-primary)] border border-[var(--color-primary-border)] rounded px-1.5 py-0.5 text-xs"
+                        x-ref="editInput"
+                        x-effect="if (editingChatId === chat.id) { $refs.editInput?.focus(); editingName = chat.name; }"
+                      />
+                    </template>
+                    <template x-if="editingChatId !== chat.id">
+                      <div class="flex items-center space-x-1.5">
+                        <!-- Loading indicator for active requests -->
+                        <div x-show="$store.chat.hasActiveRequest(chat.id)" 
+                             class="flex-shrink-0">
+                          <i class="fa-solid fa-spinner fa-spin text-[var(--color-primary)] text-[10px]"></i>
+                        </div>
+                        <div class="flex-1 min-w-0">
+                          <div
+                            class="text-xs font-medium text-[var(--color-text-primary)] truncate"
+                            @dblclick="editingChatId = chat.id; editingName = chat.name"
+                            x-text="chat.name || 'New Chat'"
+                          ></div>
+                          <div class="flex items-center gap-1.5">
+                            <div class="text-[10px] text-[var(--color-text-secondary)] truncate" x-text="getLastMessagePreview(chat)"></div>
+                            <span class="text-[9px] text-[var(--color-text-secondary)]/60" x-text="formatChatDate(chat.updatedAt || chat.createdAt)"></span>
+                          </div>
+                        </div>
+                      </div>
+                    </template>
+                  </div>
+                  <div class="flex items-center space-x-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <button
+                      @click.stop="editingChatId = chat.id; editingName = chat.name"
+                      class="text-[var(--color-text-secondary)] hover:text-[var(--color-primary)] transition-colors text-[10px] p-0.5"
+                      title="Rename chat">
+                      <i class="fa-solid fa-edit"></i>
+                    </button>
+                    <button
+                      @click.stop="if (confirm('Delete this chat?')) deleteChat(chat.id)"
+                      class="text-[var(--color-text-secondary)] hover:text-[var(--color-error)] transition-colors text-[10px] p-0.5"
+                      title="Delete chat"
+                      x-show="$store.chat.chats.length > 1">
+                      <i class="fa-solid fa-trash"></i>
+                    </button>
+                  </div>
+                </div>
+              </template>
+              <div x-show="filteredChats().length === 0 && $store.chat.chats.length > 0" class="text-xs text-[var(--color-text-secondary)] text-center py-2">
+                No conversations match your search
+              </div>
+              <div x-show="$store.chat.chats.length === 0" class="text-xs text-[var(--color-text-secondary)] text-center py-2">
+                No chats yet
+              </div>
+            </div>
+          </div>
+
+
+          <div x-data="{ showPromptForm: false, showParamsForm: false }" class="space-y-2">
+              <!-- MCP Toggle - Compact (shown dynamically based on model support) -->
+              <div x-data="{
+                mcpAvailable: false,
+                checkMCP() {
+                  const modelSelector = document.getElementById('modelSelector');
+                  if (!modelSelector) {
+                    this.mcpAvailable = false;
+                    return;
+                  }
+                  const selectedOption = modelSelector.options[modelSelector.selectedIndex];
+                  if (!selectedOption) {
+                    this.mcpAvailable = false;
+                    return;
+                  }
+                  const hasMCP = selectedOption.getAttribute('data-has-mcp') === 'true';
+                  this.mcpAvailable = hasMCP;
+
+                  // If model doesn't support MCP, disable MCP mode
+                  const activeChat = $store.chat.activeChat();
+                  if (activeChat && !hasMCP) {
+                    activeChat.mcpMode = false;
+                  }
+                },
+                init() {
+                  this.checkMCP();
+                  // Watch for model selector changes
+                  const modelSelector = document.getElementById('modelSelector');
+                  if (modelSelector) {
+                    modelSelector.addEventListener('change', () => {
+                      this.checkMCP();
+                    });
+                  }
+                  // Also watch for active chat changes (when switching chats)
+                  this.$watch('$store.chat.activeChatId', () => {
+                    this.checkMCP();
+                  });
+                }
+              }" x-show="mcpAvailable">
+                <div class="flex items-center justify-between px-2 py-1.5 text-xs rounded text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-bg-secondary)] transition-colors">
+                  <span><i class="fa-solid fa-plug mr-1.5 text-[var(--color-primary)]"></i> MCP Mode</span>
+                  <label class="relative inline-flex items-center cursor-pointer">
+                    <input type="checkbox" id="mcp-toggle" class="sr-only peer" :checked="$store.chat.activeChat()?.mcpMode || false" @change="if ($store.chat.activeChat()) { $store.chat.activeChat().mcpMode = $event.target.checked; autoSaveChats(); }">
+                    <div class="w-9 h-5 bg-[var(--color-bg-primary)] peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-[var(--color-primary)]/30 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-[var(--color-bg-secondary)] after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-[var(--color-primary)]"></div>
+                  </label>
+                </div>
+
+                <!-- MCP Mode Notification - Compact -->
+                <div x-show="$store.chat.activeChat()?.mcpMode" class="p-2 bg-[var(--color-primary)]/10 border border-[var(--color-primary-border)]/30 rounded text-[var(--color-text-secondary)] text-[10px]">
+                  <div class="flex items-start space-x-1.5">
+                    <i class="fa-solid fa-info-circle text-[var(--color-primary)] mt-0.5"></i>
+                    <div>
+                      <p class="font-medium text-[var(--color-text-primary)] mb-0.5">Non-streaming Mode</p>
+                      <p class="text-[var(--color-text-secondary)]">Full processing before display (may take up to 5 minutes on CPU).</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <button
+                @click="showPromptForm = !showPromptForm"
+                class="w-full flex items-center justify-between px-2 py-1.5 text-xs rounded text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-bg-secondary)] transition-colors"
+              >
+                <span><i class="fa-solid fa-message mr-1.5 text-[var(--color-primary)]"></i> System Prompt</span>
+                <i :class="showPromptForm ? 'fa-chevron-up' : 'fa-chevron-down'" class="fa-solid text-[10px]"></i>
+              </button>
+
+              <div x-show="showPromptForm" x-data="{
+                showToast: false,
+                previousPrompt: $store.chat.activeChat()?.systemPrompt || '',
+                isUpdated() {
+                  const currentPrompt = $store.chat.activeChat()?.systemPrompt || '';
+                  if (this.previousPrompt !== currentPrompt) {
+                    this.showToast = true;
+                    this.previousPrompt = currentPrompt;
+                    if ($store.chat.activeChat()) {
+                      $store.chat.activeChat().systemPrompt = currentPrompt;
+                      $store.chat.activeChat().updatedAt = Date.now();
+                      autoSaveChats();
+                    }
+                    setTimeout(() => {this.showToast = false;}, 2000);
+                  }
+                } 
+              }" class="p-2 bg-[var(--color-bg-secondary)] border border-[var(--color-primary-border)]/20 rounded pl-4 border-l-2 border-[var(--color-bg-secondary)]">
+                <form id="system_prompt" @submit.prevent="isUpdated" class="flex flex-col space-y-1.5">
+                  <textarea
+                    type="text"
+                    id="systemPrompt"
+                    class="input"
+                    name="systemPrompt"
+                    class="bg-[var(--color-bg-primary)] text-[var(--color-text-primary)] border border-[var(--color-bg-secondary)] focus:border-[var(--color-primary-border)] focus:ring-1 focus:ring-[var(--color-primary)] focus:ring-opacity-50 rounded p-1.5 text-xs appearance-none min-h-20 placeholder-[var(--color-text-secondary)]"
+                    placeholder="System prompt"
+                    :value="$store.chat.activeChat()?.systemPrompt || ''"
+                    @input="if ($store.chat.activeChat()) { $store.chat.activeChat().systemPrompt = $event.target.value; $store.chat.activeChat().updatedAt = Date.now(); autoSaveChats(); }"
+                    @change="if ($store.chat.activeChat()) { $store.chat.activeChat().systemPrompt = $event.target.value; $store.chat.activeChat().updatedAt = Date.now(); autoSaveChats(); }"
+                  ></textarea>
+                  <div
+                    x-show="showToast"
+                    x-transition
+                    class="text-[var(--color-success)] px-2 py-1 text-xs text-center bg-[var(--color-success-light)] border border-[var(--color-success-light)] rounded"
+                  >
+                    Updated!
+                  </div>
+                  <button
+                    type="submit"
+                    class="px-2 py-1 text-xs rounded text-[var(--color-bg-primary)] bg-[var(--color-primary)] hover:bg-[var(--color-primary)]/90 transition-colors font-medium"
+                  >
+                    Save
+                  </button>
+                </form>
+              </div>
+
+              <!-- Generation Parameters -->
+              <button
+                @click="showParamsForm = !showParamsForm"
+                class="w-full flex items-center justify-between px-2 py-1.5 text-xs rounded text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-bg-secondary)] transition-colors"
+              >
+                <span><i class="fa-solid fa-sliders mr-1.5 text-[var(--color-primary)]"></i> Generation Parameters</span>
+                <i :class="showParamsForm ? 'fa-chevron-up' : 'fa-chevron-down'" class="fa-solid text-[10px]"></i>
+              </button>
+
+              <div x-show="showParamsForm" class="p-2 bg-[var(--color-bg-secondary)] border border-[var(--color-primary-border)]/20 rounded pl-4 border-l-2 border-[var(--color-bg-secondary)] overflow-hidden">
+                <div class="flex flex-col space-y-3">
+                  <!-- Temperature -->
+                  <div class="space-y-1 min-w-0">
+                    <div class="flex items-center justify-between gap-2">
+                      <label class="text-xs text-[var(--color-text-secondary)] flex-shrink-0">Temperature</label>
+                      <span class="text-xs text-[var(--color-text-primary)] font-medium flex-shrink-0" x-text="($store.chat.activeChat()?.temperature !== null && $store.chat.activeChat()?.temperature !== undefined) ? $store.chat.activeChat().temperature.toFixed(2) : 'Default'"></span>
+                    </div>
+                    <div class="flex items-center gap-2 min-w-0">
+                      <input
+                        type="range"
+                        min="0"
+                        max="2"
+                        step="0.01"
+                        class="flex-1 min-w-0 h-1.5 bg-[var(--color-bg-primary)] rounded-lg appearance-none cursor-pointer accent-[var(--color-primary)]"
+                        :value="$store.chat.activeChat()?.temperature ?? 1.0"
+                        @input="if ($store.chat.activeChat()) { $store.chat.activeChat().temperature = parseFloat($event.target.value); $store.chat.activeChat().updatedAt = Date.now(); autoSaveChats(); }"
+                      />
+                      <button
+                        @click="if ($store.chat.activeChat()) { $store.chat.activeChat().temperature = null; $store.chat.activeChat().updatedAt = Date.now(); autoSaveChats(); }"
+                        class="text-[var(--color-text-secondary)] hover:text-[var(--color-primary)] transition-colors text-xs px-2 py-1 flex-shrink-0"
+                        title="Reset to default"
+                        x-show="$store.chat.activeChat()?.temperature !== null && $store.chat.activeChat()?.temperature !== undefined"
+                      >
+                        <i class="fa-solid fa-rotate-left"></i>
+                      </button>
+                    </div>
+                    <p class="text-[10px] text-[var(--color-text-secondary)]">Controls randomness (0 = deterministic, 2 = very creative)</p>
+                  </div>
+
+                  <!-- Top P -->
+                  <div class="space-y-1 min-w-0">
+                    <div class="flex items-center justify-between gap-2">
+                      <label class="text-xs text-[var(--color-text-secondary)] flex-shrink-0">Top P</label>
+                      <span class="text-xs text-[var(--color-text-primary)] font-medium flex-shrink-0" x-text="($store.chat.activeChat()?.topP !== null && $store.chat.activeChat()?.topP !== undefined) ? $store.chat.activeChat().topP.toFixed(2) : 'Default'"></span>
+                    </div>
+                    <div class="flex items-center gap-2 min-w-0">
+                      <input
+                        type="range"
+                        min="0"
+                        max="1"
+                        step="0.01"
+                        class="flex-1 min-w-0 h-1.5 bg-[var(--color-bg-primary)] rounded-lg appearance-none cursor-pointer accent-[var(--color-primary)]"
+                        :value="$store.chat.activeChat()?.topP ?? 0.9"
+                        @input="if ($store.chat.activeChat()) { $store.chat.activeChat().topP = parseFloat($event.target.value); $store.chat.activeChat().updatedAt = Date.now(); autoSaveChats(); }"
+                      />
+                      <button
+                        @click="if ($store.chat.activeChat()) { $store.chat.activeChat().topP = null; $store.chat.activeChat().updatedAt = Date.now(); autoSaveChats(); }"
+                        class="text-[var(--color-text-secondary)] hover:text-[var(--color-primary)] transition-colors text-xs px-2 py-1 flex-shrink-0"
+                        title="Reset to default"
+                        x-show="$store.chat.activeChat()?.topP !== null && $store.chat.activeChat()?.topP !== undefined"
+                      >
+                        <i class="fa-solid fa-rotate-left"></i>
+                      </button>
+                    </div>
+                    <p class="text-[10px] text-[var(--color-text-secondary)]">Nucleus sampling threshold (0-1)</p>
+                  </div>
+
+                  <!-- Top K -->
+                  <div class="space-y-1 min-w-0">
+                    <div class="flex items-center justify-between gap-2">
+                      <label class="text-xs text-[var(--color-text-secondary)] flex-shrink-0">Top K</label>
+                      <span class="text-xs text-[var(--color-text-primary)] font-medium flex-shrink-0" x-text="($store.chat.activeChat()?.topK !== null && $store.chat.activeChat()?.topK !== undefined) ? $store.chat.activeChat().topK : 'Default'"></span>
+                    </div>
+                    <div class="flex items-center gap-2 min-w-0">
+                      <input
+                        type="range"
+                        min="0"
+                        max="100"
+                        step="1"
+                        class="flex-1 min-w-0 h-1.5 bg-[var(--color-bg-primary)] rounded-lg appearance-none cursor-pointer accent-[var(--color-primary)]"
+                        :value="$store.chat.activeChat()?.topK ?? 40"
+                        @input="if ($store.chat.activeChat()) { $store.chat.activeChat().topK = parseInt($event.target.value); $store.chat.activeChat().updatedAt = Date.now(); autoSaveChats(); }"
+                      />
+                      <button
+                        @click="if ($store.chat.activeChat()) { $store.chat.activeChat().topK = null; $store.chat.activeChat().updatedAt = Date.now(); autoSaveChats(); }"
+                        class="text-[var(--color-text-secondary)] hover:text-[var(--color-primary)] transition-colors text-xs px-2 py-1 flex-shrink-0"
+                        title="Reset to default"
+                        x-show="$store.chat.activeChat()?.topK !== null && $store.chat.activeChat()?.topK !== undefined"
+                      >
+                        <i class="fa-solid fa-rotate-left"></i>
+                      </button>
+                    </div>
+                    <p class="text-[10px] text-[var(--color-text-secondary)]">Limit sampling to top K tokens (0 = disabled)</p>
+                  </div>
+                </div>
+              </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Main chat container (shifts with settings panel on desktop only; on mobile panel overlays) -->
+      <div
+        class="flex-1 flex flex-col min-h-0 transition-all duration-300 ease-in-out"
+        :class="settingsPanelOpen ? 'md:mr-56' : 'mr-0'">
+
+        <!-- Chat header with toggle button -->
+        <div class="flex-shrink-0 border-b border-[var(--color-bg-secondary)] p-4 flex flex-wrap items-center justify-between gap-2">
+          <div class="flex items-center min-w-0 flex-1">
+            <i class="fa-solid fa-comments mr-2 text-[var(--color-primary)] flex-shrink-0"></i>
+            <!-- Model icon - reactive to active chat -->
+            <template x-if="$store.chat.activeChat() && $store.chat.activeChat().model && window.__galleryConfigs && window.__galleryConfigs[$store.chat.activeChat().model] && window.__galleryConfigs[$store.chat.activeChat().model].Icon">
+              <img :src="window.__galleryConfigs[$store.chat.activeChat().model].Icon" class="rounded-lg w-8 h-8 mr-2 flex-shrink-0">
+            </template>
+            <!-- Fallback icon for initial model from server (when no active chat yet) -->
+            <template x-if="(!$store.chat.activeChat() || !$store.chat.activeChat().model) && window.__galleryConfigs && window.__galleryConfigs['{{$model}}'] && window.__galleryConfigs['{{$model}}'].Icon">
+              <img :src="window.__galleryConfigs['{{$model}}'].Icon" class="rounded-lg w-8 h-8 mr-2 flex-shrink-0">
+            </template>
+            <h1 class="text-lg font-semibold text-[var(--color-text-primary)] truncate min-w-0">
+              Chat
+              <template x-if="$store.chat.activeChat() && $store.chat.activeChat().model">
+                <span x-text="' with ' + $store.chat.activeChat().model"></span>
+              </template>
+              <template x-if="!$store.chat.activeChat() || !$store.chat.activeChat().model">
+                {{ if .Model }}<span> with {{.Model}}</span>{{ end }}
+              </template>
+            </h1>
+            <!-- Loading indicator next to model name -->
+            <div id="header-loading-indicator" class="ml-3 text-[var(--color-primary)] flex-shrink-0" style="display: none;">
+              <i class="fas fa-spinner fa-spin text-sm"></i>
+            </div>
+          </div>
+
+          <div class="flex items-center gap-2 flex-shrink-0">
+            <button
+              @click="if (confirm('Clear all messages from this conversation? This action cannot be undone.')) { $store.chat.clear(); showClearAlert = true; setTimeout(() => showClearAlert = false, 3000); }"
+              id="clear"
+              title="Clear current chat history"
+              class="text-[var(--color-text-secondary)] hover:text-[var(--color-primary)] transition-colors p-2 min-w-[44px] min-h-[44px] md:min-w-0 md:min-h-0 flex items-center justify-center rounded hover:bg-[var(--color-bg-secondary)]"
+              x-show="$store.chat.activeChat() && ($store.chat.activeChat()?.history?.length || 0) > 0">
+              <i class="fa-solid fa-broom"></i>
+            </button>
+            <!-- Settings panel toggle button -->
+            <button
+              @click="settingsPanelOpen = !settingsPanelOpen"
+              class="text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] focus:outline-none bg-[var(--color-bg-secondary)] hover:bg-[var(--color-bg-secondary)]/80 p-2 min-w-[44px] min-h-[44px] md:min-w-0 md:min-h-0 flex items-center justify-center rounded transition-colors"
+              title="Toggle chat settings">
+              <i class="fa-solid" :class="settingsPanelOpen ? 'fa-chevron-right' : 'fa-cog'"></i>
+            </button>
+          </div>
+          
+          <!-- Clear Chat Alert (bottom on mobile to avoid covering header) -->
+          <div x-show="showClearAlert"
+               x-transition:enter="transition ease-out duration-300"
+               x-transition:enter-start="opacity-0 translate-y-2"
+               x-transition:enter-end="opacity-100 translate-y-0"
+               x-transition:leave="transition ease-in duration-200"
+               x-transition:leave-start="opacity-100"
+               x-transition:leave-end="opacity-0"
+               class="fixed top-20 right-4 max-md:top-auto max-md:bottom-4 max-md:left-4 max-md:right-4 z-50 max-w-sm pointer-events-none">
+            <div class="bg-[var(--color-primary)]/20 border border-[var(--color-primary-border)]/40 rounded-lg p-3 shadow-lg backdrop-blur-sm">
+              <div class="flex items-center gap-2">
+                <i class="fa-solid fa-check-circle text-[var(--color-primary)]"></i>
+                <span class="text-sm text-[var(--color-text-primary)] font-medium">Chat history cleared successfully</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Chat messages area -->
+        <div class="flex-1 min-h-0 overflow-y-auto" id="chat">
+          <div class="p-4">
+          <p id="usage" x-show="!$store.chat.activeChat() || ($store.chat.activeChat()?.history?.length || 0) === 0" class="text-[var(--color-text-secondary)]">
+            Start chatting with the AI by typing a prompt in the input field below and pressing Enter.<br>
+            <ul class="list-disc list-inside mt-2 space-y-1">
+              <li>For models that support images, you can upload an image by clicking the <i class="fa-solid fa-image text-[var(--color-primary)]"></i> icon.</li>
+              <li>For models that support audio, you can upload an audio file by clicking the <i class="fa-solid fa-microphone text-[var(--color-primary)]"></i> icon.</li>
+              <li>To send a text, markdown or PDF file, click the <i class="fa-solid fa-file text-[var(--color-primary)]"></i> icon.</li>
+            </ul>
+          </p>
+          <div id="messages" class="max-w-3xl mx-auto space-y-2" :key="$store.chat.activeChatId">
+            <template x-for="(message, index) in $store.chat.activeHistory" :key="index">
+              <div>
+                <!-- Reasoning/Thinking messages appear first (before assistant) - collapsible in MCP mode -->
+                <template x-if="message.role === 'reasoning' || message.role === 'thinking'">
+                  <div class="flex items-start space-x-2 mb-1">
+                    <div class="flex flex-col flex-1">
+                      <div class="p-2 flex-1 rounded-lg bg-[var(--color-primary)]/10 text-[var(--color-text-secondary)] border border-[var(--color-primary-border)]/30">
+                        <button 
+                          @click="message.expanded = !message.expanded"
+                          class="w-full flex items-center justify-between text-left hover:bg-[var(--color-primary)]/20 rounded p-2 transition-colors"
+                        >
+                          <div class="flex items-center space-x-2">
+                            <i :class="message.role === 'thinking' ? 'fa-solid fa-brain' : 'fa-solid fa-lightbulb'" class="text-[var(--color-primary)]"></i>
+                            <span class="text-xs font-semibold text-[var(--color-primary)]" x-text="message.role === 'thinking' ? 'Thinking' : 'Reasoning'"></span>
+                            <span class="text-xs text-[var(--color-text-secondary)]" x-show="message.content && message.content.length > 0" x-text="'(' + Math.ceil(message.content.length / 100) + ' lines)'"></span>
+                          </div>
+                          <i 
+                            class="fa-solid text-[var(--color-primary)] transition-transform text-xs"
+                            :class="message.expanded ? 'fa-chevron-up' : 'fa-chevron-down'"
+                          ></i>
+                        </button>
+                        <div 
+                          x-show="message.expanded"
+                          x-transition
+                          class="mt-2 pt-2 border-t border-[var(--color-primary-border)]/20"
+                        >
+                          <div 
+                            class="text-[var(--color-text-primary)] text-sm max-h-96 overflow-auto" 
+                            x-html="message.html"
+                            data-thinking-box
+                            x-effect="if (message.expanded && message.html) { setTimeout(() => { if ($el.scrollHeight > $el.clientHeight) { $el.scrollTo({ top: $el.scrollHeight, behavior: 'smooth' }); } }, 50); }"
+                          ></div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </template>
+                
+                <!-- Tool calls (collapsible) -->
+                <template x-if="message.role === 'tool_call'">
+                  <div class="flex items-start space-x-2 mb-1 min-w-0">
+                    <div class="flex flex-col flex-1 min-w-0">
+                      <div class="p-2 flex-1 rounded-lg bg-[var(--color-accent)]/10 text-[var(--color-text-secondary)] border border-[var(--color-accent-border)]/30 min-w-0">
+                        <button 
+                          @click="message.expanded = !message.expanded"
+                          class="w-full flex items-center justify-between text-left hover:bg-[var(--color-accent)]/20 rounded p-2 transition-colors min-w-0"
+                        >
+                          <div class="flex items-center space-x-2 min-w-0 flex-1">
+                            <i class="fa-solid fa-wrench text-[var(--color-accent)] flex-shrink-0"></i>
+                            <span class="text-xs font-semibold text-[var(--color-accent)] flex-shrink-0">Tool Call</span>
+                            <span class="text-xs text-[var(--color-text-secondary)] truncate min-w-0" x-text="getToolName(message.content)"></span>
+                          </div>
+                          <i 
+                            class="fa-solid text-[var(--color-accent)] transition-transform text-xs flex-shrink-0"
+                            :class="message.expanded ? 'fa-chevron-up' : 'fa-chevron-down'"
+                          ></i>
+                        </button>
+                        <div 
+                          x-show="message.expanded"
+                          x-transition
+                          class="mt-2 pt-2 border-t border-[var(--color-accent-border)]/20 min-w-0"
+                        >
+                          <div class="text-[var(--color-text-primary)] text-xs max-h-96 overflow-x-auto overflow-y-auto tool-call-content w-full min-w-0" 
+                               x-html="message.html"
+                               x-effect="if (message.expanded && window.hljs) { setTimeout(() => { $el.querySelectorAll('pre code.language-json').forEach(block => { if (!block.classList.contains('hljs')) window.hljs.highlightElement(block); }); }, 50); }"></div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </template>
+                
+                <!-- Tool results (collapsible) -->
+                <template x-if="message.role === 'tool_result'">
+                  <div class="flex items-start space-x-2 mb-1 min-w-0">
+                    <div class="flex flex-col flex-1 min-w-0">
+                      <div class="p-2 flex-1 rounded-lg bg-[var(--color-success)]/10 text-[var(--color-text-secondary)] border border-[var(--color-success)]/30 min-w-0">
+                        <button 
+                          @click="message.expanded = !message.expanded"
+                          class="w-full flex items-center justify-between text-left hover:bg-[var(--color-success)]/20 rounded p-2 transition-colors min-w-0"
+                        >
+                          <div class="flex items-center space-x-2 min-w-0 flex-1">
+                            <i class="fa-solid fa-check-circle text-[var(--color-success)] flex-shrink-0"></i>
+                            <span class="text-xs font-semibold text-[var(--color-success)] flex-shrink-0">Tool Result</span>
+                            <span class="text-xs text-[var(--color-text-secondary)] truncate min-w-0" x-text="getToolName(message.content) || 'Success'"></span>
+                          </div>
+                          <i 
+                            class="fa-solid text-[var(--color-success)] transition-transform text-xs flex-shrink-0"
+                            :class="message.expanded ? 'fa-chevron-up' : 'fa-chevron-down'"
+                          ></i>
+                        </button>
+                        <div 
+                          x-show="message.expanded"
+                          x-transition
+                          class="mt-2 pt-2 border-t border-[var(--color-success)]/20 min-w-0"
+                        >
+                          <div class="text-[var(--color-text-primary)] text-xs max-h-96 overflow-x-auto overflow-y-auto tool-result-content w-full min-w-0" 
+                               x-html="formatToolResult(message.content)"
+                               x-effect="if (message.expanded && window.hljs) { setTimeout(() => { $el.querySelectorAll('pre code.language-json').forEach(block => { if (!block.classList.contains('hljs')) window.hljs.highlightElement(block); }); }, 50); }"></div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </template>
+                
+                <!-- User and Assistant messages -->
+                <div :class="message.role === 'user' ? 'flex items-start space-x-2 justify-end' : 'flex items-start space-x-2'">
+                {{ if .Model }}
+                {{ $galleryConfig:= index $allGalleryConfigs .Model}}
+                <template x-if="message.role === 'user'">
+                  <div class="flex items-center space-x-2">
+                    <div class="flex flex-col flex-1 items-end">
+                      <span class="text-xs font-semibold text-[var(--color-text-secondary)] mb-1">You</span>
+                      <div class="p-3 flex-1 rounded-lg bg-[var(--color-bg-secondary)] text-[var(--color-text-primary)] border border-[var(--color-primary-border)]/20 shadow-lg" x-html="message.html"></div>
+                      <template x-if="message.image && message.image.length > 0">
+                        <div class="mt-2 space-y-2">
+                          <template x-for="(img, index) in message.image" :key="index">
+                            <img :src="img" :alt="'Image ' + (index + 1)" class="rounded-lg max-w-xs">
+                          </template>
+                        </div>
+                      </template>
+                      <template x-if="message.audio && message.audio.length > 0">
+                        <div class="mt-2 space-y-2">
+                          <template x-for="(audio, index) in message.audio" :key="index">
+                            <audio controls class="w-full">
+                              <source :src="audio" type="audio/*">
+                              Your browser does not support the audio element.
+                            </audio>
+                          </template>
+                        </div>
+                      </template>
+                    </div>
+                  </div>
+                </template>
+                <template x-if="message.role != 'user' && message.role != 'thinking' && message.role != 'reasoning' && message.role != 'tool_call' && message.role != 'tool_result'">
+                  <div class="flex items-center space-x-2">
+                    <!-- Model icon - from message history, fallback to active chat -->
+                    <template x-if="message.model && window.__galleryConfigs && window.__galleryConfigs[message.model] && window.__galleryConfigs[message.model].Icon">
+                      <img :src="window.__galleryConfigs[message.model].Icon" class="rounded-lg mt-2 max-w-8 max-h-8 border border-[var(--color-primary-border)]/20">
+                    </template>
+                    <!-- Fallback: use active chat model if message doesn't have one -->
+                    <template x-if="!message.model && $store.chat.activeChat() && $store.chat.activeChat().model && window.__galleryConfigs && window.__galleryConfigs[$store.chat.activeChat().model] && window.__galleryConfigs[$store.chat.activeChat().model].Icon">
+                      <img :src="window.__galleryConfigs[$store.chat.activeChat().model].Icon" class="rounded-lg mt-2 max-w-8 max-h-8 border border-[var(--color-primary-border)]/20">
+                    </template>
+                    <!-- Final fallback: initial model from server -->
+                    <template x-if="!message.model && (!$store.chat.activeChat() || !$store.chat.activeChat().model) && window.__galleryConfigs && window.__galleryConfigs['{{$model}}'] && window.__galleryConfigs['{{$model}}'].Icon">
+                      <img :src="window.__galleryConfigs['{{$model}}'].Icon" class="rounded-lg mt-2 max-w-8 max-h-8 border border-[var(--color-primary-border)]/20">
+                    </template>
+                    <div class="flex flex-col flex-1">
+                      <span class="text-xs font-semibold text-[var(--color-text-secondary)] mb-1" x-text="message.model || $store.chat.activeChat()?.model || '{{if .Model}}{{.Model}}{{else}}Assistant{{end}}'"></span>
+                      <div class="flex-1 text-[var(--color-text-primary)] flex items-center space-x-2 min-w-0">
+                        <div class="p-3 rounded-lg bg-[var(--color-bg-secondary)] border border-[var(--color-accent-border)]/20 shadow-lg max-w-full overflow-x-auto overflow-wrap-anywhere" x-html="message.html"></div>
+                        <button @click="copyToClipboard(message.html)" title="Copy to clipboard" class="text-[var(--color-text-secondary)] hover:text-[var(--color-primary)] transition-colors p-1 flex-shrink-0">
+                          <i class="fa-solid fa-copy"></i>
+                        </button>
+                      </div>
+                      <template x-if="message.image && message.image.length > 0">
+                        <div class="mt-2 space-y-2">
+                          <template x-for="(img, index) in message.image" :key="index">
+                            <img :src="img" :alt="'Image ' + (index + 1)" class="rounded-lg max-w-xs">
+                          </template>
+                        </div>
+                      </template>
+                      <template x-if="message.audio && message.audio.length > 0">
+                        <div class="mt-2 space-y-2">
+                          <template x-for="(audio, index) in message.audio" :key="index">
+                            <audio controls class="w-full">
+                              <source :src="audio" type="audio/*">
+                              Your browser does not support the audio element.
+                            </audio>
+                          </template>
+                        </div>
+                      </template>
+                    </div>
+                  </div>
+                </template>
+                {{ else }}
+                <i
+                  class="fa-solid h-8 w-8"
+                  :class="message.role === 'user' ? 'fa-user text-[var(--color-primary)]' : 'fa-robot text-[var(--color-accent)]'"
+                ></i>
+                {{ end }}
+                </div>
+              </div>
+            </template>
+          </div>
+          </div>
+        </div>
+
+          <!-- Chat Input -->
+          <div class="flex-shrink-0 p-4 pb-safe border-t border-[var(--color-bg-secondary)] bg-[var(--color-bg-primary)]" x-data="{ inputValue: '', shiftPressed: false, attachedFiles: [] }">
+            <form id="prompt" action="chat/{{.Model}}" method="get" @submit.prevent="submitPrompt" class="max-w-3xl mx-auto">
+              <!-- Attachment Tags - Show above input when files are attached -->
+              <div x-show="attachedFiles.length > 0" class="mb-3 flex flex-wrap gap-2 items-center">
+                <template x-for="(file, index) in attachedFiles" :key="index">
+                  <div class="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm bg-[var(--color-primary)]/20 border border-[var(--color-primary-border)]/40 text-[var(--color-text-primary)]">
+                    <i :class="file.type === 'image' ? 'fa-solid fa-image' : file.type === 'audio' ? 'fa-solid fa-microphone' : 'fa-solid fa-file'" class="text-[var(--color-primary)]"></i>
+                    <span x-text="file.name" class="max-w-[200px] truncate"></span>
+                    <button 
+                      type="button"
+                      @click="attachedFiles.splice(index, 1); removeFileFromInput(file.type, file.name)"
+                      class="ml-1 text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] transition-colors"
+                      title="Remove attachment"
+                    >
+                      <i class="fa-solid fa-times text-xs"></i>
+                    </button>
+                  </div>
+                </template>
+              </div>
+
+              <!-- Token Usage and Context Window - responsive: two rows on mobile -->
+              <div class="mb-3 flex flex-col md:flex-row md:items-center md:justify-between gap-3 text-xs">
+                <!-- Token Usage (wraps on mobile) -->
+                <div class="flex flex-wrap items-center gap-2 md:gap-3 text-[var(--color-text-secondary)]">
+                  <div class="flex items-center gap-1 max-md:hidden">
+                    <i class="fas fa-chart-line text-[var(--color-primary)]"></i>
+                    <span>Prompt:</span>
+                    <span class="text-[var(--color-text-primary)] font-medium" x-text="new Intl.NumberFormat().format($store.chat.activeChat()?.tokenUsage?.promptTokens || 0)"></span>
+                  </div>
+                  <div class="flex items-center gap-1 max-md:hidden">
+                    <span>Completion:</span>
+                    <span class="text-[var(--color-text-primary)] font-medium" x-text="new Intl.NumberFormat().format($store.chat.activeChat()?.tokenUsage?.completionTokens || 0)"></span>
+                  </div>
+                  <div class="flex items-center gap-1 md:border-l border-[var(--color-bg-secondary)] pl-0 md:pl-3">
+                    <span class="text-[var(--color-primary)] font-semibold">Total:</span>
+                    <span class="text-[var(--color-text-primary)] font-bold" x-text="new Intl.NumberFormat().format($store.chat.activeChat()?.tokenUsage?.totalTokens || 0)"></span>
+                  </div>
+                  <!-- Tokens per second display -->
+                  <div id="tokens-per-second-container" class="flex items-center gap-1 border-l border-[var(--color-bg-secondary)] pl-2 md:pl-3">
+                    <i class="fas fa-tachometer-alt text-[var(--color-primary)]"></i>
+                    <span id="tokens-per-second" class="text-[var(--color-text-primary)] font-medium">-</span>
+                    <span id="max-tokens-per-second-badge" class="ml-2 px-1.5 py-0.5 text-[10px] bg-[var(--color-primary)]/20 text-[var(--color-primary)] rounded border border-[var(--color-primary-border)]/30 hidden"></span>
+                  </div>
+                </div>
+
+                <!-- Context Window (second row on mobile) -->
+                <template x-if="$store.chat.activeChat()?.contextSize && $store.chat.activeChat().contextSize > 0">
+                  <div class="flex items-center gap-2 text-[var(--color-text-secondary)] flex-shrink-0">
+                    <i class="fas fa-database text-[var(--color-primary)]"></i>
+                    <span>
+                      <span class="text-[var(--color-text-primary)] font-medium" x-text="new Intl.NumberFormat().format($store.chat.activeChat()?.tokenUsage?.totalTokens || 0)"></span>
+                      /
+                      <span class="text-[var(--color-text-primary)] font-medium" x-text="new Intl.NumberFormat().format($store.chat.activeChat()?.contextSize || 0)"></span>
+                    </span>
+                    <div class="w-16 bg-[var(--color-bg-primary)] rounded-full h-1.5 overflow-hidden border border-[var(--color-bg-secondary)]">
+                      <div class="h-full rounded-full transition-all duration-300 ease-out"
+                           :class="{
+                             'bg-gradient-to-r from-[var(--color-primary)] to-[var(--color-accent)]': $store.chat.getContextUsagePercent() < 80,
+                             'bg-gradient-to-r from-yellow-500 to-orange-500': $store.chat.getContextUsagePercent() >= 80 && $store.chat.getContextUsagePercent() < 95,
+                             'bg-gradient-to-r from-red-500 to-red-600': $store.chat.getContextUsagePercent() >= 95
+                           }"
+                           :style="'width: ' + Math.min(100, $store.chat.getContextUsagePercent()) + '%'">
+                      </div>
+                    </div>
+                    <span class="text-[var(--color-text-secondary)]" x-text="Math.round($store.chat.getContextUsagePercent()) + '%'"></span>
+                    <span x-show="$store.chat.getContextUsagePercent() >= 80" class="text-[var(--color-warning)]">
+                      <i class="fas fa-exclamation-triangle"></i>
+                    </span>
+                  </div>
+                </template>
+              </div>
+
+              <!-- Attachment buttons row (mobile only) - avoids overlap with input on narrow screens -->
+              <div class="flex flex-wrap gap-2 mb-2 md:hidden">
+                <button type="button" onclick="document.getElementById('input_image').click()" class="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg bg-[var(--color-bg-secondary)] text-[var(--color-text-secondary)] hover:text-[var(--color-primary)] transition-colors border border-[var(--color-border-subtle)]" title="Attach images" aria-label="Attach images">
+                  <i class="fa-solid fa-image text-lg"></i>
+                </button>
+                <button type="button" onclick="document.getElementById('input_audio').click()" class="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg bg-[var(--color-bg-secondary)] text-[var(--color-text-secondary)] hover:text-[var(--color-primary)] transition-colors border border-[var(--color-border-subtle)]" title="Attach an audio file" aria-label="Attach audio">
+                  <i class="fa-solid fa-microphone text-lg"></i>
+                </button>
+                <button type="button" onclick="document.getElementById('input_file').click()" class="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg bg-[var(--color-bg-secondary)] text-[var(--color-text-secondary)] hover:text-[var(--color-primary)] transition-colors border border-[var(--color-border-subtle)]" title="Upload text, markdown or PDF file" aria-label="Attach file">
+                  <i class="fa-solid fa-file text-lg"></i>
+                </button>
+              </div>
+
+              <div class="relative w-full">
+                <textarea
+                  id="input"
+                  name="input"
+                  x-model="inputValue"
+                  class="input w-full p-3 pr-12 md:pr-28 resize-none border-0 bg-[var(--color-bg-secondary)] text-[var(--color-text-primary)] placeholder-[var(--color-text-secondary)] focus:outline-none rounded-xl transition-colors duration-200"
+                  placeholder="Send a message..."
+                  required
+                  @keydown.shift="shiftPressed = true"
+                  @keyup.shift="shiftPressed = false"
+                  @keydown.enter.prevent="if (!shiftPressed) { submitPrompt($event); }"
+                  rows="2"
+                ></textarea>
+                <!-- Attachment buttons (desktop only - inside input) -->
+                <button type="button" onclick="document.getElementById('input_image').click()" class="hidden md:flex fa-solid fa-image text-[var(--color-text-secondary)] absolute right-12 top-3 text-base p-1.5 hover:text-[var(--color-primary)] transition-colors duration-200 items-center justify-center" title="Attach images" aria-label="Attach images"></button>
+                <button type="button" onclick="document.getElementById('input_audio').click()" class="hidden md:flex fa-solid fa-microphone text-[var(--color-text-secondary)] absolute right-20 top-3 text-base p-1.5 hover:text-[var(--color-primary)] transition-colors duration-200 items-center justify-center" title="Attach an audio file" aria-label="Attach audio"></button>
+                <button type="button" onclick="document.getElementById('input_file').click()" class="hidden md:flex fa-solid fa-file text-[var(--color-text-secondary)] absolute right-28 top-3 text-base p-1.5 hover:text-[var(--color-primary)] transition-colors duration-200 items-center justify-center" title="Upload text, markdown or PDF file" aria-label="Attach file"></button>
+
+                <!-- Send button and stop button in the same position -->
+                <div class="absolute right-3 top-3 flex items-center">
+                  <!-- Stop button (hidden by default, shown when request is in progress) -->
+                  <button
+                    id="stop-button"
+                    type="button"
+                    onclick="stopRequest()"
+                    class="text-lg p-2 min-w-[44px] min-h-[44px] md:min-w-0 md:min-h-0 flex items-center justify-center text-[var(--color-error)] hover:text-[var(--color-error)] transition-colors duration-200"
+                    style="display: none;"
+                    title="Stop request"
+                  >
+                    <i class="fa-solid fa-stop"></i>
+                  </button>
+
+                  <!-- Send button -->
+                  <button
+                    id="send-button"
+                    type="submit"
+                    class="text-lg p-2 min-w-[44px] min-h-[44px] md:min-w-0 md:min-h-0 flex items-center justify-center text-[var(--color-text-secondary)] hover:text-[var(--color-primary)] transition-colors duration-200"
+                    title="Send message (Enter)"
+                  >
+                    <i class="fa-solid fa-paper-plane"></i>
+                  </button>
+                </div>
+              </div>
+            </form>
+            <input id="chat-model" type="hidden" value="{{.Model}}" {{ if .ContextSize }}data-context-size="{{.ContextSize}}"{{ end }}>
+            <input
+              id="input_image"
+              type="file"
+              multiple
+              accept="image/*"
+              style="display: none;"
+              @change="handleFileSelection($event, 'image')"
+            />
+            <input
+              id="input_audio"
+              type="file"
+              multiple
+              accept="audio/*"
+              style="display: none;"
+              @change="handleFileSelection($event, 'audio')"
+            />
+            <input
+              id="input_file"
+              type="file"
+              multiple
+              accept=".txt,.md,.pdf"
+              style="display: none;"
+              @change="handleFileSelection($event, 'file')"
+            />
+          </div>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modal moved outside of sidebar to appear in center of page - Always available, content updated dynamically -->
+    <div id="model-info-modal" tabindex="-1" aria-hidden="true" class="hidden overflow-y-auto overflow-x-hidden fixed top-0 right-0 left-0 z-50 flex justify-center items-center w-full h-full md:inset-0 max-h-full" style="padding: 1rem;">
+      <div class="relative p-4 w-full max-w-2xl max-h-full">
+        <div class="relative p-4 w-full max-w-2xl max-h-full bg-[var(--color-bg-secondary)] rounded-lg shadow border border-[var(--color-border-subtle)]">
+          <!-- Header -->
+          <div class="flex items-center justify-between p-4 md:p-5 border-b border-[var(--color-border-subtle)] rounded-t">
+            <h3 id="model-info-modal-title" class="text-xl font-semibold text-[var(--color-text-primary)]">{{ if $model }}{{ $model }}{{ end }}</h3>
+            <button class="text-[var(--color-text-secondary)] bg-transparent hover:bg-[var(--color-bg-primary)] hover:text-[var(--color-text-primary)] rounded-lg text-sm w-8 h-8 ms-auto inline-flex justify-center items-center transition-colors" data-modal-hide="model-info-modal" @click="if (window.closeModelInfoModal) { window.closeModelInfoModal(); }">
+              <svg class="w-3 h-3" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 14 14">
+                <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m1 1 6 6m0 0 6 6M7 7l6-6M7 7l-6 6"/>
+              </svg>
+              <span class="sr-only">Close modal</span>
+            </button>
+          </div>
+
+          <!-- Body -->
+          <div class="p-4 md:p-5 space-y-4">
+            <div class="flex justify-center items-center">
+              <img id="model-info-modal-icon" class="lazy rounded-t-lg max-h-48 max-w-96 object-cover mt-3 entered loaded" style="display: none;" loading="lazy"/>
+            </div>
+            <div id="model-info-description" class="text-base leading-relaxed text-[var(--color-text-secondary)] break-words max-w-full"></div>
+            <hr class="border-[var(--color-border-subtle)]">
+            <p class="text-sm font-semibold text-[var(--color-text-primary)]">Links</p>
+            <ul id="model-info-links">
+            </ul>
+          </div>
+
+          <!-- Footer -->
+          <div class="flex items-center p-4 md:p-5 border-t border-[var(--color-border-subtle)] rounded-b">
+            <button data-modal-hide="model-info-modal" class="py-2.5 px-5 ms-3 text-sm font-medium text-white focus:outline-none bg-[var(--color-primary)] rounded-lg border-none hover:bg-[var(--color-primary-hover)] focus:z-10 focus:ring-2 focus:ring-[var(--color-primary)]/50 transition-colors" @click="if (window.closeModelInfoModal) { window.closeModelInfoModal(); }">
+              Close
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Alpine store initialization and utilities -->
+    <script>
+      document.addEventListener("alpine:init", () => {
+        window.copyToClipboard = (content) => {
+          const tempElement = document.createElement('div');
+          tempElement.innerHTML = content;
+          const text = tempElement.textContent || tempElement.innerText;
+
+          navigator.clipboard.writeText(text).then(() => {
+            alert('Copied to clipboard!');
+          }).catch(err => {
+            console.error('Failed to copy: ', err);
+          });
+        };
+
+        // Format tool result for better display
+        window.formatToolResult = (content) => {
+          if (!content) return '';
+          try {
+            // Try to parse as JSON
+            const parsed = JSON.parse(content);
+            
+            // If it has a 'result' field, try to parse that too
+            if (parsed.result && typeof parsed.result === 'string') {
+              try {
+                const resultParsed = JSON.parse(parsed.result);
+                parsed.result = resultParsed;
+              } catch (e) {
+                // Keep as string if not JSON
+              }
+            }
+            
+            // Format the JSON nicely
+            const formatted = JSON.stringify(parsed, null, 2);
+            return DOMPurify.sanitize('<pre class="bg-[var(--color-bg-primary)] p-3 rounded border border-[var(--color-success)]/20 overflow-x-auto"><code class="language-json">' + formatted + '</code></pre>');
+          } catch (e) {
+            // If not JSON, try to format as markdown or plain text
+            try {
+              // Check if it's a markdown code block
+              if (content.includes('```')) {
+                return DOMPurify.sanitize(marked.parse(content));
+              }
+              // Otherwise, try to parse as JSON one more time with error handling
+              const lines = content.split('\n');
+              let jsonStart = -1;
+              let jsonEnd = -1;
+              for (let i = 0; i < lines.length; i++) {
+                if (lines[i].trim().startsWith('{') || lines[i].trim().startsWith('[')) {
+                  jsonStart = i;
+                  break;
+                }
+              }
+              if (jsonStart >= 0) {
+                for (let i = lines.length - 1; i >= jsonStart; i--) {
+                  if (lines[i].trim().endsWith('}') || lines[i].trim().endsWith(']')) {
+                    jsonEnd = i;
+                    break;
+                  }
+                }
+                if (jsonEnd >= jsonStart) {
+                  const jsonStr = lines.slice(jsonStart, jsonEnd + 1).join('\n');
+                  try {
+                    const parsed = JSON.parse(jsonStr);
+                    const formatted = JSON.stringify(parsed, null, 2);
+                    return DOMPurify.sanitize('<pre class="bg-[var(--color-bg-primary)] p-3 rounded border border-[var(--color-success)]/20 overflow-x-auto"><code class="language-json">' + formatted + '</code></pre>');
+                  } catch (e2) {
+                    // Fall through to markdown
+                  }
+                }
+              }
+              // Fall back to markdown
+              return DOMPurify.sanitize(marked.parse(content));
+            } catch (e2) {
+              // Last resort: plain text
+              return DOMPurify.sanitize('<pre class="bg-[var(--color-bg-primary)] p-3 rounded border border-[var(--color-success)]/20 overflow-x-auto text-xs">' + content.replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</pre>');
+            }
+          }
+        };
+
+        // Get tool name from content
+        window.getToolName = (content) => {
+          if (!content || typeof content !== 'string') return '';
+          try {
+            const parsed = JSON.parse(content);
+            return parsed.name || '';
+          } catch (e) {
+            // Try to extract name from string
+            const nameMatch = content.match(/"name"\s*:\s*"([^"]+)"/);
+            return nameMatch ? nameMatch[1] : '';
+          }
+        };
+        
+        // Chat management functions are defined in chat.js and available globally
+        // These are just placeholders - the actual implementations are in chat.js
+        
+        // Get last message preview for chat list
+        window.getLastMessagePreview = (chat) => {
+          if (!chat || !chat.history || chat.history.length === 0) {
+            return 'No messages yet';
+          }
+          const lastMessage = chat.history[chat.history.length - 1];
+          if (!lastMessage || !lastMessage.content) {
+            return 'No messages yet';
+          }
+          // Get plain text from content (remove HTML tags)
+          const tempDiv = document.createElement('div');
+          tempDiv.innerHTML = lastMessage.content;
+          const text = tempDiv.textContent || tempDiv.innerText || '';
+          return text.substring(0, 40) + (text.length > 40 ? '...' : '');
+        };
+        
+        // Format chat date for display
+        window.formatChatDate = (timestamp) => {
+          if (!timestamp) return '';
+          const date = new Date(timestamp);
+          const now = new Date();
+          const diffMs = now - date;
+          const diffMins = Math.floor(diffMs / 60000);
+          const diffHours = Math.floor(diffMs / 3600000);
+          const diffDays = Math.floor(diffMs / 86400000);
+          
+          if (diffMins < 1) {
+            return 'Just now';
+          } else if (diffMins < 60) {
+            return `${diffMins}m ago`;
+          } else if (diffHours < 24) {
+            return `${diffHours}h ago`;
+          } else if (diffDays < 7) {
+            return `${diffDays}d ago`;
+          } else {
+            // Show date for older chats
+            return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+          }
+        };
+      });
+
+      // Context size is now initialized in the Alpine store initialization above
+
+      // Process markdown in model info modal when it opens
+      function initMarkdownProcessing() {
+        // Wait for marked and DOMPurify to be available
+        if (typeof marked === 'undefined' || typeof DOMPurify === 'undefined') {
+          setTimeout(initMarkdownProcessing, 100);
+          return;
+        }
+
+        const modalElement = document.getElementById('model-info-modal');
+        const descriptionElement = document.getElementById('model-info-description');
+        
+        if (!modalElement || !descriptionElement) {
+          return;
+        }
+
+        // Store original text in data attribute if not already stored
+        let originalText = descriptionElement.dataset.originalText;
+        if (!originalText) {
+          originalText = descriptionElement.textContent || descriptionElement.innerText;
+          descriptionElement.dataset.originalText = originalText;
+        }
+
+        // Process markdown function
+        const processMarkdown = () => {
+          if (!descriptionElement || !originalText) return;
+          
+          try {
+            // Check if already processed (has HTML tags that look like markdown output)
+            const currentContent = descriptionElement.innerHTML.trim();
+            if (currentContent.startsWith('<') && (currentContent.includes('<p>') || currentContent.includes('<h') || currentContent.includes('<ul>') || currentContent.includes('<ol>'))) {
+              return; // Already processed
+            }
+            
+            // Use stored original text
+            const textToProcess = descriptionElement.dataset.originalText || originalText;
+            if (textToProcess && textToProcess.trim()) {
+              const html = marked.parse(textToProcess);
+              descriptionElement.innerHTML = DOMPurify.sanitize(html);
+            }
+          } catch (error) {
+            console.error('Error rendering markdown:', error);
+          }
+        };
+
+        // Process immediately if modal is already visible
+        if (!modalElement.classList.contains('hidden')) {
+          processMarkdown();
+        }
+
+        // Listen for modal show events - check both aria-hidden and class changes
+        const observer = new MutationObserver((mutations) => {
+          mutations.forEach((mutation) => {
+            if (mutation.type === 'attributes') {
+              const isHidden = modalElement.classList.contains('hidden') || 
+                              modalElement.getAttribute('aria-hidden') === 'true';
+              if (!isHidden) {
+                // Modal is now visible, process markdown
+                setTimeout(processMarkdown, 150);
+              }
+            }
+          });
+        });
+
+        observer.observe(modalElement, {
+          attributes: true,
+          attributeFilter: ['aria-hidden', 'class'],
+          childList: false,
+          subtree: false
+        });
+
+        // Also listen for click events on modal toggle buttons
+        // Use event delegation to handle dynamically created buttons
+        document.addEventListener('click', (e) => {
+          const button = e.target.closest('[data-modal-toggle="model-info-modal"]');
+          if (button) {
+            // Update modal with current model before showing
+            if (window.Alpine && window.Alpine.store("chat")) {
+              const activeChat = window.Alpine.store("chat").activeChat();
+              const modelName = activeChat ? activeChat.model : (button.dataset.modelName || (document.getElementById("chat-model") ? document.getElementById("chat-model").value : null));
+              if (modelName && window.updateModelInfoModal) {
+                window.updateModelInfoModal(modelName, true);
+              }
+            }
+            setTimeout(processMarkdown, 300);
+          }
+        });
+
+        // Process on initial load if libraries are ready
+        setTimeout(processMarkdown, 200);
+      }
+
+      // Start initialization
+      if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initMarkdownProcessing);
+      } else {
+        initMarkdownProcessing();
+      }
+
+      // Sync model selector with initial model from server on page load
+      // This ensures the selector is correct when navigating from manage.html or index.html
+      function syncModelSelectorOnLoad() {
+        const modelInput = document.getElementById("chat-model");
+        const modelSelector = document.getElementById("modelSelector");
+        
+        if (modelInput && modelSelector && modelInput.value) {
+          const modelName = modelInput.value;
+          const optionValue = 'chat/' + modelName;
+          
+          // Find and select the option matching the model
+          for (let i = 0; i < modelSelector.options.length; i++) {
+            if (modelSelector.options[i].value === optionValue) {
+              modelSelector.selectedIndex = i;
+              break;
+            }
+          }
+        }
+      }
+
+      // Run sync after DOM is ready
+      if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', syncModelSelectorOnLoad);
+      } else {
+        syncModelSelectorOnLoad();
+      }
+
+      // Function to update model info modal with current model
+      // Set openModal to true to actually open the modal, false to just update content
+      window.updateModelInfoModal = function(modelName, openModal = false) {
+        if (!modelName) {
+          return;
+        }
+        if (!window.__galleryConfigs) {
+          return;
+        }
+        
+        const galleryConfig = window.__galleryConfigs[modelName];
+        // Check if galleryConfig exists and has at least one property
+        if (!galleryConfig || Object.keys(galleryConfig).length === 0) {
+          // Still update the modal title even if no config, so user can see which model they clicked
+          const titleEl = document.getElementById('model-info-modal-title');
+          if (titleEl) {
+            titleEl.textContent = modelName;
+          }
+          // Show message that no info is available
+          const descEl = document.getElementById('model-info-description');
+          if (descEl) {
+            descEl.textContent = 'No additional information available for this model.';
+          }
+          const linksEl = document.getElementById('model-info-links');
+          if (linksEl) {
+            linksEl.innerHTML = '';
+          }
+          const iconEl = document.getElementById('model-info-modal-icon');
+          if (iconEl) {
+            iconEl.style.display = 'none';
+          }
+          // Only open the modal if explicitly requested
+          if (openModal) {
+            const modalElement = document.getElementById('model-info-modal');
+            if (modalElement) {
+              modalElement.classList.remove('hidden');
+              modalElement.setAttribute('aria-hidden', 'false');
+              // Add backdrop
+              let backdrop = document.querySelector('.modal-backdrop');
+              if (!backdrop) {
+                backdrop = document.createElement('div');
+                backdrop.className = 'modal-backdrop fixed inset-0 bg-black/50 z-40';
+                document.body.appendChild(backdrop);
+                backdrop.addEventListener('click', () => {
+                  closeModelInfoModal();
+                });
+              }
+            }
+          }
+          return;
+        }
+        
+        // Update modal title
+        const titleEl = document.getElementById('model-info-modal-title');
+        if (titleEl) {
+          titleEl.textContent = modelName;
+        }
+        
+        // Update icon
+        const iconEl = document.getElementById('model-info-modal-icon');
+        if (iconEl) {
+          if (galleryConfig.Icon) {
+            iconEl.src = galleryConfig.Icon;
+            iconEl.style.display = 'block';
+          } else {
+            iconEl.style.display = 'none';
+          }
+        }
+        
+        // Update description
+        const descEl = document.getElementById('model-info-description');
+        if (descEl) {
+          descEl.textContent = galleryConfig.Description || 'No description available.';
+        }
+        
+        // Update links
+        const linksEl = document.getElementById('model-info-links');
+        if (linksEl && galleryConfig.URLs && Array.isArray(galleryConfig.URLs) && galleryConfig.URLs.length > 0) {
+          linksEl.innerHTML = '';
+          galleryConfig.URLs.forEach(url => {
+            const li = document.createElement('li');
+            const a = document.createElement('a');
+            a.href = url;
+            a.target = '_blank';
+            a.textContent = url;
+            li.appendChild(a);
+            linksEl.appendChild(li);
+          });
+        } else if (linksEl) {
+          linksEl.innerHTML = '<li>No links available</li>';
+        }
+        
+        // Only open the modal if explicitly requested
+        if (openModal) {
+          const modalElement = document.getElementById('model-info-modal');
+          if (modalElement) {
+            // Ensure positioning classes are present (they might have been removed)
+            if (!modalElement.classList.contains('flex')) {
+              modalElement.classList.add('flex');
+            }
+            if (!modalElement.classList.contains('justify-center')) {
+              modalElement.classList.add('justify-center');
+            }
+            if (!modalElement.classList.contains('items-center')) {
+              modalElement.classList.add('items-center');
+            }
+            // Ensure fixed positioning
+            if (!modalElement.classList.contains('fixed')) {
+              modalElement.classList.add('fixed');
+            }
+            // Ensure full width and height
+            if (!modalElement.classList.contains('w-full')) {
+              modalElement.classList.add('w-full');
+            }
+            if (!modalElement.classList.contains('h-full')) {
+              modalElement.classList.add('h-full');
+            }
+            // Ensure padding is set
+            if (!modalElement.style.padding) {
+              modalElement.style.padding = '1rem';
+            }
+            // Remove hidden class if present
+            modalElement.classList.remove('hidden');
+            // Set aria-hidden to false
+            modalElement.setAttribute('aria-hidden', 'false');
+            // Add backdrop if needed
+            let backdrop = document.querySelector('.modal-backdrop');
+            if (!backdrop) {
+              backdrop = document.createElement('div');
+              backdrop.className = 'modal-backdrop fixed inset-0 bg-black/50 z-40';
+              document.body.appendChild(backdrop);
+              backdrop.addEventListener('click', () => {
+                window.closeModelInfoModal();
+              });
+            }
+          }
+        }
+      };
+      
+      // Function to close the model info modal
+      window.closeModelInfoModal = function() {
+        const modalElement = document.getElementById('model-info-modal');
+        if (modalElement) {
+          modalElement.classList.add('hidden');
+          modalElement.setAttribute('aria-hidden', 'true');
+        }
+        const backdrop = document.querySelector('.modal-backdrop');
+        if (backdrop) {
+          backdrop.remove();
+        }
+      };
+
+      // Also sync after Alpine initializes (in case it runs after DOMContentLoaded)
+      function initializeModelInfo() {
+        syncModelSelectorOnLoad();
+        // Initialize model info modal content with current model (but don't open it)
+        if (window.updateModelInfoModal && window.Alpine && window.Alpine.store("chat")) {
+          const activeChat = window.Alpine.store("chat").activeChat();
+          const modelName = activeChat ? activeChat.model : (document.getElementById("chat-model") ? document.getElementById("chat-model").value : null);
+          if (modelName) {
+            window.updateModelInfoModal(modelName, false); // false = don't open, just update content
+          }
+        }
+      }
+      
+      if (window.Alpine) {
+        Alpine.nextTick(initializeModelInfo);
+      } else {
+        document.addEventListener('alpine:init', () => {
+          Alpine.nextTick(initializeModelInfo);
+        });
+      }
+    </script>
+
+    <style>
+    /* Markdown content overflow handling */
+    #model-info-description {
+        word-wrap: break-word;
+        overflow-wrap: anywhere;
+        max-width: 100%;
+    }
+
+    #model-info-description pre {
+        overflow-x: auto;
+        max-width: 100%;
+        white-space: pre-wrap;
+        word-wrap: break-word;
+    }
+
+    #model-info-description code {
+        word-wrap: break-word;
+        overflow-wrap: break-word;
+    }
+
+    #model-info-description pre code {
+        white-space: pre;
+        overflow-x: auto;
+        display: block;
+    }
+
+    #model-info-description table {
+        max-width: 100%;
+        overflow-x: auto;
+        display: block;
+    }
+
+    #model-info-description img {
+        max-width: 100%;
+        height: auto;
+    }
+
+    /* Prevent JSON overflow in tool calls and results */
+    .tool-call-content,
+    .tool-result-content {
+        max-width: 100%;
+        width: 100%;
+        overflow-x: auto;
+        overflow-y: auto;
+        word-wrap: break-word;
+        overflow-wrap: break-word;
+        box-sizing: border-box;
+    }
+
+    .tool-call-content pre,
+    .tool-result-content pre {
+        overflow-x: auto;
+        overflow-y: auto;
+        max-width: 100%;
+        width: 100%;
+        word-wrap: break-word;
+        overflow-wrap: break-word;
+        white-space: pre;
+        background: var(--color-bg-primary) !important;
+        border: 1px solid var(--color-border-subtle);
+        border-radius: 6px;
+        padding: 12px;
+        margin: 0;
+        box-sizing: border-box;
+    }
+
+    .tool-call-content code,
+    .tool-result-content code {
+        word-wrap: break-word;
+        overflow-wrap: break-word;
+        white-space: pre;
+        background: transparent !important;
+        color: var(--color-text-primary);
+        font-family: 'ui-monospace', 'Monaco', 'Consolas', monospace;
+        font-size: 0.875rem;
+        line-height: 1.5;
+        display: block;
+        max-width: 100%;
+        width: 100%;
+        overflow-x: auto;
+        box-sizing: border-box;
+    }
+    
+    /* Ensure parent containers don't overflow */
+    .tool-call-content > *,
+    .tool-result-content > * {
+        max-width: 100%;
+        box-sizing: border-box;
+    }
+    
+    /* Prevent overflow in assistant messages with code/markdown */
+    div[class*="rounded-lg"][class*="bg-gradient"] {
+        max-width: 100%;
+        overflow-x: auto;
+        overflow-wrap: break-word;
+        word-wrap: break-word;
+    }
+    
+    div[class*="rounded-lg"][class*="bg-gradient"] pre,
+    div[class*="rounded-lg"][class*="bg-gradient"] code {
+        max-width: 100%;
+        overflow-x: auto;
+        overflow-wrap: break-word;
+        word-wrap: break-word;
+        white-space: pre;
+    }
+    
+    /* Ensure code blocks in assistant messages don't overflow */
+    #messages pre,
+    #messages code {
+        max-width: 100%;
+        overflow-x: auto;
+        word-wrap: break-word;
+        overflow-wrap: break-word;
+    }
+    
+    #messages pre code {
+        white-space: pre;
+        display: block;
+    }
+
+    /* Dark theme syntax highlighting for JSON */
+    .tool-call-content .hljs,
+    .tool-result-content .hljs {
+        background: #101827 !important;
+        color: #E5E7EB !important;
+    }
+
+    .tool-call-content .hljs-keyword,
+    .tool-result-content .hljs-keyword {
+        color: var(--color-accent) !important;
+        font-weight: 600;
+    }
+
+    .tool-call-content .hljs-string,
+    .tool-result-content .hljs-string {
+        color: var(--color-success) !important;
+    }
+
+    .tool-call-content .hljs-number,
+    .tool-result-content .hljs-number {
+        color: var(--color-primary) !important;
+    }
+
+    .tool-call-content .hljs-literal,
+    .tool-result-content .hljs-literal {
+        color: #F59E0B !important;
+    }
+
+    .tool-call-content .hljs-punctuation,
+    .tool-result-content .hljs-punctuation {
+        color: #94A3B8 !important;
+    }
+
+    .tool-call-content .hljs-property,
+    .tool-result-content .hljs-property {
+        color: var(--color-primary) !important;
+    }
+
+    .tool-call-content .hljs-attr,
+    .tool-result-content .hljs-attr {
+        color: var(--color-accent) !important;
+    }
+    </style>
+
+    <!-- Custom Scrollbar Styling -->
+    <style>
+      /* Webkit browsers (Chrome, Safari, Edge) - Minimal and elegant */
+      .sidebar::-webkit-scrollbar,
+      #chat::-webkit-scrollbar,
+      #messages::-webkit-scrollbar {
+        width: 6px;
+        height: 6px;
+      }
+
+      .chat-settings-panel::-webkit-scrollbar-track,
+      #chat::-webkit-scrollbar-track,
+      #messages::-webkit-scrollbar-track {
+        background: transparent;
+      }
+
+      .chat-settings-panel::-webkit-scrollbar-thumb,
+      #chat::-webkit-scrollbar-thumb,
+      #messages::-webkit-scrollbar-thumb {
+        background: rgba(148, 163, 184, 0.2);
+        border-radius: 3px;
+        transition: background 0.2s ease;
+      }
+
+      .chat-settings-panel::-webkit-scrollbar-thumb:hover,
+      #chat::-webkit-scrollbar-thumb:hover,
+      #messages::-webkit-scrollbar-thumb:hover {
+        background: rgba(148, 163, 184, 0.4);
+      }
+
+      /* Firefox - Minimal */
+      .chat-settings-panel,
+      #chat,
+      #messages {
+        scrollbar-width: thin;
+        scrollbar-color: rgba(148, 163, 184, 0.2) transparent;
+      }
+
+      /* Chat list scrollbar - Even more minimal */
+      .max-h-80::-webkit-scrollbar {
+        width: 4px;
+      }
+
+      .max-h-80::-webkit-scrollbar-track {
+        background: transparent;
+      }
+
+      .max-h-80::-webkit-scrollbar-thumb {
+        background: rgba(148, 163, 184, 0.15);
+        border-radius: 2px;
+        transition: background 0.2s ease;
+      }
+
+      .max-h-80::-webkit-scrollbar-thumb:hover {
+        background: rgba(148, 163, 184, 0.3);
+      }
+
+      .max-h-80 {
+        scrollbar-width: thin;
+        scrollbar-color: rgba(148, 163, 184, 0.15) transparent;
+      }
+    </style>
+      </div>
+    </main>
+  </div>
+  </body>
+</html>

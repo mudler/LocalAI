@@ -1,0 +1,258 @@
+{
+  "activity": {
+    "title": "Activity",
+    "supporting": "Installs, downloads and removals on this instance.",
+    "hide": "Hide",
+    "moveToHistory": "Move to history",
+    "moreCount": "{{count}} more",
+    "waitingForInstaller": "waiting for the installer",
+    "progressLabel": "Progress for {{name}}",
+    "toNode": "to {{node}}",
+    "nodesDone": "{{done}} of {{total}} nodes done",
+    "timeLeft": "{{value}} left",
+    "cancel": "Cancel",
+    "cancelLabel": "Cancel {{name}}",
+    "pause": "Pause",
+    "pauseLabel": "Pause {{name}} and keep downloaded data",
+    "retry": "Retry",
+    "retryLabel": "Retry {{name}}",
+    "nodeCount": "{{count}} nodes",
+    "showNodes": "Show {{count}} nodes",
+    "hideNodes": "Hide per-node detail",
+    "node": {
+      "done": "Done",
+      "failed": "Failed",
+      "queued": "Queued",
+      "workerBusy": "Worker busy",
+      "downloading": "Downloading"
+    },
+    "kind": {
+      "model": "model",
+      "backend": "backend"
+    },
+    "verb": {
+      "installing": "Installing {{kind}}",
+      "installed": "Installed {{kind}}",
+      "removed": "Removed {{kind}}",
+      "staged": "Staged model",
+      "failed": "Couldn't install {{kind}}",
+      "queued": "Queued",
+      "staging": "Staging model",
+      "removing": "Removing {{kind}}",
+      "failedRemoval": "Couldn't remove {{kind}}",
+      "failedStaging": "Couldn't stage model"
+    },
+    "phase": {
+      "resolving": "Resolving files",
+      "downloading": "Downloading",
+      "verifying": "Verifying",
+      "committing": "Finalizing",
+      "persisting": "Saving configuration"
+    },
+    "clearHistory": "Clear history",
+    "inProgress": "In progress",
+    "needsAttention": "Needs attention",
+    "record": "Record",
+    "historyNote": "Keeps the last 50 operations. History is in memory and resets when LocalAI restarts.",
+    "emptyTitle": "No operations since startup",
+    "emptyBody": "Model and backend installs appear here while they run and stay as a record afterwards. History is kept in memory, so it resets when LocalAI restarts.",
+    "browseModels": "Browse models",
+    "viewInModels": "View in Models",
+    "viewInBackends": "View in Backends",
+    "rowInstalled": "installed in {{duration}}",
+    "rowFailed": "failed: {{error}}",
+    "rowCancelled": "cancelled",
+    "rowRemoved": "removed",
+    "retryFailed": "Retry failed: {{message}}",
+    "filter": {
+      "all": "All",
+      "models": "Models",
+      "backends": "Backends",
+      "cluster": "Cluster"
+    },
+    "summaryRunning_one": "{{count}} operation running.",
+    "summaryRunning_other": "{{count}} operations running.",
+    "summaryFailed_one": "{{count}} operation needs attention.",
+    "summaryFailed_other": "{{count}} operations need attention.",
+    "summaryQuiet_one": "Nothing running. {{count}} operation since startup.",
+    "summaryQuiet_other": "Nothing running. {{count}} operations since startup.",
+    "summaryIdle": "Nothing running.",
+    "emptyFiltered": "No operations match this filter.",
+    "showAll": "Show all",
+    "rowInstalledPlain": "installed"
+  },
+  "manage": {
+    "title": "Sistema",
+    "subtitle": "Gestisci modelli e backend installati"
+  },
+  "settings": {
+    "title": "Impostazioni",
+    "subtitle": "Configura le impostazioni runtime di LocalAI",
+    "saved": "Impostazioni salvate con successo",
+    "saveFailed": "Salvataggio fallito: {{message}}",
+    "loadFailed": "Caricamento impostazioni fallito: {{message}}",
+    "sections": {
+      "branding": "Branding",
+      "watchdog": "Watchdog",
+      "memory": "Memoria",
+      "backends": "Backend",
+      "performance": "Prestazioni",
+      "tracing": "Tracing",
+      "api": "API e CORS",
+      "p2p": "P2P",
+      "galleries": "Gallerie",
+      "apikeys": "Chiavi API",
+      "agents": "Job degli agenti",
+      "agentpool": "Pool agenti",
+      "assistant": "LocalAI Assistant",
+      "distributed": "Distribuito",
+      "responses": "Risposte"
+    }
+  },
+  "backends": {
+    "lifecycle": {
+      "navigation": "Backend lifecycle",
+      "catalog": "Catalog",
+      "installed": "Installed",
+      "installedAria": "Installed backends",
+      "searchPlaceholder": "Search installed backends by name or alias...",
+      "filterAll": "All",
+      "filterUser": "User",
+      "filterSystem": "System",
+      "filterUpdates": "Updates",
+      "filterOffline": "Offline nodes",
+      "variants": "Variants",
+      "variantsCount": "Variants ({{count}})",
+      "development": "Development",
+      "developmentCount": "Development ({{count}})",
+      "countLabel": "{{visible}} of {{total}}",
+      "emptyTitle": "No backends installed yet",
+      "emptyBody": "Install a backend from the Catalog to give this host a runtime for models.",
+      "noMatches": "No installed backends match the current search and filters.",
+      "clearFilters": "Clear filters",
+      "updatesAvailable_one": "{{count}} backend has an update available",
+      "updatesAvailable_other": "{{count}} backends have updates available",
+      "upgradeAll": "Upgrade all",
+      "upgrading": "Upgrading...",
+      "upgradeAllFailed": "Upgrade failed for {{name}}: {{message}}",
+      "upgradeAllStarted_one": "Upgrade started for {{count}} backend",
+      "upgradeAllStarted_other": "Upgrade started for {{count}} backends",
+      "loadFailed": "Failed to load installed backends: {{message}}",
+      "reinstall": "Reinstall backend",
+      "reinstallStarted": "Reinstalling {{name}}...",
+      "reinstallFailed": "Failed to reinstall: {{message}}",
+      "upgrade": "Upgrade",
+      "upgradeTo": "Upgrade to v{{version}}",
+      "upgradeStarted": "Upgrading {{name}}...",
+      "upgradeFailed": "Failed to upgrade: {{message}}",
+      "delete": "Delete",
+      "deleteBackend": "Delete backend",
+      "deleteTitle": "Delete Backend",
+      "deleteMessage": "Delete backend {{name}}?",
+      "deleteSucceeded": "Deleted backend {{name}}",
+      "deleteFailed": "Failed to delete backend: {{message}}",
+      "actionsFor": "Actions for {{name}}",
+      "protected": "Protected",
+      "protectedTitle": "System backends are managed outside the gallery",
+      "allBackends": "All backends",
+      "version": "Version",
+      "available": "Available",
+      "managed": "Managed",
+      "system": "System",
+      "gallery": "Gallery",
+      "installedOn": "Installed on",
+      "description": "Description",
+      "source": "Source",
+      "digest": "Digest",
+      "installedAt": "Installed",
+      "working": "Working...",
+      "updateAvailable": "Update available",
+      "updateGroup": "Update available",
+      "installedGroup": "Installed",
+      "inventoryEyebrow": "Installed runtimes",
+      "inventoryTitle_one": "{{count}} backend is installed.",
+      "inventoryTitle_other": "{{count}} backends are installed.",
+      "inventoryBody": "Select a backend to inspect its source, version, placement, and lifecycle actions."
+    },
+    "title": "Gestione backend",
+    "subtitle": "Scopri e installa backend AI per i tuoi modelli"
+  },
+  "backendLogs": {
+    "title": "Log dei backend",
+    "subtitle": "Visualizza i log dei backend in esecuzione",
+    "empty": "Nessun log disponibile"
+  },
+  "traces": {
+    "title": "Tracce",
+    "subtitle": "Visualizza richieste API, risposte e operazioni dei backend registrate"
+  },
+  "nodes": {
+    "title": "Nodi distribuiti",
+    "subtitle": "Gestisci i nodi worker dei backend e degli agenti"
+  },
+  "scheduling": {
+    "title": "Pianificazione",
+    "subtitle": "Regole di posizionamento dei modelli e delle repliche nel cluster"
+  },
+  "p2p": {
+    "title": "Calcolo AI distribuito",
+    "subtitle": "Scala i tuoi carichi di lavoro AI su più dispositivi con la distribuzione peer-to-peer"
+  },
+  "users": {
+    "title": "Utenti",
+    "subtitle": "Gestisci utenti registrati, ruoli e inviti"
+  },
+  "usage": {
+    "title": "Utilizzo",
+    "subtitle": "Statistiche di utilizzo dei token API"
+  },
+  "explorer": {
+    "title": "Esplora risorse",
+    "subtitle": "Sfoglia file e configurazioni"
+  },
+  "operate": {
+    "overview": {
+      "title": "Overview",
+      "subtitle": "Everything running on this installation, and anything that wants a decision.",
+      "attention": {
+        "heading": "Needs attention",
+        "clear": "Nothing needs attention. Backends are current, no operation has failed, and every node is healthy.",
+        "backendUpdate": "Update available: {{from}} → {{to}}"
+      },
+      "capacity": {
+        "title": "Capacità host",
+        "loading": "Caricamento della capacità host...",
+        "unavailable": "Capacità host non disponibile",
+        "empty": "Nessun dato sulla capacità segnalato",
+        "gpus": "{{count}} GPUs",
+        "reclaimer": "Reclaimer active",
+        "used": "Used",
+        "total": "Total",
+        "systemRam": "System RAM",
+        "memory": "Memory",
+        "totalVram": "Total VRAM",
+        "storage": "Models storage"
+      },
+      "sections": {
+        "heading": "Sections",
+        "runtime": "Runtime",
+        "runtimeSummary": "{{backends}} backends · {{models}} models · {{updates}} updates · {{running}} running",
+        "cluster": "Cluster",
+        "clusterSummary": "{{nodes}} nodes",
+        "observability": "Observability",
+        "observabilitySummary": "Usage and traces",
+        "administration": "Administration",
+        "administrationSummary": "Users, middleware and settings · {{memory}} memory in use",
+        "clusterSingle": "Single node",
+        "observabilityCounted": "{{requests}} requests · {{errors}} failed · p95 {{p95}} ms"
+      },
+      "headline": {
+        "requests": "Requests · {{hours}}h",
+        "errors": "Failed requests",
+        "p95": "p95 latency",
+        "quiet": "No requests served in this window yet.",
+        "host": "Host memory"
+      }
+    }
+  }
+}

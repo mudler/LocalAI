@@ -1,0 +1,19 @@
+---
+name: "supertonic"
+
+config_file: |
+  backend: supertonic
+  options:
+    # Generation knobs read by the supertonic backend at TTS time.
+    # steps = flow-matching denoising steps (quality); speed = rate;
+    # silence = inter-chunk silence seconds for long inputs.
+    - supertonic.steps=8
+    - supertonic.speed=1.05
+    - supertonic.silence=0.3
+    # Voice style used when a request omits `voice`. The model ships
+    # F1-F5 / M1-M5 under voice_styles/; override per request via the
+    # OpenAI `voice` field.
+    - supertonic.default_voice=F1
+    # Default language tag when a request omits `language`. "na" is the
+    # model's language-agnostic mode.
+    - supertonic.default_lang=na

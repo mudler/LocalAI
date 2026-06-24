@@ -1,0 +1,55 @@
+{
+  "title": "Agenti",
+  "subtitle": "Gestisci agenti AI autonomi",
+  "actions": {
+    "agentHub": "Agent Hub",
+    "import": "Importa",
+    "createAgent": "Crea agente",
+    "edit": "Modifica",
+    "chat": "Chat",
+    "export": "Esporta",
+    "delete": "Elimina",
+    "pause": "Pausa",
+    "resume": "Riprendi"
+  },
+  "table": {
+    "name": "Nome",
+    "status": "Stato",
+    "events": "Eventi",
+    "actions": "Azioni",
+    "eventsTooltip": "{{count}} eventi - Clicca per visualizzare"
+  },
+  "search": {
+    "placeholder": "Cerca agenti...",
+    "summary_one": "{{shown}} di {{total}} agente",
+    "summary_other": "{{shown}} di {{total}} agenti"
+  },
+  "empty": {
+    "noConfigured": "Nessun agente configurato",
+    "noConfiguredText": "Crea un agente per iniziare con i flussi di lavoro AI autonomi.",
+    "browseHub": "Non sai da dove iniziare? Sfoglia l'<1>Agent Hub</1> per trovare configurazioni di agenti pronte da importare.",
+    "noMatching": "Nessun agente corrispondente",
+    "noMatchingText": "Nessun agente corrisponde a \"{{query}}\""
+  },
+  "sections": {
+    "yourAgents": "I tuoi agenti",
+    "otherUsersAgents": "Agenti di altri utenti"
+  },
+  "deleteDialog": {
+    "title": "Elimina agente",
+    "message": "Eliminare l'agente \"{{name}}\"? Questa azione non può essere annullata.",
+    "confirm": "Elimina"
+  },
+  "toasts": {
+    "loadFailed": "Caricamento agenti fallito: {{message}}",
+    "deleted": "Agente \"{{name}}\" eliminato",
+    "deleteFailed": "Eliminazione agente fallita: {{message}}",
+    "paused": "Agente \"{{name}}\" in pausa",
+    "resumed": "Agente \"{{name}}\" ripreso",
+    "pauseFailed": "Pausa agente fallita: {{message}}",
+    "resumeFailed": "Ripresa agente fallita: {{message}}",
+    "exported": "Agente \"{{name}}\" esportato",
+    "exportFailed": "Esportazione agente fallita: {{message}}",
+    "parseFailed": "Analisi del file agente fallita: {{message}}"
+  }
+}

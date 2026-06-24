@@ -1,0 +1,6 @@
+--extra-index-url https://download.pytorch.org/whl/xpu
+torch
+setuptools
+soundfile
+numpy
+voxcpm

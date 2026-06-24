@@ -1,0 +1,79 @@
+{
+  "title": "Fähigkeiten",
+  "subtitle": "Verwalten Sie Agentenfähigkeiten (wiederverwendbare Anweisungen und Ressourcen)",
+  "unavailable": {
+    "subtitle": "Der Fähigkeiten-Dienst ist nicht verfügbar oder der Index wird neu erstellt. Versuchen Sie es in einem Moment erneut.",
+    "retry": "Erneut versuchen"
+  },
+  "actions": {
+    "newSkill": "Neue Fähigkeit",
+    "createSkill": "Fähigkeit erstellen",
+    "import": "Importieren",
+    "importing": "Importieren...",
+    "gitRepos": "Git-Repos",
+    "edit": "Bearbeiten",
+    "delete": "Löschen",
+    "export": "Exportieren",
+    "sync": "Synchronisieren",
+    "addRepo": "Repo hinzufügen",
+    "adding": "Hinzufügen...",
+    "remove": "Entfernen",
+    "enable": "Aktivieren",
+    "disable": "Deaktivieren"
+  },
+  "search": {
+    "placeholder": "Fähigkeiten suchen..."
+  },
+  "git": {
+    "title": "Git-Repositories",
+    "description": "Fügen Sie Git-Repositories hinzu, aus denen Fähigkeiten geladen werden. Fähigkeiten erscheinen nach der Synchronisierung in der Liste.",
+    "urlPlaceholder": "https://github.com/user/repo oder git@github.com:user/repo.git",
+    "noRepos": "Keine Git-Repos konfiguriert. Fügen Sie oben eines hinzu.",
+    "disabled": "Deaktiviert",
+    "removeRepo": "Repo entfernen"
+  },
+  "card": {
+    "noDescription": "Keine Beschreibung",
+    "readOnly": "Nur lesen",
+    "editTitle": "Fähigkeit bearbeiten",
+    "deleteTitle": "Fähigkeit löschen",
+    "exportTitle": "Als .tar.gz exportieren"
+  },
+  "empty": {
+    "title": "Keine Fähigkeiten gefunden",
+    "text": "Erstellen oder importieren Sie eine Fähigkeit, um loszulegen.",
+    "noPersonal": "Sie haben noch keine Fähigkeiten."
+  },
+  "sections": {
+    "yourSkills": "Ihre Fähigkeiten",
+    "otherUsersSkills": "Fähigkeiten anderer Benutzer"
+  },
+  "deleteDialog": {
+    "title": "Fähigkeit löschen",
+    "message": "Fähigkeit \"{{name}}\" löschen? Diese Aktion kann nicht rückgängig gemacht werden.",
+    "confirm": "Löschen"
+  },
+  "removeRepoDialog": {
+    "title": "Git-Repository entfernen",
+    "message": "Dieses Git-Repository entfernen? Fähigkeiten daraus sind nicht mehr verfügbar.",
+    "confirm": "Entfernen"
+  },
+  "toasts": {
+    "loadFailed": "Laden der Fähigkeiten fehlgeschlagen",
+    "deleted": "Fähigkeit \"{{name}}\" gelöscht",
+    "deleteFailed": "Löschen der Fähigkeit fehlgeschlagen",
+    "exported": "Fähigkeit \"{{name}}\" exportiert",
+    "exportFailed": "Export fehlgeschlagen",
+    "imported": "Fähigkeit aus \"{{file}}\" importiert",
+    "importFailed": "Import fehlgeschlagen",
+    "loadReposFailed": "Laden der Git-Repos fehlgeschlagen",
+    "repoAdded": "Git-Repo hinzugefügt und synchronisiert",
+    "addRepoFailed": "Hinzufügen des Repos fehlgeschlagen",
+    "synced": "Repo synchronisiert",
+    "syncFailed": "Synchronisierung fehlgeschlagen",
+    "toggled": "Repo umgeschaltet",
+    "toggleFailed": "Umschalten fehlgeschlagen",
+    "removed": "Repo entfernt",
+    "removeFailed": "Entfernen fehlgeschlagen"
+  }
+}

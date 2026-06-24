@@ -1,0 +1,266 @@
+import { lazy } from 'react'
+import { createBrowserRouter, Navigate, useParams } from 'react-router-dom'
+import { routerBasename } from './utils/basePath'
+import App from './App'
+import RequireAdmin from './components/RequireAdmin'
+import RequireAuth from './components/RequireAuth'
+import RequireAuthEnabled from './components/RequireAuthEnabled'
+import RequireFeature from './components/RequireFeature'
+
+// Pages are code-split: each becomes its own chunk loaded on demand, so a route
+// no longer drags every other page (and its heavy deps — CodeMirror, the MCP
+// SDK, yaml, marked) into the initial bundle. The <Suspense> boundary in
+// App.jsx (around <Outlet/>) shows nothing while a chunk loads, keeping the
+// sidebar/header mounted.
+//
+// `page(key, loader)` registers the dynamic import under a route-segment key
+// (the first segment after /app/) so a NavLink can warm the chunk on hover via
+// `preloadRoute('/app/chat')`. Dynamic import() is memoised by the module
+// loader, so a preloaded chunk is reused — not re-fetched — when the user
+// actually navigates. Pages with `key: null` aren't sidebar-reachable; they
+// still code-split, they just won't be preloaded from the nav.
+const preloaders = {}
+
+// A deploy swaps the whole content-hashed asset set at once, so a tab holding
+// an older index.html (or one whose request lands on a replica that hasn't
+// been swapped yet, the normal state during a rolling update) asks for a page
+// chunk the server no longer has. The import rejects and React Router's default
+// error boundary replaces the app with "Unexpected Application Error!" until
+// someone thinks to reload. Reloading is what fixes it, so do it automatically:
+// index.html is served no-cache, so the reload lands on a self-consistent set.
+//
+// The timestamp guard bounds that to one reload per RELOAD_WINDOW_MS. Without
+// it, a chunk that is genuinely gone rather than merely stale would reload the
+// app forever, which is worse than the error screen: it never settles and never
+// says why. The failure isn't narrowed to fetch errors: the message differs per
+// browser and a missed match costs the recovery, while a module that throws
+// while evaluating costs one wasted reload before the error surfaces anyway.
+const RELOAD_KEY = 'localai.chunkReloadedAt'
+const RELOAD_WINDOW_MS = 10_000
+let reloading = false
+
+function claimReload() {
+  try {
+    const last = Number(window.sessionStorage.getItem(RELOAD_KEY)) || 0
+    if (Date.now() - last < RELOAD_WINDOW_MS) return false
+    window.sessionStorage.setItem(RELOAD_KEY, String(Date.now()))
+    return true
+  } catch {
+    // No usable sessionStorage means no way to bound the reloads.
+    return false
+  }
+}
+
+function page(key, loader) {
+  if (key !== null) preloaders[key] = loader
+  // preloadRoute keeps the raw loader: a hover that fails must stay silent
+  // rather than reload the page out from under the pointer. The click that
+  // follows goes through this wrapper and recovers there.
+  return lazy(() => loader().catch(err => {
+    // A reload is already committing: a second chunk failing in the same
+    // document must wait for it, not throw and flash the error boundary.
+    if (reloading) return new Promise(() => {})
+    if (!claimReload()) throw err
+    reloading = true
+    window.location.reload()
+    // Stay pending. Resolving or rejecting here would flash the error boundary
+    // in the frames before the reload commits.
+    return new Promise(() => {})
+  }))
+}
+
+export function preloadRoute(path) {
+  if (!path) return
+  const m = path.match(/^\/app(?:\/([^/?#]*))?/)
+  if (!m) return
+  preloaders[m[1] ?? '']?.().catch(() => { /* network blip — real click will retry */ })
+}
+
+const Home = page('', () => import('./pages/Home'))
+const Chat = page('chat', () => import('./pages/Chat'))
+const Models = page('models', () => import('./pages/Models'))
+const ManageRedirect = page('manage', () => import('./pages/ManageRedirect'))
+const ImageGen = page('image', () => import('./pages/ImageGen'))
+const VideoGen = page('video', () => import('./pages/VideoGen'))
+const ThreeDGen = page('3d', () => import('./pages/ThreeDGen'))
+const TTS = page('tts', () => import('./pages/TTS'))
+const Sound = page('sound', () => import('./pages/Sound'))
+const AudioTransform = page('transform', () => import('./pages/AudioTransform'))
+const Talk = page('talk', () => import('./pages/Talk'))
+// Referenced only from JSX below — same blind spot as Activity further down.
+// eslint-disable-next-line no-unused-vars
+const OperateOverview = page('operate', () => import('./pages/OperateOverview'))
+const Backends = page('backends', () => import('./pages/Backends'))
+// Only referenced from JSX below, which eslint cannot see without
+// eslint-plugin-react. Suppressed here rather than left to widen the file's
+// warning count; the surrounding page consts predate the lint baseline.
+// eslint-disable-next-line no-unused-vars
+const Activity = page('activity', () => import('./pages/Activity'))
+const Settings = page('settings', () => import('./pages/Settings'))
+const Traces = page('traces', () => import('./pages/Traces'))
+const P2P = page('p2p', () => import('./pages/P2P'))
+const Agents = page('agents', () => import('./pages/Agents'))
+const AgentCreate = page(null, () => import('./pages/AgentCreate'))
+const AgentChat = page(null, () => import('./pages/AgentChat'))
+const AgentStatus = page(null, () => import('./pages/AgentStatus'))
+const Collections = page('collections', () => import('./pages/Collections'))
+const CollectionDetails = page(null, () => import('./pages/CollectionDetails'))
+const Skills = page('skills', () => import('./pages/Skills'))
+const SkillEdit = page(null, () => import('./pages/SkillEdit'))
+const AgentJobs = page('agent-jobs', () => import('./pages/AgentJobs'))
+const AgentTaskDetails = page(null, () => import('./pages/AgentTaskDetails'))
+const AgentJobDetails = page(null, () => import('./pages/AgentJobDetails'))
+const ModelEditor = page(null, () => import('./pages/ModelEditor'))
+// PipelineEditor removed — the Model Editor with templates handles all model types
+const ImportModel = page(null, () => import('./pages/ImportModel'))
+const BackendLogs = page(null, () => import('./pages/BackendLogs'))
+const Explorer = page(null, () => import('./pages/Explorer'))
+const Login = page(null, () => import('./pages/Login'))
+const FineTune = page('fine-tune', () => import('./pages/FineTune'))
+const Quantize = page('quantize', () => import('./pages/Quantize'))
+const Studio = page('studio', () => import('./pages/Studio'))
+const FaceRecognition = page('face', () => import('./pages/FaceRecognition'))
+const VoiceRecognition = page('voice', () => import('./pages/VoiceRecognition'))
+const VoiceLibrary = page('voice-library', () => import('./pages/VoiceLibrary'))
+const VoiceProfileCreate = page(null, () => import('./pages/VoiceProfileCreate'))
+const Nodes = page('nodes', () => import('./pages/Nodes'))
+const Scheduling = page('scheduling', () => import('./pages/Scheduling'))
+const NodeBackendLogs = page(null, () => import('./pages/NodeBackendLogs'))
+const NodeDetail = page(null, () => import('./pages/NodeDetail'))
+const NotFound = page(null, () => import('./pages/NotFound'))
+const Usage = page('usage', () => import('./pages/Usage'))
+const Users = page('users', () => import('./pages/Users'))
+const Middleware = page('middleware', () => import('./pages/Middleware'))
+const Account = page('account', () => import('./pages/Account'))
+
+import ConsoleLayout from './components/console/ConsoleLayout'
+import { buildConsole, operateConsole } from './components/console/consoleConfig'
+
+function BrowseRedirect() {
+  const { '*': splat } = useParams()
+  return <Navigate to={`/app/${splat || ''}`} replace />
+}
+
+
+function Admin({ children }) {
+  return <RequireAdmin>{children}</RequireAdmin>
+}
+
+function Feature({ feature, children }) {
+  return <RequireFeature feature={feature}>{children}</RequireFeature>
+}
+
+const appChildren = [
+  { index: true, element: <Home /> },
+  { path: 'chat', element: <Chat /> },
+  { path: 'chat/:model', element: <Chat /> },
+  { path: 'image', element: <ImageGen /> },
+  { path: 'image/:model', element: <ImageGen /> },
+  { path: 'video', element: <VideoGen /> },
+  { path: 'video/:model', element: <VideoGen /> },
+  { path: '3d', element: <Feature feature="3d"><ThreeDGen /></Feature> },
+  { path: '3d/:model', element: <Feature feature="3d"><ThreeDGen /></Feature> },
+  { path: 'tts', element: <TTS /> },
+  { path: 'tts/:model', element: <TTS /> },
+  { path: 'sound', element: <Sound /> },
+  { path: 'sound/:model', element: <Sound /> },
+  { path: 'transform', element: <Feature feature="audio_transform"><AudioTransform /></Feature> },
+  { path: 'transform/:model', element: <Feature feature="audio_transform"><AudioTransform /></Feature> },
+  { path: 'studio', element: <Studio /> },
+  // Tabs are path segments, not a query parameter: switching generator is
+  // navigation, and ?tab= reads like a filter. Legacy ?tab= links redirect.
+  { path: 'studio/:tab', element: <Studio /> },
+  { path: 'talk', element: <Talk /> },
+  { path: 'account', element: <Account /> },
+
+  // Build console — Automation, Training, and Recognition groups share one rail.
+  // Only the section landing pages live under the rail; deep create/edit/chat
+  // flows below render full-width.
+  {
+    element: <ConsoleLayout config={buildConsole} />,
+    children: [
+      { path: 'agents', element: <Feature feature="agents"><Agents /></Feature> },
+      { path: 'skills', element: <Feature feature="skills"><Skills /></Feature> },
+      { path: 'collections', element: <Feature feature="collections"><Collections /></Feature> },
+      { path: 'agent-jobs', element: <Feature feature="mcp_jobs"><AgentJobs /></Feature> },
+      { path: 'fine-tune', element: <Feature feature="fine_tuning"><FineTune /></Feature> },
+      { path: 'quantize', element: <Feature feature="quantization"><Quantize /></Feature> },
+      { path: 'face', element: <Feature feature="face_recognition"><FaceRecognition /></Feature> },
+      { path: 'face/:model', element: <Feature feature="face_recognition"><FaceRecognition /></Feature> },
+      { path: 'voice', element: <Feature feature="voice_recognition"><VoiceRecognition /></Feature> },
+      { path: 'voice/:model', element: <Feature feature="voice_recognition"><VoiceRecognition /></Feature> },
+    ],
+  },
+  // Build deep flows — full-width, no rail.
+  { path: 'agents/new', element: <Feature feature="agents"><AgentCreate /></Feature> },
+  { path: 'agents/:name/edit', element: <Feature feature="agents"><AgentCreate /></Feature> },
+  { path: 'agents/:name/chat', element: <Feature feature="agents"><AgentChat /></Feature> },
+  { path: 'agents/:name/status', element: <Feature feature="agents"><AgentStatus /></Feature> },
+  { path: 'collections/:name', element: <Feature feature="collections"><CollectionDetails /></Feature> },
+  { path: 'skills/new', element: <Feature feature="skills"><SkillEdit /></Feature> },
+  { path: 'skills/edit/:name', element: <Feature feature="skills"><SkillEdit /></Feature> },
+  { path: 'agent-jobs/tasks/new', element: <Feature feature="mcp_jobs"><AgentTaskDetails /></Feature> },
+  { path: 'agent-jobs/tasks/:id', element: <Feature feature="mcp_jobs"><AgentTaskDetails /></Feature> },
+  { path: 'agent-jobs/tasks/:id/edit', element: <Feature feature="mcp_jobs"><AgentTaskDetails /></Feature> },
+  { path: 'agent-jobs/jobs/:id', element: <Feature feature="mcp_jobs"><AgentJobDetails /></Feature> },
+
+  // Operate console (admin).
+  {
+    element: <ConsoleLayout config={operateConsole} />,
+    children: [
+      { path: 'operate', element: <Admin><OperateOverview /></Admin> },
+      { path: 'backends', element: <Admin><Backends /></Admin> },
+      { path: 'activity', element: <Admin><Activity /></Admin> },
+      { path: 'voice-library', element: <Admin><VoiceLibrary /></Admin> },
+      { path: 'settings', element: <Admin><Settings /></Admin> },
+      { path: 'traces', element: <Admin><Traces /></Admin> },
+      { path: 'backend-logs/:modelId', element: <Admin><BackendLogs /></Admin> },
+      { path: 'p2p', element: <Admin><P2P /></Admin> },
+      { path: 'nodes', element: <Admin><Nodes /></Admin> },
+      { path: 'nodes/:id', element: <Admin><NodeDetail /></Admin> },
+      { path: 'scheduling', element: <Admin><Scheduling /></Admin> },
+      { path: 'node-backend-logs/:nodeId/:modelId', element: <Admin><NodeBackendLogs /></Admin> },
+      { path: 'usage', element: <Usage /> },
+      { path: 'users', element: <RequireAuthEnabled><Admin><Users /></Admin></RequireAuthEnabled> },
+      { path: 'middleware', element: <Admin><Middleware /></Admin> },
+    ],
+  },
+
+  // Canonical resource pages and legacy management compatibility.
+  { path: 'models', element: <Admin><Models /></Admin> },
+  { path: 'manage', element: <Admin><ManageRedirect /></Admin> },
+  { path: 'voice-library/new', element: <Admin><VoiceProfileCreate /></Admin> },
+  { path: 'model-editor', element: <Admin><ModelEditor /></Admin> },
+  { path: 'model-editor/:name', element: <Admin><ModelEditor /></Admin> },
+  { path: 'import-model', element: <Admin><ImportModel /></Admin> },
+  { path: '*', element: <NotFound /> },
+]
+
+export const router = createBrowserRouter([
+  {
+    path: '/login',
+    element: <Login />,
+  },
+  {
+    path: '/invite/:code',
+    element: <Login />,
+  },
+  {
+    path: '/explorer',
+    element: <Explorer />,
+  },
+  {
+    path: '/app',
+    element: <RequireAuth><App /></RequireAuth>,
+    children: appChildren,
+  },
+  // Backward compatibility: redirect /browse/* to /app/*
+  {
+    path: '/browse/*',
+    element: <BrowseRedirect />,
+  },
+  {
+    path: '/',
+    element: <Navigate to="/app" replace />,
+  },
+], { basename: routerBasename })

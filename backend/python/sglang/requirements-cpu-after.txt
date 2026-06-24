@@ -1,0 +1,3 @@
+# sglang has no prebuilt CPU wheel on PyPI. install.sh performs a
+# from-source build using the upstream pyproject_cpu.toml recipe from
+# docker/xeon.Dockerfile when BUILD_TYPE is empty (CPU profile).

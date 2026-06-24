@@ -1,0 +1,215 @@
+#include "transcript_assembly.h"
+
+#include "audio_units.h"
+
+#include <algorithm>
+#include <cstdlib>
+#include <limits>
+
+namespace audiocpp_backend {
+namespace {
+
+std::int64_t midpoint(const Span &span) {
+    return span.start_sample + (span.end_sample - span.start_sample) / 2;
+}
+
+bool contains(const Span &span, std::int64_t sample) {
+    return sample >= span.start_sample && sample < span.end_sample;
+}
+
+std::int64_t overlap(const Span &a, const Span &b) {
+    const std::int64_t begin = std::max(a.start_sample, b.start_sample);
+    const std::int64_t end = std::min(a.end_sample, b.end_sample);
+    return end > begin ? end - begin : 0;
+}
+
+// Joins a segment's words into that segment's text.
+//
+// THE SEPARATOR IS NOT ALWAYS A SPACE, and getting it wrong is visible to every
+// caller rather than cosmetic: core/http/endpoints/openai/transcription.go
+// routes response_format text, srt, vtt and lrc through
+// schema.TranscriptionResponse, which builds the entire body out of
+// Segments[].Text and never reads the top-level text. For those four formats
+// the segment text IS the response.
+//
+// Two producer conventions have to be told apart:
+//
+//   whole words    "Some", "call", "me"   -> join with a space
+//   subword pieces "So", "me", " call"    -> concatenate
+//
+// The second is SentencePiece, where a word boundary is carried as a LEADING
+// SPACE on the piece; nemotron_asr emits one entry per token in exactly that
+// form. Space-joining those produced "So me  call   me  na ture ,", which is
+// what response_format=text returned while the correct sentence sat unread in
+// the top-level field. Concatenating them reproduces text_output exactly.
+//
+// The convention is read off the words themselves, because nothing else in the
+// result declares it. One leading space anywhere is enough to decide: a
+// whole-word producer has no reason to emit one, and a subword producer emits
+// one at every word boundary, so the two populations do not overlap. A producer
+// that mixed both conventions inside one segment could not be served correctly
+// by any single separator; this picks concatenation for it.
+//
+// This does NOT touch the top-level text, which stays text_output verbatim. The
+// rule that forbids deriving the transcript from the segments is about the
+// direction segments -> text. Segment text has no source other than its words
+// and is necessarily derived.
+std::string join_words(const std::vector<OutWord> &words) {
+    const bool subword_pieces =
+        std::any_of(words.begin(), words.end(), [](const OutWord &word) {
+            return !word.text.empty() && word.text.front() == ' ';
+        });
+    std::string out;
+    for (const auto &word : words) {
+        if (word.text.empty()) {
+            continue;
+        }
+        if (!subword_pieces && !out.empty()) {
+            out += " ";
+        }
+        out += word.text;
+    }
+    return out;
+}
+
+std::string speaker_for(const Span &segment,
+                        const std::vector<SpeakerSpan> &turns) {
+    std::string best;
+    std::int64_t best_overlap = 0;
+    for (const auto &turn : turns) {
+        const std::int64_t shared = overlap(segment, turn.span);
+        if (shared > best_overlap) {
+            best_overlap = shared;
+            best = turn.speaker;
+        }
+    }
+    return best;
+}
+
+// The chosen segmentation. labels is empty unless the spans were sourced from
+// the speaker turns themselves, in which case it is parallel to spans and holds
+// the label each span arrived with.
+struct SegmentSource {
+    std::vector<Span> spans;
+    std::vector<std::string> labels;
+};
+
+// Chooses the segment spans, per the documented precedence.
+SegmentSource choose_segment_spans(const std::string &text_output,
+                                   const std::vector<Span> &speech_segments,
+                                   const std::vector<SpeakerSpan> &speaker_turns,
+                                   const std::vector<WordSpan> &words) {
+    if (!speech_segments.empty()) {
+        return {speech_segments, {}};
+    }
+    if (!speaker_turns.empty()) {
+        // The labels are carried out rather than re-derived by overlap later. A
+        // turn wholly contained in another speaker's turn overlaps its own span
+        // completely, which is the largest overlap possible, so it can only tie
+        // with the containing turn and would then lose that tie on order.
+        // sortformer_diar binarizes each speaker's track independently and
+        // sorts the result by start sample, so the container always comes
+        // first, and the interjecting speaker would be silently relabelled to
+        // the speaker it interrupted.
+        SegmentSource source;
+        source.spans.reserve(speaker_turns.size());
+        source.labels.reserve(speaker_turns.size());
+        for (const auto &turn : speaker_turns) {
+            source.spans.push_back(turn.span);
+            source.labels.push_back(turn.speaker);
+        }
+        return source;
+    }
+    if (!words.empty()) {
+        Span covering = words.front().span;
+        for (const auto &word : words) {
+            covering.start_sample =
+                std::min(covering.start_sample, word.span.start_sample);
+            covering.end_sample = std::max(covering.end_sample, word.span.end_sample);
+        }
+        return {{covering}, {}};
+    }
+    if (!text_output.empty()) {
+        // A zero span rather than a fabricated duration: the model reported no
+        // timing, and inventing one would be a lie the caller cannot detect.
+        return {{Span{0, 0}}, {}};
+    }
+    return {};
+}
+
+// Returns the index of the segment a word belongs to, or the nearest segment
+// when the word falls outside all of them.
+size_t segment_index_for_word(const std::vector<Span> &spans, const Span &word) {
+    const std::int64_t centre = midpoint(word);
+    for (size_t i = 0; i < spans.size(); ++i) {
+        if (contains(spans[i], centre)) {
+            return i;
+        }
+    }
+    size_t nearest = 0;
+    std::int64_t best_distance = std::numeric_limits<std::int64_t>::max();
+    for (size_t i = 0; i < spans.size(); ++i) {
+        const std::int64_t distance = std::llabs(midpoint(spans[i]) - centre);
+        if (distance < best_distance) {
+            best_distance = distance;
+            nearest = i;
+        }
+    }
+    return nearest;
+}
+
+} // namespace
+
+AssembledTranscript assemble_transcript(const std::string &text_output,
+                                        const std::vector<Span> &speech_segments,
+                                        const std::vector<SpeakerSpan> &speaker_turns,
+                                        const std::vector<WordSpan> &words,
+                                        int sample_rate) {
+    AssembledTranscript assembled;
+    // THE RULE. Never derived from spans.
+    assembled.text = text_output;
+
+    const SegmentSource source =
+        choose_segment_spans(text_output, speech_segments, speaker_turns, words);
+    const std::vector<Span> &spans = source.spans;
+    if (spans.empty()) {
+        return assembled;
+    }
+
+    assembled.segments.resize(spans.size());
+    for (size_t i = 0; i < spans.size(); ++i) {
+        OutSegment &segment = assembled.segments[i];
+        segment.id = static_cast<int>(i);
+        segment.start_ns = samples_to_nanoseconds(spans[i].start_sample, sample_rate);
+        segment.end_ns = samples_to_nanoseconds(spans[i].end_sample, sample_rate);
+        // A segment that came from a speaker turn already knows its speaker.
+        // Only the other three sources have to look one up by overlap.
+        segment.speaker = source.labels.empty()
+                              ? speaker_for(spans[i], speaker_turns)
+                              : source.labels[i];
+    }
+
+    for (const auto &word : words) {
+        const size_t index = segment_index_for_word(spans, word.span);
+        OutWord out;
+        out.start_ns = samples_to_nanoseconds(word.span.start_sample, sample_rate);
+        out.end_ns = samples_to_nanoseconds(word.span.end_sample, sample_rate);
+        out.text = word.word;
+        assembled.segments[index].words.push_back(out);
+    }
+
+    for (auto &segment : assembled.segments) {
+        segment.text = join_words(segment.words);
+    }
+
+    // A single segment with no word timing carries the whole transcript. With
+    // several segments there is no defensible way to split the text, so their
+    // per-segment text stays empty and only the top-level text is authoritative.
+    if (assembled.segments.size() == 1 && assembled.segments[0].words.empty()) {
+        assembled.segments[0].text = text_output;
+    }
+
+    return assembled;
+}
+
+} // namespace audiocpp_backend

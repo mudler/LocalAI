@@ -1,0 +1,172 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700;12..96,800&family=Archivo:wght@500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#F3E8D2; --paper2:#ECDFC2; --ink:#211C14; --ink-soft:#5A5142;
+    --rust:#B43A2C; --rust-deep:#8F2C20; --cold:#3F6E73; --hi:#E7D6AE; --dim:#A99F88;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{width:1600px;height:900px}
+  body{
+    background:var(--paper);color:var(--ink);font-family:"Archivo",sans-serif;
+    position:relative;overflow:hidden;
+    background-image:
+      linear-gradient(var(--paper2) 1px,transparent 1px),
+      linear-gradient(90deg,var(--paper2) 1px,transparent 1px);
+    background-size:40px 40px;
+  }
+  .frame{position:absolute;inset:26px;border:3px solid var(--ink);}
+  .wrap{position:absolute;inset:26px;padding:30px 56px 26px;display:flex;flex-direction:column}
+  header{display:flex;align-items:flex-end;justify-content:space-between;gap:30px}
+  .eyebrow{font-weight:700;letter-spacing:.22em;text-transform:uppercase;font-size:17px;color:var(--rust-deep)}
+  .eyebrow b{color:var(--ink)}
+  h1{font-family:"Bricolage Grotesque",sans-serif;font-weight:800;font-size:50px;line-height:.98;letter-spacing:-.015em;margin-top:6px}
+  h1 em{font-style:normal;color:var(--rust)}
+  .stamp{border:3px solid var(--ink);padding:10px 16px 8px;transform:rotate(3deg);text-align:center;background:var(--paper);box-shadow:6px 6px 0 var(--ink);flex:none}
+  .stamp .k{font-family:"Bricolage Grotesque";font-weight:800;font-size:21px;letter-spacing:.04em;line-height:1.05}
+  .stamp .s{font-weight:700;font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--ink-soft);margin-top:5px}
+  .stage{flex:1;margin-top:8px}
+  svg{width:100%;height:100%;overflow:visible}
+  footer{display:flex;align-items:center;justify-content:space-between;margin-top:6px;gap:24px}
+  .note{font-weight:600;font-size:18px;color:var(--ink-soft);line-height:1.3;max-width:1080px}
+  .note b{color:var(--ink)}
+  .url{font-family:"Bricolage Grotesque";font-weight:800;font-size:22px;color:var(--rust-deep);letter-spacing:.01em;flex:none}
+  .url span{color:var(--ink)}
+</style>
+</head>
+<body>
+  <div class="frame"></div>
+  <div class="wrap">
+    <header>
+      <div>
+        <div class="eyebrow">LocalAI <b>&middot;</b> Audio Transform</div>
+        <h1>Near + far in, <em>clean out</em></h1>
+      </div>
+      <div class="stamp">
+        <div class="k">STEREO</div>
+        <div class="s">wire</div>
+      </div>
+    </header>
+    <div class="stage"><svg viewBox="0 0 1480 560" id="svg"></svg></div>
+    <footer>
+      <div class="note">Two inputs (mic + reference) transform to one cleaned output; <b>interleaved-stereo on the wire.</b></div>
+      <div class="url">localai.io<span>/features/audio-transform</span></div>
+    </footer>
+  </div>
+<script>
+const INK="#211C14", PAPER="#F3E8D2", PAPER2="#ECDFC2", HI="#E7D6AE", SOFT="#5A5142", RUST="#B43A2C", RUSTD="#8F2C20", COLD="#3F6E73", DIM="#A99F88";
+function el(t,a,x){const e=document.createElementNS("http://www.w3.org/2000/svg",t);for(const k in a)e.setAttribute(k,a[k]);if(x!=null)e.textContent=x;return e;}
+const svg=document.getElementById("svg");
+function shadowRect(x,y,w,h,fill,stroke,sw,dash){
+  svg.appendChild(el("rect",{x:x+7,y:y+7,width:w,height:h,fill:INK}));
+  svg.appendChild(el("rect",{x,y,width:w,height:h,fill,stroke:stroke||INK,"stroke-width":sw||3.5,"stroke-dasharray":dash||"none"}));
+}
+function txt(x,y,s,o){o=o||{};svg.appendChild(el("text",{x,y,"font-family":o.f||"Archivo","font-weight":o.w||700,"font-size":o.sz||15,"letter-spacing":o.ls||"0","text-anchor":o.a||"start",fill:o.fill||INK},s));}
+function arrow(x1,y1,x2,y2,color,dash){
+  const mx=(x1+x2)/2;
+  svg.appendChild(el("path",{d:`M ${x1} ${y1} C ${mx} ${y1}, ${mx} ${y2}, ${x2-11} ${y2}`,fill:"none",stroke:color,"stroke-width":3.5,"stroke-linecap":"round","stroke-dasharray":dash||"none"}));
+  const a=7;
+  svg.appendChild(el("path",{d:`M ${x2-11} ${y2} l -${a+4} -${a} M ${x2-11} ${y2} l -${a+4} ${a}`,fill:"none",stroke:color,"stroke-width":3.5,"stroke-linecap":"round"}));
+}
+
+// ============================================================
+// TOP: block flow  [audio] + [reference] -> [backend] -> [out]
+// ============================================================
+txt(20,30,"BLOCK FLOW",{w:700,sz:14,ls:".2em",fill:SOFT});
+
+// input boxes (left)
+const INW=250, INH=72;
+const INX=24;
+const audioY=58, refY=158;
+// primary audio (rust emphasis)
+shadowRect(INX,audioY,INW,INH,PAPER,RUST,4);
+txt(INX+22,audioY+34,"audio",{f:"Bricolage Grotesque",w:800,sz:26,fill:RUST});
+txt(INX+22,audioY+58,"primary · mic",{w:700,sz:14,fill:SOFT});
+// reference (cold, optional)
+svg.appendChild(el("rect",{x:INX+7,y:refY+7,width:INW,height:INH,fill:INK}));
+svg.appendChild(el("rect",{x:INX,y:refY,width:INW,height:INH,fill:PAPER,stroke:COLD,"stroke-width":4,"stroke-dasharray":"4 7"}));
+txt(INX+22,refY+34,"reference",{f:"Bricolage Grotesque",w:800,sz:26,fill:COLD});
+txt(INX+22,refY+58,"optional · far",{w:700,sz:14,fill:SOFT});
+
+// backend (center)
+const BEW=270, BEH=140, BEX=560, BEY=66;
+shadowRect(BEX,BEY,BEW,BEH,PAPER,INK,4);
+svg.appendChild(el("rect",{x:BEX,y:BEY,width:BEW,height:50,fill:RUST}));
+svg.appendChild(el("line",{x1:BEX,y1:BEY+50,x2:BEX+BEW,y2:BEY+50,stroke:INK,"stroke-width":3.5}));
+txt(BEX+22,BEY+34,"backend",{f:"Bricolage Grotesque",w:800,sz:26,fill:PAPER});
+txt(BEX+22,BEY+86,"transform",{f:"Bricolage Grotesque",w:700,sz:21});
+txt(BEX+22,BEY+114,"denoise · enhance",{w:700,sz:14,fill:SOFT});
+
+// output (right)
+const OUTX=1010, OUTY=82, OUTW=250, OUTH=108;
+shadowRect(OUTX,OUTY,OUTW,OUTH,HI,INK,4);
+txt(OUTX+22,OUTY+42,"audio out",{f:"Bricolage Grotesque",w:800,sz:26});
+txt(OUTX+22,OUTY+72,"one cleaned",{w:700,sz:15,fill:SOFT});
+txt(OUTX+22,OUTY+92,"mono signal",{w:700,sz:15,fill:SOFT});
+
+// arrows TOP
+arrow(INX+INW, audioY+INH/2, BEX, BEY+58, RUST);
+arrow(INX+INW, refY+INH/2, BEX, BEY+92, COLD, "2 8");
+arrow(BEX+BEW, BEY+BEH/2, OUTX, OUTY+OUTH/2, RUST);
+
+// ============================================================
+// BOTTOM: streaming inset - the wire format
+// ============================================================
+const insY=290, insH=250;
+svg.appendChild(el("rect",{x:7+0,y:insY+7,width:1480,height:insH,fill:INK}));
+svg.appendChild(el("rect",{x:0,y:insY,width:1480,height:insH,fill:PAPER2,stroke:INK,"stroke-width":3.5}));
+txt(24,insY+34,"ON THE WIRE",{w:700,sz:14,ls:".2em",fill:SOFT});
+txt(1456,insY+34,"interleaved stereo in  →  mono PCM out",{w:700,sz:15,a:"end",fill:RUSTD});
+
+// --- INPUT: interleaved stereo frames ---
+const frameY=insY+70, frameH=46, sampW=58, gap=4;
+let fx=40;
+// channel legend (left)
+txt(fx,frameY-14,"INPUT · stereo PCM",{f:"Bricolage Grotesque",w:800,sz:18});
+// draw 8 interleaved samples: ch0 mic, ch1 ref, ...
+const seq=[0,1,0,1,0,1,0,1];
+seq.forEach((ch,i)=>{
+  const x=fx+i*(sampW+gap);
+  const fill = ch===0 ? "#E7C8C0" : "#C7D9DB";
+  const stroke = ch===0 ? RUST : COLD;
+  svg.appendChild(el("rect",{x:x+5,y:frameY+5,width:sampW,height:frameH,fill:INK}));
+  svg.appendChild(el("rect",{x,y:frameY,width:sampW,height:frameH,fill,stroke,"stroke-width":3}));
+  txt(x+sampW/2,frameY+30,ch===0?"L":"R",{f:"Bricolage Grotesque",w:800,sz:22,a:"middle",fill:ch===0?RUST:COLD});
+});
+const seqW=seq.length*(sampW+gap)-gap;
+// channel mapping labels under the frame strip
+txt(fx, frameY+frameH+38, "L = channel 0",{f:"Bricolage Grotesque",w:800,sz:18,fill:RUST});
+txt(fx, frameY+frameH+62, "the mic / near signal",{w:700,sz:14,fill:SOFT});
+txt(fx+260, frameY+frameH+38, "R = channel 1",{f:"Bricolage Grotesque",w:800,sz:18,fill:COLD});
+txt(fx+260, frameY+frameH+62, "the reference / far signal",{w:700,sz:14,fill:SOFT});
+
+// --- backend pill in the middle ---
+const pillX=fx+seqW+70, pillY=frameY-4, pillW=200, pillH=frameH+8;
+shadowRect(pillX,pillY,pillW,pillH,RUST,INK,3.5);
+txt(pillX+pillW/2,pillY+34,"backend",{f:"Bricolage Grotesque",w:800,sz:22,a:"middle",fill:PAPER});
+
+// arrow into pill, arrow out of pill
+arrow(fx+seqW+8, frameY+frameH/2, pillX, frameY+frameH/2, INK);
+
+// --- OUTPUT: mono PCM strip ---
+const outFx=pillX+pillW+50;
+txt(outFx,frameY-12,"OUTPUT · mono PCM",{f:"Bricolage Grotesque",w:800,sz:18});
+const outN=8;
+for(let i=0;i<outN;i++){
+  const x=outFx+i*(sampW+gap);
+  svg.appendChild(el("rect",{x:x+5,y:frameY+5,width:sampW,height:frameH,fill:INK}));
+  svg.appendChild(el("rect",{x,y:frameY,width:sampW,height:frameH,fill:HI,stroke:INK,"stroke-width":3}));
+  txt(x+sampW/2,frameY+30,"M",{f:"Bricolage Grotesque",w:800,sz:22,a:"middle",fill:INK});
+}
+const outW=outN*(sampW+gap)-gap;
+arrow(pillX+pillW, frameY+frameH/2, outFx, frameY+frameH/2, RUST);
+txt(outFx, frameY+frameH+38, "single channel",{f:"Bricolage Grotesque",w:800,sz:18});
+txt(outFx, frameY+frameH+62, "cleaned · enhanced result",{w:700,sz:14,fill:SOFT});
+</script>
+</body>
+</html>

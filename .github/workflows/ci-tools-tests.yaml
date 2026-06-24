@@ -1,0 +1,39 @@
+---
+# The packages under .github/ci/ are invisible to `go list ./...`, so neither
+# `make lint` nor the repository test run ever touches them. Their specs are
+# dead weight until a workflow names each package explicitly.
+name: 'CI tool tests'
+on:
+  pull_request:
+    paths:
+      - '.github/ci/**'
+      - '.github/workflows/ci-tools-tests.yaml'
+  push:
+    branches:
+      - master
+    paths:
+      - '.github/ci/**'
+jobs:
+  ci-tools:
+    name: 'Test the .github/ci generators'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: false
+
+      # The discovery heuristics are the risky part of these tools. A regression
+      # produces confident, wrong gallery entries, which is worse than no tool.
+      - name: 'Test the APEX entry generator'
+        run: go test ./.github/ci/apexentries/
+
+      - name: 'Test the variant proposer'
+        run: go test ./.github/ci/variantproposals/
+
+      # Shared by both generators above. Its behaviour is exercised through their
+      # specs; this step exists so a break in the shared package fails under its
+      # own name rather than as a puzzling failure in whichever caller ran first.
+      - name: 'Test the shared gallery editor'
+        run: go test ./.github/ci/galleryedit/

@@ -1,0 +1,597 @@
+package messaging
+
+import "strings"
+
+// sanitizeSubjectToken replaces NATS-reserved characters in a subject token.
+// NATS uses '.' as hierarchy delimiter and '*'/'>' as wildcards.
+func sanitizeSubjectToken(s string) string {
+	r := strings.NewReplacer(".", "-", "*", "-", ">", "-", " ", "-", "\t", "-", "\n", "-")
+	return r.Replace(s)
+}
+
+// NATS subject constants for the distributed architecture.
+// Following the notetaker pattern: <entity>.<action>
+
+// Job Distribution (Queue Groups — load-balanced, one consumer gets each message)
+const (
+	SubjectJobsNew      = "jobs.new"
+	SubjectMCPCIJobsNew = "jobs.mcp-ci.new"
+	SubjectAgentExecute = "agent.execute"
+	QueueWorkers        = "workers"
+)
+
+// Status Updates (Pub/Sub — all subscribers get every message, for SSE bridging)
+// These use parameterized subjects: e.g. SubjectAgentEvents("myagent", "user1")
+const (
+	subjectAgentEventsPrefix = "agent."
+	subjectJobProgressPrefix = "jobs."
+	subjectFineTunePrefix    = "finetune."
+	subjectGalleryPrefix     = "gallery."
+)
+
+// SubjectAgentEvents returns the NATS subject for agent SSE events.
+func SubjectAgentEvents(agentName, userID string) string {
+	if userID == "" {
+		userID = "anonymous"
+	}
+	return subjectAgentEventsPrefix + sanitizeSubjectToken(agentName) + ".events." + sanitizeSubjectToken(userID)
+}
+
+// SubjectJobProgress returns the NATS subject for job progress updates.
+func SubjectJobProgress(jobID string) string {
+	return subjectJobProgressPrefix + sanitizeSubjectToken(jobID) + ".progress"
+}
+
+// SubjectJobResult returns the NATS subject for the final job result (terminal state).
+func SubjectJobResult(jobID string) string {
+	return subjectJobProgressPrefix + sanitizeSubjectToken(jobID) + ".result"
+}
+
+// MCP Tool Execution (Request-Reply via NATS — load-balanced across agent workers)
+const (
+	SubjectMCPToolExecute = "mcp.tools.execute"
+	SubjectMCPDiscovery   = "mcp.discovery"
+	QueueAgentWorkers     = "agent-workers"
+)
+
+// SubjectFineTuneProgress returns the NATS subject for fine-tune progress.
+func SubjectFineTuneProgress(jobID string) string {
+	return subjectFineTunePrefix + sanitizeSubjectToken(jobID) + ".progress"
+}
+
+// SubjectGalleryProgress returns the NATS subject for gallery download progress.
+func SubjectGalleryProgress(opID string) string {
+	return subjectGalleryPrefix + sanitizeSubjectToken(opID) + ".progress"
+}
+
+// SubjectStagingProgress returns the NATS subject a frontend replica publishes
+// file-staging progress on. Staging progress is otherwise per-process state
+// (the SmartRouter's in-memory StagingTracker), so without this broadcast a
+// /api/operations poll that round-robins onto a replica that did not originate
+// the staging op sees nothing - the progress row flickers in multi-replica
+// deployments. Peers subscribe to the wildcard and merge.
+func SubjectStagingProgress(modelID string) string {
+	return subjectStagingPrefix + sanitizeSubjectToken(modelID) + ".progress"
+}
+
+const subjectStagingPrefix = "staging."
+
+// SubjectStagingProgressWildcard matches every replica's staging-progress
+// broadcasts so a peer can mirror staging ops it did not originate.
+const SubjectStagingProgressWildcard = "staging.*.progress"
+
+// SubjectGalleryOpStart and SubjectGalleryOpEnd are broadcast subjects for the
+// in-memory OpCache lifecycle. Frontend replicas publish to these when an
+// admin admits a new install/delete (Start) and when an operation is
+// dismissed (End), so peer replicas can keep their OpCache in sync without
+// hitting PostgreSQL on every UI poll.
+const (
+	SubjectGalleryOpStart = "gallery.opcache.start"
+	SubjectGalleryOpEnd   = "gallery.opcache.end"
+)
+
+// Control Signals (Pub/Sub — targeted cancellation)
+const (
+	subjectJobCancelPrefix      = "jobs."
+	subjectAgentCancelPrefix    = "agent."
+	subjectFineTuneCancelPrefix = "finetune."
+	subjectGalleryCancelPrefix  = "gallery."
+	subjectResponseCancelPrefix = "responses."
+)
+
+// Wildcard subjects for NATS subscriptions that match all IDs.
+const (
+	SubjectJobCancelWildcard       = "jobs.*.cancel"
+	SubjectJobResultWildcard       = "jobs.*.result"
+	SubjectJobProgressWildcard     = "jobs.*.progress"
+	SubjectAgentCancelWildcard     = "agent.*.cancel"
+	SubjectGalleryCancelWildcard   = "gallery.*.cancel"
+	SubjectGalleryPauseWildcard    = "gallery.*.pause"
+	SubjectGalleryProgressWildcard = "gallery.*.progress"
+	SubjectResponseCancelWildcard  = "responses.*.cancel"
+)
+
+// SubjectJobCancel returns the NATS subject to cancel a running job.
+func SubjectJobCancel(jobID string) string {
+	return subjectJobCancelPrefix + sanitizeSubjectToken(jobID) + ".cancel"
+}
+
+// SubjectAgentCancel returns the NATS subject to cancel agent execution.
+func SubjectAgentCancel(agentID string) string {
+	return subjectAgentCancelPrefix + sanitizeSubjectToken(agentID) + ".cancel"
+}
+
+// SubjectFineTuneCancel returns the NATS subject to stop fine-tuning.
+func SubjectFineTuneCancel(jobID string) string {
+	return subjectFineTuneCancelPrefix + sanitizeSubjectToken(jobID) + ".cancel"
+}
+
+// SubjectGalleryCancel returns the NATS subject to cancel a gallery download.
+func SubjectGalleryCancel(opID string) string {
+	return subjectGalleryCancelPrefix + sanitizeSubjectToken(opID) + ".cancel"
+}
+
+// SubjectGalleryPause returns the NATS subject to pause a gallery download.
+func SubjectGalleryPause(opID string) string {
+	return subjectGalleryCancelPrefix + sanitizeSubjectToken(opID) + ".pause"
+}
+
+// SubjectResponseCancel returns the NATS subject used to cancel an in-flight
+// Open Responses generation. Only the replica that created the response holds
+// its context.CancelFunc, so a cancel that lands on any other replica is
+// broadcast here and applied by whichever replica actually owns the function.
+// Broadcast rather than request/reply on purpose: if the owner crashed or was
+// scaled down, nobody answers and the caller must not block waiting for a
+// reply that will never come.
+func SubjectResponseCancel(responseID string) string {
+	return subjectResponseCancelPrefix + sanitizeSubjectToken(responseID) + ".cancel"
+}
+
+// Node Backend Lifecycle (Pub/Sub — targeted to specific nodes)
+//
+// These subjects control the backend *process* lifecycle on a serve-backend node,
+// mirroring how the local ModelLoader uses startProcess() / deleteProcess().
+//
+// Model loading (LoadModel gRPC) is done via direct gRPC calls to the node's
+// address — no NATS needed for that, same as local mode.
+const (
+	subjectNodePrefix = "nodes."
+)
+
+// SubjectNodeBackendInstall tells a worker node to install a backend and start its gRPC process.
+// Uses NATS request-reply: the SmartRouter sends the request, the worker installs
+// the backend from gallery (if not already installed), starts the gRPC process,
+// and replies when ready.
+func SubjectNodeBackendInstall(nodeID string) string {
+	return subjectNodePrefix + sanitizeSubjectToken(nodeID) + ".backend.install"
+}
+
+// BackendInstallRequest is the payload for a backend.install NATS request.
+type BackendInstallRequest struct {
+	Backend          string `json:"backend"`
+	ModelID          string `json:"model_id,omitempty"`
+	BackendGalleries string `json:"backend_galleries,omitempty"`
+	// URI is set for external installs (OCI image, URL, or path). When non-empty
+	// the worker routes to InstallExternalBackend instead of the gallery lookup.
+	URI   string `json:"uri,omitempty"`
+	Name  string `json:"name,omitempty"`
+	Alias string `json:"alias,omitempty"`
+	// ReplicaIndex selects which slot on the worker this load occupies, so two
+	// concurrent backend.install requests for the same model land on distinct
+	// gRPC processes and ports. Workers older than this field treat it as 0
+	// (single-replica behavior — no collision because the controller never
+	// asks for replica > 0 on a node whose MaxReplicasPerModel is 1).
+	ReplicaIndex int32 `json:"replica_index,omitempty"`
+	// Force is retained on the wire only for backward compatibility with
+	// pre-2026-05-08 masters that did not know about backend.upgrade. New
+	// callers MUST send to SubjectNodeBackendUpgrade instead. Workers continue
+	// to honor Force=true here so a rolling update with new master + old
+	// worker still works (the master's install fallback path also uses this
+	// when backend.upgrade returns nats.ErrNoResponders).
+	Force bool `json:"force,omitempty"`
+	// OpID identifies the admin-side operation. When non-empty the worker
+	// publishes BackendInstallProgressEvent values to
+	// SubjectNodeBackendInstallProgress(nodeID, OpID) while the install is
+	// running, debounced to roughly 250ms. Empty means the caller is a
+	// reconciler-driven retry that does not need progress streamed.
+	OpID string `json:"op_id,omitempty"`
+}
+
+// BackendInstallReply is the response from a backend.install NATS request.
+type BackendInstallReply struct {
+	Success bool   `json:"success"`
+	Address string `json:"address,omitempty"` // gRPC address of the backend process (host:port)
+	Error   string `json:"error,omitempty"`
+}
+
+// SubjectNodeBackendUpgrade tells a worker node to force-reinstall a backend
+// from the gallery, stop every running process for that backend, and restart.
+// Uses NATS request-reply with a long deadline (gallery image pulls can take
+// many minutes on slow links). Routine model loads use SubjectNodeBackendInstall
+// instead — this subject exists so the slow path doesn't head-of-line-block
+// the fast one through a shared subscription goroutine.
+func SubjectNodeBackendUpgrade(nodeID string) string {
+	return subjectNodePrefix + sanitizeSubjectToken(nodeID) + ".backend.upgrade"
+}
+
+// BackendUpgradeRequest is the payload for a backend.upgrade NATS request.
+// It is intentionally a strict subset of BackendInstallRequest — there is no
+// Force field because the upgrade subject IS the force semantics; no ModelID
+// because upgrade is backend-scoped (it stops every replica using the binary
+// before re-installing). Per-replica restart happens on the next routine load.
+type BackendUpgradeRequest struct {
+	Backend          string `json:"backend"`
+	BackendGalleries string `json:"backend_galleries,omitempty"`
+	URI              string `json:"uri,omitempty"`
+	Name             string `json:"name,omitempty"`
+	Alias            string `json:"alias,omitempty"`
+	// ReplicaIndex is informational — upgrade stops all replicas regardless,
+	// but the field lets future per-replica metadata (e.g. progress reporting
+	// scoped to a slot) ride the same wire without a v3 type.
+	ReplicaIndex int32 `json:"replica_index,omitempty"`
+	// OpID identifies the admin-side operation. When non-empty the worker
+	// publishes BackendInstallProgressEvent values to
+	// SubjectNodeBackendInstallProgress(nodeID, OpID) while the force-reinstall
+	// runs, so the master can stream per-node progress for upgrades exactly as
+	// it already does for installs (an upgrade IS a force-reinstall, so the
+	// install-progress subject is reused rather than minting a new one — no new
+	// NATS permission or rolling-update compat surface). Empty on legacy callers.
+	OpID string `json:"op_id,omitempty"`
+}
+
+// BackendUpgradeReply mirrors BackendInstallReply minus Address — upgrade does
+// not start a process, so there is no port to advertise. The subsequent
+// routine load will re-bind via backend.install and learn the new address.
+type BackendUpgradeReply struct {
+	Success bool   `json:"success"`
+	Error   string `json:"error,omitempty"`
+
+	// StoppedProcessKeys / ReportsStoppedProcesses carry the same
+	// stale-row-invalidation contract as on BackendDeleteReply; an upgrade
+	// force-stops every process using the binary and starts none back up, so it
+	// recycles ports exactly the way a delete does. See that type for why the
+	// boolean is not redundant with an empty list.
+	StoppedProcessKeys      []string `json:"stopped_process_keys,omitempty"`
+	ReportsStoppedProcesses bool     `json:"reports_stopped_processes,omitempty"`
+}
+
+// SubjectNodeBackendList queries a worker node for its installed backends.
+// Uses NATS request-reply.
+func SubjectNodeBackendList(nodeID string) string {
+	return subjectNodePrefix + sanitizeSubjectToken(nodeID) + ".backend.list"
+}
+
+// BackendListRequest is the payload for a backend.list NATS request.
+type BackendListRequest struct{}
+
+// BackendListReply is the response from a backend.list NATS request.
+type BackendListReply struct {
+	Backends []NodeBackendInfo `json:"backends"`
+	Error    string            `json:"error,omitempty"`
+}
+
+// NodeBackendInfo describes a backend installed on a worker node.
+type NodeBackendInfo struct {
+	Name        string `json:"name"`
+	IsSystem    bool   `json:"is_system"`
+	IsMeta      bool   `json:"is_meta"`
+	InstalledAt string `json:"installed_at,omitempty"`
+	GalleryURL  string `json:"gallery_url,omitempty"`
+	// Version, URI and Digest enable cluster-wide upgrade detection —
+	// without them, the frontend cannot tell whether the installed OCI
+	// image matches the gallery entry, and upgrades silently never surface.
+	Version string `json:"version,omitempty"`
+	URI     string `json:"uri,omitempty"`
+	Digest  string `json:"digest,omitempty"`
+}
+
+// BackendStopRequest controls worker-side process shutdown. Force skips the
+// best-effort Free RPC so a backend stuck serving a request can still be
+// terminated by the watchdog.
+type BackendStopRequest struct {
+	Backend string `json:"backend"`
+	Force   bool   `json:"force,omitempty"`
+}
+
+// BackendStopReply is the worker's answer to a backend.stop request.
+//
+// backend.stop had no reply until this type existed. The controller published
+// and returned success as soon as the local publish succeeded, so a stop that
+// killed nothing, and a stop that failed outright, both looked identical to a
+// stop that worked. An operator calling the unload endpoint got HTTP 200 while
+// the backend kept running and holding its VRAM.
+type BackendStopReply struct {
+	Success bool   `json:"success"`
+	Error   string `json:"error,omitempty"`
+
+	// StoppedProcessKeys names every `modelID#replica` process the worker
+	// terminated while serving this request.
+	StoppedProcessKeys []string `json:"stopped_process_keys,omitempty"`
+
+	// ReportsStoppedProcesses distinguishes "this worker enumerates what it
+	// stopped and stopped nothing" from "this worker predates the field", the
+	// same way BackendDeleteReply does. Both send an empty list and only the
+	// first is authoritative, so a controller that cannot tell them apart would
+	// read silence as a completed stop — the exact conclusion this reply exists
+	// to prevent.
+	ReportsStoppedProcesses bool `json:"reports_stopped_processes,omitempty"`
+}
+
+// SubjectNodeBackendStop tells a worker node to stop its gRPC backend process.
+// Equivalent to the local deleteProcess(). The node will:
+// 1. Best-effort bounded Free() via gRPC (unless Force is true)
+// 2. Kill the backend process
+// 3. Can be restarted via another backend.start event.
+//
+// Request-reply, answered with a BackendStopReply. A worker that predates that
+// reply never answers, so the controller must treat a timeout as "unconfirmed"
+// rather than "failed" — see RemoteUnloaderAdapter.stopBackend.
+func SubjectNodeBackendStop(nodeID string) string {
+	return subjectNodePrefix + sanitizeSubjectToken(nodeID) + ".backend.stop"
+}
+
+// SubjectNodeModelStop targets one supervisor process and acknowledges only
+// after that process has exited and its worker-side resources are released.
+func SubjectNodeModelStop(nodeID string) string {
+	return subjectNodePrefix + sanitizeSubjectToken(nodeID) + ".model.stop"
+}
+
+type ModelStopRequest struct {
+	ModelName       string `json:"model_name"`
+	ProcessKey      string `json:"process_key"`
+	ExpectedAddress string `json:"expected_address"`
+	Force           bool   `json:"force,omitempty"`
+	ConfigRevision  string `json:"config_revision,omitempty"`
+}
+
+type ModelStopReply struct {
+	Matched    bool   `json:"matched"`
+	Freed      bool   `json:"freed"`
+	Terminated bool   `json:"terminated"`
+	ProcessKey string `json:"process_key"`
+	Address    string `json:"address,omitempty"`
+	Error      string `json:"error,omitempty"`
+}
+
+// SubjectNodeBackendDelete tells a worker node to delete a backend (stop + remove files).
+// Uses NATS request-reply.
+func SubjectNodeBackendDelete(nodeID string) string {
+	return subjectNodePrefix + sanitizeSubjectToken(nodeID) + ".backend.delete"
+}
+
+// BackendDeleteRequest is the payload for a backend.delete NATS request.
+type BackendDeleteRequest struct {
+	Backend string `json:"backend"`
+}
+
+// BackendDeleteReply is the response from a backend.delete NATS request.
+type BackendDeleteReply struct {
+	Success bool   `json:"success"`
+	Error   string `json:"error,omitempty"`
+
+	// StoppedProcessKeys names every `modelID#replica` process the worker
+	// terminated while serving this delete. Stopping a process returns its gRPC
+	// port to the worker's allocator, so any NodeModel row still pointing at
+	// that address becomes a live misroute the moment an unrelated backend
+	// binds the recycled port: probeHealth verifies liveness, not identity, so
+	// the request is served by the wrong backend rather than failing. The
+	// controller uses these keys to drop the rows eagerly.
+	StoppedProcessKeys []string `json:"stopped_process_keys,omitempty"`
+
+	// ReportsStoppedProcesses distinguishes "this worker enumerates what it
+	// stopped and stopped nothing" from "this worker predates the field". Both
+	// send an empty list, and only the first is authoritative. Without this
+	// flag a controller cannot tell them apart and would eventually be tempted
+	// to read silence as a completed cleanup, which is precisely the wrong
+	// conclusion against an older worker.
+	ReportsStoppedProcesses bool `json:"reports_stopped_processes,omitempty"`
+}
+
+// SubjectNodeModelUnload tells a worker node to unload a model (gRPC Free) without killing the backend.
+// Uses NATS request-reply.
+func SubjectNodeModelUnload(nodeID string) string {
+	return subjectNodePrefix + sanitizeSubjectToken(nodeID) + ".model.unload"
+}
+
+// ModelUnloadRequest is the payload for a model.unload NATS request.
+type ModelUnloadRequest struct {
+	ModelName string `json:"model_name"`
+	Address   string `json:"address,omitempty"` // gRPC address of the backend process to unload from
+}
+
+// ModelUnloadReply is the response from a model.unload NATS request.
+type ModelUnloadReply struct {
+	Success bool   `json:"success"`
+	Error   string `json:"error,omitempty"`
+}
+
+// SubjectNodeModelDelete tells a worker node to delete model files from disk.
+// Uses NATS request-reply.
+func SubjectNodeModelDelete(nodeID string) string {
+	return subjectNodePrefix + sanitizeSubjectToken(nodeID) + ".model.delete"
+}
+
+// ModelDeleteRequest is the payload for a model.delete NATS request.
+type ModelDeleteRequest struct {
+	ModelName string `json:"model_name"`
+}
+
+// ModelDeleteReply is the response from a model.delete NATS request.
+type ModelDeleteReply struct {
+	Success bool   `json:"success"`
+	Error   string `json:"error,omitempty"`
+}
+
+// SubjectNodeModelsRunning asks a worker node which model backend processes it
+// currently has running. Uses NATS request-reply.
+//
+// This is the authoritative answer to "is this replica still alive". The worker
+// owns the process table, so unlike a health probe against the backend's own
+// serving port, its reply does not depend on whether that backend happens to be
+// busy: a model mid-generation cannot answer a gRPC health check for minutes at
+// a time, but the worker answers immediately either way.
+func SubjectNodeModelsRunning(nodeID string) string {
+	return subjectNodePrefix + sanitizeSubjectToken(nodeID) + ".models.running"
+}
+
+// ModelsRunningRequest is the payload for a models.running NATS request.
+type ModelsRunningRequest struct{}
+
+// ModelsRunningReply is the response from a models.running NATS request.
+type ModelsRunningReply struct {
+	Models []RunningModelInfo `json:"models"`
+	Error  string             `json:"error,omitempty"`
+}
+
+// RunningModelInfo identifies one live backend process on a worker. The triple
+// is isomorphic to a controller NodeModel row's (model_name, replica_index,
+// address), which is what lets the reconciler diff the two directly.
+type RunningModelInfo struct {
+	ModelID      string `json:"model_id"`
+	ReplicaIndex int    `json:"replica_index"`
+	Address      string `json:"address,omitempty"`
+}
+
+// SubjectNodeStop tells a serve-backend node to shut down entirely
+// (deregister + exit). The node will not restart the backend process.
+func SubjectNodeStop(nodeID string) string {
+	return subjectNodePrefix + sanitizeSubjectToken(nodeID) + ".stop"
+}
+
+// File Staging (Request-Reply — targeted to specific nodes)
+// These subjects use request-reply for synchronous file operations.
+
+// SubjectNodeFilesEnsure tells a serve-backend node to download an S3 key to its local cache.
+// Reply: {local_path, error}
+func SubjectNodeFilesEnsure(nodeID string) string {
+	return subjectNodePrefix + sanitizeSubjectToken(nodeID) + ".files.ensure"
+}
+
+// SubjectNodeFilesStage tells a serve-backend node to upload a local file to S3.
+// Reply: {key, error}
+func SubjectNodeFilesStage(nodeID string) string {
+	return subjectNodePrefix + sanitizeSubjectToken(nodeID) + ".files.stage"
+}
+
+// SubjectNodeFilesRelease tells a serve-backend node to evict one request's ephemeral cache keys.
+// Reply: {error}
+func SubjectNodeFilesRelease(nodeID string) string {
+	return subjectNodePrefix + sanitizeSubjectToken(nodeID) + ".files.release"
+}
+
+// SubjectNodeFilesTemp tells a serve-backend node to allocate a temp file.
+// Reply: {local_path, error}
+func SubjectNodeFilesTemp(nodeID string) string {
+	return subjectNodePrefix + sanitizeSubjectToken(nodeID) + ".files.temp"
+}
+
+// SubjectNodeFilesListDir tells a serve-backend node to list files in a directory.
+// Reply: {files: [...], error}
+func SubjectNodeFilesListDir(nodeID string) string {
+	return subjectNodePrefix + sanitizeSubjectToken(nodeID) + ".files.listdir"
+}
+
+// Cache Invalidation (Pub/Sub — broadcast to all instances)
+const (
+	SubjectCacheInvalidateSkills = "cache.invalidate.skills"
+	// SubjectCacheInvalidateModels is broadcast by the replica that completed
+	// a model install/delete. Peers subscribe and re-run
+	// ModelConfigLoader.LoadModelConfigsFromPath so a chat completion routed
+	// to a different replica can find the newly installed model.
+	SubjectCacheInvalidateModels = "cache.invalidate.models"
+	// SubjectCacheInvalidateBackends is broadcast after a backend
+	// install/upgrade/delete. Peers retrigger their UpgradeChecker so the
+	// 6-hour upgrade-available cache flips to fresh on every replica, not
+	// just the one that handled the request.
+	SubjectCacheInvalidateBackends = "cache.invalidate.backends"
+)
+
+// CacheInvalidateEvent is the payload for cache invalidation broadcasts.
+// Element names a specific model/backend when known; empty means "the whole
+// set was touched, do a full reload."
+type CacheInvalidateEvent struct {
+	Element        string `json:"element,omitempty"`
+	Op             string `json:"op,omitempty"` // "install" | "delete" | "upgrade"
+	ConfigRevision string `json:"config_revision,omitempty"`
+}
+
+// SubjectCacheInvalidateCollection returns the NATS subject for collection cache invalidation.
+func SubjectCacheInvalidateCollection(name string) string {
+	return "cache.invalidate.collections." + sanitizeSubjectToken(name)
+}
+
+// SyncedMap State Sync (Pub/Sub — broadcast to all frontends)
+//
+// The reusable syncstate.SyncedMap component publishes a {op,key,value} delta on
+// this subject whenever a replica mutates a piece of cross-replica in-memory
+// state. Peers subscribe and apply the delta to their own map, so a round-robin
+// API request that lands on a replica which did not originate the change still
+// sees it. Convergence on (re)connect is done by re-hydrating from the durable
+// source, so no request/reply snapshot subject is needed here.
+func SubjectSyncStateDelta(name string) string {
+	return subjectSyncStatePrefix + sanitizeSubjectToken(name) + ".delta"
+}
+
+const subjectSyncStatePrefix = "state."
+
+// Prefix-Cache Routing Sync (Pub/Sub - broadcast to all frontends)
+//
+// Frontends share prefix-cache observations so a request routed to any replica
+// benefits from the prefix-affinity another replica already learned. This
+// mirrors the OpCache live-sync pattern: plain NATS Core pub/sub, no JetStream.
+const (
+	SubjectPrefixCacheObserve    = "prefixcache.observe"
+	SubjectPrefixCacheInvalidate = "prefixcache.invalidate"
+	SubjectPrefixCachePressure   = "prefixcache.pressure"
+	SubjectPrefixCacheResidency  = "prefixcache.residency"
+)
+
+// PrefixCacheOperation describes a backend-reported KV-cache residency change.
+type PrefixCacheOperation string
+
+const (
+	PrefixCacheStore  PrefixCacheOperation = "store"
+	PrefixCacheRemove PrefixCacheOperation = "remove"
+	PrefixCacheClear  PrefixCacheOperation = "clear"
+)
+
+// PrefixCacheResidencyEvent reports exact backend KV-cache residency. Chain is
+// the compatible shallow-to-deep prefix hash chain used by the router.
+type PrefixCacheResidencyEvent struct {
+	Operation PrefixCacheOperation `json:"operation"`
+	Model     string               `json:"model"`
+	NodeID    string               `json:"node_id"`
+	Replica   int                  `json:"replica"`
+	Chain     []uint64             `json:"chain,omitempty"`
+}
+
+// PrefixCacheObserveEvent announces that the replica (NodeID, Replica) served a
+// request whose prefix chain ends at the given hashes for model. Chain is the
+// full shallow-to-deep hash chain so peers can insert the same path. Affinity is
+// per replica (a backend process with its own KV cache), not per node, so the
+// replica index is carried so peers attribute the observation to the same one.
+type PrefixCacheObserveEvent struct {
+	Model   string   `json:"model"`
+	Chain   []uint64 `json:"chain"`
+	NodeID  string   `json:"node_id"`
+	Replica int      `json:"replica"`
+}
+
+// PrefixCacheInvalidateEvent tells peers to drop entries for a replica. When
+// Replica >= 0 it targets the single replica (Model, NodeID, Replica). When
+// Replica < 0 it targets ALL replicas of (Model, NodeID), for example when a
+// whole node goes offline.
+type PrefixCacheInvalidateEvent struct {
+	Model   string `json:"model"`
+	NodeID  string `json:"node_id"`
+	Replica int    `json:"replica"`
+}
+
+// PrefixCachePressureEvent announces one forced-disturb observed by a frontend.
+// ID lets the publisher ignore its own NATS echo and all frontends ignore
+// redelivery without inflating the autoscale signal.
+type PrefixCachePressureEvent struct {
+	ID    string `json:"id"`
+	Model string `json:"model"`
+	Reset bool   `json:"reset,omitempty"`
+}

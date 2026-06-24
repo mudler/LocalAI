@@ -1,0 +1,5 @@
+grpcio==1.71.0
+protobuf
+certifi
+packaging==24.1
+https://github.com/KittenML/KittenTTS/releases/download/0.1/kittentts-0.1.0-py3-none-any.whl

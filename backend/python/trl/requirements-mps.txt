@@ -1,0 +1,12 @@
+torch==2.10.0
+trl
+peft
+datasets>=3.0.0
+transformers>=4.56.2
+accelerate>=1.4.0
+huggingface-hub>=1.3.0
+sentencepiece
+# Note: bitsandbytes is intentionally omitted on MPS. It is only used by the
+# CUDA (cublas) variants for 8-bit/4-bit quantization and has poor support on
+# Apple Silicon. torch here uses the plain PyPI wheels, which ship MPS support
+# on macOS arm64.

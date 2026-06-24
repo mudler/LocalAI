@@ -1,0 +1,8 @@
+# .air.toml
+[build]
+cmd = "make build"
+bin = "./local-ai"
+args_bin = [ "--debug" ]
+include_ext = ["go", "html", "yaml", "toml", "json", "txt", "md"]
+exclude_dir = ["pkg/grpc/proto"]
+delay = 1000

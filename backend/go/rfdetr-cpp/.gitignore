@@ -1,0 +1,7 @@
+sources/
+build*/
+package/
+librfdetrcpp*.so
+rfdetr-cpp
+test-models/
+test-data/

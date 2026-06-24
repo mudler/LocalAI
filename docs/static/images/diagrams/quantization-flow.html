@@ -1,0 +1,180 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700;12..96,800&family=Archivo:wght@500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#F3E8D2; --paper2:#ECDFC2; --ink:#211C14; --ink-soft:#5A5142;
+    --rust:#B43A2C; --rust-deep:#8F2C20; --cold:#3F6E73; --hi:#E7D6AE; --dim:#A99F88;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{width:1600px;height:900px}
+  body{
+    background:var(--paper);color:var(--ink);font-family:"Archivo",sans-serif;
+    position:relative;overflow:hidden;
+    background-image:
+      linear-gradient(var(--paper2) 1px,transparent 1px),
+      linear-gradient(90deg,var(--paper2) 1px,transparent 1px);
+    background-size:40px 40px;
+  }
+  .frame{position:absolute;inset:26px;border:3px solid var(--ink);}
+  .wrap{position:absolute;inset:26px;padding:30px 56px 26px;display:flex;flex-direction:column}
+  header{display:flex;align-items:flex-end;justify-content:space-between;gap:30px}
+  .eyebrow{font-weight:700;letter-spacing:.22em;text-transform:uppercase;font-size:17px;color:var(--rust-deep)}
+  .eyebrow b{color:var(--ink)}
+  h1{font-family:"Bricolage Grotesque",sans-serif;font-weight:800;font-size:50px;line-height:.98;letter-spacing:-.015em;margin-top:6px}
+  h1 em{font-style:normal;color:var(--rust)}
+  .stamp{border:3px solid var(--ink);padding:10px 16px 8px;transform:rotate(3deg);text-align:center;background:var(--paper);box-shadow:6px 6px 0 var(--ink);flex:none}
+  .stamp .k{font-family:"Bricolage Grotesque";font-weight:800;font-size:21px;letter-spacing:.04em;line-height:1.05}
+  .stamp .s{font-weight:700;font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--ink-soft);margin-top:5px}
+  .stage{flex:1;margin-top:8px}
+  svg{width:100%;height:100%;overflow:visible}
+  footer{display:flex;align-items:center;justify-content:space-between;margin-top:6px;gap:24px}
+  .note{font-weight:600;font-size:18px;color:var(--ink-soft);line-height:1.3;max-width:1080px}
+  .note b{color:var(--ink)}
+  .url{font-family:"Bricolage Grotesque";font-weight:800;font-size:22px;color:var(--rust-deep);letter-spacing:.01em;flex:none}
+  .url span{color:var(--ink)}
+</style>
+</head>
+<body>
+  <div class="frame"></div>
+  <div class="wrap">
+    <header>
+      <div>
+        <div class="eyebrow">LocalAI <b>&middot;</b> Quantization</div>
+        <h1>From HF model to <em>quantized GGUF</em></h1>
+      </div>
+      <div class="stamp">
+        <div class="k">GGUF</div>
+        <div class="s">q4..q8</div>
+      </div>
+    </header>
+    <div class="stage"><svg viewBox="0 0 1480 560" id="svg"></svg></div>
+    <footer>
+      <div class="note">Convert first, then quantize - <b>tracked as a job from queued to completed.</b></div>
+      <div class="url">localai.io<span>/features/quantization</span></div>
+    </footer>
+  </div>
+<script>
+const INK="#211C14", PAPER="#F3E8D2", PAPER2="#ECDFC2", HI="#E7D6AE", SOFT="#5A5142", RUST="#B43A2C", RUSTD="#8F2C20", COLD="#3F6E73", DIM="#A99F88";
+function el(t,a,x){const e=document.createElementNS("http://www.w3.org/2000/svg",t);for(const k in a)e.setAttribute(k,a[k]);if(x!=null)e.textContent=x;return e;}
+const svg=document.getElementById("svg");
+function shadowRect(x,y,w,h,fill,stroke,sw,dash){
+  svg.appendChild(el("rect",{x:x+7,y:y+7,width:w,height:h,fill:INK}));
+  svg.appendChild(el("rect",{x,y,width:w,height:h,fill,stroke:stroke||INK,"stroke-width":sw||3.5,"stroke-dasharray":dash||"none"}));
+}
+function txt(x,y,s,o){o=o||{};svg.appendChild(el("text",{x,y,"font-family":o.f||"Archivo","font-weight":o.w||700,"font-size":o.sz||15,"letter-spacing":o.ls||"0","text-anchor":o.a||"start",fill:o.fill||INK},s));}
+function arrow(x1,y1,x2,y2,color,dash){
+  const mx=(x1+x2)/2;
+  svg.appendChild(el("path",{d:`M ${x1} ${y1} C ${mx} ${y1}, ${mx} ${y2}, ${x2-11} ${y2}`,fill:"none",stroke:color,"stroke-width":3.5,"stroke-linecap":"round","stroke-dasharray":dash||"none"}));
+  const a=7;
+  svg.appendChild(el("path",{d:`M ${x2-11} ${y2} l -${a+4} -${a} M ${x2-11} ${y2} l -${a+4} ${a}`,fill:"none",stroke:color,"stroke-width":3.5,"stroke-linecap":"round"}));
+}
+
+// ===================== PIPELINE (top) =====================
+txt(20,40,"PIPELINE",{w:700,sz:14,ls:".2em",fill:SOFT});
+
+const PY=70, PH=150;
+// box geometry
+const boxes=[
+  {x:20,   w:250, fill:PAPER2, title:"HF model",       sub:"safetensors · repo",   bar:null},
+  {x:360,  w:250, fill:HI,     title:"f16 GGUF",        sub:"converted weights",    bar:"CONVERT"},
+  {x:700,  w:250, fill:HI,     title:"quantize",        sub:"reduce precision",     bar:"QUANTIZE"},
+  {x:1040, w:420, fill:PAPER,  title:"GGUF",            sub:"quantized output",     bar:"OUTPUT", emph:true},
+];
+
+boxes.forEach((b)=>{
+  if(b.emph){
+    shadowRect(b.x,PY,b.w,PH,PAPER,RUST,4.5);
+  } else {
+    shadowRect(b.x,PY,b.w,PH,b.fill);
+  }
+  // tiny tag bar at top-left
+  if(b.bar){
+    const tw=b.bar.length*9.2+22, th=24;
+    svg.appendChild(el("rect",{x:b.x+18,y:PY+18,width:tw,height:th,fill:PAPER,stroke:b.emph?RUSTD:INK,"stroke-width":2}));
+    txt(b.x+18+tw/2,PY+18+17,b.bar,{w:700,sz:11,ls:".08em",a:"middle",fill:b.emph?RUSTD:RUSTD});
+  }
+  txt(b.x+22,PY+92,b.title,{f:"Bricolage Grotesque",w:800,sz:30,fill:b.emph?RUST:INK});
+  if(b.sub) txt(b.x+22,PY+122,b.sub,{w:700,sz:15,fill:SOFT});
+});
+
+// quant chips inside output box (2 x 2 grid so they stay inside the frame)
+const chips=["q4_k","q5_k","q6_k","q8_0"];
+const chipW=80, chipH=38, chipGapX=14, chipGapY=12;
+const chipX0=1040+200, chipY0=PY+30;
+chips.forEach((c,i)=>{
+  const col=i%2, rowi=Math.floor(i/2);
+  const cx=chipX0+col*(chipW+chipGapX);
+  const cy=chipY0+rowi*(chipH+chipGapY);
+  svg.appendChild(el("rect",{x:cx,y:cy,width:chipW,height:chipH,fill:HI,stroke:INK,"stroke-width":2.5}));
+  txt(cx+chipW/2,cy+25,c,{f:"Bricolage Grotesque",w:800,sz:18,a:"middle"});
+});
+
+// pipeline arrows (between boxes). label the download leg.
+const midY=PY+PH/2;
+function legArrow(x1,x2,label,dash,color){
+  arrow(x1,midY,x2,midY,color||INK,dash);
+  if(label){
+    const cx=(x1+x2)/2;
+    txt(cx,midY-16,label,{w:700,sz:13,ls:".06em",a:"middle",fill:SOFT});
+  }
+}
+legArrow(270,360,"DOWNLOAD","2 8");
+legArrow(610,700,null);
+legArrow(950,1040,null,null,RUST);
+
+// ===================== STATE STRIP (bottom) =====================
+const SY=360;
+txt(20,SY-18,"JOB STATUS",{w:700,sz:14,ls:".2em",fill:SOFT});
+
+// draw a state pill
+function pill(x,y,w,h,label,opt){
+  opt=opt||{};
+  svg.appendChild(el("rect",{x:x+5,y:y+5,width:w,height:h,fill:INK}));
+  svg.appendChild(el("rect",{x,y,width:w,height:h,fill:opt.fill||PAPER2,stroke:opt.stroke||INK,"stroke-width":opt.sw||3,"stroke-dasharray":opt.dash||"none"}));
+  txt(x+w/2,y+h/2+6,label,{f:"Bricolage Grotesque",w:700,sz:16,a:"middle",fill:opt.tcol||INK});
+}
+// straight connector with arrowhead
+function flatArrow(x1,y1,x2,y2,color,dash){
+  svg.appendChild(el("path",{d:`M ${x1} ${y1} L ${x2-11} ${y2}`,fill:"none",stroke:color,"stroke-width":3,"stroke-linecap":"round","stroke-dasharray":dash||"none"}));
+  const a=6;
+  svg.appendChild(el("path",{d:`M ${x2-11} ${y2} l -${a+4} -${a} M ${x2-11} ${y2} l -${a+4} ${a}`,fill:"none",stroke:color,"stroke-width":3,"stroke-linecap":"round"}));
+}
+
+const states=["queued","downloading","converting","quantizing","completed"];
+const stH=54, stY=SY+8, gap=44;
+let stW=[150,190,178,178,168];
+let sx=20;
+let centers=[];
+states.forEach((s,i)=>{
+  const w=stW[i];
+  const isDone=(s==="completed");
+  pill(sx,stY,w,stH,s,{fill:isDone?RUST:PAPER2,tcol:isDone?PAPER:INK,stroke:isDone?RUSTD:INK});
+  centers.push({x:sx,w:w,cx:sx+w/2});
+  sx+=w+gap;
+});
+// arrows between states
+for(let i=0;i<states.length-1;i++){
+  const a=centers[i], b=centers[i+1];
+  flatArrow(a.x+a.w, stY+stH/2, b.x, stY+stH/2, INK);
+}
+
+// offshoot states: failed / stopped (cold teal), branching down from "quantizing"
+const branchFrom = centers[3]; // quantizing
+const offY = stY+stH+58;
+const offW=132, offH=44;
+const failedX = branchFrom.cx-offW-24;
+const stoppedX = branchFrom.cx+24;
+pill(failedX,offY,offW,offH,"failed",{fill:PAPER,stroke:COLD,sw:3,tcol:COLD,dash:"4 6"});
+pill(stoppedX,offY,offW,offH,"stopped",{fill:PAPER,stroke:COLD,sw:3,tcol:COLD,dash:"4 6"});
+// teal connectors from the running states down to offshoots
+flatArrow(branchFrom.cx-10, stY+stH, failedX+offW-20, offY, COLD, "4 6");
+flatArrow(branchFrom.cx+10, stY+stH, stoppedX+20, offY, COLD, "4 6");
+txt(branchFrom.cx, offY+offH+34, "any running state can fail or be stopped",{w:600,sz:14,a:"middle",fill:COLD});
+</script>
+</body>
+</html>

@@ -1,0 +1,2 @@
+git+https://github.com/Blaizzy/mlx-audio
+mlx[cuda13]

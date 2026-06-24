@@ -1,0 +1,124 @@
+{
+  "title": "Impor model",
+  "subtitle": {
+    "source": "Tempel referensi Hugging Face, URL, atau path di host ini.",
+    "yaml": "Tulis konfigurasi model secara manual. Tidak ada yang dideteksi otomatis."
+  },
+  "tabs": {
+    "ariaLabel": "Jenis impor",
+    "source": "Dari sumber",
+    "yaml": "Tulis YAML"
+  },
+  "actions": {
+    "import": "Impor",
+    "importing": "Mengimpor…",
+    "create": "Buat",
+    "saving": "Menyimpan...",
+    "browseHF": "Jelajahi model di Hugging Face",
+    "addCustom": "Tambah kustom",
+    "copy": "Salin"
+  },
+  "form": {
+    "modelUri": "Sumber",
+    "uriPlaceholder": "huggingface://TheBloke/Llama-2-7B-Chat-GGUF atau https://example.com/model.gguf",
+    "uriHint": "Tekan Enter untuk mengimpor. LocalAI memilih backend dari sumber kecuali Anda memilih sendiri.",
+    "supportedFormats": "Yang bisa Anda tempel",
+    "options": "Opsi impor",
+    "customPreferences": "Preferensi kustom",
+    "customKeyValueHint": "Tambahkan pasangan key-value tersuai untuk konfigurasi tingkat lanjutan.",
+    "preferenceKey": "Key preferensi untuk baris {{index}}",
+    "preferenceValue": "Nilai preferensi untuk baris {{index}}",
+    "removePref": "Hapus preferensi ini",
+    "key": "Key",
+    "value": "Value",
+    "backend": "Backend",
+    "backendAuto": "Deteksi otomatis (berdasarkan URI)",
+    "backendLoading": "Memuat backend…",
+    "backendSearch": "Cari backend...",
+    "backendHint": "Persempit daftar berdasarkan fungsi model, lalu pilih satu. Jika dibiarkan pada deteksi otomatis, LocalAI yang menentukan. Entri bertanda \"pilih manual\" tidak pernah dideteksi otomatis.",
+    "backendErrorHint": "Tidak dapat memuat daftar backend. Hanya deteksi otomatis.",
+    "backendNotInstalled": "Backend ini belum terinstal. Proses impor akan mengunduhnya terlebih dahulu.",
+    "modelName": "Nama",
+    "modelNamePlaceholder": "Kosongkan untuk menggunakan nama file",
+    "modelNameHint": "Nama tersuai untuk model. Jika kosong, nama file akan digunakan.",
+    "description": "Deskripsi",
+    "descriptionPlaceholder": "Kosongkan untuk menggunakan deskripsi bawaan",
+    "descriptionHint": "Deskripsi tersuai untuk model.",
+    "quantizations": "Kuantisasi",
+    "quantizationsPlaceholder": "q4_k_m,q4_k_s,q3_k_m (dipisahkan koma)",
+    "quantizationsHint": "Kuantisasi pilihan (dipisahkan koma). Kosongkan untuk nilai bawaan (q4_k_m).",
+    "mmprojQuantizations": "Kuantisasi MMProj",
+    "mmprojQuantizationsPlaceholder": "fp16,fp32 (dipisahkan koma)",
+    "mmprojQuantizationsHint": "Kuantisasi MMProj pilihan. Kosongkan untuk nilai bawaan (fp16).",
+    "embeddings": "Embedding",
+    "embeddingsHint": "Aktifkan dukungan embedding untuk model ini.",
+    "modelType": "Tipe model",
+    "modelTypePlaceholder": "AutoModelForCausalLM (untuk backend transformers)",
+    "modelTypeHint": "Tipe model untuk backend transformers. Contoh: AutoModelForCausalLM, SentenceTransformer, Mamba.",
+    "pipelineType": "Tipe pipeline",
+    "pipelineTypeHint": "Tipe pipeline untuk backend diffusers.",
+    "schedulerType": "Tipe scheduler",
+    "schedulerTypePlaceholder": "k_dpmpp_2m (optional)",
+    "schedulerTypeHint": "Tipe scheduler untuk backend diffusers. Contoh: k_dpmpp_2m, euler_a, ddim.",
+    "enableParameters": "Parameter yang diaktifkan",
+    "enableParametersPlaceholder": "negative_prompt,num_inference_steps (dipisahkan koma)",
+    "enableParametersHint": "Parameter aktif untuk backend diffusers (dipisahkan koma).",
+    "cuda": "CUDA",
+    "cudaHint": "Aktifkan dukungan CUDA untuk akselerasi GPU.",
+    "yamlEditor": "Konfigurasi model",
+    "manualPick": "pilih manual",
+    "manualPickTooltip": "Deteksi otomatis tidak akan merutekan ke backend ini. Pilih di sini jika Anda tahu bahwa ini yang Anda inginkan.",
+    "optionsSummary": "backend, nama, deskripsi, kuantisasi…",
+    "modalityAny": "Semua",
+    "modalityFilter": "Saring backend menurut modalitas"
+  },
+  "modality": {
+    "text": "LLM Teks",
+    "asr": "Pengenalan suara",
+    "tts": "Text-to-speech",
+    "image": "Gambar / Video",
+    "video": "Pembuatan video",
+    "embeddings": "Embedding",
+    "reranker": "Reranker",
+    "detection": "Deteksi object",
+    "vad": "Deteksi aktivitas suara",
+    "other": "Lainnya"
+  },
+  "estimate": {
+    "downloadLabel": "Unduhan",
+    "vramLabel": "VRAM saat dimuat"
+  },
+  "progress": {
+    "label": "Kemajuan impor",
+    "working": "Memproses…"
+  },
+  "toasts": {
+    "noUri": "Silahkan masukkan URI model",
+    "noYaml": "Silahkan masukkan konfigurasi YAML",
+    "started": "Impor dimulai. Kemajuan ditampilkan di bawah.",
+    "imported": "Model berhasil diimpor!",
+    "importedYaml": "Konfigurasi model berhasil diimpor!",
+    "importFailed": "Gagal mengimpor: {{message}}",
+    "startImportFailed": "Gagal memulai impor: {{message}}",
+    "backendsLoadFailed": "Tidak dapat memuat daftar backend — hanya menggunakan deteksi otomatis.",
+    "modalityClearedBackend": "Pilihan backend dikosongkan — tidak termasuk dalam grup {{label}}.",
+    "copied": "Disalin ke papan klip"
+  },
+  "uriFormats": {
+    "huggingface": {
+      "title": "Hugging Face"
+    },
+    "http": {
+      "title": "URL langsung"
+    },
+    "local": {
+      "title": "Di host ini"
+    },
+    "oci": {
+      "title": "Registry OCI"
+    },
+    "ollama": {
+      "title": "Ollama"
+    }
+  }
+}

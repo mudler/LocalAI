@@ -1,0 +1,5 @@
+# Build dependencies needed for packages installed from source (e.g., git dependencies)
+# When using --no-build-isolation, these must be installed in the venv first
+wheel
+setuptools
+packaging

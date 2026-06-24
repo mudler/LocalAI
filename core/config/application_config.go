@@ -1,0 +1,1219 @@
+package config
+
+import (
+	"context"
+	"encoding/json"
+	"regexp"
+	"time"
+
+	"github.com/mudler/LocalAI/pkg/modelartifacts"
+	"github.com/mudler/LocalAI/pkg/system"
+	"github.com/mudler/LocalAI/pkg/vrambudget"
+	"github.com/mudler/LocalAI/pkg/xsysinfo"
+	"github.com/mudler/xlog"
+)
+
+type ApplicationConfig struct {
+	Context          context.Context
+	ConfigFile       string
+	SystemState      *system.SystemState
+	ExternalBackends []string
+
+	// ModelArtifactMaterializer is a controller-only acquisition capability.
+	// It is excluded from serialization so credentials captured by its concrete
+	// implementation cannot enter persisted settings or distributed payloads.
+	ModelArtifactMaterializer ArtifactMaterializer `json:"-" yaml:"-"`
+	ModelPreloadRenderMode    string               `json:"-" yaml:"-"`
+	DisableModelPreloadColor  bool                 `json:"-" yaml:"-"`
+
+	// WebRTCNAT1To1IPs, when set, are advertised as the host ICE candidates for
+	// /v1/realtime WebRTC instead of every local interface address. Needed when
+	// the routable address differs from what pion gathers — e.g. Docker host
+	// networking (where pion also offers unreachable bridge IPs) or NAT.
+	WebRTCNAT1To1IPs []string
+	// WebRTCICEInterfaces, when set, restricts ICE candidate gathering to these
+	// network interfaces (e.g. eth0), filtering out docker0/veth noise.
+	WebRTCICEInterfaces []string
+	// WebRTCUDPPort, when positive, is the shared UDP port used by all WebRTC
+	// peer connections. Zero keeps pion's default ephemeral-port behavior.
+	WebRTCUDPPort                       int
+	UploadLimitMB, Threads, ContextSize int
+	ArtifactDownloadConcurrency         int
+	F16                                 bool
+	Debug                               bool
+	EnableTracing                       bool
+	MaxConcurrentBackendRequests        int
+	TracingMaxItems                     int
+	TracingMaxBodyBytes                 int // Per-body cap for captured request/response bodies; 0 disables the cap
+	EnableBackendLogging                bool
+	GeneratedContentDir                 string
+
+	UploadDir string
+	DataPath  string // Persistent data directory for collectiondb, agents, etc.
+
+	DynamicConfigsDir             string
+	DynamicConfigsDirPollInterval time.Duration
+	CORS                          bool
+	DisableCSRF                   bool
+	// DisableHTTPCompression turns off the gzip response middleware. Gzip is
+	// on by default because the React UI bundle and the admin JSON APIs are
+	// text-heavy; turn it off only when a fronting proxy already compresses.
+	DisableHTTPCompression bool
+	// HTTPCompressionMinLength is the response-size floor (bytes) below which
+	// gzip is skipped. 0 keeps middleware.DefaultCompressionMinLength.
+	HTTPCompressionMinLength int
+	PreloadJSONModels        string
+	PreloadModelsFromPath    string
+	CORSAllowOrigins         string
+	ApiKeys                  []string
+	P2PToken                 string
+	P2PNetworkID             string
+	Federated                bool
+
+	// ExternalBaseURL is the externally visible base URL of this instance
+	// (scheme+host[:port]), set via LOCALAI_BASE_URL. When non-empty it is
+	// authoritative for every self-referential URL LocalAI emits (OAuth
+	// callbacks, generated image/video links, async job StatusURLs),
+	// overriding proxy-header detection. Empty = derive from request headers.
+	ExternalBaseURL string
+
+	// DisableStats turns off per-request token tracking. By default the
+	// routing module's billing recorder runs in every mode (including
+	// no-auth single-user) so dashboards and `/api/usage` are immediately
+	// useful; set this to opt out of that, e.g., for ephemeral CI runs
+	// or privacy-strict deployments where no token-count history should
+	// touch disk or memory.
+	DisableStats bool
+
+	// MITMListen is the address (host:port) the cloudproxy MITM
+	// listener binds on. Empty disables the MITM proxy entirely.
+	// Use case: redacting PII from Claude Code / Codex CLI traffic
+	// without LocalAI holding the upstream API key. Clients set
+	// HTTPS_PROXY=http://localai:port and trust the CA cert
+	// LocalAI exposes at /api/middleware/proxy-ca.crt.
+	MITMListen string
+
+	// PIIDefaultDetectors lists token-classification (NER) detector model
+	// names applied to any PII-enabled model that does not name its own
+	// pii.detectors. This makes cloud-proxy / MITM redaction work out of the
+	// box (those default to PII-enabled but carry no detector list) and lets
+	// an operator set one detector for the whole instance. Set at runtime via
+	// POST /api/settings; read live by Application.ResolvePIIPolicy.
+	PIIDefaultDetectors []string
+
+	// MITMCADir holds the persisted MITM proxy CA cert and private
+	// key. The CA is generated on first start; subsequent starts
+	// reload it so clients keep trusting the same root. The key
+	// file is mode 0600.
+	MITMCADir string
+
+	DisableWebUI                       bool
+	OllamaAPIRootEndpoint              bool
+	EnforcePredownloadScans            bool
+	OpaqueErrors                       bool
+	UseSubtleKeyComparison             bool
+	DisableApiKeyRequirementForHttpGet bool
+	DisableMetrics                     bool
+	HttpGetExemptedEndpoints           []*regexp.Regexp
+	DisableGalleryEndpoint             bool
+	DisableMCP                         bool
+	LoadToMemory                       []string
+
+	Galleries        []Gallery
+	BackendGalleries []Gallery
+
+	ExternalGRPCBackends map[string]string
+
+	AutoloadGalleries, AutoloadBackendGalleries bool
+	VRAMPersistentCache                         bool
+	AutoUpgradeBackends                         bool
+	PreferDevelopmentBackends                   bool
+
+	// RequireBackendIntegrity promotes a missing SHA256 (tarball/HTTP URIs)
+	// or missing verification policy (OCI URIs) from a warning to a hard
+	// failure during backend install/upgrade. Off by default to keep
+	// upgrades non-breaking; operators opt in explicitly via
+	// --require-backend-integrity / LOCALAI_REQUIRE_BACKEND_INTEGRITY.
+	RequireBackendIntegrity bool
+
+	SingleBackend     bool // Deprecated: use MaxActiveBackends = 1 instead
+	MaxActiveBackends int  // Maximum number of active backends (0 = unlimited, 1 = single backend mode)
+	WatchDogIdle      bool
+	WatchDogBusy      bool
+	WatchDog          bool
+
+	// Memory Reclaimer settings (works with GPU if available, otherwise RAM)
+	MemoryReclaimerEnabled   bool    // Enable memory threshold monitoring
+	MemoryReclaimerThreshold float64 // Threshold 0.0-1.0 (e.g., 0.95 = 95%)
+
+	// VRAMBudget optionally caps how much VRAM this instance uses for model
+	// allocation, as "80%" or "12GB". Empty = use full detected VRAM.
+	VRAMBudget string
+
+	// Eviction settings
+	ForceEvictionWhenBusy    bool          // Force eviction even when models have active API calls (default: false for safety)
+	SizeAwareEviction        bool          // Evict largest models first rather than least-recently-used (default: false)
+	LRUEvictionMaxRetries    int           // Maximum number of retries when waiting for busy models to become idle (default: 30)
+	LRUEvictionRetryInterval time.Duration // Interval between retries when waiting for busy models (default: 1s)
+
+	// ModelLoadFailureCooldown is the base cooldown applied after a model load
+	// fails: new load attempts for that model are refused (HTTP 503 + Retry-After)
+	// until it elapses, doubling per consecutive failure up to a 5m cap and reset
+	// on success. Prevents a client polling a broken model from respawning a
+	// crashing backend on every request. 0 disables it. Default: 10s.
+	ModelLoadFailureCooldown time.Duration
+
+	ModelsURL []string
+
+	WatchDogBusyTimeout, WatchDogIdleTimeout time.Duration
+	WatchDogInterval                         time.Duration // Interval between watchdog checks
+
+	MachineTag string
+
+	APIAddress string
+
+	LlamaCPPTunnelCallback func(tunnels []string)
+	MLXTunnelCallback      func(tunnels []string)
+
+	DisableRuntimeSettings bool
+
+	AgentJobRetentionDays int // Default: 30 days
+
+	OpenResponsesStoreTTL time.Duration // TTL for Open Responses store (0 = no expiration)
+
+	PathWithoutAuth []string
+
+	// Agent Pool (LocalAGI integration)
+	AgentPool AgentPoolConfig
+
+	// Authentication & Authorization
+	Auth AuthConfig
+
+	// Distributed / Horizontal Scaling
+	Distributed DistributedConfig
+
+	// ExposeNodeHeader, when true, activates middleware.ExposeNodeHeader on
+	// the inference routes (OpenAI chat/completions/embeddings, Anthropic
+	// /v1/messages, Ollama /api/chat,/api/generate,/api/embed). The
+	// middleware wraps the response writer and attaches an "X-LocalAI-Node"
+	// response header carrying the ID of the distributed-mode worker node
+	// that served the request. Off by default because the node ID is
+	// internal topology that can aid attacker reconnaissance if surfaced on
+	// a public endpoint; operators opt in explicitly via
+	// --expose-node-header / LOCALAI_EXPOSE_NODE_HEADER for debugging,
+	// observability and load-balancer attribution.
+	ExposeNodeHeader bool
+
+	// LocalAI Assistant chat modality. Hard-disable the in-process admin MCP
+	// server with this flag; runtime-toggleable via /api/settings.
+	DisableLocalAIAssistant bool
+
+	// Branding / whitelabeling — runtime-mutable via /api/settings (text) and
+	// /api/branding/asset/:kind (binary uploads). All values optional; empty
+	// strings fall back to bundled LocalAI defaults.
+	Branding BrandingConfig
+}
+
+const DefaultMaxConcurrentBackendRequests = 1024
+
+// BrandingConfig holds the whitelabel/branding configuration of the instance.
+// Text fields are exposed via the public GET /api/branding endpoint so the
+// login page can read them before authentication. Binary asset filenames
+// (logo, horizontal logo, favicon) are stored as basenames; the actual files
+// live under {DynamicConfigsDir}/branding/.
+type BrandingConfig struct {
+	InstanceName       string
+	InstanceTagline    string
+	LogoFile           string
+	LogoHorizontalFile string
+	FaviconFile        string
+}
+
+// AuthConfig holds configuration for user authentication and authorization.
+type AuthConfig struct {
+	Enabled             bool
+	DatabaseURL         string // "postgres://..." or file path for SQLite
+	GitHubClientID      string
+	GitHubClientSecret  string
+	OIDCIssuer          string // OIDC issuer URL for auto-discovery (e.g. https://accounts.google.com)
+	OIDCClientID        string
+	OIDCClientSecret    string
+	AdminEmail          string // auto-promote to admin on login
+	RegistrationMode    string // "open", "approval" (default when empty), "invite"
+	DisableLocalAuth    bool   // disable local email/password registration and login
+	APIKeyHMACSecret    string // HMAC secret for API key hashing; auto-generated if empty
+	DefaultAPIKeyExpiry string // default expiry duration for API keys (e.g. "90d"); empty = no expiry
+}
+
+// AgentPoolConfig holds configuration for the LocalAGI agent pool integration.
+type AgentPoolConfig struct {
+	Enabled               bool   // default: true (disabled by LOCALAI_DISABLE_AGENTS=true)
+	StateDir              string // default: DynamicConfigsDir (LocalAI configuration folder)
+	APIURL                string // default: self-referencing LocalAI (http://127.0.0.1:<port>)
+	APIKey                string // default: first API key from LocalAI config
+	DefaultModel          string
+	MultimodalModel       string
+	TranscriptionModel    string
+	TranscriptionLanguage string
+	TTSModel              string
+	Timeout               string // default: "5m"
+	EnableSkills          bool
+	EnableLogs            bool
+	CustomActionsDir      string
+	CollectionDBPath      string
+	VectorEngine          string // default: "chromem"
+	EmbeddingModel        string // default: "granite-embedding-107m-multilingual"
+	MaxChunkingSize       int    // default: 400
+	ChunkOverlap          int    // default: 0
+	DatabaseURL           string
+	AgentHubURL           string // default: "https://agenthub.localai.io"
+}
+
+type AppOption func(*ApplicationConfig)
+
+func NewApplicationConfig(o ...AppOption) *ApplicationConfig {
+	opt := &ApplicationConfig{
+		Context:                   context.Background(),
+		UploadLimitMB:             15,
+		Debug:                     true,
+		ModelArtifactMaterializer: modelartifacts.NewDefaultManager(),
+		ModelPreloadRenderMode:    "dark",
+		// Capture backend process stdout/stderr into the per-model
+		// BackendLogStore by default so the UI "Backend Logs" page works out
+		// of the box in single mode, matching worker/distributed mode (which
+		// force-enables it). It's a small in-memory ring buffer; the Settings
+		// toggle can still turn it off (a persisted false wins - see
+		// loadRuntimeSettingsFromFile).
+		EnableBackendLogging:        true,
+		VRAMPersistentCache:         true,
+		ArtifactDownloadConcurrency: modelartifacts.DefaultDownloadConcurrency,
+		AgentJobRetentionDays:       30,               // Default: 30 days
+		LRUEvictionMaxRetries:       30,               // Default: 30 retries
+		LRUEvictionRetryInterval:    1 * time.Second,  // Default: 1 second
+		ModelLoadFailureCooldown:    10 * time.Second, // Default: 10s base cooldown after a failed load
+		// WatchDogInterval is intentionally left at the zero value here.
+		// The startup loader applies a persisted runtime_settings.json value
+		// only when the interval is still 0 (its "not set by env var"
+		// heuristic, matching the idle/busy timeouts); a non-zero baseline
+		// default would defeat that and silently revert a UI-saved Check
+		// Interval to the default on every restart (#10601). The effective
+		// 500ms default is supplied at the watchdog layer (DefaultWatchdogInterval)
+		// when the value is still 0.
+		MaxConcurrentBackendRequests: DefaultMaxConcurrentBackendRequests,
+		TracingMaxItems:              1024,
+		TracingMaxBodyBytes:          64 * 1024, // 64 KiB - caps each request/response body in the trace buffer
+		AgentPool: AgentPoolConfig{
+			Enabled:         true,
+			Timeout:         "5m",
+			VectorEngine:    "chromem",
+			EmbeddingModel:  "granite-embedding-107m-multilingual",
+			MaxChunkingSize: 400,
+			AgentHubURL:     "https://agenthub.localai.io",
+		},
+		PathWithoutAuth: []string{},
+	}
+	for _, oo := range o {
+		oo(opt)
+	}
+	return opt
+}
+
+func WithModelsURL(urls ...string) AppOption {
+	return func(o *ApplicationConfig) {
+		o.ModelsURL = urls
+	}
+}
+
+func WithSystemState(state *system.SystemState) AppOption {
+	return func(o *ApplicationConfig) {
+		o.SystemState = state
+	}
+}
+
+func WithExternalBackends(backends ...string) AppOption {
+	return func(o *ApplicationConfig) {
+		o.ExternalBackends = backends
+	}
+}
+
+func WithWebRTCNAT1To1IPs(ips ...string) AppOption {
+	return func(o *ApplicationConfig) {
+		o.WebRTCNAT1To1IPs = ips
+	}
+}
+
+func WithWebRTCICEInterfaces(interfaces ...string) AppOption {
+	return func(o *ApplicationConfig) {
+		o.WebRTCICEInterfaces = interfaces
+	}
+}
+
+func WithWebRTCUDPPort(port int) AppOption {
+	return func(o *ApplicationConfig) {
+		o.WebRTCUDPPort = port
+	}
+}
+
+func WithMachineTag(tag string) AppOption {
+	return func(o *ApplicationConfig) {
+		o.MachineTag = tag
+	}
+}
+
+func WithCors(b bool) AppOption {
+	return func(o *ApplicationConfig) {
+		o.CORS = b
+	}
+}
+
+func WithP2PNetworkID(s string) AppOption {
+	return func(o *ApplicationConfig) {
+		o.P2PNetworkID = s
+	}
+}
+
+func WithDisableCSRF(b bool) AppOption {
+	return func(o *ApplicationConfig) {
+		o.DisableCSRF = b
+	}
+}
+
+func WithDisableHTTPCompression(b bool) AppOption {
+	return func(o *ApplicationConfig) {
+		o.DisableHTTPCompression = b
+	}
+}
+
+func WithHTTPCompressionMinLength(n int) AppOption {
+	return func(o *ApplicationConfig) {
+		o.HTTPCompressionMinLength = n
+	}
+}
+
+func WithP2PToken(s string) AppOption {
+	return func(o *ApplicationConfig) {
+		o.P2PToken = s
+	}
+}
+
+var EnableWatchDog = func(o *ApplicationConfig) {
+	o.WatchDog = true
+}
+
+var EnableTracing = func(o *ApplicationConfig) {
+	o.EnableTracing = true
+}
+
+var EnableBackendLogging = func(o *ApplicationConfig) {
+	o.EnableBackendLogging = true
+}
+
+var EnableWatchDogIdleCheck = func(o *ApplicationConfig) {
+	o.WatchDog = true
+	o.WatchDogIdle = true
+}
+
+var DisableGalleryEndpoint = func(o *ApplicationConfig) {
+	o.DisableGalleryEndpoint = true
+}
+
+var DisableMCP = func(o *ApplicationConfig) {
+	o.DisableMCP = true
+}
+
+var EnableWatchDogBusyCheck = func(o *ApplicationConfig) {
+	o.WatchDog = true
+	o.WatchDogBusy = true
+}
+
+var DisableWebUI = func(o *ApplicationConfig) {
+	o.DisableWebUI = true
+}
+
+var EnableOllamaAPIRootEndpoint = func(o *ApplicationConfig) {
+	o.OllamaAPIRootEndpoint = true
+}
+
+var DisableRuntimeSettings = func(o *ApplicationConfig) {
+	o.DisableRuntimeSettings = true
+}
+
+func SetWatchDogBusyTimeout(t time.Duration) AppOption {
+	return func(o *ApplicationConfig) {
+		o.WatchDogBusyTimeout = t
+	}
+}
+
+func SetWatchDogIdleTimeout(t time.Duration) AppOption {
+	return func(o *ApplicationConfig) {
+		o.WatchDogIdleTimeout = t
+	}
+}
+
+func SetWatchDogInterval(t time.Duration) AppOption {
+	return func(o *ApplicationConfig) {
+		o.WatchDogInterval = t
+	}
+}
+
+// EnableMemoryReclaimer enables memory threshold monitoring.
+// When enabled, the watchdog will evict backends if memory usage exceeds the threshold.
+// Works with GPU VRAM if available, otherwise uses system RAM.
+var EnableMemoryReclaimer = func(o *ApplicationConfig) {
+	o.MemoryReclaimerEnabled = true
+	o.WatchDog = true // Memory reclaimer requires watchdog infrastructure
+}
+
+// SetMemoryReclaimerThreshold sets the memory usage threshold (0.0-1.0).
+// When memory usage exceeds this threshold, backends will be evicted using LRU strategy.
+func SetMemoryReclaimerThreshold(threshold float64) AppOption {
+	return func(o *ApplicationConfig) {
+		if threshold > 0 && threshold <= 1.0 {
+			o.MemoryReclaimerThreshold = threshold
+			o.MemoryReclaimerEnabled = true
+			o.WatchDog = true // Memory reclaimer requires watchdog infrastructure
+		}
+	}
+}
+
+// SetVRAMBudget sets the VRAM allocation cap ("80%" or "12GB", "" = no cap).
+func SetVRAMBudget(v string) AppOption {
+	return func(o *ApplicationConfig) {
+		o.VRAMBudget = v
+	}
+}
+
+// WithMemoryReclaimer configures the memory reclaimer with the given settings
+func WithMemoryReclaimer(enabled bool, threshold float64) AppOption {
+	return func(o *ApplicationConfig) {
+		o.MemoryReclaimerEnabled = enabled
+		if threshold > 0 && threshold <= 1.0 {
+			o.MemoryReclaimerThreshold = threshold
+		}
+		if enabled {
+			o.WatchDog = true // Memory reclaimer requires watchdog infrastructure
+		}
+	}
+}
+
+// EnableSingleBackend is deprecated: use SetMaxActiveBackends(1) instead.
+// This is kept for backward compatibility.
+var EnableSingleBackend = func(o *ApplicationConfig) {
+	o.SingleBackend = true
+	o.MaxActiveBackends = 1
+}
+
+// SetMaxActiveBackends sets the maximum number of active backends.
+// 0 = unlimited, 1 = single backend mode (replaces EnableSingleBackend)
+func SetMaxActiveBackends(n int) AppOption {
+	return func(o *ApplicationConfig) {
+		o.MaxActiveBackends = n
+		// For backward compatibility, also set SingleBackend if n == 1
+		if n == 1 {
+			o.SingleBackend = true
+		}
+	}
+}
+
+// GetEffectiveMaxActiveBackends returns the effective max active backends limit.
+// It considers both MaxActiveBackends and the deprecated SingleBackend setting.
+// If MaxActiveBackends is set (> 0), it takes precedence.
+// If SingleBackend is true and MaxActiveBackends is 0, returns 1.
+// Otherwise returns 0 (unlimited).
+func (o *ApplicationConfig) GetEffectiveMaxActiveBackends() int {
+	if o.MaxActiveBackends > 0 {
+		return o.MaxActiveBackends
+	}
+	if o.SingleBackend {
+		return 1
+	}
+	return 0
+}
+
+// WatchdogShouldRun reports whether the live watchdog process should be
+// running for the current config. It mirrors the gating in
+// (*Application).startWatchdog so the /api/settings start/stop decision and
+// the startup path agree on a single source of truth: the watchdog runs when
+// idle/busy checks are enabled (WatchDog), when LRU eviction is active
+// (effective max active backends > 0), or when the memory reclaimer is on.
+func (o *ApplicationConfig) WatchdogShouldRun() bool {
+	return o.WatchDog || o.GetEffectiveMaxActiveBackends() > 0 || o.MemoryReclaimerEnabled
+}
+
+// WithForceEvictionWhenBusy sets whether to force eviction even when models have active API calls
+func WithForceEvictionWhenBusy(enabled bool) AppOption {
+	return func(o *ApplicationConfig) {
+		o.ForceEvictionWhenBusy = enabled
+	}
+}
+
+// WithSizeAwareEviction enables size-aware eviction ordering.
+// When true, the watchdog evicts the largest loaded model first rather than the
+// least-recently-used one, keeping small utility models resident and maximizing
+// memory freed per eviction.
+func WithSizeAwareEviction(enabled bool) AppOption {
+	return func(o *ApplicationConfig) {
+		o.SizeAwareEviction = enabled
+	}
+}
+
+// WithLRUEvictionMaxRetries sets the maximum number of retries when waiting for busy models to become idle
+func WithLRUEvictionMaxRetries(maxRetries int) AppOption {
+	return func(o *ApplicationConfig) {
+		if maxRetries > 0 {
+			o.LRUEvictionMaxRetries = maxRetries
+		}
+	}
+}
+
+// WithLRUEvictionRetryInterval sets the interval between retries when waiting for busy models
+func WithLRUEvictionRetryInterval(interval time.Duration) AppOption {
+	return func(o *ApplicationConfig) {
+		if interval > 0 {
+			o.LRUEvictionRetryInterval = interval
+		}
+	}
+}
+
+// WithModelLoadFailureCooldown sets the base cooldown applied after a failed
+// model load. 0 disables the cooldown, so unlike most options it accepts any
+// non-negative value.
+func WithModelLoadFailureCooldown(cooldown time.Duration) AppOption {
+	return func(o *ApplicationConfig) {
+		if cooldown >= 0 {
+			o.ModelLoadFailureCooldown = cooldown
+		}
+	}
+}
+
+var EnableGalleriesAutoload = func(o *ApplicationConfig) {
+	o.AutoloadGalleries = true
+}
+
+var EnableBackendGalleriesAutoload = func(o *ApplicationConfig) {
+	o.AutoloadBackendGalleries = true
+}
+
+func WithAutoUpgradeBackends(v bool) AppOption {
+	return func(o *ApplicationConfig) { o.AutoUpgradeBackends = v }
+}
+
+func WithVRAMPersistentCache(v bool) AppOption {
+	return func(o *ApplicationConfig) { o.VRAMPersistentCache = v }
+}
+
+func WithRequireBackendIntegrity(v bool) AppOption {
+	return func(o *ApplicationConfig) { o.RequireBackendIntegrity = v }
+}
+
+func WithPreferDevelopmentBackends(v bool) AppOption {
+	return func(o *ApplicationConfig) { o.PreferDevelopmentBackends = v }
+}
+
+var EnableFederated = func(o *ApplicationConfig) {
+	o.Federated = true
+}
+
+func WithExternalBackend(name string, uri string) AppOption {
+	return func(o *ApplicationConfig) {
+		if o.ExternalGRPCBackends == nil {
+			o.ExternalGRPCBackends = make(map[string]string)
+		}
+		o.ExternalGRPCBackends[name] = uri
+	}
+}
+
+func WithCorsAllowOrigins(b string) AppOption {
+	return func(o *ApplicationConfig) {
+		o.CORSAllowOrigins = b
+	}
+}
+
+func WithStringGalleries(galls string) AppOption {
+	return func(o *ApplicationConfig) {
+		if galls == "" {
+			o.Galleries = []Gallery{}
+			return
+		}
+		var galleries []Gallery
+		if err := json.Unmarshal([]byte(galls), &galleries); err != nil {
+			xlog.Error("failed loading galleries", "error", err)
+		}
+		o.Galleries = append(o.Galleries, galleries...)
+	}
+}
+
+func WithBackendGalleries(galls string) AppOption {
+	return func(o *ApplicationConfig) {
+		if galls == "" {
+			o.BackendGalleries = []Gallery{}
+			return
+		}
+		var galleries []Gallery
+		if err := json.Unmarshal([]byte(galls), &galleries); err != nil {
+			xlog.Error("failed loading galleries", "error", err)
+		}
+		o.BackendGalleries = append(o.BackendGalleries, galleries...)
+	}
+}
+
+func WithGalleries(galleries []Gallery) AppOption {
+	return func(o *ApplicationConfig) {
+		o.Galleries = append(o.Galleries, galleries...)
+	}
+}
+
+func WithContext(ctx context.Context) AppOption {
+	return func(o *ApplicationConfig) {
+		o.Context = ctx
+	}
+}
+
+// WithModelArtifactMaterializer injects the controller-only model acquisition capability.
+func WithModelArtifactMaterializer(materializer ArtifactMaterializer) AppOption {
+	return func(o *ApplicationConfig) {
+		if materializer != nil {
+			o.ModelArtifactMaterializer = materializer
+		}
+	}
+}
+
+func WithArtifactDownloadConcurrency(concurrency int) AppOption {
+	return func(o *ApplicationConfig) {
+		if concurrency < 1 {
+			concurrency = modelartifacts.DefaultDownloadConcurrency
+		}
+		o.ArtifactDownloadConcurrency = concurrency
+	}
+}
+
+// WithModelPreloadDisplay configures terminal rendering for model preload output.
+func WithModelPreloadDisplay(renderMode string, disableColor bool) AppOption {
+	return func(o *ApplicationConfig) {
+		if renderMode != "" {
+			o.ModelPreloadRenderMode = renderMode
+		}
+		o.DisableModelPreloadColor = disableColor
+	}
+}
+
+func WithYAMLConfigPreload(configFile string) AppOption {
+	return func(o *ApplicationConfig) {
+		o.PreloadModelsFromPath = configFile
+	}
+}
+
+func WithJSONStringPreload(configFile string) AppOption {
+	return func(o *ApplicationConfig) {
+		o.PreloadJSONModels = configFile
+	}
+}
+
+func WithConfigFile(configFile string) AppOption {
+	return func(o *ApplicationConfig) {
+		o.ConfigFile = configFile
+	}
+}
+
+func WithUploadLimitMB(limit int) AppOption {
+	return func(o *ApplicationConfig) {
+		o.UploadLimitMB = limit
+	}
+}
+
+// WithThreads sets the thread-count hint. 0 means "unset": the effective
+// physical-core default is resolved in application.New() only after
+// persisted runtime settings merge, so a file-saved value is not masked by
+// an eager fallback (#10845).
+func WithThreads(threads int) AppOption {
+	return func(o *ApplicationConfig) {
+		o.Threads = threads
+	}
+}
+
+func WithContextSize(ctxSize int) AppOption {
+	return func(o *ApplicationConfig) {
+		o.ContextSize = ctxSize
+	}
+}
+
+func WithLlamaCPPTunnelCallback(callback func(tunnels []string)) AppOption {
+	return func(o *ApplicationConfig) {
+		o.LlamaCPPTunnelCallback = callback
+	}
+}
+
+func WithMLXTunnelCallback(callback func(tunnels []string)) AppOption {
+	return func(o *ApplicationConfig) {
+		o.MLXTunnelCallback = callback
+	}
+}
+
+func WithF16(f16 bool) AppOption {
+	return func(o *ApplicationConfig) {
+		o.F16 = f16
+	}
+}
+
+func WithDebug(debug bool) AppOption {
+	return func(o *ApplicationConfig) {
+		o.Debug = debug
+	}
+}
+
+func WithTracingMaxItems(items int) AppOption {
+	return func(o *ApplicationConfig) {
+		o.TracingMaxItems = items
+	}
+}
+
+func WithMaxConcurrentBackendRequests(requests int) AppOption {
+	return func(o *ApplicationConfig) {
+		if requests <= 0 {
+			requests = DefaultMaxConcurrentBackendRequests
+		}
+		o.MaxConcurrentBackendRequests = requests
+	}
+}
+
+func WithTracingMaxBodyBytes(bytes int) AppOption {
+	return func(o *ApplicationConfig) {
+		o.TracingMaxBodyBytes = bytes
+	}
+}
+
+func WithGeneratedContentDir(generatedContentDir string) AppOption {
+	return func(o *ApplicationConfig) {
+		o.GeneratedContentDir = generatedContentDir
+	}
+}
+
+func WithUploadDir(uploadDir string) AppOption {
+	return func(o *ApplicationConfig) {
+		o.UploadDir = uploadDir
+	}
+}
+
+func WithDataPath(dataPath string) AppOption {
+	return func(o *ApplicationConfig) {
+		o.DataPath = dataPath
+	}
+}
+
+// WithDisableStats turns off the billing recorder. CLI: --disable-stats.
+func WithDisableStats(disable bool) AppOption {
+	return func(o *ApplicationConfig) {
+		o.DisableStats = disable
+	}
+}
+
+// WithMITMListen sets the address the cloudproxy MITM listener
+// binds on. Empty = disabled. CLI: --mitm-listen.
+func WithMITMListen(addr string) AppOption {
+	return func(o *ApplicationConfig) {
+		o.MITMListen = addr
+	}
+}
+
+// WithMITMCADir sets the directory used to persist the MITM proxy
+// CA cert + key. CLI: --mitm-ca-dir.
+func WithMITMCADir(dir string) AppOption {
+	return func(o *ApplicationConfig) {
+		o.MITMCADir = dir
+	}
+}
+
+// WithPIIDefaultDetectors sets the instance-wide default PII/secret detector
+// model names applied to any PII-enabled model (chiefly cloud-proxy / MITM
+// models) that names no pii.detectors of its own. CLI/env:
+// LOCALAI_PII_DEFAULT_DETECTORS. Empty leaves the value to
+// runtime_settings.json / the Middleware UI; a non-empty value takes
+// precedence over the file (env > file).
+func WithPIIDefaultDetectors(detectors []string) AppOption {
+	return func(o *ApplicationConfig) {
+		o.PIIDefaultDetectors = detectors
+	}
+}
+
+func WithDynamicConfigDir(dynamicConfigsDir string) AppOption {
+	return func(o *ApplicationConfig) {
+		o.DynamicConfigsDir = dynamicConfigsDir
+	}
+}
+
+func WithDynamicConfigDirPollInterval(interval time.Duration) AppOption {
+	return func(o *ApplicationConfig) {
+		o.DynamicConfigsDirPollInterval = interval
+	}
+}
+
+func WithApiKeys(apiKeys []string) AppOption {
+	return func(o *ApplicationConfig) {
+		o.ApiKeys = apiKeys
+	}
+}
+
+func WithAgentJobRetentionDays(days int) AppOption {
+	return func(o *ApplicationConfig) {
+		o.AgentJobRetentionDays = days
+	}
+}
+
+func WithOpenResponsesStoreTTL(ttl time.Duration) AppOption {
+	return func(o *ApplicationConfig) {
+		o.OpenResponsesStoreTTL = ttl
+	}
+}
+
+func WithEnforcedPredownloadScans(enforced bool) AppOption {
+	return func(o *ApplicationConfig) {
+		o.EnforcePredownloadScans = enforced
+	}
+}
+
+func WithOpaqueErrors(opaque bool) AppOption {
+	return func(o *ApplicationConfig) {
+		o.OpaqueErrors = opaque
+	}
+}
+
+func WithLoadToMemory(models []string) AppOption {
+	return func(o *ApplicationConfig) {
+		o.LoadToMemory = models
+	}
+}
+
+func WithSubtleKeyComparison(subtle bool) AppOption {
+	return func(o *ApplicationConfig) {
+		o.UseSubtleKeyComparison = subtle
+	}
+}
+
+func WithDisableApiKeyRequirementForHttpGet(required bool) AppOption {
+	return func(o *ApplicationConfig) {
+		o.DisableApiKeyRequirementForHttpGet = required
+	}
+}
+
+func WithAPIAddress(address string) AppOption {
+	return func(o *ApplicationConfig) {
+		o.APIAddress = address
+	}
+}
+
+var DisableMetricsEndpoint AppOption = func(o *ApplicationConfig) {
+	o.DisableMetrics = true
+}
+
+func WithHttpGetExemptedEndpoints(endpoints []string) AppOption {
+	return func(o *ApplicationConfig) {
+		o.HttpGetExemptedEndpoints = []*regexp.Regexp{}
+		for _, epr := range endpoints {
+			r, err := regexp.Compile(epr)
+			if err == nil && r != nil {
+				o.HttpGetExemptedEndpoints = append(o.HttpGetExemptedEndpoints, r)
+			} else {
+				xlog.Warn("Error while compiling HTTP Get Exemption regex, skipping this entry.", "error", err, "regex", epr)
+			}
+		}
+	}
+}
+
+// Agent Pool options
+
+var DisableAgentPool = func(o *ApplicationConfig) {
+	o.AgentPool.Enabled = false
+}
+
+func WithAgentPoolAPIURL(url string) AppOption {
+	return func(o *ApplicationConfig) {
+		o.AgentPool.APIURL = url
+	}
+}
+
+func WithAgentPoolAPIKey(key string) AppOption {
+	return func(o *ApplicationConfig) {
+		o.AgentPool.APIKey = key
+	}
+}
+
+func WithAgentPoolDefaultModel(model string) AppOption {
+	return func(o *ApplicationConfig) {
+		o.AgentPool.DefaultModel = model
+	}
+}
+
+func WithAgentPoolMultimodalModel(model string) AppOption {
+	return func(o *ApplicationConfig) {
+		o.AgentPool.MultimodalModel = model
+	}
+}
+
+func WithAgentPoolTranscriptionModel(model string) AppOption {
+	return func(o *ApplicationConfig) {
+		o.AgentPool.TranscriptionModel = model
+	}
+}
+
+func WithAgentPoolTranscriptionLanguage(lang string) AppOption {
+	return func(o *ApplicationConfig) {
+		o.AgentPool.TranscriptionLanguage = lang
+	}
+}
+
+func WithAgentPoolTTSModel(model string) AppOption {
+	return func(o *ApplicationConfig) {
+		o.AgentPool.TTSModel = model
+	}
+}
+
+func WithAgentPoolStateDir(dir string) AppOption {
+	return func(o *ApplicationConfig) {
+		o.AgentPool.StateDir = dir
+	}
+}
+
+func WithAgentPoolTimeout(timeout string) AppOption {
+	return func(o *ApplicationConfig) {
+		o.AgentPool.Timeout = timeout
+	}
+}
+
+var EnableAgentPoolSkills = func(o *ApplicationConfig) {
+	o.AgentPool.EnableSkills = true
+}
+
+func WithAgentPoolVectorEngine(engine string) AppOption {
+	return func(o *ApplicationConfig) {
+		o.AgentPool.VectorEngine = engine
+	}
+}
+
+func WithAgentPoolEmbeddingModel(model string) AppOption {
+	return func(o *ApplicationConfig) {
+		o.AgentPool.EmbeddingModel = model
+	}
+}
+
+func WithAgentPoolCustomActionsDir(dir string) AppOption {
+	return func(o *ApplicationConfig) {
+		o.AgentPool.CustomActionsDir = dir
+	}
+}
+
+func WithAgentPoolDatabaseURL(url string) AppOption {
+	return func(o *ApplicationConfig) {
+		o.AgentPool.DatabaseURL = url
+	}
+}
+
+func WithAgentPoolMaxChunkingSize(size int) AppOption {
+	return func(o *ApplicationConfig) {
+		o.AgentPool.MaxChunkingSize = size
+	}
+}
+
+func WithAgentPoolChunkOverlap(overlap int) AppOption {
+	return func(o *ApplicationConfig) {
+		o.AgentPool.ChunkOverlap = overlap
+	}
+}
+
+var EnableAgentPoolLogs = func(o *ApplicationConfig) {
+	o.AgentPool.EnableLogs = true
+}
+
+func WithAgentPoolCollectionDBPath(path string) AppOption {
+	return func(o *ApplicationConfig) {
+		o.AgentPool.CollectionDBPath = path
+	}
+}
+
+func WithAgentHubURL(url string) AppOption {
+	return func(o *ApplicationConfig) {
+		o.AgentPool.AgentHubURL = url
+	}
+}
+
+// Auth options
+
+func WithAuthEnabled(enabled bool) AppOption {
+	return func(o *ApplicationConfig) {
+		o.Auth.Enabled = enabled
+	}
+}
+
+func WithAuthDatabaseURL(url string) AppOption {
+	return func(o *ApplicationConfig) {
+		o.Auth.DatabaseURL = url
+	}
+}
+
+func WithAuthGitHubClientID(clientID string) AppOption {
+	return func(o *ApplicationConfig) {
+		o.Auth.GitHubClientID = clientID
+	}
+}
+
+func WithAuthGitHubClientSecret(clientSecret string) AppOption {
+	return func(o *ApplicationConfig) {
+		o.Auth.GitHubClientSecret = clientSecret
+	}
+}
+
+func WithExternalBaseURL(url string) AppOption {
+	return func(o *ApplicationConfig) {
+		o.ExternalBaseURL = url
+	}
+}
+
+func WithAuthAdminEmail(email string) AppOption {
+	return func(o *ApplicationConfig) {
+		o.Auth.AdminEmail = email
+	}
+}
+
+func WithAuthRegistrationMode(mode string) AppOption {
+	return func(o *ApplicationConfig) {
+		o.Auth.RegistrationMode = mode
+	}
+}
+
+func WithAuthDisableLocalAuth(disable bool) AppOption {
+	return func(o *ApplicationConfig) {
+		o.Auth.DisableLocalAuth = disable
+	}
+}
+
+func WithAuthOIDCIssuer(issuer string) AppOption {
+	return func(o *ApplicationConfig) {
+		o.Auth.OIDCIssuer = issuer
+	}
+}
+
+func WithAuthOIDCClientID(clientID string) AppOption {
+	return func(o *ApplicationConfig) {
+		o.Auth.OIDCClientID = clientID
+	}
+}
+
+func WithAuthOIDCClientSecret(clientSecret string) AppOption {
+	return func(o *ApplicationConfig) {
+		o.Auth.OIDCClientSecret = clientSecret
+	}
+}
+
+func WithAuthAPIKeyHMACSecret(secret string) AppOption {
+	return func(o *ApplicationConfig) {
+		o.Auth.APIKeyHMACSecret = secret
+	}
+}
+
+func WithAuthDefaultAPIKeyExpiry(expiry string) AppOption {
+	return func(o *ApplicationConfig) {
+		o.Auth.DefaultAPIKeyExpiry = expiry
+	}
+}
+
+// WithDisableLocalAIAssistant hard-disables the in-process admin MCP server.
+// When set, the chat-handler branch for metadata.localai_assistant=true
+// returns a "feature unavailable" error.
+func WithDisableLocalAIAssistant(disabled bool) AppOption {
+	return func(o *ApplicationConfig) {
+		o.DisableLocalAIAssistant = disabled
+	}
+}
+
+// WithExposeNodeHeader enables the X-LocalAI-Node response header on
+// inference endpoints. Default off; the node ID reveals internal cluster
+// topology and is opt-in for that reason.
+func WithExposeNodeHeader(enabled bool) AppOption {
+	return func(o *ApplicationConfig) {
+		o.ExposeNodeHeader = enabled
+	}
+}
+
+// ToConfigLoaderOptions returns a slice of ConfigLoader Option.
+// Some options defined at the application level are going to be passed as defaults for
+// all the configuration for the models.
+// This includes for instance the context size or the number of threads.
+// If a model doesn't set configs directly to the config model file
+// it will use the defaults defined here.
+func (o *ApplicationConfig) ToConfigLoaderOptions() []ConfigLoaderOption {
+	return []ConfigLoaderOption{
+		LoadOptionContextSize(o.ContextSize),
+		LoadOptionDebug(o.Debug),
+		LoadOptionF16(o.F16),
+		LoadOptionThreads(o.Threads),
+		ModelPath(o.SystemState.Model.ModelsPath),
+		LoadOptionGalleryFiles(o.Galleries...),
+	}
+}
+
+// ToRuntimeSettings converts ApplicationConfig to RuntimeSettings for API
+// responses and JSON serialization. Field coverage comes entirely from the
+// runtimeSettingsFields registry (runtime_settings_registry.go).
+func (o *ApplicationConfig) ToRuntimeSettings() RuntimeSettings {
+	var s RuntimeSettings
+	for _, f := range runtimeSettingsFields {
+		f.snapshot(o, &s)
+	}
+	return s
+}
+
+// ApplyRuntimeSettings applies RuntimeSettings to ApplicationConfig (the
+// live POST /api/settings path). Only non-nil fields are applied. Returns
+// true if restart-requiring settings changed (see each row's
+// restartRequired flag in runtimeSettingsFields).
+func (o *ApplicationConfig) ApplyRuntimeSettings(settings *RuntimeSettings) (requireRestart bool) {
+	if settings == nil {
+		return false
+	}
+	for _, f := range runtimeSettingsFields {
+		if f.snapshotOnly || !f.isSet(settings) {
+			continue
+		}
+		if f.apply(o, settings) && f.requiresRestart {
+			requireRestart = true
+		}
+	}
+	// The React Settings "Enable Watchdog" master toggle manages only the
+	// idle/busy checks - watchdog_enabled is vestigial in that UI. Whenever
+	// either idle/busy field is present in the body, derive the run-state
+	// from idle||busy so a cold enable starts the watchdog and a full
+	// disable stops it, instead of trusting the stale watchdog_enabled the
+	// UI never updates. An API client posting only watchdog_enabled
+	// (idle/busy absent) keeps its explicit value. (#9125)
+	if settings.WatchdogIdleEnabled != nil || settings.WatchdogBusyEnabled != nil {
+		o.WatchDog = o.WatchDogIdle || o.WatchDogBusy
+	}
+	// The memory reclaimer needs the watchdog run loop.
+	if settings.MemoryReclaimerEnabled != nil && *settings.MemoryReclaimerEnabled {
+		o.WatchDog = true
+	}
+	// VRAM budget live-apply: a cross-cutting process-global side effect
+	// (xsysinfo), kept out of the registry row like the watchdog/reclaimer
+	// invariants above - rows only own config members. An empty string
+	// clears the cap; a malformed value is rejected by the settings
+	// endpoint, but stay fail-open here too so a bad persisted value
+	// cannot wedge apply.
+	if settings.VRAMBudget != nil {
+		if b, err := vrambudget.Parse(o.VRAMBudget); err == nil {
+			xsysinfo.SetDefaultVRAMBudget(b)
+		}
+	}
+	if settings.ArtifactDownloadConcurrency != nil {
+		if configurable, ok := o.ModelArtifactMaterializer.(interface{ SetDownloadConcurrency(int) }); ok {
+			configurable.SetDownloadConcurrency(o.ArtifactDownloadConcurrency)
+		}
+	}
+	// Note: ApiKeys need env-merge handling (MergeAPIKeys) - done by the
+	// caller, because the env-provided keys live on the startup config.
+	return requireRestart
+}
+
+// func WithMetrics(meter *metrics.Metrics) AppOption {
+// 	return func(o *StartupOptions) {
+// 		o.Metrics = meter
+// 	}
+// }

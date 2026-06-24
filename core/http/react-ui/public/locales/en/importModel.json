@@ -1,0 +1,126 @@
+{
+  "title": "Import a model",
+  "subtitle": {
+    "source": "Paste a Hugging Face reference, a URL, or a path on this host.",
+    "yaml": "Write the model configuration by hand. Nothing is auto-detected."
+  },
+  "tabs": {
+    "ariaLabel": "Kind of import",
+    "source": "From a source",
+    "yaml": "Write YAML"
+  },
+  "actions": {
+    "import": "Import",
+    "importing": "Importing…",
+    "create": "Create",
+    "saving": "Saving...",
+    "browseHF": "Browse models on Hugging Face",
+    "addCustom": "Add custom",
+    "copy": "Copy"
+  },
+  "form": {
+    "modelUri": "Source",
+    "uriPlaceholder": "huggingface://owner/repo",
+    "uriHint": "Press Enter to import. LocalAI picks the backend from the source unless you choose one.",
+    "supportedFormats": "What you can paste",
+    "options": "Import options",
+    "customPreferences": "Custom preferences",
+    "customKeyValueHint": "Add custom key-value pairs for advanced configuration.",
+    "preferenceKey": "Preference key for row {{index}}",
+    "preferenceValue": "Preference value for row {{index}}",
+    "removePref": "Remove this preference",
+    "key": "Key",
+    "value": "Value",
+    "backend": "Backend",
+    "backendAuto": "Auto-detect (based on URI)",
+    "backendLoading": "Loading backends…",
+    "backendSearch": "Search backends...",
+    "backendHint": "Narrow the list by what the model does, then pick one. Leave it on auto-detect and LocalAI decides. Entries marked \"manual pick\" are never auto-detected.",
+    "backendErrorHint": "Could not load the backend list. Auto-detect only.",
+    "backendNotInstalled": "This backend isn't installed yet. Submitting import will download it first.",
+    "modelName": "Name",
+    "modelNamePlaceholder": "Leave empty to use filename",
+    "modelNameHint": "Custom name for the model. If empty, the filename will be used.",
+    "description": "Description",
+    "descriptionPlaceholder": "Leave empty to use default description",
+    "descriptionHint": "Custom description for the model.",
+    "quantizations": "Quantizations",
+    "quantizationsPlaceholder": "q4_k_m,q4_k_s,q3_k_m (comma-separated)",
+    "quantizationsHint": "Preferred quantizations (comma-separated). Leave empty for default (q4_k_m).",
+    "mmprojQuantizations": "MMProj quantizations",
+    "mmprojQuantizationsPlaceholder": "fp16,fp32 (comma-separated)",
+    "mmprojQuantizationsHint": "Preferred MMProj quantizations. Leave empty for default (fp16).",
+    "embeddings": "Embeddings",
+    "embeddingsHint": "Enable embeddings support for this model.",
+    "modelType": "Model type",
+    "modelTypePlaceholder": "AutoModelForCausalLM (for transformers backend)",
+    "modelTypeHint": "Model type for transformers backend. Examples: AutoModelForCausalLM, SentenceTransformer, Mamba.",
+    "pipelineType": "Pipeline type",
+    "pipelineTypeHint": "Pipeline type for diffusers backend.",
+    "schedulerType": "Scheduler type",
+    "schedulerTypePlaceholder": "k_dpmpp_2m (optional)",
+    "schedulerTypeHint": "Scheduler type for diffusers backend. Examples: k_dpmpp_2m, euler_a, ddim.",
+    "enableParameters": "Enable parameters",
+    "enableParametersPlaceholder": "negative_prompt,num_inference_steps (comma-separated)",
+    "enableParametersHint": "Enabled parameters for diffusers backend (comma-separated).",
+    "cuda": "CUDA",
+    "cudaHint": "Enable CUDA support for GPU acceleration.",
+    "yamlEditor": "Model configuration",
+    "manualPick": "manual pick",
+    "manualPickTooltip": "Auto-detect won't route to this backend. Pick it here if you know that's what you want.",
+    "optionsSummary": "backend, name, description, quantizations…",
+    "modalityAny": "Any",
+    "modalityFilter": "Filter backends by modality"
+  },
+  "modality": {
+    "text": "Text LLM",
+    "asr": "Speech recognition",
+    "tts": "Text-to-speech",
+    "image": "Image / Video",
+    "video": "Video generation",
+    "3d": "3D mesh generation",
+    "3d_animation": "3D animation",
+    "embeddings": "Embeddings",
+    "reranker": "Rerankers",
+    "detection": "Object detection",
+    "vad": "Voice activity detection",
+    "other": "Other"
+  },
+  "estimate": {
+    "downloadLabel": "Download",
+    "vramLabel": "VRAM at load"
+  },
+  "progress": {
+    "label": "Import progress",
+    "working": "Working…"
+  },
+  "toasts": {
+    "noUri": "Please enter a model URI",
+    "noYaml": "Please enter YAML configuration",
+    "started": "Import started. Progress is shown below.",
+    "imported": "Model imported successfully!",
+    "importedYaml": "Model configuration imported successfully!",
+    "importFailed": "Import failed: {{message}}",
+    "startImportFailed": "Failed to start import: {{message}}",
+    "backendsLoadFailed": "Could not load backend list — using auto-detect only",
+    "modalityClearedBackend": "Cleared backend selection — it wasn't in the {{label}} group.",
+    "copied": "Copied to clipboard"
+  },
+  "uriFormats": {
+    "huggingface": {
+      "title": "Hugging Face"
+    },
+    "http": {
+      "title": "Direct URL"
+    },
+    "local": {
+      "title": "On this host"
+    },
+    "oci": {
+      "title": "OCI registry"
+    },
+    "ollama": {
+      "title": "Ollama"
+    }
+  }
+}

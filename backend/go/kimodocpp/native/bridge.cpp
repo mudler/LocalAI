@@ -1,0 +1,65 @@
+// SPDX-License-Identifier: MIT
+#include <kimodo/kimodo_capi.h>
+#include "../sources/kimodo.cpp/src/skeleton.hpp"
+
+#include <cstdlib>
+#include <cstdio>
+#include <cstring>
+
+#ifdef KIMODO_HAVE_GGML_VULKAN
+#include <ggml-vulkan.h>
+#endif
+
+namespace {
+const kimodo::detail::skeleton_spec *skeleton(int joints) {
+  switch (joints) {
+    case 22: return kimodo::detail::find_skeleton("smplx22");
+    case 30: return kimodo::detail::find_skeleton("soma30");
+    case 34: return kimodo::detail::find_skeleton("g1skel34");
+    default: return nullptr;
+  }
+}
+}
+
+extern "C" {
+// The upstream runtime currently reads environment variables instead of its
+// C API runtime_options. Set the native environment before creating a session.
+KIMODO_API int localai_kimodo_configure(const char *device, int threads, int chunk) {
+  if (!device || threads < 1 || chunk < 1 || chunk > 32) return -1;
+  if (std::strcmp(device, "cpu") && std::strcmp(device, "vulkan") && std::strcmp(device, "auto")) return -1;
+  if (std::strcmp(device, "vulkan") == 0) {
+#ifdef KIMODO_HAVE_GGML_VULKAN
+    try {
+      if (ggml_backend_vk_get_device_count() == 0) return -2;
+    } catch (...) {
+      // GGML can throw when no working ICD is installed. Never unwind into Go.
+      return -2;
+    }
+#else
+    return -2;
+#endif
+  }
+  char thread_value[32], chunk_value[32];
+  std::snprintf(thread_value, sizeof(thread_value), "%d", threads);
+  std::snprintf(chunk_value, sizeof(chunk_value), "%d", chunk);
+  if (setenv("KIMODO_BACKEND", device, 1) != 0 ||
+      setenv("KIMODO_THREADS", thread_value, 1) != 0 ||
+      setenv("KIMODO_TEXT_LAYER_CHUNK", chunk_value, 1) != 0) return -1;
+  return 0;
+}
+
+KIMODO_API const char *localai_kimodo_joint_name(int joints, int joint) {
+  const auto *spec = skeleton(joints);
+  return spec && joint >= 0 && joint < joints ? spec->names[joint].data() : nullptr;
+}
+
+KIMODO_API int localai_kimodo_joint_parent(int joints, int joint) {
+  const auto *spec = skeleton(joints);
+  return spec && joint >= 0 && joint < joints ? spec->parents[joint] : -2;
+}
+
+KIMODO_API const float *localai_kimodo_joint_offset(int joints, int joint) {
+  const auto *spec = skeleton(joints);
+  return spec && joint >= 0 && joint < joints ? spec->offsets[joint].data() : nullptr;
+}
+}

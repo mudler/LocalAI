@@ -1,0 +1,6 @@
+# sglang and sgl-kernel do not declare full PEP517 build deps; install the
+# basic build tooling into the venv before pulling the rest of the stack.
+packaging
+setuptools
+wheel
+setuptools-scm

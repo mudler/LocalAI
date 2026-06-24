@@ -1,0 +1,426 @@
+ARG BASE_IMAGE=ubuntu:24.04
+ARG APT_MIRROR=""
+ARG APT_PORTS_MIRROR=""
+
+FROM ${BASE_IMAGE} AS builder
+ARG BACKEND=rerankers
+ARG BUILD_TYPE
+ENV BUILD_TYPE=${BUILD_TYPE}
+ARG CUDA_MAJOR_VERSION
+ARG CUDA_MINOR_VERSION
+ARG SKIP_DRIVERS=false
+ENV CUDA_MAJOR_VERSION=${CUDA_MAJOR_VERSION}
+ENV CUDA_MINOR_VERSION=${CUDA_MINOR_VERSION}
+ENV DEBIAN_FRONTEND=noninteractive
+ARG TARGETARCH
+ARG TARGETVARIANT
+ARG GO_VERSION=1.25.4
+ARG UBUNTU_VERSION=2404
+ARG AMDGPU_TARGETS
+ENV AMDGPU_TARGETS=${AMDGPU_TARGETS}
+ARG APT_MIRROR
+ARG APT_PORTS_MIRROR
+
+# gcc-14 is the default on noble (ubuntu:24.04) but absent from jammy
+# (the L4T jetpack r36.4.0 base). LocalVQE specifically needs it; the
+# other Go backends compile fine with the default gcc shipped via
+# build-essential. So: try gcc-14 from the configured repos, fall back
+# gracefully when it's not available so jammy-based builds don't fail
+# at the apt step.
+RUN --mount=type=bind,source=.docker/apt-mirror.sh,target=/usr/local/sbin/apt-mirror \
+    APT_MIRROR="${APT_MIRROR}" APT_PORTS_MIRROR="${APT_PORTS_MIRROR}" sh /usr/local/sbin/apt-mirror && \
+    apt-get update && \
+    apt-get install -y --no-install-recommends \
+        build-essential \
+        git ccache \
+        ca-certificates \
+        make cmake wget libopenblas-dev \
+        curl unzip \
+        libssl-dev && \
+    if apt-cache show gcc-14 >/dev/null 2>&1 && apt-cache show g++-14 >/dev/null 2>&1; then \
+        apt-get install -y --no-install-recommends gcc-14 g++-14 && \
+        update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-14 100 \
+            --slave /usr/bin/g++ g++ /usr/bin/g++-14 \
+            --slave /usr/bin/gcov gcov /usr/bin/gcov-14; \
+    fi && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
+
+
+# Cuda
+ENV PATH=/usr/local/cuda/bin:${PATH}
+
+# HipBLAS requirements
+ENV PATH=/opt/rocm/bin:${PATH}
+
+
+# Vulkan requirements
+RUN <<EOT bash
+    if [ "${BUILD_TYPE}" = "vulkan" ] && [ "${SKIP_DRIVERS}" = "false" ]; then
+        apt-get update && \
+        apt-get install -y  --no-install-recommends \
+            software-properties-common pciutils wget gpg-agent && \
+        apt-get install -y libglm-dev cmake libxcb-dri3-0 libxcb-present0 libpciaccess0 \
+            libpng-dev libxcb-keysyms1-dev libxcb-dri3-dev libx11-dev g++ gcc \
+            libwayland-dev libxrandr-dev libxcb-randr0-dev libxcb-ewmh-dev \
+            git python-is-python3 bison libx11-xcb-dev liblz4-dev libzstd-dev \
+            ocaml-core ninja-build pkg-config libxml2-dev wayland-protocols python3-jsonschema \
+            clang-format qtbase5-dev qt6-base-dev libxcb-glx0-dev sudo xz-utils && \
+        apt-get install -y mesa-vulkan-drivers libdrm2
+        # Mesa Vulkan ICD drivers (ANV/RADV/lavapipe) + their manifests. The
+        # LunarG SDK below only provides the loader and shader tooling, not
+        # hardware drivers — without Mesa, package-gpu-libs.sh has no ICD to
+        # bundle and the packaged backend finds no GPU at runtime.
+        if [ "amd64" = "$TARGETARCH" ]; then
+            wget "https://sdk.lunarg.com/sdk/download/1.4.335.0/linux/vulkansdk-linux-x86_64-1.4.335.0.tar.xz" && \
+            tar -xf vulkansdk-linux-x86_64-1.4.335.0.tar.xz && \
+            rm vulkansdk-linux-x86_64-1.4.335.0.tar.xz && \
+            mkdir -p /opt/vulkan-sdk && \
+            mv 1.4.335.0 /opt/vulkan-sdk/ && \
+            cd /opt/vulkan-sdk/1.4.335.0 && \
+            ./vulkansdk --no-deps --maxjobs \
+                vulkan-loader \
+                vulkan-validationlayers \
+                vulkan-extensionlayer \
+                vulkan-tools \
+                shaderc && \
+            cp -rfv /opt/vulkan-sdk/1.4.335.0/x86_64/bin/* /usr/bin/ && \
+            cp -rfv /opt/vulkan-sdk/1.4.335.0/x86_64/lib/* /usr/lib/x86_64-linux-gnu/ && \
+            cp -rfv /opt/vulkan-sdk/1.4.335.0/x86_64/include/* /usr/include/ && \
+            cp -rfv /opt/vulkan-sdk/1.4.335.0/x86_64/share/* /usr/share/ && \
+            rm -rf /opt/vulkan-sdk
+        fi
+        if [ "arm64" = "$TARGETARCH" ]; then
+            mkdir vulkan && cd vulkan && \
+            curl -L -o vulkan-sdk.tar.xz https://github.com/mudler/vulkan-sdk-arm/releases/download/1.4.335.0/vulkansdk-ubuntu-24.04-arm-1.4.335.0.tar.xz && \
+            tar -xvf vulkan-sdk.tar.xz && \
+            rm vulkan-sdk.tar.xz && \
+            cd 1.4.335.0 && \
+            cp -rfv aarch64/bin/* /usr/bin/ && \
+            cp -rfv aarch64/lib/* /usr/lib/aarch64-linux-gnu/ && \
+            cp -rfv aarch64/include/* /usr/include/ && \
+            cp -rfv aarch64/share/* /usr/share/ && \
+            cd ../.. && \
+            rm -rf vulkan
+        fi
+        ldconfig && \
+        apt-get clean && \
+        rm -rf /var/lib/apt/lists/*
+    fi
+EOT
+
+# CuBLAS requirements
+RUN <<EOT bash
+    if ( [ "${BUILD_TYPE}" = "cublas" ] || [ "${BUILD_TYPE}" = "l4t" ] ) && [ "${SKIP_DRIVERS}" = "false" ]; then
+        apt-get update && \
+        apt-get install -y  --no-install-recommends \
+            software-properties-common pciutils
+        if [ "amd64" = "$TARGETARCH" ]; then
+            curl -O https://developer.download.nvidia.com/compute/cuda/repos/ubuntu${UBUNTU_VERSION}/x86_64/cuda-keyring_1.1-1_all.deb
+        fi
+        if [ "arm64" = "$TARGETARCH" ]; then
+            if [ "${CUDA_MAJOR_VERSION}" = "13" ]; then
+                curl -O https://developer.download.nvidia.com/compute/cuda/repos/ubuntu${UBUNTU_VERSION}/sbsa/cuda-keyring_1.1-1_all.deb
+            else
+                curl -O https://developer.download.nvidia.com/compute/cuda/repos/ubuntu${UBUNTU_VERSION}/arm64/cuda-keyring_1.1-1_all.deb
+            fi
+        fi
+        dpkg -i cuda-keyring_1.1-1_all.deb && \
+        rm -f cuda-keyring_1.1-1_all.deb && \
+        apt-get update && \
+        apt-get install -y --no-install-recommends \
+            cuda-nvcc-${CUDA_MAJOR_VERSION}-${CUDA_MINOR_VERSION} \
+            libcufft-dev-${CUDA_MAJOR_VERSION}-${CUDA_MINOR_VERSION} \
+            libcurand-dev-${CUDA_MAJOR_VERSION}-${CUDA_MINOR_VERSION} \
+            libcublas-dev-${CUDA_MAJOR_VERSION}-${CUDA_MINOR_VERSION} \
+            libcusparse-dev-${CUDA_MAJOR_VERSION}-${CUDA_MINOR_VERSION} \
+            libcusolver-dev-${CUDA_MAJOR_VERSION}-${CUDA_MINOR_VERSION}
+        if [ "${CUDA_MAJOR_VERSION}" = "13" ] && [ "arm64" = "$TARGETARCH" ]; then
+            apt-get install -y --no-install-recommends \
+            libcufile-${CUDA_MAJOR_VERSION}-${CUDA_MINOR_VERSION} libcudnn9-cuda-${CUDA_MAJOR_VERSION} libcudnn9-dev-cuda-${CUDA_MAJOR_VERSION} cuda-cupti-${CUDA_MAJOR_VERSION}-${CUDA_MINOR_VERSION} libnvjitlink-${CUDA_MAJOR_VERSION}-${CUDA_MINOR_VERSION}
+        fi
+        apt-get clean && \
+        rm -rf /var/lib/apt/lists/*
+    fi
+EOT
+
+
+# https://github.com/NVIDIA/Isaac-GR00T/issues/343
+RUN <<EOT bash
+    if [ "${BUILD_TYPE}" = "cublas" ] && [ "${TARGETARCH}" = "arm64" ]; then
+        wget https://developer.download.nvidia.com/compute/cudss/0.6.0/local_installers/cudss-local-tegra-repo-ubuntu${UBUNTU_VERSION}-0.6.0_0.6.0-1_arm64.deb && \
+        dpkg -i cudss-local-tegra-repo-ubuntu${UBUNTU_VERSION}-0.6.0_0.6.0-1_arm64.deb && \
+        cp /var/cudss-local-tegra-repo-ubuntu${UBUNTU_VERSION}-0.6.0/cudss-*-keyring.gpg /usr/share/keyrings/ && \
+        apt-get update && apt-get -y install cudss cudss-cuda-${CUDA_MAJOR_VERSION} && \
+        wget https://developer.download.nvidia.com/compute/nvpl/25.5/local_installers/nvpl-local-repo-ubuntu${UBUNTU_VERSION}-25.5_1.0-1_arm64.deb && \
+        dpkg -i nvpl-local-repo-ubuntu${UBUNTU_VERSION}-25.5_1.0-1_arm64.deb && \
+        cp /var/nvpl-local-repo-ubuntu${UBUNTU_VERSION}-25.5/nvpl-*-keyring.gpg /usr/share/keyrings/ && \
+        apt-get update && apt-get install -y nvpl
+    fi
+EOT
+
+# If we are building with clblas support, we need the libraries for the builds
+RUN if [ "${BUILD_TYPE}" = "clblas" ] && [ "${SKIP_DRIVERS}" = "false" ]; then \
+        apt-get update && \
+        apt-get install -y --no-install-recommends \
+            libclblast-dev && \
+        apt-get clean && \
+        rm -rf /var/lib/apt/lists/* \
+    ; fi
+
+RUN if [ "${BUILD_TYPE}" = "hipblas" ] && [ "${SKIP_DRIVERS}" = "false" ]; then \
+        apt-get update && \
+        apt-get install -y --no-install-recommends \
+            hipblas-dev \
+            hipblaslt-dev \
+            rocblas-dev && \
+        apt-get clean && \
+        rm -rf /var/lib/apt/lists/* && \
+        # I have no idea why, but the ROCM lib packages don't trigger ldconfig after they install, which results in local-ai and others not being able
+        # to locate the libraries. We run ldconfig ourselves to work around this packaging deficiency
+        ldconfig \
+    ; fi
+
+# Install Go
+RUN curl -L -s https://go.dev/dl/go${GO_VERSION}.linux-${TARGETARCH}.tar.gz | tar -C /usr/local -xz
+ENV PATH=$PATH:/root/go/bin:/usr/local/go/bin:/usr/local/bin
+
+# Install grpc compilers
+RUN go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.34.2 && \
+    go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@1958fcbe2ca8bd93af633f11e97d44e567e945af
+RUN echo "TARGETARCH: $TARGETARCH"
+
+# We need protoc installed, and the version in 22.04 is too old.  We will create one as part installing the GRPC build below
+# but that will also being in a newer version of absl which stablediffusion cannot compile with.  This version of protoc is only
+# here so that we can generate the grpc code for the stablediffusion build
+RUN <<EOT bash
+    if [ "amd64" = "$TARGETARCH" ]; then
+        curl -L -s https://github.com/protocolbuffers/protobuf/releases/download/v27.1/protoc-27.1-linux-x86_64.zip -o protoc.zip && \
+        unzip -j -d /usr/local/bin protoc.zip bin/protoc && \
+        rm protoc.zip
+    fi
+    if [ "arm64" = "$TARGETARCH" ]; then
+        curl -L -s https://github.com/protocolbuffers/protobuf/releases/download/v27.1/protoc-27.1-linux-aarch_64.zip -o protoc.zip && \
+        unzip -j -d /usr/local/bin protoc.zip bin/protoc && \
+        rm protoc.zip
+    fi
+EOT
+
+RUN if [ "${BACKEND}" = "opus" ]; then \
+    apt-get update && apt-get install -y --no-install-recommends libopus-dev pkg-config && \
+    apt-get clean && rm -rf /var/lib/apt/lists/*; \
+fi
+
+# CrispASR's piper TTS backend dlopens libespeak-ng at runtime to phonemize
+# non-English text (the MIT-clean path; English uses a built-in G2P). Install
+# the espeak-ng runtime + its libpcaudio/libsonic deps + voice data so
+# package.sh can bundle them into the FROM scratch image.
+RUN if [ "${BACKEND}" = "crispasr" ]; then \
+    apt-get update && apt-get install -y --no-install-recommends \
+        espeak-ng-data libespeak-ng1 libpcaudio0 libsonic0 && \
+    apt-get clean && rm -rf /var/lib/apt/lists/*; \
+fi
+
+# sherpa-onnx links onnxruntime's CUDA execution provider, and
+# libonnxruntime_providers_cuda.so has cuDNN as a hard DT_NEEDED. The
+# onnxruntime GPU tarball does not ship cuDNN itself, so without this the
+# builder has none (the arm64 + CUDA 13 branch above is the only other place
+# that installs it) and package-gpu-libs.sh correctly refuses to produce a
+# package that references cuDNN with no cuDNN available to it.
+#
+# Installed per-backend rather than for every cublas build: the auto-detection
+# in package-gpu-libs.sh bundles only what a package actually references, so
+# the ggml backends would not grow either way, but they would all pay ~1.1 GB
+# of builder layer and registry cache for a library they never call.
+#
+# Runtime package only, no -dev: sherpa-onnx consumes onnxruntime's prebuilt
+# CUDA provider and never compiles against cuDNN headers. libcudnn9-cuda-N
+# carries the dispatcher plus all seven dlopen()ed sublibraries, which is what
+# complete_cudnn_family needs to assemble a whole bundle.
+RUN <<EOT bash
+    if [ "${BACKEND}" = "sherpa-onnx" ] && [ "${BUILD_TYPE}" = "cublas" ] && [ "${SKIP_DRIVERS}" = "false" ]; then
+        apt-get update && \
+        apt-get install -y --no-install-recommends \
+            libcudnn9-cuda-${CUDA_MAJOR_VERSION} && \
+        ldconfig && \
+        apt-get clean && \
+        rm -rf /var/lib/apt/lists/*
+    fi
+EOT
+
+# nemo-speech-cpp builds NVIDIA NeMo-Speech.cpp with text normalization enabled,
+# which compiles the Sparrowhawk/OpenFST WFST stack from source via
+# scripts/build_itn_deps.sh. That step needs gcc-12 specifically: OpenFST's
+# template-heavy translation units ICE on gcc-13 and gcc-14 at -O2, so upstream
+# pins gcc-12 for it while the runtime itself builds with the image default.
+# No update-alternatives here, so the default compiler is untouched; the backend
+# Makefile reaches gcc-12 by name for that one step.
+#
+# The rest is what build_itn_deps.sh and the WITH_NORM cmake block expect:
+# protobuf (headers plus protoc, which must come from the same apt set so the
+# generated stubs match the headers they compile against) and re2 for
+# Sparrowhawk, and autotools because OpenFST and Sparrowhawk ship autoconf
+# builds. ninja is not in the common apt list because this is the only Go
+# backend that configures with -G Ninja, and that list is a layer shared by
+# every backend image in the matrix.
+#
+# No libabsl-dev, despite upstream's Dockerfile installing it: upstream builds
+# against protobuf 25, which splits its runtime across libabsl_*, whereas every
+# base image in this matrix carries protobuf 3.21 (noble) or 3.12 (jammy), which
+# has no absl dependency. The cmake block's file(GLOB ... /usr/lib/libabsl_*.so)
+# would not match on Ubuntu anyway, since multiarch puts those under
+# /usr/lib/<triplet>/.
+#
+# Placed down here with the other per-backend gates rather than next to the
+# shared apt layer: Docker re-keys every layer below an inserted one, so adding
+# a step above the Vulkan SDK, CUDA, Go and protoc layers would force all of
+# them to re-execute once for every Go backend image, not just this one.
+# Nothing between there and here needs any of these packages (the Vulkan and
+# opus blocks install their own ninja and pkg-config, and the protoc download is
+# a release binary that needs neither libprotobuf-dev nor protoc from apt), and
+# nothing here needs anything those layers provide.
+#
+# The second half of this block backfills cmake. NeMo-Speech.cpp opens with
+# cmake_minimum_required(VERSION 3.26), which every noble base in the matrix
+# satisfies (24.04 ships 3.28) but the JetPack r36.4.0 row does not: that image
+# is jammy, whose apt cmake is 3.22, so configure aborts before it reads a
+# single one of our -D flags. This is the only Go backend that needs more than
+# jammy's cmake; parakeet-cpp and moss-transcribe-cpp share the same JetPack
+# base and both declare cmake_minimum_required(VERSION 3.18).
+#
+# Taken from Kitware's own release tarball rather than from their APT repo or
+# from pip. The tarball is a pinned URL with a published checksum, so the build
+# is reproducible and an upstream release cannot change what lands here; the
+# APT repo serves a moving 'latest', which today would be CMake 4.x, and 4.x
+# drops compatibility with cmake_minimum_required below 3.5 and so would break
+# vendored third_party subprojects that still declare one. pip would drag a
+# Python toolchain into a backend that otherwise has none. The binaries need
+# only glibc 2.17 and carry no libstdc++ DT_NEEDED, so jammy's 2.35 is far
+# above the floor. doc/, man/, ccmake and cmake-gui are left in the tarball;
+# this is a builder stage and the final image is FROM scratch, but there is no
+# reason to page 50 MB of Qt GUI and docs through the CI cache.
+#
+# Conditional on the installed cmake being too old rather than unconditional,
+# so the rows that already build green (noble cpu, vulkan, cublas and hipblas)
+# keep configuring with exactly the cmake they configure with today.
+#
+# The version test compares through two temp files and a grep on the exit
+# status rather than the obvious "$(sort -V ... | head -n1)". BuildKit delivers
+# a RUN heredoc through an outer shell with an unquoted delimiter, so the outer
+# shell expands the body before bash ever sees it: a $(...) here runs once, too
+# early, in a container where the files it reads do not exist yet, and its empty
+# output is then pasted into the script. Same reason there are no shell
+# variables below. ${BACKEND} and ${TARGETARCH} are fine because they are build
+# args, which BuildKit exports into that outer shell's environment.
+#
+# The symlink goes in /usr/local/bin, which precedes /usr/bin on PATH, so it
+# shadows apt's cmake. That is deliberate and, unlike the protoc shadowing that
+# broke Sparrowhawk earlier in this PR, it is inert: protoc has to agree with
+# the libprotobuf headers it generates against, whereas cmake is a standalone
+# build driver with no ABI relationship to anything in the image, and it locates
+# its own Modules/ tree by resolving the symlink back to /opt, so a 3.31 binary
+# can never read 3.22's modules. Scope is the ${BACKEND} gate: no other Go
+# backend image gets /opt/cmake or the symlink. Inside this image the only
+# other cmake consumers, the base apt layer and the Vulkan SDK build, both run
+# in layers above this one and have already finished.
+RUN <<EOT bash
+    if [ "${BACKEND}" = "nemo-speech-cpp" ]; then
+        set -e
+        apt-get update
+        apt-get install -y --no-install-recommends \
+            gcc-12 g++-12 \
+            ninja-build \
+            libprotobuf-dev protobuf-compiler \
+            libre2-dev \
+            autoconf automake libtool pkg-config
+        apt-get clean
+        rm -rf /var/lib/apt/lists/*
+
+        echo 3.26.0 > /tmp/cmake-required
+        cmake --version 2>/dev/null | head -n1 | cut -d' ' -f3 > /tmp/cmake-present
+        if [ ! -s /tmp/cmake-present ]; then
+            echo 0.0.0 > /tmp/cmake-present
+        fi
+        if sort -V /tmp/cmake-required /tmp/cmake-present | head -n1 | grep -qxF 3.26.0; then
+            echo "==> cmake is new enough for NeMo-Speech.cpp:"
+            cmake --version | head -n1
+        else
+            echo "==> cmake is below the 3.26 NeMo-Speech.cpp requires; installing 3.31.12. Found:"
+            cat /tmp/cmake-present
+            mkdir -p /opt/cmake
+            if [ "${TARGETARCH}" = "arm64" ]; then
+                curl -fsSL -o /tmp/cmake.tar.gz https://github.com/Kitware/CMake/releases/download/v3.31.12/cmake-3.31.12-linux-aarch64.tar.gz
+                echo "83f8fd91d2038a56556e1400390fcfe42f79602940c494f6c6f1cdae7f9e7f40  /tmp/cmake.tar.gz" | sha256sum -c -
+                tar -xzf /tmp/cmake.tar.gz -C /opt/cmake --strip-components=1 \
+                    cmake-3.31.12-linux-aarch64/bin/cmake \
+                    cmake-3.31.12-linux-aarch64/bin/cpack \
+                    cmake-3.31.12-linux-aarch64/bin/ctest \
+                    cmake-3.31.12-linux-aarch64/share
+            else
+                curl -fsSL -o /tmp/cmake.tar.gz https://github.com/Kitware/CMake/releases/download/v3.31.12/cmake-3.31.12-linux-x86_64.tar.gz
+                echo "0dc2e9a6860f06bf10bd8fadc03e35d9eeb4df46e33763a7e480e987758f385c  /tmp/cmake.tar.gz" | sha256sum -c -
+                tar -xzf /tmp/cmake.tar.gz -C /opt/cmake --strip-components=1 \
+                    cmake-3.31.12-linux-x86_64/bin/cmake \
+                    cmake-3.31.12-linux-x86_64/bin/cpack \
+                    cmake-3.31.12-linux-x86_64/bin/ctest \
+                    cmake-3.31.12-linux-x86_64/share
+            fi
+            rm -f /tmp/cmake.tar.gz
+            ln -sf /opt/cmake/bin/cmake /usr/local/bin/cmake
+            ln -sf /opt/cmake/bin/cpack /usr/local/bin/cpack
+            ln -sf /opt/cmake/bin/ctest /usr/local/bin/ctest
+            hash -r
+            cmake --version
+        fi
+        rm -f /tmp/cmake-required /tmp/cmake-present
+    fi
+EOT
+
+RUN git config --global --add safe.directory /LocalAI
+
+# Prebuild the native engine from a layer that depends on this backend's own
+# directory and nothing else.
+#
+# The expensive part of a C++ backend build is the engine: each of these
+# Makefiles clones an upstream repo at a pinned SHA and compiles it once per
+# SIMD variant (depth-anything-cpp builds four: avx, avx2, avx512, fallback),
+# and those variant targets depend only on the clone. They cannot observe a
+# change anywhere else in the LocalAI tree. Building them below `COPY . /LocalAI`
+# threw that away: any Go-side edit invalidated the layer and recompiled C++ that
+# had not changed. Measured on 2026-07-30, that is a 100+ minute rebuild for the
+# larger engines.
+#
+# Copying only this backend's directory first keeps the compile in a layer that
+# survives any change elsewhere in the tree, so `cache-from: type=registry`
+# restores it. That covers the expensive cases directly: a shared-build-input or
+# backend.proto change, the weekly full-matrix cron and a tag push all rebuild
+# every backend while touching none of their directories. This is the mechanism
+# behind base-grpc-* applied one level down; unlike a --mount=type=cache it is a
+# real layer, which is what actually survives to the registry.
+#
+# The whole directory rather than just the Makefile: the CMake targets also need
+# CMakeLists.txt, and the file list differs per backend. The cost is that editing
+# this backend's Go sources also invalidates the engine layer.
+#
+# Backends whose Makefile has no `engine` target are unaffected: the guard skips
+# the prebuild and their engine still compiles in the `build` step below.
+COPY backend/go/${BACKEND}/ /LocalAI/backend/go/${BACKEND}/
+RUN cd /LocalAI/backend/go/${BACKEND} && \
+    if make -n engine >/dev/null 2>&1; then \
+        echo "==> prebuilding engine for ${BACKEND} (cacheable layer)" && \
+        make engine; \
+    else \
+        echo "==> ${BACKEND} has no engine target; it builds with the backend"; \
+    fi
+
+COPY . /LocalAI
+
+# The engine variants built above survive this COPY (they are build outputs, not
+# tracked files) and are newer than the pinned clone, so make treats them as up
+# to date and goes straight to the Go binary.
+RUN cd /LocalAI && make protogen-go && make -C /LocalAI/backend/go/${BACKEND} build
+
+FROM scratch
+ARG BACKEND=rerankers
+
+COPY --from=builder /LocalAI/backend/go/${BACKEND}/package/. ./

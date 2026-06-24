@@ -1,0 +1,17 @@
+{
+  "generic": "Etwas ist schiefgelaufen",
+  "network": "Netzwerkfehler. Überprüfen Sie Ihre Verbindung und versuchen Sie es erneut.",
+  "unauthorized": "Sie sind nicht berechtigt, diese Aktion auszuführen.",
+  "forbidden": "Zugriff verweigert.",
+  "notFound": "Die angeforderte Ressource wurde nicht gefunden.",
+  "serverError": "Serverfehler. Bitte versuchen Sie es später erneut.",
+  "loadFailed": "Laden fehlgeschlagen: {{message}}",
+  "saveFailed": "Speichern fehlgeschlagen: {{message}}",
+  "deleteFailed": "Löschen fehlgeschlagen: {{message}}",
+  "updateFailed": "Aktualisieren fehlgeschlagen: {{message}}",
+  "createFailed": "Erstellen fehlgeschlagen: {{message}}",
+  "operationFailed": "Vorgang fehlgeschlagen: {{message}}",
+  "invalidInput": "Ungültige Eingabe. Bitte überprüfen Sie das Formular und versuchen Sie es erneut.",
+  "tryAgain": "Bitte versuchen Sie es erneut.",
+  "contactAdmin": "Wenn das Problem weiterhin besteht, wenden Sie sich an Ihren Administrator."
+}

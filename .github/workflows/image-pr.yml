@@ -1,0 +1,124 @@
+---
+  name: 'build container images tests'
+  
+  on:
+    pull_request:
+      # None of these seven image builds can observe a diff confined to these
+      # paths. Gallery metadata is parsed at runtime and never copied into an
+      # image; docs and markdown never enter one at all. Gallery content is
+      # still checked by yaml-check.yml and by
+      # core/gallery/variants_lint_test.go under 'tests'.
+      #
+      # backend/{cpp,go,python}/**: this workflow builds the core image, whose
+      # only compiled output is `make build` -> `go build ./cmd/local-ai`. The
+      # per-backend trees are copied into the builder but nothing in them reaches
+      # the binary or the final stage. backend/backend.proto is deliberately not
+      # listed: it feeds protogen-go and so does change the binary, and it does
+      # not live under any of these prefixes, so it still triggers a full run.
+      # See .agents/ci-caching.md.
+      paths-ignore:
+        - 'gallery/**'
+        - 'docs/**'
+        - 'examples/**'
+        - '**/*.md'
+        - 'backend/cpp/**'
+        - 'backend/go/**'
+        - 'backend/python/**'
+
+  concurrency:
+    group: ci-${{ github.event.pull_request.number || github.sha }}-${{ github.repository }}
+    cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+  
+  jobs:
+    image-build:
+      uses: ./.github/workflows/image_build.yml
+      with:
+        tag-latest: ${{ matrix.tag-latest }}
+        tag-suffix: ${{ matrix.tag-suffix }}
+        build-type: ${{ matrix.build-type }}
+        cuda-major-version: ${{ matrix.cuda-major-version }}
+        cuda-minor-version: ${{ matrix.cuda-minor-version }}
+        platforms: ${{ matrix.platforms }}
+        platform-tag: ${{ matrix.platform-tag || '' }}
+        runs-on: ${{ matrix.runs-on }}
+        base-image: ${{ matrix.base-image }}
+        makeflags: ${{ matrix.makeflags }}
+        ubuntu-version: ${{ matrix.ubuntu-version }}
+      secrets:
+        dockerUsername: ${{ secrets.DOCKERHUB_USERNAME }}
+        dockerPassword: ${{ secrets.DOCKERHUB_PASSWORD }}
+        quayUsername: ${{ secrets.LOCALAI_REGISTRY_USERNAME }}
+        quayPassword: ${{ secrets.LOCALAI_REGISTRY_PASSWORD }}
+      strategy:
+        # Pushing with all jobs in parallel
+        # eats the bandwidth of all the nodes
+        max-parallel: ${{ github.event_name != 'pull_request' && 4 || 8 }}
+        fail-fast: false
+        matrix:
+          include:
+            - build-type: 'cublas'
+              cuda-major-version: "12"
+              cuda-minor-version: "8"
+              platforms: 'linux/amd64'
+              tag-latest: 'false'
+              tag-suffix: '-gpu-nvidia-cuda-12'
+              runs-on: 'ubuntu-latest'
+              base-image: "ubuntu:24.04"
+              makeflags: "--jobs=3 --output-sync=target"
+              ubuntu-version: '2404'
+            - build-type: 'cublas'
+              cuda-major-version: "13"
+              cuda-minor-version: "0"
+              platforms: 'linux/amd64'
+              tag-latest: 'false'
+              tag-suffix: '-gpu-nvidia-cuda-13'
+              runs-on: 'ubuntu-latest'
+              base-image: "ubuntu:24.04"
+              makeflags: "--jobs=3 --output-sync=target"
+              ubuntu-version: '2404'
+            - build-type: 'hipblas'
+              platforms: 'linux/amd64'
+              tag-latest: 'false'
+              tag-suffix: '-hipblas'
+              base-image: "rocm/dev-ubuntu-24.04:7.2.1"
+              runs-on: 'ubuntu-latest'
+              makeflags: "--jobs=3 --output-sync=target"
+              ubuntu-version: '2404'
+            - build-type: 'sycl'
+              platforms: 'linux/amd64'
+              tag-latest: 'false'
+              base-image: "intel/oneapi-basekit:2025.3.2-0-devel-ubuntu24.04"
+              tag-suffix: 'sycl'
+              runs-on: 'ubuntu-latest'
+              makeflags: "--jobs=3 --output-sync=target"
+              ubuntu-version: '2404'
+            - build-type: 'vulkan'
+              platforms: 'linux/amd64'
+              platform-tag: 'amd64'
+              tag-latest: 'false'
+              tag-suffix: '-vulkan-core'
+              runs-on: 'ubuntu-latest'
+              base-image: "ubuntu:24.04"
+              makeflags: "--jobs=4 --output-sync=target"
+              ubuntu-version: '2404'
+            - build-type: 'vulkan'
+              platforms: 'linux/arm64'
+              platform-tag: 'arm64'
+              tag-latest: 'false'
+              tag-suffix: '-vulkan-core'
+              runs-on: 'ubuntu-24.04-arm'
+              base-image: "ubuntu:24.04"
+              makeflags: "--jobs=4 --output-sync=target"
+              ubuntu-version: '2404'
+            - build-type: 'cublas'
+              cuda-major-version: "13"
+              cuda-minor-version: "0"
+              platforms: 'linux/arm64'
+              tag-latest: 'false'
+              tag-suffix: '-nvidia-l4t-arm64-cuda-13'
+              base-image: "ubuntu:24.04"
+              runs-on: 'ubuntu-24.04-arm'
+              makeflags: "--jobs=4 --output-sync=target"
+              skip-drivers: 'false'
+              ubuntu-version: '2404'
+  

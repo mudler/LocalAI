@@ -1,0 +1,124 @@
+{
+  "title": "Modell importieren",
+  "subtitle": {
+    "source": "Füge eine Hugging-Face-Referenz, eine URL oder einen Pfad auf diesem Host ein.",
+    "yaml": "Schreibe die Modellkonfiguration von Hand. Es wird nichts automatisch erkannt."
+  },
+  "tabs": {
+    "ariaLabel": "Art des Imports",
+    "source": "Aus einer Quelle",
+    "yaml": "YAML schreiben"
+  },
+  "actions": {
+    "import": "Importieren",
+    "importing": "Importiere…",
+    "create": "Erstellen",
+    "saving": "Speichern...",
+    "browseHF": "Modelle auf Hugging Face durchsuchen",
+    "addCustom": "Eigenen Eintrag hinzufügen",
+    "copy": "Kopieren"
+  },
+  "form": {
+    "modelUri": "Quelle",
+    "uriPlaceholder": "huggingface://TheBloke/Llama-2-7B-Chat-GGUF oder https://example.com/model.gguf",
+    "uriHint": "Drücke Enter zum Importieren. LocalAI wählt das Backend anhand der Quelle, sofern du keines auswählst.",
+    "supportedFormats": "Was du einfügen kannst",
+    "options": "Import-Optionen",
+    "customPreferences": "Eigene Einstellungen",
+    "customKeyValueHint": "Fügen Sie benutzerdefinierte Schlüssel-Wert-Paare für erweiterte Konfiguration hinzu.",
+    "preferenceKey": "Einstellungsschlüssel für Zeile {{index}}",
+    "preferenceValue": "Einstellungswert für Zeile {{index}}",
+    "removePref": "Diese Einstellung entfernen",
+    "key": "Schlüssel",
+    "value": "Wert",
+    "backend": "Backend",
+    "backendAuto": "Auto-Erkennung (basierend auf URI)",
+    "backendLoading": "Backends werden geladen…",
+    "backendSearch": "Backends suchen...",
+    "backendHint": "Grenze die Liste danach ein, was das Modell tut, und wähle dann eines aus. Bei automatischer Erkennung entscheidet LocalAI. Einträge mit „manuelle Auswahl“ werden nie automatisch erkannt.",
+    "backendErrorHint": "Backend-Liste konnte nicht geladen werden. Nur automatische Erkennung.",
+    "backendNotInstalled": "Dieses Backend ist noch nicht installiert. Beim Senden des Imports wird es zuerst heruntergeladen.",
+    "modelName": "Name",
+    "modelNamePlaceholder": "Leer lassen, um den Dateinamen zu verwenden",
+    "modelNameHint": "Benutzerdefinierter Name für das Modell. Wenn leer, wird der Dateiname verwendet.",
+    "description": "Beschreibung",
+    "descriptionPlaceholder": "Leer lassen für Standardbeschreibung",
+    "descriptionHint": "Benutzerdefinierte Beschreibung für das Modell.",
+    "quantizations": "Quantisierungen",
+    "quantizationsPlaceholder": "q4_k_m,q4_k_s,q3_k_m (kommasepariert)",
+    "quantizationsHint": "Bevorzugte Quantisierungen (kommasepariert). Leer lassen für Standard (q4_k_m).",
+    "mmprojQuantizations": "MMProj-Quantisierungen",
+    "mmprojQuantizationsPlaceholder": "fp16,fp32 (kommasepariert)",
+    "mmprojQuantizationsHint": "Bevorzugte MMProj-Quantisierungen. Leer lassen für Standard (fp16).",
+    "embeddings": "Embeddings",
+    "embeddingsHint": "Embeddings-Unterstützung für dieses Modell aktivieren.",
+    "modelType": "Modelltyp",
+    "modelTypePlaceholder": "AutoModelForCausalLM (für transformers-Backend)",
+    "modelTypeHint": "Modelltyp für transformers-Backend. Beispiele: AutoModelForCausalLM, SentenceTransformer, Mamba.",
+    "pipelineType": "Pipeline-Typ",
+    "pipelineTypeHint": "Pipeline-Typ für diffusers-Backend.",
+    "schedulerType": "Scheduler-Typ",
+    "schedulerTypePlaceholder": "k_dpmpp_2m (optional)",
+    "schedulerTypeHint": "Scheduler-Typ für diffusers-Backend. Beispiele: k_dpmpp_2m, euler_a, ddim.",
+    "enableParameters": "Parameter aktivieren",
+    "enableParametersPlaceholder": "negative_prompt,num_inference_steps (kommasepariert)",
+    "enableParametersHint": "Aktivierte Parameter für diffusers-Backend (kommasepariert).",
+    "cuda": "CUDA",
+    "cudaHint": "CUDA-Unterstützung für GPU-Beschleunigung aktivieren.",
+    "yamlEditor": "Modellkonfiguration",
+    "manualPick": "manuelle Auswahl",
+    "manualPickTooltip": "Auto-Erkennung leitet nicht zu diesem Backend. Wählen Sie es hier, wenn Sie wissen, dass Sie das wollen.",
+    "optionsSummary": "Backend, Name, Beschreibung, Quantisierungen…",
+    "modalityAny": "Alle",
+    "modalityFilter": "Backends nach Modalität filtern"
+  },
+  "modality": {
+    "text": "Text-LLM",
+    "asr": "Spracherkennung",
+    "tts": "Sprachsynthese",
+    "image": "Bild / Video",
+    "video": "Videogenerierung",
+    "embeddings": "Embeddings",
+    "reranker": "Reranker",
+    "detection": "Objekterkennung",
+    "vad": "Sprachaktivitätserkennung",
+    "other": "Sonstige"
+  },
+  "estimate": {
+    "downloadLabel": "Download",
+    "vramLabel": "VRAM beim Laden"
+  },
+  "progress": {
+    "label": "Import-Fortschritt",
+    "working": "Arbeite…"
+  },
+  "toasts": {
+    "noUri": "Bitte eine Modell-URI eingeben",
+    "noYaml": "Bitte YAML-Konfiguration eingeben",
+    "started": "Import gestartet. Der Fortschritt wird unten angezeigt.",
+    "imported": "Modell erfolgreich importiert!",
+    "importedYaml": "Modellkonfiguration erfolgreich importiert!",
+    "importFailed": "Import fehlgeschlagen: {{message}}",
+    "startImportFailed": "Start des Imports fehlgeschlagen: {{message}}",
+    "backendsLoadFailed": "Backend-Liste konnte nicht geladen werden — nur Auto-Erkennung wird verwendet",
+    "modalityClearedBackend": "Backend-Auswahl gelöscht — sie war nicht in der {{label}}-Gruppe.",
+    "copied": "In die Zwischenablage kopiert"
+  },
+  "uriFormats": {
+    "huggingface": {
+      "title": "Hugging Face"
+    },
+    "http": {
+      "title": "Direkte URL"
+    },
+    "local": {
+      "title": "Auf diesem Host"
+    },
+    "oci": {
+      "title": "OCI-Registry"
+    },
+    "ollama": {
+      "title": "Ollama"
+    }
+  }
+}

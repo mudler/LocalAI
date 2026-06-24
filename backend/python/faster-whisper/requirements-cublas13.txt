@@ -1,0 +1,9 @@
+--extra-index-url https://download.pytorch.org/whl/cu130
+torch==2.9.1
+faster-whisper
+opencv-python
+accelerate
+compel
+peft
+sentencepiece
+optimum-quanto

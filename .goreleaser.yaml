@@ -1,0 +1,54 @@
+version: 2
+before:
+  hooks:
+    - make protogen-go
+    - make react-ui
+    - go mod tidy
+dist: release
+source:
+  enabled: true
+  name_template: '{{ .ProjectName }}-{{ .Tag }}-source'
+builds:
+  - id: local-ai
+    main: ./cmd/local-ai
+    env:
+      - CGO_ENABLED=0
+    ldflags:
+      - -s -w
+      - -X "github.com/mudler/LocalAI/internal.Version={{ .Tag }}"
+      - -X "github.com/mudler/LocalAI/internal.Commit={{ .FullCommit }}"
+    goos:
+      - linux
+      - darwin
+      #- windows
+    goarch:
+      - amd64
+      - arm64
+    ignore:
+      - goos: darwin
+        goarch: amd64
+archives:
+  - formats: [ 'binary' ] # this removes the tar of the archives, leaving the binaries alone
+    name_template: local-ai-{{ .Tag }}-{{ .Os }}-{{ .Arch }}{{ if .Arm }}v{{ .Arm }}{{ end }}
+checksum:
+  name_template: '{{ .ProjectName }}-{{ .Tag }}-checksums.txt'
+snapshot:
+  version_template: "{{ .Tag }}-next"
+changelog:
+  use: github-native
+# Sign + notarize the macOS server binary via the quill backend (runs on Linux,
+# no macOS runner needed). Disabled automatically when MACOS_SIGN_P12 is unset
+# (forks / PRs), so those builds stay unsigned and green.
+notarize:
+  macos:
+    - enabled: '{{ isEnvSet "MACOS_SIGN_P12" }}'
+      ids:
+        - local-ai
+      sign:
+        certificate: "{{.Env.MACOS_SIGN_P12}}"
+        password: "{{.Env.MACOS_SIGN_PASSWORD}}"
+      notarize:
+        issuer_id: "{{.Env.MACOS_NOTARY_ISSUER_ID}}"
+        key_id: "{{.Env.MACOS_NOTARY_KEY_ID}}"
+        key: "{{.Env.MACOS_NOTARY_KEY}}"
+        wait: true

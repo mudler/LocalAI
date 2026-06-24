@@ -1,0 +1,18 @@
+# Fetched upstream sources
+sources/
+
+# CMake build directories
+build*/
+
+# build artifacts staged in-tree by the Makefile (cp from sources/) or
+# symlinked for local dev; the real sources live in voice-detect.cpp upstream.
+*.so
+*.so.*
+voicedetect_capi.h
+compile_commands.json
+
+# Compiled backend binary
+voice-detect-grpc
+
+# Packaging output
+package/

@@ -1,0 +1,812 @@
++++
+title = "Middleware: PII filtering and intelligent routing"
+weight = 27
+toc = true
+url = "/features/middleware/"
+description = "Per-model PII redaction and policy-based request routing"
+tags = ["Routing", "Privacy", "PII", "Middleware", "Advanced"]
+categories = ["Features"]
++++
+
+![The request lifecycle: one shared hook chain for auth, model routing, and PII, with decision and event logs](/images/diagrams/middleware-lifecycle.png)
+
+LocalAI ships a request-middleware layer that sits between the HTTP API and
+the backend dispatcher. Two subsystems share that layer because they share
+the same lifecycle hook: **PII filtering** scans the request body before it
+reaches a backend, and the **intelligent router** rewrites `input.Model` so
+a single client-facing model name fans out across multiple downstream
+targets.
+
+Both are inspected and configured from the same admin page
+(`/app/middleware`), backed by the same REST surface (`/api/middleware/*`,
+`/api/pii/*`, `/api/router/*`) and the same MCP tools.
+
+## Request lifecycle
+
+```
+client ── auth ── route-model ── per-model PII ── backend ── client
+                       │              │
+                       │              └─── event log
+                       └─── decision log
+```
+
+The router runs first (it picks the target model so per-model PII has
+something to gate on), per-model PII runs next (gated by the resolved
+config), and the backend executes. Filtering is **request-side only** -
+the request body is scanned and rewritten before forwarding; the response
+is not touched (NER over a streamed response is left as a follow-up). Each
+subsystem writes to its own admin-visible log: `/api/router/decisions` for
+routing, `/api/pii/events` for redaction and block actions.
+
+---
+
+## PII filtering
+
+PII redaction is **NER-based and runs request-side (input)**. It is
+**off by default**, flipping to **on for any `cloud-proxy` backend**
+because that traffic crosses the network to a third-party provider. Pick a
+[default detector](#instance-wide-default-detector) so those models are actually
+scanned. Explicit `pii.enabled` in a model's YAML always wins over the
+backend default.
+
+Filtering runs on every text-accepting endpoint that has an adapter wired:
+`/v1/chat/completions` and `/v1/messages` (chat), `/v1/completions`,
+`/v1/embeddings`, `/v1/edits`, and the Ollama `/api/chat`, `/api/generate`
+and `/api/embed` endpoints, plus the [MITM proxy]({{< relref "mitm-proxy.md" >}})
+request body. Image, audio (TTS/STT), video, rerank, and the realtime
+WebSocket are not filtered yet (different prompt-PII semantics; realtime is
+not HTTP middleware).
+
+A request's messages are scanned **as one document** (joined in order), so
+the NER detector keeps conversational context: whether `4421` is a PIN or
+`jdoe_42` is a username is usually decided by the question asked in the
+*previous* message, and a bidirectional encoder only sees that context when
+the messages share a forward pass. Detected spans are mapped back to the
+individual message they fall in, so redaction still rewrites each message
+field in place and events carry message-local offsets.
+
+> The earlier regex pattern tier (`pii.patterns`, the built-in pattern
+> catalogue, `--pii-config`, the `/api/pii/patterns|test|decide` endpoints)
+> and response/streaming-side redaction have been **removed**. Detection is
+> now driven entirely by token-classification (NER) models. Legacy keys
+> no-op with a startup warning.
+
+### Detector models
+
+A **detector** is a `token_classify` model (e.g. an `openai-privacy-filter`
+GGUF) that carries the detection *policy* in a top-level `pii_detection:`
+block - defined once, on the model itself:
+
+```yaml
+name: privacy-filter-multilingual
+backend: privacy-filter
+embeddings: true              # TOKEN_CLS pooling
+known_usecases:
+  - token_classify
+pii_detection:
+  min_score: 0.5              # drop detections below this confidence
+  default_action: mask        # applied to any detected group with no entry
+  entity_actions:             # which PII to block vs mask vs allow-log
+    PASSWORD: block
+    CREDITCARD: block
+    EMAIL: mask
+```
+
+`mask` rewrites the matched span to `[REDACTED:ner:<GROUP>]` in the request
+body before forwarding. `block` returns HTTP 400 (`error.type=pii_blocked`)
+without forwarding. `allow` detects and logs (a PIIEvent is still recorded)
+but leaves the text unchanged. The entity-group names are whatever the model
+emits (the privacy-filter family uses uppercase names like `EMAIL`,
+`PASSWORD`, `CREDITCARD`).
+
+### Pattern detector tier
+
+NER is the wrong tool for high-entropy, highly-regular **secrets** - API keys,
+tokens, private-key blocks. A trained NER model has no "API key" class, so it
+fragments a key into the nearest categories it *does* know and can leave the
+secret part exposed. Those secrets are exactly what a regex catches cheaply.
+
+A **pattern detector** is a detector model (`backend: pattern`) that matches
+secrets with a **restricted regex subset** compiled to Go's RE2 engine -
+linear-time, no backtracking, no ReDoS. It runs entirely in-process: no model
+download, no backend, zero VRAM. Install the gallery's **`secret-filter`** for a
+ready-made set, or define your own:
+
+```yaml
+name: secret-filter
+backend: pattern
+known_usecases: [token_classify]        # so it appears in the detector picker
+pii_detection:
+  default_action: block                 # a leaked credential shouldn't leave
+  builtins:                             # built-in catalogue (enable by name)
+    - anthropic_api_key
+    - openai_api_key
+    - github_token
+    - aws_access_key
+    - private_key_block
+  patterns:                             # operator-defined, restricted subset
+    - name: INTERNAL_TOKEN
+      match: "tok-[A-Za-z0-9]{32,64}"
+      action: block                      # optional per-pattern override
+      min_len: 36                        # optional length floor
+```
+
+A match is reported under its group (built-in group name, or the pattern
+`name`), so `entity_actions` / `default_action` apply exactly as for NER.
+
+**The restricted grammar** (validated at load - an invalid pattern is rejected,
+not silently ignored):
+- Allowed: literals, character classes `[…]` and `\w \d \s`, alternation,
+  anchors `^ $ \b`, and quantifiers `? * + {m,n}`.
+- Rejected: `.` (any-char), capturing groups, and `{n,m}` bounds over 4096.
+- **Required anchor**: every pattern must contain a fixed literal run of at
+  least 3 characters (e.g. `sk-ant-`, `ghp_`, `AKIA`). This admits real key
+  shapes but rejects open-ended ones - an email or a bare `\w+` has no such
+  anchor and belongs to the [NER tier](#detector-models).
+
+Use both tiers together: reference an NER detector *and* a pattern detector in a
+model's `pii.detectors` (or as instance defaults); their hits union, and a
+`block` from either rejects the request.
+
+### Consuming models
+
+Any model opts in by enabling PII and referencing one or more detectors -
+no per-consumer policy:
+
+```yaml
+name: claude-strict
+backend: cloud-proxy
+proxy:
+  mode: passthrough
+  provider: anthropic
+  upstream_url: https://api.anthropic.com/v1/messages
+  api_key_env: ANTHROPIC_API_KEY
+pii:
+  enabled: true               # default-on for cloud-proxy; explicit for audit
+  detectors:
+    - privacy-filter-multilingual
+  reversible_redactions: true # restore request PII if the model echoes its wrapped token
+  reversible_token_prefix: "[REDACTED:" # optional; this is the default
+  reversible_token_suffix: "]"          # optional; this is the default
+```
+
+`reversible_redactions` enables bijective, request-scoped replacement. Each
+masked value is sent to the backend as a stable wrapped token such as
+`[REDACTED:EMAIL_001]` instead of a generic redaction marker. If the model includes that token in
+its response, LocalAI restores the original value before returning JSON or SSE
+to the caller. The substitution map exists only for that request and is never
+logged or persisted. Leave the option unset (the default) for irreversible
+`[REDACTED:...]` masking.
+
+The prefix and suffix reduce collisions with ordinary model output and can be
+customized with `reversible_token_prefix` and `reversible_token_suffix`.
+Reversible redactions provide less confidentiality than irreversible masking:
+any third party that can observe both the redacted request and restored response
+may be able to infer the original values.
+
+Multiple detectors **union** their detections; overlapping spans resolve to
+the strongest action (`block` > `mask` > `allow`). A configured detector
+that can't be loaded **fails the request closed** (HTTP 503,
+`error.type=pii_ner_unavailable`) rather than silently skipping the check.
+The same NER path runs on the [MITM proxy]({{< relref "mitm-proxy.md" >}})
+request body for intercepted hosts. Reversible response restoration currently
+applies to LocalAI API routes; the MITM proxy keeps its own output-redaction
+policy.
+
+### Instance-wide default detector
+
+The **Detector models** table on the Middleware → Filtering page lists every
+`token_classify` detector model (neural NER models and in-process pattern
+matchers alike) and exposes a per-row **Default** toggle. Toggling a detector
+on adds it to the instance-wide default detector set - one or more models
+applied to any PII-enabled model that names none of its own `pii.detectors`.
+It is persisted through `POST /api/settings` and read live, so a change takes
+effect on the next request without a restart. A default that names a model no
+longer loaded still appears (marked *not loaded*) so it can be toggled off.
+
+The default set can also be supplied out-of-band with the
+`LOCALAI_PII_DEFAULT_DETECTORS` environment variable (comma-separated model
+names, e.g. `privacy-filter-nemotron,secret-filter`). When set it takes
+precedence over the value persisted via the UI (env > file), which is the
+right behaviour for immutable container deployments that pin filtering policy
+at boot rather than via the admin UI.
+
+This is what makes `cloud-proxy` / MITM redaction work out of the box: those
+backends default to PII-enabled but ship no detector list, so without a
+default detector the filter runs with nothing to scan. Set one here and
+cloud-proxy traffic is scanned with no per-model config.
+
+Resolution precedence (the single decision point is `ResolvePIIPolicy`,
+shared by the chat middleware and the MITM listener so both agree):
+
+1. An explicit `pii.enabled` on the model wins - `true` or `false`.
+2. Otherwise PII is on if the backend defaults it on (`cloud-proxy`).
+3. Detectors are the model's own `pii.detectors`; if it lists none, the
+   instance-wide default detector(s) are used.
+
+A model that resolves enabled but ends up with no detector at all (a
+cloud-proxy model with no model detectors and no instance default) scans
+nothing - set a default detector to close that gap.
+
+### Admin page
+
+The `/app/middleware` page (admin role only) has four tabs - **Filtering**,
+**Routing**, **MITM Proxy** (see the [MITM doc]({{< relref "mitm-proxy.md" >}})),
+and **Events**. The Filtering tab has a **Detector models** table (every
+`token_classify` filter model, with the per-row Default toggle above and an
+edit link to each detector's config, plus an *Add detector model* button) and
+a per-model table listing only the models PII can actually apply to - chat /
+completion / embeddings / edit consumers and cloud-proxy models, not
+VAD/STT/image models or the detector models themselves. Each row reports the
+**effective** `enabled` state as an inline **toggle** - flipping it writes an
+explicit `pii.enabled` to that model's YAML (a server-side deep-merge that
+preserves `pii.detectors` and every other field), so a cloud-proxy model shown
+on by backend default can be turned off, and vice-versa - plus the
+resolved detector(s) - with a *(default)* marker when they come from the
+instance-wide default rather than the model's YAML - why it is on (`YAML` /
+`backend default`), and the recent event count. Detection *policy*
+(entity→action, min score) is still edited on each detector model's config
+(Models → edit → PII), not globally.
+
+### Analyze / redact API
+
+The same detection pipeline is also exposed as a standalone service, so a
+client can scan or sanitise a string **without** routing a full chat request
+through it (the inline path above). Two endpoints, both requiring a normal API
+key (the `pii_filter` feature - not admin):
+
+- `POST /api/pii/analyze` - detect only. Returns the matched entity spans
+  (`entity_type`, `source` `ner`|`pattern`, `start`/`end`, `score`, `action`)
+  and a `blocked` flag, **without modifying the text**.
+- `POST /api/pii/redact` - apply the configured policy. Returns `redacted_text`
+  (with masked spans replaced by `[REDACTED:<id>]`) and `masked`; when a `block`
+  action fires it returns `400` with `type: pii_blocked` and the offending
+  entities - never a redacted body.
+
+Both take the same request: `text` plus a detector selection - either explicit
+detector model names in `detectors`, or a consuming `model` whose **effective**
+policy is used: the model's own `pii.detectors`, else the
+[instance-wide default detectors](#instance-wide-default-detector), exactly as
+the inline filter resolves them. A `model` with PII disabled - or enabled but
+with no detector anywhere - is a `400`: the inline filter would scan nothing
+for it, and the API says so rather than implying a clean scan. The detection
+policy lives on the detector models exactly as for the inline filter. The raw
+matched value is never returned (an admin may pass `reveal: true` to include
+the audit `hash_prefix`).
+
+`text` is scanned as a single document. To reproduce the inline filter's
+conversation-context behaviour for multi-message content, join the messages
+with blank lines into one `text` - NER detection quality depends on that
+context (a bare `4421` is nothing; after "what are the last four digits of
+your card?" it is a PIN).
+
+```bash
+# Redact with an explicit pattern/NER detector
+curl -sX POST http://localhost:8080/api/pii/redact \
+  -H 'Authorization: Bearer $API_KEY' -H 'Content-Type: application/json' \
+  -d '{"text":"reach me at jane@acme.io","detectors":["my-ner-model"]}'
+# => {"redacted_text":"reach me at [REDACTED:ner:EMAIL]","masked":true,...}
+
+# Analyze using a consuming model's configured detectors
+curl -sX POST http://localhost:8080/api/pii/analyze \
+  -H 'Authorization: Bearer $API_KEY' -H 'Content-Type: application/json' \
+  -d '{"text":"sk-ant-api03-…","model":"gpt-4"}'
+# => {"entities":[{"entity_type":"ANTHROPIC_KEY","source":"pattern",...,"action":"block"}],"blocked":true}
+```
+
+Calls are audited in the same event log, tagged with an `origin` of
+`pii_analyze` / `pii_redact` (the inline filter records `middleware`, the MITM
+proxy records `proxy`), so `GET /api/pii/events?origin=pii_redact` shows just
+the redact-API rows.
+
+### REST surface
+
+| Method | Path | Auth | Purpose |
+|---|---|---|---|
+| POST | `/api/pii/analyze` | api key (`pii_filter`) | Detect PII in a string; returns entity spans, no mutation. |
+| POST | `/api/pii/redact` | api key (`pii_filter`) | Redact a string per policy; returns `redacted_text` or `400 pii_blocked`. |
+| GET | `/api/pii/events` | admin | Recent middleware events - PII redactions, MITM connect/traffic, admission denials. Filterable by `correlation_id`, `user_id`, `pattern_id` (e.g. `ner:EMAIL`), `kind`, `origin`. |
+| GET | `/api/middleware/status` | admin | Aggregated dashboard data: per-model PII state + detectors + router status + MITM status + admission status. One round-trip for the UI. |
+
+### MCP tools
+
+The same surface is mirrored through the LocalAI Assistant MCP server:
+
+| Tool | Read/Write | Purpose |
+|---|---|---|
+| `get_pii_events` | read | Recent redaction / block events with optional filters. |
+| `get_middleware_status` | read | Aggregator - the same payload as `GET /api/middleware/status`. |
+
+Detection policy is part of a detector model's config, so it is managed
+through the model-config tools (`edit_model_config`), not a dedicated PII
+tool.
+
+---
+
+## Intelligent routing
+
+A **router model** is a model whose YAML carries a `router:` block. When
+a client addresses it (`"model": "smart-router"`), the middleware
+classifies the prompt, picks a downstream candidate model, rewrites
+`input.Model` to the candidate, and the standard model-resolution path
+runs against that resolved target. ACL checks, disabled-state, and
+per-model PII all apply to the resolved model - the router does
+*model selection only*.
+
+#### Depth-1 invariant
+
+Candidates **must not** themselves be router models. A
+`smart-router → claude-strict → cloud-proxy` chain is fine
+(`claude-strict` is a regular cloud-proxy model). A
+`smart-router → other-router → real-model` chain is rejected at runtime
+by the middleware (the dispatcher returns HTTP 500 with a
+`depth-1 invariant` error). This keeps the dispatch graph acyclic and
+predictable.
+
+#### Fallback
+
+If no candidate's label set covers the active label set from the classifier,
+or the classifier errors out, the router uses `cfg.Router.Fallback`.
+An empty `fallback` causes the dispatch to fail with HTTP 500 rather
+than silently routing somewhere unintended - fail-fast, not
+silent-bypass.
+
+### Available classifiers
+
+LocalAI ships three classifier implementations. Pick one with `classifier:`
+in the router YAML:
+
+| Classifier | When to use | Underlying primitive |
+|---|---|---|
+| `score` (default) | Small classifier-tuned LM (Arch-Router-style). Best when label vocabulary is well-covered by next-token continuation. | `Score` gRPC primitive (llama-cpp, vLLM). |
+| `colbert` | When label descriptions are abstract or short and a next-token classifier produces flat distributions. Robust on long-form policy descriptions. | rerankers backend in ColBERT mode (e.g. `bge-m3-colbert` from the gallery). |
+| `knn` | When you have (or can generate) labelled example prompts — including outcome-labelled production traffic. Deterministic, auditable, cheapest per request, and the only classifier with an explicit out-of-distribution fallback. | embeddings backend + local-store KNN over a persisted, curated corpus. |
+
+All three share `policies`, `candidates`, `fallback`, and
+`classifier_cache_size`. `score` and `colbert` take a
+`classifier_model` (+ `activation_threshold`, optional
+`embedding_cache`); `knn` instead takes a `knn:` block and a corpus
+seeded through the API.
+
+### The Score classifier
+
+The `score` classifier works like this:
+
+1. Build a Qwen/ChatML system prompt that lists every policy label with
+   its description and primes the model to emit a label as the assistant
+   turn.
+2. Ask the classifier model to **score every policy label** as the
+   first-token(s) continuation. This uses the `Score` gRPC primitive
+   (`backend.proto::Score`), which returns per-candidate log-probabilities
+   length-normalized so candidates of unequal token length stay
+   comparable.
+3. Softmax the length-normalized log-probabilities into a probability
+   distribution over labels.
+4. Threshold the distribution: every label whose probability passes
+   `activation_threshold` joins the **active label set**.
+5. Pick the FIRST candidate whose `Labels` is a superset of the active
+   set. Admins order candidates smallest → largest so a single-label
+   query routes to the smallest capable model, while a query that
+   activates multiple labels falls to a candidate that covers them all.
+
+This is the Arch-Router approach extended for multi-label. The
+distribution carries more signal than the argmax - reading off the
+spread lets one prompt activate multiple policies and route to a model
+capable of all of them.
+
+#### Recommended classifier model
+
+[Arch-Router-1.5B](https://huggingface.co/katanemo/Arch-Router-1.5B) is
+the canonical choice. It's a Qwen-2.5-1.5B-Instruct base trained
+specifically on routing-policy continuation, so the ChatML system-prompt
++ label-continuation pattern produces well-separated label probabilities
+without prompt tuning. The Q4_K_M GGUF runs on CPU, GPU, and Intel SYCL.
+
+The classifier model must support the `Score` gRPC primitive (today: the
+llama-cpp and vLLM backends) and use the ChatML chat template. Any small
+ChatML instruct model works under those constraints, but expect flatter
+probability distributions which translate to a higher
+`activation_threshold` to keep noise out of the active label set.
+
+On llama-cpp, scoring rides the server's task queue alongside
+generation and embeddings, so the classifier may share a model config
+with `chat`/`completion`/`embeddings` - a dedicated scorer model is no
+longer required. Repeated calls with the same prompt also reuse the
+prompt's KV cache across candidates.
+
+### The Colbert classifier
+
+The `colbert` classifier reranks each policy *description* against the
+prompt via the rerankers backend and activates the labels whose
+relevance scores clear `activation_threshold` (default 0.5 for
+reranker-style scores in [0, 1]).
+
+```yaml
+router:
+  classifier: colbert
+  classifier_model: bge-m3-colbert  # gallery entry; loads BAAI/bge-m3 in ColBERT mode
+  activation_threshold: 0.5
+  policies:
+    - label: code-generation
+      description: writing, debugging, reading, or explaining code
+    - label: casual-chat
+      description: small talk, greetings, jokes
+  candidates: [...]
+```
+
+The reranker scores the *description* (natural English) rather than
+asking a small LM to score the *label* as a next-token continuation,
+so it tends to be more robust when policy labels are abstract slugs
+(`compliance-review`, `tier-2-support`). The trade-off is one
+reranker round-trip per request - bge-m3 in ColBERT mode is fast
+enough on GPU that this is comparable to the Score path for most
+workloads. The `embedding_cache` block applies identically.
+
+The reranker model's `type:` (in the model YAML) selects which
+underlying scoring head loads - `colbert` for late-interaction MaxSim,
+`cross-encoder` for cross-attention scoring. The classifier itself is
+indifferent; pick the head that fits your latency / quality budget.
+
+### The KNN classifier
+
+The `knn` classifier routes by **similarity-weighted vote over a
+curated corpus of labelled example prompts**. Where `score` and
+`colbert` ask a model's opinion per request, `knn` consults recorded
+experience: each corpus entry is an example prompt plus the policy
+labels it should activate. It needs no classifier model — just an
+embedding model and a seeded corpus.
+
+```yaml
+router:
+  classifier: knn
+  fallback: gpt-4o-proxy          # used whenever the prompt is unlike all corpus entries
+  knn:
+    embedding_model: nomic-embed-text-v1.5
+    # embedding_revision: "2026-07" # bump for remote/in-place weight changes LocalAI cannot identify
+    k: 3                          # neighbours that vote (default 3)
+    similarity_threshold: 0.80    # the epistemic gate (default 0.80)
+    vote_threshold: 0.5           # weighted vote share a label needs (default 0.5)
+    # store_name: router-corpus-smart-router   # default "router-corpus-<router>"
+  policies:
+    - label: code-generation
+      description: writing or debugging code
+    - label: casual-chat
+      description: small talk
+  candidates:
+    - model: qwen3-0.6b
+      labels: [casual-chat]
+    - model: qwen-coder
+      labels: [code-generation, casual-chat]
+```
+
+For each request:
+
+1. Embed the prompt with `knn.embedding_model`.
+2. Fetch the `k` nearest corpus entries (cosine similarity).
+3. **Epistemic gate**: entries below `similarity_threshold` cannot
+   vote. If none clears it, the classifier activates **no** labels and
+   the router uses `fallback` — a prompt unlike all labelled
+   experience is treated as *undecidable*, not guessed. The decision
+   log records `nearest_similarity` so you can see how far away the
+   closest labelled example was.
+4. Each surviving neighbour votes for its labels, weighted by its
+   similarity; every label whose vote share clears `vote_threshold`
+   joins the active set. Candidate matching then proceeds exactly as
+   for the other classifiers. With `k: 1` this degenerates to
+   "nearest example's labels".
+
+The numeric configuration is bounded so one request cannot allocate an
+unbounded neighbour result and the cosine-weighted vote remains meaningful:
+
+| Field | Accepted values |
+|-------|-----------------|
+| `k` | `0` for the default (`3`), otherwise `1` through `1024` |
+| `similarity_threshold` | `0` for the default (`0.80`), otherwise greater than `0` and at most `1` |
+| `vote_threshold` | `0` for the default (`0.5`), otherwise greater than `0` and at most `1` |
+
+Negative, non-finite, and above-range values are rejected when the model
+configuration is loaded. The `k` cap bounds the store priority queue and
+returned neighbour arrays. Similarity is restricted to non-negative cosine
+weights because negative weights would make vote totals and shares invalid;
+vote share itself is necessarily between zero and one.
+
+Every knn decision (in the decision log and the `/api/router/decide`
+response) also carries `neighbors` — the `k` retrieved corpus entries
+by descending similarity, **including** ones below the gate, each as
+`{id, similarity, labels}`. The `id` is the entry's content hash (the
+first 8 bytes of the SHA-256 of its text, hex-encoded): stable across
+reseeds and re-embeds, and text-free — whoever seeded the corpus can
+recompute text→id on their own copy to group decisions by corpus
+region (e.g. for external per-region reliability accounting) without
+corpus text ever leaving the server.
+
+#### Seeding and curating the corpus (API-only)
+
+Corpus entries may contain example user content, so they are managed
+exclusively through the admin API — the UI never sends or displays
+them, and no endpoint returns entry texts (inspection is label counts
+only):
+
+```bash
+# Seed labelled exemplars (embedded server-side; indexed immediately)
+curl -X POST http://localhost:8080/api/router/smart-router/corpus \
+  -H "Content-Type: application/json" \
+  -d '{"entries": [
+        {"text": "why does this segfault when I free the buffer twice", "labels": ["code-generation"]},
+        {"text": "hey hows it going", "labels": ["casual-chat"]}
+      ]}'
+
+# Inspect — counts only, never texts
+curl http://localhost:8080/api/router/smart-router/corpus/stats
+
+# Wipe (file + live index); reseed afterwards
+curl -X DELETE http://localhost:8080/api/router/smart-router/corpus
+```
+
+Entry labels must be declared in `policies` (same invariant as
+candidate labels). Empty and duplicate labels are rejected, and
+duplicate texts are skipped rather than double-weighted. Label your exemplars
+with *outcomes*, not topics,
+when routing for difficulty: an entry recording "the small model
+handled prompts like this" is exactly as useful as one recording that
+it failed — grade a sample of production traffic against your
+candidates and seed both.
+
+#### Persistence
+
+The corpus is persisted as one JSONL file per router under
+`<data path>/router-corpus/` (text, labels, vector, embedding-model name,
+and embedding fingerprint) — **the file is the source of truth** and
+survives restarts; the local-store index is rebuilt from it at classifier
+build time without re-embedding. The fingerprint follows the effective
+embedding-model config and local artifact identity, so changing the model or
+replacing its local weights re-embeds the corpus on the next process load.
+For remote embedding services whose weights can change invisibly, bump
+`knn.embedding_revision` explicitly.
+
+If an embedding fingerprint changes after that corpus is already present in
+the live in-memory index, LocalAI fails the classifier build instead of
+querying mixed embedding spaces. Restart LocalAI to rebuild the empty live
+index and re-embed the persisted entries.
+
+#### Tuning notes
+
+- **`similarity_threshold` is the safety knob.** Too low and the
+  router confidently extrapolates from unrelated exemplars; too high
+  and everything falls back. Watch `nearest_similarity` in the
+  decision log: fallback rows clustering just under the threshold mean
+  the corpus needs entries near that traffic (or the gate is too
+  tight).
+- **`k` trades robustness for corpus density**: `k: 3` tolerates one
+  mislabelled neighbour; raise it only when every label region has
+  several exemplars. The maximum is `1024`.
+- **`embedding_cache` is ignored** for `knn` (with a warning) — the
+  classifier is already an embedding KNN lookup; wrapping it in
+  another would embed twice for no additional information.
+
+### YAML reference
+
+```yaml
+name: smart-router
+known_usecases:
+  - chat
+router:
+  # `score` (Arch-Router-style next-token scoring), `colbert` (rerank
+  # policy descriptions), or `knn` (vote over a labelled corpus).
+  # See "Available classifiers" above.
+  classifier: score
+
+  # A model loaded by LocalAI that supports the Score gRPC primitive
+  # (llama-cpp and vLLM ship implementations). Arch-Router-1.5B is the
+  # canonical choice.
+  classifier_model: arch-router-1.5b
+
+  # Bounded LRU keyed on (case-folded, whitespace-trimmed) prompt - prompts
+  # repeat in agent loops; the cache amortises the classifier round-trip
+  # across them. 0 here means "use the default" (1024); the cache cannot be
+  # disabled from YAML today.
+  classifier_cache_size: 256
+
+  # Softmax probability floor a label must clear to join the active label set.
+  # 0 = use the package default (0.15). 0.40 is a better empirical
+  # starting point on Arch-Router-1.5B - see the tuning note below.
+  activation_threshold: 0.40
+
+  # Used when no candidate covers the active label set, or the classifier
+  # itself errors. Empty here = fail-fast with HTTP 500.
+  fallback: qwen3-0.6b
+
+  # The label vocabulary. Descriptions are fed verbatim into the
+  # classifier's system prompt - short, action-oriented sentences work
+  # best ("writing or debugging code", "small talk").
+  policies:
+    - label: code-generation
+      description: writing, debugging, reading, or explaining code in any programming language
+    - label: casual-chat
+      description: small talk, greetings, jokes, or general conversation with no specific task
+    - label: math-reasoning
+      description: arithmetic, equations, percentage calculations, or step-by-step word problems
+
+  # Routing table - order matters (smallest → largest). See "Score
+  # classifier" above for the matching rule.
+  candidates:
+    - model: qwen3-0.6b
+      labels: [casual-chat]
+    - model: qwen_qwen3.5-2b
+      labels: [code-generation, casual-chat, math-reasoning]
+```
+
+### Tuning `activation_threshold`
+
+The threshold is the single knob you'll want to tune per
+(classifier-model, policy-set) pair. On Arch-Router-1.5B with the
+three-policy setup above, sweeping the threshold over a hand-labeled
+30-prompt corpus produced:
+
+| Threshold | Label-set accuracy | End-to-end routing accuracy |
+|---:|---:|---:|
+| 0.15 (package default) | 30% | 73% |
+| 0.30 | 57% | 87% |
+| **0.40** | **60%** | **90%** |
+| 0.45 | 67% | 97% |
+| 0.50 | 67% | 97% |
+
+The classifier's argmax matches the dominant label 93% of the time on
+this corpus - what the threshold controls is how much secondary-label
+noise leaks into the active label set. Low thresholds push single-label
+queries to multi-label-capable (larger) candidates unnecessarily; 0.40
+keeps the dominant label dominant without losing genuine compound
+activations.
+
+Re-tune per (classifier-model, policy-set) pair. The `/api/score`
+endpoint (see below) is the convenient probe - it returns the raw
+length-normalized log-probabilities so you can sweep thresholds offline
+without driving real chat completions.
+
+### Embedding cache (L2)
+
+Classification is the most expensive thing the middleware does. The
+score classifier already memo-caches verbatim repeats (case- and
+whitespace-folded prompt → decision); the **embedding cache** is the
+L2 tier that catches *semantically similar* prompts - "How do I exit
+vim?" and "i need to quit vim" can share a decision instead of running
+the classifier twice.
+
+Pairs naturally with a larger / slower classifier model: the steady-state
+cost on cache hits collapses to one embedding round-trip plus a KNN
+search, both well under 100ms with `nomic-embed-text-v1.5` + local-store.
+
+#### Configuration
+
+Add an `embedding_cache:` block to a router model:
+
+```yaml
+router:
+  classifier: score
+  classifier_model: arch-router-1.5b
+  policies: [...]
+  candidates: [...]
+
+  embedding_cache:
+    embedding_model: nomic-embed-text-v1.5    # any loaded embedding model
+    similarity_threshold: 0.80                # cosine sim floor for a hit (default 0.80)
+    confidence_threshold: 0.60                # min top-label prob to cache a decision (default 0.60)
+    # store_name: router-cache-smart-router   # optional override; defaults to "router-cache-<router>"
+```
+
+Omit the block entirely to disable. The cache adds two new failure modes
+(embedder unavailable, store unavailable) - both fall through to the
+inner classifier so routing keeps working.
+
+#### How it works
+
+For each request:
+
+1. Embed the probe prompt via the configured `embedding_model`.
+2. KNN top-1 against the per-router local-store collection.
+3. If similarity ≥ `similarity_threshold`, return the cached decision
+   (`Cached=true`, `CacheSimilarity=<sim>` in the decision log).
+4. Miss → run the inner classifier. If `decision.score >= confidence_threshold`,
+   insert `(embedding, decision)` into the store. Low-confidence
+   decisions are deliberately skipped so they can't poison future
+   paraphrases.
+
+The local-store collection is named `router-cache-<router-model-name>` by
+default — each router gets its own collection so two routers can't
+cross-contaminate. The collection is **in-memory only**: local-store
+keeps no on-disk artefact, so the embedding cache starts empty on every
+restart and re-learns from live traffic. (The KNN classifier's corpus
+does NOT have this limitation — its corpus file is the source of truth
+and re-indexes on startup; see "The KNN classifier" above.)
+
+#### Tuning notes
+
+- **Similarity threshold**: 0.80 is the package default - re-tune
+  per (embedding model, corpus). The histogram on the Routing tab
+  shows where the cosine distribution actually sits; pick a
+  threshold above the cross-intent cluster and below the paraphrase
+  cluster.
+- **Confidence threshold**: 0.60 corresponds roughly to "the
+  classifier is committed to a top label." Don't lower this - caching
+  unsure decisions propagates the uncertainty.
+- **Cache flush**: invalidates automatically when the router YAML
+  changes (the classifier cache is fingerprinted by `yaml.Marshal`),
+  but the underlying local-store collection still holds the old
+  payloads. Manual flush via local-store admin or by renaming
+  `store_name` if you need a hard reset.
+- **Latency budget**: an embedding round-trip (typically 30-80ms for
+  small embedding models) plus KNN search (~5ms) is added to every
+  *miss* on top of the classifier latency. Cache hits skip the
+  classifier entirely. Break-even is around 7-10% hit rate; agent
+  loops with repeated phrasing easily exceed this.
+
+### Admin page
+
+The `/app/middleware` page has a **Routing** tab listing every router
+model's classifier, policies, candidates, and fallback. The **Events**
+tab shows the decision log - one row per classified request with
+correlation ID, requested model, served model, classifier name, active
+labels, top-label score, and latency.
+
+Routing decisions are stored in an in-process ring buffer (default
+capacity 5,000). The decision log is for audit and tuning - the
+canonical usage log lives in `/api/usage` and correlates by request ID.
+
+### REST surface
+
+| Method | Path | Auth | Purpose |
+|---|---|---|---|
+| GET | `/api/router/status` | any | Router configuration: each router model's classifier, policies, candidates. |
+| GET | `/api/router/decisions` | admin | Decision log with optional filters (`correlation_id`, `user_id`, `router_model`, `limit`). |
+| POST | `/api/router/{name}/corpus` | admin | Seed the KNN corpus with labelled exemplars: `{"entries": [{"text": "...", "labels": ["..."]}]}`. Embedded server-side, persisted, indexed immediately. |
+| GET | `/api/router/{name}/corpus/stats` | admin | KNN corpus size and per-label counts. Counts only — entry texts are never returned. |
+| DELETE | `/api/router/{name}/corpus` | admin | Wipe the KNN corpus (file + live index). |
+| POST | `/api/score` | admin | Direct access to the `Score` gRPC primitive — useful for offline threshold tuning. Body: `{"model": "<classifier-model>", "prompt": "<chatml-prompt>", "candidates": ["label-a", ...], "length_normalize": true}`. The llama-cpp and vLLM backends implement Score; other backends return `UNIMPLEMENTED`. |
+
+### MCP tools
+
+| Tool | Read/Write | Purpose |
+|---|---|---|
+| `get_router_decisions` | read | Recent decision log with optional filters. |
+| `get_middleware_status` | read | Includes the router section listing configured router models. |
+| `get_router_corpus_stats` | read | KNN corpus size and per-label counts (never texts). |
+| `seed_router_corpus` | write | Add labelled exemplars to a KNN router's corpus. |
+| `clear_router_corpus` | write | Wipe a KNN router's corpus. |
+
+Mutating the rest of the routing config — adding a candidate, changing
+the classifier model — goes through the model-config surface
+(`edit_model_config` / `PATCH /api/models/config-json/:name`); reload
+with `POST /models/reload` to pick up YAML edits without restarting.
+
+### Operational notes
+
+- **Reload after YAML edits.** The router configs are loaded at startup
+  and cached. `POST /models/reload` re-reads from disk; the next request
+  rebuilds the classifier from the new config (the classifier cache is
+  fingerprinted by `yaml.Marshal(RouterConfig)` so it invalidates
+  automatically).
+- **Classifier latency** on Arch-Router-1.5B Q4_K_M is ~500ms steady
+  for 3 policies on Intel SYCL. The score primitive re-decodes the full
+  prompt for every candidate today (the KV cache is cleared between
+  candidates); the prompt-KV-sharing optimization is on the perf TODO
+  list in `backend/cpp/llama-cpp/grpc-server.cpp::Score`. Until then,
+  `classifier_cache_size` is the highest-leverage knob for repeat-query
+  workloads (agent loops).
+- **Decision log size**: 5,000-entry ring buffer per process. The
+  log is in-process and not persisted - pair with the usage log for
+  long-horizon audit.
+
+---
+
+## Related features
+
+- [Cloud passthrough proxy]({{< relref "cloud-proxy.md" >}}) - combine
+  the router with `proxy-*` backends to send simple prompts to local
+  models and complex ones to cloud providers.
+- [MITM proxy]({{< relref "mitm-proxy.md" >}}) - apply the same PII
+  filter to Claude Code, Codex CLI, and any HTTPS client without
+  LocalAI holding their API keys.
+- [Authentication]({{< relref "authentication.md" >}}) - admin role is
+  required for mutating endpoints and the `/app/middleware` page; in
+  no-auth single-user mode the synthetic local user has admin role
+  automatically.

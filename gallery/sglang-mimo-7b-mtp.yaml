@@ -1,0 +1,34 @@
+---
+name: "sglang-mimo-7b-mtp"
+
+config_file: |
+    backend: sglang
+    parameters:
+      model: XiaomiMiMo/MiMo-7B-RL
+      max_tokens: 4096
+    context_size: 4096
+    trust_remote_code: true
+    function:
+      disable_no_action: true
+      grammar:
+        disable: true
+        parallel_calls: true
+        expect_strings_after_json: true
+    template:
+      use_tokenizer_template: true
+    # Xiaomi MiMo-7B-RL with built-in Multi-Token Prediction (MTP) heads
+    # served via SGLang's EAGLE-aliased speculative-decoding path. ~90%
+    # acceptance rate per the model card. Quantised to fp8 at load time
+    # so the 7 B target fits on a 16 GB consumer GPU; mem_fraction_static
+    # is reduced from sglang's 0.85 default because the MTP draft worker
+    # loads its vocab embedding unquantised (bf16, ~1.2 GiB for MiMo's
+    # 152k vocab × 4096 hidden) and OOMs at 0.85. Verified end-to-end on
+    # an RTX 5070 Ti (16 GB) at ~88 tok/s.
+    engine_args:
+      dtype: bfloat16
+      quantization: fp8
+      mem_fraction_static: 0.7
+      speculative_algorithm: EAGLE
+      speculative_num_steps: 1
+      speculative_eagle_topk: 1
+      speculative_num_draft_tokens: 2

@@ -1,0 +1,77 @@
+{{- /*
+  The four agentic surfaces are easy to mistake for each other, so every one of
+  their pages opens with the same routing block. It lives here rather than being
+  pasted into each page, because four hand-kept copies drifted apart the last
+  time and a reader who lands on the wrong one reads a stale description of the
+  page they actually wanted.
+
+  Call it with angle brackets. The list is built here as markdown and rendered
+  before it reaches the notice partial, which is what a percent-form `notice`
+  does with its own inner content; handing the partial raw markdown instead
+  leaves the asterisks on the page, because it drops its content into an HTML
+  block that goldmark then declines to look inside.
+
+  `current` names the page it is rendered on. That entry loses its link, is
+  marked as the current page, and moves to the top, which is what the copies
+  used to do by hand. Omitting it renders the block as a plain four-way index,
+  which is what a page outside the four wants.
+*/ -}}
+{{- $current := .Get "current" | default (.Get 0) -}}
+{{- $entries := slice
+  (dict
+    "id" "terminal-agent"
+    "title" "Terminal agent"
+    "ref" "features/terminal-agent"
+    "text" "an agent in your own shell. `local-ai chat` reads your files and runs commands on your machine, behind an approval gate you control.")
+  (dict
+    "id" "agents"
+    "title" "Agents"
+    "ref" "features/agents"
+    "text" "autonomous agents you build and run inside LocalAI, that reason, use tools, and act on their own.")
+  (dict
+    "id" "localai-assistant"
+    "title" "LocalAI Assistant"
+    "ref" "features/localai-assistant"
+    "text" "an admin chat modality for administering LocalAI itself: install models, manage backends and edit configs by chatting.")
+  (dict
+    "id" "mcp"
+    "title" "MCP"
+    "ref" "features/mcp"
+    "text" "the Model Context Protocol itself, the way a model is handed external tools. It sits underneath the other three rather than beside them.")
+-}}
+
+{{- /* A typo in `current` would silently render the block with nothing marked
+       as the current page, which is the one failure a reader cannot spot. */ -}}
+{{- if $current -}}
+  {{- $known := false -}}
+  {{- range $entries -}}
+    {{- if eq .id $current -}}{{- $known = true -}}{{- end -}}
+  {{- end -}}
+  {{- if not $known -}}
+    {{- errorf "agentic-routing: current=%q is not one of the four surfaces (terminal-agent, agents, localai-assistant, mcp)" $current -}}
+  {{- end -}}
+{{- end -}}
+
+{{- $ordered := slice -}}
+{{- range $entries -}}
+  {{- if eq .id $current -}}{{- $ordered = $ordered | append . -}}{{- end -}}
+{{- end -}}
+{{- range $entries -}}
+  {{- if ne .id $current -}}{{- $ordered = $ordered | append . -}}{{- end -}}
+{{- end -}}
+
+{{- $lines := slice -}}
+{{- range $ordered -}}
+  {{- if eq .id $current -}}
+    {{- $lines = $lines | append (printf "- **%s** (this page): %s" .title .text) -}}
+  {{- else -}}
+    {{- $lines = $lines | append (printf "- **[%s](%s)**: %s" .title (relref $.Page .ref) .text) -}}
+  {{- end -}}
+{{- end -}}
+
+{{- $intro := "**Looking for something else?** LocalAI has four agentic surfaces that are easy to confuse:" -}}
+{{- partial "shortcodes/notice.html" (dict
+  "page"    .Page
+  "style"   "info"
+  "content" (printf "%s\n\n%s\n" $intro (delimit $lines "\n") | markdownify)
+) -}}

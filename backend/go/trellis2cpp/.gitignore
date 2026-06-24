@@ -1,0 +1,6 @@
+package/
+sources/
+.cache/
+build-*/
+variants/
+trellis2cpp

@@ -1,0 +1,223 @@
+---
+title: "Backends"
+description: "Learn how to use, manage, and develop backends in LocalAI"
+weight: 80
+url: "/backends/"
+---
+
+
+LocalAI supports a variety of backends that can be used to run different types of AI models. There are core Backends which are included, and there are containerized applications that provide the runtime environment for specific model types, such as LLMs, diffusion models, or text-to-speech models.
+
+## Available Backends
+
+LocalAI ships **60+ backends** covering text generation, speech-to-text, text-to-speech, music and sound generation, image and video generation, vision and object detection, audio processing, reranking, fine-tuning, and more. Each one is published as an on-demand OCI image with the appropriate acceleration variants (CPU, CUDA 12/13, ROCm, Intel SYCL, Vulkan, Metal, Jetson L4T).
+
+For the complete list of backends, the model families they support, and their acceleration targets, see the [Backend & Model Compatibility Table]({{%relref "reference/compatibility-table" %}}). The authoritative source is [`backend/index.yaml`](https://github.com/mudler/LocalAI/blob/master/backend/index.yaml), and the same catalog is browsable in the web UI under the **Backends** section.
+
+## Managing Backends in the UI
+
+The **Operate → Backends** page is the canonical home for the complete backend
+lifecycle:
+
+1. **Catalog** browses configured galleries, searches by name or description,
+   filters by capability, and installs a backend. Catalog is the default view.
+2. **Installed** shows the runtimes present on the host or cluster. Search and
+   filter by user, system, update, or offline-node state, then select a backend
+   to inspect its version, source, node placement, and lifecycle actions.
+3. Variant and development builds remain opt-in refinements. Target-node links
+   compose with the current view and selection instead of opening a separate
+   management page.
+
+The current view, search, filter, selected backend, and target node are stored
+in the URL. Browser Back and shared links therefore restore the same state.
+
+Installs run in the background. The strip at the top of the app follows the
+current one, and **Operate → Activity** lists everything in flight, what needs
+attention, and what has finished, and is where a running install is cancelled
+or a failed one retried. See [Activity]({{% relref "operations/activity" %}}).
+
+Each selected backend displays:
+- Backend name and description
+- Type of models it supports
+- Installation status
+- Install, reinstall, upgrade, or delete actions as appropriate
+- Version, source, digest, placement, and catalog information
+
+## Backend Galleries
+
+Backend galleries are repositories that contain backend definitions. They work similarly to model galleries but are specifically for backends.
+
+### Adding a Backend Gallery
+
+You can add backend galleries by specifying the **Environment Variable**  `LOCALAI_BACKEND_GALLERIES`:
+
+```bash
+export LOCALAI_BACKEND_GALLERIES='[{"name":"my-gallery","url":"https://raw.githubusercontent.com/username/repo/main/backends"}]'
+```
+The URL needs to point to a valid yaml file, for example:
+
+```yaml
+- name: "test-backend"
+  uri: "quay.io/image/tests:localai-backend-test"
+  alias: "foo-backend"
+```
+
+Where URI is the path to an OCI container image.
+
+To use a backend gallery or backend images that need authentication, such as a private registry, add a matching entry to the credentials file. See [Private Registries and Galleries]({{% relref "advanced/private-sources" %}}).
+
+### Backend Gallery Structure
+
+A backend gallery is a collection of YAML files, each defining a backend. Here's an example structure:
+
+```yaml
+name: "llm-backend"
+description: "A backend for running LLM models"
+uri: "quay.io/username/llm-backend:latest"
+alias: "llm"
+tags:
+  - "llm"
+  - "text-generation"
+```
+
+### Verifying OCI Backends
+
+Backend galleries can require keyless Sigstore signatures for every OCI image
+they provide. Add a `verification` policy to the gallery configuration, then
+enable strict integrity mode:
+
+```bash
+export LOCALAI_BACKEND_GALLERIES='[{"name":"localai","url":"https://index.localai.io/backends","mirrors":["github:mudler/LocalAI/backend/index.yaml@master"],"verification":{"issuer":"https://token.actions.githubusercontent.com","identity_regex":"^https://github\\.com/mudler/LocalAI/\\.github/workflows/backend_merge\\.yml@refs/(heads/master|tags/.+)$"}}]'
+export LOCALAI_REQUIRE_BACKEND_INTEGRITY=1
+local-ai run
+```
+
+The policy pins the Fulcio issuer and the GitHub Actions workflow identity that
+signed the image. The identity expression covers development images produced
+from `master` and release images produced from tags. Use a narrower expression
+if your deployment only accepts one release channel.
+
+Without strict mode, an OCI gallery without a verification policy installs
+with a warning. With strict mode, LocalAI refuses galleries without a policy,
+images without a compatible Sigstore bundle, and signatures that do not match
+the configured identity. Existing images published before bundle signing was
+enabled must be rebuilt or re-signed before strict deployments can install
+them.
+
+An optional `not_before` RFC3339 value revokes signatures logged before that
+time. Advance it after a signing-workflow compromise, then rebuild or re-sign
+the trusted images:
+
+```json
+{
+  "verification": {
+    "issuer": "https://token.actions.githubusercontent.com",
+    "identity_regex": "^https://github\\.com/mudler/LocalAI/\\.github/workflows/backend_merge\\.yml@refs/(heads/master|tags/.+)$",
+    "not_before": "2026-08-05T00:00:00Z"
+  }
+}
+```
+
+## Pre-installing Backends
+
+You can pre-install backends when starting LocalAI using the `LOCALAI_EXTERNAL_BACKENDS` environment variable:
+
+```bash
+export LOCALAI_EXTERNAL_BACKENDS="llm-backend,diffusion-backend"
+local-ai run
+```
+
+## Creating a Backend
+
+To create a new backend, you need to:
+
+1. Create a container image that implements the LocalAI backend interface
+2. Define a backend YAML file
+3. Publish your backend to a container registry
+
+### Backend Container Requirements
+
+Your backend container should:
+
+1. Implement the LocalAI backend interface (gRPC or HTTP)
+2. Handle model loading and inference
+3. Support the required model types
+4. Include necessary dependencies
+5. Have a top level `run.sh` file that will be used to run the backend
+6. Pushed to a registry so can be used in a gallery
+
+### Getting started
+
+For getting started, see the available backends in LocalAI here: https://github.com/mudler/LocalAI/tree/master/backend . 
+
+- For Python based backends there is a template that can be used as starting point: https://github.com/mudler/LocalAI/tree/master/backend/python/common/template . 
+- For Golang based backends, you can see the `piper` backend as an example: https://github.com/mudler/LocalAI/tree/master/backend/go/piper
+- For C++ based backends, you can see the `llama-cpp` backend as an example: https://github.com/mudler/LocalAI/tree/master/backend/cpp/llama-cpp
+
+### Publishing Your Backend
+
+1. Build your container image:
+   ```bash
+   docker build -t quay.io/username/my-backend:latest .
+   ```
+
+2. Push to a container registry:
+   ```bash
+   docker push quay.io/username/my-backend:latest
+   ```
+
+3. Add your backend to a gallery:
+   - Create a YAML entry in your gallery repository
+   - Include the backend definition
+   - Make the gallery accessible via HTTP/HTTPS
+
+## Backend Types
+
+LocalAI supports various types of backends:
+
+- **LLM Backends**: For running language models (e.g., llama.cpp, vLLM, vllm.cpp, SGLang, transformers, MLX, and [RKLLM on Rockchip NPUs]({{% relref "features/rkllm" %}}) through the cloud-proxy backend)
+- **Speech-to-Text Backends**: For transcription, forced alignment and speaker diarization (e.g., whisper.cpp, parakeet.cpp, moss-transcribe.cpp, [NeMo-Speech.cpp]({{%relref "features/nemo-speech-cpp" %}}), faster-whisper, [Whisper-Medusa]({{%relref "features/whisper-medusa" %}}), FunASR/SenseVoice, NeMo, [audio.cpp]({{%relref "features/audio-cpp" %}}))
+- **Text-to-Speech Backends**: For speech synthesis (e.g., piper, Kokoro, VibeVoice, Qwen3-TTS, [NeMo-Speech.cpp]({{%relref "features/nemo-speech-cpp" %}}), [audio.cpp]({{%relref "features/audio-cpp" %}}))
+- **Sound Generation Backends**: For music and audio generation (e.g., ACE-Step, [audio.cpp]({{%relref "features/audio-cpp" %}}))
+- **Sound Classification Backends**: For sound-event classification / audio tagging - identifying everyday sounds like baby cry, glass breaking, alarms (e.g., ced.cpp)
+- **Image & Video Generation Backends**: For diffusion and audio-conditioned avatar models (e.g., stable-diffusion.cpp, diffusers, vLLM-Omni, [MLX-Video on Apple Silicon]({{%relref "features/video-generation" %}}), [LongCat-Video]({{%relref "features/video-generation" %}}), [vllm.cpp / MiniMax-H3]({{%relref "features/video-generation" %}}))
+- **3D Generation Backends**: For image-to-3D mesh generation ([trellis2.cpp]({{%relref "features/3d-generation" %}}) — Microsoft TRELLIS.2, producing GLB assets with PBR textures)
+- **3D Animation Backends**: For motion generation ([kimodo.cpp]({{%relref "features/3d-animation" %}}) — text-to-motion on CPU/Vulkan, producing animated skeleton GLBs)
+- **Vision & Detection Backends**: For object detection, segmentation, depth, and face/voice recognition (e.g., rf-detr.cpp, locate-anything.cpp, sam3.cpp, insightface)
+- **Audio Processing Backends**: For voice activity detection and audio enhancement (e.g., Silero VAD, LocalVQE, [audio.cpp]({{%relref "features/audio-cpp" %}}))
+- **Source Separation & Voice Conversion Backends**: For splitting a mix into named stems (vocals, drums, bass) and for converting speech or singing to a target voice (e.g., [audio.cpp]({{%relref "features/audio-cpp" %}}))
+- **Utility Backends**: For reranking, PII/NER token classification, fine-tuning, quantization, and vector storage (e.g., rerankers, privacy-filter.cpp, TRL, local-store, valkey-store)
+
+See the [Backend & Model Compatibility Table]({{%relref "reference/compatibility-table" %}}) for the full catalog.
+
+### DS4 request cancellation
+
+The DS4 backend stops inference when a client cancels or disconnects, including
+when a streaming response can no longer be written. Already-streamed chunks
+cannot be retracted; DS4 does not flush incomplete buffered parser state or
+persist an abandoned request to the disk KV cache. Cancellation is cooperative:
+DS4 checks it at safe prompt-prefill and decode-loop boundaries, so a GPU kernel
+already in flight may finish before the request stops.
+
+### llama.cpp request cancellation
+
+The llama.cpp backend stops a streaming generation as soon as the response can
+no longer be written to the client, not only when the RPC is formally cancelled.
+A stream never recovers once a write fails, so the backend treats the first
+failed write as final and returns, which releases the slot the generation held.
+
+This matters most for a model configured without a generation cap. With
+`max_tokens: 0` and a large `context_size`, an abandoned request that keeps
+decoding occupies its slot until it reaches the context limit — tens of minutes
+on a large model — and every other request for that model queues behind it. A
+couple of abandoned requests is enough to make a healthy node look wedged.
+
+Cancellation is cooperative and checked between decoded results, so a batch
+already in flight may finish before the request stops.
+
+{{% notice tip %}}
+A generation cap is still worth setting. Cancellation only helps once a client
+has actually gone away; a client that waits receives the full context worth of
+tokens. Set `max_tokens` on the model config, and keep `repeat_penalty` above
+`1` so a repetition loop terminates on its own.
+{{% /notice %}}

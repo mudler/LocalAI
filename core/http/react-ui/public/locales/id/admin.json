@@ -1,0 +1,281 @@
+{
+  "activity": {
+    "title": "Aktivitas",
+    "supporting": "Instalasi, unduhan, dan penghapusan pada instans ini.",
+    "hide": "Sembunyikan",
+    "moveToHistory": "Pindah ke riwayat",
+    "moreCount": "{{count}} lainnya",
+    "waitingForInstaller": "menunggu instalasi",
+    "progressLabel": "Progres untuk {{name}}",
+    "toNode": "ke {{node}}",
+    "nodesDone": "{{done}} dari {{total}} node selesai",
+    "timeLeft": "{{value}} tersisa",
+    "cancel": "Batal",
+    "cancelLabel": "Batal {{name}}",
+    "pause": "Jeda",
+    "pauseLabel": "Jeda {{name}} dan simpan data yang diunduh",
+    "retry": "Coba lagi",
+    "retryLabel": "Coba lagi {{name}}",
+    "nodeCount": "{{count}} node",
+    "showNodes": "Tampilkan {{count}} node",
+    "hideNodes": "Sembunyikan detail per-node",
+    "node": {
+      "done": "Selesai",
+      "failed": "Gagal",
+      "queued": "Antrian",
+      "workerBusy": "Worker sibuk",
+      "downloading": "Mengunduh"
+    },
+    "kind": {
+      "model": "model",
+      "backend": "backend"
+    },
+    "verb": {
+      "installing": "Menginstal {{kind}}",
+      "installed": "Terinstal {{kind}}",
+      "removed": "Dihapus {{kind}}",
+      "staged": "Staged model",
+      "failed": "Tidak dapat menginstal {{kind}}",
+      "queued": "Antrian",
+      "staging": "Staging model",
+      "removing": "Menghapus {{kind}}",
+      "failedRemoval": "Gagal menghapus {{kind}}",
+      "failedStaging": "Gagal staging model"
+    },
+    "phase": {
+      "resolving": "Menyelesaikan file",
+      "downloading": "Mengunduh",
+      "verifying": "Memverifikasi",
+      "committing": "Finalisasi",
+      "persisting": "Menyimpan konfigurasi"
+    },
+    "clearHistory": "Hapus riwayat",
+    "inProgress": "Sedang berjalan",
+    "needsAttention": "Perlu perhatian",
+    "record": "Rekam",
+    "historyNote": "Menyimpan 50 operasi terakhir. Riwayat disimpan di memori dan akan hilang saat LocalAI restart.",
+    "emptyTitle": "Tidak ada operasi sejak startup",
+    "emptyBody": "Instalasi model dan backend muncul di sini selama mereka berjalan dan tetap menjadi catatan setelahnya. Riwayat disimpan di memori, sehingga akan hilang saat LocalAI restart.",
+    "browseModels": "Telusuri model",
+    "viewInModels": "Lihat di Model",
+    "viewInBackends": "Lihat di Backend",
+    "rowInstalled": "terinstal dalam {{duration}}",
+    "rowFailed": "gagal: {{error}}",
+    "rowCancelled": "dibatalkan",
+    "rowRemoved": "dihapus",
+    "retryFailed": "Gagal mencoba kembali: {{message}}",
+    "filter": {
+      "all": "Semua",
+      "models": "Model",
+      "backends": "Backend",
+      "cluster": "Kluster"
+    },
+    "summaryRunning_one": "{{count}} operasi berjalan.",
+    "summaryRunning_other": "{{count}} operasi berjalan.",
+    "summaryFailed_one": "{{count}} operasi perlu perhatian.",
+    "summaryFailed_other": "{{count}} operasi perlu perhatian.",
+    "summaryQuiet_one": "Tidak ada yang berjalan. {{count}} operasi sejak startup.",
+    "summaryQuiet_other": "Tidak ada yang berjalan. {{count}} operasi sejak startup.",
+    "summaryIdle": "Tidak ada yang berjalan.",
+    "emptyFiltered": "Tidak ada operasi yang cocok dengan filter ini.",
+    "showAll": "Tampilkan semua",
+    "rowInstalledPlain": "terinstal"
+  },
+  "manage": {
+    "title": "Sistem",
+    "subtitle": "Kelola model dan backend yang terinstal"
+  },
+  "settings": {
+    "title": "Pengaturan",
+    "subtitle": "Konfigurasi pengaturan runtime LocalAI",
+    "saved": "Pengaturan berhasil disimpan",
+    "saveFailed": "Gagal menyimpan: {{message}}",
+    "loadFailed": "Gagal memuat pengaturan: {{message}}",
+    "sections": {
+      "branding": "Branding",
+      "watchdog": "Watchdog",
+      "memory": "Memori",
+      "backends": "Backend",
+      "performance": "Performa",
+      "tracing": "Tracing",
+      "api": "API & CORS",
+      "p2p": "P2P",
+      "galleries": "Galeri",
+      "apikeys": "API Key",
+      "agents": "Agent Job",
+      "agentpool": "Agent Pool",
+      "assistant": "Asisten LocalAI",
+      "distributed": "Terdistribusi",
+      "responses": "Respons"
+    }
+  },
+  "backends": {
+    "lifecycle": {
+      "navigation": "Backend lifecycle",
+      "catalog": "Catalog",
+      "installed": "Installed",
+      "installedAria": "Installed backends",
+      "searchPlaceholder": "Search installed backends by name or alias...",
+      "filterAll": "All",
+      "filterUser": "User",
+      "filterSystem": "System",
+      "filterUpdates": "Updates",
+      "filterOffline": "Offline nodes",
+      "variants": "Variants",
+      "variantsCount": "Variants ({{count}})",
+      "development": "Development",
+      "developmentCount": "Development ({{count}})",
+      "countLabel": "{{visible}} of {{total}}",
+      "emptyTitle": "No backends installed yet",
+      "emptyBody": "Install a backend from the Catalog to give this host a runtime for models.",
+      "noMatches": "No installed backends match the current search and filters.",
+      "clearFilters": "Clear filters",
+      "updatesAvailable_one": "{{count}} backend has an update available",
+      "updatesAvailable_other": "{{count}} backends have updates available",
+      "upgradeAll": "Upgrade all",
+      "upgrading": "Upgrading...",
+      "upgradeAllFailed": "Upgrade failed for {{name}}: {{message}}",
+      "upgradeAllStarted_one": "Upgrade started for {{count}} backend",
+      "upgradeAllStarted_other": "Upgrade started for {{count}} backends",
+      "loadFailed": "Failed to load installed backends: {{message}}",
+      "reinstall": "Reinstall backend",
+      "reinstallStarted": "Reinstalling {{name}}...",
+      "reinstallFailed": "Failed to reinstall: {{message}}",
+      "upgrade": "Upgrade",
+      "upgradeTo": "Upgrade to v{{version}}",
+      "upgradeStarted": "Upgrading {{name}}...",
+      "upgradeFailed": "Failed to upgrade: {{message}}",
+      "delete": "Delete",
+      "deleteBackend": "Delete backend",
+      "deleteTitle": "Delete Backend",
+      "deleteMessage": "Delete backend {{name}}?",
+      "deleteSucceeded": "Deleted backend {{name}}",
+      "deleteFailed": "Failed to delete backend: {{message}}",
+      "actionsFor": "Actions for {{name}}",
+      "protected": "Protected",
+      "protectedTitle": "System backends are managed outside the gallery",
+      "allBackends": "All backends",
+      "version": "Version",
+      "available": "Available",
+      "managed": "Managed",
+      "system": "System",
+      "gallery": "Gallery",
+      "installedOn": "Installed on",
+      "description": "Description",
+      "source": "Source",
+      "digest": "Digest",
+      "installedAt": "Installed",
+      "working": "Working...",
+      "updateAvailable": "Update available",
+      "updateGroup": "Update available",
+      "installedGroup": "Installed",
+      "inventoryEyebrow": "Installed runtimes",
+      "inventoryTitle_one": "{{count}} backend is installed.",
+      "inventoryTitle_other": "{{count}} backends are installed.",
+      "inventoryBody": "Select a backend to inspect its source, version, placement, and lifecycle actions."
+    },
+    "title": "Manajemen Backend",
+    "subtitle": "Temukan dan instal backend AI untuk mendukung model Anda"
+  },
+  "backendLogs": {
+    "title": "Log Backend",
+    "subtitle": "Lihat log dari backend yang sedang berjalan",
+    "empty": "Tidak ada log yang tersedia"
+  },
+  "traces": {
+    "title": "Trace",
+    "subtitle": "Lihat log permintaan API, respons, dan operasi backend"
+  },
+  "nodes": {
+    "title": "Node Terdistribusi",
+    "subtitle": "Kelola node backend dan node worker"
+  },
+  "scheduling": {
+    "title": "Penjadwalan",
+    "subtitle": "Aturan penempatan model dan replika di seluruh kluster"
+  },
+  "p2p": {
+    "title": "Komputasi AI Terdistribusi",
+    "subtitle": "Skalakan beban kerja AI Anda ke beberapa perangkat dengan distribusi peer-to-peer"
+  },
+  "users": {
+    "title": "Pengguna",
+    "subtitle": "Kelola pengguna terdaftar, peran, dan undangan"
+  },
+  "usage": {
+    "title": "Penggunaan",
+    "subtitle": "Statistik penggunaan token API",
+    "sources": {
+      "tab": "Sumber",
+      "mixTitle": "Campuran sumber",
+      "ribbonAria": "{{apikey}}% API Key, {{web}}% Web UI, {{legacy}}% Legasi",
+      "topSources": "Sumber teratas dari waktu ke waktu",
+      "searchPlaceholder": "Cari berdasarkan nama atau awalan",
+      "sortBy": "Urutkan",
+      "sortTokens": "Token",
+      "sortRequests": "Permintaan",
+      "sortLastUsed": "Terakhir digunakan",
+      "sortName": "Nama",
+      "sortUser": "Pengguna",
+      "webUI": "Web UI",
+      "legacy": "Legasi",
+      "revoked": " dicabut",
+      "filteredTo": "Difilter ke: {{name}}",
+      "clearFilter": "Hapus filter",
+      "other": "Lainnya ({{count}})",
+      "noTrafficShort": "Tidak ada permintaan dalam periode ini.",
+      "noKeysYet": "Setelah permintaan masuk, Anda akan melihat rinciannya di sini.",
+      "createKey": "Buat API Key pertama Anda",
+      "truncatedWarning": "Menampilkan 200 key teratas. Terapkan filter untuk mempersempit pencarian."
+    }
+  },
+  "explorer": {
+    "title": "Penjelajah",
+    "subtitle": "Jelajahi file dan konfigurasi"
+  },
+  "operate": {
+    "overview": {
+      "title": "Ikhtisar",
+      "subtitle": "Semua yang berjalan di instalasi ini, dan apa pun yang membutuhkan keputusan.",
+      "attention": {
+        "heading": "Membutuhkan perhatian",
+        "clear": "Tidak ada yang membutuhkan perhatian. Backend sudah terbaru, tidak ada operasi yang gagal, dan setiap node sehat.",
+        "backendUpdate": "Pembaruan tersedia: {{from}} → {{to}}"
+      },
+      "capacity": {
+        "title": "Kapasitas host",
+        "loading": "Memuat kapasitas host...",
+        "unavailable": "Kapasitas host tidak tersedia",
+        "empty": "Tidak ada data kapasitas yang dilaporkan",
+        "gpus": "{{count}} GPU",
+        "reclaimer": "Reclaimer aktif",
+        "used": "Terpakai",
+        "total": "Total",
+        "systemRam": "RAM sistem",
+        "memory": "Memori",
+        "totalVram": "Total VRAM",
+        "storage": "Penyimpanan model"
+      },
+      "sections": {
+        "heading": "Bagian-bagian",
+        "runtime": "Runtime",
+        "runtimeSummary": "{{backends}} backend · {{models}} model · {{updates}} updates · {{running}} running",
+        "cluster": "Kluster",
+        "clusterSummary": "{{nodes}} node",
+        "observability": "Observabilitas",
+        "observabilitySummary": "Penggunaan dan trace",
+        "administration": "Administrasi",
+        "administrationSummary": "Pengguna, middleware dan pengaturan · {{memory}} memory terpakai",
+        "clusterSingle": "Node tunggal",
+        "observabilityCounted": "{{requests}} permintaan · {{errors}} gagal · p95 {{p95}} ms"
+      },
+      "headline": {
+        "requests": "Permintaan · {{hours}}h",
+        "errors": "Permintaan gagal",
+        "p95": "p95 latensi",
+        "quiet": "Belum ada permintaan yang dilayani dalam jendela ini.",
+        "host": "Memori host"
+      }
+    }
+  }
+}

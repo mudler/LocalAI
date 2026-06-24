@@ -1,0 +1,24 @@
+{
+    "$schema": "https://raw.githubusercontent.com/devcontainers/spec/main/schemas/devContainer.schema.json",
+    "name": "LocalAI",
+    "workspaceFolder": "/workspace",
+    "dockerComposeFile": [ "./docker-compose-devcontainer.yml" ],
+    "service": "api",
+    "shutdownAction": "stopCompose",
+    "customizations": {
+        "vscode": {
+            "extensions": [
+                "golang.go",
+                "ms-vscode.makefile-tools",
+                "ms-azuretools.vscode-docker",
+                "ms-python.python",
+                "ms-python.debugpy",
+                "wayou.vscode-todo-highlight",
+                "waderyan.gitblame"
+            ]
+        }
+    },
+    "forwardPorts": [8080, 3000],
+    "postCreateCommand": "bash /.devcontainer-scripts/postcreate.sh",
+    "postStartCommand": "bash /.devcontainer-scripts/poststart.sh"
+}

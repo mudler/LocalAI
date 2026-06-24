@@ -1,0 +1,9 @@
+---
+name: "trellis2cpp"
+
+config_file: |
+    backend: trellis2cpp
+    known_usecases:
+    - 3d
+    step: 12
+    cfg_scale: 7.5

@@ -1,0 +1,12 @@
+.cache/
+sources/
+build/
+package/
+moss-transcribe-cpp-grpc
+# build artifacts staged in-tree by the Makefile (cp from sources/) or
+# symlinked for local dev; the real sources live in moss-transcribe.cpp upstream.
+*.so
+*.so.*
+*.dylib
+moss_transcribe_capi.h
+compile_commands.json

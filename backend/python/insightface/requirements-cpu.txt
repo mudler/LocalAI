@@ -1,0 +1,7 @@
+insightface
+onnxruntime
+opencv-python-headless
+numpy
+onnx
+cython
+scikit-image

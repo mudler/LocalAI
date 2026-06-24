@@ -1,0 +1,26 @@
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ if .IsHome }}{{ .Site.Title }} · Make AI run on every machine{{ else }}{{ .Title }} · {{ .Site.Title }}{{ end }}</title>
+  {{ $desc := or .Description .Site.Params.description }}
+  <meta name="description" content="{{ $desc }}">
+  <meta name="author" content="{{ .Site.Params.author }}">
+  {{ if not hugo.IsProduction }}<meta name="robots" content="noindex">{{ end }}
+  <link rel="canonical" href="{{ .Permalink }}">
+
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="{{ .Site.Title }}">
+  <meta property="og:title" content="{{ if .IsHome }}Make AI run on every machine{{ else }}{{ .Title }}{{ end }}">
+  <meta property="og:description" content="{{ $desc }}">
+  <meta property="og:url" content="{{ .Permalink }}">
+  <meta property="og:image" content="{{ "img/logo-full.png" | absURL }}">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:site" content="@LocalAI_API">
+
+  <link rel="icon" href="{{ "img/logo-mark.png" | relURL }}">
+  <link rel="preload" as="font" type="font/woff2" href="{{ "fonts/sora-700.woff2" | relURL }}" crossorigin>
+  <link rel="preload" as="font" type="font/woff2" href="{{ "fonts/geist-mono.woff2" | relURL }}" crossorigin>
+  <link rel="stylesheet" href="{{ "css/site.css" | relURL }}">
+  {{ range .Params.extracss }}<link rel="stylesheet" href="{{ printf "css/%s" . | relURL }}">
+  {{ end }}
+</head>

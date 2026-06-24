@@ -1,0 +1,70 @@
+package main
+
+import (
+	"regexp"
+	"strings"
+)
+
+// tierRE matches the tier marker APEX repos put at the end of a weight
+// filename. Discovery is by suffix because the stem is not predictable from
+// the repo name: six of the 45 repos drop a suffix ("-it", "-2603") or a
+// vendor prefix ("NVIDIA-") that the repo name carries.
+var tierRE = regexp.MustCompile(`-(I-)?(Quality|Balanced|Compact|Mini|Nano)\.gguf$`)
+
+// fullPrecisionRE matches the unquantized source weights an APEX repo publishes
+// alongside its ladder, flat (-F16.gguf) or sharded across a numbered set
+// (-F16-00001-of-00010.gguf). bf16 is accepted because some repos publish that
+// instead, and the match is case-insensitive because the casing varies between
+// publishing scripts.
+//
+// These are deliberately not tiers: they are the weights the ladder is quantized
+// FROM, and generation is scoped to the ladder itself.
+var fullPrecisionRE = regexp.MustCompile(`(?i)-b?f16(-\d{5}-of-\d{5})?\.gguf$`)
+
+// IsFullPrecision reports whether a weight filename is an unquantized source.
+func IsFullPrecision(name string) bool {
+	return fullPrecisionRE.MatchString(name)
+}
+
+// Tier is one discovered build of an APEX repo.
+type Tier struct {
+	Label string
+	File  GGUFFile
+}
+
+// DiscoverAPEXTiers splits a repo's weight files into the imatrix ladder and
+// the plain ladder. mmproj files are never tiers.
+func DiscoverAPEXTiers(files []GGUFFile) (imatrix, plain []Tier) {
+	for _, f := range files {
+		if strings.HasPrefix(f.Name, "mmproj") {
+			continue
+		}
+		m := tierRE.FindStringSubmatch(f.Name)
+		if m == nil {
+			continue
+		}
+		if m[1] != "" {
+			imatrix = append(imatrix, Tier{Label: "I-" + m[2], File: f})
+			continue
+		}
+		plain = append(plain, Tier{Label: m[2], File: f})
+	}
+	return imatrix, plain
+}
+
+// DiscoverMMProj returns the repo's projector file, if it publishes one. The
+// name varies across repos (mmproj.gguf, mmproj-F16.gguf,
+// mmproj-step3.7-flash-f16.gguf), so match the prefix rather than a fixed name.
+func DiscoverMMProj(files []GGUFFile) (GGUFFile, bool) {
+	for _, f := range files {
+		if strings.HasPrefix(f.Name, "mmproj") {
+			return f, true
+		}
+	}
+	return GGUFFile{}, false
+}
+
+// FileStem returns a tier's filename with its tier suffix removed.
+func FileStem(t Tier) string {
+	return tierRE.ReplaceAllString(t.File.Name, "")
+}

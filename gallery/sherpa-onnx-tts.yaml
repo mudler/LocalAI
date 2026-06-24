@@ -1,0 +1,28 @@
+---
+name: "sherpa-onnx-tts"
+
+config_file: |
+  backend: sherpa-onnx
+  options:
+    # VITS inference knobs. Matches upstream sherpa-onnx defaults.
+    - tts.noise_scale=0.667
+    - tts.noise_scale_w=0.8
+    - tts.length_scale=1.0
+    - tts.max_num_sentences=1
+    # Speech rate multiplier. Applied at every TTS / TTSStream call
+    # since the TTSRequest proto has no speed field.
+    - tts.speed=1.0
+    # Companion assets that sherpa-onnx TTS voices load from beside the .onnx
+    # (tokens, lexicons, espeak-ng phonemization data, Kokoro voices bank / jieba
+    # dict). Declared as option paths so distributed inference stages them to
+    # remote worker nodes too; the backend ignores these keys and resolves the
+    # files relative to the model dir. Bare names resolve against the model's own
+    # directory; any that a given voice doesn't ship are skipped during staging.
+    - tokens:tokens.txt
+    - lexicon:lexicon.txt
+    - data_dir:espeak-ng-data
+    - voices:voices.bin
+    - dict_dir:dict
+    - lexicon_us:lexicon-us-en.txt
+    - lexicon_gb:lexicon-gb-en.txt
+    - lexicon_zh:lexicon-zh.txt

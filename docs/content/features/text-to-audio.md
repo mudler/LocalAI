@@ -1,0 +1,1031 @@
+
++++
+disableToc = false
+title = "Text to Audio (TTS)"
+weight = 31
+url = "/features/text-to-audio/"
+aliases = ["/features/sound-generation/"]
++++
+
+## API Compatibility
+
+The LocalAI TTS API is compatible with the [OpenAI TTS API](https://platform.openai.com/docs/guides/text-to-speech) and the [Elevenlabs](https://api.elevenlabs.io/docs) API.
+
+## LocalAI API
+
+The `/tts` endpoint can also be used to generate speech from text.
+
+## Usage
+
+Input: `input`, `model`
+
+For example, to generate an audio file, you can send a POST request to the `/tts` endpoint with the instruction as the request body:
+
+```bash
+curl http://localhost:8080/tts -H "Content-Type: application/json" -d '{
+  "input": "Hello world",
+  "model": "tts"
+}'
+```
+
+Returns an `audio/wav` file.
+
+## List available voices
+
+Use `GET /v1/audio/voices` to list named voices for installed TTS models:
+
+```bash
+curl http://localhost:8080/v1/audio/voices
+```
+
+Add the `model` query parameter to return one installed model:
+
+```bash
+curl 'http://localhost:8080/v1/audio/voices?model=pocket-tts'
+```
+
+Each voice can include `language` and `gender` metadata. LocalAI supplies the
+built-in Pocket TTS catalog. Other models can declare their catalog in YAML:
+
+```yaml
+name: custom-tts
+backend: custom
+known_usecases: [tts]
+tts:
+  voices:
+    - name: narrator
+      language: en_GB
+      gender: female
+```
+
+LocalAI returns `404` when the requested model is not installed. Models without
+voice metadata do not appear in the unfiltered response.
+
+The **Instructions** field in the Text to Speech studio maps to the optional
+`instructions` property on `/v1/audio/speech`. Use it to describe delivery,
+such as tone or pace:
+
+```bash
+curl http://localhost:8080/v1/audio/speech \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "model": "tts",
+    "input": "Welcome to LocalAI.",
+    "instructions": "Speak slowly and warmly."
+  }' --output speech.wav
+```
+
+Backend support for speech instructions varies. Backends that do not support
+this control may ignore it.
+
+## Voice Library
+
+Administrators can manage reusable voice-cloning references from **Operate → Voice Library** in the LocalAI WebUI. The library replaces per-model filesystem and YAML setup for supported cloning backends:
+
+1. Select **Create voice** and upload or record a clear reference clip.
+2. Enter the exact words spoken in the clip. Add more audio/transcript pairs when the personality needs more examples.
+3. Confirm that you have permission to clone the voice, then save the profile.
+4. Open **Text to Speech**, choose a model marked **Cloning ready**, and select the saved voice.
+
+The browser converts uploads and recordings to mono, 24 kHz, 16-bit PCM WAV so the same profile works across compatible backends. A profile can contain up to ten ordered references. Each clip must be between 1 and 120 seconds and no larger than 50 MiB; 6-30 seconds of clean audio is recommended. Profile audio is private biometric source material: LocalAI stores it below its configured data path, serves previews only to authenticated TTS users, and never returns its filesystem path.
+
+### Voice profile API
+
+The WebUI uses the following endpoints. Creating and deleting profiles requires administrator access; listing profiles and playing previews requires access to the TTS feature.
+
+| Method | Endpoint | Purpose |
+| --- | --- | --- |
+| `GET` | `/api/voice-profiles` | List saved profiles and their public metadata. |
+| `POST` | `/api/voice-profiles` | Create a profile from multipart form data or JSON with base64 audio. |
+| `GET` | `/api/voice-profiles/{id}/audio` | Stream the authenticated WAV preview, including range requests. |
+| `DELETE` | `/api/voice-profiles/{id}` | Permanently delete a profile. |
+
+For example, an administrator can create a profile without the WebUI:
+
+```bash
+curl http://localhost:8080/api/voice-profiles \
+  -F 'name=Documentary narrator' \
+  -F 'language=en-US' \
+  -F 'transcript=The exact words spoken in this reference.' \
+  -F 'consent_confirmed=true' \
+  -F 'audio=@reference.wav;type=audio/wav'
+```
+
+Repeat `transcript` and `audio` in matching order to create a multi-reference personality:
+
+```bash
+curl http://localhost:8080/api/voice-profiles \
+  -F 'name=Documentary personality' \
+  -F 'transcript=The first exact transcript.' \
+  -F 'audio=@reference-1.wav;type=audio/wav' \
+  -F 'transcript=The second exact transcript.' \
+  -F 'audio=@reference-2.wav;type=audio/wav' \
+  -F 'consent_confirmed=true'
+```
+
+The response includes an opaque voice reference such as `localai://voice-profiles/550e8400-e29b-41d4-a716-446655440000`. Pass that value as `voice` to either TTS-compatible endpoint:
+
+```bash
+curl http://localhost:8080/v1/audio/speech \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "model": "qwen3-tts-base",
+    "input": "This sentence will use the saved voice.",
+    "voice": "localai://voice-profiles/550e8400-e29b-41d4-a716-446655440000"
+  }' --output speech.wav
+```
+
+LocalAI resolves the opaque reference only for models that advertise voice-cloning support. Existing named speakers, backend-specific voice IDs, and explicit model YAML voice configuration remain available for models and advanced workflows that do not use the library.
+
+The Voice Library uses the same server-side capability resolver for installed models and gallery recommendations. Administrators can inspect the currently configured galleries without maintaining a separate backend list:
+
+```bash
+curl 'http://localhost:8080/api/models?capability=voice_cloning&items=20'
+```
+
+Each returned model includes a non-null `voice_cloning` contract. Variant checks are applied before the model is returned, so TTS-only CustomVoice, VoiceDesign, or preset-prompt variants are not offered as reference-audio models. When the WebUI detects that no compatible model is installed, it uses this response to offer direct installation.
+
+### Model configuration
+
+Voice Library support is automatic for known backends and model variants. A custom model can override that detection with `tts.voice_cloning`:
+
+```yaml
+name: private-qwen-base
+backend: qwen3-tts-cpp
+parameters:
+  model: private/qwen-talker-checkpoint.gguf
+known_usecases:
+  - tts
+tts:
+  # Optional: omit this for automatic backend and variant detection.
+  voice_cloning: true
+  # Optional model-wide fallback when a request does not select a saved profile.
+  audio_path: voices/default-reference.wav
+options:
+  - tokenizer:private/qwen-tokenizer.gguf
+```
+
+`tts.voice_cloning` has three states:
+
+| Value | Behavior |
+| --- | --- |
+| omitted | Detect support from the backend plus `name`, `parameters.model`, and compatibility options. This is recommended for gallery models. |
+| `true` | Advertise Voice Library support for a custom-named variant of a backend that LocalAI already knows can clone voices. This cannot add cloning to an unsupported backend. |
+| `false` | Hide the model from Voice Library compatibility results and reject `localai://voice-profiles/...` references for it. Backend-specific named voices and manual reference paths remain available. |
+
+The older `options: ["voice_cloning:true"]` and `options: ["voice_cloning:false"]` spellings remain accepted for compatibility. Prefer `tts.voice_cloning`; generic options may be forwarded to a backend, whereas the typed field is consumed only by LocalAI.
+
+Reference selection follows this order:
+
+1. A request `voice`, including a saved `localai://voice-profiles/...` URI.
+2. The model's `tts.voice` default.
+3. The model's `tts.audio_path` reference-audio fallback.
+4. A backend-specific default voice or option.
+
+When a saved profile is selected, LocalAI supplies its ordered private WAV and transcript pairs to Fish Speech and audio.cpp. Other cloning backends receive the first pair, which preserves their existing single-reference behavior. LocalAI does not rewrite the model YAML or copy recordings into the model directory.
+
+### Realtime pipeline default
+
+Set `tts.voice` on a realtime pipeline model to use a saved Voice Library profile as the session default:
+
+```yaml
+name: gpt-realtime
+tts:
+  voice: localai://voice-profiles/550e8400-e29b-41d4-a716-446655440000
+pipeline:
+  vad: silero-vad-ggml
+  transcription: whisper-large-turbo
+  llm: qwen3-4b
+  tts: qwen3-tts-base
+```
+
+LocalAI resolves this profile when the realtime session starts. The selected TTS model must support Voice Library cloning.
+
+You can also change the profile during a realtime session. Set `audio.output.voice` to a Voice Library URI in a `session.update` event:
+
+```json
+{
+  "type": "session.update",
+  "session": {
+    "audio": {
+      "output": {
+        "voice": "localai://voice-profiles/550e8400-e29b-41d4-a716-446655440000"
+      }
+    }
+  }
+}
+```
+
+If the same update changes `model`, the explicit `audio.output.voice` value takes precedence over the new model's `tts.voice` default. The selected model must support Voice Library cloning.
+
+#### Supported backend and model variants
+
+| Backend | Automatically compatible variants |
+| --- | --- |
+| `chatterbox`, `faster-qwen3-tts`, `fish-speech`, `moss-tts-cpp`, `neutts`, `omnivoice-cpp`, `pocket-tts`, `voxcpm` | Reference-audio cloning models served by these dedicated backends. |
+| `qwen-tts`, `qwen3-tts-cpp`, `vllm-omni` | Base or VoiceClone variants. CustomVoice and VoiceDesign variants are not raw reference-audio models. |
+| `llama-cpp` | Models that declare `known_usecases: [tts]`, which the Qwen3-TTS gallery entries (`qwen3-tts-llamacpp`, `qwen3-tts-llamacpp-q4`) do. A reference clip is required, since the Base checkpoints have no built-in speaker. Ordinary GGUF chat and vision models served by this backend are excluded. |
+| `vibevoice-cpp` | 1.5B reference-WAV variants. The realtime 0.5B preset-prompt model is excluded. |
+| `coqui` | XTTS and YourTTS variants. |
+| `crispasr` | F5-TTS variants. ASR, Piper, Orpheus, and other CrispASR model families are excluded. |
+
+This table describes the built-in resolver, not a frontend allowlist. Gallery entries and installed configs are evaluated by the server, and `tts.voice_cloning` can make a verified custom filename explicit.
+
+## Streaming TTS
+
+LocalAI supports streaming TTS generation, allowing audio to be played as it's generated. This is useful for real-time applications and reduces latency.
+
+To enable streaming, add `"stream": true` to your request:
+
+```bash
+curl http://localhost:8080/tts -H "Content-Type: application/json" -d '{
+  "input": "Hello world, this is a streaming test",
+  "model": "voxcpm",
+  "stream": true
+}' | aplay
+```
+
+The audio will be streamed chunk-by-chunk as it's generated, allowing playback to start before generation completes. This is particularly useful for long texts or when you want to minimize perceived latency.
+
+You can also pipe the streamed audio directly to audio players like `aplay` (Linux) or save it to a file:
+
+```bash
+# Stream to aplay (Linux)
+curl http://localhost:8080/tts -H "Content-Type: application/json" -d '{
+  "input": "This is a longer text that will be streamed as it is generated",
+  "model": "voxcpm",
+  "stream": true
+}' | aplay
+
+# Stream to a file
+curl http://localhost:8080/tts -H "Content-Type: application/json" -d '{
+  "input": "Streaming audio to file",
+  "model": "voxcpm",
+  "stream": true
+}' > output.wav
+```
+
+Note: Streaming TTS is implemented by the `audio-cpp`, `crispasr`, `llama-cpp`, `magpie-tts-cpp`, `moss-tts-cpp`, `omnivoice-cpp`, `qwen3-tts-cpp`, `sherpa-onnx`, `supertonic`, `vibevoice-cpp` and `voxcpm` backends. Other backends will fall back to non-streaming mode if streaming is not supported.
+
+## Backends
+
+### 🐸 Coqui
+
+Required: Don't use `LocalAI` images ending with the `-core` tag,. Python dependencies are required in order to use this backend.
+
+Coqui works without any configuration, to test it, you can run the following curl command:
+
+```
+    curl http://localhost:8080/tts -H "Content-Type: application/json" -d '{         
+        "backend": "coqui",
+        "model": "tts_models/en/ljspeech/glow-tts",
+        "input":"Hello, this is a test!"
+        }'
+```
+
+You can use the env variable COQUI_LANGUAGE to set the language used by the coqui backend.
+
+You can also use config files to configure tts models (see section below on how to use config files).
+
+### Fish Speech
+
+Fish Speech models accept the `compile` backend option. Enabling it can improve
+inference performance on CUDA hardware, but the first request after loading the
+model includes the `torch.compile` warmup cost:
+
+```yaml
+backend: fish-speech
+options:
+  - compile:true
+```
+
+When compilation is enabled, the backend uses the CUDA toolkit's executable
+`ptxas` from `$CUDA_HOME/bin` (defaulting to `/usr/local/cuda/bin`) instead of
+the copy bundled with Triton. This allows newer GPU architectures supported by
+the installed CUDA toolkit to compile kernels. Set `TRITON_PTXAS_PATH` on the
+backend explicitly to select a different assembler.
+
+### Piper
+
+To install the `piper` audio models manually:
+
+- Download Voices from https://github.com/rhasspy/piper/releases/tag/v0.0.2
+- Extract the `.tar.tgz` files (.onnx,.json) inside `models`
+- Run the following command to test the model is working
+
+To use the tts endpoint, run the following command. You can specify a backend with the `backend` parameter. For example, to use the `piper` backend:
+```bash
+curl http://localhost:8080/tts -H "Content-Type: application/json" -d '{
+  "model":"it-riccardo_fasol-x-low.onnx",
+  "backend": "piper",
+  "input": "Ciao, sono Ettore"
+}' | aplay
+```
+
+Note:
+
+- `aplay` is a Linux command. You can use other tools to play the audio file.
+- The model name is the filename with the extension.
+- The model name is case sensitive.
+- LocalAI must be compiled with the `GO_TAGS=tts` flag.
+
+### Transformers-musicgen
+
+LocalAI also has experimental support for `transformers-musicgen` for the generation of short musical compositions. Currently, this is implemented via the same requests used for text to speech:
+
+```
+curl --request POST \
+  --url http://localhost:8080/tts \
+  --header 'Content-Type: application/json' \
+  --data '{
+    "backend": "transformers-musicgen",
+    "model": "facebook/musicgen-medium",
+    "input": "Cello Rave"
+}' | aplay
+```
+
+Future versions of LocalAI will expose additional control over audio generation beyond the text prompt.
+
+### ACE-Step
+
+[ACE-Step 1.5](https://github.com/ACE-Step/ACE-Step-1.5) is a music generation model that can create music from text descriptions, lyrics, or audio samples. It supports both simple text-to-music and advanced music generation with metadata like BPM, key scale, and time signature.
+
+#### Setup
+
+Install the `ace-step-turbo` model from the Model gallery or run `local-ai models install ace-step-turbo`.
+
+#### Usage
+
+ACE-Step supports two modes: **Simple mode** (text description + vocal language) and **Advanced mode** (caption, lyrics, BPM, key, and more).
+
+**Simple mode:**
+```bash
+curl http://localhost:8080/v1/audio/speech -H "Content-Type: application/json" -d '{
+  "model": "ace-step-turbo",
+  "input": "A soft Bengali love song for a quiet evening",
+  "vocal_language": "bn"
+}' --output music.flac
+```
+
+**Advanced mode** (using the `/v1/sound-generation` endpoint):
+```bash
+curl http://localhost:8080/v1/sound-generation -H "Content-Type: application/json" -d '{
+  "model": "ace-step-turbo",
+  "caption": "A funky Japanese disco track",
+  "lyrics": "[Verse 1]\n...",
+  "bpm": 120,
+  "keyscale": "Ab major",
+  "language": "ja",
+  "duration_seconds": 225
+}' --output music.flac
+```
+
+#### Music and sound generation API (`/v1/sound-generation`)
+
+The `/v1/sound-generation` endpoint is compatible with the [ElevenLabs sound generation API](https://elevenlabs.io/docs/api-reference/sound-generation) and can produce music, sound effects, and other audio content. It responds with a binary audio file and the appropriate `Content-Type` header (for example `audio/wav`, `audio/mpeg`, `audio/flac`, or `audio/ogg`). The request body is JSON and supports two usage modes.
+
+**Simple mode:**
+
+| Parameter        | Type     | Required | Description                                  |
+|------------------|----------|----------|----------------------------------------------|
+| `model_id`       | `string` | Yes      | Model identifier (for example `ace-step-turbo`) |
+| `text`           | `string` | Yes      | Audio description or prompt                  |
+| `instrumental`   | `bool`   | No       | Generate instrumental audio (no vocals)      |
+| `vocal_language` | `string` | No       | Language code for vocals (for example `bn`, `ja`) |
+
+**Advanced mode:**
+
+| Parameter           | Type     | Required | Description                                     |
+|---------------------|----------|----------|-------------------------------------------------|
+| `model_id`          | `string` | Yes      | Model identifier (for example `ace-step-turbo`) |
+| `text`              | `string` | Yes      | Text prompt or description                      |
+| `duration_seconds`  | `float`  | No       | Target duration in seconds                      |
+| `prompt_influence`  | `float`  | No       | Temperature / prompt influence parameter        |
+| `do_sample`         | `bool`   | No       | Enable sampling                                 |
+| `think`             | `bool`   | No       | Enable extended thinking for generation         |
+| `caption`           | `string` | No       | Caption describing the audio                    |
+| `lyrics`            | `string` | No       | Lyrics for the generated audio                  |
+| `bpm`               | `int`    | No       | Beats per minute                                |
+| `keyscale`          | `string` | No       | Musical key/scale (for example `Ab major`)      |
+| `language`          | `string` | No       | Language code                                   |
+| `vocal_language`    | `string` | No       | Vocal language (fallback if `language` is empty) |
+| `timesignature`     | `string` | No       | Time signature (for example `4`)                |
+| `instrumental`      | `bool`   | No       | Generate instrumental audio (no vocals)         |
+
+Error responses: `400` for a missing or invalid model or request parameters, and `500` for a backend error during sound generation.
+
+### AudioLDM 2
+
+[AudioLDM 2](https://github.com/haoheliu/AudioLDM2) generates sound effects,
+music, and speech from a text description. Install the gallery model:
+
+```bash
+local-ai models install audioldm2
+```
+
+Generate a WAV file through the sound-generation endpoint:
+
+```bash
+curl http://localhost:8080/v1/sound-generation \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model_id": "audioldm2",
+    "text": "Waves breaking on a rocky beach during a distant thunderstorm",
+    "duration_seconds": 10
+  }' --output storm.wav
+```
+
+AudioLDM 2 uses the `AudioLDM2Pipeline` from the diffusers backend. The
+`duration_seconds` field maps to the pipeline's `audio_length_in_s` option, and
+`prompt_influence` maps to `guidance_scale`.
+
+#### Configuration
+
+You can configure ACE-Step models with various options:
+
+```yaml
+name: ace-step-turbo
+backend: ace-step
+parameters:
+  model: acestep-v15-turbo
+known_usecases:
+  - sound_generation
+  - tts
+options:
+  - "device:auto"
+  - "use_flash_attention:true"
+  - "init_lm:true"  # Enable LLM for enhanced generation
+  - "lm_model_path:acestep-5Hz-lm-0.6B"  # or acestep-5Hz-lm-4B
+  - "lm_backend:pt"  # or vllm
+  - "temperature:0.85"
+  - "top_p:0.9"
+  - "inference_steps:8"
+  - "guidance_scale:7.0"
+```
+
+### VibeVoice
+
+[VibeVoice-Realtime](https://github.com/microsoft/VibeVoice) is a real-time text-to-speech model that generates natural-sounding speech from precomputed voice presets.
+
+#### Setup
+
+Install the `vibevoice` model in the Model gallery or run `local-ai models install vibevoice`.
+
+#### Usage
+
+Use the tts endpoint by specifying the vibevoice backend:
+
+```
+curl http://localhost:8080/tts -H "Content-Type: application/json" -d '{         
+     "model": "vibevoice",
+     "input":"Hello!"
+   }' | aplay
+```
+
+#### Voice presets
+
+The Python `vibevoice` realtime 0.5B model uses `.pt` voice preset files. You can configure a model with a specific preset:
+
+```yaml
+name: vibevoice
+backend: vibevoice
+parameters:
+  model: microsoft/VibeVoice-Realtime-0.5B
+tts:
+  voice: "Frank"  # or use audio_path to specify a .pt file path
+  # Available English voices: Carter, Davis, Emma, Frank, Grace, Mike
+```
+
+{{% notice note %}}
+The realtime 0.5B preset model is not advertised to the Voice Library because it does not accept a raw reference WAV per request. For Voice Library profiles, use a `vibevoice-cpp` 1.5B reference-WAV model; LocalAI detects the 1.5B variant automatically, or a custom name can set `tts.voice_cloning: true`.
+{{% /notice %}}
+
+Then you can use the model:
+
+```bash
+curl http://localhost:8080/tts -H "Content-Type: application/json" -d '{
+     "model": "vibevoice",
+     "input":"Hello!"
+   }' | aplay
+```
+
+### OmniVoice
+
+[OmniVoice](https://github.com/ServeurpersoCom/omnivoice.cpp) (`omnivoice-cpp` backend) is a native C++ / GGML text-to-speech engine. It supports voice cloning (from reference audio plus its transcript), voice design (steering the voice with attribute keywords such as gender, age, pitch, style, volume, and emotion), and streaming synthesis. Output is 24kHz mono audio and it covers 646 languages.
+
+#### Setup
+
+Install the `omnivoice-cpp` model in the Model gallery or run `local-ai models install omnivoice-cpp`. A higher-quality BF16 variant is available as `omnivoice-cpp-hq` (the default `omnivoice-cpp` ships Q8_0 GGUFs).
+
+#### Usage
+
+Use the speech endpoint by specifying the omnivoice-cpp backend:
+
+```bash
+curl http://localhost:8080/v1/audio/speech -H "Content-Type: application/json" -d '{
+     "model": "omnivoice-cpp",
+     "input": "Hello world, this is a test."
+   }' | aplay
+```
+
+#### Voice cloning
+
+Pass a reference audio file via the `voice` parameter and its transcript via the `ref_text` generation parameter:
+
+```bash
+curl http://localhost:8080/v1/audio/speech -H "Content-Type: application/json" -d '{
+     "model": "omnivoice-cpp",
+     "input": "Hello world, this is a test.",
+     "voice": "path/to/reference_audio.wav",
+     "params": { "ref_text": "This is the transcript of the reference audio." }
+   }' | aplay
+```
+
+You can also pin a default cloned voice in the model config so callers do not have to pass it on every request. Both `tts.voice` and `tts.audio_path` are honored as the reference audio (a per-request `voice` overrides them); paths are resolved relative to the model directory:
+
+```yaml
+name: omnivoice-cpp
+backend: omnivoice-cpp
+parameters:
+  model: omnivoice-cpp/omnivoice-base-Q8_0.gguf
+tts:
+  voice_cloning: true                    # optional explicit declaration; gallery models are auto-detected
+  audio_path: "voices/my_reference.wav"   # default cloning reference (or use tts.voice)
+options:
+  - "tokenizer:omnivoice-cpp/omnivoice-tokenizer-Q8_0.gguf"
+```
+
+#### Voice design
+
+Steer the synthesized voice with attribute keywords (gender, age, pitch, style, volume, emotion) by passing an `instructions` string per request:
+
+```bash
+curl http://localhost:8080/v1/audio/speech -H "Content-Type: application/json" -d '{
+     "model": "omnivoice-cpp",
+     "input": "Hello world, this is a test.",
+     "instructions": "female young high soft emotion:happy"
+   }' | aplay
+```
+
+#### Configuration
+
+The backend loads the base GGUF from `parameters.model` and its tokenizer from the `tokenizer:` option. A few optional generation knobs are available as `options`:
+
+```yaml
+name: omnivoice-cpp
+backend: omnivoice-cpp
+parameters:
+  model: omnivoice-cpp/omnivoice-base-Q8_0.gguf
+options:
+  - "tokenizer:omnivoice-cpp/omnivoice-tokenizer-Q8_0.gguf"
+  - "use_fa:true"      # enable flash attention
+  - "clamp_fp16:true"  # clamp activations for fp16 stability
+  - "seed:42"          # deterministic generation
+  - "denoise:true"     # denoise the generated audio
+```
+
+A per-request `seed` can also be supplied through the `params` map alongside `ref_text`.
+
+### Pocket TTS
+
+[Pocket TTS](https://github.com/kyutai-labs/pocket-tts) is a lightweight text-to-speech model designed to run efficiently on CPUs. It supports voice cloning through HuggingFace voice URLs or local audio files.
+
+#### Setup
+
+Install the `pocket-tts` model in the Model gallery or run `local-ai models install pocket-tts`.
+
+#### Usage
+
+Use the tts endpoint by specifying the pocket-tts backend:
+
+```
+curl http://localhost:8080/tts -H "Content-Type: application/json" -d '{         
+     "model": "pocket-tts",
+     "input":"Hello world, this is a test."
+   }' | aplay
+```
+
+#### Voice cloning
+
+Pocket TTS supports voice cloning through built-in voice names, HuggingFace URLs, or local audio files. You can configure a model with a specific voice:
+
+```yaml
+name: pocket-tts
+backend: pocket-tts
+tts:
+  voice: "azelma"  # Built-in voice name
+  # Or use HuggingFace URL: "hf://kyutai/tts-voices/alba-mackenna/casual.wav"
+  # Or use local file path: "path/to/voice.wav"
+  # Available built-in voices: alba, marius, javert, jean, fantine, cosette, eponine, azelma
+```
+
+To make a reference recording the model-wide fallback, use `tts.audio_path`. The gallery model is detected automatically; `tts.voice_cloning` is only needed when you want an explicit declaration:
+
+```yaml
+name: pocket-tts-clone
+backend: pocket-tts
+tts:
+  voice_cloning: true
+  audio_path: "voices/reference.wav"
+```
+
+You can also pre-load a default voice for faster first generation:
+
+```yaml
+name: pocket-tts
+backend: pocket-tts
+options:
+  - "default_voice:azelma"  # Pre-load this voice when model loads
+```
+
+Then you can use the model:
+
+```
+curl http://localhost:8080/tts -H "Content-Type: application/json" -d '{         
+     "model": "pocket-tts",
+     "input":"Hello world, this is a test."
+   }' | aplay
+```
+
+### Qwen3-TTS
+
+[Qwen3-TTS](https://github.com/QwenLM/Qwen3-TTS) is a high-quality text-to-speech model that supports three modes: custom voice (predefined speakers), voice design (natural language instructions), and voice cloning (from reference audio).
+
+#### Setup
+
+Install the `qwen-tts` model in the Model gallery or run `local-ai models install qwen-tts`.
+
+#### C++ / GGML gallery variants
+
+For a native backend, install one of the Base variants `qwen3-tts-cpp`, `qwen3-tts-cpp-0.6b-base-q4`, `qwen3-tts-cpp-1.7b-base`, or `qwen3-tts-cpp-1.7b-base-q4`. These variants accept saved Voice Library profiles and are advertised automatically. Gallery entries containing `customvoice` or `voicedesign` provide their respective Qwen modes but are intentionally excluded from raw reference-audio cloning.
+
+A private Qwen C++ Base conversion with an opaque filename can declare the capability explicitly. The tokenizer GGUF can sit beside the talker GGUF for automatic discovery:
+
+```yaml
+name: company-narrator-engine
+backend: qwen3-tts-cpp
+parameters:
+  model: qwen-private/talker.gguf
+known_usecases:
+  - tts
+tts:
+  voice_cloning: true
+  audio_path: voices/default-reference.wav  # optional fallback
+```
+
+#### llama.cpp gallery variants
+
+llama.cpp gained native Qwen3-TTS support in [ggml-org/llama.cpp#26254](https://github.com/ggml-org/llama.cpp/pull/26254), so the `llama-cpp` backend can serve it on the same accelerator matrix it already uses for text generation: CUDA, ROCm, SYCL, Vulkan and Metal.
+
+Install `qwen3-tts-llamacpp` (Q8_0 backbone) or `qwen3-tts-llamacpp-q4` (Q4_K_M backbone) from the Model gallery, or run `local-ai models install qwen3-tts-llamacpp-q4`.
+
+These models load two files: the backbone GGUF and a multimodal projector holding the speaker encoder and code predictor. A hand-written configuration must point at both:
+
+```yaml
+name: qwen3-tts-llamacpp
+backend: llama-cpp
+known_usecases:
+  - tts
+mmproj: qwen3-tts-llamacpp/mmproj-Qwen3-TTS-12Hz-1.7B-Base-Q8_0.gguf
+parameters:
+  model: qwen3-tts-llamacpp/Qwen3-TTS-12Hz-1.7B-Base-Q8_0.gguf
+```
+
+`known_usecases: [tts]` is not optional here. It is how LocalAI tells a Qwen3-TTS checkpoint apart from the text and vision GGUFs the same backend serves: without it the model is treated as a chat model, its projector is read as a vision tower, and Voice Library profiles are refused.
+
+Importing such a repo through the Models page or `local-ai models import` writes that declaration for you. The importer reads the projector's header and recognises the speech-synthesis pipeline, so `ggml-org/Qwen3-TTS-12Hz-1.7B-Base-GGUF` imports as a TTS model rather than as a chat model with a vision projector.
+
+The upstream checkpoints are Base variants with no built-in speaker, so `voice` is **required** on every request. Pass either a path to a reference clip or a saved Voice Library profile. A request without one is rejected rather than served in an arbitrary voice:
+
+```bash
+curl http://localhost:8080/tts -H "Content-Type: application/json" -d '{
+  "model": "qwen3-tts-llamacpp",
+  "input": "Hello world, this is a test.",
+  "voice": "voices/my-reference.wav"
+}' > output.wav
+```
+
+Output is always 24 kHz mono 16-bit WAV. Streaming works on this backend, so `"stream": true` returns audio chunk by chunk as it is generated.
+
+Set `language` to an ISO 639-1 code to pin the output language. The supported codes are `zh`, `en`, `de`, `it`, `pt`, `es`, `ja`, `ko`, `fr` and `ru`.
+
+Three optional knobs travel in `params`: `top_k` and `top_p` adjust sampling, and `max_frames` caps how much audio a single request may generate. The model runs at 12.5 frames per second, so one frame is 0.08 seconds and the maximum duration in seconds is `max_frames / 12.5`. Leave it unset for the engine default of 512 frames, which is 40.96 seconds.
+
+`max_frames` exists because generation occasionally fails to stop on its own. The model normally ends an utterance by emitting its end-of-speech token, but once in a while it does not, and the request then runs to the cap and returns far more audio than the text called for. It is uncommon, and it happens more on short inputs than on long ones. If you are synthesising predictable text and want a hard bound, allow roughly 8 frames per word: about 100 frames (8 seconds) for a short sentence, about 300 frames (24 seconds) for a paragraph.
+
+```bash
+curl http://localhost:8080/tts -H "Content-Type: application/json" -d '{
+  "model": "qwen3-tts-llamacpp",
+  "input": "Hello world, this is a test.",
+  "voice": "voices/my-reference.wav",
+  "params": {"max_frames": "100"}
+}' > output.wav
+```
+
+This backend accepts but ignores `instructions`, `speed` and `sample_rate`. The Base checkpoints have no expressive-style or rate control, and the output rate is fixed at 24 kHz.
+
+Note that `qwen3-tts-cpp` (qwentts.cpp) remains available and is unaffected. It is a separate, independently maintained path to the same family of weights, not something this replaces.
+
+#### Usage
+
+Use the tts endpoint by specifying the qwen-tts backend:
+
+```
+curl http://localhost:8080/tts -H "Content-Type: application/json" -d '{         
+     "model": "qwen-tts",
+     "input":"Hello world, this is a test."
+   }' | aplay
+```
+
+#### Language
+
+You can hint the synthesis language with the `language` request field:
+
+```
+curl http://localhost:8080/tts -H "Content-Type: application/json" -d '{
+     "model": "qwen-tts",
+     "input": "Bonjour le monde.",
+     "language": "fr"
+   }' | aplay
+```
+
+Supported languages: `en` (English), `zh` (Chinese), `ru` (Russian), `ja` (Japanese), `ko` (Korean), `de` (German), `fr` (French), `es` (Spanish), `it` (Italian), `pt` (Portuguese).
+
+The value is matched case-insensitively and accepts a few forms for convenience:
+
+- the two-letter code (`fr`, `FR`)
+- a locale/region form, whose region is ignored (`fr-FR`, `pt_BR`, `zh-Hans` → `fr`/`pt`/`zh`)
+- the English full name (`french`, `Portuguese`)
+
+If the field is omitted or the value isn't one of the supported languages, the backend defaults to English.
+
+#### Custom Voice Mode
+
+Qwen3-TTS supports predefined speakers. You can specify a speaker using the `voice` parameter:
+
+```yaml
+name: qwen-tts
+backend: qwen-tts
+parameters:
+  model: Qwen/Qwen3-TTS-12Hz-1.7B-CustomVoice
+tts:
+  voice: "Vivian"  # Available speakers: Vivian, Serena, Uncle_Fu, Dylan, Eric, Ryan, Aiden, Ono_Anna, Sohee
+```
+
+Available speakers:
+- **Chinese**: Vivian, Serena, Uncle_Fu, Dylan, Eric
+- **English**: Ryan, Aiden
+- **Japanese**: Ono_Anna
+- **Korean**: Sohee
+
+#### Voice Design Mode
+
+Voice Design allows you to create custom voices using natural language instructions. Configure the model with an `instruct` option:
+
+```yaml
+name: qwen-tts-design
+backend: qwen-tts
+parameters:
+  model: Qwen/Qwen3-TTS-12Hz-1.7B-VoiceDesign
+options:
+  - "instruct:体现撒娇稚嫩的萝莉女声，音调偏高且起伏明显，营造出黏人、做作又刻意卖萌的听觉效果。"
+```
+
+Then use the model:
+
+```
+curl http://localhost:8080/tts -H "Content-Type: application/json" -d '{         
+     "model": "qwen-tts-design",
+     "input":"Hello world, this is a test."
+   }' | aplay
+```
+
+#### Per-request instructions
+
+Instead of (or in addition to) the static YAML `instruct` option, you can pass an
+`instructions` string per request. It maps to the OpenAI
+[`instructions`](https://platform.openai.com/docs/api-reference/audio/createSpeech) field
+and takes precedence over the YAML option when set, falling back to it when empty. This lets
+a single model config serve a different emotion (CustomVoice) or a different designed voice
+(VoiceDesign) on every request - useful for roleplay/narration clients that need many voices:
+
+```
+curl http://localhost:8080/v1/audio/speech -H "Content-Type: application/json" -d '{
+     "model": "qwen-tts-design",
+     "input": "Hello world, this is a test.",
+     "instructions": "A calm, low-pitched elderly storyteller with a warm tone."
+   }' | aplay
+```
+
+Backends that do not support style/voice instructions simply ignore the field.
+
+You can also pass backend-specific generation parameters per request via the LocalAI
+`params` extension (a string-to-string map; values are coerced to the backend's expected
+types). For example, with the Chatterbox backend:
+
+```
+curl http://localhost:8080/v1/audio/speech -H "Content-Type: application/json" -d '{
+     "model": "chatterbox",
+     "input": "Hello world, this is a test.",
+     "params": { "exaggeration": "0.7", "cfg_weight": "0.3", "temperature": "0.8" }
+   }' | aplay
+```
+
+#### Voice Clone Mode
+
+Voice Clone allows you to clone a voice from reference audio. Configure the model with an `AudioPath` and optional `ref_text`:
+
+```yaml
+name: qwen-tts-clone
+backend: qwen-tts
+parameters:
+  model: Qwen/Qwen3-TTS-12Hz-1.7B-Base
+tts:
+  voice_cloning: true  # optional for this Base model; useful when a private checkpoint has an opaque name
+  audio_path: "path/to/reference_audio.wav"  # Reference audio file
+options:
+  - "ref_text:This is the transcript of the reference audio."
+  - "x_vector_only_mode:false"  # Set to true to use only speaker embedding (ref_text not required)
+```
+
+You can also use URLs or base64 strings for the reference audio. The backend automatically detects the mode based on available parameters (AudioPath → VoiceClone, instruct option → VoiceDesign, voice parameter → CustomVoice).
+
+Then use the model:
+
+```
+curl http://localhost:8080/tts -H "Content-Type: application/json" -d '{         
+     "model": "qwen-tts-clone",
+     "input":"Hello world, this is a test."
+   }' | aplay
+```
+
+#### Multi-Voice Clone Mode
+
+Qwen3-TTS also supports loading multiple voices for voice cloning, allowing you to select different voices at request time. Configure multiple voices using the `voices` option:
+
+```yaml
+name: qwen-tts-multi-voice
+backend: qwen-tts
+parameters:
+  model: Qwen/Qwen3-TTS-12Hz-1.7B-Base
+options:
+  - voices:[{"name":"jane","audio":"voices/jane.wav","ref_text":"voices/jane-ref.txt"},{"name":"john","audio":"voices/john.wav","ref_text":"voices/john-ref.txt"}]
+```
+
+The `voices` option accepts a JSON array where each voice entry must have:
+- `name`: The voice identifier (used in API requests)
+- `audio`: Path to the reference audio file (relative to model directory or absolute)
+- `ref_text`: Path to the reference text file for the audio it is paired with
+
+Then use the model with voice selection:
+
+```bash
+curl http://localhost:8080/tts -H "Content-Type: application/json" -d '{         
+     "model": "qwen-tts-multi-voice",
+     "input":"Hello world, this is Jane speaking.",
+     "voice": "jane"
+   }' | aplay
+
+# Switch to a different voice
+curl http://localhost:8080/tts -H "Content-Type: application/json" -d '{         
+     "model": "qwen-tts-multi-voice",
+     "input":"Hello world, this is John speaking.",
+     "voice": "john"
+   }' | aplay
+```
+
+**Voice Selection Priority:**
+1. `voice` parameter in the API request (highest priority)
+2. `voice` option in the model configuration
+3. Error if voice is not found among configured voices
+
+**Error Handling:**
+If you request a voice that doesn't exist in the voices list, the API will return an error with a list of available voices:
+```json
+{"error": "Voice 'unknown' not found. Available voices: jane, john"}
+```
+
+**Backward Compatibility:**
+The multi-voice mode is backward compatible with existing single-voice configurations. Models using `audio_path` in the `tts` section will continue to work as before.
+
+You can also use a `config-file` to specify TTS models and their parameters.
+
+In the following example, a custom config loads `xtts_v2` with a default cloning reference and language.
+
+```yaml
+name: xtts_v2
+backend: coqui
+parameters:
+  language: fr
+  model: tts_models/multilingual/multi-dataset/xtts_v2
+
+tts:
+  voice_cloning: true
+  audio_path: voices/reference.wav
+```
+
+For XTTS/YourTTS, `tts.audio_path` is the default cloning reference and a saved Voice Library profile overrides it per request. Other Coqui model families are not advertised as Voice Library-compatible unless they match the supported variant rules or are explicitly verified with `tts.voice_cloning: true`.
+
+With this config, you can now use the following curl command to generate a text-to-speech audio file:
+```bash
+curl -L http://localhost:8080/tts \
+    -H "Content-Type: application/json" \
+    -d '{
+"model": "xtts_v2",
+"input": "Bonjour, je suis Ana Florence. Comment puis-je vous aider?"
+}' | aplay
+```
+
+### audio.cpp
+
+[audio.cpp](https://github.com/0xShug0/audio.cpp) is a multi-family GGML audio engine, so
+one installed backend covers TTS (`supertonic`, `vibevoice`, `voxcpm2`, `fish_audio`,
+`pocket_tts`, `omnivoice`, `higgs_audio_tts`), voice cloning (`chatterbox`, `index_tts2`,
+`irodori_tts`, `moss_tts_local`, `moss_tts_nano`) and voice design (`qwen3_tts`, `irodori_tts`), alongside ASR, VAD,
+diarization and separation.
+
+Higgs Audio v3 is available directly from the model gallery as
+`audio-cpp-higgs-audio-v3`. It uses the Q8_0 GGUF validated by audio.cpp and supports
+expressive multilingual TTS and zero-shot voice cloning. For cloning, pass the path to a
+server-local WAV file in the OpenAI `voice` field. Use only reference audio for which you
+have the necessary rights and consent, and review the model's research and non-commercial
+license before deployment.
+
+```bash
+local-ai models install audio-cpp-higgs-audio-v3
+
+curl http://localhost:8080/v1/audio/speech \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "audio-cpp-higgs-audio-v3",
+    "input": "Welcome to LocalAI.",
+    "voice": "/models/voices/reference.wav"
+  }' \
+  --output higgs.wav
+```
+
+```yaml
+name: supertonic
+backend: audio-cpp
+parameters:
+  model: supertonic-3-orig.gguf
+known_usecases:
+  - FLAG_TTS
+options:
+  - backend:cuda
+  - device:0
+```
+
+The family is read from the GGUF's own metadata, so `family:` is only needed for a
+safetensors file or a package directory. Sending a speaker reference clip routes the
+request to the family's voice-cloning task automatically, and supplying instructions routes
+it to voice design, where the family supports them. Cloning-only families such as
+`chatterbox` advertise no plain TTS task, so every request to them must carry a reference
+clip. See the
+[audio.cpp backend]({{%relref "features/audio-cpp" %}}) page for the full option list,
+including the `load.` and `session.` namespaces and the supertonic packaging caveat.
+
+### NeMo-Speech.cpp (MagpieTTS)
+
+[NeMo-Speech.cpp](https://github.com/NVIDIA/NeMo-Speech.cpp) is NVIDIA's C++/ggml runtime
+for the Nemotron Speech models. Its `magpietts` family synthesizes speech through a
+NanoCodec decoder, and the same installed backend also covers transcription, diarization
+and translation.
+
+```yaml
+name: magpie-tts
+backend: nemo-speech-cpp
+parameters:
+  model: magpie-tts/magpietts.gguf
+known_usecases:
+  - FLAG_TTS
+options:
+  - codec_model:magpie-tts/nanocodec.gguf
+  - tokenizer_dir:magpie-tts/extracted
+  - gpu:0
+```
+
+The codec and the tokenizer directory are both required. Both are discovered from the
+model's own directory when left unset: a sibling file whose name contains `nanocodec` and
+a sibling directory named `extracted`. MagpieTTS conditions on a speaker rather than on a
+prose style, so `voice` selects a speaker index or a voice name and `instructions` has no
+equivalent. See the [NeMo-Speech.cpp backend]({{%relref "features/nemo-speech-cpp" %}})
+page for the full option list and the conversion steps.
+
+## Response format
+
+To provide some compatibility with OpenAI API regarding `response_format`, ffmpeg must be installed (or a docker image including ffmpeg used) to leverage converting the generated wav file before the api provide its response.
+
+Warning regarding a change in behaviour. Before this addition, the parameter was ignored and a wav file was always returned, with potential codec errors later in the integration (like trying to decode a mp3 file from a wav, which is the default format used by OpenAI)
+
+Supported format thanks to ffmpeg are `wav`, `mp3`, `aac`, `flac`, `opus`, defaulting to `wav` if an unknown or no format is provided.
+
+```bash
+curl http://localhost:8080/tts -H "Content-Type: application/json" -d '{
+  "input": "Hello world",
+  "model": "tts",
+  "response_format": "mp3"
+}'
+```
+
+If a `response_format` is added in the query (other than `wav`) and ffmpeg is not available, the call will fail.

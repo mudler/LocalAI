@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Community Support
+    url: https://github.com/go-skynet/LocalAI/discussions
+    about: Please ask and answer questions here.
+  - name: Discord
+    url: https://discord.gg/uJAeKSAGDy
+    about: Join our community on Discord!

@@ -1,0 +1,54 @@
+name: Propose gallery variant groupings
+on:
+  schedule:
+    - cron: 0 4 * * 1
+  workflow_dispatch:
+jobs:
+  variant_proposals:
+    if: github.repository == 'mudler/LocalAI'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: false
+
+      # The heuristics are the risky part of this job. A regression in them
+      # produces confident, wrong proposals, which is worse than no job at all.
+      - name: Test the proposer
+        run: go test ./.github/ci/variantproposals/
+
+      - name: Propose groupings 🔧
+        id: propose
+        run: |
+          rm -f /tmp/variant-proposals-body.md
+          go run ./.github/ci/variantproposals \
+            -index gallery/index.yaml \
+            -ledger gallery/variant-exclusions.yaml \
+            -body-out /tmp/variant-proposals-body.md \
+            -apply
+          if [ -s /tmp/variant-proposals-body.md ]; then
+            echo "have_proposals=true" >> "$GITHUB_OUTPUT"
+            {
+              echo 'body<<VARIANT_PROPOSAL_BODY_EOF'
+              cat /tmp/variant-proposals-body.md
+              echo VARIANT_PROPOSAL_BODY_EOF
+            } >> "$GITHUB_OUTPUT"
+          else
+            echo "have_proposals=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      # No body file means the proposer found nothing. Opening an empty pull
+      # request every run is how a proposal job gets muted by its reviewers.
+      - name: Create Pull Request
+        if: steps.propose.outputs.have_proposals == 'true'
+        uses: peter-evans/create-pull-request@v8
+        with:
+          token: ${{ secrets.UPDATE_BOT_TOKEN }}
+          push-to-fork: ci-forks/LocalAI
+          commit-message: 'chore(model-gallery): propose variant groupings'
+          title: 'chore(model-gallery): propose variant groupings for review'
+          branch: "propose/variant-groupings"
+          body: ${{ steps.propose.outputs.body }}
+          signoff: true

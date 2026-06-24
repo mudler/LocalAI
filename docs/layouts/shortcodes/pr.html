@@ -1,0 +1,5 @@
+{{ if .IsNamedParams }}
+<a target="_blank" href="https://github.com/go-skynet/LocalAI/pull/{{ .Get "number" }}" alt="">{{ .Get "number" }}</a>
+{{ else }}
+<a target="_blank" href="https://github.com/go-skynet/LocalAI/pull/{{ .Get 0 }}" alt="">{{ .Get 0 }}</a>
+{{ end }}

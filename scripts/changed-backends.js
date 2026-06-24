@@ -1,0 +1,352 @@
+import fs from "fs";
+import * as yaml from "js-yaml";
+import { Octokit } from "@octokit/core";
+
+import {
+  getAllBackendPaths,
+  filterMatrix,
+  BACKEND_MATRIX_FILE,
+  BACKEND_PROTO_FILE,
+} from "./lib/backend-filter.mjs";
+
+// Matrix data lives in a small data-only YAML so both backend.yml (master push)
+// and backend_pr.yml (pull_request) can use a dynamic `matrix: ${{ fromJson(...) }}`
+// for the live job, while this script remains the single source of truth for
+// "what backends does the project know about".
+const matrixYml = yaml.load(fs.readFileSync(BACKEND_MATRIX_FILE, "utf8"));
+const includes = matrixYml.include;
+const includesDarwin = matrixYml.includeDarwin;
+
+const eventPath = process.env.GITHUB_EVENT_PATH;
+const event = JSON.parse(fs.readFileSync(eventPath, "utf8"));
+
+const allBackendPaths = getAllBackendPaths(includes, includesDarwin);
+
+const token = process.env.GITHUB_TOKEN;
+const octokit = new Octokit({ auth: token });
+
+// PR file list — paginated.
+async function getChangedFilesForPR(event) {
+  const prNumber = event.pull_request.number;
+  const repo = event.repository.name;
+  const owner = event.repository.owner.login;
+  let files = [];
+  let page = 1;
+  while (true) {
+    const res = await octokit.request('GET /repos/{owner}/{repo}/pulls/{pull_number}/files', {
+      owner,
+      repo,
+      pull_number: prNumber,
+      per_page: 100,
+      page
+    });
+    files = files.concat(res.data.map(f => f.filename));
+    if (res.data.length < 100) break;
+    page++;
+  }
+  return files;
+}
+
+// Branch-push file list — uses the Compare API so it works in shallow clones.
+// Returns null to signal "we cannot compute a reliable diff; run everything".
+async function getChangedFilesForPush(event) {
+  const before = event.before;
+  const after = event.after;
+  // First push to a branch carries an all-zero `before` SHA and there's no
+  // base to diff against. Run everything in that case.
+  if (!before || !after || /^0+$/.test(before)) return null;
+  const owner = event.repository.owner.login;
+  const repo = event.repository.name;
+  let res;
+  try {
+    res = await octokit.request('GET /repos/{owner}/{repo}/compare/{basehead}', {
+      owner,
+      repo,
+      basehead: `${before}...${after}`,
+    });
+  } catch (err) {
+    console.log("compare API failed, falling back to run-all:", err.message);
+    return null;
+  }
+  if (!res.data || !Array.isArray(res.data.files)) return null;
+  // The compare endpoint caps the file list at 300. If we hit the cap we may
+  // be missing changes — be conservative and run everything.
+  if (res.data.files.length >= 300) {
+    console.log("compare API returned 300+ files (truncated), falling back to run-all");
+    return null;
+  }
+  return res.data.files.map(f => f.filename);
+}
+
+// The matrix file's contents at the base revision, so filterMatrix can rebuild
+// only the entries whose fields actually changed instead of all 417 (or, as
+// before, none of them). Returns null when the previous revision cannot be
+// resolved, which filterMatrix treats as "rebuild everything".
+//
+// Only called when the changed-file list actually names the matrix file, so the
+// common path costs no extra API request.
+async function getPreviousMatrix(event) {
+  const ref = event.pull_request ? event.pull_request.base.sha : event.before;
+  if (!ref || /^0+$/.test(ref)) return null;
+  const owner = event.repository.owner.login;
+  const repo = event.repository.name;
+  try {
+    const res = await octokit.request('GET /repos/{owner}/{repo}/contents/{path}', {
+      owner,
+      repo,
+      path: BACKEND_MATRIX_FILE,
+      ref,
+      mediaType: { format: 'raw' },
+    });
+    // `format: raw` yields a string; fall back to the JSON representation in
+    // case a proxy or a future Octokit version ignores the media type.
+    const raw = typeof res.data === 'string'
+      ? res.data
+      : Buffer.from(res.data.content, 'base64').toString('utf8');
+    const previous = yaml.load(raw);
+    return {
+      include: previous.include || [],
+      includeDarwin: previous.includeDarwin || [],
+    };
+  } catch (err) {
+    console.log(
+      `could not read ${BACKEND_MATRIX_FILE} at ${ref}, falling back to run-all:`,
+      err.message
+    );
+    return null;
+  }
+}
+
+// backend.proto at the base revision plus the checked-out copy, so filterMatrix
+// can tell an additive edit (a new field, message or RPC, which invalidates no
+// existing image) from a breaking one. Returning null means "rebuild
+// everything", the same posture as an unresolvable matrix diff.
+//
+// Only called when the changed-file list names the proto, so the common path
+// costs no extra API request.
+async function getProtoRevisions(event) {
+  const ref = event.pull_request ? event.pull_request.base.sha : event.before;
+  if (!ref || /^0+$/.test(ref)) return null;
+  const owner = event.repository.owner.login;
+  const repo = event.repository.name;
+  try {
+    const res = await octokit.request('GET /repos/{owner}/{repo}/contents/{path}', {
+      owner,
+      repo,
+      path: BACKEND_PROTO_FILE,
+      ref,
+      mediaType: { format: 'raw' },
+    });
+    const previous = typeof res.data === 'string'
+      ? res.data
+      : Buffer.from(res.data.content, 'base64').toString('utf8');
+    return {
+      previous,
+      current: fs.readFileSync(BACKEND_PROTO_FILE, "utf8"),
+    };
+  } catch (err) {
+    console.log(
+      `could not read ${BACKEND_PROTO_FILE} at ${ref}, falling back to run-all:`,
+      err.message
+    );
+    return null;
+  }
+}
+
+// Group matrix entries by tag-suffix and emit a merge-matrix entry per group.
+// Both multi-leg groups (per-arch fan-out) and singletons get one entry each:
+// the build job pushes by digest only with no tags applied, so every backend
+// needs a downstream merge step to apply its tags via `imagetools create`,
+// regardless of how many per-arch legs feed it. Callers split entries by
+// arch class first (see splitByArch) and call this once per class so the
+// resulting matrices can be wired to merge jobs that `needs:` only their
+// corresponding build matrix — preventing slow single-arch builds from
+// gating multi-arch merges (the bug fixed in PR #9746).
+function computeMergeMatrix(entries) {
+  const groups = new Map();
+  for (const item of entries) {
+    if (!item['tag-suffix']) continue;
+    const key = item['tag-suffix'];
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key).push(item);
+  }
+  const include = [];
+  for (const [tagSuffix, group] of groups) {
+    // tag-latest must agree across legs — they're going to publish under
+    // the same final tag, so disagreeing on whether it's also the :latest
+    // tag is an authoring bug. Warn loudly so a Task 2.5 fan-out typo is
+    // visible in CI logs instead of silently shipping the leg-0 value.
+    const first = group[0]['tag-latest'] || '';
+    for (const m of group) {
+      if ((m['tag-latest'] || '') !== first) {
+        console.warn(`tag-latest mismatch in group ${tagSuffix}: legs disagree (using ${first})`);
+        break;
+      }
+    }
+    include.push({
+      'tag-suffix': tagSuffix,
+      'tag-latest': first,
+    });
+  }
+  return { include };
+}
+
+// Split a list of linux matrix entries into single-arch (no platform-tag) and
+// multi-arch (platform-tag set, paired with a sibling entry sharing the same
+// tag-suffix). The two are run as separate matrix jobs so backend-merge-jobs
+// can `needs:` only the multi-arch one — slow single-arch builds (CUDA, ROCm,
+// vLLM, etc.) don't block manifest assembly while their per-arch counterparts'
+// untagged digests sit on quay long enough to be GC'd.
+function splitByArch(entries) {
+  const multiarch = entries.filter(e => e['platform-tag']);
+  const singlearch = entries.filter(e => !e['platform-tag']);
+  return { multiarch, singlearch };
+}
+
+// GitHub Actions refuses to instantiate a matrix with more than 256 jobs. When
+// it happens the job doesn't error visibly — it hangs forever at "Waiting for
+// pending jobs" and the whole run is marked `failure` while every *other* job
+// stays green (seen on the v4.6.1 tag build, run 28786533892: 268 single-arch
+// entries, zero single-arch jobs ever created). The single-arch list is the
+// one that grows unbounded as backends are added, so we shard it across a
+// fixed number of matrix jobs instead of feeding one oversized matrix.
+//
+// SINGLEARCH_SHARDS MUST equal the number of backend-jobs-singlearch-<n>
+// (and backend-merge-jobs-singlearch-<n>) blocks defined in backend.yml and
+// backend_pr.yml. Bump all three together.
+const SINGLEARCH_SHARDS = 4;
+const GHA_MATRIX_LIMIT = 256;
+
+// Split `arr` into exactly `shards` balanced, contiguous chunks. Earlier chunks
+// absorb the remainder when the length doesn't divide evenly; trailing chunks
+// may be empty when there are fewer entries than shards (those emit a
+// has-backends-singlearch-<n>=false flag so their job is skipped).
+function chunkEqually(arr, shards) {
+  const out = [];
+  const base = Math.floor(arr.length / shards);
+  const rem = arr.length % shards;
+  let idx = 0;
+  for (let i = 0; i < shards; i++) {
+    const size = base + (i < rem ? 1 : 0);
+    out.push(arr.slice(idx, idx + size));
+    idx += size;
+  }
+  return out;
+}
+
+// Emit the sharded single-arch build + merge matrices and their has-* gates.
+// Called with the full or filtered single-arch entry list.
+function emitSinglearchShards(singlearch) {
+  const shards = chunkEqually(singlearch, SINGLEARCH_SHARDS);
+  for (let i = 0; i < SINGLEARCH_SHARDS; i++) {
+    const shard = shards[i];
+    // Fail loudly rather than let GitHub silently drop the overflow: a shard at
+    // or above the limit means SINGLEARCH_SHARDS (and the matching job blocks in
+    // both workflows) need to grow.
+    if (shard.length >= GHA_MATRIX_LIMIT) {
+      throw new Error(
+        `single-arch shard ${i + 1} has ${shard.length} entries (>= ${GHA_MATRIX_LIMIT}, ` +
+        `GitHub's per-matrix job limit). Increase SINGLEARCH_SHARDS in ` +
+        `scripts/changed-backends.js and add matching backend-jobs-singlearch-<n> / ` +
+        `backend-merge-jobs-singlearch-<n> blocks to backend.yml and backend_pr.yml.`
+      );
+    }
+    const merge = computeMergeMatrix(shard);
+    const n = i + 1;
+    fs.appendFileSync(process.env.GITHUB_OUTPUT, `has-backends-singlearch-${n}=${shard.length > 0 ? 'true' : 'false'}\n`);
+    fs.appendFileSync(process.env.GITHUB_OUTPUT, `has-merges-singlearch-${n}=${merge.include.length > 0 ? 'true' : 'false'}\n`);
+    fs.appendFileSync(process.env.GITHUB_OUTPUT, `matrix-singlearch-${n}=${JSON.stringify({ include: shard })}\n`);
+    fs.appendFileSync(process.env.GITHUB_OUTPUT, `merge-matrix-singlearch-${n}=${JSON.stringify(merge)}\n`);
+  }
+}
+
+function emitFullMatrix() {
+  const { multiarch, singlearch } = splitByArch(includes);
+  const mergeMatrixMultiarch = computeMergeMatrix(multiarch);
+  const hasMergesMultiarch = mergeMatrixMultiarch.include.length > 0 ? 'true' : 'false';
+  fs.appendFileSync(process.env.GITHUB_OUTPUT, `run-all=true\n`);
+  fs.appendFileSync(process.env.GITHUB_OUTPUT, `has-backends-multiarch=${multiarch.length > 0 ? 'true' : 'false'}\n`);
+  fs.appendFileSync(process.env.GITHUB_OUTPUT, `has-backends-darwin=true\n`);
+  fs.appendFileSync(process.env.GITHUB_OUTPUT, `has-merges-multiarch=${hasMergesMultiarch}\n`);
+  fs.appendFileSync(process.env.GITHUB_OUTPUT, `matrix-multiarch=${JSON.stringify({ include: multiarch })}\n`);
+  fs.appendFileSync(process.env.GITHUB_OUTPUT, `matrix-darwin=${JSON.stringify({ include: includesDarwin })}\n`);
+  fs.appendFileSync(process.env.GITHUB_OUTPUT, `merge-matrix-multiarch=${JSON.stringify(mergeMatrixMultiarch)}\n`);
+  emitSinglearchShards(singlearch);
+  for (const backend of allBackendPaths.keys()) {
+    fs.appendFileSync(process.env.GITHUB_OUTPUT, `${backend}=true\n`);
+  }
+}
+
+function emitFilteredMatrix(changedFiles, previousMatrix, protoRevisions) {
+  console.log("Changed files:", changedFiles);
+
+  const { filtered, filteredDarwin, changedBackends } = filterMatrix({
+    includes,
+    includesDarwin,
+    changedFiles,
+    previousMatrix,
+    protoRevisions,
+  });
+
+  console.log("Filtered files:", filtered);
+  console.log("Filtered files Darwin:", filteredDarwin);
+
+  const { multiarch, singlearch } = splitByArch(filtered);
+  const hasBackendsMultiarch = multiarch.length > 0 ? 'true' : 'false';
+  const hasBackendsDarwin = filteredDarwin.length > 0 ? 'true' : 'false';
+  console.log("Has single-arch backends?:", singlearch.length > 0 ? 'true' : 'false');
+  console.log("Has multi-arch backends?:", hasBackendsMultiarch);
+  console.log("Has Darwin backends?:", hasBackendsDarwin);
+
+  const mergeMatrixMultiarch = computeMergeMatrix(multiarch);
+  const hasMergesMultiarch = mergeMatrixMultiarch.include.length > 0 ? 'true' : 'false';
+
+  fs.appendFileSync(process.env.GITHUB_OUTPUT, `run-all=false\n`);
+  fs.appendFileSync(process.env.GITHUB_OUTPUT, `has-backends-multiarch=${hasBackendsMultiarch}\n`);
+  fs.appendFileSync(process.env.GITHUB_OUTPUT, `has-backends-darwin=${hasBackendsDarwin}\n`);
+  fs.appendFileSync(process.env.GITHUB_OUTPUT, `has-merges-multiarch=${hasMergesMultiarch}\n`);
+  fs.appendFileSync(process.env.GITHUB_OUTPUT, `matrix-multiarch=${JSON.stringify({ include: multiarch })}\n`);
+  fs.appendFileSync(process.env.GITHUB_OUTPUT, `matrix-darwin=${JSON.stringify({ include: filteredDarwin })}\n`);
+  fs.appendFileSync(process.env.GITHUB_OUTPUT, `merge-matrix-multiarch=${JSON.stringify(mergeMatrixMultiarch)}\n`);
+  emitSinglearchShards(singlearch);
+
+  // Per-backend boolean outputs
+  for (const backend of allBackendPaths.keys()) {
+    const changed = changedBackends.has(backend);
+    fs.appendFileSync(process.env.GITHUB_OUTPUT, `${backend}=${changed ? 'true' : 'false'}\n`);
+  }
+}
+
+(async () => {
+  // Tag pushes and an explicit FORCE_ALL escape hatch always rebuild everything.
+  // FORCE_ALL is set from backend.yml whenever github.ref starts with refs/tags/.
+  const forceAll = process.env.FORCE_ALL === 'true';
+  const isTagPush = typeof event.ref === 'string' && event.ref.startsWith('refs/tags/');
+  const isBranchPush = !!event.ref && !event.pull_request && !isTagPush;
+
+  let changedFiles = null;
+  if (event.pull_request) {
+    changedFiles = await getChangedFilesForPR(event);
+  } else if (isBranchPush && !forceAll) {
+    changedFiles = await getChangedFilesForPush(event);
+    // null -> fall through to the full matrix (e.g. first push, API truncated,
+    // network failure).
+  }
+  // All other event types (workflow_dispatch, schedule, tag pushes, FORCE_ALL)
+  // leave changedFiles === null and run everything.
+
+  if (changedFiles === null) {
+    emitFullMatrix();
+    return;
+  }
+
+  const previousMatrix = changedFiles.includes(BACKEND_MATRIX_FILE)
+    ? await getPreviousMatrix(event)
+    : null;
+
+  const protoRevisions = changedFiles.includes(BACKEND_PROTO_FILE)
+    ? await getProtoRevisions(event)
+    : null;
+
+  emitFilteredMatrix(changedFiles, previousMatrix, protoRevisions);
+})();

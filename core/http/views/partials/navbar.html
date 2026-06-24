@@ -1,0 +1,206 @@
+<!-- Mobile Menu Button -->
+<button id="mobile-menu-btn" class="mobile-menu-btn" aria-label="Open menu">
+  <i class="fas fa-bars"></i>
+</button>
+
+<!-- Mobile Overlay -->
+<div id="sidebar-overlay" class="sidebar-overlay"></div>
+
+<!-- Sidebar Navigation -->
+<aside id="sidebar" class="sidebar">
+  <!-- Logo Header -->
+  <div class="sidebar-header">
+    <a href="./" class="block">
+      <img src="static/logo_horizontal.png" alt="LocalAI" class="w-full h-auto px-2">
+    </a>
+    <button id="sidebar-close-btn" class="sidebar-close-btn" aria-label="Close menu">
+      <i class="fas fa-times"></i>
+    </button>
+  </div>
+  
+  <!-- Navigation Content -->
+  <nav class="sidebar-content">
+    <!-- Main Section -->
+    <div class="sidebar-section">
+      <a href="./" class="nav-item" :class="{ 'active': window.location.pathname === '/' || window.location.pathname.endsWith('/index.html') }">
+        <i class="fas fa-home nav-icon"></i>
+        <span class="nav-label">Home</span>
+      </a>
+      <a href="browse/" class="nav-item">
+        <i class="fas fa-download nav-icon"></i>
+        <span class="nav-label">Install Models</span>
+      </a>
+      <a href="chat/" class="nav-item">
+        <i class="fa-solid fa-comments nav-icon"></i>
+        <span class="nav-label">Chat</span>
+      </a>
+      <a href="image/" class="nav-item">
+        <i class="fas fa-image nav-icon"></i>
+        <span class="nav-label">Images</span>
+      </a>
+      <a href="video/" class="nav-item">
+        <i class="fas fa-video nav-icon"></i>
+        <span class="nav-label">Video</span>
+      </a>
+      <a href="tts/" class="nav-item">
+        <i class="fa-solid fa-music nav-icon"></i>
+        <span class="nav-label">TTS</span>
+      </a>
+      <a href="sound/" class="nav-item">
+        <i class="fas fa-volume-high nav-icon"></i>
+        <span class="nav-label">Sound</span>
+      </a>
+      <a href="talk/" class="nav-item">
+        <i class="fa-solid fa-phone nav-icon"></i>
+        <span class="nav-label">Talk</span>
+      </a>
+    </div>
+    
+    <!-- Tools Section -->
+    <div class="sidebar-section">
+      <div class="sidebar-section-title">Tools</div>
+      <a href="agent-jobs" class="nav-item">
+        <i class="fas fa-tasks nav-icon"></i>
+        <span class="nav-label">Agent Jobs</span>
+      </a>
+      <a href="traces/" class="nav-item">
+        <i class="fas fa-chart-line nav-icon"></i>
+        <span class="nav-label">Traces</span>
+      </a>
+    </div>
+    
+    <!-- System Section -->
+    <div class="sidebar-section">
+      <div class="sidebar-section-title">System</div>
+      <a href="swagger/index.html" class="nav-item">
+        <i class="fas fa-code nav-icon"></i>
+        <span class="nav-label">API</span>
+      </a>
+      <a href="browse/backends" class="nav-item">
+        <i class="fas fa-server nav-icon"></i>
+        <span class="nav-label">Backends</span>
+      </a>
+      <a href="p2p/" class="nav-item">
+        <i class="fa-solid fa-circle-nodes nav-icon"></i>
+        <span class="nav-label">Swarm</span>
+      </a>
+      <a href="/manage" class="nav-item">
+        <i class="fas fa-desktop nav-icon"></i>
+        <span class="nav-label">System</span>
+      </a>
+      {{ if not .DisableRuntimeSettings }}
+      <a href="/settings" class="nav-item">
+        <i class="fas fa-cog nav-icon"></i>
+        <span class="nav-label">Settings</span>
+      </a>
+      {{ end }}
+    </div>
+  </nav>
+  
+  <!-- Theme Toggle Footer -->
+  <div class="sidebar-footer">
+    <div class="theme-toggle">
+      <span class="theme-toggle-label">
+        <i class="fas fa-sun" id="theme-icon-light"></i>
+        <i class="fas fa-moon" id="theme-icon-dark" style="display: none;"></i>
+        <span id="theme-label">Dark</span>
+      </span>
+      <div 
+        class="toggle-switch" 
+        id="theme-toggle-switch"
+        onclick="toggleTheme && toggleTheme(); updateThemeUI();"
+        role="switch"
+        aria-label="Toggle theme"
+        tabindex="0"
+        onkeydown="if(event.key === 'Enter' || event.key === ' ') { event.preventDefault(); toggleTheme && toggleTheme(); updateThemeUI(); }"
+      ></div>
+    </div>
+  </div>
+</aside>
+
+<script>
+// Mobile menu functionality
+(function() {
+  const menuBtn = document.getElementById('mobile-menu-btn');
+  const closeBtn = document.getElementById('sidebar-close-btn');
+  const sidebar = document.getElementById('sidebar');
+  const overlay = document.getElementById('sidebar-overlay');
+  
+  function openSidebar() {
+    sidebar.classList.add('open');
+    overlay.classList.add('open');
+    if (menuBtn) menuBtn.style.opacity = '0';
+    if (menuBtn) menuBtn.style.pointerEvents = 'none';
+    document.body.style.overflow = 'hidden';
+  }
+  
+  function closeSidebar() {
+    sidebar.classList.remove('open');
+    overlay.classList.remove('open');
+    if (menuBtn) menuBtn.style.opacity = '1';
+    if (menuBtn) menuBtn.style.pointerEvents = '';
+    document.body.style.overflow = '';
+  }
+  
+  if (menuBtn) {
+    menuBtn.addEventListener('click', openSidebar);
+  }
+  
+  if (closeBtn) {
+    closeBtn.addEventListener('click', closeSidebar);
+  }
+  
+  if (overlay) {
+    overlay.addEventListener('click', closeSidebar);
+  }
+  
+  // Close sidebar on escape key
+  document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape' && sidebar.classList.contains('open')) {
+      closeSidebar();
+    }
+  });
+  
+  // Close sidebar when clicking a nav link on mobile
+  const navLinks = sidebar.querySelectorAll('.nav-item');
+  navLinks.forEach(function(link) {
+    if (link.tagName === 'A') {
+      link.addEventListener('click', function() {
+        if (window.innerWidth < 1024) {
+          closeSidebar();
+        }
+      });
+    }
+  });
+})();
+
+// Theme UI update function
+function updateThemeUI() {
+  const theme = (window.getCurrentTheme && window.getCurrentTheme()) || 'dark';
+  const toggle = document.getElementById('theme-toggle-switch');
+  const label = document.getElementById('theme-label');
+  const iconLight = document.getElementById('theme-icon-light');
+  const iconDark = document.getElementById('theme-icon-dark');
+  
+  if (toggle) {
+    if (theme === 'light') {
+      toggle.classList.add('active');
+      if (label) label.textContent = 'Light';
+      if (iconLight) iconLight.style.display = 'none';
+      if (iconDark) iconDark.style.display = 'inline';
+    } else {
+      toggle.classList.remove('active');
+      if (label) label.textContent = 'Dark';
+      if (iconLight) iconLight.style.display = 'inline';
+      if (iconDark) iconDark.style.display = 'none';
+    }
+  }
+}
+
+// Initialize theme UI on load
+document.addEventListener('DOMContentLoaded', updateThemeUI);
+// Also run immediately in case DOM is already ready
+if (document.readyState !== 'loading') {
+  updateThemeUI();
+}
+</script>

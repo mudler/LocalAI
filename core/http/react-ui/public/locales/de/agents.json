@@ -1,0 +1,55 @@
+{
+  "title": "Agenten",
+  "subtitle": "Verwalten Sie autonome KI-Agenten",
+  "actions": {
+    "agentHub": "Agent Hub",
+    "import": "Importieren",
+    "createAgent": "Agent erstellen",
+    "edit": "Bearbeiten",
+    "chat": "Chat",
+    "export": "Exportieren",
+    "delete": "Löschen",
+    "pause": "Pausieren",
+    "resume": "Fortsetzen"
+  },
+  "table": {
+    "name": "Name",
+    "status": "Status",
+    "events": "Ereignisse",
+    "actions": "Aktionen",
+    "eventsTooltip": "{{count}} Ereignisse - Zum Anzeigen klicken"
+  },
+  "search": {
+    "placeholder": "Agenten suchen...",
+    "summary_one": "{{shown}} von {{total}} Agent",
+    "summary_other": "{{shown}} von {{total}} Agenten"
+  },
+  "empty": {
+    "noConfigured": "Keine Agenten konfiguriert",
+    "noConfiguredText": "Erstellen Sie einen Agenten, um mit autonomen KI-Workflows zu beginnen.",
+    "browseHub": "Sie wissen nicht, wo Sie anfangen sollen? Durchsuchen Sie den <1>Agent Hub</1>, um vorgefertigte Agentenkonfigurationen zum Importieren zu finden.",
+    "noMatching": "Keine passenden Agenten",
+    "noMatchingText": "Kein Agent entspricht \"{{query}}\""
+  },
+  "sections": {
+    "yourAgents": "Ihre Agenten",
+    "otherUsersAgents": "Agenten anderer Benutzer"
+  },
+  "deleteDialog": {
+    "title": "Agent löschen",
+    "message": "Agent \"{{name}}\" löschen? Diese Aktion kann nicht rückgängig gemacht werden.",
+    "confirm": "Löschen"
+  },
+  "toasts": {
+    "loadFailed": "Laden der Agenten fehlgeschlagen: {{message}}",
+    "deleted": "Agent \"{{name}}\" gelöscht",
+    "deleteFailed": "Löschen des Agenten fehlgeschlagen: {{message}}",
+    "paused": "Agent \"{{name}}\" pausiert",
+    "resumed": "Agent \"{{name}}\" fortgesetzt",
+    "pauseFailed": "Pausieren des Agenten fehlgeschlagen: {{message}}",
+    "resumeFailed": "Fortsetzen des Agenten fehlgeschlagen: {{message}}",
+    "exported": "Agent \"{{name}}\" exportiert",
+    "exportFailed": "Export des Agenten fehlgeschlagen: {{message}}",
+    "parseFailed": "Parsen der Agentendatei fehlgeschlagen: {{message}}"
+  }
+}

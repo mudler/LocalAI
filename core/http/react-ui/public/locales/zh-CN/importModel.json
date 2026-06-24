@@ -1,0 +1,124 @@
+{
+  "title": "导入模型",
+  "subtitle": {
+    "source": "粘贴 Hugging Face 引用、URL 或本机路径。",
+    "yaml": "手动编写模型配置，不做任何自动检测。"
+  },
+  "tabs": {
+    "ariaLabel": "导入方式",
+    "source": "从来源导入",
+    "yaml": "编写 YAML"
+  },
+  "actions": {
+    "import": "导入",
+    "importing": "正在导入…",
+    "create": "创建",
+    "saving": "保存中...",
+    "browseHF": "在 Hugging Face 上浏览模型",
+    "addCustom": "添加自定义项",
+    "copy": "复制"
+  },
+  "form": {
+    "modelUri": "来源",
+    "uriPlaceholder": "huggingface://TheBloke/Llama-2-7B-Chat-GGUF 或 https://example.com/model.gguf",
+    "uriHint": "按回车开始导入。若不指定后端，LocalAI 会根据来源自行选择。",
+    "supportedFormats": "可粘贴的格式",
+    "options": "导入选项",
+    "customPreferences": "自定义偏好",
+    "customKeyValueHint": "添加自定义键值对以进行高级配置。",
+    "preferenceKey": "第 {{index}} 行的偏好键",
+    "preferenceValue": "第 {{index}} 行的偏好值",
+    "removePref": "移除此偏好",
+    "key": "键",
+    "value": "值",
+    "backend": "后端",
+    "backendAuto": "自动检测（基于 URI）",
+    "backendLoading": "正在加载后端…",
+    "backendSearch": "搜索后端...",
+    "backendHint": "先按模型的用途缩小范围，再选择一个。保持自动检测则由 LocalAI 决定。标记为“手动选择”的条目永远不会被自动检测到。",
+    "backendErrorHint": "无法加载后端列表，仅使用自动检测。",
+    "backendNotInstalled": "此后端尚未安装。提交导入将先下载它。",
+    "modelName": "名称",
+    "modelNamePlaceholder": "留空以使用文件名",
+    "modelNameHint": "模型的自定义名称。若为空，将使用文件名。",
+    "description": "描述",
+    "descriptionPlaceholder": "留空以使用默认描述",
+    "descriptionHint": "模型的自定义描述。",
+    "quantizations": "量化",
+    "quantizationsPlaceholder": "q4_k_m,q4_k_s,q3_k_m（逗号分隔）",
+    "quantizationsHint": "首选量化（逗号分隔）。留空使用默认值（q4_k_m）。",
+    "mmprojQuantizations": "MMProj 量化",
+    "mmprojQuantizationsPlaceholder": "fp16,fp32（逗号分隔）",
+    "mmprojQuantizationsHint": "首选 MMProj 量化。留空使用默认值（fp16）。",
+    "embeddings": "嵌入",
+    "embeddingsHint": "为此模型启用嵌入支持。",
+    "modelType": "模型类型",
+    "modelTypePlaceholder": "AutoModelForCausalLM（用于 transformers 后端）",
+    "modelTypeHint": "transformers 后端的模型类型。例如：AutoModelForCausalLM、SentenceTransformer、Mamba。",
+    "pipelineType": "Pipeline 类型",
+    "pipelineTypeHint": "diffusers 后端的管道类型。",
+    "schedulerType": "Scheduler 类型",
+    "schedulerTypePlaceholder": "k_dpmpp_2m（可选）",
+    "schedulerTypeHint": "diffusers 后端的调度器类型。例如：k_dpmpp_2m、euler_a、ddim。",
+    "enableParameters": "启用的参数",
+    "enableParametersPlaceholder": "negative_prompt,num_inference_steps（逗号分隔）",
+    "enableParametersHint": "diffusers 后端启用的参数（逗号分隔）。",
+    "cuda": "CUDA",
+    "cudaHint": "启用 CUDA 支持以进行 GPU 加速。",
+    "yamlEditor": "模型配置",
+    "manualPick": "手动选择",
+    "manualPickTooltip": "自动检测不会路由到此后端。如果您知道这就是您想要的，请在此处选择。",
+    "optionsSummary": "后端、名称、描述、量化…",
+    "modalityAny": "全部",
+    "modalityFilter": "按模态筛选后端"
+  },
+  "modality": {
+    "text": "文本 LLM",
+    "asr": "语音识别",
+    "tts": "文字转语音",
+    "image": "图像 / 视频",
+    "video": "视频生成",
+    "embeddings": "嵌入",
+    "reranker": "重排器",
+    "detection": "对象检测",
+    "vad": "语音活动检测",
+    "other": "其他"
+  },
+  "estimate": {
+    "downloadLabel": "下载",
+    "vramLabel": "加载时显存"
+  },
+  "progress": {
+    "label": "导入进度",
+    "working": "处理中…"
+  },
+  "toasts": {
+    "noUri": "请输入模型 URI",
+    "noYaml": "请输入 YAML 配置",
+    "started": "导入已开始，进度显示在下方。",
+    "imported": "模型导入成功！",
+    "importedYaml": "模型配置导入成功！",
+    "importFailed": "导入失败：{{message}}",
+    "startImportFailed": "开始导入失败：{{message}}",
+    "backendsLoadFailed": "无法加载后端列表 — 仅使用自动检测",
+    "modalityClearedBackend": "已清除后端选择 — 它不在 {{label}} 组中。",
+    "copied": "已复制到剪贴板"
+  },
+  "uriFormats": {
+    "huggingface": {
+      "title": "Hugging Face"
+    },
+    "http": {
+      "title": "直接 URL"
+    },
+    "local": {
+      "title": "本机"
+    },
+    "oci": {
+      "title": "OCI registry"
+    },
+    "ollama": {
+      "title": "Ollama"
+    }
+  }
+}

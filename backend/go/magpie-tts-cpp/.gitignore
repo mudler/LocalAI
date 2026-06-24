@@ -1,0 +1,6 @@
+magpie-tts-cpp
+*.so
+*.dylib
+sources/
+package/
+magpie-tts-models/

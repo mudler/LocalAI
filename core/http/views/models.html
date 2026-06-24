@@ -1,0 +1,948 @@
+<!DOCTYPE html>
+<html lang="en">
+{{template "views/partials/head" .}}
+
+<body class="bg-[var(--color-bg-primary)] text-[var(--color-text-primary)]">
+<div class="app-layout">
+  {{template "views/partials/navbar" .}}
+
+  <main class="main-content">
+    <div class="main-content-inner" x-data="modelsGallery()">
+
+    <!-- Notifications -->
+    <div class="fixed top-20 right-4 z-50 space-y-2" style="max-width: 400px;">
+        <template x-for="notification in notifications" :key="notification.id">
+            <div x-show="true"
+                 x-transition:enter="transition ease-out duration-200"
+                 x-transition:enter-start="opacity-0"
+                 x-transition:enter-end="opacity-100"
+                 x-transition:leave="transition ease-in duration-150"
+                 x-transition:leave-start="opacity-100"
+                 x-transition:leave-end="opacity-0"
+                 :class="notification.type === 'error' ? 'bg-[var(--color-error)]' : 'bg-[var(--color-success)]'"
+                 class="rounded-lg p-4 text-white flex items-start space-x-3">
+                <div class="flex-shrink-0">
+                    <i :class="notification.type === 'error' ? 'fas fa-exclamation-circle' : 'fas fa-check-circle'" class="text-xl"></i>
+                </div>
+                <div class="flex-1 min-w-0">
+                    <p class="text-sm font-medium break-words" x-text="notification.message"></p>
+                </div>
+                <button @click="dismissNotification(notification.id)" class="flex-shrink-0 text-white hover:opacity-80 transition-opacity">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+        </template>
+    </div>
+
+    <div class="container mx-auto px-4 py-8 flex-grow">
+
+        <!-- Hero Header -->
+        <div class="hero-section">
+            <div class="hero-content">
+                <h1 class="hero-title" style="background: var(--gradient-text); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;">
+                    Model Gallery
+                </h1>
+                <p class="hero-subtitle">
+                    Discover and install AI models from our curated collection
+                </p>
+                <div class="flex flex-wrap justify-center items-center gap-3 text-sm">
+                    <div class="flex items-center bg-[var(--color-bg-tertiary)] rounded-lg px-3 py-1.5 border border-[var(--color-border-subtle)]">
+                        <div class="w-2 h-2 bg-[var(--color-primary)] rounded-full mr-2"></div>
+                        <span class="font-semibold text-[var(--color-primary)]" x-text="availableModels"></span>
+                        <span class="text-[var(--color-text-secondary)] ml-1">available</span>
+                    </div>
+                    <a href="/manage" class="flex items-center bg-[var(--color-bg-tertiary)] hover:bg-[var(--color-success-light)] rounded-lg px-3 py-1.5 transition-colors border border-[var(--color-border-subtle)] hover:border-[var(--color-success)]/30">
+                        <div class="w-2 h-2 bg-[var(--color-success)] rounded-full mr-2"></div>
+                        <span class="font-semibold text-[var(--color-success)]" x-text="installedModels"></span>
+                        <span class="text-[var(--color-text-secondary)] ml-1">installed</span>
+                    </a>
+                    <div class="flex items-center bg-[var(--color-bg-tertiary)] rounded-lg px-3 py-1.5 border border-[var(--color-border-subtle)]">
+                        <div class="w-2 h-2 bg-[var(--color-accent)] rounded-full mr-2"></div>
+                        <span class="font-semibold text-[var(--color-accent)]" x-text="repositories.length"></span>
+                        <span class="text-[var(--color-text-secondary)] ml-1">repos</span>
+                    </div>
+                    <a href="/import-model" class="inline-flex items-center gap-1.5 text-xs text-[var(--color-text-secondary)] hover:text-[var(--color-primary)] bg-transparent hover:bg-[var(--color-primary)]/10 border border-[var(--color-border-subtle)] hover:border-[var(--color-primary)]/30 rounded-md py-1.5 px-2.5 transition-colors">
+                        <i class="fas fa-upload"></i>
+                        <span>Import</span>
+                    </a>
+                    <a href="https://localai.io/models/" target="_blank" class="inline-flex items-center gap-1.5 text-xs text-[var(--color-text-secondary)] hover:text-[var(--color-primary)] bg-transparent hover:bg-[var(--color-primary)]/10 border border-[var(--color-border-subtle)] hover:border-[var(--color-primary)]/30 rounded-md py-1.5 px-2.5 transition-colors">
+                        <i class="fas fa-book"></i>
+                        <span>Docs</span>
+                        <i class="fas fa-external-link-alt text-[10px]"></i>
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        {{template "views/partials/inprogress" .}}
+
+        <!-- Search and Filter Section -->
+        <div class="card p-6 mb-6">
+            <!-- Search Input -->
+            <div class="mb-6">
+                <div class="relative">
+                    <div class="absolute inset-y-0 start-0 flex items-center ps-4 pointer-events-none z-10">
+                        <i class="fas fa-search text-[var(--color-text-secondary)]"></i>
+                    </div>
+                    <input
+                        x-model="searchTerm"
+                        @input.debounce.500ms="fetchModels()"
+                        class="input w-full pr-16 py-3"
+                        style="padding-left: 3rem !important;"
+                        type="search"
+                        placeholder="Search models by name, tag, or description...">
+                    <span class="absolute right-4 top-3" x-show="loading">
+                        <svg class="animate-spin h-5 w-5 text-[var(--color-primary)]" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                    </span>
+                </div>
+            </div>
+
+            <!-- Filter by Type -->
+            <div class="mb-6">
+                <div class="flex flex-wrap gap-2">
+                    <template x-for="filter in typeFilters" :key="filter.term">
+                        <button @click="filterByTerm(filter.term)"
+                            :class="searchTerm === filter.term ? 'bg-[var(--color-primary)] text-white border-[var(--color-primary)]' : 'bg-[var(--color-bg-tertiary)] text-[var(--color-text-secondary)] border-[var(--color-border-subtle)] hover:border-[var(--color-primary-border)] hover:text-[var(--color-text-primary)]'"
+                            class="inline-flex items-center rounded-full px-3 py-1.5 text-xs font-medium border transition-colors">
+                            <i :class="filter.icon" class="mr-1.5"></i>
+                            <span x-text="filter.label"></span>
+                        </button>
+                    </template>
+                    <button x-show="searchTerm" @click="clearSearch()"
+                        class="inline-flex items-center rounded-full px-3 py-1.5 text-xs font-medium bg-[var(--color-error-light)] text-[var(--color-error)] border border-[var(--color-error)]/30 hover:bg-[var(--color-error)]/20 transition-colors">
+                        <i class="fas fa-times mr-1.5"></i>
+                        <span>Clear</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Filter by Tags -->
+            <div x-show="allTags.length > 0">
+                <div class="flex items-center gap-2 mb-3">
+                    <i class="fas fa-tags text-xs text-[var(--color-accent)]"></i>
+                    <span class="text-xs font-medium text-[var(--color-text-secondary)]">Tags</span>
+                </div>
+                <div class="max-h-24 overflow-y-auto pr-2">
+                    <div class="flex flex-wrap gap-1.5">
+                        <template x-for="tag in allTags" :key="tag">
+                            <button @click="filterByTerm(tag)"
+                                :class="searchTerm === tag ? 'bg-[var(--color-accent)] text-white border-[var(--color-accent)]' : 'bg-[var(--color-bg-primary)] text-[var(--color-text-muted)] border-[var(--color-border-subtle)] hover:text-[var(--color-text-secondary)] hover:border-[var(--color-accent)]/30'"
+                                class="inline-flex items-center text-xs px-2 py-1 rounded border transition-colors">
+                                <span x-text="tag"></span>
+                            </button>
+                        </template>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Toolbar: Sort + View Toggle -->
+        <div class="flex items-center justify-between mb-4">
+            <div class="flex items-center gap-2">
+                <span class="text-xs text-[var(--color-text-muted)]">Sort:</span>
+                <template x-for="col in sortColumns" :key="col.key">
+                    <button @click="setSort(col.key)"
+                        :class="sortBy === col.key ? 'text-[var(--color-primary)] border-[var(--color-primary)]/30 bg-[var(--color-primary-light)]' : 'text-[var(--color-text-secondary)] border-[var(--color-border-subtle)]'"
+                        class="inline-flex items-center gap-1 text-xs px-2 py-1 rounded border transition-colors hover:text-[var(--color-primary)]">
+                        <span x-text="col.label"></span>
+                        <i x-show="sortBy === col.key" :class="sortOrder === 'asc' ? 'fas fa-sort-up' : 'fas fa-sort-down'" class="text-[10px]"></i>
+                    </button>
+                </template>
+            </div>
+            <div class="flex items-center gap-1 bg-[var(--color-bg-tertiary)] rounded-lg p-0.5 border border-[var(--color-border-subtle)]">
+                <button @click="viewMode = 'table'"
+                    :class="viewMode === 'table' ? 'bg-[var(--color-primary)] text-white' : 'text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]'"
+                    class="p-1.5 rounded transition-colors" title="Table view">
+                    <i class="fas fa-list text-xs"></i>
+                </button>
+                <button @click="viewMode = 'grid'"
+                    :class="viewMode === 'grid' ? 'bg-[var(--color-primary)] text-white' : 'text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]'"
+                    class="p-1.5 rounded transition-colors" title="Grid view">
+                    <i class="fas fa-th text-xs"></i>
+                </button>
+            </div>
+        </div>
+
+        <!-- Results Section -->
+        <div id="search-results" class="transition-all duration-300 relative">
+            <div x-show="loading && models.length === 0" class="text-center py-12">
+                <svg class="animate-spin h-10 w-10 text-[var(--color-primary)] mx-auto mb-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                <p class="text-[var(--color-text-secondary)] text-sm">Loading models...</p>
+            </div>
+
+            <div x-show="!loading && models.length === 0" class="text-center py-12">
+                <i class="fas fa-search text-[var(--color-text-muted)] text-3xl mb-3"></i>
+                <p class="text-[var(--color-text-secondary)] text-sm">No models found matching your criteria</p>
+            </div>
+
+            <!-- Loading overlay when switching pages -->
+            <div x-show="loading && models.length > 0"
+                 x-transition:enter="transition ease-out duration-150"
+                 x-transition:enter-start="opacity-0"
+                 x-transition:enter-end="opacity-100"
+                 class="absolute inset-0 z-10 flex items-center justify-center rounded-xl bg-[var(--color-bg-primary)]/80 backdrop-blur-sm">
+                <div class="flex flex-col items-center gap-2">
+                    <svg class="animate-spin h-8 w-8 text-[var(--color-primary)]" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                </div>
+            </div>
+
+            <!-- Grid View -->
+            <div x-show="models.length > 0 && viewMode === 'grid'" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                <template x-for="model in models" :key="model.id">
+                    <div class="group bg-[var(--color-bg-secondary)] rounded-xl border border-[var(--color-border-subtle)] hover:border-[var(--color-primary-border)] transition-all duration-200 overflow-hidden flex flex-col">
+                        <!-- Card Header -->
+                        <div class="p-4 flex items-start gap-3 flex-1">
+                            <div class="w-10 h-10 rounded-lg border border-[var(--color-border-subtle)] flex items-center justify-center bg-[var(--color-bg-primary)] flex-shrink-0">
+                                <img x-show="model.icon" :src="model.icon" class="w-full h-full object-cover rounded-lg" loading="lazy" :alt="model.name">
+                                <i x-show="!model.icon" class="fas fa-brain text-lg text-[var(--color-accent)]"></i>
+                            </div>
+                            <div class="min-w-0 flex-1">
+                                <h3 class="text-sm font-semibold text-[var(--color-text-primary)] truncate" x-text="model.name" :title="model.name"></h3>
+                                <p class="text-xs text-[var(--color-text-muted)] mt-1 line-clamp-2" x-text="model.description" :title="model.description"></p>
+                            </div>
+                        </div>
+
+                        <!-- Card Meta -->
+                        <div class="px-4 pb-2">
+                            <div class="flex flex-wrap items-center gap-1.5">
+                                <template x-if="model.estimated_size_display && model.estimated_size_display !== '0 B'">
+                                    <span class="text-[10px] px-1.5 py-0.5 rounded bg-[var(--color-bg-primary)] text-[var(--color-text-muted)] border border-[var(--color-border-subtle)]" x-text="model.estimated_size_display"></span>
+                                </template>
+                                <template x-if="model.estimated_vram_bytes && totalMemory > 0">
+                                    <span :class="model.estimated_vram_bytes <= totalMemory * 0.95 ? 'text-[var(--color-success)]' : 'text-[var(--color-error)]'"
+                                          class="text-[10px] px-1.5 py-0.5 rounded bg-[var(--color-bg-primary)] border border-[var(--color-border-subtle)]">
+                                        <i class="fas fa-microchip mr-0.5"></i>
+                                        <span x-text="model.estimated_vram_bytes <= totalMemory * 0.95 ? 'Fits GPU' : 'Large'"></span>
+                                    </span>
+                                </template>
+                                <span x-show="model.trustRemoteCode" class="text-[10px] px-1.5 py-0.5 rounded bg-[var(--color-error-light)] text-[var(--color-error)] border border-[var(--color-error)]/20">
+                                    <i class="fa-solid fa-circle-exclamation mr-0.5"></i>RTC
+                                </span>
+                            </div>
+                        </div>
+
+                        <!-- Card Footer -->
+                        <div class="px-4 py-3 border-t border-[var(--color-border-subtle)] flex items-center justify-between bg-[var(--color-bg-primary)]/50">
+                            <!-- Status -->
+                            <div>
+                                <div x-show="model.processing" class="flex items-center gap-1.5">
+                                    <svg class="animate-spin h-3 w-3 text-[var(--color-primary)]" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                    </svg>
+                                    <span class="text-[10px] text-[var(--color-primary)]" x-text="model.isDeletion ? 'Deleting...' : 'Installing...'"></span>
+                                </div>
+                                <span x-show="!model.processing && model.installed" class="inline-flex items-center text-[10px] text-[var(--color-success)]">
+                                    <i class="fas fa-check-circle mr-1"></i>Installed
+                                </span>
+                                <span x-show="!model.processing && !model.installed" class="text-[10px] text-[var(--color-text-muted)]">
+                                    Available
+                                </span>
+                            </div>
+
+                            <!-- Actions -->
+                            <div class="flex items-center gap-1">
+                                <button @click="openModal(model)" class="p-1.5 rounded text-[var(--color-text-muted)] hover:text-[var(--color-primary)] hover:bg-[var(--color-primary-light)] transition-colors" title="Details">
+                                    <i class="fas fa-info-circle text-xs"></i>
+                                </button>
+                                <template x-if="!model.processing && model.installed">
+                                    <div class="flex gap-1">
+                                        <button @click="reinstallModel(model.id)" class="p-1.5 rounded text-[var(--color-text-muted)] hover:text-[var(--color-primary)] hover:bg-[var(--color-primary-light)] transition-colors" title="Reinstall">
+                                            <i class="fa-solid fa-arrow-rotate-right text-xs"></i>
+                                        </button>
+                                        <button @click="deleteModel(model.id)" class="p-1.5 rounded text-[var(--color-text-muted)] hover:text-[var(--color-error)] hover:bg-[var(--color-error-light)] transition-colors" title="Delete">
+                                            <i class="fa-solid fa-trash text-xs"></i>
+                                        </button>
+                                    </div>
+                                </template>
+                                <template x-if="!model.processing && !model.installed">
+                                    <div class="flex gap-1">
+                                        <button @click="getConfig(model.id)" class="p-1.5 rounded text-[var(--color-text-muted)] hover:text-[var(--color-accent)] hover:bg-[var(--color-accent-light)] transition-colors" title="Get config">
+                                            <i class="fa-solid fa-file-code text-xs"></i>
+                                        </button>
+                                        <button @click="installModel(model.id)" class="p-1.5 rounded bg-[var(--color-primary)] text-white hover:bg-[var(--color-primary-hover)] transition-colors" title="Install">
+                                            <i class="fa-solid fa-download text-xs"></i>
+                                        </button>
+                                    </div>
+                                </template>
+                            </div>
+                        </div>
+
+                        <!-- Progress bar for grid cards -->
+                        <div x-show="model.processing" class="progress-table">
+                            <div class="progress-bar-table" :style="'width:' + (jobProgress[model.jobID] || 0) + '%'"></div>
+                        </div>
+                    </div>
+                </template>
+            </div>
+
+            <!-- Table View -->
+            <div x-show="models.length > 0 && viewMode === 'table'" class="bg-[var(--color-bg-secondary)] rounded-xl border border-[var(--color-border-subtle)] overflow-hidden">
+                <div class="overflow-x-auto">
+                    <table class="w-full">
+                        <thead>
+                            <tr class="border-b border-[var(--color-border-subtle)]">
+                                <th class="px-4 py-3 text-left text-[10px] font-semibold text-[var(--color-text-muted)] uppercase tracking-wider w-12"></th>
+                                <th @click="setSort('name')"
+                                    class="px-4 py-3 text-left text-[10px] font-semibold text-[var(--color-text-muted)] uppercase tracking-wider cursor-pointer hover:text-[var(--color-text-primary)] transition-colors">
+                                    <div class="flex items-center gap-1">
+                                        <span>Name</span>
+                                        <i :class="sortBy === 'name' ? (sortOrder === 'asc' ? 'fas fa-sort-up text-[var(--color-primary)]' : 'fas fa-sort-down text-[var(--color-primary)]') : 'fas fa-sort'" class="text-[10px]"></i>
+                                    </div>
+                                </th>
+                                <th class="px-4 py-3 text-left text-[10px] font-semibold text-[var(--color-text-muted)] uppercase tracking-wider">Description</th>
+                                <th class="px-4 py-3 text-left text-[10px] font-semibold text-[var(--color-text-muted)] uppercase tracking-wider">Size</th>
+                                <th @click="setSort('status')"
+                                    class="px-4 py-3 text-left text-[10px] font-semibold text-[var(--color-text-muted)] uppercase tracking-wider cursor-pointer hover:text-[var(--color-text-primary)] transition-colors">
+                                    <div class="flex items-center gap-1">
+                                        <span>Status</span>
+                                        <i :class="sortBy === 'status' ? (sortOrder === 'asc' ? 'fas fa-sort-up text-[var(--color-primary)]' : 'fas fa-sort-down text-[var(--color-primary)]') : 'fas fa-sort'" class="text-[10px]"></i>
+                                    </div>
+                                </th>
+                                <th class="px-4 py-3 text-right text-[10px] font-semibold text-[var(--color-text-muted)] uppercase tracking-wider">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-[var(--color-border-subtle)]">
+                            <template x-for="model in models" :key="model.id">
+                                <tr class="hover:bg-[var(--color-bg-primary)]/50 transition-colors duration-150">
+                                    <!-- Icon -->
+                                    <td class="px-4 py-3">
+                                        <div class="w-9 h-9 rounded-lg border border-[var(--color-border-subtle)] flex items-center justify-center bg-[var(--color-bg-primary)]">
+                                            <img x-show="model.icon" :src="model.icon" class="w-full h-full object-cover rounded-lg" loading="lazy" :alt="model.name">
+                                            <i x-show="!model.icon" class="fas fa-brain text-[var(--color-accent)]"></i>
+                                        </div>
+                                    </td>
+
+                                    <!-- Model Name -->
+                                    <td class="px-4 py-3">
+                                        <div class="flex flex-col">
+                                            <span class="text-sm font-medium text-[var(--color-text-primary)]" x-text="model.name"></span>
+                                            <span x-show="model.trustRemoteCode" class="inline-flex items-center text-[10px] mt-0.5 text-[var(--color-error)]">
+                                                <i class="fa-solid fa-circle-exclamation mr-1"></i>Trust Remote Code
+                                            </span>
+                                        </div>
+                                    </td>
+
+                                    <!-- Description -->
+                                    <td class="px-4 py-3">
+                                        <div class="text-xs text-[var(--color-text-secondary)] max-w-xs truncate" x-text="model.description" :title="model.description"></div>
+                                    </td>
+
+                                    <!-- Size / VRAM -->
+                                    <td class="px-4 py-3">
+                                        <div class="flex flex-col gap-0.5">
+                                            <template x-if="(model.estimated_size_display && model.estimated_size_display !== '0 B') || (model.estimated_vram_display && model.estimated_vram_display !== '0 B')">
+                                                <div class="text-xs text-[var(--color-text-secondary)]">
+                                                    <span x-show="model.estimated_size_display && model.estimated_size_display !== '0 B'" x-text="model.estimated_size_display"></span>
+                                                    <span x-show="(model.estimated_size_display && model.estimated_size_display !== '0 B') && (model.estimated_vram_display && model.estimated_vram_display !== '0 B')"> / </span>
+                                                    <span x-show="model.estimated_vram_display && model.estimated_vram_display !== '0 B'" x-text="model.estimated_vram_display" class="text-[var(--color-text-muted)]"></span>
+                                                </div>
+                                            </template>
+                                            <template x-if="model.estimated_vram_bytes && totalMemory > 0">
+                                                <span class="inline-flex items-center text-[10px]"
+                                                      :class="model.estimated_vram_bytes <= totalMemory * 0.95 ? 'text-[var(--color-success)]' : 'text-[var(--color-error)]'">
+                                                    <i class="fas fa-microchip mr-1"></i>
+                                                    <span x-text="model.estimated_vram_bytes <= totalMemory * 0.95 ? 'Fits' : 'Large'"></span>
+                                                </span>
+                                            </template>
+                                            <span x-show="(!model.estimated_size_display || model.estimated_size_display === '0 B') && (!model.estimated_vram_display || model.estimated_vram_display === '0 B')" class="text-xs text-[var(--color-text-muted)]">-</span>
+                                        </div>
+                                    </td>
+
+                                    <!-- Status -->
+                                    <td class="px-4 py-3">
+                                        <div x-show="model.processing" class="min-w-[140px]">
+                                            <div class="text-[10px] font-medium text-[var(--color-text-primary)] mb-1" x-text="model.isDeletion ? 'Deleting...' : 'Installing...'"></div>
+                                            <div class="progress-table mt-1">
+                                                <div class="progress-bar-table" :style="'width:' + (jobProgress[model.jobID] || 0) + '%'"></div>
+                                            </div>
+                                        </div>
+                                        <span x-show="!model.processing && model.installed" class="inline-flex items-center text-[10px] px-2 py-0.5 rounded-full bg-[var(--color-success-light)] text-[var(--color-success)] border border-[var(--color-success)]/20">
+                                            <i class="fas fa-check-circle mr-1"></i>Installed
+                                        </span>
+                                        <span x-show="!model.processing && !model.installed" class="inline-flex items-center text-[10px] px-2 py-0.5 rounded-full bg-[var(--color-bg-primary)] text-[var(--color-text-muted)] border border-[var(--color-border-subtle)]">
+                                            Available
+                                        </span>
+                                    </td>
+
+                                    <!-- Actions -->
+                                    <td class="px-4 py-3">
+                                        <div class="flex items-center justify-end gap-1">
+                                            <button @click="openModal(model)"
+                                                    class="p-1.5 rounded text-[var(--color-text-muted)] hover:text-[var(--color-primary)] hover:bg-[var(--color-primary-light)] transition-colors"
+                                                    title="Details">
+                                                <i class="fas fa-info-circle text-xs"></i>
+                                            </button>
+                                            <template x-if="!model.processing && model.installed">
+                                                <div class="flex gap-1">
+                                                    <button @click="reinstallModel(model.id)" class="p-1.5 rounded text-[var(--color-text-muted)] hover:text-[var(--color-primary)] hover:bg-[var(--color-primary-light)] transition-colors" title="Reinstall">
+                                                        <i class="fa-solid fa-arrow-rotate-right text-xs"></i>
+                                                    </button>
+                                                    <button @click="deleteModel(model.id)" class="p-1.5 rounded text-[var(--color-text-muted)] hover:text-[var(--color-error)] hover:bg-[var(--color-error-light)] transition-colors" title="Delete">
+                                                        <i class="fa-solid fa-trash text-xs"></i>
+                                                    </button>
+                                                </div>
+                                            </template>
+                                            <template x-if="!model.processing && !model.installed">
+                                                <div class="flex gap-1">
+                                                    <button @click="getConfig(model.id)" class="p-1.5 rounded text-[var(--color-text-muted)] hover:text-[var(--color-accent)] hover:bg-[var(--color-accent-light)] transition-colors" title="Config">
+                                                        <i class="fa-solid fa-file-code text-xs"></i>
+                                                    </button>
+                                                    <button @click="installModel(model.id)" class="p-1.5 rounded bg-[var(--color-primary)] text-white hover:bg-[var(--color-primary-hover)] transition-colors" title="Install">
+                                                        <i class="fa-solid fa-download text-xs"></i>
+                                                    </button>
+                                                </div>
+                                            </template>
+                                        </div>
+                                    </td>
+                                </tr>
+                            </template>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Modal -->
+            <div x-show="selectedModel"
+                 x-transition
+                 @click.away="closeModal()"
+                 class="fixed top-0 right-0 left-0 z-50 flex justify-center items-center w-full md:inset-0 h-full max-h-full bg-black/60 backdrop-blur-sm"
+                 style="display: none;">
+                <div class="relative p-4 w-full max-w-2xl h-[90vh] mx-auto mt-[5vh]">
+                    <div class="relative bg-[var(--color-bg-secondary)] rounded-xl shadow-lg h-full flex flex-col border border-[var(--color-border-subtle)]">
+                        <!-- Modal Header -->
+                        <div class="flex items-center justify-between p-4 border-b border-[var(--color-border-subtle)]">
+                            <div class="flex items-center gap-3">
+                                <div class="w-8 h-8 rounded-lg border border-[var(--color-border-subtle)] flex items-center justify-center bg-[var(--color-bg-primary)]">
+                                    <img x-show="selectedModel?.icon" :src="selectedModel?.icon" class="w-full h-full object-cover rounded-lg" loading="lazy">
+                                    <i x-show="!selectedModel?.icon" class="fas fa-brain text-[var(--color-accent)]"></i>
+                                </div>
+                                <h3 class="text-lg font-semibold text-[var(--color-text-primary)]" x-text="selectedModel?.name"></h3>
+                            </div>
+                            <button @click="closeModal()"
+                                    class="text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] p-1.5 rounded-lg hover:bg-[var(--color-bg-primary)] transition-colors">
+                                <i class="fas fa-times"></i>
+                            </button>
+                        </div>
+                        <!-- Modal Body -->
+                        <div class="p-4 space-y-4 overflow-y-auto flex-1 min-h-0">
+                            <div class="text-sm leading-relaxed text-[var(--color-text-secondary)] break-words max-w-full markdown-content" x-html="renderMarkdown(selectedModel?.description)"></div>
+
+                            <!-- Size & VRAM Info -->
+                            <template x-if="(selectedModel?.estimated_size_display && selectedModel.estimated_size_display !== '0 B') || (selectedModel?.estimated_vram_display && selectedModel.estimated_vram_display !== '0 B')">
+                                <div class="bg-[var(--color-bg-primary)] rounded-lg p-3 border border-[var(--color-border-subtle)] space-y-2">
+                                    <p x-show="selectedModel?.estimated_size_display && selectedModel.estimated_size_display !== '0 B'" class="text-xs text-[var(--color-text-secondary)]">
+                                        <i class="fas fa-download mr-2 text-[var(--color-primary)]"></i>
+                                        Download: <span x-text="selectedModel?.estimated_size_display" class="font-medium text-[var(--color-text-primary)]"></span>
+                                    </p>
+                                    <p x-show="selectedModel?.estimated_vram_display && selectedModel.estimated_vram_display !== '0 B'" class="text-xs text-[var(--color-text-secondary)]">
+                                        <i class="fas fa-memory mr-2 text-[var(--color-primary)]"></i>
+                                        VRAM: <span x-text="selectedModel?.estimated_vram_display" class="font-medium text-[var(--color-text-primary)]"></span>
+                                    </p>
+                                    <p x-show="selectedModel?.estimated_vram_bytes && totalMemory > 0" class="text-xs">
+                                        <i class="fas fa-microchip mr-2"
+                                           :class="selectedModel?.estimated_vram_bytes <= totalMemory * 0.95 ? 'text-[var(--color-success)]' : 'text-[var(--color-error)]'"></i>
+                                        <span x-text="selectedModel?.estimated_vram_bytes <= totalMemory * 0.95 ? 'Fits your GPU' : 'May not fit your GPU'"
+                                              :class="selectedModel?.estimated_vram_bytes <= totalMemory * 0.95 ? 'text-[var(--color-success)]' : 'text-[var(--color-error)]'"></span>
+                                    </p>
+                                </div>
+                            </template>
+
+                            <!-- Repository & License -->
+                            <template x-if="selectedModel?.gallery || selectedModel?.license">
+                                <div class="space-y-1.5">
+                                    <p x-show="selectedModel?.gallery" class="text-xs text-[var(--color-text-secondary)]">
+                                        <i class="fa-brands fa-git-alt mr-2 text-[var(--color-primary)]"></i>
+                                        <span x-text="selectedModel?.gallery" class="font-medium text-[var(--color-text-primary)]"></span>
+                                    </p>
+                                    <p x-show="selectedModel?.license" class="text-xs text-[var(--color-text-secondary)]">
+                                        <i class="fas fa-book mr-2 text-[var(--color-primary)]"></i>
+                                        <span x-text="selectedModel?.license" class="font-medium text-[var(--color-text-primary)]"></span>
+                                    </p>
+                                </div>
+                            </template>
+
+                            <!-- Links -->
+                            <template x-if="selectedModel?.urls && selectedModel.urls.length > 0">
+                                <div>
+                                    <p class="text-xs font-semibold text-[var(--color-text-primary)] mb-2">Links</p>
+                                    <ul class="space-y-1">
+                                        <template x-for="url in selectedModel.urls" :key="url">
+                                            <li class="p-0 m-0">
+                                                <a :href="url" target="_blank" class="text-xs text-[var(--color-text-secondary)] hover:text-[var(--color-primary)] transition-colors">
+                                                    <i class="fas fa-link mr-1"></i><span x-text="url"></span>
+                                                </a>
+                                            </li>
+                                        </template>
+                                    </ul>
+                                </div>
+                            </template>
+
+                            <!-- Files -->
+                            <template x-if="selectedModel?.additionalFiles && selectedModel.additionalFiles.length > 0">
+                                <div>
+                                    <p class="text-xs font-semibold text-[var(--color-text-primary)] mb-2">Files</p>
+                                    <ul class="space-y-0.5">
+                                        <template x-for="file in selectedModel.additionalFiles" :key="file">
+                                            <li class="p-0 m-0">
+                                                <span class="text-xs text-[var(--color-text-secondary)]">
+                                                    <i class="fas fa-file mr-1"></i><span x-text="file.filename"></span>
+                                                </span>
+                                            </li>
+                                        </template>
+                                    </ul>
+                                </div>
+                            </template>
+
+                            <!-- Tags -->
+                            <template x-if="selectedModel?.tags && selectedModel.tags.length > 0">
+                                <div>
+                                    <p class="text-xs font-semibold text-[var(--color-text-primary)] mb-2">Tags</p>
+                                    <div class="flex flex-wrap gap-1.5">
+                                        <template x-for="tag in selectedModel.tags" :key="tag">
+                                            <button @click="closeModal(); filterByTerm(tag)"
+                                               class="inline-flex items-center text-[10px] px-2 py-0.5 rounded-full bg-[var(--color-bg-primary)] text-[var(--color-text-secondary)] border border-[var(--color-border-subtle)] hover:bg-[var(--color-primary-light)] hover:text-[var(--color-text-primary)] transition-colors">
+                                                <i class="fas fa-tag mr-1"></i><span x-text="tag"></span>
+                                            </button>
+                                        </template>
+                                    </div>
+                                </div>
+                            </template>
+                        </div>
+                        <!-- Modal Footer -->
+                        <div class="flex items-center justify-between p-4 border-t border-[var(--color-border-subtle)]">
+                            <button type="button" @click="closeModal()"
+                                    class="inline-flex items-center gap-1.5 text-xs text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] bg-[var(--color-bg-primary)] hover:bg-[var(--color-bg-tertiary)] border border-[var(--color-border-subtle)] rounded-lg py-2 px-3 transition-colors">
+                                Close
+                            </button>
+                            <div class="flex gap-2">
+                                <template x-if="selectedModel && !selectedModel.processing && !selectedModel.installed">
+                                    <button @click="installModel(selectedModel.id); closeModal()"
+                                            class="inline-flex items-center gap-1.5 text-xs text-white bg-[var(--color-primary)] hover:bg-[var(--color-primary-hover)] rounded-lg py-2 px-3 transition-colors">
+                                        <i class="fa-solid fa-download"></i> Install
+                                    </button>
+                                </template>
+                                <template x-if="selectedModel && !selectedModel.processing && selectedModel.installed">
+                                    <button @click="deleteModel(selectedModel.id); closeModal()"
+                                            class="inline-flex items-center gap-1.5 text-xs text-white bg-[var(--color-error)] hover:bg-[var(--color-error)]/80 rounded-lg py-2 px-3 transition-colors">
+                                        <i class="fa-solid fa-trash"></i> Delete
+                                    </button>
+                                </template>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Pagination -->
+        <div x-show="totalPages > 1" class="flex justify-center mt-8">
+            <div class="flex items-center gap-2 bg-[var(--color-bg-secondary)] rounded-xl p-2 border border-[var(--color-border-subtle)]">
+                <button @click="goToPage(1)"
+                    :disabled="currentPage <= 1"
+                    :class="currentPage <= 1 ? 'opacity-30 cursor-not-allowed' : 'hover:bg-[var(--color-bg-tertiary)]'"
+                    class="flex items-center justify-center h-8 w-8 text-[var(--color-text-secondary)] rounded-lg transition-colors text-xs">
+                    <i class="fas fa-angles-left"></i>
+                </button>
+                <button @click="goToPage(currentPage - 1)"
+                    :disabled="currentPage <= 1"
+                    :class="currentPage <= 1 ? 'opacity-30 cursor-not-allowed' : 'hover:bg-[var(--color-bg-tertiary)]'"
+                    class="flex items-center justify-center h-8 w-8 text-[var(--color-text-secondary)] rounded-lg transition-colors text-xs">
+                    <i class="fas fa-chevron-left"></i>
+                </button>
+                <div class="text-xs text-[var(--color-text-secondary)] px-3">
+                    <span class="text-[var(--color-text-primary)] font-semibold" x-text="currentPage"></span>
+                    <span class="mx-1">/</span>
+                    <span x-text="totalPages"></span>
+                </div>
+                <button @click="goToPage(currentPage + 1)"
+                    :disabled="currentPage >= totalPages"
+                    :class="currentPage >= totalPages ? 'opacity-30 cursor-not-allowed' : 'hover:bg-[var(--color-bg-tertiary)]'"
+                    class="flex items-center justify-center h-8 w-8 text-[var(--color-text-secondary)] rounded-lg transition-colors text-xs">
+                    <i class="fas fa-chevron-right"></i>
+                </button>
+                <button @click="goToPage(totalPages)"
+                    :disabled="currentPage >= totalPages"
+                    :class="currentPage >= totalPages ? 'opacity-30 cursor-not-allowed' : 'hover:bg-[var(--color-bg-tertiary)]'"
+                    class="flex items-center justify-center h-8 w-8 text-[var(--color-text-secondary)] rounded-lg transition-colors text-xs">
+                    <i class="fas fa-angles-right"></i>
+                </button>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+<style>
+.line-clamp-2 {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+/* Progress bar styling */
+.progress-table {
+    background: var(--color-primary-light);
+    border-radius: 0;
+    height: 3px;
+    overflow: hidden;
+    width: 100%;
+}
+
+.progress-bar-table {
+    background: var(--gradient-primary);
+    height: 100%;
+    transition: width 0.3s ease;
+}
+
+/* Table styling */
+table {
+    border-collapse: separate;
+    border-spacing: 0;
+    background: var(--color-bg-secondary);
+}
+
+/* Markdown content overflow handling */
+.markdown-content {
+    word-wrap: break-word;
+    overflow-wrap: anywhere;
+    max-width: 100%;
+}
+
+.markdown-content pre {
+    overflow-x: auto;
+    max-width: 100%;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+    background: var(--color-bg-primary);
+    border: 1px solid var(--color-border-subtle);
+    border-radius: 6px;
+    padding: 0.75rem;
+    font-size: 0.8rem;
+}
+
+.markdown-content code {
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+    font-size: 0.85em;
+    background: var(--color-bg-primary);
+    padding: 0.15em 0.3em;
+    border-radius: 3px;
+}
+
+.markdown-content pre code {
+    white-space: pre;
+    overflow-x: auto;
+    display: block;
+    background: none;
+    padding: 0;
+}
+
+.markdown-content table {
+    max-width: 100%;
+    overflow-x: auto;
+    display: block;
+}
+
+.markdown-content img {
+    max-width: 100%;
+    height: auto;
+}
+</style>
+
+<script>
+function modelsGallery() {
+    return {
+        models: [],
+        allTags: [],
+        repositories: [],
+        searchTerm: '',
+        loading: false,
+        currentPage: 1,
+        totalPages: 1,
+        availableModels: 0,
+        installedModels: 0,
+        ramTotal: 0,
+        ramUsed: 0,
+        ramUsagePercent: 0,
+        totalMemory: 0,
+        selectedModel: null,
+        jobProgress: {},
+        notifications: [],
+        sortBy: '',
+        sortOrder: 'asc',
+        viewMode: localStorage.getItem('localai-models-view') || 'grid',
+
+        typeFilters: [
+            { term: 'llm', label: 'LLM', icon: 'fas fa-comment-alt' },
+            { term: 'multimodal', label: 'Multimodal', icon: 'fas fa-object-group' },
+            { term: 'stablediffusion', label: 'Image', icon: 'fas fa-image' },
+            { term: 'tts', label: 'TTS', icon: 'fas fa-microphone' },
+            { term: 'stt', label: 'STT', icon: 'fas fa-headphones' },
+            { term: 'embedding', label: 'Embedding', icon: 'fas fa-vector-square' },
+            { term: 'rerank', label: 'Rerank', icon: 'fas fa-sort-amount-up' },
+            { term: 'object-detection', label: 'Vision', icon: 'fas fa-eye' },
+        ],
+
+        sortColumns: [
+            { key: 'name', label: 'Name' },
+            { key: 'status', label: 'Status' },
+            { key: 'repository', label: 'Repo' },
+            { key: 'license', label: 'License' },
+        ],
+
+        init() {
+            this.fetchModels();
+            this.fetchResources();
+            setInterval(() => this.pollJobs(), 600);
+
+            this.$watch('viewMode', (val) => {
+                localStorage.setItem('localai-models-view', val);
+            });
+        },
+
+        async fetchResources() {
+            try {
+                const response = await fetch('/api/resources');
+                if (response.ok) {
+                    const data = await response.json();
+                    this.totalMemory = data.aggregate?.total_memory || 0;
+                }
+            } catch (e) {}
+        },
+
+        addNotification(message, type = 'error') {
+            const id = Date.now();
+            this.notifications.push({ id, message, type });
+            setTimeout(() => this.dismissNotification(id), 10000);
+        },
+
+        dismissNotification(id) {
+            this.notifications = this.notifications.filter(n => n.id !== id);
+        },
+
+        async fetchModels() {
+            this.loading = true;
+            try {
+                const params = new URLSearchParams({
+                    page: this.currentPage,
+                    items: 21,
+                    term: this.searchTerm
+                });
+                if (this.sortBy) {
+                    params.append('sort', this.sortBy);
+                    params.append('order', this.sortOrder);
+                }
+                const response = await fetch(`/api/models?${params}`);
+                const data = await response.json();
+
+                this.models = data.models || [];
+                this.allTags = data.allTags || [];
+                this.repositories = data.repositories || [];
+                this.currentPage = data.currentPage || 1;
+                this.totalPages = data.totalPages || 1;
+                this.availableModels = data.availableModels || 0;
+                this.installedModels = data.installedModels || 0;
+                this.ramTotal = data.ramTotal || 0;
+                this.ramUsed = data.ramUsed || 0;
+                this.ramUsagePercent = data.ramUsagePercent || 0;
+            } catch (error) {
+                console.error('Error fetching models:', error);
+            } finally {
+                this.loading = false;
+            }
+        },
+
+        filterByTerm(term) {
+            this.searchTerm = term;
+            this.currentPage = 1;
+            this.fetchModels();
+        },
+
+        clearSearch() {
+            this.searchTerm = '';
+            this.currentPage = 1;
+            this.fetchModels();
+        },
+
+        setSort(column) {
+            if (this.sortBy === column) {
+                this.sortOrder = this.sortOrder === 'asc' ? 'desc' : 'asc';
+            } else {
+                this.sortBy = column;
+                this.sortOrder = 'asc';
+            }
+            this.currentPage = 1;
+            this.fetchModels();
+        },
+
+        goToPage(page) {
+            if (page >= 1 && page <= this.totalPages) {
+                this.currentPage = page;
+                this.fetchModels();
+            }
+        },
+
+        async installModel(modelId) {
+            try {
+                const response = await fetch(`/api/models/install/${encodeURIComponent(modelId)}`, {
+                    method: 'POST'
+                });
+                const data = await response.json();
+                if (data.jobID) {
+                    const model = this.models.find(m => m.id === modelId);
+                    if (model) {
+                        model.processing = true;
+                        model.jobID = data.jobID;
+                        model.isDeletion = false;
+                    }
+                }
+            } catch (error) {
+                console.error('Error installing model:', error);
+                this.addNotification('Failed to start installation', 'error');
+            }
+        },
+
+        async deleteModel(modelId) {
+            if (!confirm('Are you sure you wish to delete the model?')) {
+                return;
+            }
+
+            try {
+                const response = await fetch(`/api/models/delete/${encodeURIComponent(modelId)}`, {
+                    method: 'POST'
+                });
+                const data = await response.json();
+                if (data.jobID) {
+                    const model = this.models.find(m => m.id === modelId);
+                    if (model) {
+                        model.processing = true;
+                        model.jobID = data.jobID;
+                        model.isDeletion = true;
+                    }
+                }
+            } catch (error) {
+                console.error('Error deleting model:', error);
+                this.addNotification('Failed to start deletion', 'error');
+            }
+        },
+
+        async reinstallModel(modelId) {
+            this.installModel(modelId);
+        },
+
+        async getConfig(modelId) {
+            try {
+                const response = await fetch(`/api/models/config/${encodeURIComponent(modelId)}`, {
+                    method: 'POST'
+                });
+                const data = await response.json();
+                this.addNotification(data.message || 'Configuration saved', 'success');
+            } catch (error) {
+                console.error('Error getting config:', error);
+                this.addNotification('Failed to get configuration', 'error');
+            }
+        },
+
+        async pollJobs() {
+            const processingModels = this.models.filter(m => m.processing && m.jobID);
+
+            for (const model of processingModels) {
+                try {
+                    const response = await fetch(`/api/models/job/${model.jobID}`);
+                    const jobData = await response.json();
+
+                    if (jobData.queued) {
+                        this.jobProgress[model.jobID] = 0;
+                        continue;
+                    }
+
+                    this.jobProgress[model.jobID] = jobData.progress || 0;
+
+                    if (jobData.completed) {
+                        model.processing = false;
+                        model.installed = !jobData.deletion;
+                        delete this.jobProgress[model.jobID];
+                        const action = jobData.deletion ? 'deleted' : 'installed';
+                        this.addNotification(`Model "${model.name}" ${action} successfully!`, 'success');
+                        this.fetchModels();
+                    }
+
+                    if (jobData.error || (jobData.message && jobData.message.startsWith('error:'))) {
+                        model.processing = false;
+                        delete this.jobProgress[model.jobID];
+                        const action = model.isDeletion ? 'deleting' : 'installing';
+                        let errorMessage = 'Unknown error';
+                        if (typeof jobData.error === 'string') {
+                            errorMessage = jobData.error;
+                        } else if (jobData.error && typeof jobData.error === 'object') {
+                            const errorKeys = Object.keys(jobData.error);
+                            if (errorKeys.length > 0) {
+                                errorMessage = jobData.error.message || jobData.error.error || jobData.error.Error || JSON.stringify(jobData.error);
+                            } else {
+                                errorMessage = jobData.message || 'Unknown error';
+                            }
+                        } else if (jobData.message) {
+                            errorMessage = jobData.message;
+                        }
+                        if (errorMessage.startsWith('error: ')) {
+                            errorMessage = errorMessage.substring(7);
+                        }
+                        this.addNotification(`Error ${action} model "${model.name}": ${errorMessage}`, 'error');
+                    }
+                } catch (error) {
+                    console.error('Error polling job:', error);
+                }
+            }
+        },
+
+        renderMarkdown(text) {
+            if (!text) return '';
+            try {
+                if (typeof marked === 'undefined' || typeof DOMPurify === 'undefined') {
+                    return text;
+                }
+                const html = marked.parse(text);
+                return DOMPurify.sanitize(html);
+            } catch (error) {
+                console.error('Error rendering markdown:', error);
+                return text;
+            }
+        },
+
+        openModal(model) {
+            this.selectedModel = model;
+        },
+
+        formatBytes(bytes) {
+            if (bytes === 0) return "0 B";
+            const k = 1024;
+            const sizes = ["B", "KB", "MB", "GB", "TB"];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + " " + sizes[i];
+        },
+
+        closeModal() {
+            this.selectedModel = null;
+        }
+    }
+}
+</script>
+
+    {{template "views/partials/footer" .}}
+    </div>
+  </main>
+</div>
+
+</body>
+</html>

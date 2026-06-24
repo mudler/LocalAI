@@ -1,0 +1,245 @@
+{
+  "lifecycle": {
+    "title": "Models",
+    "navLabel": "Model lifecycle",
+    "views": { "explore": "Explore", "installed": "Installed" },
+    "filters": { "all": "All", "running": "Running", "idle": "Idle", "disabled": "Disabled", "pinned": "Pinned", "distributed": "Distributed" },
+    "installed": {
+      "searchPlaceholder": "Search installed models",
+      "count": "{{shown}} of {{total}}",
+      "backToAll": "All installed models",
+      "eyebrow": "Installed on this host",
+      "summary": "{{count}} models ready to serve.",
+      "summaryHint": "Select a model to inspect its runtime state and controls."
+    },
+    "states": { "running": "Running", "idle": "Idle", "disabled": "Disabled", "working": "Working…" },
+    "actions": {
+      "load": "Load", "loading": "Loading…", "stop": "Stop", "update": "Update", "updating": "Updating…",
+      "enable": "Enable model", "disable": "Disable model", "pin": "Pin (prevent idle unload)",
+      "unpin": "Unpin (allow idle unload)", "edit": "Edit configuration", "logs": "Backend logs",
+      "delete": "Delete model", "forModel": "Actions for {{model}}",
+      "open": "Open {{useCase}}", "manageInstallation": "Manage installation"
+    },
+    "actionNames": { "load": "load", "stop": "stop", "enable": "enable", "disable": "disable", "pin": "pin", "unpin": "unpin", "delete": "delete", "update": "update" },
+    "toasts": {
+      "loaded": "Loaded {{model}}", "stopped": "Stopped {{model}}", "enabled": "Enabled {{model}}",
+      "disabled": "Disabled {{model}}", "pinned": "Pinned {{model}}", "unpinned": "Unpinned {{model}}",
+      "deleted": "Deleted {{model}}", "updated": "Models updated"
+    },
+    "confirm": {
+      "stopTitle": "Stop Model", "stopMessage": "Stop model {{model}}?",
+      "deleteTitle": "Delete Model", "deleteMessage": "Delete model {{model}}? This cannot be undone."
+    },
+    "errors": {
+      "action": "Could not {{action}} {{model}}: {{message}}",
+      "loadList": "Could not load installed models: {{message}}"
+    },
+    "detail": {
+      "title": "Details", "state": "State", "backend": "Backend", "auto": "Auto", "pinned": "Pinned", "yes": "yes",
+      "description": "Description", "noDescription": "No gallery description is available for this model.",
+      "license": "License", "tags": "Tags", "links": "Links", "distributed": "Distributed", "source": "Source",
+      "files": "Files", "fileCount": "{{count}} file", "fileCount_other": "{{count}} files",
+      "adopted": "Adopted", "adoptedHint": "Discovered on a worker but not configured locally. Persist the config to make it permanent.",
+      "alias": "alias → {{target}}", "aliasTitle": "Alias → {{target}}"
+    },
+    "open": {
+      "title": "Open", "chat": "Chat", "completion": "Completion", "image": "Image", "video": "Video", "tts": "TTS",
+      "transcribe": "Transcribe", "sound": "Sound", "face": "Face", "voice": "Voice", "embeddings": "Embeddings",
+      "rerank": "Rerank", "vad": "VAD", "score": "Score"
+    },
+    "empty": {
+      "title": "No models installed yet", "text": "Explore the gallery or import a model to get started.",
+      "explore": "Explore models", "import": "Import model", "noMatches": "No installed models match these filters.",
+      "clear": "Clear filters"
+    }
+  },
+  "title": "Models",
+  "subtitle": "Browse and install AI models from the gallery",
+  "models": "Models",
+  "recommended": {
+    "title": "Recommended for your hardware",
+    "cpuNote": "No GPU detected - small models that stay responsive on CPU.",
+    "gpuNote": "Sized to fit your available VRAM with room for context.",
+    "install": "Install",
+    "installing": "Installing",
+    "installStarted": "Installing {{model}}…",
+    "installFailed": "Install failed: {{message}}",
+    "dismiss": "Dismiss recommendations",
+    "summary": "{{n}} models suggested",
+    "bestFit": "Best fit",
+    "alternative": "Also fits"
+  },
+  "stats": {
+    "available": "Available",
+    "installed": "Installed"
+  },
+  "actions": {
+    "addModel": "Add Model",
+    "importModel": "Import Model",
+    "install": "Install",
+    "reinstall": "Reinstall",
+    "delete": "Delete"
+  },
+  "filters": {
+    "all": "All",
+    "llm": "Chat",
+    "image": "Image",
+    "video": "Video",
+    "threed": "3D",
+    "threedAnimation": "3D Animation",
+    "multimodal": "Multimodal",
+    "vision": "Vision",
+    "tts": "TTS",
+    "stt": "STT",
+    "diarization": "Diarization",
+    "soundClassification": "Sound Tagging",
+    "soundGen": "Sound",
+    "audioTransform": "Audio FX",
+    "realtimeAudio": "Realtime Audio",
+    "embedding": "Embeddings",
+    "rerank": "Rerank",
+    "detection": "Detection",
+    "vad": "VAD",
+    "ner": "NER",
+    "fitsGpu": "Fits in GPU",
+    "collapseVariants": "One row per model",
+    "allBackends": "All Backends",
+    "searchBackends": "Search backends...",
+    "contextSize": "Context:",
+    "useCaseLabel": "Filter by use case",
+    "unavailableForBackend": "Not available for the selected backend",
+    "someSelected": "{{count}} selected",
+    "refineLabel": "Refine"
+  },
+  "search": {
+    "placeholder": "Search models...",
+    "clearFilters": "Clear filters"
+  },
+  "table": {
+    "modelName": "Model Name",
+    "description": "Description",
+    "backend": "Backend",
+    "sizeVram": "Size / VRAM",
+    "status": "Status",
+    "actions": "Actions",
+    "size": "Size: {{size}}",
+    "vram": "VRAM: {{vram}}",
+    "fits": "Fits",
+    "mayNotFit": "May not fit",
+    "trustRemoteCode": "Trust Remote Code",
+    "installing": "Installing",
+    "installingPct": "Installing · {{percent}}%",
+    "installed": "Installed",
+    "notInstalled": "Not Installed"
+  },
+  "detail": {
+    "description": "Description",
+    "gallery": "Gallery",
+    "backend": "Backend",
+    "size": "Size",
+    "vram": "VRAM",
+    "license": "License",
+    "tags": "Tags",
+    "links": "Links",
+    "warning": "Warning",
+    "files": "Files",
+    "fitsGpu": "Fits in GPU",
+    "mayNotFitGpu": "May not fit in GPU",
+    "requiresTrustRemoteCode": "Requires Trust Remote Code",
+    "fileCount_one": "{{count}} file",
+    "fileCount_other": "{{count}} files",
+    "filename": "Filename",
+    "uri": "URI",
+    "sha256": "SHA256",
+    "backToAll": "All models",
+    "vramAt": "VRAM at {{context}}",
+    "headroom": "Headroom",
+    "headroomOn": "Headroom on {{node}}"
+  },
+  "empty": {
+    "title": "No models found",
+    "withFilters": "No models match your current search or filters.",
+    "collapsedVariantsHint": "Alternative builds that another entry already offers are hidden. Turn off \"One row per model\" to include them.",
+    "noFilters": "The model gallery is empty."
+  },
+  "deleteDialog": {
+    "title": "Delete Model",
+    "message": "Delete model {{model}}?",
+    "confirm": "Delete {{model}}",
+    "deletingToast": "Deleting {{model}}..."
+  },
+  "errors": {
+    "loadFailed": "Failed to load models: {{message}}",
+    "installFailed": "Failed to install: {{message}}",
+    "deleteFailed": "Failed to delete: {{message}}"
+  },
+  "selector": {
+    "loading": "Loading models...",
+    "selectModel": "Select model...",
+    "searchPlaceholder": "Search models...",
+    "noModels": "No models available"
+  },
+  "variants": {
+    "title": "Variants",
+    "chooseVariant": "Choose a variant",
+    "auto": "Auto",
+    "autoSelected": "Auto-selected",
+    "base": "Base build",
+    "doesNotFit": "Does not fit",
+    "unknownSize": "Unknown size",
+    "unknownBackend": "Unknown backend",
+    "loading": "Loading variants...",
+    "installVariant": "Install {{variant}}",
+    "quantizationTitle": "Weight format",
+    "unknownQuantization": "Unknown format",
+    "showDetails": "Show full details for {{variant}}",
+    "hideDetails": "Hide full details for {{variant}}",
+    "detailsLoading": "Loading details...",
+    "detailsUnavailable": "Details for {{variant}} could not be loaded.",
+    "features": {
+      "dflash": "Faster: DFlash",
+      "mtp": "Faster: MTP"
+    }
+  },
+  "rail": {
+    "sortLabel": "Sort models",
+    "downloadingPct": "downloading {{percent}}%",
+    "tooLarge": "{{size}} · too large",
+    "fitsSize": "{{size}} · fits",
+    "previousPage": "Previous page",
+    "nextPage": "Next page",
+    "showingCount": "{{shown}} of {{total}}",
+    "sizing": "sizing…"
+  },
+  "groups": {
+    "text": "Text and reasoning",
+    "vision": "Vision",
+    "audio": "Speech and audio",
+    "visual": "Image and video",
+    "other": "Everything else"
+  },
+  "chart": {
+    "title": "VRAM by context length",
+    "available": "{{vram}} available",
+    "barTitle": "{{context}} context needs {{vram}}",
+    "fitsEverywhere": "Runs at every context length on this host.",
+    "fitsNowhere": "Will not fit on this host at any context length.",
+    "fitsUpTo": "Fits up to a {{context}} context."
+  },
+  "shelves": {
+    "hostLabel": "Your host",
+    "heroWithGpu": "{{vram}} of GPU memory, {{count}} models in the gallery.",
+    "heroNoGpu": "{{count}} models in the gallery.",
+    "heroHint": "Pick anything on the left to see its size, variants and whether it will run here.",
+    "browsing": "Browsing",
+    "pickHint": "Select a model to see its detail.",
+    "heroWithRam": "{{ram}} of system memory, {{count}} models in the gallery.",
+    "heroWithCluster": "{{vram}} on {{node}}, the largest of {{nodes}} nodes, {{count}} models in the gallery.",
+    "heroWithNode": "{{vram}} on {{node}}, {{count}} models in the gallery.",
+    "byUseCase": "Or start with a use case",
+    "pickText": "Chat, reasoning, embeddings",
+    "pickVision": "Read images and documents",
+    "pickAudio": "Speech in and speech out",
+    "pickVisual": "Generate images and video"
+  }
+}

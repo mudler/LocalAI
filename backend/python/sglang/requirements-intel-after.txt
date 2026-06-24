@@ -1,0 +1,2 @@
+# sglang's Intel XPU build is installed from source per docker/xpu.Dockerfile
+# upstream; install.sh handles the source build when BUILD_PROFILE=intel.

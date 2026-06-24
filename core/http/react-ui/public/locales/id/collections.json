@@ -1,0 +1,43 @@
+{
+  "title": "Basis Pengetahuan",
+  "subtitle": "Kelola koleksi dokumen untuk agen RAG",
+  "newPlaceholder": "Nama koleksi baru...",
+  "actions": {
+    "create": "Buat",
+    "creating": "Membuat...",
+    "details": "Detail",
+    "reset": "Reset",
+    "delete": "Hapus",
+    "viewDetails": "Lihat detail",
+    "resetCollection": "Reset koleksi",
+    "deleteCollection": "Hapus koleksi"
+  },
+  "sections": {
+    "yourCollections": "Koleksi Anda",
+    "otherUsersCollections": "Koleksi Pengguna Lain"
+  },
+  "empty": {
+    "title": "Belum ada koleksi",
+    "text": "Koleksi memungkinkan Anda mengatur dokumen ke dalam basis pengetahuan yang dapat dicari oleh agen menggunakan RAG (Retrieval-Augmented Generation). Buat koleksi di atas untuk memulai.",
+    "noPersonal": "Anda belum memiliki koleksi."
+  },
+  "deleteDialog": {
+    "title": "Hapus koleksi",
+    "message": "Hapus koleksi \"{{name}}\"? Tindakan ini akan menghapus semua entri dan tidak dapat dibatalkan.",
+    "confirm": "Hapus"
+  },
+  "resetDialog": {
+    "title": "Reset koleksi",
+    "message": "Reset koleksi \"{{name}}\"? Tindakan ini akan menghapus semua entri tetapi mempertahankan koleksinya.",
+    "confirm": "Reset"
+  },
+  "toasts": {
+    "loadFailed": "Gagal memuat koleksi: {{message}}",
+    "created": "Koleksi \"{{name}}\" berhasil dibuat",
+    "createFailed": "Gagal membuat koleksi: {{message}}",
+    "deleted": "Koleksi \"{{name}}\" berhasil dihapus",
+    "deleteFailed": "Gagal menghapus koleksi: {{message}}",
+    "reset": "Koleksi \"{{name}}\" berhasil direset",
+    "resetFailed": "Gagal mereset koleksi: {{message}}"
+  }
+}

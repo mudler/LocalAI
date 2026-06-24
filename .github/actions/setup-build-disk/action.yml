@@ -1,0 +1,59 @@
+name: 'Set up build disk on hosted runners'
+description: |
+  Relocate Docker's data-root to /mnt (which has ~75 GB free, vs ~20 GB
+  on / after free-disk-space). Combined with the apt cleanup, gives
+  ~100 GB working space for buildx — enough for ROCm dev image + vLLM
+  torch install + flash-attn build.
+
+  No-op on:
+    - self-hosted runners (no /mnt expectation)
+    - non-X64 runners (verify /mnt shape on ubuntu-24.04-arm separately
+      before enabling there — see Task 3.2 in the migration plan)
+    - mode=skip (force-disable from caller)
+
+  Must run after free-disk-space (which removes large packages — would
+  fail mid-uninstall if Docker were stopped) and before any Docker
+  operation (setup-qemu, setup-buildx, login, build) so the relocated
+  data-root catches all subsequent docker activity.
+
+inputs:
+  mode:
+    description: 'auto (default — relocate on hosted X64 only) or skip'
+    required: false
+    default: 'auto'
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Relocate Docker data-root to /mnt
+      if: inputs.mode == 'auto' && runner.environment == 'github-hosted' && runner.arch == 'X64'
+      shell: bash
+      run: |
+        set -euo pipefail
+        echo "Before relocation:"
+        df -h / /mnt || true
+        sudo systemctl stop docker docker.socket
+        sudo mkdir -p /mnt/docker-data /mnt/docker-tmp
+        # buildx CLI runs as the unprivileged runner user and creates
+        # config dirs under TMPDIR before binding them into the buildkit
+        # container. /mnt is owned by root by default; mirror /tmp's
+        # 1777 (world-writable + sticky) so non-root processes can write.
+        sudo chmod 1777 /mnt/docker-tmp
+        if [ -d /var/lib/docker ] && [ ! -L /var/lib/docker ]; then
+          sudo rsync -a /var/lib/docker/ /mnt/docker-data/
+          sudo rm -rf /var/lib/docker
+          sudo ln -s /mnt/docker-data /var/lib/docker
+        fi
+        # daemon.json may not exist; merge data-root in or create minimal.
+        if [ -f /etc/docker/daemon.json ]; then
+          sudo jq '."data-root" = "/mnt/docker-data"' /etc/docker/daemon.json | sudo tee /etc/docker/daemon.json.new >/dev/null
+          sudo mv /etc/docker/daemon.json.new /etc/docker/daemon.json
+        else
+          echo '{"data-root":"/mnt/docker-data"}' | sudo tee /etc/docker/daemon.json
+        fi
+        sudo systemctl start docker
+        # Make TMPDIR persist for subsequent steps in the same job.
+        echo "TMPDIR=/mnt/docker-tmp" >> "$GITHUB_ENV"
+        echo "After relocation:"
+        df -h / /mnt
+        docker info | grep -i 'docker root dir' || true

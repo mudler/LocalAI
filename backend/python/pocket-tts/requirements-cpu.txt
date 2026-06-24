@@ -1,0 +1,4 @@
+--extra-index-url https://download.pytorch.org/whl/cpu
+pocket-tts
+scipy
+torch

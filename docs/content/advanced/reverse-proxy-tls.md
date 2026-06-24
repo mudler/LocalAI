@@ -1,0 +1,317 @@
+---
+title: TLS Reverse Proxy Configuration
+description: Configure LocalAI behind a TLS termination reverse proxy (HAProxy, Apache, Nginx, APISIX)
+weight: 100
+---
+
+![TLS at the edge: terminate TLS at the reverse proxy and forward headers so LocalAI emits correct https URLs](/images/diagrams/reverse-proxy-tls.png)
+
+# TLS Reverse Proxy Configuration
+
+When running LocalAI behind a TLS termination reverse proxy, the Web UI may fail to load static assets (CSS, JS) correctly because the application doesn't automatically detect that it's being served over HTTPS. This guide explains how to properly configure your reverse proxy to work with LocalAI.
+
+## How It Works
+
+LocalAI uses the `X-Forwarded-Proto` HTTP header to determine the protocol used by clients. When this header is set to `https`, LocalAI will generate HTTPS URLs for static assets in the Web UI.
+
+## Running behind a reverse proxy (HTTPS / subpath)
+
+LocalAI does not terminate TLS itself, so HTTPS is provided by a reverse
+proxy in front of it. Self-referential links (generated image and video
+URLs, async job status URLs, OAuth callbacks) need the externally visible
+scheme, host and port.
+
+LocalAI determines these in this order:
+
+1. `LOCALAI_BASE_URL` - if set, it is authoritative for the origin. Set it to
+   the externally visible base URL, e.g. `LOCALAI_BASE_URL=https://localai.example.com`
+   or `https://192.168.0.13:34567`. Recommended whenever links come back with
+   the wrong scheme or host.
+2. Otherwise, the `X-Forwarded-Proto` and `X-Forwarded-Host` headers (or the
+   RFC 7239 `Forwarded` header) sent by the proxy. Ensure your proxy forwards
+   `X-Forwarded-Proto: https`.
+
+A reverse-proxy subpath mount is supported via `X-Forwarded-Prefix`; it is
+appended to `LOCALAI_BASE_URL` when both are present.
+
+## Required Headers
+
+Your reverse proxy must forward these headers to LocalAI:
+
+| Header | Purpose |
+|--------|---------|
+| `X-Forwarded-Proto` | Set to `https` when TLS is terminated at the proxy |
+| `X-Forwarded-Host` | The original host requested by the client |
+| `X-Forwarded-Prefix` | Any path prefix if LocalAI is served under a sub-path |
+
+## HAProxy Configuration
+
+```haproxy
+frontend https-in
+    bind *:443 ssl crt /path/to/cert.pem
+    mode http
+    
+    # Set the X-Forwarded-Proto header
+    http-request set-header X-Forwarded-Proto https
+    
+    # Pass the original host
+    http-request set-header X-Forwarded-Host %[hdr(host)]
+    
+    # If serving under a sub-path, set the prefix
+    # http-request set-header X-Forwarded-Prefix /localai
+    
+    default_backend localai
+
+backend localai
+    mode http
+    server localai1 127.0.0.1:8080 check
+```
+
+## Apache Configuration
+
+```apache
+<VirtualHost *:443>
+    ServerName your-domain.com
+    SSLEngine on
+    SSLCertificateFile /path/to/cert.pem
+    SSLCertificateKeyFile /path/to/key.pem
+    
+    # Enable proxy and headers modules
+    ProxyRequests Off
+    ProxyPreserveHost On
+    
+    <Proxy *>
+        Require all granted
+    </Proxy>
+    
+    # Set the X-Forwarded-Proto header
+    RequestHeader set X-Forwarded-Proto "https"
+    
+    # Set the X-Forwarded-Host header (optional, usually automatic)
+    RequestHeader set X-Forwarded-Host "%{HTTP_HOST}s"
+    
+    # If serving under a sub-path
+    # RequestHeader set X-Forwarded-Prefix "/localai"
+    
+    ProxyPass / http://127.0.0.1:8080/
+    ProxyPassReverse / http://127.0.0.1:8080/
+</VirtualHost>
+```
+
+## Nginx Configuration
+
+```nginx
+server {
+    listen 443 ssl;
+    server_name your-domain.com;
+    
+    ssl_certificate /path/to/cert.pem;
+    ssl_certificate_key /path/to/key.pem;
+    
+    # Allow multimodal requests with images or other large inputs.
+    client_max_body_size 50m;
+
+    location / {
+        proxy_pass http://127.0.0.1:8080;
+        proxy_http_version 1.1;
+
+        # Set the externally visible scheme and host.
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header X-Forwarded-Host $host;
+        proxy_set_header Host $host;
+
+        # If serving under a sub-path
+        # proxy_set_header X-Forwarded-Prefix /localai;
+
+        # Local inference can take much longer than common proxy defaults.
+        proxy_connect_timeout 60s;
+        proxy_send_timeout 60m;
+        proxy_read_timeout 60m;
+
+        # Stream responses as LocalAI emits them. Disabling request buffering is
+        # optional and can help when clients upload large multimodal inputs.
+        proxy_buffering off;
+        proxy_request_buffering off;
+
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_cache_bypass $http_upgrade;
+    }
+}
+```
+
+Adjust the `60m` values for the slowest request you expect to serve. The
+important setting for long non-streaming requests is `proxy_read_timeout`: if
+the proxy stops waiting before LocalAI finishes, clients receive a proxy-generated
+`504 Gateway Time-out` even though inference may still be running. OpenResty,
+Nginx Proxy Manager, Caddy, Traefik, HAProxy, and ingress controllers have
+equivalent upstream response timeout settings.
+
+## Apache APISIX Configuration
+
+[Apache APISIX](https://apisix.apache.org/) is an open source API and AI
+gateway. Put it between clients and LocalAI when you want to manage the
+OpenAI-compatible API with the same gateway used for other services. In
+addition to TLS termination, APISIX can add authentication, rate limiting,
+load balancing, observability, and other policies through plugins without
+changing LocalAI.
+
+This is useful when LocalAI runs on a private network but its API must be
+available to several applications or teams. Clients keep using the standard
+OpenAI-compatible API while APISIX provides one public entry point where you
+can apply access and traffic policies. The configuration below starts with a
+transparent route so it works with LocalAI clients before you add those
+policies.
+
+The request path is:
+
+```text
+OpenAI-compatible client -> APISIX -> LocalAI (:8080)
+```
+
+### Create the LocalAI Route
+
+Start LocalAI with the model configuration you want to serve, and confirm that
+APISIX can reach `http://localai:8080`. When both services run in containers,
+attach them to the same container network and use the LocalAI service name as
+the upstream hostname.
+
+Install APISIX using its
+[getting started guide](https://apisix.apache.org/docs/apisix/getting-started/README/),
+then create a route that forwards the external scheme and host, allows
+long-running inference, and disables response buffering for streaming
+completions. This example assumes APISIX can resolve `localai` and reach it on
+port `8080`:
+
+```bash
+curl http://127.0.0.1:9180/apisix/admin/routes/localai \
+  --request PUT \
+  --header "X-API-KEY: ${admin_key}" \
+  --data '{
+    "uri": "/*",
+    "plugins": {
+      "proxy-rewrite": {
+        "headers": {
+          "set": {
+            "X-Forwarded-Proto": "$scheme",
+            "X-Forwarded-Host": "$host"
+          }
+        }
+      },
+      "proxy-buffering": {
+        "disable_proxy_buffering": true
+      }
+    },
+    "timeout": {
+      "connect": 60,
+      "send": 3600,
+      "read": 3600
+    },
+    "upstream": {
+      "type": "roundrobin",
+      "pass_host": "pass",
+      "nodes": {
+        "localai:8080": 1
+      }
+    }
+  }'
+```
+
+Set `X-Forwarded-Prefix` in the `proxy-rewrite` header map as well if LocalAI
+is exposed under a sub-path. Adjust the timeout values, in seconds, for the
+slowest request you expect to serve. Keep the APISIX Admin API private and
+replace `${admin_key}` with the key configured for your deployment.
+
+### Use LocalAI Through APISIX
+
+Clients continue to use LocalAI's OpenAI-compatible paths; only the base URL
+changes. First, check that model discovery reaches LocalAI through the APISIX
+data-plane port (port `9080` by default):
+
+```bash
+curl http://127.0.0.1:9080/v1/models
+```
+
+Then test a streaming chat completion. Replace `your-model` with an ID returned
+by `/v1/models`:
+
+```bash
+curl --no-buffer http://127.0.0.1:9080/v1/chat/completions \
+  --header "Content-Type: application/json" \
+  --data '{
+    "model": "your-model",
+    "messages": [{"role": "user", "content": "Hello from APISIX"}],
+    "stream": true
+  }'
+```
+
+With TLS configured on APISIX, applications use a base URL such as
+`https://localai.example.com/v1`. Keep LocalAI's own API key in the usual
+`Authorization: Bearer ...` header if LocalAI authentication is enabled. If
+you enable an APISIX authentication plugin as well, configure its consumer
+credential separately and send the header required by that plugin.
+
+For policies beyond this transparent route, see the
+[APISIX AI Gateway overview](https://apisix.apache.org/ai-gateway/) and its
+authentication, traffic management, load balancing, and observability
+plugins. A gateway-specific LocalAI guide maintained by the APISIX project can
+also be linked here when one is available.
+
+For bulk jobs on a trusted private network, you can also bypass the public
+reverse proxy and connect directly to LocalAI, for example
+`http://localai-host:8080/v1`.
+
+## Serving Under a Sub-Path
+
+If you serve LocalAI under a sub-path (e.g., `https://your-domain.com/localai`), you need to:
+
+1. Configure your reverse proxy to set the `X-Forwarded-Prefix` header
+
+Example with Nginx:
+
+```nginx
+proxy_set_header X-Forwarded-Prefix /localai;
+```
+
+## Testing Your Configuration
+
+1. Start LocalAI: `localai`
+2. Configure your reverse proxy as shown above
+3. Access the Web UI through the proxy
+4. Check the browser's developer console for any mixed content warnings or failed asset loads
+5. Verify that the HTML source contains `https://` URLs for static assets
+
+## Troubleshooting
+
+### Static Assets Not Loading
+
+- Verify the `X-Forwarded-Proto` header is being forwarded
+- Check that the header value is exactly `https` (lowercase)
+- Inspect the network tab in your browser to see which requests are failing
+
+### Mixed Content Warnings
+
+- Ensure LocalAI is generating HTTPS URLs (check the BaseURL middleware is working)
+- Verify the `X-Forwarded-Proto` header is set before LocalAI processes the request
+
+### Redirect Loops
+
+- Check that your proxy is not adding duplicate headers
+- Verify `X-Forwarded-Proto` is not being set to both `http` and `https`
+
+### 504 Gateway Time-out During Inference
+
+An HTML `504 Gateway Time-out` page branded by Nginx or OpenResty means the
+reverse proxy stopped waiting for LocalAI. Increase the proxy's upstream read
+and send timeouts beyond the worst-case inference time. Also check its request
+body limit when sending images, audio, or other large inputs.
+
+This is separate from LocalAI's optional busy watchdog. If busy watchdog checks
+are enabled, set `LOCALAI_WATCHDOG_BUSY_TIMEOUT` beyond the longest expected
+request or disable the busy check for workloads that legitimately run longer.
+The default busy timeout is 5 minutes, but it is only enforced when the busy
+watchdog is enabled.
+
+## Security Note
+
+When using reverse proxies, ensure your proxy only accepts connections from trusted sources and properly validates SSL certificates. Never expose LocalAI directly to the internet without TLS termination.

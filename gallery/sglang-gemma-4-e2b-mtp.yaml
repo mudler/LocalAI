@@ -1,0 +1,36 @@
+---
+name: "sglang-gemma-4-e2b-mtp"
+
+config_file: |
+    backend: sglang
+    parameters:
+      model: google/gemma-4-E2B-it
+      max_tokens: 4096
+    context_size: 4096
+    function:
+      disable_no_action: true
+      grammar:
+        disable: true
+        parallel_calls: true
+        expect_strings_after_json: true
+    template:
+      use_tokenizer_template: true
+    options:
+      - tool_parser:gemma4
+      - reasoning_parser:gemma4
+    # Gemma 4 E2B-it served by SGLang with Multi-Token Prediction (MTP).
+    # Flags transcribed verbatim from the SGLang cookbook:
+    # https://docs.sglang.io/cookbook/autoregressive/Google/Gemma4#speculative-decoding-mtp-server-commands
+    # NEXTN is normalised to EAGLE inside ServerArgs.__post_init__.
+    # mem_fraction_static=0.85 adapts to the available GPU; E2B is the
+    # smaller variant of the Gemma 4 lineup and the natural fit for
+    # consumer GPUs (notably 8–12 GB cards). Requires sglang built with
+    # PR #21952 (Gemma 4 model support); LocalAI's pinned release
+    # carries it.
+    engine_args:
+      mem_fraction_static: 0.85
+      speculative_algorithm: NEXTN
+      speculative_draft_model_path: google/gemma-4-E2B-it-assistant
+      speculative_num_steps: 5
+      speculative_num_draft_tokens: 6
+      speculative_eagle_topk: 1
