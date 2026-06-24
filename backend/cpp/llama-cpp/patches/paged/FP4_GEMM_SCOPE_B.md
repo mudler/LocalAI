@@ -107,6 +107,58 @@ occupancy/tile-fill loss, exactly the `MOE_GROUPED_GEMM_SCOPE.md` M-tile finding
 
 ---
 
+## 2b. The precise code-level inefficiencies (source-read, the "why slower than vLLM")
+
+Decode runs **one `mul_mat_q` per weight, M=128** (all 128 slots' single tokens are fused into one
+ubatch — confirmed `mul_mat_q(M=128)` in `GDN_DECODE_VERIFY.md`, not 128 × M=1). The NVFP4 path:
+`mmq.cu` `use_native_fp4` gate → `quantize_mmq_fp4_cuda` (act-quant) → `mul_mat_q` →
+`vec_dot_fp4_fp4_mma` (`mmq.cuh:997`) → `mma_block_scaled_fp4` (`mma.cuh:1126`, PTX
+`mma.sync...kind::mxf4nvf4.block_scale.scale_vec::4X.m16n8k64.row.col.f32.e2m1.e2m1.f32.ue4m3`).
+Geometry: `get_mmq_x_max=128`, `mmq_y=128`, `nwarps=256/32=8`, `iter_k=MMQ_ITER_K_FP4=512`. Tiles:
+`tile_A<16,8,int>` (weights, 16 N-rows × 64 FP4-in-K), `tile_B<8,8,int>` (acts, 8 M-cols × 64
+FP4-in-K), `tile_C<16,8,float>` (16 N-rows × 8 M-cols), `nfrags=32/8=4`.
+
+1. **Separate activation-quant pass (track A's target).** `quantize_mmq_fp4_cuda` writes the *entire*
+   activation tensor to `block_fp4_mmq` in a standalone kernel before `mul_mat_q`. vLLM fuses
+   `scaled_fp4_quant` into the preceding RMSNorm/SiLU epilogue (`rms_quant_fusion`/`act_quant_fusion`)
+   — no separate pass, no extra activation read+write+launch. 8.2% of the npl128 step. **B must consume
+   A's in-place `block_fp4_mmq` y-tile** so the fusion saves the round-trip, not just the launch.
+
+2. **No weight-load software pipeline → exposed latency at thin M (the #1 kernel lever).**
+   `load_tiles_nvfp4_nvfp4` does plain shared stores → `__syncthreads` → `vec_dot_fp4_fp4_mma`
+   (`load_ldmatrix` + MMAs): a **load→sync→compute→repeat** cadence with **no `cp.async`
+   double-buffering** overlapping the next K-block weight load with the current MMA. At M=128 the per-
+   tile MMA work is small (8 M-cols per `tile_C::J`), so serialized weight-load latency dominates →
+   the ~3% (dense) / 35%-of-BW (MoE) result. vLLM's Marlin runs a 4-stage `cp.async` pipeline. **The
+   defining caveat:** a *deep* pipeline + XOR-swizzle collapses GB10 occupancy
+   (`W4A16_MARLIN_KERNEL_PLAN.md`); the fix is a **shallow 2-stage prefetch + skew-pad**, not Marlin's 4.
+
+3. **`mmq_x` selector maximizes the M-tile — the opposite of the GB10 occupancy rule.**
+   `mul_mat_q_case` picks `mmq_x` by *minimizing* `ntiles_x = ceil(ncols_max/mmq_x)`, so it always
+   takes the *largest* tile that fits shared. Dense decode → `mmq_x=128`, `mmq_y=128`: a heavy 128×128
+   tile (8 warps) → low occupancy on the occupancy-dominated GB10. No padding waste and no redundant
+   weight read (`ntx=1` → each weight row-tile read once), so the loss is pure occupancy; a smaller
+   `mmq_x` with more resident CTAs may hide load latency better (P1 host-only sweep, zero kernel risk).
+
+4. **MoE per-expert M-tile waste (the structural MoE gap).** Stock applies the 128-wide tile *per
+   expert*; per-expert density is ~4 tokens (top-8 of 256 @npl128), so the 128-wide accumulator is
+   ~3% filled and only ~1 `tile_C` N-fragment is live (`tile_C::J=8`), the rest masked `need_check`
+   tails. Patch 0015 (`MOE_DENSITY_AUTO_TILE.md`) auto-caps to 64 at decode, but the ideal is
+   ~tokens/expert ≈ 8 — even 64 is ~8× too big. vLLM uses a small per-expert `BLOCK_SIZE_M` (16/32).
+   At ≤1 col-tile/expert a smaller tile costs **no** extra weight re-read → strictly occupancy-positive.
+   (Inefficiency 4 is the MoE arm of 3; at dense M=128, 128/8=16 N-frags are fully used — no dense
+   M-waste.)
+
+5. **`iter_k=512` (FP4) vs 256 couples to occupancy.** The FP4 main loop stages 512 K-elements/iter →
+   larger shared footprint → fewer iters but more pressure on the occupancy-bound part. A P5 knob.
+
+**Ruled out (so B does not chase them):** redundant weight reads (none — dense `ntx=1`, MoE ≤1
+col-tile/expert; the low effective BW is latency/occupancy, not re-reads); stream-K fixup (it *helps*
+fill the small GB10 grid, cheap at thin M); raw FP4-MMA peak rate (the path already beats Q4-MMQ and
+is BW-bound at batch 1 — at M=128 latency-hiding binds first, not MMA throughput).
+
+---
+
 ## 3. The load-bearing verdict
 
 **Q: compute-bound or bandwidth-bound at M=128?**
@@ -217,5 +269,3 @@ dense, but only at the **top of the demonstrated GB10 FP4-efficiency envelope (~
 **no margin**, gated by the occupancy wall. **MoE parity is not reachable from the GEMM alone**
 (ceiling ~60–76% of 811), because its floor sits in the hardest grouped-GEMM regime and ~24% of its
 step is non-GEMM work outside this track. Verdict: **GO for dense (conditional, B+A), PARTIAL for MoE.**
-</content>
-</invoke>
