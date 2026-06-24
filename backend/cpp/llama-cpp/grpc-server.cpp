@@ -37,6 +37,7 @@
 #include "backend.pb.h"
 #include "backend.grpc.pb.h"
 #include "common.h"
+#include "arg.h"
 #include "chat-auto-parser.h"
 #include <getopt.h>
 #include <grpcpp/ext/proto_server_reflection_plugin.h>
@@ -592,6 +593,10 @@ static void params_parse(server_context& /*ctx_server*/, const backend::ModelOpt
     params.checkpoint_min_step = 256;
 #endif
 
+    // Raw upstream llama-server flags collected from any option entry that
+    // starts with '-'. Applied once after the loop via common_params_parse.
+    std::vector<std::string> extra_argv;
+
      // decode options. Options are in form optname:optvale, or if booleans only optname.
     for (int i = 0; i < request->options_size(); i++) {
         std::string opt = request->options(i);
@@ -1136,6 +1141,27 @@ static void params_parse(server_context& /*ctx_server*/, const backend::ModelOpt
                 else { cur.push_back(c); }
             }
             if (!cur.empty()) flush(cur);
+
+        // --- generic passthrough: any entry starting with '-' is a raw
+        //     upstream llama-server flag, forwarded verbatim to the parser. ---
+        } else if (optname[0] == '-') {
+            std::string flag = optname;
+            // These flags make upstream's parser exit() (printing usage /
+            // completion), which would kill the backend process. Skip them.
+            if (flag == "-h" || flag == "--help" || flag == "--usage" ||
+                flag.rfind("--completion", 0) == 0) {
+                fprintf(stderr,
+                    "[llama-cpp] ignoring passthrough flag that would exit: %s\n",
+                    flag.c_str());
+            } else {
+                extra_argv.push_back(flag);
+                // Preserve the whole value after the first ':' so embedded
+                // colons (e.g. host:port) survive strtok's truncation of optval.
+                auto colon = opt.find(':');
+                if (colon != std::string::npos) {
+                    extra_argv.push_back(opt.substr(colon + 1));
+                }
+            }
         }
     }
 
@@ -1282,6 +1308,39 @@ static void params_parse(server_context& /*ctx_server*/, const backend::ModelOpt
             trigger.type = COMMON_GRAMMAR_TRIGGER_TYPE_WORD;
             trigger.value = word;
             params.sampling.grammar_triggers.push_back(std::move(trigger));
+        }
+    }
+
+    // Apply any raw upstream flags last so an explicit passthrough flag wins
+    // over the LocalAI-resolved field it maps to (e.g. --ctx-size beats
+    // context_size). This is the same parser llama-server itself uses.
+    if (!extra_argv.empty()) {
+        // common_params_parser_init resets a few fields for the SERVER example
+        // (n_parallel -> -1, use_color). Snapshot n_parallel so an unrelated
+        // passthrough flag can't silently clobber LocalAI's resolved value.
+        const int saved_n_parallel = params.n_parallel;
+
+        std::vector<char *> argv;
+        std::string prog = "llama-server";
+        argv.push_back(prog.data());
+        for (auto & a : extra_argv) {
+            argv.push_back(a.data());
+        }
+
+        // ctx_arg.params is a reference, so this overlays the given flags onto
+        // `params` in place. Returns false on a recoverable parse error (and
+        // self-restores params); may exit() on a hard error, exactly as
+        // passing the same bad flag to llama-server would.
+        if (!common_params_parse((int)argv.size(), argv.data(), params,
+                                 LLAMA_EXAMPLE_SERVER)) {
+            fprintf(stderr,
+                "[llama-cpp] failed to parse passthrough options; ignoring them\n");
+        }
+
+        // Restore n_parallel unless a passthrough flag explicitly set it
+        // (parser_init's reset sentinel for SERVER is -1).
+        if (params.n_parallel == -1) {
+            params.n_parallel = saved_n_parallel;
         }
     }
 }
