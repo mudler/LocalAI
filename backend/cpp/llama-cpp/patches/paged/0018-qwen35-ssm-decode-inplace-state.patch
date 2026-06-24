@@ -1,0 +1,349 @@
+From 17f16e8f6d8dbc689d5151c44759792d683c957b Mon Sep 17 00:00:00 2001
+From: Ettore Di Giacinto <mudler@localai.io>
+Date: Thu, 25 Jun 2026 00:44:13 +0200
+Subject: [PATCH] feat(paged): qwen35 gated-DeltaNet in-place SSM state
+ write-back (patch 0018)
+
+Decode on the Qwen3.6 hybrid-SSM models (arch qwen35, 48 gated-DeltaNet :
+16 full-attention layers) was dominated by recurrent-state plumbing, not the
+FP4 GEMM. Per SSM layer per step the fused gated_delta_net op wrote its new
+recurrent state into graph scratch, then a separate ggml_cpy persisted it into
+the recurrent-state cache. nsys attributed 18.9% of decode GPU time to that
+~225 MB/copy D2D memcpy (1584 ops, 356 GB over the A2 decompose window).
+
+This mirrors vLLM fused_recurrent_gated_delta_rule (state kept in place):
+ggml_gated_delta_net_inplace writes the final recurrent state directly into the
+active sequences contiguous cache slot (at kv_head), removing the copy-back. The
+op output then carries only the attention scores; the SSM arithmetic is
+unchanged (bit-identical greedy output vs the copy-back baseline).
+
+- new op builder ggml_gated_delta_net_inplace (src[6] = state_dst cache view)
+- CUDA + CPU honor src[6]; final-state (K==1, keep_rs off) write redirected there
+- delta-net-base build_recurrent_attn uses it on the fused decode/prefill path,
+  dropping the ggml_cpy; rollback (n_rs_seq>0) path unchanged
+
+Measured (q36-27b-nvfp4, decode_agg S_TG, npp128 ntg128, -fa on, paged on):
+  npl 32 : 113.74 -> 136.39 t/s (+19.9 percent)
+  npl 128: 146.23 -> 180.53 t/s (+23.5 percent, = predicted copy-removal ceiling)
+MoE q36-35b-a3b-nvfp4: npl128 313.36 -> 372.62 t/s (+18.9 percent).
+nsys D2D memcpy bucket 18.9 -> 0.23 percent (356 -> 2.93 GB). vLLM share
+(391 @128) 37.4 -> 46.2 percent. get_rows state gather (now 18.8 percent) is the
+next lever.
+
+Assisted-by: Claude:opus-4.8 [Claude Code]
+Signed-off-by: Ettore Di Giacinto <mudler@localai.io>
+---
+ ggml/include/ggml.h                   | 14 ++++++
+ ggml/src/ggml-cpu/ops.cpp             | 13 ++++-
+ ggml/src/ggml-cuda/gated_delta_net.cu | 39 ++++++++++-----
+ ggml/src/ggml.c                       | 68 +++++++++++++++++++++++++++
+ src/models/delta-net-base.cpp         | 30 ++++++++++++
+ 5 files changed, 152 insertions(+), 12 deletions(-)
+
+diff --git a/ggml/include/ggml.h b/ggml/include/ggml.h
+index 823f5a9..4e7ab32 100644
+--- a/ggml/include/ggml.h
++++ b/ggml/include/ggml.h
+@@ -2579,6 +2579,20 @@ extern "C" {
+             struct ggml_tensor  * state,
+             int64_t               K);
+ 
++    // same recurrence as ggml_gated_delta_net with K == 1, but the final recurrent state is written
++    // in place into state_dst (a view into the recurrent-state cache) instead of being appended to
++    // the op output, eliminating the per-step state copy-back during decode. state_dst must be a
++    // contiguous [S_v*S_v*H, n_seqs] view (per-seq stride == dense state size).
++    GGML_API struct ggml_tensor * ggml_gated_delta_net_inplace(
++            struct ggml_context * ctx,
++            struct ggml_tensor  * q,
++            struct ggml_tensor  * k,
++            struct ggml_tensor  * v,
++            struct ggml_tensor  * g,
++            struct ggml_tensor  * beta,
++            struct ggml_tensor  * state,
++            struct ggml_tensor  * state_dst);
++
+     // custom operators
+ 
+     typedef void (*ggml_custom1_op_t)(struct ggml_tensor * dst , const struct ggml_tensor * a, int ith, int nth, void * userdata);
+diff --git a/ggml/src/ggml-cpu/ops.cpp b/ggml/src/ggml-cpu/ops.cpp
+index 63c07a2..9457add 100644
+--- a/ggml/src/ggml-cpu/ops.cpp
++++ b/ggml/src/ggml-cpu/ops.cpp
+@@ -10600,6 +10600,7 @@ static void ggml_compute_forward_gated_delta_net_one_chunk(
+     ggml_tensor * src_g     = dst->src[3];
+     ggml_tensor * src_beta  = dst->src[4];
+     ggml_tensor * src_state = dst->src[5];
++    ggml_tensor * src_state_dst = dst->src[6]; // optional in-place final-state write-back target
+ 
+     const int64_t S_v      = src_v->ne[0];
+     const int64_t H        = src_v->ne[1];
+@@ -10660,6 +10661,16 @@ static void ggml_compute_forward_gated_delta_net_one_chunk(
+ 
+     const float scale = 1.0f / sqrtf((float) S_v);
+ 
++    // when src_state_dst is provided (in-place decode write-back) the final state is written
++    // directly into the persistent cache view, removing the separate state copy-back node.
++    float * inplace_state_base = nullptr;
++    if (src_state_dst != nullptr) {
++        GGML_ASSERT(K == 1);
++        GGML_ASSERT(src_state_dst->nb[0] == sizeof(float));
++        GGML_ASSERT(src_state_dst->nb[1] == (size_t) S_v * S_v * H * sizeof(float));
++        inplace_state_base = (float *) src_state_dst->data;
++    }
++
+     for (int64_t ir = ir0; ir < ir1; ++ir) {
+         const int64_t iv1 = ir % H; // head_index
+         const int64_t iv3 = ir / H; // sequence
+@@ -10674,7 +10685,7 @@ static void ggml_compute_forward_gated_delta_net_one_chunk(
+         // For K>1, work in scratch and copy out per-token when the slot is in range.
+         float * s_out = (K > 1)
+             ? state_work
+-            : state_out_base + (iv3 * H + iv1) * S_v * S_v;
++            : (inplace_state_base ? inplace_state_base : state_out_base) + (iv3 * H + iv1) * S_v * S_v;
+ 
+         // copy input state into the working buffer and operate in-place
+         // state layout [S_v, S_v, H, n_seqs]: seq iv3 starts at iv3 * state_seq_stride.
+diff --git a/ggml/src/ggml-cuda/gated_delta_net.cu b/ggml/src/ggml-cuda/gated_delta_net.cu
+index a547360..61a2b91 100644
+--- a/ggml/src/ggml-cuda/gated_delta_net.cu
++++ b/ggml/src/ggml-cuda/gated_delta_net.cu
+@@ -25,7 +25,8 @@ gated_delta_net_cuda(const float * q,
+                                      const uint3   neqk1_magic,
+                                      const uint3   rq3_magic,
+                                      float         scale,
+-                                     int           K) {
++                                     int           K,
++                                     float *       state_dst) {
+     const uint32_t h_idx    = blockIdx.x;
+     const uint32_t sequence = blockIdx.y;
+     // each warp owns one column, using warp-level primitives to reduce across rows
+@@ -37,7 +38,10 @@ gated_delta_net_cuda(const float * q,
+ 
+     const int64_t attn_score_elems = S_v * H * n_tokens * n_seqs;
+     float *       attn_data        = dst;
+-    float *       state            = dst + attn_score_elems;
++    // when state_dst is provided (in-place decode write-back) the final recurrent state is written
++    // directly into the persistent cache view instead of being appended to the op output; this
++    // eliminates the per-layer per-step D2D state copy-back. Only used when keep_rs_t == false.
++    float *       state            = (state_dst != nullptr) ? state_dst : (dst + attn_score_elems);
+ 
+     // input state holds s0 only: [S_v, S_v, H, n_seqs] — seq stride is D = H * S_v * S_v.
+     // output state layout (per-slot D * n_seqs) — same per-(seq,head) offset as before.
+@@ -171,7 +175,7 @@ template <bool KDA, bool keep_rs_t>
+ static void launch_gated_delta_net(
+         const float * q_d, const float * k_d, const float * v_d,
+         const float * g_d, const float * b_d, const float * s_d,
+-        float * dst_d,
++        float * dst_d, float * state_dst_d,
+         int64_t S_v,   int64_t H, int64_t n_tokens, int64_t n_seqs,
+         int64_t sq1,   int64_t sq2, int64_t sq3,
+         int64_t sv1,   int64_t sv2, int64_t sv3,
+@@ -195,26 +199,26 @@ static void launch_gated_delta_net(
+             ggml_cuda_kernel_launch(gated_delta_net_cuda<16, KDA, keep_rs_t>, launch_params,
+                 q_d, k_d, v_d, g_d, b_d, s_d, dst_d, H,
+                 n_tokens, n_seqs, sq1, sq2, sq3, sv1, sv2, sv3,
+-                sb1, sb2, sb3, neqk1_magic, rq3_magic, scale, K);
++                sb1, sb2, sb3, neqk1_magic, rq3_magic, scale, K, state_dst_d);
+             break;
+         case 32:
+             ggml_cuda_kernel_launch(gated_delta_net_cuda<32, KDA, keep_rs_t>, launch_params,
+                 q_d, k_d, v_d, g_d, b_d, s_d, dst_d, H,
+                 n_tokens, n_seqs, sq1, sq2, sq3, sv1, sv2, sv3,
+-                sb1, sb2, sb3, neqk1_magic, rq3_magic, scale, K);
++                sb1, sb2, sb3, neqk1_magic, rq3_magic, scale, K, state_dst_d);
+             break;
+         case 64: {
+             ggml_cuda_kernel_launch(gated_delta_net_cuda<64, KDA, keep_rs_t>, launch_params,
+                 q_d, k_d, v_d, g_d, b_d, s_d, dst_d, H,
+                 n_tokens, n_seqs, sq1, sq2, sq3, sv1, sv2, sv3,
+-                sb1, sb2, sb3, neqk1_magic, rq3_magic, scale, K);
++                sb1, sb2, sb3, neqk1_magic, rq3_magic, scale, K, state_dst_d);
+             break;
+         }
+         case 128: {
+             ggml_cuda_kernel_launch(gated_delta_net_cuda<128, KDA, keep_rs_t>, launch_params,
+                 q_d, k_d, v_d, g_d, b_d, s_d, dst_d, H,
+                 n_tokens, n_seqs, sq1, sq2, sq3, sv1, sv2, sv3,
+-                sb1, sb2, sb3, neqk1_magic, rq3_magic, scale, K);
++                sb1, sb2, sb3, neqk1_magic, rq3_magic, scale, K, state_dst_d);
+             break;
+         }
+         default:
+@@ -230,6 +234,7 @@ void ggml_cuda_op_gated_delta_net(ggml_backend_cuda_context & ctx, ggml_tensor *
+     ggml_tensor * src_g     = dst->src[3];
+     ggml_tensor * src_beta  = dst->src[4];
+     ggml_tensor * src_state = dst->src[5];
++    ggml_tensor * src_state_dst = dst->src[6]; // optional in-place state write-back target
+ 
+     GGML_TENSOR_LOCALS(int64_t, neq, src_q, ne);
+     GGML_TENSOR_LOCALS(size_t , nbq, src_q, nb);
+@@ -260,6 +265,15 @@ void ggml_cuda_op_gated_delta_net(ggml_backend_cuda_context & ctx, ggml_tensor *
+     const float * s_d   = (const float *) src_state->data;
+     float *       dst_d = (float *) dst->data;
+ 
++    float * state_dst_d = nullptr;
++    if (src_state_dst != nullptr) {
++        // in-place final-state cache view: per-seq stride must be the dense state size D = S_v*S_v*H
++        GGML_ASSERT(src_state_dst->type == GGML_TYPE_F32);
++        GGML_ASSERT(src_state_dst->nb[0] == sizeof(float));
++        GGML_ASSERT(src_state_dst->nb[1] == (size_t) S_v * S_v * H * sizeof(float));
++        state_dst_d = (float *) src_state_dst->data;
++    }
++
+     GGML_ASSERT(ggml_is_contiguous_rows(src_q));
+     GGML_ASSERT(ggml_is_contiguous_rows(src_k));
+     GGML_ASSERT(ggml_is_contiguous_rows(src_v));
+@@ -288,23 +302,26 @@ void ggml_cuda_op_gated_delta_net(ggml_backend_cuda_context & ctx, ggml_tensor *
+     const int K = ggml_get_op_params_i32(dst, 0);
+     const bool keep_rs = K > 1;
+ 
++    // in-place write-back is only valid for the single-snapshot (final-state) case
++    GGML_ASSERT(state_dst_d == nullptr || !keep_rs);
++
+     if (kda) {
+         if (keep_rs) {
+-            launch_gated_delta_net<true, true>(q_d, k_d, v_d, g_d, b_d, s_d, dst_d,
++            launch_gated_delta_net<true, true>(q_d, k_d, v_d, g_d, b_d, s_d, dst_d, state_dst_d,
+                 S_v, H, n_tokens, n_seqs, sq1, sq2, sq3, sv1, sv2, sv3,
+                 sb1, sb2, sb3, neqk1, rq3, scale, K, stream);
+         } else {
+-            launch_gated_delta_net<true, false>(q_d, k_d, v_d, g_d, b_d, s_d, dst_d,
++            launch_gated_delta_net<true, false>(q_d, k_d, v_d, g_d, b_d, s_d, dst_d, state_dst_d,
+                 S_v, H, n_tokens, n_seqs, sq1, sq2, sq3, sv1, sv2, sv3,
+                 sb1, sb2, sb3, neqk1, rq3, scale, K, stream);
+         }
+     } else {
+         if (keep_rs) {
+-            launch_gated_delta_net<false, true>(q_d, k_d, v_d, g_d, b_d, s_d, dst_d,
++            launch_gated_delta_net<false, true>(q_d, k_d, v_d, g_d, b_d, s_d, dst_d, state_dst_d,
+                 S_v, H, n_tokens, n_seqs, sq1, sq2, sq3, sv1, sv2, sv3,
+                 sb1, sb2, sb3, neqk1, rq3, scale, K, stream);
+         } else {
+-            launch_gated_delta_net<false, false>(q_d, k_d, v_d, g_d, b_d, s_d, dst_d,
++            launch_gated_delta_net<false, false>(q_d, k_d, v_d, g_d, b_d, s_d, dst_d, state_dst_d,
+                 S_v, H, n_tokens, n_seqs, sq1, sq2, sq3, sv1, sv2, sv3,
+                 sb1, sb2, sb3, neqk1, rq3, scale, K, stream);
+         }
+diff --git a/ggml/src/ggml.c b/ggml/src/ggml.c
+index adbe52b..b8d34bf 100644
+--- a/ggml/src/ggml.c
++++ b/ggml/src/ggml.c
+@@ -6285,6 +6285,74 @@ struct ggml_tensor * ggml_gated_delta_net(
+     return result;
+ }
+ 
++// ggml_gated_delta_net_inplace
++//
++// Same recurrence as ggml_gated_delta_net with K == 1, but the final recurrent state is written
++// in place into `state_dst` (a view into the persistent recurrent-state cache) instead of being
++// appended to the op output. This removes the per-layer per-step D2D state copy-back during decode.
++// The op output holds ONLY the attention scores; the state region is still allocated (unused) so
++// the attention-output view layout is identical to ggml_gated_delta_net.
++struct ggml_tensor * ggml_gated_delta_net_inplace(
++        struct ggml_context * ctx,
++        struct ggml_tensor  * q,
++        struct ggml_tensor  * k,
++        struct ggml_tensor  * v,
++        struct ggml_tensor  * g,
++        struct ggml_tensor  * beta,
++        struct ggml_tensor  * state,
++        struct ggml_tensor  * state_dst) {
++    GGML_ASSERT(ggml_is_contiguous_rows(q));
++    GGML_ASSERT(ggml_is_contiguous_rows(k));
++    GGML_ASSERT(ggml_is_contiguous_rows(v));
++    GGML_ASSERT(ggml_is_contiguous(g));
++    GGML_ASSERT(ggml_is_contiguous(beta));
++    GGML_ASSERT(ggml_is_contiguous(state));
++
++    GGML_ASSERT(q->type == GGML_TYPE_F32);
++    GGML_ASSERT(k->type == GGML_TYPE_F32);
++    GGML_ASSERT(v->type == GGML_TYPE_F32);
++    GGML_ASSERT(g->type == GGML_TYPE_F32);
++    GGML_ASSERT(beta->type == GGML_TYPE_F32);
++    GGML_ASSERT(state->type == GGML_TYPE_F32);
++    GGML_ASSERT(state_dst != NULL);
++    GGML_ASSERT(state_dst->type == GGML_TYPE_F32);
++
++    const int64_t S_v      = v->ne[0];
++    const int64_t H        = v->ne[1];
++    const int64_t n_tokens = v->ne[2];
++    const int64_t n_seqs   = v->ne[3];
++
++    GGML_ASSERT(g->ne[0] == 1 || g->ne[0] == S_v);
++    GGML_ASSERT(beta->ne[0] == 1);
++
++    GGML_ASSERT(state->ne[0] == S_v);
++    GGML_ASSERT(state->ne[1] == S_v);
++    GGML_ASSERT(state->ne[2] == H);
++    GGML_ASSERT(state->ne[3] == n_seqs);
++
++    // state_dst holds the per-seq final state contiguously: [S_v*S_v*H, >= n_seqs]
++    GGML_ASSERT(state_dst->ne[0] == S_v * S_v * H);
++    GGML_ASSERT(state_dst->ne[1] >= n_seqs);
++    GGML_ASSERT(state_dst->nb[0] == sizeof(float));
++
++    const int64_t state_rows = S_v * n_seqs; // K == 1
++    const int64_t ne[4] = { S_v * H, n_tokens * n_seqs + state_rows, 1, 1 };
++    struct ggml_tensor * result = ggml_new_tensor(ctx, GGML_TYPE_F32, 4, ne);
++
++    ggml_set_op_params_i32(result, 0, 1); // K == 1
++
++    result->op     = GGML_OP_GATED_DELTA_NET;
++    result->src[0] = q;
++    result->src[1] = k;
++    result->src[2] = v;
++    result->src[3] = g;
++    result->src[4] = beta;
++    result->src[5] = state;
++    result->src[6] = state_dst;
++
++    return result;
++}
++
+ ////////////////////////////////////////////////////////////////////////////////
+ 
+ struct ggml_hash_set ggml_hash_set_new(size_t size) {
+diff --git a/src/models/delta-net-base.cpp b/src/models/delta-net-base.cpp
+index ad9ce77..26a718b 100644
+--- a/src/models/delta-net-base.cpp
++++ b/src/models/delta-net-base.cpp
+@@ -546,6 +546,36 @@ ggml_tensor * llm_build_delta_net_base::build_recurrent_attn(
+     const bool keep = cparams.n_rs_seq > 0;
+ 
+     if (!keep) {
++        const bool fused = (n_seq_tokens == 1) ? cparams.fused_gdn_ar : cparams.fused_gdn_ch;
++
++        if (fused) {
++            // In-place state write-back: the fused gated-DeltaNet op writes the new recurrent state
++            // directly into the persistent cache slot for the active sequences (a contiguous block
++            // at kv_head), eliminating the per-layer per-step ~full-state D2D copy-back that
++            // dominated decode. The op output then carries only the attention scores.
++            ggml_tensor * state_dst = ggml_view_2d(ctx0, ssm_states_all, hparams.n_embd_s(), n_seqs,
++                    ssm_states_all->nb[1], kv_head * hparams.n_embd_s() * ggml_element_size(ssm_states_all));
++
++            ggml_tensor * result = ggml_gated_delta_net_inplace(ctx0, q, k, v, g, b, s, state_dst);
++            if (n_seq_tokens == 1) {
++                cb(result, LLAMA_TENSOR_NAME_FGDN_AR, il);
++            } else {
++                cb(result, LLAMA_TENSOR_NAME_FGDN_CH, il);
++            }
++
++            ggml_tensor * output = ggml_view_4d(ctx0, result,
++                    S_v, H_v, n_seq_tokens, n_seqs,
++                    ggml_row_size(result->type, S_v),
++                    ggml_row_size(result->type, S_v * H_v),
++                    ggml_row_size(result->type, S_v * H_v * n_seq_tokens), 0);
++            cb(output, "attn_output", il);
++
++            // the state write is a side effect of the op; pull the op into the graph via the output
++            ggml_build_forward_expand(gf, output);
++
++            return output;
++        }
++
+         auto attn_out = build_delta_net(q, k, v, g, b, s, il);
+         ggml_tensor * output    = attn_out.first;
+         ggml_tensor * new_state = attn_out.second;
+-- 
+2.43.0
+
