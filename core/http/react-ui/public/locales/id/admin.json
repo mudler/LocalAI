@@ -45,7 +45,7 @@
   },
   "scheduling": {
     "title": "Penjadwalan",
-    "subtitle": "Aturan penempatan model dan replika di seluruh klaster"
+    "subtitle": "Aturan penempatan model dan replika di seluruh kluster"
   },
   "p2p": {
     "title": "Komputasi AI Terdistribusi",

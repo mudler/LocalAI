@@ -19,11 +19,11 @@
     "operate": "Operasikan"
   },
   "operate": {
-    "inference": "Inference",
-    "cluster": "Cluster",
-    "observability": "Observability",
-    "access": "Access",
-    "system": "System"
+    "inference": "Inferensi",
+    "cluster": "Kluster",
+    "observability": "Observabilitas",
+    "access": "Akses",
+    "system": "Sistem"
   },
   "items": {
     "home": "Beranda",
@@ -64,7 +64,7 @@
     "copyright": "© 2023-{{year}} {{author}}"
   },
   "console": {
-    "automation": "Otomasi",
+    "automation": "Automasi",
     "training": "Pelatihan"
   }
 }
