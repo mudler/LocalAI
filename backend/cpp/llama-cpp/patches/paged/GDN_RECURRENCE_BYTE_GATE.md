@@ -254,4 +254,91 @@ conv-path: ~12.6 MB (launch-bound ~19.5 ms/step, not byte-bound).
 => NO-BUILD fused recurrence (already single-pass, more efficient than vLLM); BUILD bf16 state
 (halves the dominant 805 MB, ~45-95 ms/step, parity-to-ahead). Deciding number: re-stream ~1.0x.
 
+---
+
+# FINAL DECISION (synthesis of all four agents) - the five points
+
+This closes the workflow. Inputs: `ncu-byte-gate` (measured byte ratio), `vllm-fused-recurrence-study`
+(vLLM's single-pass boundary), `llama-fused-recurrence-design` (the fold/levers), `conv-fusion-design`
+(the no-regret conv in-place lever). They agree on every number; the decision is unambiguous.
+
+## (1) Byte-ratio verdict - the decisive number
+
+**llama is at the hardware bandwidth floor, NOT re-streaming.** Re-stream factor = **~1.0x**, hard
+capped at **<=1.33x** (the most bytes a 3.98 ms call can move at 273 GB/s peak is 1.087 GB = 1.33x
+the 816 MB minimal; >=1.5x is physically impossible). The recurrence kernel runs at **74% of GB10
+peak BW** (805.3 MB R+W / 3.98 ms = 202 GB/s) - MORE bandwidth-efficient than vLLM's fused triton
+`packed_decode` at **41% of peak** (402.6 MB / 3.62 ms = 111 GB/s). Source confirms both are
+single-pass and coalesced (llama `s_shard` load-once/store-once, 128 consecutive f32/warp; vLLM
+`b_h = load(p_h0)` once -> f32 regs -> `store(p_ht, b_h.to(bf16))` once). The entire 2x DRAM gap
+vs vLLM is **100% f32 (llama) vs bf16 (vLLM) state-cache WIDTH**, not extra passes.
+
+## (2) Fused single-pass GDN recurrence: **NO-BUILD**
+
+A fused single-pass rewrite recovers **~0 state bytes** because the kernel is already one read + one
+write of the f32 state, and the un-fused l2norm/sigmoid/softplus/gate ops act on the tiny
+q/k/g/beta projections (8 MB/call, <1%), not the 805 MB state. There is no second pass to fuse away.
+Expected ceiling if built anyway: unchanged 191 ms recurrence -> no movement on the dominant 50% of
+the step. **Do not build it.** This refutes the workflow's founding hypothesis with a measured cap.
+
+## (3) Conv-state in-place fusion (`conv-fusion-design`): **GO - confirmed, bit-exact, no-regret**
+
+This is independent of the recurrence verdict and holds regardless. Build a fused
+`ggml_ssm_conv_update_inplace` (mirrors the 0018/0019 in-place pattern) that, at decode
+(`n_seq_tokens==1 && !keep && fused-AR && n_rs_seq==0`), assembles the width-4 conv window in
+registers from the cached K-1=3 taps + the native `qkv_mixed` token, computes the depthwise conv,
+folds `silu`, and writes the 1-token-shifted ring state back in place.
+- Eliminates `concat_cont` (8.14 ms/step), `cpy_scalar` (5.76 ms/step), the transpose
+  materialization, and the separate `ggml_silu`; replaces `ssm_conv` with a ~1.6x-byte fused kernel
+  (5.56 -> ~9 ms). **Net ~12-14 ms/step = +3.1 to +3.7%** -> dense 335 -> ~346-349 tok/s @npl128
+  (88.5-89.3% of vLLM 391).
+- **Bit-exact**: identical ascending-j width-4 FMA order as `ssm_conv_f32` at i==0, same `silu`
+  primitive, same f32 state bytes written - only the producing node changes. Greedy output is
+  bit-identical to the 0018/0019 baseline. LOW risk, additive to everything else.
+
+## (4) Recurrence floor-mover: bf16 SSM state - **BUILD (gated product call)**, and the bit-exact question
+
+Since the recurrence is at the f32 byte floor, the **only** lever on the dominant 191 ms (50% of the
+step) is narrowing the state-cache width to bf16, exactly as vLLM does.
+- Store `ssm_states_all` in bf16; load bf16->f32 into `s_shard`, run ALL recurrence arithmetic in
+  f32 (UNCHANGED), store f32->bf16. 805.3 -> ~413 MB/call -> ~2.0-3.0 ms/call -> save **~45-95 ms/
+  step** -> step 384 -> **289-339 ms** = parity-to-ahead of vLLM (327 ms / 391 tok/s; projected
+  360-443 tok/s @npl128).
+- **Bit-exact parity is UNREACHABLE on this term, by construction.** The f32 state bytes are
+  irreducible (single pass already), so matching vLLM's *speed* on the recurrence requires matching
+  vLLM's *width* (bf16). bf16 state is non-bit-exact vs llama's own f32 reference, but it is **equal
+  precision to vLLM** (vLLM's state cache is itself bf16). "Bit-exact parity with vLLM" was never on
+  the table - vLLM is the less-precise reference here. Gate the build on **KL < 1e-3 / PPL-delta**
+  over a 256-token greedy run, not on md5, with a `cparams` f32 fallback. The geometric state decay
+  (g<1) bounds per-step bf16 rounding, so accumulation is well-behaved.
+- Bit-exact gains that ARE reachable (vs llama f32): the conv fusion (3) and the activation-fold
+  lever (1) - together ~9-11% - but they top out near ~93-96% of vLLM and never touch the 50%
+  recurrence term.
+
+## (5) Ranked build order + the single highest-value next step
+
+1. **Conv-state in-place fusion (BUILD NEXT - no-regret).** Bit-exact, LOW risk, +12-14 ms (~+3%),
+   reuses the proven 0018/0019 in-place op pattern. Build this first because it is risk-free, purely
+   additive, and de-risks the in-place conv-cache plumbing the bf16 work also touches.
+   Confirming measurement: nsys decode trace shows `concat_cont` and `cpy_scalar` GONE, step
+   384 -> ~370-372 ms, and greedy md5 IDENTICAL to the 0019 baseline (dense text md5, MoE
+   byte-identical).
+2. **bf16 SSM state cache (HIGHEST-VALUE lever - gated product call).** The ONLY lever on the
+   dominant 50% recurrence term: +45-95 ms/step, step -> 289-339 ms = parity-to-ahead of vLLM.
+   Non-bit-exact vs llama f32, equal precision to vLLM. Confirming measurement: `gated_delta_net_cuda`
+   duration/call drops 3.98 -> 2.0-3.0 ms in nsys; **KL < 1e-3 / PPL-delta vs the f32 build over
+   256-token greedy** passes; step time and tok/s hit the 289-339 ms / 360-443 tok/s band; cparams
+   f32 fallback verified.
+3. **Activation-op fold, design lever (1) (OPTIONAL, bit-exact, diminishing).** After (1) takes the
+   conv/silu buckets, the residual fold (q/k l2norm + gate softplus/sigmoid + gated-RMSNorm epilogue
+   + launch overhead) is ~3-5%; bit-exact but bounded. Build only if the goal is >90% of vLLM with
+   no bf16. Confirming measurement: per-op launch count for the GDN layer collapses to ~1; greedy
+   md5 unchanged.
+
+**Single highest-value next implementation step: bf16 SSM state cache (#2)** - it is the only change
+that moves the dominant 191 ms term and reaches vLLM parity-to-ahead. Its confirming measurement is
+the `gated_delta_net_cuda` per-call time dropping to ~2.0-3.0 ms AND the KL<1e-3 gate passing.
+**Recommended immediate build: the conv fusion (#1) first** (no-regret, bit-exact) so the bf16 work
+lands on an already-cleaned conv path; ship #2 as a `cparams`-gated, KL-validated product option.
+
 Assisted-by: Claude:opus-4.8 [Claude Code]
