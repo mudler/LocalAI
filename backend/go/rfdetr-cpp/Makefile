@@ -71,7 +71,7 @@ ifeq ($(UNAME_S),Linux)
 	VARIANT_TARGETS = librfdetrcpp-avx.so librfdetrcpp-avx2.so librfdetrcpp-avx512.so librfdetrcpp-fallback.so
 else
 	# On non-Linux (e.g., Darwin), build only fallback variant
-	VARIANT_TARGETS = librfdetrcpp-fallback.so
+	VARIANT_TARGETS = librfdetrcpp-fallback.dylib
 endif
 
 rfdetr-cpp: main.go gorfdetrcpp.go $(VARIANT_TARGETS)
@@ -83,7 +83,7 @@ package: rfdetr-cpp
 build: package
 
 clean: purge
-	rm -rf librfdetrcpp*.so rfdetr-cpp package sources
+	rm -rf librfdetrcpp*.so librfdetrcpp*.dylib rfdetr-cpp package sources
 
 purge:
 	rm -rf build*
@@ -110,11 +110,19 @@ librfdetrcpp-avx512.so: sources/rt-detr.cpp
 endif
 
 # Build fallback variant (all platforms)
+ifeq ($(UNAME_S),Darwin)
+librfdetrcpp-fallback.dylib: sources/rt-detr.cpp
+	rm -rfv build-$@
+	$(info ${GREEN}I rfdetr-cpp build info:fallback${RESET})
+	SO_TARGET=$@ CMAKE_ARGS="$(CMAKE_ARGS) -DGGML_AVX=off -DGGML_AVX2=off -DGGML_AVX512=off -DGGML_FMA=off -DGGML_F16C=off -DGGML_BMI2=off" $(MAKE) librfdetrcpp-custom
+	rm -rfv build-$@
+else
 librfdetrcpp-fallback.so: sources/rt-detr.cpp
 	rm -rfv build-$@
 	$(info ${GREEN}I rfdetr-cpp build info:fallback${RESET})
 	SO_TARGET=$@ CMAKE_ARGS="$(CMAKE_ARGS) -DGGML_AVX=off -DGGML_AVX2=off -DGGML_AVX512=off -DGGML_FMA=off -DGGML_F16C=off -DGGML_BMI2=off" $(MAKE) librfdetrcpp-custom
 	rm -rfv build-$@
+endif
 
 librfdetrcpp-custom: CMakeLists.txt
 	mkdir -p build-$(SO_TARGET) && \
@@ -122,7 +130,8 @@ librfdetrcpp-custom: CMakeLists.txt
 	cmake .. $(CMAKE_ARGS) && \
 	cmake --build . --config Release -j$(JOBS) && \
 	cd .. && \
-	mv build-$(SO_TARGET)/librfdetrcpp.so ./$(SO_TARGET)
+	(mv build-$(SO_TARGET)/librfdetrcpp.so ./$(SO_TARGET) 2>/dev/null || \
+	 mv build-$(SO_TARGET)/librfdetrcpp.dylib ./$(SO_TARGET) 2>/dev/null)
 
 all: rfdetr-cpp package
 

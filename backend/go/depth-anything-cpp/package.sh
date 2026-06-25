@@ -10,7 +10,8 @@ REPO_ROOT="${CURDIR}/../../.."
 # Create lib directory
 mkdir -p $CURDIR/package/lib
 
-cp -avf $CURDIR/libdepthanythingcpp-*.so $CURDIR/package/
+cp -fv $CURDIR/libdepthanythingcpp-*.so $CURDIR/package/ 2>/dev/null || true
+cp -fv $CURDIR/libdepthanythingcpp-*.dylib $CURDIR/package/ 2>/dev/null || true
 cp -avf $CURDIR/depth-anything-cpp $CURDIR/package/
 cp -fv $CURDIR/run.sh $CURDIR/package/
 

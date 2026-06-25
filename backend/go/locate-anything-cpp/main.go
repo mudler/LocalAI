@@ -9,6 +9,7 @@ package main
 import (
 	"flag"
 	"os"
+	"runtime"
 
 	"github.com/ebitengine/purego"
 	grpc "github.com/mudler/LocalAI/pkg/grpc"
@@ -27,7 +28,11 @@ func main() {
 	// Get library name from environment variable, default to fallback
 	libName := os.Getenv("LOCATEANYTHING_LIBRARY")
 	if libName == "" {
-		libName = "./liblocateanythingcpp-fallback.so"
+		if runtime.GOOS == "darwin" {
+			libName = "./liblocateanythingcpp-fallback.dylib"
+		} else {
+			libName = "./liblocateanythingcpp-fallback.so"
+		}
 	}
 
 	lib, err := purego.Dlopen(libName, purego.RTLD_NOW|purego.RTLD_GLOBAL)

@@ -10,7 +10,8 @@ REPO_ROOT="${CURDIR}/../../.."
 # Create lib directory
 mkdir -p $CURDIR/package/lib
 
-cp -avf $CURDIR/libgosam3-*.so $CURDIR/package/
+cp -fv $CURDIR/libgosam3-*.so $CURDIR/package/ 2>/dev/null || true
+cp -fv $CURDIR/libgosam3-*.dylib $CURDIR/package/ 2>/dev/null || true
 cp -avf $CURDIR/sam3-cpp $CURDIR/package/
 cp -fv $CURDIR/run.sh $CURDIR/package/
 

@@ -75,7 +75,8 @@ UNAME_S := $(shell uname -s)
 ifeq ($(UNAME_S),Linux)
 	VARIANT_TARGETS = libgocrispasr-avx.so libgocrispasr-avx2.so libgocrispasr-avx512.so libgocrispasr-fallback.so
 else
-	VARIANT_TARGETS = libgocrispasr-fallback.so
+	# On non-Linux (e.g., Darwin), build only fallback variant (as a dylib)
+	VARIANT_TARGETS = libgocrispasr-fallback.dylib
 endif
 
 crispasr: main.go gocrispasr.go $(VARIANT_TARGETS)
@@ -87,7 +88,7 @@ package: crispasr
 build: package
 
 clean: purge
-	rm -rf libgocrispasr*.so package sources/CrispASR crispasr
+	rm -rf libgocrispasr*.so libgocrispasr*.dylib package sources/CrispASR crispasr
 
 purge:
 	rm -rf build*
@@ -118,13 +119,21 @@ libgocrispasr-fallback.so: sources/CrispASR
 	SO_TARGET=libgocrispasr-fallback.so CMAKE_ARGS="$(CMAKE_ARGS) -DGGML_AVX=off -DGGML_AVX2=off -DGGML_AVX512=off -DGGML_FMA=off -DGGML_F16C=off -DGGML_BMI2=off" $(MAKE) libgocrispasr-custom
 	rm -rfv build*
 
+# Build fallback variant as a dylib (Darwin)
+libgocrispasr-fallback.dylib: sources/CrispASR
+	$(MAKE) purge
+	$(info ${GREEN}I crispasr build info:fallback (dylib)${RESET})
+	SO_TARGET=libgocrispasr-fallback.dylib CMAKE_ARGS="$(CMAKE_ARGS) -DGGML_AVX=off -DGGML_AVX2=off -DGGML_AVX512=off -DGGML_FMA=off -DGGML_F16C=off -DGGML_BMI2=off" $(MAKE) libgocrispasr-custom
+	rm -rfv build*
+
 libgocrispasr-custom: CMakeLists.txt cpp/crispasr_shim.cpp cpp/crispasr_shim.h
 	mkdir -p build-$(SO_TARGET) && \
 	cd build-$(SO_TARGET) && \
 	cmake .. $(CMAKE_ARGS) && \
 	cmake --build . --config Release -j$(JOBS) && \
 	cd .. && \
-	mv build-$(SO_TARGET)/libgocrispasr.so ./$(SO_TARGET)
+	(mv build-$(SO_TARGET)/libgocrispasr.so ./$(SO_TARGET) 2>/dev/null || \
+	 mv build-$(SO_TARGET)/libgocrispasr.dylib ./$(SO_TARGET) 2>/dev/null)
 
 test: crispasr
 	CGO_ENABLED=0 $(GOCMD) test -v ./...

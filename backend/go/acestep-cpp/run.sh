@@ -12,9 +12,19 @@ if [ "$(uname)" != "Darwin" ]; then
 	grep -e "flags" /proc/cpuinfo | head -1
 fi
 
-LIBRARY="$CURDIR/libgoacestepcpp-fallback.so"
+if [ "$(uname)" = "Darwin" ]; then
+	# macOS: single library variant (Metal or Accelerate). The goacestepcpp
+	# target is built as a CMake MODULE, which emits a .dylib for a SHARED
+	# build but a .so for a MODULE build on Apple, so prefer .dylib and fall
+	# back to .so.
+	LIBRARY="$CURDIR/libgoacestepcpp-fallback.dylib"
+	if [ ! -e "$LIBRARY" ]; then
+		LIBRARY="$CURDIR/libgoacestepcpp-fallback.so"
+	fi
+	export DYLD_LIBRARY_PATH=$CURDIR/lib:$DYLD_LIBRARY_PATH
+else
+	LIBRARY="$CURDIR/libgoacestepcpp-fallback.so"
 
-if [ "$(uname)" != "Darwin" ]; then
 	if grep -q -e "\savx\s" /proc/cpuinfo ; then
 		echo "CPU:    AVX    found OK"
 		if [ -e $CURDIR/libgoacestepcpp-avx.so ]; then
@@ -36,9 +46,10 @@ if [ "$(uname)" != "Darwin" ]; then
 			LIBRARY="$CURDIR/libgoacestepcpp-avx512.so"
 		fi
 	fi
+
+	export LD_LIBRARY_PATH=$CURDIR/lib:$LD_LIBRARY_PATH
 fi
 
-export LD_LIBRARY_PATH=$CURDIR/lib:$LD_LIBRARY_PATH
 export ACESTEP_LIBRARY=$LIBRARY
 
 # If there is a lib/ld.so, use it

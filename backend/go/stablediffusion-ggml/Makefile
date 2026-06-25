@@ -131,6 +131,7 @@ libgosd-custom: CMakeLists.txt cpp/gosd.cpp cpp/gosd.h
 	cmake .. $(CMAKE_ARGS) && \
 	cmake --build . --config Release -j$(JOBS) && \
 	cd .. && \
-	mv build-$(SO_TARGET)/libgosd.so ./$(SO_TARGET)
+	(mv build-$(SO_TARGET)/libgosd.so ./$(SO_TARGET) 2>/dev/null || \
+	 mv build-$(SO_TARGET)/libgosd.dylib ./$(SO_TARGET) 2>/dev/null)
 
 all: stablediffusion-ggml package

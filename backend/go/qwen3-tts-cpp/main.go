@@ -4,6 +4,7 @@ package main
 import (
 	"flag"
 	"os"
+	"runtime"
 
 	"github.com/ebitengine/purego"
 	grpc "github.com/mudler/LocalAI/pkg/grpc"
@@ -21,7 +22,11 @@ type LibFuncs struct {
 func main() {
 	libName := os.Getenv("QWEN3TTS_LIBRARY")
 	if libName == "" {
-		libName = "./libgoqwen3ttscpp-fallback.so"
+		if runtime.GOOS == "darwin" {
+			libName = "./libgoqwen3ttscpp-fallback.dylib"
+		} else {
+			libName = "./libgoqwen3ttscpp-fallback.so"
+		}
 	}
 
 	lib, err := purego.Dlopen(libName, purego.RTLD_NOW|purego.RTLD_GLOBAL)

@@ -11,9 +11,13 @@ if [ "$(uname)" != "Darwin" ]; then
 	grep -e "flags" /proc/cpuinfo | head -1
 fi
 
-LIBRARY="$CURDIR/libgovibevoicecpp-fallback.so"
+if [ "$(uname)" = "Darwin" ]; then
+	# macOS: single dylib variant (Metal or Accelerate)
+	LIBRARY="$CURDIR/libgovibevoicecpp-fallback.dylib"
+	export DYLD_LIBRARY_PATH=$CURDIR/lib:$DYLD_LIBRARY_PATH
+else
+	LIBRARY="$CURDIR/libgovibevoicecpp-fallback.so"
 
-if [ "$(uname)" != "Darwin" ]; then
 	if grep -q -e "\savx\s" /proc/cpuinfo ; then
 		echo "CPU:    AVX    found OK"
 		if [ -e $CURDIR/libgovibevoicecpp-avx.so ]; then
@@ -34,9 +38,10 @@ if [ "$(uname)" != "Darwin" ]; then
 			LIBRARY="$CURDIR/libgovibevoicecpp-avx512.so"
 		fi
 	fi
+
+	export LD_LIBRARY_PATH=$CURDIR/lib:$LD_LIBRARY_PATH
 fi
 
-export LD_LIBRARY_PATH=$CURDIR/lib:$LD_LIBRARY_PATH
 export VIBEVOICECPP_LIBRARY=$LIBRARY
 
 if [ -f $CURDIR/lib/ld.so ]; then

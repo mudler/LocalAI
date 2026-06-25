@@ -15,10 +15,12 @@ mkdir -p "$CURDIR/package/lib"
 cp -avf "$CURDIR/ced-grpc" "$CURDIR/package/"
 cp -avf "$CURDIR/run.sh" "$CURDIR/package/"
 
-cp -avf "$CURDIR"/libced.so* "$CURDIR/package/lib/" 2>/dev/null || {
-	echo "ERROR: libced.so not found in $CURDIR, run 'make' first" >&2
+cp -avf "$CURDIR"/libced.so* "$CURDIR/package/lib/" 2>/dev/null || true
+cp -avf "$CURDIR"/libced.dylib "$CURDIR/package/lib/" 2>/dev/null || true
+if ! ls "$CURDIR"/package/lib/libced.* >/dev/null 2>&1; then
+	echo "ERROR: libced shared library not found in $CURDIR, run 'make' first" >&2
 	exit 1
-}
+fi
 
 if [ -f "/lib64/ld-linux-x86-64.so.2" ]; then
     echo "Detected x86_64 architecture, copying x86_64 libraries..."

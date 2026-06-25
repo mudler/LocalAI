@@ -117,6 +117,7 @@ libgowhisper-custom: CMakeLists.txt cpp/gowhisper.cpp cpp/gowhisper.h
 	cmake .. $(CMAKE_ARGS) && \
 	cmake --build . --config Release -j$(JOBS) && \
 	cd .. && \
-	mv build-$(SO_TARGET)/libgowhisper.so ./$(SO_TARGET)
+	mv build-$(SO_TARGET)/libgowhisper.so ./$(SO_TARGET) 2>/dev/null || \
+		mv build-$(SO_TARGET)/libgowhisper.dylib ./$(SO_TARGET:.so=.dylib)
 
 all: whisper package

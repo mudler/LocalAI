@@ -12,9 +12,18 @@ if [ "$(uname)" != "Darwin" ]; then
 	grep -e "flags" /proc/cpuinfo | head -1
 fi
 
-LIBRARY="$CURDIR/libgosd-fallback.so"
+if [ "$(uname)" = "Darwin" ]; then
+	# macOS: single library variant (Metal or Accelerate). The gosd target is
+	# built as a CMake MODULE, which emits a .dylib for a SHARED build but a
+	# .so for a MODULE build on Apple, so prefer .dylib and fall back to .so.
+	LIBRARY="$CURDIR/libgosd-fallback.dylib"
+	if [ ! -e "$LIBRARY" ]; then
+		LIBRARY="$CURDIR/libgosd-fallback.so"
+	fi
+	export DYLD_LIBRARY_PATH=$CURDIR/lib:$DYLD_LIBRARY_PATH
+else
+	LIBRARY="$CURDIR/libgosd-fallback.so"
 
-if [ "$(uname)" != "Darwin" ]; then
 	if grep -q -e "\savx\s" /proc/cpuinfo ; then
 		echo "CPU:    AVX    found OK"
 		if [ -e $CURDIR/libgosd-avx.so ]; then
@@ -36,9 +45,10 @@ if [ "$(uname)" != "Darwin" ]; then
 			LIBRARY="$CURDIR/libgosd-avx512.so"
 		fi
 	fi
+
+	export LD_LIBRARY_PATH=$CURDIR/lib:$LD_LIBRARY_PATH
 fi
 
-export LD_LIBRARY_PATH=$CURDIR/lib:$LD_LIBRARY_PATH
 export SD_LIBRARY=$LIBRARY
 
 # If there is a lib/ld.so, use it

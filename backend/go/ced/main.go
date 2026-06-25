@@ -12,6 +12,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"runtime"
 
 	"github.com/ebitengine/purego"
 	grpc "github.com/mudler/LocalAI/pkg/grpc"
@@ -27,7 +28,11 @@ type libFunc struct {
 func main() {
 	libName := os.Getenv("CED_LIBRARY")
 	if libName == "" {
-		libName = "libced.so"
+		if runtime.GOOS == "darwin" {
+			libName = "libced.dylib"
+		} else {
+			libName = "libced.so"
+		}
 	}
 	lib, err := purego.Dlopen(libName, purego.RTLD_NOW|purego.RTLD_GLOBAL)
 	if err != nil {

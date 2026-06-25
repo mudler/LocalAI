@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strconv"
 	"strings"
 	"sync"
@@ -238,11 +239,19 @@ func loadSherpaLibs() error {
 func loadSherpaLibsOnce() error {
 	shimLib := os.Getenv("SHERPA_SHIM_LIBRARY")
 	if shimLib == "" {
-		shimLib = "libsherpa-shim.so"
+		if runtime.GOOS == "darwin" {
+			shimLib = "libsherpa-shim.dylib"
+		} else {
+			shimLib = "libsherpa-shim.so"
+		}
 	}
 	capiLib := os.Getenv("SHERPA_ONNX_LIBRARY")
 	if capiLib == "" {
-		capiLib = "libsherpa-onnx-c-api.so"
+		if runtime.GOOS == "darwin" {
+			capiLib = "libsherpa-onnx-c-api.dylib"
+		} else {
+			capiLib = "libsherpa-onnx-c-api.so"
+		}
 	}
 
 	shim, err := purego.Dlopen(shimLib, purego.RTLD_NOW|purego.RTLD_GLOBAL)
