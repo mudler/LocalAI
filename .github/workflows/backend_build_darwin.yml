@@ -228,8 +228,17 @@ jobs:
         run: |
           make backends/ds4-darwin
 
+      # privacy-filter is a C++/ggml backend like ds4 - a single grpc-server with
+      # otool dylib bundling - so it gets its own bespoke darwin script rather than
+      # the generic build-darwin-go-backend path.
+      - name: Build privacy-filter backend (Darwin Metal)
+        if: inputs.backend == 'privacy-filter'
+        run: |
+          make protogen-go
+          make backends/privacy-filter-darwin
+
       - name: Build ${{ inputs.backend }}-darwin
-        if: inputs.backend != 'llama-cpp' && inputs.backend != 'ds4'
+        if: inputs.backend != 'llama-cpp' && inputs.backend != 'ds4' && inputs.backend != 'privacy-filter'
         run: |
           make protogen-go
           BACKEND=${{ inputs.backend }} BUILD_TYPE=${{ inputs.build-type }} USE_PIP=${{ inputs.use-pip }} make build-darwin-${{ inputs.lang }}-backend

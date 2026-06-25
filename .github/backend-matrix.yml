@@ -4941,6 +4941,12 @@ includeDarwin:
     tag-suffix: "-metal-darwin-arm64-sam3-cpp"
     build-type: "metal"
     lang: "go"
+  # privacy-filter (PII/NER) is a C++/ggml backend built by a bespoke darwin
+  # script (make backends/privacy-filter-darwin); ggml defaults Metal ON on Apple
+  # so the build is Metal-enabled. lang=go drives runner/toolchain selection only.
+  - backend: "privacy-filter"
+    tag-suffix: "-metal-darwin-arm64-privacy-filter"
+    lang: "go"
   - backend: "voxtral"
     tag-suffix: "-metal-darwin-arm64-voxtral"
     build-type: "metal"
