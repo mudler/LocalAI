@@ -10,8 +10,19 @@ CURDIR=$(dirname "$(realpath $0)")
 # exec'ing the binary.
 cd "$CURDIR"
 
-export LD_LIBRARY_PATH=$CURDIR:$CURDIR/lib:$LD_LIBRARY_PATH
-export LOCALVQE_LIBRARY=$CURDIR/liblocalvqe.so
+if [ "$(uname)" = "Darwin" ]; then
+	# macOS: LocalVQE is built as a SHARED library, so dyld needs the .dylib +
+	# DYLD_LIBRARY_PATH. Prefer .dylib and fall back to .so just in case.
+	export DYLD_LIBRARY_PATH=$CURDIR:$CURDIR/lib:$DYLD_LIBRARY_PATH
+	LOCALVQE_LIBRARY=$CURDIR/liblocalvqe.dylib
+	if [ ! -e "$LOCALVQE_LIBRARY" ]; then
+		LOCALVQE_LIBRARY=$CURDIR/liblocalvqe.so
+	fi
+	export LOCALVQE_LIBRARY
+else
+	export LD_LIBRARY_PATH=$CURDIR:$CURDIR/lib:$LD_LIBRARY_PATH
+	export LOCALVQE_LIBRARY=$CURDIR/liblocalvqe.so
+fi
 
 if [ -f $CURDIR/lib/ld.so ]; then
 	echo "Using lib/ld.so"

@@ -74,6 +74,7 @@ libparakeet.so: sources/parakeet.cpp
 	cmake -B sources/parakeet.cpp/build-shared -S sources/parakeet.cpp $(CMAKE_ARGS)
 	cmake --build sources/parakeet.cpp/build-shared --config Release -j$(JOBS)
 	cp -fv sources/parakeet.cpp/build-shared/libparakeet.so* ./ 2>/dev/null || true
+	cp -fv sources/parakeet.cpp/build-shared/libparakeet.dylib ./ 2>/dev/null || true
 	cp -fv sources/parakeet.cpp/include/parakeet_capi.h ./
 
 parakeet-cpp-grpc: libparakeet.so main.go goparakeetcpp.go

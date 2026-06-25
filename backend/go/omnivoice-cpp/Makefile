@@ -8,7 +8,7 @@ JOBS?=$(shell nproc --ignore=1)
 
 # omnivoice.cpp version
 OMNIVOICE_REPO?=https://github.com/ServeurpersoCom/omnivoice.cpp
-OMNIVOICE_VERSION?=96d30169afd5e6bb3fd6a0e9be0eb505bfe81fcd
+OMNIVOICE_VERSION?=0f37401bebe9b20c0160a888e592108fc1d17607
 SO_TARGET?=libgomnivoicecpp.so
 
 CMAKE_ARGS+=-DBUILD_SHARED_LIBS=OFF
@@ -65,7 +65,8 @@ UNAME_S := $(shell uname -s)
 ifeq ($(UNAME_S),Linux)
 	VARIANT_TARGETS = libgomnivoicecpp-avx.so libgomnivoicecpp-avx2.so libgomnivoicecpp-avx512.so libgomnivoicecpp-fallback.so
 else
-	VARIANT_TARGETS = libgomnivoicecpp-fallback.so
+	# On non-Linux (e.g., Darwin), build only fallback variant (as a dylib)
+	VARIANT_TARGETS = libgomnivoicecpp-fallback.dylib
 endif
 
 omnivoice-cpp: main.go gomnivoicecpp.go $(VARIANT_TARGETS)
@@ -77,7 +78,7 @@ package: omnivoice-cpp
 build: package
 
 clean: purge
-	rm -rf libgomnivoicecpp*.so package sources/omnivoice.cpp omnivoice-cpp
+	rm -rf libgomnivoicecpp*.so libgomnivoicecpp*.dylib package sources/omnivoice.cpp omnivoice-cpp
 
 purge:
 	rm -rf build*
@@ -106,13 +107,20 @@ libgomnivoicecpp-fallback.so: sources/omnivoice.cpp
 	SO_TARGET=libgomnivoicecpp-fallback.so CMAKE_ARGS="$(CMAKE_ARGS) -DGGML_AVX=off -DGGML_AVX2=off -DGGML_AVX512=off -DGGML_FMA=off -DGGML_F16C=off -DGGML_BMI2=off" $(MAKE) libgomnivoicecpp-custom
 	rm -rf build-libgomnivoicecpp-fallback.so
 
+# Build fallback variant as a dylib (Darwin)
+libgomnivoicecpp-fallback.dylib: sources/omnivoice.cpp
+	$(info ${GREEN}I omnivoice-cpp build info:fallback (dylib)${RESET})
+	SO_TARGET=libgomnivoicecpp-fallback.dylib CMAKE_ARGS="$(CMAKE_ARGS) -DGGML_AVX=off -DGGML_AVX2=off -DGGML_AVX512=off -DGGML_FMA=off -DGGML_F16C=off -DGGML_BMI2=off" $(MAKE) libgomnivoicecpp-custom
+	rm -rf build-libgomnivoicecpp-fallback.dylib
+
 libgomnivoicecpp-custom: CMakeLists.txt cpp/gomnivoicecpp.cpp cpp/gomnivoicecpp.h
 	mkdir -p build-$(SO_TARGET) && \
 	cd build-$(SO_TARGET) && \
 	cmake .. $(CMAKE_ARGS) && \
 	cmake --build . --config Release -j$(JOBS) --target gomnivoicecpp && \
 	cd .. && \
-	mv build-$(SO_TARGET)/libgomnivoicecpp.so ./$(SO_TARGET)
+	(mv build-$(SO_TARGET)/libgomnivoicecpp.so ./$(SO_TARGET) 2>/dev/null || \
+	 mv build-$(SO_TARGET)/libgomnivoicecpp.dylib ./$(SO_TARGET) 2>/dev/null)
 
 test: omnivoice-cpp
 	@echo "Running omnivoice-cpp tests..."

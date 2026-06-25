@@ -5307,6 +5307,7 @@
     nvidia: "cuda12-trl"
     nvidia-cuda-12: "cuda12-trl"
     nvidia-cuda-13: "cuda13-trl"
+    metal: "metal-trl"
 ## TRL backend images
 - !!merge <<: *trl
   name: "cpu-trl"
@@ -5338,6 +5339,16 @@
   uri: "quay.io/go-skynet/local-ai-backends:master-gpu-nvidia-cuda-13-trl"
   mirrors:
     - localai/localai-backends:master-gpu-nvidia-cuda-13-trl
+- !!merge <<: *trl
+  name: "metal-trl"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-metal-darwin-arm64-trl"
+  mirrors:
+    - localai/localai-backends:latest-metal-darwin-arm64-trl
+- !!merge <<: *trl
+  name: "metal-trl-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-metal-darwin-arm64-trl"
+  mirrors:
+    - localai/localai-backends:master-metal-darwin-arm64-trl
 ## llama.cpp quantization backend
 - &llama-cpp-quantization
   name: "llama-cpp-quantization"

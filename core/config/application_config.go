@@ -49,6 +49,13 @@ type ApplicationConfig struct {
 	P2PNetworkID                  string
 	Federated                     bool
 
+	// ExternalBaseURL is the externally visible base URL of this instance
+	// (scheme+host[:port]), set via LOCALAI_BASE_URL. When non-empty it is
+	// authoritative for every self-referential URL LocalAI emits (OAuth
+	// callbacks, generated image/video links, async job StatusURLs),
+	// overriding proxy-header detection. Empty = derive from request headers.
+	ExternalBaseURL string
+
 	// DisableStats turns off per-request token tracking. By default the
 	// routing module's billing recorder runs in every mode (including
 	// no-auth single-user) so dashboards and `/api/usage` are immediately
@@ -196,7 +203,6 @@ type AuthConfig struct {
 	OIDCIssuer          string // OIDC issuer URL for auto-discovery (e.g. https://accounts.google.com)
 	OIDCClientID        string
 	OIDCClientSecret    string
-	BaseURL             string // for OAuth callback URLs (e.g. "http://localhost:8080")
 	AdminEmail          string // auto-promote to admin on login
 	RegistrationMode    string // "open", "approval" (default when empty), "invite"
 	DisableLocalAuth    bool   // disable local email/password registration and login
@@ -950,9 +956,9 @@ func WithAuthGitHubClientSecret(clientSecret string) AppOption {
 	}
 }
 
-func WithAuthBaseURL(baseURL string) AppOption {
+func WithExternalBaseURL(url string) AppOption {
 	return func(o *ApplicationConfig) {
-		o.Auth.BaseURL = baseURL
+		o.ExternalBaseURL = url
 	}
 }
 

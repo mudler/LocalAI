@@ -8,7 +8,7 @@ JOBS?=$(shell nproc --ignore=1)
 
 # stablediffusion.cpp (ggml)
 STABLEDIFFUSION_GGML_REPO?=https://github.com/leejet/stable-diffusion.cpp
-STABLEDIFFUSION_GGML_VERSION?=f440ad9c29dd8bc34e5d1f4b863832b96d6ea05f
+STABLEDIFFUSION_GGML_VERSION?=8caa3f908ae6d4a4bef531e73b9a969f266a3d1f
 
 CMAKE_ARGS+=-DGGML_MAX_NAME=128
 
@@ -131,6 +131,7 @@ libgosd-custom: CMakeLists.txt cpp/gosd.cpp cpp/gosd.h
 	cmake .. $(CMAKE_ARGS) && \
 	cmake --build . --config Release -j$(JOBS) && \
 	cd .. && \
-	mv build-$(SO_TARGET)/libgosd.so ./$(SO_TARGET)
+	(mv build-$(SO_TARGET)/libgosd.so ./$(SO_TARGET) 2>/dev/null || \
+	 mv build-$(SO_TARGET)/libgosd.dylib ./$(SO_TARGET) 2>/dev/null)
 
 all: stablediffusion-ggml package
