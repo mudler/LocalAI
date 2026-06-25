@@ -1,4 +1,77 @@
 ---
+- name: "gemmable-4-12b-mtp"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/Mia-AiLab/Gemmable-4-12B-MTP-GGUF
+  description: |
+    ## Gemmable 4 12B
+
+    Gemmable 4 12B is a GGUF export of Gemma 4 12B fine-tuned on Fable-5 style
+    reasoning and assistant traces.
+
+    ## Highlights
+
+      - Base model: `google/gemma-4-12B`
+      - Format: GGUF
+      - Training style: Fable-5 style reasoning and assistant traces
+      - Distribution: fp16 GGUF plus matching assistant GGUFs for each quant
+      - Intended use: local inference, coding, reasoning, and assistant workflows
+
+    ## How to use
+
+    ### llama.cpp
+
+    Standard load:
+
+    ```bash
+    llama-server -m "gemmable-4-12b-fp16.gguf"
+    ```
+
+    Speculative / draft-MTP load:
+
+    ```bash
+    llama-server -m "gemmable-4-12b-Q4_K_M.gguf" \
+      --spec-draft-model "gemmable-4-12b-Q4_K_M-mtp.gguf" \
+      --spec-type draft-mtp \
+      --spec-draft-n-max 4
+    ```
+
+    Use the matching fp16 or quantized main file with its `-mtp` companion.
+
+    ### LM Studio
+
+    1.  Search this repo, download target + mtp file.
+    2.  Load target.
+    3.  Load settings → Speculative Decoding → select mtp file file.
+
+    (Requires LM Studio with am17an's PR merged or custom llama.cpp runtime. As of 2026-05, mainline LM Studio runtime doesn't yet have `draft-mtp` for Gemma-4 — track upstream merge.)
+
+    ## GGUF / local inference notes
+
+    ...
+  tags:
+    - llm
+    - gguf
+    - reasoning
+  icon: https://storage.ko-fi.com/cdn/kofi6.png
+  overrides:
+    backend: llama-cpp
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/Gemmable-4-12B-MTP-GGUF/gemmable-4-12b-Q4_K_M-mtp.gguf
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/Gemmable-4-12B-MTP-GGUF/gemmable-4-12b-Q4_K_M-mtp.gguf
+      sha256: 217dc0ed177ecc733f801a851c3e3854cf1b17a1f86cd5430c0a7f82d93027bc
+      uri: https://huggingface.co/Mia-AiLab/Gemmable-4-12B-MTP-GGUF/resolve/main/gemmable-4-12b-Q4_K_M-mtp.gguf
 - name: "lfm2.5-1.2b-instruct"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
