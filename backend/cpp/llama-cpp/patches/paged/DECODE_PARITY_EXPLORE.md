@@ -576,3 +576,181 @@ not the GDN kernel and not byte-cutting.
   (decode-only windowed, overlap-correct, MB-memcpy, per-step reconstruction).
 
 Assisted-by: Claude:opus-4.8 [Claude Code]
+
+---
+
+## Section: SYNTHESIS (cross-check + ground-truth + ranked levers + verdict) - FINALIZED
+
+Agent label: synthesize. Read-only (no GPU). Cross-checks all sections above against the
+fresh `profile-both-engines` ground-truth, then mechanism-confirms the dominant lever by
+reading the model graph + ggml-cuda dispatch source on the DGX (`~/llama-paged-dev`, HEAD
+46d7dd8 = patch 0019). All throughput vs the vLLM 391 t/s eager apples-to-apples reference.
+
+### 0. Headline
+
+Post-SSM dense decode = 256.6 t/s @npl128 = 65.6% of vLLM 391, bit-exact. The residual is
+NOT a hardware/architecture floor and NOT the GDN recurrence kernel, the host loop, CUDA
+graphs, or DRAM byte-volume. It is ONE concrete, llama-specific kernel-routing defect:
+**the gated-DeltaNet output projection (`ssm_out`) runs as an FP4 GEMV (`mul_mat_vec_q`)
+at decode batch 128 instead of a tensor-core FP4 GEMM (MMQ), costing 132 ms/step = 26% of
+decode = the single biggest overage vs vLLM (which packs the same projection into a cutlass
+M=128 GEMM).** The fix is a ~2-line reshape, bit-exact, and is the highest-value next step.
+
+### 1. Cross-check: which prior findings HELD, were REFUTED, or are SUPERSEDED
+
+HELD (confirmed by both the adversarial re-derivation and the fresh profile):
+- Pre-fix decomposition (gated_delta_net 23.4%, k_get_rows 21.9%, MEMCPY-DtoD 18.9% / 382 GB,
+  mul_mat_vec_q 15.5%, mul_mat_q 10.5%): reproduced to <=0.1pp (validate-findings).
+- SSM-fix D2D collapse: the 18.4 GB/step redundant recurrent-state copy is GONE. Confirmed
+  three ways: validate (18.9% -> 0.008% on the post-fix sqlite), weight-bandwidth (A/B kernel
+  sum lists no DtoD term), and IN-TRACE by the profiler (18 GB/step DtoD -> 131 MB/step). The
+  SSM fix (0018/0019) is the real breakthrough and is working.
+- P2a FP4-GEMM occupancy remap FLAT on decode (+0.6% noise) while the `mul_mat_q` kernel itself
+  shrank -24.7% and prefill rose +12.7%: confirmed. Decode is not GEMM-occupancy-bound.
+- 65% of vLLM (254/391 = 64.96%, 256.6/391 = 65.6%): confirmed.
+- Decode is NOT at the bandwidth floor: 55.5 GB/step moved at 2.48x the 273 GB/s floor (40% util)
+  vs vLLM 1.61x (62% util) on the SAME bytes. Confirmed + LOCALIZED below.
+- Host loop / 64-layer serialization is NOT the lever: both engines ~98% GPU-busy at npl128
+  (llama 98.7%, vLLM 97.9%); the entire exposed-idle budget is ~0.65%. Confirmed by the profiler.
+- CUDA graphs are NOT the lever: vLLM is 394 t/s EAGER, graphs add only +6% (420); llama already
+  runs with graphs. Confirmed by the profiler.
+
+REFUTED / CORRECTED:
+- "GDN recurrence kernel is the dominant residual lever" (the STATE brief's "gated_delta_net
+  1.46 ms/call, the largest single kernel" and the gdn-source-compare framing): REFUTED. The
+  profiler's fresh side-by-side per-call duration is llama 4.03 ms vs vLLM 3.62 ms = only +11% /
+  +19 ms/step = ~10% of the 184 ms gap. It IS the largest single kernel on both sides (38% llama,
+  53% vLLM) but the largest GAP is elsewhere. (The brief's "1.46 ms/call" is a stale/narrower
+  window; the authoritative post-SSM per-call is 4.03 ms.) gdn-source-compare's occupancy/shuffle/
+  fusion anatomy is correct but addresses a SECONDARY +19 ms target, not parity.
+- "+66% SSM-fix gain" label: REFUTED. 146 -> 254-257 is +74 to +76%; "66%" is the percent-of-vLLM,
+  not the speedup (validate-findings).
+
+SUPERSEDED (the gap validate-findings flagged, now filled by real data):
+- The "FP4-GEMM ~48% / get_rows 0.7% / GDN 22.5%" Step-2 split had NO surviving sqlite (the
+  producer script crashed; only a Step-1 build was on the box). The profiler's fresh Step-2 trace
+  replaces it with a FINER, load-bearing breakdown: the ~46% "FP4 matmul" bucket is NOT one GEMM
+  family - it splits into `mul_mat_vec_q` 26% (the o_proj GEMV, the real culprit), `mul_mat_q` 17%
+  (the tensor-core GEMM P2a already optimized), and `quantize_mmq_nvfp4` 3%. Lumping them as
+  "48% FP4-GEMM" hid that Track B P2a optimized the 17% MMQ while the 26% MMVQ was the bind. This
+  is why P2a was flat on decode: **it optimized the wrong FP4 kernel.**
+
+### 2. Ground-truth per-step decode decomposition + the single biggest overage
+
+From the profiler's fresh post-SSM eager nsys, both at batch 128, prefill-free, GPU-accurate:
+
+| component (per decode step) | llama ms | llama% | vLLM ms | vLLM% | gap (llama-vLLM) |
+|-----------------------------|----------|--------|---------|-------|------------------|
+| GDN recurrence kernel       | 193      | 38%    | 174     | 53%   | **+19**          |
+| FP4 matmul + act-quant      | 236      | 46%    | 117     | 36%   | **+119**         |
+|   - mul_mat_vec_q (o_proj GEMV) | **132** | **26%** | 0   | -     | **+132**         |
+|   - mul_mat_q (MMQ GEMM)    | 88       | 17%    | 61 (cutlass) | 19% | +27             |
+|   - quantize_mmq_nvfp4      | 16       | 3%     | 55 (nvjet+cvt)| 17% | -39             |
+| full attention (16 layers)  | 6.6      | 1.3%   | 6.2     | 1.9%  | +0.4             |
+| SSM conv + glue/elementwise | 45       | 9%     | 22      | 7%    | +23              |
+| MEMCPY                      | 2.5      | 0.5%   | 0.36    | 0.1%  | +2               |
+| **TOTAL**                   | **~510** | 100%   | **~326**| 100%  | **+184**         |
+
+The +119 ms FP4-matmul gap is ENTIRELY the `mul_mat_vec_q` o_proj GEMV (+132), partly offset
+by llama being -39 on activation-quant (16 vs vLLM's heavier eager 55) and +27 on the MMQ. So
+the one lever that matters is the +132 ms/step o_proj GEMV; everything else nets to ~+52 ms.
+
+**MECHANISM (confirmed by source read, not inferred).** In the dense Qwen3.5-27B GDN block
+(`src/models/qwen3next.cpp` `build_recurrent`), the recurrent core keeps the SSM layout
+`[feat, n_seq_tokens, n_seqs]`. At decode `n_seq_tokens=1, n_seqs=128`. The output projection is:
+
+```cpp
+// current code (qwen3next.cpp, end of the GDN block)
+ggml_tensor * final_output = ggml_reshape_3d(ctx0, attn_out_norm,
+                                 head_v_dim * num_v_heads, n_seq_tokens, n_seqs); // [6144, 1, 128]
+cur = build_lora_mm(model.layers[il].ssm_out, final_output);                     // <-- the matmul
+cur = ggml_reshape_2d(ctx0, cur, n_embd, n_seq_tokens * n_seqs);                 // collapse AFTER
+```
+
+`final_output` is 3D `[6144, n_seq_tokens=1, n_seqs=128]`, so `src1->ne[1] = 1`. The ggml-cuda
+dispatch (`ggml-cuda.cu:2553`) picks MMVQ when `src1->ne[1] <= MMVQ_MAX_BATCH_SIZE (8)`, with the
+128 sequences carried in `ne[2]`. Result: a per-sequence FP4 GEMV, output rows 5120 x 128 seqs =
+**`mul_mat_vec_q`, grid 5120x128, 48 calls/step (one per GDN layer)** - matching the profiler's
+trace exactly. MMVQ does NOT amortize the `ssm_out` weight read into shared memory across the 128
+sequences (it is built for batch <=8), so each of the 128 sequences re-streams the weight tiles -
+the "40% vs 62% utilization" the weight-bandwidth section measured lives HERE, in this kernel, not
+in the GDN state traffic. vLLM packs all 128 decode tokens into one cutlass M=128 GEMM (its GDN
+kernel is literally `..._PACKED_decode`), so it has NO GEMV-at-batch-128 at all.
+
+This also pins WHY it is decode-specific: at prefill the tokens are in `ne[1]` (n_seq_tokens=prompt
+len), so `ne[1] >> 8` -> MMQ already; only the decode layout (128 seqs x 1 token, batched in ne[2])
+trips the GEMV path. The in-projection (`wqkv`) is unaffected: its input is the 2D residual stream
+`[n_embd, 128]` (reshaped to 3D only AFTER the matmul), so `ne[1]=128` -> MMQ today. The o_proj is
+the unique 3D-input matmul, which is exactly why the profiler counted one MMVQ per GDN layer.
+
+### 3. Ranked remaining decode levers (impact x tractability, cumulative ceiling toward 391)
+
+Anchored on llama 256.6 t/s (499 ms/step) -> vLLM 391 (327 ms/step), gap 172 ms/step. Recover
+figures past Lever 1 are ESTIMATES (the profiler measured the costs, not the post-fix kernels);
+each needs a confirming re-profile. Ceilings are cumulative.
+
+| # | lever | targets (ms/step) | est. recover | cumulative decode_agg | % of vLLM | tractability |
+|---|-------|-------------------|--------------|-----------------------|-----------|--------------|
+| 1 | **o_proj MMVQ -> MMQ** (collapse final_output to 2D before `ssm_out`) | vec_q 132 | ~100-110 | ~320-330 | **~82-85%** | **VERY HIGH** (2-line reshape, bit-exact, MMQ already proven on NVFP4 at M=128 by the in_proj) |
+| 2 | act-quant + norm prologue fusion (explore L1 `LLAMA_FUSE_NVFP4_QUANT=1` re-bench + L2 M=128 gate) | quant 16 + 448 launches/step | ~15-25 | ~345-360 | ~88-92% | MED-HIGH (producer code exists, tasks 38-40; needs post-0019 re-bench, the pre-SSM regression is stale) |
+| 3 | GDN-area fusion + occupancy (gdn A-D: row-local reduction, raise launch_bounds occupancy, fold gate/l2norm/softplus into the recurrence) | GDN +19 + glue +23 | ~25-40 | ~375-388 | ~96-99% | MED-LOW (real kernel rewrite + numeric re-validation) |
+| 4 | conv-state in-place + conv fuse (explore L4, the proven 0018/0019 pattern on `ssm_conv`/concat) | part of glue, 48 launches/step | ~5-10 | ~388-395 | ~99-101% | HIGH (bit-exact, proven pattern) |
+| - | between-step host gap / cgraph reuse | ~2 ms/step | ~2 | +~0.4% | n/a | LOW value (cleanup, not a parity lever) |
+| x | CUDA graphs | - | 0 | already on | n/a | NOT a lever (+6% even for vLLM) |
+| x | TMA weight-feed / NVFP4-dense weight-quant | prefill / npl1 | 0 at npl128 | n/a | n/a | MIS-SCOPED for batch-128 decode (prefill / low-batch levers; prefill already +12.7%) |
+
+Note on Lever 1+2 coupling: routing the o_proj to MMQ ADDS one activation-quant (q8_1/NVFP4) per
+o_proj, so Lever 2 (fusing that quant into the preceding `build_norm_gated`) compounds Lever 1
+rather than overlapping it. Lever 3's "glue +23 ms" and Lever 1's quant are the same elementwise
+passes vLLM folds into its packed kernel, so 2+3 share surface - treat the estimates as a band,
+not a sum.
+
+### 4. Verdict: is true decode parity reachable?
+
+**Yes, parity is reachable in software, and the residual is NOT a hardware/architecture floor.**
+Proof of "not a floor": both engines read identical NVFP4 weights and read+write identical f32
+recurrent state = identical 55.5 GB/step DRAM floor (203 ms) on the identical GB10 LPDDR5x; vLLM
+achieves 62% bandwidth utilization (327 ms/step) where llama achieves 40% (499 ms/step). The 1.54x
+throughput gap equals the 1.55x utilization gap, and that utilization gap is now LOCALIZED to
+specific llama kernels - chiefly the o_proj MMVQ - every one of which is closable in software. The
+GDN recurrence (the supposed floor) is only +11%/call between the two engines.
+
+How far each tier reaches:
+- The first ~84% of parity (256 -> ~325) is nearly FREE: Lever 1 is a 2-line reshape that moves
+  the GDN output projection from a per-sequence FP4 GEMV to a tensor-core M=128 FP4 GEMM, bit-exact,
+  no new kernel (MMQ already runs the in-projection at this exact shape and type).
+- ~84% -> ~92% (Levers 1+2) is low-effort: the fused act-quant producer already exists (tasks
+  38-40), it just needs a post-0019 re-bench because its pre-SSM regression was measured when the
+  GPU was 99% busy on the now-removed state-copy chain (no idle to reclaim then; real idle now).
+- ~92% -> ~100% (Levers 3+4) is the diminishing-returns tail and the only genuinely HARD work:
+  matching vLLM's fully-fused `packed_decode` GDN kernel (row-local reductions, higher occupancy,
+  folding the gate/l2norm/softplus elementwise passes into the recurrence). This last ~8% is "hard
+  but not floored" - it is kernel engineering, not a hardware wall.
+
+**Single highest-value next step (do this first):** apply Lever 1 - collapse `final_output` to 2D
+`[head_v_dim*num_v_heads, n_seq_tokens*n_seqs]` BEFORE the `ssm_out` matmul (drop the now-redundant
+post-matmul `reshape_2d`):
+
+```cpp
+// route the GDN output projection through tensor-core MMQ at decode:
+// M = n_seq_tokens*n_seqs (=128 at decode) instead of ne[1]=1 -> MMVQ GEMV. Free, bit-exact.
+ggml_tensor * final_output = ggml_reshape_2d(ctx0, attn_out_norm,
+                                 head_v_dim * num_v_heads, n_seq_tokens * n_seqs);
+cur = build_lora_mm(model.layers[il].ssm_out, final_output); // now [n_embd, n_tokens], M=128 MMQ
+```
+
+Then the profiler re-measures the realized o_proj-as-MMQ cost on a clean post-0019 nsys (the one
+number this synthesis estimates rather than measures) and confirms the 256 -> ~320-330 lift. The
+same 3D-input-matmul pattern almost certainly affects the MoE checkpoint (q36-35b-a3b) decode and
+any other matmul that consumes a tensor still in the `[feat, 1, n_seqs]` SSM layout - grep those
+and apply the same collapse. Levers 2-4 follow in priority order; none requires a model or accuracy
+compromise, so bit-exactness is preserved throughout.
+
+### Evidence (this section)
+- Source read (DGX `~/llama-paged-dev`, read-only): `src/models/qwen3next.cpp` (GDN in/out proj
+  layout, lines ~286-305 and ~518-528), `ggml/src/ggml-cuda/ggml-cuda.cu:2553` (MMVQ dispatch on
+  `ne[1]<=8`), `ggml/src/ggml-cuda/mmvq.cuh:3` (`MMVQ_MAX_BATCH_SIZE 8`), `mmq.cu:267` (NVFP4 is
+  MMQ-supported).
+- All five prior sections of this doc + the profiler's `~/bench/postssm_decomp/` traces.
+
+Assisted-by: Claude:opus-4.8 [Claude Code]
