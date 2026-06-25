@@ -34,6 +34,8 @@ else ifeq ($(BUILD_TYPE),hipblas)
 else ifeq ($(BUILD_TYPE),vulkan)
 	CMAKE_ARGS+=-DGGML_VULKAN=ON -DRFDETR_GGML_VULKAN=ON
 else ifeq ($(OS),Darwin)
+	# macOS/Metal: built + published as an OCI image by CI (includeDarwin in
+	# .github/backend-matrix.yml) so Apple Silicon users can install this backend.
 	ifneq ($(BUILD_TYPE),metal)
 		CMAKE_ARGS+=-DGGML_METAL=OFF
 	else
