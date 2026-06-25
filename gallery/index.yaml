@@ -1,4 +1,45 @@
 ---
+- name: "vibethinker-3b"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/prithivMLmods/VibeThinker-3B-GGUF
+  description: |
+    # VibeThinker-3B
+
+    🚨   1.This model was not trained on tool-calling or agent-based programming data. We therefore do not recommend using it for tasks that involve function calling, API orchestration, or autonomous coding agents.
+    For programming tasks, we recommend using this model on competitive programming problems (e.g., LeetCode-style).
+
+    2.For harder math reasoning, try AMOBench, a problem set harder than the International Mathematical Olympiad (IMO), with included standard answers. Use it to evaluate VibeThinker against other SOTA models. Note: due to extreme difficulty, set max tokens to 60K–100K.
+
+    GitHub&nbsp;&nbsp;|&nbsp;&nbsp;ModelScope&nbsp;&nbsp;|&nbsp;&nbsp;Technical Report
+
+    ## Introduction
+
+    ...
+  license: "mit"
+  tags:
+    - llm
+    - gguf
+    - code
+    - reasoning
+  overrides:
+    backend: llama-cpp
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/VibeThinker-3B-GGUF/VibeThinker-3B.Q4_K_M.gguf
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/VibeThinker-3B-GGUF/VibeThinker-3B.Q4_K_M.gguf
+      sha256: 9782b918cc220fb81d59e21be3e45c3ae027e5d86fb56ce7c6d537a347c80d79
+      uri: https://huggingface.co/prithivMLmods/VibeThinker-3B-GGUF/resolve/main/VibeThinker-3B.Q4_K_M.gguf
 - name: "gemmable-4-12b-mtp"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
