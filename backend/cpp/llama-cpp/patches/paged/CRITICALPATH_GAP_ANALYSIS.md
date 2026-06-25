@@ -353,3 +353,123 @@ wall-clock).
   (`ne[2] > mmvq_mmid_max`), disabling the WHOLE MoE-decode graph (GDN included) into eager.
   That is a MUL_MAT_ID disable, not a GDN break, and does not touch the dense 335 tok/s headline;
   worth a separate confirm for the MoE model.
+
+## decode-timeline-gap (GPU, label gap-analysis) - the decisive fresh node-level measurement
+
+This is the new GPU run the analysis was waiting on. It arbitrates between the
+roofline/vllm-gdn-compare theory ("57 ms = 100% bubble, Lever 3 closes it") and the
+cudagraph-coverage source verdict ("~99.4% busy, bandwidth-bound, bubbles refuted").
+The measurement confirms the latter and refutes the former, with per-kernel numbers.
+
+### Capture (the trap the prior `--trace=cuda` fell into is now avoided)
+`nsys profile --trace=cuda --cuda-graph-trace=node` on build-cuda-base (clean
+Lever-1, HEAD df1cc97, git-clean mmq.cuh), q36-27b-nvfp4 dense, `-fa on -npp 128
+-ntg 24 -npl 128 -c 33000`. Artifacts on DGX: `~/llama-paged-dev/nsysgap.{nsys-rep,
+sqlite}`. The decode step is a single CUDA graph (graphId=11, 23 replays = steps
+2-24; graphId=1 x8 = prefill). Plain `--trace=cuda` recorded each step as ONE opaque
+~380 ms block, so the widely-cited `nsysab_new.kern.txt` breakdown (mul_mat_q 42%,
+gated_delta_net 13%) is PREFILL + the single eager capture step, NOT decode. With
+node-level trace the graph expands: 168201 kernels = 91499 graph-internal + 76702
+eager prefill. **All graph kernels on stream 14 (single stream) -> strictly serial,
+no overlap, so any inter-kernel gap is pure GPU idle.**
+
+### One steady decode step (window between decode launches 22413.26 / 22796.74 ms, width 383.48 ms)
+Exactly 48 `gated_delta_net` + 16 `flash_attn` = one clean step (48 GDN + 16 attn).
+2965 kernels.
+
+| classification | ms/step | % of step |
+|---|---|---|
+| (a) inter-kernel LAUNCH gaps + (b) SERIAL-DEPENDENCY stalls (LAG sum, single stream) | **0.225** | **0.06%** |
+| (c) within-kernel time (GPU running) | 380.4 | 99.94% |
+
+Zero gaps > 5 us. Largest single gap 2.40 us. 1260 sub-1us gaps + 1700 back-to-back.
+**The decode step is 99.94% GPU-busy. There are no bubbles.** This independently
+confirms cudagraph-coverage's ~99.4% and **refutes** roofline-decode's "57 ms = 100%
+bubble" and vllm-gdn-compare's "~384 launch bubbles/step on the critical path".
+nvidia-smi's "40% util" = low SM/compute efficiency WITHIN kernels (c) (memory-latency-
+bound, ~12-16% achieved occupancy), not wall-clock idle.
+
+### Real decode kernel mix (% of the 380.4 ms step) - corrects the prefill-contaminated kern_sum
+| kernel | n/step | ms | % | grid CTAs | waves/48SM |
+|---|---|---|---|---|---|
+| gated_delta_net_cuda | 48 | **196.37** | **51.6** | 48x128x32 = 196608 | 4096 |
+| mul_mat_q (FP4 in/out/qkv/o proj) | 496 | 92.90 | 24.4 | 136 | 1.5 |
+| quantize_mmq_nvfp4 | 496 | 17.13 | 4.5 | 483 | 10 |
+| nvjet GEMM (lm_head) | 1 | 11.91 | 3.1 | 1944 | 40 |
+| flash_attn_ext_f16 (16 attn layers) | 16 | 11.67 | 3.1 | 48 | 1.0 |
+| concat_cont (conv-state) | 48 | 8.01 | 2.1 | 20480 | 427 |
+| cpy_scalar | 64 | 7.62 | 2.0 | 49152 | 1024 |
+| k_get_rows_float | 49 | 7.08 | 1.9 | 15098 | 315 |
+| k_bin_bcast (gate mul + add) | 720 | 6.59 | 1.7 | 3169 | 66 |
+| ssm_conv_f32 | 48 | 5.64 | 1.5 | 10240 | 213 |
+| unary_gated (silu/sigmoid) | 128 | 5.36 | 1.4 | 5888 | 123 |
+| mul_mat_q_stream_k_fixup | 304 | 3.94 | 1.0 | 192 | 4 |
+| rms_norm_f32 | 209 | 3.52 | 0.9 | 1764 | 37 |
+| l2_norm_f32 | 96 | 0.64 | 0.2 | | |
+| gdn_gather_nonident | 48 | **0.061** | 0.016 | | |
+
+- `gated_delta_net` is **51.6% of the step**, the single dominant term. The
+  previously-cited "1.47 ms/call near-vLLM" was the EAGER average over 1248 calls
+  (range 0.046-4.42 ms = prefill warmups + capture); true steady decode is
+  **4.08-4.11 ms/call** (gridY=128 = the 128 seqs). 2.8x higher than believed.
+- It launches 196608 CTAs / 4096 waves = NOT occupancy-starved; the cost is
+  bandwidth-bound state traffic (~384 MB read + ~384 MB write per layer for the
+  48-head x 128-seq x [state 128 x head_v 128] recurrent state, ~190 GB/s effective).
+- The Lever-3 narrow target (gating glue) = k_bin_bcast 6.59 + silu/sigmoid 5.36 +
+  l2_norm 0.64 + softplus 0.13 = **12.76 ms = 3.35%** of the step. `gdn_gather` is
+  **0.06 ms** (negligible - it early-returns on identity ids as predicted).
+
+### The three answers (with numbers)
+1. **Bubbles on the serial GDN critical path?** NO. 0.225 ms idle/step = 0.06%,
+   zero gaps > 5 us. CUDA graphs eliminated launch overhead; serial dependencies do
+   not produce idle (each kernel starts < 1 us after the previous). The premise is
+   refuted by direct measurement.
+2. **Would Lever 3 (fuse the gating chain) shrink the step or overlap away?** It
+   shrinks it, but only by its hard ceiling **12.76 ms = 3.35%** (380 -> 367 ms, 336
+   -> ~348 tok/s, 86% -> 89% of vLLM). It does NOT close the 14% / 53-57 ms gap.
+   IMPORTANT mechanism correction: the step is single-stream and 99.94% busy, so
+   there is NO overlap to absorb freed time (the lever3-design RISK #1 "same trap as
+   P2a if overlapped" does NOT apply - nothing overlaps). So removing those kernels'
+   GPU-time DOES cut wall-clock - but the win is removing their HBM byte traffic, NOT
+   launch bubbles (there are none). And the value is the measured ~12.76 ms, not the
+   "~288 launch bubbles" framing (those launches cost ~0 inside the graph). This also
+   explains P2a/Lever-2 flatness correctly: NOT "overlapped busy-time" (no overlap),
+   but P2a tuned the prefill large-M GEMM (decode GEMMs are 136-CTA tail-bound, untouched)
+   and Lever-2 relocated mandatory quantize work into the GEMM prologue (net zero).
+3. **Do CUDA graphs cover the GDN region at B=128?** YES, fully. Whole step = one
+   graph, 23 replays, ~0.2 ms host gap between steps. `gdn_gather_nonident` and the
+   in-place state ops are graph-internal nodes (graphNodeId != 0); no fragmentation.
+   Confirms cudagraph-coverage. Note: lever #2 from vllm-gdn-compare ("CUDA-graph the
+   decode step") is ALREADY IN EFFECT in this build and did not close the gap - so it
+   is spent, not pending.
+
+### Verdict against roofline-decode's own sizing test
+roofline-decode stated: "if critical-path gaps total < 57 ms, parity is NOT reachable
+via GDN-gate fusion alone and the gap is elsewhere (GDN core kernel slower than vLLM
+fused_recurrent)." **Measured gaps = 0.225 ms << 57 ms.** Therefore, by that test, the
+53-57 ms / 14% gap is NOT bubble and NOT closable by gating fusion. It lives in
+**kernel GPU-time**, dominated by the `gated_delta_net` recurrence (51.6%, bandwidth-
+bound) and secondarily the FP4 GEMM + quantize stack (29%). The "57 ms = 100% bubble"
+roofline conclusion was an inference from the prefill-contaminated GPU-busy sum
+(~555 ms vs 384 ms "implies overlap"); the node-level decode-only measurement shows
+per-step GPU-busy = wall (no overlap), so that inference does not hold.
+
+### Recommendation (resized)
+- The real lever is the `gated_delta_net` recurrence kernel itself (196 ms, 51.6%):
+  match vLLM's `fused_recurrent_gated_delta_rule_packed_decode` (vllm-gdn-compare
+  kernel #4) which folds l2norm + gate + decay + recurrence + state-writeback into a
+  SINGLE pass over the state, reducing HBM round-trips of the state. The win is byte
+  reduction in a memory-bound single-stream step, not bubble removal.
+- The lever3-design fusion is still worth doing as a component of that (it removes
+  ~12.76 ms = 3.35% of real byte traffic, and unlike its own RISK section feared, it
+  will NOT be flat because there is no overlap), but on its own it is a ~3% lever, not
+  the gap-closer. Build it folded into a single-pass recurrence kernel, not as an
+  isolated gate fold.
+- Next decisive measurement (future GPU-agent run): profile vLLM's decode step at
+  npl128 with the same node-level method and compare per-region GPU-time (GDN
+  recurrence vs GEMM vs attention) to localize exactly where vLLM spends its 53-57 ms
+  less. Both engines move near-identical bytes only if vLLM's fused recurrence does
+  not re-stream state; the per-kernel A/B will show whether the gap is the recurrence
+  pass or the GEMM/quantize stack.
+
+Assisted-by: Claude:opus-4.8 [Claude Code]
