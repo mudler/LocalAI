@@ -32,6 +32,14 @@ for file in $ADDITIONAL_LIBS; do
     cp -rfv "$file" build/darwin/lib
 done
 
+# Bundle the ggml shared libs the binary @rpath-links (libggml, -cpu, -blas,
+# -metal). The engine builds ggml shared, scattered under the build tree; flatten
+# them (with their version symlinks) into lib/, resolved at runtime by leaf name
+# via run.sh's DYLD_LIBRARY_PATH=lib. Without this the packaged binary can't find
+# libggml*.dylib once the build dir is gone.
+GGML_SRC="backend/cpp/privacy-filter/build/privacy-filter.cpp/ggml/src"
+find "$GGML_SRC" -name 'libggml*.dylib' -exec cp -a {} build/darwin/lib/ \;
+
 # Walk dylibs via otool -L and bundle anything that isn't a system framework.
 for file in build/darwin/grpc-server; do
     LIBS="$(otool -L "$file" | awk 'NR > 1 { system("echo " $1) } ' | xargs echo)"
