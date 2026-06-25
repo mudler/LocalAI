@@ -8,7 +8,13 @@ else
     source $backend_dir/../common/libbackend.sh
 fi
 
-EXTRA_PIP_INSTALL_FLAGS+=" --upgrade --index-strategy=unsafe-first-match"
+EXTRA_PIP_INSTALL_FLAGS+=" --upgrade"
+# --index-strategy is a uv-only flag. The darwin/MPS build installs with pip
+# (USE_PIP=true in scripts/build/python-darwin.sh), which rejects it. Only add
+# it when uv is the installer, keeping the Linux/CUDA resolution unchanged.
+if [ "x${USE_PIP:-}" != "xtrue" ]; then
+    EXTRA_PIP_INSTALL_FLAGS+=" --index-strategy=unsafe-first-match"
+fi
 installRequirements
 
 # Fetch convert_hf_to_gguf.py and gguf package from the same llama.cpp version
