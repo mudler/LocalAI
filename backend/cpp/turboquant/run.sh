@@ -12,26 +12,11 @@ grep -e "flags" /proc/cpuinfo | head -1
 
 BINARY=turboquant-fallback
 
-if grep -q -e "\savx\s" /proc/cpuinfo ; then
-	echo "CPU:    AVX    found OK"
-	if [ -e $CURDIR/turboquant-avx ]; then
-		BINARY=turboquant-avx
-	fi
-fi
-
-if grep -q -e "\savx2\s" /proc/cpuinfo ; then
-	echo "CPU:    AVX2   found OK"
-	if [ -e $CURDIR/turboquant-avx2 ]; then
-		BINARY=turboquant-avx2
-	fi
-fi
-
-# Check avx 512
-if grep -q -e "\savx512f\s" /proc/cpuinfo ; then
-	echo "CPU:    AVX512F found OK"
-	if [ -e $CURDIR/turboquant-avx512 ]; then
-		BINARY=turboquant-avx512
-	fi
+# x86/arm64 ship a single turboquant-cpu-all built with ggml CPU_ALL_VARIANTS: ggml's
+# backend registry dlopens the best libggml-cpu-*.so for this host, so no shell-side
+# probing. ROCm ships only turboquant-fallback, so fall back to it when cpu-all is absent.
+if [ -e $CURDIR/turboquant-cpu-all ]; then
+	BINARY=turboquant-cpu-all
 fi
 
 if [ -n "$LLAMACPP_GRPC_SERVERS" ]; then
