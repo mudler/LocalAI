@@ -154,3 +154,39 @@ jobs:
           branch: "update/VLLM_VERSION"
           body: ${{ steps.bump.outputs.message }}
           signoff: true
+
+  bump-vllm-metal:
+    # The darwin (Apple Silicon) vLLM build installs vllm-metal, which is locked
+    # to a specific vLLM source release. install.sh pins both VLLM_METAL_VERSION
+    # (the wheel release) and VLLM_VERSION (the vLLM it builds against); this job
+    # tracks vllm-project/vllm-metal and rewrites both atomically. Separate from
+    # bump-vllm-wheel because darwin follows vllm-metal, not vllm/vllm latest.
+    if: github.repository == 'mudler/LocalAI'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: Bump vllm-metal pin 🔧
+        id: bump
+        run: |
+          bash .github/bump_vllm_metal.sh vllm-project/vllm-metal backend/python/vllm/install.sh VLLM_METAL_VERSION
+          {
+            echo 'message<<EOF'
+            cat "VLLM_METAL_VERSION_message.txt"
+            echo EOF
+          } >> "$GITHUB_OUTPUT"
+          {
+            echo 'commit<<EOF'
+            cat "VLLM_METAL_VERSION_commit.txt"
+            echo EOF
+          } >> "$GITHUB_OUTPUT"
+          rm -rfv VLLM_METAL_VERSION_message.txt VLLM_METAL_VERSION_commit.txt
+      - name: Create Pull Request
+        uses: peter-evans/create-pull-request@v8
+        with:
+          token: ${{ secrets.UPDATE_BOT_TOKEN }}
+          push-to-fork: ci-forks/LocalAI
+          commit-message: ':arrow_up: Update vllm-project/vllm-metal (darwin)'
+          title: 'chore: :arrow_up: Update vllm-metal (darwin) to `${{ steps.bump.outputs.commit }}`'
+          branch: "update/VLLM_METAL_VERSION"
+          body: ${{ steps.bump.outputs.message }}
+          signoff: true
