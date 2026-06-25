@@ -4941,6 +4941,12 @@ includeDarwin:
     tag-suffix: "-metal-darwin-arm64-sam3-cpp"
     build-type: "metal"
     lang: "go"
+  # LocalVQE has no Metal path; on Apple Silicon it builds CPU-only (GGML_METAL
+  # OFF) but is still a native arm64 image. Uses the darwin/metal build profile.
+  - backend: "localvqe"
+    tag-suffix: "-metal-darwin-arm64-localvqe"
+    build-type: "metal"
+    lang: "go"
   - backend: "voxtral"
     tag-suffix: "-metal-darwin-arm64-voxtral"
     build-type: "metal"

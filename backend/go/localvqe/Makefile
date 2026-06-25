@@ -32,6 +32,8 @@ endif
 ifeq ($(BUILD_TYPE),vulkan)
 	CMAKE_ARGS+=-DGGML_VULKAN=ON -DLOCALVQE_VULKAN=ON
 else ifeq ($(OS),Darwin)
+	# Apple Silicon: CPU-only (no Metal upstream); built + published as an arm64
+	# image by CI (includeDarwin in .github/backend-matrix.yml) for macOS install.
 	CMAKE_ARGS+=-DGGML_METAL=OFF
 endif
 
