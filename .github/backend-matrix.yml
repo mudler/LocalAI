@@ -2,6 +2,28 @@
 # Matrix data for backend container image builds.
 # Consumed by scripts/changed-backends.js for both backend.yml and backend_pr.yml.
 # This file is NOT a workflow — it has no top-level 'on:' or 'jobs:'.
+#
+# OS / platform coverage — READ THIS WHEN ADDING A BACKEND
+# --------------------------------------------------------
+# This file is the source of truth for which OS each backend is built and
+# published for. A backend ships ONLY for the matrices it appears in:
+#   - Linux  -> the `include:` matrix below (x86_64 + arm64; CPU and
+#               CUDA / ROCm / SYCL / Vulkan variants).
+#   - macOS  -> the `includeDarwin:` matrix (Apple Silicon / arm64; Metal where
+#               the engine supports it, otherwise a native arm64 CPU build).
+#
+# New backends must target EVERY OS they can build for, not just Linux. A backend
+# listed only under `include:` is silently unavailable on macOS even when its code
+# would run there. Most C/C++/GGML engines build on Darwin (ggml defaults
+# GGML_METAL=ON on Apple, so a plain build is Metal-enabled), and many Python
+# backends do too (CPU / MPS). If a backend genuinely cannot support an OS, say so
+# in its PR description rather than silently omitting it.
+#
+# Adding a backend to `includeDarwin:` is more than one line — see the darwin
+# checklist in .agents/adding-backends.md (includeDarwin entry, the index.yaml
+# `metal:` capability + `metal-<backend>` image entries, a `run.sh` Darwin/DYLD
+# branch for C/C++ backends, and the inferBackendPathDarwin case in
+# scripts/changed-backends.js so the path filter actually builds it).
 
 # Linux matrix (consumed by backend-jobs).
 include:

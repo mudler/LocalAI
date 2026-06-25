@@ -102,6 +102,24 @@ Multi-arch backends are NOT a single matrix entry with `platforms: 'linux/amd64,
 
 Entries whose `dockerfile` is `./backend/Dockerfile.{llama-cpp,ik-llama-cpp,turboquant}` must also set a `builder-base-image` field pointing at a prebuilt base from `quay.io/go-skynet/ci-cache:base-grpc-*` (CI builds these via `.github/workflows/base-images.yml`). The mapping is by `(build-type, platforms)` — see existing entries for the pattern. CI uses these prebuilt bases to skip the gRPC compile (~25–35 min cold). Local `make backends/<name>` ignores `builder-base-image` and uses the from-source path inside the Dockerfile, so you don't need quay access for local builds.
 
+### Cover every OS the project supports (Linux **and** Darwin)
+
+`.github/backend-matrix.yml` has two matrices, and they are the source of truth for which OS a backend ships on:
+
+- `include:` — the **Linux** matrix (x86_64 + arm64; CPU and CUDA / ROCm / SYCL / Vulkan).
+- `includeDarwin:` — the **macOS / Apple Silicon** matrix (arm64; Metal where the engine supports it, otherwise a native arm64 CPU build).
+
+**A new backend must target every OS it can build for — do not ship Linux-only by default.** A backend that appears only under `include:` is silently unavailable on macOS even when its code would run there. Most C/C++/GGML engines build on Darwin out of the box (ggml defaults `GGML_METAL=ON` on Apple, so a plain build is Metal-enabled), and many Python backends do too (CPU / MPS wheels). If a backend genuinely cannot support an OS (e.g. CUDA-only, no CPU variant), state that in the PR description instead of omitting it silently.
+
+Wiring a backend into `includeDarwin:` is more than the matrix entry:
+
+1. **`includeDarwin:` entry** — `tag-suffix: "-metal-darwin-arm64-<backend>"`, `build-type: "metal"`, `lang: "go"` for go+ggml backends; omit `build-type` for the bespoke C++ ones (llama-cpp / ds4 / privacy-filter). Match an existing entry of the same shape.
+2. **`backend/index.yaml`** — add `metal:` to the backend's `capabilities` map (main and `-development`) and concrete `metal-<backend>` / `metal-<backend>-development` image entries pointing at the `-metal-darwin-arm64-<backend>` images.
+3. **C/C++ backends only** — add an `inferBackendPathDarwin` case in `scripts/changed-backends.js` returning `backend/cpp/<backend>/` (the generic fallthrough assumes `backend/<lang>/`, which is wrong for a C++ source tree driven with `lang: go`), and give `run.sh` a Darwin branch that exports `DYLD_LIBRARY_PATH` instead of `LD_LIBRARY_PATH`. If the build is bespoke (single `grpc-server` + dylib bundling), model it on `scripts/build/ds4-darwin.sh` and add a `backends/<backend>-darwin` make target plus a gated step in `.github/workflows/backend_build_darwin.yml`.
+4. **C++ proto gotcha** — if the backend compiles the generated gRPC/protobuf in a separate CMake target (e.g. `hw_grpc_proto`), that target must link `protobuf::libprotobuf` + `gRPC::grpc++` so the Homebrew include dirs propagate; otherwise macOS fails with `google/protobuf/runtime_version.h not found` (Linux hides this because apt headers sit in `/usr/include`).
+
+The CI path filter only builds a backend on a PR when a file under its directory changes, so a darwin-only YAML edit builds nothing — touch a file under `backend/<lang>/<backend>/` (a one-line comment is enough) in the same PR.
+
 ## 3. Add Backend Metadata to `backend/index.yaml`
 
 **Step 3a: Add Meta Definition**
@@ -225,6 +243,7 @@ After adding a new backend, verify:
 
 - [ ] Backend directory structure is complete with all necessary files
 - [ ] Build configurations added to `.github/backend-matrix.yml` for all desired platforms (per-arch entries with `platform-tag` for multi-arch; `builder-base-image` for llama-cpp / ik-llama-cpp / turboquant)
+- [ ] **OS coverage considered**: added to `includeDarwin:` (macOS/Apple Silicon) if the backend can build there — with the `backend/index.yaml` `metal:` capability + `metal-<backend>` image entries, a `run.sh` Darwin/DYLD branch and `inferBackendPathDarwin` case for C++ backends — or the PR explains why an OS is unsupported. Do not ship Linux-only by default.
 - [ ] Meta definition added to `backend/index.yaml` in the `## metas` section
 - [ ] Image entries added to `backend/index.yaml` for all build variants (latest + development)
 - [ ] Tag suffixes match between workflow file and index.yaml
