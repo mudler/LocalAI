@@ -494,6 +494,39 @@ These llama.cpp options are passed through the `options:` array.
 | `direct_io` / `use_direct_io` | bool | `false` | Open the model with `O_DIRECT` (faster cold loads on NVMe; ignored if not supported). |
 | `verbosity` | int | `3` | llama.cpp internal log verbosity threshold. Higher = more verbose. |
 | `override_tensor` / `tensor_buft_overrides` | string | "" | Per-tensor buffer-type overrides for the main model. Format: `<tensor regex>=<buffer type>,<tensor regex>=<buffer type>,...`. Mirrors the existing `draft_override_tensor` syntax for the draft model. |
+| `cpu_moe` | bool | false | Keep all MoE expert weights of the main model on CPU (upstream `--cpu-moe`). Frees VRAM on large MoE models (DeepSeek, Qwen3 `*-A3B`). |
+| `n_cpu_moe` | int | 0 | Keep MoE expert weights of the first N main-model layers on CPU (upstream `--n-cpu-moe`). |
+
+#### Generic option passthrough
+
+Any `options:` entry whose name starts with `-` is forwarded **verbatim** to
+upstream llama.cpp's own `llama-server` argument parser. This means any flag the
+bundled llama.cpp supports works without LocalAI needing a dedicated option,
+even ones added after your LocalAI version was built. See the upstream
+[server flags reference](https://github.com/ggml-org/llama.cpp/blob/master/tools/server/README.md).
+
+Format mirrors the rest of the array - `--flag` for a boolean, or `--flag:value`
+for a flag that takes a value. Everything after the first `:` is the value, so
+embedded colons (e.g. `host:port`) are preserved:
+
+```yaml
+options:
+  - "--cpu-moe"                 # boolean flag
+  - "--n-cpu-moe:4"             # flag with a value
+  - "--override-tensor:exps=CPU"
+```
+
+Notes:
+
+- **Precedence:** passthrough flags are applied last, so an explicit flag
+  overrides the LocalAI option it maps to (e.g. `--ctx-size:8192` overrides
+  `context_size`).
+- **Power-user territory:** an invalid flag or value is rejected by the upstream
+  parser exactly as it would be by `llama-server`, which can fail model loading.
+  Prefer the named options above when one exists.
+- Flags that would terminate the process (such as `--help`, `--usage`,
+  `--version`, `--license`, `--list-devices`, `--cache-list`, and
+  `--completion*`) are ignored.
 
 ### Prompt Caching
 
