@@ -4,10 +4,10 @@ set -e
 CURDIR=$(dirname "$(realpath "$0")")
 
 if [ "$(uname)" = "Darwin" ]; then
-	export DYLD_LIBRARY_PATH="$CURDIR/lib:$CURDIR:${DYLD_LIBRARY_PATH:-}"
+	export DYLD_LIBRARY_PATH="$CURDIR/lib:"$CURDIR":${DYLD_LIBRARY_PATH:-}"
 	export PARAKEET_LIBRARY="$CURDIR/lib/libparakeet.dylib"
 else
-	export LD_LIBRARY_PATH="$CURDIR/lib:$CURDIR:${LD_LIBRARY_PATH:-}"
+	export LD_LIBRARY_PATH="$CURDIR/lib:"$CURDIR":${LD_LIBRARY_PATH:-}"
 	export PARAKEET_LIBRARY="$CURDIR/lib/libparakeet.so"
 fi
 

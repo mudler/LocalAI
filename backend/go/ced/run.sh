@@ -4,10 +4,10 @@ set -e
 CURDIR=$(dirname "$(realpath "$0")")
 
 if [ "$(uname)" = "Darwin" ]; then
-	export DYLD_LIBRARY_PATH="$CURDIR/lib:$CURDIR:${DYLD_LIBRARY_PATH:-}"
+	export DYLD_LIBRARY_PATH="$CURDIR/lib:"$CURDIR":${DYLD_LIBRARY_PATH:-}"
 	export CED_LIBRARY="$CURDIR/lib/libced.dylib"
 else
-	export LD_LIBRARY_PATH="$CURDIR/lib:$CURDIR:${LD_LIBRARY_PATH:-}"
+	export LD_LIBRARY_PATH="$CURDIR/lib:"$CURDIR":${LD_LIBRARY_PATH:-}"
 fi
 
 # If a self-contained ld.so was packaged, route through it so the packaged

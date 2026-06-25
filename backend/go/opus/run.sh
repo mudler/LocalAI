@@ -1,15 +1,15 @@
 #!/bin/bash
 set -ex
 
-CURDIR=$(dirname "$(realpath $0)")
+CURDIR=$(dirname "$(realpath "$0")")
 
-export LD_LIBRARY_PATH=$CURDIR/lib:$LD_LIBRARY_PATH
-export OPUS_SHIM_LIBRARY=$CURDIR/lib/libopusshim.so
+export LD_LIBRARY_PATH="$CURDIR"/lib:$LD_LIBRARY_PATH
+export OPUS_SHIM_LIBRARY="$CURDIR"/lib/libopusshim.so
 
 # If there is a lib/ld.so, use it
-if [ -f $CURDIR/lib/ld.so ]; then
+if [ -f "$CURDIR"/lib/ld.so ]; then
 	echo "Using lib/ld.so"
-	exec $CURDIR/lib/ld.so $CURDIR/opus "$@"
+	exec "$CURDIR"/lib/ld.so "$CURDIR"/opus "$@"
 fi
 
-exec $CURDIR/opus "$@"
+exec "$CURDIR"/opus "$@"
