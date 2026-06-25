@@ -1057,6 +1057,8 @@
     nvidia-l4t: "vulkan-localvqe"
     nvidia-l4t-cuda-12: "vulkan-localvqe"
     nvidia-l4t-cuda-13: "vulkan-localvqe"
+    # Apple Silicon: CPU build (LocalVQE has no Metal path); still arm64-native.
+    metal: "metal-localvqe"
 - &privacyfilter
   name: "privacy-filter"
   alias: "privacy-filter"
@@ -4149,6 +4151,16 @@
   uri: "quay.io/go-skynet/local-ai-backends:master-gpu-vulkan-localvqe"
   mirrors:
     - localai/localai-backends:master-gpu-vulkan-localvqe
+- !!merge <<: *localvqecpp
+  name: "metal-localvqe"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-metal-darwin-arm64-localvqe"
+  mirrors:
+    - localai/localai-backends:latest-metal-darwin-arm64-localvqe
+- !!merge <<: *localvqecpp
+  name: "metal-localvqe-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-metal-darwin-arm64-localvqe"
+  mirrors:
+    - localai/localai-backends:master-metal-darwin-arm64-localvqe
 ## kokoro
 - !!merge <<: *kokoro
   name: "kokoro-development"
