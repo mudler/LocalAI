@@ -12,26 +12,12 @@ grep -e "flags" /proc/cpuinfo | head -1
 
 BINARY=llama-cpp-fallback
 
-if grep -q -e "\savx\s" /proc/cpuinfo ; then
-	echo "CPU:    AVX    found OK"
-	if [ -e $CURDIR/llama-cpp-avx ]; then
-		BINARY=llama-cpp-avx
-	fi
-fi
-
-if grep -q -e "\savx2\s" /proc/cpuinfo ; then
-	echo "CPU:    AVX2   found OK"
-	if [ -e $CURDIR/llama-cpp-avx2 ]; then
-		BINARY=llama-cpp-avx2
-	fi
-fi
-
-# Check avx 512
-if grep -q -e "\savx512f\s" /proc/cpuinfo ; then
-	echo "CPU:    AVX512F found OK"
-	if [ -e $CURDIR/llama-cpp-avx512 ]; then
-		BINARY=llama-cpp-avx512
-	fi
+# CPU images (x86, arm64, darwin) ship a single llama-cpp-cpu-all built with ggml
+# CPU_ALL_VARIANTS: ggml's backend registry dlopens the best libggml-cpu-*.so for this
+# host, so no shell-side AVX probing. GPU images (cublas/sycl/vulkan/hipblas) ship only
+# llama-cpp-fallback (the accelerator does the compute), so fall back to it when absent.
+if [ -e $CURDIR/llama-cpp-cpu-all ]; then
+	BINARY=llama-cpp-cpu-all
 fi
 
 if [ -n "$LLAMACPP_GRPC_SERVERS" ]; then

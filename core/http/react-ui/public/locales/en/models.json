@@ -2,6 +2,16 @@
   "title": "Install Models",
   "subtitle": "Browse and install AI models from the gallery",
   "models": "Models",
+  "recommended": {
+    "title": "Recommended for your hardware",
+    "cpuNote": "No GPU detected - small models that stay responsive on CPU.",
+    "gpuNote": "Sized to fit your available VRAM with room for context.",
+    "install": "Install",
+    "installing": "Installing",
+    "installStarted": "Installing {{model}}…",
+    "installFailed": "Install failed: {{message}}",
+    "dismiss": "Dismiss recommendations"
+  },
   "stats": {
     "available": "Available",
     "installed": "Installed"
@@ -23,6 +33,7 @@
     "tts": "TTS",
     "stt": "STT",
     "diarization": "Diarization",
+    "soundClassification": "Sound Tagging",
     "soundGen": "Sound",
     "audioTransform": "Audio FX",
     "realtimeAudio": "Realtime Audio",

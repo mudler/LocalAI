@@ -72,7 +72,7 @@
   "actions": {
     "copy": "Salin",
     "regenerate": "Hasilkan ulang",
-    "jumpToLatest": "Jump to latest"
+    "jumpToLatest": "Lompat ke terbaru"
   },
   "streaming": {
     "transferring": "Mentransfer model...",

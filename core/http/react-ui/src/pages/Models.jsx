@@ -13,6 +13,7 @@ import ConfirmDialog from '../components/ConfirmDialog'
 import GalleryLoader from '../components/GalleryLoader'
 import Toggle from '../components/Toggle'
 import ResponsiveTable from '../components/ResponsiveTable'
+import RecommendedModels from '../components/RecommendedModels'
 import React from 'react'
 
 
@@ -31,6 +32,7 @@ const FILTERS = [
   { key: 'tts', labelKey: 'filters.tts', icon: 'fa-microphone' },
   { key: 'transcript', labelKey: 'filters.stt', icon: 'fa-headphones' },
   { key: 'diarization', labelKey: 'filters.diarization', icon: 'fa-users' },
+  { key: 'sound_classification', labelKey: 'filters.soundClassification', icon: 'fa-ear-listen' },
   { key: 'sound_generation', labelKey: 'filters.soundGen', icon: 'fa-music' },
   { key: 'audio_transform', labelKey: 'filters.audioTransform', icon: 'fa-sliders' },
   { key: 'realtime_audio', labelKey: 'filters.realtimeAudio', icon: 'fa-tower-broadcast' },
@@ -299,6 +301,8 @@ export default function Models() {
           </div>
         }
       />
+
+      <RecommendedModels addToast={addToast} />
 
       {/* Search */}
       <div className="search-bar" style={{ marginBottom: 'var(--spacing-md)' }}>

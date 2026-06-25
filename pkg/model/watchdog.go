@@ -46,6 +46,11 @@ type WatchDog struct {
 	// Eviction settings
 	forceEvictionWhenBusy bool // Force eviction even when models have active API calls (default: false for safety)
 
+	// Size-aware eviction: sort candidates by model file size (largest first) to maximize freed memory.
+	// When enabled, bigger models are evicted before smaller ones regardless of recency.
+	sizeAwareEviction bool
+	modelSizes        map[string]int64 // modelID → file size in bytes
+
 	// Pinned models are excluded from idle, LRU, and memory-pressure eviction
 	pinnedModels map[string]bool
 
@@ -94,6 +99,8 @@ func NewWatchDog(opts ...WatchDogOption) *WatchDog {
 		memoryReclaimerThreshold: o.memoryReclaimerThreshold,
 		watchdogInterval:         o.watchdogInterval,
 		forceEvictionWhenBusy:    o.forceEvictionWhenBusy,
+		sizeAwareEviction:        o.sizeAwareEviction,
+		modelSizes:               make(map[string]int64),
 	}
 }
 
@@ -131,6 +138,31 @@ func (wd *WatchDog) SetForceEvictionWhenBusy(force bool) {
 	wd.Lock()
 	defer wd.Unlock()
 	wd.forceEvictionWhenBusy = force
+}
+
+// RegisterModelSize records the on-disk file size for a model.
+// This is used by size-aware eviction to prefer evicting larger models first.
+// Call this after a model has been successfully loaded.
+func (wd *WatchDog) RegisterModelSize(modelID string, bytes int64) {
+	wd.Lock()
+	defer wd.Unlock()
+	wd.modelSizes[modelID] = bytes
+}
+
+// SetSizeAwareEviction enables or disables size-aware eviction ordering.
+// When enabled, eviction candidates are sorted by file size (largest first)
+// rather than by recency, maximizing freed memory per eviction.
+func (wd *WatchDog) SetSizeAwareEviction(enabled bool) {
+	wd.Lock()
+	defer wd.Unlock()
+	wd.sizeAwareEviction = enabled
+}
+
+// GetSizeAwareEviction returns whether size-aware eviction is enabled.
+func (wd *WatchDog) GetSizeAwareEviction() bool {
+	wd.Lock()
+	defer wd.Unlock()
+	return wd.sizeAwareEviction
 }
 
 // SetPinnedModels replaces the set of pinned model names.
@@ -302,11 +334,12 @@ func (wd *WatchDog) RestoreState(state WatchDogState) {
 	xlog.Info("[WatchDog] Restored model state", "modelCount", len(wd.addressModelMap))
 }
 
-// modelUsageInfo holds information about a model's usage for LRU sorting
+// modelUsageInfo holds information about a model's usage for eviction sorting
 type modelUsageInfo struct {
-	address  string
-	model    string
-	lastUsed time.Time
+	address   string
+	model     string
+	lastUsed  time.Time
+	sizeBytes int64 // on-disk file size; 0 if unknown
 }
 
 // EnforceLRULimitResult contains the result of LRU enforcement
@@ -338,27 +371,39 @@ func (wd *WatchDog) EnforceLRULimit(pendingLoads int) EnforceLRULimitResult {
 		return EnforceLRULimitResult{EvictedCount: 0, NeedMore: false}
 	}
 
-	xlog.Debug("[WatchDog] LRU enforcement triggered", "current", currentCount, "pendingLoads", pendingLoads, "limit", wd.lruLimit, "toEvict", modelsToEvict)
+	sizeAwareEviction := wd.sizeAwareEviction
+	xlog.Debug("[WatchDog] LRU enforcement triggered", "current", currentCount, "pendingLoads", pendingLoads, "limit", wd.lruLimit, "toEvict", modelsToEvict, "sizeAware", sizeAwareEviction)
 
-	// Build a list of models sorted by last used time (oldest first)
+	// Build a list of models to sort for eviction candidates
 	var models []modelUsageInfo
 	for address, model := range wd.addressModelMap {
 		lastUsed := wd.lastUsed[address]
 		if lastUsed.IsZero() {
-			// If no lastUsed recorded, use a very old time
 			lastUsed = time.Time{}
 		}
 		models = append(models, modelUsageInfo{
-			address:  address,
-			model:    model,
-			lastUsed: lastUsed,
+			address:   address,
+			model:     model,
+			lastUsed:  lastUsed,
+			sizeBytes: wd.modelSizes[model],
 		})
 	}
 
-	// Sort by lastUsed time (oldest first)
-	slices.SortFunc(models, func(a, b modelUsageInfo) int {
-		return a.lastUsed.Compare(b.lastUsed)
-	})
+	// Sort eviction candidates: largest-first when size-aware, oldest-first otherwise.
+	// Tiebreaker in size-aware mode: oldest last-used (LRU) to break ties between
+	// models of the same size.
+	if sizeAwareEviction {
+		slices.SortFunc(models, func(a, b modelUsageInfo) int {
+			if a.sizeBytes != b.sizeBytes {
+				return int(b.sizeBytes - a.sizeBytes) // largest first
+			}
+			return a.lastUsed.Compare(b.lastUsed) // oldest first as tiebreaker
+		})
+	} else {
+		slices.SortFunc(models, func(a, b modelUsageInfo) int {
+			return a.lastUsed.Compare(b.lastUsed)
+		})
+	}
 
 	// Collect models to evict (the oldest ones)
 	modelsToShutdown, skippedBusyCount := wd.collectEvictionsLocked(models, modelsToEvict, forceEvictionWhenBusy)
@@ -635,8 +680,9 @@ func (wd *WatchDog) evictLRUModel() {
 	}
 
 	forceEvictionWhenBusy := wd.forceEvictionWhenBusy
+	sizeAwareEviction := wd.sizeAwareEviction
 
-	// Build a list of models sorted by last used time (oldest first)
+	// Build a list of models to sort for eviction candidates
 	var models []modelUsageInfo
 	for address, model := range wd.addressModelMap {
 		lastUsed := wd.lastUsed[address]
@@ -644,9 +690,10 @@ func (wd *WatchDog) evictLRUModel() {
 			lastUsed = time.Time{}
 		}
 		models = append(models, modelUsageInfo{
-			address:  address,
-			model:    model,
-			lastUsed: lastUsed,
+			address:   address,
+			model:     model,
+			lastUsed:  lastUsed,
+			sizeBytes: wd.modelSizes[model],
 		})
 	}
 
@@ -655,10 +702,19 @@ func (wd *WatchDog) evictLRUModel() {
 		return
 	}
 
-	// Sort by lastUsed time (oldest first)
-	slices.SortFunc(models, func(a, b modelUsageInfo) int {
-		return a.lastUsed.Compare(b.lastUsed)
-	})
+	// Sort eviction candidates: largest-first when size-aware, oldest-first otherwise.
+	if sizeAwareEviction {
+		slices.SortFunc(models, func(a, b modelUsageInfo) int {
+			if a.sizeBytes != b.sizeBytes {
+				return int(b.sizeBytes - a.sizeBytes) // largest first
+			}
+			return a.lastUsed.Compare(b.lastUsed)
+		})
+	} else {
+		slices.SortFunc(models, func(a, b modelUsageInfo) int {
+			return a.lastUsed.Compare(b.lastUsed)
+		})
+	}
 
 	// Find the first non-busy, non-pinned model (or first non-pinned model if forceEvictionWhenBusy is true)
 	var lruModel *modelUsageInfo
@@ -702,6 +758,9 @@ func (wd *WatchDog) evictLRUModel() {
 }
 
 func (wd *WatchDog) untrack(address string) {
+	if modelID, ok := wd.addressModelMap[address]; ok {
+		delete(wd.modelSizes, modelID)
+	}
 	delete(wd.busyTime, address)
 	delete(wd.idleTime, address)
 	delete(wd.lastUsed, address)

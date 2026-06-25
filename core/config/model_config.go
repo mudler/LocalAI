@@ -37,6 +37,12 @@ type ModelConfig struct {
 	schema.PredictionOptions `yaml:"parameters,omitempty" json:"parameters,omitempty"`
 	Name                     string `yaml:"name,omitempty" json:"name,omitempty"`
 
+	// Alias, when set, makes this config a pure redirect: every request for
+	// Name is served by the model named here. All other fields are ignored.
+	// The target must be an existing, non-alias model (enforced at load and
+	// at create/swap time). See docs/content for Model Aliases.
+	Alias string `yaml:"alias,omitempty" json:"alias,omitempty"`
+
 	F16                 *bool               `yaml:"f16,omitempty" json:"f16,omitempty"`
 	Threads             *int                `yaml:"threads,omitempty" json:"threads,omitempty"`
 	Debug               *bool               `yaml:"debug,omitempty" json:"debug,omitempty"`
@@ -391,6 +397,10 @@ func (c *ModelConfig) HasRouter() bool {
 	return len(c.Router.Candidates) > 0
 }
 
+// IsAlias reports whether this config is a pure redirect to another model.
+// Value receiver so it is callable on non-addressable config values too.
+func (c ModelConfig) IsAlias() bool { return c.Alias != "" }
+
 // @Description PII filtering configuration. PII redaction is per-model so
 // that local models don't pay the latency or behaviour change of regex
 // scanning, while cloud-bound traffic (cloud-proxy backend) can default to
@@ -594,6 +604,20 @@ type Pipeline struct {
 	LLM           string `yaml:"llm,omitempty" json:"llm,omitempty"`
 	Transcription string `yaml:"transcription,omitempty" json:"transcription,omitempty"`
 	VAD           string `yaml:"vad,omitempty" json:"vad,omitempty"`
+	// SoundDetection names a sound-event-classification model (e.g. ced). When
+	// set, each VAD-committed realtime utterance is also run through it and the
+	// scored AudioSet tags are emitted as a conversation.item.sound_detection
+	// server event, alongside (and independent of) transcription.
+	SoundDetection string `yaml:"sound_detection,omitempty" json:"sound_detection,omitempty"`
+
+	// SoundDetectionWindowMs / SoundDetectionHopMs enable server-side windowing
+	// for a sound-detection-only realtime session: instead of the client
+	// committing audio buffers, the server classifies the last WindowMs of
+	// streamed audio every HopMs and emits a sound_detection event per hop. Both
+	// must be > 0 to activate; otherwise the session stays client-driven (the
+	// client commits windows via input_audio_buffer.commit).
+	SoundDetectionWindowMs int `yaml:"sound_detection_window_ms,omitempty" json:"sound_detection_window_ms,omitempty"`
+	SoundDetectionHopMs    int `yaml:"sound_detection_hop_ms,omitempty" json:"sound_detection_hop_ms,omitempty"`
 
 	// ReasoningEffort sets the reasoning effort (none|minimal|low|medium|high) for
 	// the pipeline's LLM without editing the LLM model config. Overrides the LLM's
@@ -617,9 +641,30 @@ type Pipeline struct {
 	// context fills.
 	MaxHistoryItems *int `yaml:"max_history_items,omitempty" json:"max_history_items,omitempty"`
 
+	// Compaction folds conversation items that age out of the live window
+	// (max_history_items) into a rolling summary instead of dropping them, so
+	// long realtime sessions stay cheap without losing earlier context. Nil
+	// (block absent) means disabled, preserving existing behavior.
+	Compaction *PipelineCompaction `yaml:"compaction,omitempty" json:"compaction,omitempty"`
+
 	// VoiceRecognition gates the pipeline behind speaker verification. Nil
 	// (block absent) means no gate, preserving existing behavior.
 	VoiceRecognition *PipelineVoiceRecognition `yaml:"voice_recognition,omitempty" json:"voice_recognition,omitempty"`
+}
+
+// PipelineCompaction configures summarize-then-drop for a realtime pipeline.
+type PipelineCompaction struct {
+	// Enabled turns summarize-then-drop on. Default false.
+	Enabled bool `yaml:"enabled,omitempty" json:"enabled,omitempty"`
+	// TriggerItems is the high-water mark: once live items exceed it, overflow
+	// above max_history_items is summarized and evicted. Must exceed
+	// max_history_items; clamped up if not. Default: 2x max_history_items.
+	TriggerItems int `yaml:"trigger_items,omitempty" json:"trigger_items,omitempty"`
+	// SummaryModel optionally names a smaller/cheaper model for the summary
+	// call. Empty uses the pipeline's own LLM.
+	SummaryModel string `yaml:"summary_model,omitempty" json:"summary_model,omitempty"`
+	// MaxSummaryTokens advises the summary length (fed to the prompt). Default 512.
+	MaxSummaryTokens int `yaml:"max_summary_tokens,omitempty" json:"max_summary_tokens,omitempty"`
 }
 
 // ApplyReasoningEffort resolves the effective reasoning effort — a per-request
@@ -759,6 +804,13 @@ type PipelineVoiceRecognition struct {
 	Allow VoiceRecognitionAllow `yaml:"allow,omitempty" json:"allow,omitempty"`
 	// References are the authorized reference speakers (verify mode).
 	References []VoiceReference `yaml:"references,omitempty" json:"references,omitempty"`
+	// Enforce controls the authorization gate. A nil value or true rejects
+	// unauthorized speakers (the historical behavior). false resolves the
+	// speaker's identity for surfacing/personalization but never drops a turn.
+	Enforce *bool `yaml:"enforce,omitempty" json:"enforce,omitempty"`
+	// Identity surfaces the recognized speaker to the client and the LLM. It is
+	// independent of Enforce: identity can be surfaced without gating.
+	Identity *VoiceIdentityConfig `yaml:"identity,omitempty" json:"identity,omitempty"`
 }
 
 // @Description VoiceRecognitionAllow filters authorized registry identities.
@@ -775,12 +827,53 @@ type VoiceReference struct {
 	Audio string `yaml:"audio,omitempty" json:"audio,omitempty"`
 }
 
+// @Description VoiceIdentityConfig surfaces the recognized speaker to the realtime
+// client and the LLM. When set, identity is resolved on every turn even if the
+// gate's When is "first" (the gate still authorizes only once).
+type VoiceIdentityConfig struct {
+	// Announce emits a conversation.item.speaker event to the client.
+	Announce bool `yaml:"announce,omitempty" json:"announce,omitempty"`
+	// AnnounceUnknown also emits the event when there is no confident match.
+	AnnounceUnknown bool `yaml:"announce_unknown,omitempty" json:"announce_unknown,omitempty"`
+	// Personalize informs the LLM who is speaking.
+	Personalize bool `yaml:"personalize,omitempty" json:"personalize,omitempty"`
+	// InjectName sets the per-message name field on each user turn.
+	InjectName bool `yaml:"inject_name,omitempty" json:"inject_name,omitempty"`
+	// InjectSystemNote maintains a "current speaker" note in the system message.
+	InjectSystemNote bool `yaml:"inject_system_note,omitempty" json:"inject_system_note,omitempty"`
+	// NoteUnknown adds a "the current speaker is unknown" note (enables the model
+	// to ask who it is talking to).
+	NoteUnknown bool `yaml:"note_unknown,omitempty" json:"note_unknown,omitempty"`
+}
+
 // VoiceGateEnabled reports whether a voice-recognition gate is configured. The
 // mere presence of the block is the intent signal: a present-but-incomplete
 // block (e.g. missing model) must fail closed at construction, not be silently
 // skipped here.
 func (p Pipeline) VoiceGateEnabled() bool {
 	return p.VoiceRecognition != nil
+}
+
+// EnforceGate reports whether the gate rejects unauthorized speakers. A nil
+// Enforce means "enforce" so existing configs keep gating.
+func (p PipelineVoiceRecognition) EnforceGate() bool {
+	return p.Enforce == nil || *p.Enforce
+}
+
+// IdentityEnabled reports whether the speaker's identity must be resolved for
+// surfacing or personalization.
+func (p PipelineVoiceRecognition) IdentityEnabled() bool {
+	return p.Identity != nil && (p.Identity.Announce || p.Identity.Personalize)
+}
+
+// AnnounceEnabled reports whether to emit the conversation.item.speaker event.
+func (p PipelineVoiceRecognition) AnnounceEnabled() bool {
+	return p.Identity != nil && p.Identity.Announce
+}
+
+// PersonalizeEnabled reports whether to inform the LLM of the speaker.
+func (p PipelineVoiceRecognition) PersonalizeEnabled() bool {
+	return p.Identity != nil && p.Identity.Personalize
 }
 
 // Normalize fills in defaults in place for omitted fields.
@@ -1111,106 +1204,16 @@ func (cfg *ModelConfig) SetDefaults(opts ...ConfigLoaderOption) {
 	// This ensures gallery-installed and runtime-loaded models get optimal parameters.
 	ApplyInferenceDefaults(cfg, cfg.Name, cfg.Model)
 
-	// https://github.com/ggerganov/llama.cpp/blob/75cd4c77292034ecec587ecb401366f57338f7c0/common/sampling.h#L22
-	defaultTopP := 0.95
-	defaultTopK := 40
-	defaultMinP := 0.0
-	defaultTemp := 0.9
-	// https://github.com/mudler/LocalAI/issues/2780
-	defaultMirostat := 0
-	defaultMirostatTAU := 5.0
-	defaultMirostatETA := 0.1
-	defaultTypicalP := 1.0
-	defaultTFZ := 1.0
-	defaultZero := 0
+	// Apply serving-policy defaults (device-independent): cross-request prefix
+	// caching. Propagates to distributed nodes via the model options.
+	ApplyServingDefaults(cfg)
+
+	// Generic fallback defaults (sampling params + runtime flags), applied after
+	// the model-family / hardware / serving tiers above. Only fills unset values.
+	ApplyGenericDefaults(cfg)
 
 	trueV := true
 	falseV := false
-
-	if cfg.Seed == nil {
-		//  random number generator seed
-		defaultSeed := RAND_SEED
-		cfg.Seed = &defaultSeed
-	}
-
-	// top_k=40 is llama.cpp's sampling default and is wrong for backends whose
-	// native default differs (issue #6632). Only inject it for the llama.cpp
-	// family and the empty/auto backend; leave TopK nil for known non-llama
-	// backends (e.g. mlx, whose intended default is top_k=0) so the wire value
-	// is 0 rather than a silently-changed 40.
-	if cfg.TopK == nil && UsesLlamaSamplerDefaults(cfg.Backend) {
-		cfg.TopK = &defaultTopK
-	}
-
-	if cfg.MinP == nil {
-		cfg.MinP = &defaultMinP
-	}
-
-	if cfg.TypicalP == nil {
-		cfg.TypicalP = &defaultTypicalP
-	}
-
-	if cfg.TFZ == nil {
-		cfg.TFZ = &defaultTFZ
-	}
-
-	if cfg.MMap == nil {
-		// MMap is enabled by default
-
-		// Only exception is for Intel GPUs
-		if os.Getenv("XPU") != "" {
-			cfg.MMap = &falseV
-		} else {
-			cfg.MMap = &trueV
-		}
-	}
-
-	if cfg.MMlock == nil {
-		// MMlock is disabled by default
-		cfg.MMlock = &falseV
-	}
-
-	if cfg.TopP == nil {
-		cfg.TopP = &defaultTopP
-	}
-	if cfg.Temperature == nil {
-		cfg.Temperature = &defaultTemp
-	}
-
-	if cfg.Maxtokens == nil {
-		cfg.Maxtokens = &defaultZero
-	}
-
-	if cfg.Mirostat == nil {
-		cfg.Mirostat = &defaultMirostat
-	}
-
-	if cfg.MirostatETA == nil {
-		cfg.MirostatETA = &defaultMirostatETA
-	}
-
-	if cfg.MirostatTAU == nil {
-		cfg.MirostatTAU = &defaultMirostatTAU
-	}
-
-	if cfg.LowVRAM == nil {
-		cfg.LowVRAM = &falseV
-	}
-
-	if cfg.Embeddings == nil {
-		cfg.Embeddings = &falseV
-	}
-
-	if cfg.Reranking == nil {
-		cfg.Reranking = &falseV
-	}
-
-	if cfg.PromptCacheAll == nil {
-		// Match upstream llama.cpp's default (common/common.h: cache_prompt = true)
-		// and let cache_idle_slots / kv_unified actually do useful work; users can
-		// opt out with an explicit `prompt_cache_all: false` in the model YAML.
-		cfg.PromptCacheAll = &trueV
-	}
 
 	if threads == 0 {
 		// Threads can't be 0
@@ -1239,10 +1242,36 @@ func (cfg *ModelConfig) SetDefaults(opts ...ConfigLoaderOption) {
 		cfg.ContextSize = &ctx
 	}
 	runBackendHooks(cfg, lo.modelPath)
+
+	// Apply hardware-driven defaults (e.g. a larger physical batch on Blackwell)
+	// LAST, after the context size is fully resolved (explicit config, LoadOptions,
+	// then the GGUF guess inside runBackendHooks): the Blackwell batch guard sizes
+	// the per-device compute buffer against this model's context, so it must see
+	// the final value, not a pre-guess nil. Uses the local GPU here; in distributed
+	// mode the router re-applies the same heuristics for the selected node's GPU
+	// before loading. Explicit config always wins.
+	ApplyHardwareDefaults(cfg, localGPU())
+
 	cfg.syncKnownUsecasesFromString()
 }
 
 func (c *ModelConfig) Validate() (bool, error) {
+	// An alias is a pure redirect: validate only its own shape here. Target
+	// existence and the no-chain rule need the full config set, so the loader
+	// (load-time) and the create/swap endpoints enforce those.
+	if c.IsAlias() {
+		if c.Name == "" {
+			return false, fmt.Errorf("alias config requires a name")
+		}
+		if c.Alias == c.Name {
+			return false, fmt.Errorf("alias %q cannot point to itself", c.Name)
+		}
+		if c.Backend != "" || c.Model != "" {
+			return false, fmt.Errorf("alias config %q must not set backend or parameters.model: an alias is a pure redirect", c.Name)
+		}
+		return true, nil
+	}
+
 	downloadedFileNames := []string{}
 	for _, f := range c.DownloadFiles {
 		downloadedFileNames = append(downloadedFileNames, f.Filename)
@@ -1463,6 +1492,11 @@ const (
 	// so it may combine freely with other usecases.
 	FLAG_TOKEN_CLASSIFY ModelConfigUsecase = 0b1000000000000000000000
 
+	// Marks a model as wired for the SoundDetection gRPC primitive
+	// (audio tagging / sound-event classification — scored AudioSet
+	// labels via the SoundDetection RPC, e.g. ced).
+	FLAG_SOUND_CLASSIFICATION ModelConfigUsecase = 0b10000000000000000000000
+
 	// Common Subsets
 	FLAG_LLM ModelConfigUsecase = FLAG_CHAT | FLAG_COMPLETION | FLAG_EDIT
 )
@@ -1471,12 +1505,12 @@ const (
 // Flags within the same group are NOT orthogonal (e.g., chat and completion are
 // both text/language). A model is multimodal when its usecases span 2+ groups.
 var ModalityGroups = []ModelConfigUsecase{
-	FLAG_CHAT | FLAG_COMPLETION | FLAG_EDIT,                // text/language
-	FLAG_VISION | FLAG_DETECTION,                           // visual understanding
-	FLAG_TRANSCRIPT | FLAG_REALTIME_AUDIO,                  // speech input — realtime_audio is any-to-any, so it counts here too
-	FLAG_TTS | FLAG_SOUND_GENERATION | FLAG_REALTIME_AUDIO, // audio output — and here, so a lone realtime_audio flag still reads as multimodal
-	FLAG_AUDIO_TRANSFORM,                                   // audio in/out transforms
-	FLAG_IMAGE | FLAG_VIDEO,                                // visual generation
+	FLAG_CHAT | FLAG_COMPLETION | FLAG_EDIT,                           // text/language
+	FLAG_VISION | FLAG_DETECTION,                                      // visual understanding
+	FLAG_TRANSCRIPT | FLAG_REALTIME_AUDIO | FLAG_SOUND_CLASSIFICATION, // audio input — realtime_audio is any-to-any, so it counts here too
+	FLAG_TTS | FLAG_SOUND_GENERATION | FLAG_REALTIME_AUDIO,            // audio output — and here, so a lone realtime_audio flag still reads as multimodal
+	FLAG_AUDIO_TRANSFORM,                                              // audio in/out transforms
+	FLAG_IMAGE | FLAG_VIDEO,                                           // visual generation
 }
 
 // IsMultimodal returns true if the given usecases span two or more orthogonal
@@ -1499,29 +1533,30 @@ func GetAllModelConfigUsecases() map[string]ModelConfigUsecase {
 	return map[string]ModelConfigUsecase{
 		// Note: FLAG_ANY is intentionally excluded from this map
 		// because it's 0 and would always match in HasUsecases checks
-		"FLAG_CHAT":                FLAG_CHAT,
-		"FLAG_COMPLETION":          FLAG_COMPLETION,
-		"FLAG_EDIT":                FLAG_EDIT,
-		"FLAG_EMBEDDINGS":          FLAG_EMBEDDINGS,
-		"FLAG_RERANK":              FLAG_RERANK,
-		"FLAG_IMAGE":               FLAG_IMAGE,
-		"FLAG_TRANSCRIPT":          FLAG_TRANSCRIPT,
-		"FLAG_TTS":                 FLAG_TTS,
-		"FLAG_SOUND_GENERATION":    FLAG_SOUND_GENERATION,
-		"FLAG_TOKENIZE":            FLAG_TOKENIZE,
-		"FLAG_VAD":                 FLAG_VAD,
-		"FLAG_LLM":                 FLAG_LLM,
-		"FLAG_VIDEO":               FLAG_VIDEO,
-		"FLAG_DETECTION":           FLAG_DETECTION,
-		"FLAG_VISION":              FLAG_VISION,
-		"FLAG_FACE_RECOGNITION":    FLAG_FACE_RECOGNITION,
-		"FLAG_SPEAKER_RECOGNITION": FLAG_SPEAKER_RECOGNITION,
-		"FLAG_AUDIO_TRANSFORM":     FLAG_AUDIO_TRANSFORM,
-		"FLAG_DIARIZATION":         FLAG_DIARIZATION,
-		"FLAG_REALTIME_AUDIO":      FLAG_REALTIME_AUDIO,
-		"FLAG_SCORE":               FLAG_SCORE,
-		"FLAG_DEPTH":               FLAG_DEPTH,
-		"FLAG_TOKEN_CLASSIFY":      FLAG_TOKEN_CLASSIFY,
+		"FLAG_CHAT":                 FLAG_CHAT,
+		"FLAG_COMPLETION":           FLAG_COMPLETION,
+		"FLAG_EDIT":                 FLAG_EDIT,
+		"FLAG_EMBEDDINGS":           FLAG_EMBEDDINGS,
+		"FLAG_RERANK":               FLAG_RERANK,
+		"FLAG_IMAGE":                FLAG_IMAGE,
+		"FLAG_TRANSCRIPT":           FLAG_TRANSCRIPT,
+		"FLAG_TTS":                  FLAG_TTS,
+		"FLAG_SOUND_GENERATION":     FLAG_SOUND_GENERATION,
+		"FLAG_TOKENIZE":             FLAG_TOKENIZE,
+		"FLAG_VAD":                  FLAG_VAD,
+		"FLAG_LLM":                  FLAG_LLM,
+		"FLAG_VIDEO":                FLAG_VIDEO,
+		"FLAG_DETECTION":            FLAG_DETECTION,
+		"FLAG_VISION":               FLAG_VISION,
+		"FLAG_FACE_RECOGNITION":     FLAG_FACE_RECOGNITION,
+		"FLAG_SPEAKER_RECOGNITION":  FLAG_SPEAKER_RECOGNITION,
+		"FLAG_AUDIO_TRANSFORM":      FLAG_AUDIO_TRANSFORM,
+		"FLAG_DIARIZATION":          FLAG_DIARIZATION,
+		"FLAG_SOUND_CLASSIFICATION": FLAG_SOUND_CLASSIFICATION,
+		"FLAG_REALTIME_AUDIO":       FLAG_REALTIME_AUDIO,
+		"FLAG_SCORE":                FLAG_SCORE,
+		"FLAG_DEPTH":                FLAG_DEPTH,
+		"FLAG_TOKEN_CLASSIFY":       FLAG_TOKEN_CLASSIFY,
 	}
 }
 
@@ -1720,6 +1755,16 @@ func (c *ModelConfig) GuessUsecases(u ModelConfigUsecase) bool {
 		// embeddings + clustering. Both surface as a Diarize gRPC.
 		diarizationBackends := []string{"vibevoice-cpp", "sherpa-onnx"}
 		if !slices.Contains(diarizationBackends, c.Backend) {
+			return false
+		}
+	}
+
+	if (u & FLAG_SOUND_CLASSIFICATION) == FLAG_SOUND_CLASSIFICATION {
+		// ced is a sound-event tagger (AudioSet labels) surfaced via the
+		// SoundDetection gRPC. Models without an explicit known_usecases
+		// still surface when they run on one of these backends.
+		soundClassificationBackends := []string{"ced"}
+		if !slices.Contains(soundClassificationBackends, c.Backend) {
 			return false
 		}
 	}

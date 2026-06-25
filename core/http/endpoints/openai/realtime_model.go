@@ -31,10 +31,11 @@ var (
 // This means that we will fake an Any-to-Any model by overriding some of the gRPC client methods
 // which are for Any-To-Any models, but instead we will call a pipeline (for e.g STT->LLM->TTS)
 type wrappedModel struct {
-	TTSConfig           *config.ModelConfig
-	TranscriptionConfig *config.ModelConfig
-	LLMConfig           *config.ModelConfig
-	VADConfig           *config.ModelConfig
+	TTSConfig            *config.ModelConfig
+	TranscriptionConfig  *config.ModelConfig
+	LLMConfig            *config.ModelConfig
+	VADConfig            *config.ModelConfig
+	SoundDetectionConfig *config.ModelConfig
 
 	appConfig   *config.ApplicationConfig
 	modelLoader *model.ModelLoader
@@ -64,8 +65,9 @@ type anyToAnyModel struct {
 }
 
 type transcriptOnlyModel struct {
-	TranscriptionConfig *config.ModelConfig
-	VADConfig           *config.ModelConfig
+	TranscriptionConfig  *config.ModelConfig
+	VADConfig            *config.ModelConfig
+	SoundDetectionConfig *config.ModelConfig
 
 	appConfig   *config.ApplicationConfig
 	modelLoader *model.ModelLoader
@@ -78,6 +80,10 @@ func (m *transcriptOnlyModel) VAD(ctx context.Context, request *schema.VADReques
 
 func (m *transcriptOnlyModel) Transcribe(ctx context.Context, audio, language string, translate bool, diarize bool, prompt string) (*schema.TranscriptionResult, error) {
 	return backend.ModelTranscription(ctx, audio, language, translate, diarize, prompt, m.modelLoader, *m.TranscriptionConfig, m.appConfig)
+}
+
+func (m *transcriptOnlyModel) SoundDetection(ctx context.Context, audio string, topK int, threshold float32) (*schema.SoundClassificationResult, error) {
+	return modelSoundDetection(ctx, m.modelLoader, m.appConfig, m.SoundDetectionConfig, audio, topK, threshold)
 }
 
 func (m *transcriptOnlyModel) Predict(ctx context.Context, messages schema.Messages, images, videos, audios []string, tokenCallback func(string, backend.TokenUsage) bool, tools []types.ToolUnion, toolChoice *types.ToolChoiceUnion, logprobs *int, topLogprobs *int, logitBias map[string]float64) (func() (backend.LLMResponse, error), error) {
@@ -106,6 +112,10 @@ func (m *wrappedModel) VAD(ctx context.Context, request *schema.VADRequest) (*sc
 
 func (m *wrappedModel) Transcribe(ctx context.Context, audio, language string, translate bool, diarize bool, prompt string) (*schema.TranscriptionResult, error) {
 	return backend.ModelTranscription(ctx, audio, language, translate, diarize, prompt, m.modelLoader, *m.TranscriptionConfig, m.appConfig)
+}
+
+func (m *wrappedModel) SoundDetection(ctx context.Context, audio string, topK int, threshold float32) (*schema.SoundClassificationResult, error) {
+	return modelSoundDetection(ctx, m.modelLoader, m.appConfig, m.SoundDetectionConfig, audio, topK, threshold)
 }
 
 func (m *wrappedModel) Predict(ctx context.Context, messages schema.Messages, images, videos, audios []string, tokenCallback func(string, backend.TokenUsage) bool, tools []types.ToolUnion, toolChoice *types.ToolChoiceUnion, logprobs *int, topLogprobs *int, logitBias map[string]float64) (func() (backend.LLMResponse, error), error) {
@@ -399,8 +409,41 @@ func transcribeStream(ctx context.Context, ml *model.ModelLoader, transcriptionC
 	return final, nil
 }
 
+// modelSoundDetection runs sound-event classification against the session's
+// sound-classification model config, mirroring how Transcribe dispatches to
+// the transcription backend. Returns an error when no sound-detection model is
+// configured for the session.
+func modelSoundDetection(ctx context.Context, ml *model.ModelLoader, appConfig *config.ApplicationConfig, soundConfig *config.ModelConfig, audio string, topK int, threshold float32) (*schema.SoundClassificationResult, error) {
+	if soundConfig == nil {
+		return nil, fmt.Errorf("sound detection is not configured for this session")
+	}
+	return backend.ModelSoundDetection(ctx, backend.SoundDetectionRequest{
+		Audio:     audio,
+		TopK:      int32(topK),
+		Threshold: threshold,
+	}, ml, *soundConfig, appConfig)
+}
+
+// loadSoundDetectionConfig resolves the optional sound-classification model
+// config named by pipeline.sound_detection. Returns (nil, nil) when no model
+// is configured so sound detection stays additive and never blocks session
+// setup.
+func loadSoundDetectionConfig(pipeline *config.Pipeline, cl *config.ModelConfigLoader, ml *model.ModelLoader) (*config.ModelConfig, error) {
+	if pipeline.SoundDetection == "" {
+		return nil, nil
+	}
+	cfg, err := loadPipelineSubModel(cl, pipeline.SoundDetection, ml.ModelPath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to load sound detection config: %w", err)
+	}
+	if valid, _ := cfg.Validate(); !valid {
+		return nil, fmt.Errorf("failed to validate sound detection config %q", pipeline.SoundDetection)
+	}
+	return cfg, nil
+}
+
 func newTranscriptionOnlyModel(pipeline *config.Pipeline, cl *config.ModelConfigLoader, ml *model.ModelLoader, appConfig *config.ApplicationConfig) (Model, *config.ModelConfig, error) {
-	cfgVAD, err := cl.LoadModelConfigFileByName(pipeline.VAD, ml.ModelPath)
+	cfgVAD, err := loadPipelineSubModel(cl, pipeline.VAD, ml.ModelPath)
 	if err != nil {
 
 		return nil, nil, fmt.Errorf("failed to load backend config: %w", err)
@@ -410,7 +453,7 @@ func newTranscriptionOnlyModel(pipeline *config.Pipeline, cl *config.ModelConfig
 		return nil, nil, fmt.Errorf("failed to validate config: %w", err)
 	}
 
-	cfgSST, err := cl.LoadModelConfigFileByName(pipeline.Transcription, ml.ModelPath)
+	cfgSST, err := loadPipelineSubModel(cl, pipeline.Transcription, ml.ModelPath)
 	if err != nil {
 
 		return nil, nil, fmt.Errorf("failed to load backend config: %w", err)
@@ -420,14 +463,41 @@ func newTranscriptionOnlyModel(pipeline *config.Pipeline, cl *config.ModelConfig
 		return nil, nil, fmt.Errorf("failed to validate config: %w", err)
 	}
 
+	cfgSound, err := loadSoundDetectionConfig(pipeline, cl, ml)
+	if err != nil {
+		return nil, nil, err
+	}
+
 	return &transcriptOnlyModel{
-		TranscriptionConfig: cfgSST,
-		VADConfig:           cfgVAD,
+		TranscriptionConfig:  cfgSST,
+		VADConfig:            cfgVAD,
+		SoundDetectionConfig: cfgSound,
 
 		confLoader:  cl,
 		modelLoader: ml,
 		appConfig:   appConfig,
 	}, cfgSST, nil
+}
+
+// newSoundDetectionOnlyModel builds a realtime model that only does sound-event
+// classification: no VAD, transcription, LLM or TTS stages are loaded. Used for
+// a sound-detection-only realtime session, which activates on sounds (not
+// speech) and is driven by client-side windowing (turn_detection none +
+// input_audio_buffer.commit) rather than the voice VAD loop.
+func newSoundDetectionOnlyModel(pipeline *config.Pipeline, cl *config.ModelConfigLoader, ml *model.ModelLoader, appConfig *config.ApplicationConfig) (Model, error) {
+	cfgSound, err := loadSoundDetectionConfig(pipeline, cl, ml)
+	if err != nil {
+		return nil, err
+	}
+	if cfgSound == nil {
+		return nil, fmt.Errorf("a sound-only realtime session requires pipeline.sound_detection")
+	}
+	return &transcriptOnlyModel{
+		SoundDetectionConfig: cfgSound,
+		confLoader:           cl,
+		modelLoader:          ml,
+		appConfig:            appConfig,
+	}, nil
 }
 
 // RealtimeRoutingContext is the bundle of routing dependencies the
@@ -472,11 +542,30 @@ func buildRealtimeRoutingContext(a *application.Application, sessionID string) *
 	}
 }
 
+// loadPipelineSubModel loads a pipeline sub-model config by name and follows a
+// single alias hop, so a pipeline that references an alias (e.g. `llm: default`)
+// gets the alias target's full config (Backend, Model, ...) rather than the
+// alias stub with an empty Backend. Without this the alias survives unresolved
+// into model loading and fails downstream — notably in distributed mode with
+// "backend name is empty". Mirrors the top-level alias resolution in
+// core/http/middleware/request.go.
+func loadPipelineSubModel(cl *config.ModelConfigLoader, name, modelPath string) (*config.ModelConfig, error) {
+	cfg, err := cl.LoadModelConfigFileByName(name, modelPath)
+	if err != nil {
+		return nil, err
+	}
+	resolved, _, err := cl.ResolveAlias(cfg)
+	if err != nil {
+		return nil, err
+	}
+	return resolved, nil
+}
+
 // returns and loads either a wrapped model or a model that support audio-to-audio
 func newModel(pipeline *config.Pipeline, cl *config.ModelConfigLoader, ml *model.ModelLoader, appConfig *config.ApplicationConfig, evaluator *templates.Evaluator, routing *RealtimeRoutingContext) (Model, error) {
 	xlog.Debug("Creating new model pipeline model", "pipeline", pipeline)
 
-	cfgVAD, err := cl.LoadModelConfigFileByName(pipeline.VAD, ml.ModelPath)
+	cfgVAD, err := loadPipelineSubModel(cl, pipeline.VAD, ml.ModelPath)
 	if err != nil {
 
 		return nil, fmt.Errorf("failed to load backend config: %w", err)
@@ -487,7 +576,7 @@ func newModel(pipeline *config.Pipeline, cl *config.ModelConfigLoader, ml *model
 	}
 
 	// TODO: Do we always need a transcription model? It can be disabled. Note that any-to-any instruction following models don't transcribe as such, so if transcription is required it is a separate process
-	cfgSST, err := cl.LoadModelConfigFileByName(pipeline.Transcription, ml.ModelPath)
+	cfgSST, err := loadPipelineSubModel(cl, pipeline.Transcription, ml.ModelPath)
 	if err != nil {
 
 		return nil, fmt.Errorf("failed to load backend config: %w", err)
@@ -519,7 +608,7 @@ func newModel(pipeline *config.Pipeline, cl *config.ModelConfigLoader, ml *model
 	xlog.Debug("Loading a wrapped model")
 
 	// Otherwise we want to return a wrapped model, which is a "virtual" model that re-uses other models to perform operations
-	cfgLLM, err := cl.LoadModelConfigFileByName(pipeline.LLM, ml.ModelPath)
+	cfgLLM, err := loadPipelineSubModel(cl, pipeline.LLM, ml.ModelPath)
 	if err != nil {
 
 		return nil, fmt.Errorf("failed to load backend config: %w", err)
@@ -534,7 +623,7 @@ func newModel(pipeline *config.Pipeline, cl *config.ModelConfigLoader, ml *model
 	applyPipelineReasoning(cfgLLM, *pipeline)
 	applyPipelineThinking(cfgLLM, *pipeline)
 
-	cfgTTS, err := cl.LoadModelConfigFileByName(pipeline.TTS, ml.ModelPath)
+	cfgTTS, err := loadPipelineSubModel(cl, pipeline.TTS, ml.ModelPath)
 	if err != nil {
 
 		return nil, fmt.Errorf("failed to load backend config: %w", err)
@@ -544,11 +633,17 @@ func newModel(pipeline *config.Pipeline, cl *config.ModelConfigLoader, ml *model
 		return nil, fmt.Errorf("failed to validate config: %w", err)
 	}
 
+	cfgSound, err := loadSoundDetectionConfig(pipeline, cl, ml)
+	if err != nil {
+		return nil, err
+	}
+
 	wm := &wrappedModel{
-		TTSConfig:           cfgTTS,
-		TranscriptionConfig: cfgSST,
-		LLMConfig:           cfgLLM,
-		VADConfig:           cfgVAD,
+		TTSConfig:            cfgTTS,
+		TranscriptionConfig:  cfgSST,
+		LLMConfig:            cfgLLM,
+		VADConfig:            cfgVAD,
+		SoundDetectionConfig: cfgSound,
 
 		confLoader:  cl,
 		modelLoader: ml,

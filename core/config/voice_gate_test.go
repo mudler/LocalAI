@@ -70,4 +70,32 @@ var _ = Describe("PipelineVoiceRecognition", func() {
 			Expect((Pipeline{VoiceRecognition: &PipelineVoiceRecognition{}}).VoiceGateEnabled()).To(BeTrue())
 		})
 	})
+
+	Describe("Enforce / Identity helpers", func() {
+		It("treats a nil Enforce as enforcing (backward compatible)", func() {
+			v := PipelineVoiceRecognition{Model: "spk"}
+			Expect(v.EnforceGate()).To(BeTrue())
+		})
+		It("honors an explicit enforce:false", func() {
+			off := false
+			v := PipelineVoiceRecognition{Model: "spk", Enforce: &off}
+			Expect(v.EnforceGate()).To(BeFalse())
+		})
+		It("reports identity disabled when no identity block is set", func() {
+			v := PipelineVoiceRecognition{Model: "spk"}
+			Expect(v.IdentityEnabled()).To(BeFalse())
+			Expect(v.AnnounceEnabled()).To(BeFalse())
+			Expect(v.PersonalizeEnabled()).To(BeFalse())
+		})
+		It("reports identity enabled when announce or personalize is on", func() {
+			v := PipelineVoiceRecognition{Model: "spk", Identity: &VoiceIdentityConfig{Announce: true}}
+			Expect(v.IdentityEnabled()).To(BeTrue())
+			Expect(v.AnnounceEnabled()).To(BeTrue())
+			Expect(v.PersonalizeEnabled()).To(BeFalse())
+
+			v2 := PipelineVoiceRecognition{Model: "spk", Identity: &VoiceIdentityConfig{Personalize: true}}
+			Expect(v2.IdentityEnabled()).To(BeTrue())
+			Expect(v2.PersonalizeEnabled()).To(BeTrue())
+		})
+	})
 })

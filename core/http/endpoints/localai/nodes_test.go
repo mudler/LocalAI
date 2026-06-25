@@ -407,4 +407,44 @@ var _ = Describe("Node HTTP handlers", func() {
 			Expect(names).To(ConsistOf("alpha", "beta"))
 		})
 	})
+
+	Describe("ListAllNodeModelsEndpoint", func() {
+		It("returns an empty list when no models are loaded", func() {
+			e := echo.New()
+			req := httptest.NewRequest(http.MethodGet, "/", nil)
+			rec := httptest.NewRecorder()
+			c := e.NewContext(req, rec)
+
+			handler := ListAllNodeModelsEndpoint(registry)
+			Expect(handler(c)).To(Succeed())
+			Expect(rec.Code).To(Equal(http.StatusOK))
+
+			var list []nodes.NodeModel
+			Expect(json.Unmarshal(rec.Body.Bytes(), &list)).To(Succeed())
+			Expect(list).To(BeEmpty())
+		})
+
+		It("returns loaded models across healthy nodes", func() {
+			ctx := context.Background()
+			Expect(registry.Register(ctx, &nodes.BackendNode{
+				ID: "n1", Name: "alpha", Address: "10.0.0.1:50051", Status: nodes.StatusHealthy,
+			}, true)).To(Succeed())
+			Expect(registry.SetNodeModel(ctx, "n1", "llama-3.3", 0, "loaded", "10.0.0.1:50051", 0)).To(Succeed())
+
+			e := echo.New()
+			req := httptest.NewRequest(http.MethodGet, "/", nil)
+			rec := httptest.NewRecorder()
+			c := e.NewContext(req, rec)
+
+			handler := ListAllNodeModelsEndpoint(registry)
+			Expect(handler(c)).To(Succeed())
+			Expect(rec.Code).To(Equal(http.StatusOK))
+
+			var list []nodes.NodeModel
+			Expect(json.Unmarshal(rec.Body.Bytes(), &list)).To(Succeed())
+			Expect(list).To(HaveLen(1))
+			Expect(list[0].ModelName).To(Equal("llama-3.3"))
+			Expect(list[0].NodeID).To(Equal("n1"))
+		})
+	})
 })

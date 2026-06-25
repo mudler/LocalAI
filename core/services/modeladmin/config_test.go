@@ -211,5 +211,23 @@ var _ = Describe("ConfigService", func() {
 			_, err := svc.EditYAML(ctx, "alpha", nil, nil)
 			Expect(err).To(MatchError(ErrEmptyBody))
 		})
+
+		It("rejects editing a config into an alias with a missing target", func() {
+			writeModelYAML(svc, dir, "base", map[string]any{"backend": "llama-cpp"})
+
+			body := []byte("name: base\nalias: ghost\n")
+			_, err := svc.EditYAML(ctx, "base", body, nil)
+			Expect(err).To(MatchError(ErrInvalidConfig))
+			Expect(err.Error()).To(ContainSubstring("ghost"))
+		})
+
+		It("accepts editing a config into an alias with a real target", func() {
+			writeModelYAML(svc, dir, "base", map[string]any{"backend": "llama-cpp"})
+			writeModelYAML(svc, dir, "target", map[string]any{"backend": "llama-cpp"})
+
+			body := []byte("name: base\nalias: target\n")
+			_, err := svc.EditYAML(ctx, "base", body, nil)
+			Expect(err).ToNot(HaveOccurred())
+		})
 	})
 })

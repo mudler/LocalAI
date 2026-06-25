@@ -51,6 +51,12 @@ func (stubClient) EditModelConfig(_ context.Context, _ string, _ map[string]any)
 	return nil
 }
 func (stubClient) ReloadModels(_ context.Context) error { return nil }
+func (stubClient) SetAlias(_ context.Context, _, _ string) error {
+	return nil
+}
+func (stubClient) ListAliases(_ context.Context) ([]localaitools.AliasInfo, error) {
+	return nil, nil
+}
 func (stubClient) ListBackends(_ context.Context) ([]localaitools.Backend, error) {
 	return []localaitools.Backend{{Name: "stub-backend", Installed: true}}, nil
 }

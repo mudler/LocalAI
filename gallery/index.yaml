@@ -1,4 +1,607 @@
 ---
+- name: "gemmable-4-12b-mtp"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/Mia-AiLab/Gemmable-4-12B-MTP-GGUF
+  description: |
+    ## Gemmable 4 12B
+
+    Gemmable 4 12B is a GGUF export of Gemma 4 12B fine-tuned on Fable-5 style
+    reasoning and assistant traces.
+
+    ## Highlights
+
+      - Base model: `google/gemma-4-12B`
+      - Format: GGUF
+      - Training style: Fable-5 style reasoning and assistant traces
+      - Distribution: fp16 GGUF plus matching assistant GGUFs for each quant
+      - Intended use: local inference, coding, reasoning, and assistant workflows
+
+    ## How to use
+
+    ### llama.cpp
+
+    Standard load:
+
+    ```bash
+    llama-server -m "gemmable-4-12b-fp16.gguf"
+    ```
+
+    Speculative / draft-MTP load:
+
+    ```bash
+    llama-server -m "gemmable-4-12b-Q4_K_M.gguf" \
+      --spec-draft-model "gemmable-4-12b-Q4_K_M-mtp.gguf" \
+      --spec-type draft-mtp \
+      --spec-draft-n-max 4
+    ```
+
+    Use the matching fp16 or quantized main file with its `-mtp` companion.
+
+    ### LM Studio
+
+    1.  Search this repo, download target + mtp file.
+    2.  Load target.
+    3.  Load settings → Speculative Decoding → select mtp file file.
+
+    (Requires LM Studio with am17an's PR merged or custom llama.cpp runtime. As of 2026-05, mainline LM Studio runtime doesn't yet have `draft-mtp` for Gemma-4 — track upstream merge.)
+
+    ## GGUF / local inference notes
+
+    ...
+  tags:
+    - llm
+    - gguf
+    - reasoning
+  icon: https://storage.ko-fi.com/cdn/kofi6.png
+  overrides:
+    backend: llama-cpp
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/Gemmable-4-12B-MTP-GGUF/gemmable-4-12b-Q4_K_M-mtp.gguf
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/Gemmable-4-12B-MTP-GGUF/gemmable-4-12b-Q4_K_M-mtp.gguf
+      sha256: 217dc0ed177ecc733f801a851c3e3854cf1b17a1f86cd5430c0a7f82d93027bc
+      uri: https://huggingface.co/Mia-AiLab/Gemmable-4-12B-MTP-GGUF/resolve/main/gemmable-4-12b-Q4_K_M-mtp.gguf
+- name: "lfm2.5-1.2b-instruct"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/LiquidAI/LFM2.5-1.2B-Instruct-GGUF
+  description: "Try LFM • Docs • LEAP • Discord\n\n# LFM2.5-1.2B-Instruct\n\nLFM2.5 is a new family of hybrid models designed for **on-device deployment**. It builds on the LFM2 architecture with extended pre-training and reinforcement learning.\n\n  - **Best-in-class performance**: A 1.2B model rivaling much larger models, bringing high-quality AI to your pocket.\n  - **Fast edge inference**: 239 tok/s decode on AMD CPU, 82 tok/s on mobile NPU. Runs under 1GB of memory with day-one support for llama.cpp, MLX, and vLLM.\n  - **Scaled training**: Extended pre-training from 10T to 28T tokens and large-scale multi-stage reinforcement learning.\n\nFind more information about LFM2.5 in our blog post.\n\n## \U0001F5D2️ Model Details\n\nLFM2.5-1.2B-Instruct is a general-purpose text-only model with the following features:\n\n...\n"
+  license: "other"
+  tags:
+    - llm
+    - gguf
+  icon: https://cdn-uploads.huggingface.co/production/uploads/61b8e2ba285851687028d395/dxnYF2fuLpulismtFSGFi.png
+  overrides:
+    backend: llama-cpp
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+    options:
+      - use_jinja:true
+    parameters:
+      min_p: 0.15
+      model: llama-cpp/models/LFM2.5-1.2B-Instruct-GGUF/LFM2.5-1.2B-Instruct-Q4_K_M.gguf
+      repeat_penalty: 1.05
+      temperature: 0.1
+      top_k: 50
+      top_p: 0.1
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/LFM2.5-1.2B-Instruct-GGUF/LFM2.5-1.2B-Instruct-Q4_K_M.gguf
+      sha256: b1b3de114215d9507409a662a501a631095a479a419584e8a2ded6304b19b4f5
+      uri: https://huggingface.co/LiquidAI/LFM2.5-1.2B-Instruct-GGUF/resolve/main/LFM2.5-1.2B-Instruct-Q4_K_M.gguf
+- name: "qwopus3.6-27b-coder-compat-mtp"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/Jackrong/Qwopus3.6-27B-Coder-Compat-MTP-GGUF
+  description: "\U0001FA90 Qwopus-3.6-27B-Coder\nCoder SFT Release\n\nAgentic Coding &amp; Tool-Use Reasoning Model Fine-Tuned on Qwopus3.6-27B-v2\n\n\U0001F9EC Trace Inversion & Negentropy\n\U0001F9E0 27B Dense Model\n⚡ Agentic Coding\n\U0001F6E0️ Tool Calling & Agent\n\U0001F3C6 SWE-bench Verified: 67.0% (off-thinking)\n\n\U0001F4A1 What is Qwopus-3.6-27B-Coder?\n\U0001FA90 Qwopus-3.6-27B-Coder is a reasoning-enhanced agentic coding model built on top of Qwopus3.6-27B-v2. It inherits the powerful reasoning foundation of the v2 base — which achieved 87.43% MMLU-Pro and 75.25% SWE-bench Verified — and further specializes it for agentic code generation, structured tool calling, debugging, and instruction-following in developer workflows. The model is designed to excel at repository-level coding tasks, multi-turn tool orchestration, and complex logical reasoning under realistic agent environments.\n\n\U0001F9E9 Agentic Coding\nOptimized for repository-level coding, debugging, patch generation, and structured multi-step development workflows.\n\n\U0001F6E0️ Tool Calling\nLearns from real agent trajectories with tool definitions, tool calls, and environment feedback for robust multi-turn execution.\n\n...\n"
+  license: "apache-2.0"
+  tags:
+    - llm
+    - gguf
+    - vision
+    - multimodal
+    - reasoning
+  icon: https://cdn-uploads.huggingface.co/production/uploads/66309bd090589b7c65950665/sGQKmrMc6L6guMoaB5_Y2.png
+  overrides:
+    backend: llama-cpp
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+    mmproj: llama-cpp/mmproj/Qwopus3.6-27B-Coder-Compat-MTP-GGUF/mmproj-F32.gguf
+    options:
+      - use_jinja:true
+      - spec_type:draft-mtp
+      - spec_n_max:6
+      - spec_p_min:0.75
+    parameters:
+      model: llama-cpp/models/Qwopus3.6-27B-Coder-Compat-MTP-GGUF/Qwopus3.6-27B-Coder-Compat-MTP-Q4_K_M.gguf
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/Qwopus3.6-27B-Coder-Compat-MTP-GGUF/Qwopus3.6-27B-Coder-Compat-MTP-Q4_K_M.gguf
+      sha256: f893632170124da60e159b7bcc9d91e1cda3014b2c6b8ad9c6cde38a1fcd2f6f
+      uri: https://huggingface.co/Jackrong/Qwopus3.6-27B-Coder-Compat-MTP-GGUF/resolve/main/Qwopus3.6-27B-Coder-Compat-MTP-Q4_K_M.gguf
+    - filename: llama-cpp/mmproj/Qwopus3.6-27B-Coder-Compat-MTP-GGUF/mmproj-F32.gguf
+      sha256: 32f7ea0600c07272547da401d460f8abbd980f3a57b69d6df87be0e2505e0b9c
+      uri: https://huggingface.co/Jackrong/Qwopus3.6-27B-Coder-Compat-MTP-GGUF/resolve/main/mmproj-F32.gguf
+- name: "kimi-k2.7-code"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/unsloth/Kimi-K2.7-Code-GGUF
+  description: |
+    ## 1. Model Introduction
+
+    Kimi K2.7 Code is a coding-focused agentic model built upon Kimi K2.6. With substantial improvements on real-world long-horizon coding tasks, it strengthens end-to-end task completion across complex software engineering workflows while improving token efficiency, reducing thinking-token usage by approximately 30% compared with Kimi K2.6.
+
+    ## 2. Model Summary
+
+    ## 3. Evaluation Results
+
+    Benchmark
+    Kimi K2.6
+    Kimi K2.7 Code
+    GPT-5.5
+    Claude Opus 4.8
+
+    Coding
+
+    Kimi Code Bench v2
+    50.9
+    62.0
+    69.0
+    67.4
+
+    Program Bench
+    48.3
+    53.6
+    69.1
+    63.8
+
+    MLS Bench Lite
+    26.7
+    35.1
+    35.5
+    42.8
+
+    Agentic
+
+    Kimi Claw 24/7 Bench
+    42.9
+    46.9
+    52.8
+    50.4
+
+    MCP Atlas
+    69.4
+    76.0
+    79.4
+    81.3
+
+    MCP Mark Verified
+    72.8
+    81.1
+    92.9
+    76.4
+
+    Footnotes
+
+    ...
+  license: "other"
+  tags:
+    - llm
+    - gguf
+  icon: https://huggingface.co/moonshotai/Kimi-K2.7-Code/resolve/main/figures/kimi-logo.png
+  overrides:
+    backend: llama-cpp
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+    mmproj: llama-cpp/mmproj/Kimi-K2.7-Code-GGUF/mmproj-F32.gguf
+    options:
+      - use_jinja:true
+    parameters:
+      min_p: 0.01
+      model: llama-cpp/models/Kimi-K2.7-Code-GGUF/Kimi-K2.7-Code-UD-Q8_K_XL-00001-of-00014.gguf
+      repeat_penalty: 1
+      temperature: 0.6
+      top_k: -1
+      top_p: 0.95
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/Kimi-K2.7-Code-GGUF/Kimi-K2.7-Code-UD-Q8_K_XL-00001-of-00014.gguf
+      sha256: 65f0aca336f876902323a90e2aff32cac76d071b2cdd818c6a8d78be8fc2c680
+      uri: https://huggingface.co/unsloth/Kimi-K2.7-Code-GGUF/resolve/main/UD-Q8_K_XL/Kimi-K2.7-Code-UD-Q8_K_XL-00001-of-00014.gguf
+    - filename: llama-cpp/models/Kimi-K2.7-Code-GGUF/Kimi-K2.7-Code-UD-Q8_K_XL-00002-of-00014.gguf
+      sha256: 40f4416c130827a11502778891f4ef95b2144db90f51d63aa3548d0952a39683
+      uri: https://huggingface.co/unsloth/Kimi-K2.7-Code-GGUF/resolve/main/UD-Q8_K_XL/Kimi-K2.7-Code-UD-Q8_K_XL-00002-of-00014.gguf
+    - filename: llama-cpp/models/Kimi-K2.7-Code-GGUF/Kimi-K2.7-Code-UD-Q8_K_XL-00003-of-00014.gguf
+      sha256: ba2ba0b5168784ace7c752ecadfc3631279b2bb023824cb0fe9e2dab3dd28f22
+      uri: https://huggingface.co/unsloth/Kimi-K2.7-Code-GGUF/resolve/main/UD-Q8_K_XL/Kimi-K2.7-Code-UD-Q8_K_XL-00003-of-00014.gguf
+    - filename: llama-cpp/models/Kimi-K2.7-Code-GGUF/Kimi-K2.7-Code-UD-Q8_K_XL-00004-of-00014.gguf
+      sha256: 10298a6c98b13ef49be286fefbea8663e16473fb69bbeabe153bc80c60ae116e
+      uri: https://huggingface.co/unsloth/Kimi-K2.7-Code-GGUF/resolve/main/UD-Q8_K_XL/Kimi-K2.7-Code-UD-Q8_K_XL-00004-of-00014.gguf
+    - filename: llama-cpp/models/Kimi-K2.7-Code-GGUF/Kimi-K2.7-Code-UD-Q8_K_XL-00005-of-00014.gguf
+      sha256: 8e9e4c8e35d34fc4fef6bfb65a715ad7defbd196970d833c1df6924d701c88b3
+      uri: https://huggingface.co/unsloth/Kimi-K2.7-Code-GGUF/resolve/main/UD-Q8_K_XL/Kimi-K2.7-Code-UD-Q8_K_XL-00005-of-00014.gguf
+    - filename: llama-cpp/models/Kimi-K2.7-Code-GGUF/Kimi-K2.7-Code-UD-Q8_K_XL-00006-of-00014.gguf
+      sha256: ccff6e7f299742f82cf6f51a871e3eb3167511efaee967477cc8387f54d16442
+      uri: https://huggingface.co/unsloth/Kimi-K2.7-Code-GGUF/resolve/main/UD-Q8_K_XL/Kimi-K2.7-Code-UD-Q8_K_XL-00006-of-00014.gguf
+    - filename: llama-cpp/models/Kimi-K2.7-Code-GGUF/Kimi-K2.7-Code-UD-Q8_K_XL-00007-of-00014.gguf
+      sha256: 1a3b639633a2d22f71156a9f643ded2329cdd969cc21177b644b5741bac1af8e
+      uri: https://huggingface.co/unsloth/Kimi-K2.7-Code-GGUF/resolve/main/UD-Q8_K_XL/Kimi-K2.7-Code-UD-Q8_K_XL-00007-of-00014.gguf
+    - filename: llama-cpp/models/Kimi-K2.7-Code-GGUF/Kimi-K2.7-Code-UD-Q8_K_XL-00008-of-00014.gguf
+      sha256: bde28f682a1eab973538b2102007d952f37a13c1f7d55e2ed99177445ddc4282
+      uri: https://huggingface.co/unsloth/Kimi-K2.7-Code-GGUF/resolve/main/UD-Q8_K_XL/Kimi-K2.7-Code-UD-Q8_K_XL-00008-of-00014.gguf
+    - filename: llama-cpp/models/Kimi-K2.7-Code-GGUF/Kimi-K2.7-Code-UD-Q8_K_XL-00009-of-00014.gguf
+      sha256: b6a23a95b61e100f7593fa75e2363966323fa767b7e4fdf45d963b59e8fdc69f
+      uri: https://huggingface.co/unsloth/Kimi-K2.7-Code-GGUF/resolve/main/UD-Q8_K_XL/Kimi-K2.7-Code-UD-Q8_K_XL-00009-of-00014.gguf
+    - filename: llama-cpp/models/Kimi-K2.7-Code-GGUF/Kimi-K2.7-Code-UD-Q8_K_XL-00010-of-00014.gguf
+      sha256: fb10231c2e6d76921d40f22690f4aa08a8090c708edeaf7e581abafc24d3b25c
+      uri: https://huggingface.co/unsloth/Kimi-K2.7-Code-GGUF/resolve/main/UD-Q8_K_XL/Kimi-K2.7-Code-UD-Q8_K_XL-00010-of-00014.gguf
+    - filename: llama-cpp/models/Kimi-K2.7-Code-GGUF/Kimi-K2.7-Code-UD-Q8_K_XL-00011-of-00014.gguf
+      sha256: d2290be7ed1a22ac1f9f8a4813389689e075ce2ab8abc3aaaa1157a3cb1462d8
+      uri: https://huggingface.co/unsloth/Kimi-K2.7-Code-GGUF/resolve/main/UD-Q8_K_XL/Kimi-K2.7-Code-UD-Q8_K_XL-00011-of-00014.gguf
+    - filename: llama-cpp/models/Kimi-K2.7-Code-GGUF/Kimi-K2.7-Code-UD-Q8_K_XL-00012-of-00014.gguf
+      sha256: ce0d028314aa3fc783082dbca097e1055d69686a17ab8306574e2949568f26a5
+      uri: https://huggingface.co/unsloth/Kimi-K2.7-Code-GGUF/resolve/main/UD-Q8_K_XL/Kimi-K2.7-Code-UD-Q8_K_XL-00012-of-00014.gguf
+    - filename: llama-cpp/models/Kimi-K2.7-Code-GGUF/Kimi-K2.7-Code-UD-Q8_K_XL-00013-of-00014.gguf
+      sha256: 217864ce63a1d130ab39dcb0996b6097e1aa78eb896e38efaefdbbac3a00b7ec
+      uri: https://huggingface.co/unsloth/Kimi-K2.7-Code-GGUF/resolve/main/UD-Q8_K_XL/Kimi-K2.7-Code-UD-Q8_K_XL-00013-of-00014.gguf
+    - filename: llama-cpp/models/Kimi-K2.7-Code-GGUF/Kimi-K2.7-Code-UD-Q8_K_XL-00014-of-00014.gguf
+      sha256: eb7582ad7066c5eaa01bde95acb00b4ad9cd7b07cd50a6cf5c9ee427258bc9dd
+      uri: https://huggingface.co/unsloth/Kimi-K2.7-Code-GGUF/resolve/main/UD-Q8_K_XL/Kimi-K2.7-Code-UD-Q8_K_XL-00014-of-00014.gguf
+    - filename: llama-cpp/mmproj/Kimi-K2.7-Code-GGUF/mmproj-F32.gguf
+      sha256: b2cc50c8c13fe70fc4968a83332f31e9007ea09ebb9ae91d46a4e4cd2a3053cd
+      uri: https://huggingface.co/unsloth/Kimi-K2.7-Code-GGUF/resolve/main/mmproj-F32.gguf
+- name: "qwythos-9b-claude-mythos-5-1m"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/empero-ai/Qwythos-9B-Claude-Mythos-5-1M-GGUF
+  description: |
+    # Qwythos-9B
+
+    **Developed by Empero**
+
+    **Qwythos-9B** is a full-parameter reasoning model built on top of a **deeply uncensored Qwen3.5-9B base** and post-trained on **over 500 million tokens** of high-quality Claude Mythos and Claude Fable traces, with chain-of-thought generated in-house by Empero AI's internal tool **rethink**.
+
+    The result is a compact, fast, **dramatically more capable** 9B reasoning model. Headline capabilities:
+
+    ...
+  license: "apache-2.0"
+  tags:
+    - llm
+    - gguf
+    - vision
+    - multimodal
+    - reasoning
+  overrides:
+    backend: llama-cpp
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+    mmproj: llama-cpp/mmproj/Qwythos-9B-Claude-Mythos-5-1M-GGUF/mmproj-Qwythos-9B-Claude-Mythos-5-1M-f16.gguf
+    options:
+      - use_jinja:true
+      - spec_type:draft-mtp
+      - spec_n_max:6
+      - spec_p_min:0.75
+    parameters:
+      model: llama-cpp/models/Qwythos-9B-Claude-Mythos-5-1M-GGUF/Qwythos-9B-Claude-Mythos-5-1M-MTP-Q4_K_M.gguf
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/Qwythos-9B-Claude-Mythos-5-1M-GGUF/Qwythos-9B-Claude-Mythos-5-1M-MTP-Q4_K_M.gguf
+      sha256: 24ee22e0f5d9f0d3d615809607f365c728d9b0c3f3fb6eb19d8bd83a1c2933d8
+      uri: https://huggingface.co/empero-ai/Qwythos-9B-Claude-Mythos-5-1M-GGUF/resolve/main/Qwythos-9B-Claude-Mythos-5-1M-MTP-Q4_K_M.gguf
+    - filename: llama-cpp/mmproj/Qwythos-9B-Claude-Mythos-5-1M-GGUF/mmproj-Qwythos-9B-Claude-Mythos-5-1M-f16.gguf
+      sha256: f70dc3509053962b0d0d3ee8a7eacebf5d60aa560cad78254ae8698516ae029f
+      uri: https://huggingface.co/empero-ai/Qwythos-9B-Claude-Mythos-5-1M-GGUF/resolve/main/mmproj-Qwythos-9B-Claude-Mythos-5-1M-f16.gguf
+- name: "glm-5.2"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/unsloth/GLM-5.2-GGUF
+  description: "# GLM-5.2\n\n\U0001F44B Join our WeChat or Discord community.\n\n\U0001F4D6 Check out the GLM-5.2 blog and GLM-5 Technical report.\n\n\U0001F4CD Use GLM-5.2 API services on Z.ai API Platform.\n\n\U0001F51C Try GLM-5.2 here.\n\n[Paper]\n[GitHub]\n\n## Introduction\n\nWe're introducing GLM-5.2, our latest flagship model for long-horizon tasks. It marks a substantial leap in long-horizon task capability over its predecessor GLM-5.1 and, for the first time, delivers that capability on a **solid 1M-token context**. GLM-5.2's new capabilities include:\n  - **Solid 1M Context:** A solid 1M-token context that stably sustains long-horizon work\n  - **Advanced Coding with Flexible Effort**: Stronger coding capabilities with multiple thinking effort levels to balance performance and latency\n  - **Improved Architecture**: We propose IndexShare, which reuses the same indexer across every four sparse attention layers, reducing per-token FLOPs by 2.9× at a 1M context length. We also improve GLM-5.2’s MTP layer for speculative decoding, increasing the acceptance length by up to 20%\n  - **Pure Open**: An MIT open-source license — no regional limits, technical access without borders\n\n## Benchmark\n\n## Serve GLM-5.2 Locally\n\n...\n"
+  license: "mit"
+  tags:
+    - llm
+    - gguf
+  icon: https://raw.githubusercontent.com/zai-org/GLM-5/refs/heads/main/resources/bench_52.png
+  overrides:
+    backend: llama-cpp
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+    options:
+      - use_jinja:true
+      - spec_type:draft-mtp
+      - spec_n_max:6
+      - spec_p_min:0.75
+    parameters:
+      min_p: 0.01
+      model: llama-cpp/models/GLM-5.2-GGUF/GLM-5.2-UD-Q4_K_M-00001-of-00011.gguf
+      repeat_penalty: 1
+      temperature: 1
+      top_k: -1
+      top_p: 0.95
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/GLM-5.2-GGUF/GLM-5.2-UD-Q4_K_M-00001-of-00011.gguf
+      sha256: 3256ac8c290273f0965ff39e93a8bcd07dc99bcd23e923bd4b7306ef39061038
+      uri: https://huggingface.co/unsloth/GLM-5.2-GGUF/resolve/main/UD-Q4_K_M/GLM-5.2-UD-Q4_K_M-00001-of-00011.gguf
+    - filename: llama-cpp/models/GLM-5.2-GGUF/GLM-5.2-UD-Q4_K_M-00002-of-00011.gguf
+      sha256: 1020105e78d862988a6cabb3a78eafa75f29666ab8a5fd10de1b9b8c8a6bc5e8
+      uri: https://huggingface.co/unsloth/GLM-5.2-GGUF/resolve/main/UD-Q4_K_M/GLM-5.2-UD-Q4_K_M-00002-of-00011.gguf
+    - filename: llama-cpp/models/GLM-5.2-GGUF/GLM-5.2-UD-Q4_K_M-00003-of-00011.gguf
+      sha256: 0b36f406e120759290894ea4960d5086f9b362a8c8f9c7fcaad24b4471172efb
+      uri: https://huggingface.co/unsloth/GLM-5.2-GGUF/resolve/main/UD-Q4_K_M/GLM-5.2-UD-Q4_K_M-00003-of-00011.gguf
+    - filename: llama-cpp/models/GLM-5.2-GGUF/GLM-5.2-UD-Q4_K_M-00004-of-00011.gguf
+      sha256: 04b19199f52ba29e7f9966b15df3fbc2d1e5c56cd6343c405076be7174d49d32
+      uri: https://huggingface.co/unsloth/GLM-5.2-GGUF/resolve/main/UD-Q4_K_M/GLM-5.2-UD-Q4_K_M-00004-of-00011.gguf
+    - filename: llama-cpp/models/GLM-5.2-GGUF/GLM-5.2-UD-Q4_K_M-00005-of-00011.gguf
+      sha256: 5cb76d724ee16e80c1cb6aba29aacd76161e7a6f147079be3447501c06d95f2c
+      uri: https://huggingface.co/unsloth/GLM-5.2-GGUF/resolve/main/UD-Q4_K_M/GLM-5.2-UD-Q4_K_M-00005-of-00011.gguf
+    - filename: llama-cpp/models/GLM-5.2-GGUF/GLM-5.2-UD-Q4_K_M-00006-of-00011.gguf
+      sha256: ec2c65255c834b686f066e350bc5b8d8a7020cd1133f0ee9e819d2fb5d3afad0
+      uri: https://huggingface.co/unsloth/GLM-5.2-GGUF/resolve/main/UD-Q4_K_M/GLM-5.2-UD-Q4_K_M-00006-of-00011.gguf
+    - filename: llama-cpp/models/GLM-5.2-GGUF/GLM-5.2-UD-Q4_K_M-00007-of-00011.gguf
+      sha256: 53c8328852ca0b6791a9a9243bcc56157305adca8526a646054389845e7445a9
+      uri: https://huggingface.co/unsloth/GLM-5.2-GGUF/resolve/main/UD-Q4_K_M/GLM-5.2-UD-Q4_K_M-00007-of-00011.gguf
+    - filename: llama-cpp/models/GLM-5.2-GGUF/GLM-5.2-UD-Q4_K_M-00008-of-00011.gguf
+      sha256: 9a23bfb21c5f6fcc94b0329c108ec1ef3fdbd815c57eeb0bf105d26861d7271e
+      uri: https://huggingface.co/unsloth/GLM-5.2-GGUF/resolve/main/UD-Q4_K_M/GLM-5.2-UD-Q4_K_M-00008-of-00011.gguf
+    - filename: llama-cpp/models/GLM-5.2-GGUF/GLM-5.2-UD-Q4_K_M-00009-of-00011.gguf
+      sha256: 71088054fb1a09a4f38e2ee8a726526790660a4f77ead817f75cb7a484bdb0b8
+      uri: https://huggingface.co/unsloth/GLM-5.2-GGUF/resolve/main/UD-Q4_K_M/GLM-5.2-UD-Q4_K_M-00009-of-00011.gguf
+    - filename: llama-cpp/models/GLM-5.2-GGUF/GLM-5.2-UD-Q4_K_M-00010-of-00011.gguf
+      sha256: 848db99658faf24971df23638281305a15bdc187cbcaed968952ed9e9c835b50
+      uri: https://huggingface.co/unsloth/GLM-5.2-GGUF/resolve/main/UD-Q4_K_M/GLM-5.2-UD-Q4_K_M-00010-of-00011.gguf
+    - filename: llama-cpp/models/GLM-5.2-GGUF/GLM-5.2-UD-Q4_K_M-00011-of-00011.gguf
+      sha256: 629e23bce250fb500d9a190de7249c2882af524aacc112ce507a871ed5bebf90
+      uri: https://huggingface.co/unsloth/GLM-5.2-GGUF/resolve/main/UD-Q4_K_M/GLM-5.2-UD-Q4_K_M-00011-of-00011.gguf
+- name: "qwen3.6-35b-a3b-nvfp4-mtp"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/michaelw9999/Qwen3.6-35B-A3B-NVFP4-MTP-GGUF
+  description: |
+    # Qwen3.6-35B-A3B
+
+    [](https://chat.qwen.ai)
+
+    > [!Note]
+    > This repository contains model weights and configuration files for the post-trained model in the Hugging Face Transformers format.
+    >
+    > These artifacts are compatible with Hugging Face Transformers, vLLM, SGLang, KTransformers, etc.
+
+    Following the February release of the Qwen3.5 series, we're pleased to share the first open-weight variant of Qwen3.6. Built on direct feedback from the community, Qwen3.6 prioritizes stability and real-world utility, offering developers a more intuitive, responsive, and genuinely productive coding experience.
+
+    ## Qwen3.6 Highlights
+
+    This release delivers substantial upgrades, particularly in
+
+      - **Agentic Coding:** the model now handles frontend workflows and repository-level reasoning with greater fluency and precision.
+      - **Thinking Preservation:** we've introduced a new option to retain reasoning context from historical messages, streamlining iterative development and reducing overhead.
+
+    For more details, please refer to our blog post Qwen3.6-35B-A3B.
+
+    ## Model Overview
+
+    ...
+  tags:
+    - llm
+    - gguf
+    - qwen
+  icon: https://qianwen-res.oss-cn-beijing.aliyuncs.com/Qwen3.6/Figures/qwen3.6_35b_a3b_score.png
+  overrides:
+    backend: llama-cpp
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+    options:
+      - use_jinja:true
+    parameters:
+      min_p: 0
+      model: llama-cpp/models/Qwen3.6-35B-A3B-NVFP4-MTP-GGUF/Qwen3.6-35B-A3B-NVFP4-MTP-TURBO.gguf
+      presence_penalty: 1.5
+      repeat_penalty: 1
+      temperature: 0.7
+      top_k: 20
+      top_p: 0.8
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/Qwen3.6-35B-A3B-NVFP4-MTP-GGUF/Qwen3.6-35B-A3B-NVFP4-MTP-TURBO.gguf
+      sha256: f3d2fdc74e3ef19925ccbf794b04d7f6f11fb12eba7722b7749219d0cc5c36ed
+      uri: https://huggingface.co/michaelw9999/Qwen3.6-35B-A3B-NVFP4-MTP-GGUF/resolve/main/Qwen3.6-35B-A3B-NVFP4-MTP-TURBO.gguf
+- name: "qwopus3.6-27b-v2-mtp-nvfp4"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/michaelw9999/Qwopus3.6-27B-v2-MTP-NVFP4-GGUF
+  description: "\U0001FA90 Qwopus3.6-27B-v2-MTP\nMTP Release\n\nMulti-Token Prediction reasoning model fine-tuned from Qwen3.6-27B\n\n\U0001F9EC Trace Inversion & Negentropy\n\U0001F9E0 27B Parameters\n⚡ Speculative Decoding\n\U0001F6E0️ Coding / DevOps / Math\n\n\U0001F4A1 What is Qwopus3.6-27B-v2-MTP?\n\U0001FA90 Qwopus3.6-27B-v2-MTP is a speed-oriented reasoning release built on top of Qwen3.6-27B. It keeps the Qwopus line's focus on reconstructed reasoning traces, coding discipline, DevOps procedures, and mathematical derivations, while adding Multi-Token Prediction for faster generation. The goal is simple: preserve the depth and structure of a 27B reasoning model while making real interactive use noticeably faster.\n\n⚡ MTP DecodingAuxiliary future-token prediction improves throughput on long reasoning, code, math, and strict-format prompts.\n\U0001F9E9 Structured ReasoningInherits the Qwopus training recipe built around reconstructed step-by-step reasoning trajectories.\n\U0001F9EA GB10 TestedValidated on a 30-question local benchmark across Logic, Coding, DevOps, Math, and Edge tasks.\n\U0001F680 Practical SpeedDesigned for workflows where strong answers matter, but waiting several extra minutes per task does not.\n\n...\n"
+  tags:
+    - llm
+    - gguf
+  overrides:
+    backend: llama-cpp
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/Qwopus3.6-27B-v2-MTP-NVFP4-GGUF/Qwopus3.6-27B-v2-MTP-NVFP4-GGUF.gguf
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/Qwopus3.6-27B-v2-MTP-NVFP4-GGUF/Qwopus3.6-27B-v2-MTP-NVFP4-GGUF.gguf
+      sha256: 2a0a36fd10374c2a85356121c7c315bda725c7eaca0b3ae14838567629c6924a
+      uri: https://huggingface.co/michaelw9999/Qwopus3.6-27B-v2-MTP-NVFP4-GGUF/resolve/main/Qwopus3.6-27B-v2-MTP-NVFP4-GGUF.gguf
+- name: "qwopus3.6-27b-coder-mtp-nvfp4"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/michaelw9999/Qwopus3.6-27B-Coder-MTP-NVFP4-GGUF
+  description: "\U0001FA90 Qwopus-3.6-27B-Coder\nCoder SFT Release\n\nAgentic Coding &amp; Tool-Use Reasoning Model Fine-Tuned on Qwopus3.6-27B-v2\n\n\U0001F9EC Trace Inversion & Negentropy\n\U0001F9E0 27B Dense Model\n⚡ Agentic Coding\n\U0001F6E0️ Tool Calling & Agent\n\U0001F3C6 SWE-bench Verified: 67.0% (off-thinking)\n\n\U0001F4A1 What is Qwopus-3.6-27B-Coder?\n\U0001FA90 Qwopus-3.6-27B-Coder is a reasoning-enhanced agentic coding model built on top of Qwopus3.6-27B-v2. It inherits the powerful reasoning foundation of the v2 base — which achieved 87.43% MMLU-Pro (300ex) and 75.25% SWE-bench Verified — and further specializes it for agentic code generation, structured tool calling, debugging, and instruction-following in developer workflows. The model is designed to excel at repository-level coding tasks, multi-turn tool orchestration, and complex logical reasoning under realistic agent environments.\n\n\U0001F9E9 Agentic Coding\nOptimized for repository-level coding, debugging, patch generation, and structured multi-step development workflows.\n\n\U0001F6E0️ Tool Calling\nLearns from real agent trajectories with tool definitions, tool calls, and environment feedback for robust multi-turn execution.\n\n...\n"
+  tags:
+    - llm
+    - gguf
+  icon: https://cdn-uploads.huggingface.co/production/uploads/66309bd090589b7c65950665/sGQKmrMc6L6guMoaB5_Y2.png
+  overrides:
+    backend: llama-cpp
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/Qwopus3.6-27B-Coder-MTP-NVFP4-GGUF/Qwopus3.6-27B-Coder-MTP-NVFP4-TURBO.gguf
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/Qwopus3.6-27B-Coder-MTP-NVFP4-GGUF/Qwopus3.6-27B-Coder-MTP-NVFP4-TURBO.gguf
+      sha256: 1c163f0e1f29485d432b466b9e5e0593ea9b10c5a62cf3eb71b77fcfe41db46c
+      uri: https://huggingface.co/michaelw9999/Qwopus3.6-27B-Coder-MTP-NVFP4-GGUF/resolve/main/Qwopus3.6-27B-Coder-MTP-NVFP4-TURBO.gguf
+- name: "qwen3.6-27b-nvfp4-mtp"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/michaelw9999/Qwen3.6-27B-NVFP4-MTP-GGUF
+  description: |
+    # Qwen3.6-27B
+
+    [](https://chat.qwen.ai)
+
+    > [!Note]
+    > This repository contains model weights and configuration files for the post-trained model in the Hugging Face Transformers format.
+    >
+    > These artifacts are compatible with Hugging Face Transformers, vLLM, SGLang, KTransformers, etc.
+
+    Following the February release of the Qwen3.5 series, we're pleased to share the first open-weight variant of Qwen3.6. Built on direct feedback from the community, Qwen3.6 prioritizes stability and real-world utility, offering developers a more intuitive, responsive, and genuinely productive coding experience.
+
+    ## Qwen3.6 Highlights
+
+    This release delivers substantial upgrades, particularly in
+
+      - **Agentic Coding:** the model now handles frontend workflows and repository-level reasoning with greater fluency and precision.
+      - **Thinking Preservation:** we've introduced a new option to retain reasoning context from historical messages, streamlining iterative development and reducing overhead.
+
+    For more details, please refer to our blog post Qwen3.6-27B.
+
+    ## Model Overview
+
+    ...
+  tags:
+    - llm
+    - gguf
+  icon: https://qianwen-res.oss-cn-beijing.aliyuncs.com/Qwen3.6/Figures/qwen3.6_27b_score.png
+  overrides:
+    backend: llama-cpp
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+    options:
+      - use_jinja:true
+    parameters:
+      min_p: 0
+      model: llama-cpp/models/Qwen3.6-27B-NVFP4-MTP-GGUF/Qwen3.6-27B-NVFP4-MTP-GGUF.gguf
+      presence_penalty: 1.5
+      repeat_penalty: 1
+      temperature: 0.7
+      top_k: 20
+      top_p: 0.8
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/Qwen3.6-27B-NVFP4-MTP-GGUF/Qwen3.6-27B-NVFP4-MTP-GGUF.gguf
+      sha256: d088e57e8c35ff62c2a420cb888dad3fd53c8db3ed9ead4286bd383224f81b50
+      uri: https://huggingface.co/michaelw9999/Qwen3.6-27B-NVFP4-MTP-GGUF/resolve/main/Qwen3.6-27B-NVFP4-MTP-GGUF.gguf
+- name: "gemma-4-12b-agentic-fable5-composer2.5-v2-3.5x-tau2"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/yuxinlu1/gemma-4-12B-agentic-fable5-composer2.5-v2-3.5x-tau2-GGUF
+  description: |
+    Hugging Face |
+    GitHub |
+    Launch Blog |
+    Documentation
+
+    License: Apache 2.0 | Authors: Google DeepMind
+
+    > [!Note]
+    > This model card is for the Gemma 4 12B Unified model, which is part of the Gemma 4 family of open models. Built with the same multimodal functionality as Gemma 4 E2B and E4B (text, audio, image, and video inputs), it brings native audio and vision understanding directly to local environments without the need for separate encoders. This unified approach to multimodality makes the model encoder-free, offering a deployment size that is perfect for consumer devices and streamlined local execution.
+
+    Gemma is a family of open models built by Google DeepMind. Gemma 4 models are multimodal, handling text and image input (with audio supported on E2B, E4B, and 12B) and generating text output. This release includes open-weights models in both pre-trained and instruction-tuned variants. Gemma 4 features a context window of up to 256K tokens and maintains multilingual support in over 140 languages.
+
+    ...
+  license: "apache-2.0"
+  tags:
+    - llm
+    - gguf
+    - reasoning
+    - thinking
+  icon: https://ai.google.dev/gemma/images/gemma4_banner.png
+  overrides:
+    backend: llama-cpp
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+    options:
+      - use_jinja:true
+    parameters:
+      min_p: 0
+      model: llama-cpp/models/gemma-4-12B-agentic-fable5-composer2.5-v2-3.5x-tau2-GGUF/gemma4-v2-Q4_K_M.gguf
+      repeat_penalty: 1
+      temperature: 1
+      top_k: 64
+      top_p: 0.95
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/gemma-4-12B-agentic-fable5-composer2.5-v2-3.5x-tau2-GGUF/gemma4-v2-Q4_K_M.gguf
+      sha256: 0b9506cab36f7f818e34f9c0f5a3d6568d0b37100f3a3e1092e2eec3c4c96791
+      uri: https://huggingface.co/yuxinlu1/gemma-4-12B-agentic-fable5-composer2.5-v2-3.5x-tau2-GGUF/resolve/main/gemma4-v2-Q4_K_M.gguf
 - name: "qwen3.6-27b-mtp-pi-tune"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
@@ -295,8 +898,8 @@
       use_tokenizer_template: true
   files:
     - filename: llama-cpp/models/Qwopus3.6-27B-Coder-MTP-GGUF/Qwopus3.6-27B-Coder-MTP-Q4_K_M.gguf
-      sha256: b2898667ed7b2388f0ab7691393833ae777f247492bbe62fdb4b2bd3e3cf3f79
       uri: https://huggingface.co/Jackrong/Qwopus3.6-27B-Coder-MTP-GGUF/resolve/main/Qwopus3.6-27B-Coder-MTP-Q4_K_M.gguf
+      sha256: b2b9180093496da2e00439e3fa23227c591355901bfa579bc6897bbc01b755ef
     - filename: llama-cpp/mmproj/Qwopus3.6-27B-Coder-MTP-GGUF/mmproj-F32.gguf
       sha256: 32f7ea0600c07272547da401d460f8abbd980f3a57b69d6df87be0e2505e0b9c
       uri: https://huggingface.co/Jackrong/Qwopus3.6-27B-Coder-MTP-GGUF/resolve/main/mmproj-F32.gguf
@@ -860,6 +1463,98 @@
     - filename: privacy-filter/models/privacy-filter-multilingual/privacy-filter-multilingual-f16.gguf
       sha256: 01b76572f80b7d2ebee80a27cb9c3699c26b04cae1c402eee7664fc17a4b5ce6
       uri: https://huggingface.co/LocalAI-io/privacy-filter-multilingual-GGUF/resolve/main/privacy-filter-multilingual-f16.gguf
+- name: "privacy-filter-nemotron"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  icon: https://cdn-avatars.huggingface.co/v1/production/uploads/5fd5e18a90b6dc4633f6d292/QPiv8pt4JNxr0FdGnpFef.png
+  urls:
+    - https://huggingface.co/OpenMed/privacy-filter-nemotron
+    - https://huggingface.co/LocalAI-io/privacy-filter-nemotron-GGUF
+  description: |
+    A fine-grained English PII token-classification model: a fine-tune of
+    openai/privacy-filter by OpenMed on NVIDIA's Nemotron-PII dataset. It labels
+    every token with a BIOES tag over 55 PII categories (221 classes), trading
+    the multilingual sibling's language breadth for category depth - identity,
+    contact, address, dates, government IDs, financial, healthcare, enterprise,
+    vehicle and digital entities (including api_key, ipv4/ipv6 and mac_address).
+    For multilingual text prefer privacy-filter-multilingual instead.
+
+    In LocalAI this is a PII detector for the NER redactor tier: set
+    known_usecases to [token_classify] (as below), and any model opts into
+    redaction by listing this one under pii.detectors. The detection policy
+    (which categories to mask vs block, and the score threshold) lives on this
+    model's own pii_detection block - see the overrides below. It runs locally
+    with no Python, served by the standalone privacy-filter backend's
+    TokenClassify RPC (constrained BIOES Viterbi decode into UTF-8 byte-offset
+    entity spans).
+
+    Architecture: gpt-oss-style sparse MoE (8 layers, d_model 640, 128 experts
+    top-4, ~1.5B total / ~50M active per token), bidirectional banded attention,
+    o200k tokenizer and a 221-way token-classification head; served via the
+    openai-privacy-filter architecture. F16, ~2.8 GB. (A smaller Q8_0 quant
+    exists on the GGUF repo for RAM-constrained use - validate it on your own
+    data, since for PII a single dropped span is a leak.)
+  license: apache-2.0
+  tags:
+    - token-classification
+    - ner
+    - pii
+    - privacy
+    - nemotron
+    - gguf
+  overrides:
+    backend: privacy-filter
+    embeddings: true
+    known_usecases:
+      - token_classify
+    parameters:
+      model: privacy-filter/models/privacy-filter-nemotron/privacy-filter-nemotron-f16.gguf
+    pii_detection:
+      min_score: 0.5
+      default_action: mask
+  files:
+    - filename: privacy-filter/models/privacy-filter-nemotron/privacy-filter-nemotron-f16.gguf
+      sha256: 70dfe91ff220ff04594168a83e296dcc2054449cde77f98d0e782edbb6a31f5a
+      uri: https://huggingface.co/LocalAI-io/privacy-filter-nemotron-GGUF/resolve/main/privacy-filter-nemotron-f16.gguf
+- name: "privacy-filter-nemotron-q8"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  icon: https://cdn-avatars.huggingface.co/v1/production/uploads/5fd5e18a90b6dc4633f6d292/QPiv8pt4JNxr0FdGnpFef.png
+  urls:
+    - https://huggingface.co/OpenMed/privacy-filter-nemotron
+    - https://huggingface.co/LocalAI-io/privacy-filter-nemotron-GGUF
+  description: |
+    Q8_0 quant of privacy-filter-nemotron (~1.64 GB, vs ~2.8 GB for F16) for
+    RAM-constrained / edge use (e.g. a 4 GB Raspberry Pi 5). The MoE expert
+    weights are stored 8-bit; attention, embeddings and the classifier head
+    stay F16. Same model, policy and runtime as the F16 entry - see
+    privacy-filter-nemotron for the full description.
+
+    Prefer the F16 entry when you can afford it: it is the reference artifact.
+    On a mixed-PII document the publisher measured q8 matching F16 on 99.93% of
+    token labels with an identical span set at threshold 0.5 - but one token
+    flipped, and for PII a single dropped span is a leak. Treat q8 as a
+    deliberate size/speed tradeoff and validate it on your own data.
+  license: apache-2.0
+  tags:
+    - token-classification
+    - ner
+    - pii
+    - privacy
+    - nemotron
+    - gguf
+  overrides:
+    backend: privacy-filter
+    embeddings: true
+    known_usecases:
+      - token_classify
+    parameters:
+      model: privacy-filter/models/privacy-filter-nemotron/privacy-filter-nemotron-q8.gguf
+    pii_detection:
+      min_score: 0.5
+      default_action: mask
+  files:
+    - filename: privacy-filter/models/privacy-filter-nemotron/privacy-filter-nemotron-q8.gguf
+      sha256: 2ec11c154e572a2686f4d77e861b7f74e6917e09638fe9bd27156d48bd99e21a
+      uri: https://huggingface.co/LocalAI-io/privacy-filter-nemotron-GGUF/resolve/main/privacy-filter-nemotron-q8.gguf
 - name: "secret-filter"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   description: |
@@ -1000,8 +1695,8 @@
       use_tokenizer_template: true
   files:
     - filename: llama-cpp/models/Qwopus3.6-27B-v2-MTP-GGUF/Qwopus3.6-27B-v2-MTP-Q4_K_M.gguf
-      sha256: 818d68223be4d8518dac0b3b5604dde633cbbcbae1f491d842a3e26711c6606d
       uri: https://huggingface.co/Jackrong/Qwopus3.6-27B-v2-MTP-GGUF/resolve/main/Qwopus3.6-27B-v2-MTP-Q4_K_M.gguf
+      sha256: 31cf5fc2406a0c7aaebcc26d440bf0df94e215d0589d5205bf319649c052b50a
 - name: "qwen3.6-40b-claude-4.6-opus-deckard-heretic-uncensored-thinking-neo-code-di-imatrix-max"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
@@ -2823,6 +3518,190 @@
       - transcript
     parameters:
       model: tiny
+- name: ced-base-f16
+  url: github:mudler/LocalAI/gallery/ced.yaml@master
+  urls:
+    - https://huggingface.co/mudler/ced-gguf
+    - https://huggingface.co/mispeech/ced-base
+  description: |
+    CED (Consistent Ensemble Distillation, Xiaomi) is a sound-event classifier that tags everyday sounds (baby cry, footsteps, glass breaking, alarms, dog bark, ...) into the 527-class AudioSet ontology. This is the f16 GGUF for the ced backend (a standalone C++/ggml port). Recommended default: fastest on CPU and near-lossless. Use POST /v1/audio/classification, or the realtime websocket API for live recognition.
+  license: apache-2.0
+  tags:
+    - audio-classification
+    - sound-event-detection
+    - audio-tagging
+    - audioset
+    - ced
+    - gguf
+    - f16
+  overrides:
+    parameters:
+      model: ced-base-f16.gguf
+  files:
+    - filename: ced-base-f16.gguf
+      sha256: 5c058d9f7b737167195fa54eae4a2ae17658ac2c0a8073f7f116ba006b2ab32c
+      uri: https://huggingface.co/mudler/ced-gguf/resolve/main/ced-base-f16.gguf
+- name: ced-base-q8
+  url: github:mudler/LocalAI/gallery/ced.yaml@master
+  urls:
+    - https://huggingface.co/mudler/ced-gguf
+    - https://huggingface.co/mispeech/ced-base
+  description: |
+    CED (Consistent Ensemble Distillation, Xiaomi) sound-event classifier over the 527-class AudioSet ontology (baby cry, footsteps, glass breaking, alarms, dog bark, ...). This is the q8_0 GGUF for the ced backend: smallest footprint (~88 MB, ~6.5x less memory than the PyTorch reference) and near-lossless (identical top-5 tags). Use POST /v1/audio/classification, or the realtime websocket API for live recognition.
+  license: apache-2.0
+  tags:
+    - audio-classification
+    - sound-event-detection
+    - audio-tagging
+    - audioset
+    - ced
+    - gguf
+    - q8
+  overrides:
+    parameters:
+      model: ced-base-q8_0.gguf
+  files:
+    - filename: ced-base-q8_0.gguf
+      sha256: bd34a7710169f0047fea17267965d211f967828ab25ba6fb9d3768481393f6e2
+      uri: https://huggingface.co/mudler/ced-gguf/resolve/main/ced-base-q8_0.gguf
+- name: ced-tiny-f16
+  url: github:mudler/LocalAI/gallery/ced.yaml@master
+  urls:
+    - https://huggingface.co/mudler/ced-gguf
+    - https://huggingface.co/mispeech/ced-tiny
+  description: |
+    CED-tiny (5.5M params, Pi-class / edge) sound-event classifier over the 527-class AudioSet ontology (baby cry, footsteps, glass breaking, alarms, dog bark, ...). f16 GGUF for the ced backend (recommended (fastest on CPU)). Use POST /v1/audio/classification, or the realtime websocket API for live recognition.
+  license: apache-2.0
+  tags:
+    - audio-classification
+    - sound-event-detection
+    - audio-tagging
+    - audioset
+    - ced
+    - gguf
+    - f16
+  overrides:
+    parameters:
+      model: ced-tiny-f16.gguf
+  files:
+    - filename: ced-tiny-f16.gguf
+      sha256: af8b81c67bae50bfca4ea83dbba77b3bae4fa6180d36c17d6877f7700aeeb77b
+      uri: https://huggingface.co/mudler/ced-gguf/resolve/main/ced-tiny-f16.gguf
+- name: ced-tiny-q8
+  url: github:mudler/LocalAI/gallery/ced.yaml@master
+  urls:
+    - https://huggingface.co/mudler/ced-gguf
+    - https://huggingface.co/mispeech/ced-tiny
+  description: |
+    CED-tiny (5.5M params, Pi-class / edge) sound-event classifier over the 527-class AudioSet ontology (baby cry, footsteps, glass breaking, alarms, dog bark, ...). q8_0 GGUF for the ced backend (smallest footprint, near-lossless). Use POST /v1/audio/classification, or the realtime websocket API for live recognition.
+  license: apache-2.0
+  tags:
+    - audio-classification
+    - sound-event-detection
+    - audio-tagging
+    - audioset
+    - ced
+    - gguf
+    - q8
+  overrides:
+    parameters:
+      model: ced-tiny-q8_0.gguf
+  files:
+    - filename: ced-tiny-q8_0.gguf
+      sha256: 48bee4e2fc3cc85d7806e03471db24e77fda6c2a2e81ffe9ef67caebaf2bd674
+      uri: https://huggingface.co/mudler/ced-gguf/resolve/main/ced-tiny-q8_0.gguf
+- name: ced-mini-f16
+  url: github:mudler/LocalAI/gallery/ced.yaml@master
+  urls:
+    - https://huggingface.co/mudler/ced-gguf
+    - https://huggingface.co/mispeech/ced-mini
+  description: |
+    CED-mini (9.6M params, low-power) sound-event classifier over the 527-class AudioSet ontology (baby cry, footsteps, glass breaking, alarms, dog bark, ...). f16 GGUF for the ced backend (recommended (fastest on CPU)). Use POST /v1/audio/classification, or the realtime websocket API for live recognition.
+  license: apache-2.0
+  tags:
+    - audio-classification
+    - sound-event-detection
+    - audio-tagging
+    - audioset
+    - ced
+    - gguf
+    - f16
+  overrides:
+    parameters:
+      model: ced-mini-f16.gguf
+  files:
+    - filename: ced-mini-f16.gguf
+      sha256: 3c6a8936c77312f07a9ecb7b4bbbcb1f93ad137920ca6656bae9306571fb0c03
+      uri: https://huggingface.co/mudler/ced-gguf/resolve/main/ced-mini-f16.gguf
+- name: ced-mini-q8
+  url: github:mudler/LocalAI/gallery/ced.yaml@master
+  urls:
+    - https://huggingface.co/mudler/ced-gguf
+    - https://huggingface.co/mispeech/ced-mini
+  description: |
+    CED-mini (9.6M params, low-power) sound-event classifier over the 527-class AudioSet ontology (baby cry, footsteps, glass breaking, alarms, dog bark, ...). q8_0 GGUF for the ced backend (smallest footprint, near-lossless). Use POST /v1/audio/classification, or the realtime websocket API for live recognition.
+  license: apache-2.0
+  tags:
+    - audio-classification
+    - sound-event-detection
+    - audio-tagging
+    - audioset
+    - ced
+    - gguf
+    - q8
+  overrides:
+    parameters:
+      model: ced-mini-q8_0.gguf
+  files:
+    - filename: ced-mini-q8_0.gguf
+      sha256: 7062cef9ca31459f339ce24a5914f3b65bde76ffd9ca4fc924a040327ff292bd
+      uri: https://huggingface.co/mudler/ced-gguf/resolve/main/ced-mini-q8_0.gguf
+- name: ced-small-f16
+  url: github:mudler/LocalAI/gallery/ced.yaml@master
+  urls:
+    - https://huggingface.co/mudler/ced-gguf
+    - https://huggingface.co/mispeech/ced-small
+  description: |
+    CED-small (22M params, balanced size/accuracy) sound-event classifier over the 527-class AudioSet ontology (baby cry, footsteps, glass breaking, alarms, dog bark, ...). f16 GGUF for the ced backend (recommended (fastest on CPU)). Use POST /v1/audio/classification, or the realtime websocket API for live recognition.
+  license: apache-2.0
+  tags:
+    - audio-classification
+    - sound-event-detection
+    - audio-tagging
+    - audioset
+    - ced
+    - gguf
+    - f16
+  overrides:
+    parameters:
+      model: ced-small-f16.gguf
+  files:
+    - filename: ced-small-f16.gguf
+      sha256: c391ed8697a1b08d7c1a463e4940a5c3a2f670e0544ab0d8ee23b544583602a8
+      uri: https://huggingface.co/mudler/ced-gguf/resolve/main/ced-small-f16.gguf
+- name: ced-small-q8
+  url: github:mudler/LocalAI/gallery/ced.yaml@master
+  urls:
+    - https://huggingface.co/mudler/ced-gguf
+    - https://huggingface.co/mispeech/ced-small
+  description: |
+    CED-small (22M params, balanced size/accuracy) sound-event classifier over the 527-class AudioSet ontology (baby cry, footsteps, glass breaking, alarms, dog bark, ...). q8_0 GGUF for the ced backend (smallest footprint, near-lossless). Use POST /v1/audio/classification, or the realtime websocket API for live recognition.
+  license: apache-2.0
+  tags:
+    - audio-classification
+    - sound-event-detection
+    - audio-tagging
+    - audioset
+    - ced
+    - gguf
+    - q8
+  overrides:
+    parameters:
+      model: ced-small-q8_0.gguf
+  files:
+    - filename: ced-small-q8_0.gguf
+      sha256: 888275fe43491cf832fb7b8125eccba34d1120745166f40cc12e93b79dea8efe
+      uri: https://huggingface.co/mudler/ced-gguf/resolve/main/ced-small-q8_0.gguf
 - name: omnilingual-0.3b-ctc-q8-sherpa
   url: github:mudler/LocalAI/gallery/sherpa-onnx-asr.yaml@master
   urls:
@@ -8343,6 +9222,233 @@
     - filename: depth-anything-nested-metric.gguf
       uri: huggingface://mudler/depth-anything.cpp-gguf/depth-anything-nested-metric.gguf
       sha256: "b54ed50cbc0b0c14fae1f8edd0fea8bd1cac0850485fd6e7eb2422c7a19e570e"
+- &depth-anything-2-base
+  name: depth-anything-2-base
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://github.com/mudler/depth-anything.cpp
+    - https://huggingface.co/depth-anything/Depth-Anything-V2
+    - https://huggingface.co/mudler/depth-anything.cpp-gguf
+  description: |
+    Depth Anything V2 (base / ViT-B) monocular depth, served via the native
+    depth-anything.cpp backend (C++/ggml + purego, no Python at inference).
+    Given an image it returns a dense monocular depth map only — no camera pose,
+    no confidence. This is the relative variant (relative inverse depth). Use
+    GenerateImage (src -> normalized depth PNG at dst) or the Depth endpoint.
+    q4_k is the recommended CPU default.
+  license: apache-2.0
+  icon: https://avatars.githubusercontent.com/u/53104118?s=200&v=4
+  tags:
+    - depth-estimation
+    - depth-anything
+    - native
+    - cpp
+    - cpu
+  overrides:
+    backend: depth-anything
+    parameters:
+      model: depth-anything2-base-q4_k.gguf
+  files:
+    - filename: depth-anything2-base-q4_k.gguf
+      uri: huggingface://mudler/depth-anything.cpp-gguf/depth-anything2-base-q4_k.gguf
+      sha256: "49e77ec7e593080111242fa76017cae3e26498d550841cf8a70dfcd36bb175f2"
+- !!merge <<: *depth-anything-2-base
+  name: depth-anything-2-base-q8_0
+  description: |
+    Depth Anything V2 (base / ViT-B), q8_0 — near-lossless 8-bit quant. Same
+    relative monocular depth output as the q4_k default at higher fidelity. Use
+    GenerateImage (src -> depth PNG) or the Depth endpoint.
+  overrides:
+    backend: depth-anything
+    parameters:
+      model: depth-anything2-base-q8_0.gguf
+  files:
+    - filename: depth-anything2-base-q8_0.gguf
+      uri: huggingface://mudler/depth-anything.cpp-gguf/depth-anything2-base-q8_0.gguf
+      sha256: "11920ec7a8dfc2fa7fe8ed44811a46fafe415c641d13144bb733d1437832291b"
+- !!merge <<: *depth-anything-2-base
+  name: depth-anything-2-base-f16
+  description: |
+    Depth Anything V2 (base / ViT-B), f16 — half precision, no measurable
+    accuracy loss vs f32. Relative monocular depth only (no pose). Use
+    GenerateImage (src -> depth PNG) or the Depth endpoint.
+  overrides:
+    backend: depth-anything
+    parameters:
+      model: depth-anything2-base-f16.gguf
+  files:
+    - filename: depth-anything2-base-f16.gguf
+      uri: huggingface://mudler/depth-anything.cpp-gguf/depth-anything2-base-f16.gguf
+      sha256: "e91c011fbbf90a44639fea55b8d61ca9e80dfb5541220946c8b6e6261fe67ab1"
+- !!merge <<: *depth-anything-2-base
+  name: depth-anything-2-base-f32
+  description: |
+    Depth Anything V2 (base / ViT-B), f32 — maximum reference fidelity. Relative
+    monocular depth only (no pose). Use GenerateImage (src -> depth PNG) or the
+    Depth endpoint.
+  overrides:
+    backend: depth-anything
+    parameters:
+      model: depth-anything2-base-f32.gguf
+  files:
+    - filename: depth-anything2-base-f32.gguf
+      uri: huggingface://mudler/depth-anything.cpp-gguf/depth-anything2-base-f32.gguf
+      sha256: "2d3d2e4d8fae9646c17577b84c870c7d77a34ded8cf8d5da0a60b2bee1530ccc"
+- !!merge <<: *depth-anything-2-base
+  name: depth-anything-2-small
+  description: |
+    Depth Anything V2 (small / ViT-S), f32 — the smallest, fastest backbone for
+    relative monocular depth on CPU. Depth only (no pose). Use GenerateImage
+    (src -> depth PNG) or the Depth endpoint.
+  overrides:
+    backend: depth-anything
+    parameters:
+      model: depth-anything2-small-f32.gguf
+  files:
+    - filename: depth-anything2-small-f32.gguf
+      uri: huggingface://mudler/depth-anything.cpp-gguf/depth-anything2-small-f32.gguf
+      sha256: "1f6622aa70cbd0eba34d34e2f635a156ed8c3f8e158fb149eb355366e2deb899"
+- !!merge <<: *depth-anything-2-base
+  name: depth-anything-2-large
+  description: |
+    Depth Anything V2 (large / ViT-L), f32 — higher-quality relative monocular
+    depth than base. Depth only (no pose). Use GenerateImage (src -> depth PNG)
+    or the Depth endpoint.
+  overrides:
+    backend: depth-anything
+    parameters:
+      model: depth-anything2-large-f32.gguf
+  files:
+    - filename: depth-anything2-large-f32.gguf
+      uri: huggingface://mudler/depth-anything.cpp-gguf/depth-anything2-large-f32.gguf
+      sha256: "e187658b01b6df62e1553b03df9973606a7287551d4771b09802fc10b26f19f3"
+- !!merge <<: *depth-anything-2-base
+  name: depth-anything-2-metric-hypersim-small
+  description: |
+    Depth Anything V2 Metric (Hypersim, indoor / ViT-S), q4_k — metric monocular
+    depth in METRES (indoor, max_depth 20). Depth only (no pose). Use
+    GenerateImage (src -> depth PNG) or the Depth endpoint.
+  tags:
+    - depth-estimation
+    - depth-anything
+    - metric-depth
+    - native
+    - cpp
+    - cpu
+  overrides:
+    backend: depth-anything
+    parameters:
+      model: depth-anything2-metric-hypersim-small-q4_k.gguf
+  files:
+    - filename: depth-anything2-metric-hypersim-small-q4_k.gguf
+      uri: huggingface://mudler/depth-anything.cpp-gguf/depth-anything2-metric-hypersim-small-q4_k.gguf
+      sha256: "decd99f5c756b564aae5ca1a1612f896e7f76889060e1d25ba610549bbc39b52"
+- !!merge <<: *depth-anything-2-base
+  name: depth-anything-2-metric-hypersim-base
+  description: |
+    Depth Anything V2 Metric (Hypersim, indoor / ViT-B), q4_k — metric monocular
+    depth in METRES (indoor, max_depth 20). Depth only (no pose). Use
+    GenerateImage (src -> depth PNG) or the Depth endpoint.
+  tags:
+    - depth-estimation
+    - depth-anything
+    - metric-depth
+    - native
+    - cpp
+    - cpu
+  overrides:
+    backend: depth-anything
+    parameters:
+      model: depth-anything2-metric-hypersim-base-q4_k.gguf
+  files:
+    - filename: depth-anything2-metric-hypersim-base-q4_k.gguf
+      uri: huggingface://mudler/depth-anything.cpp-gguf/depth-anything2-metric-hypersim-base-q4_k.gguf
+      sha256: "c7c6a8628ac154f2ad43db09b8146518e863375be2cb03b8b46caec49a4fcf3a"
+- !!merge <<: *depth-anything-2-base
+  name: depth-anything-2-metric-hypersim-large
+  description: |
+    Depth Anything V2 Metric (Hypersim, indoor / ViT-L), q4_k — highest-quality
+    metric monocular depth in METRES (indoor, max_depth 20). Depth only (no
+    pose). Use GenerateImage (src -> depth PNG) or the Depth endpoint.
+  tags:
+    - depth-estimation
+    - depth-anything
+    - metric-depth
+    - native
+    - cpp
+    - cpu
+  overrides:
+    backend: depth-anything
+    parameters:
+      model: depth-anything2-metric-hypersim-large-q4_k.gguf
+  files:
+    - filename: depth-anything2-metric-hypersim-large-q4_k.gguf
+      uri: huggingface://mudler/depth-anything.cpp-gguf/depth-anything2-metric-hypersim-large-q4_k.gguf
+      sha256: "3664506bea55e64926fff2cb112ea5a9ad923d13647b9c69617184a89dd1e473"
+- !!merge <<: *depth-anything-2-base
+  name: depth-anything-2-metric-vkitti-small
+  description: |
+    Depth Anything V2 Metric (Virtual KITTI, outdoor / ViT-S), q4_k — metric
+    monocular depth in METRES (outdoor, max_depth 80). Depth only (no pose). Use
+    GenerateImage (src -> depth PNG) or the Depth endpoint.
+  tags:
+    - depth-estimation
+    - depth-anything
+    - metric-depth
+    - native
+    - cpp
+    - cpu
+  overrides:
+    backend: depth-anything
+    parameters:
+      model: depth-anything2-metric-vkitti-small-q4_k.gguf
+  files:
+    - filename: depth-anything2-metric-vkitti-small-q4_k.gguf
+      uri: huggingface://mudler/depth-anything.cpp-gguf/depth-anything2-metric-vkitti-small-q4_k.gguf
+      sha256: "8dcaa5d0f8475c3dc5de59e28faacd6d46e5ef73c73ecc58e365d7751bc2279f"
+- !!merge <<: *depth-anything-2-base
+  name: depth-anything-2-metric-vkitti-base
+  description: |
+    Depth Anything V2 Metric (Virtual KITTI, outdoor / ViT-B), q4_k — metric
+    monocular depth in METRES (outdoor, max_depth 80). Depth only (no pose). Use
+    GenerateImage (src -> depth PNG) or the Depth endpoint.
+  tags:
+    - depth-estimation
+    - depth-anything
+    - metric-depth
+    - native
+    - cpp
+    - cpu
+  overrides:
+    backend: depth-anything
+    parameters:
+      model: depth-anything2-metric-vkitti-base-q4_k.gguf
+  files:
+    - filename: depth-anything2-metric-vkitti-base-q4_k.gguf
+      uri: huggingface://mudler/depth-anything.cpp-gguf/depth-anything2-metric-vkitti-base-q4_k.gguf
+      sha256: "1de5a7aae674df6afb8fa5e06d67843dccfbab92cd64b7c816c1218229446d6d"
+- !!merge <<: *depth-anything-2-base
+  name: depth-anything-2-metric-vkitti-large
+  description: |
+    Depth Anything V2 Metric (Virtual KITTI, outdoor / ViT-L), q4_k —
+    highest-quality metric monocular depth in METRES (outdoor, max_depth 80).
+    Depth only (no pose). Use GenerateImage (src -> depth PNG) or the Depth
+    endpoint.
+  tags:
+    - depth-estimation
+    - depth-anything
+    - metric-depth
+    - native
+    - cpp
+    - cpu
+  overrides:
+    backend: depth-anything
+    parameters:
+      model: depth-anything2-metric-vkitti-large-q4_k.gguf
+  files:
+    - filename: depth-anything2-metric-vkitti-large-q4_k.gguf
+      uri: huggingface://mudler/depth-anything.cpp-gguf/depth-anything2-metric-vkitti-large-q4_k.gguf
+      sha256: "3b72e9a34262a7025ffba2fc4b760553398ac0622c26f164bff3d2c93991c757"
 - name: rfdetr-cpp-base
   url: github:mudler/LocalAI/gallery/virtual.yaml@master
   urls:

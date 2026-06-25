@@ -50,7 +50,7 @@ jobs:
       parakeet-cpp: ${{ steps.detect.outputs.parakeet-cpp }}
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
       - name: Install dependencies
@@ -67,7 +67,7 @@ jobs:
   #   runs-on: ubuntu-latest
   #   steps:
   #     - name: Clone
-  #       uses: actions/checkout@v6
+  #       uses: actions/checkout@v7
   #       with:
   #         submodules: true
   #     - name: Dependencies
@@ -90,7 +90,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Clone
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           submodules: true
       - name: Dependencies
@@ -113,7 +113,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Clone
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           submodules: true
       - name: Dependencies
@@ -137,7 +137,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Clone
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           submodules: true
       - name: Dependencies
@@ -158,7 +158,7 @@ jobs:
   #  runs-on: ubuntu-latest
   #  steps:
   #    - name: Clone
-  #      uses: actions/checkout@v6
+  #      uses: actions/checkout@v7
   #      with:
   #        submodules: true
   #    - name: Dependencies
@@ -178,7 +178,7 @@ jobs:
   #   runs-on: ubuntu-latest
   #   steps:
   #     - name: Clone
-  #       uses: actions/checkout@v6
+  #       uses: actions/checkout@v7
   #       with:
   #         submodules: true
   #     - name: Dependencies
@@ -240,7 +240,7 @@ jobs:
   #           sudo rm -rf "$AGENT_TOOLSDIRECTORY" || true
   #           df -h
   #     - name: Clone
-  #       uses: actions/checkout@v6
+  #       uses: actions/checkout@v7
   #       with:
   #         submodules: true
   #     - name: Dependencies
@@ -265,7 +265,7 @@ jobs:
   #   runs-on: ubuntu-latest
   #   steps:
   #     - name: Clone
-  #       uses: actions/checkout@v6
+  #       uses: actions/checkout@v7
   #       with:
   #         submodules: true
   #     - name: Dependencies
@@ -288,7 +288,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Clone
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           submodules: true
       - name: Dependencies
@@ -309,7 +309,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Clone
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           submodules: true
       - name: Dependencies
@@ -330,7 +330,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Clone
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           submodules: true
       - name: Dependencies
@@ -351,7 +351,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Clone
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           submodules: true
       - name: Dependencies
@@ -373,7 +373,7 @@ jobs:
   #   timeout-minutes: 45
   #   steps:
   #     - name: Clone
-  #       uses: actions/checkout@v6
+  #       uses: actions/checkout@v7
   #       with:
   #         submodules: true
   #     - name: Dependencies
@@ -394,7 +394,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Clone
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           submodules: true
       - name: Dependencies
@@ -415,7 +415,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Clone
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           submodules: true
       - name: Dependencies
@@ -436,7 +436,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Clone
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           submodules: true
       - name: Dependencies
@@ -462,7 +462,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Clone
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           submodules: true
       - name: Dependencies
@@ -484,7 +484,7 @@ jobs:
     timeout-minutes: 30
     steps:
       - name: Clone
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           submodules: true
       - name: Dependencies
@@ -513,7 +513,7 @@ jobs:
     timeout-minutes: 90
     steps:
       - name: Clone
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           submodules: true
       - name: Setup Go
@@ -530,7 +530,7 @@ jobs:
     timeout-minutes: 90
     steps:
       - name: Clone
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           submodules: true
       - name: Setup Go
@@ -552,7 +552,7 @@ jobs:
     timeout-minutes: 20
     steps:
       - name: Clone
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           submodules: true
       - name: Setup Go
@@ -579,7 +579,7 @@ jobs:
     timeout-minutes: 90
     steps:
       - name: Clone
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           submodules: true
       - name: Setup Go
@@ -604,7 +604,7 @@ jobs:
     timeout-minutes: 90
     steps:
       - name: Clone
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           submodules: true
       - name: Setup Go
@@ -625,7 +625,7 @@ jobs:
     timeout-minutes: 90
     steps:
       - name: Clone
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           submodules: true
       - name: Setup Go
@@ -645,7 +645,7 @@ jobs:
     timeout-minutes: 90
     steps:
       - name: Clone
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           submodules: true
       - name: Setup Go
@@ -664,7 +664,7 @@ jobs:
     timeout-minutes: 90
     steps:
       - name: Clone
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           submodules: true
       - name: Setup Go
@@ -681,7 +681,7 @@ jobs:
     timeout-minutes: 90
     steps:
       - name: Clone
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           submodules: true
       - name: Setup Go
@@ -698,7 +698,7 @@ jobs:
     timeout-minutes: 90
     steps:
       - name: Clone
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           submodules: true
       - name: Setup Go
@@ -741,7 +741,7 @@ jobs:
   #   timeout-minutes: 90
   #   steps:
   #     - name: Clone
-  #       uses: actions/checkout@v6
+  #       uses: actions/checkout@v7
   #       with:
   #         submodules: true
   #     - name: Dependencies
@@ -783,7 +783,7 @@ jobs:
   #   timeout-minutes: 90
   #   steps:
   #     - name: Clone
-  #       uses: actions/checkout@v6
+  #       uses: actions/checkout@v7
   #       with:
   #         submodules: true
   #     - name: Dependencies
@@ -808,7 +808,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Clone
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           submodules: true
       - name: Dependencies
@@ -840,7 +840,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Clone
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           submodules: true
       - name: Dependencies
@@ -876,7 +876,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Clone
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           submodules: true
       - name: Dependencies
@@ -915,7 +915,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Clone
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           submodules: true
       - name: Dependencies
@@ -952,7 +952,7 @@ jobs:
     timeout-minutes: 90
     steps:
       - name: Clone
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           submodules: true
       - name: Dependencies
@@ -987,7 +987,7 @@ jobs:
     timeout-minutes: 90
     steps:
       - name: Clone
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           submodules: true
       - name: Setup Go
@@ -1013,7 +1013,7 @@ jobs:
     timeout-minutes: 150
     steps:
       - name: Clone
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           submodules: true
       - name: Dependencies
@@ -1042,7 +1042,7 @@ jobs:
     timeout-minutes: 60
     steps:
       - name: Clone
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           submodules: true
       - name: Setup Go
@@ -1058,7 +1058,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Clone
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           submodules: true
       - name: Dependencies
@@ -1091,7 +1091,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Clone
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           submodules: true
       - name: Dependencies
@@ -1114,7 +1114,7 @@ jobs:
     timeout-minutes: 90
     steps:
       - name: Clone
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           submodules: true
       - name: Dependencies
@@ -1140,7 +1140,7 @@ jobs:
     timeout-minutes: 90
     steps:
       - name: Clone
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           submodules: true
       - name: Dependencies

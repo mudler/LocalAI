@@ -787,3 +787,32 @@ var _ = Describe("pattern detector config", func() {
 		Expect(err).To(MatchError(ContainSubstring("pattern \"EMAILish\"")))
 	})
 })
+
+var _ = Describe("ModelConfig alias", func() {
+	It("reports IsAlias when alias is set", func() {
+		c := ModelConfig{Name: "gpt-4", Alias: "my-llama-3"}
+		Expect(c.IsAlias()).To(BeTrue())
+		Expect(ModelConfig{Name: "real"}.IsAlias()).To(BeFalse())
+	})
+
+	It("validates a minimal alias config", func() {
+		c := ModelConfig{Name: "gpt-4", Alias: "my-llama-3"}
+		ok, err := c.Validate()
+		Expect(err).ToNot(HaveOccurred())
+		Expect(ok).To(BeTrue())
+	})
+
+	It("rejects an alias pointing to itself", func() {
+		c := ModelConfig{Name: "loop", Alias: "loop"}
+		ok, err := c.Validate()
+		Expect(ok).To(BeFalse())
+		Expect(err).To(MatchError(ContainSubstring("itself")))
+	})
+
+	It("rejects an alias that also sets a backend", func() {
+		c := ModelConfig{Name: "gpt-4", Alias: "my-llama-3", Backend: "llama-cpp"}
+		ok, err := c.Validate()
+		Expect(ok).To(BeFalse())
+		Expect(err).To(MatchError(ContainSubstring("pure redirect")))
+	})
+})

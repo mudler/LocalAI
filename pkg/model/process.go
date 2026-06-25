@@ -154,11 +154,20 @@ func (ml *ModelLoader) startProcess(grpcProcess, id string, serverAddress string
 		return nil, err
 	}
 
+	env := os.Environ()
+	// Vulkan backends are self-contained: they bundle their own loader and
+	// Mesa driver .so files in lib/ plus the matching ICD manifests in
+	// vulkan/icd.d/. Point the loader at those manifests so it doesn't rely on
+	// the runtime base image shipping a Vulkan driver (it carries the
+	// SYCL/Level-Zero stack instead, so the default ICD search path is empty
+	// and the GPU would silently fall back to CPU). No-op for other backends.
+	env = append(env, vulkanICDEnv(workDir)...)
+
 	grpcControlProcess := process.New(
 		process.WithTemporaryStateDir(),
 		process.WithName(filepath.Base(grpcProcess)),
 		process.WithArgs(append(args, []string{"--addr", serverAddress}...)...),
-		process.WithEnvironment(os.Environ()...),
+		process.WithEnvironment(env...),
 		process.WithWorkDir(workDir),
 	)
 
@@ -248,4 +257,39 @@ func (ml *ModelLoader) startProcess(grpcProcess, id string, serverAddress string
 	}()
 
 	return grpcControlProcess, nil
+}
+
+// vulkanICDEnv returns environment overrides that point the Vulkan loader at
+// the ICD manifests a backend bundles in <workDir>/vulkan/icd.d. Vulkan
+// backends ship a self-contained stack — their own loader and Mesa driver .so
+// files in lib/ (resolved via the LD_LIBRARY_PATH that run.sh sets) plus the
+// matching ICD manifests — so the loader must be told where those manifests
+// live; its default search path (/usr/share/vulkan/icd.d, /etc/vulkan/icd.d)
+// is empty on the runtime base image. Returns nil when the directory holds no
+// manifests (CPU/CUDA/SYCL builds), leaving the host's Vulkan setup untouched.
+func vulkanICDEnv(workDir string) []string {
+	icdDir := filepath.Join(workDir, "vulkan", "icd.d")
+	entries, err := os.ReadDir(icdDir)
+	if err != nil {
+		return nil
+	}
+
+	manifests := make([]string, 0, len(entries))
+	for _, e := range entries {
+		if e.IsDir() || !strings.HasSuffix(e.Name(), ".json") {
+			continue
+		}
+		manifests = append(manifests, filepath.Join(icdDir, e.Name()))
+	}
+	if len(manifests) == 0 {
+		return nil
+	}
+
+	list := strings.Join(manifests, string(os.PathListSeparator))
+	// VK_DRIVER_FILES is the current loader variable; VK_ICD_FILENAMES is its
+	// deprecated alias, set too so older bundled loaders still pick it up.
+	return []string{
+		"VK_DRIVER_FILES=" + list,
+		"VK_ICD_FILENAMES=" + list,
+	}
 }

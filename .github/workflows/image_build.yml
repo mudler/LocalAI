@@ -80,7 +80,7 @@ jobs:
     steps:
 
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Configure apt mirror on runner
         id: apt_mirror

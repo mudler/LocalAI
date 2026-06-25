@@ -231,6 +231,7 @@ Most backends wrap a best-in-class upstream engine. A handful of them are native
 | Backend | What it does |
 |---------|-------------|
 | [parakeet.cpp](https://github.com/mudler/parakeet.cpp) | C++/GGML port of NVIDIA NeMo Parakeet ASR (tdt/ctc/rnnt/hybrid), with cache-aware streaming transcription |
+| [ced.cpp](https://github.com/mudler/ced.cpp) | C++/GGML port of the CED audio-tagging models: sound-event classification (527-class AudioSet) over REST and the realtime API for live recognition |
 | [voxtral.c](https://github.com/mudler/voxtral.c) | Voxtral Realtime 4B speech-to-text in pure C |
 | [vibevoice.cpp](https://github.com/mudler/vibevoice.cpp) | Native port of Microsoft VibeVoice for TTS (voice cloning) and long-form ASR with speaker diarization |
 | [rf-detr.cpp](https://github.com/mudler/rf-detr.cpp) | Native RF-DETR object detection and instance segmentation |
@@ -239,6 +240,8 @@ Most backends wrap a best-in-class upstream engine. A handful of them are native
 | [privacy-filter.cpp](https://github.com/localai-org/privacy-filter.cpp) | Standalone GGML PII/NER token-classification engine powering LocalAI's PII redaction tier |
 | [LocalVQE](https://github.com/localai-org/LocalVQE) | Joint acoustic echo cancellation, noise suppression, and dereverberation |
 | [local-store](https://github.com/mudler/LocalAI) | Local-first vector database for embeddings (shipped in-tree) |
+
+We also maintain [apex-quant](https://github.com/localai-org/apex-quant), a per-tensor, per-layer quantization recipe for Mixture-of-Experts models that exploits their structural sparsity to produce GGUFs matching or beating Q8_0 quality - and they run out of the box on stock llama.cpp.
 
 ## Resources
 

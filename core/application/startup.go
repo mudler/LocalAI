@@ -25,6 +25,7 @@ import (
 	"github.com/mudler/LocalAI/core/services/storage"
 	coreStartup "github.com/mudler/LocalAI/core/startup"
 	"github.com/mudler/LocalAI/internal"
+	"github.com/mudler/LocalAI/pkg/downloader"
 	"github.com/mudler/LocalAI/pkg/signals"
 	"github.com/mudler/LocalAI/pkg/vram"
 
@@ -70,6 +71,16 @@ func New(opts ...config.AppOption) (*Application, error) {
 	err = os.MkdirAll(options.SystemState.Model.ModelsPath, 0o750)
 	if err != nil {
 		return nil, fmt.Errorf("unable to create ModelPath: %q", err)
+	}
+
+	// Reap *.partial downloads abandoned by a previous run (killed mid-transfer
+	// by an OOM/restart, or stalled before cleanup could run). The 24h window
+	// is well beyond any legitimate in-flight download, so this never trims an
+	// active transfer; it just stops dead partials accumulating on the volume.
+	if removed, cErr := downloader.CleanupStalePartialFiles(options.SystemState.Model.ModelsPath, 24*time.Hour); cErr != nil {
+		xlog.Warn("Failed to reap stale partial downloads", "error", cErr)
+	} else if removed > 0 {
+		xlog.Info("Reaped stale partial downloads", "count", removed)
 	}
 	if options.GeneratedContentDir != "" {
 		err := os.MkdirAll(options.GeneratedContentDir, 0o750)
@@ -633,6 +644,12 @@ func loadRuntimeSettingsFromFile(options *config.ApplicationConfig) {
 			options.ForceEvictionWhenBusy = *settings.ForceEvictionWhenBusy
 		}
 	}
+	if settings.SizeAwareEviction != nil {
+		// Only apply if current value is default (false), suggesting it wasn't set from env var
+		if !options.SizeAwareEviction {
+			options.SizeAwareEviction = *settings.SizeAwareEviction
+		}
+	}
 	if settings.LRUEvictionMaxRetries != nil {
 		// Only apply if current value is default (30), suggesting it wasn't set from env var
 		if options.LRUEvictionMaxRetries == 0 {
@@ -731,6 +748,20 @@ func loadRuntimeSettingsFromFile(options *config.ApplicationConfig) {
 	// model YAML mitm.hosts: rather than runtime_settings.json.)
 	if settings.MITMListen != nil && options.MITMListen == "" {
 		options.MITMListen = *settings.MITMListen
+	}
+
+	// Instance-wide default PII detectors. LOCALAI_PII_DEFAULT_DETECTORS (via
+	// WithPIIDefaultDetectors) wins when set; otherwise the file is the source
+	// — apply it only when the env/CLI left the value empty, mirroring the
+	// "env > file" precedence used for the other fields. This must land before
+	// startMITMIfConfigured (called right after this loader): the cloud-proxy
+	// listener resolves each intercept host's detectors once at start via
+	// ResolvePIIPolicy, and a MITM model that names no detectors of its own
+	// falls back to these defaults. Without it the listener (and request-side
+	// default redaction) starts with an empty detector set and forwards
+	// traffic unredacted even though pii_default_detectors is on disk.
+	if settings.PIIDefaultDetectors != nil && len(options.PIIDefaultDetectors) == 0 {
+		options.PIIDefaultDetectors = append([]string(nil), (*settings.PIIDefaultDetectors)...)
 	}
 
 	// Backend upgrade flags
@@ -836,6 +867,7 @@ func initializeWatchdog(application *Application, options *config.ApplicationCon
 			model.WithLRULimit(lruLimit),
 			model.WithMemoryReclaimer(options.MemoryReclaimerEnabled, options.MemoryReclaimerThreshold),
 			model.WithForceEvictionWhenBusy(options.ForceEvictionWhenBusy),
+			model.WithSizeAwareEviction(options.SizeAwareEviction),
 		)
 		application.ModelLoader().SetWatchDog(wd)
 

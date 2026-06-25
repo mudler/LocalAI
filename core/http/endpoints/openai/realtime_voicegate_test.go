@@ -10,6 +10,82 @@ import (
 	. "github.com/onsi/gomega"
 )
 
+var _ = Describe("voiceGate.Resolve + authorize", func() {
+	mkGate := func(allow []string) *voiceGate {
+		return &voiceGate{
+			cfg: config.PipelineVoiceRecognition{
+				Mode:      config.VoiceGateModeIdentify,
+				Threshold: 0.25,
+				Allow:     config.VoiceRecognitionAllow{Names: allow},
+			},
+			registry: &fakeRegistry{matches: []voicerecognition.Match{
+				{Distance: 0.1, Metadata: voicerecognition.Metadata{ID: "spk_1", Name: "alice", Labels: map[string]string{"family": "yes"}}},
+			}},
+			embedFn: func(context.Context, string) ([]float32, error) { return []float32{1, 0, 0}, nil },
+		}
+	}
+
+	It("resolves a confident identity with name, id and a 0..100 confidence", func() {
+		r, err := mkGate(nil).Resolve(context.Background(), "x.wav")
+		Expect(err).ToNot(HaveOccurred())
+		Expect(r.found).To(BeTrue())
+		Expect(r.speaker.Name).To(Equal("alice"))
+		Expect(r.speaker.ID).To(Equal("spk_1"))
+		Expect(r.speaker.Matched).To(BeTrue())
+		Expect(r.speaker.Confidence).To(BeNumerically(">", 0))
+		Expect(r.speaker.Confidence).To(BeNumerically("<=", 100))
+		Expect(r.speaker.Labels).To(HaveKeyWithValue("family", "yes"))
+	})
+
+	It("marks a candidate above the threshold as not matched", func() {
+		g := mkGate(nil)
+		g.registry = &fakeRegistry{matches: []voicerecognition.Match{
+			{Distance: 0.9, Metadata: voicerecognition.Metadata{Name: "alice"}},
+		}}
+		r, err := g.Resolve(context.Background(), "x.wav")
+		Expect(err).ToNot(HaveOccurred())
+		Expect(r.found).To(BeTrue())
+		Expect(r.speaker.Matched).To(BeFalse())
+		Expect(r.speaker.Name).To(Equal("alice")) // name still surfaced
+	})
+
+	It("authorize allows a confident match in the allow list", func() {
+		g := mkGate([]string{"alice"})
+		r, _ := g.Resolve(context.Background(), "x.wav")
+		allowed, reason := g.authorize(r)
+		Expect(allowed).To(BeTrue())
+		Expect(reason).To(BeEmpty())
+	})
+
+	It("authorize denies a confident match outside the allow list", func() {
+		g := mkGate([]string{"bob"})
+		r, _ := g.Resolve(context.Background(), "x.wav")
+		allowed, reason := g.authorize(r)
+		Expect(allowed).To(BeFalse())
+		Expect(reason).To(Equal("speaker not in allow list"))
+	})
+
+	It("authorize allows by label when names do not match", func() {
+		g := mkGate(nil)
+		g.cfg.Allow = config.VoiceRecognitionAllow{Labels: []string{"family"}}
+		r, _ := g.Resolve(context.Background(), "x.wav")
+		allowed, _ := g.authorize(r)
+		Expect(allowed).To(BeTrue())
+	})
+})
+
+var _ = Describe("confidence", func() {
+	It("is 100 at zero distance", func() {
+		Expect(confidence(0, 0.25)).To(BeNumerically("~", 100, 1e-4))
+	})
+	It("clamps to 0 above the threshold", func() {
+		Expect(confidence(0.5, 0.25)).To(BeNumerically("~", 0, 1e-4))
+	})
+	It("is 0 for a non-positive threshold", func() {
+		Expect(confidence(0.1, 0)).To(BeNumerically("~", 0, 1e-4))
+	})
+})
+
 var _ = Describe("cosineDistance", func() {
 	It("is 0 for identical vectors", func() {
 		Expect(cosineDistance([]float32{1, 0, 0}, []float32{1, 0, 0})).To(BeNumerically("~", 0, 1e-6))

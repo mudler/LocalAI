@@ -49,6 +49,13 @@ type ApplicationConfig struct {
 	P2PNetworkID                  string
 	Federated                     bool
 
+	// ExternalBaseURL is the externally visible base URL of this instance
+	// (scheme+host[:port]), set via LOCALAI_BASE_URL. When non-empty it is
+	// authoritative for every self-referential URL LocalAI emits (OAuth
+	// callbacks, generated image/video links, async job StatusURLs),
+	// overriding proxy-header detection. Empty = derive from request headers.
+	ExternalBaseURL string
+
 	// DisableStats turns off per-request token tracking. By default the
 	// routing module's billing recorder runs in every mode (including
 	// no-auth single-user) so dashboards and `/api/usage` are immediately
@@ -119,6 +126,7 @@ type ApplicationConfig struct {
 
 	// Eviction settings
 	ForceEvictionWhenBusy    bool          // Force eviction even when models have active API calls (default: false for safety)
+	SizeAwareEviction        bool          // Evict largest models first rather than least-recently-used (default: false)
 	LRUEvictionMaxRetries    int           // Maximum number of retries when waiting for busy models to become idle (default: 30)
 	LRUEvictionRetryInterval time.Duration // Interval between retries when waiting for busy models (default: 1s)
 
@@ -195,7 +203,6 @@ type AuthConfig struct {
 	OIDCIssuer          string // OIDC issuer URL for auto-discovery (e.g. https://accounts.google.com)
 	OIDCClientID        string
 	OIDCClientSecret    string
-	BaseURL             string // for OAuth callback URLs (e.g. "http://localhost:8080")
 	AdminEmail          string // auto-promote to admin on login
 	RegistrationMode    string // "open", "approval" (default when empty), "invite"
 	DisableLocalAuth    bool   // disable local email/password registration and login
@@ -488,6 +495,16 @@ func WithForceEvictionWhenBusy(enabled bool) AppOption {
 	}
 }
 
+// WithSizeAwareEviction enables size-aware eviction ordering.
+// When true, the watchdog evicts the largest loaded model first rather than the
+// least-recently-used one, keeping small utility models resident and maximizing
+// memory freed per eviction.
+func WithSizeAwareEviction(enabled bool) AppOption {
+	return func(o *ApplicationConfig) {
+		o.SizeAwareEviction = enabled
+	}
+}
+
 // WithLRUEvictionMaxRetries sets the maximum number of retries when waiting for busy models to become idle
 func WithLRUEvictionMaxRetries(maxRetries int) AppOption {
 	return func(o *ApplicationConfig) {
@@ -698,6 +715,18 @@ func WithMITMListen(addr string) AppOption {
 func WithMITMCADir(dir string) AppOption {
 	return func(o *ApplicationConfig) {
 		o.MITMCADir = dir
+	}
+}
+
+// WithPIIDefaultDetectors sets the instance-wide default PII/secret detector
+// model names applied to any PII-enabled model (chiefly cloud-proxy / MITM
+// models) that names no pii.detectors of its own. CLI/env:
+// LOCALAI_PII_DEFAULT_DETECTORS. Empty leaves the value to
+// runtime_settings.json / the Middleware UI; a non-empty value takes
+// precedence over the file (env > file).
+func WithPIIDefaultDetectors(detectors []string) AppOption {
+	return func(o *ApplicationConfig) {
+		o.PIIDefaultDetectors = detectors
 	}
 }
 
@@ -927,9 +956,9 @@ func WithAuthGitHubClientSecret(clientSecret string) AppOption {
 	}
 }
 
-func WithAuthBaseURL(baseURL string) AppOption {
+func WithExternalBaseURL(url string) AppOption {
 	return func(o *ApplicationConfig) {
-		o.Auth.BaseURL = baseURL
+		o.ExternalBaseURL = url
 	}
 }
 
@@ -1028,6 +1057,7 @@ func (o *ApplicationConfig) ToRuntimeSettings() RuntimeSettings {
 	memoryReclaimerEnabled := o.MemoryReclaimerEnabled
 	memoryReclaimerThreshold := o.MemoryReclaimerThreshold
 	forceEvictionWhenBusy := o.ForceEvictionWhenBusy
+	sizeAwareEviction := o.SizeAwareEviction
 	lruEvictionMaxRetries := o.LRUEvictionMaxRetries
 	threads := o.Threads
 	contextSize := o.ContextSize
@@ -1120,6 +1150,7 @@ func (o *ApplicationConfig) ToRuntimeSettings() RuntimeSettings {
 		MemoryReclaimerEnabled:    &memoryReclaimerEnabled,
 		MemoryReclaimerThreshold:  &memoryReclaimerThreshold,
 		ForceEvictionWhenBusy:     &forceEvictionWhenBusy,
+		SizeAwareEviction:         &sizeAwareEviction,
 		LRUEvictionMaxRetries:     &lruEvictionMaxRetries,
 		LRUEvictionRetryInterval:  &lruEvictionRetryInterval,
 		Threads:                   &threads,
@@ -1242,6 +1273,10 @@ func (o *ApplicationConfig) ApplyRuntimeSettings(settings *RuntimeSettings) (req
 	}
 	if settings.ForceEvictionWhenBusy != nil {
 		o.ForceEvictionWhenBusy = *settings.ForceEvictionWhenBusy
+		// This setting doesn't require restart, can be updated dynamically
+	}
+	if settings.SizeAwareEviction != nil {
+		o.SizeAwareEviction = *settings.SizeAwareEviction
 		// This setting doesn't require restart, can be updated dynamically
 	}
 	if settings.LRUEvictionMaxRetries != nil {

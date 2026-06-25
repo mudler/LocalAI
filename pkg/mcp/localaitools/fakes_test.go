@@ -32,6 +32,8 @@ type fakeClient struct {
 	importModelURI      func(ImportModelURIRequest) (*ImportModelURIResponse, error)
 	deleteModel         func(string) error
 	editModelConfig     func(string, map[string]any) error
+	setAlias            func(string, string) error
+	listAliases         func() ([]AliasInfo, error)
 	reloadModels        func() error
 	listBackends        func() ([]Backend, error)
 	listKnownBackends   func() ([]schema.KnownBackend, error)
@@ -141,6 +143,22 @@ func (f *fakeClient) EditModelConfig(_ context.Context, name string, patch map[s
 		return f.editModelConfig(name, patch)
 	}
 	return nil
+}
+
+func (f *fakeClient) SetAlias(_ context.Context, name, target string) error {
+	f.record("SetAlias", []any{name, target})
+	if f.setAlias != nil {
+		return f.setAlias(name, target)
+	}
+	return nil
+}
+
+func (f *fakeClient) ListAliases(_ context.Context) ([]AliasInfo, error) {
+	f.record("ListAliases", nil)
+	if f.listAliases != nil {
+		return f.listAliases()
+	}
+	return []AliasInfo{}, nil
 }
 
 func (f *fakeClient) ReloadModels(_ context.Context) error {

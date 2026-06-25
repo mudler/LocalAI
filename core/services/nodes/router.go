@@ -12,6 +12,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/services/advisorylock"
 	"github.com/mudler/LocalAI/core/services/nodes/prefixcache"
 	"github.com/mudler/LocalAI/pkg/distributedhdr"
@@ -138,6 +139,36 @@ type scheduleLoadResult struct {
 	ReplicaIndex int
 }
 
+// applyNodeHardwareDefaults tunes node-agnostic ModelOptions to the GPU of the
+// node that was actually selected to run the model, reusing the same hardware
+// heuristics as single-host config loading (core/config). On Blackwell it
+// raises the physical batch; on non-Blackwell it resets a hardware-default that
+// an upstream host (the GPU-less frontend in distributed mode) guessed higher.
+// Only values the heuristics themselves manage are touched, so an explicit user
+// batch (e.g. 1024) is never overridden.
+func applyNodeHardwareDefaults(opts *pb.ModelOptions, node *BackendNode) {
+	if opts == nil || node == nil || config.HardwareDefaultsDisabled() {
+		return
+	}
+	gpu := config.GPU{
+		Vendor:            node.GPUVendor,
+		ComputeCapability: node.GPUComputeCapability,
+		VRAM:              node.TotalVRAM,
+	}
+	if config.IsManagedPhysicalBatch(int(opts.NBatch)) {
+		// Gate the raised batch on the selected node's per-device VRAM at this
+		// model's context, so a large context can't overflow the node's compute
+		// buffer (issue #10485). node.TotalVRAM is the node's reported ceiling.
+		opts.NBatch = int32(config.PhysicalBatchForContext(gpu, int(opts.ContextSize)))
+	}
+	// Default concurrent serving for the selected node (the frontend that built
+	// the options may have no GPU). Gated on the node's per-device VRAM at this
+	// model's context, so a large context that already fills the device can't
+	// tip it into OOM by adding slot scratch (issue #10485). Only adds when no
+	// parallel option is set.
+	opts.Options = config.EnsureParallelOptionForContext(opts.Options, gpu, int(opts.ContextSize))
+}
+
 // scheduleAndLoad is the shared core for loading a model on a new node.
 // Used by both Route() (for first-time loads) and ScheduleAndLoadModel() (for reconciler scale-ups).
 //
@@ -152,6 +183,11 @@ func (r *SmartRouter) scheduleAndLoad(ctx context.Context, backendType, tracking
 	if err != nil {
 		return nil, fmt.Errorf("no available nodes: %w", err)
 	}
+
+	// Tune node-agnostic options to the SELECTED node's GPU. Only now do we know
+	// which node (and its compute capability) will run the model — the frontend
+	// that built modelOpts may have no GPU at all in distributed mode.
+	applyNodeHardwareDefaults(modelOpts, node)
 
 	// Pre-stage model files via FileStager before loading
 	loadOpts := modelOpts
@@ -329,8 +365,21 @@ func (r *SmartRouter) Route(ctx context.Context, modelID, modelName, backendType
 		}
 	}
 
-	// Step 2: Model not loaded — schedule loading with distributed lock to prevent duplicates
-	loadModel := func() (*RouteResult, error) {
+	// Step 2: Model not loaded — schedule loading with distributed lock to prevent duplicates.
+	//
+	// Detach the cold-load from the caller's context. Staging a model can
+	// transfer multiple GB to a worker, which takes far longer than any client
+	// keeps its HTTP request open — a browser refresh, an ingress/LB idle
+	// timeout, or a round-robined retry landing on another replica all cancel
+	// the request context. If staging were bound to it, the multi-GB upload
+	// aborts with "context canceled" mid-transfer and large models can never
+	// finish staging (the model-load outage). WithoutCancel keeps the request's
+	// values (prefix chain, etc.) but drops its cancellation/deadline. Each
+	// long step still has its own bound (the file stager's resume budget,
+	// LoadModel's 5m timeout), and the per-model advisory lock below de-dupes
+	// concurrent loaders across replicas.
+	loadCtx := context.WithoutCancel(ctx)
+	loadModel := func(ctx context.Context) (*RouteResult, error) {
 		// Re-check after acquiring lock — another request may have loaded it
 		node, nm, err := r.registry.FindAndLockNodeWithModel(ctx, trackingKey, candidateNodeIDs, pref)
 		if err == nil && node != nil {
@@ -403,9 +452,9 @@ func (r *SmartRouter) Route(ctx context.Context, modelID, modelName, backendType
 	if r.db != nil {
 		lockKey := advisorylock.KeyFromString("model-load:" + trackingKey)
 		var result *RouteResult
-		lockErr := advisorylock.WithLockCtx(ctx, r.db, lockKey, func() error {
+		lockErr := advisorylock.WithLockCtx(loadCtx, r.db, lockKey, func() error {
 			var err error
-			result, err = loadModel()
+			result, err = loadModel(loadCtx)
 			return err
 		})
 		if lockErr != nil {
@@ -414,7 +463,7 @@ func (r *SmartRouter) Route(ctx context.Context, modelID, modelName, backendType
 		return result, nil
 	}
 	// No DB (non-distributed) — proceed without lock
-	return loadModel()
+	return loadModel(loadCtx)
 }
 
 // parseSelectorJSON decodes a JSON node selector string into a map.

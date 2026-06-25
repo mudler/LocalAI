@@ -41,6 +41,7 @@ var toolToHTTPRoute = map[string]string{
 	ToolGetPIIEvents:        "GET /api/pii/events",
 	ToolGetMiddlewareStatus: "GET /api/middleware/status",
 	ToolGetRouterDecisions:  "GET /api/router/decisions",
+	ToolListAliases:         "GET /api/aliases",
 
 	// Mutating tools.
 	ToolInstallModel:      "POST /models/apply",
@@ -53,6 +54,7 @@ var toolToHTTPRoute = map[string]string{
 	ToolToggleModelState:  "PUT /models/toggle-state/:name/:action",
 	ToolToggleModelPinned: "PUT /models/toggle-pinned/:name/:action",
 	ToolSetBranding:       "POST /api/settings (instance_name, instance_tagline)",
+	ToolSetAlias:          "PATCH /api/models/config-json/:name (swap) or POST /models/import (create)",
 }
 
 // allKnownTools is the union of expectedFullCatalog (defined in

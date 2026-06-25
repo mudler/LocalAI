@@ -1,6 +1,7 @@
 package piipattern
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 
@@ -34,6 +35,45 @@ var _ = Describe("ValidatePattern", func() {
 		Entry("huge bounded repeat", `sk-ant-[A-Za-z0-9]{5000}`),
 		Entry("empty", ``),
 	)
+})
+
+var _ = Describe("MaxQuantifier guard (must stay live, not dead code)", func() {
+	// Go's regexp/syntax hard-caps repeat bounds at 1000 and rejects anything
+	// larger at Parse time, before walk() runs. So the walk() {n,m} guard only
+	// fires for bounds in (MaxQuantifier, 1000]; if MaxQuantifier ever creeps
+	// to >= 1000 the guard becomes unreachable dead code. These specs pin the
+	// relationship and prove the guard is the binding constraint in that band.
+	const stdlibRepeatCap = 1000
+
+	It("is strictly below the stdlib repeat cap so the guard is reachable", func() {
+		Expect(MaxQuantifier).To(BeNumerically("<", stdlibRepeatCap),
+			"MaxQuantifier must be < %d or walk()'s {n,m} guard is dead code (Parse rejects larger bounds first)", stdlibRepeatCap)
+	})
+
+	It("accepts a bound at exactly MaxQuantifier", func() {
+		Expect(ValidatePattern(fmt.Sprintf(`sk-ant-[A-Za-z0-9]{%d}`, MaxQuantifier))).To(Succeed())
+	})
+
+	It("rejects a bound just above MaxQuantifier with our actionable error (proves the guard runs)", func() {
+		// MaxQuantifier+1 is still parseable (<= stdlib cap), so it reaches
+		// walk(), where our guard — not the parser — rejects it.
+		err := ValidatePattern(fmt.Sprintf(`sk-ant-[A-Za-z0-9]{%d}`, MaxQuantifier+1))
+		Expect(err).To(HaveOccurred())
+		Expect(err.Error()).To(ContainSubstring("bound is too large"),
+			"a bound in (MaxQuantifier, stdlib cap] must be rejected by walk(), not the parser")
+	})
+
+	It("rejects an unbounded {n,} whose lower bound exceeds MaxQuantifier", func() {
+		err := ValidatePattern(fmt.Sprintf(`sk-ant-[A-Za-z0-9]{%d,}`, MaxQuantifier+1))
+		Expect(err).To(HaveOccurred())
+		Expect(err.Error()).To(ContainSubstring("bound is too large"))
+	})
+
+	It("still fails closed above the stdlib cap (Parse rejects before walk)", func() {
+		// >1000: caught by syntax.Parse; the message is the parser's, but it
+		// still fails closed — defence in depth.
+		Expect(ValidatePattern(fmt.Sprintf(`sk-ant-[A-Za-z0-9]{%d}`, stdlibRepeatCap+1))).NotTo(Succeed())
+	})
 })
 
 var _ = Describe("Compile", func() {

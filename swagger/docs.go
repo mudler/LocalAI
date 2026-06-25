@@ -500,6 +500,25 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/aliases": {
+            "get": {
+                "tags": [
+                    "models"
+                ],
+                "summary": "List model aliases",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/localai.AliasInfo"
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/api/backend-logs": {
             "get": {
                 "description": "Returns a sorted list of model IDs that have captured backend process output",
@@ -997,6 +1016,25 @@ const docTemplate = `{
                         "description": "Internal Server Error",
                         "schema": {
                             "$ref": "#/definitions/localai.ModelResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/nodes/models": {
+            "get": {
+                "tags": [
+                    "Nodes"
+                ],
+                "summary": "List all loaded models cluster-wide",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/nodes.NodeModel"
+                            }
                         }
                     }
                 }
@@ -1915,6 +1953,53 @@ const docTemplate = `{
                         "description": "generated audio/wav file",
                         "schema": {
                             "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/audio/classification": {
+            "post": {
+                "consumes": [
+                    "multipart/form-data"
+                ],
+                "tags": [
+                    "audio"
+                ],
+                "summary": "Classify sound events in audio (audio tagging).",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "model",
+                        "name": "model",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "file",
+                        "description": "audio file",
+                        "name": "file",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "number of top tags to return (0 = backend default)",
+                        "name": "top_k",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "number",
+                        "description": "drop tags scoring below this value",
+                        "name": "threshold",
+                        "in": "formData"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/schema.SoundClassificationResult"
                         }
                     }
                 }
@@ -3486,6 +3571,17 @@ const docTemplate = `{
                 }
             }
         },
+        "localai.AliasInfo": {
+            "type": "object",
+            "properties": {
+                "name": {
+                    "type": "string"
+                },
+                "target": {
+                    "type": "string"
+                }
+            }
+        },
         "localai.BrandingResponse": {
             "type": "object",
             "properties": {
@@ -3673,6 +3769,52 @@ const docTemplate = `{
                     "type": "integer"
                 },
                 "vram_display": {
+                    "type": "string"
+                }
+            }
+        },
+        "nodes.NodeModel": {
+            "type": "object",
+            "properties": {
+                "address": {
+                    "description": "gRPC address for this replica's backend process",
+                    "type": "string"
+                },
+                "backend_type": {
+                    "description": "e.g. \"llama-cpp\"; used by reconciler to replicate loads",
+                    "type": "string"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "in_flight": {
+                    "description": "number of active requests on this replica",
+                    "type": "integer"
+                },
+                "last_used": {
+                    "type": "string"
+                },
+                "loading_by": {
+                    "description": "frontend ID that triggered loading",
+                    "type": "string"
+                },
+                "model_name": {
+                    "type": "string"
+                },
+                "node_id": {
+                    "type": "string"
+                },
+                "replica_index": {
+                    "type": "integer"
+                },
+                "state": {
+                    "description": "loading, loaded, unloading, idle",
+                    "type": "string"
+                },
+                "updated_at": {
                     "type": "string"
                 }
             }
@@ -6051,6 +6193,34 @@ const docTemplate = `{
                 "score": {
                     "description": "Score is the top label's softmax probability (the\nclassifier-side confidence signal).",
                     "type": "number"
+                }
+            }
+        },
+        "schema.SoundClassification": {
+            "type": "object",
+            "properties": {
+                "index": {
+                    "type": "integer"
+                },
+                "label": {
+                    "type": "string"
+                },
+                "score": {
+                    "type": "number"
+                }
+            }
+        },
+        "schema.SoundClassificationResult": {
+            "type": "object",
+            "properties": {
+                "detections": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.SoundClassification"
+                    }
+                },
+                "model": {
+                    "type": "string"
                 }
             }
         },

@@ -70,17 +70,20 @@ func GetNodeEndpoint(registry *nodes.NodeRegistry) echo.HandlerFunc {
 
 // RegisterNodeRequest is the request body for registering a new worker node.
 type RegisterNodeRequest struct {
-	Name          string            `json:"name"`
-	NodeType      string            `json:"node_type,omitempty"` // "backend" (default) or "agent"
-	Address       string            `json:"address"`
-	HTTPAddress   string            `json:"http_address,omitempty"`
-	Token         string            `json:"token,omitempty"`
-	TotalVRAM     uint64            `json:"total_vram,omitempty"`
-	AvailableVRAM uint64            `json:"available_vram,omitempty"`
-	TotalRAM      uint64            `json:"total_ram,omitempty"`
-	AvailableRAM  uint64            `json:"available_ram,omitempty"`
-	GPUVendor     string            `json:"gpu_vendor,omitempty"`
-	Labels        map[string]string `json:"labels,omitempty"`
+	Name          string `json:"name"`
+	NodeType      string `json:"node_type,omitempty"` // "backend" (default) or "agent"
+	Address       string `json:"address"`
+	HTTPAddress   string `json:"http_address,omitempty"`
+	Token         string `json:"token,omitempty"`
+	TotalVRAM     uint64 `json:"total_vram,omitempty"`
+	AvailableVRAM uint64 `json:"available_vram,omitempty"`
+	TotalRAM      uint64 `json:"total_ram,omitempty"`
+	AvailableRAM  uint64 `json:"available_ram,omitempty"`
+	GPUVendor     string `json:"gpu_vendor,omitempty"`
+	// GPUComputeCapability is the worker GPU's compute capability ("major.minor",
+	// e.g. "12.1" for GB10). Used by the router for per-arch option tuning.
+	GPUComputeCapability string            `json:"gpu_compute_capability,omitempty"`
+	Labels               map[string]string `json:"labels,omitempty"`
 	// MaxReplicasPerModel is the per-node cap on replicas of any single model.
 	// Workers older than this field omit it; we coerce 0 → 1 below to preserve
 	// historical single-replica behavior.
@@ -152,17 +155,18 @@ func RegisterNodeEndpoint(registry *nodes.NodeRegistry, expectedToken string, au
 		}
 
 		node := &nodes.BackendNode{
-			Name:                req.Name,
-			NodeType:            nodeType,
-			Address:             req.Address,
-			HTTPAddress:         req.HTTPAddress,
-			TokenHash:           tokenHash,
-			TotalVRAM:           req.TotalVRAM,
-			AvailableVRAM:       req.AvailableVRAM,
-			TotalRAM:            req.TotalRAM,
-			AvailableRAM:        req.AvailableRAM,
-			GPUVendor:           req.GPUVendor,
-			MaxReplicasPerModel: maxReplicasPerModel,
+			Name:                 req.Name,
+			NodeType:             nodeType,
+			Address:              req.Address,
+			HTTPAddress:          req.HTTPAddress,
+			TokenHash:            tokenHash,
+			TotalVRAM:            req.TotalVRAM,
+			AvailableVRAM:        req.AvailableVRAM,
+			TotalRAM:             req.TotalRAM,
+			AvailableRAM:         req.AvailableRAM,
+			GPUVendor:            req.GPUVendor,
+			GPUComputeCapability: req.GPUComputeCapability,
+			MaxReplicasPerModel:  maxReplicasPerModel,
 		}
 
 		ctx := c.Request().Context()
@@ -376,6 +380,23 @@ func GetNodeModelsEndpoint(registry *nodes.NodeRegistry) echo.HandlerFunc {
 		if err != nil {
 			xlog.Error("Failed to get node models", "id", id, "error", err)
 			return c.JSON(http.StatusInternalServerError, nodeError(http.StatusInternalServerError, "failed to get node models"))
+		}
+		return c.JSON(http.StatusOK, models)
+	}
+}
+
+// ListAllNodeModelsEndpoint returns all loaded models across all healthy nodes.
+// @Summary List all loaded models cluster-wide
+// @Tags Nodes
+// @Success 200 {array} nodes.NodeModel
+// @Router /api/nodes/models [get]
+func ListAllNodeModelsEndpoint(registry *nodes.NodeRegistry) echo.HandlerFunc {
+	return func(c echo.Context) error {
+		ctx := c.Request().Context()
+		models, err := registry.ListAllLoadedModels(ctx)
+		if err != nil {
+			xlog.Error("Failed to list all node models", "error", err)
+			return c.JSON(http.StatusInternalServerError, nodeError(http.StatusInternalServerError, "failed to list node models"))
 		}
 		return c.JSON(http.StatusOK, models)
 	}

@@ -6363,6 +6363,130 @@ select.input {
   justify-content: center;
 }
 
+/* ──────────────────── Home: hardware-aware starter models ──────────────────── */
+
+.home-starters {
+  margin: var(--spacing-lg) 0;
+  padding: var(--spacing-lg);
+}
+.home-starters-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--spacing-md);
+}
+.home-starters-head strong {
+  font-size: 0.9375rem;
+}
+.home-starters-tier {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+}
+.home-starters-sub {
+  margin: var(--spacing-xs) 0 var(--spacing-md);
+  font-size: 0.8125rem;
+  color: var(--color-text-secondary);
+}
+.home-starters-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-xs);
+}
+.home-starters-item {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-md);
+  padding: var(--spacing-xs) 0;
+}
+.home-starters-name {
+  font-weight: 500;
+  font-size: 0.875rem;
+  word-break: break-all;
+}
+.home-starters-badge {
+  font-size: 0.625rem;
+}
+.home-starters-size {
+  margin-left: auto;
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+  white-space: nowrap;
+}
+
+/* ──────────────────── Models gallery: recommended-for-your-hardware strip ──────────────────── */
+
+.rec-models {
+  margin-bottom: var(--spacing-md);
+  padding: var(--spacing-md) var(--spacing-lg);
+}
+.rec-models-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--spacing-md);
+}
+.rec-models-title {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  flex-wrap: wrap;
+}
+.rec-models-title i {
+  color: var(--color-primary);
+}
+.rec-models-note {
+  font-size: 0.8125rem;
+  color: var(--color-text-secondary);
+}
+.rec-models-dismiss {
+  background: none;
+  border: none;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  padding: 4px;
+  flex-shrink: 0;
+}
+.rec-models-dismiss:hover {
+  color: var(--color-text-primary);
+}
+.rec-models-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: var(--spacing-sm);
+  margin-top: var(--spacing-md);
+}
+.rec-models-item {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-xs);
+  padding: var(--spacing-sm) var(--spacing-md);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--color-bg-primary);
+}
+.rec-models-item-name {
+  font-weight: 500;
+  font-size: 0.8125rem;
+  word-break: break-all;
+}
+.rec-models-item-meta {
+  display: flex;
+  gap: var(--spacing-sm);
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+}
+.rec-models-item-fit {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
 /* ──────────────────── Home: drop-in endpoint / API compatibility ──────────────────── */
 
 .home-connect {
@@ -8471,3 +8595,56 @@ select.input {
 .status-pill--error   .status-pill__dot { background: var(--color-error); }
 .status-pill--info    .status-pill__dot { background: var(--color-info); }
 .status-pill--muted   .status-pill__dot { background: var(--color-text-muted); }
+
+/* Nodes: cluster pulse + attention callout (replaces the stat-card strip) */
+.cluster-pulse {
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+  margin: 0 0 var(--spacing-lg);
+}
+.cluster-pulse__strong { color: var(--color-text-primary); font-weight: 600; }
+
+.attention-callout {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--spacing-md);
+  padding: var(--spacing-sm) var(--spacing-md);
+  border-radius: var(--radius-md);
+  margin-bottom: var(--spacing-lg);
+  font-size: var(--text-sm);
+}
+.attention-callout--warn {
+  background: var(--color-warning-light);
+  border: 1px solid var(--color-warning-border);
+  color: var(--color-text-primary);
+}
+.attention-callout--error {
+  background: var(--color-error-light);
+  border: 1px solid var(--color-error-border);
+  color: var(--color-text-primary);
+}
+
+/* Node roster panels (Nodes page) */
+.node-roster { display: flex; flex-direction: column; gap: var(--spacing-sm); }
+.node-panel {
+  background: var(--color-bg-secondary);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-lg);
+}
+.node-panel__main { padding: var(--spacing-md) var(--spacing-lg); cursor: pointer; }
+.node-panel:hover { border-color: var(--color-border); }
+.node-panel__head { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--spacing-md); }
+.node-panel__id { display: flex; align-items: center; gap: var(--spacing-sm); flex-wrap: wrap; }
+.node-panel__name { font-weight: 600; }
+.node-panel__meta { display: flex; gap: var(--spacing-lg); margin-top: var(--spacing-sm); color: var(--color-text-muted); font-size: var(--text-xs); }
+.node-panel__models { display: flex; flex-wrap: wrap; gap: 6px; margin-top: var(--spacing-sm); }
+.model-chip {
+  display: inline-flex; align-items: center; gap: 5px;
+  font-family: var(--font-mono); font-size: 0.6875rem;
+  padding: 2px 8px; border-radius: var(--radius-sm); border: 1px solid;
+}
+.model-chip__dot { width: 6px; height: 6px; border-radius: 50%; }
+.model-chip__state { opacity: 0.85; font-style: normal; }
+.node-filter { margin-bottom: var(--spacing-lg); }
+.node-detail__metrics { display: flex; gap: var(--spacing-xl); margin: var(--spacing-md) 0 var(--spacing-lg); flex-wrap: wrap; }

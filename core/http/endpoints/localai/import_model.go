@@ -181,6 +181,12 @@ func ImportModelEndpoint(cl *config.ModelConfigLoader, appConfig *config.Applica
 			return c.JSON(http.StatusBadRequest, ModelResponse{Success: false, Error: msg})
 		}
 
+		// Reject aliases whose target is missing, chained, or disabled so a
+		// dangling alias can't be persisted and surface as a runtime error later.
+		if err := cl.ValidateAliasTarget(&modelConfig); err != nil {
+			return c.JSON(http.StatusBadRequest, ModelResponse{Success: false, Error: err.Error()})
+		}
+
 		// Create the configuration file
 		configPath := filepath.Join(appConfig.SystemState.Model.ModelsPath, modelConfig.Name+".yaml")
 		if err := utils.VerifyPath(modelConfig.Name+".yaml", appConfig.SystemState.Model.ModelsPath); err != nil {

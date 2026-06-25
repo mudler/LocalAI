@@ -91,3 +91,6 @@ core/http/react-ui/test-results/
 
 # Local worktrees
 .worktrees/
+
+# SDD / brainstorm scratch (agent-driven development)
+.superpowers/

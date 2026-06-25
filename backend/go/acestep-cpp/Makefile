@@ -117,7 +117,8 @@ libgoacestepcpp-custom: CMakeLists.txt cpp/goacestepcpp.cpp cpp/goacestepcpp.h
 	cmake .. $(CMAKE_ARGS) && \
 	cmake --build . --config Release -j$(JOBS) --target goacestepcpp && \
 	cd .. && \
-	mv build-$(SO_TARGET)/libgoacestepcpp.so ./$(SO_TARGET)
+	(mv build-$(SO_TARGET)/libgoacestepcpp.so ./$(SO_TARGET) 2>/dev/null || \
+	 mv build-$(SO_TARGET)/libgoacestepcpp.dylib ./$(SO_TARGET) 2>/dev/null)
 
 test: acestep-cpp
 	@echo "Running acestep-cpp tests..."

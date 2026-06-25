@@ -215,6 +215,7 @@ func readRuntimeSettingsJson(startupAppConfig config.ApplicationConfig) fileHand
 		envBackendGalleries := slices.Equal(appConfig.BackendGalleries, startupAppConfig.BackendGalleries)
 		envAutoloadGalleries := appConfig.AutoloadGalleries == startupAppConfig.AutoloadGalleries
 		envAutoloadBackendGalleries := appConfig.AutoloadBackendGalleries == startupAppConfig.AutoloadBackendGalleries
+		envPIIDefaultDetectors := slices.Equal(appConfig.PIIDefaultDetectors, startupAppConfig.PIIDefaultDetectors)
 		envAgentJobRetentionDays := appConfig.AgentJobRetentionDays == startupAppConfig.AgentJobRetentionDays
 		envForceEvictionWhenBusy := appConfig.ForceEvictionWhenBusy == startupAppConfig.ForceEvictionWhenBusy
 		envLRUEvictionMaxRetries := appConfig.LRUEvictionMaxRetries == startupAppConfig.LRUEvictionMaxRetries
@@ -334,6 +335,15 @@ func readRuntimeSettingsJson(startupAppConfig config.ApplicationConfig) fileHand
 			}
 			if settings.AutoloadBackendGalleries != nil && !envAutoloadBackendGalleries {
 				appConfig.AutoloadBackendGalleries = *settings.AutoloadBackendGalleries
+			}
+			if settings.PIIDefaultDetectors != nil && !envPIIDefaultDetectors {
+				// Request-side default redaction reads this live via
+				// ResolvePIIPolicy, so a file edit takes effect on the next chat
+				// request. The MITM listener resolves its per-host detector map
+				// once at start, so a raw file edit reaches cloud-proxy traffic
+				// only after a restart or a POST /api/settings (which rebuilds
+				// the listener) — the admin UI uses the latter.
+				appConfig.PIIDefaultDetectors = append([]string(nil), (*settings.PIIDefaultDetectors)...)
 			}
 			if settings.AutoUpgradeBackends != nil {
 				appConfig.AutoUpgradeBackends = *settings.AutoUpgradeBackends

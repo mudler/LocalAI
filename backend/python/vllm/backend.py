@@ -48,8 +48,10 @@ try:
 except ImportError:
     HAS_REASONING_PARSERS = False
 
+# vLLM >= 0.23 renamed GuidedDecodingParams -> StructuredOutputsParams and the
+# SamplingParams field guided_decoding -> structured_outputs.
 try:
-    from vllm.sampling_params import GuidedDecodingParams
+    from vllm.sampling_params import StructuredOutputsParams
     HAS_GUIDED_DECODING = True
 except ImportError:
     HAS_GUIDED_DECODING = False
@@ -455,9 +457,14 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
                     except Exception:
                         pass
 
-                if last_output is None or not getattr(last_output, "prompt_logprobs", None):
-                    context.set_code(grpc.StatusCode.INTERNAL)
-                    context.set_details("vLLM did not return prompt_logprobs")
+                _pl = getattr(last_output, "prompt_logprobs", None) if last_output is not None else None
+                # Some engines accept the prompt_logprobs request but return a
+                # list of all-None entries instead of computing them (observed
+                # with vllm-metal's MLX backend on macOS). Treat that as
+                # unsupported rather than silently scoring every candidate as 0.
+                if not _pl or all(e is None for e in _pl):
+                    context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+                    context.set_details("This backend did not return prompt_logprobs; scoring is unsupported on this engine (e.g. vllm-metal / MLX on macOS).")
                     return backend_pb2.ScoreResponse()
 
                 prompt_logprobs = last_output.prompt_logprobs
@@ -536,13 +543,13 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
                 if value not in (None, 0, [], False):
                     setattr(sampling_params, param_field, value)
 
-        # Guided decoding: use Grammar field to pass JSON schema or BNF
+        # Structured-output decoding: use Grammar field to pass JSON schema or BNF
         if HAS_GUIDED_DECODING and request.Grammar:
             try:
                 json.loads(request.Grammar)  # valid JSON = JSON schema
-                sampling_params.guided_decoding = GuidedDecodingParams(json=request.Grammar)
+                sampling_params.structured_outputs = StructuredOutputsParams(json=request.Grammar)
             except json.JSONDecodeError:
-                sampling_params.guided_decoding = GuidedDecodingParams(grammar=request.Grammar)
+                sampling_params.structured_outputs = StructuredOutputsParams(grammar=request.Grammar)
 
         # Extract image paths and process images
         prompt = request.Prompt
@@ -596,23 +603,124 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
 
         # Stream the results
         generated_text = ""
+        generated_token_ids: list[int] = []
         last_output = None
+
+        # Tool-parsing strategy decision (made once, before the loop):
+        #
+        # When a tool parser is active, the model's raw tool-call markup
+        # (e.g. <tool_call>...) must not be streamed verbatim as delta.content
+        # — clients would see the unparsed syntax. Two paths:
+        #
+        # (A) native streaming via parser.extract_tool_calls_streaming. All
+        #     concrete tool parsers shipped with vLLM 0.23+ implement this
+        #     (Granite4, Qwen3Coder, DeepSeekV31, Jamba, Ernie45, Hermes,
+        #     llama3_json, mistral, …). The parser decides per-delta whether
+        #     to emit content or suppress tool-call markup, and emits a
+        #     structured DeltaMessage(tool_calls=[...]) when a call is ready.
+        # (B) buffer fallback — used only when the parser surprisingly lacks
+        #     the streaming method or it raises mid-stream. The post-loop
+        #     extract_tool_calls assembles the final chat_delta. Same correctness
+        #     guarantee as a non-streaming response, at the cost of a delayed
+        #     final chunk.
+        has_tool_parser = bool(self.tool_parser_cls and request.Tools)
+        tp_instance = None
+        tp_request = None
+        native_streaming = False
+        native_streaming_error = False
+        if has_tool_parser:
+            try:
+                tools_for_parser = json.loads(request.Tools)
+            except json.JSONDecodeError:
+                tools_for_parser = []
+            try:
+                tp_instance = self.tool_parser_cls(self.tokenizer, tools=tools_for_parser)
+            except TypeError:
+                tp_instance = self.tool_parser_cls(self.tokenizer)
+            # Build a minimal ChatCompletionRequest so the streaming method
+            # sees the tools list. We do not need any other request fields —
+            # parsers only read .tools (and sometimes .tool_choice, which we
+            # leave at default).
+            try:
+                from vllm.entrypoints.openai.chat_completion.protocol import (
+                    ChatCompletionRequest as _CCR,
+                )
+                tp_request = _CCR(
+                    model="local",
+                    messages=[{"role": "user", "content": ""}],
+                    tools=tools_for_parser or None,
+                )
+            except Exception as e:
+                print(f"Could not build ChatCompletionRequest for streaming parser: {e}",
+                      file=sys.stderr)
+                tp_request = None
+            native_streaming = (
+                tp_request is not None
+                and hasattr(tp_instance, "extract_tool_calls_streaming")
+            )
+
         try:
             async for request_output in outputs:
                 iteration_text = request_output.outputs[0].text
                 last_output = request_output
 
                 if streaming:
-                    # Remove text already sent as vllm concatenates the text from previous yields
                     delta_iteration_text = iteration_text.removeprefix(generated_text)
-                    # Send the partial result
-                    yield backend_pb2.Reply(
-                        message=bytes(delta_iteration_text, encoding='utf-8'),
-                        chat_deltas=[backend_pb2.ChatDelta(content=delta_iteration_text)],
-                    )
+                    new_token_ids = list(request_output.outputs[0].token_ids)
+                    delta_token_ids = new_token_ids[len(generated_token_ids):]
 
-                # Keep track of text generated
+                    if not has_tool_parser:
+                        # Plain streaming — unchanged from pre-tool-parser path.
+                        yield backend_pb2.Reply(
+                            message=bytes(delta_iteration_text, encoding='utf-8'),
+                            chat_deltas=[backend_pb2.ChatDelta(content=delta_iteration_text)],
+                        )
+                    elif native_streaming and not native_streaming_error:
+                        # (A) Native vLLM extract_tool_calls_streaming.
+                        try:
+                            msg = tp_instance.extract_tool_calls_streaming(
+                                previous_text=generated_text,
+                                current_text=iteration_text,
+                                delta_text=delta_iteration_text,
+                                previous_token_ids=generated_token_ids,
+                                current_token_ids=new_token_ids,
+                                delta_token_ids=delta_token_ids,
+                                request=tp_request,
+                            )
+                        except Exception as e:
+                            print(f"Streaming tool parser error (falling back to "
+                                  f"buffer for the rest of the stream): {e}",
+                                  file=sys.stderr)
+                            native_streaming_error = True
+                            msg = None
+                        if msg is not None:
+                            tc_protos = []
+                            for tc in (msg.tool_calls or []):
+                                fn = tc.function or None
+                                tc_protos.append(backend_pb2.ToolCallDelta(
+                                    index=tc.index,
+                                    id=tc.id or "",
+                                    name=(fn.name if fn and fn.name else "") or "",
+                                    arguments=(fn.arguments if fn and fn.arguments else "") or "",
+                                ))
+                            cd_kwargs = {}
+                            if msg.content:
+                                cd_kwargs["content"] = msg.content
+                            if msg.reasoning:
+                                cd_kwargs["reasoning_content"] = msg.reasoning
+                            if tc_protos:
+                                cd_kwargs["tool_calls"] = tc_protos
+                            if cd_kwargs:
+                                yield backend_pb2.Reply(
+                                    message=bytes(msg.content or "", encoding='utf-8'),
+                                    chat_deltas=[backend_pb2.ChatDelta(**cd_kwargs)],
+                                )
+                    # (B) buffer fallback — emit nothing during the stream.
+                    # The post-loop extract_tool_calls block builds the final chunk.
+
+                # Keep track of text + token_ids generated
                 generated_text = iteration_text
+                generated_token_ids = list(request_output.outputs[0].token_ids)
         finally:
             await outputs.aclose()
 
@@ -637,16 +745,19 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
             except Exception as e:
                 print(f"Reasoning parser error: {e}", file=sys.stderr)
 
-        if self.tool_parser_cls and request.Tools:
+        # When (A) native streaming ran cleanly, per-delta yields above already
+        # delivered everything — do NOT extract again on the full text or we'd
+        # duplicate content/tool_calls into the final chunk.
+        if has_tool_parser and not (native_streaming and not native_streaming_error):
             try:
-                tools = json.loads(request.Tools)
-                # Some concrete parsers only accept the tokenizer; only the
-                # abstract base declares the tools kwarg. Try with tools first,
-                # fall back to tokenizer-only.
-                try:
-                    tp = self.tool_parser_cls(self.tokenizer, tools=tools)
-                except TypeError:
-                    tp = self.tool_parser_cls(self.tokenizer)
+                tp = tp_instance
+                if tp is None:
+                    # Defensive: tp_instance build failed earlier; reconstruct.
+                    tools = json.loads(request.Tools)
+                    try:
+                        tp = self.tool_parser_cls(self.tokenizer, tools=tools)
+                    except TypeError:
+                        tp = self.tool_parser_cls(self.tokenizer)
                 info = tp.extract_tool_calls(content, request=None)
                 if info.tools_called:
                     content = info.content or ""
@@ -659,6 +770,10 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
                         ))
             except Exception as e:
                 print(f"Tool parser error: {e}", file=sys.stderr)
+        elif native_streaming and not native_streaming_error:
+            # Per-delta path already emitted content + tool_calls; the final
+            # chat_delta should carry only metadata (token counts, logprobs).
+            content = ""
 
         # Extract token counts
         prompt_tokens = 0
@@ -698,7 +813,26 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
         )
 
         if streaming:
-            # Final chunk with structured data
+            # Final chunk with structured data.
+            #
+            # If we used the buffer fallback (has_tool_parser=True AND native
+            # streaming did NOT run cleanly) and the parser found no tool call,
+            # flush the buffered content as ONE content delta — and clear the
+            # final chat_delta's content so the metadata chunk does not repeat
+            # what we just sent. This is the plain-text-with-tool-parser path.
+            buffered_fallback = (
+                has_tool_parser
+                and not (native_streaming and not native_streaming_error)
+            )
+            if buffered_fallback and not tool_calls_proto and content:
+                yield backend_pb2.Reply(
+                    message=bytes(content, encoding='utf-8'),
+                    chat_deltas=[backend_pb2.ChatDelta(content=content)],
+                )
+                chat_delta = backend_pb2.ChatDelta(
+                    reasoning_content=reasoning_content,
+                    tool_calls=tool_calls_proto,
+                )
             yield backend_pb2.Reply(
                 message=b"",
                 prompt_tokens=prompt_tokens,

@@ -10,6 +10,7 @@ import UnifiedMCPDropdown from '../components/UnifiedMCPDropdown'
 import ConfirmDialog from '../components/ConfirmDialog'
 import HomeConnect from '../components/HomeConnect'
 import { useResources } from '../hooks/useResources'
+import { usePolling } from '../hooks/usePolling'
 import { fileToBase64, backendControlApi, systemApi, modelsApi, mcpApi, nodesApi } from '../utils/api'
 import { API_CONFIG } from '../utils/config'
 import { greetingKey } from '../utils/greeting'
@@ -17,6 +18,7 @@ import StatusPill from '../components/StatusPill'
 import Skeleton from '../components/Skeleton'
 import SectionHeading from '../components/SectionHeading'
 import EmptyState from '../components/EmptyState'
+import StarterModels from '../components/StarterModels'
 import { staggerStyle } from '../hooks/useStagger'
 
 export default function Home() {
@@ -68,40 +70,36 @@ export default function Home() {
       .catch(() => {})
   }, [])
 
-  // Poll cluster node data in distributed mode
-  useEffect(() => {
-    if (!distributedMode) return
-    const fetchCluster = async () => {
-      try {
-        const data = await nodesApi.list()
-        const nodes = Array.isArray(data) ? data : []
-        const backendNodes = nodes.filter(n => !n.node_type || n.node_type === 'backend')
-        const totalVRAM = backendNodes.reduce((sum, n) => sum + (n.total_vram || 0), 0)
-        const usedVRAM = backendNodes.reduce((sum, n) => {
-          if (n.total_vram && n.available_vram != null) return sum + (n.total_vram - n.available_vram)
-          return sum
-        }, 0)
-        const totalRAM = backendNodes.reduce((sum, n) => sum + (n.total_ram || 0), 0)
-        const usedRAM = backendNodes.reduce((sum, n) => {
-          if (n.total_ram && n.available_ram != null) return sum + (n.total_ram - n.available_ram)
-          return sum
-        }, 0)
-        const isGPU = totalVRAM > 0
-        const healthyCount = backendNodes.filter(n => n.status === 'healthy').length
-        const totalCount = backendNodes.length
-        setClusterData({
-          totalMem: isGPU ? totalVRAM : totalRAM,
-          usedMem: isGPU ? usedVRAM : usedRAM,
-          isGPU,
-          healthyCount,
-          totalCount,
-        })
-      } catch { setClusterData(null) }
-    }
-    fetchCluster()
-    const interval = setInterval(fetchCluster, 5000)
-    return () => clearInterval(interval)
-  }, [distributedMode])
+  // Poll cluster node data in distributed mode. Visibility-aware + gated on
+  // distributedMode so a non-distributed or backgrounded tab makes no calls.
+  const fetchCluster = useCallback(async () => {
+    try {
+      const data = await nodesApi.list()
+      const nodes = Array.isArray(data) ? data : []
+      const backendNodes = nodes.filter(n => !n.node_type || n.node_type === 'backend')
+      const totalVRAM = backendNodes.reduce((sum, n) => sum + (n.total_vram || 0), 0)
+      const usedVRAM = backendNodes.reduce((sum, n) => {
+        if (n.total_vram && n.available_vram != null) return sum + (n.total_vram - n.available_vram)
+        return sum
+      }, 0)
+      const totalRAM = backendNodes.reduce((sum, n) => sum + (n.total_ram || 0), 0)
+      const usedRAM = backendNodes.reduce((sum, n) => {
+        if (n.total_ram && n.available_ram != null) return sum + (n.total_ram - n.available_ram)
+        return sum
+      }, 0)
+      const isGPU = totalVRAM > 0
+      const healthyCount = backendNodes.filter(n => n.status === 'healthy').length
+      const totalCount = backendNodes.length
+      setClusterData({
+        totalMem: isGPU ? totalVRAM : totalRAM,
+        usedMem: isGPU ? usedVRAM : usedRAM,
+        isGPU,
+        healthyCount,
+        totalCount,
+      })
+    } catch { setClusterData(null) }
+  }, [])
+  usePolling(fetchCluster, 5000, { enabled: distributedMode })
 
   // Fetch configured models (to know if any exist) and loaded models (currently running)
   const fetchSystemInfo = useCallback(async () => {
@@ -123,11 +121,7 @@ export default function Home() {
     }
   }, [])
 
-  useEffect(() => {
-    fetchSystemInfo()
-    const interval = setInterval(fetchSystemInfo, 5000)
-    return () => clearInterval(interval)
-  }, [fetchSystemInfo])
+  usePolling(fetchSystemInfo, 5000)
 
   // Check MCP availability when selected model changes
   useEffect(() => {
@@ -522,6 +516,8 @@ export default function Home() {
               </div>
             </div>
           </div>
+
+          <StarterModels addToast={addToast} onInstallStarted={fetchSystemInfo} />
 
           <div className="home-wizard-actions">
             <button className="btn btn-primary" onClick={() => navigate('/app/models')}>

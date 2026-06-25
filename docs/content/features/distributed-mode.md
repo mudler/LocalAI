@@ -311,7 +311,7 @@ Used by the WebUI and admin API consumers. Requires admin authentication.
 | `POST` | `/api/nodes/:id/models/unload` | Unload a model from a worker |
 | `POST` | `/api/nodes/:id/models/delete` | Delete model files from a worker |
 
-The **Nodes** page in the React WebUI provides a visual overview of all registered workers, their statuses, and loaded models.
+The **Nodes** page in the React WebUI provides a visual overview of all registered workers, their statuses, and loaded models. The page opens with a one-line **cluster pulse** summarising node health and an **attention callout** that surfaces nodes needing action (for example pending approvals). Below that, a roster of **node panels** lists each worker with its inline model chips (no expand click needed), filtered by an **All / Backend / Agent** segmented control. Selecting a panel opens a dedicated **node detail page** at `/app/nodes/:id` with per-node metrics, models, and backend actions. Model scheduling lives on its own **Scheduling** page (separate nav item), not as a tab on the Nodes page.
 
 ## Node Approval
 
@@ -554,7 +554,7 @@ local-ai worker \
 
 ## Model Scheduling
 
-Model scheduling controls where models are placed and how many replicas are maintained. It combines two optional features:
+Model scheduling controls where models are placed and how many replicas are maintained. In the React WebUI it has its own **Scheduling** page (a top-level nav item, separate from the Nodes page). It combines two optional features:
 
 ### Node Selectors
 

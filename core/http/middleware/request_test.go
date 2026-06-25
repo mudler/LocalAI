@@ -152,6 +152,107 @@ var _ = Describe("SetModelAndConfig middleware", func() {
 })
 
 // ---------------------------------------------------------------------------
+// SetModelAndConfig - model alias resolution
+// ---------------------------------------------------------------------------
+//
+// An alias config (`alias: <target>`) is a pure redirect: the middleware must
+// swap MODEL_CONFIG to the target config before the disabled check and before
+// storing it, while leaving the response-facing model name as the alias. It
+// also stamps routing.requested_model = alias and routing.served_model =
+// target so usage accounting records both identities.
+var _ = Describe("SetModelAndConfig alias resolution", func() {
+	var (
+		modelDir       string
+		capturedConfig *config.ModelConfig
+		capturedReq    any
+		capturedServed any
+		app            *echo.Echo
+	)
+
+	BeforeEach(func() {
+		var err error
+		modelDir, err = os.MkdirTemp("", "localai-alias-*")
+		Expect(err).ToNot(HaveOccurred())
+	})
+
+	AfterEach(func() {
+		_ = os.RemoveAll(modelDir)
+	})
+
+	// buildApp seeds the loader from every YAML in modelDir (so an alias's
+	// target is present in the loader map) and wires a handler that captures
+	// the resolved config plus the stamped identity keys.
+	buildApp := func() *echo.Echo {
+		ss := &system.SystemState{Model: system.Model{ModelsPath: modelDir}}
+		appConfig := config.NewApplicationConfig()
+		appConfig.SystemState = ss
+
+		mcl := config.NewModelConfigLoader(modelDir)
+		Expect(mcl.LoadModelConfigsFromPath(modelDir)).To(Succeed())
+		ml := model.NewModelLoader(ss)
+		re := NewRequestExtractor(mcl, ml, appConfig)
+
+		capturedConfig = nil
+		capturedReq = nil
+		capturedServed = nil
+		e := echo.New()
+		e.POST("/v1/chat/completions",
+			func(c echo.Context) error {
+				if cfg, ok := c.Get(CONTEXT_LOCALS_KEY_MODEL_CONFIG).(*config.ModelConfig); ok {
+					capturedConfig = cfg
+				}
+				capturedReq = c.Get(ContextKeyRequestedModel)
+				capturedServed = c.Get(ContextKeyServedModel)
+				return c.String(http.StatusOK, "ok")
+			},
+			re.SetModelAndConfig(func() schema.LocalAIRequest { return new(schema.OpenAIRequest) }),
+		)
+		return e
+	}
+
+	It("serves the target config but keeps the alias name and stamps identity", func() {
+		Expect(os.WriteFile(filepath.Join(modelDir, "real.yaml"),
+			[]byte("name: real\nbackend: llama-cpp\n"), 0644)).To(Succeed())
+		Expect(os.WriteFile(filepath.Join(modelDir, "gpt-4.yaml"),
+			[]byte("name: gpt-4\nalias: real\n"), 0644)).To(Succeed())
+		app = buildApp()
+
+		req := httptest.NewRequest(http.MethodPost, "/v1/chat/completions",
+			strings.NewReader(`{"model":"gpt-4","messages":[{"role":"user","content":"hi"}]}`))
+		req.Header.Set("Content-Type", "application/json")
+		rec := httptest.NewRecorder()
+		app.ServeHTTP(rec, req)
+
+		Expect(rec.Code).To(Equal(http.StatusOK))
+		Expect(capturedConfig).ToNot(BeNil())
+		// MODEL_CONFIG must be the target, not the alias stub.
+		Expect(capturedConfig.Name).To(Equal("real"))
+		Expect(capturedConfig.IsAlias()).To(BeFalse())
+		// Identity stamps: requested = alias, served = target.
+		Expect(capturedReq).To(Equal("gpt-4"))
+		Expect(capturedServed).To(Equal("real"))
+	})
+
+	It("returns 400 when the alias target is missing", func() {
+		Expect(os.WriteFile(filepath.Join(modelDir, "gpt-4.yaml"),
+			[]byte("name: gpt-4\nalias: nope\n"), 0644)).To(Succeed())
+		app = buildApp()
+
+		req := httptest.NewRequest(http.MethodPost, "/v1/chat/completions",
+			strings.NewReader(`{"model":"gpt-4","messages":[{"role":"user","content":"hi"}]}`))
+		req.Header.Set("Content-Type", "application/json")
+		rec := httptest.NewRecorder()
+		app.ServeHTTP(rec, req)
+
+		Expect(rec.Code).To(Equal(http.StatusBadRequest))
+		var resp schema.ErrorResponse
+		Expect(json.Unmarshal(rec.Body.Bytes(), &resp)).To(Succeed())
+		Expect(resp.Error).ToNot(BeNil())
+		Expect(resp.Error.Type).To(Equal("invalid_request_error"))
+	})
+})
+
+// ---------------------------------------------------------------------------
 // MergeOpenResponsesConfig — tool_choice parsing
 // ---------------------------------------------------------------------------
 //

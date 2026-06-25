@@ -61,3 +61,51 @@ var _ = Describe("ModelConfigLoader.GetModelsConflictingWith", func() {
 		Expect(bcl.GetModelsConflictingWith("a")).To(ConsistOf("b"))
 	})
 })
+
+var _ = Describe("ModelConfigLoader alias resolution", func() {
+	var loader *ModelConfigLoader
+
+	BeforeEach(func() {
+		loader = NewModelConfigLoader("")
+		loader.configs["real"] = ModelConfig{Name: "real", Backend: "llama-cpp"}
+		loader.configs["gpt-4"] = ModelConfig{Name: "gpt-4", Alias: "real"}
+		loader.configs["chain"] = ModelConfig{Name: "chain", Alias: "gpt-4"}
+		loader.configs["dangling"] = ModelConfig{Name: "dangling", Alias: "nope"}
+	})
+
+	It("returns non-alias configs unchanged", func() {
+		cfg := loader.configs["real"]
+		got, was, err := loader.ResolveAlias(&cfg)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(was).To(BeFalse())
+		Expect(got.Name).To(Equal("real"))
+	})
+
+	It("resolves an alias to its target", func() {
+		cfg := loader.configs["gpt-4"]
+		got, was, err := loader.ResolveAlias(&cfg)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(was).To(BeTrue())
+		Expect(got.Name).To(Equal("real"))
+	})
+
+	It("rejects an alias chain", func() {
+		cfg := loader.configs["chain"]
+		_, was, err := loader.ResolveAlias(&cfg)
+		Expect(was).To(BeTrue())
+		Expect(err).To(MatchError(ContainSubstring("chains are not allowed")))
+	})
+
+	It("rejects a dangling alias", func() {
+		cfg := loader.configs["dangling"]
+		_, _, err := loader.ResolveAlias(&cfg)
+		Expect(err).To(MatchError(ContainSubstring("unknown model")))
+	})
+
+	It("ValidateAliasTarget passes for a real target and fails for a chain", func() {
+		good := loader.configs["gpt-4"]
+		Expect(loader.ValidateAliasTarget(&good)).ToNot(HaveOccurred())
+		bad := loader.configs["chain"]
+		Expect(loader.ValidateAliasTarget(&bad)).To(MatchError(ContainSubstring("itself an alias")))
+	})
+})

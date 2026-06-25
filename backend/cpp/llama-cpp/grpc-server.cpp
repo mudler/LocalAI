@@ -18,6 +18,18 @@
 #if __has_include("server-chat.cpp")
 #include "server-chat.cpp"
 #endif
+// server-schema.cpp exists only in llama.cpp after the upstream refactor that
+// extracted the JSON request-schema evaluation (previously the static
+// server_task::params_from_json_cmpl) into server_schema::eval_llama_cmpl_schema.
+// server-context.cpp and grpc-server.cpp both call into it, so its definitions
+// must be part of this translation unit or the link fails. __has_include keeps
+// the source compatible with older pins/forks (e.g. llama-cpp-turboquant) that
+// predate the split and still expose params_from_json_cmpl (see the guarded
+// call sites below).
+#if __has_include("server-schema.cpp")
+#define LOCALAI_HAS_SERVER_SCHEMA 1
+#include "server-schema.cpp"
+#endif
 #include "server-context.cpp"
 
 // LocalAI
@@ -25,6 +37,7 @@
 #include "backend.pb.h"
 #include "backend.grpc.pb.h"
 #include "common.h"
+#include "arg.h"
 #include "chat-auto-parser.h"
 #include <getopt.h>
 #include <grpcpp/ext/proto_server_reflection_plugin.h>
@@ -579,6 +592,10 @@ static void params_parse(server_context& /*ctx_server*/, const backend::ModelOpt
 #ifndef LOCALAI_TURBOQUANT_NO_CHECKPOINT_MIN_STEP
     params.checkpoint_min_step = 256;
 #endif
+
+    // Raw upstream llama-server flags collected from any option entry that
+    // starts with '-'. Applied once after the loop via common_params_parse.
+    std::vector<std::string> extra_argv;
 
      // decode options. Options are in form optname:optvale, or if booleans only optname.
     for (int i = 0; i < request->options_size(); i++) {
@@ -1159,6 +1176,31 @@ static void params_parse(server_context& /*ctx_server*/, const backend::ModelOpt
                 } catch (...) {}
             }
 
+        // --- main model MoE on CPU (upstream --cpu-moe / --n-cpu-moe) ---
+        } else if (!strcmp(optname, "cpu_moe")) {
+            // Bool-style flag: keep all MoE expert weights on CPU.
+            const bool enable = (optval == NULL) ||
+                optval_str == "true" || optval_str == "1" || optval_str == "yes" ||
+                optval_str == "on" || optval_str == "enabled";
+            if (enable) {
+                params.tensor_buft_overrides.push_back(llm_ffn_exps_cpu_override());
+            }
+        } else if (!strcmp(optname, "n_cpu_moe")) {
+            if (optval != NULL) {
+                try {
+                    int n = std::stoi(optval_str);
+                    if (n < 0) n = 0;
+                    // Keep override-name storage alive for the lifetime of the
+                    // params struct (mirrors upstream arg.cpp's function-local static).
+                    static std::list<std::string> buft_overrides_main;
+                    for (int i = 0; i < n; ++i) {
+                        buft_overrides_main.push_back(llm_ffn_exps_block_regex(i));
+                        params.tensor_buft_overrides.push_back(
+                            {buft_overrides_main.back().c_str(), ggml_backend_cpu_buffer_type()});
+                    }
+                } catch (...) {}
+            }
+
         // --- draft model tensor buffer overrides (upstream --spec-draft-override-tensor) ---
         } else if (!strcmp(optname, "draft_override_tensor") || !strcmp(optname, "spec_draft_override_tensor")) {
             // Format: <tensor regex>=<buffer type>,<tensor regex>=<buffer type>,...
@@ -1190,6 +1232,30 @@ static void params_parse(server_context& /*ctx_server*/, const backend::ModelOpt
                 else { cur.push_back(c); }
             }
             if (!cur.empty()) flush(cur);
+
+        // --- generic passthrough: any entry starting with '-' is a raw
+        //     upstream llama-server flag, forwarded verbatim to the parser. ---
+        } else if (optname[0] == '-') {
+            std::string flag = optname;
+            // These flags make upstream's parser exit() (printing usage /
+            // completion), which would kill the backend process. Skip them.
+            if (flag == "-h" || flag == "--help" || flag == "--usage" ||
+                flag == "--version" || flag == "--license" ||
+                flag == "--list-devices" || flag == "-cl" ||
+                flag == "--cache-list" ||
+                flag.rfind("--completion", 0) == 0) {
+                fprintf(stderr,
+                    "[llama-cpp] ignoring passthrough flag that would exit: %s\n",
+                    flag.c_str());
+            } else {
+                extra_argv.push_back(flag);
+                // Preserve the whole value after the first ':' so embedded
+                // colons (e.g. host:port) survive strtok's truncation of optval.
+                auto colon = opt.find(':');
+                if (colon != std::string::npos) {
+                    extra_argv.push_back(opt.substr(colon + 1));
+                }
+            }
         }
     }
 
@@ -1223,27 +1289,6 @@ static void params_parse(server_context& /*ctx_server*/, const backend::ModelOpt
         for (int i = 0; i < request->overrides_size(); i++) {
             string_parse_kv_override(request->overrides(i).c_str(), params.kv_overrides);
         }
-    }
-
-    if (!params.kv_overrides.empty()) {
-        params.kv_overrides.emplace_back();
-        params.kv_overrides.back().key[0] = 0;
-    }
-
-    // tensor_buft_overrides sentinel termination (mirrors upstream common/arg.cpp).
-    // Real entries are pushed during option parsing; here we pad/terminate so the
-    // model loader sees back().pattern == nullptr (GGML_ASSERT at common.cpp:1543)
-    // and so llama_params_fit has the placeholder slots it requires.
-    {
-        const size_t ntbo = llama_max_tensor_buft_overrides();
-        while (params.tensor_buft_overrides.size() < ntbo) {
-            params.tensor_buft_overrides.push_back({nullptr, nullptr});
-        }
-    }
-    // Terminate the draft tensor_buft_overrides list with a sentinel, mirroring
-    // the main-model handling above.
-    if (!params.speculative.draft.tensor_buft_overrides.empty()) {
-        params.speculative.draft.tensor_buft_overrides.push_back({nullptr, nullptr});
     }
 
     // TODO: Add yarn
@@ -1337,6 +1382,69 @@ static void params_parse(server_context& /*ctx_server*/, const backend::ModelOpt
             trigger.value = word;
             params.sampling.grammar_triggers.push_back(std::move(trigger));
         }
+    }
+
+    // Apply any raw upstream flags last so an explicit passthrough flag wins
+    // over the LocalAI-resolved field it maps to (e.g. --ctx-size beats
+    // context_size). This is the same parser llama-server itself uses.
+    if (!extra_argv.empty()) {
+        // common_params_parser_init resets a few fields for the SERVER example
+        // (n_parallel -> -1, use_color). Snapshot n_parallel so an unrelated
+        // passthrough flag can't silently clobber LocalAI's resolved value.
+        const int saved_n_parallel = params.n_parallel;
+
+        std::vector<char *> argv;
+        std::string prog = "llama-server";
+        argv.push_back(prog.data());
+        for (auto & a : extra_argv) {
+            argv.push_back(a.data());
+        }
+
+        // ctx_arg.params is a reference, so this overlays the given flags onto
+        // `params` in place. Returns false on a recoverable parse error (and
+        // self-restores params); may exit() on a hard error, exactly as
+        // passing the same bad flag to llama-server would.
+        if (!common_params_parse((int)argv.size(), argv.data(), params,
+                                 LLAMA_EXAMPLE_SERVER)) {
+            fprintf(stderr,
+                "[llama-cpp] failed to parse passthrough options; ignoring them\n");
+        }
+
+        // Restore n_parallel unless a passthrough flag explicitly set it
+        // (parser_init's reset sentinel for SERVER is -1).
+        if (params.n_parallel == -1) {
+            params.n_parallel = saved_n_parallel;
+        }
+    }
+
+    // Terminate/pad the override vectors only after BOTH the named-option loop
+    // and the generic passthrough (common_params_parse above) have pushed their
+    // real entries, so back() is the null sentinel the model loader asserts on.
+    // Running these before the passthrough let a passthrough flag (--cpu-moe,
+    // --override-tensor, --override-kv, ...) append a real entry after the
+    // sentinel: a GGML_ASSERT crash for tensor_buft_overrides, a silent drop for
+    // kv_overrides. Double-termination is harmless (the while is a no-op if the
+    // passthrough parse already padded; an extra trailing null is ignored).
+
+    if (!params.kv_overrides.empty()) {
+        params.kv_overrides.emplace_back();
+        params.kv_overrides.back().key[0] = 0;
+    }
+
+    // tensor_buft_overrides sentinel termination (mirrors upstream common/arg.cpp).
+    // Real entries are pushed during option parsing; here we pad/terminate so the
+    // model loader sees back().pattern == nullptr (GGML_ASSERT at common.cpp:1543)
+    // and so llama_params_fit has the placeholder slots it requires.
+    {
+        const size_t ntbo = llama_max_tensor_buft_overrides();
+        while (params.tensor_buft_overrides.size() < ntbo) {
+            params.tensor_buft_overrides.push_back({nullptr, nullptr});
+        }
+    }
+    // Terminate the draft tensor_buft_overrides list with a sentinel, mirroring
+    // the main-model handling above.
+    if (!params.speculative.draft.tensor_buft_overrides.empty()) {
+        params.speculative.draft.tensor_buft_overrides.push_back({nullptr, nullptr});
     }
 }
 
@@ -2193,7 +2301,11 @@ public:
                 task.index = i;
 
                 task.tokens    = std::move(inputs[i]);
+#ifdef LOCALAI_HAS_SERVER_SCHEMA
+                task.params           = server_schema::eval_llama_cmpl_schema(
+#else
                 task.params           = server_task::params_from_json_cmpl(
+#endif
                         ctx_server.impl->vocab,
                         params_base,
                         ctx_server.get_meta().slot_n_ctx,
@@ -2207,7 +2319,7 @@ public:
                 // cannot detect tool calls or separate reasoning from content.
                 task.params.res_type                 = TASK_RESPONSE_TYPE_OAI_CHAT;
                 task.params.oaicompat_cmpl_id         = completion_id;
-                // oaicompat_model is already populated by params_from_json_cmpl
+                // oaicompat_model is already populated by eval_llama_cmpl_schema
 
                 tasks.push_back(std::move(task));
             }
@@ -3031,7 +3143,11 @@ public:
                 task.index = i;
 
                 task.tokens    = std::move(inputs[i]);
+#ifdef LOCALAI_HAS_SERVER_SCHEMA
+                task.params           = server_schema::eval_llama_cmpl_schema(
+#else
                 task.params           = server_task::params_from_json_cmpl(
+#endif
                         ctx_server.impl->vocab,
                         params_base,
                         ctx_server.get_meta().slot_n_ctx,
@@ -3043,7 +3159,7 @@ public:
                 // reasoning, tool calls, and content are classified into ChatDeltas.
                 task.params.res_type                 = TASK_RESPONSE_TYPE_OAI_CHAT;
                 task.params.oaicompat_cmpl_id         = completion_id;
-                // oaicompat_model is already populated by params_from_json_cmpl
+                // oaicompat_model is already populated by eval_llama_cmpl_schema
 
                 tasks.push_back(std::move(task));
             }

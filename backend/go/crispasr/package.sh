@@ -12,7 +12,8 @@ REPO_ROOT="${CURDIR}/../../.."
 mkdir -p $CURDIR/package/lib
 
 cp -avf $CURDIR/crispasr $CURDIR/package/
-cp -fv $CURDIR/libgocrispasr-*.so $CURDIR/package/
+cp -fv $CURDIR/libgocrispasr-*.so $CURDIR/package/ 2>/dev/null || true
+cp -fv $CURDIR/libgocrispasr-*.dylib $CURDIR/package/ 2>/dev/null || true
 cp -fv $CURDIR/run.sh $CURDIR/package/
 
 # Detect architecture and copy appropriate libraries

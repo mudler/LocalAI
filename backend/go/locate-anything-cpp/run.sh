@@ -12,9 +12,13 @@ if [ "$(uname)" != "Darwin" ]; then
 	grep -e "flags" /proc/cpuinfo | head -1
 fi
 
-LIBRARY="$CURDIR/liblocateanythingcpp-fallback.so"
+if [ "$(uname)" = "Darwin" ]; then
+	# macOS: single dylib variant (Metal or Accelerate)
+	LIBRARY="$CURDIR/liblocateanythingcpp-fallback.dylib"
+	export DYLD_LIBRARY_PATH=$CURDIR/lib:$DYLD_LIBRARY_PATH
+else
+	LIBRARY="$CURDIR/liblocateanythingcpp-fallback.so"
 
-if [ "$(uname)" != "Darwin" ]; then
 	if grep -q -e "\savx\s" /proc/cpuinfo ; then
 		echo "CPU:    AVX    found OK"
 		if [ -e $CURDIR/liblocateanythingcpp-avx.so ]; then
@@ -36,9 +40,10 @@ if [ "$(uname)" != "Darwin" ]; then
 			LIBRARY="$CURDIR/liblocateanythingcpp-avx512.so"
 		fi
 	fi
+
+	export LD_LIBRARY_PATH=$CURDIR/lib:$LD_LIBRARY_PATH
 fi
 
-export LD_LIBRARY_PATH=$CURDIR/lib:$LD_LIBRARY_PATH
 export LOCATEANYTHING_LIBRARY=$LIBRARY
 
 # If there is a lib/ld.so, use it

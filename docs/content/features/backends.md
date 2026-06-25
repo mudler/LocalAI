@@ -128,6 +128,7 @@ LocalAI supports various types of backends:
 - **Speech-to-Text Backends**: For transcription (e.g., whisper.cpp, parakeet.cpp, faster-whisper, NeMo)
 - **Text-to-Speech Backends**: For speech synthesis (e.g., piper, Kokoro, VibeVoice, Qwen3-TTS)
 - **Sound Generation Backends**: For music and audio generation (e.g., ACE-Step)
+- **Sound Classification Backends**: For sound-event classification / audio tagging - identifying everyday sounds like baby cry, glass breaking, alarms (e.g., ced.cpp)
 - **Image & Video Generation Backends**: For diffusion models (e.g., stable-diffusion.cpp, diffusers)
 - **Vision & Detection Backends**: For object detection, segmentation, depth, and face/voice recognition (e.g., rf-detr.cpp, locate-anything.cpp, sam3.cpp, insightface)
 - **Audio Processing Backends**: For voice activity detection and audio enhancement (e.g., Silero VAD, LocalVQE)

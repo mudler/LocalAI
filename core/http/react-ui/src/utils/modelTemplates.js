@@ -143,6 +143,16 @@ const MODEL_TEMPLATES = [
     },
   },
   {
+    id: 'alias',
+    label: 'Alias / Routing',
+    icon: 'fa-arrow-right-arrow-left',
+    description: 'Point a model name at another configured model. Clients keep calling the alias; you swap the target anytime.',
+    fields: {
+      'name': '',
+      'alias': '',
+    },
+  },
+  {
     id: 'mitm',
     label: 'MITM Intercept',
     icon: 'fa-shield-halved',

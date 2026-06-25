@@ -52,6 +52,14 @@ type ModelConfigView struct {
 	JSON map[string]any `json:"json,omitempty"  jsonschema:"Parsed JSON view of the same config (convenience for diffing)."`
 }
 
+// AliasInfo is one alias -> target pair, the shape list_aliases returns and
+// GET /api/aliases emits. Kept aligned with localai.AliasInfo so the
+// MCP wire output matches the REST endpoint by construction.
+type AliasInfo struct {
+	Name   string `json:"name"`
+	Target string `json:"target"`
+}
+
 // InstallModelRequest is the input for install_model.
 type InstallModelRequest struct {
 	GalleryName string         `json:"gallery_name,omitempty" jsonschema:"The gallery the model lives in (from gallery_search). Optional when ModelName is unique across galleries."`

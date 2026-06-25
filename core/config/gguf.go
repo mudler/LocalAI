@@ -14,11 +14,6 @@ import (
 	"github.com/gpustack/gguf-parser-go/util/ptr"
 )
 
-const (
-	defaultContextSize = 1024
-	defaultNGPULayers  = 99999999
-)
-
 // reservedNonChatModel reports whether the operator reserved this model for an
 // internal primitive — the router score classifier or the PII NER
 // token_classify tier. Such a model has no chat template and must not be
@@ -38,7 +33,7 @@ func guessGGUFFromFile(cfg *ModelConfig, f *gguf.GGUFFile, defaultCtx int) {
 			cSize := int(ctxSize)
 			cfg.ContextSize = &cSize
 		} else {
-			defaultCtx = defaultContextSize
+			defaultCtx = GGUFFallbackContextSize
 			cfg.ContextSize = &defaultCtx
 		}
 	}
@@ -52,7 +47,7 @@ func guessGGUFFromFile(cfg *ModelConfig, f *gguf.GGUFFile, defaultCtx int) {
 
 	if cfg.NGPULayers == nil {
 		// we assume we want to offload all layers
-		defaultHigh := defaultNGPULayers
+		defaultHigh := DefaultNGPULayers
 		cfg.NGPULayers = &defaultHigh
 	}
 

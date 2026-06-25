@@ -51,6 +51,7 @@
     "backends": "백엔드",
     "traces": "트레이스",
     "nodes": "노드",
+    "scheduling": "스케줄링",
     "swarm": "Swarm",
     "system": "시스템",
     "settings": "설정",

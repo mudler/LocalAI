@@ -1,5 +1,5 @@
 import fs from "fs";
-import yaml from "js-yaml";
+import * as yaml from "js-yaml";
 import { Octokit } from "@octokit/core";
 
 // Matrix data lives in a small data-only YAML so both backend.yml (master push)
@@ -25,6 +25,13 @@ function inferBackendPath(item) {
   // dockerfile-suffix change.
   if (item.backend === "parakeet-cpp") {
     return `backend/go/parakeet-cpp/`;
+  }
+  // ced is a Go backend (Dockerfile.golang) wrapping the ced.cpp ggml port via
+  // purego, living in backend/go/ced/. Same explicit-branch rationale as
+  // parakeet-cpp above: the generic golang fallthrough would also resolve it,
+  // but this documents the mapping and guards a future dockerfile-suffix change.
+  if (item.backend === "ced") {
+    return `backend/go/ced/`;
   }
   if (item.dockerfile.endsWith("golang")) {
     return `backend/go/${item.backend}/`;

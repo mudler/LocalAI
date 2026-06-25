@@ -33,6 +33,8 @@ else ifeq ($(BUILD_TYPE),hipblas)
 else ifeq ($(BUILD_TYPE),vulkan)
 	CMAKE_ARGS+=-DGGML_VULKAN=ON -DLA_GGML_VULKAN=ON
 else ifeq ($(OS),Darwin)
+	# macOS/Metal: built + published as an OCI image by CI (includeDarwin in
+	# .github/backend-matrix.yml) so Apple Silicon users can install this backend.
 	ifneq ($(BUILD_TYPE),metal)
 		CMAKE_ARGS+=-DGGML_METAL=OFF
 	else
@@ -70,7 +72,7 @@ ifeq ($(UNAME_S),Linux)
 	VARIANT_TARGETS = liblocateanythingcpp-avx.so liblocateanythingcpp-avx2.so liblocateanythingcpp-avx512.so liblocateanythingcpp-fallback.so
 else
 	# On non-Linux (e.g., Darwin), build only fallback variant
-	VARIANT_TARGETS = liblocateanythingcpp-fallback.so
+	VARIANT_TARGETS = liblocateanythingcpp-fallback.dylib
 endif
 
 locate-anything-cpp: main.go golocateanythingcpp.go $(VARIANT_TARGETS)
@@ -82,7 +84,7 @@ package: locate-anything-cpp
 build: package
 
 clean: purge
-	rm -rf liblocateanythingcpp*.so locate-anything-cpp package sources
+	rm -rf liblocateanythingcpp*.so liblocateanythingcpp*.dylib locate-anything-cpp package sources
 
 purge:
 	rm -rf build*
@@ -109,11 +111,19 @@ liblocateanythingcpp-avx512.so: sources/locate-anything.cpp
 endif
 
 # Build fallback variant (all platforms)
+ifeq ($(UNAME_S),Darwin)
+liblocateanythingcpp-fallback.dylib: sources/locate-anything.cpp
+	rm -rfv build-$@
+	$(info ${GREEN}I locate-anything-cpp build info:fallback${RESET})
+	SO_TARGET=$@ CMAKE_ARGS="$(CMAKE_ARGS) -DGGML_AVX=off -DGGML_AVX2=off -DGGML_AVX512=off -DGGML_FMA=off -DGGML_F16C=off -DGGML_BMI2=off" $(MAKE) liblocateanythingcpp-custom
+	rm -rfv build-$@
+else
 liblocateanythingcpp-fallback.so: sources/locate-anything.cpp
 	rm -rfv build-$@
 	$(info ${GREEN}I locate-anything-cpp build info:fallback${RESET})
 	SO_TARGET=$@ CMAKE_ARGS="$(CMAKE_ARGS) -DGGML_AVX=off -DGGML_AVX2=off -DGGML_AVX512=off -DGGML_FMA=off -DGGML_F16C=off -DGGML_BMI2=off" $(MAKE) liblocateanythingcpp-custom
 	rm -rfv build-$@
+endif
 
 liblocateanythingcpp-custom: CMakeLists.txt
 	mkdir -p build-$(SO_TARGET) && \
@@ -121,7 +131,8 @@ liblocateanythingcpp-custom: CMakeLists.txt
 	cmake .. $(CMAKE_ARGS) && \
 	cmake --build . --config Release -j$(JOBS) && \
 	cd .. && \
-	mv build-$(SO_TARGET)/liblocateanythingcpp.so ./$(SO_TARGET)
+	(mv build-$(SO_TARGET)/liblocateanythingcpp.so ./$(SO_TARGET) 2>/dev/null || \
+	 mv build-$(SO_TARGET)/liblocateanythingcpp.dylib ./$(SO_TARGET) 2>/dev/null)
 
 all: locate-anything-cpp package
 

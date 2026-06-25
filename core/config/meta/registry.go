@@ -286,6 +286,15 @@ func DefaultRegistry() map[string]FieldMetaOverride {
 			Order:       45,
 		},
 
+		// --- Alias ---
+		"alias": {
+			Section:     "alias",
+			Label:       "Alias target",
+			Description: "Redirect all traffic for this model to another configured model. When set, every other field on this config is ignored and requests are served by the target model.",
+			Component:   "model-select",
+			Order:       0,
+		},
+
 		// --- Pipeline ---
 		"pipeline.llm": {
 			Section:              "pipeline",
@@ -318,6 +327,30 @@ func DefaultRegistry() map[string]FieldMetaOverride {
 			Component:            "model-select",
 			AutocompleteProvider: ProviderModelsVAD,
 			Order:                63,
+		},
+		"pipeline.sound_detection": {
+			Section:              "pipeline",
+			Label:                "Sound Detection Model",
+			Description:          "Model to use for sound-event classification (audio tagging, e.g. ced) in the pipeline. When set, committed realtime audio is also classified and the scored AudioSet tags are emitted as a conversation.item.sound_detection event.",
+			Component:            "model-select",
+			AutocompleteProvider: ProviderModels,
+			Order:                64,
+		},
+		"pipeline.sound_detection_window_ms": {
+			Section:     "pipeline",
+			Label:       "Sound Detection Window (ms)",
+			Description: "Server-side windowing for a sound-only realtime session: length in ms of the audio window classified each hop. 0 = client-driven (the client commits windows).",
+			Component:   "number",
+			Min:         f64(0),
+			Order:       65,
+		},
+		"pipeline.sound_detection_hop_ms": {
+			Section:     "pipeline",
+			Label:       "Sound Detection Hop (ms)",
+			Description: "Server-side windowing hop in ms: how often the server classifies the last window. 0 = client-driven.",
+			Component:   "number",
+			Min:         f64(0),
+			Order:       66,
 		},
 		"pipeline.reasoning_effort": {
 			Section:     "pipeline",
@@ -448,12 +481,91 @@ func DefaultRegistry() map[string]FieldMetaOverride {
 			Component:   "json-editor",
 			Order:       78,
 		},
+		"pipeline.voice_recognition.enforce": {
+			Section:     "pipeline",
+			Label:       "Voice Gate Enforce",
+			Description: "Whether the gate rejects unauthorized speakers. Enabled (default) drops unauthorized utterances before the LLM. Disabled still resolves and surfaces the speaker (for the conversation.item.speaker event and personalization) but never drops a turn.",
+			Component:   "toggle",
+			Order:       80,
+		},
+		"pipeline.voice_recognition.identity.announce": {
+			Section:     "pipeline",
+			Label:       "Speaker Identity Announce",
+			Description: "Emit a conversation.item.speaker event to the client naming the recognized speaker. When set, identity is resolved on every turn even if 'when' is 'first'.",
+			Component:   "toggle",
+			Order:       81,
+		},
+		"pipeline.voice_recognition.identity.announce_unknown": {
+			Section:     "pipeline",
+			Label:       "Speaker Identity Announce Unknown",
+			Description: "Also emit the conversation.item.speaker event (with matched=false) when no confident match is found. Default only announces on a match.",
+			Component:   "toggle",
+			Order:       82,
+		},
+		"pipeline.voice_recognition.identity.personalize": {
+			Section:     "pipeline",
+			Label:       "Speaker Identity Personalize",
+			Description: "Inform the LLM who is speaking so it can tailor replies. Enables the name and system-note injection below.",
+			Component:   "toggle",
+			Order:       83,
+		},
+		"pipeline.voice_recognition.identity.inject_name": {
+			Section:     "pipeline",
+			Label:       "Speaker Identity Inject Name",
+			Description: "Personalization: set the per-message OpenAI 'name' field on each user turn to the recognized speaker.",
+			Component:   "toggle",
+			Order:       84,
+		},
+		"pipeline.voice_recognition.identity.inject_system_note": {
+			Section:     "pipeline",
+			Label:       "Speaker Identity Inject System Note",
+			Description: "Personalization: append a 'The current speaker is <name>.' note to the system message reflecting the latest speaker.",
+			Component:   "toggle",
+			Order:       85,
+		},
+		"pipeline.voice_recognition.identity.note_unknown": {
+			Section:     "pipeline",
+			Label:       "Speaker Identity Note Unknown",
+			Description: "Personalization: when the speaker is unidentified, append 'The current speaker is unknown.' to the system message so the model can ask who it is talking to.",
+			Component:   "toggle",
+			Order:       86,
+		},
 		"pipeline.max_history_items": {
 			Section:     "pipeline",
 			Label:       "Max History Items",
 			Description: "Cap how many trailing conversation items are fed to the LLM each realtime turn (0 = unlimited, rely on the LLM's context window). Set it on a composed pipeline (VAD+STT+LLM+TTS) so a long-running session doesn't grow until the context fills. Unset uses the per-model-type default.",
 			Component:   "number",
 			Order:       79,
+		},
+		"pipeline.compaction.enabled": {
+			Section:     "pipeline",
+			Label:       "Compaction Enabled",
+			Description: "Fold conversation items that age out of the live window (Max History Items) into a rolling summary instead of dropping them, so long realtime sessions stay cheap without losing earlier context. Off by default.",
+			Component:   "toggle",
+			Order:       80,
+		},
+		"pipeline.compaction.trigger_items": {
+			Section:     "pipeline",
+			Label:       "Compaction Trigger Items",
+			Description: "High-water mark: once the live conversation exceeds this many items, the overflow above Max History Items is summarized and evicted. Must be greater than Max History Items; defaults to twice it. The gap controls how often summarization runs.",
+			Component:   "number",
+			Order:       81,
+		},
+		"pipeline.compaction.summary_model": {
+			Section:     "pipeline",
+			Label:       "Compaction Summary Model",
+			Description: "Optional smaller/cheaper model used to produce the rolling summary. Empty reuses the pipeline's own LLM. On CPU, a tiny model here keeps compaction from competing with the conversation LLM.",
+			Component:   "input",
+			Advanced:    true,
+			Order:       82,
+		},
+		"pipeline.compaction.max_summary_tokens": {
+			Section:     "pipeline",
+			Label:       "Compaction Max Summary Tokens",
+			Description: "Advisory cap on the rolling summary length (fed to the summarizer prompt). Defaults to 512.",
+			Component:   "number",
+			Advanced:    true,
+			Order:       83,
 		},
 
 		// --- Functions ---
