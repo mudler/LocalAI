@@ -90,6 +90,15 @@ var _ = Describe("Hardware-driven config defaults", func() {
 		It("no-ops on nil", func() {
 			Expect(func() { ApplyHardwareDefaults(nil, GPU{ComputeCapability: "12.1"}) }).ToNot(Panic())
 		})
+
+		It("applies nothing when hardware defaults are disabled via env", func() {
+			GinkgoT().Setenv("LOCALAI_DISABLE_HARDWARE_DEFAULTS", "true")
+			Expect(HardwareDefaultsDisabled()).To(BeTrue())
+			cfg := &ModelConfig{}
+			ApplyHardwareDefaults(cfg, GPU{ComputeCapability: "12.1", VRAM: 119 * gib})
+			Expect(cfg.Batch).To(Equal(0))
+			Expect(cfg.Options).To(BeEmpty())
+		})
 	})
 
 	DescribeTable("DefaultParallelSlots (by VRAM)",
@@ -105,11 +114,45 @@ var _ = Describe("Hardware-driven config defaults", func() {
 		Entry("unknown 0", uint64(0), 1),
 	)
 
+	Describe("ParallelSlotsForContext (per-device VRAM headroom)", func() {
+		It("keeps the VRAM-scaled slot count when the context fits the device", func() {
+			// 16 GiB card, small context: plenty of room for concurrency.
+			Expect(ParallelSlotsForContext(GPU{VRAM: 16 * gib}, 8192)).To(Equal(4))
+		})
+		It("drops to a single slot when a large context already fills the device", func() {
+			// Regression guard for issue #10485: 16 GiB consumer Blackwell, ~200k
+			// context. Even with unified KV, the per-slot compute/checkpoint
+			// scratch from 4 slots is the straw that overflows the tighter device.
+			Expect(ParallelSlotsForContext(GPU{VRAM: 16 * gib}, 204800)).To(Equal(1))
+		})
+		It("keeps concurrency on a large unified-memory device (GB10)", func() {
+			// GB10 reports system RAM (~119 GiB): a 200k context leaves headroom.
+			Expect(ParallelSlotsForContext(GPU{VRAM: 119 * gib}, 204800)).To(Equal(8))
+		})
+		It("keeps concurrency on a big datacenter card with a large context", func() {
+			// 80 GiB A100: 200k context is a small fraction, concurrency stays.
+			Expect(ParallelSlotsForContext(GPU{VRAM: 80 * gib}, 204800)).To(Equal(8))
+		})
+		It("stays a single slot on small/unknown VRAM regardless of context", func() {
+			Expect(ParallelSlotsForContext(GPU{VRAM: 2 * gib}, 8192)).To(Equal(1))
+			Expect(ParallelSlotsForContext(GPU{}, 8192)).To(Equal(1))
+		})
+	})
+
 	Describe("ApplyHardwareDefaults parallel slots", func() {
 		It("adds a VRAM-scaled parallel option on a capable GPU", func() {
 			cfg := &ModelConfig{}
 			ApplyHardwareDefaults(cfg, GPU{ComputeCapability: "12.1", VRAM: 119 * gib})
 			Expect(cfg.Options).To(ContainElement("parallel:8"))
+		})
+		It("adds no parallel option when a large context already fills one device", func() {
+			// Regression guard for issue #10485: 16 GiB card + ~200k context. The
+			// model barely fits; defaulting concurrency tips the tighter GPU into
+			// CUDA OOM during the final (MTP draft) KV allocation.
+			ctx := 204800
+			cfg := &ModelConfig{LLMConfig: LLMConfig{ContextSize: &ctx}}
+			ApplyHardwareDefaults(cfg, GPU{ComputeCapability: "12.0", VRAM: 16 * gib})
+			Expect(cfg.Options).ToNot(ContainElement(ContainSubstring("parallel")))
 		})
 		It("scales the slot count down with VRAM", func() {
 			cfg := &ModelConfig{}

@@ -41,6 +41,14 @@ var _ = Describe("applyNodeHardwareDefaults", func() {
 		Expect(opts.Options).To(ContainElement("parallel:8"))
 	})
 
+	It("adds no parallel option when a large context already fills the node device", func() {
+		// Regression guard for issue #10485: a 16 GiB node with a ~200k context
+		// is a tight single-model fit — the slot scratch would tip it into OOM.
+		opts := &pb.ModelOptions{NBatch: config.DefaultPhysicalBatch, ContextSize: 204800}
+		applyNodeHardwareDefaults(opts, &BackendNode{GPUComputeCapability: "12.0", TotalVRAM: 16 << 30})
+		Expect(opts.Options).ToNot(ContainElement(ContainSubstring("parallel")))
+	})
+
 	It("never overrides an explicit parallel option on the node path", func() {
 		opts := &pb.ModelOptions{NBatch: config.DefaultPhysicalBatch, Options: []string{"parallel:2"}}
 		applyNodeHardwareDefaults(opts, &BackendNode{GPUComputeCapability: "12.1", TotalVRAM: 119 << 30})
