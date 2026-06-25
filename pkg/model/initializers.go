@@ -169,10 +169,40 @@ func (ml *ModelLoader) grpcModel(backend string, o *Options) func(string, string
 	}
 }
 
+// parallelSlotsFromOptions returns the effective n_parallel from the backend
+// option strings ("parallel:N" / "n_parallel:N"), or "1" when unset — the
+// llama.cpp default. Used only for the effective-tuning load log.
+func parallelSlotsFromOptions(opts []string) string {
+	for _, o := range opts {
+		k, v, ok := strings.Cut(o, ":")
+		if ok && (k == "parallel" || k == "n_parallel") {
+			return strings.TrimSpace(v)
+		}
+	}
+	return "1"
+}
+
 func (ml *ModelLoader) backendLoader(opts ...Option) (client grpc.Backend, err error) {
 	o := NewOptions(opts...)
 
 	xlog.Info("BackendLoader starting", "modelID", o.modelID, "backend", o.backendString, "model", o.model)
+
+	// Surface the effective performance-relevant runtime options at load (some of
+	// these are auto-tuned for the detected hardware). Logged once per load so an
+	// admin can see what will actually run and pin or override any value in the
+	// model YAML — or set LOCALAI_DISABLE_HARDWARE_DEFAULTS=true to turn the
+	// hardware auto-tuning off entirely. Gated on an LLM-ish load (context set) so
+	// TTS/audio/other backends stay quiet.
+	if opt := o.gRPCOptions; opt != nil && opt.ContextSize > 0 {
+		xlog.Info("effective runtime tuning (override in the model YAML; LOCALAI_DISABLE_HARDWARE_DEFAULTS=true disables hardware auto-tuning)",
+			"modelID", o.modelID,
+			"context", opt.ContextSize,
+			"n_batch", opt.NBatch,
+			"n_gpu_layers", opt.NGPULayers,
+			"parallel", parallelSlotsFromOptions(opt.Options),
+			"flash_attention", opt.FlashAttention,
+			"f16", opt.F16Memory)
+	}
 
 	backend := strings.ToLower(o.backendString)
 	if realBackend, exists := Aliases[backend]; exists {

@@ -2,12 +2,26 @@ package config
 
 import (
 	"fmt"
+	"os"
 	"strconv"
 	"strings"
 
 	"github.com/mudler/LocalAI/pkg/xsysinfo"
 	"github.com/mudler/xlog"
 )
+
+// HardwareDefaultsDisabled reports whether hardware auto-tuning is turned off via
+// LOCALAI_DISABLE_HARDWARE_DEFAULTS=true (mirrors LOCALAI_DISABLE_GUESSING). When
+// set, ApplyHardwareDefaults and the distributed router's node tuning are
+// skipped entirely, so the backend runs llama.cpp's stock batch/parallel
+// behavior — an escape hatch for users who want predictable, un-tuned defaults.
+func HardwareDefaultsDisabled() bool {
+	// Read directly like the sibling LOCALAI_DISABLE_GUESSING toggle in
+	// hooks_llamacpp.go: these config-layer heuristic switches run deep in the
+	// defaults pipeline with no ApplicationConfig in scope to plumb through.
+	//nolint:forbidigo // config-layer heuristic toggle, mirrors LOCALAI_DISABLE_GUESSING
+	return os.Getenv("LOCALAI_DISABLE_HARDWARE_DEFAULTS") == "true"
+}
 
 // Hardware-driven model-config defaults.
 //
@@ -103,17 +117,36 @@ func PhysicalBatchForContext(g GPU, ctx int) int {
 	if !g.IsNVIDIABlackwell() {
 		return DefaultPhysicalBatch
 	}
-	if ctx <= 0 {
-		ctx = DefaultContextSize
-	}
 	if g.VRAM == 0 {
 		return DefaultPhysicalBatch
 	}
-	extra := uint64(ctx) * uint64(BlackwellPhysicalBatch-DefaultPhysicalBatch) * computeBufferBytesPerCell
-	if extra <= g.VRAM/blackwellBatchHeadroomDivisor {
-		return BlackwellPhysicalBatch
+	if largeContextForDevice(g, ctx) {
+		return DefaultPhysicalBatch
 	}
-	return DefaultPhysicalBatch
+	return BlackwellPhysicalBatch
+}
+
+// largeContextForDevice reports whether the given context is large relative to
+// the per-device VRAM ceiling — the shared "tight single-model fit" signal that
+// suppresses BOTH throughput-oriented defaults (the Blackwell batch boost and
+// the concurrency slot count). It sizes the extra compute-buffer scratch a
+// raised batch would need at this context (which grows ~n_ubatch * n_ctx and
+// is allocated per device) and asks whether it overflows a fraction of the
+// device VRAM; when it does, the device has no headroom to spend on throughput
+// and the conservative defaults must hold (issue #10485).
+//
+// g.VRAM must be the PER-DEVICE ceiling (the smallest device on a multi-GPU
+// host). VRAM 0 (unknown) is treated as not-large so detection gaps don't
+// silently disable the defaults.
+func largeContextForDevice(g GPU, ctx int) bool {
+	if g.VRAM == 0 {
+		return false
+	}
+	if ctx <= 0 {
+		ctx = DefaultContextSize
+	}
+	extra := uint64(ctx) * uint64(BlackwellPhysicalBatch-DefaultPhysicalBatch) * computeBufferBytesPerCell
+	return extra > g.VRAM/blackwellBatchHeadroomDivisor
 }
 
 // IsManagedPhysicalBatch reports whether n is a value PhysicalBatch assigns.
@@ -152,15 +185,48 @@ func DefaultParallelSlots(g GPU) int {
 	}
 }
 
-// EnsureParallelOption appends a VRAM-scaled "parallel:N" backend option when the
-// model doesn't already set one (and the GPU warrants concurrency). Returns the
-// possibly-extended options. Shared by the single-host config path
-// (ApplyHardwareDefaults) and the distributed router (per selected node).
-func EnsureParallelOption(opts []string, gpu GPU) []string {
-	if slots := DefaultParallelSlots(gpu); slots > 1 && !hasParallelOption(opts) {
+// ParallelSlotsForContext is DefaultParallelSlots gated on per-device VRAM
+// headroom for the given context. A large context already claims most of a
+// single device's VRAM (the KV cache plus the per-slot compute/checkpoint
+// scratch that scales with n_seq_max), so defaulting multiple slots there
+// pushes a tight single-model fit into per-device CUDA OOM (issue #10485): the
+// model loads but the final allocation (e.g. an MTP draft context's KV cache)
+// overflows the tighter card by a few hundred MiB. Returns 1 (no concurrency)
+// in that tight regime, otherwise the VRAM-scaled DefaultParallelSlots.
+//
+// g.VRAM must be the PER-DEVICE ceiling (smallest device on a multi-GPU host).
+// It shares largeContextForDevice with the batch boost so both throughput
+// defaults are suppressed together; the GB10 / unified-memory path reports
+// system RAM and so keeps full concurrency even at large contexts.
+func ParallelSlotsForContext(g GPU, ctx int) int {
+	slots := DefaultParallelSlots(g)
+	if slots <= 1 || g.VRAM == 0 {
+		return slots
+	}
+	if largeContextForDevice(g, ctx) {
+		return 1
+	}
+	return slots
+}
+
+// EnsureParallelOptionForContext appends a VRAM-scaled "parallel:N" backend
+// option when the model doesn't already set one and the GPU warrants (and has
+// headroom for) concurrency at this context. Returns the possibly-extended
+// options. Shared by the single-host config path (ApplyHardwareDefaults) and
+// the distributed router (per selected node).
+func EnsureParallelOptionForContext(opts []string, gpu GPU, ctx int) []string {
+	if slots := ParallelSlotsForContext(gpu, ctx); slots > 1 && !hasParallelOption(opts) {
 		return append(opts, fmt.Sprintf("parallel:%d", slots))
 	}
 	return opts
+}
+
+// EnsureParallelOption is EnsureParallelOptionForContext with no known context
+// (defaults to DefaultContextSize, which clears the headroom gate on any device
+// large enough to warrant concurrency). Kept for callers without a model
+// context.
+func EnsureParallelOption(opts []string, gpu GPU) []string {
+	return EnsureParallelOptionForContext(opts, gpu, 0)
 }
 
 // hasParallelOption reports whether the model already sets parallel/n_parallel
@@ -192,18 +258,18 @@ var localGPU = func() GPU {
 // and were left unset by the user. Currently: a larger physical batch on
 // Blackwell. Explicit config always wins (we only touch zero values).
 func ApplyHardwareDefaults(cfg *ModelConfig, gpu GPU) {
-	if cfg == nil {
+	if cfg == nil || HardwareDefaultsDisabled() {
 		return
 	}
 	// Raise the physical batch on Blackwell only when the resulting compute
 	// buffer fits the per-device VRAM at THIS model's context. Leaving Batch at 0
 	// (rather than writing the default 512) preserves the downstream single-pass
 	// sizing in core/backend.EffectiveBatchSize for embedding/score/rerank.
+	ctx := DefaultContextSize
+	if cfg.ContextSize != nil {
+		ctx = *cfg.ContextSize
+	}
 	if cfg.Batch == 0 {
-		ctx := DefaultContextSize
-		if cfg.ContextSize != nil {
-			ctx = *cfg.ContextSize
-		}
 		if PhysicalBatchForContext(gpu, ctx) == BlackwellPhysicalBatch {
 			cfg.Batch = BlackwellPhysicalBatch
 			xlog.Debug("[hardware_defaults] Blackwell GPU: defaulting physical batch",
@@ -214,13 +280,14 @@ func ApplyHardwareDefaults(cfg *ModelConfig, gpu GPU) {
 	// Enable concurrent serving by default on a capable GPU: without this the
 	// llama.cpp backend runs n_parallel=1 and serializes multi-user requests
 	// (continuous batching stays off). Unified KV means the slots share the
-	// context budget, so this is concurrency without extra KV memory. Explicit
-	// parallel/n_parallel in the model options always wins.
+	// context budget, but a context large enough to fill a single device leaves
+	// no room for the per-slot scratch, so the slot count is gated on per-device
+	// headroom too (issue #10485). Explicit parallel/n_parallel always wins.
 	if before := len(cfg.Options); true {
-		cfg.Options = EnsureParallelOption(cfg.Options, gpu)
+		cfg.Options = EnsureParallelOptionForContext(cfg.Options, gpu, ctx)
 		if len(cfg.Options) > before {
 			xlog.Debug("[hardware_defaults] defaulting parallel slots for concurrent serving",
-				"option", cfg.Options[len(cfg.Options)-1], "vram_gib", gpu.VRAM>>30)
+				"option", cfg.Options[len(cfg.Options)-1], "context", ctx, "vram_gib", gpu.VRAM>>30)
 		}
 	}
 }

@@ -147,7 +147,7 @@ type scheduleLoadResult struct {
 // Only values the heuristics themselves manage are touched, so an explicit user
 // batch (e.g. 1024) is never overridden.
 func applyNodeHardwareDefaults(opts *pb.ModelOptions, node *BackendNode) {
-	if opts == nil || node == nil {
+	if opts == nil || node == nil || config.HardwareDefaultsDisabled() {
 		return
 	}
 	gpu := config.GPU{
@@ -162,8 +162,11 @@ func applyNodeHardwareDefaults(opts *pb.ModelOptions, node *BackendNode) {
 		opts.NBatch = int32(config.PhysicalBatchForContext(gpu, int(opts.ContextSize)))
 	}
 	// Default concurrent serving for the selected node (the frontend that built
-	// the options may have no GPU). Only adds when no parallel option is set.
-	opts.Options = config.EnsureParallelOption(opts.Options, gpu)
+	// the options may have no GPU). Gated on the node's per-device VRAM at this
+	// model's context, so a large context that already fills the device can't
+	// tip it into OOM by adding slot scratch (issue #10485). Only adds when no
+	// parallel option is set.
+	opts.Options = config.EnsureParallelOptionForContext(opts.Options, gpu, int(opts.ContextSize))
 }
 
 // scheduleAndLoad is the shared core for loading a model on a new node.
