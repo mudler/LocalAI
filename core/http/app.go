@@ -149,6 +149,18 @@ func API(application *application.Application) (*echo.Echo, error) {
 	// Middleware - StripPathPrefix must be registered early as it uses Rewrite which runs before routing
 	e.Pre(httpMiddleware.StripPathPrefix())
 
+	// Stamp the configured external base URL into each request context so
+	// middleware.BaseURL can treat it as authoritative for self-referential
+	// links. Registered as Pre so it runs before routing and handlers.
+	if extBaseURL := application.ApplicationConfig().ExternalBaseURL; extBaseURL != "" {
+		e.Pre(func(next echo.HandlerFunc) echo.HandlerFunc {
+			return func(c echo.Context) error {
+				c.Set("_external_base_url", extBaseURL)
+				return next(c)
+			}
+		})
+	}
+
 	e.Pre(middleware.RemoveTrailingSlash())
 
 	if application.ApplicationConfig().MachineTag != "" {

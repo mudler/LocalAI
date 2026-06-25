@@ -268,7 +268,7 @@ func RegisterAuthRoutes(e *echo.Echo, app *application.Application) {
 	// Set up OAuth manager when any OAuth/OIDC provider is configured
 	if appConfig.Auth.GitHubClientID != "" || appConfig.Auth.OIDCClientID != "" {
 		oauthMgr, err := auth.NewOAuthManager(
-			appConfig.Auth.BaseURL,
+			appConfig.ExternalBaseURL,
 			auth.OAuthParams{
 				GitHubClientID:     appConfig.Auth.GitHubClientID,
 				GitHubClientSecret: appConfig.Auth.GitHubClientSecret,
