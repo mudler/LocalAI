@@ -4,14 +4,59 @@ import (
 	"context"
 	"fmt"
 	"hash/fnv"
+	"strings"
+	"sync"
 
 	"gorm.io/gorm"
 )
 
-// TryWithLockCtx attempts to acquire a PostgreSQL advisory lock using the provided context.
-// Returns (true, nil) if the lock was acquired and fn executed, (false, nil) if the lock
-// was already held, or (false, error) on failure.
+// localLocks holds one buffered channel (capacity 1) per lock key, used as an
+// in-process mutex for non-PostgreSQL dialects (SQLite). A SQLite auth DB is
+// effectively single-process, so serializing guarded sections within this
+// process is sufficient - we cannot and need not coordinate across processes
+// the way a PostgreSQL advisory lock does.
+var (
+	localLocksMu sync.Mutex
+	localLocks   = map[int64]chan struct{}{}
+)
+
+// localLockChan returns the per-key buffered channel, creating it on first use.
+func localLockChan(key int64) chan struct{} {
+	localLocksMu.Lock()
+	defer localLocksMu.Unlock()
+	ch, ok := localLocks[key]
+	if !ok {
+		ch = make(chan struct{}, 1)
+		localLocks[key] = ch
+	}
+	return ch
+}
+
+// isPostgres reports whether the gorm dialect is PostgreSQL. Anything else
+// (SQLite and any non-postgres dialect) uses the in-process fallback, because
+// the pg_* advisory lock functions only exist on PostgreSQL.
+func isPostgres(db *gorm.DB) bool {
+	return strings.Contains(db.Dialector.Name(), "postgres")
+}
+
+// TryWithLockCtx attempts to acquire a lock and run fn without blocking.
+// Returns (true, nil) if the lock was acquired and fn executed, (false, nil) if
+// the lock was already held, or (false, error) on failure.
+//
+// On PostgreSQL it uses pg_try_advisory_lock (cross-process). On other dialects
+// (SQLite) it uses a non-blocking in-process lock keyed by key.
 func TryWithLockCtx(ctx context.Context, db *gorm.DB, key int64, fn func() error) (bool, error) {
+	if !isPostgres(db) {
+		ch := localLockChan(key)
+		select {
+		case ch <- struct{}{}:
+			defer func() { <-ch }()
+			return true, fn()
+		default:
+			return false, nil
+		}
+	}
+
 	sqlDB, err := db.DB()
 	if err != nil {
 		return false, fmt.Errorf("get sql.DB: %w", err)
@@ -50,9 +95,31 @@ func KeyFromString(s string) int64 {
 	return int64(h.Sum64()>>1) | 0x100000000
 }
 
-// WithLockCtx is like WithLock but respects context cancellation.
-// If ctx is cancelled while waiting for the lock, the function returns ctx.Err().
+// WithLockCtx acquires a lock for key, runs fn, then releases it, respecting
+// context cancellation. If ctx is cancelled while waiting for the lock, the
+// function returns ctx.Err().
+//
+// On PostgreSQL it uses pg_advisory_lock (cross-process). On other dialects
+// (SQLite) it falls back to a blocking in-process lock keyed by key, which is
+// sufficient because a SQLite auth DB is effectively single-process.
 func WithLockCtx(ctx context.Context, db *gorm.DB, key int64, fn func() error) error {
+	if !isPostgres(db) {
+		// Honor an already-cancelled context before attempting acquisition:
+		// select picks a ready case at random, so without this an already-free
+		// lock could be taken despite a cancelled ctx.
+		if err := ctx.Err(); err != nil {
+			return err
+		}
+		ch := localLockChan(key)
+		select {
+		case ch <- struct{}{}:
+			defer func() { <-ch }()
+			return fn()
+		case <-ctx.Done():
+			return ctx.Err()
+		}
+	}
+
 	sqlDB, err := db.DB()
 	if err != nil {
 		return fmt.Errorf("advisorylock: getting sql.DB: %w", err)
