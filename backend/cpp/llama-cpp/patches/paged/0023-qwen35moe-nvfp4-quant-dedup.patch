@@ -1,0 +1,144 @@
+From f7409c2de2868a6a048d3c333329468b4cc9e483 Mon Sep 17 00:00:00 2001
+From: Ettore Di Giacinto <mudler@localai.io>
+Date: Thu, 25 Jun 2026 23:47:25 +0200
+Subject: [PATCH] feat(paged): qwen35moe NVFP4 activation-quantize de-dup
+ (patch 0023)
+
+Bit-exact decode/prefill lever for the MoE (qwen3.5moe) NVFP4 path. ggml`s
+mul_mat_id quantizes the EXPERT-GATHERED activation rows (ne11_flat =
+ne12*n_expert_used). For the broadcast up/gate projections (ne11 == 1) every
+expert of a token receives the SAME token activation, so the stock path
+re-quantizes each token n_expert_used times. quantize_mmq_nvfp4 produces each
+block as a pure per-thread function of its 16 consecutive inputs (no cross-thread
+reduction), so the gathered blocks are byte-identical across the experts.
+
+Lever: when ne11 == 1, quantize the ne12 UNIQUE token activations once, then
+gather the resulting block_fp4_mmq rows into the expert-gathered layout keyed by
+ids_src1 with a coalesced uint4 copy (block_fp4_mmq == 9 uint4 == 144 B). Pure
+byte copy of identical blocks, so the gathered buffer is byte-for-byte identical
+to re-quantizing each gathered row; the GEMM is untouched. down_proj
+(ne11 == n_expert_used, distinct per expert) keeps the stock path.
+
+Measured GB10 (sm_121a), on top of HEAD 8a3229f (patch 0022), q36-35b-a3b-nvfp4:
+- nsys decode-isolated: quantize_mmq_nvfp4 868 -> 457 ms/run (-411 ms), new
+  gather_mmq_fp4 +32 ms; net -379 ms of decode GPU-time.
+- S_TG npl128 745.2 -> 758.1 t/s (+1.73%), npl32 +0.6%; prefill T_PP -4%.
+- Dense q36-27b-nvfp4 byte-flat (no mul_mat_id): 373.24 t/s unchanged.
+
+Bit-exact gate (greedy --temp 0 --seed 1 md5, byte-identical to 0022):
+  q36-27b-nvfp4     5951a5b4d624ce891e22ab5fca9bc439 (unchanged)
+  q36-35b-a3b-nvfp4 07db32c2bcb78d17a43ed18bc22705cd (de-dup on == off)
+  test-backend-ops MUL_MAT 1115/1115, MUL_MAT_ID 805/805.
+
+On by default; GGML_CUDA_MOE_QUANT_DEDUP=0 restores the stock re-quantize path.
+
+Assisted-by: Claude:opus-4.8 [Claude Code]
+Signed-off-by: Ettore Di Giacinto <mudler@localai.io>
+---
+ ggml/src/ggml-cuda/mmq.cu       | 21 +++++++++++++++++--
+ ggml/src/ggml-cuda/quantize.cu  | 37 +++++++++++++++++++++++++++++++++
+ ggml/src/ggml-cuda/quantize.cuh |  4 ++++
+ 3 files changed, 60 insertions(+), 2 deletions(-)
+
+diff --git a/ggml/src/ggml-cuda/mmq.cu b/ggml/src/ggml-cuda/mmq.cu
+index e1add5e..9933fa6 100644
+--- a/ggml/src/ggml-cuda/mmq.cu
++++ b/ggml/src/ggml-cuda/mmq.cu
+@@ -1,3 +1,4 @@
++#include <cstdlib>
+ #include "common.cuh"
+ #include "mmq.cuh"
+ #include "quantize.cuh"
+@@ -197,8 +198,24 @@ void ggml_cuda_mul_mat_q(
+         const int64_t s13 = src1->nb[3] / ts_src1;
+ 
+         if (use_native_fp4) {
+-            quantize_mmq_fp4_cuda(src1_d, ids_src1.get(), src1_q8_1.get(), src0->type, ne10, s11, s12, s13,
+-                                    ne10_padded, ne11_flat, ne12_flat, ne13_flat, stream);
++            // 0023: de-dup the broadcast (up/gate) quantize. ne11==1 means src1 is shared
++            // across experts, so quantize the ne12 unique tokens once and gather the blocks.
++            static const bool moe_quant_dedup = []{
++                const char * e = getenv("GGML_CUDA_MOE_QUANT_DEDUP");
++                return e ? atoi(e) != 0 : true;  // 0023: on by default; GGML_CUDA_MOE_QUANT_DEDUP=0 disables
++            }();
++            if (moe_quant_dedup && ne11 == 1) {
++                const size_t nbytes_unique = ne12*ne10_padded * sizeof(block_q8_1)/QK8_1 +
++                    get_mmq_x_max_host(cc)*sizeof(block_q8_1_mmq);
++                ggml_cuda_pool_alloc<char> src1_unique(ctx.pool(), nbytes_unique);
++                quantize_mmq_fp4_cuda(src1_d, nullptr, src1_unique.get(), src0->type, ne10, s12, 0, 0,
++                                        ne10_padded, ne12, 1, 1, stream);
++                gather_mmq_fp4_cuda(src1_unique.get(), ids_src1.get(), src1_q8_1.get(),
++                                    ne11_flat, ne12, ne10_padded, stream);
++            } else {
++                quantize_mmq_fp4_cuda(src1_d, ids_src1.get(), src1_q8_1.get(), src0->type, ne10, s11, s12, s13,
++                                        ne10_padded, ne11_flat, ne12_flat, ne13_flat, stream);
++            }
+         } else {
+             quantize_mmq_q8_1_cuda(src1_d, ids_src1.get(), src1_q8_1.get(), src0->type, ne10, s11, s12, s13,
+                                    ne10_padded, ne11_flat, ne12_flat, ne13_flat, stream);
+diff --git a/ggml/src/ggml-cuda/quantize.cu b/ggml/src/ggml-cuda/quantize.cu
+index 39a500a..a7fd86f 100644
+--- a/ggml/src/ggml-cuda/quantize.cu
++++ b/ggml/src/ggml-cuda/quantize.cu
+@@ -419,6 +419,43 @@ void quantize_mmq_q8_1_cuda(
+     }
+ }
+ 
++// MoE NVFP4 quantize de-dup (0023): for the broadcast (up/gate) expert matmuls every
++// gathered row references one of ne12 unique token activations, so the stock path
++// re-quantizes each token n_expert_used times. Quantize the unique tokens once, then copy
++// the resulting block_fp4_mmq rows into the expert-gathered layout keyed by ids. This is a
++// pure byte copy of identical blocks => the gathered buffer is byte-identical to stock.
++static __global__ void gather_mmq_fp4(
++        const uint4 * __restrict__ unique, const int32_t * __restrict__ ids,
++        uint4 * __restrict__ gathered, const int ne11_flat, const int ne12_unique,
++        const int64_t total_words) {
++    constexpr int W = (int) (sizeof(block_fp4_mmq) / sizeof(uint4)); // 9 uint4 per 144B block
++    const int64_t t = (int64_t) blockIdx.x * blockDim.x + threadIdx.x;
++    if (t >= total_words) {
++        return;
++    }
++    const int     w   = (int) (t % W);
++    const int64_t ib  = t / W;                 // destination block index = kb*ne11_flat + j
++    const int     j   = (int) (ib % ne11_flat);
++    const int     kb  = (int) (ib / ne11_flat);
++    const int     src = ids[j];
++    const int64_t ib_u = (int64_t) kb * ne12_unique + src;
++    gathered[t] = unique[ib_u * W + w];
++}
++
++void gather_mmq_fp4_cuda(
++        const void * unique, const int32_t * ids, void * gathered,
++        int64_t ne11_flat, int64_t ne12_unique, int64_t ne0_padded, cudaStream_t stream) {
++    const int     blocks_per_col = (int) ((ne0_padded + QK_K - 1) / QK_K);
++    constexpr int W = (int) (sizeof(block_fp4_mmq) / sizeof(uint4));
++    const int64_t total_words = ne11_flat * (int64_t) blocks_per_col * W;
++    const int     bs = 256;
++    const dim3    block_size(bs, 1, 1);
++    const dim3    num_blocks((unsigned) ((total_words + bs - 1) / bs), 1, 1);
++    gather_mmq_fp4<<<num_blocks, block_size, 0, stream>>>(
++        (const uint4 *) unique, ids, (uint4 *) gathered,
++        (int) ne11_flat, (int) ne12_unique, total_words);
++}
++
+ void quantize_mmq_fp4_cuda(
+         const float * x, const int32_t * ids, void * vy, const ggml_type type_src0,
+         const int64_t ne00, const int64_t s01, const int64_t s02, const int64_t s03,
+diff --git a/ggml/src/ggml-cuda/quantize.cuh b/ggml/src/ggml-cuda/quantize.cuh
+index 768a3ae..7f64069 100644
+--- a/ggml/src/ggml-cuda/quantize.cuh
++++ b/ggml/src/ggml-cuda/quantize.cuh
+@@ -26,6 +26,10 @@ void quantize_mmq_q8_1_cuda(
+         ggml_type type_src0, int64_t ne00, int64_t s01, int64_t s02, int64_t s03,
+         int64_t ne0, int64_t ne1, int64_t ne2, int64_t ne3, cudaStream_t stream);
+ 
++void gather_mmq_fp4_cuda(const void * unique, const int32_t * ids, void * gathered,
++                         int64_t ne11_flat, int64_t ne12_unique, int64_t ne0_padded,
++                         cudaStream_t stream);
++
+ void quantize_mmq_fp4_cuda(const float *   x,
+                              const int32_t * ids,
+                              void *          vy,
+-- 
+2.43.0
+
