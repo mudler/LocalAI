@@ -473,3 +473,167 @@ per-step GPU-busy = wall (no overlap), so that inference does not hold.
   pass or the GEMM/quantize stack.
 
 Assisted-by: Claude:opus-4.8 [Claude Code]
+
+---
+
+## SYNTHESIS (final) - the validated decode-parity picture, ranked plan, and verdict
+
+Reconciles all six investigation sections above plus the three adversarial verdicts
+(Verify A/B/C). One sentence: **the "~60% idle" never existed; the decode step is
+99.94% GPU-busy single-stream, so the 14% gap to vLLM is kernel GPU-time, dominated by
+the bandwidth-bound `gated_delta_net` recurrence (51.6%), and the only gap-closing levers
+are byte-reduction inside that kernel - NOT launch-bubble removal.**
+
+### 1. The proven critical-path decomposition of the decode step
+
+Decisive node-level trace (`nsys --cuda-graph-trace=node`, clean Lever-1 build df1cc97,
+q36-27b-nvfp4 dense, npl128, GB10/48SM/sm_121, commit a7238525, nsysgap.sqlite). One
+steady step = single replayed CUDA graph (graphId=11, 23 replays), all 2965 kernels on
+ONE stream (stream 14, strictly serial -> every inter-kernel gap is pure idle). Window
+383.48 ms.
+
+BUBBLE CLASSIFICATION (the "where is the ~60% idle" answer - it is NOT idle):
+
+| bucket | ms/step | % step | note |
+|---|---|---|---|
+| (a) inter-kernel launch bubbles | ~0 | ~0 | graph replay collapses host launch latency |
+| (b) serial-dependency stalls (GDN chain) | included in 0.225 | 0.06 | each kernel starts < 1 us after prev; zero gaps > 5 us, max 2.40 us |
+| (a)+(b) total exposed idle (LAG sum) | **0.225** | **0.06%** | 1700 kernels back-to-back |
+| (d) between-step HOST gap (cgraph rebuild, new uid) | ~0.2 | ~0.05 | the ONLY graph-non-covered idle; ~0.4% in older eager-tail traces |
+| (c) within-kernel GPU-busy | **380.4** | **99.94%** | this is the whole step |
+
+The nvidia-smi "40%" is within-kernel SM/bandwidth efficiency (~12-16% achieved
+occupancy on memory-latency-bound kernels), NOT wall-clock idle.
+
+KERNEL GPU-TIME DECOMPOSITION of the 380.4 ms busy step (this is where the gap lives):
+
+| kernel | ms | % step | regime |
+|---|---|---|---|
+| `gated_delta_net_cuda<128>` (48x, 4.08 ms/call) | **196.37** | **51.6** | bandwidth-bound f32 recurrent-state R+W (~384 MB R + 384 MB W/layer) |
+| `mul_mat_q` FP4 GEMM (496x) | 92.90 | 24.4 | memory-bound weight stream, 136-CTA tail-bound at decode |
+| `quantize_mmq_nvfp4` (496x) | 17.13 | 4.5 | mandatory act-quant (Lever-2 only relocated it) |
+| `nvjet` lm_head GEMM | 11.91 | 3.1 | |
+| `flash_attn_ext_f16` (16 attn layers) | 11.67 | 3.1 | |
+| `concat_cont` (conv-state splice) | 8.01 | 2.1 | Lever-1 target |
+| `cpy_scalar` (conv-state writeback + dup) | 7.62 | 2.0 | Lever-1 target (the conv-state share) |
+| `k_get_rows_float` | 7.08 | 1.9 | |
+| `k_bin_bcast` (gate mul + add) | 6.59 | 1.7 | Lever-3 gate-fold target (partial - rest is residual adds) |
+| `ssm_conv_f32` | 5.64 | 1.5 | folds into Lever-1 |
+| `unary_gated` (silu/sigmoid) | 5.36 | 1.4 | mostly FFN + output-gate (Lever 3 does NOT touch) |
+| `mul_mat_q_stream_k_fixup` | 3.94 | 1.0 | |
+| `rms_norm_f32` | 3.52 | 0.9 | |
+| `l2_norm_f32` | 0.64 | 0.2 | Lever-3 gate-fold target |
+| `gdn_gather_nonident` | 0.061 | 0.016 | negligible (early-returns on identity ids) |
+
+GDN region (recurrence + conv + concat + cpy + gather + l2norm) >= 210 ms = 55%+ of the step.
+The widely-cited "gated_delta_net 13%, 1.47 ms/call near-vLLM" from nsysab_new.kern.txt was
+PREFILL + the single eager capture step contaminating the average over 1248 calls (range
+0.046-4.42 ms); true steady decode is 4.08 ms/call, 2.8x higher, 51.6% of the step.
+
+### 2. Claims A / B / C: which HOLD, which are REFUTED, and the residual uncertainty
+
+**CLAIM A** ("the ~60% decode GPU-idle is inter-op launch bubbles ON the serial GDN
+chain"): **REFUTED.** Measured idle = 0.225 ms = 0.06%, not the ~53-57 ms the claim
+requires (two-plus orders of magnitude short). Zero gaps > 5 us; CUDA-graph replay
+already collapsed launch latency; serial data-dependency does NOT equal idle when the
+graph dispatches nodes back-to-back. The "40%" was a misread of within-kernel SM
+efficiency; the "555 ms busy-sum > 384 ms wall implies overlap" was a prefill-contaminated
+`--trace=cuda` artifact (each step recorded as one opaque ~380 ms block).
+
+**CLAIM B** ("Lever 3 - gate fusion - moves the wall, unlike P2a/Lever-2, by removing
+serial launch bubbles"): **REFUTED on mechanism.** (i) There are no bubbles to remove
+(0.06%). (ii) The contrast is fictional: the step is single-stream with ZERO overlap
+anywhere, so P2a/Lever-2 were NOT flat because they "optimized overlapped work" - P2a
+tuned the prefill large-M GEMM (decode GEMMs are a different 136-CTA tail regime) and
+Lever-2 merely relocated mandatory quantize work into the GEMM prologue (net zero).
+(iii) Where the claim is trivially true (any kernel removal cuts wall in a 99.94%-busy
+single-stream step), the slice Lever 3 actually fuses ceilings at **12.76 ms = 3.35%**
+(k_bin_bcast 6.59 + silu/sigmoid 5.36 + l2_norm 0.64 + softplus 0.13 - and even that
+over-counts, since silu is mostly untouched FFN/output-gate). So the wall DOES move, but
+only ~3% (380 -> ~367 ms, 86% -> ~89% of vLLM), and NOT for the claimed reason. Lever 3
+is a component, not the gap-closer.
+
+**CLAIM C** ("the residual gap is software-closable LATENCY, not a GB10 hardware floor"):
+**REFUTED as worded** (no latency, no idle to close - same data as A). The "not a hardware
+floor" half is **UNSETTLED, not proven.** vLLM hits 327 ms on the same silicon, so it is
+not an absolute hard floor - but whether the dominant 51.6% `gated_delta_net` term is
+software-closable in BIT-EXACT form turns on one unmeasured quantity (below).
+
+RESIDUAL UNCERTAINTY (the single open question that decides everything):
+- **The DRAM byte-traffic ratio of llama's recurrence vs vLLM's.** Every section above
+  ESTIMATED the GDN state bytes (~190 GB/s effective, ~70% of 273 GB/s peak); none MEASURED
+  it. If llama's `gated_delta_net_cuda<128>` moves ~2x the minimal (s0-read + s1-write)
+  bytes because the un-fused gate/l2norm/writeback/gather ops re-stream state through HBM,
+  then the 51.6% is software-closable by a single-pass fused recurrence (Claim C spirit
+  HOLDS). If llama already moves ~minimal bytes at > 85% of peak and vLLM moves the same,
+  the recurrence is at the GB10 LPDDR5x floor for this state size -> the gap is a
+  hardware/architecture floor and is NOT closable in bit-exact form (Claim C REFUTED on
+  both halves). This is the one measurement that converts the verdict from "refuted as
+  worded" to a definitive yes/no.
+- **The MoE model (qwen35moe) is untested.** At B=128 MUL_MAT_ID can trip
+  [TAG_MUL_MAT_ID_CUDA_GRAPHS] (`ne[2] > mmvq_mmid_max`) and disable the WHOLE MoE-decode
+  graph into eager, where the ~3100 per-step launches re-dispatch serially on the Grace
+  cores and inter-op bubbles WOULD reappear. For MoE only, Claim A could partially hold.
+  The dense 335 tok/s headline is fully settled.
+
+### 3. Ranked implementation plan for the remaining ~14% (57 ms/step, 384 -> 327)
+
+Every win must come from kernel GPU-time (bytes), because bubbles = 0 and both engines
+share identical bandwidth/compute floors. Ranked by expected recovery.
+
+| # | Lever | ms/step recovered | -> % of vLLM | bit-exact | tractability | gate |
+|---|---|---|---|---|---|---|
+| **1** | **Single-pass fused GDN recurrence** (fold l2norm+gate+decay+recurrence+state-writeback+gather into ONE pass over state, mirroring vLLM `fused_recurrent_gated_delta_rule_packed_decode`) - cuts state HBM round-trips | **0 to ~40** (= the byte-delta; UNKNOWN until ncu) | 86% -> up to ~98% | near (l2norm reduction; KL < ~1e-3) | HIGH (kernel rewrite) | **ncu byte-ratio test FIRST** |
+| 2 | **Conv-state concat -> ssm_conv fusion** (Lever 1): pass conv-state + new token as separate srcs, update conv state in place (vLLM `causal_conv1d_update`); removes concat_cont + the conv-state cpy | **~8-12** (concat 8.01 + cpy share of 7.62) | +2-3% | YES | MEDIUM | no-regret, build regardless |
+| 3 | **Gate-chain fold** (Lever 3 as designed): sigmoid-beta + softplus+dt+ssm_a gate + q/k l2norm into the recurrence kernel | **~12.76 ceiling** (3.35%) - but SUBSUMED by #1 | +3% | near (l2norm) | MEDIUM | build as a COMPONENT of #1, not standalone |
+| 4 | **bf16 recurrent + conv state** (Lever 5): halve the 196 ms recurrence + conv traffic; keep f32 in-register accumulation | **~70-90** (if floor-bound) | could reach/exceed parity | NO (parity-tolerance decision; must match vLLM stored dtype) | HIGH (rewrite + parity validation) | the ONLY lever that moves the floor kernel; separate precision track |
+| 5 | gdn_gather skip-launch at steady decode | ~0.06 | ~0 | YES | trivial | not worth it (micro) |
+| 6 | GDN occupancy split | 0 | 0 | - | - | NOT a lever: 196608 CTAs / 4096 waves, already saturated, bandwidth-bound |
+| 7 | quantize_mmq attack (Lever 2) | 0 | 0 | - | - | SPENT - relocated mandatory work, proven flat |
+| 8 | decode CUDA-graph capture | 0 | 0 | - | - | SPENT - ALREADY in effect (graphId=11), did not close gap |
+| 9 | persistent cgraph (uid fast-path) | ~0.2 (0.05-0.4%) | ~0 | YES | MEDIUM | second-order to the SSM floor |
+
+Levers 1, 3, and the gather of #5 are the SAME kernel rewrite: build them together as a
+single-pass recurrence. Levers 6/7/8 are dead (at-floor or already-shipped). Lever 4 is a
+distinct, bit-exactness-breaking precision track.
+
+### 4. The honest verdict and the single highest-value next step
+
+**Is true (bit-exact) decode parity reachable?** UNCERTAIN, and it hinges entirely on the
+unmeasured byte ratio:
+- If llama's recurrence re-streams state (~2x bytes from un-fused ops): YES - a single-pass
+  fused recurrence (Lever 1) plus conv fusion (Lever 2) plausibly recover ~20-40 ms, taking
+  llama to ~345-365 ms = ~90-95% of vLLM, near-bit-exact (gate on KL tolerance).
+- If llama is already at the GB10 bandwidth floor for f32 state: NO in bit-exact form - the
+  57 ms is a hardware floor, and only bf16 state (Lever 4, non-bit-exact) closes it.
+
+Either way, the gating-fold-alone path tops out at ~89% of vLLM, so the project should NOT
+ship the isolated gate fold as "the parity lever."
+
+**SINGLE highest-value next IMPLEMENTATION step:** build the **single-pass fused GDN
+recurrence kernel** (Lever 1 = fold gate + l2norm + state-writeback + gather into one pass
+over the recurrent state) - BUT gate the build on one cheap measurement first, because it
+is a HIGH-effort kernel rewrite that is worthless if the recurrence is already byte-minimal.
+
+**The measurement that confirms it before over-investing (one short GPU run, gap-analysis
+agent only):** `ncu` on `gated_delta_net_cuda<128>` at B=128 vs vLLM's
+`fused_recurrent_gated_delta_rule_packed_decode_kernel` for identical layer dims, two
+counters:
+- `dram__bytes.sum` (actual DRAM bytes/call)
+- `dram__throughput.avg.pct_of_peak_sustained_elapsed` (achieved % of 273 GB/s)
+
+Decision rule:
+- llama moves ~2x minimal bytes OR vLLM moves materially fewer for the same math -> redundant
+  un-fused state round-trips -> BUILD the single-pass fused recurrence; predicted recovery
+  scales with the byte delta (up to ~40 ms). This is the gap-closer.
+- llama already moves ~minimal bytes at > 85% of peak and vLLM moves the same -> the
+  recurrence is at the GB10 hardware floor -> do NOT build the fusion for throughput (only
+  the ~3% gate-fold ceiling remains); the sole remaining lever is bf16 state (Lever 4,
+  accept non-bit-exact), and bit-exact parity is NOT reachable.
+
+**No-regret parallel work** (build regardless of the ncu outcome, bit-exact, medium effort):
+the conv-state concat -> ssm_conv in-place fusion (Lever 2, ~8-12 ms = +2-3% toward parity),
+which removes concat_cont (8.01 ms) and the conv-state writeback cpy off a bandwidth-bound,
+single-stream step where their full GPU-time is wall-clock.
+
+Assisted-by: Claude:opus-4.8 [Claude Code]
