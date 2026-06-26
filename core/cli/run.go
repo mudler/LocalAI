@@ -203,6 +203,7 @@ func (r *RunCMD) Run(ctx *cliContext.Context) error {
 		system.WithBackendImagesReleaseTag(r.BackendImagesReleaseTag),
 		system.WithBackendImagesBranchTag(r.BackendImagesBranchTag),
 		system.WithBackendDevSuffix(r.BackendDevSuffix),
+		system.WithPreferDevelopmentBackends(r.PreferDevelopmentBackends),
 	)
 	if err != nil {
 		return err
