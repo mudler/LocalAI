@@ -125,7 +125,7 @@ func ImportModelURIEndpoint(cl *config.ModelConfigLoader, appConfig *config.Appl
 }
 
 // ImportModelEndpoint handles creating new model configurations
-func ImportModelEndpoint(cl *config.ModelConfigLoader, appConfig *config.ApplicationConfig) echo.HandlerFunc {
+func ImportModelEndpoint(cl *config.ModelConfigLoader, gs *galleryop.GalleryService, appConfig *config.ApplicationConfig) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		// Get the raw body
 		body, err := io.ReadAll(c.Request().Body)
@@ -245,6 +245,13 @@ func ImportModelEndpoint(cl *config.ModelConfigLoader, appConfig *config.Applica
 			}
 			return c.JSON(http.StatusInternalServerError, response)
 		}
+		// Tell peer replicas to load the newly-created config from the shared
+		// models dir: this endpoint only reloaded the local loader. No-op in
+		// standalone mode.
+		if gs != nil {
+			gs.BroadcastModelsChanged(modelConfig.Name, "install")
+		}
+
 		// Return success response
 		response := ModelResponse{
 			Success:  true,

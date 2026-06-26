@@ -16,6 +16,7 @@ import (
 	"github.com/mudler/LocalAI/core/services/galleryop"
 	"github.com/mudler/LocalAI/core/services/jobs"
 	"github.com/mudler/LocalAI/core/services/messaging"
+	"github.com/mudler/LocalAI/core/services/modeladmin"
 	"github.com/mudler/LocalAI/core/services/monitoring"
 	"github.com/mudler/LocalAI/core/services/nodes"
 	"github.com/mudler/LocalAI/core/services/routing/admission"
@@ -330,9 +331,14 @@ func New(opts ...config.AppOption) (*Application, error) {
 			gs := application.galleryService
 			sys := options.SystemState
 			cfgLoaderOpts := options.ToConfigLoaderOptions()
-			gs.OnModelsChanged = func(_ messaging.CacheInvalidateEvent) {
-				if err := application.ModelConfigLoader().LoadModelConfigsFromPath(sys.Model.ModelsPath, cfgLoaderOpts...); err != nil {
-					xlog.Warn("Failed to reload model configs after peer invalidation", "error", err)
+			gs.OnModelsChanged = func(evt messaging.CacheInvalidateEvent) {
+				// ApplyRemoteChange honors the op: a "delete" prunes the element
+				// (a reload-from-path is additive and cannot drop it), anything
+				// else reloads from disk; a named element's running instance is
+				// shut down so the new config takes effect. The originating
+				// replica reloads inline and never depends on this path.
+				if err := modeladmin.ApplyRemoteChange(application.ModelConfigLoader(), application.modelLoader, sys.Model.ModelsPath, evt, cfgLoaderOpts...); err != nil {
+					xlog.Warn("Failed to apply peer model config change", "error", err)
 				}
 			}
 			if err := application.galleryService.SubscribeBroadcasts(); err != nil {

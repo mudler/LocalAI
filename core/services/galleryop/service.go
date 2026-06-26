@@ -201,6 +201,24 @@ func (g *GalleryService) publishCacheInvalidate(subject string, evt messaging.Ca
 	}
 }
 
+// BroadcastModelsChanged notifies peer replicas that a model config was
+// created, edited, or removed out-of-band of the gallery install/delete
+// channel (e.g. the admin /models/edit, /models/import and
+// /models/toggle-state endpoints, which write the YAML and reload only the
+// local in-memory loader). Peers receive it via OnModelsChanged and refresh
+// their own ModelConfigLoader so a request load-balanced to any replica sees
+// the same config. No-op in standalone mode (no NATS client).
+//
+// op is "install" for a create/edit (the element must be (re)loaded from
+// disk) or "delete" for a removal (the element must be pruned from memory,
+// which a reload-from-path cannot do because the loader is additive).
+func (g *GalleryService) BroadcastModelsChanged(element, op string) {
+	g.publishCacheInvalidate(messaging.SubjectCacheInvalidateModels, messaging.CacheInvalidateEvent{
+		Element: element,
+		Op:      op,
+	})
+}
+
 // mergeStatus is the broadcast-side merge: it updates the in-memory map from
 // a peer's GalleryProgressEvent without re-publishing to NATS or re-writing
 // to PostgreSQL. UpdateStatus is the local-write entry point and does both;
