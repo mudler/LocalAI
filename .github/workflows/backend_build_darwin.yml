@@ -99,6 +99,7 @@ jobs:
             /opt/homebrew/Cellar/xxhash
             /opt/homebrew/Cellar/zstd
             /opt/homebrew/Cellar/nlohmann-json
+            /opt/homebrew/Cellar/opus
           key: brew-${{ runner.os }}-${{ runner.arch }}-v1-${{ hashFiles('.github/workflows/backend_build_darwin.yml') }}
 
       - name: Dependencies
@@ -113,7 +114,12 @@ jobs:
           # nlohmann-json is header-only and required by the ds4 backend
           # (dsml_renderer.cpp includes <nlohmann/json.hpp>); on Linux it comes
           # from the apt-installed nlohmann-json3-dev in the build image.
-          brew install protobuf grpc make protoc-gen-go protoc-gen-go-grpc libomp llvm ccache blake3 fmt hiredis xxhash zstd nlohmann-json
+          # opus + pkg-config are required by the opus go backend: its
+          # Makefile/package.sh call `pkg-config --cflags/--libs opus` to build
+          # libopusshim.dylib and to locate libopus.dylib for bundling. brew's
+          # pkg-config defaults its search path to the Homebrew prefix so the
+          # opus.pc is found.
+          brew install protobuf grpc make protoc-gen-go protoc-gen-go-grpc libomp llvm ccache blake3 fmt hiredis xxhash zstd nlohmann-json opus pkg-config
           # Force-reinstall ccache so brew re-validates its full runtime-dep
           # closure on every run. This is the durable fix: when the upstream
           # ccache formula gains a new transitive dep (as it has multiple times
@@ -132,7 +138,7 @@ jobs:
           # and decides "already installed" without re-linking, so on a cache-
           # hit run the formulas aren't on PATH. Force-link them; --overwrite
           # tolerates pre-existing symlinks from earlier installs.
-          brew link --overwrite protobuf grpc make protoc-gen-go protoc-gen-go-grpc libomp llvm ccache blake3 fmt hiredis xxhash zstd nlohmann-json 2>/dev/null || true
+          brew link --overwrite protobuf grpc make protoc-gen-go protoc-gen-go-grpc libomp llvm ccache blake3 fmt hiredis xxhash zstd nlohmann-json opus pkg-config 2>/dev/null || true
 
       - name: Save Homebrew cache
         if: github.event_name != 'pull_request' && steps.brew-cache.outputs.cache-hit != 'true'
@@ -153,6 +159,7 @@ jobs:
             /opt/homebrew/Cellar/xxhash
             /opt/homebrew/Cellar/zstd
             /opt/homebrew/Cellar/nlohmann-json
+            /opt/homebrew/Cellar/opus
           key: brew-${{ runner.os }}-${{ runner.arch }}-v1-${{ hashFiles('.github/workflows/backend_build_darwin.yml') }}
 
       # ---- ccache for llama.cpp CMake builds ----
