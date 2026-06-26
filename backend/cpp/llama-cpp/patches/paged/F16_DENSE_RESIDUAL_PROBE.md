@@ -115,4 +115,70 @@ Caveats for a build decision:
    a meaningful (norms/elementwise/activations + optionally nvjet) f16 conversion, at
    the cost of leaving the 95%-bit-exact f32 plateau.
 
+## (4) What it costs to capture it: NOT a flag  (source map, read-only)
+
+The asymmetry confirmed at the source level (DGX `~/llama-paged-dev` @ f7409c2, tree
+git-clean; vLLM ref from BITEXACT_VS_VLLM.md):
+- vLLM `text_config.dtype = bfloat16` => the ENTIRE non-quantized compute (residual
+  stream, RMSNorm I/O with f32-internal reduction, FlashAttention out, SiLU, gating,
+  conv state) runs in BF16. Only the gated-DeltaNet temporal SSM state is f32
+  (`mamba_ssm_dtype="float32"`, matched to llama).
+- llama's intermediate activations are F32 **by construction, everywhere**:
+  `ggml_mul_mat` hardcodes an F32 result (ggml.c:3250), so the stream snaps back to F32
+  after EVERY projection (Q/K/V/O, wqkv, ssm in/out, ffn up/gate/down, eh_proj, lm_head).
+  `ggml_rms_norm`/`ggml_l2_norm`/`ggml_silu`/`ggml_add`/`ggml_mul`/`flash_attn_ext`/
+  `ggml_ssm_conv` all preserve/emit F32. There is no point where the stream is f16.
+
+There is **no vLLM-style global model-compute-dtype knob** in ggml/llama. You cannot flip
+one model-load flag. Three escalating options, all opt-in / non-bit-exact:
+
+- A flag: does not exist and cannot exist as-is - the F32 is structural, not a default.
+- Option 1 (targeted per-op f16, no new kernels): silu/sigmoid/softplus (unary.cu),
+  add/mul (binbcast.cu), rope already have f16 paths. But the residual stream stays F32,
+  so each op must be wrapped cast(F16)->op->cast(F32), adding 2 `cpy` ops per op. At
+  decode these ops are tiny and memory-bound; the cast traffic ~= the op traffic, so the
+  net win is near-zero or negative unless the cast is FUSED into the producer/consumer.
+  Crucially this CANNOT capture the norms - the largest glue item.
+- Option 2 (the real lever, multi-file code change): carry the residual stream in F16
+  across the layer, cast to F32 only at the quantize boundary. Requires (a) f16 projection
+  output (patch `ggml_mul_mat` to honor a dst-type, or a cpy->F16 after each proj),
+  (b) **NEW F16 template instantiations in norm.cu** for rms_norm / l2_norm / fused
+  rms+mul / fused rms+mul+add (today hard-`GGML_ASSERT(type==F32)` at norm.cu:441-442,
+  465-466, 525-527, 601-604) keeping the f32 reduction, (c) optionally an F16 ssm-conv.cu,
+  plus graph-dtype plumbing in qwen35.cpp / llama-graph.cpp to thread F16 through
+  inpL/cur/the residual adds. The single biggest code item is the norm.cu f16 kernels -
+  the exact band vLLM runs in bf16 that Option 1 cannot reach.
+
+Must-stay-f32 regardless (vLLM does the same): RMSNorm/L2Norm sum-of-squares reduction;
+FlashAttention KQ/softmax accumulation (forced `GGML_PREC_F32`, llama-graph.cpp:2117);
+the gated-DeltaNet recurrent SSM temporal state (f32 BOTH engines, out of scope); the
+src1->q8_1/nvfp4 activation quantization reads F32, so the stream must be F32 at every
+projection boundary no matter what.
+
+## Verdict: probe-further-then-decide, leaning not-worth-it for the default
+
+f16 does NOT meaningfully close the dense residual on its own, and what it can close is a
+multi-file non-bit-exact build, not a flag.
+
+- Precision is NOT the dominant cause of the 8% gap. 83.2% of the decode step (recurrence
+  49.3% + FP4 GEMM 27.4% + FP4 act-quant/fixup 6.4%) is already precision-matched f32/W4A4
+  on both engines. The f16-able glue is only 8.4% of the step (Budget A); of the ~27 ms
+  gap, f16 realistically recovers ~11 ms (glue) to ~16 ms (+ the uncertain nvjet GEMM) =
+  40-60% of the residual. The remaining ~3-4% is kernel/scheduling efficiency (non-FP4
+  cublas GEMM, graph-launch overhead, irreducible f32 accumulation) that f16 cannot touch.
+- The recoverable mass is the norm+elementwise+activation band, which is precisely the
+  part that needs NEW f16 norm kernels (Option 2). The no-new-kernel ops (Option 1) are
+  too small and their cast overhead likely eats the win.
+- Any version is opt-in / non-bit-exact, the same gate-failing category as the already
+  shelved bf16-SSM-state work. It cannot be the bit-exact f32 default; it is a second,
+  separately-maintained fast path with a ~95-96% ceiling.
+
+Recommendation: do NOT build the f16 glue path now. Ship the 95%-bit-exact f32 plateau
+(patches 0018-0023) as the default. If chasing the last 4% later, the only lever worth a
+build is Option 2's norm.cu f16 kernels + f16 residual stream (recovers the norm/elementwise
+band, ~11 ms); gate it behind an explicit opt-in flag and validate it against the same KL
+threshold as bf16-SSM before shipping. The non-FP4 cublas GEMM efficiency and graph-launch
+scheduling - the structural ~3-4% - are a better long-term target than precision, because
+they help the bit-exact default too.
+
 Assisted-by: Claude:opus-4.8 [Claude Code]
