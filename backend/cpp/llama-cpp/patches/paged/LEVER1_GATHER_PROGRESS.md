@@ -24,3 +24,11 @@ update via ggml_ssm_conv_update_inplace_ids (src[4]=ids discriminator). Mirrors 
 - Patch: patches/paged/0028-qwen35-recurrent-state-gather-fusion.patch (LocalAI worktree)
 - Docs: LEVER1_GATHER_RESULTS.md (full bench tables)
 - DGX bench outs: ab_{dense,moe}_{base,lever1}.out, nab_{base,lever1}.kern.csv, md5{d,m}_{base,lever1}.txt
+
+## gather-bench landed (worktree)
+
+Rigorous same-session A/B (DGX GB10) validated patch 0028 bit-exact and lifting both models;
+results folded into LEVER1_GATHER_RESULTS.md and the regenerated 0028 patch. The bench files
+first landed in this worktree via concurrent merge c1f1d1e8e (origin/master sweep); this commit
+re-anchors them with sign-off attribution. DGX llama tree dedicated commit: fafe878 (code
+byte-identical to 944636c; docs-only amend). Both trees committed, not pushed.
