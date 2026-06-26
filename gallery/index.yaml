@@ -22,7 +22,7 @@
 # backend/cpp/llama-cpp/patches/paged/A_HYBRID_SSM_RESULTS.md for the quality profile.
 # The two NVFP4 entries below intentionally stay bit-exact (no ssm_bf16_tau).
 # =============================================================================
-- name: "qwen3.6-27b-nvfp4"
+- name: "qwen3.6-27b-nvfp4-paged"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
     - https://huggingface.co/mudler/Qwen3.6-27B-NVFP4-GGUF
@@ -64,7 +64,7 @@
     - filename: llama-cpp/models/Qwen3.6-27B-NVFP4-GGUF/q36-27b-nvfp4.gguf
       sha256: 2fdd857b13cbaa37b913d9566bf0a69443dcdb702e95694ca8d75236710575d4
       uri: https://huggingface.co/mudler/Qwen3.6-27B-NVFP4-GGUF/resolve/main/q36-27b-nvfp4.gguf
-- name: "qwen3.6-35b-a3b-nvfp4"
+- name: "qwen3.6-35b-a3b-nvfp4-paged"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
     - https://huggingface.co/mudler/Qwen3.6-35B-A3B-NVFP4-GGUF
@@ -753,6 +753,77 @@
       - chat
     options:
       - use_jinja:true
+    parameters:
+      model: llama-cpp/models/Qwopus3.6-27B-Coder-MTP-NVFP4-GGUF/Qwopus3.6-27B-Coder-MTP-NVFP4-TURBO.gguf
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/Qwopus3.6-27B-Coder-MTP-NVFP4-GGUF/Qwopus3.6-27B-Coder-MTP-NVFP4-TURBO.gguf
+      sha256: 1c163f0e1f29485d432b466b9e5e0593ea9b10c5a62cf3eb71b77fcfe41db46c
+      uri: https://huggingface.co/michaelw9999/Qwopus3.6-27B-Coder-MTP-NVFP4-GGUF/resolve/main/Qwopus3.6-27B-Coder-MTP-NVFP4-TURBO.gguf
+- name: "qwopus3.6-27b-v2-mtp-nvfp4-paged"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/michaelw9999/Qwopus3.6-27B-v2-MTP-NVFP4-GGUF
+  description: "\U0001FA90 Qwopus3.6-27B-v2-MTP\nMTP Release\n\nMulti-Token Prediction reasoning model fine-tuned from Qwen3.6-27B\n\n\U0001F9EC Trace Inversion & Negentropy\n\U0001F9E0 27B Parameters\n⚡ Speculative Decoding\n\U0001F6E0️ Coding / DevOps / Math\n\n\U0001F4A1 What is Qwopus3.6-27B-v2-MTP?\n\U0001FA90 Qwopus3.6-27B-v2-MTP is a speed-oriented reasoning release built on top of Qwen3.6-27B. It keeps the Qwopus line's focus on reconstructed reasoning traces, coding discipline, DevOps procedures, and mathematical derivations, while adding Multi-Token Prediction for faster generation. The goal is simple: preserve the depth and structure of a 27B reasoning model while making real interactive use noticeably faster.\n\n⚡ MTP DecodingAuxiliary future-token prediction improves throughput on long reasoning, code, math, and strict-format prompts.\n\U0001F9E9 Structured ReasoningInherits the Qwopus training recipe built around reconstructed step-by-step reasoning trajectories.\n\U0001F9EA GB10 TestedValidated on a 30-question local benchmark across Logic, Coding, DevOps, Math, and Edge tasks.\n\U0001F680 Practical SpeedDesigned for workflows where strong answers matter, but waiting several extra minutes per task does not.\n\n...\n\n\nLocalAI paged-attention backend variant (llama-cpp-localai-paged): on-demand paged KV cache plus a decode-first prefill budget.\n"
+  tags:
+    - llm
+    - gguf
+  overrides:
+    backend: llama-cpp-localai-paged
+    f16: true
+    flash_attention: "on"
+    context_size: 131072
+    gpu_layers: 99
+    batch: 512
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+    options:
+      - use_jinja:true
+      - paged_kv:true              # LLAMA_KV_PAGED=1
+      - max_batch_tokens:512       # decode-first QoS budget (27B dense)
+      - kv_unified:false           # per-slot paged capacity/memory benefit needs a per-sequence cache
+      - parallel:128               # 128 serving slots
+    parameters:
+      model: llama-cpp/models/Qwopus3.6-27B-v2-MTP-NVFP4-GGUF/Qwopus3.6-27B-v2-MTP-NVFP4-GGUF.gguf
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/Qwopus3.6-27B-v2-MTP-NVFP4-GGUF/Qwopus3.6-27B-v2-MTP-NVFP4-GGUF.gguf
+      sha256: 2a0a36fd10374c2a85356121c7c315bda725c7eaca0b3ae14838567629c6924a
+      uri: https://huggingface.co/michaelw9999/Qwopus3.6-27B-v2-MTP-NVFP4-GGUF/resolve/main/Qwopus3.6-27B-v2-MTP-NVFP4-GGUF.gguf
+- name: "qwopus3.6-27b-coder-mtp-nvfp4-paged"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/michaelw9999/Qwopus3.6-27B-Coder-MTP-NVFP4-GGUF
+  description: "\U0001FA90 Qwopus-3.6-27B-Coder\nCoder SFT Release\n\nAgentic Coding &amp; Tool-Use Reasoning Model Fine-Tuned on Qwopus3.6-27B-v2\n\n\U0001F9EC Trace Inversion & Negentropy\n\U0001F9E0 27B Dense Model\n⚡ Agentic Coding\n\U0001F6E0️ Tool Calling & Agent\n\U0001F3C6 SWE-bench Verified: 67.0% (off-thinking)\n\n\U0001F4A1 What is Qwopus-3.6-27B-Coder?\n\U0001FA90 Qwopus-3.6-27B-Coder is a reasoning-enhanced agentic coding model built on top of Qwopus3.6-27B-v2. It inherits the powerful reasoning foundation of the v2 base — which achieved 87.43% MMLU-Pro (300ex) and 75.25% SWE-bench Verified — and further specializes it for agentic code generation, structured tool calling, debugging, and instruction-following in developer workflows. The model is designed to excel at repository-level coding tasks, multi-turn tool orchestration, and complex logical reasoning under realistic agent environments.\n\n\U0001F9E9 Agentic Coding\nOptimized for repository-level coding, debugging, patch generation, and structured multi-step development workflows.\n\n\U0001F6E0️ Tool Calling\nLearns from real agent trajectories with tool definitions, tool calls, and environment feedback for robust multi-turn execution.\n\n...\n\n\nLocalAI paged-attention backend variant (llama-cpp-localai-paged): on-demand paged KV cache plus a decode-first prefill budget.\n"
+  tags:
+    - llm
+    - gguf
+  icon: https://cdn-uploads.huggingface.co/production/uploads/66309bd090589b7c65950665/sGQKmrMc6L6guMoaB5_Y2.png
+  overrides:
+    backend: llama-cpp-localai-paged
+    f16: true
+    flash_attention: "on"
+    context_size: 131072
+    gpu_layers: 99
+    batch: 512
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+    options:
+      - use_jinja:true
+      - paged_kv:true              # LLAMA_KV_PAGED=1
+      - max_batch_tokens:512       # decode-first QoS budget (27B dense)
+      - kv_unified:false           # per-slot paged capacity/memory benefit needs a per-sequence cache
+      - parallel:128               # 128 serving slots
     parameters:
       model: llama-cpp/models/Qwopus3.6-27B-Coder-MTP-NVFP4-GGUF/Qwopus3.6-27B-Coder-MTP-NVFP4-TURBO.gguf
     template:

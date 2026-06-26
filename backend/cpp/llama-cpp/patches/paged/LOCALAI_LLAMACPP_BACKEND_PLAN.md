@@ -349,7 +349,7 @@ either typed config fields (context_size/f16/flash_attention/gpu_layers/batch) o
 --------------------------------------------------------------------------------
 2.2 gallery/index.yaml entry - DENSE  q36-27b-nvfp4
 --------------------------------------------------------------------------------
-- name: "qwen3.6-27b-nvfp4"
+- name: "qwen3.6-27b-nvfp4-paged"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
     - https://huggingface.co/<ORG>/Qwen3.6-27B-NVFP4-GGUF      # placeholder, section 3
@@ -389,7 +389,7 @@ either typed config fields (context_size/f16/flash_attention/gpu_layers/batch) o
 Same shape; the MoE is lighter on memory (~3B active). parallel:128 + budget 256 was the
 MoE decode-throughput sweet spot in the sweep, but 512 is fine as a default; if optimizing
 purely for saturated MoE decode use max_batch_tokens:256.
-- name: "qwen3.6-35b-a3b-nvfp4"
+- name: "qwen3.6-35b-a3b-nvfp4-paged"
   urls: [ https://huggingface.co/<ORG>/Qwen3.6-35B-A3B-NVFP4-GGUF ]
   ...
   overrides:
