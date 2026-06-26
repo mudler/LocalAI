@@ -117,4 +117,119 @@ The MoE grouped GEMM (the brief's hypothesis) is a **-1.7 ms llama win**, so it 
    **(c) fuller CUDA-graph coverage + stream overlap** (~+7, bit-exact); **(d) fuse the W4A4 act-quant
    into the preceding op** (+3.3, bit-exact). None of these is a new MoE GEMM.
 
+---
+
+# FINAL DECISION (cross-agent synthesis) - "can we do what vLLM does on MoE?"
+
+Three agents converged on the same verdict from independent angles: `moe-gap-groundtruth`
+(the measured both-engine nsys decomposition above), `vllm-marlin-study` (source-read of vLLM's
+`moe_wna16_marlin_gemm` / `moe_align_block_size` / `prepare_nvfp4_moe_layer_for_marlin` on the DGX),
+and `marlin-port-feasibility` (read-only assessment of the dense W4A16 scaffold + prior STOP). All
+three agree, and the measurement is the arbiter. Below is the decision the user asked for.
+
+## (1) WHERE the 15% lives - decisive
+
+The gap is **27.8 ms/step (llama at 83.6% of vLLM)** and it is **NOT one kernel - it is a sum of small
+deltas, and the MoE grouped GEMM is on llama's side of the ledger.** Ranked:
+
+| rank | lever | Δ ms/step | bit-exact? | this is... |
+|-----:|-------|----------:|:----------:|------------|
+| 1 | Graph coverage + cross-stream overlap | ~+7.0 | **yes** | scheduler/runtime (idle +3.8, overlap +3.2) |
+| 2 | Recurrence state-gather/conv plumbing (`k_get_rows_float` 5.2 + conv) | +6.6 | **yes** | llama-only kernels; vLLM updates state in-place |
+| 3 | Dense GDN/attn projections + lm_head (bf16 vs NVFP4) + convert glue | +6.5 | **no** | the NVFP4-dense-quant lever, on the projections |
+| 4 | Router GEMM + norms/combine/memcpy glue | +5.4 | mostly yes | llama router = full FP4 GEMM; vLLM fuses topk/align |
+| 5 | W4A4 act-quant tax (`quantize_mmq_nvfp4`) | +3.3 | **yes** | vLLM's W4A16 makes this structurally 0 |
+| - | **MoE-expert grouped GEMM** | **-1.7** | - | **llama WIN** - native FP4-MMA W4A4 47.3 vs Marlin W4A16 50.0 |
+
+**The Marlin GEMM is explicitly ruled out as the source of the gap.** Both engines read the same ~22 GB
+of ~4-bit expert weights once per step and are LPDDR5x-bandwidth-bound; on that weight stream they tie,
+and llama's 2x-rate FP4-MMA edges Marlin's half-rate bf16 MMA. It is **not the projections-vs-Marlin
+distinction in the experts, it is the projections in the DENSE path, the recurrence plumbing, and the
+runtime/graph** that cost llama the 15%. Not distributed, not the expert GEMM, not routing alone.
+
+## (2) Can llama MATCH it - and HOW
+
+**Yes - to within a few percent, and NOT with a Marlin/W4A16 MoE GEMM.** The two biggest *compute*
+kernels (the gated-DeltaNet SSM core 70.0 vs 71.1, and the MoE grouped GEMM 47.3 vs 50.0) are **already
+llama wins.** The gap is overhead/scheduling/precision-of-the-other-tensors, all of which llama can
+attack on its existing W4A4 FP4-MMA expert path. The four levers, in recommended build order:
+
+| order | build | gain | bit-exact / gate | effort |
+|------:|-------|-----:|------------------|--------|
+| 1st | **Fuse away the recurrent-state gather `k_get_rows_float`** (update SSM state in-place in the GDN decode path, fold `ssm_conv_update`) | ~+5 ms (~3% of step) - biggest single-kernel win | **bit-exact** (no md5 rebaseline) | medium - CUDA, the GDN decode kernel |
+| 2nd | **Fuller CUDA-graph coverage + stream overlap** (extend the 0025 re-graph to the remaining MoE/projection nodes, overlap independent streams) | ~+7 ms combined; 0025 already banked ~+1.9% | **bit-exact** | medium - scheduler, partly done |
+| 3rd | **NVFP4-quantize the still-bf16 GDN/attn projections + lm_head** (the same move vLLM makes on its dense path; 4-bit weight read ~4x less BW, kills the 2.9 ms bf16<->f32 convert) | ~+6.5 ms - biggest *bucket* | **bit-changing** (re-baselines md5 gates; precision-UPGRADE, see below) | medium-high - new NVFP4 weight path for non-expert linears |
+| 4th | **Fuse the W4A4 act-quant into the preceding RMSNorm/SiLU** (as vLLM fuses act-quant) | +3.3 ms | **bit-exact** | low-medium |
+
+**Reach:** the three bit-exact levers (1+2+4 ~= +15.3 ms) alone close the gap to ~154.5 ms/step
+=> ~830 t/s = **~94% of vLLM, with zero precision change and zero md5 rebaseline.** Adding the
+NVFP4-projection lever (3, +6.5) reaches ~148 ms => ~865 t/s = **~96-97% of vLLM**, with the residual
+being router/glue and the irreducible cross-stream-overlap that is structural to how ggml schedules
+host-launched nodes vs vLLM's single fused graph. Because llama's two heaviest kernels are already
+ahead, **parity-or-better is physically reachable** once the plumbing/overhead is removed; vLLM has no
+arithmetic advantage on this hardware (its W4A16 is half-rate FP4 - it only wins on overhead and on the
+dense-path weight-read BW).
+
+## (3) The leading lever, in full - and the Marlin question, settled
+
+**The user's specific hypothesis - "do what vLLM does = a Marlin-style W4A16 grouped MoE GEMM" - is
+REJECTED, by measurement and by feasibility.**
+
+- **It is not where the gap is.** The MoE GEMM is a **-1.7 ms llama win.** A W4A16 Marlin MoE GEMM would
+  make that bucket SLOWER (half-rate bf16 MMA on the ~27% GEMM bucket), not faster.
+- **Its entire intrinsic upside is the ~2% act-quant tax** (W4A16 has no activation quantize). That
+  +2% ceiling is **smaller than the +1.9% the bit-exact 0025 re-graph already banked**, at vastly higher
+  effort and with a precision change. And the act-quant tax is independently closeable bit-exactly by
+  lever 4 (fuse it into the preceding op) without touching the GEMM.
+- **The scaffold does not help.** `paged/kernel/w4a16/marlin-w4a16.cu` is dense-only, Q4_0/Q4_K, with no
+  grouped/MUL_MAT_ID path and no NVFP4 dequant. A real MoE Marlin is effectively a from-scratch port of
+  `moe_wna16_marlin_gemm` (per-expert M-tiles, block-padded `moe_align` token-sort, stream-K over ragged
+  segments, NVFP4->bf16 in-kernel dequant). vLLM only reaches the BW floor via cutlass-SM120 TMA +
+  warp-specialized pipelining; the GB10 occupancy-only route the dense scaffold tried **plateaued at
+  ~9 TFLOPS / 178 t/s (~5x under MMQ)** and STOPPED at the occupancy wall (XOR-swizzle + deep cp.async
+  collapse GB10 occupancy). Realistic outcome of an MoE port: **a net REGRESSION** on the 27% GEMM
+  bucket. Multi-week, high-risk, DGX-only, no `ncu`, for a +2% ceiling. **Do not build it.**
+
+**Why vLLM runs W4A16 at all:** not because it is better - because sm_121 (consumer Blackwell / GB10)
+has no working cutlass FP4 MoE cubins (vLLM whitelists only sm_100/103 datacenter Blackwell for native
+FP4 MoE; the engine literally warns it is falling back to "Weight-only FP4 ... Marlin kernel"). On GB10,
+W4A16 is HALF the FP4-MMA rate. **llama's native W4A4 FP4-MMA is the higher hardware tier; matching vLLM
+does NOT mean copying its W4A16 fallback.**
+
+**Precision / gate (the brief's key nuance, assessed honestly):** the observation that W4A16 (bf16 acts)
+is a strict activation-precision UPGRADE over W4A4 (FP4 acts), with better KL-to-f32, is **correct but
+unmonetizable here.** (a) The current W4A4 MoE default is **already bit-exact to the f32 reference**
+(test-backend-ops MUL_MAT_ID 806/806, greedy md5 stable on both models) - you get no quality credit for
+being more precise than a default that already passes, and the precision-sensitive site is the
+gated-DeltaNet SSM *state* (a different op, addressed by the separate 0026 bf16-SSM opt-in), not the MoE
+GEMM. (b) W4A16 is **non-bit-exact vs the W4A4 default, so adopting it re-baselines every shipped md5
+gate** - a real cost for a +2% throughput ceiling that is itself likely negative. So the precision angle
+does not flip the verdict: it would be a precision upgrade nobody needs, bought with a slower,
+occupancy-hostile, gate-rebaselining kernel. The one genuinely precision-positive AND throughput-positive
+move that quantizes weights is **lever 3 (NVFP4 projections)** - and that is W4A16 on the DENSE linears
+(where it cuts weight-read BW), not on the experts.
+
+## (4) HONEST VERDICT + recommended build
+
+**VERDICT: We can essentially match vLLM on MoE decode (~94% bit-exact, ~96-97% with the projection
+quant, parity-or-better physically in reach), but NOT by doing "what vLLM does" in the sense the question
+implies. A Marlin/W4A16 grouped MoE GEMM is the wrong lever - the MoE GEMM is already a llama win and a
+W4A16 port would regress it. The 15% is bf16 dense-projection bandwidth + recurrence-gather plumbing +
+graph/overlap overhead + a 2% act-quant tax + router glue. Every piece is closeable on llama's existing
+native-FP4 expert path, mostly bit-exactly.**
+
+**Recommended build (ship order, none of it a new MoE GEMM):**
+1. **`k_get_rows` SSM-state-gather fusion** - bit-exact, ~+5 ms, biggest single-kernel win, no rebaseline. **Do first.**
+2. **Extend CUDA-graph coverage + stream overlap** beyond 0025 - bit-exact, ~+7 ms combined, partly banked.
+3. **Fuse the W4A4 act-quant into the preceding RMSNorm/SiLU** - bit-exact, +3.3 ms, erases the act-quant tax (the only thing W4A16 would have bought) without W4A16.
+4. **NVFP4-quantize the bf16 GDN/attn projections + lm_head** - +6.5 ms (biggest bucket), bit-changing
+   (re-gate md5; precision-UPGRADE, the same NVFP4-dense-quant move vLLM makes). Ship as default after
+   re-gating, or as an opt-in if the md5 rebaseline is undesirable.
+
+**Do NOT build:** the W4A16/Marlin grouped MoE GEMM (`paged/kernel/w4a16/` scaffold is dense-only and not
+reusable). Neither default nor opt-in: +2% ceiling < the already-banked bit-exact +1.9%, likely a net
+regression on the 27% GEMM bucket, multi-week high-risk, and it rebaselines every gate. The dense
+`w4a16-marlin` STOP transfers to MoE, and MORE strongly (the tiny-M decode shape is purely BW-bound, so
+the FP4-vs-bf16 tier is a wash that the weight-read floor erases - leaving only the half-rate downside).
+
 Assisted-by: Claude:opus-4.8 [Claude Code]
