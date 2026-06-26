@@ -1,4 +1,4 @@
-From 17d97cb74e3e8c93751afd33f5c183e57056fde9 Mon Sep 17 00:00:00 2001
+From 6d3743105c1bbfbf9cd16c0c0ba39bfaac74216e Mon Sep 17 00:00:00 2001
 From: Ettore Di Giacinto <mudler@localai.io>
 Date: Tue, 23 Jun 2026 11:52:45 +0200
 Subject: [PATCH] feat(paged): decoupled per-step prefill-token budget (patch
@@ -62,14 +62,14 @@ stays disjoint from the paged allocation hunks.
 Assisted-by: Claude:opus-4.8 [Claude Code]
 Signed-off-by: Ettore Di Giacinto <mudler@localai.io>
 ---
- tools/server/server-context.cpp | 35 ++++++++++++++++++++++++++++++++-
- 1 file changed, 34 insertions(+), 1 deletion(-)
+ tools/server/server-context.cpp | 34 ++++++++++++++++++++++++++++++++-
+ 1 file changed, 33 insertions(+), 1 deletion(-)
 
 diff --git a/tools/server/server-context.cpp b/tools/server/server-context.cpp
-index 04c6361..5d83b30 100644
+index b5f9d37..afcdebe 100644
 --- a/tools/server/server-context.cpp
 +++ b/tools/server/server-context.cpp
-@@ -2723,6 +2723,29 @@ private:
+@@ -3043,6 +3043,29 @@ private:
          int32_t n_batch  = llama_n_batch(ctx_tgt);
          int32_t n_ubatch = llama_n_ubatch(ctx_tgt);
  
@@ -96,42 +96,41 @@ index 04c6361..5d83b30 100644
 +        }
 +        int32_t n_prompt_budgeted = 0; // prompt tokens added to the batch this step (across slots)
 +
-         float  alora_scale       = -1.0f;
-         size_t alora_disabled_id = 0;
+         auto & alora_scale       = batch.alora_scale;
+         auto & alora_disabled_id = batch.alora_disabled_id;
  
-@@ -3159,7 +3182,10 @@ private:
-                     const bool n_before_user_known = n_before_user > 0;
+@@ -3487,7 +3510,10 @@ private:
+                     const auto last_user_pos = spans.last_user_message_pos();
  
                      // add prompt tokens for processing in the current batch
--                    while (slot.prompt.n_tokens() < slot.task->n_tokens() && batch.n_tokens < n_batch) {
+-                    while (slot.prompt.n_tokens() < slot.task->n_tokens() && batch.size() < n_batch) {
 +                    // (patch 0013) also stop once the per-step prefill budget is spent, so a long
 +                    // prompt is split across more steps and leaves batch room for co-batched decode
-+                    while (slot.prompt.n_tokens() < slot.task->n_tokens() && batch.n_tokens < n_batch &&
++                    while (slot.prompt.n_tokens() < slot.task->n_tokens() && batch.size() < n_batch &&
 +                           (n_prefill_budget == 0 || n_prompt_budgeted < n_prefill_budget)) {
                          // get next token to process
                          llama_token cur_tok = input_tokens[slot.prompt.n_tokens()];
                          if (cur_tok == LLAMA_TOKEN_NULL) {
-@@ -3185,6 +3211,7 @@ private:
+@@ -3512,6 +3538,7 @@ private:
                          slot.prompt.tokens.push_back(cur_tok);
  
                          slot.n_prompt_tokens_processed++;
 +                        n_prompt_budgeted++; // (patch 0013) count toward the per-step prefill budget
  
-                         // stop the prompt batch exactly before the latest user input, so a checkpoint
-                         // can be created after the previous messages
-@@ -3293,6 +3320,12 @@ private:
-                 if (batch.n_tokens >= n_batch) {
-                     break;
+                         // stop the prompt batch exactly before a user message
+                         if (spans.is_user_start(slot.prompt.n_tokens())) {
+@@ -3597,6 +3624,11 @@ private:
+                 if (!slot_batched) {
+                     slot_batched = &slot;
                  }
-+
 +                // (patch 0013) stop adding prompts once the per-step prefill budget is spent,
 +                // leaving the remaining batch capacity for co-batched decode of other slots
 +                if (n_prefill_budget > 0 && n_prompt_budgeted >= n_prefill_budget) {
-+                    break;
++                    add_ok = false;
 +                }
-             }
+             });
          }
- 
+     }
 -- 
 2.43.0
 

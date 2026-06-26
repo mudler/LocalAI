@@ -1,4 +1,4 @@
-From 151343bc8c7b956c99eafc855704b70d44637a3b Mon Sep 17 00:00:00 2001
+From 5349f8231b1e11214f5e8a668129397fb6e2f9ac Mon Sep 17 00:00:00 2001
 From: Ettore Di Giacinto <mudler@localai.io>
 Date: Tue, 23 Jun 2026 21:03:00 +0200
 Subject: [PATCH] feat(paged): expert-density-aware MoE token-tile auto-select
@@ -207,12 +207,12 @@ index cff608e..9718b12 100644
      }
  
 diff --git a/tests/test-backend-ops.cpp b/tests/test-backend-ops.cpp
-index 15ae389..f219309 100644
+index c83e91f..62a0989 100644
 --- a/tests/test-backend-ops.cpp
 +++ b/tests/test-backend-ops.cpp
-@@ -8575,6 +8575,22 @@ static std::vector<std::unique_ptr<test_case>> make_test_cases_eval() {
-     // gpt-oss issue with Vulkan mmq_id
+@@ -8603,6 +8603,22 @@ static std::vector<std::unique_ptr<test_case>> make_test_cases_eval() {
      test_cases.emplace_back(new test_mul_mat_id(GGML_TYPE_MXFP4, GGML_TYPE_F32, 32, 2, false, 2880, 32, 2880));
+     test_cases.emplace_back(new test_mul_mat_id(GGML_TYPE_Q4_0, GGML_TYPE_F32, 32, 2, false, 2880, 32, 2880));
  
 +    // [paged P0] MXFP4/NVFP4 qwen3-30b-a3b MoE decode-density regression gate for the expert-
 +    // density-aware mmq_x auto-select (patch 0015). Real expert-FFN slice (128 experts, top-8,

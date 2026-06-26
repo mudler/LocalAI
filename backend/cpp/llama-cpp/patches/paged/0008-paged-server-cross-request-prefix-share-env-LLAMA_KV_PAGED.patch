@@ -1,4 +1,4 @@
-From 088d58f3a0160cbc706226ac2e77ecfeae4c164a Mon Sep 17 00:00:00 2001
+From 240758ef7e144619c750aaf1d3339051ecc29098 Mon Sep 17 00:00:00 2001
 From: Ettore Di Giacinto <mudler@localai.io>
 Date: Mon, 22 Jun 2026 17:02:22 +0200
 Subject: [PATCH] paged server cross-request prefix share (env LLAMA_KV_PAGED)
@@ -51,10 +51,10 @@ Signed-off-by: Ettore Di Giacinto <mudler@localai.io>
  1 file changed, 50 insertions(+)
 
 diff --git a/tools/server/server-context.cpp b/tools/server/server-context.cpp
-index da6a475..04c6361 100644
+index 39b7eb2..b5f9d37 100644
 --- a/tools/server/server-context.cpp
 +++ b/tools/server/server-context.cpp
-@@ -15,6 +15,16 @@
+@@ -16,6 +16,16 @@
  #include "mtmd.h"
  #include "mtmd-helper.h"
  
@@ -71,7 +71,7 @@ index da6a475..04c6361 100644
  #include <algorithm>
  #include <cstddef>
  #include <cinttypes>
-@@ -3007,6 +3017,37 @@ private:
+@@ -3335,6 +3345,37 @@ private:
                              }
                          }
  
@@ -109,22 +109,22 @@ index da6a475..04c6361 100644
                          // [TAG_PROMPT_LOGITS]
                          if (n_past == slot.task->n_tokens() && n_past > 0) {
                              SLT_WRN(slot, "need to evaluate at least 1 token for each active slot (n_past = %d, task.n_tokens() = %d)\n", n_past, slot.task->n_tokens());
-@@ -3427,6 +3468,15 @@ private:
-                     // prompt evaluated for next-token prediction
-                     slot.state = SLOT_STATE_GENERATING;
+@@ -3741,6 +3782,15 @@ private:
+                 // prompt evaluated for next-token prediction
+                 slot.state = SLOT_STATE_GENERATING;
  
-+                    // [paged 0008] Publish this slot's computed prefix so concurrent/later
-+                    // slots can share it (no-op unless LLAMA_KV_PAGED). The prefill decode
-+                    // for [0, n_tokens) has just run, so the prefix KV is computed.
-+                    static const bool paged_kv_commit = getenv("LLAMA_KV_PAGED") != nullptr;
-+                    if (paged_kv_commit && slot.task->params.cache_prompt && !slot.prompt.tokens.has_mtmd) {
-+                        const llama_tokens ctoks = slot.prompt.tokens.get_text_tokens();
-+                        paged_prefix_api::commit(ctx_tgt, slot.id, ctoks.data(), (int) ctoks.size());
-+                    }
++                // [paged 0008] Publish this slot's computed prefix so concurrent/later
++                // slots can share it (no-op unless LLAMA_KV_PAGED). The prefill decode
++                // for [0, n_tokens) has just run, so the prefix KV is computed.
++                static const bool paged_kv_commit = getenv("LLAMA_KV_PAGED") != nullptr;
++                if (paged_kv_commit && slot.task->params.cache_prompt && !slot.prompt.tokens.has_mtmd) {
++                    const llama_tokens ctoks = slot.prompt.tokens.get_text_tokens();
++                    paged_prefix_api::commit(ctx_tgt, slot.id, ctoks.data(), (int) ctoks.size());
++                }
 +
-                     if (slot.can_speculate()) {
-                         common_speculative_begin(spec.get(), slot.id, slot.prompt.tokens.get_text_tokens());
-                     }
+                 if (slot.can_speculate()) {
+                     common_speculative_begin(spec.get(), slot.id, slot.prompt.tokens.get_text_tokens());
+                 }
 -- 
 2.43.0
 
