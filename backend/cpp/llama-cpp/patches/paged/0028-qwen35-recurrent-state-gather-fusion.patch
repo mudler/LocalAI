@@ -1,0 +1,696 @@
+From 944636cf34b486d4035575e48845840368de0743 Mon Sep 17 00:00:00 2001
+From: Ettore Di Giacinto <mudler@localai.io>
+Date: Fri, 26 Jun 2026 22:58:47 +0200
+Subject: [PATCH] feat(paged): qwen35 recurrent-state gather fusion (patch
+ 0028)
+
+The MoE-gap groundtruth found k_get_rows_float to be the single biggest decode
+kernel vLLM has no equivalent of (~5.2 ms/step MoE; also dense): vLLM updates its
+gated-DeltaNet recurrent state in place, while llama ran a separate ggml_get_rows
+gather. Patch 0019 fused the SSM-state gather; patch 0021 fused the conv compute
+but kept a build_rs gather for the conv taps. This closes that residual.
+
+nsys located the residual k_get_rows as the conv-state tap gather in
+build_conv_state_fused: a 24576-float (= n_embd_r = (d_conv-1)*(d_inner +
+2*n_group*d_state)) row x 128 sequences, once per GDN layer per decode step
+(~720 big ~115 us gathers / 24-step window). The SSM-state gather is already
+fused by 0019, so this conv gather is the last k_get_rows in the GDN decode path.
+
+New op ggml_ssm_conv_update_inplace_ids (reuses GGML_OP_SSM_CONV, discriminated
+by a non-null src[4] = ids) takes the FULL conv cache + the s_copy ids and reads
+each active sequence's prior taps directly from cache[ids[s]] in the kernel (no
+ggml_get_rows). Identity sequences (ids[s] == rs_head + s, the AR-decode path)
+read in place from the conv_state_dst write slot (the whole window is loaded into
+registers before the ring write-back, so read==write is race-free); non-identity
+sequences (reorder / rs_zero) are gathered into a disjoint scratch by a small
+ssm_conv_gather_nonident_kernel first. Mirrors the 0019 in-place + ids gather
+fusion. The read VALUES are unchanged; only the read path (gather -> indexed
+in-kernel read) changes, so it is bit-identical to the build_rs gather + 0021 op.
+
+build_conv_state_fused now feeds the full cache + ids through the build_rs
+get_state_rows lambda (rs_zero clear + extra-states copy still run around it).
+Helps BOTH dense and MoE (shared GDN conv path).
+
+GATE test-backend-ops (CUDA0 vs CPU, 2/2 backends): SSM_CONV_UPDATE_IDS OK (new),
+SSM_CONV_UPDATE OK, SSM_CONV OK, GATED_DELTA_NET OK, GET_ROWS OK.
+
+GATE greedy md5 (--temp 0 --seed 1 -n 48) BYTE-IDENTICAL both models:
+q36-27b-nvfp4 5951a5b4d624ce891e22ab5fca9bc439, q36-35b-a3b-nvfp4
+07db32c2bcb78d17a43ed18bc22705cd (== baseline).
+
+nsys: k_get_rows_float float,float 10174 -> 9454 instances (720 fewer = 30 GDN
+layers x 24 steps), 186.3 -> 102.8 ms; the 720 ~115 us conv gathers replaced by a
+720 x ~1.1 us no-op ssm_conv_gather_nonident (all identity at steady decode).
+MoE npl128 783.9 t/s (step 163.3 ms vs MOE_GAP 169.8 ms @0025), dense 377.3 t/s.
+
+Assisted-by: Claude:opus-4.8 [Claude Code]
+Signed-off-by: Ettore Di Giacinto <mudler@localai.io>
+---
+ LEVER1_GATHER_RESULTS.md       | 110 +++++++++++++++++++++++
+ ggml/include/ggml.h            |  20 +++++
+ ggml/src/ggml-cpu/ops.cpp      |  90 ++++++++++++++++++-
+ ggml/src/ggml-cuda/ssm-conv.cu | 155 ++++++++++++++++++++++++++++++++-
+ ggml/src/ggml.c                |  62 +++++++++++++
+ src/models/delta-net-base.cpp  |  26 ++++--
+ tests/test-backend-ops.cpp     |  69 +++++++++++++++
+ 7 files changed, 521 insertions(+), 11 deletions(-)
+ create mode 100644 LEVER1_GATHER_RESULTS.md
+
+diff --git a/LEVER1_GATHER_RESULTS.md b/LEVER1_GATHER_RESULTS.md
+new file mode 100644
+index 0000000..c78e3c0
+--- /dev/null
++++ b/LEVER1_GATHER_RESULTS.md
+@@ -0,0 +1,110 @@
++# Patch 0028: qwen35 recurrent-state gather fusion (Lever 1, bit-exact)
++
++The MoE-gap groundtruth (`MOE_GAP_VS_VLLM.md`) found `k_get_rows_float` to be the single biggest
++kernel vLLM has no equivalent of (~5.2 ms/step MoE decode; also present in dense): vLLM updates its
++gated-DeltaNet recurrent state in-place inside the fused decode kernel, while llama ran a separate
++`ggml_get_rows` gather. Patch 0019 fused the SSM recurrent-state gather; patch 0021 fused the conv
++compute/write-back but KEPT a `build_rs` gather for the conv taps ("tiny; not one of the eliminated
++buckets"). This patch closes that residual.
++
++## Which gather was still firing (nsys-located, DGX GB10 sm_121)
++
++Profiled MoE `q36-35b-a3b-nvfp4` at batch-128 decode (`llama-batched-bench -npp128 -ntg24 -npl128
++-fa on`, `LLAMA_KV_PAGED=1 LLAMA_MOE_FORCE_GRAPHS=1`). The decode-window `k_get_rows_float<float,float>`
++distribution was bimodal: a BIG cluster of **~720 instances (= 30 GDN layers x 24 decode steps) at
++~115 us each** plus small embedding/router gathers.
++
++The big gather's geometry (`grid=(ne10=128, block_num_y=96, 1)`) decodes to **128 rows (= n_seqs
++active sequences) of ne00 = 24576 floats**. With the model's real dims (`d_conv=4, d_inner=4096,
++n_group=16, d_state=128`):
++- `n_embd_r = (d_conv-1) * (d_inner + 2*n_group*d_state) = 3 * 8192 = 24576` -> `block_num_y=96` EXACT match.
++- `n_embd_s = d_state * d_inner = 524288` (the SSM state, gridY 2048 - already fused by 0019).
++
++So the residual `k_get_rows` is the **conv-state tap gather** in `build_conv_state_fused`
++(`src/models/delta-net-base.cpp`), which called the plain 4-arg `build_rs` -> `ggml_get_rows` of the
++24576-float conv-state row x 128 sequences, once per GDN layer per decode step (~3.4 ms/step here,
++~5.2 ms/step at steady ntg=128). The SSM-state gather is already fused, so this conv gather is the
++last `k_get_rows` in the GDN decode path.
++
++## What changed (mirror of the 0019 SSM gather fusion; bit-exact by construction)
++
++New op `ggml_ssm_conv_update_inplace_ids` (reuses `GGML_OP_SSM_CONV`, discriminated by a non-null
++`src[4]` = ids). Instead of a pre-gathered tap scratch, it takes the FULL conv-state cache (`src[0]`)
++plus the per-sequence `ids` (= the recurrent-state `s_copy`, `src[4]`; `op_params[1]=rs_head`) and
++reads each active sequence's prior K-1 taps directly from `cache[ids[s]]` in the kernel. This removes
++the separate `k_get_rows` launch.
++
++Race-free, exactly mirroring 0019:
++- **Identity** sequences (`ids[s] == rs_head + s`, the whole AR-decode path) read the taps in place
++  from the `conv_state_dst` write slot. The kernel loads the full conv window into registers before
++  it writes the 1-token-shifted ring back, so read==write slot is race-free per (channel, seq) thread.
++- **Non-identity** sequences (reorder / `rs_zero` remap at a prefill->decode boundary) are gathered
++  into a disjoint scratch by a small `ssm_conv_gather_nonident_kernel` first (no-op at steady decode),
++  so the update kernel never reads a slot another block writes.
++
++The read VALUES are unchanged (identity in-place taps == the gathered taps == `cache[ids[s]]`); only
++the read PATH changes from a `ggml_get_rows` materialization to an indexed in-kernel read. The conv
++math, ascending-tap FMA order, silu and the ring write-back are byte-identical to 0021.
++
++Files:
++- `ggml/include/ggml.h`, `ggml/src/ggml.c`: `ggml_ssm_conv_update_inplace_ids` builder
++  (src[0]=full cache [K-1,channels,n_cells], src[1]=conv_kernel, src[2]=x_cur, src[3]=conv_state_dst,
++  src[4]=ids; op_params[0]=fuse_silu, op_params[1]=rs_head).
++- `ggml/src/ggml-cuda/ssm-conv.cu`: `ssm_conv_gather_nonident_kernel` + `ssm_conv_update_ids_f32`
++  kernel + `ggml_cuda_op_ssm_conv_update_ids` + a `src[4]`-discriminated branch in `ggml_cuda_op_ssm_conv`.
++- `ggml/src/ggml-cpu/ops.cpp`: `ggml_compute_forward_ssm_conv_update_ids_f32` (window copied to a
++  local before the possibly-aliasing write) + dispatch branch.
++- `src/models/delta-net-base.cpp`: `build_conv_state_fused` now feeds the FULL cache + ids through the
++  `build_rs` `get_state_rows` lambda (the rs_zero clear + extra-states copy still run around it),
++  exactly like the 0019 recurrent-attn fusion. The `qwen35` / `qwen35moe` / `qwen3next` callers are
++  unchanged (they already route the single-token decode path here).
++- `tests/test-backend-ops.cpp`: `test_ssm_conv_update_ids` (16 cases) - ids = a shuffled permutation
++  with `rs_head=0`, so each case exercises BOTH the identity in-place read and the non-identity cache
++  read; validates the conv+silu output vs the CPU reference.
++
++## GATE: test-backend-ops (CUDA0 vs CPU, 2/2 backends)
++
++- SSM_CONV_UPDATE_IDS: OK (NEW; d_conv 3/4 x channels 256/3328 x n_seqs 1/4/32/128)
++- SSM_CONV_UPDATE: OK (0021 path intact)
++- SSM_CONV: OK
++- GATED_DELTA_NET: OK
++- GET_ROWS: OK
++
++## GATE: greedy bit-exactness (--temp 0 --seed 1 -n 48, -fa on) - BOTH models BYTE-IDENTICAL
++
++| model              | baseline md5                     | 0028 md5                         | result          |
++|--------------------|----------------------------------|----------------------------------|-----------------|
++| q36-27b-nvfp4      | 5951a5b4d624ce891e22ab5fca9bc439 | 5951a5b4d624ce891e22ab5fca9bc439 | BYTE-IDENTICAL  |
++| q36-35b-a3b-nvfp4  | 07db32c2bcb78d17a43ed18bc22705cd | 07db32c2bcb78d17a43ed18bc22705cd | BYTE-IDENTICAL  |
++
++(Built on the `paged` branch f32-default = 0026 hybrid default is f32; the baseline was re-confirmed
++on the same build before the edit.)
++
++## nsys proof - the gather is eliminated (MoE decode, npp128 ntg24 npl128, same window)
++
++| kernel                              | before        | after                         |
++|-------------------------------------|---------------|-------------------------------|
++| `k_get_rows_float<float,float>` cnt | 10174         | 9454 (720 fewer = 30 GDN x 24)|
++| `k_get_rows_float<float,float>` sum | 186.3 ms      | 102.8 ms (-83.5 ms)           |
++| conv update kernel                  | `ssm_conv_update_f32` 720 | `ssm_conv_update_ids_f32` 720 |
++| `ssm_conv_gather_nonident_kernel`   | -             | 720 x ~1.1 us = 0.8 ms (no-op at decode) |
++
++The 720 big ~115 us conv gathers are gone; the only added work is a ~1.1 us no-op gather kernel per
++layer-step (all sequences identity during steady AR decode). This matches 0019's "no-op at decode,
++median ~1.2 us" non-identity gather.
++
++## Preliminary throughput (post-fusion, single point; rigorous A/B is the bench phase)
++
++- MoE `q36-35b-a3b-nvfp4` npl128 (`LLAMA_KV_PAGED=1 LLAMA_MOE_FORCE_GRAPHS=1`): **783.9 t/s**, step
++  163.3 ms/step (MOE_GAP @0025 was 752.3 t/s / 169.8 ms/step => -6.5 ms/step in this stack).
++- dense `q36-27b-nvfp4` npl128: **377.3 t/s** (~96% of vLLM 391; includes 0022/0026 base gains).
++- npl128 ran clean (EXIT=0) on both - the non-identity boundary path does not crash.
++
++## Verdict
++
++Bit-exact (both md5 gates byte-identical, all test-backend-ops pass), the residual `k_get_rows` conv
++gather is eliminated (nsys-confirmed), and decode throughput improves. Helps BOTH dense and MoE (the
++shared GDN conv path). This closes the last `k_get_rows` in the GDN decode path (after 0019 SSM-state
+++ 0021 conv compute). Additive and risk-free; ready for the rigorous same-session A/B bench.
++
++Assisted-by: Claude:opus-4.8 [Claude Code]
+diff --git a/ggml/include/ggml.h b/ggml/include/ggml.h
+index 2a5cbce..5fa220a 100644
+--- a/ggml/include/ggml.h
++++ b/ggml/include/ggml.h
+@@ -2463,6 +2463,26 @@ extern "C" {
+             struct ggml_tensor  * conv_state_dst,
+             bool                  fuse_silu);
+ 
++    // Gather-free variant of ggml_ssm_conv_update_inplace (patch 0028). Instead of a pre-gathered
++    // per-sequence tap scratch, it takes the FULL conv-state cache (`conv_states` = [K-1, channels,
++    // n_cells]) plus the per-sequence `ids` ([n_seqs], I32, = the recurrent-state s_copy) and reads
++    // each active sequence's prior taps directly from cache[ids[s]] inside the kernel -- no
++    // ggml_get_rows materialization (mirrors ggml_gated_delta_net_inplace_ids). Identity sequences
++    // (ids[s] == rs_head + s) are read in place from `conv_state_dst` (the write slot); any
++    // non-identity sequence (reorder / rs_zero remap) is gathered into a disjoint scratch by the
++    // backend first, so the read never aliases another sequence's in-place ring write -> race-free
++    // and bit-identical to the get_rows + ggml_ssm_conv_update_inplace path. op_params[0]=fuse_silu,
++    // op_params[1]=rs_head. Reuses GGML_OP_SSM_CONV, discriminated by a non-null src[4].
++    GGML_API struct ggml_tensor * ggml_ssm_conv_update_inplace_ids(
++            struct ggml_context * ctx,
++            struct ggml_tensor  * conv_states,
++            struct ggml_tensor  * conv_kernel,
++            struct ggml_tensor  * x_cur,
++            struct ggml_tensor  * conv_state_dst,
++            struct ggml_tensor  * ids,
++            int                   rs_head,
++            bool                  fuse_silu);
++
+     GGML_API struct ggml_tensor * ggml_ssm_scan(
+             struct ggml_context * ctx,
+             struct ggml_tensor  * s,
+diff --git a/ggml/src/ggml-cpu/ops.cpp b/ggml/src/ggml-cpu/ops.cpp
+index 07ab9e5..515aae4 100644
+--- a/ggml/src/ggml-cpu/ops.cpp
++++ b/ggml/src/ggml-cpu/ops.cpp
+@@ -9580,6 +9580,90 @@ static void ggml_compute_forward_ssm_conv_update_f32(
+     }
+ }
+ 
++// Patch 0028: CPU reference for ggml_ssm_conv_update_inplace_ids (mirror of the CUDA
++// ssm_conv_update_ids_f32). Reads each active sequence's prior K-1 taps directly from the FULL conv
++// cache (src[0]) via ids (src[4]) -- identity sequences (ids[s] == rs_head + s) read in place from the
++// destination slot src[3], non-identity from cache[ids[s]] -- computes the depthwise conv with the
++// same ascending-tap FMA order, optionally folds silu, writes the conv output to dst, and writes the
++// 1-token-shifted ring state back in place into src[3]. The window is copied to a local before the
++// write so the identity (read == write slot) case is correct. Threads split over channels.
++static void ggml_compute_forward_ssm_conv_update_ids_f32(
++        const ggml_compute_params * params,
++        ggml_tensor * dst) {
++    const ggml_tensor * conv_states = dst->src[0]; // FULL cache [K-1, channels, n_cells]
++    const ggml_tensor * conv_kernel = dst->src[1]; // [K, channels]
++    const ggml_tensor * x_cur       = dst->src[2]; // [channels, 1, n_seqs]
++    ggml_tensor       * cdst        = dst->src[3]; // [(K-1)*channels, n_seqs] in-place ring target
++    const ggml_tensor * ids         = dst->src[4]; // [n_seqs] I32 slot indices (s_copy)
++
++    const int ith = params->ith;
++    const int nth = params->nth;
++
++    const int64_t d_conv   = conv_kernel->ne[0];
++    const int64_t channels = conv_kernel->ne[1];
++    const int64_t n_seqs   = x_cur->ne[2];
++    const bool    apply_silu = ggml_get_op_params_i32(dst, 0) != 0;
++    const int32_t rs_head    = ggml_get_op_params_i32(dst, 1);
++
++    GGML_ASSERT(conv_states->nb[0] == sizeof(float));
++    GGML_ASSERT(conv_kernel->nb[0] == sizeof(float));
++    GGML_ASSERT(ids->type == GGML_TYPE_I32);
++    GGML_ASSERT(d_conv <= 8);
++
++    const int64_t cache_row_stride = conv_states->nb[2] / sizeof(float); // (K-1)*channels
++    const int64_t w_stride         = conv_kernel->nb[1] / sizeof(float);
++    const int64_t x_seq_stride     = x_cur->nb[2] / sizeof(float);
++    const int64_t dst_seq_stride   = dst->nb[2] / sizeof(float);
++    const int64_t cdst_seq_stride  = cdst->nb[1] / sizeof(float);
++
++    const float * cache_base = (const float *) conv_states->data;
++    const float * w_base     = (const float *) conv_kernel->data;
++    const float * x_base     = (const float *) x_cur->data;
++    float *       cdst_base  = (float *) cdst->data;
++    float *       dst_base   = (float *) dst->data;
++    const int32_t * ids_base = (const int32_t *) ids->data;
++
++    const int64_t dc = (channels + nth - 1) / nth;
++    const int64_t c0 = dc * ith;
++    const int64_t c1 = MIN(c0 + dc, channels);
++
++    for (int64_t s = 0; s < n_seqs; ++s) {
++        const int32_t r     = ids_base[s];
++        const bool    ident = (r == rs_head + (int32_t) s);
++        // identity reads the K-1 taps in place from the destination slot; non-identity from cache[r].
++        const float * states_seq = ident
++            ? (cdst_base  + s * cdst_seq_stride)
++            : (cache_base + (int64_t) r * cache_row_stride);
++        for (int64_t c = c0; c < c1; ++c) {
++            const float * states_c = states_seq + c * (d_conv - 1);
++            const float * w_c      = w_base + c * w_stride;
++            const float   xc       = x_base[s * x_seq_stride + c];
++
++            // window = [tap0 .. tap_{K-2}, xc], copied to a local before the (possibly aliasing) write
++            float window[8];
++            for (int64_t j = 0; j < d_conv - 1; ++j) {
++                window[j] = states_c[j];
++            }
++            window[d_conv - 1] = xc;
++
++            // ascending-tap FMA: tap0*w0 + ... + tap_{K-2}*w_{K-2} + xc*w_{K-1} (matches ssm_conv)
++            float sumf = 0.0f;
++            for (int64_t j = 0; j < d_conv; ++j) {
++                sumf += window[j] * w_c[j];
++            }
++            sumf += 0.0f; // matches ssm_conv `sumf += b` with b == 0
++
++            dst_base[s * dst_seq_stride + c] = apply_silu ? (sumf / (1.0f + expf(-sumf))) : sumf;
++
++            // 1-token-shifted ring write-back: [tap1 .. tap_{K-2}, xc]
++            float * out_state = cdst_base + s * cdst_seq_stride + c * (d_conv - 1);
++            for (int64_t j = 0; j < d_conv - 1; ++j) {
++                out_state[j] = window[j + 1];
++            }
++        }
++    }
++}
++
+ void ggml_compute_forward_ssm_conv(
+         const ggml_compute_params * params,
+         ggml_tensor * dst) {
+@@ -9587,7 +9671,11 @@ void ggml_compute_forward_ssm_conv(
+         case GGML_TYPE_F32:
+             {
+                 if (dst->src[3] != nullptr) {
+-                    ggml_compute_forward_ssm_conv_update_f32(params, dst);
++                    if (dst->src[4] != nullptr) {
++                        ggml_compute_forward_ssm_conv_update_ids_f32(params, dst);
++                    } else {
++                        ggml_compute_forward_ssm_conv_update_f32(params, dst);
++                    }
+                 } else {
+                     ggml_compute_forward_ssm_conv_f32(params, dst);
+                 }
+diff --git a/ggml/src/ggml-cuda/ssm-conv.cu b/ggml/src/ggml-cuda/ssm-conv.cu
+index e1af1cd..28b3cce 100644
+--- a/ggml/src/ggml-cuda/ssm-conv.cu
++++ b/ggml/src/ggml-cuda/ssm-conv.cu
+@@ -226,6 +226,153 @@ static void ggml_cuda_op_ssm_conv_update(ggml_backend_cuda_context & ctx, ggml_t
+     }
+ }
+ 
++// Patch 0028: gather only the NON-identity sequences' prior conv taps from the FULL conv cache into a
++// disjoint scratch buffer. Identity sequences (ids[s] == rs_head + s) are read in place from the
++// destination slot by the update kernel and are skipped here. One block per sequence. Mirrors
++// gdn_gather_nonident_kernel (the 0019 recurrent-state gather fusion).
++static __global__ void ssm_conv_gather_nonident_kernel(const float * __restrict__ cache,
++                                                       const int32_t * __restrict__ ids, int rs_head,
++                                                       float * __restrict__ scratch, int row_stride, int n_seqs) {
++    const int s = blockIdx.x;
++    if (s >= n_seqs) {
++        return;
++    }
++    const int r = ids[s];
++    if (r == rs_head + s) {
++        return; // identity: prior taps already live in the in-place destination slot
++    }
++    const float * src = cache   + (int64_t) r * row_stride;
++    float *       dst = scratch + (int64_t) s * row_stride;
++    for (int i = threadIdx.x; i < row_stride; i += blockDim.x) {
++        dst[i] = src[i];
++    }
++}
++
++// Patch 0028: gather-free fused conv update. Per (channel, sequence), read the K-1 prior taps from the
++// active sequence's cache slot via ids -- identity (ids[s] == rs_head + s) reads in place from
++// conv_state_dst (the same slot it writes; the whole window is loaded into registers before any write,
++// so it is race-free), non-identity reads the pre-gathered disjoint scratch -- then computes the
++// depthwise conv with the SAME ascending-tap FMA order as ssm_conv_update_f32, folds silu, writes the
++// conv output, and writes the 1-token-shifted ring state back in place. Bit-identical to the get_rows +
++// ssm_conv_update_f32 path: the read VALUES are the same; only the read POINTER changes.
++template <bool apply_silu, int d_conv>
++static __global__ void ssm_conv_update_ids_f32(const float * __restrict__ nonident_scratch,
++                                               const float * __restrict__ conv_kernel,
++                                               const float * __restrict__ x_cur,
++                                               float       * __restrict__ conv_state_dst,
++                                               float       * __restrict__ dst,
++                                               const int32_t * __restrict__ ids,
++                                               const int   rs_head,
++                                               const int   channels,
++                                               const int   scratch_seq_stride,
++                                               const int   w_stride,
++                                               const int   x_seq_stride,
++                                               const int   dst_seq_stride,
++                                               const int   cdst_seq_stride) {
++    const int c = blockIdx.x * blockDim.x + threadIdx.x; // channel
++    const int s = blockIdx.y;                            // sequence
++    if (c >= channels) {
++        return;
++    }
++
++    const bool ident = (ids[s] == rs_head + s);
++    const float * states_c = ident
++        ? conv_state_dst   + (int64_t) s * cdst_seq_stride    + (int64_t) c * (d_conv - 1)
++        : nonident_scratch + (int64_t) s * scratch_seq_stride + (int64_t) c * (d_conv - 1);
++    const float * w_c = conv_kernel + (int64_t) c * w_stride;
++    const float   xc  = x_cur[(int64_t) s * x_seq_stride + c];
++
++    // window = [tap0 .. tap_{K-2}, current-token], same ordering as ssm_conv_update_f32
++    float window[d_conv];
++#pragma unroll
++    for (int j = 0; j < d_conv - 1; j++) {
++        window[j] = states_c[j];
++    }
++    window[d_conv - 1] = xc;
++
++    float sumf = 0.0f;
++#pragma unroll
++    for (int j = 0; j < d_conv; j++) {
++        sumf += window[j] * w_c[j];
++    }
++    sumf += 0.0f; // matches ssm_conv_f32 `sumf += b` with b == 0 (qwen35 conv1d has no bias)
++    dst[(int64_t) s * dst_seq_stride + c] = apply_silu ? ggml_cuda_op_silu_single(sumf) : sumf;
++
++    // 1-token-shifted ring write-back: drop the oldest tap, append the current token
++    float * out_state = conv_state_dst + (int64_t) s * cdst_seq_stride + (int64_t) c * (d_conv - 1);
++#pragma unroll
++    for (int j = 0; j < d_conv - 1; j++) {
++        out_state[j] = window[j + 1];
++    }
++}
++
++static void ggml_cuda_op_ssm_conv_update_ids(ggml_backend_cuda_context & ctx, ggml_tensor * dst) {
++    const ggml_tensor * conv_states = dst->src[0]; // FULL cache [K-1, channels, n_cells]
++    const ggml_tensor * conv_kernel = dst->src[1]; // [K, channels]
++    const ggml_tensor * x_cur       = dst->src[2]; // [channels, 1, n_seqs]
++    const ggml_tensor * cdst        = dst->src[3]; // [(K-1)*channels, n_seqs] in-place ring target
++    const ggml_tensor * ids         = dst->src[4]; // [n_seqs] I32 slot indices (s_copy)
++
++    const int64_t d_conv   = conv_kernel->ne[0];
++    const int64_t channels = conv_kernel->ne[1];
++    const int64_t n_seqs   = x_cur->ne[2];
++    const bool    apply_silu = ggml_get_op_params_i32(dst, 0) != 0;
++    const int     rs_head    = ggml_get_op_params_i32(dst, 1);
++
++    GGML_ASSERT(conv_states->type == GGML_TYPE_F32 && conv_kernel->type == GGML_TYPE_F32);
++    GGML_ASSERT(x_cur->type == GGML_TYPE_F32 && cdst->type == GGML_TYPE_F32 && dst->type == GGML_TYPE_F32);
++    GGML_ASSERT(ids->type == GGML_TYPE_I32);
++    GGML_ASSERT(conv_states->nb[0] == sizeof(float));
++    GGML_ASSERT(conv_states->nb[1] == (size_t) (d_conv - 1) * sizeof(float));
++    GGML_ASSERT(conv_kernel->nb[0] == sizeof(float));
++    GGML_ASSERT(dst->ne[0] == channels && dst->ne[1] == 1 && dst->ne[2] == n_seqs);
++
++    const float *   cache_d = (const float *) conv_states->data;
++    const float *   w_d     = (const float *) conv_kernel->data;
++    const float *   x_d     = (const float *) x_cur->data;
++    float *         cdst_d  = (float *) cdst->data;
++    float *         dst_d   = (float *) dst->data;
++    const int32_t * ids_d   = (const int32_t *) ids->data;
++    cudaStream_t    stream  = ctx.stream();
++
++    // n_embd_r = (K-1)*channels: the per-cell row stride of the full conv cache.
++    const int cache_row_stride = (int) (conv_states->nb[2] / sizeof(float));
++    const int w_stride         = (int) (conv_kernel->nb[1] / sizeof(float));
++    const int x_seq_stride     = (int) (x_cur->nb[2] / sizeof(float));
++    const int dst_seq_stride   = (int) (dst->nb[2] / sizeof(float));
++    const int cdst_seq_stride  = (int) (cdst->nb[1] / sizeof(float));
++
++    // Gather only the non-identity sequences' prior taps into a disjoint scratch (identity sequences
++    // read in place from cdst). The scratch is written here and read-only by the update kernel, so the
++    // update kernel never reads a slot another block writes -> race-free. No-op at steady AR decode.
++    ggml_cuda_pool_alloc<float> nonident_scratch(ctx.pool());
++    float * scratch = nonident_scratch.alloc((size_t) cache_row_stride * n_seqs);
++    if (n_seqs > 0) {
++        ssm_conv_gather_nonident_kernel<<<(unsigned) n_seqs, 256, 0, stream>>>(
++            cache_d, ids_d, rs_head, scratch, cache_row_stride, (int) n_seqs);
++    }
++
++    const int threads = 128;
++    const dim3 blocks((channels + threads - 1) / threads, (unsigned) n_seqs, 1);
++
++    auto launch = [&](auto NC) {
++        constexpr int kNC = decltype(NC)::value;
++        if (apply_silu) {
++            ssm_conv_update_ids_f32<true, kNC><<<blocks, threads, 0, stream>>>(scratch, w_d, x_d, cdst_d, dst_d,
++                ids_d, rs_head, (int) channels, cache_row_stride, w_stride, x_seq_stride, dst_seq_stride, cdst_seq_stride);
++        } else {
++            ssm_conv_update_ids_f32<false, kNC><<<blocks, threads, 0, stream>>>(scratch, w_d, x_d, cdst_d, dst_d,
++                ids_d, rs_head, (int) channels, cache_row_stride, w_stride, x_seq_stride, dst_seq_stride, cdst_seq_stride);
++        }
++    };
++
++    switch (d_conv) {
++        case 3: launch(std::integral_constant<int, 3>{}); break;
++        case 4: launch(std::integral_constant<int, 4>{}); break;
++        default: GGML_ABORT("ssm_conv_update_ids only supports d_conv 3 or 4");
++    }
++}
++
+ template <bool apply_silu>
+ static void ssm_conv_f32_cuda(const float * src0, const float * src1, const float * bias, const int src0_nb0, const int src0_nb1,
+                               const int src0_nb2, const int src1_nb1, float * dst, const int dst_nb0, const int dst_nb1,
+@@ -266,7 +413,13 @@ void ggml_cuda_op_ssm_conv(ggml_backend_cuda_context & ctx, ggml_tensor * dst, g
+     // silu of the decode conv path into a single kernel.
+     if (dst->src[3] != nullptr) {
+         GGML_ASSERT(bias_add_node == nullptr && silu_dst == nullptr);
+-        ggml_cuda_op_ssm_conv_update(ctx, dst);
++        // Patch 0028: a non-null src[4] (ids) selects the gather-free variant that reads each
++        // sequence's prior taps directly from the full cache via ids (no get_rows materialization).
++        if (dst->src[4] != nullptr) {
++            ggml_cuda_op_ssm_conv_update_ids(ctx, dst);
++        } else {
++            ggml_cuda_op_ssm_conv_update(ctx, dst);
++        }
+         return;
+     }
+ 
+diff --git a/ggml/src/ggml.c b/ggml/src/ggml.c
+index 16b180f..dcc09bd 100644
+--- a/ggml/src/ggml.c
++++ b/ggml/src/ggml.c
+@@ -5606,6 +5606,68 @@ struct ggml_tensor * ggml_ssm_conv_update_inplace(
+     return result;
+ }
+ 
++// ggml_ssm_conv_update_inplace_ids
++//
++// Gather-free variant of ggml_ssm_conv_update_inplace (patch 0028). Instead of a pre-gathered
++// per-sequence tap scratch, it takes the FULL conv-state cache (`conv_states` = [K-1, channels,
++// n_cells]) plus the per-sequence `ids` (the recurrent-state s_copy) and reads each active sequence's
++// prior taps directly from cache[ids[s]] inside the kernel (no ggml_get_rows). Identity sequences
++// (ids[s] == rs_head + s) read in place from the `conv_state_dst` write slot; non-identity sequences
++// are gathered into a disjoint scratch by the backend first. Bit-identical to the get_rows +
++// ggml_ssm_conv_update_inplace path. Reuses GGML_OP_SSM_CONV, discriminated by a non-null src[4].
++// op_params[1] carries rs_head. Mirrors the 0019 ggml_gated_delta_net_inplace_ids gather fusion.
++struct ggml_tensor * ggml_ssm_conv_update_inplace_ids(
++        struct ggml_context * ctx,
++        struct ggml_tensor  * conv_states,
++        struct ggml_tensor  * conv_kernel,
++        struct ggml_tensor  * x_cur,
++        struct ggml_tensor  * conv_state_dst,
++        struct ggml_tensor  * ids,
++        int                   rs_head,
++        bool                  fuse_silu) {
++    GGML_ASSERT(ggml_is_3d(conv_states));
++    GGML_ASSERT(ggml_is_matrix(conv_kernel));
++    GGML_ASSERT(ggml_is_3d(x_cur));
++    GGML_ASSERT(ids != NULL && ids->type == GGML_TYPE_I32);
++
++    const int64_t d_conv   = conv_kernel->ne[0];
++    const int64_t channels = conv_kernel->ne[1];
++    const int64_t n_seqs   = x_cur->ne[2];
++
++    GGML_ASSERT(conv_states->type    == GGML_TYPE_F32);
++    GGML_ASSERT(conv_kernel->type    == GGML_TYPE_F32);
++    GGML_ASSERT(x_cur->type          == GGML_TYPE_F32);
++    GGML_ASSERT(conv_state_dst != NULL && conv_state_dst->type == GGML_TYPE_F32);
++
++    // conv_states: FULL cache [K-1, channels, n_cells], contiguous taps per channel
++    GGML_ASSERT(conv_states->ne[0] == d_conv - 1);
++    GGML_ASSERT(conv_states->ne[1] == channels);
++    GGML_ASSERT(conv_states->nb[0] == sizeof(float));
++    // x_cur: single decode token per sequence
++    GGML_ASSERT(x_cur->ne[0] == channels);
++    GGML_ASSERT(x_cur->ne[1] == 1);
++    // ids: one slot index per active sequence
++    GGML_ASSERT(ids->ne[0] == n_seqs);
++    // conv_state_dst: [(K-1)*channels, n_seqs] in-place ring write target
++    GGML_ASSERT(conv_state_dst->ne[0] == (d_conv - 1) * channels);
++    GGML_ASSERT(conv_state_dst->ne[1] >= n_seqs);
++    GGML_ASSERT(conv_state_dst->nb[0] == sizeof(float));
++
++    struct ggml_tensor * result = ggml_new_tensor_3d(ctx, GGML_TYPE_F32, channels, 1, n_seqs);
++
++    ggml_set_op_params_i32(result, 0, fuse_silu ? 1 : 0);
++    ggml_set_op_params_i32(result, 1, rs_head);
++
++    result->op     = GGML_OP_SSM_CONV;
++    result->src[0] = conv_states;
++    result->src[1] = conv_kernel;
++    result->src[2] = x_cur;
++    result->src[3] = conv_state_dst;
++    result->src[4] = ids;
++
++    return result;
++}
++
+ // ggml_ssm_scan
+ 
+ struct ggml_tensor * ggml_ssm_scan(
+diff --git a/src/models/delta-net-base.cpp b/src/models/delta-net-base.cpp
+index 58f3d0c..962f5eb 100644
+--- a/src/models/delta-net-base.cpp
++++ b/src/models/delta-net-base.cpp
+@@ -548,25 +548,33 @@ ggml_tensor * llm_build_delta_net_base::build_conv_state_fused(
+     GGML_ASSERT(n_seq_tokens == 1);        // single-token decode only
+     GGML_ASSERT(cparams.n_rs_seq == 0);    // no rollback splits on this path
+ 
+-    // Prior conv-state taps for the active sequences: [K-1, conv_channels, n_seqs]. Same get_rows
+-    // gather as the baseline build_conv_state read (tiny; not one of the eliminated buckets).
+-    ggml_tensor * conv_states = build_rs(inp, conv_states_all, hparams.n_embd_r(), n_seqs);
+-    conv_states = ggml_reshape_3d(ctx0, conv_states, conv_kernel_size - 1, conv_channels, n_seqs);
+-    cb(conv_states, "conv_states_reshaped", il);
+-
+     // Current token, native (non-transposed) qkv_mixed: [conv_channels, 1, n_seqs].
+     ggml_tensor * x_cur = ggml_reshape_3d(ctx0, qkv_mixed, conv_channels, n_seq_tokens, n_seqs);
+ 
+     // In-place ring write-back target = the active sequences' conv-cache slot at kv_head, exactly the
+     // destination the baseline ggml_cpy wrote to (s_slot == 0).
+-    const int64_t row_count = (conv_kernel_size - 1) * conv_channels;
++    const int64_t row_count = (conv_kernel_size - 1) * conv_channels; // = n_embd_r
+     const size_t  row_size  = ggml_row_size(conv_states_all->type, row_count);
+     ggml_tensor * conv_state_dst =
+         ggml_view_2d(ctx0, conv_states_all, row_count, n_seqs, conv_states_all->nb[1], kv_head * row_size);
+     cb(conv_state_dst, "conv_state_update", il);
+ 
+-    ggml_tensor * conv_output =
+-        ggml_ssm_conv_update_inplace(ctx0, conv_states, conv_kernel, x_cur, conv_state_dst, /*fuse_silu=*/true);
++    // Patch 0028: fuse the residual conv-state tap gather (the k_get_rows that build_conv_state's
++    // build_rs left firing -- ~the biggest single residual decode kernel, see MOE_GAP_VS_VLLM.md).
++    // Exactly like the 0019 SSM-state gather fusion, build_rs feeds the FULL conv cache + the s_copy
++    // ids into the op (via the get_state_rows lambda) and still performs the rs_zero clear and the
++    // extra-states copy around it; the op reads each active sequence's prior taps directly from
++    // cache[ids[s]] (identity sequences read in place from conv_state_dst), so the separate
++    // ggml_get_rows materialization is eliminated. The read VALUES are unchanged, only the read path
++    // (gather -> indexed in-kernel read) changes, so it is bit-identical to the build_rs gather.
++    auto get_conv_op = [&](ggml_context * ctx, ggml_tensor * states, ggml_tensor * ids) -> ggml_tensor * {
++        // states = full conv-state cache reshaped 2d [n_embd_r, n_cells]
++        ggml_tensor * cache3d = ggml_reshape_3d(ctx, states, conv_kernel_size - 1, conv_channels, states->ne[1]);
++        return ggml_ssm_conv_update_inplace_ids(ctx, cache3d, conv_kernel, x_cur, conv_state_dst,
++                ids, (int) kv_head, /*fuse_silu=*/true);
++    };
++
++    ggml_tensor * conv_output = build_rs(inp, conv_states_all, hparams.n_embd_r(), n_seqs, get_conv_op);
+     cb(conv_output, "conv_output_silu", il);
+ 
+     // the ring write is a side effect of the op; pull the op into the graph via the output
+diff --git a/tests/test-backend-ops.cpp b/tests/test-backend-ops.cpp
+index b5e3048..302975f 100644
+--- a/tests/test-backend-ops.cpp
++++ b/tests/test-backend-ops.cpp
+@@ -3793,6 +3793,65 @@ struct test_ssm_conv_update : public test_case {
+     }
+ };
+ 
++// GGML_OP_SSM_CONV gather-free fused decode conv-update via ids (ggml_ssm_conv_update_inplace_ids,
++// patch 0028). conv_states is the FULL cache; ids (a shuffled permutation of [0,n_seqs), rs_head=0)
++// selects each sequence's slot, exercising BOTH the identity in-place read (ids[s]==s) and the
++// non-identity cache read. Validates the conv + silu output (dst) against the CPU reference.
++struct test_ssm_conv_update_ids : public test_case {
++    const int64_t d_conv;
++    const int64_t channels;
++    const int64_t n_seqs;
++
++    std::string op_desc(ggml_tensor * t) override {
++        GGML_UNUSED(t);
++        return "SSM_CONV_UPDATE_IDS";
++    }
++
++    std::string vars() override {
++        return VARS_TO_STR3(d_conv, channels, n_seqs);
++    }
++
++    test_ssm_conv_update_ids(int64_t d_conv = 4, int64_t channels = 256, int64_t n_seqs = 4)
++        : d_conv(d_conv), channels(channels), n_seqs(n_seqs) {}
++
++    ggml_tensor * build_graph(ggml_context * ctx) override {
++        ggml_tensor * conv_states    = ggml_new_tensor_3d(ctx, GGML_TYPE_F32, d_conv - 1, channels, n_seqs);
++        ggml_tensor * conv_kernel    = ggml_new_tensor_2d(ctx, GGML_TYPE_F32, d_conv, channels);
++        ggml_tensor * x_cur          = ggml_new_tensor_3d(ctx, GGML_TYPE_F32, channels, 1, n_seqs);
++        ggml_tensor * conv_state_dst = ggml_new_tensor_2d(ctx, GGML_TYPE_F32, (d_conv - 1) * channels, n_seqs);
++        ggml_tensor * ids            = ggml_new_tensor_1d(ctx, GGML_TYPE_I32, n_seqs);
++        ggml_set_name(conv_states, "conv_states");
++        ggml_set_name(conv_kernel, "conv_kernel");
++        ggml_set_name(x_cur, "x_cur");
++        ggml_set_name(conv_state_dst, "conv_state_dst");
++        ggml_set_name(ids, "ids");
++
++        ggml_tensor * out = ggml_ssm_conv_update_inplace_ids(ctx, conv_states, conv_kernel, x_cur,
++                conv_state_dst, ids, /*rs_head=*/0, /*fuse_silu=*/true);
++        ggml_set_name(out, "out");
++        return out;
++    }
++
++    void initialize_tensors(ggml_context * ctx) override {
++        std::random_device rd;
++        std::default_random_engine rng(rd());
++        for (ggml_tensor * t = ggml_get_first_tensor(ctx); t != NULL; t = ggml_get_next_tensor(ctx, t)) {
++            if (t->type == GGML_TYPE_I32) {
++                // ids: shuffled permutation of [0, n_seqs) into the full cache (rs_head == 0), so some
++                // sequences are identity (ids[s] == s, in-place read) and some are not (scratch read).
++                std::vector<int32_t> data(t->ne[0]);
++                for (int i = 0; i < t->ne[0]; i++) {
++                    data[i] = i;
++                }
++                std::shuffle(data.begin(), data.end(), rng);
++                ggml_backend_tensor_set(t, data.data(), 0, t->ne[0] * sizeof(int32_t));
++            } else {
++                init_tensor_uniform(t);
++            }
++        }
++    }
++};
++
+ // GGML_OP_SSM_SCAN
+ struct test_ssm_scan : public test_case {
+     const ggml_type type;
+@@ -8504,6 +8563,16 @@ static std::vector<std::unique_ptr<test_case>> make_test_cases_eval() {
+         }
+     }
+ 
++    // gather-free fused decode conv-update via ids (ggml_ssm_conv_update_inplace_ids, patch 0028).
++    // channels must be a multiple of 128 for the CUDA SSM_CONV supports_op gate.
++    for (int64_t d_conv : {3, 4}) {
++        for (int64_t channels : {256, 3328}) {
++            for (int64_t n_seqs : {1, 4, 32, 128}) {
++                test_cases.emplace_back(new test_ssm_conv_update_ids(d_conv, channels, n_seqs));
++            }
++        }
++    }
++
+     test_cases.emplace_back(new test_ssm_scan(GGML_TYPE_F32, 16, 1, 1024, 1, 32, 4)); // Mamba-1
+     test_cases.emplace_back(new test_ssm_scan(GGML_TYPE_F32, 128, 64, 16, 2, 32, 4)); // Mamba-2
+     test_cases.emplace_back(new test_ssm_scan(GGML_TYPE_F32, 256, 64,  8, 2, 32, 4)); // Falcon-H1
+-- 
+2.43.0
+
