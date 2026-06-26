@@ -1129,6 +1129,7 @@
     amd: "vulkan-privacy-filter"
     intel: "vulkan-privacy-filter"
     vulkan: "vulkan-privacy-filter"
+    metal: "metal-privacy-filter"
 - &faster-whisper
   icon: https://avatars.githubusercontent.com/u/1520500?s=200&v=4
   description: |
@@ -3075,6 +3076,16 @@
   uri: "quay.io/go-skynet/local-ai-backends:master-gpu-vulkan-privacy-filter"
   mirrors:
     - localai/localai-backends:master-gpu-vulkan-privacy-filter
+- !!merge <<: *privacyfilter
+  name: "metal-privacy-filter"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-metal-darwin-arm64-privacy-filter"
+  mirrors:
+    - localai/localai-backends:latest-metal-darwin-arm64-privacy-filter
+- !!merge <<: *privacyfilter
+  name: "metal-privacy-filter-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-metal-darwin-arm64-privacy-filter"
+  mirrors:
+    - localai/localai-backends:master-metal-darwin-arm64-privacy-filter
 - !!merge <<: *privacyfilter
   name: "cuda13-privacy-filter"
   uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-nvidia-cuda-13-privacy-filter"

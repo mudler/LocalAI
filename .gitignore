@@ -103,3 +103,6 @@ core/http/react-ui/test-results/
 
 # SDD / brainstorm scratch (agent-driven development)
 .superpowers/
+
+# Local Apple signing material (never commit)
+.certs/

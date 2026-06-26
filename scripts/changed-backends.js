@@ -85,6 +85,11 @@ function inferBackendPathDarwin(item) {
   if (item.backend === "ds4") {
     return `backend/cpp/ds4/`;
   }
+  // privacy-filter is C++ too (built via `make backends/privacy-filter-darwin`);
+  // same lang=go-for-runner convention, source under backend/cpp.
+  if (item.backend === "privacy-filter") {
+    return `backend/cpp/privacy-filter/`;
+  }
   if (!item.lang) {
     return `backend/python/${item.backend}/`;
   }

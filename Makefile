@@ -1,5 +1,5 @@
 # Disable parallel execution for backend builds
-.NOTPARALLEL: backends/diffusers backends/llama-cpp backends/turboquant backends/outetts backends/piper backends/stablediffusion-ggml backends/whisper backends/crispasr backends/parakeet-cpp backends/faster-whisper backends/silero-vad backends/local-store backends/huggingface backends/rfdetr backends/rfdetr-cpp backends/insightface backends/speaker-recognition backends/kitten-tts backends/kokoro backends/chatterbox backends/llama-cpp-darwin backends/neutts build-darwin-python-backend build-darwin-go-backend backends/mlx backends/diffuser-darwin backends/mlx-vlm backends/mlx-audio backends/mlx-distributed backends/stablediffusion-ggml-darwin backends/vllm backends/vllm-omni backends/sglang backends/moonshine backends/pocket-tts backends/qwen-tts backends/faster-qwen3-tts backends/qwen-asr backends/nemo backends/voxcpm backends/whisperx backends/ace-step backends/acestep-cpp backends/fish-speech backends/voxtral backends/opus backends/trl backends/llama-cpp-quantization backends/kokoros backends/sam3-cpp backends/qwen3-tts-cpp backends/omnivoice-cpp backends/vibevoice-cpp backends/localvqe backends/tinygrad backends/sherpa-onnx backends/ds4 backends/ds4-darwin backends/liquid-audio backends/supertonic backends/depth-anything-cpp backends/privacy-filter backends/llama-cpp-localai-paged
+.NOTPARALLEL: backends/diffusers backends/llama-cpp backends/turboquant backends/outetts backends/piper backends/stablediffusion-ggml backends/whisper backends/crispasr backends/parakeet-cpp backends/faster-whisper backends/silero-vad backends/local-store backends/huggingface backends/rfdetr backends/rfdetr-cpp backends/insightface backends/speaker-recognition backends/kitten-tts backends/kokoro backends/chatterbox backends/llama-cpp-darwin backends/neutts build-darwin-python-backend build-darwin-go-backend backends/mlx backends/diffuser-darwin backends/mlx-vlm backends/mlx-audio backends/mlx-distributed backends/stablediffusion-ggml-darwin backends/vllm backends/vllm-omni backends/sglang backends/moonshine backends/pocket-tts backends/qwen-tts backends/faster-qwen3-tts backends/qwen-asr backends/nemo backends/voxcpm backends/whisperx backends/ace-step backends/acestep-cpp backends/fish-speech backends/voxtral backends/opus backends/trl backends/llama-cpp-quantization backends/kokoros backends/sam3-cpp backends/qwen3-tts-cpp backends/omnivoice-cpp backends/vibevoice-cpp backends/localvqe backends/tinygrad backends/sherpa-onnx backends/ds4 backends/ds4-darwin backends/liquid-audio backends/supertonic backends/depth-anything-cpp backends/privacy-filter backends/privacy-filter-darwin backends/llama-cpp-localai-paged
 
 GOCMD=go
 GOTEST=$(GOCMD) test
@@ -1138,6 +1138,10 @@ backends/ds4-darwin: build
 	bash ./scripts/build/ds4-darwin.sh
 	./local-ai backends install "ocifile://$(abspath ./backend-images/ds4.tar)"
 
+backends/privacy-filter-darwin: build
+	bash ./scripts/build/privacy-filter-darwin.sh
+	./local-ai backends install "ocifile://$(abspath ./backend-images/privacy-filter.tar)"
+
 build-darwin-python-backend: build
 	bash ./scripts/build/python-darwin.sh
 
@@ -1463,13 +1467,32 @@ docs: docs/static/gallery.html
 ########################################################
 
 ## fyne cross-platform build
-build-launcher-darwin: build-launcher
-	go run github.com/tiagomelo/macos-dmg-creator/cmd/createdmg@latest \
-	--appName "LocalAI" \
-	--appBinaryPath "$(LAUNCHER_BINARY_NAME)" \
-	--bundleIdentifier "com.localai.launcher" \
-	--iconPath "core/http/static/logo.png" \
-	--outputDir "dist/"
+# Build LocalAI.app from the launcher via fyne (metadata read from cmd/launcher/FyneApp.toml).
+# Signing happens via contrib/macos/sign-and-notarize.sh, which is a no-op when the signing
+# secrets are unset, so unsigned local/fork builds keep working.
+build-launcher-darwin:
+	rm -rf dist/LocalAI.app cmd/launcher/LocalAI.app
+	mkdir -p dist
+	cd cmd/launcher && go run fyne.io/tools/cmd/fyne@latest package -os darwin -icon ../../core/http/static/logo.png --executable $(LAUNCHER_BINARY_NAME)
+	mv cmd/launcher/LocalAI.app dist/LocalAI.app
+	bash contrib/macos/sign-and-notarize.sh sign dist/LocalAI.app
+
+# Wrap the (signed) app into a drag-to-Applications DMG via hdiutil, then sign the DMG.
+dmg-launcher-darwin: build-launcher-darwin
+	rm -rf dist/dmg dist/LocalAI.dmg
+	mkdir -p dist/dmg
+	cp -R dist/LocalAI.app dist/dmg/LocalAI.app
+	ln -s /Applications dist/dmg/Applications
+	hdiutil create -volname "LocalAI" -srcfolder dist/dmg -ov -format UDZO dist/LocalAI.dmg
+	bash contrib/macos/sign-and-notarize.sh sign dist/LocalAI.dmg
+
+# Submit the DMG to Apple notarization and staple the ticket (no-op without notary secrets).
+notarize-launcher-darwin: dmg-launcher-darwin
+	bash contrib/macos/sign-and-notarize.sh notarize dist/LocalAI.dmg
+
+# Single entrypoint for CI: build -> sign app -> dmg -> sign dmg -> notarize -> staple.
+release-launcher-darwin: notarize-launcher-darwin
+	@echo "dist/LocalAI.dmg is ready"
 
 build-launcher-linux:
-	cd cmd/launcher && go run fyne.io/tools/cmd/fyne@latest package -os linux -icon ../../core/http/static/logo.png --executable $(LAUNCHER_BINARY_NAME)-linux && mv launcher.tar.xz ../../$(LAUNCHER_BINARY_NAME)-linux.tar.xz
+	cd cmd/launcher && go run fyne.io/tools/cmd/fyne@latest package -os linux -icon ../../core/http/static/logo.png --executable $(LAUNCHER_BINARY_NAME)-linux && mv LocalAI.tar.xz ../../$(LAUNCHER_BINARY_NAME)-linux.tar.xz

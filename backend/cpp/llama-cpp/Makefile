@@ -1,5 +1,5 @@
 
-LLAMA_VERSION?=8be759e6f70d629638a7eb70db3824cbdcea370b
+LLAMA_VERSION?=9d5d882d8cd0f0a9283d87ed5e6fe3ee0d925fb1
 LLAMA_REPO?=https://github.com/ggerganov/llama.cpp
 # LLAMA_PAGED controls whether the vendored paged-attention patch series
 # (patches/paged/) is applied on top of the pinned llama.cpp. Default on; set

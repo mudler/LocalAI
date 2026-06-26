@@ -51,6 +51,14 @@ add_library(hw_grpc_proto STATIC
     ${HW_GRPC_SRCS} ${HW_GRPC_HDRS}
     ${HW_PROTO_SRCS} ${HW_PROTO_HDRS})
 target_include_directories(hw_grpc_proto PUBLIC ${CMAKE_CURRENT_BINARY_DIR})
+# The generated proto/grpc sources include protobuf and grpc++ headers, so this
+# library must see their include dirs. Linking the imported targets propagates
+# them. On Linux the apt headers live in /usr/include (default search path) so
+# this was a no-op; on macOS the Homebrew headers are under /opt/homebrew and
+# would otherwise be missed (runtime_version.h not found).
+target_link_libraries(hw_grpc_proto PUBLIC
+    protobuf::libprotobuf
+    gRPC::grpc++)
 
 # Build only the pf static lib (+ ggml) from the engine tree — no CLI/bench/tests.
 # PF_VULKAN is honored when passed on the cmake command line (it lands in the

@@ -2,7 +2,7 @@
 set -ex
 
 # Get the absolute current dir where the script is located
-CURDIR=$(dirname "$(realpath $0)")
+CURDIR=$(dirname "$(realpath "$0")")
 
 cd /
 
@@ -21,20 +21,20 @@ if [ "$(uname)" = "Darwin" ]; then
 	if [ ! -e "$LIBRARY" ]; then
 		LIBRARY="$CURDIR/libgoacestepcpp-fallback.so"
 	fi
-	export DYLD_LIBRARY_PATH=$CURDIR/lib:$DYLD_LIBRARY_PATH
+	export DYLD_LIBRARY_PATH="$CURDIR"/lib:$DYLD_LIBRARY_PATH
 else
 	LIBRARY="$CURDIR/libgoacestepcpp-fallback.so"
 
 	if grep -q -e "\savx\s" /proc/cpuinfo ; then
 		echo "CPU:    AVX    found OK"
-		if [ -e $CURDIR/libgoacestepcpp-avx.so ]; then
+		if [ -e "$CURDIR"/libgoacestepcpp-avx.so ]; then
 			LIBRARY="$CURDIR/libgoacestepcpp-avx.so"
 		fi
 	fi
 
 	if grep -q -e "\savx2\s" /proc/cpuinfo ; then
 		echo "CPU:    AVX2   found OK"
-		if [ -e $CURDIR/libgoacestepcpp-avx2.so ]; then
+		if [ -e "$CURDIR"/libgoacestepcpp-avx2.so ]; then
 			LIBRARY="$CURDIR/libgoacestepcpp-avx2.so"
 		fi
 	fi
@@ -42,22 +42,22 @@ else
 	# Check avx 512
 	if grep -q -e "\savx512f\s" /proc/cpuinfo ; then
 		echo "CPU:    AVX512F found OK"
-		if [ -e $CURDIR/libgoacestepcpp-avx512.so ]; then
+		if [ -e "$CURDIR"/libgoacestepcpp-avx512.so ]; then
 			LIBRARY="$CURDIR/libgoacestepcpp-avx512.so"
 		fi
 	fi
 
-	export LD_LIBRARY_PATH=$CURDIR/lib:$LD_LIBRARY_PATH
+	export LD_LIBRARY_PATH="$CURDIR"/lib:$LD_LIBRARY_PATH
 fi
 
 export ACESTEP_LIBRARY=$LIBRARY
 
 # If there is a lib/ld.so, use it
-if [ -f $CURDIR/lib/ld.so ]; then
+if [ -f "$CURDIR"/lib/ld.so ]; then
 	echo "Using lib/ld.so"
 	echo "Using library: $LIBRARY"
-	exec $CURDIR/lib/ld.so $CURDIR/acestep-cpp "$@"
+	exec "$CURDIR"/lib/ld.so "$CURDIR"/acestep-cpp "$@"
 fi
 
 echo "Using library: $LIBRARY"
-exec $CURDIR/acestep-cpp "$@"
+exec "$CURDIR"/acestep-cpp "$@"
