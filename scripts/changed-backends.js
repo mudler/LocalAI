@@ -47,6 +47,15 @@ function inferBackendPath(item) {
     // via a thin wrapper Makefile. Changes to either dir should retrigger it.
     return `backend/cpp/turboquant/`;
   }
+  // llama-cpp-localai-paged is the LocalAI paged-attention llama.cpp variant: the
+  // SAME upstream pin as stock llama-cpp plus the paged patch series, reusing
+  // backend/cpp/llama-cpp sources via a thin wrapper Makefile. Keep this branch
+  // BEFORE the generic `endsWith("llama-cpp")` branch below: although
+  // "Dockerfile.llama-cpp-localai-paged".endsWith("llama-cpp") is already false,
+  // the specific branch documents the mapping and is robust to future renames.
+  if (item.dockerfile.endsWith("llama-cpp-localai-paged")) {
+    return `backend/cpp/llama-cpp-localai-paged/`;
+  }
   if (item.dockerfile.endsWith("privacy-filter")) {
     return `backend/cpp/privacy-filter/`;
   }
@@ -65,6 +74,11 @@ function inferBackendPathDarwin(item) {
   // for runner/toolchain selection, but the source path is C++.
   if (item.backend === "llama-cpp") {
     return `backend/cpp/llama-cpp/`;
+  }
+  // llama-cpp-localai-paged on Darwin (if a metal row is ever added to
+  // includeDarwin) builds from the C++ sources under backend/cpp/llama-cpp-localai-paged.
+  if (item.backend === "llama-cpp-localai-paged") {
+    return `backend/cpp/llama-cpp-localai-paged/`;
   }
   // ds4 is C++ too (built via `make backends/ds4-darwin`); the matrix entry
   // carries lang=go for runner/toolchain selection, but the source is C++.
@@ -274,6 +288,11 @@ function emitFilteredMatrix(changedFiles) {
     // turboquant reuses backend/cpp/llama-cpp sources via a thin wrapper;
     // changes to either directory should retrigger its pipeline.
     if (backend === "turboquant" && !changed) {
+      changed = changedFiles.some(file => file.startsWith("backend/cpp/llama-cpp/"));
+    }
+    // llama-cpp-localai-paged reuses backend/cpp/llama-cpp sources via a thin
+    // wrapper; changes to either directory should retrigger its pipeline.
+    if (backend === "llama-cpp-localai-paged" && !changed) {
       changed = changedFiles.some(file => file.startsWith("backend/cpp/llama-cpp/"));
     }
     fs.appendFileSync(process.env.GITHUB_OUTPUT, `${backend}=${changed ? 'true' : 'false'}\n`);

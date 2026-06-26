@@ -9,6 +9,15 @@ prepare-sources
 /backend/cpp/llama-cpp/llama.cpp
 /backend/cpp/llama-*
 !backend/cpp/llama-cpp
+# llama-cpp-localai-paged is a tracked source dir (a thin wrapper Makefile over
+# backend/cpp/llama-cpp). Re-include it like llama-cpp above; its sibling
+# *-build dirs are still ignored by the /backend/cpp/llama-* rule, and its
+# in-dir build artifacts (binaries, package output, collected ggml .so set) are
+# re-ignored just below.
+!backend/cpp/llama-cpp-localai-paged
+/backend/cpp/llama-cpp-localai-paged/llama-cpp-localai-paged-*
+/backend/cpp/llama-cpp-localai-paged/package
+/backend/cpp/llama-cpp-localai-paged/ggml-shared-libs
 /backends
 /backend-images
 /result.yaml

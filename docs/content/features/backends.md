@@ -125,6 +125,7 @@ For getting started, see the available backends in LocalAI here: https://github.
 LocalAI supports various types of backends:
 
 - **LLM Backends**: For running language models (e.g., llama.cpp, vLLM, SGLang, transformers, MLX)
+  - **`llama-cpp-localai-paged`**: LocalAI's paged-attention llama.cpp variant - on-demand paged KV cache plus a decode-first prefill budget, tuned for NVFP4 dense/MoE on Blackwell/GB10. Same upstream llama.cpp pin as the stock `llama-cpp` backend, reusing its gRPC server; the paged engine is enabled per-model via the `paged_kv` / `max_batch_tokens` options.
 - **Speech-to-Text Backends**: For transcription (e.g., whisper.cpp, parakeet.cpp, faster-whisper, NeMo)
 - **Text-to-Speech Backends**: For speech synthesis (e.g., piper, Kokoro, VibeVoice, Qwen3-TTS)
 - **Sound Generation Backends**: For music and audio generation (e.g., ACE-Step)

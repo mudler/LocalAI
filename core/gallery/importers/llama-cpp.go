@@ -37,6 +37,7 @@ func (i *LlamaCPPImporter) AdditionalBackends() []KnownBackendEntry {
 	return []KnownBackendEntry{
 		{Name: "ik-llama-cpp", Modality: "text", Description: "GGUF drop-in replacement for llama-cpp with ik-quants"},
 		{Name: "turboquant", Modality: "text", Description: "GGUF drop-in replacement for llama-cpp with TurboQuant optimizations"},
+		{Name: "llama-cpp-localai-paged", Modality: "text", Description: "Paged-attention llama.cpp (on-demand paged KV + decode-first prefill budget), tuned for NVFP4 on Blackwell/GB10"},
 	}
 }
 
@@ -130,7 +131,7 @@ func (i *LlamaCPPImporter) Import(details Details) (gallery.ModelConfig, error) 
 	backend := "llama-cpp"
 	if b, ok := preferencesMap["backend"].(string); ok {
 		switch b {
-		case "ik-llama-cpp", "turboquant":
+		case "ik-llama-cpp", "turboquant", "llama-cpp-localai-paged":
 			backend = b
 		}
 	}

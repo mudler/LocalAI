@@ -1,0 +1,163 @@
+ARG BASE_IMAGE=ubuntu:24.04
+# BUILDER_BASE_IMAGE defaults to BASE_IMAGE so the Dockerfile parses even
+# when no prebuilt base is supplied. The builder-prebuilt stage is only
+# entered when BUILDER_TARGET=builder-prebuilt, so a "wrong" fallback
+# content here is harmless — BuildKit prunes the unreferenced builder.
+ARG BUILDER_BASE_IMAGE=${BASE_IMAGE}
+# BUILDER_TARGET selects which builder stage the final scratch image copies
+# package output from. Declared at global scope (before any FROM) so it's
+# usable in `FROM ${BUILDER_TARGET}` below. Default keeps local
+# `make backends/llama-cpp-localai-paged` on the from-source path.
+ARG BUILDER_TARGET=builder-fromsource
+ARG APT_MIRROR=""
+ARG APT_PORTS_MIRROR=""
+
+
+# ============================================================================
+# Stage: builder-fromsource — self-contained build path.
+# Runs .docker/install-base-deps.sh (apt deps + cmake + protoc + gRPC +
+# conditional CUDA/ROCm/Vulkan), copies /opt/grpc to /usr/local, then
+# compiles the variant. Used when BUILDER_TARGET=builder-fromsource (the
+# default; local `make backends/llama-cpp-localai-paged`).
+#
+# The install script is the same one that backend/Dockerfile.base-grpc-builder
+# runs, so the result is bit-equivalent to the prebuilt-base path
+# (builder-prebuilt below).
+# ============================================================================
+FROM ${BASE_IMAGE} AS builder-fromsource
+ARG BUILD_TYPE
+ARG CUDA_MAJOR_VERSION
+ARG CUDA_MINOR_VERSION
+ARG CMAKE_FROM_SOURCE=false
+# CUDA Toolkit 13.x compatibility: CMake 3.31.9+ fixes toolchain detection/arch table issues
+ARG CMAKE_VERSION=3.31.10
+ARG GRPC_VERSION=v1.65.0
+ARG GRPC_MAKEFLAGS="-j4 -Otarget"
+ARG SKIP_DRIVERS=false
+ARG TARGETARCH
+ARG TARGETVARIANT
+ARG GO_VERSION=1.25.4
+ARG UBUNTU_VERSION=2404
+ARG APT_MIRROR
+ARG APT_PORTS_MIRROR
+ARG AMDGPU_TARGETS=""
+ARG BACKEND=rerankers
+# CUDA target archs, e.g. --build-arg CUDA_DOCKER_ARCH='75;86;89;120'
+ARG CUDA_DOCKER_ARCH
+ARG CMAKE_ARGS
+
+ENV BUILD_TYPE=${BUILD_TYPE} \
+    CUDA_MAJOR_VERSION=${CUDA_MAJOR_VERSION} \
+    CUDA_MINOR_VERSION=${CUDA_MINOR_VERSION} \
+    CMAKE_FROM_SOURCE=${CMAKE_FROM_SOURCE} \
+    CMAKE_VERSION=${CMAKE_VERSION} \
+    GRPC_VERSION=${GRPC_VERSION} \
+    GRPC_MAKEFLAGS=${GRPC_MAKEFLAGS} \
+    SKIP_DRIVERS=${SKIP_DRIVERS} \
+    TARGETARCH=${TARGETARCH} \
+    UBUNTU_VERSION=${UBUNTU_VERSION} \
+    APT_MIRROR=${APT_MIRROR} \
+    APT_PORTS_MIRROR=${APT_PORTS_MIRROR} \
+    AMDGPU_TARGETS=${AMDGPU_TARGETS} \
+    CUDA_DOCKER_ARCH=${CUDA_DOCKER_ARCH} \
+    CMAKE_ARGS=${CMAKE_ARGS} \
+    DEBIAN_FRONTEND=noninteractive
+
+# CUDA on PATH (no-op when CUDA isn't installed)
+ENV PATH=/usr/local/cuda/bin:${PATH}
+# HipBLAS / ROCm on PATH (no-op when ROCm isn't installed)
+ENV PATH=/opt/rocm/bin:${PATH}
+
+WORKDIR /build
+
+# Install everything via the shared script — the same one that
+# backend/Dockerfile.base-grpc-builder runs, so the prebuilt CI base and
+# this from-source path are bit-equivalent.
+RUN --mount=type=bind,source=.docker/install-base-deps.sh,target=/usr/local/sbin/install-base-deps \
+    --mount=type=bind,source=.docker/apt-mirror.sh,target=/usr/local/sbin/apt-mirror \
+    bash /usr/local/sbin/install-base-deps
+
+# Mirror builder-prebuilt: copy gRPC from /opt/grpc to /usr/local so
+# CMake's find_package finds it at the canonical prefix the Makefile expects.
+RUN cp -a /opt/grpc/. /usr/local/
+
+COPY . /LocalAI
+
+# BuildKit cache mount for ccache. See Dockerfile.llama-cpp (commit 9228e5b4)
+# for rationale. llama-cpp-localai-paged is the SAME upstream llama.cpp with
+# the LocalAI paged patch series applied; it reuses backend/cpp/llama-cpp
+# source via a thin wrapper Makefile, so MOST TUs are content-identical to the
+# stock llama-cpp build. Sharing a cache id with llama-cpp could give
+# cross-variant hits — but for now keep them separate (mirroring turboquant) so
+# a regression in one doesn't poison the other. Revisit sharing after measuring
+# the actual hit rate.
+#
+# The compile body is shared with builder-prebuilt via .docker/llama-cpp-localai-paged-compile.sh.
+RUN --mount=type=bind,source=.docker/llama-cpp-localai-paged-compile.sh,target=/usr/local/sbin/compile.sh \
+    --mount=type=cache,target=/root/.ccache,id=llama-cpp-localai-paged-ccache-${TARGETARCH}-${BUILD_TYPE},sharing=locked \
+    bash /usr/local/sbin/compile.sh
+
+
+# Copy libraries using a script to handle architecture differences
+RUN make -BC /LocalAI/backend/cpp/llama-cpp-localai-paged package
+
+
+# ============================================================================
+# Stage: builder-prebuilt — uses the pre-built base from
+# quay.io/go-skynet/ci-cache:base-grpc-* (built by .github/workflows/base-images.yml).
+# That image already has gRPC at /opt/grpc + apt deps + CUDA/ROCm/Vulkan
+# pre-installed, so we just copy gRPC to /usr/local and compile. Used when
+# BUILDER_TARGET=builder-prebuilt (CI when the matrix entry sets
+# builder-base-image). llama-cpp-localai-paged reuses the SAME base-grpc-* tags
+# as the stock llama-cpp backend (same gRPC + same toolchain), so no new
+# base-images.yml variant is required.
+# ============================================================================
+FROM ${BUILDER_BASE_IMAGE} AS builder-prebuilt
+
+ARG BUILD_TYPE
+ENV BUILD_TYPE=${BUILD_TYPE}
+ARG CUDA_DOCKER_ARCH
+ENV CUDA_DOCKER_ARCH=${CUDA_DOCKER_ARCH}
+ARG CMAKE_ARGS
+ENV CMAKE_ARGS=${CMAKE_ARGS}
+# AMDGPU_TARGETS must be forwarded into the env here too — backend/cpp/llama-cpp/Makefile
+# (which the llama-cpp-localai-paged Makefile reuses via a sibling build dir) errors out
+# when the var is empty on a hipblas build, and the prebuilt path is what CI exercises most
+# of the time. The builder-fromsource stage above already does this; mirror it here.
+ARG AMDGPU_TARGETS
+ENV AMDGPU_TARGETS=${AMDGPU_TARGETS}
+ARG TARGETARCH
+ARG TARGETVARIANT
+
+# The base-grpc-* image installs gRPC to /opt/grpc but doesn't copy it to
+# /usr/local. Mirror what the from-source path does so the compile step
+# can find gRPC at the canonical prefix the Makefile expects.
+RUN cp -a /opt/grpc/. /usr/local/
+
+COPY . /LocalAI
+
+RUN --mount=type=bind,source=.docker/llama-cpp-localai-paged-compile.sh,target=/usr/local/sbin/compile.sh \
+    --mount=type=cache,target=/root/.ccache,id=llama-cpp-localai-paged-ccache-${TARGETARCH}-${BUILD_TYPE},sharing=locked \
+    bash /usr/local/sbin/compile.sh
+
+RUN make -BC /LocalAI/backend/cpp/llama-cpp-localai-paged package
+
+
+# ============================================================================
+# Final stage — copies package output from one of the two builders.
+# BUILDER_TARGET selects which one. BuildKit prunes the unreferenced builder.
+#
+# BuildKit doesn't support variable expansion in `COPY --from=` directly,
+# so we resolve the ARG by aliasing the chosen builder to a fixed stage
+# name via `FROM ${BUILDER_TARGET} AS builder` and then COPY --from=builder.
+# BUILDER_TARGET itself is declared as a global ARG at the top of this
+# file (required for use in FROM), so we just re-import it into this
+# stage's scope before the FROM directive.
+# ============================================================================
+FROM ${BUILDER_TARGET} AS builder
+
+FROM scratch
+
+
+# Copy all available binaries (the build process only creates the appropriate ones for the target architecture)
+COPY --from=builder /LocalAI/backend/cpp/llama-cpp-localai-paged/package/. ./

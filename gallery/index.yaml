@@ -1,4 +1,103 @@
 ---
+# =============================================================================
+# NVFP4 Qwen3.6 (dense + MoE) for the LocalAI paged-attention llama.cpp backend.
+# These reproduce the GB10 / DGX Spark benchmark serving config (see
+# backend/cpp/llama-cpp/patches/paged/LOCALAI_LLAMACPP_BACKEND_PLAN.md section 2).
+#
+# TODO(GGUF publish): the two HF repos below are PLACEHOLDERS under the `mudler`
+# org and are not yet published. Until then these entries will not resolve. After
+# uploading each .gguf, add its `sha256:` (sha256sum) to the matching `files:`
+# entry so LocalAI verifies it on download.
+#
+# TODO(NVFP4 read gating): NVFP4 GGUF tensor types require a llama.cpp new enough
+# to read them. Confirm the paged backend's pinned LLAMA_VERSION supports NVFP4
+# on a GPU box before relying on these (plan section 3.4 / 4 blocker #1).
+# =============================================================================
+- name: "qwen3.6-27b-nvfp4"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/mudler/Qwen3.6-27B-NVFP4-GGUF
+  description: |
+    Qwen3.6-27B dense, native Blackwell NVFP4 (FP4-MMA) GGUF. Configured for LocalAI's
+    paged-attention llama.cpp backend (llama-cpp-localai-paged): on-demand paged KV cache
+    plus a decode-first prefill budget. Benchmarked on GB10 / DGX Spark at 90-117% of vLLM
+    dense decode throughput at 1.5-3x lower memory.
+
+    Requires a llama.cpp new enough to read the NVFP4 GGUF tensor type (the paged backend's
+    upstream pin) - verify on a GPU box before relying on this entry.
+  license: "apache-2.0"
+  tags:
+    - llm
+    - gguf
+    - nvfp4
+    - reasoning
+  icon: https://user-images.githubusercontent.com/1991296/230134379-7181e485-c521-4d23-a0d6-f7b3b61ba524.png
+  overrides:
+    backend: llama-cpp-localai-paged
+    f16: true
+    flash_attention: "on"
+    context_size: 131072
+    gpu_layers: 99
+    batch: 512
+    known_usecases:
+      - chat
+    options:
+      - use_jinja:true
+      - paged_kv:true              # LLAMA_KV_PAGED=1
+      - max_batch_tokens:512       # LLAMA_MAX_BATCH_TOKENS=512 (decode-first QoS budget)
+      - kv_unified:false           # per-slot paged capacity/memory benefit needs a per-sequence cache
+      - parallel:128               # 128 serving slots
+    parameters:
+      model: llama-cpp/models/Qwen3.6-27B-NVFP4-GGUF/q36-27b-nvfp4.gguf
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/Qwen3.6-27B-NVFP4-GGUF/q36-27b-nvfp4.gguf
+      # TODO(GGUF publish): fill sha256 after uploading the GGUF (sha256sum).
+      uri: https://huggingface.co/mudler/Qwen3.6-27B-NVFP4-GGUF/resolve/main/q36-27b-nvfp4.gguf
+- name: "qwen3.6-35b-a3b-nvfp4"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/mudler/Qwen3.6-35B-A3B-NVFP4-GGUF
+  description: |
+    Qwen3.6-35B-A3B MoE (~3B active), native Blackwell NVFP4 (FP4-MMA) GGUF. Configured for
+    LocalAI's paged-attention llama.cpp backend (llama-cpp-localai-paged): on-demand paged
+    KV cache plus a decode-first prefill budget. Lighter on memory than the dense 27B thanks
+    to the sparse MoE activation.
+
+    Requires a llama.cpp new enough to read the NVFP4 GGUF tensor type (the paged backend's
+    upstream pin) - verify on a GPU box before relying on this entry.
+  license: "apache-2.0"
+  tags:
+    - llm
+    - gguf
+    - nvfp4
+    - moe
+    - reasoning
+  icon: https://user-images.githubusercontent.com/1991296/230134379-7181e485-c521-4d23-a0d6-f7b3b61ba524.png
+  overrides:
+    backend: llama-cpp-localai-paged
+    f16: true
+    flash_attention: "on"
+    context_size: 131072
+    gpu_layers: 99
+    batch: 512
+    known_usecases:
+      - chat
+    options:
+      - use_jinja:true
+      - paged_kv:true              # LLAMA_KV_PAGED=1
+      - max_batch_tokens:512       # decode-first budget; set 256 for max saturated MoE decode (sweep winner)
+      - kv_unified:false           # per-slot paged capacity/memory benefit needs a per-sequence cache
+      - parallel:128               # 128 serving slots
+    parameters:
+      model: llama-cpp/models/Qwen3.6-35B-A3B-NVFP4-GGUF/q36-35b-a3b-nvfp4.gguf
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/Qwen3.6-35B-A3B-NVFP4-GGUF/q36-35b-a3b-nvfp4.gguf
+      # TODO(GGUF publish): fill sha256 after uploading the GGUF (sha256sum).
+      uri: https://huggingface.co/mudler/Qwen3.6-35B-A3B-NVFP4-GGUF/resolve/main/q36-35b-a3b-nvfp4.gguf
 - name: "gemmable-4-12b-mtp"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
