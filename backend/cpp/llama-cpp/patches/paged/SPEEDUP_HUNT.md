@@ -312,3 +312,256 @@ ships purpose-built Marlin-NvFp4) + the bf16 projections (~10.5%). The recurrenc
 PAST vLLM. The single highest-ROI, ship-now item is the re-graph patch (0025).
 
 Assisted-by: Claude:opus-4.8 [Claude Code]
+
+---
+
+## C - STRUCTURAL DENSE RESIDUAL: lm_head + scheduling (label: C-structural-design, READ-ONLY no GPU)
+
+Source-confirmed on DGX `~/llama-paged-dev` @ HEAD `2ee65c2` plus committed traces
+(`CRITICALPATH_GAP_ANALYSIS.md`, `A2_CUDAGRAPH_DECODE.md`, `F16_DENSE_RESIDUAL_PROBE.md`,
+`OTHER_PATHS_INVESTIGATION.md` sec B). Numbers are dense q36-27b-nvfp4 @npl128: step ~333 ms
+(384 t/s), gap to vLLM (419 t/s = 305 ms) is ~27-28 ms/step. **Verdict: lever C is a near
+dead-end for a bit-exact dense win; rank it LAST of A/B/C/D for the bit-exact default.**
+
+### How the lm_head is stored, and why it routes to cublas/nvjet (not the tuned FP4 MMQ)
+
+`output.weight` is **GGML_TYPE_BF16** (NOT quantized): the `--tensor-type attn/ffn=nvfp4`
+recipe converts only attn+ffn, leaving the logit-sensitive final projection (and tok_embd)
+at base BF16. Confirmed: `llama-model.cpp:1460` creates the NVFP4 scale `output_s` ONLY
+`if (output->type == GGML_TYPE_NVFP4)`, so for the BF16 head `model.output_s` is null, and
+`build_lora_mm` (`llama-graph.cpp:1087`) collapses to a plain `ggml_mul_mat`. In
+`ggml_cuda_mul_mat` dispatch (`ggml-cuda.cu:2599-2629`): `use_mul_mat_q`/`use_mul_mat_vec_q`
+both require `ggml_is_quantized(src0)` (BF16 fails => the tuned FP4 path is INELIGIBLE);
+MMF is gated off for the wide `vocab x 128` shape; `use_batched_cublas_bf16` is true but the
+batched branch additionally needs `src1->ne[2]*ne[3] > 1` (the 2D decode lm_head fails it).
+Falls through to `ggml_cuda_op_mul_mat_cublas` BF16 branch (`:1662`): downcast F32 act ->
+BF16, `cublasGemmEx(16BF x 16BF -> COMPUTE_32F)` = **nvjet_sm121**, output rounded BF16 ->
+upcast F32. Shape M=vocab(151936) x N=128 x K=5120: a tall-skinny output GEMM reading the
+ENTIRE BF16 head weight for 128 columns = inherently **memory-bound**. On the dense model
+this is the ONLY non-FP4 cublas GEMM in decode. Cost: nvjet = 11.91 ms = 3.1-3.6% of step.
+
+**CRITICAL CORRECTION the team must carry:** the baseline is NOT "f32 lm_head". The cublas
+BF16 branch downcasts the activation F32->BF16 AND rounds the output to BF16. Today's
+"bit-exact reference" logits are ALREADY BF16-precision on both input and output. So
+"bit-exact" for lever C only protects BF16-rounded logits, which is exactly why option (c)
+is "essentially bit-exact" and why any meaningful lm_head speedup requires changing the dtype.
+
+### lm_head bit-exact lever + gain - bandwidth math kills it
+
+nvjet moves the full BF16 head weight in 11.9-12.2 ms = ~195-199 GB/s = ~72% of GB10's
+273 GB/s peak: it is ALREADY one of the most bandwidth-efficient kernels in the step (the
+overall decode step runs at only ~40% util / ~110 GB/s). The bit-exact ceiling is the
+remaining bandwidth headroom only:
+- **(c) keep BF16 weight, swap the kernel** (custom skinny wide-vocab streaming GEMM, or a
+  hand-picked cublasLt algo/workspace heuristic for the thin-N/huge-M shape). The ONLY
+  essentially-bit-exact option. Perfect HBM saturation 199 -> 273 GB/s = 11.9 -> ~8.7 ms =
+  **save ~3 ms = ~0.9-1.0% of step = ~11% of the 27 ms gap.** REALISTIC gain: 0 to 3 ms,
+  leaning toward 0 - cublasLt already selected nvjet as its best algo, so beating it on a
+  pure weight-stream is not guaranteed, and it is high kernel-writing effort. (F16 probe
+  independently estimates the same nvjet recovery as "~5 ms, uncertain - may already run TF32".)
+
+Structural reason it is near-zero: the head must read the entire BF16 weight for 128 columns;
+you CANNOT cut those weight bytes without changing the dtype. Bit-exactness and the only real
+speedup (fewer weight bytes) are mutually exclusive here.
+
+### lm_head NON-bit-exact options (excluded from any vLLM-parity claim)
+
+- **(a) NVFP4-quantize the head -> tuned FP4 MMQ.** Biggest win, BREAKS bit-exactness.
+  Weight ~4x fewer bytes (BF16 ~1.5-2.4 GB -> NVFP4 ~0.4-0.6 GB) AND rides the already-tuned
+  `mul_mat_q<NVFP4>` (patch 0017): memory floor drops ~4x = **save ~8-9 ms = ~2.5% of step**.
+  BUT NVFP4 < BF16 precision => different logit bits, can flip greedy argmax, AND it is
+  **UNFAIR vs vLLM** (which keeps its LM head BF16). Same opt-in non-bit-exact bucket as the
+  shelved bf16-SSM / f16-glue; exclude from parity claims.
+- (b) FP8 / Q8_0 head: smaller error than NVFP4 but still != BF16 bits AND not on the tuned
+  FP4 MMQ path, so it buys less speed than (a). No reason to prefer.
+- (existing knob) `GGML_CUDA_FORCE_CUBLAS_COMPUTE_16F` (`ggml-cuda.cu:1610`): 16-bit accumulate
+  on this exact GEMM, faster but NON-bit-exact (16F vs 32F accumulate). Non-bit-exact track only.
+
+### Scheduling / launch bit-exact lever + gain - ~0.05%
+
+The decode step is GPU-bound at 99.94% (node-level trace, single stream, graphId replayed).
+CUDA graphs ALREADY collapse within-step launch latency: exposed idle = 0.225 ms/step = 0.06%,
+zero gaps > 5 us, graph ON vs OFF = +0.13% @npl128 (noise). Graphs are NOT a pending dense
+lever - they are already in effect. The ONLY graph-non-covered overhead is the BETWEEN-step
+host gap: ggml rebuilds the cgraph each step with a NEW `cgraph->uid`, so the uid fast-path in
+`ggml_cuda_graph_update_required` never fires and the host re-dispatches ~3100 launches between
+graph launches. MEASURED exposed cost: ~0.2 ms/step = ~0.05% (most of the ~2 ms host loop
+overlaps GPU compute). **Bit-exact lever:** make the cgraph PERSISTENT/reused across decode
+steps so the uid fast-path fires (replay-only => bit-exact). GAIN ~0.2 ms/step = ~0.05%, medium
+effort (touches ggml graph lifetime), second-order. No other per-step host overhead is exposed
+(the host loop is HIDDEN under GPU compute until the kernels get fast enough to drop GPU-busy
+below host time).
+
+### Quantified realistic bit-exact total for lever C
+
+lm_head kernel swap 0 to ~3 ms (upper ~0.9%, realistically ~0) + persistent cgraph ~0.2 ms
+(~0.05%) = **combined bit-exact ceiling ~3.2 ms = ~0.95% of the 333 ms step = ~12% of the
+27 ms gap.** Moves dense parity 91.8% -> at most ~92.7%, realistically <0.5% net (<1.5 ms).
+The "~3-4%" in the brief is the lm_head's TOTAL cost, NOT what is bit-exactly recoverable: only
+the bandwidth headroom (~3 ms) and host gap (~0.2 ms) are recoverable; the other ~9 ms is the
+irreducible BF16 weight stream BOTH engines pay (vLLM keeps a BF16 head too). **Rank C LAST for
+the bit-exact default.** Its one durable note for the team: the lm_head logits are ALREADY
+BF16-rounded (not f32), which both narrows what option (c) must preserve and is exactly why the
+only meaningful lm_head speedup requires a dtype change (= non-bit-exact + unfair vs vLLM).
+
+Source (DGX @2ee65c2): `llama-model.cpp:1460`, `llama-graph.cpp:1087`, `qwen35.cpp:222` /
+`qwen35moe.cpp:246`, `ggml-cuda.cu:2599-2629` / `:1662-1690` / `:1610`.
+
+Assisted-by: Claude:opus-4.8 [Claude Code]
+
+---
+
+# RANK + PLAN - the final synthesis (build order, A handoff, B/C/D queue)
+
+This is the decision section: all four levers measured/designed, ranked by gain x tractability
+x gate, the concrete A build plan, and the ordered B/C/D queue with each one's trigger. Base:
+clean pin-synced llama.cpp 9d5d882d, bit-exact md5 == 0023. Dense gap to vLLM ~27 ms/step (384
+vs 419 t/s @npl128); MoE ~82% (726 vs 882). Recurrence already PAST vLLM (84.6% vs 82.4% peak BW).
+
+## (1) Per-lever scorecard: gain (dense + MoE), tractability, gate
+
+| Lever | Dense decode gain | MoE decode gain | Tractability | Quality gate | Bit-exact? |
+|-------|-------------------|-----------------|--------------|--------------|------------|
+| **B re-graph (patch 0025)** | ~0 (dense already graphed) | **MEASURED +4.4% npl32 / +2.9% npl64 / +1.9% npl128** (MoE 84%->86% .. 90% of vLLM) | **VERY HIGH - already built+measured**, 1 fn / 1 TU / 9 s build | md5 byte-identical: **PASSED** (MUL_MAT_ID 806/806 + parallel-greedy md5 identical) | YES |
+| **A hybrid per-head SSM** | **+25% to +35%/call recurrence -> ~430-454 t/s = 103-108% of vLLM** (ABOVE vLLM) | keeps the +13-25% recurrence share KL-passing; does NOT alone close the MoE GEMM floor | MEDIUM-HIGH - builds on `BF16_SSM_STATE.diff`; biggest new piece = split-dtype cache layout (~150-250 LOC) | **KL<1e-3 + Same-top-p>=99.5% + drift sweep 256/1024/2048/4096 both models**; md5 that T_thresh=inf == f32 baseline | f32 default YES; hybrid is at-or-above vLLM precision, KL-gated |
+| **B M1 down_proj retune** | ~0 | bit-exact, bounded (act-quant is ~2% of MoE step) - low single-% | HIGH - block/grid retune of `quantize_mmq_nvfp4`, byte-identical output | md5 byte-identical | YES |
+| **B mmq_y-down warp-remap** | small (shared FP4 GEMM) | bit-exact, BW-neutral, predicted BOUNDED on this BW-bound model | LOW-MEDIUM - real kernel change (nwarps x tile_C coupling) | test-backend-ops MUL_MAT_ID + md5 | YES |
+| **C lm_head kernel swap** | 0 to ~3 ms (~0.9%, realistically ~0; uncertain it beats nvjet) | ~0 | LOW payoff - high kernel-writing effort, not guaranteed to beat cublasLt | md5 (BF16-rounded logits) | YES (essentially) |
+| **C persistent cgraph** | ~0.2 ms (~0.05%) | ~0 (B's re-graph already covers MoE host gap) | MEDIUM - touches ggml graph lifetime, for 0.05% | replay-only = bit-exact, md5 | YES |
+| **D f16 glue (Option 2)** | ~11-16 ms = 40-60% of residual -> 91.8% -> ~95-96% (NOT a close) | ~0 (dense-only lever) | LOW-MEDIUM - new norm.cu f16 kernels, multi-file | **NON-bit-exact, must pass the SAME KL<1e-3 that plain bf16-SSM FAILED** | NO - opt-in only |
+
+Notes that decide the ranking:
+- **B's re-graph helps ONLY MoE** (dense decode is already graphed; the disable is the MoE
+  MUL_MAT_ID `ne[2]>8` over-guard). It is the single highest-ROI item because it is already
+  built, measured, and gated - zero remaining build risk, just a default flip.
+- **A is the only lever that moves dense ABOVE vLLM** (103-108%) and it does it at-or-above
+  vLLM precision (vLLM keeps ALL temporal state f32; A keeps f32 on exactly the unsafe heads).
+  It reaches the largest mass (recurrence = 49.3% dense / ~48% MoE = ~6x what D can touch).
+- **C and D are dead-or-tiny for the bit-exact default.** C's bit-exact ceiling is <1% with
+  real risk; D is non-bit-exact, dense-only, and tops out at ~96% parity (not a close).
+
+## (2) Ranked build order (gain x tractability x gate) - A confirmed as the build lead
+
+1. **B re-graph (patch 0025) - LAND NOW.** Already built + measured + both gates PASSED. The
+   only remaining decision is flipping the default from env-gated (`LLAMA_MOE_FORCE_GRAPHS`) to
+   `should_use_mmq`-gated default-ON. Zero new build, measured +1.9-4.4% MoE, bit-exact. This
+   is not a "build" so much as a "ship"; it precedes A because it is free and de-risked.
+2. **A hybrid per-head SSM - THE BUILD LEAD (user-greenlit, CONFIRMED by evidence).** The only
+   lever that takes dense ABOVE vLLM and the only principled fix for the bf16-SSM KL failure.
+   Largest reachable mass, bounded build on an existing diff, KL-gated. Build plan in (3).
+3. **B M1 down_proj act-quant retune** - cheap bit-exact bank-shot, run after A while the GPU
+   is warm. Bounded (~2% act-quant tax), byte-identical-output retune.
+4. **B mmq_y-down warp-remap** - only if 1+2+3 leave MoE short of target; real kernel work,
+   predicted bounded on this BW-bound model.
+5. **C persistent cgraph** - a bit-exact ~0.05% micro-win for the default; build only if a
+   broad graph-lifetime refactor is happening anyway (not worth a standalone effort).
+6. **C lm_head BF16 kernel swap** - near-zero, uncertain, high effort. Effectively shelved.
+7. **D f16 glue (Option 2 norm.cu kernels)** - LAST, opt-in only, non-bit-exact, dense-only,
+   gated by the same KL threshold bf16-SSM failed. Build only if the last ~4% dense is chased
+   AFTER A lands and is shown insufficient. Skip Option 1 entirely (cast overhead eats the win).
+
+**Why A over B as the lead, despite B's re-graph being measured:** B's re-graph is already
+DONE - it is a ship, not a build. For the NEW build effort, A is correctly the lead: it is the
+only lever with a path ABOVE vLLM on dense, it attacks the largest mass (recurrence, shared by
+both models), and it converts the already-proven whole-bf16 win (490 t/s = 125% vLLM, but KL
+FAIL) into a KL-passing form. B's remaining items (M1, mmq_y) are bounded single-% bank-shots
+that cannot reach parity on their own (the residual MoE gap is the FP4 grouped GEMM at the
+LPDDR5x BW floor + bf16 projections, both structural). So: ship 0025, then build A, then bank B.
+
+## (3) CONCRETE A BUILD PLAN (hand to the build agent)
+
+**Objective:** a per-head mixed-dtype SSM state cache - f32 on long-memory heads, bf16 on
+fast-decaying heads - that captures 50-70% of the whole-bf16 recurrence win (-25% to -35%/call)
+while PASSING KL<1e-3. Builds directly on the existing `BF16_SSM_STATE.diff` (untracked backup
+on DGX `~/llama-paged-dev`). Target dense ~430-454 t/s (103-108% of vLLM 419), MoE +13-25%
+recurrence share KL-passing. f32 default stays bit-exact (md5 == 0023 baseline).
+
+**Reuse VERBATIM from BF16_SSM_STATE.diff** (do NOT rewrite): `gdn_state_t<STATE_BF16>` alias,
+templated `__bfloat162float` load / `__float2bfloat16` store, the gather template, the dtype-
+detect dispatcher, `type_s`/`type_r` cparam wiring, the CPU mirror, the back-compat row convert,
+the bf16 fill path, and the test-backend-ops bf16 cases.
+
+**NEW work items (in build order):**
+
+1. **Head classifier (~80-150 LOC, do first, no GPU).** Host function over `ssm_a` (tensor
+   `SSM_A_NOSCAN`, `[n_v_heads]`, = `-exp(A_log)`) and `ssm_dt` (tensor `SSM_DT`, `[n_v_heads]`):
+   for each (layer il, head h) compute `tau_h = 1 / (|ssm_a[il][h]| * softplus(ssm_dt[il][h]))`;
+   set `head_is_bf16[il][h] = (tau_h <= T_thresh)`. Emit per-layer `n_f32`/`n_bf16` counts +
+   the `head_slot[il][h] = {is_bf16, local_idx}` map. Add cparam `ssm_hybrid_tau_thresh` / CLI
+   `--ssm-bf16-tau` (inf => all-f32 bit-exact default; 0 => all-bf16; hybrid band in between).
+   Runs in microseconds at load, no data, no GPU. (Optional Tier-2: a short calibration pass
+   measuring per-head time-mean of actual `exp(g[h,t])` -> model-hash sidecar; only if Tier 1
+   lands just above the gate.)
+2. **Split-dtype cache layout (~150-250 LOC - THE BIGGEST piece).** In
+   `llama-memory-recurrent.cpp`: replace the single `s_l` ([S_v,S_v,H,slots] f32) with two
+   dtype-homogeneous sub-caches sized by per-layer head COUNT (this is what saves the bytes):
+   `s_l_f32 [S_v*S_v*n_f32, slots]` f32 + `s_l_bf16 [S_v*S_v*n_bf16, slots]` bf16. In
+   `build_rs` (`delta-net-base.cpp`): build the two views + pass the `head_slot` map; split the
+   `n_embd_s` accessors. q/k/v/g/beta KEEP natural head order (no activation permute - they come
+   from the projection GEMMs). Coarser per-LAYER fallback is REJECTED (long-memory heads span
+   most layers => too coarse; per-head is the right granularity).
+3. **Recurrence kernel: single launch, runtime per-head branch (~120-200 LOC).** Pass BOTH
+   bases (`const float* s_f32_base`, `const nv_bfloat16* s_bf16_base`) + the two `state_dst`
+   partition views + the device `head_slot[]` map. Branch on `head_slot[h_idx].is_bf16` at the
+   load site, the in-place store site, the gather, and the dispatcher. The branch is UNIFORM
+   within a block (all threads share `h_idx` = `blockIdx.x`) => **NO warp divergence**. The
+   recurrence math (the ~140-260 region) stays byte-for-byte f32-register, untouched. `keep_rs_t`
+   snapshots stay f32 (op-output scratch). The `STATE_BF16` template stays as the all-bf16
+   special case.
+4. **ids / in-place per-head.** `state_dst` becomes two partition views; `gdn_gather_nonident`
+   becomes per-head dtype-aware (copies each head's `S_v*S_v` block from the right partition of
+   `cache[ids[s]]`; still disjoint-scratch race-free). Each head writes its own partition slot
+   (read==write slot, loaded to registers before store) => the identity / in-place property is
+   preserved.
+5. **CPU mirror (ops.cpp)** per-head dtype branch for CI / CPU-offload parity.
+6. **test-backend-ops: a MIXED-dtype-state GATED_DELTA_NET case** (some heads f32, some bf16)
+   vs the CPU ref, covering decode + multi-token prefill + `keep_rs_t` (this is the R2
+   silent-corruption net - do NOT skip it).
+7. **Gate (GPU, GateBench harness, already built).** Sweep `T_thresh` to find the MINIMUM f32
+   fraction that passes: noise floor first, then the 256-tok KL gate, then the long-context
+   drift sweep 256/1024/2048/4096, BOTH models (dense q36-27b + MoE q36-35b-a3b). Pass bar =
+   **KL<1e-3 AND Same-top-p>=99.5% AND drift bounded**. nsys per-call confirms `f_bytes` =
+   `(n_f32 + n_bf16/2)/H` dropped. md5 that `T_thresh=inf` reproduces the f32 baseline (the
+   bit-exact opt-out MUST be preserved).
+
+**Expected result (from the physics + the whole-bf16 measurement):** KLD contribution per head
+~ `(eps*tau_h)^2` (eps~2^-8~3.9e-3) is dominated by the top-tau heads, so removing the top
+~25-40% by tau cuts MeanKLD by 1-2 orders. Design band **f32 fraction f in [0.30, 0.50]**:
+- f=0.30 (n_bf16/H=0.70): `f_bytes`=0.65 -> ~2.20 ms/call (-35%), captures ~70% of the bf16
+  win -> dense **~454 t/s = ~108% of vLLM** (gate-likely, MeanKLD ~1e-3..1e-2).
+- f=0.50: `f_bytes`=0.75 -> ~2.54 ms/call (-25%), captures ~50% -> dense **~430 t/s = ~103% of
+  vLLM** (most robust pass; strict KL<1e-3 may need this fraction).
+
+The exact f is found by the T_thresh sweep. **MoE:** A keeps the +13-25% recurrence share
+KL-passing but does NOT by itself close the MoE GEMM gap (that is B). Joint ship gate = nsys
+per-call bytes down AND KL<1e-3 for BOTH models; neither alone ships. Hybrid is STRICTLY safer
+than vLLM (we keep f32 exactly where bf16 is unsafe; vLLM keeps all-f32 everywhere).
+
+## (4) Ordered B / C / D queue with build triggers
+
+- **B-1 re-graph default flip (patch 0025): trigger = NOW / immediate.** Already built, measured
+  (+1.9-4.4% MoE), both gates PASSED. Flip env-gated -> `should_use_mmq`-gated default-ON. No
+  dependency on A. Ship first.
+- **B-2 down_proj act-quant retune (M1): trigger = after A's kernel work lands** (reuse the warm
+  GPU window). Bit-exact block/grid retune of `quantize_mmq_nvfp4`, byte-identical output.
+  Bounded ~1% (act-quant is ~2% of the MoE step). Run it; it is cheap.
+- **B-3 mmq_y-down warp-remap: trigger = ONLY if B-1 + B-2 + A leave MoE below the target.**
+  Real kernel change, BW-neutral, predicted bounded on this BW-bound model. Speculative; gate by
+  test-backend-ops MUL_MAT_ID + md5.
+- **C-1 persistent cgraph: trigger = ONLY if a broader ggml graph-lifetime refactor is already
+  in flight.** Standalone it is ~0.05%, not worth the graph-lifetime touch. Bit-exact (replay).
+- **C-2 lm_head BF16 kernel swap: trigger = effectively NEVER for the default** (0 to ~3 ms,
+  uncertain it beats nvjet, high effort). Documented; not queued.
+- **D Option 2 f16-glue norm.cu kernels: trigger = ONLY if dense parity is still wanted AFTER A
+  lands AND A is shown insufficient, AND an opt-in non-bit-exact mode is acceptable.** Multi-file,
+  recovers ~11 ms (norm/elementwise band), gated by the SAME KL<1e-3 that plain bf16-SSM failed.
+  Skip Option 1 (net-zero cast overhead). Lowest priority of all.
+
+**Bottom line:** ship 0025 now (free, measured MoE +1.9-4.4%), then build A (the only path
+ABOVE vLLM on dense, KL-gated, ~430-454 t/s = 103-108% of vLLM), then bank B-2/B-3 on MoE. C is
+last for the bit-exact default (<1%, dead-end); D is opt-in-only and dense-only, behind the KL
+gate, only if the last ~4% is ever chased. The recurrence is already PAST vLLM; A converts that
+proven win into a KL-passing form, and the MoE GEMM floor (the structural residual) is the one
+piece no bit-exact lever fully closes - vLLM ships purpose-built Marlin-NvFp4 there.
+
+Assisted-by: Claude:opus-4.8 [Claude Code]
