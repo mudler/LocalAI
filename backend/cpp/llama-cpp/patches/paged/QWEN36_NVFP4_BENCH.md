@@ -75,6 +75,15 @@ realistic config** (no handicapping either side), matched NVFP4 weights, one cle
 
 **llama decode as % of vLLM (MoE):** npl8 **83%**, npl32 **78%**, npl64 **77%**, npl128 **82%**.
 
+## Plots (decode throughput vs concurrency)
+
+Generated from [`final_benchmark.csv`](final_benchmark.csv) (matplotlib); the per-point label is
+llama as a share of vLLM decode at that concurrency.
+
+![dense decode vs npl](qwen36_dense_decode_vs_npl.png)
+
+![MoE decode vs npl](qwen36_moe_decode_vs_npl.png)
+
 ## The honest public story (let the numbers speak)
 
 1. **Decode throughput — the headline.** On the dense 27B, paged llama.cpp **matches/beats
@@ -119,6 +128,14 @@ remaining gap is MoE-decode and burst-TTFT, not dense-decode or memory.
   (baseline ~3.3 GB, ~120 GB free) and **restarted afterwards** to return the host.
 - **peak_gb** is absolute unified-memory used (`MemTotal-MemAvailable`) peak; `engine_gb` =
   peak − the ~3.3 GB OS baseline (the per-config engine footprint).
+- **Internal-consistency check (decode_agg vs perseq×npl).** `decode_agg_tps` is the steady-state
+  aggregate over the decode window; `decode_perseq_tps` is each sequence's lifetime rate (output
+  tokens ÷ total request latency, so it *includes* the TTFT queue wait). They coincide when
+  TTFT ≪ decode-window (vLLM npl8: 70.4 vs 70.1, +0.5%) and diverge exactly as TTFT grows, on
+  **both** engines (the agg−perseq×npl gap rises monotonically with `ttft_mean`: vLLM 0.5%→17%,
+  llama 8%→62% across npl8→128, mirroring its 6 s→903 s TTFT). The relationship is governed by
+  TTFT, not a measurement artifact, and the FINAL rows are distinct from the historical patch-0015
+  table (no stale-baseline carry-over).
 
 ---
 
