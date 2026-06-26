@@ -28,10 +28,13 @@ build + a mixed-dtype recurrent-state cache. **HIGH promise, moderate effort.** 
 plumbing already exists (DGX `~/llama-paged-dev/BF16_SSM_STATE.diff`); this adds the per-head
 dtype selection on top.
 
-*Note:* plain bf16 (no split) is also a legitimate **opt-in for precision-tolerant deployments** -
-it is exactly vLLM's own GDN precision (vLLM's recurrent cache is bf16), so "match vLLM speed at
-vLLM precision" is a one-flag away if a user wants it. We declined it as the *default* because our
-f32 is a strictly higher bar.
+*Note (precision, corrected):* plain bf16 (no split) is a legitimate **opt-in for precision-tolerant
+deployments**, but it is *below* vLLM's recurrent precision, NOT equal to it. vLLM keeps the
+gated-DeltaNet **temporal state in f32** (proven three ways in `BITEXACT_VS_VLLM.md`; only its tiny
+conv state is bf16, and llama keeps even that f32). So bf16 here trades *below-vLLM* precision for
+*above-vLLM* throughput. We declined it as the default because both llama's f32 AND vLLM's f32 are a
+higher bar - and at equal f32 precision llama's recurrence already beats vLLM (84.6% vs 82.4% peak BW),
+so we do not need bf16 to match vLLM's recurrence.
 
 ## 2. Dense CUDA-graph instability
 

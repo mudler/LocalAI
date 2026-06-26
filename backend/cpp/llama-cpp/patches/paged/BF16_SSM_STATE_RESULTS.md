@@ -153,9 +153,11 @@ Result: 256-tok PASS (vacuous); **drift FAIL by ~50-170x on Mean KLD and ~9 pts 
   bounded but LARGE: the gated-DeltaNet has long-memory heads (exp(g) ~ 1), so the g<1 decay does NOT
   tightly contract the per-step bf16 rounding the way the plan's A.3 optimistically assumed.
 
-Note: this is exactly vLLM's own precision (vLLM's GDN temporal cache is bf16). vLLM users never see
-this delta because vLLM has no f32 reference; our gate exposes the full bf16-vs-f32 gap because our
-f32 path is a HIGHER bar than vLLM.
+Note (CORRECTED): this is NOT vLLM's precision. vLLM keeps the GDN **temporal state in f32** (proven
+three ways in BITEXACT_VS_VLLM.md: empirical kernel-boundary tensor dtype, the config chain, and the
+bandwidth regime; only vLLM's tiny conv state is bf16). So bf16 temporal here is a step BELOW vLLM's
+recurrent precision, not a match. (An earlier byte-gate draft mislabeled vLLM as bf16-state; that was
+refuted.) At equal f32 precision llama's recurrence already beats vLLM (84.6% vs 82.4% peak BW).
 
 ## 2. Parity bench - the perf lever IS real
 
@@ -188,9 +190,11 @@ bf16 clean ~490 = **125%** (but unstable on dense + fails the numeric gate). MoE
 - Per the task rule (gate FAIL -> do not ship as usable): **patch 0024 was NOT created and nothing was
   committed** (DGX tree stays uncommitted; backup `~/llama-paged-dev/BF16_SSM_STATE.diff`).
 - The perf lever is genuinely real (recurrence halves; dense ~490 t/s = 125% of vLLM when clean; MoE
-  +25%) and bf16 == vLLM's own precision, so it remains a valid FUTURE option - but only if shipped as
-  an explicitly-labeled "vLLM-precision-class, NON-bit-exact" mode (never quality-neutral), AND the
-  dense CUDA-graph throughput instability (bimodal 287..498) is fixed first.
+  +25%), but bf16 temporal is BELOW vLLM's precision (vLLM keeps temporal f32), so it remains a valid
+  FUTURE option only if shipped as an explicitly-labeled "reduced-precision, NON-bit-exact, below-vLLM"
+  mode (never quality-neutral), AND the dense CUDA-graph throughput instability (bimodal 287..498) is
+  fixed first. The principled path is hybrid per-head precision (f32 long-memory heads + bf16 fast
+  heads) - keeps precision at-or-above vLLM while capturing most of the speedup.
 - Recommendation: keep the shipped default as f32 bit-exact (95% of vLLM at higher precision). Shelve
   bf16. Optional follow-up lever if precision must be cut: bf16 only on the SHORT-memory heads (those
   with exp(g) well below 1), keeping long-memory heads f32 - a mixed-precision state that could pass
