@@ -1,0 +1,56 @@
+From 2f4f5ab7c9050f890ee1137ef9c8ee09dfcd9ae7 Mon Sep 17 00:00:00 2001
+From: Ettore Di Giacinto <mudler@localai.io>
+Date: Fri, 26 Jun 2026 16:52:21 +0200
+Subject: [PATCH] feat(paged): qwen35moe NVFP4 MoE-decode re-graph
+ (should_use_mmq graph-safe id-path) (patch 0025)
+
+The MUL_MAT_ID CUDA-graph guard (ggml-cuda.cu [TAG_MUL_MAT_ID_CUDA_GRAPHS]) disables CUDA graphs for
+the whole decode step whenever a MUL_MAT_ID node has ne[2] > mmvq_mmid_max (8 for NVFP4 on sm_121),
+because the per-expert host-loop fallback synchronizes the stream. But on Blackwell NVFP4 the path
+actually taken is should_use_mmq()==true -> the grouped stream-k mul_mat_q id-branch, which launches
+on one stream with NO host sync (no cudaStreamSynchronize/Memcpy in mmq.cu/mmid.cu). The disable is
+therefore conservative; graphs are safe for the grouped path.
+
+Env-gated (LLAMA_MOE_FORCE_GRAPHS, default-off = byte-identical to stock): when set and the node
+takes the grouped MMQ path, keep CUDA graphs on for the MoE decode step.
+
+Measured (DGX GB10 sm_121, q36-35b-a3b-nvfp4, llama-batched-bench -fa on -npp128 -ntg128, decode_agg):
+  npl 8   226.0 -> 226.4  +0.2% (noise; ne2<=8 already on the MMVQ-graphed path)
+  npl 32  433.8 -> 452.7  +4.4%
+  npl 64  589.0 -> 605.9  +2.9%
+  npl 128 743.1 -> 757.1  +1.9%
+
+Bit-exact (graph replay re-issues identical kernels): test-backend-ops MUL_MAT_ID 806/806 CUDA0 OK;
+parallel-greedy np16 (ne2=16>8) generated content byte-identical ON==OFF.
+
+Assisted-by: Claude:opus-4.8 [Claude Code]
+Signed-off-by: Ettore Di Giacinto <mudler@localai.io>
+---
+ ggml/src/ggml-cuda/ggml-cuda.cu | 12 +++++++++++-
+ 1 file changed, 11 insertions(+), 1 deletion(-)
+
+diff --git a/ggml/src/ggml-cuda/ggml-cuda.cu b/ggml/src/ggml-cuda/ggml-cuda.cu
+index cca7059..254d2e0 100644
+--- a/ggml/src/ggml-cuda/ggml-cuda.cu
++++ b/ggml/src/ggml-cuda/ggml-cuda.cu
+@@ -3275,7 +3275,17 @@ static bool ggml_cuda_graph_check_compability(ggml_cgraph * cgraph) {
+         if (node->op == GGML_OP_MUL_MAT_ID) {
+             const int cc = ggml_cuda_info().devices[ggml_cuda_get_device()].cc;
+             const int mmvq_mmid_max = get_mmvq_mmid_max_batch(node->src[0]->type, cc);
+-            if (!ggml_is_quantized(node->src[0]->type) || node->ne[2] > mmvq_mmid_max) {
++            bool mmid_needs_sync = !ggml_is_quantized(node->src[0]->type) || node->ne[2] > mmvq_mmid_max;
++            // PROBE (bit-exact, env LLAMA_MOE_FORCE_GRAPHS): the grouped stream-k MMQ id-path is
++            // launched on-stream with no host sync (only the per-expert host-loop fallback syncs);
++            // when should_use_mmq() is true (Blackwell NVFP4 grouped path) the op is graph-safe
++            // even for ne[2] > mmvq_mmid_max, so graphs need not be disabled for the whole step.
++            if (mmid_needs_sync && ggml_is_quantized(node->src[0]->type) &&
++                getenv("LLAMA_MOE_FORCE_GRAPHS") != nullptr &&
++                ggml_cuda_should_use_mmq(node->src[0]->type, cc, node->src[1]->ne[2], node->src[0]->ne[2])) {
++                mmid_needs_sync = false;
++            }
++            if (mmid_needs_sync) {
+                 // under these conditions, the mul_mat_id operation will need to synchronize the stream, so we cannot use CUDA graphs
+                 // TODO: figure out a way to enable for larger batch sizes, without hurting performance
+                 // ref: https://github.com/ggml-org/llama.cpp/pull/18958
+--
+2.43.0
