@@ -22,8 +22,20 @@ if [ -f "${BACKEND_DIR}/run.sh" ]; then
         RUN_BINARY=$(grep -oE '\$CURDIR/[A-Za-z0-9._-]+' "${BACKEND_DIR}/run.sh" | grep -v 'ld\.so' | tail -1 | sed 's|\$CURDIR/||')
 fi
 RUN_BINARY="${RUN_BINARY:-${BACKEND}}"
-if [ ! -x "${BACKEND_DIR}/${RUN_BINARY}" ]; then
-        echo "ERROR: ${BACKEND_DIR}/${RUN_BINARY} not found after build; refusing to package a broken backend image (see issue #10267)." >&2
+
+# Ship the self-contained package/ dir (run.sh + binary + lib/), matching the
+# Linux Dockerfile.golang (`COPY .../package/. ./`). Packaging the whole backend
+# dir instead left the runtime libraries under package/lib while run.sh looks in
+# $CURDIR/lib, so backends such as sherpa-onnx could not dlopen their libs at
+# runtime (they started fine only when run from inside package/). Backends that
+# don't assemble a package/ fall back to the backend dir.
+OCI_ROOT="${BACKEND_DIR}"
+if [ -d "${BACKEND_DIR}/package" ]; then
+        OCI_ROOT="${BACKEND_DIR}/package"
+fi
+
+if [ ! -x "${OCI_ROOT}/${RUN_BINARY}" ]; then
+        echo "ERROR: ${OCI_ROOT}/${RUN_BINARY} not found after build; refusing to package a broken backend image (see issue #10267)." >&2
         exit 1
 fi
 
@@ -31,7 +43,7 @@ PLATFORMARCH="${PLATFORMARCH:-darwin/arm64}"
 IMAGE_NAME="${IMAGE_NAME:-localai/${BACKEND}-darwin}"
 
 ./local-ai util create-oci-image \
-        backend/go/${BACKEND}/. \
+        "${OCI_ROOT}/." \
         --output ./backend-images/${BACKEND}.tar \
         --image-name $IMAGE_NAME \
         --platform $PLATFORMARCH
