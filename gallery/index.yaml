@@ -1,4 +1,58 @@
 ---
+- name: "ornith-1.0-9b"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/deepreinforce-ai/Ornith-1.0-9B-GGUF
+  description: |
+    [](https://deep-reinforce.com/ornith.html)
+
+    # Ornith-1.0-9B-GGUF
+
+    Aloha! 🌺 Today, we are releasing Ornith-1.0, a self-improving family of open-source models for agentic coding.
+
+    Highlights:
+
+      - **State-of-the-Art Coding Agents**: Available in 9B-Dense, 31B-Dense, 35B-MoE, and 397B-MoE (post-trained on top of Gemma 4 and Qwen 3.5), achieving state-of-the-art performance among open-source models of comparable size on coding benchmarks such as Terminal-Bench 2.1, SWE-Bench, NL2Repo and OpenClaw.
+      - **Self-Improving Training Framework**:  Ornith-1.0 employs RL to learn to generate not only solution rollouts, but also the scallfold that drive those rollouts. By jointly optimizing the scaffold and the resulting solution, the model  discovers better search trajectories and generates higher-quality solutions.
+      - **Licence**: MIT licensed, globally accessible, and free from regional limitations.
+
+    ## Ornith 1.0 9B
+
+    This model card documents **Ornith-1.0-9B**, the most lightweight member of the Ornith family, designed for efficient single-GPU deployment.
+
+    ### Benchmarks
+
+    Ornith-1.0-9B
+    Qwen3.5-9B
+    Qwen3.5-35B
+    Gemma4-12B
+    Gemma4-31B
+
+    Agentic Coding
+
+    ...
+  license: "mit"
+  tags:
+    - llm
+    - gguf
+  overrides:
+    backend: llama-cpp
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/Ornith-1.0-9B-GGUF/ornith-1.0-9b-Q4_K_M.gguf
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/Ornith-1.0-9B-GGUF/ornith-1.0-9b-Q4_K_M.gguf
+      sha256: 5720d1f671b4996481274fffe01868c3c36e87c135cc8538471cc7bd6087b106
+      uri: https://huggingface.co/deepreinforce-ai/Ornith-1.0-9B-GGUF/resolve/main/ornith-1.0-9b-Q4_K_M.gguf
 - name: "ornith-1.0-35b"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
