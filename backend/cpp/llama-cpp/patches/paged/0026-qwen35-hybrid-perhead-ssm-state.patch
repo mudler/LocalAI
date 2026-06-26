@@ -54,13 +54,23 @@ diff --git a/common/common.cpp b/common/common.cpp
 index a14e7bb..c4ab884 100644
 --- a/common/common.cpp
 +++ b/common/common.cpp
-@@ -1600,6 +1600,9 @@ struct llama_context_params common_context_params_to_llama(const common_params &
+@@ -1600,6 +1600,19 @@ struct llama_context_params common_context_params_to_llama(const common_params &
  
      cparams.type_k = params.cache_type_k;
      cparams.type_v = params.cache_type_v;
 +    cparams.type_r = params.cache_type_conv;
 +    cparams.type_s = params.cache_type_ssm;
 +    cparams.ssm_hybrid_tau_thresh = params.ssm_hybrid_tau_thresh;
++    // LocalAI per-model option hook: when the --ssm-bf16-tau CLI flag is at its bit-exact
++    // default (0), honor LLAMA_SSM_BF16_TAU (set by the grpc-server from the model YAML
++    // `options: [ssm_bf16_tau:N]`) so the reduced-precision hybrid fast mode is selectable
++    // per model without a process-wide CLI flag. Absent/non-positive env => untouched, so
++    // stock stays bit-exact; the CLI flag, when set, takes precedence.
++    if (cparams.ssm_hybrid_tau_thresh == 0.0f) {
++        if (const char * tau_env = std::getenv("LLAMA_SSM_BF16_TAU")) {
++            try { cparams.ssm_hybrid_tau_thresh = std::stof(tau_env); } catch (...) {}
++        }
++    }
  
      return cparams;
  }
