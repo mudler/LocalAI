@@ -58,12 +58,21 @@ characteristics - the LPDDR5x bandwidth floor that dominates GB10 decode does **
 whole calculus changes (likely compute-bound, not BW-bound; the recurrence would not be the binding
 kernel). A separate investigation if datacenter Blackwell becomes a target.
 
-## 5. Prefill / TTFT scheduler
+## 5. Prefill / TTFT scheduler + paged-pool burst degradation (HIGH priority - the weakest benchmark number)
 
-The chunked-prefill QoS budget (patches 0013/0016, `LLAMA_MAX_BATCH_TOKENS`) bounds TTFT but uses a
-single static default. A **dynamic/adaptive** budget (by concurrency + queue depth) could improve the
-TTFT-vs-decode tradeoff at high concurrency. **Moderate promise** for the serving experience (not raw
-decode tok/s).
+The final benchmark (`QWEN36_NVFP4_BENCH.md`) exposed TTFT as the clear weak spot vs vLLM. Two distinct
+issues:
+- **Static decode-first budget tradeoff:** the QoS budget (patches 0013/0016, `LLAMA_MAX_BATCH_TOKENS=512`)
+  maximizes decode tok/s + memory but throttles burst-prefill, so under a synchronized 128-way burst TTFT
+  climbs to **903 s dense / 213 s MoE @npl128** vs vLLM's chunked-prefill 6-18 s. A dynamic/adaptive budget
+  (by concurrency + queue depth), or matching vLLM's chunked-prefill interleave, would rebalance.
+- **Paged-pool burst-degradation BUG (concrete, found in the benchmark):** after a high-npl burst, a
+  server's *subsequent lower-npl* prefill collapses (fresh npl8 = 507 t/s / 6 s TTFT; npl8 after an npl64
+  burst = 65 t/s / 64 s). Decode stays robust; only prefill degrades -> root-cause the paged-pool state
+  that persists across the burst.
+
+**HIGH promise** for the serving experience: decode (dense 90-117%, MoE 77-83% of vLLM) and memory (1.5-3x
+lower) are already strong; TTFT is the one number holding back a clean public win.
 
 ## 6. MoE-specific recurrence tuning
 
