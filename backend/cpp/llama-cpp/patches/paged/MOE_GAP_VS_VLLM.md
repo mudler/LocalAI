@@ -233,3 +233,130 @@ regression on the 27% GEMM bucket, multi-week high-risk, and it rebaselines ever
 the FP4-vs-bf16 tier is a wash that the weight-read floor erases - leaving only the half-rate downside).
 
 Assisted-by: Claude:opus-4.8 [Claude Code]
+
+---
+
+# LEVER 4 (scope) - NVFP4-quantize the still-bf16 MoE GDN/attn projections (+lm_head), the +6.5 ms bucket
+
+Label `L4-scope`, READ-ONLY (no GPU). This scopes lever 4 - the single biggest *bucket* in the table
+above (**Dense projections +glue, +6.5 ms**) and the only remaining MoE lever with a real, measurable
+gain after levers 2 and 3 both came back FLAT measurement-STOPs (no patch, no commit - see
+`LEVER2_GRAPH_COVERAGE_RESULTS.md`, `LEVER3_ACTQUANT_FUSION_RESULTS.md`, `LEVERS_23_PROGRESS.md`). Lever 4
+is **bit-changing** (re-gates md5; gate on KL-to-f32, not bit-exact md5). Below: the root cause, the
+path, effort, the precision/KL story, the expected gain, and the default-vs-opt-in recommendation.
+
+## Root cause: the MoE GGUF's projections are bf16 only because of its quant PROVENANCE
+
+The "still-bf16 GDN/attn projections" are **MoE-specific, and they are an accident of how the MoE
+checkpoint was quantized - not a llama limitation.** The two GGUFs have different quant lineages:
+
+- **Dense `q36-27b-nvfp4` (unsloth, native-Blackwell FP4, 304 NVFP4 tensors):** the GDN/attn projections
+  ARE already NVFP4. Proven directly - `DECODE_PARITY_EXPLORE.md:594` shows the dense `ssm_out`
+  (GDN out-projection) running as an **FP4 GEMV/MMQ** (`mul_mat_vec_q`/`mul_mat_q<NVFP4>`), and the
+  in_proj runs FP4 MMQ at M=128. This is exactly why the **dense decode is already at 96.6% of vLLM** -
+  it has essentially no bf16-projection bucket left.
+- **MoE `q36-35b-a3b-nvfp4` (nvidia modelopt, 241 NVFP4 tensors):** modelopt quantized the **256-expert
+  FFN** tensors to NVFP4 (the 241 count is dominated by the packed grouped-expert tensors) but **left the
+  GDN/attn linear projections in BF16** - `in_proj_qkvz`, `in_proj_ba`, the GDN `out_proj`/`ssm_out`, and
+  the full-attn `attn_q/k/v/output`. Those are exactly the **bf16 nvjet/cutlass projection GEMMs** seen in
+  the MoE decode top-kernel list (8.2 `nvjet 192x136` + 4.5 `cutlass::Kernel2` + 4.1 `nvjet 128x64`)
+  plus the 2.9 ms `convert_unary` bf16<->f32 glue = the **20.3 ms projection bucket** vs vLLM's 13.8 ms
+  (vLLM runs the same projections, and on this modelopt checkpoint even its lm_head, as NVFP4-Marlin -
+  see its `2.8 marlin dense (lm_head NVFP4)` kernel).
+
+**=> Lever 4 is overwhelmingly a MoE-GGUF move:** bring the MoE GGUF's GDN/attn projections to the SAME
+NVFP4 the DENSE GGUF already ships and that vLLM already runs on the identical weights. It is not a new
+capability - the dense GGUF is the existence proof that llama runs and ships these projections in NVFP4.
+
+## (1) THE PATH + EFFORT
+
+Two ways to get the projection weights into NVFP4:
+
+- **PATH A - offline re-quantize to a NEW GGUF variant (RECOMMENDED, = exactly what vLLM does).** Re-run
+  `llama-quantize` on the MoE source with the `--tensor-type` selector EXPANDED to also capture the
+  GDN/attn projection tensor-name patterns that the modelopt checkpoint left bf16 (the GDN `in_proj_*` /
+  `out_proj`/`ssm_out` and full-attn `attn_q/k/v/output` weights), producing e.g.
+  `q36-35b-a3b-nvfp4-projq.gguf`. **ZERO kernel/runtime code:** NVFP4 weights already flow end-to-end -
+  the loader auto-creates the per-tensor NVFP4 sidecar scales when `type == GGML_TYPE_NVFP4`
+  (`llama-model.cpp:1459`), and the projection GEMMs then route to the already-tuned `mul_mat_q<NVFP4>`
+  (patch 0017) instead of cublas/nvjet. The dense GGUF is the live proof this path works and gates clean.
+  **Effort: LOW-MEDIUM** - the only "build" is the quantize recipe + a KL gate harness + a gallery/index
+  entry + a RELEASE note. Risk items: (i) confirm the exact bf16 tensor list with a CPU `gguf_dump`
+  (metadata-only, no GPU); (ii) NVFP4 needs the contraction dim divisible by the 16-elt block - any
+  projection whose row dim is not a multiple of 16 stays bf16 (or needs padding), which is the most
+  likely reason a given tensor was left bf16 and must be checked per-tensor; (iii) the lm_head decision
+  (below).
+- **PATH B - runtime quantize bf16->NVFP4 at load.** Convert the bf16 projection weights in-memory at
+  model load (one-time ue4m3 per-block scale-search), GGUF unchanged. **Worse choice:** needs new
+  load-time quant code (MEDIUM), and it *silently* changes the output of an existing GGUF for current
+  users (an implicit, non-opt-in precision change) - strictly inferior to an explicit new artifact.
+  Only attractive if shipping a new GGUF is somehow impossible; it is not.
+
+## (2) PRECISION / KL story (honest)
+
+Quantizing the projection WEIGHTS bf16 -> NVFP4 (e2m1 + per-16 ue4m3 scale) is a per-weight precision
+**downgrade vs the current bf16** on those specific tensors (it adds ~4-bit weight-quant error), and -
+because they route to the W4A4 MMQ path - it also FP4-quantizes those projections' activations. It is
+NOT a precision upgrade over bf16; it is the **same W4A4/W4A16-class move vLLM already makes on these
+same projections**, so at matched precision it is apples-to-apples with vLLM. Non-bit-exact => **re-gate
+on KL-to-f32, not md5.**
+
+**KL estimate: should PASS with margin.** Three independent reasons: (a) the dense GGUF ALREADY ships
+these GDN/attn projections in NVFP4 and passes its greedy gate (`5951a5b4...`), so the move is
+empirically proven shippable on this architecture; (b) the 256 experts already run W4A4 NVFP4 and pass
+(test-backend-ops MUL_MAT_ID 806/806, greedy md5 stable) - the GDN/attn projections are the same class of
+linear op and arguably less sensitive than the expert FFN; (c) this is a per-step, **non-accumulating**
+weight-quant error - structurally unlike the bf16-GDN-*state* experiment (`BF16_SSM_STATE_RESULTS.md`)
+that FAILED the KL gate (KLD 0.06-0.17, ~10% argmax flips) because that error *accumulated* through the
+recurrence. Expect KLD-to-f32 well under that failed-state threshold and PPL delta sub-percent (cf. the
+broader NVFP4-dense ~+4.8% PPL-vs-Q4_K figure is for full-model NVFP4; here only a minority of residual
+projection tensors move). **The one genuinely risky tensor is lm_head** (logit-direct; `OTHER_PATHS_
+INVESTIGATION.md` flags NVFP4-lm_head can flip the greedy argmax). For the MoE, quantizing lm_head is
+*fair* (vLLM's modelopt checkpoint already runs lm_head NVFP4), so include it but gate it explicitly on
+argmax-agreement; if it flips the greedy probe, keep lm_head bf16 and bank only the GDN/attn portion.
+Recommended gate: **KLD-to-f32 < the bf16-state failure floor (~0.06) AND PPL delta < ~1% vs the current
+bf16-projection GGUF AND zero greedy-argmax flips on the -n 48 probe.**
+
+## (3) EXPECTED MoE GAIN
+
+Closing the +6.5 ms projection bucket = bringing llama's 20.3 ms projection bucket down to vLLM's
+~13.8 ms (NVFP4 cuts the projection weight-read ~4x - 2.37 GB-class bf16 -> ~0.56 B/wt - and the W4A4
+MMQ path stays in the quantized domain, **erasing the 2.9 ms `convert_unary` bf16<->f32 glue**). llama's
+native FP4-MMA is faster per-FLOP than vLLM's W4A16-Marlin and these projections are BW-bound, so llama
+lands at parity-or-slightly-better, same as the expert GEMM (where W4A4 beat Marlin by 1.7 ms). 
+
+- With **lm_head also NVFP4** (fair on this modelopt MoE, vLLM did it): full ~**+6.5 ms** =>
+  step 169.8 -> ~163.3 ms => ~785 t/s.
+- With **lm_head kept bf16** (conservative): ~**+4 to +5 ms** (the GDN/attn projections + the convert
+  glue; lm_head's ~bf16 GEMM stays) => step 169.8 -> ~165-166 ms => ~768-775 t/s.
+
+In MOE_GAP frame (vLLM 142.0 ms / 901 t/s-equiv): **MoE moves from 86.3% (post-lever-1 / 0028) toward
+~89-91% of vLLM** (full bucket) or ~88% (lm_head bf16). This is the **largest single banked MoE gain
+available** - lever 1 (gather) shipped, levers 2 and 3 banked nothing, and the MoE GEMM is already a
+llama win - so after lever 4 the residual is just router/glue + the structural cross-stream-overlap and
+the ~4.2 ms host bubble (reachable only via a paged-attn host-pipeline edit, not a quant or graph knob).
+
+## (4) RECOMMENDATION: ship as a SEPARATE OPT-IN gallery GGUF variant (KL-gated), not a re-gated default
+
+**Ship lever 4 as a distinct, opt-in gallery variant** (e.g. `q36-35b-a3b-nvfp4-projq` / `-w4a4full`),
+**not** as a silent replacement of the default MoE GGUF. Rationale:
+
+1. The current default MoE GGUF is **md5-bit-exact-gated** (`07db32c2...` shipped); making it default
+   forces a permanent md5 rebaseline of every gate - the hard line this whole track has held (levers 2+3
+   STOPPED rather than cross it). A new artifact sidesteps that for users who chose the f32-lineage GGUF.
+2. Path A produces a **new GGUF anyway** (offline re-quant), so a separate gallery entry costs nothing
+   extra and makes the throughput<->precision choice explicit and reversible.
+3. The gain (~+4-6.5 ms, ~86% -> ~88-91% of vLLM) is real but modest - not worth forcing a precision
+   change on default-path users.
+4. **Promotion path:** because lever 4 only brings the MoE GGUF to the SAME NVFP4 the dense GGUF already
+   ships *as its default* and that vLLM already runs, a clean KL gate (KLD << 0.06, PPL delta < ~0.5%,
+   zero argmax flips) is a strong case to PROMOTE the variant to the default MoE GGUF in a later release.
+   Ship opt-in first to preserve the bit-exact default and avoid a forced rebaseline; promote if the
+   gate is clean and lm_head NVFP4 holds.
+
+**Effort summary:** LOW-MEDIUM, dominated by the KL gate + gallery wiring, NOT code (zero new kernel; the
+NVFP4 weight path - loader sidecar scales + tuned `mul_mat_q<NVFP4>` - is already in tree and proven by
+the dense GGUF). Highest-ROI remaining MoE lever. **Do first among remaining MoE work**, ahead of any
+non-bit-exact recurrence-plumbing or the rejected W4A16/Marlin GEMM.
+
+Assisted-by: Claude:opus-4.8 [Claude Code]
