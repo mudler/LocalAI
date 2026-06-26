@@ -9,7 +9,8 @@ source:
   enabled: true
   name_template: '{{ .ProjectName }}-{{ .Tag }}-source'
 builds:
-  - main: ./cmd/local-ai
+  - id: local-ai
+    main: ./cmd/local-ai
     env:
       - CGO_ENABLED=0
     ldflags:
@@ -35,3 +36,19 @@ snapshot:
   version_template: "{{ .Tag }}-next"
 changelog:
   use: github-native
+# Sign + notarize the macOS server binary via the quill backend (runs on Linux,
+# no macOS runner needed). Disabled automatically when MACOS_SIGN_P12 is unset
+# (forks / PRs), so those builds stay unsigned and green.
+notarize:
+  macos:
+    - enabled: '{{ isEnvSet "MACOS_SIGN_P12" }}'
+      ids:
+        - local-ai
+      sign:
+        certificate: "{{.Env.MACOS_SIGN_P12}}"
+        password: "{{.Env.MACOS_SIGN_PASSWORD}}"
+      notarize:
+        issuer_id: "{{.Env.MACOS_NOTARY_ISSUER_ID}}"
+        key_id: "{{.Env.MACOS_NOTARY_KEY_ID}}"
+        key: "{{.Env.MACOS_NOTARY_KEY}}"
+        wait: true
