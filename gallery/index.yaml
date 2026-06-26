@@ -62,7 +62,7 @@
       use_tokenizer_template: true
   files:
     - filename: llama-cpp/models/Qwen3.6-27B-NVFP4-GGUF/q36-27b-nvfp4.gguf
-      # TODO(GGUF publish): fill sha256 after uploading the GGUF (sha256sum).
+      sha256: 2fdd857b13cbaa37b913d9566bf0a69443dcdb702e95694ca8d75236710575d4
       uri: https://huggingface.co/mudler/Qwen3.6-27B-NVFP4-GGUF/resolve/main/q36-27b-nvfp4.gguf
 - name: "qwen3.6-35b-a3b-nvfp4"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
@@ -105,8 +105,109 @@
       use_tokenizer_template: true
   files:
     - filename: llama-cpp/models/Qwen3.6-35B-A3B-NVFP4-GGUF/q36-35b-a3b-nvfp4.gguf
-      # TODO(GGUF publish): fill sha256 after uploading the GGUF (sha256sum).
+      sha256: 1690d0424e232527b8bb135a38033e4699ad11817677eebacd40349020faea52
       uri: https://huggingface.co/mudler/Qwen3.6-35B-A3B-NVFP4-GGUF/resolve/main/q36-35b-a3b-nvfp4.gguf
+- name: "qwen3.6-27b-nvfp4-mtp-paged"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/michaelw9999/Qwen3.6-27B-NVFP4-MTP-GGUF
+  description: |
+    Qwen3.6-27B dense, native Blackwell NVFP4 (FP4-MMA) GGUF with a built-in MTP
+    (multi-token-prediction / speculative) draft head, configured for LocalAI's
+    paged-attention llama.cpp backend (llama-cpp-localai-paged): on-demand paged KV
+    cache plus a decode-first prefill budget. The MTP draft head accelerates decode
+    via self-speculation; ships with the recommended Qwen3.6 sampling defaults.
+
+    Requires a llama.cpp new enough to read the NVFP4 GGUF tensor type (the paged
+    backend's upstream pin) - verify on a GPU box before relying on this entry.
+  license: "apache-2.0"
+  tags:
+    - llm
+    - gguf
+    - nvfp4
+    - mtp
+    - reasoning
+  icon: https://qianwen-res.oss-cn-beijing.aliyuncs.com/Qwen3.6/Figures/qwen3.6_27b_score.png
+  overrides:
+    backend: llama-cpp-localai-paged
+    f16: true
+    flash_attention: "on"
+    context_size: 131072
+    gpu_layers: 99
+    batch: 512
+    known_usecases:
+      - chat
+    options:
+      - use_jinja:true
+      - paged_kv:true              # LLAMA_KV_PAGED=1
+      - max_batch_tokens:512       # LLAMA_MAX_BATCH_TOKENS=512 (decode-first QoS budget)
+      - kv_unified:false           # per-slot paged capacity/memory benefit needs a per-sequence cache
+      - parallel:128               # 128 serving slots
+    parameters:
+      min_p: 0
+      model: llama-cpp/models/Qwen3.6-27B-NVFP4-MTP-GGUF/Qwen3.6-27B-NVFP4-MTP-GGUF.gguf
+      presence_penalty: 1.5
+      repeat_penalty: 1
+      temperature: 0.7
+      top_k: 20
+      top_p: 0.8
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/Qwen3.6-27B-NVFP4-MTP-GGUF/Qwen3.6-27B-NVFP4-MTP-GGUF.gguf
+      sha256: d088e57e8c35ff62c2a420cb888dad3fd53c8db3ed9ead4286bd383224f81b50
+      uri: https://huggingface.co/michaelw9999/Qwen3.6-27B-NVFP4-MTP-GGUF/resolve/main/Qwen3.6-27B-NVFP4-MTP-GGUF.gguf
+- name: "qwen3.6-35b-a3b-nvfp4-mtp-paged"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/michaelw9999/Qwen3.6-35B-A3B-NVFP4-MTP-GGUF
+  description: |
+    Qwen3.6-35B-A3B MoE (~3B active), native Blackwell NVFP4 (FP4-MMA) GGUF with a
+    built-in MTP (multi-token-prediction / speculative) draft head, configured for
+    LocalAI's paged-attention llama.cpp backend (llama-cpp-localai-paged): on-demand
+    paged KV cache plus a decode-first prefill budget. The MTP draft head accelerates
+    decode via self-speculation; ships with the recommended Qwen3.6 sampling defaults.
+
+    Requires a llama.cpp new enough to read the NVFP4 GGUF tensor type (the paged
+    backend's upstream pin) - verify on a GPU box before relying on this entry.
+  license: "apache-2.0"
+  tags:
+    - llm
+    - gguf
+    - nvfp4
+    - moe
+    - mtp
+    - reasoning
+  icon: https://qianwen-res.oss-cn-beijing.aliyuncs.com/Qwen3.6/Figures/qwen3.6_35b_a3b_score.png
+  overrides:
+    backend: llama-cpp-localai-paged
+    f16: true
+    flash_attention: "on"
+    context_size: 131072
+    gpu_layers: 99
+    batch: 512
+    known_usecases:
+      - chat
+    options:
+      - use_jinja:true
+      - paged_kv:true              # LLAMA_KV_PAGED=1
+      - max_batch_tokens:512       # decode-first budget; set 256 for max saturated MoE decode (sweep winner)
+      - kv_unified:false           # per-slot paged capacity/memory benefit needs a per-sequence cache
+      - parallel:128               # 128 serving slots
+    parameters:
+      min_p: 0
+      model: llama-cpp/models/Qwen3.6-35B-A3B-NVFP4-MTP-GGUF/Qwen3.6-35B-A3B-NVFP4-MTP-TURBO.gguf
+      presence_penalty: 1.5
+      repeat_penalty: 1
+      temperature: 0.7
+      top_k: 20
+      top_p: 0.8
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/Qwen3.6-35B-A3B-NVFP4-MTP-GGUF/Qwen3.6-35B-A3B-NVFP4-MTP-TURBO.gguf
+      sha256: f3d2fdc74e3ef19925ccbf794b04d7f6f11fb12eba7722b7749219d0cc5c36ed
+      uri: https://huggingface.co/michaelw9999/Qwen3.6-35B-A3B-NVFP4-MTP-GGUF/resolve/main/Qwen3.6-35B-A3B-NVFP4-MTP-TURBO.gguf
 - name: "ornith-1.0-35b"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
