@@ -141,6 +141,38 @@ copy_elf_deps() {
     done < <(ldd "$elf" 2>/dev/null | awk '/=>/ && $3 ~ /^\// {print $3}')
 }
 
+# Sweep the transitive shared-library dependencies of everything already
+# bundled in a lib dir. The per-vendor packagers below copy an explicit
+# allowlist of top-level runtime libs, but those libs pull in transitive deps
+# that aren't in the list (e.g. ROCm's librocprofiler-register.so.0, libnuma,
+# libdrm_amdgpu). Because backends run through the bundled lib/ld.so with
+# LD_LIBRARY_PATH=lib (see run.sh), an unbundled transitive dep is a hard load
+# failure (issue #10537: "librocprofiler-register.so.0: cannot open shared
+# object file"). ldd resolves the full recursive closure, so a single pass over
+# the already-bundled libs is enough; core libc-family deps are skipped via
+# copy_elf_deps/is_core_lib so we never shadow the loader's own libc/libstdc++.
+sweep_transitive_deps() {
+    local dir="${1:-$TARGET_LIB_DIR}"
+    command -v ldd >/dev/null 2>&1 || return 0
+
+    # Snapshot the current set first: copy_elf_deps adds files as it runs, and
+    # ldd already returns the full recursive closure, so we only need to sweep
+    # the libs that were present before the sweep started.
+    # `local x=$(...)` keeps set -e from tripping on shopt -p's nonzero exit.
+    local old_nullglob=$(shopt -p nullglob)
+    shopt -s nullglob
+    local libs=("$dir"/*.so*)
+    eval "$old_nullglob"
+
+    local lib
+    for lib in "${libs[@]}"; do
+        [ -e "$lib" ] || continue
+        # Skip symlinks: their real target is in the snapshot and gets swept.
+        [ -L "$lib" ] && continue
+        copy_elf_deps "$lib"
+    done
+}
+
 # Package NVIDIA CUDA libraries
 package_cuda_libs() {
     echo "Packaging CUDA libraries for BUILD_TYPE=${BUILD_TYPE}..."
@@ -184,6 +216,10 @@ package_cuda_libs() {
     #     mkdir -p "$TARGET_LIB_DIR/../cuda"
     #     cp -arfL /usr/local/cuda/targets "$TARGET_LIB_DIR/../cuda/" 2>/dev/null || true
     # fi
+
+    # Pull in transitive deps the allowlist misses so the backend is
+    # self-contained (same class of failure as #10537).
+    sweep_transitive_deps "$TARGET_LIB_DIR"
 
     echo "CUDA libraries packaged successfully"
 }
@@ -261,6 +297,10 @@ package_rocm_libs() {
         fi
     done
 
+    # Pull in transitive deps the allowlist misses (librocprofiler-register.so.0,
+    # libnuma, libdrm_amdgpu, ...) so the backend is self-contained. See #10537.
+    sweep_transitive_deps "$TARGET_LIB_DIR"
+
     echo "ROCm libraries packaged successfully"
 }
 
@@ -302,6 +342,10 @@ package_intel_libs() {
             done
         fi
     done
+
+    # Pull in transitive deps the allowlist misses so the backend is
+    # self-contained (same class of failure as #10537).
+    sweep_transitive_deps "$TARGET_LIB_DIR"
 
     echo "Intel oneAPI libraries packaged successfully"
 }
@@ -432,6 +476,7 @@ export -f copy_lib
 export -f copy_libs_glob
 export -f is_core_lib
 export -f copy_elf_deps
+export -f sweep_transitive_deps
 export -f package_cuda_libs
 export -f package_rocm_libs
 export -f package_intel_libs
