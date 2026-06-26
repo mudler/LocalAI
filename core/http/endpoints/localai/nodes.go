@@ -60,7 +60,10 @@ func GetNodeEndpoint(registry *nodes.NodeRegistry) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		ctx := c.Request().Context()
 		id := c.Param("id")
-		node, err := registry.Get(ctx, id)
+		// GetWithExtras (not Get) so the response carries the node's labels,
+		// loaded-model count, and in-flight total — the bare BackendNode keeps
+		// labels in a separate table, leaving the detail view's label list empty.
+		node, err := registry.GetWithExtras(ctx, id)
 		if err != nil {
 			return c.JSON(http.StatusNotFound, nodeError(http.StatusNotFound, "node not found"))
 		}
