@@ -108,3 +108,56 @@ shared GDN conv path). This closes the last `k_get_rows` in the GDN decode path 
 + 0021 conv compute). Additive and risk-free; ready for the rigorous same-session A/B bench.
 
 Assisted-by: Claude:opus-4.8 [Claude Code]
+
+## Rigorous same-session A/B bench (label gather-bench, DGX GB10 sm_121)
+
+Independently re-validated on a fresh GPU session. `build-cuda-base` = pre-lever-1 (0026, 33e7c65;
+NO `ssm_conv_update_ids` symbol) vs `build-cuda` = lever-1 (this commit; WITH it). Same env, back-to-back.
+
+### Gate re-confirm (greedy --temp 0 --seed 1 -n 48, -fa on) - base == lever1 == recorded baseline
+
+| model             | base (0026)                      | lever1 (0028)                    | recorded baseline                |
+|-------------------|----------------------------------|----------------------------------|----------------------------------|
+| q36-27b-nvfp4     | 5951a5b4d624ce891e22ab5fca9bc439 | 5951a5b4d624ce891e22ab5fca9bc439 | 5951a5b4d624ce891e22ab5fca9bc439 |
+| q36-35b-a3b-nvfp4 | 07db32c2bcb78d17a43ed18bc22705cd | 07db32c2bcb78d17a43ed18bc22705cd | 07db32c2bcb78d17a43ed18bc22705cd |
+
+test-backend-ops (CUDA0): SSM_CONV_UPDATE_IDS 16/16, SSM_CONV_UPDATE 16/16, SSM_CONV 45/45,
+GATED_DELTA_NET 84/84, GET_ROWS 47/47 - all OK.
+
+### decode_agg (S_TG t/s) before/after, npp128 ntg128 -npl 32,128 -c 33000
+
+dense q36-27b-nvfp4 (LLAMA_KV_PAGED=1):
+
+| npl | base S_TG | lever1 S_TG | delta  | vs vLLM 391    |
+|-----|-----------|-------------|--------|----------------|
+| 32  | 208.56    | 209.39      | +0.40% | -              |
+| 128 | 369.95    | 377.83      | +2.13% | 94.6% -> 96.6% |
+
+MoE q36-35b-a3b-nvfp4 (LLAMA_KV_PAGED=1 LLAMA_MOE_FORCE_GRAPHS=1):
+
+| npl | base S_TG | lever1 S_TG | delta  | vs vLLM 901    |
+|-----|-----------|-------------|--------|----------------|
+| 32  | 456.85    | 459.56      | +0.59% | -              |
+| 128 | 763.47    | 777.95      | +1.90% | 84.7% -> 86.3% |
+
+Step time npl128: dense 346.0 -> 338.8 ms/batch-step, MoE 167.7 -> 164.5 ms/step (-3.13 ms/step).
+
+### nsys (MoE decode, npp128 ntg64 npl128, same env) - k_get_rows eliminated
+
+| kernel                          | base (0026)            | lever1 (0028)                                |
+|---------------------------------|------------------------|----------------------------------------------|
+| k_get_rows_float<float,float>   | 17334 inst / 358.37 ms | 15414 inst / 133.52 ms                       |
+| delta                           |                        | -1920 inst (= 30 GDN x 64 steps), -224.85 ms |
+| ssm_conv_update(_ids)_f32       | 219.71 ms (update)     | 225.75 ms (update_ids, +6 ms)                |
+| ssm_conv_gather_nonident_kernel | -                      | 1920 x ~1.13 us = 2.17 ms (no-op, all ident) |
+
+The 1920 big ~114 us conv-tap gathers are gone; only the ~1.13 us no-op gather kernel + ~6 ms folded
+into the update kernel are added. Net GDN get_rows saving ~216 ms / 64 steps = ~3.4 ms/step, matching
+the -3.13 ms/step throughput delta at npl128.
+
+### Verdict (gather-bench)
+
+Bit-exact (gate re-confirmed, both md5 byte-identical to baseline), the residual k_get_rows conv
+gather is independently nsys-confirmed eliminated (-1920 inst, -224.85 ms over 64 steps), and decode
+throughput lifts BOTH models in the same session: dense npl128 +2.13% (94.6 -> 96.6% of vLLM),
+MoE npl128 +1.90% (84.7 -> 86.3% of vLLM). Ship it.
