@@ -103,7 +103,7 @@ COVERAGE_E2E_LABELS?=!real-models
 COVERAGE_EXCLUDE_RE?=grpc/proto/.*[.]pb[.]go
 
 
-.PHONY: all test test-coverage test-coverage-baseline test-coverage-check test-ui test-ui-coverage-baseline test-ui-coverage-check install-hooks build vendor lint lint-all
+.PHONY: all test test-coverage test-coverage-baseline test-coverage-check test-backend-cpp test-ui test-ui-coverage-baseline test-ui-coverage-check install-hooks build vendor lint lint-all
 
 all: help
 
@@ -200,6 +200,13 @@ test: prepare-test
 	export GO_TAGS="debug"
 	OPUS_SHIM_LIBRARY=$(abspath ./pkg/opus/shim/libopusshim.so) \
 	$(GOCMD) run github.com/onsi/ginkgo/v2/ginkgo --flake-attempts $(TEST_FLAKES) --fail-fast -v -r $(TEST_PATHS)
+
+## Compiles and runs the standalone C++ unit tests for the backends (pure
+## helpers that depend only on the stdlib + nlohmann/json, no full backend
+## build). Discovers every *_test.cpp under backend/cpp/ - see
+## backend/cpp/run-unit-tests.sh. Set NLOHMANN_INCLUDE to skip the header fetch.
+test-backend-cpp:
+	bash backend/cpp/run-unit-tests.sh
 
 ## Runs the core suite ($(TEST_PATHS)) with statement-coverage instrumentation
 ## and writes a merged profile to $(COVERAGE_PROFILE). Deliberately omits

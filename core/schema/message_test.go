@@ -68,6 +68,32 @@ var _ = Describe("LLM tests", func() {
 			Expect(protoMessages[0].Content).To(Equal("Hello World"))
 		})
 
+		// Regression for mudler/LocalAI#10524: a text part whose inner text is
+		// itself a JSON-array string (mealie sends an ingredient list) must
+		// flatten to that exact string verbatim. ToProto must NOT escape or
+		// restructure it - the C++ backend then treats it as opaque text. This
+		// pins the precise Go-side input that produced the "unsupported
+		// content[].type" gRPC error before the backend stopped re-parsing it.
+		It("flattens a JSON-array-looking text part to the verbatim string (#10524)", func() {
+			ingredients := `["1/4 cup brown sugar, packed","1 pound ground beef"]`
+			messages := Messages{
+				{
+					Role: "user",
+					Content: []any{
+						map[string]any{
+							"type": "text",
+							"text": ingredients,
+						},
+					},
+				},
+			}
+
+			protoMessages := messages.ToProto()
+
+			Expect(protoMessages).To(HaveLen(1))
+			Expect(protoMessages[0].Content).To(Equal(ingredients))
+		})
+
 		It("should convert message with tool_calls", func() {
 			messages := Messages{
 				{
