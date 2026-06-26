@@ -87,3 +87,18 @@ target_compile_features(${TARGET} PRIVATE cxx_std_11)
 if(TARGET BUILD_INFO)
   add_dependencies(${TARGET} BUILD_INFO)
 endif()
+
+# Unit test for the message-content normalization helper (message_content.h).
+# Off by default so the normal backend build is untouched; enable with
+# -DLLAMA_GRPC_BUILD_TESTS=ON and run via ctest. It reuses llama.cpp's vendored
+# <nlohmann/json.hpp> (propagated by the common helpers library) so it has no
+# extra dependency beyond what the backend already builds against.
+option(LLAMA_GRPC_BUILD_TESTS "Build grpc-server unit tests" OFF)
+if(LLAMA_GRPC_BUILD_TESTS)
+    enable_testing()
+    add_executable(message_content_test message_content_test.cpp message_content.h)
+    target_include_directories(message_content_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+    target_link_libraries(message_content_test PRIVATE ${_LLAMA_COMMON_TARGET})
+    target_compile_features(message_content_test PRIVATE cxx_std_17)
+    add_test(NAME message_content_test COMMAND message_content_test)
+endif()
