@@ -4,14 +4,15 @@
 # These reproduce the GB10 / DGX Spark benchmark serving config (see
 # backend/cpp/llama-cpp/patches/paged/LOCALAI_LLAMACPP_BACKEND_PLAN.md section 2).
 #
-# TODO(GGUF publish): the two HF repos below are PLACEHOLDERS under the `mudler`
-# org and are not yet published. Until then these entries will not resolve. After
-# uploading each .gguf, add its `sha256:` (sha256sum) to the matching `files:`
-# entry so LocalAI verifies it on download.
+# PUBLISHED: the dense + MoE base NVFP4 GGUFs are live at huggingface.co/mudler/
+# Qwen3.6-27B-NVFP4-GGUF and .../Qwen3.6-35B-A3B-NVFP4-GGUF (file_type MOSTLY_NVFP4);
+# the sha256 below were verified against the Hub LFS hash and the uris resolve (200).
+# Converted from the unsloth/nvidia NVFP4 sources via llama.cpp --outtype auto.
 #
-# TODO(NVFP4 read gating): NVFP4 GGUF tensor types require a llama.cpp new enough
-# to read them. Confirm the paged backend's pinned LLAMA_VERSION supports NVFP4
-# on a GPU box before relying on these (plan section 3.4 / 4 blocker #1).
+# NOTE(NVFP4 read): the paged backend (pinned llama.cpp 9d5d882d) reads NVFP4 GGUF
+# (the GB10 benchmark + the pin-sync md5 gate both ran NVFP4 GGUFs). These gallery
+# GGUFs were re-quantized with a newer convert (origin/master) preserving the same
+# MOSTLY_NVFP4 format; a load check on the paged backend GPU build is the final gate.
 #
 # NOTE(ssm_bf16_tau): Qwen3.5 gated-DeltaNet (hybrid SSM) models can opt into the
 # reduced-precision hybrid SSM-state fast mode by adding `ssm_bf16_tau:<tokens>`
