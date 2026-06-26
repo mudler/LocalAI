@@ -41,8 +41,16 @@ Implemented the physically-correct rule; default 0.0 = bit-exact all-f32.
 - [x] delta-net-base hybrid op build (fused ids decode + bf16 rs_zero/extra mirror)
 - [x] full build clean (sm_121; llama-completion/batched-bench/perplexity/test-backend-ops)
 - [x] de-risk gate 2 (default/all-f32 md5 == 0023 both models, re-verified post-build)
-- [~] hybrid-ON smoke: RUNS (no crash) + classifier/cache/kernel-params verified, but OUTPUT INCOHERENT
-      => OPEN BUG in the ids in-place cross-step state path (opt-in only; default unaffected). See
-      A_HYBRID_SSM_RESULTS.md. NOT ready for the sweep until fixed.
+- [x] hybrid-ON decode FIXED: the incoherence was head_slot being zeroed by clear(data=true) (whole-RS
+      buffer clear) after warm-up, never re-uploaded => every head -> f32-local-0 => split collapse.
+      Fix = persist head_slot_host + re-upload via upload_head_slots() after every buffer clear. Hybrid
+      decode now coherent; cross-op carry verified BYTE-EXACT (write==read both partitions).
+- [x] A-gatesweep DONE: KL sweep T in {0.25..128} both models, single-seq c1024 (clean carry), drift.
+      SHIP GATE FAILS - no T passes MeanKLD<1e-3 AND top-p>=99.5% with meaningful speedup. Premise
+      (error concentrates in long-memory heads) REFUTED: KL scales with bf16 COUNT and saturates
+      ~0.06/~91% (MoE saturates at the minimal split). Carry byte-exact => genuine bf16 sensitivity,
+      not a bug. Throughput lever real: dense +12.4% / MoE +11.5% decode @npl128 at T=128.
+- [x] Shipped default-off (f32, bit-exact). De-risk gates re-verified on the clean build (84/84;
+      md5 == baseline both models). See A_HYBRID_SSM_RESULTS.md for the full tables.
 
-Committed: DGX paged 657e008; worktree patch 0026 + A_HYBRID_SSM_RESULTS.md.
+Committed: DGX paged 33e7c65 (amended); worktree patch 0026 + A_HYBRID_SSM_RESULTS.md + this doc.

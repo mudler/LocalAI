@@ -1,90 +1,119 @@
-# A - HYBRID PER-HEAD f32/bf16 SSM STATE - BUILD + DE-RISK RESULTS
+# A - HYBRID PER-HEAD f32/bf16 SSM STATE - BUILD + DE-RISK + GATE-SWEEP RESULTS
 
-Label: A-build (the GPU build agent). Lands as patch 0026 on top of 0025 (DGX HEAD 2f4f5ab),
-incorporating the bf16-SSM-state plumbing (`BF16_SSM_STATE.diff`) as the base. Built into
-`~/llama-paged-dev/build-cuda` (sm_121); committed on the DGX `paged` branch (657e008) and as
+Label: A-build + A-gatesweep. Lands as patch 0026 on top of 0025 (DGX HEAD 2f4f5ab),
+incorporating the bf16-SSM-state plumbing as the base. Built into `~/llama-paged-dev/build-cuda`
+(sm_121); committed on the DGX `paged` branch (33e7c65, amended) and as
 `patches/paged/0026-qwen35-hybrid-perhead-ssm-state.patch` + this doc in the worktree.
 
-## DE-RISK GATE - both required gates PASS
+## VERDICT
 
-### Gate 1: test-backend-ops MIXED GATED_DELTA_NET (CUDA mixed vs CPU mixed)
-`./bin/test-backend-ops -o GATED_DELTA_NET -b CUDA0` = **84/84 PASS, CUDA0 OK**. This includes the
-**32 new hybrid mixed-dtype cases** (`test_gated_delta_net_hybrid`): head_count {4,8} x head_size
-{64,128} x {single-token decode, multi-token prefill 33/64/100, keep_rs_t K=4} x kda {0,1}, with an
-interleaved head_slot map (even heads f32, odd heads bf16) so both partition branches are exercised
-across blocks. CUDA mixed vs CPU mixed agree. (Plus the pre-existing 52 f32 + bf16 cases still pass.)
+The hybrid machinery is **CORRECT and complete** (both de-risk gates PASS; the carry is byte-exact;
+the previously-open decode-incoherence bug is FIXED). The **ship gate FAILS**: no T_thresh reaches
+`MeanKLD < 1e-3 AND Same-top-p >= 99.5%` for both models with any meaningful speedup. The design
+premise - that the bf16 KL error concentrates in long-memory heads and is removed by keeping them
+f32 at f32-fraction 0.30-0.50 - is **empirically refuted** on q36-27b and q36-35b-a3b-nvfp4: the KL
+error scales with the bf16 head COUNT and saturates (~0.06 MeanKLD / ~91% same-top-p) far below any
+useful byte-saving. The bf16 byte-saving (and the decode speedup it buys) is real but cannot meet the
+strict KL bar. **Shipped default-off (f32, bit-exact opt-out); the hybrid is opt-in only.**
 
-### Gate 2: T_thresh=inf (default, all-f32) greedy md5 == 0023 baseline - BOTH MODELS
-`llama-completion -ngl 99 -fa on -p "The capital of France is" -n 48 --temp 0 --seed 1`, NO
-`--ssm-bf16-tau` flag (default 0.0 => every head f32 => no split => the existing single-cache path):
-- dense q36-27b-nvfp4: `5951a5b4d624ce891e22ab5fca9bc439` == 0023 baseline.
-- MoE   q36-35b-a3b-nvfp4: `07db32c2bcb78d17a43ed18bc22705cd` == 0023 baseline.
-Re-verified byte-identical AFTER the full build with every plumbing edit in place. **The bit-exact
-opt-out is preserved.**
+## THE FIX (was: hybrid-ON decode incoherent)
 
-## KNOB SEMANTICS (brief endpoint wording corrected)
-`ssm_hybrid_tau_thresh` / `--ssm-bf16-tau` T: a gated-DeltaNet head is kept **f32 iff tau_h > T**,
-else bf16. `tau_h = 1/(|ssm_a[il][h]| * softplus(ssm_dt[il][h]))` tokens (ssm_a = SSM_A_NOSCAN =
--exp(A_log), verified qwen35.cpp:376; ssm_dt = SSM_DT bias). This is the brief's operative rule + the
-"start 32-64" guidance + the physics (long-memory/large-tau heads stay f32; fast/small-tau heads ->
-bf16). Endpoints:
-- **T = 0.0 (DEFAULT) => every tau>0 -> ALL F32 (bit-exact opt-out; the gate runs here).**
-- **T -> +inf => ALL BF16 (shelved mode).**
-- sweep T in {16,32,64,128} bf16's progressively more (longer-memory) heads = more speed.
+Root cause: `llama_memory_recurrent::clear(data=true)` zeroes the WHOLE recurrent backend buffer with
+`ggml_backend_buffer_clear`, which includes the per-layer `head_slot` maps. Those maps were uploaded
+only once in the constructor. llama.cpp calls `clear(true)` to reset state after the warm-up run (and
+on context resets), so by the time real prefill/decode runs, every `head_slot[h] == 0`. The kernel
+decodes `head_slot==0` as "f32 head, local index 0", so EVERY head reads/writes f32-partition slot 0:
+the split collapses (the bf16 partition is never written, every head collides on one f32 slot) and the
+output is garbage. Warm-up showed correct values precisely because it ran before the clear.
 
-NOTE: the brief's "inf=>all-f32, 0=>all-bf16" sentence is INVERTED relative to the rule it states
-("keep f32 if tau>T") and to "start 32-64" + the physics. The physically-correct rule is implemented;
-the bit-exact all-f32 mode is the DEFAULT (T=0), which is exactly what the de-risk gate exercises.
+Fix: persist the host-side maps (`head_slot_host`) and re-upload them after every buffer clear via a
+new `upload_head_slots()` (called both at construction and at the end of `clear(true)`). 22 lines in
+`src/llama-memory-recurrent.cpp` + 7 in the header. After the fix:
+- head_slot reads back correct in every forward (e.g. `0 1 -1 -2`), in both llama-completion and
+  llama-perplexity;
+- the bf16 partition is written (non-zero) every step;
+- the cross-op state carry is **byte-exact**: at a continuation forward the op reads back EXACTLY what
+  the prior op wrote, element-for-element, in BOTH partitions (f32 `[0]=0.00303 [1]=-0.00074
+  [16384]=0.00054`, bf16 `[0]=-0.00023 [1]=0.00008 [16384]=0.00269` write == read), confirming there
+  is no addressing/scramble/corruption bug. The only residual difference from f32 is the bf16 rounding
+  of the bf16-partition heads.
 
-## What was built (all components, validated correct)
-1. **Classifier** (llama-memory-recurrent ctor, host, model-load): reads ssm_a/ssm_dt per GDN layer,
-   computes tau_h, sets head_is_bf16. VALIDATED on dense q27 (H_v=48, S_v=128): real per-head tau
-   spread min~0.2-0.5 / max~800-26000 tokens; at T=32 the split is ~13-31 f32 / 17-35 bf16 per layer.
-   Guarded against the device-memory-fitting pre-pass (weights not yet allocated => data==NULL =>
-   fall back to single f32 cache, a conservative/larger memory estimate; real load classifies).
-2. **Split cache** (llama-memory-recurrent): per split GDN layer, s_l[il] holds the f32 partition
-   [S_v*S_v*n_f32, n_rows] and s_l_bf16[il] the bf16 partition [S_v*S_v*n_bf16, n_rows] + an I32[H]
-   head_slot map (local_idx>=0 f32, -(local_idx+1)<0 bf16), uploaded after buffer alloc. ctx metadata
-   budget bumped 2->4 tensors/layer (r, s_f32, s_bf16, head_slot). VALIDATED: cache layout correct
-   (f32/bf16 partitions 2MB apart, non-overlapping; sizes match counts).
-3. **Kernel** (gated_delta_net.cu): ONE kernel templated +HYBRID; per-block (h_idx) branch on
-   head_slot picks the partition + local index (uniform within a block => no warp divergence). The
-   homogeneous (HYBRID=false) instantiations are byte-identical to before (if constexpr elides the
-   hybrid blocks). Two builders: ggml_gated_delta_net_hybrid (output-append, for the test) and
-   ggml_gated_delta_net_inplace_ids_hybrid (decode). Backend detects hybrid = src[9]!=null; gathers
-   both partitions for non-identity seqs; derives the bf16 in-place dst from src[8]+rs_head.
-4. **CPU mirror** (ops.cpp): per-head partition read for the output-append form (the test path).
-5. **Plumbing**: cparam ssm_hybrid_tau_thresh threaded llama_context_params -> cparams ->
-   llama_memory_params -> recurrent/hybrid/iswa ctors; common_params + CLI --ssm-bf16-tau (default 0).
-6. **test-backend-ops**: the 32 mixed cases above.
+## DE-RISK GATES - both PASS (re-verified on the final clean build)
 
-## KNOWN OPEN ISSUE - hybrid-ON decode is incoherent (opt-in only; does NOT affect the default)
-With `--ssm-bf16-tau` > 0 (any split, even tau=1 = a handful of bf16 heads), the model generates
-incoherent text ("<think> the the the > EOF"). The bit-exact all-f32 default is UNAFFECTED (gate 2).
+1. **test-backend-ops GATED_DELTA_NET = 84/84 PASS, CUDA0 OK** (incl. the 32 mixed-dtype hybrid cases
+   vs CPU: head_count {4,8} x head_size {64,128} x {decode, prefill 33/64/100, keep_rs_t K=4} x kda).
+2. **T=0 (default, all-f32) greedy md5 == 0023 baseline, both models**, NO `--ssm-bf16-tau`:
+   - dense q36-27b-nvfp4: `5951a5b4d624ce891e22ab5fca9bc439` == baseline
+   - MoE   q36-35b-a3b-nvfp4: `07db32c2bcb78d17a43ed18bc22705cd` == baseline
+   The bit-exact opt-out is preserved byte-for-byte.
 
-Diagnosis (everything reachable by inspection was verified correct):
-- The op-level MIXED test PASSES, but it only covers the **output-append** form (state read from the
-  s0 input partitions, write to the f32 op output). The model decode uses the **ids in-place** form:
-  read from the in-place cache partition (identity), write the new state in place per partition. That
-  cross-step state path is NOT exercised by a single-op test (the in-place state write is a side
-  effect, not the compared op output), so it is the only un-netted surface - and that is where the bug
-  lives.
-- Confirmed correct at runtime: the classifier (real tau split), the split cache layout (partitions
-  2MB apart, sizes match), and the exact kernel parameters (H=48, S_v=128, n_f32+n_bf16=H, head_slot
-  values, ids/state_dst/state_bf16 pointers all sane). The hybrid op IS built and dispatched (not a
-  homogeneous fallback). Garbage persists with CUDA graphs disabled, so it is not a graph-capture
-  issue. The recurrence math is shared with the (passing) output-append path.
-- The bug is therefore in the ids in-place cross-step state handling (identity-d read and/or in-place
-  partition store, and/or the bf16 partition rs_zero/extra-states mirroring in delta-net-base) - a
-  state-corruption that cascades. It needs a multi-step reproduction (the single-op harness cannot
-  catch a cross-step in-place bug; the homogeneous in-place ids op itself has no op test - it was only
-  ever validated by model md5).
+## SHIP GATE - the KL/throughput sweep (FAILS)
 
-## NOT ready for the GateSweep yet
-The de-risk gates (mixed op test + bit-exact default) BOTH PASS, but the hybrid-ON path must be made
-coherent before the T_thresh KL/throughput sweep can produce meaningful numbers. Recommended next
-step: build a minimal 2-step in-place reproduction (CPU ids-in-place hybrid mirror + a decode-loop
-harness, or a kernel-side state dump comparing hybrid vs homogeneous for an all-f32-disguised split)
-to localize identity-d-read vs in-place-store vs the bf16 clear/extra mirror.
+KL harness = the bf16-work GateBench: `llama-perplexity --kl-divergence` on wikitext-2-raw,
+`-ngl 99 -fa on --seed 1`, base = T=0 (f32). The clean carry config is single-sequence
+`-b 1024 -ub 512 -c 1024 --chunks 8` (one cross-ubatch bf16 round-trip; f32-vs-f32 floor = 100.000%
+same-top-p, MeanKLD ~ -1.2e-5). Gate: `MeanKLD < 1e-3 AND Same-top-p >= 99.5% AND bounded drift`.
+
+### Dense q36-27b-nvfp4 (H_v=48), c1024 single-seq
+
+| T_thresh | bf16 heads | f32-frac | f_bytes | MeanKLD  | Same-top-p |
+|---------:|-----------:|--------:|--------:|---------:|-----------:|
+| 0.25     | 14         | 0.964   | 0.982   | 0.00270  | 98.92%     |
+| 0.5      | 48         | 0.963   | 0.982   | 0.01439  | 96.18%     |
+| 1        | 118        | 0.935   | 0.968   | 0.06357  | 91.59%     |
+| 8        | ~610       | 0.735   | 0.868   | 0.05669  | 91.59%     |
+| 32       | ~1113      | 0.517   | 0.759   | 0.05724  | 90.97%     |
+| 64       | ~1304      | 0.434   | 0.717   | 0.06183  | 91.85%     |
+| 128      | ~1460      | 0.366   | 0.683   | 0.05980  | 91.56%     |
+
+Monotonic below the knee (T<=1), then a flat plateau. Best meaningful point T=0.25 (only ~1.8% byte
+saving) already FAILS both criteria (KLD 0.0027 > 1e-3; top-p 98.92% < 99.5%). To pass the gate the
+bf16 count must be < ~14 heads (f_bytes > 0.98) => no speedup.
+
+### MoE q36-35b-a3b-nvfp4 (H_v=32), c1024 single-seq
+
+| T_thresh | bf16 heads | f32-frac | f_bytes | MeanKLD  | Same-top-p |
+|---------:|-----------:|--------:|--------:|---------:|-----------:|
+| 0.25     | 23         | 0.940   | 0.970   | 0.03907  | 91.61%     |
+| 0.5      | 53         | 0.928   | 0.964   | 0.04620  | 90.31%     |
+| 1        | 78         | 0.910   | 0.955   | 0.04425  | 89.82%     |
+| 32       | 585        | 0.391   | 0.695   | 0.04552  | 90.09%     |
+
+MoE has NO low-KL regime: even the minimal split (23 bf16 heads, ~3% byte saving) is already at the
+~0.045 / ~91% plateau. Fails the gate everywhere by a wide margin.
+
+### Why it fails (the refutation)
+
+The carry is byte-exact, so this is genuine bf16 rounding of the recurrent state, not a bug. The
+gated-DeltaNet logit is extremely sensitive to ANY perturbation of the temporal state: even rounding a
+handful of small-magnitude heads to bf16 flips ~9% of hard-wikitext argmaxes, and adding more bf16
+heads does not flip materially more (saturation - the flips concentrate in an inherently-marginal
+token pool). This matches the prior whole-bf16 finding (MeanKLD 0.05-0.17, top-p ~90%, "bounded but
+LARGE, plateaus with context"). The error is NOT concentrated by tau, so f32-ing the long-memory heads
+(or, tested, the fast heads - inverted classifier gives the same plateau) does not recover the gate.
+
+## THROUGHPUT - the byte-saving lever IS real (but KL-gated out)
+
+`llama-batched-bench -fa on -npp 128 -ntg 128 -npl 128`, `LLAMA_KV_PAGED=1`, decode_agg = S_TG t/s:
+
+| model | T=0 (f32) | T=128 (f_bytes ~0.68) | gain   |
+|-------|----------:|----------------------:|-------:|
+| dense | 529.0     | 594.4                 | +12.4% |
+| MoE   | 1110.7    | 1238.1                | +11.5% |
+
+So the split delivers the predicted recurrence-bandwidth win (~+12% decode at f_bytes ~0.68), but only
+at T values whose KL is ~0.06 / ~91% top-p. There is no operating point with both a real speedup and a
+passing KL.
+
+## RECOMMENDATION
+
+- Ship 0026 as-is: **default `ssm_hybrid_tau_thresh = 0.0` (f32, bit-exact)**; the hybrid is opt-in via
+  `--ssm-bf16-tau` for callers who explicitly accept reduced precision for ~+12% decode. Do NOT put a
+  hybrid T in the gallery/recommended config - it does not pass the KL bar.
+- Lever A is closed as a KL-passing speedup: the GDN recurrent state does not tolerate bf16 on a
+  head-subset basis. Speed beyond the f32 recurrence must come from elsewhere (the MoE FP4 GEMM /
+  re-graph levers, or NVFP4-dense quant), not from bf16-ing the SSM state.
+- If a product later accepts a looser bar (e.g. top-p >= 95%), dense T=0.5 (96.18%, f_bytes 0.982) is
+  the only near-miss and buys ~2% - still not worth it; MoE has nothing.
 
 Assisted-by: Claude:opus-4.8 [Claude Code]

@@ -1348,7 +1348,7 @@ index 484eafb..46618d3 100644
      ~llama_memory_hybrid() = default;
  
 diff --git a/src/llama-memory-recurrent.cpp b/src/llama-memory-recurrent.cpp
-index 6a4892f..cb7a9ed 100644
+index 6a4892f..aae57a4 100644
 --- a/src/llama-memory-recurrent.cpp
 +++ b/src/llama-memory-recurrent.cpp
 @@ -8,6 +8,7 @@
@@ -1396,7 +1396,7 @@ index 6a4892f..cb7a9ed 100644
 +    const int64_t H_v         = (int64_t) hparams.ssm_dt_rank; // n_v_heads
 +    const int64_t SS          = (H_v > 0) ? (int64_t) hparams.n_embd_s() / H_v : 0; // S_v*S_v
 +    auto softplus = [](float x) -> float { return x > 20.0f ? x : log1pf(expf(x)); };
-+    std::vector<std::vector<int32_t>> head_slot_host(n_layer);
++    head_slot_host.assign(n_layer, {});
  
      for (int i = 0; i < n_layer; i++) {
          if (filter && !filter(i)) {
@@ -1466,22 +1466,42 @@ index 6a4892f..cb7a9ed 100644
      }
  
      // allocate tensors and initialize the buffers to avoid NaNs in the padding
-@@ -116,6 +184,14 @@ llama_memory_recurrent::llama_memory_recurrent(
+@@ -116,6 +184,9 @@ llama_memory_recurrent::llama_memory_recurrent(
          ctxs_bufs.emplace_back(std::move(ctx), buf);
      }
  
 +    // upload the per-layer head_slot maps now that the backend buffers exist (split layers only).
-+    for (int i = 0; i < n_layer; i++) {
-+        if (head_slot_l[i] != nullptr && !head_slot_host[i].empty()) {
-+            ggml_backend_tensor_set(head_slot_l[i], head_slot_host[i].data(), 0,
-+                    head_slot_host[i].size() * sizeof(int32_t));
-+        }
-+    }
++    upload_head_slots();
 +
      {
          const size_t memory_size_r = size_r_bytes();
          const size_t memory_size_s = size_s_bytes();
-@@ -729,6 +805,17 @@ size_t llama_memory_recurrent::size_s_bytes() const {
+@@ -142,11 +213,24 @@ void llama_memory_recurrent::clear(bool data) {
+         for (auto & [_, buf] : ctxs_bufs) {
+             ggml_backend_buffer_clear(buf.get(), 0);
+         }
++        // ggml_backend_buffer_clear zeroes the WHOLE RS buffer, including the head_slot maps (lever A).
++        // Re-upload them or every gated-DeltaNet head would read back head_slot==0 (f32-local-0) and
++        // the hybrid split would collapse (bf16 partition never written) => incoherent decode.
++        upload_head_slots();
+     }
+ 
+     std::fill(rs_idx.begin(), rs_idx.end(), 0);
+ }
+ 
++void llama_memory_recurrent::upload_head_slots() {
++    for (size_t i = 0; i < head_slot_l.size(); ++i) {
++        if (head_slot_l[i] != nullptr && i < head_slot_host.size() && !head_slot_host[i].empty()) {
++            ggml_backend_tensor_set(head_slot_l[i], head_slot_host[i].data(), 0,
++                    head_slot_host[i].size() * sizeof(int32_t));
++        }
++    }
++}
++
+ bool llama_memory_recurrent::seq_rm(llama_seq_id seq_id, llama_pos p0, llama_pos p1) {
+     uint32_t new_head = size;
+ 
+@@ -729,6 +813,17 @@ size_t llama_memory_recurrent::size_s_bytes() const {
              size_s_bytes += ggml_nbytes(s);
          }
      }
@@ -1499,7 +1519,7 @@ index 6a4892f..cb7a9ed 100644
  
      return size_s_bytes;
  }
-@@ -1041,6 +1128,44 @@ bool llama_memory_recurrent::state_read_meta(llama_io_read_i & io, uint32_t cell
+@@ -1041,6 +1136,44 @@ bool llama_memory_recurrent::state_read_meta(llama_io_read_i & io, uint32_t cell
      return true;
  }
  
@@ -1544,7 +1564,7 @@ index 6a4892f..cb7a9ed 100644
  bool llama_memory_recurrent::state_read_data(llama_io_read_i & io, uint32_t cell_count) {
      uint32_t s_trans;
      uint32_t n_layer;
-@@ -1069,14 +1194,20 @@ bool llama_memory_recurrent::state_read_data(llama_io_read_i & io, uint32_t cell
+@@ -1069,14 +1202,20 @@ bool llama_memory_recurrent::state_read_data(llama_io_read_i & io, uint32_t cell
          int32_t r_type_i_ref;
          io.read(&r_type_i_ref, sizeof(r_type_i_ref));
          const int32_t r_type_i = (int32_t) r_l[il]->type;
@@ -1569,7 +1589,7 @@ index 6a4892f..cb7a9ed 100644
          const size_t r_size_row = ggml_row_size(r_l[il]->type, hparams.n_embd_r());
          if (r_size_row != r_size_row_ref) {
              LLAMA_LOG_ERROR("%s: mismatched r row size (%zu != %zu, layer %d)\n", __func__, r_size_row, (size_t) r_size_row_ref, il);
-@@ -1099,14 +1230,21 @@ bool llama_memory_recurrent::state_read_data(llama_io_read_i & io, uint32_t cell
+@@ -1099,14 +1238,21 @@ bool llama_memory_recurrent::state_read_data(llama_io_read_i & io, uint32_t cell
              io.read(&s_type_i_ref, sizeof(s_type_i_ref));
              const int32_t s_type_i = (int32_t)s_l[il]->type;
  
@@ -1596,7 +1616,7 @@ index 6a4892f..cb7a9ed 100644
              const size_t s_size_row = ggml_row_size(s_l[il]->type, hparams.n_embd_s());
              if (s_size_row != s_size_row_ref) {
                  LLAMA_LOG_ERROR("%s: mismatched s row size (%zu != %zu, layer %d)\n", __func__, s_size_row, (size_t) s_size_row_ref, il);
-@@ -1241,6 +1379,18 @@ ggml_tensor * llama_memory_recurrent_context::get_s_l(int32_t il) const {
+@@ -1241,6 +1387,18 @@ ggml_tensor * llama_memory_recurrent_context::get_s_l(int32_t il) const {
      return mem->s_l[il];
  }
  
@@ -1616,7 +1636,7 @@ index 6a4892f..cb7a9ed 100644
      const uint32_t cell_idx = i + mem->head;
      const int32_t  src0     = mem->cells[cell_idx].src0;
 diff --git a/src/llama-memory-recurrent.h b/src/llama-memory-recurrent.h
-index b13b7b7..bd8bbd9 100644
+index b13b7b7..e3fa20c 100644
 --- a/src/llama-memory-recurrent.h
 +++ b/src/llama-memory-recurrent.h
 @@ -24,7 +24,8 @@ public:
@@ -1629,7 +1649,7 @@ index b13b7b7..bd8bbd9 100644
  
      ~llama_memory_recurrent() = default;
  
-@@ -112,6 +113,19 @@ public:
+@@ -112,7 +113,27 @@ public:
      std::vector<ggml_tensor *> r_l;
      std::vector<ggml_tensor *> s_l;
  
@@ -1645,11 +1665,19 @@ index b13b7b7..bd8bbd9 100644
 +    std::vector<ggml_tensor *> head_slot_l;  // I32[H] per-head partition map (null when layer not split)
 +    std::vector<int32_t>       n_s_f32;      // f32-head count per layer
 +    std::vector<int32_t>       n_s_bf16;     // bf16-head count per layer (0 => layer not split)
++    // Host-side copy of the per-layer head_slot maps, kept so they can be re-uploaded after any
++    // ggml_backend_buffer_clear (clear(data=true) zeroes the whole RS buffer including head_slot,
++    // which would otherwise leave the map all-zeros => every head misclassified as f32-local-0).
++    std::vector<std::vector<int32_t>> head_slot_host;
 +
  private:
++    // (re-)upload the persisted head_slot maps into the backend tensors (split layers only).
++    void upload_head_slots();
++
      //const llama_model & model;
      const llama_hparams & hparams;
-@@ -171,6 +185,13 @@ public:
+ 
+@@ -171,6 +192,13 @@ public:
      ggml_tensor * get_r_l(int32_t il) const;
      ggml_tensor * get_s_l(int32_t il) const;
  
