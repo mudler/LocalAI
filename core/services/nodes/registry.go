@@ -673,6 +673,49 @@ func (r *NodeRegistry) Get(ctx context.Context, nodeID string) (*BackendNode, er
 	return &node, nil
 }
 
+// GetWithExtras returns a single node enriched with the same computed fields as
+// ListWithExtras (labels, loaded-model count, in-flight total). The plain Get
+// returns a bare BackendNode whose Labels live in a separate table, so the node
+// detail view needs this to show a node's existing labels and live counts.
+func (r *NodeRegistry) GetWithExtras(ctx context.Context, nodeID string) (*NodeWithExtras, error) {
+	node, err := r.Get(ctx, nodeID)
+	if err != nil {
+		return nil, err
+	}
+
+	labels := make(map[string]string)
+	nodeLabels, err := r.GetNodeLabels(ctx, nodeID)
+	if err != nil {
+		xlog.Warn("GetWithExtras: failed to get labels", "node", nodeID, "error", err)
+	} else {
+		for _, l := range nodeLabels {
+			labels[l.Key] = l.Value
+		}
+	}
+
+	var modelCount int64
+	if err := r.db.WithContext(ctx).Model(&NodeModel{}).
+		Where("node_id = ? AND state = ?", nodeID, "loaded").
+		Count(&modelCount).Error; err != nil {
+		xlog.Warn("GetWithExtras: failed to get model count", "node", nodeID, "error", err)
+	}
+
+	var inFlight struct{ Total int }
+	if err := r.db.WithContext(ctx).Model(&NodeModel{}).
+		Select("COALESCE(SUM(in_flight), 0) as total").
+		Where("node_id = ? AND state IN ?", nodeID, []string{"loaded", "unloading"}).
+		Scan(&inFlight).Error; err != nil {
+		xlog.Warn("GetWithExtras: failed to get in-flight count", "node", nodeID, "error", err)
+	}
+
+	return &NodeWithExtras{
+		BackendNode:   *node,
+		ModelCount:    int(modelCount),
+		InFlightCount: inFlight.Total,
+		Labels:        labels,
+	}, nil
+}
+
 // GetByName returns a single node by name.
 func (r *NodeRegistry) GetByName(ctx context.Context, name string) (*BackendNode, error) {
 	var node BackendNode
