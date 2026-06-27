@@ -197,18 +197,37 @@ groundtruth config**. Memory: llama uses **1.5-3x lower** memory than vLLM.
 stock on the same harness. Dense is **parity-to-ahead of vLLM**; MoE trails - the
 remaining gap is structural (see section 5).
 
-### (c) Apple M4 (16GB) - for curiosity only
+### (c) Apple Silicon (M4, 16GB Metal) - does the patchset help here?
 
-No t/s: the 24GB NVFP4 GGUF did not finish downloading and would not fit in 16GB
-RAM (= SSD paging). Architectural findings:
+Short answer: **no - the wins are CUDA/Blackwell-specific.** Two facts first: the
+24GB NVFP4 GGUF doesn't fit a 16GB M4 (SSD paging), and on Metal `supports_op`
+**excludes NVFP4** from `MUL_MAT`/`MUL_MAT_ID`/`GET_ROWS` (FP4 matmuls fall back to
+CPU - no Apple FP4-MMA). So NVFP4 Qwen3.6 is not a Mac fit; a Metal-native Q4_K is.
 
-- Metal `supports_op` **excludes NVFP4** from `MUL_MAT` / `MUL_MAT_ID` /
-  `GET_ROWS`, so the FP4 matmuls **fall back to CPU** - there is no Apple
-  FP4-MMA.
-- `GATED_DELTA_NET` and `SSM_CONV` / `SSM_SCAN` **do** have Metal kernels.
+Measured **stock vs patched** (same pin `c299a92c`, both built `-DGGML_METAL=ON`;
+the 28-patch series **compiles clean on Metal** - the CUDA code is `#if`-guarded),
+on **Qwen3-8B Q4_K_M** (a dense GQA model that fits 16GB and exercises the *live*
+Metal features; no Qwen3.6 hybrid GGUF fits 16GB, and the GDN fusions gate off on
+Metal anyway), `llama-bench` pp512/tg128 t/s:
 
-Verdict: NVFP4 Qwen3.6 needs **Blackwell FP4-MMA + >24GB RAM**; a 16GB M4 is not
-a fit. A Metal-native Q4_K Qwen3.6 would be a different artifact.
+| config | pp512 | tg128 |
+|---|---:|---:|
+| stock | 226.7 | 20.4 |
+| patched, paged **off** | 226.7 | 20.3 (= stock) |
+| patched, paged **on** | 222.6 | 19.8 (~0.97x) |
+
+Concurrency (`batched-bench`) scales identically to stock (S_TG ~20 -> ~137 at
+npl32, from llama.cpp's existing batching). **Verdict: neutral-to-slightly-negative
+on Metal.** Patched-paged-off equals stock; turning paged on is ~0-3% slower
+decode / ~2-8% slower prefill, because the in-kernel block-table flash-attn read
+that *recovers* the gather cost is CUDA-only (`fattn-*.cuh`) - on Metal the paged
+path falls back to a host-side gather, pure overhead over stock's contiguous read.
+Everything Blackwell-specific (NVFP4, GDN fusions via 0030, occupancy) is inert.
+So **on Apple Silicon, prefer the stock `llama-cpp` backend.**
+
+**Vulkan** (source analysis, no box to measure): same picture, worse - the
+CUDA-only levers are inert AND the gated-DeltaNet op has *no Vulkan kernel
+upstream*, so the Qwen3.6 hybrid models assert/fall back and don't run there.
 
 ---
 
@@ -278,6 +297,23 @@ in a recommended/gallery config.
   perf-only and env-selectable (`GDN_NW` / `GDN_CPW`), so they never change
   correctness on other GPUs. Patch 0030 makes the fused-op emission CUDA-family +
   CPU only, so a non-CUDA paged build routes to the safe upstream non-fused path.
+
+- **What generalizes beyond this backend (upstream candidates).** The *speedups*
+  are CUDA/Blackwell-specific (which is why Metal/Vulkan don't benefit - section
+  4c), but several *findings and ops* are portable and worth upstreaming:
+  - The headline is hardware-independent: on hybrid gated-DeltaNet models, decode
+    is bottlenecked by the recurrent-state **plumbing** (memcpy + gathers, ~67% of
+    the step), not the weight GEMM. The fusions for it (in-place state 0018, gather
+    0019/0028, conv 0021) are bit-exact and already have CPU reference kernels, so
+    they would speed up Qwen3.6 / Qwen3-Next / any hybrid-SSM decode on **every**
+    backend once the ggml ops gain the respective (Metal/Vulkan) kernels - the
+    highest-value upstream contribution.
+  - The o_proj GEMV->MMQ reshape (0020) is a model-graph fix (batch the projection
+    to hit the GEMM path) - arch-agnostic in principle, trivial to upstream.
+  - The paged KV + cross-request prefix sharing + decode-first scheduler align with
+    llama.cpp's own in-progress KV / chunked-prefill work and could inform it.
+  - The per-path bit-exact md5 gate + the weekly upstream-drift canary is a reusable
+    maintenance pattern for any vendored-patch backend.
 
 ---
 
