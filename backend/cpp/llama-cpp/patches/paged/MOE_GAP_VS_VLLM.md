@@ -1,5 +1,11 @@
 # MOE_GAP_VS_VLLM.md - ground-truth both-engine MoE decode decomposition (where vLLM's ~15% lives)
 
+> **READ THE FINAL SECTION FIRST ("RESIDUAL-ASSESS (FINAL)" at the bottom).** It concludes the hunt and
+> CORRECTS one premise used throughout the body below: this doc assumes vLLM runs the GDN/attn projections
+> as NVFP4-Marlin. It does NOT. vLLM runs the same nvidia-modelopt checkpoint that keeps them BF16, so the
+> projection bucket is a matched-precision (bf16) gap, not a quant gap. Lever 4 (NVFP4 the projections) is
+> REJECTED (+6% PPL, and not even a vLLM gap). The MoE is at its bit-exact ceiling (~86-88% of vLLM).
+
 THE GPU AGENT (label `moe-gap-groundtruth`), DGX GB10 (sm_121). First **side-by-side, both-engine,
 per-kernel ms/step** decomposition of the MoE decode gap. All prior B work decomposed llama ONLY; this
 profiles vLLM's decode step too and computes the per-bucket `llama - vLLM` delta to pinpoint the gap.
@@ -358,5 +364,121 @@ the ~4.2 ms host bubble (reachable only via a paged-attn host-pipeline edit, not
 NVFP4 weight path - loader sidecar scales + tuned `mul_mat_q<NVFP4>` - is already in tree and proven by
 the dense GGUF). Highest-ROI remaining MoE lever. **Do first among remaining MoE work**, ahead of any
 non-bit-exact recurrence-plumbing or the rejected W4A16/Marlin GEMM.
+
+Assisted-by: Claude:opus-4.8 [Claude Code]
+
+> **SUPERSEDED:** the lever-4 scope above was optimistic and PRE-GATE. The L4 KL gate FAILED
+> (+6.15-6.51% PPL, see `LEVER4_PROJNVFP4_RESULTS.md`) and the premise was wrong (vLLM keeps these
+> projections BF16 too). Lever 4 is REJECTED - do NOT ship. See the FINAL section below.
+
+---
+
+# RESIDUAL-ASSESS (FINAL, concludes the hunt) - convert-glue + bf16-GEMM verdicts, the bit-exact MoE ceiling
+
+Label `residual-assess`, DGX GB10 (sm_121). After lever 1 shipped (0028, MoE 86.3% of vLLM @npl128,
+bit-exact), levers 2+3 flat, lever 4 REJECTED (KL-gate FAIL, AND vLLM keeps the same projections bf16),
+and lever 5 flat for MoE (host-side, off the compute-bound critical path; dense gets +0.41%), this is the
+final honest assessment of the two remaining sub-levers inside the 20.3-vs-13.8 ms projection bucket.
+Both are **bit-CHANGING or at-the-BW-floor.** The hunt is DONE.
+
+## CORRECTION that reframes the projection bucket
+
+The body above assumed **vLLM runs the GDN/attn projections as NVFP4-Marlin.** FALSE (confirmed by the L4
+gate). vLLM runs the **same nvidia-modelopt checkpoint** as the GGUF, which keeps `in_proj_qkvz`,
+`in_proj_ba`, `out_proj`, `attn_gate`, and full-attn `attn_q/k/v/output` in **BF16**. llama and vLLM run
+these projections at the **same precision (bf16).** The +6.5 ms projection-bucket delta is therefore NOT
+a precision/quant gap - it is (a) llama's f32-residual-stream convert tax and (b) bf16-GEMM kernel /
+round-trip efficiency, both at matched bf16 precision.
+
+## (1) convert-glue verdict (3.24 ms/step measured): NOT bit-exact eliminable
+
+Empirical split (`moe_dec` nsys, per-step over 43 decode steps):
+- `convert_unary<float,bf16>` (input, f32 act -> bf16): **1.73 ms/step**, 186 calls/step
+- `convert_unary<bf16,float>` (output, bf16 -> f32): **1.52 ms/step**, 186 calls/step (equal count = every
+  bf16 projection round-trips)
+
+Source root cause (`ggml/src/ggml-cuda/ggml-cuda.cu:1663-1690`, the `src0->type == BF16` cuBLAS path):
+ggml converts f32 activations to bf16, runs `cublasGemmEx` bf16xbf16 with **CUBLAS_COMPUTE_32F** but
+writes the result to a **bf16** buffer (`dst_bf16`, `CUDA_R_16BF`), then widens bf16 -> f32. The f32
+accumulator is **rounded to bf16 and then widened back** - it drops ~15 mantissa bits, and that
+bf16-rounded value feeds the f32 residual stream.
+
+- The **output round-trip is load-bearing for the shipped numerics.** The fp16-fp32-compute path 40 lines
+  down (`:1729`, `dst CUDA_R_32F`) proves cuBLAS CAN write the f32 accumulator directly - so the bf16
+  output write+convert is a removable ggml inefficiency. BUT removing it (f32-direct output) changes the
+  value from "bf16-rounded" to "full-f32" => greedy md5 (`07db32c2`) re-baselines. It is a **precision
+  boundary (an upgrade), exactly like lever 4.** NOT bit-exact.
+- The **input convert is intrinsic** to a bf16 GEMM (cuBLAS needs bf16 inputs; ggml's residual stream is
+  f32). The only bit-exact move is to fuse the f32->bf16 cast into the producing op's epilogue (same RNE
+  rounding, one fewer launch) - but that is per-site ggml graph surgery for a sub-1.7 ms launch ceiling,
+  and it is **subsumed by the (rejected) lever-4 move**: NVFP4-quantizing the weights routes the
+  projection to `mul_mat_q<NVFP4>` (W4A4) and deletes the entire bf16 cuBLAS path - input convert, GEMM,
+  output convert - in one shot.
+- vLLM pays ~0 here because it runs an **end-to-end bf16 residual stream** (no f32 intermediate). Matching
+  that = converting llama's residual stream to bf16 = a global precision change, md5 rebaseline. Also not
+  bit-exact.
+
+**Verdict: bit-exact-eliminable = NO.** The f32<->bf16 round-trip is load-bearing for the current md5 (the
+bf16-rounded output IS the shipped value). Every way to remove it (f32-direct GEMM output, bf16 residual
+stream, or NVFP4 weights) is bit-changing. The one bit-exact sliver (fuse the input cast into the
+producer) is ~1.7 ms ceiling, high per-site effort, and redundant with lever 4. (Aside: the f32-direct
+GEMM output is a genuine upstreamable ggml win - faster AND more precise - but it rebaselines md5, so it
+is off the bit-exact table for this hunt.)
+
+## (2) bf16 projection GEMM verdict (17.27 ms/step measured): BW-bound at the floor, no kernel lever
+
+Per-step bf16-projection GEMM (nvjet cuBLASLt + cutlass bf16, `moe_dec` nsys): **17.27 ms/step, 225
+calls/step.** Roofline at the M=128 decode shape:
+- Arithmetic intensity ~= 2*M FLOP / 2 bytes-per-weight = **M = 128 FLOP/byte** (the weight read
+  dominates; activations/output negligible at M=128).
+- GB10: LPDDR5x unified BW ~= **273 GB/s**; bf16 tensor-core peak >= ~250 TFLOPS => ridge point ~=
+  250e12 / 273e9 ~= **>900 FLOP/byte.** 128 << 900 => **memory-bandwidth-bound by ~7x.**
+- Achieved: 17.27 ms at 273 GB/s = **~4.7 GB of bf16 projection weights streamed per step** - i.e. the
+  GEMM moves the weight bytes at ~full LPDDR5x bandwidth. **It is at the BW floor.**
+
+The nvjet kernels are `tmaAB` (TMA-streamed on both operands) - the optimal Blackwell weight-streaming
+access pattern; vLLM's cutlass does the same and reads the **same bf16 bytes.** A cutlass swap cannot beat
+the byte floor. The only way faster is **fewer weight bytes = quantize** (lever 4, ~4x fewer bytes) -
+bit-changing AND rejected on quality (+6% PPL) AND not even a vLLM-parity gap. The residual ~3.5 ms of the
+llama-vs-vLLM GEMM-bucket delta traces to llama's extra `dst_bf16` write+read round-trip traffic (the
+convert glue of verdict 1), not a worse GEMM kernel.
+
+**Verdict: at the bandwidth floor; no bit-exact (nor even same-precision) kernel lever exists.** nvjet
+already streams the weights near-optimally.
+
+## (3) The bit-exact MoE ceiling, and the irreducible residual
+
+| MoE lever | status | bit-exact? | MoE gain |
+|-----------|--------|:----------:|----------|
+| 1 - recurrent-state gather fusion (0028) | **SHIPPED** | yes | banked -> 86.3% of vLLM |
+| 2 - graph coverage / overlap | flat | yes | ~0 |
+| 3 - act-quant fusion | flat | yes | ~0 |
+| 5 - block-table within-step cache | flat for MoE | yes | ~0 (host off compute-bound path; dense +0.41%) |
+| 4 - NVFP4 projections | REJECTED | no | +6% PPL, not a vLLM gap |
+| convert-glue elimination | this assess | **no** (precision boundary) | bit-changing only |
+| bf16-GEMM kernel | this assess | **no** (BW floor) | none |
+
+**Realistic bit-exact MoE ceiling = ~86-88% of vLLM @npl128. The shipped state (lever 1, 86.3%) is
+essentially AT it.** Lever 5 adds nothing to MoE. No clean bit-exact MoE lever remains.
+
+**The irreducible ~12-14% residual to vLLM is structural, not a missing optimization:**
+1. **f32-residual-stream convert tax (~3.2 ms/step)** - ggml runs an f32 graph and casts per bf16
+   projection; vLLM runs bf16 end-to-end. Removing it is a precision change.
+2. **bf16-GEMM BW floor + round-trip traffic (~3.5 ms/step)** - both engines at the LPDDR5x byte floor on
+   bf16 weights; the delta is the round-trip traffic (= item 1, bit-changing).
+3. **Recurrence-plumbing remainder** - mostly banked by lever 1; the core SSM kernel is already a llama
+   win.
+4. **Between-replay host loop + graph/overlap bubble** - sampling needs logits between graph replays;
+   irreducible at this batch shape.
+
+## CONCLUSION: the MoE-parity hunt is DONE
+
+The MoE is at its bit-exact ceiling. The two heaviest MoE compute kernels (the gated-DeltaNet SSM core and
+the NVFP4 expert grouped GEMM) are **already llama wins**, so there is no arithmetic gap to close. The
+remaining 12-14% is the f32-vs-bf16 graph-precision tax, the bf16-weight BW floor, and the irreducible
+host loop - none of which is a clean bit-exact lever, and the one bit-changing option (quantize the
+projections) is rejected on quality and is not even a vLLM-parity gap. **No one-more-lever for MoE.** The
+only clean win left in the whole track is DENSE (+0.41% from lever 5), gated behind first resolving the
+pre-existing paged-MoE baseline md5 drift (paged `8cb0ce23` vs canonical `07db32c2`) the L5 finish flagged.
 
 Assisted-by: Claude:opus-4.8 [Claude Code]
