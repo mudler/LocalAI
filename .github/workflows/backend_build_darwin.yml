@@ -230,16 +230,6 @@ jobs:
           make protogen-go
           make backends/llama-cpp-darwin
 
-      # llama-cpp-localai-paged reuses the same bespoke llama-cpp darwin build path
-      # (CPU_ALL_VARIANTS + Metal + otool dylib bundling) via its own wrapper script,
-      # so it gets a dedicated step like stock llama-cpp rather than the generic
-      # build-darwin-go-backend mold.
-      - name: Build ${{ inputs.backend }}-darwin (llama-cpp-localai-paged)
-        if: inputs.backend == 'llama-cpp-localai-paged'
-        run: |
-          make protogen-go
-          make backends/llama-cpp-localai-paged-darwin
-
       - name: Build ds4 backend (Darwin Metal)
         if: inputs.backend == 'ds4'
         run: |
@@ -255,7 +245,7 @@ jobs:
           make backends/privacy-filter-darwin
 
       - name: Build ${{ inputs.backend }}-darwin
-        if: inputs.backend != 'llama-cpp' && inputs.backend != 'llama-cpp-localai-paged' && inputs.backend != 'ds4' && inputs.backend != 'privacy-filter'
+        if: inputs.backend != 'llama-cpp' && inputs.backend != 'ds4' && inputs.backend != 'privacy-filter'
         run: |
           make protogen-go
           BACKEND=${{ inputs.backend }} BUILD_TYPE=${{ inputs.build-type }} USE_PIP=${{ inputs.use-pip }} make build-darwin-${{ inputs.lang }}-backend

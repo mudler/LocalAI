@@ -344,6 +344,14 @@ in a recommended/gallery config.
 
 ## 8. Models
 
+> **Build coverage: CUDA-only.** This backend ships only the CUDA/cublas build
+> targets (cuda-12, cuda-13, and the nvidia-l4t arm64 cuda-12/cuda-13 Jetson
+> rows). There are no cpu / vulkan / sycl / hipblas / metal-darwin builds: the
+> patchset's wins are CUDA/Blackwell-specific (section 4c), so off-CUDA the
+> backend is neutral-to-negative and non-CUDA users should run the stock
+> `llama-cpp` backend instead. The `backend/index.yaml` meta-backend resolves
+> `default`/`nvidia` to a CUDA variant accordingly.
+
 The benchmarked NVFP4 GGUFs are published and wired into the LocalAI gallery:
 
 | Gallery entry | Weights (HuggingFace) | Notes |

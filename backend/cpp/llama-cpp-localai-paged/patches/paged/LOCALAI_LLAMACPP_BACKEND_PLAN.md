@@ -3,6 +3,13 @@
 Scoping deliverable only. NOTHING is changed by this document. It is grounded in the
 actual repo structure (read 2026-06-26 in worktree feat+paged-attention), not assumptions.
 
+SHIPPED REALITY (update 2026-06-27): the backend ships CUDA-only. The matrix rows and
+the index.yaml meta-backend keep ONLY the CUDA/cublas variants (cuda-12, cuda-13, and
+the nvidia-l4t arm64 cuda-12/cuda-13 Jetson rows). The cpu / vulkan / sycl / hipblas /
+metal-darwin variants discussed below as optional/phase-2 were NOT shipped (and the
+darwin row was removed): off-CUDA the patchset's wins gate off, so it is neutral-to-
+negative there and non-CUDA users should use the stock llama-cpp backend (README 4c).
+
 ================================================================================
 0. GROUND TRUTH (what the repo actually does today)
 ================================================================================

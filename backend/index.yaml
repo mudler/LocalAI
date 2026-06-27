@@ -92,20 +92,18 @@
   tags:
     - text-to-text
     - LLM
-    - CPU
     - GPU
-    - Metal
     - CUDA
-    - HIP
     - paged-attention
     - nvfp4
+  # CUDA-only: the paged patchset's wins (GDN fusions, NVFP4 FP4-MMA) are
+  # CUDA/Blackwell-specific; off-CUDA they gate off and the backend is
+  # neutral-to-negative, so non-CUDA users should use the stock llama-cpp
+  # backend. default points at cuda12 (mirrors faster-qwen3-tts) so the gallery
+  # entries always resolve to a CUDA variant.
   capabilities:
-    default: "cpu-llama-cpp-localai-paged"
+    default: "cuda12-llama-cpp-localai-paged"
     nvidia: "cuda12-llama-cpp-localai-paged"
-    intel: "intel-sycl-f16-llama-cpp-localai-paged"
-    amd: "rocm-llama-cpp-localai-paged"
-    metal: "metal-llama-cpp-localai-paged"
-    vulkan: "vulkan-llama-cpp-localai-paged"
     nvidia-l4t: "nvidia-l4t-arm64-llama-cpp-localai-paged"
     nvidia-cuda-13: "cuda13-llama-cpp-localai-paged"
     nvidia-cuda-12: "cuda12-llama-cpp-localai-paged"
@@ -1681,11 +1679,8 @@
 - !!merge <<: *llamacpplocalaipaged
   name: "llama-cpp-localai-paged-development"
   capabilities:
-    default: "cpu-llama-cpp-localai-paged-development"
+    default: "cuda12-llama-cpp-localai-paged-development"
     nvidia: "cuda12-llama-cpp-localai-paged-development"
-    intel: "intel-sycl-f16-llama-cpp-localai-paged-development"
-    amd: "rocm-llama-cpp-localai-paged-development"
-    vulkan: "vulkan-llama-cpp-localai-paged-development"
     nvidia-l4t: "nvidia-l4t-arm64-llama-cpp-localai-paged-development"
     nvidia-cuda-13: "cuda13-llama-cpp-localai-paged-development"
     nvidia-cuda-12: "cuda12-llama-cpp-localai-paged-development"
@@ -2359,17 +2354,7 @@
   uri: "quay.io/go-skynet/local-ai-backends:master-nvidia-l4t-cuda-13-arm64-turboquant"
   mirrors:
     - localai/localai-backends:master-nvidia-l4t-cuda-13-arm64-turboquant
-## llama-cpp-localai-paged
-- !!merge <<: *llamacpplocalaipaged
-  name: "cpu-llama-cpp-localai-paged"
-  uri: "quay.io/go-skynet/local-ai-backends:latest-cpu-llama-cpp-localai-paged"
-  mirrors:
-    - localai/localai-backends:latest-cpu-llama-cpp-localai-paged
-- !!merge <<: *llamacpplocalaipaged
-  name: "cpu-llama-cpp-localai-paged-development"
-  uri: "quay.io/go-skynet/local-ai-backends:master-cpu-llama-cpp-localai-paged"
-  mirrors:
-    - localai/localai-backends:master-cpu-llama-cpp-localai-paged
+## llama-cpp-localai-paged (CUDA-only; see backend/cpp/llama-cpp-localai-paged/patches/paged/README.md section 4c)
 - !!merge <<: *llamacpplocalaipaged
   name: "cuda12-llama-cpp-localai-paged"
   uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-nvidia-cuda-12-llama-cpp-localai-paged"
@@ -2390,56 +2375,6 @@
   uri: "quay.io/go-skynet/local-ai-backends:master-gpu-nvidia-cuda-13-llama-cpp-localai-paged"
   mirrors:
     - localai/localai-backends:master-gpu-nvidia-cuda-13-llama-cpp-localai-paged
-- !!merge <<: *llamacpplocalaipaged
-  name: "rocm-llama-cpp-localai-paged"
-  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-rocm-hipblas-llama-cpp-localai-paged"
-  mirrors:
-    - localai/localai-backends:latest-gpu-rocm-hipblas-llama-cpp-localai-paged
-- !!merge <<: *llamacpplocalaipaged
-  name: "rocm-llama-cpp-localai-paged-development"
-  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-rocm-hipblas-llama-cpp-localai-paged"
-  mirrors:
-    - localai/localai-backends:master-gpu-rocm-hipblas-llama-cpp-localai-paged
-- !!merge <<: *llamacpplocalaipaged
-  name: "intel-sycl-f32-llama-cpp-localai-paged"
-  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-intel-sycl-f32-llama-cpp-localai-paged"
-  mirrors:
-    - localai/localai-backends:latest-gpu-intel-sycl-f32-llama-cpp-localai-paged
-- !!merge <<: *llamacpplocalaipaged
-  name: "intel-sycl-f32-llama-cpp-localai-paged-development"
-  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-intel-sycl-f32-llama-cpp-localai-paged"
-  mirrors:
-    - localai/localai-backends:master-gpu-intel-sycl-f32-llama-cpp-localai-paged
-- !!merge <<: *llamacpplocalaipaged
-  name: "intel-sycl-f16-llama-cpp-localai-paged"
-  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-intel-sycl-f16-llama-cpp-localai-paged"
-  mirrors:
-    - localai/localai-backends:latest-gpu-intel-sycl-f16-llama-cpp-localai-paged
-- !!merge <<: *llamacpplocalaipaged
-  name: "intel-sycl-f16-llama-cpp-localai-paged-development"
-  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-intel-sycl-f16-llama-cpp-localai-paged"
-  mirrors:
-    - localai/localai-backends:master-gpu-intel-sycl-f16-llama-cpp-localai-paged
-- !!merge <<: *llamacpplocalaipaged
-  name: "vulkan-llama-cpp-localai-paged"
-  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-vulkan-llama-cpp-localai-paged"
-  mirrors:
-    - localai/localai-backends:latest-gpu-vulkan-llama-cpp-localai-paged
-- !!merge <<: *llamacpplocalaipaged
-  name: "vulkan-llama-cpp-localai-paged-development"
-  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-vulkan-llama-cpp-localai-paged"
-  mirrors:
-    - localai/localai-backends:master-gpu-vulkan-llama-cpp-localai-paged
-- !!merge <<: *llamacpplocalaipaged
-  name: "metal-llama-cpp-localai-paged"
-  uri: "quay.io/go-skynet/local-ai-backends:latest-metal-darwin-arm64-llama-cpp-localai-paged"
-  mirrors:
-    - localai/localai-backends:latest-metal-darwin-arm64-llama-cpp-localai-paged
-- !!merge <<: *llamacpplocalaipaged
-  name: "metal-llama-cpp-localai-paged-development"
-  uri: "quay.io/go-skynet/local-ai-backends:master-metal-darwin-arm64-llama-cpp-localai-paged"
-  mirrors:
-    - localai/localai-backends:master-metal-darwin-arm64-llama-cpp-localai-paged
 - !!merge <<: *llamacpplocalaipaged
   name: "nvidia-l4t-arm64-llama-cpp-localai-paged"
   uri: "quay.io/go-skynet/local-ai-backends:latest-nvidia-l4t-arm64-llama-cpp-localai-paged"
