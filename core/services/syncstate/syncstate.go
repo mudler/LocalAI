@@ -96,7 +96,10 @@ func (m *SyncedMap[K, V]) Start(ctx context.Context) error {
 		return err
 	}
 
-	m.lifeCtx, m.cancel = context.WithCancel(context.Background())
+	// The cancel func is stored on the struct and invoked in Close (covered by
+	// tests); lifeCtx must outlive Start to drive the reconnect/reconcile
+	// goroutines, so it cannot be cancelled or deferred within this scope.
+	m.lifeCtx, m.cancel = context.WithCancel(context.Background()) // #nosec G118 -- cancel is invoked in Close()
 
 	if m.cfg.Nats != nil {
 		sub, err := messaging.SubscribeJSON(m.cfg.Nats, m.subject(), m.apply)
