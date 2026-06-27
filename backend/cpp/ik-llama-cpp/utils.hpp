@@ -11,7 +11,7 @@
 
 #include "json.hpp"
 
-#include "clip.h"
+#include "mtmd.h"
 
 using json = nlohmann::json;
 
@@ -111,13 +111,12 @@ struct slot_image
 {
     int32_t id;
 
-    bool request_encode_image = false;
-    float * image_embedding = nullptr;
-    int32_t image_tokens = 0;
-
-    clip_image_u8 * img_data;
-
-    std::string prefix_prompt; // before of this image
+    // mtmd bitmap (image/audio) decoded from the request buffer. Owned by the
+    // slot; freed via mtmd_bitmap_free() on reset. The high-level mtmd pipeline
+    // (mtmd_tokenize + mtmd_helper_eval_chunks) consumes these directly, so the
+    // legacy eager-encode fields (embedding/tokens) and per-image prefix prompt
+    // are no longer needed.
+    mtmd_bitmap * bitmap = nullptr;
 };
 
 // completion token output with probabilities
