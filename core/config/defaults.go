@@ -12,13 +12,11 @@ package config
 // these; config never imports backend.
 const (
 	// DefaultContextSize is the fallback context window when none is configured
-	// or estimable from the model.
+	// or estimable from the model. It is also the fallback for a GGUF whose
+	// metadata yields no usable estimate or that the parser cannot read at all
+	// (e.g. a quant type it does not know, such as NVFP4): a model-agnostic
+	// safe default beats a tiny, surprising window that truncates real prompts.
 	DefaultContextSize = 4096
-
-	// GGUFFallbackContextSize is the context window for a GGUF model whose
-	// metadata yields no usable estimate (see guessGGUFFromFile). Deliberately
-	// smaller than DefaultContextSize to stay conservative on memory there.
-	GGUFFallbackContextSize = 1024
 
 	// DefaultNGPULayers means "offload all layers"; the backend (fit_params)
 	// clamps to what actually fits in device memory.

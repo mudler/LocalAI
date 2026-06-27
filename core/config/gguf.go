@@ -33,7 +33,7 @@ func guessGGUFFromFile(cfg *ModelConfig, f *gguf.GGUFFile, defaultCtx int) {
 			cSize := int(ctxSize)
 			cfg.ContextSize = &cSize
 		} else {
-			defaultCtx = GGUFFallbackContextSize
+			defaultCtx = DefaultContextSize
 			cfg.ContextSize = &defaultCtx
 		}
 	}
