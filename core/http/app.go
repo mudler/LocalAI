@@ -424,10 +424,23 @@ func API(application *application.Application) (*echo.Echo, error) {
 
 	// Quantization routes
 	quantizationMw := auth.RequireFeature(application.AuthDB(), auth.FeatureQuantization)
+	// In distributed mode pass the shared NATS client + PostgreSQL store so
+	// quantization jobs stay consistent across replicas (the SyncedMap broadcasts
+	// mutations and hydrates from the DB); standalone passes nil for both.
+	var quantNats messaging.MessagingClient
+	var quantStore *distributed.QuantStore
+	if d := application.Distributed(); d != nil {
+		quantNats = d.Nats
+		if d.DistStores != nil && d.DistStores.Quant != nil {
+			quantStore = d.DistStores.Quant
+		}
+	}
 	qService := quantization.NewQuantizationService(
 		application.ApplicationConfig(),
 		application.ModelLoader(),
 		application.ModelConfigLoader(),
+		quantNats,
+		quantStore,
 	)
 	routes.RegisterQuantizationRoutes(e, qService, application.ApplicationConfig(), quantizationMw)
 
