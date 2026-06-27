@@ -1356,7 +1356,6 @@
     intel: "intel-fish-speech"
     amd: "rocm-fish-speech"
     nvidia-l4t: "nvidia-l4t-fish-speech"
-    metal: "metal-fish-speech"
     default: "cpu-fish-speech"
     nvidia-cuda-13: "cuda13-fish-speech"
     nvidia-cuda-12: "cuda12-fish-speech"
@@ -4870,7 +4869,6 @@
     intel: "intel-fish-speech-development"
     amd: "rocm-fish-speech-development"
     nvidia-l4t: "nvidia-l4t-fish-speech-development"
-    metal: "metal-fish-speech-development"
     default: "cpu-fish-speech-development"
     nvidia-cuda-13: "cuda13-fish-speech-development"
     nvidia-cuda-12: "cuda12-fish-speech-development"
@@ -4946,16 +4944,6 @@
   uri: "quay.io/go-skynet/local-ai-backends:master-nvidia-l4t-cuda-13-arm64-fish-speech"
   mirrors:
     - localai/localai-backends:master-nvidia-l4t-cuda-13-arm64-fish-speech
-- !!merge <<: *fish-speech
-  name: "metal-fish-speech"
-  uri: "quay.io/go-skynet/local-ai-backends:latest-metal-darwin-arm64-fish-speech"
-  mirrors:
-    - localai/localai-backends:latest-metal-darwin-arm64-fish-speech
-- !!merge <<: *fish-speech
-  name: "metal-fish-speech-development"
-  uri: "quay.io/go-skynet/local-ai-backends:master-metal-darwin-arm64-fish-speech"
-  mirrors:
-    - localai/localai-backends:master-metal-darwin-arm64-fish-speech
 ## faster-qwen3-tts
 - !!merge <<: *faster-qwen3-tts
   name: "faster-qwen3-tts-development"
