@@ -2354,7 +2354,7 @@
   uri: "quay.io/go-skynet/local-ai-backends:master-nvidia-l4t-cuda-13-arm64-turboquant"
   mirrors:
     - localai/localai-backends:master-nvidia-l4t-cuda-13-arm64-turboquant
-## llama-cpp-localai-paged (CUDA-only; see backend/cpp/llama-cpp-localai-paged/patches/paged/README.md section 4c)
+## llama-cpp-localai-paged (CUDA-only; see backend/cpp/llama-cpp-localai-paged/README.md section 4c)
 - !!merge <<: *llamacpplocalaipaged
   name: "cuda12-llama-cpp-localai-paged"
   uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-nvidia-cuda-12-llama-cpp-localai-paged"

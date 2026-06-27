@@ -61,7 +61,7 @@ everywhere without ever touching the stock `llama-cpp` source tree.
 - **0002 block placement — DONE + VERIFIED.** Built `llama-simple` at the pin; greedy generation is
   **token-identical** stock vs `LLAMA_KV_PAGED=1` (Qwen3-0.6B), paged branch confirmed firing.
 - **0003 gather-read — DONE + VERIFIED (Gate 0 green).** Implemented in the **additive** form
-  (see `paged/README.md`): all logic in new `src/paged-attn.{h,cpp}` (a `llm_graph_input_i` gather-index
+  (see `../README.md`): all logic in new `src/paged-attn.{h,cpp}` (a `llm_graph_input_i` gather-index
   subclass + the K/V/mask gather), hooked by **one** line in `build_attn` + **two** thin accessors on
   `llama_kv_cache_context` + 1 CMake line (216 insertions; no edit to `llm_graph_input_attn_kv` or
   `llama-graph.h`). Greedy generation is **token-identical** stock vs `LLAMA_KV_PAGED=1` (Qwen3-0.6B,
@@ -82,5 +82,5 @@ by itself reach vLLM throughput parity, because the measured prefill bottleneck 
 (Lever 3: `mul_mat_q<MXFP4>` ~22 TFLOP/s, ~27× behind vLLM) — a *per-token compute* gap that paging does not
 touch. Paged attention closes the **concurrency/memory** gap (more sequences, prefix reuse); the prefill/throughput
 gap additionally needs the tcgen05/CUTLASS grouped-GEMM (deferred, upstream-grade, no shortcut — see
-`paged/README.md`). So full vLLM parity = this series **AND** the
+`../README.md`). So full vLLM parity = this series **AND** the
 kernel; neither alone suffices.

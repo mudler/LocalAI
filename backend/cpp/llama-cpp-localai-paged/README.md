@@ -1,15 +1,15 @@
 # LocalAI paged-attention llama.cpp patch series
 
-This directory holds the vendored patch series that turns stock llama.cpp into
-LocalAI's paged-attention variant (`llama-cpp-localai-paged`). The patches are
-applied on top of a pinned upstream llama.cpp at build time; nothing here is a
-fork - it is a source-only `*.patch` stack plus this single canonical doc.
+This backend vendors the patch series (in `patches/paged/`) that turns stock
+llama.cpp into LocalAI's paged-attention variant (`llama-cpp-localai-paged`). The
+patches are applied on top of a pinned upstream llama.cpp at build time; nothing
+here is a fork - it is a source-only `*.patch` stack plus this canonical doc.
 
 > One-file rule: this README is the canonical reference for the patch series. The
-> only other docs kept in this directory are operational and linked below:
-> - [`PIN_SYNC_c299a92c.md`](PIN_SYNC_c299a92c.md) - the current pin-sync record (referenced by the canary workflow + scripts).
-> - [`PAGED_BITEXACT_NOTE.md`](PAGED_BITEXACT_NOTE.md) - the per-path bit-exactness gate (the canonical paged-MoE md5 reference).
-> - [`LOCALAI_LLAMACPP_BACKEND_PLAN.md`](LOCALAI_LLAMACPP_BACKEND_PLAN.md) - the design-of-record for shipping this as its own backend + the NVFP4 gallery items.
+> only other docs are operational, kept in `docs/`, and linked below:
+> - [`PIN_SYNC_c299a92c.md`](docs/PIN_SYNC_c299a92c.md) - the current pin-sync record (referenced by the canary workflow + scripts).
+> - [`PAGED_BITEXACT_NOTE.md`](docs/PAGED_BITEXACT_NOTE.md) - the per-path bit-exactness gate (the canonical paged-MoE md5 reference).
+> - [`LOCALAI_LLAMACPP_BACKEND_PLAN.md`](docs/LOCALAI_LLAMACPP_BACKEND_PLAN.md) - the design-of-record for shipping this as its own backend + the NVFP4 gallery items.
 
 ---
 
@@ -32,7 +32,7 @@ vendored patch series over upstream llama.cpp that adds
 
 It is **pinned to llama.cpp `c299a92c`** ("binaries : Improve rpc-server and
 export-graph-ops names", #25045) and advanced only by a manual, bit-exact-gated
-[pin-sync process](PIN_SYNC_c299a92c.md), decoupled from the nightly auto-bumper
+[pin-sync process](docs/PIN_SYNC_c299a92c.md), decoupled from the nightly auto-bumper
 (see section 7).
 
 The build gate is `LLAMA_PAGED` (default on in this tree); the paged engine is
@@ -158,9 +158,9 @@ These are the dominant decode levers on the Qwen3.6 hybrid models. All bit-exact
 Hardware: **GB10 / DGX Spark** (CUDA 13, sm_121). Models: dense
 **Qwen3.6-27B-NVFP4** and MoE **Qwen3.6-35B-A3B-NVFP4**. Metric: `decode_agg`
 S_TG (t/s) from `llama-batched-bench`, `-fa on`, `npp 128 / ntg 128`, swept over
-serving width `npl`. Plots: [`qwen36_dense_decode_vs_npl.png`](qwen36_dense_decode_vs_npl.png),
-[`qwen36_moe_decode_vs_npl.png`](qwen36_moe_decode_vs_npl.png); raw data
-[`final_benchmark.csv`](final_benchmark.csv).
+serving width `npl`. Plots: [`qwen36_dense_decode_vs_npl.png`](docs/qwen36_dense_decode_vs_npl.png),
+[`qwen36_moe_decode_vs_npl.png`](docs/qwen36_moe_decode_vs_npl.png); raw data
+[`final_benchmark.csv`](docs/final_benchmark.csv).
 
 ### (a) + (b) Patched vs stock vs vLLM
 
@@ -231,7 +231,7 @@ all three via the non-fused path. The patchset's fusions are gated off there
 (0030), so the outcome is the same neutral-to-slightly-negative as Metal - not
 "won't run". This backend therefore ships **CUDA-only** (where the fusions are
 live + verified); non-CUDA users should use the stock `llama-cpp` backend. See
-[`UPSTREAM_LAYER2_SCOPE.md`](UPSTREAM_LAYER2_SCOPE.md) for what native non-CUDA
+[`UPSTREAM_LAYER2_SCOPE.md`](docs/UPSTREAM_LAYER2_SCOPE.md) for what native non-CUDA
 fused kernels would take.
 
 ---
@@ -245,7 +245,7 @@ is" -n 48 --temp 0 --seed 1 | md5sum`, paged paths prefixed with
 chat-template path; and (2) `test-backend-ops` (CUDA0 vs CPU oracle) for every
 touched op (`SSM_CONV*`, `GATED_DELTA_NET`, `MUL_MAT`, `MUL_MAT_ID`).
 
-**The gate is per-path** (see [`PAGED_BITEXACT_NOTE.md`](PAGED_BITEXACT_NOTE.md)).
+**The gate is per-path** (see [`PAGED_BITEXACT_NOTE.md`](docs/PAGED_BITEXACT_NOTE.md)).
 Dense is bit-exact across paged/non-paged (`5951a5b4`). The **paged MoE** md5
 (`8cb0ce23`) does **not** byte-match the **non-paged MoE** md5 (`07db32c2`); this
 is a benign FP-accumulation-order difference of the paged attention reduction,
@@ -325,7 +325,7 @@ in a recommended/gallery config.
 ## 7. Pin + maintenance policy
 
 - **Pinned to llama.cpp `c299a92c`.** The pin is advanced **only** by the manual
-  [`PIN_SYNC`](PIN_SYNC_c299a92c.md) process: rebase the source-only patch series
+  [`PIN_SYNC`](docs/PIN_SYNC_c299a92c.md) process: rebase the source-only patch series
   onto the new tip, rebuild on GPU, and pass the bit-exact gate on every path
   (dense + MoE, paged + non-paged) plus `test-backend-ops`. The `9d5d882d ->
   c299a92c` jump (23 upstream commits) needed zero patch changes and did not
@@ -333,12 +333,12 @@ in a recommended/gallery config.
 - **Decoupled from the nightly auto-bumper.** There is deliberately **no**
   `bump_deps.yaml` entry for this backend - a naive `LLAMA_VERSION` bump could
   silently shift the tree out from under the patches.
-- **Weekly canary.** [`.github/workflows/llama-cpp-paged-canary.yml`](../../../../../.github/workflows/llama-cpp-paged-canary.yml)
-  (via [`.github/scripts/paged-canary-apply.sh`](../../../../../.github/scripts/paged-canary-apply.sh))
+- **Weekly canary.** [`.github/workflows/llama-cpp-paged-canary.yml`](../../../.github/workflows/llama-cpp-paged-canary.yml)
+  (via [`.github/scripts/paged-canary-apply.sh`](../../../.github/scripts/paged-canary-apply.sh))
   tries the patch series against the latest upstream tip with the build's own
   strict `git apply`. **Red = upstream drifted past the series -> run a
   PIN_SYNC** (do not bump the pin blindly). The canary references
-  [`PIN_SYNC_c299a92c.md`](PIN_SYNC_c299a92c.md).
+  [`PIN_SYNC_c299a92c.md`](docs/PIN_SYNC_c299a92c.md).
 
 ---
 
@@ -363,4 +363,4 @@ Both gallery entries set `backend: llama-cpp-localai-paged` and the paged servin
 (`paged_kv:true`, `max_batch_tokens`, `kv_unified:false`, `parallel`,
 `flash_attention:on`, `context_size`). They intentionally stay bit-exact (no
 `ssm_bf16_tau`). The full backend-split + gallery plan is in
-[`LOCALAI_LLAMACPP_BACKEND_PLAN.md`](LOCALAI_LLAMACPP_BACKEND_PLAN.md).
+[`LOCALAI_LLAMACPP_BACKEND_PLAN.md`](docs/LOCALAI_LLAMACPP_BACKEND_PLAN.md).

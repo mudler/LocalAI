@@ -850,7 +850,7 @@ static void params_parse(server_context& /*ctx_server*/, const backend::ModelOpt
         // common_context_params_to_llama (patch 0026) only when the --ssm-bf16-tau CLI flag is unset.
         // Unset / non-positive => env untouched, so stock stays byte-identical and bit-exact (an
         // externally exported LLAMA_SSM_BF16_TAU still works as an escape hatch). NOTE: this mode is
-        // NOT bit-exact (~91% same-top-p ceiling); see patches/paged/README.md (Dev notes).
+        // NOT bit-exact (~91% same-top-p ceiling); see backend/cpp/llama-cpp-localai-paged/README.md (Dev notes).
         } else if (!strcmp(optname, "ssm_bf16_tau") || !strcmp(optname, "ssm_hybrid_tau")) {
             if (optval != NULL) {
                 try {

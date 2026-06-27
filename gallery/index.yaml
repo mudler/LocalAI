@@ -2,7 +2,7 @@
 # =============================================================================
 # NVFP4 Qwen3.6 (dense + MoE) for the LocalAI paged-attention llama.cpp backend.
 # These reproduce the GB10 / DGX Spark benchmark serving config (see
-# backend/cpp/llama-cpp-localai-paged/patches/paged/LOCALAI_LLAMACPP_BACKEND_PLAN.md section 2).
+# backend/cpp/llama-cpp-localai-paged/docs/LOCALAI_LLAMACPP_BACKEND_PLAN.md section 2).
 #
 # PUBLISHED: the dense + MoE base NVFP4 GGUFs are live at huggingface.co/mudler/
 # Qwen3.6-27B-NVFP4-GGUF and .../Qwen3.6-35B-A3B-NVFP4-GGUF (file_type MOSTLY_NVFP4);
@@ -20,7 +20,7 @@
 # persist their state as bf16 (LLAMA_SSM_BF16_TAU), halving that head's decode byte
 # stream. Default off (0) = every head f32 = bit-exact; when enabled the mode is NOT
 # bit-exact (~91% same-top-p, beats vLLM dense) - see
-# backend/cpp/llama-cpp-localai-paged/patches/paged/README.md for the quality profile.
+# backend/cpp/llama-cpp-localai-paged/README.md for the quality profile.
 # The two NVFP4 entries below intentionally stay bit-exact (no ssm_bf16_tau).
 # =============================================================================
 - name: "qwen3.6-27b-nvfp4-paged"

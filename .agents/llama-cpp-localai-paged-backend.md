@@ -6,7 +6,7 @@ gated-DeltaNet (SSM) models on Blackwell (GB10 / DGX Spark). It reuses the stock
 `llama-cpp` backend's sources and applies a vendored patch series on top at build
 time. It is **not** a fork: a source-only `*.patch` stack plus one canonical doc.
 
-**Canonical reference:** `backend/cpp/llama-cpp-localai-paged/patches/paged/README.md`
+**Canonical reference:** `backend/cpp/llama-cpp-localai-paged/README.md`
 (architecture, the patch series 0001-0030, benchmarks, dev notes, generality,
 pin/canary policy). Read it for any technical detail; this guide is the maintenance
 how-to.
@@ -18,8 +18,11 @@ how-to.
   this backend's **own** pin (`LLAMA_VERSION`), applies the paged series via the
   `apply-paged-patches` define (strict `git apply`), then builds `grpc-server`.
 - `backend/cpp/llama-cpp-localai-paged/patches/paged/` - the source-only `.patch`
-  series (0001-0030) + the README + operational docs (`PIN_SYNC_*.md`,
-  `PAGED_BITEXACT_NOTE.md`, `UPSTREAM_LAYER2_SCOPE.md`).
+  series (0001-0030), nothing else.
+- `backend/cpp/llama-cpp-localai-paged/README.md` - the canonical doc. The
+  operational docs (`PIN_SYNC_*.md`, `PAGED_BITEXACT_NOTE.md`,
+  `UPSTREAM_LAYER2_SCOPE.md`) and dev artifacts live in
+  `backend/cpp/llama-cpp-localai-paged/docs/`.
 - `backend/Dockerfile.llama-cpp-localai-paged`, `.docker/llama-cpp-localai-paged-compile.sh`
   - the CUDA build entry points.
 - `backend/cpp/llama-cpp/` - the **stock** backend, pure upstream. It carries no
@@ -52,7 +55,7 @@ and break `git apply` at build time.
 1. **The canary tells you when to sync.** `.github/workflows/llama-cpp-paged-canary.yml`
    runs weekly: it applies + builds the series against the latest upstream tip and
    goes **red** when upstream drifts past the patches. Canary red -> run a pin-sync.
-2. **The pin-sync** (recorded in `PIN_SYNC_*.md`): rebase the series onto the new
+2. **The pin-sync** (recorded in `docs/PIN_SYNC_*.md`): rebase the series onto the new
    tip (resolve conflicts; re-export **source-only** with a pathspec like
    `-- src/ ggml/ common/ include/ tools/ tests/ cmake/`), rebuild on a CUDA box,
    pass the bit-exact gate on **every** path + `test-backend-ops`, then bump
@@ -68,7 +71,7 @@ and break `git apply` at build time.
 - `test-backend-ops` (CUDA0 vs CPU oracle) for every touched op (`SSM_CONV*`,
   `GATED_DELTA_NET`, `MUL_MAT`, `MUL_MAT_ID`).
 - **The gate is per-path.** The paged-MoE md5 differs from the non-paged md5 - a
-  benign, KL-validated FP-accumulation-order difference (see `PAGED_BITEXACT_NOTE.md`).
+  benign, KL-validated FP-accumulation-order difference (see `docs/PAGED_BITEXACT_NOTE.md`).
   Compare a paged-MoE change to the **paged** reference, not the non-paged one.
 
 ## Encapsulating your work
@@ -87,7 +90,7 @@ The decode fusions are implemented for **CUDA + CPU only**. The base
 gated-DeltaNet + SSM_CONV ops already exist upstream on Metal, SYCL, and Vulkan,
 so the models **run** there via the non-fused path - what is missing is the
 fusion speedup. Porting it (strictly mirroring the CUDA kernels, since we have no
-Metal/SYCL/Vulkan hardware to test on here) is scoped in `UPSTREAM_LAYER2_SCOPE.md`
+Metal/SYCL/Vulkan hardware to test on here) is scoped in `docs/UPSTREAM_LAYER2_SCOPE.md`
 (recommended order: Metal, then SYCL, then Vulkan; ops-first upstream PR, then one
 PR per backend, each gated by `test-backend-ops` on the target hardware). The
 methodology for that work is in [.agents/vllm-parity-methodology.md](vllm-parity-methodology.md).
