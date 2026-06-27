@@ -54,7 +54,6 @@ is now the FP4 GEMM (~48 percent of decode), a separate kernel track.
 Assisted-by: Claude:opus-4.8 [Claude Code]
 Signed-off-by: Ettore Di Giacinto <mudler@localai.io>
 ---
- SSM_DECODE_FIX_RESULTS.md             | 86 +++++++++++++++++++++++++++
  ggml/include/ggml.h                   | 17 ++++++
  ggml/src/ggml-cpu/ops.cpp             | 49 ++++++++++++++-
  ggml/src/ggml-cuda/gated_delta_net.cu | 85 ++++++++++++++++++++++----
@@ -63,102 +62,8 @@ Signed-off-by: Ettore Di Giacinto <mudler@localai.io>
  src/models/models.h                   | 13 ++++
  src/models/qwen35.cpp                 |  6 +-
  src/models/qwen35moe.cpp              |  6 +-
- 9 files changed, 378 insertions(+), 23 deletions(-)
+ 8 files changed, 292 insertions(+), 23 deletions(-)
 
-diff --git a/SSM_DECODE_FIX_RESULTS.md b/SSM_DECODE_FIX_RESULTS.md
-index 2e7c8c2..77879e4 100644
---- a/SSM_DECODE_FIX_RESULTS.md
-+++ b/SSM_DECODE_FIX_RESULTS.md
-@@ -96,3 +96,89 @@ precedent (`ssm_scan` `ids`) and is the clear next move. The residual gap to vLL
- after both SSM steps is the FP4 GEMM (~37% of decode), which is a separate kernel
- track. No paged/graph/block-table change can move decode on this model (full
- attention is 0.4% of decode).
-+
-+## STEP 2 (patch 0019): fuse the recurrent-state gather into the op
-+
-+After Step 1 the largest non-GEMM decode bucket was the recurrent-state
-+`get_rows` gather (18.8% of decode GPU time): `build_rs` materialized each
-+sequence's prior state into a contiguous scratch via `ggml_get_rows` before the
-+gated-DeltaNet op read it. Step 2 eliminates that materialization, mirroring
-+`ggml_ssm_scan`'s `ids` source.
-+
-+`ggml_gated_delta_net_inplace_ids` takes the FULL recurrent-state cache plus the
-+`s_copy` ids (`src[5]` = full cache `[S_v, S_v, H, n_rs_slots]`, `src[7]` = ids,
-+`op_param[1]` = `rs_head`) and reads each sequence's prior state directly from
-+`cache[ids[seq]]`. Combined with Step 1's in-place write the op now reads AND
-+writes the cache directly: no recurrent-state materialization at all. The
-+`build_recurrent_attn` fused path feeds the full cache and ids through the
-+`build_rs` `get_state_rows` lambda exactly like `mamba-base.cpp`, keeping the
-+`rs_zero` clear and the extra-states copy around the op.
-+
-+### Race-free by construction (CUDA)
-+
-+In-place write plus an ids read of the same cache is only safe when the read slot
-+equals the write slot. `s_copy(s) = cells[s + head].src0`, which is identity
-+(`rs_head + s`) for stable continuing sequences (the entire AR decode path) but
-+can remap on sequence reorder or `rs_zero` (e.g. multiple new sequences in one
-+prefill ubatch). The kernel handles both per (seq, head) block on device:
-+
-+- identity sequences read `s0` in place from the destination slot `state_dst`
-+  (the kernel loads all of `s0` into registers before it writes the new state,
-+  so reading and writing the same slot is race-free) -- no materialization;
-+- non-identity sequences read from a disjoint scratch that a small
-+  `gdn_gather_nonident_kernel` copies from `cache[ids[seq]]` first, so the
-+  recurrence never reads a slot another block writes.
-+
-+`ids` stays a device pointer (dereferenced only in the kernels; the input is
-+device-resident at op-execute time, so a host read segfaults). The CPU op
-+mirrors the same logic (host identity check + a serial gather in the dispatcher
-+for the non-identity case). The math is unchanged, so the result is bit-identical
-+to the `get_rows` path in every case.
-+
-+Gated to the `qwen35` / `qwen35moe` fused decode/prefill path; `qwen3next`,
-+`kimi-linear`, the non-fused path and the rollback (`n_rs_seq > 0`) path are
-+untouched (they keep the materialized-state overload).
-+
-+### Measured decode_agg (`S_TG` t/s, npp 128, ntg 128, -fa on, paged on, fusion off)
-+
-+Dense `q36-27b-nvfp4`:
-+
-+| npl | Step 1 (baseline) | Step 2   | delta   | % of vLLM (391 @128) |
-+|-----|-------------------|----------|---------|----------------------|
-+| 32  | 137.64            | 170.68   | +24.0%  | -                    |
-+| 128 | 186.25            | 256.57   | +37.8%  | 47.6% -> 65.6%       |
-+
-+The npl-128 result (256.57 t/s) beats the predicted ~247 t/s Step-2 ceiling.
-+
-+MoE `q36-35b-a3b-nvfp4`:
-+
-+| npl | Step 1 (baseline) | Step 2   | delta   |
-+|-----|-------------------|----------|---------|
-+| 32  | 299.68            | 366.69   | +22.4%  |
-+| 128 | 409.30            | 553.63   | +35.3%  |
-+
-+(Step-1 baselines re-measured in the same session; the brief's reference figures
-+were 136 / 180 dense and 279 / 373 MoE.)
-+
-+### Bit-exact gate
-+
-+Greedy (`--temp 0 --seed 1`) `llama-completion` output (256 tokens, paged on,
-+fusion off) vs the Step-1 build:
-+
-+- dense `q36-27b-nvfp4`: model text byte-identical (md5 match);
-+- MoE `q36-35b-a3b-nvfp4`: byte-identical;
-+- Step-2 dense run1 == run2 (deterministic, no race).
-+
-+### nsys confirmation (npp 128, ntg 24, npl 128, fusion off, eager)
-+
-+The recurrent-state gather bucket collapsed:
-+
-+| kernel                     | Step 1   | Step 2                                  |
-+|----------------------------|----------|-----------------------------------------|
-+| `k_get_rows_float`         | 18.8%    | 0.7% (residual: embeddings / conv-state)|
-+| `gdn_gather_nonident`      | -        | 1.7% (no-op at decode, median ~1.2 us)  |
-+| `gated_delta_net_cuda`     | 26.0%    | 22.5%                                    |
-+| FP4 GEMM family            | ~37.5%   | ~48% (now the dominant residual)        |
-+
-+The SSM state gather is effectively eliminated. The residual decode gap to vLLM
-+is now the FP4 GEMM (~48% of decode), a separate kernel track.
 diff --git a/ggml/include/ggml.h b/ggml/include/ggml.h
 index 4e7ab32..951dd21 100644
 --- a/ggml/include/ggml.h

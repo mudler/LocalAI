@@ -213,17 +213,87 @@ all 23 patches, and the resulting tree is **byte-identical to the gate-green
 shipped `.patch` series reproduces exactly the tree that passed test-backend-ops,
 the md5 bit-exact gate, and the bench.
 
-## Pre-existing finding (NOT introduced by this pin-sync, NOT fixed here)
-Committed patch `0019` carries a *modify* hunk against the dev-only doc
-`SSM_DECODE_FIX_RESULTS.md` (`index 2e7c8c2..77879e4 100644`), a file that exists
-only because of an unshipped docs commit on the dev tree and is absent from a
-clean llama.cpp checkout. Under strict `git apply` that hunk fails ("No such file
-or directory"). This is pin-independent (the file is upstream-absent on both
-`8be759e6` and `9d5d882d`) and present identically in the old and new `0019`
-(LINENUM class), so it is left untouched to keep the pin-sync faithful. (`0021`'s
-`CONV_STATE_FUSION_RESULTS.md` is a *create* hunk and applies fine.) Stripping the
-stray dev-doc hunks from the shipped patches is a separate cleanup, out of scope
-for the pin-sync.
+## Shipped-build bug FIXED: stray dev-doc hunks stripped from the patch series
+
+The pin-sync export captured dev-only result/progress docs that live in the DGX
+dev tree (`~/llama-paged-dev`) but are ABSENT from a clean `ggml-org/llama.cpp`
+checkout. The shipped build applies the paged series with **strict `git apply`**
+(the `llama.cpp` target in `backend/cpp/llama-cpp/Makefile`:
+`git apply --verbose "$p" || { echo "paged patch failed"; exit 1; }`), which is
+atomic: a single hunk against a missing file REJECTS the entire patch and the
+`exit 1` fails the build. (`prepare.sh` uses tolerant `patch -pN -N ... || true`,
+but it is guarded by the `src/paged-kv-manager.cpp` sentinel and skipped at build
+time once the Makefile has applied the series, so the strict `git apply` is the
+real shipped path.)
+
+Root failure was patch `0019`'s *modify* hunk against `SSM_DECODE_FIX_RESULTS.md`
+(`index 2e7c8c2..77879e4 100644`): on a clean tree `git apply` cannot find the
+file to modify ("No such file or directory") and rejects all of `0019`, which
+then cascades to `0021`/`0022`/`0026`/`0028` (they build on `0019`'s code). The
+build therefore only succeeded on the DGX (where the doc exists) and FAILED on CI
+/ any clean checkout.
+
+Fixed by stripping every stray non-source hunk so the patches contain ONLY
+llama.cpp source changes. Stripped hunks (dev docs absent from a clean
+`9d5d882d` checkout):
+
+| patch | stripped dev-doc hunk(s) | hunk kind |
+|-------|--------------------------|-----------|
+| `0019` | `SSM_DECODE_FIX_RESULTS.md` | modify (the root reject) |
+| `0020` | `LEVER1_OPROJ_MMQ_RESULTS.md` | create |
+| `0021` | `CONV_STATE_FUSION_RESULTS.md` | create |
+| `0028` | `LEVER1_GATHER_PROGRESS.md`, `LEVER1_GATHER_RESULTS.md` | create |
+
+(The `create` hunks did not reject on their own - `git apply` will create a new
+file even on a clean tree - but they polluted the build tree with stray dev docs
+and violated the source-only invariant, so they were stripped too.) For each
+patch the `diff --git a/<devdoc> ...` section was removed along with its diffstat
+per-file line, any `create mode` trailer, and the `N files changed, ...` summary
+was corrected; **every llama.cpp SOURCE hunk is byte-identical** (verified by
+sha256 of each patch's source-diff tail before vs after the strip).
+
+Verified on a fresh `git clone` of `ggml-org/llama.cpp` at this pin `9d5d882d`:
+- BEFORE the strip, strict `git apply` of the series: OK through `0018`, then
+  `0019` FAILS ("SSM_DECODE_FIX_RESULTS.md: No such file or directory") -> the
+  Makefile `exit 1`s; continue-mode shows the full cascade `0019` `0021` `0022`
+  `0026` `0028` failing.
+- AFTER the strip, strict `git apply` of the full series `0001..0030` reaches
+  **exit 0** (every patch OK, sentinel `src/paged-kv-manager.cpp` created, zero
+  stray `*_RESULTS.md`/`*_PROGRESS.md` in the tree). The tolerant `patch -p1`
+  path (prepare.sh fallback) also applies with zero rejects.
+
+## Durable fix: keep patch exports SOURCE-ONLY
+
+The pin-sync / re-export step MUST NOT capture dev-only artifacts into the shipped
+`.patch` files. A clean `ggml-org/llama.cpp` checkout contains its own real docs
+(`README.md`, `docs/`, `AGENTS.md`, ...) but NOT LocalAI dev notes - anything
+matching `*_RESULTS.md`, `*_PROGRESS.md`, `*.diff`, `final_benchmark.csv`,
+`LEVER*`, `BENCH*`, `paged-*-bench.cpp`, or any path that does not exist at the
+pin is a dev artifact and must be excluded. Concretely, when re-exporting:
+
+- prefer `git format-patch -1 <commit> -- ':!*.md' ':!*.diff' ':!*.csv'` (or an
+  explicit pathspec of the llama.cpp source dirs `src/ ggml/ common/ include/
+  tools/ tests/ cmake/`) so dev docs never enter the patch body;
+- keep the dev-notes commits SEPARATE from the code commits on the dev branch, so
+  a per-commit export is naturally source-only;
+- after export, gate with: clone the pin, `git apply` the full series with strict
+  (no-`--exclude`, no `|| true`) `git apply` - it MUST reach exit 0. The weekly
+  canary (`.github/workflows/llama-cpp-paged-canary.yml`) does this against
+  upstream HEAD; now that the patches are source-only its `0019`
+  `SSM_DECODE_FIX_RESULTS.md` `--exclude` workaround
+  (`.github/scripts/paged-canary-apply.sh`) is no longer needed and can be removed
+  on the next canary touch.
+
+The upcoming `c299a92c` pin-bump re-export MUST follow this: produce source-only
+patches and pass the strict-`git apply` gate on a clean checkout before advancing
+the pin.
+
+## Historical note (pre-strip)
+Before this cleanup, `0019` carried the `SSM_DECODE_FIX_RESULTS.md` modify hunk
+identically in the old and new exports (LINENUM class) and was left untouched
+during the pin-sync to keep the rebase faithful; `0021`'s
+`CONV_STATE_FUSION_RESULTS.md` was a create hunk that applied but still leaked a
+dev doc. Both are now removed by the source-only strip above.
 
 ## Source of truth
 The rebased branch on the DGX dev tree (`~/llama-paged-dev`, branch `paged`, HEAD
