@@ -1008,7 +1008,11 @@ jobs:
   # image + working dir.
   tests-vibevoice-cpp-grpc-transcription:
     needs: detect-changes
-    if: needs.detect-changes.outputs.vibevoice-cpp == 'true' || needs.detect-changes.outputs.run-all == 'true'
+    # Skip on release tag pushes: the ASR Q4_K model is ~10 GB and cannot be
+    # pulled from HF within the inner `go test -timeout 30m` budget on a CI
+    # runner, so every tag build hung and timed out. Still runs on PRs/branch
+    # pushes that touch vibevoice-cpp so regressions are caught off the release path.
+    if: (needs.detect-changes.outputs.vibevoice-cpp == 'true' || needs.detect-changes.outputs.run-all == 'true') && !startsWith(github.ref, 'refs/tags/')
     runs-on: bigger-runner
     timeout-minutes: 150
     steps:
