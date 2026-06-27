@@ -604,6 +604,10 @@ func (a *Application) StartAgentPool() {
 			usm.SetJobDBStore(s)
 		}
 	}
+	// Keep per-user agent tasks consistent across replicas (nil in standalone).
+	if d := a.Distributed(); d != nil {
+		usm.SetJobSyncNATS(d.Nats)
+	}
 	aps.SetUserServicesManager(usm)
 
 	a.agentPoolService.Store(aps)
