@@ -75,8 +75,10 @@ function inferBackendPathDarwin(item) {
   if (item.backend === "llama-cpp") {
     return `backend/cpp/llama-cpp/`;
   }
-  // llama-cpp-localai-paged on Darwin (if a metal row is ever added to
-  // includeDarwin) builds from the C++ sources under backend/cpp/llama-cpp-localai-paged.
+  // llama-cpp-localai-paged on Darwin (the -metal-darwin-arm64-llama-cpp-localai-paged
+  // includeDarwin row) builds from the C++ sources under
+  // backend/cpp/llama-cpp-localai-paged, like stock llama-cpp. The matrix entry
+  // carries lang=go for runner/toolchain selection, but the source is C++.
   if (item.backend === "llama-cpp-localai-paged") {
     return `backend/cpp/llama-cpp-localai-paged/`;
   }
