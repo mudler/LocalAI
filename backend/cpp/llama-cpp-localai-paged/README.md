@@ -164,7 +164,7 @@ swept over serving width `npl` in {8, 32, 64, 128}. Plots:
 [`qwen36_moe_decode_vs_npl.png`](docs/qwen36_moe_decode_vs_npl.png); raw data
 [`final_benchmark.csv`](docs/final_benchmark.csv).
 
-![NVFP4 decode throughput vs concurrency on GB10: llama.cpp standard vs vLLM vs LocalAI's llama.cpp patches](docs/qwen36_decode_overview.png)
+![NVFP4 decode throughput vs concurrency on GB10: llama.cpp standard vs vLLM vs LocalAI's llama.cpp patches, plus the opt-in bf16-tau ceiling](docs/qwen36_decode_overview.png)
 
 > **What was re-measured (2026-06-27).** The three llama columns - **stock**,
 > **patched**, and **patched+bf16-tau** - were all re-measured this session on one
