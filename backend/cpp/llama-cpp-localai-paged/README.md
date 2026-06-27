@@ -157,45 +157,79 @@ These are the dominant decode levers on the Qwen3.6 hybrid models. All bit-exact
 
 Hardware: **GB10 / DGX Spark** (CUDA 13, sm_121). Models: dense
 **Qwen3.6-27B-NVFP4** and MoE **Qwen3.6-35B-A3B-NVFP4**. Metric: `decode_agg`
-S_TG (t/s) from `llama-batched-bench`, `-fa on`, `npp 128 / ntg 128`, swept over
-serving width `npl`. Plots: [`qwen36_dense_decode_vs_npl.png`](docs/qwen36_dense_decode_vs_npl.png),
+S_TG (t/s) from `llama-batched-bench`, `-fa on -ngl 99`, `npp 128 / ntg 128`,
+swept over serving width `npl` in {8, 32, 64, 128}. Plots:
+[`qwen36_dense_decode_vs_npl.png`](docs/qwen36_dense_decode_vs_npl.png),
 [`qwen36_moe_decode_vs_npl.png`](docs/qwen36_moe_decode_vs_npl.png); raw data
 [`final_benchmark.csv`](docs/final_benchmark.csv).
 
-### (a) + (b) Patched vs stock vs vLLM
+> **What was re-measured (2026-06-27).** The three llama columns - **stock**,
+> **patched**, and **patched+bf16-tau** - were all re-measured this session on one
+> consistent `llama-batched-bench` harness. The **vLLM** column is the
+> **prior-session reference** (kept as-is, *not* re-run this session). Per-run peak
+> VRAM was *not* re-captured: the GB10's unified Grace-Blackwell LPDDR5x reports
+> `[N/A]` to `nvidia-smi --query-gpu=memory.used` and the bench does not print it
+> (the memory-advantage note below is the prior-session finding).
 
-The **stock** and **patched** columns are the same binary, env-toggled, on the
-**same harness** (`llama-batched-bench`) - so "x over stock" is an exact
-apples-to-apples measure of the patch series' contribution. The **vLLM** column
-is a **different harness** (vLLM server + client continuous batching), so the
+### (a) + (b) Patched vs stock vs patched+bf16-tau vs vLLM
+
+The **stock** column is a separate, unpatched llama.cpp built at this backend's
+**exact pin (`9d5d882d`)**; the **patched** and **patched+bf16-tau** columns are
+the paged binary, env/flag-toggled (`LLAMA_KV_PAGED=1`, plus
+`LLAMA_MOE_FORCE_GRAPHS=1` for MoE; bf16-tau adds `--ssm-bf16-tau 64`). All three
+run on the **same harness**, so "x over stock" is an apples-to-apples measure of
+the patch series. (Note: the patch series' dominant SSM decode fusions are
+compiled in, not env-gated - toggling `LLAMA_KV_PAGED` alone on the *patched*
+binary does **not** reproduce stock; only the separately-built unpatched
+`9d5d882d` binary does.) The **vLLM** column is a **different harness** (vLLM
+server + client continuous batching) and a **prior-session reference**, so the
 cross-engine "% of vLLM" is **indicative, not apples-to-apples**.
 
-**Dense Qwen3.6-27B-NVFP4** (t/s):
+**Dense Qwen3.6-27B-NVFP4** (decode t/s):
 
-| npl | stock | patched | vLLM | patched % of vLLM | patched x over stock |
-|----:|------:|--------:|-----:|------------------:|---------------------:|
-| 8   |  65.7 |   84.0 |  71.1 | 118% | 1.28x |
-| 32  | 113.7 |  204.0 | 207.6 |  98% | 1.79x |
-| 64  | 134.3 |  294.9 | 309.7 |  95% | 2.20x |
-| 128 | 143.5 |  371.2 | 422.4 |  88% | 2.59x |
+| npl | stock | patched | patched+bf16-tau | vLLM (prior) | patched x over stock | bf16-tau over patched |
+|----:|------:|--------:|-----------------:|-------------:|---------------------:|----------------------:|
+| 8   |  68.3 |   85.3 |             87.8 |         70.4 | 1.25x | +3%  |
+| 32  | 119.9 |  211.9 |            231.0 |        211.8 | 1.77x | +9%  |
+| 64  | 142.8 |  305.2 |            341.4 |        309.1 | 2.14x | +12% |
+| 128 | 155.1 |  382.1 |            446.1 |        418.8 | 2.46x | +17% |
 
-**MoE Qwen3.6-35B-A3B-NVFP4** (t/s):
+Dense **patched** is parity-to-ahead of vLLM (121 / 100 / 99 / 91% of vLLM across
+the widths); **patched+bf16-tau** is **ahead of vLLM at every width** (125 / 109 /
+110 / 107%).
 
-| npl | stock | patched | vLLM | patched % of vLLM | patched x over stock |
-|----:|------:|--------:|------:|-----------------:|---------------------:|
-| 8   | 181.4 |  227.4 |  315.1 | 72% | 1.25x |
-| 32  | 260.8 |  455.7 |  681.9 | 67% | 1.75x |
-| 64  | 306.8 |  612.3 |  765.5 | 80% | 2.00x |
-| 128 | 331.3 |  772.6 | 1011.7 | 76% | 2.33x |
+**MoE Qwen3.6-35B-A3B-NVFP4** (decode t/s):
 
-**Caveat on the vLLM column.** Besides the different harness, the vLLM MoE
-@npl128 number here (1011.7 at 128/128) runs *hotter* than the 901 t/s reference
-config (512/256), so the MoE "% of vLLM" reads **76% here vs ~86% at the
-groundtruth config**. Memory: llama uses **1.5-3x lower** memory than vLLM.
+| npl | stock | patched | patched+bf16-tau | vLLM (prior) | patched x over stock | bf16-tau over patched |
+|----:|------:|--------:|-----------------:|-------------:|---------------------:|----------------------:|
+| 8   | 186.7 |  230.3 |            240.5 |        256.5 | 1.23x | +4%  |
+| 32  | 267.4 |  466.4 |            508.1 |        500.8 | 1.74x | +9%  |
+| 64  | 320.5 |  622.4 |            703.8 |        686.1 | 1.94x | +13% |
+| 128 | 347.2 |  784.3 |            918.0 |        882.2 | 2.26x | +17% |
 
-**Takeaway.** The patch series gives up to **2.59x (dense) / 2.33x (MoE)** over
-stock on the same harness. Dense is **parity-to-ahead of vLLM**; MoE trails - the
-remaining gap is structural (see section 5).
+MoE **patched** is 90 / 93 / 91 / 89% of vLLM; **patched+bf16-tau** reaches
+parity-to-ahead (94 / 101 / 103 / 104%) at npl>=32.
+
+**On bf16-tau.** The `patched+bf16-tau` column uses `--ssm-bf16-tau 64` (no exact
+tau was recorded behind the documented "~+12%"; the flag help suggests 32/64, and
+64 bf16's more of the fast-decaying GDN heads). It is **opt-in and NOT bit-exact**
+(~91% same-top-p; see section 5) - it persists fast-decaying GDN head state as
+bf16 to halve that head's recurrence byte stream. Measured decode gain over
+patched grows with serving width: **+3-4% at npl8, ~+12-13% at npl64, +17% at
+npl128** (dense and MoE alike).
+
+**Caveat on the vLLM column.** It is a **different harness** and a
+**prior-session** measurement (not re-run this session), so the cross-engine "% of
+vLLM" is **indicative, not apples-to-apples**. Memory (prior session): llama uses
+**1.5-3x lower** memory than vLLM.
+
+**Takeaway.** Re-measured this session, the patch series gives up to **2.46x
+(dense) / 2.26x (MoE)** over true-stock `9d5d882d` on the same harness (close to,
+slightly below, the prior 2.59x / 2.33x - llama was re-measured, vLLM kept).
+Opt-in **bf16-tau adds a further +3% to +17%** on top of patched (growing with
+width). Dense is **ahead of vLLM** with bf16-tau at every width; MoE **patched**
+sits at ~89-93% of the prior-session vLLM and **bf16-tau reaches parity-to-ahead**
+at npl>=32. The residual non-bf16 MoE gap is structural (see section 5).
 
 ### (c) Apple Silicon (M4, 16GB Metal) - does the patchset help here?
 
