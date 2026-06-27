@@ -1,7 +1,7 @@
 name: 'llama.cpp paged patches: upstream canary'
 
 # EARLY-WARNING CANARY for the vendored paged-attention patch series
-# (backend/cpp/llama-cpp/patches/paged/0001-0030).
+# (backend/cpp/llama-cpp-localai-paged/patches/paged/0001-0030).
 #
 # WHY THIS EXISTS
 # The paged backend (backend/cpp/llama-cpp-localai-paged) pins its OWN verified
@@ -17,7 +17,7 @@ name: 'llama.cpp paged patches: upstream canary'
 # RED HERE means: time to run a PIN_SYNC (rebase the patches onto the new tip,
 # pass the bit-exact gate on the GPU, re-export the .patch files, THEN advance
 # the pin in backend/cpp/llama-cpp-localai-paged/Makefile). See
-# backend/cpp/llama-cpp/patches/paged/PIN_SYNC_c299a92c.md.
+# backend/cpp/llama-cpp-localai-paged/patches/paged/PIN_SYNC_c299a92c.md.
 #
 # SIGNAL-ONLY: this workflow moves no pinned version, ships nothing, and is fully
 # decoupled from bump_deps - so the main dep-bump PR stays green regardless. A
@@ -91,7 +91,7 @@ jobs:
         run: |
           bash .github/scripts/paged-canary-apply.sh \
             /tmp/llama.cpp \
-            "$PWD/backend/cpp/llama-cpp/patches"
+            "$PWD/backend/cpp/llama-cpp-localai-paged/patches"
           echo "- apply: full paged series applies to the upstream tip :white_check_mark:" >> "$GITHUB_STEP_SUMMARY"
 
   compile:
@@ -141,12 +141,16 @@ jobs:
               cp -a /opt/grpc/. /usr/local/
 
               # Pre-populate the llama.cpp checkout at the latest tip with the
-              # paged series applied via the tolerant canary apply (so the benign
-              # 0019 dev-doc hunk does not abort the build). Because
-              # backend/cpp/llama-cpp/llama.cpp now exists, the Makefile
-              # llama.cpp target (strict clone + git apply) is skipped and
-              # prepare.sh sees the paged sentinel and skips re-applying - so we
-              # drive the REAL grpc-server build path on top of our apply.
+              # paged series applied via the tolerant canary apply. Because
+              # backend/cpp/llama-cpp/llama.cpp now exists, the stock Makefile's
+              # llama.cpp target (clone + base-patch apply) is skipped and the
+              # now patch-free prepare.sh only copies the grpc-server sources -
+              # so we drive the REAL grpc-server build path on top of our paged
+              # apply. The stock llama-cpp backend no longer carries the paged
+              # series (it lives in backend/cpp/llama-cpp-localai-paged/patches/
+              # paged); we build it here in the stock dir only because that is
+              # where the shared build infra (Makefile / grpc-server.cpp /
+              # CMakeLists.txt / prepare.sh) lives.
               cd backend/cpp/llama-cpp/
               mkdir -p llama.cpp
               cd llama.cpp
@@ -157,15 +161,16 @@ jobs:
               cd /LocalAI
               bash .github/scripts/paged-canary-apply.sh \
                 backend/cpp/llama-cpp/llama.cpp \
-                "$PWD/backend/cpp/llama-cpp/patches"
+                "$PWD/backend/cpp/llama-cpp-localai-paged/patches"
 
               # Cheapest real CUDA build that proves the patches compile: one
-              # CUDA arch, cublas, paged on. CMAKE_ARGS is passed via the
-              # environment (not as a make arg) so the Makefile += flags are
-              # still appended, exactly like .docker/llama-cpp-localai-paged-compile.sh.
+              # CUDA arch, cublas. CMAKE_ARGS is passed via the environment (not
+              # as a make arg) so the Makefile += flags are still appended,
+              # exactly like .docker/llama-cpp-localai-paged-compile.sh. The paged
+              # series is already applied to the checkout above, so the stock
+              # build just compiles the patched tree.
               cd backend/cpp/llama-cpp/
               BUILD_TYPE=cublas \
-              LLAMA_PAGED=on \
               CMAKE_ARGS="-DCMAKE_CUDA_ARCHITECTURES=80" \
               make grpc-server
               test -x grpc-server

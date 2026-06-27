@@ -6,7 +6,8 @@ set -ex
 # scripts/build/llama-cpp-darwin.sh exactly, swapping the build dir, binary names,
 # shared-lib dir and output tar for the paged wrapper. The paged wrapper Makefile
 # (backend/cpp/llama-cpp-localai-paged) reuses backend/cpp/llama-cpp's CMakeLists
-# /grpc-server with LLAMA_PAGED=on, so the Darwin/Metal path is identical: ggml
+# /grpc-server and applies its own vendored paged patch series (patches/paged/)
+# onto the cloned tree, so the Darwin/Metal path is identical: ggml
 # CPU_ALL_VARIANTS + GGML_METAL=ON, and --target ggml pulls in ggml-metal via
 # add_dependencies so the Metal GPU backend is produced as a loadable
 # libggml-metal.dylib. The new paged GDN/conv ops have no Metal kernel, so a

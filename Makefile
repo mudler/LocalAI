@@ -1142,8 +1142,8 @@ backends/llama-cpp-darwin: build
 	./local-ai backends install "ocifile://$(abspath ./backend-images/llama-cpp.tar)"
 
 # llama-cpp-localai-paged on Darwin: same bespoke CPU_ALL_VARIANTS + Metal build as
-# stock llama-cpp (otool dylib bundling), driven through the paged wrapper Makefile
-# with LLAMA_PAGED=on. Mirrors backends/llama-cpp-darwin.
+# stock llama-cpp (otool dylib bundling), driven through the paged wrapper Makefile,
+# which applies its own vendored paged patch series. Mirrors backends/llama-cpp-darwin.
 backends/llama-cpp-localai-paged-darwin: build
 	bash ./scripts/build/llama-cpp-localai-paged-darwin.sh
 	./local-ai backends install "ocifile://$(abspath ./backend-images/llama-cpp-localai-paged.tar)"
@@ -1198,7 +1198,7 @@ BACKEND_IK_LLAMA_CPP = ik-llama-cpp|ik-llama-cpp|.|false|false
 # Reuses backend/cpp/llama-cpp grpc-server sources via a thin wrapper Makefile.
 BACKEND_TURBOQUANT = turboquant|turboquant|.|false|false
 # llama-cpp-localai-paged = stock llama.cpp grpc-server + the LocalAI paged-attention
-# patch series (LLAMA_PAGED=on). Reuses backend/cpp/llama-cpp sources via a thin
+# patch series (vendored in this wrapper backend). Reuses backend/cpp/llama-cpp sources via a thin
 # wrapper Makefile (same upstream pin as stock llama-cpp; no fork, no patch-grpc-server).
 BACKEND_LLAMA_CPP_LOCALAI_PAGED = llama-cpp-localai-paged|llama-cpp-localai-paged|.|false|false
 # ds4 is antirez/ds4, a DeepSeek V4 Flash-specific inference engine.

@@ -11,7 +11,7 @@ jobs:
       matrix:
         # NOTE: there is intentionally NO entry for the llama-cpp-localai-paged
         # backend. It carries a vendored paged-attention patch series
-        # (backend/cpp/llama-cpp/patches/paged/) hand-verified bit-exact against
+        # (backend/cpp/llama-cpp-localai-paged/patches/paged/) hand-verified bit-exact against
         # ONE specific llama.cpp tip; a naive nightly bump would move the tip out
         # from under the patches and break `git apply` at build time. Its pin is
         # therefore decoupled (its own LLAMA_VERSION in

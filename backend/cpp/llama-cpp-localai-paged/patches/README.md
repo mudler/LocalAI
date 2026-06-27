@@ -16,7 +16,7 @@ patch needs fixing, and the failure points at exactly which step the upstream ch
 
 | # | Patch | What | Verifies |
 |---|-------|------|----------|
-| 0001 | `0001-vendor-paged-kv-manager.patch` | Add `src/paged-kv-manager.{h,cpp}` (vLLM-parity block manager, CPU foundation) + CMake; no behavior change | builds; unit-tested separately under `../paged/` |
+| 0001 | `0001-vendor-paged-kv-manager.patch` | Add `src/paged-kv-manager.{h,cpp}` (vLLM-parity block manager, CPU foundation) + CMake; no behavior change | builds; unit-tested separately |
 | 0002 | `0002-paged-kv-storage.patch` | Shared block-pool KV tensor + `set_rows`-by-slot writes, behind `LLAMA_KV_PAGED` | builds; write/gather round-trip |
 | 0003 | `0003-paged-gather-read.patch` | `build_attn_paged` gather-read in `llama-graph.cpp` | **Gate 0**: token-identical greedy gen, single + multi-seq |
 | 0004 | `0004-paged-ondemand-alloc.patch` | On-demand block allocation via PagedKVManager | max concurrent seqs before OOM |
@@ -35,21 +35,25 @@ git checkout <LLAMA_VERSION from ../Makefile>
 git checkout -b paged
 
 # 2. apply the current series (each becomes a commit), or develop the next patch
-git am /path/to/backend/cpp/llama-cpp/patches/00*.patch     # or `git apply` + commit per patch
+git am /path/to/backend/cpp/llama-cpp-localai-paged/patches/paged/00*.patch     # or `git apply` + commit per patch
 
 # 3. iterate a phase as ONE commit, then export the whole series 1:1
-git format-patch <LLAMA_VERSION>..paged -o /path/to/backend/cpp/llama-cpp/patches/ --zero-commit -N
+git format-patch <LLAMA_VERSION>..paged -o /path/to/backend/cpp/llama-cpp-localai-paged/patches/paged/ --zero-commit -N
 
 # 4. on a pin bump: rebase `paged` onto the new pin; only conflicting patches need edits; re-export.
 ```
 
 ## Build integration
 
-`../Makefile`'s `llama.cpp:` target runs, after `git checkout -b build $(LLAMA_VERSION)`:
+The series is owned by this backend (`backend/cpp/llama-cpp-localai-paged`), not by the stock
+`llama-cpp` backend, which is pure upstream. `../Makefile` (the paged wrapper) clones the pinned
+`llama.cpp` via the copied stock build infra, then applies this series onto the cloned tree with the
+same strict `git apply` the stock build uses for base patches:
 ```
-for p in $(CURRENT_MAKEFILE_DIR)/patches/0*.patch; do git apply --verbose "$p"; done
+for p in $(PAGED_PATCHES_DIR)/0*.patch; do git apply --verbose "$p" || exit 1; done
 ```
-All variants (avx/avx2/avx512/cuda/…) copy the patched `llama.cpp/` tree, so the series ships everywhere.
+All variants (avx/avx2/avx512/cuda/…) clone + apply into their own build copy, so the series ships
+everywhere without ever touching the stock `llama-cpp` source tree.
 
 ## Status
 
@@ -78,5 +82,5 @@ by itself reach vLLM throughput parity, because the measured prefill bottleneck 
 (Lever 3: `mul_mat_q<MXFP4>` ~22 TFLOP/s, ~27× behind vLLM) — a *per-token compute* gap that paging does not
 touch. Paged attention closes the **concurrency/memory** gap (more sequences, prefix reuse); the prefill/throughput
 gap additionally needs the tcgen05/CUTLASS grouped-GEMM (deferred, upstream-grade, no shortcut — see
-`../paged/UPSTREAM_GGML_ISSUE.md` and `DGX_BLACKWELL_PLAN.md`). So full vLLM parity = this series **AND** the
+`paged/README.md`). So full vLLM parity = this series **AND** the
 kernel; neither alone suffices.

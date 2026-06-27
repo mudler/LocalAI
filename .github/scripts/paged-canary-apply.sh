@@ -1,14 +1,14 @@
 #!/usr/bin/env bash
 #
 # paged-canary-apply.sh - apply the vendored paged-attention patch series
-# (backend/cpp/llama-cpp/patches/paged/0001-0030) to a llama.cpp checkout, the
+# (backend/cpp/llama-cpp-localai-paged/patches/paged/0001-0030) to a llama.cpp checkout, the
 # same way the build does, but tolerating the ONE known-benign pre-existing
 # quirk in the series. Used by the early-warning canary
 # (.github/workflows/llama-cpp-paged-canary.yml) so it only goes red on a REAL
 # upstream break, never on that quirk.
 #
 # Usage: paged-canary-apply.sh <llama.cpp-checkout-dir> <patches-dir>
-#   <patches-dir> is normally backend/cpp/llama-cpp/patches (it holds the
+#   <patches-dir> is normally backend/cpp/llama-cpp-localai-paged/patches (it holds the
 #   top-level base series 0*.patch, currently empty, and the paged/ subseries).
 #
 # Exit 0  = the whole series applied -> patches still fit upstream.
@@ -27,7 +27,7 @@
 # missing-file hunk rejects the whole patch - and because 0021/0022/0026/0028
 # build on 0019's code, the rejection cascades to them too. This is a
 # PRE-EXISTING shipped-series defect, present identically on every pin, NOT an
-# upstream break (see backend/cpp/llama-cpp/patches/paged/PIN_SYNC_c299a92c.md
+# upstream break (see backend/cpp/llama-cpp-localai-paged/patches/paged/PIN_SYNC_c299a92c.md
 # and README.md). We exclude ONLY that dev-doc path and still
 # apply 0019's real code hunks atomically, so a genuine code-hunk break in 0019
 # still fails the canary. prepare.sh tolerates the same hunk via
@@ -53,7 +53,7 @@ apply_one() {
   echo "paged-canary: applying $(basename "$p")"
   if ! git apply --verbose "$@" "$p"; then
     echo "::error::paged patch no longer applies to the upstream llama.cpp tip: $(basename "$p")"
-    echo "::error::upstream drifted past the vendored paged series - run a PIN_SYNC (backend/cpp/llama-cpp/patches/paged/PIN_SYNC_c299a92c.md), do NOT bump the pin blindly"
+    echo "::error::upstream drifted past the vendored paged series - run a PIN_SYNC (backend/cpp/llama-cpp-localai-paged/patches/paged/PIN_SYNC_c299a92c.md), do NOT bump the pin blindly"
     exit 1
   fi
 }

@@ -21,7 +21,8 @@ Unlike the `9d5d882d` sync (which needed 4 patch re-exports), this bump required
 **zero patch changes**. The already-shipped source-only series (the result of the
 `7e1832b8` strip that removed all stray dev-doc hunks) applies to a fresh clean
 `ggml-org/llama.cpp` checkout at `c299a92c` with the build's own **strict
-`git apply`** (the `llama.cpp` target in `backend/cpp/llama-cpp/Makefile`:
+`git apply`** (the `apply-paged-patches` step in
+`backend/cpp/llama-cpp-localai-paged/Makefile`:
 `git apply --verbose "$p" || exit 1`) and reaches **exit 0** - every one of the
 28 patches reported "Applied patch ... cleanly", the sentinel
 `src/paged-kv-manager.cpp` was created, and there are **zero** stray
@@ -94,7 +95,7 @@ here to keep the pin-bump diff minimal.
 
 ## Source of truth
 
-The shipped `.patch` files under `backend/cpp/llama-cpp/patches/paged/` are the
+The shipped `.patch` files under `backend/cpp/llama-cpp-localai-paged/patches/paged/` are the
 source of truth and are unchanged by this bump. The DGX dev tree
 (`~/llama-paged-dev`, branch `paged`) was advanced to `c299a92c` for consistency;
 the pre-bump state is retained at `paged-prebump-9d5d882d-backup`.

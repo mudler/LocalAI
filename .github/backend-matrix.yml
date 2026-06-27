@@ -5073,7 +5073,7 @@ includeDarwin:
     lang: "go"
   # llama-cpp-localai-paged on Darwin: same bespoke CPU_ALL_VARIANTS + Metal build
   # as stock llama-cpp (driven by make backends/llama-cpp-localai-paged-darwin),
-  # reusing backend/cpp/llama-cpp sources with LLAMA_PAGED=on. lang=go selects the
+  # reusing backend/cpp/llama-cpp sources, with the paged patch series applied by the wrapper. lang=go selects the
   # runner/toolchain only; the source path is C++. Metal delivers paged-KV (the
   # NVFP4 FP4-MMA fast path is CUDA/Blackwell-only) and the GDN/conv fused ops have
   # no Metal kernel, so a gated-DeltaNet (qwen35) model falls back to the CPU

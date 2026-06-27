@@ -81,7 +81,7 @@
     LocalAI's paged-attention llama.cpp variant: on-demand paged KV cache plus a
     decode-first prefill budget. The SAME upstream llama.cpp grpc-server as the
     stock llama-cpp backend, with the LocalAI paged patch series applied
-    (LLAMA_PAGED=on). Tuned for NVFP4 dense / MoE on Blackwell / GB10. Reuses the
+    (vendored in this backend). Tuned for NVFP4 dense / MoE on Blackwell / GB10. Reuses the
     llama-cpp gRPC server sources; the paged engine is gated at runtime by the
     paged_kv / max_batch_tokens model options. Qwen3.5 gated-DeltaNet models can
     additionally opt into the reduced-precision hybrid SSM-state fast mode with
