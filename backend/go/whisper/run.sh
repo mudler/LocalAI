@@ -13,8 +13,14 @@ if [ "$(uname)" != "Darwin" ]; then
 fi
 
 if [ "$(uname)" = "Darwin" ]; then
-	# macOS: single dylib variant (Metal or Accelerate)
-	LIBRARY="$CURDIR/libgowhisper-fallback.dylib"
+	# macOS: single fallback variant (Metal/Accelerate). The cmake build emits a
+	# Mach-O named .so, but tolerate .dylib too — pick whichever exists so the Go
+	# loader doesn't panic on a hardcoded name that isn't on disk.
+	if [ -e "$CURDIR/libgowhisper-fallback.dylib" ]; then
+		LIBRARY="$CURDIR/libgowhisper-fallback.dylib"
+	else
+		LIBRARY="$CURDIR/libgowhisper-fallback.so"
+	fi
 	export DYLD_LIBRARY_PATH="$CURDIR"/lib:$DYLD_LIBRARY_PATH
 else
 	LIBRARY="$CURDIR/libgowhisper-fallback.so"
