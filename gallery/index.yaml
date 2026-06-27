@@ -28,10 +28,12 @@
   urls:
     - https://huggingface.co/mudler/Qwen3.6-27B-NVFP4-GGUF
   description: |
+    Blackwell GPU recommended (native FP4-MMA). Runs on other hardware via NVFP4 dequant, but slower; the throughput figures below are GB10 / DGX Spark (consumer Blackwell).
+
     Qwen3.6-27B dense, native Blackwell NVFP4 (FP4-MMA) GGUF. Configured for LocalAI's
     paged-attention llama.cpp backend (llama-cpp-localai-paged): on-demand paged KV cache
-    plus a decode-first prefill budget. Benchmarked on GB10 / DGX Spark at 90-117% of vLLM
-    dense decode throughput at 1.5-3x lower memory.
+    plus a decode-first prefill budget. Benchmarked on GB10 / DGX Spark (consumer Blackwell)
+    at 90-117% of vLLM dense decode throughput at 1.5-3x lower memory (GB10-specific figures).
 
     Requires a llama.cpp new enough to read the NVFP4 GGUF tensor type (the paged backend's
     upstream pin) - verify on a GPU box before relying on this entry.
@@ -40,6 +42,7 @@
     - llm
     - gguf
     - nvfp4
+    - blackwell
     - reasoning
   icon: https://user-images.githubusercontent.com/1991296/230134379-7181e485-c521-4d23-a0d6-f7b3b61ba524.png
   overrides:
@@ -70,6 +73,8 @@
   urls:
     - https://huggingface.co/mudler/Qwen3.6-35B-A3B-NVFP4-GGUF
   description: |
+    Blackwell GPU recommended (native FP4-MMA). Runs on other hardware via NVFP4 dequant, but slower; the throughput figures below are GB10 / DGX Spark (consumer Blackwell).
+
     Qwen3.6-35B-A3B MoE (~3B active), native Blackwell NVFP4 (FP4-MMA) GGUF. Configured for
     LocalAI's paged-attention llama.cpp backend (llama-cpp-localai-paged): on-demand paged
     KV cache plus a decode-first prefill budget. Lighter on memory than the dense 27B thanks
@@ -82,6 +87,7 @@
     - llm
     - gguf
     - nvfp4
+    - blackwell
     - moe
     - reasoning
   icon: https://user-images.githubusercontent.com/1991296/230134379-7181e485-c521-4d23-a0d6-f7b3b61ba524.png
@@ -113,6 +119,8 @@
   urls:
     - https://huggingface.co/michaelw9999/Qwen3.6-27B-NVFP4-MTP-GGUF
   description: |
+    Blackwell GPU recommended (native FP4-MMA). Runs on other hardware via NVFP4 dequant, but slower; the throughput figures below are GB10 / DGX Spark (consumer Blackwell).
+
     Qwen3.6-27B dense, native Blackwell NVFP4 (FP4-MMA) GGUF with a built-in MTP
     (multi-token-prediction / speculative) draft head, configured for LocalAI's
     paged-attention llama.cpp backend (llama-cpp-localai-paged): on-demand paged KV
@@ -126,6 +134,7 @@
     - llm
     - gguf
     - nvfp4
+    - blackwell
     - mtp
     - reasoning
   icon: https://qianwen-res.oss-cn-beijing.aliyuncs.com/Qwen3.6/Figures/qwen3.6_27b_score.png
@@ -163,6 +172,8 @@
   urls:
     - https://huggingface.co/michaelw9999/Qwen3.6-35B-A3B-NVFP4-MTP-GGUF
   description: |
+    Blackwell GPU recommended (native FP4-MMA). Runs on other hardware via NVFP4 dequant, but slower; the throughput figures below are GB10 / DGX Spark (consumer Blackwell).
+
     Qwen3.6-35B-A3B MoE (~3B active), native Blackwell NVFP4 (FP4-MMA) GGUF with a
     built-in MTP (multi-token-prediction / speculative) draft head, configured for
     LocalAI's paged-attention llama.cpp backend (llama-cpp-localai-paged): on-demand
@@ -176,6 +187,7 @@
     - llm
     - gguf
     - nvfp4
+    - blackwell
     - moe
     - mtp
     - reasoning
@@ -820,10 +832,12 @@
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
     - https://huggingface.co/michaelw9999/Qwopus3.6-27B-v2-MTP-NVFP4-GGUF
-  description: "\U0001FA90 Qwopus3.6-27B-v2-MTP\nMTP Release\n\nMulti-Token Prediction reasoning model fine-tuned from Qwen3.6-27B\n\n\U0001F9EC Trace Inversion & Negentropy\n\U0001F9E0 27B Parameters\n⚡ Speculative Decoding\n\U0001F6E0️ Coding / DevOps / Math\n\n\U0001F4A1 What is Qwopus3.6-27B-v2-MTP?\n\U0001FA90 Qwopus3.6-27B-v2-MTP is a speed-oriented reasoning release built on top of Qwen3.6-27B. It keeps the Qwopus line's focus on reconstructed reasoning traces, coding discipline, DevOps procedures, and mathematical derivations, while adding Multi-Token Prediction for faster generation. The goal is simple: preserve the depth and structure of a 27B reasoning model while making real interactive use noticeably faster.\n\n⚡ MTP DecodingAuxiliary future-token prediction improves throughput on long reasoning, code, math, and strict-format prompts.\n\U0001F9E9 Structured ReasoningInherits the Qwopus training recipe built around reconstructed step-by-step reasoning trajectories.\n\U0001F9EA GB10 TestedValidated on a 30-question local benchmark across Logic, Coding, DevOps, Math, and Edge tasks.\n\U0001F680 Practical SpeedDesigned for workflows where strong answers matter, but waiting several extra minutes per task does not.\n\n...\n\n\nLocalAI paged-attention backend variant (llama-cpp-localai-paged): on-demand paged KV cache plus a decode-first prefill budget.\n"
+  description: "Blackwell GPU recommended (native FP4-MMA). Runs on other hardware via NVFP4 dequant, but slower; the throughput figures below are GB10 / DGX Spark (consumer Blackwell).\n\n\U0001FA90 Qwopus3.6-27B-v2-MTP\nMTP Release\n\nMulti-Token Prediction reasoning model fine-tuned from Qwen3.6-27B\n\n\U0001F9EC Trace Inversion & Negentropy\n\U0001F9E0 27B Parameters\n⚡ Speculative Decoding\n\U0001F6E0️ Coding / DevOps / Math\n\n\U0001F4A1 What is Qwopus3.6-27B-v2-MTP?\n\U0001FA90 Qwopus3.6-27B-v2-MTP is a speed-oriented reasoning release built on top of Qwen3.6-27B. It keeps the Qwopus line's focus on reconstructed reasoning traces, coding discipline, DevOps procedures, and mathematical derivations, while adding Multi-Token Prediction for faster generation. The goal is simple: preserve the depth and structure of a 27B reasoning model while making real interactive use noticeably faster.\n\n⚡ MTP DecodingAuxiliary future-token prediction improves throughput on long reasoning, code, math, and strict-format prompts.\n\U0001F9E9 Structured ReasoningInherits the Qwopus training recipe built around reconstructed step-by-step reasoning trajectories.\n\U0001F9EA GB10 TestedValidated on a 30-question local benchmark across Logic, Coding, DevOps, Math, and Edge tasks.\n\U0001F680 Practical SpeedDesigned for workflows where strong answers matter, but waiting several extra minutes per task does not.\n\n...\n\n\nLocalAI paged-attention backend variant (llama-cpp-localai-paged): on-demand paged KV cache plus a decode-first prefill budget.\n"
   tags:
     - llm
     - gguf
+    - nvfp4
+    - blackwell
   overrides:
     backend: llama-cpp-localai-paged
     f16: true
@@ -855,10 +869,12 @@
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
     - https://huggingface.co/michaelw9999/Qwopus3.6-27B-Coder-MTP-NVFP4-GGUF
-  description: "\U0001FA90 Qwopus-3.6-27B-Coder\nCoder SFT Release\n\nAgentic Coding &amp; Tool-Use Reasoning Model Fine-Tuned on Qwopus3.6-27B-v2\n\n\U0001F9EC Trace Inversion & Negentropy\n\U0001F9E0 27B Dense Model\n⚡ Agentic Coding\n\U0001F6E0️ Tool Calling & Agent\n\U0001F3C6 SWE-bench Verified: 67.0% (off-thinking)\n\n\U0001F4A1 What is Qwopus-3.6-27B-Coder?\n\U0001FA90 Qwopus-3.6-27B-Coder is a reasoning-enhanced agentic coding model built on top of Qwopus3.6-27B-v2. It inherits the powerful reasoning foundation of the v2 base — which achieved 87.43% MMLU-Pro (300ex) and 75.25% SWE-bench Verified — and further specializes it for agentic code generation, structured tool calling, debugging, and instruction-following in developer workflows. The model is designed to excel at repository-level coding tasks, multi-turn tool orchestration, and complex logical reasoning under realistic agent environments.\n\n\U0001F9E9 Agentic Coding\nOptimized for repository-level coding, debugging, patch generation, and structured multi-step development workflows.\n\n\U0001F6E0️ Tool Calling\nLearns from real agent trajectories with tool definitions, tool calls, and environment feedback for robust multi-turn execution.\n\n...\n\n\nLocalAI paged-attention backend variant (llama-cpp-localai-paged): on-demand paged KV cache plus a decode-first prefill budget.\n"
+  description: "Blackwell GPU recommended (native FP4-MMA). Runs on other hardware via NVFP4 dequant, but slower; the throughput figures below are GB10 / DGX Spark (consumer Blackwell).\n\n\U0001FA90 Qwopus-3.6-27B-Coder\nCoder SFT Release\n\nAgentic Coding &amp; Tool-Use Reasoning Model Fine-Tuned on Qwopus3.6-27B-v2\n\n\U0001F9EC Trace Inversion & Negentropy\n\U0001F9E0 27B Dense Model\n⚡ Agentic Coding\n\U0001F6E0️ Tool Calling & Agent\n\U0001F3C6 SWE-bench Verified: 67.0% (off-thinking)\n\n\U0001F4A1 What is Qwopus-3.6-27B-Coder?\n\U0001FA90 Qwopus-3.6-27B-Coder is a reasoning-enhanced agentic coding model built on top of Qwopus3.6-27B-v2. It inherits the powerful reasoning foundation of the v2 base — which achieved 87.43% MMLU-Pro (300ex) and 75.25% SWE-bench Verified — and further specializes it for agentic code generation, structured tool calling, debugging, and instruction-following in developer workflows. The model is designed to excel at repository-level coding tasks, multi-turn tool orchestration, and complex logical reasoning under realistic agent environments.\n\n\U0001F9E9 Agentic Coding\nOptimized for repository-level coding, debugging, patch generation, and structured multi-step development workflows.\n\n\U0001F6E0️ Tool Calling\nLearns from real agent trajectories with tool definitions, tool calls, and environment feedback for robust multi-turn execution.\n\n...\n\n\nLocalAI paged-attention backend variant (llama-cpp-localai-paged): on-demand paged KV cache plus a decode-first prefill budget.\n"
   tags:
     - llm
     - gguf
+    - nvfp4
+    - blackwell
   icon: https://cdn-uploads.huggingface.co/production/uploads/66309bd090589b7c65950665/sGQKmrMc6L6guMoaB5_Y2.png
   overrides:
     backend: llama-cpp-localai-paged
