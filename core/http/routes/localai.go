@@ -72,19 +72,19 @@ func RegisterLocalAIRoutes(router *echo.Echo,
 		router.POST("/backends/upgrades/check", backendGalleryEndpointService.CheckUpgradesEndpoint(), adminMiddleware)
 		router.POST("/backends/upgrade/:name", backendGalleryEndpointService.UpgradeBackendEndpoint(), adminMiddleware)
 		// Custom model import endpoint
-		router.POST("/models/import", localai.ImportModelEndpoint(cl, appConfig), adminMiddleware)
+		router.POST("/models/import", localai.ImportModelEndpoint(cl, galleryService, appConfig), adminMiddleware)
 
 		// URI model import endpoint
 		router.POST("/models/import-uri", localai.ImportModelURIEndpoint(cl, appConfig, galleryService, opcache), adminMiddleware)
 
 		// Custom model edit endpoint
-		router.POST("/models/edit/:name", localai.EditModelEndpoint(cl, ml, appConfig), adminMiddleware)
+		router.POST("/models/edit/:name", localai.EditModelEndpoint(cl, ml, galleryService, appConfig), adminMiddleware)
 
 		// List model aliases endpoint
 		router.GET("/api/aliases", localai.ListAliasesEndpoint(cl), adminMiddleware)
 
 		// Toggle model enable/disable endpoint
-		router.PUT("/models/toggle-state/:name/:action", localai.ToggleStateModelEndpoint(cl, ml, appConfig), adminMiddleware)
+		router.PUT("/models/toggle-state/:name/:action", localai.ToggleStateModelEndpoint(cl, ml, galleryService, appConfig), adminMiddleware)
 
 		// Toggle model pinned status endpoint
 		router.PUT("/models/toggle-pinned/:name/:action", localai.TogglePinnedModelEndpoint(cl, appConfig, func() {

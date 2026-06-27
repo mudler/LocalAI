@@ -36,6 +36,10 @@ done
 
 cp -r CMakeLists.txt llama.cpp/tools/grpc-server/
 cp -r grpc-server.cpp llama.cpp/tools/grpc-server/
+# Shared message-reconstruction helpers (included by grpc-server.cpp) and their
+# unit test (compiled only when -DLLAMA_GRPC_BUILD_TESTS=ON).
+cp -r message_content.h llama.cpp/tools/grpc-server/
+cp -r message_content_test.cpp llama.cpp/tools/grpc-server/
 cp -rfv llama.cpp/vendor/nlohmann/json.hpp llama.cpp/tools/grpc-server/
 cp -rfv llama.cpp/vendor/cpp-httplib/httplib.h llama.cpp/tools/grpc-server/
 

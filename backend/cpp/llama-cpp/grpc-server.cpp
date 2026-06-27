@@ -39,6 +39,7 @@
 #include "common.h"
 #include "arg.h"
 #include "chat-auto-parser.h"
+#include "message_content.h"
 #include <getopt.h>
 #include <grpcpp/ext/proto_server_reflection_plugin.h>
 #include <grpcpp/grpcpp.h>
@@ -1728,242 +1729,20 @@ public:
 
                 for (int i = 0; i < request->messages_size(); i++) {
                     const auto& msg = request->messages(i);
-                    json msg_json;
-                    msg_json["role"] = msg.role();
-
-                    bool is_last_user_msg = (i == last_user_msg_idx);
-                    bool has_images_or_audio = (request->images_size() > 0 || request->audios_size() > 0 || request->videos_size() > 0);
-
-                    // Handle content - can be string, null, or array
-                    // For multimodal content, we'll embed images/audio from separate fields
-                    if (!msg.content().empty()) {
-                        // Try to parse content as JSON to see if it's already an array
-                        json content_val;
-                        try {
-                            content_val = json::parse(msg.content());
-                            // Handle null values - convert to empty string to avoid template errors
-                            if (content_val.is_null()) {
-                                content_val = "";
-                            }
-                        } catch (const json::parse_error&) {
-                            // Not JSON, treat as plain string
-                            content_val = msg.content();
-                        }
-
-                        // If content is an object (e.g., from tool call failures), convert to string
-                        if (content_val.is_object()) {
-                            content_val = content_val.dump();
-                        }
-
-                        // If content is a string and this is the last user message with images/audio, combine them
-                        if (content_val.is_string() && is_last_user_msg && has_images_or_audio) {
-                            json content_array = json::array();
-                            // Add text first
-                            content_array.push_back({{"type", "text"}, {"text", content_val.get<std::string>()}});
-                            // Add images
-                            if (request->images_size() > 0) {
-                                for (int j = 0; j < request->images_size(); j++) {
-                                    json image_chunk;
-                                    image_chunk["type"] = "image_url";
-                                    json image_url;
-                                    image_url["url"] = "data:image/jpeg;base64," + request->images(j);
-                                    image_chunk["image_url"] = image_url;
-                                    content_array.push_back(image_chunk);
-                                }
-                            }
-                            // Add audios
-                            if (request->audios_size() > 0) {
-                                for (int j = 0; j < request->audios_size(); j++) {
-                                    json audio_chunk;
-                                    audio_chunk["type"] = "input_audio";
-                                    json input_audio;
-                                    input_audio["data"] = request->audios(j);
-                                    input_audio["format"] = "wav"; // default, could be made configurable
-                                    audio_chunk["input_audio"] = input_audio;
-                                    content_array.push_back(audio_chunk);
-                                }
-                            }
-                            if (request->videos_size() > 0) {
-                                for (int j = 0; j < request->videos_size(); j++) {
-                                    json video_chunk;
-                                    video_chunk["type"] = "input_video";
-                                    json input_video;
-                                    input_video["data"] = request->videos(j);
-                                    video_chunk["input_video"] = input_video;
-                                    content_array.push_back(video_chunk);
-                                }
-                            }
-                            msg_json["content"] = content_array;
-                        } else {
-                            // Use content as-is (already array or not last user message)
-                            // Ensure null values are converted to empty string
-                            if (content_val.is_null()) {
-                                msg_json["content"] = "";
-                            } else {
-                                msg_json["content"] = content_val;
-                            }
-                        }
-                    } else if (is_last_user_msg && has_images_or_audio) {
-                        // If no content but this is the last user message with images/audio, create content array
-                        json content_array = json::array();
-                        if (request->images_size() > 0) {
-                            for (int j = 0; j < request->images_size(); j++) {
-                                json image_chunk;
-                                image_chunk["type"] = "image_url";
-                                json image_url;
-                                image_url["url"] = "data:image/jpeg;base64," + request->images(j);
-                                image_chunk["image_url"] = image_url;
-                                content_array.push_back(image_chunk);
-                            }
-                        }
-                        if (request->audios_size() > 0) {
-                            for (int j = 0; j < request->audios_size(); j++) {
-                                json audio_chunk;
-                                audio_chunk["type"] = "input_audio";
-                                json input_audio;
-                                input_audio["data"] = request->audios(j);
-                                input_audio["format"] = "wav"; // default, could be made configurable
-                                audio_chunk["input_audio"] = input_audio;
-                                content_array.push_back(audio_chunk);
-                            }
-                        }
-                        if (request->videos_size() > 0) {
-                            for (int j = 0; j < request->videos_size(); j++) {
-                                json video_chunk;
-                                video_chunk["type"] = "input_video";
-                                json input_video;
-                                input_video["data"] = request->videos(j);
-                                video_chunk["input_video"] = input_video;
-                                content_array.push_back(video_chunk);
-                            }
-                        }
-                        msg_json["content"] = content_array;
-                    } else if (msg.role() == "tool") {
-                        // Tool role messages must have content field set, even if empty
-                        // Jinja templates expect content to be a string, not null or object
-                        SRV_INF("[CONTENT DEBUG] PredictStream: Message %d is tool role, content_empty=%d\n", i, msg.content().empty() ? 1 : 0);
-                        if (msg.content().empty()) {
-                            msg_json["content"] = "";
-                            SRV_INF("[CONTENT DEBUG] PredictStream: Message %d (tool): empty content, set to empty string\n", i);
-                        } else {
-                            SRV_INF("[CONTENT DEBUG] PredictStream: Message %d (tool): content exists: %s\n",
-                                    i, msg.content().substr(0, std::min<size_t>(200, msg.content().size())).c_str());
-                            // Content exists, parse and ensure it's a string
-                            json content_val;
-                            try {
-                                content_val = json::parse(msg.content());
-                                SRV_INF("[CONTENT DEBUG] PredictStream: Message %d (tool): parsed JSON, type=%s\n",
-                                        i, content_val.is_null() ? "null" :
-                                           content_val.is_object() ? "object" :
-                                           content_val.is_string() ? "string" :
-                                           content_val.is_array() ? "array" : "other");
-                                // Handle null values - Jinja templates expect content to be a string, not null
-                                if (content_val.is_null()) {
-                                    msg_json["content"] = "";
-                                    SRV_INF("[CONTENT DEBUG] PredictStream: Message %d (tool): null content, converted to empty string\n", i);
-                                } else if (content_val.is_object()) {
-                                    // If content is an object (e.g., from tool call failures/errors), convert to string
-                                    msg_json["content"] = content_val.dump();
-                                    SRV_INF("[CONTENT DEBUG] PredictStream: Message %d (tool): object content, converted to string: %s\n",
-                                            i, content_val.dump().substr(0, std::min<size_t>(200, content_val.dump().size())).c_str());
-                                } else if (content_val.is_string()) {
-                                    msg_json["content"] = content_val.get<std::string>();
-                                    SRV_INF("[CONTENT DEBUG] PredictStream: Message %d (tool): string content, using as-is\n", i);
-                                } else {
-                                    // For arrays or other types, convert to string
-                                    msg_json["content"] = content_val.dump();
-                                    SRV_INF("[CONTENT DEBUG] PredictStream: Message %d (tool): %s content, converted to string\n",
-                                            i, content_val.is_array() ? "array" : "other type");
-                                }
-                            } catch (const json::parse_error&) {
-                                // Not JSON, treat as plain string
-                                msg_json["content"] = msg.content();
-                                SRV_INF("[CONTENT DEBUG] PredictStream: Message %d (tool): not JSON, using as string\n", i);
-                            }
-                        }
-                    } else {
-                        // Ensure all messages have content set (fallback for any unhandled cases)
-                        // Jinja templates expect content to be present, default to empty string if not set
-                        if (!msg_json.contains("content")) {
-                            SRV_INF("[CONTENT DEBUG] PredictStream: Message %d (role=%s): no content field, adding empty string\n",
-                                    i, msg.role().c_str());
-                            msg_json["content"] = "";
-                        }
+                    llama_grpc::ReconstructedMessageInput rin;
+                    rin.role = msg.role();
+                    rin.content = msg.content();
+                    rin.name = msg.name();
+                    rin.tool_call_id = msg.tool_call_id();
+                    rin.reasoning_content = msg.reasoning_content();
+                    rin.tool_calls = msg.tool_calls();
+                    rin.is_last_user_msg = (i == last_user_msg_idx);
+                    if (rin.is_last_user_msg) {
+                        for (int j = 0; j < request->images_size(); j++) rin.images.push_back(request->images(j));
+                        for (int j = 0; j < request->audios_size(); j++) rin.audios.push_back(request->audios(j));
+                        for (int j = 0; j < request->videos_size(); j++) rin.videos.push_back(request->videos(j));
                     }
-
-                    // Add optional fields for OpenAI-compatible message format
-                    if (!msg.name().empty()) {
-                        msg_json["name"] = msg.name();
-                    }
-                    if (!msg.tool_call_id().empty()) {
-                        msg_json["tool_call_id"] = msg.tool_call_id();
-                    }
-                    if (!msg.reasoning_content().empty()) {
-                        msg_json["reasoning_content"] = msg.reasoning_content();
-                    }
-                    if (!msg.tool_calls().empty()) {
-                        // Parse tool_calls JSON string and add to message
-                        try {
-                            json tool_calls = json::parse(msg.tool_calls());
-                            msg_json["tool_calls"] = tool_calls;
-                            SRV_INF("[TOOL CALLS DEBUG] PredictStream: Message %d has tool_calls: %s\n", i, tool_calls.dump().c_str());
-                            // IMPORTANT: If message has tool_calls but content is empty or not set,
-                            // set content to space " " instead of empty string "", because llama.cpp's
-                            // common_chat_msgs_to_json_oaicompat converts empty strings to null (line 312),
-                            // which causes template errors when accessing message.content[:tool_start_length]
-                            if (!msg_json.contains("content") || (msg_json.contains("content") && msg_json["content"].is_string() && msg_json["content"].get<std::string>().empty())) {
-                                SRV_INF("[CONTENT DEBUG] PredictStream: Message %d has tool_calls but empty content, setting to space\n", i);
-                                msg_json["content"] = " ";
-                            }
-                            // Log each tool call with name and arguments
-                            if (tool_calls.is_array()) {
-                                for (size_t tc_idx = 0; tc_idx < tool_calls.size(); tc_idx++) {
-                                    const auto& tc = tool_calls[tc_idx];
-                                    std::string tool_name = "unknown";
-                                    std::string tool_args = "{}";
-                                    if (tc.contains("function")) {
-                                        const auto& func = tc["function"];
-                                        if (func.contains("name")) {
-                                            tool_name = func["name"].get<std::string>();
-                                        }
-                                        if (func.contains("arguments")) {
-                                            tool_args = func["arguments"].is_string() ?
-                                                func["arguments"].get<std::string>() :
-                                                func["arguments"].dump();
-                                        }
-                                    } else if (tc.contains("name")) {
-                                        tool_name = tc["name"].get<std::string>();
-                                        if (tc.contains("arguments")) {
-                                            tool_args = tc["arguments"].is_string() ?
-                                                tc["arguments"].get<std::string>() :
-                                                tc["arguments"].dump();
-                                        }
-                                    }
-                                    SRV_INF("[TOOL CALLS DEBUG] PredictStream: Message %d, tool_call %zu: name=%s, arguments=%s\n",
-                                            i, tc_idx, tool_name.c_str(), tool_args.c_str());
-                                }
-                            }
-                        } catch (const json::parse_error& e) {
-                            SRV_WRN("Failed to parse tool_calls JSON: %s\n", e.what());
-                        }
-                    }
-
-                    // Debug: Log final content state before adding to array
-                    if (msg_json.contains("content")) {
-                        if (msg_json["content"].is_null()) {
-                            SRV_INF("[CONTENT DEBUG] PredictStream: Message %d FINAL STATE: content is NULL - THIS WILL CAUSE ERROR!\n", i);
-                        } else {
-                            SRV_INF("[CONTENT DEBUG] PredictStream: Message %d FINAL STATE: content type=%s, has_value=%d\n",
-                                    i, msg_json["content"].is_string() ? "string" :
-                                       msg_json["content"].is_array() ? "array" :
-                                       msg_json["content"].is_object() ? "object" : "other",
-                                    msg_json["content"].is_null() ? 0 : 1);
-                        }
-                    } else {
-                        SRV_INF("[CONTENT DEBUG] PredictStream: Message %d FINAL STATE: NO CONTENT FIELD - THIS WILL CAUSE ERROR!\n", i);
-                    }
-
-                    messages_json.push_back(msg_json);
+                    messages_json.push_back(llama_grpc::build_reconstructed_message(rin));
                 }
 
                 // Final safety check: Ensure no message has null content (Jinja templates require strings)
@@ -2184,36 +1963,7 @@ public:
                 if (body_json.contains("messages") && body_json["messages"].is_array()) {
                     SRV_INF("[CONTENT DEBUG] PredictStream: Before oaicompat_chat_params_parse - checking %zu messages\n", body_json["messages"].size());
                     for (size_t idx = 0; idx < body_json["messages"].size(); idx++) {
-                        auto& msg = body_json["messages"][idx];
-                        std::string role_str = msg.contains("role") ? msg["role"].get<std::string>() : "unknown";
-                        if (msg.contains("content")) {
-                            if (msg["content"].is_null()) {
-                                SRV_INF("[CONTENT DEBUG] PredictStream: BEFORE TEMPLATE - Message %zu (role=%s) has NULL content - FIXING!\n", idx, role_str.c_str());
-                                msg["content"] = ""; // Fix null content
-                            } else if (role_str == "tool" && msg["content"].is_array()) {
-                                // Tool messages must have string content, not array
-                                // oaicompat_chat_params_parse expects tool messages to have string content
-                                SRV_INF("[CONTENT DEBUG] PredictStream: BEFORE TEMPLATE - Message %zu (role=tool) has array content, converting to string\n", idx);
-                                msg["content"] = msg["content"].dump();
-                            } else if (!msg["content"].is_string() && !msg["content"].is_array()) {
-                                // If content is object or other non-string type, convert to string for templates
-                                SRV_INF("[CONTENT DEBUG] PredictStream: BEFORE TEMPLATE - Message %zu (role=%s) content is not string/array, converting\n", idx, role_str.c_str());
-                                if (msg["content"].is_object()) {
-                                    msg["content"] = msg["content"].dump();
-                                } else {
-                                    msg["content"] = "";
-                                }
-                            } else {
-                                SRV_INF("[CONTENT DEBUG] PredictStream: BEFORE TEMPLATE - Message %zu (role=%s): content type=%s\n",
-                                        idx, role_str.c_str(),
-                                        msg["content"].is_string() ? "string" :
-                                        msg["content"].is_array() ? "array" :
-                                        msg["content"].is_object() ? "object" : "other");
-                            }
-                        } else {
-                            SRV_INF("[CONTENT DEBUG] PredictStream: BEFORE TEMPLATE - Message %zu (role=%s) MISSING content field - ADDING!\n", idx, role_str.c_str());
-                            msg["content"] = ""; // Add missing content
-                        }
+                        llama_grpc::normalize_template_message(body_json["messages"][idx]);
                     }
                 }
 
@@ -2545,264 +2295,20 @@ public:
                 SRV_INF("[CONTENT DEBUG] Predict: Processing %d messages\n", request->messages_size());
                 for (int i = 0; i < request->messages_size(); i++) {
                     const auto& msg = request->messages(i);
-                    json msg_json;
-                    msg_json["role"] = msg.role();
-
-                    SRV_INF("[CONTENT DEBUG] Predict: Message %d: role=%s, content_empty=%d, content_length=%zu\n",
-                            i, msg.role().c_str(), msg.content().empty() ? 1 : 0, msg.content().size());
-                    if (!msg.content().empty()) {
-                        SRV_INF("[CONTENT DEBUG] Predict: Message %d content (first 200 chars): %s\n",
-                                i, msg.content().substr(0, std::min<size_t>(200, msg.content().size())).c_str());
+                    llama_grpc::ReconstructedMessageInput rin;
+                    rin.role = msg.role();
+                    rin.content = msg.content();
+                    rin.name = msg.name();
+                    rin.tool_call_id = msg.tool_call_id();
+                    rin.reasoning_content = msg.reasoning_content();
+                    rin.tool_calls = msg.tool_calls();
+                    rin.is_last_user_msg = (i == last_user_msg_idx);
+                    if (rin.is_last_user_msg) {
+                        for (int j = 0; j < request->images_size(); j++) rin.images.push_back(request->images(j));
+                        for (int j = 0; j < request->audios_size(); j++) rin.audios.push_back(request->audios(j));
+                        for (int j = 0; j < request->videos_size(); j++) rin.videos.push_back(request->videos(j));
                     }
-
-                    bool is_last_user_msg = (i == last_user_msg_idx);
-                    bool has_images_or_audio = (request->images_size() > 0 || request->audios_size() > 0 || request->videos_size() > 0);
-
-                    // Handle content - can be string, null, or array
-                    // For multimodal content, we'll embed images/audio from separate fields
-                    if (!msg.content().empty()) {
-                        // Try to parse content as JSON to see if it's already an array
-                        json content_val;
-                        try {
-                            content_val = json::parse(msg.content());
-                            // Handle null values - convert to empty string to avoid template errors
-                            if (content_val.is_null()) {
-                                SRV_INF("[CONTENT DEBUG] Predict: Message %d parsed JSON is null, converting to empty string\n", i);
-                                content_val = "";
-                            }
-                        } catch (const json::parse_error&) {
-                            // Not JSON, treat as plain string
-                            content_val = msg.content();
-                        }
-
-                        // If content is an object (e.g., from tool call failures), convert to string
-                        if (content_val.is_object()) {
-                            SRV_INF("[CONTENT DEBUG] Predict: Message %d content is object, converting to string\n", i);
-                            content_val = content_val.dump();
-                        }
-
-                        // If content is a string and this is the last user message with images/audio, combine them
-                        if (content_val.is_string() && is_last_user_msg && has_images_or_audio) {
-                            json content_array = json::array();
-                            // Add text first
-                            content_array.push_back({{"type", "text"}, {"text", content_val.get<std::string>()}});
-                            // Add images
-                            if (request->images_size() > 0) {
-                                for (int j = 0; j < request->images_size(); j++) {
-                                    json image_chunk;
-                                    image_chunk["type"] = "image_url";
-                                    json image_url;
-                                    image_url["url"] = "data:image/jpeg;base64," + request->images(j);
-                                    image_chunk["image_url"] = image_url;
-                                    content_array.push_back(image_chunk);
-                                }
-                            }
-                            // Add audios
-                            if (request->audios_size() > 0) {
-                                for (int j = 0; j < request->audios_size(); j++) {
-                                    json audio_chunk;
-                                    audio_chunk["type"] = "input_audio";
-                                    json input_audio;
-                                    input_audio["data"] = request->audios(j);
-                                    input_audio["format"] = "wav"; // default, could be made configurable
-                                    audio_chunk["input_audio"] = input_audio;
-                                    content_array.push_back(audio_chunk);
-                                }
-                            }
-                            if (request->videos_size() > 0) {
-                                for (int j = 0; j < request->videos_size(); j++) {
-                                    json video_chunk;
-                                    video_chunk["type"] = "input_video";
-                                    json input_video;
-                                    input_video["data"] = request->videos(j);
-                                    video_chunk["input_video"] = input_video;
-                                    content_array.push_back(video_chunk);
-                                }
-                            }
-                            msg_json["content"] = content_array;
-                        } else {
-                            // Use content as-is (already array or not last user message)
-                            // Ensure null values are converted to empty string
-                            if (content_val.is_null()) {
-                                SRV_INF("[CONTENT DEBUG] Predict: Message %d content_val was null, setting to empty string\n", i);
-                                msg_json["content"] = "";
-                            } else {
-                                msg_json["content"] = content_val;
-                                SRV_INF("[CONTENT DEBUG] Predict: Message %d content set, type=%s\n",
-                                        i, content_val.is_string() ? "string" :
-                                           content_val.is_array() ? "array" :
-                                           content_val.is_object() ? "object" : "other");
-                            }
-                        }
-                    } else if (is_last_user_msg && has_images_or_audio) {
-                        // If no content but this is the last user message with images/audio, create content array
-                        json content_array = json::array();
-                        if (request->images_size() > 0) {
-                            for (int j = 0; j < request->images_size(); j++) {
-                                json image_chunk;
-                                image_chunk["type"] = "image_url";
-                                json image_url;
-                                image_url["url"] = "data:image/jpeg;base64," + request->images(j);
-                                image_chunk["image_url"] = image_url;
-                                content_array.push_back(image_chunk);
-                            }
-                        }
-                        if (request->audios_size() > 0) {
-                            for (int j = 0; j < request->audios_size(); j++) {
-                                json audio_chunk;
-                                audio_chunk["type"] = "input_audio";
-                                json input_audio;
-                                input_audio["data"] = request->audios(j);
-                                input_audio["format"] = "wav"; // default, could be made configurable
-                                audio_chunk["input_audio"] = input_audio;
-                                content_array.push_back(audio_chunk);
-                            }
-                        }
-                        if (request->videos_size() > 0) {
-                            for (int j = 0; j < request->videos_size(); j++) {
-                                json video_chunk;
-                                video_chunk["type"] = "input_video";
-                                json input_video;
-                                input_video["data"] = request->videos(j);
-                                video_chunk["input_video"] = input_video;
-                                content_array.push_back(video_chunk);
-                            }
-                        }
-                        msg_json["content"] = content_array;
-                        SRV_INF("[CONTENT DEBUG] Predict: Message %d created content array with media\n", i);
-                    } else if (!msg.tool_calls().empty()) {
-                        // Tool call messages may have null content, but templates expect string
-                        // IMPORTANT: Set to space " " instead of empty string "", because llama.cpp's
-                        // common_chat_msgs_to_json_oaicompat converts empty strings to null (line 312),
-                        // which causes template errors when accessing message.content[:tool_start_length]
-                        SRV_INF("[CONTENT DEBUG] Predict: Message %d has tool_calls, setting content to space (not empty string)\n", i);
-                        msg_json["content"] = " ";
-                    } else if (msg.role() == "tool") {
-                        // Tool role messages must have content field set, even if empty
-                        // Jinja templates expect content to be a string, not null or object
-                        SRV_INF("[CONTENT DEBUG] Predict: Message %d is tool role, content_empty=%d\n", i, msg.content().empty() ? 1 : 0);
-                        if (msg.content().empty()) {
-                            msg_json["content"] = "";
-                            SRV_INF("[CONTENT DEBUG] Predict: Message %d (tool): empty content, set to empty string\n", i);
-                        } else {
-                            SRV_INF("[CONTENT DEBUG] Predict: Message %d (tool): content exists: %s\n",
-                                    i, msg.content().substr(0, std::min<size_t>(200, msg.content().size())).c_str());
-                            // Content exists, parse and ensure it's a string
-                            json content_val;
-                            try {
-                                content_val = json::parse(msg.content());
-                                SRV_INF("[CONTENT DEBUG] Predict: Message %d (tool): parsed JSON, type=%s\n",
-                                        i, content_val.is_null() ? "null" :
-                                           content_val.is_object() ? "object" :
-                                           content_val.is_string() ? "string" :
-                                           content_val.is_array() ? "array" : "other");
-                                // Handle null values - Jinja templates expect content to be a string, not null
-                                if (content_val.is_null()) {
-                                    msg_json["content"] = "";
-                                    SRV_INF("[CONTENT DEBUG] Predict: Message %d (tool): null content, converted to empty string\n", i);
-                                } else if (content_val.is_object()) {
-                                    // If content is an object (e.g., from tool call failures/errors), convert to string
-                                    msg_json["content"] = content_val.dump();
-                                    SRV_INF("[CONTENT DEBUG] Predict: Message %d (tool): object content, converted to string: %s\n",
-                                            i, content_val.dump().substr(0, std::min<size_t>(200, content_val.dump().size())).c_str());
-                                } else if (content_val.is_string()) {
-                                    msg_json["content"] = content_val.get<std::string>();
-                                    SRV_INF("[CONTENT DEBUG] Predict: Message %d (tool): string content, using as-is\n", i);
-                                } else {
-                                    // For arrays or other types, convert to string
-                                    msg_json["content"] = content_val.dump();
-                                    SRV_INF("[CONTENT DEBUG] Predict: Message %d (tool): %s content, converted to string\n",
-                                            i, content_val.is_array() ? "array" : "other type");
-                                }
-                            } catch (const json::parse_error&) {
-                                // Not JSON, treat as plain string
-                                msg_json["content"] = msg.content();
-                                SRV_INF("[CONTENT DEBUG] Predict: Message %d (tool): not JSON, using as string\n", i);
-                            }
-                        }
-                    } else {
-                        // Ensure all messages have content set (fallback for any unhandled cases)
-                        // Jinja templates expect content to be present, default to empty string if not set
-                        if (!msg_json.contains("content")) {
-                            SRV_INF("[CONTENT DEBUG] Predict: Message %d (role=%s): no content field, adding empty string\n",
-                                    i, msg.role().c_str());
-                            msg_json["content"] = "";
-                        }
-                    }
-
-                    // Add optional fields for OpenAI-compatible message format
-                    if (!msg.name().empty()) {
-                        msg_json["name"] = msg.name();
-                    }
-                    if (!msg.tool_call_id().empty()) {
-                        msg_json["tool_call_id"] = msg.tool_call_id();
-                    }
-                    if (!msg.reasoning_content().empty()) {
-                        msg_json["reasoning_content"] = msg.reasoning_content();
-                    }
-                    if (!msg.tool_calls().empty()) {
-                        // Parse tool_calls JSON string and add to message
-                        try {
-                            json tool_calls = json::parse(msg.tool_calls());
-                            msg_json["tool_calls"] = tool_calls;
-                            SRV_INF("[TOOL CALLS DEBUG] Predict: Message %d has tool_calls: %s\n", i, tool_calls.dump().c_str());
-                            // IMPORTANT: If message has tool_calls but content is empty or not set,
-                            // set content to space " " instead of empty string "", because llama.cpp's
-                            // common_chat_msgs_to_json_oaicompat converts empty strings to null (line 312),
-                            // which causes template errors when accessing message.content[:tool_start_length]
-                            if (!msg_json.contains("content") || (msg_json.contains("content") && msg_json["content"].is_string() && msg_json["content"].get<std::string>().empty())) {
-                                SRV_INF("[CONTENT DEBUG] Predict: Message %d has tool_calls but empty content, setting to space\n", i);
-                                msg_json["content"] = " ";
-                            }
-                            // Log each tool call with name and arguments
-                            if (tool_calls.is_array()) {
-                                for (size_t tc_idx = 0; tc_idx < tool_calls.size(); tc_idx++) {
-                                    const auto& tc = tool_calls[tc_idx];
-                                    std::string tool_name = "unknown";
-                                    std::string tool_args = "{}";
-                                    if (tc.contains("function")) {
-                                        const auto& func = tc["function"];
-                                        if (func.contains("name")) {
-                                            tool_name = func["name"].get<std::string>();
-                                        }
-                                        if (func.contains("arguments")) {
-                                            tool_args = func["arguments"].is_string() ?
-                                                func["arguments"].get<std::string>() :
-                                                func["arguments"].dump();
-                                        }
-                                    } else if (tc.contains("name")) {
-                                        tool_name = tc["name"].get<std::string>();
-                                        if (tc.contains("arguments")) {
-                                            tool_args = tc["arguments"].is_string() ?
-                                                tc["arguments"].get<std::string>() :
-                                                tc["arguments"].dump();
-                                        }
-                                    }
-                                    SRV_INF("[TOOL CALLS DEBUG] Predict: Message %d, tool_call %zu: name=%s, arguments=%s\n",
-                                            i, tc_idx, tool_name.c_str(), tool_args.c_str());
-                                }
-                            }
-                        } catch (const json::parse_error& e) {
-                            SRV_WRN("Failed to parse tool_calls JSON: %s\n", e.what());
-                        }
-                    }
-
-                    // Debug: Log final content state before adding to array
-                    if (msg_json.contains("content")) {
-                        if (msg_json["content"].is_null()) {
-                            SRV_INF("[CONTENT DEBUG] Predict: Message %d FINAL STATE: content is NULL - THIS WILL CAUSE ERROR!\n", i);
-                        } else {
-                            SRV_INF("[CONTENT DEBUG] Predict: Message %d FINAL STATE: content type=%s, has_value=%d\n",
-                                    i, msg_json["content"].is_string() ? "string" :
-                                       msg_json["content"].is_array() ? "array" :
-                                       msg_json["content"].is_object() ? "object" : "other",
-                                    msg_json["content"].is_null() ? 0 : 1);
-                        }
-                    } else {
-                        SRV_INF("[CONTENT DEBUG] Predict: Message %d FINAL STATE: NO CONTENT FIELD - THIS WILL CAUSE ERROR!\n", i);
-                    }
-
-                    messages_json.push_back(msg_json);
+                    messages_json.push_back(llama_grpc::build_reconstructed_message(rin));
                 }
 
                 // Final safety check: Ensure no message has null content (Jinja templates require strings)
@@ -3023,36 +2529,7 @@ public:
                 if (body_json.contains("messages") && body_json["messages"].is_array()) {
                     SRV_INF("[CONTENT DEBUG] Predict: Before oaicompat_chat_params_parse - checking %zu messages\n", body_json["messages"].size());
                     for (size_t idx = 0; idx < body_json["messages"].size(); idx++) {
-                        auto& msg = body_json["messages"][idx];
-                        std::string role_str = msg.contains("role") ? msg["role"].get<std::string>() : "unknown";
-                        if (msg.contains("content")) {
-                            if (msg["content"].is_null()) {
-                                SRV_INF("[CONTENT DEBUG] Predict: BEFORE TEMPLATE - Message %zu (role=%s) has NULL content - FIXING!\n", idx, role_str.c_str());
-                                msg["content"] = ""; // Fix null content
-                            } else if (role_str == "tool" && msg["content"].is_array()) {
-                                // Tool messages must have string content, not array
-                                // oaicompat_chat_params_parse expects tool messages to have string content
-                                SRV_INF("[CONTENT DEBUG] Predict: BEFORE TEMPLATE - Message %zu (role=tool) has array content, converting to string\n", idx);
-                                msg["content"] = msg["content"].dump();
-                            } else if (!msg["content"].is_string() && !msg["content"].is_array()) {
-                                // If content is object or other non-string type, convert to string for templates
-                                SRV_INF("[CONTENT DEBUG] Predict: BEFORE TEMPLATE - Message %zu (role=%s) content is not string/array, converting\n", idx, role_str.c_str());
-                                if (msg["content"].is_object()) {
-                                    msg["content"] = msg["content"].dump();
-                                } else {
-                                    msg["content"] = "";
-                                }
-                            } else {
-                                SRV_INF("[CONTENT DEBUG] Predict: BEFORE TEMPLATE - Message %zu (role=%s): content type=%s\n",
-                                        idx, role_str.c_str(),
-                                        msg["content"].is_string() ? "string" :
-                                        msg["content"].is_array() ? "array" :
-                                        msg["content"].is_object() ? "object" : "other");
-                            }
-                        } else {
-                            SRV_INF("[CONTENT DEBUG] Predict: BEFORE TEMPLATE - Message %zu (role=%s) MISSING content field - ADDING!\n", idx, role_str.c_str());
-                            msg["content"] = ""; // Add missing content
-                        }
+                        llama_grpc::normalize_template_message(body_json["messages"][idx]);
                     }
                 }
 
