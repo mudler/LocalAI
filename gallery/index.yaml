@@ -9,7 +9,7 @@
 # the sha256 below were verified against the Hub LFS hash and the uris resolve (200).
 # Converted from the unsloth/nvidia NVFP4 sources via llama.cpp --outtype auto.
 #
-# NOTE(NVFP4 read): the paged backend (pinned llama.cpp 9d5d882d) reads NVFP4 GGUF
+# NOTE(NVFP4 read): the paged backend (pinned llama.cpp c299a92c) reads NVFP4 GGUF
 # (the GB10 benchmark + the pin-sync md5 gate both ran NVFP4 GGUFs). These gallery
 # GGUFs were re-quantized with a newer convert (origin/master) preserving the same
 # MOSTLY_NVFP4 format; a load check on the paged backend GPU build is the final gate.

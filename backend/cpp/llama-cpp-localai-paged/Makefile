@@ -35,7 +35,7 @@
 # this patch series against the latest upstream llama.cpp tip and goes red the
 # moment upstream drifts past the patches. Canary red -> run a PIN_SYNC, then
 # bump this value. The canary never touches this pin; it is signal-only.
-LLAMA_VERSION?=9d5d882d8cd0f0a9283d87ed5e6fe3ee0d925fb1
+LLAMA_VERSION?=c299a92c38b6de6a1139617652b66081828648db
 
 CMAKE_ARGS?=
 BUILD_TYPE?=

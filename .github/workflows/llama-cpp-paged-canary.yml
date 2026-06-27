@@ -17,7 +17,7 @@ name: 'llama.cpp paged patches: upstream canary'
 # RED HERE means: time to run a PIN_SYNC (rebase the patches onto the new tip,
 # pass the bit-exact gate on the GPU, re-export the .patch files, THEN advance
 # the pin in backend/cpp/llama-cpp-localai-paged/Makefile). See
-# backend/cpp/llama-cpp/patches/paged/PIN_SYNC_9d5d882d.md.
+# backend/cpp/llama-cpp/patches/paged/PIN_SYNC_c299a92c.md.
 #
 # SIGNAL-ONLY: this workflow moves no pinned version, ships nothing, and is fully
 # decoupled from bump_deps - so the main dep-bump PR stays green regardless. A
