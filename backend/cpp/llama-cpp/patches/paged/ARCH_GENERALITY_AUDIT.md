@@ -494,4 +494,176 @@ default-off and `#if`-guarded. The sole non-build hazard is the latent
 discriminated-SSM_CONV silent-miscompute on a hypothetical Vulkan/SYCL/Metal GDN
 run, which should be closed by compute-backend-gating the fused-op emission.
 
+## Section: CROSS-ARCH SYNTHESIS (final verdict)
+
+Consolidates the four audit sections above into a single ship decision. The arch
+axis: NVFP4 FP4-MMA requires `BLACKWELL_MMA_AVAILABLE` = sm_120/121 (consumer
+Blackwell, GB10/RTX-50) + sm_100 (datacenter Blackwell). sm_90 Hopper / sm_89 Ada
+/ sm_80-86 Ampere = NO FP4-MMA. Metal/CPU/AMD/Intel = no NVFP4-MMA. GB10's wins
+are dominated by the LPDDR5x ~273 GB/s bandwidth floor; sm_100 has FP4-MMA but
+HBM3e ~8 TB/s so it is COMPUTE-bound and every "bandwidth-bound" GB10 verdict
+inverts there.
+
+### 1. BUILD SAFETY: does it build + run WITHOUT CRASHING off-Blackwell?
+
+YES on every target it builds for, with ONE latent silent-correctness hazard
+(not a crash) to close before claiming non-Blackwell support. The build is NOT
+GB10-pinned: there is no explicit CUDA arch list anywhere in the paged path
+(`CUDA_DOCKER_ARCH` empty in every matrix row, identical to stock llama-cpp), so
+the CUDA TUs compile the full upstream ggml arch fan and the NVFP4 FP4-MMA path
+is gated INSIDE the kernel by `BLACKWELL_MMA_AVAILABLE`, never by the matrix.
+
+| target | builds? | runs? | notes |
+|--------|---------|-------|-------|
+| CUDA sm_80/86/89/90 (Ampere/Ada/Hopper) | YES | YES | 0017 Blackwell code `#if`-stripped + default-off; all other device code portable. qwen35 hybrid models run (GDN + ssm_conv_update + gather have non-Blackwell kernels). NVFP4 GGUFs run via dequant/DP4A; FP4 levers inert, not broken. |
+| CUDA sm_100 (datacenter Blackwell, HBM3e) | YES | YES | every lever active + bit-exact; GB10-tuned launch defaults are correct but compute-bound regime => safe-but-suboptimal (re-sweep, do not assume GB10 constants). |
+| CPU (amd64 + arm64) | YES | YES | every new op ships a CPU mirror under the reused enums; host patches portable C++. |
+| ROCm/HIP, Intel SYCL, Vulkan | YES | partial | .cu hipifies cleanly (no Blackwell intrinsic outside `#if`; 0022's 512-thread launch within AMD limits). SYCL/Vulkan don't compile the .cu and lack the GDN op, so qwen35 hybrid models assert/fall back rather than run; classic non-qwen35 models unaffected. |
+| Metal / macOS | NOT BUILT | N/A | no `includeDarwin` row, no `metal:` capability key. Mac selection of this backend falls back to `default`=cpu (a Linux image) and does NOT run; no auto-fallthrough to stock llama-cpp. |
+
+No patch in 0017-0029 breaks a non-Blackwell CUDA build, the CPU build, or the
+ROCm/SYCL/Vulkan builds. The only thing that is not merely "suboptimal" is the
+fused-conv silent-miscompute hazard (item RISKY-1 below), and even that is latent
+because the co-emitted GDN op asserts first on the backends that lack it.
+
+### 2. EVERY patch/opt, four buckets
+
+SAFE-EVERYWHERE (ship as-is; bit-exact or default-off byte-identical; pure win or
+neutral on any arch that runs the path):
+- 0001-0012 paged KV core (manager, on-demand alloc, prefix caching, in-kernel paged read)
+- 0013 / 0016 prefill-token budget scheduler (pure `update_slots()` policy, default-off byte-identical)
+- 0018 in-place SSM-state write-back  (CUDA+CPU; see RISKY-1 for backend coverage)
+- 0019 fused SSM-state gather          (CUDA+CPU)
+- 0021 conv-state in-place fusion      (CUDA+CPU)
+- 0028 recurrent-state (conv-tap) gather fusion (CUDA+CPU)
+- 0020 o_proj GDN MMVQ->MMQ reshape (zero-cost view, bit-identical; MMQ>MMVQ at M=128 is universal; magnitude GB10-bound, perf-only caveat at tiny real M=1, see RISKY-2)
+- 0024 paged-pool burst-reclaim (pure host C++; fixes a real long-server fragmentation collapse)
+- 0029 block-table within-step host cache (host memcpy reuse, bit-exact; bigger win the FASTER the GPU, i.e. MORE host-bound decode elsewhere)
+
+BLACKWELL-ONLY, CLEAN FALLBACK (only meaningful where FP4-MMA exists; provably
+inert/byte-identical elsewhere, never a break):
+- 0017 FP4 dense-GEMM decode tile tune - levers `#if BLACKWELL_MMA_AVAILABLE` + `blackwell_mma_available(cc)` + `type==NVFP4`, ALL default-off => default build byte-identical to stock on every arch
+- 0023 MoE NVFP4 activation-quant de-dup - plain uint4 copy kernel reached ONLY inside the pre-existing `if (use_native_fp4)` branch (false off-Blackwell); never executes there
+- 0025 MoE NVFP4 decode re-graph - host-side CUDA-graph guard, env-gated `LLAMA_MOE_FORCE_GRAPHS` default-off; the NVFP4-grouped guard predicate is inert on non-FP4
+- NVFP4 GGUFs + 6 gallery rows - FAST path is sm_120/121/100 only; elsewhere run-via-dequant (correct, slow), never a load/run gate
+
+GB10-TUNED (works + safe everywhere, but the constants/magnitude are GB10
+bandwidth-floor winners; re-sweep per arch, no correctness risk):
+- 0022 GDN recurrence occupancy retune - column-fold default (16,8)=512thr/MIN_BLOCKS=2, bit-exact, env-overridable GDN_NW/GDN_CPW; within the 1024-thread limit on sm_70..120 + AMD. Optimal values depend on DRAM latency/L2/SM-count; on a compute-bound arch the kernel may not be the bottleneck.
+- 0026 bf16 per-head SSM/conv cache - default f32 bit-exact (opt-in `--cache-type-ssm/-conv`); bf16 only pays off on a bandwidth-bound arch, buys little on sm_100 HBM3e. bf16 is STORAGE-only (fill_kernel<nv_bfloat16>), the bf16-compute SSM plan is shelved so STATE_T stays f32 on the hot path.
+- 0017 / 0023 magnitudes (the % wins, not the gating) are also GB10-floor-bound.
+
+RISKY (fix before claiming non-Blackwell ship; neither is a crash, one is silent):
+- RISKY-1 (the one real gap) fused GDN/conv ops are CUDA+CPU-only with
+  backend-UNGATED, DEFAULT-ON emission. Confirmed: `cparams.fused_gdn_ch = true`
+  and `auto_fgdn = true` in the `llama_context` constructor; emission fires on
+  `(n_seq_tokens==1 && n_rs_seq==0 && fused_gdn_ar)` with NO compute-backend
+  check. The fused conv variant REUSES `GGML_OP_SSM_CONV` discriminated by a
+  non-null `src[3]` (verified: CUDA `if (dst->src[3] != nullptr)` branch at the
+  top of `ggml_cuda_op_ssm_conv`, CPU mirror in ops.cpp, NO supports_op guard). A
+  backend that supports plain SSM_CONV but ignores `src[3]` would compute the
+  WRONG plain conv => SILENT corruption. Latent today only because the co-emitted
+  fork-custom GDN op is CUDA/CPU-only, so on Vulkan/SYCL the GDN node asserts
+  first and the qwen35 hybrid model cannot run there anyway, and Metal is not
+  built. FIX: gate fused-op emission on a CUDA/HIP compute backend, OR add a
+  supports_op guard that rejects the discriminated SSM_CONV where fused handling
+  is absent. This is the single thing that could miscompute silently; close it
+  before a Vulkan/SYCL/Metal paged build of a gated-DeltaNet model is ever shipped.
+- RISKY-2 (perf-only, not correctness) 0020 forces MMQ; at a genuine single-stream
+  decode M<=8 (n_seqs=1) MMQ could be slower than MMVQ off the GB10 batched
+  regime. Bit-identical either way. Confirm the reshape still picks the better
+  kernel at n_seqs=1 on non-GB10 archs.
+
+### 3. NVFP4-GGUF + gallery targeting recommendation
+
+Do NOT hardware-gate the entries (and you cannot: LocalAI has no microarch-gating
+primitive - `tags:` are free-text/search-only, `ModelConfig` has no
+hardware/requirements field, and backend `capabilities:` resolves by accelerator
+FAMILY only, serving `nvidia: cuda12-...-paged` to ANY NVIDIA GPU with no
+sub-nvidia resolution). The GGUFs run correctly everywhere via dequant, so the
+risk is PERFORMANCE-EXPECTATION, not correctness; a hard gate would wrongly block
+valid (slow) use. Recommended, in order:
+1. (zero-code, do now) Lead each of the 6 descriptions with one honest line:
+   "Hardware: Blackwell (RTX 50-series / GB10 / B200) recommended; runs on other
+   NVIDIA/CPU via NVFP4 dequant but WITHOUT FP4-MMA and below the quoted GB10
+   throughput." Temper the "90-117% of vLLM" claims with that caveat (those are
+   LPDDR5x-bandwidth-bound specific).
+2. (zero-code) Tag all six consistently with `nvfp4` + a new `blackwell` chip. The
+   four Qwopus/Qwen-MTP entries currently carry only `[llm, gguf]` and are not even
+   discoverable as NVFP4 despite being NVFP4 GGUFs - secondary correctness-of-metadata gap.
+3. (feature, later) A structured `recommended_hardware` field surfaced by the React
+   import dialog is the only way to express this machine-readably; it does not exist.
+
+### 4. Per-arch roadmap (ranked by value / effort)
+
+- sm_100 datacenter Blackwell - HIGH value, MEDIUM effort. FP4-MMA works so NVFP4
+  stays fast and the precision bucket (0017/0023/0025) carries over, but the BW
+  floor is gone => compute-bound. Needs: re-sweep 0022 GDN_NW/CPW; re-evaluate the
+  0017 kill-gate (levers ready, may flip); expect 0018/0019/0026 bandwidth wins to
+  shrink toward neutral while 0029/0025/0020 host/graph/MMQ wins still help. No
+  code change to be SAFE; a tuning pass to be OPTIMAL.
+- Metal / macOS - MEDIUM value, MEDIUM effort. Add the `includeDarwin`
+  `-metal-darwin-arm64-llama-cpp-localai-paged` row + a `metal:` capability key
+  (changed-backends.js already anticipates the source path). Delivers paged-KV +
+  scheduler value only (no NVFP4-MMA on Metal); still a strict win over today's
+  broken Mac selection. MUST also land RISKY-1 first (Metal would otherwise hit the
+  discriminated-SSM_CONV path if it ever gained an SSM_CONV kernel without the
+  discriminator).
+- CPU - LOW effort, already works. Reference kernels exist for every fused op;
+  paged KV + scheduler + reclaim are the portable value. Nothing to do.
+- Hopper sm_90 / Ada sm_89 / Ampere sm_80-86 - MEDIUM value, LOW effort (no FP4
+  work). No FP4-MMA => pair the precision-agnostic infra (paged KV, 0013/0016,
+  0024, 0029, 0018/0019/0021/0028, 0020) with a DIFFERENT quant (Q4_K/AWQ/GPTQ).
+  Messaging: "no NVFP4 here, use another quant, but paged + SSM + scheduler infra
+  is a pure win". The GGUFs/gallery rows are out of scope for these.
+
+### 5. What MUST be empirically verified (and on what hardware)
+
+- GB10 (sm_121, user has it): the validated target; already measured. Re-confirm
+  bit-exactness gates after RISKY-1 fix.
+- M4 Mac (user has it): (a) once an `includeDarwin` paged row exists, verify the
+  Metal build compiles + a NON-qwen35 model runs (paged KV path); (b) verify a
+  qwen35 hybrid model on Metal EITHER asserts loudly OR is correct - it must NOT
+  silently miscompute the discriminated SSM_CONV. This is the direct test of
+  RISKY-1 on real Metal. Do this BEFORE shipping a Metal paged build. Also verify
+  CPU correctness of every fused op on the Mac (arm64 CPU mirror).
+- non-Blackwell NVIDIA (sm_80/86/89/90 - user would need to ACQUIRE, e.g. cloud
+  A100/L4/L40S/H100): verify (a) the cuda12/cuda13 paged image runs a qwen35
+  hybrid model correctly (GDN + ssm_conv_update + gather non-Blackwell kernels),
+  (b) NVFP4 GGUFs load + produce correct output via dequant/DP4A (not garbage),
+  (c) RISKY-2: that 0020's forced MMQ does not regress single-stream (n_seqs=1)
+  decode latency vs MMVQ. This is the only bucket needing hardware acquisition;
+  everything else is covered by the GB10 + M4 the user already has.
+- sm_100 (datacenter Blackwell - cloud B200 if a tuning pass is wanted): only
+  needed to make sm_100 OPTIMAL, not to make it SAFE. Defer unless targeting it.
+
+### 6. SHIP DECISION
+
+SAFE TO SHIP TODAY as a Blackwell-targeted backend on Linux. The build is
+arch-general (same arch fan + variant set as stock llama-cpp), every targeted
+Linux variant builds and runs, and all Blackwell-specific code is default-off +
+`#if`-guarded so a non-Blackwell build is byte-identical to stock on the FP4 path.
+The NVFP4 GGUFs run everywhere via dequant (correct, slower), so broad gallery
+exposure is a performance-expectation issue, not a correctness one.
+
+MINIMUM to not break / mislead other archs:
+1. (correctness, before ANY Vulkan/SYCL/Metal paged build of a gated-DeltaNet
+   model) Close RISKY-1: compute-backend-gate the fused GDN/conv op emission, or
+   add a supports_op guard rejecting the discriminated SSM_CONV. This is the only
+   hard requirement; it is latent on the current Linux targets but becomes live
+   the moment a Metal/Vulkan/SYCL paged build of qwen35 exists.
+2. (availability, zero-risk) Add the `includeDarwin` paged row + `metal:` key so
+   Mac users get a working (paged-KV-only) build instead of a non-running
+   default=cpu selection with no fallthrough to stock.
+3. (expectation, zero-code) Add the Blackwell-recommended hardware note + the
+   "runs slower off-Blackwell via dequant" caveat to the 6 gallery descriptions
+   and tag all six `nvfp4` + `blackwell`.
+4. (perf, verify don't block) Confirm 0020 does not regress n_seqs=1 decode on
+   non-GB10 NVIDIA; if it does, gate the MMVQ->MMQ reshape on a real-M threshold.
+
+Items 2-4 do not block a Linux Blackwell ship. Item 1 blocks only a future
+non-CUDA paged build of a gated-DeltaNet model; on the current build targets the
+hazard is latent (the GDN op asserts first). Net: ship for Blackwell/Linux now;
+land item 1 before extending paged to Metal/Vulkan/SYCL.
+
 Assisted-by: Claude:opus-4.8 [Claude Code]
