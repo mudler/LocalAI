@@ -579,6 +579,10 @@
   icon: https://qianwen-res.oss-cn-beijing.aliyuncs.com/Qwen3.6/Figures/qwen3.6_35b_a3b_score.png
   overrides:
     backend: llama-cpp
+    # NVFP4 GGUFs use a quant type the GGUF metadata parser cannot read, so
+    # context size cannot be auto-derived; set it explicitly (the model trains
+    # to 262144, 32768 is a safe default operators can raise).
+    context_size: 32768
     function:
       automatic_tool_parsing_fallback: true
       grammar:
@@ -611,6 +615,9 @@
     - gguf
   overrides:
     backend: llama-cpp
+    # NVFP4 GGUFs use a quant type the GGUF metadata parser cannot read, so
+    # context size cannot be auto-derived; set it explicitly.
+    context_size: 32768
     function:
       automatic_tool_parsing_fallback: true
       grammar:
@@ -638,6 +645,9 @@
   icon: https://cdn-uploads.huggingface.co/production/uploads/66309bd090589b7c65950665/sGQKmrMc6L6guMoaB5_Y2.png
   overrides:
     backend: llama-cpp
+    # NVFP4 GGUFs use a quant type the GGUF metadata parser cannot read, so
+    # context size cannot be auto-derived; set it explicitly.
+    context_size: 32768
     function:
       automatic_tool_parsing_fallback: true
       grammar:
@@ -688,6 +698,10 @@
   icon: https://qianwen-res.oss-cn-beijing.aliyuncs.com/Qwen3.6/Figures/qwen3.6_27b_score.png
   overrides:
     backend: llama-cpp
+    # NVFP4 GGUFs use a quant type the GGUF metadata parser cannot read, so
+    # context size cannot be auto-derived; set it explicitly (the model trains
+    # to 262144, 32768 is a safe default operators can raise).
+    context_size: 32768
     function:
       automatic_tool_parsing_fallback: true
       grammar:
