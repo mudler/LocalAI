@@ -225,9 +225,14 @@ path falls back to a host-side gather, pure overhead over stock's contiguous rea
 Everything Blackwell-specific (NVFP4, GDN fusions via 0030, occupancy) is inert.
 So **on Apple Silicon, prefer the stock `llama-cpp` backend.**
 
-**Vulkan** (source analysis, no box to measure): same picture, worse - the
-CUDA-only levers are inert AND the gated-DeltaNet op has *no Vulkan kernel
-upstream*, so the Qwen3.6 hybrid models assert/fall back and don't run there.
+**Vulkan / SYCL** (source analysis): the gated-DeltaNet and SSM_CONV ops DO have
+upstream kernels on Vulkan and SYCL (as on Metal), so the Qwen3.6 hybrids RUN on
+all three via the non-fused path. The patchset's fusions are gated off there
+(0030), so the outcome is the same neutral-to-slightly-negative as Metal - not
+"won't run". This backend therefore ships **CUDA-only** (where the fusions are
+live + verified); non-CUDA users should use the stock `llama-cpp` backend. See
+[`UPSTREAM_LAYER2_SCOPE.md`](UPSTREAM_LAYER2_SCOPE.md) for what native non-CUDA
+fused kernels would take.
 
 ---
 
