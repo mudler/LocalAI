@@ -25,6 +25,7 @@ import (
 	"github.com/mudler/LocalAI/core/http/auth"
 	"github.com/mudler/LocalAI/core/schema"
 	"github.com/mudler/LocalAI/core/services/galleryop"
+	"github.com/mudler/LocalAI/core/services/messaging"
 	"github.com/mudler/LocalAI/core/services/nodes"
 	"github.com/mudler/LocalAI/core/services/nodes/prefixcache"
 	"github.com/mudler/LocalAI/pkg/httpclient"
@@ -550,12 +551,23 @@ func DeleteBackendOnNodeEndpoint(unloader nodes.NodeCommandSender) echo.HandlerF
 }
 
 // ListBackendsOnNodeEndpoint lists installed backends on a worker node via NATS.
-func ListBackendsOnNodeEndpoint(unloader nodes.NodeCommandSender) echo.HandlerFunc {
+func ListBackendsOnNodeEndpoint(unloader nodes.NodeCommandSender, registry *nodes.NodeRegistry) echo.HandlerFunc {
 	return func(c echo.Context) error {
+		nodeID := c.Param("id")
+		// Agent-type workers don't run backends and never subscribe to the
+		// nodes.<id>.backend.list NATS subject, so the request would hang
+		// until timeout with "no responders". Their backend list is simply
+		// empty. Mirror the aggregate-list guard in managers_distributed.go
+		// (skip nodes whose NodeType is set and not "backend") so the
+		// single-node and cluster-wide views stay consistent.
+		if node, err := registry.Get(c.Request().Context(), nodeID); err == nil {
+			if node.NodeType != "" && node.NodeType != nodes.NodeTypeBackend {
+				return c.JSON(http.StatusOK, []messaging.NodeBackendInfo{})
+			}
+		}
 		if unloader == nil {
 			return c.JSON(http.StatusServiceUnavailable, nodeError(http.StatusServiceUnavailable, "NATS not configured"))
 		}
-		nodeID := c.Param("id")
 		reply, err := unloader.ListBackends(nodeID)
 		if err != nil {
 			xlog.Error("Failed to list backends on node", "node", nodeID, "error", err)
