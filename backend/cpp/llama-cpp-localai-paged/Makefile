@@ -9,7 +9,8 @@
 # Pin handling (mirrors the turboquant wrapper, the precedent this is modelled
 # on): the paged patch series is hand-verified bit-exact against ONE specific
 # llama.cpp tip and re-exported by the manual PIN_SYNC process
-# (docs/PIN_SYNC_*.md). A naive pin bump would move the tip out from
+# (README section 7 + .agents/llama-cpp-localai-paged-backend.md). A naive
+# pin bump would move the tip out from
 # under the patches and break `git apply` at build time, so this backend OWNS
 # its pin (LLAMA_VERSION below) instead of inheriting the auto-bumped stock pin
 # from backend/cpp/llama-cpp/Makefile. The override is forced into every copied
@@ -30,7 +31,7 @@
 # the nightly llama.cpp bump cannot silently break the vendored paged patches.
 # Advance ONLY via the PIN_SYNC process (rebase patches + bit-exact gate +
 # re-export), then update this value. See:
-#   backend/cpp/llama-cpp-localai-paged/docs/PIN_SYNC_*.md
+#   README section 7 + .agents/llama-cpp-localai-paged-backend.md
 #
 # This pin = the manual, verified sync. The signal telling you WHEN to do the
 # next sync is the early-warning canary
@@ -47,7 +48,7 @@
 # grpc-server.cpp failed to link with undefined references to stream_* server
 # helpers that the refactor pulled into the headers grpc-server.cpp includes.
 # Therefore a PIN_SYNC must pass the FULL grpc-server build/link on CI, not only
-# the bit-exact gate. See docs/PIN_SYNC_c299a92c.md.
+# the bit-exact gate. See README section 7 + .agents/llama-cpp-localai-paged-backend.md.
 LLAMA_VERSION?=9d5d882d8cd0f0a9283d87ed5e6fe3ee0d925fb1
 
 CMAKE_ARGS?=

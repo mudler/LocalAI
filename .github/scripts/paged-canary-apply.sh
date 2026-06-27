@@ -27,8 +27,8 @@
 # missing-file hunk rejects the whole patch - and because 0021/0022/0026/0028
 # build on 0019's code, the rejection cascades to them too. This is a
 # PRE-EXISTING shipped-series defect, present identically on every pin, NOT an
-# upstream break (see backend/cpp/llama-cpp-localai-paged/docs/PIN_SYNC_c299a92c.md
-# and backend/cpp/llama-cpp-localai-paged/README.md). We exclude ONLY that dev-doc path and still
+# upstream break (see backend/cpp/llama-cpp-localai-paged/README.md section 7,
+# "Pin + maintenance policy"). We exclude ONLY that dev-doc path and still
 # apply 0019's real code hunks atomically, so a genuine code-hunk break in 0019
 # still fails the canary. prepare.sh tolerates the same hunk via
 # `patch ... || true`; this mirrors that tolerance precisely.
@@ -53,7 +53,7 @@ apply_one() {
   echo "paged-canary: applying $(basename "$p")"
   if ! git apply --verbose "$@" "$p"; then
     echo "::error::paged patch no longer applies to the upstream llama.cpp tip: $(basename "$p")"
-    echo "::error::upstream drifted past the vendored paged series - run a PIN_SYNC (backend/cpp/llama-cpp-localai-paged/docs/PIN_SYNC_c299a92c.md), do NOT bump the pin blindly"
+    echo "::error::upstream drifted past the vendored paged series - run a PIN_SYNC (see backend/cpp/llama-cpp-localai-paged/README.md section 7, Pin + maintenance policy), do NOT bump the pin blindly"
     exit 1
   fi
 }

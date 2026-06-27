@@ -7,7 +7,6 @@ here is a fork - it is a source-only `*.patch` stack plus this canonical doc.
 
 > One-file rule: this README is the canonical reference for the patch series. The
 > only other docs are operational, kept in `docs/`, and linked below:
-> - [`PIN_SYNC_c299a92c.md`](docs/PIN_SYNC_c299a92c.md) - the current pin-sync record (referenced by the canary workflow + scripts).
 > - [`PAGED_BITEXACT_NOTE.md`](docs/PAGED_BITEXACT_NOTE.md) - the per-path bit-exactness gate (the canonical paged-MoE md5 reference).
 > - [`LOCALAI_LLAMACPP_BACKEND_PLAN.md`](docs/LOCALAI_LLAMACPP_BACKEND_PLAN.md) - the design-of-record for shipping this as its own backend + the NVFP4 gallery items.
 
@@ -31,9 +30,8 @@ vendored patch series over upstream llama.cpp that adds
   GEMM - dominates the decode step.
 
 It is **pinned to llama.cpp `9d5d882d`** (kept == the stock `llama-cpp` backend's
-pin) and advanced only by a manual, bit-exact-gated
-[pin-sync process](docs/PIN_SYNC_c299a92c.md), decoupled from the nightly auto-bumper
-(see section 7). The pin must stay aligned with the stock pin because
+pin) and advanced only by a manual, bit-exact-gated pin-sync process (see
+section 7, "Pin + maintenance policy"), decoupled from the nightly auto-bumper. The pin must stay aligned with the stock pin because
 `grpc-server.cpp` is shared; an earlier bump to `c299a92c` was bit-exact but broke
 the grpc-server link and was reverted.
 
@@ -327,7 +325,7 @@ in a recommended/gallery config.
 ## 7. Pin + maintenance policy
 
 - **Pinned to llama.cpp `9d5d882d`** (kept == the stock `llama-cpp` pin). The pin
-  is advanced **only** by the manual [`PIN_SYNC`](docs/PIN_SYNC_c299a92c.md) process:
+  is advanced **only** by the manual pin-sync process (this section):
   rebase the source-only patch series onto the new tip, rebuild on GPU, pass the
   bit-exact gate on every path (dense + MoE, paged + non-paged) plus
   `test-backend-ops`, **and confirm the full grpc-server build links on CI**.
@@ -345,8 +343,7 @@ in a recommended/gallery config.
   (via [`.github/scripts/paged-canary-apply.sh`](../../../.github/scripts/paged-canary-apply.sh))
   tries the patch series against the latest upstream tip with the build's own
   strict `git apply`. **Red = upstream drifted past the series -> run a
-  PIN_SYNC** (do not bump the pin blindly). The canary references
-  [`PIN_SYNC_c299a92c.md`](docs/PIN_SYNC_c299a92c.md).
+  PIN_SYNC** (do not bump the pin blindly), following the policy in this section.
 
 ---
 

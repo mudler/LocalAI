@@ -20,8 +20,8 @@ how-to.
 - `backend/cpp/llama-cpp-localai-paged/patches/paged/` - the source-only `.patch`
   series (0001-0030), nothing else.
 - `backend/cpp/llama-cpp-localai-paged/README.md` - the canonical doc. The
-  operational docs (`PIN_SYNC_*.md`, `PAGED_BITEXACT_NOTE.md`,
-  `UPSTREAM_LAYER2_SCOPE.md`) and dev artifacts live in
+  operational docs (`PAGED_BITEXACT_NOTE.md`, `UPSTREAM_LAYER2_SCOPE.md`) and
+  dev artifacts live in
   `backend/cpp/llama-cpp-localai-paged/docs/`.
 - `backend/Dockerfile.llama-cpp-localai-paged`, `.docker/llama-cpp-localai-paged-compile.sh`
   - the CUDA build entry points.
@@ -55,7 +55,7 @@ and break `git apply` at build time.
 1. **The canary tells you when to sync.** `.github/workflows/llama-cpp-paged-canary.yml`
    runs weekly: it applies + builds the series against the latest upstream tip and
    goes **red** when upstream drifts past the patches. Canary red -> run a pin-sync.
-2. **The pin-sync** (recorded in `docs/PIN_SYNC_*.md`): rebase the series onto the new
+2. **The pin-sync** (recorded in the README section 7 and git history): rebase the series onto the new
    tip (resolve conflicts; re-export **source-only** with a pathspec like
    `-- src/ ggml/ common/ include/ tools/ tests/ cmake/`), rebuild on a CUDA box,
    pass the bit-exact gate on **every** path + `test-backend-ops`, **and confirm
