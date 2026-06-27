@@ -1,4 +1,56 @@
 ---
+- name: "mythos-nano-i1"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/mradermacher/Mythos-nano-i1-GGUF
+  description: |
+    > **Disclaimer:** This is **not** an official release by Anthropic.
+    > Mythos-nano is an independent open model project.
+
+    # Mythos-nano
+
+    🚨  This model was not trained on tool-calling or agent-based programming data. We therefore do not recommend using it for tasks that involve function calling, API orchestration, or autonomous coding agents.
+    For programming tasks, we recommend using this model on competitive programming problems (e.g., LeetCode-style) - Weibo Lab.
+
+    ⚠️  Abliterated (uncensored): the refusal direction has been removed, so this model will not decline requests a safety-tuned model normally would. Safety guardrails are reduced — use responsibly and at your own risk; you are solely responsible for outputs and legal compliance.
+
+    ## 🏆 Benchmarks
+
+    ### Full comparison (mathematics · coding · knowledge · instruction)
+
+    ### LeetCode contests (Python, pass-rate)
+
+    A 3B model placing within ~4 points of trillion-parameter systems on competition math
+    and live code — the core thesis: with verifiable feedback, small models reach frontier
+    reasoning.
+
+    ...
+  license: "mit"
+  tags:
+    - llm
+    - gguf
+    - qwen2
+    - code
+    - reasoning
+  icon: https://cdn-uploads.huggingface.co/production/uploads/67329d3f69fded92d56ab41a/Jbqo3kdC08nA4lt1Oli_z.png
+  overrides:
+    backend: llama-cpp
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/Mythos-nano-i1-GGUF/Mythos-nano.i1-Q4_K_M.gguf
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/Mythos-nano-i1-GGUF/Mythos-nano.i1-Q4_K_M.gguf
+      sha256: 722ea938bb40259d0c866a558d7f81f8aebe67dfc43d6ef1ad71abbfb52c6f51
+      uri: https://huggingface.co/mradermacher/Mythos-nano-i1-GGUF/resolve/main/Mythos-nano.i1-Q4_K_M.gguf
 - name: "qwen-agentworld-35b-a3b"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
