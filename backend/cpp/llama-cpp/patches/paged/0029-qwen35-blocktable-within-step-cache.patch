@@ -1,0 +1,176 @@
+From e2acb3bca4d12ecef4964a214d397fc91ecfcebc Mon Sep 17 00:00:00 2001
+From: Ettore Di Giacinto <mudler@localai.io>
+Date: Sat, 27 Jun 2026 03:45:19 +0200
+Subject: [PATCH] feat(paged): block-table within-step host cache (patch 0029)
+
+Lever 5 (host pipeline). get_block_table() is called once per full-attention
+layer per decode step, but the KV cell layout (and therefore the block table)
+is fixed for the whole step: it only changes in apply() when the ubatch's slots
+are committed. The old path recomputed the full table on every layer.
+
+This caches the table the first time it is built in a step and reuses the bytes
+(memcpy) for every subsequent full-attention layer, invalidating the cache in
+apply(). The reused bytes are identical to a fresh compute, so the change is
+bit-exact. Toggle off with LLAMA_PAGED_NO_BT_CACHE=1.
+
+Measured host-side get_block_table time (llama-batched-bench, npp128 ntg128
+npl128, cache OFF -> ON):
+- MoE  q36-35b-a3b-nvfp4: 112.94 -> 14.82 ms  (-87%)
+- dense q36-27b-nvfp4   : 193.78 -> 16.90 ms  (-91%)
+
+Throughput: dense is partly host-bound and gains (TG 364.8 -> 374.7 t/s,
++2.7%, ~95.8% of the vLLM 391 t/s reference @npl128). MoE decode is compute-
+bound (FP4 GEMM dominates) so the saved host time is off the critical path and
+TG is flat (752.2 -> 757.0 t/s). The cache is therefore a pure pipeline cleanup,
+not a numeric change.
+
+Bit-exact, per path (llama-completion --temp 0 --seed 1, 48 tok):
+- non-paged MoE   = 07db32c2bcb78d17a43ed18bc22705cd  (unchanged baseline)
+- paged MoE       = 8cb0ce23777bf55f92f63d0292c756b0  (paged baseline)
+- paged MoE cache OFF == cache ON (both 8cb0ce23)
+- dense non-paged == dense paged = 5951a5b4d624ce891e22ab5fca9bc439
+
+The paged-MoE md5 (8cb0ce23) differs from the non-paged md5 (07db32c2) by a
+benign FP-accumulation-order difference of the paged attention reduction, not a
+bug: KL-divergence vs the f16 reference (16 chunks, c512) gives KLD(paged||f16)
+= 0.13600 <= KLD(nonpaged||f16) = 0.13660 and PPL(paged) = 7.4009 ~
+PPL(nonpaged) = 7.3896 (within +/- 0.29). See PAGED_BITEXACT_NOTE.md and
+LEVER5_HOSTPIPE_RESULTS.md.
+
+Includes the [L5INSTR] host-timing instrumentation used to measure the lever.
+
+Assisted-by: Claude:opus-4.8 [Claude Code]
+Signed-off-by: Ettore Di Giacinto <mudler@localai.io>
+---
+ src/llama-context.cpp  |  7 +++++++
+ src/llama-kv-cache.cpp | 28 +++++++++++++++++++++++++++-
+ src/llama-kv-cache.h   |  9 +++++++++
+ src/paged-attn.cpp     |  9 +++++++++
+ 4 files changed, 52 insertions(+), 1 deletion(-)
+
+diff --git a/src/llama-context.cpp b/src/llama-context.cpp
+index 5c90c48..ad7939e 100644
+--- a/src/llama-context.cpp
++++ b/src/llama-context.cpp
+@@ -1306,7 +1306,11 @@ bool llama_context::set_adapter_cvec(
+     return res;
+ }
+ 
++extern "C" void l5_add_setinp(double ns);
++extern "C" void l5_add_hostproc(double ns);
++static inline double l5c_now_ns(){ struct timespec ts; clock_gettime(CLOCK_MONOTONIC,&ts); return (double)ts.tv_sec*1e9+(double)ts.tv_nsec; }
+ llm_graph_result * llama_context::process_ubatch(const llama_ubatch & ubatch, llm_graph_type gtype, llama_memory_context_i * mctx, ggml_status & ret) {
++    double _l5_t0=l5c_now_ns();
+     if (mctx && !mctx->apply()) {
+         LLAMA_LOG_ERROR("%s: failed to apply memory context\n", __func__);
+         ret = GGML_STATUS_FAILED;
+@@ -1361,11 +1365,14 @@ llm_graph_result * llama_context::process_ubatch(const llama_ubatch & ubatch, ll
+         //const auto t_start_us = ggml_time_us();
+ 
+         // FIXME this call causes a crash if any model inputs were not used in the graph and were therefore not allocated
++        double _l5_si=l5c_now_ns();
+         res->set_inputs(&ubatch);
++        l5_add_setinp(l5c_now_ns()-_l5_si);
+ 
+         //LLAMA_LOG_INFO("graph set inputs time: %.3f ms\n", (ggml_time_us() - t_start_us)/1000.0);
+     }
+ 
++    l5_add_hostproc(l5c_now_ns()-_l5_t0);
+     const auto status = graph_compute(res->get_gf(), ubatch.n_tokens > 1);
+     if (status != GGML_STATUS_SUCCESS) {
+         LLAMA_LOG_ERROR("%s: failed to compute graph, compute status: %d\n", __func__, status);
+diff --git a/src/llama-kv-cache.cpp b/src/llama-kv-cache.cpp
+index 21b8f1e..17aaf40 100644
+--- a/src/llama-kv-cache.cpp
++++ b/src/llama-kv-cache.cpp
+@@ -2772,6 +2772,9 @@ bool llama_kv_cache_context::apply() {
+     kv->apply_ubatch(sinfos[i_cur], ubatches[i_cur]);
+     n_kv = kv->get_n_kv(sinfos[i_cur]);
+ 
++    // the cells for this ubatch just changed -> drop the cached block table
++    bt_cache_valid = false;
++
+     return true;
+ }
+ 
+@@ -2814,7 +2817,30 @@ void llama_kv_cache_context::get_gather_idxs(int32_t * dst) const {
+ }
+ 
+ void llama_kv_cache_context::get_block_table(int32_t * dst, uint32_t n_blk) const {
+-    kv->get_block_table(dst, n_blk, n_kv, sinfos[i_cur]);
++    const auto & sinfo = sinfos[i_cur];
++    const uint32_t ns = sinfo.s1 - sinfo.s0 + 1;
++    const size_t total = (size_t) ns * n_blk;
++
++    // within-step reuse: all full-attention layers of a step request the same
++    // table (same i_cur/n_blk, cells fixed since apply()). The bytes are
++    // identical to a fresh compute, so this is bit-exact.
++    static const bool nocache = (getenv("LLAMA_PAGED_NO_BT_CACHE") != nullptr);
++    if (nocache) {
++        kv->get_block_table(dst, n_blk, n_kv, sinfo);
++        return;
++    }
++
++    if (bt_cache_valid && bt_cache_n_blk == n_blk && bt_cache.size() == total) {
++        memcpy(dst, bt_cache.data(), total * sizeof(int32_t));
++        return;
++    }
++
++    kv->get_block_table(dst, n_blk, n_kv, sinfo);
++
++    bt_cache.resize(total);
++    memcpy(bt_cache.data(), dst, total * sizeof(int32_t));
++    bt_cache_n_blk = n_blk;
++    bt_cache_valid = true;
+ }
+ 
+ ggml_tensor * llama_kv_cache_context::cpy_k(ggml_context * ctx, ggml_tensor * k_cur, ggml_tensor * k_idxs, int32_t il) const {
+diff --git a/src/llama-kv-cache.h b/src/llama-kv-cache.h
+index e9980b6..b03de78 100644
+--- a/src/llama-kv-cache.h
++++ b/src/llama-kv-cache.h
+@@ -451,4 +451,13 @@ private:
+     // a heuristic, to avoid attending the full cache if it is not yet utilized
+     // as the cache gets filled, the benefit from this heuristic disappears
+     int32_t n_kv;
++
++    // [paged L5] within-step block-table cache. get_block_table() is called once
++    // per full-attention layer per decode step, but the cell layout (and hence
++    // the table) is identical across all layers of a step. Compute it on the
++    // first call and reuse the bytes for the rest; invalidated in apply() when
++    // the ubatch's slots are committed (the only host-side mutation per step).
++    mutable std::vector<int32_t> bt_cache;
++    mutable uint32_t bt_cache_n_blk = 0;
++    mutable bool     bt_cache_valid = false;
+ };
+diff --git a/src/paged-attn.cpp b/src/paged-attn.cpp
+index fed8ca9..ebd92be 100644
+--- a/src/paged-attn.cpp
++++ b/src/paged-attn.cpp
+@@ -8,6 +8,13 @@
+ 
+ #include <cstdlib>
+ #include <cstdio>
++#include <ctime>
++namespace { static inline double l5_now_ns(){ struct timespec ts; clock_gettime(CLOCK_MONOTONIC,&ts); return (double)ts.tv_sec*1e9+(double)ts.tv_nsec; } }
++double g_l5_t_gbt=0, g_l5_t_setinp=0, g_l5_t_hostproc=0; long g_l5_n_gbt=0, g_l5_n_setinp=0, g_l5_n_hostproc=0;
++extern "C" void l5_add_setinp(double ns){ g_l5_t_setinp+=ns; g_l5_n_setinp++; }
++extern "C" void l5_add_hostproc(double ns){ g_l5_t_hostproc+=ns; g_l5_n_hostproc++; }
++namespace { struct L5Printer { ~L5Printer(){ fprintf(stderr,"[L5INSTR] get_block_table n=%ld sum=%.2fms mean=%.4fms | set_inputs n=%ld sum=%.2fms mean=%.4fms | hostproc n=%ld sum=%.2fms mean=%.4fms\n", g_l5_n_gbt, g_l5_t_gbt/1e6, g_l5_n_gbt? g_l5_t_gbt/1e6/g_l5_n_gbt:0.0, g_l5_n_setinp, g_l5_t_setinp/1e6, g_l5_n_setinp? g_l5_t_setinp/1e6/g_l5_n_setinp:0.0, g_l5_n_hostproc, g_l5_t_hostproc/1e6, g_l5_n_hostproc? g_l5_t_hostproc/1e6/g_l5_n_hostproc:0.0 ); } } g_l5_printer; }
++
+ 
+ namespace paged_attn {
+ 
+@@ -54,7 +61,9 @@ public:
+     void set_input(const llama_ubatch * ubatch) override {
+         GGML_UNUSED(ubatch);
+         GGML_ASSERT(idxs && ggml_backend_buffer_is_host(idxs->buffer));
++        double _t=l5_now_ns();
+         mctx->get_block_table((int32_t *) idxs->data, n_blk);
++        g_l5_t_gbt += l5_now_ns()-_t; g_l5_n_gbt++;
+     }
+ 
+     const llama_kv_cache_context * mctx;
+-- 
+2.43.0
+
