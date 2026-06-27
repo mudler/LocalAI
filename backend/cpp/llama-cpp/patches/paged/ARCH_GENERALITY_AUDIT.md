@@ -401,4 +401,97 @@ GDN/conv ops are CUDA+CPU-only with backend-ungated emission, so a Vulkan/SYCL/M
 paged build of a gated-DeltaNet model could assert (GDN op) or silently miscompute
 (discriminated SSM_CONV) - it should be compute-backend-gated.
 
+## Section: patch-arch-safety (build-break / miscompile classification, 0018-0029)
+
+This section is the narrow safety read: for EACH patch, does it (a) compile and
+behave correctly on every build target, (b) compile only under
+BLACKWELL_MMA_AVAILABLE with a fallback elsewhere, or (c) RISK a build break /
+miscompile / crash on a non-Blackwell arch. Class letters here are
+build-safety classes, distinct from the perf-generality buckets above. Note 0027
+does not exist (numbering gap). The dispositive build facts: the backend is built
+for CUDA 12/13, L4T arm64, ROCm/hipblas, SYCL f32/f16, CPU (amd64+arm64), Vulkan -
+and NOT for darwin/Metal (no includeDarwin row), and the CUDA build emits the full
+multi-arch fan (CUDA_DOCKER_ARCH unset; Dockerfile documents e.g. `75;86;89;120`),
+so every .cu TU MUST already compile for non-Blackwell SASS.
+
+Method: grepped every added line in 0017-0029 for arch-specific tokens
+(BLACKWELL/__CUDA_ARCH__/sm_NNN/cp.async/ldmatrix/mma./asm volatile/cc gates).
+The ONLY hits are in 0017 (all correctly `#if`-gated) and free-text comments. No
+SSM/conv/GDN kernel in the series uses a Blackwell intrinsic or a hardcoded
+sm_12x launch geometry.
+
+| patch | class | build-safety note |
+|-------|-------|-------------------|
+| 0017 fp4-gemm-decode-tile-tune | (b) GATED | only Blackwell-specific patch; NVFP4 mmq_y/min-blocks levers behind `#if defined(BLACKWELL_MMA_AVAILABLE)` + `blackwell_mma_available(cc)` + `type==GGML_TYPE_NVFP4`, ALL default-off => default build byte-identical to stock on every arch. `get_mmq_y_device<type>()` templating has a default arg keeping stock behaviour for non-NVFP4. Builds on sm_80-90 (body stripped). |
+| 0018 ssm-decode-inplace-state | (a) general | plain in-place GDN state write-back, no intrinsics; CPU mirror in ggml-cpu/ops.cpp. |
+| 0019 ssm-decode-fused-gather | (a) general | `gdn_gather_nonident_kernel` = plain `<<<n_seqs,256>>>`; CPU mirror added. |
+| 0020 gdn-oproj-mmq-reshape | (a) general | host-side reshape_2d in qwen35*/qwen3next.cpp, no device code. |
+| 0021 conv-state-inplace-fusion | (a) general | new op reuses GGML_OP_SSM_CONV (4th src discriminator), no new enum => no ggml-cpu.c switch needed; `ssm_conv_update_f32` plain portable CUDA (threads=128, templated d_conv); CPU mirror + test case. |
+| 0022 gdn-recurrence-occupancy-retune | (a) general | template NUM_WARPS/COLS_PER_WARP/MIN_BLOCKS; new default (16,8) = 512 thr/block, MIN_BLOCKS=2, within the 1024 limit on sm_70..120 and AMD; bit-exact for any (NW,CPW). NOT Blackwell-gated and NOT a break - just a GB10-tuned default applied everywhere (see risk 3 below). |
+| 0023 moe-nvfp4-quant-dedup | (a) general | `gather_mmq_fp4` = plain uint4 byte-copy kernel; reached ONLY inside the pre-existing `if (use_native_fp4)` branch (Blackwell-only at runtime) and uses `block_fp4_mmq`, a type that already compiles for the full arch fan pre-0023. Adds no new arch surface. |
+| 0024 paged-pool-burst-reclaim | (a) general | pure host C++. |
+| 0025 moe-nvfp4-decode-regraph | (a) general | host-side ggml-cuda.cu graph-guard relaxation, env-gated `LLAMA_MOE_FORCE_GRAPHS` default-off => byte-identical; predicate is runtime cc-generic. |
+| 0026 hybrid-perhead-ssm-state | (a) general | mostly host plumbing; GDN kernel = same portable column-folded code; fill.cu instantiates `fill_kernel<nv_bfloat16>` (bf16 STORAGE-only, fine on all targeted arches; bf16-compute SSM plan is SHELVED so STATE_T stays f32 on the hot path). LOW-RISK verify item: confirm no bf16-arithmetic GDN instantiation reaches sm_75 if sm_75 ships. |
+| 0028 recurrent-state-gather-fusion | (a) general | new op reuses GGML_OP_SSM_CONV (ids src + rs_head); `ssm_conv_gather_nonident_kernel` plain portable CUDA; CPU mirror + test cases. |
+| 0029 blocktable-within-step-cache | (a) general | pure host C++ + host-timing instrumentation. |
+
+### Specific lines that carry the only conditional/risk surface
+
+- 0017 the ONLY correctly-gated arch surface:
+  - `get_mmq_y_host`: `if (GGML_CUDA_FP4_MMQ_Y != 128 && type == GGML_TYPE_NVFP4 && blackwell_mma_available(cc))`
+  - `get_mmq_y_device<type>()` / `mmq_get_min_blocks_device<type>()`: bodies inside `#if defined(BLACKWELL_MMA_AVAILABLE)`.
+  All default to the stock value, so a default build is byte-identical everywhere.
+- 0023 the gather kernel default-on (GGML_CUDA_MOE_QUANT_DEDUP=1) but the call site
+  is `if (moe_quant_dedup && ne11 == 1)` strictly inside `if (use_native_fp4)`; on
+  non-Blackwell `use_native_fp4` is false so the dedup never executes.
+- 0022 the GB10-tuned launch geometry is `GDN_DEFAULT_NW 16` / `GDN_DEFAULT_CPW 8`
+  (=> 512 threads, MIN_BLOCKS=2). This is the closest thing to a "hardcoded for
+  GB10" launch config, but it is a correct, within-limits, bit-exact default for
+  ANY arch, runtime-overridable via GDN_NW/GDN_CPW. Not a break.
+
+### THE ONE silent-correctness risk (cross-ref SAFETY #1 above)
+
+0021/0028 (and 0018/0019 for the GDN op) implement their new ops for CUDA + CPU
+ONLY, and the fused conv variants REUSE GGML_OP_SSM_CONV discriminated by a
+non-null src[3]/src[4]. Emission is NOT gated on the active compute backend. A
+backend that supports plain SSM_CONV but ignores the discriminator would run the
+WRONG plain conv => SILENT corruption (not a build break). In practice the model
+that emits these (qwen35 hybrid) also needs the fork-custom GDN op, which is
+CUDA/CPU-only, so on Vulkan/SYCL the GDN node asserts/falls back FIRST and the
+model cannot run there regardless; and Metal is not a build target. So the risk is
+latent rather than live, but it should still be closed by gating fused-op emission
+on a CUDA/HIP compute backend (or a supports_op guard rejecting the discriminated
+SSM_CONV where fused handling is absent). This is the single item that could ever
+miscompute silently; everything else is either build-safe or loud.
+
+### Build-safety verdict per target (would it COMPILE / RUN)
+
+- CUDA sm_80 / 86 / 89 / 90 (Ampere/Ada/Hopper): BUILDS (0017 Blackwell code
+  `#if`-stripped + default-off; all other device code portable CUDA). qwen35 hybrid
+  models RUN (GDN + ssm_conv_update + gather have non-Blackwell kernels). NVFP4
+  GGUFs run via the stock non-FP4-MMA dequant/DP4A path; the FP4 levers are inert,
+  not broken. No patch in 0018-0029 breaks this build.
+- CUDA sm_100 (datacenter Blackwell, HBM3e): BUILDS + every lever active
+  (BLACKWELL_MMA_AVAILABLE defined). Bit-exact. GB10-tuned launch defaults are
+  correct but tuned for the LPDDR5x BW floor; on HBM3e the regime is compute-bound,
+  so safe-but-not-necessarily-optimal (re-sweep 0022/0017 levers). No build/correctness risk.
+- Metal: NOT a build target (no darwin row), so missing Metal kernels for the new
+  SSM_CONV/GDN ops cannot break a build or a run here. (The GDN op has no Metal
+  kernel regardless.)
+- CPU (amd64 + arm64): BUILDS + RUNS - every new op ships a CPU mirror under the
+  reused enums; host patches are portable C++.
+- ROCm/HIP, Intel SYCL, Vulkan: BUILD ok. The .cu additions hipify cleanly (no
+  Blackwell intrinsic outside the `#if`; 0022's 512-thread launch within AMD limits).
+  SYCL/Vulkan are separate backends that don't compile the .cu files and lack the
+  GDN op, so qwen35 hybrid models fall back/assert there rather than run; classic
+  (non-qwen35) models are unaffected because SSM_CONV semantics only change when the
+  qwen35 graph emits the discriminator src. The latent silent-SSM_CONV risk above
+  applies only if a backend both supports SSM_CONV and ignores the discriminator.
+
+Verdict: of 0018-0029, none would break a non-Blackwell CUDA build, the CPU build,
+or the ROCm/SYCL/Vulkan builds; 0017 is the only Blackwell-gated patch and is
+default-off and `#if`-guarded. The sole non-build hazard is the latent
+discriminated-SSM_CONV silent-miscompute on a hypothetical Vulkan/SYCL/Metal GDN
+run, which should be closed by compute-backend-gating the fused-op emission.
+
 Assisted-by: Claude:opus-4.8 [Claude Code]
