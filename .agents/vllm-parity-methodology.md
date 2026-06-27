@@ -30,10 +30,16 @@ backend README.
    keeps them bf16, same as us); the MoE expert GEMM was a llama *win*, not the gap.
 
 4. **Per-lever discipline.** For each candidate: implement -> bit-exact gate ->
-   same-session A/B bench (patched-off vs patched-on, identical harness = an exact
-   measure). Bank only what lifts AND gates. **Record every rejected or flat lever
-   with the reason** - over time this is the most valuable part: it stops the next
-   person re-running dead ends.
+   same-harness A/B bench. Use a runtime env-toggle (flag off vs on) ONLY for
+   levers that are actually runtime-gated; a lever **compiled into** the binary
+   (e.g. the SSM decode fusions here) is NOT isolated by a runtime flag, so measure
+   it build-vs-build. The full-patchset "stock" baseline likewise needs a
+   **separately-built unpatched binary at the same pin** - toggling the runtime
+   flag on the patched binary does not reproduce stock (it measures only the gated
+   part; here that was ~neutral, which is exactly how this gotcha hides). Bank only
+   what lifts AND gates. **Record every rejected or flat lever with the reason** -
+   over time this is the most valuable part: it stops the next person re-running
+   dead ends.
 
 5. **Name the structural floor.** Prove the bit-exact ceiling exhaustively (every
    lever measured, not assumed). What remains is physical - the memory-bandwidth
@@ -43,7 +49,9 @@ backend README.
 ## Hard rules learned
 
 - **Apples-to-apples, or label it.** Stock-vs-patched on the SAME harness
-  (`llama-batched-bench`) is exact - lead with it. Cross-engine "% of vLLM"
+  (`llama-batched-bench`) is exact - lead with it. But "stock" must be a
+  separately-built unpatched binary at the SAME pin, NOT the patched binary with
+  the runtime flag off (compiled-in wins survive the toggle). Cross-engine "% of vLLM"
   (batched-bench vs vLLM server+client) is *indicative*; always caveat the harness
   and config (context length alone shifted the MoE figure 76% <-> 86%).
 - **The win may be a precision trade, not a free lever.** bf16 SSM state was +12%
