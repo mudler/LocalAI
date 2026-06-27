@@ -114,4 +114,108 @@ nvidia-cuda-13, nvidia-cuda-12, nvidia-l4t-cuda-12/13.  NO `metal:` key.
   NVFP4 acceleration - still a correctness/availability win over the current
   broken selection.)
 
+## Section: gguf-gallery-targeting (NVFP4 portability + hardware gating)
+
+### 1. NVFP4 GGUFs LOAD + RUN on non-Blackwell - runs-via-dequant, NOT FP4-MMA-required
+
+The published GGUFs use `file_type` MOSTLY_NVFP4 / `GGML_TYPE_NVFP4` (type id 40).
+This is a standard ggml block-quant type with FULL software dequant + matmul
+coverage across every backend, NOT a Blackwell-only format. Verified against the
+paged backend's pinned ggml source (pin 0a2677c6, same upstream as stock
+llama-cpp):
+
+- CPU (any arch, amd64 + arm64): full support, no special hardware.
+  - `ggml/src/ggml-cpu/quants.c`: `quantize_row_nvfp4` (from_float) +
+    `ggml_vec_dot_nvfp4_q8_0_generic` (the matmul dot product), dequant via the
+    `kvalues_mxfp4` lookup table. Registered in the CPU type-traits table
+    (`ggml-cpu.c` line 283: `[GGML_TYPE_NVFP4] = { .from_float=..., .vec_dot=... }`).
+  - NVFP4 handled in all the CPU op switches (`ops.cpp` lines 674, 1125, 1255,
+    4424, 4701, 4925, 5651). LOADS + RUNS correctly on a pure-CPU host, just slow.
+- CUDA, NON-Blackwell (Pascal/Volta/Turing/Ampere sm_80-86 / Ada sm_89 /
+  Hopper sm_90): RUNS correctly via the integer-quantized matmul paths, no
+  FP4-MMA needed.
+  - `convert.cu` registers `dequantize_row_nvfp4_cuda` as both the to_float and
+    to_fp16 dequant kernel (lines 759, 814) - the generic dequant->GEMM path.
+  - `mmvq.cu`: `vec_dot_nvfp4_q8_1` (DP4A integer dot, works on any GPU with
+    dp4a, i.e. Pascal sm_61+). This is the decode (gemv) path.
+  - `mmq.cuh`: NVFP4 has a `MMQ_DP4A_TXS_Q8_0_16` DP4A tile AND a separate
+    `MMQ_MMA_TILE_X_K_NVFP4` tile explicitly commented "NVFP4 Generic" (line
+    222), DISTINCT from `MMQ_MMA_TILE_X_K_FP4` "MXFP4 and NVFP4 Blackwell" (line
+    221). So there are three tiers: DP4A (oldest), generic-MMA (Turing+), and
+    Blackwell-native FP4-MMA.
+  - The Blackwell path is a runtime FLAG, not a requirement:
+    `mmq.cu` line 125 `const bool use_native_fp4 = blackwell_mma_available(cc)
+    && (... NVFP4)`. When false (non-Blackwell), it falls through to the generic
+    quantized kernel. Grep for any abort/unsupported on NVFP4+blackwell = NONE.
+    No `GGML_ABORT`, no garbage - just the non-MMA kernel.
+- Vulkan: has `dequant_nvfp4.comp` + NVFP4 in `ggml-vulkan.cpp` / dequant_funcs
+  - LOADS + RUNS on Vulkan hosts (AMD/Intel/NVIDIA) via dequant.
+- Metal: NVFP4 referenced only in `ggml-metal-device.m` (type registration /
+  size), NO Metal NVFP4 compute kernel. On Apple Silicon NVFP4 tensors would
+  fall back to the CPU backend op-by-op (correct but slow) IF a Metal build
+  existed - which for THIS backend it does not (see build-targeting Section 3).
+
+Bottom line: the NVFP4 GGUFs are PORTABLE. A Hopper/Ada/Ampere/CPU/Vulkan host
+loads and runs them correctly (bit-faithful dequant), just WITHOUT the FP4-MMA
+speedup. FP4-MMA is a Blackwell-only performance tier layered on top of a
+fully-general software path, NOT a load/run gate. Off-Blackwell = runs-via-dequant,
+correct-but-slow; never fail/garbage.
+
+### 2. Gallery hardware-targeting GAP: nothing stops a non-Blackwell user
+
+The 6 -paged entries declare NO machine-readable hardware targeting. The only
+Blackwell signal is free prose in `description:` ("native Blackwell NVFP4
+(FP4-MMA)", "Benchmarked on GB10 / DGX Spark") and a `nvfp4` string in `tags:`.
+
+How LocalAI's gallery CAN express hardware gating (what exists):
+- `tags:` are FREE-TEXT, search-only. `core/gallery/gallery.go` line 89 just does
+  `strings.Contains(lower(join(tags)), term)` for the search box + line 128
+  collects them for filter chips. There is NO tag that gates install or warns;
+  the `nvfp4` tag is purely discoverability.
+- The model `ModelConfig` struct (`core/gallery/models.go`) has only
+  Description/Icon/License/URLs/Name/ConfigFile/Files/PromptTemplates. There is
+  NO capabilities / requirements / hardware field at the MODEL level. (Signing
+  `verification:` is the only structured gate, unrelated to hardware.)
+- The `capabilities:` map (default/nvidia/intel/amd/metal/vulkan/...) is a
+  BACKEND-level concept in `backend/index.yaml` (paged entry lines 100-111). It
+  selects the backend IMAGE by detected accelerator FAMILY (nvidia vs amd vs
+  metal vs cpu). Crucially it does NOT and CANNOT distinguish Blackwell sm_120/121
+  from older NVIDIA - `nvidia: cuda12-llama-cpp-localai-paged` is served to ANY
+  NVIDIA GPU. There is no sub-nvidia (microarch) gating mechanism in the gallery
+  or the backend capability resolver.
+
+So the gating gap is real: a non-Blackwell user browsing the gallery is offered
+the NVFP4 entries with no machine-readable signal that they will run far below
+the advertised "90-117% of vLLM" numbers (those numbers are GB10/LPDDR5x-bound
+specific). It will install and run correctly, just slowly, and the bench claims
+in the description will not hold.
+
+### 3. How to express Blackwell-targeting (recommendation)
+
+Given there is no microarch-gating primitive, the honest options are, in order:
+
+a. DESCRIPTION + TAG (only thing available today, zero code): the entries already
+   say "native Blackwell NVFP4 (FP4-MMA)" - tighten it to a leading one-line
+   "Hardware: Blackwell (RTX 50-series / GB10 / B200) recommended; runs on other
+   NVIDIA/CPU via NVFP4 dequant but WITHOUT the FP4-MMA speedup and below the
+   quoted GB10 throughput." Add a `blackwell` tag alongside `nvfp4` for the
+   filter chip. This is the existing convention (other entries use free prose +
+   `nvidia` tag, e.g. line 2395; quant trade-offs are described in prose, e.g.
+   the Gemma "Mobile-optimized" notes lines 1312/1366). No other gallery entry
+   today encodes a GPU-microarch requirement, so prose is the de-facto standard.
+b. If a structured signal is wanted, it would need a NEW field (e.g. a
+   `recommended_hardware` / `requires` note surfaced by the React UI import
+   dialog) - that is a feature, not a config tweak, and does not exist yet.
+c. The `nvfp4` tag should at minimum be present on ALL six entries - the four
+   Qwopus/Qwen-MTP entries at lines 819/854/890 have only `[llm, gguf]` tags and
+   omit `nvfp4`, so they are not even discoverable/filterable as NVFP4, despite
+   being NVFP4 GGUFs. Inconsistent tagging is a secondary gap.
+
+Verdict (gallery-targeting): NVFP4 GGUFs are safe to ship broadly (they run
+everywhere via dequant, never fail), so the risk is PERFORMANCE-EXPECTATION, not
+correctness. LocalAI has no microarch gating primitive; the only lever is the
+description + tags. Recommend a one-line Blackwell-recommended hardware note +
+consistent `nvfp4`/`blackwell` tags on all six, and tempering the GB10 bench
+claims with the "runs slower off-Blackwell" caveat.
+
 Assisted-by: Claude:opus-4.8 [Claude Code]
