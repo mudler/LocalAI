@@ -1,0 +1,106 @@
+From a095f4ebeefafd16dd54c514eb86148fa46daef3 Mon Sep 17 00:00:00 2001
+From: Ettore Di Giacinto <mudler@localai.io>
+Date: Sat, 27 Jun 2026 07:30:43 +0000
+Subject: [PATCH] feat(paged): backend-gate fused GDN/discriminated SSM_CONV
+ emission (patch 0030)
+
+Closes the latent silent-miscompute hazard (audit RISKY-1). The fused/in-place
+Gated Delta Net op (0018/0019/0026: ggml_gated_delta_net_inplace[_ids][_hybrid])
+and the discriminated SSM_CONV decode op (0021/0028: ggml_ssm_conv_update_inplace
+[_ids], which REUSE GGML_OP_SSM_CONV / GGML_OP_GATED_DELTA_NET with extra src
+slots - a non-null src[3]/src[4] ring/ids discriminator) are emitted DEFAULT-ON
+(cparams.fused_gdn_ar/ch=true, auto_fgdn=true) but are implemented for the
+CUDA-family TU (CUDA / HIP "ROCm" / "MUSA", hipified ggml-cuda) and the CPU
+reference ONLY.
+
+The hazard: a compute backend that supports PLAIN GGML_OP_SSM_CONV but ignores
+the src[3]/src[4] discriminator (Vulkan/SYCL/Metal) reports supports_op==true for
+the node and the scheduler assigns the discriminated conv to it; it then runs the
+wrong plain conv => SILENT corruption (not a crash). The upstream auto_fgdn
+device-mismatch resolution only inspects GATED_DELTA_NET nodes, so the
+discriminated-SSM_CONV safety was only incidentally covered (it happened to share
+backend coverage with the GDN op); it becomes live the moment a non-CUDA paged
+build of a gated-DeltaNet model exists.
+
+FIX: gate the fused-op emission on the active compute backend type. Before the
+auto_fgdn resolution in llama_context::sched_reserve(), if any non-CPU compute
+backend is not CUDA-family (reg name != "CUDA"/"ROCm"/"MUSA"), force
+fused_gdn_ar = fused_gdn_ch = auto_fgdn = false. Every emission site keys off
+these flags (conv_decode_fused = ... && fused_gdn_ar; fused = ... fused_gdn_ar/ch),
+so disabling them routes the graph to the upstream non-fused path: a PLAIN
+ggml_ssm_conv (no discriminator) + ggml_silu, which every backend handles
+correctly. This makes the discriminated-op safety explicit and decoupled from the
+GDN-op device-mismatch heuristic.
+
+INVARIANT (CUDA byte-identical): on a CUDA backend the reg name is "CUDA", so
+fgdn_backend_ok stays true, the flags are left untouched, and the emitted decode
+graph is unchanged - byte-identical to pre-0030. The fix only changes behavior on
+non-CUDA/non-CPU backends.
+
+GATE compile: CPU-only build (GGML_CUDA=OFF) of the full series (pin 9d5d882d +
+0001-0029 + this) links libllama.so and test-backend-ops with 0 errors; the
+edited llama-context.cpp compiles clean (uses only already-included <cstring> +
+backend-reg API already used in this TU). test-backend-ops correctness for
+SSM_CONV / SSM_CONV_UPDATE / SSM_CONV_UPDATE_IDS / GATED_DELTA_NET is a
+CUDA0-vs-CPU comparison (CPU-only run skips CPU-vs-CPU); the test cases are
+registered and exercised on the CUDA DGX run.
+
+Assisted-by: Claude:opus-4.8 [Claude Code]
+Signed-off-by: Ettore Di Giacinto <mudler@localai.io>
+---
+ src/llama-context.cpp | 39 +++++++++++++++++++++++++++++++++++++++
+ 1 file changed, 39 insertions(+)
+
+diff --git a/src/llama-context.cpp b/src/llama-context.cpp
+index ad7939e..c408eef 100644
+--- a/src/llama-context.cpp
++++ b/src/llama-context.cpp
+@@ -521,6 +521,45 @@ void llama_context::sched_reserve() {
+         cparams.auto_fa = false;
+     }
+ 
++    // RISKY-1 guard: the fused/in-place Gated Delta Net op and the discriminated
++    // SSM_CONV (which reuse GGML_OP_GATED_DELTA_NET / GGML_OP_SSM_CONV with extra
++    // src slots - a non-null src[3]/src[4] ring/ids discriminator) are only
++    // implemented for the CUDA-family backends (CUDA / HIP "ROCm" / "MUSA" - all
++    // built from the hipified ggml-cuda TU) and the CPU reference. Any other
++    // compute backend (Vulkan/SYCL/Metal/...) that supports *plain* SSM_CONV but
++    // ignores the discriminator src would silently run the WRONG conv. The
++    // upstream auto_fgdn device-mismatch check below only inspects
++    // GATED_DELTA_NET nodes, so couple the discriminated-SSM_CONV safety
++    // explicitly to the backend type here: keep the fused path enabled only when
++    // every non-CPU compute backend is CUDA-family. On CUDA this leaves the flags
++    // untouched, so the emitted decode graph is byte-identical.
++    if (cparams.fused_gdn_ar || cparams.fused_gdn_ch) {
++        bool fgdn_backend_ok = true;
++        for (auto & backend : backends) {
++            ggml_backend_dev_t dev = ggml_backend_get_device(backend.get());
++            if (!dev || ggml_backend_dev_type(dev) == GGML_BACKEND_DEVICE_TYPE_CPU) {
++                // CPU reference handles the fused/discriminated ops
++                continue;
++            }
++            ggml_backend_reg_t reg  = ggml_backend_dev_backend_reg(dev);
++            const char *       name = reg ? ggml_backend_reg_name(reg) : "";
++            // GGML_CUDA_NAME is "CUDA" / "ROCm" (HIP) / "MUSA"; all three are the
++            // same ggml-cuda TU that carries the discriminated-op handling.
++            if (strcmp(name, "CUDA") != 0 && strcmp(name, "ROCm") != 0 && strcmp(name, "MUSA") != 0) {
++                fgdn_backend_ok = false;
++                break;
++            }
++        }
++
++        if (!fgdn_backend_ok) {
++            cparams.fused_gdn_ar = false;
++            cparams.fused_gdn_ch = false;
++            cparams.auto_fgdn    = false;
++            LLAMA_LOG_INFO("%s: fused Gated Delta Net / discriminated SSM_CONV disabled "
++                    "(compute backend is not CUDA/HIP/CPU)\n", __func__);
++        }
++    }
++
+     if (cparams.auto_fgdn) {
+         LLAMA_LOG_INFO("%s: resolving fused Gated Delta Net support:\n", __func__);
+ 
+-- 
+2.43.0
+
