@@ -420,8 +420,8 @@ may want a second lighter gallery variant (context_size 16384, parallel 4, drop 
 ================================================================================
 
 The two GGUFs already exist on the DGX dev box (final_benchmark.csv references
-q36-27b-nvfp4.gguf and q36-35b-a3b-nvfp4.gguf; QWEN36_NVFP4_BENCH.md section "The 4 models"
-documents provenance: dense = native Blackwell FP4 unsloth W4A4 lineage; MoE = 241 NVFP4
+q36-27b-nvfp4.gguf and q36-35b-a3b-nvfp4.gguf; README.md "Models" + "Benchmarks"
+document provenance: dense = native Blackwell FP4 unsloth W4A4 lineage; MoE = 241 NVFP4
 tensors from nvidia modelopt weights). To publish:
 
   1. HF repos (suggest two, under the org that owns the gallery-referenced weights):
@@ -434,7 +434,7 @@ tensors from nvidia modelopt weights). To publish:
   3. Model card metadata: base_model Qwen/Qwen3.6-*, library_name gguf, quantization NVFP4,
      pipeline_tag text-generation, license (confirm Qwen3.6 license terms - apache-2.0 vs
      Qwen community license), a note that it REQUIRES the llama-cpp-paged backend (NVFP4 +
-     paged), and the GB10 benchmark table (link QWEN36_NVFP4_BENCH.md numbers).
+     paged), and the GB10 benchmark table (link README.md "Benchmarks" numbers).
   4. NVFP4 requires a llama.cpp new enough to read the NVFP4 GGUF type. Confirm the pinned
      LLAMA_VERSION in backend/cpp/llama-cpp/Makefile supports NVFP4 tensor types (the dev
      tree that produced the GGUFs did). If the current pin predates NVFP4 GGUF support, the

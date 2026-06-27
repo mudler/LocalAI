@@ -20,7 +20,7 @@
 # persist their state as bf16 (LLAMA_SSM_BF16_TAU), halving that head's decode byte
 # stream. Default off (0) = every head f32 = bit-exact; when enabled the mode is NOT
 # bit-exact (~91% same-top-p, beats vLLM dense) - see
-# backend/cpp/llama-cpp/patches/paged/A_HYBRID_SSM_RESULTS.md for the quality profile.
+# backend/cpp/llama-cpp/patches/paged/README.md for the quality profile.
 # The two NVFP4 entries below intentionally stay bit-exact (no ssm_bf16_tau).
 # =============================================================================
 - name: "qwen3.6-27b-nvfp4-paged"

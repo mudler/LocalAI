@@ -28,7 +28,7 @@
 # build on 0019's code, the rejection cascades to them too. This is a
 # PRE-EXISTING shipped-series defect, present identically on every pin, NOT an
 # upstream break (see backend/cpp/llama-cpp/patches/paged/PIN_SYNC_c299a92c.md
-# and PIN_BUMP_APPLY_CHECK.md). We exclude ONLY that dev-doc path and still
+# and README.md). We exclude ONLY that dev-doc path and still
 # apply 0019's real code hunks atomically, so a genuine code-hunk break in 0019
 # still fails the canary. prepare.sh tolerates the same hunk via
 # `patch ... || true`; this mirrors that tolerance precisely.

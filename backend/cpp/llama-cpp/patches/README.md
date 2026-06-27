@@ -57,7 +57,7 @@ All variants (avx/avx2/avx512/cuda/…) copy the patched `llama.cpp/` tree, so t
 - **0002 block placement — DONE + VERIFIED.** Built `llama-simple` at the pin; greedy generation is
   **token-identical** stock vs `LLAMA_KV_PAGED=1` (Qwen3-0.6B), paged branch confirmed firing.
 - **0003 gather-read — DONE + VERIFIED (Gate 0 green).** Implemented in the **additive** form
-  (`ADDITIVE_DESIGN.md`): all logic in new `src/paged-attn.{h,cpp}` (a `llm_graph_input_i` gather-index
+  (see `paged/README.md`): all logic in new `src/paged-attn.{h,cpp}` (a `llm_graph_input_i` gather-index
   subclass + the K/V/mask gather), hooked by **one** line in `build_attn` + **two** thin accessors on
   `llama_kv_cache_context` + 1 CMake line (216 insertions; no edit to `llm_graph_input_attn_kv` or
   `llama-graph.h`). Greedy generation is **token-identical** stock vs `LLAMA_KV_PAGED=1` (Qwen3-0.6B,
