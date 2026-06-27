@@ -13,7 +13,10 @@
 
 #include "mtmd.h"
 
-using json = nlohmann::json;
+// mtmd.h and ik_llama's entire server/common stack (chat.h, server-common.h,
+// server-task.h, ...) declare `using json = nlohmann::ordered_json`, so match it
+// here: a plain `nlohmann::json` alias collides with mtmd.h's at global scope.
+using json = nlohmann::ordered_json;
 
 extern bool server_verbose;
 

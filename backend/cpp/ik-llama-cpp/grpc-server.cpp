@@ -45,7 +45,9 @@ using backend::HealthMessage;
 
 ///// LLAMA.CPP server code below
 
-using json = nlohmann::json;
+// Match mtmd.h and ik_llama's server/common headers, which all use
+// nlohmann::ordered_json; a plain nlohmann::json alias collides at global scope.
+using json = nlohmann::ordered_json;
 
 struct server_params
 {
