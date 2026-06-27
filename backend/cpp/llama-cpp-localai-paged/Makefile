@@ -1,19 +1,34 @@
 
-# llama-cpp-localai-paged is LocalAI's paged-attention llama.cpp variant. It is
-# the SAME upstream llama.cpp pin as the stock llama-cpp backend, with the
-# LocalAI paged-attention patch series (backend/cpp/llama-cpp/patches/paged/)
-# applied on top (LLAMA_PAGED=on). It reuses backend/cpp/llama-cpp's
-# grpc-server.cpp / CMakeLists.txt / prepare.sh sources verbatim via a thin
-# wrapper, so there is nothing to keep in sync here.
+# llama-cpp-localai-paged is LocalAI's paged-attention llama.cpp variant. It
+# builds upstream llama.cpp with the LocalAI paged-attention patch series
+# (backend/cpp/llama-cpp/patches/paged/) applied on top (LLAMA_PAGED=on). It
+# reuses backend/cpp/llama-cpp's grpc-server.cpp / CMakeLists.txt / prepare.sh
+# sources verbatim via a thin wrapper.
 #
-# Differences vs the turboquant wrapper (the precedent this is modelled on):
-#   - NO LLAMA_REPO / LLAMA_VERSION override: we build the SAME upstream pin as
-#     stock llama-cpp (it lives in backend/cpp/llama-cpp/Makefile and is
-#     auto-bumped there), so there is no bump_deps.yaml entry to maintain.
+# Pin handling (mirrors the turboquant wrapper, the precedent this is modelled
+# on): the paged patch series is hand-verified bit-exact against ONE specific
+# llama.cpp tip and re-exported by the manual PIN_SYNC process
+# (backend/cpp/llama-cpp/patches/paged/PIN_SYNC_*.md). A naive pin bump would
+# move the tip out from under the patches and break `git apply` at build time,
+# so this backend OWNS its pin (LLAMA_VERSION below) instead of inheriting the
+# auto-bumped stock pin from backend/cpp/llama-cpp/Makefile. The override is
+# forced into every copied build via `LLAMA_VERSION=$(LLAMA_VERSION)`. There is
+# deliberately NO bump_deps.yaml entry for it: it is advanced ONLY by PIN_SYNC,
+# never nightly. (turboquant CAN auto-bump because its fork branch carries the
+# patches; the paged series is vendored as .patch files here, so it cannot.)
+#
 #   - NO patch-grpc-server.sh and NO apply-patches.sh: the shared
 #     grpc-server.cpp already carries the (runtime-gated) paged option hooks,
 #     and the paged patch series is applied by the copied llama-cpp Makefile's
 #     own `llama.cpp` target whenever LLAMA_PAGED=on (which we force below).
+
+# Manually pin-synced llama.cpp tip the paged patch series is verified against.
+# Decoupled from the auto-bumped stock pin in backend/cpp/llama-cpp/Makefile so
+# the nightly llama.cpp bump cannot silently break the vendored paged patches.
+# Advance ONLY via the PIN_SYNC process (rebase patches + bit-exact gate +
+# re-export), then update this value. See:
+#   backend/cpp/llama-cpp/patches/paged/PIN_SYNC_*.md
+LLAMA_VERSION?=9d5d882d8cd0f0a9283d87ed5e6fe3ee0d925fb1
 
 CMAKE_ARGS?=
 BUILD_TYPE?=
@@ -45,8 +60,8 @@ define paged-build
 	cp -rf $(LLAMA_CPP_DIR) $(CURRENT_MAKEFILE_DIR)/../llama-cpp-localai-paged-$(1)-build
 	$(MAKE) -C $(CURRENT_MAKEFILE_DIR)/../llama-cpp-localai-paged-$(1)-build purge
 	$(info $(GREEN)I llama-cpp-localai-paged build info:$(1)$(RESET))
-	LLAMA_PAGED=on $(MAKE) -C $(CURRENT_MAKEFILE_DIR)/../llama-cpp-localai-paged-$(1)-build llama.cpp
-	CMAKE_ARGS="$(CMAKE_ARGS) $(2)" TARGET="$(3)" LLAMA_PAGED=on \
+	LLAMA_VERSION=$(LLAMA_VERSION) LLAMA_PAGED=on $(MAKE) -C $(CURRENT_MAKEFILE_DIR)/../llama-cpp-localai-paged-$(1)-build llama.cpp
+	CMAKE_ARGS="$(CMAKE_ARGS) $(2)" TARGET="$(3)" LLAMA_VERSION=$(LLAMA_VERSION) LLAMA_PAGED=on \
 	$(MAKE) -C $(CURRENT_MAKEFILE_DIR)/../llama-cpp-localai-paged-$(1)-build grpc-server
 	cp -rfv $(CURRENT_MAKEFILE_DIR)/../llama-cpp-localai-paged-$(1)-build/grpc-server llama-cpp-localai-paged-$(1)
 endef
@@ -75,8 +90,8 @@ llama-cpp-localai-paged-cpu-all:
 	cp -rf $(LLAMA_CPP_DIR) $(CURRENT_MAKEFILE_DIR)/../llama-cpp-localai-paged-cpu-all-build
 	$(MAKE) -C $(CURRENT_MAKEFILE_DIR)/../llama-cpp-localai-paged-cpu-all-build purge
 	$(info $(GREEN)I llama-cpp-localai-paged build info:cpu-all-variants$(RESET))
-	LLAMA_PAGED=on $(MAKE) -C $(CURRENT_MAKEFILE_DIR)/../llama-cpp-localai-paged-cpu-all-build llama.cpp
-	SHARED_LIBS=ON EXTRA_CMAKE_ARGS="-DGGML_BACKEND_DL=ON -DGGML_CPU_ALL_VARIANTS=ON" TARGET="--target grpc-server --target ggml" LLAMA_PAGED=on \
+	LLAMA_VERSION=$(LLAMA_VERSION) LLAMA_PAGED=on $(MAKE) -C $(CURRENT_MAKEFILE_DIR)/../llama-cpp-localai-paged-cpu-all-build llama.cpp
+	SHARED_LIBS=ON EXTRA_CMAKE_ARGS="-DGGML_BACKEND_DL=ON -DGGML_CPU_ALL_VARIANTS=ON" TARGET="--target grpc-server --target ggml" LLAMA_VERSION=$(LLAMA_VERSION) LLAMA_PAGED=on \
 	$(MAKE) -C $(CURRENT_MAKEFILE_DIR)/../llama-cpp-localai-paged-cpu-all-build grpc-server
 	cp -rfv $(CURRENT_MAKEFILE_DIR)/../llama-cpp-localai-paged-cpu-all-build/grpc-server llama-cpp-localai-paged-cpu-all
 	rm -rf ggml-shared-libs && mkdir -p ggml-shared-libs

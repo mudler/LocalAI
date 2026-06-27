@@ -9,6 +9,15 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
+        # NOTE: there is intentionally NO entry for the llama-cpp-localai-paged
+        # backend. It carries a vendored paged-attention patch series
+        # (backend/cpp/llama-cpp/patches/paged/) hand-verified bit-exact against
+        # ONE specific llama.cpp tip; a naive nightly bump would move the tip out
+        # from under the patches and break `git apply` at build time. Its pin is
+        # therefore decoupled (its own LLAMA_VERSION in
+        # backend/cpp/llama-cpp-localai-paged/Makefile) and advanced ONLY by the
+        # manual PIN_SYNC process. Do not add it here. (turboquant CAN be
+        # auto-bumped below because its fork branch carries the patches.)
         include:
           - repository: "ggml-org/llama.cpp"
             variable: "LLAMA_VERSION"

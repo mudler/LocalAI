@@ -1,4 +1,9 @@
 
+# This pin is auto-bumped nightly by .github/workflows/bump_deps.yaml (the stock
+# llama-cpp backend is patch-free, so a naive bump is safe). The paged backend
+# (backend/cpp/llama-cpp-localai-paged) does NOT inherit this pin: it owns its
+# own LLAMA_VERSION because its vendored patch series would break on a naive
+# bump and is advanced only by the manual PIN_SYNC process.
 LLAMA_VERSION?=9d5d882d8cd0f0a9283d87ed5e6fe3ee0d925fb1
 LLAMA_REPO?=https://github.com/ggerganov/llama.cpp
 # LLAMA_PAGED controls whether the vendored paged-attention patch series
