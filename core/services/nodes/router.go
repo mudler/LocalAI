@@ -63,6 +63,11 @@ type SmartRouterOptions struct {
 	// The reconciler reads the same instance to autoscale a saturated cache-warm
 	// replica. nil disables recording (the disabled path stays a no-op).
 	Pressure *prefixcache.Pressure
+	// SharedModels asserts that every node mounts the same models directory at
+	// the same path. When true, stageModelFiles skips all uploading and leaves
+	// the absolute model paths untouched so the worker loads them directly from
+	// the shared volume (#10556). See config.DistributedConfig.SharedModels.
+	SharedModels bool
 }
 
 // SmartRouter routes inference requests to the best available backend node.
@@ -93,6 +98,9 @@ type SmartRouter struct {
 	// per-request routing doesn't stall behind a busy backend's serialized
 	// HealthCheck/Predict. See probe_cache.go for the rationale.
 	probeCache *probeCache
+	// sharedModels skips file staging when all nodes mount the same models
+	// directory at the same path (see SmartRouterOptions.SharedModels).
+	sharedModels bool
 }
 
 // probeCacheTTL is how long a successful gRPC HealthCheck on a backend is
@@ -122,6 +130,7 @@ func NewSmartRouter(registry ModelRouter, opts SmartRouterOptions) *SmartRouter 
 		prefixProvider:   opts.PrefixProvider,
 		prefixConfig:     opts.PrefixConfig,
 		pressure:         opts.Pressure,
+		sharedModels:     opts.SharedModels,
 	}
 }
 
@@ -947,6 +956,19 @@ func (r *SmartRouter) buildClientForAddr(node *BackendNode, addr string, paralle
 // simply remove the {ModelsPath}/{trackingKey}/ directory.
 func (r *SmartRouter) stageModelFiles(ctx context.Context, node *BackendNode, opts *pb.ModelOptions, trackingKey string) (*pb.ModelOptions, error) {
 	opts = proto.Clone(opts).(*pb.ModelOptions)
+
+	// Shared-models mode: every node mounts the same models directory at the
+	// same path, so the frontend's absolute model paths are already valid on the
+	// worker. Staging would only re-upload files that already exist on the shared
+	// volume (under a tracking-key subdir the probe never reuses), re-downloading
+	// the model on every load (#10556). Return the clone untouched: no upload, no
+	// path rewrite, no staging tracker.
+	if r.sharedModels {
+		xlog.Info("Skipping model file staging: shared-models mode is on (LOCALAI_DISTRIBUTED_SHARED_MODELS); worker loads directly from the shared volume",
+			"node", node.Name, "modelFile", opts.ModelFile, "trackingKey", trackingKey)
+		return opts, nil
+	}
+
 	xlog.Info("Staging model files for remote node", "node", node.Name, "modelFile", opts.ModelFile, "trackingKey", trackingKey)
 
 	// Derive the frontend models directory from ModelFile and Model.

@@ -31,6 +31,14 @@ type DistributedConfig struct {
 	// available to enforce just one layer.
 	RequireAuth      bool // LOCALAI_DISTRIBUTED_REQUIRE_AUTH
 	AutoApproveNodes bool // --auto-approve-nodes / LOCALAI_AUTO_APPROVE_NODES (skip admin approval for new workers)
+	// SharedModels asserts that every node (frontend and workers) mounts the
+	// SAME models directory at the SAME path (e.g. a shared volume, as in
+	// docker-compose.distributed.yaml). When true, the router skips staging
+	// model files to workers entirely: the frontend's absolute model paths are
+	// already valid on the worker, so re-uploading them into a per-model
+	// subdirectory only re-downloads what is already present (#10556). Default
+	// false preserves the historical per-node staging behavior.
+	SharedModels bool // --distributed-shared-models / LOCALAI_DISTRIBUTED_SHARED_MODELS
 
 	// NATS JWT auth (optional; see pkg/natsauth and docs/features/distributed-mode.md)
 	NatsAccountSeed  string        // LOCALAI_NATS_ACCOUNT_SEED — account signing seed to mint per-node worker JWTs
@@ -280,6 +288,13 @@ func WithBackendUpgradeTimeout(d time.Duration) AppOption {
 
 var EnableAutoApproveNodes = func(o *ApplicationConfig) {
 	o.Distributed.AutoApproveNodes = true
+}
+
+// EnableDistributedSharedModels marks the cluster as sharing one models
+// directory across all nodes, so the router skips staging model files to
+// workers (see DistributedConfig.SharedModels).
+var EnableDistributedSharedModels = func(o *ApplicationConfig) {
+	o.Distributed.SharedModels = true
 }
 
 // DisablePrefixCache turns off prefix-cache-aware routing (falls back to

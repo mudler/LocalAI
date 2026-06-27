@@ -160,6 +160,7 @@ type RunCMD struct {
 	RegistrationRequireAuth   bool   `env:"LOCALAI_REGISTRATION_REQUIRE_AUTH" default:"false" help:"Fail startup when distributed mode is enabled but LOCALAI_REGISTRATION_TOKEN is empty (node endpoints and worker file-transfer server would otherwise be unauthenticated)" group:"distributed"`
 	DistributedRequireAuth    bool   `env:"LOCALAI_DISTRIBUTED_REQUIRE_AUTH" default:"false" help:"Umbrella switch: require BOTH NATS JWT credentials and a registration token when distributed mode is enabled (implies --nats-require-auth and --registration-require-auth)" group:"distributed"`
 	AutoApproveNodes          bool   `env:"LOCALAI_AUTO_APPROVE_NODES" default:"false" help:"Auto-approve new worker nodes (skip admin approval)" group:"distributed"`
+	DistributedSharedModels   bool   `env:"LOCALAI_DISTRIBUTED_SHARED_MODELS" default:"false" help:"Assert that every node mounts the SAME models directory at the SAME path (shared volume). When true, the router skips staging model files to workers and loads them directly from the shared path, avoiding re-downloads." group:"distributed"`
 	DistributedPrefixCache    bool   `env:"LOCALAI_DISTRIBUTED_PREFIX_CACHE" default:"true" help:"Enable prefix-cache-aware routing in distributed mode (default true). When false, routing falls back to round-robin." group:"distributed"`
 	DistributedPrefixCacheTTL string `env:"LOCALAI_DISTRIBUTED_PREFIX_CACHE_TTL" help:"Idle-timeout for prefix-cache index entries; also drives the background eviction cadence (every TTL/2). Default 5m." group:"distributed"`
 	BackendInstallTimeout     string `env:"LOCALAI_NATS_BACKEND_INSTALL_TIMEOUT" help:"NATS round-trip timeout for backend.install requests sent to worker nodes (default 15m). Increase for slow links pulling multi-GB images." group:"distributed"`
@@ -309,6 +310,9 @@ func (r *RunCMD) Run(ctx *cliContext.Context) error {
 	}
 	if r.DistributedRequireAuth {
 		opts = append(opts, config.EnableDistributedRequireAuth)
+	}
+	if r.DistributedSharedModels {
+		opts = append(opts, config.EnableDistributedSharedModels)
 	}
 	if r.NatsAccountSeed != "" {
 		opts = append(opts, config.WithNatsAccountSeed(r.NatsAccountSeed))
