@@ -30,10 +30,12 @@ vendored patch series over upstream llama.cpp that adds
   gated-DeltaNet (SSM) models, where the recurrent-state plumbing - not the FP4
   GEMM - dominates the decode step.
 
-It is **pinned to llama.cpp `c299a92c`** ("binaries : Improve rpc-server and
-export-graph-ops names", #25045) and advanced only by a manual, bit-exact-gated
+It is **pinned to llama.cpp `9d5d882d`** (kept == the stock `llama-cpp` backend's
+pin) and advanced only by a manual, bit-exact-gated
 [pin-sync process](docs/PIN_SYNC_c299a92c.md), decoupled from the nightly auto-bumper
-(see section 7).
+(see section 7). The pin must stay aligned with the stock pin because
+`grpc-server.cpp` is shared; an earlier bump to `c299a92c` was bit-exact but broke
+the grpc-server link and was reverted.
 
 The build gate is `LLAMA_PAGED` (default on in this tree); the paged engine is
 enabled per-model at runtime via the gallery `options:` knobs (`paged_kv:true`,
@@ -324,12 +326,18 @@ in a recommended/gallery config.
 
 ## 7. Pin + maintenance policy
 
-- **Pinned to llama.cpp `c299a92c`.** The pin is advanced **only** by the manual
-  [`PIN_SYNC`](docs/PIN_SYNC_c299a92c.md) process: rebase the source-only patch series
-  onto the new tip, rebuild on GPU, and pass the bit-exact gate on every path
-  (dense + MoE, paged + non-paged) plus `test-backend-ops`. The `9d5d882d ->
-  c299a92c` jump (23 upstream commits) needed zero patch changes and did not
-  change decode output.
+- **Pinned to llama.cpp `9d5d882d`** (kept == the stock `llama-cpp` pin). The pin
+  is advanced **only** by the manual [`PIN_SYNC`](docs/PIN_SYNC_c299a92c.md) process:
+  rebase the source-only patch series onto the new tip, rebuild on GPU, pass the
+  bit-exact gate on every path (dense + MoE, paged + non-paged) plus
+  `test-backend-ops`, **and confirm the full grpc-server build links on CI**.
+- **The pin must track the stock pin.** `grpc-server.cpp` is shared with the stock
+  backend and tracks the stock pin, so a paged pin that diverges past an upstream
+  server-API refactor breaks the grpc-server LINK even when the patches are
+  bit-exact. A bump to `c299a92c` (23 commits ahead of stock) was greedy-md5
+  bit-exact but failed to link (undefined `stream_*` server helpers introduced by
+  the refactor), and was reverted to `9d5d882d`. The bit-exact gate alone does not
+  catch this; only the full CI grpc-server build does.
 - **Decoupled from the nightly auto-bumper.** There is deliberately **no**
   `bump_deps.yaml` entry for this backend - a naive `LLAMA_VERSION` bump could
   silently shift the tree out from under the patches.

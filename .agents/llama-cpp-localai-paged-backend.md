@@ -58,9 +58,19 @@ and break `git apply` at build time.
 2. **The pin-sync** (recorded in `docs/PIN_SYNC_*.md`): rebase the series onto the new
    tip (resolve conflicts; re-export **source-only** with a pathspec like
    `-- src/ ggml/ common/ include/ tools/ tests/ cmake/`), rebuild on a CUDA box,
-   pass the bit-exact gate on **every** path + `test-backend-ops`, then bump
-   `LLAMA_VERSION`. The 9d5d882d -> c299a92c bump (23 upstream commits) needed zero
-   patch changes; bumps are usually offset-tolerant (git apply absorbs offsets).
+   pass the bit-exact gate on **every** path + `test-backend-ops`, **and confirm
+   the full grpc-server build/link is green on CI**, then bump `LLAMA_VERSION`.
+
+**Hard constraint: keep the pin == the stock `llama-cpp` pin.** `grpc-server.cpp`
+is shared with the stock backend and tracks the stock pin. A paged pin that
+diverges PAST an upstream server-API refactor breaks the grpc-server LINK even
+when the patches are byte-for-byte bit-exact - the bit-exact gate alone does NOT
+catch it. The `c299a92c` bump did exactly this (patches applied + greedy-md5
+bit-exact, but `grpc-server.cpp` failed to link with undefined `stream_*` server
+helpers the refactor pulled into its headers), so it was reverted to `9d5d882d`.
+A pin bump is shippable only once the full CI grpc-server build is green, which in
+practice means moving in lockstep with the stock pin (or vendoring a
+pin-matched grpc-server.cpp, which we deliberately do not, to keep stock pure).
 
 ## The bit-exact gate (run for every change)
 

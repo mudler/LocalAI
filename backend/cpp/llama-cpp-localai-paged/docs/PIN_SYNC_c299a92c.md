@@ -1,8 +1,21 @@
 # Pin-sync: paged patch-stack -> llama.cpp c299a92c
 
-Status: COMPLETE. The shipped source-only paged patch series (`0001`-`0030`,
-28 `.patch` files) was advanced from llama.cpp `9d5d882d` to `c299a92c`
-("binaries : Improve rpc-server and export-graph-ops names. (#25045)"),
+> **Status: REVERTED. The active pin is back at `9d5d882d`.** This bump was
+> bit-exact but **broke the CI grpc-server build/link**. `grpc-server.cpp` is
+> shared with the stock `llama-cpp` backend and tracks the stock pin (`9d5d882d`);
+> `c299a92c`'s upstream server-API refactor pulled `stream_*` helpers into the
+> headers grpc-server.cpp includes, and their definitions are not compiled by the
+> stock-aligned build, so every paged variant failed to link
+> (`undefined reference to stream_aware_should_stop / stream_pipe_producer::cleanup
+> / stream_session_attach_pipe`). **Lesson: a paged pin-sync must pass the FULL CI
+> grpc-server build, not only the greedy-md5 bit-exact gate, and the paged pin must
+> stay == the stock pin (or the backend must vendor a pin-matched grpc-server.cpp,
+> which we deliberately avoid to keep stock pure).** The bit-exactness findings
+> below remain valid for `c299a92c`; only the build/link blocks shipping it.
+
+Status (original, patch-level only): COMPLETE. The shipped source-only paged patch
+series (`0001`-`0030`, 28 `.patch` files) was advanced from llama.cpp `9d5d882d` to
+`c299a92c` ("binaries : Improve rpc-server and export-graph-ops names. (#25045)"),
 GPU-rebuilt clean (CUDA sm_121 / GB10), and the bit-exact gate is GREEN on every
 path (dense + MoE, paged + non-paged) plus `test-backend-ops`. The 23-commit
 upstream jump `9d5d882d..c299a92c` did NOT change our decode output.

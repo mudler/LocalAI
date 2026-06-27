@@ -38,7 +38,17 @@
 # this patch series against the latest upstream llama.cpp tip and goes red the
 # moment upstream drifts past the patches. Canary red -> run a PIN_SYNC, then
 # bump this value. The canary never touches this pin; it is signal-only.
-LLAMA_VERSION?=c299a92c38b6de6a1139617652b66081828648db
+#
+# HARD CONSTRAINT: keep this == the stock llama-cpp pin (backend/cpp/llama-cpp/
+# Makefile). grpc-server.cpp is SHARED with the stock backend and tracks the
+# stock pin; a paged pin that diverges PAST an upstream server-API refactor
+# breaks the grpc-server LINK even when the patches are byte-for-byte bit-exact.
+# The c299a92c bump did exactly this: patches applied + greedy-md5 bit-exact, but
+# grpc-server.cpp failed to link with undefined references to stream_* server
+# helpers that the refactor pulled into the headers grpc-server.cpp includes.
+# Therefore a PIN_SYNC must pass the FULL grpc-server build/link on CI, not only
+# the bit-exact gate. See docs/PIN_SYNC_c299a92c.md.
+LLAMA_VERSION?=9d5d882d8cd0f0a9283d87ed5e6fe3ee0d925fb1
 
 CMAKE_ARGS?=
 BUILD_TYPE?=
