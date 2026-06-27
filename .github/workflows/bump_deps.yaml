@@ -18,6 +18,14 @@ jobs:
         # backend/cpp/llama-cpp-localai-paged/Makefile) and advanced ONLY by the
         # manual PIN_SYNC process. Do not add it here. (turboquant CAN be
         # auto-bumped below because its fork branch carries the patches.)
+        #
+        # Excluding it from the auto-bumper removed the early warning of upstream
+        # drift; that signal is restored separately by the dedicated canary
+        # .github/workflows/llama-cpp-paged-canary.yml, which weekly applies +
+        # compiles the paged series against the latest llama.cpp tip and goes red
+        # when upstream breaks it (prompting a PIN_SYNC). The canary is
+        # signal-only - it never opens a bump PR and never moves the pin - so
+        # this dep-bump workflow and its PRs stay green regardless.
         include:
           - repository: "ggml-org/llama.cpp"
             variable: "LLAMA_VERSION"

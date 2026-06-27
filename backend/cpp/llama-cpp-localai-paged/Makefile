@@ -28,6 +28,13 @@
 # Advance ONLY via the PIN_SYNC process (rebase patches + bit-exact gate +
 # re-export), then update this value. See:
 #   backend/cpp/llama-cpp/patches/paged/PIN_SYNC_*.md
+#
+# This pin = the manual, verified sync. The signal telling you WHEN to do the
+# next sync is the early-warning canary
+# (.github/workflows/llama-cpp-paged-canary.yml): weekly it applies + compiles
+# this patch series against the latest upstream llama.cpp tip and goes red the
+# moment upstream drifts past the patches. Canary red -> run a PIN_SYNC, then
+# bump this value. The canary never touches this pin; it is signal-only.
 LLAMA_VERSION?=9d5d882d8cd0f0a9283d87ed5e6fe3ee0d925fb1
 
 CMAKE_ARGS?=

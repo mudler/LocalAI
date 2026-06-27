@@ -1,0 +1,173 @@
+name: 'llama.cpp paged patches: upstream canary'
+
+# EARLY-WARNING CANARY for the vendored paged-attention patch series
+# (backend/cpp/llama-cpp/patches/paged/0001-0030).
+#
+# WHY THIS EXISTS
+# The paged backend (backend/cpp/llama-cpp-localai-paged) pins its OWN verified
+# llama.cpp tip (LLAMA_VERSION in backend/cpp/llama-cpp-localai-paged/Makefile)
+# and is intentionally EXCLUDED from the nightly auto-bumper
+# (.github/workflows/bump_deps.yaml), so a naive upstream bump can never silently
+# break the shipped build. The cost of that safety: nobody finds out when
+# upstream DRIFTS past the patches. This canary restores that signal WITHOUT
+# touching the shipped pin - weekly it tries the patch series + a real compile
+# against the LATEST llama.cpp master tip and goes red the moment upstream breaks
+# the patches.
+#
+# RED HERE means: time to run a PIN_SYNC (rebase the patches onto the new tip,
+# pass the bit-exact gate on the GPU, re-export the .patch files, THEN advance
+# the pin in backend/cpp/llama-cpp-localai-paged/Makefile). See
+# backend/cpp/llama-cpp/patches/paged/PIN_SYNC_9d5d882d.md.
+#
+# SIGNAL-ONLY: this workflow moves no pinned version, ships nothing, and is fully
+# decoupled from bump_deps - so the main dep-bump PR stays green regardless. A
+# green run means "the paged series still applies and compiles on upstream HEAD";
+# a red run means "upstream moved - schedule a pin-sync".
+
+on:
+  schedule:
+    # Weekly (Mondays 06:00 UTC), mirroring the weekly DEPS_REFRESH / bump_deps
+    # cadence. Offset from bump_deps' nightly 20:00 so the two never pile up.
+    - cron: '0 6 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: llama-cpp-paged-canary
+  cancel-in-progress: false
+
+env:
+  # Upstream source of truth - the same repo/branch bump_deps tracks for the
+  # stock llama-cpp pin.
+  LLAMA_UPSTREAM: 'https://github.com/ggml-org/llama.cpp'
+
+jobs:
+  apply-check:
+    # Cheap, fast, toolchain-free early warning: does the series still APPLY to
+    # the latest upstream tip? A patch no longer applying is by far the most
+    # common way upstream breaks a vendored series, so this runs first, is
+    # reliable on a free runner, and feeds the resolved tip to the compile job.
+    if: github.repository == 'mudler/LocalAI'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    outputs:
+      tip: ${{ steps.resolve.outputs.tip }}
+    steps:
+      - name: Checkout LocalAI
+        uses: actions/checkout@v7
+
+      - name: Resolve latest llama.cpp master tip
+        id: resolve
+        run: |
+          tip="$(git ls-remote "$LLAMA_UPSTREAM" refs/heads/master | cut -f1)"
+          if [ -z "$tip" ]; then
+            echo "::error::could not resolve llama.cpp master tip from $LLAMA_UPSTREAM"
+            exit 1
+          fi
+          pin="$(grep -m1 'LLAMA_VERSION?=' backend/cpp/llama-cpp-localai-paged/Makefile | cut -d= -f2)"
+          echo "latest llama.cpp master tip: $tip"
+          echo "shipped paged pin:           $pin"
+          echo "tip=$tip" >> "$GITHUB_OUTPUT"
+          {
+            echo "## llama.cpp paged canary"
+            echo ""
+            echo "- upstream master tip: \`$tip\`"
+            echo "- shipped paged pin:   \`$pin\`"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Checkout llama.cpp at latest tip (shallow)
+        run: |
+          mkdir -p /tmp/llama.cpp
+          cd /tmp/llama.cpp
+          git init -q
+          git remote add origin "$LLAMA_UPSTREAM"
+          git fetch -q --depth 1 origin "${{ steps.resolve.outputs.tip }}"
+          git checkout -q FETCH_HEAD
+          git log --oneline -1
+
+      - name: Apply paged patch series (build's git-apply method)
+        run: |
+          bash .github/scripts/paged-canary-apply.sh \
+            /tmp/llama.cpp \
+            "$PWD/backend/cpp/llama-cpp/patches"
+          echo "- apply: full paged series applies to the upstream tip :white_check_mark:" >> "$GITHUB_STEP_SUMMARY"
+
+  compile:
+    # Proves the patches still COMPILE against the latest tip, using the SAME
+    # toolchain + build target the shipped paged backend uses (the
+    # base-grpc-cuda-12 builder base + the Makefile `grpc-server` cublas target),
+    # so a failure means upstream drift, not toolchain noise. CUDA is compiled
+    # (nvcc; no GPU required) because most of the paged series is CUDA kernels.
+    # Runs only if the apply check passed, on the exact tip it validated.
+    #
+    # If a full CUDA compile on the hosted runner ever proves too heavy/flaky,
+    # switch `runs-on` to 'bigger-runner' (the runner class the real paged CUDA
+    # build uses), or drop to a CPU build (BUILD_TYPE='') which still compiles
+    # all host + CPU paged code, leaving CUDA-kernel coverage to the apply check
+    # plus the manual PIN_SYNC GPU gate.
+    needs: apply-check
+    if: github.repository == 'mudler/LocalAI'
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    steps:
+      - name: Checkout LocalAI
+        uses: actions/checkout@v7
+
+      - name: Free disk space
+        uses: ./.github/actions/free-disk-space
+        with:
+          mode: hosted
+
+      - name: Login to Quay.io
+        uses: docker/login-action@v4
+        with:
+          registry: quay.io
+          username: ${{ secrets.LOCALAI_REGISTRY_USERNAME }}
+          password: ${{ secrets.LOCALAI_REGISTRY_PASSWORD }}
+
+      - name: Compile paged backend against latest tip (cublas)
+        env:
+          TIP: ${{ needs.apply-check.outputs.tip }}
+          BUILDER_BASE_IMAGE: 'quay.io/go-skynet/ci-cache:base-grpc-cuda-12-amd64'
+        run: |
+          docker run --rm \
+            -v "$PWD":/LocalAI -w /LocalAI \
+            -e TIP -e LLAMA_UPSTREAM \
+            "$BUILDER_BASE_IMAGE" bash -euxo pipefail -c '
+              # Mirror the Dockerfile: gRPC lives at /opt/grpc in the base image;
+              # copy it to the prefix CMake find_package expects.
+              cp -a /opt/grpc/. /usr/local/
+
+              # Pre-populate the llama.cpp checkout at the latest tip with the
+              # paged series applied via the tolerant canary apply (so the benign
+              # 0019 dev-doc hunk does not abort the build). Because
+              # backend/cpp/llama-cpp/llama.cpp now exists, the Makefile
+              # llama.cpp target (strict clone + git apply) is skipped and
+              # prepare.sh sees the paged sentinel and skips re-applying - so we
+              # drive the REAL grpc-server build path on top of our apply.
+              cd backend/cpp/llama-cpp/
+              mkdir -p llama.cpp
+              cd llama.cpp
+              git init -q
+              git remote add origin "$LLAMA_UPSTREAM"
+              git fetch -q --depth 1 origin "$TIP"
+              git checkout -q FETCH_HEAD
+              cd /LocalAI
+              bash .github/scripts/paged-canary-apply.sh \
+                backend/cpp/llama-cpp/llama.cpp \
+                "$PWD/backend/cpp/llama-cpp/patches"
+
+              # Cheapest real CUDA build that proves the patches compile: one
+              # CUDA arch, cublas, paged on. CMAKE_ARGS is passed via the
+              # environment (not as a make arg) so the Makefile += flags are
+              # still appended, exactly like .docker/llama-cpp-localai-paged-compile.sh.
+              cd backend/cpp/llama-cpp/
+              BUILD_TYPE=cublas \
+              LLAMA_PAGED=on \
+              CMAKE_ARGS="-DCMAKE_CUDA_ARCHITECTURES=80" \
+              make grpc-server
+              test -x grpc-server
+            '
+          echo "- compile: paged series builds (cublas) against the upstream tip :white_check_mark:" >> "$GITHUB_STEP_SUMMARY"

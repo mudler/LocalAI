@@ -7,6 +7,35 @@ re-exported from the rebased commits; **4 patch files changed** and are updated
 in this commit. A quick decode bench confirms the patchset performs the same on
 the new tip.
 
+## Early-warning canary: when to run the NEXT pin-sync
+
+The shipped pin (this file's tip, mirrored in
+`backend/cpp/llama-cpp-localai-paged/Makefile`) is advanced ONLY by this manual,
+GPU-verified PIN_SYNC. Because the paged backend is excluded from the nightly
+auto-bumper (`.github/workflows/bump_deps.yaml`), nothing nightly tells you when
+upstream has drifted past the patches. That signal comes from a dedicated
+scheduled canary:
+
+- **Workflow:** `.github/workflows/llama-cpp-paged-canary.yml` (weekly, plus
+  `workflow_dispatch`). It resolves the latest `ggml-org/llama.cpp` master tip,
+  then in two jobs (a) APPLIES the full series to that tip with the build's own
+  `git apply` method via `.github/scripts/paged-canary-apply.sh`, and (b)
+  COMPILES the paged backend (cublas) against it using the same base-grpc-cuda-12
+  toolchain + `make grpc-server` target the shipped build uses.
+- **Green** = the series still applies and compiles on upstream HEAD; nothing to
+  do.
+- **Red** = upstream moved out from under the patches. **Canary red -> run a
+  PIN_SYNC** (rebase the patches onto the new tip, pass the bit-exact gate on the
+  GPU, re-export the `.patch` files, then advance the pin). The canary is
+  signal-only: it opens no PR and never moves the pin, so the shipped build and
+  the dep-bump PRs stay green regardless.
+- **0019 handling:** the canary apply helper excludes ONLY the stray
+  `SSM_DECODE_FIX_RESULTS.md` dev-doc hunk (the pre-existing quirk documented in
+  the "Pre-existing finding" section below and in `PIN_BUMP_APPLY_CHECK.md`),
+  applying 0019's real code hunks atomically. So that benign quirk never
+  false-positives the canary, but a genuine code break in 0019 still turns it
+  red.
+
 ## Upstream jump
 
 - OLD LocalAI pin: `8be759e6`
