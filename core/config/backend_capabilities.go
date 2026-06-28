@@ -542,6 +542,19 @@ var BackendCapabilities = map[string]BackendCapability{
 		DefaultUsecases:  []string{UsecaseSpeakerRecognition},
 		Description:      "Speaker recognition — voice identity verification and analysis",
 	},
+	"voice-detect": {
+		GRPCMethods:      []GRPCMethod{MethodVoiceVerify, MethodVoiceEmbed, MethodVoiceAnalyze},
+		PossibleUsecases: []string{UsecaseSpeakerRecognition},
+		DefaultUsecases:  []string{UsecaseSpeakerRecognition},
+		Description:      "voice-detect.cpp: C++/ggml speaker embedding, verification and voice analysis (age/gender/emotion)",
+	},
+	"face-detect": {
+		GRPCMethods:      []GRPCMethod{MethodEmbedding, MethodDetect, MethodFaceVerify, MethodFaceAnalyze},
+		PossibleUsecases: []string{UsecaseEmbeddings, UsecaseDetection, UsecaseFaceRecognition},
+		DefaultUsecases:  []string{UsecaseFaceRecognition},
+		AcceptsImages:    true,
+		Description:      "face-detect.cpp: C++/ggml face detection, embedding, verification and attribute analysis",
+	},
 	"silero-vad": {
 		GRPCMethods:      []GRPCMethod{MethodVAD},
 		PossibleUsecases: []string{UsecaseVAD},
