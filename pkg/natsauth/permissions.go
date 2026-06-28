@@ -20,6 +20,8 @@ func WorkerPermissions(nodeID, nodeType string) (pubAllow, subAllow []string) {
 		subAllow = []string{
 			"agent.execute",
 			"agent.*.cancel",
+			"gallery.*.cancel",
+			"gallery.*.progress",
 			"jobs.*.cancel",
 			"jobs.*.progress",
 			"jobs.*.result",
@@ -27,6 +29,7 @@ func WorkerPermissions(nodeID, nodeType string) (pubAllow, subAllow []string) {
 			"mcp.tools.execute",
 			"mcp.discovery",
 			prefix + ".backend.stop", // stop events drive MCP session cleanup
+			"staging.*.progress",
 			"_INBOX.>",
 		}
 		pubAllow = []string{
