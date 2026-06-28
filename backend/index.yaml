@@ -102,12 +102,9 @@
   # backend. default points at cuda12 (mirrors faster-qwen3-tts) so the gallery
   # entries always resolve to a CUDA variant.
   capabilities:
-    default: "cuda12-llama-cpp-localai-paged"
-    nvidia: "cuda12-llama-cpp-localai-paged"
-    nvidia-l4t: "nvidia-l4t-arm64-llama-cpp-localai-paged"
+    default: "cuda13-llama-cpp-localai-paged"
+    nvidia: "cuda13-llama-cpp-localai-paged"
     nvidia-cuda-13: "cuda13-llama-cpp-localai-paged"
-    nvidia-cuda-12: "cuda12-llama-cpp-localai-paged"
-    nvidia-l4t-cuda-12: "nvidia-l4t-arm64-llama-cpp-localai-paged"
     nvidia-l4t-cuda-13: "cuda13-nvidia-l4t-arm64-llama-cpp-localai-paged"
 - &ds4
   name: "ds4"
@@ -1679,12 +1676,9 @@
 - !!merge <<: *llamacpplocalaipaged
   name: "llama-cpp-localai-paged-development"
   capabilities:
-    default: "cuda12-llama-cpp-localai-paged-development"
-    nvidia: "cuda12-llama-cpp-localai-paged-development"
-    nvidia-l4t: "nvidia-l4t-arm64-llama-cpp-localai-paged-development"
+    default: "cuda13-llama-cpp-localai-paged-development"
+    nvidia: "cuda13-llama-cpp-localai-paged-development"
     nvidia-cuda-13: "cuda13-llama-cpp-localai-paged-development"
-    nvidia-cuda-12: "cuda12-llama-cpp-localai-paged-development"
-    nvidia-l4t-cuda-12: "nvidia-l4t-arm64-llama-cpp-localai-paged-development"
     nvidia-l4t-cuda-13: "cuda13-nvidia-l4t-arm64-llama-cpp-localai-paged-development"
 - !!merge <<: *ds4
   name: "ds4-development"
@@ -2356,16 +2350,6 @@
     - localai/localai-backends:master-nvidia-l4t-cuda-13-arm64-turboquant
 ## llama-cpp-localai-paged (CUDA-only; see backend/cpp/llama-cpp-localai-paged/README.md section 4c)
 - !!merge <<: *llamacpplocalaipaged
-  name: "cuda12-llama-cpp-localai-paged"
-  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-nvidia-cuda-12-llama-cpp-localai-paged"
-  mirrors:
-    - localai/localai-backends:latest-gpu-nvidia-cuda-12-llama-cpp-localai-paged
-- !!merge <<: *llamacpplocalaipaged
-  name: "cuda12-llama-cpp-localai-paged-development"
-  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-nvidia-cuda-12-llama-cpp-localai-paged"
-  mirrors:
-    - localai/localai-backends:master-gpu-nvidia-cuda-12-llama-cpp-localai-paged
-- !!merge <<: *llamacpplocalaipaged
   name: "cuda13-llama-cpp-localai-paged"
   uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-nvidia-cuda-13-llama-cpp-localai-paged"
   mirrors:
@@ -2375,16 +2359,6 @@
   uri: "quay.io/go-skynet/local-ai-backends:master-gpu-nvidia-cuda-13-llama-cpp-localai-paged"
   mirrors:
     - localai/localai-backends:master-gpu-nvidia-cuda-13-llama-cpp-localai-paged
-- !!merge <<: *llamacpplocalaipaged
-  name: "nvidia-l4t-arm64-llama-cpp-localai-paged"
-  uri: "quay.io/go-skynet/local-ai-backends:latest-nvidia-l4t-arm64-llama-cpp-localai-paged"
-  mirrors:
-    - localai/localai-backends:latest-nvidia-l4t-arm64-llama-cpp-localai-paged
-- !!merge <<: *llamacpplocalaipaged
-  name: "nvidia-l4t-arm64-llama-cpp-localai-paged-development"
-  uri: "quay.io/go-skynet/local-ai-backends:master-nvidia-l4t-arm64-llama-cpp-localai-paged"
-  mirrors:
-    - localai/localai-backends:master-nvidia-l4t-arm64-llama-cpp-localai-paged
 - !!merge <<: *llamacpplocalaipaged
   name: "cuda13-nvidia-l4t-arm64-llama-cpp-localai-paged"
   uri: "quay.io/go-skynet/local-ai-backends:latest-nvidia-l4t-cuda-13-arm64-llama-cpp-localai-paged"
