@@ -142,14 +142,22 @@ These are the dominant decode levers on the Qwen3.6 hybrid models. All bit-exact
 | 0023 | **NVFP4 activation-quantize de-dup** - the broadcast up/gate projections re-quantize the same token activation once per expert; quantize the unique token activations once and byte-copy them into the expert-gathered layout. The only NVFP4-specific patch. | yes (byte-identical) |
 | 0025 | **MoE decode re-graph** - keep CUDA graphs on for the grouped-MMQ MoE decode step (the upstream guard disables graphs conservatively; the grouped path has no host sync). Env-gated `LLAMA_MOE_FORCE_GRAPHS`. | yes (graph replay re-issues identical kernels) |
 
-### Pool reclaim, block-table cache, backend gate, opt-in bf16-SSM
+### Pool reclaim, block-table cache, backend gate
 
 | # | What it does | Bit-exact |
 |---|---|---|
 | 0024 | **Paged-pool burst-reclaim** - truncate trailing blocks on partial-tail `seq_rm`, defrag the free queue when idle, release blocks on slot completion. Fixes the long-server burst-degradation bug (post-burst prefill collapse 488->44 t/s, restored to 532). Host-side accounting only. | yes |
 | 0029 | **Block-table within-step host cache** - the block table is fixed for the whole step; cache it on first build and memcpy it for the other full-attention layers (get_block_table -87%/-91%). | yes, per path (paged-MoE ref `8cb0ce23`) |
 | 0030 | **Fused-op backend gate** - the fused GDN / discriminated SSM_CONV ops are CUDA-family + CPU only; force them off on any non-CUDA compute backend so a Vulkan/SYCL/Metal build can't silently run the wrong plain-conv kernel. | yes on CUDA (byte-identical pre-0030); safety gate elsewhere |
-| 0026 | **Hybrid per-head bf16 SSM state (opt-in)** - `--ssm-bf16-tau` / option `ssm_bf16_tau`: fast-decaying GDN heads (memory length below the tau threshold) persist state as bf16, halving that head's decode byte stream (~+12% decode). | default tau=0 = f32 = **bit-exact**; the bf16 mode is **NOT** bit-exact (~91% same-top-p) |
+
+> **Dropped: patch 0026 (hybrid per-head bf16 SSM state, `ssm_bf16_tau`).** Once
+> the decode fusions (0028 recurrent-state gather-fusion + 0029 block-table cache)
+> landed, the bf16-SSM lever bought nothing: a clean re-measurement forcing **all**
+> gated-DeltaNet heads to bf16 (`tau=100000`) gives **flat** decode (780.6 vs
+> 780.0 t/s) - the mode engages but adds zero throughput because it is subsumed by
+> the fusions. It was a precision trade (not bit-exact) plus extra bug surface and
+> CUDA template-instantiation compile cost with no benefit, so it was removed. See
+> section 5 ("rejected / flat levers") for the full record.
 
 ---
 
@@ -164,22 +172,27 @@ swept over serving width `npl` in {8, 32, 64, 128}. Plots:
 [`qwen36_moe_decode_vs_npl.png`](docs/qwen36_moe_decode_vs_npl.png); raw data
 [`final_benchmark.csv`](docs/final_benchmark.csv).
 
-![NVFP4 decode throughput vs concurrency on GB10: llama.cpp standard vs vLLM vs LocalAI's llama.cpp patches, plus the opt-in bf16-tau ceiling](docs/qwen36_decode_overview.png)
+![NVFP4 decode throughput vs concurrency on GB10: llama.cpp standard vs vLLM vs LocalAI's llama.cpp patches](docs/qwen36_decode_overview.png)
 
-> **What was re-measured (2026-06-27).** The three llama columns - **stock**,
-> **patched**, and **patched+bf16-tau** - were all re-measured this session on one
-> consistent `llama-batched-bench` harness. The **vLLM** column is the
-> **prior-session reference** (kept as-is, *not* re-run this session). Per-run peak
+> The plot above also shows a third "bf16-tau" llama curve. That was the opt-in
+> `ssm_bf16_tau` lever (patch 0026), since **dropped** - a clean re-measurement
+> showed it flat once the decode fusions landed (see section 5). The numbers below
+> use only **stock** vs **patched** vs **vLLM**.
+
+> **What was re-measured (2026-06-27).** The two llama columns - **stock** and
+> **patched** - were re-measured this session on one consistent
+> `llama-batched-bench` harness. The **vLLM** column is the **prior-session
+> reference** (kept as-is, *not* re-run this session). Per-run peak
 > VRAM was *not* re-captured: the GB10's unified Grace-Blackwell LPDDR5x reports
 > `[N/A]` to `nvidia-smi --query-gpu=memory.used` and the bench does not print it
 > (the memory-advantage note below is the prior-session finding).
 
-### (a) + (b) Patched vs stock vs patched+bf16-tau vs vLLM
+### (a) + (b) Patched vs stock vs vLLM
 
 The **stock** column is a separate, unpatched llama.cpp built at this backend's
-**exact pin (`9d5d882d`)**; the **patched** and **patched+bf16-tau** columns are
+**exact pin (`9d5d882d`)**; the **patched** column is
 the paged binary, env/flag-toggled (`LLAMA_KV_PAGED=1`, plus
-`LLAMA_MOE_FORCE_GRAPHS=1` for MoE; bf16-tau adds `--ssm-bf16-tau 64`). All three
+`LLAMA_MOE_FORCE_GRAPHS=1` for MoE). Both
 run on the **same harness**, so "x over stock" is an apples-to-apples measure of
 the patch series. (Note: the patch series' dominant SSM decode fusions are
 compiled in, not env-gated - toggling `LLAMA_KV_PAGED` alone on the *patched*
@@ -190,36 +203,26 @@ cross-engine "% of vLLM" is **indicative, not apples-to-apples**.
 
 **Dense Qwen3.6-27B-NVFP4** (decode t/s):
 
-| npl | stock | patched | patched+bf16-tau | vLLM (prior) | patched x over stock | bf16-tau over patched |
-|----:|------:|--------:|-----------------:|-------------:|---------------------:|----------------------:|
-| 8   |  68.3 |   85.3 |             87.8 |         70.4 | 1.25x | +3%  |
-| 32  | 119.9 |  211.9 |            231.0 |        211.8 | 1.77x | +9%  |
-| 64  | 142.8 |  305.2 |            341.4 |        309.1 | 2.14x | +12% |
-| 128 | 155.1 |  382.1 |            446.1 |        418.8 | 2.46x | +17% |
+| npl | stock | patched | vLLM (prior) | patched x over stock |
+|----:|------:|--------:|-------------:|---------------------:|
+| 8   |  68.3 |   85.3 |         70.4 | 1.25x |
+| 32  | 119.9 |  211.9 |        211.8 | 1.77x |
+| 64  | 142.8 |  305.2 |        309.1 | 2.14x |
+| 128 | 155.1 |  382.1 |        418.8 | 2.46x |
 
 Dense **patched** is parity-to-ahead of vLLM (121 / 100 / 99 / 91% of vLLM across
-the widths); **patched+bf16-tau** is **ahead of vLLM at every width** (125 / 109 /
-110 / 107%).
+the widths).
 
 **MoE Qwen3.6-35B-A3B-NVFP4** (decode t/s):
 
-| npl | stock | patched | patched+bf16-tau | vLLM (prior) | patched x over stock | bf16-tau over patched |
-|----:|------:|--------:|-----------------:|-------------:|---------------------:|----------------------:|
-| 8   | 186.7 |  230.3 |            240.5 |        256.5 | 1.23x | +4%  |
-| 32  | 267.4 |  466.4 |            508.1 |        500.8 | 1.74x | +9%  |
-| 64  | 320.5 |  622.4 |            703.8 |        686.1 | 1.94x | +13% |
-| 128 | 347.2 |  784.3 |            918.0 |        882.2 | 2.26x | +17% |
+| npl | stock | patched | vLLM (prior) | patched x over stock |
+|----:|------:|--------:|-------------:|---------------------:|
+| 8   | 186.7 |  230.3 |        256.5 | 1.23x |
+| 32  | 267.4 |  466.4 |        500.8 | 1.74x |
+| 64  | 320.5 |  622.4 |        686.1 | 1.94x |
+| 128 | 347.2 |  784.3 |        882.2 | 2.26x |
 
-MoE **patched** is 90 / 93 / 91 / 89% of vLLM; **patched+bf16-tau** reaches
-parity-to-ahead (94 / 101 / 103 / 104%) at npl>=32.
-
-**On bf16-tau.** The `patched+bf16-tau` column uses `--ssm-bf16-tau 64` (no exact
-tau was recorded behind the documented "~+12%"; the flag help suggests 32/64, and
-64 bf16's more of the fast-decaying GDN heads). It is **opt-in and NOT bit-exact**
-(~91% same-top-p; see section 5) - it persists fast-decaying GDN head state as
-bf16 to halve that head's recurrence byte stream. Measured decode gain over
-patched grows with serving width: **+3-4% at npl8, ~+12-13% at npl64, +17% at
-npl128** (dense and MoE alike).
+MoE **patched** is 90 / 93 / 91 / 89% of vLLM.
 
 **Caveat on the vLLM column.** It is a **different harness** and a
 **prior-session** measurement (not re-run this session), so the cross-engine "% of
@@ -229,10 +232,8 @@ vLLM" is **indicative, not apples-to-apples**. Memory (prior session): llama use
 **Takeaway.** Re-measured this session, the patch series gives up to **2.46x
 (dense) / 2.26x (MoE)** over true-stock `9d5d882d` on the same harness (close to,
 slightly below, the prior 2.59x / 2.33x - llama was re-measured, vLLM kept).
-Opt-in **bf16-tau adds a further +3% to +17%** on top of patched (growing with
-width). Dense is **ahead of vLLM** with bf16-tau at every width; MoE **patched**
-sits at ~89-93% of the prior-session vLLM and **bf16-tau reaches parity-to-ahead**
-at npl>=32. The residual non-bf16 MoE gap is structural (see section 5).
+Dense is parity-to-ahead of vLLM; MoE **patched** sits at ~89-93% of the
+prior-session vLLM. The residual MoE gap is structural (see section 5).
 
 ### (c) Apple Silicon (M4, 16GB Metal) - does the patchset help here?
 
@@ -314,14 +315,20 @@ llama is losing. The MoE GEMM kernel is *not* where the gap lives.
   (The "the win was NVFP4-dense-quant, not the Marlin kernel" dense verdict
   carries over to MoE.)
 
-**Opt-in bf16-SSM fast mode** (patch 0026, `ssm_bf16_tau`). The design premise -
-that bf16 KL error concentrates in long-memory heads and can be removed by
-keeping them f32 - is **empirically refuted**: the error scales with the bf16
+**Opt-in bf16-SSM fast mode - DROPPED (was patch 0026, `ssm_bf16_tau`).** The
+design premise - that bf16 KL error concentrates in long-memory heads and can be
+removed by keeping them f32 - was already shaky: the error scales with the bf16
 head *count* and saturates (~0.06 MeanKLD / ~91% same-top-p) far below any useful
-byte saving, and the carry is byte-exact (genuine bf16 rounding, not a bug). The
-byte-saving (and ~+12% decode) is real but cannot meet a strict KL bar, so it
-ships **default-off (f32, bit-exact)** and opt-in only. Do not put a hybrid tau
-in a recommended/gallery config.
+byte saving. The lever was then **removed entirely** once the decode fusions
+(0028 recurrent-state gather-fusion + 0029 block-table cache) landed: a clean
+re-measurement that forced **all** gated-DeltaNet heads to bf16 (`tau=100000`,
+the most aggressive setting) gave **flat** decode throughput - **780.6 vs 780.0
+t/s**. The mode engages but buys **zero** speed; the earlier "+12%" was subsumed
+by the fusions. So bf16-tau was a precision trade (not bit-exact) plus extra bug
+surface and CUDA template-instantiation compile cost with **no** offsetting
+benefit, and patch 0026 was dropped from the series. Lesson recorded so it is not
+re-tried: do not reintroduce a per-head SSM-precision lever - the bandwidth it
+targeted is already recovered by the gather-fusion + block-table cache.
 
 ---
 
@@ -403,6 +410,6 @@ The benchmarked NVFP4 GGUFs are published and wired into the LocalAI gallery:
 
 Both gallery entries set `backend: llama-cpp-localai-paged` and the paged serving config
 (`paged_kv:true`, `max_batch_tokens`, `kv_unified:false`, `parallel`,
-`flash_attention:on`, `context_size`). They intentionally stay bit-exact (no
-`ssm_bf16_tau`). The full backend-split + gallery plan is in
+`flash_attention:on`, `context_size`). They are bit-exact. The full
+backend-split + gallery plan is in
 [`LOCALAI_LLAMACPP_BACKEND_PLAN.md`](docs/LOCALAI_LLAMACPP_BACKEND_PLAN.md).

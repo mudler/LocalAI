@@ -14,14 +14,11 @@
 # GGUFs were re-quantized with a newer convert (origin/master) preserving the same
 # MOSTLY_NVFP4 format; a load check on the paged backend GPU build is the final gate.
 #
-# NOTE(ssm_bf16_tau): Qwen3.5 gated-DeltaNet (hybrid SSM) models can opt into the
-# reduced-precision hybrid SSM-state fast mode by adding `ssm_bf16_tau:<tokens>`
-# (e.g. 32 / 64) to a model's `options:` list - fast-decaying recurrent heads then
-# persist their state as bf16 (LLAMA_SSM_BF16_TAU), halving that head's decode byte
-# stream. Default off (0) = every head f32 = bit-exact; when enabled the mode is NOT
-# bit-exact (~91% same-top-p, beats vLLM dense) - see
-# backend/cpp/llama-cpp-localai-paged/README.md for the quality profile.
-# The two NVFP4 entries below intentionally stay bit-exact (no ssm_bf16_tau).
+# The two NVFP4 entries below are bit-exact (f32 SSM state). The opt-in
+# reduced-precision hybrid SSM-state lever (ssm_bf16_tau, patch 0026) was DROPPED:
+# clean measurements showed it flat once the decode fusions landed (forcing all
+# gated-DeltaNet heads to bf16 gave 780.6 vs 780.0 t/s, zero benefit) - see
+# backend/cpp/llama-cpp-localai-paged/README.md section 5.
 # =============================================================================
 - name: "qwen3.6-27b-nvfp4-paged"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"

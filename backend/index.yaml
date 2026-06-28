@@ -83,10 +83,7 @@
     stock llama-cpp backend, with the LocalAI paged patch series applied
     (vendored in this backend). Tuned for NVFP4 dense / MoE on Blackwell / GB10. Reuses the
     llama-cpp gRPC server sources; the paged engine is gated at runtime by the
-    paged_kv / max_batch_tokens model options. Qwen3.5 gated-DeltaNet models can
-    additionally opt into the reduced-precision hybrid SSM-state fast mode with
-    the ssm_bf16_tau:<tokens> option (default off = bit-exact f32; non-bit-exact
-    when enabled).
+    paged_kv / max_batch_tokens model options.
   urls:
     - https://github.com/ggerganov/llama.cpp
   tags:

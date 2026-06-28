@@ -854,27 +854,6 @@ static void params_parse(server_context& /*ctx_server*/, const backend::ModelOpt
                     // If conversion fails, leave the per-slot cap unset (engine default)
                 }
             }
-        // --- hybrid per-head bf16 SSM-state precision (patch 0026, qwen3.5 gated-DeltaNet decode) ---
-        // Opt-in reduced-precision fast mode for the recurrent SSM state: a gated-DeltaNet head whose
-        // memory length tau_h = 1/(|ssm_a|*softplus(ssm_dt)) tokens exceeds this threshold stays f32;
-        // faster-decaying heads persist their state as bf16, halving that head's dominant recurrence
-        // byte stream on decode. The value is the tau threshold in tokens (e.g. 32 / 64); 0 keeps every
-        // head f32 (the bit-exact default). Set BEFORE context init via LLAMA_SSM_BF16_TAU, consumed in
-        // common_context_params_to_llama (patch 0026) only when the --ssm-bf16-tau CLI flag is unset.
-        // Unset / non-positive => env untouched, so stock stays byte-identical and bit-exact (an
-        // externally exported LLAMA_SSM_BF16_TAU still works as an escape hatch). NOTE: this mode is
-        // NOT bit-exact (~91% same-top-p ceiling); see backend/cpp/llama-cpp-localai-paged/README.md (Dev notes).
-        } else if (!strcmp(optname, "ssm_bf16_tau") || !strcmp(optname, "ssm_hybrid_tau")) {
-            if (optval != NULL) {
-                try {
-                    float tau = std::stof(optval_str);
-                    if (tau > 0.0f) {
-                        setenv("LLAMA_SSM_BF16_TAU", std::to_string(tau).c_str(), 1);
-                    }
-                } catch (const std::exception& e) {
-                    // If conversion fails, leave the threshold unset (bit-exact f32 default)
-                }
-            }
         } else if (!strcmp(optname, "n_ctx_checkpoints") || !strcmp(optname, "ctx_checkpoints")) {
             if (optval != NULL) {
                 try {

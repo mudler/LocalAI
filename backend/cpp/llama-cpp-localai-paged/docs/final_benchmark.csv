@@ -7,10 +7,6 @@ q36-27b-nvfp4,llama-patched,8,85.3,915.1
 q36-27b-nvfp4,llama-patched,32,211.9,919.0
 q36-27b-nvfp4,llama-patched,64,305.2,923.5
 q36-27b-nvfp4,llama-patched,128,382.1,922.9
-q36-27b-nvfp4,llama-patched-bf16tau,8,87.8,919.2
-q36-27b-nvfp4,llama-patched-bf16tau,32,231.0,931.1
-q36-27b-nvfp4,llama-patched-bf16tau,64,341.4,930.7
-q36-27b-nvfp4,llama-patched-bf16tau,128,446.1,932.2
 q36-27b-nvfp4,vllm,8,70.4,2096.2
 q36-27b-nvfp4,vllm,32,211.8,2182.6
 q36-27b-nvfp4,vllm,64,309.1,2088.9
@@ -23,10 +19,6 @@ q36-35b-a3b-nvfp4,llama-patched,8,230.3,1510.3
 q36-35b-a3b-nvfp4,llama-patched,32,466.4,1969.2
 q36-35b-a3b-nvfp4,llama-patched,64,622.4,2122.8
 q36-35b-a3b-nvfp4,llama-patched,128,784.3,2177.0
-q36-35b-a3b-nvfp4,llama-patched-bf16tau,8,240.5,1539.8
-q36-35b-a3b-nvfp4,llama-patched-bf16tau,32,508.1,2031.7
-q36-35b-a3b-nvfp4,llama-patched-bf16tau,64,703.8,2151.8
-q36-35b-a3b-nvfp4,llama-patched-bf16tau,128,918.0,2212.3
 q36-35b-a3b-nvfp4,vllm,8,256.5,5186.5
 q36-35b-a3b-nvfp4,vllm,32,500.8,6223.4
 q36-35b-a3b-nvfp4,vllm,64,686.1,5926.5

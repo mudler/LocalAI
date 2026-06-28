@@ -42,8 +42,11 @@ how-to.
   dev doc or `*.md`. Strict `git apply` on a clean checkout must reach exit 0. (A
   stray `SSM_DECODE_FIX_RESULTS.md` hunk in patch 0019 once broke the CI build.)
 - **Bit-exact by default.** Every shipped patch is byte-identical to the f32
-  baseline. The one opt-in precision trade (`ssm_bf16_tau`, patch 0026) defaults
-  off; never put it in a recommended/gallery config.
+  baseline. (The one opt-in precision trade, `ssm_bf16_tau` / patch 0026, was
+  DROPPED: it went flat once the decode fusions landed - forcing all gated-DeltaNet
+  heads to bf16 gave 780.6 vs 780.0 t/s, zero benefit - so the series is now
+  bit-exact end to end. Do not reintroduce a per-head SSM-precision lever; see the
+  rejected-levers note in the backend README section 5.)
 
 ## Maintaining the pin against new llama.cpp
 

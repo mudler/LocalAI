@@ -54,9 +54,15 @@ backend README.
   the runtime flag off (compiled-in wins survive the toggle). Cross-engine "% of vLLM"
   (batched-bench vs vLLM server+client) is *indicative*; always caveat the harness
   and config (context length alone shifted the MoE figure 76% <-> 86%).
-- **The win may be a precision trade, not a free lever.** bf16 SSM state was +12%
-  but failed the f32 KL gate (vLLM keeps f32 too), so it ships default-off opt-in -
-  never in a recommended config.
+- **Re-measure a "win" after later levers land - it may evaporate.** bf16 SSM
+  state (the `ssm_bf16_tau` lever) benched +12% early and failed the f32 KL gate
+  (vLLM keeps f32 too), so it was kept default-off opt-in. Once the decode fusions
+  (recurrent-state gather-fusion + block-table cache) landed, a clean re-measure
+  forcing ALL gated-DeltaNet heads to bf16 (`tau=100000`) went **flat** - 780.6 vs
+  780.0 t/s. The "+12%" was subsumed by the fusions: the lever bought nothing, so
+  it was **dropped** (precision trade + bug surface + extra CUDA template-instantiation
+  compile cost, zero benefit). A win measured before the rest of the series is not a
+  win after it.
 - **Reject the obvious-but-wrong, with evidence.** A faster kernel that is off the
   critical path benches FLAT (the freed time becomes idle). Quantizing the bf16
   projections to NVFP4 cost ~6% PPL - and vLLM keeps them bf16 for the same reason.
