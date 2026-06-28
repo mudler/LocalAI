@@ -1,0 +1,95 @@
+From ef2765d85829c9ede2fc9aa90523386d765c9040 Mon Sep 17 00:00:00 2001
+From: Ettore Di Giacinto <mudler@localai.io>
+Date: Sun, 28 Jun 2026 20:00:24 +0200
+Subject: [PATCH 41/41] feat(paged): S3 decode-shape-stable scheduling (patch
+ 0041)
+
+The S1 paged decode-graph reuse (patch 0040) is necessary but not sufficient in
+continuous serving: with cont_batching a co-batched prefill chunk inflates the
+step from n_tokens==D (pure decode) to D+P, which changes the ubatch shape and
+breaks llama-context layer-A reuse on (nearly) every step. Measured: S1 alone
+holds only 13.8% graph reuse in a 128-client serving load.
+
+S3 makes the scheduler EMIT graph-reusable steps to match what S1 makes reusable.
+While there is live decode load it runs PURE-decode steps (skip Phase-2 prompt
+admission) so the decode batch shape stays constant, and admits a prefill chunk
+only on a bounded cadence (every LLAMA_PAGED_PREFILL_PERIOD steps, default 8) or
+when no decode is active. The deferred prefill chunk still runs within at most
+(period-1) decode steps, so prompt latency rises by a bounded amount.
+
+Pure policy change inside update_slots(), built on the patch-0016 decode-first
+budget; no new slot states, no batch-formation rewrite, zero libllama changes.
+
+BIT-EXACT: only changes WHICH step a prompt chunk is admitted in. Each sequence's
+decode logits depend on its own tokens + its own KV only (the paged decode read is
+per-stream, attention is permutation-invariant over the co-batched set), so
+deferring another slot's prefill never changes a generating slot's output.
+DEFAULT-OFF: LLAMA_PAGED_DECODE_STABLE unset => byte-identical to patch 0016. Does
+not run in the single-sequence greedy md5 gate (that path is llama-completion).
+
+Measured (GB10, MoE Qwen3.6-35B-A3B-NVFP4, 128-client staggered streaming load):
+S1+S3 vs baseline (graphs rebuilt every step): graph reuse 0% -> 72.2%, hostproc
+15.98 -> 6.31 ms/step, decode 4.05 -> 5.52 tok/s/seq median (4.24 -> 5.96 mean,
+at vLLM's ~5.9 sustained). Remaining 28% rebuilds are request-boundary D/seq-set
+churn + the prefill-cadence steps; closing them needs a padded/fixed-slot decode
+shape (scoped follow-up, see DECODE_SERVING_SCOPE.md).
+
+Assisted-by: Claude:opus-4.8 [Claude Code]
+Signed-off-by: Ettore Di Giacinto <mudler@localai.io>
+---
+ tools/server/server-context.cpp | 35 ++++++++++++++++++++++++++++++++-
+ 1 file changed, 34 insertions(+), 1 deletion(-)
+
+diff --git a/tools/server/server-context.cpp b/tools/server/server-context.cpp
+index 64775dc..9baca33 100644
+--- a/tools/server/server-context.cpp
++++ b/tools/server/server-context.cpp
+@@ -3138,11 +3138,44 @@ private:
+         }
+         int32_t n_prompt_budgeted = 0; // prompt tokens added to the batch this step (across slots)
+ 
++        // PAGED serving lever (patch 0041, S3): decode-shape-stable scheduling.
++        // Pairs with the S1 paged decode-graph reuse (patch 0040): S1 makes a
++        // pure-decode step graph-reusable, S3 makes the scheduler EMIT pure-decode
++        // steps. With continuous batching a co-batched prefill chunk inflates the
++        // step from n_tokens==D (pure decode) to D+P, which changes the ubatch
++        // shape and breaks layer-A graph reuse on EVERY step. S3 keeps prefill out
++        // of the decode step: while there is live decode load it runs pure-decode
++        // steps (reuse holds) and admits a prefill chunk only on a bounded cadence
++        // (every LLAMA_PAGED_PREFILL_PERIOD steps, default 8) or when no decode is
++        // active. The deferred prefill chunk still runs within a few steps, so
++        // prompt latency rises by at most (period-1) decode steps.
++        //
++        // BIT-EXACT: this only changes WHICH step a prompt chunk is admitted in.
++        // Each sequence's decode logits depend on its own tokens + its own KV only
++        // (the paged decode read is per-stream, attention is permutation-invariant
++        // over the co-batched set), so deferring another slot's prefill never
++        // changes a generating slot's output. DEFAULT-OFF: env unset => no change,
++        // byte-identical to patch 0016. Does not run in the single-sequence greedy
++        // md5 gate (that path is llama-completion, not update_slots).
++        bool decode_only_step = false;
++        {
++            static const int s3_enabled = [](){ const char * e = getenv("LLAMA_PAGED_DECODE_STABLE"); return e ? atoi(e) : 0; }();
++            if (s3_enabled && n_decode_in_batch > 0) {
++                static const int s3_period = [](){ const char * e = getenv("LLAMA_PAGED_PREFILL_PERIOD"); int p = e ? atoi(e) : 8; return p > 0 ? p : 8; }();
++                static long s3_step = 0;
++                const bool prefill_due = (s3_step % s3_period) == 0;
++                s3_step++;
++                decode_only_step = !prefill_due;
++            }
++        }
++
+         auto & alora_scale       = batch.alora_scale;
+         auto & alora_disabled_id = batch.alora_disabled_id;
+ 
+         // next, batch any pending prompts without exceeding n_batch
+-        if (params_base.cont_batching || batch.size() == 0) {
++        // (patch 0041, S3) skip prompt admission on a pure-decode step to keep the
++        // decode batch shape reuse-stable
++        if ((params_base.cont_batching || batch.size() == 0) && !decode_only_step) {
+             bool add_ok = true; // false means the batch is full, skip remaining slots
+ 
+             iterate(slots, [&](server_slot & slot) {
+-- 
+2.43.0
+

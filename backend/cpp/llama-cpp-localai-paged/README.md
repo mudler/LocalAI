@@ -86,9 +86,10 @@ orthogonal to the paged allocator.
 
 ---
 
-## 3. Patch series (0001-0031)
+## 3. Patch series (0001-0041)
 
-29 patches (0005 and 0027 are intentionally unused). "Bit-exact" = greedy md5 /
+Source-only patches, with intentional numbering gaps (e.g. 0005, 0027). The
+decode-serving graph-reuse levers are 0040-0041. "Bit-exact" = greedy md5 /
 `test-backend-ops` byte-identical to the relevant baseline; the gate methodology
 is in section 5.
 
@@ -121,6 +122,33 @@ default-on, density-aware auto-select that is prefill-safe by construction. Both
 bit-exact. 0017 is the dense FP4-GEMM occupancy-tune track: bit-exact gate green,
 but every cheap occupancy lever regressed on GB10, so nothing is enabled - it
 ships as the parity gate + default-off instrumentation only.)
+
+### Decode-serving graph reuse (0040, 0041)
+
+These two close the **continuous-serving** decode gap (distinct from the static
+batched-bench decode kernel, which is already at vLLM parity - see
+[`docs/DECODE_SERVING_SCOPE.md`](docs/DECODE_SERVING_SCOPE.md)). In serving the
+host rebuilt the ggml graph on **every** decode step (layer-A graph reuse was 0%),
+so the GPU idled while the host rebuilt - the host-bound -39% the static bench
+hides.
+
+| # | What it does | Bit-exact |
+|---|---|---|
+| 0040 | **S1 paged decode-graph reuse** - the paged decode inputs (`input_block_table` / `input_gather_idxs`) never overrode `can_reuse` (defaults to false), so any graph carrying a paged input could never be reused. Add a correct `can_reuse` keyed on the (256-bucketed) block-table dims + a live-mctx refresh from the owning attn input. `LLAMA_PAGED_NO_GRAPH_REUSE=1` forces the pre-S1 path. | yes (md5 byte-identical reuse on/off; dense `5951a5b4`, paged-MoE `8cb0ce23`) |
+| 0041 | **S3 decode-shape-stable scheduling** - keep co-batched prefill OUT of decode steps so the pure-decode batch shape stays reuse-stable (S1 makes a pure-decode step reusable; S3 makes the scheduler emit them). Pure `update_slots()` policy on top of 0016; prefill admitted on a bounded cadence (`LLAMA_PAGED_PREFILL_PERIOD`, default 8). `LLAMA_PAGED_DECODE_STABLE=1` to enable. | yes (default-off byte-identical; per-stream independent in serving) |
+
+Measured (GB10, MoE Qwen3.6-35B-A3B-NVFP4, 128-client staggered streaming load):
+graph reuse **0% -> 72.2%**, host window `hostproc` **15.98 -> 6.31 ms/step**,
+decode **4.05 -> 5.52 tok/s/seq median (4.24 -> 5.96 mean, at vLLM's ~5.9
+sustained)**. S1 is necessary but **not** sufficient alone (13.8% reuse - prefill
+co-batching churns the shape nearly every step); S3 is the multiplier, so they
+ship and are measured together. The static batched-bench A/B isolates the S1
+mechanism: paged decode reuse 0% -> 95.5% (throughput flat there, since the static
+regime is GPU-bound). **S2 (double-buffer `set_inputs`) was dropped**: the Phase-0
+profile put `set_inputs` at ~0.05 ms/step (the cost is the rebuild, not the input
+copy), so it has nothing to recover. The remaining ~28% serving rebuilds are
+request-boundary D/seq-set churn + the prefill-cadence steps; a padded/fixed-slot
+decode shape to capture them is scoped in `docs/DECODE_SERVING_SCOPE.md`.
 
 ### SSM (gated-DeltaNet) decode levers (0018-0022, 0028)
 

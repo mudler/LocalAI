@@ -1,0 +1,322 @@
+From b81fa71360c3f6b46e97c6ad504efc10bdaea484 Mon Sep 17 00:00:00 2001
+From: Ettore Di Giacinto <mudler@localai.io>
+Date: Sun, 28 Jun 2026 20:00:04 +0200
+Subject: [PATCH 40/41] feat(paged): S1 paged decode-graph reuse across serving
+ steps (patch 0040)
+
+The continuous-serving decode gap (paged ~3.7 vs vLLM ~5.9 tok/s/seq) is
+host-bound: llama-context layer-A graph reuse was 0% in serving, so the host
+rebuilt the ggml graph EVERY decode step (the +1.85 ms/step the Phase-0 profile
+attributes to the rebuild; set_inputs/block-table are negligible). Root cause:
+the paged decode inputs (input_block_table / input_gather_idxs in paged-attn.cpp)
+never overrode llm_graph_input_i::can_reuse, which defaults to false - so any
+graph carrying a paged input could never be reused, even with a constant batch
+shape. (This is also why the paged decode graph rebuilt in static batched-bench.)
+
+S1 gives the paged inputs a correct can_reuse:
+  - reuse iff the input tensor dims are unchanged. The block table is
+    [n_view, n_stream] with n_view = PAD(n_gather, 256) clamped to n_kv, so it is
+    bucketed to 256 and stays constant across a 256-token decode window; n_stream
+    follows n_seqs_unq. The index CONTENTS are refilled at set_input on every step
+    (incl. reused steps), so a reused graph reads the current step's cells.
+  - the stored kv-cache context is refreshed from the owning attn input
+    (llm_graph_input_attn_kv, whose mctx is updated per-decode by attn_kv /
+    mem_hybrid can_reuse earlier in the input list), so a reused graph picks up the
+    live memory context. mem_hybrid::can_reuse now also refreshes inp_attn->mctx.
+
+Master switch paged_attn::decode_graph_reuse() (ON by default when paged;
+LLAMA_PAGED_NO_GRAPH_REUSE=1 forces the pre-S1 rebuild-every-step path for A/B).
+Also surfaces the run-wide graph-reuse rate in the [L5INSTR] exit line
+(l5_add_proc) since llama-server does not print llama_perf.
+
+BIT-EXACT: greedy md5 byte-identical with reuse ON vs OFF on every path -
+dense 5951a5b4d624ce891e22ab5fca9bc439, paged-MoE 8cb0ce23777bf55f92f63d0292c756b0.
+Reuse only skips the host-side rebuild; set_inputs still re-runs every step.
+
+Measured (GB10): batched-bench paged decode graph reuse 0% -> 95.5% (hostproc
+dense 3.31->2.66, MoE 2.44->1.82 ms/step); static throughput flat as expected
+(static regime is GPU-bound). The serving payoff needs S3 (patch 0041): S1 alone
+holds only 13.8% reuse in serving because co-batched prefill churns the shape
+every step.
+
+Assisted-by: Claude:opus-4.8 [Claude Code]
+Signed-off-by: Ettore Di Giacinto <mudler@localai.io>
+---
+ src/llama-context.cpp |  3 ++
+ src/llama-graph.cpp   | 13 +++++-
+ src/paged-attn.cpp    | 94 ++++++++++++++++++++++++++++++++++++++-----
+ src/paged-attn.h      | 14 +++++++
+ 4 files changed, 112 insertions(+), 12 deletions(-)
+
+diff --git a/src/llama-context.cpp b/src/llama-context.cpp
+index c408eef..306a506 100644
+--- a/src/llama-context.cpp
++++ b/src/llama-context.cpp
+@@ -1347,6 +1347,7 @@ bool llama_context::set_adapter_cvec(
+ 
+ extern "C" void l5_add_setinp(double ns);
+ extern "C" void l5_add_hostproc(double ns);
++extern "C" void l5_add_proc(int reused); // [S1] per-step graph-reuse counter
+ static inline double l5c_now_ns(){ struct timespec ts; clock_gettime(CLOCK_MONOTONIC,&ts); return (double)ts.tv_sec*1e9+(double)ts.tv_nsec; }
+ llm_graph_result * llama_context::process_ubatch(const llama_ubatch & ubatch, llm_graph_type gtype, llama_memory_context_i * mctx, ggml_status & ret) {
+     double _l5_t0=l5c_now_ns();
+@@ -1374,7 +1375,9 @@ llm_graph_result * llama_context::process_ubatch(const llama_ubatch & ubatch, ll
+         }
+ 
+         n_reused++;
++        l5_add_proc(1);
+     } else {
++        l5_add_proc(0);
+         res->reset();
+ 
+         ggml_backend_sched_reset(sched.get());
+diff --git a/src/llama-graph.cpp b/src/llama-graph.cpp
+index 931258d..0337742 100644
+--- a/src/llama-graph.cpp
++++ b/src/llama-graph.cpp
+@@ -699,6 +699,12 @@ bool llm_graph_input_mem_hybrid::can_reuse(const llm_graph_params & params) {
+ 
+     this->mctx = mctx;
+ 
++    // [S1] refresh the attn sub-input's memory context so paged decode inputs
++    // (which read owner->mctx in their can_reuse, run later in the input list)
++    // pick up the live per-decode context on a reused graph. Harmless for the
++    // non-paged path: inp_attn->mctx is only consumed at graph-build time there.
++    inp_attn->mctx = mctx->get_attn();
++
+     bool res = true;
+ 
+     res &= inp_attn->self_k_idxs->ne[0] == params.ubatch.n_tokens;
+@@ -2370,8 +2376,11 @@ ggml_tensor * llm_graph_context::build_attn(
+     ggml_tensor * kq_mask_g   = kq_mask;
+     ggml_tensor * block_table = nullptr;
+     const bool is_decode = (q_cur->ne[2] == k->ne[3]); // 1 query token per stream
+-    if (!(is_decode && paged_attn::in_kernel_decode(ctx0, res, mctx_cur, &k, &v, &kq_mask_g, &block_table))) {
+-        paged_attn::gather(ctx0, res, mctx_cur, &k, &v, &kq_mask_g);
++    // [S1] pass `inp` (the attn input) as the reuse owner: its mctx is refreshed
++    // per-decode by attn_kv/mem_hybrid can_reuse, and the paged inputs read it so
++    // a reused graph picks up the live memory context.
++    if (!(is_decode && paged_attn::in_kernel_decode(ctx0, res, mctx_cur, inp, &k, &v, &kq_mask_g, &block_table))) {
++        paged_attn::gather(ctx0, res, mctx_cur, inp, &k, &v, &kq_mask_g);
+     }
+ 
+     ggml_tensor * cur = build_attn_mha(q, k, v, kq_b, kq_mask_g, sinks, v_mla, kq_scale, il, block_table);
+diff --git a/src/paged-attn.cpp b/src/paged-attn.cpp
+index ebd92be..d543c7f 100644
+--- a/src/paged-attn.cpp
++++ b/src/paged-attn.cpp
+@@ -11,9 +11,13 @@
+ #include <ctime>
+ namespace { static inline double l5_now_ns(){ struct timespec ts; clock_gettime(CLOCK_MONOTONIC,&ts); return (double)ts.tv_sec*1e9+(double)ts.tv_nsec; } }
+ double g_l5_t_gbt=0, g_l5_t_setinp=0, g_l5_t_hostproc=0; long g_l5_n_gbt=0, g_l5_n_setinp=0, g_l5_n_hostproc=0;
++// [S1] graph-reuse counters across the whole run (the serving reuse-rate signal -
++// llama-server does not print llama_perf, so surface it here at process exit).
++long g_l5_n_proc=0, g_l5_n_reused=0;
+ extern "C" void l5_add_setinp(double ns){ g_l5_t_setinp+=ns; g_l5_n_setinp++; }
+ extern "C" void l5_add_hostproc(double ns){ g_l5_t_hostproc+=ns; g_l5_n_hostproc++; }
+-namespace { struct L5Printer { ~L5Printer(){ fprintf(stderr,"[L5INSTR] get_block_table n=%ld sum=%.2fms mean=%.4fms | set_inputs n=%ld sum=%.2fms mean=%.4fms | hostproc n=%ld sum=%.2fms mean=%.4fms\n", g_l5_n_gbt, g_l5_t_gbt/1e6, g_l5_n_gbt? g_l5_t_gbt/1e6/g_l5_n_gbt:0.0, g_l5_n_setinp, g_l5_t_setinp/1e6, g_l5_n_setinp? g_l5_t_setinp/1e6/g_l5_n_setinp:0.0, g_l5_n_hostproc, g_l5_t_hostproc/1e6, g_l5_n_hostproc? g_l5_t_hostproc/1e6/g_l5_n_hostproc:0.0 ); } } g_l5_printer; }
++extern "C" void l5_add_proc(int reused){ g_l5_n_proc++; if (reused) g_l5_n_reused++; }
++namespace { struct L5Printer { ~L5Printer(){ fprintf(stderr,"[L5INSTR] get_block_table n=%ld sum=%.2fms mean=%.4fms | set_inputs n=%ld sum=%.2fms mean=%.4fms | hostproc n=%ld sum=%.2fms mean=%.4fms | graph_reuse %ld/%ld = %.1f%%\n", g_l5_n_gbt, g_l5_t_gbt/1e6, g_l5_n_gbt? g_l5_t_gbt/1e6/g_l5_n_gbt:0.0, g_l5_n_setinp, g_l5_t_setinp/1e6, g_l5_n_setinp? g_l5_t_setinp/1e6/g_l5_n_setinp:0.0, g_l5_n_hostproc, g_l5_t_hostproc/1e6, g_l5_n_hostproc? g_l5_t_hostproc/1e6/g_l5_n_hostproc:0.0, g_l5_n_reused, g_l5_n_proc, g_l5_n_proc? 100.0*g_l5_n_reused/g_l5_n_proc:0.0 ); } } g_l5_printer; }
+ 
+ 
+ namespace paged_attn {
+@@ -28,17 +32,52 @@ static bool debug() {
+     return d;
+ }
+ 
++// [S1] paged decode-graph reuse master switch. ON by default whenever paging is
++// active; LLAMA_PAGED_NO_GRAPH_REUSE=1 forces it off (A/B probe / safety hatch).
++bool decode_graph_reuse() {
++    static const bool on = active() && (std::getenv("LLAMA_PAGED_NO_GRAPH_REUSE") == nullptr);
++    return on;
++}
++
+ namespace {
+ 
++// [S1] Recompute the block-table view length the SAME way in_kernel_decode()
++// builds it, so can_reuse() can compare against the stored tensor dim. n_view is
++// PAD(n_gather,256) clamped to the physical window n_kv: it only changes when
++// n_gather crosses a 256 boundary, so a steady decode reuses across many steps.
++static inline int64_t paged_block_table_n_view(const llama_kv_cache_context * mctx) {
++    const int64_t n_gather = (int64_t) mctx->get_n_gather();
++    if (n_gather <= 0) {
++        return 0;
++    }
++    int64_t n_view = GGML_PAD(n_gather, 256);
++    const int64_t n_kv = (int64_t) mctx->get_n_kv();
++    if (n_view > n_kv) {
++        n_view = n_kv;
++    }
++    return n_view;
++}
++
++// [S1] Number of attention streams the paged inputs build over - matches K->ne[3]
++// at build time and the n_stream used by can_reuse_kq_mask in llama-graph.cpp.
++static inline int64_t paged_n_stream(const llm_graph_params & params) {
++    return params.cparams.kv_unified ? 1 : (int64_t) params.ubatch.n_seqs_unq;
++}
++
+ // Graph input that, at set_input time, fills an I32 [n_gather, n_stream] tensor
+ // with each stream's non-empty cell indices (position-sorted, padded with a
+-// masked/empty cell) by delegating to the kv-cache context. Private to this
+-// unit; default can_reuse()==false keeps the graph from being reused across
+-// decodes (n_gather grows every step).
++// masked/empty cell) by delegating to the kv-cache context. Private to this unit.
++//
++// [S1] can_reuse: the graph topology depends only on the tensor SHAPE
++// [n_gather, n_stream] - the index CONTENTS are refilled at set_input every step,
++// so they need not match. n_gather is UNPADDED here (the gather path is used for
++// prefill / transposed-V fallback), so it grows every decode and reuse rarely
++// holds - correct and harmless. mctx is refreshed from the owning attn input
++// (whose mctx is updated by attn_kv/mem_hybrid can_reuse earlier in the input list).
+ class input_gather_idxs : public llm_graph_input_i {
+ public:
+-    input_gather_idxs(const llama_kv_cache_context * mctx, ggml_tensor * idxs)
+-        : mctx(mctx), idxs(idxs) {}
++    input_gather_idxs(const llama_kv_cache_context * mctx, const llm_graph_input_attn_kv * owner, ggml_tensor * idxs)
++        : mctx(mctx), owner(owner), idxs(idxs) {}
+ 
+     void set_input(const llama_ubatch * ubatch) override {
+         GGML_UNUSED(ubatch);
+@@ -46,17 +85,37 @@ public:
+         mctx->get_gather_idxs((int32_t *) idxs->data);
+     }
+ 
++    bool can_reuse(const llm_graph_params & params) override {
++        if (!owner || !paged_attn::decode_graph_reuse()) {
++            return false;
++        }
++        mctx = owner->mctx; // refresh to the live per-decode context
++        const int64_t n_gather = (int64_t) mctx->get_n_gather();
++        if (n_gather <= 0) {
++            return false;
++        }
++        return idxs->ne[0] == n_gather && idxs->ne[1] == paged_n_stream(params);
++    }
++
+     const llama_kv_cache_context * mctx;
++    const llm_graph_input_attn_kv * owner;
+     ggml_tensor * idxs;
+ };
+ 
+ // Block table filler for the in-kernel paged read: fills an I32 [n_blk, n_stream]
+ // tensor with each stream's position-ordered cells, padded to n_blk (per column)
+ // with a masked empty cell, by delegating to the kv-cache context.
++//
++// [S1] can_reuse: reuse iff the block-table tensor dims [n_view, n_stream] are
++// unchanged - n_view is bucketed to 256 (paged_block_table_n_view), so the decode
++// graph reuses across every step within a 256-token window. The table CONTENTS
++// are refilled at set_input on every step (incl. reused steps), so the reused
++// graph reads the current step's cells. mctx is refreshed from the owning attn
++// input so the reused graph's set_input/get_block_table uses the live context.
+ class input_block_table : public llm_graph_input_i {
+ public:
+-    input_block_table(const llama_kv_cache_context * mctx, ggml_tensor * idxs, uint32_t n_blk)
+-        : mctx(mctx), idxs(idxs), n_blk(n_blk) {}
++    input_block_table(const llama_kv_cache_context * mctx, const llm_graph_input_attn_kv * owner, ggml_tensor * idxs, uint32_t n_blk)
++        : mctx(mctx), owner(owner), idxs(idxs), n_blk(n_blk) {}
+ 
+     void set_input(const llama_ubatch * ubatch) override {
+         GGML_UNUSED(ubatch);
+@@ -66,7 +125,20 @@ public:
+         g_l5_t_gbt += l5_now_ns()-_t; g_l5_n_gbt++;
+     }
+ 
++    bool can_reuse(const llm_graph_params & params) override {
++        if (!owner || !paged_attn::decode_graph_reuse()) {
++            return false;
++        }
++        mctx = owner->mctx; // refresh to the live per-decode context
++        const int64_t n_view = paged_block_table_n_view(mctx);
++        if (n_view <= 0 || n_view != (int64_t) n_blk) {
++            return false;
++        }
++        return idxs->ne[0] == n_view && idxs->ne[1] == paged_n_stream(params);
++    }
++
+     const llama_kv_cache_context * mctx;
++    const llm_graph_input_attn_kv * owner;
+     ggml_tensor * idxs;
+     uint32_t n_blk;
+ };
+@@ -76,6 +148,7 @@ public:
+ void gather(ggml_context * ctx0,
+             llm_graph_result * res,
+             const llama_kv_cache_context * mctx,
++            const llm_graph_input_attn_kv * owner,
+             ggml_tensor ** k,
+             ggml_tensor ** v,
+             ggml_tensor ** kq_mask) {
+@@ -114,7 +187,7 @@ void gather(ggml_context * ctx0,
+     // n_stream, so column s gathers from stream s of the source.
+     ggml_tensor * idx = ggml_new_tensor_2d(ctx0, GGML_TYPE_I32, n_gather, n_stream);
+     ggml_set_input(idx);
+-    res->add_input(llm_graph_input_ptr(new input_gather_idxs(mctx, idx)));
++    res->add_input(llm_graph_input_ptr(new input_gather_idxs(mctx, owner, idx)));
+ 
+     // --- gather K: collapse (head_dim, n_head) so cells become the row axis ---
+     {
+@@ -156,6 +229,7 @@ void gather(ggml_context * ctx0,
+ bool in_kernel_decode(ggml_context * ctx0,
+                       llm_graph_result * res,
+                       const llama_kv_cache_context * mctx,
++                      const llm_graph_input_attn_kv * owner,
+                       ggml_tensor ** k,
+                       ggml_tensor ** v,
+                       ggml_tensor ** kq_mask,
+@@ -221,7 +295,7 @@ bool in_kernel_decode(ggml_context * ctx0,
+ 
+     ggml_tensor * idx = ggml_new_tensor_2d(ctx0, GGML_TYPE_I32, n_view, n_stream);
+     ggml_set_input(idx);
+-    res->add_input(llm_graph_input_ptr(new input_block_table(mctx, idx, (uint32_t) n_view)));
++    res->add_input(llm_graph_input_ptr(new input_block_table(mctx, owner, idx, (uint32_t) n_view)));
+ 
+     // Present K and V as [d, h, n_view, ns] VIEWS of the full physical window:
+     // identical per-cell (nb1,nb2) and per-stream (nb3) strides, only the cell
+diff --git a/src/paged-attn.h b/src/paged-attn.h
+index 23e2184..fafe821 100644
+--- a/src/paged-attn.h
++++ b/src/paged-attn.h
+@@ -21,18 +21,31 @@ struct ggml_context;
+ struct ggml_tensor;
+ class  llm_graph_result;
+ class  llama_kv_cache_context;
++class  llm_graph_input_attn_kv;
+ 
+ namespace paged_attn {
+ 
+ // true iff env LLAMA_KV_PAGED is set (evaluated once).
+ bool active();
+ 
++// [S1] true iff the paged decode-graph reuse (layer-A can_reuse on the paged
++// inputs) is ENABLED. Default ON when active(); LLAMA_PAGED_NO_GRAPH_REUSE=1
++// forces it off (A/B probe / safety hatch). When off the paged inputs keep the
++// stock default can_reuse()==false, i.e. the pre-S1 behaviour (rebuild every
++// step). Bit-exact either way - reuse only skips the host-side graph rebuild,
++// set_inputs still re-runs every step.
++bool decode_graph_reuse();
++
+ // Gather K, V and the kq_mask down to the current sequence's non-empty cells.
+ // No-op (returns immediately) unless active(). On return *k, *v and *kq_mask
+ // point at the compacted tensors; pass them straight to build_attn_mha.
++// `owner` is the attention input that owns the live (per-decode-refreshed) memory
++// context; the paged input reads owner->mctx in can_reuse so a reused graph picks
++// up the fresh context (see input_gather_idxs::can_reuse). May be null (no reuse).
+ void gather(ggml_context * ctx0,
+             llm_graph_result * res,
+             const llama_kv_cache_context * mctx,
++            const llm_graph_input_attn_kv * owner,
+             ggml_tensor ** k,
+             ggml_tensor ** v,
+             ggml_tensor ** kq_mask);
+@@ -50,6 +63,7 @@ void gather(ggml_context * ctx0,
+ bool in_kernel_decode(ggml_context * ctx0,
+                       llm_graph_result * res,
+                       const llama_kv_cache_context * mctx,
++                      const llm_graph_input_attn_kv * owner,
+                       ggml_tensor ** k,
+                       ggml_tensor ** v,
+                       ggml_tensor ** kq_mask,
+-- 
+2.43.0
+

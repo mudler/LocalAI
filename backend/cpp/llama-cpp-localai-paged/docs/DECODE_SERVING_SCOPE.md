@@ -1,7 +1,39 @@
-# DECODE_SERVING_SCOPE - the continuous-serving decode gap (design only)
+# DECODE_SERVING_SCOPE - the continuous-serving decode gap
 
-**Status: DESIGN + SCOPE + RANKED LEVER PLAN ONLY. No kernel written, no GPU
-run in this pass (the GPU was busy with prefill agents).** Per the
+**Status: S1 + S3 IMPLEMENTED, GPU-validated, bit-exact, shipped as patches
+0040 (S1) + 0041 (S3). S2 DROPPED (measured non-target). See the results block
+below; the rest of this doc is the design/rationale those patches implement.**
+
+## Results (GB10, measured)
+
+Phase 0 confirmed host-bound: serving graph reuse **0% over ~5k steps** (layer-A
+rebuilds every step), `hostproc` 3.44 ms/step vs 1.59 static - the +1.85 ms IS the
+graph rebuild; `set_inputs` 0.047 ms and block-table 0.002 ms are negligible.
+
+- **S1 (patch 0040)** - root cause: the paged decode inputs never overrode
+  `can_reuse` (defaults false), so the graph could never be reused. Fixed with a
+  256-bucketed-shape `can_reuse` + live-mctx refresh. Static batched-bench A/B:
+  paged decode reuse **0% -> 95.5%**, bit-exact (md5 byte-identical reuse on/off).
+  Necessary but **not** sufficient in serving (13.8% reuse alone - prefill
+  co-batching churns the shape).
+- **S3 (patch 0041)** - keeps prefill out of decode steps so the scheduler emits
+  reuse-stable pure-decode steps. **S1+S3 together (128-client staggered serving,
+  MoE Qwen3.6-35B-A3B-NVFP4): reuse 0% -> 72.2%, `hostproc` 15.98 -> 6.31 ms/step,
+  decode 4.05 -> 5.52 tok/s/seq median (4.24 -> 5.96 mean, at vLLM's ~5.9).**
+- **S2 (double-buffer set_inputs) - DROPPED.** Phase 0 put `set_inputs` at
+  ~0.05 ms/step: it is not the cost (the rebuild is), so S2 has nothing to recover.
+- **Follow-up to ~100% reuse:** the remaining ~28% serving rebuilds are
+  request-boundary D/seq-set churn + the S3 prefill-cadence steps. Capturing them
+  needs a **padded/fixed-slot decode shape** (pad the decode width to a fixed
+  bucket with masked-inert dummy slots so `n_tokens` and the seq-id set stay
+  constant across arrivals/completions - the lever S1 section (a) describes).
+  Deferred: S1+S3 already reach vLLM-parity on the mean; padding is server-side,
+  invasive, and not exercised by the single-sequence md5 gate (needs a per-stream
+  serving-determinism gate). It is the next lever, not a shipped one.
+
+---
+
+Per the
 "profile-don't-assume" rule in
 [`.agents/vllm-parity-methodology.md`](../../../../.agents/vllm-parity-methodology.md),
 **Phase 0 (section 5) is to confirm the bottleneck on GPU before touching any
