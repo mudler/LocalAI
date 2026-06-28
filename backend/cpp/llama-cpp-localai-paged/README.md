@@ -147,8 +147,13 @@ mechanism: paged decode reuse 0% -> 95.5% (throughput flat there, since the stat
 regime is GPU-bound). **S2 (double-buffer `set_inputs`) was dropped**: the Phase-0
 profile put `set_inputs` at ~0.05 ms/step (the cost is the rebuild, not the input
 copy), so it has nothing to recover. The remaining ~28% serving rebuilds are
-request-boundary D/seq-set churn + the prefill-cadence steps; a padded/fixed-slot
-decode shape to capture them is scoped in `docs/DECODE_SERVING_SCOPE.md`.
+request-boundary D/seq-set churn + the prefill-cadence steps. A **padded/fixed-slot
+decode shape** to capture them was then implemented and GPU-tested (2026-06-28) and
+**REJECTED** - it is bit-exact/inert but regresses serving throughput at every
+concurrency, because this serving decode is GPU-compute-bound (baseline reuse 0% ~=
+S1+S3 reuse 72% on aggregate tok/s), so the dummy-row compute it adds costs more
+than the reuse it recovers. Full record + numbers in `docs/DECODE_SERVING_SCOPE.md`
+("Padded-shape lever - rejected").
 
 ### SSM (gated-DeltaNet) decode levers (0018-0022, 0028)
 

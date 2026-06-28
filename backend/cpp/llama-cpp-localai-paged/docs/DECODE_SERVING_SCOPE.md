@@ -22,14 +22,94 @@ graph rebuild; `set_inputs` 0.047 ms and block-table 0.002 ms are negligible.
   decode 4.05 -> 5.52 tok/s/seq median (4.24 -> 5.96 mean, at vLLM's ~5.9).**
 - **S2 (double-buffer set_inputs) - DROPPED.** Phase 0 put `set_inputs` at
   ~0.05 ms/step: it is not the cost (the rebuild is), so S2 has nothing to recover.
-- **Follow-up to ~100% reuse:** the remaining ~28% serving rebuilds are
-  request-boundary D/seq-set churn + the S3 prefill-cadence steps. Capturing them
-  needs a **padded/fixed-slot decode shape** (pad the decode width to a fixed
-  bucket with masked-inert dummy slots so `n_tokens` and the seq-id set stay
-  constant across arrivals/completions - the lever S1 section (a) describes).
-  Deferred: S1+S3 already reach vLLM-parity on the mean; padding is server-side,
-  invasive, and not exercised by the single-sequence md5 gate (needs a per-stream
-  serving-determinism gate). It is the next lever, not a shipped one.
+- **Follow-up to ~100% reuse - PADDED/FIXED-SLOT DECODE SHAPE: IMPLEMENTED,
+  GPU-TESTED, REJECTED (not shipped).** See the "Padded-shape lever - rejected"
+  block below. Summary: it does NOT close the serving gap. Padding holds the
+  pure-decode width constant by emitting masked-inert dummy decodes for idle
+  slots, and it is provably inert (single-seq md5 bit-exact + per-stream
+  noise-floor determinism), but it **regresses throughput at every concurrency**
+  (catastrophically at low load) because the serving decode here is
+  **GPU-compute-bound, not host-rebuild-bound** - so the dummy-row compute it adds
+  costs more than the graph-reuse it recovers. The original "remaining ~28% is
+  request-boundary churn -> pad it" hypothesis stands mechanically, but the payoff
+  premise (closing reuse pulls decode toward vLLM) is **not supported by
+  measurement**.
+
+---
+
+## Padded-shape lever - rejected (implemented + GPU-tested, 2026-06-28)
+
+The S1 section-(a) **padded / fixed-slot decode shape** was implemented in an
+isolated worktree off the committed S1/S3/tail base (paged HEAD `05eceb4`), built
+CUDA-only, and benched on GB10. **Verdict: REJECTED - it regresses serving
+throughput and does not close the vLLM gap.** Recorded here so it is not re-tried.
+
+**Implementation** (default-off, `LLAMA_PAGED_PAD_DECODE=1`; `LLAMA_PAGED_PAD_WIDTH`
+caps the slot range): at the end of `pre_decode()`, on any step where no prompt
+tokens were admitted (`n_prompt_budgeted == 0`) and there is decode load, emit a
+masked-inert dummy decode for **every IDLE slot** (`batch.add(slot.id, 0,
+pos_max+1, /*output=*/true)`; cold slot -> fresh pos-0). This holds `n_tokens`,
+`n_seqs`, `n_seqs_unq`, `n_outputs` and the participating seq-id SET constant
+across arrivals/completions. A `release()`-side guard keeps a finished slot warm
+under padding (else patch 0024's reclaim-on-idle frees its KV and the next-step
+pos-0 re-warm churns paged-block allocation, destroying reuse). Each dummy is its
+OWN sequence, so its recurrent (gated-DeltaNet) state is private and its paged
+attention reads only its own cells; its logits are computed but never read
+(`post_decode()` only consumes `slot.i_batch` of GENERATING slots).
+
+**Gates.** (1) Single-seq greedy md5 **bit-exact PASS** - dense
+`5951a5b4d624ce891e22ab5fca9bc439`, paged-MoE `8cb0ce23777bf55f92f63d0292c756b0`
+(the lever lives only in `llama-server`'s `update_slots()`, never in
+`llama-completion`). (2) **Per-stream serving determinism**: the literal
+"ON-vs-OFF token sequences identical" gate is **unachievable** - concurrent
+cuBLAS/FA decode is **not bit-reproducible run-to-run** even with padding OFF
+(OFF-vs-OFF diverging streams: dense 3/16, MoE 8/16, lockstep K=16). The
+**achievable inertness gate PASSED**: per-stream prefix-agreement ON-vs-OFF equals
+the OFF-vs-OFF noise floor exactly (MoE 0.940/0.940, dense 0.812/0.812), i.e. the
+dummy slots inject no systematic divergence beyond the pre-existing concurrent FP
+noise. So padding is provably inert; it just does not help.
+
+**Bench (MoE Qwen3.6-35B-A3B-NVFP4, GB10).** Burst h2h, decode tok/s/seq:
+
+| n   | S1+S3 | PAD  | vLLM |
+|-----|-------|------|------|
+| 8   | 28.16 | 6.05 | 44.8 |
+| 32  | 11.66 | 4.84 | 17.45|
+| 64  | 7.16  | 4.33 | 11.07|
+| 128 | 4.53  | 4.32 | 6.87 |
+
+Staggered (`serve_bench.py` k=128 n=160 stagger0.25), aggregate decode tok/s and
+graph-reuse: baseline (reuse 0%) **757.6**; S1+S3 (reuse 72%) **763.3**; **PAD
+(reuse 38%) 558.0**.
+
+**Why it fails (four independent reasons):**
+
+1. **Serving decode is GPU-compute-bound, not host-rebuild-bound (this run).**
+   Baseline reuse 0% (757.6 agg) is statistically equal to S1+S3 reuse 72% (763.3
+   agg): `hostproc` is only ~4-8% of the per-step wall, so eliminating the host
+   graph rebuild buys ~nothing. (This **corrects the host-bound hypothesis** above
+   for this hardware: the earlier 542->762 host-bound delta did **not** reproduce
+   - it was GPU-state/contention variance, not a stable reuse effect.)
+2. **Padding ADDS dummy-row compute** (full-width decode), costing throughput in
+   direct proportion to `pad_width - real_load`: catastrophic at low concurrency
+   (n=8: 28.16 -> 6.05, ~4.6x slower, because 8 real streams pay for a 128-wide
+   step).
+3. **In continuous serving padding can't even hold the width constant**: arrivals
+   are perpetually mid-prefill, so the idle-slot count varies and reuse DROPS
+   72% -> 38% (the opposite of the goal). It only stabilises the pure-decode
+   *tail* of a burst (verified: width pinned at 64 as real decoders fell 49->5),
+   which is exactly where the dummy compute is most wasteful.
+4. **The completion-driven batch shrink that padding prevents is itself a
+   throughput WIN** in a compute-bound regime (fewer real streams -> cheaper
+   steps -> survivors finish faster); forcing constant width forfeits it.
+
+**Conclusion.** The residual burst gap (paged 4.53 vs vLLM 6.87 at n=128 ~= 66%)
+is a **GPU-compute** gap (vLLM's MoE decode kernel + scheduler are ~1.3x faster on
+aggregate), not a host-loop gap. A host-side graph-reuse lever cannot close it.
+Do not re-pursue padded/fixed-slot shapes for throughput; if the host loop is ever
+re-confirmed dominant on other hardware (re-run reason 1's baseline-vs-S1+S3 A/B
+first), revisit - but only with an *adaptive* width matched to live load, never a
+fixed pad-to-`--parallel`.
 
 ---
 
