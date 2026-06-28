@@ -1,4 +1,77 @@
 ---
+- name: "krea-2-turbo"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/vantagewithai/Krea-2-Turbo-GGUF
+  description: |
+    # Krea 2 Text-to-Image Model
+
+    ## Inference with the official codebase
+
+    1. Setup the official Krea 2 codebase
+    2. Download `turbo.safetensors` in this repo
+    3. `export OSS_TURBO=`
+    Run inference:
+    ```bash
+    uv run inference.py "a fox walking in the snow" \
+      --checkpoint oss_turbo --steps 8 --cfg 0.0 --mu 1.15 --width 2048 --height 2048
+    ```
+
+    ## Inference with diffusers
+
+    Install diffusers from source (for `Krea2Pipeline`):
+
+    ```bash
+    pip install git+https://github.com/huggingface/diffusers.git
+    ```
+
+    ```python
+    import torch
+    from diffusers import Krea2Pipeline
+
+    pipe = Krea2Pipeline.from_pretrained("krea/Krea-2-Turbo", torch_dtype=torch.bfloat16).to("cuda")
+    image = pipe("a fox in the snow", num_inference_steps=8, guidance_scale=0.0).images[0]
+    image.save("krea2.png")
+    ```
+
+    ## Inference with SGLang
+
+    Install SGLang from source (https://github.com/sgl-project/sglang)
+
+    From the CLI:
+    ```bash
+    sglang generate --model-path krea/Krea-2-Turbo \
+      --prompt "a red fox sitting in fresh snow, golden hour, photorealistic" \
+      --num-inference-steps 8 --height 1024 --width 1024 --save-output
+    ```
+
+    See the full SGLang Krea 2 Cookbook here
+
+    ## Model Overview
+
+    ...
+  license: "other"
+  tags:
+    - llm
+    - gguf
+  overrides:
+    backend: llama-cpp
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/Krea-2-Turbo-GGUF/krea2_turbo-Q4_K_M.gguf
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/Krea-2-Turbo-GGUF/krea2_turbo-Q4_K_M.gguf
+      sha256: bc12f539de7a7a6ddf9bac17ec6e5bfecd42c3517190f491131d8464a1034b40
+      uri: https://huggingface.co/vantagewithai/Krea-2-Turbo-GGUF/resolve/main/krea2_turbo-Q4_K_M.gguf
 - name: "qwen-agentworld-35b-a3b"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
