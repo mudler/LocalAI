@@ -323,7 +323,7 @@ new file mode 100644
 index 0000000..c5b7bd7
 --- /dev/null
 +++ b/src/paged-attn.h
-@@ -0,0 +1,40 @@
+@@ -0,0 +1,41 @@
 +#pragma once
 +// Paged attention gather-read (patch 0003, experimental).
 +//
@@ -341,6 +341,7 @@ index 0000000..c5b7bd7
 +// All logic lives here to keep the core files additive: build_attn gets one
 +// call, llama_kv_cache_context gets two thin accessors, CMake gets one line.
 +
++#include <cstddef>
 +#include <cstdint>
 +
 +struct ggml_context;

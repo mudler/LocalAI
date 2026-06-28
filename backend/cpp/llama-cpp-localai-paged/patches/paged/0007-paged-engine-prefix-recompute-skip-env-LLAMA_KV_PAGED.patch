@@ -350,7 +350,7 @@ diff --git a/src/paged-alloc.h b/src/paged-alloc.h
 index bf66665..88dedef 100644
 --- a/src/paged-alloc.h
 +++ b/src/paged-alloc.h
-@@ -1,17 +1,27 @@
+@@ -1,17 +1,28 @@
  #pragma once
 -// On-demand paged KV block allocation (patch 0004, experimental).
 +// On-demand paged KV block allocation + cross-request prefix reuse
@@ -387,6 +387,7 @@ index bf66665..88dedef 100644
 +// registry), so the core kv-cache struct stays untouched - find_slot gains only
 +// gated calls. Gated behind env LLAMA_KV_PAGED; a no-op when unset.
  
++#include <cstddef>
  #include <cstdint>
  #include <vector>
 @@ -21,19 +31,42 @@ namespace paged_alloc {
@@ -498,7 +499,7 @@ new file mode 100644
 index 0000000..78a3864
 --- /dev/null
 +++ b/src/paged-prefix-api.h
-@@ -0,0 +1,27 @@
+@@ -0,0 +1,29 @@
 +#pragma once
 +// Thin test/diagnostic shim over the paged cross-request prefix engine seam
 +// (patch 0007). Lets a driver that only includes the public llama.h reach the
@@ -506,6 +507,8 @@ index 0000000..78a3864
 +// without pulling in the internal kv-cache headers. All entry points are no-ops
 +// (return 0) unless env LLAMA_KV_PAGED is set. Experimental; not a stable API.
 +
++#include <cstddef>
++#include <cstdint>
 +#include "llama.h"
 +
 +namespace paged_prefix_api {
