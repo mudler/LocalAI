@@ -763,6 +763,118 @@ static void params_parse(server_context& /*ctx_server*/, const backend::ModelOpt
             } else if (optval_str == "false" || optval_str == "0" || optval_str == "no" || optval_str == "off" || optval_str == "disabled") {
                 params.kv_unified = false;
             }
+        // --- paged KV cache (experimental, off by default) ---
+        // Enables the on-demand paged KV-cache engine (vendored PagedKVManager
+        // + paged placement/gather/alloc seams). The engine is gated inside
+        // llama.cpp by the LLAMA_KV_PAGED env var, evaluated once at first use;
+        // here we expose it as a per-server model option instead of forcing the
+        // operator to export a process-wide env. When enabled we set the env
+        // BEFORE the model/context is created (later in this handler), so the
+        // engine latches on. When the option is absent we touch nothing, so an
+        // externally exported LLAMA_KV_PAGED still works as an escape hatch.
+        // Note: the engine's env check is process-wide and latches on first
+        // use, so enabling it for one model enables it for the worker process;
+        // LocalAI runs one model per llama.cpp worker, so this maps cleanly to
+        // per-server configuration. `kv_paged_debug` turns on the per-slot
+        // [paged-alloc]/free trace (LLAMA_KV_PAGED_DEBUG).
+        //
+        // The continuous-batching serving loop (update_slots) drives paged KV
+        // transparently through the existing kv-cache seams: each slot's
+        // sequence allocates paged blocks on arrival (find_slot placement) and
+        // returns them on slot release (the seq_rm free seam). This is
+        // token-identical to stock under both the unified and per-sequence
+        // caches. The per-slot allocate/free capacity benefit, however, only
+        // materialises with a per-sequence cache, since paged block ownership
+        // is keyed by stream and the unified cache collapses every slot onto a
+        // single stream. Operators who want that benefit should pair this with
+        // `kv_unified:false`; we do NOT flip kv_unified here, to keep the
+        // default serving behaviour (and the idle-slot prompt cache) unchanged.
+        } else if (!strcmp(optname, "kv_paged") || !strcmp(optname, "paged_kv") || !strcmp(optname, "paged_attention")) {
+            if (optval_str == "true" || optval_str == "1" || optval_str == "yes" || optval_str == "on" || optval_str == "enabled") {
+                setenv("LLAMA_KV_PAGED", "1", 1);
+            }
+        } else if (!strcmp(optname, "kv_paged_debug") || !strcmp(optname, "paged_kv_debug")) {
+            if (optval_str == "true" || optval_str == "1" || optval_str == "yes" || optval_str == "on" || optval_str == "enabled") {
+                setenv("LLAMA_KV_PAGED_DEBUG", "1", 1);
+            }
+        // --- chunked-prefill QoS budget (experimental, off by default) ---
+        // Caps the number of prompt tokens any single slot may prefill per
+        // update_slots iteration, so a large prompt cannot monopolise the batch
+        // and freeze the in-flight decoders. The serving loop reads this budget
+        // from the LLAMA_PREFILL_BUDGET env var (set BEFORE context init, like
+        // kv_paged above) and splits oversized prompts across iterations,
+        // interleaving decode steps for the other slots. A 6k-token prefill that
+        // stalled 8 decoders ~3.4s drops to ~780ms at budget=512 (4.8x stall
+        // cut) with zero TTFT cost and no steady-state regression. Unset or a
+        // non-positive value leaves the env untouched, so the stock unbounded
+        // prefill behaviour is preserved (an externally exported
+        // LLAMA_PREFILL_BUDGET still works as an escape hatch).
+        } else if (!strcmp(optname, "max_prefill_tokens") || !strcmp(optname, "mpt") || !strcmp(optname, "prefill_budget")) {
+            if (optval != NULL) {
+                try {
+                    int budget = std::stoi(optval_str);
+                    if (budget > 0) {
+                        setenv("LLAMA_PREFILL_BUDGET", std::to_string(budget).c_str(), 1);
+                    }
+                } catch (const std::exception& e) {
+                    // If conversion fails, leave the budget unset (stock behaviour)
+                }
+            }
+        // --- dynamic decode-first prefill budget (patch 0016, continuous-batch P1) ---
+        // Supersedes max_prefill_tokens (the static patch-0013 cap) with the dynamic
+        // T - D budget read by update_slots(): a single total per-step token budget T
+        // (max_batch_tokens / mbt, the vLLM max_num_batched_tokens analogue) of which
+        // decode claims its live load D first and prefill gets the leftover, plus an
+        // optional per-slot prompt-chunk cap (prefill_cap, the long_prefill_token_
+        // threshold analogue). Both are set BEFORE context init, like kv_paged /
+        // max_prefill_tokens above. Unset leaves the env untouched, so the engine stays
+        // byte-identical to stock (an externally exported LLAMA_MAX_BATCH_TOKENS /
+        // LLAMA_PREFILL_CAP still works as an escape hatch). When max_batch_tokens is set
+        // it takes precedence over max_prefill_tokens: the engine honours the legacy
+        // LLAMA_PREFILL_BUDGET only when the dynamic knob is unset.
+        } else if (!strcmp(optname, "max_batch_tokens") || !strcmp(optname, "mbt")) {
+            if (optval != NULL) {
+                try {
+                    int mbt = std::stoi(optval_str);
+                    if (mbt > 0) {
+                        setenv("LLAMA_MAX_BATCH_TOKENS", std::to_string(mbt).c_str(), 1);
+                    }
+                } catch (const std::exception& e) {
+                    // If conversion fails, leave the budget unset (stock behaviour)
+                }
+            }
+        } else if (!strcmp(optname, "prefill_cap")) {
+            if (optval != NULL) {
+                try {
+                    int cap = std::stoi(optval_str);
+                    if (cap > 0) {
+                        setenv("LLAMA_PREFILL_CAP", std::to_string(cap).c_str(), 1);
+                    }
+                } catch (const std::exception& e) {
+                    // If conversion fails, leave the per-slot cap unset (engine default)
+                }
+            }
+        // --- hybrid per-head bf16 SSM-state precision (patch 0026, qwen3.5 gated-DeltaNet decode) ---
+        // Opt-in reduced-precision fast mode for the recurrent SSM state: a gated-DeltaNet head whose
+        // memory length tau_h = 1/(|ssm_a|*softplus(ssm_dt)) tokens exceeds this threshold stays f32;
+        // faster-decaying heads persist their state as bf16, halving that head's dominant recurrence
+        // byte stream on decode. The value is the tau threshold in tokens (e.g. 32 / 64); 0 keeps every
+        // head f32 (the bit-exact default). Set BEFORE context init via LLAMA_SSM_BF16_TAU, consumed in
+        // common_context_params_to_llama (patch 0026) only when the --ssm-bf16-tau CLI flag is unset.
+        // Unset / non-positive => env untouched, so stock stays byte-identical and bit-exact (an
+        // externally exported LLAMA_SSM_BF16_TAU still works as an escape hatch). NOTE: this mode is
+        // NOT bit-exact (~91% same-top-p ceiling); see backend/cpp/llama-cpp-localai-paged/README.md (Dev notes).
+        } else if (!strcmp(optname, "ssm_bf16_tau") || !strcmp(optname, "ssm_hybrid_tau")) {
+            if (optval != NULL) {
+                try {
+                    float tau = std::stof(optval_str);
+                    if (tau > 0.0f) {
+                        setenv("LLAMA_SSM_BF16_TAU", std::to_string(tau).c_str(), 1);
+                    }
+                } catch (const std::exception& e) {
+                    // If conversion fails, leave the threshold unset (bit-exact f32 default)
+                }
+            }
         } else if (!strcmp(optname, "n_ctx_checkpoints") || !strcmp(optname, "ctx_checkpoints")) {
             if (optval != NULL) {
                 try {

@@ -23,6 +23,8 @@ LocalAI follows the Linux kernel project's [guidelines for AI coding assistants]
 | [.agents/adding-backends.md](.agents/adding-backends.md) | Adding a new backend (Python, Go, or C++) — full step-by-step checklist, including importer integration (the `/import-model` dropdown is server-driven from `GET /backends/known`) |
 | [.agents/coding-style.md](.agents/coding-style.md) | Code style, editorconfig, logging, documentation conventions |
 | [.agents/llama-cpp-backend.md](.agents/llama-cpp-backend.md) | Working on the llama.cpp backend — architecture, updating, tool call parsing |
+| [.agents/llama-cpp-localai-paged-backend.md](.agents/llama-cpp-localai-paged-backend.md) | Working on the CUDA-only paged-attention llama.cpp variant (Qwen3.6 hybrid-SSM / Blackwell NVFP4 decode) - patchset scope, the bit-exact gate, the manual pin-sync + weekly canary, CUDA-only invariants, stock-stays-pure, Metal/SYCL/Vulkan follow-up scope |
+| [.agents/vllm-parity-methodology.md](.agents/vllm-parity-methodology.md) | The methodology for closing the vLLM decode-throughput gap in llama.cpp - bit-exact gating, profile-don't-assume, both-engine ground-truth, per-lever A/B discipline, recording rejected levers, multi-agent GPU orchestration |
 | [.agents/vllm-backend.md](.agents/vllm-backend.md) | Working on the vLLM / vLLM-omni backends — native parsers, ChatDelta, CPU build, libnuma packaging, backend hooks |
 | [.agents/sglang-backend.md](.agents/sglang-backend.md) | Working on the SGLang backend — `engine_args` validation against ServerArgs, speculative-decoding (EAGLE/EAGLE3/DFLASH/MTP) recipes, parser handling |
 | [.agents/ds4-backend.md](.agents/ds4-backend.md) | Working on the ds4 backend - DSML state machine, thinking modes, KV cache, Metal+CUDA matrix |
@@ -37,6 +39,7 @@ LocalAI follows the Linux kernel project's [guidelines for AI coding assistants]
 
 - **Git hooks & coverage gates**: Run `make install-hooks` once per clone so the pre-commit lint + coverage gates run. **Never bypass them with `git commit --no-verify`, and never lower a coverage baseline or widen a gate's tolerance to turn a red gate green** — the coverage ratchet only moves up. If a change drops coverage, add tests to raise it (e.g. render-smoke specs). See [.agents/building-and-testing.md](.agents/building-and-testing.md).
 - **Logging**: Use `github.com/mudler/xlog` (same API as slog)
+- **Paged llama.cpp backend**: `llama-cpp-localai-paged` is a CUDA-only variant that owns its own patch series + its own pinned llama.cpp (manual pin-sync, weekly canary); the stock `llama-cpp` backend stays patch-free. Read [.agents/llama-cpp-localai-paged-backend.md](.agents/llama-cpp-localai-paged-backend.md) before touching either, and [.agents/vllm-parity-methodology.md](.agents/vllm-parity-methodology.md) for the decode-parity methodology behind it.
 - **Go style**: Prefer `any` over `interface{}`
 - **Comments**: Explain *why*, not *what*
 - **Docs**: Update `docs/content/` when adding features or changing config

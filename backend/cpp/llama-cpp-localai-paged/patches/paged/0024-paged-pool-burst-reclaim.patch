@@ -1,0 +1,357 @@
+From a8a9d129ae2226a08a12c30ece697865c0fc85c4 Mon Sep 17 00:00:00 2001
+From: Ettore Di Giacinto <mudler@localai.io>
+Date: Fri, 26 Jun 2026 12:41:49 +0200
+Subject: [PATCH] feat(paged): paged-pool burst-reclaim (truncate + defrag +
+ slot release) (patch 0024)
+
+Fixes the paged-pool burst-degradation bug (OTHER_PATHS_INVESTIGATION.md section C
+Part 2): on a long-lived llama-server with LLAMA_KV_PAGED=1, a high-fan-out prefill
+burst strands KV blocks in the host-side paged pool, so a later lower-npl prefill
+draws from a depleted/fragmented pool and its throughput collapses (the benchmark's
+"restart per npl" crutch). Decode is unaffected. The fix changes only host-side
+block accounting and placement, never KV values or compute, and is gated behind
+LLAMA_KV_PAGED (LLAMA_PAGED_NO_RECLAIM=1 restores the pre-fix behavior).
+
+Fix-1 reclaim trailing blocks: PagedKVManager::truncate(seq, n_keep) frees every
+block beyond ceil(n_keep/bs) (ref-counted); called from llama_kv_cache::seq_rm for
+the p1==MAX && p0>0 partial-tail case so the manager tracks the kv-cache exactly.
+Fix-2 defrag on empty: when the pool is fully idle, defrag_free_pool() relinks the
+free queue into ascending block-id order (FreeBlockQueue::rebuild), preserving
+content-cache hashes.
+Fix-3 release on slot completion: server_slot::release() issues prompt_clear()
+under the paged engine so a finished-idle slot returns its blocks promptly.
+
+Validation (DGX GB10, q36-27b-nvfp4 = qwen35 hybrid; HEAD f7409c2 = patch 0023):
+- Bit-exact: greedy md5 identical across paged off / paged on / paged on+NO_RECLAIM
+  (5951a5b4d624ce891e22ab5fca9bc439), == the 0023 baseline. test-backend-ops
+  unaffected (no ggml op touched).
+- Host unit test: truncate reclaims exactly 16 trailing blocks; defrag restores
+  ascending popleft order. UNIT PASS.
+- Model A/B (one binary, NO_RECLAIM): fragmentation prefill ratio 0.944 -> 0.998;
+  64 idle slots strand 2048 blocks, reclaim returns the pool to fresh (2527).
+- Server A/B (FRESH-npl8 -> BURST-npl64 -> POST-npl8): POST-npl8 prefill collapses
+  488 -> 44 t/s with NO_RECLAIM (the bug; investigation saw 507 -> 65), restored to
+  532 t/s (fresh 525, within 1%) with the fix. Paged release-log count 17 -> 96
+  (Fix-3 fires per slot completion). Canary tokens identical fresh-vs-post in both
+  arms (bit-exact serving).
+
+Assisted-by: Claude:opus-4.8 [Claude Code]
+Signed-off-by: Ettore Di Giacinto <mudler@localai.io>
+---
+ src/llama-kv-cache.cpp          | 13 ++++++++++
+ src/paged-alloc.cpp             | 31 +++++++++++++++++++++++
+ src/paged-alloc.h               | 18 +++++++++++++
+ src/paged-kv-manager.cpp        | 45 +++++++++++++++++++++++++++++++++
+ src/paged-kv-manager.h          | 24 ++++++++++++++++++
+ src/paged-prefix-api.cpp        |  8 ++++++
+ src/paged-prefix-api.h          |  6 +++++
+ tools/server/server-context.cpp | 17 +++++++++++++
+ 8 files changed, 162 insertions(+)
+
+diff --git a/src/llama-kv-cache.cpp b/src/llama-kv-cache.cpp
+index 0351f86..21b8f1e 100644
+--- a/src/llama-kv-cache.cpp
++++ b/src/llama-kv-cache.cpp
+@@ -425,6 +425,19 @@ bool llama_kv_cache::seq_rm(llama_seq_id seq_id, llama_pos p0, llama_pos p1) {
+         }
+     }
+ 
++    // [paged 0024 Fix-1] Reclaim trailing blocks on a partial TAIL truncation
++    // (p1 == MAX, p0 > 0). llama-server issues seq_rm(slot, n_past, -1) on every
++    // reused slot and before a cross-request prefix splice; the kv-cache frees the
++    // cells [p0, end) but, without this, the paged manager keeps owning those
++    // blocks - the reclamation gap that leaks and fragments the pool across a
++    // burst. truncate() frees the blocks beyond ceil(p0/bs) so the manager's
++    // accounting tracks the kv-cache exactly. Gated so LLAMA_PAGED_NO_RECLAIM
++    // restores the pre-fix behavior for A/B.
++    if (paged_alloc::active() && paged_alloc::reclaim_active() && seq_id >= 0 &&
++        p0 > 0 && p1 == std::numeric_limits<llama_pos>::max()) {
++        paged_alloc::truncate(this, (int) seq_to_stream[seq_id], (int) seq_id, (uint32_t) p0);
++    }
++
+     if (seq_id >= 0) {
+         auto & cells = v_cells[seq_to_stream[seq_id]];
+         auto & head  = v_heads[seq_to_stream[seq_id]];
+diff --git a/src/paged-alloc.cpp b/src/paged-alloc.cpp
+index c1027fb..ba98dd5 100644
+--- a/src/paged-alloc.cpp
++++ b/src/paged-alloc.cpp
+@@ -14,6 +14,11 @@ bool active() {
+     return a;
+ }
+ 
++bool reclaim_active() {
++    static const bool off = (std::getenv("LLAMA_PAGED_NO_RECLAIM") != nullptr);
++    return !off;
++}
++
+ static bool debug() {
+     static const bool d = (std::getenv("LLAMA_KV_PAGED_DEBUG") != nullptr);
+     return d;
+@@ -124,12 +129,28 @@ void commit(const void * cache, int stream, int seq,
+     }
+ }
+ 
++void truncate(const void * cache, int stream, int seq, uint32_t n_keep) {
++    paged::PagedKVManager * mgr = find_mgr(cache, stream);
++    if (!mgr) {
++        return;
++    }
++    mgr->truncate(seq, (size_t) n_keep);     // Fix-1: reclaim trailing blocks
++    mgr->defrag_free_pool();                 // Fix-2: compact iff the pool emptied
++    if (debug()) {
++        fprintf(stderr, "[paged-alloc] truncate cache=%p stream=%d seq=%d keep<=%u (free=%zu)\n",
++                cache, stream, seq, n_keep, mgr->num_free_blocks());
++    }
++}
++
+ void release(const void * cache, int stream, int seq) {
+     paged::PagedKVManager * mgr = find_mgr(cache, stream);
+     if (!mgr) {
+         return;
+     }
+     mgr->free(seq); // ref-counted: shared blocks survive while another seq holds them
++    if (reclaim_active()) {
++        mgr->defrag_free_pool();             // Fix-2: compact iff the pool emptied
++    }
+     if (debug()) {
+         fprintf(stderr, "[paged-alloc] released cache=%p stream=%d seq=%d (free=%zu)\n",
+                 cache, stream, seq, mgr->num_free_blocks());
+@@ -163,4 +184,14 @@ size_t num_free(const void * cache, int stream) {
+     return mgr ? mgr->num_free_blocks() : 0;
+ }
+ 
++size_t num_free_global() {
++    size_t total = 0;
++    for (auto & kv : g_managers) total += kv.second->num_free_blocks();
++    return total;
++}
++
++size_t num_managers() {
++    return g_managers.size();
++}
++
+ } // namespace paged_alloc
+diff --git a/src/paged-alloc.h b/src/paged-alloc.h
+index 88dedef..bfaf45b 100644
+--- a/src/paged-alloc.h
++++ b/src/paged-alloc.h
+@@ -31,6 +31,12 @@ namespace paged_alloc {
+ // true iff env LLAMA_KV_PAGED is set (evaluated once).
+ bool active();
+ 
++// [paged 0024] The burst-reclaim fix (truncate + defrag-on-empty + slot release)
++// is on by default whenever the paged engine is active. LLAMA_PAGED_NO_RECLAIM=1
++// restores the pre-fix behavior (no trailing-block reclaim, no compaction) for
++// A/B measurement. Evaluated once.
++bool reclaim_active();
++
+ // Place n_tokens logical positions [base, base+n_tokens) of (cache,stream,seq)
+ // on demand, appending their physical cell indices to `out`. pool_blocks =
+ // cells.size()/block_size is the stream's block budget. Returns false (leaving
+@@ -58,6 +64,12 @@ int64_t slot(const void * cache, int stream, int seq, int pos);
+ void commit(const void * cache, int stream, int seq,
+             const std::vector<int> & tokens, uint32_t block_size, uint32_t pool_blocks);
+ 
++// [paged 0024 Fix-1] Reclaim the trailing blocks of (cache,stream,seq) beyond
++// logical position n_keep (ref-counted), mirroring a partial kv-cache seq_rm
++// [n_keep, end). When the stream's pool empties as a result, its free queue is
++// defragged to pristine contiguous order (Fix-2). No-op if no manager exists.
++void truncate(const void * cache, int stream, int seq, uint32_t n_keep);
++
+ // Return one sequence's blocks to the pool (ref-counted; sequence end).
+ void release(const void * cache, int stream, int seq);
+ 
+@@ -69,4 +81,10 @@ void release_all(const void * cache);
+ int    ref_cnt_at(const void * cache, int stream, int seq, int pos, uint32_t block_size);
+ size_t num_free(const void * cache, int stream);
+ 
++// [paged 0024] Total free blocks summed across every live manager (all caches /
++// streams). Wrapper-agnostic, so it reports the real pool for hybrid / iSWA
++// models whose outer memory is not a llama_kv_cache. Diagnostics only.
++size_t num_free_global();
++size_t num_managers();
++
+ } // namespace paged_alloc
+diff --git a/src/paged-kv-manager.cpp b/src/paged-kv-manager.cpp
+index 4c6ee4c..738b332 100644
+--- a/src/paged-kv-manager.cpp
++++ b/src/paged-kv-manager.cpp
+@@ -104,6 +104,22 @@ void FreeBlockQueue::prepend_n(const std::vector<KVCacheBlock*>& blocks) {
+     num_free_blocks += blocks.size();
+ }
+ 
++void FreeBlockQueue::rebuild(const std::vector<KVCacheBlock*>& blocks) {
++    // Relink the intrusive list using THIS queue's stable fake head/tail nodes.
++    num_free_blocks = blocks.size();
++    for (size_t i = 0; i < blocks.size(); ++i) {
++        blocks[i]->prev_free = (i == 0)                  ? &fake_head : blocks[i - 1];
++        blocks[i]->next_free = (i + 1 < blocks.size())   ? blocks[i + 1] : &fake_tail;
++    }
++    if (!blocks.empty()) {
++        fake_head.next_free = blocks.front();
++        fake_tail.prev_free = blocks.back();
++    } else {
++        fake_head.next_free = &fake_tail;
++        fake_tail.prev_free = &fake_head;
++    }
++}
++
+ std::vector<KVCacheBlock*> FreeBlockQueue::get_all_free_blocks() const {
+     std::vector<KVCacheBlock*> ret;
+     const KVCacheBlock* curr = fake_head.next_free;
+@@ -199,6 +215,20 @@ void BlockPool::cache_full_blocks(const std::vector<KVCacheBlock*>& req_blocks,
+     }
+ }
+ 
++void BlockPool::defrag_free_queue() {
++    // Pool is fully idle: every non-null block is free (ref_cnt 0). Rebuild the
++    // free list in ascending block_id order so popleft hands out physically
++    // contiguous blocks again. Hashes / the content-cache map are left intact so
++    // a warm committed prefix stays re-hittable.
++    std::vector<KVCacheBlock*> ordered;
++    ordered.reserve(ptrs_.size());
++    for (KVCacheBlock* b : ptrs_) {
++        if (b->is_null) continue;
++        ordered.push_back(b);
++    }
++    free_queue_.rebuild(ordered);
++}
++
+ // ---------------------------------------------------------------------------
+ // PagedKVManager  (port of SingleTypeKVCacheManager / FullAttentionManager)
+ // ---------------------------------------------------------------------------
+@@ -250,6 +280,21 @@ void PagedKVManager::free(int seq_id) {
+     req_to_blocks_.erase(it);
+ }
+ 
++void PagedKVManager::truncate(int seq_id, size_t n_keep) {
++    auto it = req_to_blocks_.find(seq_id);
++    if (it == req_to_blocks_.end()) return;
++    auto & blocks = it->second;
++    const size_t keep = cdiv(n_keep, block_size_); // blocks covering [0, n_keep)
++    if (keep >= blocks.size()) return;             // nothing trailing to reclaim
++    // Free the trailing blocks [keep, end) tail-first (vLLM eviction order). Their
++    // cells were just cleared by the partial seq_rm, so they are safe to reuse.
++    std::vector<KVCacheBlock*> ordered(blocks.rbegin(),
++                                       blocks.rbegin() + (blocks.size() - keep));
++    pool_.free_blocks(ordered);
++    blocks.resize(keep);
++    if (blocks.empty()) req_to_blocks_.erase(it);
++}
++
+ // FNV-1a chained block hash. Deterministic and prefix-sensitive; folds the parent
+ // hash into the seed so each block hash transitively encodes its whole prefix
+ // (behavioral parity with vLLM hash_block_tokens chaining; vLLM uses sha256 bytes).
+diff --git a/src/paged-kv-manager.h b/src/paged-kv-manager.h
+index 34decbc..e410d58 100644
+--- a/src/paged-kv-manager.h
++++ b/src/paged-kv-manager.h
+@@ -47,6 +47,11 @@ public:
+     void append_n(const std::vector<KVCacheBlock*>& blocks);
+     void prepend_n(const std::vector<KVCacheBlock*>& blocks);
+     std::vector<KVCacheBlock*> get_all_free_blocks() const;
++    // [paged 0024 Fix-2] Relink the intrusive free list to the given order using
++    // THIS queue's fake head/tail (the nodes' addresses are stable; a temporary
++    // FreeBlockQueue would leave dangling fake-node pointers). Used to restore a
++    // pristine, contiguous popleft order after a fragmenting burst drains.
++    void rebuild(const std::vector<KVCacheBlock*>& blocks);
+ 
+ private:
+     KVCacheBlock fake_head{-1};
+@@ -67,6 +72,14 @@ public:
+                            size_t num_cached_blocks, size_t num_full_blocks,
+                            const std::vector<uint64_t>& block_hashes);
+     size_t get_num_free_blocks() const { return free_queue_.num_free_blocks; }
++    // [paged 0024 Fix-2] Total non-null blocks, and whether the pool is fully
++    // idle (every non-null block back in the free queue). defrag_free_queue()
++    // relinks the free queue into pristine ascending-block-id order; only valid
++    // when all_free() so no live request's block table is disturbed. Block hashes
++    // are preserved, so a warm committed prefix stays re-hittable.
++    size_t total_blocks() const { return blocks_.size(); }
++    bool   all_free()    const { return free_queue_.num_free_blocks + 1 == blocks_.size(); }
++    void   defrag_free_queue();
+ 
+ private:
+     bool maybe_evict_cached_block(KVCacheBlock* block);
+@@ -94,6 +107,17 @@ public:
+     void free(int seq_id);
+     int block_size() const { return block_size_; }
+ 
++    // [paged 0024 Fix-1] Reclaim the trailing blocks of seq_id beyond logical
++    // position n_keep: free every block at index >= ceil(n_keep/bs) (ref-counted,
++    // mirroring vLLM's free of a truncated block suffix). Called on a partial tail
++    // seq_rm [n_keep, end) so the manager's block accounting tracks the kv-cache
++    // exactly instead of stranding the blocks whose cells were just cleared.
++    void truncate(int seq_id, size_t n_keep);
++
++    // [paged 0024 Fix-2] When no live request holds a block, relink the free
++    // queue into pristine contiguous order (undo a burst's scrambled free order).
++    void defrag_free_pool() { if (pool_.all_free()) pool_.defrag_free_queue(); }
++
+     // Prefix caching (win 3).
+     static uint64_t hash_block(uint64_t parent_hash, const std::vector<int>& token_ids);
+     std::vector<uint64_t> compute_block_hashes(const std::vector<int>& token_ids) const;
+diff --git a/src/paged-prefix-api.cpp b/src/paged-prefix-api.cpp
+index 8573cd2..209cee8 100644
+--- a/src/paged-prefix-api.cpp
++++ b/src/paged-prefix-api.cpp
+@@ -45,4 +45,12 @@ long num_free(llama_context * ctx) {
+     return (long) paged_alloc::num_free((const void *) kv, /*stream=*/0);
+ }
+ 
++long num_free_global() {
++    return (long) paged_alloc::num_free_global();
++}
++
++long num_managers() {
++    return (long) paged_alloc::num_managers();
++}
++
+ } // namespace paged_prefix_api
+diff --git a/src/paged-prefix-api.h b/src/paged-prefix-api.h
+index 78a3864..8dd817e 100644
+--- a/src/paged-prefix-api.h
++++ b/src/paged-prefix-api.h
+@@ -24,4 +24,10 @@ int ref_at(llama_context * ctx, llama_seq_id seq, int pos);
+ // Number of free blocks in the unified stream-0 pool, or 0 if no manager.
+ long num_free(llama_context * ctx);
+ 
++// [paged 0024] Total free blocks across every live paged manager (all caches /
++// streams). Wrapper-agnostic, so it reports the real pool for hybrid / iSWA
++// models whose outer memory is not a llama_kv_cache. Diagnostics only.
++long num_free_global();
++long num_managers();
++
+ } // namespace paged_prefix_api
+diff --git a/tools/server/server-context.cpp b/tools/server/server-context.cpp
+index f7a114c..8c19cfb 100644
+--- a/tools/server/server-context.cpp
++++ b/tools/server/server-context.cpp
+@@ -411,6 +411,23 @@ struct server_slot {
+ 
+             reset();
+ 
++            // [paged 0024 Fix-3] Return this finished slot's paged blocks to the
++            // pool promptly. Stock llama-server keeps an idle slot's KV for its own
++            // next-prompt cache, but under the paged engine that strands blocks in
++            // idle slots after a high-fan-out burst, so a later low-npl run sees a
++            // depleted, fragmented pool and its prefill collapses. prompt_clear()
++            // issues a full seq_rm (clearing the cells AND, via the paged hook,
++            // releasing + defragging the blocks) and clears the slot-local prompt
++            // cache so the next reuse recomputes from a pristine pool; cross-request
++            // reuse still works through the committed paged content cache. Gated on
++            // LLAMA_KV_PAGED (LLAMA_PAGED_NO_RECLAIM opts out for A/B); stock
++            // (paged off) is byte-identical.
++            static const bool paged_release_on_idle =
++                getenv("LLAMA_KV_PAGED") != nullptr && getenv("LLAMA_PAGED_NO_RECLAIM") == nullptr;
++            if (paged_release_on_idle && prompt.n_tokens() > 0) {
++                prompt_clear(false);
++            }
++
+             callback_on_release(id);
+         }
+     }
+-- 
+2.43.0
+

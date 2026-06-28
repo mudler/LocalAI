@@ -72,6 +72,40 @@
     nvidia-cuda-12: "cuda12-turboquant"
     nvidia-l4t-cuda-12: "nvidia-l4t-arm64-turboquant"
     nvidia-l4t-cuda-13: "cuda13-nvidia-l4t-arm64-turboquant"
+- &llamacpplocalaipaged
+  name: "llama-cpp-localai-paged"
+  alias: "llama-cpp-localai-paged"
+  license: mit
+  icon: https://user-images.githubusercontent.com/1991296/230134379-7181e485-c521-4d23-a0d6-f7b3b61ba524.png
+  description: |
+    LocalAI's paged-attention llama.cpp variant: on-demand paged KV cache plus a
+    decode-first prefill budget. The SAME upstream llama.cpp grpc-server as the
+    stock llama-cpp backend, with the LocalAI paged patch series applied
+    (vendored in this backend). Tuned for NVFP4 dense / MoE on Blackwell / GB10. Reuses the
+    llama-cpp gRPC server sources; the paged engine is gated at runtime by the
+    paged_kv / max_batch_tokens model options. Qwen3.5 gated-DeltaNet models can
+    additionally opt into the reduced-precision hybrid SSM-state fast mode with
+    the ssm_bf16_tau:<tokens> option (default off = bit-exact f32; non-bit-exact
+    when enabled).
+  urls:
+    - https://github.com/ggerganov/llama.cpp
+  tags:
+    - text-to-text
+    - LLM
+    - GPU
+    - CUDA
+    - paged-attention
+    - nvfp4
+  # CUDA-only: the paged patchset's wins (GDN fusions, NVFP4 FP4-MMA) are
+  # CUDA/Blackwell-specific; off-CUDA they gate off and the backend is
+  # neutral-to-negative, so non-CUDA users should use the stock llama-cpp
+  # backend. default points at cuda12 (mirrors faster-qwen3-tts) so the gallery
+  # entries always resolve to a CUDA variant.
+  capabilities:
+    default: "cuda13-llama-cpp-localai-paged"
+    nvidia: "cuda13-llama-cpp-localai-paged"
+    nvidia-cuda-13: "cuda13-llama-cpp-localai-paged"
+    nvidia-l4t-cuda-13: "cuda13-nvidia-l4t-arm64-llama-cpp-localai-paged"
 - &ds4
   name: "ds4"
   alias: "ds4"
@@ -1710,6 +1744,13 @@
     nvidia-cuda-12: "cuda12-turboquant-development"
     nvidia-l4t-cuda-12: "nvidia-l4t-arm64-turboquant-development"
     nvidia-l4t-cuda-13: "cuda13-nvidia-l4t-arm64-turboquant-development"
+- !!merge <<: *llamacpplocalaipaged
+  name: "llama-cpp-localai-paged-development"
+  capabilities:
+    default: "cuda13-llama-cpp-localai-paged-development"
+    nvidia: "cuda13-llama-cpp-localai-paged-development"
+    nvidia-cuda-13: "cuda13-llama-cpp-localai-paged-development"
+    nvidia-l4t-cuda-13: "cuda13-nvidia-l4t-arm64-llama-cpp-localai-paged-development"
 - !!merge <<: *ds4
   name: "ds4-development"
   capabilities:
@@ -2378,6 +2419,27 @@
   uri: "quay.io/go-skynet/local-ai-backends:master-nvidia-l4t-cuda-13-arm64-turboquant"
   mirrors:
     - localai/localai-backends:master-nvidia-l4t-cuda-13-arm64-turboquant
+## llama-cpp-localai-paged (CUDA-only; see backend/cpp/llama-cpp-localai-paged/README.md section 4c)
+- !!merge <<: *llamacpplocalaipaged
+  name: "cuda13-llama-cpp-localai-paged"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-nvidia-cuda-13-llama-cpp-localai-paged"
+  mirrors:
+    - localai/localai-backends:latest-gpu-nvidia-cuda-13-llama-cpp-localai-paged
+- !!merge <<: *llamacpplocalaipaged
+  name: "cuda13-llama-cpp-localai-paged-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-nvidia-cuda-13-llama-cpp-localai-paged"
+  mirrors:
+    - localai/localai-backends:master-gpu-nvidia-cuda-13-llama-cpp-localai-paged
+- !!merge <<: *llamacpplocalaipaged
+  name: "cuda13-nvidia-l4t-arm64-llama-cpp-localai-paged"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-nvidia-l4t-cuda-13-arm64-llama-cpp-localai-paged"
+  mirrors:
+    - localai/localai-backends:latest-nvidia-l4t-cuda-13-arm64-llama-cpp-localai-paged
+- !!merge <<: *llamacpplocalaipaged
+  name: "cuda13-nvidia-l4t-arm64-llama-cpp-localai-paged-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-nvidia-l4t-cuda-13-arm64-llama-cpp-localai-paged"
+  mirrors:
+    - localai/localai-backends:master-nvidia-l4t-cuda-13-arm64-llama-cpp-localai-paged
 ## ds4
 - !!merge <<: *ds4
   name: "cpu-ds4"

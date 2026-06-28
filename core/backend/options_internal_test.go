@@ -103,6 +103,18 @@ var _ = Describe("grpcModelOpts NBatch", func() {
 	threads := 1
 	ctx := 4096
 
+	// Pin the hardware seam off so these baseline expectations are
+	// deterministic regardless of the host GPU. Blackwell behavior is covered
+	// in hardware_defaults_internal_test.go.
+	var origDetect func() bool
+	BeforeEach(func() {
+		origDetect = detectBlackwellGPU
+		detectBlackwellGPU = func() bool { return false }
+	})
+	AfterEach(func() {
+		detectBlackwellGPU = origDetect
+	})
+
 	It("defaults to 512 for an ordinary model", func() {
 		cfg := config.ModelConfig{Threads: &threads, LLMConfig: config.LLMConfig{ContextSize: &ctx}}
 		opts := grpcModelOpts(cfg, "/tmp/models")

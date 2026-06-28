@@ -154,6 +154,19 @@ var _ = Describe("DiscoverModelConfig", func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(modelConfig.ConfigFile).To(ContainSubstring("backend: mlx-vlm"))
 		})
+
+		It("should use llama-cpp-localai-paged backend when specified as a drop-in", func() {
+			// The paged variant is a curated AdditionalBackends() drop-in: the
+			// llama-cpp pipeline matches (the .gguf URI), and the backend
+			// preference is honoured in the emitted YAML.
+			uri := "https://example.com/my-model.gguf"
+			preferences := json.RawMessage(`{"backend": "llama-cpp-localai-paged"}`)
+
+			modelConfig, err := importers.DiscoverModelConfig(uri, preferences)
+
+			Expect(err).ToNot(HaveOccurred())
+			Expect(modelConfig.ConfigFile).To(ContainSubstring("backend: llama-cpp-localai-paged"))
+		})
 	})
 
 	Context("with HuggingFace URI formats", func() {
@@ -288,7 +301,7 @@ var _ = Describe("DiscoverModelConfig", func() {
 				names = append(names, e.Name)
 				modalities = append(modalities, e.Modality)
 			}
-			Expect(names).To(ContainElements("ik-llama-cpp", "turboquant"))
+			Expect(names).To(ContainElements("ik-llama-cpp", "turboquant", "llama-cpp-localai-paged"))
 			for _, m := range modalities {
 				Expect(m).To(Equal("text"))
 			}

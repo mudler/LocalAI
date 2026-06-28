@@ -1,0 +1,298 @@
+From 7c294973de28d1ac991505638d726acfb371d541 Mon Sep 17 00:00:00 2001
+From: Ettore Di Giacinto <mudler@localai.io>
+Date: Mon, 22 Jun 2026 10:50:35 +0200
+Subject: [PATCH] paged on-demand block allocation (env LLAMA_KV_PAGED) - patch
+ 0004
+
+Drive the paged placement in find_slot through the vendored PagedKVManager
+(patch 0001) instead of a fixed full-pool permutation. Blocks are popped from a
+free pool on demand as the sequence crosses block boundaries (peak << full
+reservation) and returned on sequence end (seq_rm full removal / clear). One
+manager per (kv-cache, stream); all state lives in the new src/paged-alloc unit,
+so the core kv-cache struct is untouched - find_slot/clear/seq_rm gain only a
+gated call. Default off; stock path byte-identical.
+---
+ src/CMakeLists.txt     |   1 +
+ src/llama-kv-cache.cpp |  69 +++++++++++++++++----------
+ src/paged-alloc.cpp    | 106 +++++++++++++++++++++++++++++++++++++++++
+ src/paged-alloc.h      |  39 +++++++++++++++
+ 4 files changed, 190 insertions(+), 25 deletions(-)
+ create mode 100644 src/paged-alloc.cpp
+ create mode 100644 src/paged-alloc.h
+
+diff --git a/src/CMakeLists.txt b/src/CMakeLists.txt
+index 58083b3..4d9d7d1 100644
+--- a/src/CMakeLists.txt
++++ b/src/CMakeLists.txt
+@@ -26,6 +26,7 @@ add_library(llama
+             llama-kv-cache-iswa.cpp
+             paged-kv-manager.cpp
+             paged-attn.cpp
++            paged-alloc.cpp
+             llama-kv-cache-dsa.cpp
+             llama-memory.cpp
+             llama-memory-hybrid.cpp
+diff --git a/src/llama-kv-cache.cpp b/src/llama-kv-cache.cpp
+index 30d02d7..1125d9a 100644
+--- a/src/llama-kv-cache.cpp
++++ b/src/llama-kv-cache.cpp
+@@ -1,4 +1,5 @@
+ #include "llama-kv-cache.h"
++#include "paged-alloc.h"
+ #include <vector>
+ #include <utility>
+ 
+@@ -381,6 +382,11 @@ llama_kv_cache::llama_kv_cache(
+ }
+ 
+ void llama_kv_cache::clear(bool data) {
++    // [paged 0004] return all on-demand blocks to the pool on cache clear.
++    if (paged_alloc::active()) {
++        paged_alloc::release_all(this);
++    }
++
+     for (uint32_t s = 0; s < n_stream; ++s) {
+         v_cells[s].reset();
+         v_heads[s] = 0;
+@@ -409,6 +415,16 @@ bool llama_kv_cache::seq_rm(llama_seq_id seq_id, llama_pos p0, llama_pos p1) {
+         p1 = std::numeric_limits<llama_pos>::max();
+     }
+ 
++    // [paged 0004] free a stream's on-demand blocks when its whole sequence is
++    // removed (sequence end), so they return to the pool for reuse.
++    if (paged_alloc::active() && p0 == 0 && p1 == std::numeric_limits<llama_pos>::max()) {
++        if (seq_id >= 0) {
++            paged_alloc::release(this, (int) seq_to_stream[seq_id]);
++        } else {
++            paged_alloc::release_all(this);
++        }
++    }
++
+     if (seq_id >= 0) {
+         auto & cells = v_cells[seq_to_stream[seq_id]];
+         auto & head  = v_heads[seq_to_stream[seq_id]];
+@@ -1030,36 +1046,39 @@ llama_kv_cache::slot_info llama_kv_cache::find_slot(const llama_ubatch & ubatch,
+         // the correctness premise of paged attention. Enabled via LLAMA_KV_PAGED.
+         // Single-sequence scope (uses get_used() as the logical base); falls back
+         // to the normal allocator if the permuted cells aren't available.
+-        static const bool paged_mode = (std::getenv("LLAMA_KV_PAGED") != nullptr);
+-        if (paged_mode) {
++        // [paged 0004] On-demand block allocation. Patch 0002 proved attention is
++        // invariant to physical KV placement; here that placement is driven by
++        // the vendored PagedKVManager (patch 0001): blocks are popped from a free
++        // pool only as the sequence crosses block boundaries (peak << full
++        // reservation) and returned on sequence end. Enabled via LLAMA_KV_PAGED;
++        // falls back to the normal allocator on pool exhaustion or any conflict.
++        if (paged_alloc::active()) {
+             const uint32_t bs   = 16;                 // block size (tokens/block)
+-            const uint32_t nblk = cells.size() / bs;  // blocks in this stream's pool
++            const uint32_t nblk = cells.size() / bs;  // this stream's block budget
+             if (nblk >= 2) {
+-                // stride coprime to nblk => block-index permutation is a bijection
+-                uint32_t k = 1;
+-                for (uint32_t cand = (nblk / 2) | 1u; cand < nblk; cand += 2) {
+-                    if (std::gcd(cand, nblk) == 1u) { k = cand; break; }
+-                }
+                 const uint32_t base = cells.get_used();
+-                bool ok = true;
+-                for (uint32_t i = 0; i < n_tokens; ++i) {
+-                    const uint32_t L    = base + i;
+-                    const uint32_t b    = L / bs;
+-                    const uint32_t off  = L % bs;
+-                    if (b >= nblk) { ok = false; break; }
+-                    const uint32_t phys = ((b * k) % nblk) * bs + off; // permuted block
+-                    if (phys >= cells.size() || !cells.is_empty(phys)) { ok = false; break; }
+-                    res.idxs[s].push_back(phys);
+-                }
+-                if (ok && res.idxs[s].size() == n_tokens) {
+-                    if (std::getenv("LLAMA_KV_PAGED_DEBUG")) {
+-                        fprintf(stderr, "[paged] seq placed %u tok at cells:", n_tokens);
+-                        for (uint32_t z = 0; z < res.idxs[s].size() && z < 24; ++z) fprintf(stderr, " %u", res.idxs[s][z]);
+-                        fprintf(stderr, " (k=%u nblk=%u base=%u)\n", k, nblk, base);
++                const int      strm = (int) seq_to_stream[seq_id];
++                std::vector<uint32_t> placed;
++                if (paged_alloc::place(this, strm, base, n_tokens, bs, nblk, placed)) {
++                    bool ok = (placed.size() == n_tokens);
++                    for (uint32_t i = 0; ok && i < n_tokens; ++i) {
++                        if (placed[i] >= cells.size() || !cells.is_empty(placed[i])) {
++                            ok = false;
++                        }
++                    }
++                    if (ok) {
++                        for (uint32_t phys : placed) {
++                            res.idxs[s].push_back(phys);
++                        }
++                        if (std::getenv("LLAMA_KV_PAGED_DEBUG")) {
++                            fprintf(stderr, "[paged] stream %d placed %u tok at cells:", strm, n_tokens);
++                            for (uint32_t z = 0; z < res.idxs[s].size() && z < 24; ++z) fprintf(stderr, " %u", res.idxs[s][z]);
++                            fprintf(stderr, " (nblk=%u base=%u)\n", nblk, base);
++                        }
++                        continue; // on-demand paged placement succeeded
+                     }
+-                    continue; // paged placement succeeded for this sequence
++                    res.idxs[s].clear(); // fall back to the normal allocator
+                 }
+-                res.idxs[s].clear(); // fall back to the normal allocator
+             }
+         }
+ 
+diff --git a/src/paged-alloc.cpp b/src/paged-alloc.cpp
+new file mode 100644
+index 0000000..1d13f9c
+--- /dev/null
++++ b/src/paged-alloc.cpp
+@@ -0,0 +1,106 @@
++#include "paged-alloc.h"
++#include "paged-kv-manager.h"
++
++#include <cstdlib>
++#include <cstdio>
++#include <map>
++#include <memory>
++#include <utility>
++
++namespace paged_alloc {
++
++bool active() {
++    static const bool a = (std::getenv("LLAMA_KV_PAGED") != nullptr);
++    return a;
++}
++
++static bool debug() {
++    static const bool d = (std::getenv("LLAMA_KV_PAGED_DEBUG") != nullptr);
++    return d;
++}
++
++namespace {
++
++using key_t = std::pair<const void *, int>;
++
++// One PagedKVManager per (kv-cache, stream): each stream owns a separate
++// physical pool of cells.size() cells, so a manager's block ids map directly to
++// cell ranges within that stream's pool. The internal request id is always 0.
++std::map<key_t, std::unique_ptr<paged::PagedKVManager>> g_managers;
++
++paged::PagedKVManager * get_mgr(const void * cache, int stream,
++                                uint32_t pool_blocks, uint32_t block_size) {
++    const key_t k{cache, stream};
++    auto it = g_managers.find(k);
++    if (it == g_managers.end()) {
++        // enable_caching=false: prefix caching is a later patch; 0004 exercises
++        // only on-demand allocate / free.
++        auto mgr = std::make_unique<paged::PagedKVManager>(
++            (int32_t) pool_blocks, (int) block_size, /*enable_caching=*/false);
++        it = g_managers.emplace(k, std::move(mgr)).first;
++    }
++    return it->second.get();
++}
++
++} // namespace
++
++bool place(const void * cache, int stream, uint32_t base, uint32_t n_tokens,
++           uint32_t block_size, uint32_t pool_blocks,
++           std::vector<uint32_t> & out) {
++    if (n_tokens == 0) {
++        return true;
++    }
++
++    paged::PagedKVManager * mgr = get_mgr(cache, stream, pool_blocks, block_size);
++
++    const size_t before = mgr->block_table(0).size();
++
++    // Grow the request to cover the highest logical position. The manager pops
++    // free blocks only for the boundaries actually crossed - that is the on-
++    // demand behavior; an already-covered range adds nothing.
++    if (!mgr->allocate(0, (size_t) base + n_tokens)) {
++        return false; // pool exhausted -> caller falls back to the stock path
++    }
++
++    out.reserve(out.size() + n_tokens);
++    for (uint32_t i = 0; i < n_tokens; ++i) {
++        const int64_t s = mgr->slot(0, (int) (base + i));
++        out.push_back((uint32_t) s);
++    }
++
++    if (debug()) {
++        const size_t after = mgr->block_table(0).size();
++        if (after != before) {
++            fprintf(stderr,
++                    "[paged-alloc] cache=%p stream=%d grew %zu->%zu blocks "
++                    "(budget=%u; base=%u +%u tok)\n",
++                    cache, stream, before, after, pool_blocks, base, n_tokens);
++        }
++    }
++
++    return true;
++}
++
++void release(const void * cache, int stream) {
++    auto it = g_managers.find({cache, stream});
++    if (it == g_managers.end()) {
++        return;
++    }
++    it->second->free(0);
++    g_managers.erase(it);
++    if (debug()) {
++        fprintf(stderr, "[paged-alloc] released cache=%p stream=%d\n", cache, stream);
++    }
++}
++
++void release_all(const void * cache) {
++    for (auto it = g_managers.begin(); it != g_managers.end(); ) {
++        if (it->first.first == cache) {
++            it = g_managers.erase(it);
++        } else {
++            ++it;
++        }
++    }
++}
++
++} // namespace paged_alloc
+diff --git a/src/paged-alloc.h b/src/paged-alloc.h
+new file mode 100644
+index 0000000..bf66665
+--- /dev/null
++++ b/src/paged-alloc.h
+@@ -0,0 +1,39 @@
++#pragma once
++// On-demand paged KV block allocation (patch 0004, experimental).
++//
++// Backs the paged placement in llama_kv_cache::find_slot (patch 0002) with the
++// vendored host-side PagedKVManager (patch 0001). Instead of mapping a
++// sequence's logical positions onto a fixed full-pool permutation, blocks are
++// popped from a free pool ON DEMAND as the sequence crosses block boundaries,
++// and returned to the pool on sequence end. This is where the paged memory-
++// capacity benefit begins: a short sequence holds only a few blocks, not the
++// whole reserved window.
++//
++// Gated behind env LLAMA_KV_PAGED; a no-op when unset. All state lives in this
++// unit (a static registry keyed by kv-cache + stream), so the core kv-cache
++// struct stays untouched - find_slot only gains a gated call.
++
++#include <cstdint>
++#include <vector>
++
++namespace paged_alloc {
++
++// true iff env LLAMA_KV_PAGED is set (evaluated once).
++bool active();
++
++// Place n_tokens logical positions [base, base+n_tokens) of one stream on
++// demand, appending their physical cell indices to `out`. pool_blocks =
++// cells.size()/block_size is this stream's block budget. Returns false (leaving
++// `out` unchanged) on pool exhaustion, so the caller falls back to the stock
++// allocator. The caller still validates each returned cell is empty.
++bool place(const void * cache, int stream, uint32_t base, uint32_t n_tokens,
++           uint32_t block_size, uint32_t pool_blocks,
++           std::vector<uint32_t> & out);
++
++// Return a stream's blocks to the pool (sequence end).
++void release(const void * cache, int stream);
++
++// Return every stream's blocks for a kv-cache (clear() / teardown).
++void release_all(const void * cache);
++
++} // namespace paged_alloc
+-- 
+2.43.0
+

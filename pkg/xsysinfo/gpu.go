@@ -440,6 +440,20 @@ func parseComputeCap(cc string) (int, int) {
 	return maj, min
 }
 
+// IsNVIDIABlackwell reports whether an NVIDIA Blackwell-class consumer GPU is
+// present, i.e. compute capability 12.x (sm_120 RTX 50-series, sm_121 GB10 /
+// DGX Spark). Cached via NVIDIAComputeCapability.
+//
+// Note: datacenter Blackwell (B100/B200/GB200, sm_100 / cc 10.0) reports a
+// different compute capability and is intentionally NOT matched here: this
+// targets the sm_12x family where we measured the larger-physical-batch MoE
+// prefill win. Returns false when nvidia-smi is unavailable or reports no 12.x
+// device.
+func IsNVIDIABlackwell() bool {
+	maj, _ := parseComputeCap(NVIDIAComputeCapability())
+	return maj >= 12
+}
+
 // getNVIDIAGPUMemory queries NVIDIA GPUs using nvidia-smi
 func getNVIDIAGPUMemory() []GPUMemoryInfo {
 	// Check if nvidia-smi is available

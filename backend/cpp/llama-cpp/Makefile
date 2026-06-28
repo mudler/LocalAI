@@ -1,4 +1,9 @@
 
+# This pin is auto-bumped nightly by .github/workflows/bump_deps.yaml (the stock
+# llama-cpp backend is patch-free, so a naive bump is safe). The paged backend
+# (backend/cpp/llama-cpp-localai-paged) does NOT inherit this pin: it owns its
+# own LLAMA_VERSION because its vendored patch series would break on a naive
+# bump and is advanced only by the manual PIN_SYNC process.
 LLAMA_VERSION?=0ed235ea2c17a19fc8238668653946721ed136fd
 LLAMA_REPO?=https://github.com/ggerganov/llama.cpp
 
@@ -169,7 +174,12 @@ llama.cpp:
 	git remote add origin $(LLAMA_REPO)  && \
 	git fetch --all --tags && \
 	git checkout -b build $(LLAMA_VERSION) && \
-	git submodule update --init --recursive --depth 1 --single-branch
+	git submodule update --init --recursive --depth 1 --single-branch && \
+	for p in $(CURRENT_MAKEFILE_DIR)patches/0*.patch; do \
+		[ -e "$$p" ] || continue; \
+		echo "applying llama.cpp patch: $$p"; \
+		git apply --verbose "$$p" || { echo "patch failed: $$p"; exit 1; }; \
+	done
 
 llama.cpp/tools/grpc-server: llama.cpp
 	mkdir -p llama.cpp/tools/grpc-server

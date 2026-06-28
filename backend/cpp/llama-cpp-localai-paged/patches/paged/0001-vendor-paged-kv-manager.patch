@@ -1,0 +1,448 @@
+From bef64835d444a44ed8391bc395cdab38164229d5 Mon Sep 17 00:00:00 2001
+From: Ettore Di Giacinto <mudler@localai.io>
+Date: Fri, 19 Jun 2026 22:54:49 +0000
+Subject: [PATCH] vendor paged kv manager
+
+vLLM-parity host-side KV block manager (FreeBlockQueue, BlockPool,
+PagedKVManager, chained-hash prefix cache). Pure C++17, no behavior change -
+nothing uses it yet; wired in by later patches in the series.
+---
+ src/CMakeLists.txt       |   1 +
+ src/paged-kv-manager.cpp | 296 +++++++++++++++++++++++++++++++++++++++
+ src/paged-kv-manager.h   | 108 ++++++++++++++
+ 3 files changed, 405 insertions(+)
+ create mode 100644 src/paged-kv-manager.cpp
+ create mode 100644 src/paged-kv-manager.h
+
+diff --git a/src/CMakeLists.txt b/src/CMakeLists.txt
+index d15ccfd99..a030940b8 100644
+--- a/src/CMakeLists.txt
++++ b/src/CMakeLists.txt
+@@ -24,6 +24,7 @@ add_library(llama
+             llama-io.cpp
+             llama-kv-cache.cpp
+             llama-kv-cache-iswa.cpp
++            paged-kv-manager.cpp
+             llama-kv-cache-dsa.cpp
+             llama-memory.cpp
+             llama-memory-hybrid.cpp
+diff --git a/src/paged-kv-manager.cpp b/src/paged-kv-manager.cpp
+new file mode 100644
+index 000000000..ca0dcd83a
+--- /dev/null
++++ b/src/paged-kv-manager.cpp
+@@ -0,0 +1,296 @@
++#include "paged-kv-manager.h"
++#include <cassert>
++#include <stdexcept>
++
++namespace paged {
++
++// ---------------------------------------------------------------------------
++// FreeBlockQueue  (port of kv_cache_utils.py FreeKVCacheBlockQueue)
++// ---------------------------------------------------------------------------
++
++FreeBlockQueue::FreeBlockQueue(const std::vector<KVCacheBlock*>& blocks) {
++    num_free_blocks = blocks.size();
++    for (size_t i = 0; i < blocks.size(); ++i) {
++        if (i > 0)                  blocks[i]->prev_free = blocks[i - 1];
++        if (i + 1 < blocks.size())  blocks[i]->next_free = blocks[i + 1];
++    }
++    if (!blocks.empty()) {
++        fake_head.next_free = blocks.front();
++        blocks.front()->prev_free = &fake_head;
++        fake_tail.prev_free = blocks.back();
++        blocks.back()->next_free = &fake_tail;
++    } else {
++        fake_head.next_free = &fake_tail;
++        fake_tail.prev_free = &fake_head;
++    }
++}
++
++KVCacheBlock* FreeBlockQueue::popleft() {
++    KVCacheBlock* first = fake_head.next_free;
++    if (first == &fake_tail || first == nullptr) {
++        assert(num_free_blocks == 0);
++        throw std::runtime_error("No free blocks available");
++    }
++    fake_head.next_free = first->next_free;
++    first->next_free->prev_free = &fake_head;
++    first->prev_free = first->next_free = nullptr;
++    num_free_blocks--;
++    return first;
++}
++
++std::vector<KVCacheBlock*> FreeBlockQueue::popleft_n(size_t n) {
++    std::vector<KVCacheBlock*> ret;
++    if (n == 0) return ret;
++    assert(num_free_blocks >= n);
++    num_free_blocks -= n;
++    KVCacheBlock* curr = fake_head.next_free;
++    ret.reserve(n);
++    for (size_t i = 0; i < n; ++i) {
++        assert(curr != nullptr);
++        ret.push_back(curr);
++        KVCacheBlock* last = curr;
++        curr = curr->next_free;
++        last->prev_free = last->next_free = nullptr;
++    }
++    if (curr != nullptr) {
++        fake_head.next_free = curr;
++        curr->prev_free = &fake_head;
++    }
++    return ret;
++}
++
++void FreeBlockQueue::remove(KVCacheBlock* block) {
++    if (!block->prev_free || !block->next_free)
++        throw std::runtime_error("remove() called on an invalid block");
++    block->prev_free->next_free = block->next_free;
++    block->next_free->prev_free = block->prev_free;
++    block->prev_free = block->next_free = nullptr;
++    num_free_blocks--;
++}
++
++void FreeBlockQueue::append(KVCacheBlock* block) {
++    KVCacheBlock* last = fake_tail.prev_free;
++    last->next_free = block;
++    block->prev_free = last;
++    block->next_free = &fake_tail;
++    fake_tail.prev_free = block;
++    num_free_blocks++;
++}
++
++void FreeBlockQueue::append_n(const std::vector<KVCacheBlock*>& blocks) {
++    if (blocks.empty()) return;
++    KVCacheBlock* last = fake_tail.prev_free;
++    for (KVCacheBlock* b : blocks) {
++        b->prev_free = last;
++        last->next_free = b;
++        last = b;
++    }
++    last->next_free = &fake_tail;
++    fake_tail.prev_free = last;
++    num_free_blocks += blocks.size();
++}
++
++void FreeBlockQueue::prepend_n(const std::vector<KVCacheBlock*>& blocks) {
++    if (blocks.empty()) return;
++    KVCacheBlock* first = fake_head.next_free;
++    KVCacheBlock* prev = &fake_head;
++    for (KVCacheBlock* b : blocks) {
++        b->prev_free = prev;
++        prev->next_free = b;
++        prev = b;
++    }
++    prev->next_free = first;
++    first->prev_free = prev;
++    num_free_blocks += blocks.size();
++}
++
++std::vector<KVCacheBlock*> FreeBlockQueue::get_all_free_blocks() const {
++    std::vector<KVCacheBlock*> ret;
++    const KVCacheBlock* curr = fake_head.next_free;
++    while (curr && curr->next_free != nullptr) {
++        ret.push_back(const_cast<KVCacheBlock*>(curr));
++        curr = curr->next_free;
++    }
++    return ret;
++}
++
++// ---------------------------------------------------------------------------
++// BlockPool  (port of block_pool.py)
++// ---------------------------------------------------------------------------
++
++static std::vector<KVCacheBlock*> make_ptrs(std::vector<KVCacheBlock>& v) {
++    std::vector<KVCacheBlock*> p;
++    p.reserve(v.size());
++    for (auto& b : v) p.push_back(&b);
++    return p;
++}
++
++static std::vector<KVCacheBlock> make_block_vec(int32_t num_blocks) {
++    std::vector<KVCacheBlock> v;
++    v.reserve(num_blocks);
++    for (int32_t i = 0; i < num_blocks; ++i) v.emplace_back(i);
++    return v;
++}
++
++BlockPool::BlockPool(int32_t num_blocks, bool enable_caching)
++    : enable_caching_(enable_caching),
++      blocks_(make_block_vec(num_blocks)),
++      ptrs_(make_ptrs(blocks_)),
++      free_queue_(ptrs_) {
++    // vLLM reserves block_id 0 as the null block (never cached).
++    null_block = free_queue_.popleft();
++    null_block->is_null = true;
++}
++
++bool BlockPool::maybe_evict_cached_block(KVCacheBlock* block) {
++    if (!block->has_hash) return false;
++    auto it = cached_block_hash_to_block_.find(block->block_hash);
++    if (it == cached_block_hash_to_block_.end() || it->second != block) return false;
++    cached_block_hash_to_block_.erase(it);
++    block->reset_hash();
++    return true;
++}
++
++std::vector<KVCacheBlock*> BlockPool::get_new_blocks(size_t n) {
++    if (n > get_num_free_blocks())
++        throw std::runtime_error("Cannot get free blocks from pool");
++    auto ret = free_queue_.popleft_n(n);
++    for (KVCacheBlock* b : ret) {
++        if (enable_caching_) maybe_evict_cached_block(b);
++        assert(b->ref_cnt == 0);
++        b->ref_cnt += 1;
++    }
++    return ret;
++}
++
++KVCacheBlock* BlockPool::get_cached_block(uint64_t block_hash) {
++    auto it = cached_block_hash_to_block_.find(block_hash);
++    return it == cached_block_hash_to_block_.end() ? nullptr : it->second;
++}
++
++void BlockPool::touch(const std::vector<KVCacheBlock*>& blocks) {
++    for (KVCacheBlock* b : blocks) {
++        // ref_cnt==0 means the block is a free-list eviction candidate; pull it out.
++        if (b->ref_cnt == 0 && !b->is_null) free_queue_.remove(b);
++        b->ref_cnt += 1;
++    }
++}
++
++void BlockPool::free_blocks(const std::vector<KVCacheBlock*>& ordered_blocks) {
++    std::vector<KVCacheBlock*> without_hash, with_hash;
++    for (KVCacheBlock* b : ordered_blocks) {
++        if (b->is_null) continue;
++        b->ref_cnt -= 1;
++        if (b->ref_cnt == 0) (b->has_hash ? with_hash : without_hash).push_back(b);
++    }
++    free_queue_.prepend_n(without_hash); // un-hashed: evicted first (front)
++    free_queue_.append_n(with_hash);     // hashed: kept warm (tail)
++}
++
++void BlockPool::cache_full_blocks(const std::vector<KVCacheBlock*>& req_blocks,
++                                  size_t num_cached_blocks, size_t num_full_blocks,
++                                  const std::vector<uint64_t>& block_hashes) {
++    for (size_t i = num_cached_blocks; i < num_full_blocks; ++i) {
++        KVCacheBlock* blk = req_blocks[i];
++        if (blk->has_hash) continue;
++        blk->has_hash = true;
++        blk->block_hash = block_hashes[i];
++        cached_block_hash_to_block_[blk->block_hash] = blk;
++    }
++}
++
++// ---------------------------------------------------------------------------
++// PagedKVManager  (port of SingleTypeKVCacheManager / FullAttentionManager)
++// ---------------------------------------------------------------------------
++
++static inline size_t cdiv(size_t a, size_t b) { return (a + b - 1) / b; }
++
++PagedKVManager::PagedKVManager(int32_t num_blocks, int block_size, bool enable_caching)
++    : block_size_(block_size), pool_(num_blocks, enable_caching) {}
++
++bool PagedKVManager::allocate(int seq_id, size_t total_tokens) {
++    auto& req = req_to_blocks_[seq_id];
++    size_t need = cdiv(total_tokens, block_size_);
++    if (need <= req.size()) return true;
++    size_t add = need - req.size();
++    if (add > pool_.get_num_free_blocks()) return false; // OOM
++    auto nb = pool_.get_new_blocks(add);
++    req.insert(req.end(), nb.begin(), nb.end());
++    return true;
++}
++
++std::vector<int32_t> PagedKVManager::block_table(int seq_id) const {
++    std::vector<int32_t> bt;
++    auto it = req_to_blocks_.find(seq_id);
++    if (it == req_to_blocks_.end()) return bt;
++    bt.reserve(it->second.size());
++    for (KVCacheBlock* b : it->second) bt.push_back(b->block_id);
++    return bt;
++}
++
++int64_t PagedKVManager::slot(int seq_id, int pos) const {
++    const auto& req = req_to_blocks_.at(seq_id);
++    int32_t phys = req[pos / block_size_]->block_id;
++    return (int64_t)phys * block_size_ + (pos % block_size_);
++}
++
++std::vector<int64_t> PagedKVManager::slot_mapping(int seq_id, const std::vector<int>& positions) const {
++    std::vector<int64_t> sm;
++    sm.reserve(positions.size());
++    for (int p : positions) sm.push_back(slot(seq_id, p));
++    return sm;
++}
++
++void PagedKVManager::free(int seq_id) {
++    auto it = req_to_blocks_.find(seq_id);
++    if (it == req_to_blocks_.end()) return;
++    // Free in reverse so the tail of the block chain is evicted first (vLLM order).
++    std::vector<KVCacheBlock*> ordered(it->second.rbegin(), it->second.rend());
++    pool_.free_blocks(ordered);
++    req_to_blocks_.erase(it);
++}
++
++// FNV-1a chained block hash. Deterministic and prefix-sensitive; folds the parent
++// hash into the seed so each block hash transitively encodes its whole prefix
++// (behavioral parity with vLLM hash_block_tokens chaining; vLLM uses sha256 bytes).
++uint64_t PagedKVManager::hash_block(uint64_t parent_hash, const std::vector<int>& token_ids) {
++    uint64_t h = 1469598103934665603ull ^ parent_hash;
++    for (int t : token_ids) {
++        h ^= (uint64_t)(uint32_t)t;
++        h *= 1099511628211ull;
++    }
++    if (h == 0) h = 0x9e3779b97f4a7c15ull; // never 0 (0 reads as "no hash")
++    return h;
++}
++
++std::vector<uint64_t> PagedKVManager::compute_block_hashes(const std::vector<int>& token_ids) const {
++    std::vector<uint64_t> hashes;
++    uint64_t parent = 0; // NONE_HASH analogue
++    size_t n_full = token_ids.size() / block_size_;
++    for (size_t i = 0; i < n_full; ++i) {
++        std::vector<int> blk(token_ids.begin() + i * block_size_,
++                             token_ids.begin() + (i + 1) * block_size_);
++        parent = hash_block(parent, blk);
++        hashes.push_back(parent);
++    }
++    return hashes;
++}
++
++size_t PagedKVManager::get_computed_blocks(const std::vector<uint64_t>& block_hashes) {
++    std::vector<KVCacheBlock*> hits;
++    for (uint64_t bh : block_hashes) {        // stop at first miss (prefix property)
++        KVCacheBlock* cb = pool_.get_cached_block(bh);
++        if (!cb) break;
++        hits.push_back(cb);
++    }
++    pool_.touch(hits);                        // ++ref_cnt, pull from free list
++    return hits.size() * (size_t)block_size_;
++}
++
++void PagedKVManager::cache_blocks(int seq_id, const std::vector<uint64_t>& block_hashes, size_t num_tokens) {
++    auto& req = req_to_blocks_[seq_id];
++    size_t n_full = num_tokens / block_size_;
++    pool_.cache_full_blocks(req, /*num_cached=*/0, n_full, block_hashes);
++}
++
++} // namespace paged
+diff --git a/src/paged-kv-manager.h b/src/paged-kv-manager.h
+new file mode 100644
+index 000000000..740280a7f
+--- /dev/null
++++ b/src/paged-kv-manager.h
+@@ -0,0 +1,109 @@
++#pragma once
++// Paged KV cache block manager for llama.cpp (CPU-first prototype).
++//
++// Host-side block management is a faithful port of vLLM V1:
++//   vllm/v1/core/kv_cache_utils.py            (KVCacheBlock, FreeKVCacheBlockQueue, hash_block_tokens)
++//   vllm/v1/core/block_pool.py                (BlockPool: get_new_blocks/touch/free/evict/cache_full_blocks)
++//   vllm/v1/core/single_type_kv_cache_manager.py (allocate_new_blocks, find_longest_cache_hit)
++//
++// Parity is on behavior/algorithm (block chaining, first-miss stop, ref-counting,
++// LRU eviction order), not on exact hash bytes. This unit has zero ggml/llama.cpp
++// dependency so it can be unit-tested in isolation.
++
++#include <cstddef>
++#include <cstdint>
++#include <vector>
++#include <unordered_map>
++#include <map>
++
++namespace paged {
++
++// vLLM KVCacheBlock (kv_cache_utils.py).
++struct KVCacheBlock {
++    int32_t  block_id   = 0;
++    int      ref_cnt    = 0;
++    bool     has_hash   = false;   // vLLM: _block_hash is set only when full+cached
++    uint64_t block_hash = 0;
++    bool     is_null    = false;
++    KVCacheBlock* prev_free = nullptr;
++    KVCacheBlock* next_free = nullptr;
++
++    explicit KVCacheBlock(int32_t id = 0) : block_id(id) {}
++    void reset_hash() { has_hash = false; block_hash = 0; }
++};
++
++// Intrusive doubly-linked free list with fake head/tail (vLLM FreeKVCacheBlockQueue).
++// O(1) middle removal is required so touch() can pull a warm cached block out of the
++// free list when a later request hits its prefix.
++class FreeBlockQueue {
++public:
++    size_t num_free_blocks = 0;
++
++    explicit FreeBlockQueue(const std::vector<KVCacheBlock*>& blocks);
++    KVCacheBlock* popleft();
++    std::vector<KVCacheBlock*> popleft_n(size_t n);
++    void remove(KVCacheBlock* block);
++    void append(KVCacheBlock* block);
++    void append_n(const std::vector<KVCacheBlock*>& blocks);
++    void prepend_n(const std::vector<KVCacheBlock*>& blocks);
++    std::vector<KVCacheBlock*> get_all_free_blocks() const;
++
++private:
++    KVCacheBlock fake_head{-1};
++    KVCacheBlock fake_tail{-1};
++};
++
++// vLLM BlockPool (block_pool.py).
++class BlockPool {
++public:
++    KVCacheBlock* null_block = nullptr;
++
++    BlockPool(int32_t num_blocks, bool enable_caching);
++    std::vector<KVCacheBlock*> get_new_blocks(size_t n);
++    KVCacheBlock* get_cached_block(uint64_t block_hash);
++    void touch(const std::vector<KVCacheBlock*>& blocks);
++    void free_blocks(const std::vector<KVCacheBlock*>& ordered_blocks);
++    void cache_full_blocks(const std::vector<KVCacheBlock*>& req_blocks,
++                           size_t num_cached_blocks, size_t num_full_blocks,
++                           const std::vector<uint64_t>& block_hashes);
++    size_t get_num_free_blocks() const { return free_queue_.num_free_blocks; }
++
++private:
++    bool maybe_evict_cached_block(KVCacheBlock* block);
++
++    bool enable_caching_;
++    std::vector<KVCacheBlock> blocks_;     // owns all block descriptors
++    std::vector<KVCacheBlock*> ptrs_;
++    FreeBlockQueue free_queue_;
++    // vLLM stores hash -> {block_id: block} to allow duplicate-content blocks; the
++    // prototype keeps the last writer (single KV-cache group is sufficient for the wins).
++    std::unordered_map<uint64_t, KVCacheBlock*> cached_block_hash_to_block_;
++};
++
++// Allocation + prefix-caching surface, ported from SingleTypeKVCacheManager /
++// FullAttentionManager. Single KV-cache group; no extra_keys / eagle / spec-decode.
++class PagedKVManager {
++public:
++    PagedKVManager(int32_t num_blocks, int block_size, bool enable_caching);
++
++    // Grow seq_id to cover total_tokens slots. Returns false on OOM (free queue empty).
++    bool allocate(int seq_id, size_t total_tokens);
++    std::vector<int32_t> block_table(int seq_id) const;
++    int64_t slot(int seq_id, int pos) const;
++    std::vector<int64_t> slot_mapping(int seq_id, const std::vector<int>& positions) const;
++    void free(int seq_id);
++    int block_size() const { return block_size_; }
++
++    // Prefix caching (win 3).
++    static uint64_t hash_block(uint64_t parent_hash, const std::vector<int>& token_ids);
++    std::vector<uint64_t> compute_block_hashes(const std::vector<int>& token_ids) const;
++    size_t get_computed_blocks(const std::vector<uint64_t>& block_hashes); // returns num cached tokens
++    void cache_blocks(int seq_id, const std::vector<uint64_t>& block_hashes, size_t num_tokens);
++
++protected:
++    int block_size_;
++    BlockPool pool_;
++    std::map<int, std::vector<KVCacheBlock*>> req_to_blocks_;
++};
++
++} // namespace paged
+-- 
+2.43.0
+

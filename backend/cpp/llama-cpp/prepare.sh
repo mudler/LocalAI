@@ -2,12 +2,18 @@
 
 ## Patches
 
-## Apply patches from the `patches` directory
+## Apply the base `patches/` series (top-level *.patch only; *.md/dirs skipped).
+## The stock llama-cpp backend is patch-free by default, so this normally does
+## nothing. The Makefile `llama.cpp` target already `git apply`s any base patch
+## at checkout, so each apply here is `-N` (skip already-applied): re-applying a
+## git-format patch with `patch` would fuzzily duplicate hunks. This block only
+## does real work if prepare.sh is run against an unpatched checkout.
 if [ -d "patches" ]; then
-    for patch in $(ls patches); do
+    for patch in patches/*.patch; do
+        [ -e "$patch" ] || continue
         echo "Applying patch $patch"
-        patch -d llama.cpp/ -p1 < patches/$patch
-    done 
+        patch -d llama.cpp/ -p1 -N -r - < "$patch" || true
+    done
 fi
 
 set -e

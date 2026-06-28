@@ -191,7 +191,10 @@ func EffectiveBatchSize(c config.ModelConfig) int {
 	if ctx := EffectiveContextSize(c); singlePass && ctx > DefaultBatchSize {
 		return ctx
 	}
-	return DefaultBatchSize
+	// Hardware-tuned default when the config leaves batch unset (e.g. a larger
+	// physical batch lifts MoE prefill on Blackwell). Explicit `batch:` (handled
+	// above) always overrides this. See hardware_defaults.go.
+	return hardwareDefaultBatchSize(DefaultBatchSize)
 }
 
 func grpcModelOpts(c config.ModelConfig, modelPath string) *pb.ModelOptions {

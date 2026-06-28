@@ -473,7 +473,7 @@ var _ = Describe("LlamaCPPImporter", func() {
 	})
 
 	Context("AdditionalBackends", func() {
-		It("advertises ik-llama-cpp and turboquant as drop-in replacements", func() {
+		It("advertises ik-llama-cpp, turboquant and llama-cpp-localai-paged as drop-in replacements", func() {
 			entries := importer.AdditionalBackends()
 
 			names := make([]string, 0, len(entries))
@@ -482,7 +482,7 @@ var _ = Describe("LlamaCPPImporter", func() {
 				names = append(names, e.Name)
 				byName[e.Name] = e
 			}
-			Expect(names).To(ConsistOf("ik-llama-cpp", "turboquant"))
+			Expect(names).To(ConsistOf("ik-llama-cpp", "turboquant", "llama-cpp-localai-paged"))
 
 			ik := byName["ik-llama-cpp"]
 			Expect(ik.Modality).To(Equal("text"))
@@ -491,6 +491,10 @@ var _ = Describe("LlamaCPPImporter", func() {
 			tq := byName["turboquant"]
 			Expect(tq.Modality).To(Equal("text"))
 			Expect(tq.Description).NotTo(BeEmpty())
+
+			paged := byName["llama-cpp-localai-paged"]
+			Expect(paged.Modality).To(Equal("text"))
+			Expect(paged.Description).NotTo(BeEmpty())
 		})
 	})
 })

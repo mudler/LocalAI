@@ -1,0 +1,238 @@
+From 5349f8231b1e11214f5e8a668129397fb6e2f9ac Mon Sep 17 00:00:00 2001
+From: Ettore Di Giacinto <mudler@localai.io>
+Date: Tue, 23 Jun 2026 21:03:00 +0200
+Subject: [PATCH] feat(paged): expert-density-aware MoE token-tile auto-select
+ (patch 0015)
+
+The durable follow-up to patch 0014's blunt LLAMA_MOE_MMQ_X global cap (which the
+0014 doc itself scoped): replace the manual env cap with a host-side, default-on
+auto-select inside mul_mat_q_case that picks a small token-tile (mmq_x) for the
+MUL_MAT_ID grouped FP4-MMA GEMM only when the per-expert token density is low
+(decode), and keeps the large 128-wide tile when density is high (prefill). No new
+kernel: the selection only lowers the loop's upper bound to an already-compiled,
+granularity- and shared-memory-validated mmq_x.
+
+Density is estimated host-side from the args the ids path already passes:
+  ne_get_rows = ncols_dst   = ne12 * n_expert_used   (token-expert assignments)
+  n_experts   = nchannels_x = ne02
+  density     = ceil(ne_get_rows / min(ne_get_rows, n_experts))   (tokens/expert)
+Cap to the small tile (default 64) only when density <= density_max. Unlike 0014's
+global cap, the high-density prefill ubatch stays on the big tile, so S_PP does not
+regress by construction.
+
+density_max default = 8 (not tile/4 = 16). The cap must fire for decode but not for
+a prefill ubatch, and each has per-expert density n_tokens*n_used/n_experts. At the
+standard n_ubatch=512, n_used=8: prefill density = 4096/n_experts (32 at 128 experts,
+16 at 256), decode at npl<=128 is <= 1024/n_experts (8 at 128, 4 at 256). Default 8
+sits strictly between for every n_experts in [128,511], so it caps decode and leaves
+prefill on the big tile. tile/4 (=16) equalled the 256-expert prefill density and
+cratered its S_PP by ~2%, the regression this threshold exists to avoid.
+
+Measured on GB10 (sm_121), Qwen3.6-35B-A3B NVFP4 (256 experts, top-8, GDN linear
+attention), llama-batched-bench -fa on -npp 128 -ntg 128, default-on vs stock
+(LLAMA_MOE_AUTO_TILE=0), median of 5 reps:
+
+  npl   S_TG stock  S_TG 0015   dTG%    S_PP stock  S_PP 0015   dPP%
+    8      183.59     183.18  -0.22%       1489.2     1500.1  +0.73%
+   32      264.02     263.44  -0.22%       2034.5     2033.5  -0.05%
+   64      311.76     310.41  -0.43%       2028.3     2027.6  -0.03%
+  128      336.10     337.32  +0.36%       2025.0     2027.7  +0.13%
+
+Honest read: on THIS model the decode effect is within run-to-run noise (neutral)
+and prefill is neutral. q36-35b-a3b decode is bound by the GDN/SSM recurrence and
+256 tiny-expert weight bandwidth, not the MoE col-tile occupancy, so the col-tile
+lever (worth +4.8% @npl128 on Qwen3-Coder-30B, 128 larger experts, patch 0014
+cap64) does not move it. A npl128 tile sweep on this model confirms 64 is the only
+useful width (TILE8 -6.3%, TILE16 -3.2%, TILE32 -0.2%, TILE64 +0.7%, TILE96 -0.8%):
+smaller tiles lose to grid/scheduling overhead and the FP4-MMA minimum width.
+
+Value banked default-on: (1) removes 0014's ~1.3% prefill cost by construction
+(density-gated, not global); (2) auto-selects the small tile for col-tile-bound MoE
+decode, reproducing 0014 cap64's tile=64 at npl128 by construction, so it preserves
+the +4.8% on Qwen3-Coder-30B without the prefill cost; (3) prefill-safe and decode-
+neutral on the SSM model, harmless where it does not help. Conservative by design:
+at npl256 the qwen3coder decode density (16) equals the 256-expert prefill density
+(16), indistinguishable to a pure-density gate, so density_max=8 forgoes 0014's
++2.3% @npl256 to keep 256-expert prefill safe; an ne12-aware refinement is future
+work.
+
+LLAMA_MOE_MMQ_X (patch 0014) is KEPT as a manual override that, when > 0, forces the
+old blunt global cap and bypasses the auto-select (explicit A/B knob). The auto-
+select is the default; LLAMA_MOE_AUTO_TILE=0 restores exact stock mmq_x selection.
+LLAMA_MOE_DECODE_TILE / LLAMA_MOE_DENSITY_MAX tune the small tile / threshold.
+
+Correctness: extends tests/test-backend-ops test_mul_mat_id with a ragged small-M
+NVFP4/MXFP4 MoE decode-density gate (128 experts, top-8, m=768, k=2048, n in
+{16,33,64,128,130,200,256,512} spanning the cap boundary and ragged token counts).
+All 16 shapes pass CUDA-vs-CPU oracle on GB10 both default-on and with
+LLAMA_MOE_AUTO_TILE=0; full MUL_MAT_ID suite 2/2 backends OK. Off the ids path
+nothing changes (non-MoE mul_mat byte-identical to stock).
+
+Assisted-by: Claude:opus-4.8 [Claude Code]
+Signed-off-by: Ettore Di Giacinto <mudler@localai.io>
+---
+ ggml/src/ggml-cuda/mmq.cuh | 100 ++++++++++++++++++++++++++++++-------
+ tests/test-backend-ops.cpp |  16 ++++++
+ 2 files changed, 99 insertions(+), 17 deletions(-)
+
+diff --git a/ggml/src/ggml-cuda/mmq.cuh b/ggml/src/ggml-cuda/mmq.cuh
+index cff608e..9718b12 100644
+--- a/ggml/src/ggml-cuda/mmq.cuh
++++ b/ggml/src/ggml-cuda/mmq.cuh
+@@ -4053,10 +4053,11 @@ static void launch_mul_mat_q(ggml_backend_cuda_context & ctx, const mmq_args & a
+     }
+ }
+ 
+-// [paged patch 0014] MoE token-tile (mmq_x) cap, read once from env LLAMA_MOE_MMQ_X.
+-// Returns 0 when unset / non-positive => disabled (stock mmq_x selection, byte-identical).
+-// On the MUL_MAT_ID grouped-GEMM path this caps the per-expert column-tile width toward the
+-// low MoE-decode per-expert token density, raising tile fill + occupancy (see mul_mat_q_case).
++// [paged patch 0014] MoE token-tile (mmq_x) MANUAL cap, read once from env LLAMA_MOE_MMQ_X.
++// Returns 0 when unset / non-positive => disabled (fall through to the patch-0015 auto-select).
++// When > 0 it forces a blunt GLOBAL cap on the per-expert column-tile width for the MUL_MAT_ID
++// grouped-GEMM path (decode AND prefill), overriding the density-aware auto-select below. Kept
++// as an explicit override / A-B knob; the default path is now the auto-select.
+ static inline int ggml_cuda_moe_mmq_x_cap() {
+     static const int cap = []() -> int {
+         const char * s = getenv("LLAMA_MOE_MMQ_X");
+@@ -4065,6 +4066,43 @@ static inline int ggml_cuda_moe_mmq_x_cap() {
+     return cap;
+ }
+ 
++// [paged patch 0015] expert-density-aware MoE token-tile (mmq_x) auto-select knobs (DEFAULT-ON).
++// LLAMA_MOE_AUTO_TILE=0 disables the auto-select => exact stock mmq_x selection.
++static inline bool ggml_cuda_moe_auto_tile_enabled() {
++    static const bool en = []() -> bool {
++        const char * s = getenv("LLAMA_MOE_AUTO_TILE");
++        return !(s && atoi(s) == 0);
++    }();
++    return en;
++}
++// The small high-occupancy token-tile chosen for low-density (decode) MoE matmuls. Default 64:
++// the measured GB10 sweet spot (full per-expert fill with >=4x routing-imbalance headroom).
++static inline int ggml_cuda_moe_decode_tile() {
++    static const int t = []() -> int {
++        const char * s = getenv("LLAMA_MOE_DECODE_TILE");
++        const int v = s ? atoi(s) : 0;
++        return v >= 8 ? v : 64;
++    }();
++    return t;
++}
++// Per-expert token-density ceiling under which the small tile is selected. Default 8: the cap must
++// fire for decode but NOT for a prefill ubatch, and the per-expert density of each is
++// n_tokens*n_used/n_experts. For the standard n_ubatch=512, n_used=8 the prefill density is
++// 4096/n_experts (= 32 at 128 experts, 16 at 256 experts); decode at npl<=128 is <=1024/n_experts
++// (= 8 at 128 experts, 4 at 256). Default 8 sits strictly between the two for every n_experts in
++// [128,511], so it caps decode and leaves the prefill ubatch on the big 128 tile - whereas the old
++// tile/4 (=16) equalled the 256-expert prefill density and cratered its S_PP by ~2% (measured on
++// Qwen3.6-35B-A3B NVFP4). 8 also keeps >=8x fill headroom at tile 64 so an imbalanced expert
++// segment never splits into an extra col-tile.
++static inline int ggml_cuda_moe_density_max() {
++    static const int d = []() -> int {
++        const char * s = getenv("LLAMA_MOE_DENSITY_MAX");
++        const int v = s ? atoi(s) : 0;
++        return v > 0 ? v : 8;
++    }();
++    return d;
++}
++
+ template <ggml_type type>
+ void mul_mat_q_case(ggml_backend_cuda_context & ctx, const mmq_args & args, cudaStream_t stream) {
+     const int    id     = ggml_cuda_get_device();
+@@ -4076,25 +4114,53 @@ void mul_mat_q_case(ggml_backend_cuda_context & ctx, const mmq_args & args, cuda
+     const int mmq_x_max = get_mmq_x_max_host(cc);
+     const int mmq_y = get_mmq_y_host(cc);
+ 
+-    // [paged patch 0014] expert-aware MoE token-tile (mmq_x) cap.
+-    // On the MUL_MAT_ID grouped-GEMM path (expert_bounds != nullptr) the GEMM columns are
+-    // tokens sorted by expert; stock picks mmq_x to cover ncols_max (= ne12, the token count,
+-    // up to 128) in a single column-tile. At MoE decode the per-expert token density is low
+-    // (top-k of many experts: ~ne12*k/n_experts tokens/expert, e.g. ~8 at npl128 for
+-    // Qwen3-30B-A3B top-8/128), so each expert's single mmq_x-wide col-tile is mostly empty:
+-    // the MMA accumulator tile is mmq_x-wide at compile time and wastes throughput on the
+-    // padding columns while the larger y-tile lowers occupancy. Capping mmq_x toward the
+-    // per-expert density raises tile fill + occupancy with no extra weight reads (at
+-    // tokens/expert <= mmq_x there is still exactly one non-empty col-tile per expert; the
+-    // emptier tiles are skipped by the jt*mmq_x >= col_diff guard in the stream-k kernel).
+-    // Default (env unset or <= 0) = disabled => mmq_x selection is byte-identical to stock;
+-    // off the ids path the cap never applies.
++    // [paged patch 0015] expert-density-aware MoE token-tile (mmq_x) auto-select (DEFAULT-ON).
++    // On the MUL_MAT_ID grouped-GEMM path (expert_bounds != nullptr) the GEMM columns are tokens
++    // sorted by expert; stock picks mmq_x to cover ncols_max (= ne12, the token count, up to 128)
++    // in a single column-tile, i.e. it MAXIMIZES the tile (128 on Blackwell) for the aggregate
++    // batch. But the tile is then applied PER EXPERT, and at MoE decode the per-expert token
++    // density is tiny (top-k of many experts), so each expert's single 128-wide col-tile is mostly
++    // empty: the MMA accumulator tile is mmq_x-wide at compile time and burns throughput on the
++    // padding columns while the larger y-tile lowers occupancy. vLLM's fused-MoE does the opposite
++    // (a small per-expert BLOCK_SIZE_M). We reproduce that here, host-side only, by picking a
++    // SMALLER mmq_x when - and only when - the per-expert density is low:
++    //
++    //   ne_get_rows  = args.ncols_dst    = ne12 * n_expert_used  (total token-expert assignments)
++    //   n_experts    = args.nchannels_x  = ne02
++    //   n_active_est = min(n_experts, ne_get_rows)               (upper bound on active experts)
++    //   density      = ceil(ne_get_rows / n_active_est)          (avg tokens per active expert)
++    //
++    // Cap to the small tile (default 64) only when density <= density_max (default 8). 8 sits below
++    // every prefill-ubatch density and above every decode density for n_experts in [128,511] at the
++    // standard n_ubatch=512 (prefill 4096/n_experts, decode <=1024/n_experts), with >=8x fill headroom
++    // so a capped expert segment never splits a col-tile. Decode (per-expert density 4 at 256 experts,
++    // 8 at 128 experts @npl128) gets the fuller high-occupancy tile; the prefill ubatch (density 16 at
++    // 256 / 32 at 128 experts) stays ABOVE the threshold and keeps the big
++    // 128 compute tile - so unlike the blunt global cap (LLAMA_MOE_MMQ_X / patch 0014) this is
++    // prefill-safe by construction. The selection only ever picks an already-compiled, granularity-
++    // and shared-memory-validated mmq_x that the loop below would consider for a smaller batch; no
++    // new kernel. Off the ids path (expert_bounds == nullptr) nothing changes => non-MoE mul_mat
++    // and the gated f16/bf16 host-loop fallback stay byte-identical to stock.
++    //   - LLAMA_MOE_MMQ_X=<n>   : manual blunt global cap, overrides the auto-select (patch 0014).
++    //   - LLAMA_MOE_AUTO_TILE=0 : disable the auto-select (exact stock selection).
++    //   - LLAMA_MOE_DECODE_TILE=<n>, LLAMA_MOE_DENSITY_MAX=<n> : tune the tile / threshold.
+     int mmq_x_lim = mmq_x_max;
+     if (args.expert_bounds != nullptr) {
+         const int moe_cap = ggml_cuda_moe_mmq_x_cap();
+         if (moe_cap > 0) {
+             const int cap = moe_cap < 8 ? 8 : moe_cap;
+             mmq_x_lim = cap < mmq_x_max ? cap : mmq_x_max;
++        } else if (ggml_cuda_moe_auto_tile_enabled()) {
++            const int64_t ne_get_rows = args.ncols_dst;
++            const int64_t n_experts   = args.nchannels_x;
++            if (ne_get_rows > 0 && n_experts > 0) {
++                const int64_t n_active = ne_get_rows < n_experts ? ne_get_rows : n_experts;
++                const int64_t density  = (ne_get_rows + n_active - 1) / n_active;
++                const int     tile     = ggml_cuda_moe_decode_tile();
++                if (density <= (int64_t) ggml_cuda_moe_density_max() && tile < mmq_x_max) {
++                    mmq_x_lim = tile;
++                }
++            }
+         }
+     }
+ 
+diff --git a/tests/test-backend-ops.cpp b/tests/test-backend-ops.cpp
+index c83e91f..62a0989 100644
+--- a/tests/test-backend-ops.cpp
++++ b/tests/test-backend-ops.cpp
+@@ -8603,6 +8603,22 @@ static std::vector<std::unique_ptr<test_case>> make_test_cases_eval() {
+     test_cases.emplace_back(new test_mul_mat_id(GGML_TYPE_MXFP4, GGML_TYPE_F32, 32, 2, false, 2880, 32, 2880));
+     test_cases.emplace_back(new test_mul_mat_id(GGML_TYPE_Q4_0, GGML_TYPE_F32, 32, 2, false, 2880, 32, 2880));
+ 
++    // [paged P0] MXFP4/NVFP4 qwen3-30b-a3b MoE decode-density regression gate for the expert-
++    // density-aware mmq_x auto-select (patch 0015). Real expert-FFN slice (128 experts, top-8,
++    // m=768, k=2048) so this exercises the exact grouped FP4-MMA mmq kernel the model runs.
++    // Per-expert token density = n*n_used/n_mats = n/16; cover the decode band (density 1/4/8/16
++    // at n 16/64/128/256), ragged token counts (n 33/130/200: experts with 0/1/2 tokens, n not a
++    // multiple of the tile) where the tiny-M col-tiles change geometry and any masking can leak,
++    // and a prefill-density shape (n 512 => density 32) the auto-select must leave on the large
++    // 128 tile. n>=128 is exactly where stock picks mmq_x=128 and the auto-select picks 64, so the
++    // op-test (CPU oracle vs CUDA, deterministic) is the bit-exact regression gate for P1: it must
++    // pass with the auto-select on (default) and with LLAMA_MOE_AUTO_TILE=0 (stock selection).
++    for (ggml_type type_a : {GGML_TYPE_MXFP4, GGML_TYPE_NVFP4}) {
++        for (int n : {16, 33, 64, 128, 130, 200, 256, 512}) {
++            test_cases.emplace_back(new test_mul_mat_id(type_a, GGML_TYPE_F32, 128, 8, false, 768, n, 2048));
++        }
++    }
++
+     for (ggml_type type_a : all_types) {
+         test_cases.emplace_back(new test_mul_mat_id(type_a, GGML_TYPE_F32, 4, 2, false, 64, 16, 3*ggml_blck_size(type_a)));
+     }
+-- 
+2.43.0
+

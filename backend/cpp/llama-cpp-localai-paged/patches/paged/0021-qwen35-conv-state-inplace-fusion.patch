@@ -1,0 +1,655 @@
+From 58426b58aaf5431a59d499d513b2fe2d6ab990d8 Mon Sep 17 00:00:00 2001
+From: Ettore Di Giacinto <mudler@localai.io>
+Date: Thu, 25 Jun 2026 18:55:54 +0200
+Subject: [PATCH] feat(paged): qwen35 decode conv-state in-place fusion (patch
+ 0021)
+
+The no-regret bit-exact conv-state cleanup from the GDN recurrence byte-gate
+design (point 3). After the recurrence verdict (NO-BUILD: the gated-DeltaNet
+recurrence is already single-pass at the f32 byte floor), the decode conv path
+was the only remaining bit-exact lever.
+
+New fused op ggml_ssm_conv_update_inplace (reuses GGML_OP_SSM_CONV, discriminated
+by a non-null src[3]). On the single-token decode path it replaces the four-op
+conv chain - qkv transpose + ggml_concat (concat_cont) + ggml_ssm_conv + ggml_silu
++ ggml_cpy of the shifted ring state (cpy_scalar) - with one kernel that, per
+(channel, sequence), assembles the width-K window in registers from the K-1 cached
+taps plus the current qkv_mixed token, computes the depthwise conv with the SAME
+ascending-tap FMA order as ssm_conv_f32 at i==0, folds silu, writes the conv
+output, and writes the 1-token-shifted ring state back IN PLACE into the conv
+cache slot at kv_head. This is vLLM causal_conv1d_update; it mirrors the 0018
+in-place write-back and 0019 patterns. Read source (the build_rs tap gather) and
+write target (the cache view) are disjoint buffers, so it is race-free by
+construction with no ids/identity logic.
+
+- ggml.h/ggml.c: builder (src0=conv_states [K-1,ch,n_seqs], src1=conv_kernel,
+  src2=x_cur [ch,1,n_seqs], src3=conv_state_dst [(K-1)*ch,n_seqs] in-place ring;
+  op_params[0]=fuse_silu)
+- ggml-cuda/ssm-conv.cu: ssm_conv_update_f32<apply_silu,d_conv> kernel +
+  ggml_cuda_op_ssm_conv_update + src[3]-discriminated branch in ggml_cuda_op_ssm_conv
+- ggml-cpu/ops.cpp: ggml_compute_forward_ssm_conv_update_f32 (threads over channels)
+  + branch in ggml_compute_forward_ssm_conv
+- delta-net-base.cpp/models.h: build_conv_state_fused (keeps the cheap build_rs
+  conv-tap gather; fuses conv+silu+shifted write-back)
+- qwen35.cpp, qwen35moe.cpp, qwen3next.cpp: route the single-token decode path
+  (n_seq_tokens==1 && n_rs_seq==0 && fused_gdn_ar); prefill/chunked/rollback keep
+  the original chain
+- tests/test-backend-ops.cpp: test_ssm_conv_update (16 cases) vs the CPU reference
+
+test-backend-ops: SSM_CONV 45/45, SSM_CONV_UPDATE 16/16, SSM_CONV_BIAS_SILU 90/90.
+
+Greedy (--temp 0 --seed 1 --ignore-eos -n 256) byte-identical to the Lever-1
+(0019/0020) baseline: q36-27b-nvfp4 md5 675cd522..., q36-35b-a3b-nvfp4 md5
+ac163882... both BYTE-IDENTICAL.
+
+decode_agg S_TG (npp128 ntg128, -fa on, CUDA-graph), same session:
+  dense q36-27b-nvfp4 : npl 32  199.76 -> 202.99 (+1.6%)
+                        npl 128 336.35 -> 347.14 (+3.2%, 86.0 -> 88.8 percent of vLLM 391)
+  MoE   q36-35b-a3b   : npl 32  421.72 -> 432.39 (+2.5%)
+                        npl 128 689.74 -> 713.54 (+3.5%)
+Lift holds in eager too (dense npl128 333.62 -> 342.97). Step -11.9 ms/step
+(dense npl128: 380.6 -> 368.7). nsys eager decode: concat_cont (1152 calls) and the
+decode cpy_scalar GONE; ssm_conv_f32 at decode replaced by ssm_conv_update (1152);
+conv-path ~20.9 -> ~7.6 ms/step. Bit-exact, no regression, de-risks the bf16-state
+conv-cache plumbing.
+
+Assisted-by: Claude:opus-4.8 [Claude Code]
+Signed-off-by: Ettore Di Giacinto <mudler@localai.io>
+---
+ ggml/include/ggml.h            |  16 +++++
+ ggml/src/ggml-cpu/ops.cpp      |  73 ++++++++++++++++++++-
+ ggml/src/ggml-cuda/ssm-conv.cu | 112 +++++++++++++++++++++++++++++++++
+ ggml/src/ggml.c                |  54 ++++++++++++++++
+ src/models/delta-net-base.cpp  |  51 +++++++++++++++
+ src/models/models.h            |  14 +++++
+ src/models/qwen35.cpp          |  23 +++++--
+ src/models/qwen35moe.cpp       |  23 +++++--
+ src/models/qwen3next.cpp       |  29 ++++++---
+ tests/test-backend-ops.cpp     |  47 ++++++++++++++
+ 10 files changed, 420 insertions(+), 22 deletions(-)
+
+diff --git a/ggml/include/ggml.h b/ggml/include/ggml.h
+index 951dd21..76fa401 100644
+--- a/ggml/include/ggml.h
++++ b/ggml/include/ggml.h
+@@ -2447,6 +2447,22 @@ extern "C" {
+             struct ggml_tensor  * sx,
+             struct ggml_tensor  * c);
+ 
++    // Fused decode-time depthwise causal conv1d update (mirrors vLLM causal_conv1d_update). Assembles
++    // the width-K conv window in registers from the cached K-1 taps (`conv_states`, [K-1, channels,
++    // n_seqs]) plus the single current token (`x_cur`, [channels, 1, n_seqs]), computes the depthwise
++    // conv with the SAME ascending-tap FMA order as ggml_ssm_conv, optionally folds SiLU, and writes
++    // the 1-token-shifted ring state back IN PLACE into `conv_state_dst` (a [(K-1)*channels, n_seqs]
++    // view into the conv-state cache). This eliminates the concat + transpose + scalar copy-back +
++    // separate silu of the decode conv path. Output: [channels, 1, n_seqs]. Reuses GGML_OP_SSM_CONV;
++    // detected by the backends via a non-null src[3]. n_seq_tokens must be 1 (single-token decode).
++    GGML_API struct ggml_tensor * ggml_ssm_conv_update_inplace(
++            struct ggml_context * ctx,
++            struct ggml_tensor  * conv_states,
++            struct ggml_tensor  * conv_kernel,
++            struct ggml_tensor  * x_cur,
++            struct ggml_tensor  * conv_state_dst,
++            bool                  fuse_silu);
++
+     GGML_API struct ggml_tensor * ggml_ssm_scan(
+             struct ggml_context * ctx,
+             struct ggml_tensor  * s,
+diff --git a/ggml/src/ggml-cpu/ops.cpp b/ggml/src/ggml-cpu/ops.cpp
+index b6a1976..f9cd850 100644
+--- a/ggml/src/ggml-cpu/ops.cpp
++++ b/ggml/src/ggml-cpu/ops.cpp
+@@ -9463,13 +9463,84 @@ static void ggml_compute_forward_ssm_conv_f32(
+     }
+ }
+ 
++// Fused decode-time depthwise causal conv1d update (mirror of the CUDA ssm_conv_update_f32). Reads the
++// K-1 cached taps (src[0]) and the single new token (src[2]), computes the depthwise conv with the same
++// ascending-tap FMA order as ggml_compute_forward_ssm_conv_f32, optionally folds silu, writes the conv
++// output to dst, and writes the 1-token-shifted ring state back in place into src[3]. Threads split
++// over channels.
++static void ggml_compute_forward_ssm_conv_update_f32(
++        const ggml_compute_params * params,
++        ggml_tensor * dst) {
++    const ggml_tensor * conv_states = dst->src[0]; // [K-1, channels, n_seqs]
++    const ggml_tensor * conv_kernel = dst->src[1]; // [K, channels]
++    const ggml_tensor * x_cur       = dst->src[2]; // [channels, 1, n_seqs]
++    ggml_tensor       * cdst        = dst->src[3]; // [(K-1)*channels, n_seqs] in-place ring target
++
++    const int ith = params->ith;
++    const int nth = params->nth;
++
++    const int64_t d_conv   = conv_kernel->ne[0];
++    const int64_t channels = conv_kernel->ne[1];
++    const int64_t n_seqs   = conv_states->ne[2];
++    const bool    apply_silu = ggml_get_op_params_i32(dst, 0) != 0;
++
++    GGML_ASSERT(conv_states->nb[0] == sizeof(float));
++    GGML_ASSERT(conv_kernel->nb[0] == sizeof(float));
++
++    const int64_t states_seq_stride = conv_states->nb[2] / sizeof(float);
++    const int64_t states_ch_stride  = conv_states->nb[1] / sizeof(float);
++    const int64_t w_stride          = conv_kernel->nb[1] / sizeof(float);
++    const int64_t x_seq_stride      = x_cur->nb[2] / sizeof(float);
++    const int64_t dst_seq_stride    = dst->nb[2] / sizeof(float);
++    const int64_t cdst_seq_stride   = cdst->nb[1] / sizeof(float);
++
++    const float * states_base = (const float *) conv_states->data;
++    const float * w_base      = (const float *) conv_kernel->data;
++    const float * x_base      = (const float *) x_cur->data;
++    float *       cdst_base   = (float *) cdst->data;
++    float *       dst_base    = (float *) dst->data;
++
++    const int64_t dc = (channels + nth - 1) / nth;
++    const int64_t c0 = dc * ith;
++    const int64_t c1 = MIN(c0 + dc, channels);
++
++    for (int64_t s = 0; s < n_seqs; ++s) {
++        for (int64_t c = c0; c < c1; ++c) {
++            const float * states_c = states_base + s * states_seq_stride + c * states_ch_stride;
++            const float * w_c      = w_base + c * w_stride;
++            const float   xc       = x_base[s * x_seq_stride + c];
++
++            // ascending-tap FMA: tap0*w0 + ... + tap_{K-2}*w_{K-2} + xc*w_{K-1} (matches ssm_conv)
++            float sumf = 0.0f;
++            for (int64_t j = 0; j < d_conv - 1; ++j) {
++                sumf += states_c[j] * w_c[j];
++            }
++            sumf += xc * w_c[d_conv - 1];
++            sumf += 0.0f; // matches ssm_conv `sumf += b` with b == 0
++
++            dst_base[s * dst_seq_stride + c] = apply_silu ? (sumf / (1.0f + expf(-sumf))) : sumf;
++
++            // 1-token-shifted ring write-back: [tap1 .. tap_{K-2}, xc]
++            float * out_state = cdst_base + s * cdst_seq_stride + c * (d_conv - 1);
++            for (int64_t j = 0; j < d_conv - 2; ++j) {
++                out_state[j] = states_c[j + 1];
++            }
++            out_state[d_conv - 2] = xc;
++        }
++    }
++}
++
+ void ggml_compute_forward_ssm_conv(
+         const ggml_compute_params * params,
+         ggml_tensor * dst) {
+     switch (dst->src[0]->type) {
+         case GGML_TYPE_F32:
+             {
+-                ggml_compute_forward_ssm_conv_f32(params, dst);
++                if (dst->src[3] != nullptr) {
++                    ggml_compute_forward_ssm_conv_update_f32(params, dst);
++                } else {
++                    ggml_compute_forward_ssm_conv_f32(params, dst);
++                }
+             } break;
+         default:
+             {
+diff --git a/ggml/src/ggml-cuda/ssm-conv.cu b/ggml/src/ggml-cuda/ssm-conv.cu
+index 1463169..e1af1cd 100644
+--- a/ggml/src/ggml-cuda/ssm-conv.cu
++++ b/ggml/src/ggml-cuda/ssm-conv.cu
+@@ -123,6 +123,109 @@ static __global__ void ssm_conv_long_token_f32(const float * __restrict__ src0,
+     }
+ }
+ 
++// Fused decode-time depthwise causal conv1d update (one new token). Each thread owns one channel of
++// one sequence: it assembles the width-d_conv window from the K-1 cached taps (conv_states) plus the
++// current token (x_cur), computes the depthwise conv with the SAME ascending-tap FMA order as
++// ssm_conv_f32 at i==0, optionally folds silu, writes the conv output, and writes the 1-token-shifted
++// ring state back in place into conv_state_dst. Bit-identical to ssm_conv(concat) + silu + copy-back.
++template <bool apply_silu, int d_conv>
++static __global__ void ssm_conv_update_f32(const float * __restrict__ conv_states,
++                                           const float * __restrict__ conv_kernel,
++                                           const float * __restrict__ x_cur,
++                                           float       * __restrict__ conv_state_dst,
++                                           float       * __restrict__ dst,
++                                           const int channels,
++                                           const int states_seq_stride,
++                                           const int w_stride,
++                                           const int x_seq_stride,
++                                           const int dst_seq_stride,
++                                           const int cdst_seq_stride) {
++    const int c = blockIdx.x * blockDim.x + threadIdx.x; // channel
++    const int s = blockIdx.y;                            // sequence
++    if (c >= channels) {
++        return;
++    }
++
++    const float * states_c = conv_states + (int64_t) s * states_seq_stride + (int64_t) c * (d_conv - 1);
++    const float * w_c       = conv_kernel + (int64_t) c * w_stride;
++    const float   xc        = x_cur[(int64_t) s * x_seq_stride + c];
++
++    // window = [tap0 .. tap_{K-2}, current-token], same ordering as the concat(conv_states, x) window
++    float window[d_conv];
++#pragma unroll
++    for (int j = 0; j < d_conv - 1; j++) {
++        window[j] = states_c[j];
++    }
++    window[d_conv - 1] = xc;
++
++    float sumf = 0.0f;
++#pragma unroll
++    for (int j = 0; j < d_conv; j++) {
++        sumf += window[j] * w_c[j];
++    }
++    sumf += 0.0f; // matches ssm_conv_f32 `sumf += b` with b == 0 (qwen35 conv1d has no bias)
++    dst[(int64_t) s * dst_seq_stride + c] = apply_silu ? ggml_cuda_op_silu_single(sumf) : sumf;
++
++    // 1-token-shifted ring write-back: drop the oldest tap, append the current token
++    float * out_state = conv_state_dst + (int64_t) s * cdst_seq_stride + (int64_t) c * (d_conv - 1);
++#pragma unroll
++    for (int j = 0; j < d_conv - 1; j++) {
++        out_state[j] = window[j + 1];
++    }
++}
++
++static void ggml_cuda_op_ssm_conv_update(ggml_backend_cuda_context & ctx, ggml_tensor * dst) {
++    const ggml_tensor * conv_states = dst->src[0]; // [K-1, channels, n_seqs]
++    const ggml_tensor * conv_kernel = dst->src[1]; // [K, channels]
++    const ggml_tensor * x_cur       = dst->src[2]; // [channels, 1, n_seqs]
++    const ggml_tensor * cdst        = dst->src[3]; // [(K-1)*channels, n_seqs] in-place ring target
++
++    const int64_t d_conv   = conv_kernel->ne[0];
++    const int64_t channels = conv_kernel->ne[1];
++    const int64_t n_seqs   = conv_states->ne[2];
++    const bool    apply_silu = ggml_get_op_params_i32(dst, 0) != 0;
++
++    GGML_ASSERT(conv_states->type == GGML_TYPE_F32 && conv_kernel->type == GGML_TYPE_F32);
++    GGML_ASSERT(x_cur->type == GGML_TYPE_F32 && cdst->type == GGML_TYPE_F32 && dst->type == GGML_TYPE_F32);
++    GGML_ASSERT(conv_states->nb[0] == sizeof(float));
++    GGML_ASSERT(conv_states->nb[1] == (size_t) (d_conv - 1) * sizeof(float));
++    GGML_ASSERT(conv_kernel->nb[0] == sizeof(float));
++    GGML_ASSERT(dst->ne[0] == channels && dst->ne[1] == 1 && dst->ne[2] == n_seqs);
++
++    const float * states_d = (const float *) conv_states->data;
++    const float * w_d      = (const float *) conv_kernel->data;
++    const float * x_d      = (const float *) x_cur->data;
++    float *       cdst_d   = (float *) cdst->data;
++    float *       dst_d    = (float *) dst->data;
++    cudaStream_t  stream   = ctx.stream();
++
++    const int states_seq_stride = (int) (conv_states->nb[2] / sizeof(float));
++    const int w_stride          = (int) (conv_kernel->nb[1] / sizeof(float));
++    const int x_seq_stride      = (int) (x_cur->nb[2] / sizeof(float));
++    const int dst_seq_stride    = (int) (dst->nb[2] / sizeof(float));
++    const int cdst_seq_stride   = (int) (cdst->nb[1] / sizeof(float));
++
++    const int threads = 128;
++    const dim3 blocks((channels + threads - 1) / threads, (unsigned) n_seqs, 1);
++
++    auto launch = [&](auto NC) {
++        constexpr int kNC = decltype(NC)::value;
++        if (apply_silu) {
++            ssm_conv_update_f32<true, kNC><<<blocks, threads, 0, stream>>>(states_d, w_d, x_d, cdst_d, dst_d,
++                (int) channels, states_seq_stride, w_stride, x_seq_stride, dst_seq_stride, cdst_seq_stride);
++        } else {
++            ssm_conv_update_f32<false, kNC><<<blocks, threads, 0, stream>>>(states_d, w_d, x_d, cdst_d, dst_d,
++                (int) channels, states_seq_stride, w_stride, x_seq_stride, dst_seq_stride, cdst_seq_stride);
++        }
++    };
++
++    switch (d_conv) {
++        case 3: launch(std::integral_constant<int, 3>{}); break;
++        case 4: launch(std::integral_constant<int, 4>{}); break;
++        default: GGML_ABORT("ssm_conv_update only supports d_conv 3 or 4");
++    }
++}
++
+ template <bool apply_silu>
+ static void ssm_conv_f32_cuda(const float * src0, const float * src1, const float * bias, const int src0_nb0, const int src0_nb1,
+                               const int src0_nb2, const int src1_nb1, float * dst, const int dst_nb0, const int dst_nb1,
+@@ -158,6 +261,15 @@ static void ssm_conv_f32_cuda(const float * src0, const float * src1, const floa
+ }
+ 
+ void ggml_cuda_op_ssm_conv(ggml_backend_cuda_context & ctx, ggml_tensor * dst, ggml_tensor * bias_add_node, ggml_tensor * silu_dst) {
++    // Fused decode conv-update-in-place variant (ggml_ssm_conv_update_inplace): discriminated by a
++    // non-null src[3] (the in-place ring write-back target). It folds the concat/transpose/copy-back/
++    // silu of the decode conv path into a single kernel.
++    if (dst->src[3] != nullptr) {
++        GGML_ASSERT(bias_add_node == nullptr && silu_dst == nullptr);
++        ggml_cuda_op_ssm_conv_update(ctx, dst);
++        return;
++    }
++
+     const struct ggml_tensor * src0 = dst->src[0];  // conv_x
+     const struct ggml_tensor * src1 = dst->src[1];  // conv1d.weight
+     const bool fuse_bias = bias_add_node != nullptr;
+diff --git a/ggml/src/ggml.c b/ggml/src/ggml.c
+index 1762037..b777748 100644
+--- a/ggml/src/ggml.c
++++ b/ggml/src/ggml.c
+@@ -5555,6 +5555,60 @@ struct ggml_tensor * ggml_ssm_conv(
+     return result;
+ }
+ 
++// ggml_ssm_conv_update_inplace
++//
++// Fused decode-time depthwise causal conv1d update. Reuses GGML_OP_SSM_CONV but is discriminated by a
++// non-null src[3]. The op reads each channel's K-1 cached taps from `conv_states` and the single new
++// token from `x_cur`, computes the depthwise conv (ascending-tap FMA, bit-identical to ggml_ssm_conv),
++// optionally folds SiLU, writes the conv output to dst ([channels, 1, n_seqs]) and writes the
++// 1-token-shifted ring state back in place into `conv_state_dst` (the active sequences' conv-cache
++// slot). op_params[0] carries the fuse_silu flag. Mirrors the 0018/0019 in-place state pattern.
++struct ggml_tensor * ggml_ssm_conv_update_inplace(
++        struct ggml_context * ctx,
++        struct ggml_tensor  * conv_states,
++        struct ggml_tensor  * conv_kernel,
++        struct ggml_tensor  * x_cur,
++        struct ggml_tensor  * conv_state_dst,
++        bool                  fuse_silu) {
++    GGML_ASSERT(ggml_is_3d(conv_states));
++    GGML_ASSERT(ggml_is_matrix(conv_kernel));
++    GGML_ASSERT(ggml_is_3d(x_cur));
++
++    const int64_t d_conv   = conv_kernel->ne[0];
++    const int64_t channels = conv_kernel->ne[1];
++    const int64_t n_seqs   = conv_states->ne[2];
++
++    GGML_ASSERT(conv_states->type    == GGML_TYPE_F32);
++    GGML_ASSERT(conv_kernel->type    == GGML_TYPE_F32);
++    GGML_ASSERT(x_cur->type          == GGML_TYPE_F32);
++    GGML_ASSERT(conv_state_dst != NULL && conv_state_dst->type == GGML_TYPE_F32);
++
++    // conv_states: [K-1, channels, n_seqs], contiguous taps per channel
++    GGML_ASSERT(conv_states->ne[0] == d_conv - 1);
++    GGML_ASSERT(conv_states->ne[1] == channels);
++    GGML_ASSERT(conv_states->nb[0] == sizeof(float));
++    // x_cur: single decode token per sequence
++    GGML_ASSERT(x_cur->ne[0] == channels);
++    GGML_ASSERT(x_cur->ne[1] == 1);
++    GGML_ASSERT(x_cur->ne[2] == n_seqs);
++    // conv_state_dst: [(K-1)*channels, n_seqs] in-place ring write target
++    GGML_ASSERT(conv_state_dst->ne[0] == (d_conv - 1) * channels);
++    GGML_ASSERT(conv_state_dst->ne[1] >= n_seqs);
++    GGML_ASSERT(conv_state_dst->nb[0] == sizeof(float));
++
++    struct ggml_tensor * result = ggml_new_tensor_3d(ctx, GGML_TYPE_F32, channels, 1, n_seqs);
++
++    ggml_set_op_params_i32(result, 0, fuse_silu ? 1 : 0);
++
++    result->op     = GGML_OP_SSM_CONV;
++    result->src[0] = conv_states;
++    result->src[1] = conv_kernel;
++    result->src[2] = x_cur;
++    result->src[3] = conv_state_dst;
++
++    return result;
++}
++
+ // ggml_ssm_scan
+ 
+ struct ggml_tensor * ggml_ssm_scan(
+diff --git a/src/models/delta-net-base.cpp b/src/models/delta-net-base.cpp
+index 194e611..0eee804 100644
+--- a/src/models/delta-net-base.cpp
++++ b/src/models/delta-net-base.cpp
+@@ -524,6 +524,57 @@ ggml_tensor * llm_build_delta_net_base::build_conv_state(
+     return conv_input;
+ }
+ 
++// Fused decode conv path (patch 0021). Reads the active sequences' prior conv-state taps (the same
++// cheap build_rs gather as build_conv_state), then fuses the depthwise conv + silu + the 1-token-
++// shifted ring write-back into a single ggml_ssm_conv_update_inplace op. This removes the concat
++// (concat_cont), the transpose materialization, the scalar copy-back (cpy_scalar) and the separate
++// silu of the decode conv path. The op reads from the (disjoint) materialized taps and writes the
++// new ring state in place into the cache slot at kv_head -- exactly the slot the baseline ggml_cpy
++// wrote -- so it is bit-identical to build_conv_state + ggml_ssm_conv + ggml_silu.
++ggml_tensor * llm_build_delta_net_base::build_conv_state_fused(
++        llm_graph_input_rs * inp,
++        ggml_tensor *        conv_states_all,
++        ggml_tensor *        qkv_mixed,
++        ggml_tensor *        conv_kernel,
++        int64_t              conv_kernel_size,
++        int64_t              conv_channels,
++        int                  il) {
++    const auto * mctx_cur = inp->mctx;
++    const auto   kv_head  = mctx_cur->get_head();
++
++    const int64_t n_seqs       = ubatch.n_seqs;
++    const int64_t n_seq_tokens = ubatch.n_seq_tokens;
++
++    GGML_ASSERT(n_seq_tokens == 1);        // single-token decode only
++    GGML_ASSERT(cparams.n_rs_seq == 0);    // no rollback splits on this path
++
++    // Prior conv-state taps for the active sequences: [K-1, conv_channels, n_seqs]. Same get_rows
++    // gather as the baseline build_conv_state read (tiny; not one of the eliminated buckets).
++    ggml_tensor * conv_states = build_rs(inp, conv_states_all, hparams.n_embd_r(), n_seqs);
++    conv_states = ggml_reshape_3d(ctx0, conv_states, conv_kernel_size - 1, conv_channels, n_seqs);
++    cb(conv_states, "conv_states_reshaped", il);
++
++    // Current token, native (non-transposed) qkv_mixed: [conv_channels, 1, n_seqs].
++    ggml_tensor * x_cur = ggml_reshape_3d(ctx0, qkv_mixed, conv_channels, n_seq_tokens, n_seqs);
++
++    // In-place ring write-back target = the active sequences' conv-cache slot at kv_head, exactly the
++    // destination the baseline ggml_cpy wrote to (s_slot == 0).
++    const int64_t row_count = (conv_kernel_size - 1) * conv_channels;
++    const size_t  row_size  = ggml_row_size(conv_states_all->type, row_count);
++    ggml_tensor * conv_state_dst =
++        ggml_view_2d(ctx0, conv_states_all, row_count, n_seqs, conv_states_all->nb[1], kv_head * row_size);
++    cb(conv_state_dst, "conv_state_update", il);
++
++    ggml_tensor * conv_output =
++        ggml_ssm_conv_update_inplace(ctx0, conv_states, conv_kernel, x_cur, conv_state_dst, /*fuse_silu=*/true);
++    cb(conv_output, "conv_output_silu", il);
++
++    // the ring write is a side effect of the op; pull the op into the graph via the output
++    ggml_build_forward_expand(gf, conv_output);
++
++    return conv_output; // [conv_channels, 1, n_seqs], already silu'd
++}
++
+ // Step 2: gather-free recurrent attention. Mirrors mamba-base's get_ssm_rows pattern: the fused
+ // gated-DeltaNet op reads each sequence's prior state directly from the full cache via the s_copy
+ // ids (no ggml_get_rows materialization) and writes the new state in place (Step 1). The non-fused
+diff --git a/src/models/models.h b/src/models/models.h
+index 98b89e9..da0dd86 100644
+--- a/src/models/models.h
++++ b/src/models/models.h
+@@ -76,6 +76,20 @@ struct llm_build_delta_net_base : public llm_graph_context {
+             int64_t              conv_channels,
+             int                  il);
+ 
++    // Fused decode-time conv path (patch 0021). Replaces the concat + transpose + ssm_conv + silu +
++    // copy-back chain with a single ggml_ssm_conv_update_inplace op that reads the cached K-1 taps and
++    // the current token, computes the depthwise conv, folds silu, and writes the 1-token-shifted ring
++    // state back in place. Decode-only (n_seq_tokens == 1, n_rs_seq == 0). Returns the silu'd conv
++    // output: (conv_channels, 1, n_seqs). Bit-identical to the build_conv_state + ggml_ssm_conv chain.
++    ggml_tensor * build_conv_state_fused(
++            llm_graph_input_rs * inp,
++            ggml_tensor *        conv_states_all,
++            ggml_tensor *        qkv_mixed,
++            ggml_tensor *        conv_kernel,
++            int64_t              conv_kernel_size,
++            int64_t              conv_channels,
++            int                  il);
++
+     // run delta-net attention and write the new recurrent state(s) back to ssm_states_all
+     // s: (head_v_dim, head_v_dim, num_v_heads, n_seqs); returns output: (head_v_dim, num_v_heads, n_seq_tokens, n_seqs)
+     ggml_tensor * build_recurrent_attn(
+diff --git a/src/models/qwen35.cpp b/src/models/qwen35.cpp
+index 0874c43..b6dcc5f 100644
+--- a/src/models/qwen35.cpp
++++ b/src/models/qwen35.cpp
+@@ -383,15 +383,26 @@ ggml_tensor * llama_model_qwen35::graph::build_layer_attn_linear(
+     const int64_t conv_kernel_size = conv_kernel->ne[0];
+     const int64_t conv_channels    = d_inner + 2 * hparams.ssm_n_group * hparams.ssm_d_state;
+ 
+-    ggml_tensor * conv_input = build_conv_state(inp, conv_states_all, qkv_mixed, conv_kernel_size, conv_channels, il);
++    // Patch 0021: on the single-token decode path, fuse the conv window assembly + depthwise conv +
++    // silu + the 1-token-shifted ring write-back into one in-place op (removes concat_cont, the
++    // transpose materialization, cpy_scalar and the separate silu). Bit-identical to the chain below.
++    const bool conv_decode_fused = (n_seq_tokens == 1) && (cparams.n_rs_seq == 0) && cparams.fused_gdn_ar;
++
++    ggml_tensor * conv_qkv_mix;
++    if (conv_decode_fused) {
++        conv_qkv_mix = build_conv_state_fused(inp, conv_states_all, qkv_mixed, conv_kernel,
++                conv_kernel_size, conv_channels, il);
++    } else {
++        ggml_tensor * conv_input = build_conv_state(inp, conv_states_all, qkv_mixed, conv_kernel_size, conv_channels, il);
+ 
+-    ggml_tensor * conv_output_proper = ggml_ssm_conv(ctx0, conv_input, conv_kernel);
+-    cb(conv_output_proper, "conv_output_raw", il);
++        ggml_tensor * conv_output_proper = ggml_ssm_conv(ctx0, conv_input, conv_kernel);
++        cb(conv_output_proper, "conv_output_raw", il);
+ 
+-    ggml_tensor * conv_output_silu = ggml_silu(ctx0, conv_output_proper);
+-    cb(conv_output_silu, "conv_output_silu", il);
++        ggml_tensor * conv_output_silu = ggml_silu(ctx0, conv_output_proper);
++        cb(conv_output_silu, "conv_output_silu", il);
+ 
+-    ggml_tensor * conv_qkv_mix = conv_output_silu;
++        conv_qkv_mix = conv_output_silu;
++    }
+ 
+     // Calculate the total conv dimension
+     int64_t qkv_dim = head_k_dim * num_k_heads * 2 + head_v_dim * num_v_heads;
+diff --git a/src/models/qwen35moe.cpp b/src/models/qwen35moe.cpp
+index 1f6f643..c7c7c44 100644
+--- a/src/models/qwen35moe.cpp
++++ b/src/models/qwen35moe.cpp
+@@ -407,15 +407,26 @@ ggml_tensor * llama_model_qwen35moe::graph::build_layer_attn_linear(
+     const int64_t conv_kernel_size = conv_kernel->ne[0];
+     const int64_t conv_channels    = d_inner + 2 * hparams.ssm_n_group * hparams.ssm_d_state;
+ 
+-    ggml_tensor * conv_input = build_conv_state(inp, conv_states_all, qkv_mixed, conv_kernel_size, conv_channels, il);
++    // Patch 0021: on the single-token decode path, fuse the conv window assembly + depthwise conv +
++    // silu + the 1-token-shifted ring write-back into one in-place op (removes concat_cont, the
++    // transpose materialization, cpy_scalar and the separate silu). Bit-identical to the chain below.
++    const bool conv_decode_fused = (n_seq_tokens == 1) && (cparams.n_rs_seq == 0) && cparams.fused_gdn_ar;
++
++    ggml_tensor * conv_qkv_mix;
++    if (conv_decode_fused) {
++        conv_qkv_mix = build_conv_state_fused(inp, conv_states_all, qkv_mixed, conv_kernel,
++                conv_kernel_size, conv_channels, il);
++    } else {
++        ggml_tensor * conv_input = build_conv_state(inp, conv_states_all, qkv_mixed, conv_kernel_size, conv_channels, il);
+ 
+-    ggml_tensor * conv_output_proper = ggml_ssm_conv(ctx0, conv_input, conv_kernel);
+-    cb(conv_output_proper, "conv_output_raw", il);
++        ggml_tensor * conv_output_proper = ggml_ssm_conv(ctx0, conv_input, conv_kernel);
++        cb(conv_output_proper, "conv_output_raw", il);
+ 
+-    ggml_tensor * conv_output_silu = ggml_silu(ctx0, conv_output_proper);
+-    cb(conv_output_silu, "conv_output_silu", il);
++        ggml_tensor * conv_output_silu = ggml_silu(ctx0, conv_output_proper);
++        cb(conv_output_silu, "conv_output_silu", il);
+ 
+-    ggml_tensor * conv_qkv_mix = conv_output_silu;
++        conv_qkv_mix = conv_output_silu;
++    }
+ 
+     // Calculate the total conv dimension
+     int64_t qkv_dim = head_k_dim * num_k_heads * 2 + head_v_dim * num_v_heads;
+diff --git a/src/models/qwen3next.cpp b/src/models/qwen3next.cpp
+index bfdf026..92749d1 100644
+--- a/src/models/qwen3next.cpp
++++ b/src/models/qwen3next.cpp
+@@ -434,19 +434,30 @@ ggml_tensor * llama_model_qwen3next::graph::build_layer_attn_linear(
+     const int64_t conv_kernel_size = conv_kernel->ne[0];
+     const int64_t conv_channels    = d_inner + 2 * hparams.ssm_n_group * hparams.ssm_d_state;
+ 
+-    ggml_tensor * conv_input = build_conv_state(inp, conv_states_all, qkv_mixed, conv_kernel_size, conv_channels, il);
++    // Patch 0021: on the single-token decode path, fuse the conv window assembly + depthwise conv +
++    // silu + the 1-token-shifted ring write-back into one in-place op (removes concat_cont, the
++    // transpose materialization, cpy_scalar and the separate silu). Bit-identical to the chain below.
++    const bool conv_decode_fused = (n_seq_tokens == 1) && (cparams.n_rs_seq == 0) && cparams.fused_gdn_ar;
++
++    ggml_tensor * conv_qkv_mix;
++    if (conv_decode_fused) {
++        conv_qkv_mix = build_conv_state_fused(inp, conv_states_all, qkv_mixed, conv_kernel,
++                conv_kernel_size, conv_channels, il);
++    } else {
++        ggml_tensor * conv_input = build_conv_state(inp, conv_states_all, qkv_mixed, conv_kernel_size, conv_channels, il);
+ 
+-    ggml_tensor * state = build_rs(inp, ssm_states_all, hparams.n_embd_s(), n_seqs);
+-    state = ggml_reshape_4d(ctx0, state, head_v_dim, head_v_dim, num_v_heads, n_seqs);
+-    cb(state, "state_predelta", il);
++        ggml_tensor * conv_output_proper = ggml_ssm_conv(ctx0, conv_input, conv_kernel);
++        cb(conv_output_proper, "conv_output_raw", il);
+ 
+-    ggml_tensor * conv_output_proper = ggml_ssm_conv(ctx0, conv_input, conv_kernel);
+-    cb(conv_output_proper, "conv_output_raw", il);
++        ggml_tensor * conv_output_silu = ggml_silu(ctx0, conv_output_proper);
++        cb(conv_output_silu, "conv_output_silu", il);
+ 
+-    ggml_tensor * conv_output_silu = ggml_silu(ctx0, conv_output_proper);
+-    cb(conv_output_silu, "conv_output_silu", il);
++        conv_qkv_mix = conv_output_silu;
++    }
+ 
+-    ggml_tensor * conv_qkv_mix = conv_output_silu;
++    ggml_tensor * state = build_rs(inp, ssm_states_all, hparams.n_embd_s(), n_seqs);
++    state = ggml_reshape_4d(ctx0, state, head_v_dim, head_v_dim, num_v_heads, n_seqs);
++    cb(state, "state_predelta", il);
+ 
+     // Calculate the total conv dimension
+     int64_t qkv_dim = head_k_dim * num_k_heads * 2 + head_v_dim * num_v_heads;
+diff --git a/tests/test-backend-ops.cpp b/tests/test-backend-ops.cpp
+index 291c275..c7348d6 100644
+--- a/tests/test-backend-ops.cpp
++++ b/tests/test-backend-ops.cpp
+@@ -3748,6 +3748,43 @@ struct test_ssm_conv_bias_silu : public test_case {
+     }
+ };
+ 
++// GGML_OP_SSM_CONV fused decode conv-update-in-place (ggml_ssm_conv_update_inplace, patch 0021).
++// Validates the conv + silu output (dst) against the CPU reference across backends. The 1-token-
++// shifted ring write-back to conv_state_dst is a side effect (validated end-to-end by the greedy
++// md5 gate); here it just exercises the in-place write target as an op src.
++struct test_ssm_conv_update : public test_case {
++    const int64_t d_conv;
++    const int64_t channels;
++    const int64_t n_seqs;
++
++    std::string op_desc(ggml_tensor * t) override {
++        GGML_UNUSED(t);
++        return "SSM_CONV_UPDATE";
++    }
++
++    std::string vars() override {
++        return VARS_TO_STR3(d_conv, channels, n_seqs);
++    }
++
++    test_ssm_conv_update(int64_t d_conv = 4, int64_t channels = 256, int64_t n_seqs = 4)
++        : d_conv(d_conv), channels(channels), n_seqs(n_seqs) {}
++
++    ggml_tensor * build_graph(ggml_context * ctx) override {
++        ggml_tensor * conv_states    = ggml_new_tensor_3d(ctx, GGML_TYPE_F32, d_conv - 1, channels, n_seqs);
++        ggml_tensor * conv_kernel    = ggml_new_tensor_2d(ctx, GGML_TYPE_F32, d_conv, channels);
++        ggml_tensor * x_cur          = ggml_new_tensor_3d(ctx, GGML_TYPE_F32, channels, 1, n_seqs);
++        ggml_tensor * conv_state_dst = ggml_new_tensor_2d(ctx, GGML_TYPE_F32, (d_conv - 1) * channels, n_seqs);
++        ggml_set_name(conv_states, "conv_states");
++        ggml_set_name(conv_kernel, "conv_kernel");
++        ggml_set_name(x_cur, "x_cur");
++        ggml_set_name(conv_state_dst, "conv_state_dst");
++
++        ggml_tensor * out = ggml_ssm_conv_update_inplace(ctx, conv_states, conv_kernel, x_cur, conv_state_dst, true);
++        ggml_set_name(out, "out");
++        return out;
++    }
++};
++
+ // GGML_OP_SSM_SCAN
+ struct test_ssm_scan : public test_case {
+     const ggml_type type;
+@@ -8355,6 +8392,16 @@ static std::vector<std::unique_ptr<test_case>> make_test_cases_eval() {
+         }
+     }
+ 
++    // fused decode conv-update-in-place (ggml_ssm_conv_update_inplace, patch 0021). channels must be
++    // a multiple of 128 for the CUDA SSM_CONV supports_op gate.
++    for (int64_t d_conv : {3, 4}) {
++        for (int64_t channels : {256, 3328}) {
++            for (int64_t n_seqs : {1, 4, 32, 128}) {
++                test_cases.emplace_back(new test_ssm_conv_update(d_conv, channels, n_seqs));
++            }
++        }
++    }
++
+     test_cases.emplace_back(new test_ssm_scan(GGML_TYPE_F32, 16, 1, 1024, 1, 32, 4)); // Mamba-1
+     test_cases.emplace_back(new test_ssm_scan(GGML_TYPE_F32, 128, 64, 16, 2, 32, 4)); // Mamba-2
+     test_cases.emplace_back(new test_ssm_scan(GGML_TYPE_F32, 256, 64,  8, 2, 32, 4)); // Falcon-H1
+-- 
+2.43.0
+

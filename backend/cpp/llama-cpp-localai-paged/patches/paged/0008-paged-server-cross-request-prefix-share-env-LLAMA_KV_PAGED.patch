@@ -1,0 +1,130 @@
+From 240758ef7e144619c750aaf1d3339051ecc29098 Mon Sep 17 00:00:00 2001
+From: Ettore Di Giacinto <mudler@localai.io>
+Date: Mon, 22 Jun 2026 17:02:22 +0200
+Subject: [PATCH] paged server cross-request prefix share (env LLAMA_KV_PAGED)
+ - patch 0008
+
+Wire the paged cross-request prefix recompute-skip (patch 0007's engine seam,
+paged_prefix_api::share/commit) into the llama-server continuous-batching loop
+(update_slots) so CONCURRENT requests that share a long prefix physically reuse
+one committed copy of the prefix blocks and prefill only their divergent suffix.
+Patch 0007 proved the engine seam correct via a standalone driver, but the server
+never called it: two concurrent shared-prefix requests each recomputed the full
+prefix. The server's native prompt cache only reuses a slot's OWN prior prompt
+(longest-common-prefix vs slot.prompt.tokens) - it does not share across distinct
+concurrent slots. 0008 adds that cross-slot share.
+
+Mechanism (all gated behind LLAMA_KV_PAGED; default off, stock byte-identical):
+
+  * In update_slots prompt-processing, after the native n_past is computed and
+    only for a FRESH slot (n_past < one block, i.e. the native cache did not
+    already cover the prefix), call paged_prefix_api::share() to splice the
+    longest committed cross-request prefix into this sequence (ref_cnt++ on the
+    shared physical blocks) and advance n_past past it, so the batch fill computes
+    ONLY the suffix. The slot's own divergent tail cells are removed first so the
+    shared cells own [n_past, kshare) without colliding (the native path removes
+    these later anyway). The n_past < block gate guarantees any block-aligned
+    share the engine returns is strictly larger than n_past and therefore always
+    adopted, so the engine's reservation always matches the suffix-only batch and
+    never leaves stale blocks (which otherwise fragment the paged pool).
+
+  * When a slot finishes prefill (SLOT_STATE_DONE_PROMPT -> GENERATING, the prefix
+    KV just computed), call paged_prefix_api::commit() to publish its prefix so
+    concurrent/later sharers can reuse it.
+
+The share() / commit() entry points are forward-declared (defined in libllama,
+src/paged-prefix-api.cpp) to avoid pulling internal kv-cache headers into the
+server translation unit.
+
+Verified in the server (32B NVFP4, CUDA, --kv-unified): with a live sequence
+holding the prefix, K=16/32 concurrent shared-prefix requests prefill only their
+~27-token suffix instead of the ~1003-token prefix (36x fewer prefill tokens;
+K=16 23.9s -> 1.5s, K=32 57.9s -> 2.3s), the engine logs "shares ... prefix
+blocks - NOT recomputed" with ref_cnt>1, and greedy output stays within the
+documented CUDA batch-shape non-determinism band (stock native prompt-caching
+shows the same magnitude). Cross-request sharing requires the unified KV cache.
+
+Assisted-by: Claude:opus-4.8 [Claude Code]
+Signed-off-by: Ettore Di Giacinto <mudler@localai.io>
+---
+ tools/server/server-context.cpp | 50 +++++++++++++++++++++++++++++++++
+ 1 file changed, 50 insertions(+)
+
+diff --git a/tools/server/server-context.cpp b/tools/server/server-context.cpp
+index 39b7eb2..b5f9d37 100644
+--- a/tools/server/server-context.cpp
++++ b/tools/server/server-context.cpp
+@@ -16,6 +16,16 @@
+ #include "mtmd.h"
+ #include "mtmd-helper.h"
+ 
++// [paged 0008] Cross-request prefix recompute-skip shim. share()/commit() are
++// defined in libllama (src/paged-prefix-api.cpp, patch 0007) and are no-ops
++// unless env LLAMA_KV_PAGED is set. Declared here so the paged cross-slot prefix
++// cache wires into update_slots() without pulling in internal kv-cache headers.
++// Fully gated; stock (paged off) is byte-identical.
++namespace paged_prefix_api {
++    int32_t share (llama_context * ctx, llama_seq_id seq, const llama_token * tokens, int n);
++    void    commit(llama_context * ctx, llama_seq_id seq, const llama_token * tokens, int n);
++}
++
+ #include <algorithm>
+ #include <cstddef>
+ #include <cinttypes>
+@@ -3335,6 +3345,37 @@ private:
+                             }
+                         }
+ 
++                        // [paged 0008] Cross-request prefix recompute-skip. The native prompt cache
++                        // above only reuses THIS slot's own prior prompt; when the paged KV
++                        // engine is active, also reuse a committed CROSS-slot prefix so
++                        // concurrent requests sharing a long prefix skip recompute. Gated on
++                        // LLAMA_KV_PAGED (paged_kv_share static); stock stays byte-identical.
++                        static const bool paged_kv_share = getenv("LLAMA_KV_PAGED") != nullptr;
++                        // Only attempt the cross-request share on a FRESH slot (the native
++                        // cache above did not already cover the prefix). With n_past < a
++                        // block, any block-aligned share the engine returns is strictly
++                        // larger than n_past and is therefore always adopted below - so the
++                        // engine's full-prompt reservation always matches the suffix-only
++                        // submission and never leaves stale blocks (which fragmented the
++                        // paged pool and crashed the server under high fan-out otherwise).
++                        if (paged_kv_share && n_past < 16 && slot.task->params.cache_prompt && !input_tokens.has_mtmd) {
++                            const llama_tokens ptoks = input_tokens.get_text_tokens();
++                            // Drop this slot's own cells beyond the natively-cached prefix before
++                            // splicing the shared physical prefix in, so the shared cells can own
++                            // [n_past, kshare) without colliding (the native path removes exactly
++                            // these later; a no-op for a fresh slot).
++                            common_context_seq_rm(ctx_tgt, slot.id, n_past, -1);
++                            const int32_t kshare = paged_prefix_api::share(ctx_tgt, slot.id, ptoks.data(), (int) ptoks.size());
++                            if (kshare > n_past) {
++                                slot.prompt.tokens.keep_first(n_past);
++                                for (int i = n_past; i < kshare; ++i) {
++                                    slot.prompt.tokens.push_back(ptoks[i]);
++                                }
++                                n_past = kshare;
++                                SLT_INF(slot, "paged: reusing %d cross-request shared prefix tokens - not recomputed\n", n_past);
++                            }
++                        }
++
+                         // [TAG_PROMPT_LOGITS]
+                         if (n_past == slot.task->n_tokens() && n_past > 0) {
+                             SLT_WRN(slot, "need to evaluate at least 1 token for each active slot (n_past = %d, task.n_tokens() = %d)\n", n_past, slot.task->n_tokens());
+@@ -3741,6 +3782,15 @@ private:
+                 // prompt evaluated for next-token prediction
+                 slot.state = SLOT_STATE_GENERATING;
+ 
++                // [paged 0008] Publish this slot's computed prefix so concurrent/later
++                // slots can share it (no-op unless LLAMA_KV_PAGED). The prefill decode
++                // for [0, n_tokens) has just run, so the prefix KV is computed.
++                static const bool paged_kv_commit = getenv("LLAMA_KV_PAGED") != nullptr;
++                if (paged_kv_commit && slot.task->params.cache_prompt && !slot.prompt.tokens.has_mtmd) {
++                    const llama_tokens ctoks = slot.prompt.tokens.get_text_tokens();
++                    paged_prefix_api::commit(ctx_tgt, slot.id, ctoks.data(), (int) ctoks.size());
++                }
++
+                 if (slot.can_speculate()) {
+                     common_speculative_begin(spec.get(), slot.id, slot.prompt.tokens.get_text_tokens());
+                 }
+-- 
+2.43.0
+
