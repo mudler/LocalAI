@@ -142,10 +142,10 @@ llama-cpp-localai-paged-cpu-all:
 	@echo "Collected ggml shared backends:" && ls -la ggml-shared-libs/
 
 llama-cpp-localai-paged-grpc:
-	$(call paged-build,grpc,-DGGML_RPC=ON -DGGML_AVX=off -DGGML_AVX2=off -DGGML_AVX512=off -DGGML_FMA=off -DGGML_F16C=off -DGGML_BMI2=off,--target grpc-server --target rpc-server)
+	$(call paged-build,grpc,-DGGML_RPC=ON -DGGML_AVX=off -DGGML_AVX2=off -DGGML_AVX512=off -DGGML_FMA=off -DGGML_F16C=off -DGGML_BMI2=off,--target grpc-server --target ggml-rpc-server)
 
 llama-cpp-localai-paged-rpc-server: llama-cpp-localai-paged-grpc
-	cp -rf $(CURRENT_MAKEFILE_DIR)/../llama-cpp-localai-paged-grpc-build/llama.cpp/build/bin/rpc-server llama-cpp-localai-paged-rpc-server
+	cp -rf $(CURRENT_MAKEFILE_DIR)/../llama-cpp-localai-paged-grpc-build/llama.cpp/build/bin/ggml-rpc-server llama-cpp-localai-paged-rpc-server
 
 package:
 	bash package.sh
