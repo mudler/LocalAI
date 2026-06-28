@@ -1,6 +1,6 @@
 # voice-detect backend Makefile.
 #
-# Upstream pin lives below as VOICEDETECT_VERSION?=3d51077... (.github/bump_deps.sh
+# Upstream pin lives below as VOICEDETECT_VERSION?=3d510772357538c5182808ac7de2278b84824e24
 # can find and update it - matches the parakeet.cpp / whisper.cpp / ds4 convention).
 #
 # Local dev shortcut: if you already have an out-of-tree voice-detect.cpp build,
