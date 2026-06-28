@@ -377,4 +377,30 @@ var _ = Describe("ReleaseManager", func() {
 			Expect(lastDownloaded).To(Equal(int64(len(content))))
 		})
 	})
+
+	Describe("GetLatestRelease", func() {
+		It("resolves the latest version from the releases/latest redirect", func() {
+			// The github.com redirect path must be preferred over the
+			// rate-limited api.github.com, so a working redirect yields the tag
+			// without ever needing the API.
+			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				switch {
+				case strings.HasSuffix(r.URL.Path, "/releases/latest"):
+					http.Redirect(w, r, "/owner/repo/releases/tag/v9.9.9", http.StatusFound)
+				case strings.HasSuffix(r.URL.Path, "/releases/tag/v9.9.9"):
+					w.WriteHeader(http.StatusOK)
+				default:
+					w.WriteHeader(http.StatusNotFound)
+				}
+			}))
+			defer srv.Close()
+			rm.BaseDownloadURL = srv.URL
+			rm.GitHubOwner = "owner"
+			rm.GitHubRepo = "repo"
+
+			release, err := rm.GetLatestRelease()
+			Expect(err).ToNot(HaveOccurred())
+			Expect(release.Version).To(Equal("v9.9.9"))
+		})
+	})
 })

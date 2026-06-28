@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
+	"path"
 	"path/filepath"
 	"runtime"
 	"strings"
@@ -80,18 +81,82 @@ func NewReleaseManager() *ReleaseManager {
 	}
 }
 
-// GetLatestRelease fetches the latest release information from GitHub
+// GetLatestRelease resolves the latest LocalAI release.
+//
+// It first follows the github.com "releases/latest" redirect, which reveals the
+// latest tag in the final URL and—crucially—is NOT subject to the
+// 60-requests/hour unauthenticated rate limit of api.github.com. That limit is
+// per-IP, so on shared/NAT/CGNAT/cloud addresses the API returns 403 almost
+// immediately (e.g. on a fresh install with no LocalAI present yet). The
+// redirect avoids that entirely. The richer JSON API is kept only as a fallback.
+//
+// Only the version is consumed by callers, so the redirect's tag is sufficient.
 func (rm *ReleaseManager) GetLatestRelease() (*Release, error) {
-	url := fmt.Sprintf("https://api.github.com/repos/%s/%s/releases/latest", rm.GitHubOwner, rm.GitHubRepo)
+	version, redirectErr := rm.latestVersionFromRedirect()
+	if redirectErr == nil {
+		return &Release{Version: version}, nil
+	}
+	log.Printf("Could not resolve latest version via release redirect (%v); falling back to GitHub API", redirectErr)
+
+	release, apiErr := rm.latestReleaseFromAPI()
+	if apiErr != nil {
+		// Surface both failures so a rate-limited API doesn't mask the (usually
+		// more relevant) redirect error.
+		return nil, fmt.Errorf("failed to fetch latest release: %v (redirect: %v)", apiErr, redirectErr)
+	}
+	return release, nil
+}
+
+// latestVersionFromRedirect returns the latest tag by following the github.com
+// "releases/latest" redirect to ".../releases/tag/<tag>".
+func (rm *ReleaseManager) latestVersionFromRedirect() (string, error) {
+	url := fmt.Sprintf("%s/%s/%s/releases/latest", rm.BaseDownloadURL, rm.GitHubOwner, rm.GitHubRepo)
 
 	resp, err := rm.HTTPClient.Get(url)
+	if err != nil {
+		return "", err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("unexpected status %s", resp.Status)
+	}
+
+	// After the redirect is followed, the final request URL is the tag page.
+	version := path.Base(resp.Request.URL.Path)
+	if version == "" || version == "." || version == "latest" {
+		return "", fmt.Errorf("could not determine version from %s", resp.Request.URL.String())
+	}
+	return version, nil
+}
+
+// latestReleaseFromAPI fetches the latest release JSON from api.github.com. This
+// is the fallback path; it is rate-limited unless GITHUB_TOKEN is set.
+func (rm *ReleaseManager) latestReleaseFromAPI() (*Release, error) {
+	url := fmt.Sprintf("https://api.github.com/repos/%s/%s/releases/latest", rm.GitHubOwner, rm.GitHubRepo)
+
+	req, err := http.NewRequest(http.MethodGet, url, nil)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Accept", "application/vnd.github+json")
+	// An optional token lifts the unauthenticated 60/hour limit to 5000/hour.
+	if token := os.Getenv("GITHUB_TOKEN"); token != "" {
+		req.Header.Set("Authorization", "Bearer "+token)
+	}
+
+	resp, err := rm.HTTPClient.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch latest release: %w", err)
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("failed to fetch latest release: status %d", resp.StatusCode)
+		if (resp.StatusCode == http.StatusForbidden || resp.StatusCode == http.StatusTooManyRequests) &&
+			resp.Header.Get("X-RateLimit-Remaining") == "0" {
+			return nil, fmt.Errorf("GitHub API rate limit exceeded (status %d); retry later or set GITHUB_TOKEN to raise the limit", resp.StatusCode)
+		}
+		return nil, fmt.Errorf("status %d", resp.StatusCode)
 	}
 
 	// Parse the JSON response properly
