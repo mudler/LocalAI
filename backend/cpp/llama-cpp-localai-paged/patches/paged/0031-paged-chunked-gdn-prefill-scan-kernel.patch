@@ -1,8 +1,8 @@
-From c9bf1bd0000000000000000000000000000031aa Mon Sep 17 00:00:00 2001
+From 37549ecce806130b36012dfd0077ad830989ec71 Mon Sep 17 00:00:00 2001
 From: Ettore Di Giacinto <mudler@localai.io>
-Date: Sun, 28 Jun 2026 12:00:00 +0000
-Subject: [PATCH] feat(paged): chunked parallel-scan GDN prefill kernel (patch 0031)
-
+Date: Sun, 28 Jun 2026 19:30:01 +0000
+Subject: [PATCH] feat(paged): chunked parallel-scan GDN prefill kernel (patch
+ 0031)
 
 Implements the explicit upstream TODO at gated_delta_net.cu's
 launch_gated_delta_net ("Add chunked kernel for even faster pre-fill"). The
@@ -66,24 +66,27 @@ README section 5 (dev notes / rejected-flat levers).
 
 Assisted-by: Claude:opus-4.8 [Claude Code]
 ---
- ggml/src/ggml-cuda/gated_delta_net.cu |  235 ++++++++++++++++++++++++++++++++++++++++++++++++++++
- tests/test-backend-ops.cpp            |    8 ++++++++
- 2 files changed, 243 insertions(+)
+ ggml/src/ggml-cuda/gated_delta_net.cu | 237 ++++++++++++++++++++++++++
+ tests/test-backend-ops.cpp            |   8 +
+ 2 files changed, 245 insertions(+)
 
 diff --git a/ggml/src/ggml-cuda/gated_delta_net.cu b/ggml/src/ggml-cuda/gated_delta_net.cu
-index 830118a..c9bf1bd 100644
+index d071d5a..7121d80 100644
 --- a/ggml/src/ggml-cuda/gated_delta_net.cu
 +++ b/ggml/src/ggml-cuda/gated_delta_net.cu
-@@ -1,6 +1,7 @@
+@@ -1,7 +1,10 @@
  #include "gated_delta_net.cuh"
  #include "ggml-cuda/common.cuh"
  
 +#include <climits>
  #include <cstdlib>
- #include <cuda_bf16.h>
- #include <type_traits>
-@@ -407,6 +408,219 @@ static void launch_gdn_variant(
-         sb1, sb2, sb3, neqk1_magic, rq3_magic, scale, K, state_dst_d, ids_d, rs_head, hyb);
++#include <cuda_bf16.h>
++#include <type_traits>
+ 
+ // Step 2: gather only the NON-identity sequences' prior recurrent state from the full cache into a
+ // disjoint scratch buffer. Identity sequences (ids[s] == rs_head + s) are read in place from the
+@@ -279,6 +282,219 @@ static void launch_gdn_variant(
+         sb1, sb2, sb3, neqk1_magic, rq3_magic, scale, K, state_dst_d, ids_d, rs_head);
  }
  
 +// ============================================================================
@@ -299,10 +302,10 @@ index 830118a..c9bf1bd 100644
 +        neqk1_magic, rq3_magic, scale, state_dst_d, ids_d, rs_head);
 +}
 +
- template <bool KDA, bool keep_rs_t, bool STATE_BF16, bool HYBRID>
+ template <bool KDA, bool keep_rs_t>
  static void launch_gated_delta_net(
          const float * q_d, const float * k_d, const float * v_d,
-@@ -425,6 +639,27 @@ static void launch_gated_delta_net(
+@@ -297,6 +513,27 @@ static void launch_gated_delta_net(
      const uint3 neqk1_magic = init_fastdiv_values(neqk1);
      const uint3 rq3_magic   = init_fastdiv_values(rq3);
  
@@ -311,7 +314,7 @@ index 830118a..c9bf1bd 100644
 +    // head dim (S_v==128) and a prefill token threshold; decode (n_tokens small) keeps the tuned
 +    // sequential recurrence. Mathematically equivalent up to FP reduction order (NEW per-path md5;
 +    // validated benign by test-backend-ops NMSE + greedy output). Toggle: GDN_CHUNK_OFF / GDN_CHUNK_MIN.
-+    if constexpr (!KDA && !keep_rs_t && !STATE_BF16 && !HYBRID) {
++    if constexpr (!KDA && !keep_rs_t) {
 +        // OPT-IN: this chunked path is bit-exact-benign (test-backend-ops green) but, at C=16
 +        // (forced by GB10 99KB dyn-smem opt-in, all-shared), it is NOT yet faster than the tuned
 +        // sequential recurrence on this model (measured ~22%% slower S_PP, grid-starved at low
@@ -328,13 +331,13 @@ index 830118a..c9bf1bd 100644
 +    }
 +
  #define GDN_LAUNCH_ARGS \
-         q_d, k_d, v_d, g_d, b_d, s_d, dst_d, state_dst_d, ids_d, rs_head, hyb, \
+         q_d, k_d, v_d, g_d, b_d, s_d, dst_d, state_dst_d, ids_d, rs_head, \
          H, n_tokens, n_seqs, sq1, sq2, sq3, sv1, sv2, sv3, sb1, sb2, sb3, \
 diff --git a/tests/test-backend-ops.cpp b/tests/test-backend-ops.cpp
-index c0233eb..951bffc 100644
+index ac30e47..4e40d23 100644
 --- a/tests/test-backend-ops.cpp
 +++ b/tests/test-backend-ops.cpp
-@@ -9459,6 +9459,14 @@ static std::vector<std::unique_ptr<test_case>> make_test_cases_eval() {
+@@ -9398,6 +9398,14 @@ static std::vector<std::unique_ptr<test_case>> make_test_cases_eval() {
      test_cases.emplace_back(new test_gated_delta_net(GGML_TYPE_F32, 4, 64, 100, 1));
      test_cases.emplace_back(new test_gated_delta_net(GGML_TYPE_F32, 4, 64, 200, 1));
      test_cases.emplace_back(new test_gated_delta_net(GGML_TYPE_F32, 4, 64, 127, 2));
@@ -349,6 +352,6 @@ index c0233eb..951bffc 100644
      test_cases.emplace_back(new test_gated_delta_net(GGML_TYPE_F32, 4, 64,  64, 1, 1, false, true));
      test_cases.emplace_back(new test_gated_delta_net(GGML_TYPE_F32, 4, 64,  33, 1, 1, false, true));
      test_cases.emplace_back(new test_gated_delta_net(GGML_TYPE_F32, 4, 64, 100, 1, 1, false, true));
-
 -- 
 2.43.0
+

@@ -135,7 +135,7 @@ hides.
 | # | What it does | Bit-exact |
 |---|---|---|
 | 0040 | **S1 paged decode-graph reuse** - the paged decode inputs (`input_block_table` / `input_gather_idxs`) never overrode `can_reuse` (defaults to false), so any graph carrying a paged input could never be reused. Add a correct `can_reuse` keyed on the (256-bucketed) block-table dims + a live-mctx refresh from the owning attn input. `LLAMA_PAGED_NO_GRAPH_REUSE=1` forces the pre-S1 path. | yes (md5 byte-identical reuse on/off; dense `5951a5b4`, paged-MoE `8cb0ce23`) |
-| 0041 | **S3 decode-shape-stable scheduling** - keep co-batched prefill OUT of decode steps so the pure-decode batch shape stays reuse-stable (S1 makes a pure-decode step reusable; S3 makes the scheduler emit them). Pure `update_slots()` policy on top of 0016; prefill admitted on a bounded cadence (`LLAMA_PAGED_PREFILL_PERIOD`, default 8). `LLAMA_PAGED_DECODE_STABLE=1` to enable. | yes (default-off byte-identical; per-stream independent in serving) |
+| 0041 | **S3 decode-shape-stable scheduling** - keep co-batched prefill OUT of decode steps so the pure-decode batch shape stays reuse-stable (S1 makes a pure-decode step reusable; S3 makes the scheduler emit them). Pure `update_slots()` policy on top of 0016; prefill admitted on a bounded cadence (`LLAMA_PAGED_PREFILL_PERIOD`, default 8). **Default ON under paged KV** (enabled when `LLAMA_KV_PAGED` is set; `LLAMA_PAGED_DECODE_STABLE=0` forces it off). | yes (byte-identical on/off; per-stream independent in serving) |
 
 Measured (GB10, MoE Qwen3.6-35B-A3B-NVFP4, 128-client staggered streaming load):
 graph reuse **0% -> 72.2%**, host window `hostproc` **15.98 -> 6.31 ms/step**,

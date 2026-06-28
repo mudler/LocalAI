@@ -1,4 +1,4 @@
-From ef2765d85829c9ede2fc9aa90523386d765c9040 Mon Sep 17 00:00:00 2001
+From ee8021b56ed0effe493a64aa50449ab928dd6b29 Mon Sep 17 00:00:00 2001
 From: Ettore Di Giacinto <mudler@localai.io>
 Date: Sun, 28 Jun 2026 20:00:24 +0200
 Subject: [PATCH 41/41] feat(paged): S3 decode-shape-stable scheduling (patch
@@ -24,7 +24,9 @@ BIT-EXACT: only changes WHICH step a prompt chunk is admitted in. Each sequence'
 decode logits depend on its own tokens + its own KV only (the paged decode read is
 per-stream, attention is permutation-invariant over the co-batched set), so
 deferring another slot's prefill never changes a generating slot's output.
-DEFAULT-OFF: LLAMA_PAGED_DECODE_STABLE unset => byte-identical to patch 0016. Does
+DEFAULT-ON under paged KV: with LLAMA_KV_PAGED set this enables by default
+(LLAMA_PAGED_DECODE_STABLE=0 forces it off); otherwise unset => byte-identical to
+patch 0016. Does
 not run in the single-sequence greedy md5 gate (that path is llama-completion).
 
 Measured (GB10, MoE Qwen3.6-35B-A3B-NVFP4, 128-client staggered streaming load):
@@ -37,14 +39,14 @@ shape (scoped follow-up, see DECODE_SERVING_SCOPE.md).
 Assisted-by: Claude:opus-4.8 [Claude Code]
 Signed-off-by: Ettore Di Giacinto <mudler@localai.io>
 ---
- tools/server/server-context.cpp | 35 ++++++++++++++++++++++++++++++++-
- 1 file changed, 34 insertions(+), 1 deletion(-)
+ tools/server/server-context.cpp | 40 ++++++++++++++++++++++++++++++++-
+ 1 file changed, 39 insertions(+), 1 deletion(-)
 
 diff --git a/tools/server/server-context.cpp b/tools/server/server-context.cpp
-index 64775dc..9baca33 100644
+index 64775dc..fc0231a 100644
 --- a/tools/server/server-context.cpp
 +++ b/tools/server/server-context.cpp
-@@ -3138,11 +3138,44 @@ private:
+@@ -3138,11 +3138,49 @@ private:
          }
          int32_t n_prompt_budgeted = 0; // prompt tokens added to the batch this step (across slots)
  
@@ -64,12 +66,17 @@ index 64775dc..9baca33 100644
 +        // Each sequence's decode logits depend on its own tokens + its own KV only
 +        // (the paged decode read is per-stream, attention is permutation-invariant
 +        // over the co-batched set), so deferring another slot's prefill never
-+        // changes a generating slot's output. DEFAULT-OFF: env unset => no change,
-+        // byte-identical to patch 0016. Does not run in the single-sequence greedy
-+        // md5 gate (that path is llama-completion, not update_slots).
++        // changes a generating slot's output. DEFAULT-ON under paged KV: with
++        // LLAMA_KV_PAGED set it enables by default (LLAMA_PAGED_DECODE_STABLE=0
++        // forces off); otherwise byte-identical to patch 0016. Does not run in the
++        // single-sequence greedy md5 gate (that path is llama-completion, not update_slots).
 +        bool decode_only_step = false;
 +        {
-+            static const int s3_enabled = [](){ const char * e = getenv("LLAMA_PAGED_DECODE_STABLE"); return e ? atoi(e) : 0; }();
++            static const int s3_enabled = [](){
++                const char * e = getenv("LLAMA_PAGED_DECODE_STABLE");
++                if (e) { return atoi(e); }                          // explicit override (=0 forces off)
++                return getenv("LLAMA_KV_PAGED") != nullptr ? 1 : 0; // default ON under paged KV
++            }();
 +            if (s3_enabled && n_decode_in_batch > 0) {
 +                static const int s3_period = [](){ const char * e = getenv("LLAMA_PAGED_PREFILL_PERIOD"); int p = e ? atoi(e) : 8; return p > 0 ? p : 8; }();
 +                static long s3_step = 0;
