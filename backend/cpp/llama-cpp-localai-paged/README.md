@@ -86,9 +86,9 @@ orthogonal to the paged allocator.
 
 ---
 
-## 3. Patch series (0001-0030)
+## 3. Patch series (0001-0031)
 
-28 patches (0005 and 0027 are intentionally unused). "Bit-exact" = greedy md5 /
+29 patches (0005 and 0027 are intentionally unused). "Bit-exact" = greedy md5 /
 `test-backend-ops` byte-identical to the relevant baseline; the gate methodology
 is in section 5.
 
@@ -149,6 +149,7 @@ These are the dominant decode levers on the Qwen3.6 hybrid models. All bit-exact
 | 0024 | **Paged-pool burst-reclaim** - truncate trailing blocks on partial-tail `seq_rm`, defrag the free queue when idle, release blocks on slot completion. Fixes the long-server burst-degradation bug (post-burst prefill collapse 488->44 t/s, restored to 532). Host-side accounting only. | yes |
 | 0029 | **Block-table within-step host cache** - the block table is fixed for the whole step; cache it on first build and memcpy it for the other full-attention layers (get_block_table -87%/-91%). | yes, per path (paged-MoE ref `8cb0ce23`) |
 | 0030 | **Fused-op backend gate** - the fused GDN / discriminated SSM_CONV ops are CUDA-family + CPU only; force them off on any non-CUDA compute backend so a Vulkan/SYCL/Metal build can't silently run the wrong plain-conv kernel. | yes on CUDA (byte-identical pre-0030); safety gate elsewhere |
+| 0031 | **Chunked parallel-scan GDN prefill kernel** (upstream TODO) - FLA-style chunked gated-delta-rule for prefill (non-KDA / f32 / final-state): intra-chunk delta rule solved in parallel (UT-transform + forward subst), inter-chunk recurrence over n_tokens/C steps. **OPT-IN, default OFF** - bit-exact-benign but not yet faster than the tuned sequential scan at the GB10-forced C=16 (see section 5). Enable with `GDN_CHUNK_MIN=<n>`. | NEW per-path (`test-backend-ops` 91/91, <=1e-7 NMSE vs CPU ref) |
 
 > **Dropped: patch 0026 (hybrid per-head bf16 SSM state, `ssm_bf16_tau`).** Once
 > the decode fusions (0028 recurrent-state gather-fusion + 0029 block-table cache)
@@ -314,6 +315,23 @@ llama is losing. The MoE GEMM kernel is *not* where the gap lives.
   needs bought with a ~5% slower kernel; both kernels are already at the BW floor.
   (The "the win was NVFP4-dense-quant, not the Marlin kernel" dense verdict
   carries over to MoE.)
+- **Chunked parallel-scan GDN prefill (patch 0031): CORRECT, FLAT-to-SLOWER at
+  C=16; kept OPT-IN.** Implements the upstream "faster pre-fill" TODO - the
+  FLA-style chunked gated-delta-rule (intra-chunk delta rule solved in parallel
+  via the UT-transform + forward substitution, inter-chunk recurrence over
+  n_tokens/C steps). The math is validated equivalent (numpy f32 NMSE ~1e-13;
+  `test-backend-ops` 91/91 within the 1e-7 NMSE gate, a NEW per-path result).
+  **But GB10's 99KB dynamic-smem opt-in forces C=16** (the 128x128 f32 state alone
+  is 64KB of the all-shared layout), which pins the kernel to 1 block/SM and
+  serial per-thread dk-reductions; measured S_PP (q36-27b-nvfp4, `-npp 512 -ntg 4
+  -npl 32`) is **~761 t/s chunked vs ~971 t/s sequential (~22% slower)**, also
+  grid-starved at low n_seqs. So it ships default-OFF (`GDN_CHUNK_MIN=<n>` to
+  enable). To actually beat the (already 84.7%-of-peak) sequential scan the
+  follow-up must lift the occupancy ceiling and the serial reductions: either
+  register-resident state with static-unrolled larger chunks, or tensor-core
+  (mma/wgmma) matmuls for the KK/QK/KS/QS/PU products and the A-inverse - the
+  structure FLA/vLLM use. Lesson: at this head dim the win needs tensor cores,
+  not just chunking.
 
 **Opt-in bf16-SSM fast mode - DROPPED (was patch 0026, `ssm_bf16_tau`).** The
 design premise - that bf16 KL error concentrates in long-memory heads and can be
