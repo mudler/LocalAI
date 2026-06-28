@@ -3,26 +3,7 @@
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
     - https://huggingface.co/unsloth/Qwen-AgentWorld-35B-A3B-GGUF
-  description: |
-    # Qwen-AgentWorld-35B-A3B
-
-    📑 Technical Report |
-    📖 Blog |
-    🤗 Hugging Face |
-    🤖 ModelScope |
-    💻 GitHub |
-    🖥️ Demo
-
-    > [!Note]
-    > This repository contains the model weights and configuration files for **Qwen-AgentWorld-35B-A3B**, a native language world model trained for agentic environment simulation.
-    >
-    > These artifacts are compatible with Hugging Face Transformers, vLLM, SGLang, etc.
-
-    **Qwen-AgentWorld** is the first language world model to cover seven agent interaction domains within a single model. It simulates agentic environments via long chain-of-thought reasoning, predicting the next environment state given an agent's action and interaction history. Trained through a three-stage pipeline — CPT injects environment knowledge, SFT activates next-state-prediction reasoning, RL sharpens simulation fidelity — Qwen-AgentWorld is a **native world model**: environment modeling is the training objective from the CPT stage onward, not a post-hoc add-on.
-
-    ## Highlights
-
-    ...
+  description: "# Qwen-AgentWorld-35B-A3B\n\n\U0001F4D1 Technical Report |\n\U0001F4D6 Blog |\n\U0001F917 Hugging Face |\n\U0001F916 ModelScope |\n\U0001F4BB GitHub |\n\U0001F5A5️ Demo\n\n> [!Note]\n> This repository contains the model weights and configuration files for **Qwen-AgentWorld-35B-A3B**, a native language world model trained for agentic environment simulation.\n>\n> These artifacts are compatible with Hugging Face Transformers, vLLM, SGLang, etc.\n\n**Qwen-AgentWorld** is the first language world model to cover seven agent interaction domains within a single model. It simulates agentic environments via long chain-of-thought reasoning, predicting the next environment state given an agent's action and interaction history. Trained through a three-stage pipeline — CPT injects environment knowledge, SFT activates next-state-prediction reasoning, RL sharpens simulation fidelity — Qwen-AgentWorld is a **native world model**: environment modeling is the training objective from the CPT stage onward, not a post-hoc add-on.\n\n## Highlights\n\n...\n"
   license: "apache-2.0"
   tags:
     - llm
@@ -51,34 +32,7 @@
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
     - https://huggingface.co/deepreinforce-ai/Ornith-1.0-9B-GGUF
-  description: |
-    [](https://deep-reinforce.com/ornith.html)
-
-    # Ornith-1.0-9B-GGUF
-
-    Aloha! 🌺 Today, we are releasing Ornith-1.0, a self-improving family of open-source models for agentic coding.
-
-    Highlights:
-
-      - **State-of-the-Art Coding Agents**: Available in 9B-Dense, 31B-Dense, 35B-MoE, and 397B-MoE (post-trained on top of Gemma 4 and Qwen 3.5), achieving state-of-the-art performance among open-source models of comparable size on coding benchmarks such as Terminal-Bench 2.1, SWE-Bench, NL2Repo and OpenClaw.
-      - **Self-Improving Training Framework**:  Ornith-1.0 employs RL to learn to generate not only solution rollouts, but also the scallfold that drive those rollouts. By jointly optimizing the scaffold and the resulting solution, the model  discovers better search trajectories and generates higher-quality solutions.
-      - **Licence**: MIT licensed, globally accessible, and free from regional limitations.
-
-    ## Ornith 1.0 9B
-
-    This model card documents **Ornith-1.0-9B**, the most lightweight member of the Ornith family, designed for efficient single-GPU deployment.
-
-    ### Benchmarks
-
-    Ornith-1.0-9B
-    Qwen3.5-9B
-    Qwen3.5-35B
-    Gemma4-12B
-    Gemma4-31B
-
-    Agentic Coding
-
-    ...
+  description: "[](https://deep-reinforce.com/ornith.html)\n\n# Ornith-1.0-9B-GGUF\n\nAloha! \U0001F33A Today, we are releasing Ornith-1.0, a self-improving family of open-source models for agentic coding.\n\nHighlights:\n\n  - **State-of-the-Art Coding Agents**: Available in 9B-Dense, 31B-Dense, 35B-MoE, and 397B-MoE (post-trained on top of Gemma 4 and Qwen 3.5), achieving state-of-the-art performance among open-source models of comparable size on coding benchmarks such as Terminal-Bench 2.1, SWE-Bench, NL2Repo and OpenClaw.\n  - **Self-Improving Training Framework**:  Ornith-1.0 employs RL to learn to generate not only solution rollouts, but also the scallfold that drive those rollouts. By jointly optimizing the scaffold and the resulting solution, the model  discovers better search trajectories and generates higher-quality solutions.\n  - **Licence**: MIT licensed, globally accessible, and free from regional limitations.\n\n## Ornith 1.0 9B\n\nThis model card documents **Ornith-1.0-9B**, the most lightweight member of the Ornith family, designed for efficient single-GPU deployment.\n\n### Benchmarks\n\nOrnith-1.0-9B\nQwen3.5-9B\nQwen3.5-35B\nGemma4-12B\nGemma4-31B\n\nAgentic Coding\n\n...\n"
   license: "mit"
   tags:
     - llm
@@ -105,34 +59,7 @@
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
     - https://huggingface.co/deepreinforce-ai/Ornith-1.0-35B-GGUF
-  description: |
-    [](https://deep-reinforce.com/ornith.html)
-
-    # Ornith-1.0-35B-GGUF
-
-    Aloha! 🌺 Today, we are releasing Ornith-1.0, a self-improving family of open-source models for agentic coding.
-
-    Highlights:
-
-      - **State-of-the-Art Coding Agents**: Available in 9B-Dense, 31B-Dense, 35B-MoE, and 397B-MoE (post-trained on top of Gemma 4 and Qwen 3.5), achieving state-of-the-art performance among open-source models of comparable size on coding benchmarks such as Terminal-Bench 2.1, SWE-Bench, NL2Repo and OpenClaw.
-      - **Self-Improving Training Framework**:  Ornith-1.0 employs RL to learn to generate not only solution rollouts, but also the scallfold that drive those rollouts. By jointly optimizing the scaffold and the resulting solution, the model  discovers better search trajectories and generates higher-quality solutions.
-      - **Licence**: MIT licensed, globally accessible, and free from regional limitations.
-
-    ## Ornith 1.0 35B
-
-    This model card documents **Ornith-1.0-35B**, the lightweight member of the Ornith family, designed for efficient single-GPU deployment.
-
-    ### Benchmarks
-
-    Ornith-1.0-35B
-    Qwen3.5-35B
-    Qwen3.6-35B
-    Gemma4-31B
-    Qwen3.5-397B
-
-    Agentic Coding
-
-    ...
+  description: "[](https://deep-reinforce.com/ornith.html)\n\n# Ornith-1.0-35B-GGUF\n\nAloha! \U0001F33A Today, we are releasing Ornith-1.0, a self-improving family of open-source models for agentic coding.\n\nHighlights:\n\n  - **State-of-the-Art Coding Agents**: Available in 9B-Dense, 31B-Dense, 35B-MoE, and 397B-MoE (post-trained on top of Gemma 4 and Qwen 3.5), achieving state-of-the-art performance among open-source models of comparable size on coding benchmarks such as Terminal-Bench 2.1, SWE-Bench, NL2Repo and OpenClaw.\n  - **Self-Improving Training Framework**:  Ornith-1.0 employs RL to learn to generate not only solution rollouts, but also the scallfold that drive those rollouts. By jointly optimizing the scaffold and the resulting solution, the model  discovers better search trajectories and generates higher-quality solutions.\n  - **Licence**: MIT licensed, globally accessible, and free from regional limitations.\n\n## Ornith 1.0 35B\n\nThis model card documents **Ornith-1.0-35B**, the lightweight member of the Ornith family, designed for efficient single-GPU deployment.\n\n### Benchmarks\n\nOrnith-1.0-35B\nQwen3.5-35B\nQwen3.6-35B\nGemma4-31B\nQwen3.5-397B\n\nAgentic Coding\n\n...\n"
   license: "mit"
   tags:
     - llm
@@ -473,8 +400,8 @@
       use_tokenizer_template: true
   files:
     - filename: llama-cpp/models/Qwythos-9B-Claude-Mythos-5-1M-GGUF/Qwythos-9B-Claude-Mythos-5-1M-MTP-Q4_K_M.gguf
-      sha256: 24ee22e0f5d9f0d3d615809607f365c728d9b0c3f3fb6eb19d8bd83a1c2933d8
       uri: https://huggingface.co/empero-ai/Qwythos-9B-Claude-Mythos-5-1M-GGUF/resolve/main/Qwythos-9B-Claude-Mythos-5-1M-MTP-Q4_K_M.gguf
+      sha256: 671c430bf18c961251338d639a3c02aac7451c39eed25874cad74287ac6cd38a
     - filename: llama-cpp/mmproj/Qwythos-9B-Claude-Mythos-5-1M-GGUF/mmproj-Qwythos-9B-Claude-Mythos-5-1M-f16.gguf
       sha256: f70dc3509053962b0d0d3ee8a7eacebf5d60aa560cad78254ae8698516ae029f
       uri: https://huggingface.co/empero-ai/Qwythos-9B-Claude-Mythos-5-1M-GGUF/resolve/main/mmproj-Qwythos-9B-Claude-Mythos-5-1M-f16.gguf
