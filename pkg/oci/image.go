@@ -63,6 +63,72 @@ var defaultRetryPredicate = func(err error) bool {
 	return false
 }
 
+// layerDownloadRetries is the number of additional attempts made when a layer
+// download fails with a transient/retryable network error.
+var layerDownloadRetries = 3
+
+// layerRetryBackoff returns the wait before retry attempt n (1-indexed). It is a
+// variable so tests can eliminate the wait.
+var layerRetryBackoff = func(attempt int) time.Duration {
+	d := defaultRetryBackoff.Duration
+	for i := 1; i < attempt; i++ {
+		d = time.Duration(float64(d) * defaultRetryBackoff.Factor)
+	}
+	return d
+}
+
+// downloadLayerToFile streams a single compressed layer into dst, retrying on
+// transient network errors (unexpected EOF, connection reset, ...). Large
+// backend images (e.g. vLLM) are several GiB and a single dropped connection
+// mid-stream previously failed the whole install with "unexpected EOF" and no
+// recovery. The registry transport already retries manifest fetches via
+// defaultRetryPredicate (see GetImage/GetImageDigest); this extends the same
+// behaviour to the layer data stream. See issue #10577.
+func downloadLayerToFile(ctx context.Context, layer v1.Layer, dst *os.File, progress *progressWriter) error {
+	var lastErr error
+	for attempt := 0; attempt <= layerDownloadRetries; attempt++ {
+		if attempt > 0 {
+			// Discard any partial data from the previous failed attempt.
+			if _, err := dst.Seek(0, io.SeekStart); err != nil {
+				return err
+			}
+			if err := dst.Truncate(0); err != nil {
+				return err
+			}
+			if progress != nil {
+				progress.written = 0
+			}
+			select {
+			case <-ctx.Done():
+				return ctx.Err()
+			case <-time.After(layerRetryBackoff(attempt)):
+			}
+		}
+
+		var w io.Writer = dst
+		if progress != nil {
+			w = io.MultiWriter(dst, progress)
+		}
+
+		var reader io.ReadCloser
+		reader, lastErr = layer.Compressed()
+		if lastErr == nil {
+			_, lastErr = xio.Copy(ctx, w, reader)
+			_ = reader.Close()
+		}
+		if lastErr == nil {
+			return nil
+		}
+
+		// Stop early on context cancellation or non-retryable errors.
+		if ctx.Err() != nil || !defaultRetryPredicate(lastErr) {
+			return lastErr
+		}
+		logs.Warn.Printf("layer download failed (attempt %d/%d), retrying: %v", attempt+1, layerDownloadRetries+1, lastErr)
+	}
+	return lastErr
+}
+
 type progressWriter struct {
 	written        int64
 	total          int64
@@ -304,23 +370,17 @@ func DownloadOCIImageTar(ctx context.Context, img v1.Image, imageRef string, tar
 		}
 
 		// Create progress writer for this layer
-		var writer io.Writer = file
+		var progress *progressWriter
 		if downloadStatus != nil {
-			writer = io.MultiWriter(file, &progressWriter{
+			progress = &progressWriter{
 				total:          totalCompressedSize,
 				fileName:       fmt.Sprintf("Downloading %d/%d %s", i+1, len(layers), imageName),
 				downloadStatus: downloadStatus,
-			})
+			}
 		}
 
-		// Download the compressed layer
-		layerReader, err := layer.Compressed()
-		if err != nil {
-			file.Close()
-			return fmt.Errorf("failed to get compressed layer: %v", err)
-		}
-
-		_, err = xio.Copy(ctx, writer, layerReader)
+		// Download the compressed layer, retrying on transient network errors.
+		err = downloadLayerToFile(ctx, layer, file, progress)
 		file.Close()
 		if err != nil {
 			return fmt.Errorf("failed to download layer %d: %v", i, err)
