@@ -4,6 +4,12 @@ Source-only analysis (no GPU, no build) of what it would take to give the
 gated-DeltaNet (GDN / SSM) decode fusions native kernels on the non-CUDA compute
 backends, so the patch-series decode win extends past CUDA-family hardware.
 
+This doc is the GDN/SSM-fusion (benefit #1) detail. For the umbrella scope that
+also covers the paged KV block-table flash-attn read (benefit #2), the free
+host-side scheduler (benefit #3), the out-of-scope NVFP4 track (benefit #4) and a
+ROCm note - and the combined per-backend sequencing - see
+[`ACCELERATOR_PORTING_SCOPE.md`](ACCELERATOR_PORTING_SCOPE.md).
+
 In our changeset (patches 0018-0030) these fusions ship with CUDA native kernels
 + CPU reference kernels ONLY; patch 0030 force-gates them OFF on Metal / Vulkan /
 SYCL (a CPU-fallback fused op would regress via the device round-trip, and a
