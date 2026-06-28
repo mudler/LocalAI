@@ -88,7 +88,7 @@ func RegisterNodeAdminRoutes(e *echo.Echo, registry *nodes.NodeRegistry, unloade
 	admin.POST("/:id/approve", localai.ApproveNodeEndpoint(registry, authDB, hmacSecret, natsCfg))
 
 	// Backend management on workers
-	admin.GET("/:id/backends", localai.ListBackendsOnNodeEndpoint(unloader))
+	admin.GET("/:id/backends", localai.ListBackendsOnNodeEndpoint(unloader, registry))
 	admin.POST("/:id/backends/install", localai.InstallBackendOnNodeEndpoint(unloader, galleryService, opcache, appConfig))
 	admin.POST("/:id/backends/delete", localai.DeleteBackendOnNodeEndpoint(unloader))
 

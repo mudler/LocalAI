@@ -30,6 +30,19 @@
 #define LOCALAI_HAS_SERVER_SCHEMA 1
 #include "server-schema.cpp"
 #endif
+// server-stream.cpp exists only in llama.cpp after the upstream refactor that
+// added the SSE stream-resumption layer (stream_session/stream_pipe_producer).
+// server-context.cpp calls into it (spipe->cleanup(), stream_aware_should_stop,
+// stream_session_attach_pipe), so its definitions must be part of this
+// translation unit or the link fails with "undefined reference to
+// stream_pipe_producer::cleanup()". The file is self-contained (its only
+// external symbols come from server-common, already pulled in above) and the
+// http route-handler factories it also defines are unused here but harmless.
+// __has_include keeps the source compatible with older pins/forks that predate
+// the split.
+#if __has_include("server-stream.cpp")
+#include "server-stream.cpp"
+#endif
 #include "server-context.cpp"
 
 // LocalAI

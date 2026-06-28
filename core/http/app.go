@@ -23,8 +23,10 @@ import (
 
 	"github.com/mudler/LocalAI/core/application"
 	"github.com/mudler/LocalAI/core/schema"
+	"github.com/mudler/LocalAI/core/services/distributed"
 	"github.com/mudler/LocalAI/core/services/finetune"
 	"github.com/mudler/LocalAI/core/services/galleryop"
+	"github.com/mudler/LocalAI/core/services/messaging"
 	"github.com/mudler/LocalAI/core/services/nodes"
 	"github.com/mudler/LocalAI/core/services/quantization"
 
@@ -400,25 +402,45 @@ func API(application *application.Application) (*echo.Echo, error) {
 	routes.RegisterAgentPoolRoutes(e, application, agentsMw, skillsMw, collectionsMw)
 	// Fine-tuning routes
 	fineTuningMw := auth.RequireFeature(application.AuthDB(), auth.FeatureFineTuning)
+	// In distributed mode pass the shared NATS client + PostgreSQL store so
+	// fine-tune jobs stay consistent across replicas (the SyncedMap broadcasts
+	// mutations and hydrates from the DB); standalone passes nil for both.
+	var ftNats messaging.MessagingClient
+	var ftStore *distributed.FineTuneStore
+	if d := application.Distributed(); d != nil {
+		ftNats = d.Nats
+		if d.DistStores != nil && d.DistStores.FineTune != nil {
+			ftStore = d.DistStores.FineTune
+		}
+	}
 	ftService := finetune.NewFineTuneService(
 		application.ApplicationConfig(),
 		application.ModelLoader(),
 		application.ModelConfigLoader(),
+		ftNats,
+		ftStore,
 	)
-	if d := application.Distributed(); d != nil {
-		ftService.SetNATSClient(d.Nats)
-		if d.DistStores != nil && d.DistStores.FineTune != nil {
-			ftService.SetFineTuneStore(d.DistStores.FineTune)
-		}
-	}
 	routes.RegisterFineTuningRoutes(e, ftService, application.ApplicationConfig(), fineTuningMw)
 
 	// Quantization routes
 	quantizationMw := auth.RequireFeature(application.AuthDB(), auth.FeatureQuantization)
+	// In distributed mode pass the shared NATS client + PostgreSQL store so
+	// quantization jobs stay consistent across replicas (the SyncedMap broadcasts
+	// mutations and hydrates from the DB); standalone passes nil for both.
+	var quantNats messaging.MessagingClient
+	var quantStore *distributed.QuantStore
+	if d := application.Distributed(); d != nil {
+		quantNats = d.Nats
+		if d.DistStores != nil && d.DistStores.Quant != nil {
+			quantStore = d.DistStores.Quant
+		}
+	}
 	qService := quantization.NewQuantizationService(
 		application.ApplicationConfig(),
 		application.ModelLoader(),
 		application.ModelConfigLoader(),
+		quantNats,
+		quantStore,
 	)
 	routes.RegisterQuantizationRoutes(e, qService, application.ApplicationConfig(), quantizationMw)
 

@@ -248,7 +248,11 @@ var _ = Describe("Backend hooks and parser defaults", func() {
 			}
 			cfg.SetDefaults(ModelPath(dir))
 
+			// An unreadable/unparseable GGUF (e.g. a quant type the parser does
+			// not know, such as NVFP4) yields no estimate, so the hook must fall
+			// back to DefaultContextSize rather than a tiny, surprising value.
 			Expect(cfg.ContextSize).NotTo(BeNil())
+			Expect(*cfg.ContextSize).To(Equal(DefaultContextSize))
 		})
 	})
 

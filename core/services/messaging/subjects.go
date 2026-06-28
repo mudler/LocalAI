@@ -380,6 +380,20 @@ func SubjectCacheInvalidateCollection(name string) string {
 	return "cache.invalidate.collections." + sanitizeSubjectToken(name)
 }
 
+// SyncedMap State Sync (Pub/Sub — broadcast to all frontends)
+//
+// The reusable syncstate.SyncedMap component publishes a {op,key,value} delta on
+// this subject whenever a replica mutates a piece of cross-replica in-memory
+// state. Peers subscribe and apply the delta to their own map, so a round-robin
+// API request that lands on a replica which did not originate the change still
+// sees it. Convergence on (re)connect is done by re-hydrating from the durable
+// source, so no request/reply snapshot subject is needed here.
+func SubjectSyncStateDelta(name string) string {
+	return subjectSyncStatePrefix + sanitizeSubjectToken(name) + ".delta"
+}
+
+const subjectSyncStatePrefix = "state."
+
 // Prefix-Cache Routing Sync (Pub/Sub - broadcast to all frontends)
 //
 // Frontends share prefix-cache observations so a request routed to any replica

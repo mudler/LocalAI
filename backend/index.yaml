@@ -243,6 +243,78 @@
     nvidia-cuda-12: "cuda12-ced"
     nvidia-l4t-cuda-12: "nvidia-l4t-arm64-ced"
     nvidia-l4t-cuda-13: "cuda13-nvidia-l4t-arm64-ced"
+- &voicedetect
+  name: "voice-detect"
+  alias: "voice-detect"
+  license: mit
+  icon: https://avatars.githubusercontent.com/u/95302084
+  description: |
+    voice-detect speaker recognition and voice analysis.
+    voice-detect.cpp is a C++/ggml engine that produces L2-normalised
+    speaker embeddings (ECAPA-TDNN, WeSpeaker ResNet34, 3D-Speaker
+    ERes2Net, CAM++) for voice verification and 1:N identification, plus
+    a wav2vec2 age / gender / emotion analysis head. It replaces the
+    Python speaker-recognition backend and is exposed through the Voice*
+    gRPC rpcs and the /v1/voice/* REST endpoints. It runs on CPU, NVIDIA
+    CUDA, AMD ROCm/HIP, Intel SYCL, Vulkan and NVIDIA Jetson (L4T) targets.
+  urls:
+    - https://github.com/mudler/voice-detect.cpp
+  tags:
+    - voice-recognition
+    - speaker-verification
+    - speaker-embedding
+    - CPU
+    - GPU
+    - CUDA
+    - HIP
+  capabilities:
+    default: "cpu-voice-detect"
+    nvidia: "cuda12-voice-detect"
+    intel: "intel-sycl-f16-voice-detect"
+    metal: "metal-voice-detect"
+    amd: "rocm-voice-detect"
+    vulkan: "vulkan-voice-detect"
+    nvidia-l4t: "nvidia-l4t-arm64-voice-detect"
+    nvidia-cuda-13: "cuda13-voice-detect"
+    nvidia-cuda-12: "cuda12-voice-detect"
+    nvidia-l4t-cuda-12: "nvidia-l4t-arm64-voice-detect"
+    nvidia-l4t-cuda-13: "cuda13-nvidia-l4t-arm64-voice-detect"
+- &facedetect
+  name: "face-detect"
+  alias: "face-detect"
+  license: mit
+  icon: https://avatars.githubusercontent.com/u/95302084
+  description: |
+    face-detect face detection, embedding, verification and analysis.
+    face-detect.cpp is a C++/ggml engine that runs SCRFD / YuNet face
+    detection and ArcFace / SFace 512-d (or 128-d) L2-normalised face
+    embeddings for verification and 1:N identification, plus a landmark /
+    age / gender analysis head. It replaces the Python insightface backend
+    and is exposed through the Embedding, Detect and Face* gRPC rpcs and
+    the /v1/face/* REST endpoints. It runs on CPU, NVIDIA CUDA, AMD
+    ROCm/HIP, Intel SYCL, Vulkan and NVIDIA Jetson (L4T) targets.
+  urls:
+    - https://github.com/mudler/face-detect.cpp
+  tags:
+    - face-recognition
+    - face-verification
+    - face-embedding
+    - CPU
+    - GPU
+    - CUDA
+    - HIP
+  capabilities:
+    default: "cpu-face-detect"
+    nvidia: "cuda12-face-detect"
+    intel: "intel-sycl-f16-face-detect"
+    metal: "metal-face-detect"
+    amd: "rocm-face-detect"
+    vulkan: "vulkan-face-detect"
+    nvidia-l4t: "nvidia-l4t-arm64-face-detect"
+    nvidia-cuda-13: "cuda13-face-detect"
+    nvidia-cuda-12: "cuda12-face-detect"
+    nvidia-l4t-cuda-12: "nvidia-l4t-arm64-face-detect"
+    nvidia-l4t-cuda-13: "cuda13-nvidia-l4t-arm64-face-detect"
 - &voxtral
   name: "voxtral"
   alias: "voxtral"
@@ -1390,7 +1462,6 @@
     intel: "intel-fish-speech"
     amd: "rocm-fish-speech"
     nvidia-l4t: "nvidia-l4t-fish-speech"
-    metal: "metal-fish-speech"
     default: "cpu-fish-speech"
     nvidia-cuda-13: "cuda13-fish-speech"
     nvidia-cuda-12: "cuda12-fish-speech"
@@ -2890,6 +2961,236 @@
   uri: "quay.io/go-skynet/local-ai-backends:master-gpu-nvidia-cuda-13-ced"
   mirrors:
     - localai/localai-backends:master-gpu-nvidia-cuda-13-ced
+## voice-detect
+- !!merge <<: *voicedetect
+  name: "voice-detect-development"
+  capabilities:
+    default: "cpu-voice-detect-development"
+    nvidia: "cuda12-voice-detect-development"
+    intel: "intel-sycl-f16-voice-detect-development"
+    metal: "metal-voice-detect-development"
+    amd: "rocm-voice-detect-development"
+    vulkan: "vulkan-voice-detect-development"
+    nvidia-l4t: "nvidia-l4t-arm64-voice-detect-development"
+    nvidia-cuda-13: "cuda13-voice-detect-development"
+    nvidia-cuda-12: "cuda12-voice-detect-development"
+    nvidia-l4t-cuda-12: "nvidia-l4t-arm64-voice-detect-development"
+    nvidia-l4t-cuda-13: "cuda13-nvidia-l4t-arm64-voice-detect-development"
+- !!merge <<: *voicedetect
+  name: "nvidia-l4t-arm64-voice-detect"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-nvidia-l4t-arm64-voice-detect"
+  mirrors:
+    - localai/localai-backends:latest-nvidia-l4t-arm64-voice-detect
+- !!merge <<: *voicedetect
+  name: "nvidia-l4t-arm64-voice-detect-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-nvidia-l4t-arm64-voice-detect"
+  mirrors:
+    - localai/localai-backends:master-nvidia-l4t-arm64-voice-detect
+- !!merge <<: *voicedetect
+  name: "cuda13-nvidia-l4t-arm64-voice-detect"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-nvidia-l4t-cuda-13-arm64-voice-detect"
+  mirrors:
+    - localai/localai-backends:latest-nvidia-l4t-cuda-13-arm64-voice-detect
+- !!merge <<: *voicedetect
+  name: "cuda13-nvidia-l4t-arm64-voice-detect-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-nvidia-l4t-cuda-13-arm64-voice-detect"
+  mirrors:
+    - localai/localai-backends:master-nvidia-l4t-cuda-13-arm64-voice-detect
+- !!merge <<: *voicedetect
+  name: "cpu-voice-detect"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-cpu-voice-detect"
+  mirrors:
+    - localai/localai-backends:latest-cpu-voice-detect
+- !!merge <<: *voicedetect
+  name: "cpu-voice-detect-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-cpu-voice-detect"
+  mirrors:
+    - localai/localai-backends:master-cpu-voice-detect
+- !!merge <<: *voicedetect
+  name: "metal-voice-detect"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-metal-darwin-arm64-voice-detect"
+  mirrors:
+    - localai/localai-backends:latest-metal-darwin-arm64-voice-detect
+- !!merge <<: *voicedetect
+  name: "metal-voice-detect-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-metal-darwin-arm64-voice-detect"
+  mirrors:
+    - localai/localai-backends:master-metal-darwin-arm64-voice-detect
+- !!merge <<: *voicedetect
+  name: "cuda12-voice-detect"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-nvidia-cuda-12-voice-detect"
+  mirrors:
+    - localai/localai-backends:latest-gpu-nvidia-cuda-12-voice-detect
+- !!merge <<: *voicedetect
+  name: "cuda12-voice-detect-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-nvidia-cuda-12-voice-detect"
+  mirrors:
+    - localai/localai-backends:master-gpu-nvidia-cuda-12-voice-detect
+- !!merge <<: *voicedetect
+  name: "rocm-voice-detect"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-rocm-hipblas-voice-detect"
+  mirrors:
+    - localai/localai-backends:latest-gpu-rocm-hipblas-voice-detect
+- !!merge <<: *voicedetect
+  name: "rocm-voice-detect-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-rocm-hipblas-voice-detect"
+  mirrors:
+    - localai/localai-backends:master-gpu-rocm-hipblas-voice-detect
+- !!merge <<: *voicedetect
+  name: "intel-sycl-f32-voice-detect"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-intel-sycl-f32-voice-detect"
+  mirrors:
+    - localai/localai-backends:latest-gpu-intel-sycl-f32-voice-detect
+- !!merge <<: *voicedetect
+  name: "intel-sycl-f32-voice-detect-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-intel-sycl-f32-voice-detect"
+  mirrors:
+    - localai/localai-backends:master-gpu-intel-sycl-f32-voice-detect
+- !!merge <<: *voicedetect
+  name: "intel-sycl-f16-voice-detect"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-intel-sycl-f16-voice-detect"
+  mirrors:
+    - localai/localai-backends:latest-gpu-intel-sycl-f16-voice-detect
+- !!merge <<: *voicedetect
+  name: "intel-sycl-f16-voice-detect-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-intel-sycl-f16-voice-detect"
+  mirrors:
+    - localai/localai-backends:master-gpu-intel-sycl-f16-voice-detect
+- !!merge <<: *voicedetect
+  name: "vulkan-voice-detect"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-vulkan-voice-detect"
+  mirrors:
+    - localai/localai-backends:latest-gpu-vulkan-voice-detect
+- !!merge <<: *voicedetect
+  name: "vulkan-voice-detect-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-vulkan-voice-detect"
+  mirrors:
+    - localai/localai-backends:master-gpu-vulkan-voice-detect
+- !!merge <<: *voicedetect
+  name: "cuda13-voice-detect"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-nvidia-cuda-13-voice-detect"
+  mirrors:
+    - localai/localai-backends:latest-gpu-nvidia-cuda-13-voice-detect
+- !!merge <<: *voicedetect
+  name: "cuda13-voice-detect-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-nvidia-cuda-13-voice-detect"
+  mirrors:
+    - localai/localai-backends:master-gpu-nvidia-cuda-13-voice-detect
+## face-detect
+- !!merge <<: *facedetect
+  name: "face-detect-development"
+  capabilities:
+    default: "cpu-face-detect-development"
+    nvidia: "cuda12-face-detect-development"
+    intel: "intel-sycl-f16-face-detect-development"
+    metal: "metal-face-detect-development"
+    amd: "rocm-face-detect-development"
+    vulkan: "vulkan-face-detect-development"
+    nvidia-l4t: "nvidia-l4t-arm64-face-detect-development"
+    nvidia-cuda-13: "cuda13-face-detect-development"
+    nvidia-cuda-12: "cuda12-face-detect-development"
+    nvidia-l4t-cuda-12: "nvidia-l4t-arm64-face-detect-development"
+    nvidia-l4t-cuda-13: "cuda13-nvidia-l4t-arm64-face-detect-development"
+- !!merge <<: *facedetect
+  name: "nvidia-l4t-arm64-face-detect"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-nvidia-l4t-arm64-face-detect"
+  mirrors:
+    - localai/localai-backends:latest-nvidia-l4t-arm64-face-detect
+- !!merge <<: *facedetect
+  name: "nvidia-l4t-arm64-face-detect-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-nvidia-l4t-arm64-face-detect"
+  mirrors:
+    - localai/localai-backends:master-nvidia-l4t-arm64-face-detect
+- !!merge <<: *facedetect
+  name: "cuda13-nvidia-l4t-arm64-face-detect"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-nvidia-l4t-cuda-13-arm64-face-detect"
+  mirrors:
+    - localai/localai-backends:latest-nvidia-l4t-cuda-13-arm64-face-detect
+- !!merge <<: *facedetect
+  name: "cuda13-nvidia-l4t-arm64-face-detect-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-nvidia-l4t-cuda-13-arm64-face-detect"
+  mirrors:
+    - localai/localai-backends:master-nvidia-l4t-cuda-13-arm64-face-detect
+- !!merge <<: *facedetect
+  name: "cpu-face-detect"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-cpu-face-detect"
+  mirrors:
+    - localai/localai-backends:latest-cpu-face-detect
+- !!merge <<: *facedetect
+  name: "cpu-face-detect-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-cpu-face-detect"
+  mirrors:
+    - localai/localai-backends:master-cpu-face-detect
+- !!merge <<: *facedetect
+  name: "metal-face-detect"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-metal-darwin-arm64-face-detect"
+  mirrors:
+    - localai/localai-backends:latest-metal-darwin-arm64-face-detect
+- !!merge <<: *facedetect
+  name: "metal-face-detect-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-metal-darwin-arm64-face-detect"
+  mirrors:
+    - localai/localai-backends:master-metal-darwin-arm64-face-detect
+- !!merge <<: *facedetect
+  name: "cuda12-face-detect"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-nvidia-cuda-12-face-detect"
+  mirrors:
+    - localai/localai-backends:latest-gpu-nvidia-cuda-12-face-detect
+- !!merge <<: *facedetect
+  name: "cuda12-face-detect-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-nvidia-cuda-12-face-detect"
+  mirrors:
+    - localai/localai-backends:master-gpu-nvidia-cuda-12-face-detect
+- !!merge <<: *facedetect
+  name: "rocm-face-detect"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-rocm-hipblas-face-detect"
+  mirrors:
+    - localai/localai-backends:latest-gpu-rocm-hipblas-face-detect
+- !!merge <<: *facedetect
+  name: "rocm-face-detect-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-rocm-hipblas-face-detect"
+  mirrors:
+    - localai/localai-backends:master-gpu-rocm-hipblas-face-detect
+- !!merge <<: *facedetect
+  name: "intel-sycl-f32-face-detect"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-intel-sycl-f32-face-detect"
+  mirrors:
+    - localai/localai-backends:latest-gpu-intel-sycl-f32-face-detect
+- !!merge <<: *facedetect
+  name: "intel-sycl-f32-face-detect-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-intel-sycl-f32-face-detect"
+  mirrors:
+    - localai/localai-backends:master-gpu-intel-sycl-f32-face-detect
+- !!merge <<: *facedetect
+  name: "intel-sycl-f16-face-detect"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-intel-sycl-f16-face-detect"
+  mirrors:
+    - localai/localai-backends:latest-gpu-intel-sycl-f16-face-detect
+- !!merge <<: *facedetect
+  name: "intel-sycl-f16-face-detect-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-intel-sycl-f16-face-detect"
+  mirrors:
+    - localai/localai-backends:master-gpu-intel-sycl-f16-face-detect
+- !!merge <<: *facedetect
+  name: "vulkan-face-detect"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-vulkan-face-detect"
+  mirrors:
+    - localai/localai-backends:latest-gpu-vulkan-face-detect
+- !!merge <<: *facedetect
+  name: "vulkan-face-detect-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-vulkan-face-detect"
+  mirrors:
+    - localai/localai-backends:master-gpu-vulkan-face-detect
+- !!merge <<: *facedetect
+  name: "cuda13-face-detect"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-nvidia-cuda-13-face-detect"
+  mirrors:
+    - localai/localai-backends:latest-gpu-nvidia-cuda-13-face-detect
+- !!merge <<: *facedetect
+  name: "cuda13-face-detect-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-nvidia-cuda-13-face-detect"
+  mirrors:
+    - localai/localai-backends:master-gpu-nvidia-cuda-13-face-detect
 ## stablediffusion-ggml
 - !!merge <<: *stablediffusionggml
   name: "cpu-stablediffusion-ggml"
@@ -4932,7 +5233,6 @@
     intel: "intel-fish-speech-development"
     amd: "rocm-fish-speech-development"
     nvidia-l4t: "nvidia-l4t-fish-speech-development"
-    metal: "metal-fish-speech-development"
     default: "cpu-fish-speech-development"
     nvidia-cuda-13: "cuda13-fish-speech-development"
     nvidia-cuda-12: "cuda12-fish-speech-development"
@@ -5008,16 +5308,6 @@
   uri: "quay.io/go-skynet/local-ai-backends:master-nvidia-l4t-cuda-13-arm64-fish-speech"
   mirrors:
     - localai/localai-backends:master-nvidia-l4t-cuda-13-arm64-fish-speech
-- !!merge <<: *fish-speech
-  name: "metal-fish-speech"
-  uri: "quay.io/go-skynet/local-ai-backends:latest-metal-darwin-arm64-fish-speech"
-  mirrors:
-    - localai/localai-backends:latest-metal-darwin-arm64-fish-speech
-- !!merge <<: *fish-speech
-  name: "metal-fish-speech-development"
-  uri: "quay.io/go-skynet/local-ai-backends:master-metal-darwin-arm64-fish-speech"
-  mirrors:
-    - localai/localai-backends:master-metal-darwin-arm64-fish-speech
 ## faster-qwen3-tts
 - !!merge <<: *faster-qwen3-tts
   name: "faster-qwen3-tts-development"

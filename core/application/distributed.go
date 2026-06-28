@@ -355,6 +355,7 @@ func initDistributed(cfg *config.ApplicationConfig, authDB *gorm.DB, configLoade
 		PrefixProvider:   prefixProvider,
 		PrefixConfig:     prefixCfg,
 		Pressure:         pressure,
+		SharedModels:     cfg.Distributed.SharedModels,
 	})
 
 	// Wire staging-progress broadcasting so file-staging shows up on every

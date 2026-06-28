@@ -7,6 +7,7 @@ import (
 	"github.com/mudler/LocalAGI/webui/collections"
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/services/jobs"
+	"github.com/mudler/LocalAI/core/services/messaging"
 	"github.com/mudler/LocalAI/core/templates"
 	"github.com/mudler/LocalAI/pkg/model"
 	"github.com/mudler/xlog"
@@ -28,6 +29,9 @@ type UserServicesManager struct {
 	// Shared distributed backends (set once, inherited by per-user job services)
 	jobDispatcher DistributedDispatcher
 	jobDBStore    *jobs.JobStore
+	// jobNats keeps per-user agent tasks consistent across replicas (nil in
+	// standalone). Inherited by each per-user AgentJobService.
+	jobNats messaging.MessagingClient
 }
 
 // NewUserServicesManager creates a new UserServicesManager.
@@ -162,6 +166,10 @@ func (m *UserServicesManager) GetJobs(userID string) (*AgentJobService, error) {
 	if m.jobDispatcher != nil {
 		svc.SetDistributedBackends(m.jobDispatcher)
 	}
+	// Inherit the NATS client so per-user tasks broadcast across replicas. Must be
+	// set before the hydrate below (LoadFromDB / LoadTasksFromFile) so the tasks
+	// SyncedMap is rebuilt with the client while it is still empty.
+	svc.SetTaskSyncNATS(m.jobNats)
 	if m.jobDBStore != nil {
 		svc.SetDistributedJobStore(m.jobDBStore)
 		// Load tasks/jobs from DB immediately (per-user services skip Start())
@@ -187,6 +195,12 @@ func (m *UserServicesManager) SetJobDispatcher(d DistributedDispatcher) {
 // SetJobDBStore sets the database-backed job store for per-user job services.
 func (m *UserServicesManager) SetJobDBStore(s *jobs.JobStore) {
 	m.jobDBStore = s
+}
+
+// SetJobSyncNATS sets the NATS client used to keep per-user agent tasks consistent
+// across replicas.
+func (m *UserServicesManager) SetJobSyncNATS(nats messaging.MessagingClient) {
+	m.jobNats = nats
 }
 
 // ListAllUserIDs returns all user IDs that have scoped data directories.

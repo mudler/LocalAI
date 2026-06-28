@@ -49,7 +49,7 @@
 # helpers that the refactor pulled into the headers grpc-server.cpp includes.
 # Therefore a PIN_SYNC must pass the FULL grpc-server build/link on CI, not only
 # the bit-exact gate. See README section 7 + .agents/llama-cpp-localai-paged-backend.md.
-LLAMA_VERSION?=9d5d882d8cd0f0a9283d87ed5e6fe3ee0d925fb1
+LLAMA_VERSION?=0ed235ea2c17a19fc8238668653946721ed136fd
 
 CMAKE_ARGS?=
 BUILD_TYPE?=

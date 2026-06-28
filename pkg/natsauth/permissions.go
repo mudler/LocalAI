@@ -19,6 +19,7 @@ func WorkerPermissions(nodeID, nodeType string) (pubAllow, subAllow []string) {
 		// Keep this list in sync with the subscriptions in core/cli/agent_worker.go.
 		subAllow = []string{
 			"agent.execute",
+			"agent.*.cancel",
 			"jobs.*.cancel",
 			"jobs.*.progress",
 			"jobs.*.result",

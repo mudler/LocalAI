@@ -25,8 +25,8 @@ var (
 
 type LlamaCPPImporter struct{}
 
-func (i *LlamaCPPImporter) Name() string     { return "llama-cpp" }
-func (i *LlamaCPPImporter) Modality() string { return "text" }
+func (i *LlamaCPPImporter) Name() string      { return "llama-cpp" }
+func (i *LlamaCPPImporter) Modality() string  { return "text" }
 func (i *LlamaCPPImporter) AutoDetects() bool { return true }
 
 // AdditionalBackends advertises drop-in replacements that share the
@@ -294,12 +294,45 @@ func pickPreferredGroup(groups []hfapi.ShardGroup, prefs []string) *hfapi.ShardG
 	for _, pref := range prefs {
 		lower := strings.ToLower(pref)
 		for i := range groups {
-			if strings.Contains(strings.ToLower(groups[i].Base), lower) {
+			if quantTokenMatches(strings.ToLower(groups[i].Base), lower) {
 				return &groups[i]
 			}
 		}
 	}
 	return &groups[len(groups)-1]
+}
+
+// quantTokenMatches reports whether pref appears in base as a whole token
+// rather than as a substring of a larger alphanumeric run. Both arguments
+// must already be lowercased.
+//
+// A plain strings.Contains is wrong here: `f16` is a substring of `bf16`, so
+// asking for the `F16` quant used to wrongly select a `BF16` file (#10559).
+// Only the OUTER edges of the matched preference must hit a boundary — a
+// non-alphanumeric char (or the start/end of base). Separators inside the
+// preference itself (e.g. `ud-q4_k_xl`) are intentionally left untouched.
+func quantTokenMatches(base, pref string) bool {
+	if pref == "" {
+		return false
+	}
+	for start := strings.Index(base, pref); start != -1; {
+		end := start + len(pref)
+		leftOK := start == 0 || !isAlphaNum(base[start-1])
+		rightOK := end == len(base) || !isAlphaNum(base[end])
+		if leftOK && rightOK {
+			return true
+		}
+		next := strings.Index(base[start+1:], pref)
+		if next == -1 {
+			break
+		}
+		start += next + 1
+	}
+	return false
+}
+
+func isAlphaNum(b byte) bool {
+	return (b >= 'a' && b <= 'z') || (b >= '0' && b <= '9')
 }
 
 // maybeApplyMTPDefaults parses the picked GGUF header (range-fetched over
