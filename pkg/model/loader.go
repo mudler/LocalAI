@@ -369,7 +369,19 @@ func (ml *ModelLoader) ShutdownModel(modelName string) error {
 	ml.mu.Lock()
 	defer ml.mu.Unlock()
 
-	return ml.deleteProcess(modelName)
+	return ml.deleteProcess(modelName, false)
+}
+
+// ShutdownModelForce stops a backend without waiting for an in-flight gRPC
+// call to finish first. It is used by the watchdog's busy-killer, which only
+// fires once a backend has been stuck on a call past the busy timeout — the
+// graceful ShutdownModel would block forever on that stuck call (while
+// holding ml.mu), preventing every other model load. See deleteProcess.
+func (ml *ModelLoader) ShutdownModelForce(modelName string) error {
+	ml.mu.Lock()
+	defer ml.mu.Unlock()
+
+	return ml.deleteProcess(modelName, true)
 }
 
 func (ml *ModelLoader) CheckIsLoaded(s string) *Model {
@@ -411,7 +423,7 @@ func (ml *ModelLoader) checkIsLoaded(s string) *Model {
 			// Timeouts may mean the node is busy, so keep the model cached.
 			if isConnectionError(err) {
 				xlog.Warn("Remote model unreachable (connection error), removing from cache", "model", s, "error", err)
-				if delErr := ml.deleteProcess(s); delErr != nil {
+				if delErr := ml.deleteProcess(s, false); delErr != nil {
 					xlog.Error("error cleaning up remote model", "error", delErr, "model", s)
 				}
 				return nil
@@ -422,7 +434,7 @@ func (ml *ModelLoader) checkIsLoaded(s string) *Model {
 		if !process.IsAlive() {
 			xlog.Debug("GRPC Process is not responding", "model", s)
 			// stop and delete the process, this forces to re-load the model and re-create again the service
-			err := ml.deleteProcess(s)
+			err := ml.deleteProcess(s, false)
 			if err != nil {
 				xlog.Error("error stopping process", "error", err, "process", s)
 			}
