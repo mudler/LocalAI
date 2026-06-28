@@ -333,7 +333,7 @@ new file mode 100644
 index 000000000..740280a7f
 --- /dev/null
 +++ b/src/paged-kv-manager.h
-@@ -0,0 +1,108 @@
+@@ -0,0 +1,109 @@
 +#pragma once
 +// Paged KV cache block manager for llama.cpp (CPU-first prototype).
 +//
@@ -346,6 +346,7 @@ index 000000000..740280a7f
 +// LRU eviction order), not on exact hash bytes. This unit has zero ggml/llama.cpp
 +// dependency so it can be unit-tested in isolation.
 +
++#include <cstddef>
 +#include <cstdint>
 +#include <vector>
 +#include <unordered_map>
