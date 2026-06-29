@@ -1,4 +1,4 @@
-From ee8021b56ed0effe493a64aa50449ab928dd6b29 Mon Sep 17 00:00:00 2001
+From ddff2279f23f18cadfbbb907a397d66b3609e9cd Mon Sep 17 00:00:00 2001
 From: Ettore Di Giacinto <mudler@localai.io>
 Date: Sun, 28 Jun 2026 20:00:24 +0200
 Subject: [PATCH 41/41] feat(paged): S3 decode-shape-stable scheduling (patch
@@ -23,30 +23,36 @@ budget; no new slot states, no batch-formation rewrite, zero libllama changes.
 BIT-EXACT: only changes WHICH step a prompt chunk is admitted in. Each sequence's
 decode logits depend on its own tokens + its own KV only (the paged decode read is
 per-stream, attention is permutation-invariant over the co-batched set), so
-deferring another slot's prefill never changes a generating slot's output.
-DEFAULT-ON under paged KV: with LLAMA_KV_PAGED set this enables by default
-(LLAMA_PAGED_DECODE_STABLE=0 forces it off); otherwise unset => byte-identical to
-patch 0016. Does
+deferring another slot's prefill never changes a generating slot's output. Does
 not run in the single-sequence greedy md5 gate (that path is llama-completion).
+
+DEFAULT-OFF (A/B finding): a measured end-to-end A/B proved that making S3
+default-on under paged KV is a serving mistake. Deferring prefill admission on the
+period-8 cadence defers prompt admission: 2.5x worse TTFT (60s vs 24s at N=256)
+and 20-29% lower end-to-end throughput, with no end-to-end win at any concurrency.
+Its apparent decode_agg gain was a metric artifact (faster per-step decode bought
+by starving prefill). So S3 now defaults OFF (prefer prompt prefill admission for
+good TTFT) and is opt-in via LLAMA_PAGED_DECODE_STABLE=1, intended only for
+decode-dominated, low-arrival traffic where TTFT is not a concern. With
+LLAMA_PAGED_DECODE_STABLE unset => byte-identical to patch 0016.
 
 Measured (GB10, MoE Qwen3.6-35B-A3B-NVFP4, 128-client staggered streaming load):
 S1+S3 vs baseline (graphs rebuilt every step): graph reuse 0% -> 72.2%, hostproc
 15.98 -> 6.31 ms/step, decode 4.05 -> 5.52 tok/s/seq median (4.24 -> 5.96 mean,
-at vLLM's ~5.9 sustained). Remaining 28% rebuilds are request-boundary D/seq-set
-churn + the prefill-cadence steps; closing them needs a padded/fixed-slot decode
-shape (scoped follow-up, see DECODE_SERVING_SCOPE.md).
+at vLLM's ~5.9 sustained). NOTE these are per-step decode metrics; the A/B above
+shows they do not translate to an end-to-end serving win, hence default-off.
 
 Assisted-by: Claude:opus-4.8 [Claude Code]
 Signed-off-by: Ettore Di Giacinto <mudler@localai.io>
 ---
- tools/server/server-context.cpp | 40 ++++++++++++++++++++++++++++++++-
- 1 file changed, 39 insertions(+), 1 deletion(-)
+ tools/server/server-context.cpp | 46 ++++++++++++++++++++++++++++++++-
+ 1 file changed, 45 insertions(+), 1 deletion(-)
 
 diff --git a/tools/server/server-context.cpp b/tools/server/server-context.cpp
-index 64775dc..fc0231a 100644
+index 64775dc..a77e267 100644
 --- a/tools/server/server-context.cpp
 +++ b/tools/server/server-context.cpp
-@@ -3138,11 +3138,49 @@ private:
+@@ -3138,11 +3138,55 @@ private:
          }
          int32_t n_prompt_budgeted = 0; // prompt tokens added to the batch this step (across slots)
  
@@ -66,16 +72,22 @@ index 64775dc..fc0231a 100644
 +        // Each sequence's decode logits depend on its own tokens + its own KV only
 +        // (the paged decode read is per-stream, attention is permutation-invariant
 +        // over the co-batched set), so deferring another slot's prefill never
-+        // changes a generating slot's output. DEFAULT-ON under paged KV: with
-+        // LLAMA_KV_PAGED set it enables by default (LLAMA_PAGED_DECODE_STABLE=0
-+        // forces off); otherwise byte-identical to patch 0016. Does not run in the
-+        // single-sequence greedy md5 gate (that path is llama-completion, not update_slots).
++        // changes a generating slot's output. Does not run in the single-sequence
++        // greedy md5 gate (that path is llama-completion, not update_slots).
++        //
++        // DEFAULT-OFF (A/B finding): an end-to-end A/B proved S3-on is a serving
++        // mistake. Deferring prefill admission on the period-8 cadence delays prompt
++        // admission: 2.5x worse TTFT (60s vs 24s at N=256) and 20-29% lower end-to-end
++        // throughput, with no end-to-end win at any concurrency. Its apparent
++        // decode_agg gain was a metric artifact (faster per-step decode bought by
++        // starving prefill). So the default prefers prompt prefill admission for good
++        // TTFT; S3 is opt-in (LLAMA_PAGED_DECODE_STABLE=1) only for decode-dominated,
++        // low-arrival traffic where TTFT is not a concern.
 +        bool decode_only_step = false;
 +        {
 +            static const int s3_enabled = [](){
 +                const char * e = getenv("LLAMA_PAGED_DECODE_STABLE");
-+                if (e) { return atoi(e); }                          // explicit override (=0 forces off)
-+                return getenv("LLAMA_KV_PAGED") != nullptr ? 1 : 0; // default ON under paged KV
++                return e ? atoi(e) : 0;                             // default OFF; opt-in via LLAMA_PAGED_DECODE_STABLE=1
 +            }();
 +            if (s3_enabled && n_decode_in_batch > 0) {
 +                static const int s3_period = [](){ const char * e = getenv("LLAMA_PAGED_PREFILL_PERIOD"); int p = e ? atoi(e) : 8; return p > 0 ? p : 8; }();

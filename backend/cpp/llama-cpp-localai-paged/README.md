@@ -86,7 +86,7 @@ orthogonal to the paged allocator.
 
 ---
 
-## 3. Patch series (0001-0041)
+## 3. Patch series (0001-0043)
 
 Source-only patches, with intentional numbering gaps (e.g. 0005, 0027). The
 decode-serving graph-reuse levers are 0040-0041. "Bit-exact" = greedy md5 /
@@ -135,14 +135,19 @@ hides.
 | # | What it does | Bit-exact |
 |---|---|---|
 | 0040 | **S1 paged decode-graph reuse** - the paged decode inputs (`input_block_table` / `input_gather_idxs`) never overrode `can_reuse` (defaults to false), so any graph carrying a paged input could never be reused. Add a correct `can_reuse` keyed on the (256-bucketed) block-table dims + a live-mctx refresh from the owning attn input. `LLAMA_PAGED_NO_GRAPH_REUSE=1` forces the pre-S1 path. | yes (md5 byte-identical reuse on/off; dense `5951a5b4`, paged-MoE `8cb0ce23`) |
-| 0041 | **S3 decode-shape-stable scheduling** - keep co-batched prefill OUT of decode steps so the pure-decode batch shape stays reuse-stable (S1 makes a pure-decode step reusable; S3 makes the scheduler emit them). Pure `update_slots()` policy on top of 0016; prefill admitted on a bounded cadence (`LLAMA_PAGED_PREFILL_PERIOD`, default 8). **Default ON under paged KV** (enabled when `LLAMA_KV_PAGED` is set; `LLAMA_PAGED_DECODE_STABLE=0` forces it off). | yes (byte-identical on/off; per-stream independent in serving) |
+| 0041 | **S3 decode-shape-stable scheduling** - keep co-batched prefill OUT of decode steps so the pure-decode batch shape stays reuse-stable (S1 makes a pure-decode step reusable; S3 makes the scheduler emit them). Pure `update_slots()` policy on top of 0016; prefill admitted on a bounded cadence (`LLAMA_PAGED_PREFILL_PERIOD`, default 8). **Default OFF** (opt-in via `LLAMA_PAGED_DECODE_STABLE=1`): a measured end-to-end A/B proved default-on is a serving mistake - deferring prefill admission on the period-8 cadence gives **2.5x worse TTFT** (60s vs 24s at N=256) and **20-29% lower end-to-end throughput**, with no end-to-end win at any concurrency; its apparent `decode_agg` gain was a metric artifact (faster per-step decode bought by starving prefill). Default prefers prompt prefill admission for good TTFT; opt in only for decode-dominated, low-arrival traffic where TTFT is not a concern. | yes (byte-identical on/off; per-stream independent in serving) |
 
 Measured (GB10, MoE Qwen3.6-35B-A3B-NVFP4, 128-client staggered streaming load):
 graph reuse **0% -> 72.2%**, host window `hostproc` **15.98 -> 6.31 ms/step**,
 decode **4.05 -> 5.52 tok/s/seq median (4.24 -> 5.96 mean, at vLLM's ~5.9
 sustained)**. S1 is necessary but **not** sufficient alone (13.8% reuse - prefill
-co-batching churns the shape nearly every step); S3 is the multiplier, so they
-ship and are measured together. The static batched-bench A/B isolates the S1
+co-batching churns the shape nearly every step); S3 is the multiplier of that
+per-step decode metric. **But those are per-step decode numbers, not an end-to-end
+serving win**: a later end-to-end A/B showed S3-default-on regresses real serving
+(2.5x worse TTFT, 20-29% lower end-to-end throughput, no win at any concurrency),
+because the period-8 cadence defers prefill admission. So **only S1 (0040) ships
+default-on; S3 (0041) now defaults OFF and is opt-in** (`LLAMA_PAGED_DECODE_STABLE=1`,
+for decode-dominated low-arrival traffic). The static batched-bench A/B isolates the S1
 mechanism: paged decode reuse 0% -> 95.5% (throughput flat there, since the static
 regime is GPU-bound). **S2 (double-buffer `set_inputs`) was dropped**: the Phase-0
 profile put `set_inputs` at ~0.05 ms/step (the cost is the rebuild, not the input
@@ -168,12 +173,13 @@ These are the dominant decode levers on the Qwen3.6 hybrid models. All bit-exact
 | 0022 | **GDN recurrence occupancy/coalescing retune** - column-folding (NUM_WARPS/COLS_PER_WARP) raises memory-level parallelism on the bandwidth-bound B=128 recurrence kernel; per-column f32 FMA order unchanged. 73.4%->84.6% of GB10 peak BW. | dense +11.1% / MoE +8.3% |
 | 0028 | **Recurrent conv-tap gather fusion** - the last `k_get_rows` in the GDN decode path (the conv-state tap gather) becomes an indexed in-kernel read. | dense ~377 t/s / MoE ~784 t/s |
 
-### MoE NVFP4 quant (0023, 0025)
+### MoE NVFP4 quant (0023, 0025, 0043)
 
 | # | What it does | Bit-exact |
 |---|---|---|
 | 0023 | **NVFP4 activation-quantize de-dup** - the broadcast up/gate projections re-quantize the same token activation once per expert; quantize the unique token activations once and byte-copy them into the expert-gathered layout. The only NVFP4-specific patch. | yes (byte-identical) |
-| 0025 | **MoE decode re-graph** - keep CUDA graphs on for the grouped-MMQ MoE decode step (the upstream guard disables graphs conservatively; the grouped path has no host sync). Env-gated `LLAMA_MOE_FORCE_GRAPHS`. | yes (graph replay re-issues identical kernels) |
+| 0025 | **MoE decode re-graph** - keep CUDA graphs on for the grouped-MMQ MoE decode step (the upstream guard disables graphs conservatively; the grouped path has no host sync). Was env-gated `LLAMA_MOE_FORCE_GRAPHS`; now ON by default via 0043. | yes (graph replay re-issues identical kernels) |
+| 0043 | **MoE decode graph default-on (D1)** - flip 0025 to ON by default: capture/replay the full-step decode CUDA graph (incl. the grouped-MMQ MoE dispatch) instead of re-issuing every kernel each step. Guard is `should_use_mmq()` (FALSE for the large-M NVFP4 prefill of 0034, so prefill keeps graphs disabled - its per-expert host-loop genuinely syncs). `LLAMA_MOE_NO_FORCE_GRAPHS=1` forces the conservative pre-0025 disable for A/B. D1 profiling: the per-expert host-loop (the only device->host MoE-routing readback) is never hit on the NVFP4 grouped path (sync count identical graphs on/off); steady decode is ~99% GPU-busy, so the cost removed is per-step host kernel RE-ISSUE, not a sync. | yes (md5 byte-identical default/off/forced; paged-MoE `8cb0ce23`, dense `5951a5b4`) |
 
 ### Pool reclaim, block-table cache, backend gate
 
@@ -338,6 +344,21 @@ llama is losing. The MoE GEMM kernel is *not* where the gap lives.
 - **Lever 2 - graph/stream coverage: FLAT.** Bit-exact graph coverage was
   exhausted by 0025; more graph/stream overlap is a no-op or small regression on
   this model.
+- **D1 premise "static decode is host-sync-bound on the MoE-routing readback":
+  REFUTED.** The hypothesis was that the dominant decode cost is the device->host
+  readback of MoE routing before launching the per-expert GEMMs (mul_mat_id's
+  per-expert host-loop fallback). Profiling (GB10, q36-35b-a3b-nvfp4, batched-bench
+  npl128) shows the opposite: on NVFP4 the grouped stream-k MMQ id-path is what
+  runs (routing stays device-side), so the host-loop fallback is **never hit** -
+  `cudaStreamSynchronize` count is *identical* with CUDA graphs on vs off (1457
+  either way; only the kernel-launch count changes, ~100k vs ~229k). Steady-decode
+  GPU-busy is **~99%** (1% idle), i.e. static decode is GPU-bound, not idle waiting
+  on a sync. The one actionable residual the profile surfaced - per-step host
+  kernel **re-issue** when the step is not graph-captured - shipped as 0043
+  (default-on full-step decode graph), worth +2.6% (npl128) to +5-13% (npl32). The
+  larger continuous-serving host cost is the graph **rebuild** (0040/0041), and the
+  irreducible floor is the per-step logits-D2H-before-sampling serial point - none
+  of which is the MoE-routing readback.
 - **Lever 3 - act-quant fusion: FLAT.** The W4A4 act-quant tax is removable only
   by W4A16 (a precision change, rejected) or a structural kernel rewrite; no
   further bit-exact lever clears it. 0023 already banks the de-dup.
