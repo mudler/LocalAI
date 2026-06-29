@@ -1,6 +1,6 @@
 # face-detect backend Makefile.
 #
-# Upstream pin lives below as FACEDETECT_VERSION?=06914b0... (.github/bump_deps.sh
+# Upstream pin lives below as FACEDETECT_VERSION?=06914b077d52f90d5421299138e7be6bdd06b5e8
 # can find and update it - matches the voice-detect / parakeet.cpp / whisper.cpp
 # convention).
 #
