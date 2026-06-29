@@ -372,6 +372,62 @@ var _ = Describe("LlamaCPPImporter", func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(modelConfig.Files).To(BeEmpty())
 		})
+
+		It("derives the model name from the selected GGUF when no name is given", func() {
+			// Regression for #10587: a repo-root URI has no file component, so
+			// the URI base ("example-GGUF") is just the repo name. With the
+			// name field left blank, the emitted name and model directory must
+			// follow the GGUF file actually selected, not the repository.
+			details := withHF(`{"quantizations":"Q4_K_M"}`,
+				hfFile("Meta-Llama-3-8B-Instruct.Q4_K_M.gguf", "aaa"),
+				hfFile("Meta-Llama-3-8B-Instruct.Q3_K_M.gguf", "bbb"),
+			)
+
+			modelConfig, err := importer.Import(details)
+
+			Expect(err).ToNot(HaveOccurred())
+			Expect(modelConfig.Name).To(Equal("Meta-Llama-3-8B-Instruct.Q4_K_M"))
+			Expect(modelConfig.Files).To(HaveLen(1), fmt.Sprintf("%+v", modelConfig))
+			Expect(modelConfig.Files[0].Filename).To(Equal(
+				"llama-cpp/models/Meta-Llama-3-8B-Instruct.Q4_K_M/Meta-Llama-3-8B-Instruct.Q4_K_M.gguf"))
+			Expect(modelConfig.ConfigFile).To(ContainSubstring("name: Meta-Llama-3-8B-Instruct.Q4_K_M"))
+			Expect(modelConfig.ConfigFile).To(ContainSubstring(
+				"model: llama-cpp/models/Meta-Llama-3-8B-Instruct.Q4_K_M/Meta-Llama-3-8B-Instruct.Q4_K_M.gguf"))
+		})
+
+		It("derives a clean name from the shard base for split GGUFs when no name is given", func() {
+			// The selected primary file is shard 1; using its raw basename
+			// would leak the -00001-of-00002 suffix into the name. The shard
+			// base must be used so the name is the logical model.
+			details := withHF(``,
+				hfFile("Qwen3-30B-A3B-Q4_K_M-00001-of-00002.gguf", "p1"),
+				hfFile("Qwen3-30B-A3B-Q4_K_M-00002-of-00002.gguf", "p2"),
+			)
+
+			modelConfig, err := importer.Import(details)
+
+			Expect(err).ToNot(HaveOccurred())
+			Expect(modelConfig.Name).To(Equal("Qwen3-30B-A3B-Q4_K_M"))
+			Expect(modelConfig.Files).To(HaveLen(2), fmt.Sprintf("%+v", modelConfig))
+			Expect(modelConfig.Files[0].Filename).To(Equal(
+				"llama-cpp/models/Qwen3-30B-A3B-Q4_K_M/Qwen3-30B-A3B-Q4_K_M-00001-of-00002.gguf"))
+			Expect(modelConfig.ConfigFile).To(ContainSubstring(
+				"model: llama-cpp/models/Qwen3-30B-A3B-Q4_K_M/Qwen3-30B-A3B-Q4_K_M-00001-of-00002.gguf"))
+		})
+
+		It("keeps an explicit name over the selected GGUF filename", func() {
+			// Precedence guard: when the user supplies a name it always wins,
+			// even though a GGUF file was selected from the listing.
+			details := withHF(`{"name":"my-custom-name","quantizations":"Q4_K_M"}`,
+				hfFile("model-Q4_K_M.gguf", "aaa"),
+			)
+
+			modelConfig, err := importer.Import(details)
+
+			Expect(err).ToNot(HaveOccurred())
+			Expect(modelConfig.Name).To(Equal("my-custom-name"))
+			Expect(modelConfig.Files[0].Filename).To(Equal("llama-cpp/models/my-custom-name/model-Q4_K_M.gguf"))
+		})
 	})
 
 	Context("AdditionalBackends", func() {
