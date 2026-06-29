@@ -4,8 +4,23 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/mudler/LocalAI/pkg/downloader"
 	hfapi "github.com/mudler/LocalAI/pkg/huggingface-api"
 )
+
+// LocalModelPath normalizes a model URI for backends that treat the model
+// field as a HuggingFace repo id or local filesystem path (mlx, mlx-vlm,
+// vllm, transformers, diffusers). A "file://" import URI is reduced to the
+// bare path it points at: mlx-lm and vLLM otherwise mis-read the "file://"
+// scheme as a repo id and fail with "Repo id must be in the form
+// 'repo_name' or 'namespace/repo_name'" (issue #7461). HuggingFace and HTTP
+// URIs are returned unchanged so the existing remote-load path is untouched.
+func LocalModelPath(uri string) string {
+	if path, ok := strings.CutPrefix(uri, downloader.LocalPrefix); ok {
+		return path
+	}
+	return uri
+}
 
 // HasFile returns true when any file in files has exactly the given basename.
 // Directory components in file.Path are ignored — a nested
