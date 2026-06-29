@@ -96,10 +96,18 @@ func newLiveTurnState(session *Session, transport Transport) *liveTurnState {
 
 func (l *liveTurnState) open() bool { return l.live != nil }
 
-// openTurn starts the turn's live stream. A failure (most commonly the
-// backend's typed "live transcription unsupported" signal) degrades the
-// whole session to silence-only detection — warned once, then sticky.
-func (l *liveTurnState) openTurn(ctx context.Context) bool {
+// openTurn starts the turn's live stream under the caller-supplied item id. A
+// failure (most commonly the backend's typed "live transcription unsupported"
+// signal) degrades the whole session to silence-only detection — warned once,
+// then sticky.
+//
+// The item id is supplied by the turn coordinator (turncoord) rather than minted
+// here: it is allocated when the turn STARTS so caption deltas can stream to the
+// client while the user is still speaking, and the committed event and final
+// transcript reuse it (replacing the partial text). The coordinator carries the
+// same id on its CommitTurn/DiscardTurn effects, so the committed event always
+// matches the captions.
+func (l *liveTurnState) openTurn(ctx context.Context, itemID string) bool {
 	if l.live != nil {
 		return true
 	}
@@ -125,10 +133,7 @@ func (l *liveTurnState) openTurn(ctx context.Context) bool {
 	}
 	l.resetTurn()
 	l.live = live
-	// The item id is allocated when the turn STARTS so caption deltas can
-	// stream to the client while the user is still speaking; the committed
-	// event and the final transcript reuse it, replacing the partial text.
-	l.itemID = generateItemID()
+	l.itemID = itemID
 	return true
 }
 

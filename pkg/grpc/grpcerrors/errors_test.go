@@ -54,4 +54,10 @@ var _ = Describe("grpcerrors", func() {
 		// signals must never alias.
 		Expect(grpcerrors.IsModelNotLoaded(err)).To(BeFalse())
 	})
+
+	It("StreamTranscriptionUnsupported carries Unimplemented and is not ModelNotLoaded", func() {
+		err := grpcerrors.StreamTranscriptionUnsupported("parakeet-cpp", "not a streaming model")
+		Expect(status.Code(err)).To(Equal(codes.Unimplemented))
+		Expect(grpcerrors.IsModelNotLoaded(err)).To(BeFalse())
+	})
 })

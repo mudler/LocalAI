@@ -14,6 +14,8 @@ import (
 	pb "github.com/mudler/LocalAI/pkg/grpc/proto"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 func TestParakeetCpp(t *testing.T) {
@@ -201,6 +203,29 @@ var _ = Describe("ParakeetCpp", func() {
 	})
 
 	Context("AudioTranscriptionStream", func() {
+		It("returns the typed Unimplemented signal for non-streaming models (no offline fallback)", func() {
+			// stream_begin == 0 means the loaded model is not a cache-aware
+			// streaming model. The backend must surface that, not silently
+			// decode offline and fake a one-shot "stream".
+			savedBegin, savedBeginLang := CppStreamBegin, CppStreamBeginLang
+			defer func() { CppStreamBegin, CppStreamBeginLang = savedBegin, savedBeginLang }()
+			CppStreamBeginLang = nil
+			CppStreamBegin = func(ctx uintptr) uintptr { return 0 }
+
+			p := &ParakeetCpp{ctxPtr: 1}
+			results := make(chan *pb.TranscriptStreamResponse, 8)
+			err := p.AudioTranscriptionStream(context.Background(),
+				&pb.TranscriptRequest{Dst: "ignored.wav"}, results)
+			Expect(status.Code(err)).To(Equal(codes.Unimplemented))
+
+			// Honest signal: nothing was emitted — no faked batch result.
+			var emitted []*pb.TranscriptStreamResponse
+			for r := range results {
+				emitted = append(emitted, r)
+			}
+			Expect(emitted).To(BeEmpty())
+		})
+
 		It("streams deltas and a closing FinalResult from a cache-aware model", func() {
 			// Streaming needs a cache-aware streaming model (e.g.
 			// realtime_eou); the offline test model would fail stream_begin.

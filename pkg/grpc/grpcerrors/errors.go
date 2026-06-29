@@ -57,3 +57,17 @@ func IsLiveTranscriptionUnsupported(err error) bool {
 	}
 	return strings.Contains(strings.ToLower(err.Error()), "unimplemented")
 }
+
+// StreamTranscriptionUnsupported returns the canonical error a backend returns
+// when it (or the loaded model) cannot serve the server-streaming
+// AudioTranscriptionStream RPC. It carries codes.Unimplemented like the live
+// signal, but its intent is the opposite: it is meant to be SURFACED to the
+// caller, not silently degraded. A backend must not decode the audio offline
+// and emit it as a single "delta" + final to fake a stream — a client that
+// asked for streaming has to learn the model cannot stream (qualitatively
+// identical output would otherwise hide a missing, possibly required,
+// capability). Callers wanting a plain transcript use the unary
+// AudioTranscription / non-streaming endpoint instead.
+func StreamTranscriptionUnsupported(backend, reason string) error {
+	return status.Errorf(codes.Unimplemented, "%s: streaming transcription unsupported: %s", backend, reason)
+}

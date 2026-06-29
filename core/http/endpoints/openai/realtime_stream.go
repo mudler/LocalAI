@@ -86,7 +86,8 @@ func (s *transcriptStreamer) content() string {
 // tool calls. It returns true when it has fully handled the response so the
 // caller can return; callers must only invoke it for an audio modality, and with
 // tools only when the model uses its tokenizer template (see triggerResponseAtTurn).
-func streamLLMResponse(ctx context.Context, session *Session, conv *Conversation, t Transport, responseID string, history schema.Messages, images []string, llmCfg *config.ModelConfig, tools []types.ToolUnion, toolChoice *types.ToolChoiceUnion, toolTurn int) bool {
+func streamLLMResponse(ctx context.Context, session *Session, conv *Conversation, t Transport, r *liveResponse, history schema.Messages, images []string, llmCfg *config.ModelConfig, tools []types.ToolUnion, toolChoice *types.ToolChoiceUnion, toolTurn int) bool {
+	responseID := r.id
 	itemID := generateItemID()
 	item := types.MessageItemUnion{
 		Assistant: &types.MessageItemAssistant{
@@ -121,6 +122,8 @@ func streamLLMResponse(ctx context.Context, session *Session, conv *Conversation
 		})
 	}
 
+	// cancel rolls back the partial item and records the cancelled outcome; the
+	// single terminal is emitted by triggerResponse.
 	cancel := func() {
 		if announced {
 			conv.Lock.Lock()
@@ -132,10 +135,7 @@ func streamLLMResponse(ctx context.Context, session *Session, conv *Conversation
 			}
 			conv.Lock.Unlock()
 		}
-		sendEvent(t, types.ResponseDoneEvent{
-			ServerEventBase: types.ServerEventBase{},
-			Response:        types.Response{ID: responseID, Object: "realtime.response", Status: types.ResponseStatusCancelled},
-		})
+		r.outcome = outcomeCancelled
 	}
 
 	var template string
@@ -194,6 +194,7 @@ func streamLLMResponse(ctx context.Context, session *Session, conv *Conversation
 			cancel()
 		} else {
 			sendError(t, code, fmt.Sprintf("%s: %v", msg, err), "", itemID)
+			r.outcome = outcomeFailed
 		}
 		return true
 	}
@@ -260,6 +261,7 @@ func streamLLMResponse(ctx context.Context, session *Session, conv *Conversation
 		cancel()
 		return true
 	}
+	r.addUsage(pred.Usage)
 
 	content := streamer.content()
 	toolCalls := functions.ToolCallsFromChatDeltas(pred.ChatDeltas)
@@ -328,10 +330,12 @@ func streamLLMResponse(ctx context.Context, session *Session, conv *Conversation
 			OutputIndex:     0,
 			Item:            item,
 		})
+		r.addItem(item)
 	}
 
-	// Emit any tool calls, the terminal response.done, and (for server-side
-	// assistant tools) the follow-up turn — shared with the buffered path.
-	emitToolCallItems(ctx, session, conv, t, responseID, toolCalls, content != "", toolTurn)
+	// Emit any tool calls and (for server-side assistant tools) the follow-up
+	// turn — shared with the buffered path. The single terminal is emitted by
+	// triggerResponse.
+	emitToolCallItems(ctx, session, conv, t, r, toolCalls, content != "", toolTurn)
 	return true
 }

@@ -1,0 +1,83 @@
+---
+# Authoritative formal design for realtime machine M3: response coordination.
+#
+# Companion to:
+#   - docs/design/realtime-state-machines.md  (the map + invariants)
+#   - core/http/endpoints/openai/respcoord    (the Go implementation)
+#
+# The Go MBT adapter maps each action below onto respcoord.Coordinator.Apply
+# and the StateGetter onto respcoord.Coordinator.State, so this spec is the
+# source of truth the implementation is checked against.
+#
+# NOTE: FizzBee is pre-1.0. Validate the exact syntax/CLI against the version
+# pinned in formal-verification/README.md before trusting the gate.
+deadlock_detection: false
+---
+
+# Bound the number of responses so the state space is finite.
+MAX_RESPONSES = 4
+
+role Session:
+    action Init:
+        self.live = 0          # number of live responses -- MUST stay in {0,1}
+        self.registered = 0    # id of the active response (0 = none)
+        self.next_id = 0
+        self.torn = 0          # session torn down (Terminated) -- absorbing
+
+    # startResponse as ONE indivisible transition -- this is the single-writer
+    # actor guarantee. Superseding an active response emits its cancelled
+    # terminal (live -= 1) BEFORE spawning the replacement (live += 1), so the
+    # net live count never exceeds 1.
+    #
+    # To reproduce the LEGACY dual-writer race from Part 2 of the design doc,
+    # change `atomic func` to `serial func`: the checker then interleaves two
+    # callers between the cancel and the spawn and reports AtMostOneLive
+    # violated -- exactly the bug TestLegacyMechanismCanDoubleStart pins in Go.
+    atomic func start():
+        if self.registered != 0:
+            self.live -= 1         # cancel + cancelled-terminal for the old
+            self.registered = 0
+        self.next_id += 1
+        self.live += 1             # spawn + register the replacement
+        self.registered = self.next_id
+
+    # client read-loop path: response.create / manual input_audio_buffer.commit.
+    # Rejected once torn (no response starts after teardown).
+    atomic action StartFromClient:
+        require self.next_id < MAX_RESPONSES
+        require self.torn == 0
+        self.start()
+
+    # VAD goroutine path: end-of-speech commit / barge-in. Rejected once torn.
+    atomic action StartFromVad:
+        require self.next_id < MAX_RESPONSES
+        require self.torn == 0
+        self.start()
+
+    # a response reaches its own terminal (response.done completed)
+    atomic action FinishCurrent:
+        if self.registered != 0:
+            self.live -= 1
+            self.registered = 0
+
+    # explicit response.cancel with nothing newer queued
+    atomic action CancelReq:
+        if self.registered != 0:
+            self.live -= 1
+            self.registered = 0
+
+    # session teardown (M1 parent): cancel any in-flight response and go to the
+    # absorbing Terminated state, after which no response can start. This is what
+    # lets the connection's teardown guarantee no response outlives the session.
+    atomic action Shutdown:
+        if self.registered != 0:
+            self.live -= 1
+            self.registered = 0
+        self.torn = 1
+
+action Init:
+    s = Session()
+
+# SAFETY: at most one live response at any instant (Part 4, invariant #1).
+always assertion AtMostOneLive:
+    return s.live >= 0 and s.live <= 1

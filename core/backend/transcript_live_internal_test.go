@@ -95,7 +95,7 @@ var _ = Describe("liveTraceState", func() {
 		Consistently(trace.GetBackendTraces, "100ms", "20ms").Should(BeEmpty())
 	})
 
-	It("records one transcription trace with text, eou flag and audio snippet at Close", func() {
+	It("records one transcription trace with text, eou event counts and audio snippet at Close", func() {
 		ts := newLiveTraceState(modelCfg(), appConfig, "en")
 		Expect(ts).NotTo(BeNil())
 
@@ -119,7 +119,9 @@ var _ = Describe("liveTraceState", func() {
 		Expect(got.Summary).To(ContainSubstring("hello world"))
 		Expect(got.Data["source"]).To(Equal("live_stream"))
 		Expect(got.Data["result_text"]).To(Equal("hello world"))
-		Expect(got.Data["eou"]).To(Equal(true))
+		// The live FinalResult no longer carries a terminal eou flag; the
+		// per-feed eou_events count is what the trace records instead.
+		Expect(got.Data).NotTo(HaveKey("eou"))
 		Expect(got.Data["eou_events"]).To(Equal(1))
 		Expect(got.Data["delta_events"]).To(Equal(2))
 		Expect(got.Data["audio_duration_s"]).To(BeNumerically("~", 1.0, 0.01))

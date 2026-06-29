@@ -179,10 +179,13 @@ var _ = Describe("AudioTranscriptionLive (stubbed C API)", func() {
 		final := got[3].FinalResult
 		Expect(final).NotTo(BeNil())
 		Expect(final.Text).To(Equal("hello world"))
-		Expect(final.Eou).To(BeTrue(), "decode ended on the EOU boundary")
-		Expect(final.Segments).To(HaveLen(1))
-		Expect(final.Segments[0].Text).To(Equal("hello world"))
-		Expect(final.Duration).To(BeNumerically("~", 300.0/16000.0, 1e-6))
+		// The live FinalResult carries only Text. Per-utterance segments,
+		// duration and the terminal eou flag are an offline-path concern (see
+		// boundary.go / AudioTranscriptionStream); the realtime core reads the
+		// streamed per-feed tokens above plus this Text.
+		Expect(final.Eou).To(BeFalse())
+		Expect(final.Segments).To(BeEmpty())
+		Expect(final.Duration).To(BeZero())
 
 		Expect(freed).To(Equal([]uintptr{7}))
 	})
@@ -213,7 +216,6 @@ var _ = Describe("AudioTranscriptionLive (stubbed C API)", func() {
 		Expect(got[2].Delta).To(Equal("done"))
 		Expect(got[2].Eou).To(BeTrue())
 		Expect(got[3].FinalResult.Text).To(Equal("first done"))
-		Expect(got[3].FinalResult.Eou).To(BeTrue())
 	})
 
 	It("forwards <EOB> as eob — a backchannel, never an eou (ABI v5 JSON)", func() {
@@ -243,9 +245,6 @@ var _ = Describe("AudioTranscriptionLive (stubbed C API)", func() {
 		Expect(got[1].Eob).To(BeTrue())
 		Expect(got[1].Eou).To(BeFalse(), "a backchannel must not masquerade as a turn boundary")
 		Expect(got[2].Eou).To(BeTrue())
-		final := got[3].FinalResult
-		Expect(final.Eou).To(BeTrue(), "decode ended on the utterance boundary, not the backchannel")
-		Expect(final.Segments).To(HaveLen(2), "both <EOB> and <EOU> reset the decoder and close a segment")
 	})
 
 	It("maps the v5 eou_out bitmask on the text path (bit0 <EOU>, bit1 <EOB>)", func() {
@@ -274,10 +273,9 @@ var _ = Describe("AudioTranscriptionLive (stubbed C API)", func() {
 		Expect(got[1].Eou).To(BeFalse())
 		Expect(got[2].Eou).To(BeTrue())
 		Expect(got[2].Eob).To(BeFalse())
-		Expect(got[3].FinalResult.Eou).To(BeTrue())
 	})
 
-	It("clears the final eou flag when trailing text arrives after the last EOU", func() {
+	It("accumulates trailing text after an EOU into the final transcript", func() {
 		feeds := 0
 		CppStreamFeedJSON = func(s uintptr, pcm []float32, n int32) uintptr {
 			feeds++
@@ -300,7 +298,6 @@ var _ = Describe("AudioTranscriptionLive (stubbed C API)", func() {
 		got := collectLive(out)
 		final := got[len(got)-1].FinalResult
 		Expect(final.Text).To(Equal("turn one and more"))
-		Expect(final.Eou).To(BeFalse(), "trailing speech without an EOU is an open utterance")
 	})
 
 	It("resets the decode session on a mid-stream config", func() {

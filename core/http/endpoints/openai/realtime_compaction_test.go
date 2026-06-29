@@ -1,6 +1,7 @@
 package openai
 
 import (
+	"context"
 	"errors"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -198,7 +199,7 @@ var _ = Describe("compact", func() {
 		s := &Session{CompactionEnabled: true, CompactionTrigger: 7, MaxHistoryItems: 4, MaxSummaryTokens: 512}
 		m := &fakeModel{predictResp: backend.LLMResponse{Response: "ROLLED UP"}}
 
-		s.compact(conv, m)
+		s.compact(context.Background(), conv, m)
 
 		Expect(conv.Memory).To(Equal("ROLLED UP"))
 		Expect(len(conv.Items)).To(Equal(4))
@@ -213,7 +214,7 @@ var _ = Describe("compact", func() {
 		s := &Session{CompactionEnabled: true, CompactionTrigger: 2, MaxHistoryItems: 1, MaxSummaryTokens: 512}
 		m := &fakeModel{predictErr: errors.New("boom")}
 
-		s.compact(conv, m)
+		s.compact(context.Background(), conv, m)
 
 		Expect(conv.Memory).To(Equal(""))
 		Expect(len(conv.Items)).To(Equal(3))
@@ -227,7 +228,7 @@ var _ = Describe("compact", func() {
 		s := &Session{CompactionEnabled: true, CompactionTrigger: 7, MaxHistoryItems: 4, MaxSummaryTokens: 512}
 		m := &fakeModel{predictResp: backend.LLMResponse{Response: "<think>planning the summary</think>CLEAN SUMMARY"}}
 
-		s.compact(conv, m)
+		s.compact(context.Background(), conv, m)
 
 		Expect(conv.Memory).To(Equal("CLEAN SUMMARY"))
 		Expect(conv.Memory).ToNot(ContainSubstring("planning"))
@@ -236,7 +237,7 @@ var _ = Describe("compact", func() {
 	It("does nothing when items are at or below the trigger", func() {
 		conv := &Conversation{Items: []*types.MessageItemUnion{user("1", "a")}}
 		s := &Session{CompactionEnabled: true, CompactionTrigger: 7, MaxHistoryItems: 4}
-		s.compact(conv, &fakeModel{predictResp: backend.LLMResponse{Response: "x"}})
+		s.compact(context.Background(), conv, &fakeModel{predictResp: backend.LLMResponse{Response: "x"}})
 		Expect(conv.Memory).To(Equal(""))
 		Expect(len(conv.Items)).To(Equal(1))
 	})

@@ -95,27 +95,27 @@ var _ = Describe("liveTurnState", func() {
 	Describe("openTurn", func() {
 		It("opens once per turn and reports open()", func() {
 			Expect(lts.open()).To(BeFalse())
-			Expect(lts.openTurn(context.Background())).To(BeTrue())
+			Expect(lts.openTurn(context.Background(), "item1")).To(BeTrue())
 			Expect(lts.open()).To(BeTrue())
-			Expect(lts.openTurn(context.Background())).To(BeTrue(), "idempotent while open")
+			Expect(lts.openTurn(context.Background(), "item1")).To(BeTrue(), "idempotent while open")
 			Expect(m.liveOpened).To(Equal(1))
 		})
 
 		It("degrades stickily when the backend cannot do live transcription", func() {
 			m.liveErr = errors.New("rpc error: code = Unimplemented desc = live transcription unsupported")
-			Expect(lts.openTurn(context.Background())).To(BeFalse())
+			Expect(lts.openTurn(context.Background(), "item1")).To(BeFalse())
 			Expect(lts.unavailable).To(BeTrue())
 
 			// Later turns never retry: the failure is per-session sticky.
 			m.liveErr = nil
-			Expect(lts.openTurn(context.Background())).To(BeFalse())
+			Expect(lts.openTurn(context.Background(), "item1")).To(BeFalse())
 			Expect(m.liveOpened).To(Equal(0))
 		})
 	})
 
 	Describe("feedNewAudio", func() {
 		It("feeds only the unfed tail and holds back the final resampled sample", func() {
-			Expect(lts.openTurn(context.Background())).To(BeTrue())
+			Expect(lts.openTurn(context.Background(), "item1")).To(BeTrue())
 
 			lts.feedNewAudio([]int16{1, 2, 3, 4})
 			Expect(m.liveSession.fed).To(HaveLen(1))
@@ -132,7 +132,7 @@ var _ = Describe("liveTurnState", func() {
 		})
 
 		It("degrades and closes the turn when a feed fails", func() {
-			Expect(lts.openTurn(context.Background())).To(BeTrue())
+			Expect(lts.openTurn(context.Background(), "item1")).To(BeTrue())
 			m.liveSession.feedErr = errors.New("backend gone")
 			sess := m.liveSession
 
@@ -151,7 +151,7 @@ var _ = Describe("liveTurnState", func() {
 			Expect(lts.thresholdSec(false, sv)).To(Equal(2.0))
 			Expect(lts.thresholdSec(true, sv)).To(Equal(semanticEouSilenceSec))
 
-			Expect(lts.openTurn(context.Background())).To(BeTrue())
+			Expect(lts.openTurn(context.Background(), "item1")).To(BeTrue())
 			lts.session.ModelInterface.(*fakeModel).liveSession.onEvent(backend.LiveTranscriptionEvent{Delta: "hello ", Eou: false})
 			lts.session.ModelInterface.(*fakeModel).liveSession.onEvent(backend.LiveTranscriptionEvent{Eou: true})
 			lts.drainEvents(3.3)
@@ -181,7 +181,7 @@ var _ = Describe("liveTurnState", func() {
 		})
 
 		It("does not arm the commit threshold on an EOB backchannel", func() {
-			Expect(lts.openTurn(context.Background())).To(BeTrue())
+			Expect(lts.openTurn(context.Background(), "item1")).To(BeTrue())
 			lts.session.ModelInterface.(*fakeModel).liveSession.onEvent(backend.LiveTranscriptionEvent{Delta: "uh-huh", Eob: true})
 			lts.drainEvents(2.0)
 
@@ -208,7 +208,7 @@ var _ = Describe("liveTurnState", func() {
 				{Delta: " world"},
 				{Final: &schema.TranscriptionResult{Text: "hello world", Eou: true}},
 			}
-			Expect(lts.openTurn(context.Background())).To(BeTrue())
+			Expect(lts.openTurn(context.Background(), "item1")).To(BeTrue())
 			sess := m.liveSession
 			sess.onEvent(backend.LiveTranscriptionEvent{Delta: "hello", Eou: true})
 			lts.drainEvents(2.0)
@@ -225,7 +225,7 @@ var _ = Describe("liveTurnState", func() {
 		})
 
 		It("returns nil when the stream heard nothing", func() {
-			Expect(lts.openTurn(context.Background())).To(BeTrue())
+			Expect(lts.openTurn(context.Background(), "item1")).To(BeTrue())
 			Expect(lts.finishTurn(1.0)).To(BeNil())
 			Expect(m.liveSession.closed).To(Equal(1))
 		})
@@ -237,7 +237,7 @@ var _ = Describe("liveTurnState", func() {
 
 	Describe("discardTurn", func() {
 		It("closes the stream, drops the transcript and retracts streamed captions", func() {
-			Expect(lts.openTurn(context.Background())).To(BeTrue())
+			Expect(lts.openTurn(context.Background(), "item1")).To(BeTrue())
 			sess := m.liveSession
 			sess.onEvent(backend.LiveTranscriptionEvent{Delta: "noise"})
 			lts.drainEvents(1.0)
@@ -252,7 +252,7 @@ var _ = Describe("liveTurnState", func() {
 		})
 
 		It("sends no failed event when no captions ever reached the client", func() {
-			Expect(lts.openTurn(context.Background())).To(BeTrue())
+			Expect(lts.openTurn(context.Background(), "item1")).To(BeTrue())
 			lts.discardTurn()
 			Expect(ftr.countEvents(types.ServerEventTypeConversationItemInputAudioTranscriptionFailed)).To(Equal(0))
 		})
@@ -260,7 +260,7 @@ var _ = Describe("liveTurnState", func() {
 
 	Describe("live captions", func() {
 		It("streams each delta to the client under the turn's item id as it drains", func() {
-			Expect(lts.openTurn(context.Background())).To(BeTrue())
+			Expect(lts.openTurn(context.Background(), "item1")).To(BeTrue())
 			turnID := lts.itemID
 			Expect(turnID).NotTo(BeEmpty(), "the item id exists from turn open so captions can reference it")
 
@@ -283,7 +283,7 @@ var _ = Describe("liveTurnState", func() {
 		})
 
 		It("finishTurn does not retract captions — the commit's completed event supersedes them", func() {
-			Expect(lts.openTurn(context.Background())).To(BeTrue())
+			Expect(lts.openTurn(context.Background(), "item1")).To(BeTrue())
 			m.liveSession.onEvent(backend.LiveTranscriptionEvent{Delta: "hello"})
 			lts.drainEvents(1.0)
 

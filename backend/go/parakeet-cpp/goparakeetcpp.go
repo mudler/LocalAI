@@ -496,39 +496,55 @@ func tokensInWindow(tokens []transcriptToken, start, end float64) []int32 {
 	return ids
 }
 
-// streamSegmenter accumulates streaming words into per-utterance segments. EOU
-// is the model's own utterance boundary; each closed segment takes its start/end
-// from its first/last accumulated word.
+// streamSegmenter accumulates streaming decode increments into per-utterance
+// segments. <EOU>/<EOB> are the model's own utterance boundaries; each closes a
+// segment. When the feed carries per-word timings (ABI v4 JSON), a closed
+// segment takes its start/end from its first/last word; against an older
+// text-only library (no words) it falls back to segmenting the delta text, so
+// the same assembler serves both paths.
 type streamSegmenter struct {
-	segs   []*pb.TranscriptSegment
-	cur    []transcriptWord
-	nextID int32
+	segs    []*pb.TranscriptSegment
+	cur     []transcriptWord // words for the open segment (ABI v4 JSON path)
+	curText []string         // delta text for the open segment (text-only path)
+	nextID  int32
 }
 
-func (s *streamSegmenter) add(doc streamFeedJSON) {
-	s.cur = append(s.cur, doc.Words...)
+func (s *streamSegmenter) add(r streamFeedResult) {
+	s.cur = append(s.cur, r.Words...)
+	if len(r.Words) == 0 && r.Delta != "" {
+		// Older libparakeet.so with no per-word timing: segment from the text.
+		s.curText = append(s.curText, r.Delta)
+	}
 	// Both <EOU> and <EOB> reset the decoder, so both close a segment.
-	if doc.Eou != 0 || doc.Eob != 0 {
+	if r.Eou || r.Eob {
 		s.flush()
 	}
 }
 
 func (s *streamSegmenter) flush() {
-	if len(s.cur) == 0 {
-		return
+	switch {
+	case len(s.cur) > 0:
+		parts := make([]string, len(s.cur))
+		for i, w := range s.cur {
+			parts[i] = w.W
+		}
+		s.segs = append(s.segs, &pb.TranscriptSegment{
+			Id:    s.nextID,
+			Start: secondsToNanos(s.cur[0].Start),
+			End:   secondsToNanos(s.cur[len(s.cur)-1].End),
+			Text:  strings.TrimSpace(strings.Join(parts, " ")),
+		})
+		s.nextID++
+	case len(s.curText) > 0:
+		// No words this segment: emit a text-only segment (no timestamps),
+		// skipping a purely-whitespace one as the legacy text path did.
+		if t := strings.TrimSpace(strings.Join(s.curText, "")); t != "" {
+			s.segs = append(s.segs, &pb.TranscriptSegment{Id: s.nextID, Text: t})
+			s.nextID++
+		}
 	}
-	parts := make([]string, len(s.cur))
-	for i, w := range s.cur {
-		parts[i] = w.W
-	}
-	s.segs = append(s.segs, &pb.TranscriptSegment{
-		Id:    s.nextID,
-		Start: secondsToNanos(s.cur[0].Start),
-		End:   secondsToNanos(s.cur[len(s.cur)-1].End),
-		Text:  strings.TrimSpace(strings.Join(parts, " ")),
-	})
-	s.nextID++
 	s.cur = nil
+	s.curText = nil
 }
 
 func (s *streamSegmenter) segments() []*pb.TranscriptSegment { return s.segs }
@@ -655,17 +671,17 @@ func (p *ParakeetCpp) streamFeedDoc(stream uintptr, pcm []float32, finalize bool
 }
 
 // AudioTranscriptionStream drives the cache-aware streaming RNN-T over the
-// audio at opts.Dst: it decodes the file to 16 kHz mono PCM, feeds it in
-// chunks to parakeet_capi_stream_feed, and emits each newly-finalized text
-// run as a TranscriptStreamResponse delta. <EOU>/<EOB> events close the
-// current segment; a closing FinalResult carries the full transcript and the
-// per-utterance segments.
+// audio at opts.Dst: it decodes the file to 16 kHz mono PCM, feeds it through
+// the shared decode driver (feedSlices/flushTail), and emits each
+// newly-finalized text run as a TranscriptStreamResponse delta. <EOU>/<EOB>
+// events close the current segment; a closing FinalResult carries the full
+// transcript, the per-utterance segments, and whether the file ended on an
+// utterance boundary.
 //
 // stream_begin returns 0 for models that are not cache-aware streaming models
-// (only e.g. nvidia/parakeet_realtime_eou_120m-v1 qualifies). For those we fall
-// back to a single offline transcription emitted as one delta plus a closing
-// FinalResult, matching LocalAI's non-streaming streaming contract (and the
-// whisper backend), so the streaming endpoint works for every model.
+// (only e.g. nvidia/parakeet_realtime_eou_120m-v1 qualifies). For those this
+// returns codes.Unimplemented rather than faking a stream from an offline
+// decode — see the stream==0 branch and grpcerrors.StreamTranscriptionUnsupported.
 func (p *ParakeetCpp) AudioTranscriptionStream(ctx context.Context, opts *pb.TranscriptRequest, results chan *pb.TranscriptStreamResponse) error {
 	defer close(results)
 
@@ -684,17 +700,16 @@ func (p *ParakeetCpp) AudioTranscriptionStream(ctx context.Context, opts *pb.Tra
 		return err
 	}
 	if stream == 0 {
-		// Not a cache-aware streaming model: run a normal offline
-		// transcription and emit it as one delta + a closing final result.
-		res, err := p.AudioTranscription(ctx, opts)
-		if err != nil {
-			return err
-		}
-		if t := strings.TrimSpace(res.Text); t != "" {
-			results <- &pb.TranscriptStreamResponse{Delta: t}
-		}
-		results <- &pb.TranscriptStreamResponse{FinalResult: &res}
-		return nil
+		// Not a cache-aware streaming model. Report the missing capability
+		// honestly instead of decoding offline and emitting it as one "delta"
+		// + final: a client that asked for streaming must learn the model
+		// cannot stream, not receive a batch result dressed as a stream (which
+		// is indistinguishable except qualitatively, and silently breaks any
+		// feature that genuinely needs incremental output). Callers wanting a
+		// plain transcript use the unary AudioTranscription path. This mirrors
+		// AudioTranscriptionLive, which already returns Unimplemented here.
+		return grpcerrors.StreamTranscriptionUnsupported("parakeet-cpp",
+			"loaded model is not a cache-aware streaming model")
 	}
 	defer p.streamFree(stream)
 
@@ -703,146 +718,50 @@ func (p *ParakeetCpp) AudioTranscriptionStream(ctx context.Context, opts *pb.Tra
 		return err
 	}
 
-	// ABI v4: when the streaming JSON entry points are present, drive them so
-	// the per-utterance segments carry per-word start/end timestamps. Falls
-	// through to the text-only loop below against an older libparakeet.so.
-	if CppStreamFeedJSON != nil {
-		return p.streamJSON(ctx, stream, data, duration, results)
-	}
-
-	var (
-		full     strings.Builder
-		segText  strings.Builder
-		segments []*pb.TranscriptSegment
-		segID    int32
-		finalEou bool
-	)
-
-	flushSegment := func() {
-		t := strings.TrimSpace(segText.String())
-		segText.Reset()
-		if t == "" {
-			return
-		}
-		segments = append(segments, &pb.TranscriptSegment{Id: segID, Text: t})
-		segID++
-	}
-
-	feed := func(chunk []float32, finalize bool) error {
-		delta, eou, eob, err := p.streamFeedText(stream, chunk, finalize)
-		if err != nil {
-			return err
-		}
-		if delta != "" {
-			full.WriteString(delta)
-			segText.WriteString(delta)
-			results <- &pb.TranscriptStreamResponse{Delta: delta}
-		}
-		// finalEou tracks whether the decode ENDED on an utterance boundary:
-		// an <EOU> re-arms it; trailing text or a backchannel <EOB> clears
-		// it. Both tokens reset the decoder, so both close a segment.
-		switch {
-		case eou:
-			finalEou = true
-		case eob || delta != "":
-			finalEou = false
-		}
-		if eou || eob {
-			flushSegment()
-		}
-		return nil
-	}
-
-	for off := 0; off < len(data); off += streamChunkSamples {
-		if err := ctx.Err(); err != nil {
-			return status.Error(codes.Canceled, "transcription cancelled")
-		}
-		end := min(off+streamChunkSamples, len(data))
-		if err := feed(data[off:end], false); err != nil {
-			return err
-		}
-	}
-
-	// Flush the streaming tail (final encoder chunk).
-	if err := feed(nil, true); err != nil {
-		return err
-	}
-	flushSegment()
-
-	text := strings.TrimSpace(full.String())
-	if len(segments) == 0 && text != "" {
-		segments = append(segments, &pb.TranscriptSegment{Id: 0, Text: text})
-	}
-	results <- &pb.TranscriptStreamResponse{
-		FinalResult: &pb.TranscriptResult{
-			Text:     text,
-			Segments: segments,
-			Duration: duration,
-			Eou:      finalEou,
-		},
-	}
-	return nil
-}
-
-// streamJSON drives the streaming JSON entry points (present since ABI v4): each
-// feed/finalize returns a {text,eou,eob,frame_sec,words} document. The
-// newly-finalized text is emitted as a delta (unchanged streaming contract)
-// while words are accumulated into per-utterance segments (closed on <EOU> or
-// <EOB>) so the closing FinalResult carries timestamped segments. Each C call
-// takes engineMu individually (via streamFeedDoc); the lock is not held across
-// the stream's lifetime.
-func (p *ParakeetCpp) streamJSON(ctx context.Context, stream uintptr, data []float32,
-	duration float32, results chan *pb.TranscriptStreamResponse) error {
+	// Fold the shared decode driver's per-feed increments into the streamed
+	// deltas and the closing batch result: words/text accumulate into
+	// per-utterance segments (streamSegmenter), and the utterance-boundary
+	// latch (boundary.go) records whether the file ended on an <EOU>. These
+	// are the offline path's concern — the live RPC carries none of them.
 	var (
 		full     strings.Builder
 		seg      streamSegmenter
-		finalEou bool
+		boundary utteranceBoundary
 	)
-	feed := func(chunk []float32, finalize bool) error {
-		doc, err := p.streamFeedDoc(stream, chunk, finalize)
-		if err != nil {
-			return err
+	emit := func(r streamFeedResult) error {
+		if r.Delta != "" {
+			full.WriteString(r.Delta)
+			results <- &pb.TranscriptStreamResponse{Delta: r.Delta}
 		}
-		if doc.Text != "" {
-			full.WriteString(doc.Text)
-			results <- &pb.TranscriptStreamResponse{Delta: doc.Text}
-		}
-		seg.add(doc)
-		// finalEou tracks whether the decode ENDED on an utterance boundary:
-		// an <EOU> re-arms it; trailing output or a backchannel <EOB> clears it.
-		if doc.Eou != 0 {
-			finalEou = true
-		} else if doc.Eob != 0 || doc.Text != "" || len(doc.Words) > 0 {
-			finalEou = false
-		}
+		seg.add(r)
+		boundary = boundary.observe(r)
 		return nil
 	}
 
-	for off := 0; off < len(data); off += streamChunkSamples {
-		if err := ctx.Err(); err != nil {
-			return status.Error(codes.Canceled, "transcription cancelled")
-		}
-		end := min(off+streamChunkSamples, len(data))
-		if err := feed(data[off:end], false); err != nil {
-			return err
-		}
-	}
-	if err := feed(nil, true); err != nil {
+	if err := p.feedSlices(ctx, stream, data, emit); err != nil {
 		return err
 	}
-	seg.flush() // close any trailing utterance that never saw an EOU
+	if err := p.flushTail(stream, emit); err != nil {
+		return err
+	}
+	seg.flush() // close a trailing utterance that never saw an <EOU>
 
-	text := strings.TrimSpace(full.String())
+	// final.Text is the exact concatenation of the streamed deltas (full is
+	// their accumulation), so concat(deltas) == FinalResult.Text holds even
+	// when the model prepends a leading space to the first word (SentencePiece
+	// detokenization). This matches the whisper backend's streaming contract.
+	// The single-segment fallback stays trimmed.
+	fullText := full.String()
 	segments := seg.segments()
-	if len(segments) == 0 && text != "" {
-		segments = append(segments, &pb.TranscriptSegment{Id: 0, Text: text})
+	if trimmed := strings.TrimSpace(fullText); len(segments) == 0 && trimmed != "" {
+		segments = append(segments, &pb.TranscriptSegment{Id: 0, Text: trimmed})
 	}
 	results <- &pb.TranscriptStreamResponse{
 		FinalResult: &pb.TranscriptResult{
-			Text:     text,
+			Text:     fullText,
 			Segments: segments,
 			Duration: duration,
-			Eou:      finalEou,
+			Eou:      boundary.ended(),
 		},
 	}
 	return nil

@@ -108,7 +108,6 @@ type liveTraceState struct {
 	eouEvents   int
 	eobEvents   int
 	finalText   string
-	finalEou    bool
 }
 
 func newLiveTraceState(modelConfig config.ModelConfig, appConfig *config.ApplicationConfig, language string) *liveTraceState {
@@ -158,7 +157,6 @@ func (ts *liveTraceState) observe(ev LiveTranscriptionEvent) {
 	}
 	if ev.Final != nil {
 		ts.finalText = ev.Final.Text
-		ts.finalEou = ev.Final.Eou
 	}
 }
 
@@ -171,7 +169,6 @@ func (ts *liveTraceState) record(closeErr error) {
 		"source":       "live_stream",
 		"language":     ts.language,
 		"result_text":  ts.finalText,
-		"eou":          ts.finalEou,
 		"eou_events":   ts.eouEvents,
 		"eob_events":   ts.eobEvents,
 		"delta_events": ts.deltaEvents,

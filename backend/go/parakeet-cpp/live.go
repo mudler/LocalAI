@@ -28,8 +28,11 @@ const liveSampleRate = 16000
 //     decoder auto-resets after it, so one session spans many utterances;
 //   - closing the send side finalizes: the held-back tail chunk is flushed
 //     (the last ~2 encoder frames of words only appear here) and a terminal
-//     FinalResult carries the full transcript, segments, and whether the
-//     decode ended on an utterance boundary.
+//     FinalResult carries the full transcript Text only. Per-utterance
+//     segments, duration, and the terminal <EOU> flag are NOT produced here —
+//     the realtime core consumes the streamed per-feed tokens and the final
+//     Text; those batch fields are the file path's concern (see
+//     AudioTranscriptionStream).
 //
 // Engine access is serialized per C call (streamBegin/streamFeed*/streamFree
 // take engineMu internally), never for the session lifetime — unary
@@ -68,10 +71,8 @@ func (p *ParakeetCpp) AudioTranscriptionLive(in <-chan *pb.TranscriptLiveRequest
 	out <- &pb.TranscriptLiveResponse{Ready: true}
 
 	var (
-		full     strings.Builder
-		seg      streamSegmenter
-		finalEou bool
-		fedSecs  float64
+		full    strings.Builder
+		fedSecs float64
 
 		// behindSec accumulates how far decode wall time has fallen behind
 		// the audio it was fed. A live caller feeds in real time, so a
@@ -82,51 +83,24 @@ func (p *ParakeetCpp) AudioTranscriptionLive(in <-chan *pb.TranscriptLiveRequest
 		behindWarned bool
 	)
 
-	// process forwards one feed document and folds it into the final-result
-	// accumulators. finalEou tracks whether the decode ENDED on an utterance
-	// boundary: an <EOU> re-arms it; later output or a backchannel <EOB>
-	// clears it.
-	process := func(doc streamFeedJSON) {
-		if doc.Text != "" {
-			full.WriteString(doc.Text)
+	// emit forwards one decode increment: it streams the per-feed tokens the
+	// realtime turn detector consumes (delta/eou/eob/words) and accumulates the
+	// running transcript for the closing FinalResult. No segmentation or
+	// boundary latch here — the live consumer reads only the streamed tokens
+	// and the final Text; per-utterance segments and the terminal <EOU> flag
+	// are an offline-path concern (see AudioTranscriptionStream / boundary.go).
+	emit := func(r streamFeedResult) error {
+		if r.Delta != "" {
+			full.WriteString(r.Delta)
 		}
-		seg.add(doc)
-		if doc.Eou != 0 {
-			finalEou = true
-		} else if doc.Eob != 0 || doc.Text != "" || len(doc.Words) > 0 {
-			finalEou = false
-		}
-		if doc.Text != "" || doc.Eou != 0 || doc.Eob != 0 || len(doc.Words) > 0 {
+		if r.Delta != "" || r.Eou || r.Eob || len(r.Words) > 0 {
 			out <- &pb.TranscriptLiveResponse{
-				Delta: doc.Text,
-				Eou:   doc.Eou != 0,
-				Eob:   doc.Eob != 0,
-				Words: liveWordsToProto(doc.Words),
+				Delta: r.Delta,
+				Eou:   r.Eou,
+				Eob:   r.Eob,
+				Words: liveWordsToProto(r.Words),
 			}
 		}
-	}
-
-	feed := func(pcm []float32, finalize bool) error {
-		if CppStreamFeedJSON != nil {
-			doc, err := p.streamFeedDoc(stream, pcm, finalize)
-			if err != nil {
-				return err
-			}
-			process(doc)
-			return nil
-		}
-		delta, eou, eob, err := p.streamFeedText(stream, pcm, finalize)
-		if err != nil {
-			return err
-		}
-		doc := streamFeedJSON{Text: delta}
-		if eou {
-			doc.Eou = 1
-		}
-		if eob {
-			doc.Eob = 1
-		}
-		process(doc)
 		return nil
 	}
 
@@ -147,21 +121,16 @@ func (p *ParakeetCpp) AudioTranscriptionLive(in <-chan *pb.TranscriptLiveRequest
 					"loaded model is not a cache-aware streaming model")
 			}
 			full.Reset()
-			seg = streamSegmenter{}
-			finalEou = false
 			fedSecs = 0
 		case *pb.TranscriptLiveRequest_Audio:
 			pcm := payload.Audio.GetPcm()
 			audioSec := float64(len(pcm)) / liveSampleRate
 			fedSecs += audioSec
 			start := time.Now()
-			// Slice large feeds so each engineMu hold stays short and unary
-			// requests interleave fairly; the C session buffers internally.
-			for off := 0; off < len(pcm); off += streamChunkSamples {
-				end := min(off+streamChunkSamples, len(pcm))
-				if err := feed(pcm[off:end], false); err != nil {
-					return err
-				}
+			// nil ctx: a live session is bounded by this request channel, not a
+			// context — cancellation is the caller closing the stream.
+			if err := p.feedSlices(nil, stream, pcm, emit); err != nil {
+				return err
 			}
 			wallSec := time.Since(start).Seconds()
 			behindSec += wallSec - audioSec
@@ -180,24 +149,15 @@ func (p *ParakeetCpp) AudioTranscriptionLive(in <-chan *pb.TranscriptLiveRequest
 		}
 	}
 
-	// Send side closed: flush the streaming tail and emit the final result.
-	if err := feed(nil, true); err != nil {
+	// Send side closed: flush the streaming tail and emit the final transcript.
+	// The live FinalResult carries only Text — the authoritative full-turn
+	// transcript the realtime core commits. Per-utterance segments, duration,
+	// and the terminal <EOU> flag are not produced on the live path.
+	if err := p.flushTail(stream, emit); err != nil {
 		return err
 	}
-	seg.flush() // close a trailing utterance that never saw an EOU
-
-	text := strings.TrimSpace(full.String())
-	segments := seg.segments()
-	if len(segments) == 0 && text != "" {
-		segments = append(segments, &pb.TranscriptSegment{Id: 0, Text: text})
-	}
 	out <- &pb.TranscriptLiveResponse{
-		FinalResult: &pb.TranscriptResult{
-			Text:     text,
-			Segments: segments,
-			Duration: float32(fedSecs),
-			Eou:      finalEou,
-		},
+		FinalResult: &pb.TranscriptResult{Text: strings.TrimSpace(full.String())},
 	}
 	return nil
 }

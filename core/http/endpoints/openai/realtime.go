@@ -12,7 +12,6 @@ import (
 	"os"
 	"strconv"
 	"sync"
-	"sync/atomic"
 	"time"
 
 	"net/http"
@@ -26,6 +25,8 @@ import (
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/http/auth"
 	mcpTools "github.com/mudler/LocalAI/core/http/endpoints/mcp"
+	"github.com/mudler/LocalAI/core/http/endpoints/openai/respcoord"
+	"github.com/mudler/LocalAI/core/http/endpoints/openai/turncoord"
 	"github.com/mudler/LocalAI/core/http/endpoints/openai/types"
 	"github.com/mudler/LocalAI/core/schema"
 	"github.com/mudler/LocalAI/core/templates"
@@ -168,44 +169,12 @@ type Session struct {
 	gateMu        sync.Mutex
 	voiceVerified bool
 
-	// Response cancellation: protects activeResponseCancel/activeResponseDone
-	responseMu           sync.Mutex
-	activeResponseCancel context.CancelFunc
-	activeResponseDone   chan struct{}
-}
-
-// cancelActiveResponse cancels any in-flight response and waits for its
-// goroutine to exit. This ensures we never have overlapping responses and
-// that interrupted responses are fully cleaned up before starting a new one.
-func (s *Session) cancelActiveResponse() {
-	s.responseMu.Lock()
-	cancel := s.activeResponseCancel
-	done := s.activeResponseDone
-	s.responseMu.Unlock()
-
-	if cancel != nil {
-		cancel()
-	}
-	if done != nil {
-		<-done
-	}
-}
-
-// startResponse cancels any active response and returns a new context for
-// the replacement response. The caller MUST close the returned done channel
-// when the response goroutine exits.
-func (s *Session) startResponse(parent context.Context) (context.Context, chan struct{}) {
-	s.cancelActiveResponse()
-
-	ctx, cancel := context.WithCancel(parent)
-	done := make(chan struct{})
-
-	s.responseMu.Lock()
-	s.activeResponseCancel = cancel
-	s.activeResponseDone = done
-	s.responseMu.Unlock()
-
-	return ctx, done
+	// respSink is the explicit response-coordination state machine (respcoord,
+	// machine M3). It replaces the legacy startResponse/cancelActiveResponse
+	// pair and its dual-writer activeResponse* fields: every start/cancel/finish
+	// decision is serialized through respcoord.Coordinator, guaranteeing at most
+	// one live response. See realtime_respcoord.go.
+	respSink *responseSink
 }
 
 func (s *Session) FromClient(session *types.SessionUnion) {
@@ -258,8 +227,10 @@ type Conversation struct {
 	// is kept out of Items (so trimRealtimeItems never drops it) and rendered
 	// as a system message right after the session instructions.
 	Memory string
-	// compacting ensures at most one background compaction runs per conversation.
-	compacting atomic.Bool
+	// compaction is the explicit single-flight compaction coordinator (M4): at
+	// most one background summarize+evict runs per conversation at a time. It
+	// replaces the legacy `compacting atomic.Bool`. See realtime_compactcoord.go.
+	compaction *compactionSink
 }
 
 func (c *Conversation) ToServer() types.Conversation {
@@ -563,12 +534,27 @@ func runRealtimeSession(application *application.Application, t Transport, model
 	}
 	session.CompactionEnabled, session.CompactionTrigger, session.MaxSummaryTokens, session.SummaryModel = resolveCompaction(cfg, session.MaxHistoryItems)
 
+	// Single-writer response coordinator (machine M3). All response starts and
+	// cancels go through this, so the read-loop and VAD goroutine can never race
+	// into two overlapping responses (see realtime_respcoord.go).
+	session.respSink = newResponseSink()
+
 	// Create a default conversation
 	conversationID := generateConversationID()
 	conversation := &Conversation{
 		ID:    conversationID,
 		Items: []*types.MessageItemUnion{},
 	}
+	// The compaction coordinator's work closure resolves the summarizer (lazily
+	// loading a configured summary_model) and runs the summarize+evict off the
+	// response path — only when a compaction actually starts.
+	conversation.compaction = newCompactionSink(func(ctx context.Context) {
+		model := session.summarizerModel()
+		if model == nil {
+			return
+		}
+		session.compact(ctx, conversation, model)
+	})
 	session.Conversations[conversationID] = conversation
 	session.DefaultConversationID = conversationID
 
@@ -650,34 +636,22 @@ func runRealtimeSession(application *application.Application, t Transport, model
 	})
 
 	var (
-		msg  []byte
-		wg   sync.WaitGroup
-		done = make(chan struct{})
+		msg []byte
+		wg  sync.WaitGroup
 	)
 
-	vadServerStarted := false
-	toggleVAD := func() {
-		if turnDetectionActive(session.TurnDetection) && !vadServerStarted {
-			xlog.Debug("Starting VAD goroutine...")
-			done = make(chan struct{})
-			wg.Go(func() {
-				conversation := session.Conversations[session.DefaultConversationID]
-				handleVAD(session, conversation, t, done)
-			})
-			vadServerStarted = true
-		} else if !turnDetectionActive(session.TurnDetection) && vadServerStarted {
-			xlog.Debug("Stopping VAD goroutine...")
-			close(done)
-			vadServerStarted = false
-		}
-	}
+	// M1 connection lifecycle. The VAD goroutine's run/stop (and its done channel)
+	// and the once-only teardown are owned by this coordinator, so the channel is
+	// closed exactly once and never resurrected after teardown (Part 2, failure
+	// mode 6; invariants #8, #10). See realtime_conncoord.go and conncoord/.
+	conn := newConnSink(session, sessionID, t, &wg)
+	toggleVAD := func() { conn.setVAD(turnDetectionActive(session.TurnDetection)) }
 
 	// For WebRTC sessions, start the Opus decode loop before VAD so that
 	// decoded PCM is already flowing when VAD's first tick fires.
-	var decodeDone chan struct{}
 	if wt, ok := t.(*WebRTCTransport); ok {
-		decodeDone = make(chan struct{})
-		go decodeOpusLoop(session, wt.opusBackend, decodeDone)
+		conn.decodeDone = make(chan struct{})
+		go decodeOpusLoop(session, wt.opusBackend, conn.decodeDone)
 	}
 
 	toggleVAD()
@@ -686,9 +660,9 @@ func runRealtimeSession(application *application.Application, t Transport, model
 	// with window/hop configured, the server classifies the last window of
 	// streamed audio on a timer, so the client only has to stream (no commits).
 	// This runs independent of VAD (sound events are not speech).
-	var soundWindowDone chan struct{}
 	if soundOnly && session.SoundDetectionWindowMs > 0 && session.SoundDetectionHopMs > 0 {
-		soundWindowDone = make(chan struct{})
+		conn.soundWindowDone = make(chan struct{})
+		soundWindowDone := conn.soundWindowDone
 		wg.Go(func() {
 			handleSoundWindow(session, t, soundWindowDone)
 		})
@@ -833,11 +807,9 @@ func runRealtimeSession(application *application.Application, t Transport, model
 				ItemID:          generateItemID(),
 			})
 
-			respCtx, respDone := session.startResponse(context.Background())
-			go func() {
-				defer close(respDone)
-				commitUtterance(respCtx, allAudio, session, conversation, t)
-			}()
+			session.respSink.issue(context.Background(), respcoord.SourceClient, func(ctx context.Context) {
+				commitUtterance(ctx, allAudio, session, conversation, t)
+			})
 
 		case types.InputAudioBufferClearEvent:
 			xlog.Debug("recv", "message", string(msg))
@@ -970,15 +942,14 @@ func runRealtimeSession(application *application.Application, t Transport, model
 				conversation.Lock.Unlock()
 			}
 
-			respCtx, respDone := session.startResponse(context.Background())
-			go func() {
-				defer close(respDone)
-				triggerResponse(respCtx, session, conversation, t, &e.Response)
-			}()
+			resp := e.Response
+			session.respSink.issue(context.Background(), respcoord.SourceClient, func(ctx context.Context) {
+				triggerResponse(ctx, session, conversation, t, &resp)
+			})
 
 		case types.ResponseCancelEvent:
 			xlog.Debug("recv", "message", string(msg))
-			session.cancelActiveResponse()
+			session.respSink.cancel(respcoord.SourceClient)
 
 		default:
 			xlog.Error("unknown message type")
@@ -986,28 +957,11 @@ func runRealtimeSession(application *application.Application, t Transport, model
 		}
 	}
 
-	// Cancel any in-flight response before tearing down
-	session.cancelActiveResponse()
-
-	// Stop the Opus decode goroutine (if running)
-	if decodeDone != nil {
-		close(decodeDone)
-	}
-
-	// Signal any running VAD goroutine to exit.
-	if vadServerStarted {
-		close(done)
-	}
-	// Stop the server-side sound-detection windowing goroutine (if running).
-	if soundWindowDone != nil {
-		close(soundWindowDone)
-	}
-	wg.Wait()
-
-	// Remove the session from the sessions map
-	sessionLock.Lock()
-	delete(sessions, sessionID)
-	sessionLock.Unlock()
+	// Tear down through the connection coordinator (once). It stops any running
+	// VAD goroutine, then the opus-decode and sound-window goroutines, joins them,
+	// cancels the in-flight response and drains all response goroutines, and
+	// finally removes the session — all in dependency order, exactly once.
+	conn.close()
 }
 
 // sendEvent sends a server event via the transport, logging any errors.
@@ -1332,10 +1286,20 @@ func handleVAD(session *Session, conv *Conversation, t Transport, done chan stru
 	}
 
 	lts := newLiveTurnState(session, t)
-	defer lts.discardTurn()
-
-	speechStarted := false
 	startTime := time.Now()
+
+	// M2 turn-detection state machine. "Speech started" and "a turn's live ASR
+	// stream is open" are ONE coordinator state (Idle/Speaking), so they cannot
+	// desync the way the legacy speechStarted bool and lts.open() could (Part 2,
+	// failure mode 4). See realtime_turncoord.go and turncoord/.
+	sink := newTurnSink(session, conv, t, lts, vadContext, startTime)
+	// Teardown: end any open turn through the coordinator (DiscardTurn closes the
+	// live stream; no-op if already idle). Replaces the bare lts.discardTurn().
+	defer func() {
+		if err := sink.coord.Apply(turncoord.Abort{Reason: turncoord.AbortTeardown}); err != nil {
+			xlog.Error("turncoord: abort(teardown) failed", "error", err)
+		}
+	}()
 
 	ticker := time.NewTicker(300 * time.Millisecond)
 	defer ticker.Stop()
@@ -1356,8 +1320,15 @@ func handleVAD(session *Session, conv *Conversation, t Transport, done chan stru
 				session.ModelConfig.Pipeline.TurnDetectionRetranscribe()
 			sessionLock.Unlock()
 
+			// The turn coordinator's data-heavy effects (OpenTurn/CommitTurn)
+			// need this tick's mode; set it before any Apply below.
+			sink.sv = sv
+
 			// session.update switched semantic -> server mid-turn: drop the
-			// orphaned live stream.
+			// orphaned live stream. This is NOT a turn abort — the turn continues
+			// under server_vad (a config change must not cut off a mid-utterance
+			// speaker), so the coordinator stays Speaking; only the orphaned live
+			// stream is closed.
 			if sv == nil && lts.open() {
 				lts.discardTurn()
 			}
@@ -1409,32 +1380,28 @@ func handleVAD(session *Session, conv *Conversation, t Transport, done chan stru
 				session.InputAudioBuffer = dropInspectedPrefix(session.InputAudioBuffer, len(allAudio), holdback)
 				session.AudioBufferLock.Unlock()
 
-				if sv != nil {
-					lts.discardTurn()
+				// No-speech clear: end any open turn (Speaking -> Idle, discarding
+				// the partial). Returning to Idle is the fix for failure mode 4 —
+				// the legacy discardTurn left speechStarted true, suppressing the
+				// next onset. Idle while not speaking is a no-op.
+				if err := sink.coord.Apply(turncoord.Abort{Reason: turncoord.AbortNoSpeech}); err != nil {
+					xlog.Error("turncoord: abort(no_speech) failed", "error", err)
 				}
 				continue
 			} else if len(segments) == 0 {
 				continue
 			}
 
-			// Speech began: start the turn's live stream and feed it the
-			// buffered prefix (including this tick's audio).
-			if sv != nil && !lts.open() && lts.openTurn(vadContext) {
-				lts.feedNewAudio(aints)
-			}
-
-			if !speechStarted {
-				// Barge-in: cancel any in-flight response so we stop
-				// sending audio and don't keep the interrupted reply in history.
-				session.cancelActiveResponse()
-
-				sendEvent(t, types.InputAudioBufferSpeechStartedEvent{
-					ServerEventBase: types.ServerEventBase{
-						EventID: "event_TODO",
-					},
-					AudioStartMs: time.Since(startTime).Milliseconds(),
-				})
-				speechStarted = true
+			// Speech detected this tick: open the turn (Idle -> Speaking) through
+			// the coordinator. On that transition it opens the turn's live ASR
+			// stream + feeds the buffered prefix (OpenTurn), cancels any in-flight
+			// response (BargeIn, non-blocking — the VAD tick is never stalled), and
+			// emits speech_started. While already Speaking it is a no-op, so "turn
+			// open" and "speech started" can never disagree. The turn id is minted
+			// here and carried by the coordinator through to the committed event.
+			sink.onsetAudio = aints
+			if err := sink.coord.Apply(turncoord.Onset{Turn: turncoord.TurnID(generateItemID())}); err != nil {
+				xlog.Error("turncoord: onset failed", "error", err)
 			}
 
 			if sv != nil {
@@ -1503,48 +1470,19 @@ func handleVAD(session *Session, conv *Conversation, t Transport, done chan stru
 				session.InputAudioBuffer = dropInspectedPrefix(session.InputAudioBuffer, len(allAudio), 0)
 				session.AudioBufferLock.Unlock()
 
-				sendEvent(t, types.InputAudioBufferSpeechStoppedEvent{
-					ServerEventBase: types.ServerEventBase{
-						EventID: "event_TODO",
-					},
-					AudioEndMs: time.Since(startTime).Milliseconds(),
-				})
-				speechStarted = false
-
-				// The committed item id must match the id the live caption
-				// deltas were streamed under, so the client's completed
-				// event replaces the partial text instead of duplicating it.
-				turnItemID := lts.itemID
-				if turnItemID == "" {
-					turnItemID = generateItemID()
+				// Commit the turn through the coordinator: it emits speech_stopped
+				// (EmitSpeechStopped) then the committed event, finalizes the live
+				// stream, and issues the response (CommitTurn). The committed item
+				// id is the coordinator's turn id (== the id the live captions
+				// streamed under), so the client replaces the partial text.
+				sink.commitAudio = sound.Int16toBytesLE(aints)
+				sink.commitAudioLength = audioLength
+				sink.commitRetranscribe = retranscribe
+				sink.commitGated = gated
+				// TODO: Remove prefix silence that is over TurnDetectionParams.PrefixPaddingMs
+				if err := sink.coord.Apply(turncoord.Silence{}); err != nil {
+					xlog.Error("turncoord: commit failed", "error", err)
 				}
-
-				sendEvent(t, types.InputAudioBufferCommittedEvent{
-					ServerEventBase: types.ServerEventBase{
-						EventID: "event_TODO",
-					},
-					ItemID:         turnItemID,
-					PreviousItemID: "TODO",
-				})
-
-				// Finalize the turn's live stream (flushes the decode tail).
-				// In retranscribe mode the batch decode is the authoritative
-				// transcript, so the streamed one is dropped.
-				var live *liveUtterance
-				if sv != nil {
-					ut := lts.finishTurn(audioLength)
-					if !retranscribe {
-						live = ut
-					}
-				}
-
-				abytes := sound.Int16toBytesLE(aints)
-				// TODO: Remove prefix silence that is is over TurnDetectionParams.PrefixPaddingMs
-				respCtx, respDone := session.startResponse(vadContext)
-				go func() {
-					defer close(respDone)
-					commitUtteranceWithTranscript(respCtx, abytes, live, gated, turnItemID, session, conv, t)
-				}()
 			}
 		}
 	}
@@ -1956,14 +1894,100 @@ func generateResponse(ctx context.Context, session *Session, utt []byte, transcr
 // without another response cycle.
 const maxAssistantToolTurns = 10
 
+// responseOutcome is how a response ended, decided by the response body and
+// read once by triggerResponse to emit the single terminal event.
+type responseOutcome int
+
+const (
+	outcomeCompleted responseOutcome = iota
+	outcomeCancelled
+	outcomeFailed // an error event was already sent; emit no terminal (legacy behavior)
+)
+
+// liveResponse accumulates the wire-visible result of ONE response.create across
+// the whole agentic tool-turn recursion: a single id, the output items as they
+// complete, the summed token usage, and the final outcome. triggerResponse owns
+// it; triggerResponseAtTurn / streamLLMResponse / emitToolCallItems fill it in.
+// This is what makes "exactly one response.done per response.create, with Output
+// and Usage populated" true — the body no longer emits per-turn terminals.
+type liveResponse struct {
+	id      string
+	output  []types.MessageItemUnion
+	usage   backend.TokenUsage
+	outcome responseOutcome
+}
+
+func (r *liveResponse) addItem(it types.MessageItemUnion) { r.output = append(r.output, it) }
+
+func (r *liveResponse) addUsage(u backend.TokenUsage) {
+	r.usage.Prompt += u.Prompt
+	r.usage.Completion += u.Completion
+}
+
+// responseUsage maps the backend's token counts onto the OpenAI Realtime
+// response.usage shape. Returns nil when there is nothing to report so the
+// field is omitted rather than sent as zeros.
+func responseUsage(u backend.TokenUsage) *types.TokenUsage {
+	if u.Prompt == 0 && u.Completion == 0 {
+		return nil
+	}
+	return &types.TokenUsage{
+		InputTokens:  u.Prompt,
+		OutputTokens: u.Completion,
+		TotalTokens:  u.Prompt + u.Completion,
+	}
+}
+
 func triggerResponse(ctx context.Context, session *Session, conv *Conversation, t Transport, overrides *types.ResponseCreateParams) {
-	triggerResponseAtTurn(ctx, session, conv, t, overrides, 0)
+	// One response.created and one response.done per response.create — even when
+	// the server-side tool loop runs several inference turns. The per-turn
+	// terminals the legacy code emitted (one response.done per turn, with empty
+	// Output/Usage) are gone; tool turns are now internal to this single response.
+	r := &liveResponse{id: generateUniqueID()}
+	sendEvent(t, types.ResponseCreatedEvent{
+		ServerEventBase: types.ServerEventBase{},
+		Response: types.Response{
+			ID:     r.id,
+			Object: "realtime.response",
+			Status: types.ResponseStatusInProgress,
+		},
+	})
+
+	triggerResponseAtTurn(ctx, session, conv, t, overrides, 0, r)
+
+	switch r.outcome {
+	case outcomeCancelled:
+		sendEvent(t, types.ResponseDoneEvent{
+			ServerEventBase: types.ServerEventBase{},
+			Response: types.Response{
+				ID:     r.id,
+				Object: "realtime.response",
+				Status: types.ResponseStatusCancelled,
+				Output: r.output,
+			},
+		})
+	case outcomeFailed:
+		// A specific error event was already sent; emit no terminal (matches the
+		// legacy behavior where failed responses had no response.done).
+	default:
+		sendEvent(t, types.ResponseDoneEvent{
+			ServerEventBase: types.ServerEventBase{},
+			Response: types.Response{
+				ID:     r.id,
+				Object: "realtime.response",
+				Status: types.ResponseStatusCompleted,
+				Output: r.output,
+				Usage:  responseUsage(r.usage),
+			},
+		})
+	}
+
 	// Fold aged-out turns into the rolling memory off the critical path; the
 	// next turn reaps the smaller buffer.
 	session.maybeCompact(conv)
 }
 
-func triggerResponseAtTurn(ctx context.Context, session *Session, conv *Conversation, t Transport, overrides *types.ResponseCreateParams, toolTurn int) {
+func triggerResponseAtTurn(ctx context.Context, session *Session, conv *Conversation, t Transport, overrides *types.ResponseCreateParams, toolTurn int, r *liveResponse) {
 	config := session.ModelInterface.PredictConfig()
 
 	// Default values
@@ -2126,15 +2150,9 @@ func triggerResponseAtTurn(ctx context.Context, session *Session, conv *Conversa
 		images = append(images, m.StringImages...)
 	}
 
-	responseID := generateUniqueID()
-	sendEvent(t, types.ResponseCreatedEvent{
-		ServerEventBase: types.ServerEventBase{},
-		Response: types.Response{
-			ID:     responseID,
-			Object: "realtime.response",
-			Status: types.ResponseStatusInProgress,
-		},
-	})
+	// response.created/done are emitted once per response.create by triggerResponse;
+	// every turn (including agentic recursion) shares this id.
+	responseID := r.id
 
 	// Streamed LLM path: when the pipeline opts into LLM streaming, stream the
 	// transcript to the client as it is generated and synthesize the buffered
@@ -2150,7 +2168,7 @@ func triggerResponseAtTurn(ctx context.Context, session *Session, conv *Conversa
 			respMods = overrides.OutputModalities
 		}
 		if canStream && modalitiesContainAudio(resolveOutputModalities(session.OutputModalities, respMods)) {
-			if streamLLMResponse(ctx, session, conv, t, responseID, conversationHistory, images, config, tools, toolChoice, toolTurn) {
+			if streamLLMResponse(ctx, session, conv, t, r, conversationHistory, images, config, tools, toolChoice, toolTurn) {
 				return
 			}
 		}
@@ -2159,26 +2177,22 @@ func triggerResponseAtTurn(ctx context.Context, session *Session, conv *Conversa
 	predFunc, err := session.ModelInterface.Predict(ctx, conversationHistory, images, nil, nil, nil, tools, toolChoice, nil, nil, nil)
 	if err != nil {
 		sendError(t, "inference_failed", fmt.Sprintf("backend error: %v", err), "", "") // item.Assistant.ID is unknown here
+		r.outcome = outcomeFailed
 		return
 	}
 
 	pred, err := predFunc()
 	if err != nil {
 		sendError(t, "prediction_failed", fmt.Sprintf("backend error: %v", err), "", "")
+		r.outcome = outcomeFailed
 		return
 	}
+	r.addUsage(pred.Usage)
 
 	// Check for cancellation after LLM inference (barge-in may have fired)
 	if ctx.Err() != nil {
 		xlog.Debug("Response cancelled after LLM inference (barge-in)")
-		sendEvent(t, types.ResponseDoneEvent{
-			ServerEventBase: types.ServerEventBase{},
-			Response: types.Response{
-				ID:     responseID,
-				Object: "realtime.response",
-				Status: types.ResponseStatusCancelled,
-			},
-		})
+		r.outcome = outcomeCancelled
 		return
 	}
 
@@ -2338,18 +2352,12 @@ func triggerResponseAtTurn(ctx context.Context, session *Session, conv *Conversa
 			conv.Lock.Unlock()
 		}
 
-		// sendCancelledResponse emits the cancelled status and cleans up the
-		// assistant item so the interrupted reply is not in chat history.
+		// sendCancelledResponse records the cancelled outcome (triggerResponse
+		// emits the single terminal) and cleans up the partial assistant item so
+		// the interrupted reply is not in chat history.
 		sendCancelledResponse := func() {
 			removeItemFromConv(item.Assistant.ID)
-			sendEvent(t, types.ResponseDoneEvent{
-				ServerEventBase: types.ServerEventBase{},
-				Response: types.Response{
-					ID:     responseID,
-					Object: "realtime.response",
-					Status: types.ResponseStatusCancelled,
-				},
-			})
+			r.outcome = outcomeCancelled
 		}
 
 		var audioString string
@@ -2398,6 +2406,7 @@ func triggerResponseAtTurn(ctx context.Context, session *Session, conv *Conversa
 				}
 				xlog.Error("TTS failed", "error", err)
 				sendError(t, "tts_error", fmt.Sprintf("TTS generation failed: %v", err), "", item.Assistant.ID)
+				r.outcome = outcomeFailed
 				return
 			}
 			if !isWebRTC {
@@ -2455,12 +2464,13 @@ func triggerResponseAtTurn(ctx context.Context, session *Session, conv *Conversa
 			OutputIndex:     0,
 			Item:            item,
 		})
+		r.addItem(item)
 	}
 
-	// Emit the parsed tool calls, the terminal response.done, and (for
-	// server-side assistant tools) the follow-up response. Shared with the
-	// streamed path so both finalize tool calls identically.
-	emitToolCallItems(ctx, session, conv, t, responseID, finalToolCalls, finalSpeech != "", toolTurn)
+	// Emit the parsed tool calls and (for server-side assistant tools) the
+	// follow-up turn. Shared with the streamed path so both finalize tool calls
+	// identically. The single terminal is emitted by triggerResponse.
+	emitToolCallItems(ctx, session, conv, t, r, finalToolCalls, finalSpeech != "", toolTurn)
 }
 
 // emitToolCallItems emits the realtime function_call items for the parsed tool
@@ -2474,7 +2484,8 @@ func triggerResponseAtTurn(ctx context.Context, session *Session, conv *Conversa
 //   - All other tools follow the standard OpenAI flow: emit
 //     function_call_arguments.done and wait for the client to send
 //     conversation.item.create back.
-func emitToolCallItems(ctx context.Context, session *Session, conv *Conversation, t Transport, responseID string, toolCalls []functions.FuncCallResults, hasContent bool, toolTurn int) {
+func emitToolCallItems(ctx context.Context, session *Session, conv *Conversation, t Transport, r *liveResponse, toolCalls []functions.FuncCallResults, hasContent bool, toolTurn int) {
+	responseID := r.id
 	xlog.Debug("About to handle tool calls", "finalToolCallsCount", len(toolCalls))
 	executedAssistantTool := false
 	for i, tc := range toolCalls {
@@ -2537,6 +2548,7 @@ func emitToolCallItems(ctx context.Context, session *Session, conv *Conversation
 				OutputIndex:     outputIndex,
 				Item:            fcItem,
 			})
+			r.addItem(fcItem)
 			sendEvent(t, types.ResponseOutputItemAddedEvent{
 				ServerEventBase: types.ServerEventBase{},
 				ResponseID:      responseID,
@@ -2549,6 +2561,7 @@ func emitToolCallItems(ctx context.Context, session *Session, conv *Conversation
 				OutputIndex:     outputIndex,
 				Item:            foItem,
 			})
+			r.addItem(foItem)
 			executedAssistantTool = true
 			continue
 		}
@@ -2578,28 +2591,25 @@ func emitToolCallItems(ctx context.Context, session *Session, conv *Conversation
 			OutputIndex:     outputIndex,
 			Item:            fcItem,
 		})
+		r.addItem(fcItem)
 	}
 
-	sendEvent(t, types.ResponseDoneEvent{
-		ServerEventBase: types.ServerEventBase{},
-		Response: types.Response{
-			ID:     responseID,
-			Object: "realtime.response",
-			Status: types.ResponseStatusCompleted,
-		},
-	})
+	// No terminal here: triggerResponse emits the single response.done once the
+	// whole turn (including the agentic recursion below) completes.
 
 	// If we executed any assistant tools inproc, run another response cycle
 	// so the model can speak the result. Mirrors the chat-side agentic loop
 	// but driven server-side rather than by client round-trip. Bounded so a
-	// degenerate "model keeps calling tools" doesn't blow the stack.
+	// degenerate "model keeps calling tools" doesn't blow the stack. The
+	// follow-up turn shares the same liveResponse, so its output accumulates
+	// into the one response.done.
 	if executedAssistantTool {
 		if toolTurn+1 >= maxAssistantToolTurns {
 			xlog.Warn("realtime: assistant tool-turn limit reached, stopping the agentic loop",
 				"limit", maxAssistantToolTurns, "model", session.Model)
 			return
 		}
-		triggerResponseAtTurn(ctx, session, conv, t, nil, toolTurn+1)
+		triggerResponseAtTurn(ctx, session, conv, t, nil, toolTurn+1, r)
 	}
 }
 
