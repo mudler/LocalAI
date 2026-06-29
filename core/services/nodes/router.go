@@ -68,6 +68,13 @@ type SmartRouterOptions struct {
 	// the absolute model paths untouched so the worker loads them directly from
 	// the shared volume (#10556). See config.DistributedConfig.SharedModels.
 	SharedModels bool
+	// ModelLoadCeiling is the hard upper bound on how long a single cold-load
+	// attempt (node selection -> backend install -> file staging -> LoadModel)
+	// may run while holding the per-model advisory lock. It backstops every
+	// sub-step's own timeout so a wedged worker can never pin the lock - and
+	// every other replica's request for that model - indefinitely. Zero selects
+	// defaultModelLoadCeiling.
+	ModelLoadCeiling time.Duration
 }
 
 // SmartRouter routes inference requests to the best available backend node.
@@ -101,7 +108,17 @@ type SmartRouter struct {
 	// sharedModels skips file staging when all nodes mount the same models
 	// directory at the same path (see SmartRouterOptions.SharedModels).
 	sharedModels bool
+	// modelLoadCeiling bounds how long a cold load may hold the per-model
+	// advisory lock (see SmartRouterOptions.ModelLoadCeiling).
+	modelLoadCeiling time.Duration
 }
+
+// defaultModelLoadCeiling is the fallback hold ceiling for a cold model load.
+// It must comfortably exceed the slowest legitimate load - a multi-GB backend
+// install (DefaultBackendInstallTimeout, 15m) plus staging and the remote
+// LoadModel (5m) - so it never cuts a real load short; it only ever fires when
+// a step is genuinely wedged (e.g. a worker that died mid-install).
+const defaultModelLoadCeiling = 25 * time.Minute
 
 // probeCacheTTL is how long a successful gRPC HealthCheck on a backend is
 // trusted before the next request re-probes. Matches healthCheckTTL in
@@ -117,6 +134,10 @@ func NewSmartRouter(registry ModelRouter, opts SmartRouterOptions) *SmartRouter 
 	if factory == nil {
 		factory = &tokenClientFactory{token: opts.AuthToken}
 	}
+	ceiling := opts.ModelLoadCeiling
+	if ceiling <= 0 {
+		ceiling = defaultModelLoadCeiling
+	}
 	return &SmartRouter{
 		registry:         registry,
 		unloader:         opts.Unloader,
@@ -131,6 +152,7 @@ func NewSmartRouter(registry ModelRouter, opts SmartRouterOptions) *SmartRouter 
 		prefixConfig:     opts.PrefixConfig,
 		pressure:         opts.Pressure,
 		sharedModels:     opts.SharedModels,
+		modelLoadCeiling: ceiling,
 	}
 }
 
@@ -383,11 +405,19 @@ func (r *SmartRouter) Route(ctx context.Context, modelID, modelName, backendType
 	// the request context. If staging were bound to it, the multi-GB upload
 	// aborts with "context canceled" mid-transfer and large models can never
 	// finish staging (the model-load outage). WithoutCancel keeps the request's
-	// values (prefix chain, etc.) but drops its cancellation/deadline. Each
-	// long step still has its own bound (the file stager's resume budget,
-	// LoadModel's 5m timeout), and the per-model advisory lock below de-dupes
-	// concurrent loaders across replicas.
-	loadCtx := context.WithoutCancel(ctx)
+	// values (prefix chain, etc.) but drops its cancellation/deadline.
+	//
+	// Detaching from the caller is necessary, but it must not be unbounded: the
+	// load runs while holding the per-model advisory lock, and a worker that
+	// dies mid-install (its backend.install never replies) would otherwise pin
+	// that lock (and every other replica's request for the same model) until
+	// the NATS install deadline alone expires. Re-impose a single hard ceiling
+	// over the whole sequence so the lock is always released in bounded time,
+	// even if a sub-step wedges. Each long step still has its own (tighter)
+	// bound; this only backstops them. The per-model advisory lock below
+	// de-dupes concurrent loaders across replicas.
+	loadCtx, cancelLoad := context.WithTimeout(context.WithoutCancel(ctx), r.modelLoadCeiling)
+	defer cancelLoad()
 	loadModel := func(ctx context.Context) (*RouteResult, error) {
 		// Re-check after acquiring lock — another request may have loaded it
 		node, nm, err := r.registry.FindAndLockNodeWithModel(ctx, trackingKey, candidateNodeIDs, pref)
@@ -916,7 +946,14 @@ func (r *SmartRouter) installBackendOnNode(ctx context.Context, node *BackendNod
 	}
 
 	key := fmt.Sprintf("%s|%s|%s|%d", node.ID, backendType, modelID, replicaIndex)
-	v, err, _ := r.installFlight.Do(key, func() (any, error) {
+	// DoChan rather than Do so this wait honors ctx cancellation. InstallBackend
+	// blocks for its full NATS deadline (15m by default) when a worker accepts
+	// the request but never replies (e.g. it died mid-install). Without ctx
+	// awareness the caller (holding the per-model advisory lock) would sit there
+	// the whole time; here a cancelled ctx (typically the model-load ceiling)
+	// frees the caller promptly. The shared install keeps running in the
+	// background and still coalesces other callers via singleflight.
+	resCh := r.installFlight.DoChan(key, func() (any, error) {
 		reply, err := r.unloader.InstallBackend(node.ID, backendType, modelID, r.galleriesJSON, "", "", "", replicaIndex, "", nil)
 		if err != nil {
 			return "", err
@@ -931,10 +968,15 @@ func (r *SmartRouter) installBackendOnNode(ctx context.Context, node *BackendNod
 		}
 		return addr, nil
 	})
-	if err != nil {
-		return "", err
+	select {
+	case <-ctx.Done():
+		return "", ctx.Err()
+	case res := <-resCh:
+		if res.Err != nil {
+			return "", res.Err
+		}
+		return res.Val.(string), nil
 	}
-	return v.(string), nil
 }
 
 func (r *SmartRouter) buildClientForAddr(node *BackendNode, addr string, parallel bool) grpc.Backend {

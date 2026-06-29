@@ -356,6 +356,12 @@ func initDistributed(cfg *config.ApplicationConfig, authDB *gorm.DB, configLoade
 		PrefixConfig:     prefixCfg,
 		Pressure:         pressure,
 		SharedModels:     cfg.Distributed.SharedModels,
+		// Cap how long a cold load may hold the per-model advisory lock: the
+		// configured backend.install deadline plus a margin for file staging and
+		// the remote LoadModel. Derived from the install timeout so raising it
+		// (for slow links pulling multi-GB images) widens the ceiling too,
+		// instead of letting the static default cut a legitimately slow load.
+		ModelLoadCeiling: cfg.Distributed.BackendInstallTimeoutOrDefault() + 10*time.Minute,
 	})
 
 	// Wire staging-progress broadcasting so file-staging shows up on every

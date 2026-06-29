@@ -130,6 +130,20 @@ func WithLockCtx(ctx context.Context, db *gorm.DB, key int64, fn func() error) e
 	}
 	defer conn.Close()
 
+	// Neutralize any deployment-wide lock_timeout on this dedicated connection.
+	// Operators commonly set a short global lock_timeout (on the role or
+	// database) to bound ordinary row-lock waits. Applied to the blocking
+	// pg_advisory_lock below, it aborts the wait with SQLSTATE 55P03 and turns
+	// LocalAI's intentional cross-replica "wait your turn, then re-check"
+	// coordination into a hard error for the caller (e.g. a chat request that
+	// just wanted to reuse a model another replica is loading). Let the Go
+	// context be the single source of truth for how long we wait instead.
+	if _, err := conn.ExecContext(ctx, "SET lock_timeout = 0"); err != nil {
+		return fmt.Errorf("advisorylock: disabling lock_timeout: %w", err)
+	}
+	// Restore the session default before this pooled connection is reused.
+	defer func() { _, _ = conn.ExecContext(context.Background(), "RESET lock_timeout") }()
+
 	if _, err := conn.ExecContext(ctx, "SELECT pg_advisory_lock($1)", key); err != nil {
 		return fmt.Errorf("advisorylock: acquiring lock %d: %w", key, err)
 	}
