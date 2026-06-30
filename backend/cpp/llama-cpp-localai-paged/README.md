@@ -86,7 +86,7 @@ orthogonal to the paged allocator.
 
 ---
 
-## 3. Patch series (0001-0044)
+## 3. Patch series (0001-0047)
 
 Source-only patches, with intentional numbering gaps (e.g. 0005, 0027). The
 decode-serving graph-reuse levers are 0040-0041. "Bit-exact" = greedy md5 /
@@ -188,8 +188,9 @@ These are the dominant decode levers on the Qwen3.6 hybrid models. All bit-exact
 | 0024 | **Paged-pool burst-reclaim** - truncate trailing blocks on partial-tail `seq_rm`, defrag the free queue when idle, release blocks on slot completion. Fixes the long-server burst-degradation bug (post-burst prefill collapse 488->44 t/s, restored to 532). Host-side accounting only. | yes |
 | 0029 | **Block-table within-step host cache** - the block table is fixed for the whole step; cache it on first build and memcpy it for the other full-attention layers (get_block_table -87%/-91%). | yes, per path (paged-MoE ref `8cb0ce23`) |
 | 0030 | **Fused-op backend gate** - the fused GDN / discriminated SSM_CONV ops are CUDA-family + CPU only; force them off on any non-CUDA compute backend so a Vulkan/SYCL/Metal build can't silently run the wrong plain-conv kernel. | yes on CUDA (byte-identical pre-0030); safety gate elsewhere |
-| 0031 | **Chunked parallel-scan GDN prefill kernel** (upstream TODO) - FLA-style chunked gated-delta-rule for prefill (non-KDA / f32 / final-state): intra-chunk delta rule solved in parallel (UT-transform + forward subst), inter-chunk recurrence over n_tokens/C steps. The scalar-serial form (`GDN_TC=0`) was bit-exact-benign but not faster than the tuned sequential scan at the GB10-forced C=16 (see section 5); **superseded for paged by the tensor-core M5 path of 0044**. | NEW per-path (`test-backend-ops` 91/91, <=1e-7 NMSE vs CPU ref) |
-| 0044 | **GDN M5 tensor-core chunked-scan prefill, default-ON under paged KV** - the tensor-core forms of 0031's scan (KK/QK Gram, KS/QS state-boundary, P*U output, full form-T solve + state-update mma = M5; plus register-resident M6/M7 and CONFIG-C M8), single build, runtime-selected by `GDN_TC`. Ships **M5 default-on when `LLAMA_KV_PAGED` is set** (`GDN_TC=5` + `GDN_CHUNK_MIN=64`, both env-overridable; OFF/`INT_MAX` when not paged). `GDN_CHUNK_MIN` is the per-call engage threshold and stays > 1 so decode (1 tok/call) keeps the sequential recurrence (at 1 it swallows decode and drops S_TG ~25%); 64 tuned from a {1,32,64,128,256} sweep. MoE prefill S_PP +3.5% @npp512 (3x A/B), +17.7% @npp2048; decode S_TG unchanged. | NEW per-path, benign (`test-backend-ops` 94/94 incl. multi-chunk; greedy md5 default-on == M5-forced == canonical on the gate prompt: paged-MoE `8cb0ce23`, dense `5951a5b4`; long MoE prompt = one benign greedy flip vs sequential, dense byte-identical) |
+| 0031 | **Chunked parallel-scan GDN prefill kernel** (upstream TODO) - FLA-style chunked gated-delta-rule for prefill (non-KDA / f32 / final-state): intra-chunk delta rule solved in parallel (UT-transform + forward subst), inter-chunk recurrence over n_tokens/C steps. The scalar-serial form (`GDN_TC=0`) was bit-exact-benign but not faster than the tuned sequential scan at the GB10-forced C=16 (see section 5); **superseded for paged by the tensor-core M5 path of 0047**. | NEW per-path (`test-backend-ops` 91/91, <=1e-7 NMSE vs CPU ref) |
+| 0047 | **GDN M5 tensor-core chunked-scan prefill, f32-only re-port, default-ON under paged KV** - the f32/tf32 tensor-core forms of 0031's scan (KK/QK Gram = M2, KS/QS state-boundary 3xtf32 = M3, P*U output = M4, full form-T solve + state-update mma = M5), single build, runtime-selected by `GDN_TC`. Ships **M5 default-on when `LLAMA_KV_PAGED` is set** (`GDN_TC=5` + `GDN_CHUNK_MIN=64`, both env-overridable; OFF/`INT_MAX` when not paged). `GDN_CHUNK_MIN` is the per-call engage threshold and stays > 1 so decode (1 tok/call) keeps the sequential recurrence (at 1 it swallows decode and drops S_TG ~25%); 64 tuned from a {1,32,64,128,256} sweep. The bf16/hybrid dev-tree machinery (STATE_BF16/HYBRID, the dropped 0026 ssm_bf16_tau) and the bf16 CONFIG-C (M8) plus register-resident M6/M7 variants are NOT part of this f32-only series. MoE prefill S_PP +3.5% @npp512 (3x A/B), +17.7% @npp2048; decode S_TG unchanged. | NEW per-path, benign (`test-backend-ops` GATED_DELTA_NET 46/46 default AND force-M5, incl. multi-chunk/tail-chunk/multi-seq; greedy md5 default-on == M5-forced == canonical on the gate prompt: paged-MoE `8cb0ce23`, dense `5951a5b4`; long MoE prompt = one benign greedy flip vs sequential, dense byte-identical) |
+| 0046 | **GDN prefill geometry gated by scan length** - patch 0022's `(NUM_WARPS=16, COLS_PER_WARP=8)` column-fold of the GDN sequential-recurrence dispatch (`case 128`) is a decode win but was applied UNCONDITIONALLY, so it also hit dense prefill (~-6% vs stock): on a long sequential scan the launch `grid.z` collapses from `S_v/4 = 32` to `S_v/(16*8) = 1` and the SMs starve (profiled: `gated_delta_net` +54% GPU time = the whole dense-prefill regression). Gate the geometry by per-call scan length: long scans (prefill, `n_tokens >= GDN_PREFILL_NTOK`, default 256) take stock's high-grid.z `(4,1)` geometry; short scans (decode) keep the `(16,8)` retune. Recovers dense prefill +7.2% back to stock parity, keeps the decode win. `GDN_PREFILL_NTOK` tunes the crossover; an explicit `GDN_NW`/`GDN_CPW` sweep still overrides (gate yields when either is set), so the one-build %peak A/B harness is unchanged. | yes (patch 0022 proved every `{NW,CPW}` variant byte-identical, so switching geometry by scan length cannot move the md5) |
 
 > **Dropped: patch 0026 (hybrid per-head bf16 SSM state, `ssm_bf16_tau`).** Once
 > the decode fusions (0028 recurrent-state gather-fusion + 0029 block-table cache)
@@ -371,7 +372,7 @@ llama is losing. The MoE GEMM kernel is *not* where the gap lives.
   (The "the win was NVFP4-dense-quant, not the Marlin kernel" dense verdict
   carries over to MoE.)
 - **Chunked parallel-scan GDN prefill (patch 0031): the scalar-serial form was
-  FLAT-to-SLOWER at C=16 - the tensor-core M5 form (patch 0044) is the win,
+  FLAT-to-SLOWER at C=16 - the tensor-core M5 form (patch 0047) is the win,
   now DEFAULT-ON under paged KV.** 0031 implements the upstream "faster pre-fill"
   TODO - the FLA-style chunked gated-delta-rule (intra-chunk delta rule solved in
   parallel via the UT-transform + forward substitution, inter-chunk recurrence
@@ -382,10 +383,12 @@ llama is losing. The MoE GEMM kernel is *not* where the gap lives.
   pinned to 1 block/SM with serial per-thread dk-reductions and measured **~761
   t/s chunked vs ~971 t/s sequential (~22% slower)**, grid-starved at low n_seqs.
   The lesson held: **at this head dim the win needs tensor cores, not just
-  chunking.** Patch 0044 builds those tensor-core forms (KK/QK Gram = M2, KS/QS
-  state-boundary = M3, P*U output = M4, full form-T solve + state-update mma =
-  M5; plus register-resident M6/M7 and CONFIG-C M8, all `GDN_TC`-selected in one
-  build) and ships **M5** as the default when `LLAMA_KV_PAGED` is set. M5 is the
+  chunking.** Patch 0047 builds those tensor-core forms (KK/QK Gram = M2, KS/QS
+  state-boundary 3xtf32 = M3, P*U output = M4, full form-T solve + state-update
+  mma = M5, all `GDN_TC`-selected in one build) and ships **M5** as the default
+  when `LLAMA_KV_PAGED` is set. It is an f32/tf32-only re-port: the bf16/hybrid
+  dev-tree machinery (from the dropped 0026 ssm_bf16_tau) and the bf16 CONFIG-C
+  (M8) plus register-resident M6/M7 variants are NOT part of this series. M5 is the
   variant that beats the (already 84.7%-of-peak) sequential scan while staying on
   the bit-exact gate: MoE prefill S_PP **+3.5% @npp512 (3x interleaved A/B), +17.7%
   @npp2048**; decode S_TG unchanged (the tuned `GDN_CHUNK_MIN=64` engage threshold
@@ -398,9 +401,28 @@ llama is losing. The MoE GEMM kernel is *not* where the gap lives.
   a long MoE prompt (where the default fires M5 at >=64 tokens) M5 and the
   sequential path agree word-for-word until **one** benign greedy token-flip
   ("the User:" vs "the User's Request:"), the dense model not flipping at all -
-  the textbook reduction-order flip greedy amplifies, NMSE-validated. M6/M7/M8
-  remain env-selectable (`GDN_TC`/`GDN_CHUNK_C`/`GDN_DV_TILE`) for further tuning;
-  M5 is the shipped default because it wins without losing the canonical gate.
+  the textbook reduction-order flip greedy amplifies, NMSE-validated. The chunk
+  geometry stays env-selectable (`GDN_TC`/`GDN_CHUNK_C`/`GDN_DV_TILE`) for further
+  tuning; M5 is the shipped default because it wins without losing the canonical gate.
+- **GDN occupancy retune (patch 0022) was a decode win but an UNCONDITIONAL
+  dense-prefill regression - now gated by scan length (patch 0046).** Patch
+  0022's `(NUM_WARPS=16, COLS_PER_WARP=8)` column-fold of the GDN
+  sequential-recurrence dispatch (`case 128`) raises per-warp memory-level
+  parallelism on the short, wide DECODE scans (small `n_tokens`, large
+  `n_seqs`) - the measured +11.1% dense decode win. Applied unconditionally it
+  also hit the dense PREFILL path, where the scan is long and narrow: the launch
+  `grid.z` collapses from `S_v/4 = 32` to `S_v/(16*8) = 1`, the SMs starve, and
+  profiling attributed the whole ~-6% dense-prefill regression vs stock to
+  `gated_delta_net` (+54% GPU time at the (16,8) geometry). Patch 0046 gates the
+  geometry by per-call scan length: long scans (prefill,
+  `n_tokens >= GDN_PREFILL_NTOK`, default 256) take stock's high-grid.z `(4,1)`
+  geometry; short scans (decode) keep the `(16,8)` retune. That recovers dense
+  prefill +7.2% back to stock parity while keeping the decode win, and it is
+  bit-exact: patch 0022 already proved every selectable `{NUM_WARPS,
+  COLS_PER_WARP}` variant is byte-identical (the sweep cannot change the md5), so
+  switching geometry by scan length cannot move the greedy output. The explicit
+  `GDN_NW`/`GDN_CPW` one-build %peak sweep still overrides (the gate yields when
+  either is set), so the A/B harness is unchanged.
 
 **Opt-in bf16-SSM fast mode - DROPPED (was patch 0026, `ssm_bf16_tau`).** The
 design premise - that bf16 KL error concentrates in long-memory heads and can be
@@ -455,6 +477,11 @@ targeted is already recovered by the gather-fusion + block-table cache.
 
 ## 7. Pin + maintenance policy
 
+- **Canonical source = the fork branch `mudler/llama.cpp:localai-paged`.** The
+  vendored `patches/paged/*.patch` files are now generated (one `git format-patch`
+  per commit) from that branch, which is the pin commit plus the paged patch
+  commits in order, so there is no more hand-export drift between the dev tree and
+  the shipped series.
 - **Pinned to llama.cpp `9d5d882d`** (kept == the stock `llama-cpp` pin). The pin
   is advanced **only** by the manual pin-sync process (this section):
   rebase the source-only patch series onto the new tip, rebuild on GPU, pass the
