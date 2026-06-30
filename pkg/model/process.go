@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/hpcloud/tail"
+	"github.com/mudler/LocalAI/pkg/grpc/grpcerrors"
 	"github.com/mudler/LocalAI/pkg/signals"
 	process "github.com/mudler/go-processmanager"
 	"github.com/mudler/xlog"
@@ -52,10 +53,19 @@ func (ml *ModelLoader) deleteProcess(s string) error {
 		hook(s)
 	}
 
-	// Free GPU resources before stopping the process to ensure VRAM is released
+	// Free GPU resources before stopping the process to ensure VRAM is released.
+	// Free is optional: backends that don't override it (the generated stub, many
+	// Python/external backends, or a federation proxy in distributed mode) return
+	// gRPC Unimplemented. That is expected, not a failure — VRAM is reclaimed when
+	// the process is stopped below, or by the remote unloader for remote backends —
+	// so don't surface it as an error.
 	xlog.Debug("Calling Free() to release GPU resources", "model", s)
 	if err := model.GRPC(false, ml.wd).Free(context.Background()); err != nil {
-		xlog.Warn("Error freeing GPU resources", "error", err, "model", s)
+		if grpcerrors.IsUnimplemented(err) {
+			xlog.Debug("Backend does not implement Free(); GPU release handled on process stop", "model", s)
+		} else {
+			xlog.Warn("Error freeing GPU resources", "error", err, "model", s)
+		}
 	}
 
 	process := model.Process()
