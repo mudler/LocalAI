@@ -1,6 +1,7 @@
 # Phase 7: Serving Source Candidate Scope
 
-**Status:** Test-gate patch landed. Production CUDA fusion not started.
+**Status:** Test-gate patch landed. First production CUDA fusion candidate
+rejected after DGX gates and serving A/B.
 
 **Goal:** Select one maintainable source candidate for the remaining GB10 MoE
 serving gap, then implement only if it can be gated for inference correctness and
@@ -142,8 +143,16 @@ to implementation when all are true:
 - [x] Run md5/op gates before serving A/B.
   - `MOE_SWIGLU_DOWN`: `7/7` on CUDA0.
   - Serving A/B is not applicable to this test-only patch.
-- [ ] Keep only if the serving bucket and h2h result improve materially.
-- [ ] Regenerate LocalAI patch stack and update docs if kept.
+- [x] Keep only if the serving bucket and h2h result improve materially.
+  - Rejected candidate: opt-in SWIGLU-down NVFP4 quantization fusion.
+  - Default path was protected behind `GGML_CUDA_FUSE_SWIGLU_DOWN_MMQ=1`.
+  - Default md5 gates stayed canonical, but the opt-in paged-MoE md5 changed
+    to the non-paged namespace (`07db32c2bcb78d17a43ed18bc22705cd`).
+  - Serving A/B was flat: default `decode_agg_tps=657.1`,
+    `decode_perseq_tps=3.92`, `prefill_tps=1456.0`; opt-in
+    `decode_agg_tps=667.4`, `decode_perseq_tps=3.88`, `prefill_tps=1462.9`.
+- [x] Regenerate LocalAI patch stack and update docs if kept.
+  - No production patch kept; only docs updated for the rejected candidate.
 
 ## Required Tests Before Track A Source Patch
 
@@ -182,6 +191,45 @@ DGX result after the adjustment:
 - Patch mirror applies cleanly to base pin `0ed235ea2c17a19fc8238668653946721ed136fd`
   and tree-matches fork head `cd56cf037`.
 - Mirrored tree hash: `623b7cb008a929455ca3d9deae35494c02622fef`.
+
+## Rejected Production Candidate: SWIGLU-Down MMQ Fusion
+
+Attempted a fork-first CUDA patch that fused `GGML_OP_GLU(SWIGLU)` into the
+NVFP4 activation quantization feeding the down-projection `MUL_MAT_ID`. The
+patch kept the existing grouped-MMQ kernel and only replaced the separate f32
+SWIGLU write/read plus down-input quantize pass.
+
+Root-cause note from the first failed op gate: the fused quantizer initially used
+the compact GLU output strides to read the split `gate`/`up` views. Those views
+stride over the original merged gate/up tensor, so the NVFP4 cases read wrong
+rows and failed at roughly `2.0` NMSE. Switching the fused quantizer to the
+source-view strides fixed the focused op gate.
+
+Final DGX artifacts live under `/home/mudler/bench/phase7_source_scope/`:
+
+- Forced fusion op gate:
+  `GGML_CUDA_FUSE_SWIGLU_DOWN_MMQ=1 test-backend-ops test -b CUDA0 -o MOE_SWIGLU_DOWN -j 1`
+  -> `7/7`.
+- Broad default op gate:
+  `test-backend-ops test -b CUDA0 -o MUL_MAT_ID -j 1` -> `806/806`.
+- Default inference md5 after protecting the fusion behind
+  `GGML_CUDA_FUSE_SWIGLU_DOWN_MMQ=1`:
+  - MoE: `8cb0ce23777bf55f92f63d0292c756b0`.
+  - Dense: `5951a5b4d624ce891e22ab5fca9bc439`.
+- Opt-in fusion inference md5:
+  - MoE: `07db32c2bcb78d17a43ed18bc22705cd` (not the canonical paged-MoE md5).
+  - Dense: `5951a5b4d624ce891e22ab5fca9bc439`.
+- Serving A/B, `n=128`, `ptok=128`, `gen=64`, `/v1/completions`,
+  `--no-cache`:
+  - default: `decode_agg_tps=657.1`, `decode_perseq_tps=3.92`,
+    `prefill_tps=1456.0`.
+  - opt-in: `decode_agg_tps=667.4`, `decode_perseq_tps=3.88`,
+    `prefill_tps=1462.9`.
+
+Verdict: reject the production patch. The opt-in path is not md5-safe for
+paged-MoE and the bounded serving A/B is effectively flat. Do not spend more
+time on this exact activation-quant fusion unless a future KL gate explicitly
+allows a new paged-MoE md5 namespace and a profile shows a material bucket win.
 
 ## Required Tests Before Track B Source Patch
 

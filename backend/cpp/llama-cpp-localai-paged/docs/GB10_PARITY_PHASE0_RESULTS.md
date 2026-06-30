@@ -578,3 +578,45 @@ Fresh DGX gates from `/home/mudler/bench/phase7_source_scope/`:
 
 The new gate covers the merged MoE gate_up -> SWIGLU -> down-projection graph
 shape needed before attempting a batched NVFP4 down-input quantization fusion.
+
+## Phase 7 SWIGLU-Down Fusion Candidate Rejected
+
+Attempted candidate: fuse `GGML_OP_GLU(SWIGLU)` into the NVFP4 activation
+quantization feeding the MoE down-projection `MUL_MAT_ID`, while keeping the
+existing grouped-MMQ kernel. The patch was kept behind
+`GGML_CUDA_FUSE_SWIGLU_DOWN_MMQ=1` during validation.
+
+DGX artifacts:
+
+- `/home/mudler/bench/phase7_source_scope/test_backend_ops_moe_swiglu_down_optin.txt`
+- `/home/mudler/bench/phase7_source_scope/test_backend_ops_mul_mat_id_after_optin.txt`
+- `/home/mudler/bench/phase7_source_scope/default_gates_after_optin/`
+- `/home/mudler/bench/phase7_source_scope/optin_gates/`
+- `/home/mudler/bench/phase7_source_scope/serving_ab/`
+
+Correctness and inference gates:
+
+- Forced fusion `MOE_SWIGLU_DOWN`: `7/7`.
+- Broad default `MUL_MAT_ID`: `806/806`.
+- Default md5 after opt-in gating stayed canonical:
+  - MoE `8cb0ce23777bf55f92f63d0292c756b0`.
+  - Dense `5951a5b4d624ce891e22ab5fca9bc439`.
+- Opt-in fusion md5:
+  - MoE `07db32c2bcb78d17a43ed18bc22705cd`.
+  - Dense `5951a5b4d624ce891e22ab5fca9bc439`.
+
+Serving A/B (`n=128`, `ptok=128`, `gen=64`, `/v1/completions`, `--no-cache`):
+
+| path | decode tok/s/seq | decode agg tok/s | prefill tok/s | verdict |
+|------|------------------|------------------|---------------|---------|
+| default | 3.92 | 657.1 | 1456.0 | baseline |
+| `GGML_CUDA_FUSE_SWIGLU_DOWN_MMQ=1` | 3.88 | 667.4 | 1462.9 | reject; md5 drift and flat A/B |
+
+Result:
+
+- Rejected as a production patch. The opt-in path changes the paged-MoE md5
+  into the non-paged namespace and does not materially improve serving.
+- Root-cause note for future attempts: the first fused-op gate failed because
+  the fused quantizer used compact GLU-output strides to read split `gate`/`up`
+  views. Split views stride over the merged gate/up tensor; using source-view
+  strides fixed the op gate but not the end-to-end md5 drift.

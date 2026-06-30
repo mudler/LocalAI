@@ -240,6 +240,14 @@ Organized by where the verified gap actually is. For each: mechanism / expected 
 - **Gate:** bit-exact if SiLU + accumulation order preserved → greedy md5 (else KL-gate).
 - **Risk:** HIGH (fused FP4 FFN kernel is complex; register pressure on sm_121a).
 - **Effort/reward: HIGH / MED-HIGH.** Strong but expensive; sequence after A1.
+- **Phase 7 shortcut rejected:** fusing only SWIGLU into the NVFP4
+  down-input quantization while reusing grouped-MMQ passed the focused op gate
+  (`MOE_SWIGLU_DOWN 7/7`) but changed paged-MoE md5 under opt-in
+  (`07db32c2...` vs canonical `8cb0ce23...`) and was flat in serving A/B
+  (`decode_agg_tps 657.1 → 667.4`, `decode_perseq_tps 3.92 → 3.88`).
+  Do not retry that partial fusion without a KL gate and a stronger profile
+  bucket. A real A4 remains a different, larger register/shared-resident FFN
+  kernel.
 
 ### A5. Activation-quant fusion into the 0042 residual/RMSNorm epilogue (prefill)
 - **Mechanism:** the README's "act-quant fusion FLAT" verdict was *decode-only*. For prefill the W4A4 activation-quantize pass is a bigger tensor. 0042 already fuses residual-add+RMSNorm+mul; extend its epilogue to emit the FP4-quantized activation the next GEMM consumes, removing a dedicated act-quant read+write.
@@ -490,4 +498,3 @@ Two profile surprises that reshape the directions: (a) vLLM on sm_121 is NOT nat
 Cross-cutting: the prefill levers (#101 GDN, D2 MoE GEMM) double as serving-decode levers because continuous batching interleaves ~25-55% prefill work into the serving step. GDN edges MoE-GEMM as the top prefill pick (bigger gap, cleaner math mechanism, 2.6x proven headroom, lower in-backend risk, dual payoff).
 
 All numbers from the both-engine nsys profile (cuda_gpu_kern_sum buckets, bucketer dgx:/home/mudler/bench/bucket2.py, reports dgx:/home/mudler/bench/profgap/); caveats: no NVTX (kernel-name regex buckets); shared elementwise straddles resid/MoE-fanin/GDN-glue; vLLM decode is offline 128-wide, not staggered-server. Relevant repo paths (absolute): /home/mudler/_git/LocalAI/.claude/worktrees/feat+paged-attention/backend/cpp/llama-cpp-localai-paged/docs/{TENSORCORE_GDN_SCOPE.md,TENSORCORE_GDN_BUILD_PLAN.md,VLLM_PARITY_LEVER_MAP.md,PREFILL_GEMM_SCOPE.md,PREFILL_GEMM_RESULTS.md,DECODE_SERVING_SCOPE.md,PAGED_BITEXACT_NOTE.md,final_benchmark.csv}; patches dir .../patches/paged/ (existing 0031 chunked-GDN serial, 0033 dequant->cuBLAS rejected, 0034 native FP4-MMA, 0040/0041 S1/S3 decode-graph, 0042 fused residual+RMSNorm); methodology /home/mudler/_git/LocalAI/.claude/worktrees/feat+paged-attention/.agents/vllm-parity-methodology.md.
-
