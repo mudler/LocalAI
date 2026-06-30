@@ -351,6 +351,16 @@ impl Backend for KokorosService {
         Err(Status::unimplemented("Not supported"))
     }
 
+    type AudioTranscriptionLiveStream =
+        ReceiverStream<Result<backend::TranscriptLiveResponse, Status>>;
+
+    async fn audio_transcription_live(
+        &self,
+        _: Request<tonic::Streaming<backend::TranscriptLiveRequest>>,
+    ) -> Result<Response<Self::AudioTranscriptionLiveStream>, Status> {
+        Err(Status::unimplemented("Not supported"))
+    }
+
     async fn diarize(
         &self,
         _: Request<backend::DiarizeRequest>,
