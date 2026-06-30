@@ -33,7 +33,9 @@ Source key (every number below cites one of these):
 Two models: the MoE **Qwen3.6-35B-A3B-NVFP4** (decision model, 256 experts top-8,
 30 GDN + 10 full-attn layers + a dense shared expert per layer) and the dense
 **Qwen3.6-27B-NVFP4** (48 GDN + 16 full-attn). All numbers GB10 / CUDA 13 /
-sm_121, backend pin `9d5d882d`.
+sm_121. The current backend pin is `0ed235ea2c17a19fc8238668653946721ed136fd`;
+the CDEF benchmark artifact itself records the dev-tree commit that produced
+those binaries.
 
 ### 1a. Prefill (S_PP, prefill tokens/s)
 

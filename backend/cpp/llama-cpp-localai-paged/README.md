@@ -30,11 +30,11 @@ vendored patch series over upstream llama.cpp that adds
   gated-DeltaNet (SSM) models, where the recurrent-state plumbing - not the FP4
   GEMM - dominates the decode step.
 
-It is **pinned to llama.cpp `9d5d882d`** (kept == the stock `llama-cpp` backend's
+It is **pinned to llama.cpp `0ed235ea2c17a19fc8238668653946721ed136fd`** (kept == the stock `llama-cpp` backend's
 pin) and advanced only by a manual, bit-exact-gated pin-sync process (see
 section 7, "Pin + maintenance policy"), decoupled from the nightly auto-bumper. The pin must stay aligned with the stock pin because
 `grpc-server.cpp` is shared; an earlier bump to `c299a92c` was bit-exact but broke
-the grpc-server link and was reverted.
+the grpc-server link and was reverted to the then-current stock pin.
 
 The build gate is `LLAMA_PAGED` (default on in this tree); the paged engine is
 enabled per-model at runtime via the gallery `options:` knobs (`paged_kv:true`,
@@ -497,7 +497,7 @@ targeted is already recovered by the gather-fusion + block-table cache.
   per commit) from that branch, which is the pin commit plus the paged patch
   commits in order, so there is no more hand-export drift between the dev tree and
   the shipped series.
-- **Pinned to llama.cpp `9d5d882d`** (kept == the stock `llama-cpp` pin). The pin
+- **Pinned to llama.cpp `0ed235ea2c17a19fc8238668653946721ed136fd`** (kept == the stock `llama-cpp` pin). The pin
   is advanced **only** by the manual pin-sync process (this section):
   rebase the source-only patch series onto the new tip, rebuild on GPU, pass the
   bit-exact gate on every path (dense + MoE, paged + non-paged) plus
@@ -507,7 +507,7 @@ targeted is already recovered by the gather-fusion + block-table cache.
   server-API refactor breaks the grpc-server LINK even when the patches are
   bit-exact. A bump to `c299a92c` (23 commits ahead of stock) was greedy-md5
   bit-exact but failed to link (undefined `stream_*` server helpers introduced by
-  the refactor), and was reverted to `9d5d882d`. The bit-exact gate alone does not
+  the refactor), and was reverted to the then-current stock pin. The bit-exact gate alone does not
   catch this; only the full CI grpc-server build does.
 - **Decoupled from the nightly auto-bumper.** There is deliberately **no**
   `bump_deps.yaml` entry for this backend - a naive `LLAMA_VERSION` bump could

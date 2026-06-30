@@ -87,7 +87,7 @@ Because the dir now permanently contains an `owner` file, **release with `rm -rf
 
 A separate 0-byte `~/bench/gpu.lock` is legacy/unrelated - ignore.
 
-**Always gate on BOTH** `nvidia-smi --query-compute-apps=pid` count == 0 **and** `owner` FREE before benching. Concurrent jobs share this GPU: an offline-repack Marlin workflow, an `~/.cache/autoresearch-quant/` quant pipeline (this is the `llama-imatrix` class of job), and finetune trees. The canonical harnesses poll for GPU-idle up to 2h.
+**Always gate on ALL THREE** before benching or building on DGX: `nvidia-smi --query-compute-apps=pid` count == 0, `owner` FREE, and `docker ps` shows no running containers. In particular, do not start work while a `local-ai-worker` container is running. Concurrent jobs share this GPU: an offline-repack Marlin workflow, an `~/.cache/autoresearch-quant/` quant pipeline (this is the `llama-imatrix` class of job), finetune trees, and LocalAI worker containers. The canonical harnesses poll for GPU-idle up to 2h.
 
 ### 3.2 Build (long; run detached + poll)
 - **Mainline / canonical grpc-server + binaries: CUDA arch `121`** (`-DCMAKE_CUDA_ARCHITECTURES=121`). Runtime banner shows `ARCHS = 1210 | BLACKWELL_NATIVE_FP4 = 1`.
@@ -268,16 +268,16 @@ Only pursue if (a)+(b) are not options and someone explicitly wants the residual
 - Graph-node-traced high-N profiles: `~/highN_prof2/*.nsys-rep` (paged npl=256), `~/highN_vllm/*.nsys-rep` (vLLM), 2026-06-30.
 - A/B dirs: `~/bench/marlin_gate/`, `~/bench/gdn_p1_ab/`.
 
-### Unpushed doc commits (in this worktree, not on origin)
+### Recent context commits
 - `6edbb56b0` "docs(paged): definitive vLLM-parity final-state record (GB10, CLOSED)" - adds `VLLM_PARITY_FINAL.md`.
 - `baf102524` "docs(paged): correct decode-serving record to ~86% GPU-steady parity (graph-node-traced)" - the ~56% -> ~86% correction.
 - `bd100dd20` "fix(paged): repair the patch series, sync to the fork branch" - dropped dev-tree 0044/0045, added f32-only M5 as 0047.
 - `b028c81ed` "docs(paged): record padded/fixed-slot decode shape as tested-and-rejected".
 
 ### Discrepancies to flag / resolve (carried verbatim from the gather, including UNVERIFIED labels)
-1. **Pin mismatch.** Makefile line 52 `LLAMA_VERSION?=0ed235ea2c17a19fc8238668653946721ed136fd` (authoritative, what builds; recent `ea72a56e2` / `2c5980526` pin-synced to it) vs README section 7 prose `9d5d882d` and `VLLM_PARITY_FINAL.md` "backend pin 9d5d882d" (STALE). Hard rule: the paged pin must equal the stock `llama-cpp` pin (shared `grpc-server.cpp`); a bump to `c299a92c` once broke the grpc-server link despite being bit-exact and was reverted. Trust the Makefile; fix the prose.
+1. **Pin prose reconciled in this worktree.** Makefile line 52 `LLAMA_VERSION?=0ed235ea2c17a19fc8238668653946721ed136fd` is authoritative and matches the local fork merge-base. Hard rule: the paged pin must equal the stock `llama-cpp` pin (shared `grpc-server.cpp`); a bump to `c299a92c` once broke the grpc-server link despite being bit-exact and was reverted. Trust the Makefile when building.
 2. **Both DGX checkouts are dirty** (`gated_delta_net.cu` modified in each), and the fork HEAD (`51168c5ee`, patch 0044) differs from the dev-tree HEAD (`a7d439e`, M8 bf16) that actually produced the `COMBINED_DEFINITIVE` numbers.
-3. **Worktree patch 0044 is committed on the fork but untracked here** (`patches/paged/0044-*.patch` shows `??`).
+3. **Worktree patch 0044 is now tracked here.** LocalAI commit `2033086f6` added `patches/paged/0044-feat-paged-fused-gated-RMSNorm-SiLU-gate-mul.patch`; the only current untracked path in this worktree is `.claude/`.
 4. **`sm_121a` is not in the worktree build files** - it lives only in the DGX experimental build scripts (`gdn_cc.sh`, `gdn_bv_build.sh`, `paged-build.sh`); mainline uses arch `121`. **UNVERIFIED** whether the shipped CI Dockerfile build path injects `121a` for the FP4-MMA kernels (`Dockerfile.llama-cpp-localai-paged` does not hardcode a CUDA arch).
 5. **The `0921716...` paged-MoE md5 open item.** `COMBINED_DEFINITIVE.txt` records `PAGED_GATE_MD5=0921716cd0582b5d15af8c362b811d00` for MoE, but a full doc/patch/`git log -S` grep of the worktree found **no** occurrence of `0921716...` in any committed source; the committed canonical paged-MoE gate is `8cb0ce23`. Treat this as **unreconciled**: the documented, KL-validated paged-MoE gate remains `8cb0ce23`, and any paged-MoE divergence (including `0921716`) must be KL-validated against the f16 reference before being accepted as benign, never on assertion alone. The `0921716` value is **UNVERIFIED** as a sanctioned gate; do not adopt it as canonical without re-running the KL gate. The **dense** run is symmetric: `COMBINED_DEFINITIVE.txt` records `PAGED_GATE_MD5=ecfe924dee6c5622c149f419ff2a6481` for dense, which likewise differs from the canonical dense gate `5951a5b4`. Both CDEF `PAGED_GATE_MD5` values come from the `combined_definitive.sh` harness's own gate command, NOT the canonical bit-exact gate command in section 3.3, which is why they diverge from the committed `8cb0ce23` / `5951a5b4`; neither is a sanctioned gate and both must be KL-validated before being treated as benign.
 
