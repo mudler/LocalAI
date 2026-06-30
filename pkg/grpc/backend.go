@@ -119,6 +119,7 @@ type ControlBackend interface {
 	// NOT tracked as a single in-flight unit.
 	AudioTransformStream(ctx context.Context, opts ...grpc.CallOption) (AudioTransformStreamClient, error)
 	AudioToAudioStream(ctx context.Context, opts ...grpc.CallOption) (AudioToAudioStreamClient, error)
+	AudioTranscriptionLive(ctx context.Context, opts ...grpc.CallOption) (AudioTranscriptionLiveClient, error)
 
 	// Forward proxies a raw HTTP request to an upstream provider for
 	// passthrough-mode cloud-proxy backends. Caller streams a single

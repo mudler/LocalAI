@@ -87,7 +87,7 @@ func (i *MLXImporter) Import(details Details) (gallery.ModelConfig, error) {
 		Backend:             backend,
 		PredictionOptions: schema.PredictionOptions{
 			BasicModelRequest: schema.BasicModelRequest{
-				Model: details.URI,
+				Model: LocalModelPath(details.URI),
 			},
 		},
 		TemplateConfig: config.TemplateConfig{

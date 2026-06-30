@@ -252,8 +252,25 @@ func (g FunctionsConfig) GrammarOptions() []func(o *grammars.GrammarOption) {
 	return opts
 }
 
+// truncForLog returns a length+head-truncated view of s for debug logging.
+//
+// CleanupLLMResult / ParseFunctionCall are invoked once per streaming chunk
+// with the *full accumulated* LLM result so far (see
+// core/http/endpoints/openai/chat_stream_workers.go). Logging the full
+// argument on every call gives O(N^2) total log volume across a single
+// generation, which under LOG_LEVEL=debug has been observed to fill disks
+// and stall the host during long streaming sessions. Logging only the
+// length plus a fixed-size head bounds per-call output to a constant.
+func truncForLog(s string) string {
+	const maxHead = 200
+	if len(s) <= maxHead {
+		return s
+	}
+	return s[:maxHead] + "...(truncated)"
+}
+
 func CleanupLLMResult(llmresult string, functionConfig FunctionsConfig) string {
-	xlog.Debug("LLM result", "result", llmresult)
+	xlog.Debug("LLM result", "len", len(llmresult), "head", truncForLog(llmresult))
 
 	for _, item := range functionConfig.ReplaceLLMResult {
 		k, v := item.Key, item.Value
@@ -261,7 +278,7 @@ func CleanupLLMResult(llmresult string, functionConfig FunctionsConfig) string {
 		re := regexp.MustCompile(k)
 		llmresult = re.ReplaceAllString(llmresult, v)
 	}
-	xlog.Debug("LLM result(processed)", "result", llmresult)
+	xlog.Debug("LLM result(processed)", "len", len(llmresult), "head", truncForLog(llmresult))
 
 	return llmresult
 }
@@ -913,7 +930,7 @@ func parseParameterValue(paramValue string, format *XMLToolCallFormat) any {
 
 func ParseFunctionCall(llmresult string, functionConfig FunctionsConfig) []FuncCallResults {
 
-	xlog.Debug("LLM result", "result", llmresult)
+	xlog.Debug("LLM result", "len", len(llmresult), "head", truncForLog(llmresult))
 
 	for _, item := range functionConfig.ReplaceFunctionResults {
 		k, v := item.Key, item.Value
@@ -921,7 +938,7 @@ func ParseFunctionCall(llmresult string, functionConfig FunctionsConfig) []FuncC
 		re := regexp.MustCompile(k)
 		llmresult = re.ReplaceAllString(llmresult, v)
 	}
-	xlog.Debug("LLM result(function cleanup)", "result", llmresult)
+	xlog.Debug("LLM result(function cleanup)", "len", len(llmresult), "head", truncForLog(llmresult))
 
 	functionNameKey := defaultFunctionNameKey
 	functionArgumentsKey := defaultFunctionArgumentsKey

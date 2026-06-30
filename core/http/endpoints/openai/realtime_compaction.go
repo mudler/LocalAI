@@ -222,7 +222,7 @@ func prefixMatches(items, snapshot []*types.MessageItemUnion) bool {
 // conv.Lock across the summarizer call: snapshot under lock, summarize unlocked,
 // commit under lock (re-validating the head is unchanged). On any error it
 // leaves the conversation untouched — items are never dropped without a summary.
-func (s *Session) compact(conv *Conversation, model Model) {
+func (s *Session) compact(ctx context.Context, conv *Conversation, model Model) {
 	if model == nil {
 		return
 	}
@@ -241,9 +241,10 @@ func (s *Session) compact(conv *Conversation, model Model) {
 	prior := conv.Memory
 	conv.Lock.Unlock()
 
-	// Summarize (unlocked).
+	// Summarize (unlocked). The timeout is derived from the caller's ctx so the
+	// connection teardown can cancel an in-flight summary (bounding the join).
 	msgs := buildSummaryMessages(prior, renderItemsTranscript(overflow), s.MaxSummaryTokens)
-	ctx, cancel := context.WithTimeout(context.Background(), compactionTimeout)
+	ctx, cancel := context.WithTimeout(ctx, compactionTimeout)
 	defer cancel()
 	predFunc, err := model.Predict(ctx, msgs, nil, nil, nil, nil, nil, nil, nil, nil, nil)
 	if err != nil {
@@ -298,9 +299,13 @@ func (s *Session) summarizerModel() Model {
 }
 
 // maybeCompact schedules a background compaction when the live buffer has grown
-// past the trigger and none is already running. Returns immediately.
+// past the trigger and none is already running. Returns immediately. The
+// single-flight guarantee (at most one compaction per conversation) is owned by
+// the compaction coordinator (M4); see realtime_compactcoord.go. The actual
+// summarize+evict work (and the lazy summary_model load) is the conversation's
+// compaction-sink run closure, so it stays off the response path.
 func (s *Session) maybeCompact(conv *Conversation) {
-	if !s.CompactionEnabled {
+	if !s.CompactionEnabled || conv.compaction == nil {
 		return
 	}
 	conv.Lock.Lock()
@@ -309,18 +314,5 @@ func (s *Session) maybeCompact(conv *Conversation) {
 	if !over {
 		return
 	}
-	if !conv.compacting.CompareAndSwap(false, true) {
-		return
-	}
-	go func() {
-		defer conv.compacting.Store(false)
-		// Resolve (and, for a configured summary_model, lazily load) the
-		// summarizer only when a compaction actually runs, off the response
-		// path — so the model load never blocks a user turn.
-		model := s.summarizerModel()
-		if model == nil {
-			return
-		}
-		s.compact(conv, model)
-	}()
+	conv.compaction.trigger()
 }

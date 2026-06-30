@@ -650,6 +650,12 @@ type Pipeline struct {
 	// VoiceRecognition gates the pipeline behind speaker verification. Nil
 	// (block absent) means no gate, preserving existing behavior.
 	VoiceRecognition *PipelineVoiceRecognition `yaml:"voice_recognition,omitempty" json:"voice_recognition,omitempty"`
+
+	// TurnDetection sets the server-side default turn-detection mode for
+	// realtime sessions on this pipeline, so clients need no session.update
+	// to benefit. A client session.update still overrides type and eagerness
+	// per session; retranscribe is server-side only. Unset keeps server_vad.
+	TurnDetection PipelineTurnDetection `yaml:"turn_detection,omitempty" json:"turn_detection,omitempty"`
 }
 
 // PipelineCompaction configures summarize-then-drop for a realtime pipeline.
@@ -932,6 +938,38 @@ func (v PipelineVoiceRecognition) Validate(registryAvailable bool) error {
 		return fmt.Errorf("voice_recognition: threshold %v out of range (0..2)", v.Threshold)
 	}
 	return nil
+}
+
+// @Description PipelineTurnDetection sets realtime turn-detection defaults.
+type PipelineTurnDetection struct {
+	// Type selects the default turn_detection mode for sessions on this
+	// pipeline: "server_vad" (silence-based) or "semantic_vad" (the
+	// transcription model's end-of-utterance token drives a dynamic silence
+	// window; needs a streaming-EOU transcription model such as
+	// parakeet_realtime_eou_120m-v1, degrades to silence-only otherwise).
+	Type string `yaml:"type,omitempty" json:"type,omitempty"`
+	// Eagerness is the semantic_vad fallback when no end-of-utterance token
+	// was seen: low waits 8s of silence, medium/auto 4s, high 2s.
+	Eagerness string `yaml:"eagerness,omitempty" json:"eagerness,omitempty"`
+	// Retranscribe (semantic_vad only) cross-checks every EOU-triggered
+	// commit with an offline decode of the buffered turn: the commit only
+	// proceeds when the batch decode also ends in the end-of-utterance token,
+	// and its transcript is the one used. The streamed and batch transcripts
+	// are compared in the logs — a diagnostic for streaming/batch alignment
+	// at the cost of one extra decode per turn.
+	Retranscribe *bool `yaml:"retranscribe,omitempty" json:"retranscribe,omitempty"`
+}
+
+// TurnDetectionSemantic reports whether this pipeline defaults sessions to
+// semantic (EOU-driven) turn detection.
+func (p Pipeline) TurnDetectionSemantic() bool {
+	return strings.EqualFold(strings.TrimSpace(p.TurnDetection.Type), "semantic_vad")
+}
+
+// TurnDetectionRetranscribe reports whether semantic_vad commits should be
+// cross-checked (and transcribed) by an offline decode of the buffered turn.
+func (p Pipeline) TurnDetectionRetranscribe() bool {
+	return p.TurnDetection.Retranscribe != nil && *p.TurnDetection.Retranscribe
 }
 
 // @Description File configuration for model downloads

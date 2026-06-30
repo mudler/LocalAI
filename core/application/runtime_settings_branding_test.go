@@ -87,6 +87,31 @@ var _ = Describe("loadRuntimeSettingsFromFile", func() {
 		})
 	})
 
+	// Watchdog check interval (issue #10601). Unlike the idle/busy timeouts
+	// (which default to 0), NewApplicationConfig baseline-defaults the
+	// interval to 500ms. The loader's "apply file value only if still at the
+	// zero default" env-detection therefore never fired for the interval, so
+	// a UI-saved Check Interval silently reverted to 500ms on every restart
+	// while the idle/busy timeouts persisted. These specs construct the
+	// config the same way boot does (NewApplicationConfig) so they observe
+	// the real default the loader sees.
+	Describe("watchdog interval", func() {
+		It("loads a UI-saved watchdog_interval on the next startup", func() {
+			cfg := config.NewApplicationConfig()
+			cfg.DynamicConfigsDir = seedSettings(`{"watchdog_interval": "2s"}`)
+			loadRuntimeSettingsFromFile(cfg)
+			Expect(cfg.WatchDogInterval).To(Equal(2 * time.Second))
+		})
+
+		It("does not override an explicit env/CLI interval", func() {
+			cfg := config.NewApplicationConfig()
+			cfg.DynamicConfigsDir = seedSettings(`{"watchdog_interval": "2s"}`)
+			cfg.WatchDogInterval = 1 * time.Second // simulate SetWatchDogInterval from env
+			loadRuntimeSettingsFromFile(cfg)
+			Expect(cfg.WatchDogInterval).To(Equal(1*time.Second), "env/CLI interval must win over the persisted file value")
+		})
+	})
+
 	// MITM listener address. The file is the only source — no env var
 	// exists — so a regression here means an admin who configured the
 	// listener via /api/settings loses it after a reboot, even though

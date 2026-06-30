@@ -98,8 +98,13 @@ func (i *LlamaCPPImporter) Import(details Details) (gallery.ModelConfig, error) 
 		}
 	}
 
-	name, ok := preferencesMap["name"].(string)
-	if !ok {
+	// nameProvided tracks whether the user supplied an explicit model name.
+	// When they didn't, the URI base is only a fallback: for a HuggingFace
+	// repo-root URI (no file component) it would be the repo name, so the HF
+	// branch below re-derives the name from the selected GGUF file instead
+	// (issue #10587).
+	name, nameProvided := preferencesMap["name"].(string)
+	if !nameProvided {
 		name = filepath.Base(details.URI)
 	}
 
@@ -227,10 +232,23 @@ func (i *LlamaCPPImporter) Import(details Details) (gallery.ModelConfig, error) 
 		mmprojGroups := hfapi.GroupShards(mmprojFiles)
 		ggufGroups := hfapi.GroupShards(ggufFiles)
 
+		modelGroup := pickPreferredGroup(ggufGroups, quants)
+
+		// A repo-root URI has no file component, so the URI-base fallback
+		// above produced the repo name. When the user left the name blank,
+		// derive it from the GGUF file actually selected from the listing so
+		// the gallery entry and `model:` directory reflect the model, not the
+		// repository (issue #10587). An explicit name preference always wins.
+		if !nameProvided && modelGroup != nil {
+			name = modelNameFromShardGroup(*modelGroup)
+			modelConfig.Name = name
+			cfg.Name = name
+		}
+
 		// Emit the model group first so cfg.Files[0] is the model — callers
 		// and tests rely on the model file preceding any mmproj companion.
-		if group := pickPreferredGroup(ggufGroups, quants); group != nil {
-			appendShardGroup(&cfg, *group, filepath.Join("llama-cpp", "models", name))
+		if modelGroup != nil {
+			appendShardGroup(&cfg, *modelGroup, filepath.Join("llama-cpp", "models", name))
 		}
 		if group := pickPreferredGroup(mmprojGroups, mmprojQuantsList); group != nil {
 			appendShardGroup(&cfg, *group, filepath.Join("llama-cpp", "mmproj", name))
@@ -279,6 +297,20 @@ func (i *LlamaCPPImporter) Import(details Details) (gallery.ModelConfig, error) 
 	cfg.ConfigFile = string(data)
 
 	return cfg, nil
+}
+
+// modelNameFromShardGroup derives a human-facing model name from the picked
+// GGUF group: the logical base filename with its .gguf extension stripped.
+// ShardGroup.Base is the common prefix for sharded sets (without the
+// -NNNNN-of-MMMMM suffix) and the sole basename for single-file models, so
+// this yields a clean name like "model-Q4_K_M" rather than an individual
+// shard filename or the repo-root URI base.
+func modelNameFromShardGroup(group hfapi.ShardGroup) string {
+	base := group.Base
+	if ext := filepath.Ext(base); strings.EqualFold(ext, ".gguf") {
+		base = strings.TrimSuffix(base, ext)
+	}
+	return base
 }
 
 // pickPreferredGroup walks the preference list in priority order and returns
