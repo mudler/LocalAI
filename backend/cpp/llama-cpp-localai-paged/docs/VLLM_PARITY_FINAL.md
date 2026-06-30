@@ -6,9 +6,13 @@
 > investigation is **never re-litigated**: every lever attempted, its verdict,
 > its key number, and the structural floors that bound the result are recorded
 > below with the artifact each number came from. The one-line conclusion:
-> **per-token kernel and engine work is exhausted; the residual is a hardware
-> ceiling (LPDDR5x bandwidth + FP4-MMQ optimality + GDN intra-chunk complexity),
-> not a missing optimization.**
+> **prefill is genuinely capped at 36-43% of vLLM (FP4-MMQ optimality + GDN
+> O(C^2) intra-chunk complexity; prefill is not CUDA-graph-replayed, so these are
+> real floors, not profiling artifacts); decode-serving is near-parity at ~86% of
+> vLLM's true GPU-steady decode (the long-standing ~56% headline was a
+> measurement / operating-point artifact, corrected below), with the residual
+> ~14% being vLLM's mature fused-Marlin + Triton-elementwise kernels that are not
+> cheaply replicable on GB10.**
 
 Companion docs (design/rationale, not re-summarized here): the patch-series
 [`README.md`](../README.md) (section 5 dev-notes), `VLLM_PARITY_LEVER_MAP.md`,
@@ -19,6 +23,7 @@ Source key (every number below cites one of these):
 - **CDEF** = the definitive same-session both-engine run `dgx:~/bench/COMBINED_DEFINITIVE.txt` (2026-06-29, GIT_HEAD `a7d439e`, h2h_cli3 OpenAI `/v1/completions`, fresh-nonce prompts, ignore_eos, ptok128 gen128; paged `LLAMA_KV_PAGED=1 LLAMA_MOE_FORCE_GRAPHS=1`, GDN M5 on, S1 on, S3 off; vLLM 0.23.0 gpu-util 0.85 max-model-len 4096 max-num-seqs 256 tp1).
 - **README** = the static `llama-batched-bench` table in [`README.md`](../README.md) section 4 (npp128/ntg128; patched vs stock-`9d5d882d` vs vLLM-prior).
 - **PGR** = `PREFILL_GEMM_RESULTS.md`. **LMAP** = `VLLM_PARITY_LEVER_MAP.md` (profile-validated section). **DSS** = `DECODE_SERVING_SCOPE.md`. **MG** = `dgx:~/bench/marlin_gate/`. **GDNAB** = `dgx:~/bench/gdn_p1_ab/`. **0034/0035** = patch headers in `patches/paged/`.
+- **HNP** = the clean, uncontended, **graph-node-traced** both-engine high-N decode profile (2026-06-30): `dgx:~/highN_prof2/*.nsys-rep` (paged, npl=256) + `dgx:~/highN_vllm/*.nsys-rep` (vLLM), captured with `nsys --cuda-graph-trace=node` and decomposed by the **difference method** (per-token cost = ntg=64 profile minus ntg=16 profile). **This supersedes every earlier decode decomposition** (LMAP included): those were taken without `--cuda-graph-trace=node`, which collapses each graph replay into one opaque launch and made the per-kernel decode attribution an artifact (see 2c).
 - "estimated" marks any figure not pinned to one of the above.
 
 ---
@@ -77,10 +82,14 @@ End-to-end aggregate `agg_tps` (incl. prefill contention), **CDEF**: MoE paged
 paged 72.6/141.4/205.8/213.3 vs vLLM 69.4/193.3/346.6/394.7.
 
 **Reading the table.** Dense decode is **ahead of vLLM at low concurrency
-(116.7% at N=8)** and degrades to BW-floored ~62-70% only at N=256. MoE decode is
-BW-floored across the board at **56-70%** of vLLM. The high-N steady-state band
-for both models is **~56-68% of vLLM** - this is the bandwidth floor, discussed
-in section 3.
+(116.7% at N=8)**. The high-N percentages here (perseq ~56%, decode_agg ~61% at
+N=256) are **server-window** numbers and **understate true engine parity**: they
+divide the paged serving rate by vLLM's *prefill-overlap-inflated* server rate.
+The corrected, graph-node-traced decomposition (section 2c, **HNP**) shows paged
+decode at **~86% of vLLM's true GPU-steady decode**, with the remaining
+server-window gap being an S3-recoverable serving graph-reuse overhead (2d). The
+earlier "this is just the bandwidth floor / vLLM pays equally" reading was a
+**profiling artifact** and is corrected in 2c.
 
 **PEAK_GB is the structural memory advantage.** vLLM's PEAK_GB is a **fixed
 ~109-112.5 GB reservation** (the `--gpu-memory-utilization 0.85` block-manager
@@ -154,54 +163,104 @@ products through tensor cores. The series chased that headroom.
 | **0047 / M5** tf32 tensor-core scan | full form-T solve + state-update on tf32 `m16n8k8` mma, f32-only re-port | **SHIPPED (default-on under paged)** | MoE prefill S_PP **+3.5% @npp512 (3x A/B), +17.7% @npp2048**; decode unchanged; bit-exact-benign (`GATED_DELTA_NET` 46-94/94, md5 == canonical) | README s3/s5 |
 | bf16 CONFIG-C (M8) | bf16 `Kc/Qc` + 2 C*C scratch, C->64 + 2 blk/SM | **REJECTED** (not in f32-only series) | the run that confirmed the geometry (CDEF GIT_HEAD), then dropped | CDEF / README s5 |
 | bf16-C16 | bf16 Gram at C=16 | rejected | no win over tf32-M5; bf16 mantissa unsafe on the state-coupled products | GDN build-plan s4 |
-| BV block-occupancy A/B | raise blocks/SM to test if occupancy is the bound | **REJECTED** (occupancy is NOT the bound) | two arms statistically equal: **1844 vs 1814 S_PP (~-1%, within noise)** | GDNAB armA/armB |
+| BV block-occupancy A/B (tf32) | raise blocks/SM to test if occupancy is the bound | **REJECTED** (occupancy is NOT the bound; latency is wave-hidden) | two arms statistically equal: **1844 vs 1814 S_PP (-1.04%, within noise)** | GDNAB armA/armB |
 | bf16-C64 | bf16 Gram at the larger C=64 chunk | **REJECTED** | **-18.75%** - the O(C^2) intra-chunk triangular-solve + serial recurrence dominates, so growing C hurts | recorded verdict / GDN build-plan |
 
 **Why the bottleneck is not occupancy/dtype:** the cost is the **O(C^2)
 intra-chunk triangular solve + the serial inter-chunk recurrence dependency**, not
-grid occupancy (BV: -1%) and not Gram dtype (bf16-C64: -18.75%). GB10's 99 KB
+grid occupancy (BV: -1.04%, latency is wave-hidden) and not Gram dtype (bf16-C64:
+-18.75%). GB10's 99 KB
 dynamic-smem cap forces **C=16** (the 128x128 f32 state alone is 64 KB of the
 all-shared layout), and at this head dim the only win is tensor cores on the
 intra-chunk products, not chunking or wider chunks. M5 tf32 at C=16 is exactly
 that and is the shipped winner; it does not fully close the 2.62x because vLLM's
 mature FLA blocked-solve is a more complete tensor-core implementation.
 
-### 2c. DECODE (verdict: BW-floored at high-N; kernels already ahead of vLLM)
+### 2c. DECODE / serving (verdict: near-parity at ~86% of vLLM's true GPU-steady decode; the earlier "BW-floored / vLLM pays equally" was a profiling artifact)
 
-The decode **kernels** are not the gap. The both-engine nsys profile (LMAP) is the
-decisive finding:
+**Methodology correction - why every earlier decode decomposition was wrong.**
+Decode runs as a **replayed CUDA graph**. `nsys` *without* `--cuda-graph-trace=node`
+collapses each graph replay into a **single opaque launch**, so the per-kernel
+attribution in every prior decode profile (the "paged 159 us/tok, GPU ~16% busy,
+host-bound, 5.4x more GPU-efficient per token" picture, and the conclusion that the
+high-N gap was a pure bandwidth floor vLLM pays equally) was an **artifact of graph
+collapse, not real per-token cost**. The correct method, used for the numbers below
+(**HNP**, clean uncontended node, 2026-06-30), is `nsys --cuda-graph-trace=node`
+plus the **difference method**: per-token cost = the ntg=64 profile minus the
+ntg=16 profile, isolating per-token-linear work from fixed per-step overhead. Under
+this method **paged decode at npl=256 is 99% GPU-busy (GPU-idle only 1.4%), NOT
+host-bound** - the opposite of the collapsed-graph reading. This supersedes the
+LMAP decode decomposition.
 
-- Paged decode kernels are **5.4x more GPU-efficient per token** than vLLM's
-  (paged static-128 **159 us/tok** vs vLLM **866 us/tok**). Per-bucket: MoE-GEMM
-  paged 59.7 vs vLLM 313.5 us/tok (**5.3x**); GDN recurrence paged 34.3 vs vLLM
-  391.7 us/tok (**11.4x**); bf16-proj 14.7 vs 57.2.
-- They tie at static-wide-128 (paged ~782 vs vLLM ~819 t/s pure decode) via
-  **opposite regimes**: paged static decode is **host-bound** (GPU ~16% busy, the
-  serial SSM + sampling + MoE-dispatch host loop), vLLM is **GPU-bound** (99% busy)
-  on a recurrence 11x slower per token but graph-saturated.
-- At high concurrency both are at the **LPDDR5x bandwidth floor**; paged lands at
-  **56-68% of vLLM** (section 1b) because vLLM's MoE decode kernel + scheduler are
-  ~1.3x faster on aggregate at the floor, and paged pays the bf16-projection
-  bandwidth + the serial-SSM host loop.
-- **Dense decode is AHEAD at low N (116.7% @ N=8, CDEF)** because the GPU is
-  underutilized there and the paged kernels' per-token efficiency wins.
+**The real per-token decomposition (paged, npl=256, HNP)** - GPU-steady ~1082
+us/tok (924 t/s):
 
-Decode-kernel levers that were therefore **rejected by the "a faster kernel off
-the critical path benches flat" rule** (LMAP): D2 fused MoE decode GEMM (already
-5.3x faster than vLLM), D3 FA-split (FA is 0.55-1.6% of the decode wall; H2
-refuted), D4 GDN-width-adaptive recurrence (already 11.4x faster; H3 confirmed flat
-but not the bottleneck). Also rejected: NVFP4 the bf16 GDN/attn projections
-(**KL-fail, ~+6% PPL**; vLLM keeps the SAME bf16 projections), W4A16-Marlin MoE
-decode (BW-floored wash, ~5% slower kernel), bf16-tau per-head SSM (patch 0026,
-**dropped: flat 780.6 vs 780.0 t/s** once the fusion patches landed), act-quant
-fusion on decode (**FLAT**, BW-bound).
+| Bucket | us/tok | % of decode | Note |
+|---|---:|---:|---|
+| GDN recurrent scan | 553 | **51%** | **LINEAR in batch** - the dominant cost; shared BW floor (below) |
+| NVFP4 expert GEMM | 254 | 23% | amortizes with batch |
+| bf16 projections | 73 | 7% | |
+| elementwise | 57 | 5% | |
+| SSM conv | 31 | 3% | |
+| rest | small | - | |
+| GPU-idle | - | **1.4%** | not host-bound |
+
+**The gap reconciled (the numbers must sum).** The headline N=256 figures (perseq
+~56%, decode_agg ~61%, section 1b) were paged-**server** **718** over vLLM-**server**
+**1177**. But the vLLM server number is **inflated ~8 pts**: vLLM's true GPU-steady
+decode is **1078 t/s**, and its chunked-prefill overlap inflates the
+server-measured decode window. The reconciled chain:
+
+| Measurement | t/s | % of vLLM-server (1177) |
+|---|---:|---:|
+| vLLM server (CDEF) | 1177 | 100% |
+| vLLM **true GPU-steady** decode | 1078 | 92% |
+| llama **GPU-steady** decode | 924 | 78.5% (**= 86% of vLLM's true 1078**) |
+| llama server (CDEF) | 718 | ~60.7% (61%) |
+
+So **vs vLLM's true GPU-steady decode, paged is ~86%, not ~56%.** The ~56% headline
+conflated two distinct things: vLLM's prefill-overlap-inflated server window, and
+the paged serving graph-reuse overhead. The **~17 pt** drop from llama GPU-steady
+(78.5%) to llama server (60.7%) is exactly that **serving graph-reuse overhead**,
+which is **S3-recoverable** (2d).
+
+**GDN is a shared BW floor where paged is ahead.** The GDN recurrent scan moves
+**~32 GB/step of f32 recurrent-state traffic**; paged runs it at **83% of the
+273 GB/s LPDDR5x peak vs vLLM's 79%**. Both engines' high-N sublinearity (only
+**1.17-1.18x throughput for a 2x batch**) comes from this **shared** floor - it is
+not a paged-specific loss, and paged is the faster of the two on it.
+
+**The residual ~14 pt GPU-steady gap is real but not cheaply closable.** vLLM's
+GPU-steady 1078 vs paged 924 decomposes into two buckets: the **MoE expert path
+(~+11 ms)** - vLLM's fused Marlin persistent-tiling vs ggml's separate act-quant +
+MMQ - and **elementwise (~+10 ms)** - vLLM fuses it into one Triton kernel. Both
+fusions were attempted and rejected (table below). Closing the residual needs
+vLLM's mature Marlin tiling (our own ggml Marlin port already lost **-19.6%**) plus
+multi-stream overlap (hard inside a single-stream CUDA graph): **low-EV,
+multi-week, GB10-uncertain**.
+
+**Decode / fusion levers (verdicts).**
+
+| Lever | What | Verdict | Key number | Source |
+|---|---|---|---|---|
+| act-quant folded into ggml MMQ | erase the act-quant pass by quantizing the y-operand inside the MoE expert MMQ kernel (vLLM's fused-Marlin single-pass shape) | **REJECTED** (regression) | **-79.4%**: ggml MMQ re-quantizes the y-operand **once per weight-row-tile x stream-k split**, with no tensor cores for the inline quant - structural, ggml MMQ lacks vLLM's persistent single-pass tiling | HNP / recorded verdict |
+| norm + quant + silu fusion | fold the elementwise path into one launch (vLLM's Triton kernel) | **REJECTED** (architecturally infeasible) | `ggml_cuda_can_fuse` cannot express it: FP4 quant is a **mul_mat-internal prologue, not a cgraph node**; the norm is already fused (0042/0044); silu is separated from the norm by **2 GEMMs + the router** | recorded verdict |
+| Q8_0 / FP8 projection | quantize the bf16 GDN/attn projections (premise: vLLM uses FP8 here) | **REJECTED** (regime error, not premise error) | vLLM **does** use FP8 projections (confirmed from `hf_quant_config.json` `MIXED_PRECISION`), but at N=128/256 projections are only **~12% of the decode stream**, so this closes **<=6%, not the gap** | HNP / hf_quant_config.json |
+| NVFP4 the bf16 GDN/attn projections | drop projections to NVFP4 (more aggressive than FP8) | **REJECTED** | **KL-fail, ~+6% PPL**; vLLM keeps the SAME bf16/FP8 projections, never NVFP4 | LMAP |
+| W4A16-Marlin MoE decode | Marlin grouped expert GEMM on the decode path | **REJECTED** | BW-floored wash, **~5% slower** kernel | LMAP |
+| bf16-tau per-head SSM (0026) | per-head bf16 tau on the SSM decode | **DROPPED** | flat **780.6 vs 780.0 t/s** once the fusion patches landed | README s5 |
+| D3 FA-split / D4 GDN-width-adaptive | the older "off critical path" decode levers | **SUPERSEDED reasoning** | originally rejected via the now-debunked "5.4x faster / host-bound" reading; under HNP the GDN scan **is** the critical path (51%), but it is the shared BW floor where paged already leads (83% vs 79%), so neither is a win | HNP |
+
+**Dense decode is AHEAD at low N (116.7% @ N=8, CDEF)** because the GPU is
+underutilized there and the paged path's per-token efficiency wins; this is the one
+operating point where paged is unambiguously faster than vLLM.
 
 ### 2d. SERVING / engine (verdict: host loop and scheduler closed; spec-decode orthogonal)
 
 | Lever | What | Verdict | Key number | Source |
 |---|---|---|---|---|
 | **0040 / S1** paged decode-graph reuse | correct `can_reuse` keyed on bucketed block-table dims | **SHIPPED (default-on)** | serving graph reuse **0% -> 72.2%** (with S3); static **0% -> 95.5%** | README, DSS |
-| **0041 / S3** decode-shape-stable scheduling | keep prefill out of decode steps for reuse-stable shapes | **SHIPPED default-OFF** (opt-in) | default-on regressed real serving: **2.5x worse TTFT** (60s vs 24s @N=256), **20-29% lower** end-to-end throughput | README, DSS |
+| **0041 / S3** decode-shape-stable scheduling (`LLAMA_PAGED_DECODE_STABLE`) | keep prefill out of decode steps for reuse-stable shapes | **SHIPPED default-OFF** (opt-in throughput-max knob) | recovers the **~17 pt serving graph-reuse overhead** (llama server 60.7% -> toward GPU-steady 78.5%, 2c) at a TTFT cost; default-on regressed real serving: **2.5x worse TTFT** (60s vs 24s @N=256), **20-29% lower** end-to-end throughput, hence opt-in | README, DSS, HNP |
 | **0043 / D1** full-step MoE decode CUDA graph | graph the whole decode step incl. grouped-MMQ MoE dispatch | **SHIPPED (default-on)** | +2.6% (npl128) to +5-13% (npl32); the D1 premise "host-sync on MoE-routing readback" was **REFUTED** (sync count identical graphs on/off; 99% GPU-busy static) | README s5 |
 | S2 double-buffer set_inputs | overlap host input build with GPU | **DROPPED** | `set_inputs` is **~0.05 ms/step** - nothing to recover (the rebuild was the cost) | DSS |
 | whole-step graph / host loop | the host scheduling loop as the serving residual | **CLOSED (~0-1%)** | baseline reuse 0% (agg 757.6) **statistically equal** to S1+S3 reuse 72% (agg 763.3); `hostproc` only ~4-8% of the per-step wall = **measured dead** | DSS |
@@ -210,9 +269,12 @@ fusion on decode (**FLAT**, BW-bound).
 
 The serving regime was the one place the static-bench parity did not carry over
 (paged ~3.7 vs vLLM ~5.9 tok/s/seq, -39%, DSS). S1 made the decode step reusable
-and the host loop was driven to ~0-1% of the wall; the remaining serving gap was
-then **measured to be GPU-compute-bound**, not host-bound - which is the same
-LPDDR5x floor as section 2c, not a closable scheduler defect.
+and the host loop was driven to ~0-1% of the wall. The graph-node-traced HNP
+profile (2c) then resolves the remaining serving gap into two parts: the **~17 pt
+serving graph-reuse overhead** (S3-recoverable via this knob) and the **~14 pt
+GPU-steady kernel gap** vs vLLM's true 1078 t/s (vLLM's fused-Marlin MoE + Triton
+elementwise, 2c). Both are real; neither is the "pure LPDDR5x floor, vLLM pays
+equally" story the collapsed-graph profile implied.
 
 ---
 
@@ -221,13 +283,18 @@ LPDDR5x floor as section 2c, not a closable scheduler defect.
 These are the hardware/algorithm ceilings the investigation hit. They are why
 parity is unreachable on this part, and they are the levers' "why" in one place.
 
-1. **LPDDR5x bandwidth (~273 GB/s) is the decode floor.** Decode is BW-bound at
-   high concurrency for both engines. The GDN recurrence already runs at **84.6%
-   of GB10 peak BW** (102.6% of vLLM's bandwidth; README s5). There is no slack to
-   recover - the 56-68% high-N gap is vLLM's ~1.3x-better aggregate scheduling at
-   the *same* floor plus the bf16-projection bandwidth, neither a kernel paged is
-   losing. On datacenter HBM (B200: ~8 TB/s) this floor lifts ~30x and the decode
-   picture changes entirely.
+1. **LPDDR5x bandwidth (~273 GB/s) bounds the GDN recurrent scan - a *shared*
+   floor where paged leads.** The GDN scan is the dominant decode bucket (553
+   us/tok, 51%, LINEAR in batch; HNP) and moves ~32 GB/step of f32 recurrent
+   state; paged runs it at **83% of the 273 GB/s peak vs vLLM's 79%**, and both
+   engines' high-N sublinearity (1.17-1.18x for a 2x batch) is this same floor.
+   This is **not** the explanation for the high-N server-window gap: the
+   graph-node-traced HNP profile (2c) shows paged decode **99% GPU-busy at ~86% of
+   vLLM's true GPU-steady decode**, with the server-window ~56% being a
+   prefill-overlap measurement artifact (~8 pt) plus an S3-recoverable graph-reuse
+   overhead (~17 pt), not a bandwidth floor vLLM pays equally. The residual ~14 pt
+   GPU-steady gap is kernel maturity (point 4 below + 2c), not bandwidth. On
+   datacenter HBM (B200: ~8 TB/s) this GDN floor lifts ~30x.
 
 2. **FP4-MMQ optimality at GB10's tensor-core ratios.** Native FP4-MMQ at M<=128 is
    at the FP4 weight-BW floor (decode) and beats every dequant->bf16 alternative at
@@ -243,11 +310,17 @@ parity is unreachable on this part, and they are the levers' "why" in one place.
    only a fuller tensor-core blocked-solve closes the residual 2.62x, and M5 tf32
    captures the tractable part.
 
-4. **vLLM's mature FLA blocked-solve + Marlin kernels are tuned for HBM.** The
-   exact advantages vLLM has (FLA chunked GDN, Marlin grouped GEMM, FULL/PIECEWISE
-   cudagraphs over a steadier batch) are the ones that **lose on GB10** because
-   they assume datacenter bandwidth and TC ratios. They are real wins on B200; they
-   are why parity is a different-hardware question, not a missing-optimization one.
+4. **vLLM's mature fused kernels (FLA blocked-solve, fused-Marlin MoE, Triton
+   elementwise) are tuned for HBM.** They are the source of both the prefill cap
+   and the residual ~14 pt decode GPU-steady gap (2c): the fused-Marlin
+   persistent-tiling MoE path (~+11 ms) and the single-kernel Triton elementwise
+   (~+10 ms). The matching ggml fusions were rejected as infeasible or regressive
+   (2c): folding act-quant into MMQ regressed -79.4% (no single-pass tiling), and
+   norm+quant+silu cannot be expressed via `ggml_cuda_can_fuse`. The FLA chunked
+   GDN, Marlin grouped GEMM, and FULL/PIECEWISE cudagraphs all assume datacenter
+   bandwidth and TC ratios; they are real wins on B200, which is why closing the
+   residual is a different-hardware question (mature kernels + multi-stream
+   overlap), not a missing single-lever optimization.
 
 ---
 
@@ -285,21 +358,31 @@ What the series actually banks, all gated per-path:
 
 ## 5. The parity verdict and the path
 
-**Verdict: full vLLM parity is structurally unreachable on GB10, and that is a
-hardware ceiling, not a missing optimization.** The per-token kernel and engine
-work is exhausted: the prefill GEMM bucket is FP4-MMQ-optimal (every alternative
-rejected, and vLLM is on a bf16-Marlin fallback here anyway), the GDN chunked scan
-is at the tractable tensor-core win (M5), the decode kernels are already **5.4x more
-GPU-efficient per token** than vLLM's, and the serving host loop is closed
-(~0-1%). What remains is the **LPDDR5x bandwidth floor** plus vLLM's ~1.3x-better
-aggregate decode scheduling at that same floor - neither recoverable by any
-bit-exact lever that was not already tried and recorded above.
+**Verdict (revised): PREFILL is genuinely capped on GB10; DECODE-SERVING is near
+vLLM parity (~86% of its true GPU-steady decode), with the long-standing ~56%
+headline now identified as a measurement / operating-point artifact.** Prefill
+sits at **36% (MoE) / 43% (dense)** of vLLM and is a real floor (FP4-MMQ optimality
++ GDN O(C^2) intra-chunk complexity; prefill is **not** CUDA-graph-replayed, so
+unlike decode these numbers are not profiling artifacts). The GDN chunked scan is
+at its tractable tensor-core win (M5) and the prefill GEMM bucket is FP4-MMQ-optimal
+(every alternative rejected; vLLM is itself on a bf16-Marlin fallback here). For
+decode, the graph-node-traced HNP profile corrects the record: paged decode is
+**99% GPU-busy at ~86% of vLLM's true GPU-steady decode (924 vs 1078 t/s)**; the
+~56% server-window figure was vLLM's prefill-overlap inflation (~8 pt) plus the
+S3-recoverable serving graph-reuse overhead (~17 pt). The residual **~14 pt**
+GPU-steady gap is vLLM's mature fused-Marlin MoE (~+11 ms) and Triton elementwise
+(~+10 ms) kernels; the matching ggml fusions were rejected (act-quant-into-MMQ
+-79.4%, norm+quant+silu infeasible), and closing the residual needs mature Marlin
+tiling (our port lost -19.6%) plus multi-stream overlap - low-EV, multi-week,
+GB10-uncertain, not a free bit-exact lever.
 
 **The honest framing:** on GB10 the paged backend is **at or ahead of vLLM at low
-concurrency (dense 117% @N=8), uses 1.5-3x less memory, and is bit-exact**, while
-sitting at **~56-68% of vLLM decode at high concurrency** and **~36% (MoE) / ~43%
-(dense) of vLLM prefill** - the high-N/prefill residuals being the bandwidth and
-FP4/GDN-complexity floors, not engineering debt.
+concurrency (dense 117% @N=8), uses 1.5-3x less memory, and is bit-exact**, runs
+high-N decode at **~86% of vLLM's true GPU-steady decode** (the ~56% server-window
+number is a measurement artifact, 2c), and sits at **~36% (MoE) / ~43% (dense) of
+vLLM prefill**. The prefill residual is a real FP4-MMQ + GDN-O(C^2) floor; the
+~14 pt decode residual is vLLM's mature fused kernels, not engineering debt and not
+a cheap lever.
 
 **The path to parity is different hardware.** A datacenter Blackwell (B200,
 ~8 TB/s HBM, native tcgen05/CUTLASS FP4, TMEM) lifts the bandwidth floor ~30x and
