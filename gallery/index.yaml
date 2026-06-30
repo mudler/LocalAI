@@ -1,4 +1,90 @@
 ---
+- name: "huihui-glm-5.2-abliterated"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/huihui-ai/Huihui-GLM-5.2-abliterated-GGUF
+  description: |
+    # GLM-5.2
+
+    👋 Join our WeChat or Discord community.
+
+    📖 Check out the GLM-5.2 blog and GLM-5 Technical report.
+
+    📍 Use GLM-5.2 API services on Z.ai API Platform.
+
+    🔜 Try GLM-5.2 here.
+
+    [Paper]
+    [GitHub]
+
+    ## Introduction
+
+    We're introducing GLM-5.2, our latest flagship model for long-horizon tasks. It marks a substantial leap in long-horizon task capability over its predecessor GLM-5.1 and, for the first time, delivers that capability on a **solid 1M-token context**. GLM-5.2's new capabilities include:
+      - **Solid 1M Context:** A solid 1M-token context that stably sustains long-horizon work
+      - **Advanced Coding with Flexible Effort**: Stronger coding capabilities with multiple thinking effort levels to balance performance and latency
+      - **Improved Architecture**: We propose IndexShare, which reuses the same indexer across every four sparse attention layers, reducing per-token FLOPs by 2.9× at a 1M context length. We also improve GLM-5.2’s MTP layer for speculative decoding, increasing the acceptance length by up to 20%
+      - **Pure Open**: An MIT open-source license — no regional limits, technical access without borders
+
+    ## Benchmark
+
+    ## Serve GLM-5.2 Locally
+
+    ...
+  license: "mit"
+  tags:
+    - llm
+    - gguf
+  icon: https://raw.githubusercontent.com/zai-org/GLM-5/refs/heads/main/resources/bench_52.png
+  overrides:
+    backend: llama-cpp
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+    options:
+      - use_jinja:true
+      - spec_type:draft-mtp
+      - spec_n_max:6
+      - spec_p_min:0.75
+    parameters:
+      min_p: 0.01
+      model: llama-cpp/models/GLM-5.2-UD-Q3_K_M/GLM-5.2-UD-Q3_K_M-00001-of-00009.gguf
+      repeat_penalty: 1
+      temperature: 1
+      top_k: -1
+      top_p: 0.95
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/GLM-5.2-UD-Q3_K_M/GLM-5.2-UD-Q3_K_M-00001-of-00009.gguf
+      sha256: f3d949f4dd553f0c3df4e0f4c7e159d026543e003917fe2bbcb1fac7cd193ab7
+      uri: https://huggingface.co/huihui-ai/Huihui-GLM-5.2-abliterated-GGUF/resolve/main/UD-Q3_K_M/GLM-5.2-UD-Q3_K_M-00001-of-00009.gguf
+    - filename: llama-cpp/models/GLM-5.2-UD-Q3_K_M/GLM-5.2-UD-Q3_K_M-00002-of-00009.gguf
+      sha256: 2c40fcc394d7efabdef09035bf604f89fcd8350c4a45ced60a1eab54c7ebe1bf
+      uri: https://huggingface.co/huihui-ai/Huihui-GLM-5.2-abliterated-GGUF/resolve/main/UD-Q3_K_M/GLM-5.2-UD-Q3_K_M-00002-of-00009.gguf
+    - filename: llama-cpp/models/GLM-5.2-UD-Q3_K_M/GLM-5.2-UD-Q3_K_M-00003-of-00009.gguf
+      sha256: 66420296e334730183f0bb6a6b9eca09b180b4409f5ebe67efc71f41517b311e
+      uri: https://huggingface.co/huihui-ai/Huihui-GLM-5.2-abliterated-GGUF/resolve/main/UD-Q3_K_M/GLM-5.2-UD-Q3_K_M-00003-of-00009.gguf
+    - filename: llama-cpp/models/GLM-5.2-UD-Q3_K_M/GLM-5.2-UD-Q3_K_M-00004-of-00009.gguf
+      sha256: 08da8ecf994bb7308a01dd891d4947604131c3e13858b4421f2374b0a282e616
+      uri: https://huggingface.co/huihui-ai/Huihui-GLM-5.2-abliterated-GGUF/resolve/main/UD-Q3_K_M/GLM-5.2-UD-Q3_K_M-00004-of-00009.gguf
+    - filename: llama-cpp/models/GLM-5.2-UD-Q3_K_M/GLM-5.2-UD-Q3_K_M-00005-of-00009.gguf
+      sha256: 2c5ee855e12f1b8ddbaebb81269d84ea37c46b1ff73f2cdf205cba835f7c03af
+      uri: https://huggingface.co/huihui-ai/Huihui-GLM-5.2-abliterated-GGUF/resolve/main/UD-Q3_K_M/GLM-5.2-UD-Q3_K_M-00005-of-00009.gguf
+    - filename: llama-cpp/models/GLM-5.2-UD-Q3_K_M/GLM-5.2-UD-Q3_K_M-00006-of-00009.gguf
+      sha256: 7048ab8b9f8314f11ef13046ea5bc14438fc38b2509066a05e3ed0a6cad61eee
+      uri: https://huggingface.co/huihui-ai/Huihui-GLM-5.2-abliterated-GGUF/resolve/main/UD-Q3_K_M/GLM-5.2-UD-Q3_K_M-00006-of-00009.gguf
+    - filename: llama-cpp/models/GLM-5.2-UD-Q3_K_M/GLM-5.2-UD-Q3_K_M-00007-of-00009.gguf
+      sha256: a2a855a9fa12161e92ab9eddaa225ae5930073ef59a447ac08ea76b2d3761b7a
+      uri: https://huggingface.co/huihui-ai/Huihui-GLM-5.2-abliterated-GGUF/resolve/main/UD-Q3_K_M/GLM-5.2-UD-Q3_K_M-00007-of-00009.gguf
+    - filename: llama-cpp/models/GLM-5.2-UD-Q3_K_M/GLM-5.2-UD-Q3_K_M-00008-of-00009.gguf
+      sha256: 3bad6d7b480999f7271ad5361c6b1a3e210f25698ff8cb7e1f8c4e435241d12b
+      uri: https://huggingface.co/huihui-ai/Huihui-GLM-5.2-abliterated-GGUF/resolve/main/UD-Q3_K_M/GLM-5.2-UD-Q3_K_M-00008-of-00009.gguf
+    - filename: llama-cpp/models/GLM-5.2-UD-Q3_K_M/GLM-5.2-UD-Q3_K_M-00009-of-00009.gguf
+      sha256: 22eef33ffce83e24f5c1d008a63cb45ae2510f26c08d115bf2f7880688fd3c7a
+      uri: https://huggingface.co/huihui-ai/Huihui-GLM-5.2-abliterated-GGUF/resolve/main/UD-Q3_K_M/GLM-5.2-UD-Q3_K_M-00009-of-00009.gguf
 - name: "qwen-agentworld-35b-a3b"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
