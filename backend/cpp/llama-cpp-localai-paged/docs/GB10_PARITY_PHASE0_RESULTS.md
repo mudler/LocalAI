@@ -33,6 +33,57 @@ Dense paged prefill:
 | 512 | 4 | 32 | 16512 | 16.749 | 978.18 | 0.842 | 152.03 | 17.591 | 938.64 |
 | 2048 | 4 | 32 | 65664 | 63.791 | 1027.35 | 0.687 | 186.29 | 64.479 | 1018.38 |
 
+## Decode Difference-Method Reproduction
+
+Paged llama.cpp artifacts:
+
+- `~/bench/reopen_phase0/paged_decode_nsys/paged_moe_n256_ntg16.nsys-rep`
+- `~/bench/reopen_phase0/paged_decode_nsys/paged_moe_n256_ntg16.bench.log`
+- `~/bench/reopen_phase0/paged_decode_nsys/paged_moe_n256_ntg64.nsys-rep`
+- `~/bench/reopen_phase0/paged_decode_nsys/paged_moe_n256_ntg64.bench.log`
+
+Paged llama.cpp rows:
+
+| PP | TG | B | N_KV | T_PP s | S_PP t/s | T_TG s | S_TG t/s | T s | S t/s |
+|----|----|---|------|--------|----------|--------|----------|-----|-------|
+| 128 | 16 | 256 | 36864 | 14.933 | 2194.39 | 4.502 | 909.80 | 19.435 | 1896.81 |
+| 128 | 64 | 256 | 49152 | 14.949 | 2191.96 | 17.924 | 914.09 | 32.873 | 1495.21 |
+
+Paged difference-method decode:
+
+- Token delta: `256 * (64 - 16) = 12288`
+- Wall delta: `17.924 - 4.502 = 13.422 s`
+- Decode throughput: `915.51 t/s`
+
+vLLM artifacts:
+
+- `~/bench/reopen_phase0/vllm_decode_nsys/vllm_version.txt`
+- `~/bench/reopen_phase0/vllm_decode_nsys/dec_npl256_ntg16.nsys-rep`
+- `~/bench/reopen_phase0/vllm_decode_nsys/dec_npl256_ntg16.run.log`
+- `~/bench/reopen_phase0/vllm_decode_nsys/dec_npl256_ntg16.kern.csv`
+- `~/bench/reopen_phase0/vllm_decode_nsys/dec_npl256_ntg16.gpu_trace.csv`
+- `~/bench/reopen_phase0/vllm_decode_nsys/dec_npl256_ntg64.nsys-rep`
+- `~/bench/reopen_phase0/vllm_decode_nsys/dec_npl256_ntg64.run.log`
+- `~/bench/reopen_phase0/vllm_decode_nsys/dec_npl256_ntg64.kern.csv`
+- `~/bench/reopen_phase0/vllm_decode_nsys/dec_npl256_ntg64.gpu_trace.csv`
+
+vLLM version: `0.23.0`
+
+vLLM profiled rows:
+
+| NSEQ | GEN | Generated tokens | Wall s | Logged tok/s |
+|------|-----|------------------|--------|--------------|
+| 256 | 16 | 4096 | 6.195 | 661.2 |
+| 256 | 64 | 16384 | 17.607 | 930.5 |
+
+vLLM difference-method decode:
+
+- Token delta: `16384 - 4096 = 12288`
+- Wall delta: `17.607 - 6.195 = 11.412 s`
+- Decode throughput: `1076.76 t/s`
+
+Clean reproduced paged/vLLM decode ratio: `85.0%`.
+
 ## Clean Build
 
 First clean build attempt:

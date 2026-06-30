@@ -482,7 +482,12 @@ Commit succeeds.
 **Files:**
 - Modify: `backend/cpp/llama-cpp-localai-paged/docs/GB10_PARITY_PHASE0_RESULTS.md`
 
-- [ ] **Step 1: Dispatch a vLLM harness discovery subagent**
+- [x] **Step 1: Dispatch a vLLM harness discovery subagent**
+
+Result: read-only subagent found prior harnesses
+`/home/mudler/vllm_moe_nsys.sh` and `/home/mudler/vllm_moe_prof.py`, plus a
+concrete `~/highN_vllm_diff` `NSEQ`/`GEN` command sequence using
+`nsys profile --cuda-graph-trace=node`.
 
 Prompt:
 
@@ -496,7 +501,7 @@ Expected:
 Subagent returns a concrete vLLM command sequence or reports that no prior harness exists.
 ```
 
-- [ ] **Step 2: Run paged graph-node-traced decode difference-method**
+- [x] **Step 2: Run paged graph-node-traced decode difference-method**
 
 Run only after DGX preflight passes:
 
@@ -525,7 +530,7 @@ Expected:
 Two `.nsys-rep` files and two `.bench.log` files exist.
 ```
 
-- [ ] **Step 3: Run vLLM graph-node-traced decode difference-method**
+- [x] **Step 3: Run vLLM graph-node-traced decode difference-method**
 
 Use the exact command sequence from Step 1. Required properties:
 
@@ -543,7 +548,7 @@ Expected:
 Two vLLM graph-node-traced artifacts exist and can be reduced by the difference method.
 ```
 
-- [ ] **Step 4: Update Phase 0 results and commit**
+- [x] **Step 4: Update Phase 0 results and commit**
 
 Record paged and vLLM tokens/s using:
 
