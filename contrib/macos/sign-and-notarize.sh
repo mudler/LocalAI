@@ -71,13 +71,42 @@ cmd_notarize() {
   echo "[notarize] notarized and stapled $dmg"
 }
 
+# Notarize and staple the .app bundle itself. Stapling the dmg alone is not
+# enough: an app with no embedded ticket has no local proof of notarization, so
+# Gatekeeper falls back to an online check — and the app then fails to launch on
+# a machine that is offline / behind a firewall, or once it has been copied out
+# of the dmg. Stapling the bundle makes it verify offline. notarytool needs an
+# archive for a bundle, so we zip it first.
+cmd_notarize_app() {
+  local app="$1"
+  if [ -z "${MACOS_NOTARY_KEY:-}" ]; then
+    echo "[notarize] MACOS_NOTARY_KEY unset: skipping notarization of $app"
+    return 0
+  fi
+  local keyfile zip
+  keyfile="$(mktemp).p8"
+  zip="$(mktemp).zip"
+  echo "$MACOS_NOTARY_KEY" | base64 --decode > "$keyfile"
+  ditto -c -k --keepParent "$app" "$zip"
+  xcrun notarytool submit "$zip" \
+    --key "$keyfile" \
+    --key-id "${MACOS_NOTARY_KEY_ID:?}" \
+    --issuer "${MACOS_NOTARY_ISSUER_ID:?}" \
+    --wait
+  rm -f "$keyfile" "$zip"
+  xcrun stapler staple "$app"
+  xcrun stapler validate "$app"
+  echo "[notarize] notarized and stapled $app"
+}
+
 main() {
   local sub="${1:-}"; shift || true
   case "$sub" in
-    import-cert) cmd_import_cert ;;
-    sign)        cmd_sign "$@" ;;
-    notarize)    cmd_notarize "$@" ;;
-    *) echo "usage: $0 {import-cert|sign <path>|notarize <dmg>}" >&2; exit 2 ;;
+    import-cert)  cmd_import_cert ;;
+    sign)         cmd_sign "$@" ;;
+    notarize)     cmd_notarize "$@" ;;
+    notarize-app) cmd_notarize_app "$@" ;;
+    *) echo "usage: $0 {import-cert|sign <path>|notarize <dmg>|notarize-app <app>}" >&2; exit 2 ;;
   esac
 }
 
