@@ -128,6 +128,49 @@ First implementation target:
   many small ragged tile maps. The first fork-first experiment should remove or
   amortize that host-built tile-map path before retuning MMA tile shapes.
 
+## W4A16 Metadata Phase 1
+
+Fork commit: `4b0cc1163cc42dc1c17892fd41ce5ab384ba3e17`
+(`feat(paged): pack W4A16 grouped tile metadata`).
+
+LocalAI patch mirror: `0048-feat-paged-pack-W4A16-grouped-tile-metadata.patch`.
+
+Mirror invariant: applying the full LocalAI `patches/paged/*.patch` series to
+base pin `0ed235ea2c17a19fc8238668653946721ed136fd` tree-matches fork HEAD
+`4b0cc1163cc42dc1c17892fd41ce5ab384ba3e17`.
+
+Artifacts:
+
+- Diff: `~/bench/w4a16_phase1/packed_desc.diff`
+- Build mtimes: `~/bench/w4a16_phase1/build_binary_mtimes.txt`
+- MoE gate: `~/bench/w4a16_phase1/gate_moe.md5`
+- Dense gate: `~/bench/w4a16_phase1/gate_dense.md5`
+- Default FP4-MMQ: `~/bench/w4a16_phase1/w4a16_off.txt`
+- Packed W4A16: `~/bench/w4a16_phase1/w4a16_on_thr64.txt`
+
+Canonical gates:
+
+- MoE greedy md5: `8cb0ce23777bf55f92f63d0292c756b0` (matched expected)
+- Dense greedy md5: `5951a5b4d624ce891e22ab5fca9bc439` (matched expected)
+
+Packed descriptor A/B:
+
+| Path | PP | TG | B | N_KV | T_PP s | S_PP t/s | T_TG s | S_TG t/s | T s | S t/s |
+|------|----|----|---|------|--------|----------|--------|----------|-----|-------|
+| FP4-MMQ | 512 | 4 | 32 | 16512 | 7.114 | 2303.07 | 0.323 | 396.55 | 7.437 | 2220.32 |
+| FP4-MMQ | 2048 | 4 | 32 | 65664 | 27.045 | 2423.23 | 0.331 | 387.14 | 27.376 | 2398.64 |
+| W4A16 packed | 512 | 4 | 32 | 16512 | 12.468 | 1314.08 | 0.322 | 397.97 | 12.790 | 1291.04 |
+| W4A16 packed | 2048 | 4 | 32 | 65664 | 48.930 | 1339.39 | 0.330 | 387.44 | 49.260 | 1333.00 |
+
+Result:
+
+- Packed descriptors improved forced W4A16 by `+0.39%` at `npp=512` and
+  `+0.48%` at `npp=2048` versus the Phase 0 no-debug W4A16 baseline.
+- W4A16 remains `-42.9%` at `npp=512` and `-44.7%` at `npp=2048` versus
+  same-run default FP4-MMQ.
+- Decision: keep patch `0048` as a small simplification, but pivot the next
+  W4A16 iteration to the activation cast or MMA/dequant tile body.
+
 ## Clean Build
 
 First clean build attempt:
@@ -173,7 +216,8 @@ Second clean build attempt:
 - HEAD: `51168c5eee2e35348d9006f0b2fab3dc6e7c01cc`
 - Base pin: `0ed235ea2c17a19fc8238668653946721ed136fd`
 - Merge-base with base pin: `0ed235ea2c17a19fc8238668653946721ed136fd`
-- LocalAI patch count: `38`
+- LocalAI patch count: `38` at Phase 0; current mirror count is `39` after
+  patch `0048`.
 - LocalAI patch mirror: applies cleanly to the base pin and tree-matches fork
   HEAD.
 - Tree hash after patch application: `a73d759350277532a14e853e1fe78f08bbb74ce8`
