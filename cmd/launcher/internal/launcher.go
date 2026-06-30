@@ -207,12 +207,20 @@ func (l *Launcher) StartLocalAI() error {
 	}
 
 	// Build command arguments
+	dataPath := l.GetDataPath()
 	args := []string{
 		"run",
 		"--models-path", l.config.ModelsPath,
 		"--backends-path", l.config.BackendsPath,
 		"--address", l.config.Address,
 		"--log-level", l.config.LogLevel,
+		// Keep persistent data and dynamic config under the launcher's data
+		// directory (~/.localai) rather than letting the server resolve them
+		// to ${basepath}/{data,configuration}. ${basepath} expands to the
+		// launcher process's CWD (often the user's home root), which puts
+		// ~/data and ~/configuration outside ~/.localai. See #10610.
+		"--data-path", filepath.Join(dataPath, "data"),
+		"--localai-config-dir", filepath.Join(dataPath, "configuration"),
 	}
 
 	l.localaiCmd = exec.CommandContext(l.ctx, binaryPath, args...)
