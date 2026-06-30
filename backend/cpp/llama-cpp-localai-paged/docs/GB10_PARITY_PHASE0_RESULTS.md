@@ -14,7 +14,24 @@ Status: in progress.
 
 ## Baseline Runs
 
-No baseline runs have been started yet.
+Clean prefill baseline artifacts:
+
+- MoE: `~/bench/reopen_phase0/paged_moe_prefill.txt`
+- Dense: `~/bench/reopen_phase0/paged_dense_prefill.txt`
+
+MoE paged prefill:
+
+| PP | TG | B | N_KV | T_PP s | S_PP t/s | T_TG s | S_TG t/s | T s | S t/s |
+|----|----|---|------|--------|----------|--------|----------|-----|-------|
+| 512 | 4 | 32 | 16512 | 7.181 | 2281.66 | 0.355 | 360.57 | 7.536 | 2191.16 |
+| 2048 | 4 | 32 | 65664 | 27.131 | 2415.53 | 0.328 | 390.84 | 27.459 | 2391.38 |
+
+Dense paged prefill:
+
+| PP | TG | B | N_KV | T_PP s | S_PP t/s | T_TG s | S_TG t/s | T s | S t/s |
+|----|----|---|------|--------|----------|--------|----------|-----|-------|
+| 512 | 4 | 32 | 16512 | 16.749 | 978.18 | 0.842 | 152.03 | 17.591 | 938.64 |
+| 2048 | 4 | 32 | 65664 | 63.791 | 1027.35 | 0.687 | 186.29 | 64.479 | 1018.38 |
 
 ## Clean Build
 

@@ -436,7 +436,7 @@ Commit succeeds if gates pass. If gates fail, do not commit success; record fail
 **Files:**
 - Modify: `backend/cpp/llama-cpp-localai-paged/docs/GB10_PARITY_PHASE0_RESULTS.md`
 
-- [ ] **Step 1: Run paged prefill baseline**
+- [x] **Step 1: Run paged prefill baseline**
 
 Run:
 
@@ -458,7 +458,7 @@ Expected:
 Both files contain S_PP rows for 512 and 2048.
 ```
 
-- [ ] **Step 2: Update Phase 0 results and commit**
+- [x] **Step 2: Update Phase 0 results and commit**
 
 Record exact S_PP rows and artifact paths.
 
