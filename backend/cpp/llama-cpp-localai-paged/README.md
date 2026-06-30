@@ -9,6 +9,7 @@ here is a fork - it is a source-only `*.patch` stack plus this canonical doc.
 > only other docs are operational, kept in `docs/`, and linked below:
 > - [`PAGED_BITEXACT_NOTE.md`](docs/PAGED_BITEXACT_NOTE.md) - the per-path bit-exactness gate (the canonical paged-MoE md5 reference).
 > - [`LOCALAI_LLAMACPP_BACKEND_PLAN.md`](docs/LOCALAI_LLAMACPP_BACKEND_PLAN.md) - the design-of-record for shipping this as its own backend + the NVFP4 gallery items.
+> - [`VLLM_PARITY_FINAL.md`](docs/VLLM_PARITY_FINAL.md) - the definitive, closed record of the GB10 vLLM-parity investigation: full benchmark, every lever + verdict, the structural floors, and the parity verdict (summarized in section 9 below). Read this before reopening any parity work.
 
 ---
 
@@ -159,6 +160,20 @@ concurrency, because this serving decode is GPU-compute-bound (baseline reuse 0%
 S1+S3 reuse 72% on aggregate tok/s), so the dummy-row compute it adds costs more
 than the reuse it recovers. Full record + numbers in `docs/DECODE_SERVING_SCOPE.md`
 ("Padded-shape lever - rejected").
+
+### Prefill fusions (0042, 0044)
+
+CUDA-family graph fusions of the pre-norm residual chain and the gated-DeltaNet
+output norm: separate `rms_norm` / `mul` / `add` / `silu` launches collapse into
+one kernel so the intermediate never round-trips to HBM. Bit-exact (the fused
+kernel reproduces the unfused FP order; float multiply is commutative). Each is
+env-gated default-ON (`LLAMA_FUSE_*=0` for a clean single-build A/B that reverts
+to the byte- and kernel-identical unfused path).
+
+| # | What it does | Bit-exact / effect |
+|---|---|---|
+| 0042 | **Fused residual-add + RMS norm + weight multiply** (`rms_norm_pre_add_mul_f32`) - the pre-norm residual `h = x + sub_out; n = rms_norm(h) * w` ran as a `k_bin_bcast` ADD feeding the fused rms_norm+mul; the residual ADD has a second consumer (the skip add) so it can't pass the single-use `ggml_can_fuse`. Recognized via `ggml_can_fuse_subgraph` (ADD + final MUL both outputs), folded into one launch that publishes `h` and emits `scale * h * w`. Gate `LLAMA_FUSE_ADD_RMSNORM`. | yes (dense `5951a5b4`, MoE `8cb0ce23`); dense S_PP +0.5% |
+| 0044 | **Fused gated RMSNorm + SiLU gate multiply** (`rms_norm_gate_mul_f32`) - the gated-DeltaNet output norm `(rms_norm(x) * w) * silu(z)` (qwen35 / qwen35moe `build_norm_gated`) ran as rms_norm_mul + silu_mul, two launches with the normalized intermediate crossing HBM. The gate z-projection (a MUL_MAT) is scheduled between the weight MUL and the SILU, so the chain is not naturally consecutive; `build_norm_gated` emits the gate multiply as `mul(silu(z), normalized)` (commutative, bit-exact) so the graph lays out the consecutive subgraph `{ SILU, RMS_NORM, MUL, MUL }` that `ggml_cuda_can_fuse` folds into one `scale * x * w * silu(z)` launch. Gate `LLAMA_FUSE_GATE_RMSNORM`. Profile (dense npp512): 672 (rms_norm_mul + silu_mul) -> 336 fused launches. | yes (dense `5951a5b4`, MoE `8cb0ce23`, paged + non-paged; `test-backend-ops` 12979/12979); S_PP dense +1.1% (~+10 us/tok), MoE +0.9% |
 
 ### SSM (gated-DeltaNet) decode levers (0018-0022, 0028)
 
@@ -527,3 +542,40 @@ Both gallery entries set `backend: llama-cpp-localai-paged` and the paged servin
 `flash_attention:on`, `context_size`). They are bit-exact. The full
 backend-split + gallery plan is in
 [`LOCALAI_LLAMACPP_BACKEND_PLAN.md`](docs/LOCALAI_LLAMACPP_BACKEND_PLAN.md).
+
+---
+
+## 9. vLLM parity - final state (CLOSED)
+
+The multi-week GB10 (DGX Spark, sm_121) vLLM-parity investigation is **closed**.
+The standing, never-re-litigate record - full benchmark, every lever and verdict,
+the structural floors, the parity verdict - is
+[`docs/VLLM_PARITY_FINAL.md`](docs/VLLM_PARITY_FINAL.md). Summary:
+
+- **Where we are (GB10, Qwen3.6 NVFP4, vs vLLM 0.23.0).** Decode: dense is
+  **ahead of vLLM at low concurrency (116.7% at N=8)** and both models are
+  bandwidth-floored at **~56-68% of vLLM at high concurrency**. Prefill is
+  **~36% (MoE) / ~43% (dense)** of vLLM. Memory: **1.5-3x lower** than vLLM
+  (NVFP4-resident; vLLM's peak is a fixed ~109-112 GB 0.85-util reservation,
+  paged grows with KV from ~50 GB). Output is bit-exact per-path
+  (`5951a5b4` dense, `8cb0ce23` paged-MoE).
+- **Why the residual is a hardware ceiling, not missing work.** Decode kernels
+  are already **5.4x more GPU-efficient per token** than vLLM's; the gap is the
+  **LPDDR5x ~273 GB/s** floor. The prefill GEMM is **FP4-MMQ-optimal** (every
+  alternative - 0033 dequant->cuBLAS, 0034 native FP4-MMA, 0035/Marlin W4A16,
+  offline-repack and vLLM-verbatim Marlin - was rejected; bf16 TC peak is ~half
+  FP4 peak, and vLLM itself runs a bf16-Marlin fallback on sm_121). The GDN
+  chunked scan is at the tractable tensor-core win (**M5 tf32**, patch 0047);
+  its residual is the **O(C^2) intra-chunk solve + serial recurrence** (occupancy
+  and dtype proven not the bound: BV -1%, bf16-C64 -18.75%). The serving host
+  loop is **closed** (~0-1% of the wall; padded-decode built + rejected).
+- **Shipped, bit-exact wins.** FP4-MMQ GEMM, M5 tensor-core GDN prefill (0047),
+  fused residual+RMSNorm (0042), fused GatedRMSNorm+SiLU (0044), GDN-prefill
+  geometry gate (0046), the SSM decode-fusion stack (0018-0022/0028, up to
+  2.46x/2.26x over stock), decode-graph reuse (0040/0043), the memory advantage,
+  and low-N decode lead.
+- **The path to parity is different hardware.** Datacenter Blackwell (HBM,
+  native tcgen05/CUTLASS FP4) lifts the bandwidth floor and **restores exactly
+  the vLLM advantages that lose on GB10** (FLA blocked-solve GDN, Marlin/CUTLASS
+  grouped FP4, HBM-tuned full-cudagraph decode). Re-run the methodology on new
+  silicon; do not reopen the GB10 levers.
