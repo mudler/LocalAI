@@ -53,10 +53,12 @@ A lever compiled into the binary is **NOT** isolated by a runtime flag alone. It
 - **No em-dashes** anywhere in output (use `-`, `:`, parentheses, or rephrase).
 - **Ask before every `git push`.** Prior approval does not carry over.
 
-### 2.5 The fork-is-canonical rule
-- The **canonical source of truth is the fork branch `mudler/llama.cpp:localai-paged`** = pin commit + paged patch commits in order.
-- The shipped `patches/paged/*.patch` are **generated** (one `git format-patch` per commit) from that branch, source-only, never touch a `*.md`/dev-doc. No hand-export.
-- The series numbering is **intentionally not 1:1** with fork commit subjects (e.g. the f32-only M5 is fork "patch 0044" `51168c5ee` but worktree patch **0047**).
+### 2.5 Fork-first is MANDATORY (the fork is canonical)
+- The **canonical source of truth is the fork branch `mudler/llama.cpp:localai-paged`** (= pin commit + paged patch commits in order). It is canonical for ALL paged-backend kernel/patch work. The shipped `patches/paged/*.patch` series is a **derivative**: the fork is the source.
+- **Always update the fork FIRST, in this exact order:** (1) commit the change on the `localai-paged` branch and **push it**, then (2) regenerate the LocalAI series (`backend/cpp/llama-cpp-localai-paged/patches/paged/`) from the fork via `git format-patch` (one patch per fork commit, source-only, never touching a `*.md`/dev-doc), so the series stays a **1:1, drift-free mirror** of the branch. No hand-export.
+- **NEVER edit the LocalAI `patches/paged/*.patch` files directly**, and **NEVER add a patch to the series with no corresponding fork-branch commit.** They are generated output, not source.
+- The fork branch is also **where the build and the per-path bit-exact md5 gate actually run**, so it is the **only** place a change is truly validated. A patch that lives only in the LocalAI series has never been built or gated.
+- **Mirror invariant (verify by tree hash):** applying the full on-disk series on the pin must reproduce the fork branch tree byte-for-byte. The series has **intentional gaps** (missing 0005, 0026, 0027, 0032, 0036-0039, 0045), so the patch count is not the max number; what must hold is the tree-hash equality, not the count. (Concretely: fork HEAD `51168c5ee` "patch 0044" is byte-identical to worktree `0044-feat-paged-fused-gated-RMSNorm-SiLU-gate-mul.patch`; the f32-only M5 tensor-core scan is worktree patch `0047`.)
 
 ### 2.6 Bench hygiene gates
 - **NEVER set `LLAMA_MAX_BATCH_TOKENS` in benches** (the harness explicitly logs "NO LLAMA_MAX_BATCH_TOKENS").

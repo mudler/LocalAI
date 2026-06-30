@@ -48,6 +48,38 @@ how-to.
   bit-exact end to end. Do not reintroduce a per-head SSM-precision lever; see the
   rejected-levers note in the backend README section 5.)
 
+## Fork-first workflow (MANDATORY)
+
+The fork **`mudler/llama.cpp` branch `localai-paged`** is the CANONICAL source
+of truth for ALL paged-backend kernel and patch work. The vendored
+`patches/paged/*.patch` series is a **derivative**: the fork is the source, the
+series is a generated mirror of it.
+
+**Always update the fork FIRST, in this exact order:**
+
+1. **Commit the change on the `localai-paged` branch and push it.** Every
+   kernel or patch change lands as a fork commit first.
+2. **Then regenerate the LocalAI series from the fork** via `git format-patch`
+   (one patch per fork commit, source-only) into
+   `backend/cpp/llama-cpp-localai-paged/patches/paged/`, so the series stays a
+   **1:1, drift-free mirror** of the branch.
+
+Hard rules, no exceptions:
+
+- **NEVER edit the `patches/paged/*.patch` files directly.** They are generated
+  output, not source.
+- **NEVER add a patch to the series that has no corresponding fork-branch
+  commit.** Every `.patch` must be the `git format-patch` of a real commit on
+  `localai-paged`.
+- The fork branch is **where the build and the per-path bit-exact md5 gate
+  actually run**, so it is the **only** place a change is truly validated. A
+  patch living only in the LocalAI series has never been built or gated.
+
+Verify the mirror by tree hash: applying the full on-disk series on the pin
+must reproduce the fork branch tree byte-for-byte. (The patch maintenance
+detail is in `backend/cpp/llama-cpp-localai-paged/docs/PATCH_MAINTENANCE.md`;
+the hard-gate is section 2.5 of `docs/PARITY_HANDOFF.md`.)
+
 ## Maintaining the pin against new llama.cpp
 
 The pin (`LLAMA_VERSION` in the wrapper Makefile) is advanced ONLY by the manual
@@ -89,8 +121,10 @@ pin-matched grpc-server.cpp, which we deliberately do not, to keep stock pure).
 
 ## Encapsulating your work
 
-- When you change a patch, regenerate the `.patch` (source-only) and keep the dev
-  tree and this worktree byte-identical. Commit both with sign-off.
+- When you change a kernel, follow the **Fork-first workflow** above: commit and
+  push on the `localai-paged` branch first, then regenerate the `.patch`
+  (source-only) from the fork so this worktree mirrors the branch byte-for-byte.
+  Commit with sign-off.
 - New optimization -> next patch number (gaps 0005/0027 are intentional). Update
   the README's patch table and dev notes - keep the README the single doc; do not
   scatter `*_RESULTS.md` files.
