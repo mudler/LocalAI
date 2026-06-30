@@ -16,6 +16,43 @@ Status: in progress.
 
 No baseline runs have been started yet.
 
+## Clean Build
+
+First clean build attempt:
+
+- PID: `625392`
+- Source checkout: `~/llama-paged-reopen-clean`
+- Result: failed during CMake configure.
+- Root cause: `nvcc` was not discoverable on PATH. CUDA headers were found under
+  `/usr/local/cuda/targets/sbsa-linux/include`, and the compiler exists at
+  `/usr/local/cuda-13.0/bin/nvcc`.
+- Retry plan: rebuild the clean checkout with
+  `CUDACXX=/usr/local/cuda-13.0/bin/nvcc`.
+
+Second clean build attempt:
+
+- PID: `631100`
+- Source checkout: `~/llama-paged-reopen-clean`
+- Source status: `## HEAD (no branch)`
+- Build HEAD: `51168c5eee2e35348d9006f0b2fab3dc6e7c01cc`
+- CUDA compiler: `/usr/local/cuda-13.0/bin/nvcc`
+- Result: succeeded.
+- Binary mtimes:
+  - `build-cuda/bin/llama-server 2026-06-30 22:14:34.091312112 +0200`
+  - `build-cuda/bin/llama-batched-bench 2026-06-30 22:14:35.156287566 +0200`
+  - `build-cuda/bin/llama-completion 2026-06-30 22:14:37.095750242 +0200`
+  - `build-cuda/bin/test-backend-ops 2026-06-30 22:14:47.360078186 +0200`
+
+## Canonical Gates
+
+- MoE greedy md5: `8cb0ce23777bf55f92f63d0292c756b0` (matched expected)
+- Dense greedy md5: `5951a5b4d624ce891e22ab5fca9bc439` (matched expected)
+- Artifacts:
+  - `~/bench/reopen_phase0/gate_moe.txt`
+  - `~/bench/reopen_phase0/gate_moe.md5`
+  - `~/bench/reopen_phase0/gate_dense.txt`
+  - `~/bench/reopen_phase0/gate_dense.md5`
+
 ## Source Provenance
 
 - Local llama.cpp fork: `/home/mudler/_git/llama.cpp`

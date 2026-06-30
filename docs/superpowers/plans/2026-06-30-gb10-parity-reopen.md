@@ -36,7 +36,7 @@
 **Files:**
 - Create: `backend/cpp/llama-cpp-localai-paged/docs/GB10_PARITY_PHASE0_RESULTS.md`
 
-- [ ] **Step 1: Confirm the current worktree state**
+- [x] **Step 1: Confirm the current worktree state**
 
 Run:
 
@@ -52,7 +52,7 @@ Expected:
 ?? .claude/
 ```
 
-- [ ] **Step 2: Run DGX preflight without starting workloads**
+- [x] **Step 2: Run DGX preflight without starting workloads**
 
 Run:
 
@@ -80,7 +80,7 @@ gpu lock is FREE or NO_OWNER
 DGX source states are recorded, even if dirty
 ```
 
-- [ ] **Step 3: Create the Phase 0 artifact directory on DGX**
+- [x] **Step 3: Create the Phase 0 artifact directory on DGX**
 
 Run:
 
@@ -101,7 +101,7 @@ Expected:
 ~/bench/reopen_phase0 exists and contains created_utc.txt, hostname.txt, docker_ps.txt, compute_apps.txt, gpu_lock_owner.txt
 ```
 
-- [ ] **Step 4: Write the initial Phase 0 results document from captured values**
+- [x] **Step 4: Write the initial Phase 0 results document from captured values**
 
 Run:
 
@@ -139,7 +139,7 @@ No baseline runs have been started yet.
 EOF
 ```
 
-- [ ] **Step 5: Commit Task 1**
+- [x] **Step 5: Commit Task 1**
 
 Run:
 
@@ -161,7 +161,7 @@ Commit succeeds with only GB10_PARITY_PHASE0_RESULTS.md staged.
 **Files:**
 - Modify: `backend/cpp/llama-cpp-localai-paged/docs/GB10_PARITY_PHASE0_RESULTS.md`
 
-- [ ] **Step 1: Record local source truth**
+- [x] **Step 1: Record local source truth**
 
 Run:
 
@@ -180,7 +180,7 @@ HEAD is 51168c5eee2e35348d9006f0b2fab3dc6e7c01cc
 merge-base is 0ed235ea2c17a19fc8238668653946721ed136fd
 ```
 
-- [ ] **Step 2: Verify LocalAI patch mirror invariant**
+- [x] **Step 2: Verify LocalAI patch mirror invariant**
 
 Run:
 
@@ -201,7 +201,7 @@ Expected:
 Exit code 0.
 ```
 
-- [ ] **Step 3: Write clean source provenance into Phase 0 results**
+- [x] **Step 3: Write clean source provenance into Phase 0 results**
 
 Update `GB10_PARITY_PHASE0_RESULTS.md`:
 
@@ -215,7 +215,7 @@ Update `GB10_PARITY_PHASE0_RESULTS.md`:
 - LocalAI patch mirror: applies cleanly and tree-matches fork HEAD.
 ```
 
-- [ ] **Step 4: Commit Task 2**
+- [x] **Step 4: Commit Task 2**
 
 Run:
 
@@ -237,7 +237,7 @@ Commit succeeds.
 **Files:**
 - Modify: `backend/cpp/llama-cpp-localai-paged/docs/GB10_PARITY_PHASE0_RESULTS.md`
 
-- [ ] **Step 1: Extract the current artifact-backed numbers**
+- [x] **Step 1: Extract the current artifact-backed numbers**
 
 Run:
 
@@ -261,7 +261,7 @@ Expected:
 existing_artifact_extract.txt is created and shows CDEF, paged highN, and vLLM highN evidence.
 ```
 
-- [ ] **Step 2: Update Phase 0 results with artifact gaps**
+- [x] **Step 2: Update Phase 0 results with artifact gaps**
 
 Add:
 
@@ -276,7 +276,7 @@ Add:
   `51168c5ee`; this must be separated from current production-source baselines.
 ```
 
-- [ ] **Step 3: Commit Task 3**
+- [x] **Step 3: Commit Task 3**
 
 Run:
 
@@ -298,7 +298,7 @@ Commit succeeds.
 **Files:**
 - Modify: `backend/cpp/llama-cpp-localai-paged/docs/GB10_PARITY_PHASE0_RESULTS.md`
 
-- [ ] **Step 1: Re-run DGX preflight immediately before build**
+- [x] **Step 1: Re-run DGX preflight immediately before build**
 
 Run:
 
@@ -316,7 +316,7 @@ Expected:
 Exit code 0.
 ```
 
-- [ ] **Step 2: Start a detached clean build**
+- [x] **Step 2: Start a detached clean build**
 
 Run:
 
@@ -355,7 +355,13 @@ Expected:
 Command returns quickly and writes build_clean.pid.
 ```
 
-- [ ] **Step 3: Poll build completion**
+- [x] **Step 3: Poll build completion**
+
+Note: first build attempt started as PID `625392` and failed during CMake
+configure because `nvcc` was not on PATH. DGX has
+`/usr/local/cuda-13.0/bin/nvcc`; retry uses explicit `CUDACXX`.
+
+Retry build attempt started as PID `631100` and completed successfully.
 
 Run:
 
@@ -384,7 +390,7 @@ Expected:
 DONE
 ```
 
-- [ ] **Step 4: Run canonical md5 gates**
+- [x] **Step 4: Run canonical md5 gates**
 
 Run:
 
@@ -406,7 +412,7 @@ MoE md5 is 8cb0ce23777bf55f92f63d0292c756b0
 Dense md5 is 5951a5b4d624ce891e22ab5fca9bc439
 ```
 
-- [ ] **Step 5: Update Phase 0 results and commit**
+- [x] **Step 5: Update Phase 0 results and commit**
 
 Add build SHA, binary mtimes, gate md5s, and whether they matched expectations.
 
