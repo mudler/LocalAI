@@ -60,10 +60,17 @@ func WithIdleTimeout(timeout time.Duration) WatchDogOption {
 	}
 }
 
-// WithWatchdogCheck sets the watchdog check duration
+// WithWatchdogInterval sets the watchdog check interval. A non-positive
+// interval is ignored so the DefaultWatchdogInterval set by
+// DefaultWatchDogOptions is preserved: callers pass the raw
+// ApplicationConfig value, which is 0 when neither an env var nor a
+// persisted setting configured it (#10601), and a 0 interval would otherwise
+// turn the watchdog loop into a busy spin.
 func WithWatchdogInterval(interval time.Duration) WatchDogOption {
 	return func(o *WatchDogOptions) {
-		o.watchdogInterval = interval
+		if interval > 0 {
+			o.watchdogInterval = interval
+		}
 	}
 }
 
