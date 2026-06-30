@@ -197,6 +197,7 @@ func readRuntimeSettingsJson(startupAppConfig config.ApplicationConfig) fileHand
 		envWatchdogBusy := appConfig.WatchDogBusy == startupAppConfig.WatchDogBusy
 		envWatchdogIdleTimeout := appConfig.WatchDogIdleTimeout == startupAppConfig.WatchDogIdleTimeout
 		envWatchdogBusyTimeout := appConfig.WatchDogBusyTimeout == startupAppConfig.WatchDogBusyTimeout
+		envWatchdogInterval := appConfig.WatchDogInterval == startupAppConfig.WatchDogInterval
 		envSingleBackend := appConfig.SingleBackend == startupAppConfig.SingleBackend
 		envMaxActiveBackends := appConfig.MaxActiveBackends == startupAppConfig.MaxActiveBackends
 		envMemoryReclaimerEnabled := appConfig.MemoryReclaimerEnabled == startupAppConfig.MemoryReclaimerEnabled
@@ -255,6 +256,14 @@ func readRuntimeSettingsJson(startupAppConfig config.ApplicationConfig) fileHand
 					appConfig.WatchDogBusyTimeout = dur
 				} else {
 					xlog.Warn("invalid watchdog busy timeout in runtime_settings.json", "error", err, "timeout", *settings.WatchdogBusyTimeout)
+				}
+			}
+			if settings.WatchdogInterval != nil && !envWatchdogInterval {
+				dur, err := time.ParseDuration(*settings.WatchdogInterval)
+				if err == nil {
+					appConfig.WatchDogInterval = dur
+				} else {
+					xlog.Warn("invalid watchdog interval in runtime_settings.json", "error", err, "interval", *settings.WatchdogInterval)
 				}
 			}
 			// Handle MaxActiveBackends (new) and SingleBackend (deprecated)

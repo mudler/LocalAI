@@ -6,6 +6,7 @@ import (
 	"regexp"
 	"time"
 
+	"github.com/mudler/LocalAI/pkg/model"
 	"github.com/mudler/LocalAI/pkg/system"
 	"github.com/mudler/LocalAI/pkg/xsysinfo"
 	"github.com/mudler/xlog"
@@ -241,12 +242,19 @@ func NewApplicationConfig(o ...AppOption) *ApplicationConfig {
 		Context:                  context.Background(),
 		UploadLimitMB:            15,
 		Debug:                    true,
-		AgentJobRetentionDays:    30,                     // Default: 30 days
-		LRUEvictionMaxRetries:    30,                     // Default: 30 retries
-		LRUEvictionRetryInterval: 1 * time.Second,        // Default: 1 second
-		WatchDogInterval:         500 * time.Millisecond, // Default: 500ms
-		TracingMaxItems:          1024,
-		TracingMaxBodyBytes:      64 * 1024, // 64 KiB - caps each request/response body in the trace buffer
+		AgentJobRetentionDays:    30,              // Default: 30 days
+		LRUEvictionMaxRetries:    30,              // Default: 30 retries
+		LRUEvictionRetryInterval: 1 * time.Second, // Default: 1 second
+		// WatchDogInterval is intentionally left at the zero value here.
+		// The startup loader applies a persisted runtime_settings.json value
+		// only when the interval is still 0 (its "not set by env var"
+		// heuristic, matching the idle/busy timeouts); a non-zero baseline
+		// default would defeat that and silently revert a UI-saved Check
+		// Interval to the default on every restart (#10601). The effective
+		// 500ms default is supplied at the watchdog layer (DefaultWatchdogInterval)
+		// when the value is still 0.
+		TracingMaxItems:     1024,
+		TracingMaxBodyBytes: 64 * 1024, // 64 KiB - caps each request/response body in the trace buffer
 		AgentPool: AgentPoolConfig{
 			Enabled:         true,
 			Timeout:         "5m",
@@ -1097,7 +1105,7 @@ func (o *ApplicationConfig) ToRuntimeSettings() RuntimeSettings {
 	if o.WatchDogInterval > 0 {
 		watchdogInterval = o.WatchDogInterval.String()
 	} else {
-		watchdogInterval = "2s" // default
+		watchdogInterval = model.DefaultWatchdogInterval.String() // default: 500ms
 	}
 	var lruEvictionRetryInterval string
 	if o.LRUEvictionRetryInterval > 0 {
