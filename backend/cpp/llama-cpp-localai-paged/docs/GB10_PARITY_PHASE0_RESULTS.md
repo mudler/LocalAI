@@ -340,7 +340,7 @@ Performance:
 
 Result:
 
-- Rejected. No fork commit and no LocalAI patch `0051`.
+- Rejected. No fork commit and no LocalAI patch was created for that experiment.
 - The local fork experiment was reverted.
 - Do not ship Wq padding alone; the measured `+0.4%` / `+0.6%` default-shape
   gain is below the maintenance threshold.
@@ -388,14 +388,14 @@ Second clean build attempt:
 - Branch: `localai-paged`
 - Working tree: clean after fork commit `d9b9be0bee3d7239132bfca05d5b057ff4ee4cc3`
 - Phase 0 HEAD: `51168c5eee2e35348d9006f0b2fab3dc6e7c01cc`
-- Current HEAD: `d9b9be0bee3d7239132bfca05d5b057ff4ee4cc3`
+- Current HEAD: `cd56cf037379b084d6bb0ed47db8b785c828be86`
 - Base pin: `0ed235ea2c17a19fc8238668653946721ed136fd`
 - Merge-base with base pin: `0ed235ea2c17a19fc8238668653946721ed136fd`
-- LocalAI patch count: `38` at Phase 0; current mirror count is `41` after
-  patch `0050`.
+- LocalAI patch count: `38` at Phase 0; current mirror count is `42` after
+  patch `0051`.
 - LocalAI patch mirror: applies cleanly to the base pin and tree-matches fork
   HEAD.
-- Tree hash after patch application: `8fcb151e0620fd0fc82b80c04318e5c34320b087`
+- Tree hash after patch application: `623b7cb008a929455ca3d9deae35494c02622fef`
 
 ## Existing Artifact Gap Review
 
@@ -562,3 +562,19 @@ Result:
   input/sampler uploads, with a workload that proves the target bucket matters.
 - Phase 7 must keep the canonical MoE and dense md5 gates as the first
   inference-safety check before any performance result is accepted.
+
+## Phase 7 Source-Candidate Test Gate
+
+Fork commit `cd56cf037379b084d6bb0ed47db8b785c828be86` added patch
+`0051-test-paged-cover-MoE-swiglu-down-chain.patch`. This is a test-only patch;
+it does not change the production inference path.
+
+Fresh DGX gates from `/home/mudler/bench/phase7_source_scope/`:
+
+- MoE greedy md5: `8cb0ce23777bf55f92f63d0292c756b0`.
+- Dense greedy md5: `5951a5b4d624ce891e22ab5fca9bc439`.
+- Baseline `MUL_MAT_ID`: `806/806`.
+- New `MOE_SWIGLU_DOWN`: `7/7`.
+
+The new gate covers the merged MoE gate_up -> SWIGLU -> down-projection graph
+shape needed before attempting a batched NVFP4 down-input quantization fusion.

@@ -1,6 +1,6 @@
 # Phase 7: Serving Source Candidate Scope
 
-**Status:** Scoped. Code implementation not started.
+**Status:** Test-gate patch landed. Production CUDA fusion not started.
 
 **Goal:** Select one maintainable source candidate for the remaining GB10 MoE
 serving gap, then implement only if it can be gated for inference correctness and
@@ -130,9 +130,18 @@ to implementation when all are true:
 - [x] Pick Track A or Track B from concrete code evidence.
   - Primary: Track A, batched MoE SWIGLU -> NVFP4 down-input quantization.
   - Secondary: Track B, backend logit-bias upload cache for non-greedy workloads.
-- [ ] Run baseline gates from the clean candidate build.
-- [ ] Implement one fork-first incremental patch.
-- [ ] Run md5/op gates before serving A/B.
+- [x] Run baseline gates from the clean candidate build.
+  - Artifact: `/home/mudler/bench/phase7_source_scope/`.
+  - MoE md5: `8cb0ce23777bf55f92f63d0292c756b0`.
+  - Dense md5: `5951a5b4d624ce891e22ab5fca9bc439`.
+  - Baseline `MUL_MAT_ID`: `806/806`.
+- [x] Implement one fork-first incremental patch.
+  - Fork commit: `cd56cf037` (`test(paged): cover MoE swiglu down chain`).
+  - LocalAI patch: `0051-test-paged-cover-MoE-swiglu-down-chain.patch`.
+  - Scope: test gate only; no production inference path changed.
+- [x] Run md5/op gates before serving A/B.
+  - `MOE_SWIGLU_DOWN`: `7/7` on CUDA0.
+  - Serving A/B is not applicable to this test-only patch.
 - [ ] Keep only if the serving bucket and h2h result improve materially.
 - [ ] Regenerate LocalAI patch stack and update docs if kept.
 
@@ -141,13 +150,38 @@ to implementation when all are true:
 - Add or extend a whole-graph op test for the batched MoE gate_up/SWIGLU/down
   chain. Shapes must include `type_a=NVFP4`, `n_mats=128`, `n_used=8`,
   `m=768`, `k=2048`, and `n in {16, 33, 64, 128, 130, 200}`.
+  - Done in fork commit `cd56cf037`.
 - Run `test-backend-ops test -b CUDA0 -o MUL_MAT_ID -j 1` and require `806/806`
   until a more specific op name is available.
+  - Baseline done before the test-gate patch.
 - Run canonical MoE and dense greedy md5 gates before serving A/B:
   - MoE `8cb0ce23777bf55f92f63d0292c756b0`.
   - Dense `5951a5b4d624ce891e22ab5fca9bc439`.
+  - Baseline done before the test-gate patch.
 - Run a mixed prompt/decode md5 gate (`ptok=512`, `gen=32`) because graph reuse
   can hide bugs that a decode-only gate misses.
+
+## Patch 0051 Result
+
+Patch `0051` adds a whole-graph test named `MOE_SWIGLU_DOWN`. It covers the
+merged MoE gate_up -> SWIGLU -> down projection chain and includes:
+
+- one small F32 wiring case,
+- NVFP4 Qwen-style cases with `n_mats=128`, `n_used=8`, `n_ff=768`,
+  `n_embd=2048`, and `n_tokens in {16, 33, 64, 128, 130, 200}`.
+
+The first run used the inherited single-FP4-op tolerance (`2e-2`) and failed
+consistently at roughly `0.0213-0.0218` NMSE. Root cause: this whole-graph gate
+compounds two native-FP4 `MUL_MAT_ID` ops with SWIGLU between them, so the test
+uses `2.5e-2` for Blackwell native-FP4 backends and keeps the F32 wiring case at
+the stricter default tolerance.
+
+DGX result after the adjustment:
+
+- `test-backend-ops test -b CUDA0 -o MOE_SWIGLU_DOWN -j 1`: `7/7`.
+- Patch mirror applies cleanly to base pin `0ed235ea2c17a19fc8238668653946721ed136fd`
+  and tree-matches fork head `cd56cf037`.
+- Mirrored tree hash: `623b7cb008a929455ca3d9deae35494c02622fef`.
 
 ## Required Tests Before Track B Source Patch
 
