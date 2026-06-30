@@ -16,8 +16,20 @@ Status: in progress.
 
 No baseline runs have been started yet.
 
+## Source Provenance
+
+- Local llama.cpp fork: `/home/mudler/_git/llama.cpp`
+- Branch: `localai-paged`
+- Working tree: clean
+- HEAD: `51168c5eee2e35348d9006f0b2fab3dc6e7c01cc`
+- Base pin: `0ed235ea2c17a19fc8238668653946721ed136fd`
+- Merge-base with base pin: `0ed235ea2c17a19fc8238668653946721ed136fd`
+- LocalAI patch count: `38`
+- LocalAI patch mirror: applies cleanly to the base pin and tree-matches fork
+  HEAD.
+- Tree hash after patch application: `a73d759350277532a14e853e1fe78f08bbb74ce8`
+
 ## Open Items
 
-- Capture clean source provenance.
 - Reproduce paged prefill and decode baselines.
 - Find or recreate vLLM graph-node-traced difference-method decode artifacts.
