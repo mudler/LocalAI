@@ -216,7 +216,10 @@ to implementation when all are true:
   - vLLM confirms GEMM1 -> activation -> GEMM2 -> reduce; no SWIGLU-down
     shortcut to copy.
   - Next candidate: deterministic post-down MoE weighted-combine fusion.
-- [ ] Add `MOE_WEIGHTED_COMBINE` test gate in the fork before production code.
+- [x] Add `MOE_WEIGHTED_COMBINE` test gate in the fork before production code.
+  - Fork commit: `3ef7eb9e4` (`test(paged): cover MoE weighted combine chain`).
+  - LocalAI patch: `0052-test-paged-cover-MoE-weighted-combine-chain.patch`.
+  - DGX gate: `MOE_WEIGHTED_COMBINE` `7/7` on CUDA0.
 - [ ] Implement weighted-combine fusion only if the test gate is stable.
 - [ ] Run op/md5 gates before serving A/B.
 
@@ -305,3 +308,22 @@ allows a new paged-MoE md5 namespace and a profile shows a material bucket win.
   target is non-greedy.
 - Run existing server completion tests covering backend sampling probabilities
   and logit-bias behavior.
+
+## Patch 0052 Result
+
+Patch `0052` adds a whole-graph test named `MOE_WEIGHTED_COMBINE`. It covers the
+post-down MoE combine candidate:
+
+`down MUL_MAT_ID -> router-weight ggml_mul -> rank-ordered expert views/adds`.
+
+Coverage:
+
+- one small F32 wiring case,
+- NVFP4 Qwen-style cases with `n_mats=128`, `n_used=8`, `n_ff=768`,
+  `n_embd=2048`, and `n_tokens in {16, 33, 64, 128, 130, 200}`.
+
+DGX result:
+
+- `test-backend-ops test -b CUDA0 -o MOE_WEIGHTED_COMBINE -j 1`: `7/7`.
+
+This is a test-only patch and does not change the production inference path.

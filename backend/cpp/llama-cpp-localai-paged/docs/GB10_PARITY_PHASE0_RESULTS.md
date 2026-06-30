@@ -620,3 +620,26 @@ Result:
   the fused quantizer used compact GLU-output strides to read split `gate`/`up`
   views. Split views stride over the merged gate/up tensor; using source-view
   strides fixed the op gate but not the end-to-end md5 drift.
+
+## Phase 7 Weighted-Combine Test Gate
+
+Fork commit `3ef7eb9e4d` added patch
+`0052-test-paged-cover-MoE-weighted-combine-chain.patch`. This is a test-only
+patch; it does not change the production inference path.
+
+The new `MOE_WEIGHTED_COMBINE` whole-graph gate covers:
+
+`down MUL_MAT_ID -> router-weight ggml_mul -> rank-ordered expert views/adds`.
+
+DGX artifact:
+
+- `/home/mudler/bench/phase7_source_scope/test_backend_ops_moe_weighted_combine_green.txt`
+
+DGX result:
+
+- `test-backend-ops test -b CUDA0 -o MOE_WEIGHTED_COMBINE -j 1`: `7/7`.
+
+This gate is the correctness target for the next candidate: a deterministic
+post-down MoE weighted-combine fusion that preserves current f32 product and
+rank-order add semantics while avoiding the rejected SWIGLU/FP4-quantization
+shortcut.
