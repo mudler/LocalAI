@@ -1,0 +1,93 @@
+From 7dfa0e17548c5f04f83d2cc2a057b0a9941b599a Mon Sep 17 00:00:00 2001
+From: Ettore Di Giacinto <mudler@localai.io>
+Date: Tue, 30 Jun 2026 21:44:54 +0000
+Subject: [PATCH] feat(paged): tune W4A16 grouped tile shape
+
+Select a BM=32 grouped W4A16 MoE prefill shape by default after the GB10 shape sweep, while keeping the prior 64x128 shape and additional diagnostics selectable through LLAMA_W4A16_SHAPE.
+
+Assisted-by: Codex:gpt-5
+---
+ ggml/src/ggml-cuda/w4a16-gemm.cu | 42 +++++++++++++++++++++++++++++---
+ 1 file changed, 38 insertions(+), 4 deletions(-)
+
+diff --git a/ggml/src/ggml-cuda/w4a16-gemm.cu b/ggml/src/ggml-cuda/w4a16-gemm.cu
+index 899e1a23f..ca8864292 100644
+--- a/ggml/src/ggml-cuda/w4a16-gemm.cu
++++ b/ggml/src/ggml-cuda/w4a16-gemm.cu
+@@ -4,6 +4,7 @@
+ #include <algorithm>
+ #include <cstdint>
+ #include <cstdlib>
++#include <cstring>
+ #include <vector>
+ 
+ // ===========================================================================
+@@ -281,7 +282,23 @@ bool ggml_cuda_w4a16_moe_grouped_should_engage(
+     return true;
+ }
+ 
+-void ggml_cuda_mul_mat_id_w4a16_grouped(
++static bool ggml_cuda_w4a16_use_base_shape() {
++    static const bool use_base = [] {
++        const char * e = getenv("LLAMA_W4A16_SHAPE");
++        if (e == nullptr || e[0] == '\0' || strcmp(e, "default") == 0 || strcmp(e, "bm32") == 0 || strcmp(e, "32x128") == 0) {
++            return false;
++        }
++        if (strcmp(e, "base") == 0 || strcmp(e, "64x128") == 0) {
++            return true;
++        }
++        fprintf(stderr, "[w4a16] unknown LLAMA_W4A16_SHAPE=%s, using default bm32\n", e);
++        return false;
++    }();
++    return use_base;
++}
++
++template<int BM, int BN, int WARPS_M, int WARPS_N, int STAGES>
++static void ggml_cuda_mul_mat_id_w4a16_grouped_impl(
+         ggml_backend_cuda_context & ctx,
+         const ggml_tensor * src0,
+         const float * src1_sorted,
+@@ -290,9 +307,7 @@ void ggml_cuda_mul_mat_id_w4a16_grouped(
+         int64_t n_experts, int64_t K, int64_t N,
+         cudaStream_t stream) {
+     GGML_ASSERT(src0->type == GGML_TYPE_NVFP4);
+-    GGML_ASSERT(N % 128 == 0 && K % 64 == 0);
+-
+-    constexpr int BM = 64, BN = 128, WARPS_M = 2, WARPS_N = 4, STAGES = 2;
++    GGML_ASSERT(N % BN == 0 && K % 64 == 0);
+ 
+     // host: build the per-M-tile expert map (ragged, no tile crosses an expert boundary)
+     int64_t total_rows = 0;
+@@ -327,6 +342,8 @@ void ggml_cuda_mul_mat_id_w4a16_grouped(
+         }
+         fprintf(stderr, "[w4a16] engaged: total_rows=%lld n_experts=%lld K=%lld N=%lld n_tiles=%d max_tpe=%d multi_tile_experts=%d\n",
+                 (long long) total_rows, (long long) n_experts, (long long) K, (long long) N, n_tiles, max_tpe, multi);
++        fprintf(stderr, "[w4a16] shape: BM=%d BN=%d WARPS_M=%d WARPS_N=%d STAGES=%d\n",
++                BM, BN, WARPS_M, WARPS_N, STAGES);
+     }
+ 
+     // device: packed tile map; one pageable H2D copy instead of three tiny copies
+@@ -363,3 +380,20 @@ void ggml_cuda_mul_mat_id_w4a16_grouped(
+         (int) N, (int) K, expert_stride_blocks);
+     CUDA_CHECK(cudaGetLastError());
+ }
++
++void ggml_cuda_mul_mat_id_w4a16_grouped(
++        ggml_backend_cuda_context & ctx,
++        const ggml_tensor * src0,
++        const float * src1_sorted,
++        float * dst_sorted,
++        const int * tokens_per_expert,
++        int64_t n_experts, int64_t K, int64_t N,
++        cudaStream_t stream) {
++    if (ggml_cuda_w4a16_use_base_shape()) {
++        ggml_cuda_mul_mat_id_w4a16_grouped_impl<64, 128, 2, 4, 2>(
++                ctx, src0, src1_sorted, dst_sorted, tokens_per_expert, n_experts, K, N, stream);
++    } else {
++        ggml_cuda_mul_mat_id_w4a16_grouped_impl<32, 128, 1, 4, 2>(
++                ctx, src0, src1_sorted, dst_sorted, tokens_per_expert, n_experts, K, N, stream);
++    }
++}
+-- 
+2.43.0
+

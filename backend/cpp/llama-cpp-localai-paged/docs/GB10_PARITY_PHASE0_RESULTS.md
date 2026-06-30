@@ -171,6 +171,70 @@ Result:
 - Decision: keep patch `0048` as a small simplification, but pivot the next
   W4A16 iteration to the activation cast or MMA/dequant tile body.
 
+## W4A16 Kernel Shape Phase 2
+
+Profile-guided target:
+
+- Phase 1 forced W4A16 profile at `npp=512`: `w4a16_grouped_kernel` dominated
+  at `5231.667 ms` (`47.8%`) while `w4a16_cast_act_f32_bf16` was `517.195 ms`
+  (`4.7%`).
+- Phase 2 therefore targeted grouped-kernel tile shape/body before activation
+  cast fusion.
+
+Shape sweep artifacts:
+
+- Build: `~/llama-w4a16-phase2`
+- Benchmarks: `~/bench/w4a16_phase2/shape_*.txt`
+- Winning profile: `~/bench/w4a16_phase2/profile/w4a16_bm32_npp512.*`
+
+Shape A/B:
+
+| Shape | 512 S_PP t/s | 2048 S_PP t/s | Decision |
+|-------|--------------|---------------|----------|
+| `base` / `64x128` | 1308.02 | 1339.46 | old baseline |
+| `bn256` | 1286.99 | 1311.56 | rejected |
+| `bm32` / `32x128` | 1442.99 | 1475.65 | selected |
+| `bn64` | 1334.80 | 1362.55 | diagnostic only |
+| `stages3` | 1271.01 | 1295.96 | rejected |
+| `bn256x16` | 1084.66 | 1100.95 | rejected |
+
+Only `bm32` and the old `base` selector are shipped in patch `0049`. The other
+candidate shapes were benchmarked in the Phase 2 build and then deliberately
+left out to keep the upstream conflict surface small.
+
+Default-verification after selecting `bm32`:
+
+| PP | TG | B | N_KV | T_PP s | S_PP t/s | T_TG s | S_TG t/s | T s | S t/s |
+|----|----|---|------|--------|----------|--------|----------|-----|-------|
+| 512 | 4 | 32 | 16512 | 11.360 | 1442.28 | 0.321 | 397.00 | 11.682 | 1413.43 |
+| 2048 | 4 | 32 | 65664 | 44.529 | 1471.77 | 0.331 | 386.06 | 44.860 | 1463.75 |
+
+Result:
+
+- `bm32` improves forced W4A16 by about `+10.4%` at `npp=512` and `+10.2%`
+  at `npp=2048` versus the old `64x128` shape in the same sweep.
+- The profiled `bm32` grouped kernel dropped to `4107.355 ms` (`41.7%`) at
+  `npp=512`, from Phase 1's `5231.667 ms` (`47.8%`).
+- Canonical post-change gates matched: MoE
+  `8cb0ce23777bf55f92f63d0292c756b0`, dense
+  `5951a5b4d624ce891e22ab5fca9bc439`.
+- Forced W4A16 shape gates matched each other: `LLAMA_W4A16_PREFILL_M=1`
+  default `bm32` and `LLAMA_W4A16_SHAPE=base` both produced
+  `07db32c2bcb78d17a43ed18bc22705cd` on the canonical gate prompt.
+- Forced W4A16 `MUL_MAT_ID` op checks passed for both shapes:
+  `test-backend-ops test -b CUDA0 -o MUL_MAT_ID -j 1` reported `806/806`
+  for default `bm32` and `806/806` for `base`.
+- Decision: make `bm32` the W4A16 default shape while keeping
+  `LLAMA_W4A16_SHAPE=base` for old-shape A/B and leaving other candidates as
+  diagnostics.
+
+Mirror invariant after patch `0049`:
+
+- Applying all 40 LocalAI `patches/paged/*.patch` files to base pin
+  `0ed235ea2c17a19fc8238668653946721ed136fd` tree-matches fork HEAD
+  `7dfa0e17548c5f04f83d2cc2a057b0a9941b599a`.
+- Tree hash after patch application: `dabe225efbf20ec047b8309d1e1f19b34fc7c5c9`.
+
 ## Clean Build
 
 First clean build attempt:
@@ -212,15 +276,16 @@ Second clean build attempt:
 
 - Local llama.cpp fork: `/home/mudler/_git/llama.cpp`
 - Branch: `localai-paged`
-- Working tree: clean
-- HEAD: `51168c5eee2e35348d9006f0b2fab3dc6e7c01cc`
+- Working tree: clean after fork commit `7dfa0e17548c5f04f83d2cc2a057b0a9941b599a`
+- Phase 0 HEAD: `51168c5eee2e35348d9006f0b2fab3dc6e7c01cc`
+- Current HEAD: `7dfa0e17548c5f04f83d2cc2a057b0a9941b599a`
 - Base pin: `0ed235ea2c17a19fc8238668653946721ed136fd`
 - Merge-base with base pin: `0ed235ea2c17a19fc8238668653946721ed136fd`
-- LocalAI patch count: `38` at Phase 0; current mirror count is `39` after
-  patch `0048`.
+- LocalAI patch count: `38` at Phase 0; current mirror count is `40` after
+  patch `0049`.
 - LocalAI patch mirror: applies cleanly to the base pin and tree-matches fork
   HEAD.
-- Tree hash after patch application: `a73d759350277532a14e853e1fe78f08bbb74ce8`
+- Tree hash after patch application: `dabe225efbf20ec047b8309d1e1f19b34fc7c5c9`
 
 ## Existing Artifact Gap Review
 
