@@ -405,6 +405,18 @@ test-realtime: build-mock-backend
 	@echo 'Running realtime e2e tests (mock backend)'
 	$(GOCMD) run github.com/onsi/ginkgo/v2/ginkgo --label-filter="Realtime && !real-models" --flake-attempts $(TEST_FLAKES) -v -r ./tests/e2e
 
+# Verify the realtime state-machine implementations conform to their formal
+# designs (Go transition/rapid tests under -race + FizzBee model check of the
+# authoritative specs). See docs/design/realtime-state-machines.md (Part 6) and
+# docs/design/specs/README.md.
+test-realtime-conformance:
+	GOCMD=$(GOCMD) ./scripts/realtime-conformance.sh
+
+# Install the pinned, checksum-verified FizzBee model checker (into .tools/,
+# gitignored) used by test-realtime-conformance. Idempotent; no-op if present.
+install-fizzbee:
+	./scripts/install-fizzbee.sh
+
 # Container-based real-model realtime testing. Build env vars / pipeline
 # definition kept here so test-realtime-models-docker can drive a fully wired
 # pipeline (VAD + STT + LLM + TTS) from inside a containerised runner.
@@ -1027,7 +1039,7 @@ test-extra-backend-whisper-transcription: docker-build-whisper
 ## is reachable.
 test-extra-backend-parakeet-cpp-transcription: docker-build-parakeet-cpp
 	BACKEND_IMAGE=local-ai-backend:parakeet-cpp \
-	BACKEND_TEST_MODEL_URL=https://huggingface.co/mudler/parakeet-cpp-gguf/resolve/main/tdt_ctc-110m-f16.gguf \
+	BACKEND_TEST_MODEL_URL=https://huggingface.co/mudler/parakeet-cpp-gguf/resolve/main/realtime_eou_120m-v1-f16.gguf \
 	BACKEND_TEST_AUDIO_URL=https://github.com/ggml-org/whisper.cpp/raw/master/samples/jfk.wav \
 	BACKEND_TEST_CAPS=health,load,transcription \
 	$(MAKE) test-extra-backend

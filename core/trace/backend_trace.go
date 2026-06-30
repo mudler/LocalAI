@@ -75,8 +75,8 @@ var (
 // trace) or any TTS run (~1.3 MiB of audio_wav_base64 per trace) blows the
 // payload past tens of MiB and locks the Traces page in a loading state.
 //
-// 0 disables the cap. Set on the first InitBackendTracingIfEnabled call only,
-// matching the sync.Once-guarded maxItems semantics.
+// 0 disables the cap. Guarded by backendMu; refreshed on EVERY
+// InitBackendTracingIfEnabled call — see below.
 var backendMaxBodyBytes int
 
 func InitBackendTracingIfEnabled(maxItems, maxBodyBytes int) {
@@ -86,7 +86,6 @@ func InitBackendTracingIfEnabled(maxItems, maxBodyBytes int) {
 		}
 		backendMu.Lock()
 		backendTraceBuffer = circularbuffer.New[*BackendTrace](maxItems)
-		backendMaxBodyBytes = maxBodyBytes
 		backendMu.Unlock()
 
 		go func() {
@@ -99,11 +98,26 @@ func InitBackendTracingIfEnabled(maxItems, maxBodyBytes int) {
 			}
 		}()
 	})
+
+	// The body cap tracks the LATEST call, not the first: tracing_max_body_bytes
+	// is runtime-mutable via the settings API (ApplyRuntimeSettings), and every
+	// recording path calls this right before RecordBackendTrace with the current
+	// appConfig value. Freezing the cap on first init meant a raised setting let
+	// producers (e.g. trace.AudioSnippet, which reads the live value) embed
+	// payloads that this recorder then stomped with the "<truncated: N bytes>"
+	// marker — corrupting audio_wav_base64 into an unplayable string. maxItems
+	// keeps first-call semantics: resizing the ring buffer would drop entries.
+	backendMu.Lock()
+	backendMaxBodyBytes = maxBodyBytes
+	backendMu.Unlock()
 }
 
 func RecordBackendTrace(t BackendTrace) {
-	if t.Data != nil && backendMaxBodyBytes > 0 {
-		t.Data = capDataStrings(t.Data, backendMaxBodyBytes)
+	backendMu.Lock()
+	maxBody := backendMaxBodyBytes
+	backendMu.Unlock()
+	if t.Data != nil && maxBody > 0 {
+		t.Data = capDataStrings(t.Data, maxBody)
 	}
 	select {
 	case backendLogChan <- &t:

@@ -106,7 +106,7 @@ var _ = Describe("transcriptResultFromDoc (multi-segment)", func() {
 var _ = Describe("streaming segment assembly", func() {
 	It("closes a segment with start/end from its words on EOU", func() {
 		acc := &streamSegmenter{}
-		acc.add(streamFeedJSON{Text: "hello world", Eou: 1, Words: []transcriptWord{
+		acc.add(streamFeedResult{Delta: "hello world", Eou: true, Words: []transcriptWord{
 			{W: "hello", Start: 0.0, End: 0.4}, {W: "world", Start: 0.4, End: 0.9},
 		}})
 		segs := acc.segments()
@@ -118,9 +118,9 @@ var _ = Describe("streaming segment assembly", func() {
 
 	It("buffers words across feeds until EOU", func() {
 		acc := &streamSegmenter{}
-		acc.add(streamFeedJSON{Text: "hi", Eou: 0, Words: []transcriptWord{{W: "hi", Start: 0, End: 0.3}}})
+		acc.add(streamFeedResult{Delta: "hi", Words: []transcriptWord{{W: "hi", Start: 0, End: 0.3}}})
 		Expect(acc.segments()).To(BeEmpty())
-		acc.add(streamFeedJSON{Text: "there", Eou: 1, Words: []transcriptWord{{W: "there", Start: 0.3, End: 0.7}}})
+		acc.add(streamFeedResult{Delta: "there", Eou: true, Words: []transcriptWord{{W: "there", Start: 0.3, End: 0.7}}})
 		Expect(acc.segments()).To(HaveLen(1))
 		Expect(acc.segments()[0].Text).To(Equal("hi there"))
 	})
@@ -129,12 +129,26 @@ var _ = Describe("streaming segment assembly", func() {
 	// field; a backchannel must still close the segment as it did in v4.
 	It("closes a segment on EOB (backchannel) too", func() {
 		acc := &streamSegmenter{}
-		acc.add(streamFeedJSON{Text: "uh huh", Eou: 0, Eob: 1, Words: []transcriptWord{
+		acc.add(streamFeedResult{Delta: "uh huh", Eob: true, Words: []transcriptWord{
 			{W: "uh", Start: 0.0, End: 0.2}, {W: "huh", Start: 0.2, End: 0.5},
 		}})
 		segs := acc.segments()
 		Expect(segs).To(HaveLen(1))
 		Expect(segs[0].Text).To(Equal("uh huh"))
 		Expect(segs[0].End).To(Equal(secondsToNanos(0.5)))
+	})
+
+	// Older text-only libparakeet.so: no per-word timings, so a segment is cut
+	// from the delta text on each <EOU>/<EOB> (no timestamps), one per utterance.
+	It("falls back to text segments when the feed carries no words", func() {
+		acc := &streamSegmenter{}
+		acc.add(streamFeedResult{Delta: "first turn", Eou: true})
+		acc.add(streamFeedResult{Delta: "second turn", Eou: true})
+		segs := acc.segments()
+		Expect(segs).To(HaveLen(2))
+		Expect(segs[0].Text).To(Equal("first turn"))
+		Expect(segs[1].Text).To(Equal("second turn"))
+		Expect(segs[0].Start).To(Equal(int64(0)), "no per-word timing on the text path")
+		Expect(segs[0].End).To(Equal(int64(0)))
 	})
 })

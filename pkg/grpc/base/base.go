@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/mudler/LocalAI/pkg/grpc/grpcerrors"
 	pb "github.com/mudler/LocalAI/pkg/grpc/proto"
 	gopsutil "github.com/shirou/gopsutil/v3/process"
 )
@@ -164,6 +165,11 @@ func (llm *Base) AudioTransform(*pb.AudioTransformRequest) (*pb.AudioTransformRe
 func (llm *Base) AudioTransformStream(in <-chan *pb.AudioTransformFrameRequest, out chan<- *pb.AudioTransformFrameResponse) error {
 	close(out)
 	return fmt.Errorf("unimplemented")
+}
+
+func (llm *Base) AudioTranscriptionLive(in <-chan *pb.TranscriptLiveRequest, out chan<- *pb.TranscriptLiveResponse) error {
+	close(out)
+	return grpcerrors.LiveTranscriptionUnsupported("base", "not implemented by this backend")
 }
 
 func (llm *Base) AudioToAudioStream(in <-chan *pb.AudioToAudioRequest, out chan<- *pb.AudioToAudioResponse) error {

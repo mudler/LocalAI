@@ -102,7 +102,8 @@ var _ = Describe("streamLLMResponse", func() {
 		t := &fakeTransport{}
 		llmCfg := &config.ModelConfig{}
 
-		handled := streamLLMResponse(context.Background(), session, conv, t, "resp1", nil, nil, llmCfg, nil, nil, 0)
+		r := &liveResponse{id: "resp1"}
+		handled := streamLLMResponse(context.Background(), session, conv, t, r, nil, nil, llmCfg, nil, nil, 0)
 
 		Expect(handled).To(BeTrue())
 		// One live transcript delta per streamed token.
@@ -132,7 +133,8 @@ var _ = Describe("streamLLMResponse", func() {
 		t := &fakeTransport{}
 		llmCfg := &config.ModelConfig{}
 
-		handled := streamLLMResponse(context.Background(), session, conv, t, "resp1", nil, nil, llmCfg, nil, nil, 0)
+		r := &liveResponse{id: "resp1"}
+		handled := streamLLMResponse(context.Background(), session, conv, t, r, nil, nil, llmCfg, nil, nil, 0)
 
 		Expect(handled).To(BeTrue())
 		// Two clauses ("Hello world." mid-stream, "How are you?" on flush) → two
@@ -140,8 +142,10 @@ var _ = Describe("streamLLMResponse", func() {
 		Expect(t.countEvents(types.ServerEventTypeResponseOutputAudioDelta)).To(Equal(2))
 		// The full transcript still streams verbatim.
 		Expect(t.transcriptDeltaText()).To(Equal("Hello world. How are you?"))
-		// Exactly one terminal response.done.
-		Expect(t.countEvents(types.ServerEventTypeResponseDone)).To(Equal(1))
+		// The terminal response.done is emitted by triggerResponse, not by
+		// streamLLMResponse — so at this layer there are none.
+		Expect(t.countEvents(types.ServerEventTypeResponseDone)).To(Equal(0))
+		Expect(r.outcome).To(Equal(outcomeCompleted))
 	})
 
 	It("streams content deltas and emits tool-call items (autoparser tool turn)", func() {
@@ -169,15 +173,18 @@ var _ = Describe("streamLLMResponse", func() {
 		llmCfg := &config.ModelConfig{}
 		llmCfg.TemplateConfig.UseTokenizerTemplate = true
 
-		handled := streamLLMResponse(context.Background(), session, conv, t, "resp1", nil, nil, llmCfg, nil, nil, 0)
+		r := &liveResponse{id: "resp1"}
+		handled := streamLLMResponse(context.Background(), session, conv, t, r, nil, nil, llmCfg, nil, nil, 0)
 
 		Expect(handled).To(BeTrue())
 		// The spoken content was streamed live.
 		Expect(t.transcriptDeltaText()).To(Equal("Let me check."))
 		// The tool call is emitted as a function_call item.
 		Expect(t.countEvents(types.ServerEventTypeResponseFunctionCallArgumentsDone)).To(Equal(1))
-		// Exactly one terminal response.done.
-		Expect(t.countEvents(types.ServerEventTypeResponseDone)).To(Equal(1))
+		// The terminal response.done is emitted by triggerResponse, not by
+		// streamLLMResponse — so at this layer there are none.
+		Expect(t.countEvents(types.ServerEventTypeResponseDone)).To(Equal(0))
+		Expect(r.outcome).To(Equal(outcomeCompleted))
 	})
 
 	It("emits only tool-call items for a content-less tool turn (no empty assistant item)", func() {
@@ -200,7 +207,8 @@ var _ = Describe("streamLLMResponse", func() {
 		llmCfg := &config.ModelConfig{}
 		llmCfg.TemplateConfig.UseTokenizerTemplate = true
 
-		handled := streamLLMResponse(context.Background(), session, conv, t, "resp1", nil, nil, llmCfg, nil, nil, 0)
+		r := &liveResponse{id: "resp1"}
+		handled := streamLLMResponse(context.Background(), session, conv, t, r, nil, nil, llmCfg, nil, nil, 0)
 
 		Expect(handled).To(BeTrue())
 		// No content → no transcript deltas and no spurious assistant content item.
@@ -208,6 +216,51 @@ var _ = Describe("streamLLMResponse", func() {
 		Expect(t.countEvents(types.ServerEventTypeResponseOutputAudioTranscriptDelta)).To(Equal(0))
 		// The tool call is still emitted.
 		Expect(t.countEvents(types.ServerEventTypeResponseFunctionCallArgumentsDone)).To(Equal(1))
+		Expect(t.countEvents(types.ServerEventTypeResponseDone)).To(Equal(0))
+		Expect(r.outcome).To(Equal(outcomeCompleted))
+	})
+})
+
+var _ = Describe("triggerResponse", func() {
+	It("emits exactly one response.created and one response.done with output and usage", func() {
+		m := &fakeModel{
+			cfg: &config.ModelConfig{},
+			predictResp: backend.LLMResponse{
+				Response: "Hi there.",
+				Usage:    backend.TokenUsage{Prompt: 5, Completion: 3},
+			},
+		}
+		session := &Session{
+			OutputSampleRate: 24000,
+			ModelInterface:   m,
+			ModelConfig:      &config.ModelConfig{},
+			// Text-only so the buffered path skips TTS and the assertion focuses
+			// on the terminal's Output + Usage.
+			OutputModalities: []types.Modality{types.ModalityText},
+		}
+		conv := &Conversation{}
+		t := &fakeTransport{}
+
+		triggerResponse(context.Background(), session, conv, t, nil)
+
+		// Exactly one of each lifecycle event for the whole response.create.
+		Expect(t.countEvents(types.ServerEventTypeResponseCreated)).To(Equal(1))
 		Expect(t.countEvents(types.ServerEventTypeResponseDone)).To(Equal(1))
+
+		// The single terminal carries the produced output item and the usage —
+		// both empty in the legacy code.
+		var done *types.ResponseDoneEvent
+		for i := range t.events {
+			if d, ok := t.events[i].(types.ResponseDoneEvent); ok {
+				done = &d
+			}
+		}
+		Expect(done).NotTo(BeNil())
+		Expect(done.Response.Status).To(Equal(types.ResponseStatusCompleted))
+		Expect(done.Response.Output).To(HaveLen(1))
+		Expect(done.Response.Usage).NotTo(BeNil())
+		Expect(done.Response.Usage.InputTokens).To(Equal(5))
+		Expect(done.Response.Usage.OutputTokens).To(Equal(3))
+		Expect(done.Response.Usage.TotalTokens).To(Equal(8))
 	})
 })

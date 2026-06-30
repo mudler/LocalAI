@@ -567,6 +567,38 @@ func DefaultRegistry() map[string]FieldMetaOverride {
 			Advanced:    true,
 			Order:       83,
 		},
+		"pipeline.turn_detection.type": {
+			Section:     "pipeline",
+			Label:       "Turn Detection",
+			Description: "Default turn-detection mode for realtime sessions on this pipeline. server_vad commits after a fixed silence window; semantic_vad lets the transcription model's end-of-utterance token drive a dynamic window (fast commit after the token, long eagerness fallback without it). semantic_vad requires a streaming-EOU transcription model (e.g. parakeet-cpp-realtime_eou_120m-v1) and degrades to silence-only otherwise. Clients can override per session via session.update.",
+			Component:   "select",
+			Options: []FieldOption{
+				{Value: "", Label: "Default (server_vad)"},
+				{Value: "server_vad", Label: "server_vad (silence-based)"},
+				{Value: "semantic_vad", Label: "semantic_vad (end-of-utterance token)"},
+			},
+			Order: 87,
+		},
+		"pipeline.turn_detection.eagerness": {
+			Section:     "pipeline",
+			Label:       "Eagerness",
+			Description: "semantic_vad fallback silence window used when no end-of-utterance token was seen: low waits 8s, medium/auto 4s, high 2s.",
+			Component:   "select",
+			Options: []FieldOption{
+				{Value: "", Label: "Default (auto)"},
+				{Value: "low", Label: "low (8s)"},
+				{Value: "medium", Label: "medium (4s)"},
+				{Value: "high", Label: "high (2s)"},
+			},
+			Order: 88,
+		},
+		"pipeline.turn_detection.retranscribe": {
+			Section:     "pipeline",
+			Label:       "Retranscribe on Commit",
+			Description: "Cross-check every semantic_vad commit with an offline decode of the buffered turn: commit only proceeds when the batch decode also ends in the end-of-utterance token, and its transcript is used. Logs a streamed-vs-batch comparison — useful to gauge streaming/batch alignment — at the cost of one extra decode per turn.",
+			Component:   "toggle",
+			Order:       89,
+		},
 
 		// --- Functions ---
 		"function.grammar.parallel_calls": {

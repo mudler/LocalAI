@@ -19,6 +19,39 @@ import (
 	"github.com/mudler/xlog"
 )
 
+// ModelLoadTraceObserver returns the ModelLoader load observer that records
+// a model_load backend trace for every successful real load (backend process
+// spawn + LoadModel RPC; cache hits never reach the observer). Failures are
+// deliberately skipped here: the modality wrappers already record them via
+// recordModelLoadFailure with request context, and the backend auto-discovery
+// scan probes several backends before one succeeds — tracing every probe
+// failure would bury the buffer in noise.
+//
+// The traced data includes the resolved backend runtime (the installed
+// backend's launcher path, which names the variant directory) — that is what
+// identifies WHICH build served the load. A stale installed backend is
+// invisible in the model config but obvious here.
+func ModelLoadTraceObserver(appConfig *config.ApplicationConfig) func(model.BackendLoadEvent) {
+	return func(ev model.BackendLoadEvent) {
+		if ev.Err != nil || !appConfig.EnableTracing {
+			return
+		}
+		trace.InitBackendTracingIfEnabled(appConfig.TracingMaxItems, appConfig.TracingMaxBodyBytes)
+		trace.RecordBackendTrace(trace.BackendTrace{
+			Timestamp: time.Now(),
+			Duration:  ev.Duration,
+			Type:      trace.BackendTraceModelLoad,
+			ModelName: ev.ModelID,
+			Backend:   ev.Backend,
+			Summary:   "Model loaded",
+			Data: map[string]any{
+				"model_file":      ev.ModelName,
+				"backend_runtime": ev.BackendURI,
+			},
+		})
+	}
+}
+
 // recordModelLoadFailure records a backend trace when model loading fails.
 func recordModelLoadFailure(appConfig *config.ApplicationConfig, modelName, backend string, err error, data map[string]any) {
 	if !appConfig.EnableTracing {

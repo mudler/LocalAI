@@ -195,6 +195,10 @@ func (f *fakeGRPCBackend) AudioToAudioStream(_ context.Context, _ ...ggrpc.CallO
 	return nil, nil
 }
 
+func (f *fakeGRPCBackend) AudioTranscriptionLive(_ context.Context, _ ...ggrpc.CallOption) (grpc.AudioTranscriptionLiveClient, error) {
+	return nil, nil
+}
+
 func (f *fakeGRPCBackend) Forward(_ context.Context, _ ...ggrpc.CallOption) (grpc.ForwardClient, error) {
 	return nil, nil
 }

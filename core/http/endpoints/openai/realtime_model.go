@@ -102,6 +102,10 @@ func (m *transcriptOnlyModel) TranscribeStream(ctx context.Context, audio, langu
 	return transcribeStream(ctx, m.modelLoader, *m.TranscriptionConfig, m.appConfig, audio, language, translate, diarize, prompt, onDelta)
 }
 
+func (m *transcriptOnlyModel) TranscribeLive(ctx context.Context, language string, onEvent func(backend.LiveTranscriptionEvent)) (backend.LiveTranscriptionSession, error) {
+	return backend.ModelTranscriptionLive(ctx, language, m.modelLoader, *m.TranscriptionConfig, m.appConfig, onEvent)
+}
+
 func (m *transcriptOnlyModel) PredictConfig() *config.ModelConfig {
 	return nil
 }
@@ -346,6 +350,10 @@ func (m *wrappedModel) TTSStream(ctx context.Context, text, voice, language stri
 
 func (m *wrappedModel) TranscribeStream(ctx context.Context, audio, language string, translate, diarize bool, prompt string, onDelta func(text string)) (*schema.TranscriptionResult, error) {
 	return transcribeStream(ctx, m.modelLoader, *m.TranscriptionConfig, m.appConfig, audio, language, translate, diarize, prompt, onDelta)
+}
+
+func (m *wrappedModel) TranscribeLive(ctx context.Context, language string, onEvent func(backend.LiveTranscriptionEvent)) (backend.LiveTranscriptionSession, error) {
+	return backend.ModelTranscriptionLive(ctx, language, m.modelLoader, *m.TranscriptionConfig, m.appConfig, onEvent)
 }
 
 func (m *wrappedModel) PredictConfig() *config.ModelConfig {
