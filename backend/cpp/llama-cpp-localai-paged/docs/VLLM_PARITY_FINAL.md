@@ -1,5 +1,10 @@
 # vLLM Parity - Final State (Qwen3.6 NVFP4 on GB10)
 
+> 2026-06-30 update: this document records the earlier final-state verdict. The
+> investigation has since been reopened; see `GB10_PARITY_REOPEN_SPEC.md`,
+> `GB10_PARITY_PHASE0_RESULTS.md`, and the active `docs/superpowers/plans/`
+> Phase 6/Phase 7 files for the current measured state and follow-up scope.
+
 > **Status: CLOSED.** This is the standing record of the exhaustive GB10 (DGX
 > Spark, sm_121) parity investigation for `llama-cpp-localai-paged` against vLLM
 > on the Qwen3.6 hybrid gated-DeltaNet NVFP4 models. It exists so the

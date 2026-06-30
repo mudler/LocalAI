@@ -1,6 +1,6 @@
 # Phase 6: Serving nsys Gap Classifier
 
-**Status:** In progress.
+**Status:** Completed. Phase 6 kept no source changes.
 
 **Scope:** Measurement-first. Do not edit llama.cpp source in this phase unless
 the serving profiles identify a small, bit-exact, fork-first patch candidate.
@@ -22,6 +22,10 @@ measured evidence.
 - Patch promotion threshold: no semantic gate regression, no generated patch
   hand-editing, and at least one measured serving bucket improvement that explains
   a material share of the vLLM gap.
+- Inference-safety rule: a candidate that changes CUDA routing, sampler inputs,
+  graph construction, or MoE kernels is not kept unless the md5 gates are rerun
+  from the clean candidate binary and still match the canonical values above.
+  Performance-only evidence is insufficient.
 
 ## Checklist
 
@@ -84,7 +88,7 @@ measured evidence.
 
 ## Current Decision
 
-W4A16 prefill is no longer the highest-leverage path. The accepted Phase 1-4
+W4A16 prefill was not the highest-leverage path for Phase 6. The accepted Phase 1-4
 changes improved forced W4A16 from roughly `1314/1339` to `1466/1495` S_PP, but
 default FP4-MMQ remains around `2303/2423`. The next evidence gate is serving
 nsys, because the committed lever map says the residual gap is in real
@@ -203,3 +207,15 @@ Shape: `n=128`, `ptok=128`, `gen=64`.
 Result: rejected as an env-only lever. Existing grouped-MMQ tile knobs do not
 materially close the serving gap, so a selector-only source patch is not
 justified.
+
+## Completion
+
+Phase 6 completed as a classifier, not as a source patch phase:
+
+- Accepted source patches before Phase 6 remained intact through fork head
+  `d9b9be0bee3d7239132bfca05d5b057ff4ee4cc3`.
+- The sampler short-circuit candidate passed inference gates but failed the
+  serving performance gate, so it was reverted and not mirrored.
+- GDN and grouped-MMQ env grids did not clear the material-improvement threshold.
+- No LocalAI patch was generated for Phase 6. The next phase must start from a
+  clean fork and keep the same md5/op gates before any source candidate is kept.

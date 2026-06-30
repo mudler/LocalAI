@@ -560,3 +560,5 @@ Result:
 - No current env-only lever clears the serving performance gate. Scope the next
   source candidate against either structural MoE decode fusion or async serving
   input/sampler uploads, with a workload that proves the target bucket matters.
+- Phase 7 must keep the canonical MoE and dense md5 gates as the first
+  inference-safety check before any performance result is accepted.

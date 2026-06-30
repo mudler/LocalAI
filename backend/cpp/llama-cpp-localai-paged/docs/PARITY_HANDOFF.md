@@ -1,5 +1,11 @@
 # PARITY_HANDOFF: how to pick up the GB10 vLLM-parity work
 
+> 2026-06-30 update: this handoff is now historical procedure, not the active
+> verdict. The GB10 investigation was reopened in `GB10_PARITY_REOPEN_SPEC.md`
+> and `GB10_PARITY_PHASE0_RESULTS.md`, with Phase 6 serving-nsys evidence and
+> the active follow-up plans under `docs/superpowers/plans/`. Use those files for
+> the current state before relying on the older "closed" conclusion below.
+
 Audience: an agent with **zero prior context** who has been told to "continue the GB10 vLLM-parity investigation" on the `llama-cpp-localai-paged` backend.
 
 This file is the **operational how-to**. It is the companion to `VLLM_PARITY_FINAL.md`, which is the **why / authoritative record** ("never re-litigate"). If the two ever disagree on a *fact*, `VLLM_PARITY_FINAL.md` and the bench artifacts it cites win; this file wins on *procedure* (how to ssh, lock, build, bench, profile).
