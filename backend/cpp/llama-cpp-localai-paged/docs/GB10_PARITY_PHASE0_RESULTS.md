@@ -311,6 +311,40 @@ Result:
   `d9b9be0bee3d7239132bfca05d5b057ff4ee4cc3`.
 - Tree hash after patch application: `8fcb151e0620fd0fc82b80c04318e5c34320b087`.
 
+## W4A16 Wq Padding Phase 5
+
+Goal: test whether padding the quantized-weight shared-memory row stride gives
+another low-conflict W4A16 grouped-kernel body win after `0050`.
+
+Artifacts:
+
+- Build: `~/llama-w4a16-phase5`
+- Logs: `~/bench/w4a16_phase5`
+
+Gates:
+
+- Canonical paged MoE md5: `8cb0ce23777bf55f92f63d0292c756b0`.
+- Canonical dense md5: `5951a5b4d624ce891e22ab5fca9bc439`.
+- Forced W4A16 `bm32` and old `base` shape md5s matched each other:
+  `07db32c2bcb78d17a43ed18bc22705cd`.
+- Forced W4A16 `MUL_MAT_ID`: `806/806` on CUDA0.
+
+Performance:
+
+| Shape | 512 S_PP t/s | 2048 S_PP t/s | Decision |
+|-------|--------------|---------------|----------|
+| Phase 4 A-pad `bm32` | 1466.62 | 1495.93 | baseline |
+| Phase 5 Wq-pad `bm32` | 1472.36 | 1504.82 | rejected: below 1% gate |
+| Phase 4 A-pad `base` | 1337.88 | 1364.98 | baseline |
+| Phase 5 Wq-pad `base` | 1337.70 | 1368.48 | diagnostic |
+
+Result:
+
+- Rejected. No fork commit and no LocalAI patch `0051`.
+- The local fork experiment was reverted.
+- Do not ship Wq padding alone; the measured `+0.4%` / `+0.6%` default-shape
+  gain is below the maintenance threshold.
+
 ## Clean Build
 
 First clean build attempt:
