@@ -64,7 +64,9 @@ func (ml *ModelLoader) deleteProcess(s string) error {
 		if grpcerrors.IsUnimplemented(err) {
 			xlog.Debug("Backend does not implement Free(); GPU release handled on process stop", "model", s)
 		} else {
-			xlog.Warn("Error freeing GPU resources", "error", err, "model", s)
+			// Now that the expected Unimplemented case is filtered out above, a
+			// remaining error is a genuine failure to release VRAM — surface it.
+			xlog.Error("Error freeing GPU resources", "error", err, "model", s)
 		}
 	}
 
