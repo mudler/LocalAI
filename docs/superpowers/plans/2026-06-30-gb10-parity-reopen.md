@@ -577,7 +577,7 @@ Commit succeeds only after both engines have comparable artifacts.
 - Modify: `backend/cpp/llama-cpp-localai-paged/docs/GB10_PARITY_PHASE0_RESULTS.md`
 - Later fork-first changes in `/home/mudler/_git/llama.cpp/ggml/src/ggml-cuda/w4a16-gemm.cu`
 
-- [ ] **Step 1: Run current W4A16 forced baseline**
+- [x] **Step 1: Run current W4A16 forced baseline**
 
 Run:
 
@@ -598,7 +598,14 @@ Expected:
 Artifacts prove current clean W4A16 delta against FP4-MMQ.
 ```
 
-- [ ] **Step 2: Decide first W4A16 implementation target**
+- [x] **Step 2: Decide first W4A16 implementation target**
+
+Selected target: Option B, device-side or cached tile metadata. The clean
+forced W4A16 run without debug remains about 43-45% slower than default
+FP4-MMQ, while the debug artifact shows repeated ragged tile-map construction
+with `n_tiles=139..282` and `multi_tile_experts=7..21`. Source inspection shows
+host-built `h_tile_expert`, `h_tile_row0`, and `h_tile_rows` copied to device
+for each grouped W4A16 launch.
 
 Use nsys or debug logs to choose exactly one first target:
 
@@ -615,7 +622,9 @@ Expected:
 Only one implementation target is selected for the first fork commit.
 ```
 
-- [ ] **Step 3: Stop before kernel edits if Phase 0 is incomplete**
+- [x] **Step 3: Stop before kernel edits if Phase 0 is incomplete**
+
+Phase 0 Tasks 1-6 are complete. No kernel edits were made during Phase 0.
 
 Expected:
 

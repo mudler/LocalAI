@@ -84,6 +84,50 @@ vLLM difference-method decode:
 
 Clean reproduced paged/vLLM decode ratio: `85.0%`.
 
+## W4A16 Kill-Gate Baseline
+
+Artifacts:
+
+- Default FP4-MMQ: `~/bench/reopen_phase0/w4a16_off.txt`
+- Forced W4A16 with debug: `~/bench/reopen_phase0/w4a16_on_thr64.txt`
+- Forced W4A16 without debug:
+  `~/bench/reopen_phase0/w4a16_on_thr64_nodebug.txt`
+
+Default FP4-MMQ:
+
+| PP | TG | B | N_KV | T_PP s | S_PP t/s | T_TG s | S_TG t/s | T s | S t/s |
+|----|----|---|------|--------|----------|--------|----------|-----|-------|
+| 512 | 4 | 32 | 16512 | 7.105 | 2306.06 | 0.321 | 399.00 | 7.426 | 2223.68 |
+| 2048 | 4 | 32 | 65664 | 27.047 | 2423.00 | 0.329 | 388.89 | 27.377 | 2398.55 |
+
+Forced W4A16, `LLAMA_W4A16_PREFILL_M=64`, debug off:
+
+| PP | TG | B | N_KV | T_PP s | S_PP t/s | T_TG s | S_TG t/s | T s | S t/s |
+|----|----|---|------|--------|----------|--------|----------|-----|-------|
+| 512 | 4 | 32 | 16512 | 12.517 | 1308.92 | 0.321 | 398.82 | 12.838 | 1286.17 |
+| 2048 | 4 | 32 | 65664 | 49.165 | 1332.98 | 0.330 | 387.57 | 49.495 | 1326.67 |
+
+Delta:
+
+- `npp=512`: `-43.2%` S_PP versus default FP4-MMQ.
+- `npp=2048`: `-45.0%` S_PP versus default FP4-MMQ.
+
+Debug evidence:
+
+- Forced W4A16 debug run emitted `19200` engagement lines.
+- Observed `n_tiles` range: `139..282`.
+- Observed `multi_tile_experts` range: `7..21`.
+
+First implementation target:
+
+- Option B: device-side or cached tile metadata.
+- Rationale: `w4a16-gemm.cu` currently builds `h_tile_expert`,
+  `h_tile_row0`, and `h_tile_rows` on the host, pool-allocates three device
+  tile-map buffers, and issues three H2D `cudaMemcpyAsync` calls per grouped
+  W4A16 launch. The debug run shows this path is repeatedly exercised across
+  many small ragged tile maps. The first fork-first experiment should remove or
+  amortize that host-built tile-map path before retuning MMA tile shapes.
+
 ## Clean Build
 
 First clean build attempt:
