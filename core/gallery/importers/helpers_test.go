@@ -86,4 +86,21 @@ var _ = Describe("importer helpers", func() {
 			Expect(importers.HasGGMLFile(files, "ggml-")).To(BeFalse())
 		})
 	})
+
+	Describe("LocalModelPath", func() {
+		It("strips the file:// scheme from an absolute local path", func() {
+			Expect(importers.LocalModelPath("file:///Users/u/.lmstudio/models/mlx-community/Qwen3-4bit")).
+				To(Equal("/Users/u/.lmstudio/models/mlx-community/Qwen3-4bit"))
+		})
+		It("strips the file:// scheme from a relative local path", func() {
+			Expect(importers.LocalModelPath("file://my-models/nvidia/Qwen3-30B-A3B-FP4")).
+				To(Equal("my-models/nvidia/Qwen3-30B-A3B-FP4"))
+		})
+		It("leaves HuggingFace and HTTP URIs unchanged", func() {
+			Expect(importers.LocalModelPath("https://huggingface.co/mlx-community/test-model")).
+				To(Equal("https://huggingface.co/mlx-community/test-model"))
+			Expect(importers.LocalModelPath("mlx-community/test-model")).
+				To(Equal("mlx-community/test-model"))
+		})
+	})
 })
