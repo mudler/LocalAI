@@ -618,6 +618,10 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 					finishReason = FinishReasonToolCalls
 				} else if toolsCalled {
 					finishReason = FinishReasonFunctionCall
+				} else if reachedTokenBudget(finalUsage.Completion, config.Maxtokens) {
+					// Generation stopped because it hit the max_tokens ceiling
+					// rather than a natural stop — report "length" (issue #9716).
+					finishReason = FinishReasonLength
 				}
 
 				// Final delta chunk: empty delta with finish_reason set. Per
@@ -981,6 +985,18 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 					if mcpCallsExecuted {
 						xlog.Debug("MCP tools executed, re-running inference", "iteration", mcpIteration, "messages", len(input.Messages))
 						continue // next MCP iteration
+					}
+				}
+
+				// If generation hit the max_tokens ceiling, report "length"
+				// instead of a natural "stop" (issue #9716). Mirrors the
+				// streaming path; tool/function finish reasons are untouched.
+				if reachedTokenBudget(tokenUsage.Completion, config.Maxtokens) {
+					for i := range result {
+						if result[i].FinishReason != nil && *result[i].FinishReason == FinishReasonStop {
+							lengthReason := FinishReasonLength
+							result[i].FinishReason = &lengthReason
+						}
 					}
 				}
 
