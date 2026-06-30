@@ -205,6 +205,40 @@ var _ = Describe("AdvisoryLock", func() {
 			<-released
 		})
 
+		It("bounds a deadline-less waiter with the backstop instead of waiting forever", func() {
+			const lockKey int64 = 704
+
+			// A caller with no context deadline (e.g. startup schema migration
+			// passing context.Background()) must not hang forever if the holder
+			// never releases. Shrink the backstop so the test is fast.
+			origBackstop := advisoryLockWaitBackstop
+			advisoryLockWaitBackstop = 500 * time.Millisecond
+			DeferCleanup(func() { advisoryLockWaitBackstop = origBackstop })
+
+			holding := make(chan struct{})
+			release := make(chan struct{})
+			go func() {
+				defer GinkgoRecover()
+				_ = WithLockCtx(context.Background(), db, lockKey, func() error {
+					close(holding)
+					<-release // hold until the test releases us
+					return nil
+				})
+			}()
+			defer close(release)
+
+			<-holding
+
+			start := time.Now()
+			err := WithLockCtx(context.Background(), db, lockKey, func() error {
+				Fail("waiter should not have acquired the still-held lock")
+				return nil
+			})
+			Expect(err).To(HaveOccurred(), "deadline-less waiter should give up at the backstop, not hang")
+			Expect(time.Since(start)).To(BeNumerically("<", 5*time.Second),
+				"backstop must cap the wait well under the test timeout")
+		})
+
 		It("serializes concurrent WithLockCtx on same key", func() {
 			const lockKey int64 = 702
 
