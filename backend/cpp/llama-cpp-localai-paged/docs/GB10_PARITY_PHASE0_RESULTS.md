@@ -439,5 +439,124 @@ found beyond the S3 and prefill-knob artifacts.
 
 ## Open Items
 
-- Reproduce paged prefill and decode baselines.
-- Find or recreate vLLM graph-node-traced difference-method decode artifacts.
+## Phase 6 Serving nsys Classifier
+
+Exact fork head `d9b9be0bee3d7239132bfca05d5b057ff4ee4cc3` was mirrored to
+`/home/mudler/llama-phase6-source` on DGX and rebuilt with CUDA Release,
+`CMAKE_CUDA_COMPILER=/usr/local/cuda-13.0/bin/nvcc`, and
+`CMAKE_CUDA_ARCHITECTURES=121`.
+
+Pre-profile gates passed:
+
+- MoE greedy md5: `8cb0ce23777bf55f92f63d0292c756b0`.
+- Dense greedy md5: `5951a5b4d624ce891e22ab5fca9bc439`.
+
+Serving nsys artifacts:
+
+- llama.cpp:
+  `/home/mudler/bench/phase6_serving_nsys/llama_server_n128/`.
+- vLLM:
+  `/home/mudler/bench/phase6_serving_nsys/vllm_server_n128/`.
+
+Same h2h shape (`n=128`, `ptok=128`, `gen=128`) under nsys:
+
+| Engine | decode tok/s/seq | decode agg tok/s | prefill tok/s |
+|--------|------------------|------------------|---------------|
+| llama.cpp | 4.05 | 591.0 | 1567.4 |
+| vLLM | 6.95 | 961.1 | 5073.6 |
+
+llama.cpp bucket highlights:
+
+- `gated_delta_net_cuda`: 33.7% GPU kernel time, 10.21s.
+- NVFP4 `mul_mat_q`: 24.3% + 5.5% for the largest grouped variants, 9.04s
+  combined.
+- `quantize_mmq_nvfp4`: 2.7%, 0.81s.
+- `flash_attn_tile`: 1.3%, 0.38s.
+- CUDA API: `cudaStreamSynchronize` 76.5% API time, 23.66s over 106585 calls;
+  8028 synchronizes followed `cudaMemcpyAsync` and summed 21.41s.
+
+vLLM bucket highlights:
+
+- `fused_recurrent_gated_delta_rule_packed_decode_kernel`: 16.6%, 8.95s.
+- `marlin_moe_wna16::Marlin`: 11.9% plus smaller Marlin-MoE variants.
+- `flash_fwd_splitkv_kernel`: visible split-K FA decode rows at 0.6% + 0.1%.
+- The vLLM delayed profile still contains startup/module-load API noise; prefer
+  h2h and GPU kernel buckets over API percentages for vLLM.
+
+Rejected Phase 6 sampler experiment:
+
+- Patch idea: in backend distribution sampling, skip the random uniform upload
+  when prior backend filters already collapsed candidates to one token
+  (`temperature=0` path).
+- Gates passed:
+  - MoE md5 `8cb0ce23777bf55f92f63d0292c756b0`.
+  - Dense md5 `5951a5b4d624ce891e22ab5fca9bc439`.
+  - `MUL_MAT_ID`: `806/806` on CUDA0.
+- Serving A/B did not clear the performance gate: no-nsys reps were `4.19` and
+  `3.55` tok/s/seq. The fork patch was reverted; no commit and no LocalAI patch
+  were created.
+
+Next measured target:
+
+- H3 is elevated above another W4A16/kernel-shape pass: llama.cpp spends 33.7%
+  of GPU time in GDN decode versus vLLM's 16.6%, and vLLM remains 1.63x faster
+  on aggregate decode for the same serving shape. Use existing `GDN_NW` and
+  `GDN_CPW` controls to grid-search live-width-adaptive GDN launch parameters
+  before changing source.
+
+## Phase 6 GDN Narrow-Serving Env Grid
+
+Artifact: `/home/mudler/bench/phase6_serving_nsys/gdn_grid/`.
+
+Clean binaries were rebuilt after reverting the rejected sampler experiment.
+Grid shape was `n=128`, `ptok=128`, `gen=64` to keep each isolated server run
+bounded.
+
+| Setting | decode tok/s/seq | decode agg tok/s | Decision |
+|---------|------------------|------------------|----------|
+| default | 3.91 | 647.9 | baseline |
+| `GDN_NW=4 GDN_CPW=1` | 3.80 | 628.9 | reject |
+| `GDN_NW=8 GDN_CPW=2` | 3.94 | 624.5 | reject |
+| `GDN_NW=8 GDN_CPW=4` | 3.91 | 647.6 | reject |
+| `GDN_NW=8 GDN_CPW=8` | 4.00 | 636.9 | no material win |
+| `GDN_NW=16 GDN_CPW=4` | 3.85 | 637.5 | reject |
+| `GDN_NW=16 GDN_CPW=8` | 3.96 | 652.0 | no material win |
+
+Result:
+
+- Rejected as an env-only lever. Existing GDN geometry variants are too close in
+  this serving gate to justify a source change.
+- Next focus moves back to the largest differentiating kernel bucket:
+  llama.cpp's NVFP4 grouped `mul_mat_q` bucket (~30% GPU time) versus vLLM's
+  Marlin-MoE bucket.
+
+## Phase 6 MoE MMQ Tile Env Grid
+
+Artifact: `/home/mudler/bench/phase6_serving_nsys/mmq_grid/`.
+
+Shape: `n=128`, `ptok=128`, `gen=64`.
+
+| Setting | decode tok/s/seq | decode agg tok/s | Decision |
+|---------|------------------|------------------|----------|
+| default | 3.90 | 645.3 | baseline |
+| `LLAMA_MOE_AUTO_TILE=0` | 3.90 | 655.3 | tied/no material win |
+| `LLAMA_MOE_DECODE_TILE=32` | 3.82 | 635.9 | reject |
+| `LLAMA_MOE_DECODE_TILE=48` | 3.81 | 637.3 | reject |
+| `LLAMA_MOE_DECODE_TILE=96` | 3.84 | 642.8 | reject |
+| `LLAMA_MOE_DECODE_TILE=128` | 3.84 | 640.6 | reject |
+| `LLAMA_MOE_MMQ_X=32` | 3.76 | 642.0 | reject; prefill worsened |
+
+Result:
+
+- Rejected as an env-only lever. Existing grouped-MMQ tile and auto-selector
+  knobs do not materially close the serving gap.
+- A source patch that only retunes the current tile selector is not justified.
+  The next useful MoE lever would need a structural change closer to vLLM's
+  Marlin-MoE/fused-MoE shape, or the work should move to the synchronous
+  serving input/sampler path with a measurable non-greedy workload.
+
+## Open Items
+
+- No current env-only lever clears the serving performance gate. Scope the next
+  source candidate against either structural MoE decode fusion or async serving
+  input/sampler uploads, with a workload that proves the target bucket matters.
