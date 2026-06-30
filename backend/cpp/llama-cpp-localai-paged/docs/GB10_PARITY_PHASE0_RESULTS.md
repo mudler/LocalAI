@@ -270,6 +270,47 @@ Result:
 - Do not retry this exact scale-broadcast approach; on GB10 the shuffle and/or
   scheduling cost exceeds the saved duplicate scale conversion.
 
+## W4A16 Shared-Memory Padding Phase 4
+
+Goal: reduce bank pressure in `w4a16_grouped_kernel` by padding the A operand
+shared-memory row stride while preserving math order and launch shape.
+
+Fork commit: `d9b9be0bee3d7239132bfca05d5b057ff4ee4cc3`
+(`feat(paged): pad W4A16 A shared tile stride`).
+
+LocalAI patch mirror: `0050-feat-paged-pad-W4A16-A-shared-tile-stride.patch`.
+
+Artifacts:
+
+- Build: `~/llama-w4a16-phase4`
+- Logs: `~/bench/w4a16_phase4`
+
+Gates:
+
+- Canonical paged MoE md5: `8cb0ce23777bf55f92f63d0292c756b0`.
+- Canonical dense md5: `5951a5b4d624ce891e22ab5fca9bc439`.
+- Forced W4A16 `bm32` and old `base` shape md5s matched each other:
+  `07db32c2bcb78d17a43ed18bc22705cd`.
+- Forced W4A16 `MUL_MAT_ID`: `806/806` on CUDA0.
+
+Performance:
+
+| Shape | 512 S_PP t/s | 2048 S_PP t/s | Decision |
+|-------|--------------|---------------|----------|
+| Phase 2 `bm32` | 1442.28 | 1471.77 | baseline |
+| Phase 4 A-pad `bm32` | 1466.62 | 1495.93 | selected |
+| Phase 2 `base` | 1310.13 | 1336.02 | baseline |
+| Phase 4 A-pad `base` | 1337.88 | 1364.98 | positive diagnostic |
+
+Result:
+
+- Kept. Default W4A16 `bm32` improves another `+1.7%` at `npp=512` and
+  `+1.6%` at `npp=2048` versus Phase 2.
+- Applying all 41 LocalAI `patches/paged/*.patch` files to base pin
+  `0ed235ea2c17a19fc8238668653946721ed136fd` tree-matches fork HEAD
+  `d9b9be0bee3d7239132bfca05d5b057ff4ee4cc3`.
+- Tree hash after patch application: `8fcb151e0620fd0fc82b80c04318e5c34320b087`.
+
 ## Clean Build
 
 First clean build attempt:
@@ -311,16 +352,16 @@ Second clean build attempt:
 
 - Local llama.cpp fork: `/home/mudler/_git/llama.cpp`
 - Branch: `localai-paged`
-- Working tree: clean after fork commit `7dfa0e17548c5f04f83d2cc2a057b0a9941b599a`
+- Working tree: clean after fork commit `d9b9be0bee3d7239132bfca05d5b057ff4ee4cc3`
 - Phase 0 HEAD: `51168c5eee2e35348d9006f0b2fab3dc6e7c01cc`
-- Current HEAD: `7dfa0e17548c5f04f83d2cc2a057b0a9941b599a`
+- Current HEAD: `d9b9be0bee3d7239132bfca05d5b057ff4ee4cc3`
 - Base pin: `0ed235ea2c17a19fc8238668653946721ed136fd`
 - Merge-base with base pin: `0ed235ea2c17a19fc8238668653946721ed136fd`
-- LocalAI patch count: `38` at Phase 0; current mirror count is `40` after
-  patch `0049`.
+- LocalAI patch count: `38` at Phase 0; current mirror count is `41` after
+  patch `0050`.
 - LocalAI patch mirror: applies cleanly to the base pin and tree-matches fork
   HEAD.
-- Tree hash after patch application: `dabe225efbf20ec047b8309d1e1f19b34fc7c5c9`
+- Tree hash after patch application: `8fcb151e0620fd0fc82b80c04318e5c34320b087`
 
 ## Existing Artifact Gap Review
 
