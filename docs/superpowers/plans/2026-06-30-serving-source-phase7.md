@@ -76,7 +76,7 @@ Initial files to inspect:
 - `/home/mudler/_git/llama.cpp/ggml/src/ggml-cuda/w4a16-gemm.cu`
 - vLLM Marlin-MoE implementation files in the local vLLM checkout/package.
 
-### Track B: Serving Input And Sampler Synchronization
+### Track B: Serving Input And Sampler Synchronization (Deferred)
 
 Phase 6 evidence: `cudaStreamSynchronize` dominates CUDA API time, and many
 syncs follow small `cudaMemcpyAsync` calls. The greedy sampler short-circuit
@@ -101,6 +101,63 @@ Selected secondary candidate:
 - This is narrow and maintainable, but it is not the default greedy parity
   lever. Only promote it if a non-greedy backend-sampling workload with non-empty
   `logit_bias` proves the sync bucket is material.
+
+Challenge result:
+
+- Demoted from default-parity scope. Default serving does not enable
+  backend sampling, and no-bias greedy requests do not hit the logit-bias upload
+  path.
+- The path is real but niche: `llama_sampler_logit_bias_backend_set_input()`
+  rebuilds and uploads `logit_bias` and `logit_idxs` every active decode step,
+  and CUDA `ggml_backend_tensor_set()` synchronizes after each upload.
+- Only pursue as a separate backend-sampling feature when the workload is
+  `backend_sampling=true` with non-empty `logit_bias` or `ignore_eos=true`,
+  preferably with a large synthetic bias list and nsys proof that the small H2D
+  syncs are material.
+
+### Track C: Deterministic MoE Weighted-Combine Fusion
+
+Selected next candidate after rejecting Track A's SWIGLU-down shortcut and
+demoting Track B:
+
+- Fuse the post-down MoE combine in `src/llama-graph.cpp`:
+  `ffn_moe_down` -> optional `ggml_mul(experts, weights)` ->
+  rank-ordered `ggml_add` fan-in.
+- Target tensor shapes:
+  - experts: `[n_embd, n_expert_used, n_tokens]`
+  - weights: `[1, n_expert_used, n_tokens]`
+  - output: `[n_embd, n_tokens]`
+- Preserve exact current arithmetic order:
+  1. compute each rank's f32 product as the existing `ggml_mul` would,
+  2. accumulate ranks in order `0, 1, ..., n_expert_used - 1`,
+  3. avoid atomics and expert-sorted accumulation.
+- File targets:
+  - `/home/mudler/_git/llama.cpp/tests/test-backend-ops.cpp`: add
+    `MOE_WEIGHTED_COMBINE` whole-graph gate first.
+  - `/home/mudler/_git/llama.cpp/ggml/src/ggml-cuda/ggml-cuda.cu`: add a
+    narrow fusion recognizer only after the test gate exists.
+  - CUDA helper file under `/home/mudler/_git/llama.cpp/ggml/src/ggml-cuda/`
+    for the fused weighted-combine kernel if the graph-fusion hook is viable.
+
+Why this is safer than Track A's rejected shortcut:
+
+- It does not touch SWIGLU, NVFP4 packing, activation quantization, or
+  `MUL_MAT_ID` K-reduction.
+- vLLM's Marlin-MoE path also keeps GEMM1, activation, GEMM2, then reduce; it
+  does not validate a SWIGLU-down quantization shortcut.
+- The lever is structural: fewer launches and memory passes around existing f32
+  post-GEMM tensors, with exact rank-order arithmetic as the md5 target.
+
+Required gates:
+
+- `test-backend-ops test -b CUDA0 -o MOE_WEIGHTED_COMBINE -j 1`.
+- `test-backend-ops test -b CUDA0 -o MUL_MAT_ID -j 1` remains `806/806`.
+- Canonical md5 gates remain:
+  - MoE `8cb0ce23777bf55f92f63d0292c756b0`.
+  - Dense `5951a5b4d624ce891e22ab5fca9bc439`.
+- Serving A/B only after gates, using `n=128`, `ptok=128`, `gen=64`,
+  `/v1/completions`, `--no-cache`, plus nsys evidence that
+  `ffn_moe_weighted`/add fan-in time drops.
 
 Required workload:
 
@@ -153,6 +210,15 @@ to implementation when all are true:
     `decode_agg_tps=667.4`, `decode_perseq_tps=3.88`, `prefill_tps=1462.9`.
 - [x] Regenerate LocalAI patch stack and update docs if kept.
   - No production patch kept; only docs updated for the rejected candidate.
+- [x] Challenge remaining Track B and vLLM evidence before starting the next
+  patch.
+  - Track B is deferred to a backend-sampling/logit-bias workload.
+  - vLLM confirms GEMM1 -> activation -> GEMM2 -> reduce; no SWIGLU-down
+    shortcut to copy.
+  - Next candidate: deterministic post-down MoE weighted-combine fusion.
+- [ ] Add `MOE_WEIGHTED_COMBINE` test gate in the fork before production code.
+- [ ] Implement weighted-combine fusion only if the test gate is stable.
+- [ ] Run op/md5 gates before serving A/B.
 
 ## Required Tests Before Track A Source Patch
 
