@@ -235,6 +235,41 @@ Mirror invariant after patch `0049`:
   `7dfa0e17548c5f04f83d2cc2a057b0a9941b599a`.
 - Tree hash after patch application: `dabe225efbf20ec047b8309d1e1f19b34fc7c5c9`.
 
+## W4A16 Scale Broadcast Phase 3
+
+Goal: reduce duplicate FP4 scale conversion inside `w4a16_grouped_kernel` by
+having one lane per 4-lane group convert the `ue4m3` scale and broadcast it with
+`__shfl_sync`.
+
+Artifacts:
+
+- Build: `~/llama-w4a16-phase3`
+- Logs: `~/bench/w4a16_phase3`
+
+Gates:
+
+- Canonical paged MoE md5: `8cb0ce23777bf55f92f63d0292c756b0`.
+- Canonical dense md5: `5951a5b4d624ce891e22ab5fca9bc439`.
+- Forced W4A16 `bm32` and old `base` shape md5s matched each other:
+  `07db32c2bcb78d17a43ed18bc22705cd`.
+- Forced W4A16 `MUL_MAT_ID`: `806/806` on CUDA0.
+
+Performance:
+
+| Shape | 512 S_PP t/s | 2048 S_PP t/s | Decision |
+|-------|--------------|---------------|----------|
+| Phase 2 `bm32` | 1442.28 | 1471.77 | baseline |
+| Phase 3 scale-broadcast `bm32` | 1392.46 | 1422.74 | rejected |
+| Phase 2 `base` | 1310.13 | 1336.02 | baseline |
+| Phase 3 scale-broadcast `base` | 1201.69 | 1221.25 | rejected |
+
+Result:
+
+- Rejected. No fork commit and no LocalAI patch `0050`.
+- The local fork experiment was reverted.
+- Do not retry this exact scale-broadcast approach; on GB10 the shuffle and/or
+  scheduling cost exceeds the saved duplicate scale conversion.
+
 ## Clean Build
 
 First clean build attempt:
