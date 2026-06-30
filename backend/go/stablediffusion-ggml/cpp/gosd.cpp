@@ -798,6 +798,7 @@ void sd_img_gen_params_set_seed(sd_img_gen_params_t *params, int64_t seed) {
 int gen_image(sd_img_gen_params_t *p, int steps, char *dst, float cfg_scale, char *src_image, float strength, char *mask_image, char* ref_images[], int ref_images_count) {
 
     sd_image_t* results;
+    int num_results_out = 0;
 
     std::vector<int> skip_layers = {7, 8, 9};
 
@@ -994,9 +995,13 @@ int gen_image(sd_img_gen_params_t *p, int steps, char *dst, float cfg_scale, cha
             sd_ctx_params_to_str(&ctx_params),
             sd_img_gen_params_to_str(p));
 
-    results = generate_image(sd_c, p);
+    bool gen_ok = generate_image(sd_c, p, &results, &num_results_out);
 
     std::free(p);
+
+    if (!gen_ok || num_results_out == 0) {
+        results = NULL;
+    }
 
     if (results == NULL) {
         fprintf (stderr, "NO results\n");
