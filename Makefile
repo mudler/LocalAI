@@ -1482,8 +1482,13 @@ build-launcher-darwin:
 	mv cmd/launcher/LocalAI.app dist/LocalAI.app
 	bash contrib/macos/sign-and-notarize.sh sign dist/LocalAI.app
 
-# Wrap the (signed) app into a drag-to-Applications DMG via hdiutil, then sign the DMG.
+# Notarize + staple the .app itself, then wrap it into a drag-to-Applications
+# DMG via hdiutil and sign the DMG. The app is stapled BEFORE packaging so the
+# bundle carries its own ticket and verifies offline (a dmg-only staple leaves
+# the app relying on an online Gatekeeper check, which fails offline / once the
+# app is copied out of the dmg). No-op without notary secrets.
 dmg-launcher-darwin: build-launcher-darwin
+	bash contrib/macos/sign-and-notarize.sh notarize-app dist/LocalAI.app
 	rm -rf dist/dmg dist/LocalAI.dmg
 	mkdir -p dist/dmg
 	cp -R dist/LocalAI.app dist/dmg/LocalAI.app
@@ -1495,7 +1500,7 @@ dmg-launcher-darwin: build-launcher-darwin
 notarize-launcher-darwin: dmg-launcher-darwin
 	bash contrib/macos/sign-and-notarize.sh notarize dist/LocalAI.dmg
 
-# Single entrypoint for CI: build -> sign app -> dmg -> sign dmg -> notarize -> staple.
+# Single entrypoint for CI: build -> sign app -> notarize+staple app -> dmg -> sign dmg -> notarize+staple dmg.
 release-launcher-darwin: notarize-launcher-darwin
 	@echo "dist/LocalAI.dmg is ready"
 
