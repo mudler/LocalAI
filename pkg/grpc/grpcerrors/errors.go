@@ -58,6 +58,23 @@ func IsLiveTranscriptionUnsupported(err error) bool {
 	return strings.Contains(strings.ToLower(err.Error()), "unimplemented")
 }
 
+// IsUnimplemented reports whether err is a gRPC Unimplemented status — the
+// signal a backend gives for an RPC it does not implement. The generated
+// UnimplementedBackendServer stub returns exactly this for any RPC a backend
+// (e.g. a Python or external backend) has not overridden, so callers can treat
+// an optional RPC as a no-op rather than a failure. Prefers the typed status
+// code and falls back to the message for paths that lose the status (e.g. errors
+// wrapped across non-gRPC boundaries).
+func IsUnimplemented(err error) bool {
+	if err == nil {
+		return false
+	}
+	if status.Code(err) == codes.Unimplemented {
+		return true
+	}
+	return strings.Contains(strings.ToLower(err.Error()), "unimplemented")
+}
+
 // StreamTranscriptionUnsupported returns the canonical error a backend returns
 // when it (or the loaded model) cannot serve the server-streaming
 // AudioTranscriptionStream RPC. It carries codes.Unimplemented like the live

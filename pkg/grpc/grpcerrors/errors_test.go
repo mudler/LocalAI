@@ -55,6 +55,18 @@ var _ = Describe("grpcerrors", func() {
 		Expect(grpcerrors.IsModelNotLoaded(err)).To(BeFalse())
 	})
 
+	DescribeTable("IsUnimplemented",
+		func(err error, want bool) {
+			Expect(grpcerrors.IsUnimplemented(err)).To(Equal(want))
+		},
+		Entry("nil", nil, false),
+		Entry("typed code", status.Error(codes.Unimplemented, "method Free not implemented"), true),
+		Entry("stale stub message (Unknown code)", errors.New("rpc error: code = Unimplemented desc = "), true),
+		Entry("unrelated error", errors.New("context deadline exceeded"), false),
+		Entry("unrelated grpc code", status.Error(codes.Unavailable, "connection refused"), false),
+		Entry("model not loaded is NOT unimplemented", grpcerrors.ModelNotLoaded("parakeet-cpp"), false),
+	)
+
 	It("StreamTranscriptionUnsupported carries Unimplemented and is not ModelNotLoaded", func() {
 		err := grpcerrors.StreamTranscriptionUnsupported("parakeet-cpp", "not a streaming model")
 		Expect(status.Code(err)).To(Equal(codes.Unimplemented))
