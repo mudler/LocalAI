@@ -1467,3 +1467,50 @@ Decision:
 
 - The patch series is drift-free against fork branch `localai-paged` at
   `fb9402661 feat(server): trace speculative batch shapes`.
+
+## Phase 24 Snapshot Hardware Report
+
+Phase 24 made the current-stack serving harness record hardware identity before
+any server starts. This keeps GB10/workstation Blackwell evidence separate from
+future datacenter-Blackwell reruns.
+
+Script change:
+
+- `backend/cpp/llama-cpp-localai-paged/paged-current-serving-snapshot.sh` now
+  writes `hardware.txt` after preflight and before the `DRY_RUN=1` exit.
+
+Recorded fields:
+
+- `nvidia-smi -L`;
+- `nvidia-smi --query-gpu=name,driver_version,memory.total,compute_cap`, with
+  fallback to name/driver/memory if `compute_cap` is unavailable;
+- `gpu_name`;
+- `hardware_class`;
+- parity note for that hardware class.
+
+Verification:
+
+- local `bash -n` passed;
+- local `--help` passed;
+- DGX `DRY_RUN=1` validated preflight and wrote `hardware.txt` without launching
+  servers.
+
+Dry-run artifact:
+
+- `/home/mudler/bench/phase24_hardware_report_dryrun/20260701_052741`
+
+DGX hardware result:
+
+```text
+GPU 0: NVIDIA GB10
+driver=580.159.03
+compute_cap=12.1
+hardware_class=gb10_or_workstation_blackwell
+```
+
+Decision:
+
+- Future snapshot artifacts are self-describing enough to prevent accidental
+  GB10-to-datacenter generalization.
+- The Phase 20 GB10 closure still applies to `gb10_or_workstation_blackwell`;
+  datacenter Blackwell needs a fresh run of the same methodology.

@@ -29,7 +29,7 @@ Environment overrides:
   VLLM_PORT    vLLM port (default: 8000)
   VLLM_BIN     vLLM executable (default: ~/vllm-bench/bin/vllm)
   SKIP_GATES=1 to skip pre/post paged inference gates
-  DRY_RUN=1    validate inputs/preflight and print commands without running servers
+  DRY_RUN=1    validate inputs/preflight, write hardware.txt, and print commands without running servers
 EOF
 }
 
@@ -95,6 +95,47 @@ preflight() {
     FREE*|FREE-no-lock-file) ;;
     *) echo "GPU lock is busy: $owner" >&2; exit 3 ;;
   esac
+}
+
+write_hardware_report() {
+  local out="$ART/hardware.txt"
+  local gpu_name hardware_class
+
+  gpu_name=$(nvidia-smi --query-gpu=name --format=csv,noheader 2>/dev/null | head -1 || true)
+  hardware_class="unknown"
+  case "$gpu_name" in
+    *B200*|*B100*|*GB200*) hardware_class="datacenter_blackwell" ;;
+    *H200*|*H100*) hardware_class="datacenter_other" ;;
+    *GB10*|*"DGX Spark"*|*RTX*|*"PRO 6000"*) hardware_class="gb10_or_workstation_blackwell" ;;
+  esac
+
+  {
+    echo "nvidia_smi_L:"
+    nvidia-smi -L || true
+    echo
+    echo "nvidia_smi_query:"
+    if ! nvidia-smi --query-gpu=name,driver_version,memory.total,compute_cap --format=csv,noheader; then
+      nvidia-smi --query-gpu=name,driver_version,memory.total --format=csv,noheader || true
+    fi
+    echo
+    echo "gpu_name=$gpu_name"
+    echo "hardware_class=$hardware_class"
+    case "$hardware_class" in
+      datacenter_blackwell)
+        echo "parity_note=datacenter Blackwell hardware: full parity methodology can choose new levers"
+        ;;
+      datacenter_other)
+        echo "parity_note=datacenter non-Blackwell hardware: do not generalize GB10 parity decisions"
+        ;;
+      gb10_or_workstation_blackwell)
+        echo "parity_note=GB10/workstation Blackwell hardware: GB10 shortcut closures apply unless new evidence says otherwise"
+        ;;
+      *)
+        echo "parity_note=unknown hardware: classify before making parity claims"
+        ;;
+    esac
+  } > "$out"
+  log "hardware report: $out"
 }
 
 acquire_lock() {
@@ -241,6 +282,7 @@ require_path "$VLLM_BIN"
 require_path "$HOME/paged-inference-gates.sh"
 
 preflight
+write_hardware_report
 log "artifact=$ART"
 log "source=$(git -C "$SRC" log --oneline -1)"
 

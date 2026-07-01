@@ -129,6 +129,9 @@ python3 /home/mudler/bench/h2h_cli3.py   # OpenAI /v1/completions, ignore_eos, f
 **vLLM side** (for both-engine parity): `~/vllm-bench/bin/vllm` (version **0.23.0**), served `gpu-util 0.85 max-model-len 4096 max-num-seqs 256 tp1`, models `~/bench/q36-35b-a3b-nvfp4-vllm/` and `~/bench/q36-27b-nvfp4-vllm/`.
 
 **Current-stack serving snapshots use `backend/cpp/llama-cpp-localai-paged/paged-current-serving-snapshot.sh`.** It targets the clean `~/llama-phase6-source` mirror, checks docker/`local-ai-worker`/GPU-idle state, uses the owner-file lock, runs pre/post inference gates, then compares paged and vLLM with the same h2h client. The older `dgx:~/bench/combined_definitive.sh` is historical: do not reuse it without first porting away from stale `~/llama-paged-dev` paths and old lock assumptions.
+The harness also writes `hardware.txt` before any server starts, including
+`DRY_RUN=1`, so every new snapshot records the GPU model, driver, compute
+capability when exposed by `nvidia-smi`, and a conservative hardware class.
 
 ### 3.4 THE DECODE-PROFILING RULE (this trap caused 4 wrong analyses)
 Decode runs as a **replayed CUDA graph**. `nsys` **without** `--cuda-graph-trace=node` collapses each graph replay into ONE opaque launch, so every per-kernel attribution becomes an artifact. This is exactly what made the old "paged 159 us/tok, GPU ~16% busy, host-bound, 5.4x more GPU-efficient" story wrong, and produced the wrong ~56% headline.
@@ -321,6 +324,14 @@ Makefile pin `0ed235ea2c17a19fc8238668653946721ed136fd` produced tree
 `5bdbf8ea3d750fe6fa1f85175fd6357d36222edb`, exactly matching fork branch
 `localai-paged` HEAD `fb9402661 feat(server): trace speculative batch shapes`.
 
+Phase 24 extended `paged-current-serving-snapshot.sh` to write the snapshot
+hardware report. DGX dry run passed at
+`/home/mudler/bench/phase24_hardware_report_dryrun/20260701_052741`; it recorded
+`GPU 0: NVIDIA GB10`, driver `580.159.03`, compute capability `12.1`, and
+`hardware_class=gb10_or_workstation_blackwell`. This makes future parity
+artifacts self-describing: GB10/workstation Blackwell results must not be used
+as datacenter-Blackwell parity evidence.
+
 ---
 
 ## 5. METHODOLOGY LESSONS (so you do not repeat the mistakes)
@@ -384,6 +395,7 @@ Only pursue if (a)+(b) are not options and someone explicitly wants the residual
 - `~/bench/COMBINED_DEFINITIVE.txt` (+ `.log`, `.done`, `combined_definitive.sh`, `combined_definitive.out`) - historical same-session both-engine run.
 - `~/bench/phase20_current_snapshot/20260701_050621` - current clean-stack paged-vs-vLLM MoE serving snapshot.
 - `~/bench/phase21_harness_dryrun/20260701_051757` - current snapshot harness dry-run artifact.
+- `~/bench/phase24_hardware_report_dryrun/20260701_052741` - current snapshot harness dry run proving `hardware.txt` captures the DGX as `hardware_class=gb10_or_workstation_blackwell`.
 - Per-engine logs `~/bench/COMBINED_{paged,vllm}_{MOE,DENSE}_server.log`; `~/bench/BENCHMARK_PROGRESS.md`.
 - Graph-node-traced high-N profiles: `~/highN_prof2/*.nsys-rep` (paged npl=256), `~/highN_vllm/*.nsys-rep` (vLLM), 2026-06-30.
 - A/B dirs: `~/bench/marlin_gate/`, `~/bench/gdn_p1_ab/`.

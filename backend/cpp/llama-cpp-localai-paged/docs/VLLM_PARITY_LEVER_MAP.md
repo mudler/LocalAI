@@ -661,6 +661,21 @@ Verification:
 Use this harness for future current-stack GB10 snapshots before making parity
 claims.
 
+### Phase 24 snapshot hardware report
+
+Phase 24 extended `paged-current-serving-snapshot.sh` to write `hardware.txt`
+after preflight and before any server launch, including in `DRY_RUN=1`. The
+report records `nvidia-smi -L`, GPU name, driver, memory, compute capability
+when available, `hardware_class`, and a parity note for that class.
+
+DGX dry run passed and wrote
+`/home/mudler/bench/phase24_hardware_report_dryrun/20260701_052741`. It
+classified the current DGX as `hardware_class=gb10_or_workstation_blackwell`
+with `GPU 0: NVIDIA GB10`, driver `580.159.03`, and compute capability `12.1`.
+
+Use `hardware.txt` when comparing future snapshots. GB10/workstation Blackwell
+results do not establish datacenter-Blackwell parity.
+
 Relevant files (all absolute): `/home/mudler/_git/LocalAI/.claude/worktrees/feat+paged-attention/backend/cpp/llama-cpp-localai-paged/docs/{DECODE_SERVING_SCOPE.md,PREFILL_GEMM_SCOPE.md,PREFILL_GEMM_RESULTS.md,TENSORCORE_GDN_SCOPE.md,final_benchmark.csv}`, `.../README.md`, `.../patches/paged/0034-feat-paged-native-NVFP4-W4A4-FP4-MMA-large-M-prefill.patch` (P1/P2), `.../patches/paged/0042-feat-paged-fused-residual-add-RMS-norm-weight-multip.patch` (P7), `.../patches/paged/0031` (P4), `0025` (D1), `0018/0022` (D4/D5), `0009/0010` (D3/D6/D7); graph source `/home/mudler/_git/LocalAI/backend/cpp/llama-cpp-paged-dev/src/{models/qwen35moe.cpp,models/delta-net-base.cpp,llama-graph.cpp}`.
 
 ### Phase 10 GDN C32 slab update

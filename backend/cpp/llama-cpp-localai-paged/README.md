@@ -618,6 +618,9 @@ DGX mirror `f2521ab12`, artifact
 Use `paged-current-serving-snapshot.sh` for future current-stack GB10 serving
 snapshots. It targets the clean `~/llama-phase6-source` mirror, checks
 docker/`local-ai-worker`/GPU-idle state, uses the owner-file lock, runs pre/post
-inference gates, and emits paged/vLLM ratios. Do not use the stale DGX
+inference gates, writes `hardware.txt`, and emits paged/vLLM ratios.
+`hardware.txt` records the GPU identity and hardware class so GB10/workstation
+Blackwell evidence is not confused with a future datacenter-Blackwell rerun.
+Do not use the stale DGX
 `~/bench/combined_definitive.sh` without first porting it to the current mirror
 and lock discipline.
