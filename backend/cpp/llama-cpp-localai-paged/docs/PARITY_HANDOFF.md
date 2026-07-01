@@ -364,6 +364,18 @@ Use Phase 26 as the current audit-grade GB10 snapshot. It keeps the Phase 20
 verdict intact, but the artifact is more useful for future regressions because
 it carries hardware classification and compact pre/post inference gates.
 
+Phase 27 re-profiled the current clean llama.cpp n128 serving path with
+`nsys --cuda-graph-trace=node`. Artifact:
+`/home/mudler/bench/phase27_graph_node_serving/20260701_055519`. The run matched
+Phase 26 throughput closely (`675.5` vs `673.4` decode_agg_tps) and kept gates
+green before and after the profile (post retry): MoE md5
+`8cb0ce23777bf55f92f63d0292c756b0`, dense md5
+`5951a5b4d624ce891e22ab5fca9bc439`, `MUL_MAT_ID` `806/806`. The node-traced
+buckets still put the work in `gdn_core` (`29.59%`) and `mmq_nvfp4` (`28.44%`);
+helper dispatch remains too small (`mm_ids` `0.61%`, `gather_mmq` `0.37%`,
+`argsort_topk` `0.40%`). Do not reopen metadata/helper-only MoE dispatch work on
+GB10.
+
 ---
 
 ## 5. METHODOLOGY LESSONS (so you do not repeat the mistakes)
@@ -430,6 +442,7 @@ Only pursue if (a)+(b) are not options and someone explicitly wants the residual
 - `~/bench/phase24_hardware_report_dryrun/20260701_052741` - current snapshot harness dry run proving `hardware.txt` captures the DGX as `hardware_class=gb10_or_workstation_blackwell`.
 - `~/bench/phase25_gate_summary_dryrun/20260701_053353` - dry run after adding `gate_summary.tsv` support; normal dry-run still writes `hardware.txt` and does not emit a gate summary before gates exist.
 - `~/bench/phase26_audited_snapshot/20260701_053650` - current audit-grade full paged-vs-vLLM MoE serving snapshot with `hardware.txt`, pre/post gates, `summary.tsv`, and `gate_summary.tsv`.
+- `~/bench/phase27_graph_node_serving/20260701_055519` - current clean llama.cpp n128 serving profile captured with `--cuda-graph-trace=node`, pre/post retry gates green.
 - Per-engine logs `~/bench/COMBINED_{paged,vllm}_{MOE,DENSE}_server.log`; `~/bench/BENCHMARK_PROGRESS.md`.
 - Graph-node-traced high-N profiles: `~/highN_prof2/*.nsys-rep` (paged npl=256), `~/highN_vllm/*.nsys-rep` (vLLM), 2026-06-30.
 - A/B dirs: `~/bench/marlin_gate/`, `~/bench/gdn_p1_ab/`.

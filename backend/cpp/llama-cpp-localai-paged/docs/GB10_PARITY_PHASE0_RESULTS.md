@@ -1637,3 +1637,81 @@ Decision:
 - Current paged/vLLM decode ratios remain about `81.5%` at n8, `69.0%` at n32,
   and `65.7%` at n128; e2e aggregate ratios remain about `70.6%`, `54.6%`,
   and `49.4%`.
+
+## Phase 27 Graph-Node-Traced Current-Stack Serving Profile
+
+Phase 27 re-profiled the current clean llama.cpp serving path with CUDA graph
+node tracing enabled. This checks the Phase 8 bucket picture against the decode
+profiling rule: serving/decode profiles must use `--cuda-graph-trace=node`.
+
+Artifact:
+
+- `/home/mudler/bench/phase27_graph_node_serving/20260701_055519`
+
+Source and hardware:
+
+- `/home/mudler/llama-phase6-source`
+- `f2521ab12 feat(server): trace speculative batch shapes`
+- `GPU 0: NVIDIA GB10`, driver `580.159.03`, compute capability `12.1`
+- Nsight Systems `2025.3.2.474-253236389321v0`
+
+Safety gates:
+
+| phase | check | status | actual |
+|-------|-------|--------|--------|
+| pre | MoE md5 | ok | `8cb0ce23777bf55f92f63d0292c756b0` |
+| pre | dense md5 | ok | `5951a5b4d624ce891e22ab5fca9bc439` |
+| pre | `MUL_MAT_ID` | ok | `806/806` |
+| post retry | MoE md5 | ok | `8cb0ce23777bf55f92f63d0292c756b0` |
+| post retry | dense md5 | ok | `5951a5b4d624ce891e22ab5fca9bc439` |
+| post retry | `MUL_MAT_ID` | ok | `806/806` |
+
+The first immediate post-gate attempt raced with Nsight teardown and rejected
+the run because it detected one compute process even though `nvidia-smi` already
+printed no running processes. The post-gate retry started from `docker=0`,
+`local_ai_worker=0`, `compute=0`, and a `FREE` owner file.
+
+Serving sample (`n=128`, `PTOK=128`, `GEN=64`):
+
+| agg_tps | decode_agg_tps | decode_perseq_tps | prefill_tps | TTFT mean ms |
+|---------|----------------|--------------------|-------------|--------------|
+| 319.9 | 675.5 | 3.9 | 1671.1 | 8363.4 |
+
+This matches Phase 26's n128 paged decode rate (`673.4` decode_agg_tps) closely
+enough to treat the profile as representative for bucket direction.
+
+Graph-node-traced kernel buckets:
+
+| macro bucket | time ms | share |
+|--------------|---------|-------|
+| GDN | 6706.33 | 33.47% |
+| MoE/FFN-GEMM | 5871.92 | 29.31% |
+| bf16-proj | 2725.07 | 13.60% |
+| layout-copy | 1309.99 | 6.54% |
+| ew-mul(weight/norm/GDN) | 724.29 | 3.61% |
+| act-quant | 697.75 | 3.48% |
+| norms/residual | 405.29 | 2.02% |
+| ew-add(resid/MoE-fanin) | 361.81 | 1.81% |
+| MoE-dispatch | 275.99 | 1.38% |
+| FA | 271.03 | 1.35% |
+
+Fine buckets:
+
+- `gdn_core`: `5929.85 ms` (`29.59%`)
+- `mmq_nvfp4`: `5697.79 ms` (`28.44%`)
+- `cublas_bf16_gemm`: `1892.81 ms` (`9.45%`)
+- `act_quant`: `697.75 ms` (`3.48%`)
+- `mm_ids`: `121.99 ms` (`0.61%`)
+- `gather_mmq`: `73.88 ms` (`0.37%`)
+- `argsort_topk`: `80.11 ms` (`0.40%`)
+
+Decision:
+
+- The graph-node-traced current-stack profile confirms the Phase 8 source
+  shortcut decision. Metadata/helper work is still too small: `mm_ids`,
+  `gather_mmq`, and `argsort_topk` together are about `1.38%`.
+- A credible GB10 source patch would have to reduce `gdn_core` or
+  `mmq_nvfp4`/bf16 projection work directly. The low-conflict helper-dispatch
+  path still should not be reopened.
+- The serving profile does not change the Phase 26 parity verdict: n128 paged
+  decode remains about `675 tok/s`, far below vLLM's same-session `1025 tok/s`.
