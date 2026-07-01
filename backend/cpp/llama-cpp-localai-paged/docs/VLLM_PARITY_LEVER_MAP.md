@@ -115,6 +115,14 @@ Phase66 ran that timing pass. At MoE `npp=512`, total GPU kernel time was
 gather/quant shortcut on GB10 for now: the gather is not material and the
 combined route is below the `8%` source-funding threshold.
 
+Phase67 tested the `bf16-proj` conversion half directly. Fork commit
+`ea0875d14` adds default-off `LLAMA_BF16_CUBLAS_F32_OUT=1`, letting BF16 cuBLAS
+write F32 output instead of writing BF16 then launching a BF16-to-F32 conversion.
+It passed MoE/dense md5 and `MUL_MAT 1146/1146`; MoE prefill improved
+`2347.41 -> 2402.34` at `npp=512` and `2440.18 -> 2456.54` at `npp=2048`.
+Keep it default-off until dense and serving A/B decide whether it is worth a
+default policy change.
+
 Relevant files: `/home/mudler/_git/LocalAI/.claude/worktrees/feat+paged-attention/backend/cpp/llama-cpp-localai-paged/docs/{PREFILL_GEMM_SCOPE.md,PREFILL_GEMM_RESULTS.md,TENSORCORE_GDN_SCOPE.md,final_benchmark.csv}`, `/home/mudler/_git/LocalAI/.claude/worktrees/feat+paged-attention/backend/cpp/llama-cpp-localai-paged/patches/paged/0042-feat-paged-fused-residual-add-RMS-norm-weight-multip.patch`, and the graph source `/home/mudler/_git/LocalAI/backend/cpp/llama-cpp-paged-dev/src/models/{qwen35moe.cpp,delta-net-base.cpp}` + `/home/mudler/_git/LocalAI/backend/cpp/llama-cpp-paged-dev/src/llama-graph.cpp` (build_moe_ffn ~1500-1834, build_attn ~2136-2189).
 
 ## 2. Decode-serving compute hypotheses (ranked)

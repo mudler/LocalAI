@@ -3678,3 +3678,43 @@ Decision:
 - Do not reopen W4A16/no-activation-quant from this evidence. Earlier W4A16
   phases already rejected that rewrite; Phase66 only rules out a smaller
   gather/quant shortcut.
+
+## BF16 cuBLAS F32 Output Phase67 Result
+
+Phase67 is recorded in
+`docs/superpowers/plans/2026-07-01-bf16-cublas-f32-output-phase67.md`.
+It added a default-off BF16 projection shortcut:
+
+- Fork commit: `ea0875d14 feat(cuda): gate BF16 cuBLAS F32 output`
+- Env gate: `LLAMA_BF16_CUBLAS_F32_OUT=1`
+- DGX mirror commit: `14fd69f1e feat(cuda): gate BF16 cuBLAS F32 output`
+- DGX artifact: `/home/mudler/bench/phase67_bf16_f32_out/20260701_144909`
+
+Default and opt-in gates passed:
+
+| mode | MoE md5 | dense md5 | `MUL_MAT` |
+|------|---------|-----------|-----------|
+| default | `8cb0ce23777bf55f92f63d0292c756b0` | `5951a5b4d624ce891e22ab5fca9bc439` | `1146/1146` |
+| opt-in | `8cb0ce23777bf55f92f63d0292c756b0` | `5951a5b4d624ce891e22ab5fca9bc439` | `1146/1146` |
+
+Same-window MoE prefill A/B:
+
+| npp | default S_PP | opt-in S_PP | change |
+|-----|-------------:|------------:|-------:|
+| `512` | `2347.41` | `2402.34` | `+2.34%` |
+| `2048` | `2440.18` | `2456.54` | `+0.67%` |
+
+Opt-in `npp=512` nsys profile:
+
+| row | value |
+|-----|------:|
+| total GPU kernel time | `7020867757 ns` |
+| `convert_unary<__nv_bfloat16, float>` | `0 ns`, `0` instances |
+| `convert_unary<float, __nv_bfloat16>` | `159651026 ns`, `6840` instances, `2.27%` |
+
+Decision:
+
+- Keep the patch as a default-off opt-in shortcut. It is md5/op clean and
+  removes the profiled BF16-to-F32 conversion row for this shape.
+- Do not make it default-on yet. The gain is modest and needs dense plus serving
+  A/B before a default policy change.

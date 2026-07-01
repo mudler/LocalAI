@@ -973,3 +973,25 @@ Decision: reject a Phase66 gather/quant source patch. The gather is too small
 to target, and quantize plus gather is below the `8%` source-funding threshold.
 Do not reopen W4A16/no-activation-quant from this evidence; that larger rewrite
 was already rejected in earlier phases.
+
+## 12. PHASE67 RESULT: BF16 CUBLAS F32 OUTPUT
+
+Phase67 added a default-off BF16 projection shortcut in the llama.cpp fork:
+`ea0875d14 feat(cuda): gate BF16 cuBLAS F32 output`. The env gate is
+`LLAMA_BF16_CUBLAS_F32_OUT=1`. DGX mirror commit: `14fd69f1e`.
+
+DGX artifact: `/home/mudler/bench/phase67_bf16_f32_out/20260701_144909`.
+Default and opt-in gates stayed green: MoE md5 `8cb0ce23`, dense md5
+`5951a5b4`, `MUL_MAT 1146/1146`.
+
+Same-window MoE prefill A/B:
+
+| npp | default S_PP | opt-in S_PP | change |
+|-----|-------------:|------------:|-------:|
+| `512` | `2347.41` | `2402.34` | `+2.34%` |
+| `2048` | `2440.18` | `2456.54` | `+0.67%` |
+
+The opt-in `npp=512` profile removed the BF16-to-F32 conversion row:
+`convert_unary<__nv_bfloat16, float>` became `0 ns`, `0` instances. Keep this
+as default-off for now. It is correctness-clean and measurable, but the win is
+small and needs dense plus serving A/B before any default-on decision.
