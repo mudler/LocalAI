@@ -606,6 +606,13 @@ gates were green: MoE `8cb0ce23777bf55f92f63d0292c756b0`, dense
 `1.1560x` at `n=8`) but falls behind at `n=32/128` (`0.9036x`, `0.7912x`), and
 TTFT remains `1.87x` to `4.05x` vLLM. This does not change the GB10 conclusion.
 
+Phase 49 removes vLLM log noise from harness-owned environment variables. The
+`vllm serve` child now unsets `VLLM_MODEL`, `VLLM_BIN`,
+`VLLM_READY_ATTEMPTS`, `VLLM_GPU_MEMORY_UTILIZATION`, `VLLM_MAX_MODEL_LEN`,
+`VLLM_MAX_NUM_SEQS`, `VLLM_TENSOR_PARALLEL_SIZE`, and `VLLM_EXTRA_ARGS` while
+preserving intentional vLLM runtime variables such as `VLLM_LOGGING_LEVEL`. Dry
+run: `/home/mudler/bench/phase49_vllm_env_hygiene_dryrun/20260701_102138`.
+
 ---
 
 ## 5. METHODOLOGY LESSONS (so you do not repeat the mistakes)
@@ -697,6 +704,7 @@ Only pursue if (a)+(b) are not options and someone explicitly wants the residual
 - `~/bench/phase47_dense_serving/20260701_095151` - incomplete dense serving attempt; pre-gates and paged arm completed, vLLM did not produce result JSONs under the old readiness budget.
 - `~/bench/phase48_readiness_harness_dryrun/20260701_100533` - harness dry-run proving configurable readiness budgets and clean preflight before retrying dense serving.
 - `~/bench/phase47_dense_serving_retry/20260701_100811` - completed dense serving snapshot after Phase48; pre/post md5 and op gates green; paged low-N decode ahead, high-N aggregate and TTFT behind.
+- `~/bench/phase49_vllm_env_hygiene_dryrun/20260701_102138` - harness dry-run after scrubbing harness-owned `VLLM_*` variables from the `vllm serve` child environment.
 - Per-engine logs `~/bench/COMBINED_{paged,vllm}_{MOE,DENSE}_server.log`; `~/bench/BENCHMARK_PROGRESS.md`.
 - Graph-node-traced high-N profiles: `~/highN_prof2/*.nsys-rep` (paged npl=256), `~/highN_vllm/*.nsys-rep` (vLLM), 2026-06-30.
 - A/B dirs: `~/bench/marlin_gate/`, `~/bench/gdn_p1_ab/`.

@@ -2747,3 +2747,25 @@ Verification:
   dense dry-run with `VLLM_READY_ATTEMPTS=700`.
 - DGX dry-run artifact:
   `/home/mudler/bench/phase48_readiness_harness_dryrun/20260701_100533`.
+
+## Phase 49 vLLM Env Hygiene
+
+Phase 49 cleans up benchmark log noise observed during the Phase47 retry. vLLM
+warned about harness-owned environment variables such as `VLLM_READY_ATTEMPTS`
+and `VLLM_MODEL` because they were inherited by the `vllm serve` process.
+
+Change:
+
+- Wrap `vllm serve` with `env -u` for harness-owned variables:
+  `VLLM_MODEL`, `VLLM_BIN`, `VLLM_READY_ATTEMPTS`,
+  `VLLM_GPU_MEMORY_UTILIZATION`, `VLLM_MAX_MODEL_LEN`, `VLLM_MAX_NUM_SEQS`,
+  `VLLM_TENSOR_PARALLEL_SIZE`, and `VLLM_EXTRA_ARGS`.
+- Keep intentional vLLM runtime variables such as `VLLM_LOGGING_LEVEL`.
+
+Verification:
+
+- Red grep first proved the scrub was absent.
+- Green checks after the patch included `bash -n`, grep for `-u VLLM_MODEL`,
+  and a DGX dense dry-run with `VLLM_READY_ATTEMPTS=700`.
+- DGX dry-run artifact:
+  `/home/mudler/bench/phase49_vllm_env_hygiene_dryrun/20260701_102138`.

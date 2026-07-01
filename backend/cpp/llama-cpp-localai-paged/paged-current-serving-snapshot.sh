@@ -274,7 +274,11 @@ run_vllm() {
     read -r -a extra_args <<< "$VLLM_EXTRA_ARGS"
   fi
   log "starting vLLM server"
-  nohup "$VLLM_BIN" serve "$VLLM_MODEL" \
+  nohup env \
+    -u VLLM_MODEL -u VLLM_BIN -u VLLM_READY_ATTEMPTS \
+    -u VLLM_GPU_MEMORY_UTILIZATION -u VLLM_MAX_MODEL_LEN -u VLLM_MAX_NUM_SEQS \
+    -u VLLM_TENSOR_PARALLEL_SIZE -u VLLM_EXTRA_ARGS \
+    "$VLLM_BIN" serve "$VLLM_MODEL" \
     --served-model-name "$SERVED_MODEL_NAME" --gpu-memory-utilization "$VLLM_GPU_MEMORY_UTILIZATION" --max-model-len "$VLLM_MAX_MODEL_LEN" \
     --max-num-seqs "$VLLM_MAX_NUM_SEQS" --host 127.0.0.1 --port "$VLLM_PORT" --tensor-parallel-size "$VLLM_TENSOR_PARALLEL_SIZE" \
     "${extra_args[@]}" \
