@@ -840,6 +840,51 @@ Decision:
 - Do not benchmark MTP as a parity win until a serving/API phase adds rollback
   gates for hybrid SSM/KV state and measures target verification throughput.
 
+## Phase 14 MTP Rollback and Inference-Safety Gate
+
+Phase 14 tested the missing safety question from Phase 9: whether MTP
+speculative rejection can run against the actual Qwen3.6 MoE GGUF without
+corrupting paged KV or recurrent GDN state.
+
+Artifacts:
+
+- `/home/mudler/bench/phase14_mtp_rollback/recurrent_rollback.err`
+- `/home/mudler/bench/phase14_mtp_rollback/mtp_greedy_equiv.err`
+- `/home/mudler/bench/phase14_mtp_rollback/completion_nocnv_n{8,16,24,32,48}.out`
+- `/home/mudler/bench/phase14_mtp_rollback/mtp_n{8,16,24,48}.out`
+- `/home/mudler/bench/paged_inference_gates/20260701_041117`
+
+Safety evidence:
+
+- `test-recurrent-state-rollback` on
+  `/home/mudler/bench/q36-35b-a3b-nvfp4.gguf` exited `0` and logged
+  `recurrent rollback checkpoint restored successfully`.
+- MTP stderr logged bounded recurrent rollback support:
+  `the context supports bounded partial sequence removal`.
+- MTP partial rejection occurred at `temp=0`:
+  `n_drafted=39`, `n_accept=20`, `accept=51.282%`.
+- The backend sampler multi-output error stayed absent; the expected
+  `backend draft sampling is disabled for MTP` warning was present.
+- Raw greedy text was prefix-equivalent after normalization for
+  `n=8,16,24,32,48`; no first differing token was found. Exact transcript md5
+  is not used for this cross-frontend gate because `llama-speculative-simple`
+  emits accepted token groups and can overrun `llama-completion -no-cnv` for
+  the same `-n`.
+
+Normal inference gates after Phase 14:
+
+- MoE md5: `8cb0ce23777bf55f92f63d0292c756b0`.
+- Dense md5: `5951a5b4d624ce891e22ab5fca9bc439`.
+- `MUL_MAT_ID`: `806/806`, `Backend CUDA0: OK`.
+
+Decision:
+
+- MTP rollback safety is green enough to scope a Phase 15 serving/API
+  throughput gate.
+- Do not enable MTP by default.
+- Do not count MTP as a GB10 speed-parity win until serving results show useful
+  target-verification throughput under the canonical inference gates.
+
 ## Phase 10 GDN C32 Slab Baseline and Source Check
 
 Phase 10 starts a separate GDN prefill path; it does not reopen the rejected

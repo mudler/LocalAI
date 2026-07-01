@@ -454,8 +454,32 @@ Phase 9 adds a narrow MTP smoke gate instead of production enablement:
   MoE `8cb0ce23777bf55f92f63d0292c756b0`, dense
   `5951a5b4d624ce891e22ab5fca9bc439`.
 
-MTP remains opt-in and exploratory. It does not supersede the next GDN prefill
-scope until a serving phase proves target-verification cost and rollback safety.
+MTP remains opt-in and, after Phase 14, safety-gated but not throughput-proven.
+It does not supersede the next GDN prefill scope until a serving phase proves
+target-verification cost.
+
+### Phase 14 MTP rollback update
+
+Phase 14 closes the safety gap left open by Phase 9, but still does not claim a
+throughput/parity win:
+
+- `test-recurrent-state-rollback` passed on the actual MoE GGUF and logged
+  `recurrent rollback checkpoint restored successfully`.
+- MTP stderr showed bounded recurrent rollback support:
+  `the context supports bounded partial sequence removal`.
+- A partial-rejection run produced `n_drafted=39`, `n_accept=20`,
+  `accept=51.282%` with no backend sampler multi-output error.
+- Canonical inference gates stayed green after the MTP work:
+  MoE `8cb0ce23777bf55f92f63d0292c756b0`, dense
+  `5951a5b4d624ce891e22ab5fca9bc439`, and `MUL_MAT_ID` `806/806`.
+
+The greedy-equivalence gate uses normalized raw-output prefix comparison rather
+than exact transcript md5 because `llama-speculative-simple` emits accepted
+token groups and can produce a longer completion than `llama-completion -no-cnv`
+for the same `-n`. Across `n=8,16,24,32,48`, no first differing token was found.
+
+Next step: Phase 15 may benchmark serving/API throughput with MTP still
+default-off and only behind the canonical inference gates.
 
 Relevant files (all absolute): `/home/mudler/_git/LocalAI/.claude/worktrees/feat+paged-attention/backend/cpp/llama-cpp-localai-paged/docs/{DECODE_SERVING_SCOPE.md,PREFILL_GEMM_SCOPE.md,PREFILL_GEMM_RESULTS.md,TENSORCORE_GDN_SCOPE.md,final_benchmark.csv}`, `.../README.md`, `.../patches/paged/0034-feat-paged-native-NVFP4-W4A4-FP4-MMA-large-M-prefill.patch` (P1/P2), `.../patches/paged/0042-feat-paged-fused-residual-add-RMS-norm-weight-multip.patch` (P7), `.../patches/paged/0031` (P4), `0025` (D1), `0018/0022` (D4/D5), `0009/0010` (D3/D6/D7); graph source `/home/mudler/_git/LocalAI/backend/cpp/llama-cpp-paged-dev/src/{models/qwen35moe.cpp,models/delta-net-base.cpp,llama-graph.cpp}`.
 

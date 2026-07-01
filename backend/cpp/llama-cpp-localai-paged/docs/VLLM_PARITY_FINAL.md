@@ -281,7 +281,7 @@ operating point where paged is unambiguously faster than vLLM.
 | S2 double-buffer set_inputs | overlap host input build with GPU | **DROPPED** | `set_inputs` is **~0.05 ms/step** - nothing to recover (the rebuild was the cost) | DSS |
 | whole-step graph / host loop | the host scheduling loop as the serving residual | **CLOSED (~0-1%)** | baseline reuse 0% (agg 757.6) **statistically equal** to S1+S3 reuse 72% (agg 763.3); `hostproc` only ~4-8% of the per-step wall = **measured dead** | DSS |
 | padded / fixed-slot decode | pad decode width to `--parallel` for ~100% reuse | **REJECTED (built, GPU-tested)** | inert (md5 bit-exact) but **regresses at every concurrency**; N=8 burst 28.16 -> 6.05 tok/s/seq (~4.6x slower); serving decode is **GPU-compute-bound**, dummy-row compute > reuse recovered | DSS |
-| speculative decode (MTP) | draft + verify; greedy is bit-exact | **ORTHOGONAL, not pursued** | both engines have it; the crux is hybrid-SSM in-place-state (0018) rollback. Not a paged-specific gap - a feature both can add | LMAP |
+| speculative decode (MTP) | draft + verify; greedy is bit-exact | **SAFETY-GATED, default-off** | Phase 14 passed recurrent rollback on the actual MoE GGUF, partial rejection, normalized greedy-prefix, and canonical inference gates; still not a paged-specific gap and still needs serving/API throughput proof before any parity claim | LMAP |
 
 The serving regime was the one place the static-bench parity did not carry over
 (paged ~3.7 vs vLLM ~5.9 tok/s/seq, -39%, DSS). S1 made the decode step reusable
