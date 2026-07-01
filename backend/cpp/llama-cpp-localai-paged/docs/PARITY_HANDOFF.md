@@ -952,3 +952,24 @@ concentrated in named MoE/shared-expert FFN paths, but it does not prove whether
 `gather_mmq_fp4` is material or just a cheap cost of the existing dedup win.
 Phase66 should time `quantize_mmq_nvfp4` versus `gather_mmq_fp4` with nsys/NVTX
 before funding any behavior-changing source patch.
+
+## 11. PHASE66 RESULT: QUANT KERNEL TIMING
+
+Phase66 timed the Phase65 candidate kernels directly with Nsight Systems.
+Artifact: `/home/mudler/bench/phase66_quant_kernel_timing/20260701_144256`.
+Profile: `quant_npp512.nsys-rep`; summary:
+`quant_npp512_kern_sum_cuda_gpu_kern_sum.csv`.
+
+Shape: MoE `npp=512`, `ntg=4`, `npl=32`. Total GPU kernel time:
+`7108388986 ns`.
+
+| kernel | time | instances | share |
+|--------|-----:|----------:|------:|
+| `quantize_mmq_nvfp4` | `317205504 ns` | `8884` | `4.46%` |
+| `gather_mmq_fp4` | `45374880 ns` | `2960` | `0.64%` |
+| combined | `362580384 ns` | - | `5.10%` |
+
+Decision: reject a Phase66 gather/quant source patch. The gather is too small
+to target, and quantize plus gather is below the `8%` source-funding threshold.
+Do not reopen W4A16/no-activation-quant from this evidence; that larger rewrite
+was already rejected in earlier phases.

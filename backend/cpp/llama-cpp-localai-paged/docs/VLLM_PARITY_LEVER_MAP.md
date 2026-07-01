@@ -109,6 +109,12 @@ gate/up expert quant dedup plus gather, MoE down expert flat quantization, and
 shared-expert dense quantization. Do not optimize from counts alone; Phase66
 should time `quantize_mmq_nvfp4` versus `gather_mmq_fp4` with nsys/NVTX first.
 
+Phase66 ran that timing pass. At MoE `npp=512`, total GPU kernel time was
+`7108388986 ns`; `quantize_mmq_nvfp4` was `317205504 ns` (`4.46%`),
+`gather_mmq_fp4` was `45374880 ns` (`0.64%`), combined `5.10%`. Reject a
+gather/quant shortcut on GB10 for now: the gather is not material and the
+combined route is below the `8%` source-funding threshold.
+
 Relevant files: `/home/mudler/_git/LocalAI/.claude/worktrees/feat+paged-attention/backend/cpp/llama-cpp-localai-paged/docs/{PREFILL_GEMM_SCOPE.md,PREFILL_GEMM_RESULTS.md,TENSORCORE_GDN_SCOPE.md,final_benchmark.csv}`, `/home/mudler/_git/LocalAI/.claude/worktrees/feat+paged-attention/backend/cpp/llama-cpp-localai-paged/patches/paged/0042-feat-paged-fused-residual-add-RMS-norm-weight-multip.patch`, and the graph source `/home/mudler/_git/LocalAI/backend/cpp/llama-cpp-paged-dev/src/models/{qwen35moe.cpp,delta-net-base.cpp}` + `/home/mudler/_git/LocalAI/backend/cpp/llama-cpp-paged-dev/src/llama-graph.cpp` (build_moe_ffn ~1500-1834, build_attn ~2136-2189).
 
 ## 2. Decode-serving compute hypotheses (ranked)

@@ -3649,3 +3649,32 @@ Decision:
   it does not prove which sub-kernel is material.
 - Phase66 should time `quantize_mmq_nvfp4` versus `gather_mmq_fp4` with
   nsys/NVTX before changing source behavior.
+
+## Quant Kernel Timing Phase66 Result
+
+Phase66 is recorded in
+`docs/superpowers/plans/2026-07-01-quant-kernel-timing-phase66.md`.
+It used the Phase65-gated binary and Nsight Systems to time the activation-quant
+candidate kernels directly.
+
+- DGX artifact: `/home/mudler/bench/phase66_quant_kernel_timing/20260701_144256`
+- Profile: `quant_npp512.nsys-rep`
+- Kernel summary: `quant_npp512_kern_sum_cuda_gpu_kern_sum.csv`
+- Shape: MoE `npp=512`, `ntg=4`, `npl=32`
+
+Observed total GPU kernel time: `7108388986 ns`.
+
+| kernel | time | instances | share |
+|--------|-----:|----------:|------:|
+| `quantize_mmq_nvfp4` | `317205504 ns` | `8884` | `4.46%` |
+| `gather_mmq_fp4` | `45374880 ns` | `2960` | `0.64%` |
+| combined | `362580384 ns` | - | `5.10%` |
+
+Decision:
+
+- Reject a Phase66 gather/quant source optimization. `gather_mmq_fp4` is not a
+  material standalone target, and `quantize_mmq_nvfp4 + gather_mmq_fp4` is below
+  the `8%` source-funding threshold for this shape.
+- Do not reopen W4A16/no-activation-quant from this evidence. Earlier W4A16
+  phases already rejected that rewrite; Phase66 only rules out a smaller
+  gather/quant shortcut.
