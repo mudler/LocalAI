@@ -1243,6 +1243,30 @@ Verification:
 Mirror status: pending explicit approval to push the fork branch, then
 regenerate the LocalAI patch series from the pushed fork commit.
 
+### Phase 52 dense admission trace
+
+Phase52 used the Phase51 trace on DGX to measure dense `n=128`, `ptok=128`,
+`gen=64` llama-server admission. Artifact:
+`/home/mudler/bench/phase52_dense_admission_trace/20260701_111017`.
+
+The traced build was bracketed by canonical gates, all green before and after:
+MoE `8cb0ce23777bf55f92f63d0292c756b0`, dense
+`5951a5b4d624ce891e22ab5fca9bc439`, `MUL_MAT` `1146/1146`, and
+`MUL_MAT_ID` `806/806`.
+
+Clean trace:
+
+| h2h wall s | decode agg t/s | TTFT mean ms | steps | decode-only steps | decode tokens | prompt tokens | max waiting prompt slots |
+|------------|-----------------|--------------|-------|-------------------|---------------|---------------|--------------------------|
+| `58.921` | `360.5` | `23171.5` | `76` | `0` | `8064` | `22785` | `35` |
+
+Decision: the default scheduler never emitted pure decode steps for this
+high-N dense run. Prompt tokens matched h2h exactly, and prompt admission used
+the stock path (`prefill_budget_step=0`, `prefill_cap_per_slot=0`). This
+supports the Phase50 conclusion that the remaining high-N serving gap is
+scheduler/admission and TTFT shaped. Next lever should be a default-off
+admission-policy A/B or per-step histogram trace, not immediate kernel work.
+
 Relevant files (all absolute): `/home/mudler/_git/LocalAI/.claude/worktrees/feat+paged-attention/backend/cpp/llama-cpp-localai-paged/docs/{DECODE_SERVING_SCOPE.md,PREFILL_GEMM_SCOPE.md,PREFILL_GEMM_RESULTS.md,TENSORCORE_GDN_SCOPE.md,final_benchmark.csv}`, `.../README.md`, `.../patches/paged/0034-feat-paged-native-NVFP4-W4A4-FP4-MMA-large-M-prefill.patch` (P1/P2), `.../patches/paged/0042-feat-paged-fused-residual-add-RMS-norm-weight-multip.patch` (P7), `.../patches/paged/0031` (P4), `0025` (D1), `0018/0022` (D4/D5), `0009/0010` (D3/D6/D7); graph source `/home/mudler/_git/LocalAI/backend/cpp/llama-cpp-paged-dev/src/{models/qwen35moe.cpp,models/delta-net-base.cpp,llama-graph.cpp}`.
 
 ### Phase 10 GDN C32 slab update

@@ -640,6 +640,18 @@ patched `build-cuda` CTest passed and inference gates stayed green: MoE
 `806/806`. Push and LocalAI patch-series regeneration are still pending because
 push requires explicit approval.
 
+Phase 52 uses the Phase51 trace on DGX for dense `n=128`, `ptok=128`, `gen=64`.
+Artifact: `/home/mudler/bench/phase52_dense_admission_trace/20260701_111017`.
+Pre/post md5 and op gates stayed green. The clean traced h2h row was
+`decode_agg_tps=360.5`, `prefill_tps=629.5`, `ttft_mean_ms=23171.5`, wall
+`58.921s`. The admission trace reported `steps=76`, `decode_only_steps=0`,
+`decode_tokens=8064`, `prompt_tokens=22785`, `max_waiting_prompt_slots=35`,
+`started_prompt_slots=128`, `continued_prompt_slots=139`,
+`prefill_budget_step=0`, and `prefill_cap_per_slot=0`. The prompt token count
+matches h2h exactly, so this is the target request. The next GB10 lever should
+be a default-off scheduler/admission A/B or a per-step histogram trace, not an
+immediate GDN/GEMM rewrite.
+
 ---
 
 ## 5. METHODOLOGY LESSONS (so you do not repeat the mistakes)
@@ -734,6 +746,7 @@ Only pursue if (a)+(b) are not options and someone explicitly wants the residual
 - `~/bench/phase49_vllm_env_hygiene_dryrun/20260701_102138` - harness dry-run after scrubbing harness-owned `VLLM_*` variables from the `vllm serve` child environment.
 - `~/bench/phase50_dense_true_decode/20260701_103120` - dense graph-node difference-method profile at `npl=128`, `npp=128`; `build-cuda` pre/post md5 and op gates green; true decode paged `383.66 t/s`, vLLM `435.00 t/s`, ratio `0.8820`, pointing next at serving admission/scheduler tracing.
 - `~/bench/phase51_serving_admission_trace/20260701_110130` - default-off `LLAMA_SERVING_TRACE=1` fork commit `c6cb8460e`; DGX patched `build-cuda` CTest and md5/op gates green; push and LocalAI patch-series mirror pending approval.
+- `~/bench/phase52_dense_admission_trace/20260701_111017` - clean dense `n=128` admission trace; pre/post gates green; `decode_only_steps=0`, `prompt_tokens=22785`, `max_waiting_prompt_slots=35`; next lever is scheduler/admission A/B or per-step histogram trace.
 - Per-engine logs `~/bench/COMBINED_{paged,vllm}_{MOE,DENSE}_server.log`; `~/bench/BENCHMARK_PROGRESS.md`.
 - Graph-node-traced high-N profiles: `~/highN_prof2/*.nsys-rep` (paged npl=256), `~/highN_vllm/*.nsys-rep` (vLLM), 2026-06-30.
 - A/B dirs: `~/bench/marlin_gate/`, `~/bench/gdn_p1_ab/`.

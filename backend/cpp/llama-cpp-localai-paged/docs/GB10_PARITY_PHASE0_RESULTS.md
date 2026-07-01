@@ -2879,3 +2879,62 @@ Mirror status:
 - The LocalAI `patches/paged/` series is not regenerated yet because the
   handoff requires pushing the fork branch first, and pushes require explicit
   approval.
+
+## Phase 52 Dense Admission Trace
+
+Phase 52 uses the Phase51 trace to capture the actual dense `n=128` serving
+admission shape. The Phase51 patch was applied temporarily to the clean DGX
+mirror, built, gated, used for the trace, and then reverted from the mirror.
+
+Artifact:
+
+- `/home/mudler/bench/phase52_dense_admission_trace/20260701_111017`
+
+Pre/post gates:
+
+| phase | MoE md5 | dense md5 | `MUL_MAT` | `MUL_MAT_ID` |
+|-------|---------|-----------|-----------|--------------|
+| pre | `8cb0ce23777bf55f92f63d0292c756b0` | `5951a5b4d624ce891e22ab5fca9bc439` | `1146/1146` | `806/806` |
+| post | `8cb0ce23777bf55f92f63d0292c756b0` | `5951a5b4d624ce891e22ab5fca9bc439` | `1146/1146` | `806/806` |
+
+Clean run shape:
+
+- Dense GGUF: `~/bench/q36-27b-nvfp4.gguf`
+- `LLAMA_SERVING_TRACE=1`
+- `N=128`, `PTOK=128`, `GEN=64`
+- `CTX=131072`, `PARALLEL=128`, `BATCH=2048`, `UBATCH=512`
+
+H2H result:
+
+| n | agg t/s | decode agg t/s | decode per-seq t/s | prefill t/s | TTFT mean ms | wall s |
+|---|---------|-----------------|---------------------|-------------|--------------|--------|
+| 128 | `139.0` | `360.5` | `1.93` | `629.5` | `23171.5` | `58.921` |
+
+Admission trace:
+
+| steps | decode-only steps | decode tokens | prompt tokens | waiting prompt slots | max waiting prompt slots | started prompt slots | continued prompt slots |
+|-------|-------------------|---------------|---------------|----------------------|--------------------------|----------------------|------------------------|
+| `76` | `0` | `8064` | `22785` | `267` | `35` | `128` | `139` |
+
+Derived values:
+
+- `prompt_tokens` matched h2h `prompt_tok_total` exactly: `22785`.
+- `decode_tokens` were `128` fewer than h2h `gen_total`, which is expected for
+  one first-token transition per request.
+- Average prompt tokens per scheduler step: `299.8`.
+- Average decode tokens per scheduler step: `106.11`.
+- Average waiting prompt slots per scheduler step: `3.51`.
+- `prefill_budget_step=0` and `prefill_cap_per_slot=0`, confirming the default
+  stock n-batch-only prompt admission path.
+
+Decision:
+
+- The default dense `n=128` scheduler emits no pure decode steps
+  (`decode_only_steps=0`) and admits prompt work across mixed steps. That
+  explains why Phase47 h2h serving decode can lag the Phase50 true-decode ratio:
+  serving is shaped by mixed prompt/decode admission and TTFT, not just dense
+  decode kernels.
+- The next code phase should be a small, default-off scheduler A/B or a richer
+  per-step histogram trace to test whether prefill chunking/admission can reduce
+  TTFT without regressing aggregate throughput. Do not move to another GDN/GEMM
+  rewrite until this scheduler hypothesis is tested.
