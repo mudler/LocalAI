@@ -376,6 +376,16 @@ helper dispatch remains too small (`mm_ids` `0.61%`, `gather_mmq` `0.37%`,
 `argsort_topk` `0.40%`). Do not reopen metadata/helper-only MoE dispatch work on
 GB10.
 
+Phase 28 tested the remaining low-conflict NVFP4 grouped-MMQ occupancy knobs.
+Artifact: `/home/mudler/bench/phase28_mmq_occupancy/20260701_040450`.
+`GGML_CUDA_FP4_MINBLOCKS=2` passed md5/op gates before and after serving
+(MoE `8cb0ce23777bf55f92f63d0292c756b0`, dense
+`5951a5b4d624ce891e22ab5fca9bc439`, `MUL_MAT_ID` `806/806`) but regressed
+n128 same-session decode serving (`705.1 -> 689.9` decode_agg_tps, `0.9784x`).
+`GGML_CUDA_FP4_MMQ_Y=64` failed to compile because the NVFP4 writeback
+specialization asserts `nwarps*tile_C::I == mmq_y`. Do not promote either knob;
+future grouped-MMQ work must be structural kernel work.
+
 ---
 
 ## 5. METHODOLOGY LESSONS (so you do not repeat the mistakes)
@@ -443,6 +453,7 @@ Only pursue if (a)+(b) are not options and someone explicitly wants the residual
 - `~/bench/phase25_gate_summary_dryrun/20260701_053353` - dry run after adding `gate_summary.tsv` support; normal dry-run still writes `hardware.txt` and does not emit a gate summary before gates exist.
 - `~/bench/phase26_audited_snapshot/20260701_053650` - current audit-grade full paged-vs-vLLM MoE serving snapshot with `hardware.txt`, pre/post gates, `summary.tsv`, and `gate_summary.tsv`.
 - `~/bench/phase27_graph_node_serving/20260701_055519` - current clean llama.cpp n128 serving profile captured with `--cuda-graph-trace=node`, pre/post retry gates green.
+- `~/bench/phase28_mmq_occupancy/20260701_040450` - NVFP4 MMQ occupancy build-knob A/B; `MINBLOCKS=2` gate-safe but serving-regressed, `MMQ_Y=64` compile-rejected.
 - Per-engine logs `~/bench/COMBINED_{paged,vllm}_{MOE,DENSE}_server.log`; `~/bench/BENCHMARK_PROGRESS.md`.
 - Graph-node-traced high-N profiles: `~/highN_prof2/*.nsys-rep` (paged npl=256), `~/highN_vllm/*.nsys-rep` (vLLM), 2026-06-30.
 - A/B dirs: `~/bench/marlin_gate/`, `~/bench/gdn_p1_ab/`.

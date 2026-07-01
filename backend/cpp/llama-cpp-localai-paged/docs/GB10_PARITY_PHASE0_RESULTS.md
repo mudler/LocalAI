@@ -1715,3 +1715,58 @@ Decision:
   path still should not be reopened.
 - The serving profile does not change the Phase 26 parity verdict: n128 paged
   decode remains about `675 tok/s`, far below vLLM's same-session `1025 tok/s`.
+
+## Phase 28 NVFP4 MMQ Occupancy Build-Knob A/B
+
+Phase 28 tested the remaining small, additive grouped-MMQ occupancy knobs
+already present in the llama.cpp fork. This was a build-vs-build A/B only; no
+source change was promoted.
+
+Artifact:
+
+- `/home/mudler/bench/phase28_mmq_occupancy/20260701_040450`
+
+Source and hardware:
+
+- `/home/mudler/llama-phase6-source`
+- `f2521ab12 feat(server): trace speculative batch shapes`
+- `GPU 0: NVIDIA GB10`, driver `580.159.03`, compute capability `12.1`
+
+Build/gate results:
+
+| variant | build result | MoE md5 | dense md5 | `MUL_MAT_ID` |
+|---------|--------------|---------|-----------|--------------|
+| baseline | existing `build-cuda` | `8cb0ce23777bf55f92f63d0292c756b0` | `5951a5b4d624ce891e22ab5fca9bc439` | `806/806` |
+| `GGML_CUDA_FP4_MINBLOCKS=2` | built | `8cb0ce23777bf55f92f63d0292c756b0` | `5951a5b4d624ce891e22ab5fca9bc439` | `806/806` |
+| `GGML_CUDA_FP4_MMQ_Y=64` | compile-time reject | n/a | n/a | n/a |
+
+`GGML_CUDA_FP4_MMQ_Y=64` fails the NVFP4 writeback invariant:
+`static_assert(nwarps*tile_C::I == mmq_y)`. That also rejects combined
+`MMQ_Y=64+MINBLOCKS=2` as a source of evidence. `MMQ_Y=96` is not a valid
+low-conflict shortcut for the same row-tile specialization reason, so it was
+not promoted to a serving A/B.
+
+Same-session n128 serving A/B (`PTOK=128`, `GEN=64`, two reps per arm):
+
+| arm | reps | agg_tps | decode_agg_tps | decode_perseq_tps | prefill_tps | TTFT mean ms |
+|-----|------|---------|----------------|--------------------|-------------|--------------|
+| baseline | 2 | 328.8 | 705.1 | 3.970 | 1607.4 | 7868.8 |
+| `MINBLOCKS=2` | 2 | 326.4 | 689.9 | 3.905 | 1644.9 | 7778.1 |
+| ratio | 2 | 0.9927 | 0.9784 | 0.9836 | 1.0233 | 0.9885 |
+
+Post-serving variant gate remained green:
+
+| phase | check | status | actual |
+|-------|-------|--------|--------|
+| post serving | MoE md5 | ok | `8cb0ce23777bf55f92f63d0292c756b0` |
+| post serving | dense md5 | ok | `5951a5b4d624ce891e22ab5fca9bc439` |
+| post serving | `MUL_MAT_ID` | ok | `806/806` |
+
+Decision:
+
+- `GGML_CUDA_FP4_MINBLOCKS=2` is inference-safe but does not clear the serving
+  A/B gate; it regressed n128 decode aggregate by about `2.2%`.
+- `GGML_CUDA_FP4_MMQ_Y` is not a valid additive shortcut without deeper NVFP4
+  writeback retile work.
+- Do not promote either knob or add a LocalAI patch. The grouped-MMQ bucket
+  still needs a structural kernel change, not a launch-bounds/row-tile tweak.

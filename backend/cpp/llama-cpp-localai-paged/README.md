@@ -629,3 +629,13 @@ so an artifact proves inferencing gates without reading full logs.
 Do not use the stale DGX
 `~/bench/combined_definitive.sh` without first porting it to the current mirror
 and lock discipline.
+
+Phase 28 challenged the remaining low-conflict NVFP4 grouped-MMQ occupancy
+knobs on the same DGX mirror
+(`/home/mudler/bench/phase28_mmq_occupancy/20260701_040450`). The only buildable
+variant, `GGML_CUDA_FP4_MINBLOCKS=2`, was inference-safe before and after
+serving (MoE `8cb0ce23`, dense `5951a5b4`, `MUL_MAT_ID 806/806`) but regressed
+n128 decode serving (`705.1 -> 689.9` decode_agg_tps, `0.9784x`). The row-tile
+knob `GGML_CUDA_FP4_MMQ_Y=64` failed the NVFP4 writeback compile-time
+invariant. Do not promote these knobs; grouped-MMQ parity work now requires a
+structural kernel change, not launch-bounds or row-tile tweaks.

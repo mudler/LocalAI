@@ -746,6 +746,25 @@ and `argsort_topk` is `0.40%`. Do not reopen metadata/helper-only MoE dispatch
 work on GB10. Any credible source patch must directly reduce GDN, grouped-MMQ,
 or projection work and still pass the md5/op gates.
 
+### Phase 28 NVFP4 MMQ occupancy A/B
+
+Phase 28 challenged the small grouped-MMQ build knobs before funding structural
+kernel work. Artifact:
+`/home/mudler/bench/phase28_mmq_occupancy/20260701_040450`.
+
+`GGML_CUDA_FP4_MINBLOCKS=2` built and passed the canonical safety gates before
+and after serving: MoE md5 `8cb0ce23777bf55f92f63d0292c756b0`, dense md5
+`5951a5b4d624ce891e22ab5fca9bc439`, and `MUL_MAT_ID` `806/806`. Same-session
+n128 serving A/B rejected it on throughput: baseline `705.1` decode_agg_tps vs
+`689.9` with `MINBLOCKS=2` (`0.9784x`). `GGML_CUDA_FP4_MMQ_Y=64` does not
+compile against the current NVFP4 writeback invariant
+`nwarps*tile_C::I == mmq_y`, so the row-tile knob is not a valid low-conflict
+shortcut.
+
+Decision: do not promote the occupancy knobs and do not add a LocalAI patch.
+The grouped-MMQ bucket still requires structural kernel work; launch-bounds and
+row-tile build tweaks are closed on GB10.
+
 Relevant files (all absolute): `/home/mudler/_git/LocalAI/.claude/worktrees/feat+paged-attention/backend/cpp/llama-cpp-localai-paged/docs/{DECODE_SERVING_SCOPE.md,PREFILL_GEMM_SCOPE.md,PREFILL_GEMM_RESULTS.md,TENSORCORE_GDN_SCOPE.md,final_benchmark.csv}`, `.../README.md`, `.../patches/paged/0034-feat-paged-native-NVFP4-W4A4-FP4-MMA-large-M-prefill.patch` (P1/P2), `.../patches/paged/0042-feat-paged-fused-residual-add-RMS-norm-weight-multip.patch` (P7), `.../patches/paged/0031` (P4), `0025` (D1), `0018/0022` (D4/D5), `0009/0010` (D3/D6/D7); graph source `/home/mudler/_git/LocalAI/backend/cpp/llama-cpp-paged-dev/src/{models/qwen35moe.cpp,models/delta-net-base.cpp,llama-graph.cpp}`.
 
 ### Phase 10 GDN C32 slab update
