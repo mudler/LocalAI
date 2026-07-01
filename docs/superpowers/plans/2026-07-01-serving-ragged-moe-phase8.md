@@ -282,7 +282,7 @@ Selected Phase 8 candidate:
 - Mirror patch under:
   `/home/mudler/_git/LocalAI/.claude/worktrees/feat+paged-attention/backend/cpp/llama-cpp-localai-paged/patches/paged/`
 
-- [ ] **Step 1: Add a test-only fork patch**
+- [x] **Step 1: Add a test-only fork patch**
 
   Add a `MUL_MAT_ID_RAGGED_MOE` whole-graph test that exercises:
 
@@ -292,7 +292,19 @@ Selected Phase 8 candidate:
   - `n_tokens in {1, 8, 33, 128, 257}`
   - explicitly empty experts and high skew into 1-row experts
 
-- [ ] **Step 2: Run red/green if the test exposes a missing path**
+  Result:
+
+  - Fork commit: `e21732fc4` (`test(paged): cover ragged MoE dispatch`).
+  - LocalAI patch:
+    `0053-test-paged-cover-ragged-MoE-dispatch.patch`.
+  - Coverage:
+    - one small F32 wiring case,
+    - NVFP4 with `n_mats=256`, `n_used=8`, `m=768`, `k=2048`,
+      `n in {1, 8, 33, 128, 257}`.
+    - deterministic unique top-k ids skewed toward hot experts, including
+      expert `255`, with many empty experts.
+
+- [x] **Step 2: Run red/green if the test exposes a missing path**
 
   Run:
 
@@ -305,7 +317,16 @@ Selected Phase 8 candidate:
   - Existing path should pass. If it fails, stop and debug before production
     code.
 
-- [ ] **Step 3: Mirror the test patch**
+  Result:
+
+  - Initial test failed because the first deterministic ID pattern created
+    duplicate expert IDs within the same token, which is not a valid top-k
+    routing shape. The corrected gate preserves unique expert IDs per token.
+  - DGX artifact:
+    `/home/mudler/bench/phase8_ragged_moe_dispatch/test_backend_ops_mul_mat_id_ragged_moe_fixed.txt`.
+  - Result: `MUL_MAT_ID_RAGGED_MOE` `6/6` on CUDA0.
+
+- [x] **Step 3: Mirror the test patch**
 
   Generate with:
 
@@ -314,6 +335,11 @@ Selected Phase 8 candidate:
   ```
 
   Copy into LocalAI only after checking patch order.
+
+  Result:
+
+  - Patch `0053-test-paged-cover-ragged-MoE-dispatch.patch` added after
+    `0052-test-paged-cover-MoE-weighted-combine-chain.patch`.
 
 ## Task 3: Default-Off Fused Dispatch Prototype If Promoted
 

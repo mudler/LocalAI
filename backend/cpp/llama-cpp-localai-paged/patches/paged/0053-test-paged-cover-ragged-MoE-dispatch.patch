@@ -1,0 +1,148 @@
+From e21732fc47206d5878e3b977bbd21858a3ba4ab0 Mon Sep 17 00:00:00 2001
+From: Ettore Di Giacinto <mudler@localai.io>
+Date: Wed, 1 Jul 2026 00:39:52 +0000
+Subject: [PATCH] test(paged): cover ragged MoE dispatch
+
+---
+ tests/test-backend-ops.cpp | 118 +++++++++++++++++++++++++++++++++++++
+ 1 file changed, 118 insertions(+)
+
+diff --git a/tests/test-backend-ops.cpp b/tests/test-backend-ops.cpp
+index 71740ce9f..8c41ae56a 100644
+--- a/tests/test-backend-ops.cpp
++++ b/tests/test-backend-ops.cpp
+@@ -4615,6 +4615,115 @@ struct test_moe_weighted_combine : public test_case {
+     }
+ };
+ 
++// Ragged 256-expert MoE dispatch gate for serving decode.
++struct test_mul_mat_id_ragged_moe : public test_case {
++    const ggml_type type_a;
++    const int n_mats;
++    const int n_used;
++    const int64_t m;
++    const int64_t n;
++    const int64_t k;
++
++    std::string vars() override {
++        return VARS_TO_STR6(type_a, n_mats, n_used, m, n, k);
++    }
++
++    double max_nmse_err() override {
++        return 5e-4;
++    }
++
++    double max_nmse_err(ggml_backend_t backend) override {
++        if ((type_a == GGML_TYPE_MXFP4 || type_a == GGML_TYPE_NVFP4) && backend_has_feature(backend, "BLACKWELL_NATIVE_FP4")) {
++            return 2e-2;
++        }
++        return max_nmse_err();
++    }
++
++    uint64_t op_flops(ggml_tensor * t) override {
++        GGML_UNUSED(t);
++        return 2 * m * k * n * n_used;
++    }
++
++    test_mul_mat_id_ragged_moe(ggml_type type_a = GGML_TYPE_NVFP4, int n_mats = 256, int n_used = 8,
++            int64_t m = 768, int64_t n = 128, int64_t k = 2048)
++        : type_a(type_a), n_mats(n_mats), n_used(n_used), m(m), n(n), k(k) {
++            GGML_ASSERT(n_used <= n_mats);
++        }
++
++    ggml_tensor * build_graph(ggml_context * ctx) override {
++        ggml_tensor * as = ggml_new_tensor_3d(ctx, type_a, k, m, n_mats);
++        ggml_set_name(as, "as");
++
++        ggml_tensor * ids = ggml_new_tensor_2d(ctx, GGML_TYPE_I32, n_mats, n);
++        ggml_set_name(ids, "ids");
++        if (n_used != n_mats) {
++            ids = ggml_view_2d(ctx, ids, n_used, n, ids->nb[1], 0);
++            ggml_set_name(ids, "view_of_ids");
++        }
++
++        ggml_tensor * b = ggml_new_tensor_3d(ctx, GGML_TYPE_F32, k, n_used, n);
++        ggml_set_name(b, "b");
++
++        ggml_tensor * out = ggml_mul_mat_id(ctx, as, b, ids);
++        ggml_set_name(out, "out");
++
++        return out;
++    }
++
++    void initialize_tensors(ggml_context * ctx) override {
++        for (ggml_tensor * t = ggml_get_first_tensor(ctx); t != nullptr; t = ggml_get_next_tensor(ctx, t)) {
++            if (ggml_is_view_op(t->op)) {
++                continue;
++            }
++            if (t->type != GGML_TYPE_I32) {
++                init_tensor_uniform(t);
++                continue;
++            }
++
++            std::vector<int32_t> data(t->ne[0]);
++            for (int64_t token = 0; token < ggml_nrows(t); ++token) {
++                for (int64_t r = 0; r < t->ne[0]; ++r) {
++                    data[r] = (int32_t) ((token * 17 + r * 31) % n_mats);
++                }
++
++                if (n_used >= 8) {
++                    // Skew rank 0 heavily to expert 0, exercise max expert id,
++                    // leave many experts empty, and preserve unique top-k ids.
++                    std::vector<bool> used(n_mats, false);
++                    const int64_t seeds[8] = {
++                        0,
++                        1 + token % 4,
++                        4 + (token * 3) % 8,
++                        n_mats - 1,
++                        token * 5 + 7,
++                        token * 7 + 11,
++                        token * 13 + 19,
++                        token * 29 + 23,
++                    };
++
++                    for (int64_t r = 0; r < 8; ++r) {
++                        int32_t id = (int32_t) (seeds[r] % n_mats);
++                        while (used[id]) {
++                            id = (id + 1) % n_mats;
++                        }
++                        data[r] = id;
++                        used[id] = true;
++                    }
++                }
++
++                ggml_backend_tensor_set(t, data.data(), token * t->nb[1], t->ne[0] * sizeof(int32_t));
++            }
++        }
++    }
++
++    bool run_whole_graph() override { return true; }
++
++    std::string op_desc(ggml_tensor * t) override {
++        GGML_UNUSED(t);
++        return "MUL_MAT_ID_RAGGED_MOE";
++    }
++};
++
+ // GGML_OP_OUT_PROD
+ struct test_out_prod : public test_case {
+     const ggml_type type_a;
+@@ -8941,6 +9050,15 @@ static std::vector<std::unique_ptr<test_case>> make_test_cases_eval() {
+         test_cases.emplace_back(new test_moe_weighted_combine(GGML_TYPE_NVFP4, 128, 8, 768, n, 2048));
+     }
+ 
++    // [paged Phase 8] Ragged 256-expert MoE dispatch gate for live serving decode.
++    // Deterministic ids skew many tokens into a few hot experts, include expert 255,
++    // and leave many experts empty. n=1 covers single-token decode; n=257 crosses
++    // the MMVQ/MMID batch cutoff while preserving top-8 routing.
++    test_cases.emplace_back(new test_mul_mat_id_ragged_moe(GGML_TYPE_F32, 16, 8, 32, 8, 64));
++    for (int n : {1, 8, 33, 128, 257}) {
++        test_cases.emplace_back(new test_mul_mat_id_ragged_moe(GGML_TYPE_NVFP4, 256, 8, 768, n, 2048));
++    }
++
+     // [paged P0 / track B] NVFP4/MXFP4 dense decode-shape mmq_y-down bit-exact gate.
+     // The dense FP4 weight GEMM is the track-B target; P1 lowers mmq_y (the weight-row tile) on the
+     // NVFP4 decode path to raise resident-CTA occupancy. mmq_y is a pure N-row tiling knob, so a
+-- 
+2.43.0
+

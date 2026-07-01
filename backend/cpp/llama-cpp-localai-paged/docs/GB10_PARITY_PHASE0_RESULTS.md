@@ -746,3 +746,32 @@ Decision:
 - Do not implement fused dispatch yet. Standalone `mm_ids`/`gather_mmq` helper
   time is small; a source patch must reduce the larger grouped-MMQ/activation
   movement bucket and still beat the `+5%` serving A/B gate.
+
+## Phase 8 Ragged MoE Dispatch Test Gate
+
+Fork commit `e21732fc4` added patch
+`0053-test-paged-cover-ragged-MoE-dispatch.patch`. This is a test-only patch;
+it does not change the production inference path.
+
+The new `MUL_MAT_ID_RAGGED_MOE` gate covers:
+
+- one small F32 wiring case,
+- NVFP4 with `n_mats=256`, `n_used=8`, `m=768`, `k=2048`,
+  `n in {1, 8, 33, 128, 257}`,
+- deterministic unique top-k ids skewed toward hot experts, including expert
+  `255`, leaving many experts empty.
+
+DGX artifact:
+
+- `/home/mudler/bench/phase8_ragged_moe_dispatch/test_backend_ops_mul_mat_id_ragged_moe_fixed.txt`
+
+DGX result:
+
+- `test-backend-ops test -b CUDA0 -o MUL_MAT_ID_RAGGED_MOE -j 1`: `6/6`.
+
+Debug note:
+
+- The first version of the gate failed because the deterministic IDs produced
+  duplicate expert IDs within token 0. That is not a valid top-k routing shape
+  and caused a CPU/CUDA mismatch followed by a CUDA fault. The committed gate
+  preserves unique expert IDs per token while keeping cross-token load skew.
