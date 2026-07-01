@@ -12,12 +12,12 @@ with artifact path, gates, benchmark rows, and decision.
 - Canonical dense md5: `5951a5b4d624ce891e22ab5fca9bc439`.
 - Current tested source: DGX mirror
   `14fd69f1e feat(cuda): gate BF16 cuBLAS F32 output`.
-- Latest attempt: Phase76.
-- Latest decision: current-stack GB10 graph-node MoE serving profile reopened a
-  narrow GDN evidence path. GDN was the largest macro bucket (`32.88%`,
-  `6669.16 ms`) at `n=128`, with `gdn_core` alone `28.97%`. This does not
-  justify backend source yet, but it funds a Phase77 decode/mixed-serving A/B
-  proof for vLLM-style recurrent/packed GDN before any patch.
+- Latest attempt: Phase77.
+- Latest decision: decode-only GB10 graph-node profile confirms GDN recurrence
+  is a real current decode bucket. In an isolated n=128 decode window, GDN was
+  `41.20%` of GPU kernel time and `gdn_core` alone was `38.95%`, slightly above
+  `mmq_nvfp4` (`38.26%`). This funds a default-off GDN decode A/B/PoC, with
+  md5/op gates and bucket reduction required before any merge/default change.
 
 ## Current Serving Record
 
@@ -56,6 +56,65 @@ Decision:
   concurrency and widened the vLLM decode gap.
 
 ## Attempt Log
+
+### Phase77: MoE Decode-Only Graph-Node Profile
+
+- Date: 2026-07-01.
+- Artifact:
+  `/home/mudler/bench/phase77_moe_decode_only_profile/20260701_150134`.
+- Setup-hiccup artifact:
+  `/home/mudler/bench/phase77_moe_decode_only_profile/20260701_145815`.
+- Source baseline: `14fd69f1e feat(cuda): gate BF16 cuBLAS F32 output`.
+- Result type: current-stack llama.cpp decode-only graph-node profile; no
+  source change.
+- Shape: MoE `q36-35b-a3b-nvfp4`, `N=128`, long-running `/completion`
+  requests, `N_PREDICT=2048`, capture after active decode.
+- Capture window: active slots `128`; median decoded depth `67` at start and
+  `89` mid-capture; `CAPTURE_SECONDS=4`.
+- Profiler: `nsys launch --cuda-graph-trace=node`, bucketed with
+  `/home/mudler/bench/bucket2.py`.
+
+Gates:
+
+| phase | MoE md5 | dense md5 | `MUL_MAT` | `MUL_MAT_ID` |
+|-------|---------|-----------|-----------|--------------|
+| pre | `8cb0ce23777bf55f92f63d0292c756b0` | `5951a5b4d624ce891e22ab5fca9bc439` | `1146/1146` | `806/806` |
+| post | `8cb0ce23777bf55f92f63d0292c756b0` | `5951a5b4d624ce891e22ab5fca9bc439` | `1146/1146` | `806/806` |
+
+Macro buckets:
+
+| bucket | time ms | share | instances |
+|--------|--------:|------:|----------:|
+| GDN | `1489.71` | `41.20%` | `3600` |
+| MoE/FFN-GEMM | `1400.77` | `38.74%` | `7220` |
+| bf16/fp8-proj | `352.90` | `9.76%` | `7400` |
+| layout-copy | `69.85` | `1.93%` | `10400` |
+| act-quant | `67.63` | `1.87%` | `4820` |
+| FA | `36.74` | `1.02%` | `600` |
+
+Fine buckets:
+
+| bucket | macro | time ms | share | instances |
+|--------|-------|--------:|------:|----------:|
+| `gdn_core` | GDN | `1408.33` | `38.95%` | `600` |
+| `mmq_nvfp4` | MoE/FFN-GEMM | `1383.50` | `38.26%` | `4820` |
+| `gdn_conv` | GDN | `71.76` | `1.98%` | `1200` |
+| `gdn_l2norm` | GDN | `8.81` | `0.24%` | `1200` |
+| `gdn_gather` | GDN | `0.80` | `0.02%` | `600` |
+
+Decision:
+
+- Phase77 confirms Phase76's GDN bucket is not only prompt/prefill
+  contamination. In an isolated decode window, `gdn_core` is the largest fine
+  bucket and is slightly larger than `mmq_nvfp4`.
+- This supersedes the Phase75 no-GB10-GDN-source stance. The source-funded path
+  is no longer C=64 prefill inverse work; it is a narrow default-off GDN decode
+  A/B or standalone PoC based on the direct recurrent/packed decode structure
+  found in vLLM.
+- Acceptance gate for the next source attempt:
+  reduce the Phase77 `gdn_core` bucket materially, keep pre/post md5 and
+  `MUL_MAT`/`MUL_MAT_ID` green, and show no serving/decode throughput
+  regression under the same decode-only capture shape.
 
 ### Phase76: Current MoE Serving Graph-Node Profile
 

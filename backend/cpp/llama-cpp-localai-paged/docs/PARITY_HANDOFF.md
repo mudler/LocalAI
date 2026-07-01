@@ -1303,3 +1303,26 @@ Current next gate:
    does not regress serving throughput or canonical output md5.
 3. Do not merge or default-on any `gated_delta_net.cu` change from this evidence
    alone; Phase76 is a profile gate, not a source patch gate.
+
+Phase77 decode-only profile result:
+
+- Artifact:
+  `/home/mudler/bench/phase77_moe_decode_only_profile/20260701_150134`.
+- Shape: MoE `q36-35b-a3b-nvfp4`, `N=128`, long-running `/completion`
+  requests, `N_PREDICT=2048`, capture after active decode.
+- Capture window: active slots `128`; median decoded depth `67` at start and
+  `89` mid-capture.
+- Pre/post gates were green: MoE md5 `8cb0ce23777bf55f92f63d0292c756b0`, dense
+  md5 `5951a5b4d624ce891e22ab5fca9bc439`, `MUL_MAT 1146/1146`,
+  `MUL_MAT_ID 806/806`.
+- Bucket result: GDN `1489.71 ms` (`41.20%`) and MoE/FFN-GEMM `1400.77 ms`
+  (`38.74%`). Fine bucket `gdn_core` was `1408.33 ms` (`38.95%`), slightly
+  larger than `mmq_nvfp4` at `1383.50 ms` (`38.26%`).
+
+Phase77 supersedes the Phase75 "no GB10 GDN source work" stance for decode
+only. Do **not** reopen the failed C=64 prefill inverse scaffold. The funded
+GB10 source path is now a narrow, default-off GDN decode A/B or standalone PoC
+based on vLLM's direct recurrent/packed decode structure. The next patch must
+prove a material reduction in the Phase77 `gdn_core` bucket, keep canonical md5
+and op gates green, and avoid serving/decode throughput regression under the
+same decode-only capture shape before it can be considered for merge or default.
