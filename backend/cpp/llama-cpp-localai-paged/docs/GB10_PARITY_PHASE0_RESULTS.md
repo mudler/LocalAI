@@ -775,3 +775,16 @@ Debug note:
   duplicate expert IDs within token 0. That is not a valid top-k routing shape
   and caused a CPU/CUDA mismatch followed by a CUDA fault. The committed gate
   preserves unique expert IDs per token while keeping cross-token load skew.
+
+Production-source decision:
+
+- Do not start a Phase 8 production CUDA patch yet.
+- Code inspection found that the existing native-FP4 MoE path already de-dups
+  broadcast activation quantization when `ne11 == 1`, then gathers FP4 blocks
+  before grouped MMQ.
+- The measured helper rows are small (`mm_ids=0.66%`, `gather_mmq=0.42%`).
+  A metadata-only fused-dispatch hook would not plausibly clear the `+5%`
+  serving A/B gate.
+- A future source candidate must reduce `mmq_nvfp4` (`22.36%`) or `act_quant`
+  (`3.60%`) directly, without D2H id readback, new stream synchronizations, or
+  md5 drift.

@@ -349,6 +349,29 @@ Selected Phase 8 candidate:
 - Modify: `/home/mudler/_git/llama.cpp/ggml/src/ggml-cuda/mmq.cuh`
 - Modify: `/home/mudler/_git/llama.cpp/ggml/src/ggml-cuda/ggml-cuda.cu`
 
+**Status:** Not started. The profile and code inspection do not justify a
+metadata/helper-only prototype.
+
+Inspection result:
+
+- `ggml_cuda_mul_mat_q()` already runs the ids path as
+  `mm_ids_helper -> quantize/gather -> grouped MMQ`.
+- For native FP4 MoE with broadcast activations (`ne11 == 1`), patch `0023`
+  already quantizes unique tokens once and gathers FP4 blocks:
+  `quantize_mmq_fp4_cuda(... ids=nullptr ...)` followed by
+  `gather_mmq_fp4_cuda(...)`.
+- The live serving profile shows `mm_ids` at `0.66%` and `gather_mmq` at
+  `0.42%`, while `mmq_nvfp4` is `22.36%` and `act_quant` is `3.60%`.
+- Therefore a safe Phase 8 production patch must change grouped-MMQ execution
+  shape or activation movement. A default-off hook that only skips or repacks
+  metadata is not expected to clear the `+5%` serving A/B gate.
+
+Stop condition:
+
+- Do not edit production CUDA for Phase 8 until there is a concrete design for
+  reducing `mmq_nvfp4` or `act_quant` time without D2H id readback, new stream
+  synchronizations, or md5 drift.
+
 - [ ] **Step 1: Add env-gated entry point**
 
   Add a default-off env gate:
