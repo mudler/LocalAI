@@ -1374,3 +1374,33 @@ bucket. Do not carry this source patch forward. The next GDN source hypothesis
 should target recurrent-state precision/traffic or another structural delta
 from vLLM; reduced-precision recurrent state is promising but invasive and needs
 a separate scope.
+
+Phase80 identity-ids shortcut source A/B:
+
+- Artifact root:
+  `/home/mudler/bench/phase80_gdn_identity_ids_ab/20260701_153927`.
+- Candidate source tree:
+  `/home/mudler/llama-phase80-gdn-identity-source`.
+- Candidate patch: one-file default-off shortcut in
+  `ggml/src/ggml-cuda/gated_delta_net.cu`, enabled by
+  `GDN_ASSUME_IDENTITY_IDS=1`. It skips the GDN scratch gather for one-token
+  final-state decode by assuming `ids[s] == rs_head+s` and reading from
+  `state_dst` directly.
+- Candidate build completed for `llama-completion`, `llama-batched-bench`,
+  `test-backend-ops`, and `llama-server`.
+- Baseline and candidate pre/post gates were green: MoE md5 `8cb0ce23`, dense
+  md5 `5951a5b4`, `MUL_MAT 1146/1146`, `MUL_MAT_ID 806/806`.
+
+Result:
+
+| arm | env | GDN ms | `gdn_core` ms | `gdn_gather` ms | GDN macro launches |
+|-----|-----|-------:|--------------:|----------------:|------------------:|
+| baseline | none | `1493.57` | `1411.65` | `0.79` | `3600` |
+| identity shortcut | `GDN_ASSUME_IDENTITY_IDS=1` | `1489.96` | `1409.28` | not present | `3000` |
+
+Decision: reject carry-forward/default. The shortcut safely removes the tiny
+`gdn_gather` bucket in this shape, but `gdn_core` is unchanged and the identity
+assumption is too narrow for a sub-millisecond capture-level win. Do not spend
+more parity time on gather-only GDN shortcuts unless a future profile makes
+gather material. The next serious GDN scope remains recurrent-state
+precision/traffic.

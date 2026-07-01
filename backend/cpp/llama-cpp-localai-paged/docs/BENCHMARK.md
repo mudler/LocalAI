@@ -12,13 +12,13 @@ with artifact path, gates, benchmark rows, and decision.
 - Canonical dense md5: `5951a5b4d624ce891e22ab5fca9bc439`.
 - Current tested source: DGX mirror
   `14fd69f1e feat(cuda): gate BF16 cuBLAS F32 output`.
-- Latest attempt: Phase79.
-- Latest decision: default-off source A/B `GDN_DECODE_BV32=1` is rejected.
-  It kept canonical md5 and op gates green, but worsened normalized
-  `gdn_core` from `2.352 ms/launch` to `2.502 ms/launch` (`+6.4%`) and did
-  not reduce the GDN macro bucket. Do not carry the BV32 decode topology patch
-  forward; the next GDN source path should target state precision/traffic or a
-  different structural hypothesis.
+- Latest attempt: Phase80.
+- Latest decision: default-off source A/B `GDN_ASSUME_IDENTITY_IDS=1` is
+  rejected for carry-forward/default. It removed the tiny `gdn_gather` bucket
+  (`0.79 ms`) and kept gates green, but left `gdn_core` effectively unchanged
+  (`1411.65 ms` baseline vs `1409.28 ms` candidate). The assumption is too
+  narrow for the measured gain. The next real GDN lever remains recurrent-state
+  precision/traffic, with a separate invasive scope.
 
 ## Current Serving Record
 
@@ -57,6 +57,58 @@ Decision:
   concurrency and widened the vLLM decode gap.
 
 ## Attempt Log
+
+### Phase80: GDN Identity-Ids Shortcut Source A/B
+
+- Date: 2026-07-01.
+- Artifact root:
+  `/home/mudler/bench/phase80_gdn_identity_ids_ab/20260701_153927`.
+- Arms:
+  - `A_baseline`: `/home/mudler/llama-phase6-source`, default source
+    `14fd69f1e feat(cuda): gate BF16 cuBLAS F32 output`.
+  - `B_identity`: `/home/mudler/llama-phase80-gdn-identity-source`, one-file
+    default-off source patch in `ggml/src/ggml-cuda/gated_delta_net.cu`,
+    enabled with `GDN_ASSUME_IDENTITY_IDS=1`.
+- Result type: source A/B of an identity-ids shortcut that skips the
+  non-identity scratch gather for one-token final-state decode and reads the
+  in-place state cache directly.
+- Shape: same as Phase77 decode-only graph-node profile.
+- Build: candidate CUDA build completed for `llama-completion`,
+  `llama-batched-bench`, `test-backend-ops`, and `llama-server`.
+
+Gates:
+
+| arm | phase | MoE md5 | dense md5 | `MUL_MAT` | `MUL_MAT_ID` |
+|-----|-------|---------|-----------|-----------|--------------|
+| `A_baseline` | pre | `8cb0ce23777bf55f92f63d0292c756b0` | `5951a5b4d624ce891e22ab5fca9bc439` | `1146/1146` | `806/806` |
+| `A_baseline` | post | `8cb0ce23777bf55f92f63d0292c756b0` | `5951a5b4d624ce891e22ab5fca9bc439` | `1146/1146` | `806/806` |
+| `B_identity` | pre | `8cb0ce23777bf55f92f63d0292c756b0` | `5951a5b4d624ce891e22ab5fca9bc439` | `1146/1146` | `806/806` |
+| `B_identity` | post | `8cb0ce23777bf55f92f63d0292c756b0` | `5951a5b4d624ce891e22ab5fca9bc439` | `1146/1146` | `806/806` |
+
+Capture:
+
+| arm | active slots | depth start | depth mid | `gdn_core` launches |
+|-----|-------------:|------------:|----------:|--------------------:|
+| `A_baseline` | `128` | `74` | `96` | `600` |
+| `B_identity` | `128` | `65` | `87` | `600` |
+
+Result:
+
+| arm | env | total kernel s | GDN ms | GDN share | `gdn_core` ms | `gdn_gather` ms | GDN macro launches |
+|-----|-----|---------------:|-------:|----------:|--------------:|----------------:|------------------:|
+| `A_baseline` | none | `3.7132` | `1493.57` | `40.22%` | `1411.65` | `0.79` | `3600` |
+| `B_identity` | `GDN_ASSUME_IDENTITY_IDS=1` | `3.5685` | `1489.96` | `41.75%` | `1409.28` | not present | `3000` |
+
+Decision:
+
+- Reject carry-forward/default for `GDN_ASSUME_IDENTITY_IDS=1`.
+- The shortcut did remove the `gdn_gather` fine bucket and kept all gates
+  green, but the removed bucket was only `0.79 ms` over the capture and
+  `gdn_core` was effectively unchanged.
+- The identity assumption is too narrow/risky for the size of the measured win.
+  Do not spend more parity time on gather-only GDN shortcuts unless a future
+  profile shows gather becoming material.
+- Keep the next real GDN source scope on recurrent-state precision/traffic.
 
 ### Phase79: GDN Decode BV32 Source A/B
 
