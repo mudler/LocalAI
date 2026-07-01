@@ -262,6 +262,27 @@ grouping. Any scheduler experiment must be opt-in/default-off and killed by
 TTFT/throughput regression, graph-reuse failure, md5/op drift, or MTP
 rollback/prefix gate failure.
 
+Phase 19 ran that trace-only serving measurement and rejected the scheduler
+shortcut. Artifact:
+`/home/mudler/bench/phase19_mtp_shape_entropy/20260701_045534`. Pre/post gates
+passed with canonical MoE md5 `8cb0ce23777bf55f92f63d0292c756b0`, dense md5
+`5951a5b4d624ce891e22ab5fca9bc439`, and `MUL_MAT_ID` `806/806`.
+
+Serving result:
+
+| n | baseline decode_agg | MTP decode_agg | MTP / baseline | baseline TTFT ms | MTP TTFT ms |
+|---|---------------------|----------------|----------------|------------------|-------------|
+| 8 | 245.0 | 95.7 | 39.1% | 1147.2 | 1633.4 |
+| 32 | 409.2 | 110.0 | 26.9% | 2710.0 | 4471.5 |
+| 128 | 697.2 | 154.0 | 22.1% | 7601.5 | 20310.4 |
+
+Shape result: `draft=3` already accounts for 96.2-96.9% of verify slots, so
+group/defer-by-draft has little to recover. Full in-flight steps already mostly
+use all-`draft=3` vectors; the remaining churn is active-slot/tail churn plus
+the real `K + 1` verification-row expansion. Do not build a Phase 20 scheduler
+experiment on this evidence. Future MTP work would need a deeper target-verify
+graph/state design, not another small server scheduling shortcut.
+
 ---
 
 ## 5. METHODOLOGY LESSONS (so you do not repeat the mistakes)

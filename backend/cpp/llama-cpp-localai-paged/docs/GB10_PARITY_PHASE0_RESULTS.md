@@ -1303,3 +1303,59 @@ Conclusion:
   request (`rows=4` and `rows=3`).
 - A follow-up scheduler experiment is not yet justified. First use this trace
   under real serving load to measure draft-length bucket entropy.
+
+## Phase 19 MTP Serving Shape Entropy
+
+Phase 19 ran Phase 18's shape trace under the direct serving harness with
+`LLAMA_SPEC_SHAPE_TRACE=1`, `NPL="8 32 128"`, `GEN=64`, and `PTOK=128`.
+
+Artifact:
+
+- `/home/mudler/bench/phase19_mtp_shape_entropy/20260701_045534`
+
+Pre/post gate result:
+
+- Pre-gate and post-gate both passed.
+- MoE transcript md5: `8cb0ce23777bf55f92f63d0292c756b0`.
+- Dense transcript md5: `5951a5b4d624ce891e22ab5fca9bc439`.
+- Full `MUL_MAT_ID`: `806/806` on CUDA0.
+
+Serving A/B:
+
+| n | baseline decode_agg | MTP decode_agg | MTP / baseline | baseline TTFT ms | MTP TTFT ms |
+|---|---------------------|----------------|----------------|------------------|-------------|
+| 8 | 245.0 | 95.7 | 39.1% | 1147.2 | 1633.4 |
+| 32 | 409.2 | 110.0 | 26.9% | 2710.0 | 4471.5 |
+| 128 | 697.2 | 154.0 | 22.1% | 7601.5 | 20310.4 |
+
+Shape entropy summaries:
+
+- `shape_entropy_summary.tsv`
+- `step_shape_summary.tsv`
+
+Per-slot draft distribution:
+
+| window | verify slots | draft counts | top draft share | unique `batch_before` |
+|--------|--------------|--------------|-----------------|-----------------------|
+| n8 | 162 | `{1: 4, 2: 2, 3: 156}` | 96.3% | 15 |
+| n32 | 610 | `{1: 8, 2: 11, 3: 591}` | 96.9% | 96 |
+| n128 | 2353 | `{1: 40, 2: 49, 3: 2264}` | 96.2% | 479 |
+
+Per-step aggregate shape:
+
+| window | steps | unique total rows | top full-shape rows |
+|--------|-------|-------------------|---------------------|
+| n8 | 26 | 12 | `32` rows for 14 steps |
+| n32 | 32 | 20 | `128` rows for 13 steps |
+| n128 | 37 | 34 | `512` rows for 4 steps |
+
+Decision:
+
+- Do not implement the Phase 20 group/defer-by-draft scheduler shortcut on this
+  evidence.
+- Draft length is already stable (`draft=3` is >96% of verify slots), yet MTP
+  still regresses decode throughput hard and worsens TTFT.
+- The residual shape churn is dominated by active-slot/tail churn and the MTP
+  `K + 1` verification-row expansion, not mixed draft lengths.
+- Any future MTP parity work needs a deeper target-verify graph/state design,
+  not a small server scheduling shortcut.
