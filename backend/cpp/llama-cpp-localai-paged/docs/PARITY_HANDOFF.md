@@ -53,8 +53,8 @@ Any path that is NOT byte-identical (e.g. 0033 dequant-bf16, the 0034/0035 large
 A lever compiled into the binary is **NOT** isolated by a runtime flag alone. It needs a **separately-built in-backend A/B**. Precedents that burned this in: 0031 chunking math was correct yet -22% in-backend; 0034 had a standalone PoC win that did not hold in-backend.
 
 ### 2.4 Contribution / commit gates (LocalAI policy)
-- **DCO sign-off required:** every commit ends with `Signed-off-by: Ettore Di Giacinto <mudler@localai.io>`.
-- **AI attribution via `Assisted-by:` trailer:** `Assisted-by: Claude:opus-4.8 [Claude Code]`.
+- **DCO sign-off is human-only:** do not add an AI `Signed-off-by` trailer.
+- **AI attribution via `Assisted-by:` trailer:** `Assisted-by: Codex:gpt-5`.
 - **NEVER add `Co-Authored-By:` (AI) trailers** and never add an AI `Signed-off-by`.
 - **No em-dashes** anywhere in output (use `-`, `:`, parentheses, or rephrase).
 - **Ask before every `git push`.** Prior approval does not carry over.
@@ -64,7 +64,7 @@ A lever compiled into the binary is **NOT** isolated by a runtime flag alone. It
 - **Always update the fork FIRST, in this exact order:** (1) commit the change on the `localai-paged` branch and **push it**, then (2) regenerate the LocalAI series (`backend/cpp/llama-cpp-localai-paged/patches/paged/`) from the fork via `git format-patch` (one patch per fork commit, source-only, never touching a `*.md`/dev-doc), so the series stays a **1:1, drift-free mirror** of the branch. No hand-export.
 - **NEVER edit the LocalAI `patches/paged/*.patch` files directly**, and **NEVER add a patch to the series with no corresponding fork-branch commit.** They are generated output, not source.
 - The fork branch is also **where the build and the per-path bit-exact md5 gate actually run**, so it is the **only** place a change is truly validated. A patch that lives only in the LocalAI series has never been built or gated.
-- **Mirror invariant (verify by tree hash):** applying the full on-disk series on the pin must reproduce the fork branch tree byte-for-byte. The series has **intentional gaps** (missing 0005, 0026, 0027, 0032, 0036-0039, 0045), so the patch count is not the max number; what must hold is the tree-hash equality, not the count. (Concretely: fork HEAD `d9b9be0be` is mirrored by worktree patch `0050-feat-paged-pad-W4A16-A-shared-tile-stride.patch`; W4A16 grouped tile shape is worktree patch `0049`, packed metadata is `0048`, and the f32-only M5 tensor-core scan is worktree patch `0047`.)
+- **Mirror invariant (verify by tree hash):** applying the full on-disk series on the pin must reproduce the fork branch tree byte-for-byte. The series has **intentional gaps** (missing 0005, 0026, 0027, 0032, 0036-0039, 0045), so the patch count is not the max number; what must hold is the tree-hash equality, not the count. Current verified state: fork HEAD `fb9402661` is mirrored by worktree patch `0055-feat-server-trace-speculative-batch-shapes.patch`; applying all `46` patch files on `0ed235ea2c17a19fc8238668653946721ed136fd` produces tree `5bdbf8ea3d750fe6fa1f85175fd6357d36222edb`, exactly matching the fork.
 
 ### 2.6 Bench hygiene gates
 - **NEVER set `LLAMA_MAX_BATCH_TOKENS` in benches** (the harness explicitly logs "NO LLAMA_MAX_BATCH_TOKENS").
@@ -128,7 +128,7 @@ python3 /home/mudler/bench/h2h_cli3.py   # OpenAI /v1/completions, ignore_eos, f
 ```
 **vLLM side** (for both-engine parity): `~/vllm-bench/bin/vllm` (version **0.23.0**), served `gpu-util 0.85 max-model-len 4096 max-num-seqs 256 tp1`, models `~/bench/q36-35b-a3b-nvfp4-vllm/` and `~/bench/q36-27b-nvfp4-vllm/`.
 
-**The full automated both-engine harness is `dgx:~/bench/combined_definitive.sh`** (acquires lock, waits for GPU-idle up to 2h, runs MoE then dense for both engines, writes `COMBINED_DEFINITIVE.txt` + `.done`, traps cleanup to kill servers and release lock on exit). This is the reference harness; clone its discipline for any new run.
+**Current-stack serving snapshots use `backend/cpp/llama-cpp-localai-paged/paged-current-serving-snapshot.sh`.** It targets the clean `~/llama-phase6-source` mirror, checks docker/`local-ai-worker`/GPU-idle state, uses the owner-file lock, runs pre/post inference gates, then compares paged and vLLM with the same h2h client. The older `dgx:~/bench/combined_definitive.sh` is historical: do not reuse it without first porting away from stale `~/llama-paged-dev` paths and old lock assumptions.
 
 ### 3.4 THE DECODE-PROFILING RULE (this trap caused 4 wrong analyses)
 Decode runs as a **replayed CUDA graph**. `nsys` **without** `--cuda-graph-trace=node` collapses each graph replay into ONE opaque launch, so every per-kernel attribution becomes an artifact. This is exactly what made the old "paged 159 us/tok, GPU ~16% busy, host-bound, 5.4x more GPU-efficient" story wrong, and produced the wrong ~56% headline.
@@ -341,10 +341,17 @@ Makefile pin `0ed235ea2c17a19fc8238668653946721ed136fd` produced tree
 ## 6. THE THREE FORWARD DIRECTIONS
 
 ### (a) Close / ship the record (lowest effort, do this first)
-The investigation is already CLOSED in the docs. Concrete first steps:
-1. Commit the untracked `patches/paged/0044-feat-paged-fused-gated-RMSNorm-SiLU-gate-mul.patch` into the worktree (it is on the fork as `51168c5ee` and on disk, but shows `??` here).
-2. Reconcile the **pin discrepancy** (section 7): the Makefile builds with `0ed235ea`, but README section 7 prose and `VLLM_PARITY_FINAL.md` still say `9d5d882d`. Update the prose to the Makefile value (trust the Makefile when building).
-3. Re-run the bit-exact gate on a clean tree to confirm `8cb0ce23` (paged-MoE) / `5951a5b4` (dense) before any release; resolve the `0921716...` open item in section 7.
+The investigation is closed for GB10 shortcuts, and the closeout chores below
+are now done:
+
+- patch `0044` is tracked in the LocalAI series;
+- the Makefile pin `0ed235ea2c17a19fc8238668653946721ed136fd` is the
+  authoritative paged pin;
+- Phase 20 re-ran the current-stack serving snapshot on the clean mirror;
+- Phase 22 re-verified the patch-series mirror invariant after `0055`.
+
+For future release checks, run `paged-inference-gates.sh` and
+`paged-current-serving-snapshot.sh` from the LocalAI backend tree.
 
 ### (b) Datacenter-Blackwell pivot (THE real parity path)
 The thesis: every vLLM advantage that wins on GB10 is a kernel that is **broken or capped on consumer Blackwell** and **inverts on datacenter Blackwell** (B200): FLA blocked-solve GDN, Marlin/CUTLASS grouped FP4, HBM-tuned full-cudagraph decode, native tcgen05/TMEM. ~8 TB/s HBM lifts the LPDDR5x GDN bandwidth floor ~30x. Concrete first steps:
@@ -363,17 +370,20 @@ Only pursue if (a)+(b) are not options and someone explicitly wants the residual
 ## 7. KEY FILE / ARTIFACT INDEX
 
 ### Fork (canonical source of truth)
-- `dgx:~/llama-paged-fork`, remote `fork git@github.com:mudler/llama.cpp.git`, branch **`localai-paged`**, last clean local canonical HEAD `d9b9be0bee3d7239132bfca05d5b057ff4ee4cc3` ("pad W4A16 A shared tile stride", patch `0050`). The DGX checkout itself may still be dirty and must not be treated as canonical.
-- `dgx:~/llama-paged-dev` (experimental dev/build tree), branch **`paged`**, HEAD `a7d439e8ce6990eb09721223c975da4e49d8d136` ("GDN CONFIG C (M8) - bf16 Kc/Qc"). **Dirty** + many untracked profiling artifacts. This tree's `build-cuda/bin/` produced the benchmarked binaries; `COMBINED_DEFINITIVE` recorded `GIT_HEAD=a7d439e` (the M8 bf16 dev config), NOT the fork HEAD. The dev tree carries bf16/hybrid M6/M7/M8 machinery deliberately EXCLUDED from the shipped f32-only series.
+- Local canonical fork: `/home/mudler/_git/llama.cpp`, branch **`localai-paged`**, HEAD `fb9402661291e0488a3e2bf2f3948ebcd18e18c9` ("trace speculative batch shapes", patch `0055`).
+- DGX current clean mirror/build tree: `dgx:~/llama-phase6-source`, HEAD `f2521ab12` with the same tree as the local fork; this is what Phase 20 and the current snapshot harness use.
+- Historical DGX dev tree: `dgx:~/llama-paged-dev`, branch **`paged`**, HEAD `a7d439e8ce6990eb09721223c975da4e49d8d136` ("GDN CONFIG C (M8) - bf16 Kc/Qc"). It is an old experimental tree and must not be treated as canonical.
 
 ### LocalAI worktree
-- Path: `/home/mudler/_git/LocalAI/.claude/worktrees/feat+paged-attention`, branch `worktree-feat+paged-attention` (199 ahead, 25 behind origin/master; the ahead count grows with each new commit).
+- Path: `/home/mudler/_git/LocalAI/.claude/worktrees/feat+paged-attention`, branch `worktree-feat+paged-attention` (currently 246 ahead, 31 behind `origin/master`; recompute before reporting).
 - Backend dir: `backend/cpp/llama-cpp-localai-paged/` (`Makefile` thin wrapper, `package.sh`, `run.sh`, `README.md` ~44 KB canonical, `docs/`, `patches/paged/`).
 - `docs/`: `VLLM_PARITY_FINAL.md` (authoritative record), `VLLM_PARITY_LEVER_MAP.md` (working brainstorm, profile-validated section), `DECODE_SERVING_SCOPE.md`, `PREFILL_GEMM_SCOPE.md`, `PREFILL_GEMM_RESULTS.md`, `TENSORCORE_GDN_SCOPE.md`, `TENSORCORE_GDN_BUILD_PLAN.md`, `ACCELERATOR_PORTING_SCOPE.md`, `UPSTREAM_LAYER2_SCOPE.md`, `LOCALAI_LLAMACPP_BACKEND_PLAN.md`, `PAGED_BITEXACT_NOTE.md`, `PATCH_MAINTENANCE.md`, `final_benchmark.csv`, `paged-burst-bench.cpp`, `paged-reclaim-unit.cpp`, 3 PNGs, and this `PARITY_HANDOFF.md`.
-- `patches/paged/`: **41** `.patch` files spanning 0001-0050 with intentional gaps (missing 0005, 0026 [dropped ssm_bf16_tau], 0027, 0032, 0036-0039, 0045). Core paged-KV 0001-0012; decode-first scheduler 0013/0016; serving graph reuse 0040/0041; prefill fusions 0042/0044; SSM/GDN decode 0018-0022/0028; MoE NVFP4 quant 0023/0025/0043; FP4-MMA/Marlin scaffolds 0033/0034/0035 (default-off); GDN tensor-core prefill 0031 -> 0046 (geometry gate) -> 0047 (f32-only M5, default-on under paged KV); W4A16 packed metadata is 0048; W4A16 grouped-kernel shape tuning is 0049 and selects `bm32` by default; W4A16 A shared-tile padding is 0050.
+- `patches/paged/`: **46** `.patch` files spanning 0001-0055 with intentional gaps (missing 0005, 0026 [dropped ssm_bf16_tau], 0027, 0032, 0036-0039, 0045). Core paged-KV 0001-0012; decode-first scheduler 0013/0016; serving graph reuse 0040/0041; prefill fusions 0042/0044; SSM/GDN decode 0018-0022/0028; MoE NVFP4 quant 0023/0025/0043; FP4-MMA/Marlin scaffolds 0033/0034/0035 (default-off); GDN tensor-core prefill 0031 -> 0046 (geometry gate) -> 0047 (f32-only M5, default-on under paged KV); W4A16 packed metadata/shape/padding is 0048-0050; MoE safety tests are 0051-0053; MTP backend-sampling safety is 0054; speculative shape trace is 0055.
 
 ### Bench artifacts (DGX)
-- `~/bench/COMBINED_DEFINITIVE.txt` (+ `.log`, `.done`, `combined_definitive.sh`, `combined_definitive.out`) - the definitive same-session both-engine run.
+- `~/bench/COMBINED_DEFINITIVE.txt` (+ `.log`, `.done`, `combined_definitive.sh`, `combined_definitive.out`) - historical same-session both-engine run.
+- `~/bench/phase20_current_snapshot/20260701_050621` - current clean-stack paged-vs-vLLM MoE serving snapshot.
+- `~/bench/phase21_harness_dryrun/20260701_051757` - current snapshot harness dry-run artifact.
 - Per-engine logs `~/bench/COMBINED_{paged,vllm}_{MOE,DENSE}_server.log`; `~/bench/BENCHMARK_PROGRESS.md`.
 - Graph-node-traced high-N profiles: `~/highN_prof2/*.nsys-rep` (paged npl=256), `~/highN_vllm/*.nsys-rep` (vLLM), 2026-06-30.
 - A/B dirs: `~/bench/marlin_gate/`, `~/bench/gdn_p1_ab/`.
@@ -386,8 +396,8 @@ Only pursue if (a)+(b) are not options and someone explicitly wants the residual
 
 ### Discrepancies to flag / resolve (carried verbatim from the gather, including UNVERIFIED labels)
 1. **Pin prose reconciled in this worktree.** Makefile line 52 `LLAMA_VERSION?=0ed235ea2c17a19fc8238668653946721ed136fd` is authoritative and matches the local fork merge-base. Hard rule: the paged pin must equal the stock `llama-cpp` pin (shared `grpc-server.cpp`); a bump to `c299a92c` once broke the grpc-server link despite being bit-exact and was reverted. Trust the Makefile when building.
-2. **Both DGX checkouts are dirty** (`gated_delta_net.cu` modified in each), and the current clean local fork HEAD (`d9b9be0be`, patch 0050) differs from the dev-tree HEAD (`a7d439e`, M8 bf16) that actually produced the `COMBINED_DEFINITIVE` numbers.
-3. **Worktree patch 0044 is now tracked here.** LocalAI commit `2033086f6` added `patches/paged/0044-feat-paged-fused-gated-RMSNorm-SiLU-gate-mul.patch`; the only current untracked path in this worktree is `.claude/`.
+2. **Current fork/mirror are clean and verified.** Local fork HEAD is `fb9402661`, DGX clean mirror HEAD is `f2521ab12`, and Phase 22 proved the LocalAI patch series tree equals the fork tree. The old `llama-paged-dev` tree is historical only.
+3. **Worktree patch series is tracked through 0055.** The only current untracked path in this worktree is `.claude/`.
 4. **`sm_121a` is not in the worktree build files** - it lives only in the DGX experimental build scripts (`gdn_cc.sh`, `gdn_bv_build.sh`, `paged-build.sh`); mainline uses arch `121`. **UNVERIFIED** whether the shipped CI Dockerfile build path injects `121a` for the FP4-MMA kernels (`Dockerfile.llama-cpp-localai-paged` does not hardcode a CUDA arch).
 5. **The `0921716...` paged-MoE md5 open item.** `COMBINED_DEFINITIVE.txt` records `PAGED_GATE_MD5=0921716cd0582b5d15af8c362b811d00` for MoE, but a full doc/patch/`git log -S` grep of the worktree found **no** occurrence of `0921716...` in any committed source; the committed canonical paged-MoE gate is `8cb0ce23`. Treat this as **unreconciled**: the documented, KL-validated paged-MoE gate remains `8cb0ce23`, and any paged-MoE divergence (including `0921716`) must be KL-validated against the f16 reference before being accepted as benign, never on assertion alone. The `0921716` value is **UNVERIFIED** as a sanctioned gate; do not adopt it as canonical without re-running the KL gate. The **dense** run is symmetric: `COMBINED_DEFINITIVE.txt` records `PAGED_GATE_MD5=ecfe924dee6c5622c149f419ff2a6481` for dense, which likewise differs from the canonical dense gate `5951a5b4`. Both CDEF `PAGED_GATE_MD5` values come from the `combined_definitive.sh` harness's own gate command, NOT the canonical bit-exact gate command in section 3.3, which is why they diverge from the committed `8cb0ce23` / `5951a5b4`; neither is a sanctioned gate and both must be KL-validated before being treated as benign.
 
