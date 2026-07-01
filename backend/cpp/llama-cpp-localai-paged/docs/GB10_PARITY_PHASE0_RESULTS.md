@@ -1405,3 +1405,39 @@ Decision:
 - Keep MTP scheduler work closed. The next credible parity path is either a
   datacenter-Blackwell rerun or a larger fused-kernel project outside the
   low-conflict GB10 patch stack.
+
+## Phase 21 Current-Stack Serving Harness
+
+Phase 21 made the Phase 20 current-stack serving snapshot repeatable from the
+LocalAI backend tree.
+
+New script:
+
+- `backend/cpp/llama-cpp-localai-paged/paged-current-serving-snapshot.sh`
+
+Purpose:
+
+- targets the clean `~/llama-phase6-source` mirror by default;
+- rejects busy docker, `local-ai-worker`, GPU compute, or owned GPU-lock state;
+- builds the current llama.cpp targets;
+- runs pre/post `paged-inference-gates.sh`;
+- runs paged and vLLM serving arms with the same h2h client;
+- writes paged/vLLM ratio summaries.
+
+Verification:
+
+- local `bash -n` passed;
+- local `--help` passed;
+- DGX `DRY_RUN=1` validated required paths and preflight without launching
+  servers.
+
+Dry-run artifact:
+
+- `/home/mudler/bench/phase21_harness_dryrun/20260701_051757`
+
+Decision:
+
+- Use `paged-current-serving-snapshot.sh` for future current-stack GB10 serving
+  snapshots.
+- Do not use stale DGX `~/bench/combined_definitive.sh` without porting it to
+  `~/llama-phase6-source` and the owner-file lock discipline.

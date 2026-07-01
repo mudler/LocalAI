@@ -614,3 +614,10 @@ DGX mirror `f2521ab12`, artifact
 | 8 | 220.8 | 290.5 | 76.0% | 164.8 | 245.5 | 67.1% |
 | 32 | 411.1 | 594.7 | 69.1% | 252.1 | 456.0 | 55.3% |
 | 128 | 670.0 | 1022.7 | 65.5% | 322.4 | 662.4 | 48.7% |
+
+Use `paged-current-serving-snapshot.sh` for future current-stack GB10 serving
+snapshots. It targets the clean `~/llama-phase6-source` mirror, checks
+docker/`local-ai-worker`/GPU-idle state, uses the owner-file lock, runs pre/post
+inference gates, and emits paged/vLLM ratios. Do not use the stale DGX
+`~/bench/combined_definitive.sh` without first porting it to the current mirror
+and lock discipline.

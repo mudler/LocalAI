@@ -304,6 +304,17 @@ This keeps the GB10 shortcut closure intact: do not reopen MTP or small
 scheduler work. The credible next parity path is a datacenter-Blackwell rerun or
 a larger fused-kernel project outside this low-conflict patch stack.
 
+Phase 21 added a reusable current-stack serving harness:
+`backend/cpp/llama-cpp-localai-paged/paged-current-serving-snapshot.sh`.
+It defaults to `~/llama-phase6-source`, validates docker/`local-ai-worker`/GPU
+idle state, uses the owner-file lock, runs pre/post inference gates, compares
+paged and vLLM with h2h, and writes ratio summaries. DGX dry run passed at
+`/home/mudler/bench/phase21_harness_dryrun/20260701_051757`.
+
+Use this harness for future current-stack GB10 snapshots. Do not reuse
+`~/bench/combined_definitive.sh` unless it is first ported away from stale
+`~/llama-paged-dev` paths and old lock assumptions.
+
 ---
 
 ## 5. METHODOLOGY LESSONS (so you do not repeat the mistakes)
