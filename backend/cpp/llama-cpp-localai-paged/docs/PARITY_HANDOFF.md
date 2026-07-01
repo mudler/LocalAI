@@ -132,6 +132,10 @@ python3 /home/mudler/bench/h2h_cli3.py   # OpenAI /v1/completions, ignore_eos, f
 The harness also writes `hardware.txt` before any server starts, including
 `DRY_RUN=1`, so every new snapshot records the GPU model, driver, compute
 capability when exposed by `nvidia-smi`, and a conservative hardware class.
+Full runs also write `gate_summary.tsv` after the post gate, summarizing pre/post
+MoE md5, dense md5, and backend-op checks; use
+`paged-current-serving-snapshot.sh --summarize-gates ART` to backfill or audit an
+existing snapshot without starting servers.
 
 ### 3.4 THE DECODE-PROFILING RULE (this trap caused 4 wrong analyses)
 Decode runs as a **replayed CUDA graph**. `nsys` **without** `--cuda-graph-trace=node` collapses each graph replay into ONE opaque launch, so every per-kernel attribution becomes an artifact. This is exactly what made the old "paged 159 us/tok, GPU ~16% busy, host-bound, 5.4x more GPU-efficient" story wrong, and produced the wrong ~56% headline.
@@ -332,6 +336,12 @@ hardware report. DGX dry run passed at
 artifacts self-describing: GB10/workstation Blackwell results must not be used
 as datacenter-Blackwell parity evidence.
 
+Phase 25 extended the same harness to write `gate_summary.tsv`. The summary was
+backfilled on the Phase 20 artifact at
+`/home/mudler/bench/phase20_current_snapshot/20260701_050621/gate_summary.tsv`;
+it records pre/post MoE md5 `8cb0ce23777bf55f92f63d0292c756b0`, dense md5
+`5951a5b4d624ce891e22ab5fca9bc439`, and `MUL_MAT_ID` `806/806` as `ok`.
+
 ---
 
 ## 5. METHODOLOGY LESSONS (so you do not repeat the mistakes)
@@ -396,6 +406,7 @@ Only pursue if (a)+(b) are not options and someone explicitly wants the residual
 - `~/bench/phase20_current_snapshot/20260701_050621` - current clean-stack paged-vs-vLLM MoE serving snapshot.
 - `~/bench/phase21_harness_dryrun/20260701_051757` - current snapshot harness dry-run artifact.
 - `~/bench/phase24_hardware_report_dryrun/20260701_052741` - current snapshot harness dry run proving `hardware.txt` captures the DGX as `hardware_class=gb10_or_workstation_blackwell`.
+- `~/bench/phase25_gate_summary_dryrun/20260701_053353` - dry run after adding `gate_summary.tsv` support; normal dry-run still writes `hardware.txt` and does not emit a gate summary before gates exist.
 - Per-engine logs `~/bench/COMBINED_{paged,vllm}_{MOE,DENSE}_server.log`; `~/bench/BENCHMARK_PROGRESS.md`.
 - Graph-node-traced high-N profiles: `~/highN_prof2/*.nsys-rep` (paged npl=256), `~/highN_vllm/*.nsys-rep` (vLLM), 2026-06-30.
 - A/B dirs: `~/bench/marlin_gate/`, `~/bench/gdn_p1_ab/`.

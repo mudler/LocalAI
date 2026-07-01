@@ -1514,3 +1514,60 @@ Decision:
   GB10-to-datacenter generalization.
 - The Phase 20 GB10 closure still applies to `gb10_or_workstation_blackwell`;
   datacenter Blackwell needs a fresh run of the same methodology.
+
+## Phase 25 Snapshot Gate Summary
+
+Phase 25 made current-stack serving artifacts self-auditing for the inference
+gates that protect the paged path.
+
+Script change:
+
+- `backend/cpp/llama-cpp-localai-paged/paged-current-serving-snapshot.sh` now
+  writes `gate_summary.tsv` after the post gate in a full run.
+- The script also supports `--summarize-gates ART` to generate the same summary
+  from existing `gate_pre/` and `gate_post/` artifacts without launching
+  servers.
+
+Recorded rows:
+
+- pre/post MoE transcript md5 versus
+  `8cb0ce23777bf55f92f63d0292c756b0`;
+- pre/post dense transcript md5 versus
+  `5951a5b4d624ce891e22ab5fca9bc439`;
+- pre/post backend op rows, currently `MUL_MAT_ID`, with the parsed passed/total
+  count.
+
+Verification:
+
+- Red check: Phase 20 initially had gate artifacts but no `gate_summary.tsv`.
+- local `bash -n` passed;
+- local `--help` passed;
+- DGX `--summarize-gates` against Phase 20 wrote six green rows;
+- DGX `DRY_RUN=1` validated the normal path still preflights and writes
+  `hardware.txt` without launching servers or writing a gate summary before
+  gates exist.
+
+Artifacts:
+
+- Backfilled summary:
+  `/home/mudler/bench/phase20_current_snapshot/20260701_050621/gate_summary.tsv`
+- Dry run:
+  `/home/mudler/bench/phase25_gate_summary_dryrun/20260701_053353`
+
+Backfilled Phase 20 gate summary:
+
+```text
+pre  moe_md5     ok  8cb0ce23777bf55f92f63d0292c756b0
+pre  dense_md5   ok  5951a5b4d624ce891e22ab5fca9bc439
+pre  op_MUL_MAT_ID   ok  806/806
+post moe_md5     ok  8cb0ce23777bf55f92f63d0292c756b0
+post dense_md5   ok  5951a5b4d624ce891e22ab5fca9bc439
+post op_MUL_MAT_ID   ok  806/806
+```
+
+Decision:
+
+- Future full serving snapshots carry compact proof that inference md5/op gates
+  stayed green before and after the paged-vs-vLLM run.
+- Treat `gate_summary.tsv` plus `hardware.txt` as the quick audit surface before
+  accepting a parity snapshot.

@@ -3,7 +3,7 @@ set -euo pipefail
 
 usage() {
   cat <<'EOF'
-Usage: paged-current-serving-snapshot.sh
+Usage: paged-current-serving-snapshot.sh [--summarize-gates ART]
 
 Run a current-stack paged llama.cpp vs vLLM MoE serving snapshot on DGX.
 
@@ -30,13 +30,32 @@ Environment overrides:
   VLLM_BIN     vLLM executable (default: ~/vllm-bench/bin/vllm)
   SKIP_GATES=1 to skip pre/post paged inference gates
   DRY_RUN=1    validate inputs/preflight, write hardware.txt, and print commands without running servers
+
+Options:
+  --summarize-gates ART  write ART/gate_summary.tsv from existing gate_pre/gate_post artifacts
 EOF
 }
 
-if [[ "${1:-}" == "-h" || "${1:-}" == "--help" ]]; then
+SUMMARY_GATES_ART=""
+case "${1:-}" in
+  -h|--help)
   usage
   exit 0
-fi
+  ;;
+  --summarize-gates)
+    if [[ -z "${2:-}" ]]; then
+      usage >&2
+      exit 2
+    fi
+    SUMMARY_GATES_ART="$2"
+  ;;
+  "")
+  ;;
+  *)
+    usage >&2
+    exit 2
+  ;;
+esac
 
 SRC=${SRC:-"$HOME/llama-phase6-source"}
 BIN=${BIN:-"$SRC/build-cuda/bin"}
@@ -56,6 +75,8 @@ VLLM_PORT=${VLLM_PORT:-8000}
 VLLM_BIN=${VLLM_BIN:-"$HOME/vllm-bench/bin/vllm"}
 SKIP_GATES=${SKIP_GATES:-0}
 DRY_RUN=${DRY_RUN:-0}
+MOE_MD5_EXPECTED=8cb0ce23777bf55f92f63d0292c756b0
+DENSE_MD5_EXPECTED=5951a5b4d624ce891e22ab5fca9bc439
 
 LOCK_DIR="$HOME/gpu_bench_lock"
 OWNER="$LOCK_DIR/owner"
@@ -271,6 +292,73 @@ for n in sorted({row[1] for row in rows}):
 PY
 }
 
+write_gate_summary() {
+  python3 - "$ART" "$MOE_MD5_EXPECTED" "$DENSE_MD5_EXPECTED" <<'PY' | tee "$ART/gate_summary.tsv"
+import re
+import sys
+from pathlib import Path
+
+art = Path(sys.argv[1])
+expected = {
+    "moe": sys.argv[2],
+    "dense": sys.argv[3],
+}
+ansi = re.compile(r"\x1b\[[0-9;]*m")
+bad = False
+
+print("phase\tcheck\tstatus\tactual\texpected\tdetails")
+
+for phase in ("pre", "post"):
+    gate_dir = art / f"gate_{phase}"
+    if not gate_dir.exists():
+        print(f"{phase}\tall\tskipped\t\t\t{gate_dir} missing")
+        continue
+
+    for name, want in expected.items():
+        md5_path = gate_dir / f"{name}.md5"
+        if not md5_path.exists():
+            print(f"{phase}\t{name}_md5\tmissing\t\t{want}\t{md5_path} missing")
+            bad = True
+            continue
+        got = md5_path.read_text().split()[0]
+        status = "ok" if got == want else "mismatch"
+        if status != "ok":
+            bad = True
+        print(f"{phase}\t{name}_md5\t{status}\t{got}\t{want}\t{md5_path}")
+
+    op_paths = sorted(gate_dir.glob("op_*.txt"))
+    if not op_paths:
+        print(f"{phase}\top\tmissing\t\t\tno op_*.txt files")
+        bad = True
+        continue
+
+    for path in op_paths:
+        op = path.stem.removeprefix("op_")
+        text = ansi.sub("", path.read_text(errors="replace"))
+        passed = re.search(r"(\d+)/(\d+) tests passed", text)
+        backend_ok = re.search(r"Backend CUDA0:\s+OK", text)
+        if passed:
+            actual = f"{passed.group(1)}/{passed.group(2)}"
+            status = "ok" if passed.group(1) == passed.group(2) and backend_ok else "fail"
+        else:
+            actual = ""
+            status = "missing"
+        if status != "ok":
+            bad = True
+        print(f"{phase}\top_{op}\t{status}\t{actual}\tall\t{path}")
+
+if bad:
+    sys.exit(6)
+PY
+}
+
+if [[ -n "$SUMMARY_GATES_ART" ]]; then
+  ART="$SUMMARY_GATES_ART"
+  require_path "$ART"
+  write_gate_summary
+  exit 0
+fi
+
 require_path "$SRC"
 require_path "$BIN/llama-server"
 require_path "$BIN/llama-completion"
@@ -306,5 +394,6 @@ run_vllm
 release_lock
 trap - EXIT
 run_gate post
+write_gate_summary
 write_summary
 log "artifacts: $ART"
