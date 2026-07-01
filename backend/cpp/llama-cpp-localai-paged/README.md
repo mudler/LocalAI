@@ -87,7 +87,7 @@ orthogonal to the paged allocator.
 
 ---
 
-## 3. Patch series (0001-0055)
+## 3. Patch series (0001-0057)
 
 Source-only patches, with intentional numbering gaps (e.g. 0005, 0027). The
 decode-serving graph-reuse levers are 0040-0041. "Bit-exact" = greedy md5 /
@@ -214,6 +214,7 @@ These are the dominant decode levers on the Qwen3.6 hybrid models. All bit-exact
 | 0054 | **Disable backend sampling for MTP drafts** - forces server MTP draft generation through the target-side sampler acceptance path instead of letting the draft backend sample independently. This was required for the Phase 14 rollback/prefix safety gate. | yes for canonical non-MTP gates; Phase 14 MTP normalized greedy-prefix gate passed |
 | 0055 | **Trace speculative batch shapes** - adds default-off `LLAMA_SPEC_SHAPE_TRACE=1` server logs around `server_slot::handle_last_sampled_token()`, reporting normal decode rows and MTP verification `K + 1` rows (`draft`, `outputs`, `spec_i_first`, `spec_i_last`). This is instrumentation only for Phase 18 shape-entropy measurement before any scheduler experiment. | yes (env unset is silent; DGX gates after patch: MoE `8cb0ce23`, dense `5951a5b4`, `MUL_MAT_ID` `806/806`) |
 | 0056 | **Trace MoE MMQ batch shapes** - adds default-off `LLAMA_MOE_MMQ_SHAPE_TRACE=<n>` logs from the grouped-MMQ host selector, reporting routed assignment count, estimated active experts, density, selected `mmq_x`, `mmq_y`, and stream-k. This is evidence-only instrumentation for sizing structural grouped-MMQ work after Phase 28 rejected launch-bounds/row-tile knobs. | yes (env unset and trace-enabled gates both green: MoE `8cb0ce23`, dense `5951a5b4`, `MUL_MAT_ID` `806/806`; trace cap verified with 4 lines) |
+| 0057 | **Trace MoE MMQ launch shapes** - extends `LLAMA_MOE_MMQ_SHAPE_TRACE=<n>` with bounded `[LLAMA_MOE_MMQ_LAUNCH]` lines from `launch_mul_mat_q`, recording actual `ntiles_dst`, `stream_k_blocks`, tile efficiency, `fixup`, `ntx/nty/ntzw`, and compiled `mmq_x/mmq_y`. This is evidence-only instrumentation to distinguish real stream-k/fixup overhead from small-M kernel-shape cost. | yes (default-off, trace-enabled, and post-serving gates green: MoE `8cb0ce23`, dense `5951a5b4`, `MUL_MAT_ID` `806/806`; Phase 31 n128 trace showed decode and prefill `fixup=0`, `stream_k_blocks == ntiles_dst`) |
 
 > **Dropped: patch 0026 (hybrid per-head bf16 SSM state, `ssm_bf16_tau`).** Once
 > the decode fusions (0028 recurrent-state gather-fusion + 0029 block-table cache)
@@ -647,3 +648,12 @@ added test-first (`test-cuda-mmq-shape-trace`), compiled under CUDA on DGX, and
 kept inference stable with the trace disabled and enabled:
 MoE `8cb0ce23`, dense `5951a5b4`, `MUL_MAT_ID 806/806`. Example trace line:
 `[LLAMA_MOE_MMQ_SHAPE] type=40 moe=1 ncols_dst=104 nchannels_x=256 ncols_max=13 n_active_est=104 density=1 mmq_x_max=128 mmq_x_lim=64 mmq_x_best=16 mmq_y=128 stream_k=1`.
+
+Phase 31 extended that trace as patch `0057`
+(`/home/mudler/bench/phase31_mmq_launch_trace/20260701_064424`) with
+`[LLAMA_MOE_MMQ_LAUNCH]` lines from `launch_mul_mat_q`. Default-off,
+trace-enabled, and post-serving gates stayed stable: MoE `8cb0ce23`, dense
+`5951a5b4`, `MUL_MAT_ID 806/806`. The n128 serving trace showed decode-like
+`4800/4800` and prefill-like `4920/4920` launch lines with `fixup=0` and
+`stream_k_blocks == ntiles_dst`, rejecting a no-fixup/no-stream-k shortcut for
+this workload.

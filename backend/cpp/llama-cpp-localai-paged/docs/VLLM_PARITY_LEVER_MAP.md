@@ -802,6 +802,29 @@ small-M decode tiles (`ncols_max` 26-111, density 1-4) separately from prefill.
 The current stream-k/fixup path is part of the measured shape and cannot be
 ignored by a replacement kernel.
 
+### Phase 31 live serving MMQ launch distribution
+
+Phase 31 added patch `0057`, extending `LLAMA_MOE_MMQ_SHAPE_TRACE=<n>` with
+`[LLAMA_MOE_MMQ_LAUNCH]` lines emitted from `launch_mul_mat_q` after the actual
+stream-k launch policy is known. Artifact:
+`/home/mudler/bench/phase31_mmq_launch_trace/20260701_064424`.
+
+The default-off, trace-enabled, and post-serving gates all stayed bit-exact:
+MoE `8cb0ce23777bf55f92f63d0292c756b0`, dense
+`5951a5b4d624ce891e22ab5fca9bc439`, and `MUL_MAT_ID` `806/806`.
+
+Live n128 serving with `LLAMA_MOE_MMQ_SHAPE_TRACE=4096` produced:
+
+| bucket | launch lines | `fixup=1` | `stream_k_blocks == ntiles_dst` | tile efficiency |
+|--------|--------------|-----------|----------------------------------|-----------------|
+| decode-like (`ncols_max <= 128`) | 4800 | 0 | 4800 | 96-99 |
+| prefill-like (`ncols_max > 128`) | 4920 | 0 | 4920 | 99-100 |
+
+Lever implication: a no-fixup/no-stream-k shortcut is rejected for the measured
+n128 serving workload. The launch code is already choosing conventional
+stream-k tiling with no fixup; the remaining gap is the small-M grouped-MMQ
+kernel shape itself, not launch/fixup overhead.
+
 Relevant files (all absolute): `/home/mudler/_git/LocalAI/.claude/worktrees/feat+paged-attention/backend/cpp/llama-cpp-localai-paged/docs/{DECODE_SERVING_SCOPE.md,PREFILL_GEMM_SCOPE.md,PREFILL_GEMM_RESULTS.md,TENSORCORE_GDN_SCOPE.md,final_benchmark.csv}`, `.../README.md`, `.../patches/paged/0034-feat-paged-native-NVFP4-W4A4-FP4-MMA-large-M-prefill.patch` (P1/P2), `.../patches/paged/0042-feat-paged-fused-residual-add-RMS-norm-weight-multip.patch` (P7), `.../patches/paged/0031` (P4), `0025` (D1), `0018/0022` (D4/D5), `0009/0010` (D3/D6/D7); graph source `/home/mudler/_git/LocalAI/backend/cpp/llama-cpp-paged-dev/src/{models/qwen35moe.cpp,models/delta-net-base.cpp,llama-graph.cpp}`.
 
 ### Phase 10 GDN C32 slab update

@@ -1861,3 +1861,49 @@ Decision:
   separate A/B.
 - Every traced call used stream-k, so a replacement kernel must account for the
   current stream-k/fixup behavior rather than only conventional tiling.
+
+## Phase 31 Live MoE MMQ Launch Shape Distribution
+
+Phase 31 added patch `0057`, a default-off launch trace paired with the Phase 29
+selector trace. It records the actual launch policy after `ntiles_dst`,
+`tiles_efficiency_percent`, `stream_k_blocks`, and `fixup_needed` are known.
+
+Artifact:
+
+- `/home/mudler/bench/phase31_mmq_launch_trace/20260701_064424`
+
+Run:
+
+- Fork commit: `/home/mudler/_git/llama.cpp` `c78e537b5`
+- DGX mirror commit: `dgx:~/llama-phase6-source` `8b75905e9`
+- Env: `LLAMA_KV_PAGED=1 LLAMA_MOE_FORCE_GRAPHS=1 LLAMA_MOE_MMQ_SHAPE_TRACE=4096`
+- Workload: h2h `n=128`, `PTOK=128`, `GEN=64`
+- Throughput while tracing: `decode_agg_tps=691.0`, `agg_tps=337.0`,
+  `prefill_tps=1500.4`, `TTFT mean=7671.0 ms`
+
+Launch summary:
+
+| bucket | launch lines | `fixup=1` | `stream_k_blocks == ntiles_dst` | tile efficiency | `ncols_max` range |
+|--------|--------------|-----------|----------------------------------|-----------------|-------------------|
+| decode-like (`ncols_max <= 128`) | 4800 | 0 | 4800 | 96-99 | 12-128 |
+| prefill-like (`ncols_max > 128`) | 4920 | 0 | 4920 | 99-100 | 129-510 |
+
+Gates:
+
+| check | status | actual |
+|-------|--------|--------|
+| default-off MoE md5 | ok | `8cb0ce23777bf55f92f63d0292c756b0` |
+| default-off dense md5 | ok | `5951a5b4d624ce891e22ab5fca9bc439` |
+| trace-enabled MoE md5 | ok | `8cb0ce23777bf55f92f63d0292c756b0` |
+| trace-enabled dense md5 | ok | `5951a5b4d624ce891e22ab5fca9bc439` |
+| post-serving MoE md5 | ok | `8cb0ce23777bf55f92f63d0292c756b0` |
+| post-serving dense md5 | ok | `5951a5b4d624ce891e22ab5fca9bc439` |
+| `MUL_MAT_ID` | ok | `806/806` in all three gate runs |
+
+Decision:
+
+- Do not pursue a no-fixup/no-stream-k shortcut for n128 serving: the measured
+  launch path already uses `stream_k_blocks == ntiles_dst` and never runs fixup.
+- The remaining grouped-MMQ work is structural small-M kernel work, not launch
+  overhead. A follow-up should target the decode-like `mmq_x <= 64`, low-density
+  kernel shape directly and keep the prefill `mmq_x=128` path separate.
