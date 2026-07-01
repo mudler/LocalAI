@@ -2833,3 +2833,49 @@ Interpretation:
   measure decode tokens admitted, prompt tokens admitted, waiting prompt slots,
   graph reuse, and prefill starvation. Do not start with another GDN or GEMM
   rewrite unless that trace rules the scheduler out.
+
+## Phase 51 Serving Admission Trace
+
+Phase 51 implements the Phase50 next step in the llama.cpp fork. This is a
+trace-only change, gated behind `LLAMA_SERVING_TRACE=1`; default inference and
+batch scheduling are unchanged.
+
+Fork commit:
+
+- `/home/mudler/_git/llama.cpp` `localai-paged`
+- `c6cb8460e feat(server): trace serving admission batches`
+
+Change:
+
+- Add `tools/server/server-admission-trace.h` with a small accumulator and
+  formatter.
+- Add `tests/test-server-admission-trace.cpp` and CMake target coverage.
+- Wire counters into `server_context_impl::pre_decode()` for:
+  decode tokens already in the batch, prompt tokens admitted, waiting prompt
+  slots, started/continued prompt slots, decode-only steps, `n_batch`,
+  `n_ubatch`, `prefill_budget_step`, and `prefill_cap_per_slot`.
+- Print one aggregate summary when the server context is destroyed, only when
+  `LLAMA_SERVING_TRACE=1` and at least one scheduler step was observed.
+
+Verification:
+
+- Red test first: `test-server-admission-trace` failed to build before
+  `server-admission-trace.h` existed.
+- Local fork: `test-server-admission-trace` built and passed, `llama-server`
+  built, and `ctest --test-dir build -R '^test-server-admission-trace$'`
+  passed.
+- DGX artifact:
+  `/home/mudler/bench/phase51_serving_admission_trace/20260701_110130`
+- DGX `build-cuda`: `test-server-admission-trace` and `llama-server` built;
+  CTest passed.
+- DGX inference gates on the patched `build-cuda` build passed: MoE md5
+  `8cb0ce23777bf55f92f63d0292c756b0`, dense md5
+  `5951a5b4d624ce891e22ab5fca9bc439`, `MUL_MAT` `1146/1146`, and
+  `MUL_MAT_ID` `806/806`.
+
+Mirror status:
+
+- The fork commit is local and DGX-gated.
+- The LocalAI `patches/paged/` series is not regenerated yet because the
+  handoff requires pushing the fork branch first, and pushes require explicit
+  approval.

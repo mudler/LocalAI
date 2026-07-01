@@ -1216,6 +1216,33 @@ TTFT accounting. Next implementation target should be an opt-in
 batch-composition/admission trace in `server_context::pre_decode()` before any
 new GDN/GEMM shortcut.
 
+### Phase 51 serving admission trace
+
+Phase51 adds that trace in the llama.cpp fork. Fork commit:
+`c6cb8460e feat(server): trace serving admission batches`.
+
+The change is default-off behind `LLAMA_SERVING_TRACE=1` and does not change
+inference decisions. It records aggregate scheduler-shape counters from
+`server_context_impl::pre_decode()`: decode tokens, prompt tokens admitted,
+waiting prompt slots, started/continued prompt slots, decode-only steps,
+`n_batch`, `n_ubatch`, `prefill_budget_step`, and `prefill_cap_per_slot`.
+
+Verification:
+
+- Red test first: `test-server-admission-trace` failed before
+  `server-admission-trace.h` existed.
+- Local fork: unit test and `llama-server` build passed.
+- DGX artifact:
+  `/home/mudler/bench/phase51_serving_admission_trace/20260701_110130`
+- DGX patched `build-cuda` CTest passed.
+- DGX patched `build-cuda` inference gates stayed green: MoE
+  `8cb0ce23777bf55f92f63d0292c756b0`, dense
+  `5951a5b4d624ce891e22ab5fca9bc439`, `MUL_MAT` `1146/1146`, and
+  `MUL_MAT_ID` `806/806`.
+
+Mirror status: pending explicit approval to push the fork branch, then
+regenerate the LocalAI patch series from the pushed fork commit.
+
 Relevant files (all absolute): `/home/mudler/_git/LocalAI/.claude/worktrees/feat+paged-attention/backend/cpp/llama-cpp-localai-paged/docs/{DECODE_SERVING_SCOPE.md,PREFILL_GEMM_SCOPE.md,PREFILL_GEMM_RESULTS.md,TENSORCORE_GDN_SCOPE.md,final_benchmark.csv}`, `.../README.md`, `.../patches/paged/0034-feat-paged-native-NVFP4-W4A4-FP4-MMA-large-M-prefill.patch` (P1/P2), `.../patches/paged/0042-feat-paged-fused-residual-add-RMS-norm-weight-multip.patch` (P7), `.../patches/paged/0031` (P4), `0025` (D1), `0018/0022` (D4/D5), `0009/0010` (D3/D6/D7); graph source `/home/mudler/_git/LocalAI/backend/cpp/llama-cpp-paged-dev/src/{models/qwen35moe.cpp,models/delta-net-base.cpp,llama-graph.cpp}`.
 
 ### Phase 10 GDN C32 slab update

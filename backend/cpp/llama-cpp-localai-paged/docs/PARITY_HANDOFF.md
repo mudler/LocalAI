@@ -626,6 +626,20 @@ prefill-overlap/accounting effects beyond the real GPU-steady decode gap. Next
 GB10 code work should instrument batch composition/admission in
 `server_context::pre_decode()` before attempting another kernel shortcut.
 
+Phase 51 implements that admission trace in the llama.cpp fork. Local fork
+commit: `c6cb8460e feat(server): trace serving admission batches`. The trace is
+default-off behind `LLAMA_SERVING_TRACE=1`, adds a small unit-tested accumulator,
+and records aggregate `pre_decode()` scheduler shape: decode tokens, prompt
+tokens admitted, waiting prompt slots, started/continued prompt slots,
+decode-only steps, `n_batch`, `n_ubatch`, `prefill_budget_step`, and
+`prefill_cap_per_slot`. DGX artifact:
+`/home/mudler/bench/phase51_serving_admission_trace/20260701_110130`. The
+patched `build-cuda` CTest passed and inference gates stayed green: MoE
+`8cb0ce23777bf55f92f63d0292c756b0`, dense
+`5951a5b4d624ce891e22ab5fca9bc439`, `MUL_MAT` `1146/1146`, `MUL_MAT_ID`
+`806/806`. Push and LocalAI patch-series regeneration are still pending because
+push requires explicit approval.
+
 ---
 
 ## 5. METHODOLOGY LESSONS (so you do not repeat the mistakes)
@@ -719,6 +733,7 @@ Only pursue if (a)+(b) are not options and someone explicitly wants the residual
 - `~/bench/phase47_dense_serving_retry/20260701_100811` - completed dense serving snapshot after Phase48; pre/post md5 and op gates green; paged low-N decode ahead, high-N aggregate and TTFT behind.
 - `~/bench/phase49_vllm_env_hygiene_dryrun/20260701_102138` - harness dry-run after scrubbing harness-owned `VLLM_*` variables from the `vllm serve` child environment.
 - `~/bench/phase50_dense_true_decode/20260701_103120` - dense graph-node difference-method profile at `npl=128`, `npp=128`; `build-cuda` pre/post md5 and op gates green; true decode paged `383.66 t/s`, vLLM `435.00 t/s`, ratio `0.8820`, pointing next at serving admission/scheduler tracing.
+- `~/bench/phase51_serving_admission_trace/20260701_110130` - default-off `LLAMA_SERVING_TRACE=1` fork commit `c6cb8460e`; DGX patched `build-cuda` CTest and md5/op gates green; push and LocalAI patch-series mirror pending approval.
 - Per-engine logs `~/bench/COMBINED_{paged,vllm}_{MOE,DENSE}_server.log`; `~/bench/BENCHMARK_PROGRESS.md`.
 - Graph-node-traced high-N profiles: `~/highN_prof2/*.nsys-rep` (paged npl=256), `~/highN_vllm/*.nsys-rep` (vLLM), 2026-06-30.
 - A/B dirs: `~/bench/marlin_gate/`, `~/bench/gdn_p1_ab/`.
