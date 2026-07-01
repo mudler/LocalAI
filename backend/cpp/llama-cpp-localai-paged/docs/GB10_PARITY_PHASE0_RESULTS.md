@@ -3247,3 +3247,53 @@ Decision:
   aggregate throughput and wall time.
 - Keep the cap as an A/B knob only; do not promote it as a default or parity
   path.
+
+## Phase 58 TTFT Prefill-First Waiting Threshold
+
+Phase 58 adds `LLAMA_TTFT_PREFILL_FIRST_MIN_WAITING`, a prompt-backlog threshold
+for the Phase55 opt-in policy. Unset or `0` preserves prior behavior. The goal
+was to activate decode deferral only during high prompt-backlog windows instead
+of for the entire prompt backlog lifetime.
+
+Fork commit:
+
+- `8759213e3 feat(server): gate TTFT defer by prompt backlog`
+
+Artifact:
+
+- `/home/mudler/bench/phase58_ttft_waiting_sweep/20260701_122052`
+
+Pre/post gates:
+
+| phase | MoE md5 | dense md5 | `MUL_MAT` | `MUL_MAT_ID` |
+|-------|---------|-----------|-----------|--------------|
+| pre | `8cb0ce23777bf55f92f63d0292c756b0` | `5951a5b4d624ce891e22ab5fca9bc439` | `1146/1146` | `806/806` |
+| post | `8cb0ce23777bf55f92f63d0292c756b0` | `5951a5b4d624ce891e22ab5fca9bc439` | `1146/1146` | `806/806` |
+
+MoE `n=128`, `ptok=128`, `gen=64`:
+
+| variant | agg t/s | decode agg t/s | prefill t/s | TTFT mean ms | TTFT max ms | wall s | deferred |
+|---------|---------|-----------------|-------------|--------------|-------------|--------|----------|
+| default | `339.0` | `648.4` | `1542.9` | `7743.1` | `11532.5` | `24.167` | `0` |
+| min24 | `339.9` | `619.3` | `1637.0` | `7326.6` | `10868.8` | `24.095` | `323` |
+| min32 | `341.9` | `635.0` | `1609.6` | `7420.1` | `11054.6` | `23.950` | `220` |
+| min32+cap32 | `331.2` | `631.8` | `1512.1` | `7829.2` | `11767.1` | `24.733` | `140` |
+
+Dense `n=128`, `ptok=168`, `gen=64`:
+
+| variant | agg t/s | decode agg t/s | prefill t/s | TTFT mean ms | TTFT max ms | wall s | deferred |
+|---------|---------|-----------------|-------------|--------------|-------------|--------|----------|
+| default | `140.3` | `362.7` | `639.8` | `21407.3` | `35811.6` | `58.399` | `0` |
+| min24 | `140.4` | `347.6` | `658.7` | `22078.2` | `34783.3` | `58.353` | `420` |
+| min32 | `139.7` | `350.2` | `650.1` | `21221.5` | `35246.3` | `58.642` | `386` |
+
+Decision:
+
+- Keep `LLAMA_TTFT_PREFILL_FIRST_MIN_WAITING=32` as the best selective
+  scheduler A/B so far, but still opt-in. On MoE `n=128`, min32 improved
+  aggregate throughput (`339.0 -> 341.9`), mean TTFT (`7743.1 -> 7420.1 ms`),
+  max TTFT (`11532.5 -> 11054.6 ms`), and wall time (`24.167 -> 23.950 s`).
+- Dense `n=128` min32 was mixed: mean/max TTFT improved slightly, but aggregate
+  and wall regressed slightly. Do not default-on yet.
+- Next step should repeat the MoE min32 result and run the matching vLLM h2h
+  comparison before treating this as real parity progress rather than run noise.

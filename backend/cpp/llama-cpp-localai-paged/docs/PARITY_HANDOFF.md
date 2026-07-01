@@ -34,9 +34,13 @@ Read order for a cold start:
 > `7168.1 -> 7615.3 ms` and aggregate `341.1 -> 339.9`; keep it opt-in only and
 > do not default it broadly. Phase57 tried a per-step defer cap; cap32 improved
 > MoE mean TTFT in one same-window sweep but still lost aggregate and wall, and
-> dense caps lost aggregate. Do not repeat capped-defer sweeps as the next parity
-> path. The trace and scheduler commits are local and DGX-gated but not pushed,
-> so the LocalAI patch series has not been regenerated.
+> dense caps lost aggregate. Phase58 added a prompt-backlog threshold; min32
+> improved MoE `n=128` aggregate `339.0 -> 341.9`, mean TTFT
+> `7743.1 -> 7420.1 ms`, and wall `24.167 -> 23.950 s` in the same window, while
+> dense `n=128` was mixed. Next step should repeat min32 and run matching vLLM
+> h2h before any default-on discussion. The trace and scheduler commits are
+> local and DGX-gated but not pushed, so the LocalAI patch series has not been
+> regenerated.
 
 - Historical verdict: the older investigation marked GB10 parity **CLOSED** and
   unreachable. Treat that as superseded where Phase50-54 provide newer dense
