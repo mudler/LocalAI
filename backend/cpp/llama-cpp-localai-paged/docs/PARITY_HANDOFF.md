@@ -1107,3 +1107,46 @@ Decision: reject default-on for `LLAMA_BF16_CUBLAS_F32_OUT=1`. The shortcut is
 correctness-clean, but it materially regressed low-concurrency serving and
 slightly widened the vLLM decode gap at `n=32` and `n=128`. Keep it
 default-off only and move the next parity effort to a different lever.
+
+## 16. PHASE71 RESULT: GDN TENSOR-CORE REVALIDATION
+
+Phase71 challenged the stale GDN planning docs before starting more source work.
+Plan:
+`docs/superpowers/plans/2026-07-01-gdn-tc-revalidation-phase71.md`.
+Benchmark ledger:
+`backend/cpp/llama-cpp-localai-paged/docs/BENCHMARK.md`.
+DGX artifact:
+`/home/mudler/bench/phase71_gdn_tc_revalidation/20260701_153425`.
+
+Source under test stayed at DGX mirror commit
+`14fd69f1e feat(cuda): gate BF16 cuBLAS F32 output`. No llama.cpp source was
+changed.
+
+Canonical gates matched for all four GDN modes: MoE md5 `8cb0ce23`, dense md5
+`5951a5b4`, and `GATED_DELTA_NET 46/46`. Default also passed `MUL_MAT
+1146/1146` and `MUL_MAT_ID 806/806`.
+
+MoE prefill, `PP=512,2048`, `TG=4`, `B=32`, `CTX=131072`:
+
+| arm | npp512 S_PP | npp2048 S_PP |
+|-----|------------:|-------------:|
+| default | `2313.57` | `2422.88` |
+| sequential-disabled (`GDN_CHUNK_MIN=2147483647`) | `2198.28` | `2361.22` |
+| serial-chunked (`GDN_TC=0 GDN_CHUNK_MIN=64`) | `1787.49` | `1699.77` |
+| forced M5 (`GDN_TC=4 GDN_CHUNK_MIN=64`) | `2323.18` | `2420.52` |
+
+Decision: keep shipped GDN M5 default behavior. It still beats
+sequential-disabled by `+5.24%`/`+2.61%`, beats serial-chunked by
+`+29.43%`/`+42.54%`, and forced M5 is within noise of the current default. Do
+not reopen smaller GDN C32/QS/global-Ai32/kernel-reorder work on GB10.
+
+Post-Phase71 do-not-reopen list for GB10:
+
+- Smaller W4A16/MoE GEMM body, metadata, direct-activation, or quant/gather
+  shortcuts.
+- GDN C32 slab, QS-early, Global-Ai32, or another low-conflict M5 reorder.
+- BF16 cuBLAS F32 output as a default-on policy.
+
+The only GDN work that should be reconsidered is a larger FLA/CuteDSL-class
+blocked-solve implementation or a hardware pivot where the GB10 constraints no
+longer apply.

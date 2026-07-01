@@ -140,6 +140,17 @@ At `N=32` and `N=128`, opt-in slightly widened the vLLM decode gap
 (`0.6864x` vs `0.6882x`, and `0.6839x` vs `0.6921x`). Keep
 `LLAMA_BF16_CUBLAS_F32_OUT=1` default-off only and move to another lever.
 
+Phase71 revalidated the current shipped GDN tensor-core default before adding
+more GDN source work. Artifact:
+`/home/mudler/bench/phase71_gdn_tc_revalidation/20260701_153425`. Canonical
+MoE/dense md5 gates matched for default, sequential-disabled, serial-chunked,
+and forced M5 modes; `GATED_DELTA_NET` passed `46/46` for each mode, and
+default passed `MUL_MAT 1146/1146` plus `MUL_MAT_ID 806/806`. Current default
+beat sequential-disabled by `+5.24%`/`+2.61%` S_PP at `npp=512/2048`, beat
+serial-chunked by `+29.43%`/`+42.54%`, and forced `GDN_TC=4 GDN_CHUNK_MIN=64`
+was within noise of default (`+0.42%`/`-0.10%`). Decision: keep shipped M5 and
+do not reopen smaller GDN C32/QS/global-Ai32/kernel-reorder work on GB10.
+
 Relevant files: `/home/mudler/_git/LocalAI/.claude/worktrees/feat+paged-attention/backend/cpp/llama-cpp-localai-paged/docs/{PREFILL_GEMM_SCOPE.md,PREFILL_GEMM_RESULTS.md,TENSORCORE_GDN_SCOPE.md,final_benchmark.csv}`, `/home/mudler/_git/LocalAI/.claude/worktrees/feat+paged-attention/backend/cpp/llama-cpp-localai-paged/patches/paged/0042-feat-paged-fused-residual-add-RMS-norm-weight-multip.patch`, and the graph source `/home/mudler/_git/LocalAI/backend/cpp/llama-cpp-paged-dev/src/models/{qwen35moe.cpp,delta-net-base.cpp}` + `/home/mudler/_git/LocalAI/backend/cpp/llama-cpp-paged-dev/src/llama-graph.cpp` (build_moe_ffn ~1500-1834, build_attn ~2136-2189).
 
 ## 2. Decode-serving compute hypotheses (ranked)
@@ -1836,6 +1847,16 @@ D2/D3/D4 for DECODE are all REJECTED by the methodology's "a faster kernel off t
 Honest scope on D1's payoff: at HIGH-concurrency serving the paged GPU is already 83.5% busy because overlapping request streams hide the host stalls, so D1's win concentrates at LOW-concurrency / latency / batch-1 (GPU 4-16% busy), where it is large. The complementary serving-throughput lever is FIXING PREFILL (GDN #101 + MoE GEMM D2/#105): paged's 2x-slower prefill steals serving cycles under continuous batching (~25-55% of the serving step is prefill work) - so the prefill levers ARE also serving-decode levers. GATE: separately-built in-backend A/B (compiled-in, so a runtime flag does NOT isolate it) showing higher static/low-concurrency decode t/s with no high-concurrency-serving regression; bit-exact greedy md5 (graph replay re-issues identical kernels).
 
 ### next_3_levers
+
+Post-Phase71 supersession: this ranked list is historical. `0047` already
+ships the M5 tensor-core GDN path default-on under paged KV, Phase71
+revalidated it against sequential-disabled and serial-chunked baselines, and
+Phase10/11/13 rejected the smaller follow-up GDN reorders. Phase41/43 closed
+D1 on the current GB10 path unless a fresh route trace proves a host-sync
+fallback returned. Phase60/61/66 rejected another small W4A16/direct-A or
+quant/gather pass. Treat the list below as pre-Phase60 planning context, not an
+active queue.
+
 Ranked, each with its pass-gate:
 
 1) #101 TENSOR-CORE mma CHUNKED GDN PREFILL KERNEL (prefill, GO). #1 prefill-gap contributor (+59 us/tok, ~30%), ~3/4 math (tensor cores help) with 2.62x measured headroom on identical silicon, 1/4 layout folds in; also helps serving decode. GATE: Phase-0 regime already satisfied by this profile; Phase-1 two-Gram-product PoC must move S_PP in a SEPARATELY-BUILT in-backend A/B vs sequential (flat => NO-GO the multi-week build); then KL-gate (tf32/3xtf32) + greedy md5 + adversarial-decay op test; ship opt-in default-off until A/B beats sequential.

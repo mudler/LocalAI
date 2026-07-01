@@ -512,7 +512,20 @@ Files: design lives in `backend/cpp/llama-cpp-localai-paged/docs/TENSORCORE_GDN_
 
 ## 5. Synthesized build plan + milestones + gate
 
-All anchors verified. 0031's kernel body, the 7-step structure, the `GDN_CHUNK_MIN`/`GDN_CHUNK_OFF` gating at the `if constexpr (!KDA && !keep_rs_t)` site, the `launch_gdn_chunked<128,16>` template, the smem formula, and the test-backend-ops shapes are all confirmed. The scope doc's KL gate, 3xtf32 ladder, risk register, and Phase 0-3 plan are confirmed. Here is the build-ready synthesis.
+Historical note: this plan predates the shipped f32-only M5 tensor-core GDN
+path in patch `0047`. Current code parses `GDN_CHUNK_MIN` and `GDN_TC`; the
+older `GDN_CHUNK_OFF` and `GDN_CHUNK_TC` names in this section are obsolete.
+Phase71 revalidated the current default against sequential-disabled and
+serial-chunked modes on DGX and kept M5 as shipped. Use this document as
+background for any larger FLA/CuteDSL-class redesign, not as the active next
+patch queue.
+
+All anchors were verified at the time of writing. 0031's kernel body, the
+7-step structure, the `GDN_CHUNK_MIN` gating at the `if constexpr (!KDA &&
+!keep_rs_t)` site, the `launch_gdn_chunked<128,16>` template, the smem formula,
+and the test-backend-ops shapes were confirmed. The scope doc's KL gate,
+3xtf32 ladder, risk register, and Phase 0-3 plan were confirmed. Here is the
+historical build-ready synthesis.
 
 ---
 
@@ -589,12 +602,14 @@ Each milestone is a **separate patch** stacked on 0031, **green on `test-backend
 
 ---
 
-## (4) Slot into 0031's existing framework (opt-in, default-OFF)
+## (4) Slot into 0031's existing framework (historical, superseded by 0047)
 
 Same dispatch site - the `if constexpr (!KDA && !keep_rs_t)` block inside `launch_gated_delta_net` (0031 patch, after `init_fastdiv_values`). Extend, don't replace:
 
-- Keep `GDN_CHUNK_MIN` (token threshold, default `INT_MAX` = off) and `GDN_CHUNK_OFF` (kill switch).
-- Add **`GDN_CHUNK_TC`** selector: `0` = 0031 serial-solve chunked (fallback, retained), `1` = tensor-core. Add **`GDN_CHUNK_C` ∈ {16,32,64}** and **`GDN_DV_TILE` ∈ {32,64,128}** for A/B; defaults `C=32, DV_TILE=64` (CONFIG C) for serving, `DV_TILE=32` saturator for n_seqs=1.
+- Current code keeps `GDN_CHUNK_MIN` as the token threshold and uses `GDN_TC`
+  as the tensor-core level selector. It does not parse `GDN_CHUNK_OFF` or
+  `GDN_CHUNK_TC`.
+- Historical plan: add **`GDN_CHUNK_TC`** selector: `0` = 0031 serial-solve chunked (fallback, retained), `1` = tensor-core. Add **`GDN_CHUNK_C` ∈ {16,32,64}** and **`GDN_DV_TILE` ∈ {32,64,128}** for A/B; defaults `C=32, DV_TILE=64` (CONFIG C) for serving, `DV_TILE=32` saturator for n_seqs=1.
 - New launcher `launch_gdn_chunked_tc<128, C, DV_TILE>` mirrors `launch_gdn_chunked`: `cudaFuncSetAttribute(...MaxDynamicSharedMemorySize...)` **return-checked** (0031 precedent), `grid = dim3(H, n_seqs, n_slabs)`, `block = dim3(256,1,1)`. Per-slab the kernel recomputes A/A⁻¹/gates (dv-independent), dv-slices S/Ud/O.
 - **Default OFF** (`gdn_chunk_min=INT_MAX`) exactly as 0031 ships. Flip the default to on **only when** the M8 A/B shows an S_PP win over the tuned sequential recurrence at the serving regime (n_seqs≥2) **and** the KL gate + adversarial op case hold - recorded in README s5 (dev notes / rejected-flat levers) and `PAGED_BITEXACT_NOTE.md`. Until then it ships like 0031: opt-in, regression-free default.
 - Extend the test-backend-ops block 0031 added (the `S_v==128` shapes at lines after :9398) so the tc path is exercised at C=64 and C=32 in CI.

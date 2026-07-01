@@ -10,10 +10,13 @@ with artifact path, gates, benchmark rows, and decision.
 - Current decision model: MoE `q36-35b-a3b-nvfp4`.
 - Canonical paged MoE md5: `8cb0ce23777bf55f92f63d0292c756b0`.
 - Canonical dense md5: `5951a5b4d624ce891e22ab5fca9bc439`.
-- Current tested source: DGX mirror `14fd69f1e feat(cuda): gate BF16 cuBLAS F32 output`.
-- Latest attempt: Phase70.
-- Latest decision: keep `LLAMA_BF16_CUBLAS_F32_OUT=1` default-off. It is
-  correctness-clean but not serving-safe enough to default on.
+- Current tested source: DGX mirror
+  `14fd69f1e feat(cuda): gate BF16 cuBLAS F32 output`.
+- Latest attempt: Phase71.
+- Latest decision: keep shipped GDN M5 default as-is. It still beats
+  sequential-disabled and serial-chunked GDN, and forced `GDN_TC=4` is within
+  noise of the current default. Do not reopen smaller GDN kernel reorders on
+  GB10.
 
 ## Current Serving Record
 
@@ -51,6 +54,51 @@ Decision:
   widened the vLLM decode gap at `n=32` and `n=128`.
 
 ## Attempt Log
+
+### Phase71: GDN Tensor-Core Revalidation
+
+- Date: 2026-07-01.
+- Plan: `docs/superpowers/plans/2026-07-01-gdn-tc-revalidation-phase71.md`.
+- Artifact:
+  `/home/mudler/bench/phase71_gdn_tc_revalidation/20260701_153425`.
+- Source: `14fd69f1e feat(cuda): gate BF16 cuBLAS F32 output`.
+- Shape: MoE prefill, `PP=512,2048`, `TG=4`, `B=32`, `CTX=131072`.
+
+Canonical gates:
+
+| gate | env | MoE md5 | dense md5 | `GATED_DELTA_NET` | `MUL_MAT` | `MUL_MAT_ID` |
+|------|-----|---------|-----------|-------------------|-----------|--------------|
+| default | none | `8cb0ce23777bf55f92f63d0292c756b0` | `5951a5b4d624ce891e22ab5fca9bc439` | `46/46` | `1146/1146` | `806/806` |
+| sequential-disabled | `GDN_CHUNK_MIN=2147483647` | `8cb0ce23777bf55f92f63d0292c756b0` | `5951a5b4d624ce891e22ab5fca9bc439` | `46/46` | not run | not run |
+| serial-chunked | `GDN_TC=0 GDN_CHUNK_MIN=64` | `8cb0ce23777bf55f92f63d0292c756b0` | `5951a5b4d624ce891e22ab5fca9bc439` | `46/46` | not run | not run |
+| forced M5 | `GDN_TC=4 GDN_CHUNK_MIN=64` | `8cb0ce23777bf55f92f63d0292c756b0` | `5951a5b4d624ce891e22ab5fca9bc439` | `46/46` | not run | not run |
+
+MoE prefill:
+
+| arm | npp | S_PP t/s | T_PP s | S_TG t/s | total S t/s |
+|-----|----:|---------:|-------:|---------:|------------:|
+| default | `512` | `2313.57` | `7.082` | `401.82` | `2231.28` |
+| sequential-disabled | `512` | `2198.28` | `7.453` | `392.50` | `2122.58` |
+| serial-chunked | `512` | `1787.49` | `9.166` | `396.23` | `1740.12` |
+| forced M5 | `512` | `2323.18` | `7.052` | `393.62` | `2238.13` |
+| default | `2048` | `2422.88` | `27.049` | `389.91` | `2398.50` |
+| sequential-disabled | `2048` | `2361.22` | `27.755` | `386.08` | `2337.91` |
+| serial-chunked | `2048` | `1699.77` | `38.556` | `389.48` | `1688.69` |
+| forced M5 | `2048` | `2420.52` | `27.075` | `388.72` | `2396.11` |
+
+Ratios:
+
+| npp | default/sequential S_PP | default/serial S_PP | forced/default S_PP |
+|-----|------------------------:|---------------------:|--------------------:|
+| `512` | `1.0524` | `1.2943` | `1.0042` |
+| `2048` | `1.0261` | `1.4254` | `0.9990` |
+
+Decision:
+
+- Keep shipped GDN M5 default behavior.
+- Do not reopen smaller GDN C32/QS/global-Ai32/kernel-reorder work on GB10.
+- The stale "two-Gram PoC before M5 exists" framing is superseded by the
+  existing `0047` M5 implementation and this revalidation.
 
 ### Phase70: BF16 F32 Output Broader Serving
 
