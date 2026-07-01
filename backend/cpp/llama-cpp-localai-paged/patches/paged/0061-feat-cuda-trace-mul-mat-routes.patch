@@ -1,0 +1,345 @@
+From 486c28c63d5297afd06e5a2bdbd4fb89cad749cd Mon Sep 17 00:00:00 2001
+From: Ettore Di Giacinto <mudler@localai.io>
+Date: Wed, 1 Jul 2026 05:49:12 +0000
+Subject: [PATCH] feat(cuda): trace mul mat routes
+
+Add a default-off LLAMA_MUL_MAT_ROUTE_TRACE diagnostic for regular MUL_MAT dispatch routes.
+
+The trace classifies projection-heavy calls without changing dispatch behavior.
+
+Assisted-by: Codex:gpt-5
+---
+ ggml/src/ggml-cuda/ggml-cuda.cu      |  44 +++++++++-
+ ggml/src/ggml-cuda/mmq-shape-trace.h | 117 +++++++++++++++++++++++++++
+ tests/test-cuda-mmq-shape-trace.cpp  |  85 +++++++++++++++++++
+ 3 files changed, 244 insertions(+), 2 deletions(-)
+
+diff --git a/ggml/src/ggml-cuda/ggml-cuda.cu b/ggml/src/ggml-cuda/ggml-cuda.cu
+index a1754df39..cd34aff13 100644
+--- a/ggml/src/ggml-cuda/ggml-cuda.cu
++++ b/ggml/src/ggml-cuda/ggml-cuda.cu
+@@ -2580,6 +2580,32 @@ static bool ggml_cuda_should_fuse_mul_mat_vec_q(const ggml_tensor * tensor) {
+     return use_mul_mat_vec_q;
+ }
+ 
++static inline int ggml_cuda_mul_mat_route_trace_limit() {
++    static const int value = []() {
++        const char * s = getenv("LLAMA_MUL_MAT_ROUTE_TRACE");
++        return s ? atoi(s) : 0;
++    }();
++
++    return value;
++}
++
++static inline void ggml_cuda_mul_mat_route_trace(const ggml_cuda_mul_mat_route_shape & shape) {
++    const int trace_limit = ggml_cuda_mul_mat_route_trace_limit();
++    if (trace_limit <= 0) {
++        return;
++    }
++
++    static std::atomic<int> trace_count{0};
++    const int trace_idx = trace_count.fetch_add(1, std::memory_order_relaxed);
++    if (trace_idx >= trace_limit) {
++        return;
++    }
++
++    char buf[256];
++    ggml_cuda_mul_mat_route_shape_format(buf, sizeof(buf), shape);
++    fprintf(stderr, "[LLAMA_MUL_MAT_ROUTE] %s\n", buf);
++}
++
+ static void ggml_cuda_mul_mat(ggml_backend_cuda_context & ctx, const ggml_tensor * src0, const ggml_tensor * src1, ggml_tensor * dst) {
+     const bool split = ggml_backend_buft_is_cuda_split(src0->buffer->buft);
+ 
+@@ -2591,6 +2617,10 @@ static void ggml_cuda_mul_mat(ggml_backend_cuda_context & ctx, const ggml_tensor
+     if (!split) {
+         const int cc_fp4 = ggml_cuda_info().devices[ggml_cuda_get_device()].cc;
+         if (ggml_cuda_fp4_prefill_should_engage(src0, src1, dst, cc_fp4)) {
++            ggml_cuda_mul_mat_route_trace(ggml_cuda_mul_mat_route_shape_make(
++                src0->type, dst->ne[1], src1->ne[1], src1->ne[2], src1->ne[3], split,
++                /*use_vec_f=*/false, /*use_mat_f=*/false, /*use_vec_q=*/false, /*use_mmq=*/false,
++                /*use_batched_cublas=*/false, /*use_fp4_prefill=*/true, /*use_fwht=*/false));
+             ggml_cuda_mul_mat_fp4_large_m(ctx, src0, src1, dst);
+             return;
+         }
+@@ -2654,12 +2684,23 @@ static void ggml_cuda_mul_mat(ggml_backend_cuda_context & ctx, const ggml_tensor
+     bool use_batched_cublas_f16  = src0->type == GGML_TYPE_F16 && (src1->type == GGML_TYPE_F16 || !any_gpus_with_slow_fp16);
+     bool use_batched_cublas_bf16 = src0->type == GGML_TYPE_BF16 && bf16_mma_hardware_available(cc);
+     bool use_batched_cublas_f32  = src0->type == GGML_TYPE_F32;
++    bool use_batched_cublas      = !split && (use_batched_cublas_f16 || use_batched_cublas_bf16 || use_batched_cublas_f32)
++        && !ggml_is_transposed(src0) && !ggml_is_transposed(src1) && src1->ne[2]*src1->ne[3] > 1;
+ 
+     const int32_t hint = ggml_get_op_params_i32(dst, 1);
+     if (hint == GGML_HINT_SRC0_IS_HADAMARD && !split && ggml_cuda_op_fwht(ctx, src1, dst)) {
++        ggml_cuda_mul_mat_route_trace(ggml_cuda_mul_mat_route_shape_make(
++            src0->type, dst->ne[1], src1->ne[1], src1->ne[2], src1->ne[3], split,
++            use_mul_mat_vec_f, use_mul_mat_f, use_mul_mat_vec_q, use_mul_mat_q,
++            use_batched_cublas, /*use_fp4_prefill=*/false, /*use_fwht=*/true));
+         return;
+     }
+ 
++    ggml_cuda_mul_mat_route_trace(ggml_cuda_mul_mat_route_shape_make(
++        src0->type, dst->ne[1], src1->ne[1], src1->ne[2], src1->ne[3], split,
++        use_mul_mat_vec_f, use_mul_mat_f, use_mul_mat_vec_q, use_mul_mat_q,
++        use_batched_cublas, /*use_fp4_prefill=*/false, /*use_fwht=*/false));
++
+     if (!split && use_mul_mat_vec_f) {
+         // the custom F16 vector kernel can be used over batched cuBLAS GEMM
+         // but this is only faster for GPUs without tensor cores or with a thin src0 matrix (particularly KQV in attention)
+@@ -2670,8 +2711,7 @@ static void ggml_cuda_mul_mat(ggml_backend_cuda_context & ctx, const ggml_tensor
+         ggml_cuda_mul_mat_vec_q(ctx, src0, src1, nullptr, dst);
+     } else if (!split && use_mul_mat_q) {
+         ggml_cuda_mul_mat_q(ctx, src0, src1, nullptr, dst);
+-    } else if (!split && (use_batched_cublas_f16 || use_batched_cublas_bf16 || use_batched_cublas_f32)
+-        && !ggml_is_transposed(src0) && !ggml_is_transposed(src1) && src1->ne[2]*src1->ne[3] > 1) {
++    } else if (use_batched_cublas) {
+         // general KQ + KQV multi-batch without FlashAttention
+         ggml_cuda_mul_mat_batched_cublas(ctx, src0, src1, dst);
+     } else if (use_mul_mat_vec_f) {
+diff --git a/ggml/src/ggml-cuda/mmq-shape-trace.h b/ggml/src/ggml-cuda/mmq-shape-trace.h
+index da234a302..8ac373fd9 100644
+--- a/ggml/src/ggml-cuda/mmq-shape-trace.h
++++ b/ggml/src/ggml-cuda/mmq-shape-trace.h
+@@ -71,6 +71,37 @@ struct ggml_cuda_mmid_route_shape {
+     bool host_sync;
+ };
+ 
++enum ggml_cuda_mul_mat_route {
++    GGML_CUDA_MUL_MAT_ROUTE_FP4_PREFILL,
++    GGML_CUDA_MUL_MAT_ROUTE_FWHT,
++    GGML_CUDA_MUL_MAT_ROUTE_VEC_F,
++    GGML_CUDA_MUL_MAT_ROUTE_MAT_F,
++    GGML_CUDA_MUL_MAT_ROUTE_VEC_Q,
++    GGML_CUDA_MUL_MAT_ROUTE_MMQ,
++    GGML_CUDA_MUL_MAT_ROUTE_BATCHED_CUBLAS,
++    GGML_CUDA_MUL_MAT_ROUTE_OP_VEC_F,
++    GGML_CUDA_MUL_MAT_ROUTE_OP_VEC_Q,
++    GGML_CUDA_MUL_MAT_ROUTE_OP_MMQ,
++    GGML_CUDA_MUL_MAT_ROUTE_OP_CUBLAS,
++};
++
++struct ggml_cuda_mul_mat_route_shape {
++    ggml_cuda_mul_mat_route route;
++    int type;
++    int64_t ne1;
++    int64_t ne11;
++    int64_t ne12;
++    int64_t ne13;
++    bool split;
++    bool use_vec_f;
++    bool use_mat_f;
++    bool use_vec_q;
++    bool use_mmq;
++    bool use_batched_cublas;
++    bool use_fp4_prefill;
++    bool use_fwht;
++};
++
+ static inline const char * ggml_cuda_mmid_route_name(const ggml_cuda_mmid_route route) {
+     switch (route) {
+         case GGML_CUDA_MMID_ROUTE_MMVQ:     return "mmvq";
+@@ -83,6 +114,24 @@ static inline const char * ggml_cuda_mmid_route_name(const ggml_cuda_mmid_route
+     return "unknown";
+ }
+ 
++static inline const char * ggml_cuda_mul_mat_route_name(const ggml_cuda_mul_mat_route route) {
++    switch (route) {
++        case GGML_CUDA_MUL_MAT_ROUTE_FP4_PREFILL:    return "fp4_prefill";
++        case GGML_CUDA_MUL_MAT_ROUTE_FWHT:           return "fwht";
++        case GGML_CUDA_MUL_MAT_ROUTE_VEC_F:          return "vec_f";
++        case GGML_CUDA_MUL_MAT_ROUTE_MAT_F:          return "mat_f";
++        case GGML_CUDA_MUL_MAT_ROUTE_VEC_Q:          return "vec_q";
++        case GGML_CUDA_MUL_MAT_ROUTE_MMQ:            return "mmq";
++        case GGML_CUDA_MUL_MAT_ROUTE_BATCHED_CUBLAS: return "batched_cublas";
++        case GGML_CUDA_MUL_MAT_ROUTE_OP_VEC_F:       return "op_vec_f";
++        case GGML_CUDA_MUL_MAT_ROUTE_OP_VEC_Q:       return "op_vec_q";
++        case GGML_CUDA_MUL_MAT_ROUTE_OP_MMQ:         return "op_mmq";
++        case GGML_CUDA_MUL_MAT_ROUTE_OP_CUBLAS:      return "op_cublas";
++    }
++
++    return "unknown";
++}
++
+ static inline ggml_cuda_mmq_shape ggml_cuda_mmq_shape_make(
+         const int type, const bool is_moe, const int64_t ncols_dst, const int64_t nchannels_x,
+         const int64_t ncols_max, const int mmq_x_max, const int mmq_x_lim, const int mmq_x_best,
+@@ -110,6 +159,52 @@ static inline ggml_cuda_mmq_shape ggml_cuda_mmq_shape_make(
+     };
+ }
+ 
++static inline ggml_cuda_mul_mat_route_shape ggml_cuda_mul_mat_route_shape_make(
++        const int type, const int64_t ne1, const int64_t ne11, const int64_t ne12, const int64_t ne13,
++        const bool split, const bool use_vec_f, const bool use_mat_f, const bool use_vec_q,
++        const bool use_mmq, const bool use_batched_cublas, const bool use_fp4_prefill,
++        const bool use_fwht) {
++    ggml_cuda_mul_mat_route route = GGML_CUDA_MUL_MAT_ROUTE_OP_CUBLAS;
++    if (use_fp4_prefill) {
++        route = GGML_CUDA_MUL_MAT_ROUTE_FP4_PREFILL;
++    } else if (use_fwht) {
++        route = GGML_CUDA_MUL_MAT_ROUTE_FWHT;
++    } else if (!split && use_vec_f) {
++        route = GGML_CUDA_MUL_MAT_ROUTE_VEC_F;
++    } else if (!split && use_mat_f) {
++        route = GGML_CUDA_MUL_MAT_ROUTE_MAT_F;
++    } else if (!split && use_vec_q) {
++        route = GGML_CUDA_MUL_MAT_ROUTE_VEC_Q;
++    } else if (!split && use_mmq) {
++        route = GGML_CUDA_MUL_MAT_ROUTE_MMQ;
++    } else if (!split && use_batched_cublas) {
++        route = GGML_CUDA_MUL_MAT_ROUTE_BATCHED_CUBLAS;
++    } else if (use_vec_f) {
++        route = GGML_CUDA_MUL_MAT_ROUTE_OP_VEC_F;
++    } else if (use_vec_q) {
++        route = GGML_CUDA_MUL_MAT_ROUTE_OP_VEC_Q;
++    } else if (use_mmq) {
++        route = GGML_CUDA_MUL_MAT_ROUTE_OP_MMQ;
++    }
++
++    return {
++        route,
++        type,
++        ne1,
++        ne11,
++        ne12,
++        ne13,
++        split,
++        use_vec_f,
++        use_mat_f,
++        use_vec_q,
++        use_mmq,
++        use_batched_cublas,
++        use_fp4_prefill,
++        use_fwht,
++    };
++}
++
+ static inline ggml_cuda_mmid_route_shape ggml_cuda_mmid_route_shape_make(
+         const int type, const int64_t ne2, const int64_t ne12, const int64_t n_experts,
+         const int mmvq_max, const bool use_mmq, const bool use_mmf, const bool is_amd,
+@@ -260,6 +355,28 @@ static inline int ggml_cuda_mmid_route_shape_format(
+         shape.is_quantized ? 1 : 0);
+ }
+ 
++static inline int ggml_cuda_mul_mat_route_shape_format(
++        char * buf, const size_t size, const ggml_cuda_mul_mat_route_shape & shape) {
++    return std::snprintf(buf, size,
++        "route=%s type=%d ne1=%lld ne11=%lld ne12=%lld ne13=%lld split=%d "
++        "use_vec_f=%d use_mat_f=%d use_vec_q=%d use_mmq=%d use_batched_cublas=%d "
++        "use_fp4_prefill=%d use_fwht=%d",
++        ggml_cuda_mul_mat_route_name(shape.route),
++        shape.type,
++        (long long) shape.ne1,
++        (long long) shape.ne11,
++        (long long) shape.ne12,
++        (long long) shape.ne13,
++        shape.split ? 1 : 0,
++        shape.use_vec_f ? 1 : 0,
++        shape.use_mat_f ? 1 : 0,
++        shape.use_vec_q ? 1 : 0,
++        shape.use_mmq ? 1 : 0,
++        shape.use_batched_cublas ? 1 : 0,
++        shape.use_fp4_prefill ? 1 : 0,
++        shape.use_fwht ? 1 : 0);
++}
++
+ static inline int ggml_cuda_mmq_small_m_shape_format(
+         char * buf, const size_t size, const ggml_cuda_mmq_small_m_shape & shape) {
+     return std::snprintf(buf, size,
+diff --git a/tests/test-cuda-mmq-shape-trace.cpp b/tests/test-cuda-mmq-shape-trace.cpp
+index e190cf1ac..2bd41d1d8 100644
+--- a/tests/test-cuda-mmq-shape-trace.cpp
++++ b/tests/test-cuda-mmq-shape-trace.cpp
+@@ -200,5 +200,90 @@ int main() {
+     require(std::strstr(buf, "use_mmq=1") != nullptr, "MMID trace includes MMQ predicate");
+     require(std::strstr(buf, "use_mmf=1") != nullptr, "MMID trace includes MMF predicate");
+ 
++    const ggml_cuda_mul_mat_route_shape mat_f = ggml_cuda_mul_mat_route_shape_make(
++        /* type */ 30,
++        /* ne1 */ 128,
++        /* ne11 */ 128,
++        /* ne12 */ 1,
++        /* ne13 */ 1,
++        /* split */ false,
++        /* use_vec_f */ false,
++        /* use_mat_f */ true,
++        /* use_vec_q */ false,
++        /* use_mmq */ false,
++        /* use_batched_cublas */ false,
++        /* use_fp4_prefill */ false,
++        /* use_fwht */ false);
++
++    require(mat_f.route == GGML_CUDA_MUL_MAT_ROUTE_MAT_F, "regular MUL_MAT prefers direct mat_f when available");
++    require(!mat_f.split, "regular MUL_MAT trace records split flag");
++
++    const ggml_cuda_mul_mat_route_shape batched = ggml_cuda_mul_mat_route_shape_make(
++        /* type */ 31,
++        /* ne1 */ 128,
++        /* ne11 */ 128,
++        /* ne12 */ 4,
++        /* ne13 */ 1,
++        /* split */ false,
++        /* use_vec_f */ false,
++        /* use_mat_f */ false,
++        /* use_vec_q */ false,
++        /* use_mmq */ false,
++        /* use_batched_cublas */ true,
++        /* use_fp4_prefill */ false,
++        /* use_fwht */ false);
++
++    require(batched.route == GGML_CUDA_MUL_MAT_ROUTE_BATCHED_CUBLAS,
++        "regular MUL_MAT records batched cuBLAS route");
++
++    const ggml_cuda_mul_mat_route_shape op_cublas = ggml_cuda_mul_mat_route_shape_make(
++        /* type */ 0,
++        /* ne1 */ 16,
++        /* ne11 */ 16,
++        /* ne12 */ 1,
++        /* ne13 */ 1,
++        /* split */ true,
++        /* use_vec_f */ false,
++        /* use_mat_f */ false,
++        /* use_vec_q */ false,
++        /* use_mmq */ false,
++        /* use_batched_cublas */ false,
++        /* use_fp4_prefill */ false,
++        /* use_fwht */ false);
++
++    require(op_cublas.route == GGML_CUDA_MUL_MAT_ROUTE_OP_CUBLAS,
++        "regular MUL_MAT fallback records op cublas route");
++
++    const ggml_cuda_mul_mat_route_shape fp4_prefill = ggml_cuda_mul_mat_route_shape_make(
++        /* type */ 39,
++        /* ne1 */ 512,
++        /* ne11 */ 512,
++        /* ne12 */ 1,
++        /* ne13 */ 1,
++        /* split */ false,
++        /* use_vec_f */ false,
++        /* use_mat_f */ false,
++        /* use_vec_q */ false,
++        /* use_mmq */ true,
++        /* use_batched_cublas */ false,
++        /* use_fp4_prefill */ true,
++        /* use_fwht */ false);
++
++    require(fp4_prefill.route == GGML_CUDA_MUL_MAT_ROUTE_FP4_PREFILL,
++        "regular MUL_MAT records native FP4 prefill route before MMQ");
++
++    const int mul_mat_route_n = ggml_cuda_mul_mat_route_shape_format(buf, sizeof(buf), mat_f);
++
++    require(mul_mat_route_n > 0, "regular MUL_MAT route format returns byte count");
++    require(std::strstr(buf, "route=mat_f") != nullptr, "regular MUL_MAT trace includes route name");
++    require(std::strstr(buf, "type=30") != nullptr, "regular MUL_MAT trace includes type");
++    require(std::strstr(buf, "ne1=128") != nullptr, "regular MUL_MAT trace includes output columns");
++    require(std::strstr(buf, "ne11=128") != nullptr, "regular MUL_MAT trace includes src1 columns");
++    require(std::strstr(buf, "ne12=1") != nullptr, "regular MUL_MAT trace includes src1 batch dim");
++    require(std::strstr(buf, "split=0") != nullptr, "regular MUL_MAT trace includes split flag");
++    require(std::strstr(buf, "use_mat_f=1") != nullptr, "regular MUL_MAT trace includes mat_f predicate");
++    require(std::strstr(buf, "use_batched_cublas=0") != nullptr,
++        "regular MUL_MAT trace includes batched cuBLAS predicate");
++
+     return 0;
+ }
+-- 
+2.43.0
+

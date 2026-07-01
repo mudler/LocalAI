@@ -2038,3 +2038,69 @@ Decision:
   grouped MMQ above that.
 - Do not scope the next parity phase around avoiding fallback dispatch. Scope it
   around grouped-MMQ small-M kernel partitioning or another measured bucket.
+
+## Phase 35 Regular MUL_MAT Route Trace
+
+Phase 35 added patch `0061`, a default-off `LLAMA_MUL_MAT_ROUTE_TRACE=<n>`
+diagnostic around regular `MUL_MAT` dispatch. It does not alter routing; it logs
+the existing route decision for projection-heavy calls.
+
+Artifact:
+
+- `/home/mudler/bench/phase35_mul_mat_route_trace/20260701_074359`
+
+Run:
+
+- Fork commit: `/home/mudler/_git/llama.cpp` `486c28c63`
+- DGX mirror commit: `dgx:~/llama-phase6-source` `18f7ad005`
+- Env: `LLAMA_KV_PAGED=1 LLAMA_MOE_FORCE_GRAPHS=1 LLAMA_MUL_MAT_ROUTE_TRACE=8192`
+- Workload: staggered n128 `llama-server`, `GEN=64`
+
+Route summary:
+
+| route | count |
+|-------|-------|
+| `mat_f` | 2888 |
+| `op_cublas` | 2292 |
+| `mmq` | 1328 |
+| `vec_q` | 1214 |
+| `vec_f` | 470 |
+
+Type summary:
+
+| type | meaning | count |
+|------|---------|-------|
+| 30 | BF16 | 3965 |
+| 40 | NVFP4 | 2542 |
+| 0 | F32 | 1685 |
+
+Top BF16 route/shape counts:
+
+| route | shape | count |
+|-------|-------|-------|
+| `mat_f` | `ne1=12 ne11=12 ne12=1 ne13=1` | 775 |
+| `op_cublas` | `ne1=18 ne11=18 ne12=1 ne13=1` | 760 |
+| `mat_f` | `ne1=8 ne11=8 ne12=1 ne13=1` | 570 |
+| `op_cublas` | `ne1=36 ne11=36 ne12=1 ne13=1` | 380 |
+| `mat_f` | `ne1=2 ne11=2 ne12=1 ne13=1` | 380 |
+
+Gates:
+
+| check | status | actual |
+|-------|--------|--------|
+| default-off MoE md5 | ok | `8cb0ce23777bf55f92f63d0292c756b0` |
+| default-off dense md5 | ok | `5951a5b4d624ce891e22ab5fca9bc439` |
+| trace-enabled MoE md5 | ok | `8cb0ce23777bf55f92f63d0292c756b0` |
+| trace-enabled dense md5 | ok | `5951a5b4d624ce891e22ab5fca9bc439` |
+| post-serving MoE md5 | ok | `8cb0ce23777bf55f92f63d0292c756b0` |
+| post-serving dense md5 | ok | `5951a5b4d624ce891e22ab5fca9bc439` |
+| `MUL_MAT` | ok | `1146/1146` in all three gate runs |
+| `MUL_MAT_ID` | ok | `806/806` in all three gate runs |
+
+Decision:
+
+- The first 8192 regular `MUL_MAT` calls in n128 serving are dominated by BF16
+  direct `mat_f` and generic `op_cublas`, not batched cuBLAS.
+- Next projection work should either add a cuBLAS/MMF subroute trace or test a
+  bounded BF16 route policy for the `op_cublas` shapes. Do not chase batched
+  cuBLAS for this measured serving slice.

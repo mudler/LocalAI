@@ -898,6 +898,39 @@ serving might fall into the per-expert host-sync fallback is refuted for this
 stack. The remaining MoE route issue is grouped-MMQ small-M efficiency, not
 fallback dispatch avoidance.
 
+### Phase 35 regular MUL_MAT route trace
+
+Phase 35 added patch `0061`, default-off `LLAMA_MUL_MAT_ROUTE_TRACE=<n>`, to
+classify regular `MUL_MAT` routes for the `bf16-proj` serving bucket. Artifact:
+`/home/mudler/bench/phase35_mul_mat_route_trace/20260701_074359`.
+
+Default-off, trace-enabled, and post-serving gates were all bit-exact: MoE
+`8cb0ce23777bf55f92f63d0292c756b0`, dense
+`5951a5b4d624ce891e22ab5fca9bc439`, `MUL_MAT` `1146/1146`, and `MUL_MAT_ID`
+`806/806`.
+
+Live n128 serving with `LLAMA_MUL_MAT_ROUTE_TRACE=8192` produced:
+
+| route | count |
+|-------|-------|
+| `mat_f` | 2888 |
+| `op_cublas` | 2292 |
+| `mmq` | 1328 |
+| `vec_q` | 1214 |
+| `vec_f` | 470 |
+
+The trace was BF16-heavy (`type=30`: 3965 calls), mostly `mat_f=2485` and
+`op_cublas=1330`. Top BF16 shapes were `mat_f ne1=12` (775),
+`op_cublas ne1=18` (760), and `mat_f ne1=8` (570); `ne12=ne13=1` throughout the
+top shapes, so batched cuBLAS is not the measured target.
+
+Lever implication: the next projection phase should add cuBLAS/MMF subroute
+detail or test a narrow BF16 route policy for the generic `op_cublas` shapes.
+Do not spend time on batched cuBLAS for this n128 serving slice. If MTP is enabled
+in a future serving configuration, first isolate `mtp_eh_proj` / shared-head
+projection with `llama-debug --tensor-filter 'mtp_|h_nextn|nextn|ffn_|attn_'`
+before optimizing ordinary decoder projections.
+
 Relevant files (all absolute): `/home/mudler/_git/LocalAI/.claude/worktrees/feat+paged-attention/backend/cpp/llama-cpp-localai-paged/docs/{DECODE_SERVING_SCOPE.md,PREFILL_GEMM_SCOPE.md,PREFILL_GEMM_RESULTS.md,TENSORCORE_GDN_SCOPE.md,final_benchmark.csv}`, `.../README.md`, `.../patches/paged/0034-feat-paged-native-NVFP4-W4A4-FP4-MMA-large-M-prefill.patch` (P1/P2), `.../patches/paged/0042-feat-paged-fused-residual-add-RMS-norm-weight-multip.patch` (P7), `.../patches/paged/0031` (P4), `0025` (D1), `0018/0022` (D4/D5), `0009/0010` (D3/D6/D7); graph source `/home/mudler/_git/LocalAI/backend/cpp/llama-cpp-paged-dev/src/{models/qwen35moe.cpp,models/delta-net-base.cpp,llama-graph.cpp}`.
 
 ### Phase 10 GDN C32 slab update

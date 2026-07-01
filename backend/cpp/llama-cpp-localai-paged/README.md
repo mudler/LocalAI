@@ -87,7 +87,7 @@ orthogonal to the paged allocator.
 
 ---
 
-## 3. Patch series (0001-0060)
+## 3. Patch series (0001-0061)
 
 Source-only patches, with intentional numbering gaps (e.g. 0005, 0027). The
 decode-serving graph-reuse levers are 0040-0041. "Bit-exact" = greedy md5 /
@@ -218,6 +218,7 @@ These are the dominant decode levers on the Qwen3.6 hybrid models. All bit-exact
 | 0058 | **Trace MoE small-M MMQ candidates** - adds `LLAMA_MOE_MMQ_SMALL_M_TRACE=<n>` and a host-only classifier for decode-like low-density grouped-MMQ shapes (`ncols_max <= 128`, density `<=4`, `mmq_x_best <=64`). It only counts candidate calls for the next structural tile-policy A/B; no numeric branch is added. | yes (default-off, trace-enabled, and post-serving gates green: MoE `8cb0ce23`, dense `5951a5b4`, `MUL_MAT_ID` `806/806`; Phase 32 n128 trace found 4096 candidates, mostly `mmq_x_best=64/48`) |
 | 0059 | **Gate MoE small-M MMQ tile policy** - adds default-off `LLAMA_MOE_SMALL_M_TILE=<n>` to cap only classified small-M MoE grouped-MMQ calls. This was used to A/B vLLM-like smaller M blocks without changing default inference. | yes (default-off, tile16, tile8, and post-serving gates green: MoE `8cb0ce23`, dense `5951a5b4`, `MUL_MAT_ID` `806/806`; Phase 33 rejected tile16 and tile8 as slower) |
 | 0060 | **Trace MoE MMID dispatch routes** - adds default-off `LLAMA_MOE_MMID_ROUTE_TRACE=<n>` around `MUL_MAT_ID` dispatch, classifying each call as `mmvq`, `mmvf`, grouped `mmq`, `mmf`, or host-sync `fallback`. This is evidence-only instrumentation to resolve whether serving hits the per-expert host-sync fallback. | yes (default-off, trace-enabled, and post-serving gates green: MoE `8cb0ce23`, dense `5951a5b4`, `MUL_MAT_ID` `806/806`; Phase 34 n128 trace found `mmq=2776`, `mmvq=1320`, `host_sync=0/4096`) |
+| 0061 | **Trace regular MUL_MAT dispatch routes** - adds default-off `LLAMA_MUL_MAT_ROUTE_TRACE=<n>` around regular `MUL_MAT`, classifying projection-heavy calls as `vec_f`, `mat_f`, `vec_q`, `mmq`, `batched_cublas`, `op_*`, `fp4_prefill`, or `fwht`. This is evidence-only instrumentation for the `bf16-proj` serving bucket. | yes (default-off, trace-enabled, and post-serving gates green: MoE `8cb0ce23`, dense `5951a5b4`, `MUL_MAT` `1146/1146`, `MUL_MAT_ID` `806/806`; Phase 35 n128 trace found BF16 routes `mat_f=2485`, `op_cublas=1330`) |
 
 > **Dropped: patch 0026 (hybrid per-head bf16 SSM state, `ssm_bf16_tau`).** Once
 > the decode fusions (0028 recurrent-state gather-fusion + 0029 block-table cache)
@@ -683,3 +684,13 @@ trace-enabled, and post-serving gates stayed stable: MoE `8cb0ce23`, dense
 `mmq ne2=12` (1096), `mmq ne2=18` (480), and `mmvq ne2=8` (360). This refutes
 host-sync fallback as the current n128 `MUL_MAT_ID` problem; follow-up work should
 target grouped-MMQ small-M kernel partitioning or another measured bucket.
+
+Phase 35 added default-off `LLAMA_MUL_MAT_ROUTE_TRACE=<n>` as patch `0061`
+(`/home/mudler/bench/phase35_mul_mat_route_trace/20260701_074359`). Default-off,
+trace-enabled, and post-serving gates stayed stable: MoE `8cb0ce23`, dense
+`5951a5b4`, `MUL_MAT 1146/1146`, `MUL_MAT_ID 806/806`. Live n128 serving with
+trace cap 8192 produced route counts: `mat_f=2888`, `op_cublas=2292`,
+`mmq=1328`, `vec_q=1214`, `vec_f=470`. BF16 (`type=30`) dominated the trace
+with `mat_f=2485` and `op_cublas=1330`; top BF16 shapes were `mat_f ne1=12`
+(775), `op_cublas ne1=18` (760), and `mat_f ne1=8` (570). Next projection work
+should trace or optimize the BF16 `op_cublas`/`mat_f` split, not batched cuBLAS.
