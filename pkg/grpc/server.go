@@ -939,6 +939,9 @@ func StartServer(address string, model AIModel) error {
 	s := grpc.NewServer(serverOpts()...)
 	pb.RegisterBackendServer(s, &server{llm: model})
 	log.Printf("gRPC Server listening at %v", lis.Addr())
+	// Safety net: self-terminate if the LocalAI process that spawned this
+	// backend dies without running its graceful teardown (see parentwatch.go).
+	startParentDeathWatcher()
 	if err := s.Serve(lis); err != nil {
 		return err
 	}
@@ -954,6 +957,9 @@ func RunServer(address string, model AIModel) (func() error, error) {
 	s := grpc.NewServer(serverOpts()...)
 	pb.RegisterBackendServer(s, &server{llm: model})
 	log.Printf("gRPC Server listening at %v", lis.Addr())
+	// Safety net: self-terminate if the LocalAI process that spawned this
+	// backend dies without running its graceful teardown (see parentwatch.go).
+	startParentDeathWatcher()
 	if err = s.Serve(lis); err != nil {
 		return func() error {
 			return lis.Close()
