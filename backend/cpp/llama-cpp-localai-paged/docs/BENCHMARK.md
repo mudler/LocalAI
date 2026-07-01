@@ -12,12 +12,13 @@ with artifact path, gates, benchmark rows, and decision.
 - Canonical dense md5: `5951a5b4d624ce891e22ab5fca9bc439`.
 - Current tested source: DGX mirror
   `14fd69f1e feat(cuda): gate BF16 cuBLAS F32 output`.
-- Latest attempt: Phase77.
-- Latest decision: decode-only GB10 graph-node profile confirms GDN recurrence
-  is a real current decode bucket. In an isolated n=128 decode window, GDN was
-  `41.20%` of GPU kernel time and `gdn_core` alone was `38.95%`, slightly above
-  `mmq_nvfp4` (`38.26%`). This funds a default-off GDN decode A/B/PoC, with
-  md5/op gates and bucket reduction required before any merge/default change.
+- Latest attempt: Phase78.
+- Latest decision: GDN decode launch-shape env sweep did not beat the current
+  default. `GDN_NW=8 GDN_CPW=8` was correctness-clean but slower
+  (`gdn_core 1443.55 ms` vs Phase77 default `1408.33 ms`), and
+  `GDN_NW=16 GDN_CPW=4` failed the `MUL_MAT_ID` op gate. Keep the current
+  default launch shape; the next source path must be a real decode-kernel
+  structural A/B, not another `GDN_NW`/`GDN_CPW` retune.
 
 ## Current Serving Record
 
@@ -56,6 +57,41 @@ Decision:
   concurrency and widened the vLLM decode gap.
 
 ## Attempt Log
+
+### Phase78: GDN Decode Launch-Shape Sweep
+
+- Date: 2026-07-01.
+- Baseline artifact:
+  `/home/mudler/bench/phase77_moe_decode_only_profile/20260701_150134`.
+- Sweep artifacts:
+  - `/home/mudler/bench/phase78_gdn_launch_sweep/nw8_cpw8_20260701_150654`
+  - `/home/mudler/bench/phase78_gdn_launch_sweep/nw16_cpw4_20260701_150954`
+- Source baseline: `14fd69f1e feat(cuda): gate BF16 cuBLAS F32 output`.
+- Result type: env-gated launch-shape sweep only; no source change.
+- Shape: same as Phase77 decode-only graph-node profile.
+
+Result:
+
+| arm | env | gate status | GDN ms | GDN share | `gdn_core` ms | `gdn_core` share | `mmq_nvfp4` ms |
+|-----|-----|-------------|-------:|----------:|--------------:|-----------------:|---------------:|
+| Phase77 default | none | pre/post green | `1489.71` | `41.20%` | `1408.33` | `38.95%` | `1383.50` |
+| sweep `8x8` | `GDN_NW=8 GDN_CPW=8` | pre/post green | `1525.86` | `41.94%` | `1443.55` | `39.68%` | `1366.33` |
+| sweep `16x4` | `GDN_NW=16 GDN_CPW=4` | rejected | not run | not run | not run | not run | not run |
+
+Gate detail:
+
+- `8x8`: pre/post MoE md5 `8cb0ce23777bf55f92f63d0292c756b0`, dense md5
+  `5951a5b4d624ce891e22ab5fca9bc439`, `MUL_MAT 1146/1146`,
+  `MUL_MAT_ID 806/806`.
+- `16x4`: completion md5 and `MUL_MAT 1146/1146` passed, but
+  `MUL_MAT_ID` failed `805/806`; rejected before profiling.
+
+Decision:
+
+- Keep the current default `GDN_NW=16 GDN_CPW=8`.
+- Do not spend more GB10 time on launch-shape retunes without a new hypothesis.
+- The funded source path remains a structural default-off GDN decode A/B/PoC
+  that reduces the Phase77 `gdn_core` bucket, not another existing-env sweep.
 
 ### Phase77: MoE Decode-Only Graph-Node Profile
 

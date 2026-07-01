@@ -1326,3 +1326,19 @@ based on vLLM's direct recurrent/packed decode structure. The next patch must
 prove a material reduction in the Phase77 `gdn_core` bucket, keep canonical md5
 and op gates green, and avoid serving/decode throughput regression under the
 same decode-only capture shape before it can be considered for merge or default.
+
+Phase78 launch-shape sweep:
+
+- Baseline: Phase77 default launch shape (`GDN_NW=16 GDN_CPW=8`) had
+  `gdn_core 1408.33 ms` (`38.95%`) in the decode-only window.
+- `GDN_NW=8 GDN_CPW=8` artifact:
+  `/home/mudler/bench/phase78_gdn_launch_sweep/nw8_cpw8_20260701_150654`.
+  Gates were green, but `gdn_core` worsened to `1443.55 ms` (`39.68%`).
+- `GDN_NW=16 GDN_CPW=4` artifact:
+  `/home/mudler/bench/phase78_gdn_launch_sweep/nw16_cpw4_20260701_150954`.
+  Rejected before profiling: `MUL_MAT_ID` failed `805/806`.
+
+Decision: keep default `GDN_NW=16 GDN_CPW=8`. Do not retry existing
+`GDN_NW`/`GDN_CPW` launch-shape retunes unless a new profile gives a specific
+reason. The next GB10 source-funded work must be structural, default-off, and
+measured against the Phase77 decode-only `gdn_core` bucket.
