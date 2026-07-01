@@ -1342,3 +1342,35 @@ Decision: keep default `GDN_NW=16 GDN_CPW=8`. Do not retry existing
 `GDN_NW`/`GDN_CPW` launch-shape retunes unless a new profile gives a specific
 reason. The next GB10 source-funded work must be structural, default-off, and
 measured against the Phase77 decode-only `gdn_core` bucket.
+
+Phase79 BV32 decode source A/B:
+
+- Artifact root:
+  `/home/mudler/bench/phase79_gdn_decode_bv32_ab/20260701_152530`.
+- Candidate source tree:
+  `/home/mudler/llama-phase79-gdn-source`.
+- Candidate patch: one-file default-off CUDA decode-only kernel in
+  `ggml/src/ggml-cuda/gated_delta_net.cu`, enabled by `GDN_DECODE_BV32=1`.
+  Scope was `S_v=128`, one-token decode, scalar gate, final-state write-back.
+- Candidate build completed for `llama-completion`, `llama-batched-bench`,
+  `test-backend-ops`, and `llama-server`.
+- Safety gates were green for the candidate default and opt-in paths:
+  MoE md5 `8cb0ce23`, dense md5 `5951a5b4`, `MUL_MAT 1146/1146`,
+  `MUL_MAT_ID 806/806`.
+- A/B baseline post-gate initially failed `MUL_MAT 1145/1146` on a q4_1 case
+  after profiling, but immediate retry in `A_baseline/gate_post_retry` was
+  green; treat the first failure as a gate hiccup, not as accepted evidence.
+
+Result:
+
+| arm | env | GDN ms | `gdn_core` ms | `gdn_core` launches | `gdn_core`/launch |
+|-----|-----|-------:|--------------:|--------------------:|------------------:|
+| baseline | none | `1493.14` | `1411.46` | `600` | `2.352 ms` |
+| BV32 | `GDN_DECODE_BV32=1` | `1502.89` | `1426.17` | `570` | `2.502 ms` |
+
+Decision: reject the BV32 decode topology. It passed md5/op gates but worsened
+normalized `gdn_core` by about `6.4%` per launch and increased the GDN macro
+bucket. Do not carry this source patch forward. The next GDN source hypothesis
+should target recurrent-state precision/traffic or another structural delta
+from vLLM; reduced-precision recurrent state is promising but invasive and needs
+a separate scope.

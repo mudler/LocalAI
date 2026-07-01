@@ -12,13 +12,13 @@ with artifact path, gates, benchmark rows, and decision.
 - Canonical dense md5: `5951a5b4d624ce891e22ab5fca9bc439`.
 - Current tested source: DGX mirror
   `14fd69f1e feat(cuda): gate BF16 cuBLAS F32 output`.
-- Latest attempt: Phase78.
-- Latest decision: GDN decode launch-shape env sweep did not beat the current
-  default. `GDN_NW=8 GDN_CPW=8` was correctness-clean but slower
-  (`gdn_core 1443.55 ms` vs Phase77 default `1408.33 ms`), and
-  `GDN_NW=16 GDN_CPW=4` failed the `MUL_MAT_ID` op gate. Keep the current
-  default launch shape; the next source path must be a real decode-kernel
-  structural A/B, not another `GDN_NW`/`GDN_CPW` retune.
+- Latest attempt: Phase79.
+- Latest decision: default-off source A/B `GDN_DECODE_BV32=1` is rejected.
+  It kept canonical md5 and op gates green, but worsened normalized
+  `gdn_core` from `2.352 ms/launch` to `2.502 ms/launch` (`+6.4%`) and did
+  not reduce the GDN macro bucket. Do not carry the BV32 decode topology patch
+  forward; the next GDN source path should target state precision/traffic or a
+  different structural hypothesis.
 
 ## Current Serving Record
 
@@ -57,6 +57,64 @@ Decision:
   concurrency and widened the vLLM decode gap.
 
 ## Attempt Log
+
+### Phase79: GDN Decode BV32 Source A/B
+
+- Date: 2026-07-01.
+- Artifact root:
+  `/home/mudler/bench/phase79_gdn_decode_bv32_ab/20260701_152530`.
+- Arms:
+  - `A_baseline`: `/home/mudler/llama-phase6-source`, default source
+    `14fd69f1e feat(cuda): gate BF16 cuBLAS F32 output`.
+  - `B_bv32`: `/home/mudler/llama-phase79-gdn-source`, one-file default-off
+    source patch in `ggml/src/ggml-cuda/gated_delta_net.cu`, enabled with
+    `GDN_DECODE_BV32=1`.
+- Result type: source A/B of a decode-only `S_v=128`, `n_tokens=1`,
+  scalar-gate smaller-V-tile kernel inspired by vLLM's packed decode topology.
+- Shape: same as Phase77 decode-only graph-node profile.
+- Build: candidate CUDA build completed for `llama-completion`,
+  `llama-batched-bench`, `test-backend-ops`, and `llama-server`.
+
+Gate detail:
+
+- Candidate default gates before profiling were green: MoE md5
+  `8cb0ce23777bf55f92f63d0292c756b0`, dense md5
+  `5951a5b4d624ce891e22ab5fca9bc439`, `MUL_MAT 1146/1146`,
+  `MUL_MAT_ID 806/806`.
+- Candidate opt-in gates before the A/B were green with `GDN_DECODE_BV32=1`:
+  same md5 values, `MUL_MAT 1146/1146`, `MUL_MAT_ID 806/806`.
+- A/B baseline pre-gates were green. Baseline post-gate first run hit a
+  transient `MUL_MAT 1145/1146` failure on
+  `MUL_MAT(type_a=q4_1,type_b=f32,m=16,n=1,k=256,...)`; immediate retry at
+  `A_baseline/gate_post_retry` was green for md5, `MUL_MAT 1146/1146`, and
+  `MUL_MAT_ID 806/806`.
+- `B_bv32` pre/post gates were green with `GDN_DECODE_BV32=1`.
+
+Capture:
+
+| arm | active slots | depth start | depth mid | `gdn_core` launches |
+|-----|-------------:|------------:|----------:|--------------------:|
+| `A_baseline` | `128` | `67` | `89` | `600` |
+| `B_bv32` | `128` | `72` | `93` | `570` |
+
+Result:
+
+| arm | env | total kernel s | GDN ms | GDN share | `gdn_core` ms | `gdn_core`/launch | `mmq_nvfp4` ms |
+|-----|-----|---------------:|-------:|----------:|--------------:|------------------:|---------------:|
+| `A_baseline` | none | `3.6274` | `1493.14` | `41.16%` | `1411.46` | `2.352` | `1392.60` |
+| `B_bv32` | `GDN_DECODE_BV32=1` | `3.5739` | `1502.89` | `42.05%` | `1426.17` | `2.502` | `1363.65` |
+
+Decision:
+
+- Reject the BV32 decode source patch.
+- Although all safety gates passed, normalized `gdn_core` worsened by about
+  `6.4%` per launch and the GDN macro bucket increased.
+- Lower total kernel time in the candidate is not accepted as a win because the
+  capture contains fewer graph-node launches (`570` vs `600` `gdn_core`), while
+  the per-launch GDN core cost is worse.
+- Do not retry smaller V-tile decode topology without a new profile-level
+  reason. The next GDN source hypothesis should attack recurrent-state
+  precision/traffic or another structural difference from vLLM.
 
 ### Phase78: GDN Decode Launch-Shape Sweep
 
