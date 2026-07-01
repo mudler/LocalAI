@@ -1488,6 +1488,36 @@ lever. Llama min32 is still `0.560x` vLLM aggregate, `0.430x` vLLM prefill,
 `0.673x` vLLM decode aggregate, and `2.415x` slower on mean TTFT. Keep the
 scheduler knob opt-in and return parity work to the prefill / MoE compute gap.
 
+### Phase 60 current W4A16 prefill profile
+
+Phase60 re-profiled the current W4A16 grouped MoE prefill path after the
+Phase1-5 W4A16 work. Artifact:
+`/home/mudler/bench/phase60_w4a16_current_profile/20260701_104915`.
+
+Pre/post md5 and op gates stayed green: MoE
+`8cb0ce23777bf55f92f63d0292c756b0`, dense
+`5951a5b4d624ce891e22ab5fca9bc439`, `MUL_MAT` `1146/1146`, and `MUL_MAT_ID`
+`806/806`.
+
+MoE prefill A/B (`npl=32`, `ntg=4`) still rejects W4A16 as an incremental
+parity path:
+
+| path | npp512 S_PP | npp2048 S_PP |
+|------|-------------|--------------|
+| default FP4-MMQ | `2327.69` | `2423.20` |
+| forced W4A16 | `1451.00` | `1482.76` |
+
+At `npp=512`, default MMQ spends `2.712s` (`39.2%`) in its main
+`mul_mat_q<nvfp4,128>` bucket. Forced W4A16 spends `4.142s` (`42.5%`) in
+`w4a16_grouped_kernel<32,128,1,4,2>`, plus `1.094s` (`11.2%`) in
+`k_get_rows_float<float,float>` sorted activation gathers and `0.517s` (`5.3%`)
+in `w4a16_cast_act_f32_bf16`.
+
+Decision: do not add another W4A16 micro-patch. Cast elimination alone cannot
+close a `37-39%` S_PP loss, and the dominant loss is the grouped kernel body
+plus sorted activation movement. Future W4A16 parity work must be a larger
+design that changes those structures, not another metadata/body shortcut.
+
 Relevant files (all absolute): `/home/mudler/_git/LocalAI/.claude/worktrees/feat+paged-attention/backend/cpp/llama-cpp-localai-paged/docs/{DECODE_SERVING_SCOPE.md,PREFILL_GEMM_SCOPE.md,PREFILL_GEMM_RESULTS.md,TENSORCORE_GDN_SCOPE.md,final_benchmark.csv}`, `.../README.md`, `.../patches/paged/0034-feat-paged-native-NVFP4-W4A4-FP4-MMA-large-M-prefill.patch` (P1/P2), `.../patches/paged/0042-feat-paged-fused-residual-add-RMS-norm-weight-multip.patch` (P7), `.../patches/paged/0031` (P4), `0025` (D1), `0018/0022` (D4/D5), `0009/0010` (D3/D6/D7); graph source `/home/mudler/_git/LocalAI/backend/cpp/llama-cpp-paged-dev/src/{models/qwen35moe.cpp,models/delta-net-base.cpp,llama-graph.cpp}`.
 
 ### Phase 10 GDN C32 slab update

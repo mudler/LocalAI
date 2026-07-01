@@ -717,6 +717,22 @@ knob. It does not prove vLLM parity progress by itself. Do not default it until
 more workload coverage exists, and do not regenerate LocalAI patches until the
 fork commits are pushed with explicit approval.
 
+Phase 60 re-profiled the current W4A16 grouped MoE prefill path to check whether
+there was still a low-conflict W4A16 shortcut after Phase1-5. Artifact:
+`/home/mudler/bench/phase60_w4a16_current_profile/20260701_104915`. Pre/post
+gates stayed green: MoE `8cb0ce23777bf55f92f63d0292c756b0`, dense
+`5951a5b4d624ce891e22ab5fca9bc439`, `MUL_MAT` `1146/1146`, `MUL_MAT_ID`
+`806/806`. Default FP4-MMQ S_PP was `2327.69` at `npp=512` and `2423.20` at
+`npp=2048`; forced W4A16 was `1451.00` and `1482.76`, only `0.623x` and
+`0.612x` of default. The `npp=512` profile showed W4A16 still dominated by
+`w4a16_grouped_kernel` (`4.142s`, `42.5%`) plus sorted activation gathers
+(`1.094s`, `11.2%`), while the cast kernel was only `0.517s` (`5.3%`).
+
+Decision: do not add another small W4A16 metadata/body/cast patch. Future W4A16
+work needs a larger redesign that improves the grouped kernel body and removes
+or fuses sorted activation movement. Near-term GB10 parity work should return to
+broader prefill/GDN/MoE design or hardware-pivot benchmarking.
+
 ---
 
 ## 5. METHODOLOGY LESSONS (so you do not repeat the mistakes)
