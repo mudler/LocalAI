@@ -94,6 +94,13 @@ llama.cpp FA was `0.71%` at `npp=512` and `1.18%` at `npp=2048`; the
 FlashAttention mask/block-table cleanup remains a correctness/test gap worth
 keeping in mind, but Phase63 rejects it as a parity patch.
 
+Phase64 then attributed the remaining `layout-copy` bucket with default-off
+`LLAMA_LAYOUT_TRACE=<n>` in fork commit `fa944bb5f`. The trace showed the
+layout bucket is a mix of GDN conv-state materialization, MoE top-k fan-in
+gathers, and paged-attention mask/KV reshape/copy paths. It did not expose a
+single low-conflict projection/layout shortcut; use the Phase64 names before
+funding any Phase65 source work.
+
 Relevant files: `/home/mudler/_git/LocalAI/.claude/worktrees/feat+paged-attention/backend/cpp/llama-cpp-localai-paged/docs/{PREFILL_GEMM_SCOPE.md,PREFILL_GEMM_RESULTS.md,TENSORCORE_GDN_SCOPE.md,final_benchmark.csv}`, `/home/mudler/_git/LocalAI/.claude/worktrees/feat+paged-attention/backend/cpp/llama-cpp-localai-paged/patches/paged/0042-feat-paged-fused-residual-add-RMS-norm-weight-multip.patch`, and the graph source `/home/mudler/_git/LocalAI/backend/cpp/llama-cpp-paged-dev/src/models/{qwen35moe.cpp,delta-net-base.cpp}` + `/home/mudler/_git/LocalAI/backend/cpp/llama-cpp-paged-dev/src/llama-graph.cpp` (build_moe_ffn ~1500-1834, build_attn ~2136-2189).
 
 ## 2. Decode-serving compute hypotheses (ranked)

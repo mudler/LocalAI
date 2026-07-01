@@ -899,3 +899,29 @@ needed to fund source work. No llama.cpp source files were modified.
 *Status: Phase63 closed. `VLLM_PARITY_FINAL.md` remains the GB10 shortcut record;
 the remaining measured buckets are still MoE/FFN GEMM, GDN, bf16 projections,
 layout copies, and activation quantization.*
+
+## 9. PHASE64 RESULT: LAYOUT TRACE
+
+Phase64 added default-off layout attribution in the llama.cpp fork:
+`fa944bb5f feat(cuda): trace layout tensor names`. The env gate is
+`LLAMA_LAYOUT_TRACE=<n>`. It traces CUDA `GET_ROWS`, `CPY`, `CONT`, `DUP`, and
+`CONCAT` runtime dispatch with tensor names, types, shapes, and contiguity flags.
+
+DGX artifact: `/home/mudler/bench/phase64_layout_trace/20260701_142519`.
+Patched build gates stayed green: MoE md5 `8cb0ce23`, dense md5 `5951a5b4`,
+`MUL_MAT 1146/1146`, `MUL_MAT_ID 806/806`.
+
+Trace result at MoE `npp=512`, `ntg=4`, `npl=32`:
+
+- `get_rows`: `7268`
+- `cpy`: `2008`
+- `cont`: `1734`
+- `concat`: `990`
+
+The named layout sources are GDN conv-state gather/concat/update
+(`cache_r_lN`, `conv_states_reshaped-N`, `qkv_mixed_transposed-N`,
+`conv_input-N`, `conv_state_update-N`), MoE top-k fan-in gathers
+(`ffn_moe_probs-N`, `ffn_moe_topk-N`, `ffn_moe_weights-N`), and paged-attention
+mask/KV reshape/copy paths. This does not fund a clean layout optimization yet;
+it gives Phase65 the exact names needed to either remove one repeated chain or
+reject it with evidence.

@@ -3553,3 +3553,50 @@ Decision:
   reopening already-rejected W4A16/GDN/MTP/small-M work.
 - No llama.cpp source files were modified. Default inferencing stayed green with
   the canonical md5/op gates.
+
+## Layout Trace Phase64 Result
+
+Phase64 is recorded in
+`docs/superpowers/plans/2026-07-01-layout-trace-phase64.md`.
+It added default-off CUDA layout attribution to the llama.cpp fork:
+
+- Fork commit: `fa944bb5f feat(cuda): trace layout tensor names`
+- Env gate: `LLAMA_LAYOUT_TRACE=<n>`
+- Traced runtime routes: `GET_ROWS`, `CPY`, `CONT`, `DUP`, `CONCAT`
+- DGX artifact: `/home/mudler/bench/phase64_layout_trace/20260701_142519`
+
+Patched build gates passed:
+
+| check | value |
+|-------|-------|
+| MoE md5 | `8cb0ce23777bf55f92f63d0292c756b0` |
+| dense md5 | `5951a5b4d624ce891e22ab5fca9bc439` |
+| `MUL_MAT` | `1146/1146` |
+| `MUL_MAT_ID` | `806/806` |
+
+Bounded `npp=512` trace distribution:
+
+| route | lines |
+|-------|------:|
+| `get_rows` | `7268` |
+| `cpy` | `2008` |
+| `cont` | `1734` |
+| `concat` | `990` |
+
+Top traced layout sources:
+
+- `concat conv_states_reshaped-N + qkv_mixed_transposed-N -> conv_input-N`
+- `cpy conv_state_last-N -> conv_state_update-N`
+- `get_rows cache_r_lN -> conv_states-N`
+- `get_rows ffn_moe_probs-N -> ffn_moe_weights-N`
+- `get_rows node_* with ffn_moe_topk-N` for expert fan-in weights
+- attention mask/KV reshapes and f32-to-f16 copies for paged full-attention layers
+
+Decision:
+
+- Keep the instrumentation in the fork as a default-off diagnostic patch.
+- Do not fund a Phase64 layout optimization yet. The trace points at GDN
+  conv-state materialization, MoE top-k fan-in gathers, and paged-attention
+  mask/KV reshapes, not a single clean projection/layout shortcut.
+- Any Phase65 source work must either remove a named repeated layout chain with
+  md5/op gates, or close as another measured no-go.
