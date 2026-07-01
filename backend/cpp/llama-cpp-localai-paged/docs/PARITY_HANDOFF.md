@@ -598,6 +598,14 @@ with `curl --max-time 2`, and uses bounded server cleanup that escalates from
 `/home/mudler/bench/phase48_readiness_harness_dryrun/20260701_100533`, with
 `VLLM_READY_ATTEMPTS=700` printed and clean DGX preflight.
 
+Phase 47 retry completed after Phase48. Artifact:
+`/home/mudler/bench/phase47_dense_serving_retry/20260701_100811`. Pre/post
+gates were green: MoE `8cb0ce23777bf55f92f63d0292c756b0`, dense
+`5951a5b4d624ce891e22ab5fca9bc439`, `MUL_MAT` `1146/1146`, `MUL_MAT_ID`
+`806/806`. Dense paged decode beats vLLM at low concurrency (`1.3434x` at `n=1`,
+`1.1560x` at `n=8`) but falls behind at `n=32/128` (`0.9036x`, `0.7912x`), and
+TTFT remains `1.87x` to `4.05x` vLLM. This does not change the GB10 conclusion.
+
 ---
 
 ## 5. METHODOLOGY LESSONS (so you do not repeat the mistakes)
@@ -688,6 +696,7 @@ Only pursue if (a)+(b) are not options and someone explicitly wants the residual
 - `~/bench/phase47_dense_serving_dryrun/20260701_095141` - dense serving dry-run with `SERVED_MODEL_NAME=dense-q36`.
 - `~/bench/phase47_dense_serving/20260701_095151` - incomplete dense serving attempt; pre-gates and paged arm completed, vLLM did not produce result JSONs under the old readiness budget.
 - `~/bench/phase48_readiness_harness_dryrun/20260701_100533` - harness dry-run proving configurable readiness budgets and clean preflight before retrying dense serving.
+- `~/bench/phase47_dense_serving_retry/20260701_100811` - completed dense serving snapshot after Phase48; pre/post md5 and op gates green; paged low-N decode ahead, high-N aggregate and TTFT behind.
 - Per-engine logs `~/bench/COMBINED_{paged,vllm}_{MOE,DENSE}_server.log`; `~/bench/BENCHMARK_PROGRESS.md`.
 - Graph-node-traced high-N profiles: `~/highN_prof2/*.nsys-rep` (paged npl=256), `~/highN_vllm/*.nsys-rep` (vLLM), 2026-06-30.
 - A/B dirs: `~/bench/marlin_gate/`, `~/bench/gdn_p1_ab/`.

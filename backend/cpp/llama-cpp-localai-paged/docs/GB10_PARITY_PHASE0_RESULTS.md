@@ -2668,6 +2668,60 @@ Decision:
 - Treat this artifact as a harness failure investigation, not a benchmark.
 - Retry Phase47 only after the Phase48 readiness/cleanup hardening is present.
 
+## Phase 47 Dense Serving Snapshot Retry
+
+After Phase48 hardening, Phase47 was retried and completed successfully.
+
+Artifact:
+
+- `/home/mudler/bench/phase47_dense_serving_retry/20260701_100811`
+
+Run shape:
+
+- `MODEL=$HOME/bench/q36-27b-nvfp4.gguf`
+- `VLLM_MODEL=$HOME/bench/q36-27b-nvfp4-vllm`
+- `SERVED_MODEL_NAME=dense-q36`
+- `NPL="1 8 32 128"`, `PARALLEL=128`, `CTX=131072`, `PTOK=128`, `GEN=64`
+- `OPS=MUL_MAT,MUL_MAT_ID`, `VLLM_READY_ATTEMPTS=700`
+
+Pre/post gates:
+
+| phase | MoE md5 | dense md5 | `MUL_MAT` | `MUL_MAT_ID` |
+|-------|---------|-----------|-----------|--------------|
+| pre | `8cb0ce23777bf55f92f63d0292c756b0` | `5951a5b4d624ce891e22ab5fca9bc439` | `1146/1146` | `806/806` |
+| post | `8cb0ce23777bf55f92f63d0292c756b0` | `5951a5b4d624ce891e22ab5fca9bc439` | `1146/1146` | `806/806` |
+
+Results:
+
+| arm | n | agg t/s | decode agg t/s | decode per-seq t/s | prefill t/s | TTFT ms |
+|-----|---|---------|-----------------|---------------------|-------------|---------|
+| paged | 1 | `12.5` | `13.3` | `13.11` | `515.1` | `312.5` |
+| vLLM | 1 | `9.6` | `9.9` | `9.72` | `983.6` | `166.7` |
+| paged | 8 | `61.8` | `85.2` | `10.39` | `579.5` | `2201.4` |
+| vLLM | 8 | `67.6` | `73.7` | `9.04` | `2147.7` | `544.0` |
+| paged | 32 | `105.9` | `198.7` | `5.44` | `595.8` | `7442.7` |
+| vLLM | 32 | `171.7` | `219.9` | `6.49` | `2094.4` | `2041.9` |
+| paged | 128 | `139.6` | `360.8` | `1.86` | `608.1` | `21177.2` |
+| vLLM | 128 | `275.3` | `456.0` | `2.89` | `1889.6` | `6615.7` |
+
+Ratios:
+
+| n | paged decode / vLLM | paged per-seq / vLLM | paged agg / vLLM | paged TTFT / vLLM |
+|---|---------------------|----------------------|------------------|-------------------|
+| 1 | `1.3434` | `1.3488` | `1.3021` | `1.8746` |
+| 8 | `1.1560` | `1.1493` | `0.9142` | `4.0467` |
+| 32 | `0.9036` | `0.8382` | `0.6168` | `3.6450` |
+| 128 | `0.7912` | `0.6436` | `0.5071` | `3.2011` |
+
+Decision:
+
+- Dense decode is ahead of vLLM at low concurrency (`n=1/8`) but falls behind
+  at `n=32/128`; this mirrors the broader conclusion that low-N decode can be
+  strong while prefill/TTFT and higher-concurrency serving remain gaps.
+- Dense TTFT remains much worse than vLLM at all tested concurrency points, so
+  dense serving does not change the GB10 conclusion or reopen closed shortcut
+  work.
+
 ## Phase 48 Serving Harness Readiness Hardening
 
 Phase 48 fixes the harness behavior exposed by the failed dense snapshot

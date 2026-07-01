@@ -1165,6 +1165,27 @@ DGX dry-run artifact:
 run printed `VLLM_READY_ATTEMPTS=700` with clean preflight. Retry dense serving
 snapshots with this hardening before interpreting dense paged-vs-vLLM ratios.
 
+### Phase 47 dense serving snapshot retry
+
+After Phase48, the dense snapshot completed at
+`/home/mudler/bench/phase47_dense_serving_retry/20260701_100811` with pre/post
+gates green: MoE `8cb0ce23777bf55f92f63d0292c756b0`, dense
+`5951a5b4d624ce891e22ab5fca9bc439`, `MUL_MAT` `1146/1146`, and `MUL_MAT_ID`
+`806/806`.
+
+Dense paged-vs-vLLM ratios:
+
+| n | paged decode / vLLM | paged per-seq / vLLM | paged agg / vLLM | paged TTFT / vLLM |
+|---|---------------------|----------------------|------------------|-------------------|
+| 1 | `1.3434` | `1.3488` | `1.3021` | `1.8746` |
+| 8 | `1.1560` | `1.1493` | `0.9142` | `4.0467` |
+| 32 | `0.9036` | `0.8382` | `0.6168` | `3.6450` |
+| 128 | `0.7912` | `0.6436` | `0.5071` | `3.2011` |
+
+Decision: dense low-N decode remains a real paged strength, but dense serving
+still does not close GB10 parity because TTFT and high-concurrency aggregate
+throughput remain substantially behind vLLM.
+
 Relevant files (all absolute): `/home/mudler/_git/LocalAI/.claude/worktrees/feat+paged-attention/backend/cpp/llama-cpp-localai-paged/docs/{DECODE_SERVING_SCOPE.md,PREFILL_GEMM_SCOPE.md,PREFILL_GEMM_RESULTS.md,TENSORCORE_GDN_SCOPE.md,final_benchmark.csv}`, `.../README.md`, `.../patches/paged/0034-feat-paged-native-NVFP4-W4A4-FP4-MMA-large-M-prefill.patch` (P1/P2), `.../patches/paged/0042-feat-paged-fused-residual-add-RMS-norm-weight-multip.patch` (P7), `.../patches/paged/0031` (P4), `0025` (D1), `0018/0022` (D4/D5), `0009/0010` (D3/D6/D7); graph source `/home/mudler/_git/LocalAI/backend/cpp/llama-cpp-paged-dev/src/{models/qwen35moe.cpp,models/delta-net-base.cpp,llama-graph.cpp}`.
 
 ### Phase 10 GDN C32 slab update
