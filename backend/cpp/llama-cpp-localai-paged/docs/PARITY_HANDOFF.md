@@ -1224,7 +1224,7 @@ B200 rerun checklist:
    whether vLLM is using native FP4/CUTLASS/FlashInfer rather than the GB10
    Marlin fallback.
 
-Standalone GDN source-work gate:
+Phase74 standalone GDN source-work gate result:
 
 ```sh
 nvcc -O3 -arch=sm_121a \
@@ -1236,10 +1236,23 @@ nvcc -O3 -arch=sm_121a \
   --iters 1000 \
   --precision tf32,offdiag3x,apply3x \
   --oracle f64 \
-  --dump-json ~/bench/phase73_gdn_blocked_solve_poc.json
+  --dump-json ~/bench/phase74_gdn_blocked_solve_poc/20260701_143711/phase74_gdn_blocked_solve_poc.json
 ```
 
-Do not touch `ggml/src/ggml-cuda/gated_delta_net.cu` for this larger path until
-that standalone artifact shows a material timing win, non-catastrophic weak and
-mixed decay error, plausible register/shared-memory fit, and records timing,
-precision-rung error, and condition-number distribution.
+Artifact:
+`/home/mudler/bench/phase74_gdn_blocked_solve_poc/20260701_143711`.
+
+The standalone C=64 shared-memory explicit inverse-plus-apply scaffold did not
+fund backend source work:
+
+- weak decay: direct solve/apply `3.263936 ms`; inverse-plus-apply
+  `5.493515 ms`; inverse/direct speed `0.5941x`; inverse NMSE `2.755e-15`;
+- mixed decay: direct solve/apply `3.275959 ms`; inverse-plus-apply
+  `5.527584 ms`; inverse/direct speed `0.5927x`; inverse NMSE `7.541e-16`;
+- shared memory was already near the GB10 cap: direct `81920` bytes,
+  inverse-plus-apply `98304` bytes, with `99 KB` opt-in available.
+
+Decision: do not touch `ggml/src/ggml-cuda/gated_delta_net.cu` for this C=64
+inverse scaffold on GB10. A future GDN source-work gate must be a substantially
+different tensor-core blocked-solve/register-state design that shows a material
+timing win before backend changes.

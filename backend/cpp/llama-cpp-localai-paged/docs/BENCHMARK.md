@@ -12,10 +12,12 @@ with artifact path, gates, benchmark rows, and decision.
 - Canonical dense md5: `5951a5b4d624ce891e22ab5fca9bc439`.
 - Current tested source: DGX mirror
   `14fd69f1e feat(cuda): gate BF16 cuBLAS F32 output`.
-- Latest attempt: Phase73.
-- Latest decision: no new GB10 benchmark or source patch. The next parity
-  evidence requires a datacenter Blackwell rerun, or a standalone GDN
-  blocked-solve PoC before any backend GDN source work.
+- Latest attempt: Phase74.
+- Latest decision: standalone C=64 GDN solve/apply PoC did not fund backend
+  source work. Explicit inverse-plus-apply was only `0.594x`/`0.593x` the
+  direct solve/apply baseline for weak/mixed decay, so the next parity evidence
+  should be a datacenter Blackwell rerun or a substantially different TC solve
+  PoC.
 
 ## Current Serving Record
 
@@ -54,6 +56,38 @@ Decision:
   concurrency and widened the vLLM decode gap.
 
 ## Attempt Log
+
+### Phase74: GDN Blocked-Solve PoC Gate
+
+- Date: 2026-07-01.
+- Plan:
+  `docs/superpowers/plans/2026-07-01-gdn-blocked-solve-poc-phase74.md`.
+- Artifact:
+  `/home/mudler/bench/phase74_gdn_blocked_solve_poc/20260701_143711`.
+- Source baseline: `14fd69f1e feat(cuda): gate BF16 cuBLAS F32 output`.
+- Result type: standalone CUDA microbenchmark only; no llama.cpp source change.
+- Toolchain: CUDA `13.0.88`, `nvcc -O3 -arch=sm_121a`.
+- Hardware: NVIDIA GB10, `cc=12.1`, `48` SMs, `99 KB` dynamic shared memory.
+- Shape: `C=64`, `DK=128`, `DV=128`, `chunks=4096`, `iters=1000`.
+- Shared memory: direct solve/apply `81920` bytes; inverse-plus-apply
+  `98304` bytes.
+
+Result:
+
+| case | direct ms | inverse+apply ms | inverse/direct speed | direct NMSE | inverse NMSE | direct max abs | inverse max abs | max lower row sum |
+|------|----------:|-----------------:|---------------------:|------------:|-------------:|---------------:|----------------:|------------------:|
+| weak decay | `3.263936` | `5.493515` | `0.5941x` | `2.081e-14` | `2.755e-15` | `8.890e-07` | `2.415e-07` | `4.072` |
+| mixed decay | `3.275959` | `5.527584` | `0.5927x` | `1.981e-14` | `7.541e-16` | `8.115e-07` | `7.888e-08` | `1.635` |
+
+Decision:
+
+- Reject this explicit inverse-plus-apply shape as a backend source candidate on
+  GB10. It is numerically clean but materially slower than direct solve/apply.
+- Do not touch `ggml/src/ggml-cuda/gated_delta_net.cu` for the larger C=64 path
+  based on this attempt.
+- A future GDN source-work gate would need a substantially different
+  tensor-core blocked solve/register-state design, not this shared-memory
+  inverse scaffold.
 
 ### Phase73: Datacenter Blackwell Rerun Readiness
 
