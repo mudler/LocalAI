@@ -24,7 +24,7 @@
 
 - [x] Keep only if it improves W4A16 prefill by at least 1% at either `npp=512` or `npp=2048` without regressing the other by more than 1%.
 - [x] If kept, commit fork-first with `Assisted-by: Codex:gpt-5`, generate patch `0050`, verify mirror tree hash, update docs, and commit LocalAI.
-- [ ] If rejected, revert the fork experiment and record the result without adding a patch.
+- [x] If rejected, revert the fork experiment and record the result without adding a patch. Not taken: the patch was kept.
 
 Result: kept as fork commit `d9b9be0bee3d7239132bfca05d5b057ff4ee4cc3` and LocalAI patch `0050-feat-paged-pad-W4A16-A-shared-tile-stride.patch`.
 
