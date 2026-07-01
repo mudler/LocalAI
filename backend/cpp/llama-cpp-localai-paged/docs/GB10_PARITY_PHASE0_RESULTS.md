@@ -714,3 +714,35 @@ Required promotion gates remain:
 - `MUL_MAT_ID`: `806/806` on CUDA0.
 - Any fused dispatch prototype must start default-off behind
   `LLAMA_MOE_FUSED_DISPATCH=1`.
+
+Profile-gate result:
+
+- Clean llama.cpp artifact:
+  `/home/mudler/bench/phase8_ragged_moe_dispatch/llama_n128_clean/`.
+- vLLM artifact:
+  `/home/mudler/bench/phase8_ragged_moe_dispatch/vllm_n128/`.
+- A stale first llama profile under `llama_n128/` is intentionally ignored
+  because the binary still contained the rejected weighted-combine kernel before
+  the clean-source rebuild.
+
+Throughput:
+
+| Engine | decode tok/s/seq | decode agg tok/s | prefill tok/s |
+|--------|------------------|------------------|---------------|
+| llama.cpp | 2.70 | 412.1 | 1368.3 |
+| vLLM | 7.02 | 1036.6 | 5277.7 |
+
+llama.cpp bucket highlights from the clean profile:
+
+- GDN: `4680.27 ms`, `38.12%`.
+- `mmq_nvfp4`: `2745.11 ms`, `22.36%`.
+- `act_quant`: `441.42 ms`, `3.60%`.
+- MoE dispatch: `183.67 ms`, `1.50%`.
+- `ew_add` fan-in: `280.15 ms`, `2.28%`.
+
+Decision:
+
+- Promote to a test-only ragged `MUL_MAT_ID` gate before production source.
+- Do not implement fused dispatch yet. Standalone `mm_ids`/`gather_mmq` helper
+  time is small; a source patch must reduce the larger grouped-MMQ/activation
+  movement bucket and still beat the `+5%` serving A/B gate.

@@ -85,7 +85,7 @@ Selected Phase 8 candidate:
 
   Write this plan and commit it before source work.
 
-- [ ] **Step 2: Reconfirm DGX idle state**
+- [x] **Step 2: Reconfirm DGX idle state**
 
   Run:
 
@@ -106,7 +106,7 @@ Selected Phase 8 candidate:
   FREE...
   ```
 
-- [ ] **Step 3: Run serving nsys for llama.cpp MoE**
+- [x] **Step 3: Run serving nsys for llama.cpp MoE**
 
   Run on DGX:
 
@@ -151,7 +151,24 @@ Selected Phase 8 candidate:
   - `buckets.txt` has fine rows for `mm_ids`, `gather_mmq`, `act_quant`,
     `mmq_nvfp4`, `set_rows`, `ew_add`, `gdn_core`, and `fa`.
 
-- [ ] **Step 4: Run serving nsys for vLLM MoE**
+  Result:
+
+  - Artifact: `/home/mudler/bench/phase8_ragged_moe_dispatch/llama_n128_clean/`.
+  - Throughput: `decode_agg_tps=412.1`, `decode_perseq_tps=2.70`,
+    `prefill_tps=1368.3`.
+  - Clean rebuild was required before this run; the first `llama_n128/` profile
+    still contained the rejected weighted-combine kernel in the binary and is
+    not used for the decision.
+  - Bucket highlights:
+    - GDN: `4680.27 ms`, `38.12%`.
+    - `mmq_nvfp4`: `2745.11 ms`, `22.36%`.
+    - `act_quant`: `441.42 ms`, `3.60%`.
+    - MoE dispatch: `183.67 ms`, `1.50%`.
+    - `mm_ids`: `80.92 ms`, `0.66%`.
+    - `gather_mmq`: `50.96 ms`, `0.42%`.
+    - `ew_add`: `280.15 ms`, `2.28%`.
+
+- [x] **Step 4: Run serving nsys for vLLM MoE**
 
   Run on DGX:
 
@@ -196,7 +213,17 @@ Selected Phase 8 candidate:
   - `buckets.txt` has vLLM rows for `vllm_dispatch`, `vllm_fp4_gemm`,
     `vllm_fa`, and `fla_gdn`.
 
-- [ ] **Step 5: Decide promotion**
+  Result:
+
+  - Artifact: `/home/mudler/bench/phase8_ragged_moe_dispatch/vllm_n128/`.
+  - Throughput: `decode_agg_tps=1036.6`, `decode_perseq_tps=7.02`,
+    `prefill_tps=5277.7`.
+  - Nsight includes startup/autotune and `delayStreamKernel`, so the aggregate
+    vLLM macro percentages are not directly comparable to llama.cpp. Direct
+    kernel extraction still shows Marlin-MoE rows around `1.0 s` and
+    `moe_align/topk/count` rows around `38.5 ms` in the full capture.
+
+- [x] **Step 5: Decide promotion**
 
   Promote to source only if all are true:
 
@@ -212,6 +239,19 @@ Selected Phase 8 candidate:
   - GDN remains the dominant gap.
   - FA prefill dominates the profiled window.
   - MoE dispatch is too small to beat a `+5%` serving A/B gate.
+
+  Decision:
+
+  - Promote to Task 2 test-gate work, not production source work yet.
+  - Rationale: standalone `mm_ids` and `gather_mmq` are small, but the live
+    ragged path around `mmq_nvfp4 + act_quant + MoE-dispatch + fan-in` is
+    roughly `29.7%` of llama.cpp kernel time. vLLM throughput is still much
+    higher on the same client shape. A production patch is only justified after
+    a ragged `MUL_MAT_ID` test gate exists and after the source prototype can
+    reduce the grouped-MMQ/activation movement bucket, not merely the helper
+    kernels.
+  - GDN remains the single largest bucket, so any Phase 8 source patch still
+    must clear the `+5%` serving A/B gate before being kept.
 
 - [ ] **Step 6: Commit the profile decision**
 
