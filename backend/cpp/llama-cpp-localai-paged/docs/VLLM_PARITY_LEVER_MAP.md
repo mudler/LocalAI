@@ -1463,6 +1463,31 @@ scheduler A/B so far: MoE `n=128` improved aggregate, TTFT, and wall in the same
 window, while dense `n=128` was roughly neutral but slightly worse on aggregate
 and wall. Keep it opt-in until repeated and compared against matching vLLM h2h.
 
+### Phase 59 MoE min32 repeat and vLLM H2H
+
+Phase59 repeated the Phase58 MoE min32 point, then ran matching vLLM serving.
+Artifact:
+`/home/mudler/bench/phase59_moe_min32_repeat_vllm/20260701_123147`.
+
+Pre/post llama md5 and op gates stayed green: MoE
+`8cb0ce23777bf55f92f63d0292c756b0`, dense
+`5951a5b4d624ce891e22ab5fca9bc439`, `MUL_MAT` `1146/1146`, and `MUL_MAT_ID`
+`806/806`.
+
+MoE `n=128`, `ptok=128`, `gen=64`:
+
+| engine / variant | agg t/s | decode agg t/s | prefill t/s | TTFT mean ms | TTFT max ms | wall s |
+|------------------|---------|-----------------|-------------|--------------|-------------|--------|
+| llama default | `336.6` | `646.7` | `1525.1` | `7798.5` | `11666.8` | `24.334` |
+| llama min32 | `336.9` | `632.0` | `1567.1` | `7167.8` | `11353.4` | `24.316` |
+| vLLM | `601.3` | `938.8` | `3648.7` | `2968.1` | `4871.6` | `13.563` |
+
+Decision: min32 repeated as a real llama.cpp scheduler QoS improvement
+(`-8.1%` mean TTFT with flat aggregate and wall), but it is not a vLLM parity
+lever. Llama min32 is still `0.560x` vLLM aggregate, `0.430x` vLLM prefill,
+`0.673x` vLLM decode aggregate, and `2.415x` slower on mean TTFT. Keep the
+scheduler knob opt-in and return parity work to the prefill / MoE compute gap.
+
 Relevant files (all absolute): `/home/mudler/_git/LocalAI/.claude/worktrees/feat+paged-attention/backend/cpp/llama-cpp-localai-paged/docs/{DECODE_SERVING_SCOPE.md,PREFILL_GEMM_SCOPE.md,PREFILL_GEMM_RESULTS.md,TENSORCORE_GDN_SCOPE.md,final_benchmark.csv}`, `.../README.md`, `.../patches/paged/0034-feat-paged-native-NVFP4-W4A4-FP4-MMA-large-M-prefill.patch` (P1/P2), `.../patches/paged/0042-feat-paged-fused-residual-add-RMS-norm-weight-multip.patch` (P7), `.../patches/paged/0031` (P4), `0025` (D1), `0018/0022` (D4/D5), `0009/0010` (D3/D6/D7); graph source `/home/mudler/_git/LocalAI/backend/cpp/llama-cpp-paged-dev/src/{models/qwen35moe.cpp,models/delta-net-base.cpp,llama-graph.cpp}`.
 
 ### Phase 10 GDN C32 slab update

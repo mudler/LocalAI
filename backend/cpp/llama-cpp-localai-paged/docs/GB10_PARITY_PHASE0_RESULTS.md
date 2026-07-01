@@ -3297,3 +3297,58 @@ Decision:
   and wall regressed slightly. Do not default-on yet.
 - Next step should repeat the MoE min32 result and run the matching vLLM h2h
   comparison before treating this as real parity progress rather than run noise.
+
+## Phase 59 MoE Min32 Repeat and vLLM H2H
+
+Phase 59 repeats the Phase58 MoE min32 point and compares it to a matching vLLM
+serving run. The Phase51+Phase54+Phase55+Phase57+Phase58 stack was applied
+temporarily to the clean DGX mirror for the llama.cpp runs, then reverted before
+the vLLM run.
+
+Artifact:
+
+- `/home/mudler/bench/phase59_moe_min32_repeat_vllm/20260701_123147`
+
+Pre/post llama gates:
+
+| phase | MoE md5 | dense md5 | `MUL_MAT` | `MUL_MAT_ID` |
+|-------|---------|-----------|-----------|--------------|
+| pre | `8cb0ce23777bf55f92f63d0292c756b0` | `5951a5b4d624ce891e22ab5fca9bc439` | `1146/1146` | `806/806` |
+| post llama | `8cb0ce23777bf55f92f63d0292c756b0` | `5951a5b4d624ce891e22ab5fca9bc439` | `1146/1146` | `806/806` |
+
+MoE `n=128`, `ptok=128`, `gen=64`:
+
+| engine / variant | agg t/s | decode agg t/s | prefill t/s | TTFT mean ms | TTFT max ms | wall s | deferred |
+|------------------|---------|-----------------|-------------|--------------|-------------|--------|----------|
+| llama default | `336.6` | `646.7` | `1525.1` | `7798.5` | `11666.8` | `24.334` | `0` |
+| llama min32 | `336.9` | `632.0` | `1567.1` | `7167.8` | `11353.4` | `24.316` | `279` |
+| vLLM | `601.3` | `938.8` | `3648.7` | `2968.1` | `4871.6` | `13.563` | n/a |
+
+Llama min32 repeat versus llama default:
+
+- Aggregate throughput: `+0.1%`
+- Mean TTFT: `-8.1%`
+- Max TTFT: `-2.7%`
+- Wall time: `-0.1%`
+- Prefill throughput: `+2.8%`
+- Decode aggregate throughput: `-2.3%`
+
+Llama min32 versus vLLM:
+
+- Aggregate throughput ratio: `0.560`
+- Mean TTFT: llama is `2.415x` slower
+- Wall time: llama is `1.793x` slower
+- Prefill throughput ratio: `0.430`
+- Decode aggregate throughput ratio: `0.673`
+
+Decision:
+
+- The min32 repeat confirms a real, inference-gated llama.cpp scheduler QoS
+  improvement for MoE `n=128`: mean TTFT drops without material aggregate or
+  wall-time loss.
+- It does not close parity with vLLM. vLLM remains much faster on the same
+  request shape, especially prefill throughput and TTFT.
+- Keep `LLAMA_TTFT_PREFILL_FIRST=1` plus
+  `LLAMA_TTFT_PREFILL_FIRST_MIN_WAITING=32` opt-in. Do not default it yet.
+- Treat this as latency tuning, not the next parity track. The larger gap is
+  still prefill / MoE compute.

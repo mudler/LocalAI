@@ -20,7 +20,8 @@ Read order for a cold start:
 
 ## 1. TL;DR STATE
 
-> 2026-07-01 active update: Phase50-55 reopened the dense serving question.
+> 2026-07-01 active update: Phase50-59 reopened the dense and MoE serving
+> scheduler question.
 > True dense decode is much closer to vLLM (`383.66` vs `435.00` t/s, `88.2%`)
 > than the Phase47 h2h aggregate suggested, while traced serving still shows
 > no pure decode-only steps and high TTFT. Phase53 rejected static lower
@@ -37,10 +38,13 @@ Read order for a cold start:
 > dense caps lost aggregate. Phase58 added a prompt-backlog threshold; min32
 > improved MoE `n=128` aggregate `339.0 -> 341.9`, mean TTFT
 > `7743.1 -> 7420.1 ms`, and wall `24.167 -> 23.950 s` in the same window, while
-> dense `n=128` was mixed. Next step should repeat min32 and run matching vLLM
-> h2h before any default-on discussion. The trace and scheduler commits are
-> local and DGX-gated but not pushed, so the LocalAI patch series has not been
-> regenerated.
+> dense `n=128` was mixed. Phase59 repeated MoE min32: aggregate stayed flat
+> (`336.6 -> 336.9`), mean TTFT improved (`7798.5 -> 7167.8 ms`), and wall stayed
+> flat (`24.334 -> 24.316 s`) with md5/op gates green. Matching vLLM was still
+> far ahead (`601.3` aggregate, `2968.1 ms` mean TTFT), so min32 is an opt-in
+> llama.cpp QoS knob, not a parity-closing lever. The trace and scheduler commits
+> are local and DGX-gated but not pushed, so the LocalAI patch series has not
+> been regenerated.
 
 - Historical verdict: the older investigation marked GB10 parity **CLOSED** and
   unreachable. Treat that as superseded where Phase50-54 provide newer dense
@@ -688,6 +692,30 @@ Decision: simple budget shrinkage is rejected. It raises h2h decode-agg while
 lowering aggregate/prefill throughput, and it does not materially solve TTFT.
 Next scheduler work should be per-step histograms or a targeted first-token
 admission policy.
+
+Phase 54 through Phase 59 tested that targeted scheduler path. The fork commits
+are still local-only and default-off:
+
+- `c6cb8460e feat(server): trace serving admission batches`
+- `bd7b2e952 feat(server): add admission trace histograms`
+- `8a97629a4 feat(server): add TTFT prefill-first scheduler mode`
+- `3b6ab5fa8 feat(server): cap TTFT prefill-first decode deferral`
+- `8759213e3 feat(server): gate TTFT defer by prompt backlog`
+
+Phase59 is the current verdict. Artifact:
+`/home/mudler/bench/phase59_moe_min32_repeat_vllm/20260701_123147`. Pre/post
+llama gates stayed green: MoE `8cb0ce23777bf55f92f63d0292c756b0`, dense
+`5951a5b4d624ce891e22ab5fca9bc439`, `MUL_MAT` `1146/1146`, `MUL_MAT_ID`
+`806/806`. MoE `n=128`, `ptok=128`, `gen=64` repeated the Phase58 min32 signal:
+llama default `agg=336.6`, `TTFT=7798.5ms`, wall `24.334s`; llama min32
+`agg=336.9`, `TTFT=7167.8ms`, wall `24.316s`. Matching vLLM was still
+`agg=601.3`, `TTFT=2968.1ms`, wall `13.563s`.
+
+Decision: keep `LLAMA_TTFT_PREFILL_FIRST=1` and
+`LLAMA_TTFT_PREFILL_FIRST_MIN_WAITING=32` as an opt-in llama.cpp latency/QoS
+knob. It does not prove vLLM parity progress by itself. Do not default it until
+more workload coverage exists, and do not regenerate LocalAI patches until the
+fork commits are pushed with explicit approval.
 
 ---
 
