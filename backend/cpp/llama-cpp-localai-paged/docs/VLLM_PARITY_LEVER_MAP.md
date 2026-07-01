@@ -1291,6 +1291,38 @@ throughput and prefill throughput fall, and TTFT does not materially improve.
 Next scheduler work should collect per-step histograms or test a targeted
 first-token admission policy.
 
+### Phase 54 admission histogram trace
+
+Phase54 extended the Phase51 default-off trace with prompt-token,
+decode-token, and waiting-slot histograms. Fork stack:
+`c6cb8460e feat(server): trace serving admission batches` and
+`bd7b2e952 feat(server): add admission trace histograms`.
+
+Artifact:
+`/home/mudler/bench/phase54_admission_hist_trace/20260701_113201`.
+
+Pre/post md5 and op gates stayed green on the temporary DGX patch stack:
+MoE `8cb0ce23777bf55f92f63d0292c756b0`, dense
+`5951a5b4d624ce891e22ab5fca9bc439`, `MUL_MAT` `1146/1146`, and
+`MUL_MAT_ID` `806/806`.
+
+The Phase52-aligned dense run used `n=128`, `ptok=168`, `gen=64`, producing
+`prompt_tok_total=22913`, `agg_tps=138.1`, `decode_agg_tps=360.2`,
+`prefill_tps=626.7`, `ttft_mean_ms=23393.2`, and `wall_s=59.303`.
+
+Trace:
+
+```text
+steps=76 decode_only_steps=0 decode_tokens=8064 prompt_tokens=22913 waiting_prompt_slots=267 max_waiting_prompt_slots=34 prompt_hist=0:63,1-64:1,513+:12 decode_hist=0:3,1-63:10,64-127:10,128-255:53 waiting_hist=0:63,1-7:1,8-15:2,16-31:9,32-63:1
+```
+
+Decision: the scheduler does not spend every step over-admitting prompt work.
+Most steps have no waiting prompts and no prompt tokens, while prompt admission
+is concentrated into a small number of large chunks. This rejects global
+budget-shrinkage as the next path and points to a targeted first-token
+admission or prompt-front-loading A/B, gated by the same md5 and backend-op
+checks.
+
 Relevant files (all absolute): `/home/mudler/_git/LocalAI/.claude/worktrees/feat+paged-attention/backend/cpp/llama-cpp-localai-paged/docs/{DECODE_SERVING_SCOPE.md,PREFILL_GEMM_SCOPE.md,PREFILL_GEMM_RESULTS.md,TENSORCORE_GDN_SCOPE.md,final_benchmark.csv}`, `.../README.md`, `.../patches/paged/0034-feat-paged-native-NVFP4-W4A4-FP4-MMA-large-M-prefill.patch` (P1/P2), `.../patches/paged/0042-feat-paged-fused-residual-add-RMS-norm-weight-multip.patch` (P7), `.../patches/paged/0031` (P4), `0025` (D1), `0018/0022` (D4/D5), `0009/0010` (D3/D6/D7); graph source `/home/mudler/_git/LocalAI/backend/cpp/llama-cpp-paged-dev/src/{models/qwen35moe.cpp,models/delta-net-base.cpp,llama-graph.cpp}`.
 
 ### Phase 10 GDN C32 slab update

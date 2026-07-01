@@ -2976,3 +2976,82 @@ Decision:
 - Do not promote simple budget shrinkage as a parity lever. The next useful
   scheduler work is a richer per-step histogram trace or a targeted first-token
   admission policy, not a static lower `LLAMA_MAX_BATCH_TOKENS`.
+
+## Phase 54 Admission Histogram Trace
+
+Phase 54 extends the Phase51 trace with compact per-step histograms for prompt
+tokens, decode tokens, and waiting prompt slots. This is still trace-only and
+default-off behind `LLAMA_SERVING_TRACE=1`; it does not change scheduling or
+inference.
+
+Fork commits:
+
+- `c6cb8460e feat(server): trace serving admission batches`
+- `bd7b2e952 feat(server): add admission trace histograms`
+
+Artifact:
+
+- `/home/mudler/bench/phase54_admission_hist_trace/20260701_113201`
+
+Pre/post gates:
+
+| phase | MoE md5 | dense md5 | `MUL_MAT` | `MUL_MAT_ID` |
+|-------|---------|-----------|-----------|--------------|
+| pre | `8cb0ce23777bf55f92f63d0292c756b0` | `5951a5b4d624ce891e22ab5fca9bc439` | `1146/1146` | `806/806` |
+| post | `8cb0ce23777bf55f92f63d0292c756b0` | `5951a5b4d624ce891e22ab5fca9bc439` | `1146/1146` | `806/806` |
+
+Focused test/build:
+
+- Red test first: histogram assertions failed before implementation.
+- Local fork: `test-server-admission-trace` passed, CTest passed, and
+  `llama-server` built.
+- DGX `build-cuda`: `test-server-admission-trace` passed under CTest after the
+  temporary Phase51+Phase54 patch stack was applied.
+
+Phase52-aligned dense trace:
+
+- Dense GGUF: `~/bench/q36-27b-nvfp4.gguf`
+- `LLAMA_SERVING_TRACE=1`
+- `N=128`, `PTOK=168`, `GEN=64`
+- `CTX=131072`, `PARALLEL=128`, `BATCH=2048`, `UBATCH=512`
+
+H2H result:
+
+| n | prompt tokens | agg t/s | decode agg t/s | decode per-seq t/s | prefill t/s | TTFT mean ms | wall s |
+|---|---------------|---------|-----------------|---------------------|-------------|--------------|--------|
+| 128 | `22913` | `138.1` | `360.2` | `1.92` | `626.7` | `23393.2` | `59.303` |
+
+Trace:
+
+```text
+serving admission trace: steps=76 decode_only_steps=0 decode_tokens=8064 prompt_tokens=22913 waiting_prompt_slots=267 max_waiting_prompt_slots=34 started_prompt_slots=128 continued_prompt_slots=139 last_n_batch=2048 last_n_ubatch=512 last_prefill_budget_step=0 last_prefill_cap_per_slot=0 prompt_hist=0:63,1-64:1,513+:12 decode_hist=0:3,1-63:10,64-127:10,128-255:53 waiting_hist=0:63,1-7:1,8-15:2,16-31:9,32-63:1
+```
+
+Interpretation:
+
+- The Phase54 run matches the Phase52 serving envelope: same `76` steps, same
+  `8064` trace decode tokens, same `267` waiting prompt slots, and throughput
+  within noise.
+- `63/76` steps have `prompt_tokens=0` and `waiting_prompt_slots=0`.
+- Prompt admission is concentrated in a small number of very large chunks:
+  `prompt_hist=513+:12`.
+- Decode is mostly full-width during active decode:
+  `decode_hist=128-255:53`.
+- The scheduler still emits no pure decode-only steps for this shape.
+
+Decision:
+
+- The histogram strengthens the Phase53 rejection of static lower batch
+  budgets. The issue is not a uniformly oversized prompt budget every step;
+  prompt work arrives in a few large chunks and first-token latency remains high.
+- The next scheduler A/B should be a targeted first-token admission or prompt
+  front-loading policy that changes when first prompt chunks are admitted, while
+  keeping md5/op gates unchanged. Do not reduce `LLAMA_MAX_BATCH_TOKENS` globally
+  as the next parity lever.
+
+Mirror status:
+
+- Both trace commits are local and DGX-gated.
+- The LocalAI `patches/paged/` series is not regenerated yet because the
+  handoff requires pushing the fork branch first, and pushes require explicit
+  approval.

@@ -20,7 +20,20 @@ Read order for a cold start:
 
 ## 1. TL;DR STATE
 
-- The investigation is **CLOSED**. Parity is **not reachable on GB10** silicon; the residual is a hardware ceiling, not engineering debt.
+> 2026-07-01 active update: Phase50-54 reopened the dense serving question.
+> True dense decode is much closer to vLLM (`383.66` vs `435.00` t/s, `88.2%`)
+> than the Phase47 h2h aggregate suggested, while traced serving still shows
+> no pure decode-only steps and high TTFT. Phase53 rejected static lower
+> admission budgets; Phase54 histograms show prompt admission concentrated in a
+> few large chunks (`prompt_hist=513+:12`) with mostly full-width decode
+> (`decode_hist=128-255:53`). Next scheduler work should be a targeted
+> first-token admission or prompt-front-loading A/B, not another global
+> `LLAMA_MAX_BATCH_TOKENS` reduction. The trace commits are local and DGX-gated
+> but not pushed, so the LocalAI patch series has not been regenerated.
+
+- Historical verdict: the older investigation marked GB10 parity **CLOSED** and
+  unreachable. Treat that as superseded where Phase50-54 provide newer dense
+  serving evidence.
 - **Prefill** is a genuine floor at **~36% (MoE) / ~43% (dense)** of vLLM. Prefill is **not** CUDA-graph-replayed, so these numbers are real, not measurement artifacts.
 - **Decode** is **near-parity: ~86% of vLLM's TRUE GPU-steady decode** (924 vs 1078 t/s). The long-standing **~56% headline was a CUDA-graph measurement artifact** (nsys without `--cuda-graph-trace=node` collapses each graph replay into one opaque launch). Decode is also **ahead of vLLM at low concurrency** (dense 116.7% at N=8) and uses **1.5-3x less memory**, bit-exact per-path.
 - The lever search was **exhaustive**: every attempt (prefill GEMM, GDN chunked scan, decode fusions, serving/scheduler) is recorded with its verdict and number so it is **not re-run**.
