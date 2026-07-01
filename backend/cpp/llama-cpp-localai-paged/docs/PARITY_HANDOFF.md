@@ -64,7 +64,7 @@ A lever compiled into the binary is **NOT** isolated by a runtime flag alone. It
 - **Always update the fork FIRST, in this exact order:** (1) commit the change on the `localai-paged` branch and **push it**, then (2) regenerate the LocalAI series (`backend/cpp/llama-cpp-localai-paged/patches/paged/`) from the fork via `git format-patch` (one patch per fork commit, source-only, never touching a `*.md`/dev-doc), so the series stays a **1:1, drift-free mirror** of the branch. No hand-export.
 - **NEVER edit the LocalAI `patches/paged/*.patch` files directly**, and **NEVER add a patch to the series with no corresponding fork-branch commit.** They are generated output, not source.
 - The fork branch is also **where the build and the per-path bit-exact md5 gate actually run**, so it is the **only** place a change is truly validated. A patch that lives only in the LocalAI series has never been built or gated.
-- **Mirror invariant (verify by tree hash):** applying the full on-disk series on the pin must reproduce the fork branch tree byte-for-byte. The series has **intentional gaps** (missing 0005, 0026, 0027, 0032, 0036-0039, 0045), so the patch count is not the max number; what must hold is the tree-hash equality, not the count. Current verified state: fork HEAD `c78e537b5` is mirrored by worktree patch `0057-feat-cuda-trace-moe-mmq-launch-shapes.patch`; applying all `48` patch files on `0ed235ea2c17a19fc8238668653946721ed136fd` produces tree `4eae628e4ba6f2defa14a19d19f7e4abef9a2647`, exactly matching the fork.
+- **Mirror invariant (verify by tree hash):** applying the full on-disk series on the pin must reproduce the fork branch tree byte-for-byte. The series has **intentional gaps** (missing 0005, 0026, 0027, 0032, 0036-0039, 0045), so the patch count is not the max number; what must hold is the tree-hash equality, not the count. Current verified state: fork HEAD `2d590d770` is mirrored by worktree patch `0063-feat-cuda-trace-cublas-tensor-names.patch`; applying all `54` patch files on `0ed235ea2c17a19fc8238668653946721ed136fd` produces tree `dedb1182910eafe9f6875588dc8285bfb544cce5`, exactly matching the fork.
 
 ### 2.6 Bench hygiene gates
 - **NEVER set `LLAMA_MAX_BATCH_TOKENS` in benches** (the harness explicitly logs "NO LLAMA_MAX_BATCH_TOKENS").
@@ -490,6 +490,18 @@ bucket is `blk.N.ffn_gate_inp.weight -> ffn_moe_logits-N` and
 `blk.N.ffn_gate_inp_shexp.weight -> shared_expert_gate-N`; do not force BF16
 without first inspecting model-load tensor types and running KL validation.
 
+Phase 38 is the current gate-projection policy checkpoint. Artifact:
+`/home/mudler/bench/phase38_gate_baseline/20260701_084410`. Preflight showed
+docker `0`, `local-ai-worker` `0`, compute apps `0`, and GB10 driver
+`580.159.03`. Fresh baseline gates against the Phase37 build passed: MoE
+`8cb0ce23777bf55f92f63d0292c756b0`, dense
+`5951a5b4d624ce891e22ab5fca9bc439`, `MUL_MAT` `1146/1146`, `MUL_MAT_ID`
+`806/806`. Source comparison found llama.cpp and vLLM both keep router and
+shared-expert gate weights unquantized; vLLM's relevant idea is fused F32 gate
+weight concatenation, not BF16/NVFP4 routing. Future fused-gate work must be
+default-off, preserve F32 semantics, and pass md5/op gates before benchmarking;
+if md5 changes, run KL first.
+
 ---
 
 ## 5. METHODOLOGY LESSONS (so you do not repeat the mistakes)
@@ -520,7 +532,9 @@ are now done:
 - Phase 22 re-verified the patch-series mirror invariant after `0055`.
 
 For future release checks, run `paged-inference-gates.sh` and
-`paged-current-serving-snapshot.sh` from the LocalAI backend tree.
+`paged-current-serving-snapshot.sh` from the LocalAI backend tree. The inference
+gate now defaults to both `MUL_MAT` and `MUL_MAT_ID`; set `OPS=` only for a
+focused diagnostic run.
 
 ### (b) Datacenter-Blackwell pivot (THE real parity path)
 The thesis: every vLLM advantage that wins on GB10 is a kernel that is **broken or capped on consumer Blackwell** and **inverts on datacenter Blackwell** (B200): FLA blocked-solve GDN, Marlin/CUTLASS grouped FP4, HBM-tuned full-cudagraph decode, native tcgen05/TMEM. ~8 TB/s HBM lifts the LPDDR5x GDN bandwidth floor ~30x. Concrete first steps:
@@ -567,6 +581,7 @@ Only pursue if (a)+(b) are not options and someone explicitly wants the residual
 - `~/bench/phase35_mul_mat_route_trace/20260701_074359` - default-off regular MUL_MAT route trace patch `0061`; default/trace/post-serving md5 gates green; n128 route trace found BF16 `mat_f=2485`, `op_cublas=1330`.
 - `~/bench/phase36_cublas_route_trace/20260701_081228` - default-off cuBLAS subroute trace patch `0062`; default/trace/post-serving md5 and op gates green; n128 route trace found `bf16_tc=5681`, `sgemm=2511`.
 - `~/bench/phase37_cublas_name_trace/20260701_083227` - cuBLAS tensor-name trace patch `0063`; default/trace/post-serving md5 and op gates green; n128 trace identified `sgemm` as MoE gate logits and shared-expert gate projections.
+- `~/bench/phase38_gate_baseline/20260701_084410` - current Phase37 build baseline before gate-projection policy work; docker/local-ai-worker/GPU idle preflight green; MoE/dense md5 green; `MUL_MAT` `1146/1146`; `MUL_MAT_ID` `806/806`.
 - Per-engine logs `~/bench/COMBINED_{paged,vllm}_{MOE,DENSE}_server.log`; `~/bench/BENCHMARK_PROGRESS.md`.
 - Graph-node-traced high-N profiles: `~/highN_prof2/*.nsys-rep` (paged npl=256), `~/highN_vllm/*.nsys-rep` (vLLM), 2026-06-30.
 - A/B dirs: `~/bench/marlin_gate/`, `~/bench/gdn_p1_ab/`.

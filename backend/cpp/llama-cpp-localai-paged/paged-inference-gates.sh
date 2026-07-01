@@ -12,7 +12,7 @@ Environment:
   MOE        MoE GGUF path (default: ~/bench/q36-35b-a3b-nvfp4.gguf)
   DENSE      Dense GGUF path (default: ~/bench/q36-27b-nvfp4.gguf)
   ART        artifact dir (default: ~/bench/paged_inference_gates/<timestamp>)
-  OPS        comma-separated test-backend-ops filters (default: MUL_MAT_ID)
+  OPS        comma-separated test-backend-ops filters (default: MUL_MAT,MUL_MAT_ID)
   EXTRA_ENV  extra env assignments for completion gates, e.g. "GDN_TC=5"
 
 Expected md5:
@@ -28,7 +28,7 @@ DENSE_MD5_EXPECTED=5951a5b4d624ce891e22ab5fca9bc439
 BIN=${BIN:-"$HOME/llama-phase6-source/build-cuda/bin"}
 MOE=${MOE:-"$HOME/bench/q36-35b-a3b-nvfp4.gguf"}
 DENSE=${DENSE:-"$HOME/bench/q36-27b-nvfp4.gguf"}
-OPS=${OPS:-MUL_MAT_ID}
+OPS=${OPS:-MUL_MAT,MUL_MAT_ID}
 ART=${ART:-"$HOME/bench/paged_inference_gates/$(date +%Y%m%d_%H%M%S)"}
 EXTRA_ENV=${EXTRA_ENV:-}
 

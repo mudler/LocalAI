@@ -976,6 +976,26 @@ Lever implication: do not blindly force the `sgemm` bucket to BF16. First inspec
 why `ffn_gate_inp*` loads as F32 and whether a dtype or graph-route change is
 precision-safe. If attempted, use md5/op gates plus KL validation.
 
+### Phase 38 gate projection policy
+
+Phase 38 re-ran the current Phase37 build safety gate before changing policy:
+artifact `/home/mudler/bench/phase38_gate_baseline/20260701_084410`, MoE
+`8cb0ce23777bf55f92f63d0292c756b0`, dense
+`5951a5b4d624ce891e22ab5fca9bc439`, `MUL_MAT` `1146/1146`, and `MUL_MAT_ID`
+`806/806`.
+
+Source check: llama.cpp's Qwen35MoE graph uses `ffn_gate_inp.weight` for
+`ffn_moe_logits` and `ffn_gate_inp_shexp.weight` for `shared_expert_gate`. vLLM
+Qwen3-Next also constructs those gates with `quant_config=None`; the relevant
+vLLM idea is not reduced precision, but concatenating router and shared-expert
+gate weights in the fused-MoE runner when shared-expert fusion is active.
+
+Lever implication: keep `ffn_gate_inp*` as inference-critical F32 policy. A
+future low-conflict experiment may test a default-off fused F32 gate projection
+that computes both logits in one matmul and splits the output, but it must pass
+MoE/dense md5 and `MUL_MAT`/`MUL_MAT_ID` gates before benchmarking. If md5
+changes, run the KL gate first and reject on any KL regression.
+
 Relevant files (all absolute): `/home/mudler/_git/LocalAI/.claude/worktrees/feat+paged-attention/backend/cpp/llama-cpp-localai-paged/docs/{DECODE_SERVING_SCOPE.md,PREFILL_GEMM_SCOPE.md,PREFILL_GEMM_RESULTS.md,TENSORCORE_GDN_SCOPE.md,final_benchmark.csv}`, `.../README.md`, `.../patches/paged/0034-feat-paged-native-NVFP4-W4A4-FP4-MMA-large-M-prefill.patch` (P1/P2), `.../patches/paged/0042-feat-paged-fused-residual-add-RMS-norm-weight-multip.patch` (P7), `.../patches/paged/0031` (P4), `0025` (D1), `0018/0022` (D4/D5), `0009/0010` (D3/D6/D7); graph source `/home/mudler/_git/LocalAI/backend/cpp/llama-cpp-paged-dev/src/{models/qwen35moe.cpp,models/delta-net-base.cpp,llama-graph.cpp}`.
 
 ### Phase 10 GDN C32 slab update

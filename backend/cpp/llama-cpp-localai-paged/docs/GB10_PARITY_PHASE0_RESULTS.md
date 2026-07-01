@@ -2214,3 +2214,52 @@ Decision:
 - Do not blindly force these calls to BF16. First inspect the model-load tensor
   types for `ffn_gate_inp*`; if changing weight dtype or graph routing is
   considered, require md5/op gates and KL validation.
+
+## Phase 38 Gate Projection Policy
+
+Phase 38 is a safety and scope checkpoint before any `ffn_gate_inp*` route
+change. It makes the reusable inference gate stricter by default and records why
+the Phase 37 SGEMM bucket should not be treated as a missed BF16 route.
+
+Artifact:
+
+- `/home/mudler/bench/phase38_gate_baseline/20260701_084410`
+
+Preflight:
+
+| check | actual |
+|-------|--------|
+| GPU | `NVIDIA GB10, 580.159.03` |
+| docker containers | `0` |
+| `local-ai-worker` containers | `0` |
+| GPU compute apps | `0` |
+| GPU lock owner | `FREE phase33-small-m-tile-policy-done 1782883234` |
+
+Fresh baseline gates against the current Phase37 build:
+
+| check | status | actual |
+|-------|--------|--------|
+| MoE md5 | ok | `8cb0ce23777bf55f92f63d0292c756b0` |
+| dense md5 | ok | `5951a5b4d624ce891e22ab5fca9bc439` |
+| `MUL_MAT` | ok | `1146/1146` |
+| `MUL_MAT_ID` | ok | `806/806` |
+
+Source comparison:
+
+- `qwen35moe.cpp` creates `ffn_gate_inp.weight` as `[n_embd, n_expert]` and
+  `ffn_gate_inp_shexp.weight` as `[n_embd]`.
+- `llama-graph.cpp` computes router logits with `build_lora_mm(gate_inp, cur)`
+  and labels the result `ffn_moe_logits`.
+- vLLM Qwen3-Next constructs both gates as `ReplicatedLinear(...,
+  quant_config=None)`, and its fused-MoE runner can concatenate router and
+  shared-expert gate weights for one fused-gate forward path.
+
+Decision:
+
+- The `sgemm` bucket is router/shared-expert gate math kept unquantized by both
+  engines. It is expected F32 policy, not an accidental cuBLAS fallback.
+- Do not force BF16 or NVFP4 for `ffn_gate_inp*`.
+- A future optimization can test a default-off fused gate projection that
+  preserves F32 math and split semantics. Gate it with MoE/dense md5,
+  `MUL_MAT`, `MUL_MAT_ID`, and KL validation if either md5 changes before any
+  serving benchmark.
