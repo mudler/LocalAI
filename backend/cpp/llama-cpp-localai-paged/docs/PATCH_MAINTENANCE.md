@@ -57,18 +57,18 @@ everywhere without ever touching the stock `llama-cpp` source tree.
 
 ## Latest mirror check
 
-Phase 36 re-verified the mirror invariant after adding patch `0062`:
+Phase 37 re-verified the mirror invariant after adding patch `0063`:
 
 ```text
 base=0ed235ea2c17a19fc8238668653946721ed136fd
-applied_tree=208189d119efe27477f1900cc6f7428bd1720449
-fork_tree=208189d119efe27477f1900cc6f7428bd1720449
+applied_tree=dedb1182910eafe9f6875588dc8285bfb544cce5
+fork_tree=dedb1182910eafe9f6875588dc8285bfb544cce5
 ```
 
 The check used a fresh worktree at `LLAMA_VERSION`, applied every
 `patches/paged/0*.patch` with strict `git apply`, staged the result, and compared
 `git write-tree` to canonical fork branch `localai-paged` at
-`38c4ef2e4 feat(cuda): trace cublas routes`.
+`2d590d770 feat(cuda): trace cublas tensor names`.
 
 ## Status
 

@@ -87,7 +87,7 @@ orthogonal to the paged allocator.
 
 ---
 
-## 3. Patch series (0001-0062)
+## 3. Patch series (0001-0063)
 
 Source-only patches, with intentional numbering gaps (e.g. 0005, 0027). The
 decode-serving graph-reuse levers are 0040-0041. "Bit-exact" = greedy md5 /
@@ -220,6 +220,7 @@ These are the dominant decode levers on the Qwen3.6 hybrid models. All bit-exact
 | 0060 | **Trace MoE MMID dispatch routes** - adds default-off `LLAMA_MOE_MMID_ROUTE_TRACE=<n>` around `MUL_MAT_ID` dispatch, classifying each call as `mmvq`, `mmvf`, grouped `mmq`, `mmf`, or host-sync `fallback`. This is evidence-only instrumentation to resolve whether serving hits the per-expert host-sync fallback. | yes (default-off, trace-enabled, and post-serving gates green: MoE `8cb0ce23`, dense `5951a5b4`, `MUL_MAT_ID` `806/806`; Phase 34 n128 trace found `mmq=2776`, `mmvq=1320`, `host_sync=0/4096`) |
 | 0061 | **Trace regular MUL_MAT dispatch routes** - adds default-off `LLAMA_MUL_MAT_ROUTE_TRACE=<n>` around regular `MUL_MAT`, classifying projection-heavy calls as `vec_f`, `mat_f`, `vec_q`, `mmq`, `batched_cublas`, `op_*`, `fp4_prefill`, or `fwht`. This is evidence-only instrumentation for the `bf16-proj` serving bucket. | yes (default-off, trace-enabled, and post-serving gates green: MoE `8cb0ce23`, dense `5951a5b4`, `MUL_MAT` `1146/1146`, `MUL_MAT_ID` `806/806`; Phase 35 n128 trace found BF16 routes `mat_f=2485`, `op_cublas=1330`) |
 | 0062 | **Trace cuBLAS subroutes** - adds default-off `LLAMA_CUBLAS_ROUTE_TRACE=<n>` around the generic cuBLAS `MUL_MAT` path, classifying calls as `nvfp4_bf16_tc`, `bf16_tc`, `f16_tc_32f`, `f16_tc_16f`, or `sgemm`. This is evidence-only instrumentation for the Phase 35 `op_cublas` bucket. | yes (default-off, trace-enabled, and post-serving gates green: MoE `8cb0ce23`, dense `5951a5b4`, `MUL_MAT` `1146/1146`, `MUL_MAT_ID` `806/806`; Phase 36 n128 trace found `bf16_tc=5681`, `sgemm=2511`) |
+| 0063 | **Trace cuBLAS tensor names** - extends `LLAMA_CUBLAS_ROUTE_TRACE=<n>` with `src0`, `src1`, and `dst` names so the `sgemm` bucket can be tied back to graph nodes. | yes (default-off, trace-enabled, and post-serving gates green: MoE `8cb0ce23`, dense `5951a5b4`, `MUL_MAT` `1146/1146`, `MUL_MAT_ID` `806/806`; Phase 37 n128 trace identified `sgemm` as `ffn_gate_inp* -> ffn_moe_logits/shared_expert_gate`) |
 
 > **Dropped: patch 0026 (hybrid per-head bf16 SSM state, `ssm_bf16_tau`).** Once
 > the decode fusions (0028 recurrent-state gather-fusion + 0029 block-table cache)

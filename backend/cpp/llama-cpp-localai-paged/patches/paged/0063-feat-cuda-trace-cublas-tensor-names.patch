@@ -1,0 +1,162 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Ettore Di Giacinto <mudler@localai.io>
+Date: Wed, 1 Jul 2026 06:38:11 +0000
+Subject: [PATCH] feat(cuda): trace cublas tensor names
+
+Extend LLAMA_CUBLAS_ROUTE_TRACE with src0/src1/dst tensor names so SGEMM and BF16 cuBLAS buckets can be tied back to graph nodes.
+
+Assisted-by: Codex:gpt-5
+---
+ ggml/src/ggml-cuda/ggml-cuda.cu      |  5 +++--
+ ggml/src/ggml-cuda/mmq-shape-trace.h | 16 +++++++++++++---
+ tests/test-cuda-mmq-shape-trace.cpp  | 18 ++++++++++++------
+ 3 files changed, 28 insertions(+), 11 deletions(-)
+
+diff --git a/ggml/src/ggml-cuda/ggml-cuda.cu b/ggml/src/ggml-cuda/ggml-cuda.cu
+index eff197818..1da67d2af 100644
+--- a/ggml/src/ggml-cuda/ggml-cuda.cu
++++ b/ggml/src/ggml-cuda/ggml-cuda.cu
+@@ -1648,7 +1648,7 @@ static inline void ggml_cuda_cublas_route_trace(const ggml_cuda_cublas_route_sha
+         return;
+     }
+ 
+-    char buf[320];
++    char buf[512];
+     ggml_cuda_cublas_route_shape_format(buf, sizeof(buf), shape);
+     fprintf(stderr, "[LLAMA_CUBLAS_ROUTE] %s\n", buf);
+ }
+@@ -1701,7 +1701,8 @@ static void ggml_cuda_op_mul_mat_cublas(
+     ggml_cuda_cublas_route_trace(ggml_cuda_cublas_route_shape_make(
+         src0->type, src1->type, row_diff, src1_ncols, ne00, ne10, ldc,
+         supports_bf16, use_fp16, fast_fp16, force_fp32, force_fp16, src0_contig, full_rows,
+-        GGML_CUDA_CC_IS_CDNA(cc), GGML_CUDA_CC_IS_RDNA4(cc), cc == GGML_CUDA_CC_VOLTA));
++        GGML_CUDA_CC_IS_CDNA(cc), GGML_CUDA_CC_IS_RDNA4(cc), cc == GGML_CUDA_CC_VOLTA,
++        src0->name, src1->name, dst->name));
+ 
+     if (supports_bf16 && src0->type == GGML_TYPE_NVFP4 && src0_contig && full_rows) {
+         // Paged prefill lever (patch 0033): NVFP4 only reaches cuBLAS when
+diff --git a/ggml/src/ggml-cuda/mmq-shape-trace.h b/ggml/src/ggml-cuda/mmq-shape-trace.h
+index f5b4ecf2c..b55c7467c 100644
+--- a/ggml/src/ggml-cuda/mmq-shape-trace.h
++++ b/ggml/src/ggml-cuda/mmq-shape-trace.h
+@@ -129,6 +129,9 @@ struct ggml_cuda_cublas_route_shape {
+     bool is_cdna;
+     bool is_rdna4;
+     bool is_volta;
++    const char * src0_name;
++    const char * src1_name;
++    const char * dst_name;
+ };
+ 
+ static inline const char * ggml_cuda_mmid_route_name(const ggml_cuda_mmid_route route) {
+@@ -251,7 +254,7 @@ static inline ggml_cuda_cublas_route_shape ggml_cuda_cublas_route_shape_make(
+         const int64_t ne00, const int64_t ne10, const int64_t ldc, const bool supports_bf16,
+         const bool use_fp16, const bool fast_fp16, const bool force_fp32, const bool force_fp16,
+         const bool src0_contig, const bool full_rows, const bool is_cdna, const bool is_rdna4,
+-        const bool is_volta) {
++        const bool is_volta, const char * src0_name, const char * src1_name, const char * dst_name) {
+     ggml_cuda_cublas_route route = GGML_CUDA_CUBLAS_ROUTE_SGEMM;
+     if (supports_bf16 && type == 40 && src0_contig && full_rows) {
+         route = GGML_CUDA_CUBLAS_ROUTE_NVFP4_BF16_TC;
+@@ -284,6 +287,9 @@ static inline ggml_cuda_cublas_route_shape ggml_cuda_cublas_route_shape_make(
+         is_cdna,
+         is_rdna4,
+         is_volta,
++        src0_name ? src0_name : "",
++        src1_name ? src1_name : "",
++        dst_name ? dst_name : "",
+     };
+ }
+ 
+@@ -464,7 +470,8 @@ static inline int ggml_cuda_cublas_route_shape_format(
+     return std::snprintf(buf, size,
+         "route=%s type=%d src1_type=%d row_diff=%lld src1_ncols=%lld ne00=%lld ne10=%lld ldc=%lld "
+         "supports_bf16=%d use_fp16=%d fast_fp16=%d force_fp32=%d force_fp16=%d "
+-        "src0_contig=%d full_rows=%d is_cdna=%d is_rdna4=%d is_volta=%d",
++        "src0_contig=%d full_rows=%d is_cdna=%d is_rdna4=%d is_volta=%d "
++        "src0=%s src1=%s dst=%s",
+         ggml_cuda_cublas_route_name(shape.route),
+         shape.type,
+         shape.src1_type,
+@@ -482,7 +489,10 @@ static inline int ggml_cuda_cublas_route_shape_format(
+         shape.full_rows ? 1 : 0,
+         shape.is_cdna ? 1 : 0,
+         shape.is_rdna4 ? 1 : 0,
+-        shape.is_volta ? 1 : 0);
++        shape.is_volta ? 1 : 0,
++        shape.src0_name,
++        shape.src1_name,
++        shape.dst_name);
+ }
+ 
+ static inline int ggml_cuda_mmq_small_m_shape_format(
+diff --git a/tests/test-cuda-mmq-shape-trace.cpp b/tests/test-cuda-mmq-shape-trace.cpp
+index 1443749c3..2547193ce 100644
+--- a/tests/test-cuda-mmq-shape-trace.cpp
++++ b/tests/test-cuda-mmq-shape-trace.cpp
+@@ -27,7 +27,7 @@ int main() {
+     require(shape.n_active_est == 256, "active expert estimate is capped by expert count");
+     require(shape.density == 4, "density is ceil(assignments / active experts)");
+ 
+-    char buf[256];
++    char buf[512];
+     const int n = ggml_cuda_mmq_shape_format(buf, sizeof(buf), shape);
+ 
+     require(n > 0, "format returns byte count");
+@@ -302,35 +302,38 @@ int main() {
+         /* full_rows */ true,
+         /* is_cdna */ false,
+         /* is_rdna4 */ false,
+-        /* is_volta */ false);
++        /* is_volta */ false,
++        /* src0_name */ "blk.0.proj.weight",
++        /* src1_name */ "blk.0.proj.inp",
++        /* dst_name */ "blk.0.proj.out");
+ 
+     require(bf16_tc.route == GGML_CUDA_CUBLAS_ROUTE_BF16_TC,
+         "cuBLAS records native BF16 tensor-core route");
+ 
+     const ggml_cuda_cublas_route_shape nvfp4_bf16_tc = ggml_cuda_cublas_route_shape_make(
+         /* type */ 40, 0, 128, 128, 1024, 1024, 128, true, false, true, false, false, true, true,
+-        false, false, false);
++        false, false, false, "nvfp4.weight", "nvfp4.inp", "nvfp4.out");
+ 
+     require(nvfp4_bf16_tc.route == GGML_CUDA_CUBLAS_ROUTE_NVFP4_BF16_TC,
+         "cuBLAS records NVFP4 dequant-to-BF16 tensor-core route");
+ 
+     const ggml_cuda_cublas_route_shape f16_tc_16f = ggml_cuda_cublas_route_shape_make(
+         /* type */ 1, 0, 64, 64, 1024, 1024, 64, false, true, true, false, false, true, true,
+-        false, false, false);
++        false, false, false, "f16.weight", "f16.inp", "f16.out");
+ 
+     require(f16_tc_16f.route == GGML_CUDA_CUBLAS_ROUTE_F16_TC_16F,
+         "cuBLAS records default FP16 tensor-core 16F compute route");
+ 
+     const ggml_cuda_cublas_route_shape f16_tc_32f = ggml_cuda_cublas_route_shape_make(
+         /* type */ 1, 0, 64, 64, 1024, 1024, 64, false, true, true, true, false, true, true,
+-        false, false, false);
++        false, false, false, "f16.weight", "f16.inp", "f16.out");
+ 
+     require(f16_tc_32f.route == GGML_CUDA_CUBLAS_ROUTE_F16_TC_32F,
+         "cuBLAS records forced FP16 tensor-core 32F compute route");
+ 
+     const ggml_cuda_cublas_route_shape sgemm = ggml_cuda_cublas_route_shape_make(
+         /* type */ 0, 0, 12, 12, 1024, 1024, 12, false, false, true, false, false, true, true,
+-        false, false, false);
++        false, false, false, "f32.weight", "f32.inp", "f32.out");
+ 
+     require(sgemm.route == GGML_CUDA_CUBLAS_ROUTE_SGEMM,
+         "cuBLAS records SGEMM fallback route");
+@@ -346,6 +349,9 @@ int main() {
+     require(std::strstr(buf, "supports_bf16=1") != nullptr, "cuBLAS trace includes BF16 predicate");
+     require(std::strstr(buf, "force_fp32=0") != nullptr, "cuBLAS trace includes forced compute predicate");
+     require(std::strstr(buf, "src0_contig=1") != nullptr, "cuBLAS trace includes contiguity predicate");
++    require(std::strstr(buf, "src0=blk.0.proj.weight") != nullptr, "cuBLAS trace includes src0 name");
++    require(std::strstr(buf, "src1=blk.0.proj.inp") != nullptr, "cuBLAS trace includes src1 name");
++    require(std::strstr(buf, "dst=blk.0.proj.out") != nullptr, "cuBLAS trace includes dst name");
+ 
+     return 0;
+ }
+-- 
+2.43.0
+

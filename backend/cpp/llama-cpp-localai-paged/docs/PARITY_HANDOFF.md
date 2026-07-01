@@ -478,6 +478,18 @@ MoE `8cb0ce23777bf55f92f63d0292c756b0`, dense
 shapes are expected glue tensors or a missed BF16 route; do not chase NVFP4
 cuBLAS or batched cuBLAS for this measured bucket.
 
+Phase 37 added patch `0063`, extending `LLAMA_CUBLAS_ROUTE_TRACE=<n>` with
+`src0`, `src1`, and `dst` tensor names. Artifact:
+`/home/mudler/bench/phase37_cublas_name_trace/20260701_083227`. Fork commit:
+`2d590d770 feat(cuda): trace cublas tensor names`; DGX mirror commit:
+`2cbb61969`. Default-off, trace-enabled, and post-serving gates stayed green:
+MoE `8cb0ce23777bf55f92f63d0292c756b0`, dense
+`5951a5b4d624ce891e22ab5fca9bc439`, `MUL_MAT` `1146/1146`, `MUL_MAT_ID`
+`806/806`. Live n128 trace found `bf16_tc=2884`, `sgemm=1212`. The `sgemm`
+bucket is `blk.N.ffn_gate_inp.weight -> ffn_moe_logits-N` and
+`blk.N.ffn_gate_inp_shexp.weight -> shared_expert_gate-N`; do not force BF16
+without first inspecting model-load tensor types and running KL validation.
+
 ---
 
 ## 5. METHODOLOGY LESSONS (so you do not repeat the mistakes)
@@ -527,15 +539,15 @@ Only pursue if (a)+(b) are not options and someone explicitly wants the residual
 ## 7. KEY FILE / ARTIFACT INDEX
 
 ### Fork (canonical source of truth)
-- Local canonical fork: `/home/mudler/_git/llama.cpp`, branch **`localai-paged`**, HEAD `38c4ef2e4` ("trace cublas routes", patch `0062`).
-- DGX current clean mirror/build tree: `dgx:~/llama-phase6-source`, HEAD `e0224393a` with the Phase 36 cuBLAS route-trace patch applied and committed; Phase 20/26/27 artifacts still record their historical source hashes.
+- Local canonical fork: `/home/mudler/_git/llama.cpp`, branch **`localai-paged`**, HEAD `2d590d770` ("trace cublas tensor names", patch `0063`).
+- DGX current clean mirror/build tree: `dgx:~/llama-phase6-source`, HEAD `2cbb61969` with the Phase 37 cuBLAS tensor-name trace patch applied and committed; Phase 20/26/27 artifacts still record their historical source hashes.
 - Historical DGX dev tree: `dgx:~/llama-paged-dev`, branch **`paged`**, HEAD `a7d439e8ce6990eb09721223c975da4e49d8d136` ("GDN CONFIG C (M8) - bf16 Kc/Qc"). It is an old experimental tree and must not be treated as canonical.
 
 ### LocalAI worktree
 - Path: `/home/mudler/_git/LocalAI/.claude/worktrees/feat+paged-attention`, branch `worktree-feat+paged-attention` (currently 246 ahead, 31 behind `origin/master`; recompute before reporting).
 - Backend dir: `backend/cpp/llama-cpp-localai-paged/` (`Makefile` thin wrapper, `package.sh`, `run.sh`, `README.md` ~44 KB canonical, `docs/`, `patches/paged/`).
 - `docs/`: `VLLM_PARITY_FINAL.md` (authoritative record), `VLLM_PARITY_LEVER_MAP.md` (working brainstorm, profile-validated section), `DECODE_SERVING_SCOPE.md`, `PREFILL_GEMM_SCOPE.md`, `PREFILL_GEMM_RESULTS.md`, `TENSORCORE_GDN_SCOPE.md`, `TENSORCORE_GDN_BUILD_PLAN.md`, `ACCELERATOR_PORTING_SCOPE.md`, `UPSTREAM_LAYER2_SCOPE.md`, `LOCALAI_LLAMACPP_BACKEND_PLAN.md`, `PAGED_BITEXACT_NOTE.md`, `PATCH_MAINTENANCE.md`, `final_benchmark.csv`, `paged-burst-bench.cpp`, `paged-reclaim-unit.cpp`, 3 PNGs, and this `PARITY_HANDOFF.md`.
-- `patches/paged/`: **53** `.patch` files spanning 0001-0062 with intentional gaps (missing 0005, 0026 [dropped ssm_bf16_tau], 0027, 0032, 0036-0039, 0045). Core paged-KV 0001-0012; decode-first scheduler 0013/0016; serving graph reuse 0040/0041; prefill fusions 0042/0044; SSM/GDN decode 0018-0022/0028; MoE NVFP4 quant 0023/0025/0043; FP4-MMA/Marlin scaffolds 0033/0034/0035 (default-off); GDN tensor-core prefill 0031 -> 0046 (geometry gate) -> 0047 (f32-only M5, default-on under paged KV); W4A16 packed metadata/shape/padding is 0048-0050; MoE safety tests are 0051-0053; MTP backend-sampling safety is 0054; speculative shape trace is 0055; MoE MMQ selector/launch/candidate/tile-policy/route instrumentation is 0056-0060; regular MUL_MAT route instrumentation is 0061; cuBLAS route instrumentation is 0062.
+- `patches/paged/`: **54** `.patch` files spanning 0001-0063 with intentional gaps (missing 0005, 0026 [dropped ssm_bf16_tau], 0027, 0032, 0036-0039, 0045). Core paged-KV 0001-0012; decode-first scheduler 0013/0016; serving graph reuse 0040/0041; prefill fusions 0042/0044; SSM/GDN decode 0018-0022/0028; MoE NVFP4 quant 0023/0025/0043; FP4-MMA/Marlin scaffolds 0033/0034/0035 (default-off); GDN tensor-core prefill 0031 -> 0046 (geometry gate) -> 0047 (f32-only M5, default-on under paged KV); W4A16 packed metadata/shape/padding is 0048-0050; MoE safety tests are 0051-0053; MTP backend-sampling safety is 0054; speculative shape trace is 0055; MoE MMQ selector/launch/candidate/tile-policy/route instrumentation is 0056-0060; regular MUL_MAT route instrumentation is 0061; cuBLAS route instrumentation is 0062-0063.
 
 ### Bench artifacts (DGX)
 - `~/bench/COMBINED_DEFINITIVE.txt` (+ `.log`, `.done`, `combined_definitive.sh`, `combined_definitive.out`) - historical same-session both-engine run.
@@ -554,6 +566,7 @@ Only pursue if (a)+(b) are not options and someone explicitly wants the residual
 - `~/bench/phase34_mmid_route_trace/20260701_072737` - default-off MoE MMID route trace patch `0060`; default/trace/post-serving md5 gates green; n128 route trace found `mmq=2776`, `mmvq=1320`, `host_sync=0/4096`.
 - `~/bench/phase35_mul_mat_route_trace/20260701_074359` - default-off regular MUL_MAT route trace patch `0061`; default/trace/post-serving md5 gates green; n128 route trace found BF16 `mat_f=2485`, `op_cublas=1330`.
 - `~/bench/phase36_cublas_route_trace/20260701_081228` - default-off cuBLAS subroute trace patch `0062`; default/trace/post-serving md5 and op gates green; n128 route trace found `bf16_tc=5681`, `sgemm=2511`.
+- `~/bench/phase37_cublas_name_trace/20260701_083227` - cuBLAS tensor-name trace patch `0063`; default/trace/post-serving md5 and op gates green; n128 trace identified `sgemm` as MoE gate logits and shared-expert gate projections.
 - Per-engine logs `~/bench/COMBINED_{paged,vllm}_{MOE,DENSE}_server.log`; `~/bench/BENCHMARK_PROGRESS.md`.
 - Graph-node-traced high-N profiles: `~/highN_prof2/*.nsys-rep` (paged npl=256), `~/highN_vllm/*.nsys-rep` (vLLM), 2026-06-30.
 - A/B dirs: `~/bench/marlin_gate/`, `~/bench/gdn_p1_ab/`.
@@ -566,8 +579,8 @@ Only pursue if (a)+(b) are not options and someone explicitly wants the residual
 
 ### Discrepancies to flag / resolve (carried verbatim from the gather, including UNVERIFIED labels)
 1. **Pin prose reconciled in this worktree.** Makefile line 52 `LLAMA_VERSION?=0ed235ea2c17a19fc8238668653946721ed136fd` is authoritative and matches the local fork merge-base. Hard rule: the paged pin must equal the stock `llama-cpp` pin (shared `grpc-server.cpp`); a bump to `c299a92c` once broke the grpc-server link despite being bit-exact and was reverted. Trust the Makefile when building.
-2. **Current fork/mirror are clean and verified.** Local fork HEAD is `38c4ef2e4`, DGX clean mirror HEAD is `e0224393a`, and Phase 36 should be treated as the current patch-series tip. The old `llama-paged-dev` tree is historical only.
-3. **Worktree patch series is tracked through 0062.** The only expected unrelated untracked path in this worktree is `.claude/`.
+2. **Current fork/mirror are clean and verified.** Local fork HEAD is `2d590d770`, DGX clean mirror HEAD is `2cbb61969`, and Phase 37 should be treated as the current patch-series tip. The old `llama-paged-dev` tree is historical only.
+3. **Worktree patch series is tracked through 0063.** The only expected unrelated untracked path in this worktree is `.claude/`.
 4. **`sm_121a` is not in the worktree build files** - it lives only in the DGX experimental build scripts (`gdn_cc.sh`, `gdn_bv_build.sh`, `paged-build.sh`); mainline uses arch `121`. **UNVERIFIED** whether the shipped CI Dockerfile build path injects `121a` for the FP4-MMA kernels (`Dockerfile.llama-cpp-localai-paged` does not hardcode a CUDA arch).
 5. **The `0921716...` paged-MoE md5 open item.** `COMBINED_DEFINITIVE.txt` records `PAGED_GATE_MD5=0921716cd0582b5d15af8c362b811d00` for MoE, but a full doc/patch/`git log -S` grep of the worktree found **no** occurrence of `0921716...` in any committed source; the committed canonical paged-MoE gate is `8cb0ce23`. Treat this as **unreconciled**: the documented, KL-validated paged-MoE gate remains `8cb0ce23`, and any paged-MoE divergence (including `0921716`) must be KL-validated against the f16 reference before being accepted as benign, never on assertion alone. The `0921716` value is **UNVERIFIED** as a sanctioned gate; do not adopt it as canonical without re-running the KL gate. The **dense** run is symmetric: `COMBINED_DEFINITIVE.txt` records `PAGED_GATE_MD5=ecfe924dee6c5622c149f419ff2a6481` for dense, which likewise differs from the canonical dense gate `5951a5b4`. Both CDEF `PAGED_GATE_MD5` values come from the `combined_definitive.sh` harness's own gate command, NOT the canonical bit-exact gate command in section 3.3, which is why they diverge from the committed `8cb0ce23` / `5951a5b4`; neither is a sanctioned gate and both must be KL-validated before being treated as benign.
 

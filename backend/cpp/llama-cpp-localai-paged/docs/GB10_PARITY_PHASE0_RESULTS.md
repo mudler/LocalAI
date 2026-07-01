@@ -2160,3 +2160,57 @@ Decision:
 - The next projection phase should identify whether the `type=0` SGEMM shapes
   are expected glue tensors or a missed BF16 route. Do not change routing until
   a separately gated policy proves md5/op safety.
+
+## Phase 37 cuBLAS Tensor-Name Trace
+
+Phase 37 added patch `0063`, extending the default-off
+`LLAMA_CUBLAS_ROUTE_TRACE=<n>` diagnostic with `src0`, `src1`, and `dst` tensor
+names. It is instrumentation only.
+
+Artifact:
+
+- `/home/mudler/bench/phase37_cublas_name_trace/20260701_083227`
+
+Run:
+
+- Fork commit: `/home/mudler/_git/llama.cpp` `2d590d770`
+- DGX mirror commit: `dgx:~/llama-phase6-source` `2cbb61969`
+- Env: `LLAMA_KV_PAGED=1 LLAMA_MOE_FORCE_GRAPHS=1 LLAMA_CUBLAS_ROUTE_TRACE=4096`
+- Workload: staggered n128 `llama-server` diagnostic trace
+
+Route summary:
+
+| route | count |
+|-------|------:|
+| `bf16_tc` | 2884 |
+| `sgemm` | 1212 |
+
+Named bucket summary:
+
+| route | tensor pattern |
+|-------|----------------|
+| `bf16_tc` | `blk.N.attn_gate.weight -> z-N` |
+| `bf16_tc` | `blk.N.ssm_out.weight -> linear_attn_out-N` |
+| `sgemm` | `blk.N.ffn_gate_inp.weight -> ffn_moe_logits-N` |
+| `sgemm` | `blk.N.ffn_gate_inp_shexp.weight -> shared_expert_gate-N` |
+
+Gates:
+
+| check | status | actual |
+|-------|--------|--------|
+| default-off MoE md5 | ok | `8cb0ce23777bf55f92f63d0292c756b0` |
+| default-off dense md5 | ok | `5951a5b4d624ce891e22ab5fca9bc439` |
+| trace-enabled MoE md5 | ok | `8cb0ce23777bf55f92f63d0292c756b0` |
+| trace-enabled dense md5 | ok | `5951a5b4d624ce891e22ab5fca9bc439` |
+| post-serving MoE md5 | ok | `8cb0ce23777bf55f92f63d0292c756b0` |
+| post-serving dense md5 | ok | `5951a5b4d624ce891e22ab5fca9bc439` |
+| `MUL_MAT` | ok | `1146/1146` default, trace, post-serving |
+| `MUL_MAT_ID` | ok | `806/806` default, trace, post-serving |
+
+Decision:
+
+- The Phase 36 F32 SGEMM bucket is mainly MoE gate logits and shared-expert gate
+  projections, not an anonymous missed dense projection route.
+- Do not blindly force these calls to BF16. First inspect the model-load tensor
+  types for `ffn_gate_inp*`; if changing weight dtype or graph routing is
+  considered, require md5/op gates and KL validation.

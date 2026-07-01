@@ -955,6 +955,27 @@ tensor-core plus F32 SGEMM, not NVFP4 cuBLAS and not batched cuBLAS. The next
 projection phase should explain whether the F32 SGEMM shapes are expected glue
 tensors or a missed BF16 route, with md5/op gates before any route policy A/B.
 
+### Phase 37 cuBLAS tensor-name trace
+
+Phase 37 added patch `0063`, extending `LLAMA_CUBLAS_ROUTE_TRACE=<n>` with
+`src0`, `src1`, and `dst` names. Artifact:
+`/home/mudler/bench/phase37_cublas_name_trace/20260701_083227`.
+
+Default-off, trace-enabled, and post-serving gates stayed bit-exact: MoE
+`8cb0ce23777bf55f92f63d0292c756b0`, dense
+`5951a5b4d624ce891e22ab5fca9bc439`, `MUL_MAT` `1146/1146`, and `MUL_MAT_ID`
+`806/806`.
+
+Live n128 serving with trace cap 4096 found `bf16_tc=2884`, `sgemm=1212`.
+The `sgemm type=0` entries are the MoE gate logits and shared-expert gate
+projections: `blk.N.ffn_gate_inp.weight -> ffn_moe_logits-N` and
+`blk.N.ffn_gate_inp_shexp.weight -> shared_expert_gate-N`. Attention and SSM
+projections in the sample are already `bf16_tc`.
+
+Lever implication: do not blindly force the `sgemm` bucket to BF16. First inspect
+why `ffn_gate_inp*` loads as F32 and whether a dtype or graph-route change is
+precision-safe. If attempted, use md5/op gates plus KL validation.
+
 Relevant files (all absolute): `/home/mudler/_git/LocalAI/.claude/worktrees/feat+paged-attention/backend/cpp/llama-cpp-localai-paged/docs/{DECODE_SERVING_SCOPE.md,PREFILL_GEMM_SCOPE.md,PREFILL_GEMM_RESULTS.md,TENSORCORE_GDN_SCOPE.md,final_benchmark.csv}`, `.../README.md`, `.../patches/paged/0034-feat-paged-native-NVFP4-W4A4-FP4-MMA-large-M-prefill.patch` (P1/P2), `.../patches/paged/0042-feat-paged-fused-residual-add-RMS-norm-weight-multip.patch` (P7), `.../patches/paged/0031` (P4), `0025` (D1), `0018/0022` (D4/D5), `0009/0010` (D3/D6/D7); graph source `/home/mudler/_git/LocalAI/backend/cpp/llama-cpp-paged-dev/src/{models/qwen35moe.cpp,models/delta-net-base.cpp,llama-graph.cpp}`.
 
 ### Phase 10 GDN C32 slab update
