@@ -1323,6 +1323,48 @@ budget-shrinkage as the next path and points to a targeted first-token
 admission or prompt-front-loading A/B, gated by the same md5 and backend-op
 checks.
 
+### Phase 55 TTFT prefill-first scheduler A/B
+
+Phase55 implemented the targeted first-token admission A/B proposed by
+Phase54. It is default-off behind `LLAMA_TTFT_PREFILL_FIRST=1`; while any prompt
+is still waiting for first-token admission, it defers token 2+ decode rows from
+already-started streams. This does not lower `LLAMA_MAX_BATCH_TOKENS` and does
+not change default scheduling.
+
+Fork commit:
+`8a97629a4 feat(server): add TTFT prefill-first scheduler mode`.
+
+Artifact:
+`/home/mudler/bench/phase55_ttft_prefill_first/20260701_114929`.
+
+Pre/post/after-A-B md5 and op gates stayed green on the temporary DGX patch
+stack: MoE `8cb0ce23777bf55f92f63d0292c756b0`, dense
+`5951a5b4d624ce891e22ab5fca9bc439`, `MUL_MAT` `1146/1146`, and `MUL_MAT_ID`
+`806/806`.
+
+Dense `n=128`, `ptok=168`, `gen=64` A/B:
+
+| variant | agg t/s | decode agg t/s | prefill t/s | TTFT mean ms | TTFT max ms | wall s |
+|---------|---------|-----------------|-------------|--------------|-------------|--------|
+| default | `138.2` | `361.3` | `626.0` | `23231.9` | `36599.5` | `59.272` |
+| `LLAMA_TTFT_PREFILL_FIRST=1` | `142.9` | `336.9` | `694.2` | `21520.8` | `33008.2` | `57.323` |
+
+Trace comparison:
+
+- Default: `ttft_deferred_decode_slots=0`,
+  `prompt_hist=0:63,1-64:1,513+:12`,
+  `decode_hist=0:3,1-63:10,64-127:10,128-255:53`.
+- Opt-in: `ttft_deferred_decode_slots=660`,
+  `prompt_hist=0:63,1-64:1,257-512:1,513+:11`,
+  `decode_hist=0:13,128-255:63`.
+
+Decision: keep the policy as a promising default-off scheduler A/B. It improved
+dense aggregate throughput by `+3.4%`, mean TTFT by `-7.4%`, max TTFT by
+`-9.8%`, and wall time by `-3.3%`. The h2h decode-agg drop is expected because
+the policy shifts early compute from token 2+ decode to first-token prompt
+admission. Before any default-on discussion, test MoE serving and at least one
+additional concurrency point.
+
 Relevant files (all absolute): `/home/mudler/_git/LocalAI/.claude/worktrees/feat+paged-attention/backend/cpp/llama-cpp-localai-paged/docs/{DECODE_SERVING_SCOPE.md,PREFILL_GEMM_SCOPE.md,PREFILL_GEMM_RESULTS.md,TENSORCORE_GDN_SCOPE.md,final_benchmark.csv}`, `.../README.md`, `.../patches/paged/0034-feat-paged-native-NVFP4-W4A4-FP4-MMA-large-M-prefill.patch` (P1/P2), `.../patches/paged/0042-feat-paged-fused-residual-add-RMS-norm-weight-multip.patch` (P7), `.../patches/paged/0031` (P4), `0025` (D1), `0018/0022` (D4/D5), `0009/0010` (D3/D6/D7); graph source `/home/mudler/_git/LocalAI/backend/cpp/llama-cpp-paged-dev/src/{models/qwen35moe.cpp,models/delta-net-base.cpp,llama-graph.cpp}`.
 
 ### Phase 10 GDN C32 slab update

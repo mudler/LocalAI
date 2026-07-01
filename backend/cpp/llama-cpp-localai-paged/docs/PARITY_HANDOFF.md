@@ -20,16 +20,19 @@ Read order for a cold start:
 
 ## 1. TL;DR STATE
 
-> 2026-07-01 active update: Phase50-54 reopened the dense serving question.
+> 2026-07-01 active update: Phase50-55 reopened the dense serving question.
 > True dense decode is much closer to vLLM (`383.66` vs `435.00` t/s, `88.2%`)
 > than the Phase47 h2h aggregate suggested, while traced serving still shows
 > no pure decode-only steps and high TTFT. Phase53 rejected static lower
 > admission budgets; Phase54 histograms show prompt admission concentrated in a
 > few large chunks (`prompt_hist=513+:12`) with mostly full-width decode
-> (`decode_hist=128-255:53`). Next scheduler work should be a targeted
-> first-token admission or prompt-front-loading A/B, not another global
-> `LLAMA_MAX_BATCH_TOKENS` reduction. The trace commits are local and DGX-gated
-> but not pushed, so the LocalAI patch series has not been regenerated.
+> (`decode_hist=128-255:53`). Phase55 implemented that targeted
+> first-token A/B as `LLAMA_TTFT_PREFILL_FIRST=1`: on dense `n=128` it improved
+> aggregate throughput `138.2 -> 142.9`, mean TTFT `23231.9 -> 21520.8 ms`, and
+> wall `59.272 -> 57.323 s`, with md5/op gates green. Next scheduler work should
+> test the same opt-in policy on MoE and another concurrency point. The trace and
+> scheduler commits are local and DGX-gated but not pushed, so the LocalAI patch
+> series has not been regenerated.
 
 - Historical verdict: the older investigation marked GB10 parity **CLOSED** and
   unreachable. Treat that as superseded where Phase50-54 provide newer dense
