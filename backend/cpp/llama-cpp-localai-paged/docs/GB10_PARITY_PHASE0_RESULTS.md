@@ -3767,3 +3767,61 @@ Decision:
 - Next default-on consideration requires regenerating the LocalAI patch series
   from the fork and rerunning the broader current serving snapshot gates. Do not
   default it from Phase68 alone.
+
+## Patch Series Mirror Readiness Phase69 Result
+
+Phase69 is recorded in
+`docs/superpowers/plans/2026-07-01-patch-series-mirror-readiness-phase69.md`.
+It did not change llama.cpp source and did not edit generated LocalAI patch
+files. It verified that the current LocalAI series is still drift-free at the
+Phase37 tip, then dry-ran the additive patches needed to mirror the current
+local fork HEAD.
+
+Current committed series:
+
+| check | value |
+|-------|-------|
+| base | `0ed235ea2c17a19fc8238668653946721ed136fd` |
+| patch count | `54` |
+| applied tree | `dedb1182910eafe9f6875588dc8285bfb544cce5` |
+| Phase37 fork-tip tree | `dedb1182910eafe9f6875588dc8285bfb544cce5` |
+| current fork HEAD tree | `fcf5720b659c5e1e2b487ccf3c8f7289bb12b9c4` |
+| committed series matches Phase37 tip | `yes` |
+| committed series matches current fork HEAD | `no` |
+
+Dry-run export from `2d590d770..ea0875d14` produced ten additive source-only
+candidate patches:
+
+| projected patch | source commit |
+|-----------------|---------------|
+| `0064-feat-server-trace-serving-admission-batches.patch` | `c6cb8460e` |
+| `0065-feat-server-add-admission-trace-histograms.patch` | `bd7b2e952` |
+| `0066-feat-server-add-TTFT-prefill-first-scheduler-mode.patch` | `8a97629a4` |
+| `0067-feat-server-cap-TTFT-prefill-first-decode-deferral.patch` | `3b6ab5fa8` |
+| `0068-feat-server-gate-TTFT-defer-by-prompt-backlog.patch` | `8759213e3` |
+| `0069-test-cuda-cover-W4A16-direct-activation-policy.patch` | `41be3da5b` |
+| `0070-feat-cuda-route-W4A16-direct-activation-stub.patch` | `7967ad47f` |
+| `0071-feat-cuda-trace-layout-tensor-names.patch` | `fa944bb5f` |
+| `0072-feat-cuda-trace-activation-quant-routes.patch` | `afc2c7030` |
+| `0073-feat-cuda-gate-BF16-cuBLAS-F32-output.patch` | `ea0875d14` |
+
+Projected mirror check:
+
+| check | value |
+|-------|-------|
+| current patches | `54` |
+| missing patches | `10` |
+| projected patches | `64` |
+| applied plus missing tree | `fcf5720b659c5e1e2b487ccf3c8f7289bb12b9c4` |
+| fork HEAD tree | `fcf5720b659c5e1e2b487ccf3c8f7289bb12b9c4` |
+| projected series matches fork HEAD | `yes` |
+
+Decision:
+
+- The Phase68 BF16 F32 opt-in would become projected patch `0073` and has a
+  conflict-free path into the LocalAI series.
+- Do not commit generated patches yet. The fork branch is `26` commits ahead of
+  `fork/localai-paged`, and the repo workflow requires pushing the fork before
+  regenerating the LocalAI patch series. Push still requires explicit approval.
+- After push approval, regenerate `0064..0073`, repeat the tree hash check, and
+  only then run broader serving gates for any default-on BF16 policy decision.

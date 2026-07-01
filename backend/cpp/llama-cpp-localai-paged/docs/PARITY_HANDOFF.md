@@ -1029,3 +1029,53 @@ Decision: carry the shortcut as a default-off opt-in candidate. It is no longer
 just a prefill-only win, but Phase68 is not enough to default it on. Any future
 default-on proposal must mirror the fork commit into the LocalAI patch series
 and rerun a broader current serving snapshot with pre/post md5 and op gates.
+
+## 14. PHASE69 RESULT: PATCH SERIES MIRROR READINESS
+
+Phase69 checked the patch-series state without pushing and without editing
+generated patch files. Plan:
+`docs/superpowers/plans/2026-07-01-patch-series-mirror-readiness-phase69.md`.
+
+Current committed LocalAI patches still match the Phase37 fork tip:
+
+```text
+base=0ed235ea2c17a19fc8238668653946721ed136fd
+applied_tree=dedb1182910eafe9f6875588dc8285bfb544cce5
+patch_tip_tree=dedb1182910eafe9f6875588dc8285bfb544cce5
+fork_head_tree=fcf5720b659c5e1e2b487ccf3c8f7289bb12b9c4
+match_patch_tip=yes
+match_fork_head=no
+patch_count=54
+```
+
+Dry-run export from `2d590d770..ea0875d14` produced ten additive source-only
+patches, projected as `0064..0073`. Applying current `0001..0063` plus temp
+`0064..0073` onto the pin exactly reconstructed current fork HEAD:
+
+```text
+applied_plus_missing_tree=fcf5720b659c5e1e2b487ccf3c8f7289bb12b9c4
+fork_head_tree=fcf5720b659c5e1e2b487ccf3c8f7289bb12b9c4
+match_fork_head=yes
+current_patch_count=54
+missing_patch_count=10
+projected_patch_count=64
+```
+
+Projected patch tail:
+
+- `0064` serving admission trace (`c6cb8460e`)
+- `0065` admission histograms (`bd7b2e952`)
+- `0066..0068` TTFT prefill-first scheduler knobs (`8a97629a4`,
+  `3b6ab5fa8`, `8759213e3`)
+- `0069..0070` W4A16 direct-activation policy/stub (`41be3da5b`,
+  `7967ad47f`)
+- `0071` layout trace (`fa944bb5f`)
+- `0072` quant trace (`afc2c7030`)
+- `0073` BF16 cuBLAS F32 output (`ea0875d14`)
+
+Decision: mirror regeneration is technically ready but not executed. The local
+fork is `26` commits ahead of `fork/localai-paged`, and the fork-first policy
+requires pushing before regenerating the LocalAI series. Do not push without
+explicit approval. After approval, push the fork, regenerate `0064..0073`, rerun
+the same tree-hash check, and then run the broader serving gates before any
+default-on BF16 policy change.

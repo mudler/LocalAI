@@ -70,6 +70,61 @@ The check used a fresh worktree at `LLAMA_VERSION`, applied every
 `git write-tree` to canonical fork branch `localai-paged` at
 `2d590d770 feat(cuda): trace cublas tensor names`.
 
+Phase 69 re-verified that the committed LocalAI patch series still matches the
+Phase37 fork tip, and then dry-ran the additive patch export needed for the
+current local fork HEAD. No generated patch files were edited in Phase69 because
+the repo policy requires pushing the fork branch before regenerating the LocalAI
+series, and pushes still require explicit approval.
+
+Committed-series check:
+
+```text
+base=0ed235ea2c17a19fc8238668653946721ed136fd
+applied_tree=dedb1182910eafe9f6875588dc8285bfb544cce5
+patch_tip_tree=dedb1182910eafe9f6875588dc8285bfb544cce5
+fork_head_tree=fcf5720b659c5e1e2b487ccf3c8f7289bb12b9c4
+match_patch_tip=yes
+match_fork_head=no
+patch_count=54
+```
+
+Dry-run export from `2d590d770..ea0875d14` produced ten source-only candidate
+patches:
+
+```text
+0064-feat-server-trace-serving-admission-batches.patch
+0065-feat-server-add-admission-trace-histograms.patch
+0066-feat-server-add-TTFT-prefill-first-scheduler-mode.patch
+0067-feat-server-cap-TTFT-prefill-first-decode-deferral.patch
+0068-feat-server-gate-TTFT-defer-by-prompt-backlog.patch
+0069-test-cuda-cover-W4A16-direct-activation-policy.patch
+0070-feat-cuda-route-W4A16-direct-activation-stub.patch
+0071-feat-cuda-trace-layout-tensor-names.patch
+0072-feat-cuda-trace-activation-quant-routes.patch
+0073-feat-cuda-gate-BF16-cuBLAS-F32-output.patch
+```
+
+Projected-series check with current `0001..0063` plus temp `0064..0073`:
+
+```text
+base=0ed235ea2c17a19fc8238668653946721ed136fd
+applied_plus_missing_tree=fcf5720b659c5e1e2b487ccf3c8f7289bb12b9c4
+fork_head_tree=fcf5720b659c5e1e2b487ccf3c8f7289bb12b9c4
+match_fork_head=yes
+current_patch_count=54
+missing_patch_count=10
+projected_patch_count=64
+```
+
+Next mirror action after explicit push approval:
+
+1. Push `/home/mudler/_git/llama.cpp` branch `localai-paged` to
+   `fork/localai-paged`.
+2. Regenerate or copy the equivalent source-only `0064..0073` patches from the
+   pushed fork.
+3. Repeat the projected-series tree hash check above against fork HEAD before
+   committing generated patches.
+
 ## Status
 
 - **0001 vendor manager — DONE.** Applies clean to the pin; builds into `libllama`.
