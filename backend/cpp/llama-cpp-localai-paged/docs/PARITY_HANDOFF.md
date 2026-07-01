@@ -1256,3 +1256,26 @@ Decision: do not touch `ggml/src/ggml-cuda/gated_delta_net.cu` for this C=64
 inverse scaffold on GB10. A future GDN source-work gate must be a substantially
 different tensor-core blocked-solve/register-state design that shows a material
 timing win before backend changes.
+
+Phase75 follow-up audit:
+
+- llama.cpp already ships the M5 tensor-core GDN path default-on under paged KV:
+  `KK/QK`, `KS/QS`, `P*U`, explicit `T=A^-1`, `U=T*RHS`, and
+  `Kc^T*DU` state carry are covered in the current `C=16` GB10 path.
+- vLLM has a distinct one-token recurrent decode path that updates state
+  directly and a packed decode path that avoids Q/K/V materialization copies,
+  but this is not source-funded in llama.cpp without a fresh profile: prior
+  parity evidence showed llama.cpp GDN decode already faster than vLLM and
+  decode serving dominated by host/MoE synchronization.
+- vLLM's CuTeDSL GDN prefill path is useful reference material for datacenter
+  Blackwell, but depends on SM10x/CUDA-13 features such as TMA/tcgen05/CUTLASS
+  DSL and should not be treated as a portable GB10 patch base until the local
+  toolchain proves support.
+
+Current next gate: run the Phase72 same-session serving shape on B200/B100/GB200
+or equivalent datacenter Blackwell hardware. Require `hardware_class` to be
+`datacenter_blackwell`, pre/post md5 and op gates to be green, and graph-node
+decode profiles for both llama.cpp and vLLM. If the rerun does not materially
+raise the GB10 Phase72 decode ratios (`0.7561`, `0.7158`, `0.6935`), keep GB10
+GDN source work stopped and classify the residual gap as engine/kernel
+architecture rather than GB10 memory bandwidth.

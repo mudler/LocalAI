@@ -12,12 +12,13 @@ with artifact path, gates, benchmark rows, and decision.
 - Canonical dense md5: `5951a5b4d624ce891e22ab5fca9bc439`.
 - Current tested source: DGX mirror
   `14fd69f1e feat(cuda): gate BF16 cuBLAS F32 output`.
-- Latest attempt: Phase74.
-- Latest decision: standalone C=64 GDN solve/apply PoC did not fund backend
-  source work. Explicit inverse-plus-apply was only `0.594x`/`0.593x` the
-  direct solve/apply baseline for weak/mixed decay, so the next parity evidence
-  should be a datacenter Blackwell rerun or a substantially different TC solve
-  PoC.
+- Latest attempt: Phase75.
+- Latest decision: subagent codebase audit found no source-funded GB10 GDN
+  backend change. Phase74 rejects the C=64 inverse scaffold; vLLM's distinct
+  one-token recurrent decode path is not on the current llama.cpp critical path
+  because prior profiles showed GDN decode already faster than vLLM and serving
+  decode host/MoE-sync bound. The next parity evidence should be a datacenter
+  Blackwell rerun, or a fresh profile proving a different GB10 bottleneck.
 
 ## Current Serving Record
 
@@ -56,6 +57,54 @@ Decision:
   concurrency and widened the vLLM decode gap.
 
 ## Attempt Log
+
+### Phase75: Post-PoC GDN/VLLM Audit
+
+- Date: 2026-07-01.
+- Artifact: no new benchmark artifact.
+- Source baseline: `14fd69f1e feat(cuda): gate BF16 cuBLAS F32 output`.
+- Result type: subagent codebase audit and gate-setting only; no source change.
+- Inputs: Phase74 artifact
+  `/home/mudler/bench/phase74_gdn_blocked_solve_poc/20260701_143711`,
+  llama.cpp GDN implementation, vLLM FLA/GDN implementation, and parity docs.
+
+Findings:
+
+- llama.cpp already has the M5 tensor-core GDN path default-on under paged KV.
+  It includes `KK/QK` mma, `KS/QS` 3xtf32 mma, `P*U` mma, explicit
+  `T=A^-1`, `U=T*RHS`, and state carry `Kc^T*DU`.
+- The current backend path is fixed at `C=16` for GB10 shared-memory limits.
+  The remaining C=64/register-state class is not a shortcut patch.
+- Phase74 tested a C=64 shared-memory explicit inverse-plus-apply scaffold and
+  failed its source-work gate: inverse/direct speed was `0.5941x` weak decay
+  and `0.5927x` mixed decay.
+- vLLM has a structurally different one-token recurrent decode kernel that
+  updates state directly without chunk inverse, and a packed decode path that
+  avoids Q/K/V materialization copies. This is not currently source-funded in
+  llama.cpp because prior parity profiles showed llama.cpp GDN decode faster
+  than vLLM and decode serving dominated by host/MoE synchronization.
+- vLLM's CuTeDSL GDN prefill path uses SM10x/CUDA-13 Blackwell features
+  including TMA/tcgen05/CUTLASS DSL. Treat it as datacenter-Blackwell reference
+  evidence unless GB10 support is proven in the local toolchain.
+
+Decision:
+
+- Do not start GB10 GDN backend source work after Phase74/75.
+- Do not start a packed/recurrent GDN decode PoC unless a fresh same-session
+  profile shows GDN decode or Q/K/V materialization back on the critical path.
+- Phase75 acceptance gate for the next real parity attempt is a datacenter
+  Blackwell serving rerun with the Phase72 shape:
+  `NPL=8 32 128`, `PTOK=128`, `GEN=64`, `PARALLEL=128`, production defaults.
+- The rerun is valid only if `hardware.txt` records
+  `hardware_class=datacenter_blackwell`, pre/post md5 gates are green
+  (`8cb0ce23777bf55f92f63d0292c756b0`,
+  `5951a5b4d624ce891e22ab5fca9bc439`), `MUL_MAT 1146/1146` and
+  `MUL_MAT_ID 806/806` are green, and decode profiles include
+  `nsys --cuda-graph-trace=node`.
+- If datacenter Blackwell materially lifts llama/vLLM decode ratios above the
+  GB10 Phase72 record (`0.7561`, `0.7158`, `0.6935`), continue parity work on
+  that surface. If not, record the residual gap as engine/kernel architecture
+  rather than GB10 memory bandwidth and keep GB10 GDN stopped.
 
 ### Phase74: GDN Blocked-Solve PoC Gate
 
