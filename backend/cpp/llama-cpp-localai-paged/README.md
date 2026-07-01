@@ -564,6 +564,14 @@ backend-split + gallery plan is in
 
 ## 9. vLLM parity - final state (CLOSED)
 
+> 2026-07-01 follow-up: the investigation was reopened for MTP safety,
+> MTP-serving, graph-shape tracing, and a current-stack serving snapshot. Phases
+> 14-20 are recorded in
+> [`docs/GB10_PARITY_PHASE0_RESULTS.md`](docs/GB10_PARITY_PHASE0_RESULTS.md) and
+> [`docs/PARITY_HANDOFF.md`](docs/PARITY_HANDOFF.md). They did not change the
+> GB10 conclusion: MTP/scheduler shortcuts are rejected, and the latest clean
+> stack remains below vLLM serving parity.
+
 The multi-week GB10 (DGX Spark, sm_121) vLLM-parity investigation is **closed**.
 The standing, never-re-litigate record - full benchmark, every lever and verdict,
 the structural floors, the parity verdict - is
@@ -596,3 +604,13 @@ the structural floors, the parity verdict - is
   the vLLM advantages that lose on GB10** (FLA blocked-solve GDN, Marlin/CUTLASS
   grouped FP4, HBM-tuned full-cudagraph decode). Re-run the methodology on new
   silicon; do not reopen the GB10 levers.
+
+Latest current-stack MoE serving snapshot (`PTOK=128`, `GEN=64`, current clean
+DGX mirror `f2521ab12`, artifact
+`/home/mudler/bench/phase20_current_snapshot/20260701_050621`):
+
+| n | paged decode_agg | vLLM decode_agg | paged/vLLM decode | paged agg | vLLM agg | paged/vLLM agg |
+|---|------------------|-----------------|-------------------|-----------|----------|----------------|
+| 8 | 220.8 | 290.5 | 76.0% | 164.8 | 245.5 | 67.1% |
+| 32 | 411.1 | 594.7 | 69.1% | 252.1 | 456.0 | 55.3% |
+| 128 | 670.0 | 1022.7 | 65.5% | 322.4 | 662.4 | 48.7% |

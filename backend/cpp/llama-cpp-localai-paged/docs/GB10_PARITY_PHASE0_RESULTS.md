@@ -1359,3 +1359,49 @@ Decision:
   `K + 1` verification-row expansion, not mixed draft lengths.
 - Any future MTP parity work needs a deeper target-verify graph/state design,
   not a small server scheduling shortcut.
+
+## Phase 20 Current-Stack Serving Snapshot
+
+Phase 20 refreshed the MoE paged-vs-vLLM serving baseline on the current clean
+DGX mirror after the MTP investigation.
+
+Artifact:
+
+- `/home/mudler/bench/phase20_current_snapshot/20260701_050621`
+
+Current source:
+
+- `/home/mudler/llama-phase6-source`
+- `f2521ab12 feat(server): trace speculative batch shapes`
+
+Pre/post gate result:
+
+- Pre-gate and post-gate both passed.
+- MoE transcript md5: `8cb0ce23777bf55f92f63d0292c756b0`.
+- Dense transcript md5: `5951a5b4d624ce891e22ab5fca9bc439`.
+- Full `MUL_MAT_ID`: `806/806` on CUDA0.
+
+Serving snapshot:
+
+| n | paged decode_agg | vLLM decode_agg | paged/vLLM decode | paged agg | vLLM agg | paged/vLLM agg |
+|---|------------------|-----------------|-------------------|-----------|----------|----------------|
+| 8 | 220.8 | 290.5 | 76.0% | 164.8 | 245.5 | 67.1% |
+| 32 | 411.1 | 594.7 | 69.1% | 252.1 | 456.0 | 55.3% |
+| 128 | 670.0 | 1022.7 | 65.5% | 322.4 | 662.4 | 48.7% |
+
+Latency/prefill snapshot:
+
+| n | paged TTFT ms | vLLM TTFT ms | paged/vLLM TTFT | paged prefill_tps | vLLM prefill_tps |
+|---|---------------|--------------|------------------|--------------------|------------------|
+| 8 | 783.6 | 271.8 | 2.88x | 1669.9 | 4371.5 |
+| 32 | 2630.6 | 783.8 | 3.36x | 1712.8 | 5358.3 |
+| 128 | 7678.7 | 2465.7 | 3.11x | 1660.4 | 5242.9 |
+
+Decision:
+
+- The latest clean stack is still not at vLLM serving parity on GB10.
+- The user-visible gap is dominated by prefill/TTFT and e2e serving throughput,
+  not by a now-open MTP or scheduler shortcut.
+- Keep MTP scheduler work closed. The next credible parity path is either a
+  datacenter-Blackwell rerun or a larger fused-kernel project outside the
+  low-conflict GB10 patch stack.

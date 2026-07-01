@@ -283,6 +283,27 @@ the real `K + 1` verification-row expansion. Do not build a Phase 20 scheduler
 experiment on this evidence. Future MTP work would need a deeper target-verify
 graph/state design, not another small server scheduling shortcut.
 
+Phase 20 refreshed the current-stack MoE serving snapshot against vLLM using the
+clean `~/llama-phase6-source` mirror (`f2521ab12`) rather than the stale
+`llama-paged-dev` benchmark tree. Artifact:
+`/home/mudler/bench/phase20_current_snapshot/20260701_050621`. Pre/post gates
+passed with canonical MoE md5 `8cb0ce23777bf55f92f63d0292c756b0`, dense md5
+`5951a5b4d624ce891e22ab5fca9bc439`, and `MUL_MAT_ID` `806/806`.
+
+Current MoE serving snapshot (`PTOK=128`, `GEN=64`):
+
+| n | paged decode_agg | vLLM decode_agg | paged/vLLM decode | paged agg | vLLM agg | paged/vLLM agg |
+|---|------------------|-----------------|-------------------|-----------|----------|----------------|
+| 8 | 220.8 | 290.5 | 76.0% | 164.8 | 245.5 | 67.1% |
+| 32 | 411.1 | 594.7 | 69.1% | 252.1 | 456.0 | 55.3% |
+| 128 | 670.0 | 1022.7 | 65.5% | 322.4 | 662.4 | 48.7% |
+
+TTFT remains the clearest user-visible gap: paged is 2.88x/3.36x/3.11x slower
+than vLLM at n8/n32/n128, and paged prefill_tps is roughly one-third of vLLM.
+This keeps the GB10 shortcut closure intact: do not reopen MTP or small
+scheduler work. The credible next parity path is a datacenter-Blackwell rerun or
+a larger fused-kernel project outside this low-conflict patch stack.
+
 ---
 
 ## 5. METHODOLOGY LESSONS (so you do not repeat the mistakes)
