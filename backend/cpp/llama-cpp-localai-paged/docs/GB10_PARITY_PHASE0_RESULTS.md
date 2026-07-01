@@ -2501,3 +2501,41 @@ Decision:
   larger funded kernel/loader effort with its own design, or a hardware pivot
   benchmark. Any future implementation still needs the canonical MoE/dense md5,
   `MUL_MAT`, `MUL_MAT_ID`, and KL-if-md5-changes gates before benchmarking.
+
+## Phase 44 Hardware-Pivot Harness Readiness
+
+Phase 44 prepares the audited current-stack serving snapshot for hardware-pivot
+runs without editing the harness between hosts. This is a harness-only change:
+it does not modify llama.cpp inference code, patch-series source, md5 gates, op
+gates, or any benchmark result.
+
+New vLLM serving overrides:
+
+| variable | default | vLLM flag |
+|----------|---------|-----------|
+| `VLLM_GPU_MEMORY_UTILIZATION` | `0.85` | `--gpu-memory-utilization` |
+| `VLLM_MAX_MODEL_LEN` | `4096` | `--max-model-len` |
+| `VLLM_MAX_NUM_SEQS` | `256` | `--max-num-seqs` |
+| `VLLM_TENSOR_PARALLEL_SIZE` | `1` | `--tensor-parallel-size` |
+| `VLLM_EXTRA_ARGS` | empty | whitespace-split args appended to `vllm serve` |
+
+Verification scope:
+
+- Red help-text check first proved `VLLM_MAX_NUM_SEQS` was absent from
+  `paged-current-serving-snapshot.sh --help`.
+- Red DGX dry-run check first proved the harness did not print
+  `VLLM_MAX_NUM_SEQS=512` when the override was supplied.
+- Green checks after the patch included `bash -n`, help-text grep, and DGX
+  `DRY_RUN=1` preflight with the override values printed before any server
+  starts. Artifact:
+  `/home/mudler/bench/phase44_hardware_pivot_harness_dryrun/20260701_094038`.
+
+Decision:
+
+- Use the same audited harness for a future datacenter-Blackwell or other
+  non-GB10 parity snapshot by overriding vLLM limits in the environment instead
+  of editing the script.
+- This does not reopen GB10 shortcut work and does not claim parity. A real
+  hardware-pivot benchmark still needs the normal preflight, `hardware.txt`,
+  pre/post MoE/dense md5 gates, `MUL_MAT`/`MUL_MAT_ID` checks, and
+  KL-if-md5-changes before interpreting throughput.

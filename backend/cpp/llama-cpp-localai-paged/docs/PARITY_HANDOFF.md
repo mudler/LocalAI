@@ -557,6 +557,16 @@ low-conflict GB10 shortcut justified by current evidence; future work is either
 a larger kernel/loader design or a hardware-pivot benchmark, still gated by
 MoE/dense md5 plus `MUL_MAT`/`MUL_MAT_ID` and KL if md5 changes.
 
+Phase 44 makes the current-stack serving snapshot harness ready for hardware
+pivots by parameterizing the vLLM side instead of hardcoding the GB10 defaults.
+`paged-current-serving-snapshot.sh` now accepts `VLLM_GPU_MEMORY_UTILIZATION`,
+`VLLM_MAX_MODEL_LEN`, `VLLM_MAX_NUM_SEQS`, `VLLM_TENSOR_PARALLEL_SIZE`, and
+whitespace-split `VLLM_EXTRA_ARGS`, and prints the resolved values during
+`DRY_RUN=1`. This is not a new benchmark and does not change inference code or
+gate behavior. Use it when the next parity run targets datacenter Blackwell or
+another non-GB10 vLLM serving shape, while keeping `hardware.txt`, pre/post
+MoE/dense md5, `MUL_MAT`/`MUL_MAT_ID`, and KL-if-md5-changes as mandatory gates.
+
 ---
 
 ## 5. METHODOLOGY LESSONS (so you do not repeat the mistakes)
@@ -641,6 +651,7 @@ Only pursue if (a)+(b) are not options and someone explicitly wants the residual
 - `~/bench/phase39_gate_sgemm_profile/phase27_reanalysis` - Phase27 serving profile re-analysis used to reject graph-time fused gate weight concat; `concat_layout=459.84ms` (`2.29%`) in the serving kernel window.
 - `~/bench/phase40_max_concurrency/20260701_090012` - max-concurrency C1 check at `NPL=128/192/256`, `PTOK=128`, `GEN=64`, `PARALLEL=256`, `CTX=262144`; pre/post MoE/dense md5 and `MUL_MAT`/`MUL_MAT_ID` gates green, but vLLM also fit at `n=256` and stayed ahead (`paged_decode_over_vllm=0.6354`, `paged_agg_over_vllm=0.4721`).
 - `~/bench/phase41_low_concurrency/20260701_091437` - low-concurrency serving check at `NPL=1/8/32`, `PTOK=128`, `GEN=64`, `PARALLEL=32`, `CTX=32768`; pre/post MoE/dense md5 and `MUL_MAT`/`MUL_MAT_ID` gates green; paged is `0.7493`, `0.7518`, and `0.6649` of vLLM decode at `n=1/8/32`, with TTFT still much worse by `n=8/32`; does not reopen D1.
+- `~/bench/phase44_hardware_pivot_harness_dryrun/20260701_094038` - harness-only dry-run artifact proving the vLLM serving config overrides are printed and preflighted before any server starts.
 - Per-engine logs `~/bench/COMBINED_{paged,vllm}_{MOE,DENSE}_server.log`; `~/bench/BENCHMARK_PROGRESS.md`.
 - Graph-node-traced high-N profiles: `~/highN_prof2/*.nsys-rep` (paged npl=256), `~/highN_vllm/*.nsys-rep` (vLLM), 2026-06-30.
 - A/B dirs: `~/bench/marlin_gate/`, `~/bench/gdn_p1_ab/`.

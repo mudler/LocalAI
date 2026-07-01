@@ -29,6 +29,11 @@ Environment overrides:
   LLAMA_PORT   llama-server port (default: 8098)
   VLLM_PORT    vLLM port (default: 8000)
   VLLM_BIN     vLLM executable (default: ~/vllm-bench/bin/vllm)
+  VLLM_GPU_MEMORY_UTILIZATION vLLM --gpu-memory-utilization (default: 0.85)
+  VLLM_MAX_MODEL_LEN          vLLM --max-model-len (default: 4096)
+  VLLM_MAX_NUM_SEQS           vLLM --max-num-seqs (default: 256)
+  VLLM_TENSOR_PARALLEL_SIZE   vLLM --tensor-parallel-size (default: 1)
+  VLLM_EXTRA_ARGS             whitespace-split extra args appended to vLLM serve (default: empty)
   SKIP_GATES=1 to skip pre/post paged inference gates
   DRY_RUN=1    validate inputs/preflight, write hardware.txt, and print commands without running servers
 
@@ -75,6 +80,11 @@ UBATCH=${UBATCH:-512}
 LLAMA_PORT=${LLAMA_PORT:-8098}
 VLLM_PORT=${VLLM_PORT:-8000}
 VLLM_BIN=${VLLM_BIN:-"$HOME/vllm-bench/bin/vllm"}
+VLLM_GPU_MEMORY_UTILIZATION=${VLLM_GPU_MEMORY_UTILIZATION:-0.85}
+VLLM_MAX_MODEL_LEN=${VLLM_MAX_MODEL_LEN:-4096}
+VLLM_MAX_NUM_SEQS=${VLLM_MAX_NUM_SEQS:-256}
+VLLM_TENSOR_PARALLEL_SIZE=${VLLM_TENSOR_PARALLEL_SIZE:-1}
+VLLM_EXTRA_ARGS=${VLLM_EXTRA_ARGS:-}
 SKIP_GATES=${SKIP_GATES:-0}
 DRY_RUN=${DRY_RUN:-0}
 MOE_MD5_EXPECTED=8cb0ce23777bf55f92f63d0292c756b0
@@ -237,14 +247,19 @@ run_paged() {
 
 run_vllm() {
   local arm_dir="$ART/vllm"
+  local extra_args=()
   mkdir -p "$arm_dir"
   export PATH="$(dirname "$VLLM_BIN"):$PATH"
   export VLLM_LOGGING_LEVEL=${VLLM_LOGGING_LEVEL:-INFO}
   export HF_HUB_OFFLINE=${HF_HUB_OFFLINE:-1}
+  if [[ -n "$VLLM_EXTRA_ARGS" ]]; then
+    read -r -a extra_args <<< "$VLLM_EXTRA_ARGS"
+  fi
   log "starting vLLM server"
   nohup "$VLLM_BIN" serve "$VLLM_MODEL" \
-    --served-model-name q36 --gpu-memory-utilization 0.85 --max-model-len 4096 \
-    --max-num-seqs 256 --host 127.0.0.1 --port "$VLLM_PORT" --tensor-parallel-size 1 \
+    --served-model-name q36 --gpu-memory-utilization "$VLLM_GPU_MEMORY_UTILIZATION" --max-model-len "$VLLM_MAX_MODEL_LEN" \
+    --max-num-seqs "$VLLM_MAX_NUM_SEQS" --host 127.0.0.1 --port "$VLLM_PORT" --tensor-parallel-size "$VLLM_TENSOR_PARALLEL_SIZE" \
+    "${extra_args[@]}" \
     > "$arm_dir/server.log" 2>&1 &
   SERVER_PID=$!
   wait_http "http://127.0.0.1:$VLLM_PORT/v1/models" "q36" "$arm_dir/server.log" "$arm_dir/models.json"
@@ -381,6 +396,7 @@ if [[ "$DRY_RUN" == "1" ]]; then
   log "would build: cmake --build $BUILD_DIR --target llama-server llama-completion test-backend-ops -j8"
   log "would run paged NPL=[$NPL] PTOK=$PTOK GEN=$GEN"
   log "would run vLLM NPL=[$NPL] PTOK=$PTOK GEN=$GEN"
+  log "vLLM config: VLLM_GPU_MEMORY_UTILIZATION=$VLLM_GPU_MEMORY_UTILIZATION VLLM_MAX_MODEL_LEN=$VLLM_MAX_MODEL_LEN VLLM_MAX_NUM_SEQS=$VLLM_MAX_NUM_SEQS VLLM_TENSOR_PARALLEL_SIZE=$VLLM_TENSOR_PARALLEL_SIZE VLLM_EXTRA_ARGS=[$VLLM_EXTRA_ARGS]"
   exit 0
 fi
 
