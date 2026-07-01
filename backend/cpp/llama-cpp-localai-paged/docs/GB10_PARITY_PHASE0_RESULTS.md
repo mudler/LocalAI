@@ -3199,3 +3199,51 @@ Decision:
   The next scheduler work should either narrow the policy to dense/non-MoE
   shapes or add a more selective condition that avoids the MoE mean-TTFT
   regression.
+
+## Phase 57 TTFT Prefill-First Cap Sweep
+
+Phase 57 adds an optional per-step cap to the Phase55 opt-in policy:
+`LLAMA_TTFT_PREFILL_FIRST_MAX_DEFER`. Unset or `0` preserves the Phase55
+unlimited behavior. The goal was to keep some first-token relief while avoiding
+the MoE `n=128` mean-TTFT regression from Phase56.
+
+Fork commit:
+
+- `3b6ab5fa8 feat(server): cap TTFT prefill-first decode deferral`
+
+Artifact:
+
+- `/home/mudler/bench/phase57_ttft_cap_sweep/20260701_120830`
+
+Pre/post gates:
+
+| phase | MoE md5 | dense md5 | `MUL_MAT` | `MUL_MAT_ID` |
+|-------|---------|-----------|-----------|--------------|
+| pre | `8cb0ce23777bf55f92f63d0292c756b0` | `5951a5b4d624ce891e22ab5fca9bc439` | `1146/1146` | `806/806` |
+| post | `8cb0ce23777bf55f92f63d0292c756b0` | `5951a5b4d624ce891e22ab5fca9bc439` | `1146/1146` | `806/806` |
+
+MoE `n=128`, `ptok=128`, `gen=64`:
+
+| variant | agg t/s | decode agg t/s | prefill t/s | TTFT mean ms | TTFT max ms | wall s | deferred |
+|---------|---------|-----------------|-------------|--------------|-------------|--------|----------|
+| default | `337.1` | `652.0` | `1516.1` | `7425.5` | `11735.7` | `24.299` | `0` |
+| cap16 | `330.2` | `611.5` | `1559.6` | `7589.4` | `11407.9` | `24.802` | `111` |
+| cap32 | `335.3` | `624.6` | `1572.4` | `6994.0` | `11315.5` | `24.429` | `236` |
+| cap64 | `327.1` | `589.6` | `1596.9` | `7533.2` | `11141.5` | `25.025` | `339` |
+
+Dense `n=128`, `ptok=168`, `gen=64`:
+
+| variant | agg t/s | decode agg t/s | prefill t/s | TTFT mean ms | TTFT max ms | wall s | deferred |
+|---------|---------|-----------------|-------------|--------------|-------------|--------|----------|
+| default | `141.4` | `360.6` | `650.8` | `22423.5` | `35209.6` | `57.925` | `0` |
+| cap32 | `139.7` | `340.1` | `663.1` | `20346.5` | `34556.0` | `58.645` | `322` |
+| cap64 | `136.3` | `333.4` | `645.2` | `22461.1` | `35511.7` | `60.081` | `490` |
+
+Decision:
+
+- Reject capped TTFT defer as a parity lever. MoE cap32 improves mean TTFT
+  versus same-window default (`7425.5 -> 6994.0 ms`) but still loses aggregate
+  throughput and wall time. Dense caps improve or preserve TTFT only by losing
+  aggregate throughput and wall time.
+- Keep the cap as an A/B knob only; do not promote it as a default or parity
+  path.

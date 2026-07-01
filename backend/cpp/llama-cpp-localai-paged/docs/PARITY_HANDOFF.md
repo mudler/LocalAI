@@ -32,8 +32,11 @@ Read order for a cold start:
 > wall `59.272 -> 57.323 s`, with md5/op gates green. Phase56 then showed the
 > policy helps dense `n=32` but regresses MoE `n=128` mean TTFT
 > `7168.1 -> 7615.3 ms` and aggregate `341.1 -> 339.9`; keep it opt-in only and
-> do not default it broadly. The trace and scheduler commits are local and
-> DGX-gated but not pushed, so the LocalAI patch series has not been regenerated.
+> do not default it broadly. Phase57 tried a per-step defer cap; cap32 improved
+> MoE mean TTFT in one same-window sweep but still lost aggregate and wall, and
+> dense caps lost aggregate. Do not repeat capped-defer sweeps as the next parity
+> path. The trace and scheduler commits are local and DGX-gated but not pushed,
+> so the LocalAI patch series has not been regenerated.
 
 - Historical verdict: the older investigation marked GB10 parity **CLOSED** and
   unreachable. Treat that as superseded where Phase50-54 provide newer dense
