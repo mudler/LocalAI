@@ -1,0 +1,360 @@
+# Phase 8 Ragged MoE Dispatch Implementation Plan
+
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+
+**Goal:** Decide whether GB10 serving parity should target a fused routed-expert `MUL_MAT_ID` dispatch path for ragged MoE decode, then implement only if profiling proves the bucket is material.
+
+**Architecture:** Phase 8 is profile-gated. First decompose serving decode into routing compaction, activation quant/gather, grouped MMQ, scatter/fan-in, GDN, and FA buckets. Only if the `MUL_MAT_ID` routing/compaction/MMQ bucket expands materially in live ragged serving do we add a default-off fused-dispatch candidate in llama.cpp.
+
+**Tech Stack:** llama.cpp CUDA backend, Nsight Systems, `/home/mudler/bench/bucket.py`, LocalAI paged patch mirror, GB10 DGX host `dgx.casa`.
+
+---
+
+## Context
+
+Rejected Phase 7 shortcuts:
+
+- SWIGLU-down NVFP4 quantization fusion: focused op gate passed, but opt-in
+  paged-MoE md5 changed and serving A/B was flat.
+- Post-down weighted-combine fan-in fusion: md5-safe and Nsight-proven to fire,
+  but serving A/B was flat (`decode_agg_tps 417.5 -> 417.0`).
+
+Deferred non-default work:
+
+- Backend sampler logit-bias upload caching is real but only applies to
+  `--backend-sampling` with request `backend_sampling: true` and non-empty
+  `logit_bias` or `ignore_eos`. It is not a default greedy parity lever.
+
+Selected Phase 8 candidate:
+
+- Fused routed-expert `MUL_MAT_ID` dispatch for ragged serving decode.
+- This is distinct from fan-in-only fusion because it attacks the earlier chain:
+  `mm_ids_helper -> activation quant/gather -> grouped MMQ -> dst scatter`.
+
+## File Map
+
+- Read/profile only:
+  - `/home/mudler/_git/llama.cpp/src/llama-graph.cpp`
+  - `/home/mudler/_git/llama.cpp/ggml/src/ggml-cuda/topk-moe.cu`
+  - `/home/mudler/_git/llama.cpp/ggml/src/ggml-cuda/mmid.cu`
+  - `/home/mudler/_git/llama.cpp/ggml/src/ggml-cuda/mmq.cu`
+  - `/home/mudler/_git/llama.cpp/ggml/src/ggml-cuda/mmq.cuh`
+  - `/home/mudler/_git/llama.cpp/ggml/src/ggml-cuda/ggml-cuda.cu`
+- If promoted to source:
+  - Modify: `/home/mudler/_git/llama.cpp/ggml/src/ggml-cuda/mmid.cu`
+  - Modify: `/home/mudler/_git/llama.cpp/ggml/src/ggml-cuda/mmq.cu`
+  - Modify: `/home/mudler/_git/llama.cpp/ggml/src/ggml-cuda/mmq.cuh`
+  - Modify: `/home/mudler/_git/llama.cpp/ggml/src/ggml-cuda/ggml-cuda.cu`
+  - Test: `/home/mudler/_git/llama.cpp/tests/test-backend-ops.cpp`
+- Tracking docs:
+  - Modify:
+    `/home/mudler/_git/LocalAI/.claude/worktrees/feat+paged-attention/docs/superpowers/plans/2026-07-01-serving-ragged-moe-phase8.md`
+  - Modify:
+    `/home/mudler/_git/LocalAI/.claude/worktrees/feat+paged-attention/backend/cpp/llama-cpp-localai-paged/docs/GB10_PARITY_PHASE0_RESULTS.md`
+  - Modify:
+    `/home/mudler/_git/LocalAI/.claude/worktrees/feat+paged-attention/backend/cpp/llama-cpp-localai-paged/docs/VLLM_PARITY_LEVER_MAP.md`
+
+## Required Safety Gates
+
+- Before DGX work:
+  - `docker ps -q | wc -l` must be `0`.
+  - no `local-ai-worker` container may be running.
+  - `nvidia-smi --query-compute-apps=pid --format=csv,noheader` must be empty.
+  - `~/gpu_bench_lock/owner` must be absent or start with `FREE`.
+- Before keeping any source patch:
+  - MoE transcript md5 must be `8cb0ce23777bf55f92f63d0292c756b0`.
+  - Dense transcript md5 must be `5951a5b4d624ce891e22ab5fca9bc439`.
+  - `test-backend-ops test -b CUDA0 -o MUL_MAT_ID -j 1` must report `806/806`.
+  - If adding a specific ragged op test, it must include `n_expert=256`,
+    `n_expert_used=8`, single-token decode, empty experts, ragged expert loads,
+    and `ne2 > get_mmvq_mmid_max_batch(...)`.
+  - CUDA graph replay must still work with `LLAMA_MOE_FORCE_GRAPHS=1`.
+  - Source candidate must be default-off first, e.g.
+    `LLAMA_MOE_FUSED_DISPATCH=1`.
+  - No D2H id readback or new `cudaStreamSynchronize` may enter the decode path.
+
+## Task 1: Profile-Gate Ragged MoE Dispatch
+
+**Files:**
+- Modify:
+  `docs/superpowers/plans/2026-07-01-serving-ragged-moe-phase8.md`
+- Modify:
+  `backend/cpp/llama-cpp-localai-paged/docs/GB10_PARITY_PHASE0_RESULTS.md`
+
+- [x] **Step 1: Record Phase 8 scope**
+
+  Write this plan and commit it before source work.
+
+- [ ] **Step 2: Reconfirm DGX idle state**
+
+  Run:
+
+  ```bash
+  ssh dgx.casa 'set -e
+  echo docker=$(docker ps -q | wc -l)
+  echo local_ai_worker=$(docker ps --format "{{.Names}}" | grep -c local-ai-worker || true)
+  echo compute=$(nvidia-smi --query-compute-apps=pid --format=csv,noheader | sed "/^$/d" | wc -l)
+  if [ -f ~/gpu_bench_lock/owner ]; then cat ~/gpu_bench_lock/owner; else echo FREE-no-lock-file; fi'
+  ```
+
+  Expected:
+
+  ```text
+  docker=0
+  local_ai_worker=0
+  compute=0
+  FREE...
+  ```
+
+- [ ] **Step 3: Run serving nsys for llama.cpp MoE**
+
+  Run on DGX:
+
+  ```bash
+  ssh dgx.casa 'cat > /tmp/phase8_llama_nsys.sh <<'"'"'SH'"'"'
+  #!/usr/bin/env bash
+  set -euo pipefail
+  ART=$HOME/bench/phase8_ragged_moe_dispatch/llama_n128
+  BIN=$HOME/llama-phase6-source/build-cuda/bin
+  MOE=/home/mudler/bench/q36-35b-a3b-nvfp4.gguf
+  H2H=$HOME/bench/h2h_cli3.py
+  mkdir -p "$ART"
+  pkill -9 -f "[l]lama-server" 2>/dev/null || true
+  cd "$BIN"
+  env LLAMA_KV_PAGED=1 LLAMA_MOE_FORCE_GRAPHS=1 GDN_CHUNK_MIN=1 GDN_TC=5 GGML_NO_BACKTRACE=1 \
+    nsys profile --trace=cuda --sample=none --cpuctxsw=none --force-overwrite=true \
+    -o "$ART/llama_n128" \
+    ./llama-server -m "$MOE" -c 262144 --parallel 256 -b 2048 -ub 512 -ngl 99 -fa on \
+      --host 127.0.0.1 --port 8092 --no-webui > "$ART/server.log" 2>&1 &
+  pid=$!
+  for i in $(seq 1 360); do
+    curl -s -m2 http://127.0.0.1:8092/health | grep -q ok && break
+    kill -0 "$pid" 2>/dev/null || { tail -30 "$ART/server.log"; exit 1; }
+    sleep 1
+  done
+  python3 "$H2H" --url http://127.0.0.1:8092/v1/completions --model q36 -n 8 --ptok 128 --gen 32 \
+    > "$ART/warmup.json" 2> "$ART/warmup.err" || true
+  python3 "$H2H" --url http://127.0.0.1:8092/v1/completions --model q36 -n 128 --ptok 128 --gen 64 \
+    > "$ART/client_n128.json" 2> "$ART/client_n128.err"
+  kill "$pid" 2>/dev/null || true
+  for i in $(seq 1 60); do kill -0 "$pid" 2>/dev/null || break; sleep 1; done
+  kill -9 "$pid" 2>/dev/null || true
+  python3 $HOME/bench/bucket.py "$ART/llama_n128.nsys-rep" llama_phase8_n128 > "$ART/buckets.txt"
+  SH
+  bash /tmp/phase8_llama_nsys.sh'
+  ```
+
+  Expected:
+
+  - `client_n128.json` contains `decode_agg_tps`, `decode_perseq_tps`, and
+    `prefill_tps`.
+  - `buckets.txt` has fine rows for `mm_ids`, `gather_mmq`, `act_quant`,
+    `mmq_nvfp4`, `set_rows`, `ew_add`, `gdn_core`, and `fa`.
+
+- [ ] **Step 4: Run serving nsys for vLLM MoE**
+
+  Run on DGX:
+
+  ```bash
+  ssh dgx.casa 'cat > /tmp/phase8_vllm_nsys.sh <<'"'"'SH'"'"'
+  #!/usr/bin/env bash
+  set -euo pipefail
+  ART=$HOME/bench/phase8_ragged_moe_dispatch/vllm_n128
+  MODEL=/home/mudler/bench/q36-35b-a3b-nvfp4-vllm
+  H2H=$HOME/bench/h2h_cli3.py
+  mkdir -p "$ART"
+  pkill -9 -u "$(id -u)" -f "[v]llm serve" 2>/dev/null || true
+  export PATH="$HOME/vllm-bench/bin:$PATH"
+  export VLLM_LOGGING_LEVEL=INFO
+  export HF_HUB_OFFLINE=1
+  nsys profile --trace=cuda --sample=none --cpuctxsw=none --force-overwrite=true \
+    -o "$ART/vllm_n128" \
+    "$HOME/vllm-bench/bin/vllm" serve "$MODEL" --served-model-name q36 \
+      --gpu-memory-utilization 0.85 --max-model-len 4096 --max-num-seqs 256 \
+      --host 127.0.0.1 --port 8002 --tensor-parallel-size 1 > "$ART/server.log" 2>&1 &
+  pid=$!
+  for i in $(seq 1 420); do
+    curl -s -m2 http://127.0.0.1:8002/v1/models | grep -q q36 && break
+    kill -0 "$pid" 2>/dev/null || { tail -40 "$ART/server.log"; exit 1; }
+    sleep 1
+  done
+  python3 "$H2H" --url http://127.0.0.1:8002/v1/completions --model q36 -n 8 --ptok 128 --gen 32 \
+    > "$ART/warmup.json" 2> "$ART/warmup.err" || true
+  python3 "$H2H" --url http://127.0.0.1:8002/v1/completions --model q36 -n 128 --ptok 128 --gen 64 \
+    > "$ART/client_n128.json" 2> "$ART/client_n128.err"
+  kill "$pid" 2>/dev/null || true
+  for i in $(seq 1 80); do kill -0 "$pid" 2>/dev/null || break; sleep 1; done
+  kill -9 "$pid" 2>/dev/null || true
+  python3 $HOME/bench/bucket.py "$ART/vllm_n128.nsys-rep" vllm_phase8_n128 > "$ART/buckets.txt"
+  SH
+  bash /tmp/phase8_vllm_nsys.sh'
+  ```
+
+  Expected:
+
+  - `client_n128.json` contains comparable throughput.
+  - `buckets.txt` has vLLM rows for `vllm_dispatch`, `vllm_fp4_gemm`,
+    `vllm_fa`, and `fla_gdn`.
+
+- [ ] **Step 5: Decide promotion**
+
+  Promote to source only if all are true:
+
+  - llama.cpp `MoE-dispatch` plus `MoE/FFN-GEMM` fine rows are a materially
+    larger share than expected from Phase 6 or worse than vLLM on the same
+    serving shape.
+  - `mm_ids`, `gather_mmq`, `act_quant`, or grouped `mmq_nvfp4` is a clear
+    target, not hidden by GDN or FA.
+  - Serving throughput gap is still visible in the same profile.
+
+  Reject or defer if:
+
+  - GDN remains the dominant gap.
+  - FA prefill dominates the profiled window.
+  - MoE dispatch is too small to beat a `+5%` serving A/B gate.
+
+- [ ] **Step 6: Commit the profile decision**
+
+  If promoted:
+
+  ```bash
+  git add docs/superpowers/plans/2026-07-01-serving-ragged-moe-phase8.md \
+    backend/cpp/llama-cpp-localai-paged/docs/GB10_PARITY_PHASE0_RESULTS.md \
+    backend/cpp/llama-cpp-localai-paged/docs/VLLM_PARITY_LEVER_MAP.md
+  git commit -m "docs(paged): scope ragged MoE dispatch phase" \
+    -m "Assisted-by: Codex:gpt-5"
+  ```
+
+  If rejected:
+
+  ```bash
+  git add docs/superpowers/plans/2026-07-01-serving-ragged-moe-phase8.md \
+    backend/cpp/llama-cpp-localai-paged/docs/GB10_PARITY_PHASE0_RESULTS.md \
+    backend/cpp/llama-cpp-localai-paged/docs/VLLM_PARITY_LEVER_MAP.md
+  git commit -m "docs(paged): reject ragged MoE dispatch phase" \
+    -m "Assisted-by: Codex:gpt-5"
+  ```
+
+## Task 2: Add Ragged `MUL_MAT_ID` Test Gate If Promoted
+
+**Files:**
+- Modify: `/home/mudler/_git/llama.cpp/tests/test-backend-ops.cpp`
+- Mirror patch under:
+  `/home/mudler/_git/LocalAI/.claude/worktrees/feat+paged-attention/backend/cpp/llama-cpp-localai-paged/patches/paged/`
+
+- [ ] **Step 1: Add a test-only fork patch**
+
+  Add a `MUL_MAT_ID_RAGGED_MOE` whole-graph test that exercises:
+
+  - `type_a=nvfp4`
+  - `n_mats=256`
+  - `n_used=8`
+  - `n_tokens in {1, 8, 33, 128, 257}`
+  - explicitly empty experts and high skew into 1-row experts
+
+- [ ] **Step 2: Run red/green if the test exposes a missing path**
+
+  Run:
+
+  ```bash
+  ./build-cuda/bin/test-backend-ops test -b CUDA0 -o MUL_MAT_ID_RAGGED_MOE -j 1
+  ```
+
+  Expected after adding only the test:
+
+  - Existing path should pass. If it fails, stop and debug before production
+    code.
+
+- [ ] **Step 3: Mirror the test patch**
+
+  Generate with:
+
+  ```bash
+  git format-patch -1 --stdout > /tmp/0053-test-paged-cover-ragged-MoE-dispatch.patch
+  ```
+
+  Copy into LocalAI only after checking patch order.
+
+## Task 3: Default-Off Fused Dispatch Prototype If Promoted
+
+**Files:**
+- Modify: `/home/mudler/_git/llama.cpp/ggml/src/ggml-cuda/mmid.cu`
+- Modify: `/home/mudler/_git/llama.cpp/ggml/src/ggml-cuda/mmq.cu`
+- Modify: `/home/mudler/_git/llama.cpp/ggml/src/ggml-cuda/mmq.cuh`
+- Modify: `/home/mudler/_git/llama.cpp/ggml/src/ggml-cuda/ggml-cuda.cu`
+
+- [ ] **Step 1: Add env-gated entry point**
+
+  Add a default-off env gate:
+
+  ```cpp
+  static bool ggml_cuda_moe_fused_dispatch_enabled() {
+      static const bool enabled = [] {
+          const char * e = getenv("LLAMA_MOE_FUSED_DISPATCH");
+          return e != nullptr && std::atoi(e) != 0;
+      }();
+      return enabled;
+  }
+  ```
+
+  The default path must remain byte-identical and use the existing
+  `ggml_cuda_mul_mat_id` implementation.
+
+- [ ] **Step 2: Add the smallest measurable fused metadata path**
+
+  Start by replacing repeated host/device metadata setup only when all are true:
+
+  - CUDA backend.
+  - `src0->type == GGML_TYPE_NVFP4`.
+  - `ids` are already device-resident.
+  - decode-ish `src1->ne[1] <= 128`.
+  - no D2H id readback.
+
+  If this cannot be done without syncs, stop and reject the prototype.
+
+- [ ] **Step 3: Run gates**
+
+  Run on DGX:
+
+  ```bash
+  ./test-backend-ops test -b CUDA0 -o MUL_MAT_ID -j 1
+  ```
+
+  Expected: `806/806`.
+
+  Run transcript gates:
+
+  ```bash
+  env LLAMA_KV_PAGED=1 LLAMA_MOE_FORCE_GRAPHS=1 GDN_CHUNK_MIN=1 GDN_TC=5 GGML_NO_BACKTRACE=1 \
+    ./llama-completion -m /home/mudler/bench/q36-35b-a3b-nvfp4.gguf -ngl 99 -fa on -c 4096 \
+    --temp 0 --seed 1 -n 48 -p "The capital of France is" </dev/null | md5sum
+  ```
+
+  Expected MoE md5: `8cb0ce23777bf55f92f63d0292c756b0`.
+
+- [ ] **Step 4: Run serving A/B**
+
+  Compare:
+
+  - default env
+  - `LLAMA_MOE_FUSED_DISPATCH=1`
+
+  Same shape:
+
+  - `n=128`
+  - `ptok=128`
+  - `gen=64`
+  - `/v1/completions`
+
+  Keep only if the fused path improves aggregate decode by at least `+5%` or
+  produces a clear MoE dispatch/MMQ bucket reduction that predicts a larger
+  serving shape win.
+
+## Self-Review
+
+- Spec coverage: profile gate, safety gates, source promotion, md5/op gates, and
+  docs updates are covered.
+- Placeholder scan: no task uses TBD/TODO/fill-in placeholders.
+- Type consistency: candidate env name is consistently
+  `LLAMA_MOE_FUSED_DISPATCH`; artifact root is consistently
+  `/home/mudler/bench/phase8_ragged_moe_dispatch`.

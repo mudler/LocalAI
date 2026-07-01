@@ -690,3 +690,27 @@ Result:
   but it does not improve the bounded serving workload. Keep patch `0052` as a
   useful regression gate; do not retry this exact fan-in-only fusion unless a
   fresh profile shows the weighted/add fan-in as a material bucket.
+
+## Phase 8 Ragged MoE Dispatch Scope
+
+Plan: `docs/superpowers/plans/2026-07-01-serving-ragged-moe-phase8.md`.
+
+The next candidate is profile-gated before source work:
+
+- Target a fused routed-expert `MUL_MAT_ID` dispatch path for ragged serving
+  decode, not another post-down fan-in fusion.
+- First decompose live llama.cpp and vLLM MoE serving at `n=128`, `ptok=128`,
+  `gen=64` with Nsight and `/home/mudler/bench/bucket.py`.
+- Promote only if `mm_ids_helper`, activation quant/gather, grouped MMQ, or
+  related MoE dispatch rows are material and not hidden by GDN or FA.
+- Keep the backend-sampling/logit-bias upload cache as a non-default follow-up;
+  it requires `--backend-sampling` and request `backend_sampling: true` with
+  non-empty `logit_bias` or `ignore_eos`.
+
+Required promotion gates remain:
+
+- MoE md5 `8cb0ce23777bf55f92f63d0292c756b0`.
+- Dense md5 `5951a5b4d624ce891e22ab5fca9bc439`.
+- `MUL_MAT_ID`: `806/806` on CUDA0.
+- Any fused dispatch prototype must start default-off behind
+  `LLAMA_MOE_FUSED_DISPATCH=1`.

@@ -66,6 +66,12 @@ was rejected. The remaining plausible lever is a larger fused-MoE
 prologue/epilogue that also removes gather/scatter or moves work into the GEMM
 kernel, not another standalone fan-in fusion.
 
+Phase 8 scopes that remaining lever as profile-gated ragged serving dispatch:
+first measure llama.cpp and vLLM at `n=128`, `ptok=128`, `gen=64` and bucket
+`mm_ids_helper`, activation quant/gather, grouped MMQ, and scatter/writeback. Do
+not implement a fused routed-expert `MUL_MAT_ID` dispatch path unless those rows
+are material in live serving and not dominated by GDN or FA.
+
 ### Newly-identified lever 2 - the W4A4 activation-quant pass (a vLLM-asymmetry, not just a kernel-speed gap)
 Every NVFP4 GEMM (MMQ today, and the new 0034 FP4-MMA) **quantizes activations to e4m3 (amax/6 + code search) before the matmul** - a distinct, M-proportional kernel. vLLM on **sm_121 falls back to W4A16-Marlin** (the TENSORCORE_GDN_SCOPE confirms this: no tcgen05/cutlass-FP4 on GB10), i.e. **f16 activations, zero activation-quant**. So this pass (~3-6% of prefill) is a structural cost vLLM avoids, and it explains part of why even a peak FP4-MMA GEMM will not fully reach vLLM's prefill. The README's "act-quant FLAT" and "W4A16 rejected" verdicts are **decode/BW-bound findings**; in compute-bound prefill the trade is different and unaudited. **Lever: measure this quant bucket as its own nsys row; consider fusing the activation-quant into the GEMM prologue (cp.async + in-register quant) so it is not a separate global-memory pass.**
 
