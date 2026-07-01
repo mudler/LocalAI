@@ -87,7 +87,7 @@ orthogonal to the paged allocator.
 
 ---
 
-## 3. Patch series (0001-0047)
+## 3. Patch series (0001-0055)
 
 Source-only patches, with intentional numbering gaps (e.g. 0005, 0027). The
 decode-serving graph-reuse levers are 0040-0041. "Bit-exact" = greedy md5 /
@@ -206,6 +206,13 @@ These are the dominant decode levers on the Qwen3.6 hybrid models. All bit-exact
 | 0031 | **Chunked parallel-scan GDN prefill kernel** (upstream TODO) - FLA-style chunked gated-delta-rule for prefill (non-KDA / f32 / final-state): intra-chunk delta rule solved in parallel (UT-transform + forward subst), inter-chunk recurrence over n_tokens/C steps. The scalar-serial form (`GDN_TC=0`) was bit-exact-benign but not faster than the tuned sequential scan at the GB10-forced C=16 (see section 5); **superseded for paged by the tensor-core M5 path of 0047**. | NEW per-path (`test-backend-ops` 91/91, <=1e-7 NMSE vs CPU ref) |
 | 0047 | **GDN M5 tensor-core chunked-scan prefill, f32-only re-port, default-ON under paged KV** - the f32/tf32 tensor-core forms of 0031's scan (KK/QK Gram = M2, KS/QS state-boundary 3xtf32 = M3, P*U output = M4, full form-T solve + state-update mma = M5), single build, runtime-selected by `GDN_TC`. Ships **M5 default-on when `LLAMA_KV_PAGED` is set** (`GDN_TC=5` + `GDN_CHUNK_MIN=64`, both env-overridable; OFF/`INT_MAX` when not paged). `GDN_CHUNK_MIN` is the per-call engage threshold and stays > 1 so decode (1 tok/call) keeps the sequential recurrence (at 1 it swallows decode and drops S_TG ~25%); 64 tuned from a {1,32,64,128,256} sweep. The bf16/hybrid dev-tree machinery (STATE_BF16/HYBRID, the dropped 0026 ssm_bf16_tau) and the bf16 CONFIG-C (M8) plus register-resident M6/M7 variants are NOT part of this f32-only series. MoE prefill S_PP +3.5% @npp512 (3x A/B), +17.7% @npp2048; decode S_TG unchanged. | NEW per-path, benign (`test-backend-ops` GATED_DELTA_NET 46/46 default AND force-M5, incl. multi-chunk/tail-chunk/multi-seq; greedy md5 default-on == M5-forced == canonical on the gate prompt: paged-MoE `8cb0ce23`, dense `5951a5b4`; long MoE prompt = one benign greedy flip vs sequential, dense byte-identical) |
 | 0046 | **GDN prefill geometry gated by scan length** - patch 0022's `(NUM_WARPS=16, COLS_PER_WARP=8)` column-fold of the GDN sequential-recurrence dispatch (`case 128`) is a decode win but was applied UNCONDITIONALLY, so it also hit dense prefill (~-6% vs stock): on a long sequential scan the launch `grid.z` collapses from `S_v/4 = 32` to `S_v/(16*8) = 1` and the SMs starve (profiled: `gated_delta_net` +54% GPU time = the whole dense-prefill regression). Gate the geometry by per-call scan length: long scans (prefill, `n_tokens >= GDN_PREFILL_NTOK`, default 256) take stock's high-grid.z `(4,1)` geometry; short scans (decode) keep the `(16,8)` retune. Recovers dense prefill +7.2% back to stock parity, keeps the decode win. `GDN_PREFILL_NTOK` tunes the crossover; an explicit `GDN_NW`/`GDN_CPW` sweep still overrides (gate yields when either is set), so the one-build %peak A/B harness is unchanged. | yes (patch 0022 proved every `{NW,CPW}` variant byte-identical, so switching geometry by scan length cannot move the md5) |
+
+### Speculative / MTP investigation (0054, 0055)
+
+| # | What it does | Bit-exact / effect |
+|---|---|---|
+| 0054 | **Disable backend sampling for MTP drafts** - forces server MTP draft generation through the target-side sampler acceptance path instead of letting the draft backend sample independently. This was required for the Phase 14 rollback/prefix safety gate. | yes for canonical non-MTP gates; Phase 14 MTP normalized greedy-prefix gate passed |
+| 0055 | **Trace speculative batch shapes** - adds default-off `LLAMA_SPEC_SHAPE_TRACE=1` server logs around `server_slot::handle_last_sampled_token()`, reporting normal decode rows and MTP verification `K + 1` rows (`draft`, `outputs`, `spec_i_first`, `spec_i_last`). This is instrumentation only for Phase 18 shape-entropy measurement before any scheduler experiment. | yes (env unset is silent; DGX gates after patch: MoE `8cb0ce23`, dense `5951a5b4`, `MUL_MAT_ID` `806/806`) |
 
 > **Dropped: patch 0026 (hybrid per-head bf16 SSM state, `ssm_bf16_tau`).** Once
 > the decode fusions (0028 recurrent-state gather-fusion + 0029 block-table cache)

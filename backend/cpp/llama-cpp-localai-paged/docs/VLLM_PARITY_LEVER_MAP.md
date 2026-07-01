@@ -554,6 +554,38 @@ Only after that should an opt-in scheduling experiment group/defer MTP
 verification by `1 + spec_draft.size()`. Keep it default-off and kill it if TTFT
 or throughput regresses, graph reuse does not recover, or the md5/op gates drift.
 
+### Phase 18 MTP shape trace
+
+Phase 18 added that instrumentation-only patch as 0055. Set
+`LLAMA_SPEC_SHAPE_TRACE=1` to log normal decode rows and MTP verification
+`K + 1` row/output shapes from `server_slot::handle_last_sampled_token()`.
+It is default-off and does not change scheduling, graph keys, logits, KV state,
+acceptance, or rollback behavior.
+
+Red/green result:
+
+- before patch, `LLAMA_SPEC_SHAPE_TRACE=1` emitted no `spec shape:` lines;
+- after patch, a tiny MTP request emitted `kind=verify` shapes with `rows=4`
+  and `rows=3`;
+- with the env var unset, the patched server emitted no `spec shape:` lines.
+
+Canonical post-patch inference gates stayed green:
+
+- MoE `8cb0ce23777bf55f92f63d0292c756b0`;
+- dense `5951a5b4d624ce891e22ab5fca9bc439`;
+- `MUL_MAT_ID` `806/806`.
+
+Artifacts:
+
+- `/home/mudler/bench/phase18_mtp_shape_trace_green`
+- `/home/mudler/bench/phase18_mtp_shape_trace_green/gate_after`
+
+Follow-up scope: before any source behavior change, run a trace-only real
+serving entropy measurement. Only if repeatable draft-length buckets appear
+should an opt-in group/defer-by-draft-length scheduler be built; kill it on
+TTFT/throughput regression, graph-reuse failure, md5/op drift, or MTP
+rollback/prefix gate failure.
+
 Relevant files (all absolute): `/home/mudler/_git/LocalAI/.claude/worktrees/feat+paged-attention/backend/cpp/llama-cpp-localai-paged/docs/{DECODE_SERVING_SCOPE.md,PREFILL_GEMM_SCOPE.md,PREFILL_GEMM_RESULTS.md,TENSORCORE_GDN_SCOPE.md,final_benchmark.csv}`, `.../README.md`, `.../patches/paged/0034-feat-paged-native-NVFP4-W4A4-FP4-MMA-large-M-prefill.patch` (P1/P2), `.../patches/paged/0042-feat-paged-fused-residual-add-RMS-norm-weight-multip.patch` (P7), `.../patches/paged/0031` (P4), `0025` (D1), `0018/0022` (D4/D5), `0009/0010` (D3/D6/D7); graph source `/home/mudler/_git/LocalAI/backend/cpp/llama-cpp-paged-dev/src/{models/qwen35moe.cpp,models/delta-net-base.cpp,llama-graph.cpp}`.
 
 ### Phase 10 GDN C32 slab update

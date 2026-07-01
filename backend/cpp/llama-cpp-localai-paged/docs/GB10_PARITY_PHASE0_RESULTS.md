@@ -1253,3 +1253,53 @@ Conclusion:
   production candidate must reduce `mmq_nvfp4` or activation movement directly,
   stay free of D2H id readback and new stream synchronizations, and then pass
   the same md5/op gates before any serving A/B is considered.
+
+## Phase 18 MTP Shape Trace
+
+Phase 18 implemented the Phase 17 instrumentation-only recommendation as
+patch `0055-feat-server-trace-speculative-batch-shapes.patch`.
+
+Implementation summary:
+
+- Added default-off `LLAMA_SPEC_SHAPE_TRACE=1` logging in
+  `server_slot::handle_last_sampled_token()`.
+- Normal decode logs one row/output per slot.
+- MTP verification logs `K + 1` rows/outputs per speculative slot, including
+  draft length and `slot.spec_i_batch` range.
+- No scheduler, graph-key, KV, logits, acceptance, or rollback behavior changed.
+
+Red/green trace artifacts:
+
+- Red check before patch: `/home/mudler/bench/phase18_mtp_shape_trace_red`
+- Green check after patch: `/home/mudler/bench/phase18_mtp_shape_trace_green`
+
+Green trace sample:
+
+```text
+spec shape: kind=verify batch_before=0 rows=4 outputs=4 draft=3 spec_i_first=0 spec_i_last=3 pos0=5 slot_tokens=5
+spec shape: kind=verify batch_before=0 rows=4 outputs=4 draft=3 spec_i_first=0 spec_i_last=3 pos0=6 slot_tokens=6
+spec shape: kind=verify batch_before=0 rows=3 outputs=3 draft=2 spec_i_first=0 spec_i_last=2 pos0=9 slot_tokens=9
+```
+
+Disabled-env check:
+
+- `LLAMA_SPEC_SHAPE_TRACE` unset emitted no `spec shape:` lines.
+
+Inference gate artifact:
+
+- `/home/mudler/bench/phase18_mtp_shape_trace_green/gate_after`
+
+Safety result:
+
+- MoE transcript md5: `8cb0ce23777bf55f92f63d0292c756b0`.
+- Dense transcript md5: `5951a5b4d624ce891e22ab5fca9bc439`.
+- Full `MUL_MAT_ID`: `806/806` on CUDA0.
+
+Conclusion:
+
+- Patch 0055 is safe instrumentation and does not break inferencing on the
+  canonical gated paths.
+- The trace confirms per-step MTP verification shape variation even in a tiny
+  request (`rows=4` and `rows=3`).
+- A follow-up scheduler experiment is not yet justified. First use this trace
+  under real serving load to measure draft-length bucket entropy.

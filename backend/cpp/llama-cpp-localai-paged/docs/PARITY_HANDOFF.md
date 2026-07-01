@@ -244,6 +244,24 @@ rollback semantics. If reopened, start with a server-only shape counter around
 group/defer-by-draft-length scheduler experiment, with TTFT/throughput and
 md5/op gates as kill criteria.
 
+Phase 18 added the server-only shape trace as patch 0055. Set
+`LLAMA_SPEC_SHAPE_TRACE=1` to log `kind=decode` rows and MTP `kind=verify`
+`K + 1` row/output shapes from `server_slot::handle_last_sampled_token()`.
+This is default-off instrumentation only. DGX green check after the patch saw
+MTP verify shapes vary (`rows=4`, then `rows=3`) on a tiny request, while the
+env-unset run emitted no `spec shape:` lines. Canonical post-patch gates passed:
+MoE `8cb0ce23777bf55f92f63d0292c756b0`, dense
+`5951a5b4d624ce891e22ab5fca9bc439`, and `MUL_MAT_ID` `806/806`.
+Artifacts:
+`/home/mudler/bench/phase18_mtp_shape_trace_green` and
+`/home/mudler/bench/phase18_mtp_shape_trace_green/gate_after`.
+
+Next MTP step, if any: trace real serving shape entropy first. Do not implement
+a scheduler change until the trace shows repeatable draft-length buckets worth
+grouping. Any scheduler experiment must be opt-in/default-off and killed by
+TTFT/throughput regression, graph-reuse failure, md5/op drift, or MTP
+rollback/prefix gate failure.
+
 ---
 
 ## 5. METHODOLOGY LESSONS (so you do not repeat the mistakes)

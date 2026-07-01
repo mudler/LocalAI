@@ -1,0 +1,57 @@
+From fb9402661291e0488a3e2bf2f3948ebcd18e18c9 Mon Sep 17 00:00:00 2001
+From: Ettore Di Giacinto <mudler@localai.io>
+Date: Wed, 1 Jul 2026 02:41:22 +0000
+Subject: [PATCH] feat(server): trace speculative batch shapes
+
+Add an env-gated LLAMA_SPEC_SHAPE_TRACE log around the server batch rows emitted by normal decode and speculative verification slots. This keeps the instrumentation default-off while exposing the row/output shape entropy that prevents CUDA graph reuse under MTP serving.
+
+Assisted-by: Codex:gpt-5
+---
+ tools/server/server-context.cpp | 20 ++++++++++++++++++--
+ 1 file changed, 18 insertions(+), 2 deletions(-)
+
+diff --git a/tools/server/server-context.cpp b/tools/server/server-context.cpp
+index a77e2676d..fd8348af6 100644
+--- a/tools/server/server-context.cpp
++++ b/tools/server/server-context.cpp
+@@ -457,12 +457,22 @@ struct server_slot {
+ 
+     // add sampled token of this slot to the batch, optionally add the speculative draft tokens if any
+     void handle_last_sampled_token(server_batch & batch) {
++        static const bool spec_shape_trace = getenv("LLAMA_SPEC_SHAPE_TRACE") != nullptr;
++        const int32_t batch_before = batch.size();
++
+         bool add_ok = true;
+         if (spec_draft.empty()) {
+             // no speculative decoding
+-            i_batch = batch.size();
++            i_batch = batch_before;
++
++            const int32_t pos0 = prompt.tokens.pos_next();
++
++            add_ok &= batch.add(id, sampled, pos0, true);
+ 
+-            add_ok &= batch.add(id, sampled, prompt.tokens.pos_next(), true);
++            if (spec_shape_trace) {
++                SLT_INF(*this, "spec shape: kind=decode batch_before=%d rows=1 outputs=1 draft=0 pos0=%d slot_tokens=%zu\n",
++                        batch_before, pos0, prompt.tokens.size());
++            }
+ 
+             SLT_DBG(*this, "slot decode token, id=%d, n_ctx = %d, n_tokens = %d, truncated = %d\n",
+                     sampled, n_ctx, prompt.n_tokens(), truncated);
+@@ -479,6 +489,12 @@ struct server_slot {
+ 
+             auto pos0 = prompt.tokens.pos_next();
+ 
++            if (spec_shape_trace) {
++                SLT_INF(*this, "spec shape: kind=verify batch_before=%d rows=%zu outputs=%zu draft=%zu spec_i_first=%d spec_i_last=%d pos0=%d slot_tokens=%zu\n",
++                        batch_before, spec_draft.size() + 1, spec_draft.size() + 1, spec_draft.size(),
++                        spec_i_batch.front(), spec_i_batch.back(), pos0, prompt.tokens.size());
++            }
++
+             add_ok &= batch.add(id, sampled, pos0++, true);
+             for (auto token : spec_draft) {
+                 add_ok &= batch.add(this->id, token, pos0++, true);
+-- 
+2.43.0
+
