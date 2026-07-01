@@ -12,10 +12,10 @@ with artifact path, gates, benchmark rows, and decision.
 - Canonical dense md5: `5951a5b4d624ce891e22ab5fca9bc439`.
 - Current tested source: DGX mirror
   `14fd69f1e feat(cuda): gate BF16 cuBLAS F32 output`.
-- Latest attempt: Phase72.
-- Latest decision: keep `LLAMA_TTFT_PREFILL_FIRST=1`
-  `LLAMA_TTFT_PREFILL_FIRST_MIN_WAITING=32` opt-in only. It regressed broad
-  serving aggregate, decode, TTFT, and wall time at `n=8`, `n=32`, and `n=128`.
+- Latest attempt: Phase73.
+- Latest decision: no new GB10 benchmark or source patch. The next parity
+  evidence requires a datacenter Blackwell rerun, or a standalone GDN
+  blocked-solve PoC before any backend GDN source work.
 
 ## Current Serving Record
 
@@ -54,6 +54,39 @@ Decision:
   concurrency and widened the vLLM decode gap.
 
 ## Attempt Log
+
+### Phase73: Datacenter Blackwell Rerun Readiness
+
+- Date: 2026-07-01.
+- Plan:
+  `docs/superpowers/plans/2026-07-01-datacenter-blackwell-rerun-readiness-phase73.md`.
+- Artifact: no new benchmark artifact.
+- Source baseline: `14fd69f1e feat(cuda): gate BF16 cuBLAS F32 output`.
+- Result type: harness/spec audit only.
+
+Evidence:
+
+- Phase72 is the current GB10 serving baseline. Default llama decode/vLLM
+  ratios remain `0.7561`, `0.7158`, and `0.6935` at `n=8/32/128`.
+- Grouped-MMQ/W4A16: Phase61 direct activation was the last structurally
+  distinct W4A16 shortcut; it failed its keep gate and stayed far behind
+  default FP4-MMQ. Phase66 quantize plus gather was only `5.10%`, below the
+  source-funding threshold.
+- GDN: Phase71 kept shipped M5 as default. The remaining GDN gap is a larger
+  FLA/CuteDSL-class C=64 blocked-solve/register-state implementation, not
+  another C32/QS/global-Ai/local reorder.
+- Harness: `paged-current-serving-snapshot.sh` already records
+  `hardware_class=datacenter_blackwell` for B200/B100/GB200, supports
+  `DRY_RUN=1`, `SERVED_MODEL_NAME`, and vLLM deployment overrides.
+
+Decision:
+
+- Do not start more GB10 grouped-MMQ/W4A16 source work.
+- Do not start GDN backend source work until a standalone C=64 blocked-solve
+  PoC records timing, numerical error, and resource estimates.
+- The next parity run should be on datacenter Blackwell hardware with the
+  existing same-session serving harness plus graph-node decode profiles.
+- No parity claim is made by this phase.
 
 ### Phase72: TTFT Min32 Broader Serving
 

@@ -1182,3 +1182,64 @@ Decision: keep `LLAMA_TTFT_PREFILL_FIRST=1` plus
 `LLAMA_TTFT_PREFILL_FIRST_MIN_WAITING=32` opt-in only. It regressed aggregate,
 decode, TTFT, and wall time at every tested concurrency in the broader shape,
 and widened the vLLM decode gap. Do not default this scheduler policy on GB10.
+
+## 18. PHASE73 RESULT: DATACENTER BLACKWELL RERUN READINESS
+
+Phase73 is a no-new-benchmark decision/spec phase. Plan:
+`docs/superpowers/plans/2026-07-01-datacenter-blackwell-rerun-readiness-phase73.md`.
+Benchmark ledger:
+`backend/cpp/llama-cpp-localai-paged/docs/BENCHMARK.md`.
+
+No GPU benchmark was run and no llama.cpp source was changed. Source baseline
+remains DGX mirror commit `14fd69f1e feat(cuda): gate BF16 cuBLAS F32 output`.
+
+Decision:
+
+- Do not start more GB10 grouped-MMQ/W4A16 source work. Phase61 direct-A was
+  the last structurally distinct W4A16 shortcut and failed its keep gate; Phase66
+  quantize plus gather was only `5.10%`, below the source-funding threshold.
+- Do not start GDN backend source work until a standalone C=64 blocked-solve PoC
+  proves timing and numerical viability. Phase71 kept M5 as shipped; the
+  remaining GDN gap is a larger FLA/CuteDSL-class blocked-solve/register-state
+  implementation, not another C32/QS/global-Ai/local reorder.
+- The next parity evidence should come from datacenter Blackwell hardware with
+  the existing same-session serving harness plus graph-node decode profiles.
+
+B200 rerun checklist:
+
+1. Build and verify the llama.cpp paged binary on B200 or equivalent
+   datacenter Blackwell hardware with the correct CUDA architecture/settings.
+2. Install and verify vLLM `0.23.0+` with the intended Blackwell backend stack.
+3. Confirm both model forms exist: `q36-35b-a3b-nvfp4.gguf` and
+   `q36-35b-a3b-nvfp4-vllm`.
+4. Run `paged-current-serving-snapshot.sh` with `NPL="8 32 128"`, `PTOK=128`,
+   `GEN=64`, `PARALLEL=128`, `CTX=131072`, and B200-specific
+   `VLLM_GPU_MEMORY_UTILIZATION`, `VLLM_MAX_NUM_SEQS`, and
+   `VLLM_TENSOR_PARALLEL_SIZE`.
+5. Before interpreting the artifact, require `hardware.txt` to say
+   `hardware_class=datacenter_blackwell`, `gate_summary.tsv` to be green,
+   pre/post MoE md5 `8cb0ce23`, dense md5 `5951a5b4`, `MUL_MAT` and
+   `MUL_MAT_ID` op gates green, and `summary.tsv` rows for both paged and vLLM.
+6. Run decode/profile reruns with `nsys --cuda-graph-trace=node` and inspect
+   whether vLLM is using native FP4/CUTLASS/FlashInfer rather than the GB10
+   Marlin fallback.
+
+Standalone GDN source-work gate:
+
+```sh
+nvcc -O3 -arch=sm_121a \
+  ~/scratch_tc_gdn_poc/gdn_blocked_solve_bench.cu \
+  -o ~/scratch_tc_gdn_poc/gdn_blocked_solve_bench
+
+~/scratch_tc_gdn_poc/gdn_blocked_solve_bench \
+  --c 64 --dk 128 --dv 128 \
+  --iters 1000 \
+  --precision tf32,offdiag3x,apply3x \
+  --oracle f64 \
+  --dump-json ~/bench/phase73_gdn_blocked_solve_poc.json
+```
+
+Do not touch `ggml/src/ggml-cuda/gated_delta_net.cu` for this larger path until
+that standalone artifact shows a material timing win, non-catastrophic weak and
+mixed decay error, plausible register/shared-memory fit, and records timing,
+precision-rung error, and condition-number distribution.

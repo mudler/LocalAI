@@ -1586,6 +1586,16 @@ green, but min32 regressed every tested concurrency: aggregate ratios
 ratios `1.0379`/`1.0977`/`1.0300` at `n=8/32/128`. Keep min32 opt-in only and
 do not default it on GB10.
 
+Phase73 made the post-Phase72 next-step decision. It ran no new benchmark and
+changed no llama.cpp source. Grouped-MMQ/W4A16 GB10 source work is closed:
+Phase61 direct-A was the last structurally distinct W4A16 shortcut and failed
+its keep gate, and Phase66 quantize plus gather was only `5.10%`. GDN backend
+source work is also gated: Phase71 kept M5 as shipped, and the remaining GDN
+gap is a FLA/CuteDSL-class C=64 blocked-solve/register-state implementation,
+not another local reorder. The next parity evidence should be a datacenter
+Blackwell same-session rerun, or a standalone GDN blocked-solve PoC before any
+backend GDN source work.
+
 ### Phase 60 current W4A16 prefill profile
 
 Phase60 re-profiled the current W4A16 grouped MoE prefill path after the
@@ -1861,8 +1871,10 @@ revalidated it against sequential-disabled and serial-chunked baselines, and
 Phase10/11/13 rejected the smaller follow-up GDN reorders. Phase41/43 closed
 D1 on the current GB10 path unless a fresh route trace proves a host-sync
 fallback returned. Phase60/61/66 rejected another small W4A16/direct-A or
-quant/gather pass. Treat the list below as pre-Phase60 planning context, not an
-active queue.
+quant/gather pass. Phase72 rejected min32 as a broad serving default, and
+Phase73 set the active queue to datacenter-Blackwell rerun readiness or a
+standalone GDN blocked-solve PoC before source work. Treat the list below as
+pre-Phase60 planning context, not an active queue.
 
 Ranked, each with its pass-gate:
 
