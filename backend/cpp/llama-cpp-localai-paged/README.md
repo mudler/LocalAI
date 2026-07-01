@@ -339,6 +339,10 @@ is" -n 48 --temp 0 --seed 1 | md5sum`, paged paths prefixed with
 `LLAMA_KV_PAGED=1` (+ `LLAMA_MOE_FORCE_GRAPHS=1` for paged MoE), on the default
 chat-template path; and (2) `test-backend-ops` (CUDA0 vs CPU oracle) for every
 touched op (`SSM_CONV*`, `GATED_DELTA_NET`, `MUL_MAT`, `MUL_MAT_ID`).
+For DGX work, `paged-inference-gates.sh` runs the canonical MoE/dense transcript
+md5 checks and selected `test-backend-ops` filters, and refuses to start while
+docker, `local-ai-worker`, GPU compute processes, or a non-free GPU lock are
+present.
 
 **The gate is per-path** (see [`PAGED_BITEXACT_NOTE.md`](docs/PAGED_BITEXACT_NOTE.md)).
 Dense is bit-exact across paged/non-paged (`5951a5b4`). The **paged MoE** md5
