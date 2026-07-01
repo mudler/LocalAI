@@ -1123,6 +1123,21 @@ Results stayed green on the DGX phase36 build: MoE md5
 `MUL_MAT_ID` `806/806`. This confirms the current build still satisfies the
 inference-safety gates before any later hardware-pivot or larger kernel work.
 
+### Phase 46 served-model-name harness readiness
+
+Phase 46 removes the hardcoded `q36` served model name from
+`paged-current-serving-snapshot.sh`. The new `SERVED_MODEL_NAME` environment
+variable defaults to `q36` and is used consistently for vLLM
+`--served-model-name`, the vLLM `/v1/models` readiness check, and h2h `--model`
+requests on both arms.
+
+DGX dry-run artifact:
+`/home/mudler/bench/phase46_served_model_name_dryrun/20260701_094849`.
+Preflight was clean and the dry run printed
+`SERVED_MODEL_NAME=dense-q36` before any server launch. This is another
+harness-only portability step for dense or hardware-pivot snapshots; it does not
+change inference code or produce a new throughput result.
+
 Relevant files (all absolute): `/home/mudler/_git/LocalAI/.claude/worktrees/feat+paged-attention/backend/cpp/llama-cpp-localai-paged/docs/{DECODE_SERVING_SCOPE.md,PREFILL_GEMM_SCOPE.md,PREFILL_GEMM_RESULTS.md,TENSORCORE_GDN_SCOPE.md,final_benchmark.csv}`, `.../README.md`, `.../patches/paged/0034-feat-paged-native-NVFP4-W4A4-FP4-MMA-large-M-prefill.patch` (P1/P2), `.../patches/paged/0042-feat-paged-fused-residual-add-RMS-norm-weight-multip.patch` (P7), `.../patches/paged/0031` (P4), `0025` (D1), `0018/0022` (D4/D5), `0009/0010` (D3/D6/D7); graph source `/home/mudler/_git/LocalAI/backend/cpp/llama-cpp-paged-dev/src/{models/qwen35moe.cpp,models/delta-net-base.cpp,llama-graph.cpp}`.
 
 ### Phase 10 GDN C32 slab update

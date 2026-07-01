@@ -17,6 +17,7 @@ Environment overrides:
   BIN          llama.cpp build bin dir (default: $SRC/build-cuda/bin)
   MODEL        paged GGUF path (default: ~/bench/q36-35b-a3b-nvfp4.gguf)
   VLLM_MODEL   vLLM model dir (default: ~/bench/q36-35b-a3b-nvfp4-vllm)
+  SERVED_MODEL_NAME OpenAI model name used by llama-server, vLLM, and h2h (default: q36)
   H2H          h2h client (default: ~/bench/h2h_cli3.py)
   ART          artifact dir (default: ~/bench/phase_current_serving_snapshot/<timestamp>)
   NPL          concurrency list (default: "8 32 128")
@@ -68,6 +69,7 @@ BUILD_DIR=${BUILD_DIR:-"$SRC/build-cuda"}
 BIN=${BIN:-"$BUILD_DIR/bin"}
 MODEL=${MODEL:-"$HOME/bench/q36-35b-a3b-nvfp4.gguf"}
 VLLM_MODEL=${VLLM_MODEL:-"$HOME/bench/q36-35b-a3b-nvfp4-vllm"}
+SERVED_MODEL_NAME=${SERVED_MODEL_NAME:-q36}
 H2H=${H2H:-"$HOME/bench/h2h_cli3.py"}
 ART=${ART:-"$HOME/bench/phase_current_serving_snapshot/$(date +%Y%m%d_%H%M%S)"}
 NPL=${NPL:-"8 32 128"}
@@ -231,11 +233,11 @@ run_paged() {
   SERVER_PID=$!
   wait_http "http://127.0.0.1:$LLAMA_PORT/health" "ok" "$arm_dir/server.log" "$arm_dir/health.json"
   python3 "$H2H" --url "http://127.0.0.1:$LLAMA_PORT/v1/completions" \
-    --model q36 -n 8 --ptok "$PTOK" --gen 16 --nonce "warm_paged_$(date +%s)" --no-cache >/dev/null
+    --model "$SERVED_MODEL_NAME" -n 8 --ptok "$PTOK" --gen 16 --nonce "warm_paged_$(date +%s)" --no-cache >/dev/null
   for n in $NPL; do
     log "paged n=$n"
     python3 "$H2H" --url "http://127.0.0.1:$LLAMA_PORT/v1/completions" \
-      --model q36 -n "$n" --ptok "$PTOK" --gen "$GEN" \
+      --model "$SERVED_MODEL_NAME" -n "$n" --ptok "$PTOK" --gen "$GEN" \
       --nonce "paged_${n}_$(date +%s)" --no-cache > "$arm_dir/n${n}.json"
     cat "$arm_dir/n${n}.json" | tee -a "$ART/run.log"
   done
@@ -257,18 +259,18 @@ run_vllm() {
   fi
   log "starting vLLM server"
   nohup "$VLLM_BIN" serve "$VLLM_MODEL" \
-    --served-model-name q36 --gpu-memory-utilization "$VLLM_GPU_MEMORY_UTILIZATION" --max-model-len "$VLLM_MAX_MODEL_LEN" \
+    --served-model-name "$SERVED_MODEL_NAME" --gpu-memory-utilization "$VLLM_GPU_MEMORY_UTILIZATION" --max-model-len "$VLLM_MAX_MODEL_LEN" \
     --max-num-seqs "$VLLM_MAX_NUM_SEQS" --host 127.0.0.1 --port "$VLLM_PORT" --tensor-parallel-size "$VLLM_TENSOR_PARALLEL_SIZE" \
     "${extra_args[@]}" \
     > "$arm_dir/server.log" 2>&1 &
   SERVER_PID=$!
-  wait_http "http://127.0.0.1:$VLLM_PORT/v1/models" "q36" "$arm_dir/server.log" "$arm_dir/models.json"
+  wait_http "http://127.0.0.1:$VLLM_PORT/v1/models" "$SERVED_MODEL_NAME" "$arm_dir/server.log" "$arm_dir/models.json"
   python3 "$H2H" --url "http://127.0.0.1:$VLLM_PORT/v1/completions" \
-    --model q36 -n 8 --ptok "$PTOK" --gen 16 --nonce "warm_vllm_$(date +%s)" --no-cache >/dev/null
+    --model "$SERVED_MODEL_NAME" -n 8 --ptok "$PTOK" --gen 16 --nonce "warm_vllm_$(date +%s)" --no-cache >/dev/null
   for n in $NPL; do
     log "vllm n=$n"
     python3 "$H2H" --url "http://127.0.0.1:$VLLM_PORT/v1/completions" \
-      --model q36 -n "$n" --ptok "$PTOK" --gen "$GEN" \
+      --model "$SERVED_MODEL_NAME" -n "$n" --ptok "$PTOK" --gen "$GEN" \
       --nonce "vllm_${n}_$(date +%s)" --no-cache > "$arm_dir/n${n}.json"
     cat "$arm_dir/n${n}.json" | tee -a "$ART/run.log"
   done
@@ -394,6 +396,7 @@ log "source=$(git -C "$SRC" log --oneline -1)"
 if [[ "$DRY_RUN" == "1" ]]; then
   log "dry run only; commands validated"
   log "would build: cmake --build $BUILD_DIR --target llama-server llama-completion test-backend-ops -j8"
+  log "served model: SERVED_MODEL_NAME=$SERVED_MODEL_NAME"
   log "would run paged NPL=[$NPL] PTOK=$PTOK GEN=$GEN"
   log "would run vLLM NPL=[$NPL] PTOK=$PTOK GEN=$GEN"
   log "vLLM config: VLLM_GPU_MEMORY_UTILIZATION=$VLLM_GPU_MEMORY_UTILIZATION VLLM_MAX_MODEL_LEN=$VLLM_MAX_MODEL_LEN VLLM_MAX_NUM_SEQS=$VLLM_MAX_NUM_SEQS VLLM_TENSOR_PARALLEL_SIZE=$VLLM_TENSOR_PARALLEL_SIZE VLLM_EXTRA_ARGS=[$VLLM_EXTRA_ARGS]"

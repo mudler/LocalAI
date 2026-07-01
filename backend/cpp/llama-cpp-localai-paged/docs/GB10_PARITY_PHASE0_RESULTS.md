@@ -2581,3 +2581,37 @@ Decision:
 - Current DGX phase36 build still passes the canonical inference md5/op gates.
 - Phase44 did not touch inference code; Phase45 provides the post-change guard
   artifact for future handoff and comparison.
+
+## Phase 46 Served-Model-Name Harness Readiness
+
+Phase 46 removes the remaining hardcoded `q36` model name from the audited
+serving snapshot harness. This is a harness-only hardware-pivot readiness
+change: it does not change llama.cpp inference code, patch-series source, md5
+gates, op gates, or any throughput result.
+
+New override:
+
+| variable | default | used for |
+|----------|---------|----------|
+| `SERVED_MODEL_NAME` | `q36` | vLLM `--served-model-name`, vLLM readiness check, and h2h `--model` requests for both paged and vLLM arms |
+
+Verification:
+
+- Red help-text check first proved `SERVED_MODEL_NAME` was absent from
+  `paged-current-serving-snapshot.sh --help`.
+- Red DGX dry-run check first proved the harness did not print
+  `SERVED_MODEL_NAME=dense-q36` when supplied.
+- Green checks after the patch included `bash -n`, help-text grep, a source grep
+  proving no hardcoded `q36` serve/request names remain in the harness, and DGX
+  `DRY_RUN=1` preflight with the override value printed before any server
+  starts. Artifact:
+  `/home/mudler/bench/phase46_served_model_name_dryrun/20260701_094849`.
+
+Decision:
+
+- Future dense, MoE, or hardware-pivot snapshots can keep the same audited
+  harness while setting model paths and the served OpenAI model name from the
+  environment.
+- This does not claim a new parity result. Full runs still require the normal
+  preflight, `hardware.txt`, pre/post md5 gates, `MUL_MAT`/`MUL_MAT_ID`, and
+  KL-if-md5-changes gates before interpreting throughput.
