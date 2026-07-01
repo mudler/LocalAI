@@ -1365,6 +1365,37 @@ the policy shifts early compute from token 2+ decode to first-token prompt
 admission. Before any default-on discussion, test MoE serving and at least one
 additional concurrency point.
 
+### Phase 56 TTFT prefill-first validation
+
+Phase56 made no code changes. It reapplied the Phase55 stack temporarily on DGX
+and tested the opt-in policy on MoE `n=128` and dense `n=32`. Artifact:
+`/home/mudler/bench/phase56_ttft_prefill_first_validation/20260701_115852`.
+
+Pre/post md5 and op gates stayed green: MoE
+`8cb0ce23777bf55f92f63d0292c756b0`, dense
+`5951a5b4d624ce891e22ab5fca9bc439`, `MUL_MAT` `1146/1146`, and `MUL_MAT_ID`
+`806/806`.
+
+MoE `n=128`, `ptok=128`, `gen=64`:
+
+| variant | agg t/s | decode agg t/s | prefill t/s | TTFT mean ms | TTFT max ms | wall s |
+|---------|---------|-----------------|-------------|--------------|-------------|--------|
+| default | `341.1` | `651.2` | `1555.9` | `7168.1` | `11435.5` | `24.015` |
+| `LLAMA_TTFT_PREFILL_FIRST=1` | `339.9` | `623.8` | `1622.7` | `7615.3` | `10964.4` | `24.098` |
+
+Dense `n=32`, `ptok=168`, `gen=64`:
+
+| variant | agg t/s | decode agg t/s | prefill t/s | TTFT mean ms | TTFT max ms | wall s |
+|---------|---------|-----------------|-------------|--------------|-------------|--------|
+| default | `104.3` | `197.1` | `617.2` | `7687.7` | `9234.4` | `19.627` |
+| `LLAMA_TTFT_PREFILL_FIRST=1` | `106.7` | `193.5` | `662.1` | `7284.3` | `8609.1` | `19.194` |
+
+Decision: keep `LLAMA_TTFT_PREFILL_FIRST=1` opt-in only. It helps dense
+serving at `n=128` and `n=32`, but MoE `n=128` regresses mean TTFT by `+6.2%`
+and aggregate throughput by `-0.4%`. Do not promote it as a broad default.
+Future scheduler work should either narrow the policy to dense/non-MoE shapes or
+make the defer condition more selective for MoE.
+
 Relevant files (all absolute): `/home/mudler/_git/LocalAI/.claude/worktrees/feat+paged-attention/backend/cpp/llama-cpp-localai-paged/docs/{DECODE_SERVING_SCOPE.md,PREFILL_GEMM_SCOPE.md,PREFILL_GEMM_RESULTS.md,TENSORCORE_GDN_SCOPE.md,final_benchmark.csv}`, `.../README.md`, `.../patches/paged/0034-feat-paged-native-NVFP4-W4A4-FP4-MMA-large-M-prefill.patch` (P1/P2), `.../patches/paged/0042-feat-paged-fused-residual-add-RMS-norm-weight-multip.patch` (P7), `.../patches/paged/0031` (P4), `0025` (D1), `0018/0022` (D4/D5), `0009/0010` (D3/D6/D7); graph source `/home/mudler/_git/LocalAI/backend/cpp/llama-cpp-paged-dev/src/{models/qwen35moe.cpp,models/delta-net-base.cpp,llama-graph.cpp}`.
 
 ### Phase 10 GDN C32 slab update

@@ -3142,3 +3142,60 @@ Mirror status:
 - The Phase55 fork commit is local and DGX-gated.
 - The LocalAI `patches/paged/` series is not regenerated yet because the fork
   branch still requires explicit push approval first.
+
+## Phase 56 TTFT Prefill-First Validation
+
+Phase 56 validates the Phase55 opt-in policy outside dense `n=128`. It makes no
+code changes; the same Phase51+Phase54+Phase55 stack was applied temporarily to
+the clean DGX mirror and reverted after the run.
+
+Artifact:
+
+- `/home/mudler/bench/phase56_ttft_prefill_first_validation/20260701_115852`
+
+Pre/post gates:
+
+| phase | MoE md5 | dense md5 | `MUL_MAT` | `MUL_MAT_ID` |
+|-------|---------|-----------|-----------|--------------|
+| pre | `8cb0ce23777bf55f92f63d0292c756b0` | `5951a5b4d624ce891e22ab5fca9bc439` | `1146/1146` | `806/806` |
+| post | `8cb0ce23777bf55f92f63d0292c756b0` | `5951a5b4d624ce891e22ab5fca9bc439` | `1146/1146` | `806/806` |
+
+MoE `n=128`, `ptok=128`, `gen=64`:
+
+| variant | agg t/s | decode agg t/s | prefill t/s | TTFT mean ms | TTFT max ms | wall s | deferred decode slots |
+|---------|---------|-----------------|-------------|--------------|-------------|--------|-----------------------|
+| default | `341.1` | `651.2` | `1555.9` | `7168.1` | `11435.5` | `24.015` | `0` |
+| `LLAMA_TTFT_PREFILL_FIRST=1` | `339.9` | `623.8` | `1622.7` | `7615.3` | `10964.4` | `24.098` | `441` |
+
+MoE deltas:
+
+- Aggregate throughput: `-0.4%`
+- Prefill throughput: `+4.3%`
+- Mean TTFT: `+6.2%`
+- Max TTFT: `-4.1%`
+- Wall time: `+0.3%`
+
+Dense `n=32`, `ptok=168`, `gen=64`:
+
+| variant | agg t/s | decode agg t/s | prefill t/s | TTFT mean ms | TTFT max ms | wall s | deferred decode slots |
+|---------|---------|-----------------|-------------|--------------|-------------|--------|-----------------------|
+| default | `104.3` | `197.1` | `617.2` | `7687.7` | `9234.4` | `19.627` | `0` |
+| `LLAMA_TTFT_PREFILL_FIRST=1` | `106.7` | `193.5` | `662.1` | `7284.3` | `8609.1` | `19.194` | `34` |
+
+Dense `n=32` deltas:
+
+- Aggregate throughput: `+2.3%`
+- Prefill throughput: `+7.3%`
+- Mean TTFT: `-5.2%`
+- Max TTFT: `-6.8%`
+- Wall time: `-2.2%`
+
+Decision:
+
+- Keep `LLAMA_TTFT_PREFILL_FIRST=1` as an opt-in A/B only. It helps dense
+  `n=128` and dense `n=32`, but MoE `n=128` regresses mean TTFT and slightly
+  regresses aggregate throughput.
+- Do not make this policy default-on or promote it as a universal parity lever.
+  The next scheduler work should either narrow the policy to dense/non-MoE
+  shapes or add a more selective condition that avoids the MoE mean-TTFT
+  regression.

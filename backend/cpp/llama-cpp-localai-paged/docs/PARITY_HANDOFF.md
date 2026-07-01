@@ -29,10 +29,11 @@ Read order for a cold start:
 > (`decode_hist=128-255:53`). Phase55 implemented that targeted
 > first-token A/B as `LLAMA_TTFT_PREFILL_FIRST=1`: on dense `n=128` it improved
 > aggregate throughput `138.2 -> 142.9`, mean TTFT `23231.9 -> 21520.8 ms`, and
-> wall `59.272 -> 57.323 s`, with md5/op gates green. Next scheduler work should
-> test the same opt-in policy on MoE and another concurrency point. The trace and
-> scheduler commits are local and DGX-gated but not pushed, so the LocalAI patch
-> series has not been regenerated.
+> wall `59.272 -> 57.323 s`, with md5/op gates green. Phase56 then showed the
+> policy helps dense `n=32` but regresses MoE `n=128` mean TTFT
+> `7168.1 -> 7615.3 ms` and aggregate `341.1 -> 339.9`; keep it opt-in only and
+> do not default it broadly. The trace and scheduler commits are local and
+> DGX-gated but not pushed, so the LocalAI patch series has not been regenerated.
 
 - Historical verdict: the older investigation marked GB10 parity **CLOSED** and
   unreachable. Treat that as superseded where Phase50-54 provide newer dense
