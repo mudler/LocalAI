@@ -1758,8 +1758,8 @@
       use_tokenizer_template: true
   files:
     - filename: llama-cpp/models/Qwopus3.5-9B-Coder-MTP-GGUF/Qwopus3.5-9B-Coder-MTP-Q4_K_M.gguf
-      sha256: f6fc5d193045796d9e1870cbc40f827fe55f53f70593c3f5c1968b82b9331991
       uri: https://huggingface.co/Jackrong/Qwopus3.5-9B-Coder-MTP-GGUF/resolve/main/Qwopus3.5-9B-Coder-MTP-Q4_K_M.gguf
+      sha256: 9ea3ecd122a5165b8b81655f29eaf09d71daf841503e4c4212bdfadb36ab3712
     - filename: llama-cpp/mmproj/Qwopus3.5-9B-Coder-MTP-GGUF/Qwopus3.5-9B-Coder-MTP-mmproj.gguf
       sha256: f48daca405a1c768a9514e392c3955dcc4a9d66a5cf64cf45e064092b5f20ee4
       uri: https://huggingface.co/Jackrong/Qwopus3.5-9B-Coder-MTP-GGUF/resolve/main/Qwopus3.5-9B-Coder-MTP-mmproj.gguf
