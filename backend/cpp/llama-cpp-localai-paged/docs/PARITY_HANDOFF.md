@@ -733,6 +733,15 @@ work needs a larger redesign that improves the grouped kernel body and removes
 or fuses sorted activation movement. Near-term GB10 parity work should return to
 broader prefill/GDN/MoE design or hardware-pivot benchmarking.
 
+Phase61 is scoped as that larger W4A16 kill-gate, not as a committed code
+change: `docs/superpowers/plans/2026-07-01-w4a16-direct-activation-phase61.md`.
+It proposes a default-off `LLAMA_W4A16_DIRECT_A=1` experiment that consumes the
+original activation tensor plus the existing `ids_to_sorted` map directly,
+removing Phase60's sorted activation gather and separate cast kernels before any
+grouped-kernel body rewrite. Keep it only if it improves forced W4A16 S_PP by at
+least `+12%` and reaches at least `0.75x` default FP4-MMQ; otherwise reject and
+do not continue W4A16 body tuning.
+
 ---
 
 ## 5. METHODOLOGY LESSONS (so you do not repeat the mistakes)
