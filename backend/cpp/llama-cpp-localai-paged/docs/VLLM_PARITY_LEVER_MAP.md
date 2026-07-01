@@ -1518,6 +1518,43 @@ close a `37-39%` S_PP loss, and the dominant loss is the grouped kernel body
 plus sorted activation movement. Future W4A16 parity work must be a larger
 design that changes those structures, not another metadata/body shortcut.
 
+### Phase 61 W4A16 direct activation kill-gate
+
+Phase61 implemented the larger direct-activation experiment behind
+`LLAMA_W4A16_DIRECT_A=1`, consuming original `src1` and `ids_to_sorted` directly
+instead of materializing `src1_sorted` and then casting it to bf16. The correct
+source addressing matched `get_rows_cuda`: `ids_to_sorted` is a flat source-row
+index addressed with `nb11`. The initial token/slot decode failed `b=1` op
+tests; the flat-row fix passed forced direct-A `MUL_MAT_ID` `806/806`.
+
+Artifacts:
+
+- default gates: `/home/mudler/bench/phase61_direct_default_gates/20260701_132057`
+- A/B: `/home/mudler/bench/phase61_direct_ab/20260701_132237`
+
+Gates:
+
+- default MoE md5 `8cb0ce23777bf55f92f63d0292c756b0`
+- default dense md5 `5951a5b4d624ce891e22ab5fca9bc439`
+- `MUL_MAT` `1146/1146`
+- `MUL_MAT_ID` `806/806`
+- forced W4A16 and direct-A MoE transcripts both
+  `07db32c2bcb78d17a43ed18bc22705cd`
+
+MoE prefill A/B (`npl=32`, `ntg=4`):
+
+| path | npp512 S_PP | npp2048 S_PP |
+|------|-------------|--------------|
+| default FP4-MMQ | `2325.45` | `2423.18` |
+| forced W4A16 | `1471.05` | `1502.46` |
+| forced W4A16 direct-A | `1566.30` | `1605.82` |
+
+Decision: reject. Direct-A improved forced W4A16 by only `+6.5%` / `+6.9%` and
+remained `0.67x` / `0.66x` of default FP4-MMQ, below the `+12%` and `0.75x`
+keep gates. The direct kernel diff was saved to
+`/tmp/phase61-w4a16-direct-a-rejected.diff` and not committed. W4A16 body
+tuning is no longer the next GB10 parity lever.
+
 Relevant files (all absolute): `/home/mudler/_git/LocalAI/.claude/worktrees/feat+paged-attention/backend/cpp/llama-cpp-localai-paged/docs/{DECODE_SERVING_SCOPE.md,PREFILL_GEMM_SCOPE.md,PREFILL_GEMM_RESULTS.md,TENSORCORE_GDN_SCOPE.md,final_benchmark.csv}`, `.../README.md`, `.../patches/paged/0034-feat-paged-native-NVFP4-W4A4-FP4-MMA-large-M-prefill.patch` (P1/P2), `.../patches/paged/0042-feat-paged-fused-residual-add-RMS-norm-weight-multip.patch` (P7), `.../patches/paged/0031` (P4), `0025` (D1), `0018/0022` (D4/D5), `0009/0010` (D3/D6/D7); graph source `/home/mudler/_git/LocalAI/backend/cpp/llama-cpp-paged-dev/src/{models/qwen35moe.cpp,models/delta-net-base.cpp,llama-graph.cpp}`.
 
 ### Phase 10 GDN C32 slab update

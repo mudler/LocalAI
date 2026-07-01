@@ -3404,3 +3404,35 @@ Decision:
 - Any future W4A16 parity work must be a larger redesign that improves the
   grouped kernel body and removes or fuses the sorted activation gather. Do not
   reopen the low-conflict micro-patch track.
+
+## W4A16 Direct-Activation Phase61 Result
+
+Phase61 tested the larger W4A16 direct-activation redesign. It passed default
+inference gates and opt-in direct-A correctness:
+
+- Default gates artifact:
+  `/home/mudler/bench/phase61_direct_default_gates/20260701_132057`
+- A/B artifact: `/home/mudler/bench/phase61_direct_ab/20260701_132237`
+- Default MoE md5: `8cb0ce23777bf55f92f63d0292c756b0`
+- Default dense md5: `5951a5b4d624ce891e22ab5fca9bc439`
+- `MUL_MAT`: `1146/1146`
+- `MUL_MAT_ID`: `806/806`
+- Forced W4A16 and direct-A MoE md5:
+  `07db32c2bcb78d17a43ed18bc22705cd`
+
+The direct path had to mirror `get_rows_cuda` flat-row source addressing. A
+token/slot decode of `ids_to_sorted` failed `b=1` NVFP4 op cases; flat
+`src_row*nb11` addressing fixed the gate.
+
+MoE prefill A/B (`npl=32`, `ntg=4`):
+
+| path | npp512 S_PP | npp2048 S_PP |
+|------|-------------|--------------|
+| default FP4-MMQ | `2325.45` | `2423.18` |
+| forced W4A16 | `1471.05` | `1502.46` |
+| forced W4A16 direct-A | `1566.30` | `1605.82` |
+
+Decision: reject. Direct-A improved forced W4A16 by only `+6.5%` and `+6.9%`,
+and still reached only `0.67x` / `0.66x` of default FP4-MMQ. The rejected direct
+kernel diff was saved to `/tmp/phase61-w4a16-direct-a-rejected.diff` and not
+committed. Do not continue W4A16 body tuning on GB10 as the next parity lever.

@@ -434,7 +434,7 @@ Fork commit:
 
 - Modify: `/home/mudler/_git/llama.cpp/ggml/src/ggml-cuda/w4a16-gemm.cu`
 
-- [ ] **Step 1: Add the direct kernel variant**
+- [x] **Step 1: Add the direct kernel variant**
 
 Copy `w4a16_grouped_kernel` into a new template named `w4a16_grouped_direct_a_kernel`. Change only the A-load section:
 
@@ -460,7 +460,7 @@ uint4 packed = *reinterpret_cast<const uint4 *>(tmp);
 
 Keep W `cp.async` unchanged.
 
-- [ ] **Step 2: Wire the direct launcher to the new kernel**
+- [x] **Step 2: Wire the direct launcher to the new kernel**
 
 Replace the stub body with a launcher that mirrors `ggml_cuda_mul_mat_id_w4a16_grouped_impl`, but:
 
@@ -468,7 +468,7 @@ Replace the stub body with a launcher that mirrors `ggml_cuda_mul_mat_id_w4a16_g
 - does not call `w4a16_cast_act_f32_bf16`;
 - passes `src1`, `ids_to_sorted`, `n_expert_used`, `src1_nb1`, and `src1_nb2` into the direct kernel.
 
-- [ ] **Step 3: Build**
+- [x] **Step 3: Build**
 
 Run:
 
@@ -480,11 +480,29 @@ cmake --build build --target test-cuda-w4a16-policy test-backend-ops llama-batch
 
 Expected: build succeeds and policy test passes.
 
+Actual implementation note: the first direct kernel decoded `ids_to_sorted` as
+`token = src_row / n_expert_used` and `slot = src_row % n_expert_used`. That was
+wrong for `b=1` backend-op shapes. The existing `get_rows_cuda` call treats
+`ids_to_sorted` as a flat row index and addresses `src1 + src_row*nb11`, so the
+working direct kernel used the same flat-row addressing. The first forced
+direct-A gate failed `794/806`; the flat-row fix passed `806/806`.
+
+Actual local build:
+
+```bash
+cd /home/mudler/_git/llama.cpp
+git diff --check
+cmake --build build --target test-cuda-w4a16-policy -j2
+./build/bin/test-cuda-w4a16-policy
+```
+
+Result: `test-cuda-w4a16-policy: OK`.
+
 ## Task 6: Local CUDA Correctness Gate
 
 **Files:** none.
 
-- [ ] **Step 1: Run forced W4A16 direct-A op gate**
+- [x] **Step 1: Run forced W4A16 direct-A op gate**
 
 Run on a CUDA host:
 
@@ -495,7 +513,17 @@ LLAMA_W4A16_PREFILL_M=1 LLAMA_W4A16_DIRECT_A=1 ./build/bin/test-backend-ops test
 
 Expected: `806/806 tests passed`.
 
-- [ ] **Step 2: Run default op gate**
+Actual RED before implementation: abort at
+`LLAMA_W4A16_DIRECT_A selected before direct-A kernel implementation`, as
+expected.
+
+Actual GREEN on DGX after flat-row fix:
+
+- `LLAMA_W4A16_PREFILL_M=1 LLAMA_W4A16_DIRECT_A=1 test-backend-ops ... MUL_MAT_ID`
+- Result: `806/806 tests passed`, `Backend CUDA0: OK`.
+- Cleanup lock: `FREE phase61-direct-kernel-gate2 20260701T112013Z`.
+
+- [x] **Step 2: Run default op gate**
 
 Run:
 
@@ -506,11 +534,14 @@ cd /home/mudler/_git/llama.cpp
 
 Expected: `806/806 tests passed`.
 
+Actual default-path gate was run as part of the full default inference gate in
+Task 7: `MUL_MAT_ID` `806/806`.
+
 ## Task 7: DGX Inference and Performance Gate
 
 **Files:** none.
 
-- [ ] **Step 1: Preflight DGX**
+- [x] **Step 1: Preflight DGX**
 
 Run:
 
@@ -520,11 +551,17 @@ ssh dgx.casa 'echo docker=$(docker ps -q | wc -l); echo compute=$(nvidia-smi --q
 
 Expected: Docker `0`, compute `0`, lock `FREE*`, and no worker/server process.
 
-- [ ] **Step 2: Apply patch to clean DGX mirror and build**
+Actual: DGX checks were clean before the phase, and each run acquired/released
+`/tmp/localai-gpu.lock`.
+
+- [x] **Step 2: Apply patch to clean DGX mirror and build**
 
 Use the fork diff for this one patch only, apply it to `~/llama-phase6-source`, and build `build-cuda`. Do not leave the DGX mirror dirty after the phase.
 
-- [ ] **Step 3: Run pre gates**
+Actual: the cumulative fork diff was applied to `~/llama-phase6-source` for each
+DGX gate and reverted by cleanup traps. The final mirror status was clean.
+
+- [x] **Step 3: Run pre gates**
 
 Run the canonical MoE/dense md5 and `MUL_MAT`/`MUL_MAT_ID` gates:
 
@@ -542,7 +579,15 @@ Expected:
 - `MUL_MAT` `1146/1146`
 - `MUL_MAT_ID` `806/806`
 
-- [ ] **Step 4: Run W4A16 A/B**
+Actual default inference gate artifact:
+
+- `/home/mudler/bench/phase61_direct_default_gates/20260701_132057`
+- MoE md5 `8cb0ce23777bf55f92f63d0292c756b0`
+- dense md5 `5951a5b4d624ce891e22ab5fca9bc439`
+- `MUL_MAT` `1146/1146`
+- `MUL_MAT_ID` `806/806`
+
+- [x] **Step 4: Run W4A16 A/B**
 
 Run:
 
@@ -559,9 +604,36 @@ Expected decision gate:
 - Continue deeper W4A16 body work only if direct-A reaches at least `0.75x` default FP4-MMQ S_PP.
 - Otherwise revert the code patch and record Phase61 as rejected.
 
-- [ ] **Step 5: Run post gates and cleanup**
+Actual artifact:
+
+- `/home/mudler/bench/phase61_direct_ab/20260701_132237`
+
+Opt-in transcript md5:
+
+- forced W4A16 MoE md5 `07db32c2bcb78d17a43ed18bc22705cd`
+- direct-A MoE md5 `07db32c2bcb78d17a43ed18bc22705cd`
+- the two transcripts were byte-identical.
+
+MoE prefill A/B:
+
+| path | npp512 S_PP | npp2048 S_PP |
+|------|-------------|--------------|
+| default FP4-MMQ | `2325.45` | `2423.18` |
+| forced W4A16 | `1471.05` | `1502.46` |
+| forced W4A16 direct-A | `1566.30` | `1605.82` |
+
+Direct-A improved forced W4A16 by only `+6.5%` at `npp=512` and `+6.9%` at
+`npp=2048`, and reached only `0.67x` / `0.66x` of default FP4-MMQ. This fails
+both keep gates. Verdict: reject the direct-A kernel implementation and do not
+continue W4A16 body tuning on GB10 as the next parity lever.
+
+- [x] **Step 5: Run post gates and cleanup**
 
 Run the same md5/op gates as Step 3, revert the temporary DGX patch, confirm `git status --short` is clean, and release `/tmp/localai-gpu.lock` as `FREE phase61-cleanup ...`.
+
+Actual: the final default gates above ran on the final patch before A/B, the A/B
+run reverted the temporary DGX patch, and `/tmp/localai-gpu.lock` was released as
+`FREE phase61-direct-ab 20260701T112517Z`.
 
 ## Task 8: Commit or Revert
 
@@ -581,7 +653,7 @@ git add ggml/src/ggml-cuda/w4a16-gemm.cuh ggml/src/ggml-cuda/w4a16-gemm.cu ggml/
 git commit -m "feat(cuda): add W4A16 direct activation prefill path" -m "Assisted-by: Codex:gpt-5"
 ```
 
-- [ ] **Step 2: If performance gate fails, revert fork code**
+- [x] **Step 2: If performance gate fails, revert fork code**
 
 Run:
 
@@ -593,7 +665,12 @@ rm -f ggml/src/ggml-cuda/w4a16-policy.h tests/test-cuda-w4a16-policy.cpp
 git status --short
 ```
 
-- [ ] **Step 3: Update LocalAI docs**
+Actual: saved rejected local diff to
+`/tmp/phase61-w4a16-direct-a-rejected.diff` and reverted it. The fork remains at
+committed routing-stub HEAD `7967ad47f`; the direct kernel implementation was
+not committed.
+
+- [x] **Step 3: Update LocalAI docs**
 
 Create `docs/superpowers/plans/2026-07-01-w4a16-direct-activation-phase61-result.md` with the artifact path, gate table, A/B table, and keep/reject decision. Update:
 
@@ -601,7 +678,11 @@ Create `docs/superpowers/plans/2026-07-01-w4a16-direct-activation-phase61-result
 - `backend/cpp/llama-cpp-localai-paged/docs/VLLM_PARITY_LEVER_MAP.md`
 - `backend/cpp/llama-cpp-localai-paged/docs/PARITY_HANDOFF.md`
 
-- [ ] **Step 4: Commit LocalAI docs**
+Actual: created the Phase61 result file and updated the three parity docs with
+the reject decision, artifacts, md5/op gates, A/B table, and direct-A
+flat-row-addressing correction.
+
+- [x] **Step 4: Commit LocalAI docs**
 
 Run:
 

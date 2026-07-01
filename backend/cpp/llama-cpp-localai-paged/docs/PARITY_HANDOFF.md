@@ -742,6 +742,16 @@ grouped-kernel body rewrite. Keep it only if it improves forced W4A16 S_PP by at
 least `+12%` and reaches at least `0.75x` default FP4-MMQ; otherwise reject and
 do not continue W4A16 body tuning.
 
+Phase61 result: rejected. The direct-A kernel passed correctness after matching
+`get_rows_cuda` flat-row addressing (`MUL_MAT_ID` `806/806`; forced/direct-A
+MoE transcript md5 both `07db32c2bcb78d17a43ed18bc22705cd`) and default gates
+remained green (`8cb0ce23`, `5951a5b4`, `MUL_MAT` `1146/1146`, `MUL_MAT_ID`
+`806/806`). But direct-A only improved forced W4A16 S_PP `1471.05 -> 1566.30`
+at `npp=512` and `1502.46 -> 1605.82` at `npp=2048` (`+6.5%` / `+6.9%`), still
+just `0.67x` / `0.66x` of default FP4-MMQ. The direct kernel diff was not
+committed; only the safe policy/routing stub remains in the fork. Do not pursue
+more W4A16 body tuning on GB10 as the next parity lever.
+
 ---
 
 ## 5. METHODOLOGY LESSONS (so you do not repeat the mistakes)
