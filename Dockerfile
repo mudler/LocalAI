@@ -176,7 +176,7 @@ RUN if [ "${BUILD_TYPE}" = "hipblas" ]; then \
 # if AMD's full amdgpu graphics/DKMS stack is installed. This compute-only image
 # doesn't have it, so hipblas/rocBLAS log "No such file or directory" on every
 # model load and can fail to identify the GPU. Point it at the equivalent file
-# Ubuntu's libdrm-amdgpu1 already ships.
+# Ubuntu's libdrm-common package already ships.
 RUN if [ "${BUILD_TYPE}" = "hipblas" ] && [ -f /usr/share/libdrm/amdgpu.ids ] && [ ! -e /opt/amdgpu/share/libdrm/amdgpu.ids ]; then \
     mkdir -p /opt/amdgpu/share/libdrm && \
     ln -s /usr/share/libdrm/amdgpu.ids /opt/amdgpu/share/libdrm/amdgpu.ids \
