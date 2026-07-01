@@ -12,13 +12,12 @@ with artifact path, gates, benchmark rows, and decision.
 - Canonical dense md5: `5951a5b4d624ce891e22ab5fca9bc439`.
 - Current tested source: DGX mirror
   `14fd69f1e feat(cuda): gate BF16 cuBLAS F32 output`.
-- Latest attempt: Phase75.
-- Latest decision: subagent codebase audit found no source-funded GB10 GDN
-  backend change. Phase74 rejects the C=64 inverse scaffold; vLLM's distinct
-  one-token recurrent decode path is not on the current llama.cpp critical path
-  because prior profiles showed GDN decode already faster than vLLM and serving
-  decode host/MoE-sync bound. The next parity evidence should be a datacenter
-  Blackwell rerun, or a fresh profile proving a different GB10 bottleneck.
+- Latest attempt: Phase76.
+- Latest decision: current-stack GB10 graph-node MoE serving profile reopened a
+  narrow GDN evidence path. GDN was the largest macro bucket (`32.88%`,
+  `6669.16 ms`) at `n=128`, with `gdn_core` alone `28.97%`. This does not
+  justify backend source yet, but it funds a Phase77 decode/mixed-serving A/B
+  proof for vLLM-style recurrent/packed GDN before any patch.
 
 ## Current Serving Record
 
@@ -57,6 +56,71 @@ Decision:
   concurrency and widened the vLLM decode gap.
 
 ## Attempt Log
+
+### Phase76: Current MoE Serving Graph-Node Profile
+
+- Date: 2026-07-01.
+- Artifact:
+  `/home/mudler/bench/phase76_current_moe_profile/20260701_145116`.
+- Setup-hiccup artifacts:
+  `/home/mudler/bench/phase76_current_moe_profile/20260701_144754` and
+  `/home/mudler/bench/phase76_current_moe_profile/20260701_144929`.
+- Source baseline: `14fd69f1e feat(cuda): gate BF16 cuBLAS F32 output`.
+- Result type: current-stack llama.cpp graph-node serving profile; no source
+  change.
+- Shape: MoE `q36-35b-a3b-nvfp4`, `n=128`, `PTOK=128`, `GEN=64`,
+  `PARALLEL=128`, `CTX=131072`, production defaults.
+- Profiler: `nsys launch --cuda-graph-trace=node`, bucketed with
+  `/home/mudler/bench/bucket2.py`.
+
+Gates:
+
+| phase | MoE md5 | dense md5 | `MUL_MAT` | `MUL_MAT_ID` |
+|-------|---------|-----------|-----------|--------------|
+| pre | `8cb0ce23777bf55f92f63d0292c756b0` | `5951a5b4d624ce891e22ab5fca9bc439` | `1146/1146` | `806/806` |
+| post | `8cb0ce23777bf55f92f63d0292c756b0` | `5951a5b4d624ce891e22ab5fca9bc439` | `1146/1146` | `806/806` |
+
+Serving result under graph-node profiling:
+
+| n | agg_tps | decode_agg_tps | decode_perseq_tps | prefill_tps | ttft_mean_ms | wall_s |
+|--:|--------:|---------------:|------------------:|------------:|-------------:|-------:|
+| `128` | `204.1` | `320.7` | `2.06` | `1490.1` | `8365.1` | `40.146` |
+
+Macro buckets:
+
+| bucket | time ms | share | instances |
+|--------|--------:|------:|----------:|
+| GDN | `6669.16` | `32.88%` | `25980` |
+| MoE/FFN-GEMM | `6264.88` | `30.88%` | `54406` |
+| bf16/fp8-proj | `2772.38` | `13.67%` | `53880` |
+| layout-copy | `1265.44` | `6.24%` | `81280` |
+| ew-mul(weight/norm/GDN) | `734.61` | `3.62%` | `52464` |
+| act-quant | `678.95` | `3.35%` | `37526` |
+| FA | `264.50` | `1.30%` | `3660` |
+
+Fine buckets:
+
+| bucket | macro | time ms | share | instances |
+|--------|-------|--------:|------:|----------:|
+| `gdn_core` | GDN | `5876.94` | `28.97%` | `4680` |
+| `gdn_conv` | GDN | `454.03` | `2.24%` | `7260` |
+| `gdn_gather` | GDN | `237.87` | `1.17%` | `4680` |
+| `gdn_l2norm` | GDN | `100.32` | `0.49%` | `9360` |
+| `mmq_nvfp4` | MoE/FFN-GEMM | `6055.03` | `29.85%` | `34162` |
+
+Decision:
+
+- Phase76 contradicts the Phase75 assumption that GDN decode is not on the
+  current critical path. Under graph-node current serving, GDN is the largest
+  GPU-kernel macro bucket and `gdn_core` alone is nearly `29%`.
+- Do not patch `gated_delta_net.cu` yet. This profile is llama-only and
+  graph-node tracing depresses absolute throughput, so it is a source-funding
+  signal, not a source patch gate.
+- Fund Phase77 as a narrow proof before backend edits:
+  compare current `gdn_core` against a vLLM-style direct recurrent/packed decode
+  PoC or an in-backend default-off A/B, with pre/post md5 and op gates, and
+  require a material reduction in the Phase76 `gdn_core` bucket without
+  regressing serving throughput or canonical md5.
 
 ### Phase75: Post-PoC GDN/VLLM Audit
 

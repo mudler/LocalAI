@@ -1272,10 +1272,34 @@ Phase75 follow-up audit:
   DSL and should not be treated as a portable GB10 patch base until the local
   toolchain proves support.
 
-Current next gate: run the Phase72 same-session serving shape on B200/B100/GB200
-or equivalent datacenter Blackwell hardware. Require `hardware_class` to be
-`datacenter_blackwell`, pre/post md5 and op gates to be green, and graph-node
-decode profiles for both llama.cpp and vLLM. If the rerun does not materially
-raise the GB10 Phase72 decode ratios (`0.7561`, `0.7158`, `0.6935`), keep GB10
-GDN source work stopped and classify the residual gap as engine/kernel
-architecture rather than GB10 memory bandwidth.
+Phase76 current-stack GB10 graph-node profile:
+
+- Artifact:
+  `/home/mudler/bench/phase76_current_moe_profile/20260701_145116`.
+- Shape: MoE `q36-35b-a3b-nvfp4`, `n=128`, `PTOK=128`, `GEN=64`,
+  `PARALLEL=128`, `CTX=131072`, production defaults.
+- Pre/post gates were green: MoE md5 `8cb0ce23777bf55f92f63d0292c756b0`, dense
+  md5 `5951a5b4d624ce891e22ab5fca9bc439`, `MUL_MAT 1146/1146`,
+  `MUL_MAT_ID 806/806`.
+- Serving under graph-node profiling: aggregate `204.1 t/s`, decode aggregate
+  `320.7 t/s`, prefill `1490.1 t/s`, TTFT mean `8365.1 ms`, wall `40.146 s`.
+- Bucket result: GDN was the largest macro bucket, `6669.16 ms` (`32.88%`),
+  ahead of MoE/FFN-GEMM `6264.88 ms` (`30.88%`) and BF16 projections
+  `2772.38 ms` (`13.67%`). `gdn_core` alone was `5876.94 ms` (`28.97%`).
+
+This supersedes the Phase75 "datacenter only unless fresh profile" wording:
+Phase76 is that fresh profile. It does **not** justify an immediate backend
+patch because it is llama-only and graph-node tracing depresses absolute
+throughput, but it does fund one narrow GB10 follow-up before waiting for B200:
+prove whether vLLM's direct recurrent/packed decode idea can reduce the current
+`gdn_core` bucket.
+
+Current next gate:
+
+1. Keep the B200/B100/GB200 Phase72 same-session rerun as the hardware-pivot
+   gate when datacenter Blackwell is available.
+2. In parallel on GB10, run a Phase77 GDN decode proof with pre/post md5 and op
+   gates. Accept only if it materially reduces the Phase76 `gdn_core` bucket and
+   does not regress serving throughput or canonical output md5.
+3. Do not merge or default-on any `gated_delta_net.cu` change from this evidence
+   alone; Phase76 is a profile gate, not a source patch gate.
