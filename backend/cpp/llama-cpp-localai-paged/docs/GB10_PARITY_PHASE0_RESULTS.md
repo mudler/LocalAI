@@ -3507,3 +3507,49 @@ Decision:
 - Do not tune `spec-draft-n-max` blindly. Phase15, Phase19, and Phase62 all
   showed high acceptance with poor serving throughput, so the remaining question
   is verify cost, not whether MTP can draft.
+
+## Prefill Bucket Attribution Phase63 Result
+
+Phase63 is recorded in
+`docs/superpowers/plans/2026-07-01-prefill-bucket-attribution-phase63.md`.
+It was a measurement and decision phase, not a source patch phase.
+
+Artifact:
+
+- `/home/mudler/bench/phase63_prefill_bucket/20260701_140127`
+
+Pre/post inference gates passed:
+
+| gate | MoE md5 | dense md5 | `MUL_MAT` | `MUL_MAT_ID` |
+|------|---------|-----------|-----------|--------------|
+| pre | `8cb0ce23777bf55f92f63d0292c756b0` | `5951a5b4d624ce891e22ab5fca9bc439` | `1146/1146` | `806/806` |
+| post | `8cb0ce23777bf55f92f63d0292c756b0` | `5951a5b4d624ce891e22ab5fca9bc439` | `1146/1146` | `806/806` |
+
+llama.cpp MoE prefill, `npl=32`, `ntg=4`:
+
+| npp | S_PP | MoE/FFN-GEMM | GDN | bf16-proj | layout-copy | act-quant | MoE-dispatch | gather | FA |
+|-----|------|--------------|-----|-----------|-------------|-----------|--------------|--------|----|
+| 512 | `2248.20` | `40.48%` | `18.00%` | `10.19%` | `7.82%` | `4.47%` | `1.94%` | `1.26%` | `0.71%` |
+| 2048 | `2385.22` | `41.06%` | `16.15%` | `9.97%` | `7.96%` | `4.61%` | `2.12%` | `1.36%` | `1.18%` |
+
+vLLM MoE prefill, `NSEQ=32`, `GEN=1`, `NREP=3`, eager profile path:
+
+| PT | S_PP | ew/glue | GDN | FA | bf16-proj | MoE-dispatch | top unclassified |
+|----|------|---------|-----|----|-----------|--------------|------------------|
+| 512 | `5315.6` | `32.97%` | `18.34%` | `0.73%` | `3.41%` | `1.37%` | Marlin MoE `1940.99ms`, FP8 projection `565.74ms` |
+| 2048 | `5384.4` | `33.48%` | `18.00%` | `1.75%` | `1.06%` | `0.49%` | Marlin MoE `7745.84ms`, FP8 projection `3047.75ms` |
+
+Decision:
+
+- Reject a Phase63 paged FlashAttention mask/block-table source patch. llama.cpp
+  FA is only `1.18%` of prefill GPU kernel time at `npp=2048`, below the `<5%`
+  reject rule and far below the `8%` source-funding threshold.
+- The `npp=2048` FA cost is about `4.9 us/tok` for llama.cpp and `3.1 us/tok`
+  for vLLM, so the cross-engine FA delta is only about `1.7 us/tok`, below the
+  `15 us/tok` funding threshold.
+- The dominant remaining llama.cpp buckets are still MoE/FFN GEMM, GDN,
+  bf16 projections, layout copies, and activation quantization. Phase63 did not
+  identify a new low-conflict source patch that can move GB10 parity without
+  reopening already-rejected W4A16/GDN/MTP/small-M work.
+- No llama.cpp source files were modified. Default inferencing stayed green with
+  the canonical md5/op gates.

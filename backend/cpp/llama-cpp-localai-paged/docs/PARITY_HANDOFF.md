@@ -878,4 +878,24 @@ Only pursue if (a)+(b) are not options and someone explicitly wants the residual
 
 ---
 
-*Status: investigation CLOSED. This handoff is procedure; `VLLM_PARITY_FINAL.md` is the record. The path to parity is datacenter Blackwell, not GB10 kernels.*
+## 8. PHASE63 RESULT: PREFILL BUCKET ATTRIBUTION
+
+Phase63 is complete as a measurement-only no-go. The plan is
+`docs/superpowers/plans/2026-07-01-prefill-bucket-attribution-phase63.md`; the
+DGX artifact is `/home/mudler/bench/phase63_prefill_bucket/20260701_140127`.
+
+Pre/post gates stayed green:
+
+- MoE md5 `8cb0ce23777bf55f92f63d0292c756b0`;
+- dense md5 `5951a5b4d624ce891e22ab5fca9bc439`;
+- `MUL_MAT` `1146/1146`;
+- `MUL_MAT_ID` `806/806`.
+
+The candidate paged FlashAttention mask/block-table cleanup is rejected for now:
+llama.cpp FA is only `0.71%` at `npp=512` and `1.18%` at `npp=2048`; the
+`npp=2048` cross-engine FA delta is about `1.7 us/tok`, not the `15 us/tok`
+needed to fund source work. No llama.cpp source files were modified.
+
+*Status: Phase63 closed. `VLLM_PARITY_FINAL.md` remains the GB10 shortcut record;
+the remaining measured buckets are still MoE/FFN GEMM, GDN, bf16 projections,
+layout copies, and activation quantization.*
