@@ -944,6 +944,42 @@ Likely root cause:
   defeats the paged decode graph-reuse wins, so extra verification dominates
   despite high draft acceptance.
 
+## Phase 16 MTP Graph-Reuse Profile
+
+Phase 16 profiled the Phase 15 hypothesis with
+`nsys --cuda-graph-trace=node` on a smaller direct serving shape:
+
+- server: `-c 32768 -b 2048 -ub 512 --parallel 32`,
+- client: `h2h_cli3.py -n 8 --ptok 64 --gen 64`,
+- arms: baseline vs `--spec-type draft-mtp --spec-draft-n-max 3`.
+
+Artifact:
+
+- `/home/mudler/bench/phase16_mtp_graph_profile/20260701_043016`
+
+Result:
+
+| arm | decode agg t/s | decode per-seq t/s | wall s | graph reuse |
+|---|---:|---:|---:|---:|
+| baseline | 230.5 | 28.07 | 3.523 | `graphs reused = 62` |
+| MTP | 97.7 | 12.83 | 7.049 | `graphs reused = 1` |
+
+MTP drafted and accepted tokens:
+
+- `draft acceptance = 0.81481 (44 accepted / 54 generated)`,
+- `#gen tokens = 460`, `#acc tokens = 346`.
+
+Nsight kernel summaries also show materially more GPU work in the MTP run:
+roughly `5.89 s` top-level GPU kernel time versus `2.59 s` for the baseline
+small profile.
+
+Decision:
+
+- Phase 16 supports the Phase 15 root-cause hypothesis: current MTP serving
+  defeats the paged decode graph-reuse advantage and increases GPU work.
+- A future source phase must start at speculative verification batch shapes and
+  graph-reuse keys, not at MTP draft-length tuning.
+
 ## Phase 10 GDN C32 Slab Baseline and Source Check
 
 Phase 10 starts a separate GDN prefill path; it does not reopen the rejected

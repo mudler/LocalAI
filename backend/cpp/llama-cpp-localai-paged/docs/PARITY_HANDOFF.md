@@ -229,9 +229,12 @@ Phase 14 re-validated the MTP bucket as safe, then Phase 15 rejected it as a
 current GB10 serving-throughput lever. Do not enable it by default and do not
 keep tuning draft length blindly. The only plausible follow-up is a graph-reuse
 and speculative verification batch-shape profile with
-`nsys --cuda-graph-trace=node`. The fixed safety gates stayed green before and
-after the failed serving A/B: MoE md5 `8cb0ce23777bf55f92f63d0292c756b0`, dense
-md5 `5951a5b4d624ce891e22ab5fca9bc439`, and `MUL_MAT_ID` `806/806`.
+`nsys --cuda-graph-trace=node`. Phase 16 ran that profile and supported the
+root cause: small-shape baseline reused graphs (`graphs reused = 62`) while MTP
+did not (`graphs reused = 1`) and did ~2.3x more GPU kernel work. The fixed
+safety gates stayed green before and after the failed serving A/B: MoE md5
+`8cb0ce23777bf55f92f63d0292c756b0`, dense md5
+`5951a5b4d624ce891e22ab5fca9bc439`, and `MUL_MAT_ID` `806/806`.
 
 ---
 
