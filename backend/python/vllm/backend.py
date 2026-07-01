@@ -748,7 +748,12 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
         # When (A) native streaming ran cleanly, per-delta yields above already
         # delivered everything — do NOT extract again on the full text or we'd
         # duplicate content/tool_calls into the final chunk.
-        if has_tool_parser and not (native_streaming and not native_streaming_error):
+        # NOTE: `native_streaming` is a capability flag ("streaming parser is
+        # available"), not a state flag ("streaming actually ran"). For
+        # non-streaming requests it is still True but the per-delta loop was
+        # never entered, so we MUST still run extract_tool_calls here. Hence
+        # the explicit `streaming and …` guard on both branches.
+        if has_tool_parser and not (streaming and native_streaming and not native_streaming_error):
             try:
                 tp = tp_instance
                 if tp is None:
@@ -770,7 +775,7 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
                         ))
             except Exception as e:
                 print(f"Tool parser error: {e}", file=sys.stderr)
-        elif native_streaming and not native_streaming_error:
+        elif streaming and native_streaming and not native_streaming_error:
             # Per-delta path already emitted content + tool_calls; the final
             # chat_delta should carry only metadata (token counts, logprobs).
             content = ""
