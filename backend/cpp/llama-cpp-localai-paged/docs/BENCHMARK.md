@@ -12,48 +12,76 @@ with artifact path, gates, benchmark rows, and decision.
 - Canonical dense md5: `5951a5b4d624ce891e22ab5fca9bc439`.
 - Current tested source: DGX mirror
   `14fd69f1e feat(cuda): gate BF16 cuBLAS F32 output`.
-- Latest attempt: Phase71.
-- Latest decision: keep shipped GDN M5 default as-is. It still beats
-  sequential-disabled and serial-chunked GDN, and forced `GDN_TC=4` is within
-  noise of the current default. Do not reopen smaller GDN kernel reorders on
-  GB10.
+- Latest attempt: Phase72.
+- Latest decision: keep `LLAMA_TTFT_PREFILL_FIRST=1`
+  `LLAMA_TTFT_PREFILL_FIRST_MIN_WAITING=32` opt-in only. It regressed broad
+  serving aggregate, decode, TTFT, and wall time at `n=8`, `n=32`, and `n=128`.
 
 ## Current Serving Record
 
-Phase70 broader serving snapshot, MoE `PTOK=128`, `GEN=64`, `PARALLEL=128`.
+Phase72 broader serving snapshot, MoE `PTOK=128`, `GEN=64`, `PARALLEL=128`.
 
 Artifact:
 
-- `/home/mudler/bench/phase70_bf16_broader_serving/20260701_151500`
+- `/home/mudler/bench/phase72_ttft_min32_serving/20260701_160730`
 
 | arm | n | agg_tps | decode_agg_tps | decode_perseq_tps | prefill_tps | ttft_mean_ms | wall_s |
 |-----|--:|--------:|---------------:|------------------:|------------:|-------------:|-------:|
-| llama default | `8` | `178.5` | `242.6` | `29.82` | `1767.2` | `754.8` | `2.868` |
-| llama opt-in | `8` | `158.8` | `218.3` | `26.60` | `1541.1` | `848.9` | `3.225` |
-| vLLM | `8` | `260.9` | `299.5` | `36.67` | `5415.6` | `239.0` | `1.917` |
-| llama default | `32` | `250.1` | `418.7` | `11.75` | `1661.2` | `2717.0` | `8.187` |
-| llama opt-in | `32` | `247.9` | `417.6` | `11.79` | `1650.3` | `2803.9` | `8.261` |
-| vLLM | `32` | `465.3` | `608.4` | `17.74` | `5394.4` | `782.7` | `4.314` |
-| llama default | `128` | `322.5` | `706.2` | `3.87` | `1613.9` | `7836.5` | `25.401` |
-| llama opt-in | `128` | `324.8` | `697.9` | `3.88` | `1671.1` | `7720.9` | `25.220` |
-| vLLM | `128` | `659.9` | `1020.4` | `6.75` | `5228.0` | `2543.1` | `12.060` |
+| llama default | `8` | `170.4` | `231.3` | `28.42` | `1693.4` | `786.4` | `3.004` |
+| llama min32 | `8` | `158.5` | `218.4` | `26.27` | `1547.8` | `816.2` | `3.230` |
+| vLLM | `8` | `260.0` | `305.9` | `37.32` | `4659.7` | `266.4` | `1.915` |
+| llama default | `32` | `257.8` | `430.2` | `12.09` | `1720.4` | `2625.2` | `7.943` |
+| llama min32 | `32` | `242.7` | `411.7` | `11.58` | `1617.4` | `2881.6` | `8.439` |
+| vLLM | `32` | `463.6` | `601.0` | `17.60` | `5496.2` | `773.7` | `4.357` |
+| llama default | `128` | `325.8` | `714.0` | `3.92` | `1628.8` | `7822.5` | `25.148` |
+| llama min32 | `128` | `316.0` | `697.9` | `3.81` | `1606.0` | `8056.9` | `25.926` |
+| vLLM | `128` | `666.4` | `1029.5` | `6.81` | `5292.5` | `2511.7` | `11.933` |
 
 Ratios:
 
-| n | opt/default agg | opt/default decode | opt/default TTFT | default decode/vLLM | opt decode/vLLM | default agg/vLLM | opt agg/vLLM |
-|--:|----------------:|-------------------:|-----------------:|--------------------:|----------------:|-----------------:|-------------:|
-| `8` | `0.8896` | `0.8998` | `1.1247` | `0.8100` | `0.7289` | `0.6842` | `0.6087` |
-| `32` | `0.9912` | `0.9974` | `1.0320` | `0.6882` | `0.6864` | `0.5375` | `0.5328` |
-| `128` | `1.0071` | `0.9882` | `0.9852` | `0.6921` | `0.6839` | `0.4887` | `0.4922` |
+| n | min32/default agg | min32/default decode | min32/default TTFT | default decode/vLLM | min32 decode/vLLM |
+|--:|------------------:|---------------------:|-------------------:|--------------------:|----------------:|
+| `8` | `0.9302` | `0.9442` | `1.0379` | `0.7561` | `0.7140` |
+| `32` | `0.9414` | `0.9570` | `1.0977` | `0.7158` | `0.6850` |
+| `128` | `0.9699` | `0.9775` | `1.0300` | `0.6935` | `0.6779` |
 
 Decision:
 
-- Reject default-on for `LLAMA_BF16_CUBLAS_F32_OUT=1`.
-- Keep as default-off opt-in only.
-- The opt-in regressed `n=8` throughput and TTFT materially, and slightly
-  widened the vLLM decode gap at `n=32` and `n=128`.
+- Reject default-on for `LLAMA_TTFT_PREFILL_FIRST=1`
+  `LLAMA_TTFT_PREFILL_FIRST_MIN_WAITING=32`.
+- Keep min32 as opt-in only.
+- The opt-in regressed aggregate, decode, TTFT, and wall time at every tested
+  concurrency and widened the vLLM decode gap.
 
 ## Attempt Log
+
+### Phase72: TTFT Min32 Broader Serving
+
+- Date: 2026-07-01.
+- Plan: `docs/superpowers/plans/2026-07-01-ttft-min32-serving-phase72.md`.
+- Artifact:
+  `/home/mudler/bench/phase72_ttft_min32_serving/20260701_160730`.
+- Source: `14fd69f1e feat(cuda): gate BF16 cuBLAS F32 output`.
+- Shape: MoE serving, `NPL=8 32 128`, prompt `128`, generation `64`,
+  `PARALLEL=128`, `CTX=131072`.
+- Env gate: `LLAMA_TTFT_PREFILL_FIRST=1`
+  `LLAMA_TTFT_PREFILL_FIRST_MIN_WAITING=32`.
+
+Gates:
+
+| gate | MoE md5 | dense md5 | `MUL_MAT` | `MUL_MAT_ID` |
+|------|---------|-----------|-----------|--------------|
+| pre default | `8cb0ce23777bf55f92f63d0292c756b0` | `5951a5b4d624ce891e22ab5fca9bc439` | `1146/1146` | `806/806` |
+| pre min32 | `8cb0ce23777bf55f92f63d0292c756b0` | `5951a5b4d624ce891e22ab5fca9bc439` | not run | not run |
+| post default | `8cb0ce23777bf55f92f63d0292c756b0` | `5951a5b4d624ce891e22ab5fca9bc439` | not run | not run |
+| post min32 | `8cb0ce23777bf55f92f63d0292c756b0` | `5951a5b4d624ce891e22ab5fca9bc439` | not run | not run |
+
+Result:
+
+- Reject default-on for min32 in the broader serving shape.
+- Keep the scheduler knob opt-in only.
+- min32 regressed aggregate, decode, TTFT, and wall time for every tested
+  concurrency.
 
 ### Phase71: GDN Tensor-Core Revalidation
 

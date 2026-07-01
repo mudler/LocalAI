@@ -1150,3 +1150,35 @@ Post-Phase71 do-not-reopen list for GB10:
 The only GDN work that should be reconsidered is a larger FLA/CuteDSL-class
 blocked-solve implementation or a hardware pivot where the GB10 constraints no
 longer apply.
+
+## 17. PHASE72 RESULT: TTFT MIN32 BROADER SERVING
+
+Phase72 broadened the Phase59 min32 scheduler result to the same serving shape
+used by Phase70. Plan:
+`docs/superpowers/plans/2026-07-01-ttft-min32-serving-phase72.md`.
+Benchmark ledger:
+`backend/cpp/llama-cpp-localai-paged/docs/BENCHMARK.md`.
+DGX artifact:
+`/home/mudler/bench/phase72_ttft_min32_serving/20260701_160730`.
+
+Source under test stayed at DGX mirror commit
+`14fd69f1e feat(cuda): gate BF16 cuBLAS F32 output`. No llama.cpp source was
+changed.
+
+Gates stayed green. Pre default matched MoE md5 `8cb0ce23`, dense md5
+`5951a5b4`, `MUL_MAT 1146/1146`, and `MUL_MAT_ID 806/806`. Pre/post min32 and
+post default md5 gates also matched MoE `8cb0ce23` and dense `5951a5b4`.
+
+Serving shape: MoE `NPL=8 32 128`, prompt `128`, generation `64`,
+`PARALLEL=128`.
+
+| n | min32/default agg | min32/default decode | min32/default TTFT | default decode/vLLM | min32 decode/vLLM |
+|---:|------------------:|---------------------:|-------------------:|--------------------:|------------------:|
+| `8` | `0.9302` | `0.9442` | `1.0379` | `0.7561` | `0.7140` |
+| `32` | `0.9414` | `0.9570` | `1.0977` | `0.7158` | `0.6850` |
+| `128` | `0.9699` | `0.9775` | `1.0300` | `0.6935` | `0.6779` |
+
+Decision: keep `LLAMA_TTFT_PREFILL_FIRST=1` plus
+`LLAMA_TTFT_PREFILL_FIRST_MIN_WAITING=32` opt-in only. It regressed aggregate,
+decode, TTFT, and wall time at every tested concurrency in the broader shape,
+and widened the vLLM decode gap. Do not default this scheduler policy on GB10.

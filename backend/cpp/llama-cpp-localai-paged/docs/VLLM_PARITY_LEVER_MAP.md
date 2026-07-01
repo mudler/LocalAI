@@ -1579,6 +1579,13 @@ lever. Llama min32 is still `0.560x` vLLM aggregate, `0.430x` vLLM prefill,
 `0.673x` vLLM decode aggregate, and `2.415x` slower on mean TTFT. Keep the
 scheduler knob opt-in and return parity work to the prefill / MoE compute gap.
 
+Phase72 broadened that min32 result to the Phase70 serving shape. Artifact:
+`/home/mudler/bench/phase72_ttft_min32_serving/20260701_160730`. Gates stayed
+green, but min32 regressed every tested concurrency: aggregate ratios
+`0.9302`/`0.9414`/`0.9699`, decode ratios `0.9442`/`0.9570`/`0.9775`, and TTFT
+ratios `1.0379`/`1.0977`/`1.0300` at `n=8/32/128`. Keep min32 opt-in only and
+do not default it on GB10.
+
 ### Phase 60 current W4A16 prefill profile
 
 Phase60 re-profiled the current W4A16 grouped MoE prefill path after the
