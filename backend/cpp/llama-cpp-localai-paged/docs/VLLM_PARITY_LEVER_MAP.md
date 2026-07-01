@@ -123,6 +123,16 @@ It passed MoE/dense md5 and `MUL_MAT 1146/1146`; MoE prefill improved
 Keep it default-off until dense and serving A/B decide whether it is worth a
 default policy change.
 
+Phase68 ran that dense and serving A/B without changing source. Dense prefill
+was positive but tiny (`973.13 -> 975.52` at `npp=512`, `1019.88 -> 1021.39` at
+`npp=2048`). A small MoE serving window at `N=128`, prompt `128`, generation
+`128` also moved in the right direction: aggregate `409.8 -> 415.0`,
+decode aggregate `615.3 -> 627.2`, mean TTFT `8574.7 -> 8085.9 ms`, wall
+`39.978 -> 39.480 s`. Decision: keep `LLAMA_BF16_CUBLAS_F32_OUT=1` default-off
+but worth carrying as an opt-in shortcut candidate. Do not default it on until
+the fork commit is mirrored into the LocalAI patch series and a broader serving
+snapshot passes pre/post md5 and op gates.
+
 Relevant files: `/home/mudler/_git/LocalAI/.claude/worktrees/feat+paged-attention/backend/cpp/llama-cpp-localai-paged/docs/{PREFILL_GEMM_SCOPE.md,PREFILL_GEMM_RESULTS.md,TENSORCORE_GDN_SCOPE.md,final_benchmark.csv}`, `/home/mudler/_git/LocalAI/.claude/worktrees/feat+paged-attention/backend/cpp/llama-cpp-localai-paged/patches/paged/0042-feat-paged-fused-residual-add-RMS-norm-weight-multip.patch`, and the graph source `/home/mudler/_git/LocalAI/backend/cpp/llama-cpp-paged-dev/src/models/{qwen35moe.cpp,delta-net-base.cpp}` + `/home/mudler/_git/LocalAI/backend/cpp/llama-cpp-paged-dev/src/llama-graph.cpp` (build_moe_ffn ~1500-1834, build_attn ~2136-2189).
 
 ## 2. Decode-serving compute hypotheses (ranked)

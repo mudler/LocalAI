@@ -995,3 +995,37 @@ The opt-in `npp=512` profile removed the BF16-to-F32 conversion row:
 `convert_unary<__nv_bfloat16, float>` became `0 ns`, `0` instances. Keep this
 as default-off for now. It is correctness-clean and measurable, but the win is
 small and needs dense plus serving A/B before any default-on decision.
+
+## 13. PHASE68 RESULT: BF16 F32 OUTPUT DENSE + SERVING A/B
+
+Phase68 reused Phase67 source unchanged. Plan:
+`docs/superpowers/plans/2026-07-01-bf16-f32-output-dense-serving-phase68.md`.
+DGX artifact: `/home/mudler/bench/phase68_bf16_dense_serving/20260701_145710`;
+serving A/B artifact:
+`/home/mudler/bench/phase68_bf16_dense_serving/20260701_145710/serving_ab_20260701_150249`.
+
+Correctness basis for the exact source commit remains Phase67: default and
+`LLAMA_BF16_CUBLAS_F32_OUT=1` both produced MoE md5 `8cb0ce23`, dense md5
+`5951a5b4`, and `MUL_MAT 1146/1146`.
+
+Dense prefill stayed positive but tiny:
+
+| npp | default S_PP | opt-in S_PP | change |
+|-----|-------------:|------------:|-------:|
+| `512` | `973.13` | `975.52` | `+0.25%` |
+| `2048` | `1019.88` | `1021.39` | `+0.15%` |
+
+MoE serving A/B at `N=128`, prompt `128`, generation `128`, `--parallel 128`:
+
+| metric | default | opt-in | change |
+|--------|--------:|-------:|-------:|
+| `agg_tps` | `409.8` | `415.0` | `+1.27%` |
+| `decode_agg_tps` | `615.3` | `627.2` | `+1.93%` |
+| `prefill_tps` | `1630.2` | `1648.0` | `+1.09%` |
+| `ttft_mean_ms` | `8574.7` | `8085.9` | `-5.70%` |
+| `wall_s` | `39.978` | `39.480` | `-1.25%` |
+
+Decision: carry the shortcut as a default-off opt-in candidate. It is no longer
+just a prefill-only win, but Phase68 is not enough to default it on. Any future
+default-on proposal must mirror the fork commit into the LocalAI patch series
+and rerun a broader current serving snapshot with pre/post md5 and op gates.

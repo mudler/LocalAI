@@ -3718,3 +3718,52 @@ Decision:
   removes the profiled BF16-to-F32 conversion row for this shape.
 - Do not make it default-on yet. The gain is modest and needs dense plus serving
   A/B before a default policy change.
+
+## BF16 F32 Output Dense Serving Phase68 Result
+
+Phase68 is recorded in
+`docs/superpowers/plans/2026-07-01-bf16-f32-output-dense-serving-phase68.md`.
+It reused the Phase67 source commit and did not change llama.cpp source.
+
+- Fork commit under test: `ea0875d14 feat(cuda): gate BF16 cuBLAS F32 output`
+- DGX mirror commit under test: `14fd69f1e feat(cuda): gate BF16 cuBLAS F32 output`
+- Env gate: `LLAMA_BF16_CUBLAS_F32_OUT=1`
+- DGX artifact: `/home/mudler/bench/phase68_bf16_dense_serving/20260701_145710`
+- Serving A/B artifact: `/home/mudler/bench/phase68_bf16_dense_serving/20260701_145710/serving_ab_20260701_150249`
+
+Correctness basis for this exact source commit remains the Phase67 default and
+opt-in gates:
+
+| mode | MoE md5 | dense md5 | `MUL_MAT` |
+|------|---------|-----------|-----------|
+| default | `8cb0ce23777bf55f92f63d0292c756b0` | `5951a5b4d624ce891e22ab5fca9bc439` | `1146/1146` |
+| opt-in | `8cb0ce23777bf55f92f63d0292c756b0` | `5951a5b4d624ce891e22ab5fca9bc439` | `1146/1146` |
+
+Dense same-window prefill A/B:
+
+| npp | default S_PP | opt-in S_PP | change |
+|-----|-------------:|------------:|-------:|
+| `512` | `973.13` | `975.52` | `+0.25%` |
+| `2048` | `1019.88` | `1021.39` | `+0.15%` |
+
+MoE serving A/B, `N=128`, prompt `128`, generation `128`, `--parallel 128`:
+
+| metric | default | opt-in | change |
+|--------|--------:|-------:|-------:|
+| `agg_tps` | `409.8` | `415.0` | `+1.27%` |
+| `decode_agg_tps` | `615.3` | `627.2` | `+1.93%` |
+| `decode_perseq_tps` | `4.15` | `4.16` | `+0.24%` |
+| `prefill_tps` | `1630.2` | `1648.0` | `+1.09%` |
+| `ttft_mean_ms` | `8574.7` | `8085.9` | `-5.70%` |
+| `wall_s` | `39.978` | `39.480` | `-1.25%` |
+
+Decision:
+
+- Keep `LLAMA_BF16_CUBLAS_F32_OUT=1` default-off. The dense prefill gain is
+  positive but too small to justify a default policy change.
+- The opt-in is now worth carrying forward: MoE prefill, dense prefill, and the
+  small MoE serving window all moved in the right direction without changing the
+  Phase67 md5/op correctness gates.
+- Next default-on consideration requires regenerating the LocalAI patch series
+  from the fork and rerunning the broader current serving snapshot gates. Do not
+  default it from Phase68 alone.
