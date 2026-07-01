@@ -1770,3 +1770,44 @@ Decision:
   writeback retile work.
 - Do not promote either knob or add a LocalAI patch. The grouped-MMQ bucket
   still needs a structural kernel change, not a launch-bounds/row-tile tweak.
+
+## Phase 29 Default-Off MoE MMQ Shape Trace
+
+Phase 29 added evidence-only instrumentation for the structural grouped-MMQ
+path that remains after Phase 28. The trace is default-off and lives at the
+host-side grouped-MMQ selector so it does not read `expert_bounds` back from the
+device or add a synchronization.
+
+Patch and artifact:
+
+- Fork commit: `20a99518a feat(cuda): trace moe mmq batch shapes`
+- LocalAI patch: `0056-feat-cuda-trace-moe-mmq-batch-shapes.patch`
+- Artifact: `/home/mudler/bench/phase29_mmq_shape_trace/20260701_042428`
+
+TDD/build checks:
+
+| check | result |
+|-------|--------|
+| RED | `test-cuda-mmq-shape-trace` first failed on missing `ggml-cuda/mmq-shape-trace.h` |
+| local GREEN | `cmake --build build --target test-cuda-mmq-shape-trace -j 4 && ./build/bin/test-cuda-mmq-shape-trace` |
+| DGX CUDA build | `cmake --build build-cuda --target llama-completion test-backend-ops test-cuda-mmq-shape-trace` |
+
+Safety gates:
+
+| gate | MoE md5 | dense md5 | `MUL_MAT_ID` | trace lines |
+|------|---------|-----------|--------------|-------------|
+| default-off | `8cb0ce23777bf55f92f63d0292c756b0` | `5951a5b4d624ce891e22ab5fca9bc439` | `806/806` | `0` |
+| `LLAMA_MOE_MMQ_SHAPE_TRACE=4` | `8cb0ce23777bf55f92f63d0292c756b0` | `5951a5b4d624ce891e22ab5fca9bc439` | `806/806` | `4` |
+
+Example trace line:
+
+```text
+[LLAMA_MOE_MMQ_SHAPE] type=40 moe=1 ncols_dst=104 nchannels_x=256 ncols_max=13 n_active_est=104 density=1 mmq_x_max=128 mmq_x_lim=64 mmq_x_best=16 mmq_y=128 stream_k=1
+```
+
+Decision:
+
+- This is not a speed patch and should not be counted as parity progress by
+  itself.
+- It gives a bounded, md5-safe way to collect live serving grouped-MMQ shape
+  evidence before designing the next structural kernel.

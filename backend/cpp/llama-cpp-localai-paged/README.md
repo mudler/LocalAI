@@ -213,6 +213,7 @@ These are the dominant decode levers on the Qwen3.6 hybrid models. All bit-exact
 |---|---|---|
 | 0054 | **Disable backend sampling for MTP drafts** - forces server MTP draft generation through the target-side sampler acceptance path instead of letting the draft backend sample independently. This was required for the Phase 14 rollback/prefix safety gate. | yes for canonical non-MTP gates; Phase 14 MTP normalized greedy-prefix gate passed |
 | 0055 | **Trace speculative batch shapes** - adds default-off `LLAMA_SPEC_SHAPE_TRACE=1` server logs around `server_slot::handle_last_sampled_token()`, reporting normal decode rows and MTP verification `K + 1` rows (`draft`, `outputs`, `spec_i_first`, `spec_i_last`). This is instrumentation only for Phase 18 shape-entropy measurement before any scheduler experiment. | yes (env unset is silent; DGX gates after patch: MoE `8cb0ce23`, dense `5951a5b4`, `MUL_MAT_ID` `806/806`) |
+| 0056 | **Trace MoE MMQ batch shapes** - adds default-off `LLAMA_MOE_MMQ_SHAPE_TRACE=<n>` logs from the grouped-MMQ host selector, reporting routed assignment count, estimated active experts, density, selected `mmq_x`, `mmq_y`, and stream-k. This is evidence-only instrumentation for sizing structural grouped-MMQ work after Phase 28 rejected launch-bounds/row-tile knobs. | yes (env unset and trace-enabled gates both green: MoE `8cb0ce23`, dense `5951a5b4`, `MUL_MAT_ID` `806/806`; trace cap verified with 4 lines) |
 
 > **Dropped: patch 0026 (hybrid per-head bf16 SSM state, `ssm_bf16_tau`).** Once
 > the decode fusions (0028 recurrent-state gather-fusion + 0029 block-table cache)
@@ -639,3 +640,10 @@ n128 decode serving (`705.1 -> 689.9` decode_agg_tps, `0.9784x`). The row-tile
 knob `GGML_CUDA_FP4_MMQ_Y=64` failed the NVFP4 writeback compile-time
 invariant. Do not promote these knobs; grouped-MMQ parity work now requires a
 structural kernel change, not launch-bounds or row-tile tweaks.
+
+Phase 29 added the default-off grouped-MMQ shape trace as patch `0056`
+(`/home/mudler/bench/phase29_mmq_shape_trace/20260701_042428`). The helper was
+added test-first (`test-cuda-mmq-shape-trace`), compiled under CUDA on DGX, and
+kept inference stable with the trace disabled and enabled:
+MoE `8cb0ce23`, dense `5951a5b4`, `MUL_MAT_ID 806/806`. Example trace line:
+`[LLAMA_MOE_MMQ_SHAPE] type=40 moe=1 ncols_dst=104 nchannels_x=256 ncols_max=13 n_active_est=104 density=1 mmq_x_max=128 mmq_x_lim=64 mmq_x_best=16 mmq_y=128 stream_k=1`.

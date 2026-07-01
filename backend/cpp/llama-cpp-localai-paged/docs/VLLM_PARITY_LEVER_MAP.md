@@ -765,6 +765,25 @@ Decision: do not promote the occupancy knobs and do not add a LocalAI patch.
 The grouped-MMQ bucket still requires structural kernel work; launch-bounds and
 row-tile build tweaks are closed on GB10.
 
+### Phase 29 default-off MoE MMQ shape trace
+
+Patch `0056` adds `LLAMA_MOE_MMQ_SHAPE_TRACE=<n>` as bounded, default-off
+instrumentation at the grouped-MMQ host selector. Artifact:
+`/home/mudler/bench/phase29_mmq_shape_trace/20260701_042428`. Fork commit:
+`20a99518a feat(cuda): trace moe mmq batch shapes`.
+
+The helper was added test-first (`test-cuda-mmq-shape-trace` failed on the
+missing header before implementation, then passed locally and under the DGX CUDA
+build). Default-off and trace-enabled gates both passed: MoE md5
+`8cb0ce23777bf55f92f63d0292c756b0`, dense md5
+`5951a5b4d624ce891e22ab5fca9bc439`, and `MUL_MAT_ID` `806/806`. The
+trace-enabled gate with `LLAMA_MOE_MMQ_SHAPE_TRACE=4` emitted exactly four
+shape lines.
+
+Use this only to size the next grouped-MMQ structural kernel. It intentionally
+does not perform device readback of `expert_bounds`, so it records selector
+inputs and estimated density rather than exact per-expert histograms.
+
 Relevant files (all absolute): `/home/mudler/_git/LocalAI/.claude/worktrees/feat+paged-attention/backend/cpp/llama-cpp-localai-paged/docs/{DECODE_SERVING_SCOPE.md,PREFILL_GEMM_SCOPE.md,PREFILL_GEMM_RESULTS.md,TENSORCORE_GDN_SCOPE.md,final_benchmark.csv}`, `.../README.md`, `.../patches/paged/0034-feat-paged-native-NVFP4-W4A4-FP4-MMA-large-M-prefill.patch` (P1/P2), `.../patches/paged/0042-feat-paged-fused-residual-add-RMS-norm-weight-multip.patch` (P7), `.../patches/paged/0031` (P4), `0025` (D1), `0018/0022` (D4/D5), `0009/0010` (D3/D6/D7); graph source `/home/mudler/_git/LocalAI/backend/cpp/llama-cpp-paged-dev/src/{models/qwen35moe.cpp,models/delta-net-base.cpp,llama-graph.cpp}`.
 
 ### Phase 10 GDN C32 slab update
