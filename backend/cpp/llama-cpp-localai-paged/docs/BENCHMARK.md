@@ -12,13 +12,15 @@ with artifact path, gates, benchmark rows, and decision.
 - Canonical dense md5: `5951a5b4d624ce891e22ab5fca9bc439`.
 - Current tested source: DGX mirror
   `14fd69f1e feat(cuda): gate BF16 cuBLAS F32 output`.
-- Latest attempt: Phase80.
-- Latest decision: default-off source A/B `GDN_ASSUME_IDENTITY_IDS=1` is
-  rejected for carry-forward/default. It removed the tiny `gdn_gather` bucket
-  (`0.79 ms`) and kept gates green, but left `gdn_core` effectively unchanged
-  (`1411.65 ms` baseline vs `1409.28 ms` candidate). The assumption is too
-  narrow for the measured gain. The next real GDN lever remains recurrent-state
-  precision/traffic, with a separate invasive scope.
+- Latest attempt: Phase81.
+- Latest decision: default-off `LLAMA_QWEN35_GDN_S_CACHE_TYPE=bf16` is a
+  promising carry-forward candidate, not default-on. Same-source decode-only
+  profiling cut normalized `gdn_core` from about `2.34 ms/launch` to
+  `1.20 ms/launch` and total kernel time from `3.6157 s` to `3.5244 s`, but MoE
+  greedy md5 changed from the paged canonical `8cb0...` to `07db...`. Dense md5
+  stayed canonical and `MUL_MAT`/`MUL_MAT_ID` gates stayed green. Phase82 must
+  run the full f16-reference KL gate and serving A/B before this can be promoted
+  beyond an opt-in experiment.
 
 ## Current Serving Record
 
@@ -57,6 +59,76 @@ Decision:
   concurrency and widened the vLLM decode gap.
 
 ## Attempt Log
+
+### Phase81: Qwen35 BF16 Persistent GDN S-Cache
+
+- Date: 2026-07-01.
+- Source: `/home/mudler/llama-phase81-bf16-state-source`, local fork patch in
+  `/home/mudler/_git/llama.cpp` branch `localai-paged`.
+- Build artifact: `/home/mudler/llama-phase81-bf16-state-source/build-cuda`.
+- Gate artifact:
+  `/home/mudler/bench/phase81_bf16_s_cache_gates/20260701_161350`.
+- Profile artifacts:
+  - default F32:
+    `/home/mudler/bench/phase81_bf16_s_cache_profile/default_20260701_162117`
+  - BF16 S-cache:
+    `/home/mudler/bench/phase81_bf16_s_cache_profile/bf16_20260701_162028`
+- KL smoke artifact:
+  `/home/mudler/bench/phase81_bf16_s_cache_kl/20260701_162322`.
+- Result type: source experiment. `LLAMA_QWEN35_GDN_S_CACHE_TYPE=bf16`
+  stores Qwen35/Qwen35MoE persistent recurrent S cache in BF16 while keeping GDN
+  recurrence math, q/k/v/g/beta, and output in F32. Default remains F32.
+
+Implementation scope:
+
+- Added BF16 state support for `ggml_gated_delta_net_inplace_ids` only.
+- Added CPU/CUDA BF16 state load/store conversion at the persistent cache
+  boundary.
+- Added BF16 CPU/CUDA `SCALE` support because recurrent cache zeroing uses
+  `ggml_scale_inplace(..., 0)` on the S cache.
+- Added tests for BF16 `GATED_DELTA_NET_INPLACE_IDS` and BF16 in-place `SCALE`.
+
+Local verification:
+
+| check | result |
+|-------|--------|
+| RED test before implementation | `ggml_gated_delta_net_inplace_ids` rejected BF16 state at `state->type == GGML_TYPE_F32` |
+| CPU `SCALE -p bf16` | `1/1` passed |
+| CPU `GATED_DELTA_NET_INPLACE_IDS` | `2/2` passed |
+| DGX CUDA build | completed for `llama-completion`, `llama-batched-bench`, `test-backend-ops`, `llama-server`, later `llama-perplexity` |
+
+Gates:
+
+| mode | MoE md5 | dense md5 | `MUL_MAT` | `MUL_MAT_ID` |
+|------|---------|-----------|-----------|--------------|
+| default F32 | `8cb0ce23777bf55f92f63d0292c756b0` | `5951a5b4d624ce891e22ab5fca9bc439` | `1146/1146` | `806/806` |
+| BF16 S-cache | `07db32c2bcb78d17a43ed18bc22705cd` | `5951a5b4d624ce891e22ab5fca9bc439` | `1146/1146` | `806/806` |
+
+Profile:
+
+| arm | env | active slots | depth start | depth mid | total kernel s | GDN ms | GDN share | `gdn_core` ms | `gdn_core` launches | `gdn_core`/launch | `mmq_nvfp4` ms |
+|-----|-----|-------------:|------------:|----------:|---------------:|-------:|----------:|--------------:|--------------------:|------------------:|---------------:|
+| default F32 | none | `128` | `65` | `87` | `3.6157` | `1480.44` | `40.94%` | `1399.30` | `599` | `2.336 ms` | `1394.28` |
+| BF16 S-cache | `LLAMA_QWEN35_GDN_S_CACHE_TYPE=bf16` | `128` | `65` | `91` | `3.5244` | `961.61` | `27.28%` | `863.57` | `720` | `1.199 ms` | `1665.38` |
+
+KL smoke against same-source F32 base:
+
+| check | result |
+|-------|--------|
+| shape | MoE, `-c 256 -b 256 --chunks 32`, Wikitext-2 raw |
+| F32 floor KLD vs F32 base | `0.000000 +/- 0.000000`, same-top-p `99.975%` |
+| BF16 S-cache KLD vs F32 base | `0.055499 +/- 0.001705`, same-top-p `88.361%` |
+| BF16 PPL ratio vs F32 base | `1.010356 +/- 0.005817` |
+
+Decision:
+
+- Carry forward as a default-off candidate and run Phase82 full gates.
+- Do not make it default-on: MoE greedy md5 is not canonical, and the KL smoke is
+  not the full f16-reference acceptance gate.
+- Required Phase82 before patch-series promotion:
+  full f16-reference KL gate for MoE and dense, same-source serving A/B against
+  F32 default and vLLM, then regenerate LocalAI patches from the fork only if
+  serving and KL both hold.
 
 ### Phase80: GDN Identity-Ids Shortcut Source A/B
 

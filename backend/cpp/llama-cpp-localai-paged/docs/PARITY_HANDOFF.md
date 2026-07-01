@@ -45,6 +45,18 @@ Read order for a cold start:
 > llama.cpp QoS knob, not a parity-closing lever. The trace and scheduler commits
 > are local and DGX-gated but not pushed, so the LocalAI patch series has not
 > been regenerated.
+>
+> 2026-07-01 Phase81 update: the next viable GDN lever is no longer launch
+> shape or gather removal. A default-off Qwen35/Qwen35MoE BF16 persistent
+> recurrent S-cache experiment (`LLAMA_QWEN35_GDN_S_CACHE_TYPE=bf16`) cut
+> same-source decode-only `gdn_core` from `1399.30 ms / 599 launches`
+> (`2.34 ms/launch`) to `863.57 ms / 720 launches` (`1.20 ms/launch`). Default
+> F32 md5 gates and op gates stayed green, and BF16 dense md5 stayed canonical,
+> but BF16 MoE md5 changed to `07db32c2bcb78d17a43ed18bc22705cd`. A quick
+> MoE KL smoke vs the same-source F32 base showed KLD `0.055499 +/- 0.001705`,
+> same-top-p `88.361%`, and PPL ratio `1.010356`. Treat this as a promising
+> default-off candidate only. Phase82 must run the full f16-reference KL gate
+> plus serving A/B before regenerating LocalAI patches or considering promotion.
 
 - Historical verdict: the older investigation marked GB10 parity **CLOSED** and
   unreachable. Treat that as superseded where Phase50-54 provide newer dense
