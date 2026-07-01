@@ -931,6 +931,30 @@ in a future serving configuration, first isolate `mtp_eh_proj` / shared-head
 projection with `llama-debug --tensor-filter 'mtp_|h_nextn|nextn|ffn_|attn_'`
 before optimizing ordinary decoder projections.
 
+### Phase 36 cuBLAS subroute trace
+
+Phase 36 added patch `0062`, default-off `LLAMA_CUBLAS_ROUTE_TRACE=<n>`, to
+classify the generic cuBLAS `MUL_MAT` subroute without changing branch behavior.
+Artifact: `/home/mudler/bench/phase36_cublas_route_trace/20260701_081228`.
+
+Default-off, trace-enabled, and post-serving gates were all bit-exact: MoE
+`8cb0ce23777bf55f92f63d0292c756b0`, dense
+`5951a5b4d624ce891e22ab5fca9bc439`, `MUL_MAT` `1146/1146`, and `MUL_MAT_ID`
+`806/806`.
+
+Live n128 serving with `LLAMA_CUBLAS_ROUTE_TRACE=8192` produced:
+
+| cuBLAS route | count |
+|--------------|------:|
+| `bf16_tc` | 5681 |
+| `sgemm` | 2511 |
+
+Top SGEMM shapes were `type=0 row_diff=256/1 src1_ncols=510 ne00=2048
+ne10=2048`. Lever implication: the measured `op_cublas` bucket is BF16
+tensor-core plus F32 SGEMM, not NVFP4 cuBLAS and not batched cuBLAS. The next
+projection phase should explain whether the F32 SGEMM shapes are expected glue
+tensors or a missed BF16 route, with md5/op gates before any route policy A/B.
+
 Relevant files (all absolute): `/home/mudler/_git/LocalAI/.claude/worktrees/feat+paged-attention/backend/cpp/llama-cpp-localai-paged/docs/{DECODE_SERVING_SCOPE.md,PREFILL_GEMM_SCOPE.md,PREFILL_GEMM_RESULTS.md,TENSORCORE_GDN_SCOPE.md,final_benchmark.csv}`, `.../README.md`, `.../patches/paged/0034-feat-paged-native-NVFP4-W4A4-FP4-MMA-large-M-prefill.patch` (P1/P2), `.../patches/paged/0042-feat-paged-fused-residual-add-RMS-norm-weight-multip.patch` (P7), `.../patches/paged/0031` (P4), `0025` (D1), `0018/0022` (D4/D5), `0009/0010` (D3/D6/D7); graph source `/home/mudler/_git/LocalAI/backend/cpp/llama-cpp-paged-dev/src/{models/qwen35moe.cpp,models/delta-net-base.cpp,llama-graph.cpp}`.
 
 ### Phase 10 GDN C32 slab update

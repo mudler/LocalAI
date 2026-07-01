@@ -2104,3 +2104,59 @@ Decision:
 - Next projection work should either add a cuBLAS/MMF subroute trace or test a
   bounded BF16 route policy for the `op_cublas` shapes. Do not chase batched
   cuBLAS for this measured serving slice.
+
+## Phase 36 cuBLAS Subroute Trace
+
+Phase 36 added patch `0062`, a default-off `LLAMA_CUBLAS_ROUTE_TRACE=<n>`
+diagnostic around the generic cuBLAS `MUL_MAT` path. It does not alter branch
+behavior; it classifies existing calls as `nvfp4_bf16_tc`, `bf16_tc`,
+`f16_tc_32f`, `f16_tc_16f`, or `sgemm`.
+
+Artifact:
+
+- `/home/mudler/bench/phase36_cublas_route_trace/20260701_081228`
+
+Run:
+
+- Fork commit: `/home/mudler/_git/llama.cpp` `38c4ef2e4`
+- DGX mirror commit: `dgx:~/llama-phase6-source` `e0224393a`
+- Env: `LLAMA_KV_PAGED=1 LLAMA_MOE_FORCE_GRAPHS=1 LLAMA_CUBLAS_ROUTE_TRACE=8192`
+- Workload: staggered n128 `llama-server` diagnostic trace
+
+Route summary:
+
+| route | count |
+|-------|------:|
+| `bf16_tc` | 5681 |
+| `sgemm` | 2511 |
+
+Top shapes:
+
+| route | shape | count |
+|-------|-------|------:|
+| `bf16_tc` | `type=30 row_diff=32 src1_ncols=510 ne00=2048 ne10=2048` | 360 |
+| `bf16_tc` | `type=30 row_diff=8192 src1_ncols=510 ne00=2048 ne10=2048` | 240 |
+| `bf16_tc` | `type=30 row_diff=2048 src1_ncols=510 ne00=4096 ne10=4096` | 240 |
+| `sgemm` | `type=0 row_diff=256 src1_ncols=510 ne00=2048 ne10=2048` | 240 |
+| `sgemm` | `type=0 row_diff=1 src1_ncols=510 ne00=2048 ne10=2048` | 240 |
+
+Gates:
+
+| check | status | actual |
+|-------|--------|--------|
+| default-off MoE md5 | ok | `8cb0ce23777bf55f92f63d0292c756b0` |
+| default-off dense md5 | ok | `5951a5b4d624ce891e22ab5fca9bc439` |
+| trace-enabled MoE md5 | ok | `8cb0ce23777bf55f92f63d0292c756b0` |
+| trace-enabled dense md5 | ok | `5951a5b4d624ce891e22ab5fca9bc439` |
+| post-serving MoE md5 | ok | `8cb0ce23777bf55f92f63d0292c756b0` |
+| post-serving dense md5 | ok | `5951a5b4d624ce891e22ab5fca9bc439` |
+| `MUL_MAT` | ok | `1146/1146` default, trace, post-serving |
+| `MUL_MAT_ID` | ok | `806/806` default, trace, post-serving |
+
+Decision:
+
+- Phase 35's generic `op_cublas` bucket is BF16 tensor-core plus F32 SGEMM in
+  this serving slice. It is not NVFP4 cuBLAS and not batched cuBLAS.
+- The next projection phase should identify whether the `type=0` SGEMM shapes
+  are expected glue tensors or a missed BF16 route. Do not change routing until
+  a separately gated policy proves md5/op safety.
