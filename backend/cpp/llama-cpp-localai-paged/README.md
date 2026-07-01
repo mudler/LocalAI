@@ -607,13 +607,15 @@ the structural floors, the parity verdict - is
 
 Latest current-stack MoE serving snapshot (`PTOK=128`, `GEN=64`, current clean
 DGX mirror `f2521ab12`, artifact
-`/home/mudler/bench/phase20_current_snapshot/20260701_050621`):
+`/home/mudler/bench/phase26_audited_snapshot/20260701_053650`). This run
+includes `hardware.txt` and `gate_summary.tsv`; all pre/post gate rows are
+`ok`:
 
 | n | paged decode_agg | vLLM decode_agg | paged/vLLM decode | paged agg | vLLM agg | paged/vLLM agg |
 |---|------------------|-----------------|-------------------|-----------|----------|----------------|
-| 8 | 220.8 | 290.5 | 76.0% | 164.8 | 245.5 | 67.1% |
-| 32 | 411.1 | 594.7 | 69.1% | 252.1 | 456.0 | 55.3% |
-| 128 | 670.0 | 1022.7 | 65.5% | 322.4 | 662.4 | 48.7% |
+| 8 | 230.8 | 283.2 | 81.5% | 170.6 | 241.6 | 70.6% |
+| 32 | 420.0 | 609.0 | 69.0% | 254.6 | 466.7 | 54.6% |
+| 128 | 673.4 | 1025.0 | 65.7% | 324.0 | 656.5 | 49.4% |
 
 Use `paged-current-serving-snapshot.sh` for future current-stack GB10 serving
 snapshots. It targets the clean `~/llama-phase6-source` mirror, checks

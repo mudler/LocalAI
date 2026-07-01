@@ -1571,3 +1571,69 @@ Decision:
   stayed green before and after the paged-vs-vLLM run.
 - Treat `gate_summary.tsv` plus `hardware.txt` as the quick audit surface before
   accepting a parity snapshot.
+
+## Phase 26 Audited Current-Stack Serving Snapshot
+
+Phase 26 ran a full current-stack paged-vs-vLLM MoE serving snapshot with the
+Phase 24/25 audit files enabled.
+
+Artifact:
+
+- `/home/mudler/bench/phase26_audited_snapshot/20260701_053650`
+
+Current source:
+
+- `/home/mudler/llama-phase6-source`
+- `f2521ab12 feat(server): trace speculative batch shapes`
+
+Hardware report:
+
+- `hardware_class=gb10_or_workstation_blackwell`
+- `GPU 0: NVIDIA GB10`
+- driver `580.159.03`
+- compute capability `12.1`
+
+Pre/post gate summary:
+
+| phase | check | status | actual |
+|-------|-------|--------|--------|
+| pre | MoE md5 | ok | `8cb0ce23777bf55f92f63d0292c756b0` |
+| pre | dense md5 | ok | `5951a5b4d624ce891e22ab5fca9bc439` |
+| pre | `MUL_MAT_ID` | ok | `806/806` |
+| post | MoE md5 | ok | `8cb0ce23777bf55f92f63d0292c756b0` |
+| post | dense md5 | ok | `5951a5b4d624ce891e22ab5fca9bc439` |
+| post | `MUL_MAT_ID` | ok | `806/806` |
+
+Serving snapshot:
+
+| n | paged decode_agg | vLLM decode_agg | paged/vLLM decode | paged agg | vLLM agg | paged/vLLM agg |
+|---|------------------|-----------------|-------------------|-----------|----------|----------------|
+| 8 | 230.8 | 283.2 | 81.5% | 170.6 | 241.6 | 70.6% |
+| 32 | 420.0 | 609.0 | 69.0% | 254.6 | 466.7 | 54.6% |
+| 128 | 673.4 | 1025.0 | 65.7% | 324.0 | 656.5 | 49.4% |
+
+Latency/prefill snapshot:
+
+| n | paged TTFT ms | vLLM TTFT ms | paged/vLLM TTFT | paged prefill_tps | vLLM prefill_tps |
+|---|---------------|--------------|------------------|--------------------|------------------|
+| 8 | 778.6 | 271.1 | 2.87x | 1679.9 | 4485.6 |
+| 32 | 2607.4 | 749.4 | 3.48x | 1698.8 | 5427.8 |
+| 128 | 7569.6 | 2534.3 | 2.99x | 1668.7 | 5122.0 |
+
+vLLM startup notes:
+
+- vLLM selected the expected GB10 backend mix: FlashInfer FP8 projection
+  kernels, Triton/FLA GDN prefill, FlashAttention, and MARLIN NVFP4 MoE.
+- Startup was long because the server loaded three checkpoint shards, loaded
+  cached torch-compile graphs, ran FlashInfer fp8 GEMM autotuning, and captured
+  CUDA graphs before the API became ready.
+
+Decision:
+
+- The audited current stack still is not at vLLM serving parity on GB10.
+- The Phase 20 conclusion is reproduced with stronger audit artifacts:
+  `hardware.txt`, `gate_summary.tsv`, pre/post full gates, and same-session
+  paged/vLLM ratios.
+- Current paged/vLLM decode ratios remain about `81.5%` at n8, `69.0%` at n32,
+  and `65.7%` at n128; e2e aggregate ratios remain about `70.6%`, `54.6%`,
+  and `49.4%`.

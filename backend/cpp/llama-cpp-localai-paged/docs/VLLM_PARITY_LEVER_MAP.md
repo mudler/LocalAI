@@ -691,6 +691,31 @@ It records pre/post MoE md5 `8cb0ce23777bf55f92f63d0292c756b0`, dense md5
 Use `hardware.txt` plus `gate_summary.tsv` as the quick audit surface before
 accepting any new parity snapshot.
 
+### Phase 26 audited current-stack snapshot
+
+Phase 26 ran the full current-stack paged-vs-vLLM MoE serving snapshot with the
+Phase 24/25 audit files enabled:
+`/home/mudler/bench/phase26_audited_snapshot/20260701_053650`.
+
+The artifact records `hardware_class=gb10_or_workstation_blackwell` on GPU
+`NVIDIA GB10` with driver `580.159.03` and compute capability `12.1`.
+`gate_summary.tsv` reports every pre/post gate as `ok`: MoE md5
+`8cb0ce23777bf55f92f63d0292c756b0`, dense md5
+`5951a5b4d624ce891e22ab5fca9bc439`, and `MUL_MAT_ID` `806/806`.
+
+Audited MoE serving result (`PTOK=128`, `GEN=64`):
+
+| n | paged decode_agg | vLLM decode_agg | paged/vLLM decode | paged agg | vLLM agg | paged/vLLM agg |
+|---|------------------|-----------------|-------------------|-----------|----------|----------------|
+| 8 | 230.8 | 283.2 | 81.5% | 170.6 | 241.6 | 70.6% |
+| 32 | 420.0 | 609.0 | 69.0% | 254.6 | 466.7 | 54.6% |
+| 128 | 673.4 | 1025.0 | 65.7% | 324.0 | 656.5 | 49.4% |
+
+Decision: the latest audited clean-stack run still does not reach vLLM serving
+parity on GB10. Treat Phase 26 as the current benchmark baseline before funding
+new kernel work, and keep md5/op gates as the first check when changing the
+patch stack.
+
 Relevant files (all absolute): `/home/mudler/_git/LocalAI/.claude/worktrees/feat+paged-attention/backend/cpp/llama-cpp-localai-paged/docs/{DECODE_SERVING_SCOPE.md,PREFILL_GEMM_SCOPE.md,PREFILL_GEMM_RESULTS.md,TENSORCORE_GDN_SCOPE.md,final_benchmark.csv}`, `.../README.md`, `.../patches/paged/0034-feat-paged-native-NVFP4-W4A4-FP4-MMA-large-M-prefill.patch` (P1/P2), `.../patches/paged/0042-feat-paged-fused-residual-add-RMS-norm-weight-multip.patch` (P7), `.../patches/paged/0031` (P4), `0025` (D1), `0018/0022` (D4/D5), `0009/0010` (D3/D6/D7); graph source `/home/mudler/_git/LocalAI/backend/cpp/llama-cpp-paged-dev/src/{models/qwen35moe.cpp,models/delta-net-base.cpp,llama-graph.cpp}`.
 
 ### Phase 10 GDN C32 slab update

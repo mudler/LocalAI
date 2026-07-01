@@ -342,6 +342,28 @@ backfilled on the Phase 20 artifact at
 it records pre/post MoE md5 `8cb0ce23777bf55f92f63d0292c756b0`, dense md5
 `5951a5b4d624ce891e22ab5fca9bc439`, and `MUL_MAT_ID` `806/806` as `ok`.
 
+Phase 26 ran the full audited current-stack snapshot with `hardware.txt`,
+pre/post gates, same-session paged and vLLM serving runs, `summary.tsv`, and
+`gate_summary.tsv`. Artifact:
+`/home/mudler/bench/phase26_audited_snapshot/20260701_053650`. Hardware was
+recorded as `hardware_class=gb10_or_workstation_blackwell`, GPU `NVIDIA GB10`,
+driver `580.159.03`, compute capability `12.1`. Every compact gate row was
+`ok`: MoE md5 `8cb0ce23777bf55f92f63d0292c756b0`, dense md5
+`5951a5b4d624ce891e22ab5fca9bc439`, and `MUL_MAT_ID` `806/806`, both before and
+after the serving run.
+
+Audited current MoE serving snapshot (`PTOK=128`, `GEN=64`):
+
+| n | paged decode_agg | vLLM decode_agg | paged/vLLM decode | paged agg | vLLM agg | paged/vLLM agg |
+|---|------------------|-----------------|-------------------|-----------|----------|----------------|
+| 8 | 230.8 | 283.2 | 81.5% | 170.6 | 241.6 | 70.6% |
+| 32 | 420.0 | 609.0 | 69.0% | 254.6 | 466.7 | 54.6% |
+| 128 | 673.4 | 1025.0 | 65.7% | 324.0 | 656.5 | 49.4% |
+
+Use Phase 26 as the current audit-grade GB10 snapshot. It keeps the Phase 20
+verdict intact, but the artifact is more useful for future regressions because
+it carries hardware classification and compact pre/post inference gates.
+
 ---
 
 ## 5. METHODOLOGY LESSONS (so you do not repeat the mistakes)
@@ -407,6 +429,7 @@ Only pursue if (a)+(b) are not options and someone explicitly wants the residual
 - `~/bench/phase21_harness_dryrun/20260701_051757` - current snapshot harness dry-run artifact.
 - `~/bench/phase24_hardware_report_dryrun/20260701_052741` - current snapshot harness dry run proving `hardware.txt` captures the DGX as `hardware_class=gb10_or_workstation_blackwell`.
 - `~/bench/phase25_gate_summary_dryrun/20260701_053353` - dry run after adding `gate_summary.tsv` support; normal dry-run still writes `hardware.txt` and does not emit a gate summary before gates exist.
+- `~/bench/phase26_audited_snapshot/20260701_053650` - current audit-grade full paged-vs-vLLM MoE serving snapshot with `hardware.txt`, pre/post gates, `summary.tsv`, and `gate_summary.tsv`.
 - Per-engine logs `~/bench/COMBINED_{paged,vllm}_{MOE,DENSE}_server.log`; `~/bench/BENCHMARK_PROGRESS.md`.
 - Graph-node-traced high-N profiles: `~/highN_prof2/*.nsys-rep` (paged npl=256), `~/highN_vllm/*.nsys-rep` (vLLM), 2026-06-30.
 - A/B dirs: `~/bench/marlin_gate/`, `~/bench/gdn_p1_ab/`.
