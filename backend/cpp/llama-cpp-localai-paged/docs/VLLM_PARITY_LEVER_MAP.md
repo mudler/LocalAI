@@ -175,7 +175,7 @@ On **consumer Blackwell (sm_120/sm_121: DGX Spark/GB10, RTX 5090, RTX PRO 6000)*
 
 ## Gaps where we have NO equivalent (ranked by value)
 
-1. **Speculative decoding via the MTP head (#17).** Qwen3-Next/3.6 ships a Multi-Token-Prediction module; vLLM exploits it for spec-decode. We have nothing. This is the single largest *structural* decode-throughput lever vLLM has that is **completely absent** from our series - and unlike the kernel gaps it is not BW-floored. Highest-value greenfield item.
+1. **Speculative decoding via the MTP head (#17).** Qwen3-Next/3.6 ships a Multi-Token-Prediction module; vLLM exploits it for spec-decode. Phase 9 proved the current fork is no longer at "nothing": Qwen3.5/3.6 `draft-mtp` code exists, the DGX MoE GGUF contains `nextn` tensors, and a short opt-in smoke passes after disabling backend draft sampling for MTP. This is still not a default serving feature. It needs hybrid SSM/KV rollback gates and serving throughput measurements before it can be counted as parity work.
 
 2. **Tensor-core chunked GDN prefill (#7).** vLLM's FLA `chunk_gated_delta_rule` pushes intra-chunk Gram products through tensor cores (~2.5× cheaper prefill). Our 0031 chunked kernel is opt-in and 22% *slower* (serial f32 reductions). Scoped (mma.sync-only on sm_121, no wgmma/tcgen05), Gram products de-risked at 6.7-9.3×, kernel not built. One of the two named prefill bottlenecks.
 
@@ -437,6 +437,25 @@ Gate key: BE = bit-exact (greedy md5); KL = KL-divergence gate; BE→KL = bit-ex
 **Prefill track (already moving):** #2 (P1, in progress) → #4 (P3) → #5 (P2) - and **co-develop the P2 ragged-grouped kernel with the D2 decode kernel** (one fused-MoE dispatch that degrades gracefully across M = vLLM's single fused_moe shape). In parallel #7 (P4, design ready). Then the residual-coverage adds #12 (P5), #15 (P6), #19 (P7). Profile-gated #18 (P8), #20 (P9).
 
 **Two highest non-obvious insights to act on:** (a) the P2 prefill kernel and the D2 decode kernel are the **same kernel** (on-GPU token sort + single persistent grouped FP4-MMA launch) at different M - fund them as one effort. (b) the "serving decode is GPU-compute-bound" finding **invalidates S3's keep-prefill-out rationale** - #6 (D10 co-batching, vLLM-style) and #1 (X1 aggregate concurrency) are the cheap wins that follow from it, and are higher-reward-per-effort than any further host-side or graph-reuse work.
+
+### Phase 9 MTP update
+
+Phase 9 adds a narrow MTP smoke gate instead of production enablement:
+
+- DGX asset check confirmed `qwen35moe.nextn_predict_layers` and
+  `blk.40.nextn.*` tensors in `/home/mudler/bench/q36-35b-a3b-nvfp4.gguf`.
+- Default `draft-mtp` initially ran but emitted backend-sampler errors because
+  MTP verification batches can request more than one output row per sequence.
+- Patch `0054-fix-speculative-disable-backend-sampling-for-MTP-drafts.patch`
+  disables backend draft sampling inside `draft-mtp`.
+- After the patch, the default `draft-mtp` smoke exits cleanly with
+  `n_drafted=5`, `n_accept=4`, and `80.000%` acceptance.
+- Canonical inference md5 gates stayed stable:
+  MoE `8cb0ce23777bf55f92f63d0292c756b0`, dense
+  `5951a5b4d624ce891e22ab5fca9bc439`.
+
+MTP remains opt-in and exploratory. It does not supersede the next GDN prefill
+scope until a serving phase proves target-verification cost and rollback safety.
 
 Relevant files (all absolute): `/home/mudler/_git/LocalAI/.claude/worktrees/feat+paged-attention/backend/cpp/llama-cpp-localai-paged/docs/{DECODE_SERVING_SCOPE.md,PREFILL_GEMM_SCOPE.md,PREFILL_GEMM_RESULTS.md,TENSORCORE_GDN_SCOPE.md,final_benchmark.csv}`, `.../README.md`, `.../patches/paged/0034-feat-paged-native-NVFP4-W4A4-FP4-MMA-large-M-prefill.patch` (P1/P2), `.../patches/paged/0042-feat-paged-fused-residual-add-RMS-norm-weight-multip.patch` (P7), `.../patches/paged/0031` (P4), `0025` (D1), `0018/0022` (D4/D5), `0009/0010` (D3/D6/D7); graph source `/home/mudler/_git/LocalAI/backend/cpp/llama-cpp-paged-dev/src/{models/qwen35moe.cpp,models/delta-net-base.cpp,llama-graph.cpp}`.
 

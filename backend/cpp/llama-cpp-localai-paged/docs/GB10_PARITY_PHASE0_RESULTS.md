@@ -788,3 +788,54 @@ Production-source decision:
 - A future source candidate must reduce `mmq_nvfp4` (`22.36%`) or `act_quant`
   (`3.60%`) directly, without D2H id readback, new stream synchronizations, or
   md5 drift.
+
+## Phase 9 MTP Draft Smoke Gate
+
+Phase 9 challenged the older "MTP absent" assumption. The current fork has
+Qwen3.5/3.6 `draft-mtp` support and the DGX MoE GGUF contains MTP metadata and
+tensors:
+
+- `qwen35moe.nextn_predict_layers`
+- `blk.40.nextn.eh_proj.weight`
+- `blk.40.nextn.shared_head_norm.weight`
+- `blk.40.nextn.enorm.weight`
+- `blk.40.nextn.hnorm.weight`
+
+Smoke artifacts:
+
+- Failing default pre-patch:
+  `/home/mudler/bench/phase9_mtp_smoke/mtp_smoke.err`.
+- Passing explicit CPU-sampled draft:
+  `/home/mudler/bench/phase9_mtp_smoke/mtp_smoke_no_backend_sampling.err`.
+- Passing default after patch:
+  `/home/mudler/bench/phase9_mtp_smoke/mtp_smoke_default_after_patch.err`.
+
+Finding:
+
+- `draft-mtp` runs with the current model when backend draft sampling is off.
+- The default path previously emitted:
+  `backend sampling requires at most one output token per sequence (seq_id 0 had 2)`.
+- Patch `0054-fix-speculative-disable-backend-sampling-for-MTP-drafts.patch`
+  disables backend draft sampling inside the MTP implementation until the
+  backend sampler supports multi-output verification batches.
+
+DGX smoke after patch:
+
+- `rc=0`.
+- Warning emitted:
+  `backend draft sampling is disabled for MTP`.
+- `n_drafted=5`, `n_accept=4`, acceptance `80.000%`.
+- Output tail:
+  `The capital of France is Paris, a city renowned for its rich history`.
+
+Normal inference gates after patch:
+
+- MoE md5: `8cb0ce23777bf55f92f63d0292c756b0`.
+- Dense md5: `5951a5b4d624ce891e22ab5fca9bc439`.
+
+Decision:
+
+- Keep Phase 9 as an opt-in speculative smoke/fix only.
+- Do not enable MTP by default in LocalAI or llama-server.
+- Do not benchmark MTP as a parity win until a serving/API phase adds rollback
+  gates for hybrid SSM/KV state and measures target verification throughput.
