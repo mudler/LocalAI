@@ -784,6 +784,24 @@ Use this only to size the next grouped-MMQ structural kernel. It intentionally
 does not perform device readback of `expert_bounds`, so it records selector
 inputs and estimated density rather than exact per-expert histograms.
 
+### Phase 30 live serving MMQ shape distribution
+
+Phase 30 ran n128 serving with `LLAMA_MOE_MMQ_SHAPE_TRACE=4096` on the patched
+DGX mirror (`826c97a05`). Artifact:
+`/home/mudler/bench/phase30_mmq_shape_serving/20260701_043300`.
+
+The first 4096 grouped-MMQ calls split into 1200 decode-like calls
+(`ncols_max <= 128`) and 2896 prefill-like calls. Decode-like calls used
+densities `1-4` and selected only `mmq_x_best` `32/40/48/64`
+(`64`: 480, `32`: 360, `40`: 240, `48`: 120). Prefill-like calls were mostly
+density `16` and selected `mmq_x_best=128` for 1816 calls. Every traced call had
+`stream_k=1`.
+
+Kernel implication: the next grouped-MMQ structural experiment should target
+small-M decode tiles (`ncols_max` 26-111, density 1-4) separately from prefill.
+The current stream-k/fixup path is part of the measured shape and cannot be
+ignored by a replacement kernel.
+
 Relevant files (all absolute): `/home/mudler/_git/LocalAI/.claude/worktrees/feat+paged-attention/backend/cpp/llama-cpp-localai-paged/docs/{DECODE_SERVING_SCOPE.md,PREFILL_GEMM_SCOPE.md,PREFILL_GEMM_RESULTS.md,TENSORCORE_GDN_SCOPE.md,final_benchmark.csv}`, `.../README.md`, `.../patches/paged/0034-feat-paged-native-NVFP4-W4A4-FP4-MMA-large-M-prefill.patch` (P1/P2), `.../patches/paged/0042-feat-paged-fused-residual-add-RMS-norm-weight-multip.patch` (P7), `.../patches/paged/0031` (P4), `0025` (D1), `0018/0022` (D4/D5), `0009/0010` (D3/D6/D7); graph source `/home/mudler/_git/LocalAI/backend/cpp/llama-cpp-paged-dev/src/{models/qwen35moe.cpp,models/delta-net-base.cpp,llama-graph.cpp}`.
 
 ### Phase 10 GDN C32 slab update

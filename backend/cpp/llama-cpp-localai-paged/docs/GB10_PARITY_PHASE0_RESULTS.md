@@ -1811,3 +1811,53 @@ Decision:
   itself.
 - It gives a bounded, md5-safe way to collect live serving grouped-MMQ shape
   evidence before designing the next structural kernel.
+
+## Phase 30 Live MoE MMQ Shape Distribution
+
+Phase 30 used patch `0056` under the n128 h2h serving workload to collect the
+first 4096 grouped-MMQ selector shapes. This is a measurement-only phase.
+
+Artifact:
+
+- `/home/mudler/bench/phase30_mmq_shape_serving/20260701_043300`
+
+Run:
+
+- Source: `dgx:~/llama-phase6-source`, commit `826c97a05`
+- Env: `LLAMA_KV_PAGED=1 LLAMA_MOE_FORCE_GRAPHS=1 LLAMA_MOE_MMQ_SHAPE_TRACE=4096`
+- Workload: h2h `n=128`, `PTOK=128`, `GEN=64`
+- Throughput while tracing: `decode_agg_tps=645.8`, `agg_tps=313.3`,
+  `prefill_tps=1597.9`, `TTFT mean=8192.3 ms`
+
+Trace summary:
+
+| bucket | total traced calls | dominant `mmq_x_best` | density range | `ncols_max` range |
+|--------|--------------------|-----------------------|---------------|-------------------|
+| decode-like (`ncols_max <= 128`) | 1200 | `64` (480), `32` (360), `40` (240), `48` (120) | 1-4 | 26-111 |
+| prefill-like (`ncols_max > 128`) | 2896 | `128` (1816), `64` (720), `112` (240), `48` (120) | 5-16 | 132-512 |
+
+Overall first-4096 distribution:
+
+| metric | notable values |
+|--------|----------------|
+| `mmq_x_best` | `128`: 1816, `64`: 1200, `32`: 360, `40`: 240, `48`: 240, `112`: 240 |
+| `density` | `16`: 1680, `2`: 480, `1`: 360, `6`: 360, `4`: 240, `5`: 240 |
+| `stream_k` | `1`: 4096 |
+
+Post-run gates:
+
+| check | status | actual |
+|-------|--------|--------|
+| MoE md5 | ok | `8cb0ce23777bf55f92f63d0292c756b0` |
+| dense md5 | ok | `5951a5b4d624ce891e22ab5fca9bc439` |
+| `MUL_MAT_ID` | ok | `806/806` |
+
+Decision:
+
+- Decode serving really is feeding grouped-MMQ small-M tiles: in this trace,
+  decode-like calls stay at density `1-4` and `mmq_x_best <= 64`.
+- Prefill-like calls mostly select `mmq_x_best=128` and density `16`, so a
+  decode-only structural kernel should not be generalized to prefill without a
+  separate A/B.
+- Every traced call used stream-k, so a replacement kernel must account for the
+  current stream-k/fixup behavior rather than only conventional tiling.

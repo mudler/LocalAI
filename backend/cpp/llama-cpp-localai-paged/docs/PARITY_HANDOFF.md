@@ -396,6 +396,15 @@ Default-off and `LLAMA_MOE_MMQ_SHAPE_TRACE=4` gates both passed: MoE
 gate emitted exactly four `[LLAMA_MOE_MMQ_SHAPE]` lines. This is evidence-only
 instrumentation; it does not close the speed gap.
 
+Phase 30 used patch `0056` for a live n128 serving shape trace. Artifact:
+`/home/mudler/bench/phase30_mmq_shape_serving/20260701_043300`. The first 4096
+grouped-MMQ calls split into 1200 decode-like calls (`ncols_max <= 128`) and
+2896 prefill-like calls. Decode-like calls had density `1-4` and selected
+`mmq_x_best` only in `{32,40,48,64}`; prefill-like calls were mostly density
+`16` and selected `mmq_x_best=128`. All traced calls had `stream_k=1`. Post-run
+gates stayed green: MoE `8cb0ce23777bf55f92f63d0292c756b0`, dense
+`5951a5b4d624ce891e22ab5fca9bc439`, `MUL_MAT_ID` `806/806`.
+
 ---
 
 ## 5. METHODOLOGY LESSONS (so you do not repeat the mistakes)
@@ -465,6 +474,7 @@ Only pursue if (a)+(b) are not options and someone explicitly wants the residual
 - `~/bench/phase27_graph_node_serving/20260701_055519` - current clean llama.cpp n128 serving profile captured with `--cuda-graph-trace=node`, pre/post retry gates green.
 - `~/bench/phase28_mmq_occupancy/20260701_040450` - NVFP4 MMQ occupancy build-knob A/B; `MINBLOCKS=2` gate-safe but serving-regressed, `MMQ_Y=64` compile-rejected.
 - `~/bench/phase29_mmq_shape_trace/20260701_042428` - default-off MoE MMQ shape trace patch `0056`; CUDA build plus default/trace md5 gates green.
+- `~/bench/phase30_mmq_shape_serving/20260701_043300` - live n128 serving MMQ shape distribution from patch `0056`; post-run md5/op gates green.
 - Per-engine logs `~/bench/COMBINED_{paged,vllm}_{MOE,DENSE}_server.log`; `~/bench/BENCHMARK_PROGRESS.md`.
 - Graph-node-traced high-N profiles: `~/highN_prof2/*.nsys-rep` (paged npl=256), `~/highN_vllm/*.nsys-rep` (vLLM), 2026-06-30.
 - A/B dirs: `~/bench/marlin_gate/`, `~/bench/gdn_p1_ab/`.
