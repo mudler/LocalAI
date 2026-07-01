@@ -318,6 +318,17 @@ the real `K + 1` verification-row expansion. Do not build a Phase 20 scheduler
 experiment on this evidence. Future MTP work would need a deeper target-verify
 graph/state design, not another small server scheduling shortcut.
 
+Phase 62 ran that gated verify-cost recheck. Artifact:
+`/home/mudler/bench/phase62_mtp_verify_cost/20260701_134125`. Pre/post gates
+passed with canonical MoE md5 `8cb0ce23777bf55f92f63d0292c756b0`, dense md5
+`5951a5b4d624ce891e22ab5fca9bc439`, and `MUL_MAT_ID` `806/806`. MTP acceptance
+was high (`7372/9340 = 0.789`, mean acceptance length `3.33`), but throughput
+remained far below the keep threshold: `0.420x`, `0.274x`, and `0.213x`
+baseline decode at n8/n32/n128. Shape trace again showed `draft=3` / `rows=4`
+dominance (`95.6%`), with `graphs reused = 1`. Keep current MTP rejected unless
+a later target-verify/output-row graph-cost design exists; do not tune
+`spec-draft-n-max` blindly.
+
 Phase 20 refreshed the current-stack MoE serving snapshot against vLLM using the
 clean `~/llama-phase6-source` mirror (`f2521ab12`) rather than the stale
 `llama-paged-dev` benchmark tree. Artifact:

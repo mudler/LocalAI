@@ -170,12 +170,12 @@ On **consumer Blackwell (sm_120/sm_121: DGX Spark/GB10, RTX 5090, RTX PRO 6000)*
 | 14 | **Scheduler / continuous batching / chunked prefill** | V1: mixed prefill+decode step, **chunked prefill default-on**, decode-prioritized `max_num_batched_tokens` budget, auto-chunk | `update_slots()` unified step, **decode-first dynamic budget** (0016, `max(n_ubatch,T−D)`), prefill budget (0013), prefix-share (0008) | serving | **Parity** - we match the chunked-prefill + decode-first token-budget design |
 | 15 | **CUDA graphs - decode** | **FULL cudagraph**: padded/bucketed decode shapes → 1 persistent captured graph per bucket → steady decode = single `cudaGraphLaunch`, zero host rebuild | S1+S3 (0040/0041) graph **reuse** keyed on bucketed block-table dims + decode-shape-stable scheduling → serving reuse 0%→**72.2%** | serving | **Partial.** We reuse, not full-capture. **Padded/fixed-slot decode (→~100% like vLLM) was built + GPU-tested + REJECTED** - serving decode here is GPU-compute-bound, so dummy-row compute > reuse recovered |
 | 16 | **CUDA graphs - prefill** | PIECEWISE cudagraph (default FULL_AND_PIECEWISE) | ggml graph rebuild per prefill step (paged data-ptr churn) | prefill | Gap, low value (prefill is compute-bound; launch overhead amortized over large M) |
-| 17 | **Speculative decoding / MTP** | **MTP head + EAGLE-style spec-decode** supported for this model class (Qwen3-Next ships an MTP module) | **None** | decode | **GAP - NO EQUIVALENT.** Biggest *unexploited* decode-throughput lever vLLM has and we don't (potential ~1.5-2× at low-medium concurrency) |
+| 17 | **Speculative decoding / MTP** | **MTP head + EAGLE-style spec-decode** supported for this model class (Qwen3-Next ships an MTP module) | Opt-in `draft-mtp` path exists and passes rollback safety, but current serving is rejected on GB10 | decode | **GAP - IMPLEMENTED BUT NOT A WIN.** Phase 15/19/62 showed high acceptance with severe serving regression from target-verify/output-row graph cost. Do not enable MTP or tune `n_max` blindly. |
 | 18 | **KV-cache dtype** | FP8 KV cache + FP8 attention (halves KV BW) | F16 paged KV | both | Minor gap; partly offset by our overall 1.5-3× lower memory (NVFP4 weights). FP8-KV would cut KV BW further |
 
 ## Gaps where we have NO equivalent (ranked by value)
 
-1. **Speculative decoding via the MTP head (#17).** Qwen3-Next/3.6 ships a Multi-Token-Prediction module; vLLM exploits it for spec-decode. Phase 9 proved the current fork is no longer at "nothing": Qwen3.5/3.6 `draft-mtp` code exists, the DGX MoE GGUF contains `nextn` tensors, and a short opt-in smoke passes after disabling backend draft sampling for MTP. This is still not a default serving feature. It needs hybrid SSM/KV rollback gates and serving throughput measurements before it can be counted as parity work.
+1. **Speculative decoding via the MTP head (#17).** Qwen3-Next/3.6 ships a Multi-Token-Prediction module; vLLM exploits it for spec-decode. Phase 9 proved the current fork is no longer at "nothing": Qwen3.5/3.6 `draft-mtp` code exists, the DGX MoE GGUF contains `nextn` tensors, and a short opt-in smoke passes after disabling backend draft sampling for MTP. Phase 14 passed rollback safety, but Phase 15, Phase 19, and Phase 62 rejected current serving MTP on GB10 because high acceptance did not overcome target-verify/output-row graph cost. Do not enable MTP by default.
 
 2. **Tensor-core chunked GDN prefill (#7).** vLLM's FLA `chunk_gated_delta_rule` pushes intra-chunk Gram products through tensor cores (~2.5× cheaper prefill). Our 0031 chunked kernel is opt-in and 22% *slower* (serial f32 reductions). Scoped (mma.sync-only on sm_121, no wgmma/tcgen05), Gram products de-risked at 6.7-9.3×, kernel not built. One of the two named prefill bottlenecks.
 
@@ -198,7 +198,7 @@ On **consumer Blackwell (sm_120/sm_121: DGX Spark/GB10, RTX 5090, RTX PRO 6000)*
 
 ## Net assessment
 
-Our **decode kernels are at parity-to-ahead** (GDN recurrence, both FP4 GEMMs at BW floor) - confirmed in the kernel regime. The two real, *named-in-docs* **prefill** gaps (MoE grouped GEMM #4, tensor-core chunked GDN #7) are being actively closed with the native FP4-MMA GEMM + the de-risked tensor-core Gram products; on consumer Blackwell specifically these can match-or-beat vLLM because vLLM is itself on a **bf16-Marlin fallback**, not native FP4. The two gaps with **no equivalent in the series at all** are **MTP speculative decoding** (highest-value, structural, decode) and the **GPU fused sampler** (serving host-loop, secondary). The serving-decode residual is GPU-compute-bound (not host/graph-reuse), so vLLM's edge there is its faster MoE decode kernel + scheduler, not something a host-side lever recovers.
+Our **decode kernels are at parity-to-ahead** (GDN recurrence, both FP4 GEMMs at BW floor) - confirmed in the kernel regime. The two real, *named-in-docs* **prefill** gaps (MoE grouped GEMM #4, tensor-core chunked GDN #7) are being actively closed with the native FP4-MMA GEMM + the de-risked tensor-core Gram products; on consumer Blackwell specifically these can match-or-beat vLLM because vLLM is itself on a **bf16-Marlin fallback**, not native FP4. The remaining structural gap with no equivalent in the series is the **GPU fused sampler** (serving host-loop, secondary). MTP is no longer absent, but current GB10 serving MTP is rejected until a target-verify/output-row graph-cost design exists. The serving-decode residual is GPU-compute-bound (not host/graph-reuse), so vLLM's edge there is its faster MoE decode kernel + scheduler, not something a host-side lever recovers.
 
 ---
 
@@ -615,6 +615,31 @@ The shape trace rejects the small scheduler shortcut:
 Decision: do not build a Phase 20 group/defer scheduler on current evidence.
 Future MTP work would need a deeper target-verify graph/state design, not
 another small server scheduling shortcut.
+
+### Phase 62 MTP verify-cost result
+
+Phase 62 is recorded in
+`docs/superpowers/plans/2026-07-01-mtp-verify-cost-phase62.md`. Artifact:
+`/home/mudler/bench/phase62_mtp_verify_cost/20260701_134125`.
+
+Pre/post default inference gates stayed green: MoE md5
+`8cb0ce23777bf55f92f63d0292c756b0`, dense md5
+`5951a5b4d624ce891e22ab5fca9bc439`, and `MUL_MAT_ID 806/806`.
+
+| n | baseline decode_agg | MTP decode_agg | MTP / baseline | baseline TTFT ms | MTP TTFT ms |
+|---|---------------------|----------------|----------------|------------------|-------------|
+| 8 | 248.5 | 104.4 | 42.0% | 1150.4 | 1682.9 |
+| 32 | 411.8 | 112.8 | 27.4% | 2607.9 | 4444.7 |
+| 128 | 696.5 | 148.1 | 21.3% | 7425.2 | 20155.8 |
+
+Final MTP stats: `7372/9340 = 0.789` accepted tokens, mean acceptance length
+`3.33`, per-position acceptance `(0.877, 0.767, 0.691)`, and
+`graphs reused = 1`. Shape trace again showed `draft=3` / `rows=4` dominance
+at `95.6%`.
+
+Decision: reject another MTP implementation phase for now. Phase62 kept default
+inference green with md5/op gates, but MTP remains rejected unless a later design
+removes target-verify/output-row graph cost. Do not tune `n_max` blindly.
 
 ### Phase 20 current-stack serving snapshot
 

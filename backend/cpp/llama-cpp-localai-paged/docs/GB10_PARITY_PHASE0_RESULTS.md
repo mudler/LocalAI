@@ -3436,3 +3436,74 @@ Decision: reject. Direct-A improved forced W4A16 by only `+6.5%` and `+6.9%`,
 and still reached only `0.67x` / `0.66x` of default FP4-MMQ. The rejected direct
 kernel diff was saved to `/tmp/phase61-w4a16-direct-a-rejected.diff` and not
 committed. Do not continue W4A16 body tuning on GB10 as the next parity lever.
+
+## MTP Verify-Cost Phase62 Result
+
+Phase62 is recorded in
+`docs/superpowers/plans/2026-07-01-mtp-verify-cost-phase62.md`.
+It was a measurement and decision phase, not an MTP enablement phase.
+
+The phase exists because the current code already has the required speculative
+acceptance telemetry:
+
+- server summary lines report draft acceptance, mean acceptance length, and
+  acceptance rate per position,
+- `common_speculative_print_stats()` reports generated and accepted draft tokens,
+  mean acceptance length, and per-position acceptance,
+- `LLAMA_SPEC_SHAPE_TRACE=1` reports decode and verify row shapes.
+
+Phase62 must preserve default inference with pre/post gates:
+
+- MoE paged md5 `8cb0ce23777bf55f92f63d0292c756b0`,
+- dense md5 `5951a5b4d624ce891e22ab5fca9bc439`,
+- `MUL_MAT_ID` `806/806`.
+
+Artifact:
+
+- `/home/mudler/bench/phase62_mtp_verify_cost/20260701_134125`
+
+Pre/post gates passed:
+
+```text
+moe md5 OK: 8cb0ce23777bf55f92f63d0292c756b0
+dense md5 OK: 5951a5b4d624ce891e22ab5fca9bc439
+  806/806 tests passed
+  Backend CUDA0: OK
+paged inference gates OK
+```
+
+Serving result:
+
+| n | baseline decode_agg | MTP decode_agg | MTP / baseline | baseline TTFT ms | MTP TTFT ms |
+|---|---------------------|----------------|----------------|------------------|-------------|
+| 8 | 248.5 | 104.4 | 42.0% | 1150.4 | 1682.9 |
+| 32 | 411.8 | 112.8 | 27.4% | 2607.9 | 4444.7 |
+| 128 | 696.5 | 148.1 | 21.3% | 7425.2 | 20155.8 |
+
+MTP acceptance was not the blocker:
+
+```text
+#gen tokens = 9340
+#acc tokens = 7372
+acceptance = 0.78929
+#mean acc len = 3.33
+#acc rate/pos = (0.877, 0.767, 0.691)
+graphs reused = 1
+```
+
+Shape trace:
+
+```text
+rows total 3212; rows=4: 3070 (95.6%)
+draft total 3212; draft=3: 3070 (95.6%)
+batch_after total 3212; unique values 495
+```
+
+Decision:
+
+- Reject another MTP implementation phase for now.
+- Phase62 kept default inference green with md5/op gates, but MTP remains
+  rejected unless a later design removes target-verify/output-row graph cost.
+- Do not tune `spec-draft-n-max` blindly. Phase15, Phase19, and Phase62 all
+  showed high acceptance with poor serving throughput, so the remaining question
+  is verify cost, not whether MTP can draft.
