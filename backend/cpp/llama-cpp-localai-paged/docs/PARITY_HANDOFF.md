@@ -502,6 +502,17 @@ weight concatenation, not BF16/NVFP4 routing. Future fused-gate work must be
 default-off, preserve F32 semantics, and pass md5/op gates before benchmarking;
 if md5 changes, run KL first.
 
+Phase 39 closes the naive fused-gate shortcut. Artifact:
+`/home/mudler/bench/phase39_gate_sgemm_profile/phase27_reanalysis`. Re-analysis
+of the Phase27 graph-node serving profile showed total kernel time `20.0372s`,
+`concat_layout=459.84ms` (`2.29%`, `2250` instances), `cublas_bf16_gemm=1892.81ms`
+(`9.45%`), and `cutlass_bf16_gemm=684.01ms` (`3.41%`). Do not implement
+graph-time `ggml_concat()` of `ffn_gate_inp.weight` plus
+`ffn_gate_inp_shexp.weight`; it risks increasing an existing layout-copy bucket.
+The only future fused-gate design worth scoping is a persistent/load-time F32
+combined gate weight with output views, default-off until MoE/dense md5,
+`MUL_MAT`, `MUL_MAT_ID`, and KL-if-md5-changes gates pass.
+
 ---
 
 ## 5. METHODOLOGY LESSONS (so you do not repeat the mistakes)
@@ -582,6 +593,8 @@ Only pursue if (a)+(b) are not options and someone explicitly wants the residual
 - `~/bench/phase36_cublas_route_trace/20260701_081228` - default-off cuBLAS subroute trace patch `0062`; default/trace/post-serving md5 and op gates green; n128 route trace found `bf16_tc=5681`, `sgemm=2511`.
 - `~/bench/phase37_cublas_name_trace/20260701_083227` - cuBLAS tensor-name trace patch `0063`; default/trace/post-serving md5 and op gates green; n128 trace identified `sgemm` as MoE gate logits and shared-expert gate projections.
 - `~/bench/phase38_gate_baseline/20260701_084410` - current Phase37 build baseline before gate-projection policy work; docker/local-ai-worker/GPU idle preflight green; MoE/dense md5 green; `MUL_MAT` `1146/1146`; `MUL_MAT_ID` `806/806`.
+- `~/bench/phase39_gate_sgemm_profile/20260701_085211` - short completion profile, diagnostic only because `-n 32` is not a canonical md5 gate; useful for confirming graph-time concat is a real kernel path.
+- `~/bench/phase39_gate_sgemm_profile/phase27_reanalysis` - Phase27 serving profile re-analysis used to reject graph-time fused gate weight concat; `concat_layout=459.84ms` (`2.29%`) in the serving kernel window.
 - Per-engine logs `~/bench/COMBINED_{paged,vllm}_{MOE,DENSE}_server.log`; `~/bench/BENCHMARK_PROGRESS.md`.
 - Graph-node-traced high-N profiles: `~/highN_prof2/*.nsys-rep` (paged npl=256), `~/highN_vllm/*.nsys-rep` (vLLM), 2026-06-30.
 - A/B dirs: `~/bench/marlin_gate/`, `~/bench/gdn_p1_ab/`.

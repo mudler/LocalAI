@@ -2263,3 +2263,35 @@ Decision:
   preserves F32 math and split semantics. Gate it with MoE/dense md5,
   `MUL_MAT`, `MUL_MAT_ID`, and KL validation if either md5 changes before any
   serving benchmark.
+
+## Phase 39 Gate Fusion Feasibility
+
+Phase 39 checked whether the Phase38 follow-up should be a quick graph-time
+fused gate projection.
+
+Artifacts:
+
+- `/home/mudler/bench/phase37_cublas_name_trace/20260701_083227`
+- `/home/mudler/bench/phase27_graph_node_serving/20260701_055519`
+- `/home/mudler/bench/phase39_gate_sgemm_profile/phase27_reanalysis`
+
+Evidence:
+
+| source | result |
+|--------|--------|
+| Phase37 route trace | `sgemm=1212`, with per-layer `ffn_gate_inp.weight -> ffn_moe_logits` and `ffn_gate_inp_shexp.weight -> shared_expert_gate` entries |
+| Phase27 serving profile | total kernel time `20.0372s` |
+| Phase27 serving profile | `concat_layout=459.84ms` (`2.29%`, `2250` instances) |
+| Phase27 serving profile | `cublas_bf16_gemm=1892.81ms` (`9.45%`) and `cutlass_bf16_gemm=684.01ms` (`3.41%`) |
+
+Decision:
+
+- Reject the quick graph-time fused gate shortcut based on `ggml_concat()` of
+  the two gate weights. `concat_layout` is already a measurable serving bucket,
+  so adding graph-time weight concatenation risks moving work into an existing
+  bottleneck before removing enough SGEMM overhead.
+- The only acceptable future fused-gate design is a persistent/load-time F32
+  combined gate weight, split by output views after one matmul. It must be
+  default-off, keep gate weights in F32, avoid graph-time weight concat, and
+  pass MoE/dense md5 plus `MUL_MAT`/`MUL_MAT_ID` gates before any serving
+  benchmark. If md5 changes, run KL first and reject on KL regression.
