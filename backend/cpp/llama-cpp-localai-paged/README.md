@@ -87,7 +87,7 @@ orthogonal to the paged allocator.
 
 ---
 
-## 3. Patch series (0001-0058)
+## 3. Patch series (0001-0059)
 
 Source-only patches, with intentional numbering gaps (e.g. 0005, 0027). The
 decode-serving graph-reuse levers are 0040-0041. "Bit-exact" = greedy md5 /
@@ -216,6 +216,7 @@ These are the dominant decode levers on the Qwen3.6 hybrid models. All bit-exact
 | 0056 | **Trace MoE MMQ batch shapes** - adds default-off `LLAMA_MOE_MMQ_SHAPE_TRACE=<n>` logs from the grouped-MMQ host selector, reporting routed assignment count, estimated active experts, density, selected `mmq_x`, `mmq_y`, and stream-k. This is evidence-only instrumentation for sizing structural grouped-MMQ work after Phase 28 rejected launch-bounds/row-tile knobs. | yes (env unset and trace-enabled gates both green: MoE `8cb0ce23`, dense `5951a5b4`, `MUL_MAT_ID` `806/806`; trace cap verified with 4 lines) |
 | 0057 | **Trace MoE MMQ launch shapes** - extends `LLAMA_MOE_MMQ_SHAPE_TRACE=<n>` with bounded `[LLAMA_MOE_MMQ_LAUNCH]` lines from `launch_mul_mat_q`, recording actual `ntiles_dst`, `stream_k_blocks`, tile efficiency, `fixup`, `ntx/nty/ntzw`, and compiled `mmq_x/mmq_y`. This is evidence-only instrumentation to distinguish real stream-k/fixup overhead from small-M kernel-shape cost. | yes (default-off, trace-enabled, and post-serving gates green: MoE `8cb0ce23`, dense `5951a5b4`, `MUL_MAT_ID` `806/806`; Phase 31 n128 trace showed decode and prefill `fixup=0`, `stream_k_blocks == ntiles_dst`) |
 | 0058 | **Trace MoE small-M MMQ candidates** - adds `LLAMA_MOE_MMQ_SMALL_M_TRACE=<n>` and a host-only classifier for decode-like low-density grouped-MMQ shapes (`ncols_max <= 128`, density `<=4`, `mmq_x_best <=64`). It only counts candidate calls for the next structural tile-policy A/B; no numeric branch is added. | yes (default-off, trace-enabled, and post-serving gates green: MoE `8cb0ce23`, dense `5951a5b4`, `MUL_MAT_ID` `806/806`; Phase 32 n128 trace found 4096 candidates, mostly `mmq_x_best=64/48`) |
+| 0059 | **Gate MoE small-M MMQ tile policy** - adds default-off `LLAMA_MOE_SMALL_M_TILE=<n>` to cap only classified small-M MoE grouped-MMQ calls. This was used to A/B vLLM-like smaller M blocks without changing default inference. | yes (default-off, tile16, tile8, and post-serving gates green: MoE `8cb0ce23`, dense `5951a5b4`, `MUL_MAT_ID` `806/806`; Phase 33 rejected tile16 and tile8 as slower) |
 
 > **Dropped: patch 0026 (hybrid per-head bf16 SSM state, `ssm_bf16_tau`).** Once
 > the decode fusions (0028 recurrent-state gather-fusion + 0029 block-table cache)
@@ -666,3 +667,9 @@ trace-enabled, and post-serving gates stayed stable: MoE `8cb0ce23`, dense
 candidate calls: `mmq_x_best=64` 1800, `48` 1096, `40` 360, `32` 360, `16`
 360, `24` 120. This justifies Phase 33 as a default-off tile-policy A/B
 (`mmq_x=16`, possibly `8`) rather than a broad kernel rewrite.
+
+Phase 33 added default-off `LLAMA_MOE_SMALL_M_TILE=<n>` as patch `0059`
+(`/home/mudler/bench/phase33_small_m_tile_policy/20260701_071136`). The knob is
+md5/op safe, but both tested values were slower in same-session n128 serving:
+baseline `672.1` decode_agg_tps, tile16 `640.3` (`0.953x`), tile8 `583.2`
+(`0.868x`). Do not promote simple smaller `mmq_x` caps for this workload.

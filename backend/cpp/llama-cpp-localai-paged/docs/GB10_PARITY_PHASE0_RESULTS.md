@@ -1955,3 +1955,38 @@ Decision:
   A/B in Phase 33.
 - Start with a small-M MoE-only `mmq_x=16` cap, and consider `8` only if it
   compiles and preserves the existing NVFP4 tile invariants.
+
+## Phase 33 Small-M MoE MMQ Tile Policy A/B
+
+Phase 33 added patch `0059`, default-off `LLAMA_MOE_SMALL_M_TILE=<n>`, to cap
+only the Phase 32 classified small-M MoE grouped-MMQ calls. This tested whether
+a vLLM-like smaller M block could improve n128 decode without rewriting the
+kernel.
+
+Artifact:
+
+- `/home/mudler/bench/phase33_small_m_tile_policy/20260701_071136`
+
+Gates:
+
+| mode | MoE md5 | dense md5 | `MUL_MAT_ID` |
+|------|---------|-----------|--------------|
+| default-off | `8cb0ce23777bf55f92f63d0292c756b0` | `5951a5b4d624ce891e22ab5fca9bc439` | `806/806` |
+| `LLAMA_MOE_SMALL_M_TILE=16` | `8cb0ce23777bf55f92f63d0292c756b0` | `5951a5b4d624ce891e22ab5fca9bc439` | `806/806` |
+| `LLAMA_MOE_SMALL_M_TILE=8` | `8cb0ce23777bf55f92f63d0292c756b0` | `5951a5b4d624ce891e22ab5fca9bc439` | `806/806` |
+| post-serving | `8cb0ce23777bf55f92f63d0292c756b0` | `5951a5b4d624ce891e22ab5fca9bc439` | `806/806` |
+
+Same-session n128 serving:
+
+| mode | decode_agg_tps | agg_tps | prefill_tps | ratio vs baseline |
+|------|----------------|---------|-------------|-------------------|
+| baseline | 672.1 | 339.5 | 1511.4 | 1.000x |
+| `LLAMA_MOE_SMALL_M_TILE=16` | 640.3 | 328.9 | 1522.2 | 0.953x |
+| `LLAMA_MOE_SMALL_M_TILE=8` | 583.2 | 307.4 | 1442.6 | 0.868x |
+
+Decision:
+
+- Reject simple smaller `mmq_x` caps for classified n128 small-M calls. They are
+  inference-safe but slower.
+- A future grouped-MMQ kernel must change the work shape more deeply than the
+  host-side tile cap, or pivot to a different bucket.

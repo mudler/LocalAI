@@ -850,6 +850,29 @@ and keeps the NVFP4 tile invariants. This matches the vLLM/Marlin lesson that
 low-density routed expert rows want smaller M blocks, without porting Marlin,
 Triton, TMA, tcgen05, or layout repack machinery.
 
+### Phase 33 small-M tile policy rejection
+
+Phase 33 added patch `0059`, default-off `LLAMA_MOE_SMALL_M_TILE=<n>`, and
+tested the obvious vLLM-like shortcut on the Phase 32 candidate population.
+Artifact: `/home/mudler/bench/phase33_small_m_tile_policy/20260701_071136`.
+
+Default-off, tile16, tile8, and post-serving gates were all bit-exact: MoE
+`8cb0ce23777bf55f92f63d0292c756b0`, dense
+`5951a5b4d624ce891e22ab5fca9bc439`, and `MUL_MAT_ID` `806/806`.
+
+Same-session n128 serving:
+
+| mode | decode_agg_tps | ratio |
+|------|----------------|-------|
+| baseline | 672.1 | 1.000x |
+| `LLAMA_MOE_SMALL_M_TILE=16` | 640.3 | 0.953x |
+| `LLAMA_MOE_SMALL_M_TILE=8` | 583.2 | 0.868x |
+
+Lever implication: smaller `mmq_x` alone is rejected for n128 serving. The
+remaining grouped-MMQ gap is not solved by emulating Marlin's small `block_size_m`
+with the current MMQ kernel; a future attempt must alter the kernel's internal
+work partitioning or move to a different bottleneck.
+
 Relevant files (all absolute): `/home/mudler/_git/LocalAI/.claude/worktrees/feat+paged-attention/backend/cpp/llama-cpp-localai-paged/docs/{DECODE_SERVING_SCOPE.md,PREFILL_GEMM_SCOPE.md,PREFILL_GEMM_RESULTS.md,TENSORCORE_GDN_SCOPE.md,final_benchmark.csv}`, `.../README.md`, `.../patches/paged/0034-feat-paged-native-NVFP4-W4A4-FP4-MMA-large-M-prefill.patch` (P1/P2), `.../patches/paged/0042-feat-paged-fused-residual-add-RMS-norm-weight-multip.patch` (P7), `.../patches/paged/0031` (P4), `0025` (D1), `0018/0022` (D4/D5), `0009/0010` (D3/D6/D7); graph source `/home/mudler/_git/LocalAI/backend/cpp/llama-cpp-paged-dev/src/{models/qwen35moe.cpp,models/delta-net-base.cpp,llama-graph.cpp}`.
 
 ### Phase 10 GDN C32 slab update
