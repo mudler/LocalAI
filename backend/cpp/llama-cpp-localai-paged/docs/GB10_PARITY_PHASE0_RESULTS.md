@@ -1907,3 +1907,51 @@ Decision:
 - The remaining grouped-MMQ work is structural small-M kernel work, not launch
   overhead. A follow-up should target the decode-like `mmq_x <= 64`, low-density
   kernel shape directly and keep the prefill `mmq_x=128` path separate.
+
+## Phase 32 Small-M MoE MMQ Candidate Classifier
+
+Phase 32 added patch `0058`, a default-off small-M candidate trace. It does not
+change tile selection or launch behavior; it only logs
+`[LLAMA_MOE_MMQ_SMALL_M]` lines when the grouped-MMQ selector has produced a
+decode-like low-density MoE shape.
+
+Artifact:
+
+- `/home/mudler/bench/phase32_small_m_classifier/20260701_070127`
+
+Run:
+
+- Fork commit: `/home/mudler/_git/llama.cpp` `2a9964d29`
+- DGX mirror commit: `dgx:~/llama-phase6-source` `024f494d0`
+- Env: `LLAMA_KV_PAGED=1 LLAMA_MOE_FORCE_GRAPHS=1 LLAMA_MOE_MMQ_SMALL_M_TRACE=4096`
+- Workload: h2h `n=128`, `PTOK=128`, `GEN=64`
+- Throughput while tracing: `decode_agg_tps=689.0`, `agg_tps=343.9`,
+  `prefill_tps=1566.5`, `TTFT mean=7849.0 ms`
+
+Candidate summary:
+
+| metric | notable values |
+|--------|----------------|
+| total candidates | 4096 |
+| `mmq_x_best` | `64`: 1800, `48`: 1096, `40`: 360, `32`: 360, `16`: 360, `24`: 120 |
+| density | `4`: 1440, `3`: 1336, `1`: 840, `2`: 480 |
+| `ncols_max` | `84`: 600, `128`: 360, `70`: 240, `12`: 240, `97`: 240, `126`: 240 |
+
+Gates:
+
+| check | status | actual |
+|-------|--------|--------|
+| default-off MoE md5 | ok | `8cb0ce23777bf55f92f63d0292c756b0` |
+| default-off dense md5 | ok | `5951a5b4d624ce891e22ab5fca9bc439` |
+| trace-enabled MoE md5 | ok | `8cb0ce23777bf55f92f63d0292c756b0` |
+| trace-enabled dense md5 | ok | `5951a5b4d624ce891e22ab5fca9bc439` |
+| post-serving MoE md5 | ok | `8cb0ce23777bf55f92f63d0292c756b0` |
+| post-serving dense md5 | ok | `5951a5b4d624ce891e22ab5fca9bc439` |
+| `MUL_MAT_ID` | ok | `806/806` in all three gate runs |
+
+Decision:
+
+- There is enough live candidate coverage to justify a default-off tile-policy
+  A/B in Phase 33.
+- Start with a small-M MoE-only `mmq_x=16` cap, and consider `8` only if it
+  compiles and preserves the existing NVFP4 tile invariants.
