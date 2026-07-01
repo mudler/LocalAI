@@ -33,9 +33,11 @@ The direct-activation experiment can at most remove the `1.611s` gather+cast tax
 
 - Modify: `/home/mudler/_git/llama.cpp/ggml/src/ggml-cuda/w4a16-gemm.cuh`
   - Add declarations for a direct-activation engagement helper and direct kernel launcher.
+- Create: `/home/mudler/_git/llama.cpp/ggml/src/ggml-cuda/w4a16-policy.h`
+  - Pure C++ policy helper for direct-mode engagement tests.
 - Modify: `/home/mudler/_git/llama.cpp/ggml/src/ggml-cuda/w4a16-gemm.cu`
   - Add `LLAMA_W4A16_DIRECT_A` parsing.
-  - Add a pure helper for direct-mode route tests.
+  - Use the pure direct-mode route helper.
   - Add a direct-activation kernel variant that uses `ids_to_sorted` and original `src1` strides.
 - Modify: `/home/mudler/_git/llama.cpp/ggml/src/ggml-cuda/ggml-cuda.cu`
   - Pass `ids_to_sorted`, original `src1` data pointer, and source strides to the direct launcher.
@@ -54,12 +56,12 @@ The direct-activation experiment can at most remove the `1.611s` gather+cast tax
 - Create: `/home/mudler/_git/llama.cpp/tests/test-cuda-w4a16-policy.cpp`
 - Modify: `/home/mudler/_git/llama.cpp/tests/CMakeLists.txt`
 
-- [ ] **Step 1: Add the failing policy test file**
+- [x] **Step 1: Add the failing policy test file**
 
 Create `/home/mudler/_git/llama.cpp/tests/test-cuda-w4a16-policy.cpp`:
 
 ```cpp
-#include "ggml-cuda/w4a16-gemm.cuh"
+#include "ggml-cuda/w4a16-policy.h"
 
 #include <cassert>
 #include <cstdio>
@@ -122,18 +124,17 @@ int main() {
 }
 ```
 
-- [ ] **Step 2: Register the test**
+- [x] **Step 2: Register the test**
 
 Add to `/home/mudler/_git/llama.cpp/tests/CMakeLists.txt` near the other small C++ tests:
 
 ```cmake
-if (GGML_CUDA)
-    llama_test_executable(test-cuda-w4a16-policy test-cuda-w4a16-policy.cpp)
-    target_link_libraries(test-cuda-w4a16-policy PRIVATE ggml)
-endif()
+llama_build(test-cuda-w4a16-policy.cpp)
+target_include_directories(test-cuda-w4a16-policy PRIVATE ${PROJECT_SOURCE_DIR}/ggml/src)
+llama_test(test-cuda-w4a16-policy)
 ```
 
-- [ ] **Step 3: Verify RED**
+- [x] **Step 3: Verify RED**
 
 Run:
 
@@ -142,48 +143,30 @@ cd /home/mudler/_git/llama.cpp
 cmake --build build --target test-cuda-w4a16-policy -j2
 ```
 
-Expected: build fails because `ggml_cuda_w4a16_direct_a_should_engage_params` is not declared.
+Expected: build fails because the direct-A policy surface is missing.
+
+Actual RED: after reconfiguring the build tree, the target failed to compile
+because `ggml-cuda/w4a16-policy.h` did not exist.
 
 ## Task 2: Add Direct-A Policy Helper
 
 **Files:**
 
-- Modify: `/home/mudler/_git/llama.cpp/ggml/src/ggml-cuda/w4a16-gemm.cuh`
+- Create: `/home/mudler/_git/llama.cpp/ggml/src/ggml-cuda/w4a16-policy.h`
 - Modify: `/home/mudler/_git/llama.cpp/ggml/src/ggml-cuda/w4a16-gemm.cu`
 
-- [ ] **Step 1: Declare the helper**
+- [x] **Step 1: Create the pure policy helper**
 
-Add to `w4a16-gemm.cuh`:
-
-```cpp
-bool ggml_cuda_w4a16_direct_a_enabled();
-
-bool ggml_cuda_w4a16_direct_a_should_engage_params(
-    ggml_type src0_type,
-    ggml_type src1_type,
-    ggml_type dst_type,
-    bool blackwell,
-    int64_t w4a16_prefill_m,
-    bool direct_a,
-    int64_t tokens,
-    int64_t k,
-    int64_t n);
-```
-
-- [ ] **Step 2: Implement the helper**
-
-Add to `w4a16-gemm.cu` near `ggml_cuda_w4a16_prefill_enabled()`:
+Create `w4a16-policy.h`:
 
 ```cpp
-bool ggml_cuda_w4a16_direct_a_enabled() {
-    static const bool enabled = [] {
-        const char * e = getenv("LLAMA_W4A16_DIRECT_A");
-        return e != nullptr && atoi(e) != 0;
-    }();
-    return enabled;
-}
+#pragma once
 
-bool ggml_cuda_w4a16_direct_a_should_engage_params(
+#include "ggml.h"
+
+#include <cstdint>
+
+static inline bool ggml_cuda_w4a16_direct_a_should_engage_params(
         ggml_type src0_type,
         ggml_type src1_type,
         ggml_type dst_type,
@@ -206,7 +189,27 @@ bool ggml_cuda_w4a16_direct_a_should_engage_params(
 }
 ```
 
-- [ ] **Step 3: Verify GREEN for policy test**
+- [x] **Step 2: Declare and implement the env helper**
+
+Add to `w4a16-gemm.cuh`:
+
+```cpp
+bool ggml_cuda_w4a16_direct_a_enabled();
+```
+
+Add to `w4a16-gemm.cu` near `ggml_cuda_w4a16_prefill_enabled()`:
+
+```cpp
+bool ggml_cuda_w4a16_direct_a_enabled() {
+    static const bool enabled = [] {
+        const char * e = getenv("LLAMA_W4A16_DIRECT_A");
+        return e != nullptr && atoi(e) != 0;
+    }();
+    return enabled;
+}
+```
+
+- [x] **Step 3: Verify GREEN for policy test**
 
 Run:
 
@@ -221,6 +224,29 @@ Expected:
 ```text
 test-cuda-w4a16-policy: OK
 ```
+
+Actual local verification:
+
+```bash
+cd /home/mudler/_git/llama.cpp
+cmake -B build -S .
+cmake --build build --target test-cuda-w4a16-policy -j2
+ctest --test-dir build -R '^test-cuda-w4a16-policy$' --output-on-failure
+```
+
+Result: `100% tests passed, 0 tests failed out of 1`.
+
+Actual DGX CUDA compile verification:
+
+```text
+test-cuda-w4a16-policy: OK
+[  7%] Building CUDA object ggml/src/ggml-cuda/CMakeFiles/ggml-cuda.dir/w4a16-gemm.cu.o
+[100%] Built target test-cuda-w4a16-policy
+```
+
+Fork commit:
+
+- `41be3da5b test(cuda): cover W4A16 direct activation policy`
 
 ## Task 3: Add Direct-A Kernel Launcher Skeleton
 
@@ -515,7 +541,7 @@ Run:
 cd /home/mudler/_git/llama.cpp
 git diff > /tmp/phase61-w4a16-direct-a-rejected.diff
 git restore ggml/src/ggml-cuda/w4a16-gemm.cuh ggml/src/ggml-cuda/w4a16-gemm.cu ggml/src/ggml-cuda/ggml-cuda.cu tests/CMakeLists.txt
-rm -f tests/test-cuda-w4a16-policy.cpp
+rm -f ggml/src/ggml-cuda/w4a16-policy.h tests/test-cuda-w4a16-policy.cpp
 git status --short
 ```
 
