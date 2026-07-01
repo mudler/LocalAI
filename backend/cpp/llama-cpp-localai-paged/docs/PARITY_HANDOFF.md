@@ -652,6 +652,19 @@ matches h2h exactly, so this is the target request. The next GB10 lever should
 be a default-off scheduler/admission A/B or a per-step histogram trace, not an
 immediate GDN/GEMM rewrite.
 
+Phase 53 tested the existing runtime admission-budget knobs instead of adding
+new code. Artifact:
+`/home/mudler/bench/phase53_dense_admission_budget_sweep/20260701_111915`.
+Pre/post gates stayed green. Dense `n=128` results: default Phase52 `agg=139.0`,
+`decode_agg=360.5`, `prefill=629.5`, `TTFT=23171.5ms`, wall `58.921s`;
+`T=1536 cap=512` `agg=134.4`, `decode_agg=376.7`, `prefill=607.0`,
+`TTFT=22263.7ms`, wall `60.968s`; `T=1024 cap=512` `agg=130.0`,
+`decode_agg=392.4`, `prefill=565.2`, `TTFT=23234.3ms`, wall `63.003s`.
+Decision: simple budget shrinkage is rejected. It raises h2h decode-agg while
+lowering aggregate/prefill throughput, and it does not materially solve TTFT.
+Next scheduler work should be per-step histograms or a targeted first-token
+admission policy.
+
 ---
 
 ## 5. METHODOLOGY LESSONS (so you do not repeat the mistakes)
@@ -747,6 +760,7 @@ Only pursue if (a)+(b) are not options and someone explicitly wants the residual
 - `~/bench/phase50_dense_true_decode/20260701_103120` - dense graph-node difference-method profile at `npl=128`, `npp=128`; `build-cuda` pre/post md5 and op gates green; true decode paged `383.66 t/s`, vLLM `435.00 t/s`, ratio `0.8820`, pointing next at serving admission/scheduler tracing.
 - `~/bench/phase51_serving_admission_trace/20260701_110130` - default-off `LLAMA_SERVING_TRACE=1` fork commit `c6cb8460e`; DGX patched `build-cuda` CTest and md5/op gates green; push and LocalAI patch-series mirror pending approval.
 - `~/bench/phase52_dense_admission_trace/20260701_111017` - clean dense `n=128` admission trace; pre/post gates green; `decode_only_steps=0`, `prompt_tokens=22785`, `max_waiting_prompt_slots=35`; next lever is scheduler/admission A/B or per-step histogram trace.
+- `~/bench/phase53_dense_admission_budget_sweep/20260701_111915` - runtime sweep of `LLAMA_MAX_BATCH_TOKENS=1536/1024` with `LLAMA_PREFILL_CAP=512`; pre/post gates green; simple budget shrinkage rejected because aggregate/prefill throughput regressed and TTFT did not materially improve.
 - Per-engine logs `~/bench/COMBINED_{paged,vllm}_{MOE,DENSE}_server.log`; `~/bench/BENCHMARK_PROGRESS.md`.
 - Graph-node-traced high-N profiles: `~/highN_prof2/*.nsys-rep` (paged npl=256), `~/highN_vllm/*.nsys-rep` (vLLM), 2026-06-30.
 - A/B dirs: `~/bench/marlin_gate/`, `~/bench/gdn_p1_ab/`.

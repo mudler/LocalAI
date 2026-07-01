@@ -2938,3 +2938,41 @@ Decision:
   per-step histogram trace to test whether prefill chunking/admission can reduce
   TTFT without regressing aggregate throughput. Do not move to another GDN/GEMM
   rewrite until this scheduler hypothesis is tested.
+
+## Phase 53 Admission Budget Sweep
+
+Phase 53 tests the existing default-off admission knobs exposed by patch 0016:
+`LLAMA_MAX_BATCH_TOKENS` and `LLAMA_PREFILL_CAP`. The question was whether a
+simple smaller token budget improves dense `n=128` TTFT or aggregate throughput.
+
+Artifact:
+
+- `/home/mudler/bench/phase53_dense_admission_budget_sweep/20260701_111915`
+
+Pre/post gates:
+
+| phase | MoE md5 | dense md5 | `MUL_MAT` | `MUL_MAT_ID` |
+|-------|---------|-----------|-----------|--------------|
+| pre | `8cb0ce23777bf55f92f63d0292c756b0` | `5951a5b4d624ce891e22ab5fca9bc439` | `1146/1146` | `806/806` |
+| post | `8cb0ce23777bf55f92f63d0292c756b0` | `5951a5b4d624ce891e22ab5fca9bc439` | `1146/1146` | `806/806` |
+
+Results:
+
+| variant | agg t/s | decode agg t/s | decode per-seq t/s | prefill t/s | TTFT mean ms | wall s | steps | max waiting prompt slots |
+|---------|---------|-----------------|---------------------|-------------|--------------|--------|-------|--------------------------|
+| default Phase52 | `139.0` | `360.5` | `1.93` | `629.5` | `23171.5` | `58.921` | `76` | `35` |
+| `LLAMA_MAX_BATCH_TOKENS=1536 LLAMA_PREFILL_CAP=512` | `134.4` | `376.7` | `1.82` | `607.0` | `22263.7` | `60.968` | `81` | `26` |
+| `LLAMA_MAX_BATCH_TOKENS=1024 LLAMA_PREFILL_CAP=512` | `130.0` | `392.4` | `1.82` | `565.2` | `23234.3` | `63.003` | `89` | `16` |
+
+Decision:
+
+- Smaller admission budgets reduce the maximum number of waiting prompt slots
+  and raise the h2h `decode_agg_tps` metric, but they reduce aggregate
+  throughput and prefill throughput.
+- `T=1536` gave only a small TTFT improvement (`23171.5 -> 22263.7 ms`) while
+  worsening wall time and aggregate throughput.
+- `T=1024` worsened TTFT and aggregate throughput despite the highest
+  `decode_agg_tps`.
+- Do not promote simple budget shrinkage as a parity lever. The next useful
+  scheduler work is a richer per-step histogram trace or a targeted first-token
+  admission policy, not a static lower `LLAMA_MAX_BATCH_TOKENS`.

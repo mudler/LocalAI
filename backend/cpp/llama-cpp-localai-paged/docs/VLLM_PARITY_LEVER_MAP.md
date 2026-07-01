@@ -1267,6 +1267,30 @@ supports the Phase50 conclusion that the remaining high-N serving gap is
 scheduler/admission and TTFT shaped. Next lever should be a default-off
 admission-policy A/B or per-step histogram trace, not immediate kernel work.
 
+### Phase 53 admission budget sweep
+
+Phase53 tested the already-existing default-off budget knobs:
+`LLAMA_MAX_BATCH_TOKENS=1536/1024` with `LLAMA_PREFILL_CAP=512`, using the same
+dense `n=128`, `ptok=128`, `gen=64` traced serving shape. Artifact:
+`/home/mudler/bench/phase53_dense_admission_budget_sweep/20260701_111915`.
+
+Pre/post md5 and op gates stayed green: MoE
+`8cb0ce23777bf55f92f63d0292c756b0`, dense
+`5951a5b4d624ce891e22ab5fca9bc439`, `MUL_MAT` `1146/1146`, and
+`MUL_MAT_ID` `806/806`.
+
+| variant | agg t/s | decode agg t/s | prefill t/s | TTFT mean ms | wall s | max waiting prompt slots |
+|---------|---------|-----------------|-------------|--------------|--------|--------------------------|
+| default Phase52 | `139.0` | `360.5` | `629.5` | `23171.5` | `58.921` | `35` |
+| `T=1536 cap=512` | `134.4` | `376.7` | `607.0` | `22263.7` | `60.968` | `26` |
+| `T=1024 cap=512` | `130.0` | `392.4` | `565.2` | `23234.3` | `63.003` | `16` |
+
+Decision: simple budget shrinkage is rejected as a parity lever. It improves
+the h2h decode-agg metric by starving/slimming prompt admission, but aggregate
+throughput and prefill throughput fall, and TTFT does not materially improve.
+Next scheduler work should collect per-step histograms or test a targeted
+first-token admission policy.
+
 Relevant files (all absolute): `/home/mudler/_git/LocalAI/.claude/worktrees/feat+paged-attention/backend/cpp/llama-cpp-localai-paged/docs/{DECODE_SERVING_SCOPE.md,PREFILL_GEMM_SCOPE.md,PREFILL_GEMM_RESULTS.md,TENSORCORE_GDN_SCOPE.md,final_benchmark.csv}`, `.../README.md`, `.../patches/paged/0034-feat-paged-native-NVFP4-W4A4-FP4-MMA-large-M-prefill.patch` (P1/P2), `.../patches/paged/0042-feat-paged-fused-residual-add-RMS-norm-weight-multip.patch` (P7), `.../patches/paged/0031` (P4), `0025` (D1), `0018/0022` (D4/D5), `0009/0010` (D3/D6/D7); graph source `/home/mudler/_git/LocalAI/backend/cpp/llama-cpp-paged-dev/src/{models/qwen35moe.cpp,models/delta-net-base.cpp,llama-graph.cpp}`.
 
 ### Phase 10 GDN C32 slab update
