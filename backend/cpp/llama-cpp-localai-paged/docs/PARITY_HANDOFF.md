@@ -513,6 +513,18 @@ The only future fused-gate design worth scoping is a persistent/load-time F32
 combined gate weight with output views, default-off until MoE/dense md5,
 `MUL_MAT`, `MUL_MAT_ID`, and KL-if-md5-changes gates pass.
 
+Phase 40 closes the tested GB10 max-concurrency C1 shortcut. Artifact:
+`/home/mudler/bench/phase40_max_concurrency/20260701_090012`. The snapshot ran
+with `PARALLEL=256`, `CTX=262144`, `PTOK=128`, `GEN=64`, `NPL="128 192 256"`,
+and `OPS=MUL_MAT,MUL_MAT_ID`. Pre/post gates stayed green: MoE
+`8cb0ce23777bf55f92f63d0292c756b0`, dense
+`5951a5b4d624ce891e22ab5fca9bc439`, `MUL_MAT` `1146/1146`, `MUL_MAT_ID`
+`806/806`. Paged safely served `n=256`, but vLLM also fit and remained faster:
+`paged_decode_over_vllm=0.6354`, `paged_agg_over_vllm=0.4721`,
+`paged_ttft_over_vllm=2.9401`. Do not claim GB10 parity from higher max
+concurrency at this prompt/gen length and `n<=256`; a future C1 retry must push
+beyond this tested point and keep the same md5/op gates.
+
 ---
 
 ## 5. METHODOLOGY LESSONS (so you do not repeat the mistakes)
@@ -595,6 +607,7 @@ Only pursue if (a)+(b) are not options and someone explicitly wants the residual
 - `~/bench/phase38_gate_baseline/20260701_084410` - current Phase37 build baseline before gate-projection policy work; docker/local-ai-worker/GPU idle preflight green; MoE/dense md5 green; `MUL_MAT` `1146/1146`; `MUL_MAT_ID` `806/806`.
 - `~/bench/phase39_gate_sgemm_profile/20260701_085211` - short completion profile, diagnostic only because `-n 32` is not a canonical md5 gate; useful for confirming graph-time concat is a real kernel path.
 - `~/bench/phase39_gate_sgemm_profile/phase27_reanalysis` - Phase27 serving profile re-analysis used to reject graph-time fused gate weight concat; `concat_layout=459.84ms` (`2.29%`) in the serving kernel window.
+- `~/bench/phase40_max_concurrency/20260701_090012` - max-concurrency C1 check at `NPL=128/192/256`, `PTOK=128`, `GEN=64`, `PARALLEL=256`, `CTX=262144`; pre/post MoE/dense md5 and `MUL_MAT`/`MUL_MAT_ID` gates green, but vLLM also fit at `n=256` and stayed ahead (`paged_decode_over_vllm=0.6354`, `paged_agg_over_vllm=0.4721`).
 - Per-engine logs `~/bench/COMBINED_{paged,vllm}_{MOE,DENSE}_server.log`; `~/bench/BENCHMARK_PROGRESS.md`.
 - Graph-node-traced high-N profiles: `~/highN_prof2/*.nsys-rep` (paged npl=256), `~/highN_vllm/*.nsys-rep` (vLLM), 2026-06-30.
 - A/B dirs: `~/bench/marlin_gate/`, `~/bench/gdn_p1_ab/`.

@@ -2295,3 +2295,78 @@ Decision:
   default-off, keep gate weights in F32, avoid graph-time weight concat, and
   pass MoE/dense md5 plus `MUL_MAT`/`MUL_MAT_ID` gates before any serving
   benchmark. If md5 changes, run KL first and reject on KL regression.
+
+## Phase 40 Max-Concurrency C1 Check
+
+Phase 40 tested the remaining C1 hypothesis from the lever map: use paged KV's
+lower memory footprint to run a higher-concurrency serving point where vLLM
+falls behind or fails to fit.
+
+Artifacts:
+
+- `/home/mudler/bench/phase40_max_concurrency_dryrun/20260701_090002`
+- `/home/mudler/bench/phase40_max_concurrency/20260701_090012`
+
+Preflight:
+
+| check | actual |
+|-------|--------|
+| GPU | `NVIDIA GB10, 580.159.03` |
+| docker containers | `0` |
+| `local-ai-worker` containers | `0` |
+| GPU compute apps | `0` |
+| GPU lock owner | `FREE phase39-gate-sgemm-profile-done 1782888737` |
+
+Harness change:
+
+- `paged-current-serving-snapshot.sh` now accepts `BUILD_DIR` and defaults
+  `BIN` from that same directory. This keeps the benchmark build step and runtime
+  binaries pointed at the same CMake tree.
+- Phase 40 used `BUILD_DIR=$HOME/llama-phase6-source/build-phase36`,
+  `BIN=$HOME/llama-phase6-source/build-phase36/bin`,
+  `OPS=MUL_MAT,MUL_MAT_ID`, `PARALLEL=256`, `CTX=262144`, `PTOK=128`,
+  `GEN=64`, `NPL="128 192 256"`.
+
+Pre/post inference gates:
+
+| phase | check | status | actual |
+|-------|-------|--------|--------|
+| pre | MoE md5 | ok | `8cb0ce23777bf55f92f63d0292c756b0` |
+| pre | dense md5 | ok | `5951a5b4d624ce891e22ab5fca9bc439` |
+| pre | `MUL_MAT` | ok | `1146/1146` |
+| pre | `MUL_MAT_ID` | ok | `806/806` |
+| post | MoE md5 | ok | `8cb0ce23777bf55f92f63d0292c756b0` |
+| post | dense md5 | ok | `5951a5b4d624ce891e22ab5fca9bc439` |
+| post | `MUL_MAT` | ok | `1146/1146` |
+| post | `MUL_MAT_ID` | ok | `806/806` |
+
+Serving result:
+
+| arm | n | agg t/s | decode agg t/s | decode per-seq t/s | prefill t/s | TTFT mean ms |
+|-----|---|---------|----------------|--------------------|-------------|--------------|
+| paged | 128 | `326.3` | `671.8` | `3.97` | `1695.2` | `8182.3` |
+| paged | 192 | `318.3` | `679.9` | `2.50` | `1605.2` | `11151.6` |
+| paged | 256 | `337.1` | `829.9` | `2.09` | `1525.7` | `15065.7` |
+| vLLM | 128 | `654.4` | `1013.3` | `6.72` | `5206.0` | `2582.6` |
+| vLLM | 192 | `697.7` | `1185.2` | `4.88` | `4787.1` | `3690.6` |
+| vLLM | 256 | `714.1` | `1306.1` | `3.90` | `4471.0` | `5124.2` |
+
+Ratios:
+
+| n | paged decode / vLLM | paged per-seq / vLLM | paged agg / vLLM | paged TTFT / vLLM |
+|---|---------------------|----------------------|------------------|-------------------|
+| 128 | `0.6630` | `0.5908` | `0.4986` | `3.1682` |
+| 192 | `0.5737` | `0.5123` | `0.4562` | `3.0216` |
+| 256 | `0.6354` | `0.5359` | `0.4721` | `2.9401` |
+
+Decision:
+
+- C1 does not close GB10 parity for this workload. Paged safely serves `n=256`
+  with canonical md5/op gates green before and after the run, but vLLM also
+  fits and remains materially faster.
+- Do not claim a GB10 parity win from higher max concurrency at
+  `PTOK=128`, `GEN=64`, `n<=256`.
+- The next GB10 work should stay on the profile-validated root causes:
+  prefill GDN, prefill MoE GEMM, and low-concurrency/full-step graph capture.
+  Any future C1 rerun must push beyond this tested point and keep the same
+  md5 plus `MUL_MAT`/`MUL_MAT_ID` gates.

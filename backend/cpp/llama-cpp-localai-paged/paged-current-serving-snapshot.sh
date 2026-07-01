@@ -13,6 +13,7 @@ comparison with the h2h client.
 
 Environment overrides:
   SRC          llama.cpp source dir (default: ~/llama-phase6-source)
+  BUILD_DIR    llama.cpp CMake build dir (default: $SRC/build-cuda)
   BIN          llama.cpp build bin dir (default: $SRC/build-cuda/bin)
   MODEL        paged GGUF path (default: ~/bench/q36-35b-a3b-nvfp4.gguf)
   VLLM_MODEL   vLLM model dir (default: ~/bench/q36-35b-a3b-nvfp4-vllm)
@@ -58,7 +59,8 @@ case "${1:-}" in
 esac
 
 SRC=${SRC:-"$HOME/llama-phase6-source"}
-BIN=${BIN:-"$SRC/build-cuda/bin"}
+BUILD_DIR=${BUILD_DIR:-"$SRC/build-cuda"}
+BIN=${BIN:-"$BUILD_DIR/bin"}
 MODEL=${MODEL:-"$HOME/bench/q36-35b-a3b-nvfp4.gguf"}
 VLLM_MODEL=${VLLM_MODEL:-"$HOME/bench/q36-35b-a3b-nvfp4-vllm"}
 H2H=${H2H:-"$HOME/bench/h2h_cli3.py"}
@@ -376,14 +378,14 @@ log "source=$(git -C "$SRC" log --oneline -1)"
 
 if [[ "$DRY_RUN" == "1" ]]; then
   log "dry run only; commands validated"
-  log "would build: cmake --build $SRC/build-cuda --target llama-server llama-completion test-backend-ops -j8"
+  log "would build: cmake --build $BUILD_DIR --target llama-server llama-completion test-backend-ops -j8"
   log "would run paged NPL=[$NPL] PTOK=$PTOK GEN=$GEN"
   log "would run vLLM NPL=[$NPL] PTOK=$PTOK GEN=$GEN"
   exit 0
 fi
 
 log "building llama-server, llama-completion, and test-backend-ops"
-cmake --build "$SRC/build-cuda" --target llama-server llama-completion test-backend-ops -j 8 \
+cmake --build "$BUILD_DIR" --target llama-server llama-completion test-backend-ops -j 8 \
   > "$ART/build.log" 2>&1
 
 run_gate pre

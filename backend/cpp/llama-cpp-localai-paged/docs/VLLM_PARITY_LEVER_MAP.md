@@ -1012,6 +1012,32 @@ into `ffn_moe_logits` and `shared_expert_gate`. That is a model-loader/weight
 layout feature, not a graph shortcut. It must stay default-off until MoE/dense
 md5, `MUL_MAT`, `MUL_MAT_ID`, and KL-if-md5-changes gates pass.
 
+### Phase 40 max-concurrency C1 check
+
+Phase 40 tested whether paged KV's memory advantage creates a higher-concurrency
+GB10 serving point that closes the vLLM gap. Artifact:
+`/home/mudler/bench/phase40_max_concurrency/20260701_090012`. The run used
+`PARALLEL=256`, `CTX=262144`, `PTOK=128`, `GEN=64`, `NPL="128 192 256"`, and
+`OPS=MUL_MAT,MUL_MAT_ID`.
+
+Pre/post gates stayed green: MoE `8cb0ce23777bf55f92f63d0292c756b0`, dense
+`5951a5b4d624ce891e22ab5fca9bc439`, `MUL_MAT` `1146/1146`, and `MUL_MAT_ID`
+`806/806`.
+
+Result:
+
+| n | paged decode / vLLM | paged per-seq / vLLM | paged agg / vLLM | paged TTFT / vLLM |
+|---|---------------------|----------------------|------------------|-------------------|
+| 128 | `0.6630` | `0.5908` | `0.4986` | `3.1682` |
+| 192 | `0.5737` | `0.5123` | `0.4562` | `3.0216` |
+| 256 | `0.6354` | `0.5359` | `0.4721` | `2.9401` |
+
+Decision: C1 does not close GB10 parity at `PTOK=128`, `GEN=64`, and `n<=256`.
+Paged safely serves `n=256`, but vLLM also fits and remains faster. Do not use
+the memory-footprint advantage as a parity claim at this tested point; any
+future C1 retry must push beyond it and keep md5 plus `MUL_MAT`/`MUL_MAT_ID`
+gates.
+
 Relevant files (all absolute): `/home/mudler/_git/LocalAI/.claude/worktrees/feat+paged-attention/backend/cpp/llama-cpp-localai-paged/docs/{DECODE_SERVING_SCOPE.md,PREFILL_GEMM_SCOPE.md,PREFILL_GEMM_RESULTS.md,TENSORCORE_GDN_SCOPE.md,final_benchmark.csv}`, `.../README.md`, `.../patches/paged/0034-feat-paged-native-NVFP4-W4A4-FP4-MMA-large-M-prefill.patch` (P1/P2), `.../patches/paged/0042-feat-paged-fused-residual-add-RMS-norm-weight-multip.patch` (P7), `.../patches/paged/0031` (P4), `0025` (D1), `0018/0022` (D4/D5), `0009/0010` (D3/D6/D7); graph source `/home/mudler/_git/LocalAI/backend/cpp/llama-cpp-paged-dev/src/{models/qwen35moe.cpp,models/delta-net-base.cpp,llama-graph.cpp}`.
 
 ### Phase 10 GDN C32 slab update
