@@ -454,9 +454,9 @@ Phase 9 adds a narrow MTP smoke gate instead of production enablement:
   MoE `8cb0ce23777bf55f92f63d0292c756b0`, dense
   `5951a5b4d624ce891e22ab5fca9bc439`.
 
-MTP remains opt-in and, after Phase 14, safety-gated but not throughput-proven.
-It does not supersede the next GDN prefill scope until a serving phase proves
-target-verification cost.
+MTP remains opt-in and, after Phase 15, rejected as a current GB10 serving
+throughput lever. It does not supersede the GDN/paged-serving conclusions unless
+a future graph/batch-shape fix changes the serving result.
 
 ### Phase 14 MTP rollback update
 
@@ -478,8 +478,35 @@ than exact transcript md5 because `llama-speculative-simple` emits accepted
 token groups and can produce a longer completion than `llama-completion -no-cnv`
 for the same `-n`. Across `n=8,16,24,32,48`, no first differing token was found.
 
-Next step: Phase 15 may benchmark serving/API throughput with MTP still
-default-off and only behind the canonical inference gates.
+Phase 15 completed that serving/API benchmark and rejected current MTP serving.
+
+### Phase 15 MTP serving update
+
+Phase 15 ran the direct `llama-server` serving A/B that Phase 14 enabled. It
+rejects current MTP serving as a parity lever on GB10:
+
+| arm | n | decode agg t/s | decode per-seq t/s | TTFT mean ms |
+|---|---:|---:|---:|---:|
+| baseline | 8 | 247.8 | 30.70 | 1181.1 |
+| MTP | 8 | 109.8 | 14.26 | 1691.5 |
+| baseline | 32 | 406.0 | 12.02 | 2762.2 |
+| MTP | 32 | 111.7 | 3.61 | 4545.6 |
+| baseline | 128 | 662.4 | 4.31 | 7747.2 |
+| MTP | 128 | 138.5 | 0.97 | 20385.7 |
+
+Artifact: `/home/mudler/bench/phase15_mtp_serving/20260701_042005`.
+
+MTP did draft and accept tokens (`#gen tokens = 17293`, `#acc tokens = 15493`),
+so this is not a no-draft false negative. The likely culprit is graph/batch
+shape disruption: baseline logs show heavy graph reuse (`graphs reused = 361`
+in the high-concurrency tail), while MTP logs show `graphs reused = 1` and much
+higher per-slot eval time. Pre/post canonical inference gates stayed green:
+MoE `8cb0ce23777bf55f92f63d0292c756b0`, dense
+`5951a5b4d624ce891e22ab5fca9bc439`, and `MUL_MAT_ID` `806/806`.
+
+Do not keep tuning MTP draft length blindly. A follow-up must first profile
+speculative verification batch shapes and CUDA graph reuse with
+`nsys --cuda-graph-trace=node`.
 
 Relevant files (all absolute): `/home/mudler/_git/LocalAI/.claude/worktrees/feat+paged-attention/backend/cpp/llama-cpp-localai-paged/docs/{DECODE_SERVING_SCOPE.md,PREFILL_GEMM_SCOPE.md,PREFILL_GEMM_RESULTS.md,TENSORCORE_GDN_SCOPE.md,final_benchmark.csv}`, `.../README.md`, `.../patches/paged/0034-feat-paged-native-NVFP4-W4A4-FP4-MMA-large-M-prefill.patch` (P1/P2), `.../patches/paged/0042-feat-paged-fused-residual-add-RMS-norm-weight-multip.patch` (P7), `.../patches/paged/0031` (P4), `0025` (D1), `0018/0022` (D4/D5), `0009/0010` (D3/D6/D7); graph source `/home/mudler/_git/LocalAI/backend/cpp/llama-cpp-paged-dev/src/{models/qwen35moe.cpp,models/delta-net-base.cpp,llama-graph.cpp}`.
 

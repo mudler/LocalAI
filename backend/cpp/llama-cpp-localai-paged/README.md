@@ -344,6 +344,12 @@ md5 checks and selected `test-backend-ops` filters, and refuses to start while
 docker, `local-ai-worker`, GPU compute processes, or a non-free GPU lock are
 present.
 
+For direct `llama-server` MTP serving A/B work, use
+`paged-mtp-serving-bench.sh`. It runs the same pre/post inference gates, compares
+baseline vs `--spec-type draft-mtp`, and captures the h2h client summaries plus
+MTP acceptance lines. Phase 15 rejected current MTP serving on GB10 despite
+passing safety gates; do not enable it by default.
+
 **The gate is per-path** (see [`PAGED_BITEXACT_NOTE.md`](docs/PAGED_BITEXACT_NOTE.md)).
 Dense is bit-exact across paged/non-paged (`5951a5b4`). The **paged MoE** md5
 (`8cb0ce23`) does **not** byte-match the **non-paged MoE** md5 (`07db32c2`); this

@@ -885,6 +885,65 @@ Decision:
 - Do not count MTP as a GB10 speed-parity win until serving results show useful
   target-verification throughput under the canonical inference gates.
 
+## Phase 15 MTP Serving Throughput Gate
+
+Phase 15 measured the direct `llama-server` serving path after Phase 14 proved
+rollback safety. The test compared two same-shape arms:
+
+- baseline: no speculative decoding,
+- MTP: `--spec-type draft-mtp --spec-draft-n-max 3
+  --no-spec-draft-backend-sampling`.
+
+Artifact:
+
+- `/home/mudler/bench/phase15_mtp_serving/20260701_042005`
+
+Harness:
+
+- `backend/cpp/llama-cpp-localai-paged/paged-mtp-serving-bench.sh`
+- `NPL="8 32 128" PTOK=128 GEN=128 CTX=131072 PARALLEL=128`
+- client: `/home/mudler/bench/h2h_cli3.py` against `/v1/completions`
+
+Result:
+
+| arm | n | agg t/s | decode agg t/s | decode per-seq t/s | TTFT mean ms | wall s |
+|---|---:|---:|---:|---:|---:|---:|
+| baseline | 8 | 192.5 | 247.8 | 30.70 | 1181.1 | 5.318 |
+| MTP | 8 | 92.9 | 109.8 | 14.26 | 1691.5 | 11.017 |
+| baseline | 32 | 305.4 | 406.0 | 12.02 | 2762.2 | 13.412 |
+| MTP | 32 | 95.8 | 111.7 | 3.61 | 4545.6 | 42.727 |
+| baseline | 128 | 429.5 | 662.4 | 4.31 | 7747.2 | 38.144 |
+| MTP | 128 | 100.3 | 138.5 | 0.97 | 20385.7 | 163.289 |
+
+MTP did actually run:
+
+- server initialized `draft-mtp` with bounded partial sequence removal,
+- response/server timings included draft counters,
+- server log tail included `#gen tokens = 17293`, `#acc tokens = 15493`.
+
+Normal inference gates before and after the A/B:
+
+- MoE md5: `8cb0ce23777bf55f92f63d0292c756b0`.
+- Dense md5: `5951a5b4d624ce891e22ab5fca9bc439`.
+- `MUL_MAT_ID`: `806/806`, `Backend CUDA0: OK`.
+
+Decision:
+
+- Reject current `llama-server` MTP as a GB10 serving parity lever.
+- Do not enable MTP by default in LocalAI or llama-server.
+- Do not tune `spec-draft-n-max` blindly. The regression is large enough that
+  the next MTP phase, if any, must start with graph/batch-shape profiling.
+
+Likely root cause:
+
+- Baseline serving preserved heavy graph reuse (`graphs reused = 361` in the
+  `n=128` tail).
+- MTP serving showed `graphs reused = 1` and high per-slot eval time at high
+  concurrency.
+- The working hypothesis is that MTP verification/draft batch shape churn
+  defeats the paged decode graph-reuse wins, so extra verification dominates
+  despite high draft acceptance.
+
 ## Phase 10 GDN C32 Slab Baseline and Source Check
 
 Phase 10 starts a separate GDN prefill path; it does not reopen the rejected

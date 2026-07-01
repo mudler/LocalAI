@@ -206,7 +206,7 @@ Dense decode is **AHEAD at low N (116.7% @ N=8)** - the one operating point wher
 | S2 double-buffer set_inputs | overlap host input build with GPU | DROPPED | `set_inputs` ~0.05 ms/step, nothing to recover |
 | whole-step graph / host loop | host loop as serving residual | CLOSED (~0-1%) | reuse 0% (757.6) == S1+S3 72% (763.3); hostproc only ~4-8% of step wall |
 | padded / fixed-slot decode | pad decode width to `--parallel` for ~100% reuse | **REJECTED (built, GPU-tested, commit b028c81e)** | inert (BE) but regresses everywhere; N=8 burst 28.16->6.05 tok/s/seq; serving decode is GPU-compute-bound, dummy-row compute > reuse recovered |
-| speculative decode (MTP) | draft + verify | SAFETY-GATED, default-off | Phase 14 passed recurrent rollback, partial rejection, normalized greedy-prefix, and canonical inference gates; still needs serving/API throughput proof before any parity claim |
+| speculative decode (MTP) | draft + verify | **REJECTED for current GB10 serving** | Phase 14 safety passed, but Phase 15 serving A/B regressed hard: n128 decode agg 662.4 -> 138.5 tok/s; likely graph/batch-shape disruption (`graphs reused` 361 -> 1) |
 
 ### 4.5 SHIPPED WINS (all BE / KL-benign) - keep these, do not regress
 - **FP4-MMQ MoE/dense GEMM** (native Blackwell FP4-MMA at the FP4 weight-BW floor; reason 4.1 stays default-off).
@@ -225,11 +225,13 @@ Dense decode is **AHEAD at low N (116.7% @ N=8)** - the one operating point wher
 
 The `VLLM_PARITY_LEVER_MAP.md` "pursue list" (A1-A7/B1-B7/C1: graph-safe ragged grouped FP4-MMA MoE kernel, FP8 paged KV, MTP spec-decode, etc.) is the **earlier working brainstorm written before the final profiling**. `VLLM_PARITY_FINAL.md` is the authoritative supersession; treat those buckets as rejected / infeasible / different-hardware unless re-validated on new silicon.
 
-Phase 14 re-validated the MTP bucket as a separate default-off workstream:
-rollback and ordinary inference safety are now gated, but speed parity is not
-claimed. The serving follow-up must keep the same fixed gates before and after
-any benchmark: MoE md5 `8cb0ce23777bf55f92f63d0292c756b0`, dense md5
-`5951a5b4d624ce891e22ab5fca9bc439`, and `MUL_MAT_ID` `806/806`.
+Phase 14 re-validated the MTP bucket as safe, then Phase 15 rejected it as a
+current GB10 serving-throughput lever. Do not enable it by default and do not
+keep tuning draft length blindly. The only plausible follow-up is a graph-reuse
+and speculative verification batch-shape profile with
+`nsys --cuda-graph-trace=node`. The fixed safety gates stayed green before and
+after the failed serving A/B: MoE md5 `8cb0ce23777bf55f92f63d0292c756b0`, dense
+md5 `5951a5b4d624ce891e22ab5fca9bc439`, and `MUL_MAT_ID` `806/806`.
 
 ---
 
