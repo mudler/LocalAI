@@ -983,3 +983,45 @@ Conclusion:
 - The next GDN attempt should skip local scheduling-only changes and scope a
   true shared-A/Ai blocked-solve or global-scratch design, with an explicit
   scratch/synchronization cost model before coding.
+
+## Phase 12 GDN Shared-A/Ai Cost Model
+
+Phase 12 evaluated whether a real shared-A/Ai design is credible enough to
+prototype after the C32 slab and QS-early shortcut rejections.
+
+Cost-model doc:
+
+- `backend/cpp/llama-cpp-localai-paged/docs/GDN_SHARED_AI_COST_MODEL.md`
+
+Metadata artifact:
+
+- `/home/mudler/bench/phase12_gdn_shared_ai_cost_model/model_metadata.txt`
+
+Model dimensions:
+
+| Model | GDN layers | H | S_v | Metadata basis |
+|-------|------------|---|-----|----------------|
+| MoE | 30 inferred | 32 inferred | 128 | `ssm.inner_size=4096`, `ssm.state_size=128` |
+| Dense | 48 inferred | 48 inferred | 128 | `ssm.inner_size=6144`, `ssm.state_size=128` |
+
+Dynamic-smem result for `S_v=128`:
+
+| Shape | Bytes | KiB | Fits GB10 dynamic smem? |
+|-------|-------|-----|-------------------------|
+| C16 full-width | 93,376 | 91.19 | yes |
+| C32 full-width | 127,360 | 124.38 | no |
+| C32 slab64 + U staging | 94,592 | 92.38 | yes |
+
+Ai scratch result at `npp=2048,npl=32,BT=32,f32`:
+
+| Model | Ai scratch MiB | 3x Ai traffic MiB |
+|-------|----------------|-------------------|
+| MoE | 256.0 | 768.0 |
+| Dense | 384.0 | 1152.0 |
+
+Decision:
+
+- GO for a default-off Phase 13 global-Ai32 prototype.
+- Constraints: `BT=32`, f32 Ai, two `dv_tile=64` slabs, `GDN_GLOBAL_AI32=1`.
+- The prototype must be rejected if it is flat or slower; do not iterate into
+  f16/BF16 Ai unless f32 proves the schedule can win.

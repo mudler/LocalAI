@@ -174,6 +174,7 @@ products through tensor cores. The series chased that headroom.
 | bf16-C64 | bf16 Gram at the larger C=64 chunk | **REJECTED** | **-18.75%** - the O(C^2) intra-chunk triangular-solve + serial recurrence dominates, so growing C hurts | recorded verdict / GDN build-plan |
 | Phase 10 C32 slab M5 | C=32 with two `dv_tile=64` slabs, default-off `GDN_C32_SLAB=1` | **REJECTED** | md5-clean after tail-row zeroing, but S_PP regressed: MoE 2048 **2430.32 -> 2054.86**, dense 2048 **1019.25 -> 903.73** | phase10 gates/ab |
 | Phase 11 QS-early M5 | move `QS = Qc * S0` earlier, default-off `GDN_M5_QS_EARLY=1` | **REJECTED** | md5-clean, but S_PP regressed slightly: MoE 2048 **2441.54 -> 2420.26**, dense 2048 **1021.06 -> 1015.77** | phase11 gates/ab |
+| Phase 12 shared-A/Ai cost model | f32 Ai scratch shared across two C32 value slabs | **GO to one prototype** | BT32 f32 scratch at npp2048,npl32: MoE 256 MiB / 768 MiB Ai traffic; dense 384 MiB / 1152 MiB Ai traffic | phase12 cost model |
 
 **Why the bottleneck is not occupancy/dtype:** the cost is the **O(C^2)
 intra-chunk triangular solve + the serial inter-chunk recurrence dependency**, not
@@ -184,6 +185,12 @@ all-shared layout), and at this head dim the only win is tensor cores on the
 intra-chunk products, not chunking or wider chunks. M5 tf32 at C=16 is exactly
 that and is the shipped winner; it does not fully close the 2.62x because vLLM's
 mature FLA blocked-solve is a more complete tensor-core implementation.
+
+Post-record caveat: Phase 12 does not change the shipped verdict. It permits one
+default-off `GDN_GLOBAL_AI32=1` prototype because global f32 Ai scratch is large
+but not automatically disqualifying. If that prototype is flat or slower, GDN
+kernel work on GB10 should stop rather than moving to f16 Ai or additional
+local reorders.
 
 ### 2c. DECODE / serving (verdict: near-parity at ~86% of vLLM's true GPU-steady decode; the earlier "BW-floored / vLLM pays equally" was a profiling artifact)
 

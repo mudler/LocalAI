@@ -521,6 +521,34 @@ Artifacts:
 - `/home/mudler/bench/phase11_gdn_m5_state_boundary/ab/`
 - `/home/mudler/bench/phase11_gdn_m5_state_boundary/rejected/qs_early_rejected.diff`
 
+### Phase 12 GDN shared-A/Ai cost-model update
+
+Phase 12 scoped the next non-shortcut GDN path: compute f32 Ai once per
+`(sequence, head, chunk)` and reuse it across two `dv_tile=64` value slabs.
+
+Cost model:
+
+- C16 full-width M5 uses `93,376 B` dynamic smem.
+- C32 full-width would need `127,360 B`, which does not fit GB10.
+- C32 slab64 fits at `94,592 B`, but Phase 10 showed it loses when A/T is
+  recomputed per slab.
+- For `BT=32`, f32 Ai scratch at `npp=2048,npl=32` is:
+  - MoE H=32: `256 MiB`, with `768 MiB` total Ai write/read traffic.
+  - Dense H=48: `384 MiB`, with `1152 MiB` total Ai write/read traffic.
+
+Decision:
+
+- **GO** to a default-off Phase 13 prototype, not a shipped patch.
+- Scope: `GDN_GLOBAL_AI32=1`, `BT=32`, f32 Ai, two `dv_tile=64` slabs.
+- Reject if same-session A/B is flat/slower. If rejected, stop GDN kernel work
+  on GB10 rather than iterating into f16 Ai or more local reorders.
+
+Docs:
+
+- `backend/cpp/llama-cpp-localai-paged/docs/GDN_SHARED_AI_COST_MODEL.md`
+- `docs/superpowers/specs/2026-07-01-gdn-global-ai-prototype-design.md`
+- `docs/superpowers/plans/2026-07-01-gdn-global-ai-prototype-phase13.md`
+
 ---
 
 # PROFILE-VALIDATED PATH (both-engine nsys, adversarially verified Sun Jun 28 11:55:12 PM UTC 2026)
