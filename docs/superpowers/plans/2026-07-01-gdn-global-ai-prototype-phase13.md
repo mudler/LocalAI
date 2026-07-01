@@ -26,7 +26,7 @@
 - Read: `/home/mudler/_git/llama.cpp/ggml/src/ggml-cuda/gated_delta_net.cu`
 - Artifact: `/home/mudler/bench/phase13_gdn_global_ai32/`
 
-- [ ] **Step 1: Check DGX is free**
+- [x] **Step 1: Check DGX is free**
 
 Run:
 
@@ -47,7 +47,7 @@ compute=0
 FREE...
 ```
 
-- [ ] **Step 2: Record provenance**
+- [x] **Step 2: Record provenance**
 
 Run:
 
@@ -59,7 +59,7 @@ ssh dgx.casa 'cd /home/mudler/llama-phase6-source && git status --short && git r
 
 Expected: both llama.cpp trees are clean.
 
-- [ ] **Step 3: Create artifacts**
+- [x] **Step 3: Create artifacts**
 
 Run:
 
@@ -74,7 +74,7 @@ Expected: command exits 0.
 **Files:**
 - Modify: `/home/mudler/_git/llama.cpp/ggml/src/ggml-cuda/gated_delta_net.cu`
 
-- [ ] **Step 1: Add env selector in `ggml_cuda_op_gated_delta_net`**
+- [x] **Step 1: Add env selector in `ggml_cuda_op_gated_delta_net`**
 
 Add after `keep_rs` is computed:
 
@@ -85,7 +85,7 @@ static const bool gdn_global_ai32 = []{
 }();
 ```
 
-- [ ] **Step 2: Allocate Ai scratch only for supported calls**
+- [x] **Step 2: Allocate Ai scratch only for supported calls**
 
 Add:
 
@@ -102,7 +102,7 @@ if (gdn_global_ai32 && !kda && !keep_rs && S_v == 128 && n_tokens > 1) {
 Pass `ai32_d` and `ai32_chunks` into the non-KDA/non-keep launch call only.
 Other launch calls pass `nullptr, 0`.
 
-- [ ] **Step 3: Extend `launch_gated_delta_net` signature**
+- [x] **Step 3: Extend `launch_gated_delta_net` signature**
 
 Change the signature to include:
 
@@ -117,7 +117,7 @@ before `float scale`. Thread these through all four call sites.
 **Files:**
 - Modify: `/home/mudler/_git/llama.cpp/ggml/src/ggml-cuda/gated_delta_net.cu`
 
-- [ ] **Step 1: Add `gdn_ai32_cuda`**
+- [x] **Step 1: Add `gdn_ai32_cuda`**
 
 Add a kernel near `gated_delta_net_chunked_cuda`:
 
@@ -160,7 +160,7 @@ if (j < C) {
 
 Use fixed stride `C` in scratch, zeroing out-of-range tail rows/columns.
 
-- [ ] **Step 2: Add launcher**
+- [x] **Step 2: Add launcher**
 
 Add:
 
@@ -187,7 +187,7 @@ Dynamic smem:
 **Files:**
 - Modify: `/home/mudler/_git/llama.cpp/ggml/src/ggml-cuda/gated_delta_net.cu`
 
-- [ ] **Step 1: Add `gated_delta_net_chunked_ai32_cuda`**
+- [x] **Step 1: Add `gated_delta_net_chunked_ai32_cuda`**
 
 Add a separate kernel rather than overloading the shipped M5 body:
 
@@ -217,6 +217,14 @@ __global__ void gated_delta_net_chunked_ai32_cuda(
 }
 ```
 
+Result:
+
+- Implemented as a template extension of `gated_delta_net_chunked_cuda` instead
+  of a separately named kernel, to keep the patch smaller.
+- Candidate was selected with `GDN_GLOBAL_AI32=1`.
+- The implementation used C32, two `DV_TILE=64` slabs, f32 Ai scratch, and the
+  Phase 10 tail-row zeroing fix.
+
 Use the Phase 10 tail-row fix:
 
 ```cpp
@@ -229,7 +237,7 @@ and use full state stride for reads/writes:
 (int64_t) seq * H * S_v * S_v + (int64_t) h_idx * S_v * S_v
 ```
 
-- [ ] **Step 2: Add launcher**
+- [x] **Step 2: Add launcher**
 
 Add:
 
@@ -250,15 +258,19 @@ The smem formula must stay under the C32 slab Phase 10 budget:
 ```cpp
 ((size_t) S_v * DV_TILE + (size_t) 2 * C * S_v + (size_t) DV_TILE * C
  + (size_t) C * C + (size_t) 3 * C + (size_t) C * C
- + (size_t) DV_TILE * C) * sizeof(float)
++ (size_t) DV_TILE * C) * sizeof(float)
 ```
+
+Result:
+
+- DGX build confirmed the smem shape compiled.
 
 ## Task 5: Route Candidate
 
 **Files:**
 - Modify: `/home/mudler/_git/llama.cpp/ggml/src/ggml-cuda/gated_delta_net.cu`
 
-- [ ] **Step 1: Add route in `launch_gated_delta_net`**
+- [x] **Step 1: Add route in `launch_gated_delta_net`**
 
 Before the existing `GDN_CHUNKED_LAUNCH` switch:
 
@@ -273,7 +285,7 @@ if (ai32_d != nullptr && ai32_chunks > 0 && S_v == 128 && n_tokens >= gdn_chunk_
 The route must require `!KDA && !keep_rs_t` via the existing template branch and
 must not trigger for decode-sized calls.
 
-- [ ] **Step 2: Keep default path unchanged**
+- [x] **Step 2: Keep default path unchanged**
 
 Run:
 
@@ -283,12 +295,17 @@ git diff -- ggml/src/ggml-cuda/gated_delta_net.cu
 
 Check that default `GDN_TC=5` still launches `launch_gdn_chunked<128, 16, 4>`.
 
+Result:
+
+- Default route stayed current M5.
+- Candidate route required non-null Ai scratch from `GDN_GLOBAL_AI32=1`.
+
 ## Task 6: Build and Correctness Gates
 
 **Files:**
 - Artifact: `/home/mudler/bench/phase13_gdn_global_ai32/gates/`
 
-- [ ] **Step 1: Mirror and build**
+- [x] **Step 1: Mirror and build**
 
 Run:
 
@@ -300,7 +317,7 @@ ssh dgx.casa 'cd /home/mudler/llama-phase6-source/build-cuda && cmake --build . 
 
 Expected: build exits 0.
 
-- [ ] **Step 2: Run op gates**
+- [x] **Step 2: Run op gates**
 
 Run:
 
@@ -313,7 +330,7 @@ GDN_GLOBAL_AI32=1 GDN_TC=5 GDN_CHUNK_MIN=2 ./test-backend-ops test -b CUDA0 -o G
 
 Expected: both logs show CUDA0 OK for all cases.
 
-- [ ] **Step 3: Run canonical md5 gates**
+- [x] **Step 3: Run canonical md5 gates**
 
 Run default and candidate MoE/dense completion gates. Expected:
 
@@ -324,12 +341,26 @@ Dense 5951a5b4d624ce891e22ab5fca9bc439
 
 If candidate md5 differs, run the KL gate before benchmarking.
 
+Result:
+
+- Build passed for `test-backend-ops`, `llama-completion`, and
+  `llama-batched-bench`.
+- Default and forced `GDN_GLOBAL_AI32=1` op gates both reported the same OK
+  count.
+- Default md5:
+  - MoE `8cb0ce23777bf55f92f63d0292c756b0`.
+  - Dense `5951a5b4d624ce891e22ab5fca9bc439`.
+- Global-Ai32 md5:
+  - MoE `8cb0ce23777bf55f92f63d0292c756b0`.
+  - Dense `5951a5b4d624ce891e22ab5fca9bc439`.
+- KL was not needed.
+
 ## Task 7: Performance A/B
 
 **Files:**
 - Artifact: `/home/mudler/bench/phase13_gdn_global_ai32/ab/`
 
-- [ ] **Step 1: Run same-session A/B**
+- [x] **Step 1: Run same-session A/B**
 
 Run MoE and dense:
 
@@ -346,7 +377,7 @@ Use:
 
 Expected: candidate improves S_PP without dense regression.
 
-- [ ] **Step 2: Decide**
+- [x] **Step 2: Decide**
 
 Accept only if:
 
@@ -357,6 +388,32 @@ Accept only if:
 
 Reject if flat or slower.
 
+Result:
+
+Artifacts:
+
+- `/home/mudler/bench/phase13_gdn_global_ai32/ab/moe_base.txt`
+- `/home/mudler/bench/phase13_gdn_global_ai32/ab/moe_global_ai32.txt`
+- `/home/mudler/bench/phase13_gdn_global_ai32/ab/dense_base.txt`
+- `/home/mudler/bench/phase13_gdn_global_ai32/ab/dense_global_ai32.txt`
+
+| Model | Mode | PP | TG | B | S_PP t/s | S_TG t/s | S t/s |
+|-------|------|----|----|---|----------|----------|-------|
+| MoE | M5 base | 512 | 4 | 32 | 2325.86 | 396.05 | 2241.21 |
+| MoE | Global Ai32 | 512 | 4 | 32 | 2106.50 | 398.55 | 2038.78 |
+| MoE | M5 base | 2048 | 4 | 32 | 2425.10 | 389.63 | 2400.66 |
+| MoE | Global Ai32 | 2048 | 4 | 32 | 2097.76 | 388.40 | 2079.92 |
+| Dense | M5 base | 512 | 4 | 32 | 970.62 | 149.89 | 931.10 |
+| Dense | Global Ai32 | 512 | 4 | 32 | 876.51 | 149.29 | 844.62 |
+| Dense | M5 base | 2048 | 4 | 32 | 1016.14 | 182.16 | 1007.15 |
+| Dense | Global Ai32 | 2048 | 4 | 32 | 918.19 | 183.00 | 911.05 |
+
+Decision:
+
+- Reject the global-Ai32 source patch.
+- The candidate is correctness-clean but slower in both model families.
+- The global scratch/Ai split is not enough to beat the shipped C16 M5 on GB10.
+
 ## Task 8: Mirror or Reject
 
 **Files:**
@@ -366,7 +423,7 @@ Reject if flat or slower.
 - Modify: `backend/cpp/llama-cpp-localai-paged/docs/VLLM_PARITY_FINAL.md`
 - Modify: `backend/cpp/llama-cpp-localai-paged/docs/PARITY_HANDOFF.md`
 
-- [ ] **Step 1: If accepted, commit fork patch and generate LocalAI patch**
+- [x] **Step 1: If accepted, commit fork patch and generate LocalAI patch**
 
 Run:
 
@@ -377,7 +434,7 @@ git -C /home/mudler/_git/llama.cpp format-patch -1 HEAD --stdout \
   > backend/cpp/llama-cpp-localai-paged/patches/paged/0055-feat-cuda-add-GDN-global-Ai32-prefill-prototype.patch
 ```
 
-- [ ] **Step 2: If rejected, save diff and restore**
+- [x] **Step 2: If rejected, save diff and restore**
 
 Run:
 
@@ -388,7 +445,7 @@ git -C /home/mudler/_git/llama.cpp checkout -- ggml/src/ggml-cuda/gated_delta_ne
 ssh dgx.casa 'cd /home/mudler/llama-phase6-source && git checkout -- ggml/src/ggml-cuda/gated_delta_net.cu'
 ```
 
-- [ ] **Step 3: Commit LocalAI docs**
+- [x] **Step 3: Commit LocalAI docs**
 
 Commit accepted patch/docs or rejected docs with:
 
@@ -396,3 +453,10 @@ Commit accepted patch/docs or rejected docs with:
 git commit -m "docs(paged): record GDN global Ai32 result" \
   -m "Assisted-by: Codex:gpt-5"
 ```
+
+Result:
+
+- No fork commit and no `0055` LocalAI patch were generated.
+- Rejected diff saved at:
+  `/home/mudler/bench/phase13_gdn_global_ai32/rejected/global_ai32_rejected.diff`.
+- llama.cpp fork and DGX mirror were restored to the prior accepted state.

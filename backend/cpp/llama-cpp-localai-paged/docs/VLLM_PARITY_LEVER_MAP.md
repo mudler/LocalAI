@@ -549,6 +549,36 @@ Docs:
 - `docs/superpowers/specs/2026-07-01-gdn-global-ai-prototype-design.md`
 - `docs/superpowers/plans/2026-07-01-gdn-global-ai-prototype-phase13.md`
 
+### Phase 13 GDN Global-Ai32 update
+
+Phase 13 implemented the Phase 12 prototype behind `GDN_GLOBAL_AI32=1`:
+precompute f32 Ai once per chunk/head, then consume it from two C32
+`dv_tile=64` value slabs.
+
+Result:
+
+- Correctness passed:
+  MoE `8cb0ce23777bf55f92f63d0292c756b0`, dense
+  `5951a5b4d624ce891e22ab5fca9bc439`.
+- Performance regressed:
+  - MoE 2048 S_PP `2425.10 -> 2097.76`.
+  - Dense 2048 S_PP `1016.14 -> 918.19`.
+
+Decision:
+
+- **REJECT** Global-Ai32.
+- Do not add `0055`.
+- Stop GDN kernel work on GB10. The shortcut space is exhausted by Phase 10,
+  Phase 11, and Phase 13 evidence; further GDN parity work needs a different
+  hardware regime or a larger FLA/CuteDSL-class implementation outside this
+  low-conflict LocalAI patch stack.
+
+Artifacts:
+
+- `/home/mudler/bench/phase13_gdn_global_ai32/gates/`
+- `/home/mudler/bench/phase13_gdn_global_ai32/ab/`
+- `/home/mudler/bench/phase13_gdn_global_ai32/rejected/global_ai32_rejected.diff`
+
 ---
 
 # PROFILE-VALIDATED PATH (both-engine nsys, adversarially verified Sun Jun 28 11:55:12 PM UTC 2026)

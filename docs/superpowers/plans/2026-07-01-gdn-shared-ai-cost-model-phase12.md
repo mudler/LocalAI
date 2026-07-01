@@ -303,7 +303,7 @@ Result:
 - `/home/mudler/_git/llama.cpp` was clean.
 - DGX metadata artifact existed and contained MoE/dense GGUF metadata.
 
-- [ ] **Step 2: Commit docs**
+- [x] **Step 2: Commit docs**
 
 For GO:
 

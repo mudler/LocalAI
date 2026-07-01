@@ -176,12 +176,13 @@ GDN is the #1 prefill-gap contributor (+59.2 us/tok, ~30%). vLLM's FLA `chunk_ga
 | Phase 10 C32 slab M5 | C=32, two `dv_tile=64` slabs, default-off `GDN_C32_SLAB=1` | REJECTED | md5-clean after tail-row zeroing, but slower: MoE 2048 2430.32 -> 2054.86; dense 2048 1019.25 -> 903.73 |
 | Phase 11 QS-early M5 | move `QS = Qc * S0` earlier, default-off `GDN_M5_QS_EARLY=1` | REJECTED | md5-clean, but slightly slower: MoE 2048 2441.54 -> 2420.26; dense 2048 1021.06 -> 1015.77 |
 | Phase 12 shared-A/Ai cost model | f32 Ai scratch shared across two C32 value slabs | GO to one default-off prototype | BT32 f32 scratch at npp2048,npl32: MoE 256 MiB / 768 MiB Ai traffic; dense 384 MiB / 1152 MiB Ai traffic |
+| Phase 13 Global-Ai32 | precompute f32 Ai once, consume from two C32 `dv_tile=64` slabs | REJECTED | md5-clean, but slower: MoE 2048 2425.10 -> 2097.76; dense 2048 1016.14 -> 918.19 |
 
 Why not occupancy/dtype: the cost is the **O(C^2) intra-chunk triangular A-inverse solve + the strictly-serial inter-chunk recurrence**, with C forced to **16** by GB10's 99 KB dynamic-smem cap (the 128x128 f32 state alone is 64 KB). M5 captures the tractable TC part; it does not fully close 2.62x because vLLM's FLA blocked-solve is a more complete TC implementation.
 
-Phase 12 caveat: this is not a shipped win. It authorizes only a default-off
-`GDN_GLOBAL_AI32=1` prototype. If Phase 13 is flat/slower, stop GDN kernel work
-on GB10 instead of iterating into f16 Ai or more local reorders.
+Phase 13 closes the caveat: the default-off `GDN_GLOBAL_AI32=1` prototype was
+correctness-clean but slower. Stop GDN kernel work on GB10 instead of iterating
+into f16 Ai or more local reorders.
 
 ### 4.3 Decode / fusion levers - all REJECTED (near-parity already at ~86% true GPU-steady)
 | Lever | What | Verdict | Key number |

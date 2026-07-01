@@ -1025,3 +1025,63 @@ Decision:
 - Constraints: `BT=32`, f32 Ai, two `dv_tile=64` slabs, `GDN_GLOBAL_AI32=1`.
 - The prototype must be rejected if it is flat or slower; do not iterate into
   f16/BF16 Ai unless f32 proves the schedule can win.
+
+## Phase 13 GDN Global-Ai32 Prototype Rejection
+
+Phase 13 implemented the Phase 12 design in the llama.cpp fork as a default-off
+prototype behind `GDN_GLOBAL_AI32=1`.
+
+Implementation summary:
+
+- Added a f32 Ai precompute kernel.
+- Added C32, `dv_tile=64` slab consumption through the chunked GDN path.
+- Allocated Ai scratch from the ggml CUDA pool only for supported calls.
+- Kept the default C16 M5 path unchanged.
+
+Correctness artifacts:
+
+- `/home/mudler/bench/phase13_gdn_global_ai32/gates/gated_delta_net_default.txt`
+- `/home/mudler/bench/phase13_gdn_global_ai32/gates/gated_delta_net_global_ai32.txt`
+- `/home/mudler/bench/phase13_gdn_global_ai32/gates/gate_moe_default.md5`
+- `/home/mudler/bench/phase13_gdn_global_ai32/gates/gate_dense_default.md5`
+- `/home/mudler/bench/phase13_gdn_global_ai32/gates/gate_moe_global_ai32.md5`
+- `/home/mudler/bench/phase13_gdn_global_ai32/gates/gate_dense_global_ai32.md5`
+
+Correctness result:
+
+- Default and Global-Ai32 paths matched canonical md5 exactly:
+  - MoE `8cb0ce23777bf55f92f63d0292c756b0`.
+  - Dense `5951a5b4d624ce891e22ab5fca9bc439`.
+- KL was not needed.
+
+Performance artifacts:
+
+- `/home/mudler/bench/phase13_gdn_global_ai32/ab/moe_base.txt`
+- `/home/mudler/bench/phase13_gdn_global_ai32/ab/moe_global_ai32.txt`
+- `/home/mudler/bench/phase13_gdn_global_ai32/ab/dense_base.txt`
+- `/home/mudler/bench/phase13_gdn_global_ai32/ab/dense_global_ai32.txt`
+
+Performance A/B:
+
+| Model | Mode | PP | TG | B | S_PP t/s | S_TG t/s | S t/s |
+|-------|------|----|----|---|----------|----------|-------|
+| MoE | M5 base | 512 | 4 | 32 | 2325.86 | 396.05 | 2241.21 |
+| MoE | Global Ai32 | 512 | 4 | 32 | 2106.50 | 398.55 | 2038.78 |
+| MoE | M5 base | 2048 | 4 | 32 | 2425.10 | 389.63 | 2400.66 |
+| MoE | Global Ai32 | 2048 | 4 | 32 | 2097.76 | 388.40 | 2079.92 |
+| Dense | M5 base | 512 | 4 | 32 | 970.62 | 149.89 | 931.10 |
+| Dense | Global Ai32 | 512 | 4 | 32 | 876.51 | 149.29 | 844.62 |
+| Dense | M5 base | 2048 | 4 | 32 | 1016.14 | 182.16 | 1007.15 |
+| Dense | Global Ai32 | 2048 | 4 | 32 | 918.19 | 183.00 | 911.05 |
+
+Rejected diff:
+
+- `/home/mudler/bench/phase13_gdn_global_ai32/rejected/global_ai32_rejected.diff`
+
+Conclusion:
+
+- Do not ship Phase 13 Global-Ai32 as implemented.
+- The global scratch split is correctness-safe but slower than shipped C16 M5.
+- Per the Phase 12/13 decision rule, stop GDN kernel work on GB10. The remaining
+  vLLM GDN advantage requires a fuller FLA-style blocked solve or hardware
+  assumptions that do not fit this GB10 patch stack without a regression.

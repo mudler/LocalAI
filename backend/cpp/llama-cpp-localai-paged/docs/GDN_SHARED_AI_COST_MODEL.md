@@ -140,3 +140,33 @@ Phase 13 constraints:
 - If md5 changes, run KL before benchmarking.
 - If the prototype is flat or slower, reject it and stop GDN kernel work on
   GB10; do not iterate into f16 Ai until f32 proves the schedule can win.
+
+## Phase 13 Result
+
+Phase 13 implemented the f32 Global-Ai32 prototype and rejected it.
+
+Correctness:
+
+- MoE md5: `8cb0ce23777bf55f92f63d0292c756b0`.
+- Dense md5: `5951a5b4d624ce891e22ab5fca9bc439`.
+
+Performance:
+
+| Model | Mode | PP | S_PP t/s |
+|-------|------|----|----------|
+| MoE | M5 base | 2048 | 2425.10 |
+| MoE | Global Ai32 | 2048 | 2097.76 |
+| Dense | M5 base | 2048 | 1016.14 |
+| Dense | Global Ai32 | 2048 | 918.19 |
+
+Artifacts:
+
+- `/home/mudler/bench/phase13_gdn_global_ai32/gates/`
+- `/home/mudler/bench/phase13_gdn_global_ai32/ab/`
+- `/home/mudler/bench/phase13_gdn_global_ai32/rejected/global_ai32_rejected.diff`
+
+Final decision:
+
+- Reject Global-Ai32.
+- Stop GDN kernel work on GB10. The remaining vLLM GDN advantage is not
+  reachable through the low-conflict C16/C32 patch shapes tested here.
