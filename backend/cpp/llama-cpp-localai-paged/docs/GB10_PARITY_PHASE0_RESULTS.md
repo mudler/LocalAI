@@ -839,3 +839,41 @@ Decision:
 - Do not enable MTP by default in LocalAI or llama-server.
 - Do not benchmark MTP as a parity win until a serving/API phase adds rollback
   gates for hybrid SSM/KV state and measures target verification throughput.
+
+## Phase 10 GDN C32 Slab Baseline and Source Check
+
+Phase 10 starts a separate GDN prefill path; it does not reopen the rejected
+decode `GDN_NW/GDN_CPW` grid.
+
+Current M5 baseline artifacts:
+
+- `/home/mudler/bench/phase10_gdn_c32_slab/m5_baseline/paged_moe_prefill.txt`
+- `/home/mudler/bench/phase10_gdn_c32_slab/m5_baseline/paged_dense_prefill.txt`
+- `/home/mudler/bench/phase10_gdn_c32_slab/m5_baseline/summary_rows.txt`
+- `/home/mudler/bench/phase10_gdn_c32_slab/m5_baseline/provenance.txt`
+
+Current M5 baseline:
+
+| Model | PP | TG | B | S_PP t/s | S_TG t/s | S t/s |
+|-------|----|----|---|----------|----------|-------|
+| MoE | 512 | 4 | 32 | 2314.18 | 359.16 | 2220.48 |
+| MoE | 2048 | 4 | 32 | 2439.95 | 389.43 | 2415.16 |
+| Dense | 512 | 4 | 32 | 978.97 | 143.56 | 936.71 |
+| Dense | 2048 | 4 | 32 | 1023.61 | 184.09 | 1014.59 |
+
+Source check:
+
+- A C32 M5 candidate cannot be implemented as a launcher-only shortcut.
+- The current M5 form-T apply path stores one 16-row tile of `U=T*RHS` in
+  registers, syncs, then overwrites `Ud`. That is safe for `C=16`.
+- For `C=32`, a naive two-row-tile loop would overwrite RHS rows before all
+  output rows are computed, and the current apply call only covers rowbase `0`.
+- A correct C32 slab candidate must add a separate staging strategy for all
+  `C*DV_TILE` U values, then run focused `GATED_DELTA_NET` op gates before any
+  S_PP comparison.
+
+Decision:
+
+- Do not ship a Phase 10 source patch yet.
+- Keep the baseline and source check as the entry gate for the next C32 slab
+  implementation task.

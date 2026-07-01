@@ -26,7 +26,7 @@
 - Read-only: `/home/mudler/llama-phase6-source/ggml/src/ggml-cuda/gated_delta_net.cu`
 - Artifact: `/home/mudler/bench/phase10_gdn_c32_slab/`
 
-- [ ] **Step 1: Check DGX is free**
+- [x] **Step 1: Check DGX is free**
 
 Run the standard DGX preflight:
 
@@ -47,7 +47,7 @@ compute=0
 FREE...
 ```
 
-- [ ] **Step 2: Record current source provenance**
+- [x] **Step 2: Record current source provenance**
 
 Run:
 
@@ -57,7 +57,7 @@ ssh dgx.casa 'cd /home/mudler/llama-phase6-source && git status --short && git r
 
 Expected: clean or only the current phase commit.
 
-- [ ] **Step 3: Run current M5 prefill baseline**
+- [x] **Step 3: Run current M5 prefill baseline**
 
 Run MoE and dense prefill at `npp=512` and `npp=2048` with:
 
@@ -71,11 +71,55 @@ Record S_PP, kernel bucket summaries, and artifacts under:
 /home/mudler/bench/phase10_gdn_c32_slab/m5_baseline/
 ```
 
+Result:
+
+| Model | PP | TG | B | S_PP t/s | S_TG t/s | S t/s |
+|-------|----|----|---|----------|----------|-------|
+| MoE | 512 | 4 | 32 | 2314.18 | 359.16 | 2220.48 |
+| MoE | 2048 | 4 | 32 | 2439.95 | 389.43 | 2415.16 |
+| Dense | 512 | 4 | 32 | 978.97 | 143.56 | 936.71 |
+| Dense | 2048 | 4 | 32 | 1023.61 | 184.09 | 1014.59 |
+
+Artifacts:
+
+- `/home/mudler/bench/phase10_gdn_c32_slab/m5_baseline/paged_moe_prefill.txt`
+- `/home/mudler/bench/phase10_gdn_c32_slab/m5_baseline/paged_dense_prefill.txt`
+- `/home/mudler/bench/phase10_gdn_c32_slab/m5_baseline/summary_rows.txt`
+- `/home/mudler/bench/phase10_gdn_c32_slab/m5_baseline/provenance.txt`
+
 ## Task 2: Add Default-Off C32 Slab Candidate
 
 **Files:**
 - Modify: `/home/mudler/_git/llama.cpp/ggml/src/ggml-cuda/gated_delta_net.cu`
 - Mirror: `/home/mudler/llama-phase6-source/ggml/src/ggml-cuda/gated_delta_net.cu`
+
+### Source Inspection Result
+
+- [x] **Step 0: Check whether C32 can reuse the current M5 body**
+
+Result: no safe launcher-only shortcut exists for C32 M5.
+
+The current M5 code path is structurally specialized to `C<=16` in the form-T
+solve/apply stage:
+
+- `gated_delta_net_chunked_cuda<S_v, C, TC>` stores the full `U=T*RHS`
+  output in registers before overwriting `Ud`, avoiding read/write aliasing.
+- For `C=16`, one `m16` row tile covers all chunk rows.
+- For `C=32`, there are two row tiles. Writing the first tile to `Ud` before
+  computing the second would corrupt the RHS reads for the second tile.
+- The current code also calls the apply helper with rowbase `0` only in the M5
+  solve path, so a naive `launch_gdn_chunked<128, 32, TC=4>` would be
+  incomplete even if dynamic shared memory fit.
+
+Implication:
+
+- Do not add `GDN_C32_SLAB=1` by only changing launch dimensions.
+- A correct C32 slab patch must first add a separate `U=T*RHS` staging strategy:
+  either a slab-local temporary buffer for all `C*DV_TILE` U values, or a
+  two-pass apply that preserves the original RHS until all row tiles are
+  computed.
+- Because the candidate changes the solve/apply mechanics, it requires a
+  focused `GATED_DELTA_NET` op gate before any prefill A/B.
 
 - [ ] **Step 1: Add an explicit env selector**
 
