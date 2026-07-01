@@ -643,3 +643,50 @@ This gate is the correctness target for the next candidate: a deterministic
 post-down MoE weighted-combine fusion that preserves current f32 product and
 rank-order add semantics while avoiding the rejected SWIGLU/FP4-quantization
 shortcut.
+
+## Phase 7 Weighted-Combine Fusion Candidate Rejected
+
+Attempted candidate: fuse the post-down MoE router-weight multiply and
+rank-ordered add fan-in:
+
+`ffn_moe_down -> ggml_mul(experts, weights) -> VIEW ranks -> ADD fan-in`.
+
+The candidate was fork-first, default-on during validation, and had a rollback
+env switch: `LLAMA_MOE_NO_WEIGHTED_COMBINE_FUSION=1`.
+
+DGX artifacts:
+
+- `/home/mudler/bench/phase7_source_scope/test_backend_ops_moe_weighted_combine_orderfix.txt`
+- `/home/mudler/bench/phase7_source_scope/test_backend_ops_mul_mat_id_weighted_combine_orderfix.txt`
+- `/home/mudler/bench/phase7_source_scope/weighted_combine_orderfix_gates_chat/`
+- `/home/mudler/bench/phase7_source_scope/weighted_combine_orderfix_nsys_completion/`
+- `/home/mudler/bench/phase7_source_scope/weighted_combine_orderfix_serving_ab/`
+- Rejected diff:
+  `/home/mudler/bench/phase7_source_scope/rejected-phase7-moe-weighted-combine-fusion.diff`
+
+Correctness and inference gates:
+
+- `MOE_WEIGHTED_COMBINE`: `7/7`.
+- Broad `MUL_MAT_ID`: `806/806`.
+- Canonical transcript md5:
+  - MoE `8cb0ce23777bf55f92f63d0292c756b0`.
+  - Dense `5951a5b4d624ce891e22ab5fca9bc439`.
+
+Nsight proof:
+
+- Disabled run: no `k_moe_weighted_combine` kernels.
+- Fused run: `110` `k_moe_weighted_combine` launches.
+
+Serving A/B (`n=128`, `ptok=128`, `gen=64`, `/v1/completions`):
+
+| path | decode tok/s/seq | decode agg tok/s | prefill tok/s | verdict |
+|------|------------------|------------------|---------------|---------|
+| `LLAMA_MOE_NO_WEIGHTED_COMBINE_FUSION=1` | 2.63 | 417.5 | 1345.2 | baseline |
+| fused default | 2.63 | 417.0 | 1346.9 | reject; kernel fires but A/B is flat |
+
+Result:
+
+- Rejected as a production patch. The patch is md5-safe and the kernel fires,
+  but it does not improve the bounded serving workload. Keep patch `0052` as a
+  useful regression gate; do not retry this exact fan-in-only fusion unless a
+  fresh profile shows the weighted/add fan-in as a material bucket.

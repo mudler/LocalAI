@@ -1,6 +1,6 @@
 # Phase 7: Serving Source Candidate Scope
 
-**Status:** Test-gate patch landed. First production CUDA fusion candidate
+**Status:** Test-gate patches landed. Two production CUDA fusion candidates
 rejected after DGX gates and serving A/B.
 
 **Goal:** Select one maintainable source candidate for the remaining GB10 MoE
@@ -220,8 +220,19 @@ to implementation when all are true:
   - Fork commit: `3ef7eb9e4` (`test(paged): cover MoE weighted combine chain`).
   - LocalAI patch: `0052-test-paged-cover-MoE-weighted-combine-chain.patch`.
   - DGX gate: `MOE_WEIGHTED_COMBINE` `7/7` on CUDA0.
-- [ ] Implement weighted-combine fusion only if the test gate is stable.
-- [ ] Run op/md5 gates before serving A/B.
+- [x] Implement weighted-combine fusion only if the test gate is stable.
+  - Implemented as a fork-first candidate, then rejected after serving A/B.
+  - Rejected diff saved at
+    `/home/mudler/bench/phase7_source_scope/rejected-phase7-moe-weighted-combine-fusion.diff`.
+- [x] Run op/md5 gates before serving A/B.
+  - `MOE_WEIGHTED_COMBINE`: `7/7`.
+  - `MUL_MAT_ID`: `806/806`.
+  - MoE md5: `8cb0ce23777bf55f92f63d0292c756b0`.
+  - Dense md5: `5951a5b4d624ce891e22ab5fca9bc439`.
+  - Nsight proof: enabled run showed `110` launches of
+    `k_moe_weighted_combine`; disabled run showed none.
+  - Serving A/B was flat: disabled `decode_agg_tps=417.5`,
+    fused `decode_agg_tps=417.0`.
 
 ## Required Tests Before Track A Source Patch
 
@@ -327,3 +338,53 @@ DGX result:
 - `test-backend-ops test -b CUDA0 -o MOE_WEIGHTED_COMBINE -j 1`: `7/7`.
 
 This is a test-only patch and does not change the production inference path.
+
+## Rejected Production Candidate: MoE Weighted-Combine Fusion
+
+Attempted a fork-first CUDA fusion for the post-down MoE combine:
+
+`ffn_moe_down -> ggml_mul(experts, weights) -> VIEW ranks -> ADD fan-in`.
+
+The candidate added a narrow graph recognizer and a CUDA kernel that computes
+each rank's f32 product and accumulates ranks in the same `0..n_used-1` order as
+the existing add chain. It was default-on with
+`LLAMA_MOE_NO_WEIGHTED_COMBINE_FUSION=1` as the rollback switch during
+validation.
+
+Important debugging result:
+
+- The first serving profile did not show the new kernel. Root cause: the
+  recognizer's `ggml_can_fuse_subgraph()` op vector was interleaved as
+  `MUL, VIEW, VIEW, ADD...`, while the real graph order is
+  `MUL, VIEW..., ADD...`.
+- After fixing the op vector, Nsight showed the enabled completion run launched
+  `k_moe_weighted_combine` `110` times and the disabled run launched it `0`
+  times.
+
+Final DGX artifacts live under `/home/mudler/bench/phase7_source_scope/`:
+
+- Focused gate:
+  `test_backend_ops_moe_weighted_combine_orderfix.txt` -> `7/7`.
+- Broad MoE routing gate:
+  `test_backend_ops_mul_mat_id_weighted_combine_orderfix.txt` -> `806/806`.
+- Canonical transcript md5 gates:
+  `weighted_combine_orderfix_gates_chat/`
+  - MoE: `8cb0ce23777bf55f92f63d0292c756b0`.
+  - Dense: `5951a5b4d624ce891e22ab5fca9bc439`.
+- Nsight completion proof:
+  `weighted_combine_orderfix_nsys_completion/`
+  - disabled: no `k_moe_weighted_combine` kernels.
+  - fused: `110` `k_moe_weighted_combine` kernels.
+- Serving A/B:
+  `weighted_combine_orderfix_serving_ab/`
+  - disabled: `decode_agg_tps=417.5`, `decode_perseq_tps=2.63`,
+    `prefill_tps=1345.2`.
+  - fused: `decode_agg_tps=417.0`, `decode_perseq_tps=2.63`,
+    `prefill_tps=1346.9`.
+
+Verdict: reject the production patch. It is md5-safe and demonstrably fires, but
+the bounded serving result is flat, so the extra default CUDA path is not worth
+the upstream conflict and maintenance cost. Keep patch `0052` as coverage for
+future structural MoE work, but do not retry this exact post-down fan-in fusion
+unless a profile shows `ffn_moe_weighted`/add fan-in as a material bucket under a
+new workload.
