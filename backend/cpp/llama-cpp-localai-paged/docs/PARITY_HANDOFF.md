@@ -613,6 +613,19 @@ Phase 49 removes vLLM log noise from harness-owned environment variables. The
 preserving intentional vLLM runtime variables such as `VLLM_LOGGING_LEVEL`. Dry
 run: `/home/mudler/bench/phase49_vllm_env_hygiene_dryrun/20260701_102138`.
 
+Phase 50 resolves the dense high-N decode-accounting question with a graph-node
+difference-method profile. Artifact:
+`/home/mudler/bench/phase50_dense_true_decode/20260701_103120`. Pre/post
+inference gates on the profiled `build-cuda` binary stayed green: MoE
+`8cb0ce23777bf55f92f63d0292c756b0`, dense
+`5951a5b4d624ce891e22ab5fca9bc439`, `MUL_MAT` `1146/1146`, and `MUL_MAT_ID`
+`806/806`. Dense `npl=128`, `npp=128` true decode is `383.66 t/s` for paged and
+`435.00 t/s` for vLLM, ratio `0.8820`. This means Phase47's `0.7912` h2h
+decode ratio and `0.5071` aggregate ratio include scheduler/admission and
+prefill-overlap/accounting effects beyond the real GPU-steady decode gap. Next
+GB10 code work should instrument batch composition/admission in
+`server_context::pre_decode()` before attempting another kernel shortcut.
+
 ---
 
 ## 5. METHODOLOGY LESSONS (so you do not repeat the mistakes)
@@ -705,6 +718,7 @@ Only pursue if (a)+(b) are not options and someone explicitly wants the residual
 - `~/bench/phase48_readiness_harness_dryrun/20260701_100533` - harness dry-run proving configurable readiness budgets and clean preflight before retrying dense serving.
 - `~/bench/phase47_dense_serving_retry/20260701_100811` - completed dense serving snapshot after Phase48; pre/post md5 and op gates green; paged low-N decode ahead, high-N aggregate and TTFT behind.
 - `~/bench/phase49_vllm_env_hygiene_dryrun/20260701_102138` - harness dry-run after scrubbing harness-owned `VLLM_*` variables from the `vllm serve` child environment.
+- `~/bench/phase50_dense_true_decode/20260701_103120` - dense graph-node difference-method profile at `npl=128`, `npp=128`; `build-cuda` pre/post md5 and op gates green; true decode paged `383.66 t/s`, vLLM `435.00 t/s`, ratio `0.8820`, pointing next at serving admission/scheduler tracing.
 - Per-engine logs `~/bench/COMBINED_{paged,vllm}_{MOE,DENSE}_server.log`; `~/bench/BENCHMARK_PROGRESS.md`.
 - Graph-node-traced high-N profiles: `~/highN_prof2/*.nsys-rep` (paged npl=256), `~/highN_vllm/*.nsys-rep` (vLLM), 2026-06-30.
 - A/B dirs: `~/bench/marlin_gate/`, `~/bench/gdn_p1_ab/`.

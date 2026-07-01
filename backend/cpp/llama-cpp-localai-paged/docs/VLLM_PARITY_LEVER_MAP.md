@@ -1186,6 +1186,36 @@ Decision: dense low-N decode remains a real paged strength, but dense serving
 still does not close GB10 parity because TTFT and high-concurrency aggregate
 throughput remain substantially behind vLLM.
 
+### Phase 50 dense true decode profile
+
+Phase50 profiles dense `npl=128`, `npp=128` decode with graph nodes expanded and
+uses the difference method (`ntg=64 - ntg=16`) instead of the Phase47 h2h
+serving window. Artifact:
+`/home/mudler/bench/phase50_dense_true_decode/20260701_103120`.
+
+Pre/post inference gates stayed green on the profiled `build-cuda` binary set:
+MoE `8cb0ce23777bf55f92f63d0292c756b0`, dense
+`5951a5b4d624ce891e22ab5fca9bc439`, `MUL_MAT` `1146/1146`, and
+`MUL_MAT_ID` `806/806`. A `build-phase36` pre-gate also passed, but
+`build-phase36` did not contain `llama-batched-bench`, so `build-cuda` is the
+profiled/gated build for this phase.
+
+Results:
+
+| engine | ntg16 wall s | ntg64 wall s | delta tokens | delta wall s | true decode t/s |
+|--------|--------------|--------------|--------------|--------------|-----------------|
+| paged | `5.754` | `21.768` | `6144` | `16.014` | `383.66` |
+| vLLM | `13.041` | `27.165` | `6144` | `14.124` | `435.00` |
+| ratio | | | | | `0.8820` |
+
+Decision: Phase47's dense high-N serving loss is not just a kernel-speed gap.
+True dense decode is still behind vLLM by about `12%`, but the Phase47 h2h
+decode ratio at `n=128` was `0.7912` and aggregate serving was only `0.5071`.
+The remaining difference points at scheduler/admission, prefill overlap, and
+TTFT accounting. Next implementation target should be an opt-in
+batch-composition/admission trace in `server_context::pre_decode()` before any
+new GDN/GEMM shortcut.
+
 Relevant files (all absolute): `/home/mudler/_git/LocalAI/.claude/worktrees/feat+paged-attention/backend/cpp/llama-cpp-localai-paged/docs/{DECODE_SERVING_SCOPE.md,PREFILL_GEMM_SCOPE.md,PREFILL_GEMM_RESULTS.md,TENSORCORE_GDN_SCOPE.md,final_benchmark.csv}`, `.../README.md`, `.../patches/paged/0034-feat-paged-native-NVFP4-W4A4-FP4-MMA-large-M-prefill.patch` (P1/P2), `.../patches/paged/0042-feat-paged-fused-residual-add-RMS-norm-weight-multip.patch` (P7), `.../patches/paged/0031` (P4), `0025` (D1), `0018/0022` (D4/D5), `0009/0010` (D3/D6/D7); graph source `/home/mudler/_git/LocalAI/backend/cpp/llama-cpp-paged-dev/src/{models/qwen35moe.cpp,models/delta-net-base.cpp,llama-graph.cpp}`.
 
 ### Phase 10 GDN C32 slab update
