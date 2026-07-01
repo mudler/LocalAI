@@ -173,6 +173,7 @@ GDN is the #1 prefill-gap contributor (+59.2 us/tok, ~30%). vLLM's FLA `chunk_ga
 | bf16-C16 | bf16 Gram at C=16 | REJECTED | no win; bf16 mantissa unsafe on state-coupled products |
 | BV block-occupancy A/B (tf32) | raise blocks/SM | REJECTED (occupancy NOT the bound) | 1844 vs 1814 S_PP (-1.04%, within noise) |
 | bf16-C64 | bf16 Gram at C=64 | REJECTED | -18.75%; O(C^2) intra-chunk + serial recurrence dominates |
+| Phase 10 C32 slab M5 | C=32, two `dv_tile=64` slabs, default-off `GDN_C32_SLAB=1` | REJECTED | md5-clean after tail-row zeroing, but slower: MoE 2048 2430.32 -> 2054.86; dense 2048 1019.25 -> 903.73 |
 
 Why not occupancy/dtype: the cost is the **O(C^2) intra-chunk triangular A-inverse solve + the strictly-serial inter-chunk recurrence**, with C forced to **16** by GB10's 99 KB dynamic-smem cap (the 128x128 f32 state alone is 64 KB). M5 captures the tractable TC part; it does not fully close 2.62x because vLLM's FLA blocked-solve is a more complete TC implementation.
 

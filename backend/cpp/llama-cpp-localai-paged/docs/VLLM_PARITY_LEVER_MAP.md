@@ -459,6 +459,40 @@ scope until a serving phase proves target-verification cost and rollback safety.
 
 Relevant files (all absolute): `/home/mudler/_git/LocalAI/.claude/worktrees/feat+paged-attention/backend/cpp/llama-cpp-localai-paged/docs/{DECODE_SERVING_SCOPE.md,PREFILL_GEMM_SCOPE.md,PREFILL_GEMM_RESULTS.md,TENSORCORE_GDN_SCOPE.md,final_benchmark.csv}`, `.../README.md`, `.../patches/paged/0034-feat-paged-native-NVFP4-W4A4-FP4-MMA-large-M-prefill.patch` (P1/P2), `.../patches/paged/0042-feat-paged-fused-residual-add-RMS-norm-weight-multip.patch` (P7), `.../patches/paged/0031` (P4), `0025` (D1), `0018/0022` (D4/D5), `0009/0010` (D3/D6/D7); graph source `/home/mudler/_git/LocalAI/backend/cpp/llama-cpp-paged-dev/src/{models/qwen35moe.cpp,models/delta-net-base.cpp,llama-graph.cpp}`.
 
+### Phase 10 GDN C32 slab update
+
+Phase 10 tested the tempting low-conflict shortcut for #101: keep the current
+M5 tensor-core GDN form, raise the chunk to `C=32`, and split the value
+dimension into two `dv_tile=64` slabs to stay within shared memory.
+
+Result:
+
+- The shortcut cannot be a launcher-only change. C32 requires staging
+  `U=T*RHS` because the existing M5 apply path relies on one 16-row tile being
+  held in registers before overwriting `Ud`.
+- A default-off `GDN_C32_SLAB=1` candidate was built and md5-gated.
+- The first candidate exposed a dense-only transcript failure on tail chunks;
+  root cause was copying uninitialized staged rows for `t >= Cc` back into
+  `Ud`. Zeroing those rows restored both canonical md5 gates:
+  MoE `8cb0ce23777bf55f92f63d0292c756b0`, dense
+  `5951a5b4d624ce891e22ab5fca9bc439`.
+- Performance regressed after correctness was fixed:
+  MoE 2048 S_PP `2430.32 -> 2054.86`; dense 2048 S_PP `1019.25 -> 903.73`.
+
+Decision:
+
+- **REJECT** the two-slab C32 M5 variant.
+- Do not add it to the LocalAI patch stack.
+- The likely blocker is duplicated A/T recomputation per value slab; future GDN
+  work must share that work across slabs or move to a different FLA-style
+  chunked design rather than repeating this env-gated shortcut.
+
+Artifacts:
+
+- `/home/mudler/bench/phase10_gdn_c32_slab/gates/`
+- `/home/mudler/bench/phase10_gdn_c32_slab/ab/`
+- `/home/mudler/bench/phase10_gdn_c32_slab/rejected/c32_slab_tailfix_rejected.diff`
+
 ---
 
 # PROFILE-VALIDATED PATH (both-engine nsys, adversarially verified Sun Jun 28 11:55:12 PM UTC 2026)

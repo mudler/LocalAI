@@ -874,6 +874,57 @@ Source check:
 
 Decision:
 
-- Do not ship a Phase 10 source patch yet.
-- Keep the baseline and source check as the entry gate for the next C32 slab
-  implementation task.
+- A default-off C32 slab candidate was implemented and rejected by the
+  performance gate.
+- The candidate was correctness-clean only after fixing a tail-chunk staging
+  bug: rows `t >= Cc` in the staged `U=T*RHS` copy-back must be zeroed before
+  state/output math. Before that fix, the dense gate produced a degenerate
+  transcript even though the focused op gate passed.
+- After the tail fix, both default and forced-C32 modes matched the canonical
+  md5 gates exactly:
+  - MoE: `8cb0ce23777bf55f92f63d0292c756b0`.
+  - Dense: `5951a5b4d624ce891e22ab5fca9bc439`.
+- KL was not needed because md5 stayed stable after the tail fix.
+
+Correctness artifacts:
+
+- `/home/mudler/bench/phase10_gdn_c32_slab/gates/gated_delta_net_default_after_tailfix.txt`
+- `/home/mudler/bench/phase10_gdn_c32_slab/gates/gated_delta_net_c32_slab_after_tailfix.txt`
+- `/home/mudler/bench/phase10_gdn_c32_slab/gates/gate_moe_default_after_tailfix.md5`
+- `/home/mudler/bench/phase10_gdn_c32_slab/gates/gate_dense_default_after_tailfix.md5`
+- `/home/mudler/bench/phase10_gdn_c32_slab/gates/gate_moe_c32_after_tailfix.md5`
+- `/home/mudler/bench/phase10_gdn_c32_slab/gates/gate_dense_c32_after_tailfix.md5`
+
+Performance A/B artifacts:
+
+- `/home/mudler/bench/phase10_gdn_c32_slab/ab/moe_base.txt`
+- `/home/mudler/bench/phase10_gdn_c32_slab/ab/moe_c32.txt`
+- `/home/mudler/bench/phase10_gdn_c32_slab/ab/dense_base.txt`
+- `/home/mudler/bench/phase10_gdn_c32_slab/ab/dense_c32.txt`
+
+Performance A/B:
+
+| Model | Mode | PP | TG | B | S_PP t/s | S_TG t/s | S t/s |
+|-------|------|----|----|---|----------|----------|-------|
+| MoE | M5 base | 512 | 4 | 32 | 2323.48 | 397.57 | 2239.39 |
+| MoE | C32 slab | 512 | 4 | 32 | 2069.12 | 357.43 | 1995.06 |
+| MoE | M5 base | 2048 | 4 | 32 | 2430.32 | 388.29 | 2405.66 |
+| MoE | C32 slab | 2048 | 4 | 32 | 2054.86 | 388.01 | 2037.79 |
+| Dense | M5 base | 512 | 4 | 32 | 975.10 | 140.53 | 932.19 |
+| Dense | C32 slab | 512 | 4 | 32 | 866.29 | 144.03 | 833.87 |
+| Dense | M5 base | 2048 | 4 | 32 | 1019.25 | 183.25 | 1010.26 |
+| Dense | C32 slab | 2048 | 4 | 32 | 903.73 | 183.47 | 896.86 |
+
+Rejected diff:
+
+- `/home/mudler/bench/phase10_gdn_c32_slab/rejected/c32_slab_tailfix_rejected.diff`
+
+Conclusion:
+
+- Do not ship Phase 10 C32 slab as implemented.
+- C32 slab is not a maintainable shortcut toward parity because duplicated
+  A/T recomputation per value slab outweighs the intended state-traffic
+  reduction.
+- A future GDN prefill attempt should either share the `A/T` work across value
+  slabs or switch to a different FLA-style chunk design; it should not repeat
+  this env-gated two-slab M5 variant.
