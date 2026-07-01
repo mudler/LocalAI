@@ -2469,3 +2469,35 @@ Next target:
 - It must be default-off, fork-first, and validated with MoE/dense md5,
   `MUL_MAT`, `MUL_MAT_ID`, and KL if either md5 changes before any serving
   benchmark.
+
+## Phase 43 Persistent Gate Fusion Feasibility
+
+Phase 43 checked whether the Phase42 "small source candidate" can really be
+implemented as a low-conflict persistent/load-time combined gate tensor.
+
+Source facts:
+
+| path | finding |
+|------|---------|
+| `src/models/qwen35moe.cpp` | `ffn_gate_inp.weight` is loaded as `[n_embd, n_expert]`; `ffn_gate_inp_shexp.weight` is loaded separately as `[n_embd]` |
+| `src/models/qwen35moe.cpp` | the routed gate is consumed inside `build_moe_ffn(...)`; the shared-expert gate is consumed later as a separate `build_lora_mm(ffn_gate_inp_shexp, cur)` |
+| `src/llama-model-loader.cpp` | `create_tensor(...)` duplicates tensors from GGUF metadata and allocates backend buffers before `load_all_data(...)`; it has `create_tensor_as_view(...)` for views of existing GGUF tensors, not for new persistent derived tensors |
+| `src/llama-model.cpp` | backend buffers are allocated from loader contexts before tensor data is loaded; adding a new persistent derived weight requires a new derived-weight allocation/materialization path, not a local Qwen graph change |
+
+Decision:
+
+- Reject persistent/load-time fused gate projection as a "small" GB10 shortcut.
+  It is only low-conflict if the combined weight already exists in the GGUF, or
+  if llama.cpp gains a general derived-weight facility. Neither is true in the
+  current fork.
+- Do not fall back to graph-time `ggml_concat()`; Phase39 already rejected that
+  because `concat_layout` is measurable in serving.
+- Do not implement a Qwen-only loader hack that reads both tensors back to host,
+  allocates an extra backend weight buffer, and patches layer pointers after
+  load. That is high conflict surface for a gate-only SGEMM bucket and would need
+  new lifetime/state-management tests across mmap, offload, split buffers, and
+  MTP blocks.
+- The remaining GB10 parity work is no longer a shortcut patch. It is either a
+  larger funded kernel/loader effort with its own design, or a hardware pivot
+  benchmark. Any future implementation still needs the canonical MoE/dense md5,
+  `MUL_MAT`, `MUL_MAT_ID`, and KL-if-md5-changes gates before benchmarking.

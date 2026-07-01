@@ -541,12 +541,21 @@ regressed TTFT/end-to-end throughput.
 Phase 42 reconciles the target list after parallel read-only review. D1 is
 closed on the current GB10 path; GDN low-conflict work is exhausted after
 `0046`/`0047` plus the rejected C32/QS-early/Global-Ai32 follow-ups; W4A16/GEMM
-micro-tweaks are exhausted after `0033`-`0035` and `0048`-`0050`. The next small
-GB10 source candidate is the Phase38/39 persistent/load-time F32 combined gate
-projection: combine `ffn_gate_inp.weight` and `ffn_gate_inp_shexp.weight` once,
-run one F32 gate matmul, split/view outputs, default-off, no graph-time
-`ggml_concat()`, and gate with MoE/dense md5 plus `MUL_MAT`/`MUL_MAT_ID` before
-benchmarking. If md5 changes, run KL first.
+micro-tweaks are exhausted after `0033`-`0035` and `0048`-`0050`. It nominated
+the Phase38/39 persistent/load-time F32 combined gate projection as the last
+small GB10 source candidate.
+
+Phase 43 rejects that gate-fusion candidate as a small shortcut after source
+inspection. `ffn_gate_inp.weight` and `ffn_gate_inp_shexp.weight` are separate
+GGUF tensors; the Qwen35MoE graph consumes them in separate matmuls; the loader
+can create tensors from GGUF metadata or views of existing tensors, but not a
+new persistent derived concatenated weight. A correct implementation would need
+a general derived-weight allocation/materialization path across mmap, offload,
+split buffers, and MTP blocks. Do not implement a Qwen-only loader hack, and do
+not fall back to graph-time `ggml_concat()`. After Phase43 there is no remaining
+low-conflict GB10 shortcut justified by current evidence; future work is either
+a larger kernel/loader design or a hardware-pivot benchmark, still gated by
+MoE/dense md5 plus `MUL_MAT`/`MUL_MAT_ID` and KL if md5 changes.
 
 ---
 

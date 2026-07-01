@@ -1081,12 +1081,20 @@ reviews:
   improved forced W4A16 only marginally and still did not beat default MMQ. Do
   not add another small W4A16 body/metadata tweak.
 
-The next small source candidate, if we stay on GB10, is the persistent/load-time
-F32 combined gate projection from Phase38/39: combine `ffn_gate_inp.weight` and
-`ffn_gate_inp_shexp.weight` once, issue one F32 gate matmul, and split/view the
-outputs. It must be default-off, avoid graph-time `ggml_concat()`, and pass
-MoE/dense md5 plus `MUL_MAT`/`MUL_MAT_ID`; if md5 changes, run KL before any
-serving benchmark.
+Phase 43 then checked that candidate against the actual Qwen35MoE model-loader
+path and rejected it as a small shortcut. `ffn_gate_inp.weight` and
+`ffn_gate_inp_shexp.weight` are separate GGUF tensors consumed by separate graph
+matmuls; `create_tensor(...)` only materializes tensors from GGUF metadata, and
+`create_tensor_as_view(...)` can view existing tensors but cannot create a new
+persistent concatenated derived weight. A correct load-time combined gate would
+need a general derived-weight allocation/materialization path across mmap,
+offload, split buffers, and MTP blocks. Do not implement a Qwen-only loader hack,
+and do not fall back to graph-time `ggml_concat()`.
+
+The resulting GB10 state after Phase43: no remaining low-conflict shortcut patch
+is justified by the current evidence. Future work needs either a larger funded
+kernel/loader design or a hardware-pivot benchmark, with the canonical
+MoE/dense md5, `MUL_MAT`, `MUL_MAT_ID`, and KL-if-md5-changes gates.
 
 Relevant files (all absolute): `/home/mudler/_git/LocalAI/.claude/worktrees/feat+paged-attention/backend/cpp/llama-cpp-localai-paged/docs/{DECODE_SERVING_SCOPE.md,PREFILL_GEMM_SCOPE.md,PREFILL_GEMM_RESULTS.md,TENSORCORE_GDN_SCOPE.md,final_benchmark.csv}`, `.../README.md`, `.../patches/paged/0034-feat-paged-native-NVFP4-W4A4-FP4-MMA-large-M-prefill.patch` (P1/P2), `.../patches/paged/0042-feat-paged-fused-residual-add-RMS-norm-weight-multip.patch` (P7), `.../patches/paged/0031` (P4), `0025` (D1), `0018/0022` (D4/D5), `0009/0010` (D3/D6/D7); graph source `/home/mudler/_git/LocalAI/backend/cpp/llama-cpp-paged-dev/src/{models/qwen35moe.cpp,models/delta-net-base.cpp,llama-graph.cpp}`.
 
