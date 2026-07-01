@@ -93,7 +93,7 @@ vllm    32  454.6    592.4           17.43              5376.5       818.6
 
 - [x] **Step 4: Record decision**
 
-Decision: Phase41 confirms D1 remains relevant for low-concurrency/latency work, but the measured current-stack gap is around `0.75x` vLLM at `n=1/8` and `0.665x` at `n=32`, not an immediate parity bridge. TTFT remains the larger user-visible gap.
+Decision: Phase41 confirms a low-concurrency/latency gap, but it does not reopen D1/full-step graph capture. Patch `0043` already ships grouped-MMQ full-step graph capture default-on, and Phase34 found `host_sync=0/4096`. The measured current-stack gap is around `0.75x` vLLM at `n=1/8` and `0.665x` at `n=32`; TTFT remains the larger user-visible gap.
 
 ### Task 3: Update Handoff Docs
 

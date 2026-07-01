@@ -2371,11 +2371,11 @@ Decision:
   Any future C1 rerun must push beyond this tested point and keep the same
   md5 plus `MUL_MAT`/`MUL_MAT_ID` gates.
 
-## Phase 41 Low-Concurrency D1 Check
+## Phase 41 Low-Concurrency Serving Check
 
 Phase 41 measured the opposite serving regime after Phase40 rejected the tested
 max-concurrency shortcut: low concurrency and latency-sensitive decode. This is
-the regime where the D1/full-step graph-capture direction should matter most.
+the regime where any remaining host/scheduler gap should be most visible.
 
 Artifacts:
 
@@ -2433,11 +2433,39 @@ Ratios:
 
 Decision:
 
-- D1/full-step graph capture remains relevant for low-concurrency and latency
-  work, but this current-stack snapshot does not show an easy parity bridge:
-  paged is about `0.75x` vLLM decode at `n=1/8` and `0.665x` at `n=32`.
+- The low-concurrency gap is real, but Phase41 does not reopen D1/full-step graph
+  capture. Patch `0043` already ships that behavior default-on, and Phase34
+  route tracing found `host_sync=0/4096` for the current n128 serving path.
+  Paged is about `0.75x` vLLM decode at `n=1/8` and `0.665x` at `n=32`.
 - TTFT is the bigger user-visible low-concurrency gap, especially by `n=8/32`;
   prefill GDN and MoE GEMM work therefore still matters even in a decode-focused
   serving discussion.
-- The next implementation phase should require a separately built A/B and the
-  same md5 plus `MUL_MAT`/`MUL_MAT_ID` gates before claiming any D1 improvement.
+- Do not fund another D1 graph-capture patch on GB10 unless a fresh route trace
+  first proves a host-sync fallback or graph-disable condition has returned. The
+  next implementation target should be a measured non-D1 bucket, gated by the
+  same md5 plus `MUL_MAT`/`MUL_MAT_ID` checks.
+
+## Phase 42 D1/GDN/GEMM Target Reconciliation
+
+Phase 42 challenged the Phase41 wording against the patch stack and read-only
+subagent analysis. It resolves the next-target decision before any source work.
+
+Evidence:
+
+| track | evidence | decision |
+|-------|----------|----------|
+| D1/full-step graph capture | Patch `0043` is default-on for grouped MMQ decode and opt-out via `LLAMA_MOE_NO_FORCE_GRAPHS=1`; Phase34 route trace found `host_sync=0/4096`; `VLLM_PARITY_FINAL.md` marks D1 shipped and the host-sync premise refuted | closed on current GB10 path |
+| S3 decode-shape-stable scheduling | Patch `0041` is shipped default-off after end-to-end A/B showed worse TTFT and lower throughput despite better per-step decode metrics | keep opt-in only |
+| GDN prefill | Patches `0046`/`0047` are the shipped GB10 GDN wins; C32 slab, QS-early, and Global-Ai32 were md5-clean but slower | do not add another low-conflict GB10 GDN reorder |
+| W4A16 / prefill GEMM | Patches `0033`/`0034`/`0035` are default-off; `0048`-`0050` improved forced W4A16 only marginally and did not beat default MMQ | do not add another small W4A16 body/metadata tweak |
+
+Next target:
+
+- The only small incremental candidate left from the current evidence is the
+  persistent/load-time F32 combined gate projection scoped in Phase38/39:
+  combine `ffn_gate_inp.weight` and `ffn_gate_inp_shexp.weight` once, run one
+  F32 gate matmul, and split/view the output. Do not use graph-time
+  `ggml_concat()`.
+- It must be default-off, fork-first, and validated with MoE/dense md5,
+  `MUL_MAT`, `MUL_MAT_ID`, and KL if either md5 changes before any serving
+  benchmark.

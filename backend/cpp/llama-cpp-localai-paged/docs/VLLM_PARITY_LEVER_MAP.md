@@ -1038,10 +1038,10 @@ the memory-footprint advantage as a parity claim at this tested point; any
 future C1 retry must push beyond it and keep md5 plus `MUL_MAT`/`MUL_MAT_ID`
 gates.
 
-### Phase 41 low-concurrency D1 check
+### Phase 41 low-concurrency serving check
 
-Phase 41 measured the low-concurrency serving regime where D1/full-step graph
-capture should be most useful. Artifact:
+Phase 41 measured the low-concurrency serving regime where any remaining
+host/scheduler gap should be most visible. Artifact:
 `/home/mudler/bench/phase41_low_concurrency/20260701_091437`. The run used
 `PARALLEL=32`, `CTX=32768`, `PTOK=128`, `GEN=64`, `NPL="1 8 32"`, and
 `OPS=MUL_MAT,MUL_MAT_ID`.
@@ -1058,10 +1058,35 @@ Result:
 | 8 | `0.7518` | `0.7398` | `0.6334` | `3.1425` |
 | 32 | `0.6649` | `0.6397` | `0.5282` | `3.4014` |
 
-Decision: D1 remains a real low-concurrency/latency lever, but Phase41 does not
-make it a shortcut to parity. The implementation gate remains a separately built
-A/B with md5 plus `MUL_MAT`/`MUL_MAT_ID` checks, and TTFT evidence keeps prefill
-GDN/MoE work in scope for serving quality.
+Decision: low-concurrency remains a gap, but Phase41 does not reopen
+D1/full-step graph capture. Patch `0043` already ships grouped-MMQ full-step
+decode graph capture default-on, Phase34 found `host_sync=0/4096`, and S3 is
+intentionally default-off because it hurts TTFT/end-to-end throughput. Treat
+D1 as closed on the current GB10 path unless a fresh route trace proves a
+host-sync fallback or graph-disable condition has returned. TTFT evidence keeps
+prefill GDN/MoE work in scope for serving quality.
+
+### Phase 42 target reconciliation
+
+Phase 42 challenged the current target list with three read-only subagent
+reviews:
+
+- D1/full-step graph capture: closed on current GB10 path. `0040` S1 is
+  default-on graph reuse, `0041` S3 is opt-in only, and `0043` D1 is default-on
+  grouped-MMQ full-step CUDA graph capture.
+- GDN prefill: the shipped GB10 wins are `0046`/`0047`; later C32 slab,
+  QS-early, and Global-Ai32 variants were correctness-clean but slower. Do not
+  add another low-conflict GDN reorder on GB10.
+- W4A16 / prefill GEMM: `0033`/`0034`/`0035` remain default-off; `0048`-`0050`
+  improved forced W4A16 only marginally and still did not beat default MMQ. Do
+  not add another small W4A16 body/metadata tweak.
+
+The next small source candidate, if we stay on GB10, is the persistent/load-time
+F32 combined gate projection from Phase38/39: combine `ffn_gate_inp.weight` and
+`ffn_gate_inp_shexp.weight` once, issue one F32 gate matmul, and split/view the
+outputs. It must be default-off, avoid graph-time `ggml_concat()`, and pass
+MoE/dense md5 plus `MUL_MAT`/`MUL_MAT_ID`; if md5 changes, run KL before any
+serving benchmark.
 
 Relevant files (all absolute): `/home/mudler/_git/LocalAI/.claude/worktrees/feat+paged-attention/backend/cpp/llama-cpp-localai-paged/docs/{DECODE_SERVING_SCOPE.md,PREFILL_GEMM_SCOPE.md,PREFILL_GEMM_RESULTS.md,TENSORCORE_GDN_SCOPE.md,final_benchmark.csv}`, `.../README.md`, `.../patches/paged/0034-feat-paged-native-NVFP4-W4A4-FP4-MMA-large-M-prefill.patch` (P1/P2), `.../patches/paged/0042-feat-paged-fused-residual-add-RMS-norm-weight-multip.patch` (P7), `.../patches/paged/0031` (P4), `0025` (D1), `0018/0022` (D4/D5), `0009/0010` (D3/D6/D7); graph source `/home/mudler/_git/LocalAI/backend/cpp/llama-cpp-paged-dev/src/{models/qwen35moe.cpp,models/delta-net-base.cpp,llama-graph.cpp}`.
 
