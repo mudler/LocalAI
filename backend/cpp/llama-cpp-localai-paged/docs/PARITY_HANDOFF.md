@@ -1079,3 +1079,31 @@ requires pushing before regenerating the LocalAI series. Do not push without
 explicit approval. After approval, push the fork, regenerate `0064..0073`, rerun
 the same tree-hash check, and then run the broader serving gates before any
 default-on BF16 policy change.
+
+## 15. PHASE70 RESULT: BF16 F32 OUTPUT BROADER SERVING
+
+Phase70 broadened the Phase68 serving evidence without source changes. Plan:
+`docs/superpowers/plans/2026-07-01-bf16-f32-output-broader-serving-phase70.md`.
+Benchmark ledger:
+`backend/cpp/llama-cpp-localai-paged/docs/BENCHMARK.md`.
+DGX artifact:
+`/home/mudler/bench/phase70_bf16_broader_serving/20260701_151500`.
+
+Gates stayed green. Default pre/post gates matched MoE md5 `8cb0ce23`, dense
+md5 `5951a5b4`, `MUL_MAT 1146/1146`, and `MUL_MAT_ID 806/806`. Opt-in pre/post
+gates matched MoE md5 `8cb0ce23`, dense md5 `5951a5b4`, and `MUL_MAT
+1146/1146`.
+
+Serving shape: MoE `NPL=8 32 128`, prompt `128`, generation `64`,
+`PARALLEL=128`.
+
+| n | opt/default agg | opt/default decode | opt/default TTFT | default decode/vLLM | opt decode/vLLM |
+|---:|----------------:|-------------------:|-----------------:|--------------------:|----------------:|
+| `8` | `0.8896` | `0.8998` | `1.1247` | `0.8100` | `0.7289` |
+| `32` | `0.9912` | `0.9974` | `1.0320` | `0.6882` | `0.6864` |
+| `128` | `1.0071` | `0.9882` | `0.9852` | `0.6921` | `0.6839` |
+
+Decision: reject default-on for `LLAMA_BF16_CUBLAS_F32_OUT=1`. The shortcut is
+correctness-clean, but it materially regressed low-concurrency serving and
+slightly widened the vLLM decode gap at `n=32` and `n=128`. Keep it
+default-off only and move the next parity effort to a different lever.

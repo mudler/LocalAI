@@ -133,6 +133,13 @@ but worth carrying as an opt-in shortcut candidate. Do not default it on until
 the fork commit is mirrored into the LocalAI patch series and a broader serving
 snapshot passes pre/post md5 and op gates.
 
+Phase70 ran that broader serving snapshot. Gates stayed green, but the broader
+window rejected default-on: at `N=8`, opt-in aggregate and decode fell to
+`0.8896x` and `0.8998x` of default, and mean TTFT worsened to `1.1247x`.
+At `N=32` and `N=128`, opt-in slightly widened the vLLM decode gap
+(`0.6864x` vs `0.6882x`, and `0.6839x` vs `0.6921x`). Keep
+`LLAMA_BF16_CUBLAS_F32_OUT=1` default-off only and move to another lever.
+
 Relevant files: `/home/mudler/_git/LocalAI/.claude/worktrees/feat+paged-attention/backend/cpp/llama-cpp-localai-paged/docs/{PREFILL_GEMM_SCOPE.md,PREFILL_GEMM_RESULTS.md,TENSORCORE_GDN_SCOPE.md,final_benchmark.csv}`, `/home/mudler/_git/LocalAI/.claude/worktrees/feat+paged-attention/backend/cpp/llama-cpp-localai-paged/patches/paged/0042-feat-paged-fused-residual-add-RMS-norm-weight-multip.patch`, and the graph source `/home/mudler/_git/LocalAI/backend/cpp/llama-cpp-paged-dev/src/models/{qwen35moe.cpp,delta-net-base.cpp}` + `/home/mudler/_git/LocalAI/backend/cpp/llama-cpp-paged-dev/src/llama-graph.cpp` (build_moe_ffn ~1500-1834, build_attn ~2136-2189).
 
 ## 2. Decode-serving compute hypotheses (ranked)

@@ -3825,3 +3825,50 @@ Decision:
   regenerating the LocalAI patch series. Push still requires explicit approval.
 - After push approval, regenerate `0064..0073`, repeat the tree hash check, and
   only then run broader serving gates for any default-on BF16 policy decision.
+
+## BF16 F32 Output Broader Serving Phase70 Result
+
+Phase70 is recorded in
+`docs/superpowers/plans/2026-07-01-bf16-f32-output-broader-serving-phase70.md`.
+It did not change llama.cpp source and did not edit generated LocalAI patches.
+It also creates the running benchmark ledger at
+`backend/cpp/llama-cpp-localai-paged/docs/BENCHMARK.md`.
+
+- DGX artifact: `/home/mudler/bench/phase70_bf16_broader_serving/20260701_151500`
+- Source under test: `14fd69f1e feat(cuda): gate BF16 cuBLAS F32 output`
+- Shape: MoE serving, `NPL=8 32 128`, prompt `128`, generation `64`,
+  `PARALLEL=128`, `CTX=131072`
+
+Pre/post gates passed:
+
+| gate | MoE md5 | dense md5 | `MUL_MAT` | `MUL_MAT_ID` |
+|------|---------|-----------|-----------|--------------|
+| pre default | `8cb0ce23777bf55f92f63d0292c756b0` | `5951a5b4d624ce891e22ab5fca9bc439` | `1146/1146` | `806/806` |
+| pre opt-in | `8cb0ce23777bf55f92f63d0292c756b0` | `5951a5b4d624ce891e22ab5fca9bc439` | `1146/1146` | not run |
+| post default | `8cb0ce23777bf55f92f63d0292c756b0` | `5951a5b4d624ce891e22ab5fca9bc439` | `1146/1146` | `806/806` |
+| post opt-in | `8cb0ce23777bf55f92f63d0292c756b0` | `5951a5b4d624ce891e22ab5fca9bc439` | `1146/1146` | not run |
+
+Serving A/B and vLLM comparison:
+
+| n | default agg | opt-in agg | vLLM agg | default decode | opt-in decode | vLLM decode |
+|---:|------------:|-----------:|---------:|---------------:|--------------:|------------:|
+| `8` | `178.5` | `158.8` | `260.9` | `242.6` | `218.3` | `299.5` |
+| `32` | `250.1` | `247.9` | `465.3` | `418.7` | `417.6` | `608.4` |
+| `128` | `322.5` | `324.8` | `659.9` | `706.2` | `697.9` | `1020.4` |
+
+Ratios:
+
+| n | opt/default agg | opt/default decode | opt/default TTFT | default decode/vLLM | opt decode/vLLM |
+|---:|----------------:|-------------------:|-----------------:|--------------------:|----------------:|
+| `8` | `0.8896` | `0.8998` | `1.1247` | `0.8100` | `0.7289` |
+| `32` | `0.9912` | `0.9974` | `1.0320` | `0.6882` | `0.6864` |
+| `128` | `1.0071` | `0.9882` | `0.9852` | `0.6921` | `0.6839` |
+
+Decision:
+
+- Reject default-on for `LLAMA_BF16_CUBLAS_F32_OUT=1`.
+- Keep the shortcut as default-off only. It is correctness-clean, but the
+  broader serving window regressed `n=8` materially and slightly widened the
+  vLLM decode gap at `n=32` and `n=128`.
+- The next parity phase should not spend more time on this default policy. Use
+  the benchmark ledger for every following attempt.
