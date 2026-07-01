@@ -255,7 +255,7 @@ Fork commit:
 - Modify: `/home/mudler/_git/llama.cpp/ggml/src/ggml-cuda/w4a16-gemm.cuh`
 - Modify: `/home/mudler/_git/llama.cpp/ggml/src/ggml-cuda/w4a16-gemm.cu`
 
-- [ ] **Step 1: Declare the direct launcher**
+- [x] **Step 1: Declare the direct launcher**
 
 Add to `w4a16-gemm.cuh`:
 
@@ -276,12 +276,12 @@ void ggml_cuda_mul_mat_id_w4a16_grouped_direct_a(
     cudaStream_t stream);
 ```
 
-- [ ] **Step 2: Add a stub that preserves behavior**
+- [x] **Step 2: Add a stub that preserves behavior**
 
 Add to `w4a16-gemm.cu` after `ggml_cuda_mul_mat_id_w4a16_grouped()`:
 
 ```cpp
-void ggml_cuda_mul_mat_id_w4a16_grouped_direct_a(
+[[noreturn]] void ggml_cuda_mul_mat_id_w4a16_grouped_direct_a(
         ggml_backend_cuda_context & ctx,
         const ggml_tensor * src0,
         const float * src1,
@@ -312,7 +312,7 @@ void ggml_cuda_mul_mat_id_w4a16_grouped_direct_a(
 }
 ```
 
-- [ ] **Step 3: Verify build still passes**
+- [x] **Step 3: Verify build still passes**
 
 Run:
 
@@ -324,13 +324,35 @@ cmake --build build --target test-cuda-w4a16-policy llama-batched-bench -j2
 
 Expected: test passes and `llama-batched-bench` builds.
 
+Actual local verification:
+
+```bash
+cd /home/mudler/_git/llama.cpp
+git diff --check
+cmake --build build --target test-cuda-w4a16-policy llama-batched-bench -j2
+./build/bin/test-cuda-w4a16-policy
+```
+
+Result: `test-cuda-w4a16-policy: OK`.
+
+Actual DGX CUDA compile verification:
+
+```text
+[ 10%] Building CUDA object ggml/src/ggml-cuda/CMakeFiles/ggml-cuda.dir/w4a16-gemm.cu.o
+[100%] Built target llama-batched-bench
+test-cuda-w4a16-policy: OK
+```
+
+Remote mirror cleanup: `/tmp/localai-gpu.lock` released as
+`FREE phase61-noreturn-compile 20260701T111354Z`.
+
 ## Task 4: Route Direct-A Mode Without Touching Default Path
 
 **Files:**
 
 - Modify: `/home/mudler/_git/llama.cpp/ggml/src/ggml-cuda/ggml-cuda.cu`
 
-- [ ] **Step 1: Add direct-mode branch**
+- [x] **Step 1: Add direct-mode branch**
 
 In `ggml_cuda_mul_mat_id`, after `ids_to_sorted` and `ids_from_sorted` are prepared, replace the W4A16 branch with this structure:
 
@@ -368,7 +390,7 @@ In `ggml_cuda_mul_mat_id`, after `ids_to_sorted` and `ids_from_sorted` are prepa
 
 Do not leave two `get_rows_cuda` calls in the direct path.
 
-- [ ] **Step 2: Verify default path**
+- [x] **Step 2: Verify default path**
 
 Run:
 
@@ -379,6 +401,32 @@ cmake --build build --target test-cuda-w4a16-policy llama-batched-bench -j2
 ```
 
 Expected: build and policy test pass. Do not run `LLAMA_W4A16_DIRECT_A=1` yet; the stub must abort if selected.
+
+Actual local verification:
+
+```bash
+cd /home/mudler/_git/llama.cpp
+git diff --check
+cmake --build build --target test-cuda-w4a16-policy llama-batched-bench -j2
+./build/bin/test-cuda-w4a16-policy
+```
+
+Result: `test-cuda-w4a16-policy: OK`.
+
+Actual DGX default inference safety gates with the Task 3/4 cumulative patch
+applied to `~/llama-phase6-source`:
+
+- Artifact: `/home/mudler/bench/phase61_task34_gates/20260701_131210`
+- MoE md5: `8cb0ce23777bf55f92f63d0292c756b0`
+- dense md5: `5951a5b4d624ce891e22ab5fca9bc439`
+- `MUL_MAT`: `1146/1146`
+- `MUL_MAT_ID`: `806/806`
+- Remote mirror cleanup: `/tmp/localai-gpu.lock` released as
+  `FREE phase61-task34-gates 20260701T111317Z`.
+
+Fork commit:
+
+- `7967ad47f feat(cuda): route W4A16 direct activation stub`
 
 ## Task 5: Implement Direct-A Kernel
 
