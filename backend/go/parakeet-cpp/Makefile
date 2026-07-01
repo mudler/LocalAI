@@ -1,6 +1,6 @@
 # parakeet-cpp backend Makefile.
 #
-# Upstream pin lives below as PARAKEET_VERSION?=f469a57270a1cc4554acb15febf60e56619673b9
+# Upstream pin lives below as PARAKEET_VERSION?=e8acc6172a94e20a952cf1843decace5d771a94b
 # (.github/bump_deps.sh) can find and update it - matches the
 # whisper.cpp / ds4 / vibevoice-cpp convention.
 #
@@ -15,7 +15,7 @@
 # That's what the L0 smoke test uses. The default target below does the
 # proper clone-at-pin + cmake build so CI doesn't need a side-checkout.
 
-PARAKEET_VERSION?=f469a57270a1cc4554acb15febf60e56619673b9
+PARAKEET_VERSION?=e8acc6172a94e20a952cf1843decace5d771a94b
 PARAKEET_REPO?=https://github.com/mudler/parakeet.cpp
 
 GOCMD?=go
