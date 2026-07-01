@@ -567,6 +567,13 @@ gate behavior. Use it when the next parity run targets datacenter Blackwell or
 another non-GB10 vLLM serving shape, while keeping `hardware.txt`, pre/post
 MoE/dense md5, `MUL_MAT`/`MUL_MAT_ID`, and KL-if-md5-changes as mandatory gates.
 
+Phase 45 records the immediate inference-safety guard after Phase44. Artifact:
+`/home/mudler/bench/phase45_inference_gate_guard/20260701_094320`. The DGX
+phase36 build passed MoE md5 `8cb0ce23777bf55f92f63d0292c756b0`, dense md5
+`5951a5b4d624ce891e22ab5fca9bc439`, `MUL_MAT` `1146/1146`, and `MUL_MAT_ID`
+`806/806`. Docker, `local-ai-worker`, and GPU compute preflight were all zero
+before and after the run.
+
 ---
 
 ## 5. METHODOLOGY LESSONS (so you do not repeat the mistakes)
@@ -652,6 +659,7 @@ Only pursue if (a)+(b) are not options and someone explicitly wants the residual
 - `~/bench/phase40_max_concurrency/20260701_090012` - max-concurrency C1 check at `NPL=128/192/256`, `PTOK=128`, `GEN=64`, `PARALLEL=256`, `CTX=262144`; pre/post MoE/dense md5 and `MUL_MAT`/`MUL_MAT_ID` gates green, but vLLM also fit at `n=256` and stayed ahead (`paged_decode_over_vllm=0.6354`, `paged_agg_over_vllm=0.4721`).
 - `~/bench/phase41_low_concurrency/20260701_091437` - low-concurrency serving check at `NPL=1/8/32`, `PTOK=128`, `GEN=64`, `PARALLEL=32`, `CTX=32768`; pre/post MoE/dense md5 and `MUL_MAT`/`MUL_MAT_ID` gates green; paged is `0.7493`, `0.7518`, and `0.6649` of vLLM decode at `n=1/8/32`, with TTFT still much worse by `n=8/32`; does not reopen D1.
 - `~/bench/phase44_hardware_pivot_harness_dryrun/20260701_094038` - harness-only dry-run artifact proving the vLLM serving config overrides are printed and preflighted before any server starts.
+- `~/bench/phase45_inference_gate_guard/20260701_094320` - post-Phase44 inference guard; MoE/dense md5 and `MUL_MAT`/`MUL_MAT_ID` backend-op gates green.
 - Per-engine logs `~/bench/COMBINED_{paged,vllm}_{MOE,DENSE}_server.log`; `~/bench/BENCHMARK_PROGRESS.md`.
 - Graph-node-traced high-N profiles: `~/highN_prof2/*.nsys-rep` (paged npl=256), `~/highN_vllm/*.nsys-rep` (vLLM), 2026-06-30.
 - A/B dirs: `~/bench/marlin_gate/`, `~/bench/gdn_p1_ab/`.

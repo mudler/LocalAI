@@ -2539,3 +2539,45 @@ Decision:
   hardware-pivot benchmark still needs the normal preflight, `hardware.txt`,
   pre/post MoE/dense md5 gates, `MUL_MAT`/`MUL_MAT_ID` checks, and
   KL-if-md5-changes before interpreting throughput.
+
+## Phase 45 Inference Gate Guard
+
+Phase 45 answers the inference-safety question after the harness-only Phase44
+change by running the canonical paged inference gates on DGX. This is a
+gate-only phase: it does not benchmark serving throughput and does not change
+inference code.
+
+Artifact:
+
+- `/home/mudler/bench/phase45_inference_gate_guard/20260701_094320`
+
+Preflight:
+
+- Docker containers: `0`
+- `local-ai-worker` containers: `0`
+- GPU compute apps: `0`
+- GPU lock owner: `FREE released-by-codex-current-serving-snapshot 1782890417`
+
+Gate command:
+
+```bash
+BIN=$HOME/llama-phase6-source/build-phase36/bin \
+ART=$HOME/bench/phase45_inference_gate_guard/20260701_094320 \
+OPS=MUL_MAT,MUL_MAT_ID \
+~/paged-inference-gates.sh
+```
+
+Results:
+
+| check | result |
+|-------|--------|
+| MoE paged md5 | `8cb0ce23777bf55f92f63d0292c756b0` |
+| Dense paged md5 | `5951a5b4d624ce891e22ab5fca9bc439` |
+| `MUL_MAT` backend op | `1146/1146`, `Backend CUDA0: OK` |
+| `MUL_MAT_ID` backend op | `806/806`, `Backend CUDA0: OK` |
+
+Decision:
+
+- Current DGX phase36 build still passes the canonical inference md5/op gates.
+- Phase44 did not touch inference code; Phase45 provides the post-change guard
+  artifact for future handoff and comparison.

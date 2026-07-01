@@ -1111,6 +1111,18 @@ future non-GB10 snapshots can carry the same `hardware.txt`, pre/post md5,
 `MUL_MAT`/`MUL_MAT_ID`, and KL-if-md5-changes gates while using hardware-specific
 vLLM serving limits.
 
+### Phase 45 inference gate guard
+
+Phase 45 ran the canonical paged inference safety gate after the Phase44 harness
+change. Artifact:
+`/home/mudler/bench/phase45_inference_gate_guard/20260701_094320`.
+
+Results stayed green on the DGX phase36 build: MoE md5
+`8cb0ce23777bf55f92f63d0292c756b0`, dense md5
+`5951a5b4d624ce891e22ab5fca9bc439`, `MUL_MAT` `1146/1146`, and
+`MUL_MAT_ID` `806/806`. This confirms the current build still satisfies the
+inference-safety gates before any later hardware-pivot or larger kernel work.
+
 Relevant files (all absolute): `/home/mudler/_git/LocalAI/.claude/worktrees/feat+paged-attention/backend/cpp/llama-cpp-localai-paged/docs/{DECODE_SERVING_SCOPE.md,PREFILL_GEMM_SCOPE.md,PREFILL_GEMM_RESULTS.md,TENSORCORE_GDN_SCOPE.md,final_benchmark.csv}`, `.../README.md`, `.../patches/paged/0034-feat-paged-native-NVFP4-W4A4-FP4-MMA-large-M-prefill.patch` (P1/P2), `.../patches/paged/0042-feat-paged-fused-residual-add-RMS-norm-weight-multip.patch` (P7), `.../patches/paged/0031` (P4), `0025` (D1), `0018/0022` (D4/D5), `0009/0010` (D3/D6/D7); graph source `/home/mudler/_git/LocalAI/backend/cpp/llama-cpp-paged-dev/src/{models/qwen35moe.cpp,models/delta-net-base.cpp,llama-graph.cpp}`.
 
 ### Phase 10 GDN C32 slab update
