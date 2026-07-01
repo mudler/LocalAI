@@ -87,7 +87,7 @@ orthogonal to the paged allocator.
 
 ---
 
-## 3. Patch series (0001-0059)
+## 3. Patch series (0001-0060)
 
 Source-only patches, with intentional numbering gaps (e.g. 0005, 0027). The
 decode-serving graph-reuse levers are 0040-0041. "Bit-exact" = greedy md5 /
@@ -217,6 +217,7 @@ These are the dominant decode levers on the Qwen3.6 hybrid models. All bit-exact
 | 0057 | **Trace MoE MMQ launch shapes** - extends `LLAMA_MOE_MMQ_SHAPE_TRACE=<n>` with bounded `[LLAMA_MOE_MMQ_LAUNCH]` lines from `launch_mul_mat_q`, recording actual `ntiles_dst`, `stream_k_blocks`, tile efficiency, `fixup`, `ntx/nty/ntzw`, and compiled `mmq_x/mmq_y`. This is evidence-only instrumentation to distinguish real stream-k/fixup overhead from small-M kernel-shape cost. | yes (default-off, trace-enabled, and post-serving gates green: MoE `8cb0ce23`, dense `5951a5b4`, `MUL_MAT_ID` `806/806`; Phase 31 n128 trace showed decode and prefill `fixup=0`, `stream_k_blocks == ntiles_dst`) |
 | 0058 | **Trace MoE small-M MMQ candidates** - adds `LLAMA_MOE_MMQ_SMALL_M_TRACE=<n>` and a host-only classifier for decode-like low-density grouped-MMQ shapes (`ncols_max <= 128`, density `<=4`, `mmq_x_best <=64`). It only counts candidate calls for the next structural tile-policy A/B; no numeric branch is added. | yes (default-off, trace-enabled, and post-serving gates green: MoE `8cb0ce23`, dense `5951a5b4`, `MUL_MAT_ID` `806/806`; Phase 32 n128 trace found 4096 candidates, mostly `mmq_x_best=64/48`) |
 | 0059 | **Gate MoE small-M MMQ tile policy** - adds default-off `LLAMA_MOE_SMALL_M_TILE=<n>` to cap only classified small-M MoE grouped-MMQ calls. This was used to A/B vLLM-like smaller M blocks without changing default inference. | yes (default-off, tile16, tile8, and post-serving gates green: MoE `8cb0ce23`, dense `5951a5b4`, `MUL_MAT_ID` `806/806`; Phase 33 rejected tile16 and tile8 as slower) |
+| 0060 | **Trace MoE MMID dispatch routes** - adds default-off `LLAMA_MOE_MMID_ROUTE_TRACE=<n>` around `MUL_MAT_ID` dispatch, classifying each call as `mmvq`, `mmvf`, grouped `mmq`, `mmf`, or host-sync `fallback`. This is evidence-only instrumentation to resolve whether serving hits the per-expert host-sync fallback. | yes (default-off, trace-enabled, and post-serving gates green: MoE `8cb0ce23`, dense `5951a5b4`, `MUL_MAT_ID` `806/806`; Phase 34 n128 trace found `mmq=2776`, `mmvq=1320`, `host_sync=0/4096`) |
 
 > **Dropped: patch 0026 (hybrid per-head bf16 SSM state, `ssm_bf16_tau`).** Once
 > the decode fusions (0028 recurrent-state gather-fusion + 0029 block-table cache)
@@ -673,3 +674,12 @@ Phase 33 added default-off `LLAMA_MOE_SMALL_M_TILE=<n>` as patch `0059`
 md5/op safe, but both tested values were slower in same-session n128 serving:
 baseline `672.1` decode_agg_tps, tile16 `640.3` (`0.953x`), tile8 `583.2`
 (`0.868x`). Do not promote simple smaller `mmq_x` caps for this workload.
+
+Phase 34 added default-off `LLAMA_MOE_MMID_ROUTE_TRACE=<n>` as patch `0060`
+(`/home/mudler/bench/phase34_mmid_route_trace/20260701_072737`). Default-off,
+trace-enabled, and post-serving gates stayed stable: MoE `8cb0ce23`, dense
+`5951a5b4`, `MUL_MAT_ID 806/806`. Live n128 serving with trace cap 4096 produced
+`mmq=2776`, `mmvq=1320`, and `host_sync=0/4096`; the top shapes were
+`mmq ne2=12` (1096), `mmq ne2=18` (480), and `mmvq ne2=8` (360). This refutes
+host-sync fallback as the current n128 `MUL_MAT_ID` problem; follow-up work should
+target grouped-MMQ small-M kernel partitioning or another measured bucket.

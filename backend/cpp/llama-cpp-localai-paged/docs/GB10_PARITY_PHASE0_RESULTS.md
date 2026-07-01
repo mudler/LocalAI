@@ -1990,3 +1990,51 @@ Decision:
   inference-safe but slower.
 - A future grouped-MMQ kernel must change the work shape more deeply than the
   host-side tile cap, or pivot to a different bucket.
+
+## Phase 34 MoE MMID Dispatch Route Trace
+
+Phase 34 added patch `0060`, a default-off `LLAMA_MOE_MMID_ROUTE_TRACE=<n>`
+diagnostic around `MUL_MAT_ID` dispatch. It does not alter routing; it logs the
+existing route decision as `mmvq`, `mmvf`, grouped `mmq`, `mmf`, or host-sync
+`fallback`.
+
+Artifact:
+
+- `/home/mudler/bench/phase34_mmid_route_trace/20260701_072737`
+
+Run:
+
+- Fork commit: `/home/mudler/_git/llama.cpp` `6c332094c`
+- DGX mirror commit: `dgx:~/llama-phase6-source` `34a256d14`
+- Env: `LLAMA_KV_PAGED=1 LLAMA_MOE_FORCE_GRAPHS=1 LLAMA_MOE_MMID_ROUTE_TRACE=4096`
+- Workload: staggered n128 `llama-server`, `GEN=64`
+
+Route summary:
+
+| metric | value |
+|--------|-------|
+| traced `MUL_MAT_ID` calls | 4096 |
+| grouped MMQ | 2776 |
+| MMVQ | 1320 |
+| host-sync fallback | 0 |
+| top shapes | `mmq ne2=12`: 1096, `mmq ne2=18`: 480, `mmvq ne2=8`: 360 |
+
+Gates:
+
+| check | status | actual |
+|-------|--------|--------|
+| default-off MoE md5 | ok | `8cb0ce23777bf55f92f63d0292c756b0` |
+| default-off dense md5 | ok | `5951a5b4d624ce891e22ab5fca9bc439` |
+| trace-enabled MoE md5 | ok | `8cb0ce23777bf55f92f63d0292c756b0` |
+| trace-enabled dense md5 | ok | `5951a5b4d624ce891e22ab5fca9bc439` |
+| post-serving MoE md5 | ok | `8cb0ce23777bf55f92f63d0292c756b0` |
+| post-serving dense md5 | ok | `5951a5b4d624ce891e22ab5fca9bc439` |
+| `MUL_MAT_ID` | ok | `806/806` in all three gate runs |
+
+Decision:
+
+- The current n128 serving path is not hitting the host-sync fallback in traced
+  `MUL_MAT_ID` calls. The route is graph-safe MMVQ for very small widths and
+  grouped MMQ above that.
+- Do not scope the next parity phase around avoiding fallback dispatch. Scope it
+  around grouped-MMQ small-M kernel partitioning or another measured bucket.

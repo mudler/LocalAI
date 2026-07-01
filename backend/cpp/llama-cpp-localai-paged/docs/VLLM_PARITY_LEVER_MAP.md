@@ -873,6 +873,31 @@ remaining grouped-MMQ gap is not solved by emulating Marlin's small `block_size_
 with the current MMQ kernel; a future attempt must alter the kernel's internal
 work partitioning or move to a different bottleneck.
 
+### Phase 34 MMID route trace
+
+Phase 34 added patch `0060`, default-off `LLAMA_MOE_MMID_ROUTE_TRACE=<n>`, to
+classify the live `MUL_MAT_ID` dispatch route without changing the route. Artifact:
+`/home/mudler/bench/phase34_mmid_route_trace/20260701_072737`.
+
+Default-off, trace-enabled, and post-serving gates were all bit-exact: MoE
+`8cb0ce23777bf55f92f63d0292c756b0`, dense
+`5951a5b4d624ce891e22ab5fca9bc439`, and `MUL_MAT_ID` `806/806`.
+
+Live n128 serving with `LLAMA_MOE_MMID_ROUTE_TRACE=4096` produced:
+
+| route | count | host sync |
+|-------|-------|-----------|
+| grouped `mmq` | 2776 | 0 |
+| `mmvq` | 1320 | 0 |
+| `mmf` | 0 | 0 |
+| fallback | 0 | 0 |
+
+Top route shapes were `mmq ne2=12` (1096), `mmq ne2=18` (480), and
+`mmvq ne2=8` (360). Lever implication: the old D1 concern that current n128
+serving might fall into the per-expert host-sync fallback is refuted for this
+stack. The remaining MoE route issue is grouped-MMQ small-M efficiency, not
+fallback dispatch avoidance.
+
 Relevant files (all absolute): `/home/mudler/_git/LocalAI/.claude/worktrees/feat+paged-attention/backend/cpp/llama-cpp-localai-paged/docs/{DECODE_SERVING_SCOPE.md,PREFILL_GEMM_SCOPE.md,PREFILL_GEMM_RESULTS.md,TENSORCORE_GDN_SCOPE.md,final_benchmark.csv}`, `.../README.md`, `.../patches/paged/0034-feat-paged-native-NVFP4-W4A4-FP4-MMA-large-M-prefill.patch` (P1/P2), `.../patches/paged/0042-feat-paged-fused-residual-add-RMS-norm-weight-multip.patch` (P7), `.../patches/paged/0031` (P4), `0025` (D1), `0018/0022` (D4/D5), `0009/0010` (D3/D6/D7); graph source `/home/mudler/_git/LocalAI/backend/cpp/llama-cpp-paged-dev/src/{models/qwen35moe.cpp,models/delta-net-base.cpp,llama-graph.cpp}`.
 
 ### Phase 10 GDN C32 slab update
