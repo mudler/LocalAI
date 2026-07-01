@@ -173,6 +173,7 @@ products through tensor cores. The series chased that headroom.
 | BV block-occupancy A/B (tf32) | raise blocks/SM to test if occupancy is the bound | **REJECTED** (occupancy is NOT the bound; latency is wave-hidden) | two arms statistically equal: **1844 vs 1814 S_PP (-1.04%, within noise)** | GDNAB armA/armB |
 | bf16-C64 | bf16 Gram at the larger C=64 chunk | **REJECTED** | **-18.75%** - the O(C^2) intra-chunk triangular-solve + serial recurrence dominates, so growing C hurts | recorded verdict / GDN build-plan |
 | Phase 10 C32 slab M5 | C=32 with two `dv_tile=64` slabs, default-off `GDN_C32_SLAB=1` | **REJECTED** | md5-clean after tail-row zeroing, but S_PP regressed: MoE 2048 **2430.32 -> 2054.86**, dense 2048 **1019.25 -> 903.73** | phase10 gates/ab |
+| Phase 11 QS-early M5 | move `QS = Qc * S0` earlier, default-off `GDN_M5_QS_EARLY=1` | **REJECTED** | md5-clean, but S_PP regressed slightly: MoE 2048 **2441.54 -> 2420.26**, dense 2048 **1021.06 -> 1015.77** | phase11 gates/ab |
 
 **Why the bottleneck is not occupancy/dtype:** the cost is the **O(C^2)
 intra-chunk triangular solve + the serial inter-chunk recurrence dependency**, not

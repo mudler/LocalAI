@@ -928,3 +928,58 @@ Conclusion:
 - A future GDN prefill attempt should either share the `A/T` work across value
   slabs or switch to a different FLA-style chunk design; it should not repeat
   this env-gated two-slab M5 variant.
+
+## Phase 11 GDN M5 QS-Early Rejection
+
+Phase 11 tested a smaller C=16 M5 scheduling shortcut instead of reopening C32:
+move the `QS = Qc * S0` state-boundary tensor-core pass earlier and keep it
+default-off behind `GDN_M5_QS_EARLY=1`.
+
+Correctness artifacts:
+
+- `/home/mudler/bench/phase11_gdn_m5_state_boundary/gates/gated_delta_net_default.txt`
+- `/home/mudler/bench/phase11_gdn_m5_state_boundary/gates/gated_delta_net_qs_early.txt`
+- `/home/mudler/bench/phase11_gdn_m5_state_boundary/gates/gate_moe_default.md5`
+- `/home/mudler/bench/phase11_gdn_m5_state_boundary/gates/gate_dense_default.md5`
+- `/home/mudler/bench/phase11_gdn_m5_state_boundary/gates/gate_moe_qs_early.md5`
+- `/home/mudler/bench/phase11_gdn_m5_state_boundary/gates/gate_dense_qs_early.md5`
+
+Correctness result:
+
+- Default and QS-early paths matched canonical md5 exactly:
+  - MoE `8cb0ce23777bf55f92f63d0292c756b0`.
+  - Dense `5951a5b4d624ce891e22ab5fca9bc439`.
+- KL was not needed.
+
+Performance artifacts:
+
+- `/home/mudler/bench/phase11_gdn_m5_state_boundary/ab/moe_base.txt`
+- `/home/mudler/bench/phase11_gdn_m5_state_boundary/ab/moe_qs_early.txt`
+- `/home/mudler/bench/phase11_gdn_m5_state_boundary/ab/dense_base.txt`
+- `/home/mudler/bench/phase11_gdn_m5_state_boundary/ab/dense_qs_early.txt`
+
+Performance A/B:
+
+| Model | Mode | PP | TG | B | S_PP t/s | S_TG t/s | S t/s |
+|-------|------|----|----|---|----------|----------|-------|
+| MoE | M5 base | 512 | 4 | 32 | 2325.67 | 355.60 | 2229.90 |
+| MoE | QS-early | 512 | 4 | 32 | 2315.77 | 353.27 | 2220.16 |
+| MoE | M5 base | 2048 | 4 | 32 | 2441.54 | 390.53 | 2416.80 |
+| MoE | QS-early | 2048 | 4 | 32 | 2420.26 | 389.89 | 2395.94 |
+| Dense | M5 base | 512 | 4 | 32 | 975.15 | 142.71 | 932.97 |
+| Dense | QS-early | 512 | 4 | 32 | 968.23 | 144.24 | 927.17 |
+| Dense | M5 base | 2048 | 4 | 32 | 1021.06 | 183.34 | 1012.04 |
+| Dense | QS-early | 2048 | 4 | 32 | 1015.77 | 183.73 | 1006.88 |
+
+Rejected diff:
+
+- `/home/mudler/bench/phase11_gdn_m5_state_boundary/rejected/qs_early_rejected.diff`
+
+Conclusion:
+
+- Do not ship Phase 11 QS-early as implemented.
+- Merely moving the QS state-boundary product earlier is not enough; it remains
+  an extra MMA pass and does not reduce the M5 critical path.
+- The next GDN attempt should skip local scheduling-only changes and scope a
+  true shared-A/Ai blocked-solve or global-scratch design, with an explicit
+  scratch/synchronization cost model before coding.

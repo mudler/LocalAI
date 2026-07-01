@@ -493,6 +493,34 @@ Artifacts:
 - `/home/mudler/bench/phase10_gdn_c32_slab/ab/`
 - `/home/mudler/bench/phase10_gdn_c32_slab/rejected/c32_slab_tailfix_rejected.diff`
 
+### Phase 11 GDN M5 QS-early update
+
+Phase 11 tested the smallest possible C=16 follow-up after the C32 slab
+rejection: move the `QS = Qc * S0` state-boundary product earlier in the M5
+chunk loop behind `GDN_M5_QS_EARLY=1`.
+
+Result:
+
+- The candidate built on DGX and stayed md5-exact:
+  MoE `8cb0ce23777bf55f92f63d0292c756b0`, dense
+  `5951a5b4d624ce891e22ab5fca9bc439`.
+- It regressed S_PP slightly in both families:
+  MoE 2048 `2441.54 -> 2420.26`, dense 2048 `1021.06 -> 1015.77`.
+
+Decision:
+
+- **REJECT** QS-early.
+- Do not add it to the LocalAI patch stack.
+- A scheduling-only move that still performs the same QS MMA does not close the
+  GDN gap. The next GDN scope should be a real shared-A/Ai blocked-solve or
+  global-scratch design, not another local reorder.
+
+Artifacts:
+
+- `/home/mudler/bench/phase11_gdn_m5_state_boundary/gates/`
+- `/home/mudler/bench/phase11_gdn_m5_state_boundary/ab/`
+- `/home/mudler/bench/phase11_gdn_m5_state_boundary/rejected/qs_early_rejected.diff`
+
 ---
 
 # PROFILE-VALIDATED PATH (both-engine nsys, adversarially verified Sun Jun 28 11:55:12 PM UTC 2026)

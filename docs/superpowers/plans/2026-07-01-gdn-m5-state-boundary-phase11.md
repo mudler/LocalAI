@@ -25,7 +25,7 @@
 - Read-only: `/home/mudler/_git/llama.cpp/ggml/src/ggml-cuda/gated_delta_net.cu`
 - Artifact: `/home/mudler/bench/phase11_gdn_m5_state_boundary/`
 
-- [ ] **Step 1: Check DGX is free**
+- [x] **Step 1: Check DGX is free**
 
 Run:
 
@@ -46,7 +46,7 @@ compute=0
 FREE...
 ```
 
-- [ ] **Step 2: Record source provenance**
+- [x] **Step 2: Record source provenance**
 
 Run:
 
@@ -58,7 +58,7 @@ git -C /home/mudler/_git/llama.cpp rev-parse HEAD
 
 Expected: clean llama.cpp fork and DGX mirror before source edits.
 
-- [ ] **Step 3: Create artifact directory**
+- [x] **Step 3: Create artifact directory**
 
 Run:
 
@@ -74,7 +74,7 @@ Expected: command exits 0.
 - Modify: `/home/mudler/_git/llama.cpp/ggml/src/ggml-cuda/gated_delta_net.cu`
 - Mirror: `/home/mudler/llama-phase6-source/ggml/src/ggml-cuda/gated_delta_net.cu`
 
-- [ ] **Step 1: Add an env selector**
+- [x] **Step 1: Add an env selector**
 
 Add a static env flag near the existing `gdn_tc` selector:
 
@@ -87,7 +87,7 @@ static const bool gdn_m5_qs_early = []{
 
 Route it only for `S_v == 128 && n_tokens >= gdn_chunk_min && gdn_tc >= 4`.
 
-- [ ] **Step 2: Add a template boolean for the candidate**
+- [x] **Step 2: Add a template boolean for the candidate**
 
 Extend the chunked launch templates with a defaulted boolean, keeping existing
 call sites source-compatible:
@@ -107,7 +107,7 @@ static void launch_gdn_chunked(...)
 Use the boolean only inside the M3/M5 code path. Existing launches must remain
 `launch_gdn_chunked<128, 16, TC_>(...)`.
 
-- [ ] **Step 3: Move QS deposition earlier for candidate only**
+- [x] **Step 3: Move QS deposition earlier for candidate only**
 
 In `gated_delta_net_chunked_cuda`, after the KS/RHS section and before the
 `solve A U = RHS` section, add a candidate-only QS pass:
@@ -157,7 +157,7 @@ if constexpr (TC >= 2 && !QS_EARLY) {
 This is intentionally conservative. It should not change math order for the
 deposited QS values, only their scheduling relative to the solve/P build.
 
-- [ ] **Step 4: Add a candidate launch arm**
+- [x] **Step 4: Add a candidate launch arm**
 
 In `launch_gated_delta_net`, when `gdn_m5_qs_early && gdn_tc >= 4`, call:
 
@@ -168,7 +168,7 @@ return;
 
 Default M5 must continue to call `launch_gdn_chunked<128, 16, 4>(...)`.
 
-- [ ] **Step 5: Mirror to DGX and build**
+- [x] **Step 5: Mirror to DGX and build**
 
 Run:
 
@@ -180,12 +180,20 @@ ssh dgx.casa 'cd /home/mudler/llama-phase6-source/build-cuda && cmake --build . 
 
 Expected: build exits 0.
 
+Result:
+
+- Candidate implemented as a default-off `GDN_M5_QS_EARLY=1` path in the
+  llama.cpp fork.
+- The patch only touched `ggml/src/ggml-cuda/gated_delta_net.cu`.
+- DGX build passed for `test-backend-ops`, `llama-completion`, and
+  `llama-batched-bench`.
+
 ## Task 3: Correctness Gates
 
 **Files:**
 - Artifact: `/home/mudler/bench/phase11_gdn_m5_state_boundary/gates/`
 
-- [ ] **Step 1: Run focused op gates**
+- [x] **Step 1: Run focused op gates**
 
 Run:
 
@@ -198,7 +206,7 @@ GDN_M5_QS_EARLY=1 GDN_TC=5 GDN_CHUNK_MIN=2 ./test-backend-ops test -b CUDA0 -o G
 
 Expected: both logs show CUDA0 `OK` for all `GATED_DELTA_NET` cases.
 
-- [ ] **Step 2: Run canonical md5 gates**
+- [x] **Step 2: Run canonical md5 gates**
 
 Run:
 
@@ -224,18 +232,31 @@ MoE   8cb0ce23777bf55f92f63d0292c756b0
 Dense 5951a5b4d624ce891e22ab5fca9bc439
 ```
 
-- [ ] **Step 3: Stop if md5 changes**
+- [x] **Step 3: Stop if md5 changes**
 
 If either candidate md5 differs, do not benchmark yet. Run the KL gate from
 `backend/cpp/llama-cpp-localai-paged/docs/PAGED_BITEXACT_NOTE.md` and accept
 only if KL is benign and the transcript is sane.
+
+Result:
+
+- Default op gate: `/home/mudler/bench/phase11_gdn_m5_state_boundary/gates/gated_delta_net_default.txt`.
+- QS-early op gate: `/home/mudler/bench/phase11_gdn_m5_state_boundary/gates/gated_delta_net_qs_early.txt`.
+- Both focused op logs reported the same OK count.
+- Default md5:
+  - MoE `8cb0ce23777bf55f92f63d0292c756b0`.
+  - Dense `5951a5b4d624ce891e22ab5fca9bc439`.
+- QS-early md5:
+  - MoE `8cb0ce23777bf55f92f63d0292c756b0`.
+  - Dense `5951a5b4d624ce891e22ab5fca9bc439`.
+- KL was not needed because md5 matched canonical exactly.
 
 ## Task 4: Performance A/B
 
 **Files:**
 - Artifact: `/home/mudler/bench/phase11_gdn_m5_state_boundary/ab/`
 
-- [ ] **Step 1: Run same-session MoE and dense A/B**
+- [x] **Step 1: Run same-session MoE and dense A/B**
 
 Run:
 
@@ -254,7 +275,7 @@ env $LCAND ./llama-batched-bench -m /home/mudler/bench/q36-27b-nvfp4.gguf -c 131
 Expected: candidate improves S_PP for at least the target MoE prefill cases and
 does not regress dense outside noise.
 
-- [ ] **Step 2: Decide accept/reject**
+- [x] **Step 2: Decide accept/reject**
 
 Accept only if:
 
@@ -273,6 +294,35 @@ git -C /home/mudler/_git/llama.cpp diff -- ggml/src/ggml-cuda/gated_delta_net.cu
 
 Then restore fork and DGX mirror.
 
+Result:
+
+Artifacts:
+
+- `/home/mudler/bench/phase11_gdn_m5_state_boundary/ab/moe_base.txt`
+- `/home/mudler/bench/phase11_gdn_m5_state_boundary/ab/moe_qs_early.txt`
+- `/home/mudler/bench/phase11_gdn_m5_state_boundary/ab/dense_base.txt`
+- `/home/mudler/bench/phase11_gdn_m5_state_boundary/ab/dense_qs_early.txt`
+
+| Model | Mode | PP | TG | B | S_PP t/s | S_TG t/s | S t/s |
+|-------|------|----|----|---|----------|----------|-------|
+| MoE | M5 base | 512 | 4 | 32 | 2325.67 | 355.60 | 2229.90 |
+| MoE | QS-early | 512 | 4 | 32 | 2315.77 | 353.27 | 2220.16 |
+| MoE | M5 base | 2048 | 4 | 32 | 2441.54 | 390.53 | 2416.80 |
+| MoE | QS-early | 2048 | 4 | 32 | 2420.26 | 389.89 | 2395.94 |
+| Dense | M5 base | 512 | 4 | 32 | 975.15 | 142.71 | 932.97 |
+| Dense | QS-early | 512 | 4 | 32 | 968.23 | 144.24 | 927.17 |
+| Dense | M5 base | 2048 | 4 | 32 | 1021.06 | 183.34 | 1012.04 |
+| Dense | QS-early | 2048 | 4 | 32 | 1015.77 | 183.73 | 1006.88 |
+
+Decision:
+
+- Reject the QS-early source patch.
+- The candidate is correctness-clean but does not improve S_PP and slightly
+  regresses both model families.
+- Rejected diff saved at:
+  `/home/mudler/bench/phase11_gdn_m5_state_boundary/rejected/qs_early_rejected.diff`.
+- The llama.cpp fork and DGX mirror were restored to the prior accepted state.
+
 ## Task 5: Mirror Accepted Patch or Record Rejection
 
 **Files:**
@@ -282,7 +332,7 @@ Then restore fork and DGX mirror.
 - Modify: `backend/cpp/llama-cpp-localai-paged/docs/PARITY_HANDOFF.md`
 - Modify: `backend/cpp/llama-cpp-localai-paged/docs/VLLM_PARITY_FINAL.md`
 
-- [ ] **Step 1: If accepted, commit fork patch**
+- [x] **Step 1: If accepted, commit fork patch**
 
 Commit in `/home/mudler/_git/llama.cpp` only after gates pass:
 
@@ -291,7 +341,7 @@ git add ggml/src/ggml-cuda/gated_delta_net.cu
 git commit -m "feat(cuda): add gated delta net M5 QS-early path"
 ```
 
-- [ ] **Step 2: Generate LocalAI patch**
+- [x] **Step 2: Generate LocalAI patch**
 
 Run:
 
@@ -302,7 +352,7 @@ git -C /home/mudler/_git/llama.cpp format-patch -1 HEAD \
 
 Do not hand-edit the generated patch.
 
-- [ ] **Step 3: Update docs and commit LocalAI**
+- [x] **Step 3: Update docs and commit LocalAI**
 
 Record artifacts, md5/KL results, A/B numbers, and the decision. Commit with:
 
@@ -327,3 +377,9 @@ git add backend/cpp/llama-cpp-localai-paged/docs/GB10_PARITY_PHASE0_RESULTS.md \
 git commit -m "docs(paged): record GDN M5 QS-early result" \
   -m "Assisted-by: Codex:gpt-5"
 ```
+
+Result:
+
+- No fork commit and no LocalAI `0055` patch were generated because the
+  candidate failed the performance gate.
+- Phase 11 is a docs-only rejection record.
