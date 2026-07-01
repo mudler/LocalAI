@@ -110,11 +110,25 @@ func ModelInference(ctx context.Context, s string, messages schema.Messages, ima
 	needsMarkerProbe := c.MediaMarker == ""
 	if shouldProbeThinking || needsMarkerProbe {
 		modelOpts := grpcModelOpts(*c, o.SystemState.Model.ModelsPath)
+		// DetectThinkingSupportFromBackend only fills reasoning slots that are
+		// still nil, so a slot that already carries a value here was populated by
+		// request-time ApplyReasoningEffort (e.g. a `reasoning_effort: none`
+		// default), not by backend detection. Persisting such a request-scoped
+		// value would masquerade as an operator's explicit reasoning.disable and
+		// permanently defeat future per-request reasoning_effort overrides
+		// (see #10622). Only persist the slots the probe is actually allowed to
+		// fill.
+		persistDisableReasoning := c.ReasoningConfig.DisableReasoning == nil
+		persistDisableTagPrefill := c.ReasoningConfig.DisableReasoningTagPrefill == nil
 		config.DetectThinkingSupportFromBackend(ctx, c, inferenceModel, modelOpts)
 		// Update the config in the loader so it persists for future requests
 		cl.UpdateModelConfig(c.Name, func(cfg *config.ModelConfig) {
-			cfg.ReasoningConfig.DisableReasoning = c.ReasoningConfig.DisableReasoning
-			cfg.ReasoningConfig.DisableReasoningTagPrefill = c.ReasoningConfig.DisableReasoningTagPrefill
+			if persistDisableReasoning {
+				cfg.ReasoningConfig.DisableReasoning = c.ReasoningConfig.DisableReasoning
+			}
+			if persistDisableTagPrefill {
+				cfg.ReasoningConfig.DisableReasoningTagPrefill = c.ReasoningConfig.DisableReasoningTagPrefill
+			}
 			if c.MediaMarker != "" {
 				cfg.MediaMarker = c.MediaMarker
 			}
