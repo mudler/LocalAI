@@ -528,6 +528,32 @@ decode graph-reuse path and increases GPU work. If MTP is reopened, start at
 `tools/server/server-context.cpp` speculative verification batch construction
 and graph-reuse keys, not draft-length tuning.
 
+### Phase 17 MTP graph-shape feasibility
+
+Phase 17 inspected the source path before any patch. Verdict: no small additive
+graph-reuse shortcut is evident.
+
+Key mechanics:
+
+- normal decode appends one `output=true` row per generating slot;
+- MTP verification appends `K + 1` `output=true` rows per speculative slot,
+  where `K = spec_draft.size()`;
+- total shape is `sum(non_spec * 1) + sum(spec * (1 + K_i)) + prompt rows`;
+- `n_tokens`, `n_seq_tokens`, `n_outputs`, KQ mask rows, position length, and
+  output-id count are hard graph/input dimensions;
+- paged-attention block-table bucketing does not stabilize those verification
+  token/output dimensions.
+
+Rejected shortcut: fake padding rows. They would be real target decode rows with
+KV, position, logits, MTP nextn embedding, sampling-index, and rollback effects,
+and they resemble the already rejected fixed-slot dummy-compute experiment.
+
+Only plausible next step: an instrumentation-only patch around
+`server_slot::handle_last_sampled_token()` to count verification shape buckets.
+Only after that should an opt-in scheduling experiment group/defer MTP
+verification by `1 + spec_draft.size()`. Keep it default-off and kill it if TTFT
+or throughput regresses, graph reuse does not recover, or the md5/op gates drift.
+
 Relevant files (all absolute): `/home/mudler/_git/LocalAI/.claude/worktrees/feat+paged-attention/backend/cpp/llama-cpp-localai-paged/docs/{DECODE_SERVING_SCOPE.md,PREFILL_GEMM_SCOPE.md,PREFILL_GEMM_RESULTS.md,TENSORCORE_GDN_SCOPE.md,final_benchmark.csv}`, `.../README.md`, `.../patches/paged/0034-feat-paged-native-NVFP4-W4A4-FP4-MMA-large-M-prefill.patch` (P1/P2), `.../patches/paged/0042-feat-paged-fused-residual-add-RMS-norm-weight-multip.patch` (P7), `.../patches/paged/0031` (P4), `0025` (D1), `0018/0022` (D4/D5), `0009/0010` (D3/D6/D7); graph source `/home/mudler/_git/LocalAI/backend/cpp/llama-cpp-paged-dev/src/{models/qwen35moe.cpp,models/delta-net-base.cpp,llama-graph.cpp}`.
 
 ### Phase 10 GDN C32 slab update

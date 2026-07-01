@@ -236,6 +236,14 @@ safety gates stayed green before and after the failed serving A/B: MoE md5
 `8cb0ce23777bf55f92f63d0292c756b0`, dense md5
 `5951a5b4d624ce891e22ab5fca9bc439`, and `MUL_MAT_ID` `806/806`.
 
+Phase 17 source inspection found no tiny additive graph-reuse fix. MTP
+verification rows are real target decode/output rows (`K + 1` per speculative
+slot), so fake padding would touch KV, positions, logits, MTP nextn state, and
+rollback semantics. If reopened, start with a server-only shape counter around
+`server_slot::handle_last_sampled_token()`. Only then consider an opt-in
+group/defer-by-draft-length scheduler experiment, with TTFT/throughput and
+md5/op gates as kill criteria.
+
 ---
 
 ## 5. METHODOLOGY LESSONS (so you do not repeat the mistakes)
