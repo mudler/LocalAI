@@ -55,6 +55,21 @@ for p in $(PAGED_PATCHES_DIR)/0*.patch; do git apply --verbose "$p" || exit 1; d
 All variants (avx/avx2/avx512/cuda/…) clone + apply into their own build copy, so the series ships
 everywhere without ever touching the stock `llama-cpp` source tree.
 
+## Latest mirror check
+
+Phase 22 re-verified the mirror invariant after adding patch `0055`:
+
+```text
+base=0ed235ea2c17a19fc8238668653946721ed136fd
+applied_tree=5bdbf8ea3d750fe6fa1f85175fd6357d36222edb
+fork_tree=5bdbf8ea3d750fe6fa1f85175fd6357d36222edb
+```
+
+The check used a fresh worktree at `LLAMA_VERSION`, applied every
+`patches/paged/0*.patch` with strict `git apply`, staged the result, and compared
+`git write-tree` to canonical fork branch `localai-paged` at
+`fb9402661 feat(server): trace speculative batch shapes`.
+
 ## Status
 
 - **0001 vendor manager — DONE.** Applies clean to the pin; builds into `libllama`.

@@ -315,6 +315,12 @@ Use this harness for future current-stack GB10 snapshots. Do not reuse
 `~/bench/combined_definitive.sh` unless it is first ported away from stale
 `~/llama-paged-dev` paths and old lock assumptions.
 
+Phase 22 re-verified the patch-series mirror invariant after patch `0055`:
+applying every LocalAI `patches/paged/0*.patch` with strict `git apply` on top of
+Makefile pin `0ed235ea2c17a19fc8238668653946721ed136fd` produced tree
+`5bdbf8ea3d750fe6fa1f85175fd6357d36222edb`, exactly matching fork branch
+`localai-paged` HEAD `fb9402661 feat(server): trace speculative batch shapes`.
+
 ---
 
 ## 5. METHODOLOGY LESSONS (so you do not repeat the mistakes)

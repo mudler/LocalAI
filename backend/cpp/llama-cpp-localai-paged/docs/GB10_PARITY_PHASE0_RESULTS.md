@@ -1441,3 +1441,29 @@ Decision:
   snapshots.
 - Do not use stale DGX `~/bench/combined_definitive.sh` without porting it to
   `~/llama-phase6-source` and the owner-file lock discipline.
+
+## Phase 22 Patch-Series Mirror Invariant
+
+Phase 22 verified that the LocalAI on-disk paged patch series still reconstructs
+the canonical llama.cpp fork tree after patch `0055`.
+
+Method:
+
+- Create a fresh worktree at Makefile pin
+  `0ed235ea2c17a19fc8238668653946721ed136fd`.
+- Apply every `backend/cpp/llama-cpp-localai-paged/patches/paged/0*.patch` with
+  strict `git apply`, matching the LocalAI build path.
+- Stage the result and compare `git write-tree` with the fork branch HEAD tree.
+
+Result:
+
+```text
+base=0ed235ea2c17a19fc8238668653946721ed136fd
+applied_tree=5bdbf8ea3d750fe6fa1f85175fd6357d36222edb
+fork_tree=5bdbf8ea3d750fe6fa1f85175fd6357d36222edb
+```
+
+Decision:
+
+- The patch series is drift-free against fork branch `localai-paged` at
+  `fb9402661 feat(server): trace speculative batch shapes`.
