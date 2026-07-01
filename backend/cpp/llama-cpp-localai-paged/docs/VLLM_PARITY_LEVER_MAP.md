@@ -101,6 +101,14 @@ gathers, and paged-attention mask/KV reshape/copy paths. It did not expose a
 single low-conflict projection/layout shortcut; use the Phase64 names before
 funding any Phase65 source work.
 
+Phase65 attributed the activation-quant bucket with default-off
+`LLAMA_QUANT_TRACE=<n>` in fork commit `afc2c7030`. The default MoE prefill path
+emitted `mmq_dense 4444`, `mmq_moe_dedup_unique 2960`, `mmq_moe_gather 2960`,
+and `mmq_moe_flat 1480` trace lines at `npp=512`. The named paths are MoE
+gate/up expert quant dedup plus gather, MoE down expert flat quantization, and
+shared-expert dense quantization. Do not optimize from counts alone; Phase66
+should time `quantize_mmq_nvfp4` versus `gather_mmq_fp4` with nsys/NVTX first.
+
 Relevant files: `/home/mudler/_git/LocalAI/.claude/worktrees/feat+paged-attention/backend/cpp/llama-cpp-localai-paged/docs/{PREFILL_GEMM_SCOPE.md,PREFILL_GEMM_RESULTS.md,TENSORCORE_GDN_SCOPE.md,final_benchmark.csv}`, `/home/mudler/_git/LocalAI/.claude/worktrees/feat+paged-attention/backend/cpp/llama-cpp-localai-paged/patches/paged/0042-feat-paged-fused-residual-add-RMS-norm-weight-multip.patch`, and the graph source `/home/mudler/_git/LocalAI/backend/cpp/llama-cpp-paged-dev/src/models/{qwen35moe.cpp,delta-net-base.cpp}` + `/home/mudler/_git/LocalAI/backend/cpp/llama-cpp-paged-dev/src/llama-graph.cpp` (build_moe_ffn ~1500-1834, build_attn ~2136-2189).
 
 ## 2. Decode-serving compute hypotheses (ranked)

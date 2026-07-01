@@ -925,3 +925,30 @@ The named layout sources are GDN conv-state gather/concat/update
 mask/KV reshape/copy paths. This does not fund a clean layout optimization yet;
 it gives Phase65 the exact names needed to either remove one repeated chain or
 reject it with evidence.
+
+## 10. PHASE65 RESULT: QUANT TRACE
+
+Phase65 added default-off activation-quant route attribution in the llama.cpp
+fork: `afc2c7030 feat(cuda): trace activation quant routes`. The env gate is
+`LLAMA_QUANT_TRACE=<n>`. DGX mirror commit: `7863194bd`.
+
+DGX artifact: `/home/mudler/bench/phase65_quant_trace/20260701_143729`.
+Patched build gates stayed green: MoE md5 `8cb0ce23`, dense md5 `5951a5b4`,
+`MUL_MAT 1146/1146`, `MUL_MAT_ID 806/806`.
+
+Trace result at MoE `npp=512`, `ntg=4`, `npl=32`:
+
+- `mmq_dense`: `4444`
+- `mmq_moe_dedup_unique`: `2960`
+- `mmq_moe_gather`: `2960`
+- `mmq_moe_flat`: `1480`
+
+The dominant default-path shapes are MoE gate/up expert activation quant
+deduplication (`K=2048`, `rows=512`) followed by gather to expert-token rows
+(`rows=4096`), shared-expert dense gate/up quantization (`K=2048`, `rows=512`),
+MoE down expert flat quantization (`K=512`, `rows=4096`), and shared-expert down
+quantization (`K=512`, `rows=512`). This confirms the activation-quant bucket is
+concentrated in named MoE/shared-expert FFN paths, but it does not prove whether
+`gather_mmq_fp4` is material or just a cheap cost of the existing dedup win.
+Phase66 should time `quantize_mmq_nvfp4` versus `gather_mmq_fp4` with nsys/NVTX
+before funding any behavior-changing source patch.

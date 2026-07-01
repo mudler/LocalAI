@@ -3600,3 +3600,52 @@ Decision:
   mask/KV reshapes, not a single clean projection/layout shortcut.
 - Any Phase65 source work must either remove a named repeated layout chain with
   md5/op gates, or close as another measured no-go.
+
+## Quant Trace Phase65 Result
+
+Phase65 is recorded in
+`docs/superpowers/plans/2026-07-01-quant-trace-phase65.md`.
+It added default-off activation-quant route attribution to the llama.cpp fork:
+
+- Fork commit: `afc2c7030 feat(cuda): trace activation quant routes`
+- Env gate: `LLAMA_QUANT_TRACE=<n>`
+- DGX mirror commit: `7863194bd feat(cuda): trace activation quant routes`
+- DGX artifact: `/home/mudler/bench/phase65_quant_trace/20260701_143729`
+
+Patched build gates passed:
+
+| check | value |
+|-------|-------|
+| MoE md5 | `8cb0ce23777bf55f92f63d0292c756b0` |
+| dense md5 | `5951a5b4d624ce891e22ab5fca9bc439` |
+| `MUL_MAT` | `1146/1146` |
+| `MUL_MAT_ID` | `806/806` |
+
+Bounded MoE `npp=512`, `ntg=4`, `npl=32` quant trace:
+
+| route | lines |
+|-------|------:|
+| `mmq_dense` | `4444` |
+| `mmq_moe_dedup_unique` | `2960` |
+| `mmq_moe_gather` | `2960` |
+| `mmq_moe_flat` | `1480` |
+
+Dominant default-path shapes:
+
+| count | route | source family | K | rows | ne12 |
+|------:|-------|---------------|---:|-----:|-----:|
+| `2560` | `mmq_moe_dedup_unique` | gate/up experts | `2048` | `512` | `512` |
+| `2560` | `mmq_moe_gather` | gate/up experts | `2048` | `4096` | `512` |
+| `2560` | `mmq_dense` | shared expert gate/up | `2048` | `512` | `1` |
+| `1280` | `mmq_moe_flat` | down experts | `512` | `4096` | `512` |
+| `1280` | `mmq_dense` | shared expert down | `512` | `512` | `1` |
+
+Decision:
+
+- Keep the instrumentation in the fork as a default-off diagnostic patch.
+- Do not fund a quantization optimization from route counts alone. The trace
+  confirms the activation-quant bucket is concentrated in MoE gate/up dedup plus
+  gather, MoE down flat quantization, and shared-expert dense quantization, but
+  it does not prove which sub-kernel is material.
+- Phase66 should time `quantize_mmq_nvfp4` versus `gather_mmq_fp4` with
+  nsys/NVTX before changing source behavior.
