@@ -2370,3 +2370,74 @@ Decision:
   prefill GDN, prefill MoE GEMM, and low-concurrency/full-step graph capture.
   Any future C1 rerun must push beyond this tested point and keep the same
   md5 plus `MUL_MAT`/`MUL_MAT_ID` gates.
+
+## Phase 41 Low-Concurrency D1 Check
+
+Phase 41 measured the opposite serving regime after Phase40 rejected the tested
+max-concurrency shortcut: low concurrency and latency-sensitive decode. This is
+the regime where the D1/full-step graph-capture direction should matter most.
+
+Artifacts:
+
+- `/home/mudler/bench/phase41_low_concurrency_dryrun/20260701_091429`
+- `/home/mudler/bench/phase41_low_concurrency/20260701_091437`
+
+Preflight:
+
+| check | actual |
+|-------|--------|
+| GPU | `NVIDIA GB10, 580.159.03` |
+| docker containers | `0` |
+| `local-ai-worker` containers | `0` |
+| GPU compute apps | `0` |
+| GPU lock owner | `FREE released-by-codex-current-serving-snapshot 1782889704` |
+
+Run shape:
+
+- `BUILD_DIR=$HOME/llama-phase6-source/build-phase36`
+- `BIN=$HOME/llama-phase6-source/build-phase36/bin`
+- `OPS=MUL_MAT,MUL_MAT_ID`
+- `PARALLEL=32`, `CTX=32768`, `PTOK=128`, `GEN=64`, `NPL="1 8 32"`
+
+Pre/post inference gates:
+
+| phase | check | status | actual |
+|-------|-------|--------|--------|
+| pre | MoE md5 | ok | `8cb0ce23777bf55f92f63d0292c756b0` |
+| pre | dense md5 | ok | `5951a5b4d624ce891e22ab5fca9bc439` |
+| pre | `MUL_MAT` | ok | `1146/1146` |
+| pre | `MUL_MAT_ID` | ok | `806/806` |
+| post | MoE md5 | ok | `8cb0ce23777bf55f92f63d0292c756b0` |
+| post | dense md5 | ok | `5951a5b4d624ce891e22ab5fca9bc439` |
+| post | `MUL_MAT` | ok | `1146/1146` |
+| post | `MUL_MAT_ID` | ok | `806/806` |
+
+Serving result:
+
+| arm | n | agg t/s | decode agg t/s | decode per-seq t/s | prefill t/s | TTFT mean ms |
+|-----|---|---------|----------------|--------------------|-------------|--------------|
+| paged | 1 | `50.6` | `56.5` | `55.61` | `1221.5` | `131.8` |
+| paged | 8 | `159.5` | `222.9` | `26.72` | `1438.8` | `835.9` |
+| paged | 32 | `240.1` | `393.9` | `11.15` | `1615.7` | `2784.4` |
+| vLLM | 1 | `67.5` | `75.4` | `74.14` | `1720.4` | `95.3` |
+| vLLM | 8 | `251.8` | `296.5` | `36.12` | `4558.8` | `266.0` |
+| vLLM | 32 | `454.6` | `592.4` | `17.43` | `5376.5` | `818.6` |
+
+Ratios:
+
+| n | paged decode / vLLM | paged per-seq / vLLM | paged agg / vLLM | paged TTFT / vLLM |
+|---|---------------------|----------------------|------------------|-------------------|
+| 1 | `0.7493` | `0.7501` | `0.7496` | `1.3830` |
+| 8 | `0.7518` | `0.7398` | `0.6334` | `3.1425` |
+| 32 | `0.6649` | `0.6397` | `0.5282` | `3.4014` |
+
+Decision:
+
+- D1/full-step graph capture remains relevant for low-concurrency and latency
+  work, but this current-stack snapshot does not show an easy parity bridge:
+  paged is about `0.75x` vLLM decode at `n=1/8` and `0.665x` at `n=32`.
+- TTFT is the bigger user-visible low-concurrency gap, especially by `n=8/32`;
+  prefill GDN and MoE GEMM work therefore still matters even in a decode-focused
+  serving discussion.
+- The next implementation phase should require a separately built A/B and the
+  same md5 plus `MUL_MAT`/`MUL_MAT_ID` gates before claiming any D1 improvement.

@@ -525,6 +525,17 @@ and `OPS=MUL_MAT,MUL_MAT_ID`. Pre/post gates stayed green: MoE
 concurrency at this prompt/gen length and `n<=256`; a future C1 retry must push
 beyond this tested point and keep the same md5/op gates.
 
+Phase 41 records the low-concurrency counterpart for D1. Artifact:
+`/home/mudler/bench/phase41_low_concurrency/20260701_091437`. The snapshot ran
+with `PARALLEL=32`, `CTX=32768`, `PTOK=128`, `GEN=64`, `NPL="1 8 32"`, and
+`OPS=MUL_MAT,MUL_MAT_ID`. Pre/post gates stayed green: MoE
+`8cb0ce23777bf55f92f63d0292c756b0`, dense
+`5951a5b4d624ce891e22ab5fca9bc439`, `MUL_MAT` `1146/1146`, `MUL_MAT_ID`
+`806/806`. Paged is about `0.75x` vLLM decode at `n=1/8` and `0.665x` at
+`n=32`; TTFT is `1.38x`, `3.14x`, and `3.40x` vLLM respectively. Keep D1 in
+scope for low-concurrency/latency, but require a separately built A/B and the
+same md5/op gates before claiming improvement.
+
 ---
 
 ## 5. METHODOLOGY LESSONS (so you do not repeat the mistakes)
@@ -608,6 +619,7 @@ Only pursue if (a)+(b) are not options and someone explicitly wants the residual
 - `~/bench/phase39_gate_sgemm_profile/20260701_085211` - short completion profile, diagnostic only because `-n 32` is not a canonical md5 gate; useful for confirming graph-time concat is a real kernel path.
 - `~/bench/phase39_gate_sgemm_profile/phase27_reanalysis` - Phase27 serving profile re-analysis used to reject graph-time fused gate weight concat; `concat_layout=459.84ms` (`2.29%`) in the serving kernel window.
 - `~/bench/phase40_max_concurrency/20260701_090012` - max-concurrency C1 check at `NPL=128/192/256`, `PTOK=128`, `GEN=64`, `PARALLEL=256`, `CTX=262144`; pre/post MoE/dense md5 and `MUL_MAT`/`MUL_MAT_ID` gates green, but vLLM also fit at `n=256` and stayed ahead (`paged_decode_over_vllm=0.6354`, `paged_agg_over_vllm=0.4721`).
+- `~/bench/phase41_low_concurrency/20260701_091437` - low-concurrency D1 check at `NPL=1/8/32`, `PTOK=128`, `GEN=64`, `PARALLEL=32`, `CTX=32768`; pre/post MoE/dense md5 and `MUL_MAT`/`MUL_MAT_ID` gates green; paged is `0.7493`, `0.7518`, and `0.6649` of vLLM decode at `n=1/8/32`, with TTFT still much worse by `n=8/32`.
 - Per-engine logs `~/bench/COMBINED_{paged,vllm}_{MOE,DENSE}_server.log`; `~/bench/BENCHMARK_PROGRESS.md`.
 - Graph-node-traced high-N profiles: `~/highN_prof2/*.nsys-rep` (paged npl=256), `~/highN_vllm/*.nsys-rep` (vLLM), 2026-06-30.
 - A/B dirs: `~/bench/marlin_gate/`, `~/bench/gdn_p1_ab/`.
