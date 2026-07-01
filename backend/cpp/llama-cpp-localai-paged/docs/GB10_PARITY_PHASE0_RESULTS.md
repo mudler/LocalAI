@@ -2615,3 +2615,81 @@ Decision:
 - This does not claim a new parity result. Full runs still require the normal
   preflight, `hardware.txt`, pre/post md5 gates, `MUL_MAT`/`MUL_MAT_ID`, and
   KL-if-md5-changes gates before interpreting throughput.
+
+## Phase 47 Dense Serving Snapshot Attempt
+
+Phase 47 attempted to use the Phase46 model-name override for a dense
+paged-vs-vLLM serving snapshot. The first full attempt is incomplete and must
+not be used as a dense parity result.
+
+Artifacts:
+
+- Dry-run: `/home/mudler/bench/phase47_dense_serving_dryrun/20260701_095141`
+- Incomplete full attempt:
+  `/home/mudler/bench/phase47_dense_serving/20260701_095151`
+
+Run shape:
+
+- `MODEL=$HOME/bench/q36-27b-nvfp4.gguf`
+- `VLLM_MODEL=$HOME/bench/q36-27b-nvfp4-vllm`
+- `SERVED_MODEL_NAME=dense-q36`
+- `NPL="1 8 32 128"`, `PARALLEL=128`, `CTX=131072`, `PTOK=128`, `GEN=64`
+- `OPS=MUL_MAT,MUL_MAT_ID`
+
+Completed before failure:
+
+- Preflight was clean: docker `0`, `local-ai-worker` `0`, GPU compute `0`.
+- Pre-gates were green: MoE md5 `8cb0ce23777bf55f92f63d0292c756b0`, dense
+  md5 `5951a5b4d624ce891e22ab5fca9bc439`, `MUL_MAT` `1146/1146`,
+  `MUL_MAT_ID` `806/806`.
+- Paged dense arm completed through `n=128`:
+
+| n | paged decode agg t/s | paged per-seq t/s | paged agg t/s | paged TTFT ms |
+|---|----------------------|-------------------|----------------|---------------|
+| 1 | `13.3` | `13.14` | `12.5` | `312.3` |
+| 8 | `85.5` | `10.35` | `62.5` | `2068.5` |
+| 32 | `198.1` | `5.44` | `105.1` | `7608.5` |
+| 128 | `361.8` | `1.89` | `143.0` | `20501.7` |
+
+Failure/root cause:
+
+- vLLM dense startup exceeded the old fixed `240` one-second readiness budget.
+  The server log showed weight loading alone took about `199.43s`, followed by
+  compile, autotune, CUDA graph capture, and multimodal warmup before the server
+  began listening.
+- `vllm/models.json` is empty and `models.json.err` contains an initial
+  connection failure, so no vLLM result JSONs were produced.
+- Cleanup then waited on the vLLM server PID after `SIGTERM`; manual cleanup was
+  required. DGX was returned to idle with owner
+  `FREE released-by-codex-phase47-cleanup 1782892962`.
+
+Decision:
+
+- Treat this artifact as a harness failure investigation, not a benchmark.
+- Retry Phase47 only after the Phase48 readiness/cleanup hardening is present.
+
+## Phase 48 Serving Harness Readiness Hardening
+
+Phase 48 fixes the harness behavior exposed by the failed dense snapshot
+attempt. It is a harness reliability change, not an inference change.
+
+Changes:
+
+- Add `LLAMA_READY_ATTEMPTS` (default `240`) and `VLLM_READY_ATTEMPTS` (default
+  `600`) so slow vLLM model load/compile paths can be pre-budgeted.
+- Bound each HTTP readiness probe with `curl --max-time 2` so a single probe
+  cannot hang the readiness loop.
+- Replace direct `kill` plus unbounded `wait` with `stop_server_pid`, which
+  sends `SIGTERM`, waits up to 30 seconds, then sends `SIGKILL` before `wait`.
+- Use the bounded cleanup helper for normal paged teardown, normal vLLM
+  teardown, and error-path `release_lock`.
+
+Verification:
+
+- Red checks first proved `VLLM_READY_ATTEMPTS`, bounded curl, and hard-kill
+  cleanup were absent.
+- Green checks after the patch included `bash -n`, help-text grep, grep for
+  `curl --max-time 2 -fsS "$url"`, grep for `kill -9 "$SERVER_PID"`, and a DGX
+  dense dry-run with `VLLM_READY_ATTEMPTS=700`.
+- DGX dry-run artifact:
+  `/home/mudler/bench/phase48_readiness_harness_dryrun/20260701_100533`.

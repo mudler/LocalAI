@@ -28,8 +28,10 @@ Environment overrides:
   BATCH        llama-server logical batch (default: 2048)
   UBATCH       llama-server physical batch (default: 512)
   LLAMA_PORT   llama-server port (default: 8098)
+  LLAMA_READY_ATTEMPTS llama-server readiness attempts, one per second (default: 240)
   VLLM_PORT    vLLM port (default: 8000)
   VLLM_BIN     vLLM executable (default: ~/vllm-bench/bin/vllm)
+  VLLM_READY_ATTEMPTS  vLLM readiness attempts, one per second (default: 600)
   VLLM_GPU_MEMORY_UTILIZATION vLLM --gpu-memory-utilization (default: 0.85)
   VLLM_MAX_MODEL_LEN          vLLM --max-model-len (default: 4096)
   VLLM_MAX_NUM_SEQS           vLLM --max-num-seqs (default: 256)
@@ -80,8 +82,10 @@ PARALLEL=${PARALLEL:-128}
 BATCH=${BATCH:-2048}
 UBATCH=${UBATCH:-512}
 LLAMA_PORT=${LLAMA_PORT:-8098}
+LLAMA_READY_ATTEMPTS=${LLAMA_READY_ATTEMPTS:-240}
 VLLM_PORT=${VLLM_PORT:-8000}
 VLLM_BIN=${VLLM_BIN:-"$HOME/vllm-bench/bin/vllm"}
+VLLM_READY_ATTEMPTS=${VLLM_READY_ATTEMPTS:-600}
 VLLM_GPU_MEMORY_UTILIZATION=${VLLM_GPU_MEMORY_UTILIZATION:-0.85}
 VLLM_MAX_MODEL_LEN=${VLLM_MAX_MODEL_LEN:-4096}
 VLLM_MAX_NUM_SEQS=${VLLM_MAX_NUM_SEQS:-256}
@@ -179,15 +183,28 @@ acquire_lock() {
 }
 
 release_lock() {
-  if [[ -n "$SERVER_PID" ]]; then
-    kill "$SERVER_PID" >/dev/null 2>&1 || true
-    wait "$SERVER_PID" >/dev/null 2>&1 || true
-    SERVER_PID=""
-  fi
+  stop_server_pid
   pkill -9 -f "[l]lama-server.*--port $LLAMA_PORT" >/dev/null 2>&1 || true
   pkill -9 -u "$(id -u)" -f "[v]llm serve" >/dev/null 2>&1 || true
   mkdir -p "$LOCK_DIR"
   echo "FREE released-by-codex-current-serving-snapshot $(date +%s)" > "$OWNER"
+}
+
+stop_server_pid() {
+  if [[ -n "$SERVER_PID" ]]; then
+    kill "$SERVER_PID" >/dev/null 2>&1 || true
+    for _ in $(seq 1 30); do
+      if ! kill -0 "$SERVER_PID" >/dev/null 2>&1; then
+        break
+      fi
+      sleep 1
+    done
+    if kill -0 "$SERVER_PID" >/dev/null 2>&1; then
+      kill -9 "$SERVER_PID" >/dev/null 2>&1 || true
+    fi
+    wait "$SERVER_PID" >/dev/null 2>&1 || true
+    SERVER_PID=""
+  fi
 }
 
 wait_http() {
@@ -195,8 +212,9 @@ wait_http() {
   local pattern="$2"
   local log_file="$3"
   local health="$4"
-  for _ in $(seq 1 240); do
-    if curl -fsS "$url" > "$health" 2>"$health.err" && grep -q "$pattern" "$health"; then
+  local attempts="$5"
+  for _ in $(seq 1 "$attempts"); do
+    if curl --max-time 2 -fsS "$url" > "$health" 2>"$health.err" && grep -q "$pattern" "$health"; then
       return 0
     fi
     if [[ -n "$SERVER_PID" ]] && ! kill -0 "$SERVER_PID" >/dev/null 2>&1; then
@@ -231,7 +249,7 @@ run_paged() {
       --parallel "$PARALLEL" --host 127.0.0.1 --port "$LLAMA_PORT" --no-webui \
       > "$arm_dir/server.log" 2>&1 &
   SERVER_PID=$!
-  wait_http "http://127.0.0.1:$LLAMA_PORT/health" "ok" "$arm_dir/server.log" "$arm_dir/health.json"
+  wait_http "http://127.0.0.1:$LLAMA_PORT/health" "ok" "$arm_dir/server.log" "$arm_dir/health.json" "$LLAMA_READY_ATTEMPTS"
   python3 "$H2H" --url "http://127.0.0.1:$LLAMA_PORT/v1/completions" \
     --model "$SERVED_MODEL_NAME" -n 8 --ptok "$PTOK" --gen 16 --nonce "warm_paged_$(date +%s)" --no-cache >/dev/null
   for n in $NPL; do
@@ -241,9 +259,7 @@ run_paged() {
       --nonce "paged_${n}_$(date +%s)" --no-cache > "$arm_dir/n${n}.json"
     cat "$arm_dir/n${n}.json" | tee -a "$ART/run.log"
   done
-  kill "$SERVER_PID" >/dev/null 2>&1 || true
-  wait "$SERVER_PID" >/dev/null 2>&1 || true
-  SERVER_PID=""
+  stop_server_pid
   sleep 3
 }
 
@@ -264,7 +280,7 @@ run_vllm() {
     "${extra_args[@]}" \
     > "$arm_dir/server.log" 2>&1 &
   SERVER_PID=$!
-  wait_http "http://127.0.0.1:$VLLM_PORT/v1/models" "$SERVED_MODEL_NAME" "$arm_dir/server.log" "$arm_dir/models.json"
+  wait_http "http://127.0.0.1:$VLLM_PORT/v1/models" "$SERVED_MODEL_NAME" "$arm_dir/server.log" "$arm_dir/models.json" "$VLLM_READY_ATTEMPTS"
   python3 "$H2H" --url "http://127.0.0.1:$VLLM_PORT/v1/completions" \
     --model "$SERVED_MODEL_NAME" -n 8 --ptok "$PTOK" --gen 16 --nonce "warm_vllm_$(date +%s)" --no-cache >/dev/null
   for n in $NPL; do
@@ -274,10 +290,8 @@ run_vllm() {
       --nonce "vllm_${n}_$(date +%s)" --no-cache > "$arm_dir/n${n}.json"
     cat "$arm_dir/n${n}.json" | tee -a "$ART/run.log"
   done
-  kill "$SERVER_PID" >/dev/null 2>&1 || true
+  stop_server_pid
   pkill -9 -u "$(id -u)" -f "[v]llm serve" >/dev/null 2>&1 || true
-  wait "$SERVER_PID" >/dev/null 2>&1 || true
-  SERVER_PID=""
   sleep 5
 }
 
@@ -397,6 +411,7 @@ if [[ "$DRY_RUN" == "1" ]]; then
   log "dry run only; commands validated"
   log "would build: cmake --build $BUILD_DIR --target llama-server llama-completion test-backend-ops -j8"
   log "served model: SERVED_MODEL_NAME=$SERVED_MODEL_NAME"
+  log "readiness: LLAMA_READY_ATTEMPTS=$LLAMA_READY_ATTEMPTS VLLM_READY_ATTEMPTS=$VLLM_READY_ATTEMPTS"
   log "would run paged NPL=[$NPL] PTOK=$PTOK GEN=$GEN"
   log "would run vLLM NPL=[$NPL] PTOK=$PTOK GEN=$GEN"
   log "vLLM config: VLLM_GPU_MEMORY_UTILIZATION=$VLLM_GPU_MEMORY_UTILIZATION VLLM_MAX_MODEL_LEN=$VLLM_MAX_MODEL_LEN VLLM_MAX_NUM_SEQS=$VLLM_MAX_NUM_SEQS VLLM_TENSOR_PARALLEL_SIZE=$VLLM_TENSOR_PARALLEL_SIZE VLLM_EXTRA_ARGS=[$VLLM_EXTRA_ARGS]"

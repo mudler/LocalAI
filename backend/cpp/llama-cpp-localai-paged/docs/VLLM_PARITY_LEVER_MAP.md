@@ -1138,6 +1138,33 @@ Preflight was clean and the dry run printed
 harness-only portability step for dense or hardware-pivot snapshots; it does not
 change inference code or produce a new throughput result.
 
+### Phase 47 dense serving snapshot attempt
+
+Phase 47 attempted a dense audited serving snapshot with
+`MODEL=$HOME/bench/q36-27b-nvfp4.gguf`,
+`VLLM_MODEL=$HOME/bench/q36-27b-nvfp4-vllm`, and
+`SERVED_MODEL_NAME=dense-q36`. Dry-run artifact:
+`/home/mudler/bench/phase47_dense_serving_dryrun/20260701_095141`.
+
+The full attempt at
+`/home/mudler/bench/phase47_dense_serving/20260701_095151` is incomplete and is
+not a parity result. Pre-gates passed and the paged dense arm completed through
+`n=128`, but vLLM dense startup exceeded the old fixed readiness budget before
+any vLLM result JSONs were produced. Use this artifact only as the root-cause
+input for Phase48.
+
+### Phase 48 serving harness readiness hardening
+
+Phase 48 fixes the harness issue exposed by Phase47. It adds
+`LLAMA_READY_ATTEMPTS` and `VLLM_READY_ATTEMPTS`, bounds each readiness probe
+with `curl --max-time 2`, and replaces direct server waits with bounded cleanup
+that escalates from `SIGTERM` to `SIGKILL`.
+
+DGX dry-run artifact:
+`/home/mudler/bench/phase48_readiness_harness_dryrun/20260701_100533`. The dry
+run printed `VLLM_READY_ATTEMPTS=700` with clean preflight. Retry dense serving
+snapshots with this hardening before interpreting dense paged-vs-vLLM ratios.
+
 Relevant files (all absolute): `/home/mudler/_git/LocalAI/.claude/worktrees/feat+paged-attention/backend/cpp/llama-cpp-localai-paged/docs/{DECODE_SERVING_SCOPE.md,PREFILL_GEMM_SCOPE.md,PREFILL_GEMM_RESULTS.md,TENSORCORE_GDN_SCOPE.md,final_benchmark.csv}`, `.../README.md`, `.../patches/paged/0034-feat-paged-native-NVFP4-W4A4-FP4-MMA-large-M-prefill.patch` (P1/P2), `.../patches/paged/0042-feat-paged-fused-residual-add-RMS-norm-weight-multip.patch` (P7), `.../patches/paged/0031` (P4), `0025` (D1), `0018/0022` (D4/D5), `0009/0010` (D3/D6/D7); graph source `/home/mudler/_git/LocalAI/backend/cpp/llama-cpp-paged-dev/src/{models/qwen35moe.cpp,models/delta-net-base.cpp,llama-graph.cpp}`.
 
 ### Phase 10 GDN C32 slab update

@@ -582,6 +582,22 @@ engines. DGX dry run:
 `SERVED_MODEL_NAME=dense-q36` printed during `DRY_RUN=1`. This is harness-only
 hardware-pivot readiness, not a throughput result.
 
+Phase 47 attempted the first dense serving snapshot using the Phase46 override.
+Dry-run artifact:
+`/home/mudler/bench/phase47_dense_serving_dryrun/20260701_095141`; incomplete
+full artifact: `/home/mudler/bench/phase47_dense_serving/20260701_095151`.
+Pre-gates were green and the paged dense arm completed through `n=128`, but the
+artifact is not a dense parity result because vLLM produced no result JSONs.
+Root cause: dense vLLM startup exceeded the old fixed readiness budget, and the
+cleanup path could wait indefinitely on the server PID after `SIGTERM`.
+
+Phase 48 hardens the serving snapshot harness for that failure mode. It adds
+`LLAMA_READY_ATTEMPTS` and `VLLM_READY_ATTEMPTS`, bounds HTTP readiness probes
+with `curl --max-time 2`, and uses bounded server cleanup that escalates from
+`SIGTERM` to `SIGKILL`. Dry-run artifact:
+`/home/mudler/bench/phase48_readiness_harness_dryrun/20260701_100533`, with
+`VLLM_READY_ATTEMPTS=700` printed and clean DGX preflight.
+
 ---
 
 ## 5. METHODOLOGY LESSONS (so you do not repeat the mistakes)
@@ -669,6 +685,9 @@ Only pursue if (a)+(b) are not options and someone explicitly wants the residual
 - `~/bench/phase44_hardware_pivot_harness_dryrun/20260701_094038` - harness-only dry-run artifact proving the vLLM serving config overrides are printed and preflighted before any server starts.
 - `~/bench/phase45_inference_gate_guard/20260701_094320` - post-Phase44 inference guard; MoE/dense md5 and `MUL_MAT`/`MUL_MAT_ID` backend-op gates green.
 - `~/bench/phase46_served_model_name_dryrun/20260701_094849` - harness-only dry-run artifact proving `SERVED_MODEL_NAME` is printed and preflighted before any server starts.
+- `~/bench/phase47_dense_serving_dryrun/20260701_095141` - dense serving dry-run with `SERVED_MODEL_NAME=dense-q36`.
+- `~/bench/phase47_dense_serving/20260701_095151` - incomplete dense serving attempt; pre-gates and paged arm completed, vLLM did not produce result JSONs under the old readiness budget.
+- `~/bench/phase48_readiness_harness_dryrun/20260701_100533` - harness dry-run proving configurable readiness budgets and clean preflight before retrying dense serving.
 - Per-engine logs `~/bench/COMBINED_{paged,vllm}_{MOE,DENSE}_server.log`; `~/bench/BENCHMARK_PROGRESS.md`.
 - Graph-node-traced high-N profiles: `~/highN_prof2/*.nsys-rep` (paged npl=256), `~/highN_vllm/*.nsys-rep` (vLLM), 2026-06-30.
 - A/B dirs: `~/bench/marlin_gate/`, `~/bench/gdn_p1_ab/`.
