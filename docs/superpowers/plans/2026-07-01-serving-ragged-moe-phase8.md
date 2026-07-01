@@ -253,7 +253,7 @@ Selected Phase 8 candidate:
   - GDN remains the single largest bucket, so any Phase 8 source patch still
     must clear the `+5%` serving A/B gate before being kept.
 
-- [ ] **Step 6: Commit the profile decision**
+- [x] **Step 6: Commit the profile decision**
 
   If promoted:
 
@@ -274,6 +274,15 @@ Selected Phase 8 candidate:
   git commit -m "docs(paged): reject ragged MoE dispatch phase" \
     -m "Assisted-by: Codex:gpt-5"
   ```
+
+  Result:
+
+  - Committed the profile decision as `89ef3a402`
+    (`docs(paged): record ragged MoE profile gate`).
+  - The follow-up test gate landed as fork commit `e21732fc4` and LocalAI
+    mirror commit `b009de0ee`.
+  - The source shortcut rejection landed as `b862e2c56`
+    (`docs(paged): stop ragged dispatch source shortcut`).
 
 ## Task 2: Add Ragged `MUL_MAT_ID` Test Gate If Promoted
 
@@ -349,8 +358,8 @@ Selected Phase 8 candidate:
 - Modify: `/home/mudler/_git/llama.cpp/ggml/src/ggml-cuda/mmq.cuh`
 - Modify: `/home/mudler/_git/llama.cpp/ggml/src/ggml-cuda/ggml-cuda.cu`
 
-**Status:** Not started. The profile and code inspection do not justify a
-metadata/helper-only prototype.
+**Status:** Rejected before production CUDA edits. The profile and code
+inspection do not justify a metadata/helper-only prototype.
 
 Inspection result:
 
@@ -372,7 +381,11 @@ Stop condition:
   reducing `mmq_nvfp4` or `act_quant` time without D2H id readback, new stream
   synchronizations, or md5 drift.
 
-- [ ] **Step 1: Add env-gated entry point**
+- [x] **Step 1: Add env-gated entry point**
+
+  Decision: not implemented. Adding a default-off env hook without a concrete
+  `mmq_nvfp4` or activation-movement reduction would add patch-stack conflict
+  surface while preserving the same slow path.
 
   Add a default-off env gate:
 
@@ -389,7 +402,12 @@ Stop condition:
   The default path must remain byte-identical and use the existing
   `ggml_cuda_mul_mat_id` implementation.
 
-- [ ] **Step 2: Add the smallest measurable fused metadata path**
+- [x] **Step 2: Add the smallest measurable fused metadata path**
+
+  Decision: not implemented. The live profile puts the metadata helpers below
+  the `+5%` serving A/B threshold (`mm_ids=0.66%`, `gather_mmq=0.42%`), and
+  patch `0023` already avoids repeated activation quantization for the
+  broadcast-activation NVFP4 MoE case.
 
   Start by replacing repeated host/device metadata setup only when all are true:
 
@@ -401,7 +419,17 @@ Stop condition:
 
   If this cannot be done without syncs, stop and reject the prototype.
 
-- [ ] **Step 3: Run gates**
+- [x] **Step 3: Run gates**
+
+  Rerun result from the unchanged production path:
+
+  - Artifact:
+    `/home/mudler/bench/phase8_ragged_moe_dispatch/safety_rerun_20260701_035549/`
+  - MoE md5: `8cb0ce23777bf55f92f63d0292c756b0`.
+  - Dense md5: `5951a5b4d624ce891e22ab5fca9bc439`.
+  - Full `MUL_MAT_ID`: `806/806` on CUDA0.
+  - Specific `MUL_MAT_ID_RAGGED_MOE`: `6/6` on CUDA0, rerun artifact
+    `/home/mudler/bench/phase8_ragged_moe_dispatch/ragged_gate_rerun_20260701_035529.txt`.
 
   Run on DGX:
 
@@ -421,7 +449,12 @@ Stop condition:
 
   Expected MoE md5: `8cb0ce23777bf55f92f63d0292c756b0`.
 
-- [ ] **Step 4: Run serving A/B**
+- [x] **Step 4: Run serving A/B**
+
+  Decision: not run because no production CUDA candidate was added. The existing
+  profile already rejects metadata-only work: the helper buckets are too small,
+  and a valid source candidate must attack `mmq_nvfp4` or `act_quant` directly
+  before it earns a serving A/B run.
 
   Compare:
 

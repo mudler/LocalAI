@@ -1085,3 +1085,31 @@ Conclusion:
 - Per the Phase 12/13 decision rule, stop GDN kernel work on GB10. The remaining
   vLLM GDN advantage requires a fuller FLA-style blocked solve or hardware
   assumptions that do not fit this GB10 patch stack without a regression.
+
+## Phase 8 Ragged MoE Dispatch Safety Rerun
+
+Phase 8 had already closed the live ragged MoE helper path by profile:
+`mm_ids=0.66%`, `gather_mmq=0.42%`, while `mmq_nvfp4=22.36%` and
+`act_quant=3.60%`. The only source patch kept from the phase is the test gate
+(`0053-test-paged-cover-ragged-MoE-dispatch.patch`); the metadata-only
+`LLAMA_MOE_FUSED_DISPATCH` shortcut is rejected.
+
+Rerun artifacts:
+
+- `/home/mudler/bench/phase8_ragged_moe_dispatch/ragged_gate_rerun_20260701_035529.txt`
+- `/home/mudler/bench/phase8_ragged_moe_dispatch/safety_rerun_20260701_035549/`
+
+Safety result:
+
+- `MUL_MAT_ID_RAGGED_MOE`: `6/6` on CUDA0.
+- Full `MUL_MAT_ID`: `806/806` on CUDA0.
+- MoE transcript md5: `8cb0ce23777bf55f92f63d0292c756b0`.
+- Dense transcript md5: `5951a5b4d624ce891e22ab5fca9bc439`.
+
+Conclusion:
+
+- The inferencing gates remain canonical on the unchanged production path.
+- Do not add a metadata/helper-only fused-dispatch hook. A future Phase 8
+  production candidate must reduce `mmq_nvfp4` or activation movement directly,
+  stay free of D2H id readback and new stream synchronizations, and then pass
+  the same md5/op gates before any serving A/B is considered.

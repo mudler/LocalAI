@@ -579,6 +579,29 @@ Artifacts:
 - `/home/mudler/bench/phase13_gdn_global_ai32/ab/`
 - `/home/mudler/bench/phase13_gdn_global_ai32/rejected/global_ai32_rejected.diff`
 
+### Phase 8 ragged MoE dispatch closure
+
+The remaining Phase 8 source shortcut was closed without production CUDA edits.
+The live ragged serving profile showed helper metadata buckets too small to clear
+the `+5%` serving A/B gate (`mm_ids=0.66%`, `gather_mmq=0.42%`). Patch `0023`
+already handles the broadcast-activation NVFP4 path by quantizing unique tokens
+once and gathering FP4 blocks, so a metadata-only `LLAMA_MOE_FUSED_DISPATCH`
+hook would add conflict surface without attacking the dominant buckets.
+
+Safety rerun:
+
+- `MUL_MAT_ID_RAGGED_MOE`: `6/6` on CUDA0.
+- Full `MUL_MAT_ID`: `806/806` on CUDA0.
+- MoE transcript md5: `8cb0ce23777bf55f92f63d0292c756b0`.
+- Dense transcript md5: `5951a5b4d624ce891e22ab5fca9bc439`.
+
+Decision:
+
+- Keep test patch `0053`.
+- Do not add a Phase 8 production patch unless it directly reduces
+  `mmq_nvfp4` or activation movement without D2H id readback, new
+  synchronizations, or md5 drift.
+
 ---
 
 # PROFILE-VALIDATED PATH (both-engine nsys, adversarially verified Sun Jun 28 11:55:12 PM UTC 2026)
