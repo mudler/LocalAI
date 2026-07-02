@@ -795,34 +795,23 @@ export default function Chat() {
     await sendMessage(msg, files, mcpOptions)
   }, [input, files, activeChat, sendMessage, addToast, getToolsForLLM, isClientTool, executeTool, hasAppUI, getAppResource, getToolDefinition])
 
-  const handleRegenerate = useCallback(async () => {
+  const handleRegenerate = useCallback(async (targetIndex) => {
     if (!activeChat || isStreaming) return
     const history = activeChat.history
-    let lastUserMsg = null
-    let lastUserFiles = null
-    for (let i = history.length - 1; i >= 0; i--) {
-      if (history[i].role === 'user') {
-        lastUserMsg = typeof history[i].content === 'string' ? history[i].content : history[i].content?.[0]?.text || ''
-        lastUserFiles = history[i].files || []
-        break
-      }
+    const end = typeof targetIndex === 'number' ? targetIndex : history.length
+    // Nearest user message at or before the target answer.
+    let userIdx = -1
+    for (let i = Math.min(end, history.length) - 1; i >= 0; i--) {
+      if (history[i].role === 'user') { userIdx = i; break }
     }
-    if (!lastUserMsg) return
-
-    // Remove everything after and including the last user message
-    const newHistory = []
-    let foundLastUser = false
-    for (let i = history.length - 1; i >= 0; i--) {
-      if (!foundLastUser && history[i].role === 'user') {
-        foundLastUser = true
-        continue
-      }
-      if (foundLastUser) {
-        newHistory.unshift(history[i])
-      }
-    }
-    updateChatSettings(activeChat.id, { history: newHistory })
-    await sendMessage(lastUserMsg, lastUserFiles)
+    if (userIdx === -1) return
+    const userMsg = typeof history[userIdx].content === 'string'
+      ? history[userIdx].content
+      : history[userIdx].content?.[0]?.text || ''
+    const userFiles = history[userIdx].files || []
+    // Drop the user turn and everything after it; sendMessage re-appends it.
+    updateChatSettings(activeChat.id, { history: history.slice(0, userIdx) })
+    await sendMessage(userMsg, userFiles)
   }, [activeChat, isStreaming, sendMessage, updateChatSettings])
 
   const handleKeyDown = (e) => {
@@ -1185,8 +1174,8 @@ export default function Chat() {
                       <button onClick={() => copyMessage(msg.content)} title={t('actions.copy')}>
                         <i className="fas fa-copy" />
                       </button>
-                      {msg.role === 'assistant' && i === activeChat.history.length - 1 && !isStreaming && (
-                        <button onClick={handleRegenerate} title={t('actions.regenerate')}>
+                      {msg.role === 'assistant' && !isStreaming && (
+                        <button onClick={() => handleRegenerate(i)} title={t('actions.regenerate')}>
                           <i className="fas fa-rotate" />
                         </button>
                       )}

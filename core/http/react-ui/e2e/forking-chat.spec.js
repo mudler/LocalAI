@@ -50,3 +50,31 @@ test('duplicate creates an independent copy and switches to it', async ({ page }
   await expect(page.locator('.chat-message-user')).toHaveCount(2)
   await expect(page.locator('.chat-message-assistant')).toHaveCount(2)
 })
+
+async function mockCompletion(page, replyText) {
+  await page.route('**/v1/chat/completions', (route) => {
+    const sse =
+      `data: ${JSON.stringify({ choices: [{ delta: { content: replyText } }] })}\n\n` +
+      `data: ${JSON.stringify({ choices: [{ delta: {}, finish_reason: 'stop' }], usage: { prompt_tokens: 1, completion_tokens: 1, total_tokens: 2 } })}\n\n` +
+      `data: [DONE]\n\n`
+    route.fulfill({ status: 200, contentType: 'text/event-stream', body: sse })
+  })
+}
+
+test('retry regenerates the first answer and drops the later turn', async ({ page }) => {
+  await mockModels(page)
+  await mockCompletion(page, 'REGENERATED first answer')
+  await seedChat(page, TWO_TURNS)
+  await page.goto('/app/chat')
+
+  // Hover the FIRST assistant message and click its retry button.
+  const firstAssistant = page.locator('.chat-message-assistant').first()
+  await firstAssistant.hover()
+  await firstAssistant.getByTitle('Regenerate').click()
+
+  // History is truncated to the first user turn, then the new answer streams in;
+  // the second Q/A turn is gone.
+  await expect(page.locator('.chat-message-assistant')).toContainText(['REGENERATED first answer'])
+  await expect(page.locator('.chat-message-user')).toHaveCount(1)
+  await expect(page.locator('.chat-message-assistant')).toHaveCount(1)
+})
