@@ -119,6 +119,10 @@ func (llm *Base) TokenizeString(opts *pb.PredictOptions) (pb.TokenizationRespons
 	return pb.TokenizationResponse{}, fmt.Errorf("unimplemented")
 }
 
+func (llm *Base) Detokenize(req *pb.DetokenizeRequest) (pb.DetokenizeResponse, error) {
+	return pb.DetokenizeResponse{}, fmt.Errorf("unimplemented")
+}
+
 func (llm *Base) ModelMetadata(opts *pb.ModelOptions) (*pb.ModelMetadataResponse, error) {
 	return nil, fmt.Errorf("unimplemented")
 }
