@@ -2475,6 +2475,86 @@ pushed). Artifacts on the DGX: `~/bench/p2_moe_region/focused_20260702_172644/`
 `.../killgate_20260702_171826/` (engagement proof, 0x on both models),
 `.../build_20260702_145928/` (build logs).
 
+## P3 W4A16 direct-A Marlin GEMM (forensics retry) - NO-GO at the perf kill-gate; the GEMM-tiling prefill bucket is a CONFIRMED FP4-MMQ-OPTIMAL FLOOR (recorded 2026-07-02)
+
+Third phase of the `EXECUTION_REARCH_SCOPE.md` additive program, and the **last big prefill
+lever**. The trimmed direct-A W4A16 prototype (`7967ad47f`) was **re-created per the
+section-3 contract** on top of the in-tree grouped 0035 Marlin kernel, engaged behind
+`LLAMA_W4A16_DIRECT_A=1` + `LLAMA_W4A16_PREFILL_M>0` (default-off), and A/B'd against the
+FP4-MMQ default at the P0 kill-gate. It lost by a wide margin, so `go=false` was the
+kill-gate default, nothing was built beyond P0, and nothing landed. See the "P3 RESULT"
+subsection in `EXECUTION_REARCH_SCOPE.md` for the full record; this closes the last
+speculative prefill lever and completes the program's prefill verdict. Summary and
+provenance:
+
+- **Verdict: NO-GO / DO-NOT-SHIP at the perf gate; the forensics retry is REFUTED.** The
+  retry hypothesis (section 2d) was that the prior 0035 -39% / -19.6% loss was ggml
+  *integration tax* (f32->bf16 converts + a separate act-quant/sort pass), not
+  kernel-intrinsic. P3 **genuinely removed that tax** (act-quant 18.92 -> ~0 us/tok on the
+  expert path; host expert-sort + src1-gather + separate cast pass eliminated) and direct-A
+  **still lost**. Removing the tax did not close the gap => the loss is **kernel-intrinsic
+  on GB10**, and **bucket 2 (GEMM tiling, +56.5 us/tok) is a confirmed FP4-MMQ-optimal
+  floor**, joining bucket 1 (GDN scan, P5-confirmed).
+- **PERF GO GATE FAILED DECISIVELY.** GO required `S_PP(direct-A) >= FP4-MMQ + 5%` at
+  `M >= 1024` AND `KLD <= 0.137`. Measured (MoE `q36-35b-a3b-nvfp4`, killgate 3-iter
+  medians, `LLAMA_KV_PAGED=1 LLAMA_MOE_FORCE_GRAPHS=1 -ngl99 -fa on -ntg4 -npl32 -c73728`):
+  **npp512 1176.8 vs 2215.3 = -46.88%; npp1024 1201.1 vs 2309.7 = -48.00%; npp2048 1222.0
+  vs 2400.2 = -49.09%** (direct-A stdev 0.07-0.56%, clears `max(2%, 3sigma)`). The
+  calibrated **grouped**-W4A16 (0035) null baseline reproduced **-43.96/-43.58/-44.72%**,
+  matching/exceeding the historical -39% / -19.6% - so the harness is unchanged and direct-A
+  is even slower than grouped (the in-kernel f32 A-gather pessimizes the kernel). Dense null
+  control **+0.05%** (MoE-only `mul_mat_id` hook; dense projections are plain `mul_mat`).
+- **ROOT CAUSE (nsys `--cuda-graph-trace=node`, npp2048 graph-node buckets).** The mature
+  bf16 grouped-W4A16 expert GEMM = **323.90 us/tok = 1.97x** the FP4-MMQ int8 expert GEMM
+  (**164.6**) = exactly the **bf16 = half int8/FP4 tensor-core peak on sm_121**. Consumer
+  Blackwell has no bf16-peak headroom over FP4/int8. **Novel sub-finding:** fusing the
+  A-gather in-kernel (direct-A) is a **NET PESSIMIZATION** vs a cheap separate bf16 pre-cast
+  - it drove the kernel **323.90 -> 451.86 us/tok (+127.96)** while removing only ~63 of tax,
+  a GB10-specific **inversion of P5's no-round-trips heuristic** (an in-kernel f32 gather
+  doubles A traffic and halves occupancy; a full-occupancy bf16 pre-cast is cheaper on
+  LPDDR5x). Residual +30 us/tok dst-unsort `get_rows` the host-loop keeps (FP4-MMQ fuses
+  on-device) is real but ~1/10 of the ~2x kernel gap.
+- **KL BAND GREEN and better than control.** direct-A **KLD 0.130260, same-top-p 85.172%**
+  (16-chunk) vs FP4-MMQ ctrl 0.136563 / 83.725% => in-band (<0.137, top-p >= 84) and
+  *better*. Correctness was never the issue; the bf16-dequant W4A16 path is
+  KL-benign-and-better, just slower.
+- **Correctness GREEN, both arms** (default AND `LLAMA_W4A16_DIRECT_A=1`): default md5
+  canonical both models (MoE `8cb0ce23`, dense `5951a5b4`), env-on also canonical both
+  (small-M bails to byte-identical default); `test-backend-ops` default MUL_MAT 1146/1146,
+  MUL_MAT_ID 806/806, GATED_DELTA_NET 46/46, MOE_SWIGLU_DOWN 7/7, MUL_MAT_ID_RAGGED_MOE
+  6/6, plus DIRECT_A-on MUL_MAT_ID 806/806. **Engagement PROVEN:** 7680 direct-A
+  engagements env-on (K=2048 N=512 gate/up expert GEMM), 0 in default.
+- **Honest delta vs the ~40-50 of +56.5 expectation.** Combined P2+P3 targeted ~40-50 of
+  the bucket-2 tax. **Delivered: 0.** FP4-MMQ is optimal on GB10; the ceiling lifts only on
+  datacenter Blackwell (tcgen05 / CUTLASS grouped-FP4). Corroborated by
+  `VLLM_PARITY_LEVER_MAP.md:1100` (offline-repack + verbatim vLLM Marlin already rejected
+  -39% at the same bf16-peak ceiling) - which is **why the one-time host-side repack cache
+  was deliberately NOT built** (a repack changes layout, not mma dtype; it cannot move a
+  1.97-2.74x bf16-peak floor). Documented decision, not an omission.
+
+Implementation (re-created per the section-3 contract; correct, committed, NOT pushed):
+`w4a16-policy.h` (pure host-testable engage predicate: NVFP4 src0 + f32 src1/dst +
+Blackwell + `LLAMA_W4A16_DIRECT_A=1` + `LLAMA_W4A16_PREFILL_M>0` + tokens>M +
+`k%64==0 && n%128==0` + src1 row-contiguous) + `tests/test-cuda-w4a16-policy.cpp` (14/14
+host unit test); `w4a16-gemm.{cu,cuh}` direct-A kernel (reads src1 f32 directly via
+`ids_to_sorted`, fuses f32->bf16 in the A-load, no `get_rows`/cast/intermediate,
+dequant-once weight reuse) + host launcher; `ggml-cuda.cu` `mul_mat_id` hook. Two A-fusion
+variants A/B'd: v1 cp.async f32-staging+smem-convert (57 KB smem, ~1201 t/s @npp1024,
+committed best) and v2 synchronous low-smem gather+convert (17 KB, ~975 t/s, worse); both
+< grouped < FP4-MMQ.
+
+Protocols honored: GPU lock held throughout and released; `LLAMA_MAX_BATCH_TOKENS` unset;
+sm_121a; nsys `--cuda-graph-trace=node`; 3+ iter S_PP medians + sigma. Fork `localai-paged`
+HEAD **untouched at `653bb2f3d`**; the LocalAI series **stays at 46 patches (`0001-0055`)**;
+topic branches `p1-bf16-stream` / `p2-moe-region` / `p4-cbv2` / `p5-fla-gdn` left intact.
+Topic branch `mudler/llama.cpp:p3-w4a16-direct` retained on the DGX fork at
+`8eef7ba4335ffd2ed7babd5e5dae71fa1fe8f688` (base `653bb2f3d`, **NOT pushed, NOT landed**).
+Artifacts on the DGX `~/bench/p3_w4a16_direct/`: `calib_20260702_232353/` (grouped-W4A16 vs
+FP4-MMQ calibration baseline), `killgate_20260702_235119/` (S_PP A/B 3 shapes x 3-arm x
+3-iter + dense null + engagement + md5 + test-backend-ops; RESULTS.txt),
+`nsyskl_20260703_001212/` (`nsys --cuda-graph-trace=node` `prof_{default,da,gr}.nsys-rep` +
+`kern_*.csv` buckets + 16-chunk KL `kl_{ctrl,da,gr}.log`; RESULTS.txt), `build_v1r_*.log`.
+
 ## P4 token-granular continuous-batching scheduler (CBv2) - NO-GO at the perf kill-gate (recorded 2026-07-02)
 
 Fourth phase of the `EXECUTION_REARCH_SCOPE.md` additive program. The P0 kill-gate

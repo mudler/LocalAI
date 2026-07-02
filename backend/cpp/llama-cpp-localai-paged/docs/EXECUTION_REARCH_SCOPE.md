@@ -512,6 +512,90 @@ records P2-at-this-granularity as a confirmed floor.
   `stream_ctx.concurrent_events`) for the K-loop cp.async overlap instead of a private
   mechanism.
 
+#### P3 RESULT (NO-GO, recorded 2026-07-02, `LLAMA_W4A16_DIRECT_A` + `LLAMA_W4A16_PREFILL_M>0`, default-off) - the GEMM-tiling bucket 2 is now a CONFIRMED FP4-MMQ-OPTIMAL FLOOR
+
+The direct-A W4A16 Marlin path was **re-created per the section-3 contract** (the trimmed
+`7967ad47f` prototype rebuilt on top of the in-tree grouped 0035 kernel), engaged behind
+`LLAMA_W4A16_DIRECT_A=1`, and A/B'd against the FP4-MMQ default at the P0 kill-gate.
+**Verdict: NO-GO by a wide margin (-46.9/-48.0/-49.1% at M=512/1024/2048); nothing built
+beyond P0, nothing landed.** The forensics retry that motivated the phase is now
+**refuted**: the integration tax the scope named (section 2d) was **genuinely removed**
+(act-quant 18.92 -> ~0 us/tok on the expert path, the host expert-sort + src1-gather +
+separate cast pass eliminated) and direct-A **still lost**. This settles prefill bucket 2
+(GEMM tiling, +56.5 us/tok) as a **kernel-intrinsic, FP4-MMQ-optimal floor on GB10**,
+joining bucket 1 (GDN scan, P5-confirmed). The topic branch `p3-w4a16-direct` is retained
+on the DGX fork at `8eef7ba4335ffd2ed7babd5e5dae71fa1fe8f688` (base `localai-paged`
+`653bb2f3d`, NOT pushed); the fork `localai-paged` HEAD is **untouched at `653bb2f3d`** and
+the LocalAI series stays at 46 patches (`0001-0055`).
+
+- **PERF GO GATE FAILED DECISIVELY.** GO required `S_PP(direct-A) >= FP4-MMQ + 5%` at
+  `M >= 1024` AND `KLD <= 0.137`. Measured (MoE `q36-35b-a3b-nvfp4`, killgate 3-iter
+  medians, `LLAMA_KV_PAGED=1 LLAMA_MOE_FORCE_GRAPHS=1 -ngl99 -fa on -ntg4 -npl32 -c73728`):
+  **npp512 1176.8 vs 2215.3 = -46.88%; npp1024 1201.1 vs 2309.7 = -48.00%; npp2048 1222.0
+  vs 2400.2 = -49.09%.** All NO-GO by a wide margin (direct-A stdev 0.07-0.56%, clears
+  `max(2%, 3sigma)` with no 3-sigma question).
+- **CALIBRATED NULL-HYPOTHESIS BASELINE (the -39% / -19.6% priors reproduced).** A separate
+  calibration run measured the in-tree **grouped** W4A16 (0035) vs FP4-MMQ at
+  **-43.96/-43.58/-44.72% @512/1024/2048** - reproducing and *exceeding* the historical
+  0035 -39% and the -19.6% prior. **direct-A is even slower than grouped**: the fused
+  in-kernel f32 A-gather pessimizes the kernel further. So the harness/settings are the
+  same as the prior campaign (the null baseline lands where it always did), and the win vs
+  the old number is not a measurement-setup artifact.
+- **ROOT CAUSE, fully decomposed by nsys `--cuda-graph-trace=node` (npp2048 graph-node
+  buckets).** The mature bf16 grouped-W4A16 expert GEMM = **323.90 us/tok = 1.97x** the
+  FP4-MMQ int8 expert GEMM (**~164.6 us/tok**) = **exactly the bf16 = half int8/FP4
+  tensor-core peak ratio on sm_121**. Consumer Blackwell GB10 has **no bf16-peak headroom**
+  over FP4/int8, so a W4A16 (FP4->bf16 in-register + bf16 mma) path cannot beat the native
+  FP4-MMQ int8 path - the ceiling is silicon. **Novel sub-finding:** fusing the A-gather
+  *in-kernel* (direct-A) is a **NET PESSIMIZATION** vs a cheap separate bf16 pre-cast: it
+  drove the kernel **323.90 -> 451.86 us/tok (+127.96)** while removing only ~63 us/tok of
+  tax - a **GB10-specific inversion of P5's no-round-trips heuristic**, because an in-kernel
+  f32 gather doubles A-operand traffic and halves occupancy, whereas a full-occupancy bf16
+  pre-cast is cheaper on this low-bandwidth memory. A residual **+30 us/tok dst-unsort
+  `get_rows`** the host-loop path keeps (and FP4-MMQ fuses on-device) is real but
+  ~1/10 of the ~2x kernel gap - even zeroed it cannot close bucket 2.
+- **KL BAND GREEN / in-band (and better than the control).** direct-A **KLD 0.130260,
+  same-top-p 85.172%** (16-chunk canonical) vs FP4-MMQ control **0.136563 / 83.725%** =>
+  in-band (<0.137, top-p >= 84 baseline) and slightly *better* than FP4-MMQ. Correctness was
+  never the issue; the bf16-dequant W4A16 path is KL-benign-and-better, exactly as the scope
+  predicted. It is simply slower.
+- **DENSE NULL CONTROL +0.05%** (`dense_spp1024_delta_pct = 0.05`): direct-A is a MoE-only
+  `mul_mat_id` hook; the dense model's projections are plain `mul_mat` and are untouched.
+- **All correctness gates GREEN, both arms** (default AND `LLAMA_W4A16_DIRECT_A=1` +
+  `LLAMA_W4A16_PREFILL_M>0`): default md5 canonical both models (MoE `8cb0ce23`, dense
+  `5951a5b4`), env-on also canonical both (small-M/greedy bails to the byte-identical
+  default); `test-backend-ops` default MUL_MAT 1146/1146, MUL_MAT_ID 806/806,
+  GATED_DELTA_NET 46/46, MOE_SWIGLU_DOWN 7/7, MUL_MAT_ID_RAGGED_MOE 6/6, plus DIRECT_A-on
+  MUL_MAT_ID 806/806. **Engagement PROVEN:** 7680 direct-A engagements env-on (the K=2048
+  N=512 gate/up expert GEMM), **0** in default (default-silent).
+- **Honest delta vs the ~40-50 of +56.5 expectation.** Combined P2+P3 targeted ~40-50 of the
+  bucket-2 +56.5 tax. **Delivered: 0** (P2 flat + layout-only, P3 -48/-49% and slower than
+  grouped). Bucket 2 is now confirmed FP4-MMQ-optimal on GB10 - the binding ceiling is the
+  bf16 = half-FP4/int8 tensor-core peak on sm_121, which lifts only on datacenter Blackwell
+  (tcgen05 / CUTLASS grouped-FP4). Corroborated by `VLLM_PARITY_LEVER_MAP.md:1100`
+  (offline-repack + verbatim vLLM Marlin already rejected -39% at the same bf16-peak ceiling)
+  - which is **also why the one-time host-side repack cache was deliberately NOT built**: a
+  repack changes the weight layout, not the mma dtype, so it cannot move a 1.97-2.74x
+  bf16-peak floor. Documented decision, not an omission.
+- **Implementation (correct, committed on `p3-w4a16-direct` @ `8eef7ba43`, NOT pushed, per
+  the re-creation contract).** `w4a16-policy.h` (pure host-testable engage predicate: NVFP4
+  src0 + f32 src1/dst + Blackwell + `LLAMA_W4A16_DIRECT_A=1` + `LLAMA_W4A16_PREFILL_M>0` +
+  tokens>M + `k%64==0 && n%128==0` + src1 row-contiguous) + `tests/test-cuda-w4a16-policy.cpp`
+  (14/14 host unit test); `w4a16-gemm.{cu,cuh}` direct-A kernel (reads src1 f32 directly via
+  `ids_to_sorted`, fuses f32->bf16 in the A-load, no `get_rows`/cast/intermediate,
+  dequant-once weight reuse) + host launcher; `ggml-cuda.cu` `mul_mat_id` hook (guards the
+  src1 `get_rows` + adds the direct-A dispatch). Two A-fusion variants A/B'd: **v1**
+  cp.async f32-staging + smem-convert (57 KB smem, npp1024 ~1201 t/s, committed as best) and
+  **v2** synchronous low-smem gather+convert (17 KB, ~975 t/s, worse); both < grouped <
+  FP4-MMQ.
+- **Artifacts (DGX `~/bench/p3_w4a16_direct/`):** `calib_20260702_232353/` (grouped-W4A16 vs
+  FP4-MMQ calibration baseline), `killgate_20260702_235119/` (S_PP A/B 3 shapes x 3-arm x
+  3-iter + dense null control + engagement + md5 + test-backend-ops; RESULTS.txt),
+  `nsyskl_20260703_001212/` (`nsys --cuda-graph-trace=node` `prof_{default,da,gr}.nsys-rep`
+  + `kern_*.csv` 3-arm buckets + 16-chunk KL `kl_{ctrl,da,gr}.log`; RESULTS.txt),
+  `build_v1r_*.log`. Environment: GPU lock held throughout + released; `LLAMA_MAX_BATCH_TOKENS`
+  unset; sm_121a; nsys `--cuda-graph-trace=node`; 3+ iter medians + sigma.
+
 ### P4: token-granular continuous-batching scheduler (server-side only)
 
 - **Goal:** one per-step token budget mixing chunked prefill + all ready decodes, with
@@ -925,17 +1009,23 @@ context). **This is an honest infra-block, not a measured NO-GO and not a NO-GO-
 
 ## 4. Program-level arithmetic (if all phases land)
 
+> **SUPERSEDED (2026-07-02).** This subsection is the *pre-execution projection* ("if all
+> phases land"). The program has now run end-to-end and only **P1 landed** (P2/P3/P4/P5
+> rejected, P6 blocked-on-infra). The measured reality is in **section 4a
+> (PROGRAM CONCLUSION)** below; read it for the real numbers. This projection is kept for
+> provenance - to show what was expected and by how much reality diverged.
+
 Conservative, showing the math. Baselines from section 2.
 
 **Prefill (MoE decision model, paged 395.9 us/tok, vLLM 197.0, gap 198.9):**
 
-| Bucket | delta | phase | conservative recovery |
-|---|---:|---|---:|
-| 3 dtype boundary tax | +36.6 | P1 | ~30 |
-| 4 norms/glue (part) | +37.2 | P1 (norms) + P6 (FP8 proj) | ~18 |
-| 2 GEMM tiling | +56.5 | P2 + P3 | ~40 |
-| 1 GDN scan | +59.2 | P5 (NO-GO, CONFIRMED FLOOR) | 0 |
-| 5 dispatch | +5.9 | P2/P4 | ~3 |
+| Bucket | delta | phase | conservative recovery | MEASURED |
+|---|---:|---|---:|---|
+| 3 dtype boundary tax | +36.6 | P1 | ~30 | **~8.4 us/tok @512** (P1 LANDED, projection-boundary portion only) |
+| 4 norms/glue (part) | +37.2 | P1 (norms) + P6 (FP8 proj) | ~18 | **norms in P1's segment; P6 FP8-proj BLOCKED-ON-INFRA** |
+| 2 GEMM tiling | +56.5 | P2 + P3 (NO-GO, CONFIRMED FLOOR) | ~~40~~ **0** | **0** - P2 flat (layout-only), P3 -48/-49% (bf16=half-FP4 peak); FP4-MMQ optimal |
+| 1 GDN scan | +59.2 | P5 (NO-GO, CONFIRMED FLOOR) | 0 | **0** - M5 fused smem-resident scan is the GB10 BW floor; FLA 2.12x slower |
+| 5 dispatch | +5.9 | P2/P4 (both NO-GO) | ~~3~~ **0** | **0** - both levers rejected |
 
 Recovered ~91-101 us/tok of 198.9. New paged wall ~295-305 us/tok. **Prefill S_PP goes
 from 36% to ~55-65% of vLLM** (throughput ratio 197/300 ~= 66% best case, ~55%
@@ -970,6 +1060,105 @@ hardware, and paged already leads); (2) the C=16-forcing 99 KB smem cap on the G
 the genuine floors; they lift only on datacenter Blackwell, not on GB10. The program's
 honest ceiling on GB10 is roughly **prefill ~55-65%, serving-agg ~80%, decode-GPU-steady
 ~95%, TTFT within ~2x** of vLLM - a large closure of the current 2-3x, not 100% parity.
+
+### 4a. PROGRAM CONCLUSION (measured, 2026-07-02) - the projection above is corrected to reality
+
+The additive program has run end-to-end. **Six phases were gated; exactly one landed.**
+This subsection records what actually happened and corrects the section-4 projection to the
+measured reality, so the doc ends truthful.
+
+**Phase outcomes (all RESULTS above):**
+
+| Phase | Lever | Verdict | Net recovery |
+|---|---|---|---:|
+| P1 | bf16-native residual-segment executor (`LLAMA_BF16_STREAM`) | **LANDED** (default-off), 3 fork commits -> `653bb2f3d`, series `0053-0055` | **+2% MoE prefill @512** (~8.4 us/tok; bucket-3 projection boundary) |
+| P2 | expert-major fused MoE region (`LLAMA_MOE_REGION_EXECUTOR`) | NO-GO (flat + 0-engagement on q36's separate-gate/up shape) | 0 |
+| P3 | W4A16 direct-A Marlin GEMM (`LLAMA_W4A16_DIRECT_A`) | NO-GO (-48/-49%; slower than grouped) | 0 |
+| P4 | continuous-batching scheduler (`LLAMA_CONTINUOUS_BATCH_V2`) | NO-GO (TTFT regresses; not a GB10 throughput lever) | 0 |
+| P5 | FLA-faithful GDN prefill scan (`LLAMA_GDN_FLA_CHUNK`) | NO-GO (FLA 2.12x slower than M5) | 0 |
+| P6 | fp8-e4m3 KV cache (`LLAMA_KV_FP8`) | BLOCKED-ON-INFRA (analytical ceiling NO-GO at standard shapes) | 0 (unrun) |
+
+**The completed prefill story - which buckets are confirmed floors, and by what evidence.**
+Of the five prefill buckets (gap 198.9 us/tok, MoE decision model):
+
+- **Bucket 1 (GDN scan, +59.2) = CONFIRMED SHARED-HARDWARE FLOOR (P5).** The whole FLA
+  pipeline in-backend (register/smem-resident inter-chunk state, chunk loop in-kernel) ran
+  **2.12x slower** than the shipped M5 fused scan (119.46 vs 56.31 us/tok @npp2048, S_PP
+  -13.3%). Per-kernel nsys: the blocked `solve_tril` is only ~2.8% of the bucket; the floor
+  is the state-GEMM + per-chunk h-materialization to LPDDR5x that FLA's split-kernel
+  structure forces (+ the 99 KB smem cap forcing that split). M5 is at/near the GB10
+  memory-bandwidth floor.
+- **Bucket 2 (GEMM tiling, +56.5) = CONFIRMED FP4-MMQ-OPTIMAL FLOOR (P2 + P3).** P2 (compact
+  expert-major layout) was flat on its sentinel and engaged 0x on q36. P3 (W4A16 direct-A,
+  the forensics-informed retry) removed the integration tax the retry hypothesis blamed
+  (act-quant 18.92 -> ~0, host expert-sort + src1-gather + separate cast eliminated) and
+  **still lost -48/-49%**. nsys graph-node decomposition: the mature bf16 grouped-W4A16 GEMM
+  = 323.90 us/tok = **1.97x** the FP4-MMQ int8 GEMM (164.6) = exactly the **bf16 = half
+  int8/FP4 tensor-core peak ratio on sm_121**. FP4-MMQ is optimal; the ceiling is silicon.
+- **Buckets 3+4 (dtype boundary + norms/glue, +73.8) = PARTIALLY RECOVERED (P1) / BLOCKED
+  (P6).** P1 landed the bf16-native residual-segment executor and recovered the
+  **projection-boundary portion of bucket 3** (~8.4 us/tok @512, ~+2% on the MoE model;
+  dense is a no-op because its projections are NVFP4, not BF16, so nothing engages). The
+  norms live inside P1's owned segment; the remaining glue and the FP8-projection portion of
+  bucket 4 were P6's target, which is blocked-on-infra.
+- **Bucket 5 (dispatch, +5.9) = 0** (P2/P4 both rejected).
+
+**What the program actually recovered.** **P1's ~8.4 us/tok @512 on the MoE model (+2%),
+~4.0 @2048** - the bucket-3 projection boundary, KL-benign (in fact KL-improving), safe,
+default-off. Nothing else moved.
+
+**Corrected closure numbers (replacing the projection above):**
+
+- **Prefill: ~50-51% of vLLM, NOT ~55-65%.** The projection assumed all phases land and
+  recover ~91-101 of the 198.9 us/tok gap (new wall ~295-305, "roughly a doubling").
+  Measured: only P1 landed, recovering **~8.4 us/tok** of the gap (new MoE wall ~387.5),
+  so prefill throughput moves from ~49.8% (197.0/395.9) to **~50.8%** (197.0/387.5) of
+  vLLM - a **+2% relative MoE improvement, not a doubling**. The projected doubling was
+  falsified because the two largest buckets (1 + 2 = +115.7 of the 198.9 gap) are now
+  **confirmed silicon/bandwidth floors on GB10**, not recoverable levers.
+- **Serving-aggregate: stays ~60.7% of vLLM server, NOT ~80-83%.** The ~10 pt scheduler
+  recovery was P4, now REJECTED (CBv2 regresses TTFT on GB10; the host-loop-dead measurement
+  is real). The MoE-GEMM (P2+P3) and its ~10-12 pt decode-residual recovery were REJECTED.
+  So the in-backend serving-agg recovery on GB10 is ~0; the ~80% figure was contingent on
+  levers that did not land.
+- **Decode-GPU-steady: stays ~86% of vLLM's true GPU-steady, NOT ~95%.** The 14 pt residual
+  was to be closed by P1+P2+P3 kernel wins; P2/P3 rejected and P1 is a prefill lever
+  (decode M<128 bails). Low-N dense already leads (116.7% at N=8); that standing result is
+  unchanged. The ~95% target required the rejected GEMM levers.
+- **TTFT: stays ~3.4x, NOT ~1.5-2x.** P4 was the TTFT lever and it *regressed* TTFT
+  (fair-share chunked prefill is processor-sharing; patch 0016's decode-first budget already
+  captures the schedulable win). TTFT parity routes through prefill compute, which is now
+  floored. It does not close in-backend on GB10.
+
+**What remains (small / non-GB10):**
+
+- **P6 FP8-KV (small, unrun).** Blocked-on-infra, not a measured NO-GO. Analytically a
+  **ceiling NO-GO at standard serving shapes** (ctx256 max saving 0.65%; first crosses +3%
+  only at ctx >= 2048) because q36 is hybrid-GDN (only 10/40 layers carry KV) and decode is
+  ~99% context-independent. The **capacity-play framing stays open** (halving stored KV bytes
+  for the 10/40 attention layers is a real long-ctx / high-concurrency capacity win,
+  independent of throughput) for a future capacity-motivated effort.
+- **Non-GB10 portability of the P4/P5 artifacts.** P4's CBv2 scheduler has a genuine
+  throughput payoff on **host-bound (non-GB10) silicon** where decode goes host-loop-limited
+  again; it is TTFT/fairness/enabler-only on GB10. The datacenter-Blackwell pivot
+  (tcgen05 + HBM + TMEM) is where buckets 1+2 lift: native CUTLASS grouped-FP4 removes the
+  bf16-peak ceiling (bucket 2) and larger smem + HBM removes the GDN split + per-chunk h
+  round-trip (bucket 1). Also carried: P1's `LLAMA_BF16_CUBLAS_F32_OUT` plank and the 0034
+  FP4-MMA kernel are portable-with-prereqs.
+
+**Reconciliation with the standing program conclusion.** This end-to-end result **confirms
+and strengthens** the standing conclusion (`VLLM_PARITY_FINAL.md`, `PARITY_HANDOFF.md`) that
+**GB10 throughput-parity is unreachable by exhaustion.** The prefill story is now complete:
+its two largest buckets are confirmed floors by direct in-backend experiment (not
+assumption), the recoverable software tax was the ~5% bucket-3 boundary (P1 captured the
+~2% MoE projection-portion of it), and the binding ceilings - **LPDDR5x bandwidth on the GDN
+per-chunk h round-trip, the 99 KB smem cap forcing the GDN split, and bf16 = half-FP4/int8
+tensor-core peak on sm_121** - are **silicon, lifting only on datacenter Blackwell**. The
+honest measured closure on GB10 is: **prefill ~50-51%, serving-agg ~60.7%, decode-GPU-steady
+~86% (low-N dense leading), TTFT ~3.4x** of vLLM - i.e. the paged fork's **precision** parity
+and memory advantage stand (see `VLLM_PARITY_FINAL.md`), while **throughput** parity is
+GB10-hardware-bound. Default path untouched throughout; canonical md5s green
+(MoE `8cb0ce23`, dense `5951a5b4`); series 46 patches; fork `localai-paged` HEAD `653bb2f3d`.
 
 ---
 
@@ -1017,10 +1206,16 @@ honest ceiling on GB10 is roughly **prefill ~55-65%, serving-agg ~80%, decode-GP
   residual stream has many short segments, the boundary converts could eat the win.
   Open: how many bf16 segments survive across a q36 layer, and does the shared-expert
   path fork the stream?
-- **P2/P3 all-or-nothing + aliasing.** The region executor must never materialize
-  gate_up; if the q36 dense shared-expert-per-layer aliases the routed `gate_up` view,
-  region ownership breaks and must fall back to node-at-a-time. Confirm the topology
-  before widening ownership.
+- **P2/P3 all-or-nothing + aliasing - RESOLVED / CONFIRMED FLOOR (2026-07-02, see the P2
+  and P3 RESULTs above).** Both levers ran and both are NO-GO: P2 (compact expert-major
+  layout) is flat on its sentinel and engages 0x on q36's separate `ffn_gate_exps`/
+  `ffn_up_exps` + `ggml_swiglu_split` shape (the merged whole-pattern matcher never fires);
+  P3 (W4A16 direct-A) removed the integration tax the retry blamed and **still lost
+  -48/-49%** because the mature bf16 W4A16 GEMM is 1.97x the FP4-MMQ int8 GEMM (bf16 = half
+  int8/FP4 tensor-core peak on sm_121). **Bucket 2 (GEMM tiling, +56.5) is a confirmed
+  FP4-MMQ-optimal floor on GB10**, joining bucket 1. The aliasing caution stands for any
+  future re-scope of the seam to q36's separate/scaled shape (the prerequisite handoff in
+  the P2 RESULT), but it is no longer an open program risk - the lever is closed.
 - **CUDA-graph capture safety.** Region-executor pool allocs must be shape-stable across
   replays (keyed on n_tokens/n_experts, never on data-dependent routing counts) or they
   force re-capture and negate the graph-reuse win. Dovetails with S1 (patch 0040).
