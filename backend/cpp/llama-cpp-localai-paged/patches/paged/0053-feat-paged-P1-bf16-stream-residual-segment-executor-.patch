@@ -1,0 +1,922 @@
+From 1271488fc47d7db2319163d0b34601dd30d49250 Mon Sep 17 00:00:00 2001
+From: Ettore Di Giacinto <mudler@localai.io>
+Date: Thu, 2 Jul 2026 16:29:07 +0200
+Subject: [PATCH 53/55] feat(paged): P1 bf16-stream residual-segment executor +
+ norm-bf16 kernels
+
+Additive, default-off (LLAMA_BF16_STREAM=1) bf16-resident activation stream
+for the q36 residual path, targeting prefill bucket 3 (the convert/glue tax).
+
+- norm-bf16.cu/.cuh: rms_norm, the 0042 pre_add_mul, and the 0044 gate_mul
+  norms templated on output dtype, bit-faithful to the f32 kernels up to the
+  __float2bfloat16 store.
+- One additive clause in ggml_cuda_try_fuse detects a residual-stream
+  norm-producer whose consumers are all large-M cuBLAS-bf16 projections, runs
+  the norm into a bf16 pool buffer, executes the owned span inline through a
+  bf16 view, then skips it. Strict all-consumers-are-ours guard keeps the f32
+  norm un-materialised and bails to the stock f32 path otherwise (small-M,
+  decode, MMQ, native-FP4, multi-consumer).
+- LLAMA_BF16_CUBLAS_F32_OUT plank: owned projections write f32 directly from
+  bf16 tensor-core compute, skipping the bf16 dst pool + bf16->f32 convert;
+  the F32_OUT else-branch is byte-identical to the original cuBLAS path.
+
+Default md5 stays canonical with the code present-but-off and env-on (small-M
+prompts bail): MoE 8cb0ce23777bf55f92f63d0292c756b0, dense 5951a5b4d624ce891e22ab5fca9bc439.
+
+Assisted-by: Claude:opus-4.8 [Claude Code]
+Signed-off-by: Ettore Di Giacinto <mudler@localai.io>
+---
+ ggml/src/ggml-cuda/ggml-cuda.cu  | 297 +++++++++++++++++--
+ ggml/src/ggml-cuda/norm-bf16.cu  | 483 +++++++++++++++++++++++++++++++
+ ggml/src/ggml-cuda/norm-bf16.cuh |  37 +++
+ 3 files changed, 793 insertions(+), 24 deletions(-)
+ create mode 100644 ggml/src/ggml-cuda/norm-bf16.cu
+ create mode 100644 ggml/src/ggml-cuda/norm-bf16.cuh
+
+diff --git a/ggml/src/ggml-cuda/ggml-cuda.cu b/ggml/src/ggml-cuda/ggml-cuda.cu
+index ef1bdc3b4..5626ccebb 100644
+--- a/ggml/src/ggml-cuda/ggml-cuda.cu
++++ b/ggml/src/ggml-cuda/ggml-cuda.cu
+@@ -36,6 +36,7 @@
+ #include "ggml-cuda/mmvf.cuh"
+ #include "ggml-cuda/mmvq.cuh"
+ #include "ggml-cuda/norm.cuh"
++#include "ggml-cuda/norm-bf16.cuh"
+ #include "ggml-cuda/opt-step-adamw.cuh"
+ #include "ggml-cuda/opt-step-sgd.cuh"
+ #include "ggml-cuda/out-prod.cuh"
+@@ -1628,12 +1629,29 @@ static const cublas_force_compute_type & ggml_cuda_cublas_get_force_compute_type
+     return compute_type;
+ }
+ 
++// [P1 bf16-stream] LLAMA_BF16_CUBLAS_F32_OUT plank. When set (by the bf16-stream
++// segment executor around an owned projection, or globally via the env), the cuBLAS
++// bf16/nvfp4 GEMM writes f32 directly from the bf16 tensor-core compute, skipping the
++// bf16 dst pool buffer + the bf16->f32 output convert_dtype. The result is the full
++// f32 GEMM accumulation (the current path rounds it to bf16 then widens back), so this
++// is a strictly-more-precise dtype change gated on the opt-in KL path, never md5.
++static thread_local bool g_bf16_stream_f32_out = false;
++static bool ggml_cuda_bf16_cublas_f32_out_env() {
++    static const bool e = [] {
++        const char * s = getenv("LLAMA_BF16_CUBLAS_F32_OUT");
++        return s != nullptr && atoi(s) != 0;
++    }();
++    return e;
++}
++
+ static void ggml_cuda_op_mul_mat_cublas(
+     ggml_backend_cuda_context & ctx,
+     const ggml_tensor * src0, const ggml_tensor * src1, ggml_tensor * dst, const char * src0_dd_i, const float * src1_ddf_i,
+     const char * src1_ddq_i, float * dst_dd_i, const int64_t row_low, const int64_t row_high, const int64_t src1_ncols,
+     const int64_t src1_padded_row_size, cudaStream_t stream) {
+ 
++    const bool bf16_stream_f32_out = g_bf16_stream_f32_out || ggml_cuda_bf16_cublas_f32_out_env();
++
+     GGML_ASSERT(src0_dd_i  != nullptr);
+     GGML_ASSERT(src1_ddf_i != nullptr);
+     GGML_ASSERT(dst_dd_i   != nullptr);
+@@ -1686,23 +1704,34 @@ static void ggml_cuda_op_mul_mat_cublas(
+         }
+         const nv_bfloat16 * src1_ptr = src1->type == GGML_TYPE_BF16 ? (const nv_bfloat16 *) src1_ddf_i : src1_as_bf16.get();
+         const nv_bfloat16 * src0_ptr = src0_as_bf16.get();
+-        ggml_cuda_pool_alloc<nv_bfloat16> dst_bf16(ctx.pool(id), row_diff*src1_ncols);
+ 
+         const float alpha_f32 = 1.0f;
+         const float beta_f32  = 0.0f;
+ 
+         CUBLAS_CHECK(cublasSetStream(ctx.cublas_handle(id), stream));
+-        CUBLAS_CHECK(
+-            cublasGemmEx(ctx.cublas_handle(id), CUBLAS_OP_T, CUBLAS_OP_N,
+-                    row_diff, src1_ncols, ne10,
+-                    &alpha_f32,  src0_ptr,       CUDA_R_16BF, ne00,
+-                                 src1_ptr,       CUDA_R_16BF, ne10,
+-                    &beta_f32,   dst_bf16.get(), CUDA_R_16BF, ldc,
+-                    CUBLAS_COMPUTE_32F,
+-                    CUBLAS_GEMM_DEFAULT_TENSOR_OP));
+-
+-        const to_fp32_cuda_t to_fp32_cuda = ggml_get_to_fp32_cuda(GGML_TYPE_BF16);
+-        to_fp32_cuda(dst_bf16.get(), dst_dd_i, row_diff*src1_ncols, stream);
++        if (bf16_stream_f32_out) {
++            // [P1 bf16-stream] write f32 directly, skip the bf16 dst pool + convert.
++            CUBLAS_CHECK(
++                cublasGemmEx(ctx.cublas_handle(id), CUBLAS_OP_T, CUBLAS_OP_N,
++                        row_diff, src1_ncols, ne10,
++                        &alpha_f32,  src0_ptr,  CUDA_R_16BF, ne00,
++                                     src1_ptr,  CUDA_R_16BF, ne10,
++                        &beta_f32,   dst_dd_i,  CUDA_R_32F,  ldc,
++                        CUBLAS_COMPUTE_32F,
++                        CUBLAS_GEMM_DEFAULT_TENSOR_OP));
++        } else {
++            ggml_cuda_pool_alloc<nv_bfloat16> dst_bf16(ctx.pool(id), row_diff*src1_ncols);
++            CUBLAS_CHECK(
++                cublasGemmEx(ctx.cublas_handle(id), CUBLAS_OP_T, CUBLAS_OP_N,
++                        row_diff, src1_ncols, ne10,
++                        &alpha_f32,  src0_ptr,       CUDA_R_16BF, ne00,
++                                     src1_ptr,       CUDA_R_16BF, ne10,
++                        &beta_f32,   dst_bf16.get(), CUDA_R_16BF, ldc,
++                        CUBLAS_COMPUTE_32F,
++                        CUBLAS_GEMM_DEFAULT_TENSOR_OP));
++            const to_fp32_cuda_t to_fp32_cuda = ggml_get_to_fp32_cuda(GGML_TYPE_BF16);
++            to_fp32_cuda(dst_bf16.get(), dst_dd_i, row_diff*src1_ncols, stream);
++        }
+     } else if (supports_bf16 && src0->type == GGML_TYPE_BF16 && ggml_is_contiguous(src0) && row_diff == src0->ne[1]) {
+         ggml_cuda_pool_alloc<nv_bfloat16> src1_as_bf16(ctx.pool(id));
+         if (src1->type != GGML_TYPE_BF16) {
+@@ -1714,23 +1743,34 @@ static void ggml_cuda_op_mul_mat_cublas(
+         }
+         const nv_bfloat16 * src1_ptr = src1->type == GGML_TYPE_BF16 ? (const nv_bfloat16 *) src1_ddf_i : src1_as_bf16.get();
+         const nv_bfloat16 * src0_ptr = (const nv_bfloat16 *)src0_dd_i;
+-        ggml_cuda_pool_alloc<nv_bfloat16> dst_bf16(ctx.pool(id), row_diff*src1_ncols);
+ 
+         const float alpha_f32 = 1.0f;
+         const float beta_f32  = 0.0f;
+ 
+         CUBLAS_CHECK(cublasSetStream(ctx.cublas_handle(id), stream));
+-        CUBLAS_CHECK(
+-            cublasGemmEx(ctx.cublas_handle(id), CUBLAS_OP_T, CUBLAS_OP_N,
+-                    row_diff, src1_ncols, ne10,
+-                    &alpha_f32,  src0_ptr,       CUDA_R_16BF, ne00,
+-                                 src1_ptr,       CUDA_R_16BF, ne10,
+-                    &beta_f32,   dst_bf16.get(), CUDA_R_16BF, ldc,
+-                    CUBLAS_COMPUTE_32F,
+-                    CUBLAS_GEMM_DEFAULT_TENSOR_OP));
+-
+-        const to_fp32_cuda_t to_fp32_cuda = ggml_get_to_fp32_cuda(GGML_TYPE_BF16);
+-        to_fp32_cuda(dst_bf16.get(), dst_dd_i, row_diff*src1_ncols, stream);
++        if (bf16_stream_f32_out) {
++            // [P1 bf16-stream] write f32 directly, skip the bf16 dst pool + convert.
++            CUBLAS_CHECK(
++                cublasGemmEx(ctx.cublas_handle(id), CUBLAS_OP_T, CUBLAS_OP_N,
++                        row_diff, src1_ncols, ne10,
++                        &alpha_f32,  src0_ptr,  CUDA_R_16BF, ne00,
++                                     src1_ptr,  CUDA_R_16BF, ne10,
++                        &beta_f32,   dst_dd_i,  CUDA_R_32F,  ldc,
++                        CUBLAS_COMPUTE_32F,
++                        CUBLAS_GEMM_DEFAULT_TENSOR_OP));
++        } else {
++            ggml_cuda_pool_alloc<nv_bfloat16> dst_bf16(ctx.pool(id), row_diff*src1_ncols);
++            CUBLAS_CHECK(
++                cublasGemmEx(ctx.cublas_handle(id), CUBLAS_OP_T, CUBLAS_OP_N,
++                        row_diff, src1_ncols, ne10,
++                        &alpha_f32,  src0_ptr,       CUDA_R_16BF, ne00,
++                                     src1_ptr,       CUDA_R_16BF, ne10,
++                        &beta_f32,   dst_bf16.get(), CUDA_R_16BF, ldc,
++                        CUBLAS_COMPUTE_32F,
++                        CUBLAS_GEMM_DEFAULT_TENSOR_OP));
++            const to_fp32_cuda_t to_fp32_cuda = ggml_get_to_fp32_cuda(GGML_TYPE_BF16);
++            to_fp32_cuda(dst_bf16.get(), dst_dd_i, row_diff*src1_ncols, stream);
++        }
+     } else if (fast_fp16_hardware_available(cc) && use_fp16) {
+         // convert src0 and src1 to fp16, multiply as fp16, convert dst to fp32
+         ggml_cuda_pool_alloc<half> src0_as_f16(ctx.pool(id));
+@@ -4706,6 +4746,215 @@ static int ggml_cuda_try_fuse(ggml_backend_cuda_context * cuda_ctx, ggml_cgraph
+         return 2;
+     }
+ 
++    // [P1 bf16-stream] Generalized additive segment executor (LLAMA_BF16_STREAM=1,
++    // default off). ONE clause; the residual-stream segment is detected inside it.
++    // Owns any norm-producer whose consumers are ALL large-M cuBLAS-bf16 projections and
++    // runs that norm into a bf16 pool buffer so every projection reads the bf16
++    // activation directly - no per-op f32->bf16 convert_dtype glue. Two live q36 kinds:
++    //   * plain rms_norm+mul  {RMS_NORM,MUL}        -> BF16 q/k/v / GDN in_proj (may be
++    //                                                  multi-consumer: q,k,v share it)
++    //   * 0044 gated-DeltaNet output norm {SILU,RMS_NORM,MUL,MUL} -> ssm_out (the P0 seg)
++    // (The 0042 {ADD,RMS_NORM,MUL} residual-fused norm is handled by its f32 clause below
++    //  and, on q36, feeds the NVFP4-MMQ experts, so a bf16 stream there would bail; its
++    //  bf16 variant lives in norm-bf16.cu for op-set completeness.)
++    //
++    // Correctness: strict all-consumers-are-ours guard - the f32 norm output is never
++    // materialised, so every node that transitively reads it must be one of our owned
++    // projections (as src1); any other reader, or an unrelated compute node inside the
++    // skipped span, bails and the f32 fused-norm path runs unchanged. Each projection is
++    // executed inline through a bf16 view of the shared buffer; the whole owned span
++    // (norm nodes + intervening pure-view no-ops + the projections) is then skipped. The
++    // LLAMA_BF16_CUBLAS_F32_OUT plank additionally makes the owned projections write f32
++    // directly (skipping the dst convert). Env-off path and decode/small-M md5 untouched.
++    static const bool bf16_stream = [] {
++        const char * e = getenv("LLAMA_BF16_STREAM");
++        return e != nullptr && atoi(e) != 0;
++    }();
++    static const int bf16_stream_trace = [] {
++        const char * e = getenv("LLAMA_BF16_STREAM_TRACE");
++        return e != nullptr ? atoi(e) : 0;
++    }();
++    static const bool bf16_stream_f32_out_default = [] {
++        const char * e = getenv("LLAMA_BF16_CUBLAS_F32_OUT");
++        return e == nullptr || atoi(e) != 0;   // plank ON by default when a segment engages
++    }();
++    if (bf16_stream) {
++        // ---- detect the norm-producer kind + the f32 activation tensor + node span ----
++        int           kind      = 0;     // 1=plain rms+mul, 2=gated-DeltaNet output norm
++        int           norm_span = 0;
++        const char *  seg_kind  = nullptr;
++        ggml_tensor * k_rms  = nullptr, * k_mul = nullptr, * k_silu = nullptr;
++        ggml_tensor * norm_out = nullptr;
++        if (ggml_cuda_can_fuse(cgraph, i, { GGML_OP_UNARY, GGML_OP_RMS_NORM, GGML_OP_MUL, GGML_OP_MUL }, { GGML_UNARY_OP_SILU })) {
++            kind = 2; k_silu = cgraph->nodes[i]; k_rms = cgraph->nodes[i + 1]; k_mul = cgraph->nodes[i + 2];
++            norm_out = cgraph->nodes[i + 3]; norm_span = 4; seg_kind = "gate_norm";
++        } else if (ggml_cuda_can_fuse(cgraph, i, { GGML_OP_RMS_NORM, GGML_OP_MUL }, {})) {
++            kind = 1; k_rms = cgraph->nodes[i]; k_mul = cgraph->nodes[i + 1];
++            norm_out = cgraph->nodes[i + 1]; norm_span = 2; seg_kind = "rms_norm";
++        }
++
++        if (kind != 0) {
++            const int cc        = ggml_cuda_info().devices[ggml_cuda_get_device()].cc;
++            const int norm_end  = i + norm_span;
++
++            // follow a pure view/reshape chain up to norm_out
++            auto roots_at = [](const ggml_tensor * t, const ggml_tensor * root) -> bool {
++                const ggml_tensor * c = t;
++                for (int d = 0; d < 8 && c != nullptr; ++d) {
++                    if (c == root) return true;
++                    if (c->view_src) { c = c->view_src; continue; }
++                    if ((c->op == GGML_OP_RESHAPE || c->op == GGML_OP_VIEW || c->op == GGML_OP_PERMUTE ||
++                         c->op == GGML_OP_TRANSPOSE || c->op == GGML_OP_CONT) && c->src[0]) { c = c->src[0]; continue; }
++                    break;
++                }
++                return false;
++            };
++            // Metadata-only no-ops (match the stock capture loop's skip set). CONT is
++            // NOT here: it materializes a contiguous copy, so a CONT of norm_out must fall
++            // through to the roots_at check below and bail (it would need the f32 norm).
++            auto is_pure_view = [](const ggml_tensor * t) -> bool {
++                return t->op == GGML_OP_RESHAPE || t->op == GGML_OP_VIEW || t->op == GGML_OP_PERMUTE ||
++                       t->op == GGML_OP_TRANSPOSE || t->op == GGML_OP_NONE;
++            };
++            // ownable large-M cuBLAS-bf16 projection whose src1 is the FULL norm output
++            auto is_owned_proj = [&](const ggml_tensor * p) -> bool {
++                if (p->op != GGML_OP_MUL_MAT) return false;
++                const ggml_tensor * w  = p->src[0];
++                const ggml_tensor * x1 = p->src[1];
++                if (!w || !x1) return false;
++                if (!(x1 == norm_out || x1->view_src == norm_out ||
++                      (x1->op == GGML_OP_RESHAPE && x1->src[0] == norm_out))) return false;
++                if (ggml_nelements(x1) != ggml_nelements(norm_out)) return false;   // full, offset 0
++                return (w->type == GGML_TYPE_BF16 || w->type == GGML_TYPE_NVFP4) && ggml_is_contiguous(w) &&
++                       p->type == GGML_TYPE_F32 &&
++                       x1->ne[2] == 1 && x1->ne[3] == 1 &&
++                       x1->ne[1] >= 128 &&
++                       !ggml_cuda_fp4_prefill_should_engage(w, x1, const_cast<ggml_tensor *>(p), cc) &&
++                       !ggml_cuda_should_use_mmq(w->type, cc, x1->ne[1], /*n_experts=*/0);
++            };
++
++            // Scan the rest of the graph: collect our projections, enforce that every
++            // consumer of norm_out is one of them, and that the skipped span holds only
++            // pure views / our projections.
++            bool          ok           = true;
++            int           n_proj       = 0;
++            int           max_proj_idx = -1;
++            const char *  miss_reason  = "unknown";
++            int           miss_node    = -1;
++            const char *  miss_op      = "";
++            ggml_tensor * projs[16];
++            for (int j = norm_end; j < cgraph->n_nodes && ok; ++j) {
++                ggml_tensor * nj = cgraph->nodes[j];
++                // Pure view/reshape no-ops are part of the src1 view chain (or unrelated
++                // metadata ops): they carry no kernel and are re-expressed by the inline
++                // bf16 src1, so they never force f32 materialization. A *real* downstream
++                // consumer that reads norm_out through such a view is still caught below,
++                // because roots_at() climbs the view chain to norm_out.
++                if (is_pure_view(nj)) {
++                    continue;
++                }
++                if (is_owned_proj(nj)) {
++                    if (n_proj < 16) { projs[n_proj] = nj; }
++                    n_proj++;
++                    max_proj_idx = j;
++                    continue;
++                }
++                // any (non-view, non-projection) reader of norm_out disqualifies the segment
++                for (int s = 0; s < GGML_MAX_SRC; ++s) {
++                    if (nj->src[s] && roots_at(nj->src[s], norm_out)) {
++                        ok = false; miss_reason = "nonproj_consumer"; miss_node = j; miss_op = ggml_op_name(nj->op); break;
++                    }
++                }
++            }
++            // require projections, room in the fixed buffer, and a bounded span. The
++            // span [norm_end, max_proj_idx] may hold non-projection compute (q36 QK-norm /
++            // scale on the projection outputs); those never read norm_out (enforced above)
++            // so the whole span is executed inline in graph order below - owned projections
++            // through the bf16 buffer, everything else via the stock per-node executor -
++            // and then skipped as one unit.
++            const int span_len = max_proj_idx - norm_end;
++            if (!(n_proj >= 1 && n_proj <= 16 && span_len <= 96)) {
++                if (ok) { miss_reason = (n_proj == 0) ? "no_owned_proj" : (n_proj > 16 ? "too_many_proj" : "span_too_long"); }
++                ok = false;
++            }
++
++            if (ok) {
++                const int64_t ne_tot = ggml_nelements(norm_out);
++                ggml_cuda_pool_alloc<nv_bfloat16> norm_bf16(cuda_ctx->pool(), ne_tot);
++                if (kind == 2) {
++                    ggml_cuda_rms_norm_gate_mul_bf16out(*cuda_ctx, k_rms, k_mul, k_silu, norm_out, norm_bf16.get());
++                } else {
++                    ggml_cuda_rms_norm_mul_bf16out(*cuda_ctx, k_rms, k_mul, norm_bf16.get());
++                }
++
++                // Execute the whole owned span inline, in graph order (mirrors the stock
++                // capture loop's per-node handling for the non-owned nodes).
++                for (int j = norm_end; j <= max_proj_idx; ++j) {
++                    ggml_tensor * nj = cgraph->nodes[j];
++
++                    bool mine = false;
++                    for (int p = 0; p < n_proj; ++p) { if (projs[p] == nj) { mine = true; break; } }
++
++                    if (mine) {
++                        ggml_tensor * proj_src1 = nj->src[1];
++                        ggml_tensor   src1_bf16 = *proj_src1;
++                        src1_bf16.type      = GGML_TYPE_BF16;
++                        src1_bf16.data      = norm_bf16.get();
++                        src1_bf16.view_src  = nullptr;
++                        src1_bf16.view_offs = 0;
++                        src1_bf16.nb[0]     = sizeof(nv_bfloat16);
++                        src1_bf16.nb[1]     = src1_bf16.nb[0] * src1_bf16.ne[0];
++                        src1_bf16.nb[2]     = src1_bf16.nb[1] * src1_bf16.ne[1];
++                        src1_bf16.nb[3]     = src1_bf16.nb[2] * src1_bf16.ne[2];
++
++                        ggml_tensor * saved_src1 = nj->src[1];
++                        nj->src[1] = &src1_bf16;
++                        g_bf16_stream_f32_out = bf16_stream_f32_out_default;
++                        const bool okc = ggml_cuda_compute_forward(*cuda_ctx, nj);
++                        g_bf16_stream_f32_out = false;
++                        nj->src[1] = saved_src1;
++                        GGML_ASSERT(okc);
++                        continue;
++                    }
++
++                    // non-owned span node: mirror the stock loop (skip metadata no-ops,
++                    // run the rest through the per-node executor)
++                    if (ggml_is_empty(nj) || nj->op == GGML_OP_RESHAPE || nj->op == GGML_OP_TRANSPOSE ||
++                        nj->op == GGML_OP_VIEW || nj->op == GGML_OP_PERMUTE || nj->op == GGML_OP_NONE) {
++                        continue;
++                    }
++                    if ((nj->flags & GGML_TENSOR_FLAG_COMPUTE) == 0) {
++                        continue;
++                    }
++                    const bool okn = ggml_cuda_compute_forward(*cuda_ctx, nj);
++                    GGML_ASSERT(okn);
++                }
++
++                static std::atomic<int> bf16_stream_engage_count{0};
++                const int ec = bf16_stream_engage_count.fetch_add(1, std::memory_order_relaxed);
++                if (bf16_stream_trace > 0 && ec < bf16_stream_trace) {
++                    const ggml_tensor * w0 = projs[0]->src[0];
++                    fprintf(stderr,
++                        "[LLAMA_BF16_STREAM] engaged seg=%s node=%d n_proj=%d last_proj=%d "
++                        "M=%" PRId64 " N=%" PRId64 " K=%" PRId64 " f32out=%d skip=%d\n",
++                        seg_kind, i, n_proj, max_proj_idx, projs[0]->src[1]->ne[1], w0->ne[1], w0->ne[0],
++                        bf16_stream_f32_out_default ? 1 : 0, max_proj_idx - i);
++                }
++                return max_proj_idx - i;   // skip norm nodes + intervening views + all owned projections
++            }
++
++            if (bf16_stream_trace > 0) {
++                static std::atomic<int> bf16_stream_miss_count{0};
++                const int mc = bf16_stream_miss_count.fetch_add(1, std::memory_order_relaxed);
++                if (mc < bf16_stream_trace) {
++                    fprintf(stderr,
++                        "[LLAMA_BF16_STREAM] miss seg=%s node=%d n_proj=%d reason=%s miss_node=%d miss_op=%s\n",
++                        seg_kind, i, n_proj, miss_reason, miss_node, miss_op);
++                }
++            }
++        }
++    }
++
+     // Fused gated RMS norm: RMS norm + weight multiply + SiLU-gated multiply
+     // (bit-exact). The Qwen3.6 gated-DeltaNet output norm. Default ON; set
+     // LLAMA_FUSE_GATE_RMSNORM=0 for a clean A/B against the unfused path.
+diff --git a/ggml/src/ggml-cuda/norm-bf16.cu b/ggml/src/ggml-cuda/norm-bf16.cu
+new file mode 100644
+index 000000000..77ccbf80e
+--- /dev/null
++++ b/ggml/src/ggml-cuda/norm-bf16.cu
+@@ -0,0 +1,483 @@
++#include "norm-bf16.cuh"
++
++#include <cstring>
++
++// [P1 bf16-stream] bf16-output variants of the residual-stream norms. Same reduction
++// and FP order as the f32 kernels in norm.cu; only the final store is narrowed. Kept
++// bit-faithful to the f32 norms up to the __float2bfloat16 store so the opt-in stream
++// stays a pure dtype (KL-benign) change, not an algorithmic one.
++
++// Output-store policy: identity for float, round-to-nearest bf16 for nv_bfloat16.
++template <typename Tdst> struct bf16stream_store;
++template <> struct bf16stream_store<float> {
++    static __device__ __forceinline__ float store(float v) { return v; }
++};
++template <> struct bf16stream_store<nv_bfloat16> {
++    static __device__ __forceinline__ nv_bfloat16 store(float v) { return __float2bfloat16(v); }
++};
++
++// ---------------------------------------------------------------------------
++// plain rms_norm + weight multiply -> Tdst    (mirrors rms_norm_f32<do_multiply=true>)
++// ---------------------------------------------------------------------------
++template <int block_size, typename Tdst>
++static __global__ void rms_norm_mul_out(const float * x,
++                                        Tdst *        dst,
++                                        const int     ncols,
++                                        const int64_t stride_row,
++                                        const int64_t stride_channel,
++                                        const int64_t stride_sample,
++                                        const float   eps,
++                                        const float * mul,
++                                        const int64_t mul_stride_row,
++                                        const int64_t mul_stride_channel,
++                                        const int64_t mul_stride_sample,
++                                        const uint3   mul_ncols_packed,
++                                        const uint3   mul_nrows_packed,
++                                        const uint3   mul_nchannels_packed,
++                                        const uint3   mul_nsamples_packed) {
++    ggml_cuda_pdl_lc();
++    const int nrows     = gridDim.x;
++    const int nchannels = gridDim.y;
++
++    const int row     = blockIdx.x;
++    const int channel = blockIdx.y;
++    const int sample  = blockIdx.z;
++    const int tid     = threadIdx.x;
++
++    x   += sample*stride_sample + channel*stride_channel + row*stride_row;
++    dst += ((sample*nchannels + channel)*nrows + row)*ncols;
++
++    {
++        const uint32_t mul_row     = fastmodulo(row, mul_nrows_packed);
++        const uint32_t mul_channel = fastmodulo(channel, mul_nchannels_packed);
++        const uint32_t mul_sample  = fastmodulo(sample, mul_nsamples_packed);
++        mul += mul_sample * mul_stride_sample + mul_channel * mul_stride_channel + mul_row * mul_stride_row;
++    }
++
++    float tmp = 0.0f;
++
++    ggml_cuda_pdl_sync();
++    for (int col = tid; col < ncols; col += block_size) {
++        const float xi = x[col];
++        tmp += xi * xi;
++    }
++
++    extern __shared__ float s_sum[];
++    tmp = block_reduce<block_reduce_method::SUM, block_size>(tmp, s_sum);
++
++    const float mean  = tmp / ncols;
++    const float scale = rsqrtf(mean + eps);
++
++    for (int col = tid; col < ncols; col += block_size) {
++        const int mul_col = fastmodulo(col, mul_ncols_packed);
++        dst[col]          = bf16stream_store<Tdst>::store(scale * x[col] * mul[mul_col]);
++    }
++}
++
++// ---------------------------------------------------------------------------
++// 0042 residual-add + rms_norm + weight multiply -> f32 h_out + Tdst dst
++// (mirrors rms_norm_pre_add_mul_f32<do_multiply=true>; h_out stays f32 so the next
++//  residual add reads the same f32 residual stream)
++// ---------------------------------------------------------------------------
++template <int block_size, typename Tdst>
++static __global__ void rms_norm_pre_add_mul_out(const float * a,
++                                                const float * b,
++                                                float *       h_out,
++                                                Tdst *        dst,
++                                                const int     ncols,
++                                                const int64_t stride_row,
++                                                const int64_t stride_channel,
++                                                const int64_t stride_sample,
++                                                const float   eps,
++                                                const float * mul,
++                                                const int64_t mul_stride_row,
++                                                const int64_t mul_stride_channel,
++                                                const int64_t mul_stride_sample,
++                                                const uint3   mul_ncols_packed,
++                                                const uint3   mul_nrows_packed,
++                                                const uint3   mul_nchannels_packed,
++                                                const uint3   mul_nsamples_packed) {
++    ggml_cuda_pdl_lc();
++    const int nrows     = gridDim.x;
++    const int nchannels = gridDim.y;
++
++    const int row     = blockIdx.x;
++    const int channel = blockIdx.y;
++    const int sample  = blockIdx.z;
++    const int tid     = threadIdx.x;
++
++    const int64_t row_offset = sample*stride_sample + channel*stride_channel + row*stride_row;
++    a     += row_offset;
++    b     += row_offset;
++    h_out += row_offset;
++    dst   += ((sample*nchannels + channel)*nrows + row)*ncols;
++
++    {
++        const uint32_t mul_row     = fastmodulo(row, mul_nrows_packed);
++        const uint32_t mul_channel = fastmodulo(channel, mul_nchannels_packed);
++        const uint32_t mul_sample  = fastmodulo(sample, mul_nsamples_packed);
++        mul += mul_sample * mul_stride_sample + mul_channel * mul_stride_channel + mul_row * mul_stride_row;
++    }
++
++    float tmp = 0.0f;
++
++    ggml_cuda_pdl_sync();
++    for (int col = tid; col < ncols; col += block_size) {
++        const float hi = a[col] + b[col];
++        h_out[col] = hi;   // publish the f32 residual stream for the next add
++        tmp += hi * hi;
++    }
++
++    extern __shared__ float s_sum[];
++    tmp = block_reduce<block_reduce_method::SUM, block_size>(tmp, s_sum);
++
++    const float mean  = tmp / ncols;
++    const float scale = rsqrtf(mean + eps);
++
++    for (int col = tid; col < ncols; col += block_size) {
++        const float hi      = h_out[col];
++        const int   mul_col = fastmodulo(col, mul_ncols_packed);
++        dst[col]            = bf16stream_store<Tdst>::store(scale * hi * mul[mul_col]);
++    }
++}
++
++// ---------------------------------------------------------------------------
++// 0044 gated-DeltaNet output norm  scale*x*w*silu(z) -> Tdst  (the P0 segment)
++// ---------------------------------------------------------------------------
++template <int block_size, typename Tdst>
++static __global__ void rms_norm_gate_mul_out(const float * x,
++                                             Tdst *        dst,
++                                             const int     ncols,
++                                             const int64_t stride_row,
++                                             const int64_t stride_channel,
++                                             const int64_t stride_sample,
++                                             const float   eps,
++                                             const float * mul,
++                                             const int64_t mul_stride_row,
++                                             const int64_t mul_stride_channel,
++                                             const int64_t mul_stride_sample,
++                                             const uint3   mul_ncols_packed,
++                                             const uint3   mul_nrows_packed,
++                                             const uint3   mul_nchannels_packed,
++                                             const uint3   mul_nsamples_packed,
++                                             const float * gate,
++                                             const int64_t gate_stride_row,
++                                             const int64_t gate_stride_channel,
++                                             const int64_t gate_stride_sample,
++                                             const uint3   gate_ncols_packed,
++                                             const uint3   gate_nrows_packed,
++                                             const uint3   gate_nchannels_packed,
++                                             const uint3   gate_nsamples_packed) {
++    ggml_cuda_pdl_lc();
++    const int nrows     = gridDim.x;
++    const int nchannels = gridDim.y;
++
++    const int row     = blockIdx.x;
++    const int channel = blockIdx.y;
++    const int sample  = blockIdx.z;
++    const int tid     = threadIdx.x;
++
++    x   += sample*stride_sample + channel*stride_channel + row*stride_row;
++    dst += ((sample*nchannels + channel)*nrows + row)*ncols;
++
++    {
++        const uint32_t mul_row     = fastmodulo(row, mul_nrows_packed);
++        const uint32_t mul_channel = fastmodulo(channel, mul_nchannels_packed);
++        const uint32_t mul_sample  = fastmodulo(sample, mul_nsamples_packed);
++        mul += mul_sample * mul_stride_sample + mul_channel * mul_stride_channel + mul_row * mul_stride_row;
++    }
++    {
++        const uint32_t gate_row     = fastmodulo(row, gate_nrows_packed);
++        const uint32_t gate_channel = fastmodulo(channel, gate_nchannels_packed);
++        const uint32_t gate_sample  = fastmodulo(sample, gate_nsamples_packed);
++        gate += gate_sample * gate_stride_sample + gate_channel * gate_stride_channel + gate_row * gate_stride_row;
++    }
++
++    float tmp = 0.0f;
++
++    ggml_cuda_pdl_sync();
++    for (int col = tid; col < ncols; col += block_size) {
++        const float xi = x[col];
++        tmp += xi * xi;
++    }
++
++    extern __shared__ float s_sum[];
++    tmp = block_reduce<block_reduce_method::SUM, block_size>(tmp, s_sum);
++
++    const float mean  = tmp / ncols;
++    const float scale = rsqrtf(mean + eps);
++
++    for (int col = tid; col < ncols; col += block_size) {
++        const int   mul_col  = fastmodulo(col, mul_ncols_packed);
++        const int   gate_col = fastmodulo(col, gate_ncols_packed);
++        const float zi       = gate[gate_col];
++        const float silu_z   = zi / (1.0f + expf(-zi));
++        dst[col]             = bf16stream_store<Tdst>::store(scale * x[col] * mul[mul_col] * silu_z);
++    }
++}
++
++// ===========================================================================
++// launchers
++// ===========================================================================
++template <typename Tdst>
++static void rms_norm_mul_out_cuda(const float * x, Tdst * dst,
++                                  const int ncols, const int nrows, const int nchannels, const int nsamples,
++                                  const int64_t stride_row, const int64_t stride_channel, const int64_t stride_sample,
++                                  const float * mul,
++                                  const int64_t mul_stride_row, const int64_t mul_stride_channel, const int64_t mul_stride_sample,
++                                  const uint32_t mul_ncols, const uint32_t mul_nrows, const uint32_t mul_nchannels, const uint32_t mul_nsamples,
++                                  const float eps, cudaStream_t stream) {
++    const dim3 blocks_num(nrows, nchannels, nsamples);
++    GGML_ASSERT(mul != nullptr);
++    const uint3 mc = init_fastdiv_values(mul_ncols);
++    const uint3 mr = init_fastdiv_values(mul_nrows);
++    const uint3 mch = init_fastdiv_values(mul_nchannels);
++    const uint3 ms = init_fastdiv_values(mul_nsamples);
++    if (ncols < 1024) {
++        const dim3 block_dims(256, 1, 1);
++        const ggml_cuda_kernel_launch_params lp{blocks_num, block_dims, block_dims.x > WARP_SIZE ? 32 * sizeof(float) : 0, stream};
++        ggml_cuda_kernel_launch(rms_norm_mul_out<256, Tdst>, lp,
++            x, dst, ncols, stride_row, stride_channel, stride_sample, eps,
++            mul, mul_stride_row, mul_stride_channel, mul_stride_sample, mc, mr, mch, ms);
++    } else {
++        const dim3 block_dims(1024, 1, 1);
++        const ggml_cuda_kernel_launch_params lp{blocks_num, block_dims, block_dims.x > WARP_SIZE ? 32 * sizeof(float) : 0, stream};
++        ggml_cuda_kernel_launch(rms_norm_mul_out<1024, Tdst>, lp,
++            x, dst, ncols, stride_row, stride_channel, stride_sample, eps,
++            mul, mul_stride_row, mul_stride_channel, mul_stride_sample, mc, mr, mch, ms);
++    }
++}
++
++template <typename Tdst>
++static void rms_norm_pre_add_mul_out_cuda(const float * a, const float * b, float * h_out, Tdst * dst,
++                                          const int ncols, const int nrows, const int nchannels, const int nsamples,
++                                          const int64_t stride_row, const int64_t stride_channel, const int64_t stride_sample,
++                                          const float * mul,
++                                          const int64_t mul_stride_row, const int64_t mul_stride_channel, const int64_t mul_stride_sample,
++                                          const uint32_t mul_ncols, const uint32_t mul_nrows, const uint32_t mul_nchannels, const uint32_t mul_nsamples,
++                                          const float eps, cudaStream_t stream) {
++    const dim3 blocks_num(nrows, nchannels, nsamples);
++    GGML_ASSERT(mul != nullptr);
++    const uint3 mc = init_fastdiv_values(mul_ncols);
++    const uint3 mr = init_fastdiv_values(mul_nrows);
++    const uint3 mch = init_fastdiv_values(mul_nchannels);
++    const uint3 ms = init_fastdiv_values(mul_nsamples);
++    if (ncols < 1024) {
++        const dim3 block_dims(256, 1, 1);
++        const ggml_cuda_kernel_launch_params lp{blocks_num, block_dims, block_dims.x > WARP_SIZE ? 32 * sizeof(float) : 0, stream};
++        ggml_cuda_kernel_launch(rms_norm_pre_add_mul_out<256, Tdst>, lp,
++            a, b, h_out, dst, ncols, stride_row, stride_channel, stride_sample, eps,
++            mul, mul_stride_row, mul_stride_channel, mul_stride_sample, mc, mr, mch, ms);
++    } else {
++        const dim3 block_dims(1024, 1, 1);
++        const ggml_cuda_kernel_launch_params lp{blocks_num, block_dims, block_dims.x > WARP_SIZE ? 32 * sizeof(float) : 0, stream};
++        ggml_cuda_kernel_launch(rms_norm_pre_add_mul_out<1024, Tdst>, lp,
++            a, b, h_out, dst, ncols, stride_row, stride_channel, stride_sample, eps,
++            mul, mul_stride_row, mul_stride_channel, mul_stride_sample, mc, mr, mch, ms);
++    }
++}
++
++template <typename Tdst>
++static void rms_norm_gate_mul_out_cuda(const float * x, Tdst * dst,
++                                       const int ncols, const int nrows, const int nchannels, const int nsamples,
++                                       const int64_t stride_row, const int64_t stride_channel, const int64_t stride_sample,
++                                       const float * mul,
++                                       const int64_t mul_stride_row, const int64_t mul_stride_channel, const int64_t mul_stride_sample,
++                                       const uint32_t mul_ncols, const uint32_t mul_nrows, const uint32_t mul_nchannels, const uint32_t mul_nsamples,
++                                       const float * gate,
++                                       const int64_t gate_stride_row, const int64_t gate_stride_channel, const int64_t gate_stride_sample,
++                                       const uint32_t gate_ncols, const uint32_t gate_nrows, const uint32_t gate_nchannels, const uint32_t gate_nsamples,
++                                       const float eps, cudaStream_t stream) {
++    const dim3 blocks_num(nrows, nchannels, nsamples);
++    GGML_ASSERT(mul  != nullptr);
++    GGML_ASSERT(gate != nullptr);
++    const uint3 mc = init_fastdiv_values(mul_ncols);
++    const uint3 mr = init_fastdiv_values(mul_nrows);
++    const uint3 mch = init_fastdiv_values(mul_nchannels);
++    const uint3 ms = init_fastdiv_values(mul_nsamples);
++    const uint3 gc = init_fastdiv_values(gate_ncols);
++    const uint3 gr = init_fastdiv_values(gate_nrows);
++    const uint3 gch = init_fastdiv_values(gate_nchannels);
++    const uint3 gs = init_fastdiv_values(gate_nsamples);
++    if (ncols < 1024) {
++        const dim3 block_dims(256, 1, 1);
++        const ggml_cuda_kernel_launch_params lp{blocks_num, block_dims, block_dims.x > WARP_SIZE ? 32 * sizeof(float) : 0, stream};
++        ggml_cuda_kernel_launch(rms_norm_gate_mul_out<256, Tdst>, lp,
++            x, dst, ncols, stride_row, stride_channel, stride_sample, eps,
++            mul, mul_stride_row, mul_stride_channel, mul_stride_sample, mc, mr, mch, ms,
++            gate, gate_stride_row, gate_stride_channel, gate_stride_sample, gc, gr, gch, gs);
++    } else {
++        const dim3 block_dims(1024, 1, 1);
++        const ggml_cuda_kernel_launch_params lp{blocks_num, block_dims, block_dims.x > WARP_SIZE ? 32 * sizeof(float) : 0, stream};
++        ggml_cuda_kernel_launch(rms_norm_gate_mul_out<1024, Tdst>, lp,
++            x, dst, ncols, stride_row, stride_channel, stride_sample, eps,
++            mul, mul_stride_row, mul_stride_channel, mul_stride_sample, mc, mr, mch, ms,
++            gate, gate_stride_row, gate_stride_channel, gate_stride_sample, gc, gr, gch, gs);
++    }
++}
++
++// ===========================================================================
++// host entries
++// ===========================================================================
++void ggml_cuda_rms_norm_mul_bf16out(ggml_backend_cuda_context & ctx,
++                                    const ggml_tensor *         rms_norm_tensor,
++                                    const ggml_tensor *         mul_tensor,
++                                    void *                      dst_bf16) {
++    const ggml_tensor * x_src   = rms_norm_tensor->src[0];
++    const ggml_tensor * mul_src = (mul_tensor->src[0] == rms_norm_tensor) ? mul_tensor->src[1] : mul_tensor->src[0];
++    GGML_ASSERT(mul_tensor->src[0] == rms_norm_tensor || mul_tensor->src[1] == rms_norm_tensor);
++
++    float eps = 0.0f;
++    memcpy(&eps, rms_norm_tensor->op_params, sizeof(float));
++    GGML_ASSERT(eps >= 0.0f);
++
++    GGML_ASSERT(x_src->type           == GGML_TYPE_F32);
++    GGML_ASSERT(mul_src->type         == GGML_TYPE_F32);
++    GGML_ASSERT(rms_norm_tensor->type == GGML_TYPE_F32);
++    GGML_ASSERT(mul_tensor->type      == GGML_TYPE_F32);
++
++    const float * x_d   = (const float *) x_src->data;
++    const float * mul_d = (const float *) mul_src->data;
++    nv_bfloat16 * dst_d = (nv_bfloat16 *)  dst_bf16;
++    cudaStream_t  stream = ctx.stream();
++
++    const int64_t ne00 = rms_norm_tensor->ne[0];
++    const int64_t ne01 = rms_norm_tensor->ne[1];
++    const int64_t ne02 = rms_norm_tensor->ne[2];
++    const int64_t ne03 = rms_norm_tensor->ne[3];
++
++    const size_t ts0 = ggml_type_size(x_src->type);
++    GGML_ASSERT(x_src->nb[0] == ts0);
++    const int64_t s01 = x_src->nb[1] / ts0;
++    const int64_t s02 = x_src->nb[2] / ts0;
++    const int64_t s03 = x_src->nb[3] / ts0;
++
++    const size_t ts_mul = ggml_type_size(mul_src->type);
++    GGML_ASSERT(mul_src->nb[0] == ts_mul);
++    const int64_t mul_s01 = mul_src->nb[1] / ts_mul;
++    const int64_t mul_s02 = mul_src->nb[2] / ts_mul;
++    const int64_t mul_s03 = mul_src->nb[3] / ts_mul;
++
++    rms_norm_mul_out_cuda<nv_bfloat16>(x_d, dst_d,
++        ne00, ne01, ne02, ne03, s01, s02, s03,
++        mul_d, mul_s01, mul_s02, mul_s03,
++        mul_src->ne[0], mul_src->ne[1], mul_src->ne[2], mul_src->ne[3],
++        eps, stream);
++}
++
++void ggml_cuda_rms_norm_pre_add_mul_bf16out(ggml_backend_cuda_context & ctx,
++                                            const ggml_tensor *         add_tensor,
++                                            const ggml_tensor *         rms_norm_tensor,
++                                            const ggml_tensor *         mul_tensor,
++                                            void *                      dst_bf16) {
++    GGML_ASSERT(rms_norm_tensor->src[0] == add_tensor);
++
++    const ggml_tensor * a_src = add_tensor->src[0];
++    const ggml_tensor * b_src = add_tensor->src[1];
++
++    float eps = 0.0f;
++    memcpy(&eps, rms_norm_tensor->op_params, sizeof(float));
++    GGML_ASSERT(eps >= 0.0f);
++
++    const ggml_tensor * mul_src = (mul_tensor->src[0] == rms_norm_tensor) ? mul_tensor->src[1] : mul_tensor->src[0];
++    GGML_ASSERT(mul_tensor->src[0] == rms_norm_tensor || mul_tensor->src[1] == rms_norm_tensor);
++
++    GGML_ASSERT(a_src->type           == GGML_TYPE_F32);
++    GGML_ASSERT(b_src->type           == GGML_TYPE_F32);
++    GGML_ASSERT(add_tensor->type      == GGML_TYPE_F32);
++    GGML_ASSERT(rms_norm_tensor->type == GGML_TYPE_F32);
++    GGML_ASSERT(mul_tensor->type      == GGML_TYPE_F32);
++    GGML_ASSERT(ggml_are_same_shape(a_src, b_src));
++
++    const float * a_d   = (const float *) a_src->data;
++    const float * b_d   = (const float *) b_src->data;
++    float *       h_d   = (float *)       add_tensor->data;   // f32 residual stream
++    const float * mul_d = (const float *) mul_src->data;
++    nv_bfloat16 * dst_d = (nv_bfloat16 *)  dst_bf16;
++    cudaStream_t  stream = ctx.stream();
++
++    const int64_t ne00 = add_tensor->ne[0];
++    const int64_t ne01 = add_tensor->ne[1];
++    const int64_t ne02 = add_tensor->ne[2];
++    const int64_t ne03 = add_tensor->ne[3];
++
++    const size_t ts0 = ggml_type_size(a_src->type);
++    GGML_ASSERT(a_src->nb[0] == ts0 && b_src->nb[0] == ts0);
++    const int64_t s01 = a_src->nb[1] / ts0;
++    const int64_t s02 = a_src->nb[2] / ts0;
++    const int64_t s03 = a_src->nb[3] / ts0;
++
++    const size_t ts_mul = ggml_type_size(mul_src->type);
++    GGML_ASSERT(mul_src->nb[0] == ts_mul);
++    const int64_t mul_s01 = mul_src->nb[1] / ts_mul;
++    const int64_t mul_s02 = mul_src->nb[2] / ts_mul;
++    const int64_t mul_s03 = mul_src->nb[3] / ts_mul;
++
++    rms_norm_pre_add_mul_out_cuda<nv_bfloat16>(a_d, b_d, h_d, dst_d,
++        ne00, ne01, ne02, ne03, s01, s02, s03,
++        mul_d, mul_s01, mul_s02, mul_s03,
++        mul_src->ne[0], mul_src->ne[1], mul_src->ne[2], mul_src->ne[3],
++        eps, stream);
++}
++
++void ggml_cuda_rms_norm_gate_mul_bf16out(ggml_backend_cuda_context & ctx,
++                                         const ggml_tensor *         rms_norm_tensor,
++                                         const ggml_tensor *         mul_tensor,
++                                         const ggml_tensor *         silu_tensor,
++                                         const ggml_tensor *         gate_mul_tensor,
++                                         void *                      dst_bf16) {
++    GGML_ASSERT(mul_tensor->src[0] == rms_norm_tensor || mul_tensor->src[1] == rms_norm_tensor);
++    GGML_ASSERT(gate_mul_tensor->src[0] == silu_tensor || gate_mul_tensor->src[1] == silu_tensor);
++
++    const ggml_tensor * x_src    = rms_norm_tensor->src[0];
++    const ggml_tensor * w_src    = (mul_tensor->src[0] == rms_norm_tensor) ? mul_tensor->src[1] : mul_tensor->src[0];
++    const ggml_tensor * gate_src = silu_tensor->src[0];
++
++    float eps = 0.0f;
++    memcpy(&eps, rms_norm_tensor->op_params, sizeof(float));
++    GGML_ASSERT(eps >= 0.0f);
++
++    const float * x_d    = (const float *) x_src->data;
++    const float * w_d    = (const float *) w_src->data;
++    const float * gate_d = (const float *) gate_src->data;
++    nv_bfloat16 * dst_d  = (nv_bfloat16 *)  dst_bf16;
++    cudaStream_t  stream = ctx.stream();
++
++    GGML_ASSERT(x_src->type    == GGML_TYPE_F32);
++    GGML_ASSERT(w_src->type    == GGML_TYPE_F32);
++    GGML_ASSERT(gate_src->type == GGML_TYPE_F32);
++    GGML_ASSERT(rms_norm_tensor->type == GGML_TYPE_F32);
++    GGML_ASSERT(mul_tensor->type      == GGML_TYPE_F32);
++    GGML_ASSERT(silu_tensor->type     == GGML_TYPE_F32);
++
++    const int64_t ne00 = rms_norm_tensor->ne[0];
++    const int64_t ne01 = rms_norm_tensor->ne[1];
++    const int64_t ne02 = rms_norm_tensor->ne[2];
++    const int64_t ne03 = rms_norm_tensor->ne[3];
++
++    const size_t ts0 = ggml_type_size(x_src->type);
++    GGML_ASSERT(x_src->nb[0] == ts0);
++    const int64_t s01 = x_src->nb[1] / ts0;
++    const int64_t s02 = x_src->nb[2] / ts0;
++    const int64_t s03 = x_src->nb[3] / ts0;
++
++    const size_t ts_mul = ggml_type_size(w_src->type);
++    GGML_ASSERT(w_src->nb[0] == ts_mul);
++    const int64_t mul_s01 = w_src->nb[1] / ts_mul;
++    const int64_t mul_s02 = w_src->nb[2] / ts_mul;
++    const int64_t mul_s03 = w_src->nb[3] / ts_mul;
++
++    const size_t ts_gate = ggml_type_size(gate_src->type);
++    GGML_ASSERT(gate_src->nb[0] == ts_gate);
++    const int64_t gate_s01 = gate_src->nb[1] / ts_gate;
++    const int64_t gate_s02 = gate_src->nb[2] / ts_gate;
++    const int64_t gate_s03 = gate_src->nb[3] / ts_gate;
++
++    rms_norm_gate_mul_out_cuda<nv_bfloat16>(x_d, dst_d,
++        ne00, ne01, ne02, ne03, s01, s02, s03,
++        w_d, mul_s01, mul_s02, mul_s03,
++        w_src->ne[0], w_src->ne[1], w_src->ne[2], w_src->ne[3],
++        gate_d, gate_s01, gate_s02, gate_s03,
++        gate_src->ne[0], gate_src->ne[1], gate_src->ne[2], gate_src->ne[3],
++        eps, stream);
++}
+diff --git a/ggml/src/ggml-cuda/norm-bf16.cuh b/ggml/src/ggml-cuda/norm-bf16.cuh
+new file mode 100644
+index 000000000..3b52757b8
+--- /dev/null
++++ b/ggml/src/ggml-cuda/norm-bf16.cuh
+@@ -0,0 +1,37 @@
++#include "common.cuh"
++
++// [P1 bf16-stream] bf16-resident execution-pass helpers (default-off, gated by
++// LLAMA_BF16_STREAM at the ggml_cuda_try_fuse call site). Siblings of the plain
++// rms_norm and the 0042/0044 fused norms in norm.cu; these variants write a bf16
++// output so the consuming projection GEMM reads the activation directly (no f32->bf16
++// convert_dtype glue). Each kernel is templated on the output dtype (float or
++// nv_bfloat16) so the file carries the full op-variant set the P1 contract names;
++// the live q36 engage path instantiates the bf16 output only.
++//
++// All three keep the same reduction and FP order as their f32 originals; only the
++// final store is narrowed to bf16 via __float2bfloat16, so the opt-in path stays a
++// pure dtype (KL-benign) change, not an algorithmic one.
++
++// plain rms_norm + weight multiply -> bf16  (attention input norm, GDN input norm)
++void ggml_cuda_rms_norm_mul_bf16out(ggml_backend_cuda_context & ctx,
++                                    const ggml_tensor *         rms_norm_tensor,
++                                    const ggml_tensor *         mul_tensor,
++                                    void *                      dst_bf16);
++
++// 0042 residual-add + rms_norm + weight multiply -> f32 residual (h_out) + bf16 normed
++// (op-set completeness; on q36 the ffn/moe-input norm feeds MMQ experts so the engage
++// path bails, but the kernel + entry keep the op-variant set whole and the sentinel
++// exercises it).
++void ggml_cuda_rms_norm_pre_add_mul_bf16out(ggml_backend_cuda_context & ctx,
++                                            const ggml_tensor *         add_tensor,
++                                            const ggml_tensor *         rms_norm_tensor,
++                                            const ggml_tensor *         mul_tensor,
++                                            void *                      dst_bf16);
++
++// 0044 gated-DeltaNet output norm  scale*x*w*silu(z)  -> bf16  (ssm_out; the P0 segment)
++void ggml_cuda_rms_norm_gate_mul_bf16out(ggml_backend_cuda_context & ctx,
++                                         const ggml_tensor *         rms_norm_tensor,
++                                         const ggml_tensor *         mul_tensor,
++                                         const ggml_tensor *         silu_tensor,
++                                         const ggml_tensor *         gate_mul_tensor,
++                                         void *                      dst_bf16);
+-- 
+2.43.0
+

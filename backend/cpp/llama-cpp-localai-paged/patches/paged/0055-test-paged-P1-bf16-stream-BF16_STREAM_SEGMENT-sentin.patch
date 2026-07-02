@@ -1,0 +1,116 @@
+From 653bb2f3d5914872010eac29287863bff67de943 Mon Sep 17 00:00:00 2001
+From: Ettore Di Giacinto <mudler@localai.io>
+Date: Thu, 2 Jul 2026 16:29:20 +0200
+Subject: [PATCH 55/55] test(paged): P1 bf16-stream BF16_STREAM_SEGMENT
+ sentinel
+
+Whole-graph test-backend-ops case (MOE_SWIGLU_DOWN style) that engages both
+segment kinds (plain rms_norm multi-consumer and the 0044 gate_mul ssm_out)
+under LLAMA_BF16_STREAM. Green default and opt-in (4/4).
+
+Assisted-by: Claude:opus-4.8 [Claude Code]
+Signed-off-by: Ettore Di Giacinto <mudler@localai.io>
+---
+ tests/test-backend-ops.cpp | 79 ++++++++++++++++++++++++++++++++++++++
+ 1 file changed, 79 insertions(+)
+
+diff --git a/tests/test-backend-ops.cpp b/tests/test-backend-ops.cpp
+index 8c41ae56a..d0c56521c 100644
+--- a/tests/test-backend-ops.cpp
++++ b/tests/test-backend-ops.cpp
+@@ -4532,6 +4532,78 @@ struct test_moe_swiglu_down : public test_case {
+     }
+ };
+ 
++// [P1 bf16-stream] Standing coverage for the bf16-native residual-stream segment
++// executor (LLAMA_BF16_STREAM). Builds a residual-stream norm feeding a large-M
++// cuBLAS-bf16 projection (the exact shape ggml_cuda_try_fuse owns): kind 1 = plain
++// rms_norm+mul -> proj (attention / GDN input norm), kind 2 = 0044 gated-DeltaNet
++// output norm silu(z)*rms(x)*w -> proj (ssm_out). Whole-graph so the fusion pass runs;
++// with the env off it validates the f32 path, and with LLAMA_BF16_STREAM=1 it validates
++// the bf16-activation path (the projection reads the bf16 norm output directly). The
++// weight is BF16 so the projection deterministically routes to the cuBLAS-bf16 branch.
++struct test_bf16_stream_segment : public test_case {
++    const int     kind;      // 1 = plain rms+mul, 2 = gated-DeltaNet output norm
++    const int64_t n_embd;    // K (contraction)
++    const int64_t n_out;     // N (projection rows)
++    const int64_t n_tokens;  // M (>= 128 so the executor engages)
++
++    std::string vars() override {
++        return VARS_TO_STR4(kind, n_embd, n_out, n_tokens);
++    }
++
++    double max_nmse_err() override {
++        // bf16 activation rounding on both the default and opt-in paths (the BF16 weight
++        // GEMM already rounds the activation); generous but tight enough to catch a bug.
++        return 1e-2;
++    }
++
++    uint64_t op_flops(ggml_tensor * t) override {
++        GGML_UNUSED(t);
++        return 2 * n_embd * n_out * n_tokens;
++    }
++
++    test_bf16_stream_segment(int kind = 1, int64_t n_embd = 4096, int64_t n_out = 2048, int64_t n_tokens = 256)
++        : kind(kind), n_embd(n_embd), n_out(n_out), n_tokens(n_tokens) {}
++
++    ggml_tensor * build_graph(ggml_context * ctx) override {
++        const float eps = 1e-5f;
++
++        ggml_tensor * x = ggml_new_tensor_2d(ctx, GGML_TYPE_F32, n_embd, n_tokens);
++        ggml_set_name(x, "x");
++        ggml_tensor * w = ggml_new_tensor_1d(ctx, GGML_TYPE_F32, n_embd);
++        ggml_set_name(w, "rms_w");
++        ggml_tensor * proj_w = ggml_new_tensor_2d(ctx, GGML_TYPE_BF16, n_embd, n_out);
++        ggml_set_name(proj_w, "proj_w");
++
++        ggml_tensor * rms = ggml_rms_norm(ctx, x, eps);
++        ggml_set_name(rms, "rms");
++        ggml_tensor * mul = ggml_mul(ctx, rms, w);
++        ggml_set_name(mul, "rms_mul");
++
++        ggml_tensor * norm_out = mul;
++        if (kind == 2) {
++            ggml_tensor * z = ggml_new_tensor_2d(ctx, GGML_TYPE_F32, n_embd, n_tokens);
++            ggml_set_name(z, "gate_z");
++            ggml_tensor * silu = ggml_silu(ctx, z);
++            ggml_set_name(silu, "silu");
++            // silu as src0 so the topological order is {SILU, RMS_NORM, MUL, MUL},
++            // matching the fusion-pass pattern (and the real q36 gated-output norm).
++            norm_out = ggml_mul(ctx, silu, mul);
++            ggml_set_name(norm_out, "gate_mul");
++        }
++
++        ggml_tensor * out = ggml_mul_mat(ctx, proj_w, norm_out);
++        ggml_set_name(out, "proj");
++        return out;
++    }
++
++    bool run_whole_graph() override { return true; }
++
++    std::string op_desc(ggml_tensor * t) override {
++        GGML_UNUSED(t);
++        return "BF16_STREAM_SEGMENT";
++    }
++};
++
+ // MoE down projection -> router-weight multiply -> rank-ordered expert add.
+ struct test_moe_weighted_combine : public test_case {
+     const ggml_type type_a;
+@@ -9043,6 +9115,13 @@ static std::vector<std::unique_ptr<test_case>> make_test_cases_eval() {
+         test_cases.emplace_back(new test_moe_swiglu_down(GGML_TYPE_NVFP4, 128, 8, 768, n, 2048));
+     }
+ 
++    // [P1 bf16-stream] bf16-native residual-stream segment executor coverage. Small-M
++    // (bails, f32 path) + large-M (engages under LLAMA_BF16_STREAM=1) for both norm kinds.
++    for (int kind : {1, 2}) {
++        test_cases.emplace_back(new test_bf16_stream_segment(kind, 4096, 2048, 64));
++        test_cases.emplace_back(new test_bf16_stream_segment(kind, 4096, 2048, 256));
++    }
++
+     // [paged Phase 7] MoE down projection -> router-weight multiply -> rank-ordered
+     // expert add gate for the weighted-combine fusion candidate.
+     test_cases.emplace_back(new test_moe_weighted_combine(GGML_TYPE_F32, 8, 2, 32, 8, 64));
+-- 
+2.43.0
+
