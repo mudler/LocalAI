@@ -38,7 +38,7 @@ var _ = Describe("persistProbedReasoning", func() {
 	newLoaderWithConfig := func(yamlBody string) *config.ModelConfigLoader {
 		tmp, err := os.CreateTemp("", "persist-probed-reasoning-*.yaml")
 		Expect(err).ToNot(HaveOccurred())
-		defer os.Remove(tmp.Name())
+		defer func() { _ = os.Remove(tmp.Name()) }()
 
 		_, err = tmp.WriteString(yamlBody)
 		Expect(err).ToNot(HaveOccurred())
