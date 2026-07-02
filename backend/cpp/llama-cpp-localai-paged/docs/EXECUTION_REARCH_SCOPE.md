@@ -248,6 +248,81 @@ started P2/P4/P5/P6.
   types (avoids `ggml.h`, 5 patches). Rides upstream fusion machinery (`ggml_can_fuse`,
   discussion #17621) by adding new clauses, not editing upstream's.
 
+#### P1 RESULT (landed 2026-07-02, `LLAMA_BF16_STREAM`, default-off)
+
+The bf16-resident residual-segment executor landed as three fork commits on
+`mudler/llama.cpp:localai-paged` (new HEAD `653bb2f3d`, tree `6cf1523047`, base
+`1edddc8fe`): `1271488fc` (segment executor + `norm-bf16.{cu,cuh}` + the
+re-introduced `LLAMA_BF16_CUBLAS_F32_OUT` plank), `91373e1b9` (bf16 residual-add
++ rope op-variants), `653bb2f3d` (test sentinel). LocalAI series regenerated
+additively as `0053-0055` (46 patches total); kill-gate at pin `0ed235ea`: all
+patches apply and stage tree `6cf1523047` byte-for-byte == fork HEAD tree.
+
+- **Mechanism as-shipped (Option A, as scoped).** One additive clause in
+  `ggml_cuda_try_fuse` detects a residual-stream norm-producer (plain
+  `{RMS_NORM,MUL}` attn/GDN input norm, or the 0044 `{SILU,RMS_NORM,MUL,MUL}`
+  ssm_out gated-output norm) whose f32-output consumers are ALL large-M (M>=128)
+  cuBLAS-bf16 projections, runs the norm into a bf16 pool buffer via
+  `norm-bf16.cu` (bit-faithful to the f32 kernels up to the `__float2bfloat16`
+  store), executes the owned span inline through a bf16 view, then skips it. A
+  strict all-consumers-are-ours guard keeps the f32 norm un-materialised and
+  bails to the stock f32 path on small-M / decode / MMQ / native-FP4 /
+  multi-consumer. The `LLAMA_BF16_CUBLAS_F32_OUT` plank lets owned projections
+  write f32 directly from bf16 compute (F32_OUT else-branch byte-identical to the
+  original cuBLAS path). No upstream fuse clause edited; exactly 6 files, cmake
+  untouched (`.cu` globbed).
+- **KEY REFRAME (why a first guard engaged 0).** q36 GDN/attention projections
+  (attn_qkv/gate, ssm_alpha/beta/out) are **BF16 weights, NOT NVFP4**; only the
+  MoE experts (`ffn_*_exps`) are NVFP4. The convert tax therefore lives at the
+  BF16 cuBLAS projection boundary (`op_mul_mat_cublas` src0==BF16 converts f32
+  src1->bf16), not on the FP4-MMQ path (which pays act_quant, not convert). The
+  dense model quantizes its attn/GDN projections to NVFP4, so it **engages
+  nothing** and stays bit-identical. **bf16-stream is a MoE-model prefill lever.**
+- **P0 kill-gate (`~/bench/p1_bf16_stream/killgate_20260702_135544`): GO.** One
+  segment (960 gate_norm->ssm_out engagements/prefill). `convert_unary<float,bf16>`
+  fell 6840->5880 = exactly -960 (163.19->130.73 ms, -19.9%; share 2.27%->1.83%)
+  = 100% within-owned-segment drop (the kill-gate's stated criterion), no
+  boundary convert added. KL: control and bf16 arms **byte-identical** (KLD
+  0.136563 both, same-top-p 83.725% both) => KLD delta 0.000 < 0.01. Prefill S_PP
+  +0.53% (2323.24 vs 2310.94 t/s), inside the 3-sigma noise gate. Default md5
+  GREEN both models. (The total convert bucket only moved 4.83%->4.40% because
+  the minimal segment owns 1 of ~5 BF16 cuBLAS GEMMs per GDN layer; the >50% GO
+  is the within-segment 100%.)
+- **P1 full build-out: 2240 segments/prefill** (2.33x P0's 960) = 960
+  gate_norm->ssm_out (0044, single-consumer) + 1280 multi-consumer plain
+  rms_norm -> {attn q/k/v, GDN in_proj} BF16 projections. Prefill A/B (5 iters,
+  clean, captured before external contention): MoE @512 B=32 **+1.99%**
+  (2361.67 vs 2315.52 t/s; all 5 bf16 samples above all 5 ctrl; reproduced +1.89%),
+  @2048 B=8 +0.95%; dense @512 -0.09% / @2048 -0.10% (no-op). Recovered ~8.44
+  us/tok @512 (wall 431.87->423.43), ~4.02 @2048. Both MoE deltas sit at the
+  max(2%, 3-sigma) floor => classified neutral, but consistent and reproducible
+  positive shifts; no prefill regression => not a NO-GO. Decode S_TG neutral
+  (M<128 bails).
+- **KL gate GREEN (both models).** MoE bf16 KLD 0.136042 vs control 0.136563 =>
+  delta **-0.00052** (bf16 slightly better: F32_OUT keeps the full f32 GEMM
+  result instead of the old bf16 round-trip), inside the +0.01 band; same-top-p
+  84.461% vs 83.725% (>= 84% baseline). Dense: 0 engagements => bit-identical
+  (KLD delta 0, same-top-p 100%).
+- **All correctness gates GREEN.** Default md5 canonical both models
+  (MoE `8cb0ce23`, dense `5951a5b4`); env-on md5 canonical both (small-M bails);
+  `test-backend-ops` MUL_MAT 1146/1146, MUL_MAT_ID 806/806, GATED_DELTA_NET
+  46/46, MOE_SWIGLU_DOWN 7/7, MUL_MAT_ID_RAGGED_MOE 6/6, BF16_STREAM_SEGMENT 4/4
+  (default AND opt-in). Files: binbcast.cu +10, ggml-cuda.cu +297, norm-bf16.cu
+  +483, norm-bf16.cuh +37, rope.cu +31, test-backend-ops.cpp +79.
+- **Honest magnitude / what remains.** The +1.9-2.0% @512 win is real,
+  reproducible, KL-benign (in fact KL-improving), and safe, but modest:
+  bf16-stream targets only prefill bucket 3 (the ~4.8%-of-wall convert/glue tax)
+  and owns the projection-boundary portion of it (~40% end-to-end), not the
+  GDN-scan (bucket 1) or GEMM-tiling (bucket 2) buckets. Read the "expected
+  recovery: ~45 us/tok" line above as an upper bound on the whole bucket-3+4
+  region; this landing captures the bucket-3 projection boundary only. The next
+  P1 increment on the table = extend the multi-consumer executor to own the
+  bf16->f32 dst direction plus the remaining attn_norm-fed projection src1
+  converts (~4 more converts/layer). Deferred (blocked only by an external
+  imatrix job contending the GPU, not a failed gate): the nsys graph-node bucket
+  table, decode S_TG @npl128, and the Phase130 serving A/B need a clean idle GB10
+  re-run; the scope deems throughput-neutral serving acceptable on GB10.
+
 ### P2: expert-major fused routed-FFN region executor (grow the merged MoE seam into the real thing)
 
 - **Goal:** drive both MoE GEMMs expert-major so the gate_up output never lands in

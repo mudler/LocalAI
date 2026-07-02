@@ -2349,3 +2349,60 @@ Fork branch `mudler/llama.cpp:localai-paged` re-mirrored on top of
 
 New fork HEAD `1edddc8fe`, tree `097c862c`. The rejected/neutral levers of
 the 110-140 campaign are recorded above and in the per-phase bench artifacts.
+
+## P1 bf16-native execution pass - LANDED (2026-07-02)
+
+First phase of the `EXECUTION_REARCH_SCOPE.md` additive program to land.
+`LLAMA_BF16_STREAM` (default-off) runs a bf16-resident residual-segment
+executor for the q36 MoE decision model's projection boundaries, deleting the
+per-op `f32->bf16` convert the stock cuBLAS-bf16 path pays at the projection
+`src1`. See the "P1 RESULT" subsection in `EXECUTION_REARCH_SCOPE.md` for the
+full record; summary and provenance:
+
+- **Verdict: GO / SHIP.** P0 kill-gate GO, P1 build-out and independent verify
+  all correctness gates green, prefill positive-and-reproducible, KL-improving.
+- **Key reframe:** q36 GDN/attention projections (attn_qkv/gate,
+  ssm_alpha/beta/out) are **BF16 weights, not NVFP4** - only the MoE experts
+  (`ffn_*_exps`) are NVFP4. The convert tax lives at the BF16 cuBLAS projection
+  boundary (`op_mul_mat_cublas` src0==BF16), so bf16-stream is a **MoE-model
+  lever**; the dense model quantizes those projections to NVFP4 and engages
+  nothing (stays bit-identical).
+- **Engagement:** P0 = 960 gate_norm->ssm_out segments/prefill; full build-out =
+  2240 (960 single-consumer 0044 ssm_out + 1280 multi-consumer plain-rms_norm ->
+  {attn q/k/v, GDN in_proj}).
+- **Prefill (MoE @512 B=32):** +1.99% (2361.67 vs 2315.52 t/s, all 5 bf16 > all 5
+  ctrl; reproduced +1.89%); @2048 +0.95%; dense no-op (-0.09%). Recovered ~8.44
+  us/tok @512. At the noise floor -> classified neutral but reproducible; no
+  regression.
+- **KL (MoE):** bf16 KLD 0.136042 vs control 0.136563 => delta -0.00052 (bf16
+  slightly better via the `LLAMA_BF16_CUBLAS_F32_OUT` plank keeping the full f32
+  GEMM result); same-top-p 84.461% vs 83.725% (>= 84% baseline). Dense: 0
+  engagements => bit-identical.
+- **Correctness:** default md5 canonical both models (MoE `8cb0ce23`, dense
+  `5951a5b4`) present-but-off and env-on (small-M bails); `test-backend-ops`
+  MUL_MAT 1146/1146, MUL_MAT_ID 806/806, GATED_DELTA_NET 46/46, MOE_SWIGLU_DOWN
+  7/7, MUL_MAT_ID_RAGGED_MOE 6/6, BF16_STREAM_SEGMENT 4/4.
+- **Honest scope:** targets prefill bucket 3 (the ~4.8%-of-wall convert/glue
+  tax) only, and owns the projection-boundary portion of it (~40% end-to-end) -
+  not the GDN-scan (bucket 1, P5) or GEMM-tiling (bucket 2, P2/P3) buckets. Well
+  below the scope's optimistic ~45 us/tok target by construction. Next increment
+  = own the bf16->f32 dst direction + the remaining attn_norm-fed projection
+  src1 converts.
+- **Deferred (blocked by an external imatrix job contending the GB10, NOT a
+  failed gate):** the nsys graph-node bucket table, decode S_TG @npl128, and the
+  Phase130 serving A/B need a clean idle-GPU re-run.
+
+Fork branch `mudler/llama.cpp:localai-paged` fast-forwarded on top of
+`1edddc8fe` (LocalAI series `0001-0052`) with three P1 commits:
+
+- `1271488fc` feat(paged): P1 bf16-stream residual-segment executor +
+  norm-bf16 kernels (+ the re-introduced `LLAMA_BF16_CUBLAS_F32_OUT` plank)
+- `91373e1b9` feat(paged): P1 bf16-stream bf16 residual-add + rope op-variants
+- `653bb2f3d` test(paged): P1 bf16-stream BF16_STREAM_SEGMENT sentinel
+
+New fork HEAD `653bb2f3d`, tree `6cf1523047`. LocalAI series regenerated
+additively as `0053-0055` (46 patches total, `0001-0052` untouched); kill-gate
+at pin `0ed235ea` applied all patches and staged tree `6cf1523047` byte-for-byte
+== fork HEAD tree. Nothing pushed. Artifacts:
+`~/bench/p1_bf16_stream/killgate_20260702_135544` and `.../verify_20260702_161229`
+on the DGX; fork topic branch `p1-bf16-stream` retained for forensics.
