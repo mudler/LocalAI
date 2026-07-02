@@ -349,7 +349,17 @@ type RouterConfig struct {
 	// embeddings to past decisions, so semantically-similar prompts
 	// reuse a classification instead of re-running the classifier
 	// model. Omit the block to disable. See router/embedding_cache.go.
+	// Ignored (with a warning) for the knn classifier — that IS a
+	// KNN lookup already; wrapping it in another would embed twice
+	// for no additional information.
 	EmbeddingCache *EmbeddingCacheConfig `yaml:"embedding_cache,omitempty" json:"embedding_cache,omitempty"`
+
+	// KNN configures the "knn" classifier: nearest-neighbour voting
+	// over a curated corpus of labelled example prompts. Required when
+	// classifier is "knn", ignored otherwise. The corpus is seeded and
+	// curated through the router corpus API (never through the UI);
+	// see router/knn.go for the decision semantics.
+	KNN *RouterKNNConfig `yaml:"knn,omitempty" json:"knn,omitempty"`
 }
 
 // EmbeddingCacheConfig configures the L2 embedding-similarity decision
@@ -380,6 +390,44 @@ type EmbeddingCacheConfig struct {
 	// this router's cache. Empty defaults to "router-cache-<router>"
 	// where <router> is the parent model name. Useful when two
 	// router models should share a cache (rare).
+	StoreName string `yaml:"store_name,omitempty" json:"store_name,omitempty"`
+}
+
+// RouterKNNConfig configures the knn classifier. It shares the
+// embedding + local-store plumbing with EmbeddingCacheConfig but the
+// two are deliberately separate blocks: the cache stores another
+// classifier's decisions opportunistically, while the KNN corpus is
+// explicit labelled ground truth — different lifecycle, different
+// store namespace, different failure story.
+type RouterKNNConfig struct {
+	// EmbeddingModel names the loaded LocalAI model used to embed
+	// both corpus entries and incoming probes. Required. Changing it
+	// invalidates the stored vectors — the corpus loader re-embeds
+	// entries recorded under a different embedder fingerprint.
+	EmbeddingModel string `yaml:"embedding_model" json:"embedding_model"`
+
+	// K is how many nearest corpus entries vote on a probe. 0 picks
+	// the package default (3). K=1 reproduces exact nearest-entry
+	// routing; larger K tolerates mislabelled exemplars at the cost
+	// of needing denser corpus coverage per label region.
+	K int `yaml:"k,omitempty" json:"k,omitempty"`
+
+	// SimilarityThreshold is the epistemic gate: corpus entries less
+	// similar than this to the probe cannot vote, and when none clear
+	// it the router uses the fallback model — a probe unlike all
+	// labelled experience is undecidable, not a guess. 0 picks the
+	// package default (0.80).
+	SimilarityThreshold float64 `yaml:"similarity_threshold,omitempty" json:"similarity_threshold,omitempty"`
+
+	// VoteThreshold is the similarity-weighted vote share a label
+	// needs to activate. 0 picks the package default (0.5, a weighted
+	// majority). Lower values let minority-label neighbours activate
+	// additional labels (multi-label routing); higher values demand
+	// near-unanimous neighbourhoods.
+	VoteThreshold float64 `yaml:"vote_threshold,omitempty" json:"vote_threshold,omitempty"`
+
+	// StoreName overrides the local-store collection holding the
+	// corpus vectors. Empty defaults to "router-corpus-<router>".
 	StoreName string `yaml:"store_name,omitempty" json:"store_name,omitempty"`
 }
 

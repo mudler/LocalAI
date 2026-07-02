@@ -49,6 +49,16 @@ type RerankerFactory func(modelName string) backend.Reranker
 // lives in ModelConfig.Validate() and runs at config load/save time.
 type ModelConfigLookup func(modelName string) *config.ModelConfig
 
+// CorpusLoader syncs a router's persisted KNN corpus into the live
+// vector index when the knn classifier is built. Implemented by
+// corpus.Manager; declared here (consumer side) so the middleware
+// doesn't depend on the corpus package. Optional — when nil, the knn
+// classifier serves whatever the index already holds (tests, embedded
+// callers).
+type CorpusLoader interface {
+	EnsureLoaded(ctx context.Context, storeName, embeddingModel string, embedder backend.Embedder, store backend.VectorStore) (int, error)
+}
+
 // ClassifierDeps bundles the backend factories the router middleware
 // needs to build a classifier and its optional L2 cache. Bundled into
 // one struct because RouteModel already takes many positional
@@ -65,6 +75,10 @@ type ClassifierDeps struct {
 	Embedder    EmbedderFactory
 	VectorStore VectorStoreFactory
 	Reranker    RerankerFactory
+
+	// Corpus loads the persisted KNN corpus into the vector index when
+	// a knn classifier is built. Optional; nil skips the load.
+	Corpus CorpusLoader
 
 	// ModelLookup resolves the classifier_model name to its config so
 	// buildClassifier can reject misconfigurations that would
@@ -375,11 +389,59 @@ func buildClassifier(cfg *config.ModelConfig, deps ClassifierDeps) (router.Class
 			rerankClassifier = rerankClassifier.WithTokenTrim(count, ctxTokens)
 		}
 		inner = rerankClassifier
+	case router.ClassifierKNN:
+		if rc.KNN == nil || rc.KNN.EmbeddingModel == "" {
+			return nil, fmt.Errorf("router classifier knn requires a knn block with embedding_model")
+		}
+		if deps.Embedder == nil || deps.VectorStore == nil {
+			return nil, fmt.Errorf("router classifier knn unavailable: embedder/vector-store factories not wired")
+		}
+		embedder := deps.Embedder(rc.KNN.EmbeddingModel)
+		if embedder == nil {
+			return nil, fmt.Errorf("router classifier knn: embedding_model %q not loadable", rc.KNN.EmbeddingModel)
+		}
+		storeName := rc.KNN.StoreName
+		if storeName == "" {
+			storeName = "router-corpus-" + cfg.Name
+		}
+		vstore := deps.VectorStore(storeName)
+		if vstore == nil {
+			return nil, fmt.Errorf("router classifier knn: vector store %q not loadable", storeName)
+		}
+		if deps.Corpus != nil {
+			// A failed load must not break routing — the classifier
+			// still works against whatever the index holds, and the
+			// epistemic gate falls back safely on an empty index.
+			if n, err := deps.Corpus.EnsureLoaded(context.Background(), storeName, rc.KNN.EmbeddingModel, embedder, vstore); err != nil {
+				xlog.Warn("router: knn corpus load failed; routing continues on the live index",
+					"router_model", cfg.Name, "store", storeName, "error", err)
+			} else if n > 0 {
+				xlog.Info("router: knn corpus loaded",
+					"router_model", cfg.Name, "store", storeName, "entries", n)
+			}
+		}
+		knnClassifier := router.NewKNNClassifier(embedder, vstore, router.KNNClassifierOptions{
+			K:                   rc.KNN.K,
+			SimilarityThreshold: rc.KNN.SimilarityThreshold,
+			VoteThreshold:       rc.KNN.VoteThreshold,
+		})
+		if count, ctxTokens := modelTokenTrim(rc.KNN.EmbeddingModel, deps); count != nil {
+			knnClassifier = knnClassifier.WithTokenTrim(count, ctxTokens)
+		}
+		inner = knnClassifier
 	default:
-		return nil, fmt.Errorf("router: unknown classifier %q (supported: %s)", name, strings.Join([]string{router.ClassifierScore, router.ClassifierColbert}, ", "))
+		return nil, fmt.Errorf("router: unknown classifier %q (supported: %s)", name, strings.Join([]string{router.ClassifierScore, router.ClassifierColbert, router.ClassifierKNN}, ", "))
 	}
 
 	if rc.EmbeddingCache == nil {
+		return inner, nil
+	}
+	if name == router.ClassifierKNN {
+		// The knn classifier IS an embedding-KNN lookup — wrapping it in
+		// the embedding cache would embed every probe twice to answer the
+		// same question. Ignore the block rather than fail routing.
+		xlog.Warn("router: embedding_cache ignored for knn classifier",
+			"router_model", cfg.Name)
 		return inner, nil
 	}
 	wrapped, err := wrapWithEmbeddingCache(cfg, inner, deps)
@@ -428,7 +490,11 @@ func assertClassifierDeclaresScore(classifierModel string, lookup ModelConfigLoo
 // returns the parsed []ScorePolicy. Both Score and Rerank classifiers
 // take the same policy shape.
 func validateRouterPolicies(classifierName string, rc config.RouterConfig) ([]router.ScorePolicy, error) {
-	if rc.ClassifierModel == "" {
+	// The knn classifier has no scoring model — its label knowledge
+	// lives in the corpus. It still declares policies: they are the
+	// label vocabulary corpus entries are validated against and the
+	// "categories" surface the Routing tab shows.
+	if rc.ClassifierModel == "" && classifierName != router.ClassifierKNN {
 		return nil, fmt.Errorf("router classifier %s requires classifier_model", classifierName)
 	}
 	if len(rc.Policies) == 0 {

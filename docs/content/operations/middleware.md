@@ -335,17 +335,20 @@ silent-bypass.
 
 ### Available classifiers
 
-LocalAI ships two classifier implementations. Pick one with `classifier:`
+LocalAI ships three classifier implementations. Pick one with `classifier:`
 in the router YAML:
 
 | Classifier | When to use | Underlying primitive |
 |---|---|---|
 | `score` (default) | Small classifier-tuned LM (Arch-Router-style). Best when label vocabulary is well-covered by next-token continuation. | `Score` gRPC primitive (llama-cpp, vLLM). |
 | `colbert` | When label descriptions are abstract or short and a next-token classifier produces flat distributions. Robust on long-form policy descriptions. | rerankers backend in ColBERT mode (e.g. `bge-m3-colbert` from the gallery). |
+| `knn` | When you have (or can generate) labelled example prompts — including outcome-labelled production traffic. Deterministic, auditable, cheapest per request, and the only classifier with an explicit out-of-distribution fallback. | embeddings backend + local-store KNN over a persisted, curated corpus. |
 
-Both classifiers share the same YAML shape: `classifier_model`,
-`policies`, `candidates`, `fallback`, `activation_threshold`,
-`classifier_cache_size`, and the optional `embedding_cache` block.
+All three share `policies`, `candidates`, `fallback`, and
+`classifier_cache_size`. `score` and `colbert` take a
+`classifier_model` (+ `activation_threshold`, optional
+`embedding_cache`); `knn` instead takes a `knn:` block and a corpus
+seeded through the API.
 
 ### The Score classifier
 
@@ -426,6 +429,109 @@ underlying scoring head loads - `colbert` for late-interaction MaxSim,
 `cross-encoder` for cross-attention scoring. The classifier itself is
 indifferent; pick the head that fits your latency / quality budget.
 
+### The KNN classifier
+
+The `knn` classifier routes by **similarity-weighted vote over a
+curated corpus of labelled example prompts**. Where `score` and
+`colbert` ask a model's opinion per request, `knn` consults recorded
+experience: each corpus entry is an example prompt plus the policy
+labels it should activate. It needs no classifier model — just an
+embedding model and a seeded corpus.
+
+```yaml
+router:
+  classifier: knn
+  fallback: gpt-4o-proxy          # used whenever the prompt is unlike all corpus entries
+  knn:
+    embedding_model: nomic-embed-text-v1.5
+    k: 3                          # neighbours that vote (default 3)
+    similarity_threshold: 0.80    # the epistemic gate (default 0.80)
+    vote_threshold: 0.5           # weighted vote share a label needs (default 0.5)
+    # store_name: router-corpus-smart-router   # default "router-corpus-<router>"
+  policies:
+    - label: code-generation
+      description: writing or debugging code
+    - label: casual-chat
+      description: small talk
+  candidates:
+    - model: qwen3-0.6b
+      labels: [casual-chat]
+    - model: qwen-coder
+      labels: [code-generation, casual-chat]
+```
+
+For each request:
+
+1. Embed the prompt with `knn.embedding_model`.
+2. Fetch the `k` nearest corpus entries (cosine similarity).
+3. **Epistemic gate**: entries below `similarity_threshold` cannot
+   vote. If none clears it, the classifier activates **no** labels and
+   the router uses `fallback` — a prompt unlike all labelled
+   experience is treated as *undecidable*, not guessed. The decision
+   log records `nearest_similarity` so you can see how far away the
+   closest labelled example was.
+4. Each surviving neighbour votes for its labels, weighted by its
+   similarity; every label whose vote share clears `vote_threshold`
+   joins the active set. Candidate matching then proceeds exactly as
+   for the other classifiers. With `k: 1` this degenerates to
+   "nearest example's labels".
+
+#### Seeding and curating the corpus (API-only)
+
+Corpus entries may contain example user content, so they are managed
+exclusively through the admin API — the UI never sends or displays
+them, and no endpoint returns entry texts (inspection is label counts
+only):
+
+```bash
+# Seed labelled exemplars (embedded server-side; indexed immediately)
+curl -X POST http://localhost:8080/api/router/smart-router/corpus \
+  -H "Content-Type: application/json" \
+  -d '{"entries": [
+        {"text": "why does this segfault when I free the buffer twice", "labels": ["code-generation"]},
+        {"text": "hey hows it going", "labels": ["casual-chat"]}
+      ]}'
+
+# Inspect — counts only, never texts
+curl http://localhost:8080/api/router/smart-router/corpus/stats
+
+# Wipe (file + live index); reseed afterwards
+curl -X DELETE http://localhost:8080/api/router/smart-router/corpus
+```
+
+Entry labels must be declared in `policies` (same invariant as
+candidate labels), and duplicate texts are skipped rather than
+double-weighted. Label your exemplars with *outcomes*, not topics,
+when routing for difficulty: an entry recording "the small model
+handled prompts like this" is exactly as useful as one recording that
+it failed — grade a sample of production traffic against your
+candidates and seed both.
+
+#### Persistence
+
+The corpus is persisted as one JSONL file per router under
+`<data path>/router-corpus/` (text, labels, vector, embedding-model
+fingerprint) — **the file is the source of truth** and survives
+restarts; the local-store index is rebuilt from it at classifier build
+time without re-embedding. Changing `knn.embedding_model` re-embeds
+the corpus on the next load (restart LocalAI if the old index was
+already live — mixed embedding spaces cannot be served).
+
+#### Tuning notes
+
+- **`similarity_threshold` is the safety knob.** Too low and the
+  router confidently extrapolates from unrelated exemplars; too high
+  and everything falls back. Watch `nearest_similarity` in the
+  decision log: fallback rows clustering just under the threshold mean
+  the corpus needs entries near that traffic (or the gate is too
+  tight).
+- **`k` trades robustness for corpus density**: `k: 3` tolerates one
+  mislabelled neighbour; raise it only when every label region has
+  several exemplars.
+- **`embedding_cache` is ignored** for `knn` (with a warning) — the
+  classifier is already an embedding KNN lookup; wrapping it in
+  another would embed twice for no additional information.
+
 ### YAML reference
 
 ```yaml
@@ -433,8 +539,9 @@ name: smart-router
 known_usecases:
   - chat
 router:
-  # `score` (Arch-Router-style next-token scoring) or `colbert`
-  # (rerank policy descriptions). See "Available classifiers" above.
+  # `score` (Arch-Router-style next-token scoring), `colbert` (rerank
+  # policy descriptions), or `knn` (vote over a labelled corpus).
+  # See "Available classifiers" above.
   classifier: score
 
   # A model loaded by LocalAI that supports the Score gRPC primitive
@@ -553,9 +660,12 @@ For each request:
    paraphrases.
 
 The local-store collection is named `router-cache-<router-model-name>` by
-default - each router gets its own collection so two routers can't
-cross-contaminate. Collections persist on disk (local-store is the
-canonical persistent vector backend), so the cache survives restarts.
+default — each router gets its own collection so two routers can't
+cross-contaminate. The collection is **in-memory only**: local-store
+keeps no on-disk artefact, so the embedding cache starts empty on every
+restart and re-learns from live traffic. (The KNN classifier's corpus
+does NOT have this limitation — its corpus file is the source of truth
+and re-indexes on startup; see "The KNN classifier" above.)
 
 #### Tuning notes
 
@@ -596,7 +706,10 @@ canonical usage log lives in `/api/usage` and correlates by request ID.
 |---|---|---|---|
 | GET | `/api/router/status` | any | Router configuration: each router model's classifier, policies, candidates. |
 | GET | `/api/router/decisions` | admin | Decision log with optional filters (`correlation_id`, `user_id`, `router_model`, `limit`). |
-| POST | `/api/score` | admin | Direct access to the `Score` gRPC primitive - useful for offline threshold tuning. Body: `{"model": "<classifier-model>", "prompt": "<chatml-prompt>", "candidates": ["label-a", ...], "length_normalize": true}`. The llama-cpp and vLLM backends implement Score; other backends return `UNIMPLEMENTED`. |
+| POST | `/api/router/{name}/corpus` | admin | Seed the KNN corpus with labelled exemplars: `{"entries": [{"text": "...", "labels": ["..."]}]}`. Embedded server-side, persisted, indexed immediately. |
+| GET | `/api/router/{name}/corpus/stats` | admin | KNN corpus size and per-label counts. Counts only — entry texts are never returned. |
+| DELETE | `/api/router/{name}/corpus` | admin | Wipe the KNN corpus (file + live index). |
+| POST | `/api/score` | admin | Direct access to the `Score` gRPC primitive — useful for offline threshold tuning. Body: `{"model": "<classifier-model>", "prompt": "<chatml-prompt>", "candidates": ["label-a", ...], "length_normalize": true}`. The llama-cpp and vLLM backends implement Score; other backends return `UNIMPLEMENTED`. |
 
 ### MCP tools
 
@@ -604,10 +717,14 @@ canonical usage log lives in `/api/usage` and correlates by request ID.
 |---|---|---|
 | `get_router_decisions` | read | Recent decision log with optional filters. |
 | `get_middleware_status` | read | Includes the router section listing configured router models. |
+| `get_router_corpus_stats` | read | KNN corpus size and per-label counts (never texts). |
+| `seed_router_corpus` | write | Add labelled exemplars to a KNN router's corpus. |
+| `clear_router_corpus` | write | Wipe a KNN router's corpus. |
 
-Mutating routing config - adding a candidate, changing the classifier
-model - is YAML-only today; reload with `POST /models/reload` to pick
-up edits without restarting.
+Mutating the rest of the routing config — adding a candidate, changing
+the classifier model — goes through the model-config surface
+(`edit_model_config` / `PATCH /api/models/config-json/:name`); reload
+with `POST /models/reload` to pick up YAML edits without restarting.
 
 ### Operational notes
 

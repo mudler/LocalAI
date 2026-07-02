@@ -24,6 +24,7 @@ import (
 	"github.com/mudler/LocalAI/core/services/galleryop"
 	"github.com/mudler/LocalAI/core/services/modeladmin"
 	"github.com/mudler/LocalAI/core/services/routing/billing"
+	"github.com/mudler/LocalAI/core/services/routing/corpus"
 	"github.com/mudler/LocalAI/core/services/routing/pii"
 	"github.com/mudler/LocalAI/core/services/routing/router"
 	"github.com/mudler/LocalAI/core/services/voiceprofile"
@@ -67,6 +68,16 @@ type Client struct {
 	// the tool return an empty list — same shape the REST endpoint
 	// returns when stats are disabled.
 	RouterDecisions router.DecisionStore
+
+	// RouterCorpus + the two factories back the corpus tools
+	// (seed_router_corpus / get_router_corpus_stats /
+	// clear_router_corpus). nil RouterCorpus makes them return an
+	// "unavailable" error. The factories mirror the middleware's
+	// ClassifierDeps so the tools and the request path resolve models
+	// and store namespaces identically.
+	RouterCorpus      *corpus.Manager
+	RouterEmbedder    func(modelName string) backend.Embedder
+	RouterVectorStore func(storeName string) backend.VectorStore
 
 	modelAdmin *modeladmin.ConfigService
 }
@@ -884,4 +895,112 @@ func capabilityFlagsOf(m *config.ModelConfig) []string {
 		}
 	}
 	return out
+}
+
+// resolveKNNRouter mirrors the REST endpoint's resolution: the model
+// must exist and declare a router.knn block; the store name defaults
+// the same way buildClassifier defaults it.
+func (c *Client) resolveKNNRouter(routerModel string) (*config.ModelConfig, string, error) {
+	cfg, err := c.ConfigLoader.LoadModelConfigFileByNameDefaultOptions(routerModel, c.AppConfig)
+	if err != nil {
+		return nil, "", fmt.Errorf("load model config: %w", err)
+	}
+	if cfg == nil || cfg.Name == "" {
+		return nil, "", fmt.Errorf("model %q not found", routerModel)
+	}
+	if cfg.Router.KNN == nil || cfg.Router.KNN.EmbeddingModel == "" {
+		return nil, "", fmt.Errorf("model %q has no router.knn block (set classifier: knn and knn.embedding_model first)", routerModel)
+	}
+	storeName := cfg.Router.KNN.StoreName
+	if storeName == "" {
+		storeName = "router-corpus-" + cfg.Name
+	}
+	return cfg, storeName, nil
+}
+
+func (c *Client) GetRouterCorpusStats(_ context.Context, routerModel string) (*localaitools.RouterCorpusStats, error) {
+	if c.RouterCorpus == nil {
+		return nil, errors.New("router corpus manager unavailable")
+	}
+	cfg, storeName, err := c.resolveKNNRouter(routerModel)
+	if err != nil {
+		return nil, err
+	}
+	stats, err := c.RouterCorpus.Stats(storeName)
+	if err != nil {
+		return nil, err
+	}
+	return &localaitools.RouterCorpusStats{
+		Router:          cfg.Name,
+		StoreName:       storeName,
+		EmbeddingModel:  cfg.Router.KNN.EmbeddingModel,
+		Total:           stats.Total,
+		LabelCounts:     stats.LabelCounts,
+		EmbeddingModels: stats.EmbeddingModels,
+	}, nil
+}
+
+func (c *Client) SeedRouterCorpus(ctx context.Context, req localaitools.RouterCorpusSeedRequest) (*localaitools.RouterCorpusSeedResult, error) {
+	if c.RouterCorpus == nil || c.RouterEmbedder == nil || c.RouterVectorStore == nil {
+		return nil, errors.New("router corpus manager unavailable")
+	}
+	cfg, storeName, err := c.resolveKNNRouter(req.Router)
+	if err != nil {
+		return nil, err
+	}
+
+	// Same invariant the REST endpoint enforces: labels must be
+	// declared policies, so a typo can't create an unroutable label.
+	declared := map[string]struct{}{}
+	for _, p := range cfg.Router.Policies {
+		declared[p.Label] = struct{}{}
+	}
+	entries := make([]corpus.Entry, 0, len(req.Entries))
+	for i, e := range req.Entries {
+		for _, l := range e.Labels {
+			if _, ok := declared[l]; !ok {
+				return nil, fmt.Errorf("entry %d: label %q is not declared in router policies", i, l)
+			}
+		}
+		entries = append(entries, corpus.Entry{Text: e.Text, Labels: e.Labels})
+	}
+
+	embedder := c.RouterEmbedder(cfg.Router.KNN.EmbeddingModel)
+	if embedder == nil {
+		return nil, fmt.Errorf("embedding_model %q not loadable", cfg.Router.KNN.EmbeddingModel)
+	}
+	added, skipped, err := c.RouterCorpus.Add(ctx, storeName, cfg.Router.KNN.EmbeddingModel, embedder, c.RouterVectorStore(storeName), entries)
+	if err != nil {
+		return nil, err
+	}
+	stats, err := c.RouterCorpus.Stats(storeName)
+	if err != nil {
+		return nil, err
+	}
+	return &localaitools.RouterCorpusSeedResult{
+		Router:      cfg.Name,
+		Added:       added,
+		Skipped:     skipped,
+		Total:       stats.Total,
+		LabelCounts: stats.LabelCounts,
+	}, nil
+}
+
+func (c *Client) ClearRouterCorpus(ctx context.Context, routerModel string) (*localaitools.RouterCorpusClearResult, error) {
+	if c.RouterCorpus == nil {
+		return nil, errors.New("router corpus manager unavailable")
+	}
+	cfg, storeName, err := c.resolveKNNRouter(routerModel)
+	if err != nil {
+		return nil, err
+	}
+	var store backend.VectorStore
+	if c.RouterVectorStore != nil {
+		store = c.RouterVectorStore(storeName)
+	}
+	cleared, err := c.RouterCorpus.Clear(ctx, storeName, store)
+	if err != nil {
+		return nil, err
+	}
+	return &localaitools.RouterCorpusClearResult{Router: cfg.Name, Cleared: cleared}, nil
 }

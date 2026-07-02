@@ -755,3 +755,34 @@ func containsTagExact(tags []string, lowerNeedle string) bool {
 	}
 	return false
 }
+
+func (c *Client) GetRouterCorpusStats(ctx context.Context, routerModel string) (*localaitools.RouterCorpusStats, error) {
+	var out localaitools.RouterCorpusStats
+	path := fmt.Sprintf("/api/router/%s/corpus/stats", url.PathEscape(routerModel))
+	if err := c.do(ctx, http.MethodGet, path, nil, &out); err != nil {
+		return nil, err
+	}
+	return &out, nil
+}
+
+func (c *Client) SeedRouterCorpus(ctx context.Context, req localaitools.RouterCorpusSeedRequest) (*localaitools.RouterCorpusSeedResult, error) {
+	// The REST body carries entries only; the router rides in the path.
+	body := struct {
+		Entries []localaitools.RouterCorpusEntry `json:"entries"`
+	}{Entries: req.Entries}
+	var out localaitools.RouterCorpusSeedResult
+	path := fmt.Sprintf("/api/router/%s/corpus", url.PathEscape(req.Router))
+	if err := c.do(ctx, http.MethodPost, path, body, &out); err != nil {
+		return nil, err
+	}
+	return &out, nil
+}
+
+func (c *Client) ClearRouterCorpus(ctx context.Context, routerModel string) (*localaitools.RouterCorpusClearResult, error) {
+	var out localaitools.RouterCorpusClearResult
+	path := fmt.Sprintf("/api/router/%s/corpus", url.PathEscape(routerModel))
+	if err := c.do(ctx, http.MethodDelete, path, nil, &out); err != nil {
+		return nil, err
+	}
+	return &out, nil
+}

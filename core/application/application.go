@@ -19,6 +19,7 @@ import (
 	"github.com/mudler/LocalAI/core/services/nodes"
 	"github.com/mudler/LocalAI/core/services/routing/admission"
 	"github.com/mudler/LocalAI/core/services/routing/billing"
+	"github.com/mudler/LocalAI/core/services/routing/corpus"
 	"github.com/mudler/LocalAI/core/services/routing/pii"
 	"github.com/mudler/LocalAI/core/services/routing/piidetector"
 	"github.com/mudler/LocalAI/core/services/routing/router"
@@ -76,6 +77,8 @@ type Application struct {
 	mitmHostConflicts atomic.Pointer[map[string][]string]
 	routerDecisions   router.DecisionStore
 	routerRegistry    *router.Registry
+	routerCorpus      *corpus.Manager
+	routerCorpusOnce  sync.Once
 	admissionLimiter  *admission.Limiter
 	watchdogMutex     sync.Mutex
 	watchdogStop      chan bool
@@ -570,6 +573,12 @@ func (a *Application) start() error {
 		assistantClient.PIIRedactor = a.piiRedactor
 		assistantClient.PIIEvents = a.piiEvents
 		assistantClient.RouterDecisions = a.routerDecisions
+		// Router corpus tools — same factories the RouteModel middleware
+		// uses, so the assistant and the request path agree on store
+		// namespaces and model resolution.
+		assistantClient.RouterCorpus = a.RouterCorpus()
+		assistantClient.RouterEmbedder = a.Embedder
+		assistantClient.RouterVectorStore = a.VectorStore
 		if err := holder.Initialize(a.applicationConfig.Context, assistantClient, localaitools.Options{}); err != nil {
 			// Why log+continue instead of fail: the assistant is an optional
 			// feature; a failure here must not take down the whole server.

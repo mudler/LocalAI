@@ -1,11 +1,14 @@
 package application
 
 import (
+	"cmp"
 	"context"
 	"fmt"
+	"path/filepath"
 
 	"github.com/mudler/LocalAI/core/backend"
 	"github.com/mudler/LocalAI/core/config"
+	"github.com/mudler/LocalAI/core/services/routing/corpus"
 )
 
 // adapterConfig resolves a model name to its runtime ModelConfig, or nil when
@@ -117,4 +120,15 @@ func (l *lazyEmbedder) Embed(ctx context.Context, text string) ([]float32, error
 // staleness to avoid.
 func (a *Application) VectorStore(storeName string) backend.VectorStore {
 	return backend.NewVectorStore(a.modelLoader, a.applicationConfig, storeName)
+}
+
+// RouterCorpus returns the process-wide KNN corpus manager. Corpus
+// files live under <state dir>/router-corpus (same DataPath →
+// DynamicConfigsDir precedence the agent pool uses for its state).
+func (a *Application) RouterCorpus() *corpus.Manager {
+	a.routerCorpusOnce.Do(func() {
+		root := cmp.Or(a.applicationConfig.DataPath, a.applicationConfig.DynamicConfigsDir, ".")
+		a.routerCorpus = corpus.NewManager(filepath.Join(root, "router-corpus"))
+	})
+	return a.routerCorpus
 }

@@ -14,11 +14,21 @@ import (
 )
 
 // VectorStore is the narrowed KNN store used by the router's embedding
-// cache. Search returns the top-1 match (cosine similarity in [-1, 1])
-// and the serialised payload, or ok=false on a clean miss.
+// cache and the KNN classifier. Search returns the top-1 match (cosine
+// similarity in [-1, 1]) and the serialised payload, or ok=false on a
+// clean miss. SearchK returns up to k nearest neighbours ordered by
+// descending similarity; an empty slice is a clean miss.
 type VectorStore interface {
 	Search(ctx context.Context, vec []float32) (similarity float64, payload []byte, ok bool, err error)
+	SearchK(ctx context.Context, vec []float32, k int) ([]Neighbor, error)
 	Insert(ctx context.Context, vec []float32, payload []byte) error
+}
+
+// Neighbor is one SearchK result — the stored payload and its cosine
+// similarity to the query vector.
+type Neighbor struct {
+	Similarity float64
+	Payload    []byte
 }
 
 // NewVectorStore returns a VectorStore backed by the local-store
@@ -63,6 +73,35 @@ func (s *localVectorStore) Search(ctx context.Context, vec []float32) (sim float
 	return float64(similarities[0]), values[0], true, nil
 }
 
+func (s *localVectorStore) SearchK(ctx context.Context, vec []float32, k int) (neighbors []Neighbor, err error) {
+	start := time.Now()
+	outcome := "hit"
+	sim := 0.0
+	defer func() {
+		s.recordTrace(start, "search", len(vec), sim, outcome, err)
+	}()
+	be, berr := s.backend(ctx)
+	if berr != nil {
+		outcome = "backend_load_error"
+		return nil, fmt.Errorf("vector store load: %w", berr)
+	}
+	_, values, similarities, ferr := store.Find(ctx, be, vec, k)
+	if ferr != nil {
+		outcome = "find_error"
+		return nil, fmt.Errorf("vector store find: %w", ferr)
+	}
+	if len(values) == 0 {
+		outcome = "miss"
+		return nil, nil
+	}
+	neighbors = make([]Neighbor, 0, len(values))
+	for i, v := range values {
+		neighbors = append(neighbors, Neighbor{Similarity: float64(similarities[i]), Payload: v})
+	}
+	sim = neighbors[0].Similarity
+	return neighbors, nil
+}
+
 func (s *localVectorStore) Insert(ctx context.Context, vec []float32, payload []byte) (err error) {
 	start := time.Now()
 	outcome := "ok"
@@ -76,6 +115,56 @@ func (s *localVectorStore) Insert(ctx context.Context, vec []float32, payload []
 	}
 	if serr := store.SetSingle(ctx, be, vec, payload); serr != nil {
 		outcome = "insert_error"
+		return serr
+	}
+	return nil
+}
+
+// InsertBatch upserts many vectors in one gRPC round-trip. Not part of
+// the VectorStore interface — the corpus manager type-asserts for it
+// and falls back to per-entry Insert on stores that lack it.
+func (s *localVectorStore) InsertBatch(ctx context.Context, vecs [][]float32, payloads [][]byte) (err error) {
+	start := time.Now()
+	outcome := "ok"
+	dim := 0
+	if len(vecs) > 0 {
+		dim = len(vecs[0])
+	}
+	defer func() {
+		s.recordTrace(start, "insert_batch", dim, 0, outcome, err)
+	}()
+	be, berr := s.backend(ctx)
+	if berr != nil {
+		outcome = "backend_load_error"
+		return fmt.Errorf("vector store load: %w", berr)
+	}
+	if serr := store.SetCols(ctx, be, vecs, payloads); serr != nil {
+		outcome = "insert_error"
+		return serr
+	}
+	return nil
+}
+
+// Delete removes vectors by key. Optional capability like InsertBatch;
+// used by the corpus manager's Clear so a wiped corpus also leaves the
+// live index.
+func (s *localVectorStore) Delete(ctx context.Context, vecs [][]float32) (err error) {
+	start := time.Now()
+	outcome := "ok"
+	dim := 0
+	if len(vecs) > 0 {
+		dim = len(vecs[0])
+	}
+	defer func() {
+		s.recordTrace(start, "delete", dim, 0, outcome, err)
+	}()
+	be, berr := s.backend(ctx)
+	if berr != nil {
+		outcome = "backend_load_error"
+		return fmt.Errorf("vector store load: %w", berr)
+	}
+	if serr := store.DeleteCols(ctx, be, vecs); serr != nil {
+		outcome = "delete_error"
 		return serr
 	}
 	return nil

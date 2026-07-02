@@ -9,6 +9,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/mudler/LocalAI/core/backend"
 	"github.com/mudler/LocalAI/core/services/routing/router"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -86,6 +87,31 @@ func (s *memVectorStore) Search(_ context.Context, vec []float32) (float64, []by
 		}
 	}
 	return 0, nil, false, nil
+}
+
+// SearchK reuses the same synthetic metric as Search: 1.0 exact, 0.8
+// leading-element, 0.0 otherwise — zero-similarity entries are omitted.
+func (s *memVectorStore) SearchK(_ context.Context, vec []float32, k int) ([]backend.Neighbor, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.failOps > 0 {
+		s.failOps--
+		return nil, errors.New("store offline")
+	}
+	var exact, close []backend.Neighbor
+	for _, e := range s.entries {
+		switch {
+		case vecEqual(e.vec, vec):
+			exact = append(exact, backend.Neighbor{Similarity: 1.0, Payload: e.payload})
+		case len(vec) > 0 && len(e.vec) > 0 && vec[0] == e.vec[0]:
+			close = append(close, backend.Neighbor{Similarity: 0.80, Payload: e.payload})
+		}
+	}
+	neighbors := append(exact, close...)
+	if len(neighbors) > k {
+		neighbors = neighbors[:k]
+	}
+	return neighbors, nil
 }
 
 func (s *memVectorStore) Insert(_ context.Context, vec []float32, payload []byte) error {

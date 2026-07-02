@@ -342,3 +342,18 @@ func (f *fakeClient) GetMiddlewareStatus(_ context.Context) (*MiddlewareStatus, 
 		Router: MiddlewareRouterStatus{Configured: false, Models: []string{}},
 	}, nil
 }
+
+func (f *fakeClient) GetRouterCorpusStats(_ context.Context, routerModel string) (*RouterCorpusStats, error) {
+	f.record("GetRouterCorpusStats", routerModel)
+	return &RouterCorpusStats{Router: routerModel, LabelCounts: map[string]int{}}, nil
+}
+
+func (f *fakeClient) SeedRouterCorpus(_ context.Context, req RouterCorpusSeedRequest) (*RouterCorpusSeedResult, error) {
+	f.record("SeedRouterCorpus", req)
+	return &RouterCorpusSeedResult{Router: req.Router, Added: len(req.Entries), LabelCounts: map[string]int{}}, nil
+}
+
+func (f *fakeClient) ClearRouterCorpus(_ context.Context, routerModel string) (*RouterCorpusClearResult, error) {
+	f.record("ClearRouterCorpus", routerModel)
+	return &RouterCorpusClearResult{Router: routerModel}, nil
+}

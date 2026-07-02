@@ -51,33 +51,33 @@ type GalleryResponse struct {
 
 type VideoRequest struct {
 	BasicModelRequest
-	Prompt         string  `json:"prompt" yaml:"prompt"`                                     // text description of the video to generate
-	NegativePrompt string  `json:"negative_prompt" yaml:"negative_prompt"`                   // things to avoid in the output
-	StartImage     string  `json:"start_image" yaml:"start_image"`                           // URL or base64 of the first frame
-	EndImage       string  `json:"end_image" yaml:"end_image"`                               // URL or base64 of the last frame
-	Audio          string  `json:"audio,omitempty" yaml:"audio,omitempty"`                   // URL or base64 audio for audio-conditioned generation
-	Width          int32   `json:"width" yaml:"width"`                                       // output width in pixels
-	Height         int32   `json:"height" yaml:"height"`                                     // output height in pixels
-	NumFrames      int32   `json:"num_frames" yaml:"num_frames"`                             // total number of frames to generate
-	FPS            int32   `json:"fps" yaml:"fps"`                                           // frames per second
-	Seconds        string  `json:"seconds,omitempty" yaml:"seconds,omitempty"`               // duration in seconds (alternative to num_frames)
-	Size           string  `json:"size,omitempty" yaml:"size,omitempty"`                     // WxH shorthand (e.g. "512x512")
-	InputReference string  `json:"input_reference,omitempty" yaml:"input_reference,omitempty"` // reference image or video URL
-	Seed           int32   `json:"seed" yaml:"seed"`                                         // random seed for reproducibility
-	CFGScale       float32 `json:"cfg_scale" yaml:"cfg_scale"`                               // classifier-free guidance scale
-	Step           int32   `json:"step" yaml:"step"`                                         // number of diffusion steps
-	ResponseFormat string  `json:"response_format" yaml:"response_format"`                   // output format (url or b64_json)
-	Params         map[string]string `json:"params,omitempty" yaml:"params,omitempty"`         // backend-specific generation parameters
+	Prompt         string            `json:"prompt" yaml:"prompt"`                                       // text description of the video to generate
+	NegativePrompt string            `json:"negative_prompt" yaml:"negative_prompt"`                     // things to avoid in the output
+	StartImage     string            `json:"start_image" yaml:"start_image"`                             // URL or base64 of the first frame
+	EndImage       string            `json:"end_image" yaml:"end_image"`                                 // URL or base64 of the last frame
+	Audio          string            `json:"audio,omitempty" yaml:"audio,omitempty"`                     // URL or base64 audio for audio-conditioned generation
+	Width          int32             `json:"width" yaml:"width"`                                         // output width in pixels
+	Height         int32             `json:"height" yaml:"height"`                                       // output height in pixels
+	NumFrames      int32             `json:"num_frames" yaml:"num_frames"`                               // total number of frames to generate
+	FPS            int32             `json:"fps" yaml:"fps"`                                             // frames per second
+	Seconds        string            `json:"seconds,omitempty" yaml:"seconds,omitempty"`                 // duration in seconds (alternative to num_frames)
+	Size           string            `json:"size,omitempty" yaml:"size,omitempty"`                       // WxH shorthand (e.g. "512x512")
+	InputReference string            `json:"input_reference,omitempty" yaml:"input_reference,omitempty"` // reference image or video URL
+	Seed           int32             `json:"seed" yaml:"seed"`                                           // random seed for reproducibility
+	CFGScale       float32           `json:"cfg_scale" yaml:"cfg_scale"`                                 // classifier-free guidance scale
+	Step           int32             `json:"step" yaml:"step"`                                           // number of diffusion steps
+	ResponseFormat string            `json:"response_format" yaml:"response_format"`                     // output format (url or b64_json)
+	Params         map[string]string `json:"params,omitempty" yaml:"params,omitempty"`                   // backend-specific generation parameters
 }
 
 // @Description TTS request body
 type TTSRequest struct {
 	BasicModelRequest
-	Input    string `json:"input" yaml:"input"` // text input
-	Voice    string `json:"voice" yaml:"voice"` // voice audio file or speaker id
-	Backend  string `json:"backend" yaml:"backend"` // backend engine override
-	Language string `json:"language,omitempty" yaml:"language,omitempty"`               // (optional) language to use with TTS model
-	Format   string `json:"response_format,omitempty" yaml:"response_format,omitempty"` // (optional) output format
+	Input      string `json:"input" yaml:"input"`                                         // text input
+	Voice      string `json:"voice" yaml:"voice"`                                         // voice audio file or speaker id
+	Backend    string `json:"backend" yaml:"backend"`                                     // backend engine override
+	Language   string `json:"language,omitempty" yaml:"language,omitempty"`               // (optional) language to use with TTS model
+	Format     string `json:"response_format,omitempty" yaml:"response_format,omitempty"` // (optional) output format
 	Stream     bool   `json:"stream,omitempty" yaml:"stream,omitempty"`                   // (optional) enable streaming TTS
 	SampleRate int    `json:"sample_rate,omitempty" yaml:"sample_rate,omitempty"`         // (optional) desired output sample rate
 	// Instructions is a free-form, per-request style/voice description. It maps to
@@ -181,10 +181,10 @@ type SystemInformationResponse struct {
 type DetectionRequest struct {
 	BasicModelRequest
 	Image     string    `json:"image"`               // URL or base64-encoded image to analyze
-	Prompt    string    `json:"prompt,omitempty"`     // Text prompt (for SAM 3 PCS mode)
-	Points    []float32 `json:"points,omitempty"`     // Point coordinates as [x,y,label,...] triples (label: 1=pos, 0=neg)
-	Boxes     []float32 `json:"boxes,omitempty"`      // Box coordinates as [x1,y1,x2,y2,...] quads
-	Threshold float32   `json:"threshold,omitempty"`  // Detection confidence threshold
+	Prompt    string    `json:"prompt,omitempty"`    // Text prompt (for SAM 3 PCS mode)
+	Points    []float32 `json:"points,omitempty"`    // Point coordinates as [x,y,label,...] triples (label: 1=pos, 0=neg)
+	Boxes     []float32 `json:"boxes,omitempty"`     // Box coordinates as [x1,y1,x2,y2,...] quads
+	Threshold float32   `json:"threshold,omitempty"` // Detection confidence threshold
 }
 
 type DetectionResponse struct {
@@ -256,14 +256,14 @@ type FaceVerifyRequest struct {
 }
 
 type FaceVerifyResponse struct {
-	Verified           bool       `json:"verified"`
-	Distance           float32    `json:"distance"`
-	Threshold          float32    `json:"threshold"`
-	Confidence         float32    `json:"confidence"`
-	Model              string     `json:"model"`
-	Img1Area           FacialArea `json:"img1_area"`
-	Img2Area           FacialArea `json:"img2_area"`
-	ProcessingTimeMs   float32    `json:"processing_time_ms,omitempty"`
+	Verified         bool       `json:"verified"`
+	Distance         float32    `json:"distance"`
+	Threshold        float32    `json:"threshold"`
+	Confidence       float32    `json:"confidence"`
+	Model            string     `json:"model"`
+	Img1Area         FacialArea `json:"img1_area"`
+	Img2Area         FacialArea `json:"img2_area"`
+	ProcessingTimeMs float32    `json:"processing_time_ms,omitempty"`
 	// Liveness fields are only populated when the request set
 	// anti_spoofing=true. Pointers keep them fully absent from the
 	// JSON response otherwise, so callers can tell "not checked"
@@ -544,6 +544,64 @@ type RouterDecideResponse struct {
 	// CacheSimilarity carries the cosine similarity of the cache hit
 	// (0 when not cached).
 	CacheSimilarity float64 `json:"cache_similarity,omitempty"`
+	// NearestSimilarity is the cosine similarity of the closest KNN
+	// corpus entry — populated by the knn classifier even when the
+	// decision fell back because the probe was out of corpus range.
+	// 0 for other classifiers.
+	NearestSimilarity float64 `json:"nearest_similarity,omitempty"`
+}
+
+// RouterCorpusEntry is one labelled exemplar submitted to
+// POST /api/router/{name}/corpus. The text is embedded server-side
+// with the router's knn.embedding_model; labels must be declared in
+// the router's policies.
+type RouterCorpusEntry struct {
+	Text   string   `json:"text"`
+	Labels []string `json:"labels"`
+}
+
+// RouterCorpusAddRequest is the input for POST /api/router/{name}/corpus —
+// bulk-seeds the KNN routing corpus. Corpus input is API-only by
+// design: entries may contain example user content, so they are never
+// entered through (or displayed in) the UI.
+type RouterCorpusAddRequest struct {
+	Entries []RouterCorpusEntry `json:"entries"`
+}
+
+// RouterCorpusAddResponse reports the outcome of a corpus seed call.
+type RouterCorpusAddResponse struct {
+	Router string `json:"router"`
+	// Added is how many entries were embedded, persisted, and indexed.
+	Added int `json:"added"`
+	// Skipped counts entries whose text was already in the corpus —
+	// duplicates are rejected rather than double-weighted.
+	Skipped int `json:"skipped"`
+	// Total is the corpus size after the call.
+	Total int `json:"total"`
+	// LabelCounts is the per-label exemplar count after the call.
+	LabelCounts map[string]int `json:"label_counts"`
+}
+
+// RouterCorpusStatsResponse is the inspection surface for a router's
+// KNN corpus: counts and configuration only — entry texts are never
+// returned by any endpoint.
+type RouterCorpusStatsResponse struct {
+	Router         string         `json:"router"`
+	StoreName      string         `json:"store_name"`
+	EmbeddingModel string         `json:"embedding_model"`
+	Total          int            `json:"total"`
+	LabelCounts    map[string]int `json:"label_counts"`
+	// EmbeddingModels lists the embedder fingerprints present in the
+	// persisted corpus; more than one means part of the corpus is
+	// pending re-embedding on the next load.
+	EmbeddingModels []string `json:"embedding_models,omitempty"`
+}
+
+// RouterCorpusClearResponse reports how many entries a
+// DELETE /api/router/{name}/corpus removed.
+type RouterCorpusClearResponse struct {
+	Router  string `json:"router"`
+	Cleared int    `json:"cleared"`
 }
 
 // PIIDecideRequest is the input for POST /api/pii/decide — the

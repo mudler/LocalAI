@@ -95,15 +95,16 @@ func RouterDecideEndpoint(loader *config.ModelConfigLoader, appConfig *config.Ap
 		}
 
 		return c.JSON(http.StatusOK, schema.RouterDecideResponse{
-			Router:          req.Router,
-			Classifier:      classifierName,
-			Labels:          decision.Labels,
-			Candidate:       candidate,
-			Fallback:        fallback,
-			Score:           decision.Score,
-			LatencyMs:       decision.Latency.Milliseconds(),
-			Cached:          decision.Cached,
-			CacheSimilarity: decision.CacheSimilarity,
+			Router:            req.Router,
+			Classifier:        classifierName,
+			Labels:            decision.Labels,
+			Candidate:         candidate,
+			Fallback:          fallback,
+			Score:             decision.Score,
+			LatencyMs:         decision.Latency.Milliseconds(),
+			Cached:            decision.Cached,
+			CacheSimilarity:   decision.CacheSimilarity,
+			NearestSimilarity: decision.NearestSimilarity,
 		})
 	}
 }
