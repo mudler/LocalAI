@@ -5,6 +5,575 @@
 > and `GB10_PARITY_PHASE0_RESULTS.md`, with Phase 6 serving-nsys evidence and
 > the active follow-up plans under `docs/superpowers/plans/`. Use those files for
 > the current state before relying on the older "closed" conclusion below.
+>
+> 2026-07-01 Phase112 update: keep the new default-off
+> `LLAMA_W4A16_DIRECT_A=1` direct activation staging hook, especially combined
+> with Phase110 `LLAMA_MOE_GPU_SORT=1`. Artifact:
+> `/home/mudler/bench/phase112_w4a16_direct_a/20260701_231749_direct_a`.
+> Selected gates passed `13/13` for W4A16+GPU-sort, direct-A, and
+> direct-A+GPU-sort. Direct-A+GPU-sort improved the 257-token W4A16 fallback
+> rows versus W4A16+GPU-sort control (`MOE_SWIGLU_DOWN 1551.08 -> 1477.74 us`,
+> `MUL_MAT_ID_RAGGED_MOE 2278.50 -> 2166.22 us`) but was neutral/slightly
+> slower on 128-token rows. Canonical README md5 gates are green: MoE
+> `8cb0ce23777bf55f92f63d0292c756b0`, dense
+> `5951a5b4d624ce891e22ab5fca9bc439`; compact supported op gates are green
+> (`SSM_CONV 45/45`, `SSM_CONV_SPLIT 6/6`, `GET_ROWS 49/49`,
+> `GATED_DELTA_NET 48/48`, `MUL_MAT 1146/1146`, `MUL_MAT_ID 806/806`).
+> This is still default-off structural groundwork, not parity: W4A16 fallback
+> remains slower than the default grouped-MMQ path. Use the patch-series README
+> md5 command as canonical; the handoff `-no-cnv -c 4096` snippet produced
+> stable but non-canonical md5s for both candidate and control.
+>
+> 2026-07-01 Phase113 update: reject the combined direct-A GPU-tile descriptor
+> attempt. Artifact:
+> `/home/mudler/bench/phase113_w4a16_direct_a_gpu_tiles/20260701_233345_no_readback`.
+> The candidate (`LLAMA_W4A16_GPU_TILES=1` on top of Phase112 direct-A+GPU-sort)
+> avoided the `n_tiles` readback by launching over zero-initialized `max_tiles`
+> and returning early on `rows <= 0`. Selected correctness passed `13/13`, but
+> perf failed the keep gate: `MOE_SWIGLU_DOWN n=257` was flat
+> (`1478.16 -> 1476.36 us`) and `MUL_MAT_ID_RAGGED_MOE n=257` regressed
+> (`2148.44 -> 2214.23 us`). The source was reverted and post-revert
+> Phase112 direct-A+GPU-sort selected gates passed `13/13`. Next W4A16/MoE work
+> should not revisit compact GPU tile descriptors; use vLLM-style padded routing
+> metadata (`sorted_token_ids`, expert ids per M block, padded row count) if
+> continuing this line.
+>
+> 2026-07-01 Phase114 update: reject the naive padded routing implementation.
+> It implemented the vLLM-style metadata contract with separate padded source
+> ids and destination ids for llama.cpp, plus an expert-id W4A16 consumer mode
+> and a direct scatter that skipped compact `get_rows_cuda`. Correctness passed
+> (`13/13`) but perf failed: after a fix using `num_tokens_post_pad` early
+> returns, `MOE_SWIGLU_DOWN n=257` regressed `1477.88 -> 1726.27 us` and
+> `MUL_MAT_ID_RAGGED_MOE n=257` regressed `2163.35 -> 2650.93 us`. Artifacts:
+> `/home/mudler/bench/phase114_w4a16_padded_routing/20260701_234634_padded_meta`
+> and
+> `/home/mudler/bench/phase114_w4a16_padded_routing/20260701_235003_padded_meta_fix1`.
+> Source was reverted; post-revert Phase112 direct-A+GPU-sort selected gate
+> passed `13/13`. Padded metadata is not enough by itself on GB10 because sparse
+> expert occupancy makes padded activation/output traffic too expensive.
+>
+> 2026-07-02 Phase115 update: reject another small-M/tile-policy shortcut.
+> Phase115 re-tested the existing default-off `LLAMA_MOE_SMALL_M_TILE=16/32/64`
+> knob on the newer Phase108 whole-graph MoE sentinels. Artifact:
+> `/home/mudler/bench/phase115_moe_small_m_sentinel/20260702_020258`.
+> Control and all three tile caps passed selected correctness (`13/13` each),
+> but no candidate met the promotion rule. The 257-token ragged down row
+> regressed for every cap (`1452.30 us` control vs `1455.02`, `1458.71`, and
+> `1456.88 us`). Do not add name-based down special cases or another MMQ
+> tile-policy patch. The next credible target is a true fused routed-MoE kernel
+> or a graph-level fusion that removes materialized activation/output traffic.
+>
+> 2026-07-02 Phase116 update: reject the standalone graph-level
+> SwiGLU-to-MMQ-activation-quant fusion. The default-off candidate
+> `LLAMA_MOE_SWIGLU_DOWN_FUSED_QUANT=1` detected the plain
+> `GLU -> down MUL_MAT_ID` pattern and computed `silu(gate) * up` directly into
+> the grouped-MMQ NVFP4 activation buffer. Artifact:
+> `/home/mudler/bench/phase116_moe_swiglu_down_fused_quant/20260702_022611`.
+> Correctness passed (`13/13`) and the fix1 route emitted the fused marker
+> (`6` hits), but perf was not useful: `MOE_SWIGLU_DOWN n=257` was flat
+> (`1024.90 -> 1024.69 us`), `n=128` regressed (`806.33 -> 808.79 us`), and the
+> ragged sentinel drifted slower. Source was reverted and post-revert selected
+> gate passed `13/13`. Do not retry this narrow fused-quant route; the next
+> fused-MoE attempt must remove a larger boundary, such as route-once metadata
+> shared by both expert GEMMs plus fused GEMM1/activation/GEMM2 or
+> weighted-combine/scatter.
+>
+> 2026-07-02 Phase117 update: keep the default-off MoE boundary trace as
+> diagnostic instrumentation only. Artifact:
+> `/home/mudler/bench/phase117_moe_route_once_boundary/20260702_024140`.
+> The trace decomposes `MOE_SWIGLU_DOWN` into route-sort, activation
+> quantization, grouped-MMQ launch, GLU, and graph-pattern records under
+> `LLAMA_MOE_BOUNDARY_TRACE=1`; optional timing is gated by
+> `LLAMA_MOE_BOUNDARY_TIMING=1`. Inline CUDA event timing initially aborted
+> under CUDA graph capture, so the guarded trace emits `us=-1` while capturing
+> and only produces real event timings with `GGML_CUDA_DISABLE_GRAPHS=1`.
+> Post-guard selected gates passed (`13/13`), trace mode passed (`7/7`), and
+> canonical gates passed: MoE md5 `8cb0ce23`, dense md5 `5951a5b4`,
+> `MUL_MAT 1146/1146`, `MUL_MAT_ID 806/806`. The timing attribution does not
+> fund another local route-sort, tile, GLU, or activation-quant shortcut. The
+> next MoE source phase should own a larger pipeline boundary: shared
+> route-once metadata across gate_up/down and/or whole-pattern
+> GEMM1->activation->GEMM2 execution.
+>
+> 2026-07-02 Phase118 update: reject standalone route-metadata caching.
+> Artifact:
+> `/home/mudler/bench/phase118_moe_route_cache/20260702_030549`. The
+> default-off candidate `LLAMA_MOE_ROUTE_CACHE=1` stored ids-derived grouped-MMQ
+> route metadata in context-owned buffers and reused it within a graph
+> evaluation. It was correctness-clean (`13/13` default, opt-in, and
+> post-reject) and the trace showed reuse (`23` hits, `3` misses on
+> `MOE_SWIGLU_DOWN n=128`), but perf was too small: `MOE_SWIGLU_DOWN n=257`
+> improved only `1017.711 -> 1011.915 us` (`+0.57%`) and `n=128` regressed
+> `799.360 -> 803.738 us` (`-0.55%`). Runtime cache source was reverted; only a
+> local `ggml_cuda_mmq_ids_meta` helper refactor remains as low-conflict
+> groundwork. Do not retry metadata-cache-only work. The next attempt must own
+> more of the vLLM-style pipeline: GEMM1->activation->GEMM2 and/or
+> scatter/combine, not just skipping one `mm_ids_helper` launch.
+>
+> 2026-07-02 Phase119 update: keep the default-off whole-pattern contract trace
+> after fix1. Initial artifact:
+> `/home/mudler/bench/phase119_moe_whole_pattern_contract/20260702_034729`;
+> fix1 artifact:
+> `/home/mudler/bench/phase119_moe_whole_pattern_contract/20260702_035126_fix1`.
+> The initial trace proved coverage but missed the overhead rule on
+> `MOE_SWIGLU_DOWN n=257` (`1015.070 -> 1028.937 us`, `-1.35%`). Fix1 moved
+> detector work off the default path unless `LLAMA_MOE_WHOLE_PATTERN_TRACE` or
+> the existing boundary trace is enabled. Fix1 gates are green: selected
+> `MOE_SWIGLU_DOWN,MUL_MAT_ID_RAGGED_MOE` `13/13`, trace `MOE_SWIGLU_DOWN`
+> `7/7`, canonical MoE md5 `8cb0ce23`, dense md5 `5951a5b4`,
+> `MUL_MAT 1146/1146`, and `MUL_MAT_ID 806/806`. Trace overhead is now within
+> rule (`MOE_SWIGLU_DOWN n=128` `805.400 -> 805.584 us`, `-0.02%`;
+> `n=257` `1019.715 -> 1021.836 us`, `-0.21%`) and emits supported NVFP4
+> markers for both `n_tokens=128` and `257`. This is diagnostic scaffolding,
+> not a runtime optimization. The next executor attempt should match at the
+> earlier `gate_up MUL_MAT_ID` node and skip through `VIEW, VIEW, GLU, down
+> MUL_MAT_ID`; the current `GLU -> down` hook is validation-only because GEMM1
+> has already executed.
+>
+> 2026-07-02 Phase120 update: keep the default-off early whole-pattern matcher
+> after fix2. Initial artifact:
+> `/home/mudler/bench/phase120_moe_early_whole_pattern/20260702_040153`;
+> fix2 artifact:
+> `/home/mudler/bench/phase120_moe_early_whole_pattern/20260702_040725_fix2`.
+> The initial/fix1 versions proved `skip_ready=4` but emitted noisy unsupported
+> markers from unrelated `MUL_MAT_ID` candidates. Fix2 emits only the actual
+> early pattern and is clean: selected `MOE_SWIGLU_DOWN,MUL_MAT_ID_RAGGED_MOE`
+> `13/13`, early trace `MOE_SWIGLU_DOWN` `7/7`, canonical MoE md5
+> `8cb0ce23`, dense md5 `5951a5b4`, `MUL_MAT 1146/1146`, and
+> `MUL_MAT_ID 806/806`. It emits exactly six supported early markers for the
+> perf sentinels, covering `n_tokens=128` and `257`, with `skip_ready=4`,
+> `ids_match=1`, and `swiglu=1`. Trace overhead is within rule
+> (`MOE_SWIGLU_DOWN n=128` `803.937 -> 808.978 us`, `-0.62%`;
+> `n=257` `1020.412 -> 1026.073 us`, `-0.55%`). The next source phase can now
+> implement a guarded executor at this early matcher. First prove safe
+> ownership/skip accounting for the five-node sequence, then move route-plan
+> reuse and activation/down execution into the helper.
+>
+> 2026-07-02 Phase121 update: keep the default-off executor proof after fix1.
+> Initial artifact:
+> `/home/mudler/bench/phase121_moe_whole_pattern_exec_proof/20260702_041543`;
+> fix1 artifact:
+> `/home/mudler/bench/phase121_moe_whole_pattern_exec_proof/20260702_041739_fix1`.
+> The initial run passed correctness but emitted zero exec markers because the
+> exec branch was accidentally nested under the early-trace env condition.
+> Fix1 makes `LLAMA_MOE_WHOLE_PATTERN_EXEC=1` engage independently. Gates are
+> green: selected `MOE_SWIGLU_DOWN,MUL_MAT_ID_RAGGED_MOE` `13/13`, exec
+> `MOE_SWIGLU_DOWN` `7/7`, canonical MoE md5 `8cb0ce23`, dense md5
+> `5951a5b4`, `MUL_MAT 1146/1146`, and `MUL_MAT_ID 806/806`. Exec perf emits
+> six `skip=4` markers covering `n_tokens=128` and `257`, and target perf is
+> neutral (`MOE_SWIGLU_DOWN n=128` `807.772 -> 806.051 us`, `+0.21%`;
+> `n=257` `1021.115 -> 1020.839 us`, `+0.03%`). This proves ownership and skip
+> accounting only; it is not a fused-MoE speedup. The next source phase should
+> replace one internal boundary inside this helper, preferably route-plan reuse
+> or activation in route-slot order, with the same md5/op gates.
+>
+> 2026-07-02 Phase122 update: reject route-only metadata reuse inside the
+> Phase121 executor. Artifact:
+> `/home/mudler/bench/phase122_moe_shared_route_meta/20260702_043212`.
+> The candidate exposed `ggml_cuda_mmq_ids_meta` as a public MMQ helper and
+> used `LLAMA_MOE_WHOLE_PATTERN_SHARED_ROUTE=1` to build route metadata once
+> for both `gate_up` and `down`. Correctness passed (`13/13` selected and
+> `7/7` shared-route), but perf missed the keep gate:
+> `MOE_SWIGLU_DOWN n=128` regressed `808.190 -> 811.836 us` and `n=257`
+> regressed `1020.850 -> 1051.666 us` versus the Phase121 executor. Source was
+> reverted, including the public metadata API and shared-route env. Post-reject
+> gates on the reverted tree passed (`13/13` selected and `7/7` Phase121 exec)
+> with six retained exec markers. Do not retry route-only metadata reuse. The
+> next MoE executor scope should target activation/down data layout, direct
+> activation-to-down input, or a larger GEMM1->activation->GEMM2 fused boundary.
+>
+> 2026-07-02 Phase123 update: reject standalone fused-down activation
+> quantization inside the Phase121 executor. Artifact:
+> `/home/mudler/bench/phase123_moe_executor_fused_down_input/20260702_025811`;
+> red check:
+> `/home/mudler/bench/phase123_moe_executor_fused_down_input/red_20260702_025031`.
+> The candidate used `LLAMA_MOE_WHOLE_PATTERN_FUSED_DOWN=1` to run `gate_up`,
+> compute `silu(gate) * up` directly into the sorted NVFP4 down MMQ activation
+> buffer, and launch the existing down MMQ kernel. Correctness passed
+> (`13/13` selected, `7/7` fused-down, six fused markers), but perf was flat:
+> versus Phase121 exec, `MOE_SWIGLU_DOWN n=128` was
+> `811.153 -> 810.618 us` and `n=257` was `1023.090 -> 1023.657 us`.
+> Source was reverted, including the fused-down env, MMQ helper, and NVFP4
+> fused quant kernel. Post-reject gates passed (`13/13` selected, `7/7`
+> Phase121 exec, six exec markers). Do not retry a single-boundary
+> SwiGLU-to-down-quant shortcut; if continuing MoE source work, scope a full
+> expert-major packed pipeline that owns `GEMM1->activation->GEMM2`, or pivot to
+> another measured bottleneck.
+>
+> 2026-07-02 Phase124 update: current-stack graph-node serving was refreshed
+> after the Phase122/123 rejections. Artifact:
+> `/home/mudler/bench/phase124_current_moe_profile/20260702_031205`.
+> Pre/post gates are green: MoE md5 `8cb0ce23`, dense md5 `5951a5b4`,
+> `MUL_MAT 1146/1146`, `MUL_MAT_ID 806/806`. At `N=128`, prompt `128`,
+> generation `64`, serving under graph-node profiling was
+> `agg_tps 206.2`, `decode_agg_tps 320.3`, `prefill_tps 1536.4`, wall
+> `39.738s`. Fine buckets are now `mmq_nvfp4 6074.78 ms` (`30.17%`) and
+> `gdn_core 5888.31 ms` (`29.25%`), with `act_quant` only `674.88 ms`
+> (`3.35%`). This explains why single-boundary activation/quant attempts were
+> flat. The next source work must reduce one of the two dominant buckets:
+> either a full expert-major MoE pipeline for `mmq_nvfp4`, or a default-off GDN
+> decode/core experiment for `gdn_core`. Do not spend more GB10 time on
+> route-only metadata reuse, fused-down quantization, or MoE tile-policy knobs
+> unless a new profile makes those buckets material.
+>
+> 2026-07-02 Phase125 scoping update: two independent code explorers and a
+> local GDN audit challenged the Phase124 fork in the road. The chosen next
+> source attempt is the MoE side, but only as a first maintainable slice:
+> implement a default-off MMQ sorted-output primitive behind
+> `LLAMA_MOE_EXPERT_MAJOR_SORTED_OUT=1`, immediately unsort as a proof, and
+> measure `MOE_SWIGLU_DOWN` before attempting the full
+> `gate_up -> SWIGLU -> down` expert-major executor. Rationale: vLLM's portable
+> advantage is keeping activations expert-major across both GEMMs and
+> unpermuting once; Phase122/123 failed because they only touched route metadata
+> or one activation boundary. Do not copy CUTLASS/FlashInfer pointer-array, TMA,
+> or FP4 scale-swizzle internals. A small GDN patch is not funded by current
+> evidence because previous decode/core micro-attempts already rejected the
+> obvious geometry/store/broadcast/conv-state shortcuts. Plan:
+> `docs/superpowers/plans/2026-07-02-moe-expert-major-sorted-output-phase125.md`.
+>
+> 2026-07-02 Phase125 result: reject the MMQ sorted-output plus immediate
+> unsort proof. Artifact:
+> `/home/mudler/bench/phase125_moe_expert_major_sorted_output/20260702_033931`;
+> post-reject:
+> `/home/mudler/bench/phase125_moe_expert_major_sorted_output/post_reject_20260702_034232`.
+> The candidate was default-off and correctness-clean (`13/13` default
+> selected, `7/7` opt-in `MOE_SWIGLU_DOWN`, 12 sorted markers), but perf failed
+> decisively: versus Phase121 exec, `MOE_SWIGLU_DOWN n=128` regressed
+> `805.16 -> 888.76 us` and `n=257` regressed `1023.83 -> 1192.05 us`.
+> Source was reverted. Post-reject gates are green: selected `13/13`, Phase121
+> exec `7/7` with six markers, MoE md5 `8cb0ce23`, dense md5 `5951a5b4`,
+> `MUL_MAT 1146/1146`, and `MUL_MAT_ID 806/806`. Do not retry a path that adds
+> a sorted-output temporary and immediately unsorts. A future expert-major MoE
+> attempt must keep sorted activations through the down GEMM and unpermute only
+> once after the full FFN, or pivot to a larger GDN recurrence design.
+
+> 2026-07-02 Phase126 result: keep the grouped-MMQ presorted helper scaffold.
+> The patch only touches `mmq.cu`/`mmq.cuh`, refactors the current MoE id path
+> behind explicit `ids_src1`/`ids_dst`/`expert_bounds` metadata, and exposes a
+> `src1_sorted` entry point for the future whole-MoE executor. Fixed artifact:
+> `/home/mudler/bench/phase126_mmq_presorted_helper/fix1_20260702_040858`.
+> Gates were green: selected `13/13`, MoE md5
+> `8cb0ce23777bf55f92f63d0292c756b0`, dense md5
+> `5951a5b4d624ce891e22ab5fca9bc439`, `MUL_MAT 1146/1146`,
+> `MUL_MAT_ID 806/806`. Focused perf was neutral:
+> `MOE_SWIGLU_DOWN n=128 805.99 us`, `MUL_MAT_ID_RAGGED_MOE n=128
+> 1243.85 us`, `MOE_SWIGLU_DOWN n=257 1018.74 us`,
+> `MUL_MAT_ID_RAGGED_MOE n=257 1452.84 us`. This is not a parity win by
+> itself; it is the dependency for Phase127 to keep `gate_up -> SWIGLU -> down`
+> in expert-major order and unpermute only once after the full FFN.
+
+> 2026-07-02 Phase127 result: reject and revert the whole-MoE expert-major
+> executor built on the Phase126 helper. Red:
+> `/home/mudler/bench/phase127_moe_whole_expert_major/red_20260702_042125`
+> passed by fallback with zero markers. Candidate green:
+> `/home/mudler/bench/phase127_moe_whole_expert_major/green2_20260702_042916`
+> passed default selected `13/13` and opt-in `MOE_SWIGLU_DOWN 7/7`, emitting
+> six `LLAMA_MOE_WHOLE_EXPERT_MAJOR` markers after fixing the down-weight shape
+> interpretation (`down_w` is `[n_ff, n_embd, experts]`). Perf artifact:
+> `/home/mudler/bench/phase127_moe_whole_expert_major/perf_20260702_043104`.
+> It failed the keep rule: `MOE_SWIGLU_DOWN n=128` regressed
+> `802.57 -> 812.14 us`; `n=257` regressed `1023.25 -> 1039.36 us`;
+> ragged standalone was essentially flat. Source was reverted. Post-reject:
+> `/home/mudler/bench/phase127_moe_whole_expert_major/post_reject_20260702_043318`
+> passed selected `13/13`, MoE md5 `8cb0ce23`, dense md5 `5951a5b4`,
+> `MUL_MAT 1146/1146`, and `MUL_MAT_ID 806/806`. Do not retry the same
+> fake-tensor whole-executor shape; the next MoE attempt must remove more
+> temporary traffic or become a real fused grouped MMQ/SWIGLU/down path. A
+> separate alternative is the previously scoped Qwen3Next BF16 GDN S-cache
+> experiment, but that needs non-md5 numerical gates.
+
+> 2026-07-02 Phase128 result: reject/revert the Qwen3Next BF16 GDN S-cache
+> selector probe for the current target. Artifact:
+> `/home/mudler/bench/phase128_qwen3next_gdn_bf16_s_cache/default_20260702_043939`
+> built and passed default gates (`GATED_DELTA_NET 48/48`, canonical MoE md5
+> `8cb0ce23`, dense md5 `5951a5b4`, `MUL_MAT`, `MUL_MAT_ID`). Verbose smoke
+> artifact:
+> `/home/mudler/bench/phase128_qwen3next_gdn_bf16_s_cache/smoke3_20260702_044434`
+> showed the active decision model is `qwen35moe`, not Qwen3Next, and S cache
+> remained `f32` under `LLAMA_QWEN3NEXT_GDN_S_CACHE_TYPE=bf16`. No true
+> Qwen3Next GGUF was found on DGX. The relevant Qwen35/Qwen35MoE BF16 S-cache
+> lever was already Phase81/82: it cut `gdn_core` but changed MoE md5 and
+> missed the full f16-reference KL acceptance band. Do not retry this exact
+> lever unless the quality gate is explicitly re-scoped or a real Qwen3Next
+> model artifact is available.
+
+> 2026-07-02 Phase129 result: reject/revert the Qwen35/Qwen35MoE grouped Q/K
+> broadcast probe for fused GDN. Plan:
+> `docs/superpowers/plans/2026-07-02-qwen35-gdn-qk-grouped-bcast-phase129.md`.
+> The candidate added a default-off `LLAMA_QWEN35_GDN_QK_BCAST=1` branch in
+> `src/models/qwen35.cpp` and `src/models/qwen35moe.cpp`, reusing the existing
+> Qwen3Next `ggml_gated_delta_net_set_bcast()` path. Default gates were green:
+> `/home/mudler/bench/phase129_qwen35_gdn_qk_bcast/default_20260702_065445`
+> passed MoE md5 `8cb0ce23`, dense md5 `5951a5b4`, `GATED_DELTA_NET 46/46`,
+> `MUL_MAT 1146/1146`, and `MUL_MAT_ID 806/806`. A standalone opt-in gate
+> artifact at `optin_20260702_065604` was invalid because
+> `paged-inference-gates.sh` only passes completion env through `EXTRA_ENV`.
+> The valid opt-in pre-gate from
+> `/home/mudler/bench/phase129_qwen35_gdn_qk_bcast/decode_optin_20260702_070149/gate_pre`
+> changed MoE md5 to `b773e2f032aa0e992626d486b321808e`, so profiling was
+> stopped and the source was reverted. Post-reject:
+> `/home/mudler/bench/phase129_qwen35_gdn_qk_bcast/post_reject_20260702_070258`
+> passed canonical MoE/dense md5, `GATED_DELTA_NET 46/46`, `MUL_MAT 1146/1146`,
+> and `MUL_MAT_ID 806/806`; rebuilt `libllama.so` has zero
+> `LLAMA_QWEN35_GDN_QK_BCAST` strings. Do not retry this Qwen3Next
+> grouped-broadcast port for Qwen35/Qwen35MoE under the current bit-exact md5
+> rule.
+
+> 2026-07-02 Phase130 result: current-stack graph-node serving profile refresh,
+> measurement-only. Artifact:
+> `/home/mudler/bench/phase130_current_stack_profile/20260702_070949`. Shape:
+> MoE `q36-35b-a3b-nvfp4`, `N=128`, prompt `128`, generation `64`,
+> `PARALLEL=128`, `CTX=131072`. Pre/post gates passed canonical MoE md5
+> `8cb0ce23`, dense md5 `5951a5b4`, `MUL_MAT 1146/1146`, and
+> `MUL_MAT_ID 806/806`. Serving metrics: `agg_tps 208.0`,
+> `decode_agg_tps 326.9`, `prefill_tps 1519.6`, `TTFT mean 8170.6 ms`, wall
+> `39.38 s`, total kernel time `20.1559 s`. The profile confirms the live
+> bottleneck remains split between `mmq_nvfp4 6009.52 ms` (`29.82%`) and
+> `gdn_core 5891.40 ms` (`29.23%`). FA/mask cleanup is not funded:
+> `get_rows 280.62 ms` (`1.39%`) and `fa 257.38 ms` (`1.28%`). The next source
+> attempt must target a larger MoE/FFN-GEMM executor/kernel or a materially
+> different GDN recurrent-state/packed-decode design, not another paged-mask,
+> route-only, activation-only, grouped-broadcast, BF16-cache, or launch-geometry
+> shortcut.
+
+> 2026-07-02 Phase131 result: source-selection challenge, no source changes.
+> Plan:
+> `docs/superpowers/plans/2026-07-02-fused-routed-ffn-phase131.md`. Two
+> read-only explorers challenged the Phase130 fork. MoE/FFN-GEMM source work is
+> not funded unless it becomes a real fused routed-FFN kernel/executor; another
+> route-only, activation-only, W4A16, tile-policy, sorted-output, or fake
+> executor patch is expected to repeat Phases 110-127. GDN source work is not
+> funded unless it materially reduces f32 recurrent-state traffic without
+> BF16/quality drift; launch geometry, gather/identity, producer/store fusion,
+> BF16 S-cache, and grouped Q/K broadcast have already failed or changed md5s.
+> The next active line is to audit vLLM's fused MoE design and llama.cpp's
+> current whole-pattern executor hook for a default-off fused routed-FFN PoC.
+> If that audit does not produce a concrete low-conflict hook, require a
+> standalone CUDA PoC before touching llama.cpp source.
+>
+> 2026-07-02 Phase132 result: keep the new default-off routed-FFN PoC scaffold.
+> Plan:
+> `docs/superpowers/plans/2026-07-02-routed-ffn-poc-phase132.md`. Artifact:
+> `/home/mudler/bench/phase132_routed_ffn_poc/20260702_072725`. Source adds
+> `ggml/src/ggml-cuda/moe-ffn.cu/.cuh` and a narrow hook in
+> `ggml/src/ggml-cuda/ggml-cuda.cu` behind `LLAMA_MOE_ROUTED_FFN_POC=1`.
+> The helper currently executes the baseline `gate_up -> SWIGLU -> down`
+> sequence through the existing whole-pattern hook, so it is a scaffold, not a
+> parity speedup. Initial incremental build failed until CMake was reconfigured
+> to pick up the new globbed CUDA source; after `cmake -S . -B build`, build
+> passed. Selected default and opt-in gates passed
+> `MOE_SWIGLU_DOWN,MUL_MAT_ID_RAGGED_MOE 13/13`; opt-in emitted six exec
+> markers and `libggml-cuda.so` contains one `LLAMA_MOE_ROUTED_FFN_POC` string.
+> Default and opt-in canonical gates passed MoE md5 `8cb0ce23`, dense md5
+> `5951a5b4`, `GATED_DELTA_NET 48/48`, `MUL_MAT 1146/1146`, and
+> `MUL_MAT_ID 806/806`. Focused perf was neutral (`808.32 -> 804.87 us` at
+> n=128, `1023.36 -> 1022.71 us` at n=257). Next phase may replace the helper
+> internals with a real fused routed-FFN slice; do not claim Phase132 itself as
+> a speedup.
+>
+> 2026-07-02 Phase133 result: keep only as a default-off structural base, not a
+> speedup. Plan:
+> `docs/superpowers/plans/2026-07-02-routed-ffn-sorted-down-phase133.md`.
+> Artifact:
+> `/home/mudler/bench/phase133_routed_ffn_sorted_down/20260702_074651`.
+> Source exposes `ggml_cuda_mmq_ids_meta`, adds raw
+> `ggml_cuda_mul_mat_q_moe_sorted_f32(...)`, and adds
+> `LLAMA_MOE_ROUTED_FFN_SORTED_DOWN=1` on top of
+> `LLAMA_MOE_ROUTED_FFN_POC=1`. The path executes baseline `gate_up` and
+> `SWIGLU`, gathers the SWIGLU output into compact expert-sorted F32 rows, then
+> calls raw MMQ down without fake tensors. Selected default, Phase132, and
+> Phase133 gates passed `13/13`; Phase133 trace proved six
+> `mmq_moe_sorted_raw` launches. Default and Phase133 canonical gates passed
+> MoE md5 `8cb0ce23`, dense md5 `5951a5b4`, `GATED_DELTA_NET 48/48`,
+> `MUL_MAT 1146/1146`, and `MUL_MAT_ID 806/806`. Perf was not a win:
+> default `807.37/1020.76 us`, Phase132 `808.21/1018.87 us`, Phase133
+> `808.85/1026.87 us` for `n=128/257`. Next phase must fuse SWIGLU-to-sorted
+> or SWIGLU-to-quant to remove this added gather/quant boundary; do not promote
+> sorted-down as-is.
+>
+> 2026-07-02 Phase134 result: keep only as default-off fused-SWIGLU structural
+> base, not a speedup. Plan:
+> `docs/superpowers/plans/2026-07-02-routed-ffn-fused-swiglu-phase134.md`.
+> Artifact:
+> `/home/mudler/bench/phase134_routed_ffn_fused_swiglu/20260702_075828`.
+> Source adds `LLAMA_MOE_ROUTED_FFN_FUSED_SWIGLU=1` on top of
+> `LLAMA_MOE_ROUTED_FFN_POC=1`, passes `gate/up` views into the routed-FFN
+> helper, computes `silu(gate) * up` directly into expert-sorted F32 rows, and
+> calls the raw sorted-F32 down MMQ helper. The fused flag now implies the
+> sorted-down path; `LLAMA_MOE_ROUTED_FFN_SORTED_DOWN=1` is not required.
+> Selected opt-in gates passed `13/13`; trace proved six `mmq_moe_sorted_raw`
+> launches; canonical opt-in gates passed MoE md5 `8cb0ce23`, dense md5
+> `5951a5b4`, `GATED_DELTA_NET 48/48`, `MUL_MAT 1146/1146`, and
+> `MUL_MAT_ID 806/806`. Perf is mixed: default `804.92/1026.02 us`, Phase132
+> `808.00/1028.43 us`, Phase133 `808.07/1029.02 us`, Phase134
+> `810.61/1025.68 us` for `n=128/257`. It recovers n=257 but regresses n=128;
+> next work must fuse SWIGLU directly into down-MMQ quant or remove another
+> launch/buffer before this becomes a parity lever.
+>
+> 2026-07-02 Phase135 result: keep as current best default-off routed-FFN base,
+> but not parity. Plan:
+> `docs/superpowers/plans/2026-07-02-routed-ffn-fused-quant-phase135.md`.
+> Focused artifact:
+> `/home/mudler/bench/phase135_routed_ffn_fused_quant/20260702_081723`.
+> Serving artifact:
+> `/home/mudler/bench/phase135_routed_ffn_fused_quant_serving/20260702_082102`.
+> Source adds `LLAMA_MOE_ROUTED_FFN_FUSED_QUANT=1` on top of
+> `LLAMA_MOE_ROUTED_FFN_POC=1`, computes `silu(gate) * up` directly into the
+> NVFP4 MMQ activation layout, and launches raw down MMQ via
+> `ggml_cuda_mul_mat_q_moe_quantized(...)`. Focused selected gates passed
+> `13/13`; trace proved six `mmq_moe_quantized_raw` launches and zero
+> `mmq_moe_sorted_raw` launches; canonical focused gates passed MoE md5
+> `8cb0ce23`, dense md5 `5951a5b4`, `GATED_DELTA_NET 48/48`,
+> `MUL_MAT 1146/1146`, and `MUL_MAT_ID 806/806`. Focused perf:
+> default `805.92/1031.06 us`, Phase134 `807.65/1027.51 us`, Phase135
+> `807.92/1024.97 us` for `n=128/257`. Serving at the Phase130 shape passed
+> pre/post gates and improved decode aggregate t/s `326.9 -> 332.7`, while
+> `mmq_nvfp4` dropped `6009.52 -> 5915.24 ms`; aggregate stayed `208.0`, prefill
+> worsened `1519.6 -> 1475.1`, and total kernel time rose slightly
+> `20.1559 -> 20.2498 s`. Next work should target remaining MoE overhead after
+> fused quant (`mmq_fixup`, route/writeback, weighted combine), not another F32
+> intermediate.
+>
+> 2026-07-02 Phase136 result: reject and revert the separate post-down
+> weighted-combine fuse. Plan:
+> `docs/superpowers/plans/2026-07-02-routed-ffn-combine-phase136.md`.
+> Focused artifact:
+> `/home/mudler/bench/phase136_routed_ffn_combine/20260702_083727`.
+> Serving artifact:
+> `/home/mudler/bench/phase136_routed_ffn_combine_serving/20260702_085749`.
+> The candidate added `LLAMA_MOE_ROUTED_FFN_COMBINE=1` on top of Phase135 and
+> skipped the post-down `MUL(weights) -> VIEW* -> ADD*` tail with a separate
+> F32 weighted-combine kernel. It was correctness-clean: expanded selected
+> gates passed `20/20`, trace proved six combine markers plus six
+> `mmq_moe_quantized_raw` launches and zero sorted launches, canonical gates
+> passed MoE md5 `8cb0ce23`, dense md5 `5951a5b4`, `GATED_DELTA_NET 46/46`,
+> `MUL_MAT 1146/1146`, and `MUL_MAT_ID 806/806`. Focused full-tail perf
+> improved (`MOE_SWIGLU_COMBINE n=257` `428.53 -> 401.81 us` versus Phase135),
+> but serving regressed versus Phase135: aggregate/decode t/s
+> `208.0/332.7 -> 206.5/323.2`. Source and the sentinel test were reverted;
+> post-reject Phase135 selected gates passed `13/13`. Do not retry a standalone
+> post-MMQ combine launch as the next parity lever; any combine/finalize work
+> needs a larger serving-visible fused writeback/finalize design.
+>
+> 2026-07-02 Phase137 result: reject the GDN launch-geometry retune with no
+> source changes. Plan:
+> `docs/superpowers/plans/2026-07-02-gdn-geometry-sweep-phase137.md`.
+> Focused artifact:
+> `/home/mudler/bench/phase137_gdn_geometry_sweep/20260702_091441`.
+> Serving artifact:
+> `/home/mudler/bench/phase137_gdn_geometry_serving/20260702_091740`.
+> The env-only sweep tested existing `GDN_NW`/`GDN_CPW` knobs. The best focused
+> candidate, `GDN_NW=4 GDN_CPW=1`, improved 1-token GDN rows
+> (`hc=32,hs=128,kda=0` `6.793748 -> 4.713682 us`, KDA
+> `7.790557 -> 5.194275 us`, grouped broadcast `5.967364 -> 3.407998 us`),
+> but real serving regressed versus Phase135 despite clean pre/post gates:
+> MoE md5 `8cb0ce23`, dense md5 `5951a5b4`, `MUL_MAT 1146/1146`, and
+> `MUL_MAT_ID 806/806`. Aggregate/decode t/s moved
+> `208.0/332.7 -> 206.2/324.9`, total kernel time rose
+> `20.2498 -> 20.7530 s`, and `gdn_core` worsened
+> `5926.55 -> 6466.27 ms`. Do not promote or source-code a GDN geometry retune
+> for this target. The next scoped source line is default-off MoE
+> finalize/writeback inside the existing down-MMQ path, not a standalone
+> post-MMQ combine launch.
+>
+> 2026-07-02 Phase138 attempt 1 update: keep the default-off finalize trace and
+> full-tail sentinel scaffold; no runtime speedup claim yet. Plan:
+> `docs/superpowers/plans/2026-07-02-moe-down-mmq-finalize-phase138.md`.
+> Artifacts:
+> `/home/mudler/bench/phase138_moe_down_mmq_finalize_trace/20260702_092943`
+> (`MOE_SWIGLU_DOWN` trace-only),
+> `/home/mudler/bench/phase138_moe_down_mmq_finalize_trace/20260702_093617_full_tail`
+> (new full-tail sentinel), and
+> `/home/mudler/bench/phase138_moe_down_mmq_finalize_trace/20260702_093731_canonical`
+> (canonical gates). The old `MOE_SWIGLU_DOWN` sentinel emitted six early
+> routed-FFN records but no weighted tail. The new `MOE_SWIGLU_FINALIZE`
+> sentinel passed default and Phase135-opt-in correctness (`7/7` each) and
+> emitted six supported tail records with `tail_nodes=16`, `views=8`, and
+> `adds=7`. Canonical patched-Phase93 gates passed MoE md5 `8cb0ce23`, dense
+> md5 `5951a5b4`, `MUL_MAT 1146/1146`, and `MUL_MAT_ID 806/806`. Next work may
+> implement default-off down-MMQ finalize/writeback against this sentinel first;
+> keep serving promotion gated by Phase135 decode/aggregate/kernel-time
+> thresholds.
+>
+> 2026-07-02 Phase138 attempt 2 update: keep the default-off down-MMQ
+> finalize/writeback candidate as a narrow positive, but do not promote it or
+> call parity. Plan:
+> `docs/superpowers/plans/2026-07-02-moe-down-mmq-finalize-phase138.md`.
+> Focused artifact:
+> `/home/mudler/bench/phase138_moe_down_mmq_finalize/20260702_095927_focused`;
+> canonical gates:
+> `/home/mudler/bench/phase138_moe_down_mmq_finalize/20260702_100202_canonical`;
+> serving:
+> `/home/mudler/bench/phase138_moe_down_mmq_finalize_serving/20260702_100330`.
+> The candidate adds `LLAMA_MOE_ROUTED_FFN_FINALIZE_POC=1` on top of Phase135,
+> zeroes the final output, atomically accumulates `down_sum * router_weight`
+> from the down-MMQ path, and skips the strict weighted tail only after the
+> finalize helper is selected. Focused `MOE_SWIGLU_FINALIZE` correctness passed
+> for default, Phase135, and Phase138 (`7/7` each); canonical and serving
+> pre/post gates passed MoE md5 `8cb0ce23`, dense md5 `5951a5b4`,
+> `MUL_MAT 1146/1146`, and `MUL_MAT_ID 806/806`. Serving versus Phase135 moved
+> aggregate/decode t/s `208.0/332.7 -> 209.3/333.5`, total kernel time
+> `20.2498 -> 20.0489 s`, and `mmq_nvfp4 5915.24 -> 5802.87 ms`; however
+> `ew_add` remains visible at `374.09 ms`, so this is only an incremental
+> default-off improvement. Next work should reduce the remaining fan-in/writeback
+> path more deeply or return to the dominant `gdn_core`/`mmq_nvfp4` buckets.
+>
+> 2026-07-02 Phase139 result: serving noise-floor repeat rejects treating the
+> Phase138 one-off serving gain as source-funding evidence. Spec:
+> `docs/superpowers/specs/2026-07-02-serving-noise-floor-phase139-design.md`.
+> Plan:
+> `docs/superpowers/plans/2026-07-02-serving-noise-floor-phase139.md`.
+> Artifact:
+> `/home/mudler/bench/phase139_serving_noise_floor/20260702_081901`.
+> Seven identical current-binary Phase138 serving/profile runs all passed
+> pre/post gates: MoE md5 `8cb0ce23`, dense md5 `5951a5b4`,
+> `MUL_MAT 1146/1146`, and `MUL_MAT_ID 806/806`. The runtime variance was much
+> larger than Phase138's one-off delta: aggregate throughput median
+> `208.5 t/s`, stdev `2.8022`, CV `1.349%`, range `203.4..212.3`; wall CV
+> `1.347%`; `mmq_nvfp4` CV `3.351%`. Keep Phase138 default-off as
+> correctness-clean and focused-positive, but do not stack another
+> finalize/MMQ micro-patch from serving evidence alone. Future serving claims
+> need repeated A/B medians and must exceed `max(2.0%, 3 * same-binary stdev)`.
+> The next source phase should pivot to a larger measured bucket, with GDN
+> packed decode/prep now more defensible than another MoE finalize shortcut.
+>
+> 2026-07-02 Phase140 result: reject an immediate in-GDN Q/K
+> L2-normalization patch. Spec:
+> `docs/superpowers/specs/2026-07-02-gdn-decode-prep-trace-phase140-design.md`.
+> Plan:
+> `docs/superpowers/plans/2026-07-02-gdn-decode-prep-trace-phase140.md`.
+> Artifact:
+> `/home/mudler/bench/phase140_gdn_decode_prep_trace/20260702_085348`.
+> The current Phase138 opt-in serving/profile shape passed pre/post gates:
+> MoE md5 `8cb0ce23`, dense md5 `5951a5b4`, `MUL_MAT 1146/1146`, and
+> `MUL_MAT_ID 806/806`. Serving/profile reported aggregate/decode throughput
+> `207.3/328.9 t/s`, wall `39.501 s`, total kernel `20.2002 s`, `GDN
+> 6673.66 ms`, `gdn_core 5890.44 ms`, and `gdn_l2norm 100.30 ms`. The focused
+> SQLite summary had `l2_norm_f32 100.3024 ms` versus
+> `gated_delta_net_cuda 5804.7074 ms`. This is above the absolute
+> three-sigma floor from Phase139 (`53.433 ms`) but below the planned `3%` of
+> GDN-core materiality threshold at about `1.7%`, so prep-only L2 fusion is not
+> source-funded. Next GDN work should be recurrence-level, packed-state, or
+> datacenter-Blackwell-specific, not another prep micro-fusion.
+>
+> 2026-07-02 Phase141 result: decode-only GDN source claims must normalize by
+> launch count or tightly control the capture window. Spec:
+> `docs/superpowers/specs/2026-07-02-gdn-decode-noise-floor-phase141-design.md`.
+> Plan:
+> `docs/superpowers/plans/2026-07-02-gdn-decode-noise-floor-phase141.md`.
+> Artifact:
+> `/home/mudler/bench/phase141_gdn_decode_noise_floor/20260702_090428`.
+> Five identical current-binary decode-only captures all passed pre/post gates:
+> MoE md5 `8cb0ce23`, dense md5 `5951a5b4`, `MUL_MAT 1146/1146`, and
+> `MUL_MAT_ID 806/806`. Raw `gdn_core_ms` median/stdev/CV was
+> `1415.500/30.641/2.146%`, range `1410.300..1482.140 ms`, but launch counts
+> drifted (`597`, `598`, `600`, `630`). Normalized `gdn_core_ms_per_launch`
+> was stable: median/stdev/CV `2.359167/0.005399/0.229%`. Future GDN A/B
+> source claims need repeated medians and must beat either `6.49%` raw
+> `gdn_core` reduction or `2.0%` launch-normalized reduction. The small
+> default-off source follow-up now worth testing is scalar gate/beta hoisting
+> inside `gated_delta_net_cuda`; vLLM-style packed decode recurrence remains a
+> larger redesign.
 
 Audience: an agent with **zero prior context** who has been told to "continue the GB10 vLLM-parity investigation" on the `llama-cpp-localai-paged` backend.
 
@@ -20,6 +589,69 @@ Read order for a cold start:
 
 ## 1. TL;DR STATE
 
+> 2026-07-01 Phase104-108 update: the current carried source line is still the
+> Phase93 Qwen3Next grouped Q/K broadcast plus the Phase101/102 default-off
+> cleanup candidates. Phase104/106 same-session serving showed the stack is
+> md5/op clean but still far from vLLM: at `N=128`, paged/vLLM was about
+> `0.66` on decode and `0.50-0.51` on aggregate; at `N=192/256`, vLLM remained
+> faster and TTFT stayed about `3x` lower. Phase105 refreshed the grouped-MMQ
+> trace and found no new host-side tile-policy lever. Phase107 proved the MoE
+> structural correctness gates exist (`MOE_SWIGLU_DOWN 7/7`,
+> `MOE_WEIGHTED_COMBINE 7/7`, `MUL_MAT_ID_RAGGED_MOE 6/6`) but also proved
+> `test-backend-ops perf` did not time those custom whole-graph cases. Phase108
+> fixed that measurement gap in `tests/test-backend-ops.cpp`: perf mode now
+> includes those MoE cases at `n_tokens=128,257`, and CSV output includes
+> `time_us`, `flops`, `memory_kb`, and `n_runs`. The Phase108 artifact is
+> `/home/mudler/bench/phase108_moe_perf_csv/20260701_221559`; md5s and compact
+> op gates are green. Use Phase108 rows as the baseline for any fused routed-MoE
+> implementation. Current ranking: `MUL_MAT_ID_RAGGED_MOE` is `1239-1446 us/run`,
+> `MOE_SWIGLU_DOWN` is `802-1020 us/run`, and `MOE_WEIGHTED_COMBINE` is only
+> `28-68 us/run`, so do not spend the next patch on weighted-combine fusion
+> alone.
+> Phase109 then tested existing env-gated routes on the Phase108 rows:
+> `LLAMA_W4A16_PREFILL_M=128`, `LLAMA_FP4_PREFILL_M=128`,
+> `LLAMA_MOE_DENSITY_MAX=9`, and `LLAMA_MOE_MMQ_X=64`
+> (`/home/mudler/bench/phase109_existing_moe_prefill_ab/20260701_222559`).
+> All selected correctness gates passed (`13/13` per env), but W4A16 and FP4
+> large-M regressed the 257-token rows badly, and density/tile retuning was
+> noise-level on `MUL_MAT_ID_RAGGED_MOE` while not helping `MOE_SWIGLU_DOWN`.
+> Do not spend another phase on MMQ tile-policy shortcuts. The next credible
+> implementation is structural: port the vLLM-style idea of GPU-side
+> token/expert routing metadata (`sorted_token_ids`, expert offsets/bounds,
+> inverse permutation) into llama.cpp's `mul_mat_id` host-sync fallback/grouped
+> W4A16 path, while leaving the graph-safe grouped-MMQ path untouched.
+> Phase110 implemented the first slice of that structural path as default-off
+> `LLAMA_MOE_GPU_SORT=1` in `ggml_cuda_mul_mat_id`, reusing the existing
+> `mm_ids_helper` GPU sort for fallback metadata. The initial branch failed
+> `3/13` selected opt-in rows because `mm_ids_helper` returns sorted-to-original
+> `ids_dst`, while fallback `get_rows_cuda()` needs original-to-sorted
+> `ids_from_sorted`; adding a tiny inverse-permutation kernel fixed correctness.
+> Accepted artifact:
+> `/home/mudler/bench/phase110_gpu_moe_sort/20260701_224446_fix1`. Gates are
+> green: canonical MoE md5 `8cb0ce23777bf55f92f63d0292c756b0`, dense md5
+> `5951a5b4d624ce891e22ab5fca9bc439`, and supported compact ops
+> `SSM_CONV 45/45`, `SSM_CONV_SPLIT 6/6`, `GET_ROWS 49/49`,
+> `GATED_DELTA_NET 48/48`, `MUL_MAT 1146/1146`, `MUL_MAT_ID 806/806` for both
+> default and `LLAMA_W4A16_PREFILL_M=128 LLAMA_MOE_GPU_SORT=1`. Perf decision:
+> keep as a default-off structural base only. It improves W4A16 fallback
+> 257-token rows by `7.2%` (`MOE_SWIGLU_DOWN`) and `7.9%`
+> (`MUL_MAT_ID_RAGGED_MOE`), but the opt-in fallback is still about `1.5x`
+> slower than default grouped-MMQ. Phase111 must remove another fallback
+> bottleneck, such as the remaining `expert_bounds` host copy / host tile
+> descriptor build, before this line can matter for parity.
+> Phase111 tested that narrow follow-up as default-off `LLAMA_W4A16_GPU_TILES=1`:
+> W4A16 tile descriptors were built on GPU from `expert_bounds_dev` with an
+> atomic tile counter. It was correctness-clean after fixing a pointer mutability
+> compile error and a CUDA pool LIFO allocation bug, but clean perf was
+> flat-to-negative (`MUL_MAT_ID_RAGGED_MOE n=257` regressed about `2.0%` versus
+> Phase110 GPU-sort). Artifact:
+> `/home/mudler/bench/phase111_w4a16_gpu_tiles/20260701_230400_fix1`. The
+> Phase111 source was reverted, and post-revert W4A16+GPU-sort selected gates
+> passed `13/13`. Do not reopen a standalone GPU tile descriptor cleanup; the
+> next W4A16 attempt must remove a larger boundary, such as direct activation
+> consumption plus GPU descriptors together, or bypass the host-sync fallback
+> path entirely.
+>
 > 2026-07-01 active update: Phase50-59 reopened the dense and MoE serving
 > scheduler question.
 > True dense decode is much closer to vLLM (`383.66` vs `435.00` t/s, `88.2%`)
@@ -46,7 +678,7 @@ Read order for a cold start:
 > are local and DGX-gated but not pushed, so the LocalAI patch series has not
 > been regenerated.
 >
-> 2026-07-01 Phase81 update: the next viable GDN lever is no longer launch
+> 2026-07-01 Phase81-85 update: the next viable GDN lever is no longer launch
 > shape or gather removal. A default-off Qwen35/Qwen35MoE BF16 persistent
 > recurrent S-cache experiment (`LLAMA_QWEN35_GDN_S_CACHE_TYPE=bf16`) cut
 > same-source decode-only `gdn_core` from `1399.30 ms / 599 launches`
@@ -54,9 +686,257 @@ Read order for a cold start:
 > F32 md5 gates and op gates stayed green, and BF16 dense md5 stayed canonical,
 > but BF16 MoE md5 changed to `07db32c2bcb78d17a43ed18bc22705cd`. A quick
 > MoE KL smoke vs the same-source F32 base showed KLD `0.055499 +/- 0.001705`,
-> same-top-p `88.361%`, and PPL ratio `1.010356`. Treat this as a promising
-> default-off candidate only. Phase82 must run the full f16-reference KL gate
-> plus serving A/B before regenerating LocalAI patches or considering promotion.
+> same-top-p `88.361%`, and PPL ratio `1.010356`. Phase82 then ran the full MoE
+> f16-reference gate at
+> `/home/mudler/bench/phase82_bf16_s_cache_f16_kl/20260701_183016`: same-source
+> F32 measured KLD `0.136563 +/- 0.003242`, while BF16 S-cache measured
+> `0.137162 +/- 0.003456` against the documented paged acceptance reference
+> `0.136000 +/- 0.003285`. Reject promotion and do not run serving A/B for this
+> candidate under the current hard KL rule. Phase83 then tested a bit-exact
+> KDA `expf(g)` register-cache shortcut in the GDN CUDA core. Md5 and op gates
+> stayed green, but same-window decode-only `gdn_core` moved
+> `1399.46 -> 1405.62 ms`, so reject that micro-optimization too. Phase84
+> reduced in-place GDN op outputs to attention-only tensors and moved the CPU
+> ids fallback scratch to workspace; md5/op gates stayed green and startup free
+> CUDA memory improved `117472 -> 117855 MiB`, but same-window decode-only
+> `gdn_core` moved `1399.72 -> 1407.38 ms`. Treat Phase84 as a possible
+> memory-footprint cleanup only, not a speed parity lever. Phase85 added a
+> graph-reuse-safe identity-contiguous recurrent-state fast path: it calls
+> `ggml_gated_delta_net_inplace` on a direct state view when `s_copy_main` is
+> identity, otherwise keeps the ids path. Md5/op gates stayed green, the
+> `gdn_gather` fine bucket disappeared, GDN macro launches dropped
+> `3600 -> 2980`, and same-window `gdn_core` moved `1412.33 -> 1400.34 ms`.
+> Carry Phase85 only as a small cleanup candidate. Phase86 audited the producer
+> fusion idea against the Phase85 node-traced profile before coding it: the
+> whole `act/GDN-gate(shared)` macro is only `13.57 ms` of `3.6622 s`, beta
+> sigmoid is `2.73 ms`, and CUDA already fuses `UNARY + MUL` for softplus,
+> sigmoid, and SILU. Reject producer-only fusion as too small. Phase87 then
+> exposed an env-gated `GDN_NW=4 GDN_CPW=8` decode geometry probe to test a
+> vLLM-like `BV=32` tile shape. It was md5/op green, but same-source
+> decode-only `gdn_core` regressed `1390.56 -> 1417.13 ms`, so the source line
+> was reverted. Phase88 tried a first default-off `GDN_DECODE_PACK2=1` packed
+> decode CTA kernel. It built and CUDA op tests stayed green, but canonical md5
+> failed for both MoE (`320b5ed...` vs `8cb0ce...`) and dense (`6a65e9...` vs
+> `5951a5...`), with visible output corruption, so it was reverted without
+> profiling. Phase89 tried to add that focused guardrail through
+> `test_gated_delta_net_inplace_ids`, but selecting that test class directly
+> already fails the pre-existing BF16 cases on CUDA, so the naive test addition
+> was also reverted. Phase90 fixed the fixture root cause for identity ids by
+> mirroring `state` into `state_dst` during initialization and added F32
+> `S_v=128`, `n_seqs=2` cases that return `concat(out,state_dst)`, so the
+> backend comparator now checks both attention output and the side-effect state
+> write. DGX CUDA selected-op gate is green (`4/4`). Use this Phase90 guardrail
+> before any new packed-decode kernel, then still run canonical md5/op gates.
+> Phase91 retried the default-off `GDN_DECODE_PACK2=1` CTA sequence-packing
+> kernel under that guardrail. The first `n_seqs=2` guardrail passed but MoE md5
+> failed for the single-sequence completion gate, exposing an uncovered odd/single
+> sequence PDL hazard. Moving inactive lanes past `ggml_cuda_pdl_sync()` and
+> adding `n_seqs=1,3` guardrail cases made the candidate md5/op clean
+> (`GATED_DELTA_NET 46/46`, `MUL_MAT 1146/1146`, `MUL_MAT_ID 806/806`), but
+> decode-only `gdn_core` regressed to `1425.44 ms`, so the runtime patch was
+> reverted. Keep the expanded guardrail; do not retry CTA-level sequence packing
+> unless it also reduces per-sequence GDN work. ids gather, producer overhead,
+> simple geometry changes, and ungated packed kernels are not acceptable parity
+> paths. Phase92 tried the next smallest scalar one-token recurrence
+> micro-optimization: a default-off `GDN_SCALAR_DECODE_STORE_FUSED=1` CUDA path
+> that stores final state inside the scalar update loop and skips the final
+> post-token register-store loop. It passed local CPU guardrail, DGX CUDA
+> guardrail, canonical md5s, `GATED_DELTA_NET 46/46`, `MUL_MAT 1146/1146`, and
+> `MUL_MAT_ID 806/806`, but decode-only `gdn_core` regressed further to
+> `1529.72 ms` (`/home/mudler/bench/phase92_gdn_scalar_store_fused/20260701_204718/decode_profile`),
+> so the runtime patch was reverted. Do not retry store-fusing without evidence
+> that the final state store loop is independently dominant. The next credible
+> scoped ideas from the vLLM audit are the larger packed decode contract and the
+> Qwen3Next GQA-repeat removal, each as a separate guarded phase. Phase93
+> implemented the Qwen3Next GQA-repeat removal as an explicit grouped Q/K
+> broadcast mode on `GGML_OP_GATED_DELTA_NET` (`op_params[2]`), preserving the
+> existing modulo/tiled broadcast for Qwen35 while allowing Qwen3Next to map
+> `qk_head = value_head / (H_v / H_k)` and skip materializing repeated q/k heads
+> when the GDN op path is active. Local CPU `GATED_DELTA_NET` passed `48/48`,
+> local CPU in-place ids passed `6/6`, DGX CUDA `GATED_DELTA_NET` passed `48/48`,
+> DGX CUDA in-place ids passed `6/6`, canonical md5/op gates passed
+> (`GATED_DELTA_NET 48/48`, `MUL_MAT 1146/1146`, `MUL_MAT_ID 806/806`), and
+> decode-only `gdn_core` improved to `1333.48 ms`
+> (`/home/mudler/bench/phase93_qwen3next_gqa_bcast/20260701_211019/decode_profile`).
+> Carry Phase93 as the current positive candidate. Phase94 then retested
+> decode geometry on top of Phase93 with env-only `GDN_NW=8 GDN_CPW=8`. It
+> stayed md5/op clean (`GATED_DELTA_NET 48/48`, `MUL_MAT 1146/1146`,
+> `MUL_MAT_ID 806/806`) but decode-only `gdn_core` regressed to `1440.79 ms`
+> (`/home/mudler/bench/phase94_gdn_geometry_phase93/20260701_211855/decode_profile_8x8`),
+> so reject 8x8 and keep Phase93's default 16x8 geometry. Phase93 trace evidence
+> also shows remaining producer-side GDN work is small (`l2_norm_f32 8.65 ms`,
+> GDN gate/sigmoid about `12.75 ms`, remaining repeat `5.34 ms`), so the next
+> useful lead should target recurrence work or a larger packed decode contract,
+> not another small producer-only fusion. Phase95 tested a default-off
+> `GDN_WARP_SCALAR_GATE=1` CUDA decode specialization on top of Phase93: lane 0
+> computed the scalar non-KDA gate and broadcast it within the warp for the
+> one-token `S_v=128`, default `16x8` path. Local CPU guardrails passed
+> (`GATED_DELTA_NET 48/48`, in-place ids `6/6`), DGX CUDA guardrails passed
+> (`GATED_DELTA_NET 48/48`, in-place ids `6/6`), canonical md5/op gates passed
+> (`GATED_DELTA_NET 48/48`, `MUL_MAT 1146/1146`, `MUL_MAT_ID 806/806`), but
+> decode-only `gdn_core` regressed to `1402.40 ms`
+> (`/home/mudler/bench/phase95_gdn_warp_scalar_gate/20260701_213311/decode_profile`).
+> The runtime patch was reverted. Do not retry scalar-gate warp broadcast unless
+> a future profile shows SFU pressure, rather than recurrent state traffic or
+> reductions, dominating the GDN core. Phase96 then tested the narrow
+> conv-state identity fast path suggested by the trace audit: when
+> `s_copy_main` was identity, `build_conv_state_fused` viewed the active
+> conv-cache slots directly and called `ggml_ssm_conv_update_inplace` instead of
+> the ids variant. Local CPU `SSM_CONV` passed `45/45`; DGX CUDA `SSM_CONV`
+> passed `45/45`; canonical gates passed (`SSM_CONV 45/45`,
+> `GATED_DELTA_NET 48/48`, `MUL_MAT 1146/1146`, `MUL_MAT_ID 806/806`, md5s
+> canonical). Decode-only profile regressed to total kernel `3.6723 s`,
+> `gdn_core 1406.57 ms`, and `gdn_conv 70.42 ms`
+> (`/home/mudler/bench/phase96_conv_identity_fastpath/20260701_214141/decode_profile`).
+> The runtime model-graph patch was reverted. Do not retry the conv identity
+> branch as a speed lever unless a same-window trace proves the ids variant is
+> independently dominant. Phase97 then measured the carried Phase93 stack in an
+> end-to-end `n=128`, `PTOK=128`, `GEN=64`, `PARALLEL=128` serving snapshot
+> against vLLM. Pre/post canonical gates stayed green. Paged Phase93 measured
+> `agg_tps 329.6`, `decode_agg_tps 669.8`, `prefill_tps 1734.5`,
+> `ttft_mean_ms 7415.4`, `wall_s 24.851`; vLLM measured `agg_tps 664.8`,
+> `decode_agg_tps 1029.4`, `prefill_tps 5271.8`, `ttft_mean_ms 2519.5`,
+> `wall_s 11.929`
+> (`/home/mudler/bench/phase97_phase93_serving_snapshot/20260701_214648`).
+> Phase93 therefore remains a decode-profile positive candidate, but it does not
+> close serving parity (`paged_decode_over_vllm=0.6507`). The next useful phase
+> needs a larger serving-impact lever; isolated GDN/conv micro-optimizations
+> have now repeatedly failed to move live serving enough. Phase98 profiled that
+> carried Phase93 serving window with graph-node CUDA tracing. Pre/post gates
+> stayed green. Total kernel time was `20.0411 s`; macro buckets were GDN
+> `6679.96 ms` (`33.33%`), MoE/FFN-GEMM `6034.52 ms` (`30.11%`),
+> bf16/fp8-proj `2766.06 ms` (`13.80%`), and layout-copy `1257.60 ms`
+> (`6.28%`). Fine buckets were led by `gdn_core 5892.99 ms` (`29.40%`) and
+> `mmq_nvfp4 5809.55 ms` (`28.99%`), followed by `convert_dtype 663.45 ms`,
+> `gdn_conv 457.11 ms`, and `concat_layout 430.25 ms`
+> (`/home/mudler/bench/phase98_phase93_serving_profile/20260701_215715`).
+> This re-ranks the next work: do not spend more time on scalar GDN, conv
+> identity, or gather-only shortcuts. Either attribute and remove a proven
+> material layout-copy node, or pursue a larger GDN-core/MMQ serving lever with a
+> standalone PoC gate. Phase99 then used the existing default-off
+> `LLAMA_LAYOUT_TRACE` hook on the same Phase93 serving profile shape
+> (`N=128`, `PTOK=128`, `GEN=64`, `PARALLEL=128`). Trace-enabled gates stayed
+> green (`GATED_DELTA_NET 48/48`, `MUL_MAT 1146/1146`, `MUL_MAT_ID 806/806`,
+> canonical MoE/dense md5s). Serving remained comparable (`total kernel
+> 20.2408 s`, `layout-copy 1269.35 ms`). The trace attributed
+> `concat_layout 440.01 ms` almost entirely to
+> `conv_input-* = concat(conv_states_reshaped-*, qkv_mixed_transposed-*)` before
+> `SSM_CONV`; `copy_layout 119.16 ms` includes `conv_state_update-*` writeback.
+> The larger `convert_dtype 662.34 ms` bucket is mostly unnamed F32-to-F16 `CPY`
+> rows and needs stronger attribution before coding. Decision: Phase99 is
+> measurement-only; do not retry the Phase96-style conv-state identity branch.
+> The only conv-side patch worth funding is a larger two-source `SSM_CONV`
+> contract that reads `(conv_states, qkv_mixed)` as a logical concat, or else
+> extend trace attribution for the unnamed `convert_dtype` bucket first
+> (`/home/mudler/bench/phase99_layout_trace/20260701_200835/serving_profile`).
+> Phase100 extended that trace with `dst_view`, `src0_view`, and `src1_view`
+> names. The trace-only patch built locally and on DGX, and trace-enabled gates
+> stayed green (`GATED_DELTA_NET 48/48`, `MUL_MAT 1146/1146`,
+> `MUL_MAT_ID 806/806`, canonical MoE/dense md5s). Serving stayed comparable
+> (`total kernel 20.3464 s`, `convert_dtype 661.73 ms`, `concat_layout
+> 438.15 ms`). The new fields identify a concrete `convert_dtype` source:
+> `GET_ROWS` reads F16 `cache_k_l*` / `cache_v_l*` into F32 `node_*`, then
+> `CPY` downcasts views such as `src0_view=node_358` / `node_365` to F16
+> attention-shaped tensors. This repeats across attention layers
+> (`cache_k_l3/v_l3`, `cache_k_l7/v_l7`, `cache_k_l11/v_l11`, ...). Some F32->F16
+> rows remain unnamed, so the next runtime phase should be a narrow K/V cache
+> get_rows dtype A/B, not a broad layout rewrite
+> (`/home/mudler/bench/phase100_layout_view_trace/20260701_201800/serving_profile`).
+> Phase101 implemented that narrow A/B as default-off
+> `LLAMA_PAGED_KV_GET_ROWS_F16=1`: add `ggml_get_rows_type`, support CPU F16
+> source -> F16 destination row copy, and use typed F16 `GET_ROWS` only for
+> paged K/V gather when the cache tensor is F16. Local and DGX builds completed;
+> CUDA `GET_ROWS` passed `49/49` including the new F16-output cases; default and
+> opt-in md5/op gates stayed green (`GET_ROWS 49/49`, `GATED_DELTA_NET 48/48`,
+> `MUL_MAT 1146/1146`, `MUL_MAT_ID 806/806`, canonical MoE/dense md5s).
+> Serving profile under opt-in measured `total kernel 20.1989 s`, `agg_tps
+> 206.4`, `decode_agg_tps 328.0`, and `ttft_mean_ms 8211.1`. It reduced
+> `copy_layout 116.25 -> 80.32 ms` and macro `layout-copy 1262.58 -> 1220.30 ms`
+> versus Phase100, but `convert_dtype` stayed flat (`661.73 -> 661.35 ms`) and
+> serving throughput did not improve. Carry Phase101 only as a small default-off
+> cleanup candidate pending repeat A/B; do not promote it as a parity lever
+> (`/home/mudler/bench/phase101_kv_get_rows_f16/20260701_203930/serving_profile`).
+> Phase102 then implemented the funded two-source `SSM_CONV` contract as
+> default-off `LLAMA_SSM_CONV_SPLIT=1`: `ggml_ssm_conv_split(ctx, conv_states,
+> x_cur, conv_kernel)` reuses `GGML_OP_SSM_CONV`, reads
+> `[K-1,channels,n_seqs]` cached taps plus native `[channels,n_tokens,n_seqs]`
+> qkv tokens as a logical concat, and is wired into Qwen3Next/Qwen35/Qwen35MoE
+> only for multi-token, non-rollback batches with `n_seq_tokens >= K-1`. The
+> initial semantic test exposed a harness issue (`split-base` has an exactly
+> zero CPU reference, so normalized MSE reported `ERR=inf`); direct split
+> CUDA-vs-CPU passed `6/6`, and the final test keeps `split-base` with absolute
+> max error. Local and DGX builds passed; default, standalone opt-in, and
+> serving pre/post gates stayed green (`SSM_CONV 45/45`, `SSM_CONV_SPLIT 6/6`,
+> `GET_ROWS 49/49`, `GATED_DELTA_NET 48/48`, `MUL_MAT 1146/1146`,
+> `MUL_MAT_ID 806/806`, canonical MoE/dense md5s). Opt-in serving measured
+> `total kernel 19.5482 s`, `agg_tps 206.1`, `decode_agg_tps 320.0`,
+> `prefill_tps 1538.0`, and `ttft_mean_ms 7928.4`. It removed the traced concat
+> materialization (`concat_layout 433.13 -> 4.59 ms` versus Phase101 and
+> `layout-copy 1220.30 -> 826.87 ms`), but live serving throughput still did not
+> improve. Carry Phase102 as a default-off cleanup/follow-up base only; do not
+> promote it as parity-closing without a repeat A/B or an additional state-update
+> fusion. The remaining high-value targets are still `gdn_core`, `mmq_nvfp4`, or
+> a larger serving scheduler/packed-decode contract
+> (`/home/mudler/bench/phase102_ssm_conv_split/20260701_210907/serving_profile`).
+> Phase103 measured Phase101+Phase102 together, with no new source changes:
+> `LLAMA_SSM_CONV_SPLIT=1 LLAMA_PAGED_KV_GET_ROWS_F16=1`. Standalone and
+> serving pre/post gates stayed green (`SSM_CONV 45/45`, `SSM_CONV_SPLIT 6/6`,
+> `GET_ROWS 49/49`, `GATED_DELTA_NET 48/48`, `MUL_MAT 1146/1146`,
+> `MUL_MAT_ID 806/806`, canonical MoE/dense md5s). Combined serving improved
+> over Phase102 (`agg_tps 206.1 -> 212.3`, `decode_agg_tps 320.0 -> 331.5`,
+> `prefill_tps 1538.0 -> 1569.1`, `wall_s 39.743 -> 38.575`) and reduced
+> `layout-copy 826.87 -> 798.52 ms`; it also preserved most of the split
+> SSM_CONV concat removal and recovered the F16 K/V `copy_layout` reduction
+> (`copy_layout 112.53 -> 78.22 ms`). This proves the two cleanup candidates are
+> compatible, but not parity-closing: `gdn_core 5930.47 ms` and `mmq_nvfp4
+> 6001.77 ms` still dominate. Carry the combined env as the cleanup comparison
+> baseline; do not rerun isolated layout cleanup unless it changes a larger
+> serving contract
+> (`/home/mudler/bench/phase103_combined_layout_cleanups/20260701_211821/serving_profile`).
+> Phase104 then measured that combined cleanup stack in the normal same-session
+> serving harness against vLLM at `N=128`, `PTOK=128`, `GEN=64`,
+> `PARALLEL=128`. Pre/post gates stayed green with the same expanded op set and
+> canonical md5s. Paged combined measured `agg_tps 338.6`,
+> `decode_agg_tps 675.8`, `prefill_tps 1813.0`, `ttft_mean_ms 7121.6`, and
+> `wall_s 24.196`; vLLM measured `agg_tps 661.1`, `decode_agg_tps 1028.0`,
+> `prefill_tps 5208.7`, `ttft_mean_ms 2572.3`, and `wall_s 11.980`. This is a
+> small serving improvement over Phase97 (`agg_tps +2.73%`, `prefill_tps
+> +4.53%`, `TTFT -3.96%`), but still not parity: `paged_decode_over_vllm=0.6574`
+> and `paged_agg_over_vllm=0.5122`. Carry the combined cleanup stack as the best
+> current comparison baseline. The next useful phase must attack a larger
+> serving-impact contract or the dominant GDN/MMQ buckets, not more isolated
+> layout-copy cleanup
+> (`/home/mudler/bench/phase104_combined_serving_snapshot/20260701_212551`).
+> Phase105 refreshed grouped-MMQ evidence on that current stack without source
+> changes. `MUL_MAT_ID_RAGGED_MOE` stayed green both default and trace-enabled
+> (`6/6`), full `MUL_MAT_ID` stayed green (`806/806`), and the live serving
+> retry returned a non-empty response while recording `120` shape and launch
+> lines. The live sample was prefill-like (`ncols_max=317`, density `10`,
+> `mmq_x_best=112`, `stream_k=1`) with no small-M lines; all launches had
+> `fixup=0`, `stream_k_blocks == ntiles_dst`, and efficiency `100`. This
+> confirms the current cleanup stack did not open a new cheap MMQ shortcut.
+> Do not add another host-side MMQ tile policy; only revisit MMQ for a
+> genuinely structural kernel or serving-contract change
+> (`/home/mudler/bench/phase105_mmq_current_shape/20260701_214129_serving_retry`).
+> Phase106 tested the remaining low-conflict C1 operating-point hypothesis on
+> the current stack: same-session `N=128/192/256` with `PARALLEL=256`,
+> `VLLM_MAX_NUM_SEQS=256`, and the combined cleanup env. Pre/post gates stayed
+> green with canonical md5s and the expanded op set. vLLM completed all legs and
+> stayed ahead: at `N=256`, paged measured `agg_tps 338.4`,
+> `decode_agg_tps 824.6`, `ttft_mean_ms 14933.5`, while vLLM measured
+> `agg_tps 723.8`, `decode_agg_tps 1320.4`, `ttft_mean_ms 4999.0`. Reject C1
+> for the current GB10 stack. The next source phase should be structural
+> persistent-batch/fused-MoE/GDN work, not another scheduler shortcut
+> (`/home/mudler/bench/phase106_max_concurrency_current_stack/20260701_214907`).
+> Phase107 established the fused-MoE structural guardrail surface before coding:
+> `MOE_SWIGLU_DOWN 7/7`, `MOE_WEIGHTED_COMBINE 7/7`, and
+> `MUL_MAT_ID_RAGGED_MOE 6/6` passed on CUDA0. However,
+> `test-backend-ops perf` did not provide usable timing rows for these custom
+> whole-graph cases; the broad `MUL_MAT_ID` perf CSV reported support metadata
+> only. The next source patch should be measurement-only: add a narrow MoE
+> fusion timing harness with explicit GPU synchronization and CSV timing before
+> funding any fused routed-MoE kernel
+> (`/home/mudler/bench/phase107_moe_fusion_guardrail/20260701_220227`).
 
 - Historical verdict: the older investigation marked GB10 parity **CLOSED** and
   unreachable. Treat that as superseded where Phase50-54 provide newer dense
@@ -1416,3 +2296,44 @@ assumption is too narrow for a sub-millisecond capture-level win. Do not spend
 more parity time on gather-only GDN shortcuts unless a future profile makes
 gather material. The next serious GDN scope remains recurrent-state
 precision/traffic.
+
+## Series trim (phases 110-140 review, 2026-07-02)
+
+The campaign's on-disk patches `0048-0063` were added without matching fork
+commits (a fork-first policy violation). After a keep/drop review of the
+phase 110-140 work, the series was trimmed to a single kept line plus the
+gate harness, and re-mirrored to the fork:
+
+- KEEP - test sentinels (the MoE gate harness): `MOE_SWIGLU_DOWN`,
+  `MOE_SWIGLU_COMBINE`, `MUL_MAT_ID_RAGGED_MOE` (old `0051-0053`).
+- KEEP - the MTP-draft correctness fix (old `0054`): forces target-side
+  sampler acceptance for MTP drafts (backend draft sampling can request
+  multiple output rows per sequence); the backend ships `-mtp` gallery models.
+- KEEP - the Phase135 routed-FFN fused-quant line: whole-pattern MoE matcher +
+  routed-FFN executor hook (Phase120/121), the routed-FFN PoC scaffold
+  `moe-ffn.{cu,cuh}` (Phase132), and the fused SwiGLU-to-NVFP4-quant + raw down
+  MMQ (`ggml_cuda_mul_mat_q_moe_quantized` + local `ggml_cuda_mmq_ids_meta`
+  refactor, Phase135). All default-off, md5-clean opt-in, six
+  `mmq_moe_quantized_raw` markers with zero sorted launches on the sentinel.
+
+- DROP - W4A16 grouped-tile pack/tune/pad (old `0048-0050`): dead line, W4A16
+  is ~1.5x slower than grouped-MMQ.
+- DROP - speculative/trace/cublas-route/mmid-route/mul-mat-route traces + the
+  rejected small-M tile-policy knob (old `0055-0063`).
+- DROP - all other campaign keep-markers not needed by Phase135: GPU-sort
+  (Phase110), W4A16-direct-A (Phase112), boundary trace/timing (Phase117),
+  Phase133 sorted-F32 down, Phase134 fused-SWIGLU-only, Phase138
+  finalize/weighted-combine. The final fork tree carries zero of these markers.
+
+Fork branch `mudler/llama.cpp:localai-paged` re-mirrored on top of
+`51168c5ee` (LocalAI series `0001-0047`):
+
+- `fd920cf8a` test(paged): cover MoE swiglu down chain
+- `a85c1e098` test(paged): cover MoE weighted combine chain
+- `2fed6aacf` test(paged): cover ragged MoE dispatch
+- `f1d976f06` fix(speculative): disable backend sampling for MTP drafts
+- `1edddc8fe` feat(paged): whole-pattern MoE matcher + routed-FFN fused
+  NVFP4-quant down MMQ
+
+New fork HEAD `1edddc8fe`, tree `097c862c`. The rejected/neutral levers of
+the 110-140 campaign are recorded above and in the per-phase bench artifacts.
