@@ -78,3 +78,21 @@ test('retry regenerates the first answer and drops the later turn', async ({ pag
   await expect(page.locator('.chat-message-user')).toHaveCount(1)
   await expect(page.locator('.chat-message-assistant')).toHaveCount(1)
 })
+
+test('copy chat puts the whole conversation on the clipboard', async ({ page, context }) => {
+  await context.grantPermissions(['clipboard-read', 'clipboard-write'])
+  await mockModels(page)
+  await seedChat(page, TWO_TURNS)
+  await page.goto('/app/chat')
+
+  // Wait for the menu trigger to mount so its global keydown listener is armed
+  // before we dispatch the shortcut (same mount-race guard as the duplicate test).
+  await page.getByTitle('Conversations (Ctrl/Cmd+K)').waitFor()
+  await page.keyboard.press('Control+k')
+  await page.getByTitle('Copy chat').first().click()
+
+  const clip = await page.evaluate(() => navigator.clipboard.readText())
+  expect(clip).toContain('# Seeded Chat')
+  expect(clip).toContain('first answer')
+  expect(clip).toContain('second answer')
+})

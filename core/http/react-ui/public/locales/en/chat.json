@@ -101,6 +101,7 @@
     "selectModel": "Please select a model",
     "copied": "Copied to clipboard",
     "copyFailed": "Could not copy to clipboard",
+    "chatCopied": "Chat copied to clipboard",
     "forked": "Created a new chat"
   },
   "menu": {
@@ -112,6 +113,7 @@
     "noConversations": "No conversations yet",
     "rename": "Rename",
     "duplicate": "Duplicate chat",
+    "copyChat": "Copy chat",
     "exportMarkdown": "Export as Markdown",
     "deleteChat": "Delete chat",
     "newChat": "New chat",

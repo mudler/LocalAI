@@ -33,7 +33,7 @@ function getLastMessagePreview(chat) {
   return ''
 }
 
-function exportChatAsMarkdown(chat) {
+function serializeChatAsMarkdown(chat) {
   let md = `# ${chat.name}\n\n`
   md += `Model: ${chat.model || 'Unknown'}\n`
   md += `Date: ${new Date(chat.createdAt).toLocaleString()}\n\n---\n\n`
@@ -47,7 +47,11 @@ function exportChatAsMarkdown(chat) {
       md += `<details><summary>Thinking</summary>\n\n${msg.content}\n\n</details>\n\n`
     }
   }
-  const blob = new Blob([md], { type: 'text/markdown' })
+  return md
+}
+
+function downloadChatAsMarkdown(chat) {
+  const blob = new Blob([serializeChatAsMarkdown(chat)], { type: 'text/markdown' })
   const url = URL.createObjectURL(blob)
   const a = document.createElement('a')
   a.href = url
@@ -841,6 +845,11 @@ export default function Chat() {
     }
   }
 
+  const copyChatAsMarkdown = async (chat) => {
+    const ok = await copyToClipboard(serializeChatAsMarkdown(chat))
+    addToast(ok ? t('toasts.chatCopied') : t('toasts.copyFailed'), ok ? 'success' : 'error', ok ? 2000 : 3000)
+  }
+
   const contextPercent = getContextUsagePercent()
 
   // Recent chats for the empty state — exclude the current chat and any
@@ -881,7 +890,8 @@ export default function Chat() {
             onDelete={deleteChat}
             onDeleteAll={promptDeleteAll}
             onRename={renameChat}
-            onExport={(chat) => exportChatAsMarkdown(chat)}
+            onExport={(chat) => downloadChatAsMarkdown(chat)}
+            onCopyChat={(chat) => copyChatAsMarkdown(chat)}
             onDuplicate={(chat) => { forkChat(chat.id); addToast(t('toasts.forked'), 'success', 2000) }}
           />
           {activeChat.localaiAssistant && (
