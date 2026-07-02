@@ -186,10 +186,17 @@ precisely why the isolated 0034/0035 A/Bs failed - each was tested without its t
 predecessors.
 
 Fork seams referenced below are against local `mudler/llama.cpp:localai-paged`
-HEAD `237ad9b96` (the tree already carries the MoE-region seam plus four HEAD commits
-`237ad9b96` bf16 GDN state cache, `afc2c7030` trace act-quant routes, `ea0875d14` gate
-BF16 cuBLAS F32 output, `7967ad47f` route W4A16 direct-A stub - the team has already
-started scaffolding P1 and P3).
+HEAD `1edddc8fe` (patch series 0001-0052; all file:line references below are against
+that tree). The tree carries the MoE-region seam (patch 0052, `moe-ffn.cu` + the
+whole-pattern matcher) and the grouped W4A16 Marlin prefill path (patch 0035). It does
+**not** carry any P1/P3 scaffolding: the four experiment commits an earlier campaign
+prototyped - `237ad9b96` bf16 GDN state cache, `afc2c7030` act-quant-route trace,
+`ea0875d14` `LLAMA_BF16_CUBLAS_F32_OUT`, `7967ad47f` W4A16 direct-A stub - were
+**trimmed** from the series by the immediately-preceding commit (`b529cc5420`, sync to
+fork `1edddc8fe`) and no longer exist in the tree; they survive only as recorded
+experiments in [`PARITY_HANDOFF.md`](PARITY_HANDOFF.md). P1's bf16-cuBLAS plank and P3's
+direct-A stub therefore must be **re-introduced**, not "finished". The team has not
+started P2/P4/P5/P6.
 
 ### P1: bf16-native execution pass (kill the f32 convert / act-quant boundary tax)
 
@@ -199,13 +206,14 @@ started scaffolding P1 and P3).
   transient. Targets prefill bucket 3 (+36.6) + part of bucket 4 (norms +11.1, glue),
   and decode elementwise (57 us/tok, 5%).
 - **Mechanism (Audit C Area 1, option A):** extend the existing fusion pass
-  `ggml_cuda_try_fuse` (`ggml-cuda.cu:4661`, called per node in the capture loop at
-  `:5444`) to recognize a residual-stream *segment* (norm -> proj-GEMM -> add -> norm)
+  `ggml_cuda_try_fuse` (`ggml-cuda.cu:4232`, called per node in the capture loop at
+  `:4908`) to recognize a residual-stream *segment* (norm -> proj-GEMM -> add -> norm)
   and execute it through bf16 variants that keep the intermediate in a bf16 pool buffer,
   converting to f32 only at the boundary a non-owned node reads. The GEMM already
   computes through bf16 tensor cores; the win is deleting the per-op converts, not the
-  GEMM. `LLAMA_BF16_CUBLAS_F32_OUT` (`ea0875d14`) is plank 1 (GEMM writes f32 directly
-  from bf16 compute, skips the round-trip pool alloc + convert). Reject option B
+  GEMM. Plank 1 is to re-introduce `LLAMA_BF16_CUBLAS_F32_OUT` (prototyped in the
+  trimmed `ea0875d14`, now absent from the tree - see section 3): GEMM writes f32
+  directly from bf16 compute, skipping the round-trip pool alloc + convert. Reject option B
   (bf16 tensor types at graph build in `llama-model.cpp`/`llama-graph.cpp`): it edits
   the most rebase-sensitive shared files and forces a hard cut with no per-segment
   opt-in; hold it for a datacenter-Blackwell reopen.
@@ -247,10 +255,10 @@ started scaffolding P1 and P3).
   redundant per-GEMM sort. Targets prefill bucket 2 (+56.5, the ragged-tile tax) and the
   decode MoE fused-Marlin ~+11 ms residual.
 - **Mechanism (Audit C Area 2):** the seam already exists. `moe-ffn.cu` +
-  `ggml_cuda_moe_whole_pattern_detect_early` (`:4678`) matches the
+  `ggml_cuda_moe_whole_pattern_detect_early` (`:4157`) matches the
   `gate_up (MUL_MAT_ID) -> VIEW -> SWIGLU -> down (MUL_MAT_ID)` chain and the hook
   returns the node-skip count so the graph advances past the region. But it is a
-  *partial* executor: `ggml_cuda_moe_routed_ffn_poc` (`moe-ffn.cu:456`) still runs the
+  *partial* executor: `ggml_cuda_moe_routed_ffn_poc` (`moe-ffn.cu:275`) still runs the
   first GEMM as the stock node and **materializes its full `[2*n_ff, n_expert_used,
   n_tokens]` intermediate**, only then fusing SwiGLU+quant (into the finalize epilogue
   it also folds the weighted combine). A true region executor routes once, keeps the
@@ -290,20 +298,25 @@ started scaffolding P1 and P3).
   mma.sync + cp.async double-buffer + dequant-once weight reuse across 16-64 M-rows)
   that vLLM uses on sm_121, now that its two prereqs exist. Targets prefill bucket 2's
   residual to the bf16-peak ceiling and the ragged-tile TC collapse.
-- **Mechanism (Audit C Area 4):** finish the `direct_a` W4A16 stub. `w4a16-gemm.cuh:58`
-  + the `7967ad47f` stub define `ggml_cuda_mul_mat_id_w4a16_grouped_direct_a`, which
-  takes `src1` f32 directly with an `ids_to_sorted` map, fusing the activation cast into
-  the kernel and skipping both the host-side expert-sort and the separate act-quant pass
-  (the +15 us/tok the FP4-MMQ path pays). The engage gate is
-  `w4a16-policy.h:ggml_cuda_w4a16_direct_a_should_engage_params` (NVFP4 src0, f32
-  src1/dst, Blackwell, `LLAMA_W4A16_PREFILL_M>0`, tokens > M, `k%64==0 && n%128==0`),
-  unit-tested in `test-cuda-w4a16-policy.cpp`. Hooks already wired:
-  `ggml-cuda.cu:3085,3171` (direct-A) and `:3093,3188` (grouped, `[paged patch 0035]`).
-  Add a one-time host-side weight repack cache into Marlin's interleaved layout
-  (fork-owned loader in `llama-model-loader.cpp`, off the per-step path).
-- **Files:** finish the kernel in `w4a16-gemm.cu` (fork-owned, kernel largely exists,
-  ~300 LOC to finish the stub), repack in `llama-model-loader.cpp`, hooks in
-  `ggml-cuda.cu`.
+- **Mechanism (Audit C Area 4):** add a `direct_a` W4A16 path. What exists in the tree
+  is the **grouped** W4A16 Marlin path (patch 0035: `w4a16-gemm.cu`/`w4a16-gemm.cuh`,
+  engaged by `ggml_cuda_w4a16_moe_grouped_should_engage` at the hook `ggml-cuda.cu:2797`
+  [`paged patch 0035`], gated by `LLAMA_W4A16_PREFILL_M>0`). What it lacks is a direct-A
+  variant that takes `src1` f32 directly with an `ids_to_sorted` map, fusing the
+  activation cast into the kernel and skipping both the host-side expert-sort and the
+  separate act-quant pass (the +15 us/tok the FP4-MMQ path pays). An earlier campaign
+  prototyped exactly this as the trimmed `7967ad47f`
+  (`ggml_cuda_mul_mat_id_w4a16_grouped_direct_a`, a `w4a16-policy.h` engage gate
+  `ggml_cuda_w4a16_direct_a_should_engage_params`: NVFP4 src0, f32 src1/dst, Blackwell,
+  `LLAMA_W4A16_PREFILL_M>0`, tokens > M, `k%64==0 && n%128==0`, unit-tested in
+  `test-cuda-w4a16-policy.cpp`), but that stub, its policy header, and its test were
+  **trimmed** (see section 3) and are **not** in the tree - they must be re-created on
+  top of the grouped path, with a new direct-A hook alongside the grouped one. Add a
+  one-time host-side weight repack cache into Marlin's interleaved layout (fork-owned
+  loader in `llama-model-loader.cpp`, off the per-step path).
+- **Files:** the grouped Marlin kernel exists (`w4a16-gemm.cu`, fork-owned); the
+  direct-A variant (~300 LOC) + its policy header + unit test must be re-added, repack in
+  `llama-model-loader.cpp`, a new direct-A hook in `ggml-cuda.cu`.
 - **Env gate:** `LLAMA_W4A16_DIRECT_A=1` + `LLAMA_W4A16_PREFILL_M>0` (default off).
 - **Correctness gate:** **KL band** (bf16 dequant path; already characterized
   KL-benign-and-better, KLD 0.131 < MMQ 0.137).
@@ -314,16 +327,19 @@ started scaffolding P1 and P3).
   still insufficient and the executor still materializes around the kernel.
 - **Expected recovery:** the remainder of bucket 2 not captured by P2, up to the
   bf16-peak ceiling. Combined P2+P3 target ~40-50 of the +56.5.
-- **Effort:** low-medium (kernel + policy exist; the lift is the P1/P2 predecessors).
+- **Effort:** medium (the grouped Marlin kernel exists as a starting point, but the
+  direct-A variant + policy + test were trimmed and must be re-created; the larger lift
+  is still the P1/P2 predecessors).
 - **Supersedes:** 0035 (-39%) and 0034 in-backend fail. **Missing prereqs now
   supplied:** P1 delivers bf16 activations to the GEMM without converts; P2 delivers the
   persistent region that owns the tiling across both GEMMs so the bf16 activation is
   read once (the prior loss was ggml MMQ re-quantizing the y-operand per weight-row-tile
   x stream-k split).
-- **Upstream-clash / rebase-safety:** `w4a16-gemm.cu`/`w4a16-policy.h` fork-owned;
-  can ride upstream multi-stream `GGML_CUDA_GRAPH_OPT` (already in-tree:
-  `concurrent_event`/`stream_mapping`, `ggml-cuda.cu:5305-5318`) for the K-loop cp.async
-  overlap instead of a private mechanism.
+- **Upstream-clash / rebase-safety:** `w4a16-gemm.cu`/`.cuh` fork-owned (the re-added
+  `w4a16-policy.h` will be too); can ride the in-tree multi-stream `concurrent_event`
+  machinery (`ggml-cuda.cu:4769`, `try_launch_concurrent_event` over
+  `stream_ctx.concurrent_events`) for the K-loop cp.async overlap instead of a private
+  mechanism.
 
 ### P4: token-granular continuous-batching scheduler (server-side only)
 
@@ -333,9 +349,9 @@ started scaffolding P1 and P3).
   throughput lever (the prior host-loop-dead measurement is real and must be respected);
   its throughput payoff is on non-GB10 silicon where decode goes host-bound again.
 - **Mechanism (Audit C Area 3, Audit B section 1):** extend the shipped continuous-batch
-  P1 (patch 0016, `server-context.cpp:3122-3200`, the dynamic decode-first prefill
-  budget `T = clamp(LLAMA_MAX_BATCH_TOKENS, n_ubatch, n_batch)`,
-  `prefill_budget_step = max(n_ubatch, T - D)`) into: (1) chunked prefill as a
+  P1 (patch 0016, `server-context.cpp:3083-3135`, the dynamic decode-first prefill
+  budget: `LLAMA_MAX_BATCH_TOKENS` read at `:3105`, `prefill_budget_step =
+  max(n_ubatch, T - n_decode_in_batch)` at `:3113`) into: (1) chunked prefill as a
   first-class per-sequence cursor (each waiting prompt contributes
   `min(remaining_prompt, per_slot_cap)` tokens per step and resumes next step);
   (2) a `SLOT_STATE_PREEMPTED` state + release-KV-keep-prompt-tokens-re-admit transition
