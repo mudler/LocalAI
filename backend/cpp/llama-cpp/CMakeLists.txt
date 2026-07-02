@@ -101,4 +101,13 @@ if(LLAMA_GRPC_BUILD_TESTS)
     target_link_libraries(message_content_test PRIVATE ${_LLAMA_COMMON_TARGET})
     target_compile_features(message_content_test PRIVATE cxx_std_17)
     add_test(NAME message_content_test COMMAND message_content_test)
+
+    # Parent-death watcher test (parent_watch.h) — standard library only, but
+    # needs a threading runtime for std::thread.
+    find_package(Threads REQUIRED)
+    add_executable(parent_watch_test parent_watch_test.cpp parent_watch.h)
+    target_include_directories(parent_watch_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+    target_link_libraries(parent_watch_test PRIVATE Threads::Threads)
+    target_compile_features(parent_watch_test PRIVATE cxx_std_17)
+    add_test(NAME parent_watch_test COMMAND parent_watch_test)
 endif()
