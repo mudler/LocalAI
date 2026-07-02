@@ -493,6 +493,44 @@ var _ = Describe("SmartRouter", func() {
 				Expect(result.Node.ID).To(Equal("n3"))
 			})
 		})
+
+		Context("worker wedges mid-install (dead node holding the lock)", func() {
+			It("aborts the load at the ModelLoadCeiling instead of blocking forever", func() {
+				// Simulate the production incident: the chosen worker accepts the
+				// backend.install but never replies (it died), so InstallBackend
+				// would otherwise block for its full NATS deadline (15m by
+				// default) while pinning the per-model advisory lock. Route must
+				// give up at the ceiling so the lock is released promptly.
+				reg.findAndLockErr = errors.New("not found")
+				reg.findIdleNode = &BackendNode{ID: "n4", Name: "dead-node", Address: "10.0.0.4:50051"}
+
+				block := make(chan struct{})
+				defer close(block) // let the background install goroutine drain at test end
+				unloader.installHook = func() { <-block }
+
+				router := NewSmartRouter(reg, SmartRouterOptions{
+					Unloader:         unloader,
+					ClientFactory:    factory,
+					ModelLoadCeiling: 200 * time.Millisecond,
+				})
+
+				done := make(chan error, 1)
+				start := time.Now()
+				go func() {
+					defer GinkgoRecover()
+					_, err := router.Route(context.Background(), "wedged-model",
+						"models/wedged.gguf", "llama-cpp",
+						&pb.ModelOptions{Model: "models/wedged.gguf"}, false)
+					done <- err
+				}()
+
+				var routeErr error
+				Eventually(done, 5*time.Second).Should(Receive(&routeErr),
+					"Route must not block on a wedged install past the ceiling")
+				Expect(routeErr).To(HaveOccurred())
+				Expect(time.Since(start)).To(BeNumerically("<", 5*time.Second))
+			})
+		})
 	})
 
 	Describe("scheduleNewModel (mock-based, via Route)", func() {

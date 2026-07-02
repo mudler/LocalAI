@@ -6,9 +6,38 @@ import (
 	"hash/fnv"
 	"strings"
 	"sync"
+	"time"
 
 	"gorm.io/gorm"
 )
+
+// advisoryLockWaitBackstop bounds, server-side, how long we will wait to
+// acquire a blocking advisory lock when the caller's context carries no
+// deadline (e.g. a startup schema migration using context.Background()). It
+// only exists so such a caller cannot hang forever behind a holder whose
+// session never releases the lock; it is far longer than any legitimate
+// guarded section. A var (not const) so tests can shrink it.
+var advisoryLockWaitBackstop = 30 * time.Minute
+
+// advisoryLockTimeoutMargin is added to a context's remaining budget when
+// deriving the server-side lock_timeout, so the Go context's own (cleaner)
+// cancellation fires first and the server bound is only ever a backstop.
+const advisoryLockTimeoutMargin = 30 * time.Second
+
+// advisoryLockWaitBudget returns the server-side lock_timeout to use for a
+// blocking acquire: the caller context's remaining time plus a margin (so the
+// Go context still governs), or the backstop when the context has no deadline.
+// Never returns zero - "wait forever" must not be possible.
+func advisoryLockWaitBudget(ctx context.Context) time.Duration {
+	if dl, ok := ctx.Deadline(); ok {
+		budget := time.Until(dl) + advisoryLockTimeoutMargin
+		if budget < time.Second {
+			budget = time.Second
+		}
+		return budget
+	}
+	return advisoryLockWaitBackstop
+}
 
 // localLocks holds one buffered channel (capacity 1) per lock key, used as an
 // in-process mutex for non-PostgreSQL dialects (SQLite). A SQLite auth DB is
@@ -129,6 +158,27 @@ func WithLockCtx(ctx context.Context, db *gorm.DB, key int64, fn func() error) e
 		return fmt.Errorf("advisorylock: getting connection: %w", err)
 	}
 	defer conn.Close()
+
+	// Override any deployment-wide lock_timeout on this dedicated connection.
+	// Operators commonly set a short global lock_timeout (on the role or
+	// database) to bound ordinary row-lock waits. Applied to the blocking
+	// pg_advisory_lock below, it aborts the wait with SQLSTATE 55P03 and turns
+	// LocalAI's intentional cross-replica "wait your turn, then re-check"
+	// coordination into a hard error for the caller (e.g. a chat request that
+	// just wanted to reuse a model another replica is loading).
+	//
+	// We do NOT disable it outright (lock_timeout = 0 would wait forever, which
+	// is unsafe for the schema-migration callers that pass context.Background()).
+	// Instead we set a bound derived from the caller's context: its remaining
+	// budget plus a margin so the Go context's cancellation wins with a clean
+	// error, or a finite backstop when the context has no deadline.
+	waitBudget := advisoryLockWaitBudget(ctx)
+	if _, err := conn.ExecContext(ctx,
+		fmt.Sprintf("SET lock_timeout = %d", waitBudget.Milliseconds())); err != nil {
+		return fmt.Errorf("advisorylock: setting lock_timeout: %w", err)
+	}
+	// Restore the session default before this pooled connection is reused.
+	defer func() { _, _ = conn.ExecContext(context.Background(), "RESET lock_timeout") }()
 
 	if _, err := conn.ExecContext(ctx, "SELECT pg_advisory_lock($1)", key); err != nil {
 		return fmt.Errorf("advisorylock: acquiring lock %d: %w", key, err)
