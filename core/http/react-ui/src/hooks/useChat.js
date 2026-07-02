@@ -278,8 +278,12 @@ export function useChat(initialModel = '') {
     if (chat?.systemPrompt) {
       messages.push({ role: 'system', content: chat.systemPrompt })
     }
-    // Filter out thinking/reasoning/tool_call/tool_result messages
-    const historyForApi = (chat?.history || []).filter(m =>
+    // Filter out thinking/reasoning/tool_call/tool_result messages.
+    // options.baseHistory lets callers (e.g. mid-conversation retry) pass the
+    // intended truncated history synchronously; the closure `chat` still holds
+    // the stale pre-truncation state because setChats only schedules an update.
+    const baseHistory = options.baseHistory || chat?.history || []
+    const historyForApi = baseHistory.filter(m =>
       m.role !== 'thinking' && m.role !== 'reasoning' && m.role !== 'tool_call' && m.role !== 'tool_result'
     )
     messages.push(...historyForApi, { role: 'user', content: messageContent })

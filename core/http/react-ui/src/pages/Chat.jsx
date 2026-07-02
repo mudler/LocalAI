@@ -814,8 +814,12 @@ export default function Chat() {
       : history[userIdx].content?.[0]?.text || ''
     const userFiles = history[userIdx].files || []
     // Drop the user turn and everything after it; sendMessage re-appends it.
-    updateChatSettings(activeChat.id, { history: history.slice(0, userIdx) })
-    await sendMessage(userMsg, userFiles)
+    // Thread the truncated history through explicitly: updateChatSettings only
+    // schedules a state update, so sendMessage's closure would otherwise read
+    // the stale pre-truncation history for the outbound API payload.
+    const baseHistory = history.slice(0, userIdx)
+    updateChatSettings(activeChat.id, { history: baseHistory })
+    await sendMessage(userMsg, userFiles, { baseHistory })
   }, [activeChat, isStreaming, sendMessage, updateChatSettings])
 
   const handleKeyDown = (e) => {
@@ -892,7 +896,7 @@ export default function Chat() {
             onRename={renameChat}
             onExport={(chat) => downloadChatAsMarkdown(chat)}
             onCopyChat={(chat) => copyChatAsMarkdown(chat)}
-            onDuplicate={(chat) => { forkChat(chat.id); addToast(t('toasts.forked'), 'success', 2000) }}
+            onDuplicate={(chat) => { if (forkChat(chat.id)) addToast(t('toasts.forked'), 'success', 2000) }}
           />
           {activeChat.localaiAssistant && (
             <span
@@ -1189,7 +1193,7 @@ export default function Chat() {
                           <i className="fas fa-rotate" />
                         </button>
                       )}
-                      {msg.role === 'assistant' && (
+                      {msg.role === 'assistant' && !isStreaming && (
                         <button
                           onClick={() => { forkChat(activeChat.id, i + 1); addToast(t('toasts.forked'), 'success', 2000) }}
                           title={t('actions.branch')}

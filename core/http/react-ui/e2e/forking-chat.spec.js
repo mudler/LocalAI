@@ -63,7 +63,17 @@ async function mockCompletion(page, replyText) {
 
 test('retry regenerates the first answer and drops the later turn', async ({ page }) => {
   await mockModels(page)
-  await mockCompletion(page, 'REGENERATED first answer')
+  // Capture the outbound request body so we can assert the model receives the
+  // truncated history (not the stale downstream turns).
+  let sentMessages = null
+  await page.route('**/v1/chat/completions', (route) => {
+    sentMessages = route.request().postDataJSON()?.messages || []
+    const sse =
+      `data: ${JSON.stringify({ choices: [{ delta: { content: 'REGENERATED first answer' } }] })}\n\n` +
+      `data: ${JSON.stringify({ choices: [{ delta: {}, finish_reason: 'stop' }], usage: { prompt_tokens: 1, completion_tokens: 1, total_tokens: 2 } })}\n\n` +
+      `data: [DONE]\n\n`
+    route.fulfill({ status: 200, contentType: 'text/event-stream', body: sse })
+  })
   await seedChat(page, TWO_TURNS)
   await page.goto('/app/chat')
 
@@ -77,6 +87,15 @@ test('retry regenerates the first answer and drops the later turn', async ({ pag
   await expect(page.locator('.chat-message-assistant')).toContainText(['REGENERATED first answer'])
   await expect(page.locator('.chat-message-user')).toHaveCount(1)
   await expect(page.locator('.chat-message-assistant')).toHaveCount(1)
+
+  // The OUTBOUND payload must also be truncated: the resent user turn is present,
+  // but the downstream turn and the stale first answer must be gone.
+  const contents = (sentMessages || []).map(m =>
+    typeof m.content === 'string' ? m.content : JSON.stringify(m.content)
+  )
+  expect(contents.join('\n')).toContain('first question')
+  expect(contents.join('\n')).not.toContain('second question')
+  expect(contents.join('\n')).not.toContain('first answer')
 })
 
 test('copy chat puts the whole conversation on the clipboard', async ({ page, context }) => {
