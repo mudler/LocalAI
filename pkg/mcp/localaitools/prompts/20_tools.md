@@ -24,5 +24,6 @@ The MCP `tools/list` endpoint also exposes the full input schema for each of the
 - `upgrade_backend` — Upgrade an installed backend by name.
 - `edit_model_config` — Patch (deep-merge) JSON into an installed model's config.
 - `reload_models` — Reload all model configs from disk.
+- `load_model` — Pre-load a model into memory so the first request pays no cold-start cost. For a realtime pipeline model, every sub-model (VAD, transcription, LLM, TTS, sound_detection, voice_recognition) is loaded. Inverse of stopping a model.
 - `toggle_model_state` — Enable or disable a model (`action`: `enable` or `disable`).
 - `toggle_model_pinned` — Pin or unpin a model (`action`: `pin` or `unpin`).

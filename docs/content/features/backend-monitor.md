@@ -5,7 +5,9 @@ weight = 20
 url = "/features/backend-monitor/"
 +++
 
-LocalAI provides endpoints to monitor and manage running backends. The `/backend/monitor` endpoint reports the status and resource usage of loaded models, and `/backend/shutdown` allows stopping a model's backend process.
+LocalAI provides endpoints to monitor and manage running backends. The `/backend/monitor` endpoint reports the status and resource usage of loaded models, `/backend/load` pre-loads a model into memory, and `/backend/shutdown` allows stopping a model's backend process.
+
+All three are admin-only.
 
 ## Monitor API
 
@@ -61,6 +63,42 @@ curl "http://localhost:8080/backend/monitor?model=my-model"
   }
 }
 ```
+
+## Load API
+
+Pre-loads a model into memory ahead of its first request, so that request pays no cold-start load cost. It is the inverse of the Shutdown API and works for any model, not just realtime pipelines.
+
+- **Method:** `POST`
+- **Endpoints:** `/backend/load`, `/v1/backend/load`
+
+### Request
+
+| Parameter | Type     | Required | Description                  |
+|-----------|----------|----------|------------------------------|
+| `model`   | `string` | Yes      | Name of the model to load    |
+
+### Behavior
+
+- For a regular model, its own backend is loaded.
+- For a **realtime pipeline** model (a config with a `pipeline:` block), every configured sub-model (VAD, transcription, LLM, TTS, sound_detection, voice_recognition) is loaded concurrently instead of the pipeline stub, which has no backend of its own.
+
+The call blocks until loading finishes and reports which model names became resident, so partial failures are visible.
+
+### Usage
+
+```bash
+curl -X POST http://localhost:8080/backend/load \
+  -H "Content-Type: application/json" \
+  -d '{"model": "my-model"}'
+```
+
+### Example response
+
+```json
+{ "loaded": ["my-model"], "message": "model loaded" }
+```
+
+On failure the call returns `500` with `loaded` listing whichever sub-models did load and `message` naming the failures.
 
 ## Shutdown API
 

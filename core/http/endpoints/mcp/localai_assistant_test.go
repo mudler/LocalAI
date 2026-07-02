@@ -51,6 +51,9 @@ func (stubClient) EditModelConfig(_ context.Context, _ string, _ map[string]any)
 	return nil
 }
 func (stubClient) ReloadModels(_ context.Context) error { return nil }
+func (stubClient) LoadModel(_ context.Context, model string) ([]string, error) {
+	return []string{model}, nil
+}
 func (stubClient) SetAlias(_ context.Context, _, _ string) error {
 	return nil
 }

@@ -35,6 +35,7 @@ type fakeClient struct {
 	setAlias            func(string, string) error
 	listAliases         func() ([]AliasInfo, error)
 	reloadModels        func() error
+	loadModel           func(string) ([]string, error)
 	listBackends        func() ([]Backend, error)
 	listKnownBackends   func() ([]schema.KnownBackend, error)
 	installBackend      func(InstallBackendRequest) (string, error)
@@ -167,6 +168,14 @@ func (f *fakeClient) ReloadModels(_ context.Context) error {
 		return f.reloadModels()
 	}
 	return nil
+}
+
+func (f *fakeClient) LoadModel(_ context.Context, model string) ([]string, error) {
+	f.record("LoadModel", model)
+	if f.loadModel != nil {
+		return f.loadModel(model)
+	}
+	return []string{model}, nil
 }
 
 func (f *fakeClient) ListBackends(_ context.Context) ([]Backend, error) {

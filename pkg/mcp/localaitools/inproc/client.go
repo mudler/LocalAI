@@ -13,6 +13,7 @@ import (
 	"path/filepath"
 
 	"github.com/google/uuid"
+	"github.com/mudler/LocalAI/core/backend"
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/gallery"
 	"github.com/mudler/LocalAI/core/gallery/importers"
@@ -300,6 +301,16 @@ func (c *Client) ReloadModels(_ context.Context) error {
 		return errors.New("system state not available")
 	}
 	return c.ConfigLoader.LoadModelConfigsFromPath(c.SystemState.Model.ModelsPath)
+}
+
+func (c *Client) LoadModel(ctx context.Context, model string) ([]string, error) {
+	if c.ConfigLoader == nil || c.ModelLoader == nil {
+		return nil, errors.New("model loader not available")
+	}
+	// Reuse the same preload path the REST /backend/load endpoint uses, so a
+	// pipeline model loads all its sub-models and the behaviour stays identical
+	// across the in-process and HTTP clients.
+	return backend.PreloadModelByName(ctx, c.ConfigLoader, c.ModelLoader, c.AppConfig, model)
 }
 
 // ---- Model aliases ----

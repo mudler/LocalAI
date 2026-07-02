@@ -11,6 +11,24 @@ type BackendMonitorRequest struct {
 	BasicModelRequest
 }
 
+// ModelLoadRequest asks LocalAI to pre-load a model into memory by name, so the
+// first request that uses it pays no cold-start load cost. For a realtime
+// pipeline model, every configured sub-model (VAD, transcription, LLM, TTS,
+// sound_detection, voice_recognition) is loaded instead of the pipeline stub.
+// It is the inverse of the /backend/shutdown request.
+type ModelLoadRequest struct {
+	BasicModelRequest
+}
+
+// ModelLoadResponse reports the outcome of a /backend/load call.
+type ModelLoadResponse struct {
+	// Loaded lists the model names actually resident in memory after the call.
+	// For a pipeline model these are its sub-models, not the pipeline name.
+	Loaded []string `json:"loaded"`
+	// Message is a short human-readable status ("model loaded", or an error).
+	Message string `json:"message"`
+}
+
 type TokenMetricsRequest struct {
 	BasicModelRequest
 }

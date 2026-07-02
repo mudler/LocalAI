@@ -52,6 +52,22 @@ func ModelLoadTraceObserver(appConfig *config.ApplicationConfig) func(model.Back
 	}
 }
 
+// PreloadModel warms a model into memory without running any inference, so the
+// first real request doesn't pay the backend's cold-start load cost. It uses
+// the same ModelOptions + ml.Load path the modality functions use, so a
+// subsequent inference call hits the loader cache instead of reloading. Load
+// failures are recorded and returned; callers that warm models opportunistically
+// (e.g. realtime session warm-up) typically log and continue, since the lazy
+// path will retry on first use.
+func PreloadModel(ctx context.Context, ml *model.ModelLoader, modelConfig config.ModelConfig, appConfig *config.ApplicationConfig) error {
+	opts := ModelOptions(modelConfig, appConfig, model.WithContext(ctx))
+	if _, err := ml.Load(opts...); err != nil {
+		recordModelLoadFailure(appConfig, modelConfig.Name, modelConfig.Backend, err, nil)
+		return err
+	}
+	return nil
+}
+
 // recordModelLoadFailure records a backend trace when model loading fails.
 func recordModelLoadFailure(appConfig *config.ApplicationConfig, modelName, backend string, err error, data map[string]any) {
 	if !appConfig.EnableTracing {

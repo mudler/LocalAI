@@ -19,6 +19,7 @@ const (
 	routeModelImport     = "/models/import"
 	routeAliases         = "/api/aliases"
 	routeModelsReload    = "/models/reload"
+	routeBackendLoad     = "/backend/load"
 	routeBackends        = "/backends"
 	routeBackendsKnown   = "/backends/known"
 	routeBackendsApply   = "/backends/apply"

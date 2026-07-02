@@ -56,6 +56,39 @@ pipeline:
 
 All streaming flags are off by default, so existing pipelines are unaffected.
 
+### Model warm-up (cold start)
+
+Without warm-up the pipeline's models are loaded into memory only on first use *within* a session: the VAD on the first audio chunk, transcription at the first end-of-speech, the LLM on the first reply, and TTS on the first spoken output. On a cold session this staggers a load delay across those first few interactions — and a model that fails to load (missing weights, wrong backend, out of memory) only fails part-way through the first turn.
+
+To avoid that, LocalAI **warms the pipeline by default**: it loads the VAD, transcription, LLM and TTS backends into memory *before* the session is announced, and the session start **blocks until they are all ready**. The loads run concurrently, so the wait is the slowest single model, not the sum. This means:
+
+- The first turn pays no cold-start cost — every backend is already resident.
+- **Model-load errors surface at session start.** If any stage fails to load, the session is not started and the client receives a `model_load_error` instead of `session.created`, so a broken pipeline fails fast and visibly rather than mid-call.
+
+Set `disable_warmup: true` to restore the lazy "load on first use" behavior — session start no longer waits on loading and load errors surface on the first turn instead. Useful if you want idle sessions to avoid holding model memory they may never use:
+
+```yaml
+name: gpt-realtime
+pipeline:
+  vad: silero-vad-ggml
+  transcription: whisper-large-turbo
+  llm: qwen3-4b
+  tts: tts-1
+  disable_warmup: true   # lazily load each model on first use instead of at session start
+```
+
+#### Pre-loading a pipeline on demand
+
+Warm-up only fires when a realtime session opens. To load a pipeline into memory ahead of time — e.g. to warm it right after boot, or when running with `disable_warmup: true` — POST the model name to the admin-only `/backend/load` endpoint. For a pipeline model it loads every configured sub-model (VAD, transcription, LLM, TTS, sound_detection, voice_recognition) concurrently:
+
+```bash
+curl -X POST http://localhost:8080/backend/load \
+  -H "Content-Type: application/json" \
+  -d '{"model": "gpt-realtime"}'
+```
+
+The endpoint is not realtime-specific — it pre-loads any model. See [Backend Monitor]({{%relref "features/backend-monitor" %}}) for the full request/response reference (it is the inverse of `/backend/shutdown`).
+
 ### Turn detection
 
 Turn detection decides when the user has finished speaking and the pipeline should respond. Two modes are supported, matching the OpenAI session schema:

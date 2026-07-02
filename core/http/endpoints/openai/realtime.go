@@ -7,6 +7,7 @@ import (
 	"encoding/binary"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"math"
 	"os"
@@ -266,6 +267,12 @@ type Model interface {
 	// grpcerrors.IsLiveTranscriptionUnsupported.
 	TranscribeLive(ctx context.Context, language string, onEvent func(backend.LiveTranscriptionEvent)) (backend.LiveTranscriptionSession, error)
 	PredictConfig() *config.ModelConfig
+	// Warmup eagerly loads the pipeline's sub-model backends into memory so the
+	// first realtime turn doesn't pay each backend's cold-start load cost. Loads
+	// run concurrently; Warmup blocks until they all finish and returns a joined
+	// error naming every stage that failed to load (nil if all succeeded), so a
+	// caller can surface model-load failures at session start instead of mid-call.
+	Warmup(ctx context.Context) error
 }
 
 var upgrader = websocket.Upgrader{
@@ -583,18 +590,8 @@ func runRealtimeSession(application *application.Application, t Transport, model
 	}
 	session.ModelInterface = m
 
-	if session.SummaryModel != "" {
-		summaryModelName := session.SummaryModel
-		sid := sessionID
-		session.summarizerFactory = func() (Model, error) {
-			summaryCfg, lerr := application.ModelConfigLoader().LoadModelConfigFileByNameDefaultOptions(summaryModelName, application.ApplicationConfig())
-			if lerr != nil {
-				return nil, fmt.Errorf("load summary model config %q: %w", summaryModelName, lerr)
-			}
-			return newModel(&summaryCfg.Pipeline, application.ModelConfigLoader(), application.ModelLoader(), application.ApplicationConfig(), evaluator, buildRealtimeRoutingContext(application, sid))
-		}
-	}
-
+	// The voice gate is built before the warm-up below so its
+	// speaker-recognition model can warm alongside the pipeline stages.
 	if cfg.Pipeline.VoiceGateEnabled() {
 		gate, gerr := newVoiceGate(
 			*cfg.Pipeline.VoiceRecognition,
@@ -610,6 +607,47 @@ func runRealtimeSession(application *application.Application, t Transport, model
 		}
 		session.voiceGate = gate
 		xlog.Info("realtime voice recognition gate enabled", "mode", gate.cfg.Mode, "when", gate.cfg.When)
+	}
+
+	// Warm the pipeline's sub-model backends before announcing the session.
+	// Loads run concurrently but we block here until they all finish, so a model
+	// that fails to load (missing weights, bad backend, OOM) surfaces as an error
+	// at session start rather than stalling — or failing — mid-call on the first
+	// turn (VAD on the first audio chunk, STT at end-of-speech, LLM on the first
+	// reply, TTS on the first spoken output). On success the backends are already
+	// resident, so the first turn pays no cold-start cost. Opt out per pipeline
+	// with `pipeline.disable_warmup: true` to restore lazy load-on-first-use
+	// (errors then surface on first use instead of at session start).
+	if !cfg.Pipeline.DisableWarmup {
+		warmErr := make(chan error, 1)
+		go func() { warmErr <- m.Warmup(context.Background()) }()
+		// The voice-gate model warms concurrently with the pipeline stages: an
+		// enforced gate blocks each utterance on speaker resolution, so its
+		// cold-start would otherwise land on the first turn too. (Compaction's
+		// summary_model stays lazy — it only runs off the response path.)
+		var gateErr error
+		if session.voiceGate != nil {
+			_, gateErr = backend.PreloadStages(context.Background(), application.ModelLoader(), application.ApplicationConfig(), []backend.PreloadStage{
+				{Role: "voice_recognition", Cfg: session.voiceGate.recCfg},
+			})
+		}
+		if err := errors.Join(<-warmErr, gateErr); err != nil {
+			xlog.Error("realtime warmup failed", "model", model, "error", err)
+			sendError(t, "model_load_error", "Failed to load pipeline models: "+err.Error(), "", "")
+			return
+		}
+	}
+
+	if session.SummaryModel != "" {
+		summaryModelName := session.SummaryModel
+		sid := sessionID
+		session.summarizerFactory = func() (Model, error) {
+			summaryCfg, lerr := application.ModelConfigLoader().LoadModelConfigFileByNameDefaultOptions(summaryModelName, application.ApplicationConfig())
+			if lerr != nil {
+				return nil, fmt.Errorf("load summary model config %q: %w", summaryModelName, lerr)
+			}
+			return newModel(&summaryCfg.Pipeline, application.ModelConfigLoader(), application.ModelLoader(), application.ApplicationConfig(), evaluator, buildRealtimeRoutingContext(application, sid))
+		}
 	}
 
 	// Store the session and notify the transport (for WebRTC audio track handling)
@@ -1125,6 +1163,21 @@ func updateSession(session *Session, update *types.SessionUnion, cl *config.Mode
 			return err
 		}
 		session.ModelInterface = m
+		// A session.update that swaps the model/voice rebuilds the pipeline, so
+		// warm the new backends too (unless opted out) — otherwise the next turn
+		// pays the cold-start load the original session warm-up already avoided.
+		// Unlike session start this stays non-blocking: updateSession runs under
+		// the global sessionLock, so blocking on a multi-second load here would
+		// stall every other session. Load errors are logged (and still surface on
+		// first use); per-stage failures are already warned inside
+		// backend.PreloadStages.
+		if !session.ModelConfig.Pipeline.DisableWarmup {
+			go func() {
+				if err := m.Warmup(context.Background()); err != nil {
+					xlog.Error("realtime warmup failed after session.update", "error", err)
+				}
+			}()
+		}
 	}
 
 	if rt.Audio != nil && rt.Audio.Input != nil && rt.Audio.Input.TurnDetectionSet {

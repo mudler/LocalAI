@@ -656,6 +656,18 @@ type Pipeline struct {
 	// to benefit. A client session.update still overrides type and eagerness
 	// per session; retranscribe is server-side only. Unset keeps server_vad.
 	TurnDetection PipelineTurnDetection `yaml:"turn_detection,omitempty" json:"turn_detection,omitempty"`
+
+	// DisableWarmup turns off eager pre-loading of the pipeline's sub-models at
+	// realtime session start. By default (false) LocalAI loads every configured
+	// sub-model backend (VAD, transcription, LLM, TTS, sound detection, voice
+	// recognition) into memory (concurrently) before the
+	// session is announced and blocks until they are ready, so the first turn
+	// pays no cold-start cost and a model that fails to load surfaces as an error
+	// at session start rather than mid-call. Set true to restore the lazy "load
+	// on first use" behavior — session start no longer blocks on loading and
+	// load errors surface on first use instead (e.g. to keep idle sessions from
+	// holding model memory they may never use).
+	DisableWarmup bool `yaml:"disable_warmup,omitempty" json:"disable_warmup,omitempty"`
 }
 
 // PipelineCompaction configures summarize-then-drop for a realtime pipeline.
