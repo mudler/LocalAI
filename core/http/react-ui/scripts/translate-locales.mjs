@@ -17,7 +17,7 @@
 //
 // Behavior:
 //   - Reads public/locales/en/*.json as source of truth.
-//   - For each other locale (it, es, de, zh-CN), opens the matching file
+//   - For each other locale (it, es, de, zh-CN, id), opens the matching file
 //     (or creates it). Walks the source object; for each leaf string:
 //       * If the target already has a non-empty translation, leave it.
 //       * If --copy mode, fill with the English value.
@@ -36,13 +36,14 @@ const __dirname = dirname(fileURLToPath(import.meta.url))
 const ROOT = join(__dirname, '..')
 const LOCALES_DIR = join(ROOT, 'public', 'locales')
 const SOURCE_LOCALE = 'en'
-const TARGET_LOCALES = ['it', 'es', 'de', 'zh-CN']
+const TARGET_LOCALES = ['it', 'es', 'de', 'zh-CN', 'id']
 
 const LANGUAGE_NAMES = {
   it: 'Italian',
   es: 'Spanish',
   de: 'German',
   'zh-CN': 'Simplified Chinese',
+  id: 'Indonesian',
 }
 
 const argv = process.argv.slice(2)

@@ -13,7 +13,7 @@ jobs:
           - repository: "mudler/LocalAI"
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - name: Bump dependencies 🔧
         run: |
           bash .github/bump_docs.sh ${{ matrix.repository }}

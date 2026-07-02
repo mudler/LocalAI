@@ -167,6 +167,27 @@ func (re *RequestExtractor) SetModelAndConfig(initializer func() schema.LocalAIR
 				}
 			}
 
+			// Resolve a model alias to its target before the disabled check and
+			// before storing MODEL_CONFIG, so every modality (chat, embeddings,
+			// tts, image, ...) inherits redirection. The response keeps echoing
+			// the alias name (input.ModelName is left unchanged); usage accounting
+			// records requested=alias / served=target.
+			if cfg != nil && cfg.IsAlias() {
+				resolved, _, aliasErr := re.modelConfigLoader.ResolveAlias(cfg)
+				if aliasErr != nil {
+					return c.JSON(http.StatusBadRequest, schema.ErrorResponse{
+						Error: &schema.APIError{
+							Message: aliasErr.Error(),
+							Code:    http.StatusBadRequest,
+							Type:    "invalid_request_error",
+						},
+					})
+				}
+				c.Set(ContextKeyRequestedModel, modelName)
+				c.Set(ContextKeyServedModel, resolved.Name)
+				cfg = resolved
+			}
+
 			// Check if the model is disabled
 			if cfg != nil && cfg.IsDisabled() {
 				return c.JSON(http.StatusForbidden, schema.ErrorResponse{
@@ -308,6 +329,21 @@ func mergeOpenAIRequestAndModelConfig(config *config.ModelConfig, input *schema.
 
 	if input.Temperature != nil {
 		config.Temperature = input.Temperature
+	}
+
+	// Resolve the effective reasoning effort (request overrides the model config
+	// default), store it so gRPCPredictOpts forwards it to the backend as the
+	// reasoning_effort chat_template_kwarg (what gpt-oss / LFM2.5 read), and map
+	// it onto the enable_thinking toggle. "none" disables thinking (the #10072
+	// use case); a level enables it unless the config already disabled reasoning
+	// (an operator's explicit disable wins over a request asking to think).
+	config.ApplyReasoningEffort(input.ReasoningEffort)
+
+	// Forward the client's request metadata so chat-template kwargs set per-request
+	// (enable_thinking, reasoning_effort, preserve_thinking, ...) reach the backend
+	// and override the model's reasoning-config defaults. See gRPCPredictOpts.
+	if len(input.Metadata) > 0 {
+		config.RequestMetadata = input.Metadata
 	}
 
 	// Collapse the modern max_completion_tokens alias into the

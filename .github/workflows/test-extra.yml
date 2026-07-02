@@ -38,6 +38,7 @@ jobs:
       acestep-cpp: ${{ steps.detect.outputs.acestep-cpp }}
       qwen3-tts-cpp: ${{ steps.detect.outputs.qwen3-tts-cpp }}
       rfdetr-cpp: ${{ steps.detect.outputs.rfdetr-cpp }}
+      locate-anything-cpp: ${{ steps.detect.outputs.locate-anything-cpp }}
       vibevoice-cpp: ${{ steps.detect.outputs.vibevoice-cpp }}
       localvqe: ${{ steps.detect.outputs.localvqe }}
       voxtral: ${{ steps.detect.outputs.voxtral }}
@@ -46,9 +47,10 @@ jobs:
       speaker-recognition: ${{ steps.detect.outputs.speaker-recognition }}
       sherpa-onnx: ${{ steps.detect.outputs.sherpa-onnx }}
       whisper: ${{ steps.detect.outputs.whisper }}
+      parakeet-cpp: ${{ steps.detect.outputs.parakeet-cpp }}
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
       - name: Install dependencies
@@ -65,7 +67,7 @@ jobs:
   #   runs-on: ubuntu-latest
   #   steps:
   #     - name: Clone
-  #       uses: actions/checkout@v6
+  #       uses: actions/checkout@v7
   #       with:
   #         submodules: true
   #     - name: Dependencies
@@ -88,7 +90,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Clone
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           submodules: true
       - name: Dependencies
@@ -111,7 +113,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Clone
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           submodules: true
       - name: Dependencies
@@ -135,7 +137,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Clone
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           submodules: true
       - name: Dependencies
@@ -156,7 +158,7 @@ jobs:
   #  runs-on: ubuntu-latest
   #  steps:
   #    - name: Clone
-  #      uses: actions/checkout@v6
+  #      uses: actions/checkout@v7
   #      with:
   #        submodules: true
   #    - name: Dependencies
@@ -176,7 +178,7 @@ jobs:
   #   runs-on: ubuntu-latest
   #   steps:
   #     - name: Clone
-  #       uses: actions/checkout@v6
+  #       uses: actions/checkout@v7
   #       with:
   #         submodules: true
   #     - name: Dependencies
@@ -238,7 +240,7 @@ jobs:
   #           sudo rm -rf "$AGENT_TOOLSDIRECTORY" || true
   #           df -h
   #     - name: Clone
-  #       uses: actions/checkout@v6
+  #       uses: actions/checkout@v7
   #       with:
   #         submodules: true
   #     - name: Dependencies
@@ -263,7 +265,7 @@ jobs:
   #   runs-on: ubuntu-latest
   #   steps:
   #     - name: Clone
-  #       uses: actions/checkout@v6
+  #       uses: actions/checkout@v7
   #       with:
   #         submodules: true
   #     - name: Dependencies
@@ -286,7 +288,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Clone
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           submodules: true
       - name: Dependencies
@@ -307,7 +309,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Clone
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           submodules: true
       - name: Dependencies
@@ -328,7 +330,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Clone
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           submodules: true
       - name: Dependencies
@@ -349,7 +351,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Clone
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           submodules: true
       - name: Dependencies
@@ -371,7 +373,7 @@ jobs:
   #   timeout-minutes: 45
   #   steps:
   #     - name: Clone
-  #       uses: actions/checkout@v6
+  #       uses: actions/checkout@v7
   #       with:
   #         submodules: true
   #     - name: Dependencies
@@ -392,7 +394,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Clone
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           submodules: true
       - name: Dependencies
@@ -413,7 +415,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Clone
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           submodules: true
       - name: Dependencies
@@ -434,7 +436,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Clone
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           submodules: true
       - name: Dependencies
@@ -460,7 +462,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Clone
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           submodules: true
       - name: Dependencies
@@ -482,7 +484,7 @@ jobs:
     timeout-minutes: 30
     steps:
       - name: Clone
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           submodules: true
       - name: Dependencies
@@ -511,7 +513,7 @@ jobs:
     timeout-minutes: 90
     steps:
       - name: Clone
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           submodules: true
       - name: Setup Go
@@ -528,7 +530,7 @@ jobs:
     timeout-minutes: 90
     steps:
       - name: Clone
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           submodules: true
       - name: Setup Go
@@ -550,7 +552,7 @@ jobs:
     timeout-minutes: 20
     steps:
       - name: Clone
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           submodules: true
       - name: Setup Go
@@ -562,7 +564,7 @@ jobs:
       - name: Run e2e-backends smoke
         env:
           BACKEND_IMAGE: quay.io/go-skynet/local-ai-backends:master-cpu-llama-cpp
-          BACKEND_TEST_CAPS: health,load,predict,stream,logprobs,logit_bias
+          BACKEND_TEST_CAPS: health,load,predict,stream,logprobs,logit_bias,tokenize
         run: |
           make test-extra-backend
   # Realtime e2e with sherpa-onnx driving VAD + STT + TTS against a mocked LLM.
@@ -577,7 +579,7 @@ jobs:
     timeout-minutes: 90
     steps:
       - name: Clone
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           submodules: true
       - name: Setup Go
@@ -602,7 +604,7 @@ jobs:
     timeout-minutes: 90
     steps:
       - name: Clone
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           submodules: true
       - name: Setup Go
@@ -623,7 +625,7 @@ jobs:
     timeout-minutes: 90
     steps:
       - name: Clone
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           submodules: true
       - name: Setup Go
@@ -633,6 +635,26 @@ jobs:
       - name: Build whisper backend image and run transcription gRPC e2e tests
         run: |
           make test-extra-backend-whisper-transcription
+  # Parakeet ASR via the parakeet-cpp backend (C++/ggml port of NeMo
+  # Parakeet). Drives AudioTranscription (offline, with word timestamps) on
+  # tdt_ctc-110m + the JFK 11s clip.
+  tests-parakeet-cpp-grpc-transcription:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.parakeet-cpp == 'true' || needs.detect-changes.outputs.run-all == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - name: Clone
+        uses: actions/checkout@v7
+        with:
+          submodules: true
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.25.4'
+      - name: Build parakeet-cpp backend image and run transcription gRPC e2e tests
+        run: |
+          make test-extra-backend-parakeet-cpp-transcription
   # VITS TTS via the sherpa-onnx backend. Drives both TTS (file write) and
   # TTSStream (PCM chunks) on the e2e-backends harness.
   tests-sherpa-onnx-grpc-tts:
@@ -642,7 +664,7 @@ jobs:
     timeout-minutes: 90
     steps:
       - name: Clone
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           submodules: true
       - name: Setup Go
@@ -659,7 +681,7 @@ jobs:
     timeout-minutes: 90
     steps:
       - name: Clone
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           submodules: true
       - name: Setup Go
@@ -676,7 +698,7 @@ jobs:
     timeout-minutes: 90
     steps:
       - name: Clone
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           submodules: true
       - name: Setup Go
@@ -719,7 +741,7 @@ jobs:
   #   timeout-minutes: 90
   #   steps:
   #     - name: Clone
-  #       uses: actions/checkout@v6
+  #       uses: actions/checkout@v7
   #       with:
   #         submodules: true
   #     - name: Dependencies
@@ -761,7 +783,7 @@ jobs:
   #   timeout-minutes: 90
   #   steps:
   #     - name: Clone
-  #       uses: actions/checkout@v6
+  #       uses: actions/checkout@v7
   #       with:
   #         submodules: true
   #     - name: Dependencies
@@ -786,7 +808,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Clone
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           submodules: true
       - name: Dependencies
@@ -818,7 +840,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Clone
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           submodules: true
       - name: Dependencies
@@ -854,7 +876,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Clone
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           submodules: true
       - name: Dependencies
@@ -880,6 +902,45 @@ jobs:
       - name: Test rfdetr-cpp
         run: |
           make --jobs=5 --output-sync=target -C backend/go/rfdetr-cpp test
+  # Per-backend e2e for locate-anything-cpp: builds the .so + Go binary and
+  # runs `make -C backend/go/locate-anything-cpp test`. test.sh fetches the
+  # locate-anything-q8_0 GGUF (~6.3 GB, NVIDIA LocateAnything-3B) from the
+  # published mudler/locate-anything.cpp-gguf HF repo + a COCO image, then the
+  # Go wire test loads the model and runs an open-vocabulary Detect, asserting
+  # at least one labeled box. Heavier than the other Go backends (it is a 3B),
+  # so it is gated to changes under backend/go/locate-anything-cpp/.
+  tests-locate-anything-cpp:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.locate-anything-cpp == 'true' || needs.detect-changes.outputs.run-all == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Clone
+        uses: actions/checkout@v7
+        with:
+          submodules: true
+      - name: Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential cmake curl libopenblas-dev
+      - name: Setup Go
+        uses: actions/setup-go@v5
+      - name: Display Go version
+        run: go version
+      - name: Proto Dependencies
+        run: |
+          # Install protoc
+          curl -L -s https://github.com/protocolbuffers/protobuf/releases/download/v26.1/protoc-26.1-linux-x86_64.zip -o protoc.zip && \
+          unzip -j -d /usr/local/bin protoc.zip bin/protoc && \
+          rm protoc.zip
+          go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.34.2
+          go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@1958fcbe2ca8bd93af633f11e97d44e567e945af
+          PATH="$PATH:$HOME/go/bin" make protogen-go
+      - name: Build locate-anything-cpp
+        run: |
+          make --jobs=5 --output-sync=target -C backend/go/locate-anything-cpp
+      - name: Test locate-anything-cpp
+        run: |
+          make --jobs=5 --output-sync=target -C backend/go/locate-anything-cpp test
   # Per-backend smoke for vibevoice-cpp: builds the .so + Go binary and
   # runs `make -C backend/go/vibevoice-cpp test`. test.sh auto-downloads
   # the published mudler/vibevoice.cpp-models bundle (TTS Q8_0 + ASR Q4_K
@@ -891,7 +952,7 @@ jobs:
     timeout-minutes: 90
     steps:
       - name: Clone
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           submodules: true
       - name: Dependencies
@@ -926,7 +987,7 @@ jobs:
     timeout-minutes: 90
     steps:
       - name: Clone
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           submodules: true
       - name: Setup Go
@@ -947,12 +1008,16 @@ jobs:
   # image + working dir.
   tests-vibevoice-cpp-grpc-transcription:
     needs: detect-changes
-    if: needs.detect-changes.outputs.vibevoice-cpp == 'true' || needs.detect-changes.outputs.run-all == 'true'
+    # Skip on release tag pushes: the ASR Q4_K model is ~10 GB and cannot be
+    # pulled from HF within the inner `go test -timeout 30m` budget on a CI
+    # runner, so every tag build hung and timed out. Still runs on PRs/branch
+    # pushes that touch vibevoice-cpp so regressions are caught off the release path.
+    if: (needs.detect-changes.outputs.vibevoice-cpp == 'true' || needs.detect-changes.outputs.run-all == 'true') && !startsWith(github.ref, 'refs/tags/')
     runs-on: bigger-runner
     timeout-minutes: 150
     steps:
       - name: Clone
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           submodules: true
       - name: Dependencies
@@ -981,7 +1046,7 @@ jobs:
     timeout-minutes: 60
     steps:
       - name: Clone
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           submodules: true
       - name: Setup Go
@@ -997,7 +1062,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Clone
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           submodules: true
       - name: Dependencies
@@ -1030,7 +1095,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Clone
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           submodules: true
       - name: Dependencies
@@ -1053,7 +1118,7 @@ jobs:
     timeout-minutes: 90
     steps:
       - name: Clone
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           submodules: true
       - name: Dependencies
@@ -1079,7 +1144,7 @@ jobs:
     timeout-minutes: 90
     steps:
       - name: Clone
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           submodules: true
       - name: Dependencies

@@ -134,7 +134,7 @@ func (s *backendSupervisor) installBackend(req messaging.BackendInstallRequest, 
 		if req.URI != "" {
 			xlog.Info("Installing backend from external URI", "backend", req.Backend, "uri", req.URI, "force", force)
 			if err := galleryop.InstallExternalBackend(
-				context.Background(), galleries, s.systemState, s.ml, downloadCb, req.URI, req.Name, req.Alias, s.cfg.RequireBackendIntegrity,
+				context.Background(), galleries, s.systemState, s.ml, downloadCb, req.URI, req.Name, req.Alias, force, s.cfg.RequireBackendIntegrity,
 			); err != nil {
 				return "", fmt.Errorf("installing backend from gallery: %w", err)
 			}
@@ -186,17 +186,29 @@ func (s *backendSupervisor) upgradeBackend(req messaging.BackendUpgradeRequest) 
 		}
 	}
 
+	// When the master tagged this upgrade with an OpID, stream gallery download
+	// progress back on the per-op subject (reused from install — an upgrade is a
+	// force-reinstall). Old masters omit OpID and stay on the silent path. The
+	// deferred Flush guarantees a terminal-percentage event even if the upgrade
+	// errors out, so the master's per-node bar never hangs mid-download.
+	var downloadCb func(file, current, total string, percentage float64)
+	if req.OpID != "" && s.nats != nil {
+		publisher := nodes.NewDebouncedInstallProgressPublisher(s.nats, s.nodeID, req.OpID, req.Backend, installProgressDebounce)
+		downloadCb = publisher.OnDownload
+		defer publisher.Flush()
+	}
+
 	if req.URI != "" {
 		xlog.Info("Upgrading backend from external URI", "backend", req.Backend, "uri", req.URI)
 		if err := galleryop.InstallExternalBackend(
-			context.Background(), galleries, s.systemState, s.ml, nil, req.URI, req.Name, req.Alias, s.cfg.RequireBackendIntegrity,
+			context.Background(), galleries, s.systemState, s.ml, downloadCb, req.URI, req.Name, req.Alias, true, s.cfg.RequireBackendIntegrity,
 		); err != nil {
 			return fmt.Errorf("upgrading backend from external URI: %w", err)
 		}
 	} else {
 		xlog.Info("Upgrading backend from gallery", "backend", req.Backend)
 		if err := gallery.InstallBackendFromGallery(
-			context.Background(), galleries, s.systemState, s.ml, req.Backend, nil, true, /* force */
+			context.Background(), galleries, s.systemState, s.ml, req.Backend, downloadCb, true, /* force */
 			s.cfg.RequireBackendIntegrity,
 		); err != nil {
 			return fmt.Errorf("upgrading backend from gallery: %w", err)

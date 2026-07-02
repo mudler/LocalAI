@@ -5,16 +5,94 @@ weight = 15
 url = "/features/voice-recognition/"
 +++
 
-LocalAI supports voice (speaker) recognition through the
-`speaker-recognition` backend: speaker verification (1:1), speaker
-identification (1:N) against a built-in vector store, speaker
-embedding, and demographic analysis (age / gender / emotion from
-voice).
+![Voice recognition: register, identify, and forget voiceprints in a vector store, for 1:1 verify or 1:N identify](/images/diagrams/voice-recognition-flow.png)
+
+LocalAI supports voice (speaker) recognition: speaker verification
+(1:1), speaker identification (1:N) against a built-in vector store,
+speaker embedding, and demographic analysis (age / gender / emotion
+from voice).
 
 The audio analog to [Face Recognition](/features/face-recognition/),
-following the same two-engine pattern under one image.
+served over the same `/v1/voice/*` HTTP API by two backends:
 
-## Engines
+- **`voice-detect` (recommended, default).** A standalone C++/ggml
+  engine ([voice-detect.cpp](https://github.com/mudler/voice-detect.cpp)):
+  no Python, no onnxruntime, no torch runtime. Each gallery entry is a
+  single self-describing GGUF. This is the recommended option for new
+  deployments.
+- **`speaker-recognition` (Python).** The original SpeechBrain / ONNX
+  backend. Still supported; see [the Python backend](#speaker-recognition-python-backend)
+  below.
+
+Both backends expose the identical wire format, so the API examples on
+this page work with either - only the gallery entry name (the `model`
+field) changes.
+
+## voice-detect (ggml) backend
+
+The `voice-detect` backend reads the embedding (or analysis)
+architecture (`voicedetect.arch`) directly from the GGUF metadata, so
+installing a gallery entry is all that is needed to select an engine. It
+drives the VoiceEmbed / VoiceVerify / VoiceAnalyze gRPC rpcs behind the
+`/v1/voice/{embed,verify,analyze,register,identify,forget}` endpoints.
+
+### Gallery entries
+
+| Gallery entry | Model | Embedding dim | License |
+|---|---|---|---|
+| `voice-detect-ecapa-tdnn` | SpeechBrain ECAPA-TDNN (VoxCeleb) | 192 | **Apache 2.0 - commercial-safe** |
+| `voice-detect-wespeaker-resnet34` | WeSpeaker ResNet34 (VoxCeleb) | 256 | CC-BY-4.0 |
+| `voice-detect-eres2net` | 3D-Speaker ERes2Net (VoxCeleb) | 192 | **Apache 2.0 - commercial-safe** |
+| `voice-detect-campplus` | 3D-Speaker CAM++ (VoxCeleb) | 192 | **Apache 2.0 - commercial-safe** |
+| `voice-detect-emotion-wav2vec2` | audEERING wav2vec2 (age / gender / emotion) | analyze head | **CC-BY-NC-SA-4.0 - non-commercial** |
+
+The four speaker-recognition entries drive verify / embed / identify.
+`voice-detect-emotion-wav2vec2` is the analysis head behind
+`/v1/voice/analyze` (continuous age estimate plus gender and emotion
+class scores) and is **non-commercial / research use only**.
+
+### Quickstart
+
+Install the default entry (recommended for copy-paste):
+
+```bash
+local-ai models install voice-detect-ecapa-tdnn
+```
+
+Verify that two audio clips were spoken by the same person:
+
+```bash
+curl -sX POST http://localhost:8080/v1/voice/verify \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "voice-detect-ecapa-tdnn",
+    "audio1": "https://example.com/alice_1.wav",
+    "audio2": "https://example.com/alice_2.wav"
+  }'
+```
+
+Analyze age / gender / emotion (install the analyze entry first):
+
+```bash
+local-ai models install voice-detect-emotion-wav2vec2
+
+curl -sX POST http://localhost:8080/v1/voice/analyze \
+  -H "Content-Type: application/json" \
+  -d '{"model": "voice-detect-emotion-wav2vec2", "audio": "https://example.com/alice.wav"}'
+```
+
+The 1:N register / identify / forget workflow and the rest of the API
+are identical to the [API reference](#api-reference) below - just pass a
+`voice-detect-*` model name. The default verify threshold is ~0.25 for
+the ECAPA-TDNN / ERes2Net / CAM++ recognizers and ~0.30 for WeSpeaker
+ResNet34.
+
+## speaker-recognition (Python) backend
+
+The `speaker-recognition` backend follows the same two-engine pattern
+under one image.
+
+### Engines
 
 | Gallery entry | Model | Size | License |
 |---|---|---|---|

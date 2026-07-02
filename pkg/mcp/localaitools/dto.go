@@ -52,6 +52,14 @@ type ModelConfigView struct {
 	JSON map[string]any `json:"json,omitempty"  jsonschema:"Parsed JSON view of the same config (convenience for diffing)."`
 }
 
+// AliasInfo is one alias -> target pair, the shape list_aliases returns and
+// GET /api/aliases emits. Kept aligned with localai.AliasInfo so the
+// MCP wire output matches the REST endpoint by construction.
+type AliasInfo struct {
+	Name   string `json:"name"`
+	Target string `json:"target"`
+}
+
 // InstallModelRequest is the input for install_model.
 type InstallModelRequest struct {
 	GalleryName string         `json:"gallery_name,omitempty" jsonschema:"The gallery the model lives in (from gallery_search). Optional when ModelName is unique across galleries."`
@@ -77,11 +85,11 @@ type Backend struct {
 
 // SystemInfo summarises the LocalAI deployment.
 type SystemInfo struct {
-	Version          string   `json:"version"`
-	Distributed      bool     `json:"distributed"`
-	BackendsPath     string   `json:"backends_path,omitempty"`
-	ModelsPath       string   `json:"models_path,omitempty"`
-	LoadedModels     []string `json:"loaded_models,omitempty"`
+	Version           string   `json:"version"`
+	Distributed       bool     `json:"distributed"`
+	BackendsPath      string   `json:"backends_path,omitempty"`
+	ModelsPath        string   `json:"models_path,omitempty"`
+	LoadedModels      []string `json:"loaded_models,omitempty"`
 	InstalledBackends []string `json:"installed_backends,omitempty"`
 }
 
@@ -184,19 +192,11 @@ type UsageBucket struct {
 
 // ---- PII / sensitive data tools ----
 
-// PIIPattern is one row in the list_pii_patterns response.
-type PIIPattern struct {
-	ID             string `json:"id"`
-	Description    string `json:"description"`
-	Action         string `json:"action"` // mask | block | route_local
-	MaxMatchLength int    `json:"max_match_length"`
-}
-
 // PIIEventsQuery filters get_pii_events.
 type PIIEventsQuery struct {
 	CorrelationID string `json:"correlation_id,omitempty" jsonschema:"Optional X-Correlation-ID join key (binds events to the request and usage record)."`
 	UserID        string `json:"user_id,omitempty"        jsonschema:"Optional user id to scope the query."`
-	PatternID     string `json:"pattern_id,omitempty"     jsonschema:"Optional pattern id (e.g. email, ssn)."`
+	PatternID     string `json:"pattern_id,omitempty"     jsonschema:"Optional detector group id (e.g. ner:EMAIL)."`
 	Limit         int    `json:"limit,omitempty"          jsonschema:"Maximum events. Defaults to 100."`
 }
 
@@ -215,38 +215,6 @@ type PIIEvent struct {
 	CreatedAt     string `json:"created_at"`
 }
 
-// PIIRedactTestRequest is the input for test_pii_redaction.
-type PIIRedactTestRequest struct {
-	Text string `json:"text" jsonschema:"The candidate text. Will be run through the redactor without recording an event."`
-}
-
-// PIIRedactTestResult is the output for test_pii_redaction. spans
-// describes where the redactor matched; redacted is the text after
-// applying mask actions; blocked / local_only flag stronger actions.
-type PIIRedactTestResult struct {
-	Redacted  string        `json:"redacted"`
-	Spans     []PIIEventSpan `json:"spans"`
-	Blocked   bool          `json:"blocked"`
-	LocalOnly bool          `json:"local_only"`
-}
-
-type PIIEventSpan struct {
-	Start      int    `json:"start"`
-	End        int    `json:"end"`
-	Pattern    string `json:"pattern"`
-	HashPrefix string `json:"hash_prefix"`
-}
-
-// PIIPatternActionUpdate is the input for set_pii_pattern_action.
-// At least one of Action or Disabled must be set. Mutations are
-// transient by default — call persist_pii_patterns to flush them
-// to runtime_settings.json so the next start re-applies them.
-type PIIPatternActionUpdate struct {
-	ID       string `json:"id" jsonschema:"Pattern id to mutate (e.g. email, ssn, credit_card, api_key_prefix)."`
-	Action   string `json:"action,omitempty" jsonschema:"New action: mask, block, or route_local. Optional — omit to leave the action unchanged."`
-	Disabled *bool  `json:"disabled,omitempty" jsonschema:"Set true to skip this pattern entirely; false to re-enable. Optional — omit to leave enabled-state unchanged."`
-}
-
 // MiddlewareStatus is the aggregated /api/middleware/status payload —
 // the React Middleware page renders this in one go. Routing is a
 // placeholder until subsystem 2 lands.
@@ -255,25 +223,25 @@ type MiddlewareStatus struct {
 	Router MiddlewareRouterStatus `json:"router"`
 }
 
-// MiddlewarePIIStatus shows what the redactor is doing right now and
-// which models opt in. enabled_globally=false means --disable-pii.
+// MiddlewarePIIStatus shows which models opt in to PII redaction and the
+// NER detector models they reference. The detection policy itself lives
+// on each detector model's pii_detection block.
 type MiddlewarePIIStatus struct {
-	EnabledGlobally           bool                  `json:"enabled_globally"`
-	Reason                    string                `json:"reason,omitempty"`
-	DefaultEnabledForBackends []string              `json:"default_enabled_for_backends,omitempty"`
-	Patterns                  []PIIPattern          `json:"patterns"`
-	Models                    []MiddlewarePIIModel  `json:"models"`
-	RecentEventCount          int                   `json:"recent_event_count"`
+	EnabledGlobally           bool                 `json:"enabled_globally"`
+	Reason                    string               `json:"reason,omitempty"`
+	DefaultEnabledForBackends []string             `json:"default_enabled_for_backends,omitempty"`
+	Models                    []MiddlewarePIIModel `json:"models"`
+	RecentEventCount          int                  `json:"recent_event_count"`
 }
 
 // MiddlewarePIIModel is one model row in the per-model PII table.
 type MiddlewarePIIModel struct {
-	Name              string            `json:"name"`
-	Backend           string            `json:"backend"`
-	Enabled           bool              `json:"enabled"`
-	Explicit          bool              `json:"explicit"`             // Did YAML set Enabled, or did the backend prefix decide?
-	DefaultForBackend bool              `json:"default_for_backend"`  // Backend matches the auto-on rule (proxy-*).
-	Overrides         map[string]string `json:"overrides,omitempty"`
+	Name              string   `json:"name"`
+	Backend           string   `json:"backend"`
+	Enabled           bool     `json:"enabled"`
+	Explicit          bool     `json:"explicit"`            // Did YAML set Enabled, or did the backend prefix decide?
+	DefaultForBackend bool     `json:"default_for_backend"` // Backend matches the auto-on rule (proxy-*).
+	Detectors         []string `json:"detectors,omitempty"` // NER detector model names this config references.
 }
 
 // MiddlewareRouterStatus is the placeholder shape the Routing tab

@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	pb "github.com/mudler/LocalAI/pkg/grpc/proto"
 	. "github.com/onsi/ginkgo/v2"
@@ -85,26 +86,28 @@ import (
 // file path to LoadModel, so GGUF, ONNX, safetensors, .bin etc. all work so
 // long as the backend under test accepts that format.
 const (
-	capHealth        = "health"
-	capLoad          = "load"
-	capPredict       = "predict"
-	capStream        = "stream"
-	capEmbeddings    = "embeddings"
-	capTools         = "tools"
-	capTranscription = "transcription"
-	capTTS           = "tts"
-	capImage         = "image"
-	capFaceDetect    = "face_detect"
-	capFaceEmbed     = "face_embed"
-	capFaceVerify    = "face_verify"
-	capFaceAnalyze   = "face_analyze"
-	capFaceAntispoof = "face_antispoof"
-	capVoiceEmbed    = "voice_embed"
-	capVoiceVerify   = "voice_verify"
-	capVoiceAnalyze  = "voice_analyze"
+	capHealth         = "health"
+	capLoad           = "load"
+	capPredict        = "predict"
+	capStream         = "stream"
+	capEmbeddings     = "embeddings"
+	capTools          = "tools"
+	capTranscription  = "transcription"
+	capTTS            = "tts"
+	capImage          = "image"
+	capFaceDetect     = "face_detect"
+	capFaceEmbed      = "face_embed"
+	capFaceVerify     = "face_verify"
+	capFaceAnalyze    = "face_analyze"
+	capFaceAntispoof  = "face_antispoof"
+	capVoiceEmbed     = "voice_embed"
+	capVoiceVerify    = "voice_verify"
+	capVoiceAnalyze   = "voice_analyze"
 	capAudioTransform = "audio_transform"
-	capLogprobs      = "logprobs"
-	capLogitBias     = "logit_bias"
+	capLogprobs       = "logprobs"
+	capLogitBias      = "logit_bias"
+	capTokenize       = "tokenize"
+	capTokenClassify  = "token_classify"
 
 	defaultPrompt             = "The capital of France is"
 	streamPrompt              = "Once upon a time"
@@ -426,6 +429,23 @@ var _ = Describe("Backend container", Ordered, func() {
 			res.GetMessage(), res.GetTokens(), res.GetPromptTokens())
 	})
 
+	// Regression guard for the raw-prompt tokenize RPC. The llama.cpp handler
+	// read the prompt from the wrong JSON key ("content" instead of "prompt"),
+	// so any non-empty prompt threw and the RPC returned "Unexpected error in
+	// RPC handling". The mock backend reimplements TokenizeString in Go, so only
+	// a real backend exercises the C++ path — this spec is that coverage.
+	It("tokenizes a prompt via TokenizeString", func() {
+		if !caps[capTokenize] {
+			Skip("tokenize capability not enabled")
+		}
+		ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+		defer cancel()
+		res, err := client.TokenizeString(ctx, &pb.PredictOptions{Prompt: prompt})
+		Expect(err).NotTo(HaveOccurred(), "TokenizeString RPC failed")
+		Expect(res.GetTokens()).NotTo(BeEmpty(), "TokenizeString returned no tokens for a non-empty prompt")
+		GinkgoWriter.Printf("Tokenize: %d tokens for %q\n", len(res.GetTokens()), prompt)
+	})
+
 	It("streams output via PredictStream", func() {
 		if !caps[capStream] {
 			Skip("stream capability not enabled")
@@ -530,6 +550,45 @@ var _ = Describe("Backend container", Ordered, func() {
 		Expect(err).NotTo(HaveOccurred())
 		Expect(res.GetEmbeddings()).NotTo(BeEmpty(), "Embedding returned empty vector")
 		GinkgoWriter.Printf("Embedding: %d dims\n", len(res.GetEmbeddings()))
+	})
+
+	// TokenClassify is the PII-NER RPC (privacy-filter backend). The crown-jewel
+	// invariant is byte-offset correctness: Start/End are half-open BYTE offsets
+	// into the original UTF-8 text, and the backend's emitted text for a span must
+	// equal text[Start:End]. We run at Threshold 0 (raw, unfiltered) and assert
+	// every returned span is in range, rune-aligned, and self-consistent. The
+	// prompt carries multibyte runes BEFORE the PII so a rune/byte confusion in
+	// the engine would surface as a shifted slice here. Override the text with
+	// BACKEND_TEST_TOKEN_CLASSIFY_TEXT for a model that detects a different class.
+	It("classifies PII spans with byte-correct offsets via TokenClassify", func() {
+		if !caps[capTokenClassify] {
+			Skip("token_classify capability not enabled")
+		}
+		text := os.Getenv("BACKEND_TEST_TOKEN_CLASSIFY_TEXT")
+		if text == "" {
+			text = "Müller paid at café in Zürich; reach john.doe@example.com tomorrow."
+		}
+		ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
+		defer cancel()
+		res, err := client.TokenClassify(ctx, &pb.TokenClassifyRequest{Text: text, Threshold: 0})
+		Expect(err).NotTo(HaveOccurred(), "TokenClassify RPC failed")
+		ents := res.GetEntities()
+		Expect(ents).NotTo(BeEmpty(), "TokenClassify returned no entities for an obvious-PII sentence")
+		for _, e := range ents {
+			start, end := int(e.GetStart()), int(e.GetEnd())
+			Expect(start).To(BeNumerically(">=", 0))
+			Expect(end).To(BeNumerically(">", start))
+			Expect(end).To(BeNumerically("<=", len(text)))
+			Expect(utf8.RuneStart(text[start])).To(BeTrue(), "start %d is mid-rune in %q", start, text)
+			if end < len(text) {
+				Expect(utf8.RuneStart(text[end])).To(BeTrue(), "end %d is mid-rune in %q", end, text)
+			}
+			slice := text[start:end]
+			Expect(utf8.ValidString(slice)).To(BeTrue(), "span %q is not valid UTF-8", slice)
+			Expect(e.GetText()).To(Equal(slice), "entity text must equal text[start:end]")
+			GinkgoWriter.Printf("TokenClassify: %q [%d:%d] %s score=%.3f\n",
+				slice, start, end, e.GetEntityGroup(), e.GetScore())
+		}
 	})
 
 	It("generates an image via GenerateImage", func() {
@@ -1141,6 +1200,226 @@ var _ = Describe("Backend container", Ordered, func() {
 		Expect(rxFrames).To(BeNumerically(">=", nFrames),
 			"AudioTransformStream returned %d frames for %d sent", rxFrames, nFrames)
 		GinkgoWriter.Printf("AudioTransformStream: rx %d frames, %d bytes\n", rxFrames, rxBytes)
+	})
+})
+
+// ─── ds4 layer-split distributed inference (opt-in, hardware-gated) ──────────
+//
+// ds4 distributes a single model across machines by transformer layer: a
+// coordinator (LocalAI's ds4 backend) listens and owns a low layer slice; one
+// or more `ds4-worker` processes dial in and own the higher slices (the last
+// owns the output head). The route is "ready" only once coordinator + workers
+// cover every layer; until then the coordinator returns gRPC UNAVAILABLE.
+//
+// This spec is entirely opt-in. It only runs when BACKEND_TEST_DS4_DISTRIBUTED=1
+// is set, AND the suite's normal BACKEND_BINARY (the packaged ds4 run.sh) and
+// BACKEND_TEST_MODEL_FILE (the GGUF, present on this machine) are provided. With
+// none of those set it compiles and SKIPs cleanly: no hardware, model, or
+// network required.
+//
+// What it covers (single-host, two-process): coordinator option-loading
+// (ds4_role/ds4_layers/ds4_listen) through the real gRPC LoadModel path, a
+// real ds4-worker process spawned for the upper layers dialing the listen
+// address, route formation, and a short successful Predict once the route is
+// up. It then tears the worker down.
+//
+// What it does NOT cover: multi-host networking, >1 worker, failure/timeout
+// paths, or the `local-ai worker ds4-distributed` CLI wrapper (that resolves
+// the backend + execs ds4-worker and is unit-tested separately); here we exec
+// the packaged ds4-worker binary directly so the e2e stays self-contained.
+//
+// Env vars (in addition to BACKEND_BINARY + BACKEND_TEST_MODEL_FILE):
+//
+//	BACKEND_TEST_DS4_DISTRIBUTED       Set to "1" to enable this spec.
+//	BACKEND_TEST_DS4_WORKER_BINARY     Path to the packaged `ds4-worker` binary.
+//	                                   Defaults to a `ds4-worker` sitting next to
+//	                                   the BACKEND_BINARY run.sh.
+//	BACKEND_TEST_DS4_COORDINATOR_LAYERS Coordinator's own layer slice (default "0:19").
+//	BACKEND_TEST_DS4_WORKER_LAYERS     Worker's layer slice (default "20:output").
+//	BACKEND_TEST_DS4_LISTEN            Address workers dial into (default "127.0.0.1:<free port>").
+//	BACKEND_TEST_DS4_WORKER_ACCEL      Optional accel flag for the worker:
+//	                                   "cpu" (default), "cuda", or "metal".
+var _ = Describe("ds4 layer-split distributed inference", Ordered, func() {
+	var (
+		workDir   string
+		binaryDir string
+		modelFile string
+		listen    string
+
+		coordCmd  *exec.Cmd
+		workerCmd *exec.Cmd
+		conn      *grpc.ClientConn
+		client    pb.BackendClient
+	)
+
+	BeforeAll(func() {
+		if os.Getenv("BACKEND_TEST_DS4_DISTRIBUTED") != "1" {
+			Skip("ds4 distributed spec is opt-in; set BACKEND_TEST_DS4_DISTRIBUTED=1 (plus BACKEND_BINARY and BACKEND_TEST_MODEL_FILE) to run it")
+		}
+
+		binary := os.Getenv("BACKEND_BINARY")
+		Expect(binary).NotTo(BeEmpty(),
+			"ds4 distributed spec requires BACKEND_BINARY pointing at the packaged ds4 run.sh")
+		Expect(filepath.Base(binary)).To(Equal("run.sh"),
+			"BACKEND_BINARY must point at a run.sh produced by 'make -C backend/cpp/ds4 package'")
+		binaryDir = filepath.Dir(binary)
+		Expect(filepath.Join(binaryDir, "run.sh")).To(BeAnExistingFile())
+
+		modelFile = os.Getenv("BACKEND_TEST_MODEL_FILE")
+		Expect(modelFile).NotTo(BeEmpty(),
+			"ds4 distributed spec requires BACKEND_TEST_MODEL_FILE (GGUF present on this host)")
+		Expect(modelFile).To(BeAnExistingFile())
+
+		// Locate the ds4-worker binary the same way the suite locates the
+		// backend: next to the packaged run.sh, overridable via env.
+		workerBin := os.Getenv("BACKEND_TEST_DS4_WORKER_BINARY")
+		if workerBin == "" {
+			workerBin = filepath.Join(binaryDir, "ds4-worker")
+		}
+		Expect(workerBin).To(BeAnExistingFile(),
+			"ds4-worker binary not found (set BACKEND_TEST_DS4_WORKER_BINARY or package it next to run.sh)")
+
+		coordLayers := os.Getenv("BACKEND_TEST_DS4_COORDINATOR_LAYERS")
+		if coordLayers == "" {
+			coordLayers = "0:19"
+		}
+		workerLayers := os.Getenv("BACKEND_TEST_DS4_WORKER_LAYERS")
+		if workerLayers == "" {
+			workerLayers = "20:output"
+		}
+
+		listen = os.Getenv("BACKEND_TEST_DS4_LISTEN")
+		if listen == "" {
+			lp, err := freeport.GetFreePort()
+			Expect(err).NotTo(HaveOccurred())
+			listen = fmt.Sprintf("127.0.0.1:%d", lp)
+		}
+		// The worker dials the listen host/port as two separate CLI args.
+		listenHost, listenPort, err := net.SplitHostPort(listen)
+		Expect(err).NotTo(HaveOccurred(), "BACKEND_TEST_DS4_LISTEN must be host:port, got %q", listen)
+
+		workDir, err = os.MkdirTemp("", "ds4-dist-e2e-*")
+		Expect(err).NotTo(HaveOccurred())
+
+		Expect(os.Chmod(filepath.Join(binaryDir, "run.sh"), 0o755)).To(Succeed())
+		_ = os.Chmod(workerBin, 0o755)
+
+		// 1) Start the coordinator gRPC backend.
+		port, err := freeport.GetFreePort()
+		Expect(err).NotTo(HaveOccurred())
+		coordAddr := fmt.Sprintf("127.0.0.1:%d", port)
+
+		coordCmd = exec.Command(filepath.Join(binaryDir, "run.sh"), "--addr="+coordAddr)
+		coordCmd.Stdout = GinkgoWriter
+		coordCmd.Stderr = GinkgoWriter
+		Expect(coordCmd.Start()).To(Succeed())
+
+		Eventually(func() error {
+			c, derr := net.DialTimeout("tcp", coordAddr, 500*time.Millisecond)
+			if derr != nil {
+				return derr
+			}
+			_ = c.Close()
+			return nil
+		}, 30*time.Second, 200*time.Millisecond).Should(Succeed(), "coordinator backend did not start")
+
+		conn, err = grpc.Dial(coordAddr,
+			grpc.WithTransportCredentials(insecure.NewCredentials()),
+			grpc.WithDefaultCallOptions(grpc.MaxCallRecvMsgSize(50*1024*1024)),
+		)
+		Expect(err).NotTo(HaveOccurred())
+		client = pb.NewBackendClient(conn)
+
+		// 2) Load the coordinator model with distributed options. This proves
+		// ds4_role/ds4_layers/ds4_listen option parsing through the real
+		// LoadModel path.
+		loadCtx, loadCancel := context.WithTimeout(context.Background(), 10*time.Minute)
+		defer loadCancel()
+		ctxSize := envInt32("BACKEND_TEST_CTX_SIZE", 512)
+		res, err := client.LoadModel(loadCtx, &pb.ModelOptions{
+			Model:       modelFile,
+			ModelFile:   modelFile,
+			ContextSize: ctxSize,
+			Threads:     envInt32("BACKEND_TEST_THREADS", 4),
+			NGPULayers:  0,
+			MMap:        true,
+			Options: []string{
+				"ds4_role:coordinator",
+				"ds4_layers:" + coordLayers,
+				"ds4_listen:" + listen,
+			},
+		})
+		Expect(err).NotTo(HaveOccurred())
+		Expect(res.GetSuccess()).To(BeTrue(), "coordinator LoadModel failed: %s", res.GetMessage())
+
+		// 3) Spawn the ds4-worker for the upper layers, dialing the coordinator.
+		accel := strings.ToLower(strings.TrimSpace(os.Getenv("BACKEND_TEST_DS4_WORKER_ACCEL")))
+		workerArgs := []string{
+			"--role", "worker",
+			"--model", modelFile,
+			"--layers", workerLayers,
+			"--coordinator", listenHost, listenPort,
+			"-c", fmt.Sprintf("%d", ctxSize),
+		}
+		switch accel {
+		case "", "cpu":
+			workerArgs = append(workerArgs, "--cpu")
+		case "cuda":
+			workerArgs = append(workerArgs, "--cuda")
+		case "metal":
+			workerArgs = append(workerArgs, "--metal")
+		default:
+			Fail(fmt.Sprintf("unsupported BACKEND_TEST_DS4_WORKER_ACCEL=%q (want cpu|cuda|metal)", accel))
+		}
+		workerCmd = exec.Command(workerBin, workerArgs...)
+		workerCmd.Stdout = GinkgoWriter
+		workerCmd.Stderr = GinkgoWriter
+		Expect(workerCmd.Start()).To(Succeed())
+	})
+
+	AfterAll(func() {
+		if conn != nil {
+			_ = conn.Close()
+		}
+		if workerCmd != nil && workerCmd.Process != nil {
+			_ = workerCmd.Process.Kill()
+			_, _ = workerCmd.Process.Wait()
+		}
+		if coordCmd != nil && coordCmd.Process != nil {
+			_ = coordCmd.Process.Kill()
+			_, _ = coordCmd.Process.Wait()
+		}
+		if workDir != "" {
+			_ = os.RemoveAll(workDir)
+		}
+	})
+
+	It("forms the route and generates a short completion", func() {
+		// The coordinator returns UNAVAILABLE until the worker has connected and
+		// the layer range is fully covered. Eventually retries until the route
+		// is up (or the worker dies), then asserts non-empty content.
+		var last string
+		Eventually(func() error {
+			ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+			defer cancel()
+			res, err := client.Predict(ctx, &pb.PredictOptions{
+				Prompt:      defaultPrompt,
+				Tokens:      20,
+				Temperature: 0.1,
+				TopK:        40,
+				TopP:        0.9,
+			})
+			if err != nil {
+				return err
+			}
+			last = string(res.GetMessage())
+			if last == "" {
+				return fmt.Errorf("predict returned empty content")
+			}
+			return nil
+		}, 5*time.Minute, 2*time.Second).Should(Succeed(),
+			"coordinator never produced a completion once the worker route should have formed")
+		GinkgoWriter.Printf("ds4 distributed Predict: %q\n", last)
 	})
 })
 

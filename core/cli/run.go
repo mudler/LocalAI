@@ -30,6 +30,8 @@ type RunCMD struct {
 	ModelArgs []string `arg:"" optional:"" name:"models" help:"Model configuration URLs to load"`
 
 	ExternalBackends             []string      `env:"LOCALAI_EXTERNAL_BACKENDS,EXTERNAL_BACKENDS" help:"A list of external backends to load from gallery on boot" group:"backends"`
+	WebRTCNAT1To1IPs             []string      `env:"LOCALAI_WEBRTC_NAT_1TO1_IPS,WEBRTC_NAT_1TO1_IPS" help:"IPs advertised as the host ICE candidates for /v1/realtime WebRTC instead of every local interface. Set to the reachable host/LAN IP when running under Docker host networking or NAT, where pion otherwise offers unreachable bridge addresses and the connection drops after ICE consent checks fail." group:"api"`
+	WebRTCICEInterfaces          []string      `env:"LOCALAI_WEBRTC_ICE_INTERFACES,WEBRTC_ICE_INTERFACES" help:"Restrict /v1/realtime WebRTC ICE candidate gathering to these network interfaces (e.g. eth0), filtering out docker0/veth noise." group:"api"`
 	BackendsPath                 string        `env:"LOCALAI_BACKENDS_PATH,BACKENDS_PATH" type:"path" default:"${basepath}/backends" help:"Path containing backends used for inferencing" group:"backends"`
 	BackendsSystemPath           string        `env:"LOCALAI_BACKENDS_SYSTEM_PATH,BACKEND_SYSTEM_PATH" type:"path" default:"/var/lib/local-ai/backends" help:"Path containing system backends used for inferencing" group:"backends"`
 	ModelsPath                   string        `env:"LOCALAI_MODELS_PATH,MODELS_PATH" type:"path" default:"${basepath}/models" help:"Path containing models used for inferencing" group:"storage"`
@@ -91,6 +93,7 @@ type RunCMD struct {
 	EnableMemoryReclaimer              bool     `env:"LOCALAI_MEMORY_RECLAIMER,MEMORY_RECLAIMER,LOCALAI_GPU_RECLAIMER,GPU_RECLAIMER" default:"false" help:"Enable memory threshold monitoring to auto-evict backends when memory usage exceeds threshold (uses GPU VRAM if available, otherwise RAM)" group:"backends"`
 	MemoryReclaimerThreshold           float64  `env:"LOCALAI_MEMORY_RECLAIMER_THRESHOLD,MEMORY_RECLAIMER_THRESHOLD,LOCALAI_GPU_RECLAIMER_THRESHOLD,GPU_RECLAIMER_THRESHOLD" default:"0.95" help:"Memory usage threshold (0.0-1.0) that triggers backend eviction (default 0.95 = 95%%)" group:"backends"`
 	ForceEvictionWhenBusy              bool     `env:"LOCALAI_FORCE_EVICTION_WHEN_BUSY,FORCE_EVICTION_WHEN_BUSY" default:"false" help:"Force eviction even when models have active API calls (default: false for safety)" group:"backends"`
+	SizeAwareEviction                  bool     `env:"LOCALAI_SIZE_AWARE_EVICTION,SIZE_AWARE_EVICTION" default:"false" help:"Evict the largest loaded model first rather than the least-recently-used one, keeping small utility models resident and maximizing freed memory per eviction" group:"backends"`
 	LRUEvictionMaxRetries              int      `env:"LOCALAI_LRU_EVICTION_MAX_RETRIES,LRU_EVICTION_MAX_RETRIES" default:"30" help:"Maximum number of retries when waiting for busy models to become idle before eviction (default: 30)" group:"backends"`
 	LRUEvictionRetryInterval           string   `env:"LOCALAI_LRU_EVICTION_RETRY_INTERVAL,LRU_EVICTION_RETRY_INTERVAL" default:"1s" help:"Interval between retries when waiting for busy models to become idle (e.g., 1s, 2s) (default: 1s)" group:"backends"`
 	Federated                          bool     `env:"LOCALAI_FEDERATED,FEDERATED" help:"Enable federated instance" group:"federated"`
@@ -137,7 +140,7 @@ type RunCMD struct {
 	OIDCIssuer           string `env:"LOCALAI_OIDC_ISSUER" help:"OIDC issuer URL for auto-discovery" group:"auth"`
 	OIDCClientID         string `env:"LOCALAI_OIDC_CLIENT_ID" help:"OIDC Client ID (auto-enables auth)" group:"auth"`
 	OIDCClientSecret     string `env:"LOCALAI_OIDC_CLIENT_SECRET" help:"OIDC Client Secret" group:"auth"`
-	AuthBaseURL          string `env:"LOCALAI_BASE_URL" help:"Base URL for OAuth callbacks (e.g. http://localhost:8080)" group:"auth"`
+	ExternalBaseURL      string `env:"LOCALAI_BASE_URL" help:"External base URL of this instance (e.g. https://localhost:8080). Used for OAuth callbacks and self-referential links (generated images/videos, job status). When unset, derived from X-Forwarded-Proto/Host or Forwarded headers." group:"api"`
 	AuthAdminEmail       string `env:"LOCALAI_ADMIN_EMAIL" help:"Email address to auto-promote to admin role" group:"auth"`
 	AuthRegistrationMode string `env:"LOCALAI_REGISTRATION_MODE" default:"open" help:"Registration mode: 'open' (default), 'approval', or 'invite' (invite code required)" group:"auth"`
 	DisableLocalAuth     bool   `env:"LOCALAI_DISABLE_LOCAL_AUTH" default:"false" help:"Disable local email/password registration and login (use with OAuth/OIDC-only setups)" group:"auth"`
@@ -145,25 +148,42 @@ type RunCMD struct {
 	DefaultAPIKeyExpiry  string `env:"LOCALAI_DEFAULT_API_KEY_EXPIRY" help:"Default expiry for API keys (e.g. 90d, 1y; empty = no expiry)" group:"auth"`
 
 	// Distributed / Horizontal Scaling
-	Distributed           bool   `env:"LOCALAI_DISTRIBUTED" default:"false" help:"Enable distributed mode (requires PostgreSQL + NATS)" group:"distributed"`
-	InstanceID            string `env:"LOCALAI_INSTANCE_ID" help:"Unique instance ID for distributed mode (auto-generated UUID if empty)" group:"distributed"`
-	NatsURL               string `env:"LOCALAI_NATS_URL" help:"NATS server URL (e.g., nats://localhost:4222)" group:"distributed"`
-	StorageURL            string `env:"LOCALAI_STORAGE_URL" help:"S3-compatible storage endpoint URL (e.g., http://minio:9000)" group:"distributed"`
-	StorageBucket         string `env:"LOCALAI_STORAGE_BUCKET" default:"localai" help:"S3 bucket name for object storage" group:"distributed"`
-	StorageRegion         string `env:"LOCALAI_STORAGE_REGION" default:"us-east-1" help:"S3 region" group:"distributed"`
-	StorageAccessKey      string `env:"LOCALAI_STORAGE_ACCESS_KEY" help:"S3 access key ID" group:"distributed"`
-	StorageSecretKey      string `env:"LOCALAI_STORAGE_SECRET_KEY" help:"S3 secret access key" group:"distributed"`
-	RegistrationToken     string `env:"LOCALAI_REGISTRATION_TOKEN" help:"Token that backend nodes must provide to register (empty = no auth required)" group:"distributed"`
-	AutoApproveNodes      bool   `env:"LOCALAI_AUTO_APPROVE_NODES" default:"false" help:"Auto-approve new worker nodes (skip admin approval)" group:"distributed"`
-	BackendInstallTimeout string `env:"LOCALAI_NATS_BACKEND_INSTALL_TIMEOUT" help:"NATS round-trip timeout for backend.install requests sent to worker nodes (default 15m). Increase for slow links pulling multi-GB images." group:"distributed"`
-	BackendUpgradeTimeout string `env:"LOCALAI_NATS_BACKEND_UPGRADE_TIMEOUT" help:"NATS round-trip timeout for backend.upgrade requests (default 15m)." group:"distributed"`
-	ExposeNodeHeader      bool   `env:"LOCALAI_EXPOSE_NODE_HEADER" default:"false" help:"Set the X-LocalAI-Node response header on inference responses (OpenAI chat/completions/embeddings, Anthropic /v1/messages, Ollama /api/chat,/api/generate,/api/embed) with the ID of the worker that served the request. Disabled by default: the node ID reveals internal topology and should not be exposed on a public endpoint. Best-effort: under heavy concurrency the header may reflect a recent routing decision rather than this exact request's." group:"distributed"`
+	Distributed               bool   `env:"LOCALAI_DISTRIBUTED" default:"false" help:"Enable distributed mode (requires PostgreSQL + NATS)" group:"distributed"`
+	InstanceID                string `env:"LOCALAI_INSTANCE_ID" help:"Unique instance ID for distributed mode (auto-generated UUID if empty)" group:"distributed"`
+	NatsURL                   string `env:"LOCALAI_NATS_URL" help:"NATS server URL (e.g., nats://localhost:4222)" group:"distributed"`
+	StorageURL                string `env:"LOCALAI_STORAGE_URL" help:"S3-compatible storage endpoint URL (e.g., http://minio:9000)" group:"distributed"`
+	StorageBucket             string `env:"LOCALAI_STORAGE_BUCKET" default:"localai" help:"S3 bucket name for object storage" group:"distributed"`
+	StorageRegion             string `env:"LOCALAI_STORAGE_REGION" default:"us-east-1" help:"S3 region" group:"distributed"`
+	StorageAccessKey          string `env:"LOCALAI_STORAGE_ACCESS_KEY" help:"S3 access key ID" group:"distributed"`
+	StorageSecretKey          string `env:"LOCALAI_STORAGE_SECRET_KEY" help:"S3 secret access key" group:"distributed"`
+	RegistrationToken         string `env:"LOCALAI_REGISTRATION_TOKEN" help:"Token that backend nodes must provide to register (empty = no auth required)" group:"distributed"`
+	RegistrationRequireAuth   bool   `env:"LOCALAI_REGISTRATION_REQUIRE_AUTH" default:"false" help:"Fail startup when distributed mode is enabled but LOCALAI_REGISTRATION_TOKEN is empty (node endpoints and worker file-transfer server would otherwise be unauthenticated)" group:"distributed"`
+	DistributedRequireAuth    bool   `env:"LOCALAI_DISTRIBUTED_REQUIRE_AUTH" default:"false" help:"Umbrella switch: require BOTH NATS JWT credentials and a registration token when distributed mode is enabled (implies --nats-require-auth and --registration-require-auth)" group:"distributed"`
+	AutoApproveNodes          bool   `env:"LOCALAI_AUTO_APPROVE_NODES" default:"false" help:"Auto-approve new worker nodes (skip admin approval)" group:"distributed"`
+	DistributedSharedModels   bool   `env:"LOCALAI_DISTRIBUTED_SHARED_MODELS" default:"false" help:"Assert that every node mounts the SAME models directory at the SAME path (shared volume). When true, the router skips staging model files to workers and loads them directly from the shared path, avoiding re-downloads." group:"distributed"`
+	DistributedPrefixCache    bool   `env:"LOCALAI_DISTRIBUTED_PREFIX_CACHE" default:"true" help:"Enable prefix-cache-aware routing in distributed mode (default true). When false, routing falls back to round-robin." group:"distributed"`
+	DistributedPrefixCacheTTL string `env:"LOCALAI_DISTRIBUTED_PREFIX_CACHE_TTL" help:"Idle-timeout for prefix-cache index entries; also drives the background eviction cadence (every TTL/2). Default 5m." group:"distributed"`
+	BackendInstallTimeout     string `env:"LOCALAI_NATS_BACKEND_INSTALL_TIMEOUT" help:"NATS round-trip timeout for backend.install requests sent to worker nodes (default 15m). Increase for slow links pulling multi-GB images." group:"distributed"`
+	BackendUpgradeTimeout     string `env:"LOCALAI_NATS_BACKEND_UPGRADE_TIMEOUT" help:"NATS round-trip timeout for backend.upgrade requests (default 15m)." group:"distributed"`
+	NatsAccountSeed           string `env:"LOCALAI_NATS_ACCOUNT_SEED" help:"NATS account signing seed (SU...) used to mint per-node worker JWTs at registration" group:"distributed"`
+	NatsServiceJWT            string `env:"LOCALAI_NATS_SERVICE_JWT" help:"NATS user JWT for the frontend (and agent workers) to publish control-plane messages" group:"distributed"`
+	NatsServiceSeed           string `env:"LOCALAI_NATS_SERVICE_SEED" help:"NATS user signing seed (SU...) paired with LOCALAI_NATS_SERVICE_JWT" group:"distributed"`
+	NatsWorkerJWTTTL          string `env:"LOCALAI_NATS_WORKER_JWT_TTL" help:"Lifetime of minted per-node NATS JWTs (e.g. 24h, default 24h)" group:"distributed"`
+	NatsRequireAuth           bool   `env:"LOCALAI_NATS_REQUIRE_AUTH" default:"false" help:"Require NATS JWT credentials (service JWT + account seed) when distributed mode is enabled" group:"distributed"`
+	NatsTLSCA                 string `env:"LOCALAI_NATS_TLS_CA" type:"existingfile" help:"PEM file for NATS server CA (private PKI); use with tls:// in --nats-url" group:"distributed"`
+	NatsTLSCert               string `env:"LOCALAI_NATS_TLS_CERT" type:"existingfile" help:"Client certificate for NATS mTLS" group:"distributed"`
+	NatsTLSKey                string `env:"LOCALAI_NATS_TLS_KEY" type:"existingfile" help:"Client private key for NATS mTLS" group:"distributed"`
+	ExposeNodeHeader          bool   `env:"LOCALAI_EXPOSE_NODE_HEADER" default:"false" help:"Set the X-LocalAI-Node response header on inference responses (OpenAI chat/completions/embeddings, Anthropic /v1/messages, Ollama /api/chat,/api/generate,/api/embed) with the ID of the worker that served the request. Disabled by default: the node ID reveals internal topology and should not be exposed on a public endpoint. Best-effort: under heavy concurrency the header may reflect a recent routing decision rather than this exact request's." group:"distributed"`
+	ModelScheduling           string `env:"LOCALAI_MODEL_SCHEDULING" help:"Declarative per-model scheduling config applied at startup (inline JSON list of {model_name,node_selector,min_replicas,max_replicas,replicas:\"all\"}). Authoritative: overwrites matching models on every boot. Distributed mode only." group:"distributed"`
+	ModelSchedulingConfig     string `env:"LOCALAI_MODEL_SCHEDULING_CONFIG" help:"Path to a YAML file with the same per-model scheduling list as LOCALAI_MODEL_SCHEDULING. Distributed mode only." group:"distributed"`
 
 	Version bool
 
 	// Cloud-proxy MITM listener (off by default).
 	MITMListen string `env:"LOCALAI_MITM_LISTEN" help:"Address (host:port) for the cloudproxy MITM listener. Empty = disabled. Clients set HTTPS_PROXY=http://<this>:<port>. Intercept hosts are declared per-model via the model YAML mitm.hosts: block; create one from the Add Model UI." group:"middleware"`
 	MITMCADir  string `env:"LOCALAI_MITM_CA_DIR" type:"path" help:"Directory holding the MITM proxy CA cert + key. Defaults to <data-path>/mitm-ca." group:"middleware"`
+
+	PIIDefaultDetectors []string `env:"LOCALAI_PII_DEFAULT_DETECTORS" help:"Instance-wide default PII/secret detector model names applied to any PII-enabled model (chiefly cloud-proxy / MITM models) that names no pii.detectors of its own. Comma-separated, e.g. privacy-filter-nemotron,secret-filter. Takes precedence over the value persisted via the Middleware UI." group:"middleware"`
 }
 
 func (r *RunCMD) Run(ctx *cliContext.Context) error {
@@ -184,6 +204,7 @@ func (r *RunCMD) Run(ctx *cliContext.Context) error {
 		system.WithBackendImagesReleaseTag(r.BackendImagesReleaseTag),
 		system.WithBackendImagesBranchTag(r.BackendImagesBranchTag),
 		system.WithBackendDevSuffix(r.BackendDevSuffix),
+		system.WithPreferDevelopmentBackends(r.PreferDevelopmentBackends),
 	)
 	if err != nil {
 		return err
@@ -213,6 +234,8 @@ func (r *RunCMD) Run(ctx *cliContext.Context) error {
 		config.WithApiKeys(r.APIKeys),
 		config.WithModelsURL(append(r.Models, r.ModelArgs...)...),
 		config.WithExternalBackends(r.ExternalBackends...),
+		config.WithWebRTCNAT1To1IPs(r.WebRTCNAT1To1IPs...),
+		config.WithWebRTCICEInterfaces(r.WebRTCICEInterfaces...),
 		config.WithOpaqueErrors(r.OpaqueErrors),
 		config.WithEnforcedPredownloadScans(!r.DisablePredownloadScan),
 		config.WithSubtleKeyComparison(r.UseSubtleKeyComparison),
@@ -224,6 +247,7 @@ func (r *RunCMD) Run(ctx *cliContext.Context) error {
 		config.WithAPIAddress(r.Address),
 		config.WithMITMListen(r.MITMListen),
 		config.WithMITMCADir(r.MITMCADir),
+		config.WithPIIDefaultDetectors(r.PIIDefaultDetectors),
 		config.WithAgentJobRetentionDays(r.AgentJobRetentionDays),
 		config.WithLlamaCPPTunnelCallback(func(tunnels []string) {
 			tunnelEnvVar := strings.Join(tunnels, ",")
@@ -281,11 +305,67 @@ func (r *RunCMD) Run(ctx *cliContext.Context) error {
 	if r.RegistrationToken != "" {
 		opts = append(opts, config.WithRegistrationToken(r.RegistrationToken))
 	}
+	if r.RegistrationRequireAuth {
+		opts = append(opts, config.EnableRegistrationRequireAuth)
+	}
+	if r.DistributedRequireAuth {
+		opts = append(opts, config.EnableDistributedRequireAuth)
+	}
+	if r.DistributedSharedModels {
+		opts = append(opts, config.EnableDistributedSharedModels)
+	}
+	if r.NatsAccountSeed != "" {
+		opts = append(opts, config.WithNatsAccountSeed(r.NatsAccountSeed))
+	}
+	if r.NatsServiceJWT != "" {
+		opts = append(opts, config.WithNatsServiceJWT(r.NatsServiceJWT))
+	}
+	if r.NatsServiceSeed != "" {
+		opts = append(opts, config.WithNatsServiceSeed(r.NatsServiceSeed))
+	}
+	if r.NatsWorkerJWTTTL != "" {
+		d, err := time.ParseDuration(r.NatsWorkerJWTTTL)
+		if err != nil {
+			return fmt.Errorf("invalid LOCALAI_NATS_WORKER_JWT_TTL %q: %w", r.NatsWorkerJWTTTL, err)
+		}
+		opts = append(opts, config.WithNatsWorkerJWTTTL(d))
+	}
+	if r.NatsRequireAuth {
+		opts = append(opts, config.EnableNatsRequireAuth)
+	}
+	if r.NatsTLSCA != "" {
+		opts = append(opts, config.WithNatsTLSCA(r.NatsTLSCA))
+	}
+	if r.NatsTLSCert != "" {
+		opts = append(opts, config.WithNatsTLSCert(r.NatsTLSCert))
+	}
+	if r.NatsTLSKey != "" {
+		opts = append(opts, config.WithNatsTLSKey(r.NatsTLSKey))
+	}
 	if r.AutoApproveNodes {
 		opts = append(opts, config.EnableAutoApproveNodes)
 	}
+	if !r.DistributedPrefixCache {
+		opts = append(opts, config.DisablePrefixCache)
+	}
+	if r.DistributedPrefixCacheTTL != "" {
+		d, err := time.ParseDuration(r.DistributedPrefixCacheTTL)
+		if err != nil {
+			return fmt.Errorf("invalid LOCALAI_DISTRIBUTED_PREFIX_CACHE_TTL %q: %w", r.DistributedPrefixCacheTTL, err)
+		}
+		opts = append(opts, config.WithPrefixCacheTTL(d))
+	}
 	if r.ExposeNodeHeader {
 		opts = append(opts, config.WithExposeNodeHeader(true))
+	}
+	if r.ModelScheduling != "" {
+		opts = append(opts, config.WithModelSchedulingJSON(r.ModelScheduling))
+	}
+	if r.ModelSchedulingConfig != "" {
+		opts = append(opts, config.WithModelSchedulingConfigPath(r.ModelSchedulingConfig))
+	}
+	if !r.Distributed && (r.ModelScheduling != "" || r.ModelSchedulingConfig != "") {
+		xlog.Warn("LOCALAI_MODEL_SCHEDULING / LOCALAI_MODEL_SCHEDULING_CONFIG is set but distributed mode is disabled (LOCALAI_DISTRIBUTED=false) - ignoring")
 	}
 
 	if r.DisableMetricsEndpoint {
@@ -428,9 +508,6 @@ func (r *RunCMD) Run(ctx *cliContext.Context) error {
 			opts = append(opts, config.WithAuthOIDCClientID(r.OIDCClientID))
 			opts = append(opts, config.WithAuthOIDCClientSecret(r.OIDCClientSecret))
 		}
-		if r.AuthBaseURL != "" {
-			opts = append(opts, config.WithAuthBaseURL(r.AuthBaseURL))
-		}
 		if r.AuthAdminEmail != "" {
 			opts = append(opts, config.WithAuthAdminEmail(r.AuthAdminEmail))
 		}
@@ -446,6 +523,12 @@ func (r *RunCMD) Run(ctx *cliContext.Context) error {
 		if r.DefaultAPIKeyExpiry != "" {
 			opts = append(opts, config.WithAuthDefaultAPIKeyExpiry(r.DefaultAPIKeyExpiry))
 		}
+	}
+
+	// Applied unconditionally: the external base URL governs all self-referential
+	// links (not just OAuth callbacks), so it must take effect even when auth is off.
+	if r.ExternalBaseURL != "" {
+		opts = append(opts, config.WithExternalBaseURL(r.ExternalBaseURL))
 	}
 
 	if idleWatchDog || busyWatchDog {
@@ -492,6 +575,9 @@ func (r *RunCMD) Run(ctx *cliContext.Context) error {
 	// Handle LRU eviction settings
 	if r.ForceEvictionWhenBusy {
 		opts = append(opts, config.WithForceEvictionWhenBusy(true))
+	}
+	if r.SizeAwareEviction {
+		opts = append(opts, config.WithSizeAwareEviction(true))
 	}
 	if r.LRUEvictionMaxRetries > 0 {
 		opts = append(opts, config.WithLRUEvictionMaxRetries(r.LRUEvictionMaxRetries))
@@ -577,12 +663,8 @@ func (r *RunCMD) Run(ctx *cliContext.Context) error {
 	}
 
 	signals.RegisterGracefulTerminationHandler(func() {
-		if err := app.ModelLoader().StopAllGRPC(); err != nil {
-			xlog.Error("error while stopping all grpc backends", "error", err)
-		}
-		// Clean up distributed services (idempotent — safe if already called)
-		if d := app.Distributed(); d != nil {
-			d.Shutdown()
+		if err := app.Shutdown(); err != nil {
+			xlog.Error("error while shutting down application", "error", err)
 		}
 	})
 
@@ -600,12 +682,12 @@ func (r *RunCMD) Run(ctx *cliContext.Context) error {
 // waitForServerReady polls the given address until the HTTP server is
 // accepting connections or the context is cancelled.
 func waitForServerReady(address string, ctx context.Context) {
-	// Ensure the address has a host component for dialing.
-	// Echo accepts ":8080" but net.Dial needs a resolvable host.
 	host, port, err := net.SplitHostPort(address)
 	if err == nil && host == "" {
 		address = "127.0.0.1:" + port
 	}
+	ticker := time.NewTicker(250 * time.Millisecond)
+	defer ticker.Stop()
 
 	for {
 		select {
@@ -613,11 +695,17 @@ func waitForServerReady(address string, ctx context.Context) {
 			return
 		default:
 		}
+
 		conn, err := net.DialTimeout("tcp", address, 500*time.Millisecond)
 		if err == nil {
 			conn.Close()
 			return
 		}
-		time.Sleep(250 * time.Millisecond)
+
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+		}
 	}
 }

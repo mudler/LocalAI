@@ -1,11 +1,13 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
-import { useParams, useOutletContext, useNavigate } from 'react-router-dom'
+import { useParams, useOutletContext, useNavigate, useLocation } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
+import { fromState } from '../utils/editorNav'
 import { useChat } from '../hooks/useChat'
 import ModelSelector from '../components/ModelSelector'
-import { renderMarkdown, highlightAll } from '../utils/markdown'
+import { renderMarkdown, highlightAll, enhanceCodeBlocks } from '../utils/markdown'
 import { extractCodeArtifacts, renderMarkdownWithArtifacts } from '../utils/artifacts'
 import CanvasPanel from '../components/CanvasPanel'
+import Toggle from '../components/Toggle'
 import { fileToBase64, modelsApi, mcpApi } from '../utils/api'
 import { CAP_CHAT } from '../utils/capabilities'
 import { useMCPClient } from '../hooks/useMCPClient'
@@ -265,7 +267,7 @@ function UserMessageContent({ content, files }) {
         <div className="chat-message-files">
           {files.map((f, i) => (
             <span key={i} className="chat-file-inline">
-              <i className={`fas ${f.type === 'image' ? 'fa-image' : f.type === 'audio' ? 'fa-headphones' : 'fa-file'}`} />
+              <i className={`fas ${f.type === 'image' ? 'fa-image' : f.type === 'audio' ? 'fa-headphones' : f.type === 'video' ? 'fa-film' : 'fa-file'}`} />
               {f.name}
             </span>
           ))}
@@ -273,6 +275,9 @@ function UserMessageContent({ content, files }) {
       )}
       {Array.isArray(content) && content.filter(c => c.type === 'image_url').map((img, i) => (
         <img key={i} src={img.image_url.url} alt="attached" className="chat-inline-image" />
+      ))}
+      {Array.isArray(content) && content.filter(c => c.type === 'video_url').map((vid, i) => (
+        <video key={i} src={vid.video_url.url} controls className="chat-inline-video" />
       ))}
     </>
   )
@@ -282,6 +287,7 @@ export default function Chat() {
   const { model: urlModel } = useParams()
   const { addToast } = useOutletContext()
   const navigate = useNavigate()
+  const location = useLocation()
   const { t } = useTranslation('chat')
   const { isAdmin } = useAuth()
   const { operations } = useOperations()
@@ -330,6 +336,7 @@ export default function Chat() {
   const messagesRef = useRef(null)
   const textareaRef = useRef(null)
   const stickToBottomRef = useRef(true)
+  const [scrolledUp, setScrolledUp] = useState(false)
   const chatsMenuRef = useRef(null)
 
   // Focus mode: once a conversation has at least one message we slim the
@@ -595,6 +602,7 @@ export default function Chat() {
     const onScroll = () => {
       const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight
       stickToBottomRef.current = distanceFromBottom < 80
+      setScrolledUp(distanceFromBottom > 160)
     }
     el.addEventListener('scroll', onScroll, { passive: true })
     return () => el.removeEventListener('scroll', onScroll)
@@ -610,6 +618,7 @@ export default function Chat() {
   // user's focus-mode override — each chat starts fresh.
   useEffect(() => {
     stickToBottomRef.current = true
+    setScrolledUp(false)
     messagesEndRef.current?.scrollIntoView({ behavior: 'auto' })
     setFocusOverride(false)
   }, [activeChat?.id])
@@ -652,12 +661,25 @@ export default function Chat() {
     return () => window.removeEventListener('keydown', onKey)
   }, [focusActive])
 
-  // Highlight code blocks
+  // Highlight code blocks + add per-block copy buttons. A MutationObserver on
+  // the messages container is more reliable than render-keyed effects: it fires
+  // for loaded/switched chats AND for streaming token updates, regardless of
+  // render timing. The observer is disconnected while we mutate so our own
+  // highlight/enhance edits don't retrigger it.
   useEffect(() => {
-    if (messagesRef.current) {
-      highlightAll(messagesRef.current)
+    const el = messagesRef.current
+    if (!el) return
+    let obs
+    const run = () => {
+      obs?.disconnect()
+      highlightAll(el)
+      enhanceCodeBlocks(el)
+      obs?.observe(el, { childList: true, subtree: true })
     }
-  }, [activeChat?.history, streamingContent])
+    obs = new MutationObserver(run)
+    run()
+    return () => obs.disconnect()
+  }, [activeChat?.id])
 
   // Auto-grow textarea
   const autoGrowTextarea = useCallback(() => {
@@ -711,13 +733,34 @@ export default function Chat() {
     for (const file of e.target.files) {
       const base64 = await fileToBase64(file)
       const entry = { name: file.name, type: file.type, base64 }
-      if (!file.type.startsWith('image/') && !file.type.startsWith('audio/')) {
+      if (!file.type.startsWith('image/') && !file.type.startsWith('audio/') && !file.type.startsWith('video/')) {
         entry.textContent = await file.text().catch(() => '')
       }
       newFiles.push(entry)
     }
     setFiles(prev => [...prev, ...newFiles])
     e.target.value = ''
+  }, [])
+
+  const handlePaste = useCallback(async (e) => {
+    const items = e.clipboardData?.items
+    if (!items) return
+    const images = Array.from(items)
+      .filter(item => item.kind === 'file' && item.type.startsWith('image/'))
+      .map(item => item.getAsFile())
+      .filter(Boolean)
+    if (images.length === 0) return
+    // A pasted image attaches as a file rather than inserting into the text.
+    e.preventDefault()
+    // Clipboard images arrive unnamed or as a generic "image.png"; give each
+    // a unique, typed name so multiple pastes don't collide.
+    const newFiles = await Promise.all(images.map(async (file, i) => {
+      const name = (file.name && file.name !== 'image.png')
+        ? file.name
+        : `pasted-image-${i + 1}.${(file.type.split('/')[1] || 'png').replace('+xml', '')}`
+      return { name, type: file.type, base64: await fileToBase64(file) }
+    }))
+    setFiles(prev => [...prev, ...newFiles])
   }, [])
 
   const handleSend = useCallback(async () => {
@@ -901,7 +944,7 @@ export default function Chat() {
                   <button
                     type="button"
                     className="btn btn-secondary btn-sm"
-                    onClick={() => navigate(`/app/model-editor/${encodeURIComponent(activeChat.model)}`)}
+                    onClick={() => navigate(`/app/model-editor/${encodeURIComponent(activeChat.model)}`, { state: fromState(location, 'Chat') })}
                     title={t('header.editConfig')}
                   >
                     <i className="fas fa-pen-to-square" /> {t('header.editConfig')}
@@ -961,14 +1004,10 @@ export default function Chat() {
                     {t('settings.manageModeDesc')}
                   </span>
                 </div>
-                <label className="toggle">
-                  <input
-                    type="checkbox"
-                    checked={!!activeChat.localaiAssistant}
-                    onChange={(e) => updateChatSettings(activeChat.id, { localaiAssistant: e.target.checked })}
-                  />
-                  <span className="toggle-slider" />
-                </label>
+                <Toggle
+                  checked={!!activeChat.localaiAssistant}
+                  onChange={(next) => updateChatSettings(activeChat.id, { localaiAssistant: next })}
+                />
               </div>
             )}
             <div className="form-group">
@@ -1220,6 +1259,19 @@ export default function Chat() {
             </div>
           )}
           <div ref={messagesEndRef} />
+          {scrolledUp && (
+            <button
+              type="button"
+              className="chat-jump-latest"
+              onClick={() => {
+                stickToBottomRef.current = true
+                setScrolledUp(false)
+                messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+              }}
+            >
+              <i className="fas fa-arrow-down" aria-hidden="true" /> {t('actions.jumpToLatest')}
+            </button>
+          )}
         </div>
 
         {/* Token info bar */}
@@ -1242,15 +1294,22 @@ export default function Chat() {
         {/* File badges */}
         {files.length > 0 && (
           <div className="chat-files">
-            {files.map((f, i) => (
-              <span key={i} className="chat-file-badge">
-                <i className={`fas ${f.type?.startsWith('image/') ? 'fa-image' : f.type?.startsWith('audio/') ? 'fa-headphones' : 'fa-file'}`} />
-                {f.name}
-                <button onClick={() => setFiles(prev => prev.filter((_, idx) => idx !== i))}>
-                  <i className="fas fa-xmark" />
-                </button>
-              </span>
-            ))}
+            {files.map((f, i) => {
+              const isImage = f.type?.startsWith('image/') && f.base64
+              return (
+                <span key={i} className={`chat-file-badge${isImage ? ' chat-file-badge--image' : ''}`}>
+                  {isImage ? (
+                    <img src={`data:${f.type};base64,${f.base64}`} alt={f.name} className="chat-file-thumb" />
+                  ) : (
+                    <i className={`fas ${f.type?.startsWith('audio/') ? 'fa-headphones' : f.type?.startsWith('video/') ? 'fa-film' : 'fa-file'}`} />
+                  )}
+                  <span className="chat-file-name">{f.name}</span>
+                  <button onClick={() => setFiles(prev => prev.filter((_, idx) => idx !== i))} aria-label={`Remove ${f.name}`}>
+                    <i className="fas fa-xmark" />
+                  </button>
+                </span>
+              )
+            })}
           </div>
         )}
 
@@ -1343,7 +1402,7 @@ export default function Chat() {
               ref={fileInputRef}
               type="file"
               multiple
-              accept="image/*,audio/*,application/pdf,.txt,.md,.csv,.json"
+              accept="image/*,audio/*,video/*,application/pdf,.txt,.md,.csv,.json"
               style={{ display: 'none' }}
               onChange={handleFileChange}
             />
@@ -1353,6 +1412,7 @@ export default function Chat() {
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={handleKeyDown}
+              onPaste={handlePaste}
               placeholder={t('input.placeholder')}
               rows={1}
               disabled={isStreaming}
@@ -1367,8 +1427,10 @@ export default function Chat() {
                 className="chat-send-btn"
                 onClick={handleSend}
                 disabled={!input.trim() && files.length === 0}
+                aria-label={t('input.send')}
+                title={t('input.send')}
               >
-                <i className="fas fa-paper-plane" />
+                <i className="fas fa-paper-plane" aria-hidden="true" />
               </button>
             )}
           </div>

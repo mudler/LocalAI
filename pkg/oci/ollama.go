@@ -8,6 +8,8 @@ import (
 	"net/http"
 
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
+
+	"github.com/mudler/LocalAI/pkg/httpclient"
 )
 
 // Define the main struct for the JSON data
@@ -45,7 +47,8 @@ func OllamaModelManifest(image string) (*Manifest, error) {
 		return nil, err
 	}
 	req.Header.Set("Accept", "application/vnd.docker.distribution.manifest.v2+json")
-	client := &http.Client{}
+	req.Header.Set("User-Agent", UserAgent())
+	client := httpclient.New(httpclient.WithFollowRedirects())
 	resp, err := client.Do(req)
 	if err != nil {
 		return nil, err

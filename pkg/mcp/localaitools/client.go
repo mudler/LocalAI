@@ -38,6 +38,14 @@ type LocalAIClient interface {
 	ReloadModels(ctx context.Context) error
 	ImportModelURI(ctx context.Context, req ImportModelURIRequest) (*ImportModelURIResponse, error)
 
+	// ---- Model aliases ----
+	// SetAlias creates the alias `name` pointing at `target`, or swaps an
+	// existing alias's target. The server validates that `target` is an
+	// existing, non-alias, enabled model. Deletion reuses DeleteModel.
+	SetAlias(ctx context.Context, name, target string) error
+	// ListAliases returns every configured alias and its target.
+	ListAliases(ctx context.Context) ([]AliasInfo, error)
+
 	// ---- Backends ----
 	// ListBackends returns installed backends. The shape stays a thin
 	// localaitools.Backend rather than gallery.SystemBackend because the
@@ -76,24 +84,11 @@ type LocalAIClient interface {
 	GetUsageStats(ctx context.Context, q UsageStatsQuery) (*UsageStats, error)
 
 	// ---- PII filter ----
-	// ListPIIPatterns returns the active PII pattern set with each
-	// one's action.
-	ListPIIPatterns(ctx context.Context) ([]PIIPattern, error)
 	// GetPIIEvents returns recent redaction events. Implementation
-	// enforces "admin required" when auth is on.
+	// enforces "admin required" when auth is on. The regex pattern tools
+	// were removed — detection policy lives on each detector model's
+	// pii_detection block, managed via the model-config tools.
 	GetPIIEvents(ctx context.Context, q PIIEventsQuery) ([]PIIEvent, error)
-	// TestPIIRedaction dry-runs the redactor against text. No event
-	// is recorded.
-	TestPIIRedaction(ctx context.Context, req PIIRedactTestRequest) (*PIIRedactTestResult, error)
-	// SetPIIPatternAction mutates the named pattern's action and/or
-	// disabled state in-process. Transient until PersistPIIPatterns is
-	// called — runtime_settings.json then applies the deltas on the
-	// next start. Admin-required.
-	SetPIIPatternAction(ctx context.Context, req PIIPatternActionUpdate) error
-
-	// PersistPIIPatterns snapshots the live redactor's per-pattern
-	// (action, disabled) state into runtime_settings.json. Admin-required.
-	PersistPIIPatterns(ctx context.Context) error
 
 	// ---- Middleware admin ----
 	// GetMiddlewareStatus returns the aggregated state surfaced on the

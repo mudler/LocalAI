@@ -21,7 +21,11 @@ import (
 	"github.com/mudler/xlog"
 )
 
-const testModel = "Qwen3-VL-2B-Instruct-GGUF"
+// testModel is the name the importer registers for the Qwen3-VL-2B-Instruct
+// repo-root URL below. Since #10589 a repo-root HuggingFace URI is named after
+// the selected GGUF file (default quant q4_k_m) rather than the repository, so
+// the registered model is "Qwen3-VL-2B-Instruct-Q4_K_M", not the repo name.
+const testModel = "Qwen3-VL-2B-Instruct-Q4_K_M"
 
 var _ = Describe("Open Responses API", func() {
 	var app *echo.Echo

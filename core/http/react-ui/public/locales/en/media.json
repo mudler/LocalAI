@@ -4,7 +4,8 @@
       "images": "Images",
       "video": "Video",
       "tts": "TTS",
-      "sound": "Sound"
+      "sound": "Sound",
+      "transform": "Transform"
     }
   },
   "image": {
@@ -29,6 +30,7 @@
       "refImagesAdded_other": "{{count}} images added"
     },
     "actions": {
+      "view": "View",
       "generate": "Generate",
       "generating": "Generating..."
     },

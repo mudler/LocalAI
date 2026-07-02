@@ -52,8 +52,26 @@ type AgentWorkerCMD struct {
 	Subject string `env:"LOCALAI_AGENT_SUBJECT" default:"agent.execute" help:"NATS subject for agent execution" group:"distributed"`
 	Queue   string `env:"LOCALAI_AGENT_QUEUE" default:"agent-workers" help:"NATS queue group name" group:"distributed"`
 
+	NatsJWT         string `env:"LOCALAI_NATS_JWT" help:"NATS user JWT override (defaults to nats_jwt from registration)" group:"distributed"`
+	NatsUserSeed    string `env:"LOCALAI_NATS_USER_SEED" help:"NATS user seed override (defaults to nats_user_seed from registration)" group:"distributed"`
+	NatsServiceJWT  string `env:"LOCALAI_NATS_SERVICE_JWT" help:"Fallback NATS service JWT when registration does not mint agent JWT" group:"distributed"`
+	NatsServiceSeed string `env:"LOCALAI_NATS_SERVICE_SEED" help:"Fallback NATS service seed paired with LOCALAI_NATS_SERVICE_JWT" group:"distributed"`
+	NatsRequireAuth bool   `env:"LOCALAI_NATS_REQUIRE_AUTH" default:"false" help:"Require NATS JWT+seed to connect" group:"distributed"`
+	// DistributedRequireAuth is the umbrella switch; for the agent worker (which
+	// has no file-transfer server) it implies NATS auth is required.
+	DistributedRequireAuth bool   `env:"LOCALAI_DISTRIBUTED_REQUIRE_AUTH" default:"false" help:"Umbrella switch implying --nats-require-auth (agent workers have no file-transfer server)" group:"distributed"`
+	NatsTLSCA              string `env:"LOCALAI_NATS_TLS_CA" type:"existingfile" help:"PEM file for NATS server CA (private PKI)" group:"distributed"`
+	NatsTLSCert            string `env:"LOCALAI_NATS_TLS_CERT" type:"existingfile" help:"Client certificate for NATS mTLS" group:"distributed"`
+	NatsTLSKey             string `env:"LOCALAI_NATS_TLS_KEY" type:"existingfile" help:"Client private key for NATS mTLS" group:"distributed"`
+
 	// Timeouts
 	MCPCIJobTimeout string `env:"LOCALAI_MCP_CI_JOB_TIMEOUT" default:"10m" help:"Timeout for MCP CI job execution" group:"distributed"`
+}
+
+// natsAuthRequired reports whether NATS JWT credentials must be present — the
+// granular flag or the umbrella (LOCALAI_DISTRIBUTED_REQUIRE_AUTH).
+func (cmd *AgentWorkerCMD) natsAuthRequired() bool {
+	return cmd.NatsRequireAuth || cmd.DistributedRequireAuth
 }
 
 func (cmd *AgentWorkerCMD) Run(ctx *cliContext.Context) error {
@@ -81,15 +99,30 @@ func (cmd *AgentWorkerCMD) Run(ctx *cliContext.Context) error {
 		registrationBody["token"] = cmd.RegistrationToken
 	}
 
-	nodeID, apiToken, err := regClient.RegisterWithRetry(context.Background(), registrationBody, 10)
+	// Context cancelled on shutdown — used by registration waits, heartbeat, and
+	// other background goroutines.
+	shutdownCtx, shutdownCancel := context.WithCancel(context.Background())
+	defer shutdownCancel()
+
+	// Acquire credentials via (re)registration. When the bus requires auth and no
+	// static fallback is configured, wait through admin approval until the
+	// frontend mints credentials rather than starting unauthenticated.
+	credMgr := workerregistry.NewNATSCredentialManager(
+		func(ctx context.Context) (*workerregistry.RegisterResponse, error) {
+			return regClient.RegisterFull(ctx, registrationBody)
+		},
+		cmd.natsAuthRequired() && cmd.NatsJWT == "" && cmd.NatsServiceJWT == "",
+	)
+	res, err := credMgr.Acquire(shutdownCtx)
 	if err != nil {
 		return fmt.Errorf("registration failed: %w", err)
 	}
+	nodeID := res.ID
 	xlog.Info("Registered with frontend", "nodeID", nodeID, "frontend", cmd.RegisterTo)
 
 	// Use provisioned API token if none was set
 	if cmd.APIToken == "" {
-		cmd.APIToken = apiToken
+		cmd.APIToken = res.APIToken
 	}
 
 	// Start heartbeat
@@ -98,14 +131,40 @@ func (cmd *AgentWorkerCMD) Run(ctx *cliContext.Context) error {
 		xlog.Warn("invalid heartbeat interval, using default 10s", "input", cmd.HeartbeatInterval, "error", err)
 	}
 	heartbeatInterval = cmp.Or(heartbeatInterval, 10*time.Second)
-	// Context cancelled on shutdown — used by heartbeat and other background goroutines
-	shutdownCtx, shutdownCancel := context.WithCancel(context.Background())
-	defer shutdownCancel()
 
 	go regClient.HeartbeatLoop(shutdownCtx, nodeID, heartbeatInterval, func() map[string]any { return map[string]any{} })
 
-	// Connect to NATS
-	natsClient, err := messaging.New(cmd.NatsURL)
+	// Resolve NATS credentials with precedence: explicit env override, then
+	// frontend-minted (auto-refreshed before expiry), then service fallback.
+	// Each static source must supply JWT and seed together.
+	natsTLS := messaging.TLSFiles{CA: cmd.NatsTLSCA, Cert: cmd.NatsTLSCert, Key: cmd.NatsTLSKey}
+	var natsOpts []messaging.Option
+	switch {
+	case cmd.NatsJWT != "" || cmd.NatsUserSeed != "":
+		if (cmd.NatsJWT == "") != (cmd.NatsUserSeed == "") {
+			return fmt.Errorf("LOCALAI_NATS_JWT and LOCALAI_NATS_USER_SEED must be set together")
+		}
+		natsOpts = append(natsOpts, messaging.WithUserJWT(cmd.NatsJWT, cmd.NatsUserSeed))
+	case credMgr.HasCredentials():
+		natsOpts = append(natsOpts, messaging.WithUserJWTProvider(credMgr.Provider()))
+		go func() {
+			if err := credMgr.RefreshLoop(shutdownCtx); err != nil {
+				xlog.Error("NATS credential refresh permanently failed; shutting down agent worker", "error", err)
+				shutdownCancel()
+			}
+		}()
+	case cmd.NatsServiceJWT != "" || cmd.NatsServiceSeed != "":
+		if (cmd.NatsServiceJWT == "") != (cmd.NatsServiceSeed == "") {
+			return fmt.Errorf("LOCALAI_NATS_SERVICE_JWT and LOCALAI_NATS_SERVICE_SEED must be set together")
+		}
+		natsOpts = append(natsOpts, messaging.WithUserJWT(cmd.NatsServiceJWT, cmd.NatsServiceSeed))
+	case cmd.natsAuthRequired():
+		return fmt.Errorf("NATS JWT+seed required: enable frontend minting or set LOCALAI_NATS_* env vars")
+	}
+	if natsTLS.Enabled() {
+		natsOpts = append(natsOpts, messaging.WithTLS(natsTLS))
+	}
+	natsClient, err := messaging.New(cmd.NatsURL, natsOpts...)
 	if err != nil {
 		return fmt.Errorf("connecting to NATS: %w", err)
 	}
@@ -183,17 +242,25 @@ func (cmd *AgentWorkerCMD) Run(ctx *cliContext.Context) error {
 
 	xlog.Info("Agent worker ready, waiting for jobs", "subject", cmd.Subject, "queue", cmd.Queue)
 
-	// Wait for shutdown
+	// Wait for an OS signal or an internal fatal condition (e.g. NATS
+	// credentials became unrenewable), so the worker restarts and re-acquires
+	// rather than lingering unable to serve.
 	sigCh := make(chan os.Signal, 1)
 	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
-	<-sigCh
+	var runErr error
+	select {
+	case <-sigCh:
+	case <-shutdownCtx.Done():
+		runErr = fmt.Errorf("agent worker shutting down: NATS credentials unavailable")
+		xlog.Error("Internal shutdown requested", "error", runErr)
+	}
 
 	xlog.Info("Shutting down agent worker")
 	shutdownCancel() // stop heartbeat loop immediately
 	dispatcher.Stop()
 	mcpTools.CloseAllMCPSessions()
 	regClient.GracefulDeregister(nodeID)
-	return nil
+	return runErr
 }
 
 // handleMCPToolRequest handles a NATS request-reply for MCP tool execution.

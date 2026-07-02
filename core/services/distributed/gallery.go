@@ -79,21 +79,29 @@ func (s *GalleryStore) Create(op *GalleryOperationRecord) error {
 	}).Create(op).Error
 }
 
-// UpdateProgress updates progress for an operation.
-func (s *GalleryStore) UpdateProgress(id string, progress float64, message, downloadedSize string) error {
+// UpdateProgress updates progress for an operation. The cancellable flag is
+// persisted on every tick so a replica that restarts mid-install rehydrates the
+// op as still cancellable — otherwise the column keeps its Create-time zero
+// value (false), the UI hides the cancel button, and the orphaned op can only
+// be dismissed by waiting for the 30-minute stale reaper.
+func (s *GalleryStore) UpdateProgress(id string, progress float64, message, downloadedSize string, cancellable bool) error {
 	return s.db.Model(&GalleryOperationRecord{}).Where("id = ?", id).Updates(map[string]any{
 		"progress":             progress,
 		"message":              message,
 		"downloaded_file_size": downloadedSize,
+		"cancellable":          cancellable,
 		"updated_at":           time.Now(),
 	}).Error
 }
 
-// UpdateStatus updates the status of an operation.
+// UpdateStatus updates the status of an operation. A terminal status is never
+// cancellable, so the flag is cleared here to keep the persisted row consistent
+// with what the UI should offer.
 func (s *GalleryStore) UpdateStatus(id, status, errMsg string) error {
 	updates := map[string]any{
-		"status":     status,
-		"updated_at": time.Now(),
+		"status":      status,
+		"cancellable": false,
+		"updated_at":  time.Now(),
 	}
 	if errMsg != "" {
 		updates["error"] = errMsg
@@ -180,18 +188,21 @@ func (s *GalleryStore) Cancel(id string) error {
 	return s.UpdateStatus(id, "cancelled", "")
 }
 
-// CleanStale marks abandoned in-progress operations as failed.
-// Should be called on startup to recover from crashed instances that
-// left records in pending/downloading/processing state.
-func (s *GalleryStore) CleanStale(age time.Duration) error {
+// CleanStale marks abandoned in-progress operations as failed and returns the
+// number of rows reaped. Called on startup AND periodically to recover from
+// crashed/restarted instances that left records in pending/downloading/
+// processing state — an op orphaned after startup would otherwise linger
+// "processing" until the next restart.
+func (s *GalleryStore) CleanStale(age time.Duration) (int64, error) {
 	cutoff := time.Now().Add(-age)
-	return s.db.Model(&GalleryOperationRecord{}).
+	res := s.db.Model(&GalleryOperationRecord{}).
 		Where("updated_at < ? AND status IN ?", cutoff, activeStatuses).
 		Updates(map[string]any{
 			"status":     "failed",
-			"error":      "stale operation cleaned up on startup",
+			"error":      "stale operation reaped (abandoned by a crashed or restarted instance)",
 			"updated_at": time.Now(),
-		}).Error
+		})
+	return res.RowsAffected, res.Error
 }
 
 // CleanOld removes operations older than the given duration.

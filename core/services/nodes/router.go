@@ -6,12 +6,16 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
 	"time"
 
+	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/services/advisorylock"
+	"github.com/mudler/LocalAI/core/services/nodes/prefixcache"
+	"github.com/mudler/LocalAI/pkg/distributedhdr"
 	grpc "github.com/mudler/LocalAI/pkg/grpc"
 	pb "github.com/mudler/LocalAI/pkg/grpc/proto"
 	"github.com/mudler/LocalAI/pkg/vram"
@@ -43,6 +47,34 @@ type SmartRouterOptions struct {
 	// anti-affinity is disabled at the scheduler layer; the per-node
 	// watchdog still enforces the rule on arrival.
 	ConflictResolver ConcurrencyConflictResolver
+	// PrefixProvider, when set, enables prefix-cache-aware routing: requests
+	// carrying a prompt prefix chain (distributedhdr.PrefixChain) are biased
+	// toward the node that already holds the longest matching prefix, subject
+	// to the load guard in prefixcache.Select. nil disables it entirely and
+	// routing is byte-for-byte the round-robin floor. At runtime this is the
+	// *prefixcache.Sync so Observe/Invalidate broadcast to peers.
+	PrefixProvider prefixcache.Provider
+	// PrefixConfig holds the global policy + thresholds. Per-model overrides on
+	// ModelSchedulingConfig refine it per request. Unused when PrefixProvider
+	// is nil.
+	PrefixConfig prefixcache.Config
+	// Pressure, when set, records a forced-disturb each time a request had a
+	// usable hot prefix match but the load guard forced it off the warm node.
+	// The reconciler reads the same instance to autoscale a saturated cache-warm
+	// replica. nil disables recording (the disabled path stays a no-op).
+	Pressure *prefixcache.Pressure
+	// SharedModels asserts that every node mounts the same models directory at
+	// the same path. When true, stageModelFiles skips all uploading and leaves
+	// the absolute model paths untouched so the worker loads them directly from
+	// the shared volume (#10556). See config.DistributedConfig.SharedModels.
+	SharedModels bool
+	// ModelLoadCeiling is the hard upper bound on how long a single cold-load
+	// attempt (node selection -> backend install -> file staging -> LoadModel)
+	// may run while holding the per-model advisory lock. It backstops every
+	// sub-step's own timeout so a wedged worker can never pin the lock - and
+	// every other replica's request for that model - indefinitely. Zero selects
+	// defaultModelLoadCeiling.
+	ModelLoadCeiling time.Duration
 }
 
 // SmartRouter routes inference requests to the best available backend node.
@@ -56,6 +88,14 @@ type SmartRouter struct {
 	db               *gorm.DB             // for advisory locks during routing
 	stagingTracker   *StagingTracker      // tracks file staging progress for UI visibility
 	conflictResolver ConcurrencyConflictResolver
+	// prefixProvider is the prefix-cache routing seam (nil disables it; see
+	// SmartRouterOptions.PrefixProvider). prefixConfig holds the global policy
+	// and thresholds.
+	prefixProvider prefixcache.Provider
+	prefixConfig   prefixcache.Config
+	// pressure records forced-disturb events (hot match forced off the warm
+	// node by the load guard). nil disables recording. See SmartRouterOptions.
+	pressure *prefixcache.Pressure
 	// installFlight coalesces concurrent identical NATS install requests
 	// (same nodeID + backend + modelID + replica) so 6 simultaneous chat
 	// completions for one not-yet-loaded model produce ONE round-trip, not
@@ -65,7 +105,20 @@ type SmartRouter struct {
 	// per-request routing doesn't stall behind a busy backend's serialized
 	// HealthCheck/Predict. See probe_cache.go for the rationale.
 	probeCache *probeCache
+	// sharedModels skips file staging when all nodes mount the same models
+	// directory at the same path (see SmartRouterOptions.SharedModels).
+	sharedModels bool
+	// modelLoadCeiling bounds how long a cold load may hold the per-model
+	// advisory lock (see SmartRouterOptions.ModelLoadCeiling).
+	modelLoadCeiling time.Duration
 }
+
+// defaultModelLoadCeiling is the fallback hold ceiling for a cold model load.
+// It must comfortably exceed the slowest legitimate load - a multi-GB backend
+// install (DefaultBackendInstallTimeout, 15m) plus staging and the remote
+// LoadModel (5m) - so it never cuts a real load short; it only ever fires when
+// a step is genuinely wedged (e.g. a worker that died mid-install).
+const defaultModelLoadCeiling = 25 * time.Minute
 
 // probeCacheTTL is how long a successful gRPC HealthCheck on a backend is
 // trusted before the next request re-probes. Matches healthCheckTTL in
@@ -81,6 +134,10 @@ func NewSmartRouter(registry ModelRouter, opts SmartRouterOptions) *SmartRouter 
 	if factory == nil {
 		factory = &tokenClientFactory{token: opts.AuthToken}
 	}
+	ceiling := opts.ModelLoadCeiling
+	if ceiling <= 0 {
+		ceiling = defaultModelLoadCeiling
+	}
 	return &SmartRouter{
 		registry:         registry,
 		unloader:         opts.Unloader,
@@ -91,6 +148,11 @@ func NewSmartRouter(registry ModelRouter, opts SmartRouterOptions) *SmartRouter 
 		stagingTracker:   NewStagingTracker(),
 		conflictResolver: opts.ConflictResolver,
 		probeCache:       newProbeCache(probeCacheTTL),
+		prefixProvider:   opts.PrefixProvider,
+		prefixConfig:     opts.PrefixConfig,
+		pressure:         opts.Pressure,
+		sharedModels:     opts.SharedModels,
+		modelLoadCeiling: ceiling,
 	}
 }
 
@@ -108,6 +170,36 @@ type scheduleLoadResult struct {
 	ReplicaIndex int
 }
 
+// applyNodeHardwareDefaults tunes node-agnostic ModelOptions to the GPU of the
+// node that was actually selected to run the model, reusing the same hardware
+// heuristics as single-host config loading (core/config). On Blackwell it
+// raises the physical batch; on non-Blackwell it resets a hardware-default that
+// an upstream host (the GPU-less frontend in distributed mode) guessed higher.
+// Only values the heuristics themselves manage are touched, so an explicit user
+// batch (e.g. 1024) is never overridden.
+func applyNodeHardwareDefaults(opts *pb.ModelOptions, node *BackendNode) {
+	if opts == nil || node == nil || config.HardwareDefaultsDisabled() {
+		return
+	}
+	gpu := config.GPU{
+		Vendor:            node.GPUVendor,
+		ComputeCapability: node.GPUComputeCapability,
+		VRAM:              node.TotalVRAM,
+	}
+	if config.IsManagedPhysicalBatch(int(opts.NBatch)) {
+		// Gate the raised batch on the selected node's per-device VRAM at this
+		// model's context, so a large context can't overflow the node's compute
+		// buffer (issue #10485). node.TotalVRAM is the node's reported ceiling.
+		opts.NBatch = int32(config.PhysicalBatchForContext(gpu, int(opts.ContextSize)))
+	}
+	// Default concurrent serving for the selected node (the frontend that built
+	// the options may have no GPU). Gated on the node's per-device VRAM at this
+	// model's context, so a large context that already fills the device can't
+	// tip it into OOM by adding slot scratch (issue #10485). Only adds when no
+	// parallel option is set.
+	opts.Options = config.EnsureParallelOptionForContext(opts.Options, gpu, int(opts.ContextSize))
+}
+
 // scheduleAndLoad is the shared core for loading a model on a new node.
 // Used by both Route() (for first-time loads) and ScheduleAndLoadModel() (for reconciler scale-ups).
 //
@@ -122,6 +214,11 @@ func (r *SmartRouter) scheduleAndLoad(ctx context.Context, backendType, tracking
 	if err != nil {
 		return nil, fmt.Errorf("no available nodes: %w", err)
 	}
+
+	// Tune node-agnostic options to the SELECTED node's GPU. Only now do we know
+	// which node (and its compute capability) will run the model — the frontend
+	// that built modelOpts may have no GPU at all in distributed mode.
+	applyNodeHardwareDefaults(modelOpts, node)
 
 	// Pre-stage model files via FileStager before loading
 	loadOpts := modelOpts
@@ -230,18 +327,31 @@ func (r *SmartRouter) Route(ctx context.Context, modelID, modelName, backendType
 		trackingKey = modelName
 	}
 
+	// Fetch the model's scheduling config once: it is immutable for the life of
+	// this request, and resolveSelectorCandidates, buildPreference, and
+	// nodeMatchesScheduling all read it. Fetching once gives a consistent
+	// snapshot and avoids three DB round-trips for one row. nil sched means
+	// "no scheduling constraints", same as before.
+	sched, _ := r.registry.GetModelScheduling(ctx, trackingKey)
+
 	// Resolve the model's NodeSelector once so cached-replica lookup and the
 	// new-load scheduler agree on the candidate set. Without this, a cached
 	// replica on a node the selector now excludes was picked over a matching
 	// replica elsewhere, and the fall-through then tried to load on the
 	// matching node where the model was already at capacity (eviction-busy).
-	candidateNodeIDs, err := r.resolveSelectorCandidates(ctx, trackingKey)
+	candidateNodeIDs, err := r.resolveSelectorCandidates(ctx, trackingKey, sched)
 	if err != nil {
 		return nil, err
 	}
 
+	// Compute the prefix-cache preference once for this request. pref biases
+	// FindAndLockNodeWithModel toward the warm-cache node; observeChain is
+	// non-nil only when this model uses prefix_cache, gating the Observe calls
+	// below. Both are nil (no-op) when prefix-cache routing is disabled.
+	pref, observeChain := r.buildPreference(ctx, trackingKey, candidateNodeIDs, sched)
+
 	// Step 1: Find and atomically lock a node with this model loaded
-	node, nm, err := r.registry.FindAndLockNodeWithModel(ctx, trackingKey, candidateNodeIDs)
+	node, nm, err := r.registry.FindAndLockNodeWithModel(ctx, trackingKey, candidateNodeIDs, pref)
 	if err == nil && node != nil {
 		modelAddr := node.Address
 		if nm.Address != "" {
@@ -258,7 +368,7 @@ func (r *SmartRouter) Route(ctx context.Context, modelID, modelName, backendType
 				"node", node.Name, "model", modelName, "replica", replicaIdx)
 		} else {
 			// Verify node still matches scheduling constraints
-			if !r.nodeMatchesScheduling(ctx, node, trackingKey) {
+			if !r.nodeMatchesScheduling(ctx, node, sched) {
 				r.registry.DecrementInFlight(ctx, node.ID, trackingKey, replicaIdx)
 				xlog.Info("Cached model on node that no longer matches selector, falling through",
 					"node", node.Name, "model", trackingKey, "replica", replicaIdx)
@@ -269,6 +379,7 @@ func (r *SmartRouter) Route(ctx context.Context, modelID, modelName, backendType
 				// onFirstComplete callback releases the reservation after the first inference
 				// call finishes, so in-flight returns to 0 when idle.
 				r.registry.TouchNodeModel(ctx, node.ID, trackingKey, replicaIdx)
+				r.observePrefix(trackingKey, observeChain, prefixcache.ReplicaKey{NodeID: node.ID, Replica: replicaIdx})
 				grpcClient := r.buildClientForAddr(node, modelAddr, parallel)
 				tracked := NewInFlightTrackingClient(grpcClient, r.registry, node.ID, trackingKey, replicaIdx)
 				tracked.OnFirstComplete(func() {
@@ -285,10 +396,31 @@ func (r *SmartRouter) Route(ctx context.Context, modelID, modelName, backendType
 		}
 	}
 
-	// Step 2: Model not loaded — schedule loading with distributed lock to prevent duplicates
-	loadModel := func() (*RouteResult, error) {
+	// Step 2: Model not loaded — schedule loading with distributed lock to prevent duplicates.
+	//
+	// Detach the cold-load from the caller's context. Staging a model can
+	// transfer multiple GB to a worker, which takes far longer than any client
+	// keeps its HTTP request open — a browser refresh, an ingress/LB idle
+	// timeout, or a round-robined retry landing on another replica all cancel
+	// the request context. If staging were bound to it, the multi-GB upload
+	// aborts with "context canceled" mid-transfer and large models can never
+	// finish staging (the model-load outage). WithoutCancel keeps the request's
+	// values (prefix chain, etc.) but drops its cancellation/deadline.
+	//
+	// Detaching from the caller is necessary, but it must not be unbounded: the
+	// load runs while holding the per-model advisory lock, and a worker that
+	// dies mid-install (its backend.install never replies) would otherwise pin
+	// that lock (and every other replica's request for the same model) until
+	// the NATS install deadline alone expires. Re-impose a single hard ceiling
+	// over the whole sequence so the lock is always released in bounded time,
+	// even if a sub-step wedges. Each long step still has its own (tighter)
+	// bound; this only backstops them. The per-model advisory lock below
+	// de-dupes concurrent loaders across replicas.
+	loadCtx, cancelLoad := context.WithTimeout(context.WithoutCancel(ctx), r.modelLoadCeiling)
+	defer cancelLoad()
+	loadModel := func(ctx context.Context) (*RouteResult, error) {
 		// Re-check after acquiring lock — another request may have loaded it
-		node, nm, err := r.registry.FindAndLockNodeWithModel(ctx, trackingKey, candidateNodeIDs)
+		node, nm, err := r.registry.FindAndLockNodeWithModel(ctx, trackingKey, candidateNodeIDs, pref)
 		if err == nil && node != nil {
 			modelAddr := node.Address
 			if nm.Address != "" {
@@ -305,7 +437,7 @@ func (r *SmartRouter) Route(ctx context.Context, modelID, modelName, backendType
 					"node", node.Name, "model", modelName, "replica", replicaIdx)
 			} else {
 				// Verify node still matches scheduling constraints
-				if !r.nodeMatchesScheduling(ctx, node, trackingKey) {
+				if !r.nodeMatchesScheduling(ctx, node, sched) {
 					r.registry.DecrementInFlight(ctx, node.ID, trackingKey, replicaIdx)
 					xlog.Info("Cached model on node that no longer matches selector, falling through",
 						"node", node.Name, "model", trackingKey, "replica", replicaIdx)
@@ -314,6 +446,7 @@ func (r *SmartRouter) Route(ctx context.Context, modelID, modelName, backendType
 					// Model loaded while we waited — FindAndLockNodeWithModel already incremented
 					// in-flight as a reservation. Release it after the first inference completes.
 					r.registry.TouchNodeModel(ctx, node.ID, trackingKey, replicaIdx)
+					r.observePrefix(trackingKey, observeChain, prefixcache.ReplicaKey{NodeID: node.ID, Replica: replicaIdx})
 					grpcClient := r.buildClientForAddr(node, modelAddr, parallel)
 					tracked := NewInFlightTrackingClient(grpcClient, r.registry, node.ID, trackingKey, replicaIdx)
 					tracked.OnFirstComplete(func() {
@@ -337,6 +470,10 @@ func (r *SmartRouter) Route(ctx context.Context, modelID, modelName, backendType
 			return nil, err
 		}
 
+		// Cold load landed on result.Node replica result.ReplicaIndex: record the
+		// assignment so subsequent requests with the same prefix prefer it.
+		r.observePrefix(trackingKey, observeChain, prefixcache.ReplicaKey{NodeID: result.Node.ID, Replica: result.ReplicaIndex})
+
 		replicaIdx := result.ReplicaIndex
 		tracked := NewInFlightTrackingClient(result.Client, r.registry, result.Node.ID, trackingKey, replicaIdx)
 		tracked.OnFirstComplete(func() {
@@ -354,9 +491,9 @@ func (r *SmartRouter) Route(ctx context.Context, modelID, modelName, backendType
 	if r.db != nil {
 		lockKey := advisorylock.KeyFromString("model-load:" + trackingKey)
 		var result *RouteResult
-		lockErr := advisorylock.WithLockCtx(ctx, r.db, lockKey, func() error {
+		lockErr := advisorylock.WithLockCtx(loadCtx, r.db, lockKey, func() error {
 			var err error
-			result, err = loadModel()
+			result, err = loadModel(loadCtx)
 			return err
 		})
 		if lockErr != nil {
@@ -365,7 +502,7 @@ func (r *SmartRouter) Route(ctx context.Context, modelID, modelName, backendType
 		return result, nil
 	}
 	// No DB (non-distributed) — proceed without lock
-	return loadModel()
+	return loadModel(loadCtx)
 }
 
 // parseSelectorJSON decodes a JSON node selector string into a map.
@@ -389,13 +526,117 @@ func extractNodeIDs(nodes []BackendNode) []string {
 	return ids
 }
 
+// buildPreference computes the per-request route preference from the prefix
+// chain on ctx and the model's resolved policy. The returned observeChain is
+// non-nil only when the resolved policy is prefix_cache, signalling Route to
+// record the assignment after a successful pick; for round-robin models it is
+// nil so the tree is never polluted. The *RoutePreference is non-nil only when
+// a load-eligible preferred node was chosen.
+//
+// When prefix-cache routing is disabled (nil provider), no chain is present,
+// or the policy resolves to round-robin, both returns are nil and routing is
+// the unchanged round-robin floor.
+func (r *SmartRouter) buildPreference(ctx context.Context, modelID string, candidateNodeIDs []string, sched *ModelSchedulingConfig) (*RoutePreference, []uint64) {
+	if r.prefixProvider == nil {
+		return nil, nil
+	}
+	chain := distributedhdr.PrefixChain(ctx)
+	if len(chain) == 0 {
+		return nil, nil
+	}
+
+	// Resolve per-model policy + thresholds over the global config.
+	policy := r.prefixConfig.GlobalPolicy
+	cfg := r.prefixConfig
+	if sched != nil {
+		policy = prefixcache.ParsePolicy(sched.RoutePolicy).Resolve(r.prefixConfig.GlobalPolicy)
+		if sched.BalanceAbsThreshold > 0 {
+			cfg.BalanceAbsThreshold = sched.BalanceAbsThreshold
+		}
+		if sched.BalanceRelThreshold > 0 {
+			cfg.BalanceRelThreshold = sched.BalanceRelThreshold
+		}
+		if sched.MinPrefixMatch > 0 {
+			cfg.MinPrefixMatch = sched.MinPrefixMatch
+		}
+	}
+	if policy != prefixcache.RoutePolicyPrefixCache {
+		return nil, nil
+	}
+
+	// Load the candidate replicas PER REPLICA. Affinity is tracked per replica
+	// (each replica is a separate process with its own KV cache), so two
+	// replicas of the same model on the same node are two distinct candidates.
+	// FindAndLockNodeWithModel then locks the EXACT (node, replica) the policy
+	// chose.
+	stats, err := r.registry.LoadedReplicaStats(ctx, modelID, candidateNodeIDs)
+	if err != nil {
+		xlog.Debug("prefixcache: loading replica stats failed, skipping preference", "model", modelID, "error", err)
+		return nil, chain
+	}
+	if len(stats) == 0 {
+		return nil, chain
+	}
+	cands := make([]prefixcache.Candidate, 0, len(stats))
+	keys := make([]prefixcache.ReplicaKey, 0, len(stats))
+	for _, s := range stats {
+		key := prefixcache.ReplicaKey{NodeID: s.NodeID, Replica: s.ReplicaIndex}
+		cands = append(cands, prefixcache.Candidate{Key: key, InFlight: s.InFlight})
+		keys = append(keys, key)
+	}
+
+	d := r.prefixProvider.Decide(modelID, chain, keys, time.Now())
+	chosen, ok := prefixcache.Select(cands, d, cfg)
+
+	// Observability for the prefix-cache routing decision. One line per request
+	// at Debug: enable with DEBUG=true on the frontend to assess cache-aware
+	// routing. hotMatchHonored=true means we routed to the cache-warm replica;
+	// false with HasHot means the load guard forced a cold pick.
+	xlog.Debug("prefix-cache routing decision",
+		"model", modelID,
+		"chainDepth", len(chain),
+		"candidates", len(cands),
+		"hotNode", d.Hot.NodeID,
+		"hotReplica", d.Hot.Replica,
+		"hasHot", d.HasHot,
+		"matchRatio", d.MatchRatio,
+		"minMatch", cfg.MinPrefixMatch,
+		"chosen", fmt.Sprintf("%s/%d", chosen.NodeID, chosen.Replica),
+		"hotMatchHonored", d.HasHot && chosen == d.Hot)
+
+	// Forced-disturb: a usable hot prefix match existed but the load guard
+	// forced us off the warm replica (Select picked a different replica). This
+	// is the scale-worthy signal - the cache-warm replica is saturated. It
+	// deliberately does not fire for all-unique workloads (no hot match),
+	// avoiding false-positive scale-ups. nil pressure is a no-op.
+	if r.pressure != nil && d.HasHot && d.MatchRatio >= cfg.MinPrefixMatch && chosen != d.Hot {
+		r.pressure.Record(modelID, time.Now())
+	}
+
+	if !ok {
+		return nil, chain
+	}
+	return &RoutePreference{PreferredNodeID: chosen.NodeID, PreferredReplica: chosen.Replica}, chain
+}
+
+// observePrefix records that the replica `key` served the request whose prompt
+// prefix is chain. It is a no-op when prefix-cache routing is disabled or the
+// chain is empty (round-robin models pass a nil chain so the tree is never
+// polluted).
+func (r *SmartRouter) observePrefix(modelID string, chain []uint64, key prefixcache.ReplicaKey) {
+	if r.prefixProvider == nil || len(chain) == 0 {
+		return
+	}
+	r.prefixProvider.Observe(modelID, chain, key, time.Now())
+	xlog.Debug("prefix-cache observed assignment", "model", modelID, "node", key.NodeID, "replica", key.Replica, "chainDepth", len(chain))
+}
+
 // resolveSelectorCandidates returns the node IDs that match the model's
 // NodeSelector. Returns nil when no selector is configured ("any healthy node"
 // — registry helpers treat nil as no filter). Returns an error when a
 // non-empty selector matches zero healthy nodes, since there is nothing to
 // route or schedule on.
-func (r *SmartRouter) resolveSelectorCandidates(ctx context.Context, modelID string) ([]string, error) {
-	sched, _ := r.registry.GetModelScheduling(ctx, modelID)
+func (r *SmartRouter) resolveSelectorCandidates(ctx context.Context, modelID string, sched *ModelSchedulingConfig) ([]string, error) {
 	if sched == nil || sched.NodeSelector == "" {
 		return nil, nil
 	}
@@ -469,9 +710,8 @@ func (r *SmartRouter) narrowByGroupAntiAffinity(ctx context.Context, modelID str
 
 // nodeMatchesScheduling checks if a node satisfies the scheduling constraints for a model.
 // Returns true if no constraints exist or the node matches all selector labels.
-func (r *SmartRouter) nodeMatchesScheduling(ctx context.Context, node *BackendNode, modelName string) bool {
-	sched, err := r.registry.GetModelScheduling(ctx, modelName)
-	if err != nil || sched == nil || sched.NodeSelector == "" {
+func (r *SmartRouter) nodeMatchesScheduling(ctx context.Context, node *BackendNode, sched *ModelSchedulingConfig) bool {
+	if sched == nil || sched.NodeSelector == "" {
 		return true // no constraints
 	}
 
@@ -518,7 +758,8 @@ func (r *SmartRouter) scheduleNewModel(ctx context.Context, backendType, modelID
 	// Check for scheduling constraints (node selector). If a selector is set,
 	// we restrict the candidate pool to matching nodes; otherwise nil means
 	// "any healthy node".
-	candidateNodeIDs, err := r.resolveSelectorCandidates(ctx, modelID)
+	sched, _ := r.registry.GetModelScheduling(ctx, modelID)
+	candidateNodeIDs, err := r.resolveSelectorCandidates(ctx, modelID, sched)
 	if err != nil {
 		return nil, "", 0, err
 	}
@@ -705,7 +946,14 @@ func (r *SmartRouter) installBackendOnNode(ctx context.Context, node *BackendNod
 	}
 
 	key := fmt.Sprintf("%s|%s|%s|%d", node.ID, backendType, modelID, replicaIndex)
-	v, err, _ := r.installFlight.Do(key, func() (any, error) {
+	// DoChan rather than Do so this wait honors ctx cancellation. InstallBackend
+	// blocks for its full NATS deadline (15m by default) when a worker accepts
+	// the request but never replies (e.g. it died mid-install). Without ctx
+	// awareness the caller (holding the per-model advisory lock) would sit there
+	// the whole time; here a cancelled ctx (typically the model-load ceiling)
+	// frees the caller promptly. The shared install keeps running in the
+	// background and still coalesces other callers via singleflight.
+	resCh := r.installFlight.DoChan(key, func() (any, error) {
 		reply, err := r.unloader.InstallBackend(node.ID, backendType, modelID, r.galleriesJSON, "", "", "", replicaIndex, "", nil)
 		if err != nil {
 			return "", err
@@ -720,10 +968,15 @@ func (r *SmartRouter) installBackendOnNode(ctx context.Context, node *BackendNod
 		}
 		return addr, nil
 	})
-	if err != nil {
-		return "", err
+	select {
+	case <-ctx.Done():
+		return "", ctx.Err()
+	case res := <-resCh:
+		if res.Err != nil {
+			return "", res.Err
+		}
+		return res.Val.(string), nil
 	}
-	return v.(string), nil
 }
 
 func (r *SmartRouter) buildClientForAddr(node *BackendNode, addr string, parallel bool) grpc.Backend {
@@ -745,6 +998,19 @@ func (r *SmartRouter) buildClientForAddr(node *BackendNode, addr string, paralle
 // simply remove the {ModelsPath}/{trackingKey}/ directory.
 func (r *SmartRouter) stageModelFiles(ctx context.Context, node *BackendNode, opts *pb.ModelOptions, trackingKey string) (*pb.ModelOptions, error) {
 	opts = proto.Clone(opts).(*pb.ModelOptions)
+
+	// Shared-models mode: every node mounts the same models directory at the
+	// same path, so the frontend's absolute model paths are already valid on the
+	// worker. Staging would only re-upload files that already exist on the shared
+	// volume (under a tracking-key subdir the probe never reuses), re-downloading
+	// the model on every load (#10556). Return the clone untouched: no upload, no
+	// path rewrite, no staging tracker.
+	if r.sharedModels {
+		xlog.Info("Skipping model file staging: shared-models mode is on (LOCALAI_DISTRIBUTED_SHARED_MODELS); worker loads directly from the shared volume",
+			"node", node.Name, "modelFile", opts.ModelFile, "trackingKey", trackingKey)
+		return opts, nil
+	}
+
 	xlog.Info("Staging model files for remote node", "node", node.Name, "modelFile", opts.ModelFile, "trackingKey", trackingKey)
 
 	// Derive the frontend models directory from ModelFile and Model.
@@ -753,6 +1019,17 @@ func (r *SmartRouter) stageModelFiles(ctx context.Context, node *BackendNode, op
 	frontendModelsDir := ""
 	if opts.ModelFile != "" && opts.Model != "" {
 		frontendModelsDir = filepath.Clean(strings.TrimSuffix(opts.ModelFile, opts.Model))
+	}
+
+	// Local model directory, captured before the ModelFile field is rewritten to
+	// its remote path below. Companion assets declared as option paths (e.g.
+	// sherpa-onnx's tokens.txt / espeak-ng-data) live beside the model, so option
+	// values are resolved relative to this dir as well as frontendModelsDir —
+	// letting a shared config declare them with bare names regardless of whether
+	// Model includes a subdirectory.
+	localModelDir := ""
+	if opts.ModelFile != "" {
+		localModelDir = filepath.Dir(opts.ModelFile)
 	}
 
 	// keyMapper generates storage keys namespaced under trackingKey, preserving
@@ -780,13 +1057,12 @@ func (r *SmartRouter) stageModelFiles(ctx context.Context, node *BackendNode, op
 		{"AudioPath", &opts.AudioPath},
 	}
 
-	// Count stageable files for progress tracking
+	// Count stageable files for progress tracking. Directory models expand to
+	// the number of files they contain, matching what stageDirectory uploads.
 	totalFiles := 0
 	for _, f := range fields {
 		if *f.val != "" {
-			if _, err := os.Stat(*f.val); err == nil {
-				totalFiles++
-			}
+			totalFiles += countStageableFiles(*f.val)
 		}
 	}
 	for _, adapter := range opts.LoraAdapters {
@@ -817,8 +1093,33 @@ func (r *SmartRouter) stageModelFiles(ctx context.Context, node *BackendNode, op
 			*f.val = ""
 			continue
 		}
-		fileIdx++
 		localPath := *f.val
+
+		// Directory models (e.g. qwen3-tts-cpp ships its weights and tokenizer
+		// ggufs under one directory) can't be uploaded as a single file — the
+		// stager would open the directory and read its fd, failing with
+		// "is a directory" (EISDIR). Expand the directory and stage each
+		// contained file, then rewrite the field to the remote directory.
+		if fi, statErr := os.Stat(localPath); statErr == nil && fi.IsDir() {
+			remoteDir, dirErr := r.stageDirectory(ctx, node, trackingKey, localPath, keyMapper, &fileIdx, totalFiles)
+			if dirErr != nil {
+				if f.name == "ModelFile" {
+					xlog.Error("Failed to stage model directory for remote node", "node", node.Name, "field", f.name, "path", localPath, "error", dirErr)
+					return nil, fmt.Errorf("staging model file: %w", dirErr)
+				}
+				xlog.Warn("Failed to stage model directory, clearing field", "field", f.name, "path", localPath, "error", dirErr)
+				*f.val = ""
+				continue
+			}
+			*f.val = remoteDir
+			if f.name == "ModelFile" && opts.Model != "" {
+				opts.ModelPath = DeriveRemoteModelPath(remoteDir, opts.Model)
+				xlog.Debug("Derived remote ModelPath", "modelPath", opts.ModelPath)
+			}
+			continue
+		}
+
+		fileIdx++
 		key := keyMapper.Key(localPath)
 
 		// Attach progress callback to context for byte-level tracking
@@ -902,8 +1203,8 @@ func (r *SmartRouter) stageModelFiles(ctx context.Context, node *BackendNode, op
 
 	// Stage file paths referenced in generic Options (key:value pairs where values
 	// are file paths). Options stay as relative paths — backends resolve them via ModelPath.
-	r.stageGenericOptions(ctx, node, opts.Options, frontendModelsDir, keyMapper.Key)
-	r.stageGenericOptions(ctx, node, opts.Overrides, frontendModelsDir, keyMapper.Key)
+	r.stageGenericOptions(ctx, node, opts.Options, frontendModelsDir, localModelDir, keyMapper.Key)
+	r.stageGenericOptions(ctx, node, opts.Overrides, frontendModelsDir, localModelDir, keyMapper.Key)
 
 	return opts, nil
 }
@@ -920,6 +1221,77 @@ func (r *SmartRouter) withStagingCallback(ctx context.Context, trackingKey, file
 		}
 		r.stagingTracker.UpdateFile(trackingKey, fn, fileIdx, bytesSent, totalBytes, speed)
 	})
+}
+
+// countStageableFiles returns the number of regular files a model path expands
+// to for staging: 1 for a regular file, the contained file count for a
+// directory, and 0 if the path does not exist.
+func countStageableFiles(path string) int {
+	fi, err := os.Stat(path)
+	if err != nil {
+		return 0
+	}
+	if !fi.IsDir() {
+		return 1
+	}
+	n := 0
+	_ = filepath.WalkDir(path, func(_ string, d fs.DirEntry, walkErr error) error {
+		if walkErr != nil {
+			return nil
+		}
+		if !d.IsDir() {
+			n++
+		}
+		return nil
+	})
+	return n
+}
+
+// stageDirectory stages every file under a directory-based model (e.g.
+// qwen3-tts-cpp, whose weights and tokenizer ggufs live in one directory).
+// Each file is uploaded individually with a structure-preserving key; the
+// returned path is the remote directory that contained them, suitable for the
+// backend's ModelFile/ModelPath. fileIdx is advanced per staged file so the
+// staging progress tracker stays accurate.
+func (r *SmartRouter) stageDirectory(ctx context.Context, node *BackendNode, trackingKey, dir string, keyMapper *StagingKeyMapper, fileIdx *int, totalFiles int) (string, error) {
+	var remoteDir string
+	err := filepath.WalkDir(dir, func(path string, d fs.DirEntry, walkErr error) error {
+		if walkErr != nil {
+			return walkErr
+		}
+		if d.IsDir() {
+			return nil
+		}
+
+		*fileIdx++
+		fileName := filepath.Base(path)
+		stageCtx := r.withStagingCallback(ctx, trackingKey, fileName, *fileIdx, totalFiles)
+		xlog.Info("Staging file", "model", trackingKey, "node", node.Name, "field", "ModelDir", "file", fileName, "fileIndex", *fileIdx, "totalFiles", totalFiles)
+
+		remoteFile, err := r.fileStager.EnsureRemote(stageCtx, node.ID, path, keyMapper.Key(path))
+		if err != nil {
+			return fmt.Errorf("staging %s: %w", path, err)
+		}
+		r.stagingTracker.FileComplete(trackingKey, *fileIdx, totalFiles)
+
+		// Every file under dir shares the same remote parent directory; derive
+		// it from this file's staged path and its path relative to dir.
+		rel, relErr := filepath.Rel(dir, path)
+		if relErr != nil {
+			return relErr
+		}
+		remoteDir = DeriveRemoteModelPath(remoteFile, rel)
+
+		r.stageCompanionFiles(ctx, node, path, keyMapper.Key)
+		return nil
+	})
+	if err != nil {
+		return "", err
+	}
+	if remoteDir == "" {
+		return "", fmt.Errorf("model directory %s contains no files", dir)
+	}
+	return remoteDir, nil
 }
 
 // stageCompanionFiles stages known companion files that exist alongside
@@ -948,34 +1320,84 @@ func (r *SmartRouter) stageCompanionFiles(ctx context.Context, node *BackendNode
 }
 
 // stageGenericOptions iterates key:value option strings and stages any values
-// that resolve to existing files relative to the frontend models directory.
-// Option values are NOT rewritten — backends resolve them via ModelPath.
-// keyFn generates the namespaced storage key for each file path.
-func (r *SmartRouter) stageGenericOptions(ctx context.Context, node *BackendNode, options []string, frontendModelsDir string, keyFn func(string) string) {
+// that resolve to existing files relative to the frontend models directory or
+// the model's own directory. Option values are NOT rewritten — backends resolve
+// them via ModelPath. keyFn generates the namespaced storage key for each file.
+func (r *SmartRouter) stageGenericOptions(ctx context.Context, node *BackendNode, options []string, frontendModelsDir, modelDir string, keyFn func(string) string) {
 	for _, opt := range options {
 		optKey, val, ok := strings.Cut(opt, ":")
 		if !ok || val == "" {
 			continue
 		}
 
-		// Check if value is an existing file path (absolute or relative to frontend models dir)
-		absPath := val
-		if !filepath.IsAbs(val) && frontendModelsDir != "" {
-			absPath = filepath.Join(frontendModelsDir, val)
+		// Resolve the value to an existing path: absolute as-is, otherwise
+		// relative to frontendModelsDir first, then the model's own directory
+		// (where backends like sherpa-onnx keep companion assets such as
+		// tokens.txt and espeak-ng-data).
+		absPath, ok := resolveOptionPath(val, frontendModelsDir, modelDir)
+		if !ok {
+			continue
 		}
-		if _, err := os.Stat(absPath); os.IsNotExist(err) {
+		info, err := os.Stat(absPath)
+		if err != nil {
 			continue
 		}
 
-		// Stage the file to the worker using the namespaced key
+		// A directory option value (e.g. sherpa-onnx's espeak-ng-data) is staged
+		// file-by-file so the whole tree is recreated beside the model on the
+		// worker; a single file is staged directly. Values are never rewritten —
+		// backends resolve relative paths via ModelPath.
+		if err == nil && info.IsDir() {
+			r.stageOptionDir(ctx, node, absPath, keyFn)
+			xlog.Debug("Staged option directory", "option", optKey, "localPath", absPath)
+			continue
+		}
+
 		key := keyFn(absPath)
 		if _, err := r.fileStager.EnsureRemote(ctx, node.ID, absPath, key); err != nil {
 			xlog.Warn("Failed to stage option file, skipping", "option", opt, "path", absPath, "error", err)
 			continue
 		}
-		// Leave option value unchanged — backend resolves relative paths via ModelPath
 		xlog.Debug("Staged option file", "option", optKey, "localPath", absPath)
 	}
+}
+
+// resolveOptionPath finds an existing local path for an option value: an
+// absolute path as-is, otherwise relative to frontendModelsDir, then to the
+// model's own directory. Returns false when none exists.
+func resolveOptionPath(val, frontendModelsDir, modelDir string) (string, bool) {
+	if filepath.IsAbs(val) {
+		if _, err := os.Stat(val); err == nil {
+			return val, true
+		}
+		return "", false
+	}
+	for _, base := range []string{frontendModelsDir, modelDir} {
+		if base == "" {
+			continue
+		}
+		p := filepath.Join(base, val)
+		if _, err := os.Stat(p); err == nil {
+			return p, true
+		}
+	}
+	return "", false
+}
+
+// stageOptionDir stages every regular file under an option-declared directory
+// (e.g. sherpa-onnx's espeak-ng-data) using the structure-preserving key, so the
+// tree is recreated beside the model on the worker. Per-file errors are logged
+// and skipped; the option value itself is not rewritten.
+func (r *SmartRouter) stageOptionDir(ctx context.Context, node *BackendNode, dir string, keyFn func(string) string) {
+	_ = filepath.WalkDir(dir, func(path string, d fs.DirEntry, walkErr error) error {
+		if walkErr != nil || d.IsDir() {
+			return nil
+		}
+		if _, err := r.fileStager.EnsureRemote(ctx, node.ID, path, keyFn(path)); err != nil {
+			xlog.Warn("Failed to stage option directory file, skipping", "path", path, "error", err)
+		}
+		return nil
+	})
 }
 
 // probeHealth checks whether a backend process on the given node/addr is alive

@@ -44,6 +44,39 @@ maps to `DS4_THINK_HIGH`. We pass the chosen mode to `ds4_chat_append_assistant_
 via `ModelOptions.Options[] = "kv_cache_dir:/some/path"`. Format is **our own** -
 NOT bit-compatible with ds4-server's KVC files (interop is a follow-up plan).
 
+## Engine options (LoadModel)
+
+`LoadModel` maps `ModelOptions.Options[]` (`"key:value"`, from model-YAML
+`options:`) onto `ds4_engine_options` through a **declarative table**
+(`kEngineOptSpecs` + `apply_engine_option` in `grpc-server.cpp`). The struct is
+plain C with no reflection, so the field set is enumerated once in the table;
+adding a future engine knob is a one-line table row, not a new branch. Unknown
+keys are ignored (back-compat). A bare flag (`ssd_streaming` with no value)
+means `true`. Path-type values (`mtp_path`, `expert_profile_path`,
+`directional_steering_file`) resolve **relative to the model directory**, so a
+gallery entry can reference a companion file it downloaded by bare filename;
+absolute values pass through. `ds4_role` / `ds4_layers` / `ds4_listen` /
+`ds4_route_timeout` / `kv_cache_dir` keep their dedicated handling (validation
++ coordinator wiring) and are not in the table.
+
+Wired keys: `mtp_path`, `mtp_draft`, `mtp_margin`, `prefill_chunk`,
+`power_percent`, `warm_weights`, `quality`, `ssd_streaming`,
+`ssd_streaming_cold`, `ssd_streaming_preload_experts`,
+`ssd_streaming_cache_experts` (count or `NGB`, sets both experts+bytes via
+`ds4_parse_streaming_cache_experts_arg`), `simulate_used_memory` (`NGB` via
+`ds4_parse_gib_arg`), `expert_profile_path`, `directional_steering_file`,
+`directional_steering_attn`, `directional_steering_ffn`.
+
+## SSD streaming (running models larger than RAM)
+
+ds4's **SSD streaming** keeps non-routed weights resident and streams routed MoE
+experts from the GGUF on cache misses, turning "does it fit in RAM" into a speed
+spectrum. **Metal (Darwin) only** - it is a no-op on CUDA/CPU. Enable with
+`options: ["ssd_streaming"]`; size the routed-expert cache with
+`ssd_streaming_cache_experts:NGB` (omit for ds4's automatic 80%-of-working-set
+budget). Gallery entries built on this: `deepseek-v4-flash-q4-ssd` (153 GB Flash
+on a 128 GB Mac) and `deepseek-v4-pro-q2-ssd` (433 GB Pro, experimental).
+
 ## Build matrix
 
 | Build | Where | Notes |
@@ -67,6 +100,34 @@ go test -count=1 -timeout=30m -v ./tests/e2e-backends/...
 ```
 
 CI does not load the model; the suite is opt-in via env vars.
+
+## Distributed mode
+
+ds4 supports **layer-split** distributed inference (a model too big for one host,
+split by transformer layer; the GGUF must be present on every machine, each loads
+only its slice). Topology is **inverted** vs llama.cpp: the coordinator listens,
+workers dial in.
+
+- **`ds4-worker` binary**: built and packaged next to `grpc-server` (`package.sh`
+  copies it into `package/`). Links the same engine objects plus `ds4_distributed.o`;
+  **no gRPC/protobuf dependency** (speaks ds4's own TCP transport), so it builds
+  even where `grpc-server` can't. Runs the worker serving loop (`ds4_dist_run`).
+- **Coordinator wiring**: the ds4 `grpc-server` acts as coordinator when `LoadModel`
+  `ModelOptions.Options` (from model-YAML `options:`) carry:
+  - `ds4_role:coordinator` (enables distributed mode; absent → single-node, back-compat)
+  - `ds4_layers:0:19` (coordinator's own slice, inclusive; `N:output` includes the head)
+  - `ds4_listen:0.0.0.0:1234` (address workers dial into)
+  - `ds4_route_timeout:60` (optional; seconds Predict/PredictStream wait for the route
+    to form before returning gRPC `UNAVAILABLE`; default 60)
+- **Worker CLI**: `local-ai worker ds4-distributed -- <ds4-worker args>` resolves the
+  ds4 backend and execs the packaged `ds4-worker` (raw passthrough), e.g.
+  `--role worker --model /models/ds4flash.gguf --layers 20:output --coordinator <host> 1234`.
+
+Opt-in e2e in `tests/e2e-backends/backend_test.go`, gated by
+`BACKEND_TEST_DS4_DISTRIBUTED=1` (plus `BACKEND_TEST_DS4_WORKER_BINARY`,
+`BACKEND_TEST_DS4_WORKER_LAYERS`, `BACKEND_TEST_DS4_COORDINATOR_LAYERS`,
+`BACKEND_TEST_DS4_LISTEN`). Design spec:
+`docs/superpowers/specs/2026-05-30-ds4-distributed-inference-design.md`.
 
 ## Importer
 

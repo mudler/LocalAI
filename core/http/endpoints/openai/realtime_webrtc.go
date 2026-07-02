@@ -48,7 +48,8 @@ func RealtimeCalls(application *application.Application) echo.HandlerFunc {
 			return c.JSON(http.StatusInternalServerError, map[string]string{"error": "codec registration failed"})
 		}
 
-		api := webrtc.NewAPI(webrtc.WithMediaEngine(m))
+		se := webRTCSettingEngine(application.ApplicationConfig())
+		api := webrtc.NewAPI(webrtc.WithMediaEngine(m), webrtc.WithSettingEngine(se))
 
 		pc, err := api.NewPeerConnection(webrtc.Configuration{})
 		if err != nil {
@@ -127,10 +128,13 @@ func RealtimeCalls(application *application.Application) echo.HandlerFunc {
 			handleIncomingAudioTrack(track, transport)
 		})
 
-		// Set the remote SDP (client's offer)
+		// Set the remote SDP (client's offer). Raise the data-channel
+		// max-message-size the browser advertised so pion permits the larger
+		// realtime events some turns produce (e.g. tool calls), which would
+		// otherwise be dropped on send. See realtime_webrtc_sctp.go.
 		if err := pc.SetRemoteDescription(webrtc.SessionDescription{
 			Type: webrtc.SDPTypeOffer,
-			SDP:  req.SDP,
+			SDP:  raiseDataChannelMaxMessageSize(req.SDP),
 		}); err != nil {
 			transport.Close()
 			xlog.Error("failed to set remote description", "error", err)

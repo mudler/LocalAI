@@ -1,7 +1,7 @@
 
 # Pinned to the HEAD of feature/turboquant-kv-cache on https://github.com/TheTom/llama-cpp-turboquant.
 # Auto-bumped nightly by .github/workflows/bump_deps.yaml.
-TURBOQUANT_VERSION?=5aeb2fdbe26cd4c534c6fa15de73cb5749bd0403
+TURBOQUANT_VERSION?=7d9715f1f071fa07c7b2ad3dbfd320b314139e65
 LLAMA_REPO?=https://github.com/TheTom/llama-cpp-turboquant
 
 CMAKE_ARGS?=
@@ -64,6 +64,29 @@ turboquant-avx:
 
 turboquant-fallback:
 	$(call turboquant-build,fallback,-DGGML_AVX=off -DGGML_AVX2=off -DGGML_AVX512=off -DGGML_FMA=off -DGGML_F16C=off -DGGML_BMI2=off,--target grpc-server)
+
+# Single-build CPU backend via ggml CPU_ALL_VARIANTS (mirrors llama-cpp-cpu-all).
+# turboquant reuses backend/cpp/llama-cpp's CMakeLists.txt (hw_grpc_proto STATIC) and
+# Makefile (SHARED_LIBS make-var + EXTRA_CMAKE_ARGS), so this passes the same overrides
+# through to the copied build: SHARED_LIBS=ON, the DL flags, and --target ggml (which
+# pulls in the per-microarch libggml-cpu-*.so via ggml's add_dependencies). The .so set
+# is collected for package.sh to bundle into package/lib.
+turboquant-cpu-all:
+	rm -rf $(CURRENT_MAKEFILE_DIR)/../turboquant-cpu-all-build
+	cp -rf $(LLAMA_CPP_DIR) $(CURRENT_MAKEFILE_DIR)/../turboquant-cpu-all-build
+	$(MAKE) -C $(CURRENT_MAKEFILE_DIR)/../turboquant-cpu-all-build purge
+	bash $(CURRENT_MAKEFILE_DIR)/patch-grpc-server.sh $(CURRENT_MAKEFILE_DIR)/../turboquant-cpu-all-build/grpc-server.cpp
+	$(info $(GREEN)I turboquant build info:cpu-all-variants$(RESET))
+	LLAMA_REPO=$(LLAMA_REPO) LLAMA_VERSION=$(TURBOQUANT_VERSION) \
+	$(MAKE) -C $(CURRENT_MAKEFILE_DIR)/../turboquant-cpu-all-build llama.cpp
+	bash $(CURRENT_MAKEFILE_DIR)/apply-patches.sh $(CURRENT_MAKEFILE_DIR)/../turboquant-cpu-all-build/llama.cpp $(PATCHES_DIR)
+	SHARED_LIBS=ON EXTRA_CMAKE_ARGS="-DGGML_BACKEND_DL=ON -DGGML_CPU_ALL_VARIANTS=ON" TARGET="--target grpc-server --target ggml" \
+	LLAMA_REPO=$(LLAMA_REPO) LLAMA_VERSION=$(TURBOQUANT_VERSION) \
+	$(MAKE) -C $(CURRENT_MAKEFILE_DIR)/../turboquant-cpu-all-build grpc-server
+	cp -rfv $(CURRENT_MAKEFILE_DIR)/../turboquant-cpu-all-build/grpc-server turboquant-cpu-all
+	rm -rf ggml-shared-libs && mkdir -p ggml-shared-libs
+	find $(CURRENT_MAKEFILE_DIR)/../turboquant-cpu-all-build/llama.cpp/build \( -name '*.so*' -o -name '*.dylib' \) -exec cp -av {} ggml-shared-libs/ \;
+	@echo "Collected ggml shared backends:" && ls -la ggml-shared-libs/
 
 turboquant-grpc:
 	$(call turboquant-build,grpc,-DGGML_RPC=ON -DGGML_AVX=off -DGGML_AVX2=off -DGGML_AVX512=off -DGGML_FMA=off -DGGML_F16C=off -DGGML_BMI2=off,--target grpc-server --target rpc-server)

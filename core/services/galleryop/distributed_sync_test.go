@@ -404,6 +404,36 @@ var _ = Describe("GalleryService cache invalidation broadcasts", func() {
 			Element: "x", Op: "install",
 		})).To(Succeed())
 	})
+
+	It("BroadcastModelsChanged delivers the element and op to a peer's OnModelsChanged", func() {
+		var (
+			mu   sync.Mutex
+			seen []messaging.CacheInvalidateEvent
+		)
+		svcB.OnModelsChanged = func(evt messaging.CacheInvalidateEvent) {
+			mu.Lock()
+			seen = append(seen, evt)
+			mu.Unlock()
+		}
+		Expect(svcA.SubscribeBroadcasts()).To(Succeed())
+		Expect(svcB.SubscribeBroadcasts()).To(Succeed())
+
+		// An admin edit on replica A must reach replica B over the same subject
+		// the gallery path uses, so B refreshes its in-memory config loader.
+		svcA.BroadcastModelsChanged("my-alias", "install")
+
+		mu.Lock()
+		defer mu.Unlock()
+		Expect(seen).To(ContainElement(messaging.CacheInvalidateEvent{
+			Element: "my-alias", Op: "install",
+		}))
+	})
+
+	It("BroadcastModelsChanged is a no-op when NATS is not wired (standalone)", func() {
+		standalone := galleryop.NewGalleryService(&config.ApplicationConfig{}, nil)
+		// No SetNATSClient: must not panic and must simply do nothing.
+		Expect(func() { standalone.BroadcastModelsChanged("x", "delete") }).ToNot(Panic())
+	})
 })
 
 var _ = Describe("GalleryService PostgreSQL hydration", func() {

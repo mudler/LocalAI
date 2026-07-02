@@ -108,6 +108,7 @@ RUN <<EOT bash
         apt-get update && \
         apt-get install -y --no-install-recommends \
             cuda-nvcc-${CUDA_MAJOR_VERSION}-${CUDA_MINOR_VERSION} \
+            cuda-nvrtc-dev-${CUDA_MAJOR_VERSION}-${CUDA_MINOR_VERSION} \
             libcufft-dev-${CUDA_MAJOR_VERSION}-${CUDA_MINOR_VERSION} \
             libcurand-dev-${CUDA_MAJOR_VERSION}-${CUDA_MINOR_VERSION} \
             libcublas-dev-${CUDA_MAJOR_VERSION}-${CUDA_MINOR_VERSION} \
@@ -168,6 +169,17 @@ RUN if [ "${BUILD_TYPE}" = "hipblas" ] && [ "${SKIP_DRIVERS}" = "false" ]; then 
 
 RUN if [ "${BUILD_TYPE}" = "hipblas" ]; then \
     ln -s /opt/rocm-**/lib/llvm/lib/libomp.so /usr/lib/libomp.so \
+    ; fi
+
+# ROCm's bundled libdrm_amdgpu is built with a hardcoded fallback lookup path
+# for the ASIC ID table (/opt/amdgpu/share/libdrm/amdgpu.ids), which only exists
+# if AMD's full amdgpu graphics/DKMS stack is installed. This compute-only image
+# doesn't have it, so hipblas/rocBLAS log "No such file or directory" on every
+# model load and can fail to identify the GPU. Point it at the equivalent file
+# Ubuntu's libdrm-common package already ships.
+RUN if [ "${BUILD_TYPE}" = "hipblas" ] && [ -f /usr/share/libdrm/amdgpu.ids ] && [ ! -e /opt/amdgpu/share/libdrm/amdgpu.ids ]; then \
+    mkdir -p /opt/amdgpu/share/libdrm && \
+    ln -s /usr/share/libdrm/amdgpu.ids /opt/amdgpu/share/libdrm/amdgpu.ids \
     ; fi
 
 RUN expr "${BUILD_TYPE}" = intel && echo "intel" > /run/localai/capability || echo "not intel"

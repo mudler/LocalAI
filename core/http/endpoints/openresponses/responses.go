@@ -3,6 +3,7 @@ package openresponses
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"time"
 
@@ -10,6 +11,7 @@ import (
 	"github.com/labstack/echo/v4"
 	"github.com/mudler/LocalAI/core/backend"
 	"github.com/mudler/LocalAI/core/config"
+	"github.com/mudler/LocalAI/core/http/auth"
 	mcpTools "github.com/mudler/LocalAI/core/http/endpoints/mcp"
 	openaiEndpoint "github.com/mudler/LocalAI/core/http/endpoints/openai"
 	"github.com/mudler/LocalAI/core/http/middleware"
@@ -95,7 +97,7 @@ func ResponsesEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, eval
 
 		// Add instructions as system message if provided
 		if input.Instructions != "" {
-			messages = append([]schema.Message{{Role: "system", StringContent: input.Instructions}}, messages...)
+			messages = append([]schema.Message{{Role: "system", Content: input.Instructions, StringContent: input.Instructions}}, messages...)
 		}
 
 		// Handle tools
@@ -246,8 +248,11 @@ func ResponsesEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, eval
 			// Create cancellable context for background execution
 			bgCtx, bgCancel := context.WithCancel(context.Background())
 
-			// Store the background response
+			// Store the background response and stamp its owner before the ID
+			// is returned to the client, so later GET/cancel/resume can verify
+			// the caller owns it.
 			store.StoreBackground(responseID, input, queuedResponse, bgCancel, input.Stream)
+			store.SetOwner(responseID, ownerFromContext(c))
 
 			// Start background processing goroutine
 			go func() {
@@ -299,7 +304,7 @@ func convertORInputToMessages(input any, cfg *config.ModelConfig) ([]schema.Mess
 	switch v := input.(type) {
 	case string:
 		// Simple string = user message
-		return []schema.Message{{Role: "user", StringContent: v}}, nil
+		return []schema.Message{{Role: "user", Content: v, StringContent: v}}, nil
 	case []any:
 		// Array of items
 		for _, itemRaw := range v {
@@ -309,6 +314,16 @@ func convertORInputToMessages(input any, cfg *config.ModelConfig) ([]schema.Mess
 			}
 
 			itemType, _ := itemMap["type"].(string)
+			// OpenAI SDK helpers (e.g. client.responses.create(input=[{"role":...,"content":...}]))
+			// send message items without a "type" discriminator. Treat a bare {role, content}
+			// object as type:"message" so the chat-completions and responses paths agree.
+			if itemType == "" {
+				if _, hasRole := itemMap["role"].(string); hasRole {
+					if _, hasContent := itemMap["content"]; hasContent {
+						itemType = "message"
+					}
+				}
+			}
 			switch itemType {
 			case "message":
 				msg, err := convertORMessageItem(itemMap, cfg)
@@ -1346,7 +1361,7 @@ func handleOpenResponsesNonStream(c echo.Context, responseID string, createdAt i
 	thinkingStartToken := reason.DetectThinkingStartToken(template, &cfg.ReasoningConfig)
 
 	// Extract reasoning from result before cleaning
-	reasoningContent, cleanedResult := reason.ExtractReasoningWithConfig(result, thinkingStartToken, cfg.ReasoningConfig)
+	reasoningContent, cleanedResult := reason.ExtractReasoningComplete(result, thinkingStartToken, cfg.ReasoningConfig)
 
 	// Parse tool calls if using functions
 	var outputItems []schema.ORItemField
@@ -1577,6 +1592,7 @@ func handleOpenResponsesNonStream(c echo.Context, responseID string, createdAt i
 	if shouldStore {
 		store := GetGlobalStore()
 		store.Store(responseID, input, response)
+		store.SetOwner(responseID, ownerFromContext(c))
 	}
 
 	return c.JSON(200, response)
@@ -1986,7 +2002,7 @@ func handleOpenResponsesStream(c echo.Context, responseID string, createdAt int6
 				finalCleanedResult = extractor.CleanedContent()
 			}
 			if finalReasoning == "" && finalCleanedResult == "" {
-				finalReasoning, finalCleanedResult = reason.ExtractReasoningWithConfig(result, thinkingStartToken, cfg.ReasoningConfig)
+				finalReasoning, finalCleanedResult = reason.ExtractReasoningComplete(result, thinkingStartToken, cfg.ReasoningConfig)
 			}
 
 			// Close reasoning item if it exists and wasn't closed yet
@@ -2312,6 +2328,7 @@ func handleOpenResponsesStream(c echo.Context, responseID string, createdAt int6
 		if shouldStore {
 			store := GetGlobalStore()
 			store.Store(responseID, input, responseCompleted)
+			store.SetOwner(responseID, ownerFromContext(c))
 		}
 
 		// Send [DONE]
@@ -2483,7 +2500,7 @@ func handleOpenResponsesStream(c echo.Context, responseID string, createdAt int6
 		finalCleanedResult = extractor.CleanedContent()
 	}
 	if finalReasoning == "" && finalCleanedResult == "" {
-		finalReasoning, finalCleanedResult = reason.ExtractReasoningWithConfig(result, thinkingStartToken, cfg.ReasoningConfig)
+		finalReasoning, finalCleanedResult = reason.ExtractReasoningComplete(result, thinkingStartToken, cfg.ReasoningConfig)
 	}
 
 	// Close reasoning item if it exists and wasn't closed yet
@@ -2956,6 +2973,18 @@ func convertORToolsToOpenAIFormat(orTools []schema.ORFunctionTool) []functions.T
 	return result
 }
 
+// ownerFromContext returns the identity (user ID) of the authenticated
+// caller, or empty string when no authentication was performed (single-key /
+// no-auth deployments). It is the value stamped on a response at creation and
+// compared on read/cancel/resume to prevent one caller from accessing
+// another's response by guessing its ID.
+func ownerFromContext(c echo.Context) string {
+	if u := auth.GetUser(c); u != nil {
+		return u.ID
+	}
+	return ""
+}
+
 // GetResponseEndpoint returns a handler for GET /responses/:id
 // This endpoint is used for polling background responses or resuming streaming
 // @Summary Get a response by ID
@@ -2978,6 +3007,12 @@ func GetResponseEndpoint() func(c echo.Context) error {
 		store := GetGlobalStore()
 		stored, err := store.Get(responseID)
 		if err != nil {
+			return sendOpenResponsesError(c, 404, "not_found", fmt.Sprintf("response not found: %s", responseID), "id")
+		}
+
+		// Enforce response ownership. Return 404 (not 403) on mismatch so the
+		// existence of another caller's response is not leaked.
+		if !accessAllowed(stored, ownerFromContext(c)) {
 			return sendOpenResponsesError(c, 404, "not_found", fmt.Sprintf("response not found: %s", responseID), "id")
 		}
 
@@ -3012,15 +3047,20 @@ func GetResponseEndpoint() func(c echo.Context) error {
 
 // handleStreamResume handles resuming a streaming response from a specific sequence number
 func handleStreamResume(c echo.Context, store *ResponseStore, responseID string, stored *StoredResponse, startingAfter int) error {
+	// Fetch buffered events before committing to an SSE response so an
+	// offset-lost gap can be reported as a clean HTTP status rather than a
+	// silently truncated event stream.
+	events, err := store.GetEventsAfter(responseID, startingAfter)
+	if err != nil {
+		if errors.Is(err, ErrOffsetLost) {
+			return sendOpenResponsesError(c, 409, "invalid_request_error", fmt.Sprintf("starting_after=%d is older than the oldest retained event; the resume buffer evicted those events and the stream cannot be resumed from that point", startingAfter), "starting_after")
+		}
+		return sendOpenResponsesError(c, 500, "server_error", fmt.Sprintf("failed to get events: %v", err), "")
+	}
+
 	c.Response().Header().Set("Content-Type", "text/event-stream")
 	c.Response().Header().Set("Cache-Control", "no-cache")
 	c.Response().Header().Set("Connection", "keep-alive")
-
-	// Get buffered events after the starting point
-	events, err := store.GetEventsAfter(responseID, startingAfter)
-	if err != nil {
-		return sendOpenResponsesError(c, 500, "server_error", fmt.Sprintf("failed to get events: %v", err), "")
-	}
 
 	// Send all buffered events
 	for _, event := range events {
@@ -3116,6 +3156,17 @@ func CancelResponseEndpoint() func(c echo.Context) error {
 		}
 
 		store := GetGlobalStore()
+
+		// Look up first so ownership can be checked before any mutation.
+		stored, err := store.Get(responseID)
+		if err != nil {
+			return sendOpenResponsesError(c, 404, "not_found", fmt.Sprintf("response not found: %s", responseID), "id")
+		}
+		// Return 404 (not 403) on owner mismatch so existence is not leaked.
+		if !accessAllowed(stored, ownerFromContext(c)) {
+			return sendOpenResponsesError(c, 404, "not_found", fmt.Sprintf("response not found: %s", responseID), "id")
+		}
+
 		response, err := store.Cancel(responseID)
 		if err != nil {
 			return sendOpenResponsesError(c, 404, "not_found", fmt.Sprintf("response not found: %s", responseID), "id")

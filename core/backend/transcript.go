@@ -181,6 +181,7 @@ func transcriptResultFromProto(r *proto.TranscriptResult) *schema.TranscriptionR
 		Text:     r.Text,
 		Language: r.Language,
 		Duration: float64(r.Duration),
+		Eou:      r.Eou,
 	}
 
 	for _, s := range r.Segments {

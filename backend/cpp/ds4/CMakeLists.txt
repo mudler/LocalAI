@@ -9,6 +9,22 @@ option(DS4_NATIVE "Compile with -march=native / -mcpu=native" ON)
 set(DS4_GPU "cpu" CACHE STRING "GPU backend: cpu, cuda, or metal")
 set(DS4_DIR "${CMAKE_CURRENT_SOURCE_DIR}/ds4" CACHE PATH "Path to cloned ds4 source")
 
+if(${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
+    # Homebrew installs protobuf/grpc under a non-default prefix. The generated
+    # backend.pb.cc / backend.grpc.pb.cc pull in google/protobuf and grpcpp
+    # headers, but the hw_grpc_proto library links neither target, so on macOS
+    # the headers (e.g. google/protobuf/runtime_version.h) are never on the
+    # compiler's include path. Add the Homebrew prefix globally, matching the
+    # llama-cpp backend which builds on Darwin CI.
+    if(CMAKE_HOST_SYSTEM_PROCESSOR MATCHES "arm64")
+        set(HOMEBREW_DEFAULT_PREFIX "/opt/homebrew")
+    else()
+        set(HOMEBREW_DEFAULT_PREFIX "/usr/local")
+    endif()
+    link_directories("${HOMEBREW_DEFAULT_PREFIX}/lib")
+    include_directories("${HOMEBREW_DEFAULT_PREFIX}/include")
+endif()
+
 find_package(Threads REQUIRED)
 find_package(Protobuf CONFIG QUIET)
 if(NOT Protobuf_FOUND)
@@ -60,6 +76,13 @@ elseif(DS4_GPU STREQUAL "cpu")
     set(DS4_OBJS "${DS4_DIR}/ds4_cpu.o")
 endif()
 
+# ds4.c now references ds4_distributed.c (distributed inference) and ds4_ssd.c
+# (SSD expert-cache), each split into its own translation unit upstream. Both
+# are GPU-agnostic objects shared by every GPU mode, so link them in regardless
+# of DS4_GPU.
+list(APPEND DS4_OBJS "${DS4_DIR}/ds4_distributed.o")
+list(APPEND DS4_OBJS "${DS4_DIR}/ds4_ssd.o")
+
 add_executable(${TARGET}
     grpc-server.cpp
     dsml_parser.cpp
@@ -97,5 +120,38 @@ if(DS4_NATIVE)
         target_compile_options(${TARGET} PRIVATE -mcpu=native)
     else()
         target_compile_options(${TARGET} PRIVATE -march=native)
+    endif()
+endif()
+
+# ds4-worker: standalone distributed worker. Links the same ds4 engine objects
+# (including ds4_distributed.o) but has NO gRPC/protobuf dependency - it speaks
+# ds4's own TCP transport via ds4_dist_run(). Buildable wherever the engine
+# objects build, even on hosts without protobuf/grpc dev headers.
+add_executable(ds4-worker worker_main.c)
+target_include_directories(ds4-worker PRIVATE ${DS4_DIR})
+foreach(obj ${DS4_OBJS})
+    target_sources(ds4-worker PRIVATE ${obj})
+    set_source_files_properties(${obj} PROPERTIES EXTERNAL_OBJECT TRUE GENERATED TRUE)
+endforeach()
+# worker_main.c is C, but the engine objects built by nvcc (ds4_cuda.o) and the
+# Metal path (ds4_metal.o, Obj-C++) reference the C++ runtime (libstdc++). Force
+# the C++ linker driver so those symbols resolve; the C driver would not link
+# libstdc++ and the CUDA/Metal builds fail with undefined std:: references.
+set_target_properties(ds4-worker PROPERTIES LINKER_LANGUAGE CXX)
+target_link_libraries(ds4-worker PRIVATE Threads::Threads m)
+
+if(DS4_GPU STREQUAL "cuda")
+    target_link_libraries(ds4-worker PRIVATE CUDA::cudart CUDA::cublas)
+elseif(DS4_GPU STREQUAL "metal")
+    target_link_libraries(ds4-worker PRIVATE ${FOUNDATION_LIB} ${METAL_LIB})
+elseif(DS4_GPU STREQUAL "cpu")
+    target_compile_definitions(ds4-worker PRIVATE DS4_NO_GPU)
+endif()
+
+if(DS4_NATIVE)
+    if(APPLE)
+        target_compile_options(ds4-worker PRIVATE -mcpu=native)
+    else()
+        target_compile_options(ds4-worker PRIVATE -march=native)
     endif()
 endif()

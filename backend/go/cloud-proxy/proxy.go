@@ -11,9 +11,12 @@ import (
 	"strings"
 	"sync/atomic"
 
-	"github.com/mudler/LocalAI/pkg/grpc/base"
-	pb "github.com/mudler/LocalAI/pkg/grpc/proto"
 	"github.com/mudler/xlog"
+
+	"github.com/mudler/LocalAI/pkg/grpc/base"
+	"github.com/mudler/LocalAI/pkg/grpc/grpcerrors"
+	pb "github.com/mudler/LocalAI/pkg/grpc/proto"
+	"github.com/mudler/LocalAI/pkg/httpclient"
 )
 
 // Mirror of core/config.Proxy{Mode,Provider}* — backends don't
@@ -48,10 +51,15 @@ type proxyConfig struct {
 }
 
 func NewCloudProxy() *CloudProxy {
-	// No Client-level Timeout — that would bound streaming SSE
-	// responses too, which can legitimately last minutes. Per-request
-	// deadlines come from the gRPC stream context.
-	return &CloudProxy{client: &http.Client{}}
+	// httpclient.New refuses redirects outright: the proxy talks to a
+	// single configured upstream API (OpenAI/Anthropic/...) that answers
+	// directly, so a 3xx means misconfiguration, a hijacked upstream, or
+	// DNS trickery — never normal operation. Following it would replay the
+	// request, including the operator's x-api-key (which Go does NOT strip
+	// on cross-host redirects), to an unvetted host and leak the key
+	// (GHSA-3mj3-57v2-4636). It also imposes no body deadline, so streaming
+	// SSE responses that legitimately last minutes are not truncated.
+	return &CloudProxy{client: httpclient.New()}
 }
 
 func (c *CloudProxy) Load(opts *pb.ModelOptions) error {
@@ -138,7 +146,7 @@ func resolveAPIKey(envName, filePath string) (string, error) {
 func (c *CloudProxy) PredictRich(opts *pb.PredictOptions) (reply *pb.Reply, err error) {
 	cfg := c.cfg.Load()
 	if cfg == nil {
-		return nil, errors.New("cloud-proxy: model not loaded")
+		return nil, grpcerrors.ModelNotLoaded("cloud-proxy")
 	}
 	if cfg.mode != modeTranslate {
 		return nil, fmt.Errorf("cloud-proxy: Predict only valid in translate mode (have %s)", cfg.mode)
@@ -168,7 +176,7 @@ func (c *CloudProxy) PredictRich(opts *pb.PredictOptions) (reply *pb.Reply, err 
 func (c *CloudProxy) PredictStreamRich(opts *pb.PredictOptions, results chan<- *pb.Reply) (err error) {
 	cfg := c.cfg.Load()
 	if cfg == nil {
-		return errors.New("cloud-proxy: model not loaded")
+		return grpcerrors.ModelNotLoaded("cloud-proxy")
 	}
 	if cfg.mode != modeTranslate {
 		return fmt.Errorf("cloud-proxy: PredictStream only valid in translate mode (have %s)", cfg.mode)
@@ -262,7 +270,7 @@ func (c *CloudProxy) Forward(ctx context.Context, in <-chan *pb.ForwardRequest, 
 
 	cfg := c.cfg.Load()
 	if cfg == nil {
-		return errors.New("cloud-proxy: model not loaded")
+		return grpcerrors.ModelNotLoaded("cloud-proxy")
 	}
 	if cfg.mode != modePassthrough {
 		return fmt.Errorf("cloud-proxy: Forward only valid in passthrough mode (have %s)", cfg.mode)
@@ -426,4 +434,3 @@ func isHopByHopHeader(name string) bool {
 	}
 	return false
 }
-

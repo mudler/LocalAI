@@ -35,6 +35,7 @@ LocalAI follows the Linux kernel project's [guidelines for AI coding assistants]
 
 ## Quick Reference
 
+- **Git hooks & coverage gates**: Run `make install-hooks` once per clone so the pre-commit lint + coverage gates run. **Never bypass them with `git commit --no-verify`, and never lower a coverage baseline or widen a gate's tolerance to turn a red gate green** — the coverage ratchet only moves up. If a change drops coverage, add tests to raise it (e.g. render-smoke specs). See [.agents/building-and-testing.md](.agents/building-and-testing.md).
 - **Logging**: Use `github.com/mudler/xlog` (same API as slog)
 - **Go style**: Prefer `any` over `interface{}`
 - **Comments**: Explain *why*, not *what*
@@ -42,4 +43,5 @@ LocalAI follows the Linux kernel project's [guidelines for AI coding assistants]
 - **New API endpoints**: LocalAI advertises its capability surface in several independent places — swagger `@Tags`, `/api/instructions` registry, auth `RouteFeatureRegistry`, React UI `capabilities.js`, docs. Read [.agents/api-endpoints-and-auth.md](.agents/api-endpoints-and-auth.md) and follow its checklist — missing any surface means clients, admins, and the UI won't know the endpoint exists.
 - **Admin endpoints → MCP tool**: every admin endpoint that an admin would manage conversationally (install/list/edit/toggle/upgrade) MUST also be exposed as an MCP tool in `pkg/mcp/localaitools/`. The LocalAI Assistant chat modality and the standalone `local-ai mcp-server` consume that package; drift between REST and MCP is a real risk. Read [.agents/localai-assistant-mcp.md](.agents/localai-assistant-mcp.md) — the `TestToolHTTPRouteMappingComplete` test fails until you wire the new tool and update the route map.
 - **Build**: Inspect `Makefile` and `.github/workflows/` — ask the user before running long builds
+- **Backend OS coverage**: a new backend must target every OS it can build for, not just Linux. `.github/backend-matrix.yml` has two matrices — `include:` (Linux) and `includeDarwin:` (macOS / Apple Silicon). Most C/C++/GGML and many Python backends build on Darwin too — wire the `includeDarwin` entry + `backend/index.yaml` `metal:` entries, or say in the PR why an OS is unsupported. See the darwin checklist in [.agents/adding-backends.md](.agents/adding-backends.md).
 - **UI**: The active UI is the React app in `core/http/react-ui/`. The older Alpine.js/HTML UI in `core/http/static/` is pending deprecation — all new UI work goes in the React UI

@@ -16,7 +16,9 @@ import (
 	"github.com/mudler/LocalAI/core/services/jobs"
 	"github.com/mudler/LocalAI/core/services/messaging"
 	"github.com/mudler/LocalAI/core/services/nodes"
+	"github.com/mudler/LocalAI/core/services/nodes/prefixcache"
 	"github.com/mudler/LocalAI/core/services/storage"
+	"github.com/mudler/LocalAI/pkg/distributedhdr"
 	"github.com/mudler/LocalAI/pkg/sanitize"
 	"github.com/mudler/xlog"
 	"gorm.io/gorm"
@@ -100,7 +102,12 @@ func initDistributed(cfg *config.ApplicationConfig, authDB *gorm.DB, configLoade
 	xlog.Info("Distributed instance", "id", cfg.Distributed.InstanceID)
 
 	// Connect to NATS
-	natsClient, err := messaging.New(cfg.Distributed.NatsURL)
+	natsAuth := cfg.Distributed.NatsAuthConfig()
+	if natsAuth.RequireAuth && (natsAuth.ServiceUserJWT == "" || natsAuth.ServiceUserSeed == "") {
+		return nil, fmt.Errorf("LOCALAI_NATS_REQUIRE_AUTH requires LOCALAI_NATS_SERVICE_JWT and LOCALAI_NATS_SERVICE_SEED")
+	}
+	natsOpts := cfg.Distributed.NatsMessagingOptions("", "")
+	natsClient, err := messaging.New(cfg.Distributed.NatsURL, natsOpts...)
 	if err != nil {
 		return nil, fmt.Errorf("connecting to NATS: %w", err)
 	}
@@ -153,6 +160,21 @@ func initDistributed(cfg *config.ApplicationConfig, authDB *gorm.DB, configLoade
 		return nil, fmt.Errorf("initializing node registry: %w", err)
 	}
 	xlog.Info("Node registry initialized")
+
+	// Seed declarative per-model scheduling config (LOCALAI_MODEL_SCHEDULING /
+	// LOCALAI_MODEL_SCHEDULING_CONFIG). Authoritative: overwrites matching models
+	// on every boot. Runs before the reconciler starts so the first tick already
+	// sees the desired state. Models not listed are left untouched.
+	if cfg.Distributed.ModelSchedulingJSON != "" || cfg.Distributed.ModelSchedulingConfigPath != "" {
+		schedConfigs, err := nodes.ParseSchedulingSeed(cfg.Distributed.ModelSchedulingJSON, cfg.Distributed.ModelSchedulingConfigPath)
+		if err != nil {
+			return nil, fmt.Errorf("parsing declarative model scheduling config: %w", err)
+		}
+		if err := registry.SeedModelScheduling(context.Background(), schedConfigs); err != nil {
+			return nil, fmt.Errorf("seeding declarative model scheduling config: %w", err)
+		}
+		xlog.Info("Applied declarative model scheduling config", "models", len(schedConfigs))
+	}
 
 	// Collect SmartRouter option values; the router itself is created after all
 	// dependencies (including FileStager and Unloader) are ready.
@@ -240,6 +262,84 @@ func initDistributed(cfg *config.ApplicationConfig, authDB *gorm.DB, configLoade
 		cfg.Distributed.BackendUpgradeTimeoutOrDefault(),
 	)
 
+	// Prefix-cache-aware routing. Enabled by default; an operator can opt out
+	// with --distributed-prefix-cache=false, which leaves prefixProvider and
+	// pressure nil so the SmartRouter and reconciler behave exactly as the
+	// round-robin floor (true no-op). When enabled we build the local index,
+	// wrap it in a NATS-backed Sync (publishes our observations, applies peers'
+	// via the subscriptions below), install the extraction hook used by
+	// core/backend/llm.go, and run a background eviction ticker on the app ctx.
+	var prefixProvider prefixcache.Provider
+	var pressure *prefixcache.Pressure
+	var prefixCfg prefixcache.Config
+	if !cfg.Distributed.PrefixCacheDisabled {
+		prefixCfg = prefixcache.DefaultConfig()
+		if cfg.Distributed.PrefixCacheTTL > 0 {
+			prefixCfg.TTL = cfg.Distributed.PrefixCacheTTL
+		}
+		if err := prefixCfg.Validate(); err != nil {
+			return nil, fmt.Errorf("invalid prefix-cache configuration: %w", err)
+		}
+		idx := prefixcache.NewIndex(prefixCfg)
+		prefixSync := prefixcache.NewSync(idx, natsClient)
+		pressure = prefixcache.NewPressure(prefixCfg.PressureWindow)
+		prefixProvider = prefixSync
+
+		// Invalidate the prefix-cache index whenever a replica row is removed.
+		// SetReplicaRemovedHook fires from the single chokepoint all removal paths
+		// funnel through (RemoveNodeModel / RemoveAllNodeModelReplicas), so this
+		// one hook covers every path: reconciler scale-down, probe reaper,
+		// health-monitor reap, RemoteUnloaderAdapter, and the router. Registering
+		// it only inside this enabled block keeps the disabled path a true no-op
+		// (the registry stays hook-less).
+		registry.SetReplicaRemovedHook(func(model, node string, replica int) {
+			if replica < 0 {
+				prefixSync.InvalidateNode(model, node)
+			} else {
+				prefixSync.Invalidate(model, prefixcache.ReplicaKey{NodeID: node, Replica: replica})
+			}
+		})
+
+		distributedhdr.PrefixChainHook = func(model, prompt string) []uint64 {
+			return prefixcache.ExtractChain(model, prompt, prefixCfg)
+		}
+
+		// Apply peers' observations/invalidations to the same Sync. ApplyObserve
+		// and ApplyInvalidate update only the local index and do not re-publish,
+		// so there is no broadcast loop.
+		if _, err := messaging.SubscribeJSON(natsClient, messaging.SubjectPrefixCacheObserve, func(ev messaging.PrefixCacheObserveEvent) {
+			prefixSync.ApplyObserve(ev, time.Now())
+		}); err != nil {
+			return nil, fmt.Errorf("subscribing to %s: %w", messaging.SubjectPrefixCacheObserve, err)
+		}
+		if _, err := messaging.SubscribeJSON(natsClient, messaging.SubjectPrefixCacheInvalidate, func(ev messaging.PrefixCacheInvalidateEvent) {
+			prefixSync.ApplyInvalidate(ev)
+		}); err != nil {
+			return nil, fmt.Errorf("subscribing to %s: %w", messaging.SubjectPrefixCacheInvalidate, err)
+		}
+
+		// Background eviction: sweep idle entries on the app context. Stopped
+		// when the app context is cancelled (mirrors the reconciler loop which
+		// also runs on options.Context). TTL/2 keeps stale entries from
+		// outliving their idle window by more than half a TTL.
+		evictInterval := prefixCfg.TTL / 2
+		go func() {
+			ticker := time.NewTicker(evictInterval)
+			defer ticker.Stop()
+			for {
+				select {
+				case <-cfg.Context.Done():
+					return
+				case <-ticker.C:
+					prefixSync.Evict(time.Now())
+				}
+			}
+		}()
+		xlog.Info("Prefix-cache-aware routing enabled", "ttl", prefixCfg.TTL, "evictInterval", evictInterval)
+	} else {
+		xlog.Info("Prefix-cache-aware routing disabled: using round-robin routing")
+	}
+
 	// All dependencies ready — build SmartRouter with all options at once
 	var conflictResolver nodes.ConcurrencyConflictResolver
 	if configLoader != nil {
@@ -252,7 +352,26 @@ func initDistributed(cfg *config.ApplicationConfig, authDB *gorm.DB, configLoade
 		AuthToken:        routerAuthToken,
 		DB:               authDB,
 		ConflictResolver: conflictResolver,
+		PrefixProvider:   prefixProvider,
+		PrefixConfig:     prefixCfg,
+		Pressure:         pressure,
+		SharedModels:     cfg.Distributed.SharedModels,
+		// Cap how long a cold load may hold the per-model advisory lock: the
+		// configured backend.install deadline plus a margin for file staging and
+		// the remote LoadModel. Derived from the install timeout so raising it
+		// (for slow links pulling multi-GB images) widens the ceiling too,
+		// instead of letting the static default cut a legitimately slow load.
+		ModelLoadCeiling: cfg.Distributed.BackendInstallTimeoutOrDefault() + 10*time.Minute,
 	})
+
+	// Wire staging-progress broadcasting so file-staging shows up on every
+	// replica, not just the one performing the transfer. Without this, a
+	// /api/operations poll that round-robins onto a peer sees no staging row and
+	// the progress flickers. The origin publishes; peers mirror via the wildcard.
+	router.StagingTracker().SetPublisher(natsClient)
+	if _, err := router.StagingTracker().SubscribeBroadcasts(natsClient); err != nil {
+		xlog.Warn("Failed to subscribe to staging progress broadcasts", "error", err)
+	}
 
 	// Create ReplicaReconciler for auto-scaling model replicas. Adapter +
 	// RegistrationToken feed the state-reconciliation passes: pending op
@@ -268,6 +387,8 @@ func initDistributed(cfg *config.ApplicationConfig, authDB *gorm.DB, configLoade
 		Interval:          30 * time.Second,
 		ScaleDownDelay:    5 * time.Minute,
 		ProbeStaleAfter:   2 * time.Minute,
+		Pressure:          pressure,
+		PressureThreshold: prefixCfg.PressureScaleThreshold,
 	})
 
 	// Create ModelRouterAdapter to wire into ModelLoader

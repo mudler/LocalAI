@@ -11,6 +11,7 @@ type FieldMeta struct {
 	Label       string        `json:"label"`                 // human-readable label
 	Description string        `json:"description,omitempty"` // help text
 	Component   string        `json:"component"`             // "input", "number", "toggle", "select", "slider", etc.
+	Language    string        `json:"language,omitempty"`    // syntax mode for code-editor fields: "yaml" (default), "gotemplate"
 	Placeholder string        `json:"placeholder,omitempty"`
 	Default     any           `json:"default,omitempty"`
 	Min         *float64      `json:"min,omitempty"`
@@ -51,6 +52,7 @@ type FieldMetaOverride struct {
 	Label                string
 	Description          string
 	Component            string
+	Language             string
 	Placeholder          string
 	Default              any
 	Min                  *float64
@@ -67,6 +69,7 @@ type FieldMetaOverride struct {
 func DefaultSections() []Section {
 	return []Section{
 		{ID: "general", Label: "General", Icon: "settings", Order: 0},
+		{ID: "alias", Label: "Alias", Icon: "git-merge", Order: 5},
 		{ID: "llm", Label: "LLM", Icon: "cpu", Order: 10},
 		{ID: "parameters", Label: "Parameters", Icon: "sliders", Order: 20},
 		{ID: "templates", Label: "Templates", Icon: "file-text", Order: 30},
@@ -78,6 +81,10 @@ func DefaultSections() []Section {
 		{ID: "grpc", Label: "gRPC", Icon: "server", Order: 65},
 		{ID: "agent", Label: "Agent", Icon: "bot", Order: 70},
 		{ID: "mcp", Label: "MCP", Icon: "plug", Order: 75},
+		{ID: "router", Label: "Router", Icon: "git-merge", Order: 78},
+		{ID: "proxy", Label: "Proxy", Icon: "cloud", Order: 80},
+		{ID: "mitm", Label: "MITM Proxy", Icon: "shield", Order: 82},
+		{ID: "pii", Label: "PII", Icon: "shield", Order: 84},
 		{ID: "other", Label: "Other", Icon: "more-horizontal", Order: 100},
 	}
 }

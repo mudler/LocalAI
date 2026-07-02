@@ -17,6 +17,9 @@ import (
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/gallery/importers"
 	"github.com/mudler/LocalAI/core/schema"
+	"github.com/mudler/LocalAI/core/services/distributed"
+	"github.com/mudler/LocalAI/core/services/messaging"
+	"github.com/mudler/LocalAI/core/services/syncstate"
 	pb "github.com/mudler/LocalAI/pkg/grpc/proto"
 	"github.com/mudler/LocalAI/pkg/model"
 	"github.com/mudler/LocalAI/pkg/utils"
@@ -30,24 +33,61 @@ type QuantizationService struct {
 	modelLoader  *model.ModelLoader
 	configLoader *config.ModelConfigLoader
 
-	mu   sync.Mutex
-	jobs map[string]*schema.QuantizationJob
+	// mu serializes the read-modify-write of job values. The SyncedMap guards its
+	// own map structure, but a job is a pointer mutated in place (e.g. the import
+	// goroutine), so the service still needs a lock to keep those field updates and
+	// the subsequent Set atomic with respect to readers.
+	mu sync.Mutex
+
+	// jobs is the cross-replica job store: an in-memory map kept consistent across
+	// replicas via NATS, optionally read-through to PostgreSQL in distributed mode.
+	jobs *syncstate.SyncedMap[string, *schema.QuantizationJob]
 }
 
-// NewQuantizationService creates a new QuantizationService.
+// NewQuantizationService creates a new QuantizationService. In distributed mode
+// pass the shared NATS client and PostgreSQL store so jobs stay consistent across
+// replicas; pass nil for both in standalone mode, where the disk Loader hydrates
+// the map and there is nothing to broadcast.
 func NewQuantizationService(
 	appConfig *config.ApplicationConfig,
 	modelLoader *model.ModelLoader,
 	configLoader *config.ModelConfigLoader,
+	nats messaging.MessagingClient,
+	store *distributed.QuantStore,
 ) *QuantizationService {
 	s := &QuantizationService{
 		appConfig:    appConfig,
 		modelLoader:  modelLoader,
 		configLoader: configLoader,
-		jobs:         make(map[string]*schema.QuantizationJob),
 	}
-	s.loadAllJobs()
+
+	// Only attach a Store interface when a concrete store exists, otherwise the
+	// SyncedMap would see a non-nil interface wrapping a nil pointer and try to
+	// hydrate/write through a nil DB.
+	var syncStore syncstate.Store[string, *schema.QuantizationJob]
+	if store != nil {
+		syncStore = &quantStoreAdapter{store: store}
+	}
+
+	s.jobs = syncstate.New(syncstate.Config[string, *schema.QuantizationJob]{
+		Name:   "quant.jobs",
+		Key:    func(j *schema.QuantizationJob) string { return j.ID },
+		Nats:   nats,
+		Store:  syncStore,
+		Loader: s.loadJobsFromDisk, // ignored when Store is set (distributed mode)
+	})
+
+	// Hydrate + subscribe. A hydrate failure must not take the server down: log and
+	// continue degraded (standalone), mirroring the FineTune/OpCache wiring.
+	if err := s.jobs.Start(appConfig.Context); err != nil {
+		xlog.Warn("Quantization SyncedMap start failed; running degraded", "error", err)
+	}
 	return s
+}
+
+// Close releases the SyncedMap subscription and background workers.
+func (s *QuantizationService) Close() error {
+	return s.jobs.Close()
 }
 
 // quantizationBaseDir returns the base directory for quantization job data.
@@ -80,15 +120,18 @@ func (s *QuantizationService) saveJobState(job *schema.QuantizationJob) {
 	}
 }
 
-// loadAllJobs scans the quantization directory for persisted jobs and loads them.
-func (s *QuantizationService) loadAllJobs() {
+// loadJobsFromDisk scans the quantization directory for persisted jobs and
+// returns them. It is the SyncedMap Loader used in standalone mode (no DB); the
+// returned slice hydrates the map on Start.
+func (s *QuantizationService) loadJobsFromDisk(_ context.Context) ([]*schema.QuantizationJob, error) {
 	baseDir := s.quantizationBaseDir()
 	entries, err := os.ReadDir(baseDir)
 	if err != nil {
-		// Directory doesn't exist yet — that's fine
-		return
+		// Directory doesn't exist yet — that's fine, start empty.
+		return nil, nil
 	}
 
+	var jobs []*schema.QuantizationJob
 	for _, entry := range entries {
 		if !entry.IsDir() {
 			continue
@@ -117,12 +160,13 @@ func (s *QuantizationService) loadAllJobs() {
 			job.ImportMessage = "Server restarted while import was running"
 		}
 
-		s.jobs[job.ID] = &job
+		jobs = append(jobs, &job)
 	}
 
-	if len(s.jobs) > 0 {
-		xlog.Info("Loaded persisted quantization jobs", "count", len(s.jobs))
+	if len(jobs) > 0 {
+		xlog.Info("Loaded persisted quantization jobs", "count", len(jobs))
 	}
+	return jobs, nil
 }
 
 // StartJob starts a new quantization job.
@@ -188,7 +232,12 @@ func (s *QuantizationService) StartJob(ctx context.Context, userID string, req s
 		CreatedAt:        time.Now().UTC().Format(time.RFC3339),
 		Config:           &req,
 	}
-	s.jobs[jobID] = job
+	// Set write-through persists to PostgreSQL (distributed) and broadcasts to
+	// peer replicas; the disk state.json is written separately for restart
+	// recovery / standalone hydrate.
+	if err := s.jobs.Set(ctx, job); err != nil {
+		return nil, fmt.Errorf("failed to persist job: %w", err)
+	}
 	s.saveJobState(job)
 
 	return &schema.QuantizationJobResponse{
@@ -203,7 +252,7 @@ func (s *QuantizationService) GetJob(userID, jobID string) (*schema.Quantization
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	job, ok := s.jobs[jobID]
+	job, ok := s.jobs.Get(jobID)
 	if !ok {
 		return nil, fmt.Errorf("job not found: %s", jobID)
 	}
@@ -219,7 +268,7 @@ func (s *QuantizationService) ListJobs(userID string) []*schema.QuantizationJob 
 	defer s.mu.Unlock()
 
 	var result []*schema.QuantizationJob
-	for _, job := range s.jobs {
+	for _, job := range s.jobs.List() {
 		if userID == "" || job.UserID == userID {
 			result = append(result, job)
 		}
@@ -235,7 +284,7 @@ func (s *QuantizationService) ListJobs(userID string) []*schema.QuantizationJob 
 // StopJob stops a running quantization job.
 func (s *QuantizationService) StopJob(ctx context.Context, userID, jobID string) error {
 	s.mu.Lock()
-	job, ok := s.jobs[jobID]
+	job, ok := s.jobs.Get(jobID)
 	if !ok {
 		s.mu.Unlock()
 		return fmt.Errorf("job not found: %s", jobID)
@@ -256,6 +305,9 @@ func (s *QuantizationService) StopJob(ctx context.Context, userID, jobID string)
 	s.mu.Lock()
 	job.Status = "stopped"
 	job.Message = "Quantization stopped by user"
+	if err := s.jobs.Set(ctx, job); err != nil {
+		xlog.Warn("Failed to persist stopped job", "job_id", jobID, "error", err)
+	}
 	s.saveJobState(job)
 	s.mu.Unlock()
 
@@ -265,7 +317,7 @@ func (s *QuantizationService) StopJob(ctx context.Context, userID, jobID string)
 // DeleteJob removes a quantization job and its associated data from disk.
 func (s *QuantizationService) DeleteJob(userID, jobID string) error {
 	s.mu.Lock()
-	job, ok := s.jobs[jobID]
+	job, ok := s.jobs.Get(jobID)
 	if !ok {
 		s.mu.Unlock()
 		return fmt.Errorf("job not found: %s", jobID)
@@ -289,7 +341,11 @@ func (s *QuantizationService) DeleteJob(userID, jobID string) error {
 	}
 
 	importModelName := job.ImportModelName
-	delete(s.jobs, jobID)
+	// Delete write-through removes the DB row (distributed) and broadcasts the
+	// removal to peer replicas. DeleteJob has no ctx, so use Background.
+	if err := s.jobs.Delete(context.Background(), jobID); err != nil {
+		xlog.Warn("Failed to delete job from store", "job_id", jobID, "error", err)
+	}
 	s.mu.Unlock()
 
 	// Remove job directory (state.json, output files)
@@ -324,7 +380,7 @@ func (s *QuantizationService) DeleteJob(userID, jobID string) error {
 // StreamProgress opens a gRPC progress stream and calls the callback for each update.
 func (s *QuantizationService) StreamProgress(ctx context.Context, userID, jobID string, callback func(event *schema.QuantizationProgressEvent)) error {
 	s.mu.Lock()
-	job, ok := s.jobs[jobID]
+	job, ok := s.jobs.Get(jobID)
 	if !ok {
 		s.mu.Unlock()
 		return fmt.Errorf("job not found: %s", jobID)
@@ -353,7 +409,7 @@ func (s *QuantizationService) StreamProgress(ctx context.Context, userID, jobID 
 	}, func(update *pb.QuantizationProgressUpdate) {
 		// Update job status and persist
 		s.mu.Lock()
-		if j, ok := s.jobs[jobID]; ok {
+		if j, ok := s.jobs.Get(jobID); ok {
 			// Don't let progress updates overwrite terminal states
 			isTerminal := j.Status == "stopped" || j.Status == "completed" || j.Status == "failed"
 			if !isTerminal {
@@ -364,6 +420,9 @@ func (s *QuantizationService) StreamProgress(ctx context.Context, userID, jobID 
 			}
 			if update.OutputFile != "" {
 				j.OutputFile = update.OutputFile
+			}
+			if err := s.jobs.Set(ctx, j); err != nil {
+				xlog.Warn("Failed to persist progress update", "job_id", jobID, "error", err)
 			}
 			s.saveJobState(j)
 		}
@@ -399,7 +458,7 @@ func sanitizeQuantModelName(s string) string {
 // ImportModel imports a quantized model into LocalAI asynchronously.
 func (s *QuantizationService) ImportModel(ctx context.Context, userID, jobID string, req schema.QuantizationImportRequest) (string, error) {
 	s.mu.Lock()
-	job, ok := s.jobs[jobID]
+	job, ok := s.jobs.Get(jobID)
 	if !ok {
 		s.mu.Unlock()
 		return "", fmt.Errorf("job not found: %s", jobID)
@@ -459,6 +518,9 @@ func (s *QuantizationService) ImportModel(ctx context.Context, userID, jobID str
 	job.ImportStatus = "importing"
 	job.ImportMessage = ""
 	job.ImportModelName = ""
+	if err := s.jobs.Set(ctx, job); err != nil {
+		xlog.Warn("Failed to persist import start", "job_id", jobID, "error", err)
+	}
 	s.saveJobState(job)
 	s.mu.Unlock()
 
@@ -514,10 +576,15 @@ func (s *QuantizationService) ImportModel(ctx context.Context, userID, jobID str
 
 		xlog.Info("Quantized model imported and registered", "job_id", jobID, "model_name", modelName)
 
+		// Runs after the HTTP request returns, so use Background rather than the
+		// (now likely cancelled) request ctx for the write-through.
 		s.mu.Lock()
 		job.ImportStatus = "completed"
 		job.ImportModelName = modelName
 		job.ImportMessage = ""
+		if err := s.jobs.Set(context.Background(), job); err != nil {
+			xlog.Warn("Failed to persist import completion", "job_id", jobID, "error", err)
+		}
 		s.saveJobState(job)
 		s.mu.Unlock()
 	}()
@@ -525,10 +592,14 @@ func (s *QuantizationService) ImportModel(ctx context.Context, userID, jobID str
 	return modelName, nil
 }
 
-// setImportMessage updates the import message and persists the job state.
+// setImportMessage updates the import message and persists the job state. Called
+// from the background import goroutine, so it uses Background for write-through.
 func (s *QuantizationService) setImportMessage(job *schema.QuantizationJob, msg string) {
 	s.mu.Lock()
 	job.ImportMessage = msg
+	if err := s.jobs.Set(context.Background(), job); err != nil {
+		xlog.Warn("Failed to persist import message", "job_id", job.ID, "error", err)
+	}
 	s.saveJobState(job)
 	s.mu.Unlock()
 }
@@ -539,6 +610,9 @@ func (s *QuantizationService) setImportFailed(job *schema.QuantizationJob, messa
 	s.mu.Lock()
 	job.ImportStatus = "failed"
 	job.ImportMessage = message
+	if err := s.jobs.Set(context.Background(), job); err != nil {
+		xlog.Warn("Failed to persist import failure", "job_id", job.ID, "error", err)
+	}
 	s.saveJobState(job)
 	s.mu.Unlock()
 }
@@ -546,7 +620,7 @@ func (s *QuantizationService) setImportFailed(job *schema.QuantizationJob, messa
 // GetOutputPath returns the path to the quantized model file and a download name.
 func (s *QuantizationService) GetOutputPath(userID, jobID string) (string, string, error) {
 	s.mu.Lock()
-	job, ok := s.jobs[jobID]
+	job, ok := s.jobs.Get(jobID)
 	if !ok {
 		s.mu.Unlock()
 		return "", "", fmt.Errorf("job not found: %s", jobID)

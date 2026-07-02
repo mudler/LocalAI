@@ -17,6 +17,7 @@ import (
 	"github.com/mudler/LocalAI/core/services/messaging"
 
 	"github.com/mudler/LocalAI/pkg/functions"
+	"github.com/mudler/LocalAI/pkg/httpclient"
 	"github.com/mudler/LocalAI/pkg/signals"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
@@ -180,10 +181,10 @@ func SessionsFromMCPConfig(
 	for _, server := range remote.Servers {
 		xlog.Debug("[MCP remote server] Configuration", "server", server)
 		// Create HTTP client with custom roundtripper for bearer token injection
-		httpClient := &http.Client{
-			Timeout:   config.DefaultMCPToolTimeout,
-			Transport: newBearerTokenRoundTripper(server.Token, http.DefaultTransport),
-		}
+		httpClient := httpclient.New(
+			httpclient.WithTimeout(config.DefaultMCPToolTimeout),
+			httpclient.WithTransport(newBearerTokenRoundTripper(server.Token, httpclient.HardenedTransport())),
+		)
 
 		transport := &mcp.StreamableClientTransport{Endpoint: server.URL, HTTPClient: httpClient}
 		mcpSession, err := client.Connect(ctx, transport, nil)
@@ -262,10 +263,10 @@ func NamedSessionsFromMCPConfig(
 
 		for serverName, server := range remote.Servers {
 			xlog.Debug("[MCP remote server] Configuration", "name", serverName, "server", server)
-			httpClient := &http.Client{
-				Timeout:   config.DefaultMCPToolTimeout,
-				Transport: newBearerTokenRoundTripper(server.Token, http.DefaultTransport),
-			}
+			httpClient := httpclient.New(
+				httpclient.WithTimeout(config.DefaultMCPToolTimeout),
+				httpclient.WithTransport(newBearerTokenRoundTripper(server.Token, httpclient.HardenedTransport())),
+			)
 
 			transport := &mcp.StreamableClientTransport{Endpoint: server.URL, HTTPClient: httpClient}
 			mcpSession, err := client.Connect(ctx, transport, nil)

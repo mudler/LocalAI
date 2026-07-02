@@ -13,34 +13,15 @@ Distributed mode requires authentication enabled with a **PostgreSQL** database 
 
 ## Architecture Overview
 
-```
-                    ┌─────────────────┐
-                    │   Load Balancer  │
-                    └────────┬────────┘
-                             │
-              ┌──────────────┼──────────────┐
-              │              │              │
-      ┌───────▼──────┐ ┌────▼─────┐ ┌─────▼──────┐
-      │  Frontend #1 │ │ Frontend │ │ Frontend #N│
-      │  (LocalAI)   │ │  #2      │ │  (LocalAI) │
-      └──────┬───────┘ └────┬─────┘ └─────┬──────┘
-             │              │              │
-     ┌───────▼──────────────▼──────────────▼───────┐
-     │              PostgreSQL + NATS               │
-     │  (node registry, jobs, coordination)         │
-     └───────┬──────────────┬──────────────┬───────┘
-             │              │              │
-      ┌──────▼──────┐ ┌────▼─────┐ ┌─────▼──────┐
-      │  Worker #1  │ │ Worker   │ │ Worker #N  │
-      │  (generic)  │ │ #2       │ │  (generic) │
-      └─────────────┘ └──────────┘ └────────────┘
-```
+![Distributed mode architecture: a load balancer fronts stateless SmartRouter frontends backed by a shared NATS/PostgreSQL/S3 plane, with generic workers running per-model gRPC backends](/images/diagrams/distributed-mode-arch.png)
 
 **Frontends** are stateless LocalAI instances that receive API requests and route them to worker nodes via the **SmartRouter**. All frontends share state through PostgreSQL and coordinate via NATS.
 
 **Workers** are generic processes that self-register with a frontend. They don't have a fixed backend type — the SmartRouter dynamically installs the required backend via NATS `backend.install` events when a model request arrives.
 
 ### Scheduling Algorithm
+
+![SmartRouter scheduling: idle-first placement that checks for an already-loaded node, then free VRAM, then an idle node, then preemptive LRU eviction, ending in backend.install and LoadModel](/images/diagrams/smartrouter-scheduling.png)
 
 The SmartRouter uses **idle-first** scheduling with **preemptive eviction**:
 1. If the model is already loaded on a node → use it (per-model gRPC address)
@@ -83,12 +64,59 @@ The frontend is a standard LocalAI instance with distributed mode enabled. These
 | `--instance-id` | `LOCALAI_INSTANCE_ID` | auto UUID | Unique instance ID for this frontend |
 | `--nats-url` | `LOCALAI_NATS_URL` | *(required)* | NATS server URL (e.g., `nats://localhost:4222`) |
 | `--registration-token` | `LOCALAI_REGISTRATION_TOKEN` | *(empty)* | Token that workers must provide to register |
+| `--registration-require-auth` | `LOCALAI_REGISTRATION_REQUIRE_AUTH` | `false` | Fail startup when distributed mode is enabled but the registration token is empty (node endpoints and worker file-transfer would otherwise be unauthenticated) |
+| `--distributed-require-auth` | `LOCALAI_DISTRIBUTED_REQUIRE_AUTH` | `false` | **Umbrella switch.** Implies both `--nats-require-auth` and `--registration-require-auth` — one knob to lock down the NATS bus *and* the registration/file-transfer layer. Set this in production instead of the two granular flags. |
 | `--auto-approve-nodes` | `LOCALAI_AUTO_APPROVE_NODES` | `false` | Auto-approve new worker nodes (skip admin approval) |
+| `--distributed-shared-models` | `LOCALAI_DISTRIBUTED_SHARED_MODELS` | `false` | Assert that every node mounts the **same** models directory at the **same** path (a shared volume). When `true`, the router skips file staging entirely and workers load models directly from the shared path instead of re-downloading them. See [Shared models directory](#shared-models-directory). |
 | `--auth` | `LOCALAI_AUTH` | `false` | **Must be `true`** for distributed mode |
 | `--auth-database-url` | `LOCALAI_AUTH_DATABASE_URL` | *(required)* | PostgreSQL connection URL |
 | `--backend-install-timeout` | `LOCALAI_NATS_BACKEND_INSTALL_TIMEOUT` | `15m` | How long the frontend waits for a worker to acknowledge a backend install before considering the request stalled. Raise it when workers pull large backend images over slow links. If a worker takes longer than this, the operation shows as "still installing in background" in the admin UI and clears once the worker finishes. |
 | `--backend-upgrade-timeout` | `LOCALAI_NATS_BACKEND_UPGRADE_TIMEOUT` | `15m` | Same as the install timeout, applied to backend upgrades (force-reinstall). |
 | `--expose-node-header` | `LOCALAI_EXPOSE_NODE_HEADER` | `false` | When enabled, inference responses carry an `X-LocalAI-Node` header with the ID of the worker node that served the request. Coverage spans the OpenAI-compatible endpoints (chat completions, completions, embeddings, audio transcriptions, audio speech / TTS, image generations, image inpainting), the Jina rerank endpoint (`/v1/rerank`), the VAD endpoints (`/v1/vad`, `/vad`), and the Anthropic Messages (`/v1/messages`) and Ollama (`/api/chat`, `/api/generate`, `/api/embed`) shims. Useful for debugging, observability and load-balancer attribution. Off by default: the node ID reveals internal cluster topology and should not be exposed on a public endpoint. Best-effort: under heavy concurrency for the same model across multiple replicas, the header may reflect a recent routing decision rather than this exact request's. Acceptable for observability and debugging. |
+
+### NATS JWT authentication (recommended for production)
+
+By default, NATS connections are anonymous: any client that can reach port `4222` may publish control-plane subjects such as `nodes.<id>.backend.install`. Enable JWT auth to scope workers to their own node subjects and give the frontend a dedicated service credential.
+
+| Flag | Env Var | Description |
+|------|---------|-------------|
+| `--nats-account-seed` | `LOCALAI_NATS_ACCOUNT_SEED` | Account signing seed (`SU...`). The frontend mints a per-node user JWT at registration (`nats_jwt` in the register response). |
+| `--nats-service-jwt` | `LOCALAI_NATS_SERVICE_JWT` | User JWT for the frontend (and optional fallback for agent workers) to publish install/upgrade and related subjects. |
+| `--nats-service-seed` | `LOCALAI_NATS_SERVICE_SEED` | User signing seed (`SU...`) paired with the service JWT. |
+| `--nats-worker-jwt-ttl` | `LOCALAI_NATS_WORKER_JWT_TTL` | Lifetime of minted worker JWTs (default `24h`). |
+| `--nats-require-auth` | `LOCALAI_NATS_REQUIRE_AUTH` | Fail startup if JWT credentials are missing when distributed mode is enabled. |
+
+### NATS TLS / mTLS (optional)
+
+Use `tls://` in `--nats-url` / `LOCALAI_NATS_URL` for encrypted transport. When the server uses a private CA or requires client certificates, set:
+
+| Flag | Env Var | Description |
+|------|---------|-------------|
+| `--nats-tls-ca` | `LOCALAI_NATS_TLS_CA` | PEM file to verify the NATS server (private CA) |
+| `--nats-tls-cert` | `LOCALAI_NATS_TLS_CERT` | Client certificate for NATS mTLS |
+| `--nats-tls-key` | `LOCALAI_NATS_TLS_KEY` | Client private key (required with `--nats-tls-cert`) |
+
+The same env vars apply to backend workers and `local-ai agent-worker`. If the server cert is already trusted by the OS, `tls://` alone is enough.
+
+**Worker register response** (when minting is enabled and the node is approved):
+
+```json
+{
+  "id": "…",
+  "nats_jwt": "eyJ…",
+  "nats_user_seed": "SU…"
+}
+```
+
+Workers connect with that JWT and seed automatically (shown once; store securely). Override with `LOCALAI_NATS_JWT` / `LOCALAI_NATS_USER_SEED` if needed. Set `LOCALAI_NATS_REQUIRE_AUTH=true` on workers when the bus requires credentials.
+
+When `LOCALAI_NATS_REQUIRE_AUTH=true` and no static credentials are provided, a worker that registers while still **pending admin approval** keeps re-registering (with backoff) until an admin approves it and the frontend mints its JWT — it does not start unauthenticated. This retry is **bounded**: if the node is never approved (or no credentials are minted) after a large number of attempts, the worker exits non-zero so the failure is visible (a crash-looping or failed worker) rather than hanging silently. Minted worker JWTs are also **refreshed automatically** before they expire (the worker re-registers at ~75% of the JWT lifetime), so long-running workers survive past `LOCALAI_NATS_WORKER_JWT_TTL`; the NATS connection picks up the new JWT on its next reconnect. If refresh fails persistently, the worker exits (to restart and re-acquire) rather than drifting toward an expired, unrenewable JWT. Statically configured (`LOCALAI_NATS_JWT`) and service (`LOCALAI_NATS_SERVICE_JWT`) credentials are used as-is and not refreshed.
+
+Generate operator/account material with [`scripts/nats-auth-setup.sh`](https://github.com/mudler/LocalAI/blob/master/scripts/nats-auth-setup.sh) (requires [nsc](https://docs.nats.io/running-a-nats-service/configuration/securing_nats/auth_intro/nsc)). Configure the NATS server with account resolver JWTs before enabling `LOCALAI_NATS_REQUIRE_AUTH`.
+
+{{% notice note %}}
+`LOCALAI_AUTH` (HTTP users/sessions) and NATS JWTs are separate: end-user API keys do not connect to NATS. HTTP registration still uses `LOCALAI_REGISTRATION_TOKEN`.
+{{% /notice %}}
 
 ### Optional: S3 Object Storage
 
@@ -105,6 +133,18 @@ For multi-host deployments where workers don't share a filesystem, S3-compatible
 When S3 is not configured, model files are transferred directly from the frontend to workers via **HTTP** — no shared filesystem needed. Each worker runs a small HTTP file transfer server alongside the gRPC backend process. This is the default and works out of the box.
 
 For high-throughput or very large model files, S3 can be more efficient since it avoids streaming through the frontend.
+
+### Shared models directory
+
+If every node (frontend and workers) mounts the **same** models directory at the **same** path - for example a shared volume or network filesystem, as shown in the "Shared Volume Mode" section of `docker-compose.distributed.yaml` - the model files are already present on each worker at their canonical path. In that case staging is wasted work: it copies files that already exist into a per-model subdirectory the worker then loads from, which shows up as a re-download of a model you already have.
+
+Set `LOCALAI_DISTRIBUTED_SHARED_MODELS=true` (or `--distributed-shared-models`) on the frontend to skip staging entirely. The router then leaves the model's absolute paths untouched and the worker loads them directly from the shared volume.
+
+This flag is a contract you assert: all nodes must mount identical paths. Leave it off (the default) when workers have independent models directories - the frontend stages files to them over HTTP (or S3) as described above.
+
+{{% notice warning %}}
+The worker HTTP file transfer server is authenticated by `LOCALAI_REGISTRATION_TOKEN`. If the token is **empty**, the server **fails open** — anyone who can reach the port gets read/write access to the worker's models/staging/data directories (a remote model-poisoning / exfiltration vector). The worker logs a loud warning at startup in this case. Always set `LOCALAI_REGISTRATION_TOKEN` in distributed mode, and set `LOCALAI_DISTRIBUTED_REQUIRE_AUTH=true` (frontend **and** workers) to make a missing token *or* missing NATS credentials a hard startup error rather than a silent fail-open. Firewall the file-transfer port (gRPC base − 1) so only the frontend can reach it.
+{{% /notice %}}
 
 ### Watching Backend Installs
 
@@ -151,8 +191,16 @@ local-ai worker \
 | `--register-to` | `LOCALAI_REGISTER_TO` | *(required)* | Frontend URL for self-registration |
 | `--node-name` | `LOCALAI_NODE_NAME` | hostname | Human-readable node name |
 | `--registration-token` | `LOCALAI_REGISTRATION_TOKEN` | *(empty)* | Token to authenticate with the frontend |
+| `--registration-require-auth` | `LOCALAI_REGISTRATION_REQUIRE_AUTH` | `false` | Refuse to start the HTTP file-transfer server when no registration token is set (it would otherwise fail open) |
+| `--distributed-require-auth` | `LOCALAI_DISTRIBUTED_REQUIRE_AUTH` | `false` | Umbrella switch implying both `--registration-require-auth` and `--nats-require-auth` |
 | `--heartbeat-interval` | `LOCALAI_HEARTBEAT_INTERVAL` | `10s` | Interval between heartbeat pings |
 | `--nats-url` | `LOCALAI_NATS_URL` | *(required)* | NATS URL for backend installation and file staging |
+| `--nats-jwt` | `LOCALAI_NATS_JWT` | *(empty)* | Optional override for the `nats_jwt` returned at registration |
+| `--nats-user-seed` | `LOCALAI_NATS_USER_SEED` | *(empty)* | Optional override for `nats_user_seed` from registration |
+| `--nats-require-auth` | `LOCALAI_NATS_REQUIRE_AUTH` | `false` | Require NATS JWT+seed (from registration or env) |
+| `--nats-tls-ca` | `LOCALAI_NATS_TLS_CA` | *(empty)* | PEM file for NATS server CA |
+| `--nats-tls-cert` | `LOCALAI_NATS_TLS_CERT` | *(empty)* | Client certificate for NATS mTLS |
+| `--nats-tls-key` | `LOCALAI_NATS_TLS_KEY` | *(empty)* | Client private key for NATS mTLS |
 | `--backends-path` | `LOCALAI_BACKENDS_PATH` | `./backends` | Path to backend binaries |
 | `--models-path` | `LOCALAI_MODELS_PATH` | `./models` | Path to model files |
 
@@ -272,7 +320,7 @@ Used by the WebUI and admin API consumers. Requires admin authentication.
 | `POST` | `/api/nodes/:id/models/unload` | Unload a model from a worker |
 | `POST` | `/api/nodes/:id/models/delete` | Delete model files from a worker |
 
-The **Nodes** page in the React WebUI provides a visual overview of all registered workers, their statuses, and loaded models.
+The **Nodes** page in the React WebUI provides a visual overview of all registered workers, their statuses, and loaded models. The page opens with a one-line **cluster pulse** summarising node health and an **attention callout** that surfaces nodes needing action (for example pending approvals). Below that, a roster of **node panels** lists each worker with its inline model chips (no expand click needed), filtered by an **All / Backend / Agent** segmented control. Selecting a panel opens a dedicated **node detail page** at `/app/nodes/:id` with per-node metrics, models, and backend actions. Model scheduling lives on its own **Scheduling** page (separate nav item), not as a tab on the Nodes page.
 
 ## Node Approval
 
@@ -424,6 +472,74 @@ engine_args:
 - **Network reachability.** The head's `data_parallel_rpc_port` plus a range of ZMQ ports (typically `data_parallel_rpc_port..+N`) must be reachable from every follower. Open them in your firewall / security group.
 - **Topology must match exactly.** A mismatch in `--data-parallel-size` between head and any follower will hang the handshake. Check the head's vLLM logs for `waiting for N DP ranks` if startup stalls.
 
+## ds4 Layer-Split Distributed Inference
+
+The ds4 backend (DeepSeek V4 Flash) supports **layer-parallel** distributed inference: a single model that is too large for one machine is split by transformer layer across several machines. Each machine must have the GGUF present locally, but loads **only its own slice** of the layers. This lets you run a model whose weights exceed any single host's memory.
+
+This is **not** routed through the SmartRouter: it is a model-internal split, configured manually (Phase 1). It is unrelated to the NATS/PostgreSQL distributed mode described above.
+
+### Topology
+
+![ds4 layer-split topology: workers dial in to the coordinator and own higher layer ranges, the inverse of llama.cpp RPC where the main server dials out to rpc-servers](/images/diagrams/ds4-layer-split.png)
+
+ds4 uses a **coordinator/worker** split:
+
+- The **coordinator** owns tokenization, sampling, the prompt, and a low layer range (e.g. `0:19`). It is LocalAI's ds4 backend and **listens** on a host/port. Workers dial into it.
+- One or more **workers** own higher layer ranges (e.g. `20:output`). Each worker loads only its slice and **dials the coordinator** to register the range it can serve. The last worker normally owns the output head.
+- Activations flow through the connected slices and back to the coordinator. The route is "ready" only once the coordinator plus all connected workers cover every layer.
+
+This dial direction is the **inverse** of the llama.cpp RPC model, where the main server dials *out* to a list of `rpc-server` workers. With ds4 the **workers dial in** to the coordinator.
+
+### Coordinator setup
+
+The coordinator is a normal LocalAI ds4 model whose YAML carries distributed `options:`:
+
+```yaml
+name: ds4flash
+backend: ds4
+options:
+  - "ds4_role:coordinator"
+  - "ds4_layers:0:19"
+  - "ds4_listen:0.0.0.0:1234"
+```
+
+| Option | Meaning |
+|--------|---------|
+| `ds4_role:coordinator` | Enables distributed coordinator mode. Without `ds4_role`, the backend behaves as a normal single-node ds4 model. |
+| `ds4_layers:0:19` | The coordinator's own layer slice (inclusive). |
+| `ds4_listen:0.0.0.0:1234` | Address that workers dial into. |
+| `ds4_route_timeout:60` | Optional. Seconds the coordinator waits for the worker route to form before returning an error on a request. Defaults to 60. |
+
+{{% notice warning %}}
+Worker↔coordinator traffic is **plaintext and unauthenticated**: there is no TLS or auth on this channel. Bind `ds4_listen` to an address on a trusted/private network only; using `0.0.0.0` exposes the coordinator on every interface. Run the layer split exclusively over a network you control.
+{{% /notice %}}
+
+Once the model is loaded, the coordinator serves requests exactly like a single-node ds4 model: generation goes through the ordinary inference path and is transparently routed across the layer slices.
+
+### Worker setup
+
+On each worker machine (with the GGUF present locally), start a worker pointed at the coordinator:
+
+```bash
+local-ai worker ds4-distributed -- \
+  --role worker \
+  --model /models/ds4flash.gguf \
+  --layers 20:output \
+  --coordinator <coordinator-host> 1234
+```
+
+`local-ai worker ds4-distributed` resolves the ds4 backend and execs the packaged `ds4-worker` binary, passing everything after `--` straight through.
+
+### Layer-range semantics
+
+- Ranges are **inclusive**: `0:19` is layers 0 through 19.
+- `N:output` means layer N through the final layer **plus the output head**. The last worker normally owns the output head.
+- The coordinator and all connected workers together **must cover every layer**. Until they do, the coordinator returns a gRPC `UNAVAILABLE` error on inference requests (so a worker that starts slightly after the coordinator is tolerated: once it connects and the route is complete, requests succeed). The wait is tunable via `ds4_route_timeout`.
+
+{{% notice note %}}
+ds4 layer-split inference is **manual setup** in this release (Phase 1): you place the coordinator config and launch each worker yourself, and the layer ranges must be partitioned by hand so they cover the whole model. P2P auto-discovery of the coordinator is planned for a later phase.
+{{% /notice %}}
+
 ## Scaling
 
 **Adding worker capacity:** Start additional `worker` instances pointing to the same frontend. They self-register automatically:
@@ -447,7 +563,7 @@ local-ai worker \
 
 ## Model Scheduling
 
-Model scheduling controls where models are placed and how many replicas are maintained. It combines two optional features:
+Model scheduling controls where models are placed and how many replicas are maintained. In the React WebUI it has its own **Scheduling** page (a top-level nav item, separate from the Nodes page). It combines two optional features:
 
 ### Node Selectors
 
@@ -496,6 +612,91 @@ All fields are optional and composable:
 - Node selector only: pin model to matching nodes, single replica
 - Replicas only: auto-scale across all nodes
 - Both: auto-scale on matching nodes only
+
+### Declarative per-model scheduling (unattended installs)
+
+In distributed mode you can declare per-model scheduling at startup, instead of
+using the WebUI/API. Config is **authoritative**: it is re-applied on every boot
+and overwrites the listed models (models not listed are left untouched).
+
+| Variable | Description |
+|----------|-------------|
+| `LOCALAI_MODEL_SCHEDULING` | Inline JSON list of scheduling entries |
+| `LOCALAI_MODEL_SCHEDULING_CONFIG` | Path to a YAML file with the same list |
+
+Entry fields: `model_name` (required), `node_selector` (a label map; **omit it to
+match every node**), and then **one of two replica modes** (they are mutually
+exclusive):
+
+- **`replicas: all`** - static spread: place exactly **one replica on every
+  matching node**, proactively, regardless of load, and keep it in sync as nodes
+  join and leave. Use this for "run model X everywhere (with this label)".
+- **`min_replicas` / `max_replicas`** - elastic auto-scaling: keep at least
+  `min_replicas` running, and burst **up to** `max_replicas` only when all
+  replicas are busy, scaling back down to the minimum when idle. `max_replicas: 0`
+  means **no upper bound** (grow to cluster capacity). To enable this mode you
+  must set `min_replicas >= 1` or `max_replicas >= 1` - an entry with only
+  `max_replicas: 0` (and no `replicas: all`) does nothing.
+
+Net effect at a glance:
+
+| Config | Behavior |
+|--------|----------|
+| `replicas: all` | One replica per matching node, placed immediately, tracks join/leave |
+| `min_replicas: 1, max_replicas: 0` | Always >=1, bursts to cluster capacity under load, back to 1 when idle |
+| `min_replicas: 2, max_replicas: 4` | Always >=2, bursts to at most 4 under load |
+
+`node_selector` constrains which nodes a model may use; with no selector the
+model may use **all** healthy nodes. So "spread model X across all nodes" is just
+`replicas: all` with no `node_selector`. `replicas: all` targets one replica per
+matching node; with the default per-node cap of one replica per model this lands
+exactly one on each node (see the note below about `LOCALAI_MAX_REPLICAS_PER_MODEL`).
+
+YAML example (`scheduling.yaml`):
+
+```yaml
+# One replica on every GPU-labelled node (static spread, tracks join/leave):
+- model_name: gpt-oss
+  node_selector:
+    tier: gpu
+  replicas: all
+
+# One replica on EVERY node in the cluster (no selector = all nodes):
+- model_name: embeddings
+  replicas: all
+
+# Elastic on CPU nodes: always >=1, burst to capacity under load, 0 = no cap:
+- model_name: whisper
+  node_selector:
+    tier: cpu
+  min_replicas: 1
+  max_replicas: 0
+```
+
+```bash
+LOCALAI_DISTRIBUTED=true \
+LOCALAI_MODEL_SCHEDULING_CONFIG=/etc/localai/scheduling.yaml \
+local-ai run
+```
+
+Inline equivalent:
+
+```bash
+LOCALAI_MODEL_SCHEDULING='[{"model_name":"gpt-oss","node_selector":{"tier":"gpu"},"replicas":"all"}]'
+```
+
+Notes:
+
+- Because the config is authoritative, each listed model's **entire** scheduling
+  row is replaced on every boot, including the optional prefix-cache routing
+  overrides (`route_policy`, `balance_abs_threshold`, `balance_rel_threshold`,
+  `min_prefix_match`). For a model you manage via this config, set those fields
+  here too if you need non-default values; values set only through the API are
+  reset on the next restart. Models not listed in the config are never touched.
+- `replicas: all` places one replica per matching node by relying on the default
+  per-node cap of one replica per model. If you raise `LOCALAI_MAX_REPLICAS_PER_MODEL`
+  on a worker above 1, the target count can be met by stacking replicas on fewer
+  nodes rather than spreading one to each.
 
 ## Label Management API
 
@@ -558,3 +759,17 @@ All fields are optional and composable:
 - Ensure the port range is not blocked by firewalls or used by other services
 - Verify the backend gallery configuration is correct
 - The worker needs network access to download backends from the gallery
+
+## Roadmap: Routing and Caching Enhancements
+
+The scheduling algorithm above is load-based (least in-flight, then least-recently-used). Work is underway to make routing **prefix-cache-aware**: bias each request toward the replica that already holds the relevant KV/prefix cache (multi-turn conversations and shared system prompts), so backends reuse cache instead of recomputing it. The first step is a router-side radix tree of prompt-prefix hashes mapped to nodes, with longest-prefix match, a load guard that preserves round-robin behavior under imbalance, and NATS sync across frontends. It is purely a routing-layer hint (no backend changes) and never routes worse than today's round-robin.
+
+Further enhancements, surfaced from a survey of SGLang, vLLM production-stack, Ray Serve, llm-d, AIBrix, and NVIDIA Dynamo, are tracked under the routing roadmap epic ([#10063](https://github.com/mudler/LocalAI/issues/10063)):
+
+- **Reported/precise KV-event mode** ([#10064](https://github.com/mudler/LocalAI/issues/10064)): subscribe to actual backend KV-cache events for exact residency instead of inferring it from routing history.
+- **Multi-tier cache-overlap scoring** ([#10065](https://github.com/mudler/LocalAI/issues/10065)): credit GPU/CPU/disk cache tiers separately.
+- **Pluggable scorer/filter/picker pipeline** ([#10066](https://github.com/mudler/LocalAI/issues/10066)): composable multi-signal routing (cache, queue depth, KV utilization, latency).
+- **Load-shaping** ([#10067](https://github.com/mudler/LocalAI/issues/10067)): anti-herding (softmax/temperature) and dispatch-time freshness.
+- **Prefill/decode disaggregation routing** ([#10068](https://github.com/mudler/LocalAI/issues/10068)): route prefill and decode to separate pools with KV transfer.
+- **Per-user fairness (VTC)** ([#10069](https://github.com/mudler/LocalAI/issues/10069)): balance per-user token usage against pod load.
+- **Minor tuning + MCP parity** ([#10070](https://github.com/mudler/LocalAI/issues/10070)): per-model TTL override, probabilistic LRU updates, and MCP scheduling-config tool parity.

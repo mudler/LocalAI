@@ -42,20 +42,22 @@ const (
 // usecaseFilters maps UI filter keys to ModelConfigUsecase flags for
 // capability-based gallery filtering.
 var usecaseFilters = map[string]config.ModelConfigUsecase{
-	config.UsecaseChat:            config.FLAG_CHAT,
-	config.UsecaseImage:           config.FLAG_IMAGE,
-	config.UsecaseVideo:           config.FLAG_VIDEO,
-	config.UsecaseVision:          config.FLAG_VISION,
-	config.UsecaseTTS:             config.FLAG_TTS,
-	config.UsecaseTranscript:      config.FLAG_TRANSCRIPT,
-	config.UsecaseSoundGeneration: config.FLAG_SOUND_GENERATION,
-	config.UsecaseEmbeddings:      config.FLAG_EMBEDDINGS,
-	config.UsecaseRerank:          config.FLAG_RERANK,
-	config.UsecaseDetection:       config.FLAG_DETECTION,
-	config.UsecaseVAD:             config.FLAG_VAD,
-	config.UsecaseAudioTransform:  config.FLAG_AUDIO_TRANSFORM,
-	config.UsecaseDiarization:     config.FLAG_DIARIZATION,
-	config.UsecaseRealtimeAudio:   config.FLAG_REALTIME_AUDIO,
+	config.UsecaseChat:                config.FLAG_CHAT,
+	config.UsecaseImage:               config.FLAG_IMAGE,
+	config.UsecaseVideo:               config.FLAG_VIDEO,
+	config.UsecaseVision:              config.FLAG_VISION,
+	config.UsecaseTTS:                 config.FLAG_TTS,
+	config.UsecaseTranscript:          config.FLAG_TRANSCRIPT,
+	config.UsecaseSoundGeneration:     config.FLAG_SOUND_GENERATION,
+	config.UsecaseEmbeddings:          config.FLAG_EMBEDDINGS,
+	config.UsecaseRerank:              config.FLAG_RERANK,
+	config.UsecaseDetection:           config.FLAG_DETECTION,
+	config.UsecaseVAD:                 config.FLAG_VAD,
+	config.UsecaseAudioTransform:      config.FLAG_AUDIO_TRANSFORM,
+	config.UsecaseDiarization:         config.FLAG_DIARIZATION,
+	config.UsecaseSoundClassification: config.FLAG_SOUND_CLASSIFICATION,
+	config.UsecaseRealtimeAudio:       config.FLAG_REALTIME_AUDIO,
+	config.UsecaseTokenClassify:       config.FLAG_TOKEN_CLASSIFY,
 }
 
 // extractHFRepo tries to find a HuggingFace repo ID from model overrides or URLs.
@@ -920,7 +922,7 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 	app.GET("/api/models/config-metadata/autocomplete/:provider", localai.AutocompleteEndpoint(cl, ml, appConfig), adminMiddleware)
 
 	// PATCH config endpoint - partial update using nested JSON merge
-	app.PATCH("/api/models/config-json/:name", localai.PatchConfigEndpoint(cl, ml, appConfig), adminMiddleware)
+	app.PATCH("/api/models/config-json/:name", localai.PatchConfigEndpoint(cl, ml, galleryService, appConfig), adminMiddleware)
 
 	// VRAM estimation endpoint
 	app.POST("/api/models/vram-estimate", localai.VRAMEstimateEndpoint(cl, appConfig), adminMiddleware)
@@ -1241,6 +1243,9 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 			Galleries:          appConfig.BackendGalleries,
 			Context:            ctx,
 			CancelFunc:         cancelFunc,
+			// The React UI's "Reinstall backend" action reuses this route, so
+			// the op must force even when the backend is already installed.
+			Force: true,
 		}
 		// Store cancellation function immediately so queued operations can be cancelled
 		galleryService.StoreCancellation(uid, cancelFunc)

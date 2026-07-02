@@ -84,6 +84,7 @@ export const modelsApi = {
   list: (params) => fetchJSON(buildUrl(API_CONFIG.endpoints.models, params)),
   listV1: () => fetchJSON(API_CONFIG.endpoints.modelsList),
   listCapabilities: () => fetchJSON(API_CONFIG.endpoints.modelsCapabilities),
+  listAliases: () => fetchJSON(API_CONFIG.endpoints.modelsAliases),
   install: (id) => postJSON(API_CONFIG.endpoints.installModel(id), {}),
   delete: (id) => postJSON(API_CONFIG.endpoints.deleteModel(id), {}),
   estimate: (id, contexts) => fetchJSON(
@@ -567,6 +568,7 @@ export const nodesApi = {
     method: 'DELETE',
   }),
   listScheduling: () => fetchJSON(API_CONFIG.endpoints.nodesScheduling),
+  allModels: () => fetchJSON(API_CONFIG.endpoints.nodesModels),
   setScheduling: (config) => postJSON(API_CONFIG.endpoints.nodesScheduling, config),
   deleteScheduling: (model) => fetchJSON(API_CONFIG.endpoints.nodesSchedulingModel(model), { method: 'DELETE' }),
 }

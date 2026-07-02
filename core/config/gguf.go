@@ -14,20 +14,26 @@ import (
 	"github.com/gpustack/gguf-parser-go/util/ptr"
 )
 
-const (
-	defaultContextSize = 1024
-	defaultNGPULayers  = 99999999
-)
+// reservedNonChatModel reports whether the operator reserved this model for an
+// internal primitive — the router score classifier or the PII NER
+// token_classify tier. Such a model has no chat template and must not be
+// given the generative-chat defaults the GGUF importer otherwise applies
+// (FLAG_CHAT, jinja templating): surfacing it in chat pickers defeats the
+// reservation. Operators who do want a combined model declare both usecases
+// explicitly — the combination is valid.
+func reservedNonChatModel(cfg *ModelConfig) bool {
+	return cfg.KnownUsecases != nil &&
+		(*cfg.KnownUsecases&(FLAG_SCORE|FLAG_TOKEN_CLASSIFY)) != 0
+}
 
 func guessGGUFFromFile(cfg *ModelConfig, f *gguf.GGUFFile, defaultCtx int) {
-
 	if defaultCtx == 0 && cfg.ContextSize == nil {
 		ctxSize := f.EstimateLLaMACppRun().ContextSize
 		if ctxSize > 0 {
 			cSize := int(ctxSize)
 			cfg.ContextSize = &cSize
 		} else {
-			defaultCtx = defaultContextSize
+			defaultCtx = DefaultContextSize
 			cfg.ContextSize = &defaultCtx
 		}
 	}
@@ -41,7 +47,7 @@ func guessGGUFFromFile(cfg *ModelConfig, f *gguf.GGUFFile, defaultCtx int) {
 
 	if cfg.NGPULayers == nil {
 		// we assume we want to offload all layers
-		defaultHigh := defaultNGPULayers
+		defaultHigh := DefaultNGPULayers
 		cfg.NGPULayers = &defaultHigh
 	}
 
@@ -61,6 +67,16 @@ func guessGGUFFromFile(cfg *ModelConfig, f *gguf.GGUFFile, defaultCtx int) {
 		ApplyMTPDefaults(cfg, n)
 	}
 
+	// Sliding-window-attention models (Gemma 2/3, Cohere2, Llama 4, ...) ship
+	// with a reduced SWA KV cache by default, which cannot reuse a prompt
+	// prefix across requests and so defeats the cross-request prefix cache
+	// (cache_reuse) we enable in serving_defaults.go. Enable the full SWA cache
+	// for these models so the prefix survives; skipped for dense models and
+	// when the user already pinned an SWA cache option.
+	if w, ok := HasSlidingWindowAttention(f); ok {
+		ApplySWAFullDefault(cfg, w)
+	}
+
 	// Thinking support detection is done after model load via DetectThinkingSupportFromBackend
 
 	// template estimations
@@ -77,11 +93,19 @@ func guessGGUFFromFile(cfg *ModelConfig, f *gguf.GGUFFile, defaultCtx int) {
 		cfg.Name = f.Metadata().Name
 	}
 
-	// Instruct to use template from llama.cpp
-	cfg.TemplateConfig.UseTokenizerTemplate = true
-	cfg.FunctionsConfig.GrammarConfig.NoGrammar = true
-	cfg.Options = append(cfg.Options, "use_jinja:true")
-	cfg.KnownUsecaseStrings = append(cfg.KnownUsecaseStrings, "FLAG_CHAT")
+	// A model the operator reserved for an internal primitive (the router
+	// score classifier, or the PII NER token_classify tier) is not a chat
+	// model: it carries no chat template and must not be painted with the
+	// generative-chat defaults — appending FLAG_CHAT here would fold chat
+	// into KnownUsecases on the next sync and surface the model in every
+	// chat picker. Respect the declaration.
+	if !reservedNonChatModel(cfg) {
+		// Instruct to use template from llama.cpp
+		cfg.TemplateConfig.UseTokenizerTemplate = true
+		cfg.FunctionsConfig.GrammarConfig.NoGrammar = true
+		cfg.Options = append(cfg.Options, "use_jinja:true")
+		cfg.KnownUsecaseStrings = append(cfg.KnownUsecaseStrings, "FLAG_CHAT")
+	}
 
 	// Apply per-model-family inference parameter defaults (temperature, top_p, etc.)
 	ApplyInferenceDefaults(cfg, f.Metadata().Name)

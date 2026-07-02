@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"strconv"
@@ -113,6 +114,17 @@ func main() {
 	fmt.Println("Searching for trending models on HuggingFace...")
 	rawModels, err := client.GetTrending(searchTerm, limit)
 	if err != nil {
+		if errors.Is(err, hfapi.ErrRateLimited) {
+			fmt.Printf("HuggingFace API is rate limited after retries, skipping this run: %v\n", err)
+			writeSummary(AddedModelSummary{
+				SearchTerm:     searchTerm,
+				TotalFound:     0,
+				ModelsAdded:    0,
+				Quantization:   quantization,
+				ProcessingTime: time.Since(startTime).String(),
+			})
+			return
+		}
 		fmt.Fprintf(os.Stderr, "Error fetching models: %v\n", err)
 		os.Exit(1)
 	}
@@ -277,4 +289,3 @@ func truncateString(s string, maxLen int) string {
 	}
 	return s[:maxLen] + "..."
 }
-

@@ -96,7 +96,10 @@ func (b *LocalBackendManager) ListBackends() (gallery.SystemBackends, error) {
 	return gallery.ListSystemBackends(b.systemState)
 }
 
-func (b *LocalBackendManager) UpgradeBackend(ctx context.Context, name string, progressCb ProgressCallback) error {
+// UpgradeBackend ignores opID: a single-node install reports progress through
+// the local progressCb already; opID only matters for distributed per-node
+// streaming (see DistributedBackendManager.UpgradeBackend).
+func (b *LocalBackendManager) UpgradeBackend(ctx context.Context, _ string, name string, progressCb ProgressCallback) error {
 	return gallery.UpgradeBackend(ctx, b.systemState, b.modelLoader, b.backendGalleries, name, progressCb, b.requireBackendIntegrity)
 }
 
@@ -107,10 +110,13 @@ func (b *LocalBackendManager) CheckUpgrades(ctx context.Context) (map[string]gal
 func (b *LocalBackendManager) InstallBackend(ctx context.Context, op *ManagementOp[gallery.GalleryBackend, any], progressCb ProgressCallback) error {
 	if op.ExternalURI != "" {
 		return InstallExternalBackend(ctx, b.backendGalleries, b.systemState, b.modelLoader,
-			progressCb, op.ExternalURI, op.ExternalName, op.ExternalAlias, b.requireBackendIntegrity)
+			progressCb, op.ExternalURI, op.ExternalName, op.ExternalAlias, op.Force, b.requireBackendIntegrity)
 	}
+	// op.Force distinguishes an explicit reinstall from an idempotent
+	// "make sure it's installed" op; the latter must not re-download an
+	// already-runnable backend (supervisors apply on every boot).
 	return gallery.InstallBackendFromGallery(ctx, b.backendGalleries, b.systemState,
-		b.modelLoader, op.GalleryElementName, progressCb, true, b.requireBackendIntegrity)
+		b.modelLoader, op.GalleryElementName, progressCb, op.Force, b.requireBackendIntegrity)
 }
 
 func (b *LocalBackendManager) IsDistributed() bool { return false }

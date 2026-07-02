@@ -308,6 +308,11 @@ var _ = Describe("API test", func() {
 	var cancel context.CancelFunc
 	var tmpdir string
 	var modelDir string
+	// localAIApp captures the Application so AfterEach can synchronously
+	// stop the spawned gRPC backend processes. application.New cancels
+	// them asynchronously on context cancel, which races with test-binary
+	// exit and leaks mock-backend children to init.
+	var localAIApp *application.Application
 
 	commonOpts := []config.AppOption{
 		config.WithDebug(true),
@@ -730,20 +735,32 @@ parameters:
 `
 			Expect(os.WriteFile(filepath.Join(modelDir, "mock-model.yaml"), []byte(mockModelYAML), 0644)).To(Succeed())
 
+			// A second model carrying chat_template_kwargs so the REST->gRPC
+			// metadata-forwarding spec below can assert the model-YAML kwarg is
+			// merged with the per-request override.
+			mockCTKModelYAML := `name: mock-ctk-model
+backend: mock-backend
+parameters:
+  model: mock-model.bin
+chat_template_kwargs:
+  preserve_thinking: true
+`
+			Expect(os.WriteFile(filepath.Join(modelDir, "mock-ctk-model.yaml"), []byte(mockCTKModelYAML), 0644)).To(Succeed())
+
 			systemState, err := system.GetSystemState(
 				system.WithBackendPath(backendDir),
 				system.WithModelPath(modelDir),
 			)
 			Expect(err).ToNot(HaveOccurred())
 
-			application, err := application.New(
+			localAIApp, err = application.New(
 				append(commonOpts,
 					config.WithContext(c),
 					config.WithSystemState(systemState),
 				)...)
 			Expect(err).ToNot(HaveOccurred())
-			application.ModelLoader().SetExternalBackend("mock-backend", mockBackendPath)
-			app, err = API(application)
+			localAIApp.ModelLoader().SetExternalBackend("mock-backend", mockBackendPath)
+			app, err = API(localAIApp)
 			Expect(err).ToNot(HaveOccurred())
 			go func() {
 				if err := app.Start("127.0.0.1:9090"); err != nil && err != http.ErrServerClosed {
@@ -765,6 +782,11 @@ parameters:
 			}, "2m").ShouldNot(HaveOccurred())
 		})
 		AfterEach(func() {
+			// Synchronous shutdown — context-cancel cleanup is async and races
+			// test-binary exit, orphaning mock-backend children to init.
+			if localAIApp != nil {
+				_ = localAIApp.Shutdown()
+			}
 			cancel()
 			if app != nil {
 				ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
@@ -797,6 +819,59 @@ parameters:
 			dat, err := io.ReadAll(resp.Body)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(string(dat)).To(ContainSubstring("mock-backend"))
+		})
+
+		It("forwards chat_template_kwargs and reasoning levers to gRPC PredictOptions.Metadata", func() {
+			// True HTTP->gRPC contract guard: drive a real /v1/chat/completions
+			// request and assert the exact metadata the REST layer forwarded to
+			// the backend. The mock-backend echoes PredictOptions.Metadata as JSON
+			// when it sees the ECHO_PREDICT_METADATA marker in the prompt, so this
+			// pins the request->gRPC mapping (model-YAML chat_template_kwargs +
+			// per-request metadata override + type coercion + standalone keys)
+			// without adding a new RPC. The marker rides in the user content and
+			// must survive into the backend prompt; if a future default chat
+			// template drops raw user content, move the marker to /v1/completions.
+			reqBody := map[string]any{
+				"model": "mock-ctk-model",
+				"messages": []map[string]any{
+					{"role": "user", "content": "ECHO_PREDICT_METADATA"},
+				},
+				// per-request override: overrides the standalone enable_thinking key
+				// and exercises coercion ("false" -> bool, "low" -> string) in the blob
+				"metadata": map[string]string{
+					"enable_thinking":  "false",
+					"reasoning_effort": "low",
+				},
+			}
+
+			var chatResp struct {
+				Choices []struct {
+					Message struct {
+						Content string `json:"content"`
+					} `json:"message"`
+				} `json:"choices"`
+			}
+			err := postRequestResponseJSON("http://127.0.0.1:9090/v1/chat/completions", &reqBody, &chatResp)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(chatResp.Choices).ToNot(BeEmpty())
+
+			// The assistant content is the JSON snapshot of PredictOptions.Metadata.
+			var meta map[string]string
+			Expect(json.Unmarshal([]byte(chatResp.Choices[0].Message.Content), &meta)).To(Succeed(), "echoed metadata: %s", chatResp.Choices[0].Message.Content)
+
+			// Standalone keys reflect the per-request override (consumed by Python
+			// backends; consistent across backends).
+			Expect(meta).To(HaveKeyWithValue("enable_thinking", "false"))
+			Expect(meta).To(HaveKeyWithValue("reasoning_effort", "low"))
+
+			// The chat_template_kwargs blob (consumed by llama.cpp) merges the
+			// model-YAML kwarg with the coerced request metadata override.
+			Expect(meta).To(HaveKey("chat_template_kwargs"))
+			var ctk map[string]any
+			Expect(json.Unmarshal([]byte(meta["chat_template_kwargs"]), &ctk)).To(Succeed(), "chat_template_kwargs blob: %s", meta["chat_template_kwargs"])
+			Expect(ctk).To(HaveKeyWithValue("preserve_thinking", true)) // bool from model YAML
+			Expect(ctk).To(HaveKeyWithValue("enable_thinking", false))  // coerced "false" -> bool
+			Expect(ctk).To(HaveKeyWithValue("reasoning_effort", "low")) // non-bool stays string
 		})
 
 		// Agent Jobs: HTTP API for task/job scheduling. The underlying AgentPool
@@ -976,15 +1051,15 @@ parameters:
 			)
 			Expect(err).ToNot(HaveOccurred())
 
-			application, err := application.New(
+			localAIApp, err = application.New(
 				append(commonOpts,
 					config.WithContext(c),
 					config.WithSystemState(systemState),
 					config.WithConfigFile(configFile))...,
 			)
 			Expect(err).ToNot(HaveOccurred())
-			application.ModelLoader().SetExternalBackend("mock-backend", mockBackendPath)
-			app, err = API(application)
+			localAIApp.ModelLoader().SetExternalBackend("mock-backend", mockBackendPath)
+			app, err = API(localAIApp)
 			Expect(err).ToNot(HaveOccurred())
 
 			go func() {
@@ -1005,6 +1080,11 @@ parameters:
 			}, "2m").ShouldNot(HaveOccurred())
 		})
 		AfterEach(func() {
+			// Synchronous shutdown — context-cancel cleanup is async and races
+			// test-binary exit, orphaning mock-backend children to init.
+			if localAIApp != nil {
+				_ = localAIApp.Shutdown()
+			}
 			cancel()
 			if app != nil {
 				ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)

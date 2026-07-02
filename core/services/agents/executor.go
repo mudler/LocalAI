@@ -167,10 +167,12 @@ func ExecuteChatWithLLM(ctx context.Context, llm cogito.LLM, cfg *AgentConfig, m
 		}
 	}
 
+	kbCitations := &kbCitationList{}
 	if cfg.EnableKnowledgeBase && (kbMode == KBModeAutoSearch || kbMode == KBModeBoth) {
-		kbResults := KBAutoSearchPrompt(ctx, effectiveURL, effectiveKey, cfg.Name, message, cfg.KnowledgeBaseResults, userID)
-		if kbResults != "" {
-			fragment = fragment.AddMessage(cogito.SystemMessageRole, kbResults)
+		kbResult := KBAutoSearchPrompt(ctx, effectiveURL, effectiveKey, cfg.Name, message, cfg.KnowledgeBaseResults, userID)
+		if kbResult.Prompt != "" {
+			fragment = fragment.AddMessage(cogito.SystemMessageRole, kbResult.Prompt)
+			kbCitations.AddKBCitations(kbResult.Citations)
 		}
 	}
 
@@ -197,7 +199,7 @@ func ExecuteChatWithLLM(ctx context.Context, llm cogito.LLM, cfg *AgentConfig, m
 		}
 		cogitoOpts = append(cogitoOpts, cogito.WithTools(
 			cogito.NewToolDefinition(
-				KBSearchMemoryTool{APIURL: effectiveURL, APIKey: effectiveKey, Collection: cfg.Name, MaxResults: kbResults, UserID: userID},
+				KBSearchMemoryTool{APIURL: effectiveURL, APIKey: effectiveKey, Collection: cfg.Name, MaxResults: kbResults, UserID: userID, CitationCollector: kbCitations},
 				KBSearchMemoryArgs{},
 				"search_memory",
 				"Search the knowledge base for relevant information",
@@ -336,6 +338,8 @@ func ExecuteChatWithLLM(ctx context.Context, llm cogito.LLM, cfg *AgentConfig, m
 	if cfg.StripThinkingTags && response != "" {
 		response = stripThinkingTags(response)
 	}
+	responseForMemory := response
+	response = AppendKBCitations(response, cfg.Name, userID, kbCitations.Citations())
 
 	// Save conversation to KB when long-term memory is enabled.
 	// Use a detached context: the parent ctx may be cancelled (e.g. in distributed
@@ -344,7 +348,7 @@ func ExecuteChatWithLLM(ctx context.Context, llm cogito.LLM, cfg *AgentConfig, m
 		go func() {
 			ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 			defer cancel()
-			saveConversationToKB(ctx, llm, effectiveURL, effectiveKey, cfg, message, response, userID)
+			saveConversationToKB(ctx, llm, effectiveURL, effectiveKey, cfg, message, responseForMemory, userID)
 		}()
 	}
 

@@ -1,10 +1,10 @@
 +++
 title = "LocalAI"
-description = "The free, OpenAI, Anthropic alternative. Your All-in-One Complete AI Stack"
+description = "The free, OpenAI and Anthropic alternative. A small, composable AI stack: run any model locally and install only what you use."
 type = "home"
 +++
 
-**The free, OpenAI, Anthropic alternative. Your All-in-One Complete AI Stack** - Run powerful language models, autonomous agents, and document intelligence **locally** on your hardware. 
+**The free, OpenAI and Anthropic alternative. A small, composable AI stack.** - Run powerful language models, autonomous agents, and document intelligence **locally** on your hardware. A lean core that pulls model backends on demand, so you install only what you use. 
 
 **No cloud, no limits, no compromise.**
 

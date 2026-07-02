@@ -5,6 +5,8 @@ weight = 17
 url = "/features/audio-diarization/"
 +++
 
+![Diarization: segment, embed, and cluster (or a single ASR pass) into speaker-labelled segments](/images/diagrams/diarization-pipeline.png)
+
 Speaker diarization answers the question **"who spoke when?"** — given an audio clip with multiple speakers, it returns time-stamped segments labelled with a stable speaker ID (`SPEAKER_00`, `SPEAKER_01`, …).
 
 LocalAI exposes this through the `/v1/audio/diarization` endpoint, modelled after `/v1/audio/transcriptions`. Two backends are supported today:
@@ -150,3 +152,7 @@ curl http://localhost:8080/v1/audio/diarization \
 - **Speaker identity across files**: speaker IDs (`SPEAKER_00`, `SPEAKER_01`, …) are local to each request. To track the same person across multiple recordings, combine `/v1/audio/diarization` with `/v1/voice/embed` (speaker embedding) and maintain your own embedding store.
 - **Hints vs. forces**: `num_speakers` overrides clustering when set; `min_speakers` / `max_speakers` are advisory and only honored by backends that expose a range hint. vibevoice.cpp ignores them — its model picks the count itself.
 - **Sample rate**: input is automatically converted to 16 kHz mono via ffmpeg before the backend sees it; sherpa-onnx pyannote-3.0 requires 16 kHz.
+
+## See also
+
+- [Sound Classification]({{% relref "audio-classification" %}}) - tag non-speech sound events (alarms, glass breaking, baby cry) in a clip.

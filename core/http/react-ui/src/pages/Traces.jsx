@@ -4,6 +4,8 @@ import { useTranslation } from 'react-i18next'
 import { tracesApi, settingsApi } from '../utils/api'
 import { formatTimestamp } from '../utils/format'
 import LoadingSpinner from '../components/LoadingSpinner'
+import PageHeader from '../components/PageHeader'
+import ResponsiveTable from '../components/ResponsiveTable'
 import Toggle from '../components/Toggle'
 import SettingRow from '../components/SettingRow'
 import WaveformPlayer from '../components/audio/WaveformPlayer'
@@ -74,6 +76,9 @@ const TYPE_COLORS = {
   tokenize: { bg: 'var(--color-secondary-light)', color: 'var(--color-text-muted)' },
   detection: { bg: 'var(--color-info-light)', color: 'var(--color-data-8)' },
   model_load: { bg: 'var(--color-error-light)', color: 'var(--color-data-2)' },
+  vector_store: { bg: 'var(--color-accent-light)', color: 'var(--color-data-7)' },
+  token_classify: { bg: 'var(--color-info-light)', color: 'var(--color-data-3)' },
+  pattern_pii: { bg: 'var(--color-error-light)', color: 'var(--color-data-2)' },
 }
 
 function typeBadgeStyle(type) {
@@ -81,8 +86,40 @@ function typeBadgeStyle(type) {
   return { background: c.bg, color: c.color, padding: '2px 8px', borderRadius: 'var(--radius-sm)', fontSize: '0.75rem', fontWeight: 500 }
 }
 
+// useWavObjectURL — decode a base64 WAV payload into a blob: object URL for
+// the waveform player. A data: URL would render in <audio> (media-src allows
+// data:) but the peaks renderer fetch()es the src and the CSP's connect-src
+// only allows blob:, so playback broke with a CSP violation. Decoding to a
+// Blob also tolerates payloads that aren't valid base64 — e.g. the
+// "<truncated: N bytes>" marker older servers stamped into oversized fields —
+// by yielding null instead of a broken player.
+function useWavObjectURL(b64) {
+  const [url, setUrl] = useState(null)
+  useEffect(() => {
+    if (!b64) {
+      setUrl(null)
+      return undefined
+    }
+    let objectUrl = null
+    try {
+      const bin = atob(b64)
+      const bytes = new Uint8Array(bin.length)
+      for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i)
+      objectUrl = URL.createObjectURL(new Blob([bytes], { type: 'audio/wav' }))
+      setUrl(objectUrl)
+    } catch {
+      setUrl(null)
+    }
+    return () => {
+      if (objectUrl) URL.revokeObjectURL(objectUrl)
+    }
+  }, [b64])
+  return url
+}
+
 // Audio player + metrics for transcription traces
 function AudioSnippet({ data }) {
+  const audioUrl = useWavObjectURL(data?.audio_wav_base64)
   if (!data?.audio_wav_base64) return null
   const metrics = [
     { label: 'Duration', value: data.audio_duration_s + 's' },
@@ -99,7 +136,11 @@ function AudioSnippet({ data }) {
         <i className="fas fa-headphones" style={{ color: 'var(--color-primary)' }} /> Audio Snippet
       </h4>
       <div style={{ background: 'var(--color-bg-primary)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-md)', padding: 'var(--spacing-sm)' }}>
-        <WaveformPlayer src={`data:audio/wav;base64,${data.audio_wav_base64}`} height={64} />
+        {audioUrl
+          ? <WaveformPlayer src={audioUrl} height={64} />
+          : <div data-testid="audio-snippet-unavailable" style={{ fontSize: '0.75rem', color: 'var(--color-text-secondary)', padding: 'var(--spacing-xs)' }}>
+              <i className="fas fa-triangle-exclamation" /> Audio clip not playable — it was truncated when recorded (raise Max Body Bytes in the tracing settings).
+            </div>}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(120px, 1fr))', gap: 'var(--spacing-xs)', fontSize: '0.75rem', marginTop: 'var(--spacing-sm)' }}>
           {metrics.map(m => (
             <div key={m.label} style={{ background: 'var(--color-bg-secondary)', borderRadius: 'var(--radius-sm)', padding: 'var(--spacing-xs)' }}>
@@ -313,7 +354,35 @@ export default function Traces() {
   const [backendCount, setBackendCount] = useState(0)
   const [loading, setLoading] = useState(true)
   const [expandedRow, setExpandedRow] = useState(null)
+  const [sort, setSort] = useState({ key: null, dir: 'asc' })
   const [tracingEnabled, setTracingEnabled] = useState(null)
+
+  const TRACE_SORT = {
+    method: (a, b) => (a.request?.method || '').localeCompare(b.request?.method || ''),
+    path: (a, b) => (a.request?.path || '').localeCompare(b.request?.path || ''),
+    status: (a, b) => (a.response?.status || 0) - (b.response?.status || 0),
+    type: (a, b) => (a.type || '').localeCompare(b.type || ''),
+    time: (a, b) => new Date(a.timestamp || 0) - new Date(b.timestamp || 0),
+    model: (a, b) => (a.model_name || '').localeCompare(b.model_name || ''),
+    duration: (a, b) => (a.duration || 0) - (b.duration || 0),
+  }
+  const toggleSort = (key) => {
+    setExpandedRow(null)
+    setSort(s => s.key === key ? { key, dir: s.dir === 'asc' ? 'desc' : 'asc' } : { key, dir: 'asc' })
+  }
+  const sortableTh = (key, label, props = {}) => (
+    <th
+      {...props}
+      role="button"
+      tabIndex={0}
+      aria-sort={sort.key === key ? (sort.dir === 'asc' ? 'ascending' : 'descending') : 'none'}
+      onClick={() => toggleSort(key)}
+      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleSort(key) } }}
+      style={{ cursor: 'pointer', userSelect: 'none', ...(props.style || {}) }}
+    >
+      {label}{sort.key === key && <i className={`fas fa-caret-${sort.dir === 'asc' ? 'up' : 'down'}`} style={{ marginLeft: 4, opacity: 0.7 }} aria-hidden="true" />}
+    </th>
+  )
   const [backendLoggingEnabled, setBackendLoggingEnabled] = useState(null)
   const [settings, setSettings] = useState(null)
   const [settingsExpanded, setSettingsExpanded] = useState(false)
@@ -402,12 +471,16 @@ export default function Traces() {
     URL.revokeObjectURL(url)
   }
 
+  // Reset sort + expansion when switching trace tabs (columns differ).
+  useEffect(() => { setSort({ key: null, dir: 'asc' }); setExpandedRow(null) }, [activeTab])
+
+  const sortedTraces = sort.key && TRACE_SORT[sort.key]
+    ? [...traces].sort((a, b) => sort.dir === 'asc' ? TRACE_SORT[sort.key](a, b) : TRACE_SORT[sort.key](b, a))
+    : traces
+
   return (
     <div className="page page--wide">
-      <div className="page-header">
-        <h1 className="page-title">{t('traces.title')}</h1>
-        <p className="page-subtitle">{t('traces.subtitle')}</p>
-      </div>
+      <PageHeader title={t('traces.title')} supporting={t('traces.subtitle')} />
 
       <div className="tabs">
         <button className={`tab ${activeTab === 'api' ? 'tab-active' : ''}`} onClick={() => setActiveTab('api')}>
@@ -536,19 +609,18 @@ export default function Traces() {
           </p>
         </div>
       ) : activeTab === 'api' ? (
-        <div className="table-container">
-          <table className="table">
+        <ResponsiveTable>
             <thead>
               <tr>
                 <th style={{ width: '30px' }}></th>
-                <th>Method</th>
-                <th>Path</th>
-                <th>Status</th>
+                {sortableTh('method', 'Method')}
+                {sortableTh('path', 'Path')}
+                {sortableTh('status', 'Status')}
                 <th style={{ width: '40px' }}>Result</th>
               </tr>
             </thead>
             <tbody>
-              {traces.map((trace, i) => (
+              {sortedTraces.map((trace, i) => (
                 <React.Fragment key={i}>
                   <tr onClick={() => setExpandedRow(expandedRow === i ? null : i)} style={{ cursor: 'pointer' }}>
                     <td><i className={`fas fa-chevron-${expandedRow === i ? 'down' : 'right'}`} style={{ fontSize: '0.7rem' }} /></td>
@@ -571,24 +643,22 @@ export default function Traces() {
                 </React.Fragment>
               ))}
             </tbody>
-          </table>
-        </div>
+        </ResponsiveTable>
       ) : (
-        <div className="table-container">
-          <table className="table">
+        <ResponsiveTable>
             <thead>
               <tr>
                 <th style={{ width: '30px' }}></th>
-                <th>Type</th>
-                <th>Time</th>
-                <th>Model</th>
+                {sortableTh('type', 'Type')}
+                {sortableTh('time', 'Time')}
+                {sortableTh('model', 'Model')}
                 <th>Summary</th>
-                <th>Duration</th>
+                {sortableTh('duration', 'Duration')}
                 <th style={{ width: '40px' }}>Status</th>
               </tr>
             </thead>
             <tbody>
-              {traces.map((trace, i) => (
+              {sortedTraces.map((trace, i) => (
                 <React.Fragment key={i}>
                   <tr onClick={() => setExpandedRow(expandedRow === i ? null : i)} style={{ cursor: 'pointer' }}>
                     <td><i className={`fas fa-chevron-${expandedRow === i ? 'down' : 'right'}`} style={{ fontSize: '0.7rem' }} /></td>
@@ -615,8 +685,7 @@ export default function Traces() {
                 </React.Fragment>
               ))}
             </tbody>
-          </table>
-        </div>
+        </ResponsiveTable>
       )}
     </div>
   )

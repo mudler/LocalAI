@@ -1,6 +1,17 @@
 {
   "title": "Install Models",
   "subtitle": "Browse and install AI models from the gallery",
+  "models": "Models",
+  "recommended": {
+    "title": "Recommended for your hardware",
+    "cpuNote": "No GPU detected - small models that stay responsive on CPU.",
+    "gpuNote": "Sized to fit your available VRAM with room for context.",
+    "install": "Install",
+    "installing": "Installing",
+    "installStarted": "Installing {{model}}…",
+    "installFailed": "Install failed: {{message}}",
+    "dismiss": "Dismiss recommendations"
+  },
   "stats": {
     "available": "Available",
     "installed": "Installed"
@@ -22,6 +33,7 @@
     "tts": "TTS",
     "stt": "STT",
     "diarization": "Diarization",
+    "soundClassification": "Sound Tagging",
     "soundGen": "Sound",
     "audioTransform": "Audio FX",
     "realtimeAudio": "Realtime Audio",
@@ -29,6 +41,7 @@
     "rerank": "Rerank",
     "detection": "Detection",
     "vad": "VAD",
+    "ner": "NER",
     "fitsGpu": "Fits in GPU",
     "allBackends": "All Backends",
     "searchBackends": "Search backends..."
@@ -89,5 +102,11 @@
     "loadFailed": "Failed to load models: {{message}}",
     "installFailed": "Failed to install: {{message}}",
     "deleteFailed": "Failed to delete: {{message}}"
+  },
+  "selector": {
+    "loading": "Loading models...",
+    "selectModel": "Select model...",
+    "searchPlaceholder": "Search models...",
+    "noModels": "No models available"
   }
 }

@@ -6,6 +6,8 @@ import LanguageSwitcher from './LanguageSwitcher'
 import { useAuth } from '../context/AuthContext'
 import { useBranding } from '../contexts/BrandingContext'
 import { apiUrl } from '../utils/basePath'
+import { preloadRoute } from '../router'
+import { consoles, firstVisiblePath, consolePaths } from './console/consoleConfig'
 
 const COLLAPSED_KEY = 'localai_sidebar_collapsed'
 const SECTIONS_KEY = 'localai_sidebar_sections'
@@ -13,71 +15,19 @@ const SECTIONS_KEY = 'localai_sidebar_sections'
 const topItems = [
   { path: '/app', icon: 'fas fa-home', labelKey: 'items.home' },
   { path: '/app/models', icon: 'fas fa-download', labelKey: 'items.installModels', adminOnly: true },
-  { path: '/app/chat', icon: 'fas fa-comments', labelKey: 'items.chat' },
-  { path: '/app/studio', icon: 'fas fa-palette', labelKey: 'items.studio' },
-  { path: '/app/talk', icon: 'fas fa-phone', labelKey: 'items.talk' },
 ]
 
+// Create stays inline (frequent, one-click creative destinations). The Build
+// and Operate tiers are single entries that open a secondary console rail —
+// their items live in console/consoleConfig.js (shared with ConsoleLayout).
 const sections = [
   {
-    id: 'tools',
-    titleKey: 'sections.tools',
+    id: 'create',
+    titleKey: 'sections.create',
     items: [
-      { path: '/app/fine-tune', icon: 'fas fa-graduation-cap', labelKey: 'items.fineTune', feature: 'fine_tuning' },
-      { path: '/app/quantize', icon: 'fas fa-compress', labelKey: 'items.quantize', feature: 'quantization' },
-    ],
-  },
-  {
-    id: 'enhance',
-    titleKey: 'sections.enhance',
-    featureMap: {
-      '/app/transform': 'audio_transform',
-    },
-    items: [
-      { path: '/app/transform', icon: 'fas fa-wave-square', labelKey: 'items.audioTransform', feature: 'audio_transform' },
-    ],
-  },
-  {
-    id: 'biometrics',
-    titleKey: 'sections.biometrics',
-    featureMap: {
-      '/app/face': 'face_recognition',
-      '/app/voice': 'voice_recognition',
-    },
-    items: [
-      { path: '/app/face', icon: 'fas fa-face-smile', labelKey: 'items.faceRecognition', feature: 'face_recognition' },
-      { path: '/app/voice', icon: 'fas fa-microphone-lines', labelKey: 'items.voiceRecognition', feature: 'voice_recognition' },
-    ],
-  },
-  {
-    id: 'agents',
-    titleKey: 'sections.agents',
-    featureMap: {
-      '/app/agents': 'agents',
-      '/app/skills': 'skills',
-      '/app/collections': 'collections',
-      '/app/agent-jobs': 'mcp_jobs',
-    },
-    items: [
-      { path: '/app/agents', icon: 'fas fa-robot', labelKey: 'items.agents' },
-      { path: '/app/skills', icon: 'fas fa-wand-magic-sparkles', labelKey: 'items.skills' },
-      { path: '/app/collections', icon: 'fas fa-database', labelKey: 'items.memory' },
-      { path: '/app/agent-jobs', icon: 'fas fa-tasks', labelKey: 'items.mcpJobs', feature: 'mcp' },
-    ],
-  },
-  {
-    id: 'system',
-    titleKey: 'sections.system',
-    items: [
-      { path: '/app/usage', icon: 'fas fa-chart-bar', labelKey: 'items.usage' },
-      { path: '/app/users', icon: 'fas fa-users', labelKey: 'items.users', adminOnly: true, authOnly: true },
-      { path: '/app/middleware', icon: 'fas fa-shield-halved', labelKey: 'items.middleware', adminOnly: true },
-      { path: '/app/backends', icon: 'fas fa-server', labelKey: 'items.backends', adminOnly: true },
-      { path: '/app/traces', icon: 'fas fa-chart-line', labelKey: 'items.traces', adminOnly: true },
-      { path: '/app/nodes', icon: 'fas fa-network-wired', labelKey: 'items.nodes', adminOnly: true, feature: 'distributed' },
-      { path: '/app/p2p', icon: 'fas fa-circle-nodes', labelKey: 'items.swarm', adminOnly: true },
-      { path: '/app/manage', icon: 'fas fa-desktop', labelKey: 'items.system', adminOnly: true },
-      { path: '/app/settings', icon: 'fas fa-cog', labelKey: 'items.settings', adminOnly: true },
+      { path: '/app/chat', icon: 'fas fa-comments', labelKey: 'items.chat' },
+      { path: '/app/studio', icon: 'fas fa-palette', labelKey: 'items.studio' },
+      { path: '/app/talk', icon: 'fas fa-phone', labelKey: 'items.talk' },
     ],
   },
 ]
@@ -85,6 +35,10 @@ const sections = [
 function NavItem({ item, onClose, collapsed }) {
   const { t } = useTranslation('nav')
   const label = t(item.labelKey)
+  // Warm the route's lazy chunk before the user clicks. Touch fires ~150ms
+  // before the synthetic click on mobile; mouseenter/focus cover desktop and
+  // keyboard. The underlying import() is memoised so multiple triggers are free.
+  const preload = () => preloadRoute(item.path)
   return (
     <NavLink
       to={item.path}
@@ -93,6 +47,9 @@ function NavItem({ item, onClose, collapsed }) {
         `nav-item ${isActive ? 'active' : ''}`
       }
       onClick={onClose}
+      onMouseEnter={preload}
+      onFocus={preload}
+      onTouchStart={preload}
       title={collapsed ? label : undefined}
     >
       <i className={`${item.icon} nav-icon`} />
@@ -102,11 +59,15 @@ function NavItem({ item, onClose, collapsed }) {
 }
 
 function loadSectionState() {
+  // Tiers render expanded by default (the redesign favours showing the few
+  // intent groups up front); users can still collapse any tier and the choice
+  // is persisted. Stored values override the defaults so a saved collapse wins.
+  const defaults = Object.fromEntries(sections.map(s => [s.id, true]))
   try {
     const stored = localStorage.getItem(SECTIONS_KEY)
-    return stored ? JSON.parse(stored) : {}
+    return stored ? { ...defaults, ...JSON.parse(stored) } : defaults
   } catch (_) {
-    return {}
+    return defaults
   }
 }
 
@@ -169,12 +130,14 @@ export default function Sidebar({ isOpen, onClose }) {
   }, [location.pathname])
 
   const toggleCollapse = () => {
-    setCollapsed(prev => {
-      const next = !prev
-      try { localStorage.setItem(COLLAPSED_KEY, String(next)) } catch (_) { /* ignore */ }
-      window.dispatchEvent(new CustomEvent('sidebar-collapse', { detail: { collapsed: next } }))
-      return next
-    })
+    // Side effects (persist + broadcast) live in the handler body, never inside
+    // the setState updater: StrictMode double-invokes updaters in dev, and the
+    // synchronous sidebar-collapse dispatch re-entered setState from the
+    // listeners mid-update, so the toggle silently no-op'd in dev builds.
+    const next = !collapsed
+    try { localStorage.setItem(COLLAPSED_KEY, String(next)) } catch (_) { /* ignore */ }
+    setCollapsed(next)
+    window.dispatchEvent(new CustomEvent('sidebar-collapse', { detail: { collapsed: next } }))
   }
 
   const toggleSection = (id) => {
@@ -194,17 +157,11 @@ export default function Sidebar({ isOpen, onClose }) {
   }
 
   const visibleTopItems = topItems.filter(filterItem)
+  // Shared shape for the console gating helpers (consoleConfig.js).
+  const auth = { isAdmin, authEnabled, hasFeature, features }
 
-  const getVisibleSectionItems = (section) => {
-    return section.items.filter(item => {
-      if (!filterItem(item)) return false
-      if (section.featureMap) {
-        const featureName = section.featureMap[item.path]
-        return featureName ? hasFeature(featureName) : isAdmin
-      }
-      return true
-    })
-  }
+  // Inline sections (Create) carry no gating; a plain filterItem pass suffices.
+  const getVisibleSectionItems = (section) => section.items.filter(filterItem)
 
   return (
     <>
@@ -244,9 +201,6 @@ export default function Sidebar({ isOpen, onClose }) {
 
           {/* Collapsible sections */}
           {sections.map(section => {
-            // For agents section, check global feature flag
-            if (section.id === 'agents' && features.agents === false) return null
-
             const visibleItems = getVisibleSectionItems(section)
             if (visibleItems.length === 0) return null
 
@@ -266,24 +220,36 @@ export default function Sidebar({ isOpen, onClose }) {
                 </button>
                 {showItems && (
                   <div className="sidebar-section-items">
-                    {section.id === 'system' && (
-                      <a
-                        href={apiUrl('/swagger/index.html')}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="nav-item"
-                        title={collapsed ? t('items.api') : undefined}
-                      >
-                        <i className="fas fa-code nav-icon" />
-                        <span className="nav-label">{t('items.api')}</span>
-                        <i className="fas fa-external-link-alt nav-external" />
-                      </a>
-                    )}
                     {visibleItems.map(item => (
                       <NavItem key={item.path} item={item} onClose={onClose} collapsed={collapsed} />
                     ))}
                   </div>
                 )}
+              </div>
+            )
+          })}
+
+          {/* Console tiers (Build, Operate): a single entry that opens a
+              secondary rail. Hidden when the viewer can see none of its items. */}
+          {consoles.map(config => {
+            const target = firstVisiblePath(config, auth)
+            if (!target) return null
+            const active = consolePaths(config).some(p => location.pathname.startsWith(p))
+            const label = t(config.titleKey)
+            return (
+              <div key={config.id} className="sidebar-section">
+                <NavLink
+                  to={target}
+                  className={() => `nav-item ${active ? 'active' : ''}`}
+                  onClick={onClose}
+                  onMouseEnter={() => preloadRoute(target)}
+                  onFocus={() => preloadRoute(target)}
+                  onTouchStart={() => preloadRoute(target)}
+                  title={collapsed ? label : undefined}
+                >
+                  <i className={`${config.icon} nav-icon`} />
+                  <span className="nav-label">{label}</span>
+                </NavLink>
               </div>
             )
           })}
@@ -296,6 +262,9 @@ export default function Sidebar({ isOpen, onClose }) {
               <button
                 className="sidebar-user-link"
                 onClick={() => { navigate('/app/account'); onClose?.() }}
+                onMouseEnter={() => preloadRoute('/app/account')}
+                onFocus={() => preloadRoute('/app/account')}
+                onTouchStart={() => preloadRoute('/app/account')}
                 title={t('accountSettings')}
               >
                 {user.avatarUrl ? (

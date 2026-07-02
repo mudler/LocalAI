@@ -6,6 +6,8 @@ icon = "hub"
 description = "Learn how to install, configure, and manage models in LocalAI"
 +++
 
+![Model resolution: many sources converge on one resolve, auto-detect backend, load, and serve path](/images/diagrams/model-resolution.png)
+
 This section covers everything you need to know about installing and configuring models in LocalAI. You'll learn multiple methods to get models running.
 
 ## Prerequisites
@@ -128,6 +130,10 @@ local-ai run ollama://gemma:2b
 ```bash
 local-ai run oci://localai/phi-2:latest
 ```
+
+{{% notice note %}}
+When pulling models from Ollama or OCI registries, LocalAI identifies itself with a `LocalAI/<version>` `User-Agent` header so registry operators can attribute usage to LocalAI.
+{{% /notice %}}
 
 ### Run Models via URI
 

@@ -95,6 +95,7 @@ export const API_CONFIG = {
 
     modelsList: '/v1/models',
     modelsCapabilities: '/api/models/capabilities',
+    modelsAliases: '/api/aliases',
 
     // Realtime / WebRTC
     realtimeCalls: '/v1/realtime/calls',
@@ -143,6 +144,7 @@ export const API_CONFIG = {
     nodeLabelKey: (id, key) => `/api/nodes/${id}/labels/${key}`,
     nodeMaxReplicasPerModel: (id) => `/api/nodes/${id}/max-replicas-per-model`,
     nodesScheduling: '/api/nodes/scheduling',
+    nodesModels: '/api/nodes/models',
     nodesSchedulingModel: (model) => `/api/nodes/scheduling/${encodeURIComponent(model)}`,
   },
 }

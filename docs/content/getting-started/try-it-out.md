@@ -20,7 +20,29 @@ With the CLI you can list the models with `local-ai models list` and install the
 You can also [run models manually]({{%relref "getting-started/models" %}}) by copying files into the `models` directory.
  {{% /notice %}}
 
-You can test out the API endpoints using `curl`, few examples are listed below. The models we are referring here (`gpt-4`, `gpt-4-vision-preview`, `tts-1`, `whisper-1`) are examples - replace them with the model names you have installed.
+You can test chat models from the CLI without keeping a separate `curl` command around:
+
+```bash
+# Terminal 1
+local-ai run
+
+# Terminal 2
+local-ai chat --model gpt-4
+```
+
+`local-ai chat` connects to a running LocalAI server, opens an interactive chat prompt, and exits when you type `/exit`, `/quit`, or `/bye`. Use `/models` to list installed models, `/model <name>` to switch models, and `/clear` to reset the current conversation. If the server exposes exactly one model, LocalAI uses that model automatically:
+
+```bash
+# Terminal 1
+local-ai run llama-3.2-1b-instruct:q4_k_m
+
+# Terminal 2
+local-ai chat
+```
+
+When more than one model is configured, pass `--model` with the installed model name to avoid ambiguity. Use `--endpoint` to connect to a non-default server, for example `local-ai chat --endpoint http://127.0.0.1:8081 --model gpt-4`.
+
+You can also test out the API endpoints using `curl`, few examples are listed below. The models we are referring here (`gpt-4`, `gpt-4-vision-preview`, `tts-1`, `whisper-1`) are examples - replace them with the model names you have installed.
 
 ### Text Generation
 

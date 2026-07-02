@@ -6,6 +6,19 @@
   },
   "resourceGpu": "GPU",
   "resourceRam": "RAM",
+  "greeting": {
+    "morning": "Good morning",
+    "afternoon": "Good afternoon",
+    "evening": "Good evening",
+    "night": "Working late"
+  },
+  "statusLine": {
+    "modelsLoaded_one": "{{count}} model loaded",
+    "modelsLoaded_other": "{{count}} models loaded",
+    "noModelsLoaded": "No models loaded",
+    "nodes_one": "{{count}} node",
+    "nodes_other": "{{count}} nodes"
+  },
   "assistant": {
     "title": "Administra LocalAI chateando",
     "description": "Instala modelos, cambia backends, edita configuraciones y consulta el estado hablando con LocalAI.",
@@ -30,6 +43,7 @@
     "documentation": "Documentación"
   },
   "loadedModels": {
+    "heading": "Modelos activos",
     "count_one": "{{count}} modelo cargado",
     "count_other": "{{count}} modelos cargados",
     "stop": "Detener modelo",
@@ -62,5 +76,17 @@
     "docs": "Documentación",
     "noModelsTitle": "No hay modelos disponibles",
     "noModelsBody": "No hay modelos instalados aún. Pídele a tu administrador que configure modelos para que puedas empezar a chatear."
+  },
+  "connect": {
+    "title": "Un endpoint, todas las APIs",
+    "subtitle": "LocalAI ofrece su propia API completa: generación de imágenes y vídeo, profundidad, detección de objetos, reranking, audio, reconocimiento facial y de voz, y voz en tiempo real por WebRTC y WebSocket. Además, una capa de compatibilidad directa permite que cualquier app creada para OpenAI, Anthropic, Ollama u OpenAI Responses funcione sin cambios.",
+    "nativeTitle": "API nativa",
+    "compatTitle": "Compatibilidad directa",
+    "apiReference": "Referencia completa de la API",
+    "copy": "Copiar",
+    "copied": "Copiado",
+    "browse": "Browse the API",
+    "hide": "Hide endpoints",
+    "dismiss": "Dismiss"
   }
 }

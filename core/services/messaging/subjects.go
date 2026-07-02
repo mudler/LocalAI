@@ -64,6 +64,22 @@ func SubjectGalleryProgress(opID string) string {
 	return subjectGalleryPrefix + sanitizeSubjectToken(opID) + ".progress"
 }
 
+// SubjectStagingProgress returns the NATS subject a frontend replica publishes
+// file-staging progress on. Staging progress is otherwise per-process state
+// (the SmartRouter's in-memory StagingTracker), so without this broadcast a
+// /api/operations poll that round-robins onto a replica that did not originate
+// the staging op sees nothing - the progress row flickers in multi-replica
+// deployments. Peers subscribe to the wildcard and merge.
+func SubjectStagingProgress(modelID string) string {
+	return subjectStagingPrefix + sanitizeSubjectToken(modelID) + ".progress"
+}
+
+const subjectStagingPrefix = "staging."
+
+// SubjectStagingProgressWildcard matches every replica's staging-progress
+// broadcasts so a peer can mirror staging ops it did not originate.
+const SubjectStagingProgressWildcard = "staging.*.progress"
+
 // SubjectGalleryOpStart and SubjectGalleryOpEnd are broadcast subjects for the
 // in-memory OpCache lifecycle. Frontend replicas publish to these when an
 // admin admits a new install/delete (Start) and when an operation is
@@ -194,6 +210,14 @@ type BackendUpgradeRequest struct {
 	// but the field lets future per-replica metadata (e.g. progress reporting
 	// scoped to a slot) ride the same wire without a v3 type.
 	ReplicaIndex int32 `json:"replica_index,omitempty"`
+	// OpID identifies the admin-side operation. When non-empty the worker
+	// publishes BackendInstallProgressEvent values to
+	// SubjectNodeBackendInstallProgress(nodeID, OpID) while the force-reinstall
+	// runs, so the master can stream per-node progress for upgrades exactly as
+	// it already does for installs (an upgrade IS a force-reinstall, so the
+	// install-progress subject is reused rather than minting a new one — no new
+	// NATS permission or rolling-update compat surface). Empty on legacy callers.
+	OpID string `json:"op_id,omitempty"`
 }
 
 // BackendUpgradeReply mirrors BackendInstallReply minus Address — upgrade does
@@ -354,4 +378,50 @@ type CacheInvalidateEvent struct {
 // SubjectCacheInvalidateCollection returns the NATS subject for collection cache invalidation.
 func SubjectCacheInvalidateCollection(name string) string {
 	return "cache.invalidate.collections." + sanitizeSubjectToken(name)
+}
+
+// SyncedMap State Sync (Pub/Sub — broadcast to all frontends)
+//
+// The reusable syncstate.SyncedMap component publishes a {op,key,value} delta on
+// this subject whenever a replica mutates a piece of cross-replica in-memory
+// state. Peers subscribe and apply the delta to their own map, so a round-robin
+// API request that lands on a replica which did not originate the change still
+// sees it. Convergence on (re)connect is done by re-hydrating from the durable
+// source, so no request/reply snapshot subject is needed here.
+func SubjectSyncStateDelta(name string) string {
+	return subjectSyncStatePrefix + sanitizeSubjectToken(name) + ".delta"
+}
+
+const subjectSyncStatePrefix = "state."
+
+// Prefix-Cache Routing Sync (Pub/Sub - broadcast to all frontends)
+//
+// Frontends share prefix-cache observations so a request routed to any replica
+// benefits from the prefix-affinity another replica already learned. This
+// mirrors the OpCache live-sync pattern: plain NATS Core pub/sub, no JetStream.
+const (
+	SubjectPrefixCacheObserve    = "prefixcache.observe"
+	SubjectPrefixCacheInvalidate = "prefixcache.invalidate"
+)
+
+// PrefixCacheObserveEvent announces that the replica (NodeID, Replica) served a
+// request whose prefix chain ends at the given hashes for model. Chain is the
+// full shallow-to-deep hash chain so peers can insert the same path. Affinity is
+// per replica (a backend process with its own KV cache), not per node, so the
+// replica index is carried so peers attribute the observation to the same one.
+type PrefixCacheObserveEvent struct {
+	Model   string   `json:"model"`
+	Chain   []uint64 `json:"chain"`
+	NodeID  string   `json:"node_id"`
+	Replica int      `json:"replica"`
+}
+
+// PrefixCacheInvalidateEvent tells peers to drop entries for a replica. When
+// Replica >= 0 it targets the single replica (Model, NodeID, Replica). When
+// Replica < 0 it targets ALL replicas of (Model, NodeID), for example when a
+// whole node goes offline.
+type PrefixCacheInvalidateEvent struct {
+	Model   string `json:"model"`
+	NodeID  string `json:"node_id"`
+	Replica int    `json:"replica"`
 }

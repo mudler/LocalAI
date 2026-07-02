@@ -281,6 +281,13 @@ definitions:
           type: string
         type: array
     type: object
+  localai.AliasInfo:
+    properties:
+      name:
+        type: string
+      target:
+        type: string
+    type: object
   localai.BrandingResponse:
     properties:
       favicon_url:
@@ -296,6 +303,12 @@ definitions:
     type: object
   localai.GalleryBackend:
     properties:
+      force:
+        description: |-
+          Force reinstalls the backend even when it is already installed and
+          runnable. Off by default so apply stays idempotent for supervising
+          apps that ensure their backend on every boot.
+        type: boolean
       id:
         type: string
     type: object
@@ -413,6 +426,38 @@ definitions:
       vram_bytes:
         type: integer
       vram_display:
+        type: string
+    type: object
+  nodes.NodeModel:
+    properties:
+      address:
+        description: gRPC address for this replica's backend process
+        type: string
+      backend_type:
+        description: e.g. "llama-cpp"; used by reconciler to replicate loads
+        type: string
+      created_at:
+        type: string
+      id:
+        type: string
+      in_flight:
+        description: number of active requests on this replica
+        type: integer
+      last_used:
+        type: string
+      loading_by:
+        description: frontend ID that triggered loading
+        type: string
+      model_name:
+        type: string
+      node_id:
+        type: string
+      replica_index:
+        type: integer
+      state:
+        description: loading, loaded, unloading, idle
+        type: string
+      updated_at:
         type: string
     type: object
   proto.MemoryUsageData:
@@ -593,6 +638,91 @@ definitions:
         $ref: '#/definitions/schema.Message'
       text:
         type: string
+    type: object
+  schema.DepthRequest:
+    properties:
+      dst:
+        description: optional output directory for exports (glb/colmap)
+        type: string
+      exports:
+        description: 'requested exports: "glb", "colmap"'
+        items:
+          type: string
+        type: array
+      image:
+        description: URL or base64-encoded image to analyze
+        type: string
+      include_confidence:
+        description: return the per-pixel confidence map (DualDPT)
+        type: boolean
+      include_depth:
+        description: return the per-pixel depth map
+        type: boolean
+      include_points:
+        description: back-project to a 3D point cloud (DualDPT)
+        type: boolean
+      include_pose:
+        description: return camera extrinsics/intrinsics (DualDPT)
+        type: boolean
+      include_sky:
+        description: return the per-pixel sky map (mono models)
+        type: boolean
+      model:
+        type: string
+      points_conf_thresh:
+        description: keep points with confidence >= this threshold
+        type: number
+    type: object
+  schema.DepthResponse:
+    properties:
+      confidence:
+        description: width*height row-major confidence (DualDPT)
+        items:
+          type: number
+        type: array
+      depth:
+        description: width*height row-major metric depth
+        items:
+          type: number
+        type: array
+      export_paths:
+        description: paths written for the requested exports
+        items:
+          type: string
+        type: array
+      extrinsics:
+        description: 12 floats, 3x4 row-major (world-to-camera)
+        items:
+          type: number
+        type: array
+      height:
+        type: integer
+      intrinsics:
+        description: 9 floats, 3x3 row-major
+        items:
+          type: number
+        type: array
+      is_metric:
+        description: depth is in metric units
+        type: boolean
+      num_points:
+        description: number of 3D points
+        type: integer
+      point_colors:
+        description: base64-encoded num_points*3 uint8 rgb
+        type: string
+      points:
+        description: num_points*3 xyz, world space
+        items:
+          type: number
+        type: array
+      sky:
+        description: width*height row-major sky map (mono)
+        items:
+          type: number
+        type: array
+      width:
+        type: integer
     type: object
   schema.Detection:
     properties:
@@ -1865,44 +1995,75 @@ definitions:
           $ref: '#/definitions/schema.NodeData'
         type: array
     type: object
-  schema.PIIDecideRequest:
+  schema.PIIAnalyzeRequest:
     properties:
-      text:
-        description: Text is the user-visible content to inspect. Required.
-        type: string
-    type: object
-  schema.PIIDecideResponse:
-    properties:
-      findings:
+      detectors:
         description: |-
-          Findings is one entry per matched span — pattern id, byte
-          range, and audit-safe hash prefix (never the matched value).
+          Detectors names the detector models to run (NER and/or pattern). Takes
+          precedence over Model.
         items:
-          $ref: '#/definitions/schema.PIIFinding'
+          type: string
         type: array
-      redacted_preview:
+      model:
         description: |-
-          RedactedPreview is the input with mask-action spans replaced
-          by their placeholders. Identical to Text when no findings or
-          when the strongest action is block/route_local (which don't
-          rewrite content).
+          Model is a consuming model whose effective PII policy (own
+          pii.detectors, else the instance default detectors; PII must be
+          enabled) is used when Detectors is empty.
         type: string
-      suggested_action:
+      reveal:
         description: |-
-          SuggestedAction is the strongest action across all findings:
-          "block", "route_local", "mask", or "allow" (no findings).
+          Reveal includes the per-entity hash_prefix in the response. Honoured
+          only for admin callers; ignored otherwise. The raw matched value is
+          never returned regardless.
+        type: boolean
+      text:
+        description: |-
+          Text is the string to scan. Bounded only by the server's global HTTP
+          body limit.
         type: string
     type: object
-  schema.PIIFinding:
+  schema.PIIAnalyzeResponse:
     properties:
+      blocked:
+        type: boolean
+      correlation_id:
+        type: string
+      entities:
+        items:
+          $ref: '#/definitions/schema.PIIEntity'
+        type: array
+    type: object
+  schema.PIIEntity:
+    properties:
+      action:
+        type: string
       end:
         type: integer
+      entity_type:
+        type: string
       hash_prefix:
         type: string
-      pattern:
+      score:
+        type: number
+      source:
         type: string
       start:
         type: integer
+    type: object
+  schema.PIIRedactResponse:
+    properties:
+      blocked:
+        type: boolean
+      correlation_id:
+        type: string
+      entities:
+        items:
+          $ref: '#/definitions/schema.PIIEntity'
+        type: array
+      masked:
+        type: boolean
+      redacted_text:
+        type: string
     type: object
   schema.RouterDecideRequest:
     properties:
@@ -1964,6 +2125,24 @@ definitions:
           classifier-side confidence signal).
         type: number
     type: object
+  schema.SoundClassification:
+    properties:
+      index:
+        type: integer
+      label:
+        type: string
+      score:
+        type: number
+    type: object
+  schema.SoundClassificationResult:
+    properties:
+      detections:
+        items:
+          $ref: '#/definitions/schema.SoundClassification'
+        type: array
+      model:
+        type: string
+    type: object
   schema.StreamOptions:
     properties:
       include_usage:
@@ -1996,11 +2175,25 @@ definitions:
       input:
         description: text input
         type: string
+      instructions:
+        description: |-
+          Instructions is a free-form, per-request style/voice description. It maps to
+          the OpenAI `instructions` field and is forwarded to the backend so expressive
+          TTS models (e.g. Qwen3-TTS CustomVoice/VoiceDesign) can vary tone or designed
+          voice per request instead of only via the static YAML option.
+        type: string
       language:
         description: (optional) language to use with TTS model
         type: string
       model:
         type: string
+      params:
+        additionalProperties:
+          type: string
+        description: |-
+          Params carries optional, backend-specific per-request generation parameters
+          (LocalAI extension, e.g. Chatterbox exaggeration/cfg_weight/temperature).
+        type: object
       response_format:
         description: (optional) output format
         type: string
@@ -2650,6 +2843,18 @@ paths:
       summary: Execute an agent task by name
       tags:
       - agent-jobs
+  /api/aliases:
+    get:
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/localai.AliasInfo'
+            type: array
+      summary: List model aliases
+      tags:
+      - models
   /api/backend-logs:
     get:
       description: Returns a sorted list of model IDs that have captured backend process
@@ -3054,6 +3259,18 @@ paths:
       summary: Update a node's max replicas per model
       tags:
       - Nodes
+  /api/nodes/models:
+    get:
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/nodes.NodeModel'
+            type: array
+      summary: List all loaded models cluster-wide
+      tags:
+      - Nodes
   /api/p2p:
     get:
       responses:
@@ -3076,32 +3293,54 @@ paths:
       summary: Show the P2P token
       tags:
       - p2p
-  /api/pii/decide:
+  /api/pii/analyze:
     post:
-      consumes:
-      - application/json
+      description: 'Runs the configured PII detectors (NER and/or pattern tiers) over
+        the supplied text and returns the matched entity spans with the policy action
+        that would fire. Detection only — the text is not modified and no block is
+        enforced. Select detectors explicitly via `detectors`, or pass a consuming
+        `model` to use its effective policy: the model''s own `pii.detectors`, else
+        the instance-wide `pii_default_detectors`. A model with PII disabled, or enabled
+        with nothing to scan with, is a 400. The raw matched value is never returned;
+        admins may set `reveal:true` for the audit hash prefix.'
       parameters:
-      - description: decide params
+      - description: text + detector selection
         in: body
         name: request
         required: true
         schema:
-          $ref: '#/definitions/schema.PIIDecideRequest'
-      produces:
-      - application/json
+          $ref: '#/definitions/schema.PIIAnalyzeRequest'
       responses:
         "200":
-          description: OK
+          description: Detected entities
           schema:
-            $ref: '#/definitions/schema.PIIDecideResponse'
-        "400":
-          description: Bad Request
+            $ref: '#/definitions/schema.PIIAnalyzeResponse'
+      summary: Detect PII entities in a string (no mutation).
+      tags:
+      - pii
+  /api/pii/redact:
+    post:
+      description: 'Runs the configured PII detectors over the text and applies each
+        detector model''s policy: masked spans are replaced with `[REDACTED:<id>]`,
+        allow spans pass through, and a single block action causes a 400 (type `pii_blocked`)
+        carrying the offending entities — the text is never returned in that case.
+        Select detectors via `detectors`, or a consuming `model`''s effective policy
+        (its own `pii.detectors`, else the instance-wide `pii_default_detectors`;
+        PII must be enabled on the model). Records audit events (origin `pii_redact`)
+        visible at /api/pii/events.'
+      parameters:
+      - description: text + detector selection
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/schema.PIIAnalyzeRequest'
+      responses:
+        "200":
+          description: Redacted text + entities
           schema:
-            additionalProperties:
-              type: string
-            type: object
-      summary: Scan text for PII and return findings + suggested action (decision
-        oracle)
+            $ref: '#/definitions/schema.PIIRedactResponse'
+      summary: Redact PII in a string by applying the configured policy.
       tags:
       - pii
   /api/router/decide:
@@ -3599,6 +3838,37 @@ paths:
       summary: Generates audio from the input text.
       tags:
       - audio
+  /v1/audio/classification:
+    post:
+      consumes:
+      - multipart/form-data
+      parameters:
+      - description: model
+        in: formData
+        name: model
+        required: true
+        type: string
+      - description: audio file
+        in: formData
+        name: file
+        required: true
+        type: file
+      - description: number of top tags to return (0 = backend default)
+        in: formData
+        name: top_k
+        type: integer
+      - description: drop tags scoring below this value
+        in: formData
+        name: threshold
+        type: number
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/schema.SoundClassificationResult'
+      summary: Classify sound events in audio (audio tagging).
+      tags:
+      - audio
   /v1/audio/diarization:
     post:
       consumes:
@@ -3754,6 +4024,23 @@ paths:
       summary: Generate completions for a given prompt and model.
       tags:
       - inference
+  /v1/depth:
+    post:
+      parameters:
+      - description: query params
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/schema.DepthRequest'
+      responses:
+        "200":
+          description: Response
+          schema:
+            $ref: '#/definitions/schema.DepthResponse'
+      summary: Estimates per-pixel depth (and optionally pose/points) from an image.
+      tags:
+      - depth
   /v1/detection:
     post:
       parameters:

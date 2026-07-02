@@ -5,6 +5,8 @@ weight = 21
 url = '/features/agents'
 +++
 
+![The in-process agent loop: agents call LocalAI's own chat API in a loop, streaming progress over SSE](/images/diagrams/agents-loop.png)
+
 LocalAI includes a built-in agent platform powered by [LocalAGI](https://github.com/mudler/LocalAGI). Agents are autonomous AI entities that can reason, use tools, maintain memory, and interact with external services — all running locally as part of the LocalAI process.
 
 ## Overview
@@ -83,6 +85,18 @@ LOCALAI_AGENT_POOL_DATABASE_URL=postgresql://localrecall:localrecall@postgres:54
 ```
 
 The PostgreSQL image `quay.io/mudler/localrecall:v0.5.2-postgresql` is pre-configured with pgvector and ready to use.
+
+#### Connection safety timeouts (PostgreSQL only)
+
+The embedded vector store sets per-connection timeouts so a single stuck or corrupt index can never hold a lock indefinitely and stall every other collection operation. Safe defaults are applied automatically — you only need to set these to override them:
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `POSTGRES_LOCK_TIMEOUT` | `30s` | Bounds how long a statement waits to acquire a lock, so queued statements fail fast instead of piling up. Set `0`/`off` to disable. |
+| `POSTGRES_IDLE_IN_TRANSACTION_TIMEOUT` | `300s` | Reaps abandoned transactions that would otherwise pin locks. Set `0`/`off` to disable. |
+| `POSTGRES_STATEMENT_TIMEOUT` | _(unset)_ | Bounds total statement runtime, auto-aborting a wedged query. Off by default since a large vector index build can exceed any fixed limit; index builds are exempted, so it is safe to enable. |
+
+These are read directly from the LocalAI process environment by the embedded store (the same as `DATABASE_URL` and `HYBRID_SEARCH_*`).
 
 ### Docker Compose Example
 

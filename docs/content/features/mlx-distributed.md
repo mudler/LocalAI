@@ -5,6 +5,8 @@ weight = 18
 url = '/features/mlx-distributed/'
 +++
 
+![MLX pipeline-parallel inference: layers split across ranks, rank 0 coordinates, activations flow down the ring](/images/diagrams/mlx-pipeline.png)
+
 MLX distributed inference allows you to split large language models across multiple Apple Silicon Macs (or other devices) for joint inference. Unlike federation (which distributes whole requests), MLX distributed splits a single model's layers across machines so they all participate in every forward pass.
 
 ## How It Works

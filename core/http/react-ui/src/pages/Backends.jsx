@@ -7,6 +7,7 @@ import React from 'react'
 import { useOperations } from '../hooks/useOperations'
 import { useDistributedMode } from '../hooks/useDistributedMode'
 import LoadingSpinner from '../components/LoadingSpinner'
+import PageHeader from '../components/PageHeader'
 import { renderMarkdown } from '../utils/markdown'
 import { safeHref } from '../utils/url'
 import ConfirmDialog from '../components/ConfirmDialog'
@@ -348,11 +349,10 @@ export default function Backends() {
       )}
 
       {/* Header */}
-      <div className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-        <div>
-          <h1 className="page-title">{t('backends.title')}</h1>
-          <p className="page-subtitle">{t('backends.subtitle')}</p>
-        </div>
+      <PageHeader
+        title={t('backends.title')}
+        supporting={t('backends.subtitle')}
+        actions={
         <div style={{ display: 'flex', gap: 'var(--spacing-md)', alignItems: 'center' }}>
           <div style={{ display: 'flex', gap: 'var(--spacing-md)', fontSize: '0.8125rem' }}>
             <div style={{ textAlign: 'center' }}>
@@ -378,7 +378,8 @@ export default function Backends() {
             <i className="fas fa-book" /> Docs
           </a>
         </div>
-      </div>
+        }
+      />
 
       {/* Upgrade Banner */}
       {Object.keys(upgrades).length > 0 && (
@@ -506,7 +507,10 @@ export default function Backends() {
             <tbody>
               {backends.map((b, idx) => {
                 const op = getBackendOp(b)
-                const isProcessing = !!op
+                // A failed op is intentionally kept in the operations list so the
+                // OperationsBar can surface the error + Dismiss; it must NOT render
+                // as a perpetual "Installing..." spinner here (mirrors Models.jsx).
+                const isProcessing = !!op && !op.error
                 const isExpanded = expandedRow === idx
 
                 return (

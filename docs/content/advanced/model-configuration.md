@@ -412,8 +412,61 @@ These load-time options control how the backend parses `<think>` reasoning block
 | `prefill_assistant` | bool | `true` | When `false`, the trailing assistant message is not pre-filled by the chat template. |
 
 {{% notice note %}}
-This is the load-time reasoning configuration. The orthogonal per-request `enable_thinking` chat-template kwarg (set via the YAML `reasoning.disable` field) toggles thinking on/off per call without restarting the model.
+This is the load-time reasoning configuration. The orthogonal per-request `enable_thinking` chat-template kwarg toggles thinking on/off per call without restarting the model. It can be driven either by the YAML `reasoning.disable` field (model default) or per request via the OpenAI `reasoning_effort` field on `/v1/chat/completions`:
+
+- `reasoning_effort: "none"` disables thinking for that request (`enable_thinking=false`) - useful to run a single reasoning model like Qwen3 for low-latency tasks while still enabling reasoning on other requests.
+- `reasoning_effort: "minimal" | "low" | "medium" | "high"` enables thinking, unless the model config explicitly set `reasoning.disable: true` (an operator's explicit disable wins and is never re-enabled by a request).
 {{% /notice %}}
+
+#### `reasoning_effort` as a chat-template kwarg
+
+`reasoning_effort` is also forwarded to the backend as a `chat_template_kwarg`, so models whose **jinja chat template** keys on it — e.g. gpt-oss (Harmony) or LFM2.5 — honor the **level**, not just the on/off `enable_thinking` flag. This matters for models that ignore `enable_thinking` entirely (LFM2.5 keeps emitting `<think>` for `enable_thinking=false`, but respects `reasoning_effort`).
+
+Set a per-model default in the config so every request inherits it (a per-request `reasoning_effort` still overrides):
+
+```yaml
+name: my-model
+reasoning_effort: none   # none | minimal | low | medium | high
+```
+
+For [realtime pipelines]({{%relref "features/openai-realtime" %}}), set it on the pipeline so it applies to the pipeline's LLM without editing that model's own config:
+
+```yaml
+name: gpt-realtime
+pipeline:
+  llm: lfm2.5
+  reasoning_effort: none   # overrides the LLM model's own reasoning_effort
+```
+
+#### Custom `chat_template_kwargs`
+
+Some jinja chat templates expose extra variables beyond `enable_thinking` /
+`reasoning_effort` (for example Qwen3's `preserve_thinking`). Set arbitrary key/values in
+the model config and they are forwarded to the backend's `chat_template_kwargs` as-is, so
+you don't need a dedicated server option per template variable:
+
+```yaml
+name: qwen3
+chat_template_kwargs:
+  preserve_thinking: true
+```
+
+You can also override (or add) any of these per request through the OpenAI `metadata`
+field on `/v1/chat/completions`. Values are strings; `"true"` / `"false"` are coerced to
+booleans, anything else is passed through as a string:
+
+```json
+{
+  "model": "qwen3",
+  "messages": [{"role": "user", "content": "hi"}],
+  "metadata": { "preserve_thinking": "true", "enable_thinking": "false" }
+}
+```
+
+Per-request `metadata` overrides the model config defaults and the reasoning-config levers,
+and (for `enable_thinking` / `reasoning_effort`) takes effect across every backend that
+reads them, not just llama.cpp. Typed (non-boolean) values are only supported through the
+model YAML `chat_template_kwargs`, where YAML preserves the type.
 
 ### Multimodal Backend Options
 
@@ -441,6 +494,39 @@ These llama.cpp options are passed through the `options:` array.
 | `direct_io` / `use_direct_io` | bool | `false` | Open the model with `O_DIRECT` (faster cold loads on NVMe; ignored if not supported). |
 | `verbosity` | int | `3` | llama.cpp internal log verbosity threshold. Higher = more verbose. |
 | `override_tensor` / `tensor_buft_overrides` | string | "" | Per-tensor buffer-type overrides for the main model. Format: `<tensor regex>=<buffer type>,<tensor regex>=<buffer type>,...`. Mirrors the existing `draft_override_tensor` syntax for the draft model. |
+| `cpu_moe` | bool | false | Keep all MoE expert weights of the main model on CPU (upstream `--cpu-moe`). Frees VRAM on large MoE models (DeepSeek, Qwen3 `*-A3B`). |
+| `n_cpu_moe` | int | 0 | Keep MoE expert weights of the first N main-model layers on CPU (upstream `--n-cpu-moe`). |
+
+#### Generic option passthrough
+
+Any `options:` entry whose name starts with `-` is forwarded **verbatim** to
+upstream llama.cpp's own `llama-server` argument parser. This means any flag the
+bundled llama.cpp supports works without LocalAI needing a dedicated option,
+even ones added after your LocalAI version was built. See the upstream
+[server flags reference](https://github.com/ggml-org/llama.cpp/blob/master/tools/server/README.md).
+
+Format mirrors the rest of the array - `--flag` for a boolean, or `--flag:value`
+for a flag that takes a value. Everything after the first `:` is the value, so
+embedded colons (e.g. `host:port`) are preserved:
+
+```yaml
+options:
+  - "--cpu-moe"                 # boolean flag
+  - "--n-cpu-moe:4"             # flag with a value
+  - "--override-tensor:exps=CPU"
+```
+
+Notes:
+
+- **Precedence:** passthrough flags are applied last, so an explicit flag
+  overrides the LocalAI option it maps to (e.g. `--ctx-size:8192` overrides
+  `context_size`).
+- **Power-user territory:** an invalid flag or value is rejected by the upstream
+  parser exactly as it would be by `llama-server`, which can fail model loading.
+  Prefer the named options above when one exists.
+- Flags that would terminate the process (such as `--help`, `--usage`,
+  `--version`, `--license`, `--list-devices`, `--cache-list`, and
+  `--completion*`) are ignored.
 
 ### Prompt Caching
 
@@ -784,6 +870,44 @@ known_usecases:
 ```
 
 Available flags: `chat`, `completion`, `edit`, `embeddings`, `rerank`, `image`, `transcript`, `tts`, `sound_generation`, `tokenize`, `vad`, `video`, `detection`, `llm` (combination of CHAT, COMPLETION, EDIT).
+
+`token_classify` marks a model as a token-classification (NER) provider for the PII filter (e.g. an `openai-privacy-filter` GGUF). Declare it explicitly together with `embeddings: true` (the classifier loads via TOKEN_CLS pooling). It runs on the dedicated `privacy-filter` backend (`backend/cpp/privacy-filter`), a standalone GGML engine for the `openai-privacy-filter` family — separate from `llama-cpp`, which no longer carries the token-classification path.
+
+## PII filtering
+
+PII redaction is NER-based and runs on the **request** (input) side. It has two halves:
+
+- **Detector models** are `token_classify` models that carry the detection *policy* in a top-level `pii_detection:` block. The policy is defined once, on the model itself:
+
+  ```yaml
+  name: privacy-filter-multilingual
+  backend: llama-cpp
+  embeddings: true
+  known_usecases:
+    - token_classify
+  pii_detection:
+    min_score: 0.5            # drop detections below this confidence
+    default_action: mask      # mask | block | allow — applied to any detected
+                              # group with no explicit entry (empty = mask)
+    entity_actions:           # which PII to block vs mask vs allow-log
+      PASSWORD: block
+      CREDITCARD: block
+      EMAIL: mask
+  ```
+
+- **Consuming models** opt in and reference one or more detectors by name — no per-consumer policy:
+
+  ```yaml
+  name: my-assistant
+  pii:
+    enabled: true             # default: off for local backends, on for cloud-proxy
+    detectors:
+      - privacy-filter-multilingual
+  ```
+
+Multiple detectors union their detections; overlapping spans resolve to the strongest action (`block` > `mask` > `allow`). A configured detector that can't be loaded fails the request closed (HTTP 503) rather than silently skipping the check. Detections are audited at `/api/pii/events` (hash-prefix only, never the raw value).
+
+> The earlier regex pattern tier (`pii.patterns`, the global pattern catalogue, `--pii-config`, and the `/api/pii/patterns` admin endpoints) has been removed, along with response/streaming-side redaction. Those keys now no-op with a startup warning; migrate to `pii.detectors` + a detector's `pii_detection` block.
 
 ## Complete Example
 

@@ -34,12 +34,26 @@ func llamaCppDefaults(cfg *ModelConfig, modelPath string) {
 	// Default context size if not set, regardless of whether GGUF parsing succeeds
 	defer func() {
 		if cfg.ContextSize == nil {
-			ctx := defaultContextSize
+			ctx := DefaultContextSize
 			cfg.ContextSize = &ctx
 		}
 	}()
 
-	f, err := gguf.ParseGGUFFile(guessPath)
+	// Startup parses every model's GGUF header to guess defaults. We only need
+	// scalar metadata (architecture, head/ff counts, chat_template, token IDs,
+	// MTP head) plus array *lengths* — never the array *contents*. Two options
+	// keep this cheap, which matters when many models live on slow storage such
+	// as a Docker volume (see https://github.com/mudler/LocalAI/issues/9790):
+	//
+	//   - SkipLargeMetadata: seek past large array-valued metadata (the tokenizer
+	//     vocab: tokenizer.ggml.tokens/scores/merges, often >100k entries) instead
+	//     of reading and allocating every element. Lengths stay populated.
+	//   - UseMMap: read the header via a memory map so faulting in a few pages
+	//     replaces hundreds of thousands of tiny read() syscalls (measured ~524k
+	//     -> 8 for a 256k-token vocab), the dominant cost on slow filesystems.
+	//
+	// The mapping is released when ParseGGUFFile returns.
+	f, err := gguf.ParseGGUFFile(guessPath, gguf.UseMMap(), gguf.SkipLargeMetadata())
 	if err == nil {
 		guessGGUFFromFile(cfg, f, 0)
 	}

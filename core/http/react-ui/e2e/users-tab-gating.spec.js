@@ -28,13 +28,12 @@ test.describe('Users tab — single-user no-auth mode', () => {
     )
   })
 
-  test('sidebar does not list Users entry', async ({ page }) => {
-    await page.goto('/app')
-    const systemSection = page.locator('button.sidebar-section-toggle', { hasText: 'System' })
-    await systemSection.click()
-    // The Users page link uses /app/users; if Sidebar's authOnly gate
-    // regresses (or someone removes the flag), this assertion fails.
-    const usersLink = page.locator('a.nav-item[href="/app/users"]')
+  test('console does not list Users entry without auth', async ({ page }) => {
+    // Users lives in the Operate console rail (authOnly gate). With auth off
+    // the rail must not list it. /app/backends is an admin console page,
+    // reachable because no-auth ⇒ isAdmin.
+    await page.goto('/app/backends')
+    const usersLink = page.locator('.console-rail a.nav-item[href="/app/users"]')
     await expect(usersLink).toHaveCount(0)
   })
 
@@ -64,11 +63,10 @@ test.describe('Users tab — auth on', () => {
     )
   })
 
-  test('sidebar lists Users entry when auth is on', async ({ page }) => {
-    await page.goto('/app')
-    const systemSection = page.locator('button.sidebar-section-toggle', { hasText: 'System' })
-    await systemSection.click()
-    const usersLink = page.locator('a.nav-item[href="/app/users"]')
+  test('console lists Users entry when auth is on', async ({ page }) => {
+    // With auth on and an admin viewer the console rail lists Users.
+    await page.goto('/app/backends')
+    const usersLink = page.locator('.console-rail a.nav-item[href="/app/users"]')
     await expect(usersLink).toBeVisible()
   })
 })

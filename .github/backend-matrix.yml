@@ -2,6 +2,28 @@
 # Matrix data for backend container image builds.
 # Consumed by scripts/changed-backends.js for both backend.yml and backend_pr.yml.
 # This file is NOT a workflow — it has no top-level 'on:' or 'jobs:'.
+#
+# OS / platform coverage — READ THIS WHEN ADDING A BACKEND
+# --------------------------------------------------------
+# This file is the source of truth for which OS each backend is built and
+# published for. A backend ships ONLY for the matrices it appears in:
+#   - Linux  -> the `include:` matrix below (x86_64 + arm64; CPU and
+#               CUDA / ROCm / SYCL / Vulkan variants).
+#   - macOS  -> the `includeDarwin:` matrix (Apple Silicon / arm64; Metal where
+#               the engine supports it, otherwise a native arm64 CPU build).
+#
+# New backends must target EVERY OS they can build for, not just Linux. A backend
+# listed only under `include:` is silently unavailable on macOS even when its code
+# would run there. Most C/C++/GGML engines build on Darwin (ggml defaults
+# GGML_METAL=ON on Apple, so a plain build is Metal-enabled), and many Python
+# backends do too (CPU / MPS). If a backend genuinely cannot support an OS, say so
+# in its PR description rather than silently omitting it.
+#
+# Adding a backend to `includeDarwin:` is more than one line — see the darwin
+# checklist in .agents/adding-backends.md (includeDarwin entry, the index.yaml
+# `metal:` capability + `metal-<backend>` image entries, a `run.sh` Darwin/DYLD
+# branch for C/C++ backends, and the inferBackendPathDarwin case in
+# scripts/changed-backends.js so the path filter actually builds it).
 
 # Linux matrix (consumed by backend-jobs).
 include:
@@ -708,11 +730,63 @@ include:
     cuda-minor-version: "8"
     platforms: 'linux/amd64'
     tag-latest: 'auto'
+    tag-suffix: '-gpu-nvidia-cuda-12-locate-anything-cpp'
+    runs-on: 'ubuntu-latest'
+    base-image: "ubuntu:24.04"
+    skip-drivers: 'false'
+    backend: "locate-anything-cpp"
+    dockerfile: "./backend/Dockerfile.golang"
+    context: "./"
+    ubuntu-version: '2404'
+  - build-type: 'cublas'
+    cuda-major-version: "12"
+    cuda-minor-version: "8"
+    platforms: 'linux/amd64'
+    tag-latest: 'auto'
+    tag-suffix: '-gpu-nvidia-cuda-12-depth-anything-cpp'
+    runs-on: 'ubuntu-latest'
+    base-image: "ubuntu:24.04"
+    skip-drivers: 'false'
+    backend: "depth-anything-cpp"
+    dockerfile: "./backend/Dockerfile.golang"
+    context: "./"
+    ubuntu-version: '2404'
+  - build-type: 'cublas'
+    cuda-major-version: "12"
+    cuda-minor-version: "8"
+    platforms: 'linux/amd64'
+    tag-latest: 'auto'
     tag-suffix: '-gpu-nvidia-cuda-12-whisper'
     runs-on: 'ubuntu-latest'
     base-image: "ubuntu:24.04"
     skip-drivers: 'false'
     backend: "whisper"
+    dockerfile: "./backend/Dockerfile.golang"
+    context: "./"
+    ubuntu-version: '2404'
+  - build-type: 'cublas'
+    cuda-major-version: "12"
+    cuda-minor-version: "8"
+    platforms: 'linux/amd64'
+    tag-latest: 'auto'
+    tag-suffix: '-gpu-nvidia-cuda-12-crispasr'
+    runs-on: 'ubuntu-latest'
+    base-image: "ubuntu:24.04"
+    skip-drivers: 'false'
+    backend: "crispasr"
+    dockerfile: "./backend/Dockerfile.golang"
+    context: "./"
+    ubuntu-version: '2404'
+  - build-type: 'cublas'
+    cuda-major-version: "12"
+    cuda-minor-version: "8"
+    platforms: 'linux/amd64'
+    tag-latest: 'auto'
+    tag-suffix: '-gpu-nvidia-cuda-12-parakeet-cpp'
+    runs-on: 'ubuntu-latest'
+    base-image: "ubuntu:24.04"
+    skip-drivers: 'false'
+    backend: "parakeet-cpp"
     dockerfile: "./backend/Dockerfile.golang"
     context: "./"
     ubuntu-version: '2404'
@@ -739,6 +813,19 @@ include:
     base-image: "ubuntu:24.04"
     skip-drivers: 'false'
     backend: "qwen3-tts-cpp"
+    dockerfile: "./backend/Dockerfile.golang"
+    context: "./"
+    ubuntu-version: '2404'
+  - build-type: 'cublas'
+    cuda-major-version: "12"
+    cuda-minor-version: "8"
+    platforms: 'linux/amd64'
+    tag-latest: 'auto'
+    tag-suffix: '-gpu-nvidia-cuda-12-omnivoice-cpp'
+    runs-on: 'ubuntu-latest'
+    base-image: "ubuntu:24.04"
+    skip-drivers: 'false'
+    backend: "omnivoice-cpp"
     dockerfile: "./backend/Dockerfile.golang"
     context: "./"
     ubuntu-version: '2404'
@@ -1520,6 +1607,32 @@ include:
   - build-type: 'cublas'
     cuda-major-version: "13"
     cuda-minor-version: "0"
+    platforms: 'linux/amd64'
+    tag-latest: 'auto'
+    tag-suffix: '-gpu-nvidia-cuda-13-locate-anything-cpp'
+    runs-on: 'ubuntu-latest'
+    base-image: "ubuntu:24.04"
+    skip-drivers: 'false'
+    backend: "locate-anything-cpp"
+    dockerfile: "./backend/Dockerfile.golang"
+    context: "./"
+    ubuntu-version: '2404'
+  - build-type: 'cublas'
+    cuda-major-version: "13"
+    cuda-minor-version: "0"
+    platforms: 'linux/amd64'
+    tag-latest: 'auto'
+    tag-suffix: '-gpu-nvidia-cuda-13-depth-anything-cpp'
+    runs-on: 'ubuntu-latest'
+    base-image: "ubuntu:24.04"
+    skip-drivers: 'false'
+    backend: "depth-anything-cpp"
+    dockerfile: "./backend/Dockerfile.golang"
+    context: "./"
+    ubuntu-version: '2404'
+  - build-type: 'cublas'
+    cuda-major-version: "13"
+    cuda-minor-version: "0"
     platforms: 'linux/arm64'
     skip-drivers: 'false'
     tag-latest: 'auto'
@@ -1546,6 +1659,32 @@ include:
   - build-type: 'cublas'
     cuda-major-version: "13"
     cuda-minor-version: "0"
+    platforms: 'linux/arm64'
+    skip-drivers: 'false'
+    tag-latest: 'auto'
+    tag-suffix: '-nvidia-l4t-cuda-13-arm64-locate-anything-cpp'
+    base-image: "ubuntu:24.04"
+    ubuntu-version: '2404'
+    runs-on: 'ubuntu-24.04-arm'
+    backend: "locate-anything-cpp"
+    dockerfile: "./backend/Dockerfile.golang"
+    context: "./"
+  - build-type: 'cublas'
+    cuda-major-version: "13"
+    cuda-minor-version: "0"
+    platforms: 'linux/arm64'
+    skip-drivers: 'false'
+    tag-latest: 'auto'
+    tag-suffix: '-nvidia-l4t-cuda-13-arm64-depth-anything-cpp'
+    base-image: "ubuntu:24.04"
+    ubuntu-version: '2404'
+    runs-on: 'ubuntu-24.04-arm'
+    backend: "depth-anything-cpp"
+    dockerfile: "./backend/Dockerfile.golang"
+    context: "./"
+  - build-type: 'cublas'
+    cuda-major-version: "13"
+    cuda-minor-version: "0"
     platforms: 'linux/amd64'
     tag-latest: 'auto'
     tag-suffix: '-gpu-nvidia-cuda-13-whisper'
@@ -1553,6 +1692,32 @@ include:
     base-image: "ubuntu:24.04"
     skip-drivers: 'false'
     backend: "whisper"
+    dockerfile: "./backend/Dockerfile.golang"
+    context: "./"
+    ubuntu-version: '2404'
+  - build-type: 'cublas'
+    cuda-major-version: "13"
+    cuda-minor-version: "0"
+    platforms: 'linux/amd64'
+    tag-latest: 'auto'
+    tag-suffix: '-gpu-nvidia-cuda-13-crispasr'
+    runs-on: 'ubuntu-latest'
+    base-image: "ubuntu:24.04"
+    skip-drivers: 'false'
+    backend: "crispasr"
+    dockerfile: "./backend/Dockerfile.golang"
+    context: "./"
+    ubuntu-version: '2404'
+  - build-type: 'cublas'
+    cuda-major-version: "13"
+    cuda-minor-version: "0"
+    platforms: 'linux/amd64'
+    tag-latest: 'auto'
+    tag-suffix: '-gpu-nvidia-cuda-13-parakeet-cpp'
+    runs-on: 'ubuntu-latest'
+    base-image: "ubuntu:24.04"
+    skip-drivers: 'false'
+    backend: "parakeet-cpp"
     dockerfile: "./backend/Dockerfile.golang"
     context: "./"
     ubuntu-version: '2404'
@@ -1567,6 +1732,32 @@ include:
     ubuntu-version: '2404'
     runs-on: 'ubuntu-24.04-arm'
     backend: "whisper"
+    dockerfile: "./backend/Dockerfile.golang"
+    context: "./"
+  - build-type: 'cublas'
+    cuda-major-version: "13"
+    cuda-minor-version: "0"
+    platforms: 'linux/arm64'
+    skip-drivers: 'false'
+    tag-latest: 'auto'
+    tag-suffix: '-nvidia-l4t-cuda-13-arm64-crispasr'
+    base-image: "ubuntu:24.04"
+    ubuntu-version: '2404'
+    runs-on: 'ubuntu-24.04-arm'
+    backend: "crispasr"
+    dockerfile: "./backend/Dockerfile.golang"
+    context: "./"
+  - build-type: 'cublas'
+    cuda-major-version: "13"
+    cuda-minor-version: "0"
+    platforms: 'linux/arm64'
+    skip-drivers: 'false'
+    tag-latest: 'auto'
+    tag-suffix: '-nvidia-l4t-cuda-13-arm64-parakeet-cpp'
+    base-image: "ubuntu:24.04"
+    ubuntu-version: '2404'
+    runs-on: 'ubuntu-24.04-arm'
+    backend: "parakeet-cpp"
     dockerfile: "./backend/Dockerfile.golang"
     context: "./"
   - build-type: 'cublas'
@@ -1592,6 +1783,19 @@ include:
     base-image: "ubuntu:24.04"
     skip-drivers: 'false'
     backend: "qwen3-tts-cpp"
+    dockerfile: "./backend/Dockerfile.golang"
+    context: "./"
+    ubuntu-version: '2404'
+  - build-type: 'cublas'
+    cuda-major-version: "13"
+    cuda-minor-version: "0"
+    platforms: 'linux/amd64'
+    tag-latest: 'auto'
+    tag-suffix: '-gpu-nvidia-cuda-13-omnivoice-cpp'
+    runs-on: 'ubuntu-latest'
+    base-image: "ubuntu:24.04"
+    skip-drivers: 'false'
+    backend: "omnivoice-cpp"
     dockerfile: "./backend/Dockerfile.golang"
     context: "./"
     ubuntu-version: '2404'
@@ -1632,6 +1836,19 @@ include:
     ubuntu-version: '2404'
     runs-on: 'ubuntu-24.04-arm'
     backend: "qwen3-tts-cpp"
+    dockerfile: "./backend/Dockerfile.golang"
+    context: "./"
+  - build-type: 'cublas'
+    cuda-major-version: "13"
+    cuda-minor-version: "0"
+    platforms: 'linux/arm64'
+    skip-drivers: 'false'
+    tag-latest: 'auto'
+    tag-suffix: '-nvidia-l4t-cuda-13-arm64-omnivoice-cpp'
+    base-image: "ubuntu:24.04"
+    ubuntu-version: '2404'
+    runs-on: 'ubuntu-24.04-arm'
+    backend: "omnivoice-cpp"
     dockerfile: "./backend/Dockerfile.golang"
     context: "./"
   - build-type: 'cublas'
@@ -1686,20 +1903,6 @@ include:
     skip-drivers: 'false'
     backend: "llama-cpp"
     dockerfile: "./backend/Dockerfile.llama-cpp"
-    context: "./"
-    ubuntu-version: '2404'
-  - build-type: 'hipblas'
-    cuda-major-version: ""
-    cuda-minor-version: ""
-    platforms: 'linux/amd64'
-    tag-latest: 'auto'
-    tag-suffix: '-gpu-rocm-hipblas-turboquant'
-    builder-base-image: 'quay.io/go-skynet/ci-cache:base-grpc-rocm-amd64'
-    runs-on: 'ubuntu-latest'
-    base-image: "rocm/dev-ubuntu-24.04:7.2.1"
-    skip-drivers: 'false'
-    backend: "turboquant"
-    dockerfile: "./backend/Dockerfile.turboquant"
     context: "./"
     ubuntu-version: '2404'
   - build-type: 'hipblas'
@@ -2489,6 +2692,78 @@ include:
     dockerfile: "./backend/Dockerfile.ds4"
     context: "./"
     ubuntu-version: '2404'
+  # privacy-filter: PII/NER token classifier (per-arch native -> manifest merge).
+  # Every variant builds FROM a prebuilt quay.io/go-skynet/ci-cache:base-grpc-*
+  # image (gRPC + cmake + protoc + conditional CUDA/Vulkan already installed),
+  # exactly like llama-cpp — no toolchain is installed in Dockerfile.privacy-filter.
+  # builder-base-image makes the workflow use the Dockerfile's builder-prebuilt
+  # stage; without it (local builds) the builder-fromsource stage runs the same
+  # .docker/install-base-deps.sh.
+  - build-type: ''
+    cuda-major-version: ""
+    cuda-minor-version: ""
+    platforms: 'linux/amd64'
+    platform-tag: 'amd64'
+    tag-latest: 'auto'
+    tag-suffix: '-cpu-privacy-filter'
+    builder-base-image: 'quay.io/go-skynet/ci-cache:base-grpc-amd64'
+    runs-on: 'ubuntu-latest'
+    base-image: "ubuntu:24.04"
+    skip-drivers: 'true'
+    backend: "privacy-filter"
+    dockerfile: "./backend/Dockerfile.privacy-filter"
+    context: "./"
+    ubuntu-version: '2404'
+  - build-type: ''
+    cuda-major-version: ""
+    cuda-minor-version: ""
+    platforms: 'linux/arm64'
+    platform-tag: 'arm64'
+    tag-latest: 'auto'
+    tag-suffix: '-cpu-privacy-filter'
+    builder-base-image: 'quay.io/go-skynet/ci-cache:base-grpc-arm64'
+    runs-on: 'ubuntu-24.04-arm'
+    base-image: "ubuntu:24.04"
+    skip-drivers: 'true'
+    backend: "privacy-filter"
+    dockerfile: "./backend/Dockerfile.privacy-filter"
+    context: "./"
+    ubuntu-version: '2404'
+  # Vulkan: base-grpc-vulkan-amd64 carries the SDK. arm64 vulkan is a one-line
+  # add once amd64 is proven in CI.
+  - build-type: 'vulkan'
+    cuda-major-version: ""
+    cuda-minor-version: ""
+    platforms: 'linux/amd64'
+    platform-tag: 'amd64'
+    tag-latest: 'auto'
+    tag-suffix: '-gpu-vulkan-privacy-filter'
+    builder-base-image: 'quay.io/go-skynet/ci-cache:base-grpc-vulkan-amd64'
+    runs-on: 'ubuntu-latest'
+    base-image: "ubuntu:24.04"
+    skip-drivers: 'false'
+    backend: "privacy-filter"
+    dockerfile: "./backend/Dockerfile.privacy-filter"
+    context: "./"
+    ubuntu-version: '2404'
+  # CUDA: base-grpc-cuda-13-amd64 carries the toolkit; BUILD_TYPE=cublas ->
+  # -DPF_CUDA=ON. cuda-12 and arm64/l4t are one-line adds once cuda-13 amd64 is
+  # proven in CI.
+  - build-type: 'cublas'
+    cuda-major-version: "13"
+    cuda-minor-version: "0"
+    platforms: 'linux/amd64'
+    platform-tag: 'amd64'
+    tag-latest: 'auto'
+    tag-suffix: '-gpu-nvidia-cuda-13-privacy-filter'
+    builder-base-image: 'quay.io/go-skynet/ci-cache:base-grpc-cuda-13-amd64'
+    runs-on: 'ubuntu-latest'
+    base-image: "ubuntu:24.04"
+    skip-drivers: 'true'
+    backend: "privacy-filter"
+    dockerfile: "./backend/Dockerfile.privacy-filter"
+    context: "./"
+    ubuntu-version: '2404'
   - build-type: ''
     cuda-major-version: ""
     cuda-minor-version: ""
@@ -2742,6 +3017,141 @@ include:
     dockerfile: "./backend/Dockerfile.golang"
     context: "./"
     ubuntu-version: '2404'
+  # locate-anything-cpp
+  - build-type: ''
+    cuda-major-version: ""
+    cuda-minor-version: ""
+    platforms: 'linux/amd64'
+    tag-latest: 'auto'
+    tag-suffix: '-cpu-locate-anything-cpp'
+    runs-on: 'ubuntu-latest'
+    base-image: "ubuntu:24.04"
+    skip-drivers: 'false'
+    backend: "locate-anything-cpp"
+    dockerfile: "./backend/Dockerfile.golang"
+    context: "./"
+    ubuntu-version: '2404'
+  - build-type: ''
+    cuda-major-version: ""
+    cuda-minor-version: ""
+    platforms: 'linux/amd64'
+    tag-latest: 'auto'
+    tag-suffix: '-cpu-depth-anything-cpp'
+    runs-on: 'ubuntu-latest'
+    base-image: "ubuntu:24.04"
+    skip-drivers: 'false'
+    backend: "depth-anything-cpp"
+    dockerfile: "./backend/Dockerfile.golang"
+    context: "./"
+    ubuntu-version: '2404'
+  - build-type: 'sycl_f32'
+    cuda-major-version: ""
+    cuda-minor-version: ""
+    platforms: 'linux/amd64'
+    tag-latest: 'auto'
+    tag-suffix: '-gpu-intel-sycl-f32-locate-anything-cpp'
+    runs-on: 'ubuntu-latest'
+    base-image: "intel/oneapi-basekit:2025.3.0-0-devel-ubuntu24.04"
+    skip-drivers: 'false'
+    backend: "locate-anything-cpp"
+    dockerfile: "./backend/Dockerfile.golang"
+    context: "./"
+    ubuntu-version: '2404'
+  - build-type: 'sycl_f32'
+    cuda-major-version: ""
+    cuda-minor-version: ""
+    platforms: 'linux/amd64'
+    tag-latest: 'auto'
+    tag-suffix: '-gpu-intel-sycl-f32-depth-anything-cpp'
+    runs-on: 'ubuntu-latest'
+    base-image: "intel/oneapi-basekit:2025.3.0-0-devel-ubuntu24.04"
+    skip-drivers: 'false'
+    backend: "depth-anything-cpp"
+    dockerfile: "./backend/Dockerfile.golang"
+    context: "./"
+    ubuntu-version: '2404'
+  - build-type: 'sycl_f16'
+    cuda-major-version: ""
+    cuda-minor-version: ""
+    platforms: 'linux/amd64'
+    tag-latest: 'auto'
+    tag-suffix: '-gpu-intel-sycl-f16-locate-anything-cpp'
+    runs-on: 'ubuntu-latest'
+    base-image: "intel/oneapi-basekit:2025.3.0-0-devel-ubuntu24.04"
+    skip-drivers: 'false'
+    backend: "locate-anything-cpp"
+    dockerfile: "./backend/Dockerfile.golang"
+    context: "./"
+    ubuntu-version: '2404'
+  - build-type: 'sycl_f16'
+    cuda-major-version: ""
+    cuda-minor-version: ""
+    platforms: 'linux/amd64'
+    tag-latest: 'auto'
+    tag-suffix: '-gpu-intel-sycl-f16-depth-anything-cpp'
+    runs-on: 'ubuntu-latest'
+    base-image: "intel/oneapi-basekit:2025.3.0-0-devel-ubuntu24.04"
+    skip-drivers: 'false'
+    backend: "depth-anything-cpp"
+    dockerfile: "./backend/Dockerfile.golang"
+    context: "./"
+    ubuntu-version: '2404'
+  - build-type: 'vulkan'
+    cuda-major-version: ""
+    cuda-minor-version: ""
+    platforms: 'linux/amd64'
+    platform-tag: 'amd64'
+    tag-latest: 'auto'
+    tag-suffix: '-gpu-vulkan-locate-anything-cpp'
+    runs-on: 'ubuntu-latest'
+    base-image: "ubuntu:24.04"
+    skip-drivers: 'false'
+    backend: "locate-anything-cpp"
+    dockerfile: "./backend/Dockerfile.golang"
+    context: "./"
+    ubuntu-version: '2404'
+  - build-type: 'vulkan'
+    cuda-major-version: ""
+    cuda-minor-version: ""
+    platforms: 'linux/amd64'
+    platform-tag: 'amd64'
+    tag-latest: 'auto'
+    tag-suffix: '-gpu-vulkan-depth-anything-cpp'
+    runs-on: 'ubuntu-latest'
+    base-image: "ubuntu:24.04"
+    skip-drivers: 'false'
+    backend: "depth-anything-cpp"
+    dockerfile: "./backend/Dockerfile.golang"
+    context: "./"
+    ubuntu-version: '2404'
+  - build-type: 'vulkan'
+    cuda-major-version: ""
+    cuda-minor-version: ""
+    platforms: 'linux/arm64'
+    platform-tag: 'arm64'
+    tag-latest: 'auto'
+    tag-suffix: '-gpu-vulkan-locate-anything-cpp'
+    runs-on: 'ubuntu-24.04-arm'
+    base-image: "ubuntu:24.04"
+    skip-drivers: 'false'
+    backend: "locate-anything-cpp"
+    dockerfile: "./backend/Dockerfile.golang"
+    context: "./"
+    ubuntu-version: '2404'
+  - build-type: 'vulkan'
+    cuda-major-version: ""
+    cuda-minor-version: ""
+    platforms: 'linux/arm64'
+    platform-tag: 'arm64'
+    tag-latest: 'auto'
+    tag-suffix: '-gpu-vulkan-depth-anything-cpp'
+    runs-on: 'ubuntu-24.04-arm'
+    base-image: "ubuntu:24.04"
+    skip-drivers: 'false'
+    backend: "depth-anything-cpp"
+    dockerfile: "./backend/Dockerfile.golang"
+    context: "./"
+    ubuntu-version: '2404'
   - build-type: 'sycl_f32'
     cuda-major-version: ""
     cuda-minor-version: ""
@@ -2835,6 +3245,32 @@ include:
     dockerfile: "./backend/Dockerfile.golang"
     context: "./"
     ubuntu-version: '2204'
+  - build-type: 'cublas'
+    cuda-major-version: "12"
+    cuda-minor-version: "0"
+    platforms: 'linux/arm64'
+    skip-drivers: 'false'
+    tag-latest: 'auto'
+    tag-suffix: '-nvidia-l4t-arm64-locate-anything-cpp'
+    base-image: "nvcr.io/nvidia/l4t-jetpack:r36.4.0"
+    runs-on: 'ubuntu-24.04-arm'
+    backend: "locate-anything-cpp"
+    dockerfile: "./backend/Dockerfile.golang"
+    context: "./"
+    ubuntu-version: '2204'
+  - build-type: 'cublas'
+    cuda-major-version: "12"
+    cuda-minor-version: "0"
+    platforms: 'linux/arm64'
+    skip-drivers: 'false'
+    tag-latest: 'auto'
+    tag-suffix: '-nvidia-l4t-arm64-depth-anything-cpp'
+    base-image: "nvcr.io/nvidia/l4t-jetpack:r36.4.0"
+    runs-on: 'ubuntu-24.04-arm'
+    backend: "depth-anything-cpp"
+    dockerfile: "./backend/Dockerfile.golang"
+    context: "./"
+    ubuntu-version: '2204'
   # whisper
   - build-type: ''
     cuda-major-version: ""
@@ -2853,6 +3289,20 @@ include:
   - build-type: ''
     cuda-major-version: ""
     cuda-minor-version: ""
+    platforms: 'linux/amd64'
+    platform-tag: 'amd64'
+    tag-latest: 'auto'
+    tag-suffix: '-cpu-crispasr'
+    runs-on: 'ubuntu-latest'
+    base-image: "ubuntu:24.04"
+    skip-drivers: 'false'
+    backend: "crispasr"
+    dockerfile: "./backend/Dockerfile.golang"
+    context: "./"
+    ubuntu-version: '2404'
+  - build-type: ''
+    cuda-major-version: ""
+    cuda-minor-version: ""
     platforms: 'linux/arm64'
     platform-tag: 'arm64'
     tag-latest: 'auto'
@@ -2861,6 +3311,20 @@ include:
     base-image: "ubuntu:24.04"
     skip-drivers: 'false'
     backend: "whisper"
+    dockerfile: "./backend/Dockerfile.golang"
+    context: "./"
+    ubuntu-version: '2404'
+  - build-type: ''
+    cuda-major-version: ""
+    cuda-minor-version: ""
+    platforms: 'linux/arm64'
+    platform-tag: 'arm64'
+    tag-latest: 'auto'
+    tag-suffix: '-cpu-crispasr'
+    runs-on: 'ubuntu-24.04-arm'
+    base-image: "ubuntu:24.04"
+    skip-drivers: 'false'
+    backend: "crispasr"
     dockerfile: "./backend/Dockerfile.golang"
     context: "./"
     ubuntu-version: '2404'
@@ -2877,6 +3341,19 @@ include:
     dockerfile: "./backend/Dockerfile.golang"
     context: "./"
     ubuntu-version: '2404'
+  - build-type: 'sycl_f32'
+    cuda-major-version: ""
+    cuda-minor-version: ""
+    platforms: 'linux/amd64'
+    tag-latest: 'auto'
+    tag-suffix: '-gpu-intel-sycl-f32-crispasr'
+    runs-on: 'ubuntu-latest'
+    base-image: "intel/oneapi-basekit:2025.3.0-0-devel-ubuntu24.04"
+    skip-drivers: 'false'
+    backend: "crispasr"
+    dockerfile: "./backend/Dockerfile.golang"
+    context: "./"
+    ubuntu-version: '2404'
   - build-type: 'sycl_f16'
     cuda-major-version: ""
     cuda-minor-version: ""
@@ -2887,6 +3364,19 @@ include:
     base-image: "intel/oneapi-basekit:2025.3.0-0-devel-ubuntu24.04"
     skip-drivers: 'false'
     backend: "whisper"
+    dockerfile: "./backend/Dockerfile.golang"
+    context: "./"
+    ubuntu-version: '2404'
+  - build-type: 'sycl_f16'
+    cuda-major-version: ""
+    cuda-minor-version: ""
+    platforms: 'linux/amd64'
+    tag-latest: 'auto'
+    tag-suffix: '-gpu-intel-sycl-f16-crispasr'
+    runs-on: 'ubuntu-latest'
+    base-image: "intel/oneapi-basekit:2025.3.0-0-devel-ubuntu24.04"
+    skip-drivers: 'false'
+    backend: "crispasr"
     dockerfile: "./backend/Dockerfile.golang"
     context: "./"
     ubuntu-version: '2404'
@@ -2907,6 +3397,20 @@ include:
   - build-type: 'vulkan'
     cuda-major-version: ""
     cuda-minor-version: ""
+    platforms: 'linux/amd64'
+    platform-tag: 'amd64'
+    tag-latest: 'auto'
+    tag-suffix: '-gpu-vulkan-crispasr'
+    runs-on: 'ubuntu-latest'
+    base-image: "ubuntu:24.04"
+    skip-drivers: 'false'
+    backend: "crispasr"
+    dockerfile: "./backend/Dockerfile.golang"
+    context: "./"
+    ubuntu-version: '2404'
+  - build-type: 'vulkan'
+    cuda-major-version: ""
+    cuda-minor-version: ""
     platforms: 'linux/arm64'
     platform-tag: 'arm64'
     tag-latest: 'auto'
@@ -2915,6 +3419,20 @@ include:
     base-image: "ubuntu:24.04"
     skip-drivers: 'false'
     backend: "whisper"
+    dockerfile: "./backend/Dockerfile.golang"
+    context: "./"
+    ubuntu-version: '2404'
+  - build-type: 'vulkan'
+    cuda-major-version: ""
+    cuda-minor-version: ""
+    platforms: 'linux/arm64'
+    platform-tag: 'arm64'
+    tag-latest: 'auto'
+    tag-suffix: '-gpu-vulkan-crispasr'
+    runs-on: 'ubuntu-24.04-arm'
+    base-image: "ubuntu:24.04"
+    skip-drivers: 'false'
+    backend: "crispasr"
     dockerfile: "./backend/Dockerfile.golang"
     context: "./"
     ubuntu-version: '2404'
@@ -2931,6 +3449,19 @@ include:
     dockerfile: "./backend/Dockerfile.golang"
     context: "./"
     ubuntu-version: '2204'
+  - build-type: 'cublas'
+    cuda-major-version: "12"
+    cuda-minor-version: "0"
+    platforms: 'linux/arm64'
+    skip-drivers: 'false'
+    tag-latest: 'auto'
+    tag-suffix: '-nvidia-l4t-arm64-crispasr'
+    base-image: "nvcr.io/nvidia/l4t-jetpack:r36.4.0"
+    runs-on: 'ubuntu-24.04-arm'
+    backend: "crispasr"
+    dockerfile: "./backend/Dockerfile.golang"
+    context: "./"
+    ubuntu-version: '2204'
   - build-type: 'hipblas'
     cuda-major-version: ""
     cuda-minor-version: ""
@@ -2941,6 +3472,572 @@ include:
     runs-on: 'ubuntu-latest'
     skip-drivers: 'false'
     backend: "whisper"
+    dockerfile: "./backend/Dockerfile.golang"
+    context: "./"
+    ubuntu-version: '2404'
+  - build-type: 'hipblas'
+    cuda-major-version: ""
+    cuda-minor-version: ""
+    platforms: 'linux/amd64'
+    tag-latest: 'auto'
+    tag-suffix: '-gpu-rocm-hipblas-crispasr'
+    base-image: "rocm/dev-ubuntu-24.04:7.2.1"
+    runs-on: 'ubuntu-latest'
+    skip-drivers: 'false'
+    backend: "crispasr"
+    dockerfile: "./backend/Dockerfile.golang"
+    context: "./"
+    ubuntu-version: '2404'
+  # parakeet-cpp
+  - build-type: ''
+    cuda-major-version: ""
+    cuda-minor-version: ""
+    platforms: 'linux/amd64'
+    platform-tag: 'amd64'
+    tag-latest: 'auto'
+    tag-suffix: '-cpu-parakeet-cpp'
+    runs-on: 'ubuntu-latest'
+    base-image: "ubuntu:24.04"
+    skip-drivers: 'false'
+    backend: "parakeet-cpp"
+    dockerfile: "./backend/Dockerfile.golang"
+    context: "./"
+    ubuntu-version: '2404'
+  - build-type: ''
+    cuda-major-version: ""
+    cuda-minor-version: ""
+    platforms: 'linux/arm64'
+    platform-tag: 'arm64'
+    tag-latest: 'auto'
+    tag-suffix: '-cpu-parakeet-cpp'
+    runs-on: 'ubuntu-24.04-arm'
+    base-image: "ubuntu:24.04"
+    skip-drivers: 'false'
+    backend: "parakeet-cpp"
+    dockerfile: "./backend/Dockerfile.golang"
+    context: "./"
+    ubuntu-version: '2404'
+  - build-type: 'sycl_f32'
+    cuda-major-version: ""
+    cuda-minor-version: ""
+    platforms: 'linux/amd64'
+    tag-latest: 'auto'
+    tag-suffix: '-gpu-intel-sycl-f32-parakeet-cpp'
+    runs-on: 'ubuntu-latest'
+    base-image: "intel/oneapi-basekit:2025.3.0-0-devel-ubuntu24.04"
+    skip-drivers: 'false'
+    backend: "parakeet-cpp"
+    dockerfile: "./backend/Dockerfile.golang"
+    context: "./"
+    ubuntu-version: '2404'
+  - build-type: 'sycl_f16'
+    cuda-major-version: ""
+    cuda-minor-version: ""
+    platforms: 'linux/amd64'
+    tag-latest: 'auto'
+    tag-suffix: '-gpu-intel-sycl-f16-parakeet-cpp'
+    runs-on: 'ubuntu-latest'
+    base-image: "intel/oneapi-basekit:2025.3.0-0-devel-ubuntu24.04"
+    skip-drivers: 'false'
+    backend: "parakeet-cpp"
+    dockerfile: "./backend/Dockerfile.golang"
+    context: "./"
+    ubuntu-version: '2404'
+  - build-type: 'vulkan'
+    cuda-major-version: ""
+    cuda-minor-version: ""
+    platforms: 'linux/amd64'
+    platform-tag: 'amd64'
+    tag-latest: 'auto'
+    tag-suffix: '-gpu-vulkan-parakeet-cpp'
+    runs-on: 'ubuntu-latest'
+    base-image: "ubuntu:24.04"
+    skip-drivers: 'false'
+    backend: "parakeet-cpp"
+    dockerfile: "./backend/Dockerfile.golang"
+    context: "./"
+    ubuntu-version: '2404'
+  - build-type: 'vulkan'
+    cuda-major-version: ""
+    cuda-minor-version: ""
+    platforms: 'linux/arm64'
+    platform-tag: 'arm64'
+    tag-latest: 'auto'
+    tag-suffix: '-gpu-vulkan-parakeet-cpp'
+    runs-on: 'ubuntu-24.04-arm'
+    base-image: "ubuntu:24.04"
+    skip-drivers: 'false'
+    backend: "parakeet-cpp"
+    dockerfile: "./backend/Dockerfile.golang"
+    context: "./"
+    ubuntu-version: '2404'
+  - build-type: 'cublas'
+    cuda-major-version: "12"
+    cuda-minor-version: "0"
+    platforms: 'linux/arm64'
+    skip-drivers: 'false'
+    tag-latest: 'auto'
+    tag-suffix: '-nvidia-l4t-arm64-parakeet-cpp'
+    base-image: "nvcr.io/nvidia/l4t-jetpack:r36.4.0"
+    runs-on: 'ubuntu-24.04-arm'
+    backend: "parakeet-cpp"
+    dockerfile: "./backend/Dockerfile.golang"
+    context: "./"
+    ubuntu-version: '2204'
+  - build-type: 'hipblas'
+    cuda-major-version: ""
+    cuda-minor-version: ""
+    platforms: 'linux/amd64'
+    tag-latest: 'auto'
+    tag-suffix: '-gpu-rocm-hipblas-parakeet-cpp'
+    base-image: "rocm/dev-ubuntu-24.04:7.2.1"
+    runs-on: 'ubuntu-latest'
+    skip-drivers: 'false'
+    backend: "parakeet-cpp"
+    dockerfile: "./backend/Dockerfile.golang"
+    context: "./"
+    ubuntu-version: '2404'
+  # ced
+  - build-type: 'cublas'
+    cuda-major-version: "12"
+    cuda-minor-version: "8"
+    platforms: 'linux/amd64'
+    tag-latest: 'auto'
+    tag-suffix: '-gpu-nvidia-cuda-12-ced'
+    runs-on: 'ubuntu-latest'
+    base-image: "ubuntu:24.04"
+    skip-drivers: 'false'
+    backend: "ced"
+    dockerfile: "./backend/Dockerfile.golang"
+    context: "./"
+    ubuntu-version: '2404'
+  - build-type: 'cublas'
+    cuda-major-version: "13"
+    cuda-minor-version: "0"
+    platforms: 'linux/amd64'
+    tag-latest: 'auto'
+    tag-suffix: '-gpu-nvidia-cuda-13-ced'
+    runs-on: 'ubuntu-latest'
+    base-image: "ubuntu:24.04"
+    skip-drivers: 'false'
+    backend: "ced"
+    dockerfile: "./backend/Dockerfile.golang"
+    context: "./"
+    ubuntu-version: '2404'
+  - build-type: 'cublas'
+    cuda-major-version: "13"
+    cuda-minor-version: "0"
+    platforms: 'linux/arm64'
+    skip-drivers: 'false'
+    tag-latest: 'auto'
+    tag-suffix: '-nvidia-l4t-cuda-13-arm64-ced'
+    base-image: "ubuntu:24.04"
+    ubuntu-version: '2404'
+    runs-on: 'ubuntu-24.04-arm'
+    backend: "ced"
+    dockerfile: "./backend/Dockerfile.golang"
+    context: "./"
+  - build-type: ''
+    cuda-major-version: ""
+    cuda-minor-version: ""
+    platforms: 'linux/amd64'
+    platform-tag: 'amd64'
+    tag-latest: 'auto'
+    tag-suffix: '-cpu-ced'
+    runs-on: 'ubuntu-latest'
+    base-image: "ubuntu:24.04"
+    skip-drivers: 'false'
+    backend: "ced"
+    dockerfile: "./backend/Dockerfile.golang"
+    context: "./"
+    ubuntu-version: '2404'
+  - build-type: ''
+    cuda-major-version: ""
+    cuda-minor-version: ""
+    platforms: 'linux/arm64'
+    platform-tag: 'arm64'
+    tag-latest: 'auto'
+    tag-suffix: '-cpu-ced'
+    runs-on: 'ubuntu-24.04-arm'
+    base-image: "ubuntu:24.04"
+    skip-drivers: 'false'
+    backend: "ced"
+    dockerfile: "./backend/Dockerfile.golang"
+    context: "./"
+    ubuntu-version: '2404'
+  - build-type: 'sycl_f32'
+    cuda-major-version: ""
+    cuda-minor-version: ""
+    platforms: 'linux/amd64'
+    tag-latest: 'auto'
+    tag-suffix: '-gpu-intel-sycl-f32-ced'
+    runs-on: 'ubuntu-latest'
+    base-image: "intel/oneapi-basekit:2025.3.0-0-devel-ubuntu24.04"
+    skip-drivers: 'false'
+    backend: "ced"
+    dockerfile: "./backend/Dockerfile.golang"
+    context: "./"
+    ubuntu-version: '2404'
+  - build-type: 'sycl_f16'
+    cuda-major-version: ""
+    cuda-minor-version: ""
+    platforms: 'linux/amd64'
+    tag-latest: 'auto'
+    tag-suffix: '-gpu-intel-sycl-f16-ced'
+    runs-on: 'ubuntu-latest'
+    base-image: "intel/oneapi-basekit:2025.3.0-0-devel-ubuntu24.04"
+    skip-drivers: 'false'
+    backend: "ced"
+    dockerfile: "./backend/Dockerfile.golang"
+    context: "./"
+    ubuntu-version: '2404'
+  - build-type: 'vulkan'
+    cuda-major-version: ""
+    cuda-minor-version: ""
+    platforms: 'linux/amd64'
+    platform-tag: 'amd64'
+    tag-latest: 'auto'
+    tag-suffix: '-gpu-vulkan-ced'
+    runs-on: 'ubuntu-latest'
+    base-image: "ubuntu:24.04"
+    skip-drivers: 'false'
+    backend: "ced"
+    dockerfile: "./backend/Dockerfile.golang"
+    context: "./"
+    ubuntu-version: '2404'
+  - build-type: 'vulkan'
+    cuda-major-version: ""
+    cuda-minor-version: ""
+    platforms: 'linux/arm64'
+    platform-tag: 'arm64'
+    tag-latest: 'auto'
+    tag-suffix: '-gpu-vulkan-ced'
+    runs-on: 'ubuntu-24.04-arm'
+    base-image: "ubuntu:24.04"
+    skip-drivers: 'false'
+    backend: "ced"
+    dockerfile: "./backend/Dockerfile.golang"
+    context: "./"
+    ubuntu-version: '2404'
+  - build-type: 'cublas'
+    cuda-major-version: "12"
+    cuda-minor-version: "0"
+    platforms: 'linux/arm64'
+    skip-drivers: 'false'
+    tag-latest: 'auto'
+    tag-suffix: '-nvidia-l4t-arm64-ced'
+    base-image: "nvcr.io/nvidia/l4t-jetpack:r36.4.0"
+    runs-on: 'ubuntu-24.04-arm'
+    backend: "ced"
+    dockerfile: "./backend/Dockerfile.golang"
+    context: "./"
+    ubuntu-version: '2204'
+  - build-type: 'hipblas'
+    cuda-major-version: ""
+    cuda-minor-version: ""
+    platforms: 'linux/amd64'
+    tag-latest: 'auto'
+    tag-suffix: '-gpu-rocm-hipblas-ced'
+    base-image: "rocm/dev-ubuntu-24.04:7.2.1"
+    runs-on: 'ubuntu-latest'
+    skip-drivers: 'false'
+    backend: "ced"
+    dockerfile: "./backend/Dockerfile.golang"
+    context: "./"
+    ubuntu-version: '2404'
+  # voice-detect
+  - build-type: 'cublas'
+    cuda-major-version: "12"
+    cuda-minor-version: "8"
+    platforms: 'linux/amd64'
+    tag-latest: 'auto'
+    tag-suffix: '-gpu-nvidia-cuda-12-voice-detect'
+    runs-on: 'ubuntu-latest'
+    base-image: "ubuntu:24.04"
+    skip-drivers: 'false'
+    backend: "voice-detect"
+    dockerfile: "./backend/Dockerfile.golang"
+    context: "./"
+    ubuntu-version: '2404'
+  - build-type: 'cublas'
+    cuda-major-version: "13"
+    cuda-minor-version: "0"
+    platforms: 'linux/amd64'
+    tag-latest: 'auto'
+    tag-suffix: '-gpu-nvidia-cuda-13-voice-detect'
+    runs-on: 'ubuntu-latest'
+    base-image: "ubuntu:24.04"
+    skip-drivers: 'false'
+    backend: "voice-detect"
+    dockerfile: "./backend/Dockerfile.golang"
+    context: "./"
+    ubuntu-version: '2404'
+  - build-type: 'cublas'
+    cuda-major-version: "13"
+    cuda-minor-version: "0"
+    platforms: 'linux/arm64'
+    skip-drivers: 'false'
+    tag-latest: 'auto'
+    tag-suffix: '-nvidia-l4t-cuda-13-arm64-voice-detect'
+    base-image: "ubuntu:24.04"
+    ubuntu-version: '2404'
+    runs-on: 'ubuntu-24.04-arm'
+    backend: "voice-detect"
+    dockerfile: "./backend/Dockerfile.golang"
+    context: "./"
+  - build-type: ''
+    cuda-major-version: ""
+    cuda-minor-version: ""
+    platforms: 'linux/amd64'
+    platform-tag: 'amd64'
+    tag-latest: 'auto'
+    tag-suffix: '-cpu-voice-detect'
+    runs-on: 'ubuntu-latest'
+    base-image: "ubuntu:24.04"
+    skip-drivers: 'false'
+    backend: "voice-detect"
+    dockerfile: "./backend/Dockerfile.golang"
+    context: "./"
+    ubuntu-version: '2404'
+  - build-type: ''
+    cuda-major-version: ""
+    cuda-minor-version: ""
+    platforms: 'linux/arm64'
+    platform-tag: 'arm64'
+    tag-latest: 'auto'
+    tag-suffix: '-cpu-voice-detect'
+    runs-on: 'ubuntu-24.04-arm'
+    base-image: "ubuntu:24.04"
+    skip-drivers: 'false'
+    backend: "voice-detect"
+    dockerfile: "./backend/Dockerfile.golang"
+    context: "./"
+    ubuntu-version: '2404'
+  - build-type: 'sycl_f32'
+    cuda-major-version: ""
+    cuda-minor-version: ""
+    platforms: 'linux/amd64'
+    tag-latest: 'auto'
+    tag-suffix: '-gpu-intel-sycl-f32-voice-detect'
+    runs-on: 'ubuntu-latest'
+    base-image: "intel/oneapi-basekit:2025.3.0-0-devel-ubuntu24.04"
+    skip-drivers: 'false'
+    backend: "voice-detect"
+    dockerfile: "./backend/Dockerfile.golang"
+    context: "./"
+    ubuntu-version: '2404'
+  - build-type: 'sycl_f16'
+    cuda-major-version: ""
+    cuda-minor-version: ""
+    platforms: 'linux/amd64'
+    tag-latest: 'auto'
+    tag-suffix: '-gpu-intel-sycl-f16-voice-detect'
+    runs-on: 'ubuntu-latest'
+    base-image: "intel/oneapi-basekit:2025.3.0-0-devel-ubuntu24.04"
+    skip-drivers: 'false'
+    backend: "voice-detect"
+    dockerfile: "./backend/Dockerfile.golang"
+    context: "./"
+    ubuntu-version: '2404'
+  - build-type: 'vulkan'
+    cuda-major-version: ""
+    cuda-minor-version: ""
+    platforms: 'linux/amd64'
+    platform-tag: 'amd64'
+    tag-latest: 'auto'
+    tag-suffix: '-gpu-vulkan-voice-detect'
+    runs-on: 'ubuntu-latest'
+    base-image: "ubuntu:24.04"
+    skip-drivers: 'false'
+    backend: "voice-detect"
+    dockerfile: "./backend/Dockerfile.golang"
+    context: "./"
+    ubuntu-version: '2404'
+  - build-type: 'vulkan'
+    cuda-major-version: ""
+    cuda-minor-version: ""
+    platforms: 'linux/arm64'
+    platform-tag: 'arm64'
+    tag-latest: 'auto'
+    tag-suffix: '-gpu-vulkan-voice-detect'
+    runs-on: 'ubuntu-24.04-arm'
+    base-image: "ubuntu:24.04"
+    skip-drivers: 'false'
+    backend: "voice-detect"
+    dockerfile: "./backend/Dockerfile.golang"
+    context: "./"
+    ubuntu-version: '2404'
+  - build-type: 'cublas'
+    cuda-major-version: "12"
+    cuda-minor-version: "0"
+    platforms: 'linux/arm64'
+    skip-drivers: 'false'
+    tag-latest: 'auto'
+    tag-suffix: '-nvidia-l4t-arm64-voice-detect'
+    base-image: "nvcr.io/nvidia/l4t-jetpack:r36.4.0"
+    runs-on: 'ubuntu-24.04-arm'
+    backend: "voice-detect"
+    dockerfile: "./backend/Dockerfile.golang"
+    context: "./"
+    ubuntu-version: '2204'
+  - build-type: 'hipblas'
+    cuda-major-version: ""
+    cuda-minor-version: ""
+    platforms: 'linux/amd64'
+    tag-latest: 'auto'
+    tag-suffix: '-gpu-rocm-hipblas-voice-detect'
+    base-image: "rocm/dev-ubuntu-24.04:7.2.1"
+    runs-on: 'ubuntu-latest'
+    skip-drivers: 'false'
+    backend: "voice-detect"
+    dockerfile: "./backend/Dockerfile.golang"
+    context: "./"
+    ubuntu-version: '2404'
+  # face-detect
+  - build-type: 'cublas'
+    cuda-major-version: "12"
+    cuda-minor-version: "8"
+    platforms: 'linux/amd64'
+    tag-latest: 'auto'
+    tag-suffix: '-gpu-nvidia-cuda-12-face-detect'
+    runs-on: 'ubuntu-latest'
+    base-image: "ubuntu:24.04"
+    skip-drivers: 'false'
+    backend: "face-detect"
+    dockerfile: "./backend/Dockerfile.golang"
+    context: "./"
+    ubuntu-version: '2404'
+  - build-type: 'cublas'
+    cuda-major-version: "13"
+    cuda-minor-version: "0"
+    platforms: 'linux/amd64'
+    tag-latest: 'auto'
+    tag-suffix: '-gpu-nvidia-cuda-13-face-detect'
+    runs-on: 'ubuntu-latest'
+    base-image: "ubuntu:24.04"
+    skip-drivers: 'false'
+    backend: "face-detect"
+    dockerfile: "./backend/Dockerfile.golang"
+    context: "./"
+    ubuntu-version: '2404'
+  - build-type: 'cublas'
+    cuda-major-version: "13"
+    cuda-minor-version: "0"
+    platforms: 'linux/arm64'
+    skip-drivers: 'false'
+    tag-latest: 'auto'
+    tag-suffix: '-nvidia-l4t-cuda-13-arm64-face-detect'
+    base-image: "ubuntu:24.04"
+    ubuntu-version: '2404'
+    runs-on: 'ubuntu-24.04-arm'
+    backend: "face-detect"
+    dockerfile: "./backend/Dockerfile.golang"
+    context: "./"
+  - build-type: ''
+    cuda-major-version: ""
+    cuda-minor-version: ""
+    platforms: 'linux/amd64'
+    platform-tag: 'amd64'
+    tag-latest: 'auto'
+    tag-suffix: '-cpu-face-detect'
+    runs-on: 'ubuntu-latest'
+    base-image: "ubuntu:24.04"
+    skip-drivers: 'false'
+    backend: "face-detect"
+    dockerfile: "./backend/Dockerfile.golang"
+    context: "./"
+    ubuntu-version: '2404'
+  - build-type: ''
+    cuda-major-version: ""
+    cuda-minor-version: ""
+    platforms: 'linux/arm64'
+    platform-tag: 'arm64'
+    tag-latest: 'auto'
+    tag-suffix: '-cpu-face-detect'
+    runs-on: 'ubuntu-24.04-arm'
+    base-image: "ubuntu:24.04"
+    skip-drivers: 'false'
+    backend: "face-detect"
+    dockerfile: "./backend/Dockerfile.golang"
+    context: "./"
+    ubuntu-version: '2404'
+  - build-type: 'sycl_f32'
+    cuda-major-version: ""
+    cuda-minor-version: ""
+    platforms: 'linux/amd64'
+    tag-latest: 'auto'
+    tag-suffix: '-gpu-intel-sycl-f32-face-detect'
+    runs-on: 'ubuntu-latest'
+    base-image: "intel/oneapi-basekit:2025.3.0-0-devel-ubuntu24.04"
+    skip-drivers: 'false'
+    backend: "face-detect"
+    dockerfile: "./backend/Dockerfile.golang"
+    context: "./"
+    ubuntu-version: '2404'
+  - build-type: 'sycl_f16'
+    cuda-major-version: ""
+    cuda-minor-version: ""
+    platforms: 'linux/amd64'
+    tag-latest: 'auto'
+    tag-suffix: '-gpu-intel-sycl-f16-face-detect'
+    runs-on: 'ubuntu-latest'
+    base-image: "intel/oneapi-basekit:2025.3.0-0-devel-ubuntu24.04"
+    skip-drivers: 'false'
+    backend: "face-detect"
+    dockerfile: "./backend/Dockerfile.golang"
+    context: "./"
+    ubuntu-version: '2404'
+  - build-type: 'vulkan'
+    cuda-major-version: ""
+    cuda-minor-version: ""
+    platforms: 'linux/amd64'
+    platform-tag: 'amd64'
+    tag-latest: 'auto'
+    tag-suffix: '-gpu-vulkan-face-detect'
+    runs-on: 'ubuntu-latest'
+    base-image: "ubuntu:24.04"
+    skip-drivers: 'false'
+    backend: "face-detect"
+    dockerfile: "./backend/Dockerfile.golang"
+    context: "./"
+    ubuntu-version: '2404'
+  - build-type: 'vulkan'
+    cuda-major-version: ""
+    cuda-minor-version: ""
+    platforms: 'linux/arm64'
+    platform-tag: 'arm64'
+    tag-latest: 'auto'
+    tag-suffix: '-gpu-vulkan-face-detect'
+    runs-on: 'ubuntu-24.04-arm'
+    base-image: "ubuntu:24.04"
+    skip-drivers: 'false'
+    backend: "face-detect"
+    dockerfile: "./backend/Dockerfile.golang"
+    context: "./"
+    ubuntu-version: '2404'
+  - build-type: 'cublas'
+    cuda-major-version: "12"
+    cuda-minor-version: "0"
+    platforms: 'linux/arm64'
+    skip-drivers: 'false'
+    tag-latest: 'auto'
+    tag-suffix: '-nvidia-l4t-arm64-face-detect'
+    base-image: "nvcr.io/nvidia/l4t-jetpack:r36.4.0"
+    runs-on: 'ubuntu-24.04-arm'
+    backend: "face-detect"
+    dockerfile: "./backend/Dockerfile.golang"
+    context: "./"
+    ubuntu-version: '2204'
+  - build-type: 'hipblas'
+    cuda-major-version: ""
+    cuda-minor-version: ""
+    platforms: 'linux/amd64'
+    tag-latest: 'auto'
+    tag-suffix: '-gpu-rocm-hipblas-face-detect'
+    base-image: "rocm/dev-ubuntu-24.04:7.2.1"
+    runs-on: 'ubuntu-latest'
+    skip-drivers: 'false'
+    backend: "face-detect"
     dockerfile: "./backend/Dockerfile.golang"
     context: "./"
     ubuntu-version: '2404'
@@ -3082,6 +4179,35 @@ include:
     dockerfile: "./backend/Dockerfile.golang"
     context: "./"
     ubuntu-version: '2404'
+  # omnivoice-cpp
+  - build-type: ''
+    cuda-major-version: ""
+    cuda-minor-version: ""
+    platforms: 'linux/amd64'
+    platform-tag: 'amd64'
+    tag-latest: 'auto'
+    tag-suffix: '-cpu-omnivoice-cpp'
+    runs-on: 'ubuntu-latest'
+    base-image: "ubuntu:24.04"
+    skip-drivers: 'false'
+    backend: "omnivoice-cpp"
+    dockerfile: "./backend/Dockerfile.golang"
+    context: "./"
+    ubuntu-version: '2404'
+  - build-type: ''
+    cuda-major-version: ""
+    cuda-minor-version: ""
+    platforms: 'linux/arm64'
+    platform-tag: 'arm64'
+    tag-latest: 'auto'
+    tag-suffix: '-cpu-omnivoice-cpp'
+    runs-on: 'ubuntu-24.04-arm'
+    base-image: "ubuntu:24.04"
+    skip-drivers: 'false'
+    backend: "omnivoice-cpp"
+    dockerfile: "./backend/Dockerfile.golang"
+    context: "./"
+    ubuntu-version: '2404'
   - build-type: 'sycl_f32'
     cuda-major-version: ""
     cuda-minor-version: ""
@@ -3095,6 +4221,19 @@ include:
     dockerfile: "./backend/Dockerfile.golang"
     context: "./"
     ubuntu-version: '2404'
+  - build-type: 'sycl_f32'
+    cuda-major-version: ""
+    cuda-minor-version: ""
+    platforms: 'linux/amd64'
+    tag-latest: 'auto'
+    tag-suffix: '-gpu-intel-sycl-f32-omnivoice-cpp'
+    runs-on: 'ubuntu-latest'
+    base-image: "intel/oneapi-basekit:2025.3.0-0-devel-ubuntu24.04"
+    skip-drivers: 'false'
+    backend: "omnivoice-cpp"
+    dockerfile: "./backend/Dockerfile.golang"
+    context: "./"
+    ubuntu-version: '2404'
   - build-type: 'sycl_f16'
     cuda-major-version: ""
     cuda-minor-version: ""
@@ -3105,6 +4244,19 @@ include:
     base-image: "intel/oneapi-basekit:2025.3.0-0-devel-ubuntu24.04"
     skip-drivers: 'false'
     backend: "qwen3-tts-cpp"
+    dockerfile: "./backend/Dockerfile.golang"
+    context: "./"
+    ubuntu-version: '2404'
+  - build-type: 'sycl_f16'
+    cuda-major-version: ""
+    cuda-minor-version: ""
+    platforms: 'linux/amd64'
+    tag-latest: 'auto'
+    tag-suffix: '-gpu-intel-sycl-f16-omnivoice-cpp'
+    runs-on: 'ubuntu-latest'
+    base-image: "intel/oneapi-basekit:2025.3.0-0-devel-ubuntu24.04"
+    skip-drivers: 'false'
+    backend: "omnivoice-cpp"
     dockerfile: "./backend/Dockerfile.golang"
     context: "./"
     ubuntu-version: '2404'
@@ -3125,6 +4277,20 @@ include:
   - build-type: 'vulkan'
     cuda-major-version: ""
     cuda-minor-version: ""
+    platforms: 'linux/amd64'
+    platform-tag: 'amd64'
+    tag-latest: 'auto'
+    tag-suffix: '-gpu-vulkan-omnivoice-cpp'
+    runs-on: 'ubuntu-latest'
+    base-image: "ubuntu:24.04"
+    skip-drivers: 'false'
+    backend: "omnivoice-cpp"
+    dockerfile: "./backend/Dockerfile.golang"
+    context: "./"
+    ubuntu-version: '2404'
+  - build-type: 'vulkan'
+    cuda-major-version: ""
+    cuda-minor-version: ""
     platforms: 'linux/arm64'
     platform-tag: 'arm64'
     tag-latest: 'auto'
@@ -3133,6 +4299,20 @@ include:
     base-image: "ubuntu:24.04"
     skip-drivers: 'false'
     backend: "qwen3-tts-cpp"
+    dockerfile: "./backend/Dockerfile.golang"
+    context: "./"
+    ubuntu-version: '2404'
+  - build-type: 'vulkan'
+    cuda-major-version: ""
+    cuda-minor-version: ""
+    platforms: 'linux/arm64'
+    platform-tag: 'arm64'
+    tag-latest: 'auto'
+    tag-suffix: '-gpu-vulkan-omnivoice-cpp'
+    runs-on: 'ubuntu-24.04-arm'
+    base-image: "ubuntu:24.04"
+    skip-drivers: 'false'
+    backend: "omnivoice-cpp"
     dockerfile: "./backend/Dockerfile.golang"
     context: "./"
     ubuntu-version: '2404'
@@ -3149,6 +4329,19 @@ include:
     dockerfile: "./backend/Dockerfile.golang"
     context: "./"
     ubuntu-version: '2204'
+  - build-type: 'cublas'
+    cuda-major-version: "12"
+    cuda-minor-version: "0"
+    platforms: 'linux/arm64'
+    skip-drivers: 'false'
+    tag-latest: 'auto'
+    tag-suffix: '-nvidia-l4t-arm64-omnivoice-cpp'
+    base-image: "nvcr.io/nvidia/l4t-jetpack:r36.4.0"
+    runs-on: 'ubuntu-24.04-arm'
+    backend: "omnivoice-cpp"
+    dockerfile: "./backend/Dockerfile.golang"
+    context: "./"
+    ubuntu-version: '2204'
   - build-type: 'hipblas'
     cuda-major-version: ""
     cuda-minor-version: ""
@@ -3159,6 +4352,19 @@ include:
     runs-on: 'ubuntu-latest'
     skip-drivers: 'false'
     backend: "qwen3-tts-cpp"
+    dockerfile: "./backend/Dockerfile.golang"
+    context: "./"
+    ubuntu-version: '2404'
+  - build-type: 'hipblas'
+    cuda-major-version: ""
+    cuda-minor-version: ""
+    platforms: 'linux/amd64'
+    tag-latest: 'auto'
+    tag-suffix: '-gpu-rocm-hipblas-omnivoice-cpp'
+    base-image: "rocm/dev-ubuntu-24.04:6.4.4"
+    runs-on: 'ubuntu-latest'
+    skip-drivers: 'false'
+    backend: "omnivoice-cpp"
     dockerfile: "./backend/Dockerfile.golang"
     context: "./"
     ubuntu-version: '2404'
@@ -3941,6 +5147,36 @@ include:
     dockerfile: "./backend/Dockerfile.golang"
     context: "./"
     ubuntu-version: '2404'
+  # supertonic CPU (amd64)
+  - build-type: ''
+    cuda-major-version: ""
+    cuda-minor-version: ""
+    platforms: 'linux/amd64'
+    platform-tag: 'amd64'
+    tag-latest: 'auto'
+    tag-suffix: '-cpu-supertonic'
+    runs-on: 'ubuntu-latest'
+    base-image: "ubuntu:24.04"
+    skip-drivers: 'false'
+    backend: "supertonic"
+    dockerfile: "./backend/Dockerfile.golang"
+    context: "./"
+    ubuntu-version: '2404'
+  # supertonic CPU (arm64)
+  - build-type: ''
+    cuda-major-version: ""
+    cuda-minor-version: ""
+    platforms: 'linux/arm64'
+    platform-tag: 'arm64'
+    tag-latest: 'auto'
+    tag-suffix: '-cpu-supertonic'
+    runs-on: 'ubuntu-24.04-arm'
+    base-image: "ubuntu:24.04"
+    skip-drivers: 'false'
+    backend: "supertonic"
+    dockerfile: "./backend/Dockerfile.golang"
+    context: "./"
+    ubuntu-version: '2404'
 
 # Darwin matrix (consumed by backend-jobs-darwin).
 includeDarwin:
@@ -3976,6 +5212,26 @@ includeDarwin:
     tag-suffix: "-metal-darwin-arm64-whisper"
     build-type: "metal"
     lang: "go"
+  - backend: "crispasr"
+    tag-suffix: "-metal-darwin-arm64-crispasr"
+    build-type: "metal"
+    lang: "go"
+  - backend: "parakeet-cpp"
+    tag-suffix: "-metal-darwin-arm64-parakeet-cpp"
+    build-type: "metal"
+    lang: "go"
+  - backend: "ced"
+    tag-suffix: "-metal-darwin-arm64-ced"
+    build-type: "metal"
+    lang: "go"
+  - backend: "voice-detect"
+    tag-suffix: "-metal-darwin-arm64-voice-detect"
+    build-type: "metal"
+    lang: "go"
+  - backend: "face-detect"
+    tag-suffix: "-metal-darwin-arm64-face-detect"
+    build-type: "metal"
+    lang: "go"
   - backend: "acestep-cpp"
     tag-suffix: "-metal-darwin-arm64-acestep-cpp"
     build-type: "metal"
@@ -3984,8 +5240,43 @@ includeDarwin:
     tag-suffix: "-metal-darwin-arm64-qwen3-tts-cpp"
     build-type: "metal"
     lang: "go"
+  - backend: "omnivoice-cpp"
+    tag-suffix: "-metal-darwin-arm64-omnivoice-cpp"
+    build-type: "metal"
+    lang: "go"
   - backend: "vibevoice-cpp"
     tag-suffix: "-metal-darwin-arm64-vibevoice-cpp"
+    build-type: "metal"
+    lang: "go"
+  # Vision/utility C++/ggml backends (go+cgo). Their Makefiles already carry a
+  # Darwin/Metal path (GGML_METAL=ON when build-type=metal); this just builds and
+  # publishes the metal image so Apple Silicon can install them.
+  - backend: "depth-anything-cpp"
+    tag-suffix: "-metal-darwin-arm64-depth-anything-cpp"
+    build-type: "metal"
+    lang: "go"
+  - backend: "locate-anything-cpp"
+    tag-suffix: "-metal-darwin-arm64-locate-anything-cpp"
+    build-type: "metal"
+    lang: "go"
+  - backend: "rfdetr-cpp"
+    tag-suffix: "-metal-darwin-arm64-rfdetr-cpp"
+    build-type: "metal"
+    lang: "go"
+  - backend: "sam3-cpp"
+    tag-suffix: "-metal-darwin-arm64-sam3-cpp"
+    build-type: "metal"
+    lang: "go"
+  # privacy-filter (PII/NER) is a C++/ggml backend built by a bespoke darwin
+  # script (make backends/privacy-filter-darwin); ggml defaults Metal ON on Apple
+  # so the build is Metal-enabled. lang=go drives runner/toolchain selection only.
+  - backend: "privacy-filter"
+    tag-suffix: "-metal-darwin-arm64-privacy-filter"
+    lang: "go"
+  # LocalVQE has no Metal path; on Apple Silicon it builds CPU-only (GGML_METAL
+  # OFF) but is still a native arm64 image. Uses the darwin/metal build profile.
+  - backend: "localvqe"
+    tag-suffix: "-metal-darwin-arm64-localvqe"
     build-type: "metal"
     lang: "go"
   - backend: "voxtral"
@@ -4003,9 +5294,6 @@ includeDarwin:
     build-type: "mps"
   - backend: "qwen-tts"
     tag-suffix: "-metal-darwin-arm64-qwen-tts"
-    build-type: "mps"
-  - backend: "fish-speech"
-    tag-suffix: "-metal-darwin-arm64-fish-speech"
     build-type: "mps"
   - backend: "voxcpm"
     tag-suffix: "-metal-darwin-arm64-voxcpm"
@@ -4040,6 +5328,19 @@ includeDarwin:
   - backend: "kitten-tts"
     tag-suffix: "-metal-darwin-arm64-kitten-tts"
     build-type: "mps"
+  # vLLM on Apple Silicon via vllm-metal (MLX). The install is custom
+  # (backend/python/vllm/install.sh has a darwin branch); lang stays python so
+  # backend_build_darwin.yml drives it through build-darwin-python-backend ->
+  # scripts/build/python-darwin.sh, which runs the backend's install.sh.
+  - backend: "vllm"
+    tag-suffix: "-metal-darwin-arm64-vllm"
+    build-type: "mps"
+  - backend: "trl"
+    tag-suffix: "-metal-darwin-arm64-trl"
+    build-type: "mps"
+  - backend: "liquid-audio"
+    tag-suffix: "-metal-darwin-arm64-liquid-audio"
+    build-type: "mps"
   - backend: "piper"
     tag-suffix: "-metal-darwin-arm64-piper"
     build-type: "metal"
@@ -4052,6 +5353,14 @@ includeDarwin:
     tag-suffix: "-metal-darwin-arm64-silero-vad"
     build-type: "metal"
     lang: "go"
+  - backend: "sherpa-onnx"
+    tag-suffix: "-metal-darwin-arm64-sherpa-onnx"
+    build-type: "metal"
+    lang: "go"
+  - backend: "supertonic"
+    tag-suffix: "-metal-darwin-arm64-supertonic"
+    build-type: "metal"
+    lang: "go"
   - backend: "local-store"
     tag-suffix: "-metal-darwin-arm64-local-store"
     build-type: "metal"
@@ -4059,3 +5368,9 @@ includeDarwin:
   - backend: "llama-cpp-quantization"
     tag-suffix: "-metal-darwin-arm64-llama-cpp-quantization"
     build-type: "mps"
+  - backend: "speaker-recognition"
+    tag-suffix: "-metal-darwin-arm64-speaker-recognition"
+    build-type: "mps"
+  - backend: "ds4"
+    tag-suffix: "-metal-darwin-arm64-ds4"
+    lang: "go"

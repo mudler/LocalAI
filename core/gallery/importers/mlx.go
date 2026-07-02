@@ -64,7 +64,17 @@ func (i *MLXImporter) Import(details Details) (gallery.ModelConfig, error) {
 		description = "Imported from " + details.URI
 	}
 
+	// Vision-language checkpoints (e.g. gemma-4 E4B) declare the
+	// "image-text-to-text" pipeline tag on HuggingFace. The text-only mlx-lm
+	// tokenizer does not carry their processor chat template, so routing them
+	// through the plain mlx backend yields degenerate looping output
+	// (issue #10269). Send them to the mlx-vlm backend, which applies the
+	// processor-aware chat template.
 	backend := "mlx"
+	if details.HuggingFace != nil && details.HuggingFace.PipelineTag == "image-text-to-text" {
+		backend = "mlx-vlm"
+	}
+	// An explicit backend preference always wins.
 	b, ok := preferencesMap["backend"].(string)
 	if ok {
 		backend = b
@@ -77,7 +87,7 @@ func (i *MLXImporter) Import(details Details) (gallery.ModelConfig, error) {
 		Backend:             backend,
 		PredictionOptions: schema.PredictionOptions{
 			BasicModelRequest: schema.BasicModelRequest{
-				Model: details.URI,
+				Model: LocalModelPath(details.URI),
 			},
 		},
 		TemplateConfig: config.TemplateConfig{

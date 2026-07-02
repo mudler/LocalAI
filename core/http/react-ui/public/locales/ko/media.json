@@ -1,0 +1,156 @@
+{
+  "studio": {
+    "tabs": {
+      "images": "이미지",
+      "video": "비디오",
+      "tts": "TTS",
+      "sound": "사운드",
+      "transform": "Transform"
+    }
+  },
+  "image": {
+    "title": "이미지 생성",
+    "labels": {
+      "model": "모델",
+      "prompt": "프롬프트",
+      "promptPlaceholder": "생성할 이미지를 설명하세요...",
+      "negativePrompt": "네거티브 프롬프트",
+      "negativePromptPlaceholder": "피할 요소...",
+      "size": "크기",
+      "count": "개수 (1-4)",
+      "advanced": "고급 설정",
+      "imageInputs": "이미지 입력",
+      "steps": "스텝",
+      "stepsPlaceholder": "20",
+      "seed": "시드",
+      "seedPlaceholder": "랜덤",
+      "sourceImage": "원본 이미지 (img2img)",
+      "refImages": "참조 이미지",
+      "refImagesAdded_one": "이미지 {{count}}개 추가됨",
+      "refImagesAdded_other": "이미지 {{count}}개 추가됨"
+    },
+    "actions": {
+      "view": "View",
+      "generate": "생성",
+      "generating": "생성 중..."
+    },
+    "empty": "생성된 이미지가 여기에 표시됩니다",
+    "toasts": {
+      "noPrompt": "프롬프트를 입력해 주세요",
+      "noModel": "모델을 선택해 주세요",
+      "noResults": "생성된 이미지가 없습니다"
+    }
+  },
+  "video": {
+    "title": "비디오 생성",
+    "labels": {
+      "model": "모델",
+      "prompt": "프롬프트",
+      "promptPlaceholder": "생성할 비디오를 설명하세요...",
+      "duration": "길이 (초)",
+      "fps": "FPS",
+      "size": "크기",
+      "advanced": "고급 설정",
+      "seed": "시드",
+      "seedPlaceholder": "랜덤"
+    },
+    "actions": {
+      "generate": "생성",
+      "generating": "생성 중..."
+    },
+    "empty": "생성된 비디오가 여기에 표시됩니다",
+    "toasts": {
+      "noPrompt": "프롬프트를 입력해 주세요",
+      "noModel": "모델을 선택해 주세요",
+      "noResults": "생성된 비디오가 없습니다"
+    }
+  },
+  "tts": {
+    "title": "텍스트 음성 변환",
+    "labels": {
+      "model": "모델",
+      "voice": "음성",
+      "voicePlaceholder": "음성 ID (선택 사항)",
+      "input": "텍스트",
+      "inputPlaceholder": "합성할 텍스트를 입력하세요..."
+    },
+    "actions": {
+      "generate": "생성",
+      "generating": "생성 중..."
+    },
+    "empty": "생성된 오디오가 여기에 표시됩니다",
+    "toasts": {
+      "noText": "텍스트를 입력해 주세요",
+      "noModel": "모델을 선택해 주세요",
+      "generateFailed": "생성에 실패했습니다"
+    }
+  },
+  "sound": {
+    "title": "사운드 생성",
+    "labels": {
+      "model": "모델",
+      "prompt": "프롬프트",
+      "promptPlaceholder": "생성할 사운드를 설명하세요...",
+      "duration": "길이 (초)",
+      "language": "언어",
+      "vocalLanguage": "보컬 언어",
+      "lyrics": "가사 (선택 사항)",
+      "lyricsPlaceholder": "보컬 생성을 위한 가사",
+      "advanced": "고급 설정",
+      "seed": "시드",
+      "seedPlaceholder": "랜덤"
+    },
+    "actions": {
+      "generate": "생성",
+      "generating": "생성 중..."
+    },
+    "empty": "생성된 오디오가 여기에 표시됩니다",
+    "toasts": {
+      "noPrompt": "프롬프트를 입력해 주세요",
+      "noModel": "모델을 선택해 주세요",
+      "generateFailed": "생성에 실패했습니다"
+    }
+  },
+  "talk": {
+    "title": "대화",
+    "subtitle": "실시간 음성 대화",
+    "actions": {
+      "start": "세션 시작",
+      "stop": "세션 종료",
+      "connecting": "연결 중...",
+      "muted": "음소거됨",
+      "mute": "음소거",
+      "unmute": "음소거 해제"
+    },
+    "labels": {
+      "model": "모델",
+      "voice": "음성",
+      "voicePlaceholder": "alloy",
+      "language": "언어",
+      "languagePlaceholder": "en",
+      "instructions": "지침",
+      "instructionsPlaceholder": "어시스턴트의 페르소나를 설정하세요..."
+    },
+    "status": {
+      "idle": "대기 중",
+      "connecting": "연결 중...",
+      "listening": "듣는 중...",
+      "speaking": "말하는 중...",
+      "ended": "세션이 종료되었습니다"
+    },
+    "toasts": {
+      "noModel": "먼저 모델을 선택하세요",
+      "connectFailed": "연결에 실패했습니다: {{message}}"
+    }
+  },
+  "history": {
+    "title": "기록",
+    "empty": "아직 기록이 없습니다",
+    "deleteEntry": "항목 삭제",
+    "clear": "기록 지우기",
+    "clearTitle": "모든 기록 지우기",
+    "clearMessage": "모든 기록 항목을 제거하시겠습니까? 이 작업은 되돌릴 수 없습니다.",
+    "clearConfirm": "지우기",
+    "cleared": "기록이 지워졌습니다"
+  }
+}

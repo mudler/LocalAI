@@ -11,6 +11,8 @@ import os
 
 import grpc
 
+from parent_watch import start_parent_death_watcher
+
 
 class _AbortHandler(grpc.RpcMethodHandler):
     """A method handler that immediately aborts with UNAUTHENTICATED."""
@@ -70,6 +72,13 @@ def get_auth_interceptors(*, aio: bool = False):
 
     Returns an empty list when LOCALAI_GRPC_AUTH_TOKEN is not set.
     """
+    # Arm the best-effort parent-death backstop here: this is the single helper
+    # every LocalAI Python backend invokes exactly once while building its gRPC
+    # server (mirroring how the Go watcher arms in pkg/grpc's shared serve path).
+    # start_parent_death_watcher() is idempotent and a no-op when disabled or on
+    # unsupported platforms — see parent_watch.py.
+    start_parent_death_watcher()
+
     token = os.environ.get("LOCALAI_GRPC_AUTH_TOKEN", "")
     if not token:
         return []

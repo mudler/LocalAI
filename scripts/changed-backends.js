@@ -1,5 +1,5 @@
 import fs from "fs";
-import yaml from "js-yaml";
+import * as yaml from "js-yaml";
 import { Octokit } from "@octokit/core";
 
 // Matrix data lives in a small data-only YAML so both backend.yml (master push)
@@ -18,6 +18,21 @@ function inferBackendPath(item) {
   if (item.dockerfile.endsWith("python")) {
     return `backend/python/${item.backend}/`;
   }
+  // parakeet-cpp is a Go backend (Dockerfile.golang) wrapping the parakeet.cpp
+  // ggml port via purego. It lives in backend/go/parakeet-cpp/; this explicit
+  // branch (placed before the generic golang one, which would also resolve it
+  // correctly) documents the mapping and guards against a future
+  // dockerfile-suffix change.
+  if (item.backend === "parakeet-cpp") {
+    return `backend/go/parakeet-cpp/`;
+  }
+  // ced is a Go backend (Dockerfile.golang) wrapping the ced.cpp ggml port via
+  // purego, living in backend/go/ced/. Same explicit-branch rationale as
+  // parakeet-cpp above: the generic golang fallthrough would also resolve it,
+  // but this documents the mapping and guards a future dockerfile-suffix change.
+  if (item.backend === "ced") {
+    return `backend/go/ced/`;
+  }
   if (item.dockerfile.endsWith("golang")) {
     return `backend/go/${item.backend}/`;
   }
@@ -31,6 +46,9 @@ function inferBackendPath(item) {
     // turboquant is a llama.cpp fork that reuses backend/cpp/llama-cpp sources
     // via a thin wrapper Makefile. Changes to either dir should retrigger it.
     return `backend/cpp/turboquant/`;
+  }
+  if (item.dockerfile.endsWith("privacy-filter")) {
+    return `backend/cpp/privacy-filter/`;
   }
   if (item.dockerfile.endsWith("ds4")) {
     return `backend/cpp/ds4/`;
@@ -47,6 +65,16 @@ function inferBackendPathDarwin(item) {
   // for runner/toolchain selection, but the source path is C++.
   if (item.backend === "llama-cpp") {
     return `backend/cpp/llama-cpp/`;
+  }
+  // ds4 is C++ too (built via `make backends/ds4-darwin`); the matrix entry
+  // carries lang=go for runner/toolchain selection, but the source is C++.
+  if (item.backend === "ds4") {
+    return `backend/cpp/ds4/`;
+  }
+  // privacy-filter is C++ too (built via `make backends/privacy-filter-darwin`);
+  // same lang=go-for-runner convention, source under backend/cpp.
+  if (item.backend === "privacy-filter") {
+    return `backend/cpp/privacy-filter/`;
   }
   if (!item.lang) {
     return `backend/python/${item.backend}/`;

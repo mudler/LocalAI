@@ -4,6 +4,7 @@ package main
 import (
 	"flag"
 	"os"
+	"runtime"
 
 	"github.com/ebitengine/purego"
 	grpc "github.com/mudler/LocalAI/pkg/grpc"
@@ -22,7 +23,11 @@ func main() {
 	// Get library name from environment variable, default to fallback
 	libName := os.Getenv("WHISPER_LIBRARY")
 	if libName == "" {
-		libName = "./libgowhisper-fallback.so"
+		if runtime.GOOS == "darwin" {
+			libName = "./libgowhisper-fallback.dylib"
+		} else {
+			libName = "./libgowhisper-fallback.so"
+		}
 	}
 
 	gosd, err := purego.Dlopen(libName, purego.RTLD_NOW|purego.RTLD_GLOBAL)

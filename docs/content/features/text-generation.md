@@ -507,7 +507,7 @@ The `llama.cpp` backend supports additional configuration options that can be sp
 | `fit_params_min_ctx` or `fit_ctx` | integer | Minimum context size that can be set by fit_params. Default: `4096`. | `fit_ctx:2048` |
 | `n_cache_reuse` or `cache_reuse` | integer | Minimum chunk size to attempt reusing from the cache via KV shifting. Default: `0` (disabled). | `cache_reuse:256` |
 | `slot_prompt_similarity` or `sps` | float | How much the prompt of a request must match the prompt of a slot to use that slot. Default: `0.1`. Set to `0` to disable. | `sps:0.5` |
-| `swa_full` | boolean | Use full-size SWA (Sliding Window Attention) cache. Default: `false`. | `swa_full:true` |
+| `swa_full` | boolean | Use full-size SWA (Sliding Window Attention) cache. Upstream default is `false` (a memory-light reduced cache), but that reduced cache cannot reuse a prompt prefix across requests, which defeats `cache_reuse` for SWA models (Gemma 2/3, Cohere2, Llama 4, ...). LocalAI therefore **auto-enables `swa_full:true` for GGUF models detected as SWA** so the cross-request prefix cache works; it is left off for dense models. The tradeoff is memory: the full SWA cache scales with `context_size`. Set `swa_full:false` explicitly to opt back out (e.g. to save memory at a large context). | `swa_full:true` |
 | `cont_batching` or `continuous_batching` | boolean | Enable continuous batching for handling multiple sequences. Default: `true`. | `cont_batching:true` |
 | `check_tensors` | boolean | Validate tensor data for invalid values during model loading. Default: `false`. | `check_tensors:true` |
 | `warmup` | boolean | Enable warmup run after model loading. Default: `true`. | `warmup:false` |
@@ -516,7 +516,7 @@ The `llama.cpp` backend supports additional configuration options that can be sp
 | `cache_idle_slots` or `idle_slots_cache` | boolean | On a new task, save the previous slot's KV state into the prompt cache (and clear the slot) so a later request with the same prefix can warm-load it. Default: `true`. Auto-disabled by the server if `kv_unified=false` or `cache_ram=0`. | `cache_idle_slots:false` |
 | `n_ctx_checkpoints` or `ctx_checkpoints` | integer | Maximum number of context checkpoints per slot (used for partial-prefix recovery, e.g. SWA). Default: `32`. | `ctx_checkpoints:16` |
 | `checkpoint_min_step` or `checkpoint_min_spacing` (aliases: `checkpoint_every_nt`, `checkpoint_every_n_tokens`) | integer | Minimum spacing in tokens between context checkpoints. `0` disables the minimum-spacing gate. Default: `256`. (Renamed upstream from `checkpoint_every_nt`; semantics shifted from a fixed cadence to a minimum spacing.) | `checkpoint_min_step:1024` |
-| `split_mode` or `sm` | string | How to split the model across multiple GPUs: `none` (single GPU only), `layer` (default — split layers and KV across GPUs), `row` (split rows across GPUs), `tensor` (experimental tensor parallelism — requires `flash_attention: true`, no KV-cache quantization, manually set `context_size`, and a llama.cpp build that includes [#19378](https://github.com/ggml-org/llama.cpp/pull/19378)). | `split_mode:tensor` |
+| `split_mode` or `sm` | string | How to split the model across multiple GPUs: `none` (single GPU only), `layer` (default — split layers and KV across GPUs), `row` (split rows across GPUs), `tensor` (experimental tensor parallelism, requires `flash_attention: true`, manually set `context_size`, and a llama.cpp build that includes [#19378](https://github.com/ggml-org/llama.cpp/pull/19378); it historically also required KV-cache quantization to be disabled, but [#23792](https://github.com/ggml-org/llama.cpp/pull/23792) lifts that restriction so `cache_type_k`/`cache_type_v` quantization can be combined with tensor parallelism on builds that include it). | `split_mode:tensor` |
 
 **Example configuration with options:**
 
@@ -536,6 +536,16 @@ options:
 ```
 
 **Note:** The `parallel` option can also be set via the `LLAMACPP_PARALLEL` environment variable, and `grpc_servers` can be set via the `LLAMACPP_GRPC_SERVERS` environment variable. Options specified in the YAML file take precedence over environment variables.
+
+##### Hardware auto-tuning (and how to override it)
+
+On a detected GPU, LocalAI fills a few performance-relevant defaults the model config leaves unset — a larger physical batch on NVIDIA Blackwell, and a VRAM-scaled `parallel` slot count for concurrent serving. Both are gated on **per-device** VRAM at the model's context: when a large context already fills a single card (e.g. a 27B model with a 200k context across 2×16 GiB), the batch boost and the extra parallel slots are suppressed so they can't tip the tighter GPU into CUDA out-of-memory.
+
+Anything you set explicitly in the model YAML always wins, so to pin a value just set it (e.g. `batch: 512` or `options: ["parallel:1"]`). The effective values are logged at `INFO` when a model loads (`effective runtime tuning …`). To turn the hardware auto-tuning off entirely and run llama.cpp's stock behavior, set:
+
+```
+LOCALAI_DISABLE_HARDWARE_DEFAULTS=true
+```
 
 ##### Server-side prompt cache (repeated system prompts)
 
@@ -897,7 +907,7 @@ The backend will automatically download the required files in order to run the m
 - `OVModelForCausalLM` requires OpenVINO IR [Text Generation](https://huggingface.co/models?library=openvino&pipeline_tag=text-generation) models from Hugging face
 - `OVModelForFeatureExtraction` works with any Safetensors Transformer [Feature Extraction](https://huggingface.co/models?pipeline_tag=feature-extraction&library=transformers,safetensors) model from Huggingface (Embedding Model)
 
-Please note that streaming is currently not implemente in `AutoModelForCausalLM` for Intel GPU.
+Please note that streaming is currently not implemented in `AutoModelForCausalLM` for Intel GPU.
 AMD GPU support is not implemented.
 Although AMD CPU is not officially supported by OpenVINO there are reports that it works: YMMV.
 

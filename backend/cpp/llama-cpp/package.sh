@@ -14,6 +14,22 @@ mkdir -p $CURDIR/package/lib
 cp -avrf $CURDIR/llama-cpp-* $CURDIR/package/
 cp -rfv $CURDIR/run.sh $CURDIR/package/
 
+# Bundle the ggml shared backends produced by the CPU_ALL_VARIANTS build (libggml-base.so,
+# libggml.so, libllama.so and the per-microarch libggml-cpu-*.so), all into package/lib.
+#
+# Two distinct resolution mechanisms both land here:
+#   - NEEDED deps (libggml-base/libggml/libllama): resolved by the dynamic linker via the
+#     LD_LIBRARY_PATH=$CURDIR/lib that run.sh exports.
+#   - The per-microarch libggml-cpu-*.so are NOT linked; ggml *discovers* them at runtime by
+#     scanning the executable's own directory (readlink /proc/self/exe). run.sh launches via
+#     the bundled $CURDIR/lib/ld.so, so /proc/self/exe -> .../lib/ld.so and ggml scans lib/.
+#     That is why the variants must sit in lib/ (next to ld.so), not just on the link path.
+# No-op on builds (arm64/darwin) that don't produce the all-variants set.
+if [ -d "$CURDIR/ggml-shared-libs" ]; then
+    echo "Bundling ggml shared backends (CPU_ALL_VARIANTS)..."
+    cp -avf $CURDIR/ggml-shared-libs/*.so* $CURDIR/package/lib/
+fi
+
 # Detect architecture and copy appropriate libraries
 if [ -f "/lib64/ld-linux-x86-64.so.2" ]; then
     # x86_64 architecture

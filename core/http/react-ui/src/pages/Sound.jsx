@@ -1,8 +1,10 @@
 import { useState } from 'react'
 import { useParams, useOutletContext } from 'react-router-dom'
 import ModelSelector from '../components/ModelSelector'
+import PageHeader from '../components/PageHeader'
 import { CAP_SOUND_GENERATION } from '../utils/capabilities'
 import LoadingSpinner from '../components/LoadingSpinner'
+import GenerationProgress from '../components/GenerationProgress'
 import ErrorWithTraceLink from '../components/ErrorWithTraceLink'
 import MediaHistory from '../components/MediaHistory'
 import WaveformPlayer from '../components/audio/WaveformPlayer'
@@ -77,9 +79,7 @@ export default function Sound() {
   return (
     <div className="media-layout">
       <div className="media-controls">
-        <div className="page-header">
-          <h1 className="page-title"><i className="fas fa-music" /> Sound Generation</h1>
-        </div>
+        <PageHeader title={<><i className="fas fa-music" /> Sound Generation</>} />
 
         <form onSubmit={handleGenerate}>
           <div className="form-group">
@@ -144,7 +144,7 @@ export default function Sound() {
       <div className="media-preview">
         <div className="media-result">
           {loading ? (
-            <LoadingSpinner size="lg" />
+            <GenerationProgress label="Generating..." />
           ) : error ? (
             <ErrorWithTraceLink message={error} />
           ) : selectedEntry ? (

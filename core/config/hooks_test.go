@@ -1,12 +1,75 @@
 package config_test
 
 import (
+	"bytes"
+	"encoding/binary"
+	"os"
+	"path/filepath"
+
 	. "github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/schema"
 
+	gguf "github.com/gpustack/gguf-parser-go"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
+
+// GGUF metadata value type tags (see github.com/gpustack/gguf-parser-go).
+const (
+	ggufTypeUint32 uint32 = 4
+	ggufTypeString uint32 = 8
+	ggufTypeArray  uint32 = 9
+)
+
+// writeTestGGUF emits a minimal but valid little-endian GGUF v3 header carrying
+// the scalar metadata the llama-cpp hook guesses from plus a large string vocab
+// array (tokenizer.ggml.tokens). The big array is exactly what SkipLargeMetadata
+// + UseMMap are expected to avoid reading element-by-element, so it must survive a
+// round-trip through the real hook without corrupting the guessed defaults.
+func writeTestGGUF(path, chatTemplate string, vocab int) error {
+	wStr := func(b *bytes.Buffer, s string) {
+		binary.Write(b, binary.LittleEndian, uint64(len(s)))
+		b.WriteString(s)
+	}
+	kvStr := func(b *bytes.Buffer, k, v string) {
+		wStr(b, k)
+		binary.Write(b, binary.LittleEndian, ggufTypeString)
+		wStr(b, v)
+	}
+	kvU32 := func(b *bytes.Buffer, k string, v uint32) {
+		wStr(b, k)
+		binary.Write(b, binary.LittleEndian, ggufTypeUint32)
+		binary.Write(b, binary.LittleEndian, v)
+	}
+
+	var meta bytes.Buffer
+	kvStr(&meta, "general.architecture", "llama")
+	kvStr(&meta, "general.name", "ReproModel")
+	kvU32(&meta, "llama.context_length", 4096)
+	kvU32(&meta, "llama.attention.head_count", 32)
+	kvU32(&meta, "llama.feed_forward_length", 11008)
+	kvU32(&meta, "llama.block_count", 32)
+	kvU32(&meta, "tokenizer.ggml.bos_token_id", 1)
+	kvStr(&meta, "tokenizer.chat_template", chatTemplate)
+
+	// large array value — the one the optimization skips reading
+	wStr(&meta, "tokenizer.ggml.tokens")
+	binary.Write(&meta, binary.LittleEndian, ggufTypeArray)
+	binary.Write(&meta, binary.LittleEndian, ggufTypeString)
+	binary.Write(&meta, binary.LittleEndian, uint64(vocab))
+	for i := 0; i < vocab; i++ {
+		wStr(&meta, "token")
+	}
+
+	var out bytes.Buffer
+	binary.Write(&out, binary.LittleEndian, gguf.GGUFMagicGGUFLe)
+	binary.Write(&out, binary.LittleEndian, uint32(3)) // version
+	binary.Write(&out, binary.LittleEndian, uint64(0)) // tensor count
+	binary.Write(&out, binary.LittleEndian, uint64(9)) // metadata kv count
+	out.Write(meta.Bytes())
+
+	return os.WriteFile(path, out.Bytes(), 0o644)
+}
 
 var _ = Describe("Backend hooks and parser defaults", func() {
 	Context("MatchParserDefaults", func() {
@@ -134,6 +197,62 @@ var _ = Describe("Backend hooks and parser defaults", func() {
 			Expect(cfg.EngineArgs["enable_prefix_caching"]).To(Equal(false))
 			// chunked_prefill is still seeded since user didn't set it
 			Expect(cfg.EngineArgs["enable_chunked_prefill"]).To(Equal(true))
+		})
+	})
+
+	Context("llamaCppDefaults GGUF guessing", func() {
+		// Regression coverage for https://github.com/mudler/LocalAI/issues/9790:
+		// the hook reads GGUF headers with SkipLargeMetadata + UseMMap to avoid
+		// pulling the whole tokenizer vocab off (slow) disk on every startup. This
+		// verifies that skipping the vocab array still yields the correct guessed
+		// defaults from the remaining scalar metadata.
+		const chatTemplate = "{{ bos_token }}{% for m in messages %}{{ m.content }}{% endfor %}"
+
+		It("guesses defaults from a GGUF whose large vocab is skipped", func() {
+			dir := GinkgoT().TempDir()
+			modelFile := "repro.gguf"
+			Expect(writeTestGGUF(filepath.Join(dir, modelFile), chatTemplate, 50000)).To(Succeed())
+
+			// A pre-set context size short-circuits the GGUF run-estimate, which
+			// needs full tensor info this header-only fixture deliberately omits;
+			// the metadata-reading path the optimization touches is unaffected.
+			ctxSize := 4096
+			cfg := &ModelConfig{
+				Backend: "llama-cpp",
+				LLMConfig: LLMConfig{ContextSize: &ctxSize},
+				PredictionOptions: schema.PredictionOptions{
+					BasicModelRequest: schema.BasicModelRequest{Model: modelFile},
+				},
+			}
+			cfg.SetDefaults(ModelPath(dir))
+
+			// chat_template is a scalar string, not part of the skipped array,
+			// so it must be captured verbatim.
+			Expect(cfg.GetModelTemplate()).To(Equal(chatTemplate))
+			// scalar-derived defaults are still applied
+			Expect(cfg.ContextSize).NotTo(BeNil())
+			Expect(cfg.NGPULayers).NotTo(BeNil())
+			Expect(cfg.TemplateConfig.UseTokenizerTemplate).To(BeTrue())
+			Expect(cfg.KnownUsecaseStrings).To(ContainElement("FLAG_CHAT"))
+		})
+
+		It("falls back to the default context size when the GGUF is unreadable", func() {
+			dir := GinkgoT().TempDir()
+			Expect(os.WriteFile(filepath.Join(dir, "bad.gguf"), []byte("not a gguf"), 0o644)).To(Succeed())
+
+			cfg := &ModelConfig{
+				Backend: "llama-cpp",
+				PredictionOptions: schema.PredictionOptions{
+					BasicModelRequest: schema.BasicModelRequest{Model: "bad.gguf"},
+				},
+			}
+			cfg.SetDefaults(ModelPath(dir))
+
+			// An unreadable/unparseable GGUF (e.g. a quant type the parser does
+			// not know, such as NVFP4) yields no estimate, so the hook must fall
+			// back to DefaultContextSize rather than a tiny, surprising value.
+			Expect(cfg.ContextSize).NotTo(BeNil())
+			Expect(*cfg.ContextSize).To(Equal(DefaultContextSize))
 		})
 	})
 

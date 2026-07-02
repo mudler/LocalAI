@@ -152,6 +152,107 @@ var _ = Describe("SetModelAndConfig middleware", func() {
 })
 
 // ---------------------------------------------------------------------------
+// SetModelAndConfig - model alias resolution
+// ---------------------------------------------------------------------------
+//
+// An alias config (`alias: <target>`) is a pure redirect: the middleware must
+// swap MODEL_CONFIG to the target config before the disabled check and before
+// storing it, while leaving the response-facing model name as the alias. It
+// also stamps routing.requested_model = alias and routing.served_model =
+// target so usage accounting records both identities.
+var _ = Describe("SetModelAndConfig alias resolution", func() {
+	var (
+		modelDir       string
+		capturedConfig *config.ModelConfig
+		capturedReq    any
+		capturedServed any
+		app            *echo.Echo
+	)
+
+	BeforeEach(func() {
+		var err error
+		modelDir, err = os.MkdirTemp("", "localai-alias-*")
+		Expect(err).ToNot(HaveOccurred())
+	})
+
+	AfterEach(func() {
+		_ = os.RemoveAll(modelDir)
+	})
+
+	// buildApp seeds the loader from every YAML in modelDir (so an alias's
+	// target is present in the loader map) and wires a handler that captures
+	// the resolved config plus the stamped identity keys.
+	buildApp := func() *echo.Echo {
+		ss := &system.SystemState{Model: system.Model{ModelsPath: modelDir}}
+		appConfig := config.NewApplicationConfig()
+		appConfig.SystemState = ss
+
+		mcl := config.NewModelConfigLoader(modelDir)
+		Expect(mcl.LoadModelConfigsFromPath(modelDir)).To(Succeed())
+		ml := model.NewModelLoader(ss)
+		re := NewRequestExtractor(mcl, ml, appConfig)
+
+		capturedConfig = nil
+		capturedReq = nil
+		capturedServed = nil
+		e := echo.New()
+		e.POST("/v1/chat/completions",
+			func(c echo.Context) error {
+				if cfg, ok := c.Get(CONTEXT_LOCALS_KEY_MODEL_CONFIG).(*config.ModelConfig); ok {
+					capturedConfig = cfg
+				}
+				capturedReq = c.Get(ContextKeyRequestedModel)
+				capturedServed = c.Get(ContextKeyServedModel)
+				return c.String(http.StatusOK, "ok")
+			},
+			re.SetModelAndConfig(func() schema.LocalAIRequest { return new(schema.OpenAIRequest) }),
+		)
+		return e
+	}
+
+	It("serves the target config but keeps the alias name and stamps identity", func() {
+		Expect(os.WriteFile(filepath.Join(modelDir, "real.yaml"),
+			[]byte("name: real\nbackend: llama-cpp\n"), 0644)).To(Succeed())
+		Expect(os.WriteFile(filepath.Join(modelDir, "gpt-4.yaml"),
+			[]byte("name: gpt-4\nalias: real\n"), 0644)).To(Succeed())
+		app = buildApp()
+
+		req := httptest.NewRequest(http.MethodPost, "/v1/chat/completions",
+			strings.NewReader(`{"model":"gpt-4","messages":[{"role":"user","content":"hi"}]}`))
+		req.Header.Set("Content-Type", "application/json")
+		rec := httptest.NewRecorder()
+		app.ServeHTTP(rec, req)
+
+		Expect(rec.Code).To(Equal(http.StatusOK))
+		Expect(capturedConfig).ToNot(BeNil())
+		// MODEL_CONFIG must be the target, not the alias stub.
+		Expect(capturedConfig.Name).To(Equal("real"))
+		Expect(capturedConfig.IsAlias()).To(BeFalse())
+		// Identity stamps: requested = alias, served = target.
+		Expect(capturedReq).To(Equal("gpt-4"))
+		Expect(capturedServed).To(Equal("real"))
+	})
+
+	It("returns 400 when the alias target is missing", func() {
+		Expect(os.WriteFile(filepath.Join(modelDir, "gpt-4.yaml"),
+			[]byte("name: gpt-4\nalias: nope\n"), 0644)).To(Succeed())
+		app = buildApp()
+
+		req := httptest.NewRequest(http.MethodPost, "/v1/chat/completions",
+			strings.NewReader(`{"model":"gpt-4","messages":[{"role":"user","content":"hi"}]}`))
+		req.Header.Set("Content-Type", "application/json")
+		rec := httptest.NewRecorder()
+		app.ServeHTTP(rec, req)
+
+		Expect(rec.Code).To(Equal(http.StatusBadRequest))
+		var resp schema.ErrorResponse
+		Expect(json.Unmarshal(rec.Body.Bytes(), &resp)).To(Succeed())
+		Expect(resp.Error).ToNot(BeNil())
+		Expect(resp.Error.Type).To(Equal("invalid_request_error"))
+	})
+})
+
+// ---------------------------------------------------------------------------
 // MergeOpenResponsesConfig — tool_choice parsing
 // ---------------------------------------------------------------------------
 //
@@ -595,5 +696,196 @@ var _ = Describe("SetModelAndConfig tool_choice parsing (chat completions)", fun
 			Expect(capturedConfig.Maxtokens).ToNot(BeNil())
 			Expect(*capturedConfig.Maxtokens).To(Equal(64))
 		})
+	})
+})
+
+// These tests cover the per-request reasoning_effort -> enable_thinking mapping.
+// The merge lives in mergeOpenAIRequestAndModelConfig (called from
+// SetOpenAIRequest), so they drive the full middleware chain like the
+// production /v1/chat/completions route does. The block builds its own app per
+// test so the model config can be varied (some cases need reasoning.disable set
+// in the model YAML to assert that an explicit config disable wins).
+//
+// Mapping under test (issue #10072):
+//   - reasoning_effort=none                 -> DisableReasoning=true
+//   - reasoning_effort=low/medium/high      -> DisableReasoning=false, UNLESS the
+//     model config explicitly set true
+//   - empty / unrecognized                  -> no change
+var _ = Describe("SetModelAndConfig reasoning_effort parsing (chat completions)", func() {
+	var modelDir string
+
+	BeforeEach(func() {
+		var err error
+		modelDir, err = os.MkdirTemp("", "localai-test-models-*")
+		Expect(err).ToNot(HaveOccurred())
+	})
+
+	AfterEach(func() {
+		_ = os.RemoveAll(modelDir)
+	})
+
+	// buildApp writes a model config with the given YAML body and returns an app
+	// plus a pointer to the captured per-request config.
+	buildApp := func(cfgYAML string) (*echo.Echo, **config.ModelConfig) {
+		Expect(os.WriteFile(filepath.Join(modelDir, "test-model.yaml"), []byte(cfgYAML), 0644)).To(Succeed())
+
+		ss := &system.SystemState{Model: system.Model{ModelsPath: modelDir}}
+		appConfig := config.NewApplicationConfig()
+		appConfig.SystemState = ss
+		mcl := config.NewModelConfigLoader(modelDir)
+		ml := model.NewModelLoader(ss)
+		re := NewRequestExtractor(mcl, ml, appConfig)
+
+		captured := new(*config.ModelConfig)
+		app := echo.New()
+		app.POST("/v1/chat/completions",
+			func(c echo.Context) error {
+				if cfg, ok := c.Get(CONTEXT_LOCALS_KEY_MODEL_CONFIG).(*config.ModelConfig); ok {
+					*captured = cfg
+				}
+				return c.String(http.StatusOK, "ok")
+			},
+			re.SetModelAndConfig(func() schema.LocalAIRequest { return new(schema.OpenAIRequest) }),
+			func(next echo.HandlerFunc) echo.HandlerFunc {
+				return func(c echo.Context) error {
+					if err := re.SetOpenAIRequest(c); err != nil {
+						return err
+					}
+					return next(c)
+				}
+			},
+		)
+		return app, captured
+	}
+
+	chatReq := func(effort string) string {
+		return `{"model":"test-model",` +
+			`"messages":[{"role":"user","content":"hi"}],` +
+			`"reasoning_effort":` + effort + `}`
+	}
+
+	plainCfg := "name: test-model\nbackend: llama-cpp\n"
+
+	It("disables thinking for reasoning_effort=none", func() {
+		app, captured := buildApp(plainCfg)
+		rec := postJSON(app, "/v1/chat/completions", chatReq(`"none"`))
+
+		Expect(rec.Code).To(Equal(http.StatusOK))
+		Expect(*captured).ToNot(BeNil())
+		Expect((*captured).ReasoningConfig.DisableReasoning).ToNot(BeNil())
+		Expect(*(*captured).ReasoningConfig.DisableReasoning).To(BeTrue())
+	})
+
+	It("enables thinking for reasoning_effort=high when config is unset", func() {
+		app, captured := buildApp(plainCfg)
+		rec := postJSON(app, "/v1/chat/completions", chatReq(`"high"`))
+
+		Expect(rec.Code).To(Equal(http.StatusOK))
+		Expect(*captured).ToNot(BeNil())
+		Expect((*captured).ReasoningConfig.DisableReasoning).ToNot(BeNil())
+		Expect(*(*captured).ReasoningConfig.DisableReasoning).To(BeFalse())
+	})
+
+	It("enables thinking for reasoning_effort=high when config explicitly set false", func() {
+		app, captured := buildApp(plainCfg + "reasoning:\n  disable: false\n")
+		rec := postJSON(app, "/v1/chat/completions", chatReq(`"high"`))
+
+		Expect(rec.Code).To(Equal(http.StatusOK))
+		Expect(*captured).ToNot(BeNil())
+		Expect((*captured).ReasoningConfig.DisableReasoning).ToNot(BeNil())
+		Expect(*(*captured).ReasoningConfig.DisableReasoning).To(BeFalse())
+	})
+
+	It("config wins: reasoning_effort=high cannot re-enable when config explicitly disabled", func() {
+		app, captured := buildApp(plainCfg + "reasoning:\n  disable: true\n")
+		rec := postJSON(app, "/v1/chat/completions", chatReq(`"high"`))
+
+		Expect(rec.Code).To(Equal(http.StatusOK))
+		Expect(*captured).ToNot(BeNil())
+		Expect((*captured).ReasoningConfig.DisableReasoning).ToNot(BeNil())
+		Expect(*(*captured).ReasoningConfig.DisableReasoning).To(BeTrue())
+	})
+
+	It("is a no-op when reasoning_effort is empty", func() {
+		app, captured := buildApp(plainCfg)
+		rec := postJSON(app, "/v1/chat/completions",
+			`{"model":"test-model","messages":[{"role":"user","content":"hi"}]}`)
+
+		Expect(rec.Code).To(Equal(http.StatusOK))
+		Expect(*captured).ToNot(BeNil())
+		Expect((*captured).ReasoningConfig.DisableReasoning).To(BeNil())
+	})
+
+	It("is case-insensitive (None disables, HIGH enables)", func() {
+		app, captured := buildApp(plainCfg)
+		rec := postJSON(app, "/v1/chat/completions", chatReq(`"None"`))
+		Expect(rec.Code).To(Equal(http.StatusOK))
+		Expect(*captured).ToNot(BeNil())
+		Expect((*captured).ReasoningConfig.DisableReasoning).ToNot(BeNil())
+		Expect(*(*captured).ReasoningConfig.DisableReasoning).To(BeTrue())
+
+		app2, captured2 := buildApp(plainCfg)
+		rec2 := postJSON(app2, "/v1/chat/completions", chatReq(`"HIGH"`))
+		Expect(rec2.Code).To(Equal(http.StatusOK))
+		Expect(*captured2).ToNot(BeNil())
+		Expect((*captured2).ReasoningConfig.DisableReasoning).ToNot(BeNil())
+		Expect(*(*captured2).ReasoningConfig.DisableReasoning).To(BeFalse())
+	})
+})
+
+var _ = Describe("SetModelAndConfig metadata passthrough (chat completions)", func() {
+	var modelDir string
+
+	BeforeEach(func() {
+		var err error
+		modelDir, err = os.MkdirTemp("", "localai-test-models-*")
+		Expect(err).ToNot(HaveOccurred())
+	})
+	AfterEach(func() { _ = os.RemoveAll(modelDir) })
+
+	buildApp := func() (*echo.Echo, **config.ModelConfig) {
+		Expect(os.WriteFile(filepath.Join(modelDir, "test-model.yaml"),
+			[]byte("name: test-model\nbackend: llama\n"), 0644)).To(Succeed())
+		ss := &system.SystemState{Model: system.Model{ModelsPath: modelDir}}
+		appConfig := config.NewApplicationConfig()
+		appConfig.SystemState = ss
+		mcl := config.NewModelConfigLoader(modelDir)
+		ml := model.NewModelLoader(ss)
+		re := NewRequestExtractor(mcl, ml, appConfig)
+
+		captured := new(*config.ModelConfig)
+		app := echo.New()
+		app.POST("/v1/chat/completions",
+			func(c echo.Context) error {
+				if cfg, ok := c.Get(CONTEXT_LOCALS_KEY_MODEL_CONFIG).(*config.ModelConfig); ok {
+					*captured = cfg
+				}
+				return c.String(http.StatusOK, "ok")
+			},
+			re.SetModelAndConfig(func() schema.LocalAIRequest { return new(schema.OpenAIRequest) }),
+			func(next echo.HandlerFunc) echo.HandlerFunc {
+				return func(c echo.Context) error {
+					if err := re.SetOpenAIRequest(c); err != nil {
+						return err
+					}
+					return next(c)
+				}
+			},
+		)
+		return app, captured
+	}
+
+	It("stamps request metadata onto the config", func() {
+		app, captured := buildApp()
+		body := `{"model":"test-model","messages":[{"role":"user","content":"hi"}],` +
+			`"metadata":{"preserve_thinking":"true"}}`
+		req := httptest.NewRequest(http.MethodPost, "/v1/chat/completions", strings.NewReader(body))
+		req.Header.Set("Content-Type", "application/json")
+		rec := httptest.NewRecorder()
+		app.ServeHTTP(rec, req)
+
+		Expect(rec.Code).To(Equal(http.StatusOK))
+		Expect(*captured).ToNot(BeNil())
+		Expect((*captured).RequestMetadata).To(HaveKeyWithValue("preserve_thinking", "true"))
 	})
 })

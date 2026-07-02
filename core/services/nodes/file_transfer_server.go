@@ -30,7 +30,16 @@ const (
 	HeaderContentSHA256 = "X-Content-SHA256"
 	HeaderLocalPath     = "X-Local-Path"
 	HeaderFileSize      = "X-File-Size"
-	hashSidecarSuffix   = ".sha256"
+	// HeaderTargetSHA256 is set on HEAD responses for partial (resumable) uploads
+	// to expose the expected final SHA-256 of the in-progress file. When set,
+	// the file on disk is not yet the full content — the client may resume by
+	// PUT'ing the remainder with a matching X-Content-SHA256 header.
+	HeaderTargetSHA256 = "X-Target-SHA256"
+	hashSidecarSuffix  = ".sha256"
+	// targetSidecarSuffix stores the expected final SHA-256 of a partially
+	// uploaded file. Used to detect mid-flight content mismatches across
+	// resumed PUT requests.
+	targetSidecarSuffix = ".sha256.target"
 )
 
 // StartFileTransferServer starts a small HTTP server for file transfer in distributed mode.
@@ -50,6 +59,17 @@ func StartFileTransferServer(addr, stagingDir, modelsDir, dataDir, token string,
 func StartFileTransferServerWithListener(lis net.Listener, stagingDir, modelsDir, dataDir, token string, maxUploadSize int64, logStore ...*model.BackendLogStore) (*http.Server, error) {
 	if err := os.MkdirAll(stagingDir, 0750); err != nil {
 		return nil, fmt.Errorf("creating staging dir %s: %w", stagingDir, err)
+	}
+
+	// An empty token makes checkBearerToken fail open: every /v1/files,
+	// /v1/files-list and /v1/backend-logs request is served unauthenticated,
+	// granting read/write to the staging/models/data directories to anyone who
+	// can reach this port. Surface that loudly — the worker process does not
+	// run DistributedConfig.Validate(), so this is the only signal an operator
+	// gets. Set LOCALAI_REGISTRATION_TOKEN (and LOCALAI_REGISTRATION_REQUIRE_AUTH
+	// to fail closed) to protect it.
+	if token == "" {
+		xlog.Warn("HTTP file transfer server starting WITHOUT a registration token — read/write to models/staging/data is unauthenticated for anyone who can reach this port; set LOCALAI_REGISTRATION_TOKEN")
 	}
 
 	mux := http.NewServeMux()
@@ -169,7 +189,25 @@ func handleHead(w http.ResponseWriter, r *http.Request, stagingDir, modelsDir, d
 	}
 
 	w.Header().Set(HeaderFileSize, strconv.FormatInt(info.Size(), 10))
+	w.Header().Set("Content-Length", strconv.FormatInt(info.Size(), 10))
 	w.Header().Set(HeaderLocalPath, filePath)
+	// Advertise resumable-upload support so clients know they may send
+	// Content-Range PUTs to continue partial transfers.
+	w.Header().Set("Accept-Ranges", "bytes")
+
+	// If a target-hash sidecar is present the file on disk is a partial
+	// upload, not a finished file. Expose the expected final hash via
+	// X-Target-SHA256 and skip emitting X-Content-SHA256 (which would otherwise
+	// be the hash of just the bytes received so far — misleading for clients
+	// trying to decide whether the file is "the right one").
+	if target, err := os.ReadFile(filePath + targetSidecarSuffix); err == nil {
+		t := strings.TrimSpace(string(target))
+		if len(t) == 64 {
+			w.Header().Set(HeaderTargetSHA256, t)
+			w.WriteHeader(http.StatusOK)
+			return
+		}
+	}
 
 	hashHex, err := computeAndCacheHash(filePath)
 	if err != nil {
@@ -179,6 +217,55 @@ func handleHead(w http.ResponseWriter, r *http.Request, stagingDir, modelsDir, d
 	}
 
 	w.WriteHeader(http.StatusOK)
+}
+
+// contentRange describes a parsed Content-Range request header of the form
+// "bytes <start>-<end>/<total>". An end of -1 means the request is open-ended
+// (unknown end), which is unusual for uploads but accepted.
+type contentRange struct {
+	start int64
+	end   int64
+	total int64
+}
+
+// parseContentRange parses a Content-Range header value of the form
+// "bytes <start>-<end>/<total>". RFC 9110 §14.4.
+// Returns (nil, nil) when the header is empty (no range request).
+func parseContentRange(h string) (*contentRange, error) {
+	h = strings.TrimSpace(h)
+	if h == "" {
+		return nil, nil
+	}
+	const prefix = "bytes "
+	if !strings.HasPrefix(h, prefix) {
+		return nil, fmt.Errorf("invalid Content-Range: missing %q prefix", strings.TrimSpace(prefix))
+	}
+	spec := strings.TrimSpace(h[len(prefix):])
+	slash := strings.IndexByte(spec, '/')
+	if slash < 0 {
+		return nil, fmt.Errorf("invalid Content-Range: missing /total")
+	}
+	rangePart, totalPart := spec[:slash], spec[slash+1:]
+	dash := strings.IndexByte(rangePart, '-')
+	if dash < 0 {
+		return nil, fmt.Errorf("invalid Content-Range: missing - separator")
+	}
+	start, err := strconv.ParseInt(strings.TrimSpace(rangePart[:dash]), 10, 64)
+	if err != nil {
+		return nil, fmt.Errorf("invalid Content-Range start: %w", err)
+	}
+	end, err := strconv.ParseInt(strings.TrimSpace(rangePart[dash+1:]), 10, 64)
+	if err != nil {
+		return nil, fmt.Errorf("invalid Content-Range end: %w", err)
+	}
+	total, err := strconv.ParseInt(strings.TrimSpace(totalPart), 10, 64)
+	if err != nil {
+		return nil, fmt.Errorf("invalid Content-Range total: %w", err)
+	}
+	if start < 0 || end < start || total < end+1 {
+		return nil, fmt.Errorf("invalid Content-Range range: %d-%d/%d", start, end, total)
+	}
+	return &contentRange{start: start, end: end, total: total}, nil
 }
 
 func handleUpload(w http.ResponseWriter, r *http.Request, stagingDir, modelsDir, dataDir, key string, maxUploadSize int64) {
@@ -191,7 +278,19 @@ func handleUpload(w http.ResponseWriter, r *http.Request, stagingDir, modelsDir,
 		r.Body = http.MaxBytesReader(w, r.Body, maxUploadSize)
 	}
 
-	xlog.Info("Receiving file upload", "key", key, "contentLength", r.ContentLength, "remote", r.RemoteAddr)
+	// Parse optional Content-Range for resumable uploads.
+	cr, err := parseContentRange(r.Header.Get("Content-Range"))
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	// Optional expected total-file SHA-256 used to detect cross-attempt
+	// content drift on resume.
+	expectedFinalHash := strings.TrimSpace(r.Header.Get(HeaderContentSHA256))
+
+	xlog.Info("Receiving file upload", "key", key, "contentLength", r.ContentLength,
+		"contentRange", r.Header.Get("Content-Range"), "remote", r.RemoteAddr)
 
 	// Route keyed files to the appropriate directory
 	targetDir, relName := resolveKeyToDir(key, stagingDir, modelsDir, dataDir)
@@ -207,6 +306,21 @@ func handleUpload(w http.ResponseWriter, r *http.Request, stagingDir, modelsDir,
 		http.Error(w, fmt.Sprintf("creating parent dir: %v", err), http.StatusInternalServerError)
 		return
 	}
+
+	if cr == nil {
+		// Non-resumable (legacy) path: truncate-create, single fire-and-forget.
+		handleFullUpload(w, r, dstPath, key, expectedFinalHash)
+		return
+	}
+
+	handleRangeUpload(w, r, dstPath, key, cr, expectedFinalHash)
+}
+
+// handleFullUpload writes the entire request body to dstPath, replacing any
+// existing content. This is the legacy happy-path with no Range header.
+func handleFullUpload(w http.ResponseWriter, r *http.Request, dstPath, key, expectedFinalHash string) {
+	// Reset any in-progress resumable state.
+	_ = os.Remove(dstPath + targetSidecarSuffix)
 
 	f, err := os.Create(dstPath)
 	if err != nil {
@@ -226,11 +340,167 @@ func handleUpload(w http.ResponseWriter, r *http.Request, stagingDir, modelsDir,
 	}
 
 	hashHex := hex.EncodeToString(hasher.Sum(nil))
+	if expectedFinalHash != "" && !strings.EqualFold(expectedFinalHash, hashHex) {
+		_ = os.Remove(dstPath)
+		_ = os.Remove(dstPath + hashSidecarSuffix)
+		xlog.Error("Uploaded file SHA-256 mismatch", "key", key, "expected", expectedFinalHash, "got", hashHex)
+		http.Error(w, fmt.Sprintf("sha256 mismatch: expected %s got %s", expectedFinalHash, hashHex), http.StatusBadRequest)
+		return
+	}
+
 	if err := os.WriteFile(dstPath+hashSidecarSuffix, []byte(hashHex), 0640); err != nil {
 		xlog.Warn("Failed to write hash sidecar", "path", dstPath+hashSidecarSuffix, "error", err)
 	}
 
 	xlog.Info("File upload complete", "key", key, "path", dstPath, "size", n, "sha256", hashHex)
+
+	w.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(w).Encode(map[string]string{"local_path": dstPath}); err != nil {
+		xlog.Warn("Failed to encode upload response", "error", err)
+	}
+}
+
+// handleRangeUpload appends a Content-Range slice to dstPath, validating that
+// the request starts at the current file size. When the slice completes the
+// transfer (end+1 == total), it validates the optional expected final hash and
+// writes the sidecar.
+func handleRangeUpload(w http.ResponseWriter, r *http.Request, dstPath, key string, cr *contentRange, expectedFinalHash string) {
+	// Determine the current on-disk size (0 if missing).
+	var currentSize int64
+	if info, err := os.Stat(dstPath); err == nil {
+		if info.IsDir() {
+			http.Error(w, "destination is a directory", http.StatusBadRequest)
+			return
+		}
+		currentSize = info.Size()
+	} else if !os.IsNotExist(err) {
+		http.Error(w, fmt.Sprintf("stat dst: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	targetSidecar := dstPath + targetSidecarSuffix
+
+	// Decide whether the existing on-disk bytes (if any) belong to the same
+	// logical file the client is uploading now. If they don't, and the client
+	// is starting from byte 0, we transparently truncate the old file and
+	// proceed — this is the natural "re-upload" case.
+	if cr.start == 0 && currentSize > 0 {
+		sameFile := false
+		if expectedFinalHash != "" {
+			// Compare the client's declared target hash against either an
+			// in-progress target sidecar OR the completed-file sidecar.
+			if t, err := os.ReadFile(targetSidecar); err == nil {
+				if strings.EqualFold(strings.TrimSpace(string(t)), expectedFinalHash) {
+					sameFile = true
+				}
+			} else if h, err := os.ReadFile(dstPath + hashSidecarSuffix); err == nil {
+				if strings.EqualFold(strings.TrimSpace(string(h)), expectedFinalHash) {
+					sameFile = true
+				}
+			}
+		}
+		if !sameFile {
+			// Different file content claimed under the same key — drop any
+			// existing bytes (completed or partial) so the new upload starts
+			// from a clean slate.
+			_ = os.Remove(dstPath)
+			_ = os.Remove(dstPath + hashSidecarSuffix)
+			_ = os.Remove(targetSidecar)
+			currentSize = 0
+		}
+	}
+
+	// Cross-attempt consistency: if there's an in-progress target sidecar with
+	// a different hash than what's now being claimed, force a restart.
+	if expectedFinalHash != "" && cr.start > 0 {
+		prev, _ := os.ReadFile(targetSidecar)
+		prevHash := strings.TrimSpace(string(prev))
+		if prevHash != "" && !strings.EqualFold(prevHash, expectedFinalHash) {
+			_ = os.Remove(dstPath)
+			_ = os.Remove(dstPath + hashSidecarSuffix)
+			_ = os.Remove(targetSidecar)
+			http.Error(w, fmt.Sprintf("X-Content-SHA256 mismatch with in-progress upload (was %s, now %s); restart from byte 0", prevHash, expectedFinalHash), http.StatusConflict)
+			return
+		}
+	}
+
+	// The most important invariant: the client must continue from exactly
+	// where the server left off. If not, return 416 with the current size in
+	// the Range header so the client can re-sync.
+	if cr.start != currentSize {
+		w.Header().Set("Content-Range", fmt.Sprintf("bytes */%d", cr.total))
+		w.Header().Set(HeaderFileSize, strconv.FormatInt(currentSize, 10))
+		http.Error(w, fmt.Sprintf("Content-Range start %d does not match current file size %d", cr.start, currentSize), http.StatusRequestedRangeNotSatisfiable)
+		return
+	}
+
+	// Open the file in append mode (create if missing).
+	f, err := os.OpenFile(dstPath, os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0640)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("opening dst: %v", err), http.StatusInternalServerError)
+		return
+	}
+	defer func() { _ = f.Close() }()
+
+	// Persist the declared expected hash so subsequent chunks can be
+	// cross-checked.
+	if expectedFinalHash != "" {
+		if err := os.WriteFile(targetSidecar, []byte(expectedFinalHash), 0640); err != nil {
+			xlog.Warn("Failed to write target hash sidecar", "path", targetSidecar, "error", err)
+		}
+	}
+
+	expectedChunkLen := cr.end - cr.start + 1
+	limited := io.LimitReader(r.Body, expectedChunkLen)
+	n, err := io.Copy(f, limited)
+	if err != nil {
+		xlog.Error("Range upload chunk failed", "key", key, "bytesReceived", n, "expected", expectedChunkLen, "remote", r.RemoteAddr, "error", err)
+		http.Error(w, fmt.Sprintf("writing file: %v", err), http.StatusInternalServerError)
+		return
+	}
+	if n != expectedChunkLen {
+		xlog.Error("Range upload chunk short", "key", key, "bytesReceived", n, "expected", expectedChunkLen, "remote", r.RemoteAddr)
+		http.Error(w, fmt.Sprintf("short body: got %d expected %d", n, expectedChunkLen), http.StatusBadRequest)
+		return
+	}
+
+	newSize := currentSize + n
+
+	// If this chunk does not complete the transfer, return 308 Resume
+	// Incomplete (semantically aligns with the GCS/Tus resumable convention,
+	// which most language ecosystems treat as "keep going") and report the
+	// current size so the client can continue.
+	if newSize < cr.total {
+		w.Header().Set("Range", fmt.Sprintf("bytes=0-%d", newSize-1))
+		w.Header().Set(HeaderFileSize, strconv.FormatInt(newSize, 10))
+		w.WriteHeader(http.StatusPermanentRedirect) // 308 — "Resume Incomplete"
+		xlog.Debug("Range upload chunk accepted", "key", key, "newSize", newSize, "total", cr.total)
+		return
+	}
+
+	// Upload complete — compute the final hash by re-reading the file.
+	finalHash, err := downloader.CalculateSHA(dstPath)
+	if err != nil {
+		xlog.Error("Failed to compute final hash on range upload", "path", dstPath, "error", err)
+		http.Error(w, fmt.Sprintf("computing final hash: %v", err), http.StatusInternalServerError)
+		return
+	}
+	if expectedFinalHash != "" && !strings.EqualFold(expectedFinalHash, finalHash) {
+		_ = os.Remove(dstPath)
+		_ = os.Remove(dstPath + hashSidecarSuffix)
+		_ = os.Remove(targetSidecar)
+		xlog.Error("Resumed upload SHA-256 mismatch", "key", key, "expected", expectedFinalHash, "got", finalHash)
+		http.Error(w, fmt.Sprintf("sha256 mismatch: expected %s got %s", expectedFinalHash, finalHash), http.StatusBadRequest)
+		return
+	}
+
+	if err := os.WriteFile(dstPath+hashSidecarSuffix, []byte(finalHash), 0640); err != nil {
+		xlog.Warn("Failed to write hash sidecar", "path", dstPath+hashSidecarSuffix, "error", err)
+	}
+	// Clear the in-progress sidecar — upload is committed.
+	_ = os.Remove(targetSidecar)
+
+	xlog.Info("Resumable file upload complete", "key", key, "path", dstPath, "size", newSize, "sha256", finalHash)
 
 	w.Header().Set("Content-Type", "application/json")
 	if err := json.NewEncoder(w).Encode(map[string]string{"local_path": dstPath}); err != nil {

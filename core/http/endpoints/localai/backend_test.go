@@ -88,7 +88,20 @@ var _ = Describe("Backend Endpoints", func() {
 			}
 			Expect(names).To(ContainElements(
 				"llama-cpp", "mlx", "vllm", "transformers", "diffusers",
+				"privacy-filter",
 			))
+
+			// privacy-filter is auto-detected via PrivacyFilterImporter, so it
+			// surfaces from the importer registry (AutoDetect=true) rather than
+			// the curated pref-only slice.
+			byName := map[string]schema.KnownBackend{}
+			for _, b := range payload {
+				byName[b.Name] = b
+			}
+			pf, ok := byName["privacy-filter"]
+			Expect(ok).To(BeTrue(), "privacy-filter must be present")
+			Expect(pf.AutoDetect).To(BeTrue(), "privacy-filter is auto-detected via its importer")
+			Expect(pf.Modality).To(Equal("text"))
 		})
 
 		It("includes drop-in llama-cpp replacements with AutoDetect=false", func() {
@@ -140,10 +153,12 @@ var _ = Describe("Backend Endpoints", func() {
 			expectPrefOnly("trl", "text")
 			expectPrefOnly("mlx-vlm", "text")
 			expectPrefOnly("whisperx", "asr")
+			expectPrefOnly("crispasr", "asr")
 			expectPrefOnly("kokoros", "tts")
 			expectPrefOnly("qwen-tts", "tts")
 			expectPrefOnly("qwen3-tts-cpp", "tts")
 			expectPrefOnly("faster-qwen3-tts", "tts")
+			expectPrefOnly("supertonic", "tts")
 			expectPrefOnly("sam3-cpp", "detection")
 		})
 

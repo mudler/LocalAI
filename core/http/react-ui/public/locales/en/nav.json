@@ -13,10 +13,16 @@
   "account": "Account",
   "accountFor": "Account: {{name}}",
   "sections": {
-    "tools": "Tools",
-    "enhance": "Enhance",
-    "biometrics": "Biometrics",
-    "agents": "Agents",
+    "create": "Create",
+    "recognition": "Recognition",
+    "build": "Build",
+    "operate": "Operate"
+  },
+  "operate": {
+    "inference": "Inference",
+    "cluster": "Cluster",
+    "observability": "Observability",
+    "access": "Access",
     "system": "System"
   },
   "items": {
@@ -25,8 +31,13 @@
     "chat": "Chat",
     "studio": "Studio",
     "talk": "Talk",
-    "fineTune": "Fine-Tune (Experimental)",
-    "quantize": "Quantize (Experimental)",
+    "fineTune": "Fine-Tune",
+    "quantize": "Quantize",
+    "faces": "Faces",
+    "voices": "Voices",
+    "jobs": "Jobs",
+    "operate": "Admin",
+    "host": "Host",
     "audioTransform": "Audio Transform",
     "faceRecognition": "Face Recognition",
     "voiceRecognition": "Voice Recognition",
@@ -40,6 +51,7 @@
     "backends": "Backends",
     "traces": "Traces",
     "nodes": "Nodes",
+    "scheduling": "Scheduling",
     "swarm": "Swarm",
     "system": "System",
     "settings": "Settings",
@@ -50,5 +62,9 @@
     "documentation": "Documentation",
     "author": "Author",
     "copyright": "© 2023-{{year}} {{author}}"
+  },
+  "console": {
+    "automation": "Automation",
+    "training": "Training"
   }
 }

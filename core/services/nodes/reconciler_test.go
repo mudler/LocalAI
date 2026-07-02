@@ -2,12 +2,14 @@ package nodes
 
 import (
 	"context"
+	"errors"
 	"runtime"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
+	"github.com/mudler/LocalAI/core/services/nodes/prefixcache"
 	"github.com/mudler/LocalAI/core/services/testutil"
 	"gorm.io/gorm"
 )
@@ -30,6 +32,13 @@ type scheduleCall struct {
 func (f *fakeScheduler) ScheduleAndLoadModel(_ context.Context, modelName string, candidateNodeIDs []string) (*BackendNode, error) {
 	f.scheduleCalls = append(f.scheduleCalls, scheduleCall{modelName, candidateNodeIDs})
 	return f.scheduleNode, f.scheduleErr
+}
+
+func mustGetSched(r *NodeRegistry, model string) ModelSchedulingConfig {
+	cfg, err := r.GetModelScheduling(context.Background(), model)
+	Expect(err).ToNot(HaveOccurred())
+	Expect(cfg).ToNot(BeNil())
+	return *cfg
 }
 
 var _ = Describe("ReplicaReconciler", func() {
@@ -75,6 +84,45 @@ var _ = Describe("ReplicaReconciler", func() {
 		}
 		Expect(registry.SetModelScheduling(context.Background(), cfg)).To(Succeed())
 	}
+
+	Context("spread_all mode", func() {
+		It("targets one replica per matching node (empty selector = all nodes)", func() {
+			n1 := registerNode("s1", "10.1.0.1:50051")
+			registerNode("s2", "10.1.0.2:50051")
+			// spread config, no selector -> all healthy backend nodes (2)
+			Expect(registry.SetModelScheduling(context.Background(), &ModelSchedulingConfig{
+				ModelName: "spread-model", SpreadAll: true,
+			})).To(Succeed())
+
+			scheduler := &fakeScheduler{scheduleNode: n1}
+			reconciler := NewReplicaReconciler(ReplicaReconcilerOptions{
+				Registry:  registry,
+				Scheduler: scheduler,
+			})
+
+			reconciler.reconcileModel(context.Background(), mustGetSched(registry, "spread-model"))
+
+			// With current==0 and a target of 2, the MinReplicas floor path
+			// schedules up to cluster capacity (2 nodes).
+			Expect(len(scheduler.scheduleCalls)).To(Equal(2))
+		})
+
+		It("is a no-op when no nodes match", func() {
+			Expect(registry.SetModelScheduling(context.Background(), &ModelSchedulingConfig{
+				ModelName: "spread-model", SpreadAll: true,
+				NodeSelector: `{"tier":"nope"}`,
+			})).To(Succeed())
+
+			scheduler := &fakeScheduler{}
+			reconciler := NewReplicaReconciler(ReplicaReconcilerOptions{
+				Registry:  registry,
+				Scheduler: scheduler,
+			})
+
+			reconciler.reconcileModel(context.Background(), mustGetSched(registry, "spread-model"))
+			Expect(scheduler.scheduleCalls).To(BeEmpty())
+		})
+	})
 
 	Context("model below min_replicas", func() {
 		It("scales up to min_replicas", func() {
@@ -242,6 +290,225 @@ var _ = Describe("ReplicaReconciler", func() {
 			Expect(scheduler.scheduleCalls[0].modelName).To(Equal("model-f"))
 			Expect(scheduler.scheduleCalls[0].candidateIDs).To(ContainElement(node1.ID))
 			Expect(scheduler.scheduleCalls[0].candidateIDs).ToNot(ContainElement(node2.ID))
+		})
+	})
+
+	Describe("Forced-disturb pressure autoscale (Phase 6)", func() {
+		It("scales up when pressure exceeds threshold, replicas<max, and capacity exists", func() {
+			// One node with spare slots, one loaded idle replica (so the
+			// all-busy path does not fire). Pressure for the model is above the
+			// threshold, which is the only reason to scale here.
+			node := registerNode("pressure-node", "10.0.0.60:50051")
+			Expect(registry.SetNodeModel(context.Background(), node.ID, "pressure-model", 0, "loaded", "addr1", 0)).To(Succeed())
+			setSchedulingConfig("pressure-model", 1, 4, "")
+
+			pressure := prefixcache.NewPressure(time.Minute)
+			pressure.Record("pressure-model", time.Now())
+
+			scheduler := &fakeScheduler{scheduleNode: node}
+			reconciler := NewReplicaReconciler(ReplicaReconcilerOptions{
+				Registry:  registry,
+				Scheduler: scheduler,
+				DB:        db,
+				Pressure:  pressure,
+			})
+
+			reconciler.reconcile(context.Background())
+
+			Expect(scheduler.scheduleCalls).To(HaveLen(1),
+				"forced-disturb pressure above threshold must trigger a scale-up")
+			Expect(scheduler.scheduleCalls[0].modelName).To(Equal("pressure-model"))
+		})
+
+		It("does not scale up on pressure when already at max_replicas", func() {
+			// Two nodes, both loaded (idle), MaxReplicas=2 → at max. Pressure is
+			// high but MaxReplicas must never be overridden.
+			node1 := registerNode("pmax-1", "10.0.0.61:50051")
+			node2 := registerNode("pmax-2", "10.0.0.62:50051")
+			Expect(registry.SetNodeModel(context.Background(), node1.ID, "pmax-model", 0, "loaded", "addr1", 0)).To(Succeed())
+			Expect(registry.SetNodeModel(context.Background(), node2.ID, "pmax-model", 0, "loaded", "addr2", 0)).To(Succeed())
+			setSchedulingConfig("pmax-model", 1, 2, "")
+
+			pressure := prefixcache.NewPressure(time.Minute)
+			pressure.Record("pmax-model", time.Now())
+			pressure.Record("pmax-model", time.Now())
+
+			scheduler := &fakeScheduler{scheduleNode: node1}
+			reconciler := NewReplicaReconciler(ReplicaReconcilerOptions{
+				Registry:  registry,
+				Scheduler: scheduler,
+				DB:        db,
+				Pressure:  pressure,
+			})
+
+			reconciler.reconcile(context.Background())
+
+			Expect(scheduler.scheduleCalls).To(BeEmpty(),
+				"pressure must never override MaxReplicas")
+		})
+
+		It("consumes the pressure signal so a single burst scales up only once", func() {
+			// A single burst of forced-disturbs (well within the window) must
+			// trigger exactly ONE pressure scale-up. A subsequent tick, with the
+			// SAME events still in-window, must NOT scale again: the first
+			// scale-up consumed (Reset) the signal. Without the fix, the
+			// non-draining Count keeps returning >= threshold every tick and
+			// drives the model toward MaxReplicas off a single burst.
+			node := registerNode("consume-node", "10.0.0.64:50051")
+			Expect(registry.SetNodeModel(context.Background(), node.ID, "consume-model", 0, "loaded", "addr1", 0)).To(Succeed())
+			setSchedulingConfig("consume-model", 1, 4, "")
+
+			pressure := prefixcache.NewPressure(time.Minute)
+			now := time.Now()
+			pressure.Record("consume-model", now)
+			pressure.Record("consume-model", now)
+			pressure.Record("consume-model", now)
+
+			scheduler := &fakeScheduler{scheduleNode: node}
+			reconciler := NewReplicaReconciler(ReplicaReconcilerOptions{
+				Registry:  registry,
+				Scheduler: scheduler,
+				DB:        db,
+				Pressure:  pressure,
+			})
+
+			// First tick: pressure above threshold → one scale-up.
+			reconciler.reconcile(context.Background())
+			Expect(scheduler.scheduleCalls).To(HaveLen(1),
+				"first tick must scale up once on the burst")
+
+			// Second tick: the burst's events are still inside the window, but
+			// the first scale-up Reset them, so no further scale-up occurs.
+			reconciler.reconcile(context.Background())
+			Expect(scheduler.scheduleCalls).To(HaveLen(1),
+				"a single burst must not re-trigger scale-up on the next in-window tick")
+		})
+
+		It("does not consume the pressure signal when scaleUp fails", func() {
+			// Pressure above threshold and capacity exists, but the scheduler
+			// errors so no replica is actually added. The forced-disturb signal
+			// must be preserved (NOT Reset) so the next tick retries the
+			// scale-up off the same accumulated pressure, instead of having to
+			// re-accumulate a full window of forced-disturbs from scratch.
+			node := registerNode("fail-node", "10.0.0.66:50051")
+			Expect(registry.SetNodeModel(context.Background(), node.ID, "fail-model", 0, "loaded", "addr1", 0)).To(Succeed())
+			setSchedulingConfig("fail-model", 1, 4, "")
+
+			pressure := prefixcache.NewPressure(time.Minute)
+			now := time.Now()
+			pressure.Record("fail-model", now)
+			pressure.Record("fail-model", now)
+			pressure.Record("fail-model", now)
+			Expect(pressure.Count("fail-model", time.Now())).To(BeNumerically(">=", 1))
+
+			// Scheduler errors: scaleUp attempts but adds nothing.
+			scheduler := &fakeScheduler{scheduleErr: errors.New("schedule boom")}
+			reconciler := NewReplicaReconciler(ReplicaReconcilerOptions{
+				Registry:  registry,
+				Scheduler: scheduler,
+				DB:        db,
+				Pressure:  pressure,
+			})
+
+			reconciler.reconcile(context.Background())
+
+			Expect(scheduler.scheduleCalls).To(HaveLen(1),
+				"scaleUp must have attempted exactly one schedule call")
+			Expect(pressure.Count("fail-model", time.Now())).To(BeNumerically(">=", 1),
+				"a failed scaleUp must NOT consume (Reset) the pressure signal — next tick should retry")
+		})
+
+		It("consumes the pressure signal only when scaleUp succeeds", func() {
+			// Mirror of the failure case: when the scheduler succeeds and a
+			// replica is actually added, the forced-disturb signal IS consumed
+			// (Reset to 0) so a single burst scales up only once.
+			node := registerNode("ok-node", "10.0.0.67:50051")
+			Expect(registry.SetNodeModel(context.Background(), node.ID, "ok-model", 0, "loaded", "addr1", 0)).To(Succeed())
+			setSchedulingConfig("ok-model", 1, 4, "")
+
+			pressure := prefixcache.NewPressure(time.Minute)
+			now := time.Now()
+			pressure.Record("ok-model", now)
+			pressure.Record("ok-model", now)
+			pressure.Record("ok-model", now)
+
+			scheduler := &fakeScheduler{scheduleNode: node}
+			reconciler := NewReplicaReconciler(ReplicaReconcilerOptions{
+				Registry:  registry,
+				Scheduler: scheduler,
+				DB:        db,
+				Pressure:  pressure,
+			})
+
+			reconciler.reconcile(context.Background())
+
+			Expect(scheduler.scheduleCalls).To(HaveLen(1),
+				"successful scaleUp must have scheduled one replica")
+			Expect(pressure.Count("ok-model", time.Now())).To(Equal(0),
+				"a successful scaleUp must consume (Reset) the pressure signal to 0")
+		})
+
+		It("performs at most one scale-up per tick when both busy and over pressure", func() {
+			// The single loaded replica is busy (all-replicas-busy fires) AND
+			// pressure is above threshold. Both scale-up paths are eligible in
+			// the same tick. The invariant is at-most-one scaleUp(+1) per tick,
+			// so exactly one schedule call must happen, not two.
+			node := registerNode("dual-node", "10.0.0.65:50051")
+			Expect(registry.SetNodeModel(context.Background(), node.ID, "dual-model", 0, "loaded", "addr1", 0)).To(Succeed())
+			Expect(registry.IncrementInFlight(context.Background(), node.ID, "dual-model", 0)).To(Succeed())
+			setSchedulingConfig("dual-model", 1, 4, "")
+
+			pressure := prefixcache.NewPressure(time.Minute)
+			pressure.Record("dual-model", time.Now())
+			pressure.Record("dual-model", time.Now())
+
+			scheduler := &fakeScheduler{scheduleNode: node}
+			reconciler := NewReplicaReconciler(ReplicaReconcilerOptions{
+				Registry:  registry,
+				Scheduler: scheduler,
+				DB:        db,
+				Pressure:  pressure,
+			})
+
+			reconciler.reconcile(context.Background())
+
+			Expect(scheduler.scheduleCalls).To(HaveLen(1),
+				"busy + pressure in one tick must still scale up by exactly one, not two")
+		})
+
+		It("does not spin when pressure is high but no capacity exists", func() {
+			// Single node, cap 1, already loaded → capacity 0. Pressure is high
+			// but there is nowhere to place a replica: must not call scheduler.
+			registerCappedNodeFn := func(name, address string, cap int) *BackendNode {
+				node := &BackendNode{
+					Name:                name,
+					NodeType:            NodeTypeBackend,
+					Address:             address,
+					MaxReplicasPerModel: cap,
+				}
+				Expect(registry.Register(context.Background(), node, true)).To(Succeed())
+				return node
+			}
+			node := registerCappedNodeFn("pcap-node", "10.0.0.63:50051", 1)
+			Expect(registry.SetNodeModel(context.Background(), node.ID, "pcap-model", 0, "loaded", "addr1", 0)).To(Succeed())
+			// MaxReplicas high enough that replicas<max, so only capacity guards it.
+			setSchedulingConfig("pcap-model", 1, 4, "")
+
+			pressure := prefixcache.NewPressure(time.Minute)
+			pressure.Record("pcap-model", time.Now())
+
+			scheduler := &fakeScheduler{scheduleNode: node}
+			reconciler := NewReplicaReconciler(ReplicaReconcilerOptions{
+				Registry:  registry,
+				Scheduler: scheduler,
+				DB:        db,
+				Pressure:  pressure,
+			})
+
+			reconciler.reconcile(context.Background())
+
+			Expect(scheduler.scheduleCalls).To(BeEmpty(),
+				"no capacity means no scale-up: must not spin the scheduler")
 		})
 	})
 

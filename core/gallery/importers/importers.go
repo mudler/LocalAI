@@ -115,6 +115,10 @@ var defaultImporters = []Importer{
 	&NemoImporter{},
 	&FasterWhisperImporter{},
 	&QwenASRImporter{},
+	// ParakeetCppImporter matches only parakeet GGUFs (<arch>-<size>-<quant>.gguf);
+	// kept ahead of LlamaCPPImporter so its .gguf bundles aren't claimed by the
+	// generic GGUF importer.
+	&ParakeetCppImporter{},
 	// TTS (Batch 2)
 	&PiperImporter{},
 	&BarkImporter{},
@@ -154,12 +158,28 @@ var defaultImporters = []Importer{
 	// RFDetrImporter must run before TransformersImporter — RF-DETR
 	// checkpoints may carry tokenizer-adjacent artefacts.
 	&RFDetrImporter{},
+	// LocateAnythingImporter (NVIDIA LocateAnything open-vocab detection,
+	// native C++/ggml port) must run before LlamaCPPImporter so its GGUF
+	// bundles aren't claimed by the generic .gguf importer; kept next to
+	// RFDetrImporter as both are detection models.
+	&LocateAnythingImporter{},
+	// DepthAnythingImporter (ByteDance Depth Anything 3 metric depth + camera
+	// pose, native C++/ggml port) must run before LlamaCPPImporter so its GGUF
+	// bundles aren't claimed by the generic .gguf importer; matches only the
+	// depth-anything-<size>-<quant>.gguf naming, so it cannot claim arbitrary
+	// GGUFs.
+	&DepthAnythingImporter{},
 	// Existing
 	// DS4Importer must precede LlamaCPPImporter - ds4 weights are GGUFs and
 	// would otherwise be claimed by the generic .gguf-handling llama-cpp
 	// importer. Matches only the antirez/deepseek-v4-gguf repo + filename
 	// pattern, so false-positives against arbitrary GGUFs are impossible.
 	&DS4Importer{},
+	// PrivacyFilterImporter must precede LlamaCPPImporter too — the OpenMed
+	// privacy-filter GGUFs would otherwise be claimed by the generic .gguf
+	// importer. Matches only .gguf names carrying the "privacy-filter" token,
+	// so arbitrary GGUFs are never claimed.
+	&PrivacyFilterImporter{},
 	&LlamaCPPImporter{},
 	&MLXImporter{},
 	&VLLMImporter{},

@@ -12,7 +12,8 @@ REPO_ROOT="${CURDIR}/../../.."
 mkdir -p $CURDIR/package/lib
 
 cp -avf $CURDIR/qwen3-tts-cpp $CURDIR/package/
-cp -fv $CURDIR/libgoqwen3ttscpp-*.so $CURDIR/package/
+cp -fv $CURDIR/libgoqwen3ttscpp-*.so $CURDIR/package/ 2>/dev/null || true
+cp -fv $CURDIR/libgoqwen3ttscpp-*.dylib $CURDIR/package/ 2>/dev/null || true
 cp -fv $CURDIR/run.sh $CURDIR/package/
 
 # Detect architecture and copy appropriate libraries

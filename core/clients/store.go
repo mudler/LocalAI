@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+
+	"github.com/mudler/LocalAI/pkg/httpclient"
 )
 
 // Define a struct to hold the store API client
@@ -47,7 +49,7 @@ type FindResponse struct {
 func NewStoreClient(baseUrl string) *StoreClient {
 	return &StoreClient{
 		BaseURL: baseUrl,
-		Client:  &http.Client{},
+		Client:  httpclient.New(),
 	}
 }
 
