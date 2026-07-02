@@ -369,7 +369,7 @@ func New(opts ...config.AppOption) (*Application, error) {
 	}
 
 	for _, backend := range options.ExternalBackends {
-		if err := galleryop.InstallExternalBackend(options.Context, options.BackendGalleries, options.SystemState, application.ModelLoader(), nil, backend, "", "", options.RequireBackendIntegrity); err != nil {
+		if err := galleryop.InstallExternalBackend(options.Context, options.BackendGalleries, options.SystemState, application.ModelLoader(), nil, backend, "", "", false, options.RequireBackendIntegrity); err != nil {
 			xlog.Error("error installing external backend", "error", err)
 		}
 	}

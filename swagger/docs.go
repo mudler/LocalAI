@@ -3605,6 +3605,10 @@ const docTemplate = `{
         "localai.GalleryBackend": {
             "type": "object",
             "properties": {
+                "force": {
+                    "description": "Force reinstalls the backend even when it is already installed and\nrunnable. Off by default so apply stays idempotent for supervising\napps that ensure their backend on every boot.",
+                    "type": "boolean"
+                },
                 "id": {
                     "type": "string"
                 }
