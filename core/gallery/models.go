@@ -196,7 +196,7 @@ func InstallModel(ctx context.Context, systemState *system.SystemState, nameOver
 			}
 		}
 		uri := downloader.URI(file.URI)
-		if err := uri.DownloadFileWithContext(ctx, filePath, file.SHA256, i, len(config.Files), downloadStatus); err != nil {
+		if err := uri.DownloadFileWithContext(downloader.ContextWithModelID(ctx, config.Name), filePath, file.SHA256, i, len(config.Files), downloadStatus); err != nil {
 			return nil, err
 		}
 	}
