@@ -303,6 +303,12 @@ definitions:
     type: object
   localai.GalleryBackend:
     properties:
+      force:
+        description: |-
+          Force reinstalls the backend even when it is already installed and
+          runnable. Off by default so apply stays idempotent for supervising
+          apps that ensure their backend on every boot.
+        type: boolean
       id:
         type: string
     type: object
