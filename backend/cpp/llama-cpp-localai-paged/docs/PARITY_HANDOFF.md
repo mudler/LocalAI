@@ -2648,3 +2648,72 @@ spp_fla.txt, `nsys_{ctrl,fla}{2048,512}.{nsys-rep,kern.csv}`, GATES.txt,
 `kl_moe_{ctrl,fla}.log`, occupancy.txt, gdn-blocked-solve.cu, p5_fla_test.cu) and
 `standalone_20260702_203434/` (RESULTS.txt + p5_fla_test.cu, p5_m5_time.cu,
 m5_kernel_body.cuh).
+
+## P6 fp8-e4m3 KV cache (final program phase) - BLOCKED-ON-INFRA; kill-gate never ran; the analytical decode ceiling is the recorded artifact (recorded 2026-07-02)
+
+Sixth and final phase of the `EXECUTION_REARCH_SCOPE.md` additive program. **It did not
+run the kill-gate.** The DGX/GB10 - the only box with the GPU, the fork (`localai-paged`
+`653bb2f3d`), and the models - was **unreachable for the entire P6 window** (P0 session,
+build session, and this recording session). Its sole access path (cloudflared `access
+ssh` via `prem-vm` -> `jp-6.prem.io/c1f2af2fae580`) returned **HTTP 530 / "websocket: bad
+handshake" / "Connection closed by UNKNOWN port 65535" on every probe** (10+ attempts
+across sessions; re-confirmed 2026-07-02 with 5 fresh probes). This recording box
+(`mudler-ubuntu-box`) has **no GPU** and no local fork checkout, so **Stage 0a** (measured
+nsys `--cuda-graph-trace=node` decode ceiling) and **Stage 0b** (fp8-e4m3 kernel +
+kill-gate A/B) were **physically impossible.** `go=false` because the gate could not
+execute; `stopped_at_ceiling=false` because the analytical ceiling does not uniformly kill
+the lever. **This is an honest infra-block, NOT a measured NO-GO and NOT a
+NO-GO-by-ceiling.** See the "P6 RESULT" subsection in `EXECUTION_REARCH_SCOPE.md` for the
+full record. Summary:
+
+- **THE ANALYTICAL DECODE CEILING (the valuable artifact; ESTIMATES, UNMEASURED).** From
+  the HNP decode decomposition (`VLLM_PARITY_FINAL.md` 2b) + the flash-attn ~14 us/tok /
+  ~1.3% prior. Decode step ~1082 us/tok GPU-steady, of which **~1068 is context-INDEPENDENT**
+  (GDN scan 553, NVFP4 expert GEMM 254, bf16 proj 73, elementwise 57, ssm conv 31); **only
+  flash-attn is LINEAR in context.** fp8-e4m3 halves KV bytes -> theoretical-MAX decode
+  saving = **0.5 x fa_kvread_share**: **ctx256 0.65%** (standard shape - hard NO-GO),
+  **ctx1024 2.55%**, **ctx2048 4.98%** (first crosses +3%), **ctx4096 9.49%**, **ctx8192
+  17.34%.** Any realizable win lives **ONLY at ctx >= 2048**; standard serving shapes
+  (ctx ~256, npl 128/256) are a **definitive ceiling NO-GO.** Matches lever-map B2.
+- **HYBRID-GDN STRUCTURAL CAP.** q36 is hybrid GDN: **only 10 of 40 layers are full
+  attention with KV**; the other **30 are GDN** with a fixed-size recurrent state and **NO
+  KV** (does not grow with context). fp8 can only touch the 10/40 KV slice - it cannot move
+  the 30 GDN layers, which is why flash-attn is such a small decode fraction at modest ctx.
+- **THE DOMINANT NULL STANDS UNREFUTED.** The ceiling is a theoretical MAX; realized A/B =
+  ceiling minus fused-dequant-in-attention cost minus non-KV-read flash-attn minus paged
+  block-table gather indirection. **Q8_0 KV was a MEASURED +7.8% decode REGRESSION on
+  GB10** (2026-06-23, dense-32B era) where flash-attn was a LARGER decode fraction - dequant
+  cost exceeded the BW saving even in a more favorable regime. fp8-e4m3's only edge is its
+  cheaper hw-convert dequant plus **vLLM shipping fp8-e4m3 KV on this exact model without
+  visible penalty** (mechanism sound in principle). Whether OUR fa/paged-attn path realizes
+  it on GB10 long-ctx shapes is exactly what Stage 0a/0b must MEASURE; the null predicts the
+  residual may go **negative even at long context.**
+- **CAPACITY-PLAY FRAMING (remains OPEN).** As a **throughput** lever fp8-KV is a ceiling
+  NO-GO at standard shapes and null-dominated at long ctx. As a **memory / capacity**
+  feature it is a different, un-run gate: halving stored KV bytes for the 10/40 attention
+  layers is a real long-context / high-concurrency capacity win (more sequences or longer
+  contexts per fixed VRAM), independent of any throughput delta. **fp8-KV as a capacity
+  feature stays open for a future capacity-motivated effort even if throughput-flat.**
+- **DEFAULT PATH: PROVABLY UNDISTURBED, NOT RE-VERIFIED THIS SESSION.** No P6 code exists,
+  so there is provably zero diff vs `653bb2f3d` and zero overlap with P3's `w4a16*`/`mmq*`
+  files. Canonical md5s (MoE `8cb0ce23777bf55f92f63d0292c756b0`, dense
+  `5951a5b4d624ce891e22ab5fca9bc439`) are documented green-with-code-present from prior
+  phases but were NOT rebuilt/re-run this session (no GPU); recorded as such, not overclaimed.
+
+Provenance: **no `p6-fp8-kv` topic branch created** (DGX down). Fork `localai-paged` HEAD
+**untouched at `653bb2f3d`**; the LocalAI series **stays at 46 patches (`0001-0055`)**;
+P3's `p3-w4a16-direct` work **untouched**. The only P6 artifacts are **local-only staging
+scripts** (not on the DGX): `scratchpad/p6_stage0a_ceiling.sh` (staged Stage 0a nsys
+difference-method profiler: standard npp512/npl128 + long-ctx npp4096/8192 x npl8/32, both
+models, honors the shared GPU lock) and `scratchpad/p6_ceiling_extract.py` (fa-bucket
+analyzer). `~/bench/p6_fp8_kv/` was never created. HANDOFF (box-up required): scp the two
+scripts to the DGX; `git -C ~/llama-paged-fork worktree add ~/llama-paged-p6 -b p6-fp8-kv
+653bb2f3d` (SEPARATE worktree, no collision with P3's checkout); build unmodified (sm_121a,
+nohup+poll), share `~/gpu_bench_lock` politely with P3; run Stage 0a measured graph-node
+decode profiles at standard + long-ctx shapes on both models; if the measured long-ctx
+ceiling stays < +3% at all realistic shapes -> NO-GO-BY-CEILING, record, stop; else Stage
+0b fp8-e4m3 behind `LLAMA_KV_FP8=1` with **static** per-tensor/per-head scales, dequant
+**FUSED** in the fa/paged-attn read (the P5 lesson), then the kill-gate A/B at long-ctx with
+per-path KL (paged AND non-paged, both models, KLD delta < 0.01 + same-top-p >= 84%) +
+default md5 + test-backend-ops. Number the series dynamically at land time (P3 may land
+0056+ first).
