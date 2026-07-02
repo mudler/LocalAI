@@ -72,6 +72,7 @@
   "actions": {
     "copy": "Copy",
     "regenerate": "Regenerate",
+    "branch": "Branch from here",
     "jumpToLatest": "Jump to latest"
   },
   "streaming": {

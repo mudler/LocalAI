@@ -96,3 +96,19 @@ test('copy chat puts the whole conversation on the clipboard', async ({ page, co
   expect(clip).toContain('first answer')
   expect(clip).toContain('second answer')
 })
+
+test('branch from the first answer forks history up to that point', async ({ page }) => {
+  await mockModels(page)
+  await seedChat(page, TWO_TURNS)
+  await page.goto('/app/chat')
+
+  const firstAssistant = page.locator('.chat-message-assistant').first()
+  await firstAssistant.hover()
+  await firstAssistant.getByTitle('Branch from here').click()
+
+  // New active chat "Seeded Chat (fork)" contains only the first Q/A turn.
+  await expect(page.locator('.chat-header-title')).toHaveText('Seeded Chat (fork)')
+  await expect(page.locator('.chat-message-user')).toHaveCount(1)
+  await expect(page.locator('.chat-message-assistant')).toHaveCount(1)
+  await expect(page.locator('.chat-message-assistant')).toContainText(['first answer'])
+})

@@ -1189,6 +1189,14 @@ export default function Chat() {
                           <i className="fas fa-rotate" />
                         </button>
                       )}
+                      {msg.role === 'assistant' && (
+                        <button
+                          onClick={() => { forkChat(activeChat.id, i + 1); addToast(t('toasts.forked'), 'success', 2000) }}
+                          title={t('actions.branch')}
+                        >
+                          <i className="fas fa-code-branch" />
+                        </button>
+                      )}
                     </div>
                   </div>
                 </div>
