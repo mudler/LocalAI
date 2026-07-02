@@ -45,6 +45,13 @@ type ManagementOp[T any, E any] struct {
 
 	// Upgrade is true if this is an upgrade operation (not a fresh install)
 	Upgrade bool
+
+	// Force reinstalls a backend even when it is already installed and
+	// runnable. Without it a backend install op is idempotent — API clients
+	// that ensure a backend exists on every boot must not trigger a full
+	// artifact re-download each time. The UI's explicit "Reinstall backend"
+	// action sets it.
+	Force bool
 }
 
 type OpStatus struct {

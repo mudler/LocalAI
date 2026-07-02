@@ -1243,6 +1243,9 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 			Galleries:          appConfig.BackendGalleries,
 			Context:            ctx,
 			CancelFunc:         cancelFunc,
+			// The React UI's "Reinstall backend" action reuses this route, so
+			// the op must force even when the backend is already installed.
+			Force: true,
 		}
 		// Store cancellation function immediately so queued operations can be cancelled
 		galleryService.StoreCancellation(uid, cancelFunc)

@@ -65,6 +65,10 @@ type BackendEndpointService struct {
 
 type GalleryBackend struct {
 	ID string `json:"id"`
+	// Force reinstalls the backend even when it is already installed and
+	// runnable. Off by default so apply stays idempotent for supervising
+	// apps that ensure their backend on every boot.
+	Force bool `json:"force"`
 }
 
 func CreateBackendEndpointService(galleries []config.Gallery, systemState *system.SystemState, backendApplier *galleryop.GalleryService, upgradeChecker UpgradeInfoProvider) BackendEndpointService {
@@ -103,7 +107,9 @@ func (mgs *BackendEndpointService) GetAllStatusEndpoint() echo.HandlerFunc {
 	}
 }
 
-// ApplyBackendEndpoint installs a new backend to a LocalAI instance
+// ApplyBackendEndpoint installs a new backend to a LocalAI instance. The op is
+// idempotent: an already-installed, runnable backend is left alone unless the
+// request sets "force": true (explicit reinstall).
 // @Summary Install backends to LocalAI.
 // @Tags backends
 // @Param request body GalleryBackend true "query params"
@@ -137,6 +143,7 @@ func (mgs *BackendEndpointService) ApplyBackendEndpoint(systemState *system.Syst
 			ID:                 uuid.String(),
 			GalleryElementName: input.ID,
 			Galleries:          mgs.galleries,
+			Force:              input.Force,
 		}
 
 		return c.JSON(200, schema.BackendResponse{ID: uuid.String(), StatusURL: fmt.Sprintf("%sbackends/jobs/%s", middleware.BaseURL(c), uuid.String())})
