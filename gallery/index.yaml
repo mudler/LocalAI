@@ -1,4 +1,73 @@
 ---
+- name: "unlimited-ocr"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/sahilchachra/Unlimited-OCR-GGUF
+  description: |
+    Unlimited OCR Works
+
+    Welcome the Era of One-shot Long-horizon Parsing.
+
+    ## Release
+      - [2026/06/28] 🤝 Thanks to the vLLM community and Tianyu Guo for their support, our model now supports vLLM inference.
+      - [2026/06/24] 🤝 Thanks to AK for creating a demo for us. It is now available at Hugging Face Spaces.
+      - [2026/06/23] 📄 Our paper is now available on arXiv.
+      - [2026/06/23] 🤝 Thanks to the ModelScope community for their support. Our model is now available at ModelScope.
+      - [2026/06/22] 🚀 We present Unlimited-OCR, aiming to push Deepseek-OCR one step further.
+
+    ## Inference
+
+    ### Transformers
+    Inference using Huggingface transformers on NVIDIA GPUs. Requirements tested on python 3.12.3 + CUDA12.9：
+
+    ```
+    torch==2.10.0
+    torchvision==0.25.0
+    transformers==4.57.1
+    Pillow==12.1.1
+    matplotlib==3.10.8
+    einops==0.8.2
+    addict==2.4.0
+    easydict==1.13
+    pymupdf==1.27.2.2
+    psutil==7.2.2
+    ```
+
+    ```python
+    import os
+    import torch
+    from transformers import AutoModel, AutoTokenizer
+
+    model_name = 'baidu/Unlimited-OCR'
+
+    ...
+  license: "mit"
+  tags:
+    - llm
+    - gguf
+    - multimodal
+  overrides:
+    backend: llama-cpp
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+    mmproj: llama-cpp/mmproj/Unlimited-OCR-GGUF/mmproj-Unlimited-OCR-F16.gguf
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/Unlimited-OCR-GGUF/Unlimited-OCR-Q4_K_M.gguf
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/Unlimited-OCR-GGUF/Unlimited-OCR-Q4_K_M.gguf
+      sha256: c8461bded976eac709a33f6b26e1414efcd2124a203f2ee93ee984a4c9e9265b
+      uri: https://huggingface.co/sahilchachra/Unlimited-OCR-GGUF/resolve/main/Unlimited-OCR-Q4_K_M.gguf
+    - filename: llama-cpp/mmproj/Unlimited-OCR-GGUF/mmproj-Unlimited-OCR-F16.gguf
+      sha256: 4f28c295e1fcf67a97488e356f2b4372da4702b77fdfad0fa138b5821325743c
+      uri: https://huggingface.co/sahilchachra/Unlimited-OCR-GGUF/resolve/main/mmproj-Unlimited-OCR-F16.gguf
 - name: "qwen-agentworld-35b-a3b"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
