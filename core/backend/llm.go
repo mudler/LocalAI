@@ -46,6 +46,28 @@ func needsThinkingProbe(c *config.ModelConfig) bool {
 			c.ReasoningConfig.DisableReasoningTagPrefill == nil)
 }
 
+// persistProbedReasoning writes the post-probe reasoning slots (and media
+// marker) from probed back into the loader's persisted config for modelName,
+// skipping any reasoning slot the probe was not actually allowed to fill.
+// persistDisableReasoning/persistDisableTagPrefill must be snapshotted from
+// probed's reasoning slots *before* the probe ran: a slot that already
+// carried a value at that point was populated by request-time
+// ApplyReasoningEffort, not by backend detection, and persisting it would
+// masquerade as an operator's explicit reasoning.disable (see #10622).
+func persistProbedReasoning(cl *config.ModelConfigLoader, modelName string, probed *config.ModelConfig, persistDisableReasoning, persistDisableTagPrefill bool) {
+	cl.UpdateModelConfig(modelName, func(cfg *config.ModelConfig) {
+		if persistDisableReasoning {
+			cfg.ReasoningConfig.DisableReasoning = probed.ReasoningConfig.DisableReasoning
+		}
+		if persistDisableTagPrefill {
+			cfg.ReasoningConfig.DisableReasoningTagPrefill = probed.ReasoningConfig.DisableReasoningTagPrefill
+		}
+		if probed.MediaMarker != "" {
+			cfg.MediaMarker = probed.MediaMarker
+		}
+	})
+}
+
 // HasChatDeltaContent returns true if any chat delta carries content or reasoning text.
 // Used to decide whether to prefer C++ autoparser deltas over Go-side tag extraction.
 func (t TokenUsage) HasChatDeltaContent() bool {
@@ -122,17 +144,7 @@ func ModelInference(ctx context.Context, s string, messages schema.Messages, ima
 		persistDisableTagPrefill := c.ReasoningConfig.DisableReasoningTagPrefill == nil
 		config.DetectThinkingSupportFromBackend(ctx, c, inferenceModel, modelOpts)
 		// Update the config in the loader so it persists for future requests
-		cl.UpdateModelConfig(c.Name, func(cfg *config.ModelConfig) {
-			if persistDisableReasoning {
-				cfg.ReasoningConfig.DisableReasoning = c.ReasoningConfig.DisableReasoning
-			}
-			if persistDisableTagPrefill {
-				cfg.ReasoningConfig.DisableReasoningTagPrefill = c.ReasoningConfig.DisableReasoningTagPrefill
-			}
-			if c.MediaMarker != "" {
-				cfg.MediaMarker = c.MediaMarker
-			}
-		})
+		persistProbedReasoning(cl, c.Name, c, persistDisableReasoning, persistDisableTagPrefill)
 	}
 
 	var protoMessages []*proto.Message
