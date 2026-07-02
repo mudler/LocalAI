@@ -6,7 +6,7 @@
 # for cublas12 so uv consults this index alongside PyPI.
 --extra-index-url https://download.pytorch.org/whl/cu128
 accelerate
-torch==2.9.1
+torch==2.12.0+cpu
 torchvision
 torchaudio
 transformers
