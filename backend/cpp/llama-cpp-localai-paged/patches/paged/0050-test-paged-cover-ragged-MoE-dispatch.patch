@@ -1,8 +1,10 @@
-From e21732fc47206d5878e3b977bbd21858a3ba4ab0 Mon Sep 17 00:00:00 2001
+From 2fed6aacff14537864bbf754c7552740131d4eaf Mon Sep 17 00:00:00 2001
 From: Ettore Di Giacinto <mudler@localai.io>
 Date: Wed, 1 Jul 2026 00:39:52 +0000
-Subject: [PATCH] test(paged): cover ragged MoE dispatch
+Subject: [PATCH 50/52] test(paged): cover ragged MoE dispatch
 
+Assisted-by: Claude:opus-4.8 [Claude Code]
+Signed-off-by: Ettore Di Giacinto <mudler@localai.io>
 ---
  tests/test-backend-ops.cpp | 118 +++++++++++++++++++++++++++++++++++++
  1 file changed, 118 insertions(+)

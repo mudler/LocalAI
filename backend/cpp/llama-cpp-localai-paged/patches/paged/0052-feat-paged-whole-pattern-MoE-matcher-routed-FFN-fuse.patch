@@ -1,0 +1,933 @@
+From 1edddc8fe93bb2fec5f831bbde5df2b7480a7b05 Mon Sep 17 00:00:00 2001
+From: Ettore Di Giacinto <mudler@localai.io>
+Date: Thu, 2 Jul 2026 12:15:38 +0200
+Subject: [PATCH 52/52] feat(paged): whole-pattern MoE matcher + routed-FFN
+ fused NVFP4-quant down MMQ
+
+Add the routed-FFN fused-quant line for the paged NVFP4 MoE decode step,
+all default-off and md5-clean, gating a fused SwiGLU-to-NVFP4-quant plus a
+raw pre-quantized down-projection MMQ that skips the intermediate F32
+materialize + re-quantize of the standard gate_up -> SwiGLU -> down chain.
+
+Pieces (all guarded, no effect unless explicitly enabled):
+
+- Whole-pattern MoE matcher + executor hook in ggml_cuda_try_fuse
+  (LLAMA_MOE_WHOLE_PATTERN_EXEC and the *_TRACE/_EARLY_TRACE diagnostics).
+  Detects the gate_up(MUL_MAT_ID) -> view/view -> SwiGLU(GLU) -> down(MUL_MAT_ID)
+  sub-graph early in the fusion pass and, when engaged, runs the whole chain
+  through a single executor instead of node-by-node.
+
+- Routed-FFN PoC scaffold ggml/src/ggml-cuda/moe-ffn.{cu,cuh} + a narrow hook
+  (LLAMA_MOE_ROUTED_FFN_POC). ggml_cuda_compute_forward is de-static-ed so the
+  executor translation unit can drive the standard op path for the fallback
+  legs. The executor tries the fused-quant path first, else falls back to the
+  stock compute_forward for glu + down (bit-identical to default).
+
+- Fused SwiGLU-to-NVFP4-quant + raw down MMQ (LLAMA_MOE_ROUTED_FFN_FUSED_QUANT):
+  moe_swiglu_nvfp4_quant_kernel writes block_fp4_mmq activations directly, then
+  ggml_cuda_mul_mat_q_moe_quantized (with the local ggml_cuda_mmq_ids_meta
+  refactor of the expert-sorted ids/bounds prep) runs the down GEMM on the
+  pre-quantized rows. Native FP4 (Blackwell) only; NVFP4 down weights only.
+
+Gated on GB10 (sm_121a), before/after this commit:
+- Canonical default-path greedy md5 unchanged: MoE q36-35b-a3b-nvfp4
+  8cb0ce23777bf55f92f63d0292c756b0, dense q36-27b-nvfp4
+  5951a5b4d624ce891e22ab5fca9bc439.
+- md5-clean opt-in: LLAMA_MOE_ROUTED_FFN_POC=1 LLAMA_MOE_ROUTED_FFN_FUSED_QUANT=1
+  keeps the MoE md5 byte-identical (8cb0ce23...).
+- test-backend-ops: MUL_MAT 1146/1146, MUL_MAT_ID 806/806, GATED_DELTA_NET 46/46,
+  and the MoE sentinels MOE_SWIGLU_DOWN 7/7 + MUL_MAT_ID_RAGGED_MOE 6/6 pass both
+  default and opt-in. Opt-in emits exactly six route=mmq_moe_quantized_raw markers
+  with zero mmq_moe_sorted_raw launches (fused path provably engaged).
+- Serving effect is flat-to-slightly-positive and not a shipped default:
+  decode agg 326.9 -> 332.7 t/s, mmq_nvfp4 6009 -> 5915 ms, aggregate flat
+  (~/bench/phase135_routed_ffn_fused_quant_serving/20260702_082102).
+
+The rejected/neutral neighbours of this line (Phase133 sorted-F32 down,
+Phase134 fused-SWIGLU-only, Phase138 finalize/weighted-combine fusion, the
+W4A16 grouped-tile pack/tune/pad line, GPU-sort, boundary/layout/quant traces)
+are deliberately excluded and carry no markers in this tree.
+
+Assisted-by: Claude:opus-4.8 [Claude Code]
+Signed-off-by: Ettore Di Giacinto <mudler@localai.io>
+---
+ ggml/src/ggml-cuda/ggml-cuda.cu | 304 +++++++++++++++++++++++++++++++-
+ ggml/src/ggml-cuda/mmq.cu       | 148 ++++++++++++++++
+ ggml/src/ggml-cuda/mmq.cuh      |  25 +++
+ ggml/src/ggml-cuda/moe-ffn.cu   | 296 +++++++++++++++++++++++++++++++
+ ggml/src/ggml-cuda/moe-ffn.cuh  |  24 +++
+ 5 files changed, 796 insertions(+), 1 deletion(-)
+ create mode 100644 ggml/src/ggml-cuda/moe-ffn.cu
+ create mode 100644 ggml/src/ggml-cuda/moe-ffn.cuh
+
+diff --git a/ggml/src/ggml-cuda/ggml-cuda.cu b/ggml/src/ggml-cuda/ggml-cuda.cu
+index 374949f25..ef1bdc3b4 100644
+--- a/ggml/src/ggml-cuda/ggml-cuda.cu
++++ b/ggml/src/ggml-cuda/ggml-cuda.cu
+@@ -32,6 +32,7 @@
+ #include "ggml-cuda/im2col.cuh"
+ #include "ggml-cuda/mmf.cuh"
+ #include "ggml-cuda/mmq.cuh"
++#include "ggml-cuda/moe-ffn.cuh"
+ #include "ggml-cuda/mmvf.cuh"
+ #include "ggml-cuda/mmvq.cuh"
+ #include "ggml-cuda/norm.cuh"
+@@ -2854,7 +2855,7 @@ static void ggml_cuda_mul_mat_id(ggml_backend_cuda_context & ctx, ggml_tensor *
+         nb1, nb2, nb3, stream);
+ }
+ 
+-static bool ggml_cuda_compute_forward(ggml_backend_cuda_context & ctx, struct ggml_tensor * dst) {
++bool ggml_cuda_compute_forward(ggml_backend_cuda_context & ctx, struct ggml_tensor * dst) {
+     switch (dst->op) {
+         case GGML_OP_ARGMAX:
+             ggml_cuda_argmax(ctx, dst);
+@@ -4032,6 +4033,201 @@ static bool ggml_cuda_can_fuse(const struct ggml_cgraph *                cgraph,
+     return false;
+ }
+ 
++static inline const char * ggml_cuda_moe_wp_trace_tensor_name(const ggml_tensor * t) {
++    return t != nullptr && t->name[0] != '\0' ? t->name : "-";
++}
++
++static inline int ggml_cuda_moe_whole_pattern_trace_limit() {
++    static const int value = []() {
++        const char * s = getenv("LLAMA_MOE_WHOLE_PATTERN_TRACE");
++        if (s == nullptr || strcmp(s, "0") == 0) {
++            return 0;
++        }
++        const int parsed = atoi(s);
++        return parsed > 0 ? parsed : 128;
++    }();
++
++    return value;
++}
++
++static inline bool ggml_cuda_moe_whole_pattern_trace_take(std::atomic<int> & counter) {
++    const int trace_limit = ggml_cuda_moe_whole_pattern_trace_limit();
++    if (trace_limit <= 0) {
++        return false;
++    }
++
++    const int trace_idx = counter.fetch_add(1, std::memory_order_relaxed);
++    return trace_idx < trace_limit;
++}
++
++static inline int ggml_cuda_moe_whole_pattern_early_trace_limit() {
++    static const int value = []() {
++        const char * s = getenv("LLAMA_MOE_WHOLE_PATTERN_EARLY_TRACE");
++        if (s == nullptr || strcmp(s, "0") == 0) {
++            return 0;
++        }
++        const int parsed = atoi(s);
++        return parsed > 0 ? parsed : 128;
++    }();
++
++    return value;
++}
++
++static inline bool ggml_cuda_moe_whole_pattern_exec_enabled() {
++    static const bool value = []() {
++        const char * s = getenv("LLAMA_MOE_WHOLE_PATTERN_EXEC");
++        return s != nullptr && atoi(s) != 0;
++    }();
++
++    return value;
++}
++
++static inline int ggml_cuda_moe_whole_pattern_exec_trace_limit() {
++    static const int value = []() {
++        const char * s = getenv("LLAMA_MOE_WHOLE_PATTERN_EXEC_TRACE");
++        if (s == nullptr || strcmp(s, "0") == 0) {
++            return 0;
++        }
++        const int parsed = atoi(s);
++        return parsed > 0 ? parsed : 128;
++    }();
++
++    return value;
++}
++
++static inline bool ggml_cuda_moe_whole_pattern_exec_trace_take(std::atomic<int> & counter) {
++    const int trace_limit = ggml_cuda_moe_whole_pattern_exec_trace_limit();
++    if (trace_limit <= 0) {
++        return false;
++    }
++
++    const int trace_idx = counter.fetch_add(1, std::memory_order_relaxed);
++    return trace_idx < trace_limit;
++}
++
++struct ggml_cuda_moe_whole_pattern {
++    const ggml_tensor * gate_up = nullptr;
++    const ggml_tensor * gate    = nullptr;
++    const ggml_tensor * up      = nullptr;
++    const ggml_tensor * glu     = nullptr;
++    const ggml_tensor * down    = nullptr;
++    const ggml_tensor * ids     = nullptr;
++
++    bool view_pair      = false;
++    bool ids_match      = false;
++    bool swiglu         = false;
++    bool supported_type = false;
++    bool supported      = false;
++};
++
++static ggml_cuda_moe_whole_pattern ggml_cuda_moe_whole_pattern_detect(const ggml_tensor * glu, const ggml_tensor * down) {
++    ggml_cuda_moe_whole_pattern pattern{};
++    pattern.glu  = glu;
++    pattern.down = down;
++
++    if (glu == nullptr || down == nullptr || glu->op != GGML_OP_GLU || down->op != GGML_OP_MUL_MAT_ID) {
++        return pattern;
++    }
++
++    pattern.gate = glu->src[0];
++    pattern.up   = glu->src[1];
++    pattern.ids  = down->src[2];
++
++    pattern.view_pair = pattern.gate != nullptr && pattern.up != nullptr &&
++                        pattern.gate->op == GGML_OP_VIEW && pattern.up->op == GGML_OP_VIEW &&
++                        pattern.gate->view_src != nullptr && pattern.gate->view_src == pattern.up->view_src;
++    if (!pattern.view_pair) {
++        return pattern;
++    }
++
++    pattern.gate_up = pattern.gate->view_src;
++    if (pattern.gate_up == nullptr || pattern.gate_up->op != GGML_OP_MUL_MAT_ID) {
++        return pattern;
++    }
++
++    pattern.ids_match      = pattern.gate_up->src[2] == pattern.ids;
++    pattern.swiglu         = ggml_get_glu_op(glu) == GGML_GLU_OP_SWIGLU;
++    pattern.supported_type = down->src[0] != nullptr &&
++                             (down->src[0]->type == GGML_TYPE_NVFP4 || down->src[0]->type == GGML_TYPE_MXFP4);
++    pattern.supported      = pattern.ids_match && pattern.swiglu && pattern.supported_type;
++
++    return pattern;
++}
++
++static ggml_cuda_moe_whole_pattern ggml_cuda_moe_whole_pattern_detect_early(const ggml_cgraph * cgraph, int i) {
++    ggml_cuda_moe_whole_pattern pattern{};
++
++    if (cgraph == nullptr || i + 4 >= cgraph->n_nodes) {
++        return pattern;
++    }
++
++    const ggml_tensor * gate_up = cgraph->nodes[i + 0];
++    const ggml_tensor * view0   = cgraph->nodes[i + 1];
++    const ggml_tensor * view1   = cgraph->nodes[i + 2];
++    const ggml_tensor * glu     = cgraph->nodes[i + 3];
++    const ggml_tensor * down    = cgraph->nodes[i + 4];
++
++    pattern.gate_up = gate_up;
++    pattern.glu     = glu;
++    pattern.down    = down;
++
++    if (gate_up == nullptr || view0 == nullptr || view1 == nullptr || glu == nullptr || down == nullptr ||
++        gate_up->op != GGML_OP_MUL_MAT_ID || view0->op != GGML_OP_VIEW || view1->op != GGML_OP_VIEW ||
++        glu->op != GGML_OP_GLU || down->op != GGML_OP_MUL_MAT_ID) {
++        return pattern;
++    }
++
++    pattern.view_pair = view0->view_src == gate_up && view1->view_src == gate_up;
++    if (!pattern.view_pair) {
++        return pattern;
++    }
++
++    if (glu->src[0] == view0 && glu->src[1] == view1) {
++        pattern.gate = view0;
++        pattern.up   = view1;
++    } else if (glu->src[0] == view1 && glu->src[1] == view0) {
++        pattern.gate = view1;
++        pattern.up   = view0;
++    } else {
++        return pattern;
++    }
++
++    if (down->src[1] != glu) {
++        return pattern;
++    }
++
++    pattern.ids            = down->src[2];
++    pattern.ids_match      = gate_up->src[2] == pattern.ids;
++    pattern.swiglu         = ggml_get_glu_op(glu) == GGML_GLU_OP_SWIGLU;
++    pattern.supported_type = down->src[0] != nullptr &&
++                             (down->src[0]->type == GGML_TYPE_NVFP4 || down->src[0]->type == GGML_TYPE_MXFP4);
++    pattern.supported      = pattern.ids_match && pattern.swiglu && pattern.supported_type;
++
++    return pattern;
++}
++
++static bool ggml_cuda_moe_whole_pattern_exec_proof(
++        ggml_backend_cuda_context * cuda_ctx,
++        const ggml_cuda_moe_whole_pattern & pattern) {
++    GGML_ASSERT(cuda_ctx != nullptr);
++    GGML_ASSERT(pattern.supported);
++    GGML_ASSERT(pattern.gate_up != nullptr);
++    GGML_ASSERT(pattern.glu != nullptr);
++    GGML_ASSERT(pattern.down != nullptr);
++
++    if (!ggml_cuda_compute_forward(*cuda_ctx, const_cast<ggml_tensor *>(pattern.gate_up))) {
++        return false;
++    }
++    if (!ggml_cuda_compute_forward(*cuda_ctx, const_cast<ggml_tensor *>(pattern.glu))) {
++        return false;
++    }
++    if (!ggml_cuda_compute_forward(*cuda_ctx, const_cast<ggml_tensor *>(pattern.down))) {
++        return false;
++    }
++
++    return true;
++}
++
+ // try and fuse nodes and return the number of nodes to skip
+ static int ggml_cuda_try_fuse(ggml_backend_cuda_context * cuda_ctx, ggml_cgraph * cgraph, int i) {
+ 
+@@ -4042,6 +4238,112 @@ static int ggml_cuda_try_fuse(ggml_backend_cuda_context * cuda_ctx, ggml_cgraph
+ 
+     ggml_tensor * node = cgraph->nodes[i];
+ 
++    static std::atomic<int> moe_whole_pattern_early_trace_count{0};
++    const bool routed_ffn_poc = ggml_cuda_moe_routed_ffn_poc_enabled();
++    const bool whole_pattern_exec = ggml_cuda_moe_whole_pattern_exec_enabled();
++    const int whole_pattern_early_trace_limit = ggml_cuda_moe_whole_pattern_early_trace_limit();
++    if (node->op == GGML_OP_MUL_MAT_ID &&
++            (routed_ffn_poc || whole_pattern_exec || whole_pattern_early_trace_limit > 0)) {
++        const ggml_cuda_moe_whole_pattern pattern = ggml_cuda_moe_whole_pattern_detect_early(cgraph, i);
++        if (pattern.view_pair) {
++            const int trace_idx = moe_whole_pattern_early_trace_count.fetch_add(1, std::memory_order_relaxed);
++            if (trace_idx < whole_pattern_early_trace_limit) {
++                const ggml_tensor * down_w = pattern.down != nullptr ? pattern.down->src[0] : nullptr;
++                const ggml_tensor * down_x = pattern.down != nullptr ? pattern.down->src[1] : nullptr;
++                fprintf(stderr,
++                    "[LLAMA_MOE_WHOLE_PATTERN_EARLY] supported=%d skip_ready=%d gate_up=%s gate=%s up=%s glu=%s down=%s ids=%s type=%s"
++                    " n_tokens=%" PRId64 " n_used=%" PRId64 " experts=%" PRId64
++                    " n_embd=%" PRId64 " n_ff=%" PRId64
++                    " ids_match=%d swiglu=%d\n",
++                    pattern.supported ? 1 : 0,
++                    pattern.supported ? 4 : 0,
++                    ggml_cuda_moe_wp_trace_tensor_name(pattern.gate_up),
++                    ggml_cuda_moe_wp_trace_tensor_name(pattern.gate),
++                    ggml_cuda_moe_wp_trace_tensor_name(pattern.up),
++                    ggml_cuda_moe_wp_trace_tensor_name(pattern.glu),
++                    ggml_cuda_moe_wp_trace_tensor_name(pattern.down),
++                    ggml_cuda_moe_wp_trace_tensor_name(pattern.ids),
++                    down_w != nullptr ? ggml_type_name(down_w->type) : "-",
++                    down_x != nullptr ? down_x->ne[2] : 0,
++                    pattern.ids != nullptr ? pattern.ids->ne[0] : 0,
++                    down_w != nullptr ? down_w->ne[2] : 0,
++                    down_w != nullptr ? down_w->ne[1] : 0,
++                    down_w != nullptr ? down_w->ne[0] : 0,
++                    pattern.ids_match ? 1 : 0,
++                    pattern.swiglu ? 1 : 0);
++            }
++        }
++
++        const int cc = ggml_cuda_info().devices[ggml_cuda_get_device()].cc;
++        const bool poc_supported = routed_ffn_poc && ggml_cuda_moe_routed_ffn_poc_should_engage(
++            pattern.gate_up, pattern.gate, pattern.up, pattern.glu, pattern.down, pattern.ids, cc);
++
++        if ((poc_supported || (whole_pattern_exec && pattern.supported))) {
++            const bool ok = poc_supported ?
++                ggml_cuda_moe_routed_ffn_poc(
++                    *cuda_ctx,
++                    const_cast<ggml_tensor *>(pattern.gate_up),
++                    const_cast<ggml_tensor *>(pattern.gate),
++                    const_cast<ggml_tensor *>(pattern.up),
++                    const_cast<ggml_tensor *>(pattern.glu),
++                    const_cast<ggml_tensor *>(pattern.down)) :
++                ggml_cuda_moe_whole_pattern_exec_proof(cuda_ctx, pattern);
++            GGML_ASSERT(ok);
++
++            static std::atomic<int> moe_whole_pattern_exec_trace_count{0};
++            if (ggml_cuda_moe_whole_pattern_exec_trace_take(moe_whole_pattern_exec_trace_count)) {
++                const ggml_tensor * down_w = pattern.down != nullptr ? pattern.down->src[0] : nullptr;
++                const ggml_tensor * down_x = pattern.down != nullptr ? pattern.down->src[1] : nullptr;
++                fprintf(stderr,
++                    "[LLAMA_MOE_WHOLE_PATTERN_EXEC] skip=4 gate_up=%s glu=%s down=%s ids=%s"
++                    " n_tokens=%" PRId64 " n_used=%" PRId64 " experts=%" PRId64 "\n",
++                    ggml_cuda_moe_wp_trace_tensor_name(pattern.gate_up),
++                    ggml_cuda_moe_wp_trace_tensor_name(pattern.glu),
++                    ggml_cuda_moe_wp_trace_tensor_name(pattern.down),
++                    ggml_cuda_moe_wp_trace_tensor_name(pattern.ids),
++                    down_x != nullptr ? down_x->ne[2] : 0,
++                    pattern.ids != nullptr ? pattern.ids->ne[0] : 0,
++                    down_w != nullptr ? down_w->ne[2] : 0);
++            }
++
++            return 4;
++        }
++    }
++
++    if (node->op == GGML_OP_GLU && i + 1 < cgraph->n_nodes && cgraph->nodes[i + 1]->op == GGML_OP_MUL_MAT_ID) {
++        static std::atomic<int> moe_whole_pattern_trace_count{0};
++        const bool whole_trace = ggml_cuda_moe_whole_pattern_trace_take(moe_whole_pattern_trace_count);
++
++        if (whole_trace) {
++            const ggml_tensor * down = cgraph->nodes[i + 1];
++            const ggml_cuda_moe_whole_pattern pattern = ggml_cuda_moe_whole_pattern_detect(node, down);
++
++            const ggml_tensor * down_w = pattern.down != nullptr ? pattern.down->src[0] : nullptr;
++            const ggml_tensor * down_x = pattern.down != nullptr ? pattern.down->src[1] : nullptr;
++            fprintf(stderr,
++                "[LLAMA_MOE_WHOLE_PATTERN] supported=%d gate_up=%s gate=%s up=%s glu=%s down=%s ids=%s type=%s"
++                " n_tokens=%" PRId64 " n_used=%" PRId64 " experts=%" PRId64
++                " n_embd=%" PRId64 " n_ff=%" PRId64
++                " view_pair=%d ids_match=%d swiglu=%d\n",
++                pattern.supported ? 1 : 0,
++                ggml_cuda_moe_wp_trace_tensor_name(pattern.gate_up),
++                ggml_cuda_moe_wp_trace_tensor_name(pattern.gate),
++                ggml_cuda_moe_wp_trace_tensor_name(pattern.up),
++                ggml_cuda_moe_wp_trace_tensor_name(pattern.glu),
++                ggml_cuda_moe_wp_trace_tensor_name(pattern.down),
++                ggml_cuda_moe_wp_trace_tensor_name(pattern.ids),
++                down_w != nullptr ? ggml_type_name(down_w->type) : "-",
++                down_x != nullptr ? down_x->ne[2] : 0,
++                pattern.ids != nullptr ? pattern.ids->ne[0] : 0,
++                down_w != nullptr ? down_w->ne[2] : 0,
++                down_w != nullptr ? down_w->ne[1] : 0,
++                down_w != nullptr ? down_w->ne[0] : 0,
++                pattern.view_pair ? 1 : 0,
++                pattern.ids_match ? 1 : 0,
++                pattern.swiglu ? 1 : 0);
++        }
++    }
++
+     //topk-moe
+     if (cgraph->nodes[i]->op == GGML_OP_UNARY || cgraph->nodes[i]->op == GGML_OP_SOFT_MAX ||
+             cgraph->nodes[i]->op == GGML_OP_ARGSORT) {
+diff --git a/ggml/src/ggml-cuda/mmq.cu b/ggml/src/ggml-cuda/mmq.cu
+index dc5c2d198..d8f39d395 100644
+--- a/ggml/src/ggml-cuda/mmq.cu
++++ b/ggml/src/ggml-cuda/mmq.cu
+@@ -1,4 +1,7 @@
+ #include <cstdlib>
++#include <atomic>
++#include <cinttypes>
++#include <cstdio>
+ #include "common.cuh"
+ #include "mmq.cuh"
+ #include "quantize.cuh"
+@@ -75,6 +78,151 @@ static void ggml_cuda_mul_mat_q_switch_type(ggml_backend_cuda_context & ctx, con
+     }
+ }
+ 
++static inline int ggml_cuda_quant_trace_limit() {
++    static const int value = []() {
++        const char * s = getenv("LLAMA_QUANT_TRACE");
++        return s ? atoi(s) : 0;
++    }();
++
++    return value;
++}
++
++static inline const char * ggml_cuda_quant_trace_tensor_name(const ggml_tensor * t) {
++    return t != nullptr && t->name[0] != '\0' ? t->name : "-";
++}
++
++static inline void ggml_cuda_quant_trace(
++        const char * route, const ggml_tensor * src0, const ggml_tensor * src1,
++        const ggml_tensor * ids, const ggml_tensor * dst, const int native_fp4,
++        const int dedup, const int gathered, const int64_t ne10, const int64_t ne10_padded,
++        const int64_t rows, const int64_t ne12, const int64_t n_expert_used) {
++    const int trace_limit = ggml_cuda_quant_trace_limit();
++    if (trace_limit <= 0) {
++        return;
++    }
++
++    static std::atomic<int> trace_count{0};
++    const int trace_idx = trace_count.fetch_add(1, std::memory_order_relaxed);
++    if (trace_idx >= trace_limit) {
++        return;
++    }
++
++    fprintf(stderr,
++        "[LLAMA_QUANT_TRACE] route=%s src0=%s src0_type=%s src1=%s src1_type=%s dst=%s dst_type=%s ids=%s "
++        "native_fp4=%d dedup=%d gathered=%d K=%" PRId64 " Kpad=%" PRId64 " rows=%" PRId64
++        " ne12=%" PRId64 " experts=%" PRId64 "\n",
++        route, ggml_cuda_quant_trace_tensor_name(src0), src0 != nullptr ? ggml_type_name(src0->type) : "-",
++        ggml_cuda_quant_trace_tensor_name(src1), src1 != nullptr ? ggml_type_name(src1->type) : "-",
++        ggml_cuda_quant_trace_tensor_name(dst), dst != nullptr ? ggml_type_name(dst->type) : "-",
++        ggml_cuda_quant_trace_tensor_name(ids), native_fp4, dedup, gathered,
++        ne10, ne10_padded, rows, ne12, n_expert_used);
++}
++
++ggml_cuda_mmq_ids_meta::ggml_cuda_mmq_ids_meta(ggml_cuda_pool & pool, int64_t ne_get_rows, int64_t n_experts)
++    : ne_get_rows(ne_get_rows) {
++    alloc(pool, ne_get_rows, n_experts);
++}
++
++void ggml_cuda_mmq_ids_meta::alloc(ggml_cuda_pool & pool, int64_t ne_get_rows, int64_t n_experts) {
++    ids_src1.alloc(pool, ne_get_rows);
++    ids_dst.alloc(pool, ne_get_rows);
++    expert_bounds.alloc(pool, n_experts + 1);
++    this->ne_get_rows = ne_get_rows;
++}
++
++void ggml_cuda_mmq_ids_meta::build(
++        const ggml_tensor * ids, int64_t n_experts, int64_t n_tokens,
++        int64_t n_expert_used, int64_t nchannels_y, int64_t sis1,
++        cudaStream_t stream) {
++    GGML_ASSERT(ids->nb[0] == ggml_element_size(ids));
++    const int si1 = ids->nb[1] / ggml_element_size(ids);
++
++    ggml_cuda_launch_mm_ids_helper(
++        (const int32_t *) ids->data, ids_src1.get(), ids_dst.get(), expert_bounds.get(),
++        n_experts, n_tokens, n_expert_used, nchannels_y, si1, sis1, stream);
++    CUDA_CHECK(cudaGetLastError());
++}
++
++static void ggml_cuda_mul_mat_q_moe_quantized_impl(
++        ggml_backend_cuda_context & ctx,
++        const ggml_tensor * src0, const void * src1_q, ggml_tensor * dst,
++        const int32_t * ids_dst, const int32_t * expert_bounds,
++        int64_t n_tokens, int64_t n_expert_used, int64_t n_experts,
++        int64_t ncols_src1_padded) {
++    GGML_ASSERT(        dst->type == GGML_TYPE_F32);
++    GGML_ASSERT(        src1_q != nullptr);
++    GGML_ASSERT(        ids_dst != nullptr);
++    GGML_ASSERT(        expert_bounds != nullptr);
++    GGML_ASSERT(        n_tokens > 0);
++    GGML_ASSERT(        n_expert_used > 0);
++    GGML_ASSERT(        n_experts > 0);
++    GGML_ASSERT(        ncols_src1_padded > 0);
++
++    const int64_t ne00 = src0->ne[0];
++    const int64_t ne01 = src0->ne[1];
++    const int64_t ne02 = src0->ne[2];
++    const int64_t ne03 = src0->ne[3];
++    const int64_t ne0  = dst->ne[0];
++    const int64_t ne1  = dst->ne[1];
++    const int64_t ne2  = dst->ne[2];
++    const int64_t ne3  = dst->ne[3];
++    const int64_t nb00 = src0->nb[0];
++    const int64_t nb01 = src0->nb[1];
++    const int64_t nb02 = src0->nb[2];
++    const int64_t nb03 = src0->nb[3];
++    const int64_t nb0  = dst->nb[0];
++    const int64_t nb1  = dst->nb[1];
++    const int64_t nb2  = dst->nb[2];
++    const int64_t nb3  = dst->nb[3];
++
++    const size_t ts_src0 = ggml_type_size(src0->type);
++    const size_t ts_dst  = ggml_type_size(dst->type);
++
++    GGML_ASSERT(nb00 == (int64_t) ts_src0);
++    GGML_ASSERT(nb0  == (int64_t) ts_dst);
++    GGML_ASSERT(ne00 <= ncols_src1_padded);
++    GGML_ASSERT(ne01 == ne0);
++    GGML_ASSERT(ne02 == n_experts);
++    GGML_ASSERT(ne1  == n_expert_used);
++    GGML_ASSERT(ne2  == n_tokens);
++
++    cudaStream_t stream = ctx.stream();
++    const int cc = ggml_cuda_info().devices[ggml_cuda_get_device()].cc;
++    const bool use_stream_k = (GGML_CUDA_CC_IS_NVIDIA(cc) && ggml_cuda_highest_compiled_arch(cc) >= GGML_CUDA_CC_VOLTA)
++                            || GGML_CUDA_CC_IS_CDNA(cc);
++
++    const int64_t ne_get_rows = n_tokens * n_expert_used;
++    const int64_t s01 = nb01 / ts_src0;
++    const int64_t s1  = nb1  / ts_dst;
++    const int64_t s02 = nb02 / ts_src0;
++    const int64_t s2  = nb2  / ts_dst;
++    const int64_t s03 = nb03 / ts_src0;
++    const int64_t s3  = nb3  / ts_dst;
++    const int64_t s12 = ne_get_rows * ncols_src1_padded * sizeof(block_fp4_mmq) / (QK_K * sizeof(int));
++    const int64_t s13 = n_tokens * s12;
++
++    const mmq_args args = {
++        (const char *) src0->data, src0->type, (const int *) src1_q, ids_dst, expert_bounds, (float *) dst->data,
++        ne00, ne01, ne_get_rows, s01, ne_get_rows, s1,
++        n_experts, n_experts, s02, s12, s2,
++        ne03, ne3, s03, s13, s3,
++        use_stream_k, n_tokens};
++
++    ggml_cuda_quant_trace("mmq_moe_quantized_raw", src0, nullptr, nullptr, dst, 1,
++        0, 0, ne00, ncols_src1_padded, ne_get_rows, n_tokens, n_expert_used);
++    ggml_cuda_mul_mat_q_switch_type(ctx, args, stream);
++}
++
++void ggml_cuda_mul_mat_q_moe_quantized(
++        ggml_backend_cuda_context & ctx,
++        const ggml_tensor * src0, const void * src1_q, ggml_tensor * dst,
++        const int32_t * ids_dst, const int32_t * expert_bounds,
++        int64_t n_tokens, int64_t n_expert_used, int64_t n_experts,
++        int64_t ncols_src1_padded) {
++    ggml_cuda_mul_mat_q_moe_quantized_impl(ctx, src0, src1_q, dst, ids_dst, expert_bounds,
++        n_tokens, n_expert_used, n_experts, ncols_src1_padded);
++}
++
+ void ggml_cuda_mul_mat_q(
+         ggml_backend_cuda_context & ctx, const ggml_tensor * src0, const ggml_tensor * src1, const ggml_tensor * ids, ggml_tensor * dst) {
+     GGML_ASSERT(        src1->type == GGML_TYPE_F32);
+diff --git a/ggml/src/ggml-cuda/mmq.cuh b/ggml/src/ggml-cuda/mmq.cuh
+index b53e38a8b..690dc694a 100644
+--- a/ggml/src/ggml-cuda/mmq.cuh
++++ b/ggml/src/ggml-cuda/mmq.cuh
+@@ -4334,6 +4334,31 @@ extern DECL_MMQ_CASE(GGML_TYPE_IQ4_XS);
+ void ggml_cuda_mul_mat_q(
+         ggml_backend_cuda_context & ctx, const ggml_tensor * src0, const ggml_tensor * src1, const ggml_tensor * ids, ggml_tensor * dst);
+ 
++struct ggml_cuda_mmq_ids_meta {
++    ggml_cuda_pool_alloc<int32_t> ids_src1;
++    ggml_cuda_pool_alloc<int32_t> ids_dst;
++    ggml_cuda_pool_alloc<int32_t> expert_bounds;
++
++    int64_t ne_get_rows = 0;
++
++    ggml_cuda_mmq_ids_meta() = default;
++    ggml_cuda_mmq_ids_meta(ggml_cuda_pool & pool, int64_t ne_get_rows, int64_t n_experts);
++
++    void alloc(ggml_cuda_pool & pool, int64_t ne_get_rows, int64_t n_experts);
++
++    void build(
++        const ggml_tensor * ids, int64_t n_experts, int64_t n_tokens,
++        int64_t n_expert_used, int64_t nchannels_y, int64_t sis1,
++        cudaStream_t stream);
++};
++
++void ggml_cuda_mul_mat_q_moe_quantized(
++    ggml_backend_cuda_context & ctx,
++    const ggml_tensor * src0, const void * src1_q, ggml_tensor * dst,
++    const int32_t * ids_dst, const int32_t * expert_bounds,
++    int64_t n_tokens, int64_t n_expert_used, int64_t n_experts,
++    int64_t ncols_src1_padded);
++
+ void ggml_cuda_op_mul_mat_q(
+     ggml_backend_cuda_context & ctx,
+     const ggml_tensor * src0, const ggml_tensor * src1, ggml_tensor * dst, const char * src0_dd_i, const float * src1_ddf_i,
+diff --git a/ggml/src/ggml-cuda/moe-ffn.cu b/ggml/src/ggml-cuda/moe-ffn.cu
+new file mode 100644
+index 000000000..507390d65
+--- /dev/null
++++ b/ggml/src/ggml-cuda/moe-ffn.cu
+@@ -0,0 +1,296 @@
++#include "moe-ffn.cuh"
++#include "getrows.cuh"
++#include "mmq.cuh"
++#include "unary.cuh"
++
++#include <cstdlib>
++
++bool ggml_cuda_moe_routed_ffn_poc_enabled() {
++    static const bool enabled = [] {
++        const char * value = getenv("LLAMA_MOE_ROUTED_FFN_POC");
++        return value != nullptr && atoi(value) != 0;
++    }();
++    return enabled;
++}
++
++bool ggml_cuda_moe_routed_ffn_poc_should_engage(
++        const ggml_tensor * gate_up,
++        const ggml_tensor * gate,
++        const ggml_tensor * up,
++        const ggml_tensor * glu,
++        const ggml_tensor * down,
++        const ggml_tensor * ids,
++        int cc) {
++    if (!blackwell_mma_available(cc)) {
++        return false;
++    }
++    if (gate_up == nullptr || gate == nullptr || up == nullptr || glu == nullptr || down == nullptr || ids == nullptr) {
++        return false;
++    }
++    if (gate_up->op != GGML_OP_MUL_MAT_ID || down->op != GGML_OP_MUL_MAT_ID) {
++        return false;
++    }
++    if (gate->op != GGML_OP_VIEW || up->op != GGML_OP_VIEW || gate->view_src != gate_up || up->view_src != gate_up) {
++        return false;
++    }
++    if (glu->op != GGML_OP_GLU || ggml_get_glu_op(glu) != GGML_GLU_OP_SWIGLU || down->src[1] != glu) {
++        return false;
++    }
++    if (gate_up->src[2] != ids || down->src[2] != ids) {
++        return false;
++    }
++
++    const ggml_tensor * down_w = down->src[0];
++    if (down_w == nullptr || (down_w->type != GGML_TYPE_NVFP4 && down_w->type != GGML_TYPE_MXFP4)) {
++        return false;
++    }
++
++    return true;
++}
++
++static bool ggml_cuda_moe_routed_ffn_fused_quant_enabled() {
++    static const bool enabled = [] {
++        const char * value = getenv("LLAMA_MOE_ROUTED_FFN_FUSED_QUANT");
++        return value != nullptr && atoi(value) != 0;
++    }();
++    return enabled;
++}
++
++static bool ggml_cuda_moe_routed_ffn_down_supported(const ggml_tensor * glu, const ggml_tensor * down) {
++    const ggml_tensor * down_w = down != nullptr ? down->src[0] : nullptr;
++    const ggml_tensor * ids    = down != nullptr ? down->src[2] : nullptr;
++    if (glu == nullptr || down == nullptr || down_w == nullptr || ids == nullptr) {
++        return false;
++    }
++    if (down_w->type != GGML_TYPE_NVFP4 && down_w->type != GGML_TYPE_MXFP4) {
++        return false;
++    }
++    if (glu->type != GGML_TYPE_F32 || down->type != GGML_TYPE_F32 || ids->type != GGML_TYPE_I32) {
++        return false;
++    }
++    if (glu->ne[3] != 1 || down->ne[3] != 1 || ids->ne[2] != 1 || ids->ne[3] != 1) {
++        return false;
++    }
++    if (down_w->ne[0] != glu->ne[0] || down_w->ne[1] != down->ne[0] || down_w->ne[2] <= 0) {
++        return false;
++    }
++    if (ids->ne[0] != glu->ne[1] || ids->ne[1] != glu->ne[2]) {
++        return false;
++    }
++    if (down->ne[1] != glu->ne[1] || down->ne[2] != glu->ne[2]) {
++        return false;
++    }
++    if (ids->nb[0] != ggml_element_size(ids)) {
++        return false;
++    }
++    if (glu->nb[0] != sizeof(float) || down->nb[0] != sizeof(float)) {
++        return false;
++    }
++    if (glu->nb[1] != (size_t) (glu->ne[0] * (int64_t) sizeof(float)) ||
++        glu->nb[2] != (size_t) (glu->ne[1] * (int64_t) glu->nb[1])) {
++        return false;
++    }
++    if (down->nb[1] != (size_t) (down->ne[0] * (int64_t) sizeof(float)) ||
++        down->nb[2] != (size_t) (down->ne[1] * (int64_t) down->nb[1])) {
++        return false;
++    }
++
++    const int cc = ggml_cuda_info().devices[ggml_cuda_get_device()].cc;
++    return ggml_cuda_should_use_mmq(down_w->type, cc, glu->ne[2], down_w->ne[2]);
++}
++
++static __global__ void moe_swiglu_nvfp4_quant_kernel(
++        const float * __restrict__ gate,
++        const float * __restrict__ up,
++        const int32_t * __restrict__ ids_src1,
++        void * __restrict__ vy,
++        int64_t n_ff,
++        int64_t n_ff_padded,
++        int64_t n_rows,
++        int64_t n_used,
++        int64_t gate_s1,
++        int64_t gate_s2,
++        int64_t up_s1,
++        int64_t up_s2) {
++#if defined(BLACKWELL_MMA_AVAILABLE)
++    const int64_t i0_base = ((int64_t) blockDim.x * blockIdx.y + threadIdx.x) * QK_NVFP4_SUB;
++    if (i0_base >= n_ff_padded) {
++        return;
++    }
++
++    const int64_t row = blockIdx.x;
++    const int64_t src_row = ids_src1[row];
++    const int64_t token = src_row / n_used;
++    const int64_t used = src_row - token * n_used;
++    const int64_t k_block = i0_base / QK_K;
++    const int64_t blocks_per_col = (n_ff_padded + QK_K - 1) / QK_K;
++    if (k_block >= blocks_per_col) {
++        return;
++    }
++
++    block_fp4_mmq * y = (block_fp4_mmq *) vy;
++    block_fp4_mmq * yb = y + k_block * n_rows + row;
++    const int sub = (i0_base % QK_K) / QK_NVFP4_SUB;
++
++    float vals_raw[QK_NVFP4_SUB];
++    float amax_raw = 0.0f;
++#pragma unroll
++    for (int k = 0; k < QK_NVFP4_SUB; k++) {
++        const int64_t i0 = i0_base + k;
++        if (i0 < n_ff) {
++            const float g = gate[token * gate_s2 + used * gate_s1 + i0];
++            const float u = up[token * up_s2 + used * up_s1 + i0];
++            const float v = ggml_cuda_op_silu_single(g) * u;
++            vals_raw[k] = v;
++            amax_raw = fmaxf(amax_raw, fabsf(v));
++        } else {
++            vals_raw[k] = 0.0f;
++        }
++    }
++
++    static constexpr int test_offsets[5] = { 0, -1, 1, -2, 2 };
++    const int first_fp8_code = (int) ggml_cuda_fp32_to_ue4m3(amax_raw / 6.0f);
++
++    float best_err = FLT_MAX;
++    uint8_t fp8_code = 0;
++    float subblock_scale = 0.0f;
++
++#pragma unroll
++    for (int i = 0; i < 5; i++) {
++        const int test_code = first_fp8_code + test_offsets[i];
++        if (test_code < 0 || test_code > 0x7e) {
++            continue;
++        }
++        const uint8_t code = (uint8_t) test_code;
++        const float test_scale = ggml_cuda_ue4m3_to_fp32(code);
++        const float test_inv_scale = test_scale > 0.0f ? 0.5f / test_scale : 0.0f;
++        float cur_err = 0.0f;
++#pragma unroll
++        for (int k = 0; k < QK_NVFP4_SUB; ++k) {
++            const float v = vals_raw[k];
++            const uint8_t q = ggml_cuda_float_to_fp4_e2m1(v, test_inv_scale);
++            const float err_diff = fabsf(v) - fabsf(kvalues_mxfp4[q & 0x7]) * test_scale;
++            cur_err = fmaf(err_diff, err_diff, cur_err);
++        }
++
++        if (cur_err < best_err) {
++            best_err = cur_err;
++            fp8_code = test_code;
++            subblock_scale = test_scale;
++        }
++    }
++
++    const float inv_scale = subblock_scale > 0.0f ? 0.5f / subblock_scale : 0.0f;
++    uint32_t q0 = 0;
++    uint32_t q1 = 0;
++#pragma unroll
++    for (int k = 0; k < QK_NVFP4_SUB / 4; ++k) {
++        q0 |= (uint32_t) ggml_cuda_float_to_fp4_e2m1(vals_raw[k +  0], inv_scale) << (8 * k);
++        q0 |= (uint32_t) ggml_cuda_float_to_fp4_e2m1(vals_raw[k +  8], inv_scale) << (8 * k + 4);
++        q1 |= (uint32_t) ggml_cuda_float_to_fp4_e2m1(vals_raw[k +  4], inv_scale) << (8 * k);
++        q1 |= (uint32_t) ggml_cuda_float_to_fp4_e2m1(vals_raw[k + 12], inv_scale) << (8 * k + 4);
++    }
++
++    uint32_t * yqs = reinterpret_cast<uint32_t *>(yb->qs);
++    yqs[2 * sub + 0] = q0;
++    yqs[2 * sub + 1] = q1;
++    reinterpret_cast<uint8_t *>(yb->d4)[sub] = fp8_code;
++#else
++    NO_DEVICE_CODE;
++#endif
++}
++
++static bool ggml_cuda_moe_routed_ffn_fused_quant(
++        ggml_backend_cuda_context & ctx,
++        ggml_tensor * gate,
++        ggml_tensor * up,
++        ggml_tensor * glu,
++        ggml_tensor * down) {
++    if (!ggml_cuda_moe_routed_ffn_fused_quant_enabled()) {
++        return false;
++    }
++    if (!ggml_cuda_moe_routed_ffn_down_supported(glu, down)) {
++        return false;
++    }
++    const ggml_tensor * down_w = down->src[0];
++    const ggml_tensor * ids = down->src[2];
++    if (down_w->type != GGML_TYPE_NVFP4) {
++        return false;
++    }
++    if (gate == nullptr || up == nullptr || gate->type != GGML_TYPE_F32 || up->type != GGML_TYPE_F32) {
++        return false;
++    }
++    if (gate->ne[0] != glu->ne[0] || gate->ne[1] != glu->ne[1] || gate->ne[2] != glu->ne[2] || gate->ne[3] != glu->ne[3]) {
++        return false;
++    }
++    if (up->ne[0] != glu->ne[0] || up->ne[1] != glu->ne[1] || up->ne[2] != glu->ne[2] || up->ne[3] != glu->ne[3]) {
++        return false;
++    }
++    if (gate->nb[0] != sizeof(float) || up->nb[0] != sizeof(float)) {
++        return false;
++    }
++
++    const int cc = ggml_cuda_info().devices[ggml_cuda_get_device()].cc;
++    if (!blackwell_mma_available(cc)) {
++        return false;
++    }
++
++    const int64_t n_ff = glu->ne[0];
++    const int64_t n_ff_padded = GGML_PAD(n_ff, MATRIX_ROW_PADDING);
++    if (n_ff % QK_NVFP4 != 0) {
++        return false;
++    }
++
++    const int64_t n_expert_used = ids->ne[0];
++    const int64_t n_tokens = glu->ne[2];
++    const int64_t n_experts = down_w->ne[2];
++    const int64_t ne_get_rows = n_tokens * n_expert_used;
++
++    ggml_cuda_mmq_ids_meta ids_meta(ctx.pool(), ne_get_rows, n_experts);
++    const int64_t sis1 = glu->nb[2] / glu->nb[1];
++    ids_meta.build(ids, n_experts, n_tokens, n_expert_used, glu->ne[1], sis1, ctx.stream());
++
++    const size_t nbytes_src1_q = ne_get_rows * n_ff_padded * sizeof(block_fp4_mmq) / QK_K +
++        get_mmq_x_max_host(cc) * sizeof(block_q8_1_mmq);
++    ggml_cuda_pool_alloc<char> src1_q(ctx.pool(), nbytes_src1_q);
++
++    constexpr int nvfp4_block_size = 128;
++    const int64_t block_num_y = (n_ff_padded + QK_NVFP4_SUB * nvfp4_block_size - 1) / (QK_NVFP4_SUB * nvfp4_block_size);
++    const dim3 block_size(nvfp4_block_size, 1, 1);
++    const dim3 num_blocks(ne_get_rows, block_num_y, 1);
++    moe_swiglu_nvfp4_quant_kernel<<<num_blocks, block_size, 0, ctx.stream()>>>(
++        (const float *) gate->data, (const float *) up->data, ids_meta.ids_src1.get(), src1_q.get(),
++        n_ff, n_ff_padded, ne_get_rows, n_expert_used,
++        gate->nb[1] / sizeof(float), gate->nb[2] / sizeof(float),
++        up->nb[1] / sizeof(float), up->nb[2] / sizeof(float));
++    CUDA_CHECK(cudaGetLastError());
++
++    ggml_cuda_mul_mat_q_moe_quantized(
++        ctx, down_w, src1_q.get(), down,
++        ids_meta.ids_dst.get(), ids_meta.expert_bounds.get(),
++        n_tokens, n_expert_used, n_experts, n_ff_padded);
++    return true;
++}
++
++bool ggml_cuda_moe_routed_ffn_poc(
++        ggml_backend_cuda_context & ctx,
++        ggml_tensor * gate_up,
++        ggml_tensor * gate,
++        ggml_tensor * up,
++        ggml_tensor * glu,
++        ggml_tensor * down) {
++    if (!ggml_cuda_compute_forward(ctx, gate_up)) {
++        return false;
++    }
++    if (ggml_cuda_moe_routed_ffn_fused_quant(ctx, gate, up, glu, down)) {
++        return true;
++    }
++    if (!ggml_cuda_compute_forward(ctx, glu)) {
++        return false;
++    }
++    if (!ggml_cuda_compute_forward(ctx, down)) {
++        return false;
++    }
++
++    return true;
++}
+diff --git a/ggml/src/ggml-cuda/moe-ffn.cuh b/ggml/src/ggml-cuda/moe-ffn.cuh
+new file mode 100644
+index 000000000..ce385d31a
+--- /dev/null
++++ b/ggml/src/ggml-cuda/moe-ffn.cuh
+@@ -0,0 +1,24 @@
++#pragma once
++
++#include "common.cuh"
++
++bool ggml_cuda_compute_forward(ggml_backend_cuda_context & ctx, ggml_tensor * dst);
++
++bool ggml_cuda_moe_routed_ffn_poc_enabled();
++
++bool ggml_cuda_moe_routed_ffn_poc_should_engage(
++    const ggml_tensor * gate_up,
++    const ggml_tensor * gate,
++    const ggml_tensor * up,
++    const ggml_tensor * glu,
++    const ggml_tensor * down,
++    const ggml_tensor * ids,
++    int cc);
++
++bool ggml_cuda_moe_routed_ffn_poc(
++    ggml_backend_cuda_context & ctx,
++    ggml_tensor * gate_up,
++    ggml_tensor * gate,
++    ggml_tensor * up,
++    ggml_tensor * glu,
++    ggml_tensor * down);
+-- 
+2.43.0
+

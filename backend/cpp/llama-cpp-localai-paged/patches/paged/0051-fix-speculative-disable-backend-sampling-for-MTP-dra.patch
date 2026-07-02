@@ -1,8 +1,11 @@
-From 3eba64afff6ecaa25da11f0e394717224f221c9a Mon Sep 17 00:00:00 2001
+From f1d976f06fb92655106709256dd093ffefb85e2b Mon Sep 17 00:00:00 2001
 From: Ettore Di Giacinto <mudler@localai.io>
 Date: Wed, 1 Jul 2026 00:50:36 +0000
-Subject: [PATCH] fix(speculative): disable backend sampling for MTP drafts
+Subject: [PATCH 51/52] fix(speculative): disable backend sampling for MTP
+ drafts
 
+Assisted-by: Claude:opus-4.8 [Claude Code]
+Signed-off-by: Ettore Di Giacinto <mudler@localai.io>
 ---
  common/speculative.cpp | 6 ++++++
  1 file changed, 6 insertions(+)
