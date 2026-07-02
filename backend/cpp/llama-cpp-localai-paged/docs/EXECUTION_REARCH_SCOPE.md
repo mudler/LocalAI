@@ -555,6 +555,102 @@ records P2-at-this-granularity as a confirmed floor.
 - **Upstream-clash / rebase-safety:** safest area. `tools/server/server-context.cpp` is
   a fork-owned tool, not ggml core; upstream churns it less and conflicts are mechanical.
 
+#### P4 RESULT (NO-GO at the P0 perf kill-gate, recorded 2026-07-02, `LLAMA_CONTINUOUS_BATCH_V2`, default-off)
+
+The CBv2 P0 kill-gate subset (per-seq chunked-prefill cursors + adaptive decode
+bucketing) was **implemented and correctness-proven green**, but the P0 kill-gate's
+stated GO criterion - a **> 20% TTFT-under-load drop** with md5 green and
+serving-aggregate not regressed - was **NOT demonstrated**, so per the phased
+contract `go=false` was the kill-gate default, **nothing was built beyond P0**
+(no `SLOT_STATE_PREEMPTED`, no aging/starvation-freedom), and **nothing landed.**
+The topic branch `p4-cbv2` is retained on the DGX fork at
+`ebb649335fe7686524a3630ee2fdffce44be6d52` (base `localai-paged` `653bb2f3d`, NOT
+pushed); the fork `localai-paged` HEAD is **untouched at `653bb2f3d`** and the
+LocalAI series stays at 46 patches (`0001-0055`). **This is the scope-anticipated
+outcome:** the P4 section frames CBv2 on GB10 as a TTFT + fairness + architecture-
+enabler lever, **not** a throughput lever (decode is GPU-compute-bound; the
+host-loop-dead measurement is real), so a NO-GO on the TTFT perf gate is the
+expected result and any throughput payoff lives on non-GB10 silicon (out of scope).
+
+- **WHY THE PERF GATE DID NOT FIRE GO (honest caveat, not a measured neutrality).**
+  The staggered/burst TTFT A/B was **force-terminated by the harness mid-run** with
+  only the CONTROL arm complete (30/60 raws; CANDIDATE arm never started).
+  Consequently `ttft_n32_stag`, `ttft_n128_stag`, `ttft_n8`, `ttft_burst`, and
+  `agg_delta_pct_worst` are **NOT-YET-MEASURED `0.0` placeholders**, not measured
+  neutrality. No affirmative `> 20%` staggered-TTFT drop was demonstrated, so the
+  kill-gate default (`go=false`) stands.
+- **CORRECTNESS GATES ALL GREEN (DGX GB10, arch sm_121a), the substantive P0
+  result.** Behind `LLAMA_CONTINUOUS_BATCH_V2=1` (default OFF, byte-identical off):
+  - **(a) canonical md5 GREEN both models, default-off AND cbv2-on:** paged-MoE
+    `8cb0ce23777bf55f92f63d0292c756b0`, dense `5951a5b4d624ce891e22ab5fca9bc439`.
+  - **(c) `test-backend-ops` GREEN (zero-ggml side-effect proof):** MUL_MAT
+    1146/1146, MUL_MAT_ID 806/806, GATED_DELTA_NET 46/46.
+  - **(c) CURSOR INTERLEAVE PROVEN** (`LLAMA_CBV2_TRACE`, staggered N=20): steps
+    carry decode AND prefill tokens in the SAME batch with per-slot cursors
+    advancing across steps, not slot-exclusive. Verbatim step=6: `n_decode_toks=5
+    n_prefill_toks=1535 n_seqs=20` with 15 partial cursors; slot s112 advances
+    144/523 -> 281 -> 418 -> 519 over steps 6-9 while decode runs; adaptive
+    fair-share cap tracks live load (410@5waiting, 171@12, 137@15, 291@7, 508@4);
+    `dbucket==n_decode` confirms **no fixed pad-to-parallel** (per
+    `DECODE_SERVING_SCOPE.md` net-negative-on-GB10).
+  - **(b) SERVER DETERMINISM = CBv2 is NEUTRAL / correctness-preserving.** The
+    literal exact-reproducibility gate is unsatisfiable by ANY scheduler here: the
+    paged CONCURRENT greedy path is inherently non-deterministic run-to-run in the
+    BASELINE too (the control default scheduler diverges from itself), a pre-existing
+    benign near-tied-argmax / co-batch FP-reduction-order property
+    (`PAGED_BITEXACT_NOTE`), on both dense and MoE. The discriminating test - does
+    CBv2 diverge from control MORE than control diverges from itself - **PASSES**:
+    across 8 configs {dense,moe} x {degenerate,natural} x {gen8,gen64}, per-request
+    cross-arm divergence tracks the within-arm run-to-run baseline to +/-1-3 of 32
+    (small-count noise; e.g. MoE-natural gen64 base 31/32 worst-cross 31/32;
+    dense-degenerate base 14 cross 12-17). Single-sequence greedy is fully
+    deterministic (the md5 gate above).
+- **Implementation (kill-gate subset only; correct, committed on `p4-cbv2`, NOT
+  pushed; server-side only, ZERO `ggml/` files, ~68 LOC in `server-context.cpp` +
+  a new unit-tested header).** (1) Per-seq chunked-prefill cursors with a
+  **load-adaptive fair-share cap** = `ceil(prefill_leftover / n_waiting)` floored at
+  `LLAMA_CBV2_CHUNK_MIN` (default 128, deliberately NOT `n_ubatch` so a 512-token
+  prompt actually chunks under load); CBv2 activates the shipped 0016 decode-first
+  budget by default (`T=n_batch`, no `LLAMA_MAX_BATCH_TOKENS` needed) and replaces
+  0016's fixed cap with this fair-share cap; cursor = `slot.prompt.n_tokens()`
+  advancing across steps. (2) Adaptive decode bucket policy (`LLAMA_CBV2_DECODE_PAD`
+  default 0 => `bucket==n_decode`, no padding; policy computed+traced only, never
+  fed to batch formation, so bit-exact-safe; row-emission for host-bound silicon is
+  the deferred [Build phase]). Pure math lives in the NEW unit-tested header
+  `tools/server/server-admission-policy.h` (namespace `cbv2`) +
+  `server-admission-policy-test.cpp` (host-side unit tests ALL PASS local + DGX);
+  `server-context.cpp` is the thin integration; step trace under `LLAMA_CBV2_TRACE=1`.
+- **Honest delta vs expectation.** Kill-gate GO required TTFT-under-load to drop
+  `> 20%`; **delivered: not demonstrated** (perf A/B force-terminated control-only).
+  The correctness substrate (bit-exact md5, proven decode+prefill co-batching with
+  per-seq cursors, determinism-neutrality) is real and is the enabler the scope
+  values, but the perf axis that gates the phase was never measured to GO.
+- **WHAT WOULD CHANGE THE VERDICT (re-score path).** Read the finalized DGX
+  `~/bench/p4_cbv2/perf_20260702_194359/RESULTS.md` once the CANDIDATE arm completes
+  (the perf driver `p4_agg.py` auto-writes medians+stdev deltas with the
+  `> 20%`-TTFT-drop GO logic baked in). **IF** it shows a genuine `> 20%`
+  staggered-TTFT drop clearing `max(2%, 3*stdev)` with md5 green and aggregate not
+  regressed, re-score `go=true` and trigger the **full P4 build-out**:
+  `SLOT_STATE_PREEMPTED` + release-KV-keep-prompt-tokens re-admit (reusing the paged
+  burst-reclaim patch 0024 + `paged-alloc.cpp` defrag), aging/starvation-freedom with
+  a constructed starvation test, preemption-transition + aging unit tests, and a
+  forced-preemption byte-identical-resume determinism gate. **ELSE** (the
+  scope-expected case) this NO-GO stands and P4 is deferred as a GB10 TTFT/fairness/
+  enabler lever whose throughput payoff is non-GB10.
+- **Series-numbering flag (for whoever lands a future GO).** The P0 code comments
+  label `[paged 0056]` per the pinned fork's next slot (46 patches), but the LocalAI
+  worktree README is already ahead at `0056-0061` (the MoE MMQ trace series) -
+  reconcile the actual series number on landing (likely `0062`).
+- **Artifacts (DGX `~/bench/p4_cbv2/`):** `build_20260702_192141/` (build.log);
+  `gates_20260702_192632/` (SUMMARY.txt: md5 x4, test-backend-ops, cbv2_trace.txt,
+  determinism tsvs); `det2_20260702_193123/` + `det3_20260702_193649/` +
+  `det4_20260702_194040/` (determinism diff-matrix: degenerate / natural / gen8);
+  `perf_20260702_194359/` (raw_*.json + auto-written RESULTS.md). Environment:
+  `LLAMA_KV_PAGED=1 LLAMA_MOE_FORCE_GRAPHS=1`, `LLAMA_MAX_BATCH_TOKENS` unset,
+  sm_121a, GPU lock held. Code on `p4-cbv2` `ebb649335`:
+  `tools/server/server-admission-policy.h`, `server-admission-policy-test.cpp`,
+  `server-context.cpp` (+68).
+
 ### P5: FLA-faithful GDN prefill scan (blocked solve_tril port; the algorithm never actually tested in-backend)
 
 - **Goal:** replace the hand f32 chunked scan (`gdn_core`, 95.7 us/tok, 2.62x vLLM) with
