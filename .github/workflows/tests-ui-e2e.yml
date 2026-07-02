@@ -75,7 +75,7 @@ jobs:
           retention-days: 7
       - name: Setup tmate session if tests fail
         if: ${{ failure() }}
-        uses: mxschmitt/action-tmate@v3.23
+        uses: mxschmitt/action-tmate@v3.24
         with:
           detached: true
           connect-timeout-seconds: 180
