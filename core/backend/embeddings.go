@@ -40,10 +40,14 @@ func (e *modelEmbedder) Embed(ctx context.Context, text string) ([]float32, erro
 
 func ModelEmbedding(ctx context.Context, s string, tokens []int, loader *model.ModelLoader, modelConfig config.ModelConfig, appConfig *config.ApplicationConfig) (func() ([]float32, error), error) {
 
-	// model.WithContext(ctx) overrides the app-context default set in
-	// ModelOptions so distributed routing decisions reach the request's
-	// X-LocalAI-Node holder via distributedhdr.Stamp.
-	opts := ModelOptions(modelConfig, appConfig, model.WithContext(ctx))
+	// model.WithContext carries the request context into the load so distributed
+	// routing decisions reach the request's X-LocalAI-Node holder via
+	// distributedhdr.Stamp. context.WithoutCancel keeps those values but drops
+	// the request's cancellation, so a slow first load still completes and
+	// caches if the client disconnects instead of aborting the LoadModel RPC and
+	// tearing down the backend process (issue #10636). Inference below keeps the
+	// cancellable ctx, so a disconnect still stops generation.
+	opts := ModelOptions(modelConfig, appConfig, model.WithContext(context.WithoutCancel(ctx)))
 
 	inferenceModel, err := loader.Load(opts...)
 	if err != nil {

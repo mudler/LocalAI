@@ -157,6 +157,33 @@ var _ = Describe("X-LocalAI-Node ctx propagation contract", func() {
 		stampViaRouterCtx()
 	})
 
+	// Regression for #10636: a canceled request context must NOT cancel the
+	// model LOAD. The heavy image/audio backends bind the load to the request
+	// context so the routing holder reaches the SmartRouter; but a large
+	// diffusers/LLM model on a slow (e.g. shared-memory iGPU) host can take
+	// far longer to load than the client stays connected. If the request's
+	// cancellation propagates to the load, the LoadModel RPC is aborted, the
+	// backend process is torn down, and every retry restarts from scratch and
+	// never converges. The load must instead run to completion and cache while
+	// still carrying the request's routing holder value.
+	It("ImageGeneration does not propagate request cancellation to the model load", func() {
+		canceledCtx, cancel := context.WithCancel(reqCtx)
+		cancel() // client disconnected while the (slow) load was still running
+
+		_, err := backend.ImageGeneration(canceledCtx, 64, 64, 1, 0, "p", "", "", "/tmp/out.png", loader, modelCfg, appCfg, nil)
+		// The load reached the router (short-circuit sentinel), i.e. it was
+		// NOT aborted early by the already-canceled request context.
+		Expect(err).To(HaveOccurred())
+		Expect(err.Error()).To(ContainSubstring("router short-circuit (test)"))
+
+		routerCtx := routerCtxOf()
+		Expect(routerCtx).ToNot(BeNil(), "router callback must have been invoked")
+		Expect(routerCtx.Err()).To(BeNil(),
+			"a canceled request must not cancel the model load")
+		// The routing holder value still propagates despite the decoupling.
+		stampViaRouterCtx()
+	})
+
 	It("does NOT leak the holder when the app context is used instead", func() {
 		// Sanity: the bug being fixed manifests as the router getting
 		// appCfg.Context (no holder) instead of reqCtx (holder). A direct
