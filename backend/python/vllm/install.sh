@@ -35,6 +35,21 @@ if [ "x${BUILD_PROFILE}" == "xcpu" ]; then
     EXTRA_PIP_INSTALL_FLAGS+=" --index-strategy=unsafe-best-match"
 fi
 
+# AMD ROCm: vLLM ships prebuilt ROCm wheels, but on a DEDICATED index
+# (https://wheels.vllm.ai/rocm/), NOT PyPI, and ONLY for CPython 3.12. On any
+# other Python the installer silently falls back to the CUDA-only PyPI wheel,
+# which is unusable on an AMD GPU (import fails, so the backend never finds the
+# vllm module). Force Python 3.12 before the venv is created (matches the
+# intel/l4t13 cp312 bump); the hipblas branch below pulls vllm from the ROCm
+# wheel index. unsafe-best-match lets uv consult that index and PyPI together.
+# https://docs.vllm.ai/en/latest/getting_started/installation/gpu.html?device=rocm
+if [ "x${BUILD_TYPE}" == "xhipblas" ]; then
+    PYTHON_VERSION="3.12"
+    PYTHON_PATCH="12"
+    PY_STANDALONE_TAG="20251120"
+    EXTRA_PIP_INSTALL_FLAGS+=" --index-strategy=unsafe-best-match"
+fi
+
 # cublas13 pulls the vLLM wheel from a per-tag cu130 index (PyPI's vllm wheel
 # is built against CUDA 12 and won't load on cu130). uv's default per-package
 # first-match strategy would still pick the PyPI wheel, so allow it to consult
@@ -194,6 +209,29 @@ elif [ "x${BUILD_TYPE}" == "xintel" ]; then
         export CMAKE_PREFIX_PATH="$(python -c 'import site; print(site.getsitepackages()[0])'):${CMAKE_PREFIX_PATH:-}"
         VLLM_TARGET_DEVICE=xpu uv pip install ${EXTRA_PIP_INSTALL_FLAGS:-} --no-deps .
     popd
+# AMD ROCm: install vllm from its dedicated ROCm wheel index instead of the
+# CUDA-only PyPI wheel. requirements-hipblas-after.txt lists a bare `vllm`,
+# which would resolve to that CUDA wheel, so hide it: installRequirements then
+# only installs the base ROCm torch/transformers, and we pull vllm (plus the
+# matching ROCm torch, via --upgrade) from wheels.vllm.ai/rocm. This is the
+# method upstream prescribes for AMD; the Python-3.12 pin is set above.
+# https://docs.vllm.ai/en/latest/getting_started/installation/gpu.html?device=rocm
+elif [ "x${BUILD_TYPE}" == "xhipblas" ]; then
+    _hipblas_after="${backend_dir}/requirements-hipblas-after.txt"
+    _hipblas_after_bak=""
+    if [ -f "${_hipblas_after}" ]; then
+        _hipblas_after_bak="${_hipblas_after}.rocm.bak"
+        mv "${_hipblas_after}" "${_hipblas_after_bak}"
+    fi
+    installRequirements
+    if [ -n "${_hipblas_after_bak}" ]; then
+        mv "${_hipblas_after_bak}" "${_hipblas_after}"
+    fi
+
+    # --upgrade reconciles the base ROCm torch to whatever the vllm ROCm wheel
+    # pins; --extra-index-url adds the ROCm wheel repository on top of PyPI.
+    uv pip install ${EXTRA_PIP_INSTALL_FLAGS:-} \
+        --extra-index-url https://wheels.vllm.ai/rocm/ --upgrade vllm
 # FROM_SOURCE=true on a CPU build skips the prebuilt vllm wheel in
 # requirements-cpu-after.txt and compiles vllm locally against the host's
 # actual CPU. Not used by default because it takes ~30-40 minutes, but
