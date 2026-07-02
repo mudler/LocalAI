@@ -71,6 +71,13 @@ type Decision struct {
 	// the cosine similarity of the cache hit (0 when not cached).
 	Cached          bool    `json:"cached,omitempty"`
 	CacheSimilarity float64 `json:"cache_similarity,omitempty"`
+
+	// NearestSimilarity is the cosine similarity of the closest corpus
+	// entry the KNN classifier saw — set even when the decision fell
+	// through to the fallback because the probe was out of corpus range,
+	// which is exactly when an admin wants to know how far off the
+	// nearest labelled experience was. 0 for other classifiers.
+	NearestSimilarity float64 `json:"nearest_similarity,omitempty"`
 }
 
 // LabelScore is one entry in Decision.LabelScores — a policy label and
@@ -127,6 +134,13 @@ const (
 	// `type:` field on that model's YAML controls which Reranker
 	// library mode loads. See router/rerank.go.
 	ClassifierColbert = "colbert"
+
+	// ClassifierKNN picks labels by similarity-weighted vote over a
+	// curated corpus of labelled example prompts, with an epistemic
+	// gate: probes dissimilar from all corpus entries activate no
+	// labels and route to the fallback. Needs an embedding model and
+	// a seeded corpus, not a classifier_model. See router/knn.go.
+	ClassifierKNN = "knn"
 )
 
 // LabelFallback is the synthetic label written to the decision

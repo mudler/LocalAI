@@ -73,6 +73,7 @@ func RegisterOpenAIRoutes(app *echo.Echo,
 			router.SourceChat,
 			middleware.ClassifierDeps{
 				Scorer:       application.Scorer,
+				Corpus:       application.RouterCorpus(),
 				TokenCounter: application.TokenCounter,
 				Embedder:     application.Embedder,
 				VectorStore:  application.VectorStore,

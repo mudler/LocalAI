@@ -57,6 +57,7 @@ func RegisterAnthropicRoutes(app *echo.Echo,
 			router.SourceAnthropic,
 			middleware.ClassifierDeps{
 				Scorer:       application.Scorer,
+				Corpus:       application.RouterCorpus(),
 				TokenCounter: application.TokenCounter,
 				Embedder:     application.Embedder,
 				VectorStore:  application.VectorStore,
