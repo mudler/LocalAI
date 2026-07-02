@@ -11006,6 +11006,22 @@ button.collapsible-header:focus-visible {
 .mw-hist__bar--hit { background: var(--color-success); opacity: 1; }
 .mw-hist__bar--miss { background: var(--color-warning); opacity: 1; }
 
+.mw-knn {
+  font-family: var(--font-mono);
+  font-size: 0.6875rem;
+  line-height: 1.3;
+}
+.mw-knn__model { font-weight: var(--font-weight-semibold); }
+.mw-knn__meta { color: var(--color-text-muted); }
+.mw-knn__labels {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 2px;
+  color: var(--color-text-muted);
+}
+.mw-knn__label { color: var(--color-primary); }
+
 .mw-alert { padding: var(--spacing-md); border-left: 3px solid var(--color-error); }
 .mw-list { margin: 0; padding-left: 20px; }
 .mw-list--mono { font-family: var(--font-mono); }

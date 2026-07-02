@@ -11,18 +11,19 @@ import (
 // Prompt is NEVER stored — admins audit by Hash if they need to
 // dedupe recurring routing patterns.
 type DecisionRecord struct {
-	ID            string        `json:"id"`
-	CorrelationID string        `json:"correlation_id"`
-	UserID        string        `json:"user_id"`
-	RouterModel   string        `json:"router_model"`   // The smart-router model name the client asked for.
-	RequestedModel string       `json:"requested_model"`// Same as RouterModel for now; reserved for chained routers.
-	ServedModel   string        `json:"served_model"`   // The candidate the classifier picked.
-	Classifier    string        `json:"classifier"`     // Classifier.Name(), e.g. "score".
-	Label         string        `json:"label"`
-	Score         float64       `json:"score"`
-	LatencyMs     int64         `json:"latency_ms"`
-	Cached        bool          `json:"cached"`         // True when the decision came from the L2 embedding cache.
-	CacheSimilarity float64     `json:"cache_similarity,omitempty"` // Cosine similarity of the cache hit, 0 when not cached.
+	ID                string  `json:"id"`
+	CorrelationID     string  `json:"correlation_id"`
+	UserID            string  `json:"user_id"`
+	RouterModel       string  `json:"router_model"`    // The smart-router model name the client asked for.
+	RequestedModel    string  `json:"requested_model"` // Same as RouterModel for now; reserved for chained routers.
+	ServedModel       string  `json:"served_model"`    // The candidate the classifier picked.
+	Classifier        string  `json:"classifier"`      // Classifier.Name(), e.g. "score".
+	Label             string  `json:"label"`
+	Score             float64 `json:"score"`
+	LatencyMs         int64   `json:"latency_ms"`
+	Cached            bool    `json:"cached"`                       // True when the decision came from the L2 embedding cache.
+	CacheSimilarity   float64 `json:"cache_similarity,omitempty"`   // Cosine similarity of the cache hit, 0 when not cached.
+	NearestSimilarity float64 `json:"nearest_similarity,omitempty"` // KNN classifier: similarity of the closest corpus entry, set even on fallback decisions. 0 for other classifiers.
 	// LabelScores carries the full per-label score distribution so the
 	// admin UI can show how close inactive labels got to the activation
 	// threshold. Empty on cache hits (only the final label set is cached).
@@ -32,8 +33,8 @@ type DecisionRecord struct {
 	// the admin page can split realtime / chat / anthropic streams. Empty
 	// string is treated as "chat" for backward compatibility with rows
 	// written before the field existed.
-	Source        string        `json:"source,omitempty"`
-	CreatedAt     time.Time     `json:"created_at"`
+	Source    string    `json:"source,omitempty"`
+	CreatedAt time.Time `json:"created_at"`
 }
 
 // Source values for DecisionRecord.Source. Kept as constants so callers

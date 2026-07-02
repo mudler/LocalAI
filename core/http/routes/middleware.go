@@ -136,6 +136,7 @@ func RegisterMiddlewareRoutes(e *echo.Echo, app *application.Application) {
 		app.ApplicationConfig(),
 		middleware.ClassifierDeps{
 			Scorer:       app.Scorer,
+			Corpus:       app.RouterCorpus(),
 			TokenCounter: app.TokenCounter,
 			Embedder:     app.Embedder,
 			VectorStore:  app.VectorStore,
@@ -155,6 +156,35 @@ func RegisterMiddlewareRoutes(e *echo.Echo, app *application.Application) {
 		}
 		return decideHandler(c)
 	})
+
+	// Router KNN corpus management. Corpus input/curation is API-only
+	// by design — entries can contain example user content, so the UI
+	// never sends or renders them; the stats endpoint returns label
+	// counts only. Admin-gated like /api/router/decide: seeding the
+	// corpus changes routing behaviour and Add runs embedding
+	// inference on arbitrary input.
+	corpusDeps := middleware.ClassifierDeps{
+		Embedder:    app.Embedder,
+		VectorStore: app.VectorStore,
+	}
+	corpusAdd := localai.RouterCorpusAddEndpoint(app.ModelConfigLoader(), app.ApplicationConfig(), app.RouterCorpus(), corpusDeps)
+	corpusStats := localai.RouterCorpusStatsEndpoint(app.ModelConfigLoader(), app.ApplicationConfig(), app.RouterCorpus())
+	corpusClear := localai.RouterCorpusClearEndpoint(app.ModelConfigLoader(), app.ApplicationConfig(), app.RouterCorpus(), corpusDeps)
+	adminGate := func(h echo.HandlerFunc) echo.HandlerFunc {
+		return func(c echo.Context) error {
+			viewer := resolveUsageUser(c, app)
+			if viewer == nil {
+				return c.JSON(http.StatusUnauthorized, map[string]string{"error": "not authenticated"})
+			}
+			if viewer.Role != auth.RoleAdmin {
+				return c.JSON(http.StatusForbidden, map[string]string{"error": "admin access required"})
+			}
+			return h(c)
+		}
+	}
+	e.POST("/api/router/:name/corpus", adminGate(corpusAdd))
+	e.GET("/api/router/:name/corpus/stats", adminGate(corpusStats))
+	e.DELETE("/api/router/:name/corpus", adminGate(corpusClear))
 }
 
 // buildRouterStatus inventories every model that declares a Router
@@ -210,6 +240,28 @@ func buildRouterStatus(app *application.Application) map[string]any {
 			}
 			entry["embedding_cache"] = cacheEntry
 		}
+		if kc := cfg.Router.KNN; kc != nil {
+			storeName := kc.StoreName
+			if storeName == "" {
+				storeName = "router-corpus-" + cfg.Name
+			}
+			knnEntry := map[string]any{
+				"embedding_model":      kc.EmbeddingModel,
+				"k":                    kc.K,
+				"similarity_threshold": kc.SimilarityThreshold,
+				"vote_threshold":       kc.VoteThreshold,
+				"store_name":           storeName,
+			}
+			// Corpus stats are counts only — entry texts never reach
+			// the UI (or any API surface).
+			if s, err := app.RouterCorpus().Stats(storeName); err == nil {
+				knnEntry["corpus"] = map[string]any{
+					"total":        s.Total,
+					"label_counts": s.LabelCounts,
+				}
+			}
+			entry["knn"] = knnEntry
+		}
 		models = append(models, entry)
 	}
 
@@ -224,7 +276,7 @@ func buildRouterStatus(app *application.Application) map[string]any {
 		"configured":            hasAny,
 		"models":                models,
 		"recent_decision_count": recentCount,
-		"available_classifiers": []string{router.ClassifierScore},
+		"available_classifiers": []string{router.ClassifierScore, router.ClassifierColbert, router.ClassifierKNN},
 	}
 	if !hasAny {
 		out["note"] = "No router models configured. Add a `router:` block to a model YAML to enable intelligent routing."

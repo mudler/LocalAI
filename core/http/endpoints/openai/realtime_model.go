@@ -835,6 +835,7 @@ func buildRealtimeRoutingContext(a *application.Application, sessionID string) *
 	}
 	deps := &middleware.ClassifierDeps{
 		Scorer:       a.Scorer,
+		Corpus:       a.RouterCorpus(),
 		TokenCounter: a.TokenCounter,
 		Embedder:     a.Embedder,
 		VectorStore:  a.VectorStore,
