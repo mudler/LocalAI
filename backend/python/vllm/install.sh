@@ -210,23 +210,16 @@ elif [ "x${BUILD_TYPE}" == "xintel" ]; then
         VLLM_TARGET_DEVICE=xpu uv pip install ${EXTRA_PIP_INSTALL_FLAGS:-} --no-deps .
     popd
 # AMD ROCm: install vllm from its dedicated ROCm wheel index instead of the
-# CUDA-only PyPI wheel. requirements-hipblas-after.txt lists a bare `vllm`,
-# which would resolve to that CUDA wheel, so hide it: installRequirements then
-# only installs the base ROCm torch/transformers, and we pull vllm (plus the
+# CUDA-only PyPI wheel. installRequirements brings the base ROCm
+# torch/transformers (requirements-hipblas.txt), then we pull vllm (plus the
 # matching ROCm torch, via --upgrade) from wheels.vllm.ai/rocm. This is the
 # method upstream prescribes for AMD; the Python-3.12 pin is set above.
+# There is intentionally no requirements-hipblas-after.txt: a bare `vllm`
+# there would resolve to the CUDA wheel, and installRequirements never loads
+# a ${BUILD_TYPE}-after file for hipblas anyway (BUILD_TYPE == BUILD_PROFILE).
 # https://docs.vllm.ai/en/latest/getting_started/installation/gpu.html?device=rocm
 elif [ "x${BUILD_TYPE}" == "xhipblas" ]; then
-    _hipblas_after="${backend_dir}/requirements-hipblas-after.txt"
-    _hipblas_after_bak=""
-    if [ -f "${_hipblas_after}" ]; then
-        _hipblas_after_bak="${_hipblas_after}.rocm.bak"
-        mv "${_hipblas_after}" "${_hipblas_after_bak}"
-    fi
     installRequirements
-    if [ -n "${_hipblas_after_bak}" ]; then
-        mv "${_hipblas_after_bak}" "${_hipblas_after}"
-    fi
 
     # --upgrade reconciles the base ROCm torch to whatever the vllm ROCm wheel
     # pins; --extra-index-url adds the ROCm wheel repository on top of PyPI.
