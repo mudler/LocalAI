@@ -1,4 +1,57 @@
 ---
+- name: "lfm2.5-230m"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/LiquidAI/LFM2.5-230M-GGUF
+  description: |
+    Try LFM •
+    Docs •
+    LEAP •
+    Discord
+
+    # LFM2.5-230M
+
+    LFM2.5 is a family of hybrid models designed for **on-device deployment**. It builds on the LFM2 architecture with extended pre-training and reinforcement learning.
+
+      - **Our most compact model yet**: 230M parameters that punch above their weight, bringing real capability to the tightest memory and compute budgets.
+      - **Fast edge inference**: Best throughput from low-cost CPUs to production GPUs, running at 213 tok/s decode speed on Galaxy S25 Ultra and 42 tok/s on a Raspberry Pi 5.
+      - **Built for agentic tasks**: Distilled from LFM2.5-350M and refined with multi-stage reinforcement learning, making it well-suited for tool use and data extraction.
+
+    Find more information about LFM2.5-230M in our blog post.
+
+    ## 🗒️ Model Details
+
+    LFM2.5-230M is a general-purpose text-only model with the following features:
+
+    ...
+  license: "other"
+  tags:
+    - llm
+    - gguf
+  icon: https://cdn-uploads.huggingface.co/production/uploads/61b8e2ba285851687028d395/4UpNxlgfKjfgT5ByIVph0.png
+  overrides:
+    backend: llama-cpp
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+    options:
+      - use_jinja:true
+    parameters:
+      min_p: 0.15
+      model: llama-cpp/models/LFM2.5-230M-GGUF/LFM2.5-230M-Q4_K_M.gguf
+      repeat_penalty: 1.05
+      temperature: 0.1
+      top_k: 50
+      top_p: 0.1
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/LFM2.5-230M-GGUF/LFM2.5-230M-Q4_K_M.gguf
+      sha256: 7bbd90384d3deffe4c646ec9643b212802d32d4ce417c90a1ec9282100650062
+      uri: https://huggingface.co/LiquidAI/LFM2.5-230M-GGUF/resolve/main/LFM2.5-230M-Q4_K_M.gguf
 - name: "qwen-agentworld-35b-a3b"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
