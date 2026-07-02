@@ -74,8 +74,9 @@ func TestPredict_OpenAI_BasicChat(t *testing.T) {
 	g.Expect(captured.Messages).To(HaveLen(2))
 	g.Expect(captured.Messages[0].Role).To(Equal("system"))
 	g.Expect(captured.Messages[1].Role).To(Equal("user"))
-	g.Expect(captured.Temperature).NotTo(BeNil())
-	g.Expect(*captured.Temperature).To(Equal(0.5))
+	// Sampling parameters are not forwarded (newest models reject explicit
+	// temperature); token limit is serialized as max_completion_tokens.
+	g.Expect(captured.Temperature).To(BeNil())
 	g.Expect(captured.MaxTokens).NotTo(BeNil())
 	g.Expect(*captured.MaxTokens).To(Equal(int32(32)))
 	g.Expect(captured.Stream).To(BeFalse())
