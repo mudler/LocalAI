@@ -10,6 +10,7 @@ here is a fork - it is a source-only `*.patch` stack plus this canonical doc.
 > - [`PAGED_BITEXACT_NOTE.md`](docs/PAGED_BITEXACT_NOTE.md) - the per-path bit-exactness gate (the canonical paged-MoE md5 reference).
 > - [`LOCALAI_LLAMACPP_BACKEND_PLAN.md`](docs/LOCALAI_LLAMACPP_BACKEND_PLAN.md) - the design-of-record for shipping this as its own backend + the NVFP4 gallery items.
 > - [`VLLM_PARITY_FINAL.md`](docs/VLLM_PARITY_FINAL.md) - the definitive, closed record of the GB10 vLLM-parity investigation: full benchmark, every lever + verdict, the structural floors, and the parity verdict (summarized in section 9 below). Read this before reopening any parity work.
+> - [`EXECUTION_REARCH_SCOPE.md`](docs/EXECUTION_REARCH_SCOPE.md) - the reopened scope: ports vLLM's execution *architecture* (bf16-resident stream, expert-major fused MoE region, persistent-CTA GEMM, token-budget scheduler, blocked-solve GDN) into the fork additively, on the thesis that same-silicon 2-3x is software-architecture-conditional, not a hardware floor. Phased (P1-P6), each with a falsifiable P0 kill-gate. Read this to pick up parity work after `VLLM_PARITY_FINAL.md`.
 
 ---
 

@@ -1,5 +1,17 @@
 # PARITY_HANDOFF: how to pick up the GB10 vLLM-parity work
 
+> 2026-07-02 forward direction: the active plan is now
+> [`EXECUTION_REARCH_SCOPE.md`](EXECUTION_REARCH_SCOPE.md), which reframes the
+> per-lever "hardware floor" verdict as *ggml-execution-architecture-conditional*
+> (same-silicon 2-3x is software) and scopes an additive, phased (P1 bf16-native
+> stream, P2 expert-major fused MoE region, P3 Marlin large-M retry on top of
+> P1+P2, P4 token-budget scheduler, P5 blocked-solve GDN, P6 fp8 KV) program with
+> a falsifiable P0 kill-gate per phase. The port-forensics finding is that the
+> failed single-kernel/single-boundary A/Bs below failed on *integration tax*
+> (dropped into a materialize-every-node executor), not because the kernels are
+> GB10-hostile; the reject log below is the evidence that grounds those verdicts.
+> Read the scope doc first for what to build next.
+>
 > 2026-06-30 update: this handoff is now historical procedure, not the active
 > verdict. The GB10 investigation was reopened in `GB10_PARITY_REOPEN_SPEC.md`
 > and `GB10_PARITY_PHASE0_RESULTS.md`, with Phase 6 serving-nsys evidence and
