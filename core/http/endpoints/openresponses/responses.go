@@ -1654,6 +1654,12 @@ func handleOpenResponsesStream(c echo.Context, responseID string, createdAt int6
 	var currentReasoningContentIndex int
 	var reasoningTokens int
 	extractor := reason.NewReasoningExtractor(thinkingStartToken, cfg.ReasoningConfig)
+	// router classifies each streamed token into reasoning vs message deltas
+	// and decides which output item they target. It encapsulates the
+	// sticky-preferAutoparser fallback and the reasoningDelta-based gate that
+	// fix issue #9658 (live reasoning was mis-routed onto the msg_ item and
+	// only re-classified as a reasoning item after the stream completed).
+	router := newStreamReasoningRouter(extractor)
 
 	// Collect all output items for storage
 	var collectedOutputItems []schema.ORItemField
@@ -1677,7 +1683,7 @@ func handleOpenResponsesStream(c echo.Context, responseID string, createdAt int6
 				// Reset reasoning and tool-call state for re-inference so reasoning
 				// extraction runs again on subsequent iterations
 				inToolCallMode = false
-				extractor.Reset()
+				router.resetForIteration()
 				currentMessageID = ""
 				lastEmittedToolCallCount = 0
 				currentReasoningID = ""
@@ -1838,110 +1844,101 @@ func handleOpenResponsesStream(c echo.Context, responseID string, createdAt int6
 
 				// If no tool calls detected yet, handle reasoning and text
 				if !inToolCallMode {
-					var reasoningDelta, contentDelta string
-					goReasoning, goContent := extractor.ProcessToken(token)
+					routing := router.route(token, tokenUsage)
 
-					if tokenUsage.HasChatDeltaContent() {
-						rawReasoning, cd := tokenUsage.ChatDeltaReasoningAndContent()
-						contentDelta = cd
-						reasoningDelta = extractor.ProcessChatDeltaReasoning(rawReasoning)
-					} else {
-						reasoningDelta = goReasoning
-						contentDelta = goContent
+					// Handle reasoning item. The reasoning item is opened lazily
+					// on the first reasoning delta - gating on routing, not
+					// extractor.Reasoning() (issue #9658): when the C++
+					// autoparser drives reasoning via reasoning_content,
+					// extractor.Reasoning() stays empty and the old gate dropped
+					// the live reasoning item.
+					if routing.OpenReasoningItem {
+						outputIndex++
+						currentReasoningID = fmt.Sprintf("reasoning_%s", uuid.New().String())
+						reasoningItem := &schema.ORItemField{
+							Type:   "reasoning",
+							ID:     currentReasoningID,
+							Status: "in_progress",
+						}
+						sendSSEEvent(c, &schema.ORStreamEvent{
+							Type:           "response.output_item.added",
+							SequenceNumber: sequenceNumber,
+							OutputIndex:    &outputIndex,
+							Item:           reasoningItem,
+						})
+						sequenceNumber++
+
+						// Emit content_part.added for reasoning
+						currentReasoningContentIndex = 0
+						emptyPart := makeOutputTextPart("")
+						sendSSEEvent(c, &schema.ORStreamEvent{
+							Type:           "response.content_part.added",
+							SequenceNumber: sequenceNumber,
+							ItemID:         currentReasoningID,
+							OutputIndex:    &outputIndex,
+							ContentIndex:   &currentReasoningContentIndex,
+							Part:           &emptyPart,
+						})
+						sequenceNumber++
 					}
 
-					// Handle reasoning item
-					if extractor.Reasoning() != "" {
-						// Check if we need to create reasoning item
-						if currentReasoningID == "" {
-							outputIndex++
-							currentReasoningID = fmt.Sprintf("reasoning_%s", uuid.New().String())
-							reasoningItem := &schema.ORItemField{
-								Type:   "reasoning",
-								ID:     currentReasoningID,
-								Status: "in_progress",
-							}
-							sendSSEEvent(c, &schema.ORStreamEvent{
-								Type:           "response.output_item.added",
-								SequenceNumber: sequenceNumber,
-								OutputIndex:    &outputIndex,
-								Item:           reasoningItem,
-							})
-							sequenceNumber++
-
-							// Emit content_part.added for reasoning
-							currentReasoningContentIndex = 0
-							emptyPart := makeOutputTextPart("")
-							sendSSEEvent(c, &schema.ORStreamEvent{
-								Type:           "response.content_part.added",
-								SequenceNumber: sequenceNumber,
-								ItemID:         currentReasoningID,
-								OutputIndex:    &outputIndex,
-								ContentIndex:   &currentReasoningContentIndex,
-								Part:           &emptyPart,
-							})
-							sequenceNumber++
-						}
-
-						// Emit reasoning delta if there's new content
-						if reasoningDelta != "" {
-							sendSSEEvent(c, &schema.ORStreamEvent{
-								Type:           "response.output_text.delta",
-								SequenceNumber: sequenceNumber,
-								ItemID:         currentReasoningID,
-								OutputIndex:    &outputIndex,
-								ContentIndex:   &currentReasoningContentIndex,
-								Delta:          strPtr(reasoningDelta),
-								Logprobs:       emptyLogprobs(),
-							})
-							sequenceNumber++
-							c.Response().Flush()
-						}
+					// Emit reasoning delta against the reasoning_ item id.
+					if routing.ReasoningDelta != "" {
+						sendSSEEvent(c, &schema.ORStreamEvent{
+							Type:           "response.output_text.delta",
+							SequenceNumber: sequenceNumber,
+							ItemID:         currentReasoningID,
+							OutputIndex:    &outputIndex,
+							ContentIndex:   &currentReasoningContentIndex,
+							Delta:          strPtr(routing.ReasoningDelta),
+							Logprobs:       emptyLogprobs(),
+						})
+						sequenceNumber++
+						c.Response().Flush()
 					}
 
-					// Only emit message content if there's actual content (not just reasoning)
-					if contentDelta != "" {
-						if currentMessageID == "" {
-							// Emit output_item.added for message
-							outputIndex++
-							currentMessageID = fmt.Sprintf("msg_%s", uuid.New().String())
-							messageItem := &schema.ORItemField{
-								Type:    "message",
-								ID:      currentMessageID,
-								Status:  "in_progress",
-								Role:    "assistant",
-								Content: []schema.ORContentPart{},
-							}
-							sendSSEEvent(c, &schema.ORStreamEvent{
-								Type:           "response.output_item.added",
-								SequenceNumber: sequenceNumber,
-								OutputIndex:    &outputIndex,
-								Item:           messageItem,
-							})
-							sequenceNumber++
-
-							// Emit content_part.added
-							currentContentIndex = 0
-							emptyPart := makeOutputTextPart("")
-							sendSSEEvent(c, &schema.ORStreamEvent{
-								Type:           "response.content_part.added",
-								SequenceNumber: sequenceNumber,
-								ItemID:         currentMessageID,
-								OutputIndex:    &outputIndex,
-								ContentIndex:   &currentContentIndex,
-								Part:           &emptyPart,
-							})
-							sequenceNumber++
+					// Open the message item lazily on the first content delta.
+					if routing.OpenMessageItem {
+						outputIndex++
+						currentMessageID = fmt.Sprintf("msg_%s", uuid.New().String())
+						messageItem := &schema.ORItemField{
+							Type:    "message",
+							ID:      currentMessageID,
+							Status:  "in_progress",
+							Role:    "assistant",
+							Content: []schema.ORContentPart{},
 						}
+						sendSSEEvent(c, &schema.ORStreamEvent{
+							Type:           "response.output_item.added",
+							SequenceNumber: sequenceNumber,
+							OutputIndex:    &outputIndex,
+							Item:           messageItem,
+						})
+						sequenceNumber++
 
-						// Emit text delta
+						// Emit content_part.added
+						currentContentIndex = 0
+						emptyPart := makeOutputTextPart("")
+						sendSSEEvent(c, &schema.ORStreamEvent{
+							Type:           "response.content_part.added",
+							SequenceNumber: sequenceNumber,
+							ItemID:         currentMessageID,
+							OutputIndex:    &outputIndex,
+							ContentIndex:   &currentContentIndex,
+							Part:           &emptyPart,
+						})
+						sequenceNumber++
+					}
+
+					// Emit text delta against the msg_ item id.
+					if routing.ContentDelta != "" {
 						sendSSEEvent(c, &schema.ORStreamEvent{
 							Type:           "response.output_text.delta",
 							SequenceNumber: sequenceNumber,
 							ItemID:         currentMessageID,
 							OutputIndex:    &outputIndex,
 							ContentIndex:   &currentContentIndex,
-							Delta:          strPtr(contentDelta),
+							Delta:          strPtr(routing.ContentDelta),
 							Logprobs:       emptyLogprobs(),
 						})
 						sequenceNumber++
@@ -2338,112 +2335,109 @@ func handleOpenResponsesStream(c echo.Context, responseID string, createdAt int6
 		return nil
 	}
 
-	// Non-tool-call streaming path
-	// Emit output_item.added for message
-	currentMessageID = fmt.Sprintf("msg_%s", uuid.New().String())
-	messageItem := &schema.ORItemField{
-		Type:    "message",
-		ID:      currentMessageID,
-		Status:  "in_progress",
-		Role:    "assistant",
-		Content: []schema.ORContentPart{},
-	}
-	sendSSEEvent(c, &schema.ORStreamEvent{
-		Type:           "response.output_item.added",
-		SequenceNumber: sequenceNumber,
-		OutputIndex:    &outputIndex,
-		Item:           messageItem,
-	})
-	sequenceNumber++
-
-	// Emit content_part.added
-	currentContentIndex = 0
-	emptyTextPart := makeOutputTextPart("")
-	sendSSEEvent(c, &schema.ORStreamEvent{
-		Type:           "response.content_part.added",
-		SequenceNumber: sequenceNumber,
-		ItemID:         currentMessageID,
-		OutputIndex:    &outputIndex,
-		ContentIndex:   &currentContentIndex,
-		Part:           &emptyTextPart,
-	})
-	sequenceNumber++
+	// Non-tool-call streaming path.
+	//
+	// The message output item is created LAZILY on the first content delta
+	// (mirroring the tool-call path), not eagerly before the first token.
+	// Issue #9658: an eager msg_ item forced reasoning to a higher output
+	// index and made mis-split <think> text land on the pre-existing message,
+	// so the thinking monologue streamed as message text instead of reasoning.
+	var messageItem *schema.ORItemField
 
 	// Stream text deltas with reasoning extraction
 	tokenCallback := func(token string, tokenUsage backend.TokenUsage) bool {
 		accumulatedText += token
 
-		var reasoningDelta, contentDelta string
-		goReasoning, goContent := extractor.ProcessToken(token)
+		routing := router.route(token, tokenUsage)
 
-		if tokenUsage.HasChatDeltaContent() {
-			rawReasoning, cd := tokenUsage.ChatDeltaReasoningAndContent()
-			contentDelta = cd
-			reasoningDelta = extractor.ProcessChatDeltaReasoning(rawReasoning)
-		} else {
-			reasoningDelta = goReasoning
-			contentDelta = goContent
+		// Open the reasoning item lazily on the first reasoning delta.
+		if routing.OpenReasoningItem {
+			outputIndex++
+			currentReasoningID = fmt.Sprintf("reasoning_%s", uuid.New().String())
+			reasoningItem := &schema.ORItemField{
+				Type:   "reasoning",
+				ID:     currentReasoningID,
+				Status: "in_progress",
+			}
+			sendSSEEvent(c, &schema.ORStreamEvent{
+				Type:           "response.output_item.added",
+				SequenceNumber: sequenceNumber,
+				OutputIndex:    &outputIndex,
+				Item:           reasoningItem,
+			})
+			sequenceNumber++
+
+			// Emit content_part.added for reasoning
+			currentReasoningContentIndex = 0
+			emptyPart := makeOutputTextPart("")
+			sendSSEEvent(c, &schema.ORStreamEvent{
+				Type:           "response.content_part.added",
+				SequenceNumber: sequenceNumber,
+				ItemID:         currentReasoningID,
+				OutputIndex:    &outputIndex,
+				ContentIndex:   &currentReasoningContentIndex,
+				Part:           &emptyPart,
+			})
+			sequenceNumber++
 		}
 
-		// Handle reasoning item
-		if extractor.Reasoning() != "" {
-			// Check if we need to create reasoning item
-			if currentReasoningID == "" {
-				outputIndex++
-				currentReasoningID = fmt.Sprintf("reasoning_%s", uuid.New().String())
-				reasoningItem := &schema.ORItemField{
-					Type:   "reasoning",
-					ID:     currentReasoningID,
-					Status: "in_progress",
-				}
-				sendSSEEvent(c, &schema.ORStreamEvent{
-					Type:           "response.output_item.added",
-					SequenceNumber: sequenceNumber,
-					OutputIndex:    &outputIndex,
-					Item:           reasoningItem,
-				})
-				sequenceNumber++
-
-				// Emit content_part.added for reasoning
-				currentReasoningContentIndex = 0
-				emptyPart := makeOutputTextPart("")
-				sendSSEEvent(c, &schema.ORStreamEvent{
-					Type:           "response.content_part.added",
-					SequenceNumber: sequenceNumber,
-					ItemID:         currentReasoningID,
-					OutputIndex:    &outputIndex,
-					ContentIndex:   &currentReasoningContentIndex,
-					Part:           &emptyPart,
-				})
-				sequenceNumber++
-			}
-
-			// Emit reasoning delta if there's new content
-			if reasoningDelta != "" {
-				sendSSEEvent(c, &schema.ORStreamEvent{
-					Type:           "response.output_text.delta",
-					SequenceNumber: sequenceNumber,
-					ItemID:         currentReasoningID,
-					OutputIndex:    &outputIndex,
-					ContentIndex:   &currentReasoningContentIndex,
-					Delta:          strPtr(reasoningDelta),
-					Logprobs:       emptyLogprobs(),
-				})
-				sequenceNumber++
-				c.Response().Flush()
-			}
+		// Emit reasoning delta against the reasoning_ item id.
+		if routing.ReasoningDelta != "" {
+			sendSSEEvent(c, &schema.ORStreamEvent{
+				Type:           "response.output_text.delta",
+				SequenceNumber: sequenceNumber,
+				ItemID:         currentReasoningID,
+				OutputIndex:    &outputIndex,
+				ContentIndex:   &currentReasoningContentIndex,
+				Delta:          strPtr(routing.ReasoningDelta),
+				Logprobs:       emptyLogprobs(),
+			})
+			sequenceNumber++
+			c.Response().Flush()
 		}
 
-		// Only emit message content if there's actual content (not just reasoning)
-		if contentDelta != "" {
-			// Emit text delta
+		// Open the message item lazily on the first content delta.
+		if routing.OpenMessageItem {
+			outputIndex++
+			currentMessageID = fmt.Sprintf("msg_%s", uuid.New().String())
+			messageItem = &schema.ORItemField{
+				Type:    "message",
+				ID:      currentMessageID,
+				Status:  "in_progress",
+				Role:    "assistant",
+				Content: []schema.ORContentPart{},
+			}
+			sendSSEEvent(c, &schema.ORStreamEvent{
+				Type:           "response.output_item.added",
+				SequenceNumber: sequenceNumber,
+				OutputIndex:    &outputIndex,
+				Item:           messageItem,
+			})
+			sequenceNumber++
+
+			// Emit content_part.added
+			currentContentIndex = 0
+			emptyTextPart := makeOutputTextPart("")
+			sendSSEEvent(c, &schema.ORStreamEvent{
+				Type:           "response.content_part.added",
+				SequenceNumber: sequenceNumber,
+				ItemID:         currentMessageID,
+				OutputIndex:    &outputIndex,
+				ContentIndex:   &currentContentIndex,
+				Part:           &emptyTextPart,
+			})
+			sequenceNumber++
+		}
+
+		// Emit text delta against the msg_ item id.
+		if routing.ContentDelta != "" {
 			sendSSEEvent(c, &schema.ORStreamEvent{
 				Type:           "response.output_text.delta",
 				SequenceNumber: sequenceNumber,
 				ItemID:         currentMessageID,
 				OutputIndex:    &outputIndex,
 				ContentIndex:   &currentContentIndex,
-				Delta:          strPtr(contentDelta),
+				Delta:          strPtr(routing.ContentDelta),
 				Logprobs:       emptyLogprobs(),
 			})
 			sequenceNumber++
@@ -2568,40 +2562,78 @@ func handleOpenResponsesStream(c echo.Context, responseID string, createdAt int6
 	// Convert logprobs for streaming events
 	mcpStreamLogprobs := convertLogprobsForStreaming(noToolLogprobs)
 
-	// Emit output_text.done
-	sendSSEEvent(c, &schema.ORStreamEvent{
-		Type:           "response.output_text.done",
-		SequenceNumber: sequenceNumber,
-		ItemID:         currentMessageID,
-		OutputIndex:    &outputIndex,
-		ContentIndex:   &currentContentIndex,
-		Text:           strPtr(result),
-		Logprobs:       logprobsPtr(mcpStreamLogprobs),
-	})
-	sequenceNumber++
+	// The message item is created lazily on the first content delta (issue
+	// #9658). If no content streamed but final extraction produced text (e.g.
+	// the autoparser delivered everything at once), open the message item now
+	// so the closing events below are valid. A pure-reasoning turn (no content
+	// at all) leaves messageItem nil and emits no message item.
+	if messageItem == nil && result != "" {
+		outputIndex++
+		currentMessageID = fmt.Sprintf("msg_%s", uuid.New().String())
+		messageItem = &schema.ORItemField{
+			Type:    "message",
+			ID:      currentMessageID,
+			Status:  "in_progress",
+			Role:    "assistant",
+			Content: []schema.ORContentPart{},
+		}
+		sendSSEEvent(c, &schema.ORStreamEvent{
+			Type:           "response.output_item.added",
+			SequenceNumber: sequenceNumber,
+			OutputIndex:    &outputIndex,
+			Item:           messageItem,
+		})
+		sequenceNumber++
 
-	// Emit content_part.done (with actual logprobs)
-	resultPart := makeOutputTextPartWithLogprobs(result, noToolLogprobs)
-	sendSSEEvent(c, &schema.ORStreamEvent{
-		Type:           "response.content_part.done",
-		SequenceNumber: sequenceNumber,
-		ItemID:         currentMessageID,
-		OutputIndex:    &outputIndex,
-		ContentIndex:   &currentContentIndex,
-		Part:           &resultPart,
-	})
-	sequenceNumber++
+		currentContentIndex = 0
+		emptyTextPart := makeOutputTextPart("")
+		sendSSEEvent(c, &schema.ORStreamEvent{
+			Type:           "response.content_part.added",
+			SequenceNumber: sequenceNumber,
+			ItemID:         currentMessageID,
+			OutputIndex:    &outputIndex,
+			ContentIndex:   &currentContentIndex,
+			Part:           &emptyTextPart,
+		})
+		sequenceNumber++
+	}
 
-	// Emit output_item.done (with actual logprobs)
-	messageItem.Status = "completed"
-	messageItem.Content = []schema.ORContentPart{makeOutputTextPartWithLogprobs(result, noToolLogprobs)}
-	sendSSEEvent(c, &schema.ORStreamEvent{
-		Type:           "response.output_item.done",
-		SequenceNumber: sequenceNumber,
-		OutputIndex:    &outputIndex,
-		Item:           messageItem,
-	})
-	sequenceNumber++
+	if messageItem != nil {
+		// Emit output_text.done
+		sendSSEEvent(c, &schema.ORStreamEvent{
+			Type:           "response.output_text.done",
+			SequenceNumber: sequenceNumber,
+			ItemID:         currentMessageID,
+			OutputIndex:    &outputIndex,
+			ContentIndex:   &currentContentIndex,
+			Text:           strPtr(result),
+			Logprobs:       logprobsPtr(mcpStreamLogprobs),
+		})
+		sequenceNumber++
+
+		// Emit content_part.done (with actual logprobs)
+		resultPart := makeOutputTextPartWithLogprobs(result, noToolLogprobs)
+		sendSSEEvent(c, &schema.ORStreamEvent{
+			Type:           "response.content_part.done",
+			SequenceNumber: sequenceNumber,
+			ItemID:         currentMessageID,
+			OutputIndex:    &outputIndex,
+			ContentIndex:   &currentContentIndex,
+			Part:           &resultPart,
+		})
+		sequenceNumber++
+
+		// Emit output_item.done (with actual logprobs)
+		messageItem.Status = "completed"
+		messageItem.Content = []schema.ORContentPart{makeOutputTextPartWithLogprobs(result, noToolLogprobs)}
+		sendSSEEvent(c, &schema.ORStreamEvent{
+			Type:           "response.output_item.done",
+			SequenceNumber: sequenceNumber,
+			OutputIndex:    &outputIndex,
+			Item:           messageItem,
+		})
+		sequenceNumber++
+	}
 
 	// Emit function_call items from automatic tool parsing fallback
 	for _, fc := range streamFallbackToolCalls {
@@ -2638,10 +2670,13 @@ func handleOpenResponsesStream(c echo.Context, responseID string, createdAt int6
 	// Emit response.completed
 	now := time.Now().Unix()
 
-	// Collect final output items (reasoning first, then messages, then tool calls)
+	// Collect final output items, ordered reasoning -> message -> tool calls.
+	// Issue #9658: reasoning is emitted as its own item ahead of the message,
+	// matching the streamed order (reasoning item is opened before the message
+	// item when the model thinks first).
 	var finalOutputItems []schema.ORItemField
-	// Add reasoning item if it exists
-	if currentReasoningID != "" && finalReasoning != "" {
+	// Add reasoning item if one was streamed.
+	if router.ReasoningStreamed() && finalReasoning != "" {
 		finalOutputItems = append(finalOutputItems, schema.ORItemField{
 			Type:    "reasoning",
 			ID:      currentReasoningID,
@@ -2649,18 +2684,12 @@ func handleOpenResponsesStream(c echo.Context, responseID string, createdAt int6
 			Content: []schema.ORContentPart{makeOutputTextPart(finalReasoning)},
 		})
 	}
-	// Add message item
-	if len(collectedOutputItems) > 0 {
-		// Use collected items (may include reasoning already)
-		for _, item := range collectedOutputItems {
-			if item.Type == "message" {
-				finalOutputItems = append(finalOutputItems, item)
-			}
-		}
-	} else {
+	// Add the message item if one was produced (created lazily, so it may be
+	// nil for a pure-reasoning turn).
+	if messageItem != nil {
 		finalOutputItems = append(finalOutputItems, *messageItem)
 	}
-	// Add function_call items from fallback
+	// Add function_call items from fallback parsing.
 	for _, item := range collectedOutputItems {
 		if item.Type == "function_call" {
 			finalOutputItems = append(finalOutputItems, item)
