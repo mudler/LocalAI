@@ -2564,3 +2564,87 @@ determinism tsvs), `det2_20260702_193123/` + `det3_20260702_193649/` +
 `det4_20260702_194040/` (determinism diff-matrix), `perf_20260702_194359/`
 (raw_*.json + auto-written RESULTS.md). Environment: `LLAMA_KV_PAGED=1
 LLAMA_MOE_FORCE_GRAPHS=1`, `LLAMA_MAX_BATCH_TOKENS` unset, sm_121a, GPU lock held.
+
+## P5 FLA-faithful GDN prefill scan (blocked solve_tril port) - NO-GO at the perf kill-gate; the GDN prefill bucket is a CONFIRMED SHARED-HARDWARE FLOOR (recorded 2026-07-02)
+
+Fifth phase of the `EXECUTION_REARCH_SCOPE.md` additive program, and its **strictest
+kill-gate**. The full six-kernel vLLM-FLA `chunk_gated_delta_rule_fwd` pipeline was
+**ported to CUDA tf32 mma, per-kernel validated vs a host fp64 reference, integrated
+behind `LLAMA_GDN_FLA_CHUNK=1` (default-off), and A/B'd in-backend** against the shipped
+M5 f32 chunked scan. It lost decisively and by the wrong sign, so `go=false` was the
+kill-gate default, nothing was built beyond P0, and nothing landed. See the "P5 RESULT"
+subsection in `EXECUTION_REARCH_SCOPE.md` for the full record; this closes the last
+speculative prefill lever in the program. Summary and provenance:
+
+- **Verdict: NO-GO / DO-NOT-SHIP at the perf gate (the scope-anticipated "expected
+  null").** The P5 section framed this as the strictest kill-gate given Phase74's
+  standalone blocked-inverse 0.59x. P5 delivered the one thing prior evidence lacked:
+  **the whole FLA pipeline in-backend with the register/smem-resident inter-chunk state
+  and the chunk loop in-kernel** - the form that "was never actually tested in-backend."
+  It was tested here and **settles the GDN prefill bucket (bucket 1, +59.2, the single
+  largest prefill lever) as a shared-hardware / memory-bandwidth floor on GB10.**
+- **PERF GO GATE FAILED DECISIVELY.** GO required the in-pipeline blocked `solve_tril`
+  to beat M5 by **> 10% at npp2048**. Measured (nsys `--cuda-graph-trace=node`, MoE
+  `q36-35b-a3b-nvfp4`, per distinct token over 30 GDN layers): **npp2048 M5 56.31 vs FLA
+  119.46 us/tok = FLA 2.12x SLOWER** (`gdn_delta_pct_2048 = -112.1`); **npp512 M5 51.23
+  vs FLA 117.35 = 2.29x slower.** End-to-end **S_PP regressed MoE -13.33% @npp2048 /
+  -13.12% @npp512** (3-rep medians; wrong sign, no 3-sigma question). The shipped M5
+  stays `gdn_core` at **56.31 us/tok = 64.82% of vLLM's FLA chunk-64 36.5 us/tok**; the
+  rejected FLA port was only **30.55% of vLLM** (36.5/119.46). Reproduces Phase74's
+  standalone 0.59x and extends bf16-C64 (-18.75%), now **confirmed in-backend.**
+- **WHERE THE TIME WENT (the novel, valuable decomposition - why this NO-GO matters).**
+  Per-kernel nsys share of the FLA bucket: **blocked `solve_tril` only ~2.8% (55.6 ms)** -
+  the algorithm the phase was about is *cheap*. Dominated by **`fwd_h` 46.2% (903 ms) +
+  `fwd_o` 31.5% (617 ms)**: the inter-chunk state-recurrence GEMMs + the **per-chunk
+  h-state materialization to global LPDDR5x** that FLA's split-kernel structure forces
+  (`fwd_h` writes `h_pre` per chunk, `fwd_o` re-reads it). The fused M5 single kernel
+  keeps the 128x128 state **resident in smem, never materializes per-chunk h**, so it is
+  **2.1x faster on GB10's low-bandwidth memory.** Novel finding vs all prior evidence:
+  **the blocked solve is not the floor - the floor is the state-GEMM + h-materialization
+  region, which the FLA structure makes WORSE than M5.** The binding silicon property is
+  **LPDDR5x memory bandwidth** (per-chunk h round-trip), compounded by the **99 KB smem
+  cap** that forces the `fwd_h`/`fwd_o` split - not mma shapes or wave count.
+- **Correctness / cap gates (recorded, not decisive):**
+  - **SMEM GATE PASSES** (all six kernels under the 99 KB opt-in cap at C=64;
+    `cudaOccupancyMaxActiveBlocksPerMultiprocessor`): `k_kkt` 48 KB / 2 blk, `k_solve`
+    38 KB / 2 blk, `k_wu` 48 KB / 2 blk, `k_fwdh` 80 KB / 1 blk, `k_fwdo` 96 KB / 1 blk -
+    **max 96 KB < 99 KB.** The kernels fit; they are bandwidth-floored above M5.
+  - **KL BAND GREEN / in-band:** FLA `KLD 0.137028` vs control `0.136563` = **delta
+    +0.000465 < 0.01**; same-top-p **84.61% vs 83.73%** control (>= 84% baseline).
+    Per-kernel bring-up vs host fp64: **o NMSE 2.2e-7, final-state 1.2e-7** (before
+    integration, per the "do not debug six kernels blind" rule).
+  - **DEFAULT PATH UNTOUCHED:** canonical md5 GREEN both models, **default-off AND
+    `LLAMA_GDN_FLA_CHUNK`-on** (paged-MoE `8cb0ce23`, dense `5951a5b4`; small-M greedy
+    bails to M5). `test-backend-ops GATED_DELTA_NET` **DEFAULT 46/46 OK.** Decode
+    untouched (`GDN_CHUNK_MIN` untouched; decode stays on the sequential recurrence).
+  - **`test-backend-ops` env-on = 43-44/46** (`gdn_op_tests_env_on_green=false`): the
+    FLA-engaged `head_size=128, n_seq_tokens>=64` cases marginally exceed `1e-7`
+    (**ERR 1.03-1.06e-7**, fluctuating across the boundary) because the port uses plain
+    **tf32** where M5 uses **3xtf32 (CUTLASS fp32-emulation)** for the decay-coupled
+    compounding state products; M5-chunked passes the SAME cases at `< 1e-7`. Judgment:
+    marginal tf32-vs-3xtf32 gap, benign at model level (KL green); 3xtf32 would add mma
+    count and deepen the perf NO-GO, so not pursued.
+  - **Engagement PROVEN:** `LLAMA_GDN_FLA_TRACE` fired `[gdn-fla] engage H=32 ...` in
+    `batched-bench`; nsys shows all six `gdn_fla::` kernels under
+    `LLAMA_GDN_FLA_CHUNK=1` and none under default.
+- **Honest delta vs the +59.2 expectation.** Scope expected `~0-10 of the +59.2, "likely
+  a shared-hardware floor."` Delivered: **0 recovery, a -63 us/tok regression on the FLA
+  arm; the floor is confirmed.** M5's fused smem-resident chunked scan (56.31 us/tok) is
+  the winner and is at/near the GB10 memory-bandwidth floor for this op. What binds is
+  silicon (LPDDR5x bandwidth on the per-chunk h round-trip + the 99 KB smem cap forcing
+  the split), not the algorithm; it lifts only on datacenter Blackwell (HBM + larger
+  smem + TMEM), consistent with the scope's section-4 framing.
+
+Protocols honored: GPU lock held throughout and released; `LLAMA_MAX_BATCH_TOKENS`
+unset; sm_121a; nsys `--cuda-graph-trace=node`; 3+ iter S_PP medians; no external
+contention. WIP on the DGX fork topic branch `p5-fla-gdn` at
+`2d64c37f08ad323038a44a89ab32189527c6ba29` (base `localai-paged` `653bb2f3d`, **NOT
+pushed, NOT landed**): new `ggml/src/ggml-cuda/gdn-blocked-solve.cu` + narrow dispatch in
+`gated_delta_net.cu` / `gated_delta_net.cuh`. Fork `localai-paged` HEAD **untouched at
+`653bb2f3d`**; the LocalAI series **stays at 46 patches (`0001-0055`)**; topic branches
+`p1-bf16-stream` / `p2-moe-region` / `p4-cbv2` left intact. Artifacts on the DGX
+`~/bench/p5_fla_gdn/`: `killgate_20260702_204225/` (RESULTS.md, spp_control.txt,
+spp_fla.txt, `nsys_{ctrl,fla}{2048,512}.{nsys-rep,kern.csv}`, GATES.txt,
+`kl_moe_{ctrl,fla}.log`, occupancy.txt, gdn-blocked-solve.cu, p5_fla_test.cu) and
+`standalone_20260702_203434/` (RESULTS.txt + p5_fla_test.cu, p5_m5_time.cu,
+m5_kernel_body.cuh).
