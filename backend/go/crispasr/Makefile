@@ -8,7 +8,7 @@ JOBS?=$(shell nproc --ignore=1)
 
 # CrispASR version (release tag)
 CRISPASR_REPO?=https://github.com/CrispStrobe/CrispASR
-CRISPASR_VERSION?=fcbc8718e654995e3bd2d0c98bcb8e55e297d23c
+CRISPASR_VERSION?=9a26976a8c8cf5af0afcdd04463cf8ba91e96a54
 SO_TARGET?=libgocrispasr.so
 
 CMAKE_ARGS+=-DBUILD_SHARED_LIBS=OFF
