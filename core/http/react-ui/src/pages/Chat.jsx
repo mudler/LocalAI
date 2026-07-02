@@ -294,7 +294,7 @@ export default function Chat() {
   const {
     chats, activeChat, activeChatId, isStreaming, streamingChatId, streamingContent,
     streamingReasoning, streamingToolCalls, tokensPerSecond, maxTokensPerSecond,
-    addChat, switchChat, deleteChat, deleteAllChats, renameChat, updateChatSettings,
+    addChat, forkChat, switchChat, deleteChat, deleteAllChats, renameChat, updateChatSettings,
     sendMessage, stopGeneration, clearHistory, getContextUsagePercent, addMessage,
   } = useChat(urlModel || '')
 
@@ -893,6 +893,7 @@ export default function Chat() {
             onDeleteAll={promptDeleteAll}
             onRename={renameChat}
             onExport={(chat) => exportChatAsMarkdown(chat)}
+            onDuplicate={(chat) => { forkChat(chat.id); addToast(t('toasts.forked'), 'success', 2000) }}
           />
           {activeChat.localaiAssistant && (
             <span

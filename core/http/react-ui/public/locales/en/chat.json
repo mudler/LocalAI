@@ -100,7 +100,8 @@
   "toasts": {
     "selectModel": "Please select a model",
     "copied": "Copied to clipboard",
-    "copyFailed": "Could not copy to clipboard"
+    "copyFailed": "Could not copy to clipboard",
+    "forked": "Created a new chat"
   },
   "menu": {
     "trigger": "Chats",
@@ -110,6 +111,7 @@
     "noMatch": "No conversations match your search",
     "noConversations": "No conversations yet",
     "rename": "Rename",
+    "duplicate": "Duplicate chat",
     "exportMarkdown": "Export as Markdown",
     "deleteChat": "Delete chat",
     "newChat": "New chat",

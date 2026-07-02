@@ -141,6 +141,24 @@ export function useChat(initialModel = '') {
     return chat
   }, [])
 
+  const forkChat = useCallback((chatId, uptoIndex) => {
+    const src = chats.find(c => c.id === chatId)
+    if (!src) return null
+    const end = typeof uptoIndex === 'number' ? uptoIndex : src.history.length
+    const forked = {
+      ...src,
+      id: generateId(),
+      name: `${src.name} (fork)`,
+      history: structuredClone(src.history.slice(0, end)),
+      tokenUsage: { prompt: 0, completion: 0, total: 0 },
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+    }
+    setChats(prev => [forked, ...prev])
+    setActiveChatId(forked.id)
+    return forked
+  }, [chats])
+
   const switchChat = useCallback((chatId) => {
     setActiveChatId(chatId)
     setStreamingContent('')
@@ -793,6 +811,7 @@ export function useChat(initialModel = '') {
     tokensPerSecond,
     maxTokensPerSecond,
     addChat,
+    forkChat,
     switchChat,
     deleteChat,
     deleteAllChats,

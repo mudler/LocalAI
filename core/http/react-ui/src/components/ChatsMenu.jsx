@@ -24,6 +24,7 @@ const ChatsMenu = forwardRef(function ChatsMenu({
   onDeleteAll,
   onRename,
   onExport,
+  onDuplicate,
 }, ref) {
   const { t } = useTranslation('chat')
   const [open, setOpen] = useState(false)
@@ -230,6 +231,15 @@ const ChatsMenu = forwardRef(function ChatsMenu({
                   >
                     <i className="fas fa-pen" />
                   </button>
+                  {onDuplicate && (
+                    <button
+                      type="button"
+                      onClick={(e) => { e.stopPropagation(); onDuplicate(chat); setOpen(false) }}
+                      title={t('menu.duplicate')}
+                    >
+                      <i className="fas fa-clone" />
+                    </button>
+                  )}
                   {(chat.history?.length || 0) > 0 && onExport && (
                     <button
                       type="button"
