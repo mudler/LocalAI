@@ -54,7 +54,7 @@ for test_src in "${tests[@]}"; do
     name="$(basename "$test_src" .cpp)"
     bin="$(mktemp -d)/$name"
     echo "==> $test_src"
-    if ! "$CXX" -std=c++17 -Wall -Wextra \
+    if ! "$CXX" -std=c++17 -Wall -Wextra -pthread \
         -I"$JSON_INC" -I"$(dirname "$test_src")" \
         "$test_src" -o "$bin"; then
         echo "COMPILE FAILED: $test_src" >&2
