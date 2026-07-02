@@ -25,6 +25,8 @@ var _ = Describe("LocalBackendManager force semantics", func() {
 		backendsDir string
 		srcDir      string
 		mgr         *galleryop.LocalBackendManager
+		systemState *system.SystemState
+		ml          *model.ModelLoader
 	)
 
 	const installedRunSh = "#!/bin/sh\necho installed\n"
@@ -56,13 +58,14 @@ var _ = Describe("LocalBackendManager force semantics", func() {
 		Expect(os.MkdirAll(filepath.Join(backendsDir, "test-backend"), 0o755)).To(Succeed())
 		Expect(os.WriteFile(installedRunShPath(), []byte(installedRunSh), 0o755)).To(Succeed())
 
-		systemState, err := system.GetSystemState(system.WithBackendPath(backendsDir))
+		systemState, err = system.GetSystemState(system.WithBackendPath(backendsDir))
 		Expect(err).NotTo(HaveOccurred())
 		appConfig := &config.ApplicationConfig{
 			SystemState:      systemState,
 			BackendGalleries: []config.Gallery{{Name: "test", URL: "file://" + galleryYAML}},
 		}
-		mgr = galleryop.NewLocalBackendManager(appConfig, model.NewModelLoader(systemState))
+		ml = model.NewModelLoader(systemState)
+		mgr = galleryop.NewLocalBackendManager(appConfig, ml)
 	})
 
 	AfterEach(func() {
@@ -93,5 +96,19 @@ var _ = Describe("LocalBackendManager force semantics", func() {
 		content, err := os.ReadFile(installedRunShPath())
 		Expect(err).NotTo(HaveOccurred())
 		Expect(string(content)).To(Equal(galleryRunSh), "install with Force must overwrite the installed backend")
+	})
+
+	// The LOCALAI_EXTERNAL_BACKENDS boot loop goes through
+	// InstallExternalBackend's gallery-name path on EVERY startup; it must not
+	// force, or each boot re-downloads every listed backend.
+	It("skips an already-installed backend on the non-forced external gallery-name path", func() {
+		err := galleryop.InstallExternalBackend(context.Background(),
+			[]config.Gallery{{Name: "test", URL: "file://" + filepath.Join(backendsDir, "gallery.yaml")}},
+			systemState, ml, nil, "test-backend", "", "", false, false)
+		Expect(err).NotTo(HaveOccurred())
+
+		content, err := os.ReadFile(installedRunShPath())
+		Expect(err).NotTo(HaveOccurred())
+		Expect(string(content)).To(Equal(installedRunSh), "non-forced external install must not overwrite an installed backend")
 	})
 })

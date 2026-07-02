@@ -127,7 +127,7 @@ func (bi *BackendsInstall) Run(ctx *cliContext.Context) error {
 	}
 
 	modelLoader := model.NewModelLoader(systemState)
-	err = galleryop.InstallExternalBackend(context.Background(), galleries, systemState, modelLoader, progressCallback, bi.BackendArgs, bi.Name, bi.Alias, bi.RequireBackendIntegrity)
+	err = galleryop.InstallExternalBackend(context.Background(), galleries, systemState, modelLoader, progressCallback, bi.BackendArgs, bi.Name, bi.Alias, false, bi.RequireBackendIntegrity)
 	if err != nil {
 		return err
 	}
