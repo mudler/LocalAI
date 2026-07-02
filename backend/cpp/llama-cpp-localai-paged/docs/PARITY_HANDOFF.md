@@ -2491,12 +2491,21 @@ provenance:
   **not** a throughput lever (decode is GPU-compute-bound; the host-loop-dead
   measurement is real), so a NO-GO on the TTFT perf gate is the expected outcome and
   any throughput payoff is non-GB10 (out of scope).
-- **Why the perf gate did not fire GO (honest caveat, not measured neutrality).**
-  The staggered/burst TTFT A/B was **force-terminated by the harness mid-run** with
-  only the CONTROL arm complete (30/60 raws; CANDIDATE never started), so the four
-  `ttft_*_delta_pct` and `agg_delta_pct_worst` fields are **NOT-YET-MEASURED `0.0`
-  placeholders**, not measured neutrality. No affirmative `> 20%` staggered-TTFT drop
-  was demonstrated; the kill-gate default (`go=false`) stands.
+- **FINAL MEASURED VERDICT (A/B completed autonomously after the forced report;
+  60/60 raws, 5 reps/arm/shape; `dgx:~/bench/p4_cbv2/perf_20260702_194359/RESULTS.md`):
+  NO-GO CONFIRMED, and stronger than flat: CBv2-at-this-granularity REGRESSES.**
+  TTFT-GO shapes: NONE. staggered N=32 TTFT p50 **+33.6% WORSE** (4559 -> 6091 ms,
+  clears noise), mean +31.4% worse; staggered N=128 TTFT p50 +15.5% / mean +17.9%
+  worse AND **aggregate/decode-agg -6.9% regressed beyond noise**; burst N=128 TTFT
+  +10-13% worse, agg -3.9%; N=8 shapes neutral; the one positive was burst N=32
+  decode-agg +36.3% on a very noisy shape. ANALYSIS (do not re-litigate): fair-share
+  chunked prefill is processor-sharing and delays every near-uniform prompt's prefill
+  completion versus run-to-completion admission, so TTFT rises by construction; the
+  "TTFT scaling is scheduler-shaped" premise is PARTIALLY REFUTED for GB10 - patch
+  0016's decode-first budget already captures the schedulable win, and vLLM's TTFT
+  advantage here is dominated by its 2.6-2.8x prefill compute. TTFT parity routes
+  through P3/P5 (prefill compute), not the scheduler. Fair-share may still pay on
+  mixed long/short-prompt workloads and non-GB10 (host-bound) silicon; out of scope.
 - **Correctness gates all GREEN (DGX GB10, sm_121a), the substantive P0 result.**
   Behind `LLAMA_CONTINUOUS_BATCH_V2=1` (default OFF, byte-identical off):
   - **(a) canonical md5 GREEN both models, default-off AND cbv2-on:** paged-MoE

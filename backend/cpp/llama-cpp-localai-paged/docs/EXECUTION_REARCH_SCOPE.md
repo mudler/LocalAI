@@ -572,13 +572,33 @@ enabler lever, **not** a throughput lever (decode is GPU-compute-bound; the
 host-loop-dead measurement is real), so a NO-GO on the TTFT perf gate is the
 expected result and any throughput payoff lives on non-GB10 silicon (out of scope).
 
-- **WHY THE PERF GATE DID NOT FIRE GO (honest caveat, not a measured neutrality).**
-  The staggered/burst TTFT A/B was **force-terminated by the harness mid-run** with
-  only the CONTROL arm complete (30/60 raws; CANDIDATE arm never started).
-  Consequently `ttft_n32_stag`, `ttft_n128_stag`, `ttft_n8`, `ttft_burst`, and
-  `agg_delta_pct_worst` are **NOT-YET-MEASURED `0.0` placeholders**, not measured
-  neutrality. No affirmative `> 20%` staggered-TTFT drop was demonstrated, so the
-  kill-gate default (`go=false`) stands.
+- **FINAL MEASURED VERDICT (the A/B completed autonomously after the forced report;
+  full 60/60 raws, 5 reps per arm per shape;
+  `dgx:~/bench/p4_cbv2/perf_20260702_194359/RESULTS.md`): NO-GO CONFIRMED BY
+  MEASUREMENT, and stronger than flat: CBv2-at-this-granularity REGRESSES.**
+  TTFT-GO shapes: NONE. Measured deltas (candidate vs control medians; "clears" =
+  beyond max(2%, 3 sigma)):
+  - staggered N=32: TTFT p50 **+33.6% WORSE** (4559.3 -> 6091.3 ms, clears), mean
+    +31.4% worse (clears), p95 +14.3% worse (clears); agg/decode -3.3/-3.4%
+    (inside a very noisy ~21% gate).
+  - staggered N=128: TTFT p50 +15.5% / mean +17.9% / p95 +12.1% worse (all clear);
+    **aggregate -6.9% and decode-agg -6.9% REGRESSED beyond noise** (0.4% sd).
+  - burst N=128: TTFT p50 +13.5% / mean +10.5% worse (clear); agg -3.9% (clears).
+  - staggered N=8 and burst N=8: neutral. burst N=32: decode-agg +36.3% (barely
+    clears a 35.2% noise gate; high-variance shape; the one positive signal:
+    fair-share keeps decodes flowing through a prefill wave).
+- **WHY (analysis, recorded so it is not re-litigated):** fair-share chunked
+  prefill is processor-sharing; for a near-uniform prompt population it delays
+  every prompt's prefill completion versus run-to-completion admission
+  (round-robin maximizes mean completion time for identical jobs), so TTFT rises
+  by construction, and at N=128 the extra interleave overhead also costs
+  throughput. The premise that the TTFT scaling curve was "scheduler-shaped" is
+  hereby PARTIALLY REFUTED for GB10: the shipped decode-first budget (patch 0016)
+  already captures the schedulable win, and vLLM's TTFT advantage on this hardware
+  is dominated by its 2.6-2.8x prefill compute (buckets 1-2), not batch formation.
+  TTFT parity therefore routes through P3/P5 (prefill compute), not the scheduler.
+  Chunked-prefill fair-share may still pay on mixed long/short-prompt workloads
+  and on non-GB10 (host-bound) silicon; both are out of scope here.
 - **CORRECTNESS GATES ALL GREEN (DGX GB10, arch sm_121a), the substantive P0
   result.** Behind `LLAMA_CONTINUOUS_BATCH_V2=1` (default OFF, byte-identical off):
   - **(a) canonical md5 GREEN both models, default-off AND cbv2-on:** paged-MoE
