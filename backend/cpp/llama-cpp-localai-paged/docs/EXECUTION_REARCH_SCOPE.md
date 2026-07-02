@@ -367,6 +367,102 @@ patches apply and stage tree `6cf1523047` byte-for-byte == fork HEAD tree.
   loop; keep every pool alloc shape-stable across replays (keyed on n_tokens/n_experts,
   never on data-dependent routing counts) or it forces re-capture.
 
+#### P2 RESULT (NO-GO, recorded 2026-07-02, `LLAMA_MOE_REGION_EXECUTOR`, default-off)
+
+The layout-only expert-major region executor was implemented, correctness-proven
+on the synthetic sentinel, and A/B'd against the grouped-MMQ control at the P0
+kill-gate. **Verdict: NO-GO on two independent signals; nothing built beyond P0,
+nothing landed.** The topic branch `p2-moe-region` is retained on the DGX fork for
+forensics at `2d87564ddfa26f6c275dad0e1f0e3d8d5413e337` (base `localai-paged`
+`653bb2f3d`, NOT pushed); the fork `localai-paged` HEAD is **untouched at
+`653bb2f3d`** and the LocalAI series stays at 46 patches (`0001-0055`). This
+records P2-at-this-granularity as a confirmed floor.
+
+- **(1) Primary GO metric FLAT (the kill-gate's stated criterion).** The kill-gate
+  required the n=257 (batched large-M) `MOE_SWIGLU_DOWN` rows to improve **> 5%**
+  over the grouped-MMQ control. Measured (region arm vs grouped-MMQ control, 5x
+  medians): control **1021.61 us**, region **1022.15 us** => **-0.05%**
+  (marginally slower). n=128: 804.87 vs 807.63 = -0.34%. `MUL_MAT_ID_RAGGED_MOE`
+  (lone MUL_MAT_ID, region never engages there): n=257 +0.48%, n=128 +0.28% (pure
+  noise, confirms no perturbation of the standalone grouped MMQ). All four deltas
+  sit inside the 5-sample spread => sentinel flat. **This reproduces the six prior
+  one-boundary MoE transplants (phases 113/114/122/123/125/127) - the null
+  hypothesis the scope said P2 had to beat.** A compact expert-major layout + a
+  single route-sort, with both GEMMs still ragged grouped-MMQ, does not move the
+  sentinel; the ragged-tile tiling (the actual +56.5 bucket-2 tax) is *unchanged*
+  by a layout swap. Closing bucket 2 needs P3's Marlin persistent-CTA aggregation,
+  not a P2 layout change.
+  - *Methodology caveat on the sentinel (reported as-is, it is the requested
+    metric):* `test-backend-ops` `eval_perf` duplicates only the down/out node
+    ~n_runs (~1000) times per timed iteration, so the single region invocation is
+    ~1/n_runs of the signal => the perf sentinel is structurally under-sensitive to
+    the region change. The flat verdict is corroborated by signal (2). (The n=257
+    `MOE_SWIGLU_DOWN` case was added to both `make_test_cases_eval` and
+    `make_test_cases_perf`; the eval list already had n=128.)
+- **(2) DECISIVE STRUCTURAL BLOCKER: the seam does not match q36's decision
+  graph.** `q36-35b-a3b-nvfp4.gguf` ships **separate** `ffn_gate_exps` +
+  `ffn_up_exps` (+ per-tensor `.scale`/`.input_scale`), **NOT** a merged
+  `ffn_gate_up_exps` (verified by GGUF tensor-name scan). `llama-graph.cpp`
+  `build_moe_ffn` therefore takes the separate-gate/up branch =>
+  `ffn_moe_gate_scaled` + `ffn_moe_up_scaled` + `ggml_swiglu_split`. The
+  whole-pattern matcher `ggml_cuda_moe_whole_pattern_detect_early` requires the
+  merged `gate_up(MUL_MAT_ID) -> VIEW -> VIEW -> SWIGLU -> down` shape, which is
+  **absent** on q36. Result: `LLAMA_MOE_WHOLE_PATTERN_EARLY_TRACE` fires **0x** on
+  q36 (prefill AND decode); the region executor engages 0x; the pre-existing
+  POC/fused-quant (`LLAMA_MOE_ROUTED_FFN_POC=1 +FUSED_QUANT=1`) also engages 0x.
+  The region only engages on the synthetic merged-shape test sentinel (7
+  engagements/pass, `MOE_SWIGLU_DOWN` 8/8 nmse-correct). **Even a positive sentinel
+  could not have translated to q36 without first extending the matcher + POC to the
+  separate/scaled/swiglu-split shape.**
+- **KL gate: in-band but VACUOUS.** control KLD 0.136563 / same-top-p 83.725%;
+  region KLD 0.136563 / same-top-p 83.725% => delta **0.000000**, byte-identical.
+  In-band (delta < 0.01, top-p >= 84 baseline) but only because the region engages
+  0x on q36 - it is not a KL-neutrality claim for the executor (that is the separate
+  8/8 NVFP4 nmse sentinel).
+- **S_PP @512 (npp512 ntg4 npl32, 5x):** control 2320.62 t/s (stdev 0.23%), region
+  2316.70 t/s (stdev 0.24%) => -0.17% (flat; region == control at 0 engagement;
+  code-present, no regression). **Capture stability:** region S_PP stdev 0.24%
+  across 5 iters = no CUDA-graph re-capture thrash (pool allocs keyed on
+  n_tokens/n_experts held shape-stable).
+- **All correctness gates GREEN, both arms** (default AND
+  `LLAMA_MOE_REGION_EXECUTOR=1`): `test-backend-ops` MUL_MAT 1146/1146, MUL_MAT_ID
+  806/806, GATED_DELTA_NET 46/46, MOE_SWIGLU_DOWN 8/8, MUL_MAT_ID_RAGGED_MOE 6/6,
+  BF16_STREAM_SEGMENT 4/4. Default md5 canonical both models (MoE `8cb0ce23`, dense
+  `5951a5b4`); env-on also canonical (greedy prompt is small-M => region bails).
+  Region correctness where it *does* engage is proven by the 8/8 NVFP4 nmse match
+  incl. n=257 (ne_get_rows=2056).
+- **Implementation (correct, committed on `p2-moe-region`, NOT pushed, ~407 LOC / 6
+  files).** `moe-ffn.cu` `ggml_cuda_moe_region_executor`: one route-sort (ids_meta,
+  cur framing); gate_up grouped NVFP4 MMQ writes a **compact expert-major buffer**
+  via iota `ids_dst` (the token-order `[2*n_ff, n_used, n_tokens]` intermediate
+  never materialised); new `moe_swiglu_nvfp4_quant_compact_kernel` reads the compact
+  buffer by route-slot (no ids_src1 gather); down MMQ unpermutes to token order.
+  Strict all-consumers guard `ggml_cuda_moe_region_consumers_ok` bails if any node
+  outside the 5-node region reads gate_up/views/glu (covers shared-expert aliasing).
+  `LLAMA_MOE_REGION_TRACE`.
+- **Honest delta vs expectation.** The scope's P2 line targeted ~40 of the +56.5
+  bucket-2 prefill tax + the ~11 ms decode MoE residual. **Delivered: 0** (region
+  flat on its sentinel and 0-engagement on the decision model). The compact
+  expert-major layout is the wrong lever at this granularity: it swaps *where* the
+  intermediate lives without changing the ragged-tile GEMM tiling that owns the
+  cost.
+- **Prerequisite handoff (gates P2 AND P3).** Before ANY MoE-region lever can
+  engage on q36, the seam - the whole-pattern matcher, the POC/fused-quant, AND the
+  region executor - must first be **rebuilt for q36's separate
+  `ffn_gate_exps`/`ffn_up_exps` + per-tensor `.scale` + `ggml_swiglu_split` FFN
+  shape**. The current seam only matches a merged shape q36 does not emit. The
+  correct next action is a re-scope of the seam to the separate/scaled shape as the
+  gating prerequisite, then re-evaluate whether a *fused two-GEMM* region (not a
+  layout swap) beats the sentinel - the scope's own null hypothesis holds that the
+  win exists only as the complete fused kernel that never materialises the
+  intermediates.
+- **Artifacts (DGX `~/bench/p2_moe_region/`):** `focused_20260702_172644/` (perf
+  sentinels 5x, correctness OFF+ON, md5, S_PP@512 5x, KL) + `RESULTS.txt`;
+  `killgate_20260702_171826/` (engagement proof: `engage_moe.log`=0,
+  `engage_dense.log`=0); `build_20260702_145928/` (build logs). Environment:
+  `LLAMA_MAX_BATCH_TOKENS` unset, sm_121a, `nsys --cuda-graph-trace=node`, GPU lock
+  held.
+
 ### P3: Marlin-class large-M GEMM retry, ON TOP of P1+P2 (the forensics-informed retry)
 
 - **Goal:** land the W4A16 Marlin-shape GEMM (FP4->bf16 in-register dequant + bf16
