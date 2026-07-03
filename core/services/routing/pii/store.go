@@ -58,6 +58,7 @@ type memoryEventStore struct {
 }
 
 func (s *memoryEventStore) Record(_ context.Context, e PIIEvent) error {
+	recordEventMetric(e)
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.ring[s.cursor] = e
