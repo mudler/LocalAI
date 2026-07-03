@@ -67,16 +67,6 @@ func guessGGUFFromFile(cfg *ModelConfig, f *gguf.GGUFFile, defaultCtx int) {
 		ApplyMTPDefaults(cfg, n)
 	}
 
-	// Sliding-window-attention models (Gemma 2/3, Cohere2, Llama 4, ...) ship
-	// with a reduced SWA KV cache by default, which cannot reuse a prompt
-	// prefix across requests and so defeats the cross-request prefix cache
-	// (cache_reuse) we enable in serving_defaults.go. Enable the full SWA cache
-	// for these models so the prefix survives; skipped for dense models and
-	// when the user already pinned an SWA cache option.
-	if w, ok := HasSlidingWindowAttention(f); ok {
-		ApplySWAFullDefault(cfg, w)
-	}
-
 	// Thinking support detection is done after model load via DetectThinkingSupportFromBackend
 
 	// template estimations
