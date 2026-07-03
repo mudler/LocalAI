@@ -21,6 +21,7 @@ type namedEmbedding struct {
 // drive the realtime pipeline.
 type voiceGate struct {
 	cfg       config.PipelineVoiceRecognition // normalized
+	recCfg    *config.ModelConfig             // resolved speaker-recognition model, for warm-up
 	registry  voicerecognition.Registry       // identify mode (nil otherwise)
 	refEmbeds []namedEmbedding                // verify mode, pre-embedded refs
 	refAudios []config.VoiceReference         // verify + anti-spoofing: ref paths
@@ -72,7 +73,9 @@ func newVoiceGate(
 		return nil, err
 	}
 
-	recCfg, err := cl.LoadModelConfigFileByName(cfg.Model, ml.ModelPath)
+	// Resolved like every other pipeline sub-model (one alias hop), so an
+	// aliased voice_recognition model gets its target's backend.
+	recCfg, err := cl.LoadResolvedModelConfig(cfg.Model, ml.ModelPath)
 	if err != nil {
 		return nil, fmt.Errorf("voice_recognition: failed to load model %q: %w", cfg.Model, err)
 	}
@@ -82,6 +85,7 @@ func newVoiceGate(
 
 	g := &voiceGate{
 		cfg:      cfg,
+		recCfg:   recCfg,
 		registry: registry,
 		embedFn: func(ctx context.Context, wavPath string) ([]float32, error) {
 			res, err := backend.VoiceEmbed(ctx, wavPath, ml, appConfig, *recCfg)

@@ -106,6 +106,7 @@ export const API_CONFIG = {
     video: '/video',
     backendMonitor: '/backend/monitor',
     backendShutdown: '/backend/shutdown',
+    backendLoad: '/backend/load',
     modelsApply: '/models/apply',
     modelsDelete: (name) => `/models/delete/${name}`,
     modelsAvailable: '/models/available',

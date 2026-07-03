@@ -3,6 +3,8 @@ package trace
 import (
 	"encoding/json"
 	"fmt"
+	"maps"
+	"math"
 	"slices"
 	"sync"
 	"time"
@@ -116,8 +118,13 @@ func RecordBackendTrace(t BackendTrace) {
 	backendMu.Lock()
 	maxBody := backendMaxBodyBytes
 	backendMu.Unlock()
-	if t.Data != nil && maxBody > 0 {
-		t.Data = capDataStrings(t.Data, maxBody)
+	// Always walk Data, even with no body cap configured: besides capping
+	// oversized strings (maxBody > 0), the walk replaces non-finite floats
+	// (Inf/NaN) that encoding/json cannot marshal. A single such value — e.g. a
+	// -Inf dBFS audio metric from a silent clip — would otherwise fail the whole
+	// /api/backend-traces response and blank the Traces UI.
+	if t.Data != nil {
+		t.Data = sanitizeData(t.Data, maxBody)
 	}
 	select {
 	case backendLogChan <- &t:
@@ -126,32 +133,90 @@ func RecordBackendTrace(t BackendTrace) {
 	}
 }
 
-// capDataStrings walks a trace Data map and replaces any string value (at any
-// depth) that exceeds maxBytes with a fixed-size marker that names the
-// original byte count. The replacement is intentionally short and not valid
-// base64/JSON: the goal is to flag "this was dropped" cheaply, not to keep a
-// partial value that the UI might try to render. Non-string scalars and
-// non-map containers pass through untouched so structural fields like
-// total_deltas or audio_sample_rate remain useful.
-func capDataStrings(data map[string]any, maxBytes int) map[string]any {
-	out := make(map[string]any, len(data))
-	for k, v := range data {
-		out[k] = capValue(v, maxBytes)
-	}
+// sanitizeData walks a trace Data map (recursing into nested maps and slices)
+// and makes every value safe for the /api/backend-traces JSON response:
+//
+//   - When maxBytes > 0, any string longer than maxBytes is replaced with a
+//     fixed-size marker that names the original byte count. The replacement is
+//     intentionally short and not valid base64/JSON: it flags "this was dropped"
+//     cheaply rather than keeping a partial value the UI might try to render.
+//   - Non-finite floats (Inf/NaN) are replaced with nil regardless of maxBytes,
+//     because encoding/json refuses to marshal them and one bad value would fail
+//     the entire response.
+//
+// Other scalars (ints, bools, finite floats) pass through untouched so
+// structural fields like total_deltas or audio_sample_rate remain useful.
+//
+// The walk is copy-on-write: it runs on every RecordBackendTrace call, and in
+// the common case nothing needs rewriting, so containers are only re-allocated
+// on the paths that actually changed and untouched values keep their original
+// interface boxes instead of paying a per-value re-boxing allocation.
+func sanitizeData(data map[string]any, maxBytes int) map[string]any {
+	out, _ := sanitizeMap(data, maxBytes)
 	return out
 }
 
-func capValue(v any, maxBytes int) any {
+func sanitizeMap(m map[string]any, maxBytes int) (map[string]any, bool) {
+	var out map[string]any
+	for k, v := range m {
+		nv, changed := sanitizeValue(v, maxBytes)
+		if changed && out == nil {
+			// First change: fork the map. Entries already visited were
+			// unchanged, so a full copy then overwriting as we go is exact.
+			out = make(map[string]any, len(m))
+			maps.Copy(out, m)
+		}
+		if out != nil {
+			out[k] = nv
+		}
+	}
+	if out == nil {
+		return m, false
+	}
+	return out, true
+}
+
+func sanitizeSlice(s []any, maxBytes int) ([]any, bool) {
+	var out []any
+	for i, v := range s {
+		nv, changed := sanitizeValue(v, maxBytes)
+		if changed && out == nil {
+			out = make([]any, len(s))
+			copy(out, s)
+		}
+		if out != nil {
+			out[i] = nv
+		}
+	}
+	if out == nil {
+		return s, false
+	}
+	return out, true
+}
+
+func sanitizeValue(v any, maxBytes int) (any, bool) {
 	switch val := v.(type) {
 	case string:
-		if len(val) > maxBytes {
-			return fmt.Sprintf("<truncated: %d bytes>", len(val))
+		if maxBytes > 0 && len(val) > maxBytes {
+			return fmt.Sprintf("<truncated: %d bytes>", len(val)), true
 		}
-		return val
+		return v, false
+	case float64:
+		if math.IsInf(val, 0) || math.IsNaN(val) {
+			return nil, true
+		}
+		return v, false
+	case float32:
+		if f := float64(val); math.IsInf(f, 0) || math.IsNaN(f) {
+			return nil, true
+		}
+		return v, false
 	case map[string]any:
-		return capDataStrings(val, maxBytes)
+		return sanitizeMap(val, maxBytes)
+	case []any:
+		return sanitizeSlice(val, maxBytes)
 	default:
-		return v
+		return v, false
 	}
 }
 

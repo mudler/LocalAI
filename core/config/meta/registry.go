@@ -599,6 +599,13 @@ func DefaultRegistry() map[string]FieldMetaOverride {
 			Component:   "toggle",
 			Order:       89,
 		},
+		"pipeline.disable_warmup": {
+			Section:     "pipeline",
+			Label:       "Disable Warmup",
+			Description: "Turn off eager pre-loading of the pipeline's sub-models at realtime session start. By default LocalAI loads every configured sub-model backend (VAD, transcription, LLM, TTS, sound detection, voice recognition) before the session starts and blocks until they are ready, so the first turn pays no cold-start cost and a model that fails to load is reported at session start instead of mid-call. Enable this to restore the lazy 'load on first use' behavior — session start no longer waits on loading and load errors surface on the first turn instead. Useful to keep idle sessions from holding model memory they may never use.",
+			Component:   "toggle",
+			Order:       90,
+		},
 
 		// --- Functions ---
 		"function.grammar.parallel_calls": {

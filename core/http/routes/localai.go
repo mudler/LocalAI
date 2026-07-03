@@ -207,9 +207,14 @@ func RegisterLocalAIRoutes(router *echo.Echo,
 	backendMonitorService := monitoring.NewBackendMonitorService(ml, cl, appConfig) // Split out for now
 	router.GET("/backend/monitor", localai.BackendMonitorEndpoint(backendMonitorService), adminMiddleware)
 	router.POST("/backend/shutdown", localai.BackendShutdownEndpoint(backendMonitorService), adminMiddleware)
+	// /backend/load is the inverse of /backend/shutdown: pre-load a model (or all
+	// of a realtime pipeline's sub-models) into memory so clients can drive
+	// warm-up explicitly instead of paying the cold-start cost on first use.
+	router.POST("/backend/load", localai.LoadModelEndpoint(cl, ml, appConfig), adminMiddleware)
 	// The v1/* urls are exactly the same as above - makes local e2e testing easier if they are registered.
 	router.GET("/v1/backend/monitor", localai.BackendMonitorEndpoint(backendMonitorService), adminMiddleware)
 	router.POST("/v1/backend/shutdown", localai.BackendShutdownEndpoint(backendMonitorService), adminMiddleware)
+	router.POST("/v1/backend/load", localai.LoadModelEndpoint(cl, ml, appConfig), adminMiddleware)
 
 	// Traces and backend logs (monitoring)
 	router.GET("/api/traces", localai.GetAPITracesEndpoint(), adminMiddleware)
@@ -245,6 +250,7 @@ func RegisterLocalAIRoutes(router *echo.Echo,
 			"metrics":              "/metrics",
 			"backend_monitor":      "/backend/monitor",
 			"backend_shutdown":     "/backend/shutdown",
+			"backend_load":         "/backend/load",
 			"system":               "/system",
 			"version":              "/version",
 			"traces":               "/api/traces",

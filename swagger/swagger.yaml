@@ -1362,6 +1362,25 @@ definitions:
           $ref: '#/definitions/schema.ToolCall'
         type: array
     type: object
+  schema.ModelLoadRequest:
+    properties:
+      model:
+        type: string
+    type: object
+  schema.ModelLoadResponse:
+    properties:
+      loaded:
+        description: |-
+          Loaded lists the model names actually resident in memory after the call.
+          For a pipeline model these are its sub-models, not the pipeline name.
+        items:
+          type: string
+        type: array
+      message:
+        description: Message is a short human-readable status ("model loaded", or
+          an error).
+        type: string
+    type: object
   schema.ModelsDataResponse:
     properties:
       data:
@@ -3510,6 +3529,38 @@ paths:
       summary: Bidirectional realtime audio transform over WebSocket.
       tags:
       - audio
+  /backend/load:
+    post:
+      consumes:
+      - application/json
+      description: Loads the named model (or, for a realtime pipeline, all of its
+        sub-models) into memory so subsequent requests pay no cold-start cost. The
+        inverse of /backend/shutdown.
+      parameters:
+      - description: Model to load
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/schema.ModelLoadRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Model loaded
+          schema:
+            $ref: '#/definitions/schema.ModelLoadResponse'
+        "400":
+          description: Missing model name
+          schema:
+            $ref: '#/definitions/schema.ModelLoadResponse'
+        "500":
+          description: Load failed (Loaded lists any sub-models that did load)
+          schema:
+            $ref: '#/definitions/schema.ModelLoadResponse'
+      summary: Pre-load a model into memory
+      tags:
+      - monitoring
   /backend/monitor:
     get:
       parameters:

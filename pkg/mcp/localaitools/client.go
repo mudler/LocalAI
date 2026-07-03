@@ -36,6 +36,10 @@ type LocalAIClient interface {
 	DeleteModel(ctx context.Context, name string) error
 	EditModelConfig(ctx context.Context, name string, patch map[string]any) error
 	ReloadModels(ctx context.Context) error
+	// LoadModel pre-loads a model into memory by name (the inverse of shutting
+	// it down). For a realtime pipeline model every configured sub-model is
+	// loaded; it returns the model names that became resident.
+	LoadModel(ctx context.Context, model string) ([]string, error)
 	ImportModelURI(ctx context.Context, req ImportModelURIRequest) (*ImportModelURIResponse, error)
 
 	// ---- Model aliases ----

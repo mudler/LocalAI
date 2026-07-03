@@ -155,6 +155,25 @@ func (bcl *ModelConfigLoader) LoadModelConfigFileByNameDefaultOptions(modelName 
 		ModelPath(appConfig.SystemState.Model.ModelsPath))
 }
 
+// LoadResolvedModelConfig loads a model config by name and follows a single
+// alias hop, so a caller that references an alias (e.g. a pipeline with
+// `llm: default`) gets the alias target's full config (Backend, Model, ...)
+// rather than the alias stub with an empty Backend. Without this the alias
+// survives unresolved into model loading and fails downstream — notably in
+// distributed mode with "backend name is empty". Mirrors the top-level alias
+// resolution in core/http/middleware/request.go.
+func (bcl *ModelConfigLoader) LoadResolvedModelConfig(modelName, modelPath string) (*ModelConfig, error) {
+	cfg, err := bcl.LoadModelConfigFileByName(modelName, modelPath)
+	if err != nil {
+		return nil, err
+	}
+	resolved, _, err := bcl.ResolveAlias(cfg)
+	if err != nil {
+		return nil, err
+	}
+	return resolved, nil
+}
+
 // This format is currently only used when reading a single file at startup, passed in via ApplicationConfig.ConfigFile
 func (bcl *ModelConfigLoader) LoadMultipleModelConfigsSingleFile(file string, opts ...ConfigLoaderOption) error {
 	bcl.Lock()

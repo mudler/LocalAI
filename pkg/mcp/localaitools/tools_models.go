@@ -66,6 +66,22 @@ func registerModelTools(s *mcp.Server, client LocalAIClient, opts Options) {
 	}
 
 	mcp.AddTool(s, &mcp.Tool{
+		Name:        ToolLoadModel,
+		Description: "Pre-load a model into memory by name so the first request pays no cold-start cost (the inverse of shutting a model down). For a realtime pipeline model every configured sub-model (VAD, transcription, LLM, TTS, sound_detection, voice_recognition) is loaded. Returns the model names that became resident. Requires user confirmation per safety rule 1.",
+	}, func(ctx context.Context, _ *mcp.CallToolRequest, args struct {
+		Model string `json:"model" jsonschema:"The installed model name to load into memory."`
+	}) (*mcp.CallToolResult, any, error) {
+		if args.Model == "" {
+			return errorResultf("model is required"), nil, nil
+		}
+		loaded, err := client.LoadModel(ctx, args.Model)
+		if err != nil {
+			return errorResult(err), nil, nil
+		}
+		return jsonResult(map[string]any{"loaded": loaded}), nil, nil
+	})
+
+	mcp.AddTool(s, &mcp.Tool{
 		Name:        ToolInstallModel,
 		Description: "Install a model from a gallery. Requires explicit user confirmation per safety rule 1. Returns a job id; poll with get_job_status.",
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, args InstallModelRequest) (*mcp.CallToolResult, any, error) {
