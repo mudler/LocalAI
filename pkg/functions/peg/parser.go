@@ -461,10 +461,7 @@ func (p *RuleParser) parse(arena *Arena, ctx *ParseContext, start int) ParseResu
 	if result.Type != Fail {
 		text := ""
 		if result.Start < len(ctx.Input) {
-			end := result.End
-			if end > len(ctx.Input) {
-				end = len(ctx.Input)
-			}
+			end := min(result.End, len(ctx.Input))
 			text = ctx.Input[result.Start:end]
 		}
 
@@ -514,10 +511,7 @@ func (p *TagParser) parse(arena *Arena, ctx *ParseContext, start int) ParseResul
 	if result.Type != Fail {
 		text := ""
 		if result.Start < len(ctx.Input) {
-			end := result.End
-			if end > len(ctx.Input) {
-				end = len(ctx.Input)
-			}
+			end := min(result.End, len(ctx.Input))
 			text = ctx.Input[result.Start:end]
 		}
 
