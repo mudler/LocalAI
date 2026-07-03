@@ -2,8 +2,10 @@ import { useState } from 'react'
 import { useParams, useOutletContext } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import ModelSelector from '../components/ModelSelector'
+import PageHeader from '../components/PageHeader'
 import { CAP_TTS } from '../utils/capabilities'
 import LoadingSpinner from '../components/LoadingSpinner'
+import GenerationProgress from '../components/GenerationProgress'
 import ErrorWithTraceLink from '../components/ErrorWithTraceLink'
 import MediaHistory from '../components/MediaHistory'
 import WaveformPlayer from '../components/audio/WaveformPlayer'
@@ -49,9 +51,7 @@ export default function TTS() {
   return (
     <div className="media-layout">
       <div className="media-controls">
-        <div className="page-header">
-          <h1 className="page-title"><i className="fas fa-headphones" /> {t('tts.title')}</h1>
-        </div>
+        <PageHeader title={<><i className="fas fa-headphones" /> {t('tts.title')}</>} />
 
         <form onSubmit={handleGenerate}>
           <div className="form-group">
@@ -78,7 +78,7 @@ export default function TTS() {
       <div className="media-preview">
         <div className="media-result">
           {loading ? (
-            <LoadingSpinner size="lg" />
+            <GenerationProgress label={t('tts.actions.generating')} />
           ) : error ? (
             <ErrorWithTraceLink message={error} />
           ) : selectedEntry ? (

@@ -43,6 +43,10 @@
     "title": "Verteilte Knoten",
     "subtitle": "Backend- und Agenten-Worker-Knoten verwalten"
   },
+  "scheduling": {
+    "title": "Planung",
+    "subtitle": "Modellplatzierung und Replikat-Regeln im gesamten Cluster"
+  },
   "p2p": {
     "title": "Verteilte KI-Berechnung",
     "subtitle": "Skalieren Sie Ihre KI-Workloads über mehrere Geräte mit Peer-to-Peer-Verteilung"

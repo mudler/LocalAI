@@ -10,6 +10,7 @@ import (
 	"text/template"
 
 	"github.com/mudler/LocalAI/core/schema"
+	"github.com/mudler/LocalAI/core/services/routing/piipattern"
 	"github.com/mudler/LocalAI/pkg/downloader"
 	"github.com/mudler/LocalAI/pkg/functions"
 	"github.com/mudler/LocalAI/pkg/reasoning"
@@ -23,7 +24,6 @@ const (
 
 // @Description TTS configuration
 type TTSConfig struct {
-
 	// Voice wav path or id
 	Voice string `yaml:"voice,omitempty" json:"voice,omitempty"`
 
@@ -36,6 +36,12 @@ type ModelConfig struct {
 	modelTemplate            string `yaml:"-" json:"-"`
 	schema.PredictionOptions `yaml:"parameters,omitempty" json:"parameters,omitempty"`
 	Name                     string `yaml:"name,omitempty" json:"name,omitempty"`
+
+	// Alias, when set, makes this config a pure redirect: every request for
+	// Name is served by the model named here. All other fields are ignored.
+	// The target must be an existing, non-alias model (enforced at load and
+	// at create/swap time). See docs/content for Model Aliases.
+	Alias string `yaml:"alias,omitempty" json:"alias,omitempty"`
 
 	F16                 *bool               `yaml:"f16,omitempty" json:"f16,omitempty"`
 	Threads             *int                `yaml:"threads,omitempty" json:"threads,omitempty"`
@@ -116,13 +122,18 @@ type ModelConfig struct {
 	Options   []string `yaml:"options,omitempty" json:"options,omitempty"`
 	Overrides []string `yaml:"overrides,omitempty" json:"overrides,omitempty"`
 
-	MCP    MCPConfig       `yaml:"mcp,omitempty" json:"mcp,omitempty"`
-	Agent  AgentConfig     `yaml:"agent,omitempty" json:"agent,omitempty"`
-	PII    PIIConfig       `yaml:"pii,omitempty" json:"pii,omitempty"`
-	Router RouterConfig    `yaml:"router,omitempty" json:"router,omitempty"`
-	Proxy  ProxyConfig     `yaml:"proxy,omitempty" json:"proxy,omitempty"`
-	MITM   MITMModelConfig `yaml:"mitm,omitempty" json:"mitm,omitempty"`
-	Limits LimitsConfig    `yaml:"limits,omitempty" json:"limits,omitempty"`
+	MCP   MCPConfig   `yaml:"mcp,omitempty" json:"mcp,omitempty"`
+	Agent AgentConfig `yaml:"agent,omitempty" json:"agent,omitempty"`
+	PII   PIIConfig   `yaml:"pii,omitempty" json:"pii,omitempty"`
+	// PIIDetection is the detection policy when THIS model is used as a
+	// PII detector (a token_classify model named in another model's
+	// pii.detectors). Ignored on models that aren't referenced as
+	// detectors.
+	PIIDetection PIIDetectionConfig `yaml:"pii_detection,omitempty" json:"pii_detection,omitempty"`
+	Router       RouterConfig       `yaml:"router,omitempty" json:"router,omitempty"`
+	Proxy        ProxyConfig        `yaml:"proxy,omitempty" json:"proxy,omitempty"`
+	MITM         MITMModelConfig    `yaml:"mitm,omitempty" json:"mitm,omitempty"`
+	Limits       LimitsConfig       `yaml:"limits,omitempty" json:"limits,omitempty"`
 }
 
 // @Description Admission-control limits applied per request. The
@@ -386,6 +397,10 @@ func (c *ModelConfig) HasRouter() bool {
 	return len(c.Router.Candidates) > 0
 }
 
+// IsAlias reports whether this config is a pure redirect to another model.
+// Value receiver so it is callable on non-addressable config values too.
+func (c ModelConfig) IsAlias() bool { return c.Alias != "" }
+
 // @Description PII filtering configuration. PII redaction is per-model so
 // that local models don't pay the latency or behaviour change of regex
 // scanning, while cloud-bound traffic (cloud-proxy backend) can default to
@@ -397,18 +412,54 @@ type PIIConfig struct {
 	// the YAML key is distinguishable from explicit false.
 	Enabled *bool `yaml:"enabled,omitempty" json:"enabled,omitempty"`
 
-	// Patterns lets a model upgrade or downgrade individual pattern
-	// actions (mask | block | allow) relative to the global
-	// defaults loaded from --pii-config / DefaultPatterns. Pattern IDs
-	// not listed inherit the global action. The regex itself stays
-	// global — only the action is settable per-model.
-	Patterns []PIIPatternOverride `yaml:"patterns,omitempty" json:"patterns,omitempty"`
+	// Detectors lists the token-classification (NER) models whose
+	// detections drive PII redaction for this model. The detection policy
+	// (min score, per-entity actions, default action) lives on each named
+	// detector model's own pii_detection block, not here — a consuming
+	// model just opts in by listing detectors. Multiple detectors union
+	// their hits; overlapping spans resolve to the strongest action.
+	Detectors []string `yaml:"detectors,omitempty" json:"detectors,omitempty"`
 }
 
-// @Description Per-model action override for a single PII pattern.
-type PIIPatternOverride struct {
-	ID     string `yaml:"id" json:"id"`
-	Action string `yaml:"action" json:"action"`
+// @Description Detection policy for a token-classification (NER) model
+// used as a PII detector. Lives on the detector model's own config so the
+// model is a self-describing policy unit: consuming models reference it by
+// name (via pii.detectors) and inherit this policy with no per-consumer
+// overrides.
+type PIIDetectionConfig struct {
+	// MinScore drops detections the model scores below this confidence
+	// before they are acted on. 0 keeps every detection.
+	MinScore float32 `yaml:"min_score,omitempty" json:"min_score,omitempty"`
+	// DefaultAction (mask | block | allow) applies to detected entity
+	// groups with no explicit EntityActions entry. Empty defaults to
+	// "mask" — the safe-by-default policy for a PII filter.
+	DefaultAction string `yaml:"default_action,omitempty" json:"default_action,omitempty"`
+	// EntityActions maps an entity group the model emits (e.g. "EMAIL",
+	// "PASSWORD") to an action, overriding DefaultAction for that group.
+	// This is where an operator says which PII to block vs mask vs
+	// allow-log.
+	EntityActions map[string]string `yaml:"entity_actions,omitempty" json:"entity_actions,omitempty"`
+
+	// Builtins names the built-in pattern groups this (pattern) detector
+	// enables, e.g. "anthropic_api_key", "github_token". Pattern detectors
+	// match high-entropy structured secrets the NER tier can't; see
+	// core/services/routing/piipattern.
+	Builtins []string `yaml:"builtins,omitempty" json:"builtins,omitempty"`
+	// Patterns lists operator-defined secret patterns in the restricted-regex
+	// subset (validated at load). Each match is reported under its Name as the
+	// entity group, so EntityActions/DefaultAction apply by Name.
+	Patterns []PIIPattern `yaml:"patterns,omitempty" json:"patterns,omitempty"`
+}
+
+// PIIPattern is one operator-defined pattern on a pattern detector model. Name
+// is the entity group reported for matches (and the EntityActions key). Match
+// is the restricted-regex source. Action optionally overrides DefaultAction for
+// this pattern. MinLen drops matches shorter than N bytes (0 = no floor).
+type PIIPattern struct {
+	Name   string `yaml:"name" json:"name"`
+	Match  string `yaml:"match" json:"match"`
+	Action string `yaml:"action,omitempty" json:"action,omitempty"`
+	MinLen int    `yaml:"min_len,omitempty" json:"min_len,omitempty"`
 }
 
 // PIIIsEnabled returns the resolved PII state for this model. Single
@@ -421,25 +472,69 @@ func (c *ModelConfig) PIIIsEnabled() bool {
 	return c.Backend == "cloud-proxy"
 }
 
-// PIIPatternOverrides returns the per-pattern action overrides as a map
-// keyed by pattern ID. The values are the raw action strings — the pii
-// package validates and converts them.
-//
-// Returned via the documented modelPIIConfig interface in
-// core/services/routing/pii/middleware.go without taking a config
-// dependency on this package.
-func (c *ModelConfig) PIIPatternOverrides() map[string]string {
-	if len(c.PII.Patterns) == 0 {
+// PIIDetectors returns the names of the token-classification models that
+// drive PII redaction for this (consuming) model. Read via the
+// ModelPIIConfig interface in core/services/routing/pii/middleware.go.
+func (c *ModelConfig) PIIDetectors() []string {
+	if len(c.PII.Detectors) == 0 {
 		return nil
 	}
-	out := make(map[string]string, len(c.PII.Patterns))
-	for _, p := range c.PII.Patterns {
-		if p.ID == "" {
-			continue
-		}
-		out[p.ID] = p.Action
+	out := make([]string, len(c.PII.Detectors))
+	copy(out, c.PII.Detectors)
+	return out
+}
+
+// piiCoverableUsecases lists the model usecases whose serving API has a
+// request-side PII filter wired (a piiadapter + the pii middleware). It scopes
+// the Middleware admin list (PIIFilterApplies). Grow it as adapters are added
+// for new endpoints. cloud-proxy carries no usecase flag but is always covered
+// (via the MITM / proxy chat path), so PIIFilterApplies handles it separately.
+var piiCoverableUsecases = []ModelConfigUsecase{FLAG_CHAT, FLAG_COMPLETION, FLAG_EDIT, FLAG_EMBEDDINGS}
+
+// PIIFilterApplies reports whether request-side PII filtering can apply to
+// this model at all — i.e. it is reachable through a text-accepting endpoint
+// that has a PII adapter wired. Used to scope the Middleware admin view so it
+// lists only models PII could protect, not every config (VAD, STT,
+// embedding-only, image, or the token_classify detector models themselves,
+// which are the filters rather than consumers). Detector/score models return
+// false naturally: HasUsecases short-circuits to false for any usecase a
+// declared score/token_classify model did not itself declare.
+func (c *ModelConfig) PIIFilterApplies() bool {
+	if c.Backend == "cloud-proxy" {
+		return true
+	}
+	return slices.ContainsFunc(piiCoverableUsecases, c.HasUsecases)
+}
+
+// PIIDetectionMinScore returns the confidence floor this model applies
+// when used as a PII detector.
+func (c *ModelConfig) PIIDetectionMinScore() float32 { return c.PIIDetection.MinScore }
+
+// PIIDetectionDefaultAction returns the raw default-action string applied
+// to detected entity groups without an explicit override. The pii package
+// validates it and applies the "mask" fallback.
+func (c *ModelConfig) PIIDetectionDefaultAction() string { return c.PIIDetection.DefaultAction }
+
+// PIIDetectionEntityActions returns the per-entity-group action policy as
+// a fresh map of raw action strings (validated by the pii package).
+func (c *ModelConfig) PIIDetectionEntityActions() map[string]string {
+	if len(c.PIIDetection.EntityActions) == 0 {
+		return nil
+	}
+	out := make(map[string]string, len(c.PIIDetection.EntityActions))
+	for k, v := range c.PIIDetection.EntityActions {
+		out[k] = v
 	}
 	return out
+}
+
+// IsPatternDetector reports whether this detector model matches secrets with
+// regex patterns (built-in and/or operator-defined) rather than a neural NER
+// model. Such a model runs entirely in-process (no backend / GGUF / VRAM); the
+// PII resolver builds an in-process pattern matcher for it instead of loading a
+// gRPC token-classifier.
+func (c *ModelConfig) IsPatternDetector() bool {
+	return len(c.PIIDetection.Builtins) > 0 || len(c.PIIDetection.Patterns) > 0
 }
 
 // @Description MCP configuration
@@ -485,8 +580,10 @@ func (c *MCPConfig) MCPConfigFromYAML() (MCPGenericConfig[MCPRemoteServers], MCP
 type MCPGenericConfig[T any] struct {
 	Servers T `yaml:"mcpServers,omitempty" json:"mcpServers,omitempty"`
 }
-type MCPRemoteServers map[string]MCPRemoteServer
-type MCPSTDIOServers map[string]MCPSTDIOServer
+type (
+	MCPRemoteServers map[string]MCPRemoteServer
+	MCPSTDIOServers  map[string]MCPSTDIOServer
+)
 
 // @Description MCP remote server configuration
 type MCPRemoteServer struct {
@@ -507,6 +604,20 @@ type Pipeline struct {
 	LLM           string `yaml:"llm,omitempty" json:"llm,omitempty"`
 	Transcription string `yaml:"transcription,omitempty" json:"transcription,omitempty"`
 	VAD           string `yaml:"vad,omitempty" json:"vad,omitempty"`
+	// SoundDetection names a sound-event-classification model (e.g. ced). When
+	// set, each VAD-committed realtime utterance is also run through it and the
+	// scored AudioSet tags are emitted as a conversation.item.sound_detection
+	// server event, alongside (and independent of) transcription.
+	SoundDetection string `yaml:"sound_detection,omitempty" json:"sound_detection,omitempty"`
+
+	// SoundDetectionWindowMs / SoundDetectionHopMs enable server-side windowing
+	// for a sound-detection-only realtime session: instead of the client
+	// committing audio buffers, the server classifies the last WindowMs of
+	// streamed audio every HopMs and emits a sound_detection event per hop. Both
+	// must be > 0 to activate; otherwise the session stays client-driven (the
+	// client commits windows via input_audio_buffer.commit).
+	SoundDetectionWindowMs int `yaml:"sound_detection_window_ms,omitempty" json:"sound_detection_window_ms,omitempty"`
+	SoundDetectionHopMs    int `yaml:"sound_detection_hop_ms,omitempty" json:"sound_detection_hop_ms,omitempty"`
 
 	// ReasoningEffort sets the reasoning effort (none|minimal|low|medium|high) for
 	// the pipeline's LLM without editing the LLM model config. Overrides the LLM's
@@ -530,9 +641,36 @@ type Pipeline struct {
 	// context fills.
 	MaxHistoryItems *int `yaml:"max_history_items,omitempty" json:"max_history_items,omitempty"`
 
+	// Compaction folds conversation items that age out of the live window
+	// (max_history_items) into a rolling summary instead of dropping them, so
+	// long realtime sessions stay cheap without losing earlier context. Nil
+	// (block absent) means disabled, preserving existing behavior.
+	Compaction *PipelineCompaction `yaml:"compaction,omitempty" json:"compaction,omitempty"`
+
 	// VoiceRecognition gates the pipeline behind speaker verification. Nil
 	// (block absent) means no gate, preserving existing behavior.
 	VoiceRecognition *PipelineVoiceRecognition `yaml:"voice_recognition,omitempty" json:"voice_recognition,omitempty"`
+
+	// TurnDetection sets the server-side default turn-detection mode for
+	// realtime sessions on this pipeline, so clients need no session.update
+	// to benefit. A client session.update still overrides type and eagerness
+	// per session; retranscribe is server-side only. Unset keeps server_vad.
+	TurnDetection PipelineTurnDetection `yaml:"turn_detection,omitempty" json:"turn_detection,omitempty"`
+}
+
+// PipelineCompaction configures summarize-then-drop for a realtime pipeline.
+type PipelineCompaction struct {
+	// Enabled turns summarize-then-drop on. Default false.
+	Enabled bool `yaml:"enabled,omitempty" json:"enabled,omitempty"`
+	// TriggerItems is the high-water mark: once live items exceed it, overflow
+	// above max_history_items is summarized and evicted. Must exceed
+	// max_history_items; clamped up if not. Default: 2x max_history_items.
+	TriggerItems int `yaml:"trigger_items,omitempty" json:"trigger_items,omitempty"`
+	// SummaryModel optionally names a smaller/cheaper model for the summary
+	// call. Empty uses the pipeline's own LLM.
+	SummaryModel string `yaml:"summary_model,omitempty" json:"summary_model,omitempty"`
+	// MaxSummaryTokens advises the summary length (fed to the prompt). Default 512.
+	MaxSummaryTokens int `yaml:"max_summary_tokens,omitempty" json:"max_summary_tokens,omitempty"`
 }
 
 // ApplyReasoningEffort resolves the effective reasoning effort — a per-request
@@ -672,6 +810,13 @@ type PipelineVoiceRecognition struct {
 	Allow VoiceRecognitionAllow `yaml:"allow,omitempty" json:"allow,omitempty"`
 	// References are the authorized reference speakers (verify mode).
 	References []VoiceReference `yaml:"references,omitempty" json:"references,omitempty"`
+	// Enforce controls the authorization gate. A nil value or true rejects
+	// unauthorized speakers (the historical behavior). false resolves the
+	// speaker's identity for surfacing/personalization but never drops a turn.
+	Enforce *bool `yaml:"enforce,omitempty" json:"enforce,omitempty"`
+	// Identity surfaces the recognized speaker to the client and the LLM. It is
+	// independent of Enforce: identity can be surfaced without gating.
+	Identity *VoiceIdentityConfig `yaml:"identity,omitempty" json:"identity,omitempty"`
 }
 
 // @Description VoiceRecognitionAllow filters authorized registry identities.
@@ -688,12 +833,53 @@ type VoiceReference struct {
 	Audio string `yaml:"audio,omitempty" json:"audio,omitempty"`
 }
 
+// @Description VoiceIdentityConfig surfaces the recognized speaker to the realtime
+// client and the LLM. When set, identity is resolved on every turn even if the
+// gate's When is "first" (the gate still authorizes only once).
+type VoiceIdentityConfig struct {
+	// Announce emits a conversation.item.speaker event to the client.
+	Announce bool `yaml:"announce,omitempty" json:"announce,omitempty"`
+	// AnnounceUnknown also emits the event when there is no confident match.
+	AnnounceUnknown bool `yaml:"announce_unknown,omitempty" json:"announce_unknown,omitempty"`
+	// Personalize informs the LLM who is speaking.
+	Personalize bool `yaml:"personalize,omitempty" json:"personalize,omitempty"`
+	// InjectName sets the per-message name field on each user turn.
+	InjectName bool `yaml:"inject_name,omitempty" json:"inject_name,omitempty"`
+	// InjectSystemNote maintains a "current speaker" note in the system message.
+	InjectSystemNote bool `yaml:"inject_system_note,omitempty" json:"inject_system_note,omitempty"`
+	// NoteUnknown adds a "the current speaker is unknown" note (enables the model
+	// to ask who it is talking to).
+	NoteUnknown bool `yaml:"note_unknown,omitempty" json:"note_unknown,omitempty"`
+}
+
 // VoiceGateEnabled reports whether a voice-recognition gate is configured. The
 // mere presence of the block is the intent signal: a present-but-incomplete
 // block (e.g. missing model) must fail closed at construction, not be silently
 // skipped here.
 func (p Pipeline) VoiceGateEnabled() bool {
 	return p.VoiceRecognition != nil
+}
+
+// EnforceGate reports whether the gate rejects unauthorized speakers. A nil
+// Enforce means "enforce" so existing configs keep gating.
+func (p PipelineVoiceRecognition) EnforceGate() bool {
+	return p.Enforce == nil || *p.Enforce
+}
+
+// IdentityEnabled reports whether the speaker's identity must be resolved for
+// surfacing or personalization.
+func (p PipelineVoiceRecognition) IdentityEnabled() bool {
+	return p.Identity != nil && (p.Identity.Announce || p.Identity.Personalize)
+}
+
+// AnnounceEnabled reports whether to emit the conversation.item.speaker event.
+func (p PipelineVoiceRecognition) AnnounceEnabled() bool {
+	return p.Identity != nil && p.Identity.Announce
+}
+
+// PersonalizeEnabled reports whether to inform the LLM of the speaker.
+func (p PipelineVoiceRecognition) PersonalizeEnabled() bool {
+	return p.Identity != nil && p.Identity.Personalize
 }
 
 // Normalize fills in defaults in place for omitted fields.
@@ -752,6 +938,38 @@ func (v PipelineVoiceRecognition) Validate(registryAvailable bool) error {
 		return fmt.Errorf("voice_recognition: threshold %v out of range (0..2)", v.Threshold)
 	}
 	return nil
+}
+
+// @Description PipelineTurnDetection sets realtime turn-detection defaults.
+type PipelineTurnDetection struct {
+	// Type selects the default turn_detection mode for sessions on this
+	// pipeline: "server_vad" (silence-based) or "semantic_vad" (the
+	// transcription model's end-of-utterance token drives a dynamic silence
+	// window; needs a streaming-EOU transcription model such as
+	// parakeet_realtime_eou_120m-v1, degrades to silence-only otherwise).
+	Type string `yaml:"type,omitempty" json:"type,omitempty"`
+	// Eagerness is the semantic_vad fallback when no end-of-utterance token
+	// was seen: low waits 8s of silence, medium/auto 4s, high 2s.
+	Eagerness string `yaml:"eagerness,omitempty" json:"eagerness,omitempty"`
+	// Retranscribe (semantic_vad only) cross-checks every EOU-triggered
+	// commit with an offline decode of the buffered turn: the commit only
+	// proceeds when the batch decode also ends in the end-of-utterance token,
+	// and its transcript is the one used. The streamed and batch transcripts
+	// are compared in the logs — a diagnostic for streaming/batch alignment
+	// at the cost of one extra decode per turn.
+	Retranscribe *bool `yaml:"retranscribe,omitempty" json:"retranscribe,omitempty"`
+}
+
+// TurnDetectionSemantic reports whether this pipeline defaults sessions to
+// semantic (EOU-driven) turn detection.
+func (p Pipeline) TurnDetectionSemantic() bool {
+	return strings.EqualFold(strings.TrimSpace(p.TurnDetection.Type), "semantic_vad")
+}
+
+// TurnDetectionRetranscribe reports whether semantic_vad commits should be
+// cross-checked (and transcribed) by an offline decode of the buffered turn.
+func (p Pipeline) TurnDetectionRetranscribe() bool {
+	return p.TurnDetection.Retranscribe != nil && *p.TurnDetection.Retranscribe
 }
 
 // @Description File configuration for model downloads
@@ -1024,106 +1242,16 @@ func (cfg *ModelConfig) SetDefaults(opts ...ConfigLoaderOption) {
 	// This ensures gallery-installed and runtime-loaded models get optimal parameters.
 	ApplyInferenceDefaults(cfg, cfg.Name, cfg.Model)
 
-	// https://github.com/ggerganov/llama.cpp/blob/75cd4c77292034ecec587ecb401366f57338f7c0/common/sampling.h#L22
-	defaultTopP := 0.95
-	defaultTopK := 40
-	defaultMinP := 0.0
-	defaultTemp := 0.9
-	// https://github.com/mudler/LocalAI/issues/2780
-	defaultMirostat := 0
-	defaultMirostatTAU := 5.0
-	defaultMirostatETA := 0.1
-	defaultTypicalP := 1.0
-	defaultTFZ := 1.0
-	defaultZero := 0
+	// Apply serving-policy defaults (device-independent): cross-request prefix
+	// caching. Propagates to distributed nodes via the model options.
+	ApplyServingDefaults(cfg)
+
+	// Generic fallback defaults (sampling params + runtime flags), applied after
+	// the model-family / hardware / serving tiers above. Only fills unset values.
+	ApplyGenericDefaults(cfg)
 
 	trueV := true
 	falseV := false
-
-	if cfg.Seed == nil {
-		//  random number generator seed
-		defaultSeed := RAND_SEED
-		cfg.Seed = &defaultSeed
-	}
-
-	// top_k=40 is llama.cpp's sampling default and is wrong for backends whose
-	// native default differs (issue #6632). Only inject it for the llama.cpp
-	// family and the empty/auto backend; leave TopK nil for known non-llama
-	// backends (e.g. mlx, whose intended default is top_k=0) so the wire value
-	// is 0 rather than a silently-changed 40.
-	if cfg.TopK == nil && UsesLlamaSamplerDefaults(cfg.Backend) {
-		cfg.TopK = &defaultTopK
-	}
-
-	if cfg.MinP == nil {
-		cfg.MinP = &defaultMinP
-	}
-
-	if cfg.TypicalP == nil {
-		cfg.TypicalP = &defaultTypicalP
-	}
-
-	if cfg.TFZ == nil {
-		cfg.TFZ = &defaultTFZ
-	}
-
-	if cfg.MMap == nil {
-		// MMap is enabled by default
-
-		// Only exception is for Intel GPUs
-		if os.Getenv("XPU") != "" {
-			cfg.MMap = &falseV
-		} else {
-			cfg.MMap = &trueV
-		}
-	}
-
-	if cfg.MMlock == nil {
-		// MMlock is disabled by default
-		cfg.MMlock = &falseV
-	}
-
-	if cfg.TopP == nil {
-		cfg.TopP = &defaultTopP
-	}
-	if cfg.Temperature == nil {
-		cfg.Temperature = &defaultTemp
-	}
-
-	if cfg.Maxtokens == nil {
-		cfg.Maxtokens = &defaultZero
-	}
-
-	if cfg.Mirostat == nil {
-		cfg.Mirostat = &defaultMirostat
-	}
-
-	if cfg.MirostatETA == nil {
-		cfg.MirostatETA = &defaultMirostatETA
-	}
-
-	if cfg.MirostatTAU == nil {
-		cfg.MirostatTAU = &defaultMirostatTAU
-	}
-
-	if cfg.LowVRAM == nil {
-		cfg.LowVRAM = &falseV
-	}
-
-	if cfg.Embeddings == nil {
-		cfg.Embeddings = &falseV
-	}
-
-	if cfg.Reranking == nil {
-		cfg.Reranking = &falseV
-	}
-
-	if cfg.PromptCacheAll == nil {
-		// Match upstream llama.cpp's default (common/common.h: cache_prompt = true)
-		// and let cache_idle_slots / kv_unified actually do useful work; users can
-		// opt out with an explicit `prompt_cache_all: false` in the model YAML.
-		cfg.PromptCacheAll = &trueV
-	}
 
 	if threads == 0 {
 		// Threads can't be 0
@@ -1152,10 +1280,36 @@ func (cfg *ModelConfig) SetDefaults(opts ...ConfigLoaderOption) {
 		cfg.ContextSize = &ctx
 	}
 	runBackendHooks(cfg, lo.modelPath)
+
+	// Apply hardware-driven defaults (e.g. a larger physical batch on Blackwell)
+	// LAST, after the context size is fully resolved (explicit config, LoadOptions,
+	// then the GGUF guess inside runBackendHooks): the Blackwell batch guard sizes
+	// the per-device compute buffer against this model's context, so it must see
+	// the final value, not a pre-guess nil. Uses the local GPU here; in distributed
+	// mode the router re-applies the same heuristics for the selected node's GPU
+	// before loading. Explicit config always wins.
+	ApplyHardwareDefaults(cfg, localGPU())
+
 	cfg.syncKnownUsecasesFromString()
 }
 
 func (c *ModelConfig) Validate() (bool, error) {
+	// An alias is a pure redirect: validate only its own shape here. Target
+	// existence and the no-chain rule need the full config set, so the loader
+	// (load-time) and the create/swap endpoints enforce those.
+	if c.IsAlias() {
+		if c.Name == "" {
+			return false, fmt.Errorf("alias config requires a name")
+		}
+		if c.Alias == c.Name {
+			return false, fmt.Errorf("alias %q cannot point to itself", c.Name)
+		}
+		if c.Backend != "" || c.Model != "" {
+			return false, fmt.Errorf("alias config %q must not set backend or parameters.model: an alias is a pure redirect", c.Name)
+		}
+		return true, nil
+	}
+
 	downloadedFileNames := []string{}
 	for _, f := range c.DownloadFiles {
 		downloadedFileNames = append(downloadedFileNames, f.Filename)
@@ -1221,6 +1375,8 @@ func (c *ModelConfig) Validate() (bool, error) {
 	// llama_context against concurrent generation/embedding traffic
 	// (see backend/cpp/llama-cpp/grpc-server.cpp on Score). Reject the
 	// combination here so operators are forced to split the model.
+	// (token_classify is unaffected — it runs on the standalone
+	// privacy-filter backend, not llama-cpp.)
 	const scoreConflicts = FLAG_CHAT | FLAG_COMPLETION | FLAG_EMBEDDINGS
 	if (c.Backend == "llama-cpp" || c.Backend == "llama") &&
 		c.HasUsecases(FLAG_SCORE) && c.KnownUsecases != nil &&
@@ -1228,6 +1384,26 @@ func (c *ModelConfig) Validate() (bool, error) {
 		return false, fmt.Errorf(
 			"known_usecases conflict on llama-cpp: score is incompatible " +
 				"with chat/completion/embeddings — split into separate model configs")
+	}
+
+	// Pattern detector: validate built-in names and that each operator-defined
+	// pattern is a well-formed, anchored, bounded restricted-regex. Reject at
+	// load so a bad pattern surfaces as a clear config error rather than a
+	// silent no-op (or a fail-closed block) at request time.
+	if c.IsPatternDetector() {
+		for _, name := range c.PIIDetection.Builtins {
+			if _, ok := piipattern.LookupBuiltin(name); !ok {
+				return false, fmt.Errorf("pii_detection: unknown built-in pattern %q", name)
+			}
+		}
+		for _, p := range c.PIIDetection.Patterns {
+			if p.Name == "" {
+				return false, fmt.Errorf("pii_detection: pattern is missing a name")
+			}
+			if err := piipattern.ValidatePattern(p.Match); err != nil {
+				return false, fmt.Errorf("pii_detection: pattern %q: %w", p.Name, err)
+			}
+		}
 	}
 
 	// router.score_normalization is consumed lazily by the score
@@ -1336,15 +1512,28 @@ const (
 	// Marks a model as wired for the Score gRPC primitive (joint
 	// log-prob of candidate continuations under a shared prompt). Must
 	// be declared explicitly via `known_usecases: [score]` — there's
-	// no heuristic for it. On the llama-cpp backend, Score bypasses
-	// the slot loop and races the llama_context, so Validate() refuses
-	// to load a llama-cpp config that combines FLAG_SCORE with
-	// chat/completion/embeddings.
+	// no heuristic for it. On llama-cpp, Score bypasses the slot loop
+	// (direct llama_decode), so combining score with
+	// chat/completion/embeddings in one config is rejected at validation.
 	FLAG_SCORE ModelConfigUsecase = 0b10000000000000000000
 
 	// Marks a model as wired for the Depth gRPC primitive (per-pixel
 	// metric depth + camera pose + 3D point cloud via Depth Anything 3).
 	FLAG_DEPTH ModelConfigUsecase = 0b100000000000000000000
+
+	// Marks a model as wired for the TokenClassify gRPC primitive (the
+	// openai-privacy-filter PII NER tier — per-token BIOES classification).
+	// Like FLAG_SCORE it must be declared explicitly via
+	// `known_usecases: [token_classify]`; there's no heuristic. Requires
+	// TOKEN_CLS pooling, which is loaded via the embeddings flag. On
+	// llama-cpp the classification windows ride the embedding task queue,
+	// so it may combine freely with other usecases.
+	FLAG_TOKEN_CLASSIFY ModelConfigUsecase = 0b1000000000000000000000
+
+	// Marks a model as wired for the SoundDetection gRPC primitive
+	// (audio tagging / sound-event classification — scored AudioSet
+	// labels via the SoundDetection RPC, e.g. ced).
+	FLAG_SOUND_CLASSIFICATION ModelConfigUsecase = 0b10000000000000000000000
 
 	// Common Subsets
 	FLAG_LLM ModelConfigUsecase = FLAG_CHAT | FLAG_COMPLETION | FLAG_EDIT
@@ -1354,12 +1543,12 @@ const (
 // Flags within the same group are NOT orthogonal (e.g., chat and completion are
 // both text/language). A model is multimodal when its usecases span 2+ groups.
 var ModalityGroups = []ModelConfigUsecase{
-	FLAG_CHAT | FLAG_COMPLETION | FLAG_EDIT,                // text/language
-	FLAG_VISION | FLAG_DETECTION,                           // visual understanding
-	FLAG_TRANSCRIPT | FLAG_REALTIME_AUDIO,                  // speech input — realtime_audio is any-to-any, so it counts here too
-	FLAG_TTS | FLAG_SOUND_GENERATION | FLAG_REALTIME_AUDIO, // audio output — and here, so a lone realtime_audio flag still reads as multimodal
-	FLAG_AUDIO_TRANSFORM,                                   // audio in/out transforms
-	FLAG_IMAGE | FLAG_VIDEO,                                // visual generation
+	FLAG_CHAT | FLAG_COMPLETION | FLAG_EDIT,                           // text/language
+	FLAG_VISION | FLAG_DETECTION,                                      // visual understanding
+	FLAG_TRANSCRIPT | FLAG_REALTIME_AUDIO | FLAG_SOUND_CLASSIFICATION, // audio input — realtime_audio is any-to-any, so it counts here too
+	FLAG_TTS | FLAG_SOUND_GENERATION | FLAG_REALTIME_AUDIO,            // audio output — and here, so a lone realtime_audio flag still reads as multimodal
+	FLAG_AUDIO_TRANSFORM,                                              // audio in/out transforms
+	FLAG_IMAGE | FLAG_VIDEO,                                           // visual generation
 }
 
 // IsMultimodal returns true if the given usecases span two or more orthogonal
@@ -1382,28 +1571,30 @@ func GetAllModelConfigUsecases() map[string]ModelConfigUsecase {
 	return map[string]ModelConfigUsecase{
 		// Note: FLAG_ANY is intentionally excluded from this map
 		// because it's 0 and would always match in HasUsecases checks
-		"FLAG_CHAT":                FLAG_CHAT,
-		"FLAG_COMPLETION":          FLAG_COMPLETION,
-		"FLAG_EDIT":                FLAG_EDIT,
-		"FLAG_EMBEDDINGS":          FLAG_EMBEDDINGS,
-		"FLAG_RERANK":              FLAG_RERANK,
-		"FLAG_IMAGE":               FLAG_IMAGE,
-		"FLAG_TRANSCRIPT":          FLAG_TRANSCRIPT,
-		"FLAG_TTS":                 FLAG_TTS,
-		"FLAG_SOUND_GENERATION":    FLAG_SOUND_GENERATION,
-		"FLAG_TOKENIZE":            FLAG_TOKENIZE,
-		"FLAG_VAD":                 FLAG_VAD,
-		"FLAG_LLM":                 FLAG_LLM,
-		"FLAG_VIDEO":               FLAG_VIDEO,
-		"FLAG_DETECTION":           FLAG_DETECTION,
-		"FLAG_VISION":              FLAG_VISION,
-		"FLAG_FACE_RECOGNITION":    FLAG_FACE_RECOGNITION,
-		"FLAG_SPEAKER_RECOGNITION": FLAG_SPEAKER_RECOGNITION,
-		"FLAG_AUDIO_TRANSFORM":     FLAG_AUDIO_TRANSFORM,
-		"FLAG_DIARIZATION":         FLAG_DIARIZATION,
-		"FLAG_REALTIME_AUDIO":      FLAG_REALTIME_AUDIO,
-		"FLAG_SCORE":               FLAG_SCORE,
-		"FLAG_DEPTH":               FLAG_DEPTH,
+		"FLAG_CHAT":                 FLAG_CHAT,
+		"FLAG_COMPLETION":           FLAG_COMPLETION,
+		"FLAG_EDIT":                 FLAG_EDIT,
+		"FLAG_EMBEDDINGS":           FLAG_EMBEDDINGS,
+		"FLAG_RERANK":               FLAG_RERANK,
+		"FLAG_IMAGE":                FLAG_IMAGE,
+		"FLAG_TRANSCRIPT":           FLAG_TRANSCRIPT,
+		"FLAG_TTS":                  FLAG_TTS,
+		"FLAG_SOUND_GENERATION":     FLAG_SOUND_GENERATION,
+		"FLAG_TOKENIZE":             FLAG_TOKENIZE,
+		"FLAG_VAD":                  FLAG_VAD,
+		"FLAG_LLM":                  FLAG_LLM,
+		"FLAG_VIDEO":                FLAG_VIDEO,
+		"FLAG_DETECTION":            FLAG_DETECTION,
+		"FLAG_VISION":               FLAG_VISION,
+		"FLAG_FACE_RECOGNITION":     FLAG_FACE_RECOGNITION,
+		"FLAG_SPEAKER_RECOGNITION":  FLAG_SPEAKER_RECOGNITION,
+		"FLAG_AUDIO_TRANSFORM":      FLAG_AUDIO_TRANSFORM,
+		"FLAG_DIARIZATION":          FLAG_DIARIZATION,
+		"FLAG_SOUND_CLASSIFICATION": FLAG_SOUND_CLASSIFICATION,
+		"FLAG_REALTIME_AUDIO":       FLAG_REALTIME_AUDIO,
+		"FLAG_SCORE":                FLAG_SCORE,
+		"FLAG_DEPTH":                FLAG_DEPTH,
+		"FLAG_TOKEN_CLASSIFY":       FLAG_TOKEN_CLASSIFY,
 	}
 }
 
@@ -1431,19 +1622,20 @@ func GetUsecasesFromYAML(input []string) *ModelConfigUsecase {
 // HasUsecases examines a ModelConfig and determines which endpoints have a chance of success.
 //
 // Declared known_usecases are normally additive — the guessing heuristic
-// still adds whatever it can infer from backend/templates. The one
-// exception is FLAG_SCORE: when the operator declared score, they
-// reserved the model for the router classifier. Letting GuessUsecases
-// paint chat/completion on top would surface it in chat pickers it was
-// deliberately kept out of, and (on llama-cpp) reintroduce the slot
-// contention the score/chat conflict check exists to prevent. So a
-// declared score list is authoritative.
+// still adds whatever it can infer from backend/templates. The exceptions
+// are FLAG_SCORE and FLAG_TOKEN_CLASSIFY: when the operator declared
+// either, they reserved the model for an internal direct-decode primitive
+// (the router classifier, or the PII NER tier). Letting GuessUsecases
+// paint chat/completion/embeddings on top would surface it in pickers it
+// was deliberately kept out of, and (on llama-cpp) reintroduce the slot
+// contention the conflict check exists to prevent. So a declared score or
+// token_classify list is authoritative.
 func (c *ModelConfig) HasUsecases(u ModelConfigUsecase) bool {
 	if c.KnownUsecases != nil {
 		if (u & *c.KnownUsecases) == u {
 			return true
 		}
-		if (*c.KnownUsecases & FLAG_SCORE) == FLAG_SCORE {
+		if (*c.KnownUsecases & (FLAG_SCORE | FLAG_TOKEN_CLASSIFY)) != 0 {
 			return false
 		}
 	}
@@ -1605,6 +1797,16 @@ func (c *ModelConfig) GuessUsecases(u ModelConfigUsecase) bool {
 		}
 	}
 
+	if (u & FLAG_SOUND_CLASSIFICATION) == FLAG_SOUND_CLASSIFICATION {
+		// ced is a sound-event tagger (AudioSet labels) surfaced via the
+		// SoundDetection gRPC. Models without an explicit known_usecases
+		// still surface when they run on one of these backends.
+		soundClassificationBackends := []string{"ced"}
+		if !slices.Contains(soundClassificationBackends, c.Backend) {
+			return false
+		}
+	}
+
 	if (u & FLAG_REALTIME_AUDIO) == FLAG_REALTIME_AUDIO {
 		// Backends that own a single any-to-any loop and implement
 		// AudioToAudioStream — listed here so models without an explicit
@@ -1620,6 +1822,15 @@ func (c *ModelConfig) GuessUsecases(u ModelConfigUsecase) bool {
 		// (it reserves the model from generation traffic on llama-cpp),
 		// so HasUsecases(FLAG_SCORE) is true only when KnownUsecases
 		// declares it explicitly.
+		return false
+	}
+
+	if (u & FLAG_TOKEN_CLASSIFY) == FLAG_TOKEN_CLASSIFY {
+		// No heuristic: token-classification intent is a deliberate
+		// operator choice (it reserves the model from generation traffic
+		// on llama-cpp, and the model's TOKEN_CLS head isn't useful as
+		// general embeddings), so HasUsecases(FLAG_TOKEN_CLASSIFY) is true
+		// only when KnownUsecases declares it explicitly.
 		return false
 	}
 

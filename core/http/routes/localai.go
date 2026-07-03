@@ -72,16 +72,19 @@ func RegisterLocalAIRoutes(router *echo.Echo,
 		router.POST("/backends/upgrades/check", backendGalleryEndpointService.CheckUpgradesEndpoint(), adminMiddleware)
 		router.POST("/backends/upgrade/:name", backendGalleryEndpointService.UpgradeBackendEndpoint(), adminMiddleware)
 		// Custom model import endpoint
-		router.POST("/models/import", localai.ImportModelEndpoint(cl, appConfig), adminMiddleware)
+		router.POST("/models/import", localai.ImportModelEndpoint(cl, galleryService, appConfig), adminMiddleware)
 
 		// URI model import endpoint
 		router.POST("/models/import-uri", localai.ImportModelURIEndpoint(cl, appConfig, galleryService, opcache), adminMiddleware)
 
 		// Custom model edit endpoint
-		router.POST("/models/edit/:name", localai.EditModelEndpoint(cl, ml, appConfig), adminMiddleware)
+		router.POST("/models/edit/:name", localai.EditModelEndpoint(cl, ml, galleryService, appConfig), adminMiddleware)
+
+		// List model aliases endpoint
+		router.GET("/api/aliases", localai.ListAliasesEndpoint(cl), adminMiddleware)
 
 		// Toggle model enable/disable endpoint
-		router.PUT("/models/toggle-state/:name/:action", localai.ToggleStateModelEndpoint(cl, ml, appConfig), adminMiddleware)
+		router.PUT("/models/toggle-state/:name/:action", localai.ToggleStateModelEndpoint(cl, ml, galleryService, appConfig), adminMiddleware)
 
 		// Toggle model pinned status endpoint
 		router.PUT("/models/toggle-pinned/:name/:action", localai.TogglePinnedModelEndpoint(cl, appConfig, func() {
@@ -281,13 +284,14 @@ func RegisterLocalAIRoutes(router *echo.Echo,
 			// Categorized endpoint groups for structured discovery
 			"endpoint_groups": map[string]any{
 				"openai_compatible": map[string]string{
-					"models":           "/v1/models",
-					"chat_completions": "/v1/chat/completions",
-					"completions":      "/v1/completions",
-					"embeddings":       "/v1/embeddings",
-					"transcription":    "/v1/audio/transcriptions",
-					"diarization":      "/v1/audio/diarization",
-					"image_generation": "/v1/images/generations",
+					"models":               "/v1/models",
+					"chat_completions":     "/v1/chat/completions",
+					"completions":          "/v1/completions",
+					"embeddings":           "/v1/embeddings",
+					"transcription":        "/v1/audio/transcriptions",
+					"diarization":          "/v1/audio/diarization",
+					"sound_classification": "/v1/audio/classification",
+					"image_generation":     "/v1/images/generations",
 				},
 				"config_management": map[string]string{
 					"config_metadata": "/api/models/config-metadata",
@@ -303,6 +307,7 @@ func RegisterLocalAIRoutes(router *echo.Echo,
 					"edit":         "/models/edit/:name",
 					"import":       "/models/import",
 					"reload":       "/models/reload",
+					"list_aliases": "/api/aliases",
 				},
 				"ai_functions": map[string]string{
 					"tts":       "/tts",
@@ -338,7 +343,7 @@ func RegisterLocalAIRoutes(router *echo.Echo,
 					"delete": "/stores/delete",
 				},
 				"docs": map[string]string{
-					"swagger": "/swagger/index.html",
+					"swagger":      "/swagger/index.html",
 					"instructions": "/api/instructions",
 				},
 			},

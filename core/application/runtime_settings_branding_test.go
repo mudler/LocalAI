@@ -87,6 +87,31 @@ var _ = Describe("loadRuntimeSettingsFromFile", func() {
 		})
 	})
 
+	// Watchdog check interval (issue #10601). Unlike the idle/busy timeouts
+	// (which default to 0), NewApplicationConfig baseline-defaults the
+	// interval to 500ms. The loader's "apply file value only if still at the
+	// zero default" env-detection therefore never fired for the interval, so
+	// a UI-saved Check Interval silently reverted to 500ms on every restart
+	// while the idle/busy timeouts persisted. These specs construct the
+	// config the same way boot does (NewApplicationConfig) so they observe
+	// the real default the loader sees.
+	Describe("watchdog interval", func() {
+		It("loads a UI-saved watchdog_interval on the next startup", func() {
+			cfg := config.NewApplicationConfig()
+			cfg.DynamicConfigsDir = seedSettings(`{"watchdog_interval": "2s"}`)
+			loadRuntimeSettingsFromFile(cfg)
+			Expect(cfg.WatchDogInterval).To(Equal(2 * time.Second))
+		})
+
+		It("does not override an explicit env/CLI interval", func() {
+			cfg := config.NewApplicationConfig()
+			cfg.DynamicConfigsDir = seedSettings(`{"watchdog_interval": "2s"}`)
+			cfg.WatchDogInterval = 1 * time.Second // simulate SetWatchDogInterval from env
+			loadRuntimeSettingsFromFile(cfg)
+			Expect(cfg.WatchDogInterval).To(Equal(1*time.Second), "env/CLI interval must win over the persisted file value")
+		})
+	})
+
 	// MITM listener address. The file is the only source — no env var
 	// exists — so a regression here means an admin who configured the
 	// listener via /api/settings loses it after a reboot, even though
@@ -106,6 +131,52 @@ var _ = Describe("loadRuntimeSettingsFromFile", func() {
 			}
 			loadRuntimeSettingsFromFile(cfg)
 			Expect(cfg.MITMListen).To(Equal(":9999"), "CLI flag must win over the persisted file value")
+		})
+	})
+
+	// Instance-wide default PII detectors. The file is the only source (no
+	// env var), and the loader runs immediately before startMITMIfConfigured,
+	// so a regression here means the cloud-proxy MITM listener resolves an
+	// empty detector set at boot and forwards intercepted traffic unredacted —
+	// even though pii_default_detectors is on disk and the MITM model has PII
+	// enabled. It also breaks request-side default redaction the same way.
+	Describe("PII default detectors", func() {
+		It("loads pii_default_detectors from the file", func() {
+			cfg := &config.ApplicationConfig{DynamicConfigsDir: seedSettings(`{"pii_default_detectors": ["privacy-filter-nemotron", "secret-filter"]}`)}
+			loadRuntimeSettingsFromFile(cfg)
+			Expect(cfg.PIIDefaultDetectors).To(Equal([]string{"privacy-filter-nemotron", "secret-filter"}))
+		})
+
+		It("does not override an env/CLI-set value (LOCALAI_PII_DEFAULT_DETECTORS)", func() {
+			cfg := &config.ApplicationConfig{
+				DynamicConfigsDir:   seedSettings(`{"pii_default_detectors": ["from-file"]}`),
+				PIIDefaultDetectors: []string{"from-env"}, // simulate WithPIIDefaultDetectors(env)
+			}
+			loadRuntimeSettingsFromFile(cfg)
+			Expect(cfg.PIIDefaultDetectors).To(Equal([]string{"from-env"}), "env var must win over the persisted file value")
+		})
+	})
+
+	// The live file watcher applies pii_default_detectors on a runtime change
+	// the same way it handles galleries/threads/etc.: env-set values (current
+	// == startup snapshot) are left alone, otherwise the file value is applied
+	// to the live config so request-side default redaction picks it up without
+	// a restart.
+	Describe("file watcher: pii_default_detectors", func() {
+		It("applies a changed file value to the live config", func() {
+			startup := config.ApplicationConfig{} // no env baseline
+			live := &config.ApplicationConfig{PIIDefaultDetectors: []string{"old"}}
+			handler := readRuntimeSettingsJson(startup)
+			Expect(handler([]byte(`{"pii_default_detectors":["new-a","new-b"]}`), live)).To(Succeed())
+			Expect(live.PIIDefaultDetectors).To(Equal([]string{"new-a", "new-b"}))
+		})
+
+		It("leaves an env-controlled value untouched", func() {
+			startup := config.ApplicationConfig{PIIDefaultDetectors: []string{"from-env"}}
+			live := &config.ApplicationConfig{PIIDefaultDetectors: []string{"from-env"}}
+			handler := readRuntimeSettingsJson(startup)
+			Expect(handler([]byte(`{"pii_default_detectors":["from-file"]}`), live)).To(Succeed())
+			Expect(live.PIIDefaultDetectors).To(Equal([]string{"from-env"}), "env-controlled detectors must not be overwritten by the file")
 		})
 	})
 

@@ -8,26 +8,28 @@ import (
 // Usecase name constants — the canonical string values used in gallery entries,
 // model configs (known_usecases), and UsecaseInfoMap keys.
 const (
-	UsecaseChat            = "chat"
-	UsecaseCompletion      = "completion"
-	UsecaseEdit            = "edit"
-	UsecaseVision          = "vision"
-	UsecaseEmbeddings      = "embeddings"
-	UsecaseTokenize        = "tokenize"
-	UsecaseImage           = "image"
-	UsecaseVideo           = "video"
-	UsecaseTranscript      = "transcript"
-	UsecaseTTS             = "tts"
-	UsecaseSoundGeneration = "sound_generation"
-	UsecaseRerank          = "rerank"
-	UsecaseDetection       = "detection"
-	UsecaseDepth           = "depth"
-	UsecaseVAD             = "vad"
+	UsecaseChat                = "chat"
+	UsecaseCompletion          = "completion"
+	UsecaseEdit                = "edit"
+	UsecaseVision              = "vision"
+	UsecaseEmbeddings          = "embeddings"
+	UsecaseTokenize            = "tokenize"
+	UsecaseImage               = "image"
+	UsecaseVideo               = "video"
+	UsecaseTranscript          = "transcript"
+	UsecaseTTS                 = "tts"
+	UsecaseSoundGeneration     = "sound_generation"
+	UsecaseRerank              = "rerank"
+	UsecaseDetection           = "detection"
+	UsecaseDepth               = "depth"
+	UsecaseVAD                 = "vad"
 	UsecaseAudioTransform      = "audio_transform"
 	UsecaseDiarization         = "diarization"
+	UsecaseSoundClassification = "sound_classification"
 	UsecaseRealtimeAudio       = "realtime_audio"
 	UsecaseFaceRecognition     = "face_recognition"
 	UsecaseSpeakerRecognition  = "speaker_recognition"
+	UsecaseTokenClassify       = "token_classify"
 )
 
 // GRPCMethod identifies a Backend service RPC from backend.proto.
@@ -50,12 +52,14 @@ const (
 	MethodVAD                GRPCMethod = "VAD"
 	MethodAudioTransform     GRPCMethod = "AudioTransform"
 	MethodDiarize            GRPCMethod = "Diarize"
+	MethodSoundDetection     GRPCMethod = "SoundDetection"
 	MethodAudioToAudioStream GRPCMethod = "AudioToAudioStream"
 	MethodFaceVerify         GRPCMethod = "FaceVerify"
 	MethodFaceAnalyze        GRPCMethod = "FaceAnalyze"
 	MethodVoiceVerify        GRPCMethod = "VoiceVerify"
 	MethodVoiceEmbed         GRPCMethod = "VoiceEmbed"
 	MethodVoiceAnalyze       GRPCMethod = "VoiceAnalyze"
+	MethodTokenClassify      GRPCMethod = "TokenClassify"
 )
 
 // UsecaseInfo describes a single known_usecase value and how it maps
@@ -163,6 +167,11 @@ var UsecaseInfoMap = map[string]UsecaseInfo{
 		GRPCMethod:  MethodDiarize,
 		Description: "Speaker diarization (who-spoke-when, per-speaker segments) via the Diarize RPC.",
 	},
+	UsecaseSoundClassification: {
+		Flag:        FLAG_SOUND_CLASSIFICATION,
+		GRPCMethod:  MethodSoundDetection,
+		Description: "Sound-event classification / audio tagging (scored AudioSet labels like baby cry, glass breaking, alarms) via the SoundDetection RPC.",
+	},
 	UsecaseRealtimeAudio: {
 		Flag:        FLAG_REALTIME_AUDIO,
 		GRPCMethod:  MethodAudioToAudioStream,
@@ -177,6 +186,11 @@ var UsecaseInfoMap = map[string]UsecaseInfo{
 		Flag:        FLAG_SPEAKER_RECOGNITION,
 		GRPCMethod:  MethodVoiceVerify,
 		Description: "Speaker recognition — verify identity, embed and analyze voice via VoiceVerify, VoiceEmbed and VoiceAnalyze RPCs.",
+	},
+	UsecaseTokenClassify: {
+		Flag:        FLAG_TOKEN_CLASSIFY,
+		GRPCMethod:  MethodTokenClassify,
+		Description: "Per-token classification (NER) via the TokenClassify RPC — the PII detector tier. Declared explicitly via known_usecases; never auto-guessed, since the token-classification head is not useful as general generation or embeddings.",
 	},
 }
 
@@ -213,6 +227,17 @@ var BackendCapabilities = map[string]BackendCapability{
 		DefaultUsecases:  []string{UsecaseChat},
 		AcceptsImages:    true, // requires mmproj
 		Description:      "llama.cpp GGUF models — LLM inference with optional vision via mmproj",
+	},
+	// privacy-filter is the standalone GGML engine (backend/cpp/privacy-filter,
+	// wrapping privacy-filter.cpp) for the openai-privacy-filter PII/NER token
+	// classifier — the dedicated TokenClassify path that replaces the
+	// patched-llama.cpp route. Never auto-guessed; declared explicitly via
+	// known_usecases: [token_classify].
+	"privacy-filter": {
+		GRPCMethods:      []GRPCMethod{MethodTokenClassify},
+		PossibleUsecases: []string{UsecaseTokenClassify},
+		DefaultUsecases:  []string{UsecaseTokenClassify},
+		Description:      "privacy-filter.cpp — standalone GGML backend for openai-privacy-filter PII/NER token classification",
 	},
 	"vllm": {
 		GRPCMethods:      []GRPCMethod{MethodPredict, MethodPredictStream, MethodEmbedding},
@@ -516,6 +541,19 @@ var BackendCapabilities = map[string]BackendCapability{
 		PossibleUsecases: []string{UsecaseSpeakerRecognition},
 		DefaultUsecases:  []string{UsecaseSpeakerRecognition},
 		Description:      "Speaker recognition — voice identity verification and analysis",
+	},
+	"voice-detect": {
+		GRPCMethods:      []GRPCMethod{MethodVoiceVerify, MethodVoiceEmbed, MethodVoiceAnalyze},
+		PossibleUsecases: []string{UsecaseSpeakerRecognition},
+		DefaultUsecases:  []string{UsecaseSpeakerRecognition},
+		Description:      "voice-detect.cpp: C++/ggml speaker embedding, verification and voice analysis (age/gender/emotion)",
+	},
+	"face-detect": {
+		GRPCMethods:      []GRPCMethod{MethodEmbedding, MethodDetect, MethodFaceVerify, MethodFaceAnalyze},
+		PossibleUsecases: []string{UsecaseEmbeddings, UsecaseDetection, UsecaseFaceRecognition},
+		DefaultUsecases:  []string{UsecaseFaceRecognition},
+		AcceptsImages:    true,
+		Description:      "face-detect.cpp: C++/ggml face detection, embedding, verification and attribute analysis",
 	},
 	"silero-vad": {
 		GRPCMethods:      []GRPCMethod{MethodVAD},

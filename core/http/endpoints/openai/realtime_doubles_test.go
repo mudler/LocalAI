@@ -74,6 +74,21 @@ type fakeModel struct {
 
 	transcribeDeltas []string
 	transcribeFinal  *schema.TranscriptionResult
+	transcribeErr    error
+
+	// TranscribeLive scripting: liveErr makes the open fail (degrade path);
+	// liveEvents are delivered to onEvent synchronously at open;
+	// liveCloseEvents are delivered during Close (the finalize flush).
+	liveErr         error
+	liveEvents      []backend.LiveTranscriptionEvent
+	liveCloseEvents []backend.LiveTranscriptionEvent
+	liveOpened      int
+	liveSession     *fakeLiveSession
+
+	// soundDetectionResult/soundDetectionErr drive the SoundDetection double so
+	// the sound-event path can be exercised deterministically.
+	soundDetectionResult *schema.SoundClassificationResult
+	soundDetectionErr    error
 
 	// Predict streaming: predictTokens are replayed through the token callback
 	// (simulating streamed LLM output); predictResp/predictErr are returned by
@@ -83,6 +98,8 @@ type fakeModel struct {
 	predictChunkDeltas [][]*proto.ChatDelta
 	predictResp        backend.LLMResponse
 	predictErr         error
+
+	lastMessages schema.Messages
 }
 
 func (m *fakeModel) VAD(context.Context, *schema.VADRequest) (*schema.VADResponse, error) {
@@ -90,10 +107,18 @@ func (m *fakeModel) VAD(context.Context, *schema.VADRequest) (*schema.VADRespons
 }
 
 func (m *fakeModel) Transcribe(context.Context, string, string, bool, bool, string) (*schema.TranscriptionResult, error) {
-	return m.transcribeFinal, nil
+	return m.transcribeFinal, m.transcribeErr
 }
 
-func (m *fakeModel) Predict(_ context.Context, _ schema.Messages, _, _, _ []string, cb func(string, backend.TokenUsage) bool, _ []types.ToolUnion, _ *types.ToolChoiceUnion, _, _ *int, _ map[string]float64) (func() (backend.LLMResponse, error), error) {
+func (m *fakeModel) SoundDetection(context.Context, string, int, float32) (*schema.SoundClassificationResult, error) {
+	if m.soundDetectionErr != nil {
+		return nil, m.soundDetectionErr
+	}
+	return m.soundDetectionResult, nil
+}
+
+func (m *fakeModel) Predict(_ context.Context, msgs schema.Messages, _, _, _ []string, cb func(string, backend.TokenUsage) bool, _ []types.ToolUnion, _ *types.ToolChoiceUnion, _, _ *int, _ map[string]float64) (func() (backend.LLMResponse, error), error) {
+	m.lastMessages = msgs
 	if m.predictErr != nil {
 		return nil, m.predictErr
 	}
@@ -135,4 +160,43 @@ func (m *fakeModel) TranscribeStream(_ context.Context, _, _ string, _, _ bool, 
 	return m.transcribeFinal, nil
 }
 
+func (m *fakeModel) TranscribeLive(_ context.Context, _ string, onEvent func(backend.LiveTranscriptionEvent)) (backend.LiveTranscriptionSession, error) {
+	if m.liveErr != nil {
+		return nil, m.liveErr
+	}
+	m.liveOpened++
+	for _, ev := range m.liveEvents {
+		onEvent(ev)
+	}
+	m.liveSession = &fakeLiveSession{onEvent: onEvent, closeEvents: m.liveCloseEvents}
+	return m.liveSession, nil
+}
+
 func (m *fakeModel) PredictConfig() *config.ModelConfig { return m.cfg }
+
+// fakeLiveSession records what semantic_vad fed and closed; closeEvents are
+// replayed through onEvent during Close, mimicking the backend's finalize
+// flush (trailing delta + Final) landing before Close returns.
+type fakeLiveSession struct {
+	onEvent     func(backend.LiveTranscriptionEvent)
+	closeEvents []backend.LiveTranscriptionEvent
+	fed         [][]float32
+	feedErr     error
+	closed      int
+}
+
+func (s *fakeLiveSession) Feed(pcm []float32) error {
+	if s.feedErr != nil {
+		return s.feedErr
+	}
+	s.fed = append(s.fed, append([]float32(nil), pcm...))
+	return nil
+}
+
+func (s *fakeLiveSession) Close() error {
+	s.closed++
+	for _, ev := range s.closeEvents {
+		s.onEvent(ev)
+	}
+	return nil
+}

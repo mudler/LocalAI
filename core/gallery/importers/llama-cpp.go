@@ -25,8 +25,8 @@ var (
 
 type LlamaCPPImporter struct{}
 
-func (i *LlamaCPPImporter) Name() string     { return "llama-cpp" }
-func (i *LlamaCPPImporter) Modality() string { return "text" }
+func (i *LlamaCPPImporter) Name() string      { return "llama-cpp" }
+func (i *LlamaCPPImporter) Modality() string  { return "text" }
 func (i *LlamaCPPImporter) AutoDetects() bool { return true }
 
 // AdditionalBackends advertises drop-in replacements that share the
@@ -98,8 +98,13 @@ func (i *LlamaCPPImporter) Import(details Details) (gallery.ModelConfig, error) 
 		}
 	}
 
-	name, ok := preferencesMap["name"].(string)
-	if !ok {
+	// nameProvided tracks whether the user supplied an explicit model name.
+	// When they didn't, the URI base is only a fallback: for a HuggingFace
+	// repo-root URI (no file component) it would be the repo name, so the HF
+	// branch below re-derives the name from the selected GGUF file instead
+	// (issue #10587).
+	name, nameProvided := preferencesMap["name"].(string)
+	if !nameProvided {
 		name = filepath.Base(details.URI)
 	}
 
@@ -227,10 +232,23 @@ func (i *LlamaCPPImporter) Import(details Details) (gallery.ModelConfig, error) 
 		mmprojGroups := hfapi.GroupShards(mmprojFiles)
 		ggufGroups := hfapi.GroupShards(ggufFiles)
 
+		modelGroup := pickPreferredGroup(ggufGroups, quants)
+
+		// A repo-root URI has no file component, so the URI-base fallback
+		// above produced the repo name. When the user left the name blank,
+		// derive it from the GGUF file actually selected from the listing so
+		// the gallery entry and `model:` directory reflect the model, not the
+		// repository (issue #10587). An explicit name preference always wins.
+		if !nameProvided && modelGroup != nil {
+			name = modelNameFromShardGroup(*modelGroup)
+			modelConfig.Name = name
+			cfg.Name = name
+		}
+
 		// Emit the model group first so cfg.Files[0] is the model — callers
 		// and tests rely on the model file preceding any mmproj companion.
-		if group := pickPreferredGroup(ggufGroups, quants); group != nil {
-			appendShardGroup(&cfg, *group, filepath.Join("llama-cpp", "models", name))
+		if modelGroup != nil {
+			appendShardGroup(&cfg, *modelGroup, filepath.Join("llama-cpp", "models", name))
 		}
 		if group := pickPreferredGroup(mmprojGroups, mmprojQuantsList); group != nil {
 			appendShardGroup(&cfg, *group, filepath.Join("llama-cpp", "mmproj", name))
@@ -281,6 +299,20 @@ func (i *LlamaCPPImporter) Import(details Details) (gallery.ModelConfig, error) 
 	return cfg, nil
 }
 
+// modelNameFromShardGroup derives a human-facing model name from the picked
+// GGUF group: the logical base filename with its .gguf extension stripped.
+// ShardGroup.Base is the common prefix for sharded sets (without the
+// -NNNNN-of-MMMMM suffix) and the sole basename for single-file models, so
+// this yields a clean name like "model-Q4_K_M" rather than an individual
+// shard filename or the repo-root URI base.
+func modelNameFromShardGroup(group hfapi.ShardGroup) string {
+	base := group.Base
+	if ext := filepath.Ext(base); strings.EqualFold(ext, ".gguf") {
+		base = strings.TrimSuffix(base, ext)
+	}
+	return base
+}
+
 // pickPreferredGroup walks the preference list in priority order and returns
 // the first group whose base filename contains any preference. When nothing
 // matches, the last group wins — this preserves the historical "if the user
@@ -293,12 +325,45 @@ func pickPreferredGroup(groups []hfapi.ShardGroup, prefs []string) *hfapi.ShardG
 	for _, pref := range prefs {
 		lower := strings.ToLower(pref)
 		for i := range groups {
-			if strings.Contains(strings.ToLower(groups[i].Base), lower) {
+			if quantTokenMatches(strings.ToLower(groups[i].Base), lower) {
 				return &groups[i]
 			}
 		}
 	}
 	return &groups[len(groups)-1]
+}
+
+// quantTokenMatches reports whether pref appears in base as a whole token
+// rather than as a substring of a larger alphanumeric run. Both arguments
+// must already be lowercased.
+//
+// A plain strings.Contains is wrong here: `f16` is a substring of `bf16`, so
+// asking for the `F16` quant used to wrongly select a `BF16` file (#10559).
+// Only the OUTER edges of the matched preference must hit a boundary — a
+// non-alphanumeric char (or the start/end of base). Separators inside the
+// preference itself (e.g. `ud-q4_k_xl`) are intentionally left untouched.
+func quantTokenMatches(base, pref string) bool {
+	if pref == "" {
+		return false
+	}
+	for start := strings.Index(base, pref); start != -1; {
+		end := start + len(pref)
+		leftOK := start == 0 || !isAlphaNum(base[start-1])
+		rightOK := end == len(base) || !isAlphaNum(base[end])
+		if leftOK && rightOK {
+			return true
+		}
+		next := strings.Index(base[start+1:], pref)
+		if next == -1 {
+			break
+		}
+		start += next + 1
+	}
+	return false
+}
+
+func isAlphaNum(b byte) bool {
+	return (b >= 'a' && b <= 'z') || (b >= '0' && b <= '9')
 }
 
 // maybeApplyMTPDefaults parses the picked GGUF header (range-fetched over

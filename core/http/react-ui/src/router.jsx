@@ -69,12 +69,17 @@ const Studio = page('studio', () => import('./pages/Studio'))
 const FaceRecognition = page('face', () => import('./pages/FaceRecognition'))
 const VoiceRecognition = page('voice', () => import('./pages/VoiceRecognition'))
 const Nodes = page('nodes', () => import('./pages/Nodes'))
+const Scheduling = page('scheduling', () => import('./pages/Scheduling'))
 const NodeBackendLogs = page(null, () => import('./pages/NodeBackendLogs'))
+const NodeDetail = page(null, () => import('./pages/NodeDetail'))
 const NotFound = page(null, () => import('./pages/NotFound'))
 const Usage = page('usage', () => import('./pages/Usage'))
 const Users = page('users', () => import('./pages/Users'))
 const Middleware = page('middleware', () => import('./pages/Middleware'))
 const Account = page('account', () => import('./pages/Account'))
+
+import ConsoleLayout from './components/console/ConsoleLayout'
+import { buildConsole, operateConsole } from './components/console/consoleConfig'
 
 function BrowseRedirect() {
   const { '*': splat } = useParams()
@@ -92,7 +97,6 @@ function Feature({ feature, children }) {
 
 const appChildren = [
   { index: true, element: <Home /> },
-  { path: 'models', element: <Admin><Models /></Admin> },
   { path: 'chat', element: <Chat /> },
   { path: 'chat/:model', element: <Chat /> },
   { path: 'image', element: <ImageGen /> },
@@ -107,39 +111,61 @@ const appChildren = [
   { path: 'transform/:model', element: <Feature feature="audio_transform"><AudioTransform /></Feature> },
   { path: 'studio', element: <Studio /> },
   { path: 'talk', element: <Talk /> },
-  { path: 'face', element: <Feature feature="face_recognition"><FaceRecognition /></Feature> },
-  { path: 'face/:model', element: <Feature feature="face_recognition"><FaceRecognition /></Feature> },
-  { path: 'voice', element: <Feature feature="voice_recognition"><VoiceRecognition /></Feature> },
-  { path: 'voice/:model', element: <Feature feature="voice_recognition"><VoiceRecognition /></Feature> },
-  { path: 'usage', element: <Usage /> },
   { path: 'account', element: <Account /> },
-  { path: 'users', element: <RequireAuthEnabled><Admin><Users /></Admin></RequireAuthEnabled> },
-  { path: 'middleware', element: <Admin><Middleware /></Admin> },
-  { path: 'manage', element: <Admin><Manage /></Admin> },
-  { path: 'backends', element: <Admin><Backends /></Admin> },
-  { path: 'settings', element: <Admin><Settings /></Admin> },
-  { path: 'traces', element: <Admin><Traces /></Admin> },
-  { path: 'backend-logs/:modelId', element: <Admin><BackendLogs /></Admin> },
-  { path: 'p2p', element: <Admin><P2P /></Admin> },
-  { path: 'nodes', element: <Admin><Nodes /></Admin> },
-  { path: 'node-backend-logs/:nodeId/:modelId', element: <Admin><NodeBackendLogs /></Admin> },
-  { path: 'agents', element: <Feature feature="agents"><Agents /></Feature> },
+
+  // Build console — Automation, Training, and Recognition groups share one rail.
+  // Only the section landing pages live under the rail; deep create/edit/chat
+  // flows below render full-width.
+  {
+    element: <ConsoleLayout config={buildConsole} />,
+    children: [
+      { path: 'agents', element: <Feature feature="agents"><Agents /></Feature> },
+      { path: 'skills', element: <Feature feature="skills"><Skills /></Feature> },
+      { path: 'collections', element: <Feature feature="collections"><Collections /></Feature> },
+      { path: 'agent-jobs', element: <Feature feature="mcp_jobs"><AgentJobs /></Feature> },
+      { path: 'fine-tune', element: <Feature feature="fine_tuning"><FineTune /></Feature> },
+      { path: 'quantize', element: <Feature feature="quantization"><Quantize /></Feature> },
+      { path: 'face', element: <Feature feature="face_recognition"><FaceRecognition /></Feature> },
+      { path: 'face/:model', element: <Feature feature="face_recognition"><FaceRecognition /></Feature> },
+      { path: 'voice', element: <Feature feature="voice_recognition"><VoiceRecognition /></Feature> },
+      { path: 'voice/:model', element: <Feature feature="voice_recognition"><VoiceRecognition /></Feature> },
+    ],
+  },
+  // Build deep flows — full-width, no rail.
   { path: 'agents/new', element: <Feature feature="agents"><AgentCreate /></Feature> },
   { path: 'agents/:name/edit', element: <Feature feature="agents"><AgentCreate /></Feature> },
   { path: 'agents/:name/chat', element: <Feature feature="agents"><AgentChat /></Feature> },
   { path: 'agents/:name/status', element: <Feature feature="agents"><AgentStatus /></Feature> },
-  { path: 'collections', element: <Feature feature="collections"><Collections /></Feature> },
   { path: 'collections/:name', element: <Feature feature="collections"><CollectionDetails /></Feature> },
-  { path: 'skills', element: <Feature feature="skills"><Skills /></Feature> },
   { path: 'skills/new', element: <Feature feature="skills"><SkillEdit /></Feature> },
   { path: 'skills/edit/:name', element: <Feature feature="skills"><SkillEdit /></Feature> },
-  { path: 'agent-jobs', element: <Feature feature="mcp_jobs"><AgentJobs /></Feature> },
   { path: 'agent-jobs/tasks/new', element: <Feature feature="mcp_jobs"><AgentTaskDetails /></Feature> },
   { path: 'agent-jobs/tasks/:id', element: <Feature feature="mcp_jobs"><AgentTaskDetails /></Feature> },
   { path: 'agent-jobs/tasks/:id/edit', element: <Feature feature="mcp_jobs"><AgentTaskDetails /></Feature> },
   { path: 'agent-jobs/jobs/:id', element: <Feature feature="mcp_jobs"><AgentJobDetails /></Feature> },
-  { path: 'fine-tune', element: <Feature feature="fine_tuning"><FineTune /></Feature> },
-  { path: 'quantize', element: <Feature feature="quantization"><Quantize /></Feature> },
+
+  // Operate console (admin).
+  {
+    element: <ConsoleLayout config={operateConsole} />,
+    children: [
+      { path: 'backends', element: <Admin><Backends /></Admin> },
+      { path: 'settings', element: <Admin><Settings /></Admin> },
+      { path: 'traces', element: <Admin><Traces /></Admin> },
+      { path: 'backend-logs/:modelId', element: <Admin><BackendLogs /></Admin> },
+      { path: 'p2p', element: <Admin><P2P /></Admin> },
+      { path: 'nodes', element: <Admin><Nodes /></Admin> },
+      { path: 'nodes/:id', element: <Admin><NodeDetail /></Admin> },
+      { path: 'scheduling', element: <Admin><Scheduling /></Admin> },
+      { path: 'node-backend-logs/:nodeId/:modelId', element: <Admin><NodeBackendLogs /></Admin> },
+      { path: 'usage', element: <Usage /> },
+      { path: 'users', element: <RequireAuthEnabled><Admin><Users /></Admin></RequireAuthEnabled> },
+      { path: 'middleware', element: <Admin><Middleware /></Admin> },
+      { path: 'manage', element: <Admin><Manage /></Admin> },
+    ],
+  },
+
+  // Models management (Install Models) — top-level destination, full-width.
+  { path: 'models', element: <Admin><Models /></Admin> },
   { path: 'model-editor', element: <Admin><ModelEditor /></Admin> },
   { path: 'model-editor/:name', element: <Admin><ModelEditor /></Admin> },
   { path: 'import-model', element: <Admin><ImportModel /></Admin> },

@@ -3,6 +3,7 @@ package main
 import (
 	"flag"
 	"os"
+	"runtime"
 
 	"github.com/ebitengine/purego"
 	grpc "github.com/mudler/LocalAI/pkg/grpc"
@@ -21,7 +22,11 @@ func main() {
 	// Get library name from environment variable, default to fallback
 	libName := os.Getenv("SAM3_LIBRARY")
 	if libName == "" {
-		libName = "./libgosam3-fallback.so"
+		if runtime.GOOS == "darwin" {
+			libName = "./libgosam3-fallback.dylib"
+		} else {
+			libName = "./libgosam3-fallback.so"
+		}
 	}
 
 	gosamLib, err := purego.Dlopen(libName, purego.RTLD_NOW|purego.RTLD_GLOBAL)

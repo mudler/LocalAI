@@ -16,7 +16,8 @@ import (
 
 func RegisterOpenAIRoutes(app *echo.Echo,
 	re *middleware.RequestExtractor,
-	application *application.Application) {
+	application *application.Application,
+) {
 	// openAI compatible API endpoint
 	traceMiddleware := middleware.TraceMiddleware(application)
 	usageMiddleware := middleware.UsageMiddleware(application.StatsRecorder(), application.FallbackUser())
@@ -42,7 +43,7 @@ func RegisterOpenAIRoutes(app *echo.Echo,
 	}
 
 	// chat
-	chatHandler := openai.ChatEndpoint(application.ModelConfigLoader(), application.ModelLoader(), application.TemplatesEvaluator(), application.ApplicationConfig(), natsClient, application.LocalAIAssistant(), application.PIIRedactor(), application.PIIEvents())
+	chatHandler := openai.ChatEndpoint(application.ModelConfigLoader(), application.ModelLoader(), application.TemplatesEvaluator(), application.ApplicationConfig(), natsClient, application.LocalAIAssistant())
 	chatMiddleware := []echo.MiddlewareFunc{
 		nodeHeaderMiddleware,
 		usageMiddleware,
@@ -91,7 +92,7 @@ func RegisterOpenAIRoutes(app *echo.Echo,
 		// configs honour the routed target (e.g., a router fans out to
 		// claude-strict; that model's pii block applies, not the
 		// router model's).
-		pii.RequestMiddleware(application.PIIRedactor(), application.PIIEvents(), piiadapter.OpenAI(), application.FallbackUser()),
+		pii.RequestMiddleware(application.PIIRedactor(), application.PIIEvents(), piiadapter.OpenAI(), application.FallbackUser(), pii.WithNERResolver(application.PIINERResolver()), pii.WithPolicyResolver(application.PIIPolicyResolver())),
 	}
 	app.POST("/v1/chat/completions", chatHandler, chatMiddleware...)
 	app.POST("/chat/completions", chatHandler, chatMiddleware...)
@@ -112,12 +113,13 @@ func RegisterOpenAIRoutes(app *echo.Echo,
 				return next(c)
 			}
 		},
+		pii.RequestMiddleware(application.PIIRedactor(), application.PIIEvents(), piiadapter.OpenAICompletion(), application.FallbackUser(), pii.WithNERResolver(application.PIINERResolver()), pii.WithPolicyResolver(application.PIIPolicyResolver())),
 	}
 	app.POST("/v1/edits", editHandler, editMiddleware...)
 	app.POST("/edits", editHandler, editMiddleware...)
 
 	// completion
-	completionHandler := openai.CompletionEndpoint(application.ModelConfigLoader(), application.ModelLoader(), application.TemplatesEvaluator(), application.ApplicationConfig(), application.PIIRedactor(), application.PIIEvents())
+	completionHandler := openai.CompletionEndpoint(application.ModelConfigLoader(), application.ModelLoader(), application.TemplatesEvaluator(), application.ApplicationConfig())
 	completionMiddleware := []echo.MiddlewareFunc{
 		nodeHeaderMiddleware,
 		usageMiddleware,
@@ -133,6 +135,7 @@ func RegisterOpenAIRoutes(app *echo.Echo,
 				return next(c)
 			}
 		},
+		pii.RequestMiddleware(application.PIIRedactor(), application.PIIEvents(), piiadapter.OpenAICompletion(), application.FallbackUser(), pii.WithNERResolver(application.PIINERResolver()), pii.WithPolicyResolver(application.PIIPolicyResolver())),
 	}
 	app.POST("/v1/completions", completionHandler, completionMiddleware...)
 	app.POST("/completions", completionHandler, completionMiddleware...)
@@ -155,6 +158,7 @@ func RegisterOpenAIRoutes(app *echo.Echo,
 				return next(c)
 			}
 		},
+		pii.RequestMiddleware(application.PIIRedactor(), application.PIIEvents(), piiadapter.OpenAICompletion(), application.FallbackUser(), pii.WithNERResolver(application.PIINERResolver()), pii.WithPolicyResolver(application.PIIPolicyResolver())),
 	}
 	app.POST("/v1/embeddings", embeddingHandler, embeddingMiddleware...)
 	app.POST("/embeddings", embeddingHandler, embeddingMiddleware...)
@@ -195,6 +199,23 @@ func RegisterOpenAIRoutes(app *echo.Echo,
 	}
 	app.POST("/v1/audio/diarization", diarizationHandler, diarizationMiddleware...)
 	app.POST("/audio/diarization", diarizationHandler, diarizationMiddleware...)
+
+	soundClassificationHandler := openai.SoundClassificationEndpoint(application.ModelConfigLoader(), application.ModelLoader(), application.ApplicationConfig())
+	soundClassificationMiddleware := []echo.MiddlewareFunc{
+		traceMiddleware,
+		re.BuildFilteredFirstAvailableDefaultModel(config.BuildUsecaseFilterFn(config.FLAG_SOUND_CLASSIFICATION)),
+		re.SetModelAndConfig(func() schema.LocalAIRequest { return new(schema.OpenAIRequest) }),
+		func(next echo.HandlerFunc) echo.HandlerFunc {
+			return func(c echo.Context) error {
+				if err := re.SetOpenAIRequest(c); err != nil {
+					return err
+				}
+				return next(c)
+			}
+		},
+	}
+	app.POST("/v1/audio/classification", soundClassificationHandler, soundClassificationMiddleware...)
+	app.POST("/audio/classification", soundClassificationHandler, soundClassificationMiddleware...)
 
 	audioSpeechHandler := localai.TTSEndpoint(application.ModelConfigLoader(), application.ModelLoader(), application.ApplicationConfig())
 	audioSpeechMiddleware := []echo.MiddlewareFunc{

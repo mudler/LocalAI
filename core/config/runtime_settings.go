@@ -18,8 +18,8 @@ type RuntimeSettings struct {
 	WatchdogInterval    *string `json:"watchdog_interval,omitempty"` // Interval between watchdog checks (e.g., 2s, 30s)
 
 	// Backend management
-	SingleBackend           *bool `json:"single_backend,omitempty"`      // Deprecated: use MaxActiveBackends = 1 instead
-	MaxActiveBackends       *int  `json:"max_active_backends,omitempty"` // Maximum number of active backends (0 = unlimited, 1 = single backend mode)
+	SingleBackend             *bool `json:"single_backend,omitempty"`              // Deprecated: use MaxActiveBackends = 1 instead
+	MaxActiveBackends         *int  `json:"max_active_backends,omitempty"`         // Maximum number of active backends (0 = unlimited, 1 = single backend mode)
 	AutoUpgradeBackends       *bool `json:"auto_upgrade_backends,omitempty"`       // Automatically upgrade backends when new versions are detected
 	PreferDevelopmentBackends *bool `json:"prefer_development_backends,omitempty"` // Prefer development backend versions by default in UI
 	// Memory Reclaimer settings (works with GPU if available, otherwise RAM)
@@ -28,6 +28,7 @@ type RuntimeSettings struct {
 
 	// Eviction settings
 	ForceEvictionWhenBusy    *bool   `json:"force_eviction_when_busy,omitempty"`    // Force eviction even when models have active API calls (default: false for safety)
+	SizeAwareEviction        *bool   `json:"size_aware_eviction,omitempty"`          // Evict largest models first rather than least-recently-used (default: false)
 	LRUEvictionMaxRetries    *int    `json:"lru_eviction_max_retries,omitempty"`    // Maximum number of retries when waiting for busy models to become idle (default: 30)
 	LRUEvictionRetryInterval *string `json:"lru_eviction_retry_interval,omitempty"` // Interval between retries when waiting for busy models (e.g., 1s, 2s) (default: 1s)
 
@@ -97,19 +98,9 @@ type RuntimeSettings struct {
 	// trusted clients.
 	MITMListen *string `json:"mitm_listen,omitempty"`
 
-	// PII pattern overrides — keyed by pattern id, applied to the live
-	// redactor at startup and persisted by POST /api/pii/patterns/persist.
-	// Distinguishes from --pii-config (which replaces the entire
-	// pattern set) by only carrying the per-id action/enabled deltas
-	// against the global default catalog.
-	PIIPatternOverrides *map[string]PIIPatternRuntimeOverride `json:"pii_pattern_overrides,omitempty"`
-}
-
-// PIIPatternRuntimeOverride captures the persistable deltas an admin
-// has applied to a single global PII pattern. Both fields are pointers
-// so an override that only flips Disabled doesn't have to also restate
-// Action (and vice versa).
-type PIIPatternRuntimeOverride struct {
-	Action   *string `json:"action,omitempty"`
-	Disabled *bool   `json:"disabled,omitempty"`
+	// PIIDefaultDetectors are the token-classification detector models applied
+	// to any PII-enabled model that names no detectors of its own (so
+	// cloud-proxy/MITM redaction works without per-model config). No omitempty:
+	// an empty array must round-trip so the operator can clear it from the UI.
+	PIIDefaultDetectors *[]string `json:"pii_default_detectors"`
 }

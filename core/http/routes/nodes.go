@@ -71,6 +71,9 @@ func RegisterNodeAdminRoutes(e *echo.Echo, registry *nodes.NodeRegistry, unloade
 	admin := e.Group("/api/nodes", readyMw, adminMw)
 	admin.GET("", localai.ListNodesEndpoint(registry))
 
+	// Cluster-wide loaded models (registered before /:id to avoid route conflicts)
+	admin.GET("/models", localai.ListAllNodeModelsEndpoint(registry))
+
 	// Model scheduling (registered before /:id to avoid route conflicts)
 	admin.GET("/scheduling", localai.ListSchedulingEndpoint(registry))
 	admin.GET("/scheduling/:model", localai.GetSchedulingEndpoint(registry))
@@ -85,7 +88,7 @@ func RegisterNodeAdminRoutes(e *echo.Echo, registry *nodes.NodeRegistry, unloade
 	admin.POST("/:id/approve", localai.ApproveNodeEndpoint(registry, authDB, hmacSecret, natsCfg))
 
 	// Backend management on workers
-	admin.GET("/:id/backends", localai.ListBackendsOnNodeEndpoint(unloader))
+	admin.GET("/:id/backends", localai.ListBackendsOnNodeEndpoint(unloader, registry))
 	admin.POST("/:id/backends/install", localai.InstallBackendOnNodeEndpoint(unloader, galleryService, opcache, appConfig))
 	admin.POST("/:id/backends/delete", localai.DeleteBackendOnNodeEndpoint(unloader))
 

@@ -1,4 +1,9 @@
 {
+  "unsaved": {
+    "title": "Discard unsaved changes?",
+    "message": "You have unsaved changes that will be lost if you leave this page.",
+    "leave": "Leave"
+  },
   "actions": {
     "save": "Guardar",
     "saving": "Guardando...",

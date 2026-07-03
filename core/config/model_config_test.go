@@ -7,6 +7,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"gopkg.in/yaml.v3"
 )
 
 var _ = Describe("Test cases for config related functions", func() {
@@ -72,9 +73,10 @@ parameters:
 			Expect(valid).To(BeTrue())
 
 			// llama-cpp configs can't mix the score usecase with
-			// chat/completion/embeddings — Score bypasses the slot
-			// loop and would race the llama_context. The check fires
-			// at load and save time; here we exercise it directly.
+			// chat/completion/embeddings — Score bypasses the slot loop
+			// and would race the llama_context. (token_classify is exempt:
+			// it runs on the privacy-filter backend, not llama-cpp, so the
+			// token_classify combinations below stay valid.)
 			scoreFlag := FLAG_SCORE | FLAG_CHAT
 			conflicting := ModelConfig{
 				Name:          "router-but-also-chat",
@@ -96,15 +98,23 @@ parameters:
 			Expect(valid).To(BeTrue())
 			Expect(err).NotTo(HaveOccurred())
 
-			// The constraint is llama-cpp-specific; other backends
-			// may safely combine.
-			scoreAndChat := FLAG_SCORE | FLAG_CHAT
-			otherBackend := ModelConfig{
-				Name:          "vllm-router-and-chat",
-				Backend:       "vllm",
-				KnownUsecases: &scoreAndChat,
+			tcAndChat := FLAG_TOKEN_CLASSIFY | FLAG_CHAT
+			tcCombined := ModelConfig{
+				Name:          "ner-and-chat",
+				Backend:       "llama-cpp",
+				KnownUsecases: &tcAndChat,
 			}
-			valid, err = otherBackend.Validate()
+			valid, err = tcCombined.Validate()
+			Expect(valid).To(BeTrue())
+			Expect(err).NotTo(HaveOccurred())
+
+			tcAndEmbeddings := FLAG_TOKEN_CLASSIFY | FLAG_EMBEDDINGS
+			tcWithEmbeddings := ModelConfig{
+				Name:          "pii-ner",
+				Backend:       "llama-cpp",
+				KnownUsecases: &tcAndEmbeddings,
+			}
+			valid, err = tcWithEmbeddings.Validate()
 			Expect(valid).To(BeTrue())
 			Expect(err).NotTo(HaveOccurred())
 
@@ -228,7 +238,6 @@ parameters:
 		})
 	})
 	It("Properly handles backend usecase matching", func() {
-
 		a := ModelConfig{
 			Name: "a",
 		}
@@ -336,17 +345,17 @@ parameters:
 		// Declared `known_usecases: [score]` is authoritative — the
 		// guessing heuristic must NOT add chat on top, even though the
 		// inherited chatml template would otherwise satisfy the chat
-		// heuristic. Score means "this model is reserved for the
-		// router classifier"; surfacing it as a chat model defeats the
-		// reservation and reintroduces the slot contention the load-time
-		// score/chat conflict check exists to prevent.
+		// heuristic. A score-only declaration means "this model is
+		// reserved for the router classifier"; surfacing it as a chat
+		// model defeats the reservation. (Operators who do want both
+		// may declare both — the combination is supported.)
 		scoreReserved := FLAG_SCORE
 		j := ModelConfig{
 			Name:          "arch-router",
 			Backend:       "llama-cpp",
 			KnownUsecases: &scoreReserved,
 			TemplateConfig: TemplateConfig{
-				Chat:    "inherited from chatml",
+				Chat:        "inherited from chatml",
 				ChatMessage: "inherited from chatml",
 				Completion:  "inherited from chatml",
 			},
@@ -355,6 +364,27 @@ parameters:
 		Expect(j.HasUsecases(FLAG_CHAT)).To(BeFalse())
 		Expect(j.HasUsecases(FLAG_COMPLETION)).To(BeFalse())
 		Expect(j.HasUsecases(FLAG_EMBEDDINGS)).To(BeFalse())
+
+		// Declared `known_usecases: [token_classify]` is likewise
+		// authoritative — a PII NER model is reserved for the redactor's
+		// NER tier and must not surface as chat or as a general embeddings
+		// model, even though it loads with embeddings enabled (its
+		// TOKEN_CLS head produces BIOES logits, not reusable embeddings).
+		tcReserved := FLAG_TOKEN_CLASSIFY
+		embTrue := true
+		k := ModelConfig{
+			Name:          "privacy-filter",
+			Backend:       "llama-cpp",
+			KnownUsecases: &tcReserved,
+			Embeddings:    &embTrue,
+			TemplateConfig: TemplateConfig{
+				Chat:        "inherited from chatml",
+				ChatMessage: "inherited from chatml",
+			},
+		}
+		Expect(k.HasUsecases(FLAG_TOKEN_CLASSIFY)).To(BeTrue())
+		Expect(k.HasUsecases(FLAG_CHAT)).To(BeFalse())
+		Expect(k.HasUsecases(FLAG_EMBEDDINGS)).To(BeFalse())
 	})
 	It("Test Validate with invalid MCP config", func() {
 		tmp, err := os.CreateTemp("", "config.yaml")
@@ -596,5 +626,193 @@ concurrency_groups:
 			Expect(cfg.TopK).NotTo(BeNil())
 			Expect(*cfg.TopK).To(Equal(7))
 		})
+	})
+})
+
+var _ = Describe("PII config accessors", func() {
+	It("PIIDetectors returns a fresh copy of the consumer's detector list", func() {
+		cfg := &ModelConfig{PII: PIIConfig{Detectors: []string{"a", "b"}}}
+		got := cfg.PIIDetectors()
+		Expect(got).To(Equal([]string{"a", "b"}))
+		got[0] = "mutated"
+		Expect(cfg.PII.Detectors[0]).To(Equal("a"), "accessor must not alias the underlying slice")
+	})
+
+	It("PIIDetectors is nil when none are configured", func() {
+		Expect((&ModelConfig{}).PIIDetectors()).To(BeNil())
+	})
+
+	It("exposes the detector model's pii_detection policy", func() {
+		cfg := &ModelConfig{PIIDetection: PIIDetectionConfig{
+			MinScore:      0.5,
+			DefaultAction: "mask",
+			EntityActions: map[string]string{"PASSWORD": "block", "EMAIL": "mask"},
+		}}
+		Expect(cfg.PIIDetectionMinScore()).To(BeNumerically("~", 0.5, 1e-6))
+		Expect(cfg.PIIDetectionDefaultAction()).To(Equal("mask"))
+		ea := cfg.PIIDetectionEntityActions()
+		Expect(ea).To(HaveKeyWithValue("PASSWORD", "block"))
+		ea["PASSWORD"] = "mutated"
+		Expect(cfg.PIIDetection.EntityActions["PASSWORD"]).To(Equal("block"), "accessor must return a fresh map")
+	})
+
+	It("unmarshals pii.detectors and pii_detection from YAML", func() {
+		var cfg ModelConfig
+		raw := []byte("name: consumer\npii:\n  enabled: true\n  detectors: [pf]\npii_detection:\n  min_score: 0.4\n  default_action: mask\n  entity_actions:\n    PASSWORD: block\n")
+		Expect(yaml.Unmarshal(raw, &cfg)).To(Succeed())
+		Expect(cfg.PIIDetectors()).To(Equal([]string{"pf"}))
+		Expect(cfg.PIIDetectionDefaultAction()).To(Equal("mask"))
+		Expect(cfg.PIIDetectionEntityActions()).To(HaveKeyWithValue("PASSWORD", "block"))
+	})
+})
+
+var _ = Describe("GGUF importer chat-default guard (reservedNonChatModel)", func() {
+	mk := func(flags ModelConfigUsecase) *ModelConfig {
+		return &ModelConfig{Backend: "llama-cpp", KnownUsecases: &flags}
+	}
+
+	It("treats declared score / token_classify models as reserved (no chat defaults)", func() {
+		Expect(reservedNonChatModel(mk(FLAG_SCORE))).To(BeTrue())
+		Expect(reservedNonChatModel(mk(FLAG_TOKEN_CLASSIFY))).To(BeTrue())
+		// embeddings declared alongside token_classify (the PII NER shape) is
+		// still reserved.
+		Expect(reservedNonChatModel(mk(FLAG_TOKEN_CLASSIFY | FLAG_EMBEDDINGS))).To(BeTrue())
+	})
+
+	It("does not reserve ordinary or undeclared models", func() {
+		Expect(reservedNonChatModel(mk(FLAG_CHAT))).To(BeFalse())
+		Expect(reservedNonChatModel(mk(FLAG_EMBEDDINGS))).To(BeFalse())
+		Expect(reservedNonChatModel(&ModelConfig{Backend: "llama-cpp"})).To(BeFalse())
+	})
+
+	It("keeps a token_classify GGUF config valid by withholding FLAG_CHAT", func() {
+		// The privacy-filter import shape: the GGUF importer appends FLAG_CHAT
+		// to a templateless model, which the next sync folds into
+		// KnownUsecases. token_classify+chat is a VALID combination
+		// (token_classify runs on the privacy-filter backend, not llama-cpp,
+		// so the score/chat conflict check does not apply to it), but the
+		// importer must still not paint a declared-reserved model as chat
+		// — that would surface it in every chat picker.
+		reserved := []string{"token_classify"}
+		withChat := append(append([]string{}, reserved...), "FLAG_CHAT")
+
+		// What the importer would produce WITHOUT the guard: valid (the
+		// score/chat conflict check is score-specific), just undesirable
+		// defaults.
+		combined := &ModelConfig{Backend: "llama-cpp", KnownUsecaseStrings: withChat}
+		combined.syncKnownUsecasesFromString()
+		valid, err := combined.Validate()
+		Expect(valid).To(BeTrue())
+		Expect(err).NotTo(HaveOccurred())
+
+		// With the guard (FLAG_CHAT withheld): the declaration survives and the
+		// config validates.
+		good := &ModelConfig{Backend: "llama-cpp", KnownUsecaseStrings: reserved}
+		good.syncKnownUsecasesFromString()
+		Expect(reservedNonChatModel(good)).To(BeTrue())
+		valid, err = good.Validate()
+		Expect(valid).To(BeTrue())
+		Expect(err).NotTo(HaveOccurred())
+		Expect(good.HasUsecases(FLAG_TOKEN_CLASSIFY)).To(BeTrue())
+	})
+})
+
+var _ = Describe("PIIFilterApplies (Middleware admin list scoping)", func() {
+	withUsecases := func(backend string, flags ModelConfigUsecase) *ModelConfig {
+		return &ModelConfig{Name: "m", Backend: backend, KnownUsecases: &flags}
+	}
+
+	It("includes chat-capable models and cloud-proxy models", func() {
+		Expect(withUsecases("llama-cpp", FLAG_CHAT).PIIFilterApplies()).To(BeTrue())
+		// cloud-proxy is always covered (MITM / proxy chat path), regardless
+		// of declared usecases.
+		Expect((&ModelConfig{Name: "claude", Backend: "cloud-proxy"}).PIIFilterApplies()).To(BeTrue())
+	})
+
+	It("excludes the detector and score models themselves", func() {
+		// token_classify detectors are the filters, not consumers; score
+		// classifiers are internal primitives. Both short-circuit
+		// HasUsecases(FLAG_CHAT) to false.
+		Expect(withUsecases("llama-cpp", FLAG_TOKEN_CLASSIFY).PIIFilterApplies()).To(BeFalse())
+		Expect(withUsecases("llama-cpp", FLAG_SCORE).PIIFilterApplies()).To(BeFalse())
+	})
+
+	It("includes embedding and completion models (their request text is filtered)", func() {
+		// Phase 4 wired PII onto /v1/embeddings, /v1/completions and /v1/edits,
+		// so those usecases are now coverable.
+		emb := withUsecases("llama-cpp", FLAG_EMBEDDINGS)
+		t := true
+		emb.Embeddings = &t
+		Expect(emb.PIIFilterApplies()).To(BeTrue())
+		Expect(withUsecases("llama-cpp", FLAG_COMPLETION).PIIFilterApplies()).To(BeTrue())
+	})
+
+	It("excludes models with no text-accepting, PII-covered endpoint", func() {
+		// VAD / audio-in models carry no coverable usecase.
+		Expect((&ModelConfig{Name: "vad", Backend: "silero-vad"}).PIIFilterApplies()).To(BeFalse())
+		Expect(withUsecases("whisper", FLAG_TRANSCRIPT).PIIFilterApplies()).To(BeFalse())
+	})
+})
+
+var _ = Describe("pattern detector config", func() {
+	patternCfg := func() *ModelConfig {
+		c := &ModelConfig{Name: "secret-filter", Backend: "pattern"}
+		c.PIIDetection.Builtins = []string{"anthropic_api_key"}
+		c.PIIDetection.Patterns = []PIIPattern{{Name: "INTERNAL", Match: `tok-[A-Za-z0-9]{20,}`}}
+		return c
+	}
+
+	It("IsPatternDetector keys off builtins/patterns", func() {
+		Expect(patternCfg().IsPatternDetector()).To(BeTrue())
+		Expect((&ModelConfig{Name: "ner", Backend: "llama-cpp"}).IsPatternDetector()).To(BeFalse())
+	})
+
+	It("Validate accepts a well-formed pattern detector (no model file needed)", func() {
+		ok, err := patternCfg().Validate()
+		Expect(err).NotTo(HaveOccurred())
+		Expect(ok).To(BeTrue())
+	})
+
+	It("Validate rejects an unknown built-in", func() {
+		c := &ModelConfig{Name: "x", Backend: "pattern"}
+		c.PIIDetection.Builtins = []string{"does_not_exist"}
+		_, err := c.Validate()
+		Expect(err).To(MatchError(ContainSubstring("unknown built-in")))
+	})
+
+	It("Validate rejects an unanchored custom pattern", func() {
+		c := &ModelConfig{Name: "x", Backend: "pattern"}
+		c.PIIDetection.Patterns = []PIIPattern{{Name: "EMAILish", Match: `[\w.]+@[\w.]+\.\w+`}}
+		_, err := c.Validate()
+		Expect(err).To(MatchError(ContainSubstring("pattern \"EMAILish\"")))
+	})
+})
+
+var _ = Describe("ModelConfig alias", func() {
+	It("reports IsAlias when alias is set", func() {
+		c := ModelConfig{Name: "gpt-4", Alias: "my-llama-3"}
+		Expect(c.IsAlias()).To(BeTrue())
+		Expect(ModelConfig{Name: "real"}.IsAlias()).To(BeFalse())
+	})
+
+	It("validates a minimal alias config", func() {
+		c := ModelConfig{Name: "gpt-4", Alias: "my-llama-3"}
+		ok, err := c.Validate()
+		Expect(err).ToNot(HaveOccurred())
+		Expect(ok).To(BeTrue())
+	})
+
+	It("rejects an alias pointing to itself", func() {
+		c := ModelConfig{Name: "loop", Alias: "loop"}
+		ok, err := c.Validate()
+		Expect(ok).To(BeFalse())
+		Expect(err).To(MatchError(ContainSubstring("itself")))
+	})
+
+	It("rejects an alias that also sets a backend", func() {
+		c := ModelConfig{Name: "gpt-4", Alias: "my-llama-3", Backend: "llama-cpp"}
+		ok, err := c.Validate()
+		Expect(ok).To(BeFalse())
+		Expect(err).To(MatchError(ContainSubstring("pure redirect")))
 	})
 })

@@ -59,6 +59,22 @@ func getFallbackTagValues(systemState *system.SystemState) (latestTag, masterTag
 	return latestTag, masterTag, devSuffix
 }
 
+// developmentURI returns the development image URI for a released backend URI by
+// swapping the released tag for the branch tag (e.g.
+// latest-metal-darwin-arm64-llama-cpp -> master-metal-darwin-arm64-llama-cpp).
+// The branch image tracks development. ok is false when uri has no released tag
+// to swap or already uses the branch tag.
+func developmentURI(uri, latestTag, masterTag string) (string, bool) {
+	if strings.Contains(uri, masterTag+"-") {
+		return "", false
+	}
+	branchURI := strings.Replace(uri, latestTag+"-", masterTag+"-", 1)
+	if branchURI == uri {
+		return "", false
+	}
+	return branchURI, true
+}
+
 // backendCandidate represents an installed concrete backend option for a given alias
 type backendCandidate struct {
 	name    string
@@ -295,15 +311,28 @@ func InstallBackend(ctx context.Context, systemState *system.SystemState, modelL
 		return fmt.Errorf("backend %q: %w", config.Name, optsErr)
 	}
 
-	uri := downloader.URI(config.URI)
+	// PreferDevelopmentBackends installs the development image as the primary URI,
+	// keeping the released image reachable as the first fallback — instead of only
+	// reaching development when the released image is missing.
+	primaryURI := string(config.URI)
+	mirrors := config.Mirrors
+	if systemState.PreferDevelopmentBackends {
+		if devURI, ok := developmentURI(string(config.URI), latestTag, masterTag); ok {
+			xlog.Info("PreferDevelopmentBackends: installing development image first", "development", devURI, "released", config.URI)
+			primaryURI = devURI
+			mirrors = append([]string{string(config.URI)}, config.Mirrors...)
+		}
+	}
+
+	uri := downloader.URI(primaryURI)
 	// Check if it is a directory
 	if uri.LooksLikeDir() {
 		// It is a directory, we just copy it over in the backend folder
-		if err := cp.Copy(config.URI, backendPath); err != nil {
+		if err := cp.Copy(string(uri), backendPath); err != nil {
 			return fmt.Errorf("failed copying: %w", err)
 		}
 	} else {
-		xlog.Debug("Downloading backend", "uri", config.URI, "backendPath", backendPath)
+		xlog.Debug("Downloading backend", "uri", primaryURI, "backendPath", backendPath)
 		if err := uri.DownloadFileWithContext(ctx, backendPath, config.SHA256, 1, 1, downloadStatus, downloadOpts...); err != nil {
 			xlog.Debug("Backend download failed, trying fallback", "backendPath", backendPath, "error", err)
 
@@ -316,8 +345,9 @@ func InstallBackend(ctx context.Context, systemState *system.SystemState, modelL
 			}
 
 			success := false
-			// Try to download from mirrors
-			for _, mirror := range config.Mirrors {
+			// Try to download from mirrors (when development is preferred, the
+			// released image is prepended here as the first fallback).
+			for _, mirror := range mirrors {
 				// Check for cancellation before trying next mirror
 				select {
 				case <-ctx.Done():

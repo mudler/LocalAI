@@ -25,6 +25,7 @@ import (
 	"github.com/mudler/LocalAI/core/http/auth"
 	"github.com/mudler/LocalAI/core/schema"
 	"github.com/mudler/LocalAI/core/services/galleryop"
+	"github.com/mudler/LocalAI/core/services/messaging"
 	"github.com/mudler/LocalAI/core/services/nodes"
 	"github.com/mudler/LocalAI/core/services/nodes/prefixcache"
 	"github.com/mudler/LocalAI/pkg/httpclient"
@@ -60,7 +61,10 @@ func GetNodeEndpoint(registry *nodes.NodeRegistry) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		ctx := c.Request().Context()
 		id := c.Param("id")
-		node, err := registry.Get(ctx, id)
+		// GetWithExtras (not Get) so the response carries the node's labels,
+		// loaded-model count, and in-flight total — the bare BackendNode keeps
+		// labels in a separate table, leaving the detail view's label list empty.
+		node, err := registry.GetWithExtras(ctx, id)
 		if err != nil {
 			return c.JSON(http.StatusNotFound, nodeError(http.StatusNotFound, "node not found"))
 		}
@@ -70,17 +74,20 @@ func GetNodeEndpoint(registry *nodes.NodeRegistry) echo.HandlerFunc {
 
 // RegisterNodeRequest is the request body for registering a new worker node.
 type RegisterNodeRequest struct {
-	Name          string            `json:"name"`
-	NodeType      string            `json:"node_type,omitempty"` // "backend" (default) or "agent"
-	Address       string            `json:"address"`
-	HTTPAddress   string            `json:"http_address,omitempty"`
-	Token         string            `json:"token,omitempty"`
-	TotalVRAM     uint64            `json:"total_vram,omitempty"`
-	AvailableVRAM uint64            `json:"available_vram,omitempty"`
-	TotalRAM      uint64            `json:"total_ram,omitempty"`
-	AvailableRAM  uint64            `json:"available_ram,omitempty"`
-	GPUVendor     string            `json:"gpu_vendor,omitempty"`
-	Labels        map[string]string `json:"labels,omitempty"`
+	Name          string `json:"name"`
+	NodeType      string `json:"node_type,omitempty"` // "backend" (default) or "agent"
+	Address       string `json:"address"`
+	HTTPAddress   string `json:"http_address,omitempty"`
+	Token         string `json:"token,omitempty"`
+	TotalVRAM     uint64 `json:"total_vram,omitempty"`
+	AvailableVRAM uint64 `json:"available_vram,omitempty"`
+	TotalRAM      uint64 `json:"total_ram,omitempty"`
+	AvailableRAM  uint64 `json:"available_ram,omitempty"`
+	GPUVendor     string `json:"gpu_vendor,omitempty"`
+	// GPUComputeCapability is the worker GPU's compute capability ("major.minor",
+	// e.g. "12.1" for GB10). Used by the router for per-arch option tuning.
+	GPUComputeCapability string            `json:"gpu_compute_capability,omitempty"`
+	Labels               map[string]string `json:"labels,omitempty"`
 	// MaxReplicasPerModel is the per-node cap on replicas of any single model.
 	// Workers older than this field omit it; we coerce 0 → 1 below to preserve
 	// historical single-replica behavior.
@@ -152,17 +159,18 @@ func RegisterNodeEndpoint(registry *nodes.NodeRegistry, expectedToken string, au
 		}
 
 		node := &nodes.BackendNode{
-			Name:                req.Name,
-			NodeType:            nodeType,
-			Address:             req.Address,
-			HTTPAddress:         req.HTTPAddress,
-			TokenHash:           tokenHash,
-			TotalVRAM:           req.TotalVRAM,
-			AvailableVRAM:       req.AvailableVRAM,
-			TotalRAM:            req.TotalRAM,
-			AvailableRAM:        req.AvailableRAM,
-			GPUVendor:           req.GPUVendor,
-			MaxReplicasPerModel: maxReplicasPerModel,
+			Name:                 req.Name,
+			NodeType:             nodeType,
+			Address:              req.Address,
+			HTTPAddress:          req.HTTPAddress,
+			TokenHash:            tokenHash,
+			TotalVRAM:            req.TotalVRAM,
+			AvailableVRAM:        req.AvailableVRAM,
+			TotalRAM:             req.TotalRAM,
+			AvailableRAM:         req.AvailableRAM,
+			GPUVendor:            req.GPUVendor,
+			GPUComputeCapability: req.GPUComputeCapability,
+			MaxReplicasPerModel:  maxReplicasPerModel,
 		}
 
 		ctx := c.Request().Context()
@@ -381,6 +389,23 @@ func GetNodeModelsEndpoint(registry *nodes.NodeRegistry) echo.HandlerFunc {
 	}
 }
 
+// ListAllNodeModelsEndpoint returns all loaded models across all healthy nodes.
+// @Summary List all loaded models cluster-wide
+// @Tags Nodes
+// @Success 200 {array} nodes.NodeModel
+// @Router /api/nodes/models [get]
+func ListAllNodeModelsEndpoint(registry *nodes.NodeRegistry) echo.HandlerFunc {
+	return func(c echo.Context) error {
+		ctx := c.Request().Context()
+		models, err := registry.ListAllLoadedModels(ctx)
+		if err != nil {
+			xlog.Error("Failed to list all node models", "error", err)
+			return c.JSON(http.StatusInternalServerError, nodeError(http.StatusInternalServerError, "failed to list node models"))
+		}
+		return c.JSON(http.StatusOK, models)
+	}
+}
+
 // DrainNodeEndpoint sets a node to draining status (no new requests).
 func DrainNodeEndpoint(registry *nodes.NodeRegistry) echo.HandlerFunc {
 	return func(c echo.Context) error {
@@ -526,12 +551,23 @@ func DeleteBackendOnNodeEndpoint(unloader nodes.NodeCommandSender) echo.HandlerF
 }
 
 // ListBackendsOnNodeEndpoint lists installed backends on a worker node via NATS.
-func ListBackendsOnNodeEndpoint(unloader nodes.NodeCommandSender) echo.HandlerFunc {
+func ListBackendsOnNodeEndpoint(unloader nodes.NodeCommandSender, registry *nodes.NodeRegistry) echo.HandlerFunc {
 	return func(c echo.Context) error {
+		nodeID := c.Param("id")
+		// Agent-type workers don't run backends and never subscribe to the
+		// nodes.<id>.backend.list NATS subject, so the request would hang
+		// until timeout with "no responders". Their backend list is simply
+		// empty. Mirror the aggregate-list guard in managers_distributed.go
+		// (skip nodes whose NodeType is set and not "backend") so the
+		// single-node and cluster-wide views stay consistent.
+		if node, err := registry.Get(c.Request().Context(), nodeID); err == nil {
+			if node.NodeType != "" && node.NodeType != nodes.NodeTypeBackend {
+				return c.JSON(http.StatusOK, []messaging.NodeBackendInfo{})
+			}
+		}
 		if unloader == nil {
 			return c.JSON(http.StatusServiceUnavailable, nodeError(http.StatusServiceUnavailable, "NATS not configured"))
 		}
-		nodeID := c.Param("id")
 		reply, err := unloader.ListBackends(nodeID)
 		if err != nil {
 			xlog.Error("Failed to list backends on node", "node", nodeID, "error", err)

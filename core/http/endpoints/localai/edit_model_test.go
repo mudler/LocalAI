@@ -56,7 +56,7 @@ var _ = Describe("Edit Model test", func() {
 			app := echo.New()
 			// Set up a simple renderer for the test
 			app.Renderer = &testRenderer{}
-			app.POST("/import-model", ImportModelEndpoint(modelConfigLoader, applicationConfig))
+			app.POST("/import-model", ImportModelEndpoint(modelConfigLoader, nil, applicationConfig))
 			app.GET("/edit-model/:name", GetEditModelPage(modelConfigLoader, applicationConfig))
 
 			requestBody := bytes.NewBufferString(`{"name": "foo", "backend": "foo", "model": "foo"}`)
@@ -106,7 +106,7 @@ var _ = Describe("Edit Model test", func() {
 			Expect(exists).To(BeTrue())
 
 			app := echo.New()
-			app.POST("/models/edit/:name", EditModelEndpoint(modelConfigLoader, modelLoader, applicationConfig))
+			app.POST("/models/edit/:name", EditModelEndpoint(modelConfigLoader, modelLoader, nil, applicationConfig))
 
 			newYAML := "name: newname\nbackend: llama\nmodel: foo\n"
 			req := httptest.NewRequest("POST", "/models/edit/oldname", bytes.NewBufferString(newYAML))
@@ -163,7 +163,7 @@ var _ = Describe("Edit Model test", func() {
 			Expect(modelConfigLoader.LoadModelConfigsFromPath(tempDir)).To(Succeed())
 
 			app := echo.New()
-			app.POST("/models/edit/:name", EditModelEndpoint(modelConfigLoader, modelLoader, applicationConfig))
+			app.POST("/models/edit/:name", EditModelEndpoint(modelConfigLoader, modelLoader, nil, applicationConfig))
 
 			req := httptest.NewRequest(
 				"POST",
@@ -204,7 +204,7 @@ var _ = Describe("Edit Model test", func() {
 			Expect(modelConfigLoader.LoadModelConfigsFromPath(tempDir)).To(Succeed())
 
 			app := echo.New()
-			app.POST("/models/edit/:name", EditModelEndpoint(modelConfigLoader, modelLoader, applicationConfig))
+			app.POST("/models/edit/:name", EditModelEndpoint(modelConfigLoader, modelLoader, nil, applicationConfig))
 
 			req := httptest.NewRequest(
 				"POST",

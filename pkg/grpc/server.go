@@ -243,6 +243,14 @@ func (s *server) AudioTranscription(ctx context.Context, in *pb.TranscriptReques
 		for _, t := range s.Tokens {
 			tks = append(tks, int32(t))
 		}
+		words := make([]*pb.TranscriptWord, 0, len(s.Words))
+		for _, w := range s.Words {
+			words = append(words, &pb.TranscriptWord{
+				Start: int64(w.Start),
+				End:   int64(w.End),
+				Text:  w.Text,
+			})
+		}
 		tresult.Segments = append(tresult.Segments,
 			&pb.TranscriptSegment{
 				Text:    s.Text,
@@ -251,12 +259,14 @@ func (s *server) AudioTranscription(ctx context.Context, in *pb.TranscriptReques
 				End:     int64(s.End),
 				Tokens:  tks,
 				Speaker: s.Speaker,
+				Words:   words,
 			})
 	}
 
 	tresult.Text = result.Text
 	tresult.Language = result.Language
 	tresult.Duration = result.Duration
+	tresult.Eou = result.Eou
 	return tresult, nil
 }
 
@@ -279,6 +289,75 @@ func (s *server) AudioTranscriptionStream(in *pb.TranscriptRequest, stream pb.Ba
 	<-done
 
 	return err
+}
+
+// AudioTranscriptionLive is the bidirectional live ASR handler. The shape
+// mirrors AudioTransformStream exactly (recv → in chan, out chan → send) so
+// backends implement it with the same goroutine idiom.
+func (s *server) AudioTranscriptionLive(stream pb.Backend_AudioTranscriptionLiveServer) error {
+	if s.llm.Locking() {
+		s.llm.Lock()
+		defer s.llm.Unlock()
+	}
+
+	in := make(chan *pb.TranscriptLiveRequest, 4)
+	out := make(chan *pb.TranscriptLiveResponse, 4)
+
+	// Pump incoming messages from the gRPC stream into `in`. EOF closes the
+	// channel, which signals the backend to finalize the decode session.
+	recvErrCh := make(chan error, 1)
+	go func() {
+		defer close(in)
+		for {
+			req, err := stream.Recv()
+			if err != nil {
+				if errors.Is(err, io.EOF) {
+					recvErrCh <- nil
+					return
+				}
+				recvErrCh <- err
+				return
+			}
+			select {
+			case in <- req:
+			case <-stream.Context().Done():
+				recvErrCh <- stream.Context().Err()
+				return
+			}
+		}
+	}()
+
+	// Pump outgoing responses from `out` to the gRPC stream. The backend
+	// closes `out` on completion.
+	sendDone := make(chan error, 1)
+	go func() {
+		for resp := range out {
+			if err := stream.Send(resp); err != nil {
+				sendDone <- err
+				// Drain `out` so the backend can finish.
+				for range out {
+				}
+				return
+			}
+		}
+		sendDone <- nil
+	}()
+
+	backendErr := s.llm.AudioTranscriptionLive(in, out)
+	sendErr := <-sendDone
+
+	// Unlike AudioTransformStream, do NOT wait for the recv pump when the
+	// backend failed: callers block on the first Recv for the ready ack, so
+	// an unsupported backend (Unimplemented) must surface immediately, not
+	// after the client gives up and closes its send side. Returning cancels
+	// the stream context, which unwinds the recv goroutine.
+	if backendErr != nil {
+		return backendErr
+	}
+	if sendErr != nil {
+		return sendErr
+	}
+	return <-recvErrCh
 }
 
 func (s *server) PredictStream(in *pb.PredictOptions, stream pb.Backend_PredictStreamServer) error {
@@ -424,6 +503,14 @@ func (s *server) Diarize(ctx context.Context, in *pb.DiarizeRequest) (*pb.Diariz
 		return nil, err
 	}
 	return &res, nil
+}
+
+func (s *server) SoundDetection(ctx context.Context, in *pb.SoundDetectionRequest) (*pb.SoundDetectionResponse, error) {
+	if s.llm.Locking() {
+		s.llm.Lock()
+		defer s.llm.Unlock()
+	}
+	return s.llm.SoundDetection(ctx, in)
 }
 
 func (s *server) AudioEncode(ctx context.Context, in *pb.AudioEncodeRequest) (*pb.AudioEncodeResult, error) {
@@ -852,6 +939,9 @@ func StartServer(address string, model AIModel) error {
 	s := grpc.NewServer(serverOpts()...)
 	pb.RegisterBackendServer(s, &server{llm: model})
 	log.Printf("gRPC Server listening at %v", lis.Addr())
+	// Safety net: self-terminate if the LocalAI process that spawned this
+	// backend dies without running its graceful teardown (see parentwatch.go).
+	startParentDeathWatcher()
 	if err := s.Serve(lis); err != nil {
 		return err
 	}
@@ -867,6 +957,9 @@ func RunServer(address string, model AIModel) (func() error, error) {
 	s := grpc.NewServer(serverOpts()...)
 	pb.RegisterBackendServer(s, &server{llm: model})
 	log.Printf("gRPC Server listening at %v", lis.Addr())
+	// Safety net: self-terminate if the LocalAI process that spawned this
+	// backend dies without running its graceful teardown (see parentwatch.go).
+	startParentDeathWatcher()
 	if err = s.Serve(lis); err != nil {
 		return func() error {
 			return lis.Close()

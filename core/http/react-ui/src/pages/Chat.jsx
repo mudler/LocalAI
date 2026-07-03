@@ -4,9 +4,10 @@ import { useTranslation } from 'react-i18next'
 import { fromState } from '../utils/editorNav'
 import { useChat } from '../hooks/useChat'
 import ModelSelector from '../components/ModelSelector'
-import { renderMarkdown, highlightAll } from '../utils/markdown'
+import { renderMarkdown, highlightAll, enhanceCodeBlocks } from '../utils/markdown'
 import { extractCodeArtifacts, renderMarkdownWithArtifacts } from '../utils/artifacts'
 import CanvasPanel from '../components/CanvasPanel'
+import Toggle from '../components/Toggle'
 import { fileToBase64, modelsApi, mcpApi } from '../utils/api'
 import { CAP_CHAT } from '../utils/capabilities'
 import { useMCPClient } from '../hooks/useMCPClient'
@@ -32,7 +33,7 @@ function getLastMessagePreview(chat) {
   return ''
 }
 
-function exportChatAsMarkdown(chat) {
+function serializeChatAsMarkdown(chat) {
   let md = `# ${chat.name}\n\n`
   md += `Model: ${chat.model || 'Unknown'}\n`
   md += `Date: ${new Date(chat.createdAt).toLocaleString()}\n\n---\n\n`
@@ -46,7 +47,11 @@ function exportChatAsMarkdown(chat) {
       md += `<details><summary>Thinking</summary>\n\n${msg.content}\n\n</details>\n\n`
     }
   }
-  const blob = new Blob([md], { type: 'text/markdown' })
+  return md
+}
+
+function downloadChatAsMarkdown(chat) {
+  const blob = new Blob([serializeChatAsMarkdown(chat)], { type: 'text/markdown' })
   const url = URL.createObjectURL(blob)
   const a = document.createElement('a')
   a.href = url
@@ -293,7 +298,7 @@ export default function Chat() {
   const {
     chats, activeChat, activeChatId, isStreaming, streamingChatId, streamingContent,
     streamingReasoning, streamingToolCalls, tokensPerSecond, maxTokensPerSecond,
-    addChat, switchChat, deleteChat, deleteAllChats, renameChat, updateChatSettings,
+    addChat, forkChat, switchChat, deleteChat, deleteAllChats, renameChat, updateChatSettings,
     sendMessage, stopGeneration, clearHistory, getContextUsagePercent, addMessage,
   } = useChat(urlModel || '')
 
@@ -335,6 +340,7 @@ export default function Chat() {
   const messagesRef = useRef(null)
   const textareaRef = useRef(null)
   const stickToBottomRef = useRef(true)
+  const [scrolledUp, setScrolledUp] = useState(false)
   const chatsMenuRef = useRef(null)
 
   // Focus mode: once a conversation has at least one message we slim the
@@ -600,6 +606,7 @@ export default function Chat() {
     const onScroll = () => {
       const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight
       stickToBottomRef.current = distanceFromBottom < 80
+      setScrolledUp(distanceFromBottom > 160)
     }
     el.addEventListener('scroll', onScroll, { passive: true })
     return () => el.removeEventListener('scroll', onScroll)
@@ -615,6 +622,7 @@ export default function Chat() {
   // user's focus-mode override — each chat starts fresh.
   useEffect(() => {
     stickToBottomRef.current = true
+    setScrolledUp(false)
     messagesEndRef.current?.scrollIntoView({ behavior: 'auto' })
     setFocusOverride(false)
   }, [activeChat?.id])
@@ -657,12 +665,25 @@ export default function Chat() {
     return () => window.removeEventListener('keydown', onKey)
   }, [focusActive])
 
-  // Highlight code blocks
+  // Highlight code blocks + add per-block copy buttons. A MutationObserver on
+  // the messages container is more reliable than render-keyed effects: it fires
+  // for loaded/switched chats AND for streaming token updates, regardless of
+  // render timing. The observer is disconnected while we mutate so our own
+  // highlight/enhance edits don't retrigger it.
   useEffect(() => {
-    if (messagesRef.current) {
-      highlightAll(messagesRef.current)
+    const el = messagesRef.current
+    if (!el) return
+    let obs
+    const run = () => {
+      obs?.disconnect()
+      highlightAll(el)
+      enhanceCodeBlocks(el)
+      obs?.observe(el, { childList: true, subtree: true })
     }
-  }, [activeChat?.history, streamingContent])
+    obs = new MutationObserver(run)
+    run()
+    return () => obs.disconnect()
+  }, [activeChat?.id])
 
   // Auto-grow textarea
   const autoGrowTextarea = useCallback(() => {
@@ -725,6 +746,27 @@ export default function Chat() {
     e.target.value = ''
   }, [])
 
+  const handlePaste = useCallback(async (e) => {
+    const items = e.clipboardData?.items
+    if (!items) return
+    const images = Array.from(items)
+      .filter(item => item.kind === 'file' && item.type.startsWith('image/'))
+      .map(item => item.getAsFile())
+      .filter(Boolean)
+    if (images.length === 0) return
+    // A pasted image attaches as a file rather than inserting into the text.
+    e.preventDefault()
+    // Clipboard images arrive unnamed or as a generic "image.png"; give each
+    // a unique, typed name so multiple pastes don't collide.
+    const newFiles = await Promise.all(images.map(async (file, i) => {
+      const name = (file.name && file.name !== 'image.png')
+        ? file.name
+        : `pasted-image-${i + 1}.${(file.type.split('/')[1] || 'png').replace('+xml', '')}`
+      return { name, type: file.type, base64: await fileToBase64(file) }
+    }))
+    setFiles(prev => [...prev, ...newFiles])
+  }, [])
+
   const handleSend = useCallback(async () => {
     const msg = input.trim()
     if (!msg && files.length === 0) return
@@ -757,34 +799,27 @@ export default function Chat() {
     await sendMessage(msg, files, mcpOptions)
   }, [input, files, activeChat, sendMessage, addToast, getToolsForLLM, isClientTool, executeTool, hasAppUI, getAppResource, getToolDefinition])
 
-  const handleRegenerate = useCallback(async () => {
+  const handleRegenerate = useCallback(async (targetIndex) => {
     if (!activeChat || isStreaming) return
     const history = activeChat.history
-    let lastUserMsg = null
-    let lastUserFiles = null
-    for (let i = history.length - 1; i >= 0; i--) {
-      if (history[i].role === 'user') {
-        lastUserMsg = typeof history[i].content === 'string' ? history[i].content : history[i].content?.[0]?.text || ''
-        lastUserFiles = history[i].files || []
-        break
-      }
+    const end = typeof targetIndex === 'number' ? targetIndex : history.length
+    // Nearest user message at or before the target answer.
+    let userIdx = -1
+    for (let i = Math.min(end, history.length) - 1; i >= 0; i--) {
+      if (history[i].role === 'user') { userIdx = i; break }
     }
-    if (!lastUserMsg) return
-
-    // Remove everything after and including the last user message
-    const newHistory = []
-    let foundLastUser = false
-    for (let i = history.length - 1; i >= 0; i--) {
-      if (!foundLastUser && history[i].role === 'user') {
-        foundLastUser = true
-        continue
-      }
-      if (foundLastUser) {
-        newHistory.unshift(history[i])
-      }
-    }
-    updateChatSettings(activeChat.id, { history: newHistory })
-    await sendMessage(lastUserMsg, lastUserFiles)
+    if (userIdx === -1) return
+    const userMsg = typeof history[userIdx].content === 'string'
+      ? history[userIdx].content
+      : history[userIdx].content?.[0]?.text || ''
+    const userFiles = history[userIdx].files || []
+    // Drop the user turn and everything after it; sendMessage re-appends it.
+    // Thread the truncated history through explicitly: updateChatSettings only
+    // schedules a state update, so sendMessage's closure would otherwise read
+    // the stale pre-truncation history for the outbound API payload.
+    const baseHistory = history.slice(0, userIdx)
+    updateChatSettings(activeChat.id, { history: baseHistory })
+    await sendMessage(userMsg, userFiles, { baseHistory })
   }, [activeChat, isStreaming, sendMessage, updateChatSettings])
 
   const handleKeyDown = (e) => {
@@ -812,6 +847,11 @@ export default function Chat() {
     } else {
       addToast(t('toasts.copyFailed'), 'error', 3000)
     }
+  }
+
+  const copyChatAsMarkdown = async (chat) => {
+    const ok = await copyToClipboard(serializeChatAsMarkdown(chat))
+    addToast(ok ? t('toasts.chatCopied') : t('toasts.copyFailed'), ok ? 'success' : 'error', ok ? 2000 : 3000)
   }
 
   const contextPercent = getContextUsagePercent()
@@ -854,7 +894,9 @@ export default function Chat() {
             onDelete={deleteChat}
             onDeleteAll={promptDeleteAll}
             onRename={renameChat}
-            onExport={(chat) => exportChatAsMarkdown(chat)}
+            onExport={(chat) => downloadChatAsMarkdown(chat)}
+            onCopyChat={(chat) => copyChatAsMarkdown(chat)}
+            onDuplicate={(chat) => { if (forkChat(chat.id)) addToast(t('toasts.forked'), 'success', 2000) }}
           />
           {activeChat.localaiAssistant && (
             <span
@@ -966,14 +1008,10 @@ export default function Chat() {
                     {t('settings.manageModeDesc')}
                   </span>
                 </div>
-                <label className="toggle">
-                  <input
-                    type="checkbox"
-                    checked={!!activeChat.localaiAssistant}
-                    onChange={(e) => updateChatSettings(activeChat.id, { localaiAssistant: e.target.checked })}
-                  />
-                  <span className="toggle-slider" />
-                </label>
+                <Toggle
+                  checked={!!activeChat.localaiAssistant}
+                  onChange={(next) => updateChatSettings(activeChat.id, { localaiAssistant: next })}
+                />
               </div>
             )}
             <div className="form-group">
@@ -1150,9 +1188,17 @@ export default function Chat() {
                       <button onClick={() => copyMessage(msg.content)} title={t('actions.copy')}>
                         <i className="fas fa-copy" />
                       </button>
-                      {msg.role === 'assistant' && i === activeChat.history.length - 1 && !isStreaming && (
-                        <button onClick={handleRegenerate} title={t('actions.regenerate')}>
+                      {msg.role === 'assistant' && !isStreaming && (
+                        <button onClick={() => handleRegenerate(i)} title={t('actions.regenerate')}>
                           <i className="fas fa-rotate" />
+                        </button>
+                      )}
+                      {msg.role === 'assistant' && !isStreaming && (
+                        <button
+                          onClick={() => { forkChat(activeChat.id, i + 1); addToast(t('toasts.forked'), 'success', 2000) }}
+                          title={t('actions.branch')}
+                        >
+                          <i className="fas fa-code-branch" />
                         </button>
                       )}
                     </div>
@@ -1225,6 +1271,19 @@ export default function Chat() {
             </div>
           )}
           <div ref={messagesEndRef} />
+          {scrolledUp && (
+            <button
+              type="button"
+              className="chat-jump-latest"
+              onClick={() => {
+                stickToBottomRef.current = true
+                setScrolledUp(false)
+                messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+              }}
+            >
+              <i className="fas fa-arrow-down" aria-hidden="true" /> {t('actions.jumpToLatest')}
+            </button>
+          )}
         </div>
 
         {/* Token info bar */}
@@ -1247,15 +1306,22 @@ export default function Chat() {
         {/* File badges */}
         {files.length > 0 && (
           <div className="chat-files">
-            {files.map((f, i) => (
-              <span key={i} className="chat-file-badge">
-                <i className={`fas ${f.type?.startsWith('image/') ? 'fa-image' : f.type?.startsWith('audio/') ? 'fa-headphones' : f.type?.startsWith('video/') ? 'fa-film' : 'fa-file'}`} />
-                {f.name}
-                <button onClick={() => setFiles(prev => prev.filter((_, idx) => idx !== i))}>
-                  <i className="fas fa-xmark" />
-                </button>
-              </span>
-            ))}
+            {files.map((f, i) => {
+              const isImage = f.type?.startsWith('image/') && f.base64
+              return (
+                <span key={i} className={`chat-file-badge${isImage ? ' chat-file-badge--image' : ''}`}>
+                  {isImage ? (
+                    <img src={`data:${f.type};base64,${f.base64}`} alt={f.name} className="chat-file-thumb" />
+                  ) : (
+                    <i className={`fas ${f.type?.startsWith('audio/') ? 'fa-headphones' : f.type?.startsWith('video/') ? 'fa-film' : 'fa-file'}`} />
+                  )}
+                  <span className="chat-file-name">{f.name}</span>
+                  <button onClick={() => setFiles(prev => prev.filter((_, idx) => idx !== i))} aria-label={`Remove ${f.name}`}>
+                    <i className="fas fa-xmark" />
+                  </button>
+                </span>
+              )
+            })}
           </div>
         )}
 
@@ -1358,6 +1424,7 @@ export default function Chat() {
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={handleKeyDown}
+              onPaste={handlePaste}
               placeholder={t('input.placeholder')}
               rows={1}
               disabled={isStreaming}
@@ -1372,8 +1439,10 @@ export default function Chat() {
                 className="chat-send-btn"
                 onClick={handleSend}
                 disabled={!input.trim() && files.length === 0}
+                aria-label={t('input.send')}
+                title={t('input.send')}
               >
-                <i className="fas fa-paper-plane" />
+                <i className="fas fa-paper-plane" aria-hidden="true" />
               </button>
             )}
           </div>

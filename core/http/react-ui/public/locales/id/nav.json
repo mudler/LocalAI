@@ -13,10 +13,16 @@
   "account": "Akun",
   "accountFor": "Akun: {{name}}",
   "sections": {
-    "tools": "Peralatan",
-    "enhance": "Peningkatan",
-    "biometrics": "Biometrik",
-    "agents": "Agen",
+    "create": "Buat",
+    "recognition": "Pengenalan",
+    "build": "Bangun",
+    "operate": "Operasikan"
+  },
+  "operate": {
+    "inference": "Inferensi",
+    "cluster": "Kluster",
+    "observability": "Observabilitas",
+    "access": "Akses",
     "system": "Sistem"
   },
   "items": {
@@ -27,6 +33,11 @@
     "talk": "Bicara",
     "fineTune": "Fine-Tune (Eksperimental)",
     "quantize": "Kuantisasi (Eksperimental)",
+    "faces": "Wajah",
+    "voices": "Suara",
+    "jobs": "Pekerjaan",
+    "operate": "Admin",
+    "host": "Host",
     "audioTransform": "Transformasi Audio",
     "faceRecognition": "Pengenalan Wajah",
     "voiceRecognition": "Pengenalan Suara",
@@ -40,6 +51,7 @@
     "backends": "Backend",
     "traces": "Trace",
     "nodes": "Node",
+    "scheduling": "Penjadwalan",
     "swarm": "Swarm",
     "system": "Sistem",
     "settings": "Pengaturan",
@@ -50,5 +62,9 @@
     "documentation": "Dokumentasi",
     "author": "Penulis",
     "copyright": "© 2023-{{year}} {{author}}"
+  },
+  "console": {
+    "automation": "Automasi",
+    "training": "Pelatihan"
   }
 }

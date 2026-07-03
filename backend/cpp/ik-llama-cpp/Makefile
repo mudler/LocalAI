@@ -1,5 +1,5 @@
 
-IK_LLAMA_VERSION?=2f524850a1f67716bc0ba80ffa30ce39c5b8bd5f
+IK_LLAMA_VERSION?=87fc8701ff4da81a7d2a91ec0695f95eb3066a47
 LLAMA_REPO?=https://github.com/ikawrakow/ik_llama.cpp
 
 CMAKE_ARGS?=

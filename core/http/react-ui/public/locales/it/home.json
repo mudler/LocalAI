@@ -6,6 +6,19 @@
   },
   "resourceGpu": "GPU",
   "resourceRam": "RAM",
+  "greeting": {
+    "morning": "Buongiorno",
+    "afternoon": "Buon pomeriggio",
+    "evening": "Buonasera",
+    "night": "Al lavoro fino a tardi"
+  },
+  "statusLine": {
+    "modelsLoaded_one": "{{count}} modello caricato",
+    "modelsLoaded_other": "{{count}} modelli caricati",
+    "noModelsLoaded": "Nessun modello caricato",
+    "nodes_one": "{{count}} nodo",
+    "nodes_other": "{{count}} nodi"
+  },
   "assistant": {
     "title": "Gestisci LocalAI chattando",
     "description": "Installa modelli, cambia backend, modifica configurazioni e controlla lo stato parlando con LocalAI.",
@@ -30,6 +43,7 @@
     "documentation": "Documentazione"
   },
   "loadedModels": {
+    "heading": "Modelli attivi",
     "count_one": "{{count}} modello caricato",
     "count_other": "{{count}} modelli caricati",
     "stop": "Ferma modello",
@@ -62,5 +76,17 @@
     "docs": "Documentazione",
     "noModelsTitle": "Nessun modello disponibile",
     "noModelsBody": "Non ci sono ancora modelli installati. Chiedi al tuo amministratore di configurare i modelli per iniziare a chattare."
+  },
+  "connect": {
+    "title": "Un endpoint, ogni API",
+    "subtitle": "LocalAI offre una propria API completa: generazione di immagini e video, profondità, rilevamento oggetti, reranking, audio, riconoscimento del volto e della voce e voce in tempo reale via WebRTC e WebSocket. In più, un livello di compatibilità drop-in fa funzionare senza modifiche qualsiasi app creata per OpenAI, Anthropic, Ollama o OpenAI Responses.",
+    "nativeTitle": "API nativa",
+    "compatTitle": "Compatibilità drop-in",
+    "apiReference": "Riferimento API completo",
+    "copy": "Copia",
+    "copied": "Copiato",
+    "browse": "Esplora le API",
+    "hide": "Nascondi gli endpoint",
+    "dismiss": "Ignora"
   }
 }

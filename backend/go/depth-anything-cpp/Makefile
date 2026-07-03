@@ -8,11 +8,13 @@ JOBS?=$(shell nproc --ignore=1)
 
 # depth-anything.cpp. Pin to a specific commit for a stable build; a squash
 # merge upstream can orphan a branch, so the native version is pinned by SHA.
-# This SHA adds the nested two-file metric C-API (abi_version 4,
-# da_capi_load_nested) required by the depth-anything-3-nested gallery model;
-# tag it (e.g. v0.1.3) upstream to keep the SHA alive.
+# This SHA adds the Depth Anything V2 engine + C-API routing (depth-only,
+# relative + metric) on top of the nested two-file metric C-API (abi_version 4,
+# da_capi_load_nested) required by the depth-anything-3-nested gallery model.
+# It is kept alive by the upstream tag da2-support (survives a squash-merge);
+# repoint to the master merge commit once mudler/depth-anything.cpp PR #1 lands.
 DEPTHANYTHING_REPO?=https://github.com/mudler/depth-anything.cpp.git
-DEPTHANYTHING_VERSION?=cce5edc395fd1843806093d7ccc0c8b0d0b97b72
+DEPTHANYTHING_VERSION?=f4e17dea695dd12ae76bea98ba58030996b98118
 
 ifeq ($(NATIVE),false)
 	CMAKE_ARGS+=-DGGML_NATIVE=OFF
@@ -38,6 +40,8 @@ else ifeq ($(BUILD_TYPE),hipblas)
 else ifeq ($(BUILD_TYPE),vulkan)
 	CMAKE_ARGS+=-DGGML_VULKAN=ON -DDA_GGML_VULKAN=ON
 else ifeq ($(OS),Darwin)
+	# macOS/Metal: built + published as an OCI image by CI (includeDarwin in
+	# .github/backend-matrix.yml) so Apple Silicon users can install this backend.
 	ifneq ($(BUILD_TYPE),metal)
 		CMAKE_ARGS+=-DGGML_METAL=OFF
 	else
@@ -75,7 +79,7 @@ ifeq ($(UNAME_S),Linux)
 	VARIANT_TARGETS = libdepthanythingcpp-avx.so libdepthanythingcpp-avx2.so libdepthanythingcpp-avx512.so libdepthanythingcpp-fallback.so
 else
 	# On non-Linux (e.g., Darwin), build only fallback variant
-	VARIANT_TARGETS = libdepthanythingcpp-fallback.so
+	VARIANT_TARGETS = libdepthanythingcpp-fallback.dylib
 endif
 
 depth-anything-cpp: main.go godepthanythingcpp.go $(VARIANT_TARGETS)
@@ -87,7 +91,7 @@ package: depth-anything-cpp
 build: package
 
 clean: purge
-	rm -rf libdepthanythingcpp*.so depth-anything-cpp package sources
+	rm -rf libdepthanythingcpp*.so libdepthanythingcpp*.dylib depth-anything-cpp package sources
 
 purge:
 	rm -rf build*
@@ -114,11 +118,19 @@ libdepthanythingcpp-avx512.so: sources/depth-anything.cpp
 endif
 
 # Build fallback variant (all platforms)
+ifeq ($(UNAME_S),Darwin)
+libdepthanythingcpp-fallback.dylib: sources/depth-anything.cpp
+	rm -rfv build-$@
+	$(info ${GREEN}I depth-anything-cpp build info:fallback${RESET})
+	SO_TARGET=$@ CMAKE_ARGS="$(CMAKE_ARGS) -DGGML_AVX=off -DGGML_AVX2=off -DGGML_AVX512=off -DGGML_FMA=off -DGGML_F16C=off -DGGML_BMI2=off" $(MAKE) libdepthanythingcpp-custom
+	rm -rfv build-$@
+else
 libdepthanythingcpp-fallback.so: sources/depth-anything.cpp
 	rm -rfv build-$@
 	$(info ${GREEN}I depth-anything-cpp build info:fallback${RESET})
 	SO_TARGET=$@ CMAKE_ARGS="$(CMAKE_ARGS) -DGGML_AVX=off -DGGML_AVX2=off -DGGML_AVX512=off -DGGML_FMA=off -DGGML_F16C=off -DGGML_BMI2=off" $(MAKE) libdepthanythingcpp-custom
 	rm -rfv build-$@
+endif
 
 libdepthanythingcpp-custom: CMakeLists.txt
 	mkdir -p build-$(SO_TARGET) && \
@@ -126,7 +138,8 @@ libdepthanythingcpp-custom: CMakeLists.txt
 	cmake .. $(CMAKE_ARGS) && \
 	cmake --build . --config Release -j$(JOBS) && \
 	cd .. && \
-	mv build-$(SO_TARGET)/libdepthanything.so ./$(SO_TARGET)
+	(mv build-$(SO_TARGET)/libdepthanything.so ./$(SO_TARGET) 2>/dev/null || \
+	 mv build-$(SO_TARGET)/libdepthanything.dylib ./$(SO_TARGET) 2>/dev/null)
 
 all: depth-anything-cpp package
 

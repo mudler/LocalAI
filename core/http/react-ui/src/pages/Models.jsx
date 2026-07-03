@@ -8,9 +8,12 @@ import { useDebouncedCallback } from '../hooks/useDebounce'
 import { useOperations } from '../hooks/useOperations'
 import { useResources } from '../hooks/useResources'
 import SearchableSelect from '../components/SearchableSelect'
+import PageHeader from '../components/PageHeader'
 import ConfirmDialog from '../components/ConfirmDialog'
 import GalleryLoader from '../components/GalleryLoader'
 import Toggle from '../components/Toggle'
+import ResponsiveTable from '../components/ResponsiveTable'
+import RecommendedModels from '../components/RecommendedModels'
 import React from 'react'
 
 
@@ -29,6 +32,7 @@ const FILTERS = [
   { key: 'tts', labelKey: 'filters.tts', icon: 'fa-microphone' },
   { key: 'transcript', labelKey: 'filters.stt', icon: 'fa-headphones' },
   { key: 'diarization', labelKey: 'filters.diarization', icon: 'fa-users' },
+  { key: 'sound_classification', labelKey: 'filters.soundClassification', icon: 'fa-ear-listen' },
   { key: 'sound_generation', labelKey: 'filters.soundGen', icon: 'fa-music' },
   { key: 'audio_transform', labelKey: 'filters.audioTransform', icon: 'fa-sliders' },
   { key: 'realtime_audio', labelKey: 'filters.realtimeAudio', icon: 'fa-tower-broadcast' },
@@ -36,6 +40,7 @@ const FILTERS = [
   { key: 'rerank', labelKey: 'filters.rerank', icon: 'fa-sort' },
   { key: 'detection', labelKey: 'filters.detection', icon: 'fa-bullseye' },
   { key: 'vad', labelKey: 'filters.vad', icon: 'fa-wave-square' },
+  { key: 'token_classify', labelKey: 'filters.ner', icon: 'fa-tags' },
 ]
 
 export default function Models() {
@@ -270,32 +275,34 @@ export default function Models() {
 
   return (
     <div className="page page--wide">
-      <div className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-        <div>
-          <h1 className="page-title">{t('title')}</h1>
-          <p className="page-subtitle">{t('subtitle')}</p>
-        </div>
-        <div style={{ display: 'flex', gap: 'var(--spacing-md)', alignItems: 'center' }}>
-          <div style={{ display: 'flex', gap: 'var(--spacing-md)', fontSize: '0.8125rem' }}>
-            <div style={{ textAlign: 'center' }}>
-              <div style={{ fontSize: '1.25rem', fontWeight: 700, color: 'var(--color-primary)' }}>{stats.total}</div>
-              <div style={{ color: 'var(--color-text-muted)' }}>{t('stats.available')}</div>
+      <PageHeader
+        title={t('title')}
+        supporting={t('subtitle')}
+        actions={
+          <div style={{ display: 'flex', gap: 'var(--spacing-md)', alignItems: 'center' }}>
+            <div style={{ display: 'flex', gap: 'var(--spacing-md)', fontSize: '0.8125rem' }}>
+              <div style={{ textAlign: 'center' }}>
+                <div style={{ fontSize: '1.25rem', fontWeight: 700, color: 'var(--color-primary)' }}>{stats.total}</div>
+                <div style={{ color: 'var(--color-text-muted)' }}>{t('stats.available')}</div>
+              </div>
+              <div style={{ textAlign: 'center' }}>
+                <a onClick={() => navigate('/app/manage')} style={{ cursor: 'pointer' }}>
+                  <div style={{ fontSize: '1.25rem', fontWeight: 700, color: 'var(--color-success)' }}>{stats.installed}</div>
+                  <div style={{ color: 'var(--color-text-muted)' }}>{t('stats.installed')}</div>
+                </a>
+              </div>
             </div>
-            <div style={{ textAlign: 'center' }}>
-              <a onClick={() => navigate('/app/manage')} style={{ cursor: 'pointer' }}>
-                <div style={{ fontSize: '1.25rem', fontWeight: 700, color: 'var(--color-success)' }}>{stats.installed}</div>
-                <div style={{ color: 'var(--color-text-muted)' }}>{t('stats.installed')}</div>
-              </a>
-            </div>
+            <button className="btn btn-primary btn-sm" onClick={() => navigate('/app/model-editor', { state: fromState(location, t('models')) })}>
+              <i className="fas fa-plus" /> {t('actions.addModel')}
+            </button>
+            <button className="btn btn-secondary btn-sm" onClick={() => navigate('/app/import-model')}>
+              <i className="fas fa-upload" /> {t('actions.importModel')}
+            </button>
           </div>
-          <button className="btn btn-primary btn-sm" onClick={() => navigate('/app/model-editor', { state: fromState(location, t('models')) })}>
-            <i className="fas fa-plus" /> {t('actions.addModel')}
-          </button>
-          <button className="btn btn-secondary btn-sm" onClick={() => navigate('/app/import-model')}>
-            <i className="fas fa-upload" /> {t('actions.importModel')}
-          </button>
-        </div>
-      </div>
+        }
+      />
+
+      <RecommendedModels addToast={addToast} />
 
       {/* Search */}
       <div className="search-bar" style={{ marginBottom: 'var(--spacing-md)' }}>
@@ -387,9 +394,7 @@ export default function Models() {
           )}
         </div>
       ) : (
-        <div className="table-container" style={{ background: 'var(--color-bg-secondary)', borderRadius: 'var(--radius-lg)', overflow: 'hidden' }}>
-          <div style={{ overflowX: 'auto' }}>
-            <table className="table" style={{ minWidth: '800px' }}>
+        <ResponsiveTable containerStyle={{ background: 'var(--color-bg-secondary)', borderRadius: 'var(--radius-lg)', overflow: 'hidden' }} style={{ minWidth: '800px' }}>
               <thead>
                 <tr>
                   <th style={{ width: '30px' }}></th>
@@ -573,9 +578,7 @@ export default function Models() {
                   )
                 })}
               </tbody>
-            </table>
-          </div>
-        </div>
+        </ResponsiveTable>
       )}
 
       {/* Pagination */}

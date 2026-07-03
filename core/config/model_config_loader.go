@@ -294,6 +294,44 @@ func (bcl *ModelConfigLoader) UpdateModelConfig(m string, updater func(*ModelCon
 	}
 }
 
+// ResolveAlias follows a one-hop alias to its target config. Returns
+// (resolved, wasAlias, err). Non-alias configs return (cfg, false, nil)
+// unchanged. Strict: the target must exist and must not itself be an alias
+// (chains are rejected). The returned config is a copy of the target.
+func (bcl *ModelConfigLoader) ResolveAlias(cfg *ModelConfig) (*ModelConfig, bool, error) {
+	if cfg == nil || !cfg.IsAlias() {
+		return cfg, false, nil
+	}
+	target, exists := bcl.GetModelConfig(cfg.Alias)
+	if !exists {
+		return nil, true, fmt.Errorf("alias %q points to unknown model %q", cfg.Name, cfg.Alias)
+	}
+	if target.IsAlias() {
+		return nil, true, fmt.Errorf("alias %q points to another alias %q (chains are not allowed)", cfg.Name, cfg.Alias)
+	}
+	return &target, true, nil
+}
+
+// ValidateAliasTarget checks an alias config's target at create/swap time:
+// the target must exist, must not be an alias, and must not be disabled.
+// Returns nil for non-alias configs.
+func (bcl *ModelConfigLoader) ValidateAliasTarget(cfg *ModelConfig) error {
+	if cfg == nil || !cfg.IsAlias() {
+		return nil
+	}
+	target, exists := bcl.GetModelConfig(cfg.Alias)
+	if !exists {
+		return fmt.Errorf("alias target %q does not exist", cfg.Alias)
+	}
+	if target.IsAlias() {
+		return fmt.Errorf("alias target %q is itself an alias (chains are not allowed)", cfg.Alias)
+	}
+	if target.IsDisabled() {
+		return fmt.Errorf("alias target %q is disabled", cfg.Alias)
+	}
+	return nil
+}
+
 // Preload prepare models if they are not local but url or huggingface repositories
 func (bcl *ModelConfigLoader) Preload(modelPath string) error {
 	bcl.Lock()
@@ -472,6 +510,22 @@ func (bcl *ModelConfigLoader) LoadModelConfigsFromPath(path string, opts ...Conf
 			} else {
 				xlog.Error("config is not valid", "error", validationErr, "Name", c.Name)
 			}
+		}
+	}
+
+	// Surface aliases whose targets are missing or themselves aliases. These
+	// resolve to a clear request-time error; warning here gives operators
+	// visibility without failing startup.
+	for name, c := range bcl.configs {
+		if !c.IsAlias() {
+			continue
+		}
+		target, ok := bcl.configs[c.Alias]
+		switch {
+		case !ok:
+			xlog.Warn("alias points to unknown model", "alias", name, "target", c.Alias)
+		case target.IsAlias():
+			xlog.Warn("alias points to another alias (chains are not allowed)", "alias", name, "target", c.Alias)
 		}
 	}
 

@@ -7,6 +7,7 @@ import (
 
 	"github.com/mudler/LocalAI/core/backend"
 	"github.com/mudler/LocalAI/core/config"
+	"github.com/mudler/LocalAI/core/http/endpoints/openai/types"
 	"github.com/mudler/LocalAI/core/services/voicerecognition"
 	"github.com/mudler/LocalAI/pkg/model"
 )
@@ -27,6 +28,32 @@ type voiceGate struct {
 	// Seams for testing; set by newVoiceGate to call the real backend.
 	embedFn  func(ctx context.Context, wavPath string) ([]float32, error)
 	verifyFn func(ctx context.Context, uttWav, refWav string) (bool, error)
+}
+
+// resolution is the outcome of resolving a committed utterance's speaker. It
+// carries the surfacing-facing Speaker plus the metadata the policy layer needs
+// (labels for the allow-list) and a human reason when no usable identity exists.
+type resolution struct {
+	speaker types.Speaker     // name/id/confidence/distance/matched
+	labels  map[string]string // identify-mode metadata labels, for the allow-list
+	found   bool              // a candidate identity existed at all
+	reason  string            // why-unknown / deny reason at the resolve level
+}
+
+// confidence maps a cosine distance to a 0..100 score relative to the match
+// threshold, mirroring the /v1/voice/identify endpoint.
+func confidence(distance, threshold float32) float32 {
+	if threshold <= 0 {
+		return 0
+	}
+	c := (1 - distance/threshold) * 100
+	if c < 0 {
+		return 0
+	}
+	if c > 100 {
+		return 100
+	}
+	return c
 }
 
 // newVoiceGate builds a gate from a pipeline's voice_recognition config. It
@@ -89,91 +116,143 @@ func newVoiceGate(
 	return g, nil
 }
 
-// Authorize embeds the utterance and decides allow/deny.
-//
-//	allowed: speaker is authorized.
-//	matched: matched person's name (informational), empty if none.
-//	reason:  human-readable deny reason.
-//	err:     backend failure (caller should fail closed).
-func (g *voiceGate) Authorize(ctx context.Context, wavPath string) (allowed bool, matched string, reason string, err error) {
+// Resolve embeds the utterance once and resolves the speaker's identity. It does
+// NOT apply the authorization policy (see authorize). On a backend error it
+// returns the error and a resolution whose reason explains the failure.
+func (g *voiceGate) Resolve(ctx context.Context, wavPath string) (resolution, error) {
 	if g.cfg.Mode == config.VoiceGateModeVerify {
-		return g.authorizeVerify(ctx, wavPath)
+		return g.resolveVerify(ctx, wavPath)
 	}
-	return g.authorizeIdentify(ctx, wavPath)
+	return g.resolveIdentify(ctx, wavPath)
 }
 
-func (g *voiceGate) authorizeIdentify(ctx context.Context, wavPath string) (bool, string, string, error) {
+func (g *voiceGate) resolveIdentify(ctx context.Context, wavPath string) (resolution, error) {
 	emb, err := g.embedFn(ctx, wavPath)
 	if err != nil {
-		return false, "", "embed failed", err
+		return resolution{reason: "embed failed"}, err
 	}
 	if len(emb) == 0 {
-		return false, "", "no speech detected", nil
+		return resolution{reason: "no speech detected"}, nil
 	}
 	matches, err := g.registry.Identify(ctx, emb, 1)
 	if err != nil {
-		return false, "", "identify failed", err
+		return resolution{reason: "identify failed"}, err
 	}
 	if len(matches) == 0 {
-		return false, "", "unknown speaker", nil
+		return resolution{reason: "unknown speaker"}, nil
 	}
 	m := matches[0]
-	if m.Distance > g.cfg.Threshold {
-		return false, m.Metadata.Name, "distance above threshold", nil
+	matched := m.Distance <= g.cfg.Threshold
+	r := resolution{
+		speaker: types.Speaker{
+			Name:       m.Metadata.Name,
+			ID:         m.Metadata.ID,
+			Labels:     m.Metadata.Labels,
+			Distance:   m.Distance,
+			Confidence: confidence(m.Distance, g.cfg.Threshold),
+			Matched:    matched,
+		},
+		labels: m.Metadata.Labels,
+		found:  true,
 	}
-	if !g.allowMatch(m.Metadata) {
-		return false, m.Metadata.Name, "speaker not in allow list", nil
+	if !matched {
+		r.reason = "distance above threshold"
 	}
-	return true, m.Metadata.Name, "", nil
+	return r, nil
+}
+
+func (g *voiceGate) resolveVerify(ctx context.Context, wavPath string) (resolution, error) {
+	if g.cfg.AntiSpoofing {
+		for _, ref := range g.refAudios {
+			ok, err := g.verifyFn(ctx, wavPath, ref.Audio)
+			if err != nil {
+				return resolution{reason: "verify failed"}, err
+			}
+			if ok {
+				return resolution{
+					speaker: types.Speaker{Name: ref.Name, Confidence: 100, Matched: true},
+					found:   true,
+				}, nil
+			}
+		}
+		return resolution{reason: "no reference matched"}, nil
+	}
+
+	emb, err := g.embedFn(ctx, wavPath)
+	if err != nil {
+		return resolution{reason: "embed failed"}, err
+	}
+	if len(emb) == 0 {
+		return resolution{reason: "no speech detected"}, nil
+	}
+	for _, ref := range g.refEmbeds {
+		d := cosineDistance(emb, ref.emb)
+		if d <= g.cfg.Threshold {
+			return resolution{
+				speaker: types.Speaker{Name: ref.name, Distance: d, Confidence: confidence(d, g.cfg.Threshold), Matched: true},
+				found:   true,
+			}, nil
+		}
+	}
+	return resolution{reason: "no reference matched"}, nil
+}
+
+// authorize applies the gate's policy to an already-resolved identity.
+func (g *voiceGate) authorize(r resolution) (allowed bool, reason string) {
+	if g.cfg.Mode == config.VoiceGateModeVerify {
+		if r.speaker.Matched {
+			return true, ""
+		}
+		if r.reason == "" {
+			return false, "no reference matched"
+		}
+		return false, r.reason
+	}
+	if !r.found {
+		return false, r.reason
+	}
+	if !r.speaker.Matched {
+		return false, "distance above threshold"
+	}
+	if !g.allowMatch(r.speaker.Name, r.labels) {
+		return false, "speaker not in allow list"
+	}
+	return true, ""
 }
 
 // allowMatch reports whether a matched identity is authorized. An empty allow
 // (no names and no labels) authorizes any registered speaker.
-func (g *voiceGate) allowMatch(meta voicerecognition.Metadata) bool {
+func (g *voiceGate) allowMatch(name string, labels map[string]string) bool {
 	a := g.cfg.Allow
 	if len(a.Names) == 0 && len(a.Labels) == 0 {
 		return true
 	}
 	for _, n := range a.Names {
-		if n == meta.Name {
+		if n == name {
 			return true
 		}
 	}
 	for _, l := range a.Labels {
-		if _, ok := meta.Labels[l]; ok {
+		if _, ok := labels[l]; ok {
 			return true
 		}
 	}
 	return false
 }
 
-func (g *voiceGate) authorizeVerify(ctx context.Context, wavPath string) (bool, string, string, error) {
-	if g.cfg.AntiSpoofing {
-		for _, r := range g.refAudios {
-			ok, err := g.verifyFn(ctx, wavPath, r.Audio)
-			if err != nil {
-				return false, "", "verify failed", err
-			}
-			if ok {
-				return true, r.Name, "", nil
-			}
-		}
-		return false, "", "no reference matched", nil
+// Authorize is the legacy convenience wrapper: resolve then apply policy.
+//
+//	allowed: speaker is authorized.
+//	matched: matched person's name (informational), empty if none.
+//	reason:  human-readable deny reason.
+//	err:     backend failure (caller should fail closed).
+func (g *voiceGate) Authorize(ctx context.Context, wavPath string) (allowed bool, matched string, reason string, err error) {
+	r, rerr := g.Resolve(ctx, wavPath)
+	if rerr != nil {
+		return false, "", r.reason, rerr
 	}
-
-	emb, err := g.embedFn(ctx, wavPath)
-	if err != nil {
-		return false, "", "embed failed", err
-	}
-	if len(emb) == 0 {
-		return false, "", "no speech detected", nil
-	}
-	for _, r := range g.refEmbeds {
-		if cosineDistance(emb, r.emb) <= g.cfg.Threshold {
-			return true, r.name, "", nil
-		}
-	}
-	return false, "", "no reference matched", nil
+	allowed, reason = g.authorize(r)
+	return allowed, r.speaker.Name, reason, nil
 }
 
 // decide interprets an Authorize result against the gate's when-policy and the

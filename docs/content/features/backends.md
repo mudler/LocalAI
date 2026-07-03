@@ -8,6 +8,12 @@ url: "/backends/"
 
 LocalAI supports a variety of backends that can be used to run different types of AI models. There are core Backends which are included, and there are containerized applications that provide the runtime environment for specific model types, such as LLMs, diffusion models, or text-to-speech models.
 
+## Available Backends
+
+LocalAI ships **60+ backends** covering text generation, speech-to-text, text-to-speech, music and sound generation, image and video generation, vision and object detection, audio processing, reranking, fine-tuning, and more. Each one is published as an on-demand OCI image with the appropriate acceleration variants (CPU, CUDA 12/13, ROCm, Intel SYCL, Vulkan, Metal, Jetson L4T).
+
+For the complete list of backends, the model families they support, and their acceleration targets, see the [Backend & Model Compatibility Table]({{%relref "reference/compatibility-table" %}}). The authoritative source is [`backend/index.yaml`](https://github.com/mudler/LocalAI/blob/master/backend/index.yaml), and the same catalog is browsable in the web UI under the **Backends** section.
+
 ## Managing Backends in the UI
 
 The LocalAI web interface provides an intuitive way to manage your backends:
@@ -118,8 +124,14 @@ For getting started, see the available backends in LocalAI here: https://github.
 
 LocalAI supports various types of backends:
 
-- **LLM Backends**: For running language models
-- **Diffusion Backends**: For image generation
-- **TTS Backends**: For text-to-speech conversion
-- **Whisper Backends**: For speech-to-text conversion
+- **LLM Backends**: For running language models (e.g., llama.cpp, vLLM, SGLang, transformers, MLX)
+- **Speech-to-Text Backends**: For transcription (e.g., whisper.cpp, parakeet.cpp, faster-whisper, NeMo)
+- **Text-to-Speech Backends**: For speech synthesis (e.g., piper, Kokoro, VibeVoice, Qwen3-TTS)
 - **Sound Generation Backends**: For music and audio generation (e.g., ACE-Step)
+- **Sound Classification Backends**: For sound-event classification / audio tagging - identifying everyday sounds like baby cry, glass breaking, alarms (e.g., ced.cpp)
+- **Image & Video Generation Backends**: For diffusion models (e.g., stable-diffusion.cpp, diffusers)
+- **Vision & Detection Backends**: For object detection, segmentation, depth, and face/voice recognition (e.g., rf-detr.cpp, locate-anything.cpp, sam3.cpp, insightface)
+- **Audio Processing Backends**: For voice activity detection and audio enhancement (e.g., Silero VAD, LocalVQE)
+- **Utility Backends**: For reranking, PII/NER token classification, fine-tuning, quantization, and vector storage (e.g., rerankers, privacy-filter.cpp, TRL, local-store)
+
+See the [Backend & Model Compatibility Table]({{%relref "reference/compatibility-table" %}}) for the full catalog.

@@ -93,6 +93,7 @@ type RunCMD struct {
 	EnableMemoryReclaimer              bool     `env:"LOCALAI_MEMORY_RECLAIMER,MEMORY_RECLAIMER,LOCALAI_GPU_RECLAIMER,GPU_RECLAIMER" default:"false" help:"Enable memory threshold monitoring to auto-evict backends when memory usage exceeds threshold (uses GPU VRAM if available, otherwise RAM)" group:"backends"`
 	MemoryReclaimerThreshold           float64  `env:"LOCALAI_MEMORY_RECLAIMER_THRESHOLD,MEMORY_RECLAIMER_THRESHOLD,LOCALAI_GPU_RECLAIMER_THRESHOLD,GPU_RECLAIMER_THRESHOLD" default:"0.95" help:"Memory usage threshold (0.0-1.0) that triggers backend eviction (default 0.95 = 95%%)" group:"backends"`
 	ForceEvictionWhenBusy              bool     `env:"LOCALAI_FORCE_EVICTION_WHEN_BUSY,FORCE_EVICTION_WHEN_BUSY" default:"false" help:"Force eviction even when models have active API calls (default: false for safety)" group:"backends"`
+	SizeAwareEviction                  bool     `env:"LOCALAI_SIZE_AWARE_EVICTION,SIZE_AWARE_EVICTION" default:"false" help:"Evict the largest loaded model first rather than the least-recently-used one, keeping small utility models resident and maximizing freed memory per eviction" group:"backends"`
 	LRUEvictionMaxRetries              int      `env:"LOCALAI_LRU_EVICTION_MAX_RETRIES,LRU_EVICTION_MAX_RETRIES" default:"30" help:"Maximum number of retries when waiting for busy models to become idle before eviction (default: 30)" group:"backends"`
 	LRUEvictionRetryInterval           string   `env:"LOCALAI_LRU_EVICTION_RETRY_INTERVAL,LRU_EVICTION_RETRY_INTERVAL" default:"1s" help:"Interval between retries when waiting for busy models to become idle (e.g., 1s, 2s) (default: 1s)" group:"backends"`
 	Federated                          bool     `env:"LOCALAI_FEDERATED,FEDERATED" help:"Enable federated instance" group:"federated"`
@@ -139,7 +140,7 @@ type RunCMD struct {
 	OIDCIssuer           string `env:"LOCALAI_OIDC_ISSUER" help:"OIDC issuer URL for auto-discovery" group:"auth"`
 	OIDCClientID         string `env:"LOCALAI_OIDC_CLIENT_ID" help:"OIDC Client ID (auto-enables auth)" group:"auth"`
 	OIDCClientSecret     string `env:"LOCALAI_OIDC_CLIENT_SECRET" help:"OIDC Client Secret" group:"auth"`
-	AuthBaseURL          string `env:"LOCALAI_BASE_URL" help:"Base URL for OAuth callbacks (e.g. http://localhost:8080)" group:"auth"`
+	ExternalBaseURL      string `env:"LOCALAI_BASE_URL" help:"External base URL of this instance (e.g. https://localhost:8080). Used for OAuth callbacks and self-referential links (generated images/videos, job status). When unset, derived from X-Forwarded-Proto/Host or Forwarded headers." group:"api"`
 	AuthAdminEmail       string `env:"LOCALAI_ADMIN_EMAIL" help:"Email address to auto-promote to admin role" group:"auth"`
 	AuthRegistrationMode string `env:"LOCALAI_REGISTRATION_MODE" default:"open" help:"Registration mode: 'open' (default), 'approval', or 'invite' (invite code required)" group:"auth"`
 	DisableLocalAuth     bool   `env:"LOCALAI_DISABLE_LOCAL_AUTH" default:"false" help:"Disable local email/password registration and login (use with OAuth/OIDC-only setups)" group:"auth"`
@@ -159,6 +160,7 @@ type RunCMD struct {
 	RegistrationRequireAuth   bool   `env:"LOCALAI_REGISTRATION_REQUIRE_AUTH" default:"false" help:"Fail startup when distributed mode is enabled but LOCALAI_REGISTRATION_TOKEN is empty (node endpoints and worker file-transfer server would otherwise be unauthenticated)" group:"distributed"`
 	DistributedRequireAuth    bool   `env:"LOCALAI_DISTRIBUTED_REQUIRE_AUTH" default:"false" help:"Umbrella switch: require BOTH NATS JWT credentials and a registration token when distributed mode is enabled (implies --nats-require-auth and --registration-require-auth)" group:"distributed"`
 	AutoApproveNodes          bool   `env:"LOCALAI_AUTO_APPROVE_NODES" default:"false" help:"Auto-approve new worker nodes (skip admin approval)" group:"distributed"`
+	DistributedSharedModels   bool   `env:"LOCALAI_DISTRIBUTED_SHARED_MODELS" default:"false" help:"Assert that every node mounts the SAME models directory at the SAME path (shared volume). When true, the router skips staging model files to workers and loads them directly from the shared path, avoiding re-downloads." group:"distributed"`
 	DistributedPrefixCache    bool   `env:"LOCALAI_DISTRIBUTED_PREFIX_CACHE" default:"true" help:"Enable prefix-cache-aware routing in distributed mode (default true). When false, routing falls back to round-robin." group:"distributed"`
 	DistributedPrefixCacheTTL string `env:"LOCALAI_DISTRIBUTED_PREFIX_CACHE_TTL" help:"Idle-timeout for prefix-cache index entries; also drives the background eviction cadence (every TTL/2). Default 5m." group:"distributed"`
 	BackendInstallTimeout     string `env:"LOCALAI_NATS_BACKEND_INSTALL_TIMEOUT" help:"NATS round-trip timeout for backend.install requests sent to worker nodes (default 15m). Increase for slow links pulling multi-GB images." group:"distributed"`
@@ -180,6 +182,8 @@ type RunCMD struct {
 	// Cloud-proxy MITM listener (off by default).
 	MITMListen string `env:"LOCALAI_MITM_LISTEN" help:"Address (host:port) for the cloudproxy MITM listener. Empty = disabled. Clients set HTTPS_PROXY=http://<this>:<port>. Intercept hosts are declared per-model via the model YAML mitm.hosts: block; create one from the Add Model UI." group:"middleware"`
 	MITMCADir  string `env:"LOCALAI_MITM_CA_DIR" type:"path" help:"Directory holding the MITM proxy CA cert + key. Defaults to <data-path>/mitm-ca." group:"middleware"`
+
+	PIIDefaultDetectors []string `env:"LOCALAI_PII_DEFAULT_DETECTORS" help:"Instance-wide default PII/secret detector model names applied to any PII-enabled model (chiefly cloud-proxy / MITM models) that names no pii.detectors of its own. Comma-separated, e.g. privacy-filter-nemotron,secret-filter. Takes precedence over the value persisted via the Middleware UI." group:"middleware"`
 }
 
 func (r *RunCMD) Run(ctx *cliContext.Context) error {
@@ -200,6 +204,7 @@ func (r *RunCMD) Run(ctx *cliContext.Context) error {
 		system.WithBackendImagesReleaseTag(r.BackendImagesReleaseTag),
 		system.WithBackendImagesBranchTag(r.BackendImagesBranchTag),
 		system.WithBackendDevSuffix(r.BackendDevSuffix),
+		system.WithPreferDevelopmentBackends(r.PreferDevelopmentBackends),
 	)
 	if err != nil {
 		return err
@@ -242,6 +247,7 @@ func (r *RunCMD) Run(ctx *cliContext.Context) error {
 		config.WithAPIAddress(r.Address),
 		config.WithMITMListen(r.MITMListen),
 		config.WithMITMCADir(r.MITMCADir),
+		config.WithPIIDefaultDetectors(r.PIIDefaultDetectors),
 		config.WithAgentJobRetentionDays(r.AgentJobRetentionDays),
 		config.WithLlamaCPPTunnelCallback(func(tunnels []string) {
 			tunnelEnvVar := strings.Join(tunnels, ",")
@@ -304,6 +310,9 @@ func (r *RunCMD) Run(ctx *cliContext.Context) error {
 	}
 	if r.DistributedRequireAuth {
 		opts = append(opts, config.EnableDistributedRequireAuth)
+	}
+	if r.DistributedSharedModels {
+		opts = append(opts, config.EnableDistributedSharedModels)
 	}
 	if r.NatsAccountSeed != "" {
 		opts = append(opts, config.WithNatsAccountSeed(r.NatsAccountSeed))
@@ -499,9 +508,6 @@ func (r *RunCMD) Run(ctx *cliContext.Context) error {
 			opts = append(opts, config.WithAuthOIDCClientID(r.OIDCClientID))
 			opts = append(opts, config.WithAuthOIDCClientSecret(r.OIDCClientSecret))
 		}
-		if r.AuthBaseURL != "" {
-			opts = append(opts, config.WithAuthBaseURL(r.AuthBaseURL))
-		}
 		if r.AuthAdminEmail != "" {
 			opts = append(opts, config.WithAuthAdminEmail(r.AuthAdminEmail))
 		}
@@ -517,6 +523,12 @@ func (r *RunCMD) Run(ctx *cliContext.Context) error {
 		if r.DefaultAPIKeyExpiry != "" {
 			opts = append(opts, config.WithAuthDefaultAPIKeyExpiry(r.DefaultAPIKeyExpiry))
 		}
+	}
+
+	// Applied unconditionally: the external base URL governs all self-referential
+	// links (not just OAuth callbacks), so it must take effect even when auth is off.
+	if r.ExternalBaseURL != "" {
+		opts = append(opts, config.WithExternalBaseURL(r.ExternalBaseURL))
 	}
 
 	if idleWatchDog || busyWatchDog {
@@ -563,6 +575,9 @@ func (r *RunCMD) Run(ctx *cliContext.Context) error {
 	// Handle LRU eviction settings
 	if r.ForceEvictionWhenBusy {
 		opts = append(opts, config.WithForceEvictionWhenBusy(true))
+	}
+	if r.SizeAwareEviction {
+		opts = append(opts, config.WithSizeAwareEviction(true))
 	}
 	if r.LRUEvictionMaxRetries > 0 {
 		opts = append(opts, config.WithLRUEvictionMaxRetries(r.LRUEvictionMaxRetries))

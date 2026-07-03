@@ -4,6 +4,8 @@ import { useTranslation } from 'react-i18next'
 import { settingsApi, resourcesApi, brandingApi } from '../utils/api'
 import { useBranding } from '../contexts/BrandingContext'
 import LoadingSpinner from '../components/LoadingSpinner'
+import PageHeader from '../components/PageHeader'
+import UnsavedChangesGuard from '../components/UnsavedChangesGuard'
 import SearchableModelSelect from '../components/SearchableModelSelect'
 import { CAP_CHAT } from '../utils/capabilities'
 import Toggle from '../components/Toggle'
@@ -158,18 +160,18 @@ export default function Settings() {
 
   return (
     <div className="page page--medium" style={{ padding: 0 }}>
+      <UnsavedChangesGuard when={isDirty} />
       {/* Header */}
-      <div style={{
-        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        padding: 'var(--spacing-lg) var(--spacing-lg) var(--spacing-md)',
-      }}>
-        <div>
-          <h1 className="page-title">{t('settings.title')}</h1>
-          <p className="page-subtitle">{t('settings.subtitle')}</p>
-        </div>
-        <button className={`btn ${isDirty ? 'btn-primary' : 'btn-secondary'}`} onClick={handleSave} disabled={saving || !isDirty}>
-          {saving ? <><LoadingSpinner size="sm" /> Saving...</> : <><i className="fas fa-save" /> {isDirty ? 'Save Changes' : 'Saved'}</>}
-        </button>
+      <div style={{ padding: 'var(--spacing-lg) var(--spacing-lg) 0' }}>
+        <PageHeader
+          title={t('settings.title')}
+          supporting={t('settings.subtitle')}
+          actions={
+            <button className={`btn ${isDirty ? 'btn-primary' : 'btn-secondary'}`} onClick={handleSave} disabled={saving || !isDirty}>
+              {saving ? <><LoadingSpinner size="sm" /> Saving...</> : <><i className="fas fa-save" /> {isDirty ? 'Save Changes' : 'Saved'}</>}
+            </button>
+          }
+        />
       </div>
 
       {/* Two-column layout */}
@@ -313,6 +315,9 @@ export default function Settings() {
               </SettingRow>
               <SettingRow label="Force Eviction When Busy" description="Allow model eviction even during active API calls">
                 <Toggle checked={settings.force_eviction_when_busy} onChange={(v) => update('force_eviction_when_busy', v)} />
+              </SettingRow>
+              <SettingRow label="Size-Aware Eviction" description="Evict the largest loaded model first instead of the least-recently-used one">
+                <Toggle checked={settings.size_aware_eviction} onChange={(v) => update('size_aware_eviction', v)} />
               </SettingRow>
               <SettingRow label="LRU Eviction Max Retries" description="Maximum retries waiting for busy models before eviction">
                 <input className="input" type="number" style={{ width: 120 }} value={settings.lru_eviction_max_retries ?? ''} onChange={(e) => update('lru_eviction_max_retries', parseInt(e.target.value) || 0)} placeholder="30" />

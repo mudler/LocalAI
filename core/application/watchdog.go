@@ -90,6 +90,7 @@ func (a *Application) startWatchdog() error {
 			model.WithLRULimit(lruLimit),
 			model.WithMemoryReclaimer(appConfig.MemoryReclaimerEnabled, appConfig.MemoryReclaimerThreshold),
 			model.WithForceEvictionWhenBusy(appConfig.ForceEvictionWhenBusy),
+			model.WithSizeAwareEviction(appConfig.SizeAwareEviction),
 		)
 
 		// Create new stop channel BEFORE setting up any goroutines

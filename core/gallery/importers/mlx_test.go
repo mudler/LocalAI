@@ -198,5 +198,24 @@ var _ = Describe("MLXImporter", func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(modelConfig.Name).To(Equal("model"))
 		})
+
+		It("should emit a bare filesystem path for a file:// local import", func() {
+			// Regression for #7461: a model imported from a local directory
+			// (e.g. LM Studio's store) must not carry the file:// scheme into
+			// the model field — mlx-lm rejects it as an invalid repo id.
+			preferences := json.RawMessage(`{"backend": "mlx"}`)
+			details := importers.Details{
+				URI:         "file:///Users/u/.lmstudio/models/mlx-community/Qwen3-Coder-30B-A3B-Instruct-4bit",
+				Preferences: preferences,
+			}
+
+			modelConfig, err := importer.Import(details)
+
+			Expect(err).ToNot(HaveOccurred())
+			Expect(modelConfig.Name).To(Equal("Qwen3-Coder-30B-A3B-Instruct-4bit"))
+			Expect(modelConfig.ConfigFile).To(ContainSubstring(
+				"model: /Users/u/.lmstudio/models/mlx-community/Qwen3-Coder-30B-A3B-Instruct-4bit"))
+			Expect(modelConfig.ConfigFile).ToNot(ContainSubstring("model: file://"))
+		})
 	})
 })

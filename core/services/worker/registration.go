@@ -73,6 +73,10 @@ func (cfg *Config) registrationBody() map[string]any {
 	// Detect GPU info for VRAM-aware scheduling
 	totalVRAM, _ := xsysinfo.TotalAvailableVRAM()
 	gpuVendor, _ := xsysinfo.DetectGPUVendor()
+	// Compute capability (e.g. "12.1" for GB10) lets the router pick per-arch
+	// options (e.g. larger physical batch on Blackwell). Detected on the worker
+	// because only the worker sees the GPU in distributed mode.
+	gpuComputeCap := xsysinfo.NVIDIAComputeCapability()
 
 	maxReplicas := cfg.MaxReplicasPerModel
 	if maxReplicas < 1 {
@@ -85,6 +89,7 @@ func (cfg *Config) registrationBody() map[string]any {
 		"total_vram":             totalVRAM,
 		"available_vram":         totalVRAM, // initially all VRAM is available
 		"gpu_vendor":             gpuVendor,
+		"gpu_compute_capability": gpuComputeCap,
 		"max_replicas_per_model": maxReplicas,
 	}
 

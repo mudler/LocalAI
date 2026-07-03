@@ -490,14 +490,19 @@ func (ui *LauncherUI) downloadUpdate() {
 	ui.UpdateStatus("Downloading update " + version + "...")
 
 	go func() {
-		err := ui.launcher.DownloadUpdate(version, func(progress float64) {
-			// Update progress bar
+		err := ui.launcher.DownloadUpdate(version, func(downloaded, total int64) {
 			fyne.Do(func() {
-				ui.progressBar.SetValue(progress)
+				if total > 0 {
+					ui.progressBar.SetValue(float64(downloaded) / float64(total))
+				}
 			})
-			// Update status with percentage
-			percentage := int(progress * 100)
-			ui.UpdateStatus(fmt.Sprintf("Downloading update %s... %d%%", version, percentage))
+			// The progress bar already shows the percentage, so report the
+			// human-readable size here instead of repeating the percent.
+			if total > 0 {
+				ui.UpdateStatus(fmt.Sprintf("Downloading update %s… %s / %s", version, formatBytes(downloaded), formatBytes(total)))
+			} else {
+				ui.UpdateStatus(fmt.Sprintf("Downloading update %s… %s", version, formatBytes(downloaded)))
+			}
 		})
 
 		fyne.Do(func() {
@@ -596,82 +601,6 @@ func (ui *LauncherUI) LoadConfiguration() {
 	ui.versionLabel.SetText("Version: " + version)
 
 	log.Printf("UI LoadConfiguration: configuration loaded successfully")
-}
-
-// showDownloadProgress shows a progress window for downloading LocalAI
-func (ui *LauncherUI) showDownloadProgress(version, title string) {
-	fyne.DoAndWait(func() {
-		// Create progress window using the launcher's app
-		progressWindow := ui.launcher.app.NewWindow("Downloading LocalAI")
-		progressWindow.Resize(fyne.NewSize(400, 250))
-		progressWindow.CenterOnScreen()
-
-		// Progress bar
-		progressBar := widget.NewProgressBar()
-		progressBar.SetValue(0)
-
-		// Status label. Truncate with an ellipsis so a long "Download failed:
-		// <url>" message can't stretch the window (and progress bar) to fit the
-		// whole error on one line; the full error is shown in the dialog below.
-		statusLabel := widget.NewLabel("Preparing download...")
-		statusLabel.Truncation = fyne.TextTruncateEllipsis
-
-		// Release notes button
-		releaseNotesButton := widget.NewButton("View Release Notes", func() {
-			releaseNotesURL, err := ui.launcher.githubReleaseNotesURL(version)
-			if err != nil {
-				log.Printf("Failed to parse URL: %v", err)
-				return
-			}
-
-			ui.launcher.app.OpenURL(releaseNotesURL)
-		})
-
-		// Progress container
-		progressContainer := container.NewVBox(
-			widget.NewLabel(title),
-			progressBar,
-			statusLabel,
-			widget.NewSeparator(),
-			releaseNotesButton,
-		)
-
-		progressWindow.SetContent(progressContainer)
-		progressWindow.Show()
-
-		// Start download in background
-		go func() {
-			err := ui.launcher.DownloadUpdate(version, func(progress float64) {
-				// Update progress bar
-				fyne.Do(func() {
-					progressBar.SetValue(progress)
-					percentage := int(progress * 100)
-					statusLabel.SetText(fmt.Sprintf("Downloading... %d%%", percentage))
-				})
-			})
-
-			// Handle completion
-			fyne.Do(func() {
-				if err != nil {
-					statusLabel.SetText(fmt.Sprintf("Download failed: %v", err))
-					// Show error dialog
-					dialog.ShowError(err, progressWindow)
-				} else {
-					statusLabel.SetText("Download completed successfully!")
-					progressBar.SetValue(1.0)
-
-					// Show success dialog
-					dialog.ShowConfirm("Installation Complete",
-						"LocalAI has been downloaded and installed successfully. You can now start LocalAI from the launcher.",
-						func(close bool) {
-							progressWindow.Close()
-							// Update status
-							ui.UpdateStatus("LocalAI installed successfully")
-						}, progressWindow)
-				}
-			})
-		}()
-	})
 }
 
 // UpdateRunningState updates UI based on LocalAI running state

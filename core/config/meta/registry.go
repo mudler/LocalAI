@@ -1,5 +1,19 @@
 package meta
 
+import "github.com/mudler/LocalAI/core/services/routing/piipattern"
+
+// builtinPatternOptions turns the piipattern built-in catalogue into select
+// options for the editor's built-in-patterns checklist, keeping the catalogue
+// the single source of truth.
+func builtinPatternOptions() []FieldOption {
+	cat := piipattern.BuiltinCatalogue()
+	out := make([]FieldOption, 0, len(cat))
+	for _, b := range cat {
+		out = append(out, FieldOption{Value: b.Name, Label: b.Name + " — " + b.Description})
+	}
+	return out
+}
+
 // DefaultRegistry returns enrichment overrides for the ~30 most commonly used
 // config fields. Fields not listed here still appear with auto-generated
 // labels and type-inferred components.
@@ -272,6 +286,15 @@ func DefaultRegistry() map[string]FieldMetaOverride {
 			Order:       45,
 		},
 
+		// --- Alias ---
+		"alias": {
+			Section:     "alias",
+			Label:       "Alias target",
+			Description: "Redirect all traffic for this model to another configured model. When set, every other field on this config is ignored and requests are served by the target model.",
+			Component:   "model-select",
+			Order:       0,
+		},
+
 		// --- Pipeline ---
 		"pipeline.llm": {
 			Section:              "pipeline",
@@ -304,6 +327,30 @@ func DefaultRegistry() map[string]FieldMetaOverride {
 			Component:            "model-select",
 			AutocompleteProvider: ProviderModelsVAD,
 			Order:                63,
+		},
+		"pipeline.sound_detection": {
+			Section:              "pipeline",
+			Label:                "Sound Detection Model",
+			Description:          "Model to use for sound-event classification (audio tagging, e.g. ced) in the pipeline. When set, committed realtime audio is also classified and the scored AudioSet tags are emitted as a conversation.item.sound_detection event.",
+			Component:            "model-select",
+			AutocompleteProvider: ProviderModels,
+			Order:                64,
+		},
+		"pipeline.sound_detection_window_ms": {
+			Section:     "pipeline",
+			Label:       "Sound Detection Window (ms)",
+			Description: "Server-side windowing for a sound-only realtime session: length in ms of the audio window classified each hop. 0 = client-driven (the client commits windows).",
+			Component:   "number",
+			Min:         f64(0),
+			Order:       65,
+		},
+		"pipeline.sound_detection_hop_ms": {
+			Section:     "pipeline",
+			Label:       "Sound Detection Hop (ms)",
+			Description: "Server-side windowing hop in ms: how often the server classifies the last window. 0 = client-driven.",
+			Component:   "number",
+			Min:         f64(0),
+			Order:       66,
 		},
 		"pipeline.reasoning_effort": {
 			Section:     "pipeline",
@@ -434,12 +481,123 @@ func DefaultRegistry() map[string]FieldMetaOverride {
 			Component:   "json-editor",
 			Order:       78,
 		},
+		"pipeline.voice_recognition.enforce": {
+			Section:     "pipeline",
+			Label:       "Voice Gate Enforce",
+			Description: "Whether the gate rejects unauthorized speakers. Enabled (default) drops unauthorized utterances before the LLM. Disabled still resolves and surfaces the speaker (for the conversation.item.speaker event and personalization) but never drops a turn.",
+			Component:   "toggle",
+			Order:       80,
+		},
+		"pipeline.voice_recognition.identity.announce": {
+			Section:     "pipeline",
+			Label:       "Speaker Identity Announce",
+			Description: "Emit a conversation.item.speaker event to the client naming the recognized speaker. When set, identity is resolved on every turn even if 'when' is 'first'.",
+			Component:   "toggle",
+			Order:       81,
+		},
+		"pipeline.voice_recognition.identity.announce_unknown": {
+			Section:     "pipeline",
+			Label:       "Speaker Identity Announce Unknown",
+			Description: "Also emit the conversation.item.speaker event (with matched=false) when no confident match is found. Default only announces on a match.",
+			Component:   "toggle",
+			Order:       82,
+		},
+		"pipeline.voice_recognition.identity.personalize": {
+			Section:     "pipeline",
+			Label:       "Speaker Identity Personalize",
+			Description: "Inform the LLM who is speaking so it can tailor replies. Enables the name and system-note injection below.",
+			Component:   "toggle",
+			Order:       83,
+		},
+		"pipeline.voice_recognition.identity.inject_name": {
+			Section:     "pipeline",
+			Label:       "Speaker Identity Inject Name",
+			Description: "Personalization: set the per-message OpenAI 'name' field on each user turn to the recognized speaker.",
+			Component:   "toggle",
+			Order:       84,
+		},
+		"pipeline.voice_recognition.identity.inject_system_note": {
+			Section:     "pipeline",
+			Label:       "Speaker Identity Inject System Note",
+			Description: "Personalization: append a 'The current speaker is <name>.' note to the system message reflecting the latest speaker.",
+			Component:   "toggle",
+			Order:       85,
+		},
+		"pipeline.voice_recognition.identity.note_unknown": {
+			Section:     "pipeline",
+			Label:       "Speaker Identity Note Unknown",
+			Description: "Personalization: when the speaker is unidentified, append 'The current speaker is unknown.' to the system message so the model can ask who it is talking to.",
+			Component:   "toggle",
+			Order:       86,
+		},
 		"pipeline.max_history_items": {
 			Section:     "pipeline",
 			Label:       "Max History Items",
 			Description: "Cap how many trailing conversation items are fed to the LLM each realtime turn (0 = unlimited, rely on the LLM's context window). Set it on a composed pipeline (VAD+STT+LLM+TTS) so a long-running session doesn't grow until the context fills. Unset uses the per-model-type default.",
 			Component:   "number",
 			Order:       79,
+		},
+		"pipeline.compaction.enabled": {
+			Section:     "pipeline",
+			Label:       "Compaction Enabled",
+			Description: "Fold conversation items that age out of the live window (Max History Items) into a rolling summary instead of dropping them, so long realtime sessions stay cheap without losing earlier context. Off by default.",
+			Component:   "toggle",
+			Order:       80,
+		},
+		"pipeline.compaction.trigger_items": {
+			Section:     "pipeline",
+			Label:       "Compaction Trigger Items",
+			Description: "High-water mark: once the live conversation exceeds this many items, the overflow above Max History Items is summarized and evicted. Must be greater than Max History Items; defaults to twice it. The gap controls how often summarization runs.",
+			Component:   "number",
+			Order:       81,
+		},
+		"pipeline.compaction.summary_model": {
+			Section:     "pipeline",
+			Label:       "Compaction Summary Model",
+			Description: "Optional smaller/cheaper model used to produce the rolling summary. Empty reuses the pipeline's own LLM. On CPU, a tiny model here keeps compaction from competing with the conversation LLM.",
+			Component:   "input",
+			Advanced:    true,
+			Order:       82,
+		},
+		"pipeline.compaction.max_summary_tokens": {
+			Section:     "pipeline",
+			Label:       "Compaction Max Summary Tokens",
+			Description: "Advisory cap on the rolling summary length (fed to the summarizer prompt). Defaults to 512.",
+			Component:   "number",
+			Advanced:    true,
+			Order:       83,
+		},
+		"pipeline.turn_detection.type": {
+			Section:     "pipeline",
+			Label:       "Turn Detection",
+			Description: "Default turn-detection mode for realtime sessions on this pipeline. server_vad commits after a fixed silence window; semantic_vad lets the transcription model's end-of-utterance token drive a dynamic window (fast commit after the token, long eagerness fallback without it). semantic_vad requires a streaming-EOU transcription model (e.g. parakeet-cpp-realtime_eou_120m-v1) and degrades to silence-only otherwise. Clients can override per session via session.update.",
+			Component:   "select",
+			Options: []FieldOption{
+				{Value: "", Label: "Default (server_vad)"},
+				{Value: "server_vad", Label: "server_vad (silence-based)"},
+				{Value: "semantic_vad", Label: "semantic_vad (end-of-utterance token)"},
+			},
+			Order: 87,
+		},
+		"pipeline.turn_detection.eagerness": {
+			Section:     "pipeline",
+			Label:       "Eagerness",
+			Description: "semantic_vad fallback silence window used when no end-of-utterance token was seen: low waits 8s, medium/auto 4s, high 2s.",
+			Component:   "select",
+			Options: []FieldOption{
+				{Value: "", Label: "Default (auto)"},
+				{Value: "low", Label: "low (8s)"},
+				{Value: "medium", Label: "medium (4s)"},
+				{Value: "high", Label: "high (2s)"},
+			},
+			Order: 88,
+		},
+		"pipeline.turn_detection.retranscribe": {
+			Section:     "pipeline",
+			Label:       "Retranscribe on Commit",
+			Description: "Cross-check every semantic_vad commit with an offline decode of the buffered turn: commit only proceeds when the batch decode also ends in the end-of-utterance token, and its transcript is used. Logs a streamed-vs-batch comparison — useful to gauge streaming/batch alignment — at the cost of one extra decode per turn.",
+			Component:   "toggle",
+			Order:       89,
 		},
 
 		// --- Functions ---
@@ -504,12 +662,60 @@ func DefaultRegistry() map[string]FieldMetaOverride {
 			Component:   "toggle",
 			Order:       200,
 		},
-		"pii.patterns": {
+		"pii.detectors": {
+			Section:              "pii",
+			Label:                "PII Detector Models",
+			Description:          "Token-classification (NER) models that scan this model's requests for PII. The detection policy (which entities, what action, min score) lives on each detector model's own PII Detection block. Multiple detectors union their hits.",
+			Component:            "model-multi-select",
+			AutocompleteProvider: "models:token_classify",
+			Order:                201,
+		},
+
+		// --- PII detection policy (on a token_classify detector model) ---
+		"pii_detection.min_score": {
 			Section:     "pii",
-			Label:       "PII Pattern Overrides",
-			Description: "Override the global default action for specific patterns on this model. Patterns not listed here inherit the global action (Settings → Middleware → Filtering).",
+			Label:       "Detector Min Score",
+			Description: "When this model is used as a PII detector, drop detections scored below this confidence before they are acted on. 0 keeps every detection.",
+			Component:   "slider",
+			Min:         f64(0),
+			Max:         f64(1),
+			Step:        f64(0.01),
+			Order:       210,
+		},
+		"pii_detection.default_action": {
+			Section:     "pii",
+			Label:       "Detector Default Action",
+			Description: "Action applied to detected entity groups with no explicit per-entity override. Defaults to mask — the safe-by-default policy for a PII filter.",
+			Component:   "select",
+			Options: []FieldOption{
+				{Value: "mask", Label: "mask (redact the span)"},
+				{Value: "block", Label: "block (reject the request)"},
+				{Value: "allow", Label: "allow (detect & log only)"},
+			},
+			Default: "mask",
+			Order:   211,
+		},
+		"pii_detection.entity_actions": {
+			Section:     "pii",
+			Label:       "Detector Entity Actions",
+			Description: "Per-entity-group action policy for this detector model (e.g. PASSWORD → block, EMAIL → mask). Groups without an entry use the default action.",
+			Component:   "entity-action-list",
+			Order:       212,
+		},
+		"pii_detection.builtins": {
+			Section:     "pii",
+			Label:       "Built-in Secret Patterns",
+			Description: "Built-in regex patterns for common credentials (API keys, tokens, private keys). Turning any on makes this a pattern detector — it matches high-entropy secrets the NER tier can't, in-process with no model load.",
+			Component:   "pii-builtins-select",
+			Options:     builtinPatternOptions(),
+			Order:       213,
+		},
+		"pii_detection.patterns": {
+			Section:     "pii",
+			Label:       "Custom Secret Patterns",
+			Description: "Operator-defined patterns in a restricted regex subset (e.g. \"sk-prefix-\\w+\"). Each must contain a fixed literal anchor of ≥3 chars; open-ended shapes like emails are rejected (leave those to NER). Matches report under the pattern name as the entity group.",
 			Component:   "pii-pattern-list",
-			Order:       201,
+			Order:       214,
 		},
 
 		// --- Cloud passthrough proxy ---

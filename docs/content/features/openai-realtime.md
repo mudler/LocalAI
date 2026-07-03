@@ -56,6 +56,41 @@ pipeline:
 
 All streaming flags are off by default, so existing pipelines are unaffected.
 
+### Turn detection
+
+Turn detection decides when the user has finished speaking and the pipeline should respond. Two modes are supported, matching the OpenAI session schema:
+
+- **`server_vad`** (default): silence-based. The VAD model watches the audio and the turn commits after `silence_duration_ms` (default 500 ms) of silence. Simple and model-agnostic, but a fixed silence window must trade interrupting mid-sentence pauses against sluggish responses.
+- **`semantic_vad`**: model-driven. The transcription model itself signals end-of-utterance and the silence window becomes dynamic: short right after the model emits its end-of-utterance token, much longer when it does not — so pausing to think no longer gets cut off, while finished sentences get a fast response.
+
+`semantic_vad` requires a transcription model that emits an end-of-utterance token over a cache-aware streaming decode — currently `parakeet-cpp-realtime_eou_120m-v1` (the model is trained to distinguish "paused, expecting a reply" from "paused mid-thought"). The realtime pipeline feeds it the microphone audio live while the user speaks. With any other transcription backend the session degrades gracefully to silence-only detection using the eagerness timeout below (a warning is logged once). The model also emits a distinct end-of-backchannel token (`<EOB>`) for short acknowledgments like "uh-huh": those are transcribed but never treated as the user yielding the turn.
+
+Sessions can opt in via `session.update` (`turn_detection: {"type": "semantic_vad", "eagerness": "medium"}`), or the pipeline can set a server-side default so clients need no changes:
+
+```yaml
+name: gpt-realtime
+pipeline:
+  vad: silero-vad-ggml
+  transcription: parakeet-cpp-realtime_eou_120m-v1
+  llm: qwen3-4b
+  tts: tts-1
+  turn_detection:
+    type: semantic_vad   # default for sessions on this model (server_vad if unset)
+    eagerness: medium    # low | medium | high | auto (auto == medium)
+    retranscribe: false  # see below
+```
+
+A client `session.update` still overrides `type` and `eagerness` per session.
+
+**Eagerness** sets the fallback silence window used when no end-of-utterance token was seen (the model missed it, or the user genuinely trails off): `low` waits 8 s, `medium`/`auto` 4 s, `high` 2 s — the same max-timeout semantics OpenAI documents. After the token is seen, the turn commits on the next VAD tick (~300 ms).
+
+**Live captions**: while the user speaks, `semantic_vad` streams `conversation.item.input_audio_transcription.delta` events under the item id the commit will later reuse, so clients can render the words as they are recognized. The `completed` event at commit carries the authoritative transcript and replaces the partial text (with `retranscribe: true` it may differ from the captions); a turn discarded before commit emits `conversation.item.input_audio_transcription.failed` so clients can retract its captions.
+
+**`retranscribe`** (server-side only, semantic_vad only) cross-checks the streaming decode against a batch decode at commit time:
+
+- `false` (default): the transcript accumulated from the live stream is used as-is — the model runs once per utterance and the LLM starts immediately at commit.
+- `true`: the committed audio is re-transcribed offline. If the batch decode also ends with the end-of-utterance token the turn proceeds (using the batch transcript); if it does **not**, the commit is cancelled and the session keeps listening — treating the streaming token as a false positive. Both transcripts are compared and logged, which makes this mode a useful diagnostic for how well the streaming and batch decodes align, at the cost of one extra decode per turn.
+
 ### Disabling thinking
 
 For reasoning models, you can force the pipeline LLM's thinking off without editing the LLM model config:
@@ -67,6 +102,33 @@ pipeline:
 ```
 
 This is applied only to the realtime session's copy of the LLM config, so it does not affect other users of the same model. Leave it unset to use the LLM model config's own reasoning settings.
+
+### Conversation compaction (long sessions on CPU)
+
+By default a realtime session feeds only the last `max_history_items` turns to the LLM; older turns are dropped and forgotten. On CPU, long calls also grow expensive as the prompt fills with verbatim history. Enable `compaction` to instead fold older turns into a rolling summary, so long calls stay cheap without losing earlier context.
+
+Compaction works with two numbers:
+
+- **`max_history_items`** is the *live window* — the recent turns kept verbatim in the prompt.
+- **`compaction.trigger_items`** is the *high-water mark* — let the buffer grow to here, then summarize the overflow (everything above `max_history_items`) into a rolling memory and evict it. It must be greater than `max_history_items`; if it is not, it is clamped up.
+
+The gap between the two controls how often summarization runs: a summary call fires roughly every `(trigger_items - max_history_items)` turns (here, about every 6 turns).
+
+```yaml
+pipeline:
+  max_history_items: 6        # live window — recent turns kept verbatim
+  compaction:
+    enabled: true
+    trigger_items: 12         # summarize overflow back down to max_history_items
+    summary_model: ""         # optional: a small model for the summary (CPU); default = pipeline LLM
+    max_summary_tokens: 512
+```
+
+{{% notice tip %}}
+On CPU, set `summary_model` to a small, fast model so compaction never competes with the conversation LLM for compute. Left empty, the pipeline's own LLM produces the summary.
+{{% /notice %}}
+
+Clients can also manage history directly via the now-supported `conversation.item.delete`, `conversation.item.truncate`, and `input_audio_buffer.clear` realtime events.
 
 ## Transports
 
@@ -141,6 +203,8 @@ The API follows the OpenAI Realtime API protocol for handling sessions, audio bu
 
 A pipeline realtime model can require speaker verification before it responds. Add a `voice_recognition` block under `pipeline`. When present, each committed utterance is verified against authorized speakers; unauthorized utterances are dropped before the LLM runs (no LLM call, no tool execution, no TTS). The session stays open.
 
+The same block also drives two optional, independent behaviors: an authorization gate (`enforce`) and speaker surfacing/personalization (`identity`). Set `enforce: false` to keep recognizing the speaker without ever rejecting a turn.
+
 ```yaml
 name: my-realtime
 pipeline:
@@ -152,6 +216,7 @@ pipeline:
     model: speaker-recognition   # the speaker-recognition backend model
     mode: identify               # "identify" (registry) or "verify" (references)
     threshold: 0.25              # cosine distance; <= passes
+    enforce: true                # authorization gate (default true)
     when: every                  # "every" (default) or "first"
     on_reject: drop_event        # "drop_event" (default) or "drop_silent"
     anti_spoofing: false         # optional liveness check (verify mode)
@@ -170,18 +235,72 @@ pipeline:
         audio: /models/voices/bob.wav
 ```
 
+### Identifying speakers without gating
+
+To recognize who is speaking and surface it to the client and the LLM without ever rejecting a turn, set `enforce: false` and add an `identity` block. The `identity` block works with or without the gate; when it is set, the speaker is resolved on every turn even if `when: first`.
+
+```yaml
+name: my-realtime
+pipeline:
+  vad: silero-vad
+  transcription: whisper
+  llm: qwen
+  tts: kokoro
+  voice_recognition:
+    model: speaker-recognition
+    mode: identify
+    threshold: 0.25
+    # Authorization gate. Defaults to enforcing (rejects unauthorized speakers).
+    # Set enforce:false to identify the speaker WITHOUT rejecting anyone.
+    enforce: false
+    when: every
+    # Surface the recognized speaker to the client and the LLM. Works with or
+    # without enforce; when set, identity is resolved on every turn even if
+    # when:first.
+    identity:
+      announce: true            # emit the conversation.item.speaker event
+      announce_unknown: false   # also emit it when there is no confident match
+      personalize: true         # tell the LLM who is speaking
+      inject_name: true         # set the per-message OpenAI name field
+      inject_system_note: true  # append a "current speaker" line to the system message
+      note_unknown: false       # append a "speaker is unknown" note when unidentified
+```
+
 | Field | Meaning |
 |-------|---------|
 | `model` | Speaker-recognition backend model name. |
 | `mode` | `identify` matches against speakers registered via `/v1/voice/register`; `verify` matches against the `references` audios. |
 | `threshold` | Maximum cosine distance that still counts as a match (default ~0.25). |
-| `when` | `every` verifies each utterance; `first` verifies once then trusts the session. |
+| `enforce` | Authorization gate. `true` (or omitted) rejects unauthorized speakers (the gating behavior above). `false` resolves and surfaces the speaker without ever dropping a turn. |
+| `when` | `every` verifies each utterance; `first` verifies once then trusts the session. When an `identity` block is set, the speaker is still resolved on every turn even with `first`. |
 | `on_reject` | `drop_event` drops and emits a `speaker_not_authorized` error event; `drop_silent` drops quietly. |
 | `anti_spoofing` | Verify mode only: runs the backend liveness check (slower). |
 | `allow.names` / `allow.labels` | identify mode: which registry identities are authorized. Empty = any registered speaker. |
 | `references` | verify mode: authorized reference speakers; the utterance passes if it matches any. |
+| `identity.announce` | Emit the `conversation.item.speaker` event to the client (see below). |
+| `identity.announce_unknown` | Also emit that event when there is no confident match. By default the event is emitted only on a match. |
+| `identity.personalize` | Inform the LLM who is speaking. |
+| `identity.inject_name` | Set the per-message OpenAI `name` field on each user turn. |
+| `identity.inject_system_note` | Append a `The current speaker is <Name>.` line to the system message. |
+| `identity.note_unknown` | When unidentified, append `The current speaker is unknown.` (lets the model ask who it is talking to). |
 
 `identify` mode requires the voice registry (speakers registered through `/v1/voice/register`). `verify` mode needs no registry: reference audios are embedded once at model load.
+
+### The `conversation.item.speaker` event
+
+When `identity.announce` is enabled, the server emits a `conversation.item.speaker` event after the user conversation item, naming the recognized speaker:
+
+```json
+{
+  "type": "conversation.item.speaker",
+  "item_id": "item_abc",
+  "speaker": { "name": "Jeremy", "id": "spk_1", "labels": { "role": "owner" }, "confidence": 92.0, "distance": 0.1, "matched": true }
+}
+```
+
+`confidence` is a 0-100 score, `distance` is the cosine distance, and `matched` is `true` when a confident match was found. `labels` carries any labels attached to the registered speaker (identify mode); it is omitted when the speaker has none. The `name` and `id` fields are omitted when empty. By default the event is emitted only on a match; set `identity.announce_unknown: true` to also emit it (with `matched: false`) when no speaker is identified.
+
+This event is a LocalAI extension to the OpenAI Realtime API and is server-emitted only. Standard OpenAI Realtime clients ignore event types they do not recognize, so enabling it is non-breaking.
 
 ## Examples
 

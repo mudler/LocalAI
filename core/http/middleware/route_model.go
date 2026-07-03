@@ -189,7 +189,12 @@ func RouteModel(loader *config.ModelConfigLoader, appConfig *config.ApplicationC
 			}
 
 			c.Set(CONTEXT_LOCALS_KEY_MODEL_CONFIG, result.ChosenConfig)
-			c.Set(ContextKeyRequestedModel, result.RouterModel)
+			// Preserve an upstream requested model (e.g. an alias that points
+			// at this router model) so accounting keeps the name the client
+			// actually sent. Served always reflects the final candidate.
+			if c.Get(ContextKeyRequestedModel) == nil {
+				c.Set(ContextKeyRequestedModel, result.RouterModel)
+			}
 			c.Set(ContextKeyServedModel, result.ChosenModel)
 
 			if store != nil {
@@ -391,18 +396,12 @@ func buildClassifier(cfg *config.ModelConfig, deps ClassifierDeps) (router.Class
 }
 
 // assertClassifierDeclaresScore refuses to build the score classifier
-// unless classifier_model's config declares FLAG_SCORE. The actual
-// usecase-conflict check (score + chat/completion/embeddings on
-// llama-cpp) lives in ModelConfig.Validate() and fires at config load
-// and save time — by the time we get here, any model that reached the
-// loader is already conflict-free. This check just refuses to bind a
-// model that never declared itself for Score in the first place; that
-// model could be a misconfigured chat model the operator pointed at
-// by accident, and without FLAG_SCORE the validator never saw it.
+// unless classifier_model's config declares FLAG_SCORE. This check only
+// refuses to bind a model that never declared itself for Score in the
+// first place; that model could be a misconfigured chat model the
+// operator pointed at by accident.
 //
-// When lookup is nil (test wiring) the check is skipped and we fall
-// back to the C++ backend's runtime tripwire as the last line of
-// defence.
+// When lookup is nil (test wiring) the check is skipped.
 func assertClassifierDeclaresScore(classifierModel string, lookup ModelConfigLookup) error {
 	if lookup == nil {
 		return nil
@@ -416,8 +415,8 @@ func assertClassifierDeclaresScore(classifierModel string, lookup ModelConfigLoo
 	if !cfg.HasUsecases(config.FLAG_SCORE) {
 		return fmt.Errorf(
 			"router classifier score: classifier_model %q does not declare the "+
-				"score usecase. Add `known_usecases: [score]` to its config so "+
-				"the loader can reject conflicting usecase combinations",
+				"score usecase. Add `known_usecases: [score]` (alongside any other "+
+				"usecases the model serves) to its config",
 			classifierModel)
 	}
 	return nil

@@ -338,6 +338,42 @@ func (c *Client) ReloadModels(ctx context.Context) error {
 	return c.do(ctx, http.MethodPost, routeModelsReload, nil, nil)
 }
 
+// ---- Model aliases ----
+
+// SetAlias is swap-first: it PATCHes the alias config (a deep-merge that
+// validates the target and preserves any other fields), and only creates a
+// fresh config when the PATCH reports the model doesn't exist yet. We prefer
+// PATCH over POST /models/import for existing names because import rewrites
+// the whole file, whereas PATCH gives a reliable 404 not-found signal
+// (ErrHTTPNotFound) to branch on and never clobbers an existing config.
+func (c *Client) SetAlias(ctx context.Context, name, target string) error {
+	if name == "" {
+		return errors.New("name is required")
+	}
+	if target == "" {
+		return errors.New("target is required")
+	}
+	err := c.do(ctx, http.MethodPatch, routeModelConfigJSON(name), map[string]any{"alias": target}, nil)
+	if err == nil {
+		return nil
+	}
+	if !errors.Is(err, ErrHTTPNotFound) {
+		return err
+	}
+	// No such config yet: create it. The import endpoint validates the alias
+	// target server-side, same as the PATCH path.
+	return c.do(ctx, http.MethodPost, routeModelImport, map[string]any{"name": name, "alias": target}, nil)
+}
+
+func (c *Client) ListAliases(ctx context.Context) ([]localaitools.AliasInfo, error) {
+	// /api/aliases returns []{name,target} directly - pass it through.
+	var out []localaitools.AliasInfo
+	if err := c.do(ctx, http.MethodGet, routeAliases, nil, &out); err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // ---- Backends ----
 
 func (c *Client) ListBackends(ctx context.Context) ([]localaitools.Backend, error) {
@@ -582,16 +618,6 @@ func (c *Client) GetUsageStats(ctx context.Context, q localaitools.UsageStatsQue
 
 // ---- PII filter ----
 
-func (c *Client) ListPIIPatterns(ctx context.Context) ([]localaitools.PIIPattern, error) {
-	var raw struct {
-		Patterns []localaitools.PIIPattern `json:"patterns"`
-	}
-	if err := c.do(ctx, http.MethodGet, routePIIPatterns, nil, &raw); err != nil {
-		return nil, err
-	}
-	return raw.Patterns, nil
-}
-
 func (c *Client) GetPIIEvents(ctx context.Context, q localaitools.PIIEventsQuery) ([]localaitools.PIIEvent, error) {
 	qs := url.Values{}
 	if q.CorrelationID != "" {
@@ -622,35 +648,6 @@ func (c *Client) GetPIIEvents(ctx context.Context, q localaitools.PIIEventsQuery
 		return nil, err
 	}
 	return raw.Events, nil
-}
-
-func (c *Client) TestPIIRedaction(ctx context.Context, req localaitools.PIIRedactTestRequest) (*localaitools.PIIRedactTestResult, error) {
-	var out localaitools.PIIRedactTestResult
-	if err := c.do(ctx, http.MethodPost, routePIITest, map[string]string{"text": req.Text}, &out); err != nil {
-		return nil, err
-	}
-	return &out, nil
-}
-
-func (c *Client) SetPIIPatternAction(ctx context.Context, req localaitools.PIIPatternActionUpdate) error {
-	if req.ID == "" {
-		return fmt.Errorf("pattern id is required")
-	}
-	body := map[string]any{}
-	if req.Action != "" {
-		body["action"] = req.Action
-	}
-	if req.Disabled != nil {
-		body["disabled"] = *req.Disabled
-	}
-	if len(body) == 0 {
-		return fmt.Errorf("must specify action and/or disabled")
-	}
-	return c.do(ctx, http.MethodPut, routePIIPatternByID(req.ID), body, nil)
-}
-
-func (c *Client) PersistPIIPatterns(ctx context.Context) error {
-	return c.do(ctx, http.MethodPost, routePIIPatternsPersist, nil, nil)
 }
 
 func (c *Client) GetMiddlewareStatus(ctx context.Context) (*localaitools.MiddlewareStatus, error) {

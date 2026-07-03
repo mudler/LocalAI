@@ -9,15 +9,17 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"os"
+	"path/filepath"
 
 	"github.com/google/uuid"
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/gallery"
 	"github.com/mudler/LocalAI/core/gallery/importers"
+	"github.com/mudler/LocalAI/core/http/auth"
 	"github.com/mudler/LocalAI/core/schema"
 	"github.com/mudler/LocalAI/core/services/galleryop"
 	"github.com/mudler/LocalAI/core/services/modeladmin"
-	"github.com/mudler/LocalAI/core/http/auth"
 	"github.com/mudler/LocalAI/core/services/routing/billing"
 	"github.com/mudler/LocalAI/core/services/routing/pii"
 	"github.com/mudler/LocalAI/core/services/routing/router"
@@ -25,7 +27,9 @@ import (
 	localaitools "github.com/mudler/LocalAI/pkg/mcp/localaitools"
 	"github.com/mudler/LocalAI/pkg/model"
 	"github.com/mudler/LocalAI/pkg/system"
+	"github.com/mudler/LocalAI/pkg/utils"
 	"github.com/mudler/LocalAI/pkg/vram"
+	"gopkg.in/yaml.v3"
 )
 
 // Client implements localaitools.LocalAIClient by calling LocalAI services
@@ -296,6 +300,80 @@ func (c *Client) ReloadModels(_ context.Context) error {
 		return errors.New("system state not available")
 	}
 	return c.ConfigLoader.LoadModelConfigsFromPath(c.SystemState.Model.ModelsPath)
+}
+
+// ---- Model aliases ----
+
+// SetAlias is swap-first to match the httpapi client: PatchConfig swaps an
+// existing alias's target (validating it and preserving other fields) and
+// returns ErrNotFound when the config doesn't exist yet, which is the signal
+// to create it. createAlias mirrors the create path of ImportModelEndpoint.
+func (c *Client) SetAlias(ctx context.Context, name, target string) error {
+	if name == "" {
+		return errors.New("name is required")
+	}
+	if target == "" {
+		return errors.New("target is required")
+	}
+	_, err := c.modelAdmin.PatchConfig(ctx, name, map[string]any{"alias": target})
+	if err == nil {
+		return nil
+	}
+	if !errors.Is(err, modeladmin.ErrNotFound) {
+		return err
+	}
+	return c.createAlias(name, target)
+}
+
+// createAlias writes a fresh `{name, alias}` config to disk and reloads,
+// mirroring localai.ImportModelEndpoint's create path: validate, validate the
+// alias target, verify the path is trusted, write, reload, best-effort preload.
+func (c *Client) createAlias(name, target string) error {
+	if c.SystemState == nil {
+		return errors.New("system state not available")
+	}
+	cfg := config.ModelConfig{Name: name, Alias: target}
+	if valid, vErr := cfg.Validate(); !valid {
+		if vErr != nil {
+			return vErr
+		}
+		return errors.New("invalid alias configuration")
+	}
+	if err := c.ConfigLoader.ValidateAliasTarget(&cfg); err != nil {
+		return err
+	}
+	modelsPath := c.SystemState.Model.ModelsPath
+	if err := utils.VerifyPath(name+".yaml", modelsPath); err != nil {
+		return fmt.Errorf("model path not trusted: %w", err)
+	}
+	// Marshal only the user-provided fields (not the full struct with Go
+	// zero values), matching what the import endpoint persists for an alias.
+	yamlData, err := yaml.Marshal(map[string]any{"name": name, "alias": target})
+	if err != nil {
+		return fmt.Errorf("marshal alias config: %w", err)
+	}
+	// 0600: the LocalAI process is the sole reader/writer of model configs,
+	// and a tighter mode keeps the gosec G306 scan clean for this new write.
+	if err := os.WriteFile(filepath.Join(modelsPath, name+".yaml"), yamlData, 0600); err != nil {
+		return fmt.Errorf("write alias config: %w", err)
+	}
+	if err := c.ConfigLoader.LoadModelConfigsFromPath(modelsPath, c.AppConfig.ToConfigLoaderOptions()...); err != nil {
+		return fmt.Errorf("reload configs: %w", err)
+	}
+	// Preload is best-effort - a failure here doesn't undo the create.
+	_ = c.ConfigLoader.Preload(modelsPath)
+	return nil
+}
+
+func (c *Client) ListAliases(_ context.Context) ([]localaitools.AliasInfo, error) {
+	// Mirror localai.ListAliasesEndpoint: every config whose Alias is set.
+	out := []localaitools.AliasInfo{}
+	for _, cfg := range c.ConfigLoader.GetAllModelsConfigs() {
+		if cfg.IsAlias() {
+			out = append(out, localaitools.AliasInfo{Name: cfg.Name, Target: cfg.Alias})
+		}
+	}
+	return out, nil
 }
 
 // ---- Backends ----
@@ -619,23 +697,6 @@ func (c *Client) GetUsageStats(ctx context.Context, q localaitools.UsageStatsQue
 
 // ---- PII filter ----
 
-func (c *Client) ListPIIPatterns(_ context.Context) ([]localaitools.PIIPattern, error) {
-	if c.PIIRedactor == nil {
-		return nil, errors.New("PII filter is disabled")
-	}
-	patterns := c.PIIRedactor.Patterns()
-	out := make([]localaitools.PIIPattern, 0, len(patterns))
-	for _, p := range patterns {
-		out = append(out, localaitools.PIIPattern{
-			ID:             p.ID,
-			Description:    p.Description,
-			Action:         string(p.Action),
-			MaxMatchLength: p.MaxMatchLength,
-		})
-	}
-	return out, nil
-}
-
 func (c *Client) GetPIIEvents(ctx context.Context, q localaitools.PIIEventsQuery) ([]localaitools.PIIEvent, error) {
 	if c.PIIEvents == nil {
 		return nil, errors.New("PII filter is disabled")
@@ -666,77 +727,6 @@ func (c *Client) GetPIIEvents(ctx context.Context, q localaitools.PIIEventsQuery
 		})
 	}
 	return out, nil
-}
-
-func (c *Client) SetPIIPatternAction(_ context.Context, req localaitools.PIIPatternActionUpdate) error {
-	if c.PIIRedactor == nil {
-		return errors.New("PII filter is disabled")
-	}
-	if req.ID == "" {
-		return errors.New("pattern id is required")
-	}
-	if req.Action == "" && req.Disabled == nil {
-		return errors.New("must specify action and/or disabled")
-	}
-	if req.Action != "" {
-		if err := c.PIIRedactor.SetAction(req.ID, pii.Action(req.Action)); err != nil {
-			return err
-		}
-	}
-	if req.Disabled != nil {
-		if err := c.PIIRedactor.SetDisabled(req.ID, *req.Disabled); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-// PersistPIIPatterns snapshots the current redactor state into
-// runtime_settings.json. Mirrors POST /api/pii/patterns/persist.
-func (c *Client) PersistPIIPatterns(_ context.Context) error {
-	if c.PIIRedactor == nil {
-		return errors.New("PII filter is disabled")
-	}
-	if c.AppConfig == nil {
-		return errors.New("app config not available")
-	}
-	existing, err := c.AppConfig.ReadPersistedSettings()
-	if err != nil {
-		return fmt.Errorf("read settings: %w", err)
-	}
-	defaults, err := pii.LoadConfig(c.AppConfig.PIIConfigPath)
-	if err != nil {
-		return fmt.Errorf("reload defaults: %w", err)
-	}
-	defaultByID := make(map[string]pii.Pattern, len(defaults))
-	for _, d := range defaults {
-		defaultByID[d.ID] = d
-	}
-	overrides := map[string]config.PIIPatternRuntimeOverride{}
-	for _, p := range c.PIIRedactor.Patterns() {
-		d, known := defaultByID[p.ID]
-		ov := config.PIIPatternRuntimeOverride{}
-		changed := false
-		if !known || p.Action != d.Action {
-			action := string(p.Action)
-			ov.Action = &action
-			changed = true
-		}
-		if !known || p.Disabled != d.Disabled {
-			disabled := p.Disabled
-			ov.Disabled = &disabled
-			changed = true
-		}
-		if changed {
-			overrides[p.ID] = ov
-		}
-	}
-	existing.PIIPatternOverrides = &overrides
-	if err := c.AppConfig.WritePersistedSettings(existing); err != nil {
-		return fmt.Errorf("write settings: %w", err)
-	}
-	c.AppConfig.PIIPatternOverrides = overrides
-	return nil
 }
 
 func (c *Client) GetRouterDecisions(ctx context.Context, q localaitools.RouterDecisionsQuery) ([]localaitools.RouterDecision, error) {
@@ -779,23 +769,10 @@ func (c *Client) GetMiddlewareStatus(ctx context.Context) (*localaitools.Middlew
 		Note:       "Intelligent routing is not yet implemented.",
 	}
 	piiSection := localaitools.MiddlewarePIIStatus{
-		EnabledGlobally: c.PIIRedactor != nil,
-		Patterns:        []localaitools.PIIPattern{},
+		EnabledGlobally: c.PIIEvents != nil,
 		Models:          []localaitools.MiddlewarePIIModel{},
 	}
-	if c.PIIRedactor == nil {
-		piiSection.Reason = "--disable-pii"
-		return &localaitools.MiddlewareStatus{PII: piiSection, Router: router}, nil
-	}
 	piiSection.DefaultEnabledForBackends = []string{"cloud-proxy"}
-	for _, p := range c.PIIRedactor.Patterns() {
-		piiSection.Patterns = append(piiSection.Patterns, localaitools.PIIPattern{
-			ID:             p.ID,
-			Description:    p.Description,
-			Action:         string(p.Action),
-			MaxMatchLength: p.MaxMatchLength,
-		})
-	}
 	if c.ConfigLoader != nil {
 		for _, cfg := range c.ConfigLoader.GetAllModelsConfigs() {
 			cfg := cfg
@@ -805,7 +782,7 @@ func (c *Client) GetMiddlewareStatus(ctx context.Context) (*localaitools.Middlew
 				Enabled:           cfg.PIIIsEnabled(),
 				Explicit:          cfg.PII.Enabled != nil,
 				DefaultForBackend: cfg.Backend == "cloud-proxy",
-				Overrides:         cfg.PIIPatternOverrides(),
+				Detectors:         cfg.PIIDetectors(),
 			})
 		}
 	}
@@ -815,27 +792,6 @@ func (c *Client) GetMiddlewareStatus(ctx context.Context) (*localaitools.Middlew
 		}
 	}
 	return &localaitools.MiddlewareStatus{PII: piiSection, Router: router}, nil
-}
-
-func (c *Client) TestPIIRedaction(_ context.Context, req localaitools.PIIRedactTestRequest) (*localaitools.PIIRedactTestResult, error) {
-	if c.PIIRedactor == nil {
-		return nil, errors.New("PII filter is disabled")
-	}
-	res := c.PIIRedactor.Redact(req.Text)
-	out := &localaitools.PIIRedactTestResult{
-		Redacted: res.Redacted,
-		Blocked:  res.Blocked,
-		Masked:   res.Masked,
-	}
-	for _, s := range res.Spans {
-		out.Spans = append(out.Spans, localaitools.PIIEventSpan{
-			Start:      s.Start,
-			End:        s.End,
-			Pattern:    s.Pattern,
-			HashPrefix: s.HashPrefix,
-		})
-	}
-	return out, nil
 }
 
 func capabilityFlagsOf(m *config.ModelConfig) []string {

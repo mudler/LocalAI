@@ -6,6 +6,19 @@
   },
   "resourceGpu": "GPU",
   "resourceRam": "RAM",
+  "greeting": {
+    "morning": "Good morning",
+    "afternoon": "Good afternoon",
+    "evening": "Good evening",
+    "night": "Working late"
+  },
+  "statusLine": {
+    "modelsLoaded_one": "{{count}} model loaded",
+    "modelsLoaded_other": "{{count}} models loaded",
+    "noModelsLoaded": "No models loaded",
+    "nodes_one": "{{count}} node",
+    "nodes_other": "{{count}} nodes"
+  },
   "assistant": {
     "title": "채팅으로 LocalAI 관리",
     "description": "LocalAI와 대화하여 모델을 설치하고, 백엔드를 전환하고, 구성을 편집하고, 상태를 확인하세요.",
@@ -30,6 +43,7 @@
     "documentation": "문서"
   },
   "loadedModels": {
+    "heading": "활성 모델",
     "count_one": "모델 {{count}}개 로드됨",
     "count_other": "모델 {{count}}개 로드됨",
     "stop": "모델 중지",
@@ -62,5 +76,17 @@
     "docs": "문서",
     "noModelsTitle": "사용 가능한 모델 없음",
     "noModelsBody": "아직 설치된 모델이 없습니다. 채팅을 시작할 수 있도록 관리자에게 모델 설정을 요청하세요."
+  },
+  "connect": {
+    "title": "하나의 엔드포인트, 모든 API",
+    "subtitle": "LocalAI는 이미지 및 비디오 생성, 깊이, 객체 탐지, 리랭킹, 오디오, 얼굴 및 음성 인식, 그리고 WebRTC와 WebSocket을 통한 실시간 음성 등 자체 전체 API를 제공합니다. 여기에 드롭인 호환 계층을 통해 OpenAI, Anthropic, Ollama 또는 OpenAI Responses용으로 만들어진 모든 앱이 수정 없이 작동합니다.",
+    "nativeTitle": "네이티브 API",
+    "compatTitle": "드롭인 호환성",
+    "apiReference": "전체 API 레퍼런스",
+    "copy": "복사",
+    "copied": "복사됨",
+    "browse": "Browse the API",
+    "hide": "Hide endpoints",
+    "dismiss": "Dismiss"
   }
 }

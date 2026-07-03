@@ -1,6 +1,8 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { fineTuneApi } from '../utils/api'
 import LoadingSpinner from '../components/LoadingSpinner'
+import PageHeader from '../components/PageHeader'
+import UnsavedChangesGuard from '../components/UnsavedChangesGuard'
 
 const TRAINING_METHODS = ['sft', 'dpo', 'grpo', 'rloo', 'reward', 'kto', 'orpo']
 const TRAINING_TYPES = ['lora', 'loha', 'lokr', 'full']
@@ -704,6 +706,8 @@ export default function FineTune() {
   const [error, setError] = useState('')
   const [backends, setBackends] = useState([])
   const [exportCheckpoint, setExportCheckpoint] = useState(null)
+  // Baseline of the assembled config for the unsaved-changes guard.
+  const initialConfigRef = useRef(null)
 
   // Form state
   const [model, setModel] = useState('')
@@ -844,6 +848,8 @@ export default function FineTune() {
       const resp = await fineTuneApi.startJob(req)
       setShowForm(false)
       setResumeFromCheckpoint('')
+      // Job submitted: rebaseline so leaving the page no longer warns.
+      initialConfigRef.current = JSON.stringify(getFormConfig())
       await loadJobs()
 
       const newJob = { ...req, id: resp.id, status: 'queued', created_at: new Date().toISOString() }
@@ -1056,23 +1062,28 @@ export default function FineTune() {
     setExportCheckpoint(checkpoint)
   }
 
+  // Lazy-init the baseline on first render; dirty when the open form diverges.
+  if (initialConfigRef.current === null) initialConfigRef.current = JSON.stringify(getFormConfig())
+  const dirty = JSON.stringify(getFormConfig()) !== initialConfigRef.current
+
   return (
     <div className="page page--wide">
-      <div className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-        <div>
-          <h1 className="page-title">Fine-Tuning <span className="badge badge-warning" style={{ fontSize: '0.45em', verticalAlign: 'middle' }}>Experimental</span></h1>
-          <p className="page-subtitle">Create and manage fine-tuning jobs</p>
-        </div>
-        <div style={{ display: 'flex', gap: 'var(--spacing-sm)' }}>
-          <button className="btn" onClick={handleImportConfig}>
-            <i className="fas fa-upload" style={{ marginRight: 'var(--spacing-xs)' }} /> Import Config
-          </button>
-          <button className="btn btn-primary" onClick={() => setShowForm(!showForm)}>
-            <i className={`fas fa-${showForm ? 'times' : 'plus'}`} style={{ marginRight: 'var(--spacing-xs)' }} />
-            {showForm ? 'Cancel' : 'New Job'}
-          </button>
-        </div>
-      </div>
+      <UnsavedChangesGuard when={dirty && showForm && !loading} />
+      <PageHeader
+        title={<>Fine-Tuning <span className="badge badge-warning" style={{ fontSize: '0.45em', verticalAlign: 'middle' }}>Experimental</span></>}
+        supporting="Create and manage fine-tuning jobs"
+        actions={
+          <div style={{ display: 'flex', gap: 'var(--spacing-sm)' }}>
+            <button className="btn" onClick={handleImportConfig}>
+              <i className="fas fa-upload" style={{ marginRight: 'var(--spacing-xs)' }} /> Import Config
+            </button>
+            <button className="btn btn-primary" onClick={() => setShowForm(!showForm)}>
+              <i className={`fas fa-${showForm ? 'times' : 'plus'}`} style={{ marginRight: 'var(--spacing-xs)' }} />
+              {showForm ? 'Cancel' : 'New Job'}
+            </button>
+          </div>
+        }
+      />
 
       {error && (
         <div className="card" style={{ background: 'var(--color-error-light)', borderColor: 'var(--color-error-border)', color: 'var(--color-error)', marginBottom: 'var(--spacing-md)', padding: 'var(--spacing-md)' }}>

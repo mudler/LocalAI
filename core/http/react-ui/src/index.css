@@ -53,8 +53,8 @@ h1, h2, h3, h4, h5, h6 {
   color: var(--color-text-primary);
   line-height: var(--leading-tight);
 }
-h1 { font-size: var(--text-3xl); font-weight: var(--font-weight-medium); letter-spacing: -0.02em; }
-h2 { font-size: var(--text-2xl); font-weight: var(--font-weight-medium); letter-spacing: -0.015em; }
+h1 { font-family: var(--font-sans); font-size: clamp(1.75rem, 1.2rem + 2.4vw, var(--text-4xl)); font-weight: 600; letter-spacing: -0.02em; }
+h2 { font-family: var(--font-sans); font-size: clamp(1.4rem, 1.05rem + 1.6vw, var(--text-3xl)); font-weight: 600; letter-spacing: -0.015em; }
 h3 { font-size: var(--text-xl);  font-weight: var(--font-weight-medium); letter-spacing: -0.01em; }
 h4 { font-size: var(--text-lg);  font-weight: var(--font-weight-medium); letter-spacing: -0.005em; }
 h5 { font-size: var(--text-base);font-weight: var(--font-weight-semibold); }
@@ -93,6 +93,9 @@ a:hover {
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
     animation-duration: 0.01ms !important;
+    /* Neutralize per-child stagger delays (e.g. .reveal-stagger) so content
+       does not sit at the hidden "from" keyframe before snapping in. */
+    animation-delay: 0s !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;

@@ -86,7 +86,8 @@ func (s *transcriptStreamer) content() string {
 // tool calls. It returns true when it has fully handled the response so the
 // caller can return; callers must only invoke it for an audio modality, and with
 // tools only when the model uses its tokenizer template (see triggerResponseAtTurn).
-func streamLLMResponse(ctx context.Context, session *Session, conv *Conversation, t Transport, responseID string, history schema.Messages, images []string, llmCfg *config.ModelConfig, tools []types.ToolUnion, toolChoice *types.ToolChoiceUnion, toolTurn int) bool {
+func streamLLMResponse(ctx context.Context, session *Session, conv *Conversation, t Transport, r *liveResponse, history schema.Messages, images []string, llmCfg *config.ModelConfig, tools []types.ToolUnion, toolChoice *types.ToolChoiceUnion, toolTurn int) bool {
+	responseID := r.id
 	itemID := generateItemID()
 	item := types.MessageItemUnion{
 		Assistant: &types.MessageItemAssistant{
@@ -121,6 +122,8 @@ func streamLLMResponse(ctx context.Context, session *Session, conv *Conversation
 		})
 	}
 
+	// cancel rolls back the partial item and records the cancelled outcome; the
+	// single terminal is emitted by triggerResponse.
 	cancel := func() {
 		if announced {
 			conv.Lock.Lock()
@@ -132,10 +135,7 @@ func streamLLMResponse(ctx context.Context, session *Session, conv *Conversation
 			}
 			conv.Lock.Unlock()
 		}
-		sendEvent(t, types.ResponseDoneEvent{
-			ServerEventBase: types.ServerEventBase{},
-			Response:        types.Response{ID: responseID, Object: "realtime.response", Status: types.ResponseStatusCancelled},
-		})
+		r.outcome = outcomeCancelled
 	}
 
 	var template string
@@ -161,24 +161,30 @@ func streamLLMResponse(ctx context.Context, session *Session, conv *Conversation
 	streamer.announce = announce
 
 	// Clause chunking (opt-in): synthesize each clause as soon as it completes
-	// instead of buffering the whole reply. streamedAudio accumulates the PCM
-	// across clauses for the conversation item record; ttsErr captures the first
-	// synthesis failure so the token callback can stop the prediction. emitSpeech
-	// runs synchronously here — the LLM keeps generating into the gRPC stream
-	// while a clause is synthesized, so audio still starts mid-generation.
+	// instead of buffering the whole reply. Synthesis runs on a worker goroutine
+	// (ttsPipeline) rather than inline in the token callback: emitSpeech blocks
+	// until the whole clause is synthesized (and, for WebRTC, played back at
+	// real time), and the callback runs on the goroutine that drains the LLM
+	// gRPC stream — so speaking inline stalls generation and freezes the
+	// assistant transcript at every clause boundary. The worker lets generation
+	// and the transcript stream keep flowing while audio is produced behind them.
 	var chunker *clauseChunker
+	var ttsPipe *ttsPipeline
 	if session.ModelConfig != nil && session.ModelConfig.Pipeline.ChunkClauses() {
 		chunker = newClauseChunker(defaultClauseMinRunes, defaultClauseMaxRunes)
+		ttsPipe = newTTSPipeline(func(clause string) ([]byte, error) {
+			return emitSpeech(ctx, t, session, responseID, itemID, clause)
+		})
 	}
 	var streamedAudio []byte
 	var ttsErr error
-	speakClause := func(clause string) error {
-		a, err := emitSpeech(ctx, t, session, responseID, itemID, clause)
-		if err != nil {
-			return err
-		}
-		streamedAudio = append(streamedAudio, a...)
-		return nil
+
+	// Backstop: always join the TTS worker, even on an unexpected early return.
+	// wait() is idempotent, so the explicit drain below (which captures the
+	// streamed audio and first error) stays authoritative; this only guarantees
+	// the goroutine can never leak if a new return path is added.
+	if ttsPipe != nil {
+		defer func() { _, _ = ttsPipe.wait() }()
 	}
 
 	// fail reports a mid-stream failure. A cancelled context means the client
@@ -188,6 +194,7 @@ func streamLLMResponse(ctx context.Context, session *Session, conv *Conversation
 			cancel()
 		} else {
 			sendError(t, code, fmt.Sprintf("%s: %v", msg, err), "", itemID)
+			r.outcome = outcomeFailed
 		}
 		return true
 	}
@@ -207,8 +214,12 @@ func streamLLMResponse(ctx context.Context, session *Session, conv *Conversation
 		delta := streamer.onToken(text)
 		if chunker != nil && delta != "" {
 			for _, clause := range chunker.push(delta) {
-				if ttsErr = speakClause(clause); ttsErr != nil {
-					return false // stop the prediction; reported after predFunc returns
+				// Hand the clause to the worker and keep going — never block the
+				// recv loop on synthesis. A false return means a prior clause
+				// already failed; stop the prediction (the error is collected
+				// from the pipeline after predFunc returns).
+				if !ttsPipe.enqueue(clause) {
+					return false
 				}
 			}
 		}
@@ -217,10 +228,27 @@ func streamLLMResponse(ctx context.Context, session *Session, conv *Conversation
 
 	predFunc, err := session.ModelInterface.Predict(ctx, history, images, nil, nil, cb, tools, toolChoice, nil, nil, nil)
 	if err != nil {
+		// The deferred wait() joins the (idle) worker.
 		sendError(t, "inference_failed", fmt.Sprintf("backend error: %v", err), "", itemID)
 		return true
 	}
 	pred, err := predFunc()
+
+	// Drain the TTS worker. On a clean finish, enqueue the trailing clause(s) the
+	// chunker was still holding; on an error or barge-in, stop synthesizing.
+	// wait() runs on every path so the worker goroutine never leaks, and it
+	// returns the audio streamed so far plus the first synthesis failure.
+	if ttsPipe != nil {
+		if err == nil && ctx.Err() == nil {
+			for _, clause := range chunker.flush() {
+				if !ttsPipe.enqueue(clause) {
+					break
+				}
+			}
+		}
+		streamedAudio, ttsErr = ttsPipe.wait()
+	}
+
 	// A clause synthesis failed mid-stream (the callback stopped the prediction);
 	// report it as a TTS error rather than a prediction error.
 	if ttsErr != nil {
@@ -233,6 +261,7 @@ func streamLLMResponse(ctx context.Context, session *Session, conv *Conversation
 		cancel()
 		return true
 	}
+	r.addUsage(pred.Usage)
 
 	content := streamer.content()
 	toolCalls := functions.ToolCallsFromChatDeltas(pred.ChatDeltas)
@@ -244,24 +273,19 @@ func streamLLMResponse(ctx context.Context, session *Session, conv *Conversation
 			announce()
 		}
 
-		// Synthesize the audio. With clause chunking the completed clauses were
-		// already spoken inside the token callback; flush the trailing clause(s)
-		// the segmenter was still holding. Otherwise buffer the whole message and
-		// synthesize it once. emitSpeech streams the audio chunks when the TTS
-		// backend supports TTSStream, otherwise it sends a single unary delta.
+		// With clause chunking the clauses were synthesized on the worker as the
+		// reply streamed (including the trailing flush drained above), so the
+		// audio is already accumulated. Otherwise buffer the whole message and
+		// synthesize it once now — emitSpeech streams the audio chunks when the
+		// TTS backend supports TTSStream, otherwise it sends a single unary delta.
 		var audio []byte
 		if chunker != nil {
-			for _, clause := range chunker.flush() {
-				if ttsErr = speakClause(clause); ttsErr != nil {
-					break
-				}
-			}
 			audio = streamedAudio
 		} else {
 			audio, ttsErr = emitSpeech(ctx, t, session, responseID, itemID, content)
-		}
-		if ttsErr != nil {
-			return fail("tts_error", "TTS generation failed", ttsErr)
+			if ttsErr != nil {
+				return fail("tts_error", "TTS generation failed", ttsErr)
+			}
 		}
 
 		_, isWebRTC := t.(*WebRTCTransport)
@@ -306,10 +330,12 @@ func streamLLMResponse(ctx context.Context, session *Session, conv *Conversation
 			OutputIndex:     0,
 			Item:            item,
 		})
+		r.addItem(item)
 	}
 
-	// Emit any tool calls, the terminal response.done, and (for server-side
-	// assistant tools) the follow-up turn — shared with the buffered path.
-	emitToolCallItems(ctx, session, conv, t, responseID, toolCalls, content != "", toolTurn)
+	// Emit any tool calls and (for server-side assistant tools) the follow-up
+	// turn — shared with the buffered path. The single terminal is emitted by
+	// triggerResponse.
+	emitToolCallItems(ctx, session, conv, t, r, toolCalls, content != "", toolTurn)
 	return true
 }

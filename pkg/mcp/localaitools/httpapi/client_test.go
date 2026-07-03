@@ -166,6 +166,92 @@ var _ = Describe("httpapi.Client against the LocalAI admin REST surface", func()
 	})
 })
 
+var _ = Describe("Model aliases", func() {
+	Describe("ListAliases", func() {
+		It("passes the GET /api/aliases payload through unchanged", func() {
+			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				Expect(r.Method).To(Equal(http.MethodGet))
+				Expect(r.URL.Path).To(Equal("/api/aliases"))
+				_ = json.NewEncoder(w).Encode([]map[string]any{
+					{"name": "gpt-4", "target": "qwen"},
+				})
+			}))
+			DeferCleanup(srv.Close)
+
+			out, err := New(srv.URL, "").ListAliases(context.Background())
+			Expect(err).ToNot(HaveOccurred())
+			Expect(out).To(HaveLen(1))
+			Expect(out[0].Name).To(Equal("gpt-4"))
+			Expect(out[0].Target).To(Equal("qwen"))
+		})
+	})
+
+	Describe("SetAlias", func() {
+		It("swaps an existing alias via PATCH without falling back to import", func() {
+			var patched, imported bool
+			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				switch {
+				case r.Method == http.MethodPatch && r.URL.Path == "/api/models/config-json/gpt-4":
+					patched = true
+					var body map[string]any
+					Expect(json.NewDecoder(r.Body).Decode(&body)).To(Succeed())
+					Expect(body).To(HaveKeyWithValue("alias", "qwen"))
+					_ = json.NewEncoder(w).Encode(map[string]any{"success": true})
+				case r.URL.Path == "/models/import":
+					imported = true
+					w.WriteHeader(http.StatusOK)
+				default:
+					http.Error(w, "unexpected", http.StatusTeapot)
+				}
+			}))
+			DeferCleanup(srv.Close)
+
+			Expect(New(srv.URL, "").SetAlias(context.Background(), "gpt-4", "qwen")).To(Succeed())
+			Expect(patched).To(BeTrue(), "PATCH should be attempted first")
+			Expect(imported).To(BeFalse(), "import must not run when PATCH succeeds")
+		})
+
+		It("creates a fresh alias via import when PATCH reports the model is missing", func() {
+			var imported bool
+			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				switch {
+				case r.Method == http.MethodPatch:
+					http.Error(w, "model configuration not found", http.StatusNotFound)
+				case r.Method == http.MethodPost && r.URL.Path == "/models/import":
+					imported = true
+					var body map[string]any
+					Expect(json.NewDecoder(r.Body).Decode(&body)).To(Succeed())
+					Expect(body).To(HaveKeyWithValue("name", "gpt-4"))
+					Expect(body).To(HaveKeyWithValue("alias", "qwen"))
+					_ = json.NewEncoder(w).Encode(map[string]any{"success": true})
+				default:
+					http.Error(w, "unexpected", http.StatusTeapot)
+				}
+			}))
+			DeferCleanup(srv.Close)
+
+			Expect(New(srv.URL, "").SetAlias(context.Background(), "gpt-4", "qwen")).To(Succeed())
+			Expect(imported).To(BeTrue(), "import should create the alias on a 404")
+		})
+
+		It("surfaces a non-404 PATCH error without attempting import", func() {
+			var imported bool
+			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				if r.URL.Path == "/models/import" {
+					imported = true
+				}
+				http.Error(w, "target is an alias", http.StatusBadRequest)
+			}))
+			DeferCleanup(srv.Close)
+
+			err := New(srv.URL, "").SetAlias(context.Background(), "gpt-4", "bad")
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("target is an alias"))
+			Expect(imported).To(BeFalse(), "a 400 swap error must not trigger create")
+		})
+	})
+})
+
 var _ = Describe("ErrHTTPNotFound", func() {
 	Context("on a clean 404 status", func() {
 		var (

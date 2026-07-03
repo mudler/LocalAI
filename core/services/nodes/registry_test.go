@@ -646,6 +646,38 @@ var _ = Describe("NodeRegistry", func() {
 		})
 	})
 
+	Describe("GetWithExtras", func() {
+		It("returns the node enriched with its labels map", func() {
+			node := makeNode("extras-node", "10.0.0.80:50051", 8_000_000_000)
+			Expect(registry.Register(context.Background(), node, true)).To(Succeed())
+			Expect(registry.SetNodeLabel(context.Background(), node.ID, "env", "prod")).To(Succeed())
+			Expect(registry.SetNodeLabel(context.Background(), node.ID, "region", "us-east")).To(Succeed())
+
+			got, err := registry.GetWithExtras(context.Background(), node.ID)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(got).ToNot(BeNil())
+			Expect(got.ID).To(Equal(node.ID))
+			Expect(got.Name).To(Equal("extras-node"))
+			Expect(got.Labels).To(Equal(map[string]string{"env": "prod", "region": "us-east"}))
+		})
+
+		It("returns an empty (non-nil) labels map when the node has none", func() {
+			node := makeNode("extras-no-labels", "10.0.0.81:50051", 8_000_000_000)
+			Expect(registry.Register(context.Background(), node, true)).To(Succeed())
+
+			got, err := registry.GetWithExtras(context.Background(), node.ID)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(got).ToNot(BeNil())
+			Expect(got.Labels).ToNot(BeNil())
+			Expect(got.Labels).To(BeEmpty())
+		})
+
+		It("returns an error for an unknown node", func() {
+			_, err := registry.GetWithExtras(context.Background(), "does-not-exist")
+			Expect(err).To(HaveOccurred())
+		})
+	})
+
 	Describe("FindNodesBySelector", func() {
 		It("returns nodes matching all labels in selector", func() {
 			n1 := makeNode("sel-match", "10.0.0.80:50051", 8_000_000_000)

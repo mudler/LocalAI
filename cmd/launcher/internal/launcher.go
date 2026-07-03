@@ -207,12 +207,20 @@ func (l *Launcher) StartLocalAI() error {
 	}
 
 	// Build command arguments
+	dataPath := l.GetDataPath()
 	args := []string{
 		"run",
 		"--models-path", l.config.ModelsPath,
 		"--backends-path", l.config.BackendsPath,
 		"--address", l.config.Address,
 		"--log-level", l.config.LogLevel,
+		// Keep persistent data and dynamic config under the launcher's data
+		// directory (~/.localai) rather than letting the server resolve them
+		// to ${basepath}/{data,configuration}. ${basepath} expands to the
+		// launcher process's CWD (often the user's home root), which puts
+		// ~/data and ~/configuration outside ~/.localai. See #10610.
+		"--data-path", filepath.Join(dataPath, "data"),
+		"--localai-config-dir", filepath.Join(dataPath, "configuration"),
 	}
 
 	l.localaiCmd = exec.CommandContext(l.ctx, binaryPath, args...)
@@ -429,7 +437,7 @@ func (l *Launcher) CheckForUpdates() (bool, string, error) {
 }
 
 // DownloadUpdate downloads the latest version
-func (l *Launcher) DownloadUpdate(version string, progressCallback func(float64)) error {
+func (l *Launcher) DownloadUpdate(version string, progressCallback func(downloaded, total int64)) error {
 	return l.releaseManager.DownloadRelease(version, progressCallback)
 }
 
@@ -486,7 +494,6 @@ func (l *Launcher) showDownloadLocalAIDialog() {
 	fyne.DoAndWait(func() {
 		// Create a standalone window for the download dialog
 		dialogWindow := l.app.NewWindow("LocalAI Installation Required")
-		dialogWindow.Resize(fyne.NewSize(500, 350))
 		dialogWindow.CenterOnScreen()
 		dialogWindow.SetCloseIntercept(func() {
 			dialogWindow.Close()
@@ -548,6 +555,7 @@ func (l *Launcher) showDownloadLocalAIDialog() {
 		)
 
 		dialogWindow.SetContent(content)
+		resizeToContent(dialogWindow, content)
 		dialogWindow.Show()
 	})
 }
@@ -621,86 +629,132 @@ func (l *Launcher) showDownloadError(title, message string) {
 }
 
 // showDownloadProgress shows a standalone progress window for downloading LocalAI
+// after a fresh install (no LocalAI binary present yet).
 func (l *Launcher) showDownloadProgress(version, title string) {
+	l.showDownloadProgressWindow(version, title, func(win fyne.Window) {
+		dialog.ShowConfirm("Installation Complete",
+			"LocalAI has been downloaded and installed successfully. You can now start LocalAI from the launcher.",
+			func(bool) {
+				win.Close()
+				l.updateStatus("LocalAI installed successfully")
+				if l.systray != nil {
+					l.systray.recreateMenu()
+				}
+			}, win)
+	})
+}
+
+// showDownloadProgressWindow renders the download progress popup shared by every
+// "download/upgrade LocalAI" entry point. It owns the progress bar, the
+// human-readable byte readout, resume-aware retry, and content-fit window
+// sizing so the behaviour stays identical everywhere. onSuccess runs (on the UI
+// goroutine) once the download verifies, and is responsible for the success
+// dialog and any follow-up; the window is passed in so it can be parented/closed.
+func (l *Launcher) showDownloadProgressWindow(version, title string, onSuccess func(win fyne.Window)) {
 	fyne.DoAndWait(func() {
-		// Create progress window
 		progressWindow := l.app.NewWindow("Downloading LocalAI")
-		progressWindow.Resize(fyne.NewSize(400, 250))
 		progressWindow.CenterOnScreen()
 		progressWindow.SetCloseIntercept(func() {
 			progressWindow.Close()
 		})
 
-		// Progress bar
 		progressBar := widget.NewProgressBar()
 		progressBar.SetValue(0)
 
 		// Status label. Truncate with an ellipsis so a long "Download failed:
 		// <url>" message can't stretch the window (and progress bar) to fit the
-		// whole error on one line; the full error is shown in the dialog below.
+		// whole error on one line.
 		statusLabel := widget.NewLabel("Preparing download...")
 		statusLabel.Truncation = fyne.TextTruncateEllipsis
 
-		// Release notes button
 		releaseNotesButton := widget.NewButton("View Release Notes", func() {
 			releaseNotesURL, err := l.githubReleaseNotesURL(version)
 			if err != nil {
 				log.Printf("Failed to parse URL: %v", err)
 				return
 			}
-
 			l.app.OpenURL(releaseNotesURL)
 		})
 
-		// Progress container
-		progressContainer := container.NewVBox(
+		// Retry button: hidden until a download fails. GitHub downloads are
+		// flaky, and the underlying download resumes from the partial file, so
+		// a retry continues where it left off rather than starting over.
+		retryButton := widget.NewButton("Retry", nil)
+		retryButton.Importance = widget.HighImportance
+		retryButton.Hide()
+
+		buttonRow := container.NewHBox(releaseNotesButton, retryButton)
+		content := container.NewVBox(
 			widget.NewLabel(title),
 			progressBar,
 			statusLabel,
 			widget.NewSeparator(),
-			releaseNotesButton,
+			buttonRow,
 		)
+		progressWindow.SetContent(content)
+		resizeToContent(progressWindow, content)
 
-		progressWindow.SetContent(progressContainer)
-		progressWindow.Show()
+		var startDownload func()
+		startDownload = func() {
+			retryButton.Hide()
+			progressBar.SetValue(0)
+			statusLabel.SetText("Preparing download...")
+			resizeToContent(progressWindow, content)
 
-		// Start download in background
-		go func() {
-			err := l.DownloadUpdate(version, func(progress float64) {
-				// Update progress bar
-				fyne.Do(func() {
-					progressBar.SetValue(progress)
-					percentage := int(progress * 100)
-					statusLabel.SetText(fmt.Sprintf("Downloading... %d%%", percentage))
+			go func() {
+				err := l.DownloadUpdate(version, func(downloaded, total int64) {
+					fyne.Do(func() {
+						if total > 0 {
+							progressBar.SetValue(float64(downloaded) / float64(total))
+							statusLabel.SetText(fmt.Sprintf("Downloading… %s / %s", formatBytes(downloaded), formatBytes(total)))
+						} else {
+							statusLabel.SetText(fmt.Sprintf("Downloading… %s", formatBytes(downloaded)))
+						}
+					})
 				})
-			})
 
-			// Handle completion
-			fyne.Do(func() {
-				if err != nil {
-					statusLabel.SetText(fmt.Sprintf("Download failed: %v", err))
-					// Show error dialog
-					dialog.ShowError(err, progressWindow)
-				} else {
-					statusLabel.SetText("Download completed successfully!")
+				fyne.Do(func() {
+					if err != nil {
+						statusLabel.SetText(fmt.Sprintf("Download failed: %v", err))
+						retryButton.Show()
+						resizeToContent(progressWindow, content)
+						return
+					}
 					progressBar.SetValue(1.0)
+					statusLabel.SetText("Download complete")
+					onSuccess(progressWindow)
+				})
+			}()
+		}
+		retryButton.OnTapped = startDownload
 
-					// Show success dialog
-					dialog.ShowConfirm("Installation Complete",
-						"LocalAI has been downloaded and installed successfully. You can now start LocalAI from the launcher.",
-						func(close bool) {
-							progressWindow.Close()
-							// Update status and refresh systray menu
-							l.updateStatus("LocalAI installed successfully")
-
-							if l.systray != nil {
-								l.systray.recreateMenu()
-							}
-						}, progressWindow)
-				}
-			})
-		}()
+		progressWindow.Show()
+		startDownload()
 	})
+}
+
+// resizeToContent sizes a window to fit its content (with a sane minimum width)
+// so the dialog doesn't show a large blank gap below the last widget.
+func resizeToContent(w fyne.Window, content fyne.CanvasObject) {
+	size := content.MinSize()
+	if size.Width < 400 {
+		size.Width = 400
+	}
+	w.Resize(size)
+}
+
+// formatBytes renders a byte count as a human-readable size (e.g. "12.3 MB").
+func formatBytes(b int64) string {
+	const unit = 1024
+	if b < unit {
+		return fmt.Sprintf("%d B", b)
+	}
+	div, exp := int64(unit), 0
+	for n := b / unit; n >= unit; n /= unit {
+		div *= unit
+		exp++
+	}
+	return fmt.Sprintf("%.1f %cB", float64(b)/float64(div), "KMGTPE"[exp])
 }
 
 // monitorLogs monitors the output of LocalAI and adds it to the log buffer

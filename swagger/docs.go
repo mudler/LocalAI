@@ -500,6 +500,25 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/aliases": {
+            "get": {
+                "tags": [
+                    "models"
+                ],
+                "summary": "List model aliases",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/localai.AliasInfo"
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/api/backend-logs": {
             "get": {
                 "description": "Returns a sorted list of model IDs that have captured backend process output",
@@ -1002,6 +1021,25 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/nodes/models": {
+            "get": {
+                "tags": [
+                    "Nodes"
+                ],
+                "summary": "List all loaded models cluster-wide",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/nodes.NodeModel"
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/api/nodes/{id}/max-replicas-per-model": {
             "put": {
                 "tags": [
@@ -1121,43 +1159,57 @@ const docTemplate = `{
                 }
             }
         },
-        "/api/pii/decide": {
+        "/api/pii/analyze": {
             "post": {
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
+                "description": "Runs the configured PII detectors (NER and/or pattern tiers) over the supplied text and returns the matched entity spans with the policy action that would fire. Detection only — the text is not modified and no block is enforced. Select detectors explicitly via ` + "`" + `detectors` + "`" + `, or pass a consuming ` + "`" + `model` + "`" + ` to use its effective policy: the model's own ` + "`" + `pii.detectors` + "`" + `, else the instance-wide ` + "`" + `pii_default_detectors` + "`" + `. A model with PII disabled, or enabled with nothing to scan with, is a 400. The raw matched value is never returned; admins may set ` + "`" + `reveal:true` + "`" + ` for the audit hash prefix.",
                 "tags": [
                     "pii"
                 ],
-                "summary": "Scan text for PII and return findings + suggested action (decision oracle)",
+                "summary": "Detect PII entities in a string (no mutation).",
                 "parameters": [
                     {
-                        "description": "decide params",
+                        "description": "text + detector selection",
                         "name": "request",
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/schema.PIIDecideRequest"
+                            "$ref": "#/definitions/schema.PIIAnalyzeRequest"
                         }
                     }
                 ],
                 "responses": {
                     "200": {
-                        "description": "OK",
+                        "description": "Detected entities",
                         "schema": {
-                            "$ref": "#/definitions/schema.PIIDecideResponse"
+                            "$ref": "#/definitions/schema.PIIAnalyzeResponse"
                         }
-                    },
-                    "400": {
-                        "description": "Bad Request",
+                    }
+                }
+            }
+        },
+        "/api/pii/redact": {
+            "post": {
+                "description": "Runs the configured PII detectors over the text and applies each detector model's policy: masked spans are replaced with ` + "`" + `[REDACTED:\u003cid\u003e]` + "`" + `, allow spans pass through, and a single block action causes a 400 (type ` + "`" + `pii_blocked` + "`" + `) carrying the offending entities — the text is never returned in that case. Select detectors via ` + "`" + `detectors` + "`" + `, or a consuming ` + "`" + `model` + "`" + `'s effective policy (its own ` + "`" + `pii.detectors` + "`" + `, else the instance-wide ` + "`" + `pii_default_detectors` + "`" + `; PII must be enabled on the model). Records audit events (origin ` + "`" + `pii_redact` + "`" + `) visible at /api/pii/events.",
+                "tags": [
+                    "pii"
+                ],
+                "summary": "Redact PII in a string by applying the configured policy.",
+                "parameters": [
+                    {
+                        "description": "text + detector selection",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
+                            "$ref": "#/definitions/schema.PIIAnalyzeRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Redacted text + entities",
+                        "schema": {
+                            "$ref": "#/definitions/schema.PIIRedactResponse"
                         }
                     }
                 }
@@ -1901,6 +1953,53 @@ const docTemplate = `{
                         "description": "generated audio/wav file",
                         "schema": {
                             "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/audio/classification": {
+            "post": {
+                "consumes": [
+                    "multipart/form-data"
+                ],
+                "tags": [
+                    "audio"
+                ],
+                "summary": "Classify sound events in audio (audio tagging).",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "model",
+                        "name": "model",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "file",
+                        "description": "audio file",
+                        "name": "file",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "number of top tags to return (0 = backend default)",
+                        "name": "top_k",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "number",
+                        "description": "drop tags scoring below this value",
+                        "name": "threshold",
+                        "in": "formData"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/schema.SoundClassificationResult"
                         }
                     }
                 }
@@ -3472,6 +3571,17 @@ const docTemplate = `{
                 }
             }
         },
+        "localai.AliasInfo": {
+            "type": "object",
+            "properties": {
+                "name": {
+                    "type": "string"
+                },
+                "target": {
+                    "type": "string"
+                }
+            }
+        },
         "localai.BrandingResponse": {
             "type": "object",
             "properties": {
@@ -3495,6 +3605,10 @@ const docTemplate = `{
         "localai.GalleryBackend": {
             "type": "object",
             "properties": {
+                "force": {
+                    "description": "Force reinstalls the backend even when it is already installed and\nrunnable. Off by default so apply stays idempotent for supervising\napps that ensure their backend on every boot.",
+                    "type": "boolean"
+                },
                 "id": {
                     "type": "string"
                 }
@@ -3659,6 +3773,52 @@ const docTemplate = `{
                     "type": "integer"
                 },
                 "vram_display": {
+                    "type": "string"
+                }
+            }
+        },
+        "nodes.NodeModel": {
+            "type": "object",
+            "properties": {
+                "address": {
+                    "description": "gRPC address for this replica's backend process",
+                    "type": "string"
+                },
+                "backend_type": {
+                    "description": "e.g. \"llama-cpp\"; used by reconciler to replicate loads",
+                    "type": "string"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "in_flight": {
+                    "description": "number of active requests on this replica",
+                    "type": "integer"
+                },
+                "last_used": {
+                    "type": "string"
+                },
+                "loading_by": {
+                    "description": "frontend ID that triggered loading",
+                    "type": "string"
+                },
+                "model_name": {
+                    "type": "string"
+                },
+                "node_id": {
+                    "type": "string"
+                },
+                "replica_index": {
+                    "type": "integer"
+                },
+                "state": {
+                    "description": "loading, loaded, unloading, idle",
+                    "type": "string"
+                },
+                "updated_at": {
                     "type": "string"
                 }
             }
@@ -5893,49 +6053,93 @@ const docTemplate = `{
                 }
             }
         },
-        "schema.PIIDecideRequest": {
+        "schema.PIIAnalyzeRequest": {
             "type": "object",
             "properties": {
-                "text": {
-                    "description": "Text is the user-visible content to inspect. Required.",
-                    "type": "string"
-                }
-            }
-        },
-        "schema.PIIDecideResponse": {
-            "type": "object",
-            "properties": {
-                "findings": {
-                    "description": "Findings is one entry per matched span — pattern id, byte\nrange, and audit-safe hash prefix (never the matched value).",
+                "detectors": {
+                    "description": "Detectors names the detector models to run (NER and/or pattern). Takes\nprecedence over Model.",
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/schema.PIIFinding"
+                        "type": "string"
                     }
                 },
-                "redacted_preview": {
-                    "description": "RedactedPreview is the input with mask-action spans replaced\nby their placeholders. Identical to Text when no findings or\nwhen the strongest action is block/allow (which don't rewrite\ncontent).",
+                "model": {
+                    "description": "Model is a consuming model whose effective PII policy (own\npii.detectors, else the instance default detectors; PII must be\nenabled) is used when Detectors is empty.",
                     "type": "string"
                 },
-                "suggested_action": {
-                    "description": "SuggestedAction is the strongest action across all findings:\n\"block\", \"mask\", or \"allow\" (no findings, or all findings\nresolved to the allow action).",
+                "reveal": {
+                    "description": "Reveal includes the per-entity hash_prefix in the response. Honoured\nonly for admin callers; ignored otherwise. The raw matched value is\nnever returned regardless.",
+                    "type": "boolean"
+                },
+                "text": {
+                    "description": "Text is the string to scan. Bounded only by the server's global HTTP\nbody limit.",
                     "type": "string"
                 }
             }
         },
-        "schema.PIIFinding": {
+        "schema.PIIAnalyzeResponse": {
             "type": "object",
             "properties": {
+                "blocked": {
+                    "type": "boolean"
+                },
+                "correlation_id": {
+                    "type": "string"
+                },
+                "entities": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.PIIEntity"
+                    }
+                }
+            }
+        },
+        "schema.PIIEntity": {
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string"
+                },
                 "end": {
                     "type": "integer"
+                },
+                "entity_type": {
+                    "type": "string"
                 },
                 "hash_prefix": {
                     "type": "string"
                 },
-                "pattern": {
+                "score": {
+                    "type": "number"
+                },
+                "source": {
                     "type": "string"
                 },
                 "start": {
                     "type": "integer"
+                }
+            }
+        },
+        "schema.PIIRedactResponse": {
+            "type": "object",
+            "properties": {
+                "blocked": {
+                    "type": "boolean"
+                },
+                "correlation_id": {
+                    "type": "string"
+                },
+                "entities": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.PIIEntity"
+                    }
+                },
+                "masked": {
+                    "type": "boolean"
+                },
+                "redacted_text": {
+                    "type": "string"
                 }
             }
         },
@@ -5993,6 +6197,34 @@ const docTemplate = `{
                 "score": {
                     "description": "Score is the top label's softmax probability (the\nclassifier-side confidence signal).",
                     "type": "number"
+                }
+            }
+        },
+        "schema.SoundClassification": {
+            "type": "object",
+            "properties": {
+                "index": {
+                    "type": "integer"
+                },
+                "label": {
+                    "type": "string"
+                },
+                "score": {
+                    "type": "number"
+                }
+            }
+        },
+        "schema.SoundClassificationResult": {
+            "type": "object",
+            "properties": {
+                "detections": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.SoundClassification"
+                    }
+                },
+                "model": {
+                    "type": "string"
                 }
             }
         },

@@ -4,7 +4,8 @@
       "images": "Gambar",
       "video": "Video",
       "tts": "TTS",
-      "sound": "Suara"
+      "sound": "Suara",
+      "transform": "Transformasi"
     }
   },
   "image": {
@@ -29,6 +30,7 @@
       "refImagesAdded_other": "{{count}} gambar ditambahkan"
     },
     "actions": {
+      "view": "Lihat",
       "generate": "Hasilkan",
       "generating": "Menghasilkan..."
     },

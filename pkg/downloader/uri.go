@@ -330,6 +330,18 @@ func (s URI) ResolveURL() string {
 	return string(s)
 }
 
+// ErrUserCancelled distinguishes a deliberate user abort from an incidental
+// context cancellation (process shutdown, pod restart). Pass it as the cause
+// when cancelling the download context:
+//
+//	ctx, cancel := context.WithCancelCause(parent)
+//	cancel(downloader.ErrUserCancelled) // discards the .partial
+//
+// On a deliberate cancel the downloader removes the .partial (the user does not
+// want a half-download lingering). On a plain cancellation it keeps the .partial
+// so the next run resumes via Range instead of restarting from zero.
+var ErrUserCancelled = errors.New("download cancelled by user")
+
 func removePartialFile(tmpFilePath string) error {
 	xlog.Debug("Removing temporary file", "file", tmpFilePath)
 	if err := os.Remove(tmpFilePath); err != nil && !errors.Is(err, os.ErrNotExist) {
@@ -594,11 +606,17 @@ func (uri URI) DownloadFileWithContext(ctx context.Context, filePath, sha string
 		// Start the request
 		resp, err := downloadClient.Do(req)
 		if err != nil {
-			// Check if error is due to context cancellation
-			if errors.Is(err, context.Canceled) {
-				// Clean up partial file on cancellation
-				removePartialFile(tmpFilePath)
-				return err
+			// Detect cancellation via the context, not the returned error: a
+			// request cancelled *with a cause* surfaces the cause error (not
+			// context.Canceled) from the HTTP client. Keep the .partial for
+			// resume on an incidental cancel (shutdown, restart) — large GGUFs
+			// take long enough that deleting progress means they never finish —
+			// but discard it on a deliberate user abort (ErrUserCancelled).
+			if ctx.Err() != nil {
+				if errors.Is(context.Cause(ctx), ErrUserCancelled) {
+					_ = removePartialFile(tmpFilePath)
+				}
+				return ctx.Err()
 			}
 			return fmt.Errorf("failed to download file %q: %v", filePath, err)
 		}
@@ -608,6 +626,13 @@ func (uri URI) DownloadFileWithContext(ctx context.Context, filePath, sha string
 			return fmt.Errorf("failed to download url %q, invalid status code %d", url, resp.StatusCode)
 		}
 		source = resp.Body
+		// Guard against a silently-stalled stream: a dropped TCP connection
+		// that never sends FIN/RST would otherwise block the body Read (and
+		// thus the whole install) forever. The watchdog aborts after a window
+		// of zero progress; the .partial is kept for a later resume.
+		if DownloadStallTimeout > 0 {
+			source = newIdleTimeoutReader(resp.Body, DownloadStallTimeout)
+		}
 		contentLength = resp.ContentLength
 	}
 	defer source.Close()
@@ -640,19 +665,27 @@ func (uri URI) DownloadFileWithContext(ctx context.Context, filePath, sha string
 
 	_, err = xio.Copy(ctx, io.MultiWriter(outFile, progress), source)
 	if err != nil {
-		// Check if error is due to context cancellation
-		if errors.Is(err, context.Canceled) {
-			// Clean up partial file on cancellation
-			removePartialFile(tmpFilePath)
-			return err
+		// Detect cancellation via the context (a cause-cancelled read surfaces
+		// the cause, not context.Canceled). Keep the .partial for resume,
+		// except on a deliberate user abort (ErrUserCancelled), which discards
+		// it. A stall-guard abort leaves ctx uncancelled, so it falls through
+		// to the error path below and likewise preserves the partial.
+		if ctx.Err() != nil {
+			if errors.Is(context.Cause(ctx), ErrUserCancelled) {
+				_ = removePartialFile(tmpFilePath)
+			}
+			return ctx.Err()
 		}
 		return fmt.Errorf("failed to write file %q: %v", filePath, err)
 	}
 
-	// Check for cancellation before finalizing
+	// Check for cancellation before finalizing. Keep the .partial for resume
+	// unless the user deliberately aborted.
 	select {
 	case <-ctx.Done():
-		removePartialFile(tmpFilePath)
+		if errors.Is(context.Cause(ctx), ErrUserCancelled) {
+			_ = removePartialFile(tmpFilePath)
+		}
 		return ctx.Err()
 	default:
 	}

@@ -507,7 +507,7 @@ The `llama.cpp` backend supports additional configuration options that can be sp
 | `fit_params_min_ctx` or `fit_ctx` | integer | Minimum context size that can be set by fit_params. Default: `4096`. | `fit_ctx:2048` |
 | `n_cache_reuse` or `cache_reuse` | integer | Minimum chunk size to attempt reusing from the cache via KV shifting. Default: `0` (disabled). | `cache_reuse:256` |
 | `slot_prompt_similarity` or `sps` | float | How much the prompt of a request must match the prompt of a slot to use that slot. Default: `0.1`. Set to `0` to disable. | `sps:0.5` |
-| `swa_full` | boolean | Use full-size SWA (Sliding Window Attention) cache. Default: `false`. | `swa_full:true` |
+| `swa_full` | boolean | Use full-size SWA (Sliding Window Attention) cache. Upstream default is `false` (a memory-light reduced cache), but that reduced cache cannot reuse a prompt prefix across requests, which defeats `cache_reuse` for SWA models (Gemma 2/3, Cohere2, Llama 4, ...). LocalAI therefore **auto-enables `swa_full:true` for GGUF models detected as SWA** so the cross-request prefix cache works; it is left off for dense models. The tradeoff is memory: the full SWA cache scales with `context_size`. Set `swa_full:false` explicitly to opt back out (e.g. to save memory at a large context). | `swa_full:true` |
 | `cont_batching` or `continuous_batching` | boolean | Enable continuous batching for handling multiple sequences. Default: `true`. | `cont_batching:true` |
 | `check_tensors` | boolean | Validate tensor data for invalid values during model loading. Default: `false`. | `check_tensors:true` |
 | `warmup` | boolean | Enable warmup run after model loading. Default: `true`. | `warmup:false` |
@@ -536,6 +536,16 @@ options:
 ```
 
 **Note:** The `parallel` option can also be set via the `LLAMACPP_PARALLEL` environment variable, and `grpc_servers` can be set via the `LLAMACPP_GRPC_SERVERS` environment variable. Options specified in the YAML file take precedence over environment variables.
+
+##### Hardware auto-tuning (and how to override it)
+
+On a detected GPU, LocalAI fills a few performance-relevant defaults the model config leaves unset — a larger physical batch on NVIDIA Blackwell, and a VRAM-scaled `parallel` slot count for concurrent serving. Both are gated on **per-device** VRAM at the model's context: when a large context already fills a single card (e.g. a 27B model with a 200k context across 2×16 GiB), the batch boost and the extra parallel slots are suppressed so they can't tip the tighter GPU into CUDA out-of-memory.
+
+Anything you set explicitly in the model YAML always wins, so to pin a value just set it (e.g. `batch: 512` or `options: ["parallel:1"]`). The effective values are logged at `INFO` when a model loads (`effective runtime tuning …`). To turn the hardware auto-tuning off entirely and run llama.cpp's stock behavior, set:
+
+```
+LOCALAI_DISABLE_HARDWARE_DEFAULTS=true
+```
 
 ##### Server-side prompt cache (repeated system prompts)
 

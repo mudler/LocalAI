@@ -25,6 +25,10 @@ var knownPrefOnlyBackends = []schema.KnownBackend{
 	// Text LLM
 	// ds4: antirez/ds4 - single-model DeepSeek V4 Flash engine; auto-detected via DS4Importer
 	{Name: "ds4", Modality: "text", AutoDetect: false, Description: "antirez/ds4 DeepSeek V4 Flash engine (auto-detected; pref-only fallback)"},
+	// privacy-filter is now auto-detected via PrivacyFilterImporter (see
+	// core/gallery/importers/privacy-filter.go); the importer registry entry
+	// supersedes any pref-only line here, which the /backends/known merge would
+	// dedupe away.
 	{Name: "sglang", Modality: "text", AutoDetect: false, Description: "SGLang runtime (preference-only)"},
 	{Name: "tinygrad", Modality: "text", AutoDetect: false, Description: "tinygrad runtime (preference-only)"},
 	{Name: "trl", Modality: "text", AutoDetect: false, Description: "Transformers Reinforcement Learning (preference-only)"},
@@ -61,6 +65,10 @@ type BackendEndpointService struct {
 
 type GalleryBackend struct {
 	ID string `json:"id"`
+	// Force reinstalls the backend even when it is already installed and
+	// runnable. Off by default so apply stays idempotent for supervising
+	// apps that ensure their backend on every boot.
+	Force bool `json:"force"`
 }
 
 func CreateBackendEndpointService(galleries []config.Gallery, systemState *system.SystemState, backendApplier *galleryop.GalleryService, upgradeChecker UpgradeInfoProvider) BackendEndpointService {
@@ -99,7 +107,9 @@ func (mgs *BackendEndpointService) GetAllStatusEndpoint() echo.HandlerFunc {
 	}
 }
 
-// ApplyBackendEndpoint installs a new backend to a LocalAI instance
+// ApplyBackendEndpoint installs a new backend to a LocalAI instance. The op is
+// idempotent: an already-installed, runnable backend is left alone unless the
+// request sets "force": true (explicit reinstall).
 // @Summary Install backends to LocalAI.
 // @Tags backends
 // @Param request body GalleryBackend true "query params"
@@ -133,6 +143,7 @@ func (mgs *BackendEndpointService) ApplyBackendEndpoint(systemState *system.Syst
 			ID:                 uuid.String(),
 			GalleryElementName: input.ID,
 			Galleries:          mgs.galleries,
+			Force:              input.Force,
 		}
 
 		return c.JSON(200, schema.BackendResponse{ID: uuid.String(), StatusURL: fmt.Sprintf("%sbackends/jobs/%s", middleware.BaseURL(c), uuid.String())})

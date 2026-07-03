@@ -1,5 +1,5 @@
 # Disable parallel execution for backend builds
-.NOTPARALLEL: backends/diffusers backends/llama-cpp backends/turboquant backends/outetts backends/piper backends/stablediffusion-ggml backends/whisper backends/crispasr backends/parakeet-cpp backends/faster-whisper backends/silero-vad backends/local-store backends/huggingface backends/avian backends/rfdetr backends/rfdetr-cpp backends/insightface backends/speaker-recognition backends/kitten-tts backends/kokoro backends/chatterbox backends/llama-cpp-darwin backends/neutts build-darwin-python-backend build-darwin-go-backend backends/mlx backends/diffuser-darwin backends/mlx-vlm backends/mlx-audio backends/mlx-distributed backends/stablediffusion-ggml-darwin backends/vllm backends/vllm-omni backends/sglang backends/moonshine backends/pocket-tts backends/qwen-tts backends/faster-qwen3-tts backends/qwen-asr backends/nemo backends/voxcpm backends/whisperx backends/ace-step backends/acestep-cpp backends/fish-speech backends/voxtral backends/opus backends/trl backends/llama-cpp-quantization backends/kokoros backends/sam3-cpp backends/qwen3-tts-cpp backends/omnivoice-cpp backends/vibevoice-cpp backends/localvqe backends/tinygrad backends/sherpa-onnx backends/ds4 backends/ds4-darwin backends/liquid-audio backends/supertonic backends/depth-anything-cpp
+.NOTPARALLEL: backends/diffusers backends/llama-cpp backends/turboquant backends/outetts backends/piper backends/stablediffusion-ggml backends/whisper backends/crispasr backends/parakeet-cpp backends/faster-whisper backends/silero-vad backends/local-store backends/huggingface backends/avian backends/rfdetr backends/rfdetr-cpp backends/insightface backends/speaker-recognition backends/kitten-tts backends/kokoro backends/chatterbox backends/llama-cpp-darwin backends/neutts build-darwin-python-backend build-darwin-go-backend backends/mlx backends/diffuser-darwin backends/mlx-vlm backends/mlx-audio backends/mlx-distributed backends/stablediffusion-ggml-darwin backends/vllm backends/vllm-omni backends/sglang backends/moonshine backends/pocket-tts backends/qwen-tts backends/faster-qwen3-tts backends/qwen-asr backends/nemo backends/voxcpm backends/whisperx backends/ace-step backends/acestep-cpp backends/fish-speech backends/voxtral backends/opus backends/trl backends/llama-cpp-quantization backends/kokoros backends/sam3-cpp backends/qwen3-tts-cpp backends/omnivoice-cpp backends/vibevoice-cpp backends/localvqe backends/tinygrad backends/sherpa-onnx backends/ds4 backends/ds4-darwin backends/liquid-audio backends/supertonic backends/depth-anything-cpp backends/privacy-filter backends/privacy-filter-darwin
 
 GOCMD=go
 GOTEST=$(GOCMD) test
@@ -103,7 +103,7 @@ COVERAGE_E2E_LABELS?=!real-models
 COVERAGE_EXCLUDE_RE?=grpc/proto/.*[.]pb[.]go
 
 
-.PHONY: all test test-coverage test-coverage-baseline test-coverage-check test-ui test-ui-coverage-baseline test-ui-coverage-check install-hooks build vendor lint lint-all
+.PHONY: all test test-coverage test-coverage-baseline test-coverage-check test-backend-cpp test-ui test-ui-coverage-baseline test-ui-coverage-check install-hooks build vendor lint lint-all
 
 all: help
 
@@ -200,6 +200,13 @@ test: prepare-test
 	export GO_TAGS="debug"
 	OPUS_SHIM_LIBRARY=$(abspath ./pkg/opus/shim/libopusshim.so) \
 	$(GOCMD) run github.com/onsi/ginkgo/v2/ginkgo --flake-attempts $(TEST_FLAKES) --fail-fast -v -r $(TEST_PATHS)
+
+## Compiles and runs the standalone C++ unit tests for the backends (pure
+## helpers that depend only on the stdlib + nlohmann/json, no full backend
+## build). Discovers every *_test.cpp under backend/cpp/ - see
+## backend/cpp/run-unit-tests.sh. Set NLOHMANN_INCLUDE to skip the header fetch.
+test-backend-cpp:
+	bash backend/cpp/run-unit-tests.sh
 
 ## Runs the core suite ($(TEST_PATHS)) with statement-coverage instrumentation
 ## and writes a merged profile to $(COVERAGE_PROFILE). Deliberately omits
@@ -397,6 +404,18 @@ test-opus-docker:
 test-realtime: build-mock-backend
 	@echo 'Running realtime e2e tests (mock backend)'
 	$(GOCMD) run github.com/onsi/ginkgo/v2/ginkgo --label-filter="Realtime && !real-models" --flake-attempts $(TEST_FLAKES) -v -r ./tests/e2e
+
+# Verify the realtime state-machine implementations conform to their formal
+# designs (Go transition/rapid tests under -race + FizzBee model check of the
+# authoritative specs). See docs/design/realtime-state-machines.md (Part 6) and
+# docs/design/specs/README.md.
+test-realtime-conformance:
+	GOCMD=$(GOCMD) ./scripts/realtime-conformance.sh
+
+# Install the pinned, checksum-verified FizzBee model checker (into .tools/,
+# gitignored) used by test-realtime-conformance. Idempotent; no-op if present.
+install-fizzbee:
+	./scripts/install-fizzbee.sh
 
 # Container-based real-model realtime testing. Build env vars / pipeline
 # definition kept here so test-realtime-models-docker can drive a fully wired
@@ -688,6 +707,16 @@ test-extra-backend-llama-cpp-transcription: docker-build-llama-cpp
 	BACKEND_TEST_AUDIO_URL=https://github.com/ggml-org/whisper.cpp/raw/master/samples/jfk.wav \
 	BACKEND_TEST_CAPS=health,load,transcription \
 	BACKEND_TEST_CTX_SIZE=2048 \
+	$(MAKE) test-extra-backend
+
+## privacy-filter: the PII/NER token-classification backend. Exercises the
+## TokenClassify RPC and asserts byte-correct, UTF-8-aligned span offsets
+## against the openai-privacy-filter multilingual GGUF (CPU-runnable, ~50M
+## active params). This is the live-backend coverage for the PII NER tier.
+test-extra-backend-privacy-filter: docker-build-privacy-filter
+	BACKEND_IMAGE=local-ai-backend:privacy-filter \
+	BACKEND_TEST_MODEL_URL=https://huggingface.co/LocalAI-io/privacy-filter-multilingual-GGUF/resolve/main/privacy-filter-multilingual-f16.gguf \
+	BACKEND_TEST_CAPS=health,load,token_classify \
 	$(MAKE) test-extra-backend
 
 ## vllm is resolved from a HuggingFace model id (no file download) and
@@ -1010,7 +1039,7 @@ test-extra-backend-whisper-transcription: docker-build-whisper
 ## is reachable.
 test-extra-backend-parakeet-cpp-transcription: docker-build-parakeet-cpp
 	BACKEND_IMAGE=local-ai-backend:parakeet-cpp \
-	BACKEND_TEST_MODEL_URL=https://huggingface.co/mudler/parakeet-cpp-gguf/resolve/main/tdt_ctc-110m-f16.gguf \
+	BACKEND_TEST_MODEL_URL=https://huggingface.co/mudler/parakeet-cpp-gguf/resolve/main/realtime_eou_120m-v1-f16.gguf \
 	BACKEND_TEST_AUDIO_URL=https://github.com/ggml-org/whisper.cpp/raw/master/samples/jfk.wav \
 	BACKEND_TEST_CAPS=health,load,transcription \
 	$(MAKE) test-extra-backend
@@ -1119,6 +1148,10 @@ backends/ds4-darwin: build
 	bash ./scripts/build/ds4-darwin.sh
 	./local-ai backends install "ocifile://$(abspath ./backend-images/ds4.tar)"
 
+backends/privacy-filter-darwin: build
+	bash ./scripts/build/privacy-filter-darwin.sh
+	./local-ai backends install "ocifile://$(abspath ./backend-images/privacy-filter.tar)"
+
 build-darwin-python-backend: build
 	bash ./scripts/build/python-darwin.sh
 
@@ -1164,6 +1197,10 @@ BACKEND_TURBOQUANT = turboquant|turboquant|.|false|false
 # Single-model; hardware-only validation lives at tests/e2e-backends/
 # (BACKEND_BINARY mode); see docs/superpowers/plans/2026-05-11-ds4-backend.md.
 BACKEND_DS4 = ds4|ds4|.|false|false
+# privacy-filter wraps the standalone privacy-filter.cpp GGML engine (the
+# openai-privacy-filter PII/NER token classifier) — the TokenClassify RPC for
+# the PII redactor tier, on stock ggml with no llama.cpp carry-patches.
+BACKEND_PRIVACY_FILTER = privacy-filter|privacy-filter|.|false|false
 
 # Golang backends
 BACKEND_PIPER = piper|golang|.|false|true
@@ -1259,6 +1296,7 @@ $(eval $(call generate-docker-build-target,$(BACKEND_LLAMA_CPP)))
 $(eval $(call generate-docker-build-target,$(BACKEND_IK_LLAMA_CPP)))
 $(eval $(call generate-docker-build-target,$(BACKEND_TURBOQUANT)))
 $(eval $(call generate-docker-build-target,$(BACKEND_DS4)))
+$(eval $(call generate-docker-build-target,$(BACKEND_PRIVACY_FILTER)))
 $(eval $(call generate-docker-build-target,$(BACKEND_PIPER)))
 $(eval $(call generate-docker-build-target,$(BACKEND_LOCAL_STORE)))
 $(eval $(call generate-docker-build-target,$(BACKEND_CLOUD_PROXY)))
@@ -1321,7 +1359,7 @@ $(eval $(call generate-docker-build-target,$(BACKEND_SUPERTONIC)))
 docker-save-%: backend-images
 	docker save local-ai-backend:$* -o backend-images/$*.tar
 
-docker-build-backends: docker-build-llama-cpp docker-build-ik-llama-cpp docker-build-turboquant docker-build-ds4 docker-build-rerankers docker-build-vllm docker-build-vllm-omni docker-build-sglang docker-build-transformers docker-build-outetts docker-build-diffusers docker-build-kokoro docker-build-faster-whisper docker-build-crispasr docker-build-coqui docker-build-chatterbox docker-build-vibevoice docker-build-liquid-audio docker-build-moonshine docker-build-pocket-tts docker-build-qwen-tts docker-build-fish-speech docker-build-faster-qwen3-tts docker-build-qwen-asr docker-build-nemo docker-build-voxcpm docker-build-whisperx docker-build-ace-step docker-build-acestep-cpp docker-build-voxtral docker-build-mlx-distributed docker-build-trl docker-build-llama-cpp-quantization docker-build-tinygrad docker-build-kokoros docker-build-sam3-cpp docker-build-rfdetr-cpp docker-build-qwen3-tts-cpp docker-build-omnivoice-cpp docker-build-vibevoice-cpp docker-build-localvqe docker-build-insightface docker-build-speaker-recognition docker-build-sherpa-onnx docker-build-cloud-proxy docker-build-avian docker-build-supertonic docker-build-depth-anything-cpp
+docker-build-backends: docker-build-llama-cpp docker-build-ik-llama-cpp docker-build-turboquant docker-build-ds4 docker-build-rerankers docker-build-vllm docker-build-vllm-omni docker-build-sglang docker-build-transformers docker-build-outetts docker-build-diffusers docker-build-kokoro docker-build-faster-whisper docker-build-crispasr docker-build-coqui docker-build-chatterbox docker-build-vibevoice docker-build-liquid-audio docker-build-moonshine docker-build-pocket-tts docker-build-qwen-tts docker-build-fish-speech docker-build-faster-qwen3-tts docker-build-qwen-asr docker-build-nemo docker-build-voxcpm docker-build-whisperx docker-build-ace-step docker-build-acestep-cpp docker-build-voxtral docker-build-mlx-distributed docker-build-trl docker-build-llama-cpp-quantization docker-build-tinygrad docker-build-kokoros docker-build-sam3-cpp docker-build-rfdetr-cpp docker-build-qwen3-tts-cpp docker-build-omnivoice-cpp docker-build-vibevoice-cpp docker-build-localvqe docker-build-insightface docker-build-speaker-recognition docker-build-sherpa-onnx docker-build-cloud-proxy docker-build-avian docker-build-supertonic docker-build-depth-anything-cpp docker-build-privacy-filter
 
 ########################################################
 ### Mock Backend for E2E Tests
@@ -1436,13 +1474,37 @@ docs: docs/static/gallery.html
 ########################################################
 
 ## fyne cross-platform build
-build-launcher-darwin: build-launcher
-	go run github.com/tiagomelo/macos-dmg-creator/cmd/createdmg@latest \
-	--appName "LocalAI" \
-	--appBinaryPath "$(LAUNCHER_BINARY_NAME)" \
-	--bundleIdentifier "com.localai.launcher" \
-	--iconPath "core/http/static/logo.png" \
-	--outputDir "dist/"
+# Build LocalAI.app from the launcher via fyne (metadata read from cmd/launcher/FyneApp.toml).
+# Signing happens via contrib/macos/sign-and-notarize.sh, which is a no-op when the signing
+# secrets are unset, so unsigned local/fork builds keep working.
+build-launcher-darwin:
+	rm -rf dist/LocalAI.app cmd/launcher/LocalAI.app
+	mkdir -p dist
+	cd cmd/launcher && go run fyne.io/tools/cmd/fyne@latest package -os darwin -icon ../../core/http/static/logo.png --executable $(LAUNCHER_BINARY_NAME)
+	mv cmd/launcher/LocalAI.app dist/LocalAI.app
+	bash contrib/macos/sign-and-notarize.sh sign dist/LocalAI.app
+
+# Notarize + staple the .app itself, then wrap it into a drag-to-Applications
+# DMG via hdiutil and sign the DMG. The app is stapled BEFORE packaging so the
+# bundle carries its own ticket and verifies offline (a dmg-only staple leaves
+# the app relying on an online Gatekeeper check, which fails offline / once the
+# app is copied out of the dmg). No-op without notary secrets.
+dmg-launcher-darwin: build-launcher-darwin
+	bash contrib/macos/sign-and-notarize.sh notarize-app dist/LocalAI.app
+	rm -rf dist/dmg dist/LocalAI.dmg
+	mkdir -p dist/dmg
+	cp -R dist/LocalAI.app dist/dmg/LocalAI.app
+	ln -s /Applications dist/dmg/Applications
+	hdiutil create -volname "LocalAI" -srcfolder dist/dmg -ov -format UDZO dist/LocalAI.dmg
+	bash contrib/macos/sign-and-notarize.sh sign dist/LocalAI.dmg
+
+# Submit the DMG to Apple notarization and staple the ticket (no-op without notary secrets).
+notarize-launcher-darwin: dmg-launcher-darwin
+	bash contrib/macos/sign-and-notarize.sh notarize dist/LocalAI.dmg
+
+# Single entrypoint for CI: build -> sign app -> notarize+staple app -> dmg -> sign dmg -> notarize+staple dmg.
+release-launcher-darwin: notarize-launcher-darwin
+	@echo "dist/LocalAI.dmg is ready"
 
 build-launcher-linux:
-	cd cmd/launcher && go run fyne.io/tools/cmd/fyne@latest package -os linux -icon ../../core/http/static/logo.png --executable $(LAUNCHER_BINARY_NAME)-linux && mv launcher.tar.xz ../../$(LAUNCHER_BINARY_NAME)-linux.tar.xz
+	cd cmd/launcher && go run fyne.io/tools/cmd/fyne@latest package -os linux -icon ../../core/http/static/logo.png --executable $(LAUNCHER_BINARY_NAME)-linux && mv LocalAI.tar.xz ../../$(LAUNCHER_BINARY_NAME)-linux.tar.xz

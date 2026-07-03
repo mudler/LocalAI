@@ -270,10 +270,17 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
 
     def TokenClassify(self, request, context):
         # Runs HuggingFace's token-classification pipeline and returns
-        # the aggregated entity spans. The pipeline gives us byte
-        # offsets via aggregation_strategy="simple" (set at load
-        # time), so the caller can slice the original text without
-        # re-tokenising on the Go side.
+        # the aggregated entity spans.
+        #
+        # OFFSET UNITS: the proto contract (TokenClassifyEntity.start/end)
+        # is UTF-8 BYTE offsets into request.text. HuggingFace's pipeline,
+        # however, reports start/end as CODEPOINT offsets into the Python
+        # str (derived from the fast tokenizer's offset_mapping). Those
+        # coincide only for ASCII; for any multi-byte character they
+        # diverge — and this entry point exists to serve the explicitly
+        # multilingual privacy-filter model, so the conversion is
+        # mandatory, not a nicety. We build one prefix table mapping each
+        # codepoint index to its byte offset and translate every span.
         if not getattr(self, "TokenClassification", False):
             context.set_code(grpc.StatusCode.FAILED_PRECONDITION)
             context.set_details("model was not loaded as Type=TokenClassification")
@@ -286,18 +293,50 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
             context.set_details(f"token-classification failed: {err}")
             return backend_pb2.TokenClassifyResponse()
 
+        text = request.text
+        # byte_at[i] = byte length of text[:i]; len == len(text)+1 so an
+        # exclusive end offset that points one past the last codepoint
+        # maps to len(text.encode("utf-8")). Built in a single O(n) pass.
+        byte_at = [0] * (len(text) + 1)
+        acc = 0
+        for i, ch in enumerate(text):
+            byte_at[i] = acc
+            acc += len(ch.encode("utf-8"))
+        byte_at[len(text)] = acc
+
+        def to_byte(cp_index, default):
+            # Clamp out-of-range codepoint indices into the table rather
+            # than throwing: a span we can't place is better dropped Go-side
+            # than crashing the RPC.
+            if cp_index is None:
+                cp_index = default
+            if cp_index < 0:
+                cp_index = 0
+            elif cp_index > len(text):
+                cp_index = len(text)
+            return byte_at[cp_index]
+
         threshold = request.threshold if request.threshold > 0 else 0.0
         entities = []
         for r in results:
             score = float(r.get("score", 0.0))
             if score < threshold:
                 continue
+            cp_start = r.get("start")
+            cp_end = r.get("end")
+            start = to_byte(cp_start, 0)
+            end = to_byte(cp_end, 0)
             entities.append(backend_pb2.TokenClassifyEntity(
                 entity_group=str(r.get("entity_group") or r.get("entity") or ""),
-                start=int(r.get("start", 0)),
-                end=int(r.get("end", 0)),
+                start=start,
+                end=end,
                 score=score,
-                text=str(r.get("word", "")),
+                # Slice the original text by the (codepoint) span so the
+                # echoed text matches start..end exactly, instead of the
+                # pipeline's reconstructed "word" which can carry wordpiece
+                # artifacts. Falls back to "word" when offsets are absent.
+                text=(text[cp_start:cp_end] if cp_start is not None and cp_end is not None
+                      else str(r.get("word", ""))),
             ))
         return backend_pb2.TokenClassifyResponse(entities=entities)
 

@@ -16,7 +16,15 @@ cp -rfv $CURDIR/run.sh $CURDIR/package/
 cp -rfLv $CURDIR/sources/go-piper/piper-phonemize/pi/lib/* $CURDIR/package/lib/
 
 # Detect architecture and copy appropriate libraries
-if [ -f "/lib64/ld-linux-x86-64.so.2" ]; then
+if [ "$(uname)" = "Darwin" ]; then
+    # macOS has no glibc loader to bundle. The piper binary links its bundled
+    # libs (libucd, libespeak-ng, libpiper_phonemize, libonnxruntime) via
+    # @rpath but ships with no LC_RPATH, so dyld aborts at launch with
+    # "Library not loaded: @rpath/libucd.dylib ... no LC_RPATH's found".
+    # Add an @loader_path/lib rpath so @rpath resolves to package/lib/.
+    echo "Detected macOS; adding @loader_path/lib rpath so bundled libs resolve via @rpath..."
+    install_name_tool -add_rpath @loader_path/lib "$CURDIR/package/piper"
+elif [ -f "/lib64/ld-linux-x86-64.so.2" ]; then
     # x86_64 architecture
     echo "Detected x86_64 architecture, copying x86_64 libraries..."
     cp -arfLv /lib64/ld-linux-x86-64.so.2 $CURDIR/package/lib/ld.so

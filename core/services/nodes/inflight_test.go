@@ -99,6 +99,9 @@ func (f *fakeGRPCBackend) SoundGeneration(_ context.Context, _ *pb.SoundGenerati
 func (f *fakeGRPCBackend) Detect(_ context.Context, _ *pb.DetectOptions, _ ...ggrpc.CallOption) (*pb.DetectResponse, error) {
 	return &pb.DetectResponse{}, nil
 }
+func (f *fakeGRPCBackend) SoundDetection(_ context.Context, _ *pb.SoundDetectionRequest, _ ...ggrpc.CallOption) (*pb.SoundDetectionResponse, error) {
+	return &pb.SoundDetectionResponse{}, nil
+}
 
 func (f *fakeGRPCBackend) Depth(_ context.Context, _ *pb.DepthRequest, _ ...ggrpc.CallOption) (*pb.DepthResponse, error) {
 	return &pb.DepthResponse{}, nil
@@ -189,6 +192,10 @@ func (f *fakeGRPCBackend) AudioTransformStream(_ context.Context, _ ...ggrpc.Cal
 }
 
 func (f *fakeGRPCBackend) AudioToAudioStream(_ context.Context, _ ...ggrpc.CallOption) (grpc.AudioToAudioStreamClient, error) {
+	return nil, nil
+}
+
+func (f *fakeGRPCBackend) AudioTranscriptionLive(_ context.Context, _ ...ggrpc.CallOption) (grpc.AudioTranscriptionLiveClient, error) {
 	return nil, nil
 }
 
@@ -402,6 +409,13 @@ var _ = Describe("InFlightTrackingClient", func() {
 		It("AudioTransform", func() {
 			assertTracked(func() error {
 				_, err := client.AudioTransform(context.Background(), &pb.AudioTransformRequest{})
+				return err
+			})
+		})
+
+		It("SoundDetection", func() {
+			assertTracked(func() error {
+				_, err := client.SoundDetection(context.Background(), &pb.SoundDetectionRequest{})
 				return err
 			})
 		})

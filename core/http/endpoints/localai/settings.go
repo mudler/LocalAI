@@ -4,8 +4,6 @@ import (
 	"encoding/json"
 	"io"
 	"net/http"
-	"os"
-	"path/filepath"
 	"time"
 
 	"github.com/labstack/echo/v4"
@@ -110,6 +108,18 @@ func UpdateSettingsEndpoint(app *application.Application) echo.HandlerFunc {
 			})
 		}
 
+		// Read whatever is already persisted: it is both the source of truth
+		// for branding asset filenames (below) and the base we merge this
+		// request onto before writing. A read failure must not let a Save
+		// silently discard the existing settings — surface it instead.
+		persisted, err := appConfig.ReadPersistedSettings()
+		if err != nil {
+			return c.JSON(http.StatusInternalServerError, schema.SettingsResponse{
+				Success: false,
+				Error:   "Failed to read existing settings: " + err.Error(),
+			})
+		}
+
 		// Branding asset filenames are owned exclusively by
 		// /api/branding/asset/{kind} (upload/delete). The Settings page also
 		// round-trips them via GET /api/settings, but its local state is stale
@@ -118,11 +128,9 @@ func UpdateSettingsEndpoint(app *application.Application) echo.HandlerFunc {
 		// at page open. Replace whatever the body sent for these three fields
 		// with the values currently on disk so /api/settings can never
 		// regress them.
-		if existing, err := appConfig.ReadPersistedSettings(); err == nil {
-			settings.LogoFile = existing.LogoFile
-			settings.LogoHorizontalFile = existing.LogoHorizontalFile
-			settings.FaviconFile = existing.FaviconFile
-		}
+		settings.LogoFile = persisted.LogoFile
+		settings.LogoHorizontalFile = persisted.LogoHorizontalFile
+		settings.FaviconFile = persisted.FaviconFile
 
 		// The UI reads ApiKeys from GET /api/settings, which already returns the
 		// merged env+runtime list. When the user clicks Save, the same merged
@@ -145,16 +153,17 @@ func UpdateSettingsEndpoint(app *application.Application) echo.HandlerFunc {
 			settings.ApiKeys = &runtimeOnly
 		}
 
-		settingsFile := filepath.Join(appConfig.DynamicConfigsDir, "runtime_settings.json")
-		settingsJSON, err := json.MarshalIndent(settings, "", "  ")
-		if err != nil {
-			return c.JSON(http.StatusInternalServerError, schema.SettingsResponse{
-				Success: false,
-				Error:   "Failed to marshal settings: " + err.Error(),
-			})
-		}
-
-		if err := os.WriteFile(settingsFile, settingsJSON, 0600); err != nil {
+		// Persist as a partial update: overlay only the fields this request set
+		// onto the settings already on disk. Focused admin pages POST just the
+		// keys they own (the Middleware proxy tab sends only mitm_listen; the
+		// detector table only pii_default_detectors), so writing the request
+		// body verbatim would null every unrelated setting (the no-omitempty
+		// api_keys / pii_default_detectors fields even round-trip as JSON
+		// null). The full Settings page still round-trips every field, so its
+		// Save is unchanged.
+		toPersist := persisted
+		toPersist.MergeNonNil(settings)
+		if err := appConfig.WritePersistedSettings(toPersist); err != nil {
 			return c.JSON(http.StatusInternalServerError, schema.SettingsResponse{
 				Success: false,
 				Error:   "Failed to write settings file: " + err.Error(),
@@ -262,7 +271,14 @@ func UpdateSettingsEndpoint(app *application.Application) echo.HandlerFunc {
 			}
 		}
 
-		if settings.MITMListen != nil {
+		// Rebuild the MITM listener when its address OR the instance-wide
+		// default detectors change. The per-host detector map is resolved once
+		// at listener start (startMITMLocked → ResolvePIIPolicy), so a
+		// default-detector change is otherwise invisible to cloud-proxy traffic
+		// until the next restart — an admin toggling a default detector would
+		// see no redaction. RestartMITM is a no-op when the listener is
+		// disabled (empty address).
+		if settings.MITMListen != nil || settings.PIIDefaultDetectors != nil {
 			if err := app.RestartMITM(); err != nil {
 				xlog.Error("Failed to restart MITM proxy", "error", err)
 				return c.JSON(http.StatusInternalServerError, schema.SettingsResponse{

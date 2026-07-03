@@ -11,8 +11,8 @@
 #include <memory>
 #include <string>
 #include <getopt.h>
-#include "clip.h"
-#include "llava.h"
+#include "mtmd.h"
+#include "mtmd-helper.h"
 #include "log.h"
 #include "common.h"
 #include "json.hpp"
@@ -45,7 +45,9 @@ using backend::HealthMessage;
 
 ///// LLAMA.CPP server code below
 
-using json = nlohmann::json;
+// Match mtmd.h and ik_llama's server/common headers, which all use
+// nlohmann::ordered_json; a plain nlohmann::json alias collides at global scope.
+using json = nlohmann::ordered_json;
 
 struct server_params
 {
@@ -219,6 +221,11 @@ struct llama_client_slot
 
     // multimodal
     std::vector<slot_image> images;
+    // Full prompt with mtmd media markers (mtmd_default_marker()) substituted in
+    // place of the legacy [img-N] tags, covering the text up to and including the
+    // last image. The text after the last image is kept in params.input_suffix and
+    // decoded through the normal token path so the sampling loop is unchanged.
+    std::string mtmd_prompt;
 
     // stats
     size_t sent_count = 0;
@@ -252,14 +259,14 @@ struct llama_client_slot
 
         for (slot_image & img : images)
         {
-            free(img.image_embedding);
-            if (img.img_data) {
-                clip_image_u8_free(img.img_data);
+            if (img.bitmap) {
+                mtmd_bitmap_free(img.bitmap);
+                img.bitmap = nullptr;
             }
-            img.prefix_prompt = "";
         }
 
         images.clear();
+        mtmd_prompt = "";
     }
 
     bool has_budget(gpt_params &global_params) {
@@ -396,46 +403,13 @@ struct llama_metrics {
     }
 };
 
-struct llava_embd_batch {
-    std::vector<llama_pos>      pos;
-    std::vector<int32_t>        n_seq_id;
-    std::vector<llama_seq_id>   seq_id_0;
-    std::vector<llama_seq_id *> seq_ids;
-    std::vector<int8_t>         logits;
-    llama_batch batch;
-    llava_embd_batch(float * embd, int32_t n_tokens, llama_pos pos_0, llama_seq_id seq_id) {
-        pos     .resize(n_tokens);
-        n_seq_id.resize(n_tokens);
-        seq_ids .resize(n_tokens + 1);
-        logits  .resize(n_tokens);
-        seq_id_0.resize(1);
-        seq_id_0[0] = seq_id;
-        seq_ids [n_tokens] = nullptr;
-        batch = {
-            /*n_tokens       =*/ n_tokens,
-            /*tokens         =*/ nullptr,
-            /*embd           =*/ embd,
-            /*pos            =*/ pos.data(),
-            /*n_seq_id       =*/ n_seq_id.data(),
-            /*seq_id         =*/ seq_ids.data(),
-            /*logits         =*/ logits.data(),
-        };
-        for (int i = 0; i < n_tokens; i++) {
-            batch.pos     [i] = pos_0 + i;
-            batch.n_seq_id[i] = 1;
-            batch.seq_id  [i] = seq_id_0.data();
-            batch.logits  [i] = false;
-        }
-    }
-};
-
 struct llama_server_context
 {
     llama_model *model = nullptr;
     llama_context *ctx = nullptr;
     const llama_vocab * vocab = nullptr;
 
-    clip_ctx *clp_ctx = nullptr;
+    mtmd_context *mctx = nullptr;
 
     gpt_params params;
 
@@ -491,11 +465,6 @@ struct llama_server_context
         if (!params.mmproj.path.empty()) {
             multimodal = true;
             LOG_INFO("Multi Modal Mode Enabled", {});
-            clp_ctx = clip_model_load(params.mmproj.path.c_str(), /*verbosity=*/ 1);
-            if(clp_ctx == nullptr) {
-                LOG_ERR("unable to load clip model: %s", params.mmproj.path.c_str());
-                return false;
-            }
 
             if (params.n_ctx < 2048) { // request larger context for the image embedding
                 params.n_ctx = 2048;
@@ -512,10 +481,24 @@ struct llama_server_context
         }
 
         if (multimodal) {
-            const int n_embd_clip = clip_n_mmproj_embd(clp_ctx);
-            const int n_embd_llm  = llama_model_n_embd(model);
-            if (n_embd_clip != n_embd_llm) {
-                LOG("%s: embedding dim of the multimodal projector (%d) is not equal to that of LLaMA (%d). Make sure that you use the correct mmproj file.\n", __func__, n_embd_clip, n_embd_llm);
+            // mtmd_init_from_file requires the already-loaded text model, so it must
+            // run AFTER llama_init_from_gpt_params. It validates the projector
+            // against the model internally and returns nullptr on dim mismatch, so
+            // the explicit clip_n_mmproj_embd check is no longer needed.
+            mtmd_context_params mparams = mtmd_context_params_default();
+            mparams.use_gpu         = params.mmproj_use_gpu;
+            mparams.print_timings   = false;
+            mparams.n_threads       = params.n_threads_mtmd != -1 ? params.n_threads_mtmd
+                                      : params.n_threads_batch != -1 ? params.n_threads_batch
+                                                                     : params.n_threads;
+            mparams.verbosity       = GGML_LOG_LEVEL_INFO;
+            mparams.flash_attn_type = params.flash_attn ? LLAMA_FLASH_ATTN_TYPE_ENABLED
+                                                        : LLAMA_FLASH_ATTN_TYPE_DISABLED;
+            mparams.image_min_tokens = params.image_min_tokens;
+            mparams.image_max_tokens = params.image_max_tokens;
+            mctx = mtmd_init_from_file(params.mmproj.path.c_str(), model, mparams);
+            if (mctx == nullptr) {
+                LOG_ERR("unable to load multimodal projector: %s", params.mmproj.path.c_str());
                 llama_free(ctx);
                 llama_free_model(model);
                 return false;
@@ -865,8 +848,8 @@ struct llama_server_context
 
                     slot_image img_sl;
                     img_sl.id = img.count("id") != 0 ? img["id"].get<int>() : slot->images.size();
-                    img_sl.img_data = clip_image_u8_init();
-                    if (!clip_image_load_from_bytes(image_buffer.data(), image_buffer.size(), img_sl.img_data))
+                    img_sl.bitmap = mtmd_helper_bitmap_init_from_buf(mctx, image_buffer.data(), image_buffer.size());
+                    if (img_sl.bitmap == nullptr)
                     {
                         LOG_ERR("%s: failed to load image, slot_id: %d, img_sl_id: %d",
                              __func__,
@@ -879,50 +862,74 @@ struct llama_server_context
                         {"slot_id",   slot->id},
                         {"img_sl_id", img_sl.id}
                     });
-                    img_sl.request_encode_image = true;
                     slot->images.push_back(img_sl);
                 }
-                // process prompt
-                // example: system prompt [img-102] user [img-103] describe [img-134] -> [{id: 102, prefix: 'system prompt '}, {id: 103, prefix: ' user '}, {id: 134, prefix: ' describe '}]}
+                // Translate the legacy [img-N] tags into mtmd media markers, in
+                // order, and collect the matching bitmaps in marker order so they
+                // line up with the markers passed to mtmd_tokenize(). The text after
+                // the last image stays in input_suffix and is decoded through the
+                // normal token path, so the sampling loop is unchanged.
+                // example: system prompt [img-102] user [img-103] describe [img-134]
                 if (slot->images.size() > 0 && !slot->prompt.is_array())
                 {
+                    const std::string marker = mtmd_default_marker();
                     std::string prompt = slot->prompt.get<std::string>();
-                    size_t pos = 0, begin_prefix = 0;
+                    std::string built_prompt;
+                    std::vector<slot_image> ordered;
+                    size_t pos = 0, copy_from = 0;
                     std::string pattern = "[img-";
-                    while ((pos = prompt.find(pattern, pos)) != std::string::npos) {
-                        size_t end_prefix = pos;
-                        pos += pattern.length();
-                        size_t end_pos = prompt.find(']', pos);
-                        if (end_pos != std::string::npos)
-                        {
-                            std::string image_id = prompt.substr(pos, end_pos - pos);
-                            try
-                            {
-                                int img_id = std::stoi(image_id);
-                                bool found = false;
-                                for (slot_image &img : slot->images)
-                                {
-                                    if (img.id == img_id) {
-                                        found = true;
-                                        img.prefix_prompt = prompt.substr(begin_prefix, end_prefix - begin_prefix);
-                                        begin_prefix = end_pos + 1;
-                                        break;
-                                    }
-                                }
-                                if (!found) {
-                                    LOG("ERROR: Image with id: %i, not found.\n", img_id);
-                                    slot->images.clear();
-                                    return false;
-                                }
-                            } catch (const std::invalid_argument& e) {
-                                LOG("Invalid image number id in prompt\n");
-                                slot->images.clear();
-                                return false;
+
+                    auto free_images = [&]() {
+                        for (slot_image &img : slot->images) {
+                            if (img.bitmap) {
+                                mtmd_bitmap_free(img.bitmap);
+                                img.bitmap = nullptr;
                             }
                         }
+                        slot->images.clear();
+                    };
+
+                    while ((pos = prompt.find(pattern, pos)) != std::string::npos) {
+                        size_t tag_begin = pos;
+                        pos += pattern.length();
+                        size_t end_pos = prompt.find(']', pos);
+                        if (end_pos == std::string::npos) {
+                            break;
+                        }
+                        std::string image_id = prompt.substr(pos, end_pos - pos);
+                        try
+                        {
+                            int img_id = std::stoi(image_id);
+                            bool found = false;
+                            for (slot_image &img : slot->images)
+                            {
+                                if (img.id == img_id) {
+                                    found = true;
+                                    // text before this tag, then the media marker
+                                    built_prompt += prompt.substr(copy_from, tag_begin - copy_from);
+                                    built_prompt += marker;
+                                    copy_from = end_pos + 1;
+                                    ordered.push_back(img);
+                                    break;
+                                }
+                            }
+                            if (!found) {
+                                LOG("ERROR: Image with id: %i, not found.\n", img_id);
+                                free_images();
+                                return false;
+                            }
+                        } catch (const std::invalid_argument& e) {
+                            LOG("Invalid image number id in prompt\n");
+                            free_images();
+                            return false;
+                        }
+                        pos = end_pos + 1;
                     }
+                    // bitmaps are consumed in marker order by mtmd_tokenize()
+                    slot->images = ordered;
+                    slot->mtmd_prompt = built_prompt;
                     slot->prompt = "";
-                    slot->params.input_suffix = prompt.substr(begin_prefix);
+                    slot->params.input_suffix = prompt.substr(copy_from);
                     slot->params.cache_prompt = false; // multimodal doesn't support cache prompt
                 }
             }
@@ -1176,21 +1183,10 @@ struct llama_server_context
 
     bool process_images(llama_client_slot &slot) const
     {
-        for (slot_image &img : slot.images)
-        {
-            if (!img.request_encode_image)
-            {
-                continue;
-            }
-
-            if (!llava_image_embed_make_with_clip_img(clp_ctx, params.n_threads, img.img_data, &img.image_embedding, &img.image_tokens)) {
-                LOG("Error processing the given image");
-                return false;
-            }
-
-            img.request_encode_image = false;
-        }
-
+        // With the mtmd pipeline, image encoding is no longer eager: the bitmaps
+        // are tokenized and encoded together with the surrounding text inside
+        // ingest_images() via mtmd_tokenize() + mtmd_helper_eval_chunks(). This
+        // just reports whether the slot carries any images to process.
         return slot.images.size() > 0;
     }
 
@@ -1435,69 +1431,70 @@ struct llama_server_context
         }
     }
 
-    // for multiple images processing
+    // Tokenize the multimodal prompt (text interleaved with media markers) together
+    // with the slot's bitmaps, then decode the resulting chunks into the llama
+    // context via the high-level mtmd helper. The helper runs llama_decode() on the
+    // text chunks and mtmd_encode() + llama_decode() on the image chunks, handling
+    // batching and any pre/post decode setup (e.g. non-causal attention for gemma3).
+    // Advances slot.n_past by the number of positions consumed, then leaves the
+    // post-image suffix tokens in `batch` so the normal decode + sampling loop
+    // produces the first generated token.
     bool ingest_images(llama_client_slot &slot, int n_batch)
     {
-        int image_idx = 0;
-
-        while (image_idx < (int) slot.images.size())
+        if (mctx == nullptr)
         {
-            slot_image &img = slot.images[image_idx];
+            LOG("%s : multimodal context is not initialized\n", __func__);
+            return false;
+        }
 
-            // process prefix prompt
-            for (int32_t i = 0; i < (int32_t) batch.n_tokens; i += n_batch)
-            {
-                const int32_t n_tokens = std::min(n_batch, (int32_t) (batch.n_tokens - i));
-                llama_batch batch_view = {
-                    n_tokens,
-                    batch.token    + i,
-                    nullptr,
-                    batch.pos      + i,
-                    batch.n_seq_id + i,
-                    batch.seq_id   + i,
-                    batch.logits   + i,
-                };
-                if (llama_decode(ctx, batch_view))
-                {
-                    LOG("%s : failed to eval\n", __func__);
-                    return false;
-                }
-            }
+        // bitmaps stay owned by slot.images (freed on reset()); pass non-owning ptrs
+        std::vector<const mtmd_bitmap *> bitmaps;
+        bitmaps.reserve(slot.images.size());
+        for (const slot_image &img : slot.images)
+        {
+            bitmaps.push_back(img.bitmap);
+        }
 
-            // process image with llm
-            for (int i = 0; i < img.image_tokens; i += n_batch)
-            {
-                int n_eval = img.image_tokens - i;
-                if (n_eval > n_batch)
-                {
-                    n_eval = n_batch;
-                }
+        mtmd_input_text inp_txt;
+        inp_txt.text          = slot.mtmd_prompt.c_str();
+        inp_txt.add_special   = add_bos_token;
+        inp_txt.parse_special = true;
 
-                const int n_embd = llama_model_n_embd(model);
-                float * embd = img.image_embedding + i * n_embd;
-                llava_embd_batch llava_batch = llava_embd_batch(embd, n_eval, slot.n_past, 0);
-                if (llama_decode(ctx, llava_batch.batch))
-                {
-                    LOG("%s : failed to eval image\n", __func__);
-                    return false;
-                }
-                slot.n_past += n_eval;
-            }
-            image_idx++;
+        mtmd::input_chunks chunks(mtmd_input_chunks_init());
+        int32_t res = mtmd_tokenize(mctx,
+                                    chunks.ptr.get(),
+                                    &inp_txt,
+                                    bitmaps.data(),
+                                    bitmaps.size());
+        if (res != 0)
+        {
+            LOG("%s : failed to tokenize multimodal prompt, res = %d\n", __func__, res);
+            return false;
+        }
 
-            common_batch_clear(batch);
+        const llama_pos start_pos = (llama_pos) system_tokens.size() + slot.n_past;
+        llama_pos new_n_past = start_pos;
+        if (mtmd_helper_eval_chunks(mctx,
+                                    ctx,
+                                    chunks.ptr.get(),
+                                    start_pos,
+                                    slot.id,
+                                    n_batch,
+                                    /*logits_last=*/ false,
+                                    &new_n_past) != 0)
+        {
+            LOG("%s : failed to eval multimodal chunks\n", __func__);
+            return false;
+        }
+        slot.n_past += (int32_t) (new_n_past - start_pos);
 
-            // append prefix of next image
-            const auto json_prompt = (image_idx >= (int) slot.images.size()) ?
-                slot.params.input_suffix : // no more images, then process suffix prompt
-                (json)(slot.images[image_idx].prefix_prompt);
-
-            std::vector<llama_token> append_tokens = tokenize(json_prompt, false); // has next image
-            for (int i = 0; i < (int) append_tokens.size(); ++i)
-            {
-                common_batch_add(batch, append_tokens[i], system_tokens.size() + slot.n_past, { slot.id }, true);
-                slot.n_past += 1;
-            }
+        // queue the post-image suffix text for the normal decode + sampling path
+        common_batch_clear(batch);
+        std::vector<llama_token> suffix_tokens = tokenize(slot.params.input_suffix, false);
+        for (llama_token tok : suffix_tokens)
+        {
+            common_batch_add(batch, tok, system_tokens.size() + slot.n_past, { slot.id }, false);
+            slot.n_past += 1;
         }
 
         return true;
@@ -1884,8 +1881,11 @@ struct llama_server_context
 
                     const bool has_images = process_images(slot);
 
-                    // process the prefix of first image
-                    std::vector<llama_token> prefix_tokens = has_images ? tokenize(slot.images[0].prefix_prompt, add_bos_token) : prompt_tokens;
+                    // For the multimodal path the whole pre-image / inter-image text is
+                    // tokenized and decoded inside ingest_images() via mtmd, so no prefix
+                    // tokens are queued here; the post-image suffix is appended by
+                    // ingest_images() for the normal decode + sampling loop.
+                    std::vector<llama_token> prefix_tokens = has_images ? std::vector<llama_token>() : prompt_tokens;
 
                     int32_t slot_npast = slot.n_past_se > 0 ? slot.n_past_se : slot.n_past;
 

@@ -4,6 +4,7 @@ import { backendLogsApi, nodesApi } from '../utils/api'
 import { formatTimestamp } from '../utils/format'
 import { apiUrl } from '../utils/basePath'
 import LoadingSpinner from '../components/LoadingSpinner'
+import PageHeader from '../components/PageHeader'
 import { useDistributedMode } from '../hooks/useDistributedMode'
 
 function wsUrl(path) {
@@ -151,15 +152,10 @@ function BackendLogsDetail({ modelId }) {
 
   return (
     <div className="page page--wide">
-      <div className="page-header">
-        <div>
-          <h1 className="page-title" style={{ marginBottom: 0 }}>
-            <i className="fas fa-terminal" style={{ fontSize: '0.8em', marginRight: 'var(--spacing-sm)' }} />
-            {modelId}
-          </h1>
-          <p className="page-subtitle" style={{ marginTop: 'var(--spacing-xs)' }}>Backend process output</p>
-        </div>
-      </div>
+      <PageHeader
+        title={<><i className="fas fa-terminal" style={{ fontSize: '0.8em', marginRight: 'var(--spacing-sm)' }} />{modelId}</>}
+        supporting="Backend process output"
+      />
 
       {/* Toolbar */}
       <div style={{ display: 'flex', gap: 'var(--spacing-sm)', marginBottom: 'var(--spacing-md)', alignItems: 'center', flexWrap: 'wrap' }}>
@@ -361,17 +357,10 @@ function DistributedBackendLogsResolver({ modelId, fromTimestamp }) {
   // Multiple workers host this model — let the operator pick.
   return (
     <div className="page page--wide">
-      <div className="page-header">
-        <div>
-          <h1 className="page-title" style={{ marginBottom: 0 }}>
-            <i className="fas fa-terminal" style={{ fontSize: '0.8em', marginRight: 'var(--spacing-sm)' }} />
-            {modelId}
-          </h1>
-          <p className="page-subtitle" style={{ marginTop: 'var(--spacing-xs)' }}>
-            Hosted on {hits.length} workers — pick one to view its logs.
-          </p>
-        </div>
-      </div>
+      <PageHeader
+        title={<><i className="fas fa-terminal" style={{ fontSize: '0.8em', marginRight: 'var(--spacing-sm)' }} />{modelId}</>}
+        supporting={`Hosted on ${hits.length} workers — pick one to view its logs.`}
+      />
       <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--spacing-xs)' }}>
         {hits.map(({ node, model }) => (
           <Link

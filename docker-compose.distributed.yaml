@@ -57,6 +57,11 @@ services:
       LOCALAI_AGENT_POOL_VECTOR_ENGINE: "postgres"
       LOCALAI_AGENT_POOL_DATABASE_URL: "postgresql://localai:localai@postgres:5432/localai?sslmode=disable"
       LOCALAI_REGISTRATION_TOKEN: "changeme"  # Change this in production!
+      # Shared-models mode (optional): set when every node mounts the SAME
+      # models directory at the SAME path (see "Shared Volume Mode" below).
+      # The router then skips gRPC file staging and workers load models
+      # directly from the shared volume instead of re-downloading them.
+      # LOCALAI_DISTRIBUTED_SHARED_MODELS: "true"
       # Auth (required for distributed mode — must use PostgreSQL)
       LOCALAI_AUTH: "true"
       LOCALAI_AUTH_DATABASE_URL: "postgresql://localai:localai@postgres:5432/localai?sslmode=disable"
@@ -157,8 +162,11 @@ services:
   # Then add to the volumes section:
   #   shared_models:
   #
-  # With shared volumes, model files are already available on the backend —
-  # gRPC file staging becomes a no-op (paths match).
+  # With shared volumes the model files are already present on every worker at
+  # the same path. Set LOCALAI_DISTRIBUTED_SHARED_MODELS=true on the frontend
+  # (see its environment above) so the router skips gRPC file staging and the
+  # worker loads the model directly from the shared path instead of
+  # re-downloading it into a per-model subdirectory.
 
   # --- Adding More Workers ---
   # Copy the worker-1 service above and change:
