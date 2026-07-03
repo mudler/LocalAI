@@ -72,6 +72,7 @@
   "actions": {
     "copy": "Copy",
     "regenerate": "Regenerate",
+    "branch": "Branch from here",
     "jumpToLatest": "Jump to latest"
   },
   "streaming": {
@@ -100,7 +101,9 @@
   "toasts": {
     "selectModel": "Please select a model",
     "copied": "Copied to clipboard",
-    "copyFailed": "Could not copy to clipboard"
+    "copyFailed": "Could not copy to clipboard",
+    "chatCopied": "Chat copied to clipboard",
+    "forked": "Created a new chat"
   },
   "menu": {
     "trigger": "Chats",
@@ -110,6 +113,8 @@
     "noMatch": "No conversations match your search",
     "noConversations": "No conversations yet",
     "rename": "Rename",
+    "duplicate": "Duplicate chat",
+    "copyChat": "Copy chat",
     "exportMarkdown": "Export as Markdown",
     "deleteChat": "Delete chat",
     "newChat": "New chat",

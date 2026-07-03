@@ -142,19 +142,12 @@ func buildAnthropicRequest(opts *pb.PredictOptions, cfg *proxyConfig, stream boo
 	if req.MaxTokens <= 0 {
 		req.MaxTokens = anthropicDefaultMaxTokens
 	}
-	// Newer Anthropic models 400 when both temperature and top_p are
-	// set ("`temperature` and `top_p` cannot both be specified for
-	// this model. Please use only one.") even though their docs only
-	// "recommend" picking one. The OpenAI-compatible chat UI almost
-	// always sends both with default values, so prefer temperature
-	// and drop top_p when both are present.
-	if t := opts.GetTemperature(); t != 0 {
-		v := float64(t)
-		req.Temperature = &v
-	} else if t := opts.GetTopP(); t != 0 {
-		v := float64(t)
-		req.TopP = &v
-	}
+	// Do not forward temperature/top_p. Newer Anthropic reasoning models reject
+	// requests that carry temperature ("`temperature` is deprecated for this
+	// model"), and the OpenAI-compatible clients typically send only the
+	// server-side DEFAULT sampling values rather than user intent — dropping
+	// them loses nothing and lets the upstream apply its own defaults.
+	_ = opts
 
 	req.Tools = convertOpenAITools(opts.GetTools())
 	req.ToolChoice = convertOpenAIToolChoice(opts.GetToolChoice())

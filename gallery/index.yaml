@@ -1,4 +1,61 @@
 ---
+- name: "ornith-1.0-9b-mtp"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/protoLabsAI/Ornith-1.0-9B-MTP-GGUF
+  description: |
+    [](https://deep-reinforce.com/ornith.html)
+
+    # Ornith-1.0-9B
+
+    Aloha! 🌺 Today, we are releasing Ornith-1.0, a self-improving family of open-source models for agentic coding.
+
+    Highlights:
+
+      - **State-of-the-Art Coding Agents**: Available in 9B-Dense, 31B-Dense, 35B-MoE, and 397B-MoE (post-trained on top of Gemma 4 and Qwen 3.5), achieving state-of-the-art performance among open-source models of comparable size on coding benchmarks such as Terminal-Bench 2.1, SWE-Bench, NL2Repo and OpenClaw.
+      - **Self-Improving Training Framework**:  Ornith-1.0 employs RL to learn to generate not only solution rollouts, but also the scallfold that drive those rollouts. By jointly optimizing the scaffold and the resulting solution, the model  discovers better search trajectories and generates higher-quality solutions.
+      - **Licence**: MIT licensed, globally accessible, and free from regional limitations.
+
+    ## Ornith 1.0 9B
+
+    This model card documents **Ornith-1.0-9B**, the most lightweight member of the Ornith family, designed for efficient single-GPU deployment.
+
+    ### Benchmarks
+
+    Ornith-1.0-9B
+    Qwen3.5-9B
+    Qwen3.5-35B
+    Gemma4-12B
+    Gemma4-31B
+
+    Agentic Coding
+
+    ...
+  license: "mit"
+  tags:
+    - llm
+    - gguf
+  overrides:
+    backend: llama-cpp
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+    options:
+      - use_jinja:true
+      - spec_type:draft-mtp
+      - spec_n_max:6
+      - spec_p_min:0.75
+    parameters:
+      model: llama-cpp/models/ornith-9b-mtp-kl-Q4_K_M/ornith-9b-mtp-kl-Q4_K_M.gguf
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/ornith-9b-mtp-kl-Q4_K_M/ornith-9b-mtp-kl-Q4_K_M.gguf
+      sha256: 03de14e9849a02258b9ac9ec2830af39dd7ac48f1ca5492b35539d1838707bc8
+      uri: https://huggingface.co/protoLabsAI/Ornith-1.0-9B-MTP-GGUF/resolve/main/ornith-9b-mtp-kl-Q4_K_M.gguf
 - name: "qwen-agentworld-35b-a3b"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
@@ -1758,8 +1815,8 @@
       use_tokenizer_template: true
   files:
     - filename: llama-cpp/models/Qwopus3.5-9B-Coder-MTP-GGUF/Qwopus3.5-9B-Coder-MTP-Q4_K_M.gguf
-      sha256: f6fc5d193045796d9e1870cbc40f827fe55f53f70593c3f5c1968b82b9331991
       uri: https://huggingface.co/Jackrong/Qwopus3.5-9B-Coder-MTP-GGUF/resolve/main/Qwopus3.5-9B-Coder-MTP-Q4_K_M.gguf
+      sha256: 9ea3ecd122a5165b8b81655f29eaf09d71daf841503e4c4212bdfadb36ab3712
     - filename: llama-cpp/mmproj/Qwopus3.5-9B-Coder-MTP-GGUF/Qwopus3.5-9B-Coder-MTP-mmproj.gguf
       sha256: f48daca405a1c768a9514e392c3955dcc4a9d66a5cf64cf45e064092b5f20ee4
       uri: https://huggingface.co/Jackrong/Qwopus3.5-9B-Coder-MTP-GGUF/resolve/main/Qwopus3.5-9B-Coder-MTP-mmproj.gguf

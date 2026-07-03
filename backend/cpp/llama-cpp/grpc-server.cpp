@@ -75,6 +75,8 @@
 #include <windows.h>
 #endif
 
+#include "parent_watch.h" // best-effort parent-death backstop (see header)
+
 
 using grpc::Server;
 using grpc::ServerBuilder;
@@ -3441,6 +3443,10 @@ int main(int argc, char** argv) {
         return 1;
     }
   }
+
+    // Best-effort backstop: self-terminate if the LocalAI process that spawned
+    // us dies without cleaning us up (see parent_watch.h).
+    llama_grpc::start_parent_death_watcher();
 
     server_context ctx_server;
     BackendServiceImpl service(ctx_server);

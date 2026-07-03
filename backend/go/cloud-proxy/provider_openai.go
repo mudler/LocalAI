@@ -30,7 +30,7 @@ type openAIRequest struct {
 	Stream           bool            `json:"stream,omitempty"`
 	Temperature      *float64        `json:"temperature,omitempty"`
 	TopP             *float64        `json:"top_p,omitempty"`
-	MaxTokens        *int32          `json:"max_tokens,omitempty"`
+	MaxTokens        *int32          `json:"max_completion_tokens,omitempty"` // newer OpenAI models reject max_tokens ("use max_completion_tokens instead")
 	Stop             []string        `json:"stop,omitempty"`
 	FrequencyPenalty *float64        `json:"frequency_penalty,omitempty"`
 	PresencePenalty  *float64        `json:"presence_penalty,omitempty"`
@@ -107,14 +107,10 @@ func buildOpenAIRequest(opts *pb.PredictOptions, cfg *proxyConfig, stream bool) 
 		Tools:      parseRawJSON(opts.GetTools()),
 		ToolChoice: parseRawJSON(opts.GetToolChoice()),
 	}
-	if t := opts.GetTemperature(); t != 0 {
-		v := float64(t)
-		req.Temperature = &v
-	}
-	if t := opts.GetTopP(); t != 0 {
-		v := float64(t)
-		req.TopP = &v
-	}
+	// Do not forward temperature/top_p. Newer OpenAI reasoning models reject
+	// temperature as deprecated, and clients typically send only default
+	// sampling values rather than user intent — let the upstream apply its
+	// own defaults.
 	if n := opts.GetTokens(); n > 0 {
 		req.MaxTokens = &n
 	}

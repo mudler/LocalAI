@@ -33,7 +33,7 @@ function getLastMessagePreview(chat) {
   return ''
 }
 
-function exportChatAsMarkdown(chat) {
+function serializeChatAsMarkdown(chat) {
   let md = `# ${chat.name}\n\n`
   md += `Model: ${chat.model || 'Unknown'}\n`
   md += `Date: ${new Date(chat.createdAt).toLocaleString()}\n\n---\n\n`
@@ -47,7 +47,11 @@ function exportChatAsMarkdown(chat) {
       md += `<details><summary>Thinking</summary>\n\n${msg.content}\n\n</details>\n\n`
     }
   }
-  const blob = new Blob([md], { type: 'text/markdown' })
+  return md
+}
+
+function downloadChatAsMarkdown(chat) {
+  const blob = new Blob([serializeChatAsMarkdown(chat)], { type: 'text/markdown' })
   const url = URL.createObjectURL(blob)
   const a = document.createElement('a')
   a.href = url
@@ -294,7 +298,7 @@ export default function Chat() {
   const {
     chats, activeChat, activeChatId, isStreaming, streamingChatId, streamingContent,
     streamingReasoning, streamingToolCalls, tokensPerSecond, maxTokensPerSecond,
-    addChat, switchChat, deleteChat, deleteAllChats, renameChat, updateChatSettings,
+    addChat, forkChat, switchChat, deleteChat, deleteAllChats, renameChat, updateChatSettings,
     sendMessage, stopGeneration, clearHistory, getContextUsagePercent, addMessage,
   } = useChat(urlModel || '')
 
@@ -795,34 +799,27 @@ export default function Chat() {
     await sendMessage(msg, files, mcpOptions)
   }, [input, files, activeChat, sendMessage, addToast, getToolsForLLM, isClientTool, executeTool, hasAppUI, getAppResource, getToolDefinition])
 
-  const handleRegenerate = useCallback(async () => {
+  const handleRegenerate = useCallback(async (targetIndex) => {
     if (!activeChat || isStreaming) return
     const history = activeChat.history
-    let lastUserMsg = null
-    let lastUserFiles = null
-    for (let i = history.length - 1; i >= 0; i--) {
-      if (history[i].role === 'user') {
-        lastUserMsg = typeof history[i].content === 'string' ? history[i].content : history[i].content?.[0]?.text || ''
-        lastUserFiles = history[i].files || []
-        break
-      }
+    const end = typeof targetIndex === 'number' ? targetIndex : history.length
+    // Nearest user message at or before the target answer.
+    let userIdx = -1
+    for (let i = Math.min(end, history.length) - 1; i >= 0; i--) {
+      if (history[i].role === 'user') { userIdx = i; break }
     }
-    if (!lastUserMsg) return
-
-    // Remove everything after and including the last user message
-    const newHistory = []
-    let foundLastUser = false
-    for (let i = history.length - 1; i >= 0; i--) {
-      if (!foundLastUser && history[i].role === 'user') {
-        foundLastUser = true
-        continue
-      }
-      if (foundLastUser) {
-        newHistory.unshift(history[i])
-      }
-    }
-    updateChatSettings(activeChat.id, { history: newHistory })
-    await sendMessage(lastUserMsg, lastUserFiles)
+    if (userIdx === -1) return
+    const userMsg = typeof history[userIdx].content === 'string'
+      ? history[userIdx].content
+      : history[userIdx].content?.[0]?.text || ''
+    const userFiles = history[userIdx].files || []
+    // Drop the user turn and everything after it; sendMessage re-appends it.
+    // Thread the truncated history through explicitly: updateChatSettings only
+    // schedules a state update, so sendMessage's closure would otherwise read
+    // the stale pre-truncation history for the outbound API payload.
+    const baseHistory = history.slice(0, userIdx)
+    updateChatSettings(activeChat.id, { history: baseHistory })
+    await sendMessage(userMsg, userFiles, { baseHistory })
   }, [activeChat, isStreaming, sendMessage, updateChatSettings])
 
   const handleKeyDown = (e) => {
@@ -850,6 +847,11 @@ export default function Chat() {
     } else {
       addToast(t('toasts.copyFailed'), 'error', 3000)
     }
+  }
+
+  const copyChatAsMarkdown = async (chat) => {
+    const ok = await copyToClipboard(serializeChatAsMarkdown(chat))
+    addToast(ok ? t('toasts.chatCopied') : t('toasts.copyFailed'), ok ? 'success' : 'error', ok ? 2000 : 3000)
   }
 
   const contextPercent = getContextUsagePercent()
@@ -892,7 +894,9 @@ export default function Chat() {
             onDelete={deleteChat}
             onDeleteAll={promptDeleteAll}
             onRename={renameChat}
-            onExport={(chat) => exportChatAsMarkdown(chat)}
+            onExport={(chat) => downloadChatAsMarkdown(chat)}
+            onCopyChat={(chat) => copyChatAsMarkdown(chat)}
+            onDuplicate={(chat) => { if (forkChat(chat.id)) addToast(t('toasts.forked'), 'success', 2000) }}
           />
           {activeChat.localaiAssistant && (
             <span
@@ -1184,9 +1188,17 @@ export default function Chat() {
                       <button onClick={() => copyMessage(msg.content)} title={t('actions.copy')}>
                         <i className="fas fa-copy" />
                       </button>
-                      {msg.role === 'assistant' && i === activeChat.history.length - 1 && !isStreaming && (
-                        <button onClick={handleRegenerate} title={t('actions.regenerate')}>
+                      {msg.role === 'assistant' && !isStreaming && (
+                        <button onClick={() => handleRegenerate(i)} title={t('actions.regenerate')}>
                           <i className="fas fa-rotate" />
+                        </button>
+                      )}
+                      {msg.role === 'assistant' && !isStreaming && (
+                        <button
+                          onClick={() => { forkChat(activeChat.id, i + 1); addToast(t('toasts.forked'), 'success', 2000) }}
+                          title={t('actions.branch')}
+                        >
+                          <i className="fas fa-code-branch" />
                         </button>
                       )}
                     </div>
