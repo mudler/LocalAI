@@ -473,19 +473,12 @@ func New(opts ...config.AppOption) (*Application, error) {
 
 	if options.LoadToMemory != nil && !options.SingleBackend {
 		for _, m := range options.LoadToMemory {
-			cfg, err := application.ModelConfigLoader().LoadModelConfigFileByNameDefaultOptions(m, options)
-			if err != nil {
+			xlog.Debug("Auto loading model into memory from file", "model", m)
+			// Same path as POST /backend/load: a realtime pipeline model expands
+			// to its sub-models, and load failures are recorded as model_load
+			// traces.
+			if _, err := backend.PreloadModelByName(options.Context, application.ModelConfigLoader(), application.ModelLoader(), options, m); err != nil {
 				return nil, err
-			}
-
-			xlog.Debug("Auto loading model into memory from file", "model", m, "file", cfg.Model)
-
-			o := backend.ModelOptions(*cfg, options)
-
-			var backendErr error
-			_, backendErr = application.ModelLoader().Load(o...)
-			if backendErr != nil {
-				return nil, backendErr
 			}
 		}
 	}

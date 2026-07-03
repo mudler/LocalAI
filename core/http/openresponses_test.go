@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -29,6 +30,8 @@ const testModel = "Qwen3-VL-2B-Instruct-Q4_K_M"
 
 var _ = Describe("Open Responses API", func() {
 	var app *echo.Echo
+	var localApp *application.Application
+	var localModelDir string
 	var c context.Context
 	var cancel context.CancelFunc
 
@@ -38,28 +41,47 @@ var _ = Describe("Open Responses API", func() {
 
 	Context("API with ephemeral models", func() {
 		BeforeEach(func(sc SpecContext) {
-			var err error
+			// This suite exercises the /v1/responses HTTP/protocol contract
+			// (Content-Type, SSE framing, response envelope, error shapes),
+			// not real inference — so it runs against the same prebuilt
+			// mock-backend the rest of the http suite uses instead of
+			// downloading a real model. Skip cleanly when it isn't built.
+			if mockBackendPath == "" {
+				Skip("mock-backend binary not built; run 'make build-mock-backend'")
+			}
 
-			backendPath := os.Getenv("BACKENDS_PATH")
+			var err error
 
 			c, cancel = context.WithCancel(context.Background())
 
+			// Isolated model dir carrying a single config named after testModel
+			// but served by the mock backend, so the responses endpoint can
+			// resolve and load the model without any real backend build.
+			localModelDir, err = os.MkdirTemp("", "openresponses-models-")
+			Expect(err).ToNot(HaveOccurred())
+
+			mockModelYAML := "name: " + testModel + "\n" +
+				"backend: mock-backend\n" +
+				"parameters:\n" +
+				"  model: mock-model.bin\n"
+			Expect(os.WriteFile(filepath.Join(localModelDir, testModel+".yaml"), []byte(mockModelYAML), 0644)).To(Succeed())
+
 			systemState, err := system.GetSystemState(
-				system.WithBackendPath(backendPath),
-				system.WithModelPath(modelDir),
+				system.WithBackendPath(backendDir),
+				system.WithModelPath(localModelDir),
 			)
 			Expect(err).ToNot(HaveOccurred())
 
-			application, err := application.New(
+			localApp, err = application.New(
 				append(commonOpts,
 					config.WithContext(c),
 					config.WithSystemState(systemState),
 					config.WithApiKeys([]string{apiKey}),
-					config.WithModelsURL("https://huggingface.co/unsloth/Qwen3-VL-2B-Instruct-GGUF"),
 				)...)
 			Expect(err).ToNot(HaveOccurred())
+			localApp.ModelLoader().SetExternalBackend("mock-backend", mockBackendPath)
 
-			app, err = API(application)
+			app, err = API(localApp)
 			Expect(err).ToNot(HaveOccurred())
 
 			go func() {
@@ -80,14 +102,24 @@ var _ = Describe("Open Responses API", func() {
 		})
 
 		AfterEach(func(sc SpecContext) {
+			// Synchronous app shutdown first — context-cancel cleanup is async
+			// and races test-binary exit, orphaning mock-backend children.
+			if localApp != nil {
+				_ = localApp.Shutdown()
+				localApp = nil
+			}
 			cancel()
 			if app != nil {
 				ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 				defer cancel()
 				err := app.Shutdown(ctx)
 				Expect(err).ToNot(HaveOccurred())
+				app = nil
 			}
-
+			if localModelDir != "" {
+				_ = os.RemoveAll(localModelDir)
+				localModelDir = ""
+			}
 		})
 
 		Context("HTTP Protocol Compliance", func() {
@@ -969,13 +1001,16 @@ var _ = Describe("Open Responses API", func() {
 				Expect(ok).To(BeTrue())
 				Expect(itemID).ToNot(BeEmpty())
 
-				// Now create a new response with item_reference
+				// Now create a new response with item_reference. Per the OpenAI
+				// Responses spec (and this server's parser in
+				// endpoints/openresponses/responses.go) an item_reference carries
+				// the referenced item in the "id" field, not "item_id".
 				reqBody2 := map[string]any{
 					"model": testModel,
 					"input": []any{
 						map[string]any{
-							"type":    "item_reference",
-							"item_id": itemID,
+							"type": "item_reference",
+							"id":   itemID,
 						},
 						map[string]any{
 							"type":    "message",
@@ -1005,8 +1040,8 @@ var _ = Describe("Open Responses API", func() {
 					"model": testModel,
 					"input": []any{
 						map[string]any{
-							"type":    "item_reference",
-							"item_id": "nonexistent_item_id",
+							"type": "item_reference",
+							"id":   "nonexistent_item_id",
 						},
 					},
 				}

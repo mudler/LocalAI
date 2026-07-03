@@ -1,4 +1,56 @@
 ---
+- name: "qwopus3.6-35b-a3b-coder-mtp"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/Jackrong/Qwopus3.6-35B-A3B-Coder-MTP-GGUF
+  description: |
+    # 🌟 Qwopus3.6-35B-A3B-v1
+
+    ## 💡 Base Model Overview
+
+    **Qwen3.6-35B-A3B** is an advanced hybrid sparse MoE (Mixture-of-Experts) model developed by Alibaba Cloud. It features 35B total parameters with only 3B active parameters per token, ensuring high inference efficiency. Architecturally, it combines Gated DeltaNet linear attention with standard gated attention layers, routing tokens across **256 experts**. It natively supports a massive **262k context window** and is specifically designed for high-performance agentic coding, deep reasoning, and multimodal tasks.
+
+    ## 🚀 Model Refinement & Logic Tuning （Qwopus3.6-35B-A3B-v1）
+
+    🪐**Qwopus3.6-35B-A3B-v1** is a reasoning-enhanced MoE (Mixture of Experts) model fine-tuned on top of **Qwen3.6-35B-A3B**.
+
+    ### 🛠 Training Strategy
+
+    The fine-tuning process for this model is structured into **three distinct stages of distributed SFT (Supervised Fine-Tuning)**, progressively scaling reasoning complexity and data diversity. This systematic approach ensures the model inherits the base MoE capabilities while sharpening its logic-handling depth.
+
+    ...
+  license: "apache-2.0"
+  tags:
+    - llm
+    - gguf
+    - vision
+    - multimodal
+  icon: https://cdn-uploads.huggingface.co/production/uploads/66309bd090589b7c65950665/ztbyGV_zGhzcLuTCSVyq3.png
+  overrides:
+    backend: llama-cpp
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+    mmproj: llama-cpp/mmproj/Qwopus3.6-35B-A3B-Coder-MTP-Q4_K_M/mmproj-F32.gguf
+    options:
+      - use_jinja:true
+      - spec_type:draft-mtp
+      - spec_n_max:6
+      - spec_p_min:0.75
+    parameters:
+      model: llama-cpp/models/Qwopus3.6-35B-A3B-Coder-MTP-Q4_K_M/Qwopus3.6-35B-A3B-Coder-MTP-Q4_K_M.gguf
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/Qwopus3.6-35B-A3B-Coder-MTP-Q4_K_M/Qwopus3.6-35B-A3B-Coder-MTP-Q4_K_M.gguf
+      sha256: c283cd2321a3cb4c6e7faf9481ac7d946913e4f02e20172eb2872112f567d8d4
+      uri: https://huggingface.co/Jackrong/Qwopus3.6-35B-A3B-Coder-MTP-GGUF/resolve/main/Qwopus3.6-35B-A3B-Coder-MTP-Q4_K_M.gguf
+    - filename: llama-cpp/mmproj/Qwopus3.6-35B-A3B-Coder-MTP-Q4_K_M/mmproj-F32.gguf
+      sha256: 5c82c8095717b39f29c88ebfec3607a10307785b1e14a87744603d6c582cd497
+      uri: https://huggingface.co/Jackrong/Qwopus3.6-35B-A3B-Coder-MTP-GGUF/resolve/main/mmproj-F32.gguf
 - name: "ornith-1.0-9b-mtp"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:

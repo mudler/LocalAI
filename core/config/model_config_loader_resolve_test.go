@@ -1,4 +1,4 @@
-package openai
+package config_test
 
 import (
 	"os"
@@ -10,14 +10,14 @@ import (
 	"github.com/mudler/LocalAI/core/config"
 )
 
-// loadPipelineSubModel must resolve a pipeline sub-model that references an
-// alias (e.g. `llm: default`) one hop to the alias target's full config — so
-// the effective backend is the target's backend, not the empty backend of the
-// alias stub. This mirrors the top-level alias resolution done in
-// core/http/middleware/request.go, which the realtime pipeline previously
+// LoadResolvedModelConfig must resolve a model that references an alias
+// (e.g. a pipeline with `llm: default`) one hop to the alias target's full
+// config — so the effective backend is the target's backend, not the empty
+// backend of the alias stub. This mirrors the top-level alias resolution done
+// in core/http/middleware/request.go, which the realtime pipeline previously
 // skipped (failing in distributed mode with "backend name is empty").
-var _ = Describe("loadPipelineSubModel", func() {
-	It("resolves a sub-model alias one hop to the target's config", func() {
+var _ = Describe("LoadResolvedModelConfig", func() {
+	It("resolves an alias one hop to the target's config", func() {
 		tmpDir := GinkgoT().TempDir()
 
 		// A real model config with a concrete backend.
@@ -38,13 +38,13 @@ alias: real-llm
 		Expect(cl.LoadModelConfigsFromPath(tmpDir)).To(Succeed())
 
 		// Resolving the alias must follow the hop to the target's full config.
-		resolved, err := loadPipelineSubModel(cl, "default", tmpDir)
+		resolved, err := cl.LoadResolvedModelConfig("default", tmpDir)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(resolved.IsAlias()).To(BeFalse())
 		Expect(resolved.Backend).To(Equal("llama-cpp"))
 
 		// A non-alias name must load unchanged.
-		direct, err := loadPipelineSubModel(cl, "real-llm", tmpDir)
+		direct, err := cl.LoadResolvedModelConfig("real-llm", tmpDir)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(direct.Backend).To(Equal("llama-cpp"))
 		Expect(direct.Name).To(Equal("real-llm"))

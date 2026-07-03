@@ -1443,6 +1443,52 @@ const docTemplate = `{
                 "responses": {}
             }
         },
+        "/backend/load": {
+            "post": {
+                "description": "Loads the named model (or, for a realtime pipeline, all of its sub-models) into memory so subsequent requests pay no cold-start cost. The inverse of /backend/shutdown.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "monitoring"
+                ],
+                "summary": "Pre-load a model into memory",
+                "parameters": [
+                    {
+                        "description": "Model to load",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/schema.ModelLoadRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Model loaded",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ModelLoadResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Missing model name",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ModelLoadResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Load failed (Loaded lists any sub-models that did load)",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ModelLoadResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/backend/monitor": {
             "get": {
                 "tags": [
@@ -5133,6 +5179,30 @@ const docTemplate = `{
                     "items": {
                         "$ref": "#/definitions/schema.ToolCall"
                     }
+                }
+            }
+        },
+        "schema.ModelLoadRequest": {
+            "type": "object",
+            "properties": {
+                "model": {
+                    "type": "string"
+                }
+            }
+        },
+        "schema.ModelLoadResponse": {
+            "type": "object",
+            "properties": {
+                "loaded": {
+                    "description": "Loaded lists the model names actually resident in memory after the call.\nFor a pipeline model these are its sub-models, not the pipeline name.",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "message": {
+                    "description": "Message is a short human-readable status (\"model loaded\", or an error).",
+                    "type": "string"
                 }
             }
         },

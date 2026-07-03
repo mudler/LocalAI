@@ -166,7 +166,7 @@ When authentication is enabled, the following endpoints require admin role:
 - `GET /api/backend-traces`, `POST /api/backend-traces/clear`
 - `GET /api/backend-logs/*`, `POST /api/backend-logs/*/clear`
 - `GET /api/resources`, `GET /api/settings`, `POST /api/settings`
-- `GET /system`, `GET /backend/monitor`, `POST /backend/shutdown`
+- `GET /system`, `GET /backend/monitor`, `POST /backend/shutdown`, `POST /backend/load`
 
 **P2P:**
 - `GET /api/p2p/*`

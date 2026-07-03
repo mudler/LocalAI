@@ -352,6 +352,9 @@ export const realtimeApi = {
 // Backend control
 export const backendControlApi = {
   shutdown: (body) => postJSON(API_CONFIG.endpoints.backendShutdown, body),
+  // Pre-load a model (or all of a realtime pipeline's sub-models) into memory.
+  // body: { model: "<name>" }. Inverse of shutdown.
+  load: (body) => postJSON(API_CONFIG.endpoints.backendLoad, body),
 }
 
 // System info

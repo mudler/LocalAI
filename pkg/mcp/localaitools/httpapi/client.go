@@ -338,6 +338,16 @@ func (c *Client) ReloadModels(ctx context.Context) error {
 	return c.do(ctx, http.MethodPost, routeModelsReload, nil, nil)
 }
 
+func (c *Client) LoadModel(ctx context.Context, model string) ([]string, error) {
+	// On a load failure the endpoint returns a non-2xx whose body (carrying the
+	// per-sub-model failure detail) is folded into the HTTPError by c.do.
+	var resp schema.ModelLoadResponse
+	if err := c.do(ctx, http.MethodPost, routeBackendLoad, map[string]string{"model": model}, &resp); err != nil {
+		return nil, err
+	}
+	return resp.Loaded, nil
+}
+
 // ---- Model aliases ----
 
 // SetAlias is swap-first: it PATCHes the alias config (a deep-merge that

@@ -31,6 +31,7 @@ const (
 	ToolDeleteModel       = "delete_model"
 	ToolEditModelConfig   = "edit_model_config"
 	ToolReloadModels      = "reload_models"
+	ToolLoadModel         = "load_model"
 	ToolInstallBackend    = "install_backend"
 	ToolUpgradeBackend    = "upgrade_backend"
 	ToolToggleModelState  = "toggle_model_state"
