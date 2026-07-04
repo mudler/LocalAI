@@ -202,6 +202,11 @@ func (m *OAuthManager) CallbackHandler(providerName string, db *gorm.DB, adminEm
 			userInfo, err = fetchGitHubUserInfoAsOAuth(ctx, token.AccessToken)
 		}
 		if err != nil {
+			// Surface the real cause server-side: ID-token verify failures (issuer/
+			// audience mismatch behind a reverse proxy), a missing id_token, claim
+			// parse errors, or the GitHub userinfo HTTP status/body. The client still
+			// gets the generic message below; details go to logs only. See #10677.
+			xlog.Error("OAuth callback: failed to resolve user info", "provider", providerName, "error", err)
 			return c.JSON(http.StatusInternalServerError, map[string]string{"error": "failed to fetch user info"})
 		}
 
