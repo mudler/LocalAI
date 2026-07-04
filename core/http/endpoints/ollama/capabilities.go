@@ -49,62 +49,23 @@ func modelCapabilities(cfg *config.ModelConfig) []string {
 	return caps
 }
 
-// hasVisionSupport reports whether the model can accept image inputs. We avoid
-// cfg.HasUsecases(FLAG_VISION) because GuessUsecases has no FLAG_VISION case
-// and returns true for any chat model — see core/config/model_config.go. Instead
-// we look for explicit signals: KnownUsecases bit, multimodal projector, or
-// template/backend-reported multimodal markers.
+// hasVisionSupport reports whether the model can accept image inputs.
+// The detection heuristic is the canonical config.ModelConfig.VisionSupported —
+// kept as a thin wrapper here so the Ollama capability mapping reads cleanly.
 func hasVisionSupport(cfg *config.ModelConfig) bool {
-	if cfg.KnownUsecases != nil && (*cfg.KnownUsecases&config.FLAG_VISION) == config.FLAG_VISION {
-		return true
-	}
-	if cfg.MMProj != "" {
-		return true
-	}
-	if cfg.TemplateConfig.Multimodal != "" {
-		return true
-	}
-	if cfg.MediaMarker != "" {
-		return true
-	}
-	return false
+	return cfg.VisionSupported()
 }
 
-// hasToolSupport reports whether the model is wired up for tool / function calling.
-// We look for any of the explicit configuration knobs LocalAI uses to drive
-// function-call extraction (regex match, response regex, grammar triggers, XML
-// format) or for the auto-detected tool-format markers populated by the
-// llama.cpp backend during model load.
+// hasToolSupport reports whether the model is wired up for tool / function
+// calling. Delegates to the canonical config.ModelConfig.ToolSupported.
 func hasToolSupport(cfg *config.ModelConfig) bool {
-	fc := cfg.FunctionsConfig
-	if fc.ToolFormatMarkers != nil && fc.ToolFormatMarkers.FormatType != "" {
-		return true
-	}
-	if len(fc.JSONRegexMatch) > 0 || len(fc.ResponseRegex) > 0 {
-		return true
-	}
-	if fc.XMLFormatPreset != "" || fc.XMLFormat != nil {
-		return true
-	}
-	if len(fc.GrammarConfig.GrammarTriggers) > 0 || fc.GrammarConfig.SchemaType != "" {
-		return true
-	}
-	return false
+	return cfg.ToolSupported()
 }
 
 // hasThinkingSupport reports whether the model has reasoning / thinking enabled.
-// LocalAI sets DisableReasoning=false (or leaves thinking markers configured)
-// when the backend probe reports that the model supports thinking.
+// Delegates to the canonical config.ModelConfig.ThinkingSupported.
 func hasThinkingSupport(cfg *config.ModelConfig) bool {
-	rc := cfg.ReasoningConfig
-	if rc.DisableReasoning != nil && !*rc.DisableReasoning {
-		return true
-	}
-	if len(rc.ThinkingStartTokens) > 0 || len(rc.TagPairs) > 0 {
-		// Explicit thinking markers imply support unless explicitly disabled.
-		return rc.DisableReasoning == nil || !*rc.DisableReasoning
-	}
-	return false
+	return cfg.ThinkingSupported()
 }
 
 // quantRegex matches GGUF-style quantization suffixes (Q4_K_M, Q8_0, IQ3_XS, F16, ...).

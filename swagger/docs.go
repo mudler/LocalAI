@@ -2728,6 +2728,22 @@ const docTemplate = `{
                 }
             }
         },
+        "/v1/models/capabilities": {
+            "get": {
+                "tags": [
+                    "models"
+                ],
+                "summary": "List available models enriched with capabilities and input/output modalities.",
+                "responses": {
+                    "200": {
+                        "description": "Response",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ModelCapabilitiesResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/v1/rerank": {
             "post": {
                 "tags": [
@@ -5179,6 +5195,52 @@ const docTemplate = `{
                     "items": {
                         "$ref": "#/definitions/schema.ToolCall"
                     }
+                }
+            }
+        },
+        "schema.ModelCapabilities": {
+            "type": "object",
+            "properties": {
+                "capabilities": {
+                    "description": "Capabilities are canonical usecase strings (e.g. chat, vision, transcript,\ntts, embeddings, image, video) plus the modifiers \"tools\" and \"thinking\".",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "id": {
+                    "type": "string"
+                },
+                "input_modalities": {
+                    "description": "InputModalities is the subset of {text,image,audio,video} the model accepts.",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "object": {
+                    "type": "string"
+                },
+                "output_modalities": {
+                    "description": "OutputModalities is the subset of {text,image,audio,video} the model produces.",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                }
+            }
+        },
+        "schema.ModelCapabilitiesResponse": {
+            "type": "object",
+            "properties": {
+                "data": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.ModelCapabilities"
+                    }
+                },
+                "object": {
+                    "type": "string"
                 }
             }
         },
