@@ -30,7 +30,7 @@ target_include_directories(goqwen3ttscpp PRIVATE ${QWENTTS_DIR}/src)
 target_include_directories(goqwen3ttscpp SYSTEM PRIVATE ${QWENTTS_DIR}/ggml/include)
 
 # Link GPU backends if the upstream ggml created them.
-foreach(backend blas cuda metal vulkan sycl)
+foreach(backend blas cuda hip metal vulkan sycl)
     if(TARGET ggml-${backend})
         target_link_libraries(goqwen3ttscpp PRIVATE ggml-${backend})
         if(backend STREQUAL "cuda")
