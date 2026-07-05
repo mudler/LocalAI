@@ -6304,6 +6304,9 @@ select.input {
 .home-wizard {
   max-width: 48rem;
   width: 100%;
+  /* .home-page is a stretch column flex; a max-width child would otherwise
+     pin to the left cross-start edge. Center it. */
+  margin: 0 auto;
 }
 .home-wizard-hero {
   text-align: center;
