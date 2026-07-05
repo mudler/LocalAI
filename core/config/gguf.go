@@ -28,9 +28,14 @@ func reservedNonChatModel(cfg *ModelConfig) bool {
 
 func guessGGUFFromFile(cfg *ModelConfig, f *gguf.GGUFFile, defaultCtx int) {
 	if defaultCtx == 0 && cfg.ContextSize == nil {
-		ctxSize := f.EstimateLLaMACppRun().ContextSize
-		if ctxSize > 0 {
-			cSize := int(ctxSize)
+		// trainedMax is the model's full trained context window (n_ctx_train).
+		// Defaulting a model to it unbounded is what OOMs long-context models at
+		// load: a 128k / 256k / 1M KV cache cannot fit a consumer GPU and the
+		// backend aborts (exitCode=-1). autoContextSize instead caps to a modest
+		// default and only steps below it when detected per-device VRAM demands.
+		trainedMax := int(f.EstimateLLaMACppRun().ContextSize)
+		if trainedMax > 0 {
+			cSize := autoContextSize(f, trainedMax)
 			cfg.ContextSize = &cSize
 		} else {
 			defaultCtx = DefaultContextSize

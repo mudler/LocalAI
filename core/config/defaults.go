@@ -18,6 +18,18 @@ const (
 	// safe default beats a tiny, surprising window that truncates real prompts.
 	DefaultContextSize = 4096
 
+	// DefaultAutoContextSize caps the context we auto-derive from a GGUF when the
+	// user did not set context_size. The GGUF importer used to default a model's
+	// context to its full trained window (n_ctx_train). For long-context models
+	// (128k / 256k / 1M) that KV cache cannot fit a consumer GPU and the backend
+	// aborts on load (exitCode=-1) even though the model file is fine. So instead
+	// of shooting for the trained max, we keep a modest default: a small model
+	// (trained < this) keeps its trained window, while a long-context model caps
+	// here. Users who want the full window raise context_size explicitly. This is
+	// a conservative default, not a VRAM-maximizing one — VRAM is only used to
+	// step further DOWN when even this cap would not fit (see context_fit.go).
+	DefaultAutoContextSize = 8192
+
 	// DefaultNGPULayers means "offload all layers"; the backend (fit_params)
 	// clamps to what actually fits in device memory.
 	DefaultNGPULayers = 99999999
