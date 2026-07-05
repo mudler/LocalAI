@@ -3,22 +3,7 @@
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
     - https://huggingface.co/Jackrong/Qwopus3.6-35B-A3B-Coder-MTP-GGUF
-  description: |
-    # 🌟 Qwopus3.6-35B-A3B-v1
-
-    ## 💡 Base Model Overview
-
-    **Qwen3.6-35B-A3B** is an advanced hybrid sparse MoE (Mixture-of-Experts) model developed by Alibaba Cloud. It features 35B total parameters with only 3B active parameters per token, ensuring high inference efficiency. Architecturally, it combines Gated DeltaNet linear attention with standard gated attention layers, routing tokens across **256 experts**. It natively supports a massive **262k context window** and is specifically designed for high-performance agentic coding, deep reasoning, and multimodal tasks.
-
-    ## 🚀 Model Refinement & Logic Tuning （Qwopus3.6-35B-A3B-v1）
-
-    🪐**Qwopus3.6-35B-A3B-v1** is a reasoning-enhanced MoE (Mixture of Experts) model fine-tuned on top of **Qwen3.6-35B-A3B**.
-
-    ### 🛠 Training Strategy
-
-    The fine-tuning process for this model is structured into **three distinct stages of distributed SFT (Supervised Fine-Tuning)**, progressively scaling reasoning complexity and data diversity. This systematic approach ensures the model inherits the base MoE capabilities while sharpening its logic-handling depth.
-
-    ...
+  description: "# \U0001F31F Qwopus3.6-35B-A3B-v1\n\n## \U0001F4A1 Base Model Overview\n\n**Qwen3.6-35B-A3B** is an advanced hybrid sparse MoE (Mixture-of-Experts) model developed by Alibaba Cloud. It features 35B total parameters with only 3B active parameters per token, ensuring high inference efficiency. Architecturally, it combines Gated DeltaNet linear attention with standard gated attention layers, routing tokens across **256 experts**. It natively supports a massive **262k context window** and is specifically designed for high-performance agentic coding, deep reasoning, and multimodal tasks.\n\n## \U0001F680 Model Refinement & Logic Tuning （Qwopus3.6-35B-A3B-v1）\n\n\U0001FA90**Qwopus3.6-35B-A3B-v1** is a reasoning-enhanced MoE (Mixture of Experts) model fine-tuned on top of **Qwen3.6-35B-A3B**.\n\n### \U0001F6E0 Training Strategy\n\nThe fine-tuning process for this model is structured into **three distinct stages of distributed SFT (Supervised Fine-Tuning)**, progressively scaling reasoning complexity and data diversity. This systematic approach ensures the model inherits the base MoE capabilities while sharpening its logic-handling depth.\n\n...\n"
   license: "apache-2.0"
   tags:
     - llm
@@ -55,34 +40,7 @@
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
     - https://huggingface.co/protoLabsAI/Ornith-1.0-9B-MTP-GGUF
-  description: |
-    [](https://deep-reinforce.com/ornith.html)
-
-    # Ornith-1.0-9B
-
-    Aloha! 🌺 Today, we are releasing Ornith-1.0, a self-improving family of open-source models for agentic coding.
-
-    Highlights:
-
-      - **State-of-the-Art Coding Agents**: Available in 9B-Dense, 31B-Dense, 35B-MoE, and 397B-MoE (post-trained on top of Gemma 4 and Qwen 3.5), achieving state-of-the-art performance among open-source models of comparable size on coding benchmarks such as Terminal-Bench 2.1, SWE-Bench, NL2Repo and OpenClaw.
-      - **Self-Improving Training Framework**:  Ornith-1.0 employs RL to learn to generate not only solution rollouts, but also the scallfold that drive those rollouts. By jointly optimizing the scaffold and the resulting solution, the model  discovers better search trajectories and generates higher-quality solutions.
-      - **Licence**: MIT licensed, globally accessible, and free from regional limitations.
-
-    ## Ornith 1.0 9B
-
-    This model card documents **Ornith-1.0-9B**, the most lightweight member of the Ornith family, designed for efficient single-GPU deployment.
-
-    ### Benchmarks
-
-    Ornith-1.0-9B
-    Qwen3.5-9B
-    Qwen3.5-35B
-    Gemma4-12B
-    Gemma4-31B
-
-    Agentic Coding
-
-    ...
+  description: "[](https://deep-reinforce.com/ornith.html)\n\n# Ornith-1.0-9B\n\nAloha! \U0001F33A Today, we are releasing Ornith-1.0, a self-improving family of open-source models for agentic coding.\n\nHighlights:\n\n  - **State-of-the-Art Coding Agents**: Available in 9B-Dense, 31B-Dense, 35B-MoE, and 397B-MoE (post-trained on top of Gemma 4 and Qwen 3.5), achieving state-of-the-art performance among open-source models of comparable size on coding benchmarks such as Terminal-Bench 2.1, SWE-Bench, NL2Repo and OpenClaw.\n  - **Self-Improving Training Framework**:  Ornith-1.0 employs RL to learn to generate not only solution rollouts, but also the scallfold that drive those rollouts. By jointly optimizing the scaffold and the resulting solution, the model  discovers better search trajectories and generates higher-quality solutions.\n  - **Licence**: MIT licensed, globally accessible, and free from regional limitations.\n\n## Ornith 1.0 9B\n\nThis model card documents **Ornith-1.0-9B**, the most lightweight member of the Ornith family, designed for efficient single-GPU deployment.\n\n### Benchmarks\n\nOrnith-1.0-9B\nQwen3.5-9B\nQwen3.5-35B\nGemma4-12B\nGemma4-31B\n\nAgentic Coding\n\n...\n"
   license: "mit"
   tags:
     - llm
@@ -36066,7 +36024,7 @@
   files:
     - filename: parakeet-tdt-0.6b-ja.gguf
       uri: huggingface://cstr/parakeet-tdt-0.6b-ja-GGUF/parakeet-tdt-0.6b-ja.gguf
-      sha256: a9c43116b180b8a2ada2771ac829cf751b9e73adcbe69b7c8379593f9e5da31e
+      sha256: 374eb0132eebaec4df77a9631cbbeb03790be48a4a517f6cc8e8bdb38fe9a584
 - name: parakeet-tdt-1.1b-crispasr
   url: github:mudler/LocalAI/gallery/virtual.yaml@master
   urls:
@@ -36525,7 +36483,7 @@
   files:
     - filename: vibevoice-realtime-0.5b-q4_k.gguf
       uri: huggingface://cstr/vibevoice-realtime-0.5b-GGUF/vibevoice-realtime-0.5b-q4_k.gguf
-      sha256: e3244986d8939a9a8f65701196efbfe3f8b81afd307b29f434fe259b9c411ef1
+      sha256: 483e1922a9077e3fc66b7947a4d6fee3dfd8edc30afde3410efa5bb386bc0392
 - name: chatterbox-tts-crispasr
   url: github:mudler/LocalAI/gallery/virtual.yaml@master
   urls:
