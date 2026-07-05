@@ -1,4 +1,48 @@
 ---
+- name: "huihui-qwythos-9b-claude-mythos-5-1m-abliterated"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/huihui-ai/Huihui-Qwythos-9B-Claude-Mythos-5-1M-abliterated-GGUF
+  description: |
+    # Qwythos-9B
+
+    **Developed by Empero**
+
+    **Qwythos-9B** is a full-parameter reasoning model built on top of a **deeply uncensored Qwen3.5-9B base** and post-trained on **over 500 million tokens** of high-quality Claude Mythos and Claude Fable traces, with chain-of-thought generated in-house by Empero AI's internal tool **rethink**.
+
+    The result is a compact, fast, **dramatically more capable** 9B reasoning model. Headline capabilities:
+
+    ...
+  license: "apache-2.0"
+  tags:
+    - llm
+    - gguf
+    - reasoning
+  overrides:
+    backend: llama-cpp
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+    mmproj: llama-cpp/mmproj/Huihui-Qwythos-9B-Claude-Mythos-5-1M-abliterated-bf16/mmproj-model-bf16.gguf
+    options:
+      - use_jinja:true
+      - spec_type:draft-mtp
+      - spec_n_max:6
+      - spec_p_min:0.75
+    parameters:
+      model: llama-cpp/models/Huihui-Qwythos-9B-Claude-Mythos-5-1M-abliterated-bf16/Huihui-Qwythos-9B-Claude-Mythos-5-1M-abliterated-bf16.gguf
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/Huihui-Qwythos-9B-Claude-Mythos-5-1M-abliterated-bf16/Huihui-Qwythos-9B-Claude-Mythos-5-1M-abliterated-bf16.gguf
+      sha256: 330af9eca71fd2aa7f1a90db8b7b16fdab0b21ca5c7ca30be158d914ff4f9c9a
+      uri: https://huggingface.co/huihui-ai/Huihui-Qwythos-9B-Claude-Mythos-5-1M-abliterated-GGUF/resolve/main/Huihui-Qwythos-9B-Claude-Mythos-5-1M-abliterated-bf16.gguf
+    - filename: llama-cpp/mmproj/Huihui-Qwythos-9B-Claude-Mythos-5-1M-abliterated-bf16/mmproj-model-bf16.gguf
+      sha256: 58a875ef97592d9a559b05a2b10612571064144c20a238c31af6188a443e2762
+      uri: https://huggingface.co/huihui-ai/Huihui-Qwythos-9B-Claude-Mythos-5-1M-abliterated-GGUF/resolve/main/mmproj-model-bf16.gguf
 - name: "qwopus3.6-35b-a3b-coder-mtp"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
