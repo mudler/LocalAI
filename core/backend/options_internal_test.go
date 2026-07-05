@@ -103,6 +103,19 @@ var _ = Describe("grpcModelOpts NBatch", func() {
 	threads := 1
 	ctx := 4096
 
+	// The single-pass batch is now VRAM-aware, so inject a deterministic GPU with
+	// ample per-device VRAM: at these small contexts the compute buffer fits
+	// easily, so EffectiveBatchSize returns the full context (the pre-#10485
+	// behaviour these cases assert). Without injection the value would depend on
+	// the CI host's real (often unknown) VRAM.
+	const gib = uint64(1) << 30
+	var origLocalGPU func() config.GPU
+	BeforeEach(func() {
+		origLocalGPU = localGPU
+		localGPU = func() config.GPU { return config.GPU{VRAM: 119 * gib} }
+	})
+	AfterEach(func() { localGPU = origLocalGPU })
+
 	It("defaults to 512 for an ordinary model", func() {
 		cfg := config.ModelConfig{Threads: &threads, LLMConfig: config.LLMConfig{ContextSize: &ctx}}
 		opts := grpcModelOpts(cfg, "/tmp/models")
@@ -159,6 +172,58 @@ var _ = Describe("grpcModelOpts NBatch", func() {
 		opts := grpcModelOpts(cfg, "/tmp/models")
 		Expect(opts.NBatch).To(BeEquivalentTo(4096))
 		Expect(opts.ContextSize).To(BeEquivalentTo(4096), "n_batch must match the effective n_ctx the backend receives")
+	})
+})
+
+// Guards the VRAM-aware cap on the single-pass (embedding/score/rerank) batch:
+// a large context must not turn n_ubatch into a multi-GiB compute buffer that
+// aborts the load on a device with free VRAM (issue #10485). The GPU is injected
+// via the localGPU package var so the cap is deterministic without a real device.
+var _ = Describe("EffectiveBatchSize VRAM cap", func() {
+	const gib = uint64(1) << 30
+	embeddings := config.FLAG_EMBEDDINGS
+	threads := 1
+
+	var origLocalGPU func() config.GPU
+	BeforeEach(func() { origLocalGPU = localGPU })
+	AfterEach(func() { localGPU = origLocalGPU })
+
+	singlePassCfg := func(ctx int) config.ModelConfig {
+		return config.ModelConfig{
+			Threads:       &threads,
+			LLMConfig:     config.LLMConfig{ContextSize: &ctx},
+			KnownUsecases: &embeddings,
+		}
+	}
+
+	It("caps a large embedding context to a batch below the context but at least the default", func() {
+		// Reproduces qwen3-embedding-4b: context 40960 on a modest 20 GiB card.
+		// Full-context n_ubatch=40960 aborts; the cap must fit the VRAM headroom.
+		localGPU = func() config.GPU { return config.GPU{VRAM: 20 * gib} }
+		batch := EffectiveBatchSize(singlePassCfg(40960))
+		Expect(batch).To(BeNumerically(">=", DefaultBatchSize))
+		Expect(batch).To(BeNumerically("<", 40960))
+	})
+
+	It("keeps an explicit batch even with a large context and small VRAM", func() {
+		localGPU = func() config.GPU { return config.GPU{VRAM: 20 * gib} }
+		cfg := singlePassCfg(40960)
+		cfg.Batch = 512
+		Expect(EffectiveBatchSize(cfg)).To(Equal(512))
+	})
+
+	It("stays conservative (default, not the context) when per-device VRAM is unknown", func() {
+		// A detection gap (VRAM 0) must not fall back to the unbounded context —
+		// that's exactly what would OOM the load.
+		localGPU = func() config.GPU { return config.GPU{VRAM: 0} }
+		Expect(EffectiveBatchSize(singlePassCfg(40960))).To(Equal(DefaultBatchSize))
+	})
+
+	It("returns the default batch for a non-single-pass model regardless of VRAM", func() {
+		localGPU = func() config.GPU { return config.GPU{VRAM: 20 * gib} }
+		ctx := 40960
+		cfg := config.ModelConfig{Threads: &threads, LLMConfig: config.LLMConfig{ContextSize: &ctx}}
+		Expect(EffectiveBatchSize(cfg)).To(Equal(DefaultBatchSize))
 	})
 })
 
