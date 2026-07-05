@@ -1362,6 +1362,41 @@ definitions:
           $ref: '#/definitions/schema.ToolCall'
         type: array
     type: object
+  schema.ModelCapabilities:
+    properties:
+      capabilities:
+        description: |-
+          Capabilities are canonical usecase strings (e.g. chat, vision, transcript,
+          tts, embeddings, image, video) plus the modifiers "tools" and "thinking".
+        items:
+          type: string
+        type: array
+      id:
+        type: string
+      input_modalities:
+        description: InputModalities is the subset of {text,image,audio,video} the
+          model accepts.
+        items:
+          type: string
+        type: array
+      object:
+        type: string
+      output_modalities:
+        description: OutputModalities is the subset of {text,image,audio,video} the
+          model produces.
+        items:
+          type: string
+        type: array
+    type: object
+  schema.ModelCapabilitiesResponse:
+    properties:
+      data:
+        items:
+          $ref: '#/definitions/schema.ModelCapabilities'
+        type: array
+      object:
+        type: string
+    type: object
   schema.ModelLoadRequest:
     properties:
       model:
@@ -4356,6 +4391,16 @@ paths:
           schema:
             $ref: '#/definitions/schema.ModelsDataResponse'
       summary: List and describe the various models available in the API.
+      tags:
+      - models
+  /v1/models/capabilities:
+    get:
+      responses:
+        "200":
+          description: Response
+          schema:
+            $ref: '#/definitions/schema.ModelCapabilitiesResponse'
+      summary: List available models enriched with capabilities and input/output modalities.
       tags:
       - models
   /v1/rerank:

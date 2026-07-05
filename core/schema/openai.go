@@ -251,3 +251,27 @@ type ModelsDataResponse struct {
 	Object string        `json:"object"`
 	Data   []OpenAIModel `json:"data"`
 }
+
+// ModelCapabilities is a strict superset of OpenAIModel that additionally
+// describes what a model can do and which modalities it accepts/produces. It is
+// served by the LocalAI-specific /v1/models/capabilities endpoint so clients can
+// route attachments (image/audio/video) to a model only when it can handle them.
+type ModelCapabilities struct {
+	ID     string `json:"id"`
+	Object string `json:"object"`
+	// Capabilities are canonical usecase strings (e.g. chat, vision, transcript,
+	// tts, embeddings, image, video) plus the modifiers "tools" and "thinking".
+	Capabilities []string `json:"capabilities"`
+	// InputModalities is the subset of {text,image,audio,video} the model accepts.
+	InputModalities []string `json:"input_modalities"`
+	// OutputModalities is the subset of {text,image,audio,video} the model produces.
+	OutputModalities []string `json:"output_modalities"`
+}
+
+// ModelCapabilitiesResponse is the envelope returned by /v1/models/capabilities.
+// It mirrors ModelsDataResponse so a client can treat it as an enriched
+// drop-in for /v1/models.
+type ModelCapabilitiesResponse struct {
+	Object string              `json:"object"`
+	Data   []ModelCapabilities `json:"data"`
+}
