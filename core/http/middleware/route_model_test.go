@@ -582,7 +582,7 @@ var (
 )
 
 func corpusPayload(labels ...string) []byte {
-	b, err := router.EncodeCorpusEntry(labels)
+	b, err := router.EncodeCorpusEntry(router.EntryID(strings.Join(labels, "+")), labels)
 	Expect(err).NotTo(HaveOccurred())
 	return b
 }

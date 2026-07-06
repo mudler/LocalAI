@@ -2,6 +2,8 @@ package router
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"sort"
@@ -113,6 +115,21 @@ func (c *KNNClassifier) Classify(ctx context.Context, p Probe) (Decision, error)
 		return errDecision(start, fmt.Errorf("knn classifier search: %w", err))
 	}
 
+	// Record every retrieved neighbour — including sub-gate ones — before
+	// the filtering below reuses the slice's backing array. The decision
+	// log needs the full retrieval to make fallbacks diagnosable: "what
+	// WAS nearby, and how was it labelled". A corrupt payload still names
+	// its similarity so index corruption is visible rather than silent.
+	refs := make([]NeighborRef, 0, len(neighbors))
+	for _, n := range neighbors {
+		ref := NeighborRef{Similarity: n.Similarity}
+		if entry, ok := decodeCorpusEntry(n.Payload); ok {
+			ref.ID = entry.ID
+			ref.Labels = entry.Labels
+		}
+		refs = append(refs, ref)
+	}
+
 	// Epistemic gate: only neighbours the probe is genuinely close to
 	// may vote. Keeping sub-threshold neighbours out of the vote (rather
 	// than merely gating on the best one) stops far-away corpus regions
@@ -135,6 +152,7 @@ func (c *KNNClassifier) Classify(ctx context.Context, p Probe) (Decision, error)
 		// simply too tight.
 		return Decision{
 			NearestSimilarity:   best,
+			Neighbors:           refs,
 			ActivationThreshold: c.voteThreshold,
 			Latency:             time.Since(start),
 		}, nil
@@ -156,6 +174,7 @@ func (c *KNNClassifier) Classify(ctx context.Context, p Probe) (Decision, error)
 	if total == 0 {
 		return Decision{
 			NearestSimilarity:   best,
+			Neighbors:           refs,
 			ActivationThreshold: c.voteThreshold,
 			Latency:             time.Since(start),
 		}, nil
@@ -187,6 +206,7 @@ func (c *KNNClassifier) Classify(ctx context.Context, p Probe) (Decision, error)
 		ActivationThreshold: c.voteThreshold,
 		LabelScores:         NewLabelScores(labels, scores),
 		NearestSimilarity:   best,
+		Neighbors:           refs,
 		Latency:             time.Since(start),
 	}
 	if len(active) > 0 {
@@ -198,19 +218,36 @@ func (c *KNNClassifier) Classify(ctx context.Context, p Probe) (Decision, error)
 // corpusEntry is the stored shape of one labelled exemplar. Kept
 // deliberately minimal: the vector key lives in the store, the text
 // lives only in the corpus file (never returned by inspection APIs),
-// so the store payload is just the label set.
+// so the store payload is the label set plus the content-hash ID that
+// lets decisions name the exemplar without carrying its text.
 type corpusEntry struct {
+	ID     string   `json:"id,omitempty"`
 	Labels []string `json:"labels"`
 }
 
-// EncodeCorpusEntry serialises the labels of one corpus exemplar into
-// the vector-store payload shape Classify votes over. Exported for the
-// corpus loader/API in core, which owns insertion.
-func EncodeCorpusEntry(labels []string) ([]byte, error) {
+// EntryID returns the stable identifier of a corpus entry: the first 8
+// bytes of the SHA-256 of its text, hex-encoded. Content-derived, so it
+// survives reseeds, re-embeds, and restarts; one-way, so the decision
+// log can reference an exemplar without leaking it. A platform that
+// seeded the corpus can recompute text→ID on its own copy to join
+// decisions back to its labelled data.
+func EntryID(text string) string {
+	sum := sha256.Sum256([]byte(text))
+	return hex.EncodeToString(sum[:8])
+}
+
+// EncodeCorpusEntry serialises one corpus exemplar into the
+// vector-store payload shape Classify votes over. Exported for the
+// corpus loader/API in core, which owns insertion; id comes from
+// EntryID so the payload never carries text.
+func EncodeCorpusEntry(id string, labels []string) ([]byte, error) {
+	if id == "" {
+		return nil, fmt.Errorf("corpus entry needs an id (EntryID of its text)")
+	}
 	if len(labels) == 0 {
 		return nil, fmt.Errorf("corpus entry needs at least one label")
 	}
-	return json.Marshal(corpusEntry{Labels: labels})
+	return json.Marshal(corpusEntry{ID: id, Labels: labels})
 }
 
 func decodeCorpusEntry(b []byte) (corpusEntry, bool) {
