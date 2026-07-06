@@ -1,4 +1,60 @@
 ---
+- name: "agents-a1"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/InternScience/Agents-A1-Q4_K_M-GGUF
+  description: |
+    # Agents-A1: Scaling the Horizon, Not the Parameters: Reaching Trillion-Parameter Performance with a 35B Agent
+
+    🏠
+    Homepage
+
+    Technical Report
+
+    Hugging Face
+
+    Github
+
+    ModelScope
+
+    > [!Note]
+    > This repository contains model weights and configuration files for Agents-A1 in the Hugging Face Transformers format.
+    >
+    > These artifacts are compatible with Hugging Face Transformers, vLLM, SGLang, etc.
+
+    ## 🔥 News
+      - **2026.7.2**: 🔥🔥 Based on Agents-A1, we have released a series of quantized model variants. Please refer to the Agents-A1 collection. Besides, we’d like to thank the mlx-community for providing quantized versions at multiple scales. Try running Agents-A1 on your Mac!
+
+      - **2026.6.26**: 🔥🔥 We have open-sourced the Agents-A1 35B-A3B model, along with the evaluation code for selected domains and the technical report.
+
+    ...
+  license: "apache-2.0"
+  tags:
+    - llm
+    - gguf
+    - vision
+  overrides:
+    backend: llama-cpp
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+    mmproj: llama-cpp/mmproj/Agents-A1-Q4_K_M/Agents-A1-mmproj.gguf
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/Agents-A1-Q4_K_M/Agents-A1-Q4_K_M.gguf
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/Agents-A1-Q4_K_M/Agents-A1-Q4_K_M.gguf
+      sha256: 31aefa25b7e1edbde436e643e2b5e3f6e57820a4811d97b131130e48ff0772c2
+      uri: https://huggingface.co/InternScience/Agents-A1-Q4_K_M-GGUF/resolve/main/Agents-A1-Q4_K_M.gguf
+    - filename: llama-cpp/mmproj/Agents-A1-Q4_K_M/Agents-A1-mmproj.gguf
+      sha256: 781c47706c2a2002401358f2acbeeccf545ee4cf9bd7314d4470f4c17f083b1c
+      uri: https://huggingface.co/InternScience/Agents-A1-Q4_K_M-GGUF/resolve/main/Agents-A1-mmproj.gguf
 - name: "qwopus3.6-35b-a3b-coder-mtp"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
