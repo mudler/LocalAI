@@ -275,4 +275,4 @@ Don't use the model file as `model` in the request unless you want to handle the
 
 Use the model names like you would do with OpenAI like in the examples below. For instance `gpt-4-vision-preview`, or `gpt-4`.
 
- {{% /notice %}}
+ {{% /notice %}} proxy online
