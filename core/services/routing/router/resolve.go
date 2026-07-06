@@ -168,6 +168,7 @@ func (r *ResolveResult) ToDecisionRecord(id, correlationID, userID, source strin
 		NearestSimilarity:   r.Decision.NearestSimilarity,
 		LabelScores:         r.Decision.LabelScores,
 		ActivationThreshold: r.Decision.ActivationThreshold,
+		Neighbors:           r.Decision.Neighbors,
 		Source:              source,
 		CreatedAt:           time.Now().UTC(),
 	}

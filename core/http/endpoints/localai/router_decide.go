@@ -94,6 +94,15 @@ func RouterDecideEndpoint(loader *config.ModelConfigLoader, appConfig *config.Ap
 			classifierName = router.ClassifierScore
 		}
 
+		neighbors := make([]schema.RouterDecideNeighbor, 0, len(decision.Neighbors))
+		for _, n := range decision.Neighbors {
+			neighbors = append(neighbors, schema.RouterDecideNeighbor{
+				ID:         n.ID,
+				Similarity: n.Similarity,
+				Labels:     n.Labels,
+			})
+		}
+
 		return c.JSON(http.StatusOK, schema.RouterDecideResponse{
 			Router:            req.Router,
 			Classifier:        classifierName,
@@ -105,6 +114,7 @@ func RouterDecideEndpoint(loader *config.ModelConfigLoader, appConfig *config.Ap
 			Cached:            decision.Cached,
 			CacheSimilarity:   decision.CacheSimilarity,
 			NearestSimilarity: decision.NearestSimilarity,
+			Neighbors:         neighbors,
 		})
 	}
 }

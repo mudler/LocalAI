@@ -29,6 +29,11 @@ type DecisionRecord struct {
 	// threshold. Empty on cache hits (only the final label set is cached).
 	LabelScores         []LabelScore `json:"label_scores,omitempty"`
 	ActivationThreshold float64      `json:"activation_threshold,omitempty"`
+	// Neighbors names the corpus entries a KNN decision consulted (content-
+	// hash IDs, similarities, labels — never text). This is the join key
+	// for platform-side per-region reliability accounting: decisions that
+	// retrieve the same corpus entries belong to the same region.
+	Neighbors []NeighborRef `json:"neighbors,omitempty"`
 	// Source groups decisions by the entry point that produced them so
 	// the admin page can split realtime / chat / anthropic streams. Empty
 	// string is treated as "chat" for backward compatibility with rows

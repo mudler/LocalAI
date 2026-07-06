@@ -476,6 +476,16 @@ For each request:
    for the other classifiers. With `k: 1` this degenerates to
    "nearest example's labels".
 
+Every knn decision (in the decision log and the `/api/router/decide`
+response) also carries `neighbors` — the `k` retrieved corpus entries
+by descending similarity, **including** ones below the gate, each as
+`{id, similarity, labels}`. The `id` is the entry's content hash (the
+first 8 bytes of the SHA-256 of its text, hex-encoded): stable across
+reseeds and re-embeds, and text-free — whoever seeded the corpus can
+recompute text→id on their own copy to group decisions by corpus
+region (e.g. for external per-region reliability accounting) without
+corpus text ever leaving the server.
+
 #### Seeding and curating the corpus (API-only)
 
 Corpus entries may contain example user content, so they are managed

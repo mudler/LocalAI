@@ -2268,6 +2268,17 @@ definitions:
       total:
         type: integer
     type: object
+  schema.RouterDecideNeighbor:
+    properties:
+      id:
+        type: string
+      labels:
+        items:
+          type: string
+        type: array
+      similarity:
+        type: number
+    type: object
   schema.RouterDecideRequest:
     properties:
       input:
@@ -2326,6 +2337,14 @@ definitions:
           decision fell back because the probe was out of corpus range.
           0 for other classifiers.
         type: number
+      neighbors:
+        description: |-
+          Neighbors lists the corpus entries the knn classifier retrieved,
+          by descending similarity, including ones below the similarity
+          gate. Empty for other classifiers.
+        items:
+          $ref: '#/definitions/schema.RouterDecideNeighbor'
+        type: array
       router:
         description: Router echoes the requested router model.
         type: string

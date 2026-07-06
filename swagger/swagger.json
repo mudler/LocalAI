@@ -6892,6 +6892,23 @@
                 }
             }
         },
+        "schema.RouterDecideNeighbor": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "type": "string"
+                },
+                "labels": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "similarity": {
+                    "type": "number"
+                }
+            }
+        },
         "schema.RouterDecideRequest": {
             "type": "object",
             "properties": {
@@ -6942,6 +6959,13 @@
                 "nearest_similarity": {
                     "description": "NearestSimilarity is the cosine similarity of the closest KNN\ncorpus entry — populated by the knn classifier even when the\ndecision fell back because the probe was out of corpus range.\n0 for other classifiers.",
                     "type": "number"
+                },
+                "neighbors": {
+                    "description": "Neighbors lists the corpus entries the knn classifier retrieved,\nby descending similarity, including ones below the similarity\ngate. Empty for other classifiers.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.RouterDecideNeighbor"
+                    }
                 },
                 "router": {
                     "description": "Router echoes the requested router model.",

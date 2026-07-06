@@ -549,6 +549,22 @@ type RouterDecideResponse struct {
 	// decision fell back because the probe was out of corpus range.
 	// 0 for other classifiers.
 	NearestSimilarity float64 `json:"nearest_similarity,omitempty"`
+	// Neighbors lists the corpus entries the knn classifier retrieved,
+	// by descending similarity, including ones below the similarity
+	// gate. Empty for other classifiers.
+	Neighbors []RouterDecideNeighbor `json:"neighbors,omitempty"`
+}
+
+// RouterDecideNeighbor is one KNN corpus neighbour in a decide
+// response (mirrors router.NeighborRef; schema stays import-free of
+// the routing packages). ID is the corpus entry's content hash — the
+// first 8 bytes of the SHA-256 of its text, hex-encoded — so callers
+// that seeded the corpus can recompute text→ID locally and bucket
+// decisions by corpus region; the text itself never leaves the server.
+type RouterDecideNeighbor struct {
+	ID         string   `json:"id,omitempty"`
+	Similarity float64  `json:"similarity"`
+	Labels     []string `json:"labels,omitempty"`
 }
 
 // RouterCorpusEntry is one labelled exemplar submitted to
