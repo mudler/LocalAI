@@ -2,11 +2,17 @@ package vram
 
 import (
 	"context"
+	"regexp"
 	"strings"
 	"sync"
 
 	hfapi "github.com/mudler/LocalAI/pkg/huggingface-api"
 )
+
+// ggufShardRe matches the multi-part suffix used for sharded GGUF files, e.g.
+// "model-00001-of-00003.gguf". Stripping it collapses all shards of one
+// quantization onto a single variant key.
+var ggufShardRe = regexp.MustCompile(`-\d{2,5}-of-\d{2,5}$`)
 
 var (
 	hfSizeCacheMu   sync.Mutex
@@ -107,18 +113,33 @@ func hfRepoWeightSizeUncached(ctx context.Context, repoID string) (uint64, error
 	}
 }
 
+// sumWeightFileBytes estimates the on-disk size of the weights a user would
+// actually download for a repo.
+//
+// A single HF repo very often ships many GGUF quantizations of the same model
+// (Q4_K_M, Q5_K_M, Q8_0, F16, ...). These are mutually-exclusive alternatives:
+// only one is ever downloaded and run, so summing the whole repo drastically
+// over-reports the size (e.g. a 9B model shown as 71 GB). For GGUF we therefore
+// group files by quantization variant -- summing the shards that belong to one
+// variant -- and report the largest single variant as a conservative estimate.
+//
+// Non-GGUF weights (.safetensors/.bin/.pt) are genuine shards of one model that
+// are all required together, so those are still summed.
 func sumWeightFileBytes(files []hfapi.FileInfo) uint64 {
-	var total int64
+	var nonGGUFTotal int64
+	ggufVariants := make(map[string]int64)
+	haveGGUF := false
+
 	for _, f := range files {
 		if f.Type != "file" {
 			continue
 		}
-		ext := strings.ToLower(f.Path)
-		if idx := strings.LastIndex(ext, "."); idx >= 0 {
-			ext = ext[idx:]
-		} else {
+		lower := strings.ToLower(f.Path)
+		idx := strings.LastIndex(lower, ".")
+		if idx < 0 {
 			continue
 		}
+		ext := lower[idx:]
 		if !weightExts[ext] {
 			continue
 		}
@@ -126,10 +147,32 @@ func sumWeightFileBytes(files []hfapi.FileInfo) uint64 {
 		if f.LFS != nil && f.LFS.Size > 0 {
 			size = f.LFS.Size
 		}
-		total += size
+		if size < 0 {
+			continue
+		}
+		if ext == ".gguf" {
+			haveGGUF = true
+			variant := ggufShardRe.ReplaceAllString(lower[:idx], "")
+			ggufVariants[variant] += size
+		} else {
+			nonGGUFTotal += size
+		}
 	}
-	if total < 0 {
+
+	if haveGGUF {
+		// When GGUF is present it is what LocalAI runs; report the single
+		// largest quantization variant instead of the whole repository.
+		var largest int64
+		for _, v := range ggufVariants {
+			if v > largest {
+				largest = v
+			}
+		}
+		return uint64(largest)
+	}
+
+	if nonGGUFTotal < 0 {
 		return 0
 	}
-	return uint64(total)
+	return uint64(nonGGUFTotal)
 }
