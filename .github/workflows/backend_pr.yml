@@ -11,16 +11,30 @@ jobs:
   generate-matrix:
     runs-on: ubuntu-latest
     outputs:
-      matrix-singlearch: ${{ steps.set-matrix.outputs['matrix-singlearch'] }}
       matrix-multiarch: ${{ steps.set-matrix.outputs['matrix-multiarch'] }}
       matrix-darwin: ${{ steps.set-matrix.outputs['matrix-darwin'] }}
       merge-matrix-multiarch: ${{ steps.set-matrix.outputs['merge-matrix-multiarch'] }}
-      merge-matrix-singlearch: ${{ steps.set-matrix.outputs['merge-matrix-singlearch'] }}
-      has-backends-singlearch: ${{ steps.set-matrix.outputs['has-backends-singlearch'] }}
       has-backends-multiarch: ${{ steps.set-matrix.outputs['has-backends-multiarch'] }}
       has-backends-darwin: ${{ steps.set-matrix.outputs['has-backends-darwin'] }}
       has-merges-multiarch: ${{ steps.set-matrix.outputs['has-merges-multiarch'] }}
-      has-merges-singlearch: ${{ steps.set-matrix.outputs['has-merges-singlearch'] }}
+      # Single-arch backends are sharded across SINGLEARCH_SHARDS matrix jobs to
+      # stay under GitHub's 256-jobs-per-matrix limit (see changed-backends.js).
+      matrix-singlearch-1: ${{ steps.set-matrix.outputs['matrix-singlearch-1'] }}
+      merge-matrix-singlearch-1: ${{ steps.set-matrix.outputs['merge-matrix-singlearch-1'] }}
+      has-backends-singlearch-1: ${{ steps.set-matrix.outputs['has-backends-singlearch-1'] }}
+      has-merges-singlearch-1: ${{ steps.set-matrix.outputs['has-merges-singlearch-1'] }}
+      matrix-singlearch-2: ${{ steps.set-matrix.outputs['matrix-singlearch-2'] }}
+      merge-matrix-singlearch-2: ${{ steps.set-matrix.outputs['merge-matrix-singlearch-2'] }}
+      has-backends-singlearch-2: ${{ steps.set-matrix.outputs['has-backends-singlearch-2'] }}
+      has-merges-singlearch-2: ${{ steps.set-matrix.outputs['has-merges-singlearch-2'] }}
+      matrix-singlearch-3: ${{ steps.set-matrix.outputs['matrix-singlearch-3'] }}
+      merge-matrix-singlearch-3: ${{ steps.set-matrix.outputs['merge-matrix-singlearch-3'] }}
+      has-backends-singlearch-3: ${{ steps.set-matrix.outputs['has-backends-singlearch-3'] }}
+      has-merges-singlearch-3: ${{ steps.set-matrix.outputs['has-merges-singlearch-3'] }}
+      matrix-singlearch-4: ${{ steps.set-matrix.outputs['matrix-singlearch-4'] }}
+      merge-matrix-singlearch-4: ${{ steps.set-matrix.outputs['merge-matrix-singlearch-4'] }}
+      has-backends-singlearch-4: ${{ steps.set-matrix.outputs['has-backends-singlearch-4'] }}
+      has-merges-singlearch-4: ${{ steps.set-matrix.outputs['has-merges-singlearch-4'] }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v7
@@ -71,10 +85,10 @@ jobs:
       fail-fast: true
       max-parallel: 8
       matrix: ${{ fromJson(needs.generate-matrix.outputs['matrix-multiarch']) }}
-  backend-jobs-singlearch:
+  backend-jobs-singlearch-1:
     needs: generate-matrix
+    if: needs.generate-matrix.outputs['has-backends-singlearch-1'] == 'true'
     uses: ./.github/workflows/backend_build.yml
-    if: needs.generate-matrix.outputs['has-backends-singlearch'] == 'true'
     with:
       tag-latest: ${{ matrix.tag-latest }}
       tag-suffix: ${{ matrix.tag-suffix }}
@@ -98,7 +112,94 @@ jobs:
     strategy:
       fail-fast: true
       max-parallel: 8
-      matrix: ${{ fromJson(needs.generate-matrix.outputs['matrix-singlearch']) }}
+      matrix: ${{ fromJson(needs.generate-matrix.outputs['matrix-singlearch-1']) }}
+
+  backend-jobs-singlearch-2:
+    needs: generate-matrix
+    if: needs.generate-matrix.outputs['has-backends-singlearch-2'] == 'true'
+    uses: ./.github/workflows/backend_build.yml
+    with:
+      tag-latest: ${{ matrix.tag-latest }}
+      tag-suffix: ${{ matrix.tag-suffix }}
+      build-type: ${{ matrix.build-type }}
+      cuda-major-version: ${{ matrix.cuda-major-version }}
+      cuda-minor-version: ${{ matrix.cuda-minor-version }}
+      platforms: ${{ matrix.platforms }}
+      platform-tag: ${{ matrix.platform-tag || '' }}
+      runs-on: ${{ matrix.runs-on }}
+      builder-base-image: ${{ matrix.builder-base-image || '' }}
+      base-image: ${{ matrix.base-image }}
+      backend: ${{ matrix.backend }}
+      dockerfile: ${{ matrix.dockerfile }}
+      skip-drivers: ${{ matrix.skip-drivers }}
+      context: ${{ matrix.context }}
+      ubuntu-version: ${{ matrix.ubuntu-version }}
+      amdgpu-targets: ${{ matrix.amdgpu-targets || 'gfx908,gfx90a,gfx942,gfx950,gfx1030,gfx1100,gfx1101,gfx1102,gfx1151,gfx1200,gfx1201' }}
+    secrets:
+      quayUsername: ${{ secrets.LOCALAI_REGISTRY_USERNAME }}
+      quayPassword: ${{ secrets.LOCALAI_REGISTRY_PASSWORD }}
+    strategy:
+      fail-fast: true
+      max-parallel: 8
+      matrix: ${{ fromJson(needs.generate-matrix.outputs['matrix-singlearch-2']) }}
+
+  backend-jobs-singlearch-3:
+    needs: generate-matrix
+    if: needs.generate-matrix.outputs['has-backends-singlearch-3'] == 'true'
+    uses: ./.github/workflows/backend_build.yml
+    with:
+      tag-latest: ${{ matrix.tag-latest }}
+      tag-suffix: ${{ matrix.tag-suffix }}
+      build-type: ${{ matrix.build-type }}
+      cuda-major-version: ${{ matrix.cuda-major-version }}
+      cuda-minor-version: ${{ matrix.cuda-minor-version }}
+      platforms: ${{ matrix.platforms }}
+      platform-tag: ${{ matrix.platform-tag || '' }}
+      runs-on: ${{ matrix.runs-on }}
+      builder-base-image: ${{ matrix.builder-base-image || '' }}
+      base-image: ${{ matrix.base-image }}
+      backend: ${{ matrix.backend }}
+      dockerfile: ${{ matrix.dockerfile }}
+      skip-drivers: ${{ matrix.skip-drivers }}
+      context: ${{ matrix.context }}
+      ubuntu-version: ${{ matrix.ubuntu-version }}
+      amdgpu-targets: ${{ matrix.amdgpu-targets || 'gfx908,gfx90a,gfx942,gfx950,gfx1030,gfx1100,gfx1101,gfx1102,gfx1151,gfx1200,gfx1201' }}
+    secrets:
+      quayUsername: ${{ secrets.LOCALAI_REGISTRY_USERNAME }}
+      quayPassword: ${{ secrets.LOCALAI_REGISTRY_PASSWORD }}
+    strategy:
+      fail-fast: true
+      max-parallel: 8
+      matrix: ${{ fromJson(needs.generate-matrix.outputs['matrix-singlearch-3']) }}
+
+  backend-jobs-singlearch-4:
+    needs: generate-matrix
+    if: needs.generate-matrix.outputs['has-backends-singlearch-4'] == 'true'
+    uses: ./.github/workflows/backend_build.yml
+    with:
+      tag-latest: ${{ matrix.tag-latest }}
+      tag-suffix: ${{ matrix.tag-suffix }}
+      build-type: ${{ matrix.build-type }}
+      cuda-major-version: ${{ matrix.cuda-major-version }}
+      cuda-minor-version: ${{ matrix.cuda-minor-version }}
+      platforms: ${{ matrix.platforms }}
+      platform-tag: ${{ matrix.platform-tag || '' }}
+      runs-on: ${{ matrix.runs-on }}
+      builder-base-image: ${{ matrix.builder-base-image || '' }}
+      base-image: ${{ matrix.base-image }}
+      backend: ${{ matrix.backend }}
+      dockerfile: ${{ matrix.dockerfile }}
+      skip-drivers: ${{ matrix.skip-drivers }}
+      context: ${{ matrix.context }}
+      ubuntu-version: ${{ matrix.ubuntu-version }}
+      amdgpu-targets: ${{ matrix.amdgpu-targets || 'gfx908,gfx90a,gfx942,gfx950,gfx1030,gfx1100,gfx1101,gfx1102,gfx1151,gfx1200,gfx1201' }}
+    secrets:
+      quayUsername: ${{ secrets.LOCALAI_REGISTRY_USERNAME }}
+      quayPassword: ${{ secrets.LOCALAI_REGISTRY_PASSWORD }}
+    strategy:
+      fail-fast: true
+      max-parallel: 8
+      matrix: ${{ fromJson(needs.generate-matrix.outputs['matrix-singlearch-4']) }}
   backend-merge-jobs-multiarch:
     needs: [generate-matrix, backend-jobs-multiarch]
     # backend_merge.yml's push-side steps are all gated on
@@ -118,9 +219,9 @@ jobs:
       fail-fast: false
       matrix: ${{ fromJson(needs.generate-matrix.outputs['merge-matrix-multiarch']) }}
 
-  backend-merge-jobs-singlearch:
-    needs: [generate-matrix, backend-jobs-singlearch]
-    if: ${{ !cancelled() && github.event_name != 'pull_request' && needs.generate-matrix.outputs['has-merges-singlearch'] == 'true' }}
+  backend-merge-jobs-singlearch-1:
+    needs: [generate-matrix, backend-jobs-singlearch-1]
+    if: ${{ !cancelled() && github.event_name != 'pull_request' && needs.generate-matrix.outputs['has-merges-singlearch-1'] == 'true' }}
     uses: ./.github/workflows/backend_merge.yml
     with:
       tag-latest: ${{ matrix.tag-latest }}
@@ -130,7 +231,49 @@ jobs:
       quayPassword: ${{ secrets.LOCALAI_REGISTRY_PASSWORD }}
     strategy:
       fail-fast: false
-      matrix: ${{ fromJson(needs.generate-matrix.outputs['merge-matrix-singlearch']) }}
+      matrix: ${{ fromJson(needs.generate-matrix.outputs['merge-matrix-singlearch-1']) }}
+
+  backend-merge-jobs-singlearch-2:
+    needs: [generate-matrix, backend-jobs-singlearch-2]
+    if: ${{ !cancelled() && github.event_name != 'pull_request' && needs.generate-matrix.outputs['has-merges-singlearch-2'] == 'true' }}
+    uses: ./.github/workflows/backend_merge.yml
+    with:
+      tag-latest: ${{ matrix.tag-latest }}
+      tag-suffix: ${{ matrix.tag-suffix }}
+    secrets:
+      quayUsername: ${{ secrets.LOCALAI_REGISTRY_USERNAME }}
+      quayPassword: ${{ secrets.LOCALAI_REGISTRY_PASSWORD }}
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJson(needs.generate-matrix.outputs['merge-matrix-singlearch-2']) }}
+
+  backend-merge-jobs-singlearch-3:
+    needs: [generate-matrix, backend-jobs-singlearch-3]
+    if: ${{ !cancelled() && github.event_name != 'pull_request' && needs.generate-matrix.outputs['has-merges-singlearch-3'] == 'true' }}
+    uses: ./.github/workflows/backend_merge.yml
+    with:
+      tag-latest: ${{ matrix.tag-latest }}
+      tag-suffix: ${{ matrix.tag-suffix }}
+    secrets:
+      quayUsername: ${{ secrets.LOCALAI_REGISTRY_USERNAME }}
+      quayPassword: ${{ secrets.LOCALAI_REGISTRY_PASSWORD }}
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJson(needs.generate-matrix.outputs['merge-matrix-singlearch-3']) }}
+
+  backend-merge-jobs-singlearch-4:
+    needs: [generate-matrix, backend-jobs-singlearch-4]
+    if: ${{ !cancelled() && github.event_name != 'pull_request' && needs.generate-matrix.outputs['has-merges-singlearch-4'] == 'true' }}
+    uses: ./.github/workflows/backend_merge.yml
+    with:
+      tag-latest: ${{ matrix.tag-latest }}
+      tag-suffix: ${{ matrix.tag-suffix }}
+    secrets:
+      quayUsername: ${{ secrets.LOCALAI_REGISTRY_USERNAME }}
+      quayPassword: ${{ secrets.LOCALAI_REGISTRY_PASSWORD }}
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJson(needs.generate-matrix.outputs['merge-matrix-singlearch-4']) }}
   backend-jobs-darwin:
     needs: generate-matrix
     uses: ./.github/workflows/backend_build_darwin.yml
