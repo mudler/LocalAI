@@ -77,7 +77,10 @@ var _ = Describe("SinglePassBatchForContext", func() {
 		Expect(SinglePassBatchForContext(GPU{VRAM: 1 * gib}, 40960)).To(Equal(DefaultPhysicalBatch))
 	})
 
-	It("stays conservative (default) when per-device VRAM is unknown", func() {
-		Expect(SinglePassBatchForContext(GPU{VRAM: 0}, 40960)).To(Equal(DefaultPhysicalBatch))
+	It("returns the full context (unclamped) when per-device VRAM is unknown", func() {
+		// Unknown VRAM (CPU / detection gap) preserves the original single-pass
+		// behavior — the cap is a downward safety that only engages when VRAM is
+		// known. Clamping here would over-trim score/embed/rerank inputs.
+		Expect(SinglePassBatchForContext(GPU{VRAM: 0}, 40960)).To(Equal(40960))
 	})
 })

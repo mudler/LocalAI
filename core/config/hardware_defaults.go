@@ -167,14 +167,18 @@ func largeContextForDevice(g GPU, ctx int) bool {
 // the device processes nothing at all.
 //
 // g.VRAM must be the PER-DEVICE ceiling (smallest device on a multi-GPU host).
-// VRAM 0 (unknown) stays conservative and returns DefaultPhysicalBatch rather
-// than the unbounded context, so a detection gap can't OOM the load.
+// VRAM 0 (unknown — CPU-only or a detection gap) returns the full context,
+// preserving the original single-pass behavior (batch follows context): the cap
+// is a DOWNWARD safety that only engages when the per-device ceiling is known.
+// Returning a smaller batch on unknown VRAM would re-break single-pass pooling
+// (n_tokens > n_batch) and over-trim score/embed/rerank inputs, with no OOM
+// benefit on CPU where the buffer lives in system RAM.
 func SinglePassBatchForContext(g GPU, ctx int) int {
 	if ctx <= DefaultPhysicalBatch {
 		return DefaultPhysicalBatch
 	}
 	if g.VRAM == 0 {
-		return DefaultPhysicalBatch
+		return ctx
 	}
 	perBatchCell := uint64(ctx) * computeBufferBytesPerCell
 	if perBatchCell == 0 {

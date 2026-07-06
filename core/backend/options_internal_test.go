@@ -212,11 +212,14 @@ var _ = Describe("EffectiveBatchSize VRAM cap", func() {
 		Expect(EffectiveBatchSize(cfg)).To(Equal(512))
 	})
 
-	It("stays conservative (default, not the context) when per-device VRAM is unknown", func() {
-		// A detection gap (VRAM 0) must not fall back to the unbounded context —
-		// that's exactly what would OOM the load.
+	It("returns the full context when per-device VRAM is unknown", func() {
+		// Unknown VRAM (CPU / detection gap) preserves the original single-pass
+		// behavior: batch follows context. The VRAM cap is a downward safety that
+		// only engages when the per-device ceiling is known — clamping here would
+		// re-break single-pass pooling and over-trim inputs, with no OOM benefit on
+		// CPU where the compute buffer lives in system RAM.
 		localGPU = func() config.GPU { return config.GPU{VRAM: 0} }
-		Expect(EffectiveBatchSize(singlePassCfg(40960))).To(Equal(DefaultBatchSize))
+		Expect(EffectiveBatchSize(singlePassCfg(40960))).To(Equal(40960))
 	})
 
 	It("returns the default batch for a non-single-pass model regardless of VRAM", func() {
