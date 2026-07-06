@@ -38,8 +38,8 @@ func (s *scriptedKNNStore) Insert(_ context.Context, _ []float32, _ []byte) erro
 	return errors.New("knn classifier must never insert")
 }
 
-func mustEntry(labels ...string) []byte {
-	b, err := router.EncodeCorpusEntry(labels)
+func mustEntry(id string, labels ...string) []byte {
+	b, err := router.EncodeCorpusEntry(id, labels)
 	Expect(err).ToNot(HaveOccurred())
 	return b
 }
@@ -72,9 +72,9 @@ var _ = Describe("KNNClassifier", func() {
 		// Both clear the 0.5 majority → both active; candidate matching
 		// then requires a model labelled for both.
 		store := &scriptedKNNStore{neighbors: []backend.Neighbor{
-			{Similarity: 0.90, Payload: mustEntry("code")},
-			{Similarity: 0.85, Payload: mustEntry("code", "math")},
-			{Similarity: 0.82, Payload: mustEntry("math")},
+			{Similarity: 0.90, Payload: mustEntry("e1", "code")},
+			{Similarity: 0.85, Payload: mustEntry("e2", "code", "math")},
+			{Similarity: 0.82, Payload: mustEntry("e3", "math")},
 		}}
 		d := classify(store, router.KNNClassifierOptions{K: 3})
 		Expect(d.Labels).To(Equal([]string{"code", "math"}))
@@ -86,15 +86,23 @@ var _ = Describe("KNNClassifier", func() {
 		Expect(d.Score).To(BeNumerically("~", 1.75/2.57, 1e-9))
 		Expect(d.NearestSimilarity).To(BeNumerically("~", 0.90, 1e-9))
 		Expect(store.lastK).To(Equal(3))
+		// The decision names every consulted neighbour so the log can be
+		// joined back to corpus entries.
+		Expect(d.Neighbors).To(HaveLen(3))
+		Expect(d.Neighbors[0].ID).To(Equal("e1"))
+		Expect(d.Neighbors[0].Similarity).To(BeNumerically("~", 0.90, 1e-9))
+		Expect(d.Neighbors[1].ID).To(Equal("e2"))
+		Expect(d.Neighbors[1].Labels).To(Equal([]string{"code", "math"}))
+		Expect(d.Neighbors[2].ID).To(Equal("e3"))
 	})
 
 	It("does not activate a minority label", func() {
 		// share(chat) = 0.81/2.57 < 0.5 → inactive, but still reported
 		// in LabelScores so the decision log shows how close it came.
 		store := &scriptedKNNStore{neighbors: []backend.Neighbor{
-			{Similarity: 0.90, Payload: mustEntry("code")},
-			{Similarity: 0.86, Payload: mustEntry("code")},
-			{Similarity: 0.81, Payload: mustEntry("chat")},
+			{Similarity: 0.90, Payload: mustEntry("e1", "code")},
+			{Similarity: 0.86, Payload: mustEntry("e2", "code")},
+			{Similarity: 0.81, Payload: mustEntry("e3", "chat")},
 		}}
 		d := classify(store, router.KNNClassifierOptions{K: 3})
 		Expect(d.Labels).To(Equal([]string{"code"}))
@@ -105,14 +113,19 @@ var _ = Describe("KNNClassifier", func() {
 
 	It("gates out-of-corpus probes to the fallback (empty labels)", func() {
 		store := &scriptedKNNStore{neighbors: []backend.Neighbor{
-			{Similarity: 0.55, Payload: mustEntry("code")},
-			{Similarity: 0.40, Payload: mustEntry("math")},
+			{Similarity: 0.55, Payload: mustEntry("e1", "code")},
+			{Similarity: 0.40, Payload: mustEntry("e2", "math")},
 		}}
 		d := classify(store, router.KNNClassifierOptions{SimilarityThreshold: 0.80})
 		Expect(d.Labels).To(BeEmpty())
 		// The admin-facing epistemic signal: how far away the nearest
 		// labelled experience was.
 		Expect(d.NearestSimilarity).To(BeNumerically("~", 0.55, 1e-9))
+		// Fallback decisions still name the sub-gate neighbours — that is
+		// exactly what makes them diagnosable.
+		Expect(d.Neighbors).To(HaveLen(2))
+		Expect(d.Neighbors[0].ID).To(Equal("e1"))
+		Expect(d.Neighbors[1].ID).To(Equal("e2"))
 	})
 
 	It("excludes sub-threshold neighbours from the vote", func() {
@@ -120,8 +133,8 @@ var _ = Describe("KNNClassifier", func() {
 		// majority: with it, share(code) would be 0.9/1.2 = 0.75; the
 		// vote must instead be over the single usable neighbour.
 		store := &scriptedKNNStore{neighbors: []backend.Neighbor{
-			{Similarity: 0.90, Payload: mustEntry("code")},
-			{Similarity: 0.30, Payload: mustEntry("chat")},
+			{Similarity: 0.90, Payload: mustEntry("e1", "code")},
+			{Similarity: 0.30, Payload: mustEntry("e2", "chat")},
 		}}
 		d := classify(store, router.KNNClassifierOptions{K: 2, SimilarityThreshold: 0.80})
 		Expect(d.Labels).To(Equal([]string{"code"}))
@@ -131,7 +144,7 @@ var _ = Describe("KNNClassifier", func() {
 
 	It("degenerates to nearest-entry labels at K=1", func() {
 		store := &scriptedKNNStore{neighbors: []backend.Neighbor{
-			{Similarity: 0.95, Payload: mustEntry("reasoning", "math")},
+			{Similarity: 0.95, Payload: mustEntry("e1", "reasoning", "math")},
 		}}
 		d := classify(store, router.KNNClassifierOptions{K: 1})
 		Expect(d.Labels).To(Equal([]string{"math", "reasoning"}))
@@ -145,6 +158,11 @@ var _ = Describe("KNNClassifier", func() {
 		d := classify(store, router.KNNClassifierOptions{})
 		Expect(d.Labels).To(BeEmpty())
 		Expect(d.NearestSimilarity).To(BeNumerically("~", 0.90, 1e-9))
+		// A corrupt payload is still visible in the neighbour list — an
+		// empty ID at a real similarity flags index corruption.
+		Expect(d.Neighbors).To(HaveLen(1))
+		Expect(d.Neighbors[0].ID).To(BeEmpty())
+		Expect(d.Neighbors[0].Similarity).To(BeNumerically("~", 0.90, 1e-9))
 	})
 
 	It("returns the embed error so the middleware can fall back", func() {
@@ -163,8 +181,20 @@ var _ = Describe("KNNClassifier", func() {
 	})
 
 	It("rejects corpus entries without labels at encode time", func() {
-		_, err := router.EncodeCorpusEntry(nil)
+		_, err := router.EncodeCorpusEntry("e1", nil)
 		Expect(err).To(HaveOccurred())
+	})
+
+	It("rejects corpus entries without an id at encode time", func() {
+		_, err := router.EncodeCorpusEntry("", []string{"code"})
+		Expect(err).To(HaveOccurred())
+	})
+
+	It("derives stable, text-free entry ids", func() {
+		id := router.EntryID("Is 18857 a prime number? Answer yes or no.")
+		Expect(id).To(HaveLen(16))
+		Expect(id).To(Equal(router.EntryID("Is 18857 a prime number? Answer yes or no.")))
+		Expect(id).ToNot(Equal(router.EntryID("Is 18858 a prime number? Answer yes or no.")))
 	})
 
 	It("panics on missing embedder or store", func() {

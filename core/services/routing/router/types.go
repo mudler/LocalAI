@@ -78,6 +78,27 @@ type Decision struct {
 	// which is exactly when an admin wants to know how far off the
 	// nearest labelled experience was. 0 for other classifiers.
 	NearestSimilarity float64 `json:"nearest_similarity,omitempty"`
+
+	// Neighbors lists the K corpus entries the KNN classifier retrieved,
+	// ordered by descending similarity — including neighbours below the
+	// similarity gate, which is what makes fallback decisions diagnosable
+	// (what WAS nearby, and how was it labelled). Empty for other
+	// classifiers.
+	Neighbors []NeighborRef `json:"neighbors,omitempty"`
+}
+
+// NeighborRef identifies one corpus neighbour consulted for a KNN
+// decision. ID is the entry's content hash (EntryID) — stable across
+// reseeds and re-embeds, and text-free: an external platform that
+// seeded the corpus can recompute text→ID on its own copy to bucket
+// decisions by corpus region without corpus text ever leaving the
+// server. Labels repeats the entry's label set (already public via
+// corpus stats). An empty ID with a non-zero similarity marks a
+// corrupt index payload.
+type NeighborRef struct {
+	ID         string   `json:"id,omitempty"`
+	Similarity float64  `json:"similarity"`
+	Labels     []string `json:"labels,omitempty"`
 }
 
 // LabelScore is one entry in Decision.LabelScores — a policy label and

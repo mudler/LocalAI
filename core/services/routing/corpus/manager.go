@@ -290,7 +290,7 @@ func insertAll(ctx context.Context, store backend.VectorStore, entries []Entry) 
 	vecs := make([][]float32, 0, len(entries))
 	payloads := make([][]byte, 0, len(entries))
 	for _, e := range entries {
-		payload, err := router.EncodeCorpusEntry(e.Labels)
+		payload, err := router.EncodeCorpusEntry(router.EntryID(e.Text), e.Labels)
 		if err != nil {
 			return err
 		}
