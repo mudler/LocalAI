@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os/exec"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -49,12 +50,7 @@ type clinfoTypeProp struct {
 }
 
 func (t clinfoTypeProp) isGPU() bool {
-	for _, s := range t.Type {
-		if s == clDeviceTypeGPU {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(t.Type, clDeviceTypeGPU)
 }
 
 // clinfoOnce caches the result for the process lifetime. GPU hardware

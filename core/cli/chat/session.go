@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"slices"
 	"strings"
 )
 
@@ -58,7 +59,7 @@ func (s *chatSession) Clear() {
 }
 
 func (s *chatSession) SwitchModel(model string) error {
-	if !modelExists(s.models, model) {
+	if !slices.Contains(s.models, model) {
 		return fmt.Errorf("model %q is not available. Use /models to see installed models", model)
 	}
 	s.model = model
@@ -103,18 +104,9 @@ Then start a chat session:
 		b.WriteString("multiple models are available; choose one with --model:\n")
 		b.WriteString(formatChatModelList(models, ""))
 		return "", errors.New(b.String())
-	case !modelExists(models, requested):
+	case !slices.Contains(models, requested):
 		return "", fmt.Errorf("model %q is not available. Use `local-ai models list` and `local-ai models install <model>`, or pass an installed model with --model", requested)
 	default:
 		return requested, nil
 	}
-}
-
-func modelExists(models []string, name string) bool {
-	for _, model := range models {
-		if model == name {
-			return true
-		}
-	}
-	return false
 }
