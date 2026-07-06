@@ -149,6 +149,51 @@ func largeContextForDevice(g GPU, ctx int) bool {
 	return extra > g.VRAM/blackwellBatchHeadroomDivisor
 }
 
+// SinglePassBatchForContext caps the physical batch (n_batch / n_ubatch) for a
+// single-pass load — embedding, score and rerank all decode/pool the whole input
+// in ONE physical batch, so they want a batch >= the input length to avoid the
+// GGML_ASSERT(n_tokens <= n_batch) abort and the "input is too large to process"
+// error. The naive choice is batch == context, but n_ubatch == context turns the
+// per-device CUDA compute buffer (which scales ~ n_ubatch * n_ctx and is NOT
+// split across GPUs) into multi-GiB of scratch that must fit on a SINGLE card, so
+// a large-context embedding model aborts on load (exitCode=-1) even with plenty
+// of free VRAM — the same #10485 root cause the Blackwell batch boost guards
+// against, which the single-pass path previously bypassed entirely.
+//
+// So instead of the full context we return the LARGEST batch whose compute buffer
+// fits the per-device VRAM headroom (VRAM / blackwellBatchHeadroomDivisor),
+// clamped to [DefaultPhysicalBatch, ctx]. The tradeoff: an input longer than the
+// returned cap can no longer be pooled in a single pass — but a batch that OOMs
+// the device processes nothing at all.
+//
+// g.VRAM must be the PER-DEVICE ceiling (smallest device on a multi-GPU host).
+// VRAM 0 (unknown — CPU-only or a detection gap) returns the full context,
+// preserving the original single-pass behavior (batch follows context): the cap
+// is a DOWNWARD safety that only engages when the per-device ceiling is known.
+// Returning a smaller batch on unknown VRAM would re-break single-pass pooling
+// (n_tokens > n_batch) and over-trim score/embed/rerank inputs, with no OOM
+// benefit on CPU where the buffer lives in system RAM.
+func SinglePassBatchForContext(g GPU, ctx int) int {
+	if ctx <= DefaultPhysicalBatch {
+		return DefaultPhysicalBatch
+	}
+	if g.VRAM == 0 {
+		return ctx
+	}
+	perBatchCell := uint64(ctx) * computeBufferBytesPerCell
+	if perBatchCell == 0 {
+		return DefaultPhysicalBatch
+	}
+	batchCap := int(g.VRAM / blackwellBatchHeadroomDivisor / perBatchCell)
+	if batchCap < DefaultPhysicalBatch {
+		return DefaultPhysicalBatch
+	}
+	if batchCap > ctx {
+		return ctx
+	}
+	return batchCap
+}
+
 // IsManagedPhysicalBatch reports whether n is a value PhysicalBatch assigns.
 // Callers that re-tune a value chosen by an upstream host (the distributed
 // router correcting the frontend's guess) use this to avoid clobbering an
@@ -252,6 +297,14 @@ var localGPU = func() GPU {
 		ComputeCapability: xsysinfo.NVIDIAComputeCapability(),
 		VRAM:              vram,
 	}
+}
+
+// LocalGPU exposes the locally-detected device descriptor to other packages
+// (e.g. core/backend's single-pass batch sizing) so they resolve the same
+// per-device VRAM this package's heuristics reason about. It goes through the
+// injectable localGPU var, so a config-package test seam also affects callers.
+func LocalGPU() GPU {
+	return localGPU()
 }
 
 // ApplyHardwareDefaults fills ModelConfig values that depend on the target GPU

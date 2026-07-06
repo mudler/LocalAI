@@ -223,13 +223,24 @@ func EffectiveContextSize(c config.ModelConfig) int {
 	return DefaultContextSize
 }
 
+// localGPU resolves the device that will run the model, for single-pass batch
+// sizing. It is a package var so tests inject a deterministic device; production
+// reads config.LocalGPU, whose detection is sync.Once-cached in xsysinfo — so the
+// per-request call from the router's prompt trimmer (modelTokenTrim) stays cheap.
+var localGPU = config.LocalGPU
+
 // EffectiveBatchSize is the single-decode batch the backend will run with.
 // Score, embedding and rerank all process the whole input in one pass: score
 // decodes prompt+candidate (asserts n_tokens <= n_batch), and embedding/rerank
-// pool over the full sequence in one physical batch (n_ubatch). So the batch
-// is sized to the context — anything that fits the context fits one pass,
+// pool over the full sequence in one physical batch (n_ubatch). Ideally the batch
+// covers the whole context so any input that fits the context fits one pass,
 // avoiding both the GGML_ASSERT crash and the "input is too large to process"
-// error. Explicit `batch:` always wins.
+// error — BUT a full ctx-sized n_ubatch makes the per-device CUDA compute buffer
+// multi-GiB (it scales ~ n_ubatch * n_ctx and can't be split across GPUs), so a
+// large-context embedding model aborts on load with free VRAM to spare (#10485).
+// So we cap the batch to the largest that fits the per-device VRAM headroom; an
+// input longer than that cap is the accepted tradeoff (it can't be pooled in one
+// pass, but the load no longer OOMs). Explicit `batch:` always wins.
 func EffectiveBatchSize(c config.ModelConfig) int {
 	if c.Batch != 0 {
 		return c.Batch
@@ -238,7 +249,7 @@ func EffectiveBatchSize(c config.ModelConfig) int {
 		c.HasUsecases(config.FLAG_EMBEDDINGS) ||
 		c.HasUsecases(config.FLAG_RERANK)
 	if ctx := EffectiveContextSize(c); singlePass && ctx > DefaultBatchSize {
-		return ctx
+		return config.SinglePassBatchForContext(localGPU(), ctx)
 	}
 	return DefaultBatchSize
 }
