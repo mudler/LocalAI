@@ -35,8 +35,8 @@ type RunCMD struct {
 	BackendsPath                 string        `env:"LOCALAI_BACKENDS_PATH,BACKENDS_PATH" type:"path" default:"${basepath}/backends" help:"Path containing backends used for inferencing" group:"backends"`
 	BackendsSystemPath           string        `env:"LOCALAI_BACKENDS_SYSTEM_PATH,BACKEND_SYSTEM_PATH" type:"path" default:"/var/lib/local-ai/backends" help:"Path containing system backends used for inferencing" group:"backends"`
 	ModelsPath                   string        `env:"LOCALAI_MODELS_PATH,MODELS_PATH" type:"path" default:"${basepath}/models" help:"Path containing models used for inferencing" group:"storage"`
-	GeneratedContentPath         string        `env:"LOCALAI_GENERATED_CONTENT_PATH,GENERATED_CONTENT_PATH" type:"path" default:"/tmp/generated/content" help:"Location for generated content (e.g. images, audio, videos)" group:"storage"`
-	UploadPath                   string        `env:"LOCALAI_UPLOAD_PATH,UPLOAD_PATH" type:"path" default:"/tmp/localai/upload" help:"Path to store uploads from files api" group:"storage"`
+	GeneratedContentPath         string        `env:"LOCALAI_GENERATED_CONTENT_PATH,GENERATED_CONTENT_PATH" type:"path" default:"${generatedcontentpath}" help:"Location for generated content (e.g. images, audio, videos)" group:"storage"`
+	UploadPath                   string        `env:"LOCALAI_UPLOAD_PATH,UPLOAD_PATH" type:"path" default:"${uploadpath}" help:"Path to store uploads from files api" group:"storage"`
 	DataPath                     string        `env:"LOCALAI_DATA_PATH" type:"path" default:"${basepath}/data" help:"Path for persistent data (collectiondb, agent state, tasks, jobs). Separates mutable data from configuration" group:"storage"`
 	LocalaiConfigDir             string        `env:"LOCALAI_CONFIG_DIR" type:"path" default:"${basepath}/configuration" help:"Directory for dynamic loading of certain configuration files (currently api_keys.json and external_backends.json)" group:"storage"`
 	LocalaiConfigDirPollInterval time.Duration `env:"LOCALAI_CONFIG_DIR_POLL_INTERVAL" help:"Typically the config path picks up changes automatically, but if your system has broken fsnotify events, set this to an interval to poll the LocalAI Config Dir (example: 1m)" group:"storage"`
@@ -184,6 +184,31 @@ type RunCMD struct {
 	MITMCADir  string `env:"LOCALAI_MITM_CA_DIR" type:"path" help:"Directory holding the MITM proxy CA cert + key. Defaults to <data-path>/mitm-ca." group:"middleware"`
 
 	PIIDefaultDetectors []string `env:"LOCALAI_PII_DEFAULT_DETECTORS" help:"Instance-wide default PII/secret detector model names applied to any PII-enabled model (chiefly cloud-proxy / MITM models) that names no pii.detectors of its own. Comma-separated, e.g. privacy-filter-nemotron,secret-filter. Takes precedence over the value persisted via the Middleware UI." group:"middleware"`
+}
+
+// userScopedTempDir returns a temp directory namespaced to the current user.
+//
+// The generated-content and upload directories are ephemeral, so they live
+// under the OS temp dir - but a fixed shared name like /tmp/generated is a trap
+// on any multi-user host. macOS routes /tmp to the shared /private/tmp for every
+// account, so whichever user starts LocalAI first creates the parent with 0750
+// perms and every other account then fails startup with
+// "mkdir /tmp/generated/content: permission denied" (the same happens on Linux
+// once a stale root-owned /tmp/generated is left behind). Scoping to the current
+// UID gives each account its own tree so they never collide.
+func userScopedTempDir() string {
+	return filepath.Join(os.TempDir(), fmt.Sprintf("localai-%d", os.Getuid()))
+}
+
+// DefaultGeneratedContentPath returns the default location for backend-generated
+// content (images, audio, videos).
+func DefaultGeneratedContentPath() string {
+	return filepath.Join(userScopedTempDir(), "generated", "content")
+}
+
+// DefaultUploadPath returns the default location for uploads from the files API.
+func DefaultUploadPath() string {
+	return filepath.Join(userScopedTempDir(), "upload")
 }
 
 func (r *RunCMD) Run(ctx *cliContext.Context) error {
