@@ -613,6 +613,24 @@ static void params_parse(server_context& /*ctx_server*/, const backend::ModelOpt
     // starts with '-'. Applied once after the loop via common_params_parse.
     std::vector<std::string> extra_argv;
 
+    auto add_device_options = [&](const std::string & devices) {
+        const std::regex regex{ R"([,]+)" };
+        std::sregex_token_iterator it{ devices.begin(), devices.end(), regex, -1 };
+        std::vector<std::string> split_arg{ it, {} };
+
+        for (std::string device : split_arg) {
+            const auto start = device.find_first_not_of(" \t\n\r");
+            if (start == std::string::npos) {
+                continue;
+            }
+            const auto end = device.find_last_not_of(" \t\n\r");
+            device = device.substr(start, end - start + 1);
+
+            extra_argv.push_back("--device");
+            extra_argv.push_back(device);
+        }
+    };
+
      // decode options. Options are in form optname:optvale, or if booleans only optname.
     for (int i = 0; i < request->options_size(); i++) {
         std::string opt = request->options(i);
@@ -743,6 +761,10 @@ static void params_parse(server_context& /*ctx_server*/, const backend::ModelOpt
                 params.no_op_offload = true;
             } else if (optval_str == "false" || optval_str == "0" || optval_str == "no" || optval_str == "off" || optval_str == "disabled") {
                 params.no_op_offload = false;
+            }
+        } else if (!strcmp(optname, "device") || !strcmp(optname, "devices")) {
+            if (optval != NULL) {
+                add_device_options(optval_str);
             }
         } else if (!strcmp(optname, "split_mode") || !strcmp(optname, "sm")) {
             // Accepts: none | layer | row | tensor (the latter requires a llama.cpp build
