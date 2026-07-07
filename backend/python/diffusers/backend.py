@@ -864,8 +864,13 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
                 **kwargs
             ).images[0]
 
-        # save the result
-        image.save(request.dst)
+        # save the result. Save as PNG explicitly instead of letting Pillow
+        # infer the encoder from the extension: the core passes an absolute
+        # staging path ending in .tmp (e.g. /staging/localai-output-*.tmp),
+        # which Pillow can't map to a format and would raise
+        # "unknown file extension: .tmp". LocalAI serves generated images as
+        # PNG regardless of the temp path.
+        image.save(request.dst, format="PNG")
 
         return backend_pb2.Result(message="Media generated", success=True)
 

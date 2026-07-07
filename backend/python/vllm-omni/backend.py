@@ -337,9 +337,11 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
             if not images or len(images) == 0:
                 return backend_pb2.Result(success=False, message="Empty images list")
 
-            # Save image
+            # Save image. Force PNG rather than letting Pillow guess from the
+            # extension: the core passes a staging path ending in .tmp, which
+            # Pillow can't map to a format ("unknown file extension: .tmp").
             output_image = images[0]
-            output_image.save(request.dst)
+            output_image.save(request.dst, format="PNG")
             return backend_pb2.Result(message="Image generated successfully", success=True)
 
         except Exception as err:
