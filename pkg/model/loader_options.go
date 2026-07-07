@@ -24,6 +24,9 @@ type Options struct {
 	// by the caller using the vram estimation scaffolding.  When non-zero it is
 	// registered with the watchdog so size-aware eviction can rank models.
 	modelSizeBytes int64
+
+	// envVars contains model-specific environment variables to pass to the backend process
+	envVars map[string]string
 }
 
 type Option func(*Options)
@@ -94,6 +97,12 @@ func WithModelID(id string) Option {
 func WithModelSizeBytes(bytes int64) Option {
 	return func(o *Options) {
 		o.modelSizeBytes = bytes
+	}
+}
+
+func WithEnvVars(envVars map[string]string) Option {
+	return func(o *Options) {
+		o.envVars = envVars
 	}
 }
 

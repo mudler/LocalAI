@@ -445,6 +445,9 @@ message ModelOptions {
   // Unknown keys produce an error at LoadModel time.
   string EngineArgs = 73;
 
+  // EnvVars carries environment variables to be passed to the backend process.
+  map<string, string> EnvVars = 75;
+
   // Proxy carries the cloud-proxy backend's per-model configuration.
   // Empty for non-proxy backends.
   ProxyOptions Proxy = 74;

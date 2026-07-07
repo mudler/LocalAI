@@ -81,7 +81,7 @@ func (s *backendSupervisor) startBackend(backend, backendPath string) (string, e
 	bindAddr := fmt.Sprintf("0.0.0.0:%d", port)
 	clientAddr := fmt.Sprintf("127.0.0.1:%d", port)
 
-	proc, err := s.ml.StartProcess(backendPath, backend, bindAddr)
+	proc, err := s.ml.StartProcess(backendPath, backend, bindAddr, nil)
 	if err != nil {
 		s.mu.Unlock()
 		return "", fmt.Errorf("starting backend process: %w", err)

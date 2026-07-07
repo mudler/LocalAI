@@ -119,7 +119,7 @@ func (ml *ModelLoader) spawnGRPCModel(backend, uri string, o *Options, modelID, 
 				return nil, fmt.Errorf("failed allocating free ports: %s", err.Error())
 			}
 			// Make sure the process is executable
-			process, err := ml.startProcess(uri, modelID, serverAddress)
+			process, err := ml.StartProcess(uri, modelID, serverAddress, o.envVars)
 			if err != nil {
 				xlog.Error("failed to launch", "error", err, "path", uri)
 				return nil, err

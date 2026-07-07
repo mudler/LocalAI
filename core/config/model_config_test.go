@@ -98,6 +98,20 @@ parameters:
 			Expect(valid).To(BeTrue())
 			Expect(err).NotTo(HaveOccurred())
 
+			// Test environment variables configuration
+			envConfig := ModelConfig{
+				Name: "env-test-model",
+				Backend: "test-backend",
+				Environment: map[string]string{
+					"TEST_ENV_VAR": "test_value",
+					"ANOTHER_VAR": "another_value",
+				},
+			}
+			Expect(envConfig.Environment).To(HaveKey("TEST_ENV_VAR"))
+			Expect(envConfig.Environment["TEST_ENV_VAR"]).To(Equal("test_value"))
+			Expect(envConfig.Environment).To(HaveKey("ANOTHER_VAR"))
+			Expect(envConfig.Environment["ANOTHER_VAR"]).To(Equal("another_value"))
+
 			tcAndChat := FLAG_TOKEN_CLASSIFY | FLAG_CHAT
 			tcCombined := ModelConfig{
 				Name:          "ner-and-chat",

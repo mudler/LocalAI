@@ -909,6 +909,24 @@ Multiple detectors union their detections; overlapping spans resolve to the stro
 
 > The earlier regex pattern tier (`pii.patterns`, the global pattern catalogue, `--pii-config`, and the `/api/pii/patterns` admin endpoints) has been removed, along with response/streaming-side redaction. Those keys now no-op with a startup warning; migrate to `pii.detectors` + a detector's `pii_detection` block.
 
+## Environment Variables Configuration
+
+Model configurations can specify environment variables passed to the backend process:
+
+```yaml
+name: vllm-model
+backend: vllm
+parameters:
+  model: my-vllm-model
+
+env:
+  VLLM_WORKER_MULTIPROC_METHOD: "spawn"
+  VLLM_CACHE_DIR: "/tmp/vllm_cache"
+  CUDA_VISIBLE_DEVICES: "0,1"
+```
+
+Environment variables are appended to the system environment variables and will override any conflicting system variables with the same name.
+
 ## Complete Example
 
 Here's a comprehensive example combining many options:
