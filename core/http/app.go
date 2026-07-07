@@ -5,15 +5,19 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
+	"math"
 	"mime"
 	"net/http"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
+
+	"github.com/mudler/LocalAI/pkg/model"
 
 	"github.com/mudler/LocalAI/core/http/auth"
 	"github.com/mudler/LocalAI/core/http/endpoints/localai"
@@ -44,6 +48,23 @@ var embedDirStatic embed.FS
 var reactUI embed.FS
 
 var quietPaths = []string{"/api/operations", "/api/resources", "/healthz", "/readyz"}
+
+// applyModelLoadCooldown maps a ModelLoadCooldownError anywhere in err's chain
+// to HTTP 503 with a Retry-After header (whole seconds, floor 1), so a client
+// polling a model whose load recently failed backs off instead of triggering a
+// fresh backend start. If err is not a cooldown error, code is returned as-is.
+func applyModelLoadCooldown(err error, code int, c echo.Context) int {
+	var coolErr *model.ModelLoadCooldownError
+	if !errors.As(err, &coolErr) {
+		return code
+	}
+	secs := int(math.Ceil(coolErr.RetryAfter.Seconds()))
+	if secs < 1 {
+		secs = 1
+	}
+	c.Response().Header().Set("Retry-After", strconv.Itoa(secs))
+	return http.StatusServiceUnavailable
+}
 
 // @title LocalAI API
 // @version 2.0.0
@@ -110,6 +131,7 @@ func API(application *application.Application) (*echo.Echo, error) {
 			if errors.As(err, &he) {
 				code = he.Code
 			}
+			code = applyModelLoadCooldown(err, code, c)
 
 			// Handle 404 errors: serve React SPA for HTML requests, JSON otherwise
 			if code == http.StatusNotFound {
@@ -137,6 +159,7 @@ func API(application *application.Application) (*echo.Echo, error) {
 			if errors.As(err, &he) {
 				code = he.Code
 			}
+			code = applyModelLoadCooldown(err, code, c)
 			c.NoContent(code)
 		}
 	}

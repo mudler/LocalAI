@@ -98,6 +98,11 @@ type Application struct {
 func newApplication(appConfig *config.ApplicationConfig) *Application {
 	ml := model.NewModelLoader(appConfig.SystemState)
 
+	// Apply the per-model load-failure cooldown (0 disables). Set here rather
+	// than in the watchdog block so it takes effect regardless of whether the
+	// watchdog/LRU limiter is enabled.
+	ml.SetLoadFailureCooldown(appConfig.ModelLoadFailureCooldown, 0)
+
 	// Close MCP sessions when a model is unloaded (watchdog eviction, manual shutdown, etc.)
 	ml.OnModelUnload(func(modelName string) {
 		mcpTools.CloseMCPSessions(modelName)
