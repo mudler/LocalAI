@@ -1,8 +1,10 @@
 package application
 
 import (
+	"cmp"
 	"context"
 	"math/rand/v2"
+	"path/filepath"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -79,7 +81,6 @@ type Application struct {
 	routerDecisions   router.DecisionStore
 	routerRegistry    *router.Registry
 	routerCorpus      *corpus.Manager
-	routerCorpusOnce  sync.Once
 	admissionLimiter  *admission.Limiter
 	watchdogMutex     sync.Mutex
 	watchdogStop      chan bool
@@ -152,6 +153,10 @@ func newApplication(appConfig *config.ApplicationConfig) *Application {
 		applicationConfig:  appConfig,
 		templatesEvaluator: templates.NewEvaluator(appConfig.SystemState.Model.ModelsPath),
 		voiceProfileStore:  voiceprofile.NewStore(appConfig.DataPath),
+		// KNN corpus files live under <state dir>/router-corpus (same
+		// DataPath → DynamicConfigsDir precedence the agent pool uses).
+		routerCorpus: corpus.NewManager(filepath.Join(
+			cmp.Or(appConfig.DataPath, appConfig.DynamicConfigsDir, "."), "router-corpus")),
 	}
 
 	// Face-recognition registry backed by LocalAI's built-in vector store.

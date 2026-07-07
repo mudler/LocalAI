@@ -115,55 +115,32 @@ func (c *KNNClassifier) Classify(ctx context.Context, p Probe) (Decision, error)
 		return errDecision(start, fmt.Errorf("knn classifier search: %w", err))
 	}
 
-	// Record every retrieved neighbour — including sub-gate ones — before
-	// the filtering below reuses the slice's backing array. The decision
-	// log needs the full retrieval to make fallbacks diagnosable: "what
-	// WAS nearby, and how was it labelled". A corrupt payload still names
-	// its similarity so index corruption is visible rather than silent.
+	// One pass does double duty: refs records every retrieved neighbour
+	// — including sub-gate and corrupt-payload ones — so the decision
+	// log makes fallbacks diagnosable ("what WAS nearby, and how was it
+	// labelled"; a corrupt payload still names its similarity so index
+	// corruption is visible rather than silent). The vote accumulates
+	// only neighbours that clear the epistemic gate: keeping
+	// sub-threshold neighbours out of the vote (rather than merely
+	// gating on the best one) stops far-away corpus regions from
+	// diluting a clear local majority.
 	refs := make([]NeighborRef, 0, len(neighbors))
+	votes := map[string]float64{}
+	best, total := 0.0, 0.0
 	for _, n := range neighbors {
 		ref := NeighborRef{Similarity: n.Similarity}
-		if entry, ok := decodeCorpusEntry(n.Payload); ok {
+		entry, ok := decodeCorpusEntry(n.Payload)
+		if ok {
 			ref.ID = entry.ID
 			ref.Labels = entry.Labels
 		}
 		refs = append(refs, ref)
-	}
-
-	// Epistemic gate: only neighbours the probe is genuinely close to
-	// may vote. Keeping sub-threshold neighbours out of the vote (rather
-	// than merely gating on the best one) stops far-away corpus regions
-	// from diluting a clear local majority.
-	best := 0.0
-	usable := neighbors[:0]
-	for _, n := range neighbors {
 		if n.Similarity > best {
 			best = n.Similarity
 		}
-		if n.Similarity >= c.similarityThreshold {
-			usable = append(usable, n)
-		}
-	}
-	if len(usable) == 0 {
-		// Out of corpus range — empty label set routes to the fallback
-		// via MatchCandidate's empty-active-set contract. Surfacing the
-		// best similarity in the decision log tells the admin whether
-		// the corpus needs entries near this probe or the threshold is
-		// simply too tight.
-		return Decision{
-			NearestSimilarity:   best,
-			Neighbors:           refs,
-			ActivationThreshold: c.voteThreshold,
-			Latency:             time.Since(start),
-		}, nil
-	}
-
-	votes := map[string]float64{}
-	total := 0.0
-	for _, n := range usable {
-		entry, ok := decodeCorpusEntry(n.Payload)
-		if !ok {
-			// A corrupt payload can't vote; it still counted toward K.
+		// Sub-gate neighbours and corrupt payloads can't vote (the
+		// latter still counted toward K).
+		if !ok || n.Similarity < c.similarityThreshold {
 			continue
 		}
 		total += n.Similarity
@@ -172,6 +149,11 @@ func (c *KNNClassifier) Classify(ctx context.Context, p Probe) (Decision, error)
 		}
 	}
 	if total == 0 {
+		// Out of corpus range — empty label set routes to the fallback
+		// via MatchCandidate's empty-active-set contract. Surfacing the
+		// best similarity in the decision log tells the admin whether
+		// the corpus needs entries near this probe or the threshold is
+		// simply too tight.
 		return Decision{
 			NearestSimilarity:   best,
 			Neighbors:           refs,

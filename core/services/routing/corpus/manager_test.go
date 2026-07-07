@@ -228,6 +228,52 @@ var _ = Describe("corpus.Manager", func() {
 		Expect(st.Total).To(BeZero())
 	})
 
+	It("tolerates a torn final line and repairs it on the next add", func() {
+		_, _, err := mgr.Add(ctx, storeName, "embed-1", embedder, store, seed[:2])
+		Expect(err).NotTo(HaveOccurred())
+
+		// Simulate a crash mid-append: an unparseable tail.
+		path := filepath.Join(dir, storeName+".jsonl")
+		f, err := os.OpenFile(path, os.O_APPEND|os.O_WRONLY, 0o640)
+		Expect(err).NotTo(HaveOccurred())
+		_, err = f.WriteString(`{"text":"torn`)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(f.Close()).To(Succeed())
+
+		// Reads drop the torn line instead of failing the corpus.
+		st, err := mgr.Stats(storeName)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(st.Total).To(Equal(2))
+
+		// The next add rewrites the file whole, clearing the damage.
+		added, _, err := mgr.Add(ctx, storeName, "embed-1", embedder, store, seed[2:])
+		Expect(err).NotTo(HaveOccurred())
+		Expect(added).To(Equal(1))
+		raw, err := os.ReadFile(path)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(string(raw)).NotTo(ContainSubstring("torn"))
+
+		st, err = mgr.Stats(storeName)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(st.Total).To(Equal(3))
+	})
+
+	It("fails on corruption that is not a torn tail", func() {
+		_, _, err := mgr.Add(ctx, storeName, "embed-1", embedder, store, seed[:1])
+		Expect(err).NotTo(HaveOccurred())
+
+		// Garbage with a valid successor line is real corruption, not
+		// an interrupted append — reads must refuse to guess.
+		path := filepath.Join(dir, storeName+".jsonl")
+		raw, err := os.ReadFile(path)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(os.WriteFile(path, append([]byte("garbage\n"), raw...), 0o640)).To(Succeed())
+
+		_, err = mgr.Stats(storeName)
+		Expect(err).To(HaveOccurred())
+		Expect(err.Error()).To(ContainSubstring("line 1"))
+	})
+
 	It("sanitises hostile store names into the corpus dir", func() {
 		hostile := "../../etc/passwd"
 		_, _, err := mgr.Add(ctx, hostile, "embed-1", embedder, store, seed[:1])

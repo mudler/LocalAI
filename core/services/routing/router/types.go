@@ -164,6 +164,13 @@ const (
 	ClassifierKNN = "knn"
 )
 
+// AllClassifiers is the canonical classifier list. The middleware's
+// unknown-classifier error and the /api/router/status
+// available_classifiers field both derive from it, so a new classifier
+// added to the buildClassifier switch shows up on every surface by
+// extending this one slice (colbert once drifted out of both).
+var AllClassifiers = []string{ClassifierScore, ClassifierColbert, ClassifierKNN}
+
 // LabelFallback is the synthetic label written to the decision
 // store when the middleware uses cfg.Router.Fallback rather than a
 // classifier-picked candidate.
