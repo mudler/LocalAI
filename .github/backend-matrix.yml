@@ -5165,6 +5165,7 @@ include:
     context: "./"
     ubuntu-version: '2404'
   # cloud-proxy
+  # valkey-store
   - build-type: ''
     cuda-major-version: ""
     cuda-minor-version: ""
@@ -5176,6 +5177,11 @@ include:
     base-image: "ubuntu:24.04"
     skip-drivers: 'false'
     backend: "cloud-proxy"
+    tag-suffix: '-cpu-valkey-store'
+    runs-on: 'ubuntu-latest'
+    base-image: "ubuntu:24.04"
+    skip-drivers: 'false'
+    backend: "valkey-store"
     dockerfile: "./backend/Dockerfile.golang"
     context: "./"
     ubuntu-version: '2404'
@@ -5190,6 +5196,11 @@ include:
     base-image: "ubuntu:24.04"
     skip-drivers: 'false'
     backend: "cloud-proxy"
+    tag-suffix: '-cpu-valkey-store'
+    runs-on: 'ubuntu-24.04-arm'
+    base-image: "ubuntu:24.04"
+    skip-drivers: 'false'
+    backend: "valkey-store"
     dockerfile: "./backend/Dockerfile.golang"
     context: "./"
     ubuntu-version: '2404'
@@ -5901,6 +5912,8 @@ includeDarwin:
     lang: "go"
   - backend: "cloud-proxy"
     tag-suffix: "-metal-darwin-arm64-cloud-proxy"
+  - backend: "valkey-store"
+    tag-suffix: "-metal-darwin-arm64-valkey-store"
     build-type: "metal"
     lang: "go"
   - backend: "llama-cpp-quantization"
