@@ -90,6 +90,13 @@ func DefaultRegistry() map[string]FieldMetaOverride {
 			Advanced:    true,
 			Order:       9,
 		},
+		"env": {
+			Section:     "general",
+			Label:       "Environment Variables",
+			Description: "Environment variables to be applied to the backend process",
+			Component:   "map-editor",
+			Order:       10,
+		},
 
 		// --- LLM ---
 		"context_size": {
