@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/labstack/echo/v4"
+	"github.com/mudler/LocalAI/core/application"
 	"github.com/mudler/LocalAI/core/backend"
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/http/auth"
@@ -107,6 +108,26 @@ type ClassifierDeps struct {
 	// backend's n_ctx guard. Plain func type so core/application supplies
 	// it as a method value without importing this package.
 	TokenCounter func(modelName string) func(text string) (int, error)
+}
+
+// NewClassifierDeps assembles the full classifier dependency set from
+// the application container. Every entry point that runs the router —
+// OpenAI chat, Anthropic messages, realtime, the decision oracle, the
+// corpus API — builds its deps here, so a new ClassifierDeps field is
+// wired once instead of hand-copied per call site (where a missed site
+// silently degrades that path rather than failing).
+func NewClassifierDeps(app *application.Application) ClassifierDeps {
+	return ClassifierDeps{
+		Scorer:       app.Scorer,
+		Corpus:       app.RouterCorpus(),
+		TokenCounter: app.TokenCounter,
+		Embedder:     app.Embedder,
+		VectorStore:  app.VectorStore,
+		Reranker:     app.Reranker,
+		ModelLookup:  app.ModelConfigLookup(),
+		Registry:     app.RouterClassifierRegistry(),
+		Evaluator:    app.TemplatesEvaluator(),
+	}
 }
 
 // ProbeExtractor pulls the prompt content out of a parsed request so
@@ -326,6 +347,9 @@ func buildClassifier(cfg *config.ModelConfig, deps ClassifierDeps) (router.Class
 	var inner router.Classifier
 	switch name {
 	case router.ClassifierScore:
+		if rc.ClassifierModel == "" {
+			return nil, fmt.Errorf("router classifier score requires classifier_model")
+		}
 		if deps.Scorer == nil {
 			return nil, fmt.Errorf("router classifier score unavailable: no scorer factory wired")
 		}
@@ -377,6 +401,9 @@ func buildClassifier(cfg *config.ModelConfig, deps ClassifierDeps) (router.Class
 		}
 		inner = router.NewScoreClassifier(policies, scorer, opts)
 	case router.ClassifierColbert:
+		if rc.ClassifierModel == "" {
+			return nil, fmt.Errorf("router classifier colbert requires classifier_model")
+		}
 		if deps.Reranker == nil {
 			return nil, fmt.Errorf("router classifier colbert unavailable: no reranker factory wired")
 		}
@@ -400,10 +427,7 @@ func buildClassifier(cfg *config.ModelConfig, deps ClassifierDeps) (router.Class
 		if embedder == nil {
 			return nil, fmt.Errorf("router classifier knn: embedding_model %q not loadable", rc.KNN.EmbeddingModel)
 		}
-		storeName := rc.KNN.StoreName
-		if storeName == "" {
-			storeName = "router-corpus-" + cfg.Name
-		}
+		storeName := rc.KNN.ResolvedStoreName(cfg.Name)
 		vstore := deps.VectorStore(storeName)
 		if vstore == nil {
 			return nil, fmt.Errorf("router classifier knn: vector store %q not loadable", storeName)
@@ -428,20 +452,22 @@ func buildClassifier(cfg *config.ModelConfig, deps ClassifierDeps) (router.Class
 		if count, ctxTokens := modelTokenTrim(rc.KNN.EmbeddingModel, deps); count != nil {
 			knnClassifier = knnClassifier.WithTokenTrim(count, ctxTokens)
 		}
-		inner = knnClassifier
+		if rc.EmbeddingCache != nil {
+			// The knn classifier IS an embedding-KNN lookup — wrapping it
+			// in the embedding cache would embed every probe twice to
+			// answer the same question. Ignore the block rather than fail
+			// routing. Returning from the arm (instead of name-checking in
+			// the shared wrap below) keeps the opt-out local: the next
+			// embedding-based classifier makes its own wrapping decision.
+			xlog.Warn("router: embedding_cache ignored for knn classifier",
+				"router_model", cfg.Name)
+		}
+		return knnClassifier, nil
 	default:
-		return nil, fmt.Errorf("router: unknown classifier %q (supported: %s)", name, strings.Join([]string{router.ClassifierScore, router.ClassifierColbert, router.ClassifierKNN}, ", "))
+		return nil, fmt.Errorf("router: unknown classifier %q (supported: %s)", name, strings.Join(router.AllClassifiers, ", "))
 	}
 
 	if rc.EmbeddingCache == nil {
-		return inner, nil
-	}
-	if name == router.ClassifierKNN {
-		// The knn classifier IS an embedding-KNN lookup — wrapping it in
-		// the embedding cache would embed every probe twice to answer the
-		// same question. Ignore the block rather than fail routing.
-		xlog.Warn("router: embedding_cache ignored for knn classifier",
-			"router_model", cfg.Name)
 		return inner, nil
 	}
 	wrapped, err := wrapWithEmbeddingCache(cfg, inner, deps)
@@ -484,19 +510,12 @@ func assertClassifierDeclaresScore(classifierModel string, lookup ModelConfigLoo
 	return nil
 }
 
-// validateRouterPolicies checks the shared invariants both classifiers
-// rely on (non-empty policies, every candidate label declared as a
-// policy, every candidate has a model + at least one label) and
-// returns the parsed []ScorePolicy. Both Score and Rerank classifiers
-// take the same policy shape.
+// validateRouterPolicies checks the invariants every classifier relies
+// on (non-empty policies, every candidate label declared as a policy,
+// every candidate has a model + at least one label) and returns the
+// parsed []ScorePolicy. Per-classifier requirements (classifier_model,
+// knn block, ...) live in the buildClassifier arms, not here.
 func validateRouterPolicies(classifierName string, rc config.RouterConfig) ([]router.ScorePolicy, error) {
-	// The knn classifier has no scoring model — its label knowledge
-	// lives in the corpus. It still declares policies: they are the
-	// label vocabulary corpus entries are validated against and the
-	// "categories" surface the Routing tab shows.
-	if rc.ClassifierModel == "" && classifierName != router.ClassifierKNN {
-		return nil, fmt.Errorf("router classifier %s requires classifier_model", classifierName)
-	}
 	if len(rc.Policies) == 0 {
 		return nil, fmt.Errorf("router classifier %s requires at least one policy", classifierName)
 	}

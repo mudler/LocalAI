@@ -115,13 +115,7 @@ var _ = Describe("Router corpus endpoints", func() {
 	})
 
 	do := func(method, path, body string) *httptest.ResponseRecorder {
-		var rd *strings.Reader
-		if body == "" {
-			rd = strings.NewReader("")
-		} else {
-			rd = strings.NewReader(body)
-		}
-		req := httptest.NewRequest(method, path, rd)
+		req := httptest.NewRequest(method, path, strings.NewReader(body))
 		req.Header.Set("Content-Type", "application/json")
 		rec := httptest.NewRecorder()
 		e.ServeHTTP(rec, req)
