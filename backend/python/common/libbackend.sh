@@ -397,10 +397,29 @@ function ensureVenv() {
 
 function runProtogen() {
     ensureVenv
+
+    # Match grpcio-tools to the grpcio already installed by the backend's
+    # requirements. grpcio and grpcio-tools are released in lockstep, and the
+    # protoc that grpcio-tools bundles stamps a Protobuf "gencode" version into
+    # backend_pb2.py. Left unpinned, `uv pip install grpcio-tools` pulls the
+    # newest release, whose newer gencode (e.g. 7.35.0) trips Protobuf's
+    # runtime >= gencode guarantee at import time when a backend caps the
+    # protobuf runtime lower (vLLM pins it to 6.33.6), crashing the backend with
+    # "grpc service not ready" before it ever loads a model. Pinning
+    # grpcio-tools to the installed grpcio version keeps the gencode in step with
+    # the runtime. Falls back to unpinned when grpcio isn't installed yet.
+    # See mudler/LocalAI#10718.
+    local grpcio_tools_spec="grpcio-tools"
+    local grpcio_version
+    grpcio_version="$(python -c 'import importlib.metadata as m; print(m.version("grpcio"))' 2>/dev/null || true)"
+    if [ -n "${grpcio_version}" ]; then
+        grpcio_tools_spec="grpcio-tools==${grpcio_version}"
+    fi
+
     if [ "x${USE_PIP}" == "xtrue" ]; then
-        pip install grpcio-tools
+        pip install "${grpcio_tools_spec}"
     else
-        uv pip install grpcio-tools
+        uv pip install "${grpcio_tools_spec}"
     fi
     pushd "${EDIR}" >/dev/null
         # use the venv python (ensures correct interpreter & sys.path)
