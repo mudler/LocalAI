@@ -134,6 +134,44 @@ var _ = Describe("Gallery Backends", func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(filepath.Join(tempDir, "test-backend", "run.sh")).To(BeARegularFile())
 		})
+
+		It("removes files from a previous install that are absent in the new artifact", func() {
+			// A reinstall must fully replace the installed backend, not overlay
+			// the new artifact onto the old one: a stale library or package
+			// directory left behind from an earlier version can shadow the new
+			// one at import time (e.g. an old vllm .so lingering next to a fresh
+			// build). Mirror the atomic-swap behaviour UpgradeBackend already has.
+			makeSource := func(files map[string]string) string {
+				dir, err := os.MkdirTemp("", "backend-src-*")
+				Expect(err).NotTo(HaveOccurred())
+				for name, content := range files {
+					Expect(os.WriteFile(filepath.Join(dir, name), []byte(content), 0644)).To(Succeed())
+				}
+				return dir
+			}
+
+			srcV1 := makeSource(map[string]string{
+				"run.sh":       "#!/bin/sh\necho v1\n",
+				"stale-lib.so": "old",
+			})
+			defer func() { _ = os.RemoveAll(srcV1) }()
+			cfgV1 := &GalleryBackend{Metadata: Metadata{Name: "orphan-test"}, URI: srcV1}
+			Expect(InstallBackend(context.TODO(), systemState, ml, cfgV1, nil, false)).To(Succeed())
+
+			installed := filepath.Join(tempDir, "orphan-test")
+			Expect(filepath.Join(installed, "stale-lib.so")).To(BeARegularFile())
+
+			// Reinstall from an artifact that no longer ships stale-lib.so.
+			srcV2 := makeSource(map[string]string{
+				"run.sh": "#!/bin/sh\necho v2\n",
+			})
+			defer func() { _ = os.RemoveAll(srcV2) }()
+			cfgV2 := &GalleryBackend{Metadata: Metadata{Name: "orphan-test"}, URI: srcV2}
+			Expect(InstallBackend(context.TODO(), systemState, ml, cfgV2, nil, false)).To(Succeed())
+
+			Expect(filepath.Join(installed, "run.sh")).To(BeARegularFile())
+			Expect(filepath.Join(installed, "stale-lib.so")).NotTo(BeAnExistingFile())
+		})
 	})
 
 	Describe("Meta Backends", func() {
