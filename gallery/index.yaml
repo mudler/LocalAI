@@ -13475,6 +13475,223 @@
     - filename: minicpm-v-4_5-mmproj-f16.gguf
       sha256: 7a7225a32e8d453aaa3d22d8c579b5bf833c253f784cdb05c99c9a76fd616df8
       uri: huggingface://openbmb/MiniCPM-V-4_5-gguf/mmproj-model-f16.gguf
+- name: minicpm-v-4_6
+  url: github:mudler/LocalAI/gallery/qwen3.yaml@master
+  urls:
+    - https://huggingface.co/openbmb/MiniCPM-V-4.6-gguf
+    - https://huggingface.co/openbmb/MiniCPM-V-4.6
+  description: |
+    MiniCPM-V 4.6 is the most edge-deployment-friendly model in the MiniCPM-V series, with a total of 1.3B parameters. Built on Qwen3.5-0.8B and SigLIP2-400M, it features ultra-efficient architecture with mixed 4x/16x visual token compression for on-device deployment on iOS, Android, and HarmonyOS.
+  license: apache-2.0
+  icon: https://avatars.githubusercontent.com/u/89920203
+  tags:
+    - llm
+    - multimodal
+    - gguf
+    - gpu
+    - qwen3
+    - cpu
+  overrides:
+    mmproj: minicpm-v-4_6-mmproj-f16.gguf
+    parameters:
+      model: minicpm-v-4_6-Q4_K_M.gguf
+  files:
+    - filename: minicpm-v-4_6-Q4_K_M.gguf
+      sha256: 6b0c74962c44bc6bf4b655b9b02c13eda9d5a0491543ae976d1ac18e4b7892e2
+      uri: huggingface://openbmb/MiniCPM-V-4.6-gguf/MiniCPM-V-4_6-Q4_K_M.gguf
+    - filename: minicpm-v-4_6-mmproj-f16.gguf
+      sha256: ca931d861d0801d9003e50697cd764721a334107c0e0415a51168ee1938462de
+      uri: huggingface://openbmb/MiniCPM-V-4.6-gguf/mmproj-model-f16.gguf
+- name: minicpm5-1b
+  url: github:mudler/LocalAI/gallery/chatml.yaml@master
+  urls:
+    - https://huggingface.co/openbmb/MiniCPM5-1B-GGUF
+    - https://huggingface.co/openbmb/MiniCPM5-1B
+  description: |
+    MiniCPM5-1B is a compact 1B-parameter language model based on the LLaMA architecture. Despite its small size, it achieves competitive performance among sub-2B models, making it ideal for edge deployment and resource-constrained environments.
+  license: apache-2.0
+  icon: https://avatars.githubusercontent.com/u/89920203
+  tags:
+    - llm
+    - gguf
+    - gpu
+    - cpu
+  overrides:
+    parameters:
+      model: MiniCPM5-1B-Q4_K_M.gguf
+  files:
+    - filename: MiniCPM5-1B-Q4_K_M.gguf
+      sha256: 81b64d05a23b17b34c475f42b3e72fbde62d4b92cc34541f7a8031d0752deafa
+      uri: huggingface://openbmb/MiniCPM5-1B-GGUF/MiniCPM5-1B-Q4_K_M.gguf
+- name: minicpm-o-4_5
+  url: github:mudler/LocalAI/gallery/qwen3.yaml@master
+  urls:
+    - https://huggingface.co/openbmb/MiniCPM-o-4_5-gguf
+    - https://huggingface.co/openbmb/MiniCPM-o-4_5
+  description: |
+    MiniCPM-o 4.5 is the latest omni-modal model in the MiniCPM series. Built on Qwen3-8B and SigLIP2-400M, it supports vision, speech, and text in a unified 8B-parameter architecture with full-duplex real-time streaming.
+  license: apache-2.0
+  icon: https://avatars.githubusercontent.com/u/89920203
+  tags:
+    - llm
+    - multimodal
+    - gguf
+    - gpu
+    - qwen3
+    - cpu
+  overrides:
+    mmproj: minicpm-o-4_5-mmproj-f16.gguf
+    parameters:
+      model: minicpm-o-4_5-Q4_K_M.gguf
+  files:
+    - filename: minicpm-o-4_5-Q4_K_M.gguf
+      sha256: 1237a97ee081b8abebc47aa7dad565701e8f5f904cdc92f6723ac4281bbc0932
+      uri: huggingface://openbmb/MiniCPM-o-4_5-gguf/MiniCPM-o-4_5-Q4_K_M.gguf
+    - filename: minicpm-o-4_5-mmproj-f16.gguf
+      sha256: 1453678cc4e4fe18de241952962e234f265cb8dda780773526103ab8ba82f421
+      uri: huggingface://openbmb/MiniCPM-o-4_5-gguf/vision/MiniCPM-o-4_5-vision-F16.gguf
+- name: minicpm-v-4_6-thinking
+  url: github:mudler/LocalAI/gallery/qwen3.yaml@master
+  urls:
+    - https://huggingface.co/openbmb/MiniCPM-V-4.6-Thinking-gguf
+    - https://huggingface.co/openbmb/MiniCPM-V-4.6-Thinking
+  description: |
+    MiniCPM-V 4.6 Thinking is the reasoning-enhanced version of MiniCPM-V 4.6, with a total of 1.3B parameters. Built on Qwen3.5-0.8B and SigLIP2-400M, it features extended thinking capabilities for complex visual reasoning tasks while maintaining an ultra-compact architecture for edge deployment.
+  license: apache-2.0
+  icon: https://avatars.githubusercontent.com/u/89920203
+  tags:
+    - llm
+    - multimodal
+    - gguf
+    - gpu
+    - qwen3
+    - cpu
+  overrides:
+    mmproj: minicpm-v-4_6-thinking-mmproj-f16.gguf
+    parameters:
+      model: MiniCPM-V-4_6-Thinking-Q4_K_M.gguf
+  files:
+    - filename: MiniCPM-V-4_6-Thinking-Q4_K_M.gguf
+      sha256: 2d15cea059289533a4e51cff895888a2afaf8ed0c88bcc11ba590d2a45c6f174
+      uri: huggingface://openbmb/MiniCPM-V-4.6-Thinking-gguf/MiniCPM-V-4_6-Thinking-Q4_K_M.gguf
+    - filename: minicpm-v-4_6-thinking-mmproj-f16.gguf
+      sha256: b9d09d261de167b291a69958b520c6411877cbff50e96a83d06e9835627c70f6
+      uri: huggingface://openbmb/MiniCPM-V-4.6-Thinking-gguf/mmproj-model-f16.gguf
+- name: minicpm-v-4
+  url: github:mudler/LocalAI/gallery/chatml.yaml@master
+  urls:
+    - https://huggingface.co/openbmb/MiniCPM-V-4-gguf
+    - https://huggingface.co/openbmb/MiniCPM-V-4
+  description: |
+    MiniCPM-V 4 is a multimodal large language model in the MiniCPM-V series, supporting image and video understanding with strong OCR and multi-image capabilities.
+  license: apache-2.0
+  icon: https://avatars.githubusercontent.com/u/89920203
+  tags:
+    - llm
+    - multimodal
+    - gguf
+    - gpu
+    - cpu
+  overrides:
+    mmproj: minicpm-v-4-mmproj-f16.gguf
+    parameters:
+      model: minicpm-v-4-Q4_K_M.gguf
+  files:
+    - filename: minicpm-v-4-Q4_K_M.gguf
+      sha256: b0ff610e9c92b30389ff1e0dd40fffed3c1f02a9d34a735fd5fba6a5ad25672b
+      uri: huggingface://openbmb/MiniCPM-V-4-gguf/ggml-model-Q4_K_M.gguf
+    - filename: minicpm-v-4-mmproj-f16.gguf
+      sha256: f0faa9ae63532300999c86a196f140c716cd0fbb08bbbd81850f1f9a631f7761
+      uri: huggingface://openbmb/MiniCPM-V-4-gguf/mmproj-model-f16.gguf
+- name: minicpm3-4b
+  url: github:mudler/LocalAI/gallery/chatml.yaml@master
+  urls:
+    - https://huggingface.co/openbmb/MiniCPM3-4B-GGUF
+    - https://huggingface.co/openbmb/MiniCPM3-4B
+  description: |
+    MiniCPM3-4B is a 4B-parameter language model that surpasses many larger models. It features enhanced long-context capability up to 32K tokens, strong function calling, and improved instruction following.
+  license: apache-2.0
+  icon: https://avatars.githubusercontent.com/u/89920203
+  tags:
+    - llm
+    - gguf
+    - gpu
+    - cpu
+  overrides:
+    parameters:
+      model: minicpm3-4b-q4_k_m.gguf
+  files:
+    - filename: minicpm3-4b-q4_k_m.gguf
+      sha256: 64913247e927414ecf47fd3e9ea8e3f0c9acae293f583dfa7e24b8872e20fa4c
+      uri: huggingface://openbmb/MiniCPM3-4B-GGUF/minicpm3-4b-q4_k_m.gguf
+- name: minicpm-o-2_6
+  url: github:mudler/LocalAI/gallery/chatml.yaml@master
+  urls:
+    - https://huggingface.co/openbmb/MiniCPM-o-2_6-gguf
+    - https://huggingface.co/openbmb/MiniCPM-o-2_6
+  description: |
+    MiniCPM-o 2.6 is an omni-modal model supporting vision, speech, and text. Based on a 7.6B-parameter architecture with SigLIP-400M and Whisper-medium, it offers real-time speech conversation and multimodal live streaming capabilities.
+  license: apache-2.0
+  icon: https://avatars.githubusercontent.com/u/89920203
+  tags:
+    - llm
+    - multimodal
+    - gguf
+    - gpu
+    - cpu
+  overrides:
+    mmproj: minicpm-o-2_6-mmproj-f16.gguf
+    parameters:
+      model: minicpm-o-2_6-Q4_K_M.gguf
+  files:
+    - filename: minicpm-o-2_6-Q4_K_M.gguf
+      sha256: 4f635fc0c0bb88d50ccd9cf1f1e5892b5cb085ff88fe0d8e1148fd9a8a836bc2
+      uri: huggingface://openbmb/MiniCPM-o-2_6-gguf/Model-7.6B-Q4_K_M.gguf
+    - filename: minicpm-o-2_6-mmproj-f16.gguf
+      sha256: efa4f7d96aa0f838f2023fc8d28e519179b16f1106777fa9280b32628191aa3e
+      uri: huggingface://openbmb/MiniCPM-o-2_6-gguf/mmproj-model-f16.gguf
+- name: minicpm4_1-8b
+  url: github:mudler/LocalAI/gallery/chatml.yaml@master
+  urls:
+    - https://huggingface.co/openbmb/MiniCPM4.1-8B-GGUF
+    - https://huggingface.co/openbmb/MiniCPM4.1-8B
+  description: |
+    MiniCPM4.1-8B is an 8B-parameter language model with enhanced capabilities in coding, mathematics, and instruction following, building upon the MiniCPM4 architecture.
+  license: apache-2.0
+  icon: https://avatars.githubusercontent.com/u/89920203
+  tags:
+    - llm
+    - gguf
+    - gpu
+    - cpu
+  overrides:
+    parameters:
+      model: MiniCPM4.1-8B-Q4_K_M.gguf
+  files:
+    - filename: MiniCPM4.1-8B-Q4_K_M.gguf
+      sha256: 9d2ffb9145bf7a88ddb94b2542b42d925293666c42962aa158eeb62fc9708654
+      uri: huggingface://openbmb/MiniCPM4.1-8B-GGUF/MiniCPM4.1-8B-Q4_K_M.gguf
+- name: minicpm4-8b
+  url: github:mudler/LocalAI/gallery/chatml.yaml@master
+  urls:
+    - https://huggingface.co/openbmb/MiniCPM4-8B-GGUF
+    - https://huggingface.co/openbmb/MiniCPM4-8B
+  description: |
+    MiniCPM4-8B is an 8B-parameter language model achieving competitive performance among models of similar size, with strong capabilities in reasoning, coding, and multilingual tasks.
+  license: apache-2.0
+  icon: https://avatars.githubusercontent.com/u/89920203
+  tags:
+    - llm
+    - gguf
+    - gpu
+    - cpu
+  overrides:
+    parameters:
+      model: MiniCPM4-8B-Q4_K_M.gguf
+  files:
+    - filename: MiniCPM4-8B-Q4_K_M.gguf
+      sha256: 80b99ec4ceac302e7d474c8659e96b9f6c3bbeb73c41b2ef841c7fcb6d8250f3
+      uri: huggingface://openbmb/MiniCPM4-8B-GGUF/MiniCPM4-8B-Q4_K_M.gguf
 - name: aquif-ai_aquif-3.5-8b-think
   url: github:mudler/LocalAI/gallery/qwen3.yaml@master
   urls:
