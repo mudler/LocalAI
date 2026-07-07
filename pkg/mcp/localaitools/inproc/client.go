@@ -897,32 +897,11 @@ func capabilityFlagsOf(m *config.ModelConfig) []string {
 	return out
 }
 
-// resolveKNNRouter mirrors the REST endpoint's resolution: the model
-// must exist and declare a router.knn block; the store name defaults
-// the same way buildClassifier defaults it.
-func (c *Client) resolveKNNRouter(routerModel string) (*config.ModelConfig, string, error) {
-	cfg, err := c.ConfigLoader.LoadModelConfigFileByNameDefaultOptions(routerModel, c.AppConfig)
-	if err != nil {
-		return nil, "", fmt.Errorf("load model config: %w", err)
-	}
-	if cfg == nil || cfg.Name == "" {
-		return nil, "", fmt.Errorf("model %q not found", routerModel)
-	}
-	if cfg.Router.KNN == nil || cfg.Router.KNN.EmbeddingModel == "" {
-		return nil, "", fmt.Errorf("model %q has no router.knn block (set classifier: knn and knn.embedding_model first)", routerModel)
-	}
-	storeName := cfg.Router.KNN.StoreName
-	if storeName == "" {
-		storeName = "router-corpus-" + cfg.Name
-	}
-	return cfg, storeName, nil
-}
-
 func (c *Client) GetRouterCorpusStats(_ context.Context, routerModel string) (*localaitools.RouterCorpusStats, error) {
 	if c.RouterCorpus == nil {
 		return nil, errors.New("router corpus manager unavailable")
 	}
-	cfg, storeName, err := c.resolveKNNRouter(routerModel)
+	cfg, storeName, err := corpus.ResolveKNNRouter(c.ConfigLoader, c.AppConfig, routerModel)
 	if err != nil {
 		return nil, err
 	}
@@ -944,36 +923,16 @@ func (c *Client) SeedRouterCorpus(ctx context.Context, req localaitools.RouterCo
 	if c.RouterCorpus == nil || c.RouterEmbedder == nil || c.RouterVectorStore == nil {
 		return nil, errors.New("router corpus manager unavailable")
 	}
-	cfg, storeName, err := c.resolveKNNRouter(req.Router)
+	cfg, storeName, err := corpus.ResolveKNNRouter(c.ConfigLoader, c.AppConfig, req.Router)
 	if err != nil {
 		return nil, err
-	}
-
-	// Same invariant the REST endpoint enforces: labels must be
-	// declared policies, so a typo can't create an unroutable label.
-	declared := map[string]struct{}{}
-	for _, p := range cfg.Router.Policies {
-		declared[p.Label] = struct{}{}
 	}
 	entries := make([]corpus.Entry, 0, len(req.Entries))
-	for i, e := range req.Entries {
-		for _, l := range e.Labels {
-			if _, ok := declared[l]; !ok {
-				return nil, fmt.Errorf("entry %d: label %q is not declared in router policies", i, l)
-			}
-		}
+	for _, e := range req.Entries {
 		entries = append(entries, corpus.Entry{Text: e.Text, Labels: e.Labels})
 	}
-
-	embedder := c.RouterEmbedder(cfg.Router.KNN.EmbeddingModel)
-	if embedder == nil {
-		return nil, fmt.Errorf("embedding_model %q not loadable", cfg.Router.KNN.EmbeddingModel)
-	}
-	added, skipped, err := c.RouterCorpus.Add(ctx, storeName, cfg.Router.KNN.EmbeddingModel, embedder, c.RouterVectorStore(storeName), entries)
-	if err != nil {
-		return nil, err
-	}
-	stats, err := c.RouterCorpus.Stats(storeName)
+	added, skipped, stats, err := corpus.Seed(ctx, c.RouterCorpus, cfg, storeName,
+		c.RouterEmbedder, c.RouterVectorStore, entries)
 	if err != nil {
 		return nil, err
 	}
@@ -990,7 +949,7 @@ func (c *Client) ClearRouterCorpus(ctx context.Context, routerModel string) (*lo
 	if c.RouterCorpus == nil {
 		return nil, errors.New("router corpus manager unavailable")
 	}
-	cfg, storeName, err := c.resolveKNNRouter(routerModel)
+	cfg, storeName, err := corpus.ResolveKNNRouter(c.ConfigLoader, c.AppConfig, routerModel)
 	if err != nil {
 		return nil, err
 	}

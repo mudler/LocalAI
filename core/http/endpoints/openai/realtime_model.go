@@ -548,23 +548,13 @@ func buildRealtimeRoutingContext(a *application.Application, sessionID string) *
 	if a == nil {
 		return nil
 	}
-	deps := &middleware.ClassifierDeps{
-		Scorer:       a.Scorer,
-		Corpus:       a.RouterCorpus(),
-		TokenCounter: a.TokenCounter,
-		Embedder:     a.Embedder,
-		VectorStore:  a.VectorStore,
-		Reranker:     a.Reranker,
-		ModelLookup:  a.ModelConfigLookup(),
-		Registry:     a.RouterClassifierRegistry(),
-		Evaluator:    a.TemplatesEvaluator(),
-	}
+	deps := middleware.NewClassifierDeps(a)
 	userID := ""
 	if u := a.FallbackUser(); u != nil {
 		userID = u.ID
 	}
 	return &RealtimeRoutingContext{
-		Deps:      deps,
+		Deps:      &deps,
 		Store:     a.RouterDecisions(),
 		SessionID: sessionID,
 		UserID:    userID,

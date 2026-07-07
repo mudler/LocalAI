@@ -1,10 +1,8 @@
 package application
 
 import (
-	"cmp"
 	"context"
 	"fmt"
-	"path/filepath"
 
 	"github.com/mudler/LocalAI/core/backend"
 	"github.com/mudler/LocalAI/core/config"
@@ -122,13 +120,8 @@ func (a *Application) VectorStore(storeName string) backend.VectorStore {
 	return backend.NewVectorStore(a.modelLoader, a.applicationConfig, storeName)
 }
 
-// RouterCorpus returns the process-wide KNN corpus manager. Corpus
-// files live under <state dir>/router-corpus (same DataPath →
-// DynamicConfigsDir precedence the agent pool uses for its state).
+// RouterCorpus returns the process-wide KNN corpus manager, built in
+// newApplication.
 func (a *Application) RouterCorpus() *corpus.Manager {
-	a.routerCorpusOnce.Do(func() {
-		root := cmp.Or(a.applicationConfig.DataPath, a.applicationConfig.DynamicConfigsDir, ".")
-		a.routerCorpus = corpus.NewManager(filepath.Join(root, "router-corpus"))
-	})
 	return a.routerCorpus
 }

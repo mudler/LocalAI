@@ -50,27 +50,15 @@ func (s *localVectorStore) backend(_ context.Context) (grpc.Backend, error) {
 	return StoreBackend(s.loader, s.appConfig, s.storeName, "")
 }
 
-func (s *localVectorStore) Search(ctx context.Context, vec []float32) (sim float64, payload []byte, ok bool, err error) {
-	start := time.Now()
-	outcome := "hit"
-	defer func() {
-		s.recordTrace(start, "search", len(vec), sim, outcome, err)
-	}()
-	be, berr := s.backend(ctx)
-	if berr != nil {
-		outcome = "backend_load_error"
-		return 0, nil, false, fmt.Errorf("vector store load: %w", berr)
+// Search is the top-1 special case of SearchK; delegating keeps the
+// backend-load/Find/trace plumbing in one place (SearchK records the
+// identically-shaped trace, so /api/backend-traces sees no difference).
+func (s *localVectorStore) Search(ctx context.Context, vec []float32) (float64, []byte, bool, error) {
+	neighbors, err := s.SearchK(ctx, vec, 1)
+	if err != nil || len(neighbors) == 0 {
+		return 0, nil, false, err
 	}
-	_, values, similarities, ferr := store.Find(ctx, be, vec, 1)
-	if ferr != nil {
-		outcome = "find_error"
-		return 0, nil, false, fmt.Errorf("vector store find: %w", ferr)
-	}
-	if len(values) == 0 || len(similarities) == 0 {
-		outcome = "miss"
-		return 0, nil, false, nil
-	}
-	return float64(similarities[0]), values[0], true, nil
+	return neighbors[0].Similarity, neighbors[0].Payload, true, nil
 }
 
 func (s *localVectorStore) SearchK(ctx context.Context, vec []float32, k int) (neighbors []Neighbor, err error) {

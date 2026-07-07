@@ -25,6 +25,7 @@ import (
 	"sort"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/mudler/LocalAI/core/backend"
 	"github.com/mudler/LocalAI/core/services/routing/router"
@@ -77,12 +78,39 @@ type Manager struct {
 	// embedding-model-changed-on-a-live-index case, which local-store
 	// cannot serve (it enforces one key length per store).
 	loadedModel map[string]string
+
+	// statsCache memoises Stats per store, keyed by the corpus file's
+	// stat fingerprint — the file is the source of truth, so a matching
+	// fingerprint means the counts are current without re-parsing the
+	// (vector-laden) JSONL. Its own mutex, NOT m.mu: the status page
+	// polls Stats every few seconds and must not block behind a seed
+	// that is busy embedding under m.mu.
+	statsMu    sync.Mutex
+	statsCache map[string]cachedStats
+}
+
+type cachedStats struct {
+	key   fileFingerprint
+	stats Stats
+}
+
+// fileFingerprint identifies a corpus file version cheaply (one
+// os.Stat). Size changes on every append and rename replaces the
+// inode's mtime, so any successful write bumps the fingerprint.
+type fileFingerprint struct {
+	exists  bool
+	size    int64
+	modTime time.Time
 }
 
 // NewManager roots corpus files at dir (created lazily on first
 // write).
 func NewManager(dir string) *Manager {
-	return &Manager{dir: dir, loadedModel: map[string]string{}}
+	return &Manager{
+		dir:         dir,
+		loadedModel: map[string]string{},
+		statsCache:  map[string]cachedStats{},
+	}
 }
 
 // path maps a store name to its corpus file. Store names come from
@@ -119,7 +147,7 @@ func (m *Manager) EnsureLoaded(ctx context.Context, storeName, embeddingModel st
 		return 0, fmt.Errorf("corpus %q was indexed with embedding model %q this process; restart LocalAI to re-index it with %q", storeName, prev, embeddingModel)
 	}
 
-	entries, err := m.read(storeName)
+	entries, _, err := m.readAll(storeName)
 	if err != nil {
 		return 0, err
 	}
@@ -163,6 +191,12 @@ func (m *Manager) EnsureLoaded(ctx context.Context, storeName, embeddingModel st
 // Returns (added, skipped). The file write happens before the index
 // insert: if indexing fails the entries are still durable and the next
 // EnsureLoaded (or restart) syncs them.
+//
+// The embedding calls — the slow part of a big seed — run OUTSIDE
+// m.mu, so a long seed doesn't freeze EnsureLoaded and other stores'
+// corpus operations for its whole duration. The commit re-checks for
+// duplicates under the lock, so a racing Add can at worst turn an
+// entry into a skip, never a double insert.
 func (m *Manager) Add(ctx context.Context, storeName, embeddingModel string, embedder backend.Embedder, store backend.VectorStore, entries []Entry) (int, int, error) {
 	if embedder == nil {
 		return 0, 0, fmt.Errorf("corpus %q: no embedder available", storeName)
@@ -176,19 +210,21 @@ func (m *Manager) Add(ctx context.Context, storeName, embeddingModel string, emb
 		}
 	}
 
+	// First pass: dedupe against the persisted corpus (and within the
+	// request) so known texts aren't re-embedded.
 	m.mu.Lock()
-	defer m.mu.Unlock()
-
-	existing, err := m.read(storeName)
+	existing, _, err := m.readAll(storeName)
 	if err != nil {
+		m.mu.Unlock()
 		return 0, 0, err
 	}
 	seen := make(map[string]struct{}, len(existing))
 	for _, e := range existing {
 		seen[e.Text] = struct{}{}
 	}
+	m.mu.Unlock()
 
-	added := make([]Entry, 0, len(entries))
+	candidates := make([]Entry, 0, len(entries))
 	skipped := 0
 	for _, e := range entries {
 		if _, dup := seen[e.Text]; dup {
@@ -196,19 +232,56 @@ func (m *Manager) Add(ctx context.Context, storeName, embeddingModel string, emb
 			continue
 		}
 		seen[e.Text] = struct{}{}
-		vec, err := embedder.Embed(ctx, e.Text)
+		candidates = append(candidates, e)
+	}
+	if len(candidates) == 0 {
+		return 0, skipped, nil
+	}
+
+	for i := range candidates {
+		vec, err := embedder.Embed(ctx, candidates[i].Text)
 		if err != nil {
-			return 0, skipped, fmt.Errorf("corpus %q: embedding %q-labelled entry: %w", storeName, e.Labels[0], err)
+			return 0, skipped, fmt.Errorf("corpus %q: embedding %q-labelled entry: %w", storeName, candidates[i].Labels[0], err)
 		}
-		e.Vector = vec
-		e.EmbeddingModel = embeddingModel
+		candidates[i].Vector = vec
+		candidates[i].EmbeddingModel = embeddingModel
+	}
+
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	// Commit: re-read to catch texts a concurrent Add landed while we
+	// were embedding, then append only the survivors — JSONL appends
+	// keep the write O(new entries), not O(corpus).
+	current, torn, err := m.readAll(storeName)
+	if err != nil {
+		return 0, skipped, err
+	}
+	seen = make(map[string]struct{}, len(current))
+	for _, e := range current {
+		seen[e.Text] = struct{}{}
+	}
+	added := candidates[:0]
+	for _, e := range candidates {
+		if _, dup := seen[e.Text]; dup {
+			skipped++
+			continue
+		}
 		added = append(added, e)
 	}
 	if len(added) == 0 {
 		return 0, skipped, nil
 	}
 
-	if err := m.write(storeName, append(existing, added...)); err != nil {
+	if torn {
+		// A crash mid-append left a torn final line; appending after it
+		// would bury the damage mid-file. Repair with a full atomic
+		// rewrite of the readable entries plus the new ones.
+		err = m.write(storeName, append(current, added...))
+	} else {
+		err = m.appendEntries(storeName, added)
+	}
+	if err != nil {
 		return 0, skipped, err
 	}
 	if store != nil {
@@ -223,11 +296,24 @@ func (m *Manager) Add(ctx context.Context, storeName, embeddingModel string, emb
 
 // Stats reports label counts for the persisted corpus. Never returns
 // entry texts.
+//
+// Deliberately does NOT take m.mu — the status page polls this every
+// few seconds and must not block behind a seed or load. Reading the
+// file without the write lock is safe: write() replaces it atomically
+// (rename) and appendEntries only extends the tail, whose worst-case
+// torn line readAll tolerates. The fingerprint is taken BEFORE the
+// read so a write racing the read at worst caches fresher stats under
+// an older key, which the next call corrects.
 func (m *Manager) Stats(storeName string) (Stats, error) {
-	m.mu.Lock()
-	defer m.mu.Unlock()
+	key := m.fingerprint(storeName)
+	m.statsMu.Lock()
+	if c, ok := m.statsCache[storeName]; ok && c.key.equal(key) {
+		m.statsMu.Unlock()
+		return c.stats.copy(), nil
+	}
+	m.statsMu.Unlock()
 
-	entries, err := m.read(storeName)
+	entries, _, err := m.readAll(storeName)
 	if err != nil {
 		return Stats{}, err
 	}
@@ -245,7 +331,35 @@ func (m *Manager) Stats(storeName string) (Stats, error) {
 		s.EmbeddingModels = append(s.EmbeddingModels, mn)
 	}
 	sort.Strings(s.EmbeddingModels)
+
+	m.statsMu.Lock()
+	m.statsCache[storeName] = cachedStats{key: key, stats: s.copy()}
+	m.statsMu.Unlock()
 	return s, nil
+}
+
+func (m *Manager) fingerprint(storeName string) fileFingerprint {
+	fi, err := os.Stat(m.path(storeName))
+	if err != nil {
+		return fileFingerprint{}
+	}
+	return fileFingerprint{exists: true, size: fi.Size(), modTime: fi.ModTime()}
+}
+
+func (f fileFingerprint) equal(o fileFingerprint) bool {
+	return f.exists == o.exists && f.size == o.size && f.modTime.Equal(o.modTime)
+}
+
+// copy protects the cached maps/slices from mutation by callers (and
+// callers from later cache updates).
+func (s Stats) copy() Stats {
+	out := s
+	out.LabelCounts = make(map[string]int, len(s.LabelCounts))
+	for k, v := range s.LabelCounts {
+		out.LabelCounts[k] = v
+	}
+	out.EmbeddingModels = append([]string(nil), s.EmbeddingModels...)
+	return out
 }
 
 // Clear deletes the corpus file and removes its vectors from the live
@@ -256,7 +370,7 @@ func (m *Manager) Clear(ctx context.Context, storeName string, store backend.Vec
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	entries, err := m.read(storeName)
+	entries, _, err := m.readAll(storeName)
 	if err != nil {
 		return 0, err
 	}
@@ -308,44 +422,58 @@ func insertAll(ctx context.Context, store backend.VectorStore, entries []Entry) 
 	return nil
 }
 
-// read returns the persisted entries for storeName; a missing file is
-// an empty corpus. Callers hold m.mu.
-func (m *Manager) read(storeName string) ([]Entry, error) {
+// readAll returns the persisted entries for storeName; a missing file
+// is an empty corpus. The torn flag reports an unparseable FINAL line
+// — the signature a crash mid-append (or a read racing an in-flight
+// append) leaves — which is dropped rather than treated as corruption;
+// Add repairs it on the next write. An unparseable line anywhere else
+// is real corruption and errors.
+func (m *Manager) readAll(storeName string) (entries []Entry, torn bool, err error) {
 	f, err := os.Open(m.path(storeName))
 	if os.IsNotExist(err) {
-		return nil, nil
+		return nil, false, nil
 	}
 	if err != nil {
-		return nil, err
+		return nil, false, err
 	}
 	defer func() { _ = f.Close() }()
-	var entries []Entry
 	sc := bufio.NewScanner(f)
 	// Vectors inline in JSON push line length well past the default
 	// 64KiB scanner cap (a 4096-dim float32 vector is ~50KiB of JSON
 	// alone). 16MiB bounds any realistic embedding width.
 	sc.Buffer(make([]byte, 0, 1<<20), 16<<20)
 	line := 0
+	var pendingErr error
 	for sc.Scan() {
 		line++
 		raw := strings.TrimSpace(sc.Text())
 		if raw == "" {
 			continue
 		}
+		if pendingErr != nil {
+			// The failed line has a successor, so it wasn't a torn tail.
+			return nil, false, pendingErr
+		}
 		var e Entry
 		if err := json.Unmarshal([]byte(raw), &e); err != nil {
-			return nil, fmt.Errorf("corpus file %s line %d: %w", m.path(storeName), line, err)
+			pendingErr = fmt.Errorf("corpus file %s line %d: %w", m.path(storeName), line, err)
+			continue
 		}
 		entries = append(entries, e)
 	}
 	if err := sc.Err(); err != nil {
-		return nil, err
+		return nil, false, err
 	}
-	return entries, nil
+	if pendingErr != nil {
+		xlog.Warn("corpus: dropping torn final line (crash or concurrent append); repaired on next write",
+			"file", m.path(storeName), "line", line)
+		return entries, true, nil
+	}
+	return entries, false, nil
 }
 
-// write atomically replaces the corpus file (tmp + rename) so a crash
-// mid-write can't truncate the corpus. Callers hold m.mu.
+// write atomically replaces the corpus file (tmp + fsync + rename) so
+// a crash mid-write can't truncate the corpus. Callers hold m.mu.
 func (m *Manager) write(storeName string, entries []Entry) error {
 	if err := os.MkdirAll(m.dir, 0o750); err != nil {
 		return err
@@ -368,8 +496,43 @@ func (m *Manager) write(storeName string, entries []Entry) error {
 		_ = tmp.Close()
 		return err
 	}
+	if err := tmp.Sync(); err != nil {
+		_ = tmp.Close()
+		return err
+	}
 	if err := tmp.Close(); err != nil {
 		return err
 	}
 	return os.Rename(tmp.Name(), target)
+}
+
+// appendEntries extends the corpus file in place — JSONL's whole point
+// — so Add costs O(new entries), not O(corpus). A crash mid-append
+// tears at most the final line, which readAll tolerates and the next
+// Add rewrite repairs. Callers hold m.mu.
+func (m *Manager) appendEntries(storeName string, entries []Entry) error {
+	if err := os.MkdirAll(m.dir, 0o750); err != nil {
+		return err
+	}
+	f, err := os.OpenFile(m.path(storeName), os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o640)
+	if err != nil {
+		return err
+	}
+	w := bufio.NewWriter(f)
+	enc := json.NewEncoder(w)
+	for _, e := range entries {
+		if err := enc.Encode(e); err != nil {
+			_ = f.Close()
+			return err
+		}
+	}
+	if err := w.Flush(); err != nil {
+		_ = f.Close()
+		return err
+	}
+	if err := f.Sync(); err != nil {
+		_ = f.Close()
+		return err
+	}
+	return f.Close()
 }

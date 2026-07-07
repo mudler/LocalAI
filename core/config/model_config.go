@@ -431,6 +431,18 @@ type RouterKNNConfig struct {
 	StoreName string `yaml:"store_name,omitempty" json:"store_name,omitempty"`
 }
 
+// ResolvedStoreName is the local-store collection this router's corpus
+// actually lives in. The single source of the "router-corpus-<router>"
+// default — the classifier build, the corpus API, the status page, and
+// the assistant MCP tools all resolve through here so they cannot
+// desync on which store they touch.
+func (k *RouterKNNConfig) ResolvedStoreName(routerName string) string {
+	if k.StoreName != "" {
+		return k.StoreName
+	}
+	return "router-corpus-" + routerName
+}
+
 // RouterPolicy is one entry in the label vocabulary. The label string
 // is what the classifier model emits and what candidates reference in
 // their Labels field; the description is the natural-language hint

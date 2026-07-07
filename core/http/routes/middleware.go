@@ -29,15 +29,7 @@ import (
 // the synthetic local user has Role: admin so the page works without
 // extra config — same gating shape as the existing /api/usage/all.
 func RegisterMiddlewareRoutes(e *echo.Echo, app *application.Application) {
-	e.GET("/api/middleware/status", func(c echo.Context) error {
-		viewer := resolveUsageUser(c, app)
-		if viewer == nil {
-			return c.JSON(http.StatusUnauthorized, map[string]string{"error": "not authenticated"})
-		}
-		if viewer.Role != auth.RoleAdmin {
-			return c.JSON(http.StatusForbidden, map[string]string{"error": "admin access required"})
-		}
-
+	e.GET("/api/middleware/status", adminOnly(app, func(c echo.Context) error {
 		piiSection := buildPIIStatus(app)
 		routerSection := buildRouterStatus(app)
 		mitmSection := buildMITMStatus(app)
@@ -49,7 +41,7 @@ func RegisterMiddlewareRoutes(e *echo.Echo, app *application.Application) {
 			"mitm":      mitmSection,
 			"admission": admissionSection,
 		})
-	})
+	}))
 
 	e.GET("/api/router/status", func(c echo.Context) error {
 		// Read-only — admins want to see classifier configurations
@@ -74,18 +66,10 @@ func RegisterMiddlewareRoutes(e *echo.Echo, app *application.Application) {
 		return c.Blob(http.StatusOK, "application/x-pem-file", ca.PublicCertPEM())
 	})
 
-	e.GET("/api/router/decisions", func(c echo.Context) error {
-		viewer := resolveUsageUser(c, app)
-		if viewer == nil {
-			return c.JSON(http.StatusUnauthorized, map[string]string{"error": "not authenticated"})
-		}
-		// Decision logs may include user ids — admin-only when auth is
-		// on; the synthetic local user has admin so single-user mode
-		// works.
-		if viewer.Role != auth.RoleAdmin {
-			return c.JSON(http.StatusForbidden, map[string]string{"error": "admin access required"})
-		}
-
+	// Decision logs may include user ids — admin-only when auth is
+	// on; the synthetic local user has admin so single-user mode
+	// works.
+	e.GET("/api/router/decisions", adminOnly(app, func(c echo.Context) error {
 		store := app.RouterDecisions()
 		if store == nil {
 			return c.JSON(http.StatusOK, map[string]any{"decisions": []any{}})
@@ -107,7 +91,7 @@ func RegisterMiddlewareRoutes(e *echo.Echo, app *application.Application) {
 			return c.JSON(http.StatusInternalServerError, map[string]string{"error": "failed to list decisions"})
 		}
 		return c.JSON(http.StatusOK, map[string]any{"decisions": decisions})
-	})
+	}))
 
 	// GET /api/router/cache/stats — embedding-cache counters per
 	// router model. Read-only; same auth gating as /api/router/status
@@ -134,28 +118,9 @@ func RegisterMiddlewareRoutes(e *echo.Echo, app *application.Application) {
 	decideHandler := localai.RouterDecideEndpoint(
 		app.ModelConfigLoader(),
 		app.ApplicationConfig(),
-		middleware.ClassifierDeps{
-			Scorer:       app.Scorer,
-			Corpus:       app.RouterCorpus(),
-			TokenCounter: app.TokenCounter,
-			Embedder:     app.Embedder,
-			VectorStore:  app.VectorStore,
-			Reranker:     app.Reranker,
-			ModelLookup:  app.ModelConfigLookup(),
-			Registry:     app.RouterClassifierRegistry(),
-			Evaluator:    app.TemplatesEvaluator(),
-		},
+		middleware.NewClassifierDeps(app),
 	)
-	e.POST("/api/router/decide", func(c echo.Context) error {
-		viewer := resolveUsageUser(c, app)
-		if viewer == nil {
-			return c.JSON(http.StatusUnauthorized, map[string]string{"error": "not authenticated"})
-		}
-		if viewer.Role != auth.RoleAdmin {
-			return c.JSON(http.StatusForbidden, map[string]string{"error": "admin access required"})
-		}
-		return decideHandler(c)
-	})
+	e.POST("/api/router/decide", adminOnly(app, decideHandler))
 
 	// Router KNN corpus management. Corpus input/curation is API-only
 	// by design — entries can contain example user content, so the UI
@@ -163,28 +128,30 @@ func RegisterMiddlewareRoutes(e *echo.Echo, app *application.Application) {
 	// counts only. Admin-gated like /api/router/decide: seeding the
 	// corpus changes routing behaviour and Add runs embedding
 	// inference on arbitrary input.
-	corpusDeps := middleware.ClassifierDeps{
-		Embedder:    app.Embedder,
-		VectorStore: app.VectorStore,
-	}
+	corpusDeps := middleware.NewClassifierDeps(app)
 	corpusAdd := localai.RouterCorpusAddEndpoint(app.ModelConfigLoader(), app.ApplicationConfig(), app.RouterCorpus(), corpusDeps)
 	corpusStats := localai.RouterCorpusStatsEndpoint(app.ModelConfigLoader(), app.ApplicationConfig(), app.RouterCorpus())
 	corpusClear := localai.RouterCorpusClearEndpoint(app.ModelConfigLoader(), app.ApplicationConfig(), app.RouterCorpus(), corpusDeps)
-	adminGate := func(h echo.HandlerFunc) echo.HandlerFunc {
-		return func(c echo.Context) error {
-			viewer := resolveUsageUser(c, app)
-			if viewer == nil {
-				return c.JSON(http.StatusUnauthorized, map[string]string{"error": "not authenticated"})
-			}
-			if viewer.Role != auth.RoleAdmin {
-				return c.JSON(http.StatusForbidden, map[string]string{"error": "admin access required"})
-			}
-			return h(c)
+	e.POST("/api/router/:name/corpus", adminOnly(app, corpusAdd))
+	e.GET("/api/router/:name/corpus/stats", adminOnly(app, corpusStats))
+	e.DELETE("/api/router/:name/corpus", adminOnly(app, corpusClear))
+}
+
+// adminOnly wraps a handler with the admin gate every routing-module
+// endpoint shares: 401 when unauthenticated, 403 for non-admins. The
+// synthetic local user has Role: admin, so single-user (no-auth) mode
+// passes without extra config — same shape as /api/usage/all.
+func adminOnly(app *application.Application, h echo.HandlerFunc) echo.HandlerFunc {
+	return func(c echo.Context) error {
+		viewer := resolveUsageUser(c, app)
+		if viewer == nil {
+			return c.JSON(http.StatusUnauthorized, map[string]string{"error": "not authenticated"})
 		}
+		if viewer.Role != auth.RoleAdmin {
+			return c.JSON(http.StatusForbidden, map[string]string{"error": "admin access required"})
+		}
+		return h(c)
 	}
-	e.POST("/api/router/:name/corpus", adminGate(corpusAdd))
-	e.GET("/api/router/:name/corpus/stats", adminGate(corpusStats))
-	e.DELETE("/api/router/:name/corpus", adminGate(corpusClear))
 }
 
 // buildRouterStatus inventories every model that declares a Router
@@ -241,10 +208,7 @@ func buildRouterStatus(app *application.Application) map[string]any {
 			entry["embedding_cache"] = cacheEntry
 		}
 		if kc := cfg.Router.KNN; kc != nil {
-			storeName := kc.StoreName
-			if storeName == "" {
-				storeName = "router-corpus-" + cfg.Name
-			}
+			storeName := kc.ResolvedStoreName(cfg.Name)
 			knnEntry := map[string]any{
 				"embedding_model":      kc.EmbeddingModel,
 				"k":                    kc.K,
@@ -276,7 +240,7 @@ func buildRouterStatus(app *application.Application) map[string]any {
 		"configured":            hasAny,
 		"models":                models,
 		"recent_decision_count": recentCount,
-		"available_classifiers": []string{router.ClassifierScore, router.ClassifierColbert, router.ClassifierKNN},
+		"available_classifiers": router.AllClassifiers,
 	}
 	if !hasAny {
 		out["note"] = "No router models configured. Add a `router:` block to a model YAML to enable intelligent routing."

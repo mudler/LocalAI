@@ -1,7 +1,7 @@
 package localai
 
 import (
-	"fmt"
+	"errors"
 	"net/http"
 
 	"github.com/labstack/echo/v4"
@@ -17,37 +17,30 @@ import (
 // curated programmatically and never entered through or displayed in
 // the UI — the inspection surface returns label counts, never texts.
 //
-// All three handlers resolve the router model by path param and
-// require it to declare a `router.knn` block; the store name and
-// embedding model come from that config so the API can't desync from
-// what the classifier actually queries.
+// The handlers are transport adapters over corpus.ResolveKNNRouter and
+// corpus.Seed — the same helpers the assistant MCP tools use — so the
+// two surfaces cannot drift on model resolution, store naming, or
+// seed validation. This layer only binds requests and maps the corpus
+// package's sentinel errors to HTTP statuses.
 
-// resolveKNNRouter loads the named model config and returns its router
-// KNN settings (store name defaulted the same way buildClassifier
-// defaults it). Echo-shaped errors for the three failure modes.
+// resolveKNNRouter adapts corpus.ResolveKNNRouter to echo: name from
+// the path param, sentinel errors to 404/400, the rest to 500.
 func resolveKNNRouter(c echo.Context, loader *config.ModelConfigLoader, appConfig *config.ApplicationConfig) (*config.ModelConfig, string, error) {
 	name := c.Param("name")
 	if name == "" {
 		return nil, "", echo.NewHTTPError(http.StatusBadRequest, "router name is required")
 	}
-	cfg, err := loader.LoadModelConfigFileByNameDefaultOptions(name, appConfig)
-	if err != nil {
-		return nil, "", echo.NewHTTPError(http.StatusInternalServerError, "failed to load model config: "+err.Error())
+	cfg, storeName, err := corpus.ResolveKNNRouter(loader, appConfig, name)
+	switch {
+	case err == nil:
+		return cfg, storeName, nil
+	case errors.Is(err, corpus.ErrRouterNotFound):
+		return nil, "", echo.NewHTTPError(http.StatusNotFound, err.Error())
+	case errors.Is(err, corpus.ErrNotKNNRouter):
+		return nil, "", echo.NewHTTPError(http.StatusBadRequest, err.Error())
+	default:
+		return nil, "", echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
-	// A synthetic stub (no Name) means the model is unknown — see
-	// RouterDecideEndpoint for the discrimination rationale.
-	if cfg == nil || cfg.Name == "" {
-		return nil, "", echo.NewHTTPError(http.StatusNotFound, fmt.Sprintf("model %q not found", name))
-	}
-	if cfg.Router.KNN == nil || cfg.Router.KNN.EmbeddingModel == "" {
-		return nil, "", echo.NewHTTPError(http.StatusBadRequest,
-			fmt.Sprintf("model %q has no router.knn block (set classifier: knn and knn.embedding_model first)", name))
-	}
-	storeName := cfg.Router.KNN.StoreName
-	if storeName == "" {
-		storeName = "router-corpus-" + cfg.Name
-	}
-	return cfg, storeName, nil
 }
 
 // RouterCorpusAddEndpoint bulk-seeds a router's KNN corpus. Entries
@@ -80,38 +73,19 @@ func RouterCorpusAddEndpoint(loader *config.ModelConfigLoader, appConfig *config
 		if len(req.Entries) == 0 {
 			return echo.NewHTTPError(http.StatusBadRequest, "entries is required")
 		}
-
-		// Labels must be declared policies — the same invariant
-		// candidate tables are validated against. Catching it here
-		// keeps a typo from silently creating an unroutable label.
-		declared := map[string]struct{}{}
-		for _, p := range cfg.Router.Policies {
-			declared[p.Label] = struct{}{}
-		}
 		entries := make([]corpus.Entry, 0, len(req.Entries))
-		for i, e := range req.Entries {
-			for _, l := range e.Labels {
-				if _, ok := declared[l]; !ok {
-					return echo.NewHTTPError(http.StatusBadRequest,
-						fmt.Sprintf("entry %d: label %q is not declared in router policies", i, l))
-				}
-			}
+		for _, e := range req.Entries {
 			entries = append(entries, corpus.Entry{Text: e.Text, Labels: e.Labels})
 		}
 
-		embedder := deps.Embedder(cfg.Router.KNN.EmbeddingModel)
-		if embedder == nil {
-			return echo.NewHTTPError(http.StatusBadRequest,
-				fmt.Sprintf("embedding_model %q not loadable", cfg.Router.KNN.EmbeddingModel))
-		}
-		store := deps.VectorStore(storeName)
-
-		added, skipped, err := mgr.Add(c.Request().Context(), storeName, cfg.Router.KNN.EmbeddingModel, embedder, store, entries)
+		added, skipped, stats, err := corpus.Seed(c.Request().Context(), mgr, cfg, storeName,
+			deps.Embedder, deps.VectorStore, entries)
 		if err != nil {
-			return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
-		}
-		stats, err := mgr.Stats(storeName)
-		if err != nil {
+			// Undeclared labels and an unloadable embedding model are
+			// request/config mistakes, not server faults.
+			if errors.Is(err, corpus.ErrUndeclaredLabel) || errors.Is(err, corpus.ErrEmbedderUnavailable) {
+				return echo.NewHTTPError(http.StatusBadRequest, err.Error())
+			}
 			return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 		}
 		return c.JSON(http.StatusOK, schema.RouterCorpusAddResponse{
