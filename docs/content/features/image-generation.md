@@ -212,6 +212,7 @@ The following parameters are available in the configuration file:
 | `pipeline_type` | Pipeline type | `AutoPipelineForText2Image` |
 | `lora_adapters` | A list of lora adapters (file names relative to model directory) to apply | None |
 | `lora_scales` | A list of lora scales (floats) to apply | None |
+| `tmp_file_format` | Specifies the file format used to save temporary output images | None |
 
 
 There are available several types of schedulers:

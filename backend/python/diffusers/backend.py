@@ -865,7 +865,12 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
             ).images[0]
 
         # save the result
-        image.save(request.dst)
+        temp_format = kwargs.get('tmp_file_format')
+        if request.dst.endswith('.tmp') and temp_format:
+            # Enforce uppercase string format (e.g., 'png' -> 'PNG')
+            image.save(request.dst, format=str(temp_format).upper())
+        else:
+            image.save(request.dst)
 
         return backend_pb2.Result(message="Media generated", success=True)
 
