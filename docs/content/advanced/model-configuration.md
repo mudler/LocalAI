@@ -493,6 +493,7 @@ These llama.cpp options are passed through the `options:` array.
 | `threads_batch` / `n_threads_batch` | int | same as `threads` | Threads used during prompt processing. `<= 0` means `hardware_concurrency()`. |
 | `direct_io` / `use_direct_io` | bool | `false` | Open the model with `O_DIRECT` (faster cold loads on NVMe; ignored if not supported). |
 | `verbosity` | int | `3` | llama.cpp internal log verbosity threshold. Higher = more verbose. |
+| `device` / `devices` | string | all devices | Select the llama.cpp backend devices to use. Repeat the option or pass a comma-separated list; unlisted devices are excluded. Use the names reported by `llama-server --list-devices` / `--list-devices`. |
 | `override_tensor` / `tensor_buft_overrides` | string | "" | Per-tensor buffer-type overrides for the main model. Format: `<tensor regex>=<buffer type>,<tensor regex>=<buffer type>,...`. Mirrors the existing `draft_override_tensor` syntax for the draft model. |
 | `cpu_moe` | bool | false | Keep all MoE expert weights of the main model on CPU (upstream `--cpu-moe`). Frees VRAM on large MoE models (DeepSeek, Qwen3 `*-A3B`). |
 | `n_cpu_moe` | int | 0 | Keep MoE expert weights of the first N main-model layers on CPU (upstream `--n-cpu-moe`). |
@@ -514,6 +515,7 @@ options:
   - "--cpu-moe"                 # boolean flag
   - "--n-cpu-moe:4"             # flag with a value
   - "--override-tensor:exps=CPU"
+  - "devices:CUDA1,CUDA2,CUDA3" # skip CUDA0, e.g. a display GPU
 ```
 
 Notes:
