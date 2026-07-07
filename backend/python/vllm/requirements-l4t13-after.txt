@@ -1,4 +1,12 @@
 # vLLM 0.20+ ships an aarch64 manylinux wheel on PyPI whose Requires-Dist pins
 # torch==2.11.0 / torchvision==0.26.0 / torchaudio==2.11.0, locking an ABI-
 # consistent set with the cu130 torch wheel installed above.
-vllm
+#
+# Pinned to match the cublas13 build (requirements-cublas13-after.txt) and to
+# stay deterministic on GB10 / DGX Spark: 0.24.0 carries vllm-project/vllm#45179
+# ("release cached device memory under pressure on UMA GPUs during weight
+# loading"), without which cold model loads on the Grace Blackwell unified-
+# memory architecture crash deterministically with an empty "Engine core init
+# failed" set (mudler/LocalAI#10722). Leaving this unpinned let the L4T image
+# drift onto whatever wheel was latest at build time.
+vllm==0.24.0
