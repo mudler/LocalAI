@@ -26,7 +26,7 @@ var _ = Describe("backend process exit diagnostics", func() {
 		})
 
 		loader := NewModelLoader(&system.SystemState{Model: system.Model{ModelsPath: tmpDir}})
-		process, err := loader.startProcess(backendPath, "test-model", "127.0.0.1:65535")
+		process, err := loader.startProcess(backendPath, "test-model", "127.0.0.1:65535", nil)
 		Expect(err).ToNot(HaveOccurred())
 		Eventually(process.Done()).Should(BeClosed())
 		Eventually(captured.String).Should(And(
