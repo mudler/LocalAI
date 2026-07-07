@@ -131,6 +131,13 @@ type ApplicationConfig struct {
 	LRUEvictionMaxRetries    int           // Maximum number of retries when waiting for busy models to become idle (default: 30)
 	LRUEvictionRetryInterval time.Duration // Interval between retries when waiting for busy models (default: 1s)
 
+	// ModelLoadFailureCooldown is the base cooldown applied after a model load
+	// fails: new load attempts for that model are refused (HTTP 503 + Retry-After)
+	// until it elapses, doubling per consecutive failure up to a 5m cap and reset
+	// on success. Prevents a client polling a broken model from respawning a
+	// crashing backend on every request. 0 disables it. Default: 10s.
+	ModelLoadFailureCooldown time.Duration
+
 	ModelsURL []string
 
 	WatchDogBusyTimeout, WatchDogIdleTimeout time.Duration
@@ -245,6 +252,7 @@ func NewApplicationConfig(o ...AppOption) *ApplicationConfig {
 		AgentJobRetentionDays:    30,              // Default: 30 days
 		LRUEvictionMaxRetries:    30,              // Default: 30 retries
 		LRUEvictionRetryInterval: 1 * time.Second, // Default: 1 second
+		ModelLoadFailureCooldown: 10 * time.Second, // Default: 10s base cooldown after a failed load
 		// WatchDogInterval is intentionally left at the zero value here.
 		// The startup loader applies a persisted runtime_settings.json value
 		// only when the interval is still 0 (its "not set by env var"
@@ -527,6 +535,17 @@ func WithLRUEvictionRetryInterval(interval time.Duration) AppOption {
 	return func(o *ApplicationConfig) {
 		if interval > 0 {
 			o.LRUEvictionRetryInterval = interval
+		}
+	}
+}
+
+// WithModelLoadFailureCooldown sets the base cooldown applied after a failed
+// model load. 0 disables the cooldown, so unlike most options it accepts any
+// non-negative value.
+func WithModelLoadFailureCooldown(cooldown time.Duration) AppOption {
+	return func(o *ApplicationConfig) {
+		if cooldown >= 0 {
+			o.ModelLoadFailureCooldown = cooldown
 		}
 	}
 }
