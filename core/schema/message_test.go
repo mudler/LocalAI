@@ -395,4 +395,22 @@ var _ = Describe("LLM tests", func() {
 			Expect(protoMessages[0].Content).To(Equal("Hello"))
 		})
 	})
+
+	Context("reasoning_content inbound alias", func() {
+		It("decodes reasoning_content as an inbound alias for Reasoning", func() {
+			var m Message
+			err := json.Unmarshal([]byte(`{"role":"assistant","reasoning_content":"thinking..."}`), &m)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(m.Reasoning).NotTo(BeNil())
+			Expect(*m.Reasoning).To(Equal("thinking..."))
+		})
+
+		It("prefers reasoning over reasoning_content when both are present", func() {
+			var m Message
+			err := json.Unmarshal([]byte(`{"role":"assistant","reasoning":"canonical","reasoning_content":"alias"}`), &m)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(m.Reasoning).NotTo(BeNil())
+			Expect(*m.Reasoning).To(Equal("canonical"))
+		})
+	})
 })
