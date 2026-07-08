@@ -190,6 +190,17 @@ var _ = Describe("Anthropic Schema", func() {
 		})
 	})
 
+	Describe("AnthropicContentBlock", func() {
+		It("round-trips a thinking content block with signature", func() {
+			raw := `{"type":"thinking","thinking":"step by step","signature":"sig_abc"}`
+			var b schema.AnthropicContentBlock
+			Expect(json.Unmarshal([]byte(raw), &b)).To(Succeed())
+			Expect(b.Type).To(Equal("thinking"))
+			Expect(b.Thinking).To(Equal("step by step"))
+			Expect(b.Signature).To(Equal("sig_abc"))
+		})
+	})
+
 	Describe("AnthropicErrorResponse", func() {
 		It("should marshal an error response", func() {
 			resp := schema.AnthropicErrorResponse{
