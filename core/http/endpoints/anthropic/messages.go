@@ -3,6 +3,7 @@ package anthropic
 import (
 	"encoding/json"
 	"fmt"
+	"strings"
 	"sync"
 	"time"
 
@@ -352,6 +353,9 @@ func handleAnthropicStream(c echo.Context, id string, input *schema.AnthropicReq
 	}
 	hasMCPTools := mcpExecutor != nil && mcpExecutor.HasTools()
 
+	// Reasoning streams as a thinking block only when the client opted in.
+	thinkingEnabled := input.Thinking != nil && input.Thinking.Type == "enabled"
+
 	for mcpIteration := 0; mcpIteration <= mcpMaxIterations; mcpIteration++ {
 		// Re-template on MCP iterations
 		if mcpIteration > 0 {
@@ -506,7 +510,9 @@ func handleAnthropicStream(c echo.Context, id string, input *schema.AnthropicReq
 				})
 			}
 
-			// Emit tool_use blocks from ChatDeltas
+			// Emit tool_use blocks from ChatDeltas, preceded by a fully-closed
+			// thinking block when reasoning is present (Anthropic ordering:
+			// thinking is streamed and closed before any tool_use starts).
 			if len(deltaToolCalls) > 0 && len(collectedToolCalls) == 0 {
 				collectedToolCalls = deltaToolCalls
 
@@ -518,35 +524,23 @@ func handleAnthropicStream(c echo.Context, id string, input *schema.AnthropicReq
 					currentBlockIndex++
 					inToolCall = true
 				}
-				for i, tc := range deltaToolCalls {
-					toolCallID := tc.ID
-					if toolCallID == "" {
-						toolCallID = fmt.Sprintf("toolu_%s_%d", id, i)
+
+				seq := anthropicStreamSequence(streamInput{
+					reasoningDeltas: []string{functions.ReasoningFromChatDeltas(chatDeltas)},
+					thinkingEnabled: thinkingEnabled,
+					toolCalls:       funcResultsToToolCalls(deltaToolCalls),
+					startIndex:      currentBlockIndex,
+					id:              id,
+				})
+				for _, ev := range seq {
+					sendAnthropicSSE(c, ev)
+					// Each content block ends with exactly one content_block_stop,
+					// so advance the running index in lockstep with the sequencer.
+					if ev.Type == "content_block_stop" {
+						currentBlockIndex++
 					}
-					sendAnthropicSSE(c, schema.AnthropicStreamEvent{
-						Type:  "content_block_start",
-						Index: intPtr(currentBlockIndex),
-						ContentBlock: &schema.AnthropicContentBlock{
-							Type: "tool_use",
-							ID:   toolCallID,
-							Name: tc.Name,
-						},
-					})
-					sendAnthropicSSE(c, schema.AnthropicStreamEvent{
-						Type:  "content_block_delta",
-						Index: intPtr(currentBlockIndex),
-						Delta: &schema.AnthropicStreamDelta{
-							Type:        "input_json_delta",
-							PartialJSON: tc.Arguments,
-						},
-					})
-					sendAnthropicSSE(c, schema.AnthropicStreamEvent{
-						Type:  "content_block_stop",
-						Index: intPtr(currentBlockIndex),
-					})
-					currentBlockIndex++
-					toolCallsEmitted++
 				}
+				toolCallsEmitted += len(deltaToolCalls)
 			}
 		}
 
@@ -752,6 +746,78 @@ func funcResultsToToolCalls(results []functions.FuncCallResults) []schema.ToolCa
 		}
 	}
 	return out
+}
+
+// streamInput carries the reasoning deltas and tool calls for one streaming
+// assistant turn. startIndex and id let the pure sequencer be wired into the
+// live loop, which already owns a running block index.
+type streamInput struct {
+	reasoningDeltas []string
+	thinkingEnabled bool
+	toolCalls       []schema.ToolCall
+	startIndex      int
+	id              string
+}
+
+// anthropicStreamSequence produces the ordered stream events for a thinking
+// block followed by tool_use blocks. Per the Anthropic spec the thinking block
+// is fully streamed and closed (content_block_stop) before any tool_use block
+// starts. Kept pure so ordering is unit-testable without an HTTP stream.
+func anthropicStreamSequence(in streamInput) []schema.AnthropicStreamEvent {
+	var events []schema.AnthropicStreamEvent
+	idx := in.startIndex
+
+	if in.thinkingEnabled && strings.Join(in.reasoningDeltas, "") != "" {
+		events = append(events, schema.AnthropicStreamEvent{
+			Type:         "content_block_start",
+			Index:        intPtr(idx),
+			ContentBlock: &schema.AnthropicContentBlock{Type: "thinking"},
+		})
+		for _, d := range in.reasoningDeltas {
+			if d == "" {
+				continue
+			}
+			events = append(events, schema.AnthropicStreamEvent{
+				Type:  "content_block_delta",
+				Index: intPtr(idx),
+				Delta: &schema.AnthropicStreamDelta{Type: "thinking_delta", Thinking: d},
+			})
+		}
+		events = append(events, schema.AnthropicStreamEvent{
+			Type:  "content_block_delta",
+			Index: intPtr(idx),
+			Delta: &schema.AnthropicStreamDelta{Type: "signature_delta", Signature: syntheticThinkingSignature()},
+		})
+		events = append(events, schema.AnthropicStreamEvent{
+			Type:  "content_block_stop",
+			Index: intPtr(idx),
+		})
+		idx++
+	}
+
+	for i, tc := range in.toolCalls {
+		toolID := tc.ID
+		if toolID == "" {
+			toolID = fmt.Sprintf("toolu_%s_%d", in.id, i)
+		}
+		events = append(events, schema.AnthropicStreamEvent{
+			Type:         "content_block_start",
+			Index:        intPtr(idx),
+			ContentBlock: &schema.AnthropicContentBlock{Type: "tool_use", ID: toolID, Name: tc.FunctionCall.Name},
+		})
+		events = append(events, schema.AnthropicStreamEvent{
+			Type:  "content_block_delta",
+			Index: intPtr(idx),
+			Delta: &schema.AnthropicStreamDelta{Type: "input_json_delta", PartialJSON: tc.FunctionCall.Arguments},
+		})
+		events = append(events, schema.AnthropicStreamEvent{
+			Type:  "content_block_stop",
+			Index: intPtr(idx),
+		})
+		idx++
+	}
+
+	return events
 }
 
 func convertFuncsToOpenAITools(funcs functions.Functions) []functions.Tool {

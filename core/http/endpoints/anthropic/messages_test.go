@@ -48,3 +48,65 @@ var _ = Describe("Anthropic thinking outbound (non-stream)", func() {
 		}
 	})
 })
+
+var _ = Describe("Anthropic thinking outbound (stream)", func() {
+	It("sequences a thinking block before tool_use in streaming order", func() {
+		seq := anthropicStreamSequence(streamInput{
+			reasoningDeltas: []string{"think ", "more"},
+			thinkingEnabled: true,
+			toolCalls: []schema.ToolCall{{ID: "call_1", Type: "function",
+				FunctionCall: schema.FunctionCall{Name: "f", Arguments: "{}"}}},
+		})
+		types := eventTypes(seq)
+		Expect(types).To(ContainElements(
+			"content_block_start", "thinking_delta", "signature_delta", "content_block_stop"))
+		Expect(indexOf(types, "content_block_stop")).To(BeNumerically("<", indexOf(types, "tool_use_start")))
+	})
+
+	It("omits the thinking sequence when thinking is not enabled", func() {
+		seq := anthropicStreamSequence(streamInput{
+			reasoningDeltas: []string{"hidden"},
+			thinkingEnabled: false,
+			toolCalls: []schema.ToolCall{{ID: "call_1", Type: "function",
+				FunctionCall: schema.FunctionCall{Name: "f", Arguments: "{}"}}},
+		})
+		types := eventTypes(seq)
+		Expect(types).NotTo(ContainElement("thinking_delta"))
+		Expect(types).NotTo(ContainElement("signature_delta"))
+	})
+})
+
+// eventTypes maps each streaming event to a stable logical label so ordering
+// assertions read naturally: content_block_start of a tool_use block is
+// surfaced as "tool_use_start", and delta events surface their delta type.
+func eventTypes(events []schema.AnthropicStreamEvent) []string {
+	out := make([]string, 0, len(events))
+	for _, e := range events {
+		switch e.Type {
+		case "content_block_start":
+			if e.ContentBlock != nil && e.ContentBlock.Type == "tool_use" {
+				out = append(out, "tool_use_start")
+				continue
+			}
+			out = append(out, e.Type)
+		case "content_block_delta":
+			if e.Delta != nil {
+				out = append(out, e.Delta.Type)
+				continue
+			}
+			out = append(out, e.Type)
+		default:
+			out = append(out, e.Type)
+		}
+	}
+	return out
+}
+
+func indexOf(items []string, target string) int {
+	for i, s := range items {
+		if s == target {
+			return i
+		}
+	}
+	return -1
+}
