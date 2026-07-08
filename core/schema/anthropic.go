@@ -49,9 +49,20 @@ type AnthropicRequest struct {
 	Tools         []AnthropicTool      `json:"tools,omitempty"`
 	ToolChoice    any                  `json:"tool_choice,omitempty"`
 
+	// Thinking gates extended-thinking output. We only surface thinking
+	// content blocks when the client explicitly opts in, matching Anthropic's
+	// API where thinking is off unless requested.
+	Thinking *AnthropicThinkingParam `json:"thinking,omitempty"`
+
 	// Internal fields for request handling
 	Context context.Context    `json:"-"`
 	Cancel  context.CancelFunc `json:"-"`
+}
+
+// AnthropicThinkingParam is the request-side extended-thinking toggle.
+type AnthropicThinkingParam struct {
+	Type         string `json:"type"` // "enabled" | "disabled"
+	BudgetTokens int    `json:"budget_tokens,omitempty"`
 }
 
 // ModelName implements the LocalAIRequest interface

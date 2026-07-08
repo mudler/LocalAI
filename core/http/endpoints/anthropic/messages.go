@@ -244,63 +244,59 @@ func handleAnthropicNonStream(c echo.Context, id string, input *schema.Anthropic
 			}
 		}
 
-		// No MCP tools to execute, build and return response
+		// No MCP tools to execute, build and return response.
+		// Reasoning surfaces as a thinking block only when the client opted in,
+		// matching Anthropic's extended-thinking gating.
+		reasoning := functions.ReasoningFromChatDeltas(chatDeltas)
+		thinkingEnabled := input.Thinking != nil && input.Thinking.Type == "enabled"
+
 		var contentBlocks []schema.AnthropicContentBlock
 		var stopReason string
 
 		if shouldUseFn && len(toolCalls) > 0 {
 			stopReason = "tool_use"
-			for _, tc := range toolCalls {
-				var inputArgs map[string]any
-				if err := json.Unmarshal([]byte(tc.Arguments), &inputArgs); err != nil {
-					xlog.Warn("Failed to parse tool call arguments as JSON", "error", err, "args", tc.Arguments)
-					inputArgs = map[string]any{"raw": tc.Arguments}
-				}
-				contentBlocks = append(contentBlocks, schema.AnthropicContentBlock{
-					Type:  "tool_use",
-					ID:    fmt.Sprintf("toolu_%s_%d", id, len(contentBlocks)),
-					Name:  tc.Name,
-					Input: inputArgs,
-				})
-			}
-			textContent := functions.ParseTextContent(result, cfg.FunctionsConfig)
-			if textContent != "" {
-				contentBlocks = append([]schema.AnthropicContentBlock{{Type: "text", Text: textContent}}, contentBlocks...)
-			}
+			contentBlocks = buildAnthropicContentBlocks(buildParams{
+				reasoning:       reasoning,
+				thinkingEnabled: thinkingEnabled,
+				text:            functions.ParseTextContent(result, cfg.FunctionsConfig),
+				toolCalls:       funcResultsToToolCalls(toolCalls),
+				id:              id,
+			})
 		} else if !shouldUseFn && cfg.FunctionsConfig.AutomaticToolParsingFallback && result != "" {
 			// Automatic tool parsing fallback: no tools in request but model emitted tool call markup
 			parsed := functions.ParseFunctionCall(result, cfg.FunctionsConfig)
 			if len(parsed) > 0 {
 				stopReason = "tool_use"
-				stripped := functions.StripToolCallMarkup(result)
-				if stripped != "" {
-					contentBlocks = append(contentBlocks, schema.AnthropicContentBlock{Type: "text", Text: stripped})
-				}
-				for i, fc := range parsed {
-					var inputArgs map[string]any
-					if err := json.Unmarshal([]byte(fc.Arguments), &inputArgs); err != nil {
-						inputArgs = map[string]any{"raw": fc.Arguments}
-					}
-					toolCallID := fc.ID
-					if toolCallID == "" {
-						toolCallID = fmt.Sprintf("toolu_%s_%d", id, i)
-					}
-					contentBlocks = append(contentBlocks, schema.AnthropicContentBlock{
-						Type:  "tool_use",
-						ID:    toolCallID,
-						Name:  fc.Name,
-						Input: inputArgs,
-					})
-				}
+				contentBlocks = buildAnthropicContentBlocks(buildParams{
+					reasoning:       reasoning,
+					thinkingEnabled: thinkingEnabled,
+					text:            functions.StripToolCallMarkup(result),
+					toolCalls:       funcResultsToToolCalls(parsed),
+					id:              id,
+				})
 			} else {
 				stopReason = "end_turn"
-				contentBlocks = []schema.AnthropicContentBlock{{Type: "text", Text: result}}
+				contentBlocks = buildAnthropicContentBlocks(buildParams{
+					reasoning:       reasoning,
+					thinkingEnabled: thinkingEnabled,
+					text:            result,
+					id:              id,
+				})
 			}
 		} else {
 			stopReason = "end_turn"
-			contentBlocks = []schema.AnthropicContentBlock{
-				{Type: "text", Text: result},
-			}
+			contentBlocks = buildAnthropicContentBlocks(buildParams{
+				reasoning:       reasoning,
+				thinkingEnabled: thinkingEnabled,
+				text:            result,
+				id:              id,
+			})
+		}
+
+		// Anthropic responses must carry at least one content block; keep the
+		// empty-text fallback the pre-refactor assembly guaranteed.
+		if len(contentBlocks) == 0 {
+			contentBlocks = []schema.AnthropicContentBlock{{Type: "text", Text: result}}
 		}
 
 		resp := &schema.AnthropicResponse{
@@ -695,6 +691,67 @@ func handleAnthropicStream(c echo.Context, id string, input *schema.AnthropicReq
 		Type: "message_stop",
 	})
 	return nil
+}
+
+// buildParams carries the pieces of an assistant turn that become Anthropic
+// content blocks. It exists so the block-assembly logic is unit-testable in
+// isolation from the HTTP handler.
+type buildParams struct {
+	reasoning       string
+	thinkingEnabled bool
+	text            string
+	toolCalls       []schema.ToolCall
+	id              string
+}
+
+// syntheticThinkingSignature returns an opaque, non-cryptographic signature so
+// Anthropic SDK clients round-trip the thinking block. Local models have no
+// real signature; this marker is accepted-but-ignored on the way back in.
+func syntheticThinkingSignature() string { return "localai" }
+
+// buildAnthropicContentBlocks assembles the content blocks for a non-streaming
+// assistant turn. When thinking is enabled and reasoning is present, a thinking
+// block is prepended before text and tool_use blocks (Anthropic ordering).
+func buildAnthropicContentBlocks(p buildParams) []schema.AnthropicContentBlock {
+	var blocks []schema.AnthropicContentBlock
+	if p.thinkingEnabled && p.reasoning != "" {
+		blocks = append(blocks, schema.AnthropicContentBlock{
+			Type:      "thinking",
+			Thinking:  p.reasoning,
+			Signature: syntheticThinkingSignature(),
+		})
+	}
+	if p.text != "" {
+		blocks = append(blocks, schema.AnthropicContentBlock{Type: "text", Text: p.text})
+	}
+	for i, tc := range p.toolCalls {
+		var inputArgs map[string]any
+		if err := json.Unmarshal([]byte(tc.FunctionCall.Arguments), &inputArgs); err != nil {
+			inputArgs = map[string]any{"raw": tc.FunctionCall.Arguments}
+		}
+		id := tc.ID
+		if id == "" {
+			id = fmt.Sprintf("toolu_%s_%d", p.id, i)
+		}
+		blocks = append(blocks, schema.AnthropicContentBlock{
+			Type: "tool_use", ID: id, Name: tc.FunctionCall.Name, Input: inputArgs,
+		})
+	}
+	return blocks
+}
+
+// funcResultsToToolCalls adapts the parser's FuncCallResults into schema
+// ToolCalls so the pure block builders operate on one tool-call shape.
+func funcResultsToToolCalls(results []functions.FuncCallResults) []schema.ToolCall {
+	out := make([]schema.ToolCall, len(results))
+	for i, r := range results {
+		out[i] = schema.ToolCall{
+			ID:           r.ID,
+			Type:         "function",
+			FunctionCall: schema.FunctionCall{Name: r.Name, Arguments: r.Arguments},
+		}
+	}
+	return out
 }
 
 func convertFuncsToOpenAITools(funcs functions.Functions) []functions.Tool {
