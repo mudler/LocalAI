@@ -403,7 +403,7 @@ Pre-converted GGUFs with MTP heads are published on the [ggml-org HuggingFace or
 
 ### Reasoning Models (DeepSeek-R1, Qwen3, etc.)
 
-These load-time options control how the backend parses `<think>` reasoning blocks and how much budget the model is allowed for thinking. They are set per model via the `options:` array.
+These load-time options control how the backend parses `<think>` reasoning blocks and how much budget the model is allowed for thinking. They are set per model via the `options:` array. For how reasoning is returned alongside tool calls and survives the tool-result round trip, see [Interleaved Thinking with Tool Calls]({{%relref "features/interleaved-thinking" %}}).
 
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|

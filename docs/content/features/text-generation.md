@@ -31,6 +31,8 @@ curl http://localhost:8080/v1/chat/completions -H "Content-Type: application/jso
 
 Available additional parameters: `top_p`, `top_k`, `max_tokens`
 
+Reasoning models return their thinking in the `reasoning` field. When a model reasons and calls a tool in the same turn, see [Interleaved Thinking with Tool Calls]({{%relref "features/interleaved-thinking" %}}).
+
 ### Edit completions
 
 https://platform.openai.com/docs/api-reference/edits
