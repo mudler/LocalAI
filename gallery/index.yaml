@@ -1,4 +1,45 @@
 ---
+- name: "deepseek-v4-flash"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/unsloth/DeepSeek-V4-Flash-GGUF
+  description: |
+    # DeepSeek-V4: Towards Highly Efficient Million-Token Context Intelligence
+
+    Technical Report👁️
+
+    ## Introduction
+
+    We present a preview version of **DeepSeek-V4** series, including two strong Mixture-of-Experts (MoE) language models — **DeepSeek-V4-Pro** with 1.6T parameters (49B activated) and **DeepSeek-V4-Flash** with 284B parameters (13B activated) — both supporting a context length of **one million tokens**.
+
+    DeepSeek-V4 series incorporate several key upgrades in architecture and optimization:
+
+    1. **Hybrid Attention Architecture:** We design a hybrid attention mechanism combining Compressed Sparse Attention (CSA) and Heavily Compressed Attention (HCA) to dramatically improve long-context efficiency. In the 1M-token context setting, DeepSeek-V4-Pro requires only **27% of single-token inference FLOPs** and **10% of KV cache** compared with DeepSeek-V3.2.
+    2. **Manifold-Constrained Hyper-Connections (mHC):** We incorporate mHC to strengthen conventional residual connections, enhancing stability of signal propagation across layers while preserving model expressivity.
+    3. **Muon Optimizer:** We employ the Muon optimizer for faster convergence and greater training stability.
+
+    ...
+  license: "mit"
+  tags:
+    - llm
+    - gguf
+    - deepseek
+  icon: https://github.com/deepseek-ai/DeepSeek-V2/blob/main/figures/logo.svg
+  overrides:
+    backend: ds4
+    function:
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+    parameters:
+      model: ds4flash.gguf
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: ds4flash.gguf
+      sha256: ""
+      uri: https://huggingface.co/unsloth/DeepSeek-V4-Flash-GGUF
 - name: "qwopus3.6-35b-a3b-coder-mtp"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
