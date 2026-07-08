@@ -698,10 +698,12 @@ func loadRuntimeSettingsFromFile(options *config.ApplicationConfig) {
 		}
 	}
 
+	// Backend logging defaults on in single mode (NewApplicationConfig), so
+	// the usual "only flip false->true" merge would ignore a persisted false
+	// and revert the UI toggle-off on every restart. There is no env var/CLI
+	// flag for it, so an explicit persisted value is authoritative here.
 	if settings.EnableBackendLogging != nil {
-		if !options.EnableBackendLogging {
-			options.EnableBackendLogging = *settings.EnableBackendLogging
-		}
+		options.EnableBackendLogging = *settings.EnableBackendLogging
 	}
 
 	// Tracing settings
