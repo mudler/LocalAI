@@ -407,6 +407,21 @@ var _ = Describe("ComputeChoices", func() {
 			Expect(reachedTokenBudget(100, ptr(100))).To(BeTrue())
 			Expect(reachedTokenBudget(101, ptr(100))).To(BeTrue())
 		})
+
+		// Truncation labeling for agentic clients (cogito): a reasoning model
+		// that meets its output ceiling must report finish_reason=length so the
+		// caller can detect the cutoff rather than treat it as a clean stop.
+		It("reports the budget as reached when completion meets max_tokens", func() {
+			max := 16
+			Expect(reachedTokenBudget(16, &max)).To(BeTrue())
+			Expect(reachedTokenBudget(15, &max)).To(BeFalse())
+		})
+
+		It("does not flag a budget when max_tokens is zero or nil", func() {
+			zero := 0
+			Expect(reachedTokenBudget(100, &zero)).To(BeFalse())
+			Expect(reachedTokenBudget(100, nil)).To(BeFalse())
+		})
 	})
 
 	Context("max_tokens budget exhausted on reasoning (issue #9716)", func() {
