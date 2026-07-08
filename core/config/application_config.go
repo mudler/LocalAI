@@ -246,9 +246,16 @@ type AppOption func(*ApplicationConfig)
 
 func NewApplicationConfig(o ...AppOption) *ApplicationConfig {
 	opt := &ApplicationConfig{
-		Context:                  context.Background(),
-		UploadLimitMB:            15,
-		Debug:                    true,
+		Context:       context.Background(),
+		UploadLimitMB: 15,
+		Debug:         true,
+		// Capture backend process stdout/stderr into the per-model
+		// BackendLogStore by default so the UI "Backend Logs" page works out
+		// of the box in single mode, matching worker/distributed mode (which
+		// force-enables it). It's a small in-memory ring buffer; the Settings
+		// toggle can still turn it off (a persisted false wins - see
+		// loadRuntimeSettingsFromFile).
+		EnableBackendLogging:     true,
 		AgentJobRetentionDays:    30,              // Default: 30 days
 		LRUEvictionMaxRetries:    30,              // Default: 30 retries
 		LRUEvictionRetryInterval: 1 * time.Second, // Default: 1 second
