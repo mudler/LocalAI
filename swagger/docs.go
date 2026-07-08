@@ -3966,10 +3966,16 @@ const docTemplate = `{
                 "name": {
                     "type": "string"
                 },
+                "signature": {
+                    "type": "string"
+                },
                 "source": {
                     "$ref": "#/definitions/schema.AnthropicImageSource"
                 },
                 "text": {
+                    "type": "string"
+                },
+                "thinking": {
                     "type": "string"
                 },
                 "tool_use_id": {
@@ -4039,6 +4045,14 @@ const docTemplate = `{
                 "temperature": {
                     "type": "number"
                 },
+                "thinking": {
+                    "description": "Thinking gates extended-thinking output. We only surface thinking\ncontent blocks when the client explicitly opts in, matching Anthropic's\nAPI where thinking is off unless requested.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/schema.AnthropicThinkingParam"
+                        }
+                    ]
+                },
                 "tool_choice": {},
                 "tools": {
                     "type": "array",
@@ -4083,6 +4097,18 @@ const docTemplate = `{
                 },
                 "usage": {
                     "$ref": "#/definitions/schema.AnthropicUsage"
+                }
+            }
+        },
+        "schema.AnthropicThinkingParam": {
+            "type": "object",
+            "properties": {
+                "budget_tokens": {
+                    "type": "integer"
+                },
+                "type": {
+                    "description": "\"enabled\" | \"disabled\"",
+                    "type": "string"
                 }
             }
         },

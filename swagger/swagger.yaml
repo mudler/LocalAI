@@ -516,9 +516,13 @@ definitions:
         type: boolean
       name:
         type: string
+      signature:
+        type: string
       source:
         $ref: '#/definitions/schema.AnthropicImageSource'
       text:
+        type: string
+      thinking:
         type: string
       tool_use_id:
         type: string
@@ -564,6 +568,13 @@ definitions:
         type: string
       temperature:
         type: number
+      thinking:
+        allOf:
+        - $ref: '#/definitions/schema.AnthropicThinkingParam'
+        description: |-
+          Thinking gates extended-thinking output. We only surface thinking
+          content blocks when the client explicitly opts in, matching Anthropic's
+          API where thinking is off unless requested.
       tool_choice: {}
       tools:
         items:
@@ -594,6 +605,14 @@ definitions:
         type: string
       usage:
         $ref: '#/definitions/schema.AnthropicUsage'
+    type: object
+  schema.AnthropicThinkingParam:
+    properties:
+      budget_tokens:
+        type: integer
+      type:
+        description: '"enabled" | "disabled"'
+        type: string
     type: object
   schema.AnthropicTool:
     properties:
