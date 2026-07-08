@@ -3,22 +3,7 @@
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
     - https://huggingface.co/unsloth/DeepSeek-V4-Flash-GGUF
-  description: |
-    # DeepSeek-V4: Towards Highly Efficient Million-Token Context Intelligence
-
-    Technical Report👁️
-
-    ## Introduction
-
-    We present a preview version of **DeepSeek-V4** series, including two strong Mixture-of-Experts (MoE) language models — **DeepSeek-V4-Pro** with 1.6T parameters (49B activated) and **DeepSeek-V4-Flash** with 284B parameters (13B activated) — both supporting a context length of **one million tokens**.
-
-    DeepSeek-V4 series incorporate several key upgrades in architecture and optimization:
-
-    1. **Hybrid Attention Architecture:** We design a hybrid attention mechanism combining Compressed Sparse Attention (CSA) and Heavily Compressed Attention (HCA) to dramatically improve long-context efficiency. In the 1M-token context setting, DeepSeek-V4-Pro requires only **27% of single-token inference FLOPs** and **10% of KV cache** compared with DeepSeek-V3.2.
-    2. **Manifold-Constrained Hyper-Connections (mHC):** We incorporate mHC to strengthen conventional residual connections, enhancing stability of signal propagation across layers while preserving model expressivity.
-    3. **Muon Optimizer:** We employ the Muon optimizer for faster convergence and greater training stability.
-
-    ...
+  description: "# DeepSeek-V4: Towards Highly Efficient Million-Token Context Intelligence\n\nTechnical Report\U0001F441️\n\n## Introduction\n\nWe present a preview version of **DeepSeek-V4** series, including two strong Mixture-of-Experts (MoE) language models — **DeepSeek-V4-Pro** with 1.6T parameters (49B activated) and **DeepSeek-V4-Flash** with 284B parameters (13B activated) — both supporting a context length of **one million tokens**.\n\nDeepSeek-V4 series incorporate several key upgrades in architecture and optimization:\n\n1. **Hybrid Attention Architecture:** We design a hybrid attention mechanism combining Compressed Sparse Attention (CSA) and Heavily Compressed Attention (HCA) to dramatically improve long-context efficiency. In the 1M-token context setting, DeepSeek-V4-Pro requires only **27% of single-token inference FLOPs** and **10% of KV cache** compared with DeepSeek-V3.2.\n2. **Manifold-Constrained Hyper-Connections (mHC):** We incorporate mHC to strengthen conventional residual connections, enhancing stability of signal propagation across layers while preserving model expressivity.\n3. **Muon Optimizer:** We employ the Muon optimizer for faster convergence and greater training stability.\n\n...\n"
   license: "mit"
   tags:
     - llm
@@ -38,8 +23,8 @@
       use_tokenizer_template: true
   files:
     - filename: ds4flash.gguf
-      sha256: ""
       uri: https://huggingface.co/unsloth/DeepSeek-V4-Flash-GGUF
+      sha256: 58a206328080d51b0a374b1e4684c173e3e151b9282be47ee935bfb27047ddfa
 - name: "qwopus3.6-35b-a3b-coder-mtp"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
