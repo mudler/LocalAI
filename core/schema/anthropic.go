@@ -86,6 +86,8 @@ type AnthropicContentBlock struct {
 	ToolUseID string                `json:"tool_use_id,omitempty"`
 	Content   any                   `json:"content,omitempty"`
 	IsError   *bool                 `json:"is_error,omitempty"`
+	Thinking  string                `json:"thinking,omitempty"`
+	Signature string                `json:"signature,omitempty"`
 }
 
 // AnthropicImageSource represents an image source in Anthropic format
@@ -131,6 +133,8 @@ type AnthropicStreamDelta struct {
 	PartialJSON  string  `json:"partial_json,omitempty"`
 	StopReason   *string `json:"stop_reason,omitempty"`
 	StopSequence *string `json:"stop_sequence,omitempty"`
+	Thinking     string  `json:"thinking,omitempty"`
+	Signature    string  `json:"signature,omitempty"`
 }
 
 // AnthropicStreamMessage represents the message object in streaming events
