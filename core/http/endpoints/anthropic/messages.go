@@ -767,6 +767,17 @@ func convertAnthropicToOpenAIMessages(input *schema.AnthropicRequest) []schema.M
 						if text, ok := blockMap["text"].(string); ok {
 							textContent += text
 						}
+					case "thinking":
+						// Anthropic interleaved thinking: preserve the model's reasoning so it
+						// survives the tool-result loop. Signature is Anthropic-cloud specific;
+						// for local models we read but do not validate it.
+						if thinking, ok := blockMap["thinking"].(string); ok && thinking != "" {
+							combined := thinking
+							if openAIMsg.Reasoning != nil {
+								combined = *openAIMsg.Reasoning + thinking
+							}
+							openAIMsg.Reasoning = &combined
+						}
 					case "image":
 						// Handle image content
 						if source, ok := blockMap["source"].(map[string]any); ok {
