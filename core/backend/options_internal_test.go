@@ -293,3 +293,24 @@ var _ = Describe("gRPCPredictOpts chat_template_kwargs metadata", func() {
 		Expect(opts.Metadata).ToNot(HaveKey("chat_template_kwargs"))
 	})
 })
+
+var _ = Describe("EffectiveContextSize", func() {
+	Context("EffectiveContextSize", func() {
+		It("clamps a negative (auto-max sentinel) context size to the default", func() {
+			neg := -1
+			cfg := config.ModelConfig{LLMConfig: config.LLMConfig{ContextSize: &neg}}
+			Expect(EffectiveContextSize(cfg)).To(Equal(DefaultContextSize))
+		})
+
+		It("returns an explicit positive context size unchanged", func() {
+			ctx := 8192
+			cfg := config.ModelConfig{LLMConfig: config.LLMConfig{ContextSize: &ctx}}
+			Expect(EffectiveContextSize(cfg)).To(Equal(8192))
+		})
+
+		It("falls back to the default when context size is unset", func() {
+			cfg := config.ModelConfig{}
+			Expect(EffectiveContextSize(cfg)).To(Equal(DefaultContextSize))
+		})
+	})
+})
