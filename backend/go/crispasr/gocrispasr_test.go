@@ -189,5 +189,32 @@ var _ = Describe("CrispASR", func() {
 			Expect(info.Size()).To(BeNumerically(">", 1024),
 				"expected a non-trivial WAV, got %d bytes", info.Size())
 		})
+
+		It("synthesizes with F5-TTS voice cloning (reference WAV + transcript)", func() {
+			// F5-TTS has no baked speaker: it clones from a reference WAV and
+			// its transcript, supplied via the voice/voice_text options. The
+			// spec skips unless all three fixtures are provided.
+			model := os.Getenv("CRISPASR_F5_MODEL_PATH")
+			refWav := os.Getenv("CRISPASR_F5_REF_WAV")
+			refText := os.Getenv("CRISPASR_F5_REF_TEXT")
+			if model == "" || refWav == "" || refText == "" {
+				Skip("set CRISPASR_F5_MODEL_PATH, CRISPASR_F5_REF_WAV and CRISPASR_F5_REF_TEXT to run this spec")
+			}
+			ensureLibLoaded()
+
+			w := &CrispASR{}
+			Expect(w.Load(&pb.ModelOptions{
+				ModelFile: model,
+				Options:   []string{"voice:" + refWav, "voice_text:" + refText},
+			})).To(Succeed())
+
+			dst := filepath.Join(GinkgoT().TempDir(), "f5.wav")
+			Expect(w.TTS(&pb.TTSRequest{Text: "Hello from LocalAI running F5 text to speech.", Dst: dst})).To(Succeed())
+
+			info, err := os.Stat(dst)
+			Expect(err).ToNot(HaveOccurred(), "synthesized WAV should exist at %q", dst)
+			Expect(info.Size()).To(BeNumerically(">", 1024),
+				"expected a non-trivial WAV, got %d bytes", info.Size())
+		})
 	})
 })
