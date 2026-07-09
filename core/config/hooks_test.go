@@ -274,6 +274,24 @@ var _ = Describe("Backend hooks and parser defaults", func() {
 			Expect(cfg.ContextSize).NotTo(BeNil())
 			Expect(*cfg.ContextSize).To(Equal(DefaultContextSize))
 		})
+
+		It("falls back to the default when context_size=-1 but the GGUF is unreadable", func() {
+			dir := GinkgoT().TempDir()
+			Expect(os.WriteFile(filepath.Join(dir, "bad.gguf"), []byte("not a gguf"), 0o644)).To(Succeed())
+
+			neg := -1
+			cfg := &ModelConfig{
+				Backend:   "llama-cpp",
+				LLMConfig: LLMConfig{ContextSize: &neg},
+				PredictionOptions: schema.PredictionOptions{
+					BasicModelRequest: schema.BasicModelRequest{Model: "bad.gguf"},
+				},
+			}
+			cfg.SetDefaults(ModelPath(dir))
+
+			Expect(cfg.ContextSize).NotTo(BeNil())
+			Expect(*cfg.ContextSize).To(Equal(DefaultContextSize))
+		})
 	})
 
 	Context("PromptCacheAll default", func() {
