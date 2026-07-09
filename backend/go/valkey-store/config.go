@@ -73,7 +73,10 @@ type Config struct {
 	Username       string
 	Password       string
 	UseTLS         bool
+	TLSSkipVerify  bool
+	TLSCACert      string
 	ClientName     string
+	DB             int
 	IndexAlgo      string
 	DistanceMetric string
 	HNSW           hnswParams
@@ -84,26 +87,57 @@ type Config struct {
 // It fails fast on an unknown index algorithm or distance metric so a
 // misconfiguration surfaces at Load() rather than silently degrading search.
 func loadConfig() (Config, error) {
+	// intOr parses an integer env var, failing fast on a malformed value the
+	// same way an invalid index algo or distance metric does. A typo like
+	// VALKEY_HNSW_M=1x6 must surface at Load() rather than silently degrading
+	// to the default and producing subtly wrong (and hard-to-diagnose) index
+	// behaviour. The first parse error wins and is returned below.
+	var parseErr error
+	intOr := func(key string, fallback int) int {
+		v := os.Getenv(key)
+		if v == "" {
+			return fallback
+		}
+		n, err := strconv.Atoi(v)
+		if err != nil {
+			if parseErr == nil {
+				parseErr = fmt.Errorf("valkey-store: invalid %s %q: %w", key, v, err)
+			}
+			return fallback
+		}
+		return n
+	}
+
 	cfg := Config{
 		Addr:           envOr("VALKEY_ADDR", _defaultAddr),
 		Username:       os.Getenv("VALKEY_USERNAME"),
 		Password:       os.Getenv("VALKEY_PASSWORD"),
 		UseTLS:         envBool("VALKEY_TLS", false),
+		TLSSkipVerify:  envBool("VALKEY_TLS_SKIP_VERIFY", false),
+		TLSCACert:      os.Getenv("VALKEY_TLS_CA_CERT"),
 		ClientName:     envOr("VALKEY_CLIENT_NAME", _defaultClientName),
+		DB:             intOr("VALKEY_DB", 0),
 		IndexAlgo:      strings.ToUpper(envOr("VALKEY_INDEX_ALGO", _defaultIndexAlgo)),
 		DistanceMetric: strings.ToUpper(envOr("VALKEY_DISTANCE_METRIC", _defaultDistanceMetric)),
 		HNSW: hnswParams{
-			M:              envInt("VALKEY_HNSW_M", _defaultHNSWM),
-			EFConstruction: envInt("VALKEY_HNSW_EF_CONSTRUCTION", _defaultHNSWEFConstruction),
-			EFRuntime:      envInt("VALKEY_HNSW_EF_RUNTIME", _defaultHNSWEFRuntime),
+			M:              intOr("VALKEY_HNSW_M", _defaultHNSWM),
+			EFConstruction: intOr("VALKEY_HNSW_EF_CONSTRUCTION", _defaultHNSWEFConstruction),
+			EFRuntime:      intOr("VALKEY_HNSW_EF_RUNTIME", _defaultHNSWEFRuntime),
 		},
-		RequestTimeout: time.Duration(envInt("VALKEY_REQUEST_TIMEOUT_MS", _defaultRequestTimeoutMS)) * time.Millisecond,
+		RequestTimeout: time.Duration(intOr("VALKEY_REQUEST_TIMEOUT_MS", _defaultRequestTimeoutMS)) * time.Millisecond,
+	}
+	if parseErr != nil {
+		return Config{}, parseErr
 	}
 
 	// ClientName is mandatory. Restore the default if the operator blanked it,
 	// so the connection is always identifiable.
 	if cfg.ClientName == "" {
 		cfg.ClientName = _defaultClientName
+	}
+
+	if cfg.DB < 0 {
+		return Config{}, fmt.Errorf("valkey-store: invalid VALKEY_DB %d (must be >= 0)", cfg.DB)
 	}
 
 	switch cfg.IndexAlgo {
@@ -145,17 +179,4 @@ func envBool(key string, fallback bool) bool {
 		return fallback
 	}
 	return b
-}
-
-func envInt(key string, fallback int) int {
-	v := os.Getenv(key)
-	if v == "" {
-		return fallback
-	}
-	n, err := strconv.Atoi(v)
-	if err != nil {
-		xlog.Warn("valkey-store: ignoring unparseable env var, using default", "key", key, "value", v, "default", fallback)
-		return fallback
-	}
-	return n
 }
