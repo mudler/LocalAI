@@ -216,8 +216,8 @@ const (
 
 // EffectiveContextSize is the context window the backend will run with: the
 // configured value, or DefaultContextSize when unset. A negative value (the
-// context_size: -1 auto-max sentinel) that survived config resolution — e.g. on
-// a backend that never ran the GGUF resolver — is clamped here so a negative
+// context_size: -1 auto-max sentinel) that survived config resolution, e.g. on
+// a backend that never ran the GGUF resolver, is clamped here so a negative
 // n_ctx never reaches a backend.
 func EffectiveContextSize(c config.ModelConfig) int {
 	if c.ContextSize != nil && *c.ContextSize > 0 {
