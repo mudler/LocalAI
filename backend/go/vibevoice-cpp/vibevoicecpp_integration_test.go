@@ -244,17 +244,19 @@ var _ = Describe("VibeVoice-cpp real-model streaming (VIBEVOICE_IT=1)", Ordered,
 		// -ginkgo.v to surface, stderr is always captured so the headline
 		// TTFA vs batch numbers are never lost in an unattended run.
 		ratio := float64(ttfa) / float64(totalBatch)
+		report := fmt.Sprintf("\n================ vibevoice-cpp streaming TTFA ================\n"+
+			"input words        : ~%d\n"+
+			"TTFA (first audio) : %v\n"+
+			"total_stream       : %v\n"+
+			"total_batch        : %v\n"+
+			"stream chunks      : %d\n"+
+			"stream PCM bytes   : %d\n"+
+			"batch samples/rms  : %d / %.1f\n"+
+			"TTFA / total_batch : %.3f (first audio in this fraction of batch's deliver time)\n"+
+			"==============================================================\n\n",
+			len(paragraph)/6, ttfa, totalStream, totalBatch, chunkCount, pcmBytes, len(batchPCM), rms, ratio)
 		for _, out := range []io.Writer{GinkgoWriter, os.Stderr} {
-			fmt.Fprintf(out, "\n================ vibevoice-cpp streaming TTFA ================\n")
-			fmt.Fprintf(out, "input words        : ~%d\n", len(paragraph)/6)
-			fmt.Fprintf(out, "TTFA (first audio) : %v\n", ttfa)
-			fmt.Fprintf(out, "total_stream       : %v\n", totalStream)
-			fmt.Fprintf(out, "total_batch        : %v\n", totalBatch)
-			fmt.Fprintf(out, "stream chunks      : %d\n", chunkCount)
-			fmt.Fprintf(out, "stream PCM bytes   : %d\n", pcmBytes)
-			fmt.Fprintf(out, "batch samples/rms  : %d / %.1f\n", len(batchPCM), rms)
-			fmt.Fprintf(out, "TTFA / total_batch : %.3f (first audio in this fraction of batch's deliver time)\n", ratio)
-			fmt.Fprintf(out, "==============================================================\n\n")
+			_, _ = io.WriteString(out, report)
 		}
 	})
 })
