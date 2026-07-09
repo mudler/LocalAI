@@ -155,28 +155,95 @@ func (s *ValkeyStore) Load(opts *pb.ModelOptions) error {
 	}
 
 	// A durable Valkey may already hold this namespace's index from a previous
-	// run (this is the persistence capability local-store lacks). Detect it so
-	// Find works before this fresh process issues its first Set: otherwise
-	// indexCreated stays false and StoresFind would short-circuit to an empty
-	// result even though the persisted data is still searchable. We only learn
-	// that the index EXISTS here; the dimension is re-learned lazily (keyLen
-	// stays -1 until the next Set, and Find tolerates an unknown dimension).
-	if s.indexExists(ctx) {
-		s.indexCreated = true
-	}
+	// run (this is the persistence capability local-store lacks). Recover both
+	// its existence AND its vector dimension so Find works before this fresh
+	// process issues its first Set, and — critically — so a post-restart Set
+	// validates the incoming dimension against the real persisted DIM instead
+	// of silently re-learning a wrong one and dropping mismatched vectors from
+	// the index (which would return success while making the entry unsearchable).
+	s.loadIndexState(ctx)
 
 	// Log the sanitized index name (which identifies the namespace) rather than
 	// the raw model-derived namespace, which could carry control characters.
-	xlog.Info("valkey-store loaded", "addr", cfg.Addr, "index", s.indexName, "algo", cfg.IndexAlgo, "metric", cfg.DistanceMetric, "indexExists", s.indexCreated)
+	xlog.Info("valkey-store loaded", "addr", cfg.Addr, "index", s.indexName, "algo", cfg.IndexAlgo, "metric", cfg.DistanceMetric, "indexExists", s.indexCreated, "keyLen", s.keyLen)
 	return nil
 }
 
-// indexExists reports whether the namespace's FT index is already present on
-// the server. FT.INFO returns an error for an unknown index, so a nil error
-// means the index exists. Existence is all we need — the dimension is recovered
-// lazily on the next Set (Find tolerates an unknown dimension after a restart).
-func (s *ValkeyStore) indexExists(ctx context.Context) bool {
-	return s.client.Do(ctx, s.client.B().Arbitrary("FT.INFO").Args(s.indexName).Build()).Error() == nil
+// loadIndexState issues one FT.INFO at Load to recover the persisted index
+// state. FT.INFO returns an error for an unknown index, so a successful reply
+// means the index exists (indexCreated=true). We then recover the vector
+// dimension from the reply and seed keyLen with it: without this, keyLen would
+// stay -1 after a restart and the next Set would blindly re-learn whatever
+// dimension the caller happened to send, accepting a mismatched vector that
+// FT never indexes (silent search-side data loss). If the dimension can't be
+// parsed (e.g. an unexpected FT.INFO layout on some server version), keyLen
+// is left at -1 and validation degrades to the pre-restart lazy behaviour.
+func (s *ValkeyStore) loadIndexState(ctx context.Context) {
+	msg, err := s.client.Do(ctx, s.client.B().FtInfo().Index(s.indexName).Build()).ToMessage()
+	if err != nil {
+		return
+	}
+	s.indexCreated = true
+	if dim, ok := findDimensions(msg); ok && dim > 0 {
+		s.keyLen = dim
+	}
+}
+
+// findDimensions walks an FT.INFO reply for the vector field's dimension. In
+// Valkey Search the VECTOR attribute nests its parameters under an `index`
+// array whose `dimensions` key holds the DIM the index was created with. The
+// reply is a nested array (RESP2) or map (RESP3), so we search recursively for
+// a `dimensions` key/token and read the value that follows it, tolerating both
+// integer and string-encoded values.
+func findDimensions(m valkey.ValkeyMessage) (int, bool) {
+	if m.IsMap() {
+		mp, err := m.AsMap()
+		if err != nil {
+			return 0, false
+		}
+		for k, v := range mp {
+			if strings.EqualFold(k, "dimensions") {
+				if n, ok := msgToInt(v); ok {
+					return n, true
+				}
+			}
+			if d, ok := findDimensions(v); ok {
+				return d, true
+			}
+		}
+		return 0, false
+	}
+	if m.IsArray() {
+		arr, err := m.ToArray()
+		if err != nil {
+			return 0, false
+		}
+		for i := range arr {
+			if s, err := arr[i].ToString(); err == nil && strings.EqualFold(s, "dimensions") && i+1 < len(arr) {
+				if n, ok := msgToInt(arr[i+1]); ok {
+					return n, true
+				}
+			}
+			if d, ok := findDimensions(arr[i]); ok {
+				return d, true
+			}
+		}
+	}
+	return 0, false
+}
+
+// msgToInt reads an integer from a ValkeyMessage that may be an integer reply
+// or a string-encoded integer (FT.INFO mixes both across fields/versions).
+func msgToInt(m valkey.ValkeyMessage) (int, bool) {
+	if n, err := m.ToInt64(); err == nil {
+		return int(n), true
+	}
+	if s, err := m.ToString(); err == nil {
+		if n, err := strconv.Atoi(s); err == nil {
+			return n, true
+		}
+	}
+	return 0, false
 }
 
 // Free closes the Valkey client. Called by the gRPC server on shutdown.
@@ -206,14 +273,14 @@ func (s *ValkeyStore) StoresSet(opts *pb.StoresSetOptions) error {
 	}
 
 	// Learn the dimension from the first key ever set (mirrors local-store's
-	// keyLen == -1 sentinel), then reject anything that disagrees.
+	// keyLen == -1 sentinel), then reject anything that disagrees. checkDims is
+	// the single source of truth for the per-key length check (shared with
+	// Get/Delete/Find) so the four RPCs cannot drift apart.
 	if s.keyLen == -1 {
 		s.keyLen = len(keys[0])
 	}
-	for i, k := range keys {
-		if len(k) != s.keyLen {
-			return fmt.Errorf("valkey-store: Set: key %d length %d does not match existing %d", i, len(k), s.keyLen)
-		}
+	if err := s.checkDims("Set", keys); err != nil {
+		return err
 	}
 
 	// The index needs the dimension up front, but local-store learns it from
@@ -341,10 +408,11 @@ func (s *ValkeyStore) StoresFind(opts *pb.StoresFindOptions) (pb.StoresFindResul
 	if !s.indexCreated {
 		return pb.StoresFindResult{}, nil
 	}
-	// Only enforce the query dimension once it is known. After a restart the
-	// index exists (indexCreated=true) but keyLen is still -1 until the next
-	// Set; in that case we let Valkey validate the query vector's dimension
-	// against the persisted index rather than rejecting a legitimate query.
+	// Enforce the query dimension against the known keyLen — recovered from
+	// FT.INFO at Load after a restart, or learned from the first Set — so a
+	// wrong-dimension query gets the clean local-store-style error. keyLen is
+	// only -1 in the degraded case where FT.INFO gave no parseable dimension;
+	// then we let Valkey's own FT.SEARCH validate the query vector.
 	if s.keyLen != -1 && len(query) != s.keyLen {
 		return pb.StoresFindResult{}, fmt.Errorf("valkey-store: Find: query length %d does not match existing %d", len(query), s.keyLen)
 	}
@@ -370,6 +438,16 @@ func (s *ValkeyStore) StoresFind(opts *pb.StoresFindOptions) (pb.StoresFindResul
 
 	_, docs, err := s.client.Do(ctx, cmd).AsFtSearch()
 	if err != nil {
+		// The cached indexCreated flag can go stale: an operator runs
+		// FT.DROPINDEX out of band, or two processes race on a fresh namespace.
+		// If the index is gone, mirror local-store's empty-store behaviour
+		// (empty result, no error) and clear the flag so a later Set recreates
+		// it, rather than surfacing a hard error for what looks like an empty
+		// store to the caller.
+		if isNoSuchIndexErr(err) {
+			s.indexCreated = false
+			return pb.StoresFindResult{}, nil
+		}
 		return pb.StoresFindResult{}, fmt.Errorf("valkey-store: Find: FT.SEARCH: %w", err)
 	}
 
@@ -472,6 +550,21 @@ func distanceToSimilarity(metric string, dist float64) float32 {
 // "index already exists" case (e.g. after a restart against a persisted index).
 func isIndexExistsErr(err error) bool {
 	return strings.Contains(strings.ToLower(err.Error()), "already exists")
+}
+
+// isNoSuchIndexErr reports whether an FT.SEARCH error means the index no longer
+// exists (dropped out of band, or never really created despite a stale cached
+// flag). Valkey Search phrases this differently across versions, so we match
+// the common variants rather than one exact string.
+func isNoSuchIndexErr(err error) bool {
+	msg := strings.ToLower(err.Error())
+	if !strings.Contains(msg, "index") {
+		return false
+	}
+	return strings.Contains(msg, "no such index") ||
+		strings.Contains(msg, "not exist") ||
+		strings.Contains(msg, "not found") ||
+		strings.Contains(msg, "unknown index")
 }
 
 // keyPrefix / indexName derive per-namespace identifiers from the model name so
