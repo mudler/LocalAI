@@ -81,7 +81,7 @@
   files:
     - filename: ds4flash.gguf
       uri: https://huggingface.co/unsloth/DeepSeek-V4-Flash-GGUF
-      sha256: 58a206328080d51b0a374b1e4684c173e3e151b9282be47ee935bfb27047ddfa
+      sha256: df58dd40f8ffa648c65a9cf963b0028a78ffba9caaf0c1c97361f1f2eef52dcd
 - name: "qwopus3.6-35b-a3b-coder-mtp"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
@@ -36926,7 +36926,7 @@
   files:
     - filename: f5-tts-v1-base-f16.gguf
       uri: huggingface://cstr/f5-tts-GGUF/f5-tts-v1-base-f16.gguf
-      sha256: fdd6ba8baa9e1224072cd0bea795f7962daf00e89b5d8c736fb06b3155c8d1f1
+      sha256: 25a4d273048dad072774ff139cf19b96fe442bebda8392c08009d73256cf1e81
 - name: piper-it_IT-riccardo-x_low-crispasr
   url: github:mudler/LocalAI/gallery/virtual.yaml@master
   urls:
