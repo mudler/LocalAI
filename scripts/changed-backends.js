@@ -33,6 +33,14 @@ function inferBackendPath(item) {
   if (item.backend === "ced") {
     return `backend/go/ced/`;
   }
+  // moss-transcribe-cpp is a Go backend (Dockerfile.golang) wrapping the
+  // moss-transcribe.cpp ggml port via purego, living in
+  // backend/go/moss-transcribe-cpp/. Same explicit-branch rationale as
+  // parakeet-cpp / ced: the generic golang fallthrough would also resolve it,
+  // but this documents the mapping and guards a future dockerfile-suffix change.
+  if (item.backend === "moss-transcribe-cpp") {
+    return `backend/go/moss-transcribe-cpp/`;
+  }
   if (item.dockerfile.endsWith("golang")) {
     return `backend/go/${item.backend}/`;
   }

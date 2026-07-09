@@ -36199,6 +36199,37 @@
     - filename: parakeet-cpp/nemotron-3.5-asr-streaming-0.6b-q8_0.gguf
       uri: huggingface://mudler/parakeet-cpp-gguf/nemotron-3.5-asr-streaming-0.6b-q8_0.gguf
       sha256: ba2f13eccd4a5245be728f77e6149bd6a4fdcdd133ff2e08ac6005bcef7a99f1
+- name: moss-transcribe-cpp-0.9b
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/mudler/moss-transcribe.cpp-gguf
+    - https://github.com/mudler/moss-transcribe.cpp
+  description: |
+    MOSS-Transcribe-Diarize 0.9B, an end-to-end audio understanding model for joint multi-speaker transcription,
+    speaker diarization and timestamping in a single pass. Q5_K GGUF for the moss-transcribe-cpp backend (C++/ggml
+    port of OpenMOSS MOSS-Transcribe-Diarize), byte-identical to the reference at ~1/6 the size. Faster than the
+    reference PyTorch runtime on CPU (1.6 to 2.2x).
+  license: apache-2.0
+  tags:
+    - moss
+    - moss-transcribe-cpp
+    - asr
+    - diarization
+    - speech-recognition
+    - stt
+    - gguf
+    - ggml
+  overrides:
+    backend: moss-transcribe-cpp
+    known_usecases:
+      - transcript
+    name: moss-transcribe-cpp-0.9b
+    parameters:
+      model: moss-transcribe-cpp/moss-transcribe-q5_k.gguf
+  files:
+    - filename: moss-transcribe-cpp/moss-transcribe-q5_k.gguf
+      uri: huggingface://mudler/moss-transcribe.cpp-gguf/moss-transcribe-q5_k.gguf
+      sha256: 6fe985fd9a9cd043728f7be49659d10de6901872dad73b49e3c30e1340582e79
 - name: parakeet-crispasr
   url: github:mudler/LocalAI/gallery/virtual.yaml@master
   urls:

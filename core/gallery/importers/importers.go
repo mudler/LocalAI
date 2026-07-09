@@ -119,6 +119,10 @@ var defaultImporters = []Importer{
 	// kept ahead of LlamaCPPImporter so its .gguf bundles aren't claimed by the
 	// generic GGUF importer.
 	&ParakeetCppImporter{},
+	// MossTranscribeCppImporter matches only moss-transcribe GGUFs
+	// (moss-transcribe[-<quant>].gguf); like parakeet-cpp it stays ahead of
+	// LlamaCPPImporter so its .gguf bundles aren't claimed by the generic GGUF importer.
+	&MossTranscribeCppImporter{},
 	// TTS (Batch 2)
 	&PiperImporter{},
 	&BarkImporter{},
