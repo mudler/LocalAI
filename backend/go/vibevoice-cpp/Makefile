@@ -11,7 +11,7 @@ JOBS?=$(shell nproc --ignore=1)
 # already do for ik_llama.cpp / llama.cpp / whisper.cpp). Floating on
 # `master` led to silent ABI breaks reaching CI — pin it.
 VIBEVOICE_REPO?=https://github.com/mudler/vibevoice.cpp
-VIBEVOICE_CPP_VERSION?=fba244900e768442e4ae258f1d29688854393a29
+VIBEVOICE_CPP_VERSION?=000e37282bc5bb09edc20f7047a47924122ba3a0
 SO_TARGET?=libgovibevoicecpp.so
 
 CMAKE_ARGS+=-DBUILD_SHARED_LIBS=OFF
