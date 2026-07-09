@@ -306,6 +306,97 @@ var _ = Describe("distanceToSimilarity", func() {
 	})
 })
 
+var _ = Describe("findDimensions", func() {
+	It("recovers an integer dimension from a nested FT.INFO reply", func() {
+		dim, ok := findDimensions(ftInfoReply(mock.ValkeyInt64(768)))
+		Expect(ok).To(BeTrue())
+		Expect(dim).To(Equal(768))
+	})
+
+	It("recovers a string-encoded dimension", func() {
+		dim, ok := findDimensions(ftInfoReply(mock.ValkeyString("384")))
+		Expect(ok).To(BeTrue())
+		Expect(dim).To(Equal(384))
+	})
+
+	It("reports not-found when no dimension token is present", func() {
+		reply := mock.ValkeyArray(
+			mock.ValkeyString("index_name"), mock.ValkeyString("idx:test"),
+			mock.ValkeyString("num_docs"), mock.ValkeyInt64(0),
+		)
+		_, ok := findDimensions(reply)
+		Expect(ok).To(BeFalse())
+	})
+})
+
+var _ = Describe("loadIndexState", func() {
+	It("recovers indexCreated and keyLen from a persisted index", func() {
+		s, c := newMockStore(testCfg())
+		c.EXPECT().Do(gomock.Any(), gomock.Any()).DoAndReturn(
+			func(_ context.Context, cmd valkey.Completed) valkey.ValkeyResult {
+				Expect(cmd.Commands()[0]).To(Equal("FT.INFO"))
+				return mock.Result(ftInfoReply(mock.ValkeyInt64(768)))
+			}).Times(1)
+
+		ctx, cancel := s.ctx()
+		defer cancel()
+		s.loadIndexState(ctx)
+		Expect(s.indexCreated).To(BeTrue())
+		Expect(s.keyLen).To(Equal(768))
+	})
+
+	It("leaves state untouched when the index does not exist", func() {
+		s, c := newMockStore(testCfg())
+		c.EXPECT().Do(gomock.Any(), gomock.Any()).Return(
+			mock.ErrorResult(fmt.Errorf("Index with name 'idx:test' not found"))).Times(1)
+
+		ctx, cancel := s.ctx()
+		defer cancel()
+		s.loadIndexState(ctx)
+		Expect(s.indexCreated).To(BeFalse())
+		Expect(s.keyLen).To(Equal(-1))
+	})
+
+	It("marks the index created but leaves keyLen open when the dim is unparseable", func() {
+		s, c := newMockStore(testCfg())
+		c.EXPECT().Do(gomock.Any(), gomock.Any()).Return(
+			mock.Result(mock.ValkeyArray(mock.ValkeyString("index_name"), mock.ValkeyString("idx:test")))).Times(1)
+
+		ctx, cancel := s.ctx()
+		defer cancel()
+		s.loadIndexState(ctx)
+		Expect(s.indexCreated).To(BeTrue())
+		Expect(s.keyLen).To(Equal(-1))
+	})
+})
+
+var _ = Describe("StoresFind on a dropped index", func() {
+	It("returns empty (no error) and clears the stale flag when the index is gone", func() {
+		s, c := newMockStore(testCfg())
+		s.keyLen = 3
+		s.indexCreated = true
+		c.EXPECT().Do(gomock.Any(), gomock.Any()).Return(
+			mock.ErrorResult(fmt.Errorf("Index with name 'idx:test' not found"))).Times(1)
+
+		res, err := s.StoresFind(&pb.StoresFindOptions{Key: &pb.StoresKey{Floats: []float32{1, 0, 0}}, TopK: 5})
+		Expect(err).NotTo(HaveOccurred())
+		Expect(res.Keys).To(BeEmpty())
+		Expect(s.indexCreated).To(BeFalse())
+	})
+
+	It("still surfaces a genuine FT.SEARCH error", func() {
+		s, c := newMockStore(testCfg())
+		s.keyLen = 3
+		s.indexCreated = true
+		c.EXPECT().Do(gomock.Any(), gomock.Any()).Return(
+			mock.ErrorResult(fmt.Errorf("timeout"))).Times(1)
+
+		_, err := s.StoresFind(&pb.StoresFindOptions{Key: &pb.StoresKey{Floats: []float32{1, 0, 0}}, TopK: 5})
+		Expect(err).To(HaveOccurred())
+		Expect(s.indexCreated).To(BeTrue())
+	})
+})
+
 // --- test helpers ---
 
 type ftDoc struct {
@@ -333,6 +424,29 @@ func assertFTCreate(dim int, algo string) func(context.Context, valkey.Completed
 	}
 }
 
+// ftInfoReply builds a RESP2-shaped FT.INFO reply that mirrors Valkey Search's
+// nesting: the VECTOR attribute carries its params under an `index` array whose
+// `dimensions` key holds the DIM. dimValue is the message the parser must read
+// back (integer or string-encoded), so both wire shapes can be exercised.
+func ftInfoReply(dimValue valkey.ValkeyMessage) valkey.ValkeyMessage {
+	vectorAttr := mock.ValkeyArray(
+		mock.ValkeyString("identifier"), mock.ValkeyString(_vecField),
+		mock.ValkeyString("attribute"), mock.ValkeyString(_vecField),
+		mock.ValkeyString("type"), mock.ValkeyString("VECTOR"),
+		mock.ValkeyString("index"), mock.ValkeyArray(
+			mock.ValkeyString("capacity"), mock.ValkeyInt64(1000),
+			mock.ValkeyString("dimensions"), dimValue,
+			mock.ValkeyString("distance_metric"), mock.ValkeyString("COSINE"),
+			mock.ValkeyString("data_type"), mock.ValkeyString("FLOAT32"),
+		),
+	)
+	return mock.ValkeyArray(
+		mock.ValkeyString("index_name"), mock.ValkeyString("idx:test"),
+		mock.ValkeyString("attributes"), mock.ValkeyArray(vectorAttr),
+		mock.ValkeyString("num_docs"), mock.ValkeyInt64(0),
+	)
+}
+
 // ftSearchReply builds a RESP2-shaped FT.SEARCH reply: [total, key, attrs, ...]
 // where attrs carries the returned vec/val/__score fields.
 func ftSearchReply(prefix string, docs []ftDoc) valkey.ValkeyMessage {
@@ -348,7 +462,6 @@ func ftSearchReply(prefix string, docs []ftDoc) valkey.ValkeyMessage {
 	}
 	return mock.ValkeyArray(arr...)
 }
-
 
 var _ = Describe("namespace token", func() {
 	It("is stable for the same namespace (so a persisted index is found again)", func() {
