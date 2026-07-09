@@ -1,4 +1,61 @@
 ---
+- name: "minicpm5-1b-claude-opus-fable5-thinking"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/GnLOLot/MiniCPM5-1B-Claude-Opus-Fable5-Thinking-GGUF
+  description: |
+    # MiniCPM5-1B-Claude-Opus-Fable5-Thinking
+
+    GGUF quantizations for local deployment: **MiniCPM5-1B-Claude-Opus-Fable5-Thinking-GGUF**
+
+    中文说明
+
+    **MiniCPM5-1B-Claude-Opus-Fable5-Thinking** is a compact 1B **Thinking** language model built on openbmb/MiniCPM5-1B. It is further fine-tuned on **Fable 5** data to improve **coding** and **instruction-following** while keeping MiniCPM5's native Thinking chat template and tool-call format.
+
+    For llama.cpp / Ollama / LM Studio deployment, see the **GGUF repository**.
+
+    ## Overview
+
+    ## Capabilities
+
+      - **Coding** — code generation, debugging, and software-engineering-style tasks
+      - **Instruction following** — more reliable adherence to user prompts and structured constraints
+      - **Thinking mode** — chain-of-thought reasoning via the MiniCPM5 chat template
+      - **Tool calling** — inherits MiniCPM5's XML tool-call format
+      - **Long context** — up to **128K tokens** (131,072 tokens per `config.json`)
+
+    ## Quick start
+
+    ```python
+    from transformers import AutoModelForCausalLM, AutoTokenizer
+    import torch
+
+    model_id = "GnLOLot/MiniCPM5-1B-Claude-Opus-Fable5-Thinking"
+
+    ...
+  license: "apache-2.0"
+  tags:
+    - llm
+    - gguf
+    - thinking
+  overrides:
+    backend: llama-cpp
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/MiniCPM5-1B-Claude-Opus-Fable5-Thinking-Q4_K_M/MiniCPM5-1B-Claude-Opus-Fable5-Thinking-Q4_K_M.gguf
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/MiniCPM5-1B-Claude-Opus-Fable5-Thinking-Q4_K_M/MiniCPM5-1B-Claude-Opus-Fable5-Thinking-Q4_K_M.gguf
+      sha256: 3d20b45b4ffdfb71716c3aa121dab56b5d9a563d26088719167fcc7688083b16
+      uri: https://huggingface.co/GnLOLot/MiniCPM5-1B-Claude-Opus-Fable5-Thinking-GGUF/resolve/main/MiniCPM5-1B-Claude-Opus-Fable5-Thinking-Q4_K_M.gguf
 - name: "deepseek-v4-flash"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
