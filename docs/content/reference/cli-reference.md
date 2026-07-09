@@ -73,7 +73,7 @@ For more information on VRAM management, see [VRAM and Memory Management]({{%rel
 |-----------|---------|-------------|----------------------|
 | `--f16` | `false` | Enable GPU acceleration | `$LOCALAI_F16`, `$F16` |
 | `-t, --threads` | | Number of threads used for parallel computation. Usage of the number of physical cores in the system is suggested | `$LOCALAI_THREADS`, `$THREADS` |
-| `--context-size` | | Default context size for models | `$LOCALAI_CONTEXT_SIZE`, `$CONTEXT_SIZE` |
+| `--context-size` | | Default context size for models (`-1` = each model's full trained context from GGUF metadata) | `$LOCALAI_CONTEXT_SIZE`, `$CONTEXT_SIZE` |
 
 ## API Flags
 

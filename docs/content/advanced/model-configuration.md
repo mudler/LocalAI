@@ -145,7 +145,7 @@ These settings apply to most LLM backends (llama.cpp, vLLM, etc.):
 | Field | Type | Default | Description |
 |-------|------|---------|-------------|
 | `threads` | int | `processor count` | Number of threads for parallel computation |
-| `context_size` | int | `512` | Maximum context size (number of tokens) |
+| `context_size` | int | `512` | Maximum context size in tokens. Set to `-1` to auto-use the model's full trained context from GGUF metadata (raw max, no VRAM capping; a warning is logged if it may not fit detected VRAM). |
 | `f16` | bool | `false` | Enable 16-bit floating point precision (GPU acceleration) |
 | `gpu_layers` | int | `0` | Number of layers to offload to GPU (0 = CPU only) |
 
