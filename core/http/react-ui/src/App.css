@@ -2425,6 +2425,9 @@ select.input {
   overflow-x: auto;
   border: 1px solid var(--color-border-subtle);
   border-radius: var(--radius-lg);
+  /* Prevent flexbox container from stretching due to large inner HTML tables */
+  width: 1px;
+  min-width: 100%;
 }
 
 /* ResponsiveTable: stack dense tables into label/value cards on narrow screens
