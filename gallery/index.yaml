@@ -36811,6 +36811,34 @@
     - filename: snac-24khz.gguf
       uri: huggingface://cstr/snac-24khz-GGUF/snac-24khz.gguf
       sha256: b4b044631df62ececa86ab080516b3e619cd8f93caabd5f6758c7eae14981bd8
+- name: f5-tts-crispasr
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/SWivid/F5-TTS
+    - https://huggingface.co/cstr/f5-tts-GGUF
+  description: |
+    F5-TTS v1 Base (SWivid, MIT) text-to-speech synthesized through the CrispASR backend. A 22-layer DiT flow-matching model with a built-in Vocos vocoder in a single self-contained GGUF (no separate codec). Auto-detected by CrispASR and runs end-to-end on CPU, producing 24 kHz mono audio.
+
+    F5-TTS is a voice-cloning model with no built-in speaker: you must supply a reference clip and its transcript. Add `voice:<reference.wav>` and `voice_text:<transcript of the reference>` to the model's `options` (paths resolve against the model directory) before synthesizing; without a reference the model cannot generate audio.
+
+    Default GGUF size ~945 MB (f16). Quantization below f16 is not recommended for flow-matching models. Synthesis runs a 32-step ODE solver and is compute-heavy on CPU (expect long generation times without a GPU-enabled CrispASR build).
+  tags:
+    - crispasr
+    - tts
+    - text-to-speech
+    - gguf
+    - voice-cloning
+  overrides:
+    backend: crispasr
+    known_usecases:
+      - tts
+    name: f5-tts-crispasr
+    parameters:
+      model: f5-tts-v1-base-f16.gguf
+  files:
+    - filename: f5-tts-v1-base-f16.gguf
+      uri: huggingface://cstr/f5-tts-GGUF/f5-tts-v1-base-f16.gguf
+      sha256: fdd6ba8baa9e1224072cd0bea795f7962daf00e89b5d8c736fb06b3155c8d1f1
 - name: piper-it_IT-riccardo-x_low-crispasr
   url: github:mudler/LocalAI/gallery/virtual.yaml@master
   urls:
