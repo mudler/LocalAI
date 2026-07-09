@@ -80,7 +80,10 @@ The connection and index are configured through environment variables read by th
 | `VALKEY_USERNAME` | *(empty)* | Optional ACL username. |
 | `VALKEY_PASSWORD` | *(empty)* | Optional password / ACL secret. |
 | `VALKEY_TLS` | `false` | Enable TLS (required by many managed deployments). |
+| `VALKEY_TLS_CA_CERT` | *(empty)* | Path to a PEM CA bundle used to verify the server certificate (self-signed / private CA). |
+| `VALKEY_TLS_SKIP_VERIFY` | `false` | Skip TLS certificate verification. Insecure — for testing only. |
 | `VALKEY_CLIENT_NAME` | `localai-valkey-store` | Connection name reported by `CLIENT LIST`. Always set. |
+| `VALKEY_DB` | `0` | Logical Valkey DB index (`SELECT n`). Namespace prefixing already isolates keyspaces on a shared DB. |
 | `VALKEY_INDEX_ALGO` | `FLAT` | `FLAT` (exact, default) or `HNSW` (approximate ANN for large corpora). |
 | `VALKEY_HNSW_M` | `16` | HNSW graph degree (only when `VALKEY_INDEX_ALGO=HNSW`). |
 | `VALKEY_HNSW_EF_CONSTRUCTION` | `200` | HNSW build-time candidate list (HNSW only). |
@@ -109,7 +112,11 @@ backend.
 {{% notice warning %}}
 `VALKEY_TLS` defaults to `false` (plaintext). Set `VALKEY_TLS=true` whenever the Valkey server is
 not on `localhost` or a `VALKEY_PASSWORD`/`VALKEY_USERNAME` is configured, otherwise the credentials
-and the stored vectors travel the network unencrypted.
+and the stored vectors travel the network unencrypted. The TLS `ServerName` (SNI) is derived from
+the host portion of `VALKEY_ADDR`, so certificate verification works for both hostname and
+IP-addressed endpoints. For a self-signed / private CA, point `VALKEY_TLS_CA_CERT` at the PEM
+bundle; `VALKEY_TLS_SKIP_VERIFY=true` disables verification entirely and should only be used for
+local testing.
 {{% /notice %}}
 
 ## Set

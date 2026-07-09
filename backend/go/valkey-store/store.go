@@ -28,8 +28,11 @@ import (
 	"context"
 	"crypto/sha256"
 	"crypto/tls"
+	"crypto/x509"
 	"encoding/hex"
 	"fmt"
+	"net"
+	"os"
 	"strconv"
 	"strings"
 
@@ -59,6 +62,12 @@ const (
 	// it is in-memory; a networked backend wants a guard. Callers asking for
 	// more than this get the top _maxTopK results.
 	_maxTopK = 10000
+
+	// _maxNsTokenLen bounds the human-readable portion of a namespace token so
+	// a very long model name cannot produce an unbounded key prefix / index
+	// name. The appended short hash keeps distinct namespaces collision-free
+	// even when their sanitized prefixes are truncated to the same value.
+	_maxNsTokenLen = 64
 )
 
 // ValkeyStore implements the gRPC store Backend against Valkey Search.
@@ -122,12 +131,20 @@ func (s *ValkeyStore) Load(opts *pb.ModelOptions) error {
 		Username:    cfg.Username,
 		Password:    cfg.Password,
 		ClientName:  cfg.ClientName,
+		// SelectDB picks a logical Valkey DB (SELECT n) for deployments that use
+		// numbered DBs for isolation. Defaults to 0; namespace prefixing already
+		// isolates keyspaces on a shared DB.
+		SelectDB: cfg.DB,
 		// Disable client-side caching: values are opaque blobs written once and
 		// read rarely, so tracking invalidations would only add overhead.
 		DisableCache: true,
 	}
 	if cfg.UseTLS {
-		clientOpt.TLSConfig = &tls.Config{}
+		tlsCfg, err := buildTLSConfig(cfg)
+		if err != nil {
+			return err
+		}
+		clientOpt.TLSConfig = tlsCfg
 	}
 
 	// Close any client from a previous Load so a re-entrant Load does not leak
@@ -255,6 +272,35 @@ func (s *ValkeyStore) Free() error {
 	return nil
 }
 
+// buildTLSConfig assembles the tls.Config for a VALKEY_TLS=true connection.
+// Go only auto-derives ServerName (SNI) from the dial address for hostnames;
+// for an IP-addressed endpoint (e.g. 10.0.0.5:6379) SNI is left empty and the
+// certificate's SANs won't match the raw IP, so verification fails. We set it
+// explicitly from the configured host so both hostname and IP endpoints verify.
+// A custom CA bundle (VALKEY_TLS_CA_CERT) and an explicit insecure-skip escape
+// hatch (VALKEY_TLS_SKIP_VERIFY) are supported for enterprise/self-signed setups.
+func buildTLSConfig(cfg Config) (*tls.Config, error) {
+	tlsCfg := &tls.Config{}
+	if host, _, err := net.SplitHostPort(cfg.Addr); err == nil && host != "" {
+		tlsCfg.ServerName = host
+	}
+	if cfg.TLSSkipVerify {
+		tlsCfg.InsecureSkipVerify = true
+	}
+	if cfg.TLSCACert != "" {
+		pem, err := os.ReadFile(cfg.TLSCACert)
+		if err != nil {
+			return nil, fmt.Errorf("valkey-store: read VALKEY_TLS_CA_CERT %q: %w", cfg.TLSCACert, err)
+		}
+		pool := x509.NewCertPool()
+		if !pool.AppendCertsFromPEM(pem) {
+			return nil, fmt.Errorf("valkey-store: VALKEY_TLS_CA_CERT %q: no valid certificate found", cfg.TLSCACert)
+		}
+		tlsCfg.RootCAs = pool
+	}
+	return tlsCfg, nil
+}
+
 // ctx returns a request-scoped context bounded by the configured timeout. We
 // never rely on the client's built-in write timeout because index back-fill
 // and large KNN queries can legitimately exceed a short default.
@@ -332,6 +378,13 @@ func (s *ValkeyStore) StoresGet(opts *pb.StoresGetOptions) (pb.StoresGetResult, 
 		return pb.StoresGetResult{}, err
 	}
 
+	// Reads pipeline the whole batch via DoMulti under ONE aggregate deadline,
+	// unlike Set/Delete which use a per-command timeout. That asymmetry is
+	// deliberate: HGET is non-mutating, so exhausting the deadline mid-batch
+	// only truncates the result (surfaced as an error) — it can never leave a
+	// partial write behind, which is the specific hazard the per-command timeout
+	// guards against for Set/Delete. Pipelining is also safe here because these
+	// are non-indexed reads (the indexed-DoMulti deadlock only affects writes).
 	ctx, cancel := s.ctx()
 	defer cancel()
 
@@ -394,6 +447,11 @@ func (s *ValkeyStore) StoresDelete(opts *pb.StoresDeleteOptions) error {
 // metric, ordered most-similar first. An empty/uncreated index returns empty
 // slices and no error, matching local-store's empty-store behaviour.
 func (s *ValkeyStore) StoresFind(opts *pb.StoresFindOptions) (pb.StoresFindResult, error) {
+	// Guard against a malformed gRPC request with a nil/empty Key before
+	// dereferencing it — a nil opts.Key would otherwise panic the backend.
+	if opts.Key == nil || len(opts.Key.Floats) == 0 {
+		return pb.StoresFindResult{}, fmt.Errorf("valkey-store: Find: query key is empty")
+	}
 	query := opts.Key.Floats
 	topK := int(opts.TopK)
 	if topK < 1 {
@@ -428,6 +486,12 @@ func (s *ValkeyStore) StoresFind(opts *pb.StoresFindOptions) (pb.StoresFindResul
 	// SORTABLE schema attribute). LIMIT 0 topK caps the result and DIALECT 2 is
 	// required for the =>[KNN ...] vector syntax. The __score field is still
 	// returned in each document and read back for the similarity conversion.
+	//
+	// Injection-safety: the only caller-controlled value interpolated here is
+	// topK (an int, already bounded above). _vecField and _scoreField are
+	// compile-time constants, so this Sprintf cannot be used to inject query
+	// syntax. Do NOT make those fields operator-configurable without sanitizing
+	// them first — the KNN query string is otherwise built only from constants.
 	q := fmt.Sprintf("*=>[KNN %d @%s $q AS %s]", topK, _vecField, _scoreField)
 	cmd := s.client.B().FtSearch().Index(s.indexName).Query(q).
 		Return("3").Identifier(_vecField).Identifier(_valField).Identifier(_scoreField).
@@ -586,7 +650,15 @@ func indexName(namespace string) string {
 // persisted index is found again after a restart.
 func nsToken(namespace string) string {
 	sum := sha256.Sum256([]byte(namespace))
-	return sanitize(namespace) + "-" + hex.EncodeToString(sum[:])[:8]
+	// Cap the human-readable part so a pathologically long model name can't
+	// produce an unbounded key prefix / index name (which would degrade Valkey
+	// performance). The 8-char hash suffix below already guarantees collision
+	// resistance regardless of truncation, so trimming the readable part is safe.
+	readable := sanitize(namespace)
+	if len(readable) > _maxNsTokenLen {
+		readable = readable[:_maxNsTokenLen]
+	}
+	return readable + "-" + hex.EncodeToString(sum[:])[:8]
 }
 
 // sanitize maps a namespace to a safe token for keys/index names: alphanumeric,

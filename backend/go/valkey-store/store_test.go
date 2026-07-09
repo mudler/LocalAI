@@ -47,7 +47,8 @@ var _ = Describe("loadConfig", func() {
 	// nothing, so there's no error to check).
 	envKeys := []string{
 		"VALKEY_ADDR", "VALKEY_CLIENT_NAME", "VALKEY_INDEX_ALGO", "VALKEY_DISTANCE_METRIC",
-		"VALKEY_REQUEST_TIMEOUT_MS", "VALKEY_TLS", "VALKEY_HNSW_M",
+		"VALKEY_REQUEST_TIMEOUT_MS", "VALKEY_TLS", "VALKEY_TLS_SKIP_VERIFY", "VALKEY_TLS_CA_CERT",
+		"VALKEY_DB", "VALKEY_HNSW_M", "VALKEY_HNSW_EF_CONSTRUCTION", "VALKEY_HNSW_EF_RUNTIME",
 	}
 
 	BeforeEach(func() {
@@ -94,6 +95,26 @@ var _ = Describe("loadConfig", func() {
 
 	It("rejects an invalid distance metric", func() {
 		GinkgoT().Setenv("VALKEY_DISTANCE_METRIC", "bogus")
+		_, err := loadConfig()
+		Expect(err).To(HaveOccurred())
+	})
+
+	It("fails fast on a malformed HNSW integer instead of silently defaulting", func() {
+		GinkgoT().Setenv("VALKEY_HNSW_M", "1x6")
+		_, err := loadConfig()
+		Expect(err).To(HaveOccurred())
+		Expect(err.Error()).To(ContainSubstring("VALKEY_HNSW_M"))
+	})
+
+	It("honours a valid VALKEY_DB override", func() {
+		GinkgoT().Setenv("VALKEY_DB", "3")
+		cfg, err := loadConfig()
+		Expect(err).NotTo(HaveOccurred())
+		Expect(cfg.DB).To(Equal(3))
+	})
+
+	It("rejects a negative VALKEY_DB", func() {
+		GinkgoT().Setenv("VALKEY_DB", "-1")
 		_, err := loadConfig()
 		Expect(err).To(HaveOccurred())
 	})
@@ -251,6 +272,22 @@ var _ = Describe("StoresFind", func() {
 		s.keyLen = 3
 		s.indexCreated = true
 		_, err := s.StoresFind(&pb.StoresFindOptions{Key: &pb.StoresKey{Floats: []float32{1, 0, 0}}, TopK: 0})
+		Expect(err).To(HaveOccurred())
+	})
+
+	It("rejects a nil Key without panicking", func() {
+		s, _ := newMockStore(testCfg())
+		s.keyLen = 3
+		s.indexCreated = true
+		_, err := s.StoresFind(&pb.StoresFindOptions{TopK: 5})
+		Expect(err).To(HaveOccurred())
+	})
+
+	It("rejects an empty query vector", func() {
+		s, _ := newMockStore(testCfg())
+		s.keyLen = 3
+		s.indexCreated = true
+		_, err := s.StoresFind(&pb.StoresFindOptions{Key: &pb.StoresKey{Floats: []float32{}}, TopK: 5})
 		Expect(err).To(HaveOccurred())
 	})
 
