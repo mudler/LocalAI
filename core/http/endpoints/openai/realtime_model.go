@@ -86,12 +86,7 @@ type wrappedModel struct {
 // We have to wrap this out as well because we want to load two models one for VAD and one for the actual model.
 // In the future there could be models that accept continous audio input only so this design will be useful for that
 type anyToAnyModel struct {
-	LLMConfig *config.ModelConfig
-	VADConfig *config.ModelConfig
-
-	appConfig   *config.ApplicationConfig
-	modelLoader *model.ModelLoader
-	confLoader  *config.ModelConfigLoader
+	*wrappedModel
 }
 
 type transcriptOnlyModel struct {
@@ -910,14 +905,21 @@ func newModel(pipeline *config.Pipeline, cl *config.ModelConfigLoader, ml *model
 
 	if isAnyToAny {
 		xlog.Debug("Loading an any-to-any model (native AudioToAudioStream)")
-		return &anyToAnyModel{
-			LLMConfig: cfgLLM,
-			VADConfig: cfgVAD,
-
+		wm := &wrappedModel{
+			LLMConfig:   cfgLLM,
+			VADConfig:   cfgVAD,
 			confLoader:  cl,
 			modelLoader: ml,
 			appConfig:   appConfig,
-		}, nil
+			evaluator:   evaluator,
+		}
+		if routing != nil {
+			wm.routerDeps = routing.Deps
+			wm.routerStore = routing.Store
+			wm.routerSessionID = routing.SessionID
+			wm.routerUserID = routing.UserID
+		}
+		return &anyToAnyModel{wrappedModel: wm}, nil
 	}
 
 	xlog.Debug("Loading a wrapped model")

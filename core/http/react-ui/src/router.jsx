@@ -82,6 +82,7 @@ const NodeBackendLogs = page(null, () => import('./pages/NodeBackendLogs'))
 const NodeDetail = page(null, () => import('./pages/NodeDetail'))
 const NotFound = page(null, () => import('./pages/NotFound'))
 const Usage = page('usage', () => import('./pages/Usage'))
+const Stats = page('stats', () => import('./pages/Stats'))
 const Users = page('users', () => import('./pages/Users'))
 const Middleware = page('middleware', () => import('./pages/Middleware'))
 const Account = page('account', () => import('./pages/Account'))
@@ -169,6 +170,7 @@ const appChildren = [
       { path: 'nodes/:id', element: <Admin><NodeDetail /></Admin> },
       { path: 'scheduling', element: <Admin><Scheduling /></Admin> },
       { path: 'node-backend-logs/:nodeId/:modelId', element: <Admin><NodeBackendLogs /></Admin> },
+      { path: 'stats', element: <Admin><Stats /></Admin> },
       { path: 'usage', element: <Usage /> },
       { path: 'users', element: <RequireAuthEnabled><Admin><Users /></Admin></RequireAuthEnabled> },
       { path: 'middleware', element: <Admin><Middleware /></Admin> },
