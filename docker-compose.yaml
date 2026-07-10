@@ -28,6 +28,9 @@ services:
     ## Uncomment to use PostgreSQL for the knowledge base (requires the postgres service below)
     #  - LOCALAI_AGENT_POOL_VECTOR_ENGINE=postgres
     #  - LOCALAI_AGENT_POOL_DATABASE_URL=postgresql://localrecall:localrecall@postgres:5432/localrecall?sslmode=disable
+    # Named volumes preserve models, config, backends, and data across container
+    # restarts and Docker image updates. Without these volumes, ALL configuration
+    # (settings, API keys, model files) will be LOST when the container is recreated.
     volumes:
       - models:/models
       - images:/tmp/generated/images/

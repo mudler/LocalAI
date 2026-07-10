@@ -396,7 +396,7 @@ RUN --mount=from=builder,src=/build/,dst=/mnt/build \
     if [ -f /mnt/build/libopusshim.so ]; then cp /mnt/build/libopusshim.so ./; fi
 
 # Make sure the models directory exists
-RUN mkdir -p /models /backends /data
+RUN mkdir -p /models /backends /data /configuration
 
 # Define the health check command
 HEALTHCHECK --interval=1m --timeout=10m --retries=10 \
