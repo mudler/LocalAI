@@ -71,8 +71,37 @@ export default function Settings() {
   const handleSave = async () => {
     setSaving(true)
     try {
-      await settingsApi.save(settings)
-      setInitialSettings(structuredClone(settings))
+      const payload = { ...settings }
+
+      // Convert UI-only api_keys_text back to api_keys array
+      if (typeof payload.api_keys_text === 'string') {
+        payload.api_keys = payload.api_keys_text
+          .split('\n')
+          .map(k => k.trim())
+          .filter(k => k !== '')
+        delete payload.api_keys_text
+      }
+
+      // Convert UI-only galleries_json back to galleries array
+      if (typeof payload.galleries_json === 'string') {
+        try {
+          const trimmed = payload.galleries_json.trim()
+          payload.galleries = trimmed ? JSON.parse(trimmed) : []
+        } catch (_e) { /* keep existing galleries if JSON parse fails */ }
+        delete payload.galleries_json
+      }
+
+      // Convert UI-only backend_galleries_json back to backend_galleries array
+      if (typeof payload.backend_galleries_json === 'string') {
+        try {
+          const trimmed = payload.backend_galleries_json.trim()
+          payload.backend_galleries = trimmed ? JSON.parse(trimmed) : []
+        } catch (_e) { /* keep existing if JSON parse fails */ }
+        delete payload.backend_galleries_json
+      }
+
+      await settingsApi.save(payload)
+      setInitialSettings(structuredClone(payload))
       // Refresh branding context so name/tagline updates propagate to the
       // sidebar, footer, and document title without a full reload.
       branding.refresh()
