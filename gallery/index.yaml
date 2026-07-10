@@ -1,4 +1,56 @@
 ---
+- name: "thinkingcap-qwen3.6-27b"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/bottlecapai/ThinkingCap-Qwen3.6-27B-GGUF
+  description: |
+    # ThinkingCap: Qwen 3.6 27B
+
+    Capability of Qwen3.6-27B with **50% less** thinking tokens on average, and over **90% less** in best cases.
+    Achieved via finetuning Qwen3.6-27B (Qwen Team, 2026) with state-of-the-art algorithms on a curated set of problems of various domains and difficulty. We designed the finetuning to be as minimally invasive as possible, preserving all of the original answer quality and style of Qwen, while being more token efficient. Check the blogpost for more details.
+
+    We rigorously evaluate the resulting checkpoint across general reasoning, non-reasoning multiple-choice question answering, everyday multi-turn conversations, system prompt adherence, safety, math, code and agentic use cases. Due to the high variability of reasoning quality at Qwen-recommended sampling temperature 1.0, we run each benchmark with multiple seeds and do statistical significance testing on all the results. We evaluate both in domain (holdout parts of selected datasets included in training) and out of domain.
+
+    ## Out-of-domain token efficiency
+
+    BenchmarkAccuracyThinking tokens
+    BaseOursBaseOursReduction
+
+    ...
+  tags:
+    - llm
+    - gguf
+  overrides:
+    backend: llama-cpp
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+    mmproj: llama-cpp/mmproj/ThinkingCap-Qwen3.6-27B-Q4_K_M/mmproj-ThinkingCap-Qwen3.6-27B-f16.gguf
+    options:
+      - use_jinja:true
+      - spec_type:draft-mtp
+      - spec_n_max:6
+      - spec_p_min:0.75
+    parameters:
+      min_p: 0
+      model: llama-cpp/models/ThinkingCap-Qwen3.6-27B-Q4_K_M/ThinkingCap-Qwen3.6-27B-Q4_K_M.gguf
+      presence_penalty: 1.5
+      repeat_penalty: 1
+      temperature: 0.7
+      top_k: 20
+      top_p: 0.8
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/ThinkingCap-Qwen3.6-27B-Q4_K_M/ThinkingCap-Qwen3.6-27B-Q4_K_M.gguf
+      sha256: b0651e28555bde7d2459ce99f091319b1a547143463e8d49f2aa7f572675fe67
+      uri: https://huggingface.co/bottlecapai/ThinkingCap-Qwen3.6-27B-GGUF/resolve/main/ThinkingCap-Qwen3.6-27B-Q4_K_M.gguf
+    - filename: llama-cpp/mmproj/ThinkingCap-Qwen3.6-27B-Q4_K_M/mmproj-ThinkingCap-Qwen3.6-27B-f16.gguf
+      sha256: 81a714ac5e8e15687371fc95a180953a29b732962f6616f791063ff127559412
+      uri: https://huggingface.co/bottlecapai/ThinkingCap-Qwen3.6-27B-GGUF/resolve/main/mmproj-ThinkingCap-Qwen3.6-27B-f16.gguf
 - name: "minicpm5-1b-claude-opus-fable5-thinking"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
