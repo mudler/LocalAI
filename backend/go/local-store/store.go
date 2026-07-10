@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"math"
 	"slices"
+	"strings"
 
 	"github.com/mudler/LocalAI/pkg/grpc/base"
 	pb "github.com/mudler/LocalAI/pkg/grpc/proto"
@@ -57,12 +58,18 @@ func NewStore() *Store {
 	}
 }
 
-// Load is a no-op — local-store has no on-disk artefact. opts.Model is
-// just a namespace identifier; isolation is already handled upstream
-// (ModelLoader spawns a fresh local-store process per (backend,
-// model) tuple, so each namespace is its own Store{} instance).
+// Load only validates the namespace — local-store has no on-disk
+// artefact. opts.Model is a namespace identifier, which core's
+// StoreBackend always sends with store.NamespacePrefix; anything else
+// is the model loader's greedy autoload probing with a real model name,
+// which must be refused or the LLM binds to the vector store. Isolation
+// is already handled upstream (ModelLoader spawns a fresh local-store
+// process per (backend, model) tuple, so each namespace is its own
+// Store{} instance).
 func (s *Store) Load(opts *pb.ModelOptions) error {
-	_ = opts
+	if !strings.HasPrefix(opts.GetModel(), store.NamespacePrefix) {
+		return fmt.Errorf("local-store: refusing to load %q: not a store namespace (expected %q prefix)", opts.GetModel(), store.NamespacePrefix)
+	}
 	return nil
 }
 
