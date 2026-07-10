@@ -54,8 +54,8 @@
       use_tokenizer_template: true
   files:
     - filename: llama-cpp/models/MiniCPM5-1B-Claude-Opus-Fable5-Thinking-Q4_K_M/MiniCPM5-1B-Claude-Opus-Fable5-Thinking-Q4_K_M.gguf
-      sha256: 3d20b45b4ffdfb71716c3aa121dab56b5d9a563d26088719167fcc7688083b16
       uri: https://huggingface.co/GnLOLot/MiniCPM5-1B-Claude-Opus-Fable5-Thinking-GGUF/resolve/main/MiniCPM5-1B-Claude-Opus-Fable5-Thinking-Q4_K_M.gguf
+      sha256: b1c3bf2995e96cb792a0031e4e1497a500e9244c68ba17c24a7e6edf1fc59019
 - name: "deepseek-v4-flash"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
@@ -81,7 +81,7 @@
   files:
     - filename: ds4flash.gguf
       uri: https://huggingface.co/unsloth/DeepSeek-V4-Flash-GGUF
-      sha256: df58dd40f8ffa648c65a9cf963b0028a78ffba9caaf0c1c97361f1f2eef52dcd
+      sha256: a4dc0fa82a5da66bd283a5ff047584617b68e2f846e1856644d44cf5cba0a546
 - name: "qwopus3.6-35b-a3b-coder-mtp"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
@@ -36677,7 +36677,7 @@
   files:
     - filename: qwen3-asr-0.6b-q4_k.gguf
       uri: huggingface://cstr/qwen3-asr-0.6b-GGUF/qwen3-asr-0.6b-q4_k.gguf
-      sha256: 4c67426908a518c28c24bc780df27175fcf84ce4d6dbd678133a4531904bbcc9
+      sha256: f63771c02dfa486d9399d41ab6ab8cd2d8ca24e077cd32130ea1f67f4fd8dade
 - name: qwen3-1.7b-crispasr
   url: github:mudler/LocalAI/gallery/virtual.yaml@master
   urls:
@@ -36700,7 +36700,7 @@
   files:
     - filename: qwen3-asr-1.7b-q4_k.gguf
       uri: huggingface://cstr/qwen3-asr-1.7b-GGUF/qwen3-asr-1.7b-q4_k.gguf
-      sha256: 1f1d26ee044f0f041b0a7bfcf6d560996103c951acbde6eb48ccb24e7edfc69c
+      sha256: ec197cef7ccc589fdcae1becc3f4a3de119d0a41e790b898b519b1a048dad8d4
 - name: cohere-crispasr
   url: github:mudler/LocalAI/gallery/virtual.yaml@master
   urls:
@@ -38864,7 +38864,7 @@
   files:
     - filename: glm-asr-nano-q4_k.gguf
       uri: huggingface://cstr/glm-asr-nano-GGUF/glm-asr-nano-q4_k.gguf
-      sha256: 2e4f3360f69e7f7dfd24127305583ea16629975c643a771f8603ca04c6ab50d4
+      sha256: 9e090376a77f82223f6264048884d0a6cb581e8ea191cb2e73b5b9974edb6e0d
 - name: kyutai-stt-crispasr
   url: github:mudler/LocalAI/gallery/virtual.yaml@master
   urls:
