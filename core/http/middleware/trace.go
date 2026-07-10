@@ -3,10 +3,13 @@ package middleware
 import (
 	"bufio"
 	"bytes"
+	"encoding/json"
 	"io"
 	"mime"
 	"net"
 	"net/http"
+	"os"
+	"path/filepath"
 	"slices"
 	"sync"
 	"time"
@@ -15,6 +18,7 @@ import (
 	"github.com/labstack/echo/v4"
 	"github.com/mudler/LocalAI/core/application"
 	"github.com/mudler/LocalAI/core/http/auth"
+	"github.com/mudler/LocalAI/pkg/signals"
 	"github.com/mudler/xlog"
 )
 
@@ -49,6 +53,13 @@ var traceBuffer *circularbuffer.Queue[APIExchange]
 var mu sync.Mutex
 var logChan = make(chan APIExchange, 100)
 var tracingMaxItems int
+
+var (
+	traceDir         string
+	tracePersistOnce sync.Once
+)
+
+const tracePersistInterval = 30 * time.Second
 
 var doInitializeTracing = sync.OnceFunc(func() {
 	maxItems := tracingMaxItems
@@ -131,6 +142,73 @@ func (w *bodyWriter) Hijack() (net.Conn, *bufio.ReadWriter, error) {
 func initializeTracing(maxItems int) {
 	tracingMaxItems = maxItems
 	doInitializeTracing()
+	if traceDir != "" {
+		tracePersistOnce.Do(func() {
+			loadTraces()
+			go periodicTraceSave()
+			signals.RegisterGracefulTerminationHandler(func() {
+				if err := saveTraces(); err != nil {
+					xlog.Warn("Failed to save API traces on shutdown", "error", err)
+				}
+			})
+		})
+	}
+}
+
+func traceFilePath() string {
+	return filepath.Join(traceDir, "traces_api.json")
+}
+
+func saveTraces() error {
+	mu.Lock()
+	if traceBuffer == nil {
+		mu.Unlock()
+		return nil
+	}
+	traces := traceBuffer.Values()
+	mu.Unlock()
+
+	data, err := json.Marshal(traces)
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(traceFilePath(), data, 0o644)
+}
+
+func loadTraces() {
+	data, err := os.ReadFile(traceFilePath())
+	if err != nil {
+		if !os.IsNotExist(err) {
+			xlog.Warn("Failed to read API traces file, starting fresh", "error", err)
+		}
+		return
+	}
+	var traces []APIExchange
+	if err := json.Unmarshal(data, &traces); err != nil {
+		xlog.Warn("Failed to parse API traces file, starting fresh", "error", err)
+		return
+	}
+	mu.Lock()
+	for i := range traces {
+		traceBuffer.Enqueue(traces[i])
+	}
+	mu.Unlock()
+}
+
+func periodicTraceSave() {
+	ticker := time.NewTicker(tracePersistInterval)
+	defer ticker.Stop()
+	for range ticker.C {
+		if err := saveTraces(); err != nil {
+			xlog.Warn("Failed to periodically save API traces", "error", err)
+		}
+	}
+}
+
+// SetTraceDir configures the directory for trace persistence files.
+// If set, traces are loaded from and periodically saved to this directory.
+func SetTraceDir(dir string) {
+	traceDir = dir
 }
 
 // sensitiveTraceHeaders is the set of header names whose values must not
@@ -274,11 +352,14 @@ func GetTraces() []APIExchange {
 	return traces
 }
 
-// ClearTraces clears the in-memory logs
+// ClearTraces clears the in-memory logs and deletes the persisted file
 func ClearTraces() {
 	mu.Lock()
 	if traceBuffer != nil {
 		traceBuffer.Clear()
 	}
 	mu.Unlock()
+	if traceDir != "" {
+		_ = os.Remove(traceFilePath())
+	}
 }

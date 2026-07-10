@@ -3,12 +3,15 @@ package trace
 import (
 	"encoding/json"
 	"fmt"
+	"os"
+	"path/filepath"
 	"slices"
 	"sync"
 	"time"
 
 	"github.com/emirpasic/gods/v2/queues/circularbuffer"
 	"github.com/mudler/LocalAI/core/schema"
+	"github.com/mudler/LocalAI/pkg/signals"
 	"github.com/mudler/xlog"
 )
 
@@ -63,6 +66,13 @@ var backendMu sync.Mutex
 var backendLogChan = make(chan *BackendTrace, 100)
 var backendInitOnce sync.Once
 
+var (
+	backendTraceDir         string
+	backendPersistOnce      sync.Once
+)
+
+const backendPersistInterval = 30 * time.Second
+
 // backendMaxBodyBytes caps each captured string value in a BackendTrace.Data
 // field to keep the /api/backend-traces JSON small enough for the admin UI to
 // load on every 5s auto-refresh. Mirrors the API-trace body cap added in
@@ -94,6 +104,78 @@ func InitBackendTracingIfEnabled(maxItems, maxBodyBytes int) {
 			}
 		}()
 	})
+
+	if backendTraceDir != "" {
+		backendPersistOnce.Do(func() {
+			loadBackendTraces()
+			go periodicBackendTraceSave()
+			signals.RegisterGracefulTerminationHandler(func() {
+				if err := saveBackendTraces(); err != nil {
+					xlog.Warn("Failed to save backend traces on shutdown", "error", err)
+				}
+			})
+		})
+	}
+}
+
+func backendTraceFilePath() string {
+	return filepath.Join(backendTraceDir, "traces_backend.json")
+}
+
+func saveBackendTraces() error {
+	backendMu.Lock()
+	if backendTraceBuffer == nil {
+		backendMu.Unlock()
+		return nil
+	}
+	ptrs := backendTraceBuffer.Values()
+	backendMu.Unlock()
+
+	traces := make([]BackendTrace, len(ptrs))
+	for i, p := range ptrs {
+		traces[i] = *p
+	}
+
+	data, err := json.Marshal(traces)
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(backendTraceFilePath(), data, 0o644)
+}
+
+func loadBackendTraces() {
+	data, err := os.ReadFile(backendTraceFilePath())
+	if err != nil {
+		if !os.IsNotExist(err) {
+			xlog.Warn("Failed to read backend traces file, starting fresh", "error", err)
+		}
+		return
+	}
+	var traces []BackendTrace
+	if err := json.Unmarshal(data, &traces); err != nil {
+		xlog.Warn("Failed to parse backend traces file, starting fresh", "error", err)
+		return
+	}
+	backendMu.Lock()
+	for i := range traces {
+		backendTraceBuffer.Enqueue(&traces[i])
+	}
+	backendMu.Unlock()
+}
+
+func periodicBackendTraceSave() {
+	ticker := time.NewTicker(backendPersistInterval)
+	defer ticker.Stop()
+	for range ticker.C {
+		if err := saveBackendTraces(); err != nil {
+			xlog.Warn("Failed to periodically save backend traces", "error", err)
+		}
+	}
+}
+
+// SetBackendTraceDir configures the directory for backend trace persistence files.
+func SetBackendTraceDir(dir string) {
+	backendTraceDir = dir
 }
 
 func RecordBackendTrace(t BackendTrace) {
@@ -163,6 +245,9 @@ func ClearBackendTraces() {
 		backendTraceBuffer.Clear()
 	}
 	backendMu.Unlock()
+	if backendTraceDir != "" {
+		_ = os.Remove(backendTraceFilePath())
+	}
 }
 
 func GenerateLLMSummary(messages schema.Messages, prompt string) string {

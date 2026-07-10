@@ -11,6 +11,7 @@ import (
 	"github.com/mudler/LocalAI/core/services/galleryop"
 	"github.com/mudler/LocalAI/core/services/monitoring"
 	"github.com/mudler/LocalAI/core/templates"
+	"github.com/mudler/LocalAI/core/trace"
 	"github.com/mudler/LocalAI/internal"
 	"github.com/mudler/LocalAI/pkg/model"
 	echoswagger "github.com/swaggo/echo-swagger"
@@ -28,6 +29,13 @@ func RegisterLocalAIRoutes(router *echo.Echo,
 	adminMiddleware echo.MiddlewareFunc,
 	mcpJobsMw echo.MiddlewareFunc,
 	mcpMw echo.MiddlewareFunc) {
+
+	// Trace persistence: set the directory used for periodic snapshots and
+	// restart recovery of API and backend trace ring buffers.
+	if appConfig.DynamicConfigsDir != "" && appConfig.EnableTracing {
+		middleware.SetTraceDir(appConfig.DynamicConfigsDir)
+		trace.SetBackendTraceDir(appConfig.DynamicConfigsDir)
+	}
 
 	router.GET("/swagger/*", echoswagger.EchoWrapHandler(func(c *echoswagger.Config) {
 		c.URLs = []string{"doc.json"}
