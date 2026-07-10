@@ -72,6 +72,7 @@ const Nodes = page('nodes', () => import('./pages/Nodes'))
 const NodeBackendLogs = page(null, () => import('./pages/NodeBackendLogs'))
 const NotFound = page(null, () => import('./pages/NotFound'))
 const Usage = page('usage', () => import('./pages/Usage'))
+const Stats = page('stats', () => import('./pages/Stats'))
 const Users = page('users', () => import('./pages/Users'))
 const Middleware = page('middleware', () => import('./pages/Middleware'))
 const Account = page('account', () => import('./pages/Account'))
@@ -112,6 +113,7 @@ const appChildren = [
   { path: 'voice', element: <Feature feature="voice_recognition"><VoiceRecognition /></Feature> },
   { path: 'voice/:model', element: <Feature feature="voice_recognition"><VoiceRecognition /></Feature> },
   { path: 'usage', element: <Usage /> },
+  { path: 'stats', element: <Admin><Stats /></Admin> },
   { path: 'account', element: <Account /> },
   { path: 'users', element: <RequireAuthEnabled><Admin><Users /></Admin></RequireAuthEnabled> },
   { path: 'middleware', element: <Admin><Middleware /></Admin> },

@@ -70,6 +70,7 @@ const sections = [
     id: 'system',
     titleKey: 'sections.system',
     items: [
+      { path: '/app/stats', icon: 'fas fa-gauge-high', labelKey: 'items.dashboard', adminOnly: true },
       { path: '/app/usage', icon: 'fas fa-chart-bar', labelKey: 'items.usage' },
       { path: '/app/users', icon: 'fas fa-users', labelKey: 'items.users', adminOnly: true, authOnly: true },
       { path: '/app/middleware', icon: 'fas fa-shield-halved', labelKey: 'items.middleware', adminOnly: true },
