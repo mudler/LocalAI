@@ -29,6 +29,7 @@ Feel free to open up a Pull request (by clicking at the "Edit page" below) to ge
 
 - [cogito](https://github.com/mudler/cogito) — Agentic library for Go
 - [LocalAGI](https://github.com/mudler/LocalAGI) — Local smart assistant with autonomous agents
+- [Nika](https://github.com/supernovae-st/nika) — Intent-as-code AI workflow engine (single Rust binary); LocalAI is a first-class local provider (`model: localai/...`), workflows are checked for schema, permits and cost before any token is spent
 
 ### MCP Servers
 
