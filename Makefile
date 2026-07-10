@@ -645,6 +645,9 @@ test-extra: prepare-test-extra
 ## suite against it.
 ##
 BACKEND_TEST_MODEL_URL?=https://huggingface.co/Qwen/Qwen3-0.6B-GGUF/resolve/main/Qwen3-0.6B-Q8_0.gguf
+## Suite timeout for `go test`. Wrappers whose model download alone can eat
+## most of the default (multi-GB models on a slow HF CDN day) override this.
+BACKEND_TEST_TIMEOUT?=30m
 
 ## Generic target — runs the suite against whatever BACKEND_IMAGE points at.
 ## Depends on protogen-go so pkg/grpc/proto is generated before `go test`.
@@ -672,7 +675,7 @@ test-extra-backend: protogen-go
 	BACKEND_TEST_FACE_IMAGE_3_URL="$$BACKEND_TEST_FACE_IMAGE_3_URL" \
 	BACKEND_TEST_FACE_IMAGE_3_FILE="$$BACKEND_TEST_FACE_IMAGE_3_FILE" \
 	BACKEND_TEST_VERIFY_DISTANCE_CEILING="$$BACKEND_TEST_VERIFY_DISTANCE_CEILING" \
-	go test -v -timeout 30m ./tests/e2e-backends/...
+	go test -v -timeout $(BACKEND_TEST_TIMEOUT) ./tests/e2e-backends/...
 
 ## Convenience wrappers: build the image, then exercise it.
 test-extra-backend-llama-cpp: docker-build-llama-cpp
@@ -1012,6 +1015,7 @@ test-extra-backend-vibevoice-cpp-tts: docker-build-vibevoice-cpp
 ## post-image disk budget.
 test-extra-backend-vibevoice-cpp-transcription: docker-build-vibevoice-cpp
 	BACKEND_IMAGE=local-ai-backend:vibevoice-cpp \
+	BACKEND_TEST_TIMEOUT=120m \
 	BACKEND_TEST_MODEL_URL='https://huggingface.co/mudler/vibevoice.cpp-models/resolve/main/vibevoice-asr-q4_k.gguf#vibevoice-asr-q4_k.gguf' \
 	BACKEND_TEST_EXTRA_FILES='https://huggingface.co/mudler/vibevoice.cpp-models/resolve/main/tokenizer.gguf#tokenizer.gguf' \
 	BACKEND_TEST_AUDIO_URL=https://github.com/ggml-org/whisper.cpp/raw/master/samples/jfk.wav \
