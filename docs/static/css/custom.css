@@ -1,0 +1,40 @@
+@import url("./localai-home.css");
+
+/* Keep the homepage promise bold without forcing one-word lines in the docs shell. */
+.lai-hero h1 {
+  font-size: clamp(2.65rem, 4.6vw, 4.1rem);
+}
+
+@media (max-width: 47.99rem) {
+  .lai-home {
+    width: auto;
+    min-width: 0;
+    max-width: none;
+  }
+
+  .lai-home > section {
+    width: calc(100vw - 3rem);
+    max-width: calc(100vw - 3rem);
+  }
+
+  .lai-hero,
+  .lai-hero__copy,
+  .lai-product-shot {
+    min-width: 0;
+  }
+
+  .lai-hero h1 {
+    max-width: calc(100vw - 3rem);
+    font-size: clamp(1.65rem, 7.8vw, 2.05rem) !important;
+    overflow-wrap: anywhere;
+    white-space: normal !important;
+  }
+
+  .lai-hero h1 strong {
+    display: block;
+  }
+
+  .lai-hero__lede {
+    max-width: calc(100vw - 3rem);
+  }
+}
