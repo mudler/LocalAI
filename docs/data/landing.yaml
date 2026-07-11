@@ -13,7 +13,7 @@ hero:
       mobile: "gradient-mobile.webp"
 
   badge:
-    text: "⭐ 33.3k+ stars on GitHub!"
+    text: "Open source · MIT licensed"
     color: primary
     pill: false
     soft: true
@@ -26,9 +26,9 @@ hero:
 
   title: ""
   subtitle: |
-    **The free, OpenAI, Anthropic alternative. Your All-in-One Complete AI Stack** - Run powerful language models, autonomous agents, and document intelligence **locally** on your hardware. 
-    
-    **No cloud, no limits, no compromise.**
+    **One runtime. Every kind of AI. Your hardware.**
+
+    Run text, vision, speech, sound, images, video, embeddings, reranking, and autonomous agents behind one modular stack—from a CPU laptop to a distributed GPU cluster.
 
   image:
     path: "images"
@@ -47,11 +47,7 @@ hero:
     url: "https://github.com/mudler/LocalAI"
 
   info: |
-    **Drop-in replacement for OpenAI API** - modular suite of tools that work seamlessly together or independently. 
-    
-    Start with **[LocalAI](https://localai.io)**'s OpenAI-compatible API, extend with **[LocalAGI](https://github.com/mudler/LocalAGI)**'s autonomous agents, and enhance with **[LocalRecall](https://github.com/mudler/LocalRecall)**'s semantic search - all running locally on your hardware.
-
-    **Open Source** MIT Licensed.
+    A small core pulls isolated model backends on demand, so you install only what you use. Build with OpenAI, Anthropic, Ollama, ElevenLabs, and Open Responses compatible APIs—or work directly through LocalAI's UI, agents, MCP tools, and distributed runtime.
 
 # Feature Grid
 featureGrid:
@@ -59,75 +55,72 @@ featureGrid:
   weight: 20
   template: feature grid
 
-  title: Why choose LocalAI?
+  title: One runtime, across the whole AI stack
   subtitle: |
-    **OpenAI API Compatible** - Run AI models locally with our modular ecosystem. From language models to autonomous agents and semantic search, build your complete AI stack without the cloud.
+    API compatibility is the easy entry point. LocalAI also gives you multimodal inference, agents, privacy controls, model operations, and distributed execution on infrastructure you control.
 
   items:
-    - title: LLM Inferencing
+    - title: Any model, any modality
       icon: memory_alt
-      description: LocalAI is a free, **Open Source** OpenAI alternative. Run **LLMs**, generate **images**, **audio** and more **locally** with consumer grade hardware.
+      description: Run language, vision, speech, sound, image, video, embedding, reranking, detection, and biometric models through one runtime.
       ctaLink:
         text: learn more
         url: /basics/getting_started/
-    - title: Agentic-first
+    - title: Agents and MCP built in
       icon: smart_toy
       description: |
-        Extend LocalAI with LocalAGI, an autonomous AI agent platform that runs locally, no coding required. 
-        Build and deploy autonomous agents with ease. Interact with REST APIs or use the WebUI.
+        Create autonomous agents with tools, skills, RAG, memory, citations, MCP servers, and interactive MCP Apps from the UI or API.
       ctaLink:
         text: learn more
         url: https://github.com/mudler/LocalAGI
 
-    - title: Memory and Knowledge base
+    - title: Realtime voice and audio
       icon: psychology
       description: 
-        Extend LocalAI with LocalRecall, A local rest api for semantic search and memory management. Perfect for AI applications.
+        Build interruptible WebRTC experiences with streaming transcription, language-model output, speech, diarization, and tool calling.
       ctaLink:
         text: learn more
         url: https://github.com/mudler/LocalRecall
 
-    - title: OpenAI Compatible
+    - title: Drop-in compatible APIs
       icon: api
-      description: Drop-in replacement for OpenAI API. Compatible with existing applications and libraries.
+      description: Use OpenAI, Anthropic, Ollama, ElevenLabs, and Open Responses clients across the modular backend ecosystem.
       ctaLink:
         text: learn more
         url: /basics/getting_started/
 
-    - title: No GPU Required
+    - title: Laptop to distributed cluster
       icon: memory
-      description: Run on consumer grade hardware. No need for expensive GPUs or cloud services.
+      description: Start CPU-only, accelerate on common GPUs, or scale across workers with smart routing, sharding, and federation.
       ctaLink:
         text: learn more
         url: /basics/getting_started/
 
-    - title: Multiple Models
+    - title: Modular backend gallery
       icon: hub
       description: |
-          Support for various model families including LLMs, image generation, and audio models.
-          Supports multiple backends for inferencing, including vLLM, llama.cpp, and more.
-          You can switch between them as needed and install them from the Web interface or the CLI.
+          Pull isolated OCI backends only when a model needs them. Install, upgrade, remove, or build your own engine without rebuilding the core.
       ctaLink:
         text: learn more
         url: /model-compatibility
 
-    - title: Privacy Focused
+    - title: Privacy you can enforce
       icon: security
-      description: Keep your data local. No data leaves your machine, ensuring complete privacy.
+      description: Keep data on your infrastructure and add PII analysis, redaction, policy middleware, authentication, roles, quotas, and audit visibility.
       ctaLink:
         text: learn more
         url: /basics/container/
 
-    - title: Easy Setup
+    - title: Model operations included
       icon: settings
-      description: Simple installation and configuration. Get started in minutes with Binaries installation, Docker, Podman, Kubernetes or local installation.
+      description: Discover capabilities, import and route models, fine-tune, quantize, monitor usage, and manage the runtime through the UI or CLI.
       ctaLink:
         text: learn more
         url: /basics/getting_started/
 
-    - title: Community Driven
+    - title: Engines built by LocalAI
       icon: groups
-      description: Active community support and regular updates. Contribute and help shape the future of LocalAI.
+      description: The project also develops native inference engines for speech, vision, biometrics, privacy, 3D reconstruction, and quantization.
       ctaLink:
         text: learn more
         url: https://github.com/mudler/LocalAI
