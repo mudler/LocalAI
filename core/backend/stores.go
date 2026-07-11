@@ -133,10 +133,16 @@ func StoreBackend(sl *model.ModelLoader, appConfig *config.ApplicationConfig, st
 	//   Try to add key with length N when existing length is M
 	// Use the store namespace as modelID so each namespace gets its own
 	// process instance and its own in-memory Store{}.
+	//
+	// The model name sent over gRPC carries store.NamespacePrefix so the
+	// backend can tell a genuine store load from the greedy autoload
+	// probing it with LLM model names; local-store refuses names without
+	// the prefix (core and backend ship from the same release, so the
+	// convention upgrades in lockstep).
 	sc := []model.Option{
 		model.WithBackendString(backend),
 		model.WithModelID(storeName),
-		model.WithModel(storeName),
+		model.WithModel(store.NamespacePrefix + storeName),
 	}
 
 	return sl.Load(sc...)
