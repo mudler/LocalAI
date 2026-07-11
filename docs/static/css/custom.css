@@ -9,6 +9,15 @@
   max-width: 960px;
 }
 
+/* Relearn scrolls the content pane; keep that behavior without a rail beside the hero. */
+#R-body-inner.home {
+  scrollbar-width: none;
+}
+
+#R-body-inner.home::-webkit-scrollbar {
+  display: none;
+}
+
 .lai-hero {
   grid-template-columns: minmax(0, 1fr) !important;
   min-height: auto;
