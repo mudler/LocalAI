@@ -1,40 +1,72 @@
 @import url("./localai-home.css");
 
-/* Keep the homepage promise bold without forcing one-word lines in the docs shell. */
+/* The homepage is a product landing page; documentation pages keep Relearn's sidebar. */
+body:has(#R-body-inner.home) #R-sidebar {
+  display: none;
+}
+
+body:has(#R-body-inner.home) #R-body {
+  width: 100%;
+  min-width: 100%;
+  max-width: 100%;
+  margin-inline-start: 0;
+}
+
+body:has(#R-body-inner.home) #R-topbar .topbar-sidebar-divider,
+body:has(#R-body-inner.home) #R-topbar .topbar-button-sidebar {
+  display: none;
+}
+
+#R-body-inner.home {
+  padding-inline: clamp(1.5rem, 5vw, 5rem);
+}
+
+#R-body-inner.home > .flex-block-wrapper {
+  width: 100%;
+  max-width: 1320px;
+}
+
+#R-body-inner.home article.home > h1#localai {
+  display: none;
+}
+
 .lai-hero h1 {
-  font-size: clamp(2.65rem, 4.6vw, 4.1rem);
+  font-size: clamp(3rem, 5.3vw, 5.25rem);
+  text-align: left;
 }
 
 @media (max-width: 47.99rem) {
-  .lai-home {
-    width: auto;
-    min-width: 0;
-    max-width: none;
+  #R-body-inner.home {
+    padding-inline: 1.25rem;
   }
 
-  .lai-home > section {
-    width: calc(100vw - 3rem);
-    max-width: calc(100vw - 3rem);
-  }
-
+  .lai-home,
+  .lai-home > section,
   .lai-hero,
   .lai-hero__copy,
   .lai-product-shot {
+    width: 100%;
     min-width: 0;
+    max-width: 100%;
+  }
+
+  .lai-home {
+    box-sizing: border-box;
+    padding-right: 0.75rem;
   }
 
   .lai-hero h1 {
-    max-width: calc(100vw - 3rem);
-    font-size: clamp(1.65rem, 7.8vw, 2.05rem) !important;
-    overflow-wrap: anywhere;
-    white-space: normal !important;
-  }
-
-  .lai-hero h1 strong {
-    display: block;
+    max-width: 11ch;
+    font-size: clamp(2.5rem, 12vw, 3.65rem);
+    overflow-wrap: normal;
   }
 
   .lai-hero__lede {
-    max-width: calc(100vw - 3rem);
+    width: calc(100vw - 4rem);
+    max-width: calc(100vw - 4rem);
+  }
+
+  .lai-product-shot {
+    width: calc(100vw - 4rem);
   }
 }
