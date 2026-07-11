@@ -16,10 +16,6 @@ type = "home"
       </div>
       <div class="lai-proof"><span>60+ backends</span><span>CPU to cluster</span><span>OpenAI · Anthropic · Ollama · ElevenLabs APIs</span></div>
     </div>
-    <figure class="lai-product-shot">
-      <img src="/images/localai_screenshot.png" alt="LocalAI web interface showing local models and AI capabilities" />
-      <figcaption><span><i></i> Running locally</span><b>Install only what you use</b></figcaption>
-    </figure>
   </section>
 
   <section class="lai-breadth">
