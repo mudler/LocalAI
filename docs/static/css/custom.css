@@ -40,6 +40,21 @@
   max-width: 100%;
 }
 
+.lai-home * {
+  scrollbar-width: none;
+}
+
+.lai-home *::-webkit-scrollbar {
+  display: none;
+}
+
+.lai-start pre {
+  overflow: visible !important;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
 .lai-hero {
   grid-template-columns: minmax(0, 1fr) !important;
   min-height: auto;
