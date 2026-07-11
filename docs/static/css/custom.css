@@ -1,72 +1,54 @@
 @import url("./localai-home.css");
 
-/* The homepage is a product landing page; documentation pages keep Relearn's sidebar. */
-body:has(#R-body-inner.home) #R-sidebar {
-  display: none;
-}
-
-body:has(#R-body-inner.home) #R-body {
-  width: 100%;
-  min-width: 100%;
-  max-width: 100%;
-  margin-inline-start: 0;
-}
-
-body:has(#R-body-inner.home) #R-topbar .topbar-sidebar-divider,
-body:has(#R-body-inner.home) #R-topbar .topbar-button-sidebar {
-  display: none;
-}
-
-#R-body-inner.home {
-  padding-inline: clamp(1.5rem, 5vw, 5rem);
-}
-
-#R-body-inner.home > .flex-block-wrapper {
-  width: 100%;
-  max-width: 1320px;
-}
-
+/* The homepage deliberately fits Relearn's documentation content column. */
 #R-body-inner.home article.home > h1#localai {
   display: none;
 }
 
+#R-body-inner.home > .flex-block-wrapper {
+  max-width: 960px;
+}
+
+.lai-hero {
+  grid-template-columns: minmax(0, 1fr) !important;
+  min-height: auto;
+  padding-block: clamp(3rem, 6vw, 5rem);
+}
+
+.lai-hero__copy {
+  max-width: 48rem;
+}
+
 .lai-hero h1 {
-  font-size: clamp(3rem, 5.3vw, 5.25rem);
+  max-width: 12ch;
+  font-size: clamp(3rem, 5.5vw, 4.65rem);
   text-align: left;
 }
 
-@media (max-width: 47.99rem) {
-  #R-body-inner.home {
-    padding-inline: 1.25rem;
-  }
+.lai-hero__lede {
+  max-width: 43rem;
+}
 
+.lai-product-shot {
+  width: 100%;
+  max-width: 54rem;
+  transform: none;
+}
+
+@media (max-width: 47.99rem) {
   .lai-home,
   .lai-home > section,
   .lai-hero,
   .lai-hero__copy,
   .lai-product-shot {
+    box-sizing: border-box;
     width: 100%;
     min-width: 0;
     max-width: 100%;
   }
 
-  .lai-home {
-    box-sizing: border-box;
-    padding-right: 0.75rem;
-  }
-
   .lai-hero h1 {
-    max-width: 11ch;
-    font-size: clamp(2.5rem, 12vw, 3.65rem);
-    overflow-wrap: normal;
-  }
-
-  .lai-hero__lede {
-    width: calc(100vw - 4rem);
-    max-width: calc(100vw - 4rem);
-  }
-
-  .lai-product-shot {
-    width: calc(100vw - 4rem);
+    max-width: 10ch;
+    font-size: clamp(2.4rem, 11vw, 3.5rem);
   }
 }
