@@ -11,11 +11,33 @@
 
 /* Relearn scrolls the content pane; keep that behavior without a rail beside the hero. */
 #R-body-inner.home {
+  overflow-x: clip;
   scrollbar-width: none;
 }
 
 #R-body-inner.home::-webkit-scrollbar {
   display: none;
+}
+
+.lai-home,
+.lai-home > section,
+.lai-home header,
+.lai-home figure,
+.lai-home [class*="__copy"] {
+  box-sizing: border-box;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.lai-home h1,
+.lai-home h2,
+.lai-home h3,
+.lai-home p {
+  overflow-wrap: anywhere;
+}
+
+.lai-home img {
+  max-width: 100%;
 }
 
 .lai-hero {
