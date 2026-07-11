@@ -187,6 +187,10 @@ func ModelOptions(c config.ModelConfig, so *config.ApplicationConfig, opts ...mo
 		defOpts = append(defOpts, model.WithModelSizeBytes(sizeBytes))
 	}
 
+	if c.Environment != nil && len(c.Environment) > 0 {
+		defOpts = append(defOpts, model.WithEnvVars(c.Environment))
+	}
+
 	return append(defOpts, opts...)
 }
 
@@ -422,6 +426,14 @@ func grpcModelOpts(c config.ModelConfig, modelPath string) *pb.ModelOptions {
 	// backend at arbitrary host files via an absolute path.
 	if c.DraftModel != "" {
 		opts.DraftModel = filepath.Join(modelPath, c.DraftModel)
+	}
+
+	// Add environment variables from model configuration
+	if c.Environment != nil && len(c.Environment) > 0 {
+		opts.EnvVars = make(map[string]string)
+		for k, v := range c.Environment {
+			opts.EnvVars[k] = v
+		}
 	}
 
 	return opts

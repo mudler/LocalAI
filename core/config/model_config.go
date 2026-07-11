@@ -134,6 +134,9 @@ type ModelConfig struct {
 	Proxy        ProxyConfig        `yaml:"proxy,omitempty" json:"proxy,omitempty"`
 	MITM         MITMModelConfig    `yaml:"mitm,omitempty" json:"mitm,omitempty"`
 	Limits       LimitsConfig       `yaml:"limits,omitempty" json:"limits,omitempty"`
+
+	// Environment variables to set when starting the backend process
+	Environment map[string]string `yaml:"env,omitempty" json:"env,omitempty"`
 }
 
 // @Description Admission-control limits applied per request. The

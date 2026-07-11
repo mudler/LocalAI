@@ -98,6 +98,12 @@ parameters:
 			Expect(valid).To(BeTrue())
 			Expect(err).NotTo(HaveOccurred())
 
+			// Test environment variables configuration parsing from YAML
+			envYAML := "name: env-test-model\nbackend: test-backend\nenv:\n  TEST_ENV_VAR: test_value\n  ANOTHER_VAR: another_value\n"
+			var envConfig ModelConfig
+			Expect(yaml.Unmarshal([]byte(envYAML), &envConfig)).To(Succeed())
+			Expect(envConfig.Environment).To(HaveKeyWithValue("TEST_ENV_VAR", "test_value"))
+			Expect(envConfig.Environment).To(HaveKeyWithValue("ANOTHER_VAR", "another_value"))
 			tcAndChat := FLAG_TOKEN_CLASSIFY | FLAG_CHAT
 			tcCombined := ModelConfig{
 				Name:          "ner-and-chat",

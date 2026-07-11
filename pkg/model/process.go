@@ -141,11 +141,11 @@ func (ml *ModelLoader) GetGRPCPID(id string) (int, error) {
 // StartProcess starts a gRPC backend process and returns its process handle.
 // This is the public wrapper for the internal startProcess method, used by
 // the serve-backend CLI subcommand to start a backend on a specified address.
-func (ml *ModelLoader) StartProcess(grpcProcess, id string, serverAddress string, args ...string) (*process.Process, error) {
-	return ml.startProcess(grpcProcess, id, serverAddress, args...)
+func (ml *ModelLoader) StartProcess(grpcProcess, id string, serverAddress string, envVars map[string]string, args ...string) (*process.Process, error) {
+	return ml.startProcess(grpcProcess, id, serverAddress, envVars, args...)
 }
 
-func (ml *ModelLoader) startProcess(grpcProcess, id string, serverAddress string, args ...string) (*process.Process, error) {
+func (ml *ModelLoader) startProcess(grpcProcess, id string, serverAddress string, envVars map[string]string, args ...string) (*process.Process, error) {
 	// Make sure the process is executable
 	// Check first if it has executable permissions
 	if fi, err := os.Stat(grpcProcess); err == nil {
@@ -174,6 +174,13 @@ func (ml *ModelLoader) startProcess(grpcProcess, id string, serverAddress string
 	// SYCL/Level-Zero stack instead, so the default ICD search path is empty
 	// and the GPU would silently fall back to CPU). No-op for other backends.
 	env = append(env, vulkanICDEnv(workDir)...)
+
+	// Add model-specific environment variables
+	if envVars != nil {
+		for key, value := range envVars {
+			env = append(env, fmt.Sprintf("%s=%s", key, value))
+		}
+	}
 
 	grpcControlProcess := process.New(
 		process.WithTemporaryStateDir(),
