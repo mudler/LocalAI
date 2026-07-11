@@ -35,7 +35,7 @@ type = "home"
       <h2>Backends arrive when the model needs them.</h2>
       <p>LocalAI keeps the core lean. Each backend wraps a best-in-class engine—llama.cpp, vLLM, SGLang, MLX, whisper.cpp, diffusion engines, and many more—as an isolated service pulled on demand.</p>
       <ul><li>Install, update, or remove engines independently.</li><li>Mix CPU, NVIDIA, AMD, Intel, Apple Silicon, Vulkan, and Jetson.</li><li>Build your own backend in any language through an open gRPC contract.</li></ul>
-      <a href="/docs/reference/architecture/">Explore the architecture →</a>
+      <a href="/reference/architecture/">Explore the architecture →</a>
     </div>
     <figure><img src="/images/diagrams/composable-core.png" alt="LocalAI's small core connected to independent on-demand model backends" /></figure>
   </section>
