@@ -120,7 +120,7 @@ var UsecaseInfoMap = map[string]UsecaseInfo{
 	UsecaseVideo: {
 		Flag:        FLAG_VIDEO,
 		GRPCMethod:  MethodGenerateVideo,
-		Description: "Video generation via the GenerateVideo RPC.",
+		Description: "Video generation via the GenerateVideo RPC, with optional image or audio conditioning when supported by the backend.",
 	},
 	UsecaseTranscript: {
 		Flag:        FLAG_TRANSCRIPT,
@@ -302,6 +302,12 @@ var BackendCapabilities = map[string]BackendCapability{
 		PossibleUsecases: []string{UsecaseImage, UsecaseVideo},
 		DefaultUsecases:  []string{UsecaseImage},
 		Description:      "HuggingFace diffusers — Stable Diffusion, Flux, video generation",
+	},
+	"longcat-video": {
+		GRPCMethods:      []GRPCMethod{MethodGenerateVideo},
+		PossibleUsecases: []string{UsecaseVideo},
+		DefaultUsecases:  []string{UsecaseVideo},
+		Description:      "LongCat-Video — text, image, and audio-conditioned avatar video generation on NVIDIA CUDA",
 	},
 	"stablediffusion": {
 		GRPCMethods:      []GRPCMethod{MethodGenerateImage},

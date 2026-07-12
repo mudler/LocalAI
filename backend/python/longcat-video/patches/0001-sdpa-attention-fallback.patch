@@ -1,0 +1,81 @@
+diff --git a/longcat_video/modules/attention.py b/longcat_video/modules/attention.py
+index bb5630f..9b9f3cc 100644
+--- a/longcat_video/modules/attention.py
++++ b/longcat_video/modules/attention.py
+@@ -2,6 +2,7 @@ from typing import List, Optional
+
+ import torch
+ import torch.nn as nn
++import torch.nn.functional as F
+
+ from einops import rearrange
+
+@@ -100,7 +101,8 @@ class Attention(nn.Module):
+             x = xformers.ops.memory_efficient_attention(q, k, v, attn_bias=None, op=None,)
+             x = rearrange(x, "B M H K -> B H M K")
+         else:
+-            raise RuntimeError("Unsupported attention operations.")
++            # Keep a dependency-free path for systems without optional kernels.
++            x = F.scaled_dot_product_attention(q, k, v, scale=self.scale)
+
+         return x
+
+@@ -245,8 +247,22 @@ class MultiHeadCrossAttention(nn.Module):
+             attn_bias = xformers.ops.fmha.attn_bias.BlockDiagonalMask.from_seqlens([N] * B, kv_seqlen)
+             x = xformers.ops.memory_efficient_attention(q, k, v, attn_bias=attn_bias)
+         else:
+-            raise RuntimeError("Unsupported attention operations.")
+-
++            # Preserve the variable-length block boundaries without materializing
++            # a dense attention mask.
++            blocks = []
++            offset = 0
++            for batch_index, key_count in enumerate(kv_seqlen):
++                query = q[0][batch_index * N:(batch_index + 1) * N]
++                key = k[0][offset:offset + key_count]
++                value = v[0][offset:offset + key_count]
++                output = F.scaled_dot_product_attention(
++                    query.transpose(0, 1),
++                    key.transpose(0, 1),
++                    value.transpose(0, 1),
++                )
++                blocks.append(output.transpose(0, 1))
++                offset += key_count
++            x = torch.cat(blocks, dim=0)
+
+         x = x.view(B, -1, C)
+         x = self.proj(x)
+diff --git a/longcat_video/modules/avatar/attention.py b/longcat_video/modules/avatar/attention.py
+index a169a7a..df9a469 100644
+--- a/longcat_video/modules/avatar/attention.py
++++ b/longcat_video/modules/avatar/attention.py
+@@ -2,6 +2,7 @@ from typing import List, Optional
+
+ import torch
+ import torch.nn as nn
++import torch.nn.functional as F
+
+ from einops import rearrange
+
+@@ -111,7 +112,8 @@ class Attention(nn.Module):
+             x = xformers.ops.memory_efficient_attention(q, k, v, attn_bias=None, op=None,)
+             x = rearrange(x, "B M H K -> B H M K")
+         else:
+-            raise RuntimeError("Unsupported attention operations.")
++            # Keep a dependency-free path for systems without optional kernels.
++            x = F.scaled_dot_product_attention(q, k, v, scale=self.scale)
+
+         return x
+
+@@ -425,7 +427,10 @@ class SingleStreamAttention(nn.Module):
+             encoder_k = rearrange(encoder_k, "B H M K -> B M H K")
+             encoder_v = rearrange(encoder_v, "B H M K -> B M H K")
+             x = xformers.ops.memory_efficient_attention(q, encoder_k, encoder_v, attn_bias=None, op=None,)
+-            x = rearrange(x, "B M H K -> B H M K")
++            x = rearrange(x, "B M H K -> B H M K")
++        else:
++            # This branch uses the native PyTorch kernel when optional kernels are off.
++            x = F.scaled_dot_product_attention(q, encoder_k, encoder_v, scale=self.scale)
+
+         # linear transform
+         x_output_shape = (B, N, C)

@@ -2605,6 +2605,24 @@ select.input {
   user-select: none;
 }
 
+button.collapsible-header {
+  width: 100%;
+  border: 0;
+  background: transparent;
+  font-family: inherit;
+  text-align: left;
+}
+
+button.collapsible-header:hover {
+  color: var(--color-text-primary);
+}
+
+button.collapsible-header:focus-visible {
+  border-radius: var(--radius-sm);
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
 .collapsible-header i {
   transition: transform var(--duration-fast);
 }

@@ -3194,7 +3194,7 @@ const docTemplate = `{
                 "tags": [
                     "video"
                 ],
-                "summary": "Creates a video given a prompt.",
+                "summary": "Creates a video from a prompt and optional image or audio conditioning.",
                 "parameters": [
                     {
                         "description": "query params",
@@ -6589,6 +6589,10 @@ const docTemplate = `{
         "schema.VideoRequest": {
             "type": "object",
             "properties": {
+                "audio": {
+                    "description": "URL or base64 audio for audio-conditioned generation",
+                    "type": "string"
+                },
                 "cfg_scale": {
                     "description": "classifier-free guidance scale",
                     "type": "number"
@@ -6619,6 +6623,13 @@ const docTemplate = `{
                 "num_frames": {
                     "description": "total number of frames to generate",
                     "type": "integer"
+                },
+                "params": {
+                    "description": "backend-specific generation parameters",
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    }
                 },
                 "prompt": {
                     "description": "text description of the video to generate",

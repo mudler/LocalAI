@@ -33,7 +33,7 @@ var ErrAmbiguousImport = errors.New("importer: ambiguous — specify preferences
 // pipeline_tag values.
 type AmbiguousImportError struct {
 	// Modality is the importer modality key ("text", "asr", "tts", "image",
-	// "embeddings", "reranker", "detection"). Pre-mapped from the HF
+	// "video", "embeddings", "reranker", "detection"). Pre-mapped from the HF
 	// pipeline_tag so the UI doesn't have to.
 	Modality string
 	// Candidates is the list of backend names whose Modality() matches — a
@@ -144,6 +144,9 @@ var defaultImporters = []Importer{
 	// Image/Video (Batch 3)
 	&StableDiffusionGGMLImporter{},
 	&ACEStepImporter{},
+	// LongCat repositories carry generic Diffusers metadata, so this exact
+	// owner/repo matcher must run before DiffuserImporter.
+	&LongCatVideoImporter{},
 	// Text LLM (Batch 4) — VLLMOmniImporter must stay ahead of
 	// VLLMImporter so Qwen Omni repos (which also carry tokenizer
 	// files) route to vllm-omni rather than plain vllm.
@@ -204,7 +207,7 @@ type Importer interface {
 	// /backends/known to populate the import form dropdown.
 	Name() string
 	// Modality is the backend's primary modality ("text", "asr", "tts",
-	// "image", "embeddings", "reranker", "detection", "vad"). Used for
+	// "image", "video", "embeddings", "reranker", "detection", "vad"). Used for
 	// grouping in the UI.
 	Modality() string
 	// AutoDetects is true when Match() can fire without an explicit

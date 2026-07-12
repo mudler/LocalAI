@@ -71,8 +71,9 @@ var instructionDefs = []instructionDef{
 	},
 	{
 		Name:        "video",
-		Description: "Video generation from text prompts",
+		Description: "Video generation from text prompts with optional image or audio conditioning",
 		Tags:        []string{"video"},
+		Intro:       "POST /video accepts start_image, end_image, and audio as public URL, base64, or data URI. Backend-specific tuning is passed as string values in params.",
 	},
 	{
 		Name:        "face-recognition",

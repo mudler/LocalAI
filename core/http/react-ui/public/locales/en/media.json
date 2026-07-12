@@ -52,7 +52,12 @@
       "size": "Size",
       "advanced": "Advanced Settings",
       "seed": "Seed",
-      "seedPlaceholder": "Random"
+      "seedPlaceholder": "Random",
+      "frames": "Frames",
+      "referenceMedia": "Reference media",
+      "startImage": "Start image",
+      "endImage": "End image",
+      "avatarAudio": "Avatar audio"
     },
     "actions": {
       "generate": "Generate",

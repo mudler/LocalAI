@@ -52,7 +52,12 @@
       "size": "尺寸",
       "advanced": "高级设置",
       "seed": "随机种子",
-      "seedPlaceholder": "随机"
+      "seedPlaceholder": "随机",
+      "frames": "帧数",
+      "referenceMedia": "参考媒体",
+      "startImage": "起始图像",
+      "endImage": "结束图像",
+      "avatarAudio": "虚拟形象音频"
     },
     "actions": {
       "generate": "生成视频",

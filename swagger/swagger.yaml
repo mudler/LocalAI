@@ -2371,6 +2371,9 @@ definitions:
     type: object
   schema.VideoRequest:
     properties:
+      audio:
+        description: URL or base64 audio for audio-conditioned generation
+        type: string
       cfg_scale:
         description: classifier-free guidance scale
         type: number
@@ -2394,6 +2397,11 @@ definitions:
       num_frames:
         description: total number of frames to generate
         type: integer
+      params:
+        additionalProperties:
+          type: string
+        description: backend-specific generation parameters
+        type: object
       prompt:
         description: text description of the video to generate
         type: string
@@ -4723,7 +4731,7 @@ paths:
           description: Response
           schema:
             $ref: '#/definitions/schema.OpenAIResponse'
-      summary: Creates a video given a prompt.
+      summary: Creates a video from a prompt and optional image or audio conditioning.
       tags:
       - video
   /ws/backend-logs/{modelId}:

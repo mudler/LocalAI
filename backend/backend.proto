@@ -577,6 +577,10 @@ message GenerateVideoRequest {
   float cfg_scale = 10;    // Classifier-free guidance scale
   int32 step = 11;         // Number of inference steps
   string dst = 12;        // Output path for the generated video
+  string audio = 13;      // Path to staged audio for audio-conditioned video
+  // Backend-specific per-request generation parameters. Values are strings
+  // and are validated/coerced by the selected backend.
+  map<string, string> params = 14;
 }
 
 message TTSRequest {
@@ -1256,4 +1260,3 @@ message ForwardReply {
   repeated ForwardHeader headers = 2;
   bytes body_chunk = 3;
 }
-

@@ -93,6 +93,17 @@ var _ = Describe("Model capabilities derivation", func() {
 			Expect(cfg.OutputModalities()).To(Equal([]string{"image"}))
 		})
 
+		It("a LongCat avatar model accepts text, image, and audio and writes video", func() {
+			cfg := &ModelConfig{
+				KnownUsecases: usecaseBits(FLAG_VIDEO),
+				Backend:       "longcat-video",
+			}
+			cfg.Model = "meituan-longcat/LongCat-Video-Avatar-1.5"
+			Expect(cfg.Capabilities()).To(Equal([]string{UsecaseVideo}))
+			Expect(cfg.InputModalities()).To(Equal([]string{"text", "image", "audio"}))
+			Expect(cfg.OutputModalities()).To(Equal([]string{"video"}))
+		})
+
 		It("a TTS model reads text and writes audio", func() {
 			cfg := &ModelConfig{KnownUsecases: usecaseBits(FLAG_TTS), Backend: "piper"}
 			Expect(cfg.Capabilities()).To(ContainElement(UsecaseTTS))

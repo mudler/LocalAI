@@ -72,6 +72,7 @@
     "asr": "Pengenalan suara",
     "tts": "Text-to-speech",
     "image": "Gambar / Video",
+    "video": "Pembuatan video",
     "embeddings": "Embedding",
     "reranker": "Reranker",
     "detection": "Deteksi object",

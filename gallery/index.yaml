@@ -5164,6 +5164,71 @@
       - video
     parameters:
       model: Wan-AI/Wan2.2-I2V-A14B-Diffusers
+- name: longcat-video
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/meituan-longcat/LongCat-Video
+    - https://github.com/meituan-longcat/LongCat-Video
+  description: |
+    LongCat-Video served by LocalAI's dedicated CUDA backend. Generates video
+    from a text prompt or a start image. The SDPA attention path works without
+    FlashAttention and is suitable for CUDA 13 ARM64 systems such as DGX Spark.
+
+    This is a very large checkpoint (roughly 83 GB in Hugging Face storage) and
+    requires Linux with an NVIDIA CUDA GPU plus substantial memory and disk.
+  license: mit
+  icon: https://raw.githubusercontent.com/meituan-longcat/LongCat-Video/main/assets/longcat-video_logo.svg
+  tags:
+    - text-to-video
+    - image-to-video
+    - video-generation
+    - longcat-video
+    - cuda
+    - gpu
+    - dgx-spark
+  last_checked: "2026-07-12"
+  overrides:
+    backend: longcat-video
+    known_usecases:
+      - video
+    options:
+      - attention_backend:sdpa
+    parameters:
+      model: meituan-longcat/LongCat-Video
+- name: longcat-video-avatar-1.5
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/meituan-longcat/LongCat-Video-Avatar-1.5
+    - https://github.com/meituan-longcat/LongCat-Video
+  description: |
+    LongCat-Video-Avatar-1.5 served by LocalAI's dedicated CUDA backend. Turns
+    speech plus a prompt into an avatar video, optionally conditioning on a
+    portrait, and continues across multiple segments for longer audio.
+
+    Avatar generation also loads tokenizer, text encoder, and VAE components
+    from LongCat-Video. Plan for very large downloads and substantial NVIDIA
+    GPU or unified memory; CPU and macOS execution are unsupported.
+  license: mit
+  icon: https://raw.githubusercontent.com/meituan-longcat/LongCat-Video/main/assets/longcat-video_logo.svg
+  tags:
+    - audio-to-video
+    - image-to-video
+    - avatar-generation
+    - talking-head
+    - longcat-video
+    - cuda
+    - gpu
+    - dgx-spark
+  last_checked: "2026-07-12"
+  overrides:
+    backend: longcat-video
+    known_usecases:
+      - video
+    options:
+      - attention_backend:sdpa
+      - use_distill:true
+    parameters:
+      model: meituan-longcat/LongCat-Video-Avatar-1.5
 - name: vllm-omni-qwen3-omni-30b
   url: github:mudler/LocalAI/gallery/virtual.yaml@master
   urls:

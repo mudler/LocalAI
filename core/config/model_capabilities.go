@@ -1,5 +1,7 @@
 package config
 
+import "strings"
+
 // This file is the single source of truth for deriving a model's user-facing
 // capabilities and input/output modalities from its ModelConfig. Both the
 // OpenAI-compatible /v1/models/capabilities endpoint and the Ollama-compatible
@@ -73,7 +75,8 @@ func (c *ModelConfig) ThinkingSupported() bool {
 // plain usecase list can't express it. Transcription models are handled
 // separately in InputModalities via FLAG_TRANSCRIPT.
 func (c *ModelConfig) AudioInputSupported() bool {
-	return c.LimitMMPerPrompt.LimitAudioPerPrompt > 0
+	return c.LimitMMPerPrompt.LimitAudioPerPrompt > 0 ||
+		(c.Backend == "longcat-video" && strings.Contains(strings.ToLower(c.Model), "avatar"))
 }
 
 // VideoInputSupported reports whether a chat/generation model accepts video as
@@ -146,7 +149,8 @@ func (c *ModelConfig) InputModalities() []string {
 	// Image input via a chat model requires vision (gated on chat, like the
 	// Ollama surface); detection/depth/face models consume images directly.
 	imageIn := (chatish && c.VisionSupported()) || c.LimitMMPerPrompt.LimitImagePerPrompt > 0 ||
-		c.HasUsecases(FLAG_DETECTION) || c.HasUsecases(FLAG_DEPTH) || c.HasUsecases(FLAG_FACE_RECOGNITION)
+		(videoGen && c.Backend == "longcat-video") || c.HasUsecases(FLAG_DETECTION) ||
+		c.HasUsecases(FLAG_DEPTH) || c.HasUsecases(FLAG_FACE_RECOGNITION)
 
 	audioIn := c.AudioInputSupported() || c.HasUsecases(FLAG_TRANSCRIPT) || c.HasUsecases(FLAG_AUDIO_TRANSFORM) ||
 		c.HasUsecases(FLAG_REALTIME_AUDIO) || c.HasUsecases(FLAG_VAD) || c.HasUsecases(FLAG_DIARIZATION) ||

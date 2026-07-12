@@ -1662,6 +1662,7 @@ func (c *ModelConfig) GuessUsecases(u ModelConfigUsecase) bool {
 	nonTextGenBackends := []string{
 		"whisper", "piper", "kokoro",
 		"diffusers", "stablediffusion", "stablediffusion-ggml",
+		"longcat-video",
 		"rerankers", "silero-vad", "rfdetr", "insightface", "speaker-recognition",
 		"transformers-musicgen", "ace-step", "acestep-cpp",
 	}
@@ -1713,7 +1714,7 @@ func (c *ModelConfig) GuessUsecases(u ModelConfigUsecase) bool {
 
 	}
 	if (u & FLAG_VIDEO) == FLAG_VIDEO {
-		videoBackends := []string{"diffusers", "stablediffusion", "vllm-omni"}
+		videoBackends := []string{"diffusers", "stablediffusion", "vllm-omni", "longcat-video"}
 		if !slices.Contains(videoBackends, c.Backend) {
 			return false
 		}
