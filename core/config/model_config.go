@@ -52,7 +52,11 @@ type ModelConfig struct {
 	TemplateConfig      TemplateConfig      `yaml:"template,omitempty" json:"template,omitempty"`
 	KnownUsecaseStrings []string            `yaml:"known_usecases,omitempty" json:"known_usecases,omitempty"`
 	KnownUsecases       *ModelConfigUsecase `yaml:"-" json:"-"`
-	Pipeline            Pipeline            `yaml:"pipeline,omitempty" json:"pipeline,omitempty"`
+	// KnownInputModalities and KnownOutputModalities describe model-specific I/O
+	// that usecases alone cannot express, such as image- or audio-conditioned video.
+	KnownInputModalities  []string `yaml:"known_input_modalities,omitempty" json:"known_input_modalities,omitempty"`
+	KnownOutputModalities []string `yaml:"known_output_modalities,omitempty" json:"known_output_modalities,omitempty"`
+	Pipeline              Pipeline `yaml:"pipeline,omitempty" json:"pipeline,omitempty"`
 
 	PromptStrings, InputStrings                []string       `yaml:"-" json:"-"`
 	InputToken                                 [][]int        `yaml:"-" json:"-"`

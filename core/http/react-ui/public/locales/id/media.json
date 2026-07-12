@@ -52,7 +52,12 @@
       "size": "Ukuran",
       "advanced": "Pengaturan Tingkat Lanjutan",
       "seed": "Seed",
-      "seedPlaceholder": "Acak"
+      "seedPlaceholder": "Acak",
+      "frames": "Frame",
+      "referenceMedia": "Media referensi",
+      "startImage": "Gambar awal",
+      "endImage": "Gambar akhir",
+      "avatarAudio": "Audio avatar"
     },
     "actions": {
       "generate": "Hasilkan",

@@ -162,7 +162,7 @@ func (f *FileStagingClient) GenerateImage(ctx context.Context, in *pb.GenerateIm
 func (f *FileStagingClient) GenerateVideo(ctx context.Context, in *pb.GenerateVideoRequest, opts ...ggrpc.CallOption) (*pb.Result, error) {
 	reqID := requestID()
 
-	// Stage start/end images
+	// Stage start/end images and optional audio conditioning.
 	if in.StartImage != "" && isFilePath(in.StartImage) {
 		backendPath, _, err := f.stageInputFile(ctx, reqID, in.StartImage, "inputs")
 		if err != nil {
@@ -176,6 +176,13 @@ func (f *FileStagingClient) GenerateVideo(ctx context.Context, in *pb.GenerateVi
 			return nil, fmt.Errorf("staging end image: %w", err)
 		}
 		in.EndImage = backendPath
+	}
+	if in.Audio != "" && isFilePath(in.Audio) {
+		backendPath, _, err := f.stageInputFile(ctx, reqID, in.Audio, "inputs")
+		if err != nil {
+			return nil, fmt.Errorf("staging video audio: %w", err)
+		}
+		in.Audio = backendPath
 	}
 
 	// Handle output destination
