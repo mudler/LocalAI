@@ -81,7 +81,7 @@
   files:
     - filename: ds4flash.gguf
       uri: https://huggingface.co/unsloth/DeepSeek-V4-Flash-GGUF
-      sha256: 4ad2486247e5a3a2f8264c7bed3dc47d6addcc0f23014420f8b468cd14338442
+      sha256: 0fd657210e4773042c44fa185eba27dff4017cfc5dea0370685268957b0d3da9
 - name: "qwopus3.6-35b-a3b-coder-mtp"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
@@ -36510,7 +36510,7 @@
   files:
     - filename: parakeet-tdt-0.6b-v3-q4_k.gguf
       uri: huggingface://cstr/parakeet-tdt-0.6b-v3-GGUF/parakeet-tdt-0.6b-v3-q4_k.gguf
-      sha256: 1a60f6e53e5781240dde6e69a47a47a8a71995a3a106517b009225afcc514457
+      sha256: addef407ab841eef45739e78920fd8c00e63f78eaa823c490e600e0ab58080a1
 - name: parakeet-v2-crispasr
   url: github:mudler/LocalAI/gallery/virtual.yaml@master
   urls:
@@ -36533,7 +36533,7 @@
   files:
     - filename: parakeet-tdt-0.6b-v2-q4_k.gguf
       uri: huggingface://cstr/parakeet-tdt-0.6b-v2-GGUF/parakeet-tdt-0.6b-v2-q4_k.gguf
-      sha256: f392cee3c2ba81b397b021e151e4588ded7fc985f8115cfaeb405ea42fc518a9
+      sha256: 287f8a46b64e7785bbd634c2d17fe178145b70266c33f7e7aa8acbf7854d8518
 - name: parakeet-ja-crispasr
   url: github:mudler/LocalAI/gallery/virtual.yaml@master
   urls:
@@ -36579,7 +36579,7 @@
   files:
     - filename: parakeet-tdt-1.1b-q4_k.gguf
       uri: huggingface://cstr/parakeet-tdt-1.1b-GGUF/parakeet-tdt-1.1b-q4_k.gguf
-      sha256: db64b442d02430b76e664fa1fd5facc7866d2bdc071d64028dad55772cde252c
+      sha256: 70052698e0f27b53f8956c031576c009355a76808cef26ee13bc0f5098cf1017
 - name: parakeet-tdt_ctc-110m-crispasr
   url: github:mudler/LocalAI/gallery/virtual.yaml@master
   urls:
@@ -36602,7 +36602,7 @@
   files:
     - filename: parakeet-tdt_ctc-110m-q4_k.gguf
       uri: huggingface://cstr/parakeet-tdt_ctc-110m-GGUF/parakeet-tdt_ctc-110m-q4_k.gguf
-      sha256: c57f84d0826b6a10172c0b9696da472efb5e4c604987ef0d023214b29f38e929
+      sha256: 750992a0d26614e6a0819f8e6b6cf15732d741891f8d332ea706efc27e51c0de
 - name: parakeet-tdt_ctc-1.1b-crispasr
   url: github:mudler/LocalAI/gallery/virtual.yaml@master
   urls:
@@ -36625,7 +36625,7 @@
   files:
     - filename: parakeet-tdt_ctc-1.1b-q4_k.gguf
       uri: huggingface://cstr/parakeet-tdt_ctc-1.1b-GGUF/parakeet-tdt_ctc-1.1b-q4_k.gguf
-      sha256: 52784c0ac7321a6e1d915a96837f6f508fc5bff240b37f5e58dea39feb302edd
+      sha256: b1c5f28a22aecf9f1385593199855ce5e22b805b3951e525507dc756e4cee910
 - name: parakeet-rnnt-0.6b-crispasr
   url: github:mudler/LocalAI/gallery/virtual.yaml@master
   urls:
@@ -36648,7 +36648,7 @@
   files:
     - filename: parakeet-rnnt-0.6b-q4_k.gguf
       uri: huggingface://cstr/parakeet-rnnt-0.6b-GGUF/parakeet-rnnt-0.6b-q4_k.gguf
-      sha256: 84de2c556e30e87ef1fe5b0ac035b581c233ec017afe517082543b19eba8c73d
+      sha256: 081c18ebae6ea38f8409cf04e4a208e39071dcabf7dae533ad047dca471acc5e
 - name: parakeet-rnnt-1.1b-crispasr
   url: github:mudler/LocalAI/gallery/virtual.yaml@master
   urls:
@@ -36671,7 +36671,7 @@
   files:
     - filename: parakeet-rnnt-1.1b-q4_k.gguf
       uri: huggingface://cstr/parakeet-rnnt-1.1b-GGUF/parakeet-rnnt-1.1b-q4_k.gguf
-      sha256: 9e6d6e5aba6dbe15853f93ad317b8017fe21df78fd854d334ca0c4144aefce08
+      sha256: ead08e3a71a2da63c6b4f501bf64171e8c89fa955211b6cf0ce8db15679edb19
 - name: fastconformer-ctc-crispasr
   url: github:mudler/LocalAI/gallery/virtual.yaml@master
   urls:
@@ -36694,7 +36694,7 @@
   files:
     - filename: stt-en-fastconformer-ctc-large-q4_k.gguf
       uri: huggingface://cstr/stt-en-fastconformer-ctc-large-GGUF/stt-en-fastconformer-ctc-large-q4_k.gguf
-      sha256: 5529d6762d1799a58b4fb806f766c2ce893f59d4d38d948d1177fcd3bfa28920
+      sha256: 834c5e6e85ebb4db5261e79788768fa117e955f722f4b4c22ef9db6da4afa467
 - name: canary-crispasr
   url: github:mudler/LocalAI/gallery/virtual.yaml@master
   urls:
@@ -36717,7 +36717,7 @@
   files:
     - filename: canary-1b-v2-q4_k.gguf
       uri: huggingface://cstr/canary-1b-v2-GGUF/canary-1b-v2-q4_k.gguf
-      sha256: 187668f4b7bb7faee0c02de55664c7cb13c792dd54e47da888e05815420e16f1
+      sha256: 5027f74ba0eb9bb707b14a11c7a68510a704748bb392e5f3af45115329ee501d
 - name: voxtral-crispasr
   url: github:mudler/LocalAI/gallery/virtual.yaml@master
   urls:
