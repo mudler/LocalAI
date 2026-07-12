@@ -159,7 +159,7 @@ curl http://localhost:8080/v1/models/capabilities
 ```
 
 - **`capabilities`** — canonical usecase strings (e.g. `chat`, `vision`, `transcript`, `tts`, `embeddings`, `image`, `video`) plus the modifiers `tools` and `thinking`.
-- **`input_modalities` / `output_modalities`** — the subsets of `{text, image, audio, video}` the model accepts and produces. Audio and video *input* are derived from the model's multimodal limits (e.g. vLLM `limit_mm_per_prompt`), which no single usecase flag expresses — which is why this endpoint exists alongside the plain listing.
+- **`input_modalities` / `output_modalities`** — the subsets of `{text, image, audio, video}` the model accepts and produces. LocalAI combines usecase-based inference, backend settings such as vLLM `limit_mm_per_prompt`, and explicit model-level `known_input_modalities` / `known_output_modalities`. The explicit fields cover distinctions a usecase cannot express, such as a video model that also accepts speech.
 
 The same query parameters as `/v1/models` are honored (`filter`, `excludeConfigured`), and the same per-user model allowlist is applied when authentication is enabled.
 

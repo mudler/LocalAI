@@ -10,6 +10,10 @@ RPC. It supports:
 - PyTorch SDPA when FlashAttention is unavailable, including CUDA 13 ARM64
   systems such as NVIDIA DGX Spark.
 
+Install the `longcat-video` or `longcat-video-avatar-1.5` recipe from the
+LocalAI Model Gallery. See the [LongCat user guide](../../../docs/content/features/longcat-video.md)
+for Studio and API examples, hardware requirements, and manual configuration.
+
 The upstream source is pinned in `Makefile` and patched at build time. The
 patch adds only the missing SDPA attention branches; model and source licenses
 remain MIT.
@@ -27,6 +31,11 @@ remain MIT.
 
 Per-request `params` may set `num_segments`, `audio_guidance_scale`,
 `offload_kv_cache`, `ref_img_index`, `mask_frame_range`, and `resolution`.
+
+Gallery and imported configs declare `known_input_modalities` and
+`known_output_modalities`. Keep those declarations in manual configs as well;
+they let model discovery distinguish base image-conditioned video from Avatar
+audio conditioning without inspecting the backend or checkpoint name.
 
 LongCat is CUDA-only and very large. Avatar 1.5 also loads tokenizer,
 text-encoder, and VAE components from the base checkpoint. Keep ample unified

@@ -21,6 +21,14 @@ var _ = Describe("Model capabilities derivation", func() {
 			Expect(cfg.VisionSupported()).To(BeTrue())
 		})
 
+		It("is true when image input is declared explicitly", func() {
+			cfg := &ModelConfig{
+				KnownUsecases:        usecaseBits(FLAG_CHAT),
+				KnownInputModalities: []string{ModalityText, ModalityImage},
+			}
+			Expect(cfg.VisionSupported()).To(BeTrue())
+		})
+
 		It("is true when an mmproj projector is set", func() {
 			cfg := &ModelConfig{KnownUsecases: usecaseBits(FLAG_CHAT), Backend: "llama.cpp"}
 			cfg.MMProj = "mmproj.gguf" // promoted field from the embedded options struct
@@ -37,6 +45,14 @@ var _ = Describe("Model capabilities derivation", func() {
 	})
 
 	Describe("AudioInputSupported / VideoInputSupported", func() {
+		It("honors explicit model modality declarations", func() {
+			cfg := &ModelConfig{
+				KnownInputModalities: []string{ModalityAudio, ModalityVideo},
+			}
+			Expect(cfg.AudioInputSupported()).To(BeTrue())
+			Expect(cfg.VideoInputSupported()).To(BeTrue())
+		})
+
 		It("detects vLLM omni audio input via limit_mm_per_prompt", func() {
 			cfg := &ModelConfig{KnownUsecases: usecaseBits(FLAG_CHAT), Backend: "vllm"}
 			cfg.LimitMMPerPrompt.LimitAudioPerPrompt = 1
@@ -93,15 +109,15 @@ var _ = Describe("Model capabilities derivation", func() {
 			Expect(cfg.OutputModalities()).To(Equal([]string{"image"}))
 		})
 
-		It("a LongCat avatar model accepts text, image, and audio and writes video", func() {
+		It("conditioned video uses declared modalities without backend-specific inference", func() {
 			cfg := &ModelConfig{
-				KnownUsecases: usecaseBits(FLAG_VIDEO),
-				Backend:       "longcat-video",
+				KnownUsecases:         usecaseBits(FLAG_VIDEO),
+				KnownInputModalities:  []string{ModalityAudio, ModalityImage, ModalityText, ModalityAudio, "unknown"},
+				KnownOutputModalities: []string{ModalityVideo},
 			}
-			cfg.Model = "meituan-longcat/LongCat-Video-Avatar-1.5"
 			Expect(cfg.Capabilities()).To(Equal([]string{UsecaseVideo}))
-			Expect(cfg.InputModalities()).To(Equal([]string{"text", "image", "audio"}))
-			Expect(cfg.OutputModalities()).To(Equal([]string{"video"}))
+			Expect(cfg.InputModalities()).To(Equal([]string{ModalityText, ModalityImage, ModalityAudio}))
+			Expect(cfg.OutputModalities()).To(Equal([]string{ModalityVideo}))
 		})
 
 		It("a TTS model reads text and writes audio", func() {

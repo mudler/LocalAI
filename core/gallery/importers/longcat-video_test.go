@@ -3,11 +3,20 @@ package importers_test
 import (
 	"encoding/json"
 
+	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/gallery/importers"
 	hfapi "github.com/mudler/LocalAI/pkg/huggingface-api"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"gopkg.in/yaml.v3"
 )
+
+func decodeLongCatModelConfig(data string) config.ModelConfig {
+	GinkgoHelper()
+	modelConfig := config.ModelConfig{}
+	Expect(yaml.Unmarshal([]byte(data), &modelConfig)).To(Succeed())
+	return modelConfig
+}
 
 var _ = Describe("LongCatVideoImporter", func() {
 	var importer *importers.LongCatVideoImporter
@@ -76,6 +85,13 @@ var _ = Describe("LongCatVideoImporter", func() {
 			Expect(modelConfig.ConfigFile).To(ContainSubstring("- video"))
 			Expect(modelConfig.ConfigFile).To(ContainSubstring("attention_backend:sdpa"))
 			Expect(modelConfig.ConfigFile).NotTo(ContainSubstring("use_distill:true"))
+
+			cfg := decodeLongCatModelConfig(modelConfig.ConfigFile)
+			Expect(cfg.KnownInputModalities).To(Equal([]string{
+				config.ModalityText,
+				config.ModalityImage,
+			}))
+			Expect(cfg.KnownOutputModalities).To(Equal([]string{config.ModalityVideo}))
 		})
 
 		It("enables the distilled path for Avatar 1.5", func() {
@@ -87,6 +103,14 @@ var _ = Describe("LongCatVideoImporter", func() {
 			Expect(modelConfig.Name).To(Equal("longcat-video-avatar-1.5"))
 			Expect(modelConfig.ConfigFile).To(ContainSubstring("model: meituan-longcat/LongCat-Video-Avatar-1.5"))
 			Expect(modelConfig.ConfigFile).To(ContainSubstring("use_distill:true"))
+
+			cfg := decodeLongCatModelConfig(modelConfig.ConfigFile)
+			Expect(cfg.KnownInputModalities).To(Equal([]string{
+				config.ModalityText,
+				config.ModalityImage,
+				config.ModalityAudio,
+			}))
+			Expect(cfg.KnownOutputModalities).To(Equal([]string{config.ModalityVideo}))
 		})
 	})
 })

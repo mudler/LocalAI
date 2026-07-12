@@ -1,6 +1,6 @@
 package config
 
-import "strings"
+import "slices"
 
 // This file is the single source of truth for deriving a model's user-facing
 // capabilities and input/output modalities from its ModelConfig. Both the
@@ -9,14 +9,47 @@ import "strings"
 // across clients. Keep the detection heuristics here rather than duplicating
 // them per endpoint.
 
+// Canonical model modality values used by config declarations and discovery APIs.
+const (
+	ModalityText  = "text"
+	ModalityImage = "image"
+	ModalityAudio = "audio"
+	ModalityVideo = "video"
+)
+
+var modalityOrder = []string{ModalityText, ModalityImage, ModalityAudio, ModalityVideo}
+
+func declaredModalities(modalities []string) map[string]bool {
+	declared := make(map[string]bool, len(modalities))
+	for _, modality := range modalities {
+		if slices.Contains(modalityOrder, modality) {
+			declared[modality] = true
+		}
+	}
+	return declared
+}
+
+func orderedModalities(modalities map[string]bool) []string {
+	result := make([]string, 0, len(modalityOrder))
+	for _, modality := range modalityOrder {
+		if modalities[modality] {
+			result = append(result, modality)
+		}
+	}
+	return result
+}
+
 // VisionSupported reports whether the model can accept image inputs.
 //
 // We deliberately avoid HasUsecases(FLAG_VISION): GuessUsecases has no
 // FLAG_VISION branch and reports true for any chat model, so it would paint
 // vision onto text-only models. Instead we look for explicit signals: the
-// declared KnownUsecases bit, a multimodal projector, or a template/backend
-// multimodal marker.
+// declared input modality or KnownUsecases bit, a multimodal projector, or a
+// template/backend multimodal marker.
 func (c *ModelConfig) VisionSupported() bool {
+	if slices.Contains(c.KnownInputModalities, ModalityImage) {
+		return true
+	}
 	if c.KnownUsecases != nil && (*c.KnownUsecases&FLAG_VISION) == FLAG_VISION {
 		return true
 	}
@@ -70,21 +103,21 @@ func (c *ModelConfig) ThinkingSupported() bool {
 }
 
 // AudioInputSupported reports whether a chat/generation model accepts audio as
-// input (e.g. vLLM omni models). The signal is the vLLM per-prompt audio limit;
-// there is no FLAG_* for "chat model that hears audio", which is exactly why a
-// plain usecase list can't express it. Transcription models are handled
-// separately in InputModalities via FLAG_TRANSCRIPT.
+// input. Model configs can declare this directly; vLLM-family configs can also
+// signal it through the per-prompt audio limit. Transcription models are
+// handled separately in InputModalities via FLAG_TRANSCRIPT.
 func (c *ModelConfig) AudioInputSupported() bool {
-	return c.LimitMMPerPrompt.LimitAudioPerPrompt > 0 ||
-		(c.Backend == "longcat-video" && strings.Contains(strings.ToLower(c.Model), "avatar"))
+	return slices.Contains(c.KnownInputModalities, ModalityAudio) ||
+		c.LimitMMPerPrompt.LimitAudioPerPrompt > 0
 }
 
 // VideoInputSupported reports whether a chat/generation model accepts video as
-// input. The signal is the vLLM per-prompt video limit. Note this is distinct
-// from FLAG_VIDEO, which denotes video *generation* (diffusers) — an output
-// modality, not an input one.
+// input. Model configs can declare this directly; vLLM-family configs can also
+// signal it through the per-prompt video limit. This is distinct from
+// FLAG_VIDEO, which denotes video generation — an output modality.
 func (c *ModelConfig) VideoInputSupported() bool {
-	return c.LimitMMPerPrompt.LimitVideoPerPrompt > 0
+	return slices.Contains(c.KnownInputModalities, ModalityVideo) ||
+		c.LimitMMPerPrompt.LimitVideoPerPrompt > 0
 }
 
 // Capabilities returns the ordered list of capability strings the model
@@ -138,6 +171,7 @@ func (c *ModelConfig) Capabilities() []string {
 // attachment router consults to decide whether an image/audio/video file can be
 // handed to the active model directly.
 func (c *ModelConfig) InputModalities() []string {
+	modalities := declaredModalities(c.KnownInputModalities)
 	imageGen := c.HasUsecases(FLAG_IMAGE)
 	videoGen := c.HasUsecases(FLAG_VIDEO)
 	chatish := c.HasUsecases(FLAG_CHAT) || c.HasUsecases(FLAG_COMPLETION)
@@ -149,8 +183,7 @@ func (c *ModelConfig) InputModalities() []string {
 	// Image input via a chat model requires vision (gated on chat, like the
 	// Ollama surface); detection/depth/face models consume images directly.
 	imageIn := (chatish && c.VisionSupported()) || c.LimitMMPerPrompt.LimitImagePerPrompt > 0 ||
-		(videoGen && c.Backend == "longcat-video") || c.HasUsecases(FLAG_DETECTION) ||
-		c.HasUsecases(FLAG_DEPTH) || c.HasUsecases(FLAG_FACE_RECOGNITION)
+		c.HasUsecases(FLAG_DETECTION) || c.HasUsecases(FLAG_DEPTH) || c.HasUsecases(FLAG_FACE_RECOGNITION)
 
 	audioIn := c.AudioInputSupported() || c.HasUsecases(FLAG_TRANSCRIPT) || c.HasUsecases(FLAG_AUDIO_TRANSFORM) ||
 		c.HasUsecases(FLAG_REALTIME_AUDIO) || c.HasUsecases(FLAG_VAD) || c.HasUsecases(FLAG_DIARIZATION) ||
@@ -158,25 +191,17 @@ func (c *ModelConfig) InputModalities() []string {
 
 	videoIn := c.VideoInputSupported()
 
-	var mods []string
-	if textIn {
-		mods = append(mods, "text")
-	}
-	if imageIn {
-		mods = append(mods, "image")
-	}
-	if audioIn {
-		mods = append(mods, "audio")
-	}
-	if videoIn {
-		mods = append(mods, "video")
-	}
-	return mods
+	modalities[ModalityText] = modalities[ModalityText] || textIn
+	modalities[ModalityImage] = modalities[ModalityImage] || imageIn
+	modalities[ModalityAudio] = modalities[ModalityAudio] || audioIn
+	modalities[ModalityVideo] = modalities[ModalityVideo] || videoIn
+	return orderedModalities(modalities)
 }
 
 // OutputModalities returns the set of modalities (text, image, audio, video)
 // the model produces, ordered text→image→audio→video.
 func (c *ModelConfig) OutputModalities() []string {
+	modalities := declaredModalities(c.KnownOutputModalities)
 	textOut := c.HasUsecases(FLAG_CHAT) || c.HasUsecases(FLAG_COMPLETION) || c.HasUsecases(FLAG_EDIT) ||
 		c.HasUsecases(FLAG_TRANSCRIPT)
 	imageOut := c.HasUsecases(FLAG_IMAGE)
@@ -184,18 +209,9 @@ func (c *ModelConfig) OutputModalities() []string {
 		c.HasUsecases(FLAG_AUDIO_TRANSFORM) || c.HasUsecases(FLAG_REALTIME_AUDIO)
 	videoOut := c.HasUsecases(FLAG_VIDEO)
 
-	var mods []string
-	if textOut {
-		mods = append(mods, "text")
-	}
-	if imageOut {
-		mods = append(mods, "image")
-	}
-	if audioOut {
-		mods = append(mods, "audio")
-	}
-	if videoOut {
-		mods = append(mods, "video")
-	}
-	return mods
+	modalities[ModalityText] = modalities[ModalityText] || textOut
+	modalities[ModalityImage] = modalities[ModalityImage] || imageOut
+	modalities[ModalityAudio] = modalities[ModalityAudio] || audioOut
+	modalities[ModalityVideo] = modalities[ModalityVideo] || videoOut
+	return orderedModalities(modalities)
 }

@@ -983,7 +983,22 @@ chat_template_kwargs:
 					req.Header.Set("Authorization", bearerKey)
 					resp, err = http.DefaultClient.Do(req)
 					Expect(err).ToNot(HaveOccurred())
-					Expect(resp.StatusCode).To(Equal(200))
+					if resp.StatusCode == http.StatusBadRequest {
+						// The worker can finish between the status read and cancellation request.
+						resp, err = http.Get("http://127.0.0.1:9090/api/agent/jobs/" + jobID)
+						Expect(err).ToNot(HaveOccurred())
+						Expect(resp.StatusCode).To(Equal(http.StatusOK))
+						body, _ = io.ReadAll(resp.Body)
+						err = json.Unmarshal(body, &job)
+						Expect(err).ToNot(HaveOccurred())
+						Expect(job.Status).To(Or(
+							Equal(schema.JobStatusCompleted),
+							Equal(schema.JobStatusFailed),
+							Equal(schema.JobStatusCancelled),
+						))
+					} else {
+						Expect(resp.StatusCode).To(Equal(http.StatusOK))
+					}
 				}
 			})
 

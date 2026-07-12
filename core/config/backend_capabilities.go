@@ -307,6 +307,8 @@ var BackendCapabilities = map[string]BackendCapability{
 		GRPCMethods:      []GRPCMethod{MethodGenerateVideo},
 		PossibleUsecases: []string{UsecaseVideo},
 		DefaultUsecases:  []string{UsecaseVideo},
+		AcceptsImages:    true,
+		AcceptsAudios:    true,
 		Description:      "LongCat-Video — text, image, and audio-conditioned avatar video generation on NVIDIA CUDA",
 	},
 	"stablediffusion": {

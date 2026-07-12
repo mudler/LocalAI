@@ -111,56 +111,7 @@ curl http://localhost:8080/video \
 
 ## LongCat-Video and Avatar 1.5
 
-The `longcat-video` backend supports the two official Meituan checkpoints:
-
-- `meituan-longcat/LongCat-Video` for text-to-video and image-to-video;
-- `meituan-longcat/LongCat-Video-Avatar-1.5` for speech-driven avatar video, optionally conditioned on a portrait.
-
-Install either preset from the Model Gallery, import its Hugging Face URL, or use the CLI:
-
-```bash
-local-ai models install longcat-video-avatar-1.5
-```
-
-The importer selects `longcat-video` automatically. The backend is published for CUDA 12 and CUDA 13 on x86_64 and for CUDA 13 on ARM64, including DGX Spark. LongCat requires Linux and NVIDIA CUDA; there are no CPU, ROCm, or macOS builds. Both checkpoints are very large, and Avatar also loads tokenizer, text encoder, and VAE components from the base model.
-
-### Generate an avatar from a portrait and speech
-
-`audio` and `start_image` accept raw base64, browser-style data URIs, or public HTTP(S) URLs. Each staged input is limited to 128 MiB.
-
-```bash
-curl http://localhost:8080/video \
-  -H "Content-Type: application/json" \
-  -d "{
-    \"model\": \"longcat-video-avatar-1.5\",
-    \"prompt\": \"A friendly presenter speaking naturally to camera\",
-    \"start_image\": \"$(base64 --wrap=0 portrait.png)\",
-    \"audio\": \"$(base64 --wrap=0 speech.wav)\",
-    \"width\": 832,
-    \"height\": 480,
-    \"params\": {
-      \"offload_kv_cache\": \"true\"
-    }
-  }"
-```
-
-Avatar 1.5 generates at 25 FPS. When `num_frames` and `params.num_segments` are omitted, the backend derives the required continuation segments from the audio duration, up to the configured `max_segments` model option.
-
-The backend defaults to PyTorch SDPA so it can run without FlashAttention on Blackwell ARM64. Model options are expressed in the model YAML `options` list:
-
-```yaml
-backend: longcat-video
-known_usecases:
-  - video
-options:
-  - attention_backend:sdpa
-  - use_distill:true
-  - max_segments:8
-parameters:
-  model: meituan-longcat/LongCat-Video-Avatar-1.5
-```
-
-Supported request `params` are `num_segments`, `audio_guidance_scale`, `offload_kv_cache`, `ref_img_index`, `mask_frame_range`, and `resolution` (`480p` or `720p`). See the [backend README](https://github.com/mudler/LocalAI/tree/master/backend/python/longcat-video) for all load options.
+The dedicated `longcat-video` backend serves the official base and Avatar 1.5 checkpoints, including CUDA 13 ARM64 systems such as DGX Spark. See [LongCat Video and Avatar]({{%relref "features/longcat-video" %}}) for gallery installation, Studio instructions, complete model YAML, API examples, tuning options, and hardware requirements.
 
 ## Error Responses
 

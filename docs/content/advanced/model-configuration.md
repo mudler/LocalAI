@@ -875,6 +875,23 @@ Available flags: `chat`, `completion`, `edit`, `embeddings`, `rerank`, `image`, 
 
 `token_classify` marks a model as a token-classification (NER) provider for the PII filter (e.g. an `openai-privacy-filter` GGUF). Declare it explicitly together with `embeddings: true` (the classifier loads via TOKEN_CLS pooling). It runs on the dedicated `privacy-filter` backend (`backend/cpp/privacy-filter`), a standalone GGML engine for the `openai-privacy-filter` family — separate from `llama-cpp`, which no longer carries the token-classification path.
 
+### Known input and output modalities
+
+Use `known_input_modalities` and `known_output_modalities` when a use case does not fully describe a model's I/O. For example, both text-to-video and audio-driven avatar models use the `video` use case, but only the avatar model accepts audio:
+
+```yaml
+known_usecases:
+  - video
+known_input_modalities:
+  - text
+  - image
+  - audio
+known_output_modalities:
+  - video
+```
+
+Valid modality values are `text`, `image`, `audio`, and `video`. Explicit values are combined with modalities LocalAI can infer from the model use cases and configuration. The resulting canonical, de-duplicated lists are exposed by `GET /v1/models/capabilities`.
+
 ## PII filtering
 
 PII redaction is NER-based and runs on the **request** (input) side. It has two halves:

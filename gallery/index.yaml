@@ -5191,6 +5191,11 @@
     backend: longcat-video
     known_usecases:
       - video
+    known_input_modalities:
+      - text
+      - image
+    known_output_modalities:
+      - video
     options:
       - attention_backend:sdpa
     parameters:
@@ -5223,6 +5228,12 @@
   overrides:
     backend: longcat-video
     known_usecases:
+      - video
+    known_input_modalities:
+      - text
+      - image
+      - audio
+    known_output_modalities:
       - video
     options:
       - attention_backend:sdpa

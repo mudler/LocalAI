@@ -52,7 +52,11 @@ type ModelConfig struct {
 	TemplateConfig      TemplateConfig      `yaml:"template,omitempty" json:"template,omitempty"`
 	KnownUsecaseStrings []string            `yaml:"known_usecases,omitempty" json:"known_usecases,omitempty"`
 	KnownUsecases       *ModelConfigUsecase `yaml:"-" json:"-"`
-	Pipeline            Pipeline            `yaml:"pipeline,omitempty" json:"pipeline,omitempty"`
+	// KnownInputModalities and KnownOutputModalities describe model-specific I/O
+	// that usecases alone cannot express, such as image- or audio-conditioned video.
+	KnownInputModalities  []string `yaml:"known_input_modalities,omitempty" json:"known_input_modalities,omitempty"`
+	KnownOutputModalities []string `yaml:"known_output_modalities,omitempty" json:"known_output_modalities,omitempty"`
+	Pipeline              Pipeline `yaml:"pipeline,omitempty" json:"pipeline,omitempty"`
 
 	PromptStrings, InputStrings                []string       `yaml:"-" json:"-"`
 	InputToken                                 [][]int        `yaml:"-" json:"-"`
@@ -1662,7 +1666,6 @@ func (c *ModelConfig) GuessUsecases(u ModelConfigUsecase) bool {
 	nonTextGenBackends := []string{
 		"whisper", "piper", "kokoro",
 		"diffusers", "stablediffusion", "stablediffusion-ggml",
-		"longcat-video",
 		"rerankers", "silero-vad", "rfdetr", "insightface", "speaker-recognition",
 		"transformers-musicgen", "ace-step", "acestep-cpp",
 	}
@@ -1714,7 +1717,7 @@ func (c *ModelConfig) GuessUsecases(u ModelConfigUsecase) bool {
 
 	}
 	if (u & FLAG_VIDEO) == FLAG_VIDEO {
-		videoBackends := []string{"diffusers", "stablediffusion", "vllm-omni", "longcat-video"}
+		videoBackends := []string{"diffusers", "stablediffusion", "vllm-omni"}
 		if !slices.Contains(videoBackends, c.Backend) {
 			return false
 		}

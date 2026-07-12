@@ -67,15 +67,9 @@ index a169a7a..df9a469 100644
 
          return x
 
-@@ -425,7 +427,10 @@ class SingleStreamAttention(nn.Module):
-             encoder_k = rearrange(encoder_k, "B H M K -> B M H K")
-             encoder_v = rearrange(encoder_v, "B H M K -> B M H K")
-             x = xformers.ops.memory_efficient_attention(q, encoder_k, encoder_v, attn_bias=None, op=None,)
--            x = rearrange(x, "B M H K -> B H M K")
-+            x = rearrange(x, "B M H K -> B H M K")
+@@ -429,2 +431,5 @@ class SingleStreamAttention(nn.Module):
 +        else:
 +            # This branch uses the native PyTorch kernel when optional kernels are off.
 +            x = F.scaled_dot_product_attention(q, encoder_k, encoder_v, scale=self.scale)
 
          # linear transform
-         x_output_shape = (B, N, C)

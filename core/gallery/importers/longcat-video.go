@@ -96,16 +96,20 @@ func (i *LongCatVideoImporter) Import(details Details) (gallery.ModelConfig, err
 	}
 
 	options := []string{"attention_backend:sdpa"}
+	inputModalities := []string{config.ModalityText, config.ModalityImage}
 	if strings.EqualFold(filepath.Base(model), longCatAvatarRepo) {
 		options = append(options, "use_distill:true")
+		inputModalities = append(inputModalities, config.ModalityAudio)
 	}
 
 	modelConfig := config.ModelConfig{
-		Name:                name,
-		Description:         description,
-		Backend:             i.Name(),
-		KnownUsecaseStrings: []string{config.UsecaseVideo},
-		Options:             options,
+		Name:                  name,
+		Description:           description,
+		Backend:               i.Name(),
+		KnownUsecaseStrings:   []string{config.UsecaseVideo},
+		KnownInputModalities:  inputModalities,
+		KnownOutputModalities: []string{config.ModalityVideo},
+		Options:               options,
 		PredictionOptions: schema.PredictionOptions{
 			BasicModelRequest: schema.BasicModelRequest{Model: model},
 		},

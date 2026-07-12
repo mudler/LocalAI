@@ -79,6 +79,14 @@ var UsecaseOptions = []FieldOption{
 	{Value: "video", Label: "Video"},
 }
 
+// ModalityOptions enumerates the values accepted by known modality fields.
+var ModalityOptions = []FieldOption{
+	{Value: "text", Label: "Text"},
+	{Value: "image", Label: "Image"},
+	{Value: "audio", Label: "Audio"},
+	{Value: "video", Label: "Video"},
+}
+
 var DiffusersSchedulerOptions = []FieldOption{
 	{Value: "ddim", Label: "DDIM"},
 	{Value: "ddpm", Label: "DDPM"},
