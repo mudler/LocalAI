@@ -75,7 +75,7 @@
     "labels": {
       "model": "Model",
       "voice": "Voice",
-      "voicePlaceholder": "Optional voice ID",
+      "voicePlaceholder": "Optional speaker or voice ID",
       "input": "Text",
       "inputPlaceholder": "Enter text to synthesize..."
     },
@@ -87,7 +87,175 @@
     "toasts": {
       "noText": "Please enter text",
       "noModel": "Please select a model",
+      "generated": "Speech generated",
       "generateFailed": "Generation failed"
+    },
+    "voiceLibrary": {
+      "cloningReady": "Voice cloning",
+      "loading": "Loading saved voices…",
+      "modelDefault": "Use model default",
+      "empty": "No saved voices yet.",
+      "create": "Create one",
+      "manage": "Manage Voice Library",
+      "namedVoiceHint": "This model does not accept reference-audio profiles. You can still enter a named speaker supported by its backend."
+    }
+  },
+  "voiceLibrary": {
+    "title": "Voice Library",
+    "subtitle": "Create and manage reusable reference voices for every installed model that supports voice cloning.",
+    "loading": "Loading saved voices…",
+    "listLabel": "Saved voice profiles",
+    "status": {
+      "ready": "Ready"
+    },
+    "summary": {
+      "label": "Voice library status",
+      "profiles": "saved voices",
+      "modelsReady_one": "{{count}} compatible model ready",
+      "modelsReady_other": "{{count}} compatible models ready",
+      "noModels": "No compatible model installed"
+    },
+    "search": {
+      "label": "Search voice profiles",
+      "placeholder": "Search voices, languages, or transcripts"
+    },
+    "filters": {
+      "language": "Filter by language",
+      "allLanguages": "All languages"
+    },
+    "empty": {
+      "title": "Your voice library is empty",
+      "body": "Record or upload one consented reference clip, add its exact transcript, and reuse it across compatible TTS models."
+    },
+    "noResults": {
+      "title": "No voices match these filters",
+      "body": "Try a different search or show every language."
+    },
+    "detail": {
+      "eyebrow": "Selected voice",
+      "emptyTitle": "Select a voice to inspect it",
+      "emptyBody": "Reference audio, transcript, compatibility, and consent details will appear here.",
+      "referenceAudio": "Reference audio",
+      "transcript": "Reference transcript"
+    },
+    "metadata": {
+      "language": "Language",
+      "languageUnknown": "Not specified",
+      "duration": "Duration",
+      "sampleRate": "Sample rate",
+      "created": "Created"
+    },
+    "consent": {
+      "confirmed": "Consent confirmed",
+      "confirmedAt": "Confirmed {{date}}"
+    },
+    "modelSetup": {
+      "title": "Install a voice-cloning model",
+      "body": "This voice is ready, but it needs a model that accepts reference audio. Choose one verified by this server.",
+      "loading": "Finding compatible models in your galleries…",
+      "backendUnknown": "Backend selected during install",
+      "install": "Install",
+      "installing": "Installing…",
+      "loadFailed": "Compatible recommendations could not be loaded.",
+      "noneAvailable": "No compatible uninstalled model is available in the configured galleries.",
+      "capabilityNote": "Recommendations come from model capability metadata, not a browser-side model list."
+    },
+    "api": {
+      "title": "API usage and compatible models",
+      "summary": "Use this voice outside the browser or check model support",
+      "body": "Send the profile’s stable voice URI with each speech request. LocalAI resolves the private reference audio and transcript at generation time; model YAML is not modified.",
+      "compatibleModels": "Compatible installed models",
+      "noInstalledModels": "None yet. Install one of the server-verified models above before sending this request.",
+      "curlExample": "cURL example",
+      "copy": "Copy request",
+      "endpointNote": "The same model, input, and voice fields also work with POST /tts."
+    },
+    "actions": {
+      "create": "Create voice",
+      "createFirst": "Create your first voice",
+      "retry": "Try again",
+      "clearFilters": "Clear filters",
+      "useInTTS": "Use in Text to Speech",
+      "delete": "Delete voice",
+      "installModel": "Install a compatible model",
+      "browseModels": "Browse all models"
+    },
+    "deleteDialog": {
+      "title": "Delete this voice?",
+      "message": "“{{name}}” and its reference audio will be permanently removed. Existing model YAML is not changed.",
+      "deleting": "Deleting…"
+    },
+    "toasts": {
+      "deleted": "Deleted {{name}}",
+      "installStarted": "Installing {{name}}. Progress is available in Operations.",
+      "installFailed": "Could not start installation: {{message}}",
+      "apiCopied": "API request copied",
+      "copyFailed": "Could not copy the API request"
+    }
+  },
+  "voiceCreate": {
+    "eyebrow": "Voice Library",
+    "title": "Create a reusable voice",
+    "subtitle": "Add one clean reference clip and its exact transcript. LocalAI handles the backend-specific cloning parameters at generation time.",
+    "sections": {
+      "reference": {
+        "title": "Reference audio",
+        "body": "Record in the browser or upload an existing clip. Speech should be clean, natural, and from one speaker."
+      },
+      "details": {
+        "title": "Identity and transcript",
+        "body": "Give admins a recognizable name and transcribe the clip exactly, including fillers and punctuation."
+      },
+      "consent": {
+        "title": "Authorization",
+        "body": "Voice cloning can be sensitive. Confirm permission before this reference is saved."
+      }
+    },
+    "audio": {
+      "label": "Voice reference",
+      "normalizing": "Preparing a secure PCM WAV…",
+      "preview": "Normalized reference",
+      "durationError": "Reference audio must be between 1 second and 2 minutes.",
+      "decodeError": "This browser could not decode the selected audio file.",
+      "qualityReady": "Recommended length",
+      "qualityHint": "6–30 seconds usually produces a stronger clone"
+    },
+    "fields": {
+      "name": "Voice name",
+      "namePlaceholder": "e.g. Documentary narrator",
+      "language": "Language (optional)",
+      "languagePlaceholder": "e.g. en-US",
+      "description": "Description (optional)",
+      "descriptionPlaceholder": "Tone, source, or intended use",
+      "transcript": "Exact transcript",
+      "transcriptPlaceholder": "Type every word spoken in the reference clip…",
+      "transcriptHint": "Match the recording exactly. Do not rewrite grammar or remove pauses and fillers."
+    },
+    "consent": {
+      "title": "I confirm that this voice may be cloned",
+      "body": "I have the speaker’s permission or another lawful basis to store and use this recording for synthesized speech."
+    },
+    "readiness": {
+      "title": "Profile readiness",
+      "body": "A voice becomes available in Text to Speech when every required item is complete.",
+      "audio": "Valid PCM-WAV reference",
+      "quality": "6–30 second quality window",
+      "name": "Recognizable voice name",
+      "transcript": "Exact reference transcript",
+      "consent": "Authorization confirmed"
+    },
+    "privacy": {
+      "title": "Private by default. ",
+      "body": "Reference audio is stored in LocalAI’s data directory with restricted file permissions and is never exposed as a model-folder path."
+    },
+    "actions": {
+      "back": "Back to library",
+      "cancel": "Cancel",
+      "save": "Save voice",
+      "saving": "Saving…"
+    },
+    "toasts": {
+      "created": "{{name}} is ready to use"
     }
   },
   "sound": {

@@ -26,6 +26,8 @@ const PAGES = [
   ['/app/voice', 'Voice recognition'],
   ['/app/fine-tune', 'Fine-tuning'],
   ['/app/quantize', 'Quantize'],
+  ['/app/voice-library', 'Voice Library'],
+  ['/app/voice-library/new', 'Create voice profile'],
 ]
 
 test.describe('Page render smoke', () => {
