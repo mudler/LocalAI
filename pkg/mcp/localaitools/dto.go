@@ -1,5 +1,7 @@
 package localaitools
 
+import "github.com/mudler/LocalAI/core/services/voiceprofile"
+
 // DTOs for the LocalAIClient interface. Where the same shape already exists
 // elsewhere (config.Gallery, gallery.Metadata, schema.KnownBackend,
 // vram.EstimateResult) we surface that type directly via the interface
@@ -143,6 +145,28 @@ type Branding struct {
 type SetBrandingRequest struct {
 	InstanceName    *string `json:"instance_name,omitempty"    jsonschema:"New instance display name (replaces \"LocalAI\" in headers, footers, and the browser tab). Pass an empty string to reset to default."`
 	InstanceTagline *string `json:"instance_tagline,omitempty" jsonschema:"Optional short subtitle shown beneath the instance name. Pass an empty string to clear."`
+}
+
+// VoiceProfile is the same path-free shape returned by the REST library.
+// Keeping the service type avoids REST/MCP field drift.
+type VoiceProfile = voiceprofile.Profile
+
+// CreateVoiceProfileRequest is the MCP/JSON form of profile creation. Audio
+// must be a base64-encoded 16-bit PCM WAV (mono 24 kHz is recommended for
+// portability); the service enforces the same 50 MiB and duration limits as
+// the browser upload route.
+type CreateVoiceProfileRequest struct {
+	Name             string `json:"name"              jsonschema:"Display name for the reusable voice profile."`
+	Description      string `json:"description,omitempty" jsonschema:"Optional note describing tone, source, or intended use."`
+	Language         string `json:"language,omitempty" jsonschema:"Optional BCP-47-style language tag such as en-US."`
+	Transcript       string `json:"transcript"        jsonschema:"Exact transcript of the words spoken in the reference clip."`
+	AudioBase64      string `json:"audio_base64"      jsonschema:"Base64-encoded 16-bit PCM WAV reference, preferably mono 24 kHz, 1-120 seconds and at most 50 MiB decoded."`
+	ConsentConfirmed bool   `json:"consent_confirmed" jsonschema:"Must be true to confirm authorization to clone this voice."`
+}
+
+// DeleteVoiceProfileRequest identifies the profile to remove.
+type DeleteVoiceProfileRequest struct {
+	ID string `json:"id" jsonschema:"Opaque voice profile UUID returned by list_voice_profiles."`
 }
 
 // UsageStatsQuery is the input for get_usage_stats. UserID is optional;

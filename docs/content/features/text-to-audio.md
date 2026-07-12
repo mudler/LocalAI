@@ -29,6 +29,112 @@ curl http://localhost:8080/tts -H "Content-Type: application/json" -d '{
 
 Returns an `audio/wav` file.
 
+## Voice Library
+
+Administrators can manage reusable voice-cloning references from **Operate → Voice Library** in the LocalAI WebUI. The library replaces per-model filesystem and YAML setup for supported cloning backends:
+
+1. Select **Create voice** and upload or record a clear reference clip.
+2. Enter the exact words spoken in the clip. The transcript is sent to backends that require reference text.
+3. Confirm that you have permission to clone the voice, then save the profile.
+4. Open **Text to Speech**, choose a model marked **Cloning ready**, and select the saved voice.
+
+The browser converts uploads and recordings to mono, 24 kHz, 16-bit PCM WAV so the same profile works across compatible backends. Clips must be between 1 and 120 seconds and no larger than 50 MiB; 6–30 seconds of clean, single-speaker audio is recommended. Profile audio is private biometric source material: LocalAI stores it below its configured data path, serves previews only to authenticated TTS users, and never returns its filesystem path.
+
+### Voice profile API
+
+The WebUI uses the following endpoints. Creating and deleting profiles requires administrator access; listing profiles and playing previews requires access to the TTS feature.
+
+| Method | Endpoint | Purpose |
+| --- | --- | --- |
+| `GET` | `/api/voice-profiles` | List saved profiles and their public metadata. |
+| `POST` | `/api/voice-profiles` | Create a profile from multipart form data or JSON with base64 audio. |
+| `GET` | `/api/voice-profiles/{id}/audio` | Stream the authenticated WAV preview, including range requests. |
+| `DELETE` | `/api/voice-profiles/{id}` | Permanently delete a profile. |
+
+For example, an administrator can create a profile without the WebUI:
+
+```bash
+curl http://localhost:8080/api/voice-profiles \
+  -F 'name=Documentary narrator' \
+  -F 'language=en-US' \
+  -F 'transcript=The exact words spoken in this reference.' \
+  -F 'consent_confirmed=true' \
+  -F 'audio=@reference.wav;type=audio/wav'
+```
+
+The response includes an opaque voice reference such as `localai://voice-profiles/550e8400-e29b-41d4-a716-446655440000`. Pass that value as `voice` to either TTS-compatible endpoint:
+
+```bash
+curl http://localhost:8080/v1/audio/speech \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "model": "qwen3-tts-base",
+    "input": "This sentence will use the saved voice.",
+    "voice": "localai://voice-profiles/550e8400-e29b-41d4-a716-446655440000"
+  }' --output speech.wav
+```
+
+LocalAI resolves the opaque reference only for models that advertise voice-cloning support. Existing named speakers, backend-specific voice IDs, and explicit model YAML voice configuration remain available for models and advanced workflows that do not use the library.
+
+The Voice Library uses the same server-side capability resolver for installed models and gallery recommendations. Administrators can inspect the currently configured galleries without maintaining a separate backend list:
+
+```bash
+curl 'http://localhost:8080/api/models?capability=voice_cloning&items=20'
+```
+
+Each returned model includes a non-null `voice_cloning` contract. Variant checks are applied before the model is returned, so TTS-only CustomVoice, VoiceDesign, or preset-prompt variants are not offered as reference-audio models. When the WebUI detects that no compatible model is installed, it uses this response to offer direct installation.
+
+### Model configuration
+
+Voice Library support is automatic for known backends and model variants. A custom model can override that detection with `tts.voice_cloning`:
+
+```yaml
+name: private-qwen-base
+backend: qwen3-tts-cpp
+parameters:
+  model: private/qwen-talker-checkpoint.gguf
+known_usecases:
+  - tts
+tts:
+  # Optional: omit this for automatic backend and variant detection.
+  voice_cloning: true
+  # Optional model-wide fallback when a request does not select a saved profile.
+  audio_path: voices/default-reference.wav
+options:
+  - tokenizer:private/qwen-tokenizer.gguf
+```
+
+`tts.voice_cloning` has three states:
+
+| Value | Behavior |
+| --- | --- |
+| omitted | Detect support from the backend plus `name`, `parameters.model`, and compatibility options. This is recommended for gallery models. |
+| `true` | Advertise Voice Library support for a custom-named variant of a backend that LocalAI already knows can clone voices. This cannot add cloning to an unsupported backend. |
+| `false` | Hide the model from Voice Library compatibility results and reject `localai://voice-profiles/...` references for it. Backend-specific named voices and manual reference paths remain available. |
+
+The older `options: ["voice_cloning:true"]` and `options: ["voice_cloning:false"]` spellings remain accepted for compatibility. Prefer `tts.voice_cloning`; generic options may be forwarded to a backend, whereas the typed field is consumed only by LocalAI.
+
+Reference selection follows this order:
+
+1. A request `voice`, including a saved `localai://voice-profiles/...` URI.
+2. The model's `tts.voice` default.
+3. The model's `tts.audio_path` reference-audio fallback.
+4. A backend-specific default voice or option.
+
+When a saved profile is selected, LocalAI supplies both its private WAV and exact transcript for that request. It does not rewrite the model YAML or copy the recording into the model directory.
+
+#### Supported backend and model variants
+
+| Backend | Automatically compatible variants |
+| --- | --- |
+| `chatterbox`, `faster-qwen3-tts`, `fish-speech`, `neutts`, `omnivoice-cpp`, `pocket-tts`, `voxcpm` | Reference-audio cloning models served by these dedicated backends. |
+| `qwen-tts`, `qwen3-tts-cpp`, `vllm-omni` | Base or VoiceClone variants. CustomVoice and VoiceDesign variants are not raw reference-audio models. |
+| `vibevoice-cpp` | 1.5B reference-WAV variants. The realtime 0.5B preset-prompt model is excluded. |
+| `coqui` | XTTS and YourTTS variants. |
+| `crispasr` | F5-TTS variants. ASR, Piper, Orpheus, and other CrispASR model families are excluded. |
+
+This table describes the built-in resolver, not a frontend allowlist. Gallery entries and installed configs are evaluated by the server, and `tts.voice_cloning` can make a verified custom filename explicit.
+
 ## Streaming TTS
 
 LocalAI supports streaming TTS generation, allowing audio to be played as it's generated. This is useful for real-time applications and reduces latency.
@@ -132,7 +238,7 @@ Future versions of LocalAI will expose additional control over audio generation 
 
 #### Setup
 
-Install the `ace-step-turbo` model from the Model gallery or run `local-ai run models install ace-step-turbo`.
+Install the `ace-step-turbo` model from the Model gallery or run `local-ai models install ace-step-turbo`.
 
 #### Usage
 
@@ -186,11 +292,11 @@ options:
 
 ### VibeVoice
 
-[VibeVoice-Realtime](https://github.com/microsoft/VibeVoice) is a real-time text-to-speech model that generates natural-sounding speech with voice cloning capabilities.
+[VibeVoice-Realtime](https://github.com/microsoft/VibeVoice) is a real-time text-to-speech model that generates natural-sounding speech from precomputed voice presets.
 
 #### Setup
 
-Install the `vibevoice` model in the Model gallery or run `local-ai run models install vibevoice`.
+Install the `vibevoice` model in the Model gallery or run `local-ai models install vibevoice`.
 
 #### Usage
 
@@ -203,9 +309,9 @@ curl http://localhost:8080/tts -H "Content-Type: application/json" -d '{
    }' | aplay
 ```
 
-#### Voice cloning
+#### Voice presets
 
-VibeVoice supports voice cloning through voice preset files. You can configure a model with a specific voice:
+The Python `vibevoice` realtime 0.5B model uses `.pt` voice preset files. You can configure a model with a specific preset:
 
 ```yaml
 name: vibevoice
@@ -220,6 +326,10 @@ tts:
 Then you can use the model:
 
 ```
+
+{{% notice note %}}
+The realtime 0.5B preset model is not advertised to the Voice Library because it does not accept a raw reference WAV per request. For Voice Library profiles, use a `vibevoice-cpp` 1.5B reference-WAV model; LocalAI detects the 1.5B variant automatically, or a custom name can set `tts.voice_cloning: true`.
+{{% /notice %}}
 curl http://localhost:8080/tts -H "Content-Type: application/json" -d '{         
      "model": "vibevoice",
      "input":"Hello!"
@@ -232,7 +342,7 @@ curl http://localhost:8080/tts -H "Content-Type: application/json" -d '{
 
 #### Setup
 
-Install the `omnivoice-cpp` model in the Model gallery or run `local-ai run models install omnivoice-cpp`. A higher-quality BF16 variant is available as `omnivoice-cpp-hq` (the default `omnivoice-cpp` ships Q8_0 GGUFs).
+Install the `omnivoice-cpp` model in the Model gallery or run `local-ai models install omnivoice-cpp`. A higher-quality BF16 variant is available as `omnivoice-cpp-hq` (the default `omnivoice-cpp` ships Q8_0 GGUFs).
 
 #### Usage
 
@@ -266,6 +376,7 @@ backend: omnivoice-cpp
 parameters:
   model: omnivoice-cpp/omnivoice-base-Q8_0.gguf
 tts:
+  voice_cloning: true                    # optional explicit declaration; gallery models are auto-detected
   audio_path: "voices/my_reference.wav"   # default cloning reference (or use tts.voice)
 options:
   - "tokenizer:omnivoice-cpp/omnivoice-tokenizer-Q8_0.gguf"
@@ -308,7 +419,7 @@ A per-request `seed` can also be supplied through the `params` map alongside `re
 
 #### Setup
 
-Install the `pocket-tts` model in the Model gallery or run `local-ai run models install pocket-tts`.
+Install the `pocket-tts` model in the Model gallery or run `local-ai models install pocket-tts`.
 
 #### Usage
 
@@ -335,6 +446,16 @@ tts:
   # Available built-in voices: alba, marius, javert, jean, fantine, cosette, eponine, azelma
 ```
 
+To make a reference recording the model-wide fallback, use `tts.audio_path`. The gallery model is detected automatically; `tts.voice_cloning` is only needed when you want an explicit declaration:
+
+```yaml
+name: pocket-tts-clone
+backend: pocket-tts
+tts:
+  voice_cloning: true
+  audio_path: "voices/reference.wav"
+```
+
 You can also pre-load a default voice for faster first generation:
 
 ```yaml
@@ -359,7 +480,25 @@ curl http://localhost:8080/tts -H "Content-Type: application/json" -d '{
 
 #### Setup
 
-Install the `qwen-tts` model in the Model gallery or run `local-ai run models install qwen-tts`.
+Install the `qwen-tts` model in the Model gallery or run `local-ai models install qwen-tts`.
+
+#### C++ / GGML gallery variants
+
+For a native backend, install one of the Base variants `qwen3-tts-cpp`, `qwen3-tts-cpp-0.6b-base-q4`, `qwen3-tts-cpp-1.7b-base`, or `qwen3-tts-cpp-1.7b-base-q4`. These variants accept saved Voice Library profiles and are advertised automatically. Gallery entries containing `customvoice` or `voicedesign` provide their respective Qwen modes but are intentionally excluded from raw reference-audio cloning.
+
+A private Qwen C++ Base conversion with an opaque filename can declare the capability explicitly. The tokenizer GGUF can sit beside the talker GGUF for automatic discovery:
+
+```yaml
+name: company-narrator-engine
+backend: qwen3-tts-cpp
+parameters:
+  model: qwen-private/talker.gguf
+known_usecases:
+  - tts
+tts:
+  voice_cloning: true
+  audio_path: voices/default-reference.wav  # optional fallback
+```
 
 #### Usage
 
@@ -476,6 +615,7 @@ backend: qwen-tts
 parameters:
   model: Qwen/Qwen3-TTS-12Hz-1.7B-Base
 tts:
+  voice_cloning: true  # optional for this Base model; useful when a private checkpoint has an opaque name
   audio_path: "path/to/reference_audio.wav"  # Reference audio file
 options:
   - "ref_text:This is the transcript of the reference audio."
@@ -544,10 +684,9 @@ The multi-voice mode is backward compatible with existing single-voice configura
 
 You can also use a `config-file` to specify TTS models and their parameters.
 
-In the following example we define a custom config to load the `xtts_v2` model, and specify a voice and language.
+In the following example, a custom config loads `xtts_v2` with a default cloning reference and language.
 
 ```yaml
-
 name: xtts_v2
 backend: coqui
 parameters:
@@ -555,8 +694,11 @@ parameters:
   model: tts_models/multilingual/multi-dataset/xtts_v2
 
 tts:
-  voice: Ana Florence
+  voice_cloning: true
+  audio_path: voices/reference.wav
 ```
+
+For XTTS/YourTTS, `tts.audio_path` is the default cloning reference and a saved Voice Library profile overrides it per request. Other Coqui model families are not advertised as Voice Library-compatible unless they match the supported variant rules or are explicitly verified with `tts.voice_cloning: true`.
 
 With this config, you can now use the following curl command to generate a text-to-speech audio file:
 ```bash

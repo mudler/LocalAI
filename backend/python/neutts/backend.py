@@ -119,9 +119,18 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
             # add options to kwargs
             kwargs.update(self.options)
 
-            ref_codes = self.model.encode_reference(self.AudioPath)
+            ref_audio = request.voice if request.voice else self.AudioPath
+            if not ref_audio:
+                return backend_pb2.Result(success=False, message="reference audio is required")
+            ref_text = request.params.get("ref_text") if hasattr(request, "params") else None
+            if not ref_text:
+                ref_text = self.ref_text
+            if not ref_text:
+                return backend_pb2.Result(success=False, message="ref_text is required")
 
-            wav = self.model.infer(request.text, ref_codes, self.ref_text)
+            ref_codes = self.model.encode_reference(ref_audio)
+
+            wav = self.model.infer(request.text, ref_codes, ref_text)
 
             sf.write(request.dst, wav, 24000)            
         except Exception as err:

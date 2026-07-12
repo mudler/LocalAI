@@ -209,8 +209,27 @@ type BackendCapability struct {
 	AcceptsVideos bool
 	// AcceptsAudios indicates multimodal audio input in Predict.
 	AcceptsAudios bool
+	// VoiceCloning describes the backend's per-request reference-audio
+	// contract. Model variants that share a backend may narrow this further;
+	// use VoiceCloningForModel for UI/API decisions.
+	VoiceCloning *VoiceCloningCapability
 	// Description is a human-readable summary of the backend.
 	Description string
+}
+
+// VoiceCloningCapability is the model-facing contract for reusable reference
+// voices. The first release intentionally accepts only browser-normalizable
+// PCM WAV so every advertised backend sees the same input shape.
+type VoiceCloningCapability struct {
+	ReferenceTranscriptRequired bool     `json:"reference_transcript_required"`
+	AcceptedAudioFormats        []string `json:"accepted_audio_formats"`
+}
+
+func referenceVoiceCloning() *VoiceCloningCapability {
+	return &VoiceCloningCapability{
+		ReferenceTranscriptRequired: true,
+		AcceptedAudioFormats:        []string{"audio/wav"},
+	}
 }
 
 // BackendCapabilities maps each backend name (as used in model configs and gallery
@@ -261,6 +280,7 @@ var BackendCapabilities = map[string]BackendCapability{
 		AcceptsImages:    true,
 		AcceptsVideos:    true,
 		AcceptsAudios:    true,
+		VoiceCloning:     referenceVoiceCloning(),
 		Description:      "vLLM omni-modal — supports text, image, video generation and TTS",
 	},
 	"transformers": {
@@ -383,6 +403,7 @@ var BackendCapabilities = map[string]BackendCapability{
 		GRPCMethods:      []GRPCMethod{MethodAudioTranscription, MethodTTS, MethodTTSStream},
 		PossibleUsecases: []string{UsecaseTranscript, UsecaseTTS},
 		DefaultUsecases:  []string{UsecaseTranscript, UsecaseTTS},
+		VoiceCloning:     referenceVoiceCloning(),
 		Description:      "VibeVoice C++ — bidirectional speech, C++ backend with streaming TTS",
 	},
 	"sherpa-onnx": {
@@ -409,6 +430,7 @@ var BackendCapabilities = map[string]BackendCapability{
 		GRPCMethods:      []GRPCMethod{MethodTTS},
 		PossibleUsecases: []string{UsecaseTTS},
 		DefaultUsecases:  []string{UsecaseTTS},
+		VoiceCloning:     referenceVoiceCloning(),
 		Description:      "Coqui TTS — multi-speaker neural synthesis",
 	},
 	"kitten-tts": {
@@ -427,49 +449,71 @@ var BackendCapabilities = map[string]BackendCapability{
 		GRPCMethods:      []GRPCMethod{MethodTTS},
 		PossibleUsecases: []string{UsecaseTTS},
 		DefaultUsecases:  []string{UsecaseTTS},
+		VoiceCloning:     referenceVoiceCloning(),
 		Description:      "Pocket TTS — lightweight text-to-speech",
 	},
 	"qwen-tts": {
 		GRPCMethods:      []GRPCMethod{MethodTTS},
 		PossibleUsecases: []string{UsecaseTTS},
 		DefaultUsecases:  []string{UsecaseTTS},
+		VoiceCloning:     referenceVoiceCloning(),
 		Description:      "Qwen TTS",
 	},
 	"qwen3-tts-cpp": {
 		GRPCMethods:      []GRPCMethod{MethodTTS, MethodTTSStream},
 		PossibleUsecases: []string{UsecaseTTS},
 		DefaultUsecases:  []string{UsecaseTTS},
+		VoiceCloning:     referenceVoiceCloning(),
 		Description:      "Qwen3 TTS C++ - text-to-speech with streaming, named speakers, voice design and cloning (qwentts.cpp / GGML)",
 	},
 	"faster-qwen3-tts": {
 		GRPCMethods:      []GRPCMethod{MethodTTS},
 		PossibleUsecases: []string{UsecaseTTS},
 		DefaultUsecases:  []string{UsecaseTTS},
+		VoiceCloning:     referenceVoiceCloning(),
 		Description:      "Faster Qwen3 TTS — accelerated Qwen TTS",
 	},
 	"fish-speech": {
 		GRPCMethods:      []GRPCMethod{MethodTTS},
 		PossibleUsecases: []string{UsecaseTTS},
 		DefaultUsecases:  []string{UsecaseTTS},
+		VoiceCloning:     referenceVoiceCloning(),
 		Description:      "Fish Speech TTS",
 	},
 	"neutts": {
 		GRPCMethods:      []GRPCMethod{MethodTTS},
 		PossibleUsecases: []string{UsecaseTTS},
 		DefaultUsecases:  []string{UsecaseTTS},
+		VoiceCloning:     referenceVoiceCloning(),
 		Description:      "NeuTTS — neural text-to-speech",
 	},
 	"chatterbox": {
 		GRPCMethods:      []GRPCMethod{MethodTTS},
 		PossibleUsecases: []string{UsecaseTTS},
 		DefaultUsecases:  []string{UsecaseTTS},
+		VoiceCloning:     referenceVoiceCloning(),
 		Description:      "Chatterbox TTS",
 	},
 	"voxcpm": {
 		GRPCMethods:      []GRPCMethod{MethodTTS, MethodTTSStream},
 		PossibleUsecases: []string{UsecaseTTS},
 		DefaultUsecases:  []string{UsecaseTTS},
+		VoiceCloning:     referenceVoiceCloning(),
 		Description:      "VoxCPM TTS with streaming support",
+	},
+	"omnivoice-cpp": {
+		GRPCMethods:      []GRPCMethod{MethodTTS, MethodTTSStream},
+		PossibleUsecases: []string{UsecaseTTS},
+		DefaultUsecases:  []string{UsecaseTTS},
+		VoiceCloning:     referenceVoiceCloning(),
+		Description:      "OmniVoice C++ — multilingual TTS with streaming voice cloning and voice design",
+	},
+	"crispasr": {
+		GRPCMethods:      []GRPCMethod{MethodAudioTranscription, MethodTTS, MethodTTSStream, MethodVAD},
+		PossibleUsecases: []string{UsecaseTranscript, UsecaseTTS, UsecaseVAD},
+		DefaultUsecases:  []string{UsecaseTranscript},
+		VoiceCloning:     referenceVoiceCloning(),
+		Description:      "CrispASR GGUF runtime — speech recognition, VAD, and model-dependent TTS",
 	},
 
 	// --- Sound generation backends ---
@@ -611,6 +655,82 @@ func GetBackendCapability(backend string) *BackendCapability {
 		return &cap
 	}
 	return nil
+}
+
+// VoiceCloningForModel returns the reference-audio contract only when the
+// installed model variant can honor it. Several backends serve both Base
+// (voice cloning) and CustomVoice/VoiceDesign models, so backend name alone is
+// deliberately insufficient. Operators with custom filenames can opt in or
+// out explicitly with tts.voice_cloning; the model option spelling remains a
+// compatibility fallback for configurations created before the typed field.
+func VoiceCloningForModel(cfg *ModelConfig) *VoiceCloningCapability {
+	if cfg == nil {
+		return nil
+	}
+	backend := NormalizeBackendName(cfg.Backend)
+	capability := GetBackendCapability(backend)
+	if capability == nil || capability.VoiceCloning == nil {
+		return nil
+	}
+	if cfg.VoiceCloning != nil {
+		if !*cfg.VoiceCloning {
+			return nil
+		}
+		return cloneVoiceCloningCapability(capability.VoiceCloning)
+	}
+
+	if enabled, explicit := voiceCloningOverride(cfg.Options); explicit {
+		if !enabled {
+			return nil
+		}
+		return cloneVoiceCloningCapability(capability.VoiceCloning)
+	}
+
+	identity := strings.ToLower(strings.Join([]string{cfg.Name, cfg.Model, strings.Join(cfg.Options, " ")}, " "))
+	supported := false
+	switch backend {
+	case "qwen3-tts-cpp", "qwen-tts", "vllm-omni":
+		supported = strings.Contains(identity, "base") || strings.Contains(identity, "voiceclone") || strings.Contains(identity, "voice_clone")
+	case "vibevoice-cpp":
+		// Realtime 0.5B consumes a precomputed .gguf voice prompt; the 1.5B
+		// path consumes raw WAV references per request.
+		supported = strings.Contains(identity, "1.5b")
+	case "coqui":
+		supported = strings.Contains(identity, "xtts") || strings.Contains(identity, "your_tts")
+	case "crispasr":
+		supported = strings.Contains(identity, "f5-tts") || strings.Contains(identity, "f5_tts")
+	default:
+		supported = true
+	}
+	if !supported {
+		return nil
+	}
+	return cloneVoiceCloningCapability(capability.VoiceCloning)
+}
+
+func voiceCloningOverride(options []string) (enabled, explicit bool) {
+	for _, option := range options {
+		parts := strings.FieldsFunc(option, func(r rune) bool { return r == ':' || r == '=' })
+		if len(parts) != 2 || !strings.EqualFold(strings.TrimSpace(parts[0]), "voice_cloning") {
+			continue
+		}
+		switch strings.ToLower(strings.TrimSpace(parts[1])) {
+		case "true", "1", "yes", "on":
+			return true, true
+		case "false", "0", "no", "off":
+			return false, true
+		}
+	}
+	return false, false
+}
+
+func cloneVoiceCloningCapability(capability *VoiceCloningCapability) *VoiceCloningCapability {
+	if capability == nil {
+		return nil
+	}
+	clone := *capability
+	clone.AcceptedAudioFormats = slices.Clone(capability.AcceptedAudioFormats)
+	return &clone
 }
 
 // PossibleUsecasesForBackend returns all usecases a backend can support.

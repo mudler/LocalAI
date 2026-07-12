@@ -267,6 +267,8 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
 
     def _get_ref_audio_path(self, voice_name=None):
         """Get reference audio path from voices dict or stored AudioPath."""
+        if voice_name and os.path.isfile(voice_name):
+            return voice_name
         if voice_name and voice_name in self.voices:
             audio_path = self.voices[voice_name]["audio"]
 
@@ -332,7 +334,19 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
             references = []
             voice_name = request.voice if request.voice else None
 
-            if voice_name and voice_name in self.voices:
+            if voice_name and os.path.isfile(voice_name):
+                ref_audio_path = self._get_ref_audio_path(voice_name)
+                with open(ref_audio_path, "rb") as f:
+                    audio_bytes = f.read()
+                ref_text = request.params.get("ref_text", "") if hasattr(request, "params") else ""
+                references.append(
+                    ServeReferenceAudio(audio=audio_bytes, text=ref_text)
+                )
+                print(
+                    f"[INFO] Using per-request reference audio: {ref_audio_path}",
+                    file=sys.stderr,
+                )
+            elif voice_name and voice_name in self.voices:
                 ref_audio_path = self._get_ref_audio_path(voice_name)
                 if ref_audio_path and os.path.exists(ref_audio_path):
                     with open(ref_audio_path, "rb") as f:
@@ -350,7 +364,9 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
                 if ref_audio_path and os.path.exists(ref_audio_path):
                     with open(ref_audio_path, "rb") as f:
                         audio_bytes = f.read()
-                    ref_text = self.options.get("ref_text", "")
+                    ref_text = request.params.get("ref_text", "") if hasattr(request, "params") else ""
+                    if not ref_text:
+                        ref_text = self.options.get("ref_text", "")
                     references.append(
                         ServeReferenceAudio(audio=audio_bytes, text=ref_text)
                     )

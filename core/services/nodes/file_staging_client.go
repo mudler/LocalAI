@@ -210,11 +210,22 @@ func (f *FileStagingClient) GenerateVideo(ctx context.Context, in *pb.GenerateVi
 }
 
 func (f *FileStagingClient) TTS(ctx context.Context, in *pb.TTSRequest, opts ...ggrpc.CallOption) (*pb.Result, error) {
+	reqID := requestID()
+
 	// Translate model path from frontend to remote worker path.
 	// The model and its companion files (e.g. .onnx.json) were already staged
 	// during LoadModel, so we just need to point to the correct remote location.
 	if in.Model != "" && isFilePath(in.Model) {
 		in.Model = f.translateModelPath(in.Model)
+	}
+	// Voice may be a named backend speaker or a request-scoped reference WAV.
+	// Only path-shaped values are staged; speaker IDs pass through unchanged.
+	if in.Voice != "" && isFilePath(in.Voice) {
+		backendPath, _, err := f.stageInputFile(ctx, reqID, in.Voice, "inputs")
+		if err != nil {
+			return nil, fmt.Errorf("staging TTS voice reference: %w", err)
+		}
+		in.Voice = backendPath
 	}
 
 	// Handle output destination
@@ -242,9 +253,18 @@ func (f *FileStagingClient) TTS(ctx context.Context, in *pb.TTSRequest, opts ...
 }
 
 func (f *FileStagingClient) TTSStream(ctx context.Context, in *pb.TTSRequest, fn func(*pb.Reply), opts ...ggrpc.CallOption) error {
+	reqID := requestID()
+
 	// Translate model path from frontend to remote worker path (same as TTS above)
 	if in.Model != "" && isFilePath(in.Model) {
 		in.Model = f.translateModelPath(in.Model)
+	}
+	if in.Voice != "" && isFilePath(in.Voice) {
+		backendPath, _, err := f.stageInputFile(ctx, reqID, in.Voice, "inputs")
+		if err != nil {
+			return fmt.Errorf("staging streaming TTS voice reference: %w", err)
+		}
+		in.Voice = backendPath
 	}
 
 	return f.Backend.TTSStream(ctx, in, fn, opts...)

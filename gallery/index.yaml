@@ -5076,6 +5076,8 @@
     backend: voxcpm
     known_usecases:
       - tts
+    tts:
+      voice_cloning: true
     parameters:
       model: openbmb/VoxCPM1.5
 - name: neutts-air
@@ -5096,6 +5098,8 @@
     backend: neutts
     known_usecases:
       - tts
+    tts:
+      voice_cloning: true
     parameters:
       model: neuphonic/neutts-air
 - name: vllm-omni-z-image-turbo
@@ -5428,8 +5432,9 @@
     - https://github.com/microsoft/VibeVoice
   description: |
     VibeVoice Realtime 0.5B (C++ / GGML, Q8_0) - native C++ port of Microsoft VibeVoice
-    via the vibevoice-cpp backend. 24kHz mono TTS with voice cloning from a single
-    reference voice prompt. Default voice prompt: en-Carter_man.
+    via the vibevoice-cpp backend. 24kHz mono TTS with a selectable precomputed
+    voice prompt. Default voice prompt: en-Carter_man. This realtime variant does
+    not accept raw Voice Library reference WAVs.
   license: mit
   icon: https://github.com/microsoft/VibeVoice/raw/main/Figures/VibeVoice_logo_white.png
   tags:
@@ -5442,7 +5447,6 @@
     - gguf
     - ggml
     - 0.5b
-    - voice-cloning
     - quantized
   last_checked: "2026-04-30"
   overrides:
@@ -5791,6 +5795,8 @@
     known_usecases:
       - tts
     name: omnivoice-cpp
+    tts:
+      voice_cloning: true
     parameters:
       model: omnivoice-cpp/omnivoice-base-Q8_0.gguf
     options:
@@ -5824,6 +5830,8 @@
     known_usecases:
       - tts
     name: omnivoice-cpp-hq
+    tts:
+      voice_cloning: true
     parameters:
       model: omnivoice-cpp-hq/omnivoice-base-BF16.gguf
     options:
@@ -6141,6 +6149,8 @@
     backend: fish-speech
     known_usecases:
       - tts
+    tts:
+      voice_cloning: true
     parameters:
       model: fishaudio/s2-pro
 - name: qwen3-asr-1.7b
@@ -7164,6 +7174,7 @@
   tags:
     - text-to-speech
     - tts
+    - voice-cloning
   size: 236MB
 - name: qwen3-vl-30b-a3b-instruct
   url: github:mudler/LocalAI/gallery/qwen3.yaml@master
@@ -9029,7 +9040,7 @@
   urls:
     - https://github.com/resemble-ai/chatterbox
   description: |
-    Chatterbox, Resemble AI's first production-grade open source TTS model. Licensed under MIT, Chatterbox has been benchmarked against leading closed-source systems like ElevenLabs, and is consistently preferred in side-by-side evaluations.
+    Chatterbox, Resemble AI's first production-grade open source TTS model. Supports zero-shot voice cloning from a reference WAV, including saved LocalAI Voice Library profiles. Licensed under MIT, Chatterbox has been benchmarked against leading closed-source systems like ElevenLabs, and is consistently preferred in side-by-side evaluations.
   license: mit
   icon: https://private-user-images.githubusercontent.com/660224/448166653-bd8c5f03-e91d-4ee5-b680-57355da204d1.png
   tags:
@@ -9037,12 +9048,15 @@
     - dia
     - gpu
     - text-to-speech
+    - voice-cloning
   size: 3.2GB
   overrides:
     backend: chatterbox
     known_usecases:
       - tts
     name: chatterbox
+    tts:
+      voice_cloning: true
 - name: dia
   url: github:mudler/LocalAI/gallery/virtual.yaml@master
   urls:
@@ -37184,7 +37198,7 @@
   description: |
     F5-TTS v1 Base (SWivid, MIT) text-to-speech synthesized through the CrispASR backend. A 22-layer DiT flow-matching model with a built-in Vocos vocoder in a single self-contained GGUF (no separate codec). Auto-detected by CrispASR and runs end-to-end on CPU, producing 24 kHz mono audio.
 
-    F5-TTS is a voice-cloning model with no built-in speaker: you must supply a reference clip and its transcript. Add `voice:<reference.wav>` and `voice_text:<transcript of the reference>` to the model's `options` (paths resolve against the model directory) before synthesizing; without a reference the model cannot generate audio.
+    F5-TTS is a voice-cloning model with no built-in speaker: you must supply a reference clip and its exact transcript. Select a saved LocalAI Voice Library profile per request, or configure `voice:<reference.wav>` plus `voice_text:<transcript>` in the model's `options` as a model-wide fallback; without a reference the model cannot generate audio.
 
     Default GGUF size ~945 MB (f16). Quantization below f16 is not recommended for flow-matching models. Synthesis runs a 32-step ODE solver and is compute-heavy on CPU (expect long generation times without a GPU-enabled CrispASR build).
   tags:
@@ -37198,6 +37212,8 @@
     known_usecases:
       - tts
     name: f5-tts-crispasr
+    tts:
+      voice_cloning: true
     parameters:
       model: f5-tts-v1-base-f16.gguf
   files:

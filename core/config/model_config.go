@@ -28,6 +28,11 @@ type TTSConfig struct {
 	Voice string `yaml:"voice,omitempty" json:"voice,omitempty"`
 
 	AudioPath string `yaml:"audio_path,omitempty" json:"audio_path,omitempty"`
+
+	// VoiceCloning overrides saved-profile capability detection for this model.
+	// A pointer preserves the distinction between an explicit false and the
+	// default automatic behavior.
+	VoiceCloning *bool `yaml:"voice_cloning,omitempty" json:"voice_cloning,omitempty"`
 }
 
 // @Description ModelConfig represents a model configuration

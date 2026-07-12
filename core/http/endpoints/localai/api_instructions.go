@@ -37,6 +37,12 @@ var instructionDefs = []instructionDef{
 		Intro:       "Diarization (/v1/audio/diarization) returns speaker-labelled time segments. Backends with native ASR-diarization (vibevoice-cpp) can also emit per-segment text via include_text=true; backends with a dedicated pipeline (sherpa-onnx + pyannote) emit segmentation only. Response formats: json (default), verbose_json (adds speakers summary + text), rttm (NIST format). Sound classification (/v1/audio/classification) returns scored AudioSet sound-event tags (audio tagging via the ced backend); top_k and threshold control the returned set.",
 	},
 	{
+		Name:        "voice-library",
+		Description: "Create, preview, list, and delete reusable voice-cloning reference profiles",
+		Tags:        []string{"voice-profiles"},
+		Intro:       "Profiles persist below the LocalAI data directory as private PCM-WAV references plus exact transcripts. GET and audio preview require the audio_speech feature; create and delete are admin-only. Pass the returned `voice` URI to /v1/audio/speech or /tts. LocalAI resolves the URI at request time and never exposes a filesystem path.",
+	},
+	{
 		Name:        "images",
 		Description: "Image generation and inpainting",
 		Tags:        []string{"images"},
