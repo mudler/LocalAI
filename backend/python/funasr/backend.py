@@ -32,6 +32,9 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
         device = "cpu"
         if request.CUDA and torch.cuda.is_available():
             device = "cuda"
+        xpu_available = hasattr(torch, "xpu") and torch.xpu.is_available()
+        if xpu_available:
+            device = "xpu"
         mps_available = hasattr(torch.backends, "mps") and torch.backends.mps.is_available()
         if mps_available:
             device = "mps"

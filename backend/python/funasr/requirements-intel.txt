@@ -1,3 +1,4 @@
+--extra-index-url https://download.pytorch.org/whl/xpu
 torch
 torchaudio
 funasr

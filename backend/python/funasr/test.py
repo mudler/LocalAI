@@ -37,6 +37,7 @@ class _FakeBackendServicer:
 
 class _FakeTorch:
     cuda = types.SimpleNamespace(is_available=lambda: False)
+    xpu = types.SimpleNamespace(is_available=lambda: False)
     backends = types.SimpleNamespace(mps=types.SimpleNamespace(is_available=lambda: False))
 
 
@@ -98,7 +99,16 @@ class TestFunASRBackend(unittest.TestCase):
     def test_torch_profiles_install_torchaudio(self):
         backend_dir = os.path.dirname(__file__)
 
-        for profile in ("cpu", "cublas12", "cublas13", "hipblas", "intel", "mps"):
+        for profile in (
+            "cpu",
+            "cublas12",
+            "cublas13",
+            "hipblas",
+            "intel",
+            "l4t12",
+            "l4t13",
+            "mps",
+        ):
             with self.subTest(profile=profile):
                 requirements_path = os.path.join(
                     backend_dir, f"requirements-{profile}.txt"
@@ -111,6 +121,29 @@ class TestFunASRBackend(unittest.TestCase):
                     }
 
                 self.assertIn("torchaudio", requirements)
+
+    def test_accelerator_profiles_use_current_pytorch_indexes(self):
+        backend_dir = os.path.dirname(__file__)
+        expected_indexes = {
+            "cublas13": "https://download.pytorch.org/whl/cu130",
+            "hipblas": "https://download.pytorch.org/whl/rocm7.0",
+            "intel": "https://download.pytorch.org/whl/xpu",
+            "l4t12": "https://pypi.jetson-ai-lab.io/jp6/cu129/",
+            "l4t13": "https://download.pytorch.org/whl/cu130",
+        }
+
+        for profile, expected_index in expected_indexes.items():
+            with self.subTest(profile=profile):
+                requirements_path = os.path.join(
+                    backend_dir, f"requirements-{profile}.txt"
+                )
+                with open(requirements_path, encoding="utf-8") as requirements_file:
+                    requirements = requirements_file.read()
+
+                self.assertIn(
+                    f"--extra-index-url {expected_index}\n",
+                    requirements,
+                )
 
     def test_health_returns_ok(self):
         backend = _load_backend()
@@ -132,6 +165,20 @@ class TestFunASRBackend(unittest.TestCase):
         self.assertEqual(_FakeAutoModel.instances[0].kwargs["vad_model"], "fsmn-vad")
         self.assertEqual(_FakeAutoModel.instances[0].kwargs["device"], "cpu")
         self.assertTrue(_FakeAutoModel.instances[0].kwargs["disable_update"])
+
+    def test_load_model_uses_xpu_when_available(self):
+        backend = _load_backend()
+        servicer = backend.BackendServicer()
+        original_xpu = _FakeTorch.xpu
+        _FakeTorch.xpu = types.SimpleNamespace(is_available=lambda: True)
+        self.addCleanup(setattr, _FakeTorch, "xpu", original_xpu)
+
+        result = servicer.LoadModel(
+            types.SimpleNamespace(Model="iic/SenseVoiceSmall", CUDA=False), None
+        )
+
+        self.assertTrue(result.success, result.message)
+        self.assertEqual(_FakeAutoModel.instances[0].kwargs["device"], "xpu")
 
     def test_audio_transcription_passes_language_and_builds_segments(self):
         backend = _load_backend()

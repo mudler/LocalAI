@@ -20,6 +20,7 @@ The Python backends use a unified build system based on `libbackend.sh` that pro
 ### Audio & Speech
 - **coqui** - Coqui TTS models
 - **faster-whisper** - Fast Whisper speech recognition
+- **funasr** - Local multilingual transcription with FunASR and SenseVoice
 - **kitten-tts** - Lightweight TTS
 - **mlx-audio** - Apple Silicon audio processing
 - **chatterbox** - TTS model

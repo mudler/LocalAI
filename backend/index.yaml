@@ -1525,6 +1525,7 @@
   alias: "funasr"
   capabilities:
     nvidia: "cuda12-funasr"
+    intel: "intel-funasr"
     amd: "rocm-funasr"
     metal: "metal-funasr"
     default: "cpu-funasr"
@@ -6138,6 +6139,7 @@
   name: "funasr-development"
   capabilities:
     nvidia: "cuda12-funasr-development"
+    intel: "intel-funasr-development"
     amd: "rocm-funasr-development"
     nvidia-l4t: "nvidia-l4t-funasr-development"
     metal: "metal-funasr-development"
@@ -6176,6 +6178,16 @@
   uri: "quay.io/go-skynet/local-ai-backends:master-gpu-nvidia-cuda-13-funasr"
   mirrors:
     - localai/localai-backends:master-gpu-nvidia-cuda-13-funasr
+- !!merge <<: *funasr
+  name: "intel-funasr"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-intel-funasr"
+  mirrors:
+    - localai/localai-backends:latest-gpu-intel-funasr
+- !!merge <<: *funasr
+  name: "intel-funasr-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-intel-funasr"
+  mirrors:
+    - localai/localai-backends:master-gpu-intel-funasr
 - !!merge <<: *funasr
   name: "rocm-funasr"
   uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-rocm-hipblas-funasr"
