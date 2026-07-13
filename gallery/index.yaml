@@ -81,7 +81,7 @@
   files:
     - filename: ds4flash.gguf
       uri: https://huggingface.co/unsloth/DeepSeek-V4-Flash-GGUF
-      sha256: 0fd657210e4773042c44fa185eba27dff4017cfc5dea0370685268957b0d3da9
+      sha256: 6ee1dd351d97580d5c9eac6c5a6c85a40a89504b17c208b8fc4d1ca634e78e82
 - name: "qwopus3.6-35b-a3b-coder-mtp"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
